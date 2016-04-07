@@ -11,8 +11,6 @@ MODULE mo_cdi_constants
 
   PUBLIC
 
-  INCLUDE 'cdi.inc'
-
   INTEGER, PARAMETER :: GRID_CELL   = 1
   INTEGER, PARAMETER :: GRID_VERTEX = 2
   INTEGER, PARAMETER :: GRID_EDGE   = 3
@@ -23,6 +21,8 @@ MODULE mo_cdi_constants
 
   INTEGER, PARAMETER :: GRID_REGULAR_LONLAT    = 44
 
+! Intermediate fix, until GRID_REFERENCE has completely been removed from ICON
+  INTEGER, PARAMETER :: GRID_REFERENCE = 9
 
 
   ! Parameters for naming all Z-axes created with zaxisCreate.
@@ -69,6 +69,16 @@ MODULE mo_cdi_constants
   INTEGER, PARAMETER, PUBLIC      :: ZA_DEPTH_BELOW_SEA_HALF= 33
   INTEGER, PARAMETER, PUBLIC      :: ZA_GENERIC_ICE         = 34
 
+  ! Volcanic Ash parameters, needed for ICON-ART
+  INTEGER, PARAMETER, PUBLIC      :: ZA_PRES_FL_SFC_200     = 35
+  INTEGER, PARAMETER, PUBLIC      :: ZA_PRES_FL_200_350     = 36
+  INTEGER, PARAMETER, PUBLIC      :: ZA_PRES_FL_350_550     = 37
+  INTEGER, PARAMETER, PUBLIC      :: ZA_PRES_FL_SFC_100     = 38
+  INTEGER, PARAMETER, PUBLIC      :: ZA_PRES_FL_100_245     = 39
+  INTEGER, PARAMETER, PUBLIC      :: ZA_PRES_FL_245_390     = 40
+  INTEGER, PARAMETER, PUBLIC      :: ZA_PRES_FL_390_530     = 41
+  INTEGER, PARAMETER, PUBLIC      :: ZA_ATMOSPHERE          = 42
+
 CONTAINS
 
   PURE FUNCTION is_2d_field(izaxis)
@@ -92,6 +102,17 @@ CONTAINS
       &           (izaxis == ZA_PRESSURE_0)              .OR.  &
       &           (izaxis == ZA_DEPTH_RUNOFF_S)          .OR.  &
       &           (izaxis == ZA_DEPTH_RUNOFF_G)
+
+    IF (.NOT.is_2d_field) THEN
+       is_2d_field = (izaxis == ZA_PRES_FL_SFC_200)      .OR.  &
+                     (izaxis == ZA_PRES_FL_200_350)      .OR.  &
+                     (izaxis == ZA_PRES_FL_350_550)      .OR.  &
+                     (izaxis == ZA_PRES_FL_SFC_100)      .OR.  &
+                     (izaxis == ZA_PRES_FL_100_245)      .OR.  &
+                     (izaxis == ZA_PRES_FL_245_390)      .OR.  &
+                     (izaxis == ZA_PRES_FL_390_530)      .OR.  &
+                     (izaxis == ZA_ATMOSPHERE)
+     END IF
   END FUNCTION is_2d_field
 
 END MODULE mo_cdi_constants

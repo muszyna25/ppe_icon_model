@@ -332,6 +332,13 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: iedmf   =  3
   INTEGER, PARAMETER :: ismag   =  5
 
+  ! identifiers for aerosol classes of Tegen climatology 
+  INTEGER, PARAMETER :: iss   =  1
+  INTEGER, PARAMETER :: iorg  =  2
+  INTEGER, PARAMETER :: ibc   =  3
+  INTEGER, PARAMETER :: iso4  =  4
+  INTEGER, PARAMETER :: idu   =  5
+  INTEGER, PARAMETER :: nclass_aero = 5
 
   ! external parameter for radiation
 
@@ -339,6 +346,10 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: io3_ape      =  4
   INTEGER, PARAMETER :: io3_amip     =  8
   INTEGER, PARAMETER :: iaero_kinne  =  3
+
+  ! identifier for landcover classification
+  INTEGER, PARAMETER :: GLOBCOVER2009 =  1
+  INTEGER, PARAMETER :: GLC2000       =  2
 
   !
   ! transport identifiers
@@ -450,9 +461,7 @@ MODULE mo_impl_constants
   !---------------------!
 
   ! Division method for area subdivision
-  INTEGER, PARAMETER :: div_from_file = 0  ! Read from file
   INTEGER, PARAMETER :: div_geometric = 1  ! Geometric subdivision
-  INTEGER, PARAMETER :: div_metis     = 2  ! Use Metis
 
   !-----  horizontal interpolation: type of interpolation
   CHARACTER(len=32), PARAMETER :: STR_HINTP_TYPE(4) = &
@@ -485,7 +494,6 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: MODE_IAU         = 5
   INTEGER, PARAMETER :: MODE_IAU_OLD     = 6
   INTEGER, PARAMETER :: MODE_ICONVREMAP  = 7
-  INTEGER, PARAMETER :: MODE_DWDANA_INC  = 8
 
   !----- MPI parallelization -----
   INTEGER, PARAMETER :: MAX_NUM_IO_PROCS = 100      !< max. number of output ranks
@@ -549,6 +557,7 @@ MODULE mo_impl_constants
   !------ computation of optional diagnostic fields
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_RH        = 13 !< task: compute relative humidity
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_OMEGA     = 14 !< task: compute vertical velocity
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_PV        = 15 !< task: compute potential vorticity
 
   !--------------------------------------------------------------------!
   !  VARIABLE TIMELEVEL SPECIFICATION (FOR POST-PROCESSING SCHEDULER)  !
@@ -564,6 +573,24 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: TIMER_MODE_AGGREGATED  = 1
   INTEGER, PARAMETER, PUBLIC :: TIMER_MODE_DETAILED    = 2
   INTEGER, PARAMETER, PUBLIC :: TIMER_MODE_WRITE_FILES = 3
+
+  !-------------------------------------------------!
+  !  TIME LEVEL SOURCE (WHICH "NNOW"/"NNEW" TO USE) !
+  !-------------------------------------------------!
+
+  INTEGER, PARAMETER, PUBLIC :: TLEV_NNOW     = 0
+  INTEGER, PARAMETER, PUBLIC :: TLEV_NNOW_RCF = 1
+  INTEGER, PARAMETER, PUBLIC :: TLEV_NNEW     = 2
+  INTEGER, PARAMETER, PUBLIC :: TLEV_NNEW_RCF = 3
+
+  !-------------------------!
+  !  RTTOV FIELD CATEGORIES !
+  !-------------------------!
+
+  INTEGER, PARAMETER, PUBLIC :: RTTOV_BT_CL  = 1
+  INTEGER, PARAMETER, PUBLIC :: RTTOV_BT_CS  = 2
+  INTEGER, PARAMETER, PUBLIC :: RTTOV_RAD_CL = 3
+  INTEGER, PARAMETER, PUBLIC :: RTTOV_RAD_CS = 4
 
 
 !--------------------------------------------------------------------

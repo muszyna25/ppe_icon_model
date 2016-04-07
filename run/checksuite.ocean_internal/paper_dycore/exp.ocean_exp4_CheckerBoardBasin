@@ -1,3 +1,4 @@
+#!/bin/bash
 #-----------------------------------------------------------------------------
 # the namelist filename
 ocean_namelist=NAMELIST_${EXPNAME}
@@ -20,14 +21,15 @@ start_date="2001-01-01T00:00:00Z"
 leading_zero=""
 if [[ $days_data -lt 10 ]] ; then leading_zero="0"; fi
 nout_interv="P$leading_zero${days_data}D"     # ocean model output interval in days
+%nout_interv="PT12H"
 (( dt_data        = days_data     * day  ))   # used for output_bounds and buildbot
 (( dt_checkpoint  = years_checkp  * year ))  
 (( dt_restart     = years_restart * year ))  
 (( steps_per_file = dt_restart / dt_data ))   # output intervals per file
 #
-LOC='POOL'
-#grids_folder="/pool/data/ICON/ocean_data/ocean_grid/"
-ocean_grids="AtlanticAquaBox_0079km.nc"
+#-----------------------------------------------------------------------------
+#grids_folder="/scratch/mpi/CC/mh0287/oes/grids/Idealized"
+ocean_grids="Ocean_MunkGyreSphere_2000x1000_30km.nc"
 #-----------------------------------------------------------------------------
 #
 # write namelist parameters
@@ -40,7 +42,7 @@ cat > ${ocean_namelist} << EOF
  nproma       = ${nproma}
  l_fast_sum   = .true.
  p_test_run   = .false.
- division_method = 102
+! division_method = 102
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
@@ -51,7 +53,7 @@ cat > ${ocean_namelist} << EOF
  iequations  = -1       ! -1: hydrost. ocean model
 /
 &run_nml
- dtime       = 3600         ! model timestep in seconds
+ dtime       = 1200         ! model timestep in seconds
  output      = 'nml'        ! namelist controlled output scheme
  activate_sync_timers = .TRUE.
  profiling_output     = 2
@@ -69,7 +71,7 @@ cat > ${ocean_namelist} << EOF
   ml_varlist       =  'group:oce_essentials','topBoundCond_windStress_u','A_tracer_v_T'
 /
 &dbg_index_nml
-  idbg_mxmn=1                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=3                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_elev=5                      ! initialize end level for debug output
@@ -86,7 +88,7 @@ cat > ${ocean_namelist} << EOF
  n_zlev             =   20
  dzlev_m(1:20)      =   14.0,   12.0,   15.0,   18.0,   21.0,   25.0,   30.0,   40.0,   60.0,   80.0,
                        100.0,  120.0,  150.0,  180.0,  210.0,  240.0,  270.0,  300.0,  350.0,  400.0
-  l_edge_based    = .TRUE.            ! edge- or cell-based mimetic discretization
+  l_edge_based    = .FALSE.            ! edge- or cell-based mimetic discretization
   l_partial_cells = .FALSE.           ! partial bottom cells=true: local varying bottom depth
   i_bc_veloc_bot     = 1              !  0/1=bottom friction off/on
   i_bc_veloc_top     = 1              ! 2 and 3 must be checked
@@ -96,14 +98,14 @@ cat > ${ocean_namelist} << EOF
   solver_max_restart_iterations = 50  !  outer (restart solver) loop with syncing (default: 100)
   fast_performance_level        = 12
 ! use_continuity_correction     = .true.
-  basin_center_lat=
-  basin_center_lon=
-  basin_height_deg=
-  basin_width_deg=
-
+  basin_center_lat  = 45.0 !30.0
+  basin_center_lon = 10.0 !-45.0
+  basin_height_deg =10.0 !1.0    !5.0
+  basin_width_deg =10.0 ! 1.0
+  surface_module=1
 /
 &ocean_tracer_transport_nml
-! no_tracer             = 2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
+  no_tracer             = 2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
 ! FLUX_CALCULATION_HORZ = 5      ! 1=upwind, 2=central, 3=Lax-Friedrichs, 4=Miura, 5=FCT with Zalesak limiter (default)
 ! FLUX_CALCULATION_VERT = 7      ! 6=adpo; 7=upwind biased ppm (default); 8=FCT with zalesak limiter
   ! define low and high order methods to be used in horizontal flux corrected transport methods (flux_calculation_horz=4,5)
@@ -111,7 +113,7 @@ cat > ${ocean_namelist} << EOF
   threshold_max_T       = 25.0   ! abort due to temperature maximum threshold - max forcing (below) is 16.0
 /
 &ocean_diffusion_nml
-  HORZ_VELOC_DIFF_TYPE = 3        ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
+  HorizontalViscosity_type = 3        ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
 ! k_veloc_h            = 7.5E+4   ! [m2/s] constant horizontal viscosity coefficient for velocity
   k_veloc_v            = 5.0E-5   ! [m/s]  vertical background viscosity coefficient for velocity
   MAX_VERT_DIFF_VELOC  =    0.0   ! max vertical velocity viscosity for convection used in case of instability
@@ -130,18 +132,25 @@ cat > ${ocean_namelist} << EOF
 ! use_wind_mixing    = .false.
 /
 &ocean_forcing_nml
-  iforc_oce = 10
+  iforc_oce = 11
+  forcing_windstress_u_type      = 112   ! 111: Wolfe&Cessi testcase
+  forcing_windstress_v_type      = 0
+  forcing_windStress_u_amplitude = 0.2
+  forcing_smooth_steps           = 1     ! increase forcing to max within steps
+! forcing_windspeed_type         = 102   ! 102:  calculate wind speed from wind stress
+! forcing_windspeed_amplitude    = 1.0   ! default: 1.0
   type_surfRelax_Temp            = 3     ! 3: relaxation=initialization temperature
   relax_temperature_max          = 16.0  ! equator temperature
   relax_temperature_min          = 0.0   ! poleward temperature
   init_oce_relax                 = 2     ! 2: do not read relaxation data
   para_surfRelax_Temp            = 0.3
+  !atmos_flux_analytical_type     =202  
 /
 &ocean_initialConditions_nml
   initial_salinity_type          = 200   !  horizontally homogeneous
   initial_salinity_top           = 35.0
   initial_salinity_bottom        = 35.0
-  initial_temperature_type       = 203   !  APE function for SST gradient, vertically linear with depth
+  initial_temperature_type       = 203   
 /
 &ocean_diagnostics_nml
   diagnostics_level              = 1

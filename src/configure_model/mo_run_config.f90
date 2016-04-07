@@ -38,16 +38,6 @@ MODULE mo_run_config
   PUBLIC :: iqni, iqni_nuc, iqg, iqm_max
   PUBLIC :: iqh, iqnh, iqnr, iqns, iqng, iqnc, inccn, ininpot, ininact
   PUBLIC :: iqtke
-  PUBLIC :: iash1,iash2,iash3,iash4,iash5,iash6                          !Running index for Volcanic Ash in ICON-ART 
-  PUBLIC :: iCS137,iI131,iTE132,iZR95,iXE133,iI131g,iI131o,iBA140,iRU103 !Running index for radioactive nuclides  in ICON-ART
-  PUBLIC :: iseasa,iseasb,iseasc,iseasa0,iseasb0,iseasc0                 !Running index for sea salt in ICON-ART
-  PUBLIC :: idusta,idustb,idustc,idusta0,idustb0,idustc0,idust_act       !Running index for mineral dust in ICON-ART
-  PUBLIC :: iTRCHBR3,iTRCH2BR2,iTRBRy                                    !Running index for chemical tracer in ICON-ART - VSLS-BRy
-  PUBLIC :: iTRCH4,iTRCO2,iTRCO,iTRH2O,iTRO3                             !Running index for chemical tracer in ICON-ART - CH4-CO-CO2-H2O-O3
-  PUBLIC :: iTRSF6l,iTRSF6r,iTRSF6d                                      !Running index for chemical tracer in ICON-ART - SF6
-  PUBLIC :: iTRN2O                                                       !Running index for chemical tracer in ICON-ART - N2O
-  PUBLIC :: iTR1                                                         !Running index for chemical tracer in ICON-ART - artificial tracer
-                                                                         ! RR JS  !Running index for chemical tracer in ICON-ART - VSLS
   PUBLIC :: grid_generatingCenter     ! non-namelist variables
   PUBLIC :: grid_generatingSubcenter  ! non-namelist variables
   PUBLIC :: number_of_grid_used       ! non-namelist variables
@@ -58,7 +48,6 @@ MODULE mo_run_config
   PUBLIC :: restart_filename
   PUBLIC :: profiling_output, TIMER_MODE_AGGREGATED, TIMER_MODE_DETAILED
   PUBLIC :: check_uuid_gracefully
-  PUBLIC :: irad_type
 
     ! Namelist variables
     !
@@ -141,49 +130,7 @@ MODULE mo_run_config
     ! Tracer indices of other species
     INTEGER :: ico2       !< CO2
     INTEGER :: iqt        !< start index of other tracers than hydrometeors
-    ! Tracer indices of ICON-ART species
-    INTEGER :: iash1        !< Volcanic ash, first class
-    INTEGER :: iash2        !< Volcanic ash, second class
-    INTEGER :: iash3        !< Volcanic ash, third class
-    INTEGER :: iash4        !< Volcanic ash, fourth class
-    INTEGER :: iash5        !< Volcanic ash, fifth class
-    INTEGER :: iash6        !< Volcanic ash, sixth class
-    INTEGER :: iCS137       !< radioactive nuclides
-    INTEGER :: iI131        !<
-    INTEGER :: iTE132       !< 
-    INTEGER :: iZR95        !<
-    INTEGER :: iXE133       !<
-    INTEGER :: iI131g       !<
-    INTEGER :: iI131o       !<
-    INTEGER :: iBA140       !< 
-    INTEGER :: iRU103       !<
-    INTEGER :: iseasa       !< Sea Salt Aerosol Mode A Mass Density
-    INTEGER :: iseasb       !< Sea Salt Aerosol Mode B Mass Density
-    INTEGER :: iseasc       !< Sea Salt Aerosol Mode C Mass Density
-    INTEGER :: iseasa0      !< Sea Salt Aerosol Mode A Number Density
-    INTEGER :: iseasb0      !< Sea Salt Aerosol Mode B Number Density
-    INTEGER :: iseasc0      !< Sea Salt Aerosol Mode C Number Density
-    INTEGER :: idusta       !< Mineral Dust Aerosol Mode A Mass Density
-    INTEGER :: idustb       !< Mineral Dust Aerosol Mode B Mass Density
-    INTEGER :: idustc       !< Mineral Dust Aerosol Mode C Mass Density
-    INTEGER :: idusta0      !< Mineral Dust Aerosol Mode A Number Density
-    INTEGER :: idustb0      !< Mineral Dust Aerosol Mode B Number Density
-    INTEGER :: idustc0      !< Mineral Dust Aerosol Mode C Number Density
-    INTEGER :: idust_act    !< Activated Mineral Dust Number Density
-    INTEGER :: iTRCHBR3     !< chemical tracer in ICON-ART
-    INTEGER :: iTRCH2BR2    !< chemical tracer in ICON-ART
-    INTEGER :: iTRBRy       !< chemical tracer in ICON-ART
-    INTEGER :: iTRCH4       !< chemical tracer in ICON-ART
-    INTEGER :: iTRCO2       !< chemical tracer in ICON-ART
-    INTEGER :: iTRCO        !< chemical tracer in ICON-ART
-    INTEGER :: iTRH2O       !< chemical tracer in ICON-ART
-    INTEGER :: iTRO3        !< chemical tracer in ICON-ART
-    INTEGER :: iTRSF6l      !< chemical tracer in ICON-ART
-    INTEGER :: iTRSF6r      !< chemical tracer in ICON-ART
-    INTEGER :: iTRSF6d      !< chemical tracer in ICON-ART
-    INTEGER :: iTRN2O       !< chemical tracer in ICON-ART
-    INTEGER :: iTR1         !< chemical tracer in ICON-ART
-                            !< RR JS
+
 
     INTEGER :: nlev               !< number of full levels for each domain
     INTEGER :: nlevm1             !< number of half levels for each domain without boundaries
@@ -192,9 +139,9 @@ MODULE mo_run_config
     LOGICAL :: lforcing           !< diabatic forcing TRUE/FALSE
 
     !> output mode (logicals)
-    !  one or multiple of "none", "nml", "totint"
+    !  one or multiple of "none", "nml", "totint", "maxwinds"
     TYPE t_output_mode
-      LOGICAL :: l_none, l_nml, l_totint
+      LOGICAL :: l_none, l_nml, l_totint, l_maxwinds
     END TYPE t_output_mode
 
     TYPE (t_output_mode) output_mode
@@ -202,10 +149,6 @@ MODULE mo_run_config
     !> file name for restart/checkpoint files (containg keyword
     !> substition patterns)
     CHARACTER(len=MAX_CHAR_LENGTH) :: restart_filename
-
-    !> variable irad_type determines choice of radiation flux scheme
-    !> irad_type=1: rrtm, irad_type=2: psrad
-    INTEGER :: irad_type
 
 CONTAINS
   !>

@@ -25,11 +25,12 @@ MODULE mo_bc_aeropt_stenchikov
   USE mo_read_interface,         ONLY: openInputFile, closeFile, read_1D, &
     &                                  read_1D_extdim_time, &
     &                                  read_1D_extdim_extdim_time
-  USE mo_time_interpolation_weights, ONLY: wi=>wi_limm_radt
+  USE mo_time_interpolation_weights, ONLY: wi=>wi_limm
   USE mo_latitude_interpolation, ONLY: latitude_weights_li
   USE mo_physical_constants,     ONLY: rgrav, rd
   USE mo_math_constants,         ONLY: deg2rad, pi_2
-
+  USE mo_echam_phy_config,       ONLY: echam_phy_config
+ 
   IMPLICIT NONE
 
   PRIVATE
@@ -137,9 +138,9 @@ SUBROUTINE read_bc_aeropt_stenchikov(kyear)
   ENDIF
   inm2_time_interpolation=wi%inm2
   DO imonths=1,nmonths
-  CALL read_months_bc_aeropt_stenchikov ( &
-                     'longitude',       'latitude',           'levels',&
-                     imonth(imonths),    iyear(imonths),    imonths    )
+  CALL read_months_bc_aeropt_stenchikov (                             &
+                     'longitude',       'latitude',         'levels', &
+                     imonth(imonths),    iyear(imonths),    imonths   )
   END DO
 END SUBROUTINE read_bc_aeropt_stenchikov
 !-------------------------------------------------------------------------
@@ -431,9 +432,9 @@ END SUBROUTINE pressure_index
 !!   asymm: asymmetry fractor corresp. to tautl: asymm(time, levels, latitude, longitude)
 !!   levels: non-equidistant pressure levels corresp. to exts, omega, asymm: levels(levels).
 !!     Only the mid-point pressures are given.
-  SUBROUTINE read_months_bc_aeropt_stenchikov ( &
-    cwave_dim,        clat_dim,           clev_dim,        &
-    kmonth,           kyear,            ktime_step         )
+  SUBROUTINE read_months_bc_aeropt_stenchikov (      &
+    cwave_dim,        clat_dim,           clev_dim,  &
+    kmonth,           kyear,            ktime_step   )
 !
   CHARACTER(len=*), INTENT(in)   :: cwave_dim,  &! name of wavelength dimension
                                     clat_dim,   &! name of latitude dimension
@@ -462,7 +463,13 @@ END SUBROUTINE pressure_index
                  'kmonth='//TRIM(ADJUSTL(ckmonth))) 
   END IF
   WRITE(ckyear,*) kyear
-  cfname='bc_aeropt_stenchikov_lw_b16_sw_b14_'//TRIM(ADJUSTL(ckyear))//'.nc'
+
+  IF ( echam_phy_config%lamip ) THEN
+    cfname='bc_aeropt_stenchikov_lw_b16_sw_b14_'//TRIM(ADJUSTL(ckyear))//'.nc'
+  ELSE
+    cfname='bc_aeropt_stenchikov_lw_b16_sw_b14.nc'
+  ENDIF
+
   ifile_id=openInputFile(cfname)
   cdim_names(1)=cwave_dim
   cdim_names(2)=clat_dim

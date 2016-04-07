@@ -20,12 +20,13 @@ MODULE mo_meteogram_config
 
   IMPLICIT NONE
 
-  INTEGER, PARAMETER :: MAX_NAME_LENGTH      =   32  !<  max. name string length   
+  INTEGER, PARAMETER :: MAX_NAME_LENGTH      =   48  !<  max. name string length   
   INTEGER, PARAMETER :: MAX_NUM_STATIONS     =   60  !<  max. number of meteogram locations (global)
                                                      ! NOTE: MAX_NUM_STATIONS=80 did not work with Intel and GCC.
                                                      ! Reading the meteogram namelist from the restart file 
                                                      ! resulted in END OF FILE error in mo_mtgrm_nml.
   INTEGER, PARAMETER :: FTYPE_NETCDF         =    1
+  INTEGER, PARAMETER :: MAX_NVARS            =  120  ! max. no. of meteogram variables
 
 
   !--------------------------------------------------------------------------
@@ -52,11 +53,20 @@ MODULE mo_meteogram_config
     ! Initial step and step interval for meteogram output
     INTEGER                        :: n0_mtgrm, ninc_mtgrm
 
+    ! activate output of some selected tile specific fields
+    LOGICAL                        :: loutput_tiles
+  
     ! Specification of meteogram stations.
     ! Note: This info is the same for all patches.
     INTEGER                           :: nstations
     TYPE(t_station_list), POINTER     :: station_list(:,:) !< (idx, block)
     INTEGER                           :: nblks, npromz
+
+    ! Positive-list of variables (optional). Only variables contained
+    ! in this list are included in this meteogram. If the default list
+    ! is not changed by user input, then all available variables are
+    ! added to the meteogram
+    CHARACTER(len=MAX_NAME_LENGTH)    :: var_list(MAX_NVARS)
   END TYPE t_meteogram_output_config
 
 
@@ -65,7 +75,7 @@ MODULE mo_meteogram_config
 
   PUBLIC :: t_meteogram_output_config, t_station_list
   PUBLIC :: meteogram_output_config
-  PUBLIC :: FTYPE_NETCDF, MAX_NAME_LENGTH, MAX_NUM_STATIONS
+  PUBLIC :: FTYPE_NETCDF, MAX_NAME_LENGTH, MAX_NUM_STATIONS, MAX_NVARS
   PUBLIC :: check_meteogram_configuration
 
   !-------------------------------------------------------------------------

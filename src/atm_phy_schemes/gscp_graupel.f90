@@ -251,8 +251,8 @@ LOGICAL, PARAMETER :: &
   lsedi_ice    = .TRUE. , &  ! switch for sedimentation of cloud ice (Heymsfield & Donner 1990 *1/3)
   lstickeff    = .TRUE. , &  ! switch for sticking coeff. (work from Guenther Zaengl)
   lsuper_coolw = .TRUE. , &  ! switch for supercooled liquid water (work from Felix Rieper)
-  lred_depgrow = .FALSE.     ! separate switch for reduced depositional growth near tops of water clouds
-                             ! (part of Felix' modifications for supercooled liquid water but not used in ICON)
+  lred_depgrow = .TRUE.      ! separate switch for reduced depositional growth near tops of water clouds
+                             ! (now also used in ICON after correcting the cloud top diagnosis)
 !------------------------------------------------------------------------------
 !> Parameters and variables which are global in this module
 !------------------------------------------------------------------------------
@@ -997,7 +997,7 @@ SUBROUTINE graupel     (             &
 
       zpkr(iv)   = MIN( zpkr(iv) , zzar )
       zpks(iv)   = MIN( zpks(iv) , zzas )
-      zpkg(iv)   = MIN( zpkg(iv) , zzag )
+      zpkg(iv)   = MIN( zpkg(iv) , MAX(0._wp,zzag) )
       zpki(iv)   = MIN( zpki(iv) , zzai )
 
       zzar   = zdtdh * (zzar-zpkr(iv))
@@ -1125,7 +1125,7 @@ SUBROUTINE graupel     (             &
           ELSEIF (iautocon == 1) THEN
             ! Seifert and Beheng (2001) autoconversion rate
             ! with constant cloud droplet number concentration qnc
-            IF (qcg > 1.0E-6) THEN
+            IF (qcg > 1.0E-6_wp) THEN
               ztau = MIN(1.0_wp-qcg/(qcg+qrg),0.9_wp)
               ztau = MAX(ztau,1.E-30_wp)
               hlp  = EXP(zkphi2*LOG(ztau))
@@ -1141,7 +1141,7 @@ SUBROUTINE graupel     (             &
           ENDIF
           IF (llqr) THEN
             ! Calculation of in-cloud rainwater freezing
-            IF ( tg < ztrfrz ) THEN
+            IF ( tg < ztrfrz .AND. qrg > 0.1_wp*qcg ) THEN
               IF (lsuper_coolw) THEN
                 srfrz = zcrfrz1*(EXP(zcrfrz2*(ztrfrz-tg))-1.0_wp ) * zeln7o4qrk
               ELSE
@@ -1193,12 +1193,12 @@ SUBROUTINE graupel     (             &
             snuc = zmi0 / rhog * znin * zdtr
           END IF
         ENDIF
-        !FR>>> Calculation of reduction of depositional growth at cloud top (Forbes 2012)
+        ! Calculation of reduction of depositional growth at cloud top (Forbes 2012)
         IF( k>1 .AND. k<ke .AND. lred_depgrow ) THEN
           znin = MIN(fxna_cooper(tg), znimax )
           fnuc = MIN(znin/znimix, 1.0_wp)
 
-          qcgk_1 = qc(iv,k-1)  !FUO : BUG ? this was out-of-bounds before MAX()
+          qcgk_1 = qc(iv,k-1) + qi(iv,k-1) + qs(iv,k-1)
 
           !! distance from cloud top
           IF( qcgk_1 .LT. zqmin ) THEN      ! upper cloud layer
@@ -1273,15 +1273,17 @@ SUBROUTINE graupel     (             &
             zztau      = 1.5_wp*( EXP(0.66_wp*zlnlogmi) - 1.0_wp)
             sdau       = zsvidep/zztau
             sicri      = zcicri * qig * zeln7o8qrk
-            srcri      = zcrcri * (qig/zmi) * zeln13o8qrk
+            IF (qsg > 1.e-7_wp) srcri = zcrcri * (qig/zmi) * zeln13o8qrk
           ELSE
             zsimax    =  0.0_wp
             zsvidep   =  0.0_wp
             zsvisub   =  0.0_wp
           ENDIF
 
-          zxfac = 1.0_wp + zbsdep * EXP(ccsdxp*LOG(zcslam))
-          ssdep = zcsdep * zxfac * zqvsidiff / (zcslam+zeps)**2
+          IF (qsg > 1.e-7_wp) THEN
+            zxfac = 1.0_wp + zbsdep * EXP(ccsdxp*LOG(zcslam))
+            ssdep = zcsdep * zxfac * zqvsidiff / (zcslam+zeps)**2
+          ENDIF
           !FR new: depositional growth reduction
           IF (lred_depgrow .AND. ssdep > 0.0_wp) THEN
             ssdep = ssdep*reduce_dep
@@ -1524,7 +1526,6 @@ SUBROUTINE graupel     (             &
         END IF
         prg_gsp(iv) = 0.5_wp * (qgg*rhog*zvzg(iv) + zpkg(iv))
 
-          
 #ifdef NUDGING
         ! for the latent heat nudging
         IF ((llhn .OR. llhnverif) .AND. lhn_qrs) THEN

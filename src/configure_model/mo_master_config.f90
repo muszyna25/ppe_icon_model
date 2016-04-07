@@ -22,6 +22,7 @@ MODULE mo_master_config
   PRIVATE
 
   PUBLIC :: addModel, noOfModels, maxNoOfModels
+  PUBLIC :: setInstitution
   PUBLIC :: setModelBaseDir, getModelBaseDir
   PUBLIC :: setRestart, isRestart
   PUBLIC :: setExpRefdate
@@ -56,6 +57,9 @@ MODULE mo_master_config
   INTEGER, PARAMETER :: maxNoOfModels = 16
   INTEGER :: no_of_models = 0
   TYPE(t_master_component_model_config) :: master_component_models(maxNoOfModels)
+
+  ! defaults to DWD to be on the safe side for operational needs  
+  CHARACTER(len=256), PROTECTED :: institution = '' 
   
   ! whole experiment and sinlge run time information
   !_______________________________________________________________________________________________
@@ -85,6 +89,12 @@ MODULE mo_master_config
   
 CONTAINS
 
+  SUBROUTINE setInstitution(update_institute)
+    CHARACTER(len=*) :: update_institute
+    institution = ''  ! needed?
+    institution = update_institute
+  END SUBROUTINE setInstitution
+  
   SUBROUTINE setRestart(lr)
     LOGICAL, INTENT(in) :: lr
     lrestart = lr

@@ -63,9 +63,10 @@ MODULE mo_nh_testcases_nml
     &       ape_sst_case, ape_sst_val, w_perturb, th_perturb,                &
     &       mount_height, torus_domain_length, nh_brunt_vais, nh_u0, nh_t0,  &
     &       jw_up, rh_at_1000hpa,  qv_max,                                   &
+    &       tpe_moist, tpe_psfc, tpe_temp,                                   &
     &       rotate_axis_deg, lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,              & 
     &       linit_tracer_fv, lhs_fric_heat, lcoupled_rho, u_cbl, v_cbl,      &
-    &       th_cbl, psfc_cbl, sol_const, zenithang
+    &       th_cbl, psfc_cbl, sol_const, zenithang, bubctr_x, bubctr_y
 
   CHARACTER(len=MAX_CHAR_LENGTH) :: nh_test_name
   CHARACTER(len=MAX_CHAR_LENGTH) :: ape_sst_case      !SST for APE experiments
@@ -86,7 +87,10 @@ MODULE mo_nh_testcases_nml
   REAL(wp) :: hs_nh_vn_ptb_scale     ! amplitude of the random noise
   REAL(wp) :: rh_at_1000hpa          ! relative humidity at 1000 hPa [%]
   REAL(wp) :: qv_max                 ! limit of maximum specific humidity in the tropics [kg/kg]
-  REAL(wp) :: ape_sst_val            ! (K) value to be used for SST computation for aqua planet
+  REAL(wp) :: tpe_moist              ! initial total moisture content for terra planet [kg/m2]
+  REAL(wp) :: tpe_psfc               ! initial surface pressure for terra planet [Pa]
+  REAL(wp) :: tpe_temp               ! iitial atmospheric temperature for terra planet [K]
+  REAL(wp) :: ape_sst_val            ! (degC) value to be used for SST computation for aqua planet
   REAL(wp) :: w_perturb, th_perturb !Random perturbation scale for torus based experiments
   REAL(wp) :: sol_const              ! [W/m2] solar constant
   REAL(wp) :: zenithang              ! [degrees] zenith angle 
@@ -96,6 +100,8 @@ MODULE mo_nh_testcases_nml
   REAL(wp) :: v_cbl(2)   !v_cbl(1) = constant, v_cbl(2) = gradient
   REAL(wp) :: th_cbl(2)  !th_cbl(1) = constant,th_cbl(2) = gradient
   REAL(wp) :: psfc_cbl
+  REAL(wp) :: bubctr_x  !X-Center of the warm bubble on torus
+  REAL(wp) :: bubctr_y  !Y-Center of the warm bubble on torus
 
   NAMELIST/nh_testcase_nml/ nh_test_name, mount_height, torus_domain_length, &
                             nh_brunt_vais, nh_u0, nh_t0, layer_thickness,    &
@@ -106,6 +112,7 @@ MODULE mo_nh_testcases_nml
                             rotate_axis_deg,                                 &
                             lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,               &
                             rh_at_1000hpa, qv_max,                           &
+                            tpe_moist, tpe_psfc, tpe_temp,                   &
                             ape_sst_case, ape_sst_val,                       &
                             linit_tracer_fv, lhs_fric_heat,                  &
                             qv_max_wk, u_infty_wk,                           &
@@ -124,7 +131,7 @@ MODULE mo_nh_testcases_nml
                             tgr_poly, rh_poly, rhgr_poly, lshear_dcmip,      &
                             lcoupled_rho, gw_clat, gw_u0, gw_delta_temp,     & 
                             u_cbl, v_cbl, th_cbl, w_perturb, th_perturb,    &
-                            psfc_cbl, sol_const, zenithang
+                            psfc_cbl, sol_const, zenithang, bubctr_x, bubctr_y
                       
 
   CONTAINS
@@ -171,6 +178,9 @@ MODULE mo_nh_testcases_nml
     lhs_fric_heat          = .FALSE.
     hs_nh_vn_ptb_scale     = 1._wp  ! magnitude of the random noise
     rh_at_1000hpa          = 0.7_wp
+    tpe_moist              = 25._wp
+    tpe_psfc               = 1.e5_wp
+    tpe_temp               = 290._wp
     qv_max                 = 20.e-3_wp ! 20 g/kg
     ape_sst_case           = 'sst1'
     ape_sst_val            = 29.0_wp ! 29 degC
@@ -270,6 +280,11 @@ MODULE mo_nh_testcases_nml
     psfc_cbl   = 102000._wp
     w_perturb  = 0.05_wp    
     th_perturb = 0.2_wp    
+
+    !For warm bubble experiment on torus
+    !Note that (0,0) is the center of the torus
+    bubctr_x = 0._wp
+    bubctr_y = 0._wp
 
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nh_testcase_nml', status=i_status)

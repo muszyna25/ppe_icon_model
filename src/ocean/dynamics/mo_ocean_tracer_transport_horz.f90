@@ -17,18 +17,14 @@
 !!
 !----------------------------
 #include "omp_definitions.inc"
+#include "icon_definitions.inc"
 !----------------------------
 MODULE mo_ocean_tracer_transport_horz
-  !-------------------------------------------------------------------------
-  !
-  !    ProTeX FORTRAN source: Style 2
-  !    modified for ICON project, DWD/MPI-M 2006
-  !
   !-------------------------------------------------------------------------
   USE mo_kind,                      ONLY: wp
   USE mo_math_utilities,            ONLY: t_cartesian_coordinates
   USE mo_math_constants,            ONLY: dbl_eps
-  USE mo_impl_constants,            ONLY: sea_boundary
+  USE mo_impl_constants,            ONLY: sea_boundary, SEA
   USE mo_ocean_nml,                 ONLY: n_zlev, l_edge_based, ab_gam,                   &
     & upwind, central,lax_friedrichs, fct_horz, miura_order1, flux_calculation_horz,      &
     & fct_high_order_flux,  fct_low_order_flux,FCT_Limiter_horz, fct_limiter_horz_zalesak,&
@@ -38,22 +34,20 @@ MODULE mo_ocean_tracer_transport_horz
   USE mo_parallel_config,           ONLY: nproma, p_test_run
   USE mo_dynamics_config,           ONLY: nold, nnew
   USE mo_run_config,                ONLY: dtime, ltimer
-  USE mo_timer,                     ONLY: timer_start, timer_stop, timer_adv_horz, timer_hflx_lim, &
+  USE mo_timer,                     ONLY: timer_start, timer_stop, timers_level, timer_adv_horz, timer_hflx_lim, &
     & timer_dif_horz, timer_extra10, timer_extra11, timer_extra12, timer_extra13, timer_extra15
-  USE mo_ocean_types,                 ONLY: t_hydro_ocean_state, t_ocean_tracer  
+  USE mo_ocean_types,               ONLY: t_hydro_ocean_state, t_ocean_tracer
   USE mo_model_domain,              ONLY: t_patch, t_patch_3d
   USE mo_exception,                 ONLY: finish !, message_text, message
   USE mo_ocean_physics
   USE mo_scalar_product,            ONLY: map_cell2edges_3d,map_edges2cell_3d, &
     & map_edges2edges_viacell_3d_const_z
-  USE mo_ocean_math_operators,        ONLY: div_oce_3d, grad_fd_norm_oce_3d, grad_fd_norm_oce_3d_onBlock
-  USE mo_ocean_diffusion,             ONLY: tracer_diffusion_horz
+  USE mo_ocean_math_operators,      ONLY: div_oce_3d, grad_fd_norm_oce_3d, grad_fd_norm_oce_3d_onBlock
+  USE mo_ocean_diffusion,           ONLY: tracer_diffusion_horz
   USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff, no_primal_edges
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
   USE mo_sync,                      ONLY: sync_c, sync_c1, sync_e, sync_patch_array, sync_patch_array_mult
-  USE mo_mpi,                       ONLY: my_process_is_mpi_parallel
-  
-  
+  USE mo_mpi,                       ONLY: my_process_is_mpi_parallel  
   
   IMPLICIT NONE
   
@@ -100,7 +94,7 @@ CONTAINS
   SUBROUTINE advect_horz( patch_3d,          &
     & trac_old,            &
     & p_os,                &
-    & p_op_coeff,          &
+    & operators_coefficients,          &
     & k_h,                 &
     & h_old,               &
     & h_new,               &
@@ -110,7 +104,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp)                               :: trac_old(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     TYPE(t_hydro_ocean_state), TARGET      :: p_os
-    TYPE(t_operator_coeff), INTENT(in)     :: p_op_coeff
+    TYPE(t_operator_coeff), INTENT(in)     :: operators_coefficients
     REAL(wp), INTENT(in)                   :: k_h(:,:,:)         !horizontal mixing coeff
     REAL(wp), INTENT(in)                   :: h_old(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(in)                   :: h_new(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
@@ -118,12 +112,13 @@ CONTAINS
     REAL(wp), INTENT(inout), OPTIONAL      :: horizontally_diffused_tracer(:,:,:)
     !
     !-------------------------------------------------------------------------------    
+    start_timer(timer_adv_horz,2)
     
     IF(l_edge_based)THEN
       CALL advect_edge_based( patch_3d, &
       & trac_old,            &
       & p_os,                &
-      & p_op_coeff,          &
+      & operators_coefficients,          &
       & k_h,                 &
       & h_old,               &
       & h_new,               &
@@ -133,7 +128,7 @@ CONTAINS
       CALL advect_cell_based( patch_3d,          &
       & trac_old,            &
       & p_os,                &
-      & p_op_coeff,          &
+      & operators_coefficients,          &
       & k_h,                 &
       & h_old,               &
       & h_new,               &
@@ -141,6 +136,8 @@ CONTAINS
       ! & horizontally_diffused_tracer)
     
     ENDIF
+
+    stop_timer(timer_adv_horz,2)
      
   END SUBROUTINE advect_horz
   !-------------------------------------------------------------------------------
@@ -149,7 +146,7 @@ CONTAINS
   SUBROUTINE diffuse_horz( patch_3d,          &
     & trac_old,            &
     & p_os,                &
-    & p_op_coeff,          &
+    & operators_coefficients,          &
     & k_h,                 &
     & h_old,               &
     & h_new,               &
@@ -159,7 +156,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp)                               :: trac_old(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     TYPE(t_hydro_ocean_state), TARGET      :: p_os
-    TYPE(t_operator_coeff), INTENT(in)     :: p_op_coeff
+    TYPE(t_operator_coeff), INTENT(in)     :: operators_coefficients
     REAL(wp), INTENT(in)                   :: k_h(:,:,:)         !horizontal mixing coeff
     REAL(wp), INTENT(in)                   :: h_old(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(in)                   :: h_new(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
@@ -167,12 +164,13 @@ CONTAINS
     REAL(wp), INTENT(inout), OPTIONAL      :: horizontally_diffused_tracer(:,:,:)
     !
     !-------------------------------------------------------------------------------    
+    start_timer(timer_dif_horz,3)
     
     IF(l_edge_based)THEN
       CALL diffuse_edge_based( patch_3d, &
       & trac_old,            &
       & p_os,                &
-      & p_op_coeff,          &
+      & operators_coefficients,          &
       & k_h,                 &
       & h_old,               &
       & h_new,               &
@@ -182,7 +180,7 @@ CONTAINS
       CALL diffuse_cell_based( patch_3d,          &
       & trac_old,            &
       & p_os,                &
-      & p_op_coeff,          &
+      & operators_coefficients,          &
       & k_h,                 &
       & h_old,               &
       & h_new,               &
@@ -190,6 +188,8 @@ CONTAINS
       ! & horizontally_diffused_tracer)
     
     ENDIF
+
+    stop_timer(timer_dif_horz,3)
      
   END SUBROUTINE diffuse_horz
   !-------------------------------------------------------------------------------
@@ -200,7 +200,7 @@ CONTAINS
   SUBROUTINE advect_cell_based( patch_3d,          &
     & trac_old,            &
     & p_os,                &
-    & p_op_coeff,          &
+    & operators_coefficients,          &
     & k_h,                 &
     & h_old,               &
     & h_new,               &
@@ -210,7 +210,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp)                             :: trac_old(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     TYPE(t_hydro_ocean_state), TARGET    :: p_os
-    TYPE(t_operator_coeff), INTENT(in)   :: p_op_coeff
+    TYPE(t_operator_coeff), INTENT(in)   :: operators_coefficients
     REAL(wp), INTENT(in)                 :: k_h(:,:,:)         !horizontal mixing coeff
     REAL(wp), INTENT(in)                 :: h_old(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(in)                 :: h_new(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
@@ -234,7 +234,6 @@ CONTAINS
     IF ( l_with_horz_tracer_advection ) THEN
       
       ! Initialize timer for horizontal advection
-      IF (ltimer) CALL timer_start(timer_adv_horz)
       
       SELECT CASE(flux_calculation_horz)
       
@@ -261,7 +260,7 @@ CONTAINS
         CALL miura_order1_hflux_oce( patch_3d,   &
           & trac_old,                            &
           & p_os%p_diag%mass_flx_e,              &
-          & p_op_coeff,                          &
+          & operators_coefficients,                          &
           & z_adv_flux_h )
         
       CASE(fct_horz)
@@ -269,7 +268,7 @@ CONTAINS
         CALL flux_corr_transport_cell( patch_3d,  &
           & trac_old,                              &
           & p_os,                                  &
-          & p_op_coeff,                            &
+          & operators_coefficients,                            &
           & k_h,                                   &
           & h_old,                                 &
           & h_new,                                 &
@@ -282,10 +281,7 @@ CONTAINS
       !---------------------------------------------------------------------
       
       !Calculate divergence of advective fluxes
-      IF (ltimer) CALL timer_start(timer_extra15)
-      CALL div_oce_3d( z_adv_flux_h, patch_3D, p_op_coeff%div_coeff, div_advflux_horz, subset_range=cells_in_domain )
-      IF (ltimer) CALL timer_stop(timer_extra15)
-      IF (ltimer) CALL timer_stop(timer_adv_horz)
+      CALL div_oce_3d( z_adv_flux_h, patch_3D, operators_coefficients%div_coeff, div_advflux_horz, subset_range=cells_in_domain )
 ! DO level = 1, n_zlev
 !  write(*,*)'tracer flux',maxval(z_adv_flux_h(:,level,:)),&
 !  &minval(z_adv_flux_h(:,level,:))
@@ -314,7 +310,7 @@ CONTAINS
   SUBROUTINE diffuse_cell_based( patch_3d,          &
     & trac_old,            &
     & p_os,                &
-    & p_op_coeff,          &
+    & operators_coefficients,          &
     & k_h,                 &
     & h_old,               &
     & h_new,               &
@@ -324,7 +320,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp)                             :: trac_old(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     TYPE(t_hydro_ocean_state), TARGET    :: p_os
-    TYPE(t_operator_coeff), INTENT(in)   :: p_op_coeff
+    TYPE(t_operator_coeff), INTENT(in)   :: operators_coefficients
     REAL(wp), INTENT(in)                 :: k_h(:,:,:)         !horizontal mixing coeff
     REAL(wp), INTENT(in)                 :: h_old(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(in)                 :: h_new(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
@@ -348,9 +344,8 @@ CONTAINS
     !-------------------------------------------------------------------------------
     
     !The diffusion part: calculate horizontal diffusive flux
+
     IF ( l_with_horz_tracer_diffusion) THEN
-      IF (ltimer) CALL timer_start(timer_dif_horz)
-      ! z_diff_flux_h = 0.0_wp
       
       IF(diff_option==diff_option_standard)THEN
         CALL tracer_diffusion_horz( patch_3d,     &
@@ -363,19 +358,17 @@ CONTAINS
       ELSE!this is only for testing
         CALL tracer_diffusion_horz_ptp( patch_3d,     &
         & trac_old,     &
-        & p_os, p_op_coeff,        &
+        & p_os, operators_coefficients,        &
         & k_h,z_diff_flux_h)
       
       ENDIF
-      IF (ltimer) CALL timer_stop(timer_dif_horz)
       
     ELSE
       div_diff_flux_horz(:,:,:) = 0.0_wp
     ENDIF
     
-       !Calculate divergence of diffusive fluxes
-       CALL div_oce_3d( z_diff_flux_h, patch_3D, p_op_coeff%div_coeff, div_diff_flux_horz )
-
+    !Calculate divergence of diffusive fluxes
+    CALL div_oce_3d( z_diff_flux_h, patch_3D, operators_coefficients%div_coeff, div_diff_flux_horz )
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
@@ -392,7 +385,7 @@ CONTAINS
   SUBROUTINE tracer_diffusion_horz_ptp( patch_3d,          &
     & trac_old,            &
     & p_os,                &
-    & p_op_coeff,          &
+    & operators_coefficients,          &
     & k_h,                 &
     & diff_flux_h)!,           &
     ! & horizontally_diffused_tracer)
@@ -400,7 +393,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp)                             :: trac_old(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     TYPE(t_hydro_ocean_state), TARGET    :: p_os
-    TYPE(t_operator_coeff), INTENT(in)   :: p_op_coeff
+    TYPE(t_operator_coeff), INTENT(in)   :: operators_coefficients
     REAL(wp), INTENT(in)                 :: k_h(:,:,:)         !horizontal mixing coeff
     REAL(wp), INTENT(inout)              :: diff_flux_h(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%nblks_e)
     ! REAL(wp), INTENT(inout), OPTIONAL    :: horizontally_diffused_tracer(:,:,:)
@@ -436,7 +429,7 @@ CONTAINS
       CALL grad_fd_norm_oce_3d_onBlock ( &
         & trac_old, &
         & patch_3D,                           &
-        & p_op_coeff%grad_coeff(:,:,blockNo), &
+        & operators_coefficients%grad_coeff(:,:,blockNo), &
         & grad_T_horz(:,:,blockNo),           &
         & start_edge_index, end_edge_index, blockNo)
 
@@ -445,7 +438,7 @@ CONTAINS
 
    CALL map_edges2cell_3d(patch_3D, &
         & grad_T_horz,               &
-        & p_op_coeff,                &
+        & operators_coefficients,                &
         & grad_T_vec_horz)
 
    DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
@@ -465,11 +458,9 @@ CONTAINS
      END DO
    END DO
  
-   CALL map_cell2edges_3D( patch_3D,flux_vec_horz_center, diff_flux_h,p_op_coeff)
+   CALL map_cell2edges_3D( patch_3D,flux_vec_horz_center, diff_flux_h,operators_coefficients)
   END SUBROUTINE tracer_diffusion_horz_ptp
   !-------------------------------------------------------------------------------
-
-
 
 
 
@@ -477,7 +468,7 @@ CONTAINS
   SUBROUTINE advect_edge_based( patch_3d,          &
     & trac_old,            &
     & p_os,                &
-    & p_op_coeff,          &
+    & operators_coefficients,          &
     & k_h,                 &
     & h_old,               &
     & h_new,               &
@@ -486,7 +477,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp)                             :: trac_old(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     TYPE(t_hydro_ocean_state), TARGET    :: p_os
-    TYPE(t_operator_coeff), INTENT(in)   :: p_op_coeff
+    TYPE(t_operator_coeff), INTENT(in)   :: operators_coefficients
     REAL(wp), INTENT(in)                 :: k_h(:,:,:)         !horizontal mixing coeff
     REAL(wp), INTENT(in)                 :: h_old(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(in)                 :: h_new(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
@@ -515,9 +506,6 @@ CONTAINS
     !This step takes already the edge length into account
     !but not the edge height
     IF ( l_with_horz_tracer_advection ) THEN
-
-      ! Initialize timer for horizontal advection
-      IF (ltimer) CALL timer_start(timer_adv_horz)
       
       SELECT CASE(flux_calculation_horz)
       
@@ -552,7 +540,7 @@ CONTAINS
         CALL miura_order1_hflux_oce( patch_3d, &
           & trac_old,                          &
           & p_os%p_diag%mass_flx_e,            &
-          & p_op_coeff,                        &
+          & operators_coefficients,                        &
           & z_adv_flux_h  )
          
                    
@@ -561,7 +549,7 @@ CONTAINS
         CALL flux_corr_transport_edge( patch_3d,&
           & trac_old,                           &
           & p_os,                               &
-          & p_op_coeff,                         &
+          & operators_coefficients,                         &
           & k_h,                                &
           & h_old,                              &
           & h_new,                              &
@@ -573,16 +561,13 @@ CONTAINS
       END SELECT     
       CALL sync_patch_array(sync_e, patch_2d, z_adv_flux_h)      
       
-      !---------------------------------------------------------------------       
-      ! Stop timer for horizontal advection
-      IF (ltimer) CALL timer_stop(timer_adv_horz)      
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=5  ! output print level (1-5, fix)
       CALL dbg_print('aft. AdvHorz: adv_flux_h',z_adv_flux_h,str_module,idt_src,patch_2d%edges%owned)
       !---------------------------------------------------------------------               
       
       !Calculate divergence of advective fluxes
-      CALL div_oce_3d( z_adv_flux_h, patch_3D, p_op_coeff%div_coeff, div_advflux_horz )
+      CALL div_oce_3d( z_adv_flux_h, patch_3D, operators_coefficients%div_coeff, div_advflux_horz )
       
       
     ELSE
@@ -601,7 +586,7 @@ CONTAINS
   SUBROUTINE diffuse_edge_based( patch_3d,          &
     & trac_old,            &
     & p_os,                &
-    & p_op_coeff,          &
+    & operators_coefficients,          &
     & k_h,                 &
     & h_old,               &
     & h_new,               &
@@ -610,7 +595,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp)                             :: trac_old(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     TYPE(t_hydro_ocean_state), TARGET    :: p_os
-    TYPE(t_operator_coeff), INTENT(in)   :: p_op_coeff
+    TYPE(t_operator_coeff), INTENT(in)   :: operators_coefficients
     REAL(wp), INTENT(in)                 :: k_h(:,:,:)         !horizontal mixing coeff
     REAL(wp), INTENT(in)                 :: h_old(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(in)                 :: h_new(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
@@ -639,7 +624,6 @@ CONTAINS
     !The diffusion part: calculate horizontal diffusive flux
     IF ( l_with_horz_tracer_diffusion)THEN 
 
-      IF (ltimer) CALL timer_start(timer_dif_horz)
       CALL tracer_diffusion_horz( patch_3d,     &
         & trac_old,     &
         & p_os,         &
@@ -648,8 +632,7 @@ CONTAINS
         & subset_range = edges_in_domain)
       
       !Calculate divergence of diffusive fluxes
-      CALL div_oce_3d( z_diff_flux_h, patch_3D, p_op_coeff%div_coeff, div_diffflux_horz)
-      IF (ltimer) CALL timer_stop(timer_dif_horz)
+      CALL div_oce_3d( z_diff_flux_h, patch_3D, operators_coefficients%div_coeff, div_diffflux_horz)
       
     ELSE
       div_diffflux_horz(:,:,:) = 0.0_wp
@@ -668,7 +651,7 @@ CONTAINS
   SUBROUTINE flux_corr_transport_edge( patch_3d,&
     & trac_old,                                 &
     & p_os,                                     &
-    & p_op_coeff,                               &
+    & operators_coefficients,                               &
     & k_h,                                      &
     & h_old,                                    &
     & h_new,                                    &
@@ -677,7 +660,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp)                               :: trac_old(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     TYPE(t_hydro_ocean_state), TARGET      :: p_os
-    TYPE(t_operator_coeff), INTENT(in)     :: p_op_coeff
+    TYPE(t_operator_coeff), INTENT(in)     :: operators_coefficients
     REAL(wp), INTENT(in)                   :: k_h(:,:,:)         !horizontal mixing coeff
     REAL(wp), INTENT(in)                   :: h_old(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(in)                   :: h_new(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
@@ -735,7 +718,7 @@ CONTAINS
       CALL miura_order1_hflux_oce( patch_3d, &
         & trac_old,                          &
         & p_os%p_diag%mass_flx_e,            &
-        & p_op_coeff,                        &
+        & operators_coefficients,                        &
         & z_adv_flux_high )
     
     CASE DEFAULT
@@ -753,14 +736,14 @@ CONTAINS
       & p_os%p_diag%vn_time_weighted,          &
       & z_adv_flux_low,                        &    
       & z_adv_flux_high,                       &      
-      & p_op_coeff,                            &
+      & operators_coefficients,                            &
       & k_h,                                   &
       & adv_flux_h )
 
       !CALL hflx_limiter_oce_posdef( patch_3d,&
       !& trac_old,                    &
       !& z_adv_flux_high,              &    
-      !& p_op_coeff )      
+      !& operators_coefficients )
       
     CASE(fct_limiter_horz_zalesak)
 
@@ -770,7 +753,7 @@ CONTAINS
        & z_adv_flux_low,                        &
        & z_adv_flux_high,                       &    
        & adv_flux_h,                            &
-       & p_op_coeff,                            &
+       & operators_coefficients,                            &
        & h_old,                                 &
        & h_new              )       
        
@@ -779,12 +762,11 @@ CONTAINS
       & trac_old,                              &
       & z_adv_flux_high,                       &    
       & adv_flux_h,                            &       
-      & p_op_coeff )      
+      & operators_coefficients )
 
     CASE DEFAULT
       CALL finish('TRIM(flux_corr_transport_edge)',"This limiter_type option is not supported")
     END SELECT
-
     
   END SUBROUTINE flux_corr_transport_edge
   !-------------------------------------------------------------------------------
@@ -794,7 +776,7 @@ CONTAINS
   SUBROUTINE flux_corr_transport_cell( patch_3d, &
     & trac_old,                                   & 
     & p_os,                                       &
-    & p_op_coeff,                                 &
+    & operators_coefficients,                                 &
     & k_h,                                        &
     & h_old,                                      &
     & h_new,                                      &
@@ -803,7 +785,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp)                               :: trac_old(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     TYPE(t_hydro_ocean_state), TARGET      :: p_os
-    TYPE(t_operator_coeff), INTENT(in)     :: p_op_coeff
+    TYPE(t_operator_coeff), INTENT(in)     :: operators_coefficients
     REAL(wp), INTENT(in)                   :: k_h(:,:,:)         !horizontal mixing coeff
     REAL(wp), INTENT(in)                   :: h_old(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(in)                   :: h_new(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
@@ -820,7 +802,6 @@ CONTAINS
     TYPE(t_cartesian_coordinates) :: p_vn_c(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)  
     REAL(wp) :: grad_C_horz(nproma, n_zlev,patch_3D%p_patch_2d(1)%nblks_e)       
     !-------------------------------------------------------------------------------
-!     CALL timer_start(timer_extra10)
     
     patch_2d        => patch_3d%p_patch_2d(1)
     edges_in_domain => patch_2d%edges%in_domain
@@ -839,24 +820,23 @@ CONTAINS
     
     CASE(upwind)
       !upwind serves as low order flux
-      CALL timer_start(timer_extra11)
+      start_detail_timer(timer_extra11,5)
       CALL upwind_hflux_oce( patch_3d,  &
         & trac_old,                       &
         & p_os%p_diag%mass_flx_e,         &
         & z_adv_flux_low )
-      CALL timer_stop(timer_extra11)
+      stop_detail_timer(timer_extra11,5)
         
     CASE(miura_order1)
       CALL miura_order1_hflux_oce( patch_3d,   &
         & trac_old,                            &
         & p_os%p_diag%mass_flx_e,              &
-        & p_op_coeff,                          &
+        & operators_coefficients,                          &
         & z_adv_flux_low )      
     
     CASE DEFAULT
       CALL finish('TRIM(flux_corr_transport_edge)',"This low-order  option is not supported")   
     END SELECT    
-
 
 
     SELECT CASE(fct_high_order_flux)
@@ -865,18 +845,18 @@ CONTAINS
     CASE(central)
     
       !central as high order flux
-      CALL timer_start(timer_extra12)
+      start_detail_timer(timer_extra12,5)
       CALL central_hflux_oce( patch_3d,   &
         & trac_old,                       &
         & p_os%p_diag%mass_flx_e,         &
         & z_adv_flux_high)    
-      CALL timer_stop(timer_extra12)
+      stop_detail_timer(timer_extra12,5)
  
     CASE(fct_horz)
       !mimetic fluc calculation high order flux
       CALL map_edges2edges_viacell_3d_const_z( patch_3d, &
         & p_os%p_diag%vn_time_weighted,          &
-        & p_op_coeff,                            &
+        & operators_coefficients,                            &
         & z_adv_flux_high,                       &
         & trac_old)
         
@@ -887,13 +867,13 @@ CONTAINS
         CALL grad_fd_norm_oce_3d ( &
           & trac_old, &
           & patch_3D,              &
-          & p_op_coeff%grad_coeff, &
+          & operators_coefficients%grad_coeff, &
           & grad_C_horz)
 
 
         CALL map_edges2edges_viacell_3d_const_z( patch_3d, &
           & grad_C_horz,                           &
-          & p_op_coeff,                            &
+          & operators_coefficients,                            &
           & z_adv_flux_gradrecon)  
     
         ! loop through all patch edges (and blocks)
@@ -951,37 +931,35 @@ CONTAINS
         & p_os%p_diag%vn_time_weighted,          &
         & z_adv_flux_low,                        &
         & z_adv_flux_high,                       &
-        & p_op_coeff,                            &
+        & operators_coefficients,                            &
         & k_h,                                   &
         & adv_flux_h )
       
     CASE(fct_limiter_horz_zalesak)
       ! inUse
      ! adv_flux_h=z_adv_flux_high
-      CALL timer_start(timer_extra13)
+      start_detail_timer(timer_extra13,4)
       CALL hflx_limiter_oce_zalesak( patch_3d, &
         & trac_old,                              &
         & p_os%p_diag%mass_flx_e,                &
         & z_adv_flux_low,                        &
         & z_adv_flux_high,                       &
         & adv_flux_h,                            &
-        & p_op_coeff,                            &
+        & operators_coefficients,                            &
         & h_old,                                 &
         & h_new              )
-      CALL timer_stop(timer_extra13)
+      stop_detail_timer(timer_extra13,4)
       
     CASE(fct_limiter_horz_posdef)  
       CALL hflx_limiter_oce_posdef( patch_3d,    &
         & trac_old,                              &
         & z_adv_flux_high,                       &
         & adv_flux_h,                            &        
-        & p_op_coeff )
+        & operators_coefficients )
   
     CASE DEFAULT
      CALL finish('TRIM(flux_corr_transport_h)',"This limiter_type option is not supported")
     END SELECT
-    
-!     CALL timer_stop(timer_extra10)
     
   END SUBROUTINE flux_corr_transport_cell
   !-------------------------------------------------------------------------------
@@ -992,14 +970,14 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2013).
   SUBROUTINE fct_high_res( patch_3d, trac_old, vn_e,adv_flux_low,adv_flux_high, &
-    & p_op_coeff, k_h, adv_flux_h)
+    & operators_coefficients, k_h, adv_flux_h)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), INTENT(inout)           :: trac_old(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)!< advected cell centered variable
     REAL(wp), INTENT(inout)           :: vn_e (nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e) !< normal velocity on edges
     REAL(wp), INTENT(IN)              :: adv_flux_low (nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
     REAL(wp), INTENT(IN)              :: adv_flux_high(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
-    TYPE(t_operator_coeff)            :: p_op_coeff
+    TYPE(t_operator_coeff)            :: operators_coefficients
     REAL(wp), INTENT(in)              :: k_h(:,:,:)         !horizontal mixing coeff
     
     REAL(wp), INTENT(OUT) :: adv_flux_h(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)!< variable in which the upwind flux is stored
@@ -1070,7 +1048,7 @@ CONTAINS
     CALL sync_patch_array(sync_e, patch_2d, z_limit_sigma)        
 
     !This corresponds to (16) in Casulli-Zanolli.
-     CALL ratio_consecutive_gradients(patch_3d,p_op_coeff,vn_e, trac_old,z_consec_grad)
+     CALL ratio_consecutive_gradients(patch_3d,operators_coefficients,vn_e, trac_old,z_consec_grad)
 
     !3) calculate psi-part of limiter (see (17)-(19) in Casulli-Zanolli).
     CALL calculate_limiter_function(patch_3d, z_limit_sigma, z_consec_grad,z_limit_phi)
@@ -1113,13 +1091,13 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2013).
   !!
-   SUBROUTINE ratio_consecutive_gradients( patch_3d, p_op_coeff,      &
+   SUBROUTINE ratio_consecutive_gradients( patch_3d, operators_coefficients,      &
     & vn_time_weighted, &
     & trac_old,         &
     & consec_grad)
     
     TYPE(t_patch_3d),TARGET, INTENT(in):: patch_3d
-    TYPE(t_operator_coeff)             :: p_op_coeff    
+    TYPE(t_operator_coeff)             :: operators_coefficients
     REAL(wp), INTENT(in)               :: vn_time_weighted(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%nblks_e)
     REAL(wp), INTENT(in)               :: trac_old(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(inout)            :: consec_grad(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%nblks_e)
@@ -1168,7 +1146,7 @@ CONTAINS
             
             !calculate mass flux of actual edge.
             z_mflux(jc,level,blockNo, i_edge) = &
-              & p_op_coeff%div_coeff(jc,level,blockNo,i_edge)*patch_2D%cells%area(jc,blockNo)                     &
+              & operators_coefficients%div_coeff(jc,level,blockNo,i_edge)*patch_2D%cells%area(jc,blockNo)                     &
               & * vn_time_weighted(edge_of_cell_idx(jc,blockNo,i_edge),level,edge_of_cell_blk(jc,blockNo,i_edge)) &
               & * patch_3d%p_patch_1d(1)%prism_thick_e(ii_e,level,ib_e)
             
@@ -1325,12 +1303,12 @@ CONTAINS
   !! @par Revision History
   !!
   !!  mpi note: the result is not synced. Should be done in the calling method if required
-  SUBROUTINE upwind_hflux_oce_mimetic( patch_3d, flux_cc,p_op_coeff,&
+  SUBROUTINE upwind_hflux_oce_mimetic( patch_3d, flux_cc,operators_coefficients,&
     & edge_upwind_flux, opt_start_level, opt_end_level )
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     TYPE(t_cartesian_coordinates)      :: flux_cc(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    TYPE(t_operator_coeff), INTENT(in) :: p_op_coeff
+    TYPE(t_operator_coeff), INTENT(in) :: operators_coefficients
     REAL(wp), INTENT(inout)            :: edge_upwind_flux(nproma,n_zlev, patch_3d%p_patch_2d(1)%nblks_e)   !< variable in which the upwind flux is stored
     INTEGER, INTENT(in), OPTIONAL :: opt_start_level    ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_end_level    ! optional vertical end level
@@ -1380,8 +1358,8 @@ CONTAINS
           ! div operator
           edge_upwind_flux(edge_index,level,blockNo) = &
             & DOT_PRODUCT(flux_cc(    &
-            & p_op_coeff%upwind_cell_idx(edge_index,level,blockNo), level, &
-            & p_op_coeff%upwind_cell_blk(edge_index,level,blockNo))%x,     &
+            & operators_coefficients%upwind_cell_idx(edge_index,level,blockNo), level, &
+            & operators_coefficients%upwind_cell_blk(edge_index,level,blockNo))%x,     &
             & patch_2d%edges%primal_cart_normal(edge_index,blockNo)%x)
           
         END DO  ! end loop over edges
@@ -1686,13 +1664,13 @@ CONTAINS
   !!  mpi parallelized, the result is NOT synced. Should be done in the calling method if required
   !!
   SUBROUTINE miura_order1_hflux_oce( patch_3d,cell_value, edge_vn, &
-    & p_op_coeff, edge_upwind_flux, &
+    & operators_coefficients, edge_upwind_flux, &
     & opt_start_level, opt_end_level )
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp), INTENT(inout)           :: cell_value(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)!< advected cell centered variable
     REAL(wp), INTENT(inout)           :: edge_vn (nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e) !< normal velocity on edges
-    TYPE(t_operator_coeff)            :: p_op_coeff
+    TYPE(t_operator_coeff)            :: operators_coefficients
     REAL(wp), INTENT(inout)           :: edge_upwind_flux(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)!< variable in which the upwind flux is stored
     INTEGER, INTENT(in), OPTIONAL :: opt_start_level      ! optional vertical start level
     INTEGER, INTENT(in), OPTIONAL :: opt_end_level      ! optional vertical end level
@@ -1761,12 +1739,12 @@ CONTAINS
     
     CALL grad_fd_norm_oce_3d( cell_value,                 &
       & patch_3d,    &
-      & p_op_coeff%grad_coeff,  &
+      & operators_coefficients%grad_coeff,  &
       & z_gradc)
     
     CALL sync_patch_array(sync_e, patch_2d, z_gradc)
     !3b:
-    CALL map_edges2cell_3d( patch_3d, z_gradc,p_op_coeff, z_gradc_cc)
+    CALL map_edges2cell_3d( patch_3d, z_gradc,operators_coefficients, z_gradc_cc)
     
     !!ICON_OMP_PARALLEL
     !!ICON_OMP_DO PRIVATE(start_index, end_index, edge_index, level, il_c, ib_c)  ICON_OMP_DEFAULT_SCHEDULE
@@ -1776,14 +1754,14 @@ CONTAINS
       DO edge_index = start_index, end_index
         DO level = start_level, patch_3d%p_patch_1d(1)%dolic_e(edge_index,blockNo)
         
-          il_c = p_op_coeff%upwind_cell_idx(edge_index,level,blockNo)
-          ib_c = p_op_coeff%upwind_cell_blk(edge_index,level,blockNo)
+          il_c = operators_coefficients%upwind_cell_idx(edge_index,level,blockNo)
+          ib_c = operators_coefficients%upwind_cell_blk(edge_index,level,blockNo)
           
           edge_upwind_flux(edge_index,level,blockNo) = edge_vn(edge_index,level,blockNo)&
             & *( cell_value(il_c, level, ib_c) +          &
             & DOT_PRODUCT(                    &
-            & p_op_coeff%moved_edge_position_cc(edge_index,level,blockNo)%x -    &
-            & p_op_coeff%upwind_cell_position_cc(edge_index,level,blockNo)%x,  &
+            & operators_coefficients%moved_edge_position_cc(edge_index,level,blockNo)%x -    &
+            & operators_coefficients%upwind_cell_position_cc(edge_index,level,blockNo)%x,  &
             & z_gradc_cc(il_c, level, ib_c)%x))
         END DO
       END DO
@@ -1803,6 +1781,9 @@ CONTAINS
   !! The corrected flux is a weighted average of the low order flux and the
   !! given high order flux. The high order flux is used to the greatest extent
   !! possible without introducing overshoots and undershoots.
+  !! In vicinity of a lateral boundary only the low order flux is used: The criterion 
+  !! is that at least one of the edges of the two neighboring cells of
+  !! a central edges is a boundary edge.
   !! Note: This limiter is positive definite and almost monotone (but not strictly).
   !!
   !! @par Literature:
@@ -1813,6 +1794,9 @@ CONTAINS
   !! - Inital revision by Daniel Reinert, DWD (2010-03-10)
   !! Modification by Daniel Reinert, DWD (2010-03-25)
   !! - adapted for MPI parallelization
+  !! - adapted for ocean use by P. Korn (2012)
+  !! - optimized by L. Linardakis (2015)
+  !! - criterion for switch to low order scheme near boundaries added P. Korn (2015)  
   !!
   !!  mpi note: computed on domain edges. Results is not synced.
   !!
@@ -1823,7 +1807,7 @@ CONTAINS
     & flx_tracer_low,    &    
     & flx_tracer_high,   &
     & flx_tracer_final,  &
-    & p_op_coeff,        &
+    & operators_coefficients,        &
     & h_old,             &
     & h_new              )
     
@@ -1833,7 +1817,7 @@ CONTAINS
     REAL(wp), INTENT(inout)             :: flx_tracer_low   (nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)     
     REAL(wp), INTENT(inout)             :: flx_tracer_high  (nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e) 
     REAL(wp), INTENT(inout)             :: flx_tracer_final (nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)     
-    TYPE(t_operator_coeff),INTENT(in)   :: p_op_coeff
+    TYPE(t_operator_coeff),INTENT(in)   :: operators_coefficients
     REAL(wp), INTENT(in)                :: h_old(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(in)                :: h_new(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     
@@ -1857,7 +1841,13 @@ CONTAINS
     INTEGER, DIMENSION(:,:,:), POINTER :: edge_of_cell_idx, edge_of_cell_blk
     INTEGER :: start_level, end_level            
     INTEGER :: start_index, end_index
-    INTEGER :: edge_index, level, blockNo, jc,  cell_connect
+!     INTEGER :: cell_1_idx,cell_2_idx,cell_1_blk,cell_2_blk
+!     INTEGER :: cell_1_edge_1_idx,cell_1_edge_2_idx,cell_1_edge_3_idx
+!     INTEGER :: cell_2_edge_1_idx,cell_2_edge_2_idx,cell_2_edge_3_idx        
+!     INTEGER :: cell_1_edge_1_blk,cell_1_edge_2_blk,cell_1_edge_3_blk
+!     INTEGER :: cell_2_edge_1_blk,cell_2_edge_2_blk,cell_2_edge_3_blk      
+    INTEGER :: edge_index, level, blockNo, jc,  cell_connect, sum_lsm_quad_edge
+!    INTEGER :: all_water_edges 
     TYPE(t_subset_range), POINTER :: edges_in_domain,  cells_in_domain
     TYPE(t_patch), POINTER :: patch_2d    
     !-------------------------------------------------------------------------
@@ -1874,6 +1864,10 @@ CONTAINS
     neighbor_cell_idx => patch_2d%cells%neighbor_idx
     neighbor_cell_blk => patch_2d%cells%neighbor_blk
     
+    !Integer number that describes that all edges that belong to
+    ! the two neighboring cells of a central triangle are sea (SEA=-2,cf mo_impl_constants)
+!     all_water_edges = SEA*2*patch_2d%cells%max_connectivity
+            
     ! 1. Calculate low (first) order fluxes using the standard upwind scheme and the
     !    antidiffusive fluxes
     !    (not allowed to call upwind_hflux_up directly, due to circular dependency)
@@ -1931,16 +1925,16 @@ CONTAINS
           !  compute also divergence of low order fluxes
 !           z_fluxdiv_c =  &
 !             & flx_tracer_low(edge_of_cell_idx(jc,blockNo,1),level,edge_of_cell_blk(jc,blockNo,1))   * &
-!             & p_op_coeff%div_coeff(jc,level,blockNo,1) &
+!             & operators_coefficients%div_coeff(jc,level,blockNo,1) &
 !             & + flx_tracer_low(edge_of_cell_idx(jc,blockNo,2),level,edge_of_cell_blk(jc,blockNo,2)) * &
-!             & p_op_coeff%div_coeff(jc,level,blockNo,2)  &
+!             & operators_coefficients%div_coeff(jc,level,blockNo,2)  &
 !             & + flx_tracer_low(edge_of_cell_idx(jc,blockNo,3),level,edge_of_cell_blk(jc,blockNo,3)) * &
-!             & p_op_coeff%div_coeff(jc,level,blockNo,3)
+!             & operators_coefficients%div_coeff(jc,level,blockNo,3)
           z_fluxdiv_c = 0
           DO cell_connect = 1, patch_2d%cells%num_edges(jc,blockNo)
             z_fluxdiv_c =  z_fluxdiv_c + &
-              & flx_tracer_low(edge_of_cell_idx(jc,blockNo,cell_connect),level,edge_of_cell_blk(jc,blockNo,cell_connect))   * &
-              & p_op_coeff%div_coeff(jc,level,blockNo,cell_connect)
+              & flx_tracer_low(edge_of_cell_idx(jc,blockNo,cell_connect),level,edge_of_cell_blk(jc,blockNo,cell_connect)) * &
+              & operators_coefficients%div_coeff(jc,level,blockNo,cell_connect)
           ENDDO
           
           !
@@ -2009,15 +2003,15 @@ CONTAINS
 
           
 !           z_mflx_anti(1) =                                                        &
-!             & dtime * p_op_coeff%div_coeff(jc,level,blockNo,1) * inv_prism_thick_new(level)  &
+!             & dtime * operators_coefficients%div_coeff(jc,level,blockNo,1) * inv_prism_thick_new(level)  &
 !             & * z_anti(edge_of_cell_idx(jc,blockNo,1),level,edge_of_cell_blk(jc,blockNo,1))
 !           
 !           z_mflx_anti(2) =                                                         &
-!             & dtime *  p_op_coeff%div_coeff(jc,level,blockNo,2) * inv_prism_thick_new(level)  &
+!             & dtime *  operators_coefficients%div_coeff(jc,level,blockNo,2) * inv_prism_thick_new(level)  &
 !             & * z_anti(edge_of_cell_idx(jc,blockNo,2),level,edge_of_cell_blk(jc,blockNo,2))
 !           
 !           z_mflx_anti(3) =                                                         &
-!             & dtime * p_op_coeff%div_coeff(jc,level,blockNo,3) * inv_prism_thick_new(level)   &
+!             & dtime * operators_coefficients%div_coeff(jc,level,blockNo,3) * inv_prism_thick_new(level)   &
 !             & * z_anti(edge_of_cell_idx(jc,blockNo,3),level,edge_of_cell_blk(jc,blockNo,3))
           
           z_mflx_anti(:) = 0.0_wp
@@ -2035,7 +2029,7 @@ CONTAINS
                 & z_tracer_min(neighbor_cell_idx(jc,blockNo,cell_connect),level,neighbor_cell_blk(jc,blockNo,cell_connect)))
 
               z_mflx_anti(cell_connect) =                                                        &
-                & dtime * p_op_coeff%div_coeff(jc,level,blockNo,cell_connect) * inv_prism_thick_new(level)  &
+                & dtime * operators_coefficients%div_coeff(jc,level,blockNo,cell_connect) * inv_prism_thick_new(level)  &
                 & * z_anti(edge_of_cell_idx(jc,blockNo,cell_connect),level,edge_of_cell_blk(jc,blockNo,cell_connect))
 
               ! Sum of all incoming antidiffusive fluxes into cell jc
@@ -2083,9 +2077,49 @@ CONTAINS
       CALL get_index_range(edges_in_domain, blockNo, start_index, end_index)
       flx_tracer_final(:,:,blockNo) = 0.0_wp
       DO edge_index = start_index, end_index
+      
+!         !get the two neighboring cells and their respective edges
+!         cell_1_idx = cellOfEdge_idx(edge_index,blockNo,1)
+!         cell_1_blk = cellOfEdge_blk(edge_index,blockNo,1)
+!         
+!         cell_2_idx = cellOfEdge_idx(edge_index,blockNo,2)
+!         cell_2_blk = cellOfEdge_blk(edge_index,blockNo,2)    
+! 
+!         cell_1_edge_1_idx=edge_of_cell_idx(cell_1_idx,cell_1_blk,1)
+!         cell_1_edge_2_idx=edge_of_cell_idx(cell_1_idx,cell_1_blk,2)
+!         cell_1_edge_3_idx=edge_of_cell_idx(cell_1_idx,cell_1_blk,3)
+! 
+!         cell_1_edge_1_blk=edge_of_cell_blk(cell_1_idx,cell_1_blk,1)
+!         cell_1_edge_2_blk=edge_of_cell_blk(cell_1_idx,cell_1_blk,2)
+!         cell_1_edge_3_blk=edge_of_cell_blk(cell_1_idx,cell_1_blk,3)
+! 
+!         cell_2_edge_1_idx=edge_of_cell_idx(cell_2_idx,cell_2_blk,1)
+!         cell_2_edge_2_idx=edge_of_cell_idx(cell_2_idx,cell_2_blk,2)
+!         cell_2_edge_3_idx=edge_of_cell_idx(cell_2_idx,cell_2_blk,3)        
+!              
+!         cell_2_edge_1_blk=edge_of_cell_blk(cell_2_idx,cell_2_blk,1)
+!         cell_2_edge_2_blk=edge_of_cell_blk(cell_2_idx,cell_2_blk,2)
+!         cell_2_edge_3_blk=edge_of_cell_blk(cell_2_idx,cell_2_blk,3)               
+              
         DO level = start_level, MIN(patch_3d%p_patch_1d(1)%dolic_e(edge_index,blockNo), end_level)
-          ! IF( patch_3D%lsm_e(edge_index,level,blockNo) <= sea_boundary ) THEN
-          z_signum = SIGN(1._wp, z_anti(edge_index,level,blockNo))
+        
+!           sum_lsm_quad_edge =  & 
+!           &+patch_3D%lsm_e(cell_1_edge_1_idx,level,cell_1_edge_1_blk)&  
+!           &+patch_3D%lsm_e(cell_1_edge_2_idx,level,cell_1_edge_2_blk)&  
+!           &+patch_3D%lsm_e(cell_1_edge_3_idx,level,cell_1_edge_3_blk)&  
+!           &+patch_3D%lsm_e(cell_2_edge_1_idx,level,cell_2_edge_1_blk)&  
+!           &+patch_3D%lsm_e(cell_2_edge_2_idx,level,cell_2_edge_2_blk)&  
+!           &+patch_3D%lsm_e(cell_2_edge_3_idx,level,cell_2_edge_3_blk)
+!           
+!           write(0,*) "edge sea_boundary:", &
+!             & operators_coefficients%edges_SeaBoundaryLevel(edge_index,level,blockNo), sum_lsm_quad_edge
+          
+          IF(operators_coefficients%edges_SeaBoundaryLevel(edge_index,level,blockNo) > -2) THEN ! edge < 2nd order boundary
+          
+            flx_tracer_final(edge_index,level,blockNo) = flx_tracer_low(edge_index,level,blockNo)
+            
+          ELSE!IF(sum_lsm_quad_edge==all_water_edges)THEN
+            z_signum = SIGN(1._wp, z_anti(edge_index,level,blockNo))
                     
           ! This does the same as an IF (z_signum > 0) THEN ... ELSE ... ENDIF,
           ! but is computationally more efficient
@@ -2105,7 +2139,7 @@ CONTAINS
             & + MIN(1._wp,r_frac) * z_anti(edge_index,level,blockNo)
           ! ELSE
           !   flx_tracer_high(edge_index,level,blockNo)= 0.0_wp
-          ! ENDIF
+           ENDIF
         END DO
       ENDDO
     ENDDO
@@ -2138,13 +2172,13 @@ CONTAINS
     & tracer,                             &
     & flx_tracer,                         &
     & flx_tracer_limit,                   &
-    & p_op_coeff )
+    & operators_coefficients )
     
     TYPE(t_patch_3d ),TARGET, INTENT(in):: patch_3d
     REAL(wp), INTENT(inout)             :: tracer      (nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(inout)             :: flx_tracer(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e) 
     REAL(wp), INTENT(inout)             :: flx_tracer_limit(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)     
-    TYPE(t_operator_coeff),INTENT(in)   :: p_op_coeff
+    TYPE(t_operator_coeff),INTENT(in)   :: operators_coefficients
 
     !Local variables
     REAL(wp) :: z_mflx(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)   
@@ -2197,15 +2231,15 @@ CONTAINS
                 
         DO level = start_level, MIN(patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo), end_level)
         
-          z_mflx(jc,level,1) = dtime*p_op_coeff%div_coeff(jc,level,blockNo,1) &
+          z_mflx(jc,level,1) = dtime*operators_coefficients%div_coeff(jc,level,blockNo,1) &
             & * flx_tracer(edge_of_cell_idx(jc,blockNo,1),level,edge_of_cell_blk(jc,blockNo,1))
             
 
-          z_mflx(jc,level,2) = dtime*p_op_coeff%div_coeff(jc,level,blockNo,2)&
+          z_mflx(jc,level,2) = dtime*operators_coefficients%div_coeff(jc,level,blockNo,2)&
             & * flx_tracer(edge_of_cell_idx(jc,blockNo,2),level,edge_of_cell_blk(jc,blockNo,2))
 
   
-          z_mflx(jc,level,3) = dtime*p_op_coeff%div_coeff(jc,level,blockNo,3)&
+          z_mflx(jc,level,3) = dtime*operators_coefficients%div_coeff(jc,level,blockNo,3)&
             & * flx_tracer(edge_of_cell_idx(jc,blockNo,3),level,edge_of_cell_blk(jc,blockNo,3))
 
           
@@ -2297,13 +2331,13 @@ CONTAINS
   ! ! !! @par Revision History
   ! ! !! Developed  by  Peter Korn, MPI-M (2011).
   ! ! !!
-  ! ! SUBROUTINE elad(patch_2d, trac_old, trac_new,p_op_coeff, p_os)
+  ! ! SUBROUTINE elad(patch_2d, trac_old, trac_new,operators_coefficients, p_os)
   ! ! !
   ! ! !
   ! ! TYPE(t_patch), TARGET, INTENT(in) :: patch_2d
   ! ! REAL(wp), INTENT(IN)  :: trac_old(:,:,:)
   ! ! REAL(wp), INTENT(inout) :: trac_new(:,:,:)
-  ! ! TYPE(t_operator_coeff), INTENT(IN)        :: p_op_coeff
+  ! ! TYPE(t_operator_coeff), INTENT(IN)        :: operators_coefficients
   ! ! TYPE(t_hydro_ocean_state), TARGET :: p_os
   ! ! !3 arrays for explicit part for tracer in Adams-Bashford  stepping,
   ! ! !stores information across different timelevels
@@ -2447,10 +2481,10 @@ CONTAINS
   ! !    !CALL grad_fd_norm_oce( z_excess, patch_2d, z_grad_excess)
   ! !     CALL grad_fd_norm_oce_3D( z_excess,               &
   ! !            &                  patch_2d,                &
-  ! !            &                  p_op_coeff%grad_coeff,  &
+  ! !            &                  operators_coefficients%grad_coeff,  &
   ! !            &                  z_grad_excess)
   ! !    z_grad_excess = z_K*z_grad_excess
-  ! !    CALL div_oce_3D( z_grad_excess, patch_2d,p_op_coeff%div_coeff, z_diff_excess)
+  ! !    CALL div_oce_3D( z_grad_excess, patch_2d,operators_coefficients%div_coeff, z_diff_excess)
   ! !
   ! ! ! DO level=1,n_zlev
   ! ! ! write(*,*)'max-min diffusion',level,&
@@ -2551,7 +2585,7 @@ CONTAINS
 ! !   SUBROUTINE advect_diffuse_horz_high_res( p_patch_3d,          &
 ! !     & trac_old,            &
 ! !     & p_os,                &
-! !     & p_op_coeff,          &
+! !     & operators_coefficients,          &
 ! !     & k_h,                 &
 ! !     & h_old,               &
 ! !     & h_new,               &
@@ -2560,7 +2594,7 @@ CONTAINS
 ! !     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
 ! !     REAL(wp)                               :: trac_old(1:nproma,1:n_zlev,1:p_patch_3d%p_patch_2d(1)%alloc_cell_blocks)
 ! !     TYPE(t_hydro_ocean_state), TARGET :: p_os
-! !     TYPE(t_operator_coeff), INTENT(in)     :: p_op_coeff
+! !     TYPE(t_operator_coeff), INTENT(in)     :: operators_coefficients
 ! !     REAL(wp), INTENT(in)                   :: k_h(:,:,:)         !horizontal mixing coeff
 ! !     REAL(wp), INTENT(in)                   :: h_old(1:nproma,1:p_patch_3d%p_patch_2d(1)%alloc_cell_blocks)
 ! !     REAL(wp), INTENT(in)                   :: h_new(1:nproma,1:p_patch_3d%p_patch_2d(1)%alloc_cell_blocks)
@@ -2659,7 +2693,7 @@ CONTAINS
 ! !     ! CALL miura_order1_hflux_oce( p_patch_3D,                    &
 ! !     !                              & trac_old,                     &
 ! !     !                              & p_os%p_diag%vn_time_weighted, &
-! !     !                              & p_op_coeff,                   &
+! !     !                              & operators_coefficients,                   &
 ! !     !                              & z_adv_flux_h2 )
 ! !     !
 ! !     !
@@ -2671,7 +2705,7 @@ CONTAINS
 ! !     !         END DO
 ! !     !       END DO
 ! !     !     END DO
-! !     !     CALL div_oce_3D( z_adv_flux_h2, p_patch,p_op_coeff%div_coeff, z_div_adv_h2,&
+! !     !     CALL div_oce_3D( z_adv_flux_h2, p_patch,operators_coefficients%div_coeff, z_div_adv_h2,&
 ! !     !     & subset_range=cells_in_domain)
 ! !     
 ! !     !1) calculate phi-part of limiter
@@ -2782,13 +2816,13 @@ CONTAINS
 ! !     ! maxval(z_limit_psi),minval(z_limit_psi),&
 ! !     ! maxval(z_consec_grad),minval(z_consec_grad)
 ! !     !4) calculate divergence of advective and diffusive fluxes
-! !     !CALL div_oce_3D( z_adv_flux_h, p_patch,p_op_coeff%div_coeff, z_div_adv_h,&
+! !     !CALL div_oce_3D( z_adv_flux_h, p_patch,operators_coefficients%div_coeff, z_div_adv_h,&
 ! !     ! & subset_range=cells_in_domain)
-! !     !CALL div_oce_3D( z_diff_flux_h, p_patch,p_op_coeff%div_coeff, z_div_diff_h,&
+! !     !CALL div_oce_3D( z_diff_flux_h, p_patch,operators_coefficients%div_coeff, z_div_diff_h,&
 ! !     ! & subset_range=cells_in_domain)
 ! !     
 ! !     
-! !     CALL div_oce_3d( z_adv_plus_diff_flux, p_patch,p_op_coeff%div_coeff, flux_horz,&
+! !     CALL div_oce_3d( z_adv_plus_diff_flux, p_patch,operators_coefficients%div_coeff, flux_horz,&
 ! !       & subset_range=cells_in_domain)
 ! !     
 ! !   END SUBROUTINE advect_diffuse_horz_high_res
@@ -2819,7 +2853,7 @@ CONTAINS
 ! !     & tracer,              &
 ! !     & p_mass_flx_e,      &
 ! !     & p_mflx_tracer_h,   &
-! !     & p_op_coeff,        &
+! !     & operators_coefficients,        &
 ! !     & h_old,             &
 ! !     & h_new,             &
 ! !     & opt_start_level, opt_end_level )
@@ -2828,7 +2862,7 @@ CONTAINS
 ! !     REAL(wp), INTENT(inout)           :: tracer             (nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks) !< advected cell centered variable
 ! !     REAL(wp), INTENT(inout)           :: p_mass_flx_e     (nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e) !< horizontal mass flux
 ! !     REAL(wp), INTENT(inout)           :: p_mflx_tracer_h  (nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e) !< calculated horizontal tracer mass flux
-! !     TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
+! !     TYPE(t_operator_coeff),INTENT(in) :: operators_coefficients
 ! !     REAL(wp), INTENT(in)              :: h_old(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
 ! !     REAL(wp), INTENT(in)              :: h_new(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
 ! !     INTEGER, INTENT(in), OPTIONAL :: opt_start_level !< optional vertical start level
@@ -2963,11 +2997,11 @@ CONTAINS
 ! !           !  compute also divergence of low order fluxes
 ! !           z_fluxdiv_c =  &
 ! !             & z_mflx_low(edge_of_cell_idx(jc,blockNo,1),level,edge_of_cell_blk(jc,blockNo,1)) * &
-! !             & p_op_coeff%div_coeff(jc,level,blockNo,1) &
+! !             & operators_coefficients%div_coeff(jc,level,blockNo,1) &
 ! !             & + z_mflx_low(edge_of_cell_idx(jc,blockNo,2),level,edge_of_cell_blk(jc,blockNo,2)) * &
-! !             & p_op_coeff%div_coeff(jc,level,blockNo,2)  &
+! !             & operators_coefficients%div_coeff(jc,level,blockNo,2)  &
 ! !             & + z_mflx_low(edge_of_cell_idx(jc,blockNo,3),level,edge_of_cell_blk(jc,blockNo,3)) * &
-! !             & p_op_coeff%div_coeff(jc,level,blockNo,3)
+! !             & operators_coefficients%div_coeff(jc,level,blockNo,3)
 ! !           
 ! !           !
 ! !           ! 3. Compute the updated low order solution z_tracer_new_low
@@ -3030,15 +3064,15 @@ CONTAINS
 ! !           !& CALL finish("","patch_3D%lsm_c(jc,level,blockNo) > sea_boundar")
 ! !           
 ! !           z_mflx_anti(1) =                                                        &
-! !             & dtime * p_op_coeff%div_coeff(jc,level,blockNo,1) * inv_prism_thick_new(level)  &
+! !             & dtime * operators_coefficients%div_coeff(jc,level,blockNo,1) * inv_prism_thick_new(level)  &
 ! !             & * z_anti(edge_of_cell_idx(jc,blockNo,1),level,edge_of_cell_blk(jc,blockNo,1))
 ! !           
 ! !           z_mflx_anti(2) =                                                         &
-! !             & dtime *  p_op_coeff%div_coeff(jc,level,blockNo,2) * inv_prism_thick_new(level)  &
+! !             & dtime *  operators_coefficients%div_coeff(jc,level,blockNo,2) * inv_prism_thick_new(level)  &
 ! !             & * z_anti(edge_of_cell_idx(jc,blockNo,2),level,edge_of_cell_blk(jc,blockNo,2))
 ! !           
 ! !           z_mflx_anti(3) =                                                         &
-! !             & dtime * p_op_coeff%div_coeff(jc,level,blockNo,3) * inv_prism_thick_new(level)   &
+! !             & dtime * operators_coefficients%div_coeff(jc,level,blockNo,3) * inv_prism_thick_new(level)   &
 ! !             & * z_anti(edge_of_cell_idx(jc,blockNo,3),level,edge_of_cell_blk(jc,blockNo,3))
 ! !           
 ! !           !  IF( patch_3d%lsm_c(jc,level,blockNo) <= sea_boundary ) THEN

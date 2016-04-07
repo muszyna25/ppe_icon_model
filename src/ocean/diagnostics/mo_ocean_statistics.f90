@@ -43,13 +43,11 @@ MODULE mo_ocean_statistics
   USE mo_ocean_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
     & t_hydro_ocean_prog
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
-  USE mo_ocean_tracer,             ONLY: advect_tracer_ab
   USE mo_sea_ice,                ONLY: compute_mean_ice_statistics, reset_ice_statistics
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
   USE mo_ocean_physics,          ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
-  USE mo_ocean_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
   USE mo_linked_list,            ONLY: t_list_element, find_list_element
   USE mo_var_list,               ONLY: print_var_list
   USE mo_mpi,                    ONLY: my_process_is_stdio
@@ -82,6 +80,7 @@ CONTAINS
     
     ! update ocean state accumulated values
     CALL add_fields(ocean_state%p_acc%h     , ocean_state%p_prog(nnew(1))%h, cells)
+    CALL add_sqr_fields(ocean_state%p_acc%h_sqr , ocean_state%p_prog(nnew(1))%h, cells)
     CALL add_fields(ocean_state%p_acc%u     , ocean_state%p_diag%u         , cells)
     CALL add_fields(ocean_state%p_acc%v     , ocean_state%p_diag%v         , cells)
     CALL add_fields(ocean_state%p_acc%rhopot, ocean_state%p_diag%rhopot    , cells)
@@ -96,6 +95,11 @@ CONTAINS
     CALL add_fields(ocean_state%p_acc%mass_flx_e    , ocean_state%p_diag%mass_flx_e    , edges)
     CALL add_fields(ocean_state%p_acc%vort          , ocean_state%p_diag%vort          , verts,levels=max_zlev)
     CALL add_fields(ocean_state%p_acc%kin           , ocean_state%p_diag%kin           , cells)
+    CALL add_verticalSum_field(ocean_state%p_acc%edgeFlux_total, ocean_state%p_diag%mass_flx_e, edges)
+    ! CALL dbg_print('nnew(1))%vn', ocean_state%p_prog(nnew(1))%vn ,"statistics",1,in_subset=edges)
+    ! CALL dbg_print('edgeFlux_total_acc', ocean_state%p_acc%edgeFlux_total, "statistics",1,in_subset=edges)
+
+
     IF (PRESENT(p_phys_param)) THEN
       ! physics
       DO jtrc=1,no_tracer
@@ -105,7 +109,9 @@ CONTAINS
       CALL add_fields(ocean_state%p_acc%k_veloc_h(:,:,:),p_phys_param%k_veloc_h(:,:,:),edges)
       CALL add_fields(ocean_state%p_acc%a_veloc_v(:,:,:),p_phys_param%a_veloc_v(:,:,:),edges)
     END IF
-    
+
+
+
     IF (iforc_oce > No_Forcing) THEN
       ! update forcing accumulated values
       CALL add_fields(p_sfc_flx%topBoundCond_windStress_u_acc   , p_sfc_flx%topBoundCond_windStress_u   , cells)
@@ -167,11 +173,13 @@ CONTAINS
 !ICON_OMP_PARALLEL
 !ICON_OMP_WORKSHARE
     p_acc%h                         = p_acc%h                        /REAL(nsteps_since_last_output,wp)
+    p_acc%h_sqr                     = p_acc%h_sqr                    /REAL(nsteps_since_last_output,wp)
     p_acc%u                         = p_acc%u                        /REAL(nsteps_since_last_output,wp)
     p_acc%v                         = p_acc%v                        /REAL(nsteps_since_last_output,wp)
     p_acc%rhopot                    = p_acc%rhopot                   /REAL(nsteps_since_last_output,wp)
     p_acc%u_vint                    = p_acc%u_vint                   /REAL(nsteps_since_last_output,wp)
     p_acc%v_vint                    = p_acc%v_vint                   /REAL(nsteps_since_last_output,wp)
+    p_acc%edgeFlux_total                   = p_acc%edgeFlux_total                  /REAL(nsteps_since_last_output,wp)
     p_acc%w                         = p_acc%w                        /REAL(nsteps_since_last_output,wp)
     p_acc%div_mass_flx_c            = p_acc%div_mass_flx_c           /REAL(nsteps_since_last_output,wp)
     p_acc%rho                       = p_acc%rho                      /REAL(nsteps_since_last_output,wp)
@@ -181,20 +189,16 @@ CONTAINS
     p_acc%k_veloc_h                 = p_acc%k_veloc_h                /REAL(nsteps_since_last_output)
     p_acc%a_veloc_v                 = p_acc%a_veloc_v                /REAL(nsteps_since_last_output)
 !ICON_OMP_END_WORKSHARE
-!ICON_OMP_END_PARALLEL
     
     IF(no_tracer>0)THEN
-!ICON_OMP_PARALLEL
 !ICON_OMP_WORKSHARE
       p_acc%tracer                    = p_acc%tracer                   /REAL(nsteps_since_last_output,wp)
       p_acc%k_tracer_h                = p_acc%k_tracer_h               /REAL(nsteps_since_last_output)
       p_acc%a_tracer_v                = p_acc%a_tracer_v               /REAL(nsteps_since_last_output)
 !ICON_OMP_END_WORKSHARE
-!ICON_OMP_END_PARALLEL
     ENDIF
       
     IF (iforc_oce > No_Forcing) THEN
-!ICON_OMP_PARALLEL
 !ICON_OMP_WORKSHARE
       p_sfc_flx%topBoundCond_windStress_u_acc = p_sfc_flx%topBoundCond_windStress_u_acc/REAL(nsteps_since_last_output,wp)
       p_sfc_flx%topBoundCond_windStress_v_acc = p_sfc_flx%topBoundCond_windStress_v_acc/REAL(nsteps_since_last_output,wp)
@@ -215,16 +219,20 @@ CONTAINS
       p_sfc_flx%FrshFlux_VolumeTotal_acc      = p_sfc_flx%FrshFlux_VolumeTotal_acc     /REAL(nsteps_since_last_output,wp)
       p_sfc_flx%HeatFlux_Relax_acc            = p_sfc_flx%HeatFlux_Relax_acc           /REAL(nsteps_since_last_output,wp)
 !ICON_OMP_END_WORKSHARE
-!ICON_OMP_END_PARALLEL
 
-        IF(no_tracer>0)THEN
-          p_sfc_flx%data_surfRelax_Temp_acc     = p_sfc_flx%data_surfRelax_Temp_acc        /REAL(nsteps_since_last_output,wp)
-          p_sfc_flx%topBoundCond_Temp_vdiff_acc = p_sfc_flx%topBoundCond_Temp_vdiff_acc    /REAL(nsteps_since_last_output,wp)
-        ENDIF
-        IF(no_tracer>1)THEN
-          p_sfc_flx%topBoundCond_Salt_vdiff_acc = p_sfc_flx%topBoundCond_Salt_vdiff_acc    /REAL(nsteps_since_last_output,wp)
-        ENDIF
-      ENDIF ! iforc_oce > No_Forcing
+      IF(no_tracer>0)THEN
+!ICON_OMP_WORKSHARE
+        p_sfc_flx%data_surfRelax_Temp_acc     = p_sfc_flx%data_surfRelax_Temp_acc        /REAL(nsteps_since_last_output,wp)
+        p_sfc_flx%topBoundCond_Temp_vdiff_acc = p_sfc_flx%topBoundCond_Temp_vdiff_acc    /REAL(nsteps_since_last_output,wp)
+!ICON_OMP_END_WORKSHARE
+      ENDIF
+      IF(no_tracer>1)THEN
+!ICON_OMP_WORKSHARE
+        p_sfc_flx%topBoundCond_Salt_vdiff_acc = p_sfc_flx%topBoundCond_Salt_vdiff_acc    /REAL(nsteps_since_last_output,wp)
+!ICON_OMP_END_WORKSHARE
+      ENDIF
+    ENDIF ! iforc_oce > No_Forcing
+!ICON_OMP_END_PARALLEL
       
   END SUBROUTINE compute_mean_ocean_statistics
   !---------------------------------------------------------------------
@@ -240,11 +248,13 @@ CONTAINS
     IF (PRESENT(nsteps_since_last_output)) nsteps_since_last_output        = 0
     
     p_acc%h                         = 0.0_wp
+    p_acc%h_sqr                     = 0.0_wp
     p_acc%u                         = 0.0_wp
     p_acc%v                         = 0.0_wp
     p_acc%rhopot                    = 0.0_wp
     p_acc%u_vint                    = 0.0_wp
     p_acc%v_vint                    = 0.0_wp
+    p_acc%edgeFlux_total                   = 0.0_wp
     p_acc%w                         = 0.0_wp
     p_acc%div_mass_flx_c            = 0.0_wp
     p_acc%rho                       = 0.0_wp

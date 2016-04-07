@@ -66,7 +66,24 @@
 !!
 MODULE mo_name_list_output_zaxes
 
-  USE mo_cdi_constants          ! We need all
+  USE mo_cdi,                               ONLY: CDI_UNDEFID, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_GENERIC, ZAXIS_SURFACE, &
+                                                & ZAXIS_ISENTROPIC, ZAXIS_ALTITUDE, ZAXIS_PRESSURE, ZAXIS_CLOUD_BASE, &
+                                                & ZAXIS_CLOUD_TOP, ZAXIS_DEPTH_BELOW_LAND, ZAXIS_HEIGHT, ZAXIS_HYBRID, &
+                                                & ZAXIS_HYBRID_HALF, ZAXIS_ISOTHERM_ZERO, ZAXIS_LAKE_BOTTOM, ZAXIS_MEANSEA, &
+                                                & ZAXIS_MIX_LAYER, ZAXIS_REFERENCE, ZAXIS_SEDIMENT_BOTTOM_TW, ZAXIS_SNOW, &
+                                                & ZAXIS_ATMOSPHERE,  &
+                                                & ZAXIS_TOA, zaxisCreate, zaxisDefNumber, zaxisDefUUID, zaxisDefLevels, &
+                                                & zaxisDefLbounds, zaxisDefUbounds, zaxisDefVct, zaxisDefUnits, zaxisDefNlevRef
+  USE mo_cdi_constants,                     ONLY: ZA_depth_below_sea, ZA_depth_below_sea_half, ZA_GENERIC_ICE, ZA_surface, &
+                                                & ZA_isentropic, ZA_altitude, ZA_pressure, ZA_cloud_base, ZA_cloud_top, &
+                                                & ZA_depth_below_land, ZA_depth_below_land_p1, ZA_depth_runoff_g, &
+                                                & ZA_depth_runoff_s, ZA_height_10m, ZA_height_2m, ZA_hybrid, ZA_hybrid_half, &
+                                                & ZA_hybrid_half_hhl, ZA_isotherm_zero, ZA_lake_bottom, ZA_lake_bottom_half, &
+                                                & ZA_meansea, ZA_mix_layer, ZA_pressure_0, ZA_pressure_400, ZA_pressure_800, &
+                                                & ZA_ATMOSPHERE, ZA_PRES_FL_SFC_200, ZA_PRES_FL_200_350, ZA_PRES_FL_350_550,      &
+                                                & ZA_PRES_FL_SFC_100, ZA_PRES_FL_100_245, ZA_PRES_FL_245_390, ZA_PRES_FL_390_530, &
+                                                & ZA_reference, ZA_reference_half, ZA_reference_half_hhl, &
+                                                & ZA_sediment_bottom_tw_half, ZA_snow, ZA_snow_half, ZA_toa
   USE mo_kind,                              ONLY: wp, dp
   USE mo_impl_constants,                    ONLY: zml_soil, SUCCESS
   USE mo_var_list_element,                  ONLY: level_type_ml, level_type_pl, level_type_hl,    &
@@ -164,7 +181,7 @@ CONTAINS
     CALL define_single_level_axis(of, ZA_height_10m, ZAXIS_HEIGHT, opt_level_value=10._dp)
 
     ! Top of atmosphere
-    CALL define_single_level_axis(of, ZA_toa, ZAXIS_TOA, opt_level_value=1._dp)
+    CALL define_single_level_axis(of, ZA_toa, ZAXIS_TOA)
 
     ! Bottom of sediment layer penetrated by thermal wave (interface, i.e. only typeOfFirstFixedSurface)
     CALL define_single_level_axis(of, ZA_sediment_bottom_tw_half, ZAXIS_SEDIMENT_BOTTOM_TW, opt_unit="m")
@@ -197,12 +214,23 @@ CONTAINS
     ! Specific vertical axis for Lake-model ------------------------------------------------
     ! Lake bottom (we define it as a layer in order to be able to re-set
     ! either the first- or secondFixedSurfaces if necessary)
-    CALL define_single_layer_axis(of, ZA_lake_bottom, ZAXIS_LAKE_BOTTOM, 1._dp, 0._dp, "m")
+    CALL define_single_layer_axis(of, ZA_lake_bottom, ZAXIS_LAKE_BOTTOM, 0._dp, 0._dp, "m")
 
     ! Mixing layer (we define it as a layer in order to be able to re-set
     ! either the first- or secondFixedSurfaces if necessary)
     CALL define_single_layer_axis(of, ZA_mix_layer, ZAXIS_MIX_LAYER, 1._dp, 0._dp, "m")
 
+    ! Volcanic ash products - Maximum total mass concentration in flight level range
+    !                         defined by pressure layers
+    CALL define_single_layer_axis(of, ZA_PRES_FL_SFC_200, ZAXIS_PRESSURE, 465.00_dp, 1013.25_dp, "hPa")
+    CALL define_single_layer_axis(of, ZA_PRES_FL_200_350, ZAXIS_PRESSURE, 240.00_dp,  465.00_dp, "hPa")
+    CALL define_single_layer_axis(of, ZA_PRES_FL_350_550, ZAXIS_PRESSURE,  91.00_dp,  240.00_dp, "hPa")
+    CALL define_single_layer_axis(of, ZA_PRES_FL_SFC_100, ZAXIS_PRESSURE, 700.00_dp, 1013.25_dp, "hPa")
+    CALL define_single_layer_axis(of, ZA_PRES_FL_100_245, ZAXIS_PRESSURE, 385.00_dp,  700.00_dp, "hPa")
+    CALL define_single_layer_axis(of, ZA_PRES_FL_245_390, ZAXIS_PRESSURE, 200.00_dp,  385.00_dp, "hPa")
+    CALL define_single_layer_axis(of, ZA_PRES_FL_390_530, ZAXIS_PRESSURE, 100.00_dp,  200.00_dp, "hPa")
+    ! Volcanic ash products - Colummn integrated total mass concentration (entire atmosphere)
+    CALL define_single_level_axis(of, ZA_ATMOSPHERE, ZAXIS_ATMOSPHERE)
 
     ! --------------------------------------------------------------------------------------
     ! Definitions for reference grids (ZAXIS_REFERENCE) ------------------------------------

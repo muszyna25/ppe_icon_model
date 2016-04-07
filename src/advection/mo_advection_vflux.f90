@@ -168,7 +168,7 @@ CONTAINS
     LOGICAL, INTENT(IN) ::   &      !< determines if vertical CFL number shall be printed
       &  lprint_cfl                 !< in routine upwind_vflux_ppm_cfl
 
-    REAL(wp), INTENT(OUT) :: &      !< variable in which the upwind flux is stored
+    REAL(wp), INTENT(INOUT) :: &      !< variable in which the upwind flux is stored
       &  p_upflux(:,:,:,:)          !< dim: (nproma,nlevp1,nblks_c,ntracer)
 
     REAL(wp), INTENT(IN), OPTIONAL :: & !< vertical tracer flux at upper boundary 
@@ -387,7 +387,7 @@ CONTAINS
     REAL(wp), INTENT(IN) ::   &   !< contravariant vertical mass flux
       &  p_mflx_contra_v(:,:,:)   !< dim: (nproma,nlevp1,nblks_c)
 
-    REAL(wp), INTENT(OUT) ::  &   !< vertical tracer flux at half levels
+    REAL(wp), INTENT(INOUT) ::  &   !< vertical tracer flux at half levels
       &  p_upflux(:,:,:)          !< dim: (nproma,nlevp1,nblks_c)
 
     REAL(wp), INTENT(IN), OPTIONAL :: & !< vertical tracer flux at upper boundary 
@@ -524,6 +524,7 @@ CONTAINS
   ! !LITERATURE
   ! - Colella and Woodward (1984), JCP, 54, 174-201
   ! - Carpenter et al. (1989), MWR, 118, 586-612
+  ! - Lin et al (1994), MWR, 122, 1575-1593 (slope limiter)
   ! - Lin and Rood (1996), MWR, 124, 2046-2070
   !
   SUBROUTINE upwind_vflux_ppm( p_patch, p_cc, p_iubc_adv, p_mflx_contra_v,  &
@@ -556,7 +557,7 @@ CONTAINS
     REAL(wp), INTENT(IN) ::  &    !< layer thickness at cell center at time n
       &  p_cellhgt_mc_now(:,:,:)  !< dim: (nproma,nlev,nblks_c)
 
-    REAL(wp), INTENT(OUT) :: &    !< output field, containing the tracer mass flux
+    REAL(wp), INTENT(INOUT) :: &    !< output field, containing the tracer mass flux
       &  p_upflux(:,:,:)          !< or the reconstructed edge value
                                   !< dim: (nproma,nlevp1,nblks_c)
 
@@ -609,7 +610,8 @@ CONTAINS
     REAL(wp) ::  &                             !< necessary, to make this routine
      &  zparent_topflx(nproma,p_patch%nblks_c) !< compatible to the hydrost. core
 
-    REAL(wp) :: z_slope_u, z_slope_l   !< one-sided slopes
+    REAL(wp) :: p_cc_min, p_cc_max       !< 3-point max/min values
+
     REAL(wp) :: z_delta_m, z_delta_p   !< difference between lower and upper face value
                                        !< for weta >0 and weta <0
     REAL(wp) :: z_a11, z_a12           !< 1/6 * a6,i (see Colella and Woodward (1984))
@@ -694,7 +696,7 @@ CONTAINS
     !
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,ikm1,z_weta_dt,ikp1_ic,ikp1, &
-!$OMP            z_slope_u,z_slope_l,ikp2) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            p_cc_min,p_cc_max,ikp2) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
@@ -743,30 +745,25 @@ CONTAINS
 
         DO jc = i_startidx, i_endidx
 
-          z_slope_u = 2._wp * (p_cc(jc,jk,jb) - p_cc(jc,ikm1,jb))
-          z_slope_l = 2._wp * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb))
+          z_slope(jc,jk,jb) = ( p_cellhgt_mc_now(jc,jk,jb)                             &
+            &  / (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)            &
+            &  + p_cellhgt_mc_now(jc,ikp1,jb)) )                                       &
+            &  * ( (2._wp * p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)) &
+            &  / (p_cellhgt_mc_now(jc,ikp1,jb) + p_cellhgt_mc_now(jc,jk,jb))           &
+            &  * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb))                                   &
+            &  + (p_cellhgt_mc_now(jc,jk,jb) + 2._wp * p_cellhgt_mc_now(jc,ikp1,jb))   &
+            &  / (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb))           &
+            &  * (p_cc(jc,jk,jb) - p_cc(jc,ikm1,jb)) )
 
-          IF ((z_slope_u * z_slope_l) .GT. 0._wp) THEN
 
-            z_slope(jc,jk,jb) = ( p_cellhgt_mc_now(jc,jk,jb)                             &
-              &  / (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)            &
-              &  + p_cellhgt_mc_now(jc,ikp1,jb)) )                                       &
-              &  * ( (2._wp * p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)) &
-              &  / (p_cellhgt_mc_now(jc,ikp1,jb) + p_cellhgt_mc_now(jc,jk,jb))           &
-              &  * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb))                                   &
-              &  + (p_cellhgt_mc_now(jc,jk,jb) + 2._wp * p_cellhgt_mc_now(jc,ikp1,jb))   &
-              &  / (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb))           &
-              &  * (p_cc(jc,jk,jb) - p_cc(jc,ikm1,jb)) )
-
-            z_slope(jc,jk,jb) = SIGN(                                            &
-              &  MIN( ABS(z_slope(jc,jk,jb)), ABS(z_slope_u), ABS(z_slope_l) ),  &
-              &    z_slope(jc,jk,jb))
-
-          ELSE
-
-            z_slope(jc,jk,jb) = 0._wp
-
-          ENDIF
+          ! equivalent formulation of Colella and Woodward (1984) slope limiter 
+          ! following Lin et al (1994).
+          p_cc_min = MIN(p_cc(jc,ikm1,jb),p_cc(jc,jk,jb),p_cc(jc,ikp1,jb))
+          p_cc_max = MAX(p_cc(jc,ikm1,jb),p_cc(jc,jk,jb),p_cc(jc,ikp1,jb))
+          z_slope(jc,jk,jb) = SIGN(                                            &
+            &  MIN( ABS(z_slope(jc,jk,jb)), 2._wp*(p_cc(jc,jk,jb)-p_cc_min),   &
+            &                               2._wp*(p_cc_max-p_cc(jc,jk,jb)) ), &
+            &    z_slope(jc,jk,jb))
 
         END DO ! end loop over cells
 
@@ -1071,6 +1068,7 @@ CONTAINS
   ! !LITERATURE
   ! - Colella and Woodward (1984), JCP, 54, 174-201
   ! - Carpenter et al. (1989), MWR, 118, 586-612
+  ! - Lin et al (1994), MWR, 122, 1575-1593 (slope limiter)
   ! - Lin and Rood (1996), MWR, 124, 2046-2070 (CFL-independent version)
   !
   SUBROUTINE upwind_vflux_ppm_cfl( p_patch, p_cc, p_iubc_adv, p_mflx_contra_v, &
@@ -1118,7 +1116,7 @@ CONTAINS
     LOGICAL, INTENT(IN) ::   &    !< determines if vertical CFL number shall be written out
       &  lprint_cfl
 
-    REAL(wp), INTENT(OUT) :: &    !< output field, containing the tracer mass flux
+    REAL(wp), INTENT(INOUT) :: &    !< output field, containing the tracer mass flux
       &  p_upflux(:,:,:)          !< or the reconstructed edge value
                                   !< dim: (nproma,nlevp1,nblks_c)
 
@@ -1165,15 +1163,15 @@ CONTAINS
     REAL(wp) :: &                 !< monotonized slope
       &  z_slope(nproma,p_patch%nlev)
 
-    REAL(wp) :: z_slope_u, z_slope_l     !< one-sided slopes
+    REAL(wp) :: p_cc_min, p_cc_max       !< 3-point max/min values
 
     REAL(wp) :: z_delta_p, z_delta_m     !< difference between upper and lower face value
                                          !< for w>0 and w<0
     REAL(wp) :: z_a11, z_a12             !< 1/6 * a6,i (see Colella and Woodward (1984))
 
     INTEGER  :: jc, jk, jb               !< index of cell, vertical level and block
-    INTEGER  :: ikm1, ikp1, ikp1_ic, &   !< vertical level minus and plus one, plus two
-      &  ikp2
+    INTEGER  :: ikm1, ikp1, ikp2         !< vertical level minus and plus one, plus two
+
     INTEGER  :: slev, slevp1             !< vertical start level and start level +1
     INTEGER  :: slev_ti, slevp1_ti       !< vertical start level (+1)  (tracer independent part)
     INTEGER  :: nlev, nlevp1             !< number of full and half levels
@@ -1244,11 +1242,12 @@ CONTAINS
       &  z_aux_p(nproma), z_aux_m(nproma)
 
     REAL(wp) ::   &                      !< auxiliaries for optimization
-      &   zfac, zfac_n(nproma), zden1, zden2, zden3, zden4
+      &   zfac, zfac_n(nproma), zgeo1, zgeo2, zgeo3, zgeo4
 
     REAL(wp) :: coeff_grid              !< parameter which is used to make the vertical 
                                         !< advection scheme applicable to a height      
                                         !< based coordinate system (coeff_grid=-1)
+
     !-----------------------------------------------------------------------
 
     ! get patch ID
@@ -1364,9 +1363,9 @@ CONTAINS
 
 !$OMP DO PRIVATE(jb,jk,jc,ik,ikm1,i_startidx,i_endidx,z_dummy,nlist_p,nlist_m,        &
 !$OMP            counter_p,counter_m,counter_jip,counter_jim,max_cfl,                 &
-!$OMP            z_aux_p,z_aux_m,ikp1_ic,ikp1,z_slope_u,z_slope_l,ikp2,nlist,ji_p,    &
+!$OMP            z_aux_p,z_aux_m,ikp1,p_cc_min,p_cc_max,ikp2,nlist,ji_p,              &
 !$OMP            ji_m,jk_shift,z_iflx_m,z_iflx_p,z_delta_m,z_delta_p,z_a11,z_a12,     &
-!$OMP            zfac, zfac_n, zden1, zden2, zden3, zden4,                            &
+!$OMP            zfac, zfac_n, zgeo1, zgeo2, zgeo3, zgeo4,                            &
 !$OMP            z_lext_1,z_lext_2,z_slope,z_face,z_face_up,z_face_low,z_flx_frac_high) ICON_OMP_GUIDED_SCHEDULE
   DO jb = i_startblk, i_endblk
 
@@ -1568,29 +1567,22 @@ CONTAINS
     ! 2. Compute monotonized slope
     !
 
+      ! Initialize z_slope and zfac_n for jk=slev
       z_slope(i_startidx:i_endidx,slev) = 0._wp
+      zfac_n(i_startidx:i_endidx) = 1._wp/(p_cellhgt_mc_now(i_startidx:i_endidx,slevp1,jb) &
+        &                         + p_cellhgt_mc_now(i_startidx:i_endidx,slev,jb))         &
+        &                         * (p_cc(i_startidx:i_endidx,slevp1,jb) - p_cc(i_startidx:i_endidx,slev,jb))
 
       DO jk = slevp1, nlev
 
         ! index of top half level
-        ikm1    = jk - 1
+        ikm1    = jk-1
         ! index of bottom half level
-        ikp1_ic = jk + 1
-        ikp1    = MIN( ikp1_ic, nlev )
-
-        IF (jk == slevp1) THEN
-          DO jc = i_startidx, i_endidx
-            zfac_n(jc) = 1._wp / (p_cellhgt_mc_now(jc,jk,jb) + p_cellhgt_mc_now(jc,ikm1,jb))  &
-            &  * (p_cc(jc,jk,jb) - p_cc(jc,ikm1,jb))
-          ENDDO
-        ENDIF
+        ikp1    = MIN( jk+1, nlev )
 
         DO jc = i_startidx, i_endidx
           zfac = 1._wp / (p_cellhgt_mc_now(jc,ikp1,jb) + p_cellhgt_mc_now(jc,jk,jb)) &
             &  * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb))
-
-          z_slope_u = 2._wp * (p_cc(jc,jk,jb) - p_cc(jc,ikm1,jb))
-          z_slope_l = 2._wp * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb))
 
           z_slope(jc,jk) = ( p_cellhgt_mc_now(jc,jk,jb)                                          &
             &  / (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)                      &
@@ -1600,15 +1592,20 @@ CONTAINS
 
           zfac_n(jc) = zfac
 
+          ! equivalent formulation of Colella and Woodward (1984) slope limiter 
+          ! following Lin et al (1994).
+          p_cc_min = MIN(p_cc(jc,ikm1,jb),p_cc(jc,jk,jb),p_cc(jc,ikp1,jb))
+          p_cc_max = MAX(p_cc(jc,ikm1,jb),p_cc(jc,jk,jb),p_cc(jc,ikp1,jb))
           z_slope(jc,jk) = SIGN(                                            &
-            &  MIN( ABS(z_slope(jc,jk)), ABS(z_slope_u), ABS(z_slope_l) ),  &
+            &  MIN( ABS(z_slope(jc,jk)), 2._wp*(p_cc(jc,jk,jb)-p_cc_min),   &
+            &                            2._wp*(p_cc_max-p_cc(jc,jk,jb)) ), &
             &    z_slope(jc,jk))
-
-          IF ((z_slope_u * z_slope_l) <= 0._wp)  z_slope(jc,jk) = 0._wp
            
         END DO
 
       END DO
+
+
 
 
       !
@@ -1654,26 +1651,28 @@ CONTAINS
         ikp2 = jk + 2
 
         DO jc = i_startidx, i_endidx
-          zden1 = 1._wp / (p_cellhgt_mc_now(jc,jk,jb) + p_cellhgt_mc_now(jc,ikp1,jb))
-          zden2 = 1._wp / (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb) &
-            &  + p_cellhgt_mc_now(jc,ikp1,jb) + p_cellhgt_mc_now(jc,ikp2,jb))
-          zden3 = 1._wp / (2._wp*p_cellhgt_mc_now(jc,jk,jb) + p_cellhgt_mc_now(jc,ikp1,jb))
-          zden4 = 1._wp / (2._wp*p_cellhgt_mc_now(jc,ikp1,jb) + p_cellhgt_mc_now(jc,jk,jb))
+          zgeo1 = p_cellhgt_mc_now(jc,jk,jb)                                         &
+            &   / (p_cellhgt_mc_now(jc,jk,jb) + p_cellhgt_mc_now(jc,ikp1,jb))
+          zgeo2 = 1._wp / (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb) &
+            &   + p_cellhgt_mc_now(jc,ikp1,jb) + p_cellhgt_mc_now(jc,ikp2,jb))
+          zgeo3 = (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb))        &
+            &   / (2._wp*p_cellhgt_mc_now(jc,jk,jb) + p_cellhgt_mc_now(jc,ikp1,jb))
+          zgeo4 = (p_cellhgt_mc_now(jc,ikp2,jb) + p_cellhgt_mc_now(jc,ikp1,jb))      &
+            &   / (2._wp*p_cellhgt_mc_now(jc,ikp1,jb) + p_cellhgt_mc_now(jc,jk,jb))
 
-          z_face(jc,ikp1) = p_cc(jc,jk,jb) + (p_cellhgt_mc_now(jc,jk,jb) * zden1)              &
-            &  * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb)) + zden2                                   &
-            &  * ( (2._wp * p_cellhgt_mc_now(jc,ikp1,jb) * p_cellhgt_mc_now(jc,jk,jb) * zden1) &
-            &  * ( (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)) * zden3         &
-            &  - (p_cellhgt_mc_now(jc,ikp2,jb) + p_cellhgt_mc_now(jc,ikp1,jb)) * zden4 )       &
-            &  * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb)) - p_cellhgt_mc_now(jc,jk,jb)              &
-            &  * z_slope(jc,ikp1) * (p_cellhgt_mc_now(jc,ikm1,jb)                              &
-            &  + p_cellhgt_mc_now(jc,jk,jb)) * zden3 + p_cellhgt_mc_now(jc,ikp1,jb)            &
-            &  * z_slope(jc,jk) * (p_cellhgt_mc_now(jc,ikp1,jb)                                &
-            &  + p_cellhgt_mc_now(jc,ikp2,jb)) * zden4 )
+
+          z_face(jc,ikp1) = p_cc(jc,jk,jb)                                  &
+            &  + zgeo1 * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb))                &
+            &  + zgeo2 * ( (2._wp * p_cellhgt_mc_now(jc,ikp1,jb) * zgeo1)   &
+            &  * ( zgeo3 - zgeo4 ) * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb))    &
+            &  - zgeo3 * p_cellhgt_mc_now(jc,jk,jb)   * z_slope(jc,ikp1)    &
+            &  + zgeo4 * p_cellhgt_mc_now(jc,ikp1,jb) * z_slope(jc,jk) )
 
         END DO
 
       END DO
+
+
 
       !
       ! 4. Limitation of first guess parabola (which is based on z_face)

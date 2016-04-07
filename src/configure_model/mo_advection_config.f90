@@ -30,6 +30,10 @@ MODULE mo_advection_config
     &                              FFSL_HYB_MCYCL, ippm_vcfl, ippm_v,      &
     &                              ino_flx, izero_grad, iparent_flx, inwp, &
     &                              TRACER_ONLY
+  USE mo_exception,          ONLY: message, message_text
+  USE mo_expression,         ONLY: expression
+  USE mo_linked_list,        ONLY: t_var_list
+  USE mo_var_list,           ONLY: fget_var_list_element_r3d
 
   IMPLICIT NONE
   PUBLIC
@@ -132,6 +136,12 @@ MODULE mo_advection_config
     REAL(wp) :: upstr_beta_adv      !< later, it should be combined with         
                                     !< upstr_beta in non-hydrostatic namelist
 
+    INTEGER :: npassive_tracer      !< number of additional passive tracers, in addition to
+                                    !< microphysical- and ART tracers. 
+
+    CHARACTER(len=MAX_CHAR_LENGTH) :: &!< Comma separated list of initialization formulae 
+      &  init_formula                  !< for passive tracers.
+
 
     ! derived variables
 
@@ -146,6 +156,9 @@ MODULE mo_advection_config
                                                                                  
     INTEGER ::  &                !< selects vertical start level for each patch  
       &  iadv_slev(MAX_NTRACER)  !< and each tracer.
+
+    INTEGER :: kstart_aero(2), & !< start and end levels for vertical flux averaging 
+               kend_aero(2)      !< for advection of 2D (climatological) aerosol fields
 
     INTEGER ::  &                !< vertical end level down to which qv is 
       &  iadv_qvsubstep_elev     !< advected with internal substepping (to 
@@ -229,7 +242,7 @@ CONTAINS
   SUBROUTINE configure_advection( jg, num_lev, num_lev_1, iequations, iforcing,        &
     &                            iqc, iqt,                                             &
     &                            kstart_moist, kend_qvsubstep, lvert_nest, l_open_ubc, &
-    &                            ntracer, idiv_method, itime_scheme)
+    &                            ntracer, idiv_method, itime_scheme, tracer_list)
   !
     INTEGER, INTENT(IN) :: jg           !< patch 
     INTEGER, INTENT(IN) :: num_lev      !< number of vertical levels
@@ -244,11 +257,13 @@ CONTAINS
     INTEGER, INTENT(IN) :: itime_scheme
     LOGICAL, INTENT(IN) :: lvert_nest
     LOGICAL, INTENT(IN) :: l_open_ubc
+    TYPE(t_var_list), OPTIONAL, INTENT(IN) :: tracer_list(:)
 
     INTEGER :: jt          !< tracer loop index
     INTEGER :: jm          !< loop index for shape functions
     INTEGER :: ivadv_tracer(MAX_NTRACER)
     INTEGER :: ihadv_tracer(MAX_NTRACER)
+
     !-----------------------------------------------------------------------
 
     !
@@ -335,8 +350,11 @@ CONTAINS
       advection_config(jg)%iubc_adv = ino_flx    ! no flux ubc
     ENDIF
 
-
-
+    ! dummy initialization of index fields for transport of 2D aerosol fields
+    DO jt = 1, 2
+      advection_config(:)%kstart_aero(jt) = 0
+      advection_config(:)%kend_aero(jt) = 0
+    ENDDO
 
     ! to save some paperwork
     ivadv_tracer(:) = advection_config(1)%ivadv_tracer(:)
@@ -632,7 +650,82 @@ CONTAINS
       wgt_eta(4)  = 1._wp
     END IF
 
+
+    ! initialize passive tracers, if required
+    !
+    IF ( PRESENT(tracer_list) ) THEN
+      IF (advection_config(jg)%npassive_tracer > 0) THEN 
+        CALL init_passive_tracer (tracer_list, advection_config(jg), ntl=1)
+      ENDIF
+    ENDIF
+
+
   END SUBROUTINE configure_advection
 
+
+
+  !>
+  !! Initialize passive tracers
+  !!
+  !! Additional passive tracers are initialized by applying 
+  !! the initialization formulae provided via Namelist parameter 
+  !! 'init_formula'.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2015-05-11)
+  !!
+  SUBROUTINE init_passive_tracer (tracer_list, advection_config, ntl)
+
+    TYPE(t_var_list)        , INTENT(IN) :: tracer_list(:)
+    TYPE(t_advection_config), INTENT(IN) :: advection_config ! config state
+    INTEGER                 , INTENT(IN) :: ntl              ! time level
+
+    ! local variables
+    !
+    INTEGER :: ipassive                           ! Loop counter
+    INTEGER :: start_pos
+    INTEGER :: end_pos
+    INTEGER :: pos
+    TYPE(expression) :: formula
+    CHARACTER(LEN=4) :: passive_tracer_id         ! tracer ID string
+    CHARACTER(LEN=4) :: str_ntl                   ! time level string
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: tracer_name ! tracer name string
+
+    !-------------------------------------------------------------------------------
+
+    ! init
+    start_pos= 1
+    end_pos  = 0
+
+    ! loop over all additional passive tracers
+    !
+    DO ipassive=1,advection_config%npassive_tracer
+      pos = INDEX(advection_config%init_formula(start_pos:), ",")
+      IF (pos == 0) THEN
+        end_pos = MAX_CHAR_LENGTH
+      ELSE
+        end_pos = end_pos + pos 
+      ENDIF 
+      formula = expression(TRIM(ADJUSTL(advection_config%init_formula(start_pos:end_pos-1))))
+
+      ! generate tracer name
+      WRITE(passive_tracer_id,'(I2)') ipassive
+      WRITE(str_ntl,'(I2)') ntl
+      tracer_name = 'Qpassive_'//TRIM(ADJUSTL(passive_tracer_id))//'.TL'
+
+
+      WRITE(message_text,'(2a)') 'Initialize additional passive tracer: ',TRIM(tracer_name)
+      CALL message('',message_text)
+
+      CALL formula%evaluate( fget_var_list_element_r3d (tracer_list(ntl), &
+        &                    TRIM(tracer_name)//TRIM(ADJUSTL(str_ntl))) )
+      CALL formula%finalize()
+
+
+      start_pos=end_pos+1
+
+    ENDDO
+
+  END SUBROUTINE init_passive_tracer
 
 END MODULE mo_advection_config

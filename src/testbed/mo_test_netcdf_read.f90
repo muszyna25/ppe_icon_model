@@ -26,7 +26,7 @@ MODULE mo_test_netcdf_read
   USE mo_model_domain,        ONLY: t_patch, p_patch
   USE mo_atmo_model,          ONLY: construct_atmo_model, destruct_atmo_model
   USE mo_atmo_hydrostatic,    ONLY: construct_atmo_hydrostatic, destruct_atmo_hydrostatic
-  USE mo_read_interface,      ONLY: openInputFile, closeFile, onCells, nf, &
+  USE mo_read_interface,      ONLY: openInputFile, closeFile, on_cells, nf, &
     &                               t_stream_id, read_1D, read_2D_time, &
     &                               read_3D_time, read_netcdf_broadcast_method
 
@@ -101,7 +101,7 @@ CONTAINS
     !-----------------------------------------------------
     ! example with non-allocated arrays
     ! mote that allocation time dim will be 1:12, as in the file
-    CALL read_3D_time(stream_id=stream_id, location=onCells, &
+    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
       &               variable_name="aod", return_pointer=aod)
 
     !-----------------------------------------------------
@@ -109,16 +109,16 @@ CONTAINS
     lnwl_size = SIZE(lnwl_array, 1)
     ALLOCATE(asy(nproma, lnwl_size, patch%nblks_c, 0:13 ))
     ! read previous month, should be filled form the previous read though
-    CALL read_3D_time(stream_id=stream_id, location=onCells, &
+    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
       &               variable_name="asy", fill_array=asy(:,:,:,0:0), &
       &               start_timestep=12, end_timestep=12, &
       &               levelsDimName = "lnwl") ! optional, just for checking
     ! read current year
-    CALL read_3D_time(stream_id=stream_id, location=onCells, &
+    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
       &               variable_name="asy", fill_array=asy(:,:,:,1:12), &
       &               levelsDimName="lnwl") ! optional, just for checking
     ! read next month
-    CALL read_3D_time(stream_id=stream_id, location=onCells, &
+    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
       &               variable_name="asy", fill_array=asy(:,:,:,13:13), &
       &               start_timestep=1, end_timestep=1)
 
@@ -131,7 +131,7 @@ CONTAINS
     ALLOCATE(z_aer_fine_mo(nproma, levels, patch%nblks_c, 0:13 ))
     ! read previous month, should be filled form the previous read though
     ! read current year
-    CALL read_3D_time(stream_id=stream_id, location=onCells, &
+    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
       &               variable_name="z_aer_fine_mo", &
       &               fill_array=z_aer_fine_mo(:,:,:,1:12), &
       &               levelsDimName = "lev") ! optional, just for checking
@@ -183,7 +183,7 @@ CONTAINS
 
     !---------------------------------------------------------------------
     ! will read all timesteps in the file
-    CALL read_2D_time(stream_id=stream_id, location=onCells, &
+    CALL read_2D_time(stream_id=stream_id, location=on_cells, &
       &               variable_name=TRIM(testfile_2D_time(2)), &
       &               return_pointer=fill_2D_time_array)
 
@@ -197,15 +197,15 @@ CONTAINS
     ! Example of reading selective timesteps with explicit shape
     ! say 13 months
     ALLOCATE(fill_2D_time_array(nproma, patch%nblks_c, 0:13 ))
-    CALL read_2D_time(stream_id=stream_id, location=onCells, &
+    CALL read_2D_time(stream_id=stream_id, location=on_cells, &
       &               variable_name=TRIM(testfile_2D_time(2)), &
       &               fill_array=fill_2D_time_array(:,:,0:), &
       &               start_timestep=12, end_timestep=12)
-    CALL read_2D_time(stream_id=stream_id, location=onCells, &
+    CALL read_2D_time(stream_id=stream_id, location=on_cells, &
       &               variable_name=TRIM(testfile_2D_time(2)), &
       &               fill_array=fill_2D_time_array(:,:,1:), &
       &               start_timestep=1,  end_timestep=12)
-    CALL read_2D_time(stream_id=stream_id, location=onCells, &
+    CALL read_2D_time(stream_id=stream_id, location=on_cells, &
       &               variable_name=TRIM(testfile_2D_time(2)), &
       &               fill_array=fill_2D_time_array(:,:,13:), &
       &               start_timestep=1, end_timestep=1)
@@ -223,7 +223,7 @@ CONTAINS
     CALL message(method_name,   testfile_3D_time(1))
     stream_id = openInputFile(testfile_3D_time(1), patch, &
       &                       read_netcdf_broadcast_method)
-    CALL read_3D_time(stream_id=stream_id, location=onCells, &
+    CALL read_3D_time(stream_id=stream_id, location=on_cells, &
       &               variable_name=TRIM(testfile_3D_time(2)), &
       &               return_pointer=fill_3D_time_array)
     !---------------------------------------------------------------------
@@ -358,9 +358,9 @@ CONTAINS
       &                         my_process_is_mpi_workroot()), &
       &                   start_timestep:end_timestep))
     DO timestep = start_timestep, end_timestep
-      CALL exchange_data(write_array(:,:,timestep), &
-        &                output_array(:,timestep), &
-        &                patch%comm_pat_gather_c)
+      CALL exchange_data(in_array=write_array(:,:,timestep), &
+        &                out_array=output_array(:,timestep), &
+        &                gather_pattern=patch%comm_pat_gather_c)
     END DO
 
     !----------------------------------------------------------------------
@@ -432,9 +432,9 @@ CONTAINS
       &                         my_process_is_mpi_workroot()), &
       &                   nlev, start_timestep:end_timestep))
     DO timestep = start_timestep, end_timestep
-      CALL exchange_data(write_array(:,:,:, timestep), &
-        &                output_array(:, :, timestep), &
-        &                patch%comm_pat_gather_c)
+      CALL exchange_data(in_array=write_array(:,:,:, timestep), &
+        &                out_array=output_array(:, :, timestep), &
+        &                gather_pattern=patch%comm_pat_gather_c)
     END DO
 
     !----------------------------------------------------------------------

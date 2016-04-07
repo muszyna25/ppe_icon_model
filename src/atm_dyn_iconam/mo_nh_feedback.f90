@@ -36,17 +36,18 @@ MODULE mo_nh_feedback
   USE mo_run_config,          ONLY: ltransport, iforcing, msg_level, ntracer
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
   USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlcell_int, min_rledge_int, &
-    &                     min_rlvert_int, MAX_CHAR_LENGTH
+    &                     min_rlvert_int, MAX_CHAR_LENGTH, nclass_aero
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_impl_constants_grf,  ONLY: grf_fbk_start_c, grf_fbk_start_e,          &
     grf_bdywidth_c
   USE mo_communication,       ONLY: exchange_data_mult
-  USE mo_sync,                ONLY: SYNC_C, SYNC_C1, SYNC_E, sync_patch_array, &
+  USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array, &
     global_sum_array3, sync_patch_array_mult
   USE mo_physical_constants,  ONLY: rd, cvd_o_rd, p0ref
-  USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
+  USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_wtr_prog
+  USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, lseaice
-  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
+  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, iprog_aero
 
   IMPLICIT NONE
 
@@ -946,7 +947,7 @@ CONTAINS
   !! Change feedback for cell-based variables from area-weighted averaging
   !! to using fbk_wgt (see above routine)
   !!
-  SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jg, jgp, dt_fbk)
+  SUBROUTINE relax_feedback(p_patch, p_nh_state, p_int_state, p_grf_state, prm_diag, jg, jgp, dt_fbk)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_feedback:relax_feedback'
@@ -955,6 +956,7 @@ CONTAINS
     TYPE(t_nh_state), TARGET, INTENT(INOUT)    ::  p_nh_state(n_dom)
     TYPE(t_int_state),   TARGET, INTENT(IN)    ::  p_int_state(n_dom_start:n_dom)
     TYPE(t_gridref_state), TARGET, INTENT(IN)  ::  p_grf_state(n_dom_start:n_dom)
+    TYPE(t_nwp_phy_diag), TARGET, INTENT(INOUT)::  prm_diag(n_dom)
 
     INTEGER, INTENT(IN) :: jg   ! child grid level
     INTEGER, INTENT(IN) :: jgp  ! parent grid level
@@ -975,6 +977,8 @@ CONTAINS
     TYPE(t_gridref_state), POINTER  :: p_grfp => NULL()
     TYPE(t_patch),      POINTER     :: p_pp => NULL()
     TYPE(t_patch),      POINTER     :: p_pc => NULL()
+    TYPE(t_nwp_phy_diag), POINTER   :: prm_diagp => NULL()
+    TYPE(t_nwp_phy_diag), POINTER   :: prm_diagc => NULL()
 
     ! Indices
     INTEGER :: jb, jc, jk, js, jt, je, jv, i_nchdom, i_chidx,  &
@@ -988,7 +992,7 @@ CONTAINS
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:), TARGET :: feedback_rho, feedback_thv,        &
       feedback_vn, feedback_w
-    REAL(wp), ALLOCATABLE, TARGET :: feedback_rhoqx(:,:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET :: feedback_rhoqx(:,:,:,:), feedback_aero(:,:,:)
 
     ! Note: as w(nlevp1) is diagnostic, it is excluded from feedback
     REAL(wp), DIMENSION(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_c), TARGET :: &
@@ -998,6 +1002,8 @@ CONTAINS
 
     REAL(wp),DIMENSION(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_c,ntracer), TARGET :: &
       parent_rhoqx
+    REAL(wp),DIMENSION(nproma,nclass_aero,p_patch(jgp)%nblks_c) :: parent_aero
+
     REAL(wp), DIMENSION(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_e), TARGET :: &
       parent_vn, diff_vn
 
@@ -1036,6 +1042,8 @@ CONTAINS
     p_gcc            => p_patch(jg)%cells
     p_pc             => p_patch(jg)
     p_int            => p_int_state(jgp)
+    prm_diagp        => prm_diag(jgp)
+    prm_diagc        => prm_diag(jg)
 
     p_grf  => p_grf_state_local_parent(jg)
     p_grfp => p_grf_state(jgp)
@@ -1096,6 +1104,9 @@ CONTAINS
 
     IF(ltransport) &
       ALLOCATE(feedback_rhoqx(nproma, nlev_c, i_startblk:i_endblk, ntracer_fbk))
+
+    IF(ltransport .AND. iprog_aero == 1) &
+      ALLOCATE(feedback_aero(nproma, nclass_aero, i_startblk:i_endblk))
 
     i_startblk = p_gep%start_blk(grf_fbk_start_e,i_chidx)
     i_endblk   = p_gep%end_blk(min_rledge,i_chidx)
@@ -1226,6 +1237,24 @@ CONTAINS
         ENDDO
       ENDIF
 
+      IF (ltransport .AND. iprog_aero == 1) THEN
+#ifdef __LOOP_EXCHANGE
+        DO jc = i_startidx, i_endidx
+!DIR$ IVDEP
+          DO jt = 1, nclass_aero
+#else
+        DO jt = 1, nclass_aero
+          DO jc = i_startidx, i_endidx
+#endif
+            feedback_aero(jc,jt,jb) =                                                            &
+              prm_diagc%aerosol(iccidx(jc,jb,1),jt,iccblk(jc,jb,1))*p_grf%fbk_wgt_bln(jc,jb,1) + &
+              prm_diagc%aerosol(iccidx(jc,jb,2),jt,iccblk(jc,jb,2))*p_grf%fbk_wgt_bln(jc,jb,2) + &
+              prm_diagc%aerosol(iccidx(jc,jb,3),jt,iccblk(jc,jb,3))*p_grf%fbk_wgt_bln(jc,jb,3) + &
+              prm_diagc%aerosol(iccidx(jc,jb,4),jt,iccblk(jc,jb,4))*p_grf%fbk_wgt_bln(jc,jb,4)
+          ENDDO
+        ENDDO
+      ENDIF
+
     ENDDO
 !$OMP END DO
 
@@ -1270,9 +1299,14 @@ CONTAINS
     CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_e_fbk, 1, nlev_c, &
       RECV1=parent_vn, SEND1=feedback_vn )
 
-    IF (ltransport) &
+    IF (ltransport .AND. iprog_aero == 1) THEN
+      CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, ntracer_fbk+1, ntracer_fbk*nlev_c+nclass_aero, &
+        RECV1=parent_aero,     SEND1=feedback_aero,                    &
+        RECV4D=parent_rhoqx(:,:,:,1:ntracer_fbk), SEND4D=feedback_rhoqx)
+    ELSE IF (ltransport) THEN
       CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, ntracer_fbk, ntracer_fbk*nlev_c, &
-      RECV4D=parent_rhoqx(:,:,:,1:ntracer_fbk), SEND4D=feedback_rhoqx)
+        RECV4D=parent_rhoqx(:,:,:,1:ntracer_fbk), SEND4D=feedback_rhoqx)
+    ENDIF
 
     p_fbk_rho => parent_rho
     p_fbk_thv => parent_thv
@@ -1549,6 +1583,19 @@ CONTAINS
         ENDDO
       ENDIF
 
+      IF (ltransport .AND. iprog_aero == 1) THEN
+
+        DO jt = 1, nclass_aero
+          DO jc = i_startidx,i_endidx
+            IF (p_grfp%mask_ovlp_c(jc,jb,i_chidx)) THEN
+              prm_diagp%aerosol(jc,jt,jb) = prm_diagp%aerosol(jc,jt,jb) + relfac *  &
+                (parent_aero(jc,jt,jb) - prm_diagp%aerosol(jc,jt,jb))
+            ENDIF
+          ENDDO
+        ENDDO
+
+      ENDIF
+
       ! Relaxation of dynamical variables
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx,i_endidx
@@ -1589,7 +1636,10 @@ CONTAINS
 
     CALL sync_patch_array(SYNC_E,p_patch(jgp),p_parent_prog%vn)
 
-    IF (ltransport) THEN
+    IF (ltransport .AND. iprog_aero == 1) THEN
+      CALL sync_patch_array_mult(SYNC_C, p_patch(jgp), ntracer_fbk+4, p_parent_prog%rho, p_parent_prog%theta_v, &
+        p_parent_prog%w, prm_diagp%aerosol, f4din=p_parent_prog_rcf%tracer(:,:,:,1:ntracer_fbk))
+    ELSE IF (ltransport) THEN
       CALL sync_patch_array_mult(SYNC_C, p_patch(jgp), ntracer_fbk+3, p_parent_prog%rho, p_parent_prog%theta_v, &
         p_parent_prog%w, f4din=p_parent_prog_rcf%tracer(:,:,:,1:ntracer_fbk))
     ELSE
@@ -1621,6 +1671,7 @@ CONTAINS
 
     DEALLOCATE(feedback_thv,feedback_rho,feedback_w,feedback_vn)
     IF (ltransport) DEALLOCATE(feedback_rhoqx)
+    IF (ltransport .AND. iprog_aero == 1) DEALLOCATE(feedback_aero)
 
   END SUBROUTINE relax_feedback
 

@@ -59,13 +59,14 @@ MODULE mo_advection_stepping
   USE mo_advection_vflux,     ONLY: vert_upwind_flux
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, min_rlcell, &
-    &                               min_rledge, inwp
+    &                               inwp
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_mpi,                 ONLY: my_process_is_mpi_seq
   USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult
   USE mo_advection_config,    ONLY: advection_config
   USE mo_advection_utils,     ONLY: ptr_delp_mc_now, ptr_delp_mc_new
   USE mo_grid_config,         ONLY: l_limited_area
+  USE mo_fortran_tools,       ONLY: negative2zero
 
   IMPLICIT NONE
 
@@ -115,9 +116,9 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2011-02-15)
   !! - new field providing the upper margin tracer flux (optional)
   !! Modification by Daniel Reinert, DWD (2013-05-06)
-  !! - simplification of step_advection and vert_upwind_flux interfaces 
+  !! - simplification of step_advection and vert_upwind_flux interfaces
   !!   after removal of the MUSCL vertical advection scheme
-  !! 
+  !!
   !!
   SUBROUTINE step_advection( p_patch, p_int_state, p_dtime, k_step, p_tracer_now, &
     &                        p_mflx_contra_h, p_vn_contra_traj, p_mflx_contra_v,  &
@@ -128,10 +129,10 @@ CONTAINS
   !
     TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation
       &  p_patch                             !< is performed
-                                             
+
 
     TYPE(t_int_state), TARGET, INTENT(IN) :: & !< interpolation state
-      &  p_int_state                         
+      &  p_int_state
 
     REAL(wp), TARGET, INTENT(IN) ::  &  !< tracer mixing ratios (specific concentrations)
       &  p_tracer_now(:,:,:,:)          !< at current time level n (before transport)
@@ -145,7 +146,7 @@ CONTAINS
 
     REAL(wp), INTENT(IN)  ::         &  !< horizontal velocity component at n+1/2
       &  p_vn_contra_traj(:,:,:)        !< for calculation of backward trajectories
-                                        !< [m/s] 
+                                        !< [m/s]
                                         !< dim: (nproma,nlev,nblks_e)
 
     REAL(wp), INTENT(INOUT)  ::      &  !< vertical mass flux (contravariant)
@@ -160,20 +161,20 @@ CONTAINS
                                         !< dim: (nproma,nlevp1,nblks_c)
 
     REAL(wp), INTENT(IN) ::          &  !< cell height defined at full levels for
-      &  p_cellhgt_mc_now(:,:,:)        !< time step n 
+      &  p_cellhgt_mc_now(:,:,:)        !< time step n
                                         !< NH: \Delta z       [m]
                                         !< HA: \Delta p       [Pa]
                                         !< dim: (nproma,nlev,nblks_c)
 
-    REAL(wp), TARGET, INTENT(IN) ::  &  !< NH: density weighted cell height at full levels 
+    REAL(wp), TARGET, INTENT(IN) ::  &  !< NH: density weighted cell height at full levels
       &  p_delp_mc_new(:,:,:)           !< at n+1 [kg/m**2]
-                                        !< HA: pressure thickness for full levels 
+                                        !< HA: pressure thickness for full levels
                                         !< at n+1 [Pa]
                                         !< dim: (nproma,nlev,nblks_c)
 
     REAL(wp), TARGET, INTENT(IN) ::  &  !< NH: density weighted cell height at full levels
       &  p_delp_mc_now(:,:,:)           !< at time step n [kg/m**2]
-                                        !< HA: pressure thickness for full levels 
+                                        !< HA: pressure thickness for full levels
                                         !< at time step n [Pa]
                                         !< dim: (nproma,nlev,nblks_c)
 
@@ -184,7 +185,7 @@ CONTAINS
 
     REAL(wp), TARGET, INTENT(INOUT) ::  &  !< tracer mixing ratios (specific concentrations)
       &  p_tracer_new(:,:,:,:)             !< at time level n+1 (after transport)
-                                           !< [kg/kg]  
+                                           !< [kg/kg]
                                            !< dim: (nproma,nlev,nblks_c,ntracer)
 
     REAL(wp), INTENT(INOUT)  ::  &   !< horizontal tracer mass flux at full level edges
@@ -197,12 +198,12 @@ CONTAINS
                                      !< HA: [Pa/s]
                                      !< dim: (nproma,nlevp1,nblks_c,ntracer)
 
-    REAL(wp), INTENT(IN), OPTIONAL:: &  !< vertical tracer flux at upper boundary 
+    REAL(wp), INTENT(IN), OPTIONAL:: &  !< vertical tracer flux at upper boundary
       &  opt_topflx_tra(:,:,:)          !< NH: [kg/m**2/s]
                                         !< HA: [Pa/s]
                                         !< dim: (nproma,nblks_c,ntracer)
 
-    REAL(wp), INTENT(OUT), OPTIONAL :: & !< tracer value at upper boundary of child nest 
+    REAL(wp), INTENT(OUT), OPTIONAL :: & !< tracer value at upper boundary of child nest
       &  opt_q_int(:,:,:)               !< NH: [kg/kg]
                                         !< HA: [kg/kg]
                                         !< dim: (nproma,nblks_c,ntracer)
@@ -212,30 +213,30 @@ CONTAINS
 
 
     REAL(wp), INTENT(IN) :: &           !< advective time step [s]
-      &  p_dtime  
+      &  p_dtime
 
     INTEGER,  INTENT(INOUT) :: &        !< time step counter [1]
       &  k_step                         !< necessary for Marchuk Splitting
 
     REAL(wp), TARGET ::  &              !< NH: density weighted cell height at full levels
-      & z_delp_mc1(nproma,p_patch%nlev,p_patch%nblks_c) 
+      & z_delp_mc1(nproma,p_patch%nlev,p_patch%nblks_c)
                                         !< at first intermediate time step [kg/m**2]
-                                        !< HA: pressure thickness for full levels 
+                                        !< HA: pressure thickness for full levels
                                         !< at first intermediate time step [Pa]
-                                        !< dim: (nproma,nlev,nblks_c) 
+                                        !< dim: (nproma,nlev,nblks_c)
 
     REAL(wp), TARGET ::  &              !< NH: density weighted cell height at full levels
-      & z_delp_mc2(nproma,p_patch%nlev,p_patch%nblks_c) 
+      & z_delp_mc2(nproma,p_patch%nlev,p_patch%nblks_c)
                                         !< at second intermediate time step [kg/m**2]
-                                        !< HA: pressure thickness for full levels 
+                                        !< HA: pressure thickness for full levels
                                         !< at first intermediate time step [Pa]
-                                        !< dim: (nproma,nlev,nblks_c) 
+                                        !< dim: (nproma,nlev,nblks_c)
 
     REAL(vp) ::  &                      !< flux divergence at cell center
-      &  z_fluxdiv_c(nproma,p_patch%nlev) 
+      &  z_fluxdiv_c(nproma,p_patch%nlev)
 
     REAL(wp), POINTER   &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     , CONTIGUOUS        &
 #endif
       & :: ptr_current_tracer(:,:,:,:) => NULL()  !< pointer to tracer field
@@ -251,8 +252,6 @@ CONTAINS
 
     LOGICAL  :: l_parallel
 
-    INTEGER, POINTER :: i_itype_hlimit(:) => NULL()
-     
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
       &  iidx, iblk                          !< of edges
 
@@ -322,6 +321,34 @@ CONTAINS
         i_startblk = p_patch%cells%start_blk(i_rlstart,1)
         i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
+
+        ! calculation of intermediate layer thickness (density)
+        ! necessary for tracer-mass consistency.
+        ptr_delp_mc_new  => z_delp_mc1
+
+        ! integration of tracer continuity equation in vertical
+        ! direction. Must be computed prior to the vertical tracer flux, 
+        ! since it is required for FCT (to be implemented).
+        ! This is independent of the tracer and thus must be
+        ! computed only once.
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = i_startblk, i_endblk
+
+          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,      &
+                         i_startidx, i_endidx, i_rlstart, i_rlend)
+
+          ! integration of mass continuity equation
+          ptr_delp_mc_new(i_startidx:i_endidx,1:nlev,jb) =                      &
+            &              ptr_delp_mc_now(i_startidx:i_endidx,1:nlev,jb)       &
+            &              - pdtime_mod                                         &
+            &              * ( p_mflx_contra_v(i_startidx:i_endidx,2:nlevp1,jb) &
+            &              - p_mflx_contra_v(i_startidx:i_endidx,1:nlev,jb) )
+        ENDDO  ! jb
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+        ! compute vertical tracer flux
         CALL vert_upwind_flux( p_patch, ptr_current_tracer,          &! in
           &              p_mflx_contra_v,                            &! inout
           &              p_w_contra_traj,                            &! in
@@ -340,29 +367,15 @@ CONTAINS
           &              opt_rlend=i_rlend                           )! in
 
 
-        ! calculation of intermediate layer thickness (density)
-        ! necessary for tracer-mass consistency.
-        ptr_delp_mc_new  => z_delp_mc1
 
-        ! integration of tracer continuity equation in vertical
-        ! direction. This is independent of the tracer and thus must be
-        ! computed only once.
-        ! afterwards compute vertical flux divergence for each tracer
-
+        ! compute vertical flux divergence for each tracer
+        !
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jt,jc,ikp1,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,      &
                          i_startidx, i_endidx, i_rlstart, i_rlend)
-
-
-          ! integration of tracer continuity equation
-          ptr_delp_mc_new(i_startidx:i_endidx,1:nlev,jb) =                      &
-            &              ptr_delp_mc_now(i_startidx:i_endidx,1:nlev,jb)       &
-            &              - pdtime_mod                                         &
-            &              * ( p_mflx_contra_v(i_startidx:i_endidx,2:nlevp1,jb) &
-            &              - p_mflx_contra_v(i_startidx:i_endidx,1:nlev,jb) )
 
 
           ! computation of vertical flux divergences
@@ -406,8 +419,8 @@ CONTAINS
           ! direction. This is independent of the tracer and thus must be
           ! computed only once.
 
-          ! Note that intermediate densities are needed by the horizontal 
-          ! limiter as well. That is, why we have to extend the following 
+          ! Note that intermediate densities are needed by the horizontal
+          ! limiter as well. That is, why we have to extend the following
           ! computation to halo points.
           i_rlstart  = 1
           i_rlend    = min_rlcell
@@ -464,7 +477,7 @@ CONTAINS
 
           CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
             &                 i_startidx, i_endidx, i_rlstart, i_rlend )
- 
+
           ! The intermediate cell mass is limited to 10% of the original value in order
           ! to prevent instabilities in extreme breaking gravity waves
           ptr_delp_mc_new(i_startidx:i_endidx,1:nlev,jb) =                        &
@@ -493,14 +506,14 @@ CONTAINS
     !
     ! calculate horizontal tracer flux with upwind scheme
     !
-    i_itype_hlimit => advection_config(jg)%itype_hlimit
     i_rlend        = min_rledge_int-1
     !
     CALL hor_upwind_flux( ptr_current_tracer,                                &! in
       &                  ptr_delp_mc_now,                                    &! in
       &                  p_mflx_contra_h, p_vn_contra_traj, p_dtime, p_patch,&! in
       &                  p_int_state, advection_config(jg)%ihadv_tracer,     &! in
-      &                  advection_config(jg)%igrad_c_miura, i_itype_hlimit, &! in
+      &                  advection_config(jg)%igrad_c_miura,                 &! in
+      &                  advection_config(jg)%itype_hlimit,                  &! in
       &                  advection_config(jg)%iadv_slev(:),                  &! in
       &                  advection_config(jg)%iord_backtraj,                 &! in
       &                  p_mflx_tracer_h, opt_rlend=i_rlend                  )! inout,in
@@ -588,7 +601,7 @@ CONTAINS
         END DO
 
 
-        ! Store qv advection tendency for convection scheme. 
+        ! Store qv advection tendency for convection scheme.
         ! Store TKE tendency, if TKE advection is turned on
         !
         IF ( PRESENT(opt_ddt_tracer_adv) .AND. (MOD( k_step, 2 ) == 0) &
@@ -597,7 +610,7 @@ CONTAINS
             DO jk = advection_config(jg)%iadv_slev(jt), nlev
               DO jc = i_startidx, i_endidx
                 opt_ddt_tracer_adv(jc,jk,jb,jt) =                               &
-                  & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
+                  & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime
               ENDDO
             ENDDO
           ENDIF  ! jt == iqv
@@ -605,7 +618,7 @@ CONTAINS
             DO jk = advection_config(jg)%iadv_slev(jt), nlev
               DO jc = i_startidx, i_endidx
                 opt_ddt_tracer_adv(jc,jk,jb,jt) =                               &
-                  & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
+                  & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime
               ENDDO
             ENDDO
           ENDIF  ! jt == iqtke
@@ -723,7 +736,7 @@ CONTAINS
           END DO
 
 
-          ! Store qv advection tendency for convection scheme. 
+          ! Store qv advection tendency for convection scheme.
           ! Store TKE tendency, if TKE advection is turned on
           !
           IF ( PRESENT(opt_ddt_tracer_adv) .AND. (iforcing == inwp) ) THEN
@@ -731,7 +744,7 @@ CONTAINS
               DO jk = advection_config(jg)%iadv_slev(jt), nlev
                 DO jc = i_startidx, i_endidx
                   opt_ddt_tracer_adv(jc,jk,jb,jt) =                               &
-                    & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
+                    & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime
                 ENDDO
               ENDDO
             ENDIF  ! jt == iqv
@@ -739,7 +752,7 @@ CONTAINS
               DO jk = advection_config(jg)%iadv_slev(jt), nlev
                 DO jc = i_startidx, i_endidx
                   opt_ddt_tracer_adv(jc,jk,jb,jt) =                               &
-                    & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
+                    & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime
                 ENDDO
               ENDDO
             ENDIF  ! jt == iqtke
@@ -752,8 +765,8 @@ CONTAINS
 
     END IF
 
-    ! Synchronize tracer array after update. This is only necessary, if 
-    ! NWP physics has NOT been selected. Otherwise, the SYNC-operation will 
+    ! Synchronize tracer array after update. This is only necessary, if
+    ! NWP physics has NOT been selected. Otherwise, the SYNC-operation will
     ! follow AFTER the call of NWP physics.
     ! For efficiency, the synchronization is applied for all tracers at once
 
@@ -798,11 +811,8 @@ CONTAINS
     ! eventually do a clipping of negative values to zero
     !
     IF ( advection_config(jg)%lclip_tracer ) THEN
-!$OMP WORKSHARE
-      WHERE ( p_tracer_new(:,:,:,:) < 0._wp )
-        p_tracer_new(:,:,:,:) = 0._wp
-      END WHERE
-!$OMP END WORKSHARE
+      CALL negative2zero(p_tracer_new(:,:,:,:))
+!$OMP BARRIER
     END IF
 !$OMP END PARALLEL
 

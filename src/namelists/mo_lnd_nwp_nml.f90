@@ -26,7 +26,7 @@ MODULE mo_lnd_nwp_nml
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_units,            ONLY: nnml, nnml_output, filename_max
-  USE mo_master_config,       ONLY: isRestart
+  USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
@@ -188,7 +188,7 @@ MODULE mo_lnd_nwp_nml
     itype_root     = 2       ! type of root density distribution
                              ! 1: constant
                              ! 2: exponential
-    itype_heatcond = 1       ! type of soil heat conductivity
+    itype_heatcond = 2       ! type of soil heat conductivity
     itype_interception = 1   ! type of plant interception
     itype_hydbound = 1       ! type of hydraulic lower boundary condition
     lstomata       =.TRUE.   ! map of minimum stomata resistance
@@ -205,7 +205,7 @@ MODULE mo_lnd_nwp_nml
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
     !------------------------------------------------------------------
-    IF (isRestart()) THEN
+    IF (use_restart_namelists()) THEN
       funit = open_and_restore_namelist('lnd_nml')
       READ(funit,NML=lnd_nml)
       CALL close_tmpfile(funit)

@@ -42,8 +42,6 @@ MODULE mo_turbdiff_config
     REAL(wp), DIMENSION(:), POINTER :: &
       &  impl_weight    ! implicit weights for tridiagonal solver
 
-    INTEGER :: &   ! type of surface-atmosphere transfer
-      &  itype_tran
     INTEGER :: &   ! mode of surface-atmosphere transfer
       &  imode_tran 
     INTEGER :: &   ! mode of cloud representation in transfer parametr.
@@ -56,6 +54,8 @@ MODULE mo_turbdiff_config
       &  itype_sher
     INTEGER :: &   ! mode of vertical smoothing of TKE source terms
       &  imode_frcsmot
+    INTEGER :: &   ! mode of the separated horizontal shear mode 
+      &  imode_shshear
 
     LOGICAL :: &   ! calculation SSO-wake turbulence production for TKE
       &  ltkesso
@@ -88,10 +88,20 @@ MODULE mo_turbdiff_config
       &  pat_len   !
     REAL(wp):: &   ! scaling factor for stability correction of 'tur_len'
       &  a_stab    !
+    REAL(wp):: &   ! lower limit of velocity-dependent Charnock-parameter
+      &  alpha0    !
+    REAL(wp):: &   ! upper limit of velocity-dependent Charnock-parameter
+      &  alpha0_max !
+    REAL(wp):: &   ! additive ensemble perturbation of Charnock-parameter
+      &  alpha0_pert !
     REAL(wp):: &   ! minimal diffusion coefficient for scalars (heat)
       &  tkhmin    !
     REAL(wp):: &   ! minimal diffusion coefficient for momentum
       &  tkmmin    !
+    REAL(wp):: &   ! enhanced minimal diffusion coefficient for scalars (heat) in the stratosphere
+      &  tkhmin_strat    !
+    REAL(wp):: &   ! enhanced minimal diffusion coefficient for momentum in the stratosphere
+      &  tkmmin_strat    !
     REAL(wp):: &   ! constant diffusion coefficient for TKE
       &  c_diff    !
     REAL(wp):: &   ! scaling factor of laminar layer for scalars (heat)
@@ -122,9 +132,6 @@ MODULE mo_turbdiff_config
     !
     INTEGER :: &  ! type of water cloud diagnosis
       &  itype_wcld
-    INTEGER :: &  ! type of diagnostics of synoptical near surface variables
-      &  itype_synd
-
 
     !
     ! derived variables

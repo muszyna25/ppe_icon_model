@@ -26,7 +26,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_model_domain,           ONLY: t_patch, t_patch_3d,t_subset_range
   USE mo_grid_config,            ONLY: n_dom
   USE mo_ocean_nml,              ONLY: n_zlev, GMRedi_configuration, GMRedi_combined, Cartesian_Mixing, &
-    &                                  atmos_flux_analytical_type, no_tracer
+    & atmos_flux_analytical_type, no_tracer, surface_module, OceanReferenceDensity
   USE mo_sea_ice_nml,            ONLY: init_analytic_conc_param, t_heat_base
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_run_config,             ONLY: nsteps, dtime, output_mode, test_mode !, test_param
@@ -45,16 +45,18 @@ MODULE mo_ocean_testbed_modules
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
   USE mo_ocean_tracer,           ONLY: advect_tracer_ab
   USE mo_ocean_bulk,             ONLY: update_surface_flux
+  USE mo_ocean_surface,          ONLY: update_ocean_surface
+  USE mo_ocean_surface_types,    ONLY: t_ocean_surface
   USE mo_sea_ice,                ONLY: salt_content_in_surface, energy_content_in_surface
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
-  USE mo_physical_constants,     ONLY: rhoi, rhos, rho_ref, clw, alf, Tf
+  USE mo_physical_constants,     ONLY: rhoi, rhos, clw, alf, Tf
   USE mo_ocean_physics,          ONLY: t_ho_params
   USE mo_ocean_physics,          ONLY: t_ho_params
-  USE mo_ocean_GM_Redi,          ONLY: calc_neutralslope_coeff, calc_neutralslope_coeff_func,&
+  USE mo_ocean_GM_Redi,          ONLY: calc_neutralslope_coeff, calc_neutralslope_coeff_func_onColumn, &
   &                                    prepare_ocean_physics,calc_ocean_physics
-  USE mo_ocean_diagnostics,        ONLY: calc_fast_oce_diagnostics, calc_psi, calc_psi_vn
-  USE mo_ocean_thermodyn,          ONLY: calc_potential_density, calculate_density
+  USE mo_ocean_diagnostics,      ONLY: calc_fast_oce_diagnostics, calc_psi
+  USE mo_ocean_thermodyn,        ONLY: calc_potential_density, calculate_density
   USE mo_time_config,            ONLY: time_config
   USE mo_statistics
   USE mo_util_dbg_prnt,          ONLY: dbg_print
@@ -63,7 +65,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_parallel_config,        ONLY: nproma
   USE mo_statistics
   USE mo_ocean_testbed_vertical_diffusion
-  USE mo_ocean_math_operators,   ONLY: div_oce_3d, verticalDiv_scalar_midlevel 
+  USE mo_ocean_math_operators,   ONLY: div_oce_3d, verticalDiv_scalar_onFullLevels 
   USE mo_grid_subset,            ONLY: t_subset_range, get_index_range 
   USE mo_ocean_diffusion,        ONLY: tracer_diffusion_vertical_implicit,tracer_diffusion_horz
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
@@ -83,13 +85,14 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   SUBROUTINE ocean_test_modules( patch_3d, ocean_state,  &
-    & datetime, surface_fluxes, physics_parameters,             &
-    & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients)
+    & datetime, surface_fluxes, ocean_surface, physics_parameters,             &
+    & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients)
 
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
     TYPE(t_datetime), INTENT(inout)                  :: datetime
     TYPE(t_sfc_flx)                                  :: surface_fluxes
+    TYPE (t_ocean_surface)                           :: ocean_surface
     TYPE (t_ho_params)                               :: physics_parameters
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: oceans_atmosphere
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: oceans_atmosphere_fluxes
@@ -119,7 +122,7 @@ CONTAINS
 
       CASE (41)
         CALL test_surface_flux_slo( patch_3d, ocean_state,  &
-          & datetime, surface_fluxes,             &
+          & datetime, surface_fluxes, ocean_surface,        &
           & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients)
 
       CASE (5)
@@ -249,7 +252,7 @@ CONTAINS
                      &   operators_coefficients%div_coeff, &
                      &   div_diff_flux_horz )
             !vertical div of GMRedi-flux
-            CALL verticalDiv_scalar_midlevel( patch_3d, &
+            CALL verticalDiv_scalar_onFullLevels( patch_3d, &
                                             & ocean_state(n_dom)%p_diag%GMRedi_flux_vert(:,:,:,tracer_index), &
                                             & div_diff_flx_vert)
                                    
@@ -520,7 +523,7 @@ ENDIF
     ! write initial
     ! this is done 
       IF (output_mode%l_nml) THEN
-        CALL write_initial_ocean_timestep(patch_3D,p_os(n_dom),surface_fluxes,p_ice)
+        CALL write_initial_ocean_timestep(patch_3D,p_os(n_dom),surface_fluxes,p_ice, operators_coefficients)
       ENDIF
 
 
@@ -684,7 +687,7 @@ ENDIF
     !  Overwrite init:
     ! p_ice%hs(:,1,:) = 0.0_wp
 
-  ! draft(:,:)           = (rhos * p_ice%hs(:,1,:) + rhoi * p_ice%hi(:,1,:)) / rho_ref
+  ! draft(:,:)           = (rhos * p_ice%hs(:,1,:) + rhoi * p_ice%hi(:,1,:)) / OceanReferenceDensity
   ! p_ice%zUnderIce(:,:) = patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(:,1,:) +  p_os(n_dom)%p_prog(nold(1))%h(:,:) &
   !   &                  - draft(:,:) * p_ice%conc(:,1,:)
 
@@ -840,13 +843,14 @@ ENDIF
   !-------------------------------------------------------------------------
   !>
   SUBROUTINE test_surface_flux_slo( patch_3d, p_os, &
-    & datetime, surface_fluxes,         &
+    & datetime, surface_fluxes, p_oce_sfc,        &
     & p_as, atmos_fluxes, p_ice, operators_coefficients)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: p_os(n_dom)
     TYPE(t_datetime),         INTENT(inout)          :: datetime
     TYPE(t_sfc_flx),          INTENT(inout)          :: surface_fluxes
+    TYPE(t_ocean_surface),    INTENT(inout)          :: p_oce_sfc
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: atmos_fluxes
     TYPE(t_sea_ice),          INTENT(inout)          :: p_ice
@@ -892,22 +896,22 @@ ENDIF
 
     ! constant thickness for check: initial h; hi, hs in water equivalent to be added to dz+h
   ! hCheck(:,:)    = flat(:,:) + p_os(n_dom)%p_prog(nold(1))%h(:,:) &
-  !   &              + (p_ice%hi(:,1,:)*rhoi + p_ice%hs(:,1,:)*rhos) *p_ice%conc(:,1,:)/rho_ref
+  !   &              + (p_ice%hi(:,1,:)*rhoi + p_ice%hs(:,1,:)*rhos) *p_ice%conc(:,1,:)/OceanReferenceDensity
 
     ! constant thickness for check: initial h, hi, hs in water equivalent are part of initial water height
   ! hCheck(:,:)    = flat(:,:) + p_os(n_dom)%p_prog(nold(1))%h(:,:)
 
     ! initialized thickness for check: zUnderIce; hi, hs in water equivalent to be subtracted from dz+h
     hCheck(:,:)    = flat(:,:) + p_os(n_dom)%p_prog(nold(1))%h(:,:) &
-      &              - (p_ice%hi(:,1,:)*rhoi + p_ice%hs(:,1,:)*rhos)*p_ice%conc(:,1,:)/rho_ref
+      &              - (p_ice%hi(:,1,:)*rhoi + p_ice%hs(:,1,:)*rhos)*p_ice%conc(:,1,:)/OceanReferenceDensity
 
     ! initial energyCh2 - same as energyCheck 
     ! meltdraft: energy content of ice and snow: ((Tf-t_base)*clw-alf) * draftave
   ! energyCh2 = energy_content_in_surface(patch_2d, flat(:,:), p_os(n_dom)%p_prog(nold(1))%h(:,:), &
   !   &         p_ice, sstCheck(:,:), computation_type=computation_type, info='INITIAL')
-  ! draft(:,:)           = (rhos * p_ice%hs(:,1,:) + rhoi * p_ice%hi(:,1,:)) / rho_ref
+  ! draft(:,:)           = (rhos * p_ice%hs(:,1,:) + rhoi * p_ice%hi(:,1,:)) / OceanReferenceDensity
     meltdraft(:,:) = ((Tf-t_base)*clw - alf) * (p_ice%hi(:,1,:)*rhoi + p_ice%hs(:,1,:)*rhos)*p_ice%conc(:,1,:)
-    energyCh2(:,:) = (sstCheck(:,:) - t_base) * hCheck(:,:)*rho_ref*clw + meltdraft(:,:)
+    energyCh2(:,:) = (sstCheck(:,:) - t_base) * hCheck(:,:)*OceanReferenceDensity*clw + meltdraft(:,:)
 
     CALL dbg_print('TB.SfcFlux: heightCH2 INI' ,hCheck         (:,:),debug_string, 2, in_subset=patch_2D%cells%owned)
     CALL dbg_print('TB.SfcFlux: energyCh2 INI' ,energyCh2      (:,:),debug_string, 2, in_subset=patch_2D%cells%owned)
@@ -972,8 +976,13 @@ ENDIF
 
       !-----------------------------------------------------------------------------------------------------------------
       ! call component
-      CALL update_surface_flux(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, surface_fluxes, jstep, datetime, &
-        &  operators_coefficients)
+      IF (surface_module == 1) THEN
+        CALL update_surface_flux(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, surface_fluxes, jstep, datetime, &
+          &  operators_coefficients)
+      ELSEIF (surface_module == 2) THEN
+        CALL update_ocean_surface(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, surface_fluxes, p_oce_sfc, &
+          &  jstep, datetime, operators_coefficients)
+      ENDIF
       !-----------------------------------------------------------------------------------------------------------------
 
       !---  energy  -----------------------------------------------------------
@@ -1038,10 +1047,11 @@ ENDIF
   !         END SELECT
 
             ! precipitation: add heat content minus latent heat of frozen rpreci to meltdraft 
-            meltdraft(jc,jb) = meltdraft(jc,jb) + ((Tf-t_base)*clw - alf)*atmos_fluxes%rpreci(jc,jb)*dtime*conc_old(jc,jb)*rho_ref
+            meltdraft(jc,jb) = meltdraft(jc,jb) + ((Tf-t_base)*clw - alf)*atmos_fluxes%rpreci(jc,jb)*dtime* &
+              & conc_old(jc,jb)*OceanReferenceDensity
 
             ! heat: add energy due to fluxes, using old height
-            sstCheck(jc,jb)  = sstCheck(jc,jb) + sst_flux*dtime/(clw*rho_ref*hCheck(jc,jb))
+            sstCheck(jc,jb)  = sstCheck(jc,jb) + sst_flux*dtime/(clw*OceanReferenceDensity*hCheck(jc,jb))
             ! add energy due to additional water column: precip over open water + precip through ice (rprecw) with sst_old
             fwfcheck(jc,jb)  = p_as%FrshFlux_Precipitation(jc,jb)*(1.0_wp-conc_old(jc,jb))*dtime &
               &                + atmos_fluxes%rprecw(jc,jb)*dtime*conc_old(jc,jb)
@@ -1052,11 +1062,11 @@ ENDIF
             !  - additonal freshwater flux yields new original SST
             !  - when SST and zunderice are changed in one step, a tiny correction term due to meltwater entering
             !    at new SST and not at Tf should be considered here using delhice aus upper_ocean_TS:
-            !    T_meltcorr = Delhice*rhoi/rho_ref*conc*(sst-tf)*rho_ref*clw
-            energyCh2(jc,jb) = (sstCheck(jc,jb) - t_base) * hCheck(jc,jb)*rho_ref*clw   &  ! new SST with old height
-          !   &              + (sst_old (jc,jb) - t_base) * fwfcheck(jc,jb)*rho_ref*clw &  ! old SST with added height
-              &              + (sst     (jc,jb) - t_base) * fwfcheck(jc,jb)*rho_ref*clw &  ! added height receives real SST
-          !   &              + (sst     (jc,jb) - t_base) * Delhice*rhoi/rho_ref*clw &  ! added height receives real SST
+            !    T_meltcorr = Delhice*rhoi/OceanReferenceDensity*conc*(sst-tf)*OceanReferenceDensity*clw
+            energyCh2(jc,jb) = (sstCheck(jc,jb) - t_base) * hCheck(jc,jb)*OceanReferenceDensity*clw   &  ! new SST with old height
+          !   &              + (sst_old (jc,jb) - t_base) * fwfcheck(jc,jb)*OceanReferenceDensity*clw &  ! old SST with added height
+              &              + (sst     (jc,jb) - t_base) * fwfcheck(jc,jb)*OceanReferenceDensity*clw &  ! added height receives real SST
+          !   &              + (sst     (jc,jb) - t_base) * Delhice*rhoi/OceanReferenceDensity*clw &  ! added height receives real SST
               &              + meltdraft(jc,jb)
 
             ! needs update of theoretical height and sst for next timestep:
@@ -1098,10 +1108,10 @@ ENDIF
       !---------------------------------------------------------------------
 
       ! hack for writing energy/salt budgets on ice%u/v:
-      p_ice%u(:,:) = energyDits(:,:)
-      p_ice%v(:,:) = saltBudget(:,:)
-      CALL dbg_print('TB.SfcFlux: ice%u     END' ,p_ice%u(:,:),debug_string, 3, in_subset=patch_2D%cells%owned)
-      CALL dbg_print('TB.SfcFlux: ice%v     END' ,p_ice%v(:,:),debug_string, 3, in_subset=patch_2D%cells%owned)
+   !  p_ice%u(:,:) = energyDits(:,:)
+   !  p_ice%v(:,:) = saltBudget(:,:)
+   !  CALL dbg_print('TB.SfcFlux: ice%u     END' ,p_ice%u(:,:),debug_string, 3, in_subset=patch_2D%cells%owned)
+   !  CALL dbg_print('TB.SfcFlux: ice%v     END' ,p_ice%v(:,:),debug_string, 3, in_subset=patch_2D%cells%owned)
 
       time_config%sim_time(1) = time_config%sim_time(1) + dtime
 
@@ -1144,7 +1154,7 @@ ENDIF
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: p_os(n_dom)
 
     ! local variables
-    REAL(wp):: t, s, p, co(2), aob
+    REAL(wp):: t(n_zlev), s(n_zlev), p(n_zlev), co(n_zlev,2), aob
     REAL(wp):: alph(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp):: beta(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     !INTEGER :: jk
@@ -1162,10 +1172,10 @@ ENDIF
     t = 10.0_wp
     s = 40.0_wp
     p = 4000.0_wp    !  4000 dbar = 400 bar
-    co = calc_neutralslope_coeff_func(t,s,p)
-    aob = co(1)/co(2)
+    co = calc_neutralslope_coeff_func_onColumn(t,s,p,n_zlev)
+    aob = co(1,1)/co(1,2)
 
-    WRITE(message_text,'(3(a,1pg18.8))') '  Parameter: alpha = ',co(1), ' beta = ',co(2), ' alpha/beta = ',aob
+    WRITE(message_text,'(3(a,1pg18.8))') '  Parameter: alpha = ',co(1,1), ' beta = ',co(1,2), ' alpha/beta = ',aob
     CALL message (TRIM(routine), message_text)
 
   END SUBROUTINE test_neutralcoeff

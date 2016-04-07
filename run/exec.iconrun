@@ -87,7 +87,9 @@ fi
 #
 # wait 5min to let GPFS finish the write operations
 if [ "x$restart" != 'x.false.' -a "x$submit" != 'x' ]; then
-  sleep 10;
+  if [ x$(df -T ${EXPDIR} | cut -d ' ' -f 2) = gpfs ]; then
+    sleep 10;
+  fi
 fi
 # fill some checks
 
@@ -155,12 +157,20 @@ cat > $master_namelist << EOF
 /
 EOF
 else
+if [ x$calendar = x ]; then
+  calendar="'proleptic gregorian'"
+  calendar_type=1
+else
+  calendar=$calendar
+  calendar_type=$calendar_type
+fi
 cat > $master_namelist << EOF
 &master_nml
  lrestart            = $restart
 /
 &master_time_control_nml
- calendar             = "proleptic gregorian" 
+ calendar             =  $calendar
+!"proleptic gregorian" 
  checkpointTimeIntval = "$checkpoint_interval" 
  restartTimeIntval    = "$restart_interval" 
  experimentStartDate  = "$start_date" 
@@ -169,6 +179,7 @@ cat > $master_namelist << EOF
 &time_nml
  ini_datetime_string = "$start_date"
  end_datetime_string = "$end_date"
+ calendar            = $calendar_type
  dt_restart          = $dt_restart
 /
 EOF
@@ -190,12 +201,12 @@ add_component_to_master_namelist()
   
 cat >> $master_namelist << EOF
 &master_model_nml
-  modelName="$model_name"
-  modelNamelistFilename="$model_namelist_filename"
-  modelType=$model_type
-  modelMinRank=$model_min_rank
-  modelMaxRank=$model_max_rank
-  modelIncRank=$model_inc_rank
+  model_name="$model_name"
+  model_namelist_filename="$model_namelist_filename"
+  model_type=$model_type
+  model_min_rank=$model_min_rank
+  model_max_rank=$model_max_rank
+  model_inc_rank=$model_inc_rank
 /
 EOF
 
@@ -233,7 +244,7 @@ if [ x$lnd_namelist != x ]; then
 /
 &jsb_model_nml
  model_name = 'JSBACHlite'
- model_shortname = 'lite'
+ model_shortname = 'jsblite'
  model_description = 'JSBACH-lite model'
  model_namelist_filename = "${lnd_namelist}"
 /

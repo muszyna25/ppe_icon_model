@@ -18,7 +18,7 @@
 %end
 
 # include the standard header file
-%include <init_ws_large.h>
+%include <init_ws_submit.h>
 
 # -------------------------------------------------
 
@@ -36,7 +36,7 @@ lmetview=1
 
 YYYYMM=`echo %YMD% | cut -c 1-6`
 EXPDIR=%ECTEMP%/%SUITE%/%EXPNUM%/%YMD%%INIHOUR%
-METDIR=%ECPERM%/icon-dev/scripts/postprocessing/tools/metview
+METDIR=%ECPERM%/%USER_ICON_DIR%/scripts/postprocessing/tools/metview
 cd ${EXPDIR}
 # base name for output and namelist files
 basename=%SUITE%_%EXPNUM%_%YMD%%INIHOUR%
@@ -53,9 +53,9 @@ export nstart
 if [[ $lmetview = 1 ]] ; then
 
   sleep $nstart  # avoid simulaneous copying
-  \cp -f ${METDIR}/many.error.s ${METDIR}/map.error ${METDIR}/zonal.error .
+  \cp -f ${METDIR}/many.error.s ${METDIR}/map.error ${METDIR}/zonal.error . || true
   export PLOTDIR='metplots'
-  export DATADIR='grb_data/%SUITE%_%EXPNUM%_'
+  export DATADIR='grb_data'
   export DATAREF='../../../%SUITE2%/%EXPNUM2%/'${YYYYMM}'/grb_data'
   export TAILFILE='.grb'
   export LMONTH=0

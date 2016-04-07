@@ -34,7 +34,8 @@ MODULE mo_cuparameters
   USE mo_exception,  ONLY: message_text, message
   USE mo_datetime,   ONLY: rday => rdaylen
   USE mo_nwp_parameters,  ONLY: t_phy_params
-  USE mo_nwp_tuning_config, ONLY: tune_entrorg
+  USE mo_nwp_tuning_config, ONLY: tune_entrorg, tune_rhebc_land, tune_rhebc_ocean, tune_rcucov, &
+    tune_texc, tune_qexc, tune_rhebc_land_trop, tune_rhebc_ocean_trop, tune_rcucov_trop
 #endif
 
 #ifdef __GME__
@@ -334,6 +335,7 @@ MODULE mo_cuparameters
   ! REAL(KIND=jprb) :: rmfcfl -> moved into phy_params because it is resolution-dependent
   REAL(KIND=jprb) :: rmflic
   REAL(KIND=jprb) :: rmflia
+  REAL(KIND=jprb) :: rmflmax
   REAL(KIND=jprb) :: rmfsoluv
   REAL(KIND=jprb) :: rmfsoltq
   REAL(KIND=jprb) :: rmfsolct
@@ -351,9 +353,6 @@ MODULE mo_cuparameters
   ! REAL(KIND=jprb) :: rhebc
   REAL(KIND=jprb) :: ruvper
 
-  LOGICAL :: lmfpen
-  LOGICAL :: lmfscv
-  LOGICAL :: lmfmid
   LOGICAL :: lmfdd
   LOGICAL :: lmfit
   LOGICAL :: lmfdudv
@@ -426,12 +425,10 @@ MODULE mo_cuparameters
           & rcvd     ,rsigma
   !yoecumf
   PUBLIC :: entshalp ,entstpc1 ,entstpc2            ,&
-          & rprcon   ,rmfcmax  ,rmfcmin,&
-          & lmfmid   ,detrpen  ,&
-          & lmfdd    ,lmfdudv  ,&
-          & rdepths  ,lmfscv   ,lmfpen             ,&
+          & rprcon   ,rmfcmax  ,rmfcmin   ,detrpen  ,&
+          & lmfdd    ,lmfdudv  , rdepths            ,&
           & lmfit    ,rmflic                       ,&
-          & rmflia   ,rmfsoluv                     ,&
+          & rmflia   ,rmfsoluv ,rmflmax            ,&
           & ruvper   ,rmfsoltq ,rmfsolct ,&
           & lmfsmooth,lmfwstar ,LMFUVDIS ,lmftrac  ,&
           & entrdd   ,& ! njkt1                    ,&
@@ -989,7 +986,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
   
-  SUBROUTINE sucumf(rsltn,klev,pmean,phy_params)
+  SUBROUTINE sucumf(rsltn,klev,pmean,phy_params,lshallow_only)
 
 !     THIS ROUTINE DEFINES DISPOSABLE PARAMETERS FOR MASSFLUX SCHEME
 
@@ -1042,6 +1039,7 @@ INTEGER(KIND=jpim), INTENT(in) :: klev
 REAL(KIND=jprb)   , INTENT(in) :: rsltn
 REAL(KIND=jprb)   , INTENT(in) :: pmean(klev)
 TYPE(t_phy_params), INTENT(inout) :: phy_params
+LOGICAL           , INTENT(in) :: lshallow_only
 !* change to operations
 
 #ifdef __GME__
@@ -1050,7 +1048,7 @@ INTEGER(KIND=jpim) :: nulout=6
 
 INTEGER(KIND=jpim) :: jlev
 !INTEGER(KIND=JPIM) :: myrank,ierr,size
-REAL(KIND=jprb) :: zhook_handle, zrhebc_land, zrhebc_ocean, zres_thresh, zrcucov
+REAL(KIND=jprb) :: zhook_handle, zres_thresh, zres_thresh_trop, zfac, ztrans_end
 !-----------------------------------------------------------------------
 
 IF (lhook) CALL dr_hook('SUCUMF',0,zhook_handle)
@@ -1129,32 +1127,61 @@ rprcon =1.4E-3_JPRB
 
 rcpecons=5.44E-4_JPRB/rg
 rtaumel=5._jprb*3.6E3_JPRB*1.5_JPRB
-! rhebc=0.8_JPRB
-zrhebc_land  = 0.7_JPRB   ! original IFS value: 0.7
-zrhebc_ocean = 0.825_JPRB ! original IFS value: 0.9
-zrcucov      = 0.05_JPRB  ! original IFS value: 0.05
+
 !
 ! resolution-dependent setting of rhebc for mesh sizes below the threshold given by zres_thresh
-zres_thresh = 20.0E3_JPRB   ! 20 km
-phy_params%rhebc_land  = zrhebc_land
-phy_params%rhebc_ocean = zrhebc_ocean
-phy_params%rcucov      = zrcucov
+zres_thresh      = 20.0E3_JPRB   ! 20 km
+zres_thresh_trop = 12.5E3_JPRB   ! 12.5 km for tropics
+ztrans_end       = 1.0E3_JPRB    ! 1 km - end of transition range
+
+phy_params%rhebc_land       = tune_rhebc_land
+phy_params%rhebc_ocean      = tune_rhebc_ocean
+phy_params%rcucov           = tune_rcucov
+phy_params%rhebc_land_trop  = tune_rhebc_land_trop
+phy_params%rhebc_ocean_trop = tune_rhebc_ocean_trop
+phy_params%rcucov_trop      = tune_rcucov_trop
 
 !
 IF (rsltn < zres_thresh) THEN
-  phy_params%rhebc_land  = zrhebc_land  + (1._JPRB-zrhebc_land )*LOG(zres_thresh/rsltn)/LOG(1.e-3_jprb*zres_thresh)
-  phy_params%rhebc_ocean = zrhebc_ocean + (1._JPRB-zrhebc_ocean)*LOG(zres_thresh/rsltn)/LOG(1.e-3_jprb*zres_thresh)
+  phy_params%rhebc_land  = tune_rhebc_land  + (1._JPRB-tune_rhebc_land )*LOG(zres_thresh/rsltn)/LOG(zres_thresh/ztrans_end)
+  phy_params%rhebc_ocean = tune_rhebc_ocean + (1._JPRB-tune_rhebc_ocean)*LOG(zres_thresh/rsltn)/LOG(zres_thresh/ztrans_end)
   !
-  phy_params%rcucov      = zrcucov      + (1._JPRB-zrcucov)*(LOG(zres_thresh/rsltn)/LOG(1.e-3_jprb*zres_thresh))**2
+  phy_params%rcucov      = tune_rcucov      + (1._JPRB-tune_rcucov)*(LOG(zres_thresh/rsltn)/LOG(zres_thresh/ztrans_end))**2
   !
-  ! no one should use the convection scheme at resolutions finer than 1 km, but to be safe...
+  ! no one should use the convection scheme at resolutions finer than ztrans_end, but to be safe...
   phy_params%rhebc_land  = MIN(1._JPRB, phy_params%rhebc_land)
   phy_params%rhebc_ocean = MIN(1._JPRB, phy_params%rhebc_ocean)
   phy_params%rcucov      = MIN(1._JPRB, phy_params%rcucov)
 ENDIF
 
+IF (rsltn < zres_thresh_trop) THEN
+  phy_params%rhebc_land_trop  = tune_rhebc_land_trop  + (1._JPRB-tune_rhebc_land_trop )* &
+                                LOG(zres_thresh_trop/rsltn)/LOG(zres_thresh_trop/ztrans_end)
+  phy_params%rhebc_ocean_trop = tune_rhebc_ocean_trop + (1._JPRB-tune_rhebc_ocean_trop)* &
+                                LOG(zres_thresh_trop/rsltn)/LOG(zres_thresh_trop/ztrans_end)
+  !
+  phy_params%rcucov_trop      = tune_rcucov_trop      + (1._JPRB-tune_rcucov_trop)* &
+                                (LOG(zres_thresh_trop/rsltn)/LOG(zres_thresh_trop/ztrans_end))**2
+  !
+  ! no one should use the convection scheme at resolutions finer than ztrans_end, but to be safe...
+  phy_params%rhebc_land_trop  = MIN(1._JPRB, phy_params%rhebc_land_trop)
+  phy_params%rhebc_ocean_trop = MIN(1._JPRB, phy_params%rhebc_ocean_trop)
+  phy_params%rcucov_trop      = MIN(1._JPRB, phy_params%rcucov_trop)
+ENDIF
+
+
 ! tuning parameter for organized entrainment of deep convection
-phy_params%entrorg = tune_entrorg + 1.8E-4_JPRB*LOG(zres_thresh/rsltn)
+phy_params%entrorg = tune_entrorg + 1.2E-4_JPRB*LOG(zres_thresh/rsltn)
+
+
+! resolution-dependent settings for 'excess values' of temperature and QV used for convection triggering (test parcel ascent)
+
+! This factor is 1 for dx = 20 km or coarser and 0 for dx = ztrans_end or finer
+zfac = MIN(1._JPRB,LOG(MAX(1._JPRB,rsltn/ztrans_end))/LOG(zres_thresh/ztrans_end))
+
+phy_params%texc = zfac*tune_texc   ! K
+phy_params%qexc = zfac*tune_qexc   ! relative perturbation of grid-scale QV
+
 
 !     SET ADJUSTMENT TIME SCALE FOR CAPE CLOSURE AS A FUNCTION
 !     OF MODEL RESOLUTION
@@ -1193,9 +1220,15 @@ IF (icapdcycl >= 2) phy_params%tau0 = 1.0_jprb/phy_params%tau
 !     LOGICAL SWITCHES
 !     ----------------
 
-lmfpen  =.TRUE.   ! deep convection
-lmfscv  =.TRUE.   ! shallow convection
-lmfmid  =.TRUE.   ! mid-level convection
+phy_params%lmfscv  =.TRUE.   ! shallow convection
+IF (lshallow_only) THEN
+  phy_params%lmfmid  =.FALSE.   ! mid-level convection
+  phy_params%lmfpen  =.FALSE.   ! deep convection
+ELSE
+  phy_params%lmfmid  =.TRUE.   ! mid-level convection
+  phy_params%lmfpen  =.TRUE.   ! deep convection
+ENDIF
+
 lmfdd   =.TRUE.   ! use downdrafts
 lmfit   =.FALSE.  ! updraught iteration or not
 LMFUVDIS=.TRUE.   ! use kinetic energy dissipation (addit T-tendency)
@@ -1215,6 +1248,7 @@ ELSE
 ENDIF
 rmflic=1.0_JPRB   ! use CFL mass flux limit (1) or absolut limit (0)
 rmflia=0.0_JPRB   ! value of absolut mass flux limit
+rmflmax=1.75_jprb ! mass flux limit following a suggestion by P. Bechtold [kg/(m**2s)]
 
 
 !     MASSFLUX SOLVERs FOR MOMEMTUM AND TRACERS
@@ -1234,7 +1268,6 @@ ruvper=0.3_JPRB
 
 phy_params%kcon1=2
 phy_params%kcon2=2
-phy_params%kcon3=nflevg-2
 DO jlev=nflevg,2,-1
   ! IF(STPRE(JLEV) > 350.E2_JPRB)NJKT1=JLEV
   ! IF(STPRE(JLEV) >  60.E2_JPRB)NJKT2=JLEV
@@ -1248,11 +1281,7 @@ DO jlev=nflevg,2,-1
   !  IF(PMEAN(JLEV)/PMEAN(KLEV)*1013.E2 > 500.E2_JPRB)NJKT5=JLEV
   IF(pmean(jlev) > 350.e2_jprb) phy_params%kcon1=jlev
   IF(pmean(jlev) >  60.e2_jprb) phy_params%kcon2=jlev
-  IF(pmean(jlev) > 950.e2_jprb) phy_params%kcon3=jlev
-  IF(pmean(jlev) > 850.e2_jprb) phy_params%kcon4=jlev
-  IF(pmean(jlev) > 500.e2_jprb) phy_params%kcon5=jlev
 ENDDO
-phy_params%kcon3=MIN(nflevg-2,phy_params%kcon3)
 
 #ifdef __GME__
 WRITE(6,*)'SUCUMF: NJKT1=',njkt1,' NJKT2=',njkt2,' NJKT3=',njkt3,' RESOLUTION=',rsltn
@@ -1261,18 +1290,20 @@ WRITE(UNIT=nulout,FMT='('' COMMON YOECUMF '')')
 WRITE(UNIT=nulout,FMT='('' LMFMID = '',L5 &
   & ,'' LMFDD = '',L5,'' LMFDUDV = '',L5 &
   & ,'' RTAU = '',E12.5,'' s-1'')') &
-  & lmfmid,lmfdd,lmfdudv,rtau
+  & phy_params%lmfmid,lmfdd,lmfdudv,rtau
 #endif
 
 #ifdef __ICON__
-CALL message('mo_cuparameters, sucumf', 'NJKT1, NJKT2, NJKT3, KSMAX')
-!WRITE(message_text,'(i5,2x,i5,2x,i5,2x,i5)') NJKT1, NJKT2, NJKT3, KSMAX
-WRITE(message_text,'(i7,i7,i7,E12.5)') phy_params%kcon1, phy_params%kcon2, phy_params%kcon3, rsltn 
+CALL message('mo_cuparameters, sucumf', 'NJKT1, NJKT2, KSMAX')
+WRITE(message_text,'(2i7,E12.5)') phy_params%kcon1, phy_params%kcon2, rsltn 
 CALL message('mo_cuparameters, sucumf ', TRIM(message_text))
-CALL message('mo_cuparameters, sucumf', 'LMFMID, LMFDD, LMFDUDV, RTAU, RHEBC_LND, RHEBC_OCE, RCUCOV, ENTRORG')
-!WRITE(message_text,'(4x,l5,x,l5,x,l5,x,E12.5)')LMFMID,LMFDD,LMFDUDV,RTAU
-WRITE(message_text,'(4x,l6,l6,l6,4F8.4,E11.4)')lmfmid,lmfdd,lmfdudv,phy_params%tau,&
-  phy_params%rhebc_land,phy_params%rhebc_ocean,phy_params%rcucov,phy_params%entrorg
+CALL message('mo_cuparameters, sucumf', 'LMFMID, LMFDD, LMFDUDV, RTAU, ENTRORG, TEXC, QEXC')
+WRITE(message_text,'(4x,l6,l6,l6,F8.4,E11.4,2F8.5)')phy_params%lmfmid,lmfdd,lmfdudv,phy_params%tau,&
+  phy_params%entrorg,phy_params%texc,phy_params%qexc
+CALL message('mo_cuparameters, sucumf ', TRIM(message_text))
+CALL message('mo_cuparameters, sucumf', 'RHEBC_LND, RHEBC_LND_TROP, RHEBC_OCE, RHEBC_OCE_TROP, RCUCOV, RCUCOV_TROP')
+WRITE(message_text,'(4x,6F8.4)') phy_params%rhebc_land,phy_params%rhebc_land_trop,phy_params%rhebc_ocean, &
+  phy_params%rhebc_ocean_trop,phy_params%rcucov,phy_params%rcucov_trop
 CALL message('mo_cuparameters, sucumf ', TRIM(message_text))
 #endif
 

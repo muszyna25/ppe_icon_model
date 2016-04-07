@@ -56,14 +56,32 @@ MODULE mo_io_restart
   USE mo_kind,                  ONLY: wp
   USE mo_mpi,                   ONLY: p_barrier,p_comm_work,p_bcast
   USE mo_exception,             ONLY: finish, message, message_text, get_filename_noext
-  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH
+  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, TLEV_NNOW, TLEV_NNOW_RCF
   USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_linked_list,           ONLY: t_var_list, t_list_element, find_list_element
   USE mo_var_list,              ONLY: nvar_lists, var_lists, get_var_timelevel
-  USE mo_cdi_constants
+  USE mo_cdi,                   ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, ZAXIS_SURFACE, CDI_UNDEFID, COMPRESS_ZIP, &
+                                    & DATATYPE_FLT64, TIME_VARIABLE, CDI_GLOBAL, DATATYPE_INT32, GRID_UNSTRUCTURED, &
+                                    & TAXIS_ABSOLUTE, ZAXIS_DEPTH_BELOW_LAND, ZAXIS_GENERIC, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_HEIGHT, &
+                                    & ZAXIS_HYBRID, ZAXIS_HYBRID_HALF, ZAXIS_LAKE_BOTTOM, ZAXIS_MIX_LAYER, &
+                                    & ZAXIS_SEDIMENT_BOTTOM_TW, ZAXIS_TOA, TAXIS_RELATIVE, streamOpenRead, streamInqVlist, &
+                                    & vlistInqTaxis, taxisInqVdate, taxisInqVtime, vlistNvars, vlistInqVarGrid, gridInqSize, &
+                                    & vlistInqVarZaxis, zaxisInqType, zaxisInqSize, streamDefTimestep, vlistDefVar, zaxisCreate, &
+                                    & taxisCreate, gridCreate, vlistDefAttInt, vlistDefAttFlt, vlistDefAttTxt, vlistCreate, &
+                                    & streamOpenWrite, zaxisDestroy, gridDestroy, vlistDestroy, streamClose, streamWriteVarSlice, &
+                                    & streamWriteVar, streamDefVlist, cdiGetStringError, vlistDefVarDatatype, vlistDefVarName, &
+                                    & vlistInqVarName, zaxisDefLevels, gridDefNvertex, streamReadVar, zaxisDefLbounds, &
+                                    & zaxisDefUbounds, zaxisDefVct, zaxisDefUnits, vlistDefVarLongname, vlistDefVarUnits, &
+                                    & vlistDefVarMissval, gridDefXlongname, gridDefYlongname, vlistDefTaxis, taxisDefVdate, &
+                                    & taxisDefVtime, gridDefXname, gridDefYname, gridDefXunits, gridDefYunits
+  USE mo_cdi_constants,         ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, &
+                                    & ZA_HYBRID, ZA_HYBRID_HALF, ZA_DEPTH_BELOW_LAND, ZA_DEPTH_BELOW_LAND_P1, ZA_DEPTH_RUNOFF_S, &
+                                    & ZA_DEPTH_RUNOFF_G, ZA_SNOW, ZA_SNOW_HALF, ZA_TOA, ZA_HEIGHT_2M, ZA_HEIGHT_10M, &
+                                    & ZA_LAKE_BOTTOM, ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, ZA_SEDIMENT_BOTTOM_TW_HALF, &
+                                    & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE
+  USE mo_cf_convention
   USE mo_util_string,           ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                 int2string, separator
-  USE mo_util_sysinfo,          ONLY: util_user_name, util_os_system, util_node_name
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink, util_unlink
   USE mo_util_hash,             ONLY: util_hashword
   USE mo_util_uuid,             ONLY: t_uuid
@@ -76,7 +94,6 @@ MODULE mo_io_restart
     &                                 restart_attributes_count_int,                 &
     &                                 restart_attributes_count_bool,                &
     &                                 read_and_bcast_attributes
-  USE mo_scatter,               ONLY: scatter_array
   USE mo_datetime,              ONLY: t_datetime,iso8601,iso8601extended
   USE mo_run_config,            ONLY: ltimer, restart_filename
   USE mo_timer,                 ONLY: timer_start, timer_stop,                      &
@@ -96,7 +113,8 @@ MODULE mo_io_restart
   USE mo_model_domain,          ONLY: t_patch
   USE mo_mpi,                   ONLY: my_process_is_mpi_workroot, &
     & my_process_is_mpi_test
-  USE mo_communication,         ONLY: t_comm_gather_pattern, exchange_data
+  USE mo_communication,         ONLY: t_comm_gather_pattern, exchange_data, &
+    &                                 t_scatterPattern
 
   !
   IMPLICIT NONE
@@ -200,7 +218,7 @@ CONTAINS
     !       are identical for all domains.
     !
     IF (my_process_is_mpi_workroot()) THEN
-      fileID  = streamOpenRead(rst_filename)
+      fileID  = streamOpenRead(TRIM(rst_filename))
       ! check if the file could be opened
       IF (fileID < 0) THEN
         CALL cdiGetStringError(fileID, cdiErrorText)
@@ -228,7 +246,7 @@ CONTAINS
         ! note: we have opened the file for domain 1 already
         IF (idom > 1) THEN
           IF (lexists) THEN
-            fileID  = streamOpenRead(rst_filename)
+            fileID  = streamOpenRead(TRIM(rst_filename))
             vlistID = streamInqVlist(fileID)
           ENDIF
         END IF
@@ -364,52 +382,16 @@ CONTAINS
     INTEGER,          INTENT(in) :: nlev_snow
     INTEGER,          INTENT(in) :: nice_class
     !
-    CHARACTER(len=256) :: executable
-    CHARACTER(len=256) :: user_name
-    CHARACTER(len=256) :: os_name
-    CHARACTER(len=256) :: host_name
-    CHARACTER(len=256) :: tmp_string
-    CHARACTER(len=  8) :: date_string
-    CHARACTER(len= 10) :: time_string
-
-    INTEGER :: nlena, nlenb, nlenc, nlend
-    !
     IF (lrestart_initialised) RETURN
     !
-    executable = ''
-    user_name  = ''
-    os_name    = ''
-    host_name  = ''
+    ! set CF-Convention required restart attributes
     !
-    CALL get_command_argument(0, executable, nlend)
-    CALL date_and_time(date_string, time_string)
-    !
-    tmp_string = ''
-    CALL util_os_system (tmp_string, nlena)
-    os_name = tmp_string(1:nlena)
-
-    tmp_string = ''
-    CALL util_user_name (tmp_string, nlenb)
-    user_name = tmp_string(1:nlenb)
-
-    tmp_string = ''
-    CALL util_node_name (tmp_string, nlenc)
-    host_name = tmp_string(1:nlenc)
-    !
-    ! set CD-Convention required restart attributes
-    !
-    CALL set_restart_attribute('title',       &
-         'ICON simulation')
-    CALL set_restart_attribute('institution', &
-         'Max Planck Institute for Meteorology/Deutscher Wetterdienst')
-    CALL set_restart_attribute('source',      &
-         model_name//'-'//model_version)
-    CALL set_restart_attribute('history',     &
-         executable(1:nlend)//' at '//date_string(1:8)//' '//time_string(1:6))
-    CALL set_restart_attribute('references',  &
-         'see MPIM/DWD publications')
-    CALL set_restart_attribute('comment',     &
-         TRIM(user_name)//' on '//TRIM(host_name)//' ('//TRIM(os_name)//')')
+    CALL set_restart_attribute('title',       TRIM(cf_global_info%title))
+    CALL set_restart_attribute('institution', TRIM(cf_global_info%institution))
+    CALL set_restart_attribute('source',      TRIM(cf_global_info%source))
+    CALL set_restart_attribute('history',     TRIM(cf_global_info%history))
+    CALL set_restart_attribute('references',  TRIM(cf_global_info%references))
+    CALL set_restart_attribute('comment',     TRIM(cf_global_info%comment))
     !
     ! define horizontal grids
     !
@@ -477,9 +459,10 @@ CONTAINS
     INTEGER :: status, i ,j, k, ia, ihg, ivg, nlevp1
     REAL(wp), ALLOCATABLE :: levels(:), ubounds(:), lbounds(:)
     !
-    CHARACTER(len=64) :: attribute_name, text_attribute
-    REAL(wp) :: real_attribute
-    INTEGER :: int_attribute
+    CHARACTER(len=64) :: attribute_name
+    CHARACTER(len=256) :: text_attribute
+    REAL(wp) :: real_attribute(1)
+    INTEGER :: int_attribute(1)
     LOGICAL :: bool_attribute
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
@@ -535,7 +518,7 @@ CONTAINS
       var_lists(i)%p%first = .TRUE.
       !
       IF (my_process_is_mpi_workroot()) THEN
-        var_lists(i)%p%cdiFileID_restart = streamOpenWrite(restart_filename, var_lists(i)%p%restart_type)
+        var_lists(i)%p%cdiFileID_restart = streamOpenWrite(TRIM(restart_filename), var_lists(i)%p%restart_type)
         var_lists(i)%p%filename          = TRIM(restart_filename)
         !
         IF (var_lists(i)%p%cdiFileID_restart < 0) THEN
@@ -581,7 +564,7 @@ CONTAINS
         ! 2.3 real attributes
         !
         DO ia = 1, restart_attributes_count_real()
-          CALL get_restart_attribute(ia, attribute_name, real_attribute)
+          CALL get_restart_attribute(ia, attribute_name, real_attribute(1))
           status = vlistDefAttFlt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL, &
                &                  TRIM(attribute_name),                  &
                &                  DATATYPE_FLT64,                        &
@@ -592,7 +575,7 @@ CONTAINS
         ! 2.4 integer attributes
         !
         DO ia = 1, restart_attributes_count_int()
-          CALL get_restart_attribute(ia, attribute_name, int_attribute)
+          CALL get_restart_attribute(ia, attribute_name, int_attribute(1))
           status = vlistDefAttInt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL, &
                &                  TRIM(attribute_name),                  &
                &                  DATATYPE_INT32,                        &
@@ -605,9 +588,9 @@ CONTAINS
         DO ia = 1, restart_attributes_count_bool()
           CALL get_restart_attribute(ia, attribute_name, bool_attribute)
           IF (bool_attribute) THEN
-            int_attribute = 1
+            int_attribute(1) = 1
           ELSE
-            int_attribute = 0
+            int_attribute(1) = 0
           ENDIF
           status = vlistDefAttInt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL, &
                &                  TRIM(attribute_name),                  &
@@ -974,11 +957,11 @@ CONTAINS
       ENDIF
 
       ! get information about timelevel to be skipped for current field
-      IF (element%field%info%tlev_source == 0 ) THEN
+      IF (element%field%info%tlev_source == TLEV_NNOW ) THEN
         IF (time_level == nnew(jg))                    lskip_timelev = .TRUE.
         ! this is needed to skip the extra time levels allocated for nesting
         IF (lskip_extra_timelevs .AND. time_level > 2) lskip_timelev = .TRUE.
-      ELSE IF (element%field%info%tlev_source == 1) THEN
+      ELSE IF (element%field%info%tlev_source == TLEV_NNOW_RCF) THEN
         IF (time_level == nnew_rcf(jg))  lskip_timelev = .TRUE.
       ENDIF
 
@@ -1070,10 +1053,10 @@ CONTAINS
       varID = info%cdiVarID
       !
       CALL vlistDefVarDatatype(vlistID, varID, DATATYPE_FLT64)
-      CALL vlistDefVarName(vlistID, varID, info%name)
+      CALL vlistDefVarName(vlistID, varID, TRIM(info%name))
       !
-      IF (info%cf%long_name /= '') CALL vlistDefVarLongname(vlistID, varID, info%cf%long_name)
-      IF (info%cf%units /= '') CALL vlistDefVarUnits(vlistID, varID, info%cf%units)
+      IF (info%cf%long_name /= '') CALL vlistDefVarLongname(vlistID, varID, TRIM(info%cf%long_name))
+      IF (info%cf%units /= '') CALL vlistDefVarUnits(vlistID, varID, TRIM(info%cf%units))
 
       IF (info%lmiss) THEN
         IF (ASSOCIATED(element%field%r_ptr)) THEN
@@ -1314,7 +1297,7 @@ CONTAINS
 
     CALL set_restart_time( iso8601(datetime) )  ! Time tag
     ! in preparation for move to mtime
-    CALL set_restart_attribute('tc_startdate', iso8601extended(datetime)) 
+    CALL set_restart_attribute('tc_startdate', iso8601extended(datetime))
 
     ! Open new file, write data, close and then clean-up.
     CALL associate_keyword("<gridfile>",   TRIM(get_filename_noext(patch%grid_filename)),  keywords)
@@ -1528,6 +1511,7 @@ CONTAINS
     !
     ! variables of derived type used in linked list
     !
+    CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::write_restart_var_list"
     TYPE (t_var_metadata), POINTER :: info
     TYPE (t_list_element), POINTER :: element
     TYPE (t_list_element), TARGET  :: start_with
@@ -1538,7 +1522,7 @@ CONTAINS
     TYPE(t_comm_gather_pattern), POINTER :: gather_pattern
     !
     INTEGER :: time_level
-    INTEGER :: jg
+    INTEGER :: jg, var_ref_pos
     LOGICAL :: lskip_timelev, lskip_extra_timelevs
 
     jg = p_patch%id
@@ -1577,11 +1561,11 @@ CONTAINS
       ENDIF
 
       ! get information about timelevel to be skipped for current field
-      IF (element%field%info%tlev_source == 0 ) THEN
+      IF (element%field%info%tlev_source == TLEV_NNOW ) THEN
         IF (time_level == nnew(jg))                    lskip_timelev = .TRUE.
         ! this is needed to skip the extra time levels allocated for nesting
         IF (lskip_extra_timelevs .AND. time_level > 2) lskip_timelev = .TRUE.
-      ELSE IF (element%field%info%tlev_source == 1) THEN
+      ELSE IF (element%field%info%tlev_source == TLEV_NNOW_RCF) THEN
         IF (time_level == nnew_rcf(jg))  lskip_timelev = .TRUE.
       ENDIF
 
@@ -1609,39 +1593,70 @@ CONTAINS
         private_n = private_ne
         gather_pattern => p_patch%comm_pat_gather_e
       CASE default
-        CALL finish('out_stream','unknown grid type')
+        CALL finish(routine,'unknown grid type')
       END SELECT
 
       ALLOCATE(r_out_wp(MERGE(private_n, 0, my_process_is_mpi_workroot())))
 
       IF (info%ndims == 1) THEN
-        CALL finish('write_restart_var_list', '1d arrays not handled yet.')
+        CALL finish(routine, '1d arrays not handled yet.')
       ELSE IF (info%ndims == 2) THEN
-        CALL exchange_data(element%field%r_ptr(:,:,nindex,1,1), r_out_wp, &
-          &                gather_pattern)
+        var_ref_pos = 3
+        IF (info%lcontained)  var_ref_pos = info%var_ref_pos
+        SELECT CASE(var_ref_pos)
+        CASE (1)
+          CALL exchange_data(in_array=element%field%r_ptr(nindex,:,:,1,1), &
+            &                out_array=r_out_wp, gather_pattern=gather_pattern)
+        CASE (2)
+          CALL exchange_data(in_array=element%field%r_ptr(:,nindex,:,1,1), &
+            &                out_array=r_out_wp, gather_pattern=gather_pattern)
+        CASE (3)
+          CALL exchange_data(in_array=element%field%r_ptr(:,:,nindex,1,1), &
+            &                out_array=r_out_wp, gather_pattern=gather_pattern)
+        CASE default
+          CALL finish(routine, "internal error!")
+        END SELECT
         !
         ! write data
         !
         IF (my_process_is_mpi_workroot()) THEN
-          write (0,*)' ... write ',info%name
+          WRITE (0,*)' ... write ',info%name
           CALL streamWriteVar(this_list%p%cdiFileID_restart, info%cdiVarID, &
             &                 r_out_wp(:), 0)
         END IF
       ELSE IF (info%ndims == 3) THEN
+        var_ref_pos = 4
+        IF (info%lcontained)  var_ref_pos = info%var_ref_pos
+
         IF (my_process_is_mpi_workroot()) &
           write (0,*)' ... write ',info%name
         DO lev = 1, info%used_dimensions(2)
-          CALL exchange_data(element%field%r_ptr(:,lev,:,nindex,1), r_out_wp, &
-            &                gather_pattern)
+
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            CALL exchange_data( in_array=element%field%r_ptr(nindex,:,lev,:,1), &
+              &                 out_array=r_out_wp, gather_pattern=gather_pattern)
+          CASE (2)
+            CALL exchange_data( in_array=element%field%r_ptr(:,nindex,lev,:,1), &
+              &                 out_array=r_out_wp, gather_pattern=gather_pattern)
+          CASE (3)
+            CALL exchange_data( in_array=element%field%r_ptr(:,lev,nindex,:,1), &
+              &                 out_array=r_out_wp, gather_pattern=gather_pattern)
+          CASE (4)
+            CALL exchange_data( in_array=element%field%r_ptr(:,lev,:,nindex,1), &
+              &                 out_array=r_out_wp, gather_pattern=gather_pattern)
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
+
           IF (my_process_is_mpi_workroot()) &
             CALL streamWriteVarSlice(this_list%p%cdiFileID_restart, &
               &                      info%cdiVarID, lev-1, r_out_wp(:), 0)
         END DO
       ELSE IF (info%ndims > 3) THEN
-        CALL finish('write_restart_var_list', &
-          & 'arrays with more then three dimensions not handled yet.')
+        CALL finish(routine, 'arrays with more then three dimensions not handled yet.')
       ELSE
-        CALL finish('write_restart_var_list','dimension not set.')
+        CALL finish(routine,'dimension not set.')
       END IF
 
       !
@@ -1760,6 +1775,7 @@ CONTAINS
     TYPE(t_patch), INTENT(in) :: p_patch
     INTEGER,       OPTIONAL, INTENT(in) :: opt_ndom
     ! local variables
+    CHARACTER(*), PARAMETER :: routine = modname//"::read_restart_files"
     !
     TYPE model_search
       CHARACTER(len=8) :: abbreviation
@@ -1767,16 +1783,17 @@ CONTAINS
     END type model_search
     TYPE(model_search) :: abbreviations(nvar_lists)
     !
-    TYPE (t_list_element), POINTER :: element
-    TYPE (t_var_metadata), POINTER :: info
-    CHARACTER(len=80)              :: restart_filename, name
-    INTEGER                        :: fileID, vlistID, gridID, zaxisID, taxisID,    &
-      &                                varID, idate, itime, ic, il, n, nfiles, i,   &
-      &                                iret, istat, key, vgrid, gdims(5), nindex,   &
-      &                                nmiss, nvars, root_pe
-    CHARACTER(len=8)               :: model_type
-    REAL(wp), POINTER              :: r2d(:,:), rptr2d(:,:), rptr3d(:,:,:)
-    INTEGER, POINTER               :: glb_index(:)
+    TYPE (t_list_element), POINTER   :: element
+    TYPE (t_var_metadata), POINTER   :: info
+    CHARACTER(len=80)                :: restart_filename, name
+    INTEGER                          :: fileID, vlistID, gridID, zaxisID, taxisID,    &
+      &                                 varID, idate, itime, ic, il, n, nfiles, i,   &
+      &                                 iret, istat, key, vgrid, gdims(5), nindex,   &
+      &                                 nmiss, nvars, root_pe, var_ref_pos, lev
+    CHARACTER(len=8)                 :: model_type
+    REAL(wp), POINTER                :: r1d(:), rptr2d(:,:), rptr3d(:,:,:)
+    INTEGER, POINTER                 :: glb_index(:)
+    CLASS(t_scatterPattern), POINTER :: scatter_pattern
 
     ! rank of broadcast root PE
     root_pe = 0
@@ -1799,6 +1816,11 @@ CONTAINS
         n = n+1
       ENDIF
     ENDDO for_all_model_types
+
+    ALLOCATE(r1d(1),STAT=istat)
+    IF (istat /= 0) THEN
+      CALL finish('','allocation of r1d failed ...')
+    ENDIF
 
     nfiles = n-1
     !
@@ -1826,7 +1848,7 @@ CONTAINS
       IF (my_process_is_mpi_workroot()) THEN
         WRITE(0,*) "streamOpenRead ", TRIM(restart_filename)
 
-        fileID  = streamOpenRead(name)
+        fileID  = streamOpenRead(TRIM(name))
         vlistID = streamInqVlist(fileID)
         taxisID = vlistInqTaxis(vlistID)
         !
@@ -1868,36 +1890,29 @@ CONTAINS
               ! allocate temporary global array on output processor
               ! and gather field from other processors
               !
-              NULLIFY(r2d)
               NULLIFY(rptr2d)
               NULLIFY(rptr3d)
               !
               IF (my_process_is_mpi_workroot()) THEN
                 gridID  = vlistInqVarGrid(vlistID, varID)
-                ic      = gridInqSize(gridID)
                 zaxisID = vlistInqVarZaxis(vlistID, varID)
                 vgrid   = zaxisInqType(zaxisID)
+                ic = gridInqSize(gridID)
+                IF (SIZE(r1d, 1) /= ic) THEN
+                  DEALLOCATE(r1d)
+                  ALLOCATE(r1d(ic),STAT=istat)
+                  IF (istat /= 0) THEN
+                    CALL finish('','allocation of r1d failed ...')
+                  ENDIF
+                END IF
                 IF (vgrid == ZAXIS_SURFACE) THEN
                   il = 1
                 ELSE
                   il = zaxisInqSize(zaxisID)
                 ENDIF
               END IF
-              CALL p_bcast(ic, root_pe, comm=p_comm_work)
+
               CALL p_bcast(il, root_pe, comm=p_comm_work)
-              !
-              !
-              IF (my_process_is_mpi_workroot()) THEN
-                ALLOCATE(r2d(ic,il),STAT=istat)
-                IF (istat /= 0) THEN
-                  CALL finish('','allocation of r2d failed ...')
-                ENDIF
-                CALL streamReadVar(fileID, varID, r2d, nmiss)
-              ELSE
-                ! TODO: why is the second dimension 1
-                ALLOCATE(r2d(ic,1),STAT=istat)
-              ENDIF
-              CALL p_barrier(comm=p_comm_work)
               !
               IF (info%lcontained) THEN
                 nindex = info%ncontained
@@ -1905,45 +1920,65 @@ CONTAINS
                 nindex = 1
               ENDIF
               !
+
+              SELECT CASE(info%ndims)
+              CASE (2)
+                var_ref_pos = 3
+                IF (info%lcontained)  var_ref_pos = info%var_ref_pos
+                SELECT CASE(var_ref_pos)
+                CASE (1)
+                  rptr2d => element%field%r_ptr(nindex,:,:,1,1)
+                CASE (2)
+                  rptr2d => element%field%r_ptr(:,nindex,:,1,1)
+                CASE (3)
+                  rptr2d => element%field%r_ptr(:,:,nindex,1,1)
+                CASE default
+                  CALL finish(routine, "internal error!")
+                END SELECT
+              CASE (3)
+                var_ref_pos = 4
+                IF (info%lcontained)  var_ref_pos = info%var_ref_pos
+                SELECT CASE(var_ref_pos)
+                CASE (1)
+                  rptr3d => element%field%r_ptr(nindex,:,:,:,1)
+                CASE (2)
+                  rptr3d => element%field%r_ptr(:,nindex,:,:,1)
+                CASE (3)
+                  rptr3d => element%field%r_ptr(:,:,nindex,:,1)
+                CASE (4)
+                  rptr3d => element%field%r_ptr(:,:,:,nindex,1)
+                CASE default
+                  CALL finish(routine, "internal error!")
+                END SELECT
+              CASE DEFAULT
+                CALL finish(routine, "internal error!")
+              END SELECT
+
               SELECT CASE (info%hgrid)
               CASE (GRID_UNSTRUCTURED_CELL)
-                IF (info%ndims == 2) THEN
-                  rptr2d => element%field%r_ptr(:,:,nindex,1,1)
-                  CALL scatter_array(r2d(:,1), rptr2d, &
-                    &                p_patch%cells%decomp_info%glb_index)
-                ELSE
-                  rptr3d => element%field%r_ptr(:,:,:,nindex,1)
-                  CALL scatter_array(r2d, rptr3d, &
-                    &                p_patch%cells%decomp_info%glb_index)
-                ENDIF
+                scatter_pattern => p_patch%comm_pat_scatter_c
               CASE (GRID_UNSTRUCTURED_VERT)
-                IF (info%ndims == 2) THEN
-                  rptr2d => element%field%r_ptr(:,:,nindex,1,1)
-                  CALL scatter_array(r2d(:,1), rptr2d, &
-                    &                p_patch%verts%decomp_info%glb_index)
-                ELSE
-                  rptr3d => element%field%r_ptr(:,:,:,nindex,1)
-                  CALL scatter_array(r2d, rptr3d, &
-                    &                p_patch%verts%decomp_info%glb_index)
-                ENDIF
+                scatter_pattern => p_patch%comm_pat_scatter_v
               CASE (GRID_UNSTRUCTURED_EDGE)
-                IF (info%ndims == 2) THEN
-                  rptr2d => element%field%r_ptr(:,:,nindex,1,1)
-                  CALL scatter_array(r2d(:,1), rptr2d, &
-                    &                p_patch%edges%decomp_info%glb_index)
-                ELSE
-                  rptr3d => element%field%r_ptr(:,:,:,nindex,1)
-                  CALL scatter_array(r2d, rptr3d, &
-                    &                p_patch%edges%decomp_info%glb_index)
-                ENDIF
+                scatter_pattern => p_patch%comm_pat_scatter_e
               CASE default
                 CALL finish('out_stream','unknown grid type')
               END SELECT
 
+              DO lev = 1, il
+                IF (my_process_is_mpi_workroot()) THEN
+                  CALL streamReadVarSlice(fileID, varID, lev-1, r1d, nmiss)
+                ENDIF
+                IF (info%ndims == 2) THEN
+                  CALL scatter_pattern%distribute(r1d, rptr2d, .FALSE.)
+                ELSE
+                  CALL scatter_pattern%distribute(r1d, rptr3d(:,lev,:), .FALSE.)
+                ENDIF
+              END DO
+
               !
               ! deallocate temporary global arrays
               !
-              IF (ASSOCIATED (r2d)) DEALLOCATE (r2d)
               !
               IF (my_process_is_mpi_workroot()) THEN
                 WRITE (0,*) ' ... read ',TRIM(element%field%info%name)
@@ -1958,6 +1993,8 @@ CONTAINS
       IF (my_process_is_mpi_workroot())  CALL streamClose(fileID)
       !
     ENDDO for_all_files
+
+    DEALLOCATE (r1d)
     !
     CALL message('','')
     CALL message('',separator)

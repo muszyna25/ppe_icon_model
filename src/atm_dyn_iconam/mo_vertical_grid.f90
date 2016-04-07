@@ -35,28 +35,31 @@ MODULE mo_vertical_grid
   USE mo_nonhydrostatic_config, ONLY: rayleigh_type, rayleigh_coeff, damp_height, &
     &                                 igradp_method, vwind_offctr,                &
     &                                 exner_expol, l_zdiffu_t, thslp_zdiffu,      &
-    &                                 thhgtd_zdiffu, kstart_dd3d, divdamp_type
+    &                                 thhgtd_zdiffu, kstart_dd3d, divdamp_type,   &
+    &                                 divdamp_trans_start, divdamp_trans_end
   USE mo_diffusion_config,      ONLY: diffusion_config
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_run_config,            ONLY: msg_level
   USE mo_vertical_coord_table,  ONLY: vct_a
   USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, max_dom, RAYLEIGH_CLASSIC, &
     &                                 RAYLEIGH_KLEMP, min_rlcell_int, min_rlcell, min_rledge_int
-  USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e, grf_fbk_start_c
+  USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e, grf_fbk_start_c, &
+                                      grf_nudge_start_e, grf_nudgezone_width
   USE mo_physical_constants,    ONLY: grav, p0ref, rd, rd_o_cpd, cpd, p0sl_bg, rgrav
   USE mo_math_gradients,        ONLY: grad_fd_norm, grad_fd_tang
   USE mo_intp_data_strc,        ONLY: t_int_state
-  USE mo_intp,                  ONLY: cells2edges_scalar, cells2verts_scalar
+  USE mo_intp,                  ONLY: cells2edges_scalar, cells2verts_scalar, cell_avg
   USE mo_math_constants,        ONLY: pi_2
   USE mo_loopindices,           ONLY: get_indices_e, get_indices_c
   USE mo_nonhydro_types,        ONLY: t_nh_state
   USE mo_nh_init_utils,         ONLY: nflatlev
-  USE mo_sync,                  ONLY: SYNC_E, SYNC_V, sync_patch_array, global_sum_array, &
+  USE mo_sync,                  ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, global_sum_array, &
                                       sync_patch_array_mult, global_min, global_max
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_les_config,           ONLY: les_config
   USE mo_impl_constants,       ONLY: min_rlvert_int
   USE mo_data_turbdiff,        ONLY: akt
+  USE mo_fortran_tools,        ONLY: init
 
   IMPLICIT NONE
 
@@ -93,23 +96,24 @@ MODULE mo_vertical_grid
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_vertical_grid:set_nh_metrics'
 
-    TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch(n_dom)  !< patch
-    TYPE(t_nh_state),      INTENT(INOUT) :: p_nh(n_dom)
-    TYPE(t_int_state),     INTENT(   IN) :: p_int(n_dom)
-    TYPE(t_external_data), INTENT(INOUT) :: ext_data(n_dom)
+    TYPE(t_patch),     TARGET, INTENT(INOUT) :: p_patch(n_dom)  !< patch
+    TYPE(t_nh_state),          INTENT(INOUT) :: p_nh(n_dom)
+    TYPE(t_int_state), TARGET, INTENT(   IN) :: p_int(n_dom)
+    TYPE(t_external_data),     INTENT(INOUT) :: ext_data(n_dom)
 
     INTEGER :: jg, jk, jk1, jk_start, jb, jc, je, jn, jgc, nlen, &
-               nblks_c, npromz_c, nblks_e, npromz_e, nblks_v, npromz_v, ic
+               nblks_c, npromz_c, nblks_e, npromz_e, nblks_v, ic
     INTEGER :: nlev, nlevp1              !< number of full levels
 
     ! Note: the present way of setting up coordinate surfaces will not work for vertical refinement
     INTEGER :: i_startidx, i_endidx, i_startblk, i_endblk, icount_total
     INTEGER :: ica(max_dom)
 
-    REAL(wp) :: z_diff, z_sin_diff, z_sin_diff_full, z_tanh_diff,    &
-      &         z1, z2, z3, zf, z1_div3d, z2_div3d, z_help(nproma),  &
-      &         z_temp(nproma), z_aux1(nproma), z_aux2(nproma),      &
-      &         z0, coef1, coef2, coef3, dn1, dn2, dn3, dn4, dn5, dn6
+    REAL(wp) :: z_diff, z_sin_diff, z_sin_diff_full, z_tanh_diff,      &
+      &         z1, z2, z3, zf, z_help(nproma),                        &
+      &         z_temp(nproma), z_aux1(nproma), z_aux2(nproma),        &
+      &         z0, coef1, coef2, coef3, dn1, dn2, dn3, dn4, dn5, dn6, &
+      &         zn_min, zn_avg, zn_sq, zn_rms
     REAL(wp) :: z_maxslope, z_maxhdiff, z_offctr
     REAL(wp), ALLOCATABLE :: z_ifv(:,:,:)
     REAL(wp), ALLOCATABLE :: z_me(:,:,:),z_maxslp(:,:,:),z_maxhgtd(:,:,:),z_shift(:,:,:), &
@@ -117,7 +121,7 @@ MODULE mo_vertical_grid
     REAL(wp), ALLOCATABLE :: z_aux_c(:,:,:), z_aux_e(:,:,:)
     REAL(wp) :: extrapol_dist
     INTEGER,  ALLOCATABLE :: flat_idx(:,:), imask(:,:,:),icount(:)
-    INTEGER,  DIMENSION(:,:,:), POINTER :: iidx, iblk
+    INTEGER,  DIMENSION(:,:,:), POINTER :: iidx, iblk, inidx, inblk
     LOGICAL :: l_found(nproma), lfound_all
 
     !------------------------------------------------------------------------
@@ -129,7 +133,6 @@ MODULE mo_vertical_grid
       nblks_e   = p_patch(jg)%nblks_e
       npromz_e  = p_patch(jg)%npromz_e
       nblks_v   = p_patch(jg)%nblks_v
-      npromz_v  = p_patch(jg)%npromz_v
 
       ! number of vertical levels
       nlev   = p_patch(jg)%nlev
@@ -160,7 +163,7 @@ MODULE mo_vertical_grid
             &                                           p_nh(jg)%metrics%z_ifc(1:nlen,jk+1,jb))
         ENDDO
       ENDDO
-!$OMP END DO 
+!$OMP END DO
 
 !$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1,nblks_c
@@ -225,7 +228,7 @@ MODULE mo_vertical_grid
         ! geopot above ground  - because physics needs positive values
         !-------------------------------------------------------------
 
-          p_nh(jg)%metrics%geopot_agl_ifc(1:nlen,nlevp1,jb) = 0._wp     
+          p_nh(jg)%metrics%geopot_agl_ifc(1:nlen,nlevp1,jb) = 0._wp
 
           DO jk = nlev,1,-1
             ! geopotential (interfaces)
@@ -332,7 +335,7 @@ MODULE mo_vertical_grid
       DEALLOCATE(z_aux_e)
 
 
-      ! offcentering in vertical mass flux 
+      ! offcentering in vertical mass flux
       p_nh(jg)%metrics%vwind_impl_wgt(:,:)    = 0.5_wp + vwind_offctr
       p_nh(jg)%metrics%vwind_expl_wgt(:,:)    = 1.0_wp - p_nh(jg)%metrics%vwind_impl_wgt(:,:)
 
@@ -356,7 +359,7 @@ MODULE mo_vertical_grid
         ! z - z_h  with z at half levels
         z_sin_diff  = MAX(0.0_wp,vct_a(jk1)-damp_height(jg))
 
-        ! z_top - z    
+        ! z_top - z
         z_tanh_diff = vct_a(1) - vct_a(jk1)
 
         ! z - z_h  with z at full levels
@@ -417,17 +420,15 @@ MODULE mo_vertical_grid
       kstart_dd3d(jg) = 1
       p_nh(jg)%metrics%scalfac_dd3d(:) = 1._wp
       IF (divdamp_type == 32) THEN  ! 3D divergence damping transitioning into 2D divergence damping
-        z1_div3d = 12500._wp   ! set transisition zone from 3D div damping to 2D div damping
-        z2_div3d = 17500._wp   ! between 12.5 km and 17.5 km
         kstart_dd3d(jg) = 0
         DO jk = 1, nlev
           jk1 = jk + p_patch(jg)%nshift_total
           zf = 0.5_wp*(vct_a(jk1)+vct_a(jk1+1))
-          IF (zf >= z2_div3d) THEN
+          IF (zf >= divdamp_trans_end) THEN
             p_nh(jg)%metrics%scalfac_dd3d(jk) = 0._wp
             kstart_dd3d(jg) = jk
-          ELSE IF (zf >= z1_div3d) THEN
-            p_nh(jg)%metrics%scalfac_dd3d(jk) = (z2_div3d-zf)/(z2_div3d-z1_div3d)
+          ELSE IF (zf >= divdamp_trans_start) THEN
+            p_nh(jg)%metrics%scalfac_dd3d(jk) = (divdamp_trans_end-zf)/(divdamp_trans_end-divdamp_trans_start)
           ELSE
             p_nh(jg)%metrics%scalfac_dd3d(jk) = 1._wp
           ENDIF
@@ -435,11 +436,32 @@ MODULE mo_vertical_grid
         kstart_dd3d(jg) = kstart_dd3d(jg) + 1
       ENDIF
 
+      ! Horizontal mask field for 3D divergence damping term; 2D div damping is generally applied in the 
+      ! immediate vicinity of nest boundaries
+      DO jb = i_startblk,nblks_e
+
+        CALL get_indices_e(p_patch(jg), jb, i_startblk, nblks_e, &
+                           i_startidx, i_endidx, 1)
+
+        DO je = i_startidx, i_endidx
+          IF (p_patch(jg)%edges%refin_ctrl(je,jb) <= 0 .OR.                                           &
+              p_patch(jg)%edges%refin_ctrl(je,jb) >= grf_nudge_start_e+2*(grf_nudgezone_width-1) ) THEN
+            p_nh(jg)%metrics%hmask_dd3d(je,jb) = 1._wp
+          ELSE IF (p_patch(jg)%edges%refin_ctrl(je,jb) <= grf_nudge_start_e+grf_nudgezone_width-1) THEN
+            p_nh(jg)%metrics%hmask_dd3d(je,jb) = 0._wp
+          ELSE
+            p_nh(jg)%metrics%hmask_dd3d(je,jb) = 1._wp/REAL(grf_nudgezone_width-1,wp) *              &
+              REAL(p_patch(jg)%edges%refin_ctrl(je,jb) - (grf_nudge_start_e+grf_nudgezone_width-1), wp)
+          ENDIF
+        ENDDO
+      ENDDO
 
       ! Compute variable Exner extrapolation factors and offcentering coefficients for the
       ! vertical wind solver to optimize numerical stability over steep orography
-      iidx => p_patch(jg)%cells%edge_idx
-      iblk => p_patch(jg)%cells%edge_blk
+      iidx  => p_patch(jg)%cells%edge_idx
+      iblk  => p_patch(jg)%cells%edge_blk
+      inidx => p_int(jg)%rbf_c2grad_idx
+      inblk => p_int(jg)%rbf_c2grad_blk
 
       i_startblk = p_patch(jg)%cells%start_block(2)
 
@@ -447,15 +469,14 @@ MODULE mo_vertical_grid
       ALLOCATE (z_maxslp(nproma,nlev,nblks_c), z_maxhgtd(nproma,nlev,nblks_c) )
 
 !$OMP PARALLEL
-!$OMP WORKSHARE
       ! Initialization to ensure that values are properly set at lateral boundaries
-      p_nh(jg)%metrics%exner_exfac(:,:,:) = exner_expol
+      CALL init(p_nh(jg)%metrics%exner_exfac(:,:,:), exner_expol)
+      CALL init(z_maxslp(:,:,:))
+      CALL init(z_maxhgtd(:,:,:))
+!$OMP BARRIER
 
-      z_maxslp(:,:,:)  = 0._wp
-      z_maxhgtd(:,:,:) = 0._wp
-!$OMP END WORKSHARE
-
-!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jk1, jc, z_maxslope, z_offctr, z_diff) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jk1, jc, z_maxslope, z_offctr, z_diff, &
+!$OMP            zn_min, zn_avg, zn_sq, zn_rms) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,nblks_c
 
         CALL get_indices_c(p_patch(jg), jb, i_startblk, nblks_c, &
@@ -532,6 +553,27 @@ MODULE mo_vertical_grid
           ENDDO
         ENDDO
 
+        ! Compute mask field for mountain or upper slope grid points
+        DO jc = i_startidx,i_endidx
+          zn_avg = 0._wp
+          zn_sq  = 0._wp
+          zn_min = p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)
+          DO ic = 2, 10
+            zn_avg = zn_avg + p_nh(jg)%metrics%z_ifc(inidx(ic,jc,jb),nlevp1,inblk(ic,jc,jb))
+            zn_sq  = zn_sq  + p_nh(jg)%metrics%z_ifc(inidx(ic,jc,jb),nlevp1,inblk(ic,jc,jb))**2
+            zn_min = MIN(zn_min,p_nh(jg)%metrics%z_ifc(inidx(ic,jc,jb),nlevp1,inblk(ic,jc,jb)))
+          ENDDO
+          zn_avg = zn_avg/9._wp
+          zn_sq  = zn_sq/9._wp
+          zn_rms = SQRT(MAX(0._wp,zn_sq - zn_avg**2))
+          IF (p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)-zn_min > 200._wp .AND. p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb) > zn_avg) THEN
+            p_nh(jg)%metrics%mask_mtnpoints(jc,jb) = MIN(1._wp,1.e5_wp*MAX(0._wp,MAX(zn_rms,                               &
+              p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)-zn_avg)-200._wp)/p_patch(jg)%geometry_info%mean_characteristic_length**2)
+          ELSE
+            p_nh(jg)%metrics%mask_mtnpoints(jc,jb) = 0._wp
+          ENDIF
+        ENDDO
+
       ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -539,8 +581,17 @@ MODULE mo_vertical_grid
 
       DEALLOCATE(z_ddxn_z_half_e,z_ddxt_z_half_e)
 
+      ALLOCATE(z_aux_c(nproma,1,nblks_c),z_aux_e(nproma,1,nblks_c))
+      z_aux_e(:,1,:) = 0._wp
 
-      ! Index lists for boundary nudging (including halo cells so that no 
+      CALL sync_patch_array(SYNC_C, p_patch(jg), p_nh(jg)%metrics%mask_mtnpoints)
+      z_aux_c(:,1,:) = p_nh(jg)%metrics%mask_mtnpoints(:,:)
+      CALL cell_avg(z_aux_c, p_patch(jg), p_int(jg)%c_bln_avg, z_aux_e)
+      p_nh(jg)%metrics%mask_mtnpoints(:,:) = z_aux_e(:,1,:)
+
+      DEALLOCATE(z_aux_c,z_aux_e)
+
+      ! Index lists for boundary nudging (including halo cells so that no
       ! sync is needed afterwards; halo edges are excluded, however, because
       ! a sync follows afterwards anyway
       ic = 0
@@ -689,6 +740,7 @@ MODULE mo_vertical_grid
       ! Allocate index lists and storage field for boundary mass flux
       ALLOCATE(p_nh(jg)%metrics%bdy_mflx_e_idx(ic),p_nh(jg)%metrics%bdy_mflx_e_blk(ic), &
                p_nh(jg)%diag%grf_bdy_mflx(nlev,ic,2))
+      p_nh(jg)%diag%grf_bdy_mflx(:,:,:) = 0._wp
 
       ! part 3: fill index list with nest boundary points of row 9
       i_startblk = p_patch(jg)%edges%start_block(grf_bdywidth_e)
@@ -1100,7 +1152,7 @@ MODULE mo_vertical_grid
         CALL get_indices_e(p_patch(jg), jb, i_startblk, nblks_e, &
                            i_startidx, i_endidx, 2)
 
-        IF (igradp_method <= 3) THEN 
+        IF (igradp_method <= 3) THEN
 
           DO je = i_startidx, i_endidx
 
@@ -1165,14 +1217,14 @@ MODULE mo_vertical_grid
                   coef1 =  z_me(je,jk,jb)-z0
                   coef2 = (z_me(je,jk,jb)-z0)*(z_me(je,jk,jb)-z1)
                   coef3 = (z_me(je,jk,jb)-z0)*(z_me(je,jk,jb)-z1)*(z_me(je,jk,jb)-z2)
-                  
+
                   dn1 = 1._wp/(z0-z1)
                   dn2 = 1._wp/(z1-z2)
                   dn3 = 1._wp/(z2-z3)
                   dn4 = 1._wp/(z0-z2)
                   dn5 = 1._wp/(z0-z3)
                   dn6 = 1._wp/(z1-z3)
-                  
+
                   p_nh(jg)%metrics%coeff_gradp(1,je,jk,jb) =            &
                     1._wp + coef1*dn1 + coef2*dn1*dn4 + coef3*dn1*dn4*dn5
                   p_nh(jg)%metrics%coeff_gradp(2,je,jk,jb) =                               &
@@ -1194,11 +1246,11 @@ MODULE mo_vertical_grid
 
                   coef1 =  z_me(je,jk,jb)-z0
                   coef2 = (z_me(je,jk,jb)-z0)*(z_me(je,jk,jb)-z1)
-                  
+
                   dn1 = 1._wp/(z0-z1)
                   dn2 = 1._wp/(z1-z2)
                   dn4 = 1._wp/(z0-z2)
-                  
+
                   p_nh(jg)%metrics%coeff_gradp(1,je,jk,jb) = 1._wp + coef1*dn1 + coef2*dn1*dn4
                   p_nh(jg)%metrics%coeff_gradp(2,je,jk,jb) = -(coef1*dn1 + coef2*dn4*(dn1+dn2))
                   p_nh(jg)%metrics%coeff_gradp(3,je,jk,jb) = coef2*dn2*dn4
@@ -1240,14 +1292,14 @@ MODULE mo_vertical_grid
                   coef1 =  z_me(je,jk,jb)-z0
                   coef2 = (z_me(je,jk,jb)-z0)*(z_me(je,jk,jb)-z1)
                   coef3 = (z_me(je,jk,jb)-z0)*(z_me(je,jk,jb)-z1)*(z_me(je,jk,jb)-z2)
-                  
+
                   dn1 = 1._wp/(z0-z1)
                   dn2 = 1._wp/(z1-z2)
                   dn3 = 1._wp/(z2-z3)
                   dn4 = 1._wp/(z0-z2)
                   dn5 = 1._wp/(z0-z3)
                   dn6 = 1._wp/(z1-z3)
-                  
+
                   p_nh(jg)%metrics%coeff_gradp(5,je,jk,jb) =            &
                     1._wp + coef1*dn1 + coef2*dn1*dn4 + coef3*dn1*dn4*dn5
                   p_nh(jg)%metrics%coeff_gradp(6,je,jk,jb) =                               &
@@ -1269,11 +1321,11 @@ MODULE mo_vertical_grid
 
                   coef1 =  z_me(je,jk,jb)-z0
                   coef2 = (z_me(je,jk,jb)-z0)*(z_me(je,jk,jb)-z1)
-                  
+
                   dn1 = 1._wp/(z0-z1)
                   dn2 = 1._wp/(z1-z2)
                   dn4 = 1._wp/(z0-z2)
-                  
+
                   p_nh(jg)%metrics%coeff_gradp(5,je,jk,jb) = 1._wp + coef1*dn1 + coef2*dn1*dn4
                   p_nh(jg)%metrics%coeff_gradp(6,je,jk,jb) = -(coef1*dn1 + coef2*dn4*(dn1+dn2))
                   p_nh(jg)%metrics%coeff_gradp(7,je,jk,jb) = coef2*dn2*dn4
@@ -1308,7 +1360,7 @@ MODULE mo_vertical_grid
 
         extrapol_dist = 5._wp ! maximum allowed extrapolation distance; may become a namelist variable later on
 
-        ! Recompute indices and height differences if truly horizontal pressure gradient 
+        ! Recompute indices and height differences if truly horizontal pressure gradient
         ! computation would intersect the ground
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jk1, jk_start, je, z_aux1, z_aux2, &
@@ -1398,14 +1450,14 @@ MODULE mo_vertical_grid
                       coef1 =  z_aux2(je)-z0
                       coef2 = (z_aux2(je)-z0)*(z_aux2(je)-z1)
                       coef3 = (z_aux2(je)-z0)*(z_aux2(je)-z1)*(z_aux2(je)-z2)
-                  
+
                       dn1 = 1._wp/(z0-z1)
                       dn2 = 1._wp/(z1-z2)
                       dn3 = 1._wp/(z2-z3)
                       dn4 = 1._wp/(z0-z2)
                       dn5 = 1._wp/(z0-z3)
                       dn6 = 1._wp/(z1-z3)
-                  
+
                       p_nh(jg)%metrics%coeff_gradp(1,je,jk,jb) =            &
                         1._wp + coef1*dn1 + coef2*dn1*dn4 + coef3*dn1*dn4*dn5
                       p_nh(jg)%metrics%coeff_gradp(2,je,jk,jb) =                               &
@@ -1429,11 +1481,11 @@ MODULE mo_vertical_grid
 
                       coef1 =  z_aux2(je)-z0
                       coef2 = (z_aux2(je)-z0)*(z_aux2(je)-z1)
-                  
+
                       dn1 = 1._wp/(z0-z1)
                       dn2 = 1._wp/(z1-z2)
                       dn4 = 1._wp/(z0-z2)
-                  
+
                       p_nh(jg)%metrics%coeff_gradp(1,je,jk,jb) = &
                         1._wp + coef1*dn1 + coef2*dn1*dn4
                       p_nh(jg)%metrics%coeff_gradp(2,je,jk,jb) = &
@@ -1468,14 +1520,14 @@ MODULE mo_vertical_grid
                       coef1 =  z_aux2(je)-z0
                       coef2 = (z_aux2(je)-z0)*(z_aux2(je)-z1)
                       coef3 = (z_aux2(je)-z0)*(z_aux2(je)-z1)*(z_aux2(je)-z2)
-                  
+
                       dn1 = 1._wp/(z0-z1)
                       dn2 = 1._wp/(z1-z2)
                       dn3 = 1._wp/(z2-z3)
                       dn4 = 1._wp/(z0-z2)
                       dn5 = 1._wp/(z0-z3)
                       dn6 = 1._wp/(z1-z3)
-                  
+
                       p_nh(jg)%metrics%coeff_gradp(5,je,jk,jb) =            &
                         1._wp + coef1*dn1 + coef2*dn1*dn4 + coef3*dn1*dn4*dn5
                       p_nh(jg)%metrics%coeff_gradp(6,je,jk,jb) =                               &
@@ -1499,11 +1551,11 @@ MODULE mo_vertical_grid
 
                       coef1 =  z_aux2(je)-z0
                       coef2 = (z_aux2(je)-z0)*(z_aux2(je)-z1)
-                  
+
                       dn1 = 1._wp/(z0-z1)
                       dn2 = 1._wp/(z1-z2)
                       dn4 = 1._wp/(z0-z2)
-                  
+
                       p_nh(jg)%metrics%coeff_gradp(5,je,jk,jb) = &
                         1._wp + coef1*dn1 + coef2*dn1*dn4
                       p_nh(jg)%metrics%coeff_gradp(6,je,jk,jb) = &
@@ -1580,7 +1632,7 @@ MODULE mo_vertical_grid
     !PREPARE LES, Anurag Dipankar MPIM (2013-04)
     DO jg = 1 , n_dom
       IF(atm_phy_nwp_config(jg)%is_les_phy)  &
-        CALL prepare_les_model(p_patch(jg), p_nh(jg), p_int(jg))
+        CALL prepare_les_model(p_patch(jg), p_nh(jg), p_int(jg), jg)
     END DO
 
   END SUBROUTINE set_nh_metrics
@@ -1729,7 +1781,7 @@ MODULE mo_vertical_grid
     ! Recompute index list after removal of empty points
     ji = 0
     DO jb = i_startblk,nblks_c
-        
+
       CALL get_indices_c(p_patch, jb, i_startblk, nblks_c, &
                          i_startidx, i_endidx, grf_bdywidth_c+1)
 
@@ -1902,7 +1954,7 @@ MODULE mo_vertical_grid
   !! @par Revision History
   !! Developed by Anurag Dipankar, MPIM (2013-04)
   !!
-  SUBROUTINE prepare_les_model(p_patch, p_nh, p_int)
+  SUBROUTINE prepare_les_model(p_patch, p_nh, p_int, jg)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_vertical_grid:prepare_les_model'
@@ -1910,10 +1962,11 @@ MODULE mo_vertical_grid
     TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch
     TYPE(t_nh_state), INTENT(INOUT)      :: p_nh
     TYPE(t_int_state), TARGET,INTENT(IN) :: p_int
+    INTEGER, INTENT(IN)                  :: jg
 
-    REAL(wp)  :: les_filter, z_mc, z_aux(nproma,p_patch%nlevp1,p_patch%nblks_c), max_dz
-    
-    INTEGER :: jk, jb, jc, je, nblks_c, nblks_e, nlen, i_startidx, i_endidx, npromz_c, npromz_e
+    REAL(wp)  :: les_filter, z_mc, z_aux(nproma,p_patch%nlevp1,p_patch%nblks_c)
+
+    INTEGER :: jk, jb, jc, je, nblks_c, nblks_e, nlen, i_startidx, i_endidx, npromz_c
     INTEGER :: nlev, nlevp1, i_startblk
 
     nlev = p_patch%nlev
@@ -1921,60 +1974,48 @@ MODULE mo_vertical_grid
     nblks_c   = p_patch%nblks_c
     npromz_c  = p_patch%npromz_c
     nblks_e   = p_patch%nblks_e
-    npromz_e  = p_patch%npromz_e
 
-    !Use the  triangle area to decide the les filter. 
-    max_dz = MAXVAL(p_nh%metrics%ddqz_z_full(:,nlev,:))
-    max_dz = global_max(max_dz) 
-    les_filter = les_config(1)%smag_constant*(max_dz*p_patch%geometry_info%mean_cell_area)**0.33333_wp
-
-    IF (msg_level >= 10) THEN
-      WRITE(message_text,'(a,i4,a,f8.3)') 'LES grid-scale filter for domain ',p_patch%id,' =',les_filter
-      CALL message(TRIM(routine),message_text)
-    END IF
-     
     i_startblk = p_patch%edges%start_block(2)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,nblks_e
      CALL get_indices_e(p_patch, jb, i_startblk, nblks_e, i_startidx, i_endidx, 2)
-      DO jk = 1 , nlev 
+      DO jk = 1 , nlev
        DO je = i_startidx, i_endidx
-         p_nh%metrics%inv_ddqz_z_full_e(je,jk,jb) =  & 
+         p_nh%metrics%inv_ddqz_z_full_e(je,jk,jb) =  &
                 1._wp / p_nh%metrics%ddqz_z_full_e(je,jk,jb)
        END DO
       END DO
-    END DO 
+    END DO
 !$OMP END DO
 
-!$OMP DO PRIVATE(jb,jc,jk,nlen,z_mc) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,nlen,z_mc,les_filter) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1,nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
-      ENDIF     
-       DO jk = 1 , nlevp1 
+      nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
+      DO jk = 1 , nlevp1
         DO jc = 1 , nlen
-         z_mc  = p_nh%metrics%geopot_agl_ifc(jc,jk,jb) * rgrav
+          z_mc  = p_nh%metrics%geopot_agl_ifc(jc,jk,jb) * rgrav
 
-         p_nh%metrics%mixing_length_sq(jc,jk,jb) = (les_filter*z_mc)**2    &
-                      / ((les_filter/akt)**2+z_mc**2)
+          les_filter = les_config(jg)%smag_constant * MIN( les_config(jg)%max_turb_scale, &
+                      (p_nh%metrics%ddqz_z_half(jc,jk,jb)*p_patch%cells%area(jc,jb))**0.33333_wp )
 
-         p_nh%metrics%inv_ddqz_z_half(jc,jk,jb) = 1._wp / p_nh%metrics%ddqz_z_half(jc,jk,jb)
-       END DO
+          p_nh%metrics%mixing_length_sq(jc,jk,jb) = (les_filter*z_mc)**2    &
+               / ((les_filter/akt)**2+z_mc**2)
+
+          p_nh%metrics%inv_ddqz_z_half(jc,jk,jb) = 1._wp / p_nh%metrics%ddqz_z_half(jc,jk,jb)
+        END DO
       END DO
-    END DO 
+    END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-  
-   IF(p_test_run)THEN
-!$OMP PARALLEL WORKSHARE
-    p_nh%metrics%inv_ddqz_z_half_v(:,:,:) = 0._wp
-    p_nh%metrics%inv_ddqz_z_half_e(:,:,:) = 0._wp
-    p_nh%metrics%wgtfac_v(:,:,:)          = 0._wp
-!$OMP END PARALLEL WORKSHARE
-  END IF
+
+    IF(p_test_run)THEN
+!$OMP PARALLEL
+      CALL init(p_nh%metrics%inv_ddqz_z_half_v(:,:,:))
+      CALL init(p_nh%metrics%inv_ddqz_z_half_e(:,:,:))
+      CALL init(p_nh%metrics%wgtfac_v(:,:,:))
+!$OMP END PARALLEL
+    END IF
 
    CALL cells2verts_scalar(p_nh%metrics%inv_ddqz_z_half, p_patch, p_int%cells_aw_verts, &
                            p_nh%metrics%inv_ddqz_z_half_v, opt_rlend=min_rlvert_int)

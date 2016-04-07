@@ -104,7 +104,7 @@ USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array
 USE mo_math_gradients,      ONLY: grad_fd_norm
 USE mo_math_divrot,         ONLY: div, rot_vertex, recon_lsq_cell_q
-
+USE mo_fortran_tools,       ONLY: copy
 
 IMPLICIT NONE
 
@@ -195,7 +195,7 @@ INTEGER,  DIMENSION(:,:,:),   POINTER :: icidx, icblk, ividx, ivblk
 
 !-----------------------------------------------------------------------
 IF (p_test_run) THEN
-  z_div_c(:,:,:)=0.0_wp 
+  z_div_c(:,:,:)=0.0_wp
   z_rot_v(:,:,:)=0.0_wp
   z_rot_e(:,:,:)=0.0_wp
 ENDIF
@@ -482,7 +482,7 @@ IF (PRESENT(opt_nabla2) ) THEN
   p_nabla2 => opt_nabla2
 ELSE
   ALLOCATE (z_nabla2_vec_e(nproma,ptr_patch%nlev,ptr_patch%nblks_e))
-  
+
   p_nabla2 => z_nabla2_vec_e
 ENDIF
 
@@ -946,9 +946,9 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
     i_startblk = ptr_patch%cells%start_blk(rl_start,1)
     i_endblk   = ptr_patch%cells%end_blk(rl_start_l2,1)
 
-!$OMP WORKSHARE
-    nabla2_psi_c(:,jk,i_startblk:i_endblk) =  aux_c(:,jk,i_startblk:i_endblk)
-!$OMP END WORKSHARE
+    CALL copy(aux_c(:,jk,i_startblk:i_endblk), &
+         nabla2_psi_c(:,jk,i_startblk:i_endblk))
+!$OMP BARRIER
   ENDIF
 
 !
@@ -1033,9 +1033,9 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
     i_startblk = ptr_patch%cells%start_blk(rl_start,1)
     i_endblk   = ptr_patch%cells%end_blk(rl_start_l2,1)
 
-!$OMP WORKSHARE
-    nabla2_psi_c(:,:,i_startblk:i_endblk) =  aux_c(:,:,i_startblk:i_endblk)
-!$OMP END WORKSHARE
+    CALL copy(aux_c(:,:,i_startblk:i_endblk), &
+         nabla2_psi_c(:,:,i_startblk:i_endblk))
+!$OMP BARRIER
   ENDIF
 
 !

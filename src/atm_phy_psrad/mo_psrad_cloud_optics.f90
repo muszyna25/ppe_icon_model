@@ -28,6 +28,7 @@ MODULE mo_psrad_cloud_optics
   USE mo_kind,      ONLY: wp
   USE mo_math_constants, ONLY: pi
   USE mo_physical_constants, ONLY: rhoh2o
+  USE mo_echam_cloud_config, ONLY: echam_cloud_config
 !!$  USE mo_mpi,       ONLY: p_parallel_io, p_io, p_bcast
 !!$  USE mo_netcdf,    ONLY: io_inq_varid, io_get_vara_double
 !!$  USE mo_io,        ONLY: io_open, io_close, io_read, file_info  
@@ -110,29 +111,10 @@ CONTAINS
 
     l_variable_inhoml = .FALSE.
 
-!!$    IF (nn == 31) THEN
-!!$      zinhoml1      = 0.80_wp
-!!$      zinhoml2      = 0.40_wp
-!!$      zinhoml3      = 0.60_wp
-!!$      zinhomi       = 0.80_wp
-!!$    ELSE IF (nn == 63) THEN
-      zinhoml1      = 0.80_wp
-      zinhoml2      = 0.40_wp
-      zinhoml3      = 0.80_wp
-      zinhomi       = 0.80_wp
-!!$    ELSE IF (nn == 127) THEN
-!!$      zinhoml1      = 0.80_wp
-!!$      zinhoml2      = 0.40_wp
-!!$      zinhoml3      = 0.80_wp
-!!$      zinhomi       = 0.80_wp
-!!$    ELSE IF (nn == 255) THEN
-!!$      zinhoml1      = 0.80_wp
-!!$      zinhoml2      = 0.40_wp
-!!$      zinhoml3      = 0.80_wp
-!!$      zinhomi       = 0.80_wp
-!!$    ELSE
-!!$      CALL finish ('mo_cloud_optics', 'Truncation not supported.')
-!!$    ENDIF
+    zinhoml1      = echam_cloud_config% cinhoml1
+    zinhoml2      = echam_cloud_config% cinhoml2
+    zinhoml3      = echam_cloud_config% cinhoml3
+    zinhomi       = echam_cloud_config% cinhomi
 
     zinpar  = 0.10_wp
 

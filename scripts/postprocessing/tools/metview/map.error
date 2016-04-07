@@ -25,7 +25,7 @@ if mode = 'batch' or mode = 'execute' then
   expref  = args[2]      # experiment ID of reference experiment
   varname = args[3]      # variable name (e.g. T)
   levtype = args[4]      # level type (e.g. sfc, pl, zl, ml, lnd, L90)
-  stat    = args[5]      # statistic (snap, ctr or diff) 
+  stat    = args[5]      # statistic (snap, ctr, diff, diff_ref, diff_obs, ifs_obs or rms) 
   inidate = args[6]      # 
   initime = args[7]      # 
   verdate = args[8]      # 
@@ -113,7 +113,17 @@ else
   nd_txt2 = ''
 end if
 
-obs = 'WHOI'
+if varname = 'ACCSOB_T' or varname = 'ACCTHB_T' then
+  obs = 'CERES'
+else
+  obs = 'WHOI'
+end if
+
+if stat = 'rms' then
+  score_file = plotdir&"/scores_"&expnum&"_rms.txt"
+else
+  score_file = plotdir&"/scores_"&expnum&".txt"
+end if
 
 case stat of
   'diff':
@@ -125,11 +135,11 @@ case stat of
     title   = vartitle&'    '&expnum&'   -   '&expref&'    '&inidate&initime&' to '&verdate&vertime&nd_txt2
     end
   'diff_obs':
-    plotfile= plotdir&'/map.'&expres&'.'&expnum&'-'&obs&'.'&varplot&'.'&verdate&vertime&nd_txt1     # no ".ps"
+    plotfile= plotdir&'/map.'&expres&'.'&expnum&'-obs'&obs&'.'&varplot&'.'&verdate&vertime&nd_txt1     # no ".ps"
     title   = vartitle&'    '&expnum&'   -   '&obs&'    '&inidate&initime&' to '&verdate&vertime&nd_txt2
     end
   'ifs_obs':
-    plotfile= plotdir&'/map.'&expres&'.IFS-'&obs&'.'&varplot&'.'&verdate&vertime&nd_txt1     # no ".ps"
+    plotfile= plotdir&'/map.'&expres&'.'&expnum&'.ifs-obs'&obs&'.'&varplot&'.'&verdate&vertime&nd_txt1     # no ".ps"
     title   = vartitle&'    IFS   -   '&obs&'    '&inidate&initime&' to '&verdate&vertime&nd_txt2
     end
   'snap':
@@ -139,6 +149,10 @@ case stat of
   'ctr':
     plotfile= plotdir&'/map.'&expres&'.'&expnum&'.ifs.'&varplot&'.'&verdate&vertime&nd_txt1
     title   = vartitle&'    ANA    '&verdate&vertime&nd_txt2
+    end
+  'rms':
+    plotfile= plotdir&'/map.'&expres&'.'&expnum&'-ifs_rms.'&varplot&'.'&verdate&vertime&nd_txt1     # no ".ps"
+    title   = vartitle&'    '&expnum&'   RMS(EXP-ANA)   '&inidate&initime&' to '&verdate&vertime&nd_txt2
     end
 end case
 
@@ -174,6 +188,7 @@ case varname of
  'RAIN_GSP':  varfile = '0.1.77'      end
  'SNOW_CON':  varfile = 'csrwe'       end    # 0.1.55
  'SNOW_GSP':  varfile = 'lssrwe'      end    # 0.1.56
+ 'CAPE'    :  varfile = '0.7.6'       end
  'TCC'     :  varfile = '0.6.1'       end
  'HCC'     :  varfile = 'cc.0'        end  # levtype =sfc
  'MCC'     :  varfile = 'cc.400'      end  # levtype =sfc
@@ -255,19 +270,25 @@ for nd=1 to ndays do
 
   mntxt = parse(tailfile, "_")
 
+  if stat = 'rms' then
+    # replace mn with var
+    index    = search(tailfile, 'mn')
+    tailfile = substring(tailfile,1,index-1)&"var"&substring(tailfile,index+2,length(tailfile))
+  end if
+
   if lmonth = 0 then
     source_ini_icon = datadir&'/'&expnum&'_'&inidate&initime&'_DOM01_0001_'&varfile&'_'&levtype&'.grb'
     source_ref_icon = dataref&'/'&expref&'_'&inidate&initime&'_DOM01_0001_'&varfile&'_'&levtype&'.grb'
     source_ver_icon = datadir&'/'&expnum&'_'&verdate&vertime&'_DOM01_0001_'&varfile2&'_'&levtype&'.grb'
-    source_pl_ifs ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.pl.grb'
-    source_sfc_ifs='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.sfc.grb'
+    source_pl_ifs   ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.pl.grb'
+    source_sfc_ifs  ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.sfc.grb'
     nfc = ndays
   else
     source_ini_icon = datadir&'/'&expnum&'_'&yyyymm&'_DOM01_0001_'&varfile&'_'&levtype&tailfile
     source_ref_icon = dataref&'/'&expref&'_'&yyyymm&'_DOM01_0001_'&varfile&'_'&levtype&tailfile
     source_ver_icon = datadir&'/'&expnum&'_'&yyyymm&'_DOM01_0001_'&varfile2&'_'&levtype&tailfile 
-    source_pl_ifs ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.pl.' &mntxt[3]
-    source_sfc_ifs='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.sfc.'&mntxt[3]
+    source_pl_ifs   ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.pl.' &mntxt[3]
+    source_sfc_ifs  ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.sfc.'&mntxt[3]
     nfc = parse(mntxt[3], "-")
     nfc = parse(nfc[2],".")
     nfc = nfc[1]
@@ -458,7 +479,8 @@ for nd=1 to ndays do
 end for
 
 
-#--- read observational data: WHO oaflux monthly means and error bars
+#--- read observational data: 
+#--- WHOI oaflux monthly means and error bars
 
 if varname = 'SP_10M'    or varname = 'T_2M'      or varname = 'T_G' or varname = 'QV_2M' or 
    varname = 'ACCLHFL_S' or varname = 'ACCSHFL_S' then
@@ -482,7 +504,20 @@ if varname = 'SP_10M'    or varname = 'T_2M'      or varname = 'T_G' or varname 
      grid : grid,
      levtype : "sfc")
    ocean = lsm < 0.5
+end if
 
+#--- CERES TOA radiative fluxes
+
+if varname = 'ACCSOB_T' or varname = 'ACCTHB_T' then
+   case varname of
+      'ACCSOB_T' :   param = 'toa_sw_net' end
+      'ACCTHB_T' :   param = 'toa_lw'     end
+   end case
+   source_obs = '/scratch/ms/de/deia/obs_data/'&param&'_ceres_'&yyyymm&'.grb'
+   var_obs = read(  
+      SOURCE   : source_obs,
+      grid     : grid )
+   ocean = 1
 end if
 
 
@@ -502,6 +537,8 @@ case stat of
   end
   'ctr':      var_data = var_ana
   end
+  'rms':      var_data = sqrt(var_exp)
+  end
 end case
 
 #open memory
@@ -512,9 +549,6 @@ temp   =0
 rms_data = rmstime_met(var_data,nlev,ndays)  # eom_prepare does time mean, so RMS for each day not possible
 
 var_data = avgtime_met(var_data,nlev,ndays)
-
-print('rms',rms_data)
-print('var',var_data)
 
 if nlev=1 then
   k1=1
@@ -545,10 +579,10 @@ for k=k1 to k2 by k3 do
   # mean of rms of each forecast
   rms_days = integrate(rms_data[k])
 
-  if stat = 'diff' or stat = 'diff_ref' or stat = 'diff_obs' or stat = 'ifs_obs' then 
+  if stat = 'diff' or stat = 'diff_ref' or stat = 'diff_obs' or stat = 'ifs_obs' or stat = 'rms' then 
     statistic = statistic&'   RMS:  '&rms          # &'   MEANofRMS:  '&rms_days
-    if stat = 'diff' or stat = 'diff_obs' or stat = 'ifs_obs' then
-      append (plotdir&"/scores_"&expnum&".txt", 
+    if stat = 'diff' or stat = 'diff_obs' or stat = 'ifs_obs' or stat = 'rms' then
+      append (score_file, 
         varname, tab, levtype,' level: ', k, tab, 'inidatetime: ', firstinidate, initime, 
         '   step: ', step, '   nfc: ', nfc, tab, statistic, tab, stat, newline)
     end if

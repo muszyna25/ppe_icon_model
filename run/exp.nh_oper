@@ -118,7 +118,7 @@ cat > ${atmo_namelist} << EOF
  p_test_run     = .false.
  l_test_openmp  = .false.
  l_log_checks   = .false.
- num_io_procs   = 1   ! up to one PE per output stream is possible
+ num_io_procs   = 1   ! asynchronous output for values >= 1
  itype_comm     = 1
  iorder_sendrecv = 3  ! best value for CRAY (slightly faster than option 1)
 /
@@ -131,9 +131,10 @@ cat > ${atmo_namelist} << EOF
  ifeedback_type          = 2
 ! start_time              = -5400.,     0. ! to start nested domain after the IAU phase of a forecast run
 ! start_time              = -5400., -5400. ! to read FG and AN input data for nested domain in IAU mode
+! end_time                = 0, 432000.   ! stop nest after 120 h
 /
 &initicon_nml
- init_mode   = 6           ! operation mode 6: IAU data assimilation cycle
+ init_mode   = 5           ! operation mode 5: IAU data assimilation cycle including incremental snow analysis
  dt_iau      = 5400        ! 5400 for asymmetric IAU in forecast runs, 10800 in assimilation cycle
  dt_shift    = -5400
  zpbl1       = 500. 
@@ -141,6 +142,8 @@ cat > ${atmo_namelist} << EOF
  dwdfg_filename    = "<path>fg_R<nroot0>B<jlev>_DOM<idom>.grb"
  dwdana_filename   = "<path>an_R<nroot0>B<jlev>_DOM<idom>.grb"
  ltile_coldstart   = .TRUE.  ! intermediate mode until tile-based I/O is available
+ lp2cintp_incr     = .true.      ! parent-to-child-interpolation
+ lp2cintp_sfcana   = .false.     ! of analyses
  l_sst_in    = .true.
 /
 &run_nml
@@ -175,12 +178,12 @@ cat > ${atmo_namelist} << EOF
  icpl_aero_gscp   = 1
  ! resolution-dependent settings - please choose the appropriate one
  ! dt_rad    = 2160. (R2B6) / 1440. (R3B7) ** should be an integer multiple of dt_conv **
- ! dt_conv   = 720. (R2B6) / 360. (R3B7)
+ ! dt_conv   = 720. (R2B6) / 360. (R3B7) / 180. (R3B8 - EU-nest)
  ! dt_sso    = 1440. (R2B6) / 720. (R3B7)
  ! dt_gwd    = 1440. (R2B6) / 720. (R3B7)
 /
 &nwp_tuning_nml
- tune_zceff_min = 0.075 ! ** default value to be used for R3B7; use 0.025 for R2B6 in order to get similar temperature biases in upper troposphere **
+ tune_zceff_min = 0.075 ! ** resolution-independent since rev. 25646 **
  itune_albedo   = 1     ! somewhat reduced albedo (w.r.t. MODIS data) over Sahara in order to reduce cold bias
 /
 &turbdiff_nml
@@ -188,7 +191,7 @@ cat > ${atmo_namelist} << EOF
  tkmmin  = 0.75  !           " 
  pat_len = 750.
  c_diff  = 0.2
- rat_sea = 8.5  ! resolution-independent since rev. 21818 (2015-04-13); 9.0 may be worth trying in order to reduce the warm bias in the tropical middle troposphere
+ rat_sea = 8.0  ! ** new value since rev. 25646 (reduced saturation vapor pressure over salt water) **
  ltkesso = .true.
  frcsmot = 0.2      ! these 2 switches together apply vertical smoothing of the TKE source terms
  imode_frcsmot = 2  ! in the tropics (only), which reduces the moist bias in the tropical lower troposphere
@@ -198,12 +201,12 @@ cat > ${atmo_namelist} << EOF
  a_hshr     = 2.0
 /
 &lnd_nml
- ntiles         = 3      !!! 1 for assimilation cycle and forecast
- nlev_snow      = 3      !!! 1 for assimilation cycle and forecast
+ ntiles         = 3      !!! operational since March 2015
+ nlev_snow      = 3      !!! effective only if lmulti_snow = .true.
  lmulti_snow    = .false. !!! for the time being, until numerical stability issues and coupling with snow analysis are solved
  itype_heatcond = 2
- idiag_snowfrac = 2        !! change to 20 with snow tiles!
- lsnowtile      = .false.  !! later on .true. if GRIB encoding issues are solved
+ idiag_snowfrac = 20      !! ** operational since 1.12.15 **
+ lsnowtile      = .true.  !! ** operational since 1.12.15 **
  lseaice        = .true.
  llake          = .true.
  itype_lndtbl   = 3  ! minimizes moist/cold bias in lower tropical troposphere
@@ -229,16 +232,18 @@ cat > ${atmo_namelist} << EOF
  damp_height    = 50000.
  rayleigh_coeff = 0.10
  lhdiff_rcf     = .true.
- divdamp_order  = 24    ! for data assimilation runs, '2' provides extra-strong filtering of gravity waves 
- divdamp_type   = 32    !!! optional: 2 for assimilation cycle if very strong gravity-wave filtering is desired
- divdamp_fac    = 0.004
+ divdamp_order  = 24    ! setting for forecast runs; use '2' for assimilation cycle
+ divdamp_type   = 32    ! ** new setting for assimilation and forecast runs **
+ divdamp_fac    = 0.004 ! use 0.032 in conjunction with divdamp_order = 2 in assimilation cycle
+ divdamp_trans_start  = 12500.  ! use 2500. in assimilation cycle
+ divdamp_trans_end    = 17500.  ! use 5000. in assimilation cycle
  l_open_ubc     = .false.
  igradp_method  = 3
  l_zdiffu_t     = .true.
  thslp_zdiffu   = 0.02
  thhgtd_zdiffu  = 125.
  htop_moist_proc= 22500.
- hbot_qvsubstep = 22500. ! use 19000. with R3B7
+ hbot_qvsubstep = 19000. ! use 22500. with R2B6
 /
 &sleve_nml
  min_lay_thckn   = 20.
@@ -278,11 +283,12 @@ cat > ${atmo_namelist} << EOF
  lsq_high_ord      = 3
  l_intp_c2l        = .true.
  l_mono_c2l        = .true.
+ support_baryctr_intp = .true.
 /
 &extpar_nml
  itopo          = 1
- n_iter_smooth_topo = 1
- heightdiff_threshold = 3000.
+ n_iter_smooth_topo = 1, 1           ! ** new setting in parallel routine since Dec. 2015 **
+ hgtdiff_max_smooth_topo = 0.,750.,  ! ** new setting in parallel routine since Dec. 2015 **
 /
 &io_nml
  itype_pres_msl = 4  ! IFS method with bug fix for self-consistency between SLP and geopotential

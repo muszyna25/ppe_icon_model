@@ -15,30 +15,35 @@
 !!
 MODULE mo_initicon_config
 
-  USE mo_kind,               ONLY: wp, sp
+  USE mo_kind,               ONLY: wp
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                              int2string
   USE mo_io_units,           ONLY: filename_max
   USE mo_impl_constants,     ONLY: max_dom, vname_len, max_var_ml, MAX_CHAR_LENGTH,  &
     &                              MODE_IFSANA, MODE_COMBINED, MODE_COSMODE,         &
-    &                              MODE_DWDANA_INC, MODE_IAU, MODE_IAU_OLD
+    &                              MODE_IAU, MODE_IAU_OLD, MODE_ICONVREMAP
+  USE mo_grid_config,        ONLY: l_limited_area
   USE mo_time_config,        ONLY: time_config
   USE mo_datetime,           ONLY: t_datetime
   USE mtime,                 ONLY: timedelta, newTimedelta, deallocateTimedelta,     &
     &                              max_timedelta_str_len, datetime, newDatetime,     &
     &                              deallocateDatetime, OPERATOR(+),                  &
     &                              MAX_DATETIME_STR_LEN, OPERATOR(<=), OPERATOR(>=), &
-    &                              datetimeToString,  getPTStringFromSeconds
+    &                              getPTStringFromSeconds
   USE mo_mtime_extensions,   ONLY: get_datetime_string
   USE mo_parallel_config,    ONLY: num_prefetch_proc
-  USE mo_exception,          ONLY: finish, message_text
+  USE mo_exception,          ONLY: finish, message_text, message
 
   IMPLICIT NONE
 
   PRIVATE 
 
 
-  PUBLIC :: init_mode, nlev_in, nlevsoil_in, zpbl1, zpbl2
+  ! Types
+  PUBLIC :: t_initicon_config
+
+  ! Variables
+  PUBLIC :: init_mode, nlevatm_in, nlevsoil_in, zpbl1, zpbl2
   PUBLIC :: dt_iau
   PUBLIC :: type_iau_wgt
   PUBLIC :: l_sst_in
@@ -48,6 +53,8 @@ MODULE mo_initicon_config
   PUBLIC :: l_coarse2fine_mode
   PUBLIC :: lp2cintp_incr, lp2cintp_sfcana
   PUBLIC :: ltile_coldstart
+  PUBLIC :: ltile_init
+  PUBLIC :: lvert_remap_fg
   PUBLIC :: lcalc_avg_fg
   PUBLIC :: start_time_avg_fg
   PUBLIC :: end_time_avg_fg
@@ -58,7 +65,6 @@ MODULE mo_initicon_config
   PUBLIC :: ifs2icon_filename
   PUBLIC :: dwdfg_filename
   PUBLIC :: dwdana_filename
-  PUBLIC :: ana_varlist
   PUBLIC :: filetype
   PUBLIC :: ana_varnames_map_file
   PUBLIC :: latbc_varnames_map_file
@@ -66,9 +72,10 @@ MODULE mo_initicon_config
   PUBLIC :: is_iau_active
   PUBLIC :: iau_wgt_dyn, iau_wgt_adv
   PUBLIC :: rho_incr_filter_wgt
-  PUBLIC :: wgtfac_geobal
   PUBLIC :: t_timeshift
   PUBLIC :: timeshift
+  PUBLIC :: initicon_config
+  PUBLIC :: aerosol_fg_present
 
   ! Subroutines
   PUBLIC :: configure_initicon
@@ -87,6 +94,14 @@ MODULE mo_initicon_config
   ! 1.0 Namelist variables for the init_icon preprocessing program
   ! ----------------------------------------------------------------------------
   !
+  TYPE :: t_initicon_config
+    CHARACTER(LEN=vname_len) :: ana_varlist(max_var_ml) ! list of mandatory analysis fields. 
+                                                        ! This list can include a subset or the 
+                                                        ! entire set of default analysis fields.
+  END TYPE t_initicon_config
+  !
+  ! probably those which are domain-dependent could be included into aboves type lateron
+  !
   INTEGER  :: init_mode     ! initialization mode
   INTEGER  :: nlevsoil_in   ! number of soil levels of input data
 
@@ -104,7 +119,11 @@ MODULE mo_initicon_config
                                      ! assimilation increments
   LOGICAL  :: lp2cintp_sfcana(max_dom) ! If true, perform parent-to-child interpolation of
                                        ! surface analysis data
-  LOGICAL  :: ltile_coldstart  ! If true, initialize tile-based surface fields from first guess without tiles
+  LOGICAL  :: ltile_coldstart  ! If true, initialize tile-based surface fields from first guess with tile-averaged fields
+
+  LOGICAL  :: ltile_init       ! If true, initialize tile-based surface fields from first guess without tiles
+
+  LOGICAL  :: lvert_remap_fg   ! If true, vertical remappting of first guess input is performed
 
   ! Variables controlling computation of temporally averaged first guess fields for DA
   ! The calculation is switched on by setting end_time > start_time
@@ -120,7 +139,7 @@ MODULE mo_initicon_config
   INTEGER  :: filetype      ! One of CDI's FILETYPE\_XXX constants. Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2)
 
   REAL(wp) :: dt_iau        ! Time interval during which incremental analysis update (IAU) is performed [s]. 
-                            ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC
+                            ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD
 
   TYPE(t_timeshift) :: &    ! Allows IAU runs to start earlier than the nominal simulation start date 
     &  timeshift            ! without showing up in the output metadata
@@ -128,15 +147,9 @@ MODULE mo_initicon_config
   INTEGER  :: type_iau_wgt  ! Type of weighting function for IAU.
                             ! 1: Top-hat
                             ! 2: SIN2
-                            ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC
+                            ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD
   REAL(wp) :: rho_incr_filter_wgt  ! Vertical filtering weight for density increments 
-                                   ! Only applicable for init_mode=MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC
-  REAL(wp) :: wgtfac_geobal  ! Weighting factor for artificial geostrophic balancing of meridional gradients
-                             ! of pressure increments in the tropical stratosphere
-
-  CHARACTER(LEN=vname_len) :: ana_varlist(max_var_ml) ! list of mandatory analysis fields. 
-                                                      ! This list can include a subset or the 
-                                                      ! entire set of default analysis fields.
+                                   ! Only applicable for init_mode=MODE_IAU, MODE_IAU_OLD
 
   ! IFS2ICON input filename, may contain keywords, by default
   ! ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
@@ -162,7 +175,7 @@ MODULE mo_initicon_config
   ! Derived variables / variables based on input file contents
   ! ----------------------------------------------------------------------------
 
-  INTEGER :: nlev_in   = 0  !< number of model levels of input data
+  INTEGER :: nlevatm_in(max_dom) = 0  !< number of atmospheric model levels of input data
   LOGICAL :: lread_vn  = .FALSE. !< control variable that specifies if u/v or vn are read as wind field input
 
   INTEGER :: init_mode_soil     !< initialization mode of soil model (coldstart, warmstart, warmstart+IAU)
@@ -173,6 +186,10 @@ MODULE mo_initicon_config
 
   REAL(wp):: iau_wgt_dyn = 0._wp    !< IAU weight for dynamics fields 
   REAL(wp):: iau_wgt_adv = 0._wp    !< IAU weight for tracer fields
+
+  LOGICAL :: aerosol_fg_present(max_dom) = .FALSE. !< registers if aerosol fields have been read from the first-guess data
+
+  TYPE(t_initicon_config), TARGET :: initicon_config(0:max_dom)
 
 CONTAINS
 
@@ -187,7 +204,9 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2013-07-11)
   !!
-  SUBROUTINE configure_initicon
+  SUBROUTINE configure_initicon(dtime)
+    !
+    REAL(wp), INTENT(IN)        :: dtime       ! advection/fast physics time step
     !
     CHARACTER(len=*), PARAMETER :: routine = 'mo_initicon_config:configure_initicon'
     !
@@ -195,8 +214,10 @@ CONTAINS
     TYPE(timedelta), POINTER             :: mtime_shift_local, td_start_time_avg_fg, td_end_time_avg_fg
     CHARACTER(len=max_timedelta_str_len) :: str_start_time_avg_fg, str_end_time_avg_fg
     !
-    TYPE(datetime), POINTER               :: inidatetime          ! in mtime format
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: iso8601_ini_datetime ! ISO_8601
+    TYPE(datetime), POINTER              :: inidatetime          ! in mtime format
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: iso8601_ini_datetime ! ISO_8601
+
+    REAL(wp)                             :: zdt_shift            ! rounded dt_shift
     !
     !-----------------------------------------------------------------------
     !
@@ -211,12 +232,29 @@ CONTAINS
     IF ( ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMODE/) == init_mode) ) THEN
        init_mode_soil = 1   ! full coldstart is executed
        ! i.e. w_so_ice and h_snow are re-diagnosed
-    ELSE IF ( ANY((/MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC/) == init_mode) ) THEN
+    ELSE IF (l_limited_area .AND. init_mode == MODE_ICONVREMAP .AND. .NOT. lread_ana) THEN
+       init_mode_soil = 1   ! same initialization for limited-area cold start
+    ELSE IF ( ANY((/MODE_IAU, MODE_IAU_OLD/) == init_mode) ) THEN
        init_mode_soil = 3  ! warmstart (within assimilation cycle) with analysis increments for h_snow
     ELSE
        init_mode_soil = 2  ! warmstart with full fields for h_snow from snow analysis
     ENDIF
 
+    !
+    ! timeshift-operations
+    !
+
+    ! Round dt_shift to the nearest integer multiple of the advection time step
+    !
+    IF (timeshift%dt_shift < 0._wp) THEN
+      zdt_shift = REAL(NINT(timeshift%dt_shift/dtime),wp)*dtime
+      IF (ABS((timeshift%dt_shift-zdt_shift)/zdt_shift) > 1.e-10_wp) THEN
+        WRITE(message_text,'(a,f10.3,a)') '*** WARNING: dt_shift adjusted to ', zdt_shift, &
+          &                               ' s in order to be a multiple of the advection time step ***'
+        CALL message('',message_text)
+      ENDIF
+      timeshift%dt_shift = zdt_shift
+    END IF
     !
     ! transform timeshift to mtime-format
     !

@@ -21,10 +21,8 @@
 MODULE mo_nwp_tuning_nml
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_master_config,       ONLY: isRestart
-  USE mo_impl_constants,      ONLY: max_dom
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,     &
@@ -37,6 +35,17 @@ MODULE mo_nwp_tuning_nml
     &                               config_tune_v0snow    => tune_v0snow,    &
     &                               config_tune_zvz0i     => tune_zvz0i,     &  
     &                               config_tune_entrorg   => tune_entrorg,   &  
+    &                               config_tune_capdcfac_et => tune_capdcfac_et, &  
+    &                               config_tune_rhebc_land  => tune_rhebc_land,  &  
+    &                               config_tune_rhebc_ocean => tune_rhebc_ocean, &  
+    &                               config_tune_rcucov      => tune_rcucov,      &  
+    &                               config_tune_rhebc_land_trop  => tune_rhebc_land_trop,  &  
+    &                               config_tune_rhebc_ocean_trop => tune_rhebc_ocean_trop, &  
+    &                               config_tune_rcucov_trop      => tune_rcucov_trop,      &  
+    &                               config_tune_texc        => tune_texc,        &  
+    &                               config_tune_qexc        => tune_qexc,        &  
+    &                               config_tune_minsnowfrac => tune_minsnowfrac, &  
+    &                               config_tune_box_liq   => tune_box_liq,   &  
     &                               config_itune_albedo   => itune_albedo,   &
     &                               config_max_freshsnow_inc => max_freshsnow_inc 
   
@@ -71,6 +80,39 @@ MODULE mo_nwp_tuning_nml
   REAL(wp) :: &                    !< Entrainment parameter for deep convection valid at dx=20 km 
     &  tune_entrorg
 
+  REAL(wp) :: &                    !< Fraction of CAPE diurnal cycle correction applied in the extratropics
+    &  tune_capdcfac_et            ! (relevant only if icapdcycl = 3)
+
+  REAL(wp) :: &                    !< RH threshold for onset of evaporation below cloud base over land
+    &  tune_rhebc_land
+
+  REAL(wp) :: &                    !< RH threshold for onset of evaporation below cloud base over sea
+    &  tune_rhebc_ocean
+
+  REAL(wp) :: &                    !< Convective area fraction
+    &  tune_rcucov
+
+  REAL(wp) :: &                    !< RH threshold for onset of evaporation below cloud base over tropical land
+    &  tune_rhebc_land_trop        !  (relevant only if smaller than rhebc_land)
+
+  REAL(wp) :: &                    !< RH threshold for onset of evaporation below cloud base over tropical sea
+    &  tune_rhebc_ocean_trop       !  (relevant only if smaller than rhebc_ocean)
+
+  REAL(wp) :: &                    !< Convective area fraction in the tropics
+    &  tune_rcucov_trop            !  (relevant only if smaller than rcucov)
+
+  REAL(wp) :: &                    !< Excess value for temperature used in test parcel ascent
+    &  tune_texc
+
+  REAL(wp) :: &                    !< Excess fraction of grid-scale QV used in test parcel ascent
+    &  tune_qexc
+
+  REAL(wp) :: &                    !< Minimum value to which the snow cover fraction is artificially reduced
+    &  tune_minsnowfrac            !  in case of melting show (in case of idiag_snowfrac = 20/30/40)
+
+  REAL(wp) :: &                    !< Box width for liquid clouds assumed in the cloud cover scheme
+    &  tune_box_liq                ! (in case of inwp_cldcover = 1)
+
   INTEGER :: &                     !< (MODIS) albedo tuning
     &  itune_albedo                ! 0: no tuning
                                    ! 1: dimmed Sahara
@@ -79,10 +121,13 @@ MODULE mo_nwp_tuning_nml
   REAL(wp) :: &                    !< maximum allowed positive freshsnow increment
     &  max_freshsnow_inc
 
-  NAMELIST/nwp_tuning_nml/ tune_gkwake, tune_gkdrag, tune_gfluxlaun, &
-    &                      tune_zceff_min, tune_v0snow, tune_zvz0i,  &
-    &                      tune_entrorg, itune_albedo, max_freshsnow_inc
-
+  NAMELIST/nwp_tuning_nml/ tune_gkwake, tune_gkdrag, tune_gfluxlaun,        &
+    &                      tune_zceff_min, tune_v0snow, tune_zvz0i,         &
+    &                      tune_entrorg, itune_albedo, max_freshsnow_inc,   &
+    &                      tune_capdcfac_et, tune_box_liq, tune_rhebc_land, &
+    &                      tune_rhebc_ocean, tune_rcucov, tune_texc,        &
+    &                      tune_qexc, tune_minsnowfrac,tune_rhebc_land_trop,&
+    &                      tune_rhebc_ocean_trop, tune_rcucov_trop
 
 CONTAINS
 
@@ -109,7 +154,6 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
-    INTEGER :: jg          !< patch loop index
     INTEGER :: iunit
 
     CHARACTER(len=*), PARAMETER ::  &
@@ -124,8 +168,8 @@ CONTAINS
     ! while the second one is the standard deviation. 
 
     ! SSO tuning
-    tune_gkwake     = 1.333_wp     ! original COSMO value 0.5
-    tune_gkdrag     = 0.1_wp       ! original COSMO value 0.075
+    tune_gkwake     = 1.5_wp       ! original COSMO value 0.5
+    tune_gkdrag     = 0.075_wp     ! original COSMO value 0.075
     !
     ! GWD tuning
     tune_gfluxlaun  = 2.50e-3_wp   ! original IFS value 3.75e-3
@@ -136,7 +180,27 @@ CONTAINS
     tune_zvz0i      = 1.25_wp      ! original value of Heymsfield+Donner 1990: 3.29
     !
     ! convection
-    tune_entrorg    = 1.825e-3_wp  ! entrainment parameter for deep convection valid at dx=20 km
+    tune_entrorg     = 1.85e-3_wp   ! entrainment parameter for deep convection valid at dx=20 km
+    tune_capdcfac_et = 0.0_wp       ! fraction of CAPE diurnal cycle correction applied in the extratropics
+    tune_rhebc_land  = 0.75_wp      ! RH threshold for onset of evaporation below cloud base over land (original IFS value 0.7)
+    tune_rhebc_ocean = 0.85_wp      ! RH threshold for onset of evaporation below cloud base over sea (original IFS value 0.9)
+    tune_rcucov      = 0.05_wp      ! Convective area fraction used for computing evaporation below cloud base (original IFS value 0.05)
+    tune_texc        = 0.125_wp     ! Excess value for temperature used in test parcel ascent (K) (original IFS value 0.2 K)
+    tune_qexc        = 1.25e-2_wp   ! Excess fraction of grid-scale QV used in test parcel ascent (original IFS value 0.1 g/kg 
+                                    ! independent of grid-scale QV))
+
+    ! The following switches allow separate tuning for evaporation below cloud base in the tropics
+    tune_rhebc_land_trop  = 0.70_wp
+    tune_rhebc_ocean_trop = 0.80_wp
+    tune_rcucov_trop      = 0.05_wp
+
+    !
+    ! snow cover diagnosis
+    tune_minsnowfrac = 0.125_wp     ! Minimum value to which the snow cover fraction is artificially reduced
+                                    ! in case of melting show (in case of idiag_snowfrac = 20/30/40)
+    !
+    ! cloud cover
+    tune_box_liq    = 0.05_wp      ! box width scale of liquid clouds
 
     itune_albedo    = 0            ! original (measured) albedo
     !
@@ -185,18 +249,26 @@ CONTAINS
     ! 5. Fill the configuration state
     !----------------------------------------------------
 
-    DO jg= 0,max_dom
-      config_tune_gkwake       = tune_gkwake
-      config_tune_gkdrag       = tune_gkdrag
-      config_tune_gfluxlaun    = tune_gfluxlaun
-      config_tune_zceff_min    = tune_zceff_min 
-      config_tune_v0snow       = tune_v0snow
-      config_tune_zvz0i        = tune_zvz0i
-      config_tune_entrorg      = tune_entrorg
-      config_itune_albedo      = itune_albedo
-      config_max_freshsnow_inc = max_freshsnow_inc
-    ENDDO
-
+    config_tune_gkwake           = tune_gkwake
+    config_tune_gkdrag           = tune_gkdrag
+    config_tune_gfluxlaun        = tune_gfluxlaun
+    config_tune_zceff_min        = tune_zceff_min 
+    config_tune_v0snow           = tune_v0snow
+    config_tune_zvz0i            = tune_zvz0i
+    config_tune_entrorg          = tune_entrorg
+    config_tune_capdcfac_et      = tune_capdcfac_et
+    config_tune_rhebc_land       = tune_rhebc_land
+    config_tune_rhebc_ocean      = tune_rhebc_ocean
+    config_tune_rcucov           = tune_rcucov
+    config_tune_rhebc_land_trop  = tune_rhebc_land_trop
+    config_tune_rhebc_ocean_trop = tune_rhebc_ocean_trop
+    config_tune_rcucov_trop      = tune_rcucov_trop
+    config_tune_texc             = tune_texc
+    config_tune_qexc             = tune_qexc
+    config_tune_minsnowfrac      = tune_minsnowfrac
+    config_tune_box_liq          = tune_box_liq
+    config_itune_albedo          = itune_albedo
+    config_max_freshsnow_inc     = max_freshsnow_inc
 
 
     !-----------------------------------------------------

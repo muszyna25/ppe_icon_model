@@ -3,7 +3,7 @@
 ICON output fields are exclusively available in GRIB2 format (\textbf{GRI}dded \textbf{B}inary Edition \textbf{2}), with the exception of 
 meteogram data (NetCDF). GRIB is a bit-oriented data storage format which was developed by WMO to facilitate the exchange of large volumes of 
 gridded data between weather prediction centres. For decoding and encoding GRIB2 messages, the DWD in general and ICON in particular 
-makes use of the ECMWF GRIB API. The current operational version at DWD is $1.12.3$.
+makes use of the ECMWF GRIB API. The current operational version at DWD is $1.13.1$.
  
 In GRIB2, a product (i.e.\ a variable/field) is identified by a set of three parameters
 % variable is uniquely defined by the following set of metadata:
@@ -122,8 +122,8 @@ Main forecasts are performed $4$ times a day at $0,\, 6,\, 12,\, 18$ UTC, coveri
 $0$ und $12$ UTC runs and $120\,\mathrm{h}$ for the $6$ und $18$ UTC runs. Prior to 2015-02-25 the 6 and 18 UTC runs were restricted 
 to $78\,\mathrm{h}$. In preparation for the replacement of COSMO-EU by a high resolution ICON nest, additional short-range forecasts 
 are performed at 3, 9, 15 and 21UTC. The ICON nest will provide boundary data for the high resolution COSMO-DE runs, once COSMO-EU has 
-been switched off. The forecast time covered by these runs is limited to $30\,\mathrm{h}$. See Chapter \ref{nest:chap_forecast_runs} for 
-more details on the ICON nest and the available output fields. 
+been switched off later this year. The forecast time covered by these runs is limited to $30\,\mathrm{h}$. See Chapter 
+\ref{nest:chap_forecast_runs} for more details on the ICON nest and the available output fields. 
 
 All time-dependent output fields are available hourly up to
 $VV=78\,\mathrm{h}$ and 3-hourly for larger forecast
@@ -142,7 +142,7 @@ On the native grid most output fields are defined on triangle cell
 edges. On the lat-lon grid, all fields are defined on cell centers.
 %
 A single 2D GRIB2 field on the native and regular lat-lon grid
-contains $2949120$ and $1036800$ grid points, respectively.
+contains $2949120$ and $1038240$ ($721 \times 1440$) grid points, respectively.
 
 
 
@@ -153,8 +153,9 @@ For details regarding the algorithm for interpolation onto the lat-lon
 grid, see
 Section~\ref{section:technical_details_of_the_horizontal_interpolation}.
 
-\footnotetext[2]{An exception here are the lat-lon output fields \texttt{U\_10M} and \texttt{V\_10M}, which are available hourly throughout the forecast. 
-This is because \texttt{U\_10M} and \texttt{V\_10M} are needed as input by the wave models.}
+\footnotetext[2]{An exception here are the output fields \texttt{VMAX\_10M}, \texttt{U\_10M} and \texttt{V\_10M}, 
+which are available hourly throughout the forecast. For the latter two this is because \texttt{U\_10M} and \texttt{V\_10M} 
+are needed as input by the wave models.}
 
 
 % --------------------------------------------------------------------------------
@@ -162,11 +163,12 @@ This is because \texttt{U\_10M} and \texttt{V\_10M} are needed as input by the w
 % --------------------------------------------------------------------------------
 
 Table \ref{table_constdb} provides an overview of the available time invariant fields. They are available from the database category 
-\texttt{CAT\_NAME=\$model\_\tblu{const}\_\tblu{an}\_\$suite}. As mentioned in Section \ref{section:extpar}, \texttt{HSURF}, 
-\texttt{FR\_LAND}, \texttt{FR\_LAKE} and \texttt{Z0} are modified by ICON. Thus, the latter should not be taken from the \emph{const\_an} 
-database category, unless you definitely know what you are doing. For convenience, the modified invariant fields (and some more) 
-are stored in the \emph{forecast} database categories for step $s[h]=0$ (\texttt{CAT\_NAME=\$model\_\$run\_\tblu{fc}\_\$suite}). Table 
-\ref{table_init_output} provides a list of all fields which are exclusively written for $s[h]=0$.
+\texttt{CAT\_NAME=\$model\_\tblu{const}\_\tblu{an}\_\$suite}. As mentioned in Section \ref{section:extpar}, \texttt{DEPTH\_LK}, 
+\texttt{HSURF}, \texttt{FR\_LAND}, \texttt{FR\_LAKE} and \texttt{Z0} are modified by ICON. Thus, the latter should not be taken from 
+the \emph{const\_an} database category, unless you definitely know what you are doing. For convenience, the modified invariant fields 
+(and some more) are stored in the \emph{forecast} database categories for step $s[h]=0$ 
+(\texttt{CAT\_NAME=\$model\_\$run\_\tblu{fc}\_\$suite}). Table \ref{table_init_output} provides a list of all fields which are exclusively 
+written for $s[h]=0$.
 
 See Section \ref{sec_skycat} for more details on the database categories and Section \ref{sec_example} for sample retrievals.
  
@@ -181,26 +183,26 @@ See Section \ref{sec_skycat} for more details on the database categories and Sec
     
 \multicolumn{8}{c}{\textbf{Date/Time} (YYYY-MM-DDThh) \textbf{D=0001-01-01T00}}\\
 \midrule
-\groups[tri][]   & HSURF                         &  Geometric height of the earths surface above msl                                       &               0                                   &                       3                     &                    6                       &                 1/101                           &                      inst                   &        $\mathrm{m}$   \\ 
 \groups[tri][]   & CLAT                          &  Geographical latitude of native grid triangle cell center                              &               0                                   &                     191                     &                    1                       &                 1/--                            &                      inst                   &        $\mathrm{Deg.\, N}$   \\
 \groups[tri][]   & CLON                          &  Geographical longitude of native grid triangle cell center                             &               0                                   &                     191                     &                    2                       &                 1/--                            &                      inst                   &        $\mathrm{Deg.\, E}$   \\
-\groups[tri][]   & FOR\_E                        &  Fraction of evergreen forest (possible range [$0,1$])                                  &               2                                   &                       0                     &                   29                       &                 1/--                            &                      inst                   &        $1$ \\
-\groups[tri][]   & FOR\_D                        &  Fraction of deciduous forest (possible range [$0,1$])                                  &               2                                   &                       0                     &                   30                       &                 1/--                            &                      inst                   &        $1$ \\
-\groups[tri][]   & FR\_LAND                      &  Land fraction (possible range [$0,1$])                                                 &               2                                   &                       0                     &                    0                       &                 1/--                            &                      inst                   &        $1$ \\
-\groups[tri][]   & FR\_LAKE                      &  Fresh water lake fraction (possible range [$0,1$])                                     &               1                                   &                       2                     &                    2                       &                 1/--                            &                      inst                   &        $1$ \\
-\groups[tri][]   & FR\_LUC                       &  Land use class fraction (possible range [$0,1$])                                       &               2                                   &                       0                     &                   36                       &                 1/--                            &                      inst                   &        $1$ \\
 \groups[tri][]   & DEPTH\_LK                     &  Lake depth                                                                             &               1                                   &                       2                     &                    0                       &                 1/162                           &                      inst                   &        $\mathrm{m}$ \\
-\groups[tri][]   & ROOTDP                        &  Root depth of vegetation                                                               &               2                                   &                       0                     &                   32                       &                 1/--                            &                      inst                   &        $\mathrm{m}$ \\
-\groups[tri][]   & RSMIN                         &  Minimum stomatal resistance                                                            &               2                                   &                       0                     &                   16                       &                 1/--                            &                      inst                   &        $\mathrm{s\,m^{-1}}$ \\
 \groups[tri][]   & EMIS\_RAD                     &  Longwave surface emissivity                                                            &               2                                   &                       3                     &                  199                       &                 1/--                            &                      inst                   &        $1$ \\
-\groups[tri][]   & SOILTYP                       &  Soil type of land fraction  (9 types $[1,\dots, 9]$)                                   &               2                                   &                       3                     &                  196                       &                 1/--                            &                      inst                   &        $1$ \\
-\groups[tri][]   & SSO\_STDH                     &  Standard deviation of sub-grid scale orography                                         &               0                                   &                       3                     &                   20                       &                 1/--                            &                      inst                   &        $\mathrm{m}$ \\
-\groups[tri][]   & SSO\_GAMMA                    &  Anisotropy of sub-gridscale orography                                                  &               0                                   &                       3                     &                   24                       &                 1/--                            &                      inst                   &        $1$ \\
-\groups[tri][]   & SSO\_THETA                    &  Angle of sub-gridscale orography                                                       &               0                                   &                       3                     &                   21                       &                 1/--                            &                      inst                   &        $\mathrm{rad}$ \\
-\groups[tri][]   & SSO\_SIGMA                    &  Slope of sub-gridscale orography                                                       &               0                                   &                       3                     &                   22                       &                 1/--                            &                      inst                   &        $1$ \\
+\groups[tri][]   & FOR\_D                        &  Fraction of deciduous forest (possible range [$0,1$])                                  &               2                                   &                       0                     &                   30                       &                 1/--                            &                      inst                   &        $1$ \\
+\groups[tri][]   & FOR\_E                        &  Fraction of evergreen forest (possible range [$0,1$])                                  &               2                                   &                       0                     &                   29                       &                 1/--                            &                      inst                   &        $1$ \\
+\groups[tri][]   & FR\_LAKE                      &  Fresh water lake fraction (possible range [$0,1$])                                     &               1                                   &                       2                     &                    2                       &                 1/--                            &                      inst                   &        $1$ \\
+\groups[tri][]   & FR\_LAND                      &  Land fraction (possible range [$0,1$])                                                 &               2                                   &                       0                     &                    0                       &                 1/--                            &                      inst                   &        $1$ \\
+\groups[tri][]   & FR\_LUC                       &  Land use class fraction (possible range [$0,1$])                                       &               2                                   &                       0                     &                   36                       &                 1/--                            &                      inst                   &        $1$ \\
+\groups[tri][]   & HSURF                         &  Geometric height of the earths surface above msl                                       &               0                                   &                       3                     &                    6                       &                 1/101                           &                      inst                   &        $\mathrm{m}$   \\ 
 \groups[tri][]   & LAI\_MX                       &  Leaf area index in the vegetation phase                                                &               2                                   &                       0                     &                   28                       &                 1/--                            &                      max                    &        $1$ \\
 \groups[tri][]   & NDVI\_MAX                     &  Normalized differential vegetation index                                               &               2                                   &                       0                     &                   31                       &                 1/--                            &                      max                    &        $1$ \\
 \groups[tri][]   & PLCOV\_MX                     &  Plant covering degree in the vegetation phase                                          &               2                                   &                       0                     &                    4                       &                 1/--                            &                      max                    &        $1$ \\
+\groups[tri][]   & ROOTDP                        &  Root depth of vegetation                                                               &               2                                   &                       0                     &                   32                       &                 1/--                            &                      inst                   &        $\mathrm{m}$ \\
+\groups[tri][]   & RSMIN                         &  Minimum stomatal resistance                                                            &               2                                   &                       0                     &                   16                       &                 1/--                            &                      inst                   &        $\mathrm{s\,m^{-1}}$ \\
+\groups[tri][]   & SOILTYP                       &  Soil type of land fraction  (9 types $[1,\dots, 9]$)                                   &               2                                   &                       3                     &                  196                       &                 1/--                            &                      inst                   &        $1$ \\
+\groups[tri][]   & SSO\_GAMMA                    &  Anisotropy of sub-gridscale orography                                                  &               0                                   &                       3                     &                   24                       &                 1/--                            &                      inst                   &        $1$ \\
+\groups[tri][]   & SSO\_SIGMA                    &  Slope of sub-gridscale orography                                                       &               0                                   &                       3                     &                   22                       &                 1/--                            &                      inst                   &        $1$ \\
+\groups[tri][]   & SSO\_STDH                     &  Standard deviation of sub-grid scale orography                                         &               0                                   &                       3                     &                   20                       &                 1/--                            &                      inst                   &        $\mathrm{m}$ \\
+\groups[tri][]   & SSO\_THETA                    &  Angle of sub-gridscale orography                                                       &               0                                   &                       3                     &                   21                       &                 1/--                            &                      inst                   &        $\mathrm{rad}$ \\
 \groups[tri][]   & T\_2M\_CL                     &  Climatological $2\,\mathrm{m}$ temperature (used as lower bc.\ for soil model)         &               0                                   &                       0                     &                    0                       &               103/--                            &                      inst                   &        $\mathrm{K}$ \\
 \groups[tri][]   & Z0                            &  Surface roughness length (over land)                                                   &               2                                   &                       0                     &                    1                       &                 1/--                            &                      inst                   &        $\mathrm{m}$ \\
 \midrule
@@ -250,7 +252,7 @@ See Section \ref{sec_skycat} for more details on the database categories and Sec
   % ------------------------------------
 
 \end{vartable}
-\footnotetext[2]{for the time being, erroneously encoded as mixing ratios instead of specific quantities}
+\footnotetext[3]{for the time being, erroneously encoded as mixing ratios instead of specific quantities}
 
 
 
@@ -296,6 +298,13 @@ I.e.\ note that all $17$ WMO standard pressure levels are included.
   \groups[][ll] & V                          &  Meridional wind                                                                           &               0                                   &                     2                       &                    3                       &                 100/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
 \end{vartable}
 
+On the native (triangular) grid, output is generated for levels
+\begin{center}
+\begin{minipage}{0.5\linewidth}
+ \pressurelevelsTriangular.
+\end{minipage}
+\end{center}
+The output fields are listed in Table~\ref{table:output_pressurelevels_triangular}.
 
 \begin{vartable}{\caption{Native (triangular) grid output:
       Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products interpolated to pressure levels \pressurelevelsTriangular.}
@@ -309,35 +318,26 @@ I.e.\ note that all $17$ WMO standard pressure levels are included.
 \end{vartable}
 
 
-On the native (triangular) grid, output is generated for levels
-\begin{center}
-\begin{minipage}{0.5\linewidth}
- \pressurelevelsTriangular.
-\end{minipage}
-\end{center}
-The output fields are listed in Table~\ref{table:output_pressurelevels_triangular}.
-
-
 \newpage
 
 
-% --------------------------------------------------------------------------------
-\subsection{Multi-level fields interpolated to height levels}
-% --------------------------------------------------------------------------------
-
-\renewcommand{\heightlevelsRegular}{$10000$, $5000$, $3000$, $2000$, $1500$, $1000$, $500$, $100$ $\mathrm{m}$}
-
-\begin{vartable}{\caption{Regular grid output:
-      Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products interpolated to height levels \heightlevelsRegular
-      ~(above mean sea level).}\label{table:output_heightlevels_regular}}
-  
-  \groups[][ll] & U                          &  Zonal wind                                                                                &               0                                   &                     2                       &                    2                       &                 102/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\ 
-  \groups[][ll] & V                          &  Meridional wind                                                                           &               0                                   &                     2                       &                    3                       &                 102/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
-  \groups[][ll] & W                          &  Vertical wind                                                                             &               0                                   &                     2                       &                    9                       &                 102/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
-  \groups[][ll] & T                          &  Temperature                                                                               &               0                                   &                     0                       &                    0                       &                 102/--                          &                      inst                   &        $\mathrm{K}$          \\
-  \groups[][ll] & P                          &  Pressure                                                                                  &               0                                   &                     3                       &                    0                       &                 102/--                          &                      inst                   &        $\mathrm{Pa}$         \\
-\end{vartable}
-
+%% --------------------------------------------------------------------------------
+%\subsection{Multi-level fields interpolated to height levels}
+%% --------------------------------------------------------------------------------
+%
+%\renewcommand{\heightlevelsRegular}{$10000$, $5000$, $3000$, $2000$, $1500$, $1000$, $500$, $100$ $\mathrm{m}$}
+%
+%\begin{vartable}{\caption{Regular grid output:
+%      Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products interpolated to height levels \heightlevelsRegular
+%      ~(above mean sea level).}\label{table:output_heightlevels_regular}}
+%  
+%  \groups[][ll] & U                          &  Zonal wind                                                                                &               0                                   &                     2                       &                    2                       &                 102/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\ 
+%  \groups[][ll] & V                          &  Meridional wind                                                                           &               0                                   &                     2                       &                    3                       &                 102/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
+%  \groups[][ll] & W                          &  Vertical wind                                                                             &               0                                   &                     2                       &                    9                       &                 102/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
+%  \groups[][ll] & T                          &  Temperature                                                                               &               0                                   &                     0                       &                    0                       &                 102/--                          &                      inst                   &        $\mathrm{K}$          \\
+%  \groups[][ll] & P                          &  Pressure                                                                                  &               0                                   &                     3                       &                    0                       &                 102/--                          &                      inst                   &        $\mathrm{Pa}$         \\
+%\end{vartable}
+%
 
 
 % --------------------------------------------------------------------------------
@@ -363,18 +363,43 @@ The output fields are listed in Table~\ref{table:output_pressurelevels_triangula
 rather than $\mathrm{kg\,m^{-2}}$. Mathematically this is wrong, however, it is in accordance with the GRIB2 standard. To get the mathematically correct 
 unit for accumulated fields (\emph{typeOfStatisticalProcessing}=1), the unit displayed by \emph{grib\_dump} must be multiplied by $\mathrm{s}$.}
 
-
-% --------------------------------------------------------------------------------
-\subsection{Surface fields interpolated to msl}
-% --------------------------------------------------------------------------------
-
-\begin{vartable}{\caption{Forecast ($VV>0$) and initialised analysis ($VV=0$) products interpolated to msl}}
-  
-  \groups[tri][ll] & PMSL                       &  Surface pressure reduced to msl                                                           &               0                                   &                     3                       &                    1                       &                 101/--                          &                      inst                   &        $\mathrm{Pa}$   \\
-  
-\end{vartable}
+\footnotetext[5]{T\_S is identical to T\_SO at level 0. It will no longer be available in the future. Use T\_SO(0) instead of T\_S.} 
 
 
+\begin{table}[t]
+  \centering
+  \begin{tabular}{|>{\cellcolor{Gray}\bfseries}p{1.cm}|p{6cm}|>{\cellcolor{Gray}\bfseries}p{1.cm}|p{6cm}|}\hline
+     {\centering\textbf{WW}}    &     {\centering\textbf{weather interpretation}} &
+     {\centering\textbf{WW}}    &     {\centering\textbf{weather interpretation}} 
+    \\ \hline\hline
+    % ----------------------------------------------------------------------------------------------------------
+    45 & Fog                                     &  48  & Fog, depositing rime              \\
+    50 & Slight drizzle                          &  56  & Drizzle, freezing, slight         \\
+    60 & Slight rain, not freezing               &  63  & Moderate rain, not freezing       \\
+    65 & Heavy rain, not freezing                &  66  & Rain, freezing, slight            \\
+    67 & Rain, freezing, moderate or heavy       &  70  & Slight fall of snowflakes         \\
+    73 & Moderate fall of snowflakes             &  75  & Heavy fall of snowflakes          \\
+    80 & Rain shower(s), slight                  &  81  & Rain shower(s), moderate or heavy \\
+    82 & Rain shower(s), violent                 &  85  & Snow shower(s), slight            \\
+    86 & Snow shower(s), moderate or heavy       &  95  & Thunderstorm, slight or moderate  \\
+    96 & \multicolumn{3}{l|}{Thunderstorm with hail, or heavy thunderstorm} \\
+    \hline
+  \end{tabular}
+  \caption{Weather interpretation (WW) code table for the ICON model.
+           This table is a subset of the WMO code table \emph{FM 94 BUFR/FM 95 CREX code table 0 20 003 -- present weather}.
+           In the case that none of the values provided in Table~\ref{table:ww_code_table} is returned, the WW output contains
+           the total cloud cover, encoded in the following form: 
+           \textbf{0}: clear sky
+           \textbf{1}: mainly clear            % clct > 0.0625_wp = 0.5 octa
+           \textbf{2}: partly/generally cloudy % clct > 0.4375_wp = 3.5 octa
+           \textbf{3}: cloudy/overcast.        % clct > 0.8125_wp = 6.5 octa
+           }%
+  \label{table:ww_code_table}
+  \vspace*{2em}
+\end{table}
+
+
+\cleardoublepage
 
 
 % --------------------------------------------------------------------------------

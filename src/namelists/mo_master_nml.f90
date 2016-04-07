@@ -28,7 +28,8 @@ MODULE mo_master_nml
        &                       max_timedelta_str_len, timedeltaToString,                     &
        &                       OPERATOR(+), OPERATOR(<)
   USE mo_master_config,  ONLY: master_component_models, addModel, noOfModels, maxNoOfModels, &
-       &                       setRestart, isREstart, setModelBaseDir,                       &
+       &                       setInstitution,                                               &
+       &                       setRestart, isRestart, setModelBaseDir,                       &
        &                       setExpRefdate,                                                &
        &                       setExpStartdate, setExpStopdate,                              &
        &                       setCheckpointTimeInterval,  setRestartTimeInterval,           &
@@ -58,16 +59,17 @@ CONTAINS
     
     ! Namelist variables
 
+    CHARACTER(len=256) :: institute = ''
     LOGICAL :: lRestart = .FALSE.
-    CHARACTER(len=filename_max) :: modelBaseDir = ''
+    CHARACTER(len=filename_max) :: model_base_dir = ''
     
-    CHARACTER(len=132)          :: modelName = ''
-    CHARACTER(len=filename_max) :: modelNamelistFilename = ''
+    CHARACTER(len=132)          :: model_name = ''
+    CHARACTER(len=filename_max) :: model_namelist_filename = ''
     
-    INTEGER :: modelType 
-    INTEGER :: modelMinRank
-    INTEGER :: modelMaxRank
-    INTEGER :: modelIncRank
+    INTEGER :: model_type 
+    INTEGER :: model_min_rank
+    INTEGER :: model_max_rank
+    INTEGER :: model_inc_rank
     
     CHARACTER(len=max_calendar_str_len) :: calendar = ''
     
@@ -79,8 +81,9 @@ CONTAINS
     CHARACTER(len=max_timedelta_str_len) :: restartTimeIntval = ''
     
     NAMELIST /master_nml/              &
+         &    institute,               &
          &    lRestart,                &
-         &    modelBaseDir
+         &    model_base_dir
     
     NAMELIST /master_time_control_nml/ &
          &    calendar,                &
@@ -91,12 +94,12 @@ CONTAINS
          &    restartTimeIntval        
     
     NAMELIST /master_model_nml/        &
-         &    modelName,               &
-         &    modelNamelistFilename,   &
-         &    modelType,               &
-         &    modelMinRank,            &
-         &    modelMaxRank,            &
-         &    modelIncRank               
+         &    model_name,              &
+         &    model_namelist_filename, &
+         &    model_type,              &
+         &    model_min_rank,          &
+         &    model_max_rank,          &
+         &    model_inc_rank               
 
     INTEGER :: icalendar
     INTEGER :: istat
@@ -123,10 +126,23 @@ CONTAINS
       READ (nnml, master_nml)
     ENDIF
 
+    SELECT CASE (institute)
+    CASE ('DWD')
+      CALL setInstitution('Deutscher Wetterdienst')
+    CASE ('MPIM')  
+      CALL setInstitution('Max Planck Institute for Meteorology')
+    CASE ('KIT')  
+      CALL setInstitution('Karlsruhe Institute for Technology')
+    CASE ('CSCS')
+      CALL setInstitution('Swiss National Supercomputing Centre')      
+    CASE DEFAULT
+      CALL setInstitution('Max Planck Institute for Meteorology/Deutscher Wetterdienst')
+    END SELECT
+    
     ! save namelist variables in configuration
 
     CALL setRestart(lRestart)
-    CALL setModelBaseDir(modelBaseDir)
+    CALL setModelBaseDir(model_base_dir)
     
     CALL position_nml('master_time_control_nml', STATUS=istat)
     IF (istat == POSITIONED) THEN
@@ -187,8 +203,6 @@ CONTAINS
       ENDIF
     ENDIF
 
-
-
     ! inform about time setup
 
     call message('','')
@@ -247,12 +261,12 @@ CONTAINS
       
       ! default values
 
-      modelName             = ''
-      modelNamelistFilename = ''
-      modelType             = -1
-      modelMinRank          = 0
-      modelMaxRank          = -1 
-      modelIncRank          = 1
+      model_name              = ''
+      model_namelist_filename = ''
+      model_type              = -1
+      model_min_rank          =  0
+      model_max_rank          = -1 
+      model_inc_rank          =  1
       
       IF (my_process_is_stdio()) THEN
         iunit = temp_defaults()
@@ -267,16 +281,17 @@ CONTAINS
       END IF
 
       CALL addModel()
-      master_component_models(noOfModels())%model_name = modelName
+      master_component_models(noOfModels())%model_name = model_name
 
-      CALL associate_keyword("<path>", TRIM(modelBaseDir), keywords)
+      CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
 
-      master_component_models(noOfModels())%model_namelist_filename = TRIM(with_keywords(keywords, modelNamelistFilename))
+      master_component_models(noOfModels())%model_namelist_filename = TRIM(with_keywords(keywords, model_namelist_filename))
 
-      master_component_models(noOfModels())%model_type = modelType
-      master_component_models(noOfModels())%model_min_rank = modelMinRank
-      master_component_models(noOfModels())%model_max_rank = modelMaxRank
-      master_component_models(noOfModels())%model_inc_rank = modelIncRank
+      master_component_models(noOfModels())%model_type = model_type
+
+      master_component_models(noOfModels())%model_min_rank = model_min_rank
+      master_component_models(noOfModels())%model_max_rank = model_max_rank
+      master_component_models(noOfModels())%model_inc_rank = model_inc_rank
 
     ENDDO
       

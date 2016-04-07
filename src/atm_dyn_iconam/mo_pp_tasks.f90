@@ -28,11 +28,13 @@ MODULE mo_pp_tasks
     & TASK_INIT_VER_Z, TASK_INIT_VER_P, TASK_INIT_VER_I,              &
     & TASK_FINALIZE_IPZ,                                              &
     & TASK_INTP_HOR_LONLAT, TASK_INTP_VER_PLEV,                       &
-    & TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV, TASK_INTP_VER_ILEV,        &
+    & TASK_COMPUTE_RH, TASK_COMPUTE_PV, TASK_INTP_VER_ZLEV,           &
+    & TASK_INTP_VER_ILEV,                                             &
     & PRES_MSL_METHOD_SAI, PRES_MSL_METHOD_GME, max_dom,              &
     & ALL_TIMELEVELS, PRES_MSL_METHOD_IFS,                            &
     & PRES_MSL_METHOD_IFS_CORR, RH_METHOD_WMO, RH_METHOD_IFS,         &
-    & RH_METHOD_IFS_CLIP, TASK_COMPUTE_OMEGA, HINTP_TYPE_LONLAT_BCTR
+    & RH_METHOD_IFS_CLIP, TASK_COMPUTE_OMEGA, HINTP_TYPE_LONLAT_BCTR, &
+    & TLEV_NNOW, TLEV_NNOW_RCF
   USE mo_model_domain,            ONLY: t_patch
   USE mo_var_list_element,        ONLY: t_var_list_element
   USE mo_var_metadata_types,      ONLY: t_var_metadata, t_vert_interp_meta
@@ -67,7 +69,8 @@ MODULE mo_pp_tasks
     &                                   complete_cumulative_sync
   USE mo_util_phys,               ONLY: compute_field_rel_hum_wmo,               &
     &                                   compute_field_rel_hum_ifs,               &
-    &                                   compute_field_omega
+    &                                   compute_field_omega,                     &
+    &                                   compute_field_pv
   USE mo_io_config,               ONLY: itype_pres_msl, itype_rh
   USE mo_grid_config,             ONLY: l_limited_area
   USE mo_interpol_config,         ONLY: support_baryctr_intp
@@ -76,6 +79,8 @@ MODULE mo_pp_tasks
   ! interface definition
   PRIVATE
 
+  !> module name string
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_pp_tasks'
 
   ! max. name string length
   INTEGER, PARAMETER, PUBLIC :: MAX_NAME_LENGTH   =   64
@@ -106,6 +111,7 @@ MODULE mo_pp_tasks
   PUBLIC :: t_data_input
   PUBLIC :: t_data_output
   PUBLIC :: t_simulation_status
+  PUBLIC :: t_activity_status
   PUBLIC :: t_job_queue
 
   !--- JOB QUEUE DEFINITION ----------------------------------------------------------
@@ -160,11 +166,21 @@ MODULE mo_pp_tasks
   !
   !  @note There might be better places in the code for such a
   !  variable!
-  TYPE t_simulation_status
-    LOGICAL :: status_flags(4)         !< l_output_step, l_first_step, l_last_step, l_accumulation_step
-    LOGICAL :: ldom_active(max_dom)    !< active domains
-    INTEGER :: i_timelevel(max_dom)    !< active time level (for output variables)
+   TYPE t_simulation_status
+    LOGICAL :: status_flags(4)           !< l_output_step, l_first_step, l_last_step, l_accumulation_step
+    LOGICAL :: ldom_active(max_dom)      !< active domains
+    INTEGER :: i_timelevel_dyn(max_dom)  !< active time level (for dynamics output variables related to nnow)
+    INTEGER :: i_timelevel_phy(max_dom)  !< active time level (for physics output variables related to nnow_rcf)
   END TYPE t_simulation_status
+
+
+  !> Definition of task activity, i.e. settings when a task should be
+  !> triggered.
+  TYPE t_activity_status
+    LOGICAL :: status_flags(4)           !< l_output_step, l_first_step, l_last_step
+    LOGICAL :: check_dom_active          !< check if this task's domain is active
+    INTEGER :: i_timelevel               !< time level for this task
+  END TYPE t_activity_status
 
 
   !> A variable of type @p t_job_queue defines a single post-processing task.
@@ -175,7 +191,7 @@ MODULE mo_pp_tasks
     INTEGER                         :: job_priority   !< Task priority.
     CHARACTER(len=MAX_NAME_LENGTH)  :: job_name       !< job name string (for status output)
     INTEGER                         :: job_type       !< task type (quasi function pointer)
-    TYPE(t_simulation_status)       :: activity       !< "under which conditions does this task run?"
+    TYPE(t_activity_status)         :: activity       !< "under which conditions does this task run?"
 
     TYPE(t_data_input)              :: data_input     !< input of post-processing task
     TYPE(t_data_output)             :: data_output    !< result of post-processing task
@@ -201,7 +217,7 @@ CONTAINS
   SUBROUTINE pp_task_lonlat(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_lonlat")
+    CHARACTER(*), PARAMETER :: routine = modname//"p_task_lonlat"
     INTEGER                            ::        &
       &  nblks_ll, npromz_ll, lonlat_id, jg,     &
       &  in_var_idx, out_var_idx, out_var_idx_2, &
@@ -211,7 +227,10 @@ CONTAINS
     TYPE (t_lon_lat_intp),     POINTER :: ptr_int_lonlat
     REAL(wp), ALLOCATABLE              :: tmp_var(:,:,:)
     INTEGER,  ALLOCATABLE              :: tmp_int_var(:,:,:)
+    REAL(wp), POINTER                  :: tmp_ptr(:,:,:)
+    INTEGER,  POINTER                  :: tmp_int_ptr(:,:,:)
     TYPE(t_patch),             POINTER :: p_patch
+    INTEGER                            :: var_ref_pos
 
     p_patch        => ptr_task%data_input%p_patch      ! patch
     p_info         => ptr_task%data_input%var%info
@@ -226,7 +245,6 @@ CONTAINS
     ! --------------------------------------------------------------------------
     !
     ! IMPORTANT: Currently, barycentric interpolation supported only
-    !            - for patch #1 and
     !            - if the namelist parameter "interpol_nml/support_baryctr_intp"
     !              has been set to .TRUE.
     !
@@ -235,7 +253,7 @@ CONTAINS
     ! by "hor_interp%fallback_type".
     ! --------------------------------------------------------------------------
     IF (hintp_type == HINTP_TYPE_LONLAT_BCTR) THEN
-      IF ((jg > 1) .OR. .NOT. support_baryctr_intp) THEN
+      IF (.NOT. support_baryctr_intp) THEN
         hintp_type = p_info%hor_interp%fallback_type
       END IF
     END IF
@@ -274,7 +292,19 @@ CONTAINS
           dim1 = p_info%used_dimensions(1)
           dim2 = p_info%used_dimensions(2)
           ALLOCATE(tmp_var(dim1, 1, dim2), STAT=ierrstat)
-          tmp_var(:,1,:) = in_var%r_ptr(:,:,in_var_idx,1,1)
+
+          var_ref_pos = 3
+          IF (in_var%info%lcontained)  var_ref_pos = in_var%info%var_ref_pos
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            tmp_var(:,1,:) = in_var%r_ptr(in_var_idx,:,:,1,1)
+          CASE (2)
+            tmp_var(:,1,:) = in_var%r_ptr(:,in_var_idx,:,1,1)
+          CASE (3)
+            tmp_var(:,1,:) = in_var%r_ptr(:,:,in_var_idx,1,1)
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
 
           ! for cell-based variables: interpolate gradients (finite
           ! differences) and reconstruct
@@ -289,15 +319,30 @@ CONTAINS
           DEALLOCATE(tmp_var, STAT=ierrstat)
           IF (ierrstat /= SUCCESS)  CALL finish (routine, 'deallocation failed')
         ELSE
+
+          var_ref_pos = 4
+          IF (in_var%info%lcontained)  var_ref_pos = in_var%info%var_ref_pos
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            tmp_ptr => in_var%r_ptr(in_var_idx,:,:,:,1)
+          CASE (2)
+            tmp_ptr => in_var%r_ptr(:,in_var_idx,:,:,1)
+          CASE (3)
+            tmp_ptr => in_var%r_ptr(:,:,in_var_idx,:,1)
+          CASE (4)
+            tmp_ptr => in_var%r_ptr(:,:,:,in_var_idx,1)
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
+
           ! for cell-based variables: interpolate gradients (finite
           ! differences) and reconstruct
           CALL interpol_lonlat(                     &
-            &   TRIM(p_info%name),                  &
-            &   in_var%r_ptr(:,:,:,in_var_idx,1),   &
+            &   TRIM(p_info%name), tmp_ptr,         &
             &   ptr_int_lonlat,                     &
             &   out_var%r_ptr(:,:,:,out_var_idx,1), &
             &   nblks_ll, npromz_ll, hintp_type)
-      END IF ! 2D
+        END IF ! 2D
 
     ELSE IF (ASSOCIATED(in_var%i_ptr)) THEN
 
@@ -312,7 +357,19 @@ CONTAINS
           dim1 = p_info%used_dimensions(1)
           dim2 = p_info%used_dimensions(2)
           ALLOCATE(tmp_int_var(dim1, 1, dim2), STAT=ierrstat)
-          tmp_int_var(:,1,:) = in_var%i_ptr(:,:,in_var_idx,1,1)
+
+          var_ref_pos = 3
+          IF (in_var%info%lcontained)  var_ref_pos = in_var%info%var_ref_pos
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            tmp_int_var(:,1,:) = in_var%i_ptr(in_var_idx,:,:,1,1)
+          CASE (2)
+            tmp_int_var(:,1,:) = in_var%i_ptr(:,in_var_idx,:,1,1)
+          CASE (3)
+            tmp_int_var(:,1,:) = in_var%i_ptr(:,:,in_var_idx,1,1)
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
 
           ! for cell-based variables: interpolate gradients (finite
           ! differences) and reconstruct
@@ -327,17 +384,32 @@ CONTAINS
           DEALLOCATE(tmp_int_var, STAT=ierrstat)
           IF (ierrstat /= SUCCESS)  CALL finish (routine, 'deallocation failed')
         ELSE
+
+          var_ref_pos = 4
+          IF (in_var%info%lcontained)  var_ref_pos = in_var%info%var_ref_pos
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            tmp_int_ptr => in_var%i_ptr(in_var_idx,:,:,:,1)
+          CASE (2)
+            tmp_int_ptr => in_var%i_ptr(:,in_var_idx,:,:,1)
+          CASE (3)
+            tmp_int_ptr => in_var%i_ptr(:,:,in_var_idx,:,1)
+          CASE (4)
+            tmp_int_ptr => in_var%i_ptr(:,:,:,in_var_idx,1)
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
+
           ! for cell-based variables: interpolate gradients (finite
           ! differences) and reconstruct
           CALL interpol_lonlat(                     &
-            &   TRIM(p_info%name),                  &
-            &   in_var%i_ptr(:,:,:,in_var_idx,1),   &
+            &   TRIM(p_info%name), tmp_int_ptr,     &
             &   ptr_int_lonlat,                     &
             &   out_var%i_ptr(:,:,:,out_var_idx,1), &
             &   nblks_ll, npromz_ll, hintp_type)
-      END IF ! 2D
+        END IF ! 2D
 
-    END IF
+      END IF
 
       ! --------------------------------------------------------------
       !
@@ -354,7 +426,19 @@ CONTAINS
         dim1 = p_info%used_dimensions(1)
         dim2 = p_info%used_dimensions(2)
         ALLOCATE(tmp_var(dim1, 1, dim2), STAT=ierrstat)
-        tmp_var(:,1,:) = in_var%r_ptr(:,:,in_var_idx,1,1)
+
+        var_ref_pos = 3
+        IF (in_var%info%lcontained)  var_ref_pos = in_var%info%var_ref_pos
+        SELECT CASE(var_ref_pos)
+        CASE (1)
+          tmp_var(:,1,:) = in_var%r_ptr(in_var_idx,:,:,1,1)
+        CASE (2)
+          tmp_var(:,1,:) = in_var%r_ptr(:,in_var_idx,:,1,1)
+        CASE (3)
+          tmp_var(:,1,:) = in_var%r_ptr(:,:,in_var_idx,1,1)
+        CASE default
+          CALL finish(routine, "internal error!")
+        END SELECT
 
         ! for edge-based variables: simple interpolation
         CALL rbf_vec_interpol_lonlat(                 &
@@ -367,9 +451,24 @@ CONTAINS
         DEALLOCATE(tmp_var, STAT=ierrstat)
         IF (ierrstat /= SUCCESS)  CALL finish (routine, 'deallocation failed')
       ELSE
+
+        var_ref_pos = 4
+        IF (in_var%info%lcontained)  var_ref_pos = in_var%info%var_ref_pos
+        SELECT CASE(var_ref_pos)
+        CASE (1)
+          tmp_ptr => in_var%r_ptr(in_var_idx,:,:,:,1)
+        CASE (2)
+          tmp_ptr => in_var%r_ptr(:,in_var_idx,:,:,1)
+        CASE (3)
+          tmp_ptr => in_var%r_ptr(:,:,in_var_idx,:,1)
+        CASE (4)
+          tmp_ptr => in_var%r_ptr(:,:,:,in_var_idx,1)
+        CASE default
+          CALL finish(routine, "internal error!")
+        END SELECT
+
         ! for edge-based variables: simple interpolation
-        CALL rbf_vec_interpol_lonlat(                 &
-          &   in_var%r_ptr(:,:,:,in_var_idx,1),       &
+        CALL rbf_vec_interpol_lonlat( tmp_ptr,        &
           &   ptr_int_lonlat,                         &
           &   out_var%r_ptr(:,:,:,out_var_idx,1),     &
           &   out_var_2%r_ptr(:,:,:,out_var_idx_2,1), &
@@ -403,12 +502,14 @@ CONTAINS
   SUBROUTINE pp_task_sync(sim_status)
     TYPE(t_simulation_status),  INTENT(IN) :: sim_status
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_sync")
+    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_sync"
     TYPE(t_job_queue),         POINTER :: ptr_task
-    INTEGER                            :: in_var_idx, jg
+    INTEGER                            :: in_var_idx, jg, sync_mode, &
+      &                                   var_ref_pos
     TYPE (t_var_list_element), POINTER :: in_var
     TYPE (t_var_metadata),     POINTER :: p_info
     TYPE(t_patch),             POINTER :: p_patch
+    INTEGER                            :: timelevel
 
     ptr_task => job_queue
     ! loop over job queue
@@ -417,11 +518,17 @@ CONTAINS
 
       IF (ptr_task%job_type == TASK_INTP_HOR_LONLAT) THEN
         p_patch     => ptr_task%data_input%p_patch
+        p_info      => ptr_task%data_input%var%info
         jg          =  p_patch%id
+        SELECT CASE (p_info%tlev_source)
+        CASE(TLEV_NNOW);     timelevel = sim_status%i_timelevel_dyn(jg)
+        CASE(TLEV_NNOW_RCF); timelevel = sim_status%i_timelevel_phy(jg)
+        CASE DEFAULT
+          CALL finish(routine, 'Unsupported tlev_source')
+        END SELECT
         
-        IF ((ptr_task%activity%i_timelevel(jg) == sim_status%i_timelevel(jg)) .OR.  &
-          & (ptr_task%activity%i_timelevel(jg) == ALL_TIMELEVELS))  THEN
-          p_info      => ptr_task%data_input%var%info
+        IF ((ptr_task%activity%i_timelevel == timelevel) .OR.  &
+          & (ptr_task%activity%i_timelevel == ALL_TIMELEVELS))  THEN
           in_var      => ptr_task%data_input%var
           in_var_idx  =  1
           IF (in_var%info%lcontained) in_var_idx = in_var%info%ncontained
@@ -434,24 +541,73 @@ CONTAINS
 
           SELECT CASE (p_info%hgrid)
           CASE (GRID_UNSTRUCTURED_CELL)
-            IF (is_2d_field(p_info%vgrid)) THEN
-              IF (ASSOCIATED(in_var%r_ptr)) CALL sync_patch_array(SYNC_C, p_patch, in_var%r_ptr(:,:,in_var_idx,1,1) )
-              IF (ASSOCIATED(in_var%i_ptr)) CALL sync_patch_array(SYNC_C, p_patch, in_var%i_ptr(:,:,in_var_idx,1,1) )
-            ELSE
-              IF (ASSOCIATED(in_var%r_ptr)) CALL cumulative_sync_patch_array(SYNC_C, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1))
-              IF (ASSOCIATED(in_var%i_ptr)) CALL sync_patch_array(SYNC_C, p_patch, in_var%i_ptr(:,:,:,in_var_idx,1) )
-            END IF
+            sync_mode = SYNC_C
           CASE (GRID_UNSTRUCTURED_EDGE)
-            IF (is_2d_field(p_info%vgrid)) THEN
-              IF (ASSOCIATED(in_var%r_ptr)) CALL sync_patch_array(SYNC_E, p_patch, in_var%r_ptr(:,:,in_var_idx,1,1) )
-              IF (ASSOCIATED(in_var%i_ptr)) CALL sync_patch_array(SYNC_E, p_patch, in_var%i_ptr(:,:,in_var_idx,1,1) )
-            ELSE
-              IF (ASSOCIATED(in_var%r_ptr)) CALL cumulative_sync_patch_array(SYNC_E, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1))
-              IF (ASSOCIATED(in_var%i_ptr)) CALL sync_patch_array(SYNC_E, p_patch, in_var%i_ptr(:,:,:,in_var_idx,1) )
-            END IF
+            sync_mode = SYNC_E
           CASE DEFAULT
             CALL finish(routine, 'Unknown grid type.')
           END SELECT
+
+          IF (is_2d_field(p_info%vgrid)) THEN
+            var_ref_pos = 3
+            IF (in_var%info%lcontained)  var_ref_pos = in_var%info%var_ref_pos
+            IF (ASSOCIATED(in_var%r_ptr)) THEN
+              SELECT CASE(var_ref_pos)
+              CASE (1)
+                CALL sync_patch_array(sync_mode, p_patch, in_var%r_ptr(in_var_idx,:,:,1,1) )
+              CASE (2)
+                CALL sync_patch_array(sync_mode, p_patch, in_var%r_ptr(:,in_var_idx,:,1,1) )
+              CASE (3)
+                CALL sync_patch_array(sync_mode, p_patch, in_var%r_ptr(:,:,in_var_idx,1,1) )
+              CASE default
+                CALL finish(routine, "internal error!")
+              END SELECT
+            END IF
+            IF (ASSOCIATED(in_var%i_ptr)) THEN
+              SELECT CASE(var_ref_pos)
+              CASE (1)
+                CALL sync_patch_array(sync_mode, p_patch, in_var%i_ptr(in_var_idx,:,:,1,1) )
+              CASE (2)
+                CALL sync_patch_array(sync_mode, p_patch, in_var%i_ptr(:,in_var_idx,:,1,1) )
+              CASE (3)
+                CALL sync_patch_array(sync_mode, p_patch, in_var%i_ptr(:,:,in_var_idx,1,1) )
+              CASE default
+                CALL finish(routine, "internal error!")
+              END SELECT
+            END IF
+          ELSE
+            var_ref_pos = 4
+            IF (in_var%info%lcontained)  var_ref_pos = in_var%info%var_ref_pos
+            IF (ASSOCIATED(in_var%r_ptr)) THEN
+              SELECT CASE(var_ref_pos)
+              CASE (1)
+                CALL cumulative_sync_patch_array(sync_mode, p_patch, in_var%r_ptr(in_var_idx,:,:,:,1))
+              CASE (2)
+                CALL cumulative_sync_patch_array(sync_mode, p_patch, in_var%r_ptr(:,in_var_idx,:,:,1))
+              CASE (3)
+                CALL cumulative_sync_patch_array(sync_mode, p_patch, in_var%r_ptr(:,:,in_var_idx,:,1))
+              CASE (4)
+                CALL cumulative_sync_patch_array(sync_mode, p_patch, in_var%r_ptr(:,:,:,in_var_idx,1))
+              CASE default
+                CALL finish(routine, "internal error!")
+              END SELECT
+            END IF
+            IF (ASSOCIATED(in_var%i_ptr)) THEN
+              SELECT CASE(var_ref_pos)
+              CASE (1)
+                CALL sync_patch_array(sync_mode, p_patch, in_var%i_ptr(in_var_idx,:,:,:,1))
+              CASE (2)
+                CALL sync_patch_array(sync_mode, p_patch, in_var%i_ptr(:,in_var_idx,:,:,1))
+              CASE (3)
+                CALL sync_patch_array(sync_mode, p_patch, in_var%i_ptr(:,:,in_var_idx,:,1))
+              CASE (4)
+                CALL sync_patch_array(sync_mode, p_patch, in_var%i_ptr(:,:,:,in_var_idx,1))
+              CASE default
+                CALL finish(routine, "internal error!")
+              END SELECT
+            END IF
+          END IF
+
         END IF
       END IF
       !
@@ -471,7 +627,7 @@ CONTAINS
   SUBROUTINE pp_task_ipzlev_setup(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_ipzlev_setup")
+    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_ipzlev_setup"
     INTEGER                            :: jg, nzlev, nplev, nilev
     TYPE(t_patch),             POINTER :: p_patch
     TYPE(t_nh_metrics),        POINTER :: p_metrics    
@@ -543,11 +699,12 @@ CONTAINS
   SUBROUTINE pp_task_ipzlev(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_ipzlev")
+    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_ipzlev"
     INTEGER                            :: &
       &  vert_intp_method, jg,                    &
       &  in_var_idx, out_var_idx, nlev, nlevp1,   &
-      &  n_ipzlev, npromz, nblks, ierrstat
+      &  n_ipzlev, npromz, nblks, ierrstat,       &
+      &  in_var_ref_pos, out_var_ref_pos
     TYPE(t_patch),             POINTER :: p_patch
     TYPE(t_nh_metrics),        POINTER :: p_metrics    
     TYPE(t_nh_prog),           POINTER :: p_prog
@@ -569,12 +726,11 @@ CONTAINS
       &  l_hires_intp, l_restore_fricred, l_loglin, &
       &  l_extrapol, l_satlimit, l_restore_pbldev,  &
       &  l_pd_limit
-    REAL(wp)                           :: &
-      &  lower_limit, extrapol_dist
-    TYPE (t_vcoeff_lin), POINTER       :: &
-      &  vcoeff_lin, vcoeff_lin_nlevp1
-    TYPE (t_vcoeff_cub), POINTER       :: &
-      &  vcoeff_cub
+    REAL(wp)                           :: lower_limit
+    TYPE (t_vcoeff_lin), POINTER       :: vcoeff_lin, vcoeff_lin_nlevp1
+    TYPE (t_vcoeff_cub), POINTER       :: vcoeff_cub
+
+    REAL(wp), POINTER :: in_ptr(:,:,:), out_ptr(:,:,:)
 
     ! input/output field for this task
     p_info            => ptr_task%data_input%var%info
@@ -582,11 +738,17 @@ CONTAINS
     out_var           => ptr_task%data_output%var
 
     in_var_idx        = 1
-    if (ptr_task%data_input%var%info%lcontained) &
-      in_var_idx = ptr_task%data_input%var%info%ncontained
+    in_var_ref_pos    = 4
+    IF (ptr_task%data_input%var%info%lcontained) THEN
+      in_var_idx      = ptr_task%data_input%var%info%ncontained
+      in_var_ref_pos  = ptr_task%data_input%var%info%var_ref_pos
+    END IF
     out_var_idx       = 1
-    if (ptr_task%data_output%var%info%lcontained) &
-      out_var_idx = ptr_task%data_output%var%info%ncontained
+    out_var_ref_pos   = 4
+    IF (ptr_task%data_output%var%info%lcontained) THEN
+      out_var_idx     = ptr_task%data_output%var%info%ncontained
+      out_var_ref_pos = ptr_task%data_output%var%info%var_ref_pos
+    END IF
 
     !--- load some items from input/output data structures
     vert_intp_method = p_info%vert_interp%vert_intp_method
@@ -645,7 +807,6 @@ CONTAINS
     l_restore_pbldev  = pzlev_flags%l_restore_pbldev  
     l_pd_limit        = pzlev_flags%l_pd_limit
     lower_limit       = pzlev_flags%lower_limit       
-    extrapol_dist     = pzlev_flags%extrapol_dist    
 
     !-- perform some consistency checks
     IF (p_info%ndims /= 3) &
@@ -684,12 +845,37 @@ CONTAINS
       in_z_mc           => z_me
     END SELECT
 
+    SELECT CASE(in_var_ref_pos)
+    CASE (1)
+      in_ptr => in_var%r_ptr(in_var_idx,:,:,:,1)
+    CASE (2)
+      in_ptr => in_var%r_ptr(:,in_var_idx,:,:,1)
+    CASE (3)
+      in_ptr => in_var%r_ptr(:,:,in_var_idx,:,1)
+    CASE (4)
+      in_ptr => in_var%r_ptr(:,:,:,in_var_idx,1)
+    CASE default
+      CALL finish(routine, "internal error!")
+    END SELECT
+    SELECT CASE(out_var_ref_pos)
+    CASE (1)
+      out_ptr => out_var%r_ptr(out_var_idx,:,:,:,1)
+    CASE (2)
+      out_ptr => out_var%r_ptr(:,out_var_idx,:,:,1)
+    CASE (3)
+      out_ptr => out_var%r_ptr(:,:,out_var_idx,:,1)
+    CASE (4)
+      out_ptr => out_var%r_ptr(:,:,:,out_var_idx,1)
+    CASE default
+      CALL finish(routine, "internal error!")
+    END SELECT
+
     SELECT CASE ( p_info%hgrid )
     CASE (GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE) 
       ! consistency check:
-      IF ((UBOUND(in_var%r_ptr,1) > nproma)                    .OR.  &
-        & (UBOUND(in_var%r_ptr,2) > UBOUND(in_var%r_ptr, 2))   .OR.  &
-        & (UBOUND(in_var%r_ptr,3) > nblks)) THEN
+      IF ((UBOUND(in_ptr,1) > nproma)              .OR.  &
+        & (UBOUND(in_ptr,2) > UBOUND(in_ptr, 2))   .OR.  &
+        & (UBOUND(in_ptr,3) > nblks)) THEN
         CALL finish(routine, "Inconsistent array dimensions")
       END IF
     CASE DEFAULT
@@ -704,8 +890,8 @@ CONTAINS
         IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_VN")
         IF (.NOT. ASSOCIATED(vcoeff_lin)) CALL finish(routine, "Internal error!")
         IF (.NOT. ASSOCIATED(vcoeff_cub)) CALL finish(routine, "Internal error!")
-        CALL uv_intp(in_var%r_ptr(:,:,:,in_var_idx,1),                              & !in
-          &          out_var%r_ptr(:,:,:,out_var_idx,1),                            & !out
+        CALL uv_intp(in_ptr,                                                        & !in
+          &          out_ptr,                                                       & !out
           &          in_z_mc, in_z3d,                                               & !in
           &          nblks, npromz, nlev, n_ipzlev,                                 & !in
           &          vcoeff_cub%coef1, vcoeff_cub%coef2,                            & !in
@@ -720,8 +906,8 @@ CONTAINS
       CASE ( VINTP_METHOD_LIN )        
         IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_LIN")
         IF (.NOT. ASSOCIATED(vcoeff_lin)) CALL finish(routine, "Internal error!")
-        CALL lin_intp(in_var%r_ptr(:,:,:,in_var_idx,1),                             & !in
-          &           out_var%r_ptr(:,:,:,out_var_idx,1),                           & !out
+        CALL lin_intp(in_ptr,                                                       & !in
+          &           out_ptr,                                                      & !out
           &           nblks, npromz, nlev, n_ipzlev,                                & !in
           &           vcoeff_lin%wfac_lin, vcoeff_lin%idx0_lin,                     & !in
           &           vcoeff_lin%bot_idx_lin,                                       & !in
@@ -734,8 +920,8 @@ CONTAINS
       CASE ( VINTP_METHOD_LIN_NLEVP1 )        
         IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_LIN_NLEVP1")
         IF (.NOT. ASSOCIATED(vcoeff_lin_nlevp1)) CALL finish(routine, "Internal error!")
-        CALL lin_intp(in_var%r_ptr(:,:,:,in_var_idx,1),                             & !in
-          &           out_var%r_ptr(:,:,:,out_var_idx,1),                           & !out
+        CALL lin_intp(in_ptr,                                                       & !in
+          &           out_ptr,                                                      & !out
           &           nblks, npromz, nlevp1, n_ipzlev,                              & !in
           &           vcoeff_lin_nlevp1%wfac_lin,                                   & !in
           &           vcoeff_lin_nlevp1%idx0_lin,                                   & !in
@@ -750,8 +936,8 @@ CONTAINS
         IF (dbg_level > 15)  CALL message(routine, "VINTP_METHOD_QV")
         IF (.NOT. ASSOCIATED(vcoeff_lin)) CALL finish(routine, "Internal error!")
         IF (.NOT. ASSOCIATED(vcoeff_cub)) CALL finish(routine, "Internal error!")
-        CALL qv_intp(in_var%r_ptr(:,:,:,in_var_idx,1),                              & !in
-          &          out_var%r_ptr(:,:,:,out_var_idx,1),                            & !out
+        CALL qv_intp(in_ptr,                                                        & !in
+          &          out_ptr,                                                       & !out
           &          in_z_mc, in_z3d, p_diag%temp,                                  & !in
           &          p_diag%pres, p_temp, p_pres,                                   & !in
           &          nblks, npromz, nlev, n_ipzlev,                                 & !in
@@ -786,13 +972,13 @@ CONTAINS
   SUBROUTINE pp_task_intp_msl(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables    
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_intp_msl")
+    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_intp_msl"
     INTEGER,  PARAMETER :: nzlev         =        1     ! just a single z-level... 
     REAL(wp), PARAMETER :: ZERO_HEIGHT   =    0._wp, &
       &                    EXTRAPOL_DIST = -500._wp
 
     INTEGER                            :: nblks_c, npromz_c, nblks_e, jg,          &
-      &                                   in_var_idx, out_var_idx, nlev, i_endblk
+      &                                   out_var_idx, nlev, i_endblk
     TYPE(t_vcoeff)                     :: vcoeff
     TYPE (t_var_list_element), POINTER :: in_var, out_var
     TYPE(t_var_metadata),      POINTER :: p_info
@@ -823,8 +1009,6 @@ CONTAINS
     npromz_c = p_patch%npromz_c
     nblks_e  = p_patch%nblks_e
     
-    in_var_idx  = 1
-    IF (in_var%info%lcontained)  in_var_idx  = in_var%info%ncontained
     out_var_idx = 1
     IF (out_var%info%lcontained) out_var_idx = out_var%info%ncontained
 
@@ -908,9 +1092,10 @@ CONTAINS
     TYPE (t_var_list_element), POINTER :: out_var
     TYPE(t_var_metadata),      POINTER :: p_info
     TYPE(t_patch),             POINTER :: p_patch
+    !TYPE(t_int_state),         POINTER :: p_int_state
     TYPE(t_nh_prog),           POINTER :: p_prog
     TYPE(t_nh_diag),           POINTER :: p_diag
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_compute_field")
+    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_compute_field"
     LOGICAL :: lclip                   ! limit rh to MAX(rh,100._wp)
     
     ! output field for this task
@@ -921,10 +1106,11 @@ CONTAINS
     if (out_var%info%lcontained)  out_var_idx = out_var%info%ncontained
 
     ! input data required for computation:
-    jg        =  ptr_task%data_input%jg
-    p_patch   => ptr_task%data_input%p_patch
-    p_prog    => ptr_task%data_input%p_nh_state%prog(nnow(jg))
-    p_diag    => ptr_task%data_input%p_nh_state%diag
+    jg          =  ptr_task%data_input%jg
+    p_patch     => ptr_task%data_input%p_patch
+    !p_int_state => ptr_task%data_input%p_int_state
+    p_prog      => ptr_task%data_input%p_nh_state%prog(nnow(jg))
+    p_diag      => ptr_task%data_input%p_nh_state%diag
 
     SELECT CASE(ptr_task%job_type)
     CASE (TASK_COMPUTE_RH)
@@ -950,7 +1136,12 @@ CONTAINS
     CASE (TASK_COMPUTE_OMEGA)
       CALL compute_field_omega(p_patch, p_prog, &
         &                      out_var%r_ptr(:,:,:,out_var_idx,1))
-
+    
+    CASE (TASK_COMPUTE_PV)
+    CALL compute_field_pv(p_patch, p_int_state(jg),                    &
+        &   ptr_task%data_input%p_nh_state%metrics, p_prog, p_diag,    &  
+        &   out_var%r_ptr(:,:,:,out_var_idx,1))
+    
     CASE DEFAULT
       CALL finish(routine, 'Internal error!')
     END SELECT
@@ -966,13 +1157,17 @@ CONTAINS
   SUBROUTINE pp_task_edge2cell(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_edge2cell")
+    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_edge2cell"
     INTEGER :: &
-      &  in_var_idx, out_var_idx_1, out_var_idx_2
+      &  in_var_idx, out_var_idx_1, out_var_idx_2, &
+      &  in_var_ref_pos, out_var_ref_pos_1,        &
+      &  out_var_ref_pos_2
     TYPE (t_var_list_element), POINTER :: in_var, out_var_1, out_var_2
     TYPE (t_var_metadata),     POINTER :: p_info
     TYPE(t_patch),             POINTER :: p_patch
     TYPE(t_int_state),         POINTER :: intp_hrz
+    REAL(wp),                  POINTER :: in_ptr(:,:,:), out_ptr_1(:,:,:), &
+      &                                   out_ptr_2(:,:,:)
 
     p_patch        => ptr_task%data_input%p_patch      ! patch
     intp_hrz       => ptr_task%data_input%p_int_state
@@ -989,24 +1184,72 @@ CONTAINS
     END IF
 
     in_var_idx        = 1
-    IF (in_var%info%lcontained)  in_var_idx  = in_var%info%ncontained
+    in_var_ref_pos    = 4
+    IF (in_var%info%lcontained) THEN
+      in_var_idx     = in_var%info%ncontained
+      in_var_ref_pos = in_var%info%var_ref_pos
+    END IF
 
-    out_var_1      => ptr_task%data_output%var
-    out_var_idx_1  = 1
-    IF (out_var_1%info%lcontained) out_var_idx_1 = out_var_1%info%ncontained
-    out_var_2      => ptr_task%data_output%var_2
-    out_var_idx_2  =  1
-    IF (out_var_2%info%lcontained) out_var_idx_2 = out_var_2%info%ncontained
+    out_var_1         => ptr_task%data_output%var
+    out_var_idx_1     = 1
+    out_var_ref_pos_1 = 4
+    IF (out_var_1%info%lcontained) THEN
+      out_var_idx_1     = out_var_1%info%ncontained
+      out_var_ref_pos_1 = out_var_1%info%var_ref_pos
+    END IF
+    out_var_2         => ptr_task%data_output%var_2
+    out_var_idx_2     =  1
+    out_var_ref_pos_2 = 4
+    IF (out_var_2%info%lcontained) THEN
+      out_var_idx_2     = out_var_2%info%ncontained
+      out_var_ref_pos_2 = out_var_2%info%var_ref_pos
+    END IF
 
     ! throw error message, if this variable is not a REAL field:
     IF (.NOT. ASSOCIATED(in_var%r_ptr)) THEN
       CALL finish(routine, TRIM(p_info%name)//": Implemented for REAL fields only.")
     END IF
 
-    CALL rbf_vec_interpol_cell(in_var%r_ptr(:,:,:,in_var_idx,1),        &   !< normal wind comp.
+    SELECT CASE(in_var_ref_pos)
+    CASE (1)
+      in_ptr => in_var%r_ptr(in_var_idx,:,:,:,1)
+    CASE (2)
+      in_ptr => in_var%r_ptr(:,in_var_idx,:,:,1)
+    CASE (3)
+      in_ptr => in_var%r_ptr(:,:,in_var_idx,:,1)
+    CASE (4)
+      in_ptr => in_var%r_ptr(:,:,:,in_var_idx,1)
+    CASE default
+      CALL finish(routine, "internal error!")
+    END SELECT
+    SELECT CASE(out_var_ref_pos_1)
+    CASE (1)
+      out_ptr_1 => out_var_1%r_ptr(out_var_idx_1,:,:,:,1)
+    CASE (2)
+      out_ptr_1 => out_var_1%r_ptr(:,out_var_idx_1,:,:,1)
+    CASE (3)
+      out_ptr_1 => out_var_1%r_ptr(:,:,out_var_idx_1,:,1)
+    CASE (4)
+      out_ptr_1 => out_var_1%r_ptr(:,:,:,out_var_idx_1,1)
+    CASE default
+      CALL finish(routine, "internal error!")
+    END SELECT
+    SELECT CASE(out_var_ref_pos_2)
+    CASE (1)
+      out_ptr_2 => out_var_2%r_ptr(out_var_idx_2,:,:,:,1)
+    CASE (2)
+      out_ptr_2 => out_var_2%r_ptr(:,out_var_idx_2,:,:,1)
+    CASE (3)
+      out_ptr_2 => out_var_2%r_ptr(:,:,out_var_idx_2,:,1)
+    CASE (4)
+      out_ptr_2 => out_var_2%r_ptr(:,:,:,out_var_idx_2,1)
+    CASE default
+      CALL finish(routine, "internal error!")
+    END SELECT
+
+    CALL rbf_vec_interpol_cell(in_ptr,                                  &   !< normal wind comp.
       &                        p_patch, intp_hrz,                       &   !< patch, interpolation state
-      &                        out_var_1%r_ptr(:,:,:,out_var_idx_1,1),  &
-      &                        out_var_2%r_ptr(:,:,:,out_var_idx_2,1) )     !< reconstr. u,v wind
+      &                        out_ptr_1, out_ptr_2 )                       !< reconstr. u,v wind
 
   END SUBROUTINE pp_task_edge2cell
 

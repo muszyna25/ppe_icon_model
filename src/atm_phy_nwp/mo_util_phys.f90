@@ -19,29 +19,39 @@
 
 MODULE mo_util_phys
 
-  USE mo_kind,                  ONLY: wp
+  USE mo_kind,                  ONLY: vp, wp
   USE mo_parallel_config,       ONLY: nproma
   USE mo_physical_constants,    ONLY: o_m_rdv        , & !! 1 - r_d/r_v &
     &                                 rdv,             & !! r_d / r_v
     &                                 cpd, p0ref, rd,  &
     &                                 vtmpc1, t3,      &
     &                                 grav,            &
-    &                                 tmelt
+    &                                 tmelt, earth_radius, &
+    &                                 alvdcp, rd_o_cpd
   USE mo_satad,                 ONLY: sat_pres_water, sat_pres_ice
   USE mo_fortran_tools,         ONLY: assign_if_present
-  USE mo_impl_constants,        ONLY: min_rlcell_int
+  USE mo_impl_constants,        ONLY: min_rlcell_int, min_rledge_int, &
+    &                                 min_rlcell, min_rledge
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c
   USE mo_model_domain,          ONLY: t_patch
-  USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag
+  USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, nqtendphy, lart
   USE mo_ls_forcing_nml,        ONLY: is_ls_forcing
-  USE mo_loopindices,           ONLY: get_indices_c
+  USE mo_loopindices,           ONLY: get_indices_c, get_indices_e
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_art_config,            ONLY: art_config
   USE mo_initicon_config,       ONLY: is_iau_active, iau_wgt_adv
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
   USE mo_satad,                 ONLY: qsat_rho
+  USE mo_intp_data_strc,        ONLY: t_int_state
+  USE mo_icon_interpolation_scalar,                     &
+    &                           ONLY: edges2cells_scalar, cells2edges_scalar, &
+    &                                 cells2verts_scalar, verts2edges_scalar, &
+    &                                 cells2edges_scalar
+  USE mo_math_gradients,        ONLY: grad_fd_norm, grad_fd_tang
+  USE mo_intp_rbf,              ONLY: rbf_vec_interpol_edge
+  USE mo_sync,                  ONLY: sync_patch_array, SYNC_C
 
   IMPLICIT NONE
 
@@ -59,7 +69,9 @@ MODULE mo_util_phys
   PUBLIC :: compute_field_rel_hum_wmo
   PUBLIC :: compute_field_rel_hum_ifs
   PUBLIC :: compute_field_omega
+  PUBLIC :: compute_field_pv
   PUBLIC :: nh_update_prog_phy
+  PUBLIC :: cal_cape_cin
 
 CONTAINS
 
@@ -701,6 +713,206 @@ CONTAINS
 
 
   END SUBROUTINE compute_field_omega
+  
+  !> Computation of potential vorticity
+  !! The full 3D-Ertel PV is calculated at the edges and interpolated to cells.
+  !! The shallow atmosphere approximations are used.
+  !!
+  !! Implemented by Tobias Selz, LMU
+  
+  SUBROUTINE compute_field_pv(p_patch, p_int_state, p_metrics, p_prog, p_diag, out_var )
+    
+    TYPE(t_patch)        , INTENT(IN)    :: p_patch              !< patch on which computation is performed
+    TYPE(t_int_state)    , INTENT(IN)    :: p_int_state
+    TYPE(t_nh_metrics)   , INTENT(IN)    :: p_metrics
+    TYPE(t_nh_prog)      , INTENT(IN)    :: p_prog                 !< nonhydrostatic state
+    TYPE(t_nh_diag)      , INTENT(IN)    :: p_diag
+    REAL(wp)             , INTENT(INOUT) :: out_var(:,:,:)         !< output variable, dim: (nproma,nlev,nblks_c)
+  
+    !Local variables
+    !Indices
+    INTEGER  :: slev, elev, rl_start, rl_end, i_nchdom,     &
+      &         i_startblk, i_endblk, i_startidx, i_endidx, &
+      &         jc, je, jk, jb, ivd1, ivd2
+      
+    REAL(wp) :: vdfac
+        
+    !temporary fields
+    REAL(wp) :: pv_ef    (nproma,p_patch%nlev  ,p_patch%nblks_e),  &
+                vt       (nproma,p_patch%nlev  ,p_patch%nblks_e),  &
+                theta_cf (nproma,p_patch%nlev  ,p_patch%nblks_c),  &
+                theta_vf (nproma,p_patch%nlev  ,p_patch%nblks_v),  &
+                theta_ef (nproma,p_patch%nlev  ,p_patch%nblks_e),  &
+                w_vh     (nproma,p_patch%nlev+1,p_patch%nblks_v),  & 
+                w_eh     (nproma,p_patch%nlev+1,p_patch%nblks_e),  &
+                ddtw_eh  (nproma,p_patch%nlev+1,p_patch%nblks_e),  &
+                ddnw_eh  (nproma,p_patch%nlev+1,p_patch%nblks_e),  &
+                ddtth_ef (nproma,p_patch%nlev  ,p_patch%nblks_e),  &
+                ddnth_ef (nproma,p_patch%nlev  ,p_patch%nblks_e),  &
+                vor_ef   (nproma,p_patch%nlev  ,p_patch%nblks_e)
+                
+    !Pointers to metric terms
+    REAL(vp), POINTER :: ddnz(:,:,:), ddtz(:,:,:), gamma(:,:,:)
+    
+    ddnz  => p_metrics%ddxn_z_full
+    ddtz  => p_metrics%ddxt_z_full
+    gamma => p_metrics%ddqz_z_full_e
+
+
+    ! Index bounds
+    slev     = 1
+    elev     = UBOUND(out_var,2)
+    rl_start = 1
+    rl_end   = min_rlcell
+
+    ! values for the blocking
+    i_nchdom   = MAX(1,p_patch%n_childdom)
+    i_startblk = p_patch%cells%start_blk (rl_start,1)
+    i_endblk   = p_patch%cells%end_blk   (rl_end,i_nchdom)
+    
+!$OMP PARALLEL    
+!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+    !compute theta on cells
+    DO jb = i_startblk, i_endblk
+    
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+        &                i_startidx, i_endidx, rl_start, rl_end)
+      
+      DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+
+          theta_cf(jc,jk,jb) = p_diag%temp(jc,jk,jb) / p_prog%exner(jc,jk,jb)
+          
+        ENDDO
+      ENDDO
+    
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+    ! synchronize theta
+    CALL sync_patch_array(SYNC_C, p_patch, theta_cf)
+
+    !Get vt at edges (p_diag%vt is not up to date)
+    CALL rbf_vec_interpol_edge( p_prog%vn, p_patch, p_int_state, vt)
+    
+    !Interpolate theta to vertices
+    CALL cells2verts_scalar( theta_cf, p_patch, p_int_state%cells_aw_verts, theta_vf )
+    
+    !Interpolate theta to edges
+    CALL cells2edges_scalar( theta_cf, p_patch, p_int_state%c_lin_e, theta_ef )
+    
+    !Interpolate w to vertices
+    CALL cells2verts_scalar( p_prog%w, p_patch, p_int_state%cells_aw_verts, w_vh )
+    
+    !Interpolate w to edges
+    CALL cells2edges_scalar( p_prog%w, p_patch, p_int_state%c_lin_e, w_eh )
+    
+    !Interpolate vorticity to edges
+    CALL verts2edges_scalar( p_diag%omega_z, p_patch, p_int_state%v_1o2_e, vor_ef )
+    
+    !Calculate horizontal derivatives of w and theta
+    CALL grad_fd_norm ( p_prog%w, p_patch, ddnw_eh  )
+    CALL grad_fd_tang ( w_vh,     p_patch, ddtw_eh  )
+    CALL grad_fd_norm ( theta_cf, p_patch, ddnth_ef )
+    CALL grad_fd_tang ( theta_vf, p_patch, ddtth_ef )
+    
+    !Recompute loop indices for edges
+    rl_start   = 3
+    rl_end     = min_rledge_int-1
+    i_startblk = p_patch%edges%start_blk (rl_start,1)
+    i_endblk   = p_patch%edges%end_blk   (rl_end,i_nchdom)
+    
+!$OMP PARALLEL    
+!$OMP DO PRIVATE(je,jk,jb,i_startidx,i_endidx,ivd1,ivd2,vdfac), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+      
+      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+        &                i_startidx, i_endidx, rl_start, rl_end)
+     
+      DO jk = slev, elev
+      
+        !Get indices for vertical derivatives of full level variables
+        IF ( jk == slev ) THEN
+          ivd1=slev
+          ivd2=slev+1
+          vdfac=1_wp
+        ELSE IF ( jk == elev ) THEN
+          ivd1=elev-1
+          ivd2=elev
+          vdfac=1_wp
+        ELSE
+          ivd1=jk-1
+          ivd2=jk+1
+          vdfac=2_wp
+        END IF
+          
+        DO je = i_startidx, i_endidx
+
+          !Ertel-PV calculation on edges
+          pv_ef(je,jk,jb) =                                                                                     &
+            &     (   0.5_wp*(ddnw_eh(je,jk,jb)+ddnw_eh(je,jk+1,jb))                                            &
+            &       + ddnz(je,jk,jb)/gamma(je,jk,jb)*(w_eh(je,jk+1,jb)-w_eh(je,jk,jb))                          &
+            &       + (p_prog%vn(je,ivd2,jb)-p_prog%vn(je,ivd1,jb))/vdfac/gamma(je,jk,jb)                       &
+            &       - p_prog%vn(je,jk,jb)/earth_radius                                                          &
+            &     )                                                                                             &
+            &   * (   ddtth_ef(je,jk,jb)                                                                        &
+            &       + ddtz(je,jk,jb)/gamma(je,jk,jb) * (theta_ef(je,ivd2,jb)-theta_ef(je,ivd1,jb))/vdfac        &
+            &     )                                                                                             &
+            &   + ( - (vt(je,ivd2,jb)-vt(je,ivd1,jb))/vdfac/gamma(je,jk,jb)                                     &
+            &       - 0.5_wp*(ddtw_eh(je,jk,jb)+ddtw_eh(je,jk+1,jb))                                            &
+            &       - ddtz(je,jk,jb)/gamma(je,jk,jb) * (w_eh(je,jk+1,jb)-w_eh(je,jk,jb))                        &
+            &       + vt(je,jk,jb)/earth_radius                                                                 &
+            &      )                                                                                            &
+            &   * (   ddnth_ef(je,jk,jb)                                                                        &
+            &       + ddnz(je,jk,jb)/gamma(je,jk,jb) * (theta_ef(je,ivd2,jb)-theta_ef(je,ivd1,jb))/vdfac        &
+            &     )                                                                                             &
+            &   + (   vor_ef(je,jk,jb)                                                                          &
+            &       + ddtz(je,jk,jb)/gamma(je,jk,jb) * (p_prog%vn(je,ivd2,jb)-p_prog%vn(je,ivd1,jb))/vdfac      &
+            &       - ddnz(je,jk,jb)/gamma(je,jk,jb) * (vt(je,ivd2,jb)-vt(je,ivd1,jb))/vdfac                    &
+            &       + p_patch%edges%f_e(je,jb)                                                                  &
+            &     )                                                                                             &
+            &   * ( -(theta_ef(je,ivd2,jb)-theta_ef(je,ivd1,jb))/vdfac/gamma(je,jk,jb) )
+                   
+        ENDDO
+      ENDDO
+    ENDDO 
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+    
+    !Interpolate to cells
+    CALL edges2cells_scalar( pv_ef, p_patch, p_int_state%e_bln_c_s, out_var, opt_rlstart=2 )
+    
+
+    rl_start = 2
+    rl_end   = min_rlcell_int
+
+    ! values for the blocking
+    i_nchdom   = MAX(1,p_patch%n_childdom)
+    i_startblk = p_patch%cells%start_blk (rl_start,1)
+    i_endblk   = p_patch%cells%end_blk   (rl_end,i_nchdom)
+
+    !Normalize with density
+    !
+!$OMP PARALLEL    
+!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+    
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+        &                i_startidx, i_endidx, rl_start, rl_end)
+      
+      DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+          out_var(jc,jk,jb) = out_var(jc,jk,jb) / p_prog%rho(jc,jk,jb)
+        ENDDO
+      ENDDO
+    ENDDO  ! jb
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL    
+
+        
+  END SUBROUTINE compute_field_pv
+
 
   SUBROUTINE nh_update_prog_phy( pt_patch, pdtime, pt_diag, prm_nwp_tend, &
     &                            prm_diag, pt_prog_rcf, pt_prog )
@@ -763,10 +975,11 @@ CONTAINS
           ENDDO
         ENDDO
 
-        ! DA increments of humidity are limited to positive values if RH < 2% or QV < 2.5e-6
+        ! DA increments of humidity are limited to positive values if p > 150 hPa and RH < 2% or QV < 5.e-7
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
-            IF (zrhw(jc,jk) < 0.02_wp .OR. pt_prog_rcf%tracer(jc,jk,jb,iqv) < 2.5e-6_wp) THEN
+            IF (pt_diag%pres(jc,jk,jb) > 15000._wp .AND. zrhw(jc,jk) < 0.02_wp .OR. &
+                pt_prog_rcf%tracer(jc,jk,jb,iqv) < 5.e-7_wp) THEN
               zqin = MAX(0._wp, pt_diag%qv_incr(jc,jk,jb))
             ELSE
               zqin = pt_diag%qv_incr(jc,jk,jb)
@@ -862,6 +1075,400 @@ CONTAINS
 !$OMP END PARALLEL
 
   END SUBROUTINE nh_update_prog_phy
+
+
+  SUBROUTINE cal_cape_cin ( i_startidx, i_endidx, kmoist, te, qve, prs, hhl,  &
+                            cape_ml, cin_ml )
+
+  !------------------------------------------------------------------------------
+  !
+  !>
+  !! Description:
+  !!  Computation of Convective Available Potential Energy CAPE,
+  !!  Convective Inhibition CIN based on parcel theory.
+  !!  This subroutine is based on COSMO code.
+  !!        Helmut Frank
+  !! 
+  !! Input:  
+  !!         - Temperature, specific humidity and pressure of environment
+  !!
+  !! Output: 
+  !!         - cape_ml/cin_ml: CAPE/CIN based on a parcel with thermodynamical 
+  !!                           properties of the lowest mean layer in the PBL (50hPa)
+  !!      
+  !! Motivation: 
+  !!  Current parameter CAPE_CON is calculated in LM in the framework of the 
+  !!  convective parametrisation scheme. Therefore this parameter is only available
+  !!  at those gridpoints, where the scheme is called, but not continuously on the 
+  !!  whole domain. This subroutine, on the other hand, provides continuous fields. 
+  !!
+  !! Method:
+  !!  A dry/moist parcel ascent is performed following classic parcel theory.
+  !!  Moist adiabatic ascent is calculated iteratively with an appropriate scheme.
+  !!  Based on the temperature and moisture of the ascending parcel, CAPE and CIN
+  !!  are computed, closely following the recommendations of Doswell and Rasmussen 
+  !!  (1994), including a virtual temperature correction and searching for the 
+  !!  most unstable parcel in the lower troposphere. Additionally, a mixed layer 
+  !!  CAPE as well as the traditional Showalter Index and the surface lifted 
+  !!  index are computed as further variables. 
+  !!
+  !!  References used during development: 
+  !!  - C. A. Doswell and Rasmussen, E. N.: The Effect of Neglecting the 
+  !!    Virtual Temperature Correction on CAPE Calculations. 
+  !!    Weather and Forecasting, 9, 625-629.
+  !!
+  !!  - K. A. Emanuel (1994): Atmospheric Convection. Oxford University Press.
+  !!
+  !!  - H. Huntrieser et al. (1997): Comparison of Traditional and Newly Developed 
+  !!    Thunderstorm Indices for Switzerland. Weather and Forecasting, 12, 
+  !!    108-125.
+  !!
+  !!  - D. Bolton (1980): The Computation of Equivalent Potential Temperature. 
+  !!    Monthly Weather Review, 108, 1046-1053
+  !!
+  !!  - Davies, J.M.,2002: On low-level thermodynamic parameters
+  !!    associated with tornadic and nontornadic supercells.
+  !!    Preprints, 21st Conf. On Severe Local Storms, San Antonio, Amer. Meteor. Soc.
+  !!    http://members.cox.net/jondavies1/LLthermo.PDF
+  !!
+  !! @par Revision History
+  !! Inherited from COSMO by Helmut Frank, DWD (2015-05-13)
+  !! 
+  !!
+
+! Input data
+!----------- 
+  INTEGER, INTENT (IN) ::  &
+    i_startidx, i_endidx,  &  ! start and end indices of loops in hoirozntal patch
+    kmoist                    ! start index for moist processes
+
+  REAL    (wp),    INTENT (IN) ::  &
+    te  (:,:),   & ! environment temperature
+    qve (:,:),   & ! environment specific humidity
+    prs (:,:),   & ! full level pressure
+    hhl (:,:)      ! height of half levels
+
+! Output data
+!------------ 
+  REAL (wp), INTENT (OUT) :: &
+    cape_ml  (:),   & ! mixed layer CAPE_ML
+    cin_ml   (:)      ! mixed layer CIN_ML
+
+! Local scalars and automatic arrays
+!-----------------------------------
+  INTEGER :: nlev
+
+  REAL    (wp) ::           &      
+    qvp_start(SIZE(qve,1)), & ! parcel initial specific humidity in mixed layer
+    tp_start (SIZE(te,1))     ! parcel initial pot. temperature in mixed layer
+
+  REAL (wp), PARAMETER :: p0 = 1.e5_wp   ! reference pressure for calculation of
+  REAL (wp), PARAMETER :: missing_value  = -999.9_wp   ! Missing value for CIN (if no LFC/CAPE was found),
+
+! Depth of mixed surface layer: 50hPa following Huntrieser, 1997.
+! Other frequently used value is 100hPa.
+  REAL (wp), PARAMETER :: ml_depth = 5000._wp
+
+  INTEGER              :: &     
+  i, k,                   & ! Indices of input/output fields
+  k_ml(SIZE(te,1)),       & ! Index for calculation of mixed layer averages 
+                            ! (potential temperature, moisture)
+  kstart(SIZE(te,1)),     & ! Model level approx. corresponding to mixed layer mean pressure
+  lcllev(SIZE(te,1)),     & ! Indices for Lifting Condensation Level LCL,
+  lfclev(SIZE(te,1))        ! Level of Free Convection LFC
+  
+! The following parameters are help values for the iterative calculation 
+! of the parcel temperature during the moist adiabatic ascent
+  REAL    (wp)             :: esat,tguess1,tguess2,thetae1,thetae2
+! REAL    (wp)             :: rp, r1,r2
+  REAL    (wp)             :: q1, q2
+  REAL    (wp), PARAMETER  :: eps=0.03
+
+! this parameter helps to find the LFC above a capping inversion in cases, 
+! where a LFC already was found in an unstable layer in the convective 
+! boundary layer below. 
+  REAL (wp), PARAMETER :: cc_comp    = 2.0_wp                      
+      
+  INTEGER ::    icount              ! counter for the iterative process
+      
+  REAL (wp) ::             &
+    cin_help(SIZE(te,1)),  & ! help variable, the CIN above the LFC
+    buo     (SIZE(te,1)),  & ! parcel buoyancy at level k
+    tp      (SIZE(te,1)),  & ! temperature profile of ascending parcel
+    qvp     (SIZE(te,1)),  & ! specific moisture profile of ascending parcel
+    thp     (SIZE(te,1)),  & ! 1st guess theta_e of parcel for iterative 
+    tvp,                   & ! virtual temperature of parcel at level k
+    tve,                   & ! virtual temperature of environment at level k
+    buo_belo,              & ! parcel buoyancy of level k+1 below
+    esatp,                 & ! saturation vapour pressure at level k
+    qvsp                     ! saturation specific humidity at level k
+                             ! calculation of moist adiabatic ascent
+
+  INTEGER :: lfcfound(SIZE(te,1))   ! flag indicating if a LFC has already been found
+                                    ! below, in cases where several EL and LFC's occur
+  
+!------------------------------------------------------------------------------
+! 
+! A well mixed near surface layer is assumed (its depth is specified with 
+! parameter ml_depth) Potential temperature and specific humidity are constant
+! in this layer, they are calculated as arithmetical means of the corresponding
+! variables of the environment (model) profile. The parcel starts from a level 
+! approximately in the middle of this well mixed layer, with the average spec. 
+! humidity and potential temperature as start values. 
+!
+!------------------------------------------------------------------------------
+        
+    nlev = SIZE( te,2)
+    k_ml  (:)  = nlev  ! index used to step through the well mixed layer
+    kstart(:)  = nlev  ! index of model level corresponding to average 
+                       ! mixed layer pressure
+    qvp_start(:) = 0.0_wp ! specific humidities in well mixed layer
+    tp_start (:) = 0.0_wp ! potential temperatures in well mixed layer
+            
+    ! now calculate the mixed layer average potential temperature and 
+    ! specific humidity
+    DO k = nlev, kmoist, -1
+      DO i = i_startidx, i_endidx
+
+        IF ( prs(i,k) > (prs(i,nlev) - ml_depth)) THEN
+          qvp_start(i) = qvp_start(i) + qve(i,k)
+          tp_start (i) = tp_start (i) + te (i,k)*(p0/prs(i,k))**rd_o_cpd
+             
+          ! Find the level, where pressure approximately corresponds to the 
+          ! average pressure of the well mixed layer. Simply assume a threshold
+          ! of ml_depth/2 as average pressure in the layer, if this threshold 
+          ! is surpassed the level with approximate mean pressure is found
+          IF (prs(i,k) > prs(i,nlev) - ml_depth*0.5_wp) THEN
+            kstart(i) = k
+          ENDIF
+
+          k_ml(i) = k - 1
+        ELSE
+          EXIT
+        ENDIF
+
+      ENDDO     
+    ENDDO
+        
+    ! Calculate the start values for the parcel ascent, 
+    DO i = i_startidx, i_endidx
+      qvp_start(i) =  qvp_start(i) / (nlev-k_ml(i))
+      tp_start (i) =  tp_start (i) / (nlev-k_ml(i))
+    ENDDO     
+  
+  !------------------------------------------------------------------------------
+  !
+  ! Description:
+  !   A single parcel ascent is performed, based on the given start 
+  !   values kstart (level), tp_start (initial parcel temperature) and
+  !   qvp_start (initial parcel specific humidity). 
+  !
+  !------------------------------------------------------------------------------
+  
+  ! Initialization
+  
+  cape_ml(:)  = 0.0_wp
+  cin_ml(:)   = 0.0_wp
+  
+  lcllev  (:) = 0
+  lfclev  (:) = 0
+  lfcfound(:) = 0
+  cin_help(:) = 0.0_wp
+  tp (:)      = 0.0_wp
+  qvp(:)      = 0.0_wp               
+  buo(:)      = 0.0_wp
+  
+  ! Loop over all model levels above kstart
+  kloop: DO k = nlev, kmoist, -1
+
+    DO i = i_startidx, i_endidx
+      IF ( k > kstart(i) ) CYCLE
+         
+      ! Dry ascent if below cloud base, assume first level is not saturated 
+      ! (first approximation)
+      IF (k > lcllev(i)) THEN
+        tp (i)   = tp_start(i)*( prs(i,k)/p0)**rd_o_cpd   ! dry adiabatic process
+        qvp(i)   = qvp_start(i)                           ! spec humidity conserved
+            
+        ! Calculate parcel saturation vapour pressure and saturation 
+        ! specific humidity
+        esatp = sat_pres_water( tp(i))
+        qvsp  = fqvs( esatp, prs(i,k), qvp(i))
+            
+        ! Check whether parcel is saturated or not and 
+        ! no LCL was already found below
+        IF ( (qvp(i) >= qvsp) .AND. (lcllev(i) == 0) ) THEN  
+          lcllev(i) = k                                    ! LCL is reached
+
+          ! Moist ascent above LCL, first calculate an approximate thetae to hold 
+          ! constant during the remaining ascent
+!         rp      = qvp(i)/( 1._wp - qvp(i) )
+!         thp(i)  = fthetae( tp(i),prs(i,k),rp )
+          thp(i)  = fthetae( tp(i),prs(i,k), qvp(i) )
+
+        ENDIF
+      ENDIF
+         
+      ! Moist adiabatic process: the parcel temperature during this part of 
+      ! the ascent is calculated iteratively using the iterative newton
+      ! scheme, assuming the equivalent potential temperature of the parcel 
+      ! at the LCL (thp) is held constant. The scheme converges usually within
+      ! few (less than 10) iterations, its accuracy can be tuned with the 
+      ! parameter "eps", a value of 0.03 is tested and recommended. 
+            
+      IF ( k <= lcllev(i) ) THEN                                
+        ! The scheme uses a first guess temperature, which is the parcel 
+        ! temperature at the level below. If it happens that the initial 
+        ! parcel is already saturated, the environmental temperature 
+        ! is taken as first guess instead
+        IF (  k == kstart(i) ) THEN
+          tguess1 = te(i,kstart(i))            
+        ELSE
+          tguess1 = tp(i)
+        END IF
+        icount = 0       ! iterations counter
+
+        ! Calculate iteratively parcel temperature from 
+        ! thp, prs and 1st guess tguess1
+        DO
+          esat     = sat_pres_water( tguess1)
+!         r1       = rdv*esat/(prs(i,k)-esat)
+!         thetae1  = fthetae( tguess1,prs(i,k),r1)
+          q1       = fqvs( esat, prs(i,k), qvp(i) )
+          thetae1  = fthetae( tguess1,prs(i,k),q1)
+
+          tguess2  = tguess1 - 1.0_wp
+          esat     = sat_pres_water( tguess2)
+!         r2       = rdv*esat/(prs(i,k)-esat)
+!         thetae2  = fthetae( tguess2,prs(i,k),r2)
+          q2       = fqvs( esat, prs(i,k), qvp(i) )
+          thetae2  = fthetae( tguess2,prs(i,k),q2)
+
+          tguess1  = tguess1+(thetae1-thp(i))/(thetae2-thetae1)
+          icount   = icount    + 1   
+
+          IF ( ABS( thetae1-thp(i)) < eps .OR. icount > 20 ) THEN
+            tp(i) = tguess1
+            EXIT
+          END IF
+        END DO
+
+        ! update specific humidity of the saturated parcel for new temperature
+        esatp  = sat_pres_water( tp(i))
+        qvp(i) = fqvs( esatp,prs(i,k),qvp(i))
+      END IF
+         
+      ! Calculate virtual temperatures of parcel and environment
+      tvp    = tp(i  ) * (1.0_wp + vtmpc1*qvp(i  )/(1.0_wp - qvp(i  )) )  
+      tve    = te(i,k) * (1.0_wp + vtmpc1*qve(i,k)/(1.0_wp - qve(i,k)) ) 
+         
+      ! Calculate the buoyancy of the parcel at current level k, 
+      ! save buoyancy from level k+1 below (buo_belo) to check if LFC or EL have been passed
+      buo_belo = buo(i)
+      buo(i)   = tvp - tve
+
+      ! Check for level of free convection (LFC) and set flag accordingly. 
+      ! Basic LFC condition is that parcel buoyancy changes from negative to 
+      ! positive (comparison of buo with buo_belo). Tests showed that very 
+      ! often the LFC is already found within the boundary layer below even if 
+      ! significant capping inversions are present above (and since CIN is only
+      ! defined below the LFC no CIN was accumulated in these cases.)
+      ! To handle these situations in a meteorologically meaningful way an 
+      ! additional flag "lfcfound" was introduced which is initially zero but 
+      ! set to 1 if a second LFC was found, under the condition that the CIN 
+      ! within the capping inversion is greater than the CAPE in the convective
+      ! boundary layer below times the factor cc_comp (cc_comp = 1 - 2 
+      ! recommended.)
+      ! Help variable CIN_HELP saves all contributions to the total cin above 
+      ! the LFC and has to be subtracted at the end from the final CIN in order
+      ! to get the CIN only below the LFC (this is necessary since we do not 
+      ! know yet where exactly we will find an LFC when performing the ascent
+      ! from bottom to top in a stepwise manner.)
+
+      ! Find the first LFC
+      IF ( (buo(i) > 0.0_wp) .AND. (buo_belo <= 0.0_wp)            &
+                             .AND. ( lfcfound(i)==0) ) THEN
+            
+        ! Check whether it is an LFC at one of the lowest model levels 
+        ! (indicated by CAPE=0)
+        IF ( (cape_ml(i) > 0.0_wp) .AND. ( lfcfound(i) == 0 ) ) THEN
+          ! Check if there is a major capping inversion below, defined as 
+          ! having CIN with an absolute value larger than the CAPE accumulated
+          ! below times some arbitrary factor cc_comp - if this is the case the
+          ! LFC index "lfclev" is updated to the current level k and 
+          ! "lfcfound"-flag is now set to 1 assuming that we have found the 
+          ! level of free convection finally. 
+          IF ( cc_comp * ABS(cin_help(i)) > cape_ml(i) ) THEN
+            lfclev(i)   = k
+            cape_ml (i) = 0.0_wp
+            cin_help(i) = 0.0_wp
+            lfcfound(i) = 1
+          ENDIF
+        ELSE
+          ! the LFC found is near the surface, set the LFC index to the current
+          ! level k (lfclev) but do not set the flag "lfcfound" to zero to 
+          ! indicate that a further LFC may be present above the boundary layer
+          ! and an eventual capping inversion. Reset the CIN_HELP to zero to 
+          ! store the contribution of CIN above this LFC.
+          lfclev(i)   = k
+          cin_help(i) = 0.0_wp
+        ENDIF
+      ENDIF
+         
+      ! Accumulation of CAPE and CIN according to definition given in Doswell 
+      ! and Rasmussen (1994), 
+      IF ( (buo(i) >= 0.0_wp) .AND. (k <= lfclev(i)) ) THEN   
+        cape_ml(i)  = cape_ml(i)  + (buo(i)/tve)*grav*(hhl(i,k) - hhl(i,k+1))
+      ELSEIF ( (buo(i) < 0.0) .AND. (k < kstart(i)) ) THEN  
+        cin_ml(i)   = cin_ml(i)   + (buo(i)/tve)*grav*(hhl(i,k) - hhl(i,k+1))
+        cin_help(i) = cin_help(i) + (buo(i)/tve)*grav*(hhl(i,k) - hhl(i,k+1))
+      ENDIF
+
+    ENDDO ! i = i_startidx, i_endidx
+  ENDDO  kloop       ! End k-loop over levels
+      
+    ! Subtract the CIN above the LFC from the total accumulated CIN to 
+    ! get only contriubtions from below the LFC as the definition demands.
+  DO i = i_startidx, i_endidx
+
+    ! make CIN positive
+    cin_ml(i) = ABS (cin_ml(i) - cin_help(i))
+
+    ! set the CIN to missing value if no LFC was found or no CAPE exists
+    IF ( (lfclev(i) == 0) .OR. (cape_ml(i) == 0.0_wp)  ) cin_ml(i) = missing_value 
+  ENDDO
+
+CONTAINS
+
+! Specific humidity at saturation as function of water vapor pressure zex,
+! air pressure zpx, and specific humidity zqx.
+  ELEMENTAL FUNCTION fqvs( zex, zpx, zqx)
+
+    REAL(wp), INTENT(IN) :: zex   ! vapor pressure        [Pa]
+    REAL(wp), INTENT(IN) :: zpx   ! atmospheric pressure  [Pa]
+    REAL(wp), INTENT(IN) :: zqx   ! specific humidity     [kg/kg]
+    REAL(wp)             :: fqvs  ! Equivalent potential temperature
+
+    fqvs = zex/zpx *( rdv + o_m_rdv*zqx )        
+
+  END FUNCTION fqvs
+
+! Equivalent potential temperature to hold constant during ascent
+! ELEMENTAL FUNCTION fthetae( ztx,zpx,zrx)
+  ELEMENTAL FUNCTION fthetae( ztx,zpx,zqx)
+
+    REAL(wp), INTENT(IN) :: ztx     ! air temperature       [K]
+    REAL(wp), INTENT(IN) :: zpx     ! atmospheric pressure  [Pa]
+!   REAL(wp), INTENT(IN) :: zrx     ! mixing ratio          [kg/kg]
+    REAL(wp), INTENT(IN) :: zqx     ! specific humidity     [kg/kg]
+    REAL(wp)             :: fthetae ! Equivalent potential temperature [K]
+
+!   fthetae = (p0/zpx)**rd_o_cpd *ztx*exp( alvdcp*zrx/ztx)  
+    fthetae = (p0/zpx)**rd_o_cpd *ztx*exp( alvdcp*zqx/(ztx*(1._wp-zqx)) )
+
+  END FUNCTION fthetae
+
+  END SUBROUTINE cal_cape_cin
 
 
 END MODULE mo_util_phys

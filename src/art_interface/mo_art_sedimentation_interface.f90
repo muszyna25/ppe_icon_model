@@ -94,6 +94,7 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
   REAL(wp), ALLOCATABLE        :: &  
     &  p_upflux_sed(:,:,:),       & !< upwind flux at half levels due to sedimentation
     &  rhodz_new(:,:,:),          & !< density * height of full layer
+    &  dz(:,:,:),                 & !< Layer height
     &  vsed0(:,:),                & !< Sedimentation velocities 0th moment [m s-1]
     &  vsed3(:,:),                & !< Sedimentation velocities 3th moment [m s-1]
     &  vdep0(:),                  & !< Deposition velocities 0th moment [m s-1]
@@ -150,13 +151,15 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
         ALLOCATE(vdep0(nproma),vdep3(nproma))
         ALLOCATE(p_upflux_sed(nproma,nlevp1,nblks))
         ALLOCATE(rhodz_new(nproma,nlev,nblks))
+        ALLOCATE(dz(nproma,nlev,nblks))
         
         DO jb = i_startblk, i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
             &                istart, iend, i_rlstart, i_rlend)
           DO jk = 1, nlev
             DO jc = istart, iend
-              rhodz_new(jc,jk,jb) = rho(jc,jk,jb) * p_metrics%ddqz_z_full(jc,jk,jb)
+              dz(jc,jk,jb)        = p_metrics%z_ifc(jc,jk,jb)-p_metrics%z_ifc(jc,jk+1,jb)
+              rhodz_new(jc,jk,jb) = rho(jc,jk,jb) * dz (jc,jk,jb)
             ENDDO
           ENDDO
         ENDDO
@@ -182,7 +185,7 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
                 CALL fields%modal_param(p_art_data(jg)%air_prop%art_free_path(:,:,jb),                &
                   &                     istart, iend, nlev, jb, tracer(:,:,jb,:))
                 ! Calculate sedimentation velocities for 0th and 3rd moment
-                CALL art_calc_v_sed(rho(:,:,jb),p_metrics%ddqz_z_full(:,:,jb),                        &
+                CALL art_calc_v_sed(rho(:,:,jb),dz(:,:,jb),                                           &
                   &     p_art_data(jg)%air_prop%art_dyn_visc(:,:,jb), fields%density(:,:,jb),         &
                   &     fields%diameter(:,:,jb), fields%info%exp_aero, fields%knudsen_nr(:,:,jb),     &
                   &     istart, iend, nlev, vsed0(:,:), vsed3(:,:))
@@ -197,7 +200,7 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
                     &     p_diag%u(:,nlev,jb), p_diag%v(:,nlev,jb), rho(:,nlev,jb),prm_diag%tcm(:,jb),  &
                     &     prm_diag%tch(:,jb),tracer(:,nlev,jb,iqv),tracer(:,nlev,jb,iqc),               &
                     &     tracer(:,nlev,jb,iqr), p_prog%theta_v(:,nlev,jb), prm_diag%gz0(:,jb),         &
-                    &     p_metrics%ddqz_z_full(:,nlev,jb),                                             &
+                    &     dz(:,nlev,jb),                                                                &
                     &     p_art_data(jg)%air_prop%art_dyn_visc(:,nlev,jb), fields%diameter(:,nlev,jb),  &
                     &     fields%info%exp_aero,fields%knudsen_nr(:,nlev,jb), vsed0(:,nlev),             &
                     &     vsed3(:,nlev), istart, iend, nlev, vdep0(:), vdep3(:))
@@ -211,19 +214,18 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
               nflx_contra_vsed => fields%flx_contra_vsed0
               
             CLASS IS (t_fields_volc)
-              CALL art_sedi_volc( p_patch,p_metrics,p_prog,           &
-                &              rho, p_diag,                           & 
-                &              fields%diam,fields%rho,                &
-                &              fields%flx_contra_vsed3,               &
-                &              fields%itracer) 
+              CALL art_sedi_volc( p_patch,p_metrics,p_prog,    &
+                &                 rho, p_diag,                 & 
+                &                 fields%diam,fields%rho,      &
+                &                 fields%flx_contra_vsed3,     &
+                &                 fields%itracer )
               mflx_contra_vsed => fields%flx_contra_vsed3
             CLASS IS (t_fields_radio)
               ! Sedimentation velocity is zero for radioact. tracers
               fields%flx_contra_vsed3(:,:,:) = 0.0_wp
               mflx_contra_vsed => fields%flx_contra_vsed3
               ! However, a deposition velocity is required
-              CALL art_drydepo_radioact( p_patch,p_prog,           &
-                &              fields%itracer) 
+              CALL art_drydepo_radioact( p_patch,p_prog,fields%itracer ) 
             CLASS DEFAULT
               CALL finish('mo_art_sedimentation_interface:art_sedimentation_interface', &
                 &         'ART: Unknown mode field type')
@@ -245,12 +247,15 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
               ! --- calculate vertical flux term due to sedimentation
               ! ----------------------------------
               ! upwind_vflux_ppm_cfl is internally OpenMP parallelized
-              CALL upwind_vflux_ppm_cfl(p_patch, tracer(:,:,:,jsp),             & !< in
-                &                       iubc, flx_contra_vsed, dt_sub,          & !< in
-                &                       lcompute_gt, lcleanup_gt, itype_vlimit, & !< in
-                &                       p_metrics%ddqz_z_full,                  & !< in
-                &                       rhodz_new, lprint_cfl,                  & !< in
-                &                       p_upflux_sed(:,:,:), opt_elev=nlevp1 )    !< out
+              CALL upwind_vflux_ppm_cfl(p_patch, tracer(:,:,:,jsp),             &
+                &                       iubc, flx_contra_vsed, dt_sub,          &
+                &                       lcompute_gt, lcleanup_gt, itype_vlimit, &
+                &                       dz,                                     &
+                &                       rhodz_new, lprint_cfl,                  &
+                &                       p_upflux_sed(:,:,:),                    &
+                &                       opt_rlstart=i_rlstart,                  &
+                &                       opt_rlend=i_rlend,                      &
+                &                       opt_elev=nlevp1)
     
               ! ----------------------------------
               ! --- update mixing ratio after sedimentation
@@ -279,11 +284,18 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
         ! ----------------------------------
         ! --- Clip the tracers
         ! ----------------------------------
-        CALL art_clip_lt(tracer,0.0_wp)
+!$omp parallel do default(shared) private(jb, istart, iend)
+        DO jb = i_startblk, i_endblk
+          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+            &                istart, iend, i_rlstart, i_rlend)
+          CALL art_clip_lt(tracer(istart:iend,1:nlev,jb,:),0.0_wp)
+        ENDDO
+!$omp end parallel do
         
         DEALLOCATE(p_upflux_sed)
         DEALLOCATE(vsed0,vsed3,vdep0,vdep3)
         DEALLOCATE(rhodz_new)
+        DEALLOCATE(dz)
       ENDDO !nsubsteps
     ENDIF !lart_aerosol
   ENDIF !lart

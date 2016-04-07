@@ -22,7 +22,7 @@
 #include "omp_definitions.inc"
 !----------------------------
 #if defined __xlC__
-@PROCESS SPILL(2134)
+@PROCESS SPILL(2160)
 #endif
 MODULE mo_nwp_sfc_interface_edmf
 
@@ -579,6 +579,9 @@ CONTAINS
 IF ( .true. ) THEN
 
         CALL terra_multlay(                                    &
+!MR:<
+        &  icant=2                                           , & !IN canopy-type (as set before, but maybe "1" is adequate?)
+!MR:>
         &  ie=nproma                                         , & !IN array dimensions
         &  istartpar=1,       iendpar=i_count                , & !IN optional start/end indicies
         &  ke_soil=nlev_soil-1, ke_snow=nlev_snow            , & !IN without lowermost (climat.) soil layer
@@ -624,6 +627,7 @@ IF ( .true. ) THEN
         &  rho_snow_mult_new = rho_snow_mult_new_t(:,:,isubs), & ! snow density                      (kg/m**3)
 !
         &  h_snow        = h_snow_t(:,isubs)                 , & ! snow height
+        &  h_snow_gp     = h_snow_t(:,isubs)                 , & ! snow height
         &  meltrate      = meltrate(:)                       , & ! snow melting rate
 !
         &  w_i_now       = w_i_now_t(:,isubs)                , & ! water content of interception water (m H2O)
@@ -1034,7 +1038,8 @@ endif
     IF ( (atm_phy_nwp_config(jg)%inwp_surface == 1) .AND. (lseaice) ) THEN
 
       CALL nwp_seaice(ext_data    , jb          , tcall_sfc_jg,                      &
-                   &  t_g_ex      , qv_s_ex     , ps_ex       , sobs_ex  , thbs_ex,  &
+                   &  t_g_ex      , t_s_ex      , qv_s_ex     , ps_ex    , sobs_ex,  &
+                   &  thbs_ex,                                                       &
                    &  shfl_soil_ex, lhfl_soil_ex,                                    &
                    &  t_ice       , h_ice       , t_snow_si   , h_snow_si,           &
                    &  fr_seaice                                                      )
@@ -1097,7 +1102,8 @@ endif
   !! Initial revision by Daniel Reinert, DWD (2012-08-31)
   !!
   SUBROUTINE nwp_seaice (ext_data    , jb          , dtime       ,                         &
-                      &  t_g_ex      , qv_s_ex     , ps_ex       , sobs_ex     , thbs_ex,  &
+                      &  t_g_ex      , t_s_ex      , qv_s_ex     , ps_ex       , sobs_ex,  &
+                      &  thbs_ex,                                                          &
                       &  shfl_soil_ex, lhfl_soil_ex,                                       &
                       &  t_ice_ex    , h_ice_ex    , t_snow_si_ex, h_snow_si_ex,           &
                       &  fr_seaice                                                         )
@@ -1110,6 +1116,7 @@ endif
                   dtime                ! time interval for sea ice
     REAL(wp), DIMENSION(nproma,ntiles_total+ntiles_water), INTENT(INOUT) :: &
                   t_g_ex           , & ! weighted surface temperature                  (  K  )
+                  t_s_ex           , & ! weighted surface temperature                  (  K  )
                   qv_s_ex              ! specific humidity at the surface              (kg/kg)
     REAL(wp), DIMENSION(nproma),                           INTENT(IN)    :: &
                   ps_ex                ! surface pressure                              ( pa  )
@@ -1141,6 +1148,9 @@ endif
     REAL(wp) :: hice_new (nproma)   ! ice thickness at new time level                    [m]
     REAL(wp) :: tsnow_new(nproma)   ! temperature of snow upper surface at new time      [K]
     REAL(wp) :: hsnow_new(nproma)   ! snow thickness at new time level                   [m]
+
+    REAL(wp) :: t_s_dummy(nproma)   ! dummy for surface temperature
+    REAL(wp) :: t_seasfc_dummy(nproma) ! dummy for sea surface temperature
 
     ! Local scalars:
     !
@@ -1232,8 +1242,13 @@ endif
         &   hice_old      = h_ice_ex(:),                             &!inout
         &   tice_old      = t_ice_ex(:),                             &!inout
         &   t_g_t_new     = t_g_ex(:,isub_water),                    &!inout
-        &   qv_s_t        = qv_s_ex(:,isub_water)                    )!inout
-
+        &   t_s_t_now     = t_s_ex(:,isub_water),                    &!inout  !DR quick hack
+        &   t_s_t_new     = t_s_ex(:,isub_water),                    &!inout
+        &   qv_s_t        = qv_s_ex(:,isub_water),                   &!inout
+        &   t_seasfc      = t_seasfc_dummy(:)                        )!inout  ! DUMMY: not used yet
+!!DR Currently, t_seasfc is not re-initialized for newly generated sea points when the EDMF scheme is used.
+!!DR This is simply because p_lnd_diag%t_seasfc is not readily vailable. This is not critical, however it 
+!!DR should however be fixed at some time.
 
   END SUBROUTINE nwp_seaice
 

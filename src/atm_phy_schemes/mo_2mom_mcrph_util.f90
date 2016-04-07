@@ -12,15 +12,15 @@
 !
 ! Some code standards or recommendations, at least:
 !
-! - All changes that potentially change the results need to 
+! - All changes that potentially change the results need to
 !   be approved by AS and UB
 ! - All new variables/subroutines should be named in English
-! - In the future also comments should be written in English, 
+! - In the future also comments should be written in English,
 !   but temporary use of some German is OK, too.
 ! - Length of names of subroutines should be <= 20
 ! - Length of names of variables should be <= 15
 ! - Length of lines has to be < 100 including comments,
-!   recommended is <= 80 for code without comments. 
+!   recommended is <= 80 for code without comments.
 ! - Temporary modifications for experiments should be marked by
 !
 !     AS_YYYYMMDD>
@@ -46,7 +46,7 @@ MODULE mo_2mom_mcrph_util
 !       & L_wd  => alv,    & ! specific heat of vaporization (wd: wasser->dampf)
 !       & L_ed  => als,    & ! specific heat of sublimation (ed: eis->dampf)
 !       & L_ew  => alf,    & ! specific heat of fusion (ew: eis->wasser)
-!       & T_3   => tmelt,  & ! melting temperature of ice
+       & T_3   => tmelt,  & ! melting temperature of ice
 !       & rho_w => rhoh2o, & ! density of liquid water
 !       & nu_l  => con_m,  & ! kinematic viscosity of air
 !       & D_v   => dv0,    & ! diffusivity of water vapor in air at 0 C
@@ -54,13 +54,19 @@ MODULE mo_2mom_mcrph_util
 !       & N_avo => avo,    & ! Avogadro number [1/mol]
 !       & k_b   => ak,     & ! Boltzmann constant [J/K]
        & grav               ! acceleration due to Earth's gravity
-  
-  IMPLICIT NONE 
+
+  IMPLICIT NONE
 
   PRIVATE
 
   PUBLIC :: &
        & gfct,                       & ! main (could be replaced by intrinsic in Fortran2008)
+       & rat2do3,                    & ! main
+       & dyn_visc_sutherland,        & ! main
+       & Dv_Rasmussen,               & ! main
+       & ka_Rasmussen,               & ! main
+       & lh_evap_RH87,               & ! main
+       & lh_melt_RH87,               & ! main
        & gamlookuptable,             & ! main
        & nlookup, nlookuphr_dummy,   & ! main
        & incgfct_lower_lookupcreate, & ! main
@@ -69,7 +75,7 @@ MODULE mo_2mom_mcrph_util
        & init_dmin_wetgrowth,        & ! driver
        & init_dmin_wg_gr_ltab_equi,  & ! driver
        & ltabdminwgg,                & ! main
-       & lookupt_4D,                 & ! 
+       & lookupt_4D,                 & !
        & dmin_wg_gr_ltab_equi          ! main
 
   CHARACTER(len=*), PARAMETER :: routine = 'mo_2mom_mcrph_util'
@@ -91,7 +97,7 @@ MODULE mo_2mom_mcrph_util
     REAL(wp)                        :: odx2  ! one over dx 2
     REAL(wp), DIMENSION(:,:,:,:), POINTER :: ltable
   END TYPE lookupt_2D
-  
+
   ! Type declaration for a general 4D equidistant lookup table:
   TYPE lookupt_4D
     INTEGER :: n1  ! number of grid points in x1-direction
@@ -126,14 +132,14 @@ MODULE mo_2mom_mcrph_util
   INTEGER, PARAMETER                     :: nlookuphr = 10000   ! Internal number of bins (high res part)
 
   ! dummy of internal number of bins (high res part) in case the high resolution part is not really needed:
-  INTEGER, PARAMETER                     :: nlookuphr_dummy = 10 
+  INTEGER, PARAMETER                     :: nlookuphr_dummy = 10
 
   ! Type to hold the lookup table for the incomplete gamma functions.
   ! The table is divided into a low resolution part, which spans the
   ! whole range of x-values up to the 99.5 % x-value, and a high resolution part for the
   ! smallest 1 % of these x-values, where the incomplete gamma function may increase
   ! very rapidly and nonlinearily, depending on paramter a.
-  ! For some applications (e.g., Newtons Method in future subroutine 
+  ! For some applications (e.g., Newtons Method in future subroutine
   ! graupel_hail_conv_wetgrowth_Dg_gamlook() ), this rapid change requires a much higher
   ! accuracy of the table lookup as compared to be achievable with the low resolution table.
 
@@ -142,14 +148,14 @@ MODULE mo_2mom_mcrph_util
     INTEGER                         :: n        ! Internal number of bins (low res part)
     INTEGER                         :: nhr      ! Internal number of bins (high res part)
     REAL(wp)                        :: a        ! a-parameter
-    REAL(wp), DIMENSION(:), POINTER :: x        ! vector of x-parameters (limit of integration) - 
+    REAL(wp), DIMENSION(:), POINTER :: x        ! vector of x-parameters (limit of integration) -
                                                 ! always starts at 0 and has equidistant dx (low resolution part)
-    REAL(wp), DIMENSION(:), POINTER :: xhr      ! vector of x-parameters (limit of integration) - 
-                                                ! always starts at 0 and has equidistant dxhr (high resolution part) 
+    REAL(wp), DIMENSION(:), POINTER :: xhr      ! vector of x-parameters (limit of integration) -
+                                                ! always starts at 0 and has equidistant dxhr (high resolution part)
     REAL(wp)                        :: dx       ! dx   (low resolution part)
-    REAL(wp)                        :: dxhr     ! dxhr (high resolution part) 
-    REAL(wp)                        :: odx      ! one over dx 
-    REAL(wp)                        :: odxhr    ! one over dxhr 
+    REAL(wp)                        :: dxhr     ! dxhr (high resolution part)
+    REAL(wp)                        :: odx      ! one over dx
+    REAL(wp)                        :: odxhr    ! one over dxhr
     REAL(wp), DIMENSION(:), POINTER :: igf      ! value of the inc. gamma function at (a,x) (low res)
     REAL(wp), DIMENSION(:), POINTER :: igfhr    ! value of the inc. gamma function at (a,x) (high res)
   END TYPE gamlookuptable
@@ -165,8 +171,6 @@ CONTAINS
     ! Gammafunktion aus Numerical Recipes (F77)                                    *
     ! (intrinsic function in Fortran2008)                                          *
     !*******************************************************************************
-    IMPLICIT NONE
-
     DOUBLE PRECISION cof(6)
     DOUBLE PRECISION stp,half,one,x,xx,fpf,tmp,ser,gamma
     INTEGER j
@@ -195,7 +199,6 @@ CONTAINS
   ! LOG(Gamma function) taken from Press et al.,  Numerical Recipes (F77)        *
   ! (intrinsic function in Fortran2008)                                          *
   !*******************************************************************************
-    IMPLICIT NONE
     DOUBLE PRECISION, INTENT(in) :: x
     DOUBLE PRECISION, SAVE :: cof(6), stp
     DOUBLE PRECISION :: xx,tmp,ser
@@ -224,16 +227,15 @@ CONTAINS
   !       Gammafunktion aus Numerical Recipes (F77)                              *
   !       (etwas umformuliert, aber dieselben Ergebnisse wie obige Originalfunktion)
   !*******************************************************************************
-    IMPLICIT NONE
     DOUBLE PRECISION, INTENT(in) :: x
     DOUBLE PRECISION, SAVE :: cof(6), stp, half, one, fpf
     DOUBLE PRECISION :: xx,tmp,ser,gamma
     INTEGER j
-      
+
     DATA cof,stp/76.18009173d0,-86.50532033d0,24.01409822d0,  &
           &     -1.231739516d0,.120858003d-2,-.536382d-5,2.50662827465d0/
     DATA half,one,fpf/0.5d0,1.0d0,5.5d0/
-      
+
     xx  = x  - one
     tmp = xx + fpf
     tmp = (xx + half) * LOG(tmp) - tmp
@@ -248,7 +250,7 @@ CONTAINS
     gfct2 = gamma
     RETURN
   END FUNCTION gfct2
-  
+
   !*******************************************************************************
   !       Incomplete Gamma function taken from Press et al.,  Numerical Recipes (F77)
   !
@@ -260,8 +262,6 @@ CONTAINS
   ! 1) diverse Hilfsfunktionen:
 
   SUBROUTINE gcf(gammcf,a,x,gln)
-
-    IMPLICIT NONE
 
     INTEGER, PARAMETER :: ITMAX = 100
     DOUBLE PRECISION, PARAMETER :: EPS = 3.d-7, FPMIN = 1.d-30
@@ -304,16 +304,14 @@ CONTAINS
 
   SUBROUTINE gser(gamser,a,x,gln)
 
-    IMPLICIT NONE
-
     INTEGER, PARAMETER :: ITMAX = 100
     DOUBLE PRECISION, PARAMETER :: EPS=3.d-7
     DOUBLE PRECISION, INTENT(in) :: a, x
     DOUBLE PRECISION, INTENT(out) :: gamser, gln
-      
+
     INTEGER :: n
     DOUBLE PRECISION :: ap,del,sum
-    
+
     gln=gammln(a)
     IF (x.LE.0.) THEN
       IF (x.LT.0.) THEN
@@ -336,7 +334,7 @@ CONTAINS
     END DO
 
     IF (ABS(del).GE.ABS(sum)*EPS) THEN
-      WRITE (txt,*) 'ERROR in GSER: a too large, ITMAX too small' ; 
+      WRITE (txt,*) 'ERROR in GSER: a too large, ITMAX too small' ;
       CALL message(routine,TRIM(txt))
       gamser = 0.0d0
       CALL finish(TRIM(routine),'Error in gser')
@@ -349,11 +347,10 @@ CONTAINS
   END SUBROUTINE gser
 
   DOUBLE PRECISION FUNCTION gammp(a,x,gln)
-    IMPLICIT NONE
     DOUBLE PRECISION, INTENT(in) :: a, x
     DOUBLE PRECISION, INTENT(out) :: gln
     DOUBLE PRECISION :: gammcf, gamser
-    
+
     IF (x.LT.0.0d0 .OR. a .LE. 0.0d0) THEN
       WRITE (txt,*) 'ERROR in GAMMP: bad arguments'
       CALL message(routine,TRIM(txt))
@@ -373,14 +370,12 @@ CONTAINS
 
   DOUBLE PRECISION FUNCTION gammq(a,x,gln)
 
-    IMPLICIT NONE
-
     DOUBLE PRECISION, INTENT(in) :: a, x
     DOUBLE PRECISION, INTENT(out) :: gln
     DOUBLE PRECISION :: gammcf, gamser
 
     IF (x.LT.0.0d0 .OR. a .LE. 0.0d0) THEN
-      WRITE (txt,*) 'ERROR in GAMMQ: bad arguments' 
+      WRITE (txt,*) 'ERROR in GAMMQ: bad arguments'
       CALL message(routine,TRIM(txt))
       gammq = 0.0d0
       CALL finish(TRIM(routine),'Error in gammq')
@@ -409,10 +404,9 @@ CONTAINS
   !*******************************************************************************
 
   DOUBLE PRECISION FUNCTION incgfct_upper(a,x)
-    IMPLICIT NONE
     DOUBLE PRECISION, INTENT(in) :: a, x
     DOUBLE PRECISION :: gam, gln
-    
+
     gam = gammq(a,x,gln)
     incgfct_upper = EXP(gln) * gam
 
@@ -427,10 +421,9 @@ CONTAINS
   !*******************************************************************************
 
   DOUBLE PRECISION FUNCTION incgfct_lower(a,x)
-    IMPLICIT NONE
     DOUBLE PRECISION, INTENT(in) :: a, x
     DOUBLE PRECISION :: gam, gln
-    
+
     gam = gammp(a,x,gln)
     incgfct_lower = EXP(gln) * gam
 
@@ -443,18 +436,17 @@ CONTAINS
   !*******************************************************************************
 
   DOUBLE PRECISION FUNCTION incgfct(a,x1,x2)
-    IMPLICIT NONE
     DOUBLE PRECISION, INTENT(in) :: a, x1, x2
-    
+
     incgfct = incgfct_lower(a,x2) - incgfct_lower(a,x1)
 
   END FUNCTION incgfct
-  
+
   !*******************************************************************************
   ! Create Lookup-table vectors for the lower incomplete gamma function,
   !              int(0)(x) exp(-t) t^(a-1) dt
-  ! as function of x at constant a. 
-  ! The table runs from x=0 to the 99.5 % - value of the normalized 
+  ! as function of x at constant a.
+  ! The table runs from x=0 to the 99.5 % - value of the normalized
   ! incomplete gamma function. This 99.5 % - value has been fitted
   ! with high accuracy as function of a in the range a in [0;20], but can
   ! safely be applied also to higher values of a. (Fit created with the
@@ -467,7 +459,6 @@ CONTAINS
   !*******************************************************************************
 
   SUBROUTINE incgfct_lower_lookupcreate(a,ltable,nl,nlhr)
-    IMPLICIT NONE
     DOUBLE PRECISION, INTENT(in) :: a  ! value of a
     TYPE(gamlookuptable), INTENT(inout) :: ltable
     INTEGER, INTENT(in) :: nl, nlhr
@@ -548,7 +539,7 @@ CONTAINS
 
   !*******************************************************************************
   ! Retrieve values from a lookup table of the lower incomplete gamma function,
-  ! as function of x at a constant a, for which the lookup table has been 
+  ! as function of x at a constant a, for which the lookup table has been
   ! created.
   !
   ! The last value in the table has to correspond to x = infinity, so that
@@ -565,7 +556,7 @@ CONTAINS
   ! Concerning the accuracy, comparisons show that the results of table lookup
   ! are accurate to within better than 0.1 % or even much less, except for
   ! very small values of X, for which the absolute values are however very
-  ! close to 0. For X -> infinity (X > 99.5 % - value), accuracy may be 
+  ! close to 0. For X -> infinity (X > 99.5 % - value), accuracy may be
   ! somewhat reduced up to about 0.5 % ,
   ! because the table is truncated at the 99.5 % value (second-last value)
   ! and the last value is set to the ordinary gamma function.
@@ -574,7 +565,6 @@ CONTAINS
   !*******************************************************************************
 
   DOUBLE PRECISION FUNCTION incgfct_lower_lookup(x, ltable)
-    IMPLICIT NONE
     DOUBLE PRECISION, INTENT(in) :: x  ! value of x for table lookup
     TYPE(gamlookuptable), INTENT(in) :: ltable
     INTEGER :: iu, io
@@ -598,11 +588,10 @@ CONTAINS
   ! Statt linearer Interpolation wird eine quadratische Interpolation gemacht
   ! und hierfuer am "kleinen" Ende der lookup table der 50-fach hoeher aufgeloeste
   ! high-resolution Ast benutzt.
-  ! (an benachbarte 3 Punkte eine Parabel interpolieren und interpolierten Wert von der Parabel nehmen -- 
+  ! (an benachbarte 3 Punkte eine Parabel interpolieren und interpolierten Wert von der Parabel nehmen --
   !  weil es jeweils 2 moegliche 3-Punkte-Nachbarschaften gibt, wird aus Stetigkeitsgruenden der Mittelwert
   ! von beiden genommen):
   DOUBLE PRECISION FUNCTION incgfct_lower_lookup_parabolic(x, ltable)
-    IMPLICIT NONE
     DOUBLE PRECISION, INTENT(in)     :: x       ! value of x for table lookup
     TYPE(gamlookuptable), INTENT(in) :: ltable
 
@@ -623,7 +612,7 @@ CONTAINS
       io = im + 1
 
       ! interpolate parabolicly:
-      ! coefficients of the interpolating parabola wrsp. to Newton's polynome form 
+      ! coefficients of the interpolating parabola wrsp. to Newton's polynome form
       ! with Newton's tableau ("divided differences"):
       f12  = (ltable%igfhr(im) - ltable%igfhr(iu)) * ltable%odxhr
       f23  = (ltable%igfhr(io) - ltable%igfhr(im)) * ltable%odxhr
@@ -642,7 +631,7 @@ CONTAINS
         io = im + 1
 
         ! interpolate parabolicly:
-        ! coefficients of the interpolating parabola wrsp. to Newton's polynome form 
+        ! coefficients of the interpolating parabola wrsp. to Newton's polynome form
         ! with Newton's tableau ("divided differences"):
         f12  = (ltable%igfhr(im) - ltable%igfhr(iu)) * ltable%odxhr
         f23  = (ltable%igfhr(io) - ltable%igfhr(im)) * ltable%odxhr
@@ -670,7 +659,7 @@ CONTAINS
       io = im + 1
 
       ! interpolate parabolicly:
-      ! coefficients of the interpolating parabola wrsp. to Newton's polynome form 
+      ! coefficients of the interpolating parabola wrsp. to Newton's polynome form
       ! with Newton's tableau ("divided differences"):
       f12  = (ltable%igf(im) - ltable%igf(iu)) * ltable%odx
       f23  = (ltable%igf(io) - ltable%igf(im)) * ltable%odx
@@ -689,7 +678,7 @@ CONTAINS
         io = im + 1
 
         ! interpolate parabolicly:
-        ! coefficients of the interpolating parabola wrsp. to Newton's polynome form 
+        ! coefficients of the interpolating parabola wrsp. to Newton's polynome form
         ! with Newton's tableau ("divided differences"):
         f12  = (ltable%igf(im) - ltable%igf(iu)) * ltable%odx
         f23  = (ltable%igf(io) - ltable%igf(im)) * ltable%odx
@@ -712,12 +701,12 @@ CONTAINS
 
   !*******************************************************************************
   !
-  ! Retrieve values of the upper incomplete gamma function 
+  ! Retrieve values of the upper incomplete gamma function
   ! from a lookup table of the lower incomplete gamma function,
-  ! as function of x at a constant a, for which the lookup table has been 
+  ! as function of x at a constant a, for which the lookup table has been
   ! created.
   !
-  ! The last value in the table has to correspond to x = infinity 
+  ! The last value in the table has to correspond to x = infinity
   ! (the ordinary gamma function of a), so that
   ! during the reconstruction of incgfct-values from the table,
   ! the x-value can safely be truncated at the maximum table x-value:
@@ -729,7 +718,6 @@ CONTAINS
   !*******************************************************************************
 
   DOUBLE PRECISION FUNCTION incgfct_upper_lookup(x, ltable)
-    IMPLICIT NONE
 
     DOUBLE PRECISION, INTENT(in)     :: x    ! value of x for table lookup
     TYPE(gamlookuptable), INTENT(in) :: ltable
@@ -745,7 +733,7 @@ CONTAINS
     iu = MIN(FLOOR(xt * ltable%odx) + 1, ltable%n-1)
     io = iu + 1
 
-    ! interpolate lower inc. gamma function linearily and subtract from 
+    ! interpolate lower inc. gamma function linearily and subtract from
     ! the ordinary gamma function to get the upper
     ! incomplete gamma function:
     incgfct_upper_lookup = ltable%igf(ltable%n) - ltable%igf(iu) -  &
@@ -761,14 +749,13 @@ CONTAINS
     RETURN
   END FUNCTION incgfct_upper_lookup
 
-  ! Statt linearer Interpolation wird eine quadratische Interpolation gemacht 
+  ! Statt linearer Interpolation wird eine quadratische Interpolation gemacht
   ! und hierfuer am "kleinen" Ende der lookup table der 50-fach hoeher aufgeloeste
   ! high-resolution Ast benutzt.
-  ! (an benachbarte 3 Punkte eine Parabel interpolieren und interpolierten Wert von der Parabel nehmen -- 
+  ! (an benachbarte 3 Punkte eine Parabel interpolieren und interpolierten Wert von der Parabel nehmen --
   !  weil es jeweils 2 moegliche 3-Punkte-Nachbarschaften gibt, wird aus Stetigkeitsgruenden der Mittelwert
   ! von beiden genommen):
   DOUBLE PRECISION FUNCTION incgfct_upper_lookup_parabolic(x, ltable)
-    IMPLICIT NONE
     DOUBLE PRECISION, INTENT(in)     :: x  ! value of x for table lookup
     TYPE(gamlookuptable), INTENT(in) :: ltable
 
@@ -788,7 +775,7 @@ CONTAINS
       iu = im - 1
       io = im + 1
 
-      ! interpolate parabolicly (lower incomplete gamma function -- 
+      ! interpolate parabolicly (lower incomplete gamma function --
       ! will be converted to upper function later):
       ! coefficients of the interpolating parabola wrsp. to Newton's polynome form
       ! with Newton's tableau ("divided differences"):
@@ -888,13 +875,12 @@ CONTAINS
   !===========================================================================
   ! Subroutinen fuer die Wet Growth Parametrisierung:
   ! Initialisierung: Einlesen der Lookup-table aus einer Textdatei.
-  ! Diese Subroutine muss von der Interface-Routine des 2-M-Schemas 
+  ! Diese Subroutine muss von der Interface-Routine des 2-M-Schemas
   ! aufgerufen werden.
   ! Eventuelle Verteilung der Table auf alle Knoten bei Parallelbetrieb
   ! muss ebenfalls von der Interface-Routine besorgt werden.
 
   SUBROUTINE init_dmin_wetgrowth(dateiname, unitnr)
-    IMPLICIT NONE
     CHARACTER(len=*), INTENT(in) :: dateiname
     INTEGER, INTENT(in) :: unitnr
     INTEGER :: error
@@ -943,7 +929,7 @@ CONTAINS
       WRITE (txt,*) 'init_dmin_wetgrowth: Error reading dmin from ' // TRIM(dateiname)
       CALL message(routine,TRIM(txt))
       CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
-    END IF    
+    END IF
     CLOSE(unitnr)
 
     RETURN
@@ -951,12 +937,11 @@ CONTAINS
 
   ! wet growth Grenzdurchmesser fuer graupelhail2test in m:
   FUNCTION dmin_wetgrowth_graupel(p_a,T_a,qw_a,qi_a)
-    IMPLICIT NONE
 
     REAL(wp) :: dmin_wetgrowth_graupel
     REAL(wp), INTENT(in) :: p_a,T_a,qw_a,qi_a
     REAL(wp) :: p_lok,T_lok,qw_lok,qi_lok
-    
+
     INTEGER :: i
     INTEGER :: iu, io, ju, jo, ku, ko, lu, lo
 
@@ -1067,13 +1052,13 @@ CONTAINS
            (pvec_wg_g(io)-pvec_wg_g(iu)) * (p_lok-pvec_wg_g(iu))
       hilf3 = hilf2(1,:,:) + &
            (hilf2(2,:,:)-hilf2(1,:,:)) / (Tvec_wg_g(jo)-Tvec_wg_g(ju)) * (T_lok-Tvec_wg_g(ju))
-      
+
       hilf4 = hilf3(1,:) + &
            (hilf3(2,:)-hilf3(1,:)) / (qwvec_wg_g(ko)-qwvec_wg_g(ku)) * (qw_lok-qwvec_wg_g(ku))
-      
+
       dmin_wetgrowth_graupel = hilf4(1) + &
            (hilf4(2)-hilf4(1)) / (qivec_wg_g(lo)-qivec_wg_g(lu)) * (qi_lok-qivec_wg_g(lu))
-      
+
     END IF
 
     RETURN
@@ -1085,12 +1070,12 @@ CONTAINS
   ! fuer eine bessere Vektorisierung.
   !
   ! - Initialisierung: Einlesen der Lookup-table aus einer Textdatei.
-  !   Diese Subroutine muss von der Interface-Routine des 2-M-Schemas 
+  !   Diese Subroutine muss von der Interface-Routine des 2-M-Schemas
   !   aufgerufen werden.
   !   Eventuelle Verteilung der Table auf alle Knoten bei Parallelbetrieb
   !   muss ebenfalls von der Interface-Routine besorgt werden.
   !
-  ! - Die eingelesene lookup table muss bereits in p, qw und qi aequidistant sein. Nur bzgl. T kann eine 
+  ! - Die eingelesene lookup table muss bereits in p, qw und qi aequidistant sein. Nur bzgl. T kann eine
   !   nicht-aequidistanter grid-Vektor vorliegen.
   !
   ! Fuer die eigentliche Table wird das Struct lookupt_4D verwendet:
@@ -1098,7 +1083,6 @@ CONTAINS
   !===========================================================================
 
   SUBROUTINE init_dmin_wg_gr_ltab_equi(dateiname, unitnr, ndT, ltab)
-    IMPLICIT NONE
 
     CHARACTER(len=*), INTENT(in) :: dateiname
     INTEGER, INTENT(in) :: unitnr
@@ -1175,7 +1159,7 @@ CONTAINS
 
     CLOSE(unitnr)
 
-    ! 2) Generate equidistant table vectors and construct the 
+    ! 2) Generate equidistant table vectors and construct the
     !    equidistant Dmin-lookuptable by linear oversampling:
     ltab%n2 = ndT
 
@@ -1184,7 +1168,7 @@ CONTAINS
 
     minT  = Tvec_wg_g_loc (1)
     maxT  = Tvec_wg_g_loc (anzT_wg_loc)
-    
+
     ltab%dx1      = ltab%x1(2) - ltab%x1(1)
     ltab%odx1     = 1.0d0 / ltab%dx1
     ltab%dx2      = (maxT - minT) / (ndT - 1.0d0)
@@ -1228,7 +1212,6 @@ CONTAINS
 
   ! wet growth Grenzdurchmesser in m
   FUNCTION dmin_wg_gr_ltab_equi(p_a,T_a,qw_a,qi_a,ltab) RESULT (dmin_loc)
-    IMPLICIT NONE
 
     REAL(wp) :: dmin_loc
     REAL(wp), INTENT(in) :: p_a,T_a,qw_a,qi_a
@@ -1268,5 +1251,115 @@ CONTAINS
 
     RETURN
   END FUNCTION dmin_wg_gr_ltab_equi
-  
+
+  !*******************************************************************************
+  ! 2D rational functions to evaluate bulk approximations                        *
+  ! following Frick et al. (2013; cf. Eq. (31)), for n=2 and n=3                 *
+  !*******************************************************************************
+
+  REAL(wp) FUNCTION rat2do3(x,y,a,b)
+    implicit none
+
+    real(wp), intent(IN)                :: x,y
+    real(wp), intent(IN), dimension(10) :: a
+    real(wp), intent(IN), dimension(9)  :: b
+    real(wp), parameter :: eins = 1.0_wp
+    real(wp)            :: p1,p2
+
+    p1 = a(1)+a(2)*x+a(3)*y+a(4)*x*x+a(5)*x*y+a(6)*y*y &
+         &   +a(7)*x*x*x+a(8)*x*x*y+a(9)*x*y*y+a(10)*y*y*y 
+    p2 = eins+b(1)*x+b(2)*y+b(3)*x*x+b(4)*x*y+b(5)*y*y &
+         &  + b(6)*x*x*x+b(7)*x*x*y+b(8)*x*y*y+b(9)*y*y*y 
+
+    rat2do3 = p1/p2
+
+    return
+  end function rat2do3
+
+  ELEMENTAL REAL(wp) FUNCTION dyn_visc_sutherland(Ta)
+    !
+    ! Calculate dynamic viscosity of air [kg m-1 s-1]
+    ! following Sutherland's formula of an ideal
+    ! gas with reference temp. T = 291.15 K
+    !
+    ! There is another alternative in P&K97 on
+    ! page 417
+    !
+    IMPLICIT NONE
+    REAL(wp), INTENT(in) :: Ta   ! ambient temp. [K]
+    REAL(wp), PARAMETER :: &
+         C = 120.d0      , &     ! Sutherland's constant (for air) [K]
+         T0 = 291.15d0   , &     ! Reference temp. [K]
+         eta0 = 1.827d-5         ! Reference dyn. visc. [kg m-1 s-1]
+    REAL(wp) :: a, b
+
+    a = T0 + C
+    b = Ta + C
+    dyn_visc_sutherland = eta0 * a/b * (Ta/T0)**(3.d0/2.d0)
+
+    RETURN
+  END FUNCTION dyn_visc_sutherland
+  ! ---------------------------------------------------------------------
+  ELEMENTAL REAL(wp) FUNCTION Dv_Rasmussen(Ta,pa)
+    !
+    ! Calculating the diffusivity of water vapor in air
+    ! following Rasmussen et al. 1987, App. A, Tab. A1
+    ! Changed: Units of D_v in m2 s-1
+    !
+    IMPLICIT NONE
+    REAL(wp), INTENT(in) :: Ta, pa  ! Temp. and pressure in [K] and [Pa]
+    REAL(wp), PARAMETER  :: p_0 = 1013.25e2_wp
+
+    Dv_Rasmussen = 0.211d-4*(p_0/pa)*(Ta/T_3)**1.94
+    RETURN
+  END FUNCTION Dv_Rasmussen
+  ! ---------------------------------------------------------------------
+  ELEMENTAL REAL(wp) FUNCTION ka_Rasmussen(Ta)
+    !
+    ! Calculating the thermal conductivity of air
+    ! following Rasmussen et al. 1987, App. A, Tab. A1
+    !
+    IMPLICIT NONE
+    REAL(wp), INTENT(in)  :: Ta  ! ambient temp. [K]
+    REAL(wp), PARAMETER :: &
+         c_unit = 4.1840d2      ! for transforming units
+
+    ! transform [cal cm-1 s-1 Â°C-1] into [W m-1 K-1]
+    ka_rasmussen = c_unit * (5.69 + 0.017*(Ta-T_3))*1.d-5
+    RETURN
+  END FUNCTION ka_Rasmussen
+  ! ---------------------------------------------------------------------
+  ELEMENTAL REAL(wp) FUNCTION lh_evap_RH87(T)
+    !
+    ! Calculating the latent heat of evaporation
+    ! following the formulation of RH87a
+    !
+    IMPLICIT NONE
+    REAL(wp), INTENT(in) :: T    ! ambient temp.
+    REAL(wp) :: lh_e0, gam
+
+    !.latent heat of evap. at T_3
+    lh_e0 = 2.5008d6
+    !.exponent for calculation
+    gam = 0.167d0 + 3.67d-4 * T
+    !.latent heat of evap. as a fct. of temp.
+    lh_evap_RH87 = lh_e0 * (T_3 / T)**gam
+    RETURN
+  END FUNCTION lh_evap_RH87
+  ! ---------------------------------------------------------------------
+  ELEMENTAL REAL(wp) FUNCTION lh_melt_RH87(T)
+    !
+    ! Calculating the latent heat of melting
+    ! following the formulation of RH87a
+    !
+    IMPLICIT NONE
+    REAL(wp), INTENT(in) :: T    ! ambient temp.
+    REAL(wp), PARAMETER :: &
+         c_unit = 4.1840d3       ! constant to transform [cal g-1] to [J kg-1]
+
+    !.latent heat of melt. as a fct. of temp.
+    lh_melt_RH87 = c_unit * ( 79.7d0 + 0.485d0*(T-T_3) - 2.5d-3*(T-T_3)**2)
+    RETURN
+  END FUNCTION lh_melt_RH87
+ 
 END MODULE mo_2mom_mcrph_util

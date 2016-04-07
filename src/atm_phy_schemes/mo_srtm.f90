@@ -9,6 +9,7 @@
 #if defined __xlC__ && !defined NOXLFPROCESS
 @PROCESS HOT
 #endif
+#include "consistent_fma.inc"
 MODULE mo_srtm
 
   USE mo_exception,   ONLY: finish
@@ -176,7 +177,7 @@ CONTAINS
     REAL(wp) :: zfvis, zfnir, zfpar, total
     REAL(wp) :: zflxn_vis(kbdim), zflxn(kbdim), zflxd_vis(kbdim), zflxd_nir(kbdim), zflxd_par(kbdim), &
                 zflxd_diff(kbdim), zflxd_vis_diff(kbdim), zflxd_nir_diff(kbdim), zflxd_par_diff(kbdim)
-    
+
     INTEGER  :: icldatm, inflag, iceflag, i_liqflag, i_nstr
     INTEGER(i4) :: idx(kbdim)
     INTEGER(i4) :: icount, ic, jl, jk, jsw, jb
@@ -1707,6 +1708,7 @@ CONTAINS
       END DO
     END IF
 
+!PREVENT_INCONSISTENT_IFORT_FMA
     DO jk=1,klev
       IF (PRESENT(ldrtchk)) THEN
         ict = 0
@@ -1926,7 +1928,8 @@ CONTAINS
           zt3  = zrk2 * (zgamma4 + za1 * prmuz(ic) )
           ! zt4  = zr4
           ! zt5  = zr5
-          zbeta = - zr5 / zr4
+          ! GZ, 2015-06-08: another fix for potential division by zero
+          zbeta = - zr5 / SIGN(MAX(zeps,ABS(zr4)),zr4)
 
           ! collimated beam
 
@@ -1977,7 +1980,8 @@ CONTAINS
           zt3  = zrk2 * (zgamma4 + za1 * prmuz(ic) )
           ! zt4  = zr4
           ! zt5  = zr5
-          zbeta = - zr5 / zr4
+          ! GZ, 2015-06-08: another fix for potential division by zero
+          zbeta = - zr5 / SIGN(MAX(zeps,ABS(zr4)),zr4)
 
           ! collimated beam
 

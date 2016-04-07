@@ -24,13 +24,12 @@ MODULE mo_initicon_nml
   USE mo_exception,          ONLY: finish, message, message_text
   USE mo_impl_constants,     ONLY: max_char_length, max_dom, vname_len,      &
     &                              max_var_ml, MODE_IFSANA, MODE_DWDANA,     &
-    &                              MODE_DWDANA_INC, MODE_IAU, MODE_IAU_OLD,  &
-    &                              MODE_COMBINED,                            &
+    &                              MODE_IAU, MODE_IAU_OLD, MODE_COMBINED,    &
     &                              MODE_COSMODE, MODE_ICONVREMAP
   USE mo_io_units,           ONLY: nnml, nnml_output, filename_max
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
-  USE mo_initicon_config,    ONLY: &
+  USE mo_initicon_config,    ONLY: initicon_config,      &
     & config_init_mode           => init_mode,           &
     & config_nlevsoil_in         => nlevsoil_in,         &
     & config_zpbl1               => zpbl1,               &
@@ -44,7 +43,9 @@ MODULE mo_initicon_nml
     & config_l_coarse2fine_mode  => l_coarse2fine_mode,  &
     & config_lp2cintp_incr       => lp2cintp_incr,       &
     & config_lp2cintp_sfcana     => lp2cintp_sfcana,     &
+    & config_lvert_remap_fg      => lvert_remap_fg,      &
     & config_ltile_coldstart     => ltile_coldstart,     &
+    & config_ltile_init          => ltile_init,          &
     & config_start_time_avg_fg   => start_time_avg_fg,   &
     & config_end_time_avg_fg     => end_time_avg_fg,     &
     & config_interval_avg_fg     => interval_avg_fg,     &
@@ -52,9 +53,7 @@ MODULE mo_initicon_nml
     & config_dt_iau              => dt_iau,              &
     & config_timeshift           => timeshift,           &
     & config_type_iau_wgt        => type_iau_wgt,        &
-    & config_ana_varlist         => ana_varlist,         &
     & config_rho_incr_filter_wgt => rho_incr_filter_wgt, &
-    & config_wgtfac_geobal       => wgtfac_geobal,       &
     & config_ana_varnames_map_file => ana_varnames_map_file, &
     & config_latbc_varnames_map_file => latbc_varnames_map_file
 
@@ -88,7 +87,11 @@ MODULE mo_initicon_nml
                                      ! assimilation increments
   LOGICAL  :: lp2cintp_sfcana(max_dom) ! If true, perform parent-to-child interpolation of
                                        ! surface analysis data
-  LOGICAL  :: ltile_coldstart  ! If true, initialize tile-based surface fields from first guess without tiles
+  LOGICAL  :: ltile_coldstart  ! If true, initialize tile-based surface fields from first guess with tile-averaged fields
+
+  LOGICAL  :: ltile_init       ! If true, initialize tile-based surface fields from first guess without tiles
+
+  LOGICAL  :: lvert_remap_fg   ! If true, vertical remappting of first guess input is performed
 
   ! Variables controlling computation of temporally averaged first guess fields for DA
   ! The calculation is switched on by setting end_time > start_time
@@ -99,21 +102,23 @@ MODULE mo_initicon_nml
   INTEGER  :: filetype      ! One of CDI's FILETYPE\_XXX constants. Possible values: 2 (=FILETYPE\_GRB2), 4 (=FILETYPE\_NC2)
 
   REAL(wp) :: dt_iau        ! Time interval during which incremental analysis update (IAU) is performed [s]. 
-                            ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC
+                            ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD
   REAL(wp) :: dt_shift      ! Allows IAU runs to start earlier than the nominal simulation start date without showing up in the output metadata
 
   INTEGER  :: type_iau_wgt  ! Type of weighting function for IAU.
                             ! 1: Top-hat
                             ! 2: SIN2
-                            ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC
+                            ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD
   REAL(wp) :: rho_incr_filter_wgt  ! Vertical filtering weight for density increments 
-                                   ! Only applicable for init_mode=MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC
-  REAL(wp) :: wgtfac_geobal  ! Weighting factor for artificial geostrophic balancing of meridional gradients
-                             ! of pressure increments in the tropical stratosphere
+                                   ! Only applicable for init_mode=MODE_IAU, MODE_IAU_OLD
 
   CHARACTER(LEN=vname_len) :: ana_varlist(max_var_ml) ! list of mandatory analysis fields. 
                                                       ! This list can include a subset or the 
                                                       ! entire set of default analysis fields.
+
+  CHARACTER(LEN=vname_len) :: ana_varlist_n2(max_var_ml) ! list of mandatory analysis fields for patch 2 (nest 1). 
+                                                         ! This list can include a subset or the 
+                                                         ! entire set of default analysis fields.
 
   ! IFS2ICON input filename, may contain keywords, by default
   ! ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
@@ -140,10 +145,12 @@ MODULE mo_initicon_nml
                           lconsistency_checks, rho_incr_filter_wgt,         &
                           ifs2icon_filename, dwdfg_filename,                &
                           dwdana_filename, filetype, dt_iau, dt_shift,      &
-                          type_iau_wgt, ana_varlist, ana_varnames_map_file, &
-                          lp2cintp_incr, lp2cintp_sfcana, wgtfac_geobal,    &
-                          latbc_varnames_map_file, start_time_avg_fg,       &
-                          end_time_avg_fg, interval_avg_fg, ltile_coldstart
+                          type_iau_wgt, ana_varlist, ana_varlist_n2,        &
+                          ana_varnames_map_file, lp2cintp_incr,             &
+                          lp2cintp_sfcana, latbc_varnames_map_file,         &
+                          start_time_avg_fg, end_time_avg_fg,               &
+                          interval_avg_fg, ltile_coldstart, ltile_init,     &
+                          lvert_remap_fg
                           
 CONTAINS
 
@@ -163,7 +170,7 @@ CONTAINS
 
   !local variable
   INTEGER :: i_status
-  INTEGER :: z_go_init(8)   ! for consistency check
+  INTEGER :: z_go_init(7)   ! for consistency check
   INTEGER :: iunit
 
   CHARACTER(len=*), PARAMETER ::  &
@@ -186,7 +193,6 @@ CONTAINS
   dt_iau      = 10800._wp      ! 3-hour interval for IAU
   dt_shift    = 0._wp          ! do not shift actual simulation start backward
   rho_incr_filter_wgt = 0._wp  ! density increment filtering turned off
-  wgtfac_geobal       = 0._wp  ! geostrophic balancing of pressure increments in the tropical stratosphere turned off
   type_iau_wgt= 1              ! Top-hat weighting function
   ana_varlist = ''             ! list of mandatory analysis fields. This list can include a subset 
                                ! or the entire set of default analysis fields. If any of these fields
@@ -194,6 +200,7 @@ CONTAINS
                                ! this list is empty, meaning that fields which are missing in the 
                                ! analysis file (when compared to the default set), are simply 
                                ! taken from the first guess.
+  ana_varlist_n2 = ''          ! Same for patch nr. 2 (nest 1) 
   ana_varnames_map_file = " "
   latbc_varnames_map_file = " "
   ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
@@ -202,7 +209,9 @@ CONTAINS
   l_coarse2fine_mode(:) = .FALSE. ! true: apply corrections for coarse-to-fine-mesh interpolation
   lp2cintp_incr(:)      = .FALSE. ! true: perform parent-to-child interpolation of atmospheric data assimilation increments
   lp2cintp_sfcana(:)    = .FALSE. ! true: perform parent-to-child interpolation of surface analysis data
-  ltile_coldstart       = .FALSE. ! true: initialize tile-based surface fields from first guess without tiles
+  ltile_coldstart       = .FALSE. ! true: initialize tile-based surface fields from first guess with tile-averaged fields
+  ltile_init            = .FALSE. ! true: initialize tile-based surface fields from first guess without tiles
+  lvert_remap_fg        = .FALSE. ! true: perform vertical remapping of first-guess input
 
   start_time_avg_fg = 0._wp
   end_time_avg_fg   = 0._wp
@@ -234,15 +243,15 @@ CONTAINS
   ! 4.0 check the consistency of the parameters
   !------------------------------------------------------------
   !
-  z_go_init = (/MODE_IFSANA,MODE_DWDANA,MODE_DWDANA_INC,MODE_IAU,MODE_IAU_OLD,MODE_COMBINED,MODE_COSMODE,MODE_ICONVREMAP/)
+  z_go_init = (/MODE_IFSANA,MODE_DWDANA,MODE_IAU,MODE_IAU_OLD,MODE_COMBINED,MODE_COSMODE,MODE_ICONVREMAP/)
   IF (ALL(z_go_init /= init_mode)) THEN
     CALL finish( TRIM(routine),                         &
-      &  'Invalid initialization mode. init_mode must be between 1 and 8')
+      &  'Invalid initialization mode. init_mode must be between 1 and 7')
   ENDIF
 
   ! Check whether a NetCDF<=>GRIB2 Map File is needed, and if so, whether 
   ! it is provided
-  IF (ANY((/MODE_DWDANA,MODE_DWDANA_INC,MODE_IAU,MODE_IAU_OLD,MODE_COMBINED/)==init_mode)) THEN
+  IF (ANY((/MODE_DWDANA,MODE_IAU,MODE_IAU_OLD,MODE_COMBINED/)==init_mode)) THEN
     ! NetCDF<=>GRIB2 Map File required
     IF(ana_varnames_map_file == ' ') THEN
     CALL finish( TRIM(routine),                         &
@@ -317,6 +326,8 @@ CONTAINS
   config_lp2cintp_incr       = lp2cintp_incr
   config_lp2cintp_sfcana     = lp2cintp_sfcana
   config_ltile_coldstart     = ltile_coldstart
+  config_ltile_init          = ltile_init
+  config_lvert_remap_fg      = lvert_remap_fg
   config_start_time_avg_fg   = start_time_avg_fg
   config_end_time_avg_fg     = end_time_avg_fg
   config_interval_avg_fg     = interval_avg_fg
@@ -324,11 +335,12 @@ CONTAINS
   config_dt_iau              = dt_iau
   config_timeshift%dt_shift  = dt_shift
   config_type_iau_wgt        = type_iau_wgt
-  config_ana_varlist         = ana_varlist
   config_ana_varnames_map_file = ana_varnames_map_file
   config_rho_incr_filter_wgt   = rho_incr_filter_wgt
-  config_wgtfac_geobal       = wgtfac_geobal
   config_latbc_varnames_map_file = latbc_varnames_map_file
+
+  initicon_config(1)%ana_varlist = ana_varlist
+  initicon_config(2)%ana_varlist = ana_varlist_n2
 
   ! write the contents of the namelist to an ASCII file
 

@@ -36,13 +36,17 @@ export GRIB_DEFINITION_PATH="/usr/local/apps/grib_api/1.12.3/CRAY/82/share/grib_
 lsplitdata=1
 lcpdata=1 
 ldeldata=1
+lcatdata=0
 lmeteo=1
 levtypes="ML PL HL"
+
+lreprocess=1           # after new model results reprocess - eithere in eom_prepare.sms or post_prepare.sms (normally)
 
 case %SIMMODE% in
   1)              ;;  # pre-operations (use defaults)   
   2) lcpdata=0        # monthly mean 10day forecasts
-     ldeldata=0   ;;
+     ldeldata=0  
+     lcatdata=1   ;;
   3) lsplitdata=0 ;;  # climate
   4) lsplitdata=0     # B-matrix 
      lcpdata=0        
@@ -52,6 +56,7 @@ esac
 
 ###
 #lcpdata=1
+#lsplitdata=0
 ###
 
 
@@ -165,6 +170,10 @@ else
   done
 fi
 
+##### test
+# set -A ecp_files ${outdir}/${basename}_*_DOM01_ML_0001.nc ${outdir}/${basename}_*_DOM01_PL_0001.nc
+##### test
+
 ecp -o ${ecp_files[*]} $ecfsdir
 
 if [[ %NENS% -gt 0 ]] ; then
@@ -199,6 +208,10 @@ if [[ $lsplitdata = 1 ]] ; then
   grib_copy   ${basename}_DOM01_HL_0001.grb  \
      grb_data/${basename}_DOM01_0001_[shortName]_zl.grb
 
+# change 150 to ml:
+  for ml_file in grb_data/${basename}_DOM01_0001_*_150.grb ; do
+    mv ${ml_file} `echo ${ml_file} | sed 's/150.grb/ml.grb/'`
+  done
 
 # fixes
   for levtype2 in sfc ml pl zl 114; do    # 114: multi-level snow variables
@@ -236,6 +249,7 @@ if [[ $lsplitdata = 1 ]] ; then
   fi
 
 fi
+
 #-----------------------------------------------------------------------------
 # delete data
 
@@ -244,6 +258,47 @@ if [[ $ldeldata = 1 ]] ; then
   for levtype in ${levtypes} ; do
     \rm -rf ${outdir}/${basename}_DOM01_${levtype}_0001.grb
   done
+fi
+
+
+#-----------------------------------------------------------------------------
+# pre-processing for eom_prepare - for speed
+# split variable files in STEPs if variable file available -------------------
+
+if [[ $lcatdata = 1 ]] ; then
+
+  YYYYMM=`echo %YMD% | cut -c 1-6`
+  basenameMM=%SUITE%_%EXPNUM%_${YYYYMM}
+
+  mondir=%SCTEMP%/%SUITE%/%EXPNUM%/output/${YYYYMM}
+  mkdir -p ${mondir}/tmp_dir
+
+  varlist=`ls grb_data/${basename}_DOM01_0001_*.grb | \
+      sed "s/grb_data\/${basename}_DOM01_0001_//"   | \
+      sed "s/.grb//"`
+  varlist=`echo $varlist | sed "s/h_ml//"`
+  echo $varlist
+
+  for var in $varlist ; do
+    mkdir -p ${mondir}/tmp_dir
+  
+    if [[     -f           grb_data/${basename}_DOM01_0001_${var}.grb  ]] ; then
+      if [[ ! -f  ${mondir}/tmp_dir/${basename}_DOM01_0001_${var}_24.grb  ||  $lreprocess = 1 ]] ; then
+        grib_copy          grb_data/${basename}_DOM01_0001_${var}.grb            \
+                                    ${basename}_DOM01_0001_${var}_[endStep].grb
+        if [[ $ldeldata = 1 ]] ; then
+          \rm -rf          grb_data/${basename}_DOM01_0001_${var}.grb
+        fi
+        cp -f ${basename}_DOM01_0001_${var}_0.grb   \
+              ${basename}_DOM01_0001_${var}_24.grb  \
+              ${basename}_DOM01_0001_${var}_216.grb \
+              ${basename}_DOM01_0001_${var}_240.grb ${mondir}/tmp_dir
+        rm -f ${basename}_DOM01_0001_${var}_*.grb
+      fi
+    fi 
+    
+  done
+
 fi
 
 

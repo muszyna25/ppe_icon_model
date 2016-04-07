@@ -3,48 +3,19 @@
 # Creates the ICON run scripts
 # Leonidas Linardakis, MPI-M, 2011-25-1
 #==============================================================================
-#==============================================================================
-# The basic command for creating an ICON experiment run script is
-#   
-#  $make_runscript in_script=exp.<name> in_script=exec.iconrun EXPNAME=<name>
-#
-# By default the folder in use is ./run, and the run script is named exp.<name>.run.
-# 
-# Basic optional parameters for the $make_runscript command are:
-#
-#    out_script=<output run script name>. By default is <in_script>.run
-#
-#    in_folder=<input folder>.   By default is run
-#
-#    out_folder=<output folder>. By default is <in_folder>
-#
-#    mpi_procs_pernode=<number of mpi processes per node>. In the case of MPI 
-#      configuration, defines how many processes per node will be used.
-# 
-#    no_of_nodes=<Number of nodes>. In the case of MPI configuration,
-#       defines how many nodes will be used.
-# 
-#    openmp_threads=<Number of openmp threads>. In the case of OPENMP
-#       configuration, defines how many OPENMP threads will be used.
-#
-#    cpu_time=<wall time>. Defines the expected run wall time.
-#  
-#    <free_variable>=<value> Free variables can be passed to the run script
-#       using this syntax. For example: EXPNAME=test, will result the
-#       definition of the variable EXPNAME=test in the run script.
-#
-# For more details see the parameters in the ./config/make_target_runscript
-#==============================================================================
-set -x
+set +x
 base_folder=$(pwd)
 . $base_folder/config/set-up.info
 input_folder=run
 use_shell=${use_shell:="/bin/ksh"}
 make_runscript="$use_shell ./config/make_target_runscript"
 
+[[ -f run_parameters ]] && . run_parameters
+
 #==============================================================================
 create_runscript()
 {
+
 $make_runscript                  \
   in_folder=$input_folder        \
   in_script=exp.${exp_name}      \
@@ -57,14 +28,25 @@ $make_runscript                  \
 #   mpi_procs_pernode=$mpi_procs_pernode  \
 #   openmp_threads=$openmp_threads \
 #   memory_model=$memory_model     \
-#   cpu_time=$cpu_time              
+#   cpu_time=$cpu_time
+
+if [[ _$run == "_true" ]] ; then
+  cd run
+  $use_submit exp.${exp_name}.run
+  cd -
+fi
+
 }
 #==============================================================================
 
 #==============================================================================
 # Define run parameters
 echo "-----------------------------------------------------------"
-exp_name="test_ocean_omip_10days"
+exp_name=$1
+
+queue=${queue:-develop}
+run=${run:-false}
+
 create_runscript
 echo "-----------------------------------------------------------"
 #==============================================================================

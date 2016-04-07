@@ -42,8 +42,8 @@ timestep=0
 while [[ $timestep -lt %NSTEPS% && $flag -eq 0 ]]
 do
 
-  timestep1=`ssh cca-log grep 'TIME[[:blank:]]STEP' %SMSOUT%/%SUITE%/%EXPNUM%/forecast${DIRENS}${DATETXT}/model.1.running | tail -n1 | awk '{print $NF}'`
-  timestep2=`ssh cca-log grep 'TIME[[:blank:]]STEP' %SMSOUT%/%SUITE%/%EXPNUM%/forecast${DIRENS}${DATETXT}/model.1         | tail -n1 | awk '{print $NF}'`
+  timestep1=`ssh cca-log grep 'Time[[:blank:]]step' %SMSOUT%/%SUITE%/%EXPNUM%/forecast${DIRENS}${DATETXT}/model.1.running | tail -n1 | awk '{print $3}' | sed 's/,//'`
+  timestep2=`ssh cca-log grep 'Time[[:blank:]]step' %SMSOUT%/%SUITE%/%EXPNUM%/forecast${DIRENS}${DATETXT}/model.1         | tail -n1 | awk '{print $3}' | sed 's/,//'`
 
   if [[ "$timestep1" =~ ^[0-9]+$ ]] ; then
     timestep=$timestep1

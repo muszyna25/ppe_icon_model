@@ -6,7 +6,7 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-03T00:00:00Z"
+  end_date="2001-01-04T00:00:00Z"
 # restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
@@ -121,7 +121,7 @@ cat > ${ocean_namelist} << EOF
   threshold_min_T       = -4.0   ! to avoid abort
 /
 &ocean_diffusion_nml
-  HORZ_VELOC_DIFF_TYPE            =   1       ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
+  HorizontalViscosity_type            =   1       ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
   k_veloc_h                       =   3.0E+4  ! [m2/s] constant horizontal viscosity coefficient for velocity
   biharmonic_const                =   0.01    ! used with veloc_diffusion_form=2 only
   k_veloc_v                       =   1.5E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
@@ -133,9 +133,9 @@ cat > ${ocean_namelist} << EOF
   MAX_VERT_DIFF_TRAC              =   0.1     ! max vertical tracer diffusion for convection used in case of instability
 ! convection_InstabilityThreshold =  -5.0E-5  ! used in update_ho_params - default=-5e-8
 ! RichardsonDiffusion_threshold   =   0.0     ! used in update_ho_params - default=+5e-8
-  k_tracer_GM_kappa_parameter     = 600.0     !
-  k_tracer_isoneutral_parameter   = 600.0     ! 600: value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
-  k_tracer_dianeutral_parameter   =   1.0E-5  !
+!  k_tracer_GM_kappa_parameter     = 600.0     !
+!  k_tracer_isoneutral_parameter   = 600.0     ! 600: value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
+!  k_tracer_dianeutral_parameter   =   1.0E-5  !
 /
 &ocean_physics_nml
   i_sea_ice                       =   1       ! 0 = no sea ice; 1 = sea ice model on
@@ -144,11 +144,11 @@ cat > ${ocean_namelist} << EOF
 ! bottom_drag_coeff               =   2.5E-3  ! default=2.5E-3
   physics_parameters_type         =   1       ! type of pp-scheme: 1=ICON-optimized; 2=MPIOM-type
   use_wind_mixing                 = .FALSE.   ! true: use wind mixing scheme in MPIOM-type pp-scheme
-  GMRedi_configuration            =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
+  GMRedi_configuration            =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
 /                                           
 &sea_ice_nml
   i_ice_therm                     =   1       ! 0: not allowed, 1=zero-layer, 2=Winton
-  i_ice_dyn                       =   0       ! 1/0=switch on/off AWI ice dynamics
+  i_ice_dyn                       =   1       ! 1/0=switch on/off AWI ice dynamics
 /
 &ocean_forcing_nml
   iforc_oce                       =  12       ! ocean forcing

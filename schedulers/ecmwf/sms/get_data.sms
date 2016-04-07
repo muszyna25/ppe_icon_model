@@ -60,7 +60,7 @@ IFSDATADIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/%YMD%%INIHOUR%${DIRENS}
 IFSDATADIR2=%SCTEMP%/%SUITE%/%EXPNUM2%/input/%YMD%%INIHOUR%${DIRENS}
 IFS_FILENAME_NC="ifs2icon_%RES%_DOM01.nc"
 # local
-SCRIPTDIR=%SCPERM%/icon-dev/scripts
+SCRIPTDIR=%SCPERM%/%USER_ICON_DIR%/scripts
 TMPDIR="${TEMP}"
 
 mkdir -p ${IFSDATADIR}
@@ -114,8 +114,14 @@ if [[ ${INI_IFS_ICON} -eq 1 ]] ; then
 
 else
 
-  ecp ec:/dei2/icon/icon_input/icon_ana/9833/icon_ini_%YMD%%INIHOUR%_9833.grb \
-    ${IFSDATADIR}/icon2icon_%RES%_DOM01.grb
+  case ${YYYYMM} in
+   201301) ecp -o ec:/dei2/icon/icon_input/icon_ana/9833/icon_ini_%YMD%%INIHOUR%_9833.grb \
+             ${IFSDATADIR}/icon2icon_%RES%_DOM01.grb ;;
+   201508) ecp -o ec:/dei2/icon/icon_input/icon_ana/926/icon_ini_%YMD%%INIHOUR%_926.grb \
+             ${IFSDATADIR}/icon2icon_%RES%_DOM01.grb ;;
+   *)      ecp -o ec:/dei2/icon/icon_input/icon_ana/icon_ini_%YMD%%INIHOUR%_.grb \
+             ${IFSDATADIR}/icon2icon_%RES%_DOM01.grb ;;
+  esac
 
 fi
 

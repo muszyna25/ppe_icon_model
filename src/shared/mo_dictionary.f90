@@ -126,7 +126,6 @@ CONTAINS
     TYPE(t_dictionary), INTENT(INOUT) :: dst_dict !< destination dictionary data structure
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = TRIM(modname)//'::dict_copy'
-    INTEGER :: ierrstat
 
     CALL dict_resize(dst_dict, src_dict%nmax_entries)
     dst_dict%nentries        = src_dict%nentries

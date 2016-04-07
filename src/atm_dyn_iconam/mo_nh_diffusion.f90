@@ -152,11 +152,11 @@ MODULE mo_nh_diffusion
     ! limited-area runs and one-way nesting)
     nudgezone_diff = 0.04_wp/(nudge_max_coeff + dbl_eps)
 
-    ! scaling factor for enhanced near-boundary diffusion for 
+    ! scaling factor for enhanced near-boundary diffusion for
     ! two-way nesting (used with Smagorinsky diffusion only; not needed otherwise)
     bdy_diff = 0.015_wp/(nudge_max_coeff + dbl_eps)
 
-    ! threshold temperature deviation from neighboring grid points 
+    ! threshold temperature deviation from neighboring grid points
     ! that activates extra diffusion against runaway cooling
     thresh_tdiff = - 5._wp
 
@@ -208,7 +208,7 @@ MODULE mo_nh_diffusion
       smag_offset        = 0.25_wp*diffusion_config(jg)%k4
       smag_limit(:)      = 0.125_wp-4._wp*diff_multfac_vn(:)
       ! pure Smagorinsky diffusion does not work without divergence damping
-      IF (diffusion_config(jg)%hdiff_order == 3) diffu_type = 5 
+      IF (diffusion_config(jg)%hdiff_order == 3) diffu_type = 5
     ENDIF
 
     ! Multiplication factor for nabla4 diffusion on vertical wind speed
@@ -673,7 +673,8 @@ MODULE mo_nh_diffusion
     ENDIF
 
     ! Compute input quantities for turbulence scheme
-    IF (turbdiff_config(jg)%itype_sher >= 1 .OR. turbdiff_config(jg)%ltkeshs) THEN
+    IF ((diffu_type == 3 .OR. diffu_type == 5) .AND.                               &
+        (turbdiff_config(jg)%itype_sher >= 1 .OR. turbdiff_config(jg)%ltkeshs)) THEN
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
       rl_start = grf_bdywidth_c+1
@@ -858,7 +859,7 @@ MODULE mo_nh_diffusion
               p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +                &
                 p_patch%edges%area_edge(je,jb) * z_nabla2_e(je,jk,jb) *         &
                 MAX(nudgezone_diff*p_int%nudgecoeff_e(je,jb),kh_smag_e(je,jk,jb))
-               
+
             ENDDO
           ENDDO
         ENDDO
@@ -954,7 +955,7 @@ MODULE mo_nh_diffusion
           ENDDO
         ENDDO
 
-        IF (turbdiff_config(jg)%itype_sher >= 2) THEN ! compute horizontal gradients of w
+        IF (turbdiff_config(jg)%itype_sher == 2) THEN ! compute horizontal gradients of w
 #ifdef __LOOP_EXCHANGE
           DO jc = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -1074,7 +1075,7 @@ MODULE mo_nh_diffusion
             tdiff = p_nh_prog%theta_v(jc,jk,jb) -                          &
               (p_nh_prog%theta_v(icidx(jc,jb,1),jk,icblk(jc,jb,1)) +       &
                p_nh_prog%theta_v(icidx(jc,jb,2),jk,icblk(jc,jb,2)) +       &
-               p_nh_prog%theta_v(icidx(jc,jb,3),jk,icblk(jc,jb,3)) ) / 3._wp 
+               p_nh_prog%theta_v(icidx(jc,jb,3),jk,icblk(jc,jb,3)) ) / 3._wp
             trefdiff = p_nh_metrics%theta_ref_mc(jc,jk,jb) -                       &
               (p_nh_metrics%theta_ref_mc(icidx(jc,jb,1),jk,icblk(jc,jb,1)) +       &
                p_nh_metrics%theta_ref_mc(icidx(jc,jb,2),jk,icblk(jc,jb,2)) +       &
@@ -1259,7 +1260,7 @@ MODULE mo_nh_diffusion
 
             p_nh_prog%theta_v(jc,jk,jb) = p_nh_prog%theta_v(jc,jk,jb) + &
               p_patch%cells%area(jc,jb)*z_temp(jc,jk,jb)
-             
+
             p_nh_prog%exner(jc,jk,jb) = p_nh_prog%exner(jc,jk,jb) *      &
               (1._wp+rd_o_cvd*(p_nh_prog%theta_v(jc,jk,jb)/z_theta-1._wp))
 
@@ -1270,7 +1271,7 @@ MODULE mo_nh_diffusion
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-      ! This could be further optimized, but applications without physics are quite rare; 
+      ! This could be further optimized, but applications without physics are quite rare;
       IF ( .NOT. lhdiff_rcf .OR. linit .OR. (iforcing /= inwp .AND. iforcing /= iecham) ) THEN
         CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_nh_prog%theta_v,p_nh_prog%exner)
       ENDIF

@@ -48,7 +48,7 @@ MODULE mo_nonhydro_types
   TYPE t_nh_prog
 
     REAL(wp), POINTER    &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     , CONTIGUOUS         &
 #endif
       ::                 &
@@ -70,7 +70,7 @@ MODULE mo_nonhydro_types
   TYPE t_nh_diag
 
     REAL(wp), POINTER       &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     , CONTIGUOUS            &
 #endif
     &  ::                   &
@@ -200,7 +200,7 @@ MODULE mo_nonhydro_types
 
     ! Variables that are always in double precision
     REAL(wp), POINTER      &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     , CONTIGUOUS           &
 #endif
      ::                    &
@@ -220,6 +220,7 @@ MODULE mo_nonhydro_types
      rayleigh_vn(:)      , & ! Rayleigh damping on the normal velocity
      enhfac_diffu(:)     , & ! Enhancement factor for nabla4 background diffusion
      scalfac_dd3d(:)     , & ! Scaling factor for 3D divergence damping terms
+     hmask_dd3d(:,:)     , & ! Horizontal mask field for 3D divergence damping terms (nproma,nblks_e)
      vwind_expl_wgt(:,:)  , & ! explicit weight in vertical wind solver (nproma,nblks_c)
      vwind_impl_wgt(:,:)  , & ! implicit weight in vertical wind solver (nproma,nblks_c)
      !
@@ -256,13 +257,15 @@ MODULE mo_nonhydro_types
      !
      ! Correction term needed to use perturbation density for lateral boundary nudging
      ! (note: this field is defined on the local parent grid in case of MPI parallelization)
-     rho_ref_corr(:,:,:) , & 
+     rho_ref_corr(:,:,:) , &
+     ! Mask field for mountain or upper slope points
+     mask_mtnpoints(:,:) , & ! 
      ! Area of subdomain for which feedback is performed; dim: (nlev)
      fbk_dom_volume(:)
 
     ! Variables that are in single precision when "__MIXED_PRECISION" is defined
     REAL(vp), POINTER      &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     , CONTIGUOUS           &
 #endif
      ::                    &
@@ -311,7 +314,7 @@ MODULE mo_nonhydro_types
 
 
     INTEGER, POINTER          &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     , CONTIGUOUS              &
 #endif
      ::                       &

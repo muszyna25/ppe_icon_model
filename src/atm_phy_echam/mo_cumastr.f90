@@ -1,10 +1,7 @@
 #ifdef __xlC__
 @PROCESS STRICT
 #endif
-#ifndef __xlC__
-#define FSEL(a,b,c) MERGE(b,c,(a) >= 0._wp)
-#define SWDIV_NOCHK(a,b) ((a)/(b))
-#endif
+#include "fsel.inc"
 
 !>
 !! @brief Master routine - provides interface for cumulus parameterization
@@ -33,7 +30,7 @@
 !!        (5) Do downdraft calculations:
 !!              (A) Determine values at lfs in 'cudlfs'
 !!              (B) Determine moist descent in 'cuddraf'
-!!              (C) Recalculate cloud base massflux considering the 
+!!              (C) Recalculate cloud base massflux considering the
 !!                  effect of cumulus-downdrafts
 !!        (6) Do final cloud ascent in 'cuasc'
 !!        (7) Do final adjustments to convective fluxes in 'cuflx',
@@ -58,9 +55,14 @@
 !!
 MODULE mo_cumastr
   USE mo_kind,                 ONLY: wp
-  USE mo_physical_constants,   ONLY: grav, alv, als, tmelt, vtmpc1, rd, cpd, cpv, vtmpc2
   USE mo_echam_convect_tables, ONLY: prepare_ua_index_spline,lookup_ua_spline, lookup_ubc
+#ifndef __ICON__
+  USE mo_physical_constants,   ONLY: grav, alv, als, tmelt, vtmpc1, rd, cpd, cpv, vtmpc2
   USE mo_echam_conv_constants, ONLY: entrpen, entrscv, lmfdd, cmfdeps, lmfdudv, cmftau
+#else
+  USE mo_physical_constants,   ONLY: grav, alv, als, tmelt, vtmpc1, rd, cpd, cpv
+  USE mo_echam_conv_config,    ONLY: echam_conv_config
+#endif
   USE mo_cuinitialize,         ONLY: cuini, cubase
   USE mo_cuascent,             ONLY: cuasc
   USE mo_cudescent,            ONLY: cudlfs, cuddraf
@@ -74,7 +76,14 @@ MODULE mo_cumastr
   PRIVATE
   PUBLIC :: cucall
 
-CONTAINS 
+#ifdef __ICON__
+  ! to simplify access to components of echam_conv_config
+  LOGICAL , POINTER :: lmfdd, lmfdudv
+  REAL(wp), POINTER :: entrpen, entrscv, cmfdeps, cmftau
+#endif
+
+
+CONTAINS
   !>
   !!
   SUBROUTINE cucall(   kproma, kbdim, klev, klevp1, klevm1,            &! in
@@ -100,7 +109,7 @@ CONTAINS
     &                  ptopmax                                        ) ! inout
 #else
     &                  ptopmax,                                        &! inout
-    &                  nmctop, cevapcu,                                &! in
+    &                  cevapcu,                                        &! in
     &                  pcd, pcv,                                       &! in
     &                  pqte_dyn, pqte_phy,                             &! in
     &                  pcon_dtrl, pcon_dtri, pcon_iqte,                &! inout
@@ -112,7 +121,6 @@ CONTAINS
     REAL(wp),INTENT (IN) :: ptime_step_len
 #ifdef __ICON__
     REAL(wp),INTENT (IN) :: cevapcu(:)
-    INTEGER, INTENT (IN) :: nmctop
     REAL(wp),INTENT (IN) :: pcd, pcv
 #endif
     REAL(wp)::  ptm1(kbdim,klev),         pqm1(kbdim,klev),              &
@@ -162,14 +170,14 @@ CONTAINS
     REAL(wp)::  ztopmax(kbdim)
     LOGICAL ::  locum(kbdim),             ldland(kbdim)
     !
-    !  Local scalars: 
+    !  Local scalars:
     REAL(wp):: ztmst, zxlp1, zxip1
     INTEGER :: ilevmin, jk, jl, jt
 #ifdef __ICON__
     REAL(wp)::  zqte_dyn_phy(kbdim,klev)
 #endif
     !
-    !  Executable statements 
+    !  Executable statements
     !
     !-----------------------------------------------------------------------
     !*    1.           Calculate t,q and qs at main levels
@@ -251,7 +259,7 @@ CONTAINS
       &          ptte,     pvom,     pvol,                            &
       &          paprc,    paprs,                                     &
 #else
-      &          nmctop,   cevapcu,                                   &
+      &          cevapcu,                                             &
       &          zcq,                                                 &
       &          pcon_dtrl, pcon_dtri, pcon_iqte,                     &
       &          ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv,pxtte_cnv,    &
@@ -315,7 +323,7 @@ CONTAINS
     &        ptte,     pvom,     pvol,                                    &
     &        paprc,    paprs,                                             &
 #else
-    &        nmctop,   cevapcu,                                           &
+    &        cevapcu,                                                     &
     &        pcen,                                                        &
     &        pcon_dtrl, pcon_dtri, pcon_iqte,                             &
     &        ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv, pxtte_cnv,           &
@@ -333,7 +341,6 @@ CONTAINS
       &                      paprc(kbdim),            paprs(kbdim)
     REAL(wp),INTENT(INOUT):: pxtte(kbdim,klev,ktrac)
 #else
-    INTEGER, INTENT(IN)   :: nmctop
     REAL(wp),INTENT(IN)   :: cevapcu(:)
     REAL(wp),INTENT(INOUT):: pcon_dtrl(kbdim), pcon_dtri(kbdim)
     REAL(wp),INTENT(INOUT):: pcon_iqte(kbdim)
@@ -349,7 +356,7 @@ CONTAINS
       &        puen(kbdim,klev),        pven(kbdim,klev),                  &
       &        pqsen(kbdim,klev),       pgeo(kbdim,klev),                  &
       &        paphp1(kbdim,klevp1),                                       &
-      &        pverv(kbdim,klev)                                            
+      &        pverv(kbdim,klev)
     REAL(wp):: ptu(kbdim,klev),         pqu(kbdim,klev),                   &
       &        plu(kbdim,klev),         plude(kbdim,klev),                 &
       &        pmfu(kbdim,klev),        pmfd(kbdim,klev),                  &
@@ -409,7 +416,17 @@ CONTAINS
     INTRINSIC MIN, MAX
     !
     !  Executable statements
-    
+
+#ifdef __ICON__
+    ! to simplify access to components of echam_conv_config
+    lmfdd    => echam_conv_config% lmfdd
+    lmfdudv  => echam_conv_config% lmfdudv
+    entrscv  => echam_conv_config% entrscv
+    entrpen  => echam_conv_config% entrpen
+    cmfdeps  => echam_conv_config% cmfdeps
+    cmftau   => echam_conv_config% cmftau
+#endif
+
 #ifndef __ICON__
     IF (lconvmassfix) THEN
       CALL xt_conv_massfix(kproma,         kbdim,         klev,              &
@@ -482,7 +499,7 @@ CONTAINS
       END DO
     END DO
     !
-    !*             (C) Determine moisture supply for boundary layer and determine 
+    !*             (C) Determine moisture supply for boundary layer and determine
     !*                 cloud base massflux ignoring the effects of downdrafts
     !*                 at this stage
     !                  ---------------------------------------------------------------
@@ -535,7 +552,7 @@ CONTAINS
         ! mpuetz: too few instructions (FP dependencies)
         CALL prepare_ua_index_spline('cumastr',kproma,ztenh(1,jk),loidx(1),za(1))
         CALL lookup_ua_spline(kproma,loidx(1),za(1),ua(1),dua(1))
-        CALL lookup_ubc('cumastr',kproma,ztenh(1,jk),ub(1))
+        CALL lookup_ubc(kproma,ztenh(1,jk),ub(1))
         zjk = REAL(jk,wp)
 !IBM* NOVECTOR
         DO jl=1,kproma
@@ -670,12 +687,11 @@ CONTAINS
       &        zmful,    plude,    pqude,    zdmfup,                     &
       &        ihmin,    zhhatt,   zhcbase,  zqsenh,                     &
       &        pcpen,    zcpcu,                                          &
-      &        kcbot,    kctop,    ictop0,                               &
+      &        kcbot,    kctop,    ictop0                                &
 #ifndef __ICON__
-      &        zmwc,     zmrateprecip                      )
-#else
-      &        nmctop                                      )
+      &      , zmwc,     zmrateprecip                                    &
 #endif
+      &       )
     !
     !*     (C) Check cloud depth and change entrainment rate accordingly
     !          Calculate precipitation rate (for downdraft calculation)
@@ -908,12 +924,12 @@ CONTAINS
       &        zmful,    plude,    pqude,    zdmfup,                     &
       &        ihmin,    zhhatt,   zhcbase,  zqsenh,                     &
       &        pcpen,    zcpcu,                                          &
-      &        kcbot,    kctop,    ictop0,                               &
+      &        kcbot,    kctop,    ictop0                                &
 #ifndef __ICON__
-      &        zmwc,     zmrateprecip                     )
-#else
-      &        nmctop                                     )
+      &      , zmwc,     zmrateprecip                                    &
 #endif
+      &       )
+
     !-----------------------------------------------------------------------
     !*    7.0      Determine final convective fluxes in 'cuflx'
     !              --------------------------------------------

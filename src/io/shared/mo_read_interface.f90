@@ -38,14 +38,17 @@ MODULE mo_read_interface
     & read_netcdf_distribute_method,  default_read_method
   USE mo_read_netcdf_broadcast_2, ONLY: netcdf_open_input, netcdf_close, &
     &                                   netcdf_read_2D, netcdf_read_2D_int, &
+    &                                   netcdf_read_REAL_2D_all, &
     &                                   netcdf_read_2D_extdim, &
     &                                   netcdf_read_2D_extdim_int, &
+    &                                   netcdf_read_REAL_3D_all, &
     &                                   netcdf_read_3D_extdim, &
     &                                   read_0D_real => netcdf_read_0D_real, &
     &                                   netcdf_read_1D, netcdf_read_3D, &
     &                                   netcdf_read_1D_extdim_time, &
     &                                   netcdf_read_1D_extdim_extdim_time, &
-    &                                   t_p_scatterPattern
+    &                                   t_p_scatterPattern, &
+    &                                   netcdf_get_missValue
   USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data, distrib_nf_open, &
     &                                   distrib_read, distrib_nf_close, &
     &                                   var_data_1d_int, &
@@ -54,11 +57,12 @@ MODULE mo_read_interface
     &                                   distrib_inq_var_dims, idx_lvl_blk, &
     &                                   idx_blk_time
   USE mo_model_domain, ONLY: t_patch
-  USE mo_parallel_config, ONLY: nproma
+  USE mo_parallel_config, ONLY: nproma, p_test_run
   USE mo_model_domain, ONLY: t_patch
   USE mo_communication, ONLY: t_scatterPattern
-  USE mo_mpi, ONLY: p_comm_work, p_io, my_process_is_mpi_workroot, p_bcast
-
+  USE mo_mpi, ONLY: p_comm_work_test, p_comm_work, p_io, &
+       &            my_process_is_mpi_workroot, p_bcast
+  USE mo_impl_constants, ONLY: on_cells, on_vertices, on_edges
 
   !-------------------------------------------------------------------------
   IMPLICIT NONE
@@ -76,28 +80,25 @@ MODULE mo_read_interface
   PUBLIC :: read_1D_extdim_time
   PUBLIC :: read_1D_extdim_extdim_time
   PUBLIC :: read_2D
+  PUBLIC :: read_bcast_REAL_2D
   PUBLIC :: read_2D_int
   PUBLIC :: read_2D_time
   PUBLIC :: read_2D_1time
   PUBLIC :: read_2D_1lev_1time
   PUBLIC :: read_3D
+  PUBLIC :: read_bcast_REAL_3D
   PUBLIC :: read_3D_1time
   PUBLIC :: read_3D_time
   PUBLIC :: read_2D_extdim
   PUBLIC :: read_2D_extdim_int
   PUBLIC :: read_3D_extdim
-
-  PUBLIC :: onCells, onVertices, onEdges
-
   PUBLIC :: nf
 
   PUBLIC :: var_data_2d_int, var_data_2d_wp, var_data_3d_int, var_data_3d_wp
 
-  !--------------------------------------------------------
+  PUBLIC :: on_cells, on_vertices, on_edges
 
-  INTEGER, PARAMETER :: onCells = 1
-  INTEGER, PARAMETER :: onVertices = 2
-  INTEGER, PARAMETER :: onEdges = 3
+  !--------------------------------------------------------
 
   TYPE t_read_info
 
@@ -121,6 +122,7 @@ MODULE mo_read_interface
                                     ! read_netcdf_distribute_method, etc
 
     TYPE(t_read_info), ALLOCATABLE :: read_info(:,:)
+    
   END TYPE t_stream_id
   !--------------------------------------------------------
 
@@ -263,6 +265,34 @@ CONTAINS
 
   END SUBROUTINE read_bcast_REAL_1D
   !-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE read_bcast_REAL_2D(file_id, variable_name, fill_array, &
+    &                           return_pointer)
+
+    INTEGER, INTENT(IN)          :: file_id
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    define_fill_target           :: fill_array(:,:)
+    define_return_pointer        :: return_pointer(:,:)
+
+    REAL(wp), POINTER            :: tmp_pointer(:,:)
+    CHARACTER(LEN=NF_MAX_NAME)   :: variable_name_
+    CHARACTER(LEN=*), PARAMETER  :: method_name = &
+      'mo_read_interface:read_bcast_REAL_2D'
+
+    ! make variable name available on all processes
+    CALL bcast_varname(variable_name, variable_name_)
+
+    ! check whether fill_array and/or return_pointer was provided
+    IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
+      CALL finish(method_name, "invalid arguments")
+
+    ! there is only one implementation for this read routine type
+    tmp_pointer => netcdf_read_REAL_2D_all(file_id, variable_name_, fill_array)
+    IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
+
+  END SUBROUTINE read_bcast_REAL_2D
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
@@ -378,7 +408,7 @@ CONTAINS
           &                           fill_array, n_g, scatter_patterns)
       IF (PRESENT(return_pointer)) return_pointer(1:n_var) = tmp_return
     CASE (read_netcdf_distribute_method)
-    
+
       ALLOCATE(var_data_2d(n_var))
 
       ! gather pointers of all output fields
@@ -504,7 +534,7 @@ CONTAINS
             &                     fill_array, n_g, scatter_patterns)
       IF (PRESENT(return_pointer)) return_pointer(1:n_var) = tmp_return
     CASE (read_netcdf_distribute_method)
-    
+
       ALLOCATE(var_data_2d(n_var))
 
       ! gather pointers of all output fields
@@ -598,28 +628,38 @@ CONTAINS
   ! we need the shape of the original fill_array. This is determined by
   ! read_dist_REAL_2D_1time.
   SUBROUTINE read_dist_REAL_2D_1time(stream_id, location, variable_name, &
-    &                                fill_array, return_pointer)
+    & fill_array, return_pointer,                                        &
+    & has_missValue, missValue)
     TYPE(t_stream_id), INTENT(INOUT) :: stream_id
     INTEGER, INTENT(IN)              :: location
     CHARACTER(LEN=*), INTENT(IN)     :: variable_name
     define_fill_target               :: fill_array(:,:)
-    define_return_pointer            :: return_pointer(:,:)
+    define_return_pointer            :: return_pointer(:,:)  
+    LOGICAL, OPTIONAL                :: has_missValue
+    REAL(wp), OPTIONAL               :: missValue    
+    
     CHARACTER(LEN=*), PARAMETER      :: method_name = &
       'mo_read_interface:read_dist_REAL_2D_1time'
 
     IF (PRESENT(fill_array)) THEN
       CALL read_dist_REAL_2D_1time_(stream_id, location, variable_name, &
-        &                           SHAPE(fill_array), fill_array, &
-        &                           return_pointer)
+        & SHAPE(fill_array), fill_array,                                &
+        & return_pointer,                                               &
+        & has_missValue=has_missValue,                                  &
+        & missValue=missValue)
     ELSE
       CALL read_dist_REAL_2D_1time_(stream_id, location, variable_name, &
-        &                           (/0,0/), return_pointer=return_pointer)
+        &  (/0,0/), return_pointer=return_pointer,                      &
+        & has_missValue=has_missValue,                                  &
+        & missValue=missValue)
     END IF
 
   END SUBROUTINE read_dist_REAL_2D_1time
 
+
   SUBROUTINE read_dist_REAL_2D_1time_(stream_id, location, variable_name, &
-    &                                 array_shape, fill_array, return_pointer)
+    & array_shape, fill_array, return_pointer,                            &
+    & has_missValue, missValue)
     TYPE(t_stream_id), INTENT(INOUT) :: stream_id
     INTEGER, INTENT(IN)              :: location
     CHARACTER(LEN=*), INTENT(IN)     :: variable_name
@@ -627,6 +667,9 @@ CONTAINS
     define_fill_target               :: fill_array(array_shape(1), &
       &                                            array_shape(2), 1)
     define_return_pointer            :: return_pointer(:,:)
+    LOGICAL, OPTIONAL                :: has_missValue
+    REAL(wp), OPTIONAL               :: missValue    
+    
     CHARACTER(LEN=*), PARAMETER      :: method_name = &
       'mo_read_interface:read_dist_REAL_2D_1time_'
 
@@ -638,7 +681,9 @@ CONTAINS
       CALL read_dist_REAL_2D_extdim( &
         & stream_id=stream_id, location=location, variable_name=variable_name, &
         & fill_array=fill_array, return_pointer=return_pointer_, &
-        & start_extdim=1, end_extdim=1, extdim_name="time" )
+        & start_extdim=1, end_extdim=1, extdim_name="time" ,     &
+        & has_missValue=has_missValue,                           &
+        & missValue=missValue)
 
       ALLOCATE(return_pointer(SIZE(return_pointer_,1),SIZE(return_pointer_,2)))
       return_pointer(:,:) = return_pointer_(:,:,1)
@@ -647,7 +692,9 @@ CONTAINS
       CALL read_dist_REAL_2D_extdim( &
         & stream_id=stream_id, location=location, variable_name=variable_name, &
         & fill_array=fill_array, start_extdim=1, end_extdim=1, &
-        & extdim_name="time" )
+        & extdim_name="time",                                  &
+        & has_missValue=has_missValue,                           &
+        & missValue=missValue)
     END IF
 
   END SUBROUTINE read_dist_REAL_2D_1time_
@@ -696,6 +743,7 @@ CONTAINS
     define_fill_target               :: fill_array(array_shape(1), 1, &
       &                                            array_shape(2), 1)
     define_return_pointer            :: return_pointer(:,:)
+    
     CHARACTER(LEN=*), PARAMETER      :: method_name = &
       'mo_read_interface:read_dist_REAL_2D_1lev_1time_'
 
@@ -730,14 +778,20 @@ CONTAINS
   !       fill_array(nproma, blocks, time)
   ! We can map this case to read_dist_REAL_2D_extdim.
   SUBROUTINE read_dist_REAL_2D_time(stream_id, location, variable_name, &
-    &                               fill_array, return_pointer, start_timestep,&
-    &                               end_timestep)
+    &  fill_array, return_pointer, start_timestep,  &
+    &  end_timestep,                                &
+    &  has_missValue, missValue)
+    
     TYPE(t_stream_id), INTENT(INOUT) :: stream_id
     INTEGER, INTENT(IN)              :: location
     CHARACTER(LEN=*), INTENT(IN)     :: variable_name
     define_fill_target               :: fill_array(:,:,:)
     define_return_pointer            :: return_pointer(:,:,:)
     INTEGER, INTENT(in), OPTIONAL    :: start_timestep, end_timestep
+    LOGICAL, OPTIONAL                :: has_missValue
+    REAL(wp), OPTIONAL               :: missValue
+    
+    
     CHARACTER(LEN=*), PARAMETER      :: method_name = &
       'mo_read_interface:read_dist_REAL_2D_time'
 
@@ -745,7 +799,9 @@ CONTAINS
       & stream_id=stream_id, location=location, variable_name=variable_name, &
       & fill_array=fill_array, return_pointer=return_pointer, &
       & start_extdim=start_timestep, end_extdim=end_timestep, &
-      & extdim_name="time" )
+      & extdim_name="time",                                   &
+      & has_missValue=has_missValue,                          &
+      & missValue=missValue)
 
   END SUBROUTINE read_dist_REAL_2D_time
   !-------------------------------------------------------------------------
@@ -757,8 +813,9 @@ CONTAINS
   ! The fill_array  has the structure:
   !       fill_array(nproma, blocks, time)
   SUBROUTINE read_dist_REAL_2D_extdim(stream_id, location, variable_name, &
-    &                                 fill_array, return_pointer, start_extdim,&
-    &                                 end_extdim, extdim_name )
+    &  fill_array, return_pointer, start_extdim,                          &
+    &  end_extdim, extdim_name,                                           &
+    &  has_missValue, missValue)
 
     TYPE(t_stream_id), INTENT(INOUT)       :: stream_id
     INTEGER, INTENT(IN)                    :: location
@@ -767,6 +824,8 @@ CONTAINS
     define_return_pointer                  :: return_pointer(:,:,:)
     INTEGER, INTENT(in), OPTIONAL          :: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name
+    LOGICAL, OPTIONAL                      :: has_missValue
+    REAL(wp), OPTIONAL                     :: missValue
 
     REAL(wp), POINTER                      :: tmp_pointer(:,:,:)
     INTEGER                                :: var_dimlen(2), var_start(2), &
@@ -810,6 +869,10 @@ CONTAINS
         &                   ref_var_dim_end=var_end)
     END IF
 
+    IF (PRESENT(has_missValue) .AND. PRESENT(missValue)) THEN
+      CALL netcdf_get_missValue(stream_id%file_id, variable_name_, has_missValue, missValue)
+    ENDIF
+    
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
       tmp_pointer => &
@@ -911,7 +974,7 @@ CONTAINS
         &                   location, ref_var_dim_start=var_start, &
         &                   ref_var_dim_end=var_end)
     END IF
-
+    
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
       DO i = 1, n_var
@@ -952,7 +1015,7 @@ CONTAINS
           return_pointer(i)%data => var_data_3d(i)%data
         END DO
       END IF
-    
+
       CALL distrib_read(stream_id%file_id, variable_name_, var_data_3d, &
         &               var_dimlen(2), idx_blk_time, &
         &               (/(stream_id%read_info(location, i)%dist_read_info, &
@@ -1047,7 +1110,7 @@ CONTAINS
         tmp_pointer(:,:,:) = 0
       ENDIF
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
-    
+
       CALL distrib_read(stream_id%file_id, variable_name_, tmp_pointer, &
         &               var_dimlen(2), idx_blk_time, &
         &               stream_id%read_info(location, 1)%dist_read_info, &
@@ -1181,6 +1244,35 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
+  SUBROUTINE read_bcast_REAL_3D(file_id, variable_name, fill_array, &
+    &                           return_pointer)
+
+    INTEGER, INTENT(IN)          :: file_id
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    define_fill_target           :: fill_array(:,:,:)
+    define_return_pointer        :: return_pointer(:,:,:)
+
+    REAL(wp), POINTER            :: tmp_pointer(:,:,:)
+    CHARACTER(LEN=NF_MAX_NAME)   :: variable_name_
+    CHARACTER(LEN=*), PARAMETER  :: method_name = &
+      'mo_read_interface:read_bcast_REAL_3D'
+
+    ! make variable name available on all processes
+    CALL bcast_varname(variable_name, variable_name_)
+
+    ! check whether fill_array and/or return_pointer was provided
+    IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
+      CALL finish(method_name, "invalid arguments")
+
+    ! there is only one implementation for this read routine type
+    tmp_pointer => netcdf_read_REAL_3D_all(file_id, variable_name_, fill_array)
+    IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
+
+  END SUBROUTINE read_bcast_REAL_3D
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
   ! By default the netcdf input has the structure :
   !      c-style(ncdump): O2(levels, n) fortran-style: O2(n, levels)
   ! The fill_array  has the structure:
@@ -1240,7 +1332,7 @@ CONTAINS
       ENDIF
 
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
-    
+
       CALL distrib_read(stream_id%file_id, variable_name_, tmp_pointer, &
         &               var_dimlen(2), idx_lvl_blk, &
         &               stream_id%read_info(location, 1)%dist_read_info)
@@ -1263,7 +1355,8 @@ CONTAINS
   ! In order to use assumed-size in this case we need the shape of the original
   ! fill_array. This is determined by read_dist_REAL_3D_1time.
   SUBROUTINE read_dist_REAL_3D_1time(stream_id, location, variable_name, &
-    &                                fill_array, return_pointer, levelsDimName)
+    & fill_array, return_pointer, levelsDimName,                         &
+    & has_missValue, missValue)
 
     TYPE(t_stream_id), INTENT(INOUT)       :: stream_id
     INTEGER, INTENT(IN)                    :: location
@@ -1271,22 +1364,28 @@ CONTAINS
     define_fill_target                     :: fill_array(:,:,:)
     define_return_pointer                  :: return_pointer(:,:,:)
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsDimName
-
+    LOGICAL, OPTIONAL                      :: has_missValue
+    REAL(wp), OPTIONAL                     :: missValue
+    
     IF (PRESENT(fill_array)) THEN
       CALL read_dist_REAL_3D_1time_(stream_id, location, variable_name, &
-        &                           SHAPE(fill_array), fill_array, &
-        &                           return_pointer, levelsDimName)
+        & SHAPE(fill_array), fill_array, &
+        & return_pointer, levelsDimName, &
+        & has_missValue, missValue)
     ELSE
       CALL read_dist_REAL_3D_1time_(stream_id, location, variable_name, &
-        &                           (/0,0,0/), return_pointer=return_pointer, &
-        &                           levelsDimName=levelsDimName)
+        & (/0,0,0/), return_pointer=return_pointer, &
+        & levelsDimName=levelsDimName,              &
+        & has_missValue=has_missValue,              &
+        & missValue=missValue)
     END IF
 
   END SUBROUTINE read_dist_REAL_3D_1time
 
   SUBROUTINE read_dist_REAL_3D_1time_(stream_id, location, variable_name, &
-    &                                 array_shape, fill_array, return_pointer, &
-    &                                 levelsDimName)
+    & array_shape, fill_array, return_pointer, &
+    & levelsDimName,                           &
+    & has_missValue, missValue)
 
     TYPE(t_stream_id), INTENT(INOUT)       :: stream_id
     INTEGER, INTENT(IN)                    :: location
@@ -1297,6 +1396,9 @@ CONTAINS
       &                                                  array_shape(3), 1)
     define_return_pointer                  :: return_pointer(:,:,:)
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsDimName
+    LOGICAL, OPTIONAL                      :: has_missValue
+    REAL(wp), OPTIONAL                     :: missValue
+    
     CHARACTER(LEN=*), PARAMETER            :: method_name = &
       'mo_read_interface:read_dist_REAL_3D_1time_'
 
@@ -1315,7 +1417,9 @@ CONTAINS
         & start_extdim=1,                      &
         & end_extdim=1,                        &
         & levelsDimName=levelsDimName,         &
-        & extdim_name="time")
+        & extdim_name="time",                  &
+        & has_missValue=has_missValue,         &
+        & missValue=missValue)
 
       return_pointer => return_pointer_(:,:,:,1)
       ALLOCATE(return_pointer(SIZE(return_pointer_,1), &
@@ -1333,7 +1437,9 @@ CONTAINS
         & start_extdim=1,                      &
         & end_extdim=1,                        &
         & levelsDimName=levelsDimName,         &
-        & extdim_name="time")
+        & extdim_name="time",                  &
+        & has_missValue=has_missValue,         &
+        & missValue=missValue)
     END IF
 
   END SUBROUTINE read_dist_REAL_3D_1time_
@@ -1347,8 +1453,9 @@ CONTAINS
   !       fill_array(nproma, levels, blocks, time)
   ! We can map this case to read_dist_REAL_3D_extdim.
   SUBROUTINE read_dist_REAL_3D_time(stream_id, location, variable_name, &
-    &                               fill_array, return_pointer, start_timestep,&
-    &                               end_timestep, levelsDimName)
+    & fill_array, return_pointer, start_timestep,  &
+    & end_timestep, levelsDimName,                 &
+    & has_missValue, missValue)
 
     TYPE(t_stream_id), INTENT(INOUT)       :: stream_id
     INTEGER, INTENT(IN)                    :: location
@@ -1357,6 +1464,9 @@ CONTAINS
     define_return_pointer                  :: return_pointer(:,:,:,:)
     INTEGER, INTENT(in), OPTIONAL          :: start_timestep, end_timestep
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: levelsDimName
+    LOGICAL, OPTIONAL                      :: has_missValue
+    REAL(wp), OPTIONAL                     :: missValue
+    
     CHARACTER(LEN=*), PARAMETER            :: method_name = &
       'mo_read_interface:read_dist_REAL_3D_time'
 
@@ -1369,7 +1479,9 @@ CONTAINS
       & start_extdim=start_timestep,         &
       & end_extdim=end_timestep,             &
       & levelsDimName=levelsDimName,         &
-      & extdim_name="time")
+      & extdim_name="time",                  &
+      & has_missValue=has_missValue,         &
+      & missValue=missValue)
 
   END SUBROUTINE read_dist_REAL_3D_time
   !-------------------------------------------------------------------------
@@ -1381,8 +1493,9 @@ CONTAINS
   ! The fill_array  has the structure:
   !       fill_array(nproma, levels, blocks, time)
   SUBROUTINE read_dist_REAL_3D_extdim(stream_id, location, variable_name, &
-    &                                 fill_array, return_pointer, start_extdim,&
-    &                                 end_extdim, levelsDimName, extdim_name )
+    & fill_array, return_pointer, start_extdim,&
+    & end_extdim, levelsDimName, extdim_name,  &
+    & has_missValue, missValue)
 
     TYPE(t_stream_id), INTENT(INOUT)       :: stream_id
     INTEGER, INTENT(IN)                    :: location
@@ -1391,6 +1504,8 @@ CONTAINS
     define_return_pointer                  :: return_pointer(:,:,:,:)
     INTEGER, INTENT(in), OPTIONAL          :: start_extdim, end_extdim
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: extdim_name, levelsDimName
+    LOGICAL, OPTIONAL                      :: has_missValue
+    REAL(wp), OPTIONAL                     :: missValue
 
     INTEGER                                :: var_ndims, var_dimlen(3), &
       &                                       var_start(3), var_end(3)
@@ -1437,6 +1552,10 @@ CONTAINS
         &                   ref_var_dim_end=var_end)
     END IF
 
+    IF (PRESENT(has_missValue) .AND. PRESENT(missValue)) THEN
+      CALL netcdf_get_missValue(stream_id%file_id, variable_name_, has_missValue, missValue)
+    ENDIF
+
     SELECT CASE(stream_id%input_method)
     CASE (read_netcdf_broadcast_method)
       tmp_pointer => &
@@ -1458,7 +1577,7 @@ CONTAINS
       ENDIF
 
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
-    
+
       IF (PRESENT(start_extdim)) THEN
         CALL distrib_read(stream_id%file_id, variable_name_, tmp_pointer, &
           &               var_dimlen(2:3), &
@@ -1509,18 +1628,18 @@ CONTAINS
           (patches(1)%p%n_patch_cells_g /= patches(i)%p%n_patch_cells_g)) &
         CALL finish(method_name, "patches do not match")
 
-      openInputFile_dist_multivar%read_info(onCells, i)%n_g = &
+      openInputFile_dist_multivar%read_info(on_cells, i)%n_g = &
         patches(i)%p%n_patch_cells_g
-      openInputFile_dist_multivar%read_info(onEdges, i)%n_g = &
+      openInputFile_dist_multivar%read_info(on_edges, i)%n_g = &
         patches(i)%p%n_patch_edges_g
-      openInputFile_dist_multivar%read_info(onVertices, i)%n_g = &
+      openInputFile_dist_multivar%read_info(on_vertices, i)%n_g = &
         patches(i)%p%n_patch_verts_g
 
-      openInputFile_dist_multivar%read_info(onCells, i)%n_l = &
+      openInputFile_dist_multivar%read_info(on_cells, i)%n_l = &
         patches(i)%p%n_patch_cells
-      openInputFile_dist_multivar%read_info(onEdges, i)%n_l = &
+      openInputFile_dist_multivar%read_info(on_edges, i)%n_l = &
         patches(i)%p%n_patch_edges
-      openInputFile_dist_multivar%read_info(onVertices, i)%n_l = &
+      openInputFile_dist_multivar%read_info(on_vertices, i)%n_l = &
         patches(i)%p%n_patch_verts
     END DO
 
@@ -1530,15 +1649,15 @@ CONTAINS
       openInputFile_dist_multivar%file_id = netcdf_open_input(filename)
 
       DO i = 1, n_var
-        openInputFile_dist_multivar%read_info(onCells, i)%scatter_pattern => &
+        openInputFile_dist_multivar%read_info(on_cells, i)%scatter_pattern => &
           patches(i)%p%comm_pat_scatter_c
-        NULLIFY(openInputFile_dist_multivar%read_info(onCells, i)%dist_read_info)
-        openInputFile_dist_multivar%read_info(onEdges, i)%scatter_pattern => &
+        NULLIFY(openInputFile_dist_multivar%read_info(on_cells, i)%dist_read_info)
+        openInputFile_dist_multivar%read_info(on_edges, i)%scatter_pattern => &
           patches(i)%p%comm_pat_scatter_e
-        NULLIFY(openInputFile_dist_multivar%read_info(onEdges, i)%dist_read_info)
-        openInputFile_dist_multivar%read_info(onVertices, i)%scatter_pattern => &
+        NULLIFY(openInputFile_dist_multivar%read_info(on_edges, i)%dist_read_info)
+        openInputFile_dist_multivar%read_info(on_vertices, i)%scatter_pattern => &
           patches(i)%p%comm_pat_scatter_v
-        NULLIFY(openInputFile_dist_multivar%read_info(onVertices, i)%dist_read_info)
+        NULLIFY(openInputFile_dist_multivar%read_info(on_vertices, i)%dist_read_info)
       END DO
 
     CASE (read_netcdf_distribute_method)
@@ -1546,15 +1665,15 @@ CONTAINS
       openInputFile_dist_multivar%file_id = distrib_nf_open(TRIM(filename))
 
       DO i = 1, n_var
-        openInputFile_dist_multivar%read_info(onCells, i)%dist_read_info => &
+        openInputFile_dist_multivar%read_info(on_cells, i)%dist_read_info => &
           patches(i)%p%cells%dist_io_data
-        NULLIFY(openInputFile_dist_multivar%read_info(onCells, i)%scatter_pattern)
-        openInputFile_dist_multivar%read_info(onVertices, i)%dist_read_info => &
+        NULLIFY(openInputFile_dist_multivar%read_info(on_cells, i)%scatter_pattern)
+        openInputFile_dist_multivar%read_info(on_vertices, i)%dist_read_info => &
           patches(i)%p%verts%dist_io_data
-        NULLIFY(openInputFile_dist_multivar%read_info(onVertices, i)%scatter_pattern)
-        openInputFile_dist_multivar%read_info(onEdges, i)%dist_read_info => &
+        NULLIFY(openInputFile_dist_multivar%read_info(on_vertices, i)%scatter_pattern)
+        openInputFile_dist_multivar%read_info(on_edges, i)%dist_read_info => &
           patches(i)%p%edges%dist_io_data
-        NULLIFY(openInputFile_dist_multivar%read_info(onEdges, i)%scatter_pattern)
+        NULLIFY(openInputFile_dist_multivar%read_info(on_edges, i)%scatter_pattern)
       END DO
 
     CASE default
@@ -1714,7 +1833,7 @@ CONTAINS
     ! check if the dim have reasonable names
 
     SELECT CASE(location)
-      CASE (onCells)
+      CASE (on_cells)
         IF (.NOT. ((TRIM(var_dim_name(1)) == 'cell') .OR. &
           &        (TRIM(var_dim_name(1)) == 'ncells'))) THEN
           write(0,*) TRIM(var_dim_name(1))
@@ -1722,7 +1841,7 @@ CONTAINS
             &                   TRIM(var_dim_name(1)), " /= std_cells_dim_name"
           CALL finish(method_name, message_text)
         ENDIF
-      CASE (onVertices)
+      CASE (on_vertices)
         IF (.NOT. ((TRIM(var_dim_name(1)) == 'vertex') .OR. &
           &        (TRIM(var_dim_name(1)) == 'nverts') .OR. &
           &        (TRIM(var_dim_name(1)) == 'ncells_3'))) THEN
@@ -1731,7 +1850,7 @@ CONTAINS
             &                   " /= std_verts_dim_name"
           CALL finish(method_name, message_text)
         ENDIF
-      CASE (onEdges)
+      CASE (on_edges)
         IF (.NOT. ((TRIM(var_dim_name(1)) == 'edge') .OR. &
           &        (TRIM(var_dim_name(1)) == 'nedges') .OR. &
           &        (TRIM(var_dim_name(1)) == 'ncells_2'))) THEN
@@ -1769,7 +1888,8 @@ CONTAINS
       string_out = string_in
     END IF
 
-    CALL p_bcast(string_out, p_io,  p_comm_work)
+    CALL p_bcast(string_out, p_io, &
+      &          MERGE(p_comm_work_test, p_comm_work, p_test_run))
   END SUBROUTINE bcast_varname
 
   !-------------------------------------------------------------------------

@@ -55,6 +55,14 @@ MODULE mo_nwp_phy_types
   PUBLIC :: t_nwp_phy_diag
   PUBLIC :: t_nwp_phy_tend
 
+
+
+  !> derived data type for synthetic satellite images
+  TYPE t_rttov_image
+    REAL(wp), POINTER :: p(:,:)      ! pointer to 2D image
+  END TYPE t_rttov_image
+
+
   !
   !!data structure defining model states
   !
@@ -78,6 +86,9 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tcm_t_ptr(:) !< pointer array: turbulent transfer coefficients for momentum
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tch_t_ptr(:) !< pointer array: turbulent transfer coefficients for heat
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tfv_t_ptr(:) !< pointer array: laminar reduction factor for evaporation
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: tvm_t_ptr(:) !< pointer array: turbulent transfer velocity for momentum
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: tvh_t_ptr(:) !< pointer array: turbulent transfer velocity for heat
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: tkr_t_ptr(:) !< pointer array: turbulent reference surface diffusion coefficient
     TYPE(t_ptr_2d3d),ALLOCATABLE :: gz0_t_ptr(:) !< pointer array: roughness length * gravity
 
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tvs_s_t_ptr(:)  !< pointer array: turbulent velocity scale at surface
@@ -92,9 +103,10 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE :: qhfl_s_t_ptr(:) !< pointer array: surface moisture flux
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_bs_t_ptr(:)!< pointer array: lhf from bare soil
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_pl_t_ptr(:)!< pointer array: lhf from plants
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: aerosol_ptr(:)  !< pointer array: prognostic vertically integrated aerosol optical depth
 
     REAL(wp), POINTER          &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS             &
 #endif
       &  ::                    &
@@ -133,6 +145,8 @@ MODULE mo_nwp_phy_types
       &   acdnc(:,:,:),        & !! cloud droplet number concentration                   [1/m**3]
       &   cloud_num(:,:),      & !! 2D cloud droplet number concentration for simple aerosol-cloud coupling [1/m**3]
       &   cape    (:,:),       & !! convective available energy
+      &   cape_ml (:,:),       & !! convective available energy of mean surface layer parcel
+      &   cin_ml  (:,:),       & !! convective inhibition of mean surface layer parcel
       &   con_gust(:,:),       & !! convective gusts near surface
       &   con_udd(:,:,:,:),    & !!(nproma,nlev,nblks,8) convective up/downdraft fields
                                  !! 1= convective updraft mass flux (pmfu)
@@ -224,13 +238,21 @@ MODULE mo_nwp_phy_types
       &  asodifu_s (:,:),      & !! Surface up solar diff. rad. [W/m2], accumulated or mean since model start 
                                  !! _a means average values if lflux_avg=.TRUE.
                                  !! and accumulated values if lflux_avg=.FALSE., default is .FALSE.
-      &  snowlmt   (:,:)         !! height of snowfall limit above MSL
+      &  snowlmt     (:,:),    & !! height of snowfall limit above MSL
+      &  drag_u_grid (:,:),    & !! zonal resolved surface stress [N/m2]
+      &  drag_v_grid (:,:),    & !! meridional resolved surface stress [N/m2]
+      &  adrag_u_grid(:,:),    & !! zonal resolved surface stress, accumulated or mean since model start
+      &  adrag_v_grid(:,:),    & !! meridional resolved surface stress, accumulated or mean since model start
+      &  str_u_sso   (:,:),    & !! zonal sso surface stress [N/m2]
+      &  str_v_sso   (:,:),    & !! meridional sso surface stress [N/m2]
+      &  astr_u_sso  (:,:),    & !! zonal sso surface stress, accumulated or mean since model start
+      &  astr_v_sso  (:,:)       !! meridional sso surface stress, accumulated or mean since model start
 
 
 
     !> Parameter fields for turbulence
     REAL(wp), POINTER      &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS         &
 #endif
       ::                   &
@@ -240,6 +262,9 @@ MODULE mo_nwp_phy_types
       tfm(:,:)        ,    & !! factor of laminar transfer of momentum          --
       tfh(:,:)        ,    & !! factor of laminar transfer of scalars           --
       tfv(:,:)        ,    & !! laminar reduction factor for evaporation        --
+      tvm(:,:)        ,    & !! turbulent transfer velocity for momentum      (m/s)
+      tvh(:,:)        ,    & !! factor of laminar transfer of scalars           --
+      tkr(:,:)        ,    & !! turbulent reference surface diffusion coeff.  (m2/s) (Ustar*kap*z0)
       gz0(:,:),            & !! roughness length * g of the vertically not
                              !! resolved canopy                               (m2/s2)
       tkvm(:,:,:),         & !! turbulent diffusion coefficients for momentum (m/s2 )
@@ -259,6 +284,9 @@ MODULE mo_nwp_phy_types
       tcm_t(:,:,:)     ,   & !! turbulent transfer coefficients for momentum    --
       tch_t(:,:,:)     ,   & !! turbulent transfer coefficients for heat        --
       tfv_t(:,:,:)     ,   & !! laminar reduction factor for evaporation        --
+      tvm_t(:,:,:)     ,   & !! turbulent transfer velocity for momentum      ( m/s )
+      tvh_t(:,:,:)     ,   & !! turbulent transfer velocity for heat          ( m/s )
+      tkr_t(:,:,:)     ,   & !! turbulent reference surface diffusion coeff.  ( m2/s) (Ustar*kap*z0)
       gz0_t(:,:,:)     ,   & !! roughness length * g                          (m2/s2)
       tvs_s_t(:,:,:)   ,   & !! surface turbulence velocity scale (SQRT(2*TKE)) (m/s)
                              !! (tile based)
@@ -279,7 +307,7 @@ MODULE mo_nwp_phy_types
 
     ! need only for EDMF
     REAL(wp), POINTER       &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS          &
 #endif
       & ::                  &
@@ -287,17 +315,22 @@ MODULE mo_nwp_phy_types
 
     !> Diagnostics for LES turbulence
     REAL(wp), POINTER      &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS         &
 #endif
       ::                   &
-      z_pbl(:,:)          ,& !> Boundary layer height  (m)
-      bruvais(:,:,:),&       !> Brunt Vaisala Frequency
-      mech_prod(:,:,:)       !> Mechanical production/loss term in TKE equation
+      z_pbl(:,:)     ,     & !> Boundary layer height  (m)
+      bruvais(:,:,:) ,     & !> Brunt Vaisala Frequency
+      mech_prod(:,:,:),    & !> Mechanical production/loss term in TKE equation
+      t_cbase(:,:),        & !>cloud base temperature
+      p_cbase(:,:),        & !>cloud base pressure
+      t_ctop(:,:),         & !>cloud top temperature
+      p_ctop(:,:) !         & !>cloud top pressure
+      !cld_opt_thck(
 
     ! for old aerosol climatology from COSMO (to be used with inwp_radiation==2)
     REAL(wp), POINTER       &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS          &
 #endif
       & ::                  &
@@ -308,18 +341,19 @@ MODULE mo_nwp_phy_types
 
     ! time-interpolated values for Tegen aerosol climatology (needed as state fields for coupling with microphysics and convection)
     REAL(wp), POINTER       &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS          &
 #endif
       & ::                  &
-      & aer_ss  (:,:),      &
-      & aer_or  (:,:),      &
-      & aer_bc  (:,:),      &
-      & aer_su  (:,:),      &
-      & aer_du  (:,:)
+      & aercl_ss  (:,:),    &
+      & aercl_or  (:,:),    &
+      & aercl_bc  (:,:),    &
+      & aercl_su  (:,:),    &
+      & aercl_du  (:,:),    &
+      & aerosol   (:,:,:)
 
     INTEGER, POINTER        &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS          &
 #endif
       & ::                  &
@@ -336,7 +370,7 @@ MODULE mo_nwp_phy_types
     REAL(wp), POINTER :: tropics_mask(:,:) !< mask field that is 1 in the tropics and 0 in the extratropics
 
     LOGICAL, POINTER        &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS          &
 #endif
       & ::                  &
@@ -345,11 +379,22 @@ MODULE mo_nwp_phy_types
 
     !> (Optional:) Additional diagnostic fields:
     REAL(wp), POINTER ::  &
-      rh(:,:,:)               !> relative humidity
+      rh(:,:,:),          &   !> relative humidity
+      pv(:,:,:)               !> potential vorticity
+
 
     ! Buffer field needed when vertical nesting is combined with a reduced radiation
-    ! grid and processor splitting
+    ! grid and latm_above_top = .TRUE.
     REAL(wp), POINTER :: buffer_rrg(:,:,:)
+
+    ! Buffer field needed for RTTOV calculations on a vertical nested grid
+    REAL(wp), POINTER :: buffer_rttov(:,:,:)
+
+    ! pointer to satellite images (all images in one array):
+    REAL(wp), POINTER    :: synsat_arr(:,:,:)
+
+    ! pointers to satellite images (list of 2D slices)
+    TYPE (t_rttov_image), ALLOCATABLE :: synsat_image(:)
 
     !> Special 1D and 0D diagnostics for LES runs
     REAL(wp), ALLOCATABLE :: &
@@ -362,7 +407,7 @@ MODULE mo_nwp_phy_types
   TYPE t_nwp_phy_tend
 
     REAL(wp), POINTER           &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS              &
 #endif
       ::                        &
@@ -371,6 +416,7 @@ MODULE mo_nwp_phy_types
       ddt_temp_turb   (:,:,:)  ,& !! Temp-tendency from turbulence
       ddt_temp_drag   (:,:,:)  ,& !! Temp-tendency from sso + gravity-wave drag + Rayleigh friction
       ddt_temp_pconv  (:,:,:)  ,& !! Temp-tendency from convective prec
+      ddt_temp_gscp   (:,:,:)  ,& !! Temp-tendency from microphysics (only for LES)
       ddt_u_turb      (:,:,:)  ,& !! ZonalW-tendency from turbulence
       ddt_u_gwd       (:,:,:)  ,& !! ZonalW-tendency from gravity wave drag
       ddt_u_sso       (:,:,:)  ,& !! ZonalW-tendency from sso drag

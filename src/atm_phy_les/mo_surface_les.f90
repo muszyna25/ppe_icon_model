@@ -52,7 +52,6 @@ MODULE mo_surface_les
   USE mo_util_phys,           ONLY: nwp_dyn_gust
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
-  USE mo_nh_testcases_nml,    ONLY: th_cbl, psfc_cbl
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_turbdiff_config,     ONLY: turbdiff_config
 
@@ -115,7 +114,7 @@ MODULE mo_surface_les
     REAL(wp) :: theta_sfc, shfl, lhfl, umfl, vmfl, bflx1, bflx2, theta_sfc1, diff
     REAL(wp) :: RIB, zh, tcn_mom, tcn_heat, p_sfc, t_sfc, ex_sfc, inv_bus_mom
     REAL(wp) :: ustar_mean
-    REAL(wp), POINTER :: pres_sfc(:,:)
+    REAL(wp) :: pres_sfc(nproma,p_patch%nblks_c)
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, jc, isidx, isblk, rl
@@ -128,12 +127,18 @@ MODULE mo_surface_les
 
     jg = p_patch%id
 
-    pres_sfc => p_nh_diag%pres_sfc
+    IF(les_config(jg)%psfc < 0._wp)THEN
+      !use pressure from dynamics
+      pres_sfc = p_nh_diag%pres_sfc
+    ELSE
+      !use imposed pressure 
+      pres_sfc = les_config(jg)%psfc
+    END IF 
 
     ! number of vertical levels
     nlev = p_patch%nlev
     jk   = nlev
-    jkp1 =  jk+1
+    jkp1 = jk+1
 
     i_nchdom   = MAX(1,p_patch%n_childdom)
  
@@ -179,7 +184,7 @@ MODULE mo_surface_les
          DO jc = i_startidx, i_endidx
 
             !Surface exner
-            exner = EXP( rd_o_cpd*LOG(psfc_cbl/p0ref) )
+            exner = EXP( rd_o_cpd*LOG(pres_sfc(jc,jb)/p0ref) )
 
             !Roughness length
             zrough = prm_diag%gz0(jc,jb) * rgrav
@@ -222,7 +227,7 @@ MODULE mo_surface_les
                                      businger_heat(zrough,z_mc,obukhov_length) 
 
             !rho at surface: no qc at suface
-            rhos   =  psfc_cbl/( rd * &
+            rhos   =  pres_sfc(jc,jb)/( rd * &
                      p_prog_lnd_new%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_lnd%qv_s(jc,jb)) )  
 
             !Get surface fluxes
@@ -253,8 +258,6 @@ MODULE mo_surface_les
       WHERE(.NOT.p_patch%cells%decomp_info%owner_mask(:,:)) var(:,:) = 0._wp
       qv_nlev =  global_sum_array(var)/REAL(p_patch%n_patch_cells_g,wp)
 
-      ex_sfc  = 1._wp !EXP( rd_o_cpd*LOG(psfc_cbl/p0ref) )
-
       !Iterate to get surface temperature given buoyancy flux:following UCLA-LES
 
       !Note that t_g(:,:) is uniform so the first index is used below
@@ -262,21 +265,22 @@ MODULE mo_surface_les
       isblk = p_patch%cells%start_blk(rl,1)
       isidx = p_patch%cells%start_idx(rl,1)
        
+      ex_sfc  = 1._wp !EXP( rd_o_cpd*LOG(pres_sfc(isidx,isblk)/p0ref) )
       t_sfc     = p_prog_lnd_now%t_g(isidx,isblk) 
       theta_sfc = t_sfc / ex_sfc       
       
       diff = 1._wp
       itr = 0 
-      DO WHILE (diff > 1._wp-6 .AND. itr < 10)
+      DO WHILE (diff > 1.e-6_wp .AND. itr < 10)
          bflx1 = les_config(jg)%tran_coeff*( (theta_sfc-theta_nlev)+vtmpc1* &
-                 theta_nlev*(spec_humi(sat_pres_water(t_sfc),psfc_cbl)- &
+                 theta_nlev*(spec_humi(sat_pres_water(t_sfc),pres_sfc(isidx,isblk))- &
                  qv_nlev) )*grav/theta_nlev
 
          theta_sfc1 = theta_sfc + 0.1_wp 
          t_sfc      = theta_sfc1 * ex_sfc
 
          bflx2 = les_config(jg)%tran_coeff*( (theta_sfc1-theta_nlev)+vtmpc1* &
-                 theta_nlev*(spec_humi(sat_pres_water(t_sfc),psfc_cbl)- &
+                 theta_nlev*(spec_humi(sat_pres_water(t_sfc),pres_sfc(isidx,isblk))- &
                  qv_nlev) )*grav/theta_nlev
 
          theta_sfc = theta_sfc1 + 0.1_wp*(les_config(jg)%bflux-bflx1)/(bflx2-bflx1) 
@@ -325,10 +329,10 @@ MODULE mo_surface_les
             p_prog_lnd_new%t_g(jc,jb) = t_sfc
 
             !Get surface qv 
-            p_diag_lnd%qv_s(jc,jb) = spec_humi(sat_pres_water(p_prog_lnd_new%t_g(jc,jb)),psfc_cbl)
+            p_diag_lnd%qv_s(jc,jb) = spec_humi(sat_pres_water(p_prog_lnd_new%t_g(jc,jb)),pres_sfc(jc,jb))
 
             !rho at surface: no qc at suface
-            rhos   =  psfc_cbl/( rd * &
+            rhos   =  pres_sfc(jc,jb)/( rd * &
                      p_prog_lnd_new%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_lnd%qv_s(jc,jb)) )  
 
             prm_diag%shfl_s(jc,jb) = rhos*cpd*les_config(jg)%tran_coeff* &
@@ -462,6 +466,7 @@ MODULE mo_surface_les
 
     !No fluxes
     CASE(0)
+
       prm_diag%shfl_s  = 0._wp
       prm_diag%lhfl_s  = 0._wp 
       prm_diag%umfl_s  = 0._wp 

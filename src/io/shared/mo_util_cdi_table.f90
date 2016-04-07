@@ -19,21 +19,19 @@
 MODULE mo_util_cdi_table
 
   USE mo_impl_constants,   ONLY : MAX_CHAR_LENGTH
-  USE mo_util_string,      ONLY : int2string
+  USE mo_util_string,      ONLY : int2string, tolower
   USE mo_exception,        ONLY : finish
   USE mo_util_uuid,        ONLY : t_uuid, char2uuid, uuid_unparse, uuid_string_length
   USE mo_util_hash,        ONLY : util_hashword
   USE mtime,               ONLY : newDatetime, newTimedelta, datetime, timedelta, &
     &                             timedeltaToString, max_timedelta_str_len,       &
-    &                             max_datetime_str_len, deallocateDatetime,       &
-    &                             deallocateTimedelta, OPERATOR(-)
+    &                             deallocateDatetime, deallocateTimedelta, OPERATOR(-)
   USE mo_dictionary,       ONLY : t_dictionary, dict_get
-  USE mo_cdi_constants,    ONLY : vlistInqVarParam, vlistInqTaxis, taxisInqVdate, &
-    &                             taxisInqVtime, vlistInqVarIntKey,               &
-    &                             vlistInqVarTypeOfGeneratingProcess,             &
-    &                             taxisInqRdate, taxisInqRtime, vlistInqVarZaxis, &
-    &                             zaxisInqSize, vlistInqVarGrid, gridInqNumber,   &
-    &                             gridInqPosition, vlistNvars, FILETYPE_GRB2
+  USE mo_cdi,              ONLY : vlistInqVarParam, vlistInqTaxis, taxisInqVdate, taxisInqVtime, vlistInqVarIntKey, &
+                                & vlistInqVarTypeOfGeneratingProcess, taxisInqRdate, taxisInqRtime, vlistInqVarZaxis, &
+                                & zaxisInqSize, vlistInqVarGrid, gridInqNumber, gridInqPosition, vlistNvars, FILETYPE_GRB2, &
+                                & vlistInqVarName, gridInqUUID, cdiDecodeParam, cdiDecodeDate, cdiDecodeTime, zaxisInqUUID, &
+                                & vlistInqVarSubtype, subtypeInqSize
 
 
   IMPLICIT NONE
@@ -66,13 +64,14 @@ MODULE mo_util_cdi_table
   INTEGER, PARAMETER :: LEVEL_TYPE        =  9
   INTEGER, PARAMETER :: RUN_TYPE          = 10
   INTEGER, PARAMETER :: TIME_VVMM         = 11
-  INTEGER, PARAMETER :: NUM_LEVELS        = 13 
-  INTEGER, PARAMETER :: RUN_CLASS         = 14 
-  INTEGER, PARAMETER :: EXP_ID            = 15 
-  INTEGER, PARAMETER :: GRID_ID           = 16
-  INTEGER, PARAMETER :: NGRIDREF          = 17
-  INTEGER, PARAMETER :: H_UUID            = 18
-  INTEGER, PARAMETER :: V_UUID            = 19
+  INTEGER, PARAMETER :: NUM_LEVELS        = 13
+  INTEGER, PARAMETER :: NUM_TILES         = 14 
+  INTEGER, PARAMETER :: RUN_CLASS         = 15 
+  INTEGER, PARAMETER :: EXP_ID            = 16 
+  INTEGER, PARAMETER :: GRID_ID           = 17
+  INTEGER, PARAMETER :: NGRIDREF          = 18
+  INTEGER, PARAMETER :: H_UUID            = 19
+  INTEGER, PARAMETER :: V_UUID            = 20
 
   CHARACTER(LEN=*), PARAMETER :: DELIMITER     = ' | '
 
@@ -106,6 +105,7 @@ MODULE mo_util_cdi_table
     TYPE(timedelta)               :: forecast_time            ! forecast_time
     INTEGER                       :: levelType                ! level type
     INTEGER                       :: num_levels               ! number of levels
+    INTEGER                       :: ntiles                   ! number of tiles
     INTEGER                       :: backgroundProc           ! GRIB2 background process
     INTEGER                       :: numberOfHGrid            ! GRIB2 numberOfGridUsed (horizontal)
     INTEGER                       :: gridInReference          ! GRIB2 numberOfGridInReference
@@ -137,7 +137,7 @@ CONTAINS
   SUBROUTINE setup_table_output(table)
     TYPE (t_table), INTENT(INOUT) :: table
 
-    table%n_columns = 14
+    table%n_columns = 15
     !                           title            column ID        width   print
     table%column( 1) = t_column("name",          GRIB2_SHORTNAME,  10,    .TRUE. )
     table%column( 2) = t_column("triple",        GRIB2_TRIPLE,     11,    .TRUE. )
@@ -147,12 +147,13 @@ CONTAINS
     table%column( 6) = t_column("runtyp",        RUN_TYPE,          6,    .TRUE. )
     table%column( 7) = t_column("vvmm",          TIME_VVMM,         6,    .TRUE. )
     table%column( 8) = t_column("nlv",           NUM_LEVELS,        3,    .TRUE. )
-    table%column( 9) = t_column("clas",          RUN_CLASS,         4,    .TRUE. )
-    table%column(10) = t_column("expid",         EXP_ID,            5,    .TRUE. )
-    table%column(11) = t_column("grid",          GRID_ID,           5,    .TRUE. )
-    table%column(12) = t_column("rgrid",         NGRIDREF,          5,    .TRUE. )
-    table%column(13) = t_column("uuidOfHGrid",   H_UUID,           11,    .FALSE.)
-    table%column(14) = t_column("uuidOfVGrid",   V_UUID,           11,    .FALSE.)
+    table%column( 9) = t_column("nt",            NUM_TILES,         2,    .TRUE. )
+    table%column(10) = t_column("clas",          RUN_CLASS,         4,    .TRUE. )
+    table%column(11) = t_column("expid",         EXP_ID,            5,    .TRUE. )
+    table%column(12) = t_column("grid",          GRID_ID,           5,    .TRUE. )
+    table%column(13) = t_column("rgrid",         NGRIDREF,          5,    .TRUE. )
+    table%column(14) = t_column("uuidOfHGrid",   H_UUID,           11,    .FALSE.)
+    table%column(15) = t_column("uuidOfVGrid",   V_UUID,           11,    .FALSE.)
   END SUBROUTINE setup_table_output
 
 
@@ -173,7 +174,8 @@ CONTAINS
     INTEGER :: param, number, category, discipline, &
       &        zaxisID, nlev, iexp_id, ilevtyp,     &
       &        iruntype, irunclass, ingridused,     &
-      &        ingridref, gridID, taxisID
+      &        ingridref, gridID, taxisID, ntiles,  &
+      &        subtypeID
     INTEGER :: vdate, vtime, rdate, rtime,          &
       &        hour, minute, second,                &
       &        year, month, day
@@ -284,6 +286,16 @@ CONTAINS
       nlev    = zaxisInqSize(zaxisID)
       WRITE (entry_str, "(i"//trim(wdth)//")") nlev
       IF (PRESENT(opt_list_element)) opt_list_element%field%num_levels = nlev
+      !
+    CASE(NUM_TILES)
+      subtypeID = vlistInqVarSubtype(vlistID, ivar)
+      ntiles = subtypeInqSize(subtypeID)
+      IF (ntiles > 1) THEN
+        WRITE (entry_str, "(i"//trim(wdth)//")") ntiles
+      ELSE
+        WRITE (entry_str, "(a"//trim(wdth)//")") "-"
+      ENDIF
+      IF (PRESENT(opt_list_element)) opt_list_element%field%ntiles = ntiles
       !
     CASE(RUN_CLASS)
       irunclass = vlistInqVarIntKey(vlistID, ivar, "backgroundProcess")
@@ -530,7 +542,7 @@ CONTAINS
       ENDIF
       !
       ! create hash value
-      current_element%field%key = util_hashword(current_element%field%name, &
+      current_element%field%key = util_hashword(tolower(current_element%field%name), &
         &                         LEN_TRIM(current_element%field%name), 0)
 
       current_element => current_element%next_list_element
@@ -615,7 +627,7 @@ CONTAINS
     TYPE(t_inventory_element), POINTER :: this_list_element
     INTEGER :: key
     !
-    key = util_hashword(name, LEN_TRIM(name), 0)
+    key = util_hashword(tolower(name), LEN_TRIM(name), 0)
     !
     this_list_element => this_list%p%first_list_element
     DO WHILE (ASSOCIATED(this_list_element))

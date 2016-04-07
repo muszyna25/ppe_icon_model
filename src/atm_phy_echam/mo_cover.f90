@@ -1,10 +1,8 @@
 #ifdef __xlC__
 @PROCESS HOT
 @PROCESS XLF90(NOSIGNEDZERO)
-#else
-#define FSEL(a,b,c) MERGE(b,c,(a) >= 0._wp)
-#define SWDIV_NOCHK(a,b) ((a)/(b))
 #endif
+#include "fsel.inc"
 
 !>
 !! @par Copyright
@@ -30,36 +28,10 @@
 !!     This scheme calculates cover diagnostically and is called
 !!     once at the beginning of each timestep.  It uses the
 !!     standard relative humidity calculation from Lohmann and
-!!     Roeckner (96), or the method from the new prognostic
-!!     scheme of Tompkins.  The choice of which scheme to use is
-!!     controlled by the parameter switch ICOVER, which is set in
-!!     namelist PHYSCTL along with lsurf etc... Note that even if
-!!     icover.EQ.1 (RH scheme) you can't restart this model version
-!!     from restart files saved from a different model version, since
-!!     the two extra prognostic equations, pxvar and pxskew are still
-!!     stored even though they are not actively used.  However, this means
-!!     that once you have restart files from this version, you are able
-!!     change icover at will.
-!!
-!!     In the new scheme the variable xskew is provided
-!!     as outlined in the reference, this variable represents
-!!     directly the Beta distribution shape parameter "q"
-!!     The shape parameter "p" (zbetap) a tunable parameter and it is
-!!     recommended that this be set to a low constant 1.5<p<2.0
-!!     (This may be changed later to prognostic to allow negative skewness
-!!     from downdraft detrainment, see ref. for details).
-!!
-!!     from xi,xl,q,xskew and zbetap, the Beta distribution is defined
-!!     and cloud cover is diagnosable.  For the iteration, Ridders' method
-!!     is used (see Numerical Recipes).
-!!
-!!     Attention:
-!!     In the current version the advective tendencies of skewness
-!!     and variance are set to zero.
+!!     Roeckner (96).
 !!
 !! @references.
 !!     Diagnostic CC scheme: Lohmann and Roeckner 96, Clim. Dyn.
-!!     Prognostic CC scheme: Tompkins 2002, J. Atmos. Sci.
 !!
 !! @author A. Tompkins    MPI-Hamburg        2000
 !!         K. Ketelesen   NEC,         April 2002
@@ -86,14 +58,25 @@ MODULE mo_cover
   USE mo_kind,                 ONLY : wp
   USE mo_physical_constants,   ONLY : vtmpc1, cpd, grav
   USE mo_echam_convect_tables, ONLY : prepare_ua_index_spline,lookup_ua_eor_uaw_spline
+#ifndef __ICON__
   USE mo_echam_cloud_params,   ONLY : jbmin, jbmax, csatsc, crt, crs, nex, nadd, cinv
+#else
+  USE mo_echam_cloud_config,   ONLY: echam_cloud_config
+#endif
 #ifdef _PROFILE
   USE mo_profile,              ONLY : trace_start, trace_stop
 #endif
-  
+
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: cover
+
+#ifdef __ICON__
+  ! to simplify access to components of echam_cloud_config
+  INTEGER , POINTER :: jbmin, jbmax, nex, nadd
+  REAL(wp), POINTER :: csatsc, crt, crs, cinv
+#endif
+
 
 CONTAINS
   !>
@@ -135,7 +118,7 @@ CONTAINS
     !
     !   Temporary arrays
     !
-    REAL(wp)   ::  zdtmin(kbdim), za(kbdim) 
+    REAL(wp)   ::  zdtmin(kbdim), za(kbdim)
     !
     !   Pointers and counters for iteration and diagnostic loop:
     !
@@ -154,6 +137,18 @@ CONTAINS
     REAL(wp) :: zknvb(kbdim),            zphase(kbdim)
 
     INTEGER :: loidx(kproma*klev)
+
+#ifdef __ICON__
+    ! to simplify access to components of echam_cloud_config
+    jbmin  => echam_cloud_config% jbmin
+    jbmax  => echam_cloud_config% jbmax
+    csatsc => echam_cloud_config% csatsc
+    crs    => echam_cloud_config% crs
+    crt    => echam_cloud_config% crt
+    nex    => echam_cloud_config% nex
+    nadd   => echam_cloud_config% nadd
+    cinv   => echam_cloud_config% cinv
+#endif
 
 #ifdef _PROFILE
     CALL trace_start ('cover', 9)
@@ -175,7 +170,7 @@ CONTAINS
     !
     !       1.3   Checking occurrence of low-level inversion
     !             (below 2000 m, sea points only, no convection)
-    !  
+    !
     locnt = 0
     DO jl = 1,kproma
       IF (pfrw(jl).GT.0.5_wp.AND.pfri(jl).LT.1.e-12_wp.AND.ktype(jl).EQ.0) THEN

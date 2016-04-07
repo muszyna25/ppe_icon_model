@@ -33,6 +33,7 @@ MODULE mo_les_config
 
     ! variables from namelist
     REAL(wp) :: sst        ! prescribed SST
+    REAL(wp) :: psfc       ! prescribed surface pressure
     REAL(wp) :: shflx      ! prescribed sensible heat flux (W/m2)
     REAL(wp) :: lhflx      ! prescribed latent heat flux   (W/m2)
     INTEGER  :: isrfc_type ! 1=fixed sst, 2=fixed flux
@@ -49,7 +50,8 @@ MODULE mo_les_config
     REAL(wp) :: smag_constant
     REAL(wp) :: turb_prandtl 
     REAL(wp) :: rturb_prandtl     !inverse turbulent prandtl number
-    REAL(wp) :: km_min        !min turbulent diffusivity
+    REAL(wp) :: km_min        !min mass weighted turbulent viscosity 
+    REAL(wp) :: max_turb_scale !max turbulence length scale
     REAL(wp) :: min_sfc_wind  !min sfc wind in free convection limit
 
     !Scheme for vertical discretization

@@ -8,6 +8,7 @@
 #PBS -l walltime=%SCWALLCLOCKLIMIT%
 #PBS -l EC_total_tasks=%ICONTOTALTASKS%
 #PBS -l EC_threads_per_task=4
+##PBS -l EC_threads_per_task=8  # helps interpolation!!
 #PBS -l EC_hyperthreads=2
 
 # for job times longer than 24h use this setup!!
