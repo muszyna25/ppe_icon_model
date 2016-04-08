@@ -39,8 +39,7 @@ MODULE mo_nml_crosscheck
   USE mo_master_config,      ONLY: tc_exp_stopdate, tc_stopdate
   USE mtime,                 ONLY: timedelta, newTimedelta, deallocateTimedelta, &
        &                           MAX_TIMEDELTA_STR_LEN, getPTStringFromMS,     &
-       &                           OPERATOR(>), OPERATOR(/=), OPERATOR(*),       &
-       &                           timedeltaToString   
+       &                           OPERATOR(>), OPERATOR(/=), timedeltaToString   
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
@@ -56,8 +55,7 @@ MODULE mo_nml_crosscheck
     &                              iqh, iqnr, iqns, iqng, iqnh, iqnc,         & 
     &                              inccn, ininact, ininpot,                   &
     &                              activate_sync_timers, timers_level,        &
-    &                              output_mode, lart, tc_dt_model,            &
-    &                              setModelTimeStep 
+    &                              output_mode, lart, tc_dt_model
   USE mo_gridref_config
   USE mo_interpol_config
   USE mo_grid_config
@@ -119,32 +117,24 @@ CONTAINS
     INTEGER :: jg
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:resize_atmo_simulation_length'
 
-    TYPE(timedelta), POINTER :: new_dt_model => NULL()
-    CHARACTER(len=MAX_TIMEDELTA_STR_LEN) :: tdstring
-
     !----------------------------
     ! rescale timestep
     dtime     = dtime     * grid_rescale_factor
-
-    IF (ASSOCIATED(tc_dt_model)) THEN
-      new_dt_model => newTimedelta('PT0S')
-      new_dt_model = tc_dt_model * grid_rescale_factor
-      CALL timedeltaToString(new_dt_model, tdstring)
-      CALL setModelTimeStep(tdstring)
-      CALL deallocateTimedelta(new_dt_model)
-    ENDIF
-
     IF (get_my_process_type() == atmo_process) THEN
-      echam_phy_config%dt_rad = echam_phy_config%dt_rad * grid_rescale_factor
+      echam_phy_config%dt_rad = &
+        & echam_phy_config%dt_rad * grid_rescale_factor
 
       DO jg=1,max_dom
-        atm_phy_nwp_config(jg)%dt_conv = atm_phy_nwp_config(jg)%dt_conv * grid_rescale_factor
-        atm_phy_nwp_config(jg)%dt_rad  = atm_phy_nwp_config(jg)%dt_rad  * grid_rescale_factor
-        atm_phy_nwp_config(jg)%dt_sso  = atm_phy_nwp_config(jg)%dt_sso  * grid_rescale_factor
-        atm_phy_nwp_config(jg)%dt_gwd  = atm_phy_nwp_config(jg)%dt_gwd  * grid_rescale_factor
+        atm_phy_nwp_config(jg)%dt_conv = &
+          atm_phy_nwp_config(jg)%dt_conv * grid_rescale_factor
+        atm_phy_nwp_config(jg)%dt_rad  = &
+          atm_phy_nwp_config(jg)%dt_rad  * grid_rescale_factor
+        atm_phy_nwp_config(jg)%dt_sso  = &
+          atm_phy_nwp_config(jg)%dt_sso  * grid_rescale_factor
+        atm_phy_nwp_config(jg)%dt_gwd  = &
+          atm_phy_nwp_config(jg)%dt_gwd  * grid_rescale_factor
       ENDDO
     ENDIF
-
     !---------------------------------
     ! Check length of this integration
     !---------------------------------

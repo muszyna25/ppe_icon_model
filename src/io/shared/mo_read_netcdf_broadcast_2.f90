@@ -62,9 +62,7 @@ MODULE mo_read_netcdf_broadcast_2
   PUBLIC :: netcdf_read_1D_extdim_extdim_time
   PUBLIC :: netcdf_read_2D_int
   PUBLIC :: netcdf_read_2D
-  PUBLIC :: netcdf_read_REAL_2D_all
   PUBLIC :: netcdf_read_2D_time
-  PUBLIC :: netcdf_read_REAL_3D_all
   PUBLIC :: netcdf_read_3D
   PUBLIC :: netcdf_read_3D_time
   PUBLIC :: netcdf_read_2D_extdim
@@ -616,71 +614,6 @@ CONTAINS
   !-------------------------------------------------------------------------
   !-------------------------------------------------------------------------
   !>
-  FUNCTION netcdf_read_REAL_2D_all(file_id, variable_name, fill_array) &
-    result(res)
-
-    REAL(wp), POINTER            :: res(:,:)
-
-    INTEGER, INTENT(IN)          :: file_id
-    CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    define_fill_target           :: fill_array(:,:)
-
-    INTEGER :: varid, var_type, var_dims
-    INTEGER :: var_size(MAX_VAR_DIMS)
-    CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
-    INTEGER :: return_status
-
-    CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_read_netcdf_broadcast_2:netcdf_read_REAL_2D_all'
-
-    ! trivial return value.
-    NULLIFY(res)
-
-    IF( my_process_is_mpi_workroot()  ) THEN
-      CALL netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, &
-        &                 var_size, var_dim_name)
-
-      ! check if the dims look ok
-      IF (var_dims /= 2 ) THEN
-        write(0,*) "var_dims = ", var_dims, " var_size=(", var_size(1), var_size(2), ")"
-        CALL finish(method_name, "Dimensions mismatch")
-      ENDIF
-
-    ENDIF
-
-    ! we need to sync the var_size...
-    CALL broadcast_array(var_size(1:2))
-
-    IF (PRESENT(fill_array)) THEN
-      res => fill_array
-    ELSE
-      ALLOCATE( res(var_size(1),var_size(2)), stat=return_status )
-      IF (return_status /= success) THEN
-        CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_2D_all )')
-      ENDIF
-    ENDIF
-
-    ! check if the size is correct
-    IF (SIZE(res,1) < var_size(1)) &
-      CALL finish(method_name, "allocated size < var_size")
-    IF (SIZE(res,1) > var_size(1)) &
-      CALL warning(method_name, "allocated size > var_size")
-    IF (SIZE(res,2) < var_size(2)) &
-      CALL finish(method_name, "allocated size < var_size")
-    IF (SIZE(res,2) > var_size(2)) &
-      CALL warning(method_name, "allocated size > var_size")
-
-    IF( my_process_is_mpi_workroot()) THEN
-      CALL nf(nf_get_var_double(file_id, varid, res(:,:)), variable_name)
-    ENDIF
-
-    ! broadcast...
-    CALL broadcast_array(res)
-
-  END FUNCTION netcdf_read_REAL_2D_all
-  !-------------------------------------------------------------------------
-  !-------------------------------------------------------------------------
-  !>
   FUNCTION netcdf_read_REAL_2D(file_id, variable_name, fill_array, &
     &                          n_g, scatter_pattern) result(res)
 
@@ -1156,75 +1089,6 @@ CONTAINS
   END FUNCTION netcdf_read_INT_2D_extdim_multivar
   !-------------------------------------------------------------------------
 
-  !-------------------------------------------------------------------------
-  !>
-  FUNCTION netcdf_read_REAL_3D_all(file_id, variable_name, fill_array) &
-    result(res)
-
-    REAL(wp), POINTER            :: res(:,:,:)
-
-    INTEGER, INTENT(IN)          :: file_id
-    CHARACTER(LEN=*), INTENT(IN) :: variable_name
-    define_fill_target           :: fill_array(:,:,:)
-
-    INTEGER :: varid, var_type, var_dims
-    INTEGER :: var_size(MAX_VAR_DIMS)
-    CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
-    INTEGER :: return_status
-
-    CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_read_netcdf_broadcast_2:netcdf_read_REAL_3D_all'
-
-    ! trivial return value.
-    NULLIFY(res)
-
-    IF( my_process_is_mpi_workroot()  ) THEN
-      CALL netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, &
-        &                 var_size, var_dim_name)
-
-      ! check if the dims look ok
-      IF (var_dims /= 3 ) THEN
-        write(0,*) "var_dims = ", var_dims, " var_size=(", var_size(1), var_size(2), var_size(3), ")"
-        CALL finish(method_name, "Dimensions mismatch")
-      ENDIF
-
-    ENDIF
-
-    ! we need to sync the var_size...
-    CALL broadcast_array(var_size(1:3))
-
-    IF (PRESENT(fill_array)) THEN
-      res => fill_array
-    ELSE
-      ALLOCATE( res(var_size(1),var_size(2),var_size(3)), stat=return_status )
-      IF (return_status /= success) THEN
-        CALL finish (method_name, 'ALLOCATE( netcdf_read_REAL_3D_all )')
-      ENDIF
-    ENDIF
-
-    ! check if the size is correct
-    IF (SIZE(res,1) < var_size(1)) &
-      CALL finish(method_name, "allocated size < var_size")
-    IF (SIZE(res,1) > var_size(1)) &
-      CALL warning(method_name, "allocated size > var_size")
-    IF (SIZE(res,2) < var_size(2)) &
-      CALL finish(method_name, "allocated size < var_size")
-    IF (SIZE(res,2) > var_size(2)) &
-      CALL warning(method_name, "allocated size > var_size")
-    IF (SIZE(res,3) < var_size(3)) &
-      CALL finish(method_name, "allocated size < var_size")
-    IF (SIZE(res,3) > var_size(3)) &
-      CALL warning(method_name, "allocated size > var_size")
-
-    IF( my_process_is_mpi_workroot()) THEN
-      CALL nf(nf_get_var_double(file_id, varid, res(:,:,:)), variable_name)
-    ENDIF
-
-    ! broadcast...
-    CALL broadcast_array(res)
-
-  END FUNCTION netcdf_read_REAL_3D_all
-  !-------------------------------------------------------------------------
   !-------------------------------------------------------------------------
   !>
   ! By default the netcdf input has the structure :

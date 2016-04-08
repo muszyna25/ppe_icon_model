@@ -277,22 +277,39 @@ CONTAINS
     !-----------------------------------------------------------------------
     grid_area_rescale_factor   = grid_length_rescale_factor * grid_length_rescale_factor
     
-    patch%cells%area(:,:)               = patch%cells%area(:,:)               * grid_area_rescale_factor
-    patch%verts%dual_area(:,:)          = patch%verts%dual_area(:,:)          * grid_area_rescale_factor
-    patch%edges%primal_edge_length(:,:) = patch%edges%primal_edge_length(:,:) * grid_length_rescale_factor
-    patch%edges%dual_edge_length(:,:)   = patch%edges%dual_edge_length(:,:)   * grid_length_rescale_factor
-    patch%edges%edge_cell_length(:,:,:) = patch%edges%edge_cell_length(:,:,:) * grid_length_rescale_factor
-    patch%edges%edge_vert_length(:,:,:) = patch%edges%edge_vert_length(:,:,:) * grid_length_rescale_factor
+    patch%cells%area(:,:)               = &
+      & patch%cells%area(:,:)               * grid_area_rescale_factor
+    patch%verts%dual_area(:,:)          = &
+      & patch%verts%dual_area(:,:)          * grid_area_rescale_factor
+    patch%edges%primal_edge_length(:,:) = &
+      & patch%edges%primal_edge_length(:,:) * grid_length_rescale_factor
+    patch%edges%dual_edge_length(:,:)   = &
+      & patch%edges%dual_edge_length(:,:)   * grid_length_rescale_factor
+    patch%edges%edge_cell_length(:,:,:) = &
+      & patch%edges%edge_cell_length(:,:,:) * grid_length_rescale_factor
+    patch%edges%edge_vert_length(:,:,:) = &
+      & patch%edges%edge_vert_length(:,:,:) * grid_length_rescale_factor
 
     ! rescale geometry parameters
-    patch%geometry_info%mean_edge_length           = patch%geometry_info%mean_edge_length           * grid_length_rescale_factor
-    patch%geometry_info%mean_cell_area             = patch%geometry_info%mean_cell_area             * grid_area_rescale_factor
-    patch%geometry_info%mean_dual_edge_length      = patch%geometry_info%mean_dual_edge_length      * grid_length_rescale_factor
-    patch%geometry_info%mean_dual_cell_area        = patch%geometry_info%mean_dual_cell_area        * grid_area_rescale_factor
-    patch%geometry_info%domain_length              = patch%geometry_info%domain_length              * grid_length_rescale_factor
-    patch%geometry_info%domain_height              = patch%geometry_info%domain_height              * grid_length_rescale_factor
-    patch%geometry_info%sphere_radius              = patch%geometry_info%sphere_radius              * grid_length_rescale_factor
-    patch%geometry_info%mean_characteristic_length = patch%geometry_info%mean_characteristic_length * grid_length_rescale_factor
+    patch%geometry_info%mean_edge_length = &
+      & patch%geometry_info%mean_edge_length * grid_length_rescale_factor
+    patch%geometry_info%mean_cell_area   = &
+      & patch%geometry_info%mean_cell_area   * grid_area_rescale_factor
+    patch%geometry_info%domain_length    = &
+      & patch%geometry_info%domain_length    * grid_length_rescale_factor
+    patch%geometry_info%domain_height    = &
+      & patch%geometry_info%domain_height    * grid_length_rescale_factor
+    patch%geometry_info%sphere_radius    = &
+      & patch%geometry_info%sphere_radius    * grid_length_rescale_factor
+    patch%geometry_info%mean_characteristic_length    = &
+      & patch%geometry_info%mean_characteristic_length * grid_length_rescale_factor
+
+!     write(0,*) "Rescale grid_length_rescale_factor:", &
+!       & grid_length_rescale_factor
+!     write(0,*) "Rescale mean_cell_area:", &
+!       & patch%geometry_info%mean_cell_area
+!     write(0,*) "Rescale mean_characteristic_length:", &
+!       & patch%geometry_info%mean_characteristic_length
 
     IF (patch%geometry_info%mean_characteristic_length == 0.0_wp) &
       & CALL finish("rescale_grid", "mean_characteristic_length=0")

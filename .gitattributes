@@ -79,7 +79,6 @@ config/pvcs.pl -text
 /configure.ac -text
 /create_builds -text
 data/ECHAM6_CldOptProps.nc -text
-data/MACv2.0-SP_v1-beta.nc -text
 data/README -text
 data/dmin_wetgrowth_lookup.dat -text
 data/external/etopo40.cdf -text
@@ -719,7 +718,6 @@ run/checksuite.icon-dev/check.atm_amip_noforcing -text
 run/checksuite.icon-dev/check.atm_amip_noforcing_notransport -text
 run/checksuite.icon-dev/check.atm_amip_noforcing_notransport_nodynamics -text
 run/checksuite.icon-dev/check.atm_amip_noparams -text
-run/checksuite.icon-dev/check.atm_ape -text
 run/checksuite.icon-dev/check.atm_icoles_nested -text
 run/checksuite.icon-dev/check.atm_rce_les -text
 run/checksuite.icon-dev/check.oce_omip_0160km -text
@@ -833,7 +831,6 @@ run/exp.atm_amip_noforcing_notransport_test -text
 run/exp.atm_amip_noforcing_test -text
 run/exp.atm_amip_noparams_test -text
 run/exp.atm_amip_test -text
-run/exp.atm_ape_test -text
 run/exp.atm_icoles_nested -text
 run/exp.atm_jww_hs -text
 run/exp.atm_jww_hs_test -text
@@ -1357,7 +1354,6 @@ src/atm_dyn_iconam/mo_velocity_advection.f90 -text
 src/atm_dyn_iconam/mo_vertical_grid.f90 -text
 src/atm_phy_echam/mo_ape.f90 -text
 src/atm_phy_echam/mo_bc_aeropt_kinne.f90 -text
-src/atm_phy_echam/mo_bc_aeropt_splumes.f90 -text
 src/atm_phy_echam/mo_bc_aeropt_stenchikov.f90 -text
 src/atm_phy_echam/mo_bc_greenhouse_gases.f90 -text
 src/atm_phy_echam/mo_bc_ozone.f90 -text
@@ -1467,10 +1463,8 @@ src/atm_phy_psrad/mo_psrad_lrtm_kgs.f90 -text
 src/atm_phy_psrad/mo_psrad_lrtm_netcdf.f90 -text
 src/atm_phy_psrad/mo_psrad_lrtm_setup.f90 -text
 src/atm_phy_psrad/mo_psrad_lrtm_solver.f90 -text
-src/atm_phy_psrad/mo_psrad_memory.f90 -text
 src/atm_phy_psrad/mo_psrad_orbit.f90 -text
 src/atm_phy_psrad/mo_psrad_radiation.f90 -text
-src/atm_phy_psrad/mo_psrad_radiation_forcing.f90 -text
 src/atm_phy_psrad/mo_psrad_radiation_parameters.f90 -text
 src/atm_phy_psrad/mo_psrad_rrtm_coeffs.f90 -text
 src/atm_phy_psrad/mo_psrad_spec_sampling.f90 -text
