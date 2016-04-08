@@ -29,7 +29,7 @@ MODULE mo_nwp_phy_nml
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_units,            ONLY: nnml, nnml_output, filename_max
-  USE mo_master_config,       ONLY: isRestart
+  USE mo_master_control,      ONLY: use_restart_namelists, isRestart
 
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,    &
     &                               open_and_restore_namelist, close_tmpfile
@@ -38,6 +38,7 @@ MODULE mo_nwp_phy_nml
     &                               config_lrtm_filename   => lrtm_filename,   &
     &                               config_cldopt_filename => cldopt_filename, &
     &                               config_icpl_aero_conv  => icpl_aero_conv,  &
+    &                               config_iprog_aero      => iprog_aero,      &
     &                               config_icpl_o3_tp      => icpl_o3_tp
 
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
@@ -57,6 +58,7 @@ MODULE mo_nwp_phy_nml
 
   ! switches defining physics packages
   INTEGER  :: inwp_convection(max_dom)    !! convection
+  LOGICAL  :: lshallowconv_only(max_dom)  !! use shallow convection only
   INTEGER  :: inwp_cldcover(max_dom)      !! cloud cover
   INTEGER  :: inwp_radiation(max_dom)     !! radiation
   INTEGER  :: inwp_sso(max_dom)           !! sso
@@ -69,6 +71,7 @@ MODULE mo_nwp_phy_nml
   INTEGER  :: itype_z0           !! type of roughness length data
   INTEGER  :: icpl_aero_gscp     !! type of aerosol-microphysics coupling
   INTEGER  :: icpl_aero_conv     !! type of coupling between aerosols and convection scheme
+  INTEGER  :: iprog_aero         !! type of prognostic aerosol
   INTEGER  :: icpl_o3_tp         !! type of ozone-tropopause coupling
   REAL(wp) :: qi0, qc0           !! variables for hydci_pp
   REAL(wp) :: ustart_raylfric    !! velocity at which extra Rayleigh friction starts
@@ -85,19 +88,20 @@ MODULE mo_nwp_phy_nml
   !> NetCDF file with RRTM Cloud Optical Properties for ECHAM6
   CHARACTER(LEN=filename_max) :: cldopt_filename
 
-  NAMELIST /nwp_phy_nml/ inwp_convection, inwp_cldcover,           &
-    &                    inwp_radiation, inwp_sso, inwp_gwd,       &
-    &                    inwp_gscp, inwp_satad,                    &
-    &                    inwp_turb, inwp_surface,                  &
-    &                    dt_conv, dt_rad, dt_sso, dt_gwd,          &
-    &                    qi0, qc0, icpl_aero_gscp,                 &
-    &                    ustart_raylfric, efdt_min_raylfric,       &
-    &                    latm_above_top, itype_z0, mu_rain,        &
-    &                    mu_snow, icapdcycl, icpl_aero_conv,       &
-    &                    lrtm_filename, cldopt_filename, icpl_o3_tp
+  NAMELIST /nwp_phy_nml/ inwp_convection, inwp_cldcover,             &
+    &                    inwp_radiation, inwp_sso, inwp_gwd,         &
+    &                    inwp_gscp, inwp_satad,                      &
+    &                    inwp_turb, inwp_surface,                    &
+    &                    dt_conv, dt_rad, dt_sso, dt_gwd,            &
+    &                    qi0, qc0, icpl_aero_gscp,                   &
+    &                    ustart_raylfric, efdt_min_raylfric,         &
+    &                    latm_above_top, itype_z0, mu_rain,          &
+    &                    mu_snow, icapdcycl, icpl_aero_conv,         &
+    &                    lrtm_filename, cldopt_filename, icpl_o3_tp, &
+    &                    iprog_aero, lshallowconv_only
 
-
-
+  LOGICAL :: l_nwp_phy_namelist_read = .false.
+  
 CONTAINS
 
   !-------------------------------------------------------------------------
@@ -141,6 +145,8 @@ CONTAINS
     inwp_turb(:)       = -1
     inwp_surface(:)    = -1
 
+    lshallowconv_only(:) = .FALSE.
+
     dt_conv (:) = -999._wp
     dt_rad  (:) = -999._wp
     dt_sso  (:) = -999._wp
@@ -182,6 +188,10 @@ CONTAINS
     icpl_aero_conv = 0  ! 0 = none
                         ! 1 = specify thresholds (QC and cloud thickness) for precip initiation depending on aerosol climatology instead of land-sea mask
 
+    ! type of prognostic aerosol
+    iprog_aero = 0  ! 0 = pure climatology
+                    ! 1 = very simple prognostic scheme based on advection of and relaxation towards climatology
+
     ! coupling between ozone and the tropopause
     icpl_o3_tp = 1      ! 0 = none
                         ! 1 = take climatological values from 100/350 hPa above/below the tropopause in the extratropics
@@ -190,10 +200,11 @@ CONTAINS
     ! 1. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
     !------------------------------------------------------------------
-    IF (isRestart()) THEN
+    IF (use_restart_namelists()) THEN
       funit = open_and_restore_namelist('nwp_phy_nml')
       READ(funit,NML=nwp_phy_nml)
       CALL close_tmpfile(funit)
+      l_nwp_phy_namelist_read = .true.
     END IF
 
     !--------------------------------------------------------------------
@@ -212,14 +223,15 @@ CONTAINS
         iunit = temp_settings()
         WRITE(iunit, nwp_phy_nml)   ! write settings to temporary text file
       END IF
+      l_nwp_phy_namelist_read = .true.
     END SELECT
     CALL close_nml
 
     !-----------------------
     ! 3. apply default settings where nothing is specified explicitly (except for restart)
     !-----------------------
-
-    IF (.NOT. isRestart()) THEN
+    
+    IF (.NOT. isRestart() .or. .NOT. l_nwp_phy_namelist_read) THEN
 
       ! 3a. Set default values for global domain where nothing at all has been specified
 
@@ -240,6 +252,7 @@ CONTAINS
       IF (dt_gwd  (1) < 0._wp) dt_gwd  (1) = 1200._wp   !seconds
       IF (dt_rad  (1) < 0._wp) dt_rad  (1) = 1800._wp   !seconds
 
+      
       ! 3b. Copy values of parent domain (in case of linear nesting) to nested domains where nothing has been specified
 
       DO jg = 2, max_dom
@@ -339,6 +352,8 @@ CONTAINS
       atm_phy_nwp_config(jg)%inwp_surface    = inwp_surface(jg)
       atm_phy_nwp_config(jg)%itype_z0        = itype_z0
 
+      atm_phy_nwp_config(jg)%lshallowconv_only = lshallowconv_only(jg)
+
       atm_phy_nwp_config(jg)%dt_conv         = dt_conv (jg) 
       atm_phy_nwp_config(jg)%dt_rad          = dt_rad  (jg)
       atm_phy_nwp_config(jg)%dt_sso          = dt_sso  (jg)
@@ -356,6 +371,7 @@ CONTAINS
     config_lrtm_filename   = TRIM(lrtm_filename)
     config_cldopt_filename = TRIM(cldopt_filename)
     config_icpl_aero_conv  = icpl_aero_conv
+    config_iprog_aero      = iprog_aero
     config_icpl_o3_tp      = icpl_o3_tp
 
     !-----------------------------------------------------
@@ -371,7 +387,6 @@ CONTAINS
     IF(my_process_is_stdio()) WRITE(nnml_output,nml=nwp_phy_nml)
 
   END SUBROUTINE read_nwp_phy_namelist
-
 
 END MODULE mo_nwp_phy_nml
 

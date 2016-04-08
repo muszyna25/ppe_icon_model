@@ -101,7 +101,7 @@ MODULE mo_name_list_output_types
   ! or logical patches.
   LOGICAL, PARAMETER :: l_output_phys_patch = .TRUE. !** DO NOT CHANGE - needed for GRIB output **!
 
-  INTEGER, PARAMETER :: max_z_axes = 34
+  INTEGER, PARAMETER :: max_z_axes = 42
 
   ! Character-strings denoting the "special" GRIB2 output fields that
   ! describe the grid coordinates. These fields are ignored by most
@@ -194,6 +194,7 @@ MODULE mo_name_list_output_types
 
     ! the maximum cell connectivity reproduced from the patch
     INTEGER                              :: max_cell_connectivity
+    INTEGER                              :: max_vertex_connectivity
   END TYPE t_patch_info
 
 

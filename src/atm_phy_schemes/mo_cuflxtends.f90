@@ -33,6 +33,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
+#include "consistent_fma.inc"
 MODULE mo_cuflxtends
 
 #ifdef __ICON__
@@ -44,7 +45,7 @@ MODULE mo_cuflxtends
 !  USE parkind1  ,ONLY : jpim     ,jprb
   USE gme_data_parameters, ONLY:  JPRB =>ireals, JPIM => iintegers
 #endif
-  
+
 !  USE yomhook   ,ONLY : lhook,   dr_hook
   !KF
   USE mo_cuparameters, ONLY: lphylin  ,rlptrc,  lepcld              ,&
@@ -52,8 +53,8 @@ MODULE mo_cuflxtends
     &                        rmfsoltq,  rmfsoluv                    ,&
     &                        rmfsolct, rmfcmin,rg       ,rcpd       ,&
     &                        rlvtt   , rlstt    ,rlmlt    ,rtt      ,&
-    &                        lhook,   dr_hook, rcvd  
-  
+    &                        lhook,   dr_hook, rcvd
+
   USE mo_cufunctions, ONLY: foelhmcu, foeewmcu, foealfcu, &
     & foeewl,   foeewi
 
@@ -75,7 +76,8 @@ CONTAINS
   !OPTIONS XOPT(HSFUN)
   SUBROUTINE cuflxn &
     & (  kidia,    kfdia,    klon,   ktdia,   klev, rmfcfl, &
-    & rhebc_land, rhebc_ocean, rcucov,  ptsphy,             &
+    & rhebc_land, rhebc_ocean, rcucov, rhebc_land_trop,     &  
+    & rhebc_ocean_trop, rcucov_trop, trop_mask,  ptsphy,    &
     & pten,     pqen,     pqsen,    ptenh,    pqenh,&
     & paph,     pap,      pgeoh,    ldland,   ldlake, ldcum,&
     & kcbot,    kctop,    kdtop,    ktopm2,&
@@ -196,7 +198,9 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(in)    :: rmfcfl
     REAL(KIND=jprb)   ,INTENT(in)    :: ptsphy
     REAL(KIND=jprb)   ,INTENT(in)    :: rhebc_land, rhebc_ocean
-    REAL(KIND=jprb)   ,INTENT(in)    :: rcucov
+    REAL(KIND=jprb)   ,INTENT(in)    :: rhebc_land_trop, rhebc_ocean_trop
+    REAL(KIND=jprb)   ,INTENT(in)    :: rcucov, rcucov_trop
+    REAL(KIND=jprb)   ,INTENT(in)    :: trop_mask(klon)
     REAL(KIND=jprb)   ,INTENT(in)    :: pten(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pqen(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: pqsen(klon,klev)
@@ -231,7 +235,7 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(out)   :: prain(klon)
     REAL(KIND=jprb)   ,INTENT(inout) :: pmfdde_rate(klon,klev)
 
-    REAL(KIND=jprb) :: zrhebc(klon)
+    REAL(KIND=jprb) :: zrhebc(klon), zrcucov(klon)
     INTEGER(KIND=jpim) :: ik, ikb, jk, jl
     INTEGER(KIND=jpim) :: idbas(klon)
     LOGICAL :: llddraf
@@ -263,14 +267,11 @@ CONTAINS
       IF(.NOT.ldcum(jl)) ktype(jl)=0
       idbas(jl)=klev
       IF(ldland(jl) .OR. ldlake(jl)) THEN
-        !!zrhebc(jl)=rhebc
-        !!zrhebc(jl)=0.7_jprb
-        zrhebc(jl) = rhebc_land
+        zrhebc(jl) = rhebc_land*(1._jprb - trop_mask(jl))  + rhebc_land_trop*trop_mask(jl)
       ELSE
-        !!zrhebc(jl)=rhebc
-        !!zrhebc(jl)=0.9_jprb
-        zrhebc(jl) = rhebc_ocean
+        zrhebc(jl) = rhebc_ocean*(1._jprb - trop_mask(jl)) + rhebc_ocean_trop*trop_mask(jl)
       ENDIF
+      zrcucov(jl) = rcucov*(1._jprb - trop_mask(jl)) + rcucov_trop*trop_mask(jl)
     ENDDO
     !!TO GET IDENTICAL RESULTS FOR DIFFERENT NPROMA FORCE KTOPM2 TO 2
     ktopm2=2
@@ -319,7 +320,7 @@ CONTAINS
    pmflxr(:,klev+1)=0.0_JPRB
    pmflxs(:,klev+1)=0.0_JPRB
 
-       
+
     !*    1.5          SCALE FLUXES BELOW CLOUD BASE
     !!                 LINEAR DCREASE
     !!                 -----------------------------
@@ -377,7 +378,7 @@ CONTAINS
     !*                  CALCULATE MELTING OF SNOW
     !*                  CALCULATE EVAPORATION OF PRECIP
     !!                  -------------------------------
-    
+
     DO jk=ktdia-1+ktopm2,klev
       DO jl=kidia,kfdia
         IF(ldcum(jl).AND.jk >= kctop(jl)-1) THEN
@@ -430,17 +431,17 @@ CONTAINS
 
     !!Reminder for conservation:
     !!   pdmfup(jl,jk)+pdmfdp(jl,jk)=pmflxr(jl,jk+1)+pmflxs(jl,jk+1)-pmflxr(jl,jk)-pmflxs(jl,jk)
-    
+
     DO jk=ktdia-1+ktopm2,klev
       DO jl=kidia,kfdia
         IF(ldcum(jl).AND.jk >= kcbot(jl)) THEN
           zrfl=pmflxr(jl,jk)+pmflxs(jl,jk)
           IF(zrfl > 1.e-20_JPRB) THEN
-            zdrfl1=rcpecons*MAX(0.0_JPRB,pqsen(jl,jk)-pqen(jl,jk))*rcucov*&
-              & EXP(0.5777_JPRB*LOG(SQRT(paph(jl,jk)/paph(jl,klev+1))/5.09E-3_JPRB*zrfl/rcucov))*&
+            zdrfl1=rcpecons*MAX(0.0_JPRB,pqsen(jl,jk)-pqen(jl,jk))*zrcucov(jl)*&
+              & EXP(0.5777_JPRB*LOG(SQRT(paph(jl,jk)/paph(jl,klev+1))/5.09E-3_JPRB*zrfl/zrcucov(jl)))*&
               & (paph(jl,jk+1)-paph(jl,jk))
             zrnew=zrfl-zdrfl1
-            zrmin=zrfl-rcucov*MAX(0.0_JPRB,zrhebc(jl)*pqsen(jl,jk)-pqen(jl,jk))&
+            zrmin=zrfl-zrcucov(jl)*MAX(0.0_JPRB,zrhebc(jl)*pqsen(jl,jk)-pqen(jl,jk))&
               & *zcons2*(paph(jl,jk+1)-paph(jl,jk))
             zrnew=MAX(zrnew,zrmin)
             zrfln=MAX(zrnew,0.0_JPRB)
@@ -765,7 +766,7 @@ CONTAINS
               & plude(jl,jk)-pdmfup(jl,jk))
           ENDIF
        ENDDO
-      
+
       ELSE
         DO jl=kidia,kfdia
           IF(ldcum(jl)) THEN
@@ -860,6 +861,7 @@ CONTAINS
 
       ! Compute tendencies
 
+!PREVENT_INCONSISTENT_IFORT_FMA
       DO jk=ktdia-1+ktopm2,klev
         DO jl=kidia,kfdia
           IF(llcumbas(jl,jk)) THEN
@@ -1276,7 +1278,7 @@ CONTAINS
 
     !USE PARKIND1  ,ONLY : JPIM     ,JPRB
     !USE YOMHOOK   ,ONLY : LHOOK,   DR_HOOK
- 
+
     IMPLICIT NONE
 
     INTEGER(KIND=jpim),INTENT(in)    :: klon
@@ -1311,10 +1313,18 @@ CONTAINS
     REAL(KIND=jprb) :: zzp, zmfa, zimp, zerate, zposi, ztsphy
 
     !     ALLOCATABLE ARAYS
-    REAL(KIND=jprb), DIMENSION(:,:,:), ALLOCATABLE :: zcen, zcu, zcd, ztenc, zmfc
-    REAL(KIND=jprb), DIMENSION(:,:),   ALLOCATABLE :: zb,  zr1 ,ZDP
-    LOGICAL, DIMENSION(:,:),  ALLOCATABLE :: llcumask, llcumbas
+    REAL(KIND=jprb), DIMENSION(klon,klev) :: &
+         zcen, & !< Half-level environmental values
+         zcu,  & !< Updraft values
+         zcd,  & !< Downdraft values
+         ztenc, &!< Tendency
+         zmfc, & !< Fluxes
+         zdp,  & !< Pressure difference
+         zb,   &
+         zr1
+    LOGICAL :: llcumask(klon,klev)
     REAL(KIND=jprb) :: zhook_handle
+    REAL(kind=jprb), POINTER :: tenc(:,:), cen(:,:)
 
     ! Set MODULE PARAMETERS for offline
 
@@ -1325,25 +1335,14 @@ CONTAINS
     zimp=1.0_JPRB-rmfsolct
     ztsphy=1.0_JPRB/ptsphy
 
-    ALLOCATE(zcen(klon,klev,ktrac)) !Half-level environmental values
-    ALLOCATE(zcu(klon,klev,ktrac))  !Updraft values
-    ALLOCATE(zcd(klon,klev,ktrac))  !Downdraft values
-    ALLOCATE(ztenc(klon,klev,ktrac))!Tendency
-    ALLOCATE(zmfc(klon,klev,ktrac)) !Fluxes
-    ALLOCATE(ZDP(KLON,KLEV))        !Pressure difference
-    ALLOCATE(llcumask(klon,klev))   !Mask for convection
-
     !!Initialize Cumulus mask + some setups
 
+!PREVENT_INCONSISTENT_IFORT_FMA
     DO jk=ktdia+1,klev
       DO jl=kidia,kfdia
-        llcumask(jl,jk)=.FALSE.
+        llcumask(jl,jk) = ldcum(jl) .AND. jk >= kctop(jl)-1
         IF(ldcum(jl)) THEN
            zdp(jl,jk)=rg/(paph(jl,jk+1)-paph(jl,jk))
-          IF(jk>=kctop(jl)-1) THEN
-            llcumask(jl,jk)=.TRUE.
-
-          ENDIF
         ENDIF
       ENDDO
     ENDDO
@@ -1353,20 +1352,21 @@ CONTAINS
 
       !*    1.0          DEFINE TRACERS AT HALF LEVELS
       !!                 -----------------------------
-
+      tenc => ptenc(jn)%ptr
+      cen => pcen(jn)%ptr
       DO jk=ktdia+1,klev
         ik=jk-1
         DO jl=kidia,kfdia
-         zcen(jl,jk,jn)=pcen(jn)%ptr(jl,jk)
-         zcd(jl,jk,jn) =pcen(jn)%ptr(jl,ik)
-         zcu(jl,jk,jn) =pcen(jn)%ptr(jl,ik)
-         zmfc(jl,jk,jn)=0.0_JPRB
-         ztenc(jl,jk,jn)=0.0_JPRB
+         zcen(jl,jk)= cen(jl,jk)
+         zcd(jl,jk) = cen(jl,ik)
+         zcu(jl,jk) = cen(jl,ik)
+         zmfc(jl,jk)=0.0_JPRB
+         ztenc(jl,jk)=0.0_JPRB
         ENDDO
       ENDDO
 
       DO jl=kidia,kfdia
-        zcu(jl,klev,jn) =pcen(jn)%ptr(jl,klev)
+        zcu(jl,klev) = cen(jl,klev)
       ENDDO
       !*    2.0          COMPUTE UPDRAFT VALUES
       !!                 ----------------------
@@ -1378,12 +1378,12 @@ CONTAINS
             zerate=pmfu(jl,jk)-pmfu(jl,ik)+pudrate(jl,jk)
             zmfa=1.0_JPRB/MAX(rmfcmin,pmfu(jl,jk))
             IF (jk >=kctop(jl) )  THEN
-              zcu(jl,jk,jn)=( pmfu(jl,ik)*zcu(jl,ik,jn)+zerate*pcen(jn)%ptr(jl,jk) &
-                & -pudrate(jl,jk)*zcu(jl,ik,jn) )*zmfa
+              zcu(jl,jk)=( pmfu(jl,ik)*zcu(jl,ik)+zerate*cen(jl,jk) &
+                & -pudrate(jl,jk)*zcu(jl,ik) )*zmfa
               !!if you have a source term dc/dt=dcdt write
-              !!            ZCU(JL,JK,JN)=( PMFU(JL,IK)*ZCU(JL,IK,JN)+ZERATE*PCEN(JL,JK,JN) &
-              !!                          -PUDRATE(JL,JK)*ZCU(JL,IK,JN) )*ZMFA
-              !!                          +dcdt(jl,ik,jn)*ptsphy
+              !!            ZCU(JL,JK)=( PMFU(JL,IK)*ZCU(JL,IK)+ZERATE*PCEN(JL,JK) &
+              !!                          -PUDRATE(JL,JK)*ZCU(JL,IK) )*ZMFA
+              !!                          +dcdt(jl,ik)*ptsphy
             ENDIF
           ENDIF
         ENDDO
@@ -1399,17 +1399,17 @@ CONTAINS
           IF ( lddraf(jl).AND.jk==kdtop(jl) ) THEN
             !Nota: in order to avoid final negative Tracer values at LFS the allowed value of ZCD
             !!     depends on the jump in mass flux at the LFS
-            !ZCD(JL,JK,JN)=0.5_JPRB*ZCU(JL,JK,JN)+0.5_JPRB*PCEN(JL,IK,JN)
-            zcd(jl,jk,jn)=0.1_JPRB*zcu(jl,jk,jn)+0.9_JPRB*pcen(jn)%ptr(jl,ik)
+            !ZCD(JL,JK)=0.5_JPRB*ZCU(JL,JK)+0.5_JPRB*PCEN(JL,IK)
+            zcd(jl,jk)=0.1_JPRB*zcu(jl,jk)+0.9_JPRB*cen(jl,ik)
           ELSEIF ( lddraf(jl).AND.jk>kdtop(jl) ) THEN
             zerate=-pmfd(jl,jk)+pmfd(jl,ik)+pddrate(jl,jk)
             zmfa=1._jprb/MIN(-rmfcmin,pmfd(jl,jk))
-            zcd(jl,jk,jn)=( pmfd(jl,ik)*zcd(jl,ik,jn)-zerate*pcen(jn)%ptr(jl,ik) &
-              & +pddrate(jl,jk)*zcd(jl,ik,jn) )*zmfa
+            zcd(jl,jk)=( pmfd(jl,ik)*zcd(jl,ik)-zerate*cen(jl,ik) &
+              & +pddrate(jl,jk)*zcd(jl,ik) )*zmfa
             !!if you have a source term dc/dt=dcdt write
-            !!            ZCD(JL,JK,JN)=( PMFD(JL,IK)*ZCD(JL,IK,JN)-ZERATE*PCEN(JL,IK,JN) &
-            !!                          &+PDDRATE(JL,JK)*ZCD(JL,IK,JN) &
-            !!                          &+dcdt(jl,ik,jn)*ptsphy
+            !!            ZCD(JL,JK)=( PMFD(JL,IK)*ZCD(JL,IK)-ZERATE*PCEN(JL,IK) &
+            !!                          &+PDDRATE(JL,JK)*ZCD(JL,IK) &
+            !!                          &+dcdt(jl,ik)*ptsphy
           ENDIF
         ENDDO
       ENDDO
@@ -1420,23 +1420,18 @@ CONTAINS
       DO jl=kidia,kfdia
         IF (lddraf(jl)) THEN
           !KF
-           ZPOSI=-ZDP(JL,JK)*(PMFU(JL,JK)*ZCU(JL,JK,JN)+PMFD(JL,JK)*ZCD(JL,JK,JN)&
-          !zposi=-rg/zdph(jl,jk)*(pmfu(jl,jk)*zcu(jl,jk,jn)+pmfd(jl,jk)*zcd(jl,jk,jn)&
-            & -(pmfu(jl,jk)+pmfd(jl,jk))*pcen(jn)%ptr(jl,ik) )
-          IF( pcen(jn)%ptr(jl,jk)+zposi*ptsphy<0.0_JPRB ) THEN
+           ZPOSI=-ZDP(JL,JK)*(PMFU(JL,JK)*ZCU(JL,JK)+PMFD(JL,JK)*ZCD(JL,JK)&
+          !zposi=-rg/zdph(jl,jk)*(pmfu(jl,jk)*zcu(jl,jk)+pmfd(jl,jk)*zcd(jl,jk)&
+            & -(pmfu(jl,jk)+pmfd(jl,jk))*cen(jl,ik) )
+          IF( cen(jl,jk)+zposi*ptsphy<0.0_JPRB ) THEN
             zmfa=1._jprb/MIN(-rmfcmin,pmfd(jl,jk))
-            zcd(jl,jk,jn)=( (pmfu(jl,jk)+pmfd(jl,jk))*pcen(jn)%ptr(jl,ik)-pmfu(jl,jk)*zcu(jl,jk,jn)&
-            !  & +pcen(jl,jk,jn)/(ptsphy*rg/zdph(jl,jk)) )*zmfa
-              &+pcen(jn)%ptr(jl,jk)/(PTSPHY*ZDP(JL,JK)) )*ZMFA
+            zcd(jl,jk)=( (pmfu(jl,jk)+pmfd(jl,jk))*cen(jl,ik)-pmfu(jl,jk)*zcu(jl,jk)&
+            !  & +pcen(jl,jk)/(ptsphy*rg/zdph(jl,jk)) )*zmfa
+              &+cen(jl,jk)/(PTSPHY*ZDP(JL,JK)) )*ZMFA
           ENDIF
         ENDIF
       ENDDO
 
-    ENDDO
-
-    !----------------------------------------------------------------------
-
-    DO jn=1,ktrac
 
       !*    4.0          COMPUTE FLUXES
       !!                 --------------
@@ -1446,8 +1441,8 @@ CONTAINS
         DO jl=kidia,kfdia
           IF(llcumask(jl,jk)) THEN
             zmfa=pmfu(jl,jk)+pmfd(jl,jk)
-            zmfc(jl,jk,jn)=pmfu(jl,jk)*zcu(jl,jk,jn)+pmfd(jl,jk)*zcd(jl,jk,jn)&
-              & -zimp*zmfa*zcen(jl,ik,jn)
+            zmfc(jl,jk)=pmfu(jl,jk)*zcu(jl,jk)+pmfd(jl,jk)*zcd(jl,jk)&
+              & -zimp*zmfa*zcen(jl,ik)
           ENDIF
         ENDDO
       ENDDO
@@ -1459,8 +1454,8 @@ CONTAINS
         ik=jk+1
         DO jl=kidia,kfdia
           IF(llcumask(jl,jk)) THEN
-                      ZTENC(JL,JK,JN)=ZDP(JL,JK)*(ZMFC(JL,IK,JN)-ZMFC(JL,JK,JN))
-                      !ztenc(jl,jk,jn)=rg/zdph(jl,jk)*(zmfc(jl,ik,jn)-zmfc(jl,jk,jn))
+                      ZTENC(JL,JK)=ZDP(JL,JK)*(ZMFC(JL,IK)-ZMFC(JL,JK))
+                      !ztenc(jl,jk)=rg/zdph(jl,jk)*(zmfc(jl,ik)-zmfc(jl,jk))
           ENDIF
         ENDDO
       ENDDO
@@ -1468,48 +1463,37 @@ CONTAINS
       jk=klev
       DO jl=kidia,kfdia
         IF(ldcum(jl)) THEN
-           ZTENC(JL,JK,JN)=-ZDP(JL,JK)*ZMFC(JL,JK,JN)
-          !ztenc(jl,jk,jn)=-rg/zdph(jl,jk)*zmfc(jl,jk,jn)
+           ZTENC(JL,JK)=-ZDP(JL,JK)*ZMFC(JL,JK)
+          !ztenc(jl,jk)=-rg/zdph(jl,jk)*zmfc(jl,jk)
         ENDIF
       ENDDO
 
-    ENDDO
 
-    IF ( rmfsolct==0.0_JPRB ) THEN
+      IF ( rmfsolct==0.0_JPRB ) THEN
 
 
-      !*    6.0          UPDATE TENDENCIES
-      !!                 -----------------
+        !*    6.0          UPDATE TENDENCIES
+        !!                 -----------------
 
-      DO jn=1,ktrac
         DO jk=ktdia+1,klev
           DO jl=kidia,kfdia
             IF(llcumask(jl,jk)) THEN
-              ptenc(jn)%ptr(jl,jk)=ptenc(jn)%ptr(jl,jk)+ztenc(jl,jk,jn)
+              tenc(jl,jk) = tenc(jl,jk) + ztenc(jl,jk)
             ENDIF
           ENDDO
         ENDDO
-      ENDDO
 
-    ELSE
+      ELSE
 
-      !---------------------------------------------------------------------------
+        !---------------------------------------------------------------------------
 
-      !*    7.0          IMPLICIT SOLUTION
-      !!                 -----------------
+        !*    7.0          IMPLICIT SOLUTION
+        !!                 -----------------
 
-      !!Fill bi-diagonal Matrix vectors A=k-1, B=k;
-      !!reuse ZMFC=A and ZB=B;
-      !!ZTENC corresponds to the RHS ("constants") of the equation
-      !!The solution is in ZR1
-
-      ALLOCATE(zb(klon,klev))
-      ALLOCATE(zr1(klon,klev))
-      ALLOCATE(llcumbas(klon,klev))
-      llcumbas(:,:)=.FALSE.
-      zb(:,:)=1._jprb
-
-      DO jn=1,ktrac
+        !!Fill bi-diagonal Matrix vectors A=k-1, B=k;
+        !!reuse ZMFC=A and ZB=B;
+        !!ZTENC corresponds to the RHS ("constants") of the equation
+        !!The solution is in ZR1
 
         !!Fill vectors A, B and RHS
 
@@ -1517,57 +1501,46 @@ CONTAINS
           ik=jk+1
           DO jl=kidia,kfdia
             !!LLCUMBAS(JL,JK)=LLCUMASK(JL,JK).AND.JK<=KCBOT(JL)
-            llcumbas(jl,jk)=llcumask(jl,jk)
-            IF(llcumbas(jl,jk)) THEN
+            IF(llcumask(jl,jk)) THEN
               !>KF
-               ZZP=RMFSOLCT*ZDP(JL,JK)*PTSPHY
+              ZZP=RMFSOLCT*ZDP(JL,JK)*PTSPHY
               !zzp=rmfsolct*rg/zdph(jl,jk)*ptsphy
-              zmfc(jl,jk,jn)=-zzp*(pmfu(jl,jk)+pmfd(jl,jk))
-              ztenc(jl,jk,jn) = ztenc(jl,jk,jn)*ptsphy+pcen(jn)%ptr(jl,jk)
+              zmfc(jl,jk)=-zzp*(pmfu(jl,jk)+pmfd(jl,jk))
+              ztenc(jl,jk) = ztenc(jl,jk)*ptsphy+cen(jl,jk)
               !  for implicit solution including tendency source term
-              !  ZTENC(JL,JK,JN) = (ZTENC(JL,JK,JN)+PTENC(JL,JK,JN))*PTSPHY+PCEN(JL,JK,JN)
+              !  ZTENC(JL,JK) = (ZTENC(JL,JK)+PTENC(JL,JK))*PTSPHY+PCEN(JL,JK)
               IF(jk<klev) THEN
                 zb(jl,jk)=1.0_JPRB+zzp*(pmfu(jl,ik)+pmfd(jl,ik))
               ELSE
                 zb(jl,jk)=1.0_JPRB
               ENDIF
+            ELSE
+              zb(jl,jk)=1.0_jprb
             ENDIF
           ENDDO
         ENDDO
 
         CALL cubidiag&
           & ( kidia, kfdia, klon, ktdia, klev,&
-          & kctop, llcumbas,&
-          & zmfc(:,:,jn),  zb,   ztenc(:,:,jn),   zr1 )
+          & kctop, llcumask,&
+          & zmfc(:,:),  zb,   ztenc(:,:),   zr1 )
 
         !!Compute tendencies
 
         DO jk=ktdia+1,klev
           DO jl=kidia,kfdia
-            IF(llcumbas(jl,jk)) THEN
-              ptenc(jn)%ptr(jl,jk)=ptenc(jn)%ptr(jl,jk)+(zr1(jl,jk)-pcen(jn)%ptr(jl,jk))*ztsphy
+            IF(llcumask(jl,jk)) THEN
+              tenc(jl,jk) = tenc(jl,jk) + (zr1(jl,jk) - cen(jl,jk)) * ztsphy
               !  for implicit solution including tendency source term
-              !    PTENC(JL,JK,JN)=(ZR1(JL,JK)-PCEN(JL,JK,JN))*ZTSPHY
+              !    PTENC(JL,JK)=(ZR1(JL,JK)-PCEN(JL,JK))*ZTSPHY
             ENDIF
           ENDDO
         ENDDO
 
-      ENDDO
-
-      DEALLOCATE(llcumbas)
-      DEALLOCATE(zb)
-      DEALLOCATE(zr1)
-
-    ENDIF
+      ENDIF
+    END DO
     !---------------------------------------------------------------------------
 
-    DEALLOCATE(llcumask)
-    DEALLOCATE(ZDP)
-    DEALLOCATE(zmfc)
-    DEALLOCATE(ztenc)
-    DEALLOCATE(zcd)
-    DEALLOCATE(zcu)
-    DEALLOCATE(zcen)
 
     IF (lhook) CALL dr_hook('CUCTRACER',1,zhook_handle)
   END SUBROUTINE cuctracer
@@ -1667,17 +1640,21 @@ CONTAINS
     pu(:,:)=0.0_JPRB
 
     ! Forward Substitution
-
-    DO jk = ktdia+1, klev
-      DO jl = kidia,kfdia
+    DO jl = kidia,kfdia
+      jk = kctop(jl)-1
+      IF (jk >= ktdia+1 .AND. jk <= klev) THEN
         IF ( ld_lcumask(jl,jk) ) THEN
-          IF ( jk==kctop(jl)-1 ) THEN
-            zbet      =1.0_JPRB/(pb(jl,jk)+1.e-35_JPRB)
-            pu(jl,jk) = pr(jl,jk) * zbet
-          ELSEIF ( jk>kctop(jl)-1 ) THEN
-            zbet      = 1.0_JPRB/(pb(jl,jk) + 1.e-35_JPRB)
-            pu(jl,jk) =(pr(jl,jk)-pa(jl,jk)*pu(jl,jk-1))*zbet
-          ENDIF
+          zbet      =1.0_JPRB/(pb(jl,jk)+1.e-35_JPRB)
+          pu(jl,jk) = pr(jl,jk) * zbet
+        ENDIF
+      END IF
+    END DO
+
+    DO jk = MAX(ktdia+1, MINVAL(kctop)), klev
+      DO jl = kidia,kfdia
+        IF ( jk >= kctop(jl) .AND. ld_lcumask(jl,jk) ) THEN
+          zbet      = 1.0_JPRB/(pb(jl,jk) + 1.e-35_JPRB)
+          pu(jl,jk) =(pr(jl,jk)-pa(jl,jk)*pu(jl,jk-1))*zbet
         ENDIF
       ENDDO
     ENDDO

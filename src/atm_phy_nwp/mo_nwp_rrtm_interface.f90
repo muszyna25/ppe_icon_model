@@ -24,13 +24,14 @@
 #endif
 MODULE mo_nwp_rrtm_interface
 
-  USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
+  USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, iprog_aero, icpl_aero_conv
   USE mo_datetime,             ONLY: t_datetime,  month2hour
   USE mo_exception,            ONLY: message,  finish, message_text
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma, p_test_run, test_parallel_radiation
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi
-  USE mo_impl_constants,       ONLY: min_rlcell_int, io3_ape, nexlevs_rrg_vnest
+  USE mo_impl_constants,       ONLY: min_rlcell_int, io3_ape, nexlevs_rrg_vnest, &
+                                     iss, iorg, ibc, iso4, idu
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
@@ -57,7 +58,7 @@ MODULE mo_nwp_rrtm_interface
 
 
 
-  PUBLIC :: nwp_rrtm_ozon_aerosol
+  PUBLIC :: nwp_ozon_aerosol
   PUBLIC :: nwp_rrtm_radiation
   PUBLIC :: nwp_rrtm_radiation_reduced
   PUBLIC :: nwp_rrtm_radiation_repartition
@@ -82,8 +83,8 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_rrtm_ozon_aerosol ( p_sim_time, datetime, pt_patch, ext_data, &
-    & pt_diag,prm_diag,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5 )
+  SUBROUTINE nwp_ozon_aerosol ( p_sim_time, datetime, pt_patch, ext_data, &
+    & pt_diag,prm_diag,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,zduo3 )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
@@ -104,7 +105,8 @@ CONTAINS
       & zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)
 
     ! for Ritter-Geleyn radiation:
-    REAL(wp):: zduo3(nproma,pt_patch%nlev,pt_patch%nblks_c)
+    REAL(wp), OPTIONAL, INTENT(out) :: zduo3(nproma,pt_patch%nlev,pt_patch%nblks_c)
+
     ! for ozone:
     REAL(wp):: &
       & zptop32(nproma,pt_patch%nblks_c), &
@@ -138,6 +140,8 @@ CONTAINS
 
     INTEGER:: imo1,imo2 !for Tegen aerosol time interpolation
 
+    REAL(wp) :: wfac, ncn_bg
+
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
 
@@ -145,12 +149,13 @@ CONTAINS
     nlev   = pt_patch%nlev
     nlevp1 = pt_patch%nlevp1
 
+    IF (timers_level > 3) CALL timer_start(timer_preradiaton)
+
     !-------------------------------------------------------------------------
     !> Radiation setup
     !-------------------------------------------------------------------------
 
     !O3
-
     SELECT CASE (irad_o3)
     CASE(io3_ape)
       ! APE ozone: do nothing since everything is already
@@ -168,9 +173,12 @@ CONTAINS
       CALL calc_o3_gems(pt_patch,datetime,pt_diag,prm_diag,ext_data)
     CASE (9)
       CALL calc_o3_gems(pt_patch,datetime,pt_diag,prm_diag,ext_data)
+    CASE(10)
+      !CALL message('mo_nwp_rg_interface:irad_o3=10', &  
+      !  &          'Ozone used for radiation is calculated by ART')
     END SELECT
 
-    IF ( irad_aero == 6 ) CALL month2hour (datetime, imo1, imo2, zw )
+    IF ( irad_aero == 6 .OR. irad_aero == 9) CALL month2hour (datetime, imo1, imo2, zw )
 
     rl_start = 1
     rl_end   = min_rlcell_int
@@ -181,218 +189,14 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_endidx, &
 !$OMP       zsign,zvdaes, zvdael, zvdaeu, zvdaed, zaeqsn, zaeqln, &
-!$OMP zaequn,zaeqdn,zaetr_bot,zaetr )  ICON_OMP_DEFAULT_SCHEDULE
+!$OMP zaequn,zaeqdn,zaetr_bot,zaetr,wfac,ncn_bg )  ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
         &                        i_startidx, i_endidx, rl_start, rl_end)
 
-      IF ( irad_o3 == 6 .AND. irad_aero == 5 ) THEN
 
-        DO jk = 2, nlevp1
-          DO jc = 1,i_endidx
-            zsign(jc,jk) = pt_diag%pres_ifc(jc,jk,jb) / 101325._wp
-          ENDDO
-        ENDDO
-
-        ! The routine aerdis is called to recieve some parameters for the vertical
-        ! distribution of background aerosol.
-        CALL aerdis ( &
-          & kbdim  = nproma, &
-          & jcs    = 1, &
-          & jce    = i_endidx, &
-          & klevp1 = nlevp1, & !in
-          & petah  = zsign(1,1),  & !in
-          & pvdaes = zvdaes(1,1), & !out
-          & pvdael = zvdael(1,1), & !out
-          & pvdaeu = zvdaeu(1,1), & !out
-          & pvdaed = zvdaed(1,1) ) !out
-
-        ! 3-dimensional O3
-        ! top level
-        ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-        DO jc = 1,i_endidx
-          zptop32  (jc,jb) = (SQRT(pt_diag%pres_ifc(jc,1,jb)))**3
-          zo3_hm   (jc,jb) = (SQRT(prm_diag%hmo3(jc,jb)))**3
-          zaeqso   (jc,jb) = zaeops*prm_diag%aersea(jc,jb)*zvdaes(jc,1)
-          zaeqlo   (jc,jb) = zaeopl*prm_diag%aerlan(jc,jb)*zvdael(jc,1)
-          zaequo   (jc,jb) = zaeopu*prm_diag%aerurb(jc,jb)*zvdaeu(jc,1)
-          zaeqdo   (jc,jb) = zaeopd*prm_diag%aerdes(jc,jb)*zvdaed(jc,1)
-          zaetr_top(jc,jb) = 1.0_wp
-          zo3_top  (jc,jb) = prm_diag%vio3(jc,jb)*zptop32(jc,jb)/(zptop32(jc,jb)+zo3_hm(jc,jb))
-        ENDDO
-
-        ! loop over layers
-        DO jk = 1,nlev
-          ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-          DO jc = 1,i_endidx
-            zaeqsn         = zaeops*prm_diag%aersea(jc,jb)*zvdaes(jc,jk+1)
-            zaeqln         = zaeopl*prm_diag%aerlan(jc,jb)*zvdael(jc,jk+1)
-            zaequn         = zaeopu*prm_diag%aerurb(jc,jb)*zvdaeu(jc,jk+1)
-            zaeqdn         = zaeopd*prm_diag%aerdes(jc,jb)*zvdaed(jc,jk+1)
-            zaetr_bot      = zaetr_top(jc,jb) &
-              & * ( MIN (1.0_wp, pt_diag%temp_ifc(jc,jk,jb)/pt_diag%temp_ifc(jc,jk+1,jb)) )**ztrpt
-
-            zaetr          = SQRT(zaetr_bot*zaetr_top(jc,jb))
-            zaeq1(jc,jk,jb)= (1._wp-zaetr) &
-              & * (ztrbga* pt_diag%dpres_mc(jc,jk,jb)+zaeqln-zaeqlo(jc,jb)+zaeqdn-zaeqdo(jc,jb))
-            zaeq2(jc,jk,jb)   = (1._wp-zaetr) * ( zaeqsn-zaeqso(jc,jb) )
-            zaeq3(jc,jk,jb)   = (1._wp-zaetr) * ( zaequn-zaequo(jc,jb) )
-            zaeq4(jc,jk,jb)   =     zaetr  *   zvobga*pt_diag%dpres_mc(jc,jk,jb)
-            zaeq5(jc,jk,jb)   =     zaetr  *   zstbga*pt_diag%dpres_mc(jc,jk,jb)
-
-            zaetr_top(jc,jb) = zaetr_bot
-            zaeqso(jc,jb)    = zaeqsn
-            zaeqlo(jc,jb)    = zaeqln
-            zaequo(jc,jb)    = zaequn
-            zaeqdo(jc,jb)    = zaeqdn
-
-            zpbot32  (jc,jb) = (SQRT(pt_diag%pres_ifc(jc,jk+1,jb)))**3
-            zo3_bot  (jc,jb) = prm_diag%vio3(jc,jb)* zpbot32(jc,jb)    &
-              /( zpbot32(jc,jb) + zo3_hm(jc,jb))
-            !O3 content
-            zduo3(jc,jk,jb)= zo3_bot (jc,jb)-zo3_top (jc,jb)
-            ! store previous bottom values in arrays for top of next layer
-            zo3_top (jc,jb) = zo3_bot (jc,jb)
-          ENDDO
-        ENDDO
-        DO jk = 1,nlev
-          ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-!DIR$ IVDEP
-          DO jc = 1,i_endidx
-            ext_data%atm%o3(jc,jk,jb) = zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb)
-          ENDDO
-        ENDDO
-
-      ELSEIF ( irad_o3 == 6 .AND. irad_aero == 6 ) THEN
-
-        DO jc = 1,i_endidx
-
-          prm_diag%aer_ss(jc,jb) = ext_data%atm_td%aer_ss(jc,jb,imo1) + &
-            & ( ext_data%atm_td%aer_ss(jc,jb,imo2)   - ext_data%atm_td%aer_ss(jc,jb,imo1)   ) * zw
-          prm_diag%aer_or(jc,jb) = ext_data%atm_td%aer_org(jc,jb,imo1) + &
-            & ( ext_data%atm_td%aer_org(jc,jb,imo2)  - ext_data%atm_td%aer_org(jc,jb,imo1)  ) * zw
-          prm_diag%aer_bc(jc,jb) = ext_data%atm_td%aer_bc(jc,jb,imo1) + &
-            & ( ext_data%atm_td%aer_bc(jc,jb,imo2)   - ext_data%atm_td%aer_bc(jc,jb,imo1)   ) * zw
-          prm_diag%aer_su(jc,jb) = ext_data%atm_td%aer_so4(jc,jb,imo1) + &
-            & ( ext_data%atm_td%aer_so4(jc,jb,imo2)  - ext_data%atm_td%aer_so4(jc,jb,imo1)  ) * zw
-          prm_diag%aer_du(jc,jb) = ext_data%atm_td%aer_dust(jc,jb,imo1) + &
-            & ( ext_data%atm_td%aer_dust(jc,jb,imo2) - ext_data%atm_td%aer_dust(jc,jb,imo1) ) * zw
-
-        ENDDO
-
-        DO jk = 2, nlevp1
-          DO jc = 1,i_endidx
-            zsign(jc,jk) = pt_diag%pres_ifc(jc,jk,jb) / 101325._wp
-          ENDDO
-        ENDDO
-
-        ! The routine aerdis is called to recieve some parameters for the vertical
-        ! distribution of background aerosol.
-        CALL aerdis ( &
-          & kbdim  = nproma,      & !in
-          & jcs    = 1,           & !in
-          & jce    = i_endidx,    & !in
-          & klevp1 = nlevp1,      & !in
-          & petah  = zsign(1,1),  & !in
-          & pvdaes = zvdaes(1,1), & !out
-          & pvdael = zvdael(1,1), & !out
-          & pvdaeu = zvdaeu(1,1), & !out
-          & pvdaed = zvdaed(1,1) )  !out
-
-        ! 3-dimensional O3
-        ! top level
-        DO jc = 1,i_endidx
-          zptop32  (jc,jb) = (SQRT(pt_diag%pres_ifc(jc,1,jb)))**3
-          zo3_hm   (jc,jb) = (SQRT(prm_diag%hmo3(jc,jb)))**3
-          zaeqso   (jc,jb) = prm_diag%aer_ss(jc,jb)*zvdaes(jc,1)
-          zaeqlo   (jc,jb) = ( prm_diag%aer_or(jc,jb)+prm_diag%aer_su(jc,jb) )*zvdael(jc,1)
-          zaequo   (jc,jb) = prm_diag%aer_bc(jc,jb)                           *zvdaeu(jc,1)
-          zaeqdo   (jc,jb) =  prm_diag%aer_du(jc,jb)                          *zvdaed(jc,1)
-          zaetr_top(jc,jb) = 1.0_wp
-          zo3_top  (jc,jb) = prm_diag%vio3(jc,jb)*zptop32(jc,jb)/(zptop32(jc,jb)+zo3_hm(jc,jb))
-        ENDDO
-
-        ! loop over layers
-        DO jk = 1,nlev
-          DO jc = 1,i_endidx
-            zaeqsn         =  prm_diag%aer_ss(jc,jb)                         * zvdaes(jc,jk+1)
-            zaeqln         = (prm_diag%aer_or(jc,jb)+prm_diag%aer_su(jc,jb)) * zvdael(jc,jk+1)
-            zaequn         = prm_diag%aer_bc(jc,jb)                          * zvdaeu(jc,jk+1)
-            zaeqdn         =  prm_diag%aer_du(jc,jb)                         * zvdaed(jc,jk+1)
-            zaetr_bot      = zaetr_top(jc,jb) &
-              & * ( MIN (1.0_wp, pt_diag%temp_ifc(jc,jk,jb)/pt_diag%temp_ifc(jc,jk+1,jb)) )**ztrpt
-
-            zaetr          = SQRT(zaetr_bot*zaetr_top(jc,jb))
-            zaeq1(jc,jk,jb)= (1.0_wp-zaetr)*( ztrbga*pt_diag%dpres_mc(jc,jk,jb) &
-              &            + zaeqln - zaeqlo(jc,jb) )
-            zaeq2(jc,jk,jb)   = (1.0_wp-zaetr)*(zaeqsn-zaeqso(jc,jb))
-            zaeq3(jc,jk,jb)   = (1.0_wp-zaetr)*(zaeqdn-zaeqdo(jc,jb))
-            zaeq4(jc,jk,jb)   = (1.0_wp-zaetr)*(zaequn-zaequo(jc,jb))
-            zaeq5(jc,jk,jb)   =     zaetr  *   zstbga*pt_diag%dpres_mc(jc,jk,jb)
-
-            zaetr_top(jc,jb) = zaetr_bot
-            zaeqso(jc,jb)    = zaeqsn
-            zaeqlo(jc,jb)    = zaeqln
-            zaequo(jc,jb)    = zaequn
-            zaeqdo(jc,jb)    = zaeqdn
-
-            zpbot32  (jc,jb) = (SQRT(pt_diag%pres_ifc(jc,jk+1,jb)))**3
-            zo3_bot  (jc,jb) = prm_diag%vio3(jc,jb)* zpbot32(jc,jb)    &
-              /( zpbot32(jc,jb) + zo3_hm(jc,jb))
-            !O3 content
-            zduo3(jc,jk,jb)= zo3_bot (jc,jb)-zo3_top (jc,jb)
-            ! store previous bottom values in arrays for top of next layer
-            zo3_top (jc,jb) = zo3_bot (jc,jb)
-          ENDDO
-        ENDDO
-
-        DO jk = 1,nlev
-          ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-!DIR$ IVDEP
-          DO jc = 1,i_endidx
-            ext_data%atm%o3(jc,jk,jb) = zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb)
-          ENDDO
-        ENDDO
-
-
-      ELSEIF ( irad_o3 == 6 ) THEN !ozone, but no aerosols
-
-         ! 3-dimensional O3
-        ! top level
-        ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-        DO jc = 1,i_endidx
-          zptop32  (jc,jb) = (SQRT(pt_diag%pres_ifc(jc,1,jb)))**3
-          zo3_hm   (jc,jb) = (SQRT(prm_diag%hmo3(jc,jb)))**3
-          zo3_top  (jc,jb) = prm_diag%vio3(jc,jb)*zptop32(jc,jb)/(zptop32(jc,jb)+zo3_hm(jc,jb))
-        ENDDO
-        ! loop over layers
-        DO jk = 1,nlev
-          ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-          DO jc = 1,i_endidx
-            zpbot32  (jc,jb) = (SQRT(pt_diag%pres_ifc(jc,jk+1,jb)))**3
-            zo3_bot  (jc,jb) = prm_diag%vio3(jc,jb)* zpbot32(jc,jb)    &
-              /( zpbot32(jc,jb) + zo3_hm(jc,jb))
-            !O3 content
-            zduo3(jc,jk,jb)= zo3_bot (jc,jb)-zo3_top (jc,jb)
-            ! store previous bottom values in arrays for top of next layer
-            zo3_top (jc,jb) = zo3_bot (jc,jb)
-          ENDDO
-        ENDDO
-        DO jk = 1,nlev
-          ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-!DIR$ IVDEP
-          DO jc = 1,i_endidx
-            ext_data%atm%o3(jc,jk,jb) = zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb)
-          ENDDO
-        ENDDO
-        zaeq1(1:i_endidx,:,jb) = 0.0_wp
-        zaeq2(1:i_endidx,:,jb) = 0.0_wp
-        zaeq3(1:i_endidx,:,jb) = 0.0_wp
-        zaeq4(1:i_endidx,:,jb) = 0.0_wp
-        zaeq5(1:i_endidx,:,jb) = 0.0_wp
-
-      ELSEIF ( irad_aero == 5 ) THEN !aerosols, but no ozone:
+      IF ( irad_aero == 5 ) THEN ! Tanre aerosols
 
         DO jk = 2, nlevp1
           DO jc = 1,i_endidx
@@ -448,22 +252,37 @@ CONTAINS
           ENDDO
         ENDDO
 
-      ELSEIF (irad_aero == 6 ) THEN !aerosols, but other ozone:
+      ELSE IF ((irad_aero == 6) .OR. (irad_aero == 9)) THEN ! Tegen aerosol climatology
 
-        DO jc = 1,i_endidx
-
-          prm_diag%aer_ss(jc,jb) = ext_data%atm_td%aer_ss(jc,jb,imo1) + &
-            & ( ext_data%atm_td%aer_ss(jc,jb,imo2)   - ext_data%atm_td%aer_ss(jc,jb,imo1)   ) * zw
-          prm_diag%aer_or(jc,jb) = ext_data%atm_td%aer_org(jc,jb,imo1) + &
-            & ( ext_data%atm_td%aer_org(jc,jb,imo2)  - ext_data%atm_td%aer_org(jc,jb,imo1)  ) * zw
-          prm_diag%aer_bc(jc,jb) = ext_data%atm_td%aer_bc(jc,jb,imo1) + &
-            & ( ext_data%atm_td%aer_bc(jc,jb,imo2)   - ext_data%atm_td%aer_bc(jc,jb,imo1)   ) * zw
-          prm_diag%aer_su(jc,jb) = ext_data%atm_td%aer_so4(jc,jb,imo1) + &
-            & ( ext_data%atm_td%aer_so4(jc,jb,imo2)  - ext_data%atm_td%aer_so4(jc,jb,imo1)  ) * zw
-          prm_diag%aer_du(jc,jb) = ext_data%atm_td%aer_dust(jc,jb,imo1) + &
-            & ( ext_data%atm_td%aer_dust(jc,jb,imo2) - ext_data%atm_td%aer_dust(jc,jb,imo1) ) * zw
-
-        ENDDO
+        IF (iprog_aero == 0) THEN ! purely climatological aerosol
+!DIR$ IVDEP
+          DO jc = 1,i_endidx
+            prm_diag%aerosol(jc,iss,jb) = ext_data%atm_td%aer_ss(jc,jb,imo1) + &
+              & ( ext_data%atm_td%aer_ss(jc,jb,imo2)   - ext_data%atm_td%aer_ss(jc,jb,imo1)   ) * zw
+            prm_diag%aerosol(jc,iorg,jb) = ext_data%atm_td%aer_org(jc,jb,imo1) + &
+              & ( ext_data%atm_td%aer_org(jc,jb,imo2)  - ext_data%atm_td%aer_org(jc,jb,imo1)  ) * zw
+            prm_diag%aerosol(jc,ibc,jb) = ext_data%atm_td%aer_bc(jc,jb,imo1) + &
+              & ( ext_data%atm_td%aer_bc(jc,jb,imo2)   - ext_data%atm_td%aer_bc(jc,jb,imo1)   ) * zw
+            prm_diag%aerosol(jc,iso4,jb) = ext_data%atm_td%aer_so4(jc,jb,imo1) + &
+              & ( ext_data%atm_td%aer_so4(jc,jb,imo2)  - ext_data%atm_td%aer_so4(jc,jb,imo1)  ) * zw
+            prm_diag%aerosol(jc,idu,jb) = ext_data%atm_td%aer_dust(jc,jb,imo1) + &
+              & ( ext_data%atm_td%aer_dust(jc,jb,imo2) - ext_data%atm_td%aer_dust(jc,jb,imo1) ) * zw
+          ENDDO
+        ELSE ! simple prognostic aerosol; fill extra variables for climatology needed for relaxation equation
+!DIR$ IVDEP
+          DO jc = 1,i_endidx
+            prm_diag%aercl_ss(jc,jb) = ext_data%atm_td%aer_ss(jc,jb,imo1) + &
+              & ( ext_data%atm_td%aer_ss(jc,jb,imo2)   - ext_data%atm_td%aer_ss(jc,jb,imo1)   ) * zw
+            prm_diag%aercl_or(jc,jb) = ext_data%atm_td%aer_org(jc,jb,imo1) + &
+              & ( ext_data%atm_td%aer_org(jc,jb,imo2)  - ext_data%atm_td%aer_org(jc,jb,imo1)  ) * zw
+            prm_diag%aercl_bc(jc,jb) = ext_data%atm_td%aer_bc(jc,jb,imo1) + &
+              & ( ext_data%atm_td%aer_bc(jc,jb,imo2)   - ext_data%atm_td%aer_bc(jc,jb,imo1)   ) * zw
+            prm_diag%aercl_su(jc,jb) = ext_data%atm_td%aer_so4(jc,jb,imo1) + &
+              & ( ext_data%atm_td%aer_so4(jc,jb,imo2)  - ext_data%atm_td%aer_so4(jc,jb,imo1)  ) * zw
+            prm_diag%aercl_du(jc,jb) = ext_data%atm_td%aer_dust(jc,jb,imo1) + &
+              & ( ext_data%atm_td%aer_dust(jc,jb,imo2) - ext_data%atm_td%aer_dust(jc,jb,imo1) ) * zw
+          ENDDO
+        ENDIF
 
         DO jk = 2, nlevp1
           DO jc = 1,i_endidx
@@ -486,20 +305,20 @@ CONTAINS
 
         ! top level
         DO jc = 1,i_endidx
-          zaeqso   (jc,jb) = prm_diag%aer_ss(jc,jb)                           *zvdaes(jc,1)
-          zaeqlo   (jc,jb) = ( prm_diag%aer_or(jc,jb)+prm_diag%aer_su(jc,jb) )*zvdael(jc,1)
-          zaequo   (jc,jb) =  prm_diag%aer_bc(jc,jb)                          *zvdaeu(jc,1)
-          zaeqdo   (jc,jb) =  prm_diag%aer_du(jc,jb)                          *zvdaed(jc,1)
+          zaeqso   (jc,jb) = prm_diag%aerosol(jc,iss,jb)                                  *zvdaes(jc,1)
+          zaeqlo   (jc,jb) = ( prm_diag%aerosol(jc,iorg,jb)+prm_diag%aerosol(jc,iso4,jb) )*zvdael(jc,1)
+          zaequo   (jc,jb) =  prm_diag%aerosol(jc,ibc,jb)                                 *zvdaeu(jc,1)
+          zaeqdo   (jc,jb) =  prm_diag%aerosol(jc,idu,jb)                                 *zvdaed(jc,1)
           zaetr_top(jc,jb) = 1.0_wp
         ENDDO
 
         ! loop over layers
         DO jk = 1,nlev
           DO jc = 1,i_endidx
-            zaeqsn         =  prm_diag%aer_ss(jc,jb)                          * zvdaes(jc,jk+1)
-            zaeqln         =  (prm_diag%aer_or(jc,jb)+prm_diag%aer_su(jc,jb)) * zvdael(jc,jk+1)
-            zaequn         =  prm_diag%aer_bc(jc,jb)                          * zvdaeu(jc,jk+1)
-            zaeqdn         =  prm_diag%aer_du(jc,jb)                          * zvdaed(jc,jk+1)
+            zaeqsn         =  prm_diag%aerosol(jc,iss,jb)                                 * zvdaes(jc,jk+1)
+            zaeqln         =  (prm_diag%aerosol(jc,iorg,jb)+prm_diag%aerosol(jc,iso4,jb)) * zvdael(jc,jk+1)
+            zaequn         =  prm_diag%aerosol(jc,ibc,jb)                                 * zvdaeu(jc,jk+1)
+            zaeqdn         =  prm_diag%aerosol(jc,idu,jb)                                 * zvdaed(jc,jk+1)
             zaetr_bot      = zaetr_top(jc,jb) &
               & * ( MIN (1.0_wp, pt_diag%temp_ifc(jc,jk,jb)/pt_diag%temp_ifc(jc,jk+1,jb)) )**ztrpt
 
@@ -528,13 +347,64 @@ CONTAINS
         zaeq4(1:i_endidx,:,jb) = 0.0_wp
         zaeq5(1:i_endidx,:,jb) = 0.0_wp
 
-      ENDIF !irad_o3
+      ENDIF ! irad_aero
 
+      ! Compute cloud number concentration depending on aerosol climatology if 
+      ! aerosol-microphysics or aerosol-convection coupling is turned on
+      IF (atm_phy_nwp_config(jg)%icpl_aero_gscp == 1 .OR. icpl_aero_conv == 1) THEN
+
+        DO jk = 1,nlev
+!DIR$ IVDEP
+          DO jc = 1, i_endidx
+            wfac = MAX(1._wp,(MIN(8._wp,0.8_wp*pt_diag%pres_sfc(jc,jb)/pt_diag%pres(jc,jk,jb))))**2
+            ncn_bg = MIN(prm_diag%cloud_num(jc,jb),50.e6_wp)
+            prm_diag%acdnc(jc,jk,jb) = (ncn_bg+(prm_diag%cloud_num(jc,jb)-ncn_bg)*(EXP(1._wp-wfac)))
+          END DO
+        END DO
+
+      ENDIF
+
+      IF ( irad_o3 == 6 ) THEN ! Old GME ozone climatology
+
+        ! 3-dimensional O3
+        ! top level
+        ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
+        DO jc = 1,i_endidx
+          zptop32  (jc,jb) = (SQRT(pt_diag%pres_ifc(jc,1,jb)))**3
+          zo3_hm   (jc,jb) = (SQRT(prm_diag%hmo3(jc,jb)))**3
+          zo3_top  (jc,jb) = prm_diag%vio3(jc,jb)*zptop32(jc,jb)/(zptop32(jc,jb)+zo3_hm(jc,jb))
+        ENDDO
+        ! loop over layers
+        DO jk = 1,nlev
+!DIR$ IVDEP
+          DO jc = 1,i_endidx
+            zpbot32  (jc,jb) = (SQRT(pt_diag%pres_ifc(jc,jk+1,jb)))**3
+            zo3_bot  (jc,jb) = prm_diag%vio3(jc,jb)* zpbot32(jc,jb)    &
+              /( zpbot32(jc,jb) + zo3_hm(jc,jb))
+            !O3 content
+            ext_data%atm%o3(jc,jk,jb) = (zo3_bot(jc,jb) - zo3_top(jc,jb))/pt_diag%dpres_mc(jc,jk,jb)
+            ! store previous bottom values in arrays for top of next layer
+            zo3_top (jc,jb) = zo3_bot (jc,jb)
+          ENDDO
+        ENDDO
+
+      ENDIF
+
+      ! Needed for RG radiation only
+      IF (PRESENT(zduo3)) THEN
+        DO jk = 1,nlev
+          DO jc = 1,i_endidx
+            zduo3(jc,jk,jb) = ext_data%atm%o3(jc,jk,jb)*pt_diag%dpres_mc(jc,jk,jb)
+          ENDDO
+        ENDDO
+      ENDIF
     ENDDO !jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-  END SUBROUTINE nwp_rrtm_ozon_aerosol
+    IF (timers_level > 3) CALL timer_stop(timer_preradiaton)
+
+  END SUBROUTINE nwp_ozon_aerosol
   !---------------------------------------------------------------------------------------
 
   !---------------------------------------------------------------------------------------
@@ -599,12 +469,27 @@ CONTAINS
     IF (msg_level >= 12) &
       &           CALL message('mo_nwp_rad_interface', 'RRTM radiation on full grid')
 
+    IF (p_test_run) THEN
+      CALL get_indices_c(pt_patch, i_startblk, i_startblk, i_endblk, &
+           &                         i_startidx, i_endidx, rl_start, rl_end)
+      aclcov(1:i_startidx-1,i_startblk) = 0
+      prm_diag%lwflxall(1:i_startidx-1,:,i_startblk) = 0
+      prm_diag%trsolall(1:i_startidx-1,:,i_startblk) = 0
+      prm_diag%lwflx_up_sfc_rs(1:i_startidx-1,i_startblk) = 0
+      prm_diag%trsol_up_toa(1:i_startidx-1,i_startblk) = 0
+      prm_diag%trsol_up_sfc(1:i_startidx-1,i_startblk) = 0
+      prm_diag%trsol_par_sfc(1:i_startidx-1,i_startblk) = 0
+      prm_diag%trsol_dn_sfc_diff(1:i_startidx-1,i_startblk) = 0
+      prm_diag%trsolclr_sfc(1:i_startidx-1,i_startblk) = 0
+    END IF
+
 !$OMP PARALLEL PRIVATE(jb,i_startidx,i_endidx)
 !$OMP DO ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
         &                         i_startidx, i_endidx, rl_start, rl_end)
+
 
 
       ! It may happen that an MPI patch contains only nest boundary points
@@ -798,10 +683,6 @@ CONTAINS
 
       ! section for computing radiation on reduced grid
 
-      IF (p_test_run) THEN
-        prm_diag%lwflxall(:,:,:) = 0._wp
-        prm_diag%trsolall(:,:,:) = 0._wp
-      ENDIF
 
       IF (msg_level >= 12) &
         &       CALL message('mo_nwp_rad_interface', 'RRTM radiation on reduced grid')
@@ -865,12 +746,25 @@ CONTAINS
         zrg_lwflxall (nproma,nlev_rg+1,nblks_par_c),   &
         zrg_trsolall (nproma,nlev_rg+1,nblks_par_c)    )
 
+
       rl_start = 1 ! SR radiation is not set up to handle boundaries of nested domains
       rl_end   = min_rlcell_int
 
       i_startblk = pt_patch%cells%start_blk(rl_start,1)
       i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
+      IF (p_test_run) THEN
+        CALL get_indices_c(pt_patch, i_startblk, i_startblk, i_endblk, &
+             &                         i_startidx, i_endidx, rl_start, rl_end)
+        zrg_lwflxall(:,:,:) = 0._wp
+        zrg_trsolall(:,:,:) = 0._wp
+        zrg_lwflx_up_sfc(1:i_startidx-1,i_startblk) = 0
+        zrg_trsol_up_toa(1:i_startidx-1,i_startblk) = 0
+        zrg_trsol_up_sfc(1:i_startidx-1,i_startblk) = 0
+        zrg_trsol_par_sfc(1:i_startidx-1,i_startblk) = 0
+        zrg_trsol_dn_sfc_diff(1:i_startidx-1,i_startblk) = 0
+        zrg_trsol_clr_sfc(1:i_startidx-1,i_startblk) = 0
+      ENDIF
 
       ! parallel section commented because it does almost no work (more overhead than benefit)
 !!$OMP PARALLEL

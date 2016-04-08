@@ -32,7 +32,7 @@ MODULE mo_echam_phy_main
   USE mo_physical_constants,  ONLY: grav, cpd, cpv, cvd, cvv
   USE mo_impl_constants,      ONLY: inh_atmosphere, io3_clim, io3_ape, io3_amip
   USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
-    &                               iqv, iqc, iqi, iqt, irad_type
+    &                               iqv, iqc, iqi, iqt
   USE mo_dynamics_config,     ONLY: iequations
   USE mo_ext_data_state,      ONLY: ext_data, nlev_o3
   USE mo_ext_data_types,      ONLY: t_external_atmos_td
@@ -414,7 +414,6 @@ CONTAINS
           ! to do (for implementing seasonal cycle):
           ! - compute orbit position at datetime_radtran
 
-        IF(irad_type==1 .OR. irad_type==2) THEN
           SELECT CASE(izenith)
 
           CASE(0)
@@ -486,7 +485,6 @@ CONTAINS
 !!$            field%cosmu0(jcs:jce,jb) = 0.7854_wp ! Popke: zenith = 38
 
           END SELECT
-        END IF
 
           SELECT CASE(irad_o3)
             CASE default
@@ -536,7 +534,11 @@ CONTAINS
         & ktype      = itype(:)   ,&!< in  type of convection
         & loland     = lland      ,&!< in  land-sea mask. (logical)
         & loglac     = lglac      ,&!< in  glacier mask (logical)
+        & datetime   = datetime   ,&!< in  actual time step
         & pcos_mu0   = field%cosmu0_rad(:,jb)  ,&!< in  solar zenith angle
+        & geoi       = field%geoi(:,:,jb)      ,&!< geopotential wrt surface at layer interfaces
+        & geom       = field%geom(:,:,jb)      ,&!< geopotential wrt surface at layer centres
+        & oromea     = field%oromea(:,jb)      ,&!< mean orography in m
         & alb_vis_dir= field%albvisdir(:,jb)   ,&!< in  surface albedo for visible range, direct
         & alb_nir_dir= field%albnirdir(:,jb)   ,&!< in  surface albedo for near IR range, direct
         & alb_vis_dif= field%albvisdif(:,jb)   ,&!< in  surface albedo for visible range, diffuse
@@ -612,9 +614,13 @@ CONTAINS
         & pemiss     = ext_data(jg)%atm%emis_rad(:,jb),&! in    lw sfc emissivity
         & ptsfc      = field%tsfc_rad (:,jb)          ,&! in    rad. surface temperature now         [K]
         & ptsfctrad  = field%tsfc_radt(:,jb)          ,&! in    rad. surface temp. at last rad. step [K]
-        & ptrmsw     = field%swtrmall         (:,:,jb),&! in    shortwave net tranmissivity at last rad. step []
+        & jg         = jg                             ,&! in    domain index
+        & krow       = jb                             ,&! in    block index
+        & ptrmsw     = field%swtrmall         (:,:,jb),&! in    shortwave net transmissivity at last rad. step []
         & pflxlw     = field%lwflxall         (:,:,jb),&! in    longwave net flux at last rad. step [W/m2]
         & lwflx_up_sfc_rs = field%lwflxupsfc  (:,  jb),&! in    surface longwave upward flux at last rad. step [W/m2]
+        & ptrmswclr  = field%swtrmclr         (:,:,jb),&! in    shortwave net transmissivity at last rad. step clear sky []
+        & pflxlwclr  = field%lwflxclr         (:,:,jb),&! in    longwave net flux at last rad. step clear sky [W/m2]
         !
         ! output
         ! ------

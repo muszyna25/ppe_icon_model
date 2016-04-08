@@ -81,6 +81,7 @@ MODULE mo_psrad_radiation
 ! the present mo_orbit is different from the one in echam6
   USE mo_psrad_orbit,     ONLY: orbit_kepler, orbit_vsop87, &
                               & get_orbit_times
+  USE mo_psrad_orbit_nml, ONLY: read_psrad_orbit_namelist
   USE mo_psrad_radiation_parameters, ONLY: solar_parameters, &
                               & l_interp_rad_in_time,        &
                               & zepzen
@@ -132,6 +133,7 @@ MODULE mo_psrad_radiation
   USE mo_psrad_radiation_parameters, ONLY:                     &
 !!$                                     ldiur,                    &
 !!$                                     lradforcing,              &
+                                     irad_aero_forcing,        &
                                      l_interp_rad_in_time,     &
                                      zepzen,                   &
 !!$                                     lyr_perp,                 &
@@ -177,7 +179,7 @@ MODULE mo_psrad_radiation
                                      solar_parameters
 
 ! following module for diagnostic of radiative forcing only
-!  USE mo_radiation_forcing,ONLY: prepare_forcing
+  USE mo_psrad_radiation_forcing,ONLY: prepare_psrad_radiation_forcing
 
   USE mo_rrtm_params,   ONLY : nbndsw
 ! new to icon
@@ -186,6 +188,7 @@ MODULE mo_psrad_radiation
   USE mo_psrad_interface,ONLY : setup_psrad, psrad_interface, &
                                 lw_strat, sw_strat
   USE mo_psrad_spec_sampling, ONLY : set_spec_sampling_lw, set_spec_sampling_sw, get_num_gpoints
+  USE mo_psrad_orbit_config,  ONLY : psrad_orbit_config
 
   IMPLICIT NONE
   
@@ -227,7 +230,7 @@ MODULE mo_psrad_radiation
     REAL(wp) :: solcm
     LOGICAL  :: l_orbvsop87
 
-    l_orbvsop87 = .TRUE.
+    l_orbvsop87 = psrad_orbit_config%l_orbvsop87
 
     !
     ! 1.0 Compute orbital parameters for current time step
@@ -401,12 +404,15 @@ MODULE mo_psrad_radiation
     CHARACTER(len=*), INTENT(IN)      :: file_name
     INTEGER :: istat, funit
 
-    NAMELIST /psrad_nml/ lradforcing, &
-                       & lw_gpts_ts,  &
-                       & lw_spec_samp,&
-                       & rad_perm,    &
-                       & sw_gpts_ts,  &
+    NAMELIST /psrad_nml/ lradforcing,       &
+                       & irad_aero_forcing, &
+                       & lw_gpts_ts,        &
+                       & lw_spec_samp,      &
+                       & rad_perm,          &
+                       & sw_gpts_ts,        &
                        & sw_spec_samp
+    ! 0.9 Read psrad_orbit namelist
+    CALL read_psrad_orbit_namelist(file_name)
     !
     ! 1.0 Read psrad_nml namelist 
     ! --------------------------------
@@ -737,14 +743,15 @@ MODULE mo_psrad_radiation
       ELSE
         CALL message('','ldiur =.FALSE. --> diurnal cycle off')
       ENDIF
-!!$      !
-!!$      ! --- Check for diagnosis of instantaneous aerosol radiative forcing
-!!$      ! 
-!!$      CALL message('','instantaneous forcing diagnostic:')
-!!$      WRITE (message_text,'(a16,L3,a18,L3)')       &
-!!$           ' solar radiation: ',   lradforcing(1), &
-!!$           ' thermal radiation: ', lradforcing(2)
-!!$      CALL message('',message_text)
+      !
+      ! --- Check for diagnosis of instantaneous aerosol radiative forcing
+      ! 
+      CALL message('','instantaneous forcing diagnostic:')
+      WRITE (message_text,'(a18,L3,a20,L3,a39,I3)')       &
+           ' solar radiation: ',   lradforcing(1), &
+           ' thermal radiation: ', lradforcing(2), &
+           ' irad_aero_forcing for reference aerosols: ', irad_aero_forcing
+      CALL message('',message_text)
       !
       ! --- Check perpetual orbit
       ! 
@@ -793,7 +800,11 @@ MODULE mo_psrad_radiation
     & ktype      ,&!< in  type of convection
     & loland     ,&!< in  land-sea mask. (1. = land, 0. = sea/lakes)
     & loglac     ,&!< in  fraction of land covered by glaciers
+    & datetime   ,&!< in  actual time step
     & pcos_mu0   ,&!< in  cosine of solar zenith angle
+    & geoi       ,&!< in  geopotential wrt surface at layer interfaces
+    & geom       ,&!< in  geopotential wrt surface at layer centres
+    & oromea     ,&!< in  orography in m
     & alb_vis_dir,&!< in  surface albedo for visible range, direct
     & alb_nir_dir,&!< in  surface albedo for near IR range, direct
     & alb_vis_dif,&!< in  surface albedo for visible range, diffuse
@@ -837,8 +848,13 @@ MODULE mo_psrad_radiation
     & loland(kbdim),     & !< land mask
     & loglac(kbdim)        !< glacier mask
 
+    TYPE(t_datetime), INTENT(in) :: datetime !< actual time step
+
     REAL(wp), INTENT(IN) :: &
     & pcos_mu0(kbdim),   & !< cosine of solar zenith angle
+    & geoi(kbdim,klevp1),& !< geopotential wrt surface at layer interfaces
+    & geom(kbdim,klev),  & !< geopotential wrt surface at layer centres
+    & oromea(kbdim),     & !< orography in m
     & alb_vis_dir(kbdim),& !< surface albedo for visible range and direct light
     & alb_nir_dir(kbdim),& !< surface albedo for NIR range and direct light
     & alb_vis_dif(kbdim),& !< surface albedo for visible range and diffuse light
@@ -1001,18 +1017,19 @@ MODULE mo_psrad_radiation
 
     DO i_rad_call = 1,number_rad_call
       iaero_call = iaero
-      IF (i_rad_call < number_rad_call) iaero_call = 0
+      IF (i_rad_call < number_rad_call) iaero_call = irad_aero_forcing
 
       CALL psrad_interface( jg,       &
            & iaero_call      ,kproma          ,kbdim           ,klev            ,& 
            & jb              ,ktrac           ,ktype           ,nb_sw           ,&
-           & loland          ,loglac          ,cemiss          ,cos_mu0         ,&
-           & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif                      ,&
-           & alb_nir_dif     ,pp_fl           ,pp_hl           ,pp_sfc          ,&
-           & tk_fl           ,tk_hl           ,tk_sfc          ,xq_vap          ,&
-           & xq_liq          ,xq_ice          ,cdnc            ,xc_frc          ,&
-           & xm_o3           ,xm_co2          ,xm_ch4                           ,&
-           & xm_n2o          ,xm_cfc          ,xm_o2           ,&!!$pxtm1           ,&
+           & loland          ,loglac          ,cemiss          ,datetime        ,&
+           & cos_mu0         ,geoi            ,geom            ,oromea          ,&
+           & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
+           & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
+           & tk_hl           ,tk_sfc          ,xq_vap          ,xq_liq          ,&
+           & xq_ice          ,cdnc            ,xc_frc          ,xm_o3           ,&
+           & xm_co2          ,xm_ch4          ,xm_n2o          ,xm_cfc          ,&
+           & xm_o2           ,&!!$pxtm1           ,&
            & flx_uplw        ,flx_uplw_clr    ,flx_dnlw        ,flx_dnlw_clr    ,&
            & flx_upsw        ,flx_upsw_clr    ,flx_dnsw        ,flx_dnsw_clr    ,&
            & vis_frc_sfc     ,par_dn_sfc      ,nir_dff_frc     ,vis_dff_frc     ,&
@@ -1031,9 +1048,9 @@ MODULE mo_psrad_radiation
            &                      SPREAD(flux_factor(1:kproma),2,klevp1)
       par_dn_sfc(1:kproma) = par_dn_sfc(1:kproma) * flux_factor(1:kproma)
 
-!!$      IF (i_rad_call < number_rad_call) CALL prepare_forcing(                & 
-!!$           & kproma          ,kbdim           ,klevp1          ,jb          ,&
-!!$           & lw_net          ,sw_net          ,lw_net_clr      ,sw_net_clr   )
+      IF (i_rad_call < number_rad_call) CALL prepare_psrad_radiation_forcing(jg, & 
+           & kproma          ,kbdim           ,klevp1          ,jb          ,&
+           & lw_net          ,sw_net          ,lw_net_clr      ,sw_net_clr   )
     END DO
     !
     ! 2.1 Fluxes to advance to the model, compute cloud radiative effect 

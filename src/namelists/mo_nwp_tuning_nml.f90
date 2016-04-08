@@ -39,6 +39,9 @@ MODULE mo_nwp_tuning_nml
     &                               config_tune_rhebc_land  => tune_rhebc_land,  &  
     &                               config_tune_rhebc_ocean => tune_rhebc_ocean, &  
     &                               config_tune_rcucov      => tune_rcucov,      &  
+    &                               config_tune_rhebc_land_trop  => tune_rhebc_land_trop,  &  
+    &                               config_tune_rhebc_ocean_trop => tune_rhebc_ocean_trop, &  
+    &                               config_tune_rcucov_trop      => tune_rcucov_trop,      &  
     &                               config_tune_texc        => tune_texc,        &  
     &                               config_tune_qexc        => tune_qexc,        &  
     &                               config_tune_minsnowfrac => tune_minsnowfrac, &  
@@ -89,6 +92,15 @@ MODULE mo_nwp_tuning_nml
   REAL(wp) :: &                    !< Convective area fraction
     &  tune_rcucov
 
+  REAL(wp) :: &                    !< RH threshold for onset of evaporation below cloud base over tropical land
+    &  tune_rhebc_land_trop        !  (relevant only if smaller than rhebc_land)
+
+  REAL(wp) :: &                    !< RH threshold for onset of evaporation below cloud base over tropical sea
+    &  tune_rhebc_ocean_trop       !  (relevant only if smaller than rhebc_ocean)
+
+  REAL(wp) :: &                    !< Convective area fraction in the tropics
+    &  tune_rcucov_trop            !  (relevant only if smaller than rcucov)
+
   REAL(wp) :: &                    !< Excess value for temperature used in test parcel ascent
     &  tune_texc
 
@@ -114,7 +126,8 @@ MODULE mo_nwp_tuning_nml
     &                      tune_entrorg, itune_albedo, max_freshsnow_inc,   &
     &                      tune_capdcfac_et, tune_box_liq, tune_rhebc_land, &
     &                      tune_rhebc_ocean, tune_rcucov, tune_texc,        &
-    &                      tune_qexc, tune_minsnowfrac
+    &                      tune_qexc, tune_minsnowfrac,tune_rhebc_land_trop,&
+    &                      tune_rhebc_ocean_trop, tune_rcucov_trop
 
 CONTAINS
 
@@ -167,7 +180,7 @@ CONTAINS
     tune_zvz0i      = 1.25_wp      ! original value of Heymsfield+Donner 1990: 3.29
     !
     ! convection
-    tune_entrorg     = 1.825e-3_wp  ! entrainment parameter for deep convection valid at dx=20 km
+    tune_entrorg     = 1.85e-3_wp   ! entrainment parameter for deep convection valid at dx=20 km
     tune_capdcfac_et = 0.0_wp       ! fraction of CAPE diurnal cycle correction applied in the extratropics
     tune_rhebc_land  = 0.75_wp      ! RH threshold for onset of evaporation below cloud base over land (original IFS value 0.7)
     tune_rhebc_ocean = 0.85_wp      ! RH threshold for onset of evaporation below cloud base over sea (original IFS value 0.9)
@@ -175,6 +188,12 @@ CONTAINS
     tune_texc        = 0.125_wp     ! Excess value for temperature used in test parcel ascent (K) (original IFS value 0.2 K)
     tune_qexc        = 1.25e-2_wp   ! Excess fraction of grid-scale QV used in test parcel ascent (original IFS value 0.1 g/kg 
                                     ! independent of grid-scale QV))
+
+    ! The following switches allow separate tuning for evaporation below cloud base in the tropics
+    tune_rhebc_land_trop  = 0.70_wp
+    tune_rhebc_ocean_trop = 0.80_wp
+    tune_rcucov_trop      = 0.05_wp
+
     !
     ! snow cover diagnosis
     tune_minsnowfrac = 0.125_wp     ! Minimum value to which the snow cover fraction is artificially reduced
@@ -230,24 +249,26 @@ CONTAINS
     ! 5. Fill the configuration state
     !----------------------------------------------------
 
-    config_tune_gkwake       = tune_gkwake
-    config_tune_gkdrag       = tune_gkdrag
-    config_tune_gfluxlaun    = tune_gfluxlaun
-    config_tune_zceff_min    = tune_zceff_min 
-    config_tune_v0snow       = tune_v0snow
-    config_tune_zvz0i        = tune_zvz0i
-    config_tune_entrorg      = tune_entrorg
-    config_tune_capdcfac_et  = tune_capdcfac_et
-    config_tune_rhebc_land   = tune_rhebc_land
-    config_tune_rhebc_ocean  = tune_rhebc_ocean
-    config_tune_rcucov       = tune_rcucov
-    config_tune_texc         = tune_texc
-    config_tune_qexc         = tune_qexc
-    config_tune_minsnowfrac  = tune_minsnowfrac
-    config_tune_box_liq      = tune_box_liq
-    config_itune_albedo      = itune_albedo
-    config_max_freshsnow_inc = max_freshsnow_inc
-
+    config_tune_gkwake           = tune_gkwake
+    config_tune_gkdrag           = tune_gkdrag
+    config_tune_gfluxlaun        = tune_gfluxlaun
+    config_tune_zceff_min        = tune_zceff_min 
+    config_tune_v0snow           = tune_v0snow
+    config_tune_zvz0i            = tune_zvz0i
+    config_tune_entrorg          = tune_entrorg
+    config_tune_capdcfac_et      = tune_capdcfac_et
+    config_tune_rhebc_land       = tune_rhebc_land
+    config_tune_rhebc_ocean      = tune_rhebc_ocean
+    config_tune_rcucov           = tune_rcucov
+    config_tune_rhebc_land_trop  = tune_rhebc_land_trop
+    config_tune_rhebc_ocean_trop = tune_rhebc_ocean_trop
+    config_tune_rcucov_trop      = tune_rcucov_trop
+    config_tune_texc             = tune_texc
+    config_tune_qexc             = tune_qexc
+    config_tune_minsnowfrac      = tune_minsnowfrac
+    config_tune_box_liq          = tune_box_liq
+    config_itune_albedo          = itune_albedo
+    config_max_freshsnow_inc     = max_freshsnow_inc
 
 
     !-----------------------------------------------------

@@ -64,7 +64,7 @@ MODULE mo_radiation
     &                                irad_cfc12, vmr_cfc12,   &
     &                                irad_aero,               &
     &                                lrad_aero_diag,          &
-    &                                izenith
+    &                                izenith, lradforcing
   USE mo_lnd_nwp_config,       ONLY: isub_seaice, isub_lake
 
   USE mo_newcld_optics,        ONLY: newcld_optics
@@ -89,6 +89,8 @@ MODULE mo_radiation
 
   USE mo_nh_testcases_nml,     ONLY: zenithang
   USE mo_rad_diag,             ONLY: rad_aero_diag
+  USE mo_art_radiation_interface, ONLY: art_rad_aero_interface
+  USE mo_psrad_radiation_forcing, ONLY: calculate_psrad_radiation_forcing
 
   IMPLICIT NONE
 
@@ -147,8 +149,6 @@ CONTAINS
 
     INTEGER , SAVE :: itaja_zsct_previous = 0
 
-    ie = kbdim
-
     IF (izenith == 0) THEN
     ! local insolation = constant = global mean insolation (ca. 340 W/m2)
     ! zenith angle = 0,
@@ -200,7 +200,6 @@ CONTAINS
           &   nactday        = itaja,          &
           &   acthour        = zstunde )
 
-        ie = kbdim
         DO jb = 1, pt_patch%nblks_c
           ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
 
@@ -219,18 +218,14 @@ CONTAINS
 
       ENDDO!jmu0
 
-      ie = kbdim
-
       DO jb = 1, pt_patch%nblks_c
 
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
 
+!DIR$ SIMD
         DO jc = 1,ie
-          IF ( n_cosmu0pos(jc,jb) > 0 ) THEN
-            zsmu0(jc,jb) = SQRT(zsmu0(jc,jb)/REAL(n_cosmu0pos(jc,jb),wp))
-          ELSE
-            zsmu0(jc,jb) = cosmu0_dark
-          ENDIF
+          zsmu0(jc,jb) = MERGE(SQRT(zsmu0(jc,jb)/REAL(n_cosmu0pos(jc,jb),wp)), &
+               cosmu0_dark, n_cosmu0pos(jc,jb) > 0)
         ENDDO
 
       ENDDO !jb
@@ -287,9 +282,8 @@ CONTAINS
 
         zeit0   = pi*(zstunde-12._wp)/12._wp + zdtzgl
 
-        ie = kbdim
         DO jb = 1, pt_patch%nblks_c
-          IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+          ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
 
           zsinphi(1:ie,jb)      = SIN (pt_patch%cells%center(1:ie,jb)%lat)
           zcosphi(1:ie,jb)      = SQRT(1.0_wp - zsinphi(1:ie,jb)**2)
@@ -308,10 +302,9 @@ CONTAINS
 
       ENDDO !jmu0
 
-      ie = kbdim
       DO jb = 1, pt_patch%nblks_c
 
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
 
         DO jc = 1,ie
           IF ( n_cosmu0pos(jc,jb) > 0 ) THEN
@@ -341,7 +334,7 @@ CONTAINS
      ! the product tsi*cos(zenith angle) should equal 340 W/m2
      ! see Popke et al. 2013 and Cronin 2013
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = COS(zenithang*pi/180._wp)
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt ! no rescale tsi was adjstd in atm_phy_nwp w ssi_rce
@@ -389,14 +382,12 @@ CONTAINS
     INTEGER , SAVE :: itaja_zsct_previous = 0
     REAL(wp), SAVE :: zsct_save
 
-    ie = kbdim
-
     !First: cases izenith==0 to izenith==2 (no date and time needed)
     IF (izenith == 0) THEN
      ! for testing: provisional setting of cos(zenith angle) and TSI
      ! The global mean insolation is TSI/4 (ca. 340 W/m2)
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = 1._wp ! sun in zenith everywhere
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt/4._wp ! scale ztsi to get the correct global mean insolation
@@ -405,7 +396,7 @@ CONTAINS
       ! circular non-seasonal orbit, zenith angle dependent on latitude only,
       ! no diurnal cycle (always at 12:00 local time --> sin(time of day)=1 )
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat )
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt/pi ! because sun is always in local noon, the TSI needs to be
@@ -415,7 +406,7 @@ CONTAINS
       ! circular non-seasonal orbit, no diurnal cycle
       ! at 07:14:15 or 16:45:45 local time (--> sin(time of day)=1/pi )
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat ) * rpi
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt
@@ -1443,6 +1434,14 @@ CONTAINS
           ENDDO
         ENDDO
       ENDDO
+    CASE (9)
+      CALL art_rad_aero_interface(zaeq1,zaeq2,zaeq3,zaeq4,zaeq5, &
+        &                         zaea_rrtm,zaes_rrtm,zaeg_rrtm, &
+        &                         jg,jb,1,klev,1,jce,jpband,jpsw,&
+        &                         aer_tau_lw_vr,                 &
+        &                         aer_tau_sw_vr,                 &
+        &                         aer_piz_sw_vr,                 &
+        &                         aer_cg_sw_vr)
     CASE (13)
       CALL set_bc_aeropt_kinne( jg,                                  &
         & jce              ,kbdim                 ,klev             ,&
@@ -1585,7 +1584,7 @@ CONTAINS
          &  cld_piz_sw_vr   ,aer_tau_sw_vr   ,aer_cg_sw_vr    ,aer_piz_sw_vr   , & 
          &  rnseeds         ,sw_strat        ,n_gpts_ts       ,flx_dnsw        , &
          &  flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr    ,aux_out(:,1)    , &
-         &  aux_out(:,2)    ,aux_out(:,3)    ,aux_out(:,4)    ,aux_out(:,5)      )
+         &  flx_dnpar_sfc   ,aux_out(:,3)    ,aux_out(:,4)    ,aux_out(:,5)      )
       ! Reset solar fluxes to zero at dark points
       DO jl = 1, jce
         IF (pmu0(jl) <= 0._wp) THEN
@@ -1615,6 +1614,9 @@ CONTAINS
     flx_upsw_sfc(1:jce)     = flx_upsw(1:jce,klev+1)
     flx_upsw_sfc_clr(1:jce) = flx_upsw_clr(1:jce,klev+1)
     IF (PRESENT(flx_upsw_toa)) flx_upsw_toa(1:jce) = flx_upsw(1:jce,1)
+    IF (irad /= 1 .AND. PRESENT(flx_dnsw_diff_sfc))    &  ! approximate calculation!!
+      flx_dnsw_diff_sfc(1:jce) = flx_dnsw(1:jce,klev+1)*                            &
+      (aux_out(1:jce,1)*aux_out(1:jce,4) + (1._wp-aux_out(1:jce,1))*aux_out(1:jce,3))
 !!$    sw_irr_toa(1:jce)       = flx_dnsw(1:jce,1)
     !
     IF (ltimer) CALL timer_stop(timer_rrtm_post)
@@ -1675,8 +1677,12 @@ CONTAINS
     &                 cosmu0,          & ! optional: cosine of zenith angle
     &                 opt_nh_corr   ,  & ! optional: switch for applying corrections for NH model
     &                 use_trsolclr_sfc,& ! optional: use clear-sky surface transmissivity passed on input
+    &                 jg            ,  & ! optional: domain index
+    &                 krow          ,  & ! optional: block index
     &                 ptrmsw        ,  &
     &                 pflxlw        ,  &
+    &                 ptrmswclr     ,  & ! optional: shortwave net transmissivity at last rad. step clear sky []
+    &                 pflxlwclr     ,  & ! optional: longwave net flux at last rad. step clear sky [W/m2]
     &                 pdtdtradsw    ,  &
     &                 pdtdtradlw    ,  &
     &                 pflxsfcsw     ,  &
@@ -1733,6 +1739,14 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL   ::  &
       &     opt_nh_corr, use_trsolclr_sfc
 
+    INTEGER, INTENT(in), OPTIONAL   ::  &
+      &     jg,                         & ! index of domain
+      &     krow                          ! block index
+
+    REAL(wp), INTENT(in), OPTIONAL  ::  &
+      &     ptrmswclr   (kbdim,klevp1), & ! shortwave net transmissivity at last rad. step clear sky []
+      &     pflxlwclr   (kbdim,klevp1)    ! longwave net flux at last rad. step clear sky [W/m2]
+   
     REAL(wp), INTENT(inout) ::       &
       &     pdtdtradsw (kbdim,klev), & ! shortwave temperature tendency           [K/s]
       &     pdtdtradlw (kbdim,klev)    ! longwave temperature tendency            [K/s]
@@ -1756,6 +1770,8 @@ CONTAINS
     REAL(wp) ::                    &
       &     zflxsw (kbdim,klevp1), &
       &     zflxlw (kbdim,klevp1), &
+      &     zflxswclr(kbdim,klevp1),&
+      &     zflxlwclr(kbdim,klevp1),&
       &     zconv  (kbdim,klev)  , &
       &     tqv    (kbdim)       , &
       &     dlwem_o_dtg(kbdim)   , &
@@ -1764,6 +1780,7 @@ CONTAINS
       &     intclw (kbdim,klevp1), &
       &     intcli (kbdim,klevp1), &
       &     dlwflxall_o_dtg(kbdim,klevp1)
+    REAL(wp) :: dummy(kbdim,klevp1)
 
     REAL(wp) :: swfac1(kbdim), swfac2(kbdim), dflxsw_o_dalb(kbdim), trsolclr(kbdim), logtqv(kbdim)
 
@@ -1793,14 +1810,18 @@ CONTAINS
     ! Conversion factor for heating rates
     zconv(jcs:jce,1:klev) = 1._wp/(pmair(jcs:jce,1:klev)*(pcd+(pcv-pcd)*pqv(jcs:jce,1:klev)))
 
-    ! Shortwave fluxes = transmissivity * local solar incoming flux at TOA
-    ! ----------------
-    ! - TOA
-    zflxsw(jcs:jce,1)      = ptrmsw(jcs:jce,1)      *        pi0(jcs:jce)
-    ! - Atmosphere
-    zflxsw(jcs:jce,2:klev) = ptrmsw(jcs:jce,2:klev) * SPREAD(pi0(jcs:jce),2,klev-1)
-    ! - Surface
-    zflxsw(jcs:jce,klevp1) = ptrmsw(jcs:jce,klevp1) *        pi0(jcs:jce)
+    ! lev == 1        => TOA
+    ! lev in [2,klev] => Atmosphere
+    ! lev == klevp1   => Surface
+    DO jk = 1, klevp1
+      zflxsw(jcs:jce,jk)      = ptrmsw(jcs:jce,jk) * pi0(jcs:jce)
+    END DO
+    IF (lradforcing(1)) THEN
+      ! Shortwave fluxes clear sky = transmissivity clear sky * local solar incoming flux at TOA
+      DO jk = 1, klevp1
+        zflxswclr(jcs:jce,jk)  = ptrmswclr(jcs:jce,jk)*pi0(jcs:jce)
+      END DO
+    END IF
     ! Longwave fluxes
     ! - TOA
 !    zflxlw(jcs:jce,1)      = pflxlw(jcs:jce,1)
@@ -1837,11 +1858,8 @@ CONTAINS
         lwfac2(jc) = 0.92_wp*EXP(-0.07_wp*logtqv(jc))
       ENDDO
       DO jc = jcs, jce
-        IF (tqv(jc) > 15._wp) then
-          lwfac1(jc) = 1.677_wp*EXP(-0.72_wp*logtqv(jc))
-        ELSE
-          lwfac1(jc) = 0.4388_wp*EXP(-0.225_wp*logtqv(jc))
-        ENDIF
+        lwfac1(jc) = MERGE(1.677_wp, 0.4388_wp, tqv(jc) > 15._wp) &
+             * EXP(MERGE(-0.72_wp, -0.225_wp, tqv(jc) > 15._wp) *logtqv(jc))
       ENDDO
 
       DO jk = 1,klevp1
@@ -1971,7 +1989,24 @@ CONTAINS
 !!$      zflxlw(jcs:jce,klevp1) = pflxlw(jcs:jce,klevp1)                      &
 !!$        &                   + pemiss(jcs:jce)*stbo * ptsfctrad(jcs:jce)**4 &
 !!$        &                   - pemiss(jcs:jce)*stbo * ptsfc    (jcs:jce)**4
+      IF (lradforcing(2)) THEN
+        ! Longwave fluxes clear sky: For now keep fluxes fixed at TOA and in atmosphere,
+        ! but adjust flux from surface to the current surface temperature.
+        ! - TOA
+        zflxlwclr(jcs:jce,1)      = pflxlwclr(jcs:jce,1)
+        ! - Atmosphere
+        zflxlwclr(jcs:jce,2:klev) = pflxlwclr(jcs:jce,2:klev)
 
+        ! - Surface
+        !   Adjust net sfc longwave radiation for changed surface temperature (ptsfc) with respect to the
+        !   surface temperature used for the longwave flux computation (ptsfctrad).
+        !   --> modifies heating in lowermost layer only (is this smart?)
+        !   This assumes that downward sfc longwave radiation is constant between radiation time steps and
+        !   upward and net sfc longwave radiation are updated between radiation time steps
+        dlwem_o_dtg(jcs:jce) = pemiss(jcs:jce)*4._wp*stbo*ptsfc(jcs:jce)**3    ! Derivative of upward sfc rad wrt to sfc temperature
+        zflxlwclr(jcs:jce,klevp1) = pflxlwclr(jcs:jce,klevp1)                & ! Net longwave sfc rad at radiation time step
+        & - dlwem_o_dtg(jcs:jce) * (ptsfc(jcs:jce) - ptsfctrad(jcs:jce))       ! Correction for new sfc temp between radiation time steps
+      END IF
 
     ENDIF
 
@@ -1996,6 +2031,26 @@ CONTAINS
     IF ( PRESENT(pflxtoasw) ) pflxtoasw(jcs:jce) = zflxsw(jcs:jce,1)
     IF ( PRESENT(pflxtoalw) ) pflxtoalw(jcs:jce) = zflxlw(jcs:jce,1)
 
+! Calculate radiative forcing
+    IF (lradforcing(1).OR.lradforcing(2)) THEN
+      zconv(jcs:jce,1:klev) = 1._wp/(pmair(jcs:jce,1:klev)*(pcd+(pcv-pcd)*pqv(jcs:jce,1:klev)))
+      CALL calculate_psrad_radiation_forcing( &
+                  & jg=jg,                    &
+                  & jcs=jcs,                  &
+                  & jce=jce,                  &
+                  & kbdim=kbdim,              &
+                  & klevp1=klevp1,            &
+                  & krow=krow,                &       
+                  & pi0=pi0,                  &
+                  & pconvfact=zconv,          &
+                  & pflxs=zflxsw,             &
+                  & pflxs0=zflxswclr,         &
+                  & pflxt=zflxlw,             &
+                  & pflxt0=zflxlwclr,         &   
+                  & pemiss=pemiss,            &
+                  & ptsfctrad=ptsfctrad,      &
+                  & pztsnew=ptsfc             )
+   END IF
 
   END SUBROUTINE radheat
 

@@ -38,14 +38,14 @@ MODULE mo_nwp_phy_init
   USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, zml_soil, io3_ape,  &
     &                               MODE_COMBINED, MODE_IFSANA, icosmo, ismag,      &
     &                               igme, iedmf, SUCCESS, MAX_CHAR_LENGTH,          &
-    &                               MODE_COSMODE
+    &                               MODE_COSMODE, iss, iorg, ibc, iso4, idu
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ltestcase, iqv, iqc, iqr, iqi, iqs, iqg, iqnc,  &
     &                               iqnr, iqni, iqns, iqng, inccn, ininpot, msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, lrtm_filename,              &
-    &                               cldopt_filename, icpl_aero_conv
+    &                               cldopt_filename, icpl_aero_conv, iprog_aero
   !radiation
   USE mo_newcld_optics,       ONLY: setup_newcld_optics
   USE mo_lrtm_setup,          ONLY: lrtm_setup
@@ -73,7 +73,7 @@ MODULE mo_nwp_phy_init
   USE mo_mcrph_sb,            ONLY: two_moment_mcrph_init,       &
     &                               set_qnc, set_qnr, set_qni,   &
     &                               set_qns, set_qng
-  USE mo_art_clouds_interface,ONLY: art_clouds_interface_twomom_init
+  USE mo_art_clouds_interface,ONLY: art_clouds_interface_2mom_init
   USE mo_cpl_aerosol_microphys, ONLY: lookupcreate_segalkhain, specccn_segalkhain_simple, &
                                       ncn_from_tau_aerosol_speccnconst
 
@@ -153,7 +153,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
   REAL(wp)            :: pref(p_patch%nlev)
   REAL(wp)            :: zlat, zprat, zn1, zn2, zcdnc
   REAL(wp)            :: zpres
-  REAL(wp)            :: gz0(nproma)
+  REAL(wp)            :: gz0(nproma), l_hori(nproma)
   REAL(wp)            :: scale_fac ! scale factor used only for RCE cases
 
   CHARACTER(len=16)   :: cur_date     ! current date (iso-Format)
@@ -174,7 +174,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
   REAL(wp), ALLOCATABLE :: zpres_sfc(:,:)    ! ref sfc press
   REAL(wp), ALLOCATABLE :: zpres_ifc(:,:,:)  ! ref press at interfaces
 
-  LOGICAL :: lland, lglac
+  LOGICAL :: lland, lglac, lshallow
   LOGICAL :: ltkeinp_loc, lgz0inp_loc  !< turbtran switches
   LOGICAL :: linit_mode, lturb_init
 
@@ -564,7 +564,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
   CASE (4) !two moment micrphysics
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics: two-moment')
 
-    IF (jg == 1) CALL two_moment_mcrph_init( msg_level=msg_level )
+    IF (jg == 1) CALL two_moment_mcrph_init(igscp=atm_phy_nwp_config(jg)%inwp_gscp, msg_level=msg_level )
 
     IF (linit_mode) THEN ! Initial condition for number densities
 !$OMP PARALLEL
@@ -589,7 +589,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
   CASE (5) !two moment micrphysics
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics: two-moment')
 
-    IF (jg == 1) CALL two_moment_mcrph_init(N_cn0,z0_nccn,z1e_nccn,N_in0,z0_nin,z1e_nin,msg_level)
+    IF (jg == 1) CALL two_moment_mcrph_init(atm_phy_nwp_config(jg)%inwp_gscp,&
+         &                                  N_cn0,z0_nccn,z1e_nccn,N_in0,z0_nin,z1e_nin,msg_level)
 
     IF (linit_mode) THEN ! Initial condition for number densities
 !$OMP PARALLEL
@@ -641,7 +642,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
            ! and chemical composition taken from the ART extension
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics: ART two-moment')
 
-    IF (jg == 1) CALL art_clouds_interface_twomom_init(msg_level=msg_level)
+    IF (jg == 1) CALL art_clouds_interface_2mom_init(msg_level)
 
     IF (linit_mode) THEN ! Initial condition for number densities
 !$OMP PARALLEL
@@ -651,6 +652,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
                &                i_startidx, i_endidx, rl_start, rl_end)
           DO jk=1,nlev
              DO jc=i_startidx,i_endidx
+                p_prog_now%tracer(jc,jk,jb,iqnc) = set_qnc(p_prog_now%tracer(jc,jk,jb,iqc))
                 p_prog_now%tracer(jc,jk,jb,iqnr) = set_qnr(p_prog_now%tracer(jc,jk,jb,iqr))
                 p_prog_now%tracer(jc,jk,jb,iqni) = set_qni(p_prog_now%tracer(jc,jk,jb,iqi))
                 p_prog_now%tracer(jc,jk,jb,iqns) = set_qns(p_prog_now%tracer(jc,jk,jb,iqs))
@@ -678,7 +680,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
     SELECT CASE ( irad_aero )
     ! Note (GZ): irad_aero=2 does no action but is the default in radiation_nml
     ! and therefore should not cause the model to stop
-    CASE (0,2,5,6)
+    CASE (0,2,5,6,9)
       !ok
     CASE DEFAULT
       CALL finish('mo_nwp_phy_init: init_nwp_phy',  &
@@ -849,7 +851,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
         & aerurb   = prm_diag%aerurb,        & !out
         & aerdes   = prm_diag%aerdes )         !out
 
-    ELSEIF ( irad_aero == 6 ) THEN
+    ELSEIF ( irad_aero == 6 .OR. irad_aero == 9) THEN
 
       CALL init_aerosol_props_tegen_rrtm
 
@@ -872,7 +874,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
     ! Note (GZ): irad_aero=2 does no action but is the default in radiation_nml
     ! and therefore should not cause the model to stop
     SELECT CASE ( irad_aero )
-    CASE (0,2,5,6)
+    CASE (0,2,5,6,9)
       !ok
     CASE DEFAULT
       CALL finish('mo_nwp_phy_init: init_nwp_phy',  &
@@ -917,7 +919,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
         & aerurb   = prm_diag%aerurb,        & !out
         & aerdes   = prm_diag%aerdes )         !out
 
-    ELSEIF ( irad_aero == 6 ) THEN
+    ELSEIF ( irad_aero == 6 .OR. irad_aero == 9) THEN
 
       CALL init_aerosol_props_tegen_rg
 
@@ -1010,7 +1012,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init convection')
 
     ! Please take care for scale-dependent initializations!
-    ! Spectral resolution corresponding to ICON
+    ! rsltn = Average mesh size of ICON grid
     ! needed for RTAU - CAPE calculation
     ! adapted for more general gemoetries
     rsltn = p_patch%geometry_info%mean_characteristic_length
@@ -1019,8 +1021,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
 !    WRITE(message_text,'(i3,i10,f20.10)') jg, nsmax, phy_params%mean_charlen
 !    CALL message('nwp_phy_init, nsmax=', TRIM(message_text))
 
-
-    CALL sucumf(rsltn,nlev,pref,phy_params)
+    lshallow = atm_phy_nwp_config(jg)%lshallowconv_only
+    CALL sucumf(rsltn,nlev,pref,phy_params,lshallow)
     CALL suphli
     CALL suvdf
     CALL suvdfs
@@ -1210,7 +1212,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx,ic,jc,jt, &
-!$OMP            ltkeinp_loc,lgz0inp_loc,nlevcm) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP            ltkeinp_loc,lgz0inp_loc,nlevcm,l_hori) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -1238,20 +1240,26 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
         ENDDO
       ENDIF
 
+      l_hori(i_startidx:i_endidx)=phy_params%mean_charlen
 
       nlevcm = nlevp1
 
+!MR: There should be an initialization for each tile, or the initialization can be
+!    executed for 'turbtran' and 'turbdiff' within a single CALL of 'organize_turbdiff'!
+
       ! turbtran
-      CALL organize_turbdiff( lstfnct=.TRUE., &
-        &  lturatm=.FALSE., ltursrf=.TRUE., iini=1, &
-        &  ltkeinp=ltkeinp_loc, lgz0inp=lgz0inp_loc, &
-        &  lmomdif=.FALSE., lscadif=.FALSE., itnd=0, &
+      CALL organize_turbdiff( &
+        &  iini=1, lturatm=.FALSE., ltursrf=.TRUE. , lstfnct=.TRUE. ,         & !only surface-layer turbulence
+        &          lnsfdia=.TRUE. , ltkeinp=ltkeinp_loc, lgz0inp=lgz0inp_loc, & !including near-surface diagnostics
+        &  itnd=0, lum_dif=.FALSE., lvm_dif=.FALSE., lscadif=.FALSE.,         & !and surface-flux calculations
+        &          lsrflux=.TRUE. , lsfluse=.FALSE., lqvcrst=.FALSE.,         & !but without vertical diffusion calculation
+!
         &  dt_var=atm_phy_nwp_config(jg)%dt_fastphy, &
         &  dt_tke=atm_phy_nwp_config(jg)%dt_fastphy, &
         &  nprv=1, ntur=1, ntim=1, &
         &  ie=nproma, ke=nlev, ke1=nlevp1, kcm=nlevcm, &
         &  i_st=i_startidx, i_en=i_endidx, i_stp=i_startidx, i_enp=i_endidx, &
-        &  l_hori=phy_params%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb), &
+        &  l_hori=l_hori, hhl=p_metrics%z_ifc(:,:,jb), &
         &  dp0=p_diag%dpres_mc(:,:,jb), &
         &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &
         &  h_ice=p_prog_wtr_now%h_ice(:,jb), gz0=prm_diag%gz0(:,jb), &
@@ -1262,9 +1270,10 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
         &  t=p_diag%temp(:,:,jb), prs=p_diag%pres(:,:,jb), &
         &  qv=p_prog_now%tracer(:,:,jb,iqv), qc=p_prog_now%tracer(:,:,jb,iqc), &
         &  tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb), &
+        &  tvm=prm_diag%tvm(:,jb), tvh=prm_diag%tvh(:,jb), tkr=prm_diag%tkr(:,jb), &
         &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb), &
         &  tke=p_prog_now%tke(:,:,jb), &
-        &  tkvm=prm_diag%tkvm(:,2:nlevp1,jb), tkvh=prm_diag%tkvh(:,2:nlevp1,jb), &
+        &  tkvm=prm_diag%tkvm(:,:,jb), tkvh=prm_diag%tkvh(:,:,jb), &
         &  rcld=prm_diag%rcld(:,:,jb), &
         &  t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb), &
         &  td_2m=prm_diag%td_2m(:,jb), rh_2m=prm_diag%rh_2m(:,jb), &
@@ -1277,16 +1286,18 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
 
 
       ! turbdiff
-      CALL organize_turbdiff( lstfnct=.TRUE., lsfluse=lsflcnd, &
-        &  lturatm=.TRUE., ltursrf=.FALSE., iini=1, &
-        &  ltkeinp=ltkeinp_loc, lgz0inp=lgz0inp_loc, &
-        &  lmomdif=.TRUE., lscadif=.TRUE., itnd=0, &
+      CALL organize_turbdiff( &
+        &  iini=1, lturatm=.TRUE. , ltursrf=.FALSE., lstfnct=.TRUE. ,         & !atmosph. turbulence and vertical diffusion
+        &          lnsfdia=.FALSE., ltkeinp=ltkeinp_loc, lgz0inp=lgz0inp_loc, & !but no surface-layer turbulence (turbtran)
+        &  itnd=0, lum_dif=.TRUE. , lvm_dif=.TRUE. , lscadif=.TRUE. ,         & !and thus (implicitly) neither surface-layer diagn.
+        &          lsrflux=.FALSE., lsfluse=lsflcnd, lqvcrst=.FALSE.,         & !nor surface-flux calculation (both in turbtran)
+!MR: turbulent diffusion can be switched off for initialization!
         &  dt_var=atm_phy_nwp_config(jg)%dt_fastphy, &
         &  dt_tke=atm_phy_nwp_config(jg)%dt_fastphy, &
         &  nprv=1, ntur=1, ntim=1, &
         &  ie=nproma, ke=nlev, ke1=nlevp1, kcm=nlevcm, &
         &  i_st=i_startidx, i_en=i_endidx, i_stp=i_startidx, i_enp=i_endidx, &
-        &  l_hori=phy_params%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb), &
+        &  l_hori=l_hori, hhl=p_metrics%z_ifc(:,:,jb), &
         &  dp0=p_diag%dpres_mc(:,:,jb), &
         &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &
         &  h_ice=p_prog_wtr_now%h_ice(:,jb), gz0=prm_diag%gz0(:,jb), &
@@ -1300,9 +1311,10 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
         &  qv=p_prog_now%tracer(:,:,jb,iqv), qc=p_prog_now%tracer(:,:,jb,iqc), &
 !         &  ptr=???, &  ! for the diffusion of additional tracer variables!
         &  tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb), &
+        &  tvm=prm_diag%tvm(:,jb), tvh=prm_diag%tvh(:,jb), &
         &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb), &
         &  tke=p_prog_now%tke(:,:,jb), &
-        &  tkvm=prm_diag%tkvm(:,2:nlevp1,jb), tkvh=prm_diag%tkvh(:,2:nlevp1,jb), &
+        &  tkvm=prm_diag%tkvm(:,:,jb), tkvh=prm_diag%tkvh(:,:,jb), &
         &  rcld=prm_diag%rcld(:,:,jb), &
         &  u_tens=prm_nwp_tend%ddt_u_turb(:,:,jb), &
         &  v_tens=prm_nwp_tend%ddt_v_turb(:,:,jb), &
@@ -1325,6 +1337,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
         prm_diag%tvs_s_t (:,jb,jt) = p_prog_now%tke(:,nlevp1,jb)  !here: SQRT(2*TKE)
         prm_diag%tkvm_s_t(:,jb,jt) = prm_diag%tkvm(:,nlevp1,jb)
         prm_diag%tkvh_s_t(:,jb,jt) = prm_diag%tkvh(:,nlevp1,jb)
+        prm_diag%tkr_t   (:,jb,jt) = prm_diag%tkr(:,jb)
       ENDDO
 
 
@@ -1462,25 +1475,27 @@ END SUBROUTINE init_nwp_phy
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+ 
+      IF (iprog_aero == 0) THEN
+        DO jc = i_startidx, i_endidx
 
-      DO jc = i_startidx, i_endidx
+          prm_diag%aerosol(jc,iss,jb) = ext_data%atm_td%aer_ss(jc,jb,imo1) + &
+            ( ext_data%atm_td%aer_ss(jc,jb,imo2)   - ext_data%atm_td%aer_ss(jc,jb,imo1)   ) * wgt
+          prm_diag%aerosol(jc,iorg,jb) = ext_data%atm_td%aer_org(jc,jb,imo1) + &
+            ( ext_data%atm_td%aer_org(jc,jb,imo2)  - ext_data%atm_td%aer_org(jc,jb,imo1)  ) * wgt
+          prm_diag%aerosol(jc,ibc,jb) = ext_data%atm_td%aer_bc(jc,jb,imo1) + &
+            ( ext_data%atm_td%aer_bc(jc,jb,imo2)   - ext_data%atm_td%aer_bc(jc,jb,imo1)   ) * wgt
+          prm_diag%aerosol(jc,iso4,jb) = ext_data%atm_td%aer_so4(jc,jb,imo1) + &
+            ( ext_data%atm_td%aer_so4(jc,jb,imo2)  - ext_data%atm_td%aer_so4(jc,jb,imo1)  ) * wgt
+          prm_diag%aerosol(jc,idu,jb) = ext_data%atm_td%aer_dust(jc,jb,imo1) + &
+            ( ext_data%atm_td%aer_dust(jc,jb,imo2) - ext_data%atm_td%aer_dust(jc,jb,imo1) ) * wgt
 
-        prm_diag%aer_ss(jc,jb) = ext_data%atm_td%aer_ss(jc,jb,imo1) + &
-          ( ext_data%atm_td%aer_ss(jc,jb,imo2)   - ext_data%atm_td%aer_ss(jc,jb,imo1)   ) * wgt
-        prm_diag%aer_or(jc,jb) = ext_data%atm_td%aer_org(jc,jb,imo1) + &
-          ( ext_data%atm_td%aer_org(jc,jb,imo2)  - ext_data%atm_td%aer_org(jc,jb,imo1)  ) * wgt
-        prm_diag%aer_bc(jc,jb) = ext_data%atm_td%aer_bc(jc,jb,imo1) + &
-          ( ext_data%atm_td%aer_bc(jc,jb,imo2)   - ext_data%atm_td%aer_bc(jc,jb,imo1)   ) * wgt
-        prm_diag%aer_su(jc,jb) = ext_data%atm_td%aer_so4(jc,jb,imo1) + &
-          ( ext_data%atm_td%aer_so4(jc,jb,imo2)  - ext_data%atm_td%aer_so4(jc,jb,imo1)  ) * wgt
-        prm_diag%aer_du(jc,jb) = ext_data%atm_td%aer_dust(jc,jb,imo1) + &
-          ( ext_data%atm_td%aer_dust(jc,jb,imo2) - ext_data%atm_td%aer_dust(jc,jb,imo1) ) * wgt
+        ENDDO
+      ENDIF
 
-      ENDDO
-
-      CALL ncn_from_tau_aerosol_speccnconst (nproma, nlev, i_startidx, i_endidx, 1, nlev,             &
-        p_metrics%z_ifc(:,:,jb), prm_diag%aer_ss(:,jb), prm_diag%aer_su(:,jb), prm_diag%aer_or(:,jb), &
-        prm_diag%aer_du(:,jb), zncn)
+      CALL ncn_from_tau_aerosol_speccnconst (nproma, nlev, i_startidx, i_endidx, nlev, nlev, &
+        p_metrics%z_ifc(:,:,jb), prm_diag%aerosol(:,iss,jb), prm_diag%aerosol(:,iso4,jb),    &
+        prm_diag%aerosol(:,iorg,jb), prm_diag%aerosol(:,idu,jb), zncn)
 
       CALL specccn_segalkhain_simple (nproma, i_startidx, i_endidx, zncn(:,nlev), prm_diag%cloud_num(:,jb))
 

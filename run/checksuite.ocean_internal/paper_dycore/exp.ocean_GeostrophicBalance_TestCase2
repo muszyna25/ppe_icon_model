@@ -14,12 +14,14 @@ start_date="2001-01-01T00:00:00Z"
 (( years_restart = 50 ))    # stop model for restart [days]
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $days_data
-output_interval="PT01H"
+output_interval="PT15M"
 (( dt_checkpoint  = years_checkpoint  * year ))
 (( dt_restart     = years_restart * year ))
-steps_per_file=610   # output intervals per file interval
+steps_per_file=6480   # output intervals per file interval (5days)
 autoPostProcessing=false
-ocean_grids="AquaPlanet_Icos_0158km_stdOpt.nc"
+#grids_folder="/scratch/mpi/CC/mh0287/oes/grids/Idealized"
+#ocean_grids="AquaPlanet_Icos_0158km_stdOpt.nc"
+#dtime=900
 #ocean_grids="AquaPlanet_Icos_0079km_stdOpt.nc"
 #ocean_grids="AquaPlanet_Icos_0039km_stdOpt.nc"
 #ocean_grids="AquaPlanet_Icos_0020km_stdOpt.nc"
@@ -63,7 +65,8 @@ cat > ${ocean_namelist} << EOF
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'h_acc', 'u_acc', 'v_acc', 't_acc', 'veloc_adv_horz_u','veloc_adv_horz_v', 'vort_acc'
+  ml_varlist       =  'h_acc', 'u_acc', 'v_acc', 't_acc', 'vort_acc'
+!'veloc_adv_horz_u','veloc_adv_horz_v', 
 /
 &dbg_index_nml
   idbg_mxmn=3                     ! initialize MIN/MAX  debug output
@@ -76,10 +79,7 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_dynamics_nml
  n_zlev             =   1
- dzlev_m(1:41)      =   0.0, 12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
-                        30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
-                       100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
-                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
+ dzlev_m(1:1)      =   1.0
   l_edge_based    = .false.       ! edge- or cell-based mimetic discretization
   select_solver      = 2              !  1=gmres_oce_old; 2=ocean_restart_gmres, 3=mixed precisison restart
   use_absolute_solver_tolerance = .true.

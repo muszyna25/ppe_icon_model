@@ -157,6 +157,9 @@ MODULE mo_advection_config
     INTEGER ::  &                !< selects vertical start level for each patch  
       &  iadv_slev(MAX_NTRACER)  !< and each tracer.
 
+    INTEGER :: kstart_aero(2), & !< start and end levels for vertical flux averaging 
+               kend_aero(2)      !< for advection of 2D (climatological) aerosol fields
+
     INTEGER ::  &                !< vertical end level down to which qv is 
       &  iadv_qvsubstep_elev     !< advected with internal substepping (to 
                                  !< circumvent CFL instability in the 
@@ -347,8 +350,11 @@ CONTAINS
       advection_config(jg)%iubc_adv = ino_flx    ! no flux ubc
     ENDIF
 
-
-
+    ! dummy initialization of index fields for transport of 2D aerosol fields
+    DO jt = 1, 2
+      advection_config(:)%kstart_aero(jt) = 0
+      advection_config(:)%kend_aero(jt) = 0
+    ENDDO
 
     ! to save some paperwork
     ivadv_tracer(:) = advection_config(1)%ivadv_tracer(:)

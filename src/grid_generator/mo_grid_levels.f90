@@ -144,14 +144,14 @@ CONTAINS
   !!  reading namelists from the <b>GRID_INI</b> file
   !!  in the directory <b>input</b>.
   !!
-  SUBROUTINE init_gridgen(grid_levels,nroot,lplane)
+  SUBROUTINE init_gridgen(grid_levels,nroot,lplane,lread_graph)
     INTEGER, INTENT(out)::grid_levels, nroot
-    LOGICAL, INTENT(out)::lplane
+    LOGICAL, INTENT(out)::lplane, lread_graph
 
     INTEGER :: i_status, &
       & itype_optimize_d, nroot_d, grid_levels_d, maxlev_optim_d
 
-    LOGICAL :: l_c_grid_d, lplane_d
+    LOGICAL :: l_c_grid_d, lplane_d, lread_graph_d
 
     REAL(wp):: x_rot_angle_d, y_rot_angle_d, z_rot_angle_d, tria_arc_km_d, &
       & beta_spring_d
@@ -161,7 +161,7 @@ CONTAINS
     !
     ! ! initialize with grid parameters from files
     !
-    NAMELIST /grid_ini/     grid_levels, nroot, lplane
+    NAMELIST /grid_ini/     grid_levels, nroot, lplane, lread_graph
     NAMELIST /grid_options/ x_rot_angle, y_rot_angle, z_rot_angle, &
       & itype_optimize, l_c_grid, maxlev_optim, &
       & beta_spring
@@ -182,6 +182,7 @@ CONTAINS
     nroot          = 2
     grid_levels    = 4
     lplane         = .false.
+    lread_graph    = .false.
 
     ! set default values for grid_options
     number_of_grid_used = 0
@@ -202,6 +203,7 @@ CONTAINS
     y_rot_angle_d    = y_rot_angle
     z_rot_angle_d    = z_rot_angle
     lplane_d         = lplane
+    lread_graph_d    = lread_graph
     tria_arc_km_d    = tria_arc_km
     beta_spring_d    = beta_spring
 
@@ -253,6 +255,8 @@ CONTAINS
     WRITE(message_text,'(t8,a,t28,i12,t44,i12)') 'nroot' , nroot, nroot_d
     CALL message('', message_text)
     WRITE(message_text,'(t8,a,t28,l12,t44,l12)') 'lplane', lplane, lplane_d
+    CALL message('', message_text)
+    WRITE(message_text,'(t8,a,t28,l12,t44,l12)') 'lread_graph', lread_graph, lread_graph_d
     CALL message('', message_text)
     CALL message ('','')
     WRITE(message_text,'(a)')'Namelist Group: grid_options'

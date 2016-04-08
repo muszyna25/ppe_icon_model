@@ -24,13 +24,13 @@
 # ---USER SETUP------------------------------------
 
 # global definitions:
-set EXPNUM        "222"                #---experiment number---
-set EXPNUM2       "221"                #---experiment number used for score comparison---
+set EXPNUM        "243"                #---experiment number---
+set EXPNUM2       "242"                #---experiment number used for score comparison---
 set SUITE2        "dei2"               #---suite             used for score comparison---
 set FIRST_DATE    20120101
-set LAST_DATE     20130131
-set MONTHS        201201_201207_201301 #---months to be run e.g. 201201_201207
-set MON_IFS_ICON  ifs_ifs_icon
+set LAST_DATE     20150831
+set MONTHS        201201_201207_201301_201508 #---months to be run e.g. 201201_201207
+set MON_IFS_ICON  ifs_ifs_icon_icon
 set INIHOUR       00
 set ICON_HOME     /home/ms/de/deia 
 set ICON_ID       deia 
@@ -52,7 +52,7 @@ set NMEM          0   # default for no ensemble run
 
 # Processors: CRAY totaltasks: 12 x nodes (for 2 hyperthreads and 4 openMP threads)
                           # EDMF: 384        768
-set ICONTOTALTASKS  384   # R2B5: 192, R2B6: 384, R2B7: ? ,  R2B8: ?
+set ICONTOTALTASKS  768   # R2B5: 192, R2B6: 384, R2B7: ? ,  R2B8: ?
 set ICONNODES        16   # R2B5: 16,  R2B6: 32,  R2B7: 32,  R2B8: 64
 set ICONTASKSPERNODE 32   #       32         32         32          8
 set ICONTHREADS       2   #        2          2          2          8
@@ -287,8 +287,7 @@ suite $USER
                 complete (../../init:YMD gt ${FIRST_DATE}) and ($ENABLE_BUILD == 0)
                 on_hpc_serial
                 edit SCWALLCLOCKLIMIT 00:02:00
-
-        endfamily
+        endfamily  
 
         task get_data
             trigger (setup == complete) and (../once == complete)
