@@ -42,6 +42,7 @@ MODULE mo_ensemble_pert_nml
     &                               config_range_box_liq   => range_box_liq,   &  
     &                               config_range_tkhmin    => range_tkhmin,    &  
     &                               config_range_tkmmin    => range_tkmmin,    &  
+    &                               config_range_tkred_sfc => range_tkred_sfc, &
     &                               config_range_rlam_heat => range_rlam_heat, &
     &                               config_range_charnock  => range_charnock,  &  
     &                               config_range_z0_lcc    => range_z0_lcc,    &
@@ -97,6 +98,9 @@ MODULE mo_ensemble_pert_nml
   REAL(wp) :: &                    !< Minimum vertical diffusion for momentum 
     &  range_tkmmin
 
+  REAL(wp) :: &                    !< Perturbation of reduction of minimum diffusion coefficients near the surface 
+    &  range_tkred_sfc
+
   REAL(wp) :: &                    !< Laminar transport resistance parameter 
     &  range_rlam_heat
 
@@ -121,7 +125,7 @@ MODULE mo_ensemble_pert_nml
   NAMELIST/ensemble_pert_nml/ use_ensemble_pert, range_gkwake, range_gkdrag, range_gfluxlaun, range_zvz0i, &
     &                         range_entrorg, range_capdcfac_et, range_box_liq, range_tkhmin, range_tkmmin, &
     &                         range_rlam_heat, range_rhebc, range_texc, range_minsnowfrac, range_z0_lcc,   &
-    &                         range_rootdp, range_rsmin, range_laimax, range_charnock
+    &                         range_rootdp, range_rsmin, range_laimax, range_charnock, range_tkred_sfc
 
 CONTAINS
 
@@ -182,6 +186,7 @@ CONTAINS
     ! turbulence scheme
     range_tkhmin     = 0.2_wp       ! minimum vertical diffusion for heat/moisture
     range_tkmmin     = 0.2_wp       ! minimum vertical diffusion for momentum
+    range_tkred_sfc  = 4.0_wp       ! multiplicative change of reduction of minimum diffusion coefficients near the surface
     range_rlam_heat  = 3.0_wp       ! multiplicative change of laminar transport resistance parameter
                                     ! (compensated by an inverse change of rat_sea)
     range_charnock   = 1.5_wp       ! multiplicative change of upper and lower bound of wind-speed dependent
@@ -253,6 +258,7 @@ CONTAINS
     config_range_box_liq      = range_box_liq
     config_range_tkhmin       = range_tkhmin
     config_range_tkmmin       = range_tkmmin
+    config_range_tkred_sfc    = range_tkred_sfc
     config_range_rlam_heat    = range_rlam_heat
     config_range_charnock     = range_charnock
     config_range_z0_lcc       = range_z0_lcc

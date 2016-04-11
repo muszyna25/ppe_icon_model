@@ -916,7 +916,7 @@ SUBROUTINE organize_turbdiff ( &
 !
           ptr, ndtr, &
 !
-          tcm, tch, tvm, tvh, tfm, tfh, tfv, tkr, &
+          tcm, tch, tvm, tvh, tfm, tfh, tfv, tkr, tkred_sfc, &
           tke, tkvm, tkvh, rcld, tkhm, tkhh, &
           hdef2, hdiv, dwdx, dwdy,           &
 !
@@ -1129,6 +1129,9 @@ REAL (KIND=ireals), DIMENSION(:), TARGET, OPTIONAL, INTENT(INOUT) :: &
 !    reference surface diffusion coefficient
 !    (only if 'ltursrf' and "imode_trancnf.GE.2"):
      tkr             ! l*Ustar                                       (m2/s)
+
+REAL (KIND=ireals), DIMENSION(:), TARGET, OPTIONAL, INTENT(IN) :: &
+     tkred_sfc       ! reduction factor for minimum diffusion coefficients near the surface
 
 ! Atmospheric variables of the turbulence model:
 ! ------------------------------------------------
@@ -4828,7 +4831,7 @@ SUBROUTINE turbdiff
 !>Tuning
                ! Factor for variable minimum diffusion coefficient proportional to 1/SQRT(Ri);
                ! the namelist parameters tkhmin/tkmmin specify the value for Ri=1:
-               fakt=MIN( z1, 0.25_ireals+7.5e-3_ireals*(hhl(i,k)-hhl(i,ke1)) ) !low-level red.-fact.
+               fakt=MIN( z1, tkred_sfc(i)*(0.25_ireals+7.5e-3_ireals*(hhl(i,k)-hhl(i,ke1))) ) !low-level red.-fact.
                fakt=MIN( 2.5_ireals, MAX( 0.01_ireals, fakt*xri(i,k) ) )
 
                val1=tkmmin*fakt; val2=tkhmin*fakt

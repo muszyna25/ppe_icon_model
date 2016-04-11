@@ -265,6 +265,7 @@ MODULE mo_nwp_phy_types
       tvm(:,:)        ,    & !! turbulent transfer velocity for momentum      (m/s)
       tvh(:,:)        ,    & !! factor of laminar transfer of scalars           --
       tkr(:,:)        ,    & !! turbulent reference surface diffusion coeff.  (m2/s) (Ustar*kap*z0)
+      tkred_sfc(:,:)  ,    & !! reduction factor for minimum diffusion coefficients near the surface
       gz0(:,:),            & !! roughness length * g of the vertically not
                              !! resolved canopy                               (m2/s2)
       tkvm(:,:,:),         & !! turbulent diffusion coefficients for momentum (m/s2 )

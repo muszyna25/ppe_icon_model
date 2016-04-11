@@ -1899,6 +1899,14 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & ldims=shape2d,                                                    &
       & in_group=groups("pbl_vars") )
 
+    ! &      diag%tkred_sfc(nproma,nblks_c)
+    cf_desc    = t_cf_var('tkred_sfc', ' ','reduction factor for minimum diffusion coefficients', &
+         &                DATATYPE_FLT32)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'tkred_sfc', diag%tkred_sfc,                 &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
+      & ldims=shape2d )
+
     ! &      diag%gz0(nproma,nblks_c)
     cf_desc     = t_cf_var('gz0', 'm2 s-2 ','roughness length times gravity', datatype_flt)
     new_cf_desc = t_cf_var( 'z0',       'm','roughness length',               datatype_flt)
