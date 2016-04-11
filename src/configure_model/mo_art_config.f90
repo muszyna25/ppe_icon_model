@@ -84,11 +84,14 @@ MODULE mo_art_config
     ! Namelist variables
     
     ! General control variables (Details: cf. Tab. 2.2 ICON-ART User Guide)
-    CHARACTER(LEN=120) :: cart_folder  !< Absolute Path to ART source code
-    INTEGER :: iart_ntracer            !< number of transported ART tracers
-    INTEGER :: iart_init_aero          !< Initialization of aerosol species
-    INTEGER :: iart_init_gas           !< Initialization of gaseous species
-    LOGICAL :: lart_diag_out           !< Enable output of diagnostic fields
+    CHARACTER(LEN=120) :: cart_folder    !< Absolute Path to ART source code
+    INTEGER :: iart_ntracer              !< number of transported ART tracers
+    INTEGER :: iart_init_aero            !< Initialization of aerosol species
+    INTEGER :: iart_init_gas             !< Initialization of gaseous species
+    LOGICAL :: lart_diag_out             !< Enable output of diagnostic fields
+    CHARACTER(LEN=20) :: cart_io_suffix  !< user given suffix instead of automatically generated grid number 
+                                         !  in ICON-ART input filename convention: 
+                                         !  ART_iconR<n>B<kk>-grid-<yyyy-mm-dd-hh>_<grid_suffix>.nc
     
     ! Atmospheric Chemistry (Details: cf. Tab. 2.3 ICON-ART User Guide)
     LOGICAL :: lart_chem               !< Main switch to enable chemistry
