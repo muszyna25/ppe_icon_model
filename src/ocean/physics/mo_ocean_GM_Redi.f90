@@ -706,7 +706,7 @@ CONTAINS
     REAL(wp) :: lambda
     REAL(wp) :: depth_scale, depth
     REAL(wp) :: Coriolis_abs
-    REAL(wp) :: inv_S_d, slope_abs
+    REAL(wp) :: inv_S_d, slope_abs, inv_cell_characteristic_length, cell_max_slope, cell_critical_slope
     
     !-------------------------------------------------------------------------------
     patch_2D        => patch_3d%p_patch_2d(1)
@@ -715,22 +715,28 @@ CONTAINS
     inv_S_d = 1.0_wp / S_d
     !-------------------------------------------------------------------------------
 !ICON_OMP_PARALLEL   
-!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level, slope_abs) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level, slope_abs, inv_cell_characteristic_length, &
+!ICON_OMP cell_max_slope, cell_critical_slope) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
 
       DO cell_index = start_cell_index, end_cell_index
         end_level = patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
+        inv_cell_characteristic_length = 1.0_wp / SQRT(patch_2D%cells%area(cell_index,blockNo))
 
         IF(end_level >= min_dolic) THEN
 
           DO level = start_level, end_level
-          
+
+            cell_max_slope      = S_max      * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo) \
+              & * inv_cell_characteristic_length
+            cell_critical_slope = S_critical * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo) \
+              & * inv_cell_characteristic_length
             slope_abs = sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo))
-            
-            IF(slope_abs <=S_max)THEN
-            ocean_state%p_aux%taper_function_1(cell_index,level,blockNo) &
-              &= 0.5_wp*(1.0_wp + tanh((S_critical - slope_abs)*inv_S_d))
+
+            IF(slope_abs <= cell_max_slope)THEN
+              ocean_state%p_aux%taper_function_1(cell_index,level,blockNo) &
+                &= 0.5_wp*(1.0_wp + tanh((cell_critical_slope - slope_abs)*inv_S_d))
             ELSE  
               ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)=0.0_wp
             ENDIF  
