@@ -304,33 +304,37 @@ See Section \ref{sec_skycat} for more details on the database categories and Sec
 \renewcommand{\pressurelevelsTriangular}{$1000$, $950$, $850$, $700$, $500$, $300$ $\mathrm{hPa}$}
 
 \renewcommand{\new}[1]{\textcolor{red}{#1}}
-\renewcommand{\pressurelevelsRegular}{$1000$, \new{$975$}, $950$, $925$, $900$, 
-                                    $875$, $850$, \new{$825$}, $800$, 
-                                    \new{$775$}, $750$, \new{$725$}, $700$, $600$, 
-                                    $500$, $400$, $300$, $250$, $200$, $150$, $100$, 
-                                    $70$, $50$, $30$, \new{$20$}, $10$, 
-                                    \new{$7$}, $5$, \new{$3$}, 
-                                    \new{$2$}, \new{$1$}, 
-                                     \new{$0.3$}, \new{$0.1$} $\mathrm{hPa}$}
+\renewcommand{\pressurelevelsRegular}{$1000$, $975$, $950$, $925$, $900$, 
+                                    $875$, $850$, $825$, $800$, 
+                                    $775$, $750$, $700$, $650$, $600$, $550$, 
+                                    $500$, $450$, $400$, $350$, $300$, $275$, 
+                                    $250$, $225$, $200$, $175$, $150$, $125$, 
+                                    $100$, $70$, $50$, \tblu{$30$}, \tblu{$10$}, \tblu{$5$}, \tblu{$2$}, 
+                                    \tblu{$1$}, \tblu{$0.1$} $\mathrm{hPa}$}
 
-For regular grid output the following pressure levels are available: 
+For regular grid output the following $36$ pressure levels are available: 
 \begin{center}
 \begin{minipage}{0.5\linewidth}
 \pressurelevelsRegular. 
 \end{minipage}
 \end{center}
 
-
-Newly available pressure levels (as compared to GME) are highlighted in red. 
+ 
 The output fields are listed in Table~\ref{table:output_pressurelevels_regular}.
-I.e.\ note that all $17$ WMO standard pressure levels are included.
+Note that the fields \texttt{CLC}, \texttt{OMEGA}, and \texttt{RELHUM} are only 
+available from $1000\,\mathrm{hPs}$ down to $5\,\mathrm{hPa}$, i.e.\ they are not available for 
+the levels highlighted in \tblu{blue}. 
+%I.e.\ note that $16$  out of $17$ WMO standard pressure levels are included (the $20\,\mathrm{hPa}$ level is missing).
 
 \renewcommand{\new}[1]{#1}
 
 \begin{vartable}{\captionabove{Regular grid output:
       Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products 
-      interpolated to pressure levels \pressurelevelsRegular.}\label{table:output_pressurelevels_regular}}
-  
+      interpolated to pressure levels \pressurelevelsRegular. 
+      The fields \texttt{CLC}, \texttt{OMEGA}, and \texttt{RELHUM} are not available 
+      for the pressure levels highlighted in \tblu{blue}.}\label{table:output_pressurelevels_regular}}
+
+  \groups[][ll] & CLC                        &  Cloud cover                                                                               &               0/6/22                      &                 100/--                          &                      inst       &            &        $\mathrm{\%}$ \\            
   \groups[][ll] & FI                         &  Geopotential                                                                              &               0/3/4                       &                 100/--                          &                      inst       &            &        $\mathrm{m^{2}\,s^{-2}}$   \\
   \groups[][ll] & OMEGA                      &  Vertical velocity in pressure coordinates ($\omega=\mathrm{d}p/\mathrm{d}t$)              &               0/2/8                       &                 100/--                          &                      inst       &            &        $\mathrm{Pa\,s^{-1}}$  \\
   \groups[][ll] & RELHUM                     &  Relative humidity (with respect to water)                                                 &               0/1/1                       &                 100/--                          &                      inst       &            &        $\mathrm{\%}$          \\
