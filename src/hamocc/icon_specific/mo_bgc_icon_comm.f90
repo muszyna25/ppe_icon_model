@@ -455,7 +455,7 @@
         DO jk =1,ks
              ! Solid sediment
              p_sed%so12(jc,jk,jb) = sedlay(jc,jk,issso12)
-             p_sed%sc12(jc,jk,jb) = sedlay(jc,jk,issso12)
+             p_sed%sc12(jc,jk,jb) = sedlay(jc,jk,isssc12)
              p_sed%ssil(jc,jk,jb) = sedlay(jc,jk,issssil)
              p_sed%ster(jc,jk,jb) = sedlay(jc,jk,issster)
              ! Pore water
