@@ -591,6 +591,14 @@ MODULE mo_nonhydro_state
         ! add_tracer_ref. 
         
 
+        ! Note that we make use of 
+        ! create_tracer_metadata
+        ! create_tracer_metadata_hydroMass
+        ! create_tracer_metadata_hydroNr
+        ! for creating tracer-specific metadata. As a side effect, tracers are added to 
+        ! distinct tracer groups, depending on the create_tracer_metadata[...] routine 
+        ! used. Thus, make sure to use the right one when adding additional tracers.
+        ! create_tracer_metadata[...] are described in more detail in mo_tracer_metadata.
         ktracer=ntracer
         ALLOCATE( p_prog%tracer_ptr(ktracer) )
         !QV
@@ -603,7 +611,8 @@ MODULE mo_nonhydro_state
             &           grib2_var( 0, 1, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
             &           ldims=shape3d_c,                                               &
             &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
-            &           tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &                       name        = TRIM(vname_prefix)//'qv'//suffix,    &
             &                       ihadv_tracer=advconf%ihadv_tracer(iqv),            &
             &                       ivadv_tracer=advconf%ivadv_tracer(iqv)),           & 
             &           vert_interp=create_vert_interp_metadata(                       &
@@ -631,6 +640,7 @@ MODULE mo_nonhydro_state
             &         ldims=shape3d_c,                                               &
             &         tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
             &         tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+            &                     name        = TRIM(vname_prefix)//'qc'//suffix,    &
             &                     ihadv_tracer=advconf%ihadv_tracer(iqc),            &
             &                     ivadv_tracer=advconf%ivadv_tracer(iqc)),           &
             &         vert_interp=create_vert_interp_metadata(                       &
@@ -654,6 +664,7 @@ MODULE mo_nonhydro_state
             &         ldims=shape3d_c,                                               &
             &         tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
             &         tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+            &                     name        = TRIM(vname_prefix)//'qi'//suffix,    &
             &                     ihadv_tracer=advconf%ihadv_tracer(iqi),            &
             &                     ivadv_tracer=advconf%ivadv_tracer(iqi)),           &
             &         vert_interp=create_vert_interp_metadata(                       &
@@ -678,6 +689,7 @@ MODULE mo_nonhydro_state
             &           ldims=shape3d_c,                                               &
             &           tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
             &           tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+            &                       name        = TRIM(vname_prefix)//'qr'//suffix,    &
             &                       ihadv_tracer=advconf%ihadv_tracer(iqr),            &
             &                       ivadv_tracer=advconf%ivadv_tracer(iqr)),           &
             &           vert_interp=create_vert_interp_metadata(                       &
@@ -702,6 +714,7 @@ MODULE mo_nonhydro_state
             &           ldims=shape3d_c,                                               &
             &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
             &           tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+            &                       name        = TRIM(vname_prefix)//'qs'//suffix,    &
             &                       ihadv_tracer=advconf%ihadv_tracer(iqs),            &
             &                       ivadv_tracer=advconf%ivadv_tracer(iqs)),           &
             &           vert_interp=create_vert_interp_metadata(                       &
@@ -727,6 +740,7 @@ MODULE mo_nonhydro_state
             &           ldims=shape3d_c,                                               &
             &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
             &           tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+            &                       name        = TRIM(vname_prefix)//'qg'//suffix,    &
             &                       ihadv_tracer=advconf%ihadv_tracer(iqg),            &
             &                       ivadv_tracer=advconf%ivadv_tracer(iqg)),           &
             &           vert_interp=create_vert_interp_metadata(                       &
@@ -749,7 +763,8 @@ MODULE mo_nonhydro_state
             &           grib2_var(0, 6, 29, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
             &           ldims=shape3d_c,                                               &
             &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
-            &           tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &                       name        = TRIM(vname_prefix)//'qni'//suffix,   &
             &                       ihadv_tracer=advconf%ihadv_tracer(iqni),           &
             &                       ivadv_tracer=advconf%ivadv_tracer(iqni)),          &
             &           vert_interp=create_vert_interp_metadata(                       &
@@ -768,7 +783,8 @@ MODULE mo_nonhydro_state
             &           grib2_var(0, 1, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
             &           ldims=shape3d_c,                                               &
             &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
-            &           tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &                       name        = TRIM(vname_prefix)//'qni_nuc'//suffix, &
             &                       ihadv_tracer=advconf%ihadv_tracer(iqni_nuc),       &
             &                       ivadv_tracer=advconf%ivadv_tracer(iqni_nuc)),      &
             &           vert_interp=create_vert_interp_metadata(                       &
@@ -798,6 +814,7 @@ MODULE mo_nonhydro_state
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+                    &             name        = TRIM(vname_prefix)//'qg'//suffix,    &
                     &             ihadv_tracer=advconf%ihadv_tracer(iqg),            &
                     &             ivadv_tracer=advconf%ivadv_tracer(iqg)),           &
                     & vert_interp=create_vert_interp_metadata(                       &
@@ -818,6 +835,7 @@ MODULE mo_nonhydro_state
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+                    &             name        = TRIM(vname_prefix)//'qh'//suffix,    &
                     &             ihadv_tracer=advconf%ihadv_tracer(iqh),            &
                     &             ivadv_tracer=advconf%ivadv_tracer(iqh)),           &
                     & vert_interp=create_vert_interp_metadata(                       &
@@ -837,7 +855,8 @@ MODULE mo_nonhydro_state
                     & grib2_var(0, 6, 29, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
-                    & tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             name        = TRIM(vname_prefix)//'qni'//suffix,   &
                     &             ihadv_tracer=advconf%ihadv_tracer(iqni),           &
                     &             ivadv_tracer=advconf%ivadv_tracer(iqni)),          &
                     & vert_interp=create_vert_interp_metadata(                       &
@@ -857,7 +876,8 @@ MODULE mo_nonhydro_state
                     & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
-                    & tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             name        = TRIM(vname_prefix)//'qnr'//suffix,   &
                     &             ihadv_tracer=advconf%ihadv_tracer(iqnr),           &
                     &             ivadv_tracer=advconf%ivadv_tracer(iqnr)),          &
                     & vert_interp=create_vert_interp_metadata(                       &
@@ -877,7 +897,8 @@ MODULE mo_nonhydro_state
                     & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
-                    & tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             name        = TRIM(vname_prefix)//'qns'//suffix,   &
                     &             ihadv_tracer=advconf%ihadv_tracer(iqns),           &
                     &             ivadv_tracer=advconf%ivadv_tracer(iqns)),          &
                     & vert_interp=create_vert_interp_metadata(                       &
@@ -897,7 +918,8 @@ MODULE mo_nonhydro_state
                     & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
-                    & tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             name        = TRIM(vname_prefix)//'qng'//suffix,   &
                     &             ihadv_tracer=advconf%ihadv_tracer(iqng),           &
                     &             ivadv_tracer=advconf%ivadv_tracer(iqng)),          &
                     & vert_interp=create_vert_interp_metadata(                       &
@@ -917,7 +939,8 @@ MODULE mo_nonhydro_state
                     & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
-                    & tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             name        = TRIM(vname_prefix)//'qnh'//suffix,   &
                     &             ihadv_tracer=advconf%ihadv_tracer(iqnh),           &
                     &             ivadv_tracer=advconf%ivadv_tracer(iqnh)),          &
                     & vert_interp=create_vert_interp_metadata(                       &
@@ -941,7 +964,8 @@ MODULE mo_nonhydro_state
                     & grib2_var(0, 6, 28, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
-                    & tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             name        = TRIM(vname_prefix)//'qnc'//suffix,   &
                     &             ihadv_tracer=advconf%ihadv_tracer(iqnc),           &
                     &             ivadv_tracer=advconf%ivadv_tracer(iqnc)),          &
                     & vert_interp=create_vert_interp_metadata(                       &
@@ -966,6 +990,7 @@ MODULE mo_nonhydro_state
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             name        = TRIM(vname_prefix)//'ninact'//suffix,&
                     &             ihadv_tracer=advconf%ihadv_tracer(ininact),        &
                     &             ivadv_tracer=advconf%ivadv_tracer(ininact)),       &
                     & vert_interp=create_vert_interp_metadata(                       &
@@ -988,6 +1013,7 @@ MODULE mo_nonhydro_state
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             name        = TRIM(vname_prefix)//'nccn'//suffix,  &
                     &             ihadv_tracer=advconf%ihadv_tracer(inccn),          &
                     &             ivadv_tracer=advconf%ivadv_tracer(inccn)),         &
                     & vert_interp=create_vert_interp_metadata(                       &
@@ -1006,6 +1032,7 @@ MODULE mo_nonhydro_state
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             name        = TRIM(vname_prefix)//'ninpot'//suffix,&
                     &             ihadv_tracer=advconf%ihadv_tracer(ininpot),        &
                     &             ivadv_tracer=advconf%ivadv_tracer(ininpot)),       &
                     & vert_interp=create_vert_interp_metadata(                       &
@@ -1027,7 +1054,8 @@ MODULE mo_nonhydro_state
             &           grib2_var(192, 201, 39, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
             &           ldims=shape3d_c,                                               &
             &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
-            &           tracer_info=create_tracer_metadata(),                          &
+            &           tracer_info=create_tracer_metadata(                            &
+            &                       name = TRIM(vname_prefix)//'qtvar'//suffix)       ,&
             &           vert_interp=create_vert_interp_metadata(                       &
             &                       vert_intp_type=vintp_types("P","Z","I"),           &
             &                       vert_intp_method=VINTP_METHOD_LIN,                 &
@@ -1047,7 +1075,8 @@ MODULE mo_nonhydro_state
                     & cf_desc, grib2_desc,                                           &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
-                    & tracer_info=create_tracer_metadata(),                          &
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             name = TRIM(vname_prefix)//'tke_mc'//suffix),      &
                     & vert_interp=create_vert_interp_metadata(                       &
                     &             vert_intp_type=vintp_types("P","Z","I"),           &
                     &             vert_intp_method=VINTP_METHOD_LIN,                 &
@@ -1074,7 +1103,8 @@ MODULE mo_nonhydro_state
             &                  loutput=.TRUE.,                                       &
             &                  lrestart=.FALSE.,                                     &
             &                  tlev_source=TLEV_NNOW_RCF,                            &  ! output from nnow_rcf slice
-            &                  tracer_info=create_tracer_metadata(lis_tracer=.TRUE.) )
+            &                  tracer_info=create_tracer_metadata(lis_tracer=.TRUE., &
+            &                              name = 'Qpassive_'//TRIM(ADJUSTL(passive_tracer_suffix))//suffix) )
         ENDDO
 
 
@@ -1119,7 +1149,7 @@ MODULE mo_nonhydro_state
             & grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL),          &
             & ldims=shape3d_c,                                                  &
             & tlev_source=TLEV_NNOW_RCF,                                        &              ! output from nnow_rcf slice
-            & tracer_info=create_tracer_metadata(),                             &
+            & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.),            &
             & vert_interp=create_vert_interp_metadata(                          &
             &             vert_intp_type=vintp_types("P","Z","I"),              & 
             &             vert_intp_method=VINTP_METHOD_LIN,                    &
