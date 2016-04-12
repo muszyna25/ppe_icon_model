@@ -115,7 +115,7 @@ AS_IF([test "x$with_messy" = "xyes"],
 
 AC_ARG_WITH([flags],
   [AS_HELP_STRING([--with-flags=<name>],
-    [use specified group od flags (std, hiopt, noopt, etc])],
+    [use specified group of flags (std, hiopt, noopt, etc])],
     [],
     [])
 
@@ -258,7 +258,7 @@ if test "x$load_modules" != x ;  then
     echo 'exit $rc' >>conf_load_module.tmp
     chmod +x conf_load_module.tmp
     ./conf_load_module.tmp ; rc=$?
-#    rm conf_load_module.tmp
+    rm conf_load_module.tmp
     exit $rc
   fi  
 fi
@@ -981,6 +981,11 @@ if [[ "x$use_yac" = xyes ]] ; then
    ac_libs="$ac_libs -lyac"
 fi
 
+dnl if the OCEAN_FLAGS are not defined use the HIOPT_FLAGS
+if [[ x"$OCEAN_FLAGS" == x ]]; then
+  OCEAN_FLAGS=$HIOPT_FLAGS
+fi
+
 dnl the following prepends VARIANT_FLAGS to FFLAGS
 dnl when given --with-flags=variant argument to configure
 AS_IF([eval test x\$\{`echo ${use_flags_group} | tr a-z A-Z`_FLAGS+set\} = xset],
@@ -1365,6 +1370,7 @@ if test "x${config_target}" = "xblizzard" ; then
    echo "export LDR_CNTRL=MAXDATA=0xD0000000@DSA"  >&8
 fi
 echo "$make_command" >&8
+echo "exit \$?" >&8
 exec 8>-
 chmod +x build_command
 ],[load_profile="$load_profile"

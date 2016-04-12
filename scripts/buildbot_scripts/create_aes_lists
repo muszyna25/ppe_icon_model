@@ -1,0 +1,34 @@
+#!/bin/bash
+
+addexp="./addexp"
+#############################################################################
+##
+## create icon-dev list
+##
+#############################################################################
+listname=amip
+./rmlist $listname
+./mklist $listname
+
+# add some virtual builders for aes local building, not active at the moment
+# ./addmachine aes       --list $listname
+# ./addbuilder aes_gcc   --configureflags="--with-fortran=gcc"                 --builderflags Active --machine aes --list $listname
+# ./addbuilder aes_intel --configureflags="--with-fortran=intel --with-openmp" --builderflags Active --machine aes --list $listname
+# ./addbuilder aes_nag   --configureflags="--with-fortran=nag"                 --builderflags Active --machine aes --list $listname
+#-----------------------------------------------------------
+# deactivate special builders
+./set_builder_flags Inactive --builders MISTRAL_ocean MISTRAL_nag_mtime MISTRAL_nag_serial --list $listname
+# add amip tests to all builders
+$addexp "checksuite.icon-dev/check.atm_amip*" --list $listname
+# set all builders to AES, but the amip needs the fast ice, which needs the ocean...We should change this
+./set_builder_flags AES --builders "*" --list $listname
+# deactivate again special builders
+./set_builder_flags Inactive --builders MISTRAL_ocean MISTRAL_nag_mtime MISTRAL_nag_serial --list $listname
+#-----------------------------------------------------------
+#lets see the list
+./lslist $listname
+
+#commit the list
+# svn add experiment_lists/$listname
+# svn commit experiment_lists/$listname -m "[buildbot_scripts] update $listname"
+#############################################################################

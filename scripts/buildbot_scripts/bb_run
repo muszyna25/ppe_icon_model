@@ -29,9 +29,9 @@
 #------------------------------------------------------------------------------
 # First version by Walter Sauf (MPI-M, 2009-10-22)
 #
-# $Rev$:     Revision of last commit
-# $Author$:  Author of last commit
-# $Date$:    Date of last commit
+# $Rev: 24227 $:     Revision of last commit
+# $Author: rene.redler $:  Author of last commit
+# $Date: 2015-09-28 14:33:21 +0200 (Mon, 28 Sep 2015) $:    Date of last commit
 #------------------------------------------------------------------------------
 
 #Define of the text which is written in case of a script fail or OK run

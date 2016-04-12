@@ -1,0 +1,11 @@
+#!/bin/bash
+
+calldir=$(dirname $0)
+
+if [[ "_$2" == "_--clean" ]]; then
+  rm -rf $calldir/../../build $calldir/../../aes_build
+fi
+
+cd $calldir/../buildbot_scripts
+./build aes_$1 --list amip
+cd -
