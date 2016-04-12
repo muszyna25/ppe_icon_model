@@ -659,20 +659,26 @@ CONTAINS
     END IF
 
 
-    ! initialize passive tracers, if required
-    !
+
     IF ( PRESENT(tracer_list) ) THEN
+
+      ! initialize passive tracers, if required
+      !
       IF (advection_config(jg)%npassive_tracer > 0) THEN 
         CALL init_passive_tracer (tracer_list, advection_config(jg), ntl=1)
       ENDIF
 
+
       ! create ID list for tracer group hydroMass
+      ! This list contains the IDs of all condensate fields 
+      ! which are required for computing the liquid water loading term.
       !
       IF ( iforcing == inwp .OR. iforcing == iecham ) THEN
         ! in these cases it is assured that the hydroMass group is not empty.
         CALL create_idlist_hydroMass (tracer_list(1), advection_config(jg)%ilist_hydroMass)
         !
-        IF (.NOT. ALLOCATED(advection_config(jg)%ilist_hydroMass)) THEN
+        IF (.NOT. ALLOCATED(advection_config(jg)%ilist_hydroMass) &
+          & .OR. SIZE(advection_config(jg)%ilist_hydroMass) < 1 ) THEN
           CALL finish (TRIM(routine), 'ilist_hydroMass is not ASSOCIATED')
         ENDIF
       ENDIF
@@ -755,7 +761,7 @@ CONTAINS
   ! In the proposed structure for the linked list, in the example only
   ! A character string is used so it is straight forward only one find
   !
-  SUBROUTINE create_idlist_HydroMass (tracer_list, idList)
+  SUBROUTINE create_idlist_hydroMass (tracer_list, idList)
     !
     TYPE(t_var_list)    , INTENT(IN)    :: tracer_list
     INTEGER, ALLOCATABLE, INTENT(INOUT) :: idList(:)
@@ -813,7 +819,7 @@ CONTAINS
     IF(ist/=SUCCESS) THEN
       CALL finish (TRIM(routine), 'deallocation of tmp failed')
     ENDIF
-  END SUBROUTINE create_idlist_HydroMass
+  END SUBROUTINE create_idlist_hydroMass
 
 
 END MODULE mo_advection_config
