@@ -25,7 +25,7 @@ MODULE mo_nh_diagnose_pres_temp
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog
-  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqs, iqr, iqm_max, iforcing, lforcing
+  USE mo_run_config,          ONLY: iqv, iforcing, lforcing
   USE mo_impl_constants,      ONLY: min_rlcell, iheldsuarez
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_physical_constants,  ONLY: rd, grav, vtmpc1, p0ref, rd_o_cpd
@@ -79,7 +79,7 @@ MODULE mo_nh_diagnose_pres_temp
 
     INTEGER, INTENT(IN), OPTIONAL :: opt_slev, opt_rlend 
 
-    INTEGER  :: jb,jk,jc,jt,jg
+    INTEGER  :: jb,jk,jc,jg
     INTEGER  :: nlev, nlevp1              !< number of full levels
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend
@@ -87,14 +87,12 @@ MODULE mo_nh_diagnose_pres_temp
 
     LOGICAL  :: l_opt_calc_temp, l_opt_calc_pres, l_opt_calc_temp_ifc
 
-    REAL(wp) :: dz1, dz2, dz3, z_qsum(nproma,pt_patch%nlev)
-!DR Test
-    INTEGER, POINTER :: condensate_list(:)
-!DR End Test
+    INTEGER, POINTER :: condensate_list(:) ! list of tracer IDs which contain prognostic condensate.
+                                           ! Required for computing the liquid water loading.
+
 
     IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
 
-    z_qsum = 0._wp
     
     ! Check for optional arguments
 
@@ -142,12 +140,10 @@ MODULE mo_nh_diagnose_pres_temp
     i_startblk = pt_patch%cells%start_block(i_rlstart)
     i_endblk   = pt_patch%cells%end_block(i_rlend)
 
-!DR Test
     condensate_list => advection_config(jg)%ilist_hydroMass
-!DR End Test
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jt, jc, dz1, dz2, dz3, z_qsum) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jc) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c( pt_patch, jb, i_startblk, i_endblk,      &
@@ -156,57 +152,9 @@ MODULE mo_nh_diagnose_pres_temp
       IF ( l_opt_calc_temp) THEN
         IF ( lforcing .AND. iforcing /= iheldsuarez  ) THEN
 
-          DO jk = slev, slev_moist-1
-            z_qsum(:,jk) = 0._wp
-          ENDDO
+          CALL diag_temp (pt_prog, pt_prog_rcf, condensate_list, pt_diag, &
+            &            jb, i_startidx, i_endidx, slev, slev_moist, nlev)
 
-          DO jk = slev_moist, nlev
-            DO jc = i_startidx, i_endidx
-              z_qsum(jc,jk) = SUM(pt_prog_rcf%tracer (jc,jk,jb,condensate_list))
-            ENDDO
-          ENDDO
-
-!!$          IF (iqm_max == 3) THEN   ! Echam physics
-!!$            DO jk = slev_moist, nlev
-!!$              DO jc = i_startidx, i_endidx
-!!$                z_qsum(jc,jk)            =    pt_prog_rcf%tracer (jc,jk,jb,iqc) &
-!!$                  &                         + pt_prog_rcf%tracer (jc,jk,jb,iqi) 
-!!$              ENDDO
-!!$            ENDDO
-!!$          ELSE                     ! NWP physics
-!!$            DO jk = slev_moist, nlev
-!!$              DO jc = i_startidx, i_endidx
-!!$                z_qsum(jc,jk)            =    pt_prog_rcf%tracer (jc,jk,jb,iqc) &
-!!$                  &                         + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
-!!$                  &                         + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
-!!$                  &                         + pt_prog_rcf%tracer (jc,jk,jb,iqs)
-!!$              ENDDO
-!!$            ENDDO
-!!$          ENDIF
-!!$
-!!$          ! Add further hydrometeor species to water loading term if required
-!!$          IF (iqm_max > MAX(iqs,5)) THEN
-!!$            DO jt = iqs+1, iqm_max
-!!$              DO jk = slev_moist, nlev
-!!$                DO jc = i_startidx, i_endidx
-!!$                  z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
-!!$                ENDDO
-!!$              ENDDO
-!!$            ENDDO
-!!$          ENDIF
-
-          DO jk = slev, nlev
-!DIR$ IVDEP
-            DO jc = i_startidx, i_endidx
-
-              pt_diag%tempv(jc,jk,jb) = pt_prog%theta_v(jc,jk,jb) * pt_prog%exner(jc,jk,jb)
-
-              pt_diag%temp(jc,jk,jb)   =  pt_diag%tempv(jc,jk,jb)          &
-                &                      /( 1._wp +  vtmpc1                  &
-                &                      * pt_prog_rcf%tracer(jc,jk,jb,iqv)  &
-                &                      - z_qsum(jc,jk)  )
-            ENDDO
-          ENDDO
 
         ELSE ! .NOT. lforcing or Held-Suarez test forcing
 
@@ -257,48 +205,10 @@ MODULE mo_nh_diagnose_pres_temp
       !-------------------------------------------------------------------------
 
       IF ( l_opt_calc_pres ) THEN
-!DIR$ IVDEP
-        DO jc = i_startidx, i_endidx
-          ! Height differences between surface and third-lowest main level
-          dz1 = p_metrics%z_ifc(jc,nlev,jb)   - p_metrics%z_ifc(jc,nlevp1,jb)
-          dz2 = p_metrics%z_ifc(jc,nlev-1,jb) - p_metrics%z_ifc(jc,nlev,jb)
-          dz3 = p_metrics%z_mc (jc,nlev-2,jb) - p_metrics%z_ifc(jc,nlev-1,jb)
 
-          ! Compute surface pressure starting from third-lowest level; this is done
-          ! in order to avoid contamination by sound-wave activity in the presence of strong latent heating
-          pt_diag%pres_sfc(jc,jb) = p0ref * EXP( cpd_o_rd*LOG(pt_prog%exner(jc,nlev-2,jb)) + &
-            grav_o_rd*(dz1/pt_diag%tempv(jc,nlev,jb) + dz2/pt_diag%tempv(jc,nlev-1,jb) +     &
-            dz3/pt_diag%tempv(jc,nlev-2,jb)) )
+        CALL diag_pres (pt_prog, pt_diag, p_metrics,        &
+                        jb, i_startidx, i_endidx, slev, nlev)
 
-          pt_diag%pres_ifc(jc,nlevp1,jb) = pt_diag%pres_sfc(jc,jb)
-        ENDDO
-
-        !-------------------------------------------------------------------------
-        !> diagnose pressure for physics parameterizations
-        !! this is accomplished by vertical integration of the hydrostatic equation
-        !! because the physics schemes actually need the air mass represented 
-        !! by a given model layer
-        !-------------------------------------------------------------------------
-
-        DO jk = nlev, slev,-1
-!DIR$ IVDEP
-          DO jc = i_startidx, i_endidx
-
-            ! pressure at interface levels
-            pt_diag%pres_ifc(jc,jk,jb) = pt_diag%pres_ifc(jc,jk+1,jb)                  &
-              & *EXP(-grav_o_rd*p_metrics%ddqz_z_full(jc,jk,jb)/pt_diag%tempv(jc,jk,jb))
-
-            ! pressure at main levels
-            pt_diag%pres(jc,jk,jb) = SQRT(pt_diag%pres_ifc(jc,jk,jb) * &
-                                          pt_diag%pres_ifc(jc,jk+1,jb) )
-
-            ! layer thickness with respect to pressure
-            pt_diag%dpres_mc(jc,jk,jb) = pt_diag%pres_ifc(jc,jk+1,jb) &
-                                       - pt_diag%pres_ifc(jc,jk  ,jb)
-
-          ENDDO
-        ENDDO
-        
       ENDIF ! calc_pres
       
     ENDDO !jb
@@ -308,6 +218,7 @@ MODULE mo_nh_diagnose_pres_temp
     IF (timers_level > 2) CALL timer_stop(timer_diagnose_pres_temp)
 
   END SUBROUTINE diagnose_pres_temp
+
 
   !!
   !! Reduced version for pressure diagnosis to be called from within a block loop
@@ -376,6 +287,7 @@ MODULE mo_nh_diagnose_pres_temp
       
   END SUBROUTINE diag_pres
 
+
   !!
   !! Reduced version for temperature diagnosis to be called from within a block loop
   !!
@@ -395,7 +307,7 @@ MODULE mo_nh_diagnose_pres_temp
 
     INTEGER, INTENT(IN) :: jb, i_startidx, i_endidx, slev, slev_moist, nlev 
 
-    INTEGER  :: jk,jc,jt
+    INTEGER  :: jk,jc
 
     REAL(wp) :: z_qsum(nproma,nlev)
 
@@ -411,26 +323,6 @@ MODULE mo_nh_diagnose_pres_temp
       ENDDO
     ENDDO
 
-!!$    DO jk = slev_moist, nlev
-!!$      DO jc = i_startidx, i_endidx
-!!$        z_qsum(jc,jk)            =    pt_prog_rcf%tracer (jc,jk,jb,iqc) &
-!!$          &                         + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
-!!$          &                         + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
-!!$          &                         + pt_prog_rcf%tracer (jc,jk,jb,iqs)
-!!$      ENDDO
-!!$    ENDDO
-!!$
-!!$
-!!$    ! Add further hydrometeor species to water loading term if required
-!!$    IF (iqm_max > MAX(iqs,5)) THEN
-!!$      DO jt = iqs+1, iqm_max
-!!$        DO jk = slev_moist, nlev
-!!$          DO jc = i_startidx, i_endidx
-!!$            z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
-!!$          ENDDO
-!!$        ENDDO
-!!$      ENDDO
-!!$    ENDIF
 
     DO jk = slev, nlev
 !DIR$ IVDEP
