@@ -140,7 +140,13 @@ MODULE mo_nh_diagnose_pres_temp
     i_startblk = pt_patch%cells%start_block(i_rlstart)
     i_endblk   = pt_patch%cells%end_block(i_rlend)
 
-    condensate_list => advection_config(jg)%ilist_hydroMass
+    IF (ALLOCATED(advection_config(jg)%ilist_hydroMass)) THEN
+      ! Some compilers throw a runtime error, when pointing to  
+      ! a non-allocated array.
+      condensate_list => advection_config(jg)%ilist_hydroMass
+    ELSE
+      condensate_list =>NULL()
+    ENDIF
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jc) ICON_OMP_DEFAULT_SCHEDULE
