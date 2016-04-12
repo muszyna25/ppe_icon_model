@@ -909,7 +909,6 @@ run/exp.test_atm_amip_noforcing_notransport_nodynamics -text
 run/exp.test_atm_amip_noparams -text
 run/exp.test_atm_icoles_nested -text
 run/exp.test_atm_rce_les -text
-run/exp.test_atmo_meanStream -text
 run/exp.test_couple_atmo-ocean -text
 run/exp.test_nat_jww_nwp_mpiomp -text
 run/exp.test_nat_rce_cbl_120km_nwp -text
