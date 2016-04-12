@@ -31,6 +31,7 @@ MODULE mo_nh_diagnose_pres_temp
   USE mo_physical_constants,  ONLY: rd, grav, vtmpc1, p0ref, rd_o_cpd
   USE mo_timer,               ONLY: timers_level, timer_start, timer_stop, timer_diagnose_pres_temp
   USE mo_parallel_config,     ONLY: nproma
+  USE mo_advection_config,    ONLY: advection_config
 
   IMPLICIT NONE
 
@@ -87,7 +88,9 @@ MODULE mo_nh_diagnose_pres_temp
     LOGICAL  :: l_opt_calc_temp, l_opt_calc_pres, l_opt_calc_temp_ifc
 
     REAL(wp) :: dz1, dz2, dz3, z_qsum(nproma,pt_patch%nlev)
-
+!DR Test
+    INTEGER, POINTER :: condensate_list(:)
+!DR End Test
 
     IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
 
@@ -139,6 +142,10 @@ MODULE mo_nh_diagnose_pres_temp
     i_startblk = pt_patch%cells%start_block(i_rlstart)
     i_endblk   = pt_patch%cells%end_block(i_rlend)
 
+!DR Test
+    condensate_list => advection_config(jg)%ilist_hydroMass
+!DR End Test
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jt, jc, dz1, dz2, dz3, z_qsum) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
@@ -153,34 +160,40 @@ MODULE mo_nh_diagnose_pres_temp
             z_qsum(:,jk) = 0._wp
           ENDDO
 
-          IF (iqm_max == 3) THEN   ! Echam physics
-            DO jk = slev_moist, nlev
-              DO jc = i_startidx, i_endidx
-                z_qsum(jc,jk)            =    pt_prog_rcf%tracer (jc,jk,jb,iqc) &
-                  &                         + pt_prog_rcf%tracer (jc,jk,jb,iqi) 
-              ENDDO
+          DO jk = slev_moist, nlev
+            DO jc = i_startidx, i_endidx
+              z_qsum(jc,jk) = SUM(pt_prog_rcf%tracer (jc,jk,jb,condensate_list))
             ENDDO
-          ELSE                     ! NWP physics
-            DO jk = slev_moist, nlev
-              DO jc = i_startidx, i_endidx
-                z_qsum(jc,jk)            =    pt_prog_rcf%tracer (jc,jk,jb,iqc) &
-                  &                         + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
-                  &                         + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
-                  &                         + pt_prog_rcf%tracer (jc,jk,jb,iqs)
-              ENDDO
-            ENDDO
-          ENDIF
+          ENDDO
 
-          ! Add further hydrometeor species to water loading term if required
-          IF (iqm_max > MAX(iqs,5)) THEN
-            DO jt = iqs+1, iqm_max
-              DO jk = slev_moist, nlev
-                DO jc = i_startidx, i_endidx
-                  z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
-                ENDDO
-              ENDDO
-            ENDDO
-          ENDIF
+!!$          IF (iqm_max == 3) THEN   ! Echam physics
+!!$            DO jk = slev_moist, nlev
+!!$              DO jc = i_startidx, i_endidx
+!!$                z_qsum(jc,jk)            =    pt_prog_rcf%tracer (jc,jk,jb,iqc) &
+!!$                  &                         + pt_prog_rcf%tracer (jc,jk,jb,iqi) 
+!!$              ENDDO
+!!$            ENDDO
+!!$          ELSE                     ! NWP physics
+!!$            DO jk = slev_moist, nlev
+!!$              DO jc = i_startidx, i_endidx
+!!$                z_qsum(jc,jk)            =    pt_prog_rcf%tracer (jc,jk,jb,iqc) &
+!!$                  &                         + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
+!!$                  &                         + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
+!!$                  &                         + pt_prog_rcf%tracer (jc,jk,jb,iqs)
+!!$              ENDDO
+!!$            ENDDO
+!!$          ENDIF
+!!$
+!!$          ! Add further hydrometeor species to water loading term if required
+!!$          IF (iqm_max > MAX(iqs,5)) THEN
+!!$            DO jt = iqs+1, iqm_max
+!!$              DO jk = slev_moist, nlev
+!!$                DO jc = i_startidx, i_endidx
+!!$                  z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
+!!$                ENDDO
+!!$              ENDDO
+!!$            ENDDO
+!!$          ENDIF
 
           DO jk = slev, nlev
 !DIR$ IVDEP
@@ -367,15 +380,17 @@ MODULE mo_nh_diagnose_pres_temp
   !! Reduced version for temperature diagnosis to be called from within a block loop
   !!
   !!
-  SUBROUTINE diag_temp (pt_prog, pt_prog_rcf, pt_diag,  &
-                        jb, i_startidx, i_endidx, slev, slev_moist, nlev)
+  SUBROUTINE diag_temp (pt_prog, pt_prog_rcf, condensate_list, pt_diag, &
+    &                   jb, i_startidx, i_endidx, slev, slev_moist, nlev)
 
 
-    TYPE(t_nh_prog),    INTENT(IN)    :: pt_prog      !!the prognostic variables
-    TYPE(t_nh_prog),    INTENT(IN)    :: pt_prog_rcf  !!the prognostic variables which are
-                                                      !! treated with reduced calling frequency
-
-    TYPE(t_nh_diag),    INTENT(INOUT) :: pt_diag      !!the diagnostic variables
+    TYPE(t_nh_prog),    INTENT(IN)    :: pt_prog       !!the prognostic variables
+    TYPE(t_nh_prog),    INTENT(IN)    :: pt_prog_rcf   !!the prognostic variables which are
+                                                       !! treated with reduced calling frequency
+    INTEGER        ,    INTENT(IN)    :: &             !! IDs of all tracers containing 
+      &  condensate_list(:)                            !! prognostic condensate. Required for
+                                                       !! computing the water loading term.  
+    TYPE(t_nh_diag),    INTENT(INOUT) :: pt_diag       !!the diagnostic variables
 
 
     INTEGER, INTENT(IN) :: jb, i_startidx, i_endidx, slev, slev_moist, nlev 
@@ -389,26 +404,33 @@ MODULE mo_nh_diagnose_pres_temp
       z_qsum(:,jk) = 0._wp
     ENDDO
 
+
     DO jk = slev_moist, nlev
       DO jc = i_startidx, i_endidx
-        z_qsum(jc,jk)            =    pt_prog_rcf%tracer (jc,jk,jb,iqc) &
-          &                         + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
-          &                         + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
-          &                         + pt_prog_rcf%tracer (jc,jk,jb,iqs)
+        z_qsum(jc,jk) = SUM(pt_prog_rcf%tracer (jc,jk,jb,condensate_list))
       ENDDO
     ENDDO
 
-
-    ! Add further hydrometeor species to water loading term if required
-    IF (iqm_max > MAX(iqs,5)) THEN
-      DO jt = iqs+1, iqm_max
-        DO jk = slev_moist, nlev
-          DO jc = i_startidx, i_endidx
-            z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
-          ENDDO
-        ENDDO
-      ENDDO
-    ENDIF
+!!$    DO jk = slev_moist, nlev
+!!$      DO jc = i_startidx, i_endidx
+!!$        z_qsum(jc,jk)            =    pt_prog_rcf%tracer (jc,jk,jb,iqc) &
+!!$          &                         + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
+!!$          &                         + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
+!!$          &                         + pt_prog_rcf%tracer (jc,jk,jb,iqs)
+!!$      ENDDO
+!!$    ENDDO
+!!$
+!!$
+!!$    ! Add further hydrometeor species to water loading term if required
+!!$    IF (iqm_max > MAX(iqs,5)) THEN
+!!$      DO jt = iqs+1, iqm_max
+!!$        DO jk = slev_moist, nlev
+!!$          DO jc = i_startidx, i_endidx
+!!$            z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
+!!$          ENDDO
+!!$        ENDDO
+!!$      ENDDO
+!!$    ENDIF
 
     DO jk = slev, nlev
 !DIR$ IVDEP
