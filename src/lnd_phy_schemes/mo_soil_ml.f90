@@ -2202,7 +2202,7 @@ END SUBROUTINE message
 
 
   !----------------------------------------------------------------------------
-  ! Section I.4.2b: Bare soil evaporation, Noilhan and Planton, 1989
+  ! Section I.4.2c: Bare soil evaporation, Noilhan and Planton, 1989
   !----------------------------------------------------------------------------
 
   IF (itype_evsl.EQ.3) THEN
@@ -2257,11 +2257,12 @@ END SUBROUTINE message
   END IF ! NP89
 
   !----------------------------------------------------------------------------
-  ! Section I.4.2f: Bare soil evaporation, resistance version
+  ! Section I.4.2d: Bare soil evaporation, resistance version
   !----------------------------------------------------------------------------
 
   IF (itype_evsl.EQ.4) THEN   ! Resistance version
-    ! Calculation of bare soil evaporation using a resistance formulation
+    ! Calculation of bare soil evaporation using a resistance formulation.
+    ! For a review see Schulz et al. (1998) 
     DO i = istarts, iends
       IF (zep_s(i) < 0.0_ireals) THEN   ! upwards directed potential evaporation
         ! Treatment of ice (m_styp=1) and rocks (m_styp=2)
