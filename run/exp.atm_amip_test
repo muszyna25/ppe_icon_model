@@ -30,6 +30,34 @@ author_list="Marco Giorgetta, MPIM"
 # second, minute, hour, day     = length of these intervals in [s]
 
 #--------------------------------------------------------------------------------------------------
+#--------------------------------------
+# Define grids for horizontal remapping
+# -------------------------------------
+#
+# The ICON RmBn grid has 3*m*2**n rows of triangles between the vertices at the N and S pole.
+# The number of triangles in a row around this axis increases linearly from 5 to 5*(1+2*(i-1))
+# at the base of the "polar" icosahedral triangles. In the "tropical" icosahedral triangles
+# all rows have a  5*(2*(m*2**n)) triangles. The triangles are either northward or southward
+# pointing. Thus the smallest periodic element in a tropical row is a rhombus formed by two
+# adjacent triangles. A tropical row has 5*(m*n**2) rhombi.
+#
+# The R2B4 grid has a total of 20480 triangular cells in 96 rows.
+# The tropical rows have 320 triangles or 160 rhombi.
+#
+# Therefore the following regular lon-lat grids are of interest for remapping:
+#
+# regular  grid: nlat=96, nlon=192, npts=18432, dlat=1.875 deg, dlon=1.875 deg
+reg_lat_def_reg=-89.0625,1.875,89.0625
+reg_lon_def_reg=0.,1.875,358.125
+#
+# rhombus  grid: nlat=96, nlon=160, npts=15360, dlat=1.875 deg, dlon=2.250 deg
+reg_lat_def_rmb=$reg_lat_def_reg
+reg_lon_def_rmb=0.,2.25,357.75
+#
+# triangle grid: nlat=96, nlon=320, npts=30720, dlat=1.875 deg, dlon=1.125 deg
+reg_lat_def_tri=$reg_lat_def_reg
+reg_lon_def_tri=0.,1.125,358.875
+#--------------------------------------------------------------------------------------------------
 
 # (2) Set variables needed by the scripting mechanism
 
@@ -148,12 +176,19 @@ cat > ${atmo_namelist} << EOF
                                 !14: only Stenchikov's volcanic aerosols
                                 !15: Kinne aerosol optics for troposphere
                                 !   +Stenchikov aerosol optics for stratosphere
- lrad_aero_diag   = .FALSE.     ! switch for diagnostics of the aerosol optical properties
+                                !18: Kinne background aerosols of 1850 (natural
+                                !    background + Stenchikov's volc. aerosols
+                                !    + simple plumes (anthropogenic)
+ lrad_aero_diag   = .TRUE.      ! switch for diagnostics of the aerosol optical properties
  ighg             = 1           ! 1: transient well mixed greenhouse gas concentrations
  isolrad          = 1           ! 1: transient solar irradiance (at 1 AE)
 /
 &psrad_nml
-rad_perm          = 1           ! Integer for perturbing random number seeds
+lradforcing       = .FALSE.,.FALSE. ! diagnose instantaneous radiative forcing
+                                    ! for solar and lw spectrum
+irad_aero_forcing     = 15          ! Kinne aerosols + Stenchikov's volc aerosols
+                                    ! as reference for instantaneous forcing
+rad_perm          = 1               ! Integer for perturbing random number seeds
 /
 &psrad_orbit_nml
 cecc        = 0.0
@@ -263,7 +298,30 @@ do
   fi
   (( year = year+1 ))
 done
+# for aerosol forcing calculations, the reference aerosols are the natural aerosols which are the Kinne
+# aerosols of 1850
+#year=$start_year
+#while [[ $year -le $end_year ]]
+#do
+#  add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
+#  add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                  ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
+#  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
+#  (( year = year+1 ))
+#done
 #
+# - tropospheric anthropogenic aerosols, simple plumes
+  add_link_file ${basedir}/data/MACv2.0-SP_v1-beta.nc ./MACv2.0-SP_v1-beta.nc
+#   Kinne background aerosols are needed for the years 1849, 1850, 1851 
+!   accessing all the same data of 1850:
+datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
+year=1849
+while [[ $year -le 1851 ]]
+do
+  add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
+  add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                  ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
+  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
+  (( year = year+1 ))
+done
 # - stratospheric aerosol
 datadir=$INDATA/r2b4_amip/atm/bc_aeropt_stenchikov
 year=$start_year
@@ -442,6 +500,62 @@ if [[ "$output_lnd" == "yes" ]]; then
                     't_soil', 'wsn_srf', 'wsr_srf', 't_eff_srf', 'grnd_hflx'
                     'sfract_srf', 'wfract_srf', 'sfract_soil', 'sfract_can', 'wfract_can', 'wfract_soil'
                     'tte_corr', 'rough_m_srf', 'rough_h_srf'
+/
+EOF
+fi
+output_aer_3d=no # "yes" needs lrad_aero_diag=.TRUE. in radiation_nml
+#
+if [[ "$output_aer_3d" == "yes" ]]; then
+  #
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_aer_3d"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 1
+ reg_def_mode     = 1
+ reg_lat_def      = ${reg_lat_def_rmb}
+ reg_lon_def      = ${reg_lon_def_rmb}
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval_3d}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'aer_aod_533',  'aer_ssa_533',  'aer_asy_533' , 
+                    'aer_aod_2325', 'aer_ssa_2325', 'aer_asy_2325', 
+                    'aer_aod_9731',
+                    'pfull'
+/
+EOF
+fi
+output_radforcing_3d=no # "yes" needs lradforcing being set in psrad_nml
+#
+if [[ "$output_radforcing_3d" == "yes" ]]; then
+  #
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_radforcing_3d"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 1
+ reg_def_mode     = 1
+ reg_lat_def      = ${reg_lat_def_rmb}
+ reg_lon_def      = ${reg_lon_def_rmb}
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval_3d}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'fsw_clear_top','fsw_total_top',
+                    'fsw_clear_sur','fsw_total_sur',
+                    'd_aflx_sw'    ,'d_aflx_swc',
+                    'netht_sw',
+                    'flw_clear_top','flw_total_top',
+                    'flw_clear_sur','flw_total_sur',
+                    'd_aflx_lw'    ,'d_aflx_lwc',
+                    'netht_lw',
+		    'emter_for'    ,'emtef_for',
+                    'trsol_for'    ,'trsof_for'
 /
 EOF
 fi
