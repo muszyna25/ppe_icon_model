@@ -33,7 +33,6 @@ MODULE mo_linked_list
   !
   PUBLIC :: append_list_element ! add an element to the list
   PUBLIC :: delete_list_element ! remove one element from the list
-  PUBLIC :: find_list_element   ! find an element in the list
   !
 #ifdef HAVE_F95
   PUBLIC :: t_var_list_intrinsic
@@ -111,6 +110,7 @@ MODULE mo_linked_list
   TYPE t_var_list
     TYPE(t_var_list_intrinsic), POINTER :: p
   END type t_var_list
+
   !
 CONTAINS
   !
@@ -339,32 +339,5 @@ CONTAINS
     !
     this_list%p%nvars = this_list%p%nvars - 1
   END SUBROUTINE delete_list_element
-  !-----------------------------------------------------------------------------
-  !
-  ! Should be overloaded to be able to search for the different information 
-  ! In the proposed structure for the linked list, in the example only
-  ! A character string is used so it is straight forward only one find
-  !
-  FUNCTION find_list_element (this_list, name) RESULT(this_list_element)
-    !
-    TYPE(t_var_list),   INTENT(in) :: this_list
-    CHARACTER(len=*),   INTENT(in) :: name
-    !
-    TYPE(t_list_element), POINTER :: this_list_element
-    INTEGER :: key
-    !
-    key = util_hashword(name, LEN_TRIM(name), 0)
-    !
-    this_list_element => this_list%p%first_list_element
-    DO WHILE (ASSOCIATED(this_list_element))
-      IF (key == this_list_element%field%info%key) THEN
-        RETURN
-      ENDIF
-      this_list_element => this_list_element%next_list_element
-    ENDDO
-    !
-    NULLIFY (this_list_element)
-    !
-  END FUNCTION find_list_element
   !-----------------------------------------------------------------------------
 END MODULE mo_linked_list

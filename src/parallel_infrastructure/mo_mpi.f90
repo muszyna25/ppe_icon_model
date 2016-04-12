@@ -6417,17 +6417,10 @@ CONTAINS
 
   SUBROUTINE p_bcast_cchar (t_buffer, buflen, p_source, p_comm)
 
-#ifdef __SX__
-    USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_CHAR
-#else
     USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_SIGNED_CHAR
-#endif
+
     INTEGER,           INTENT(IN)    :: buflen
-#ifdef __SX__
-    CHARACTER(C_CHAR), INTENT(INOUT) :: t_buffer(buflen)
-#else
     INTEGER(C_SIGNED_CHAR), INTENT(INOUT) :: t_buffer(buflen)
-#endif
 
     INTEGER,           INTENT(IN)    :: p_source
     INTEGER,           INTENT(IN)    :: p_comm
