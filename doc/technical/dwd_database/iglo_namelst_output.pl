@@ -39,6 +39,10 @@ Debug options. Writes extra output to STDERR.
 
 =head2 Modifications
 
+26.11.2015
+
+Adapt for tiles output and SNOWC.
+
 =cut
 
 use open qw< :encoding(ASCII) >;
@@ -102,8 +106,13 @@ for $tex_list ( @tex_lists) {
                 $cols[0] =~ s/,/ /g;
                 $cols[0] =~ s/\(\S+\)//;
                 $cols[0] =~ s/\\footnote.*//;
+                if ( $cols[-1] =~ /tiles:\s*$/) {
+                    $tiles = 'tiles:';
+                } else {
+                    $tiles = '';
+                }
                 foreach $var ( split( ' ', $cols[0]) ) {
-                    $out[1] .= "'$var', ";
+                    $out[1] .= "'$tiles$var', ";
                 }
             }
         }
@@ -160,6 +169,11 @@ for $tex_list ( @tex_lists) {
                     $ml_var{"$nml_file.wind_10m"}{$var}++;
                     next;
                 }
+#               10 m gusts on global tringular grid are written hourly in special namelist
+                if ( $grid ne '_ll' && $nest eq '' && $ext eq '.oth' && $var =~ /VMAX_10M\b/) {
+                    $ml_var{"$nml_file.wind_10m"}{$var}++;
+                    next;
+                }
 
                 $ml_var{$nml_file}{$var}++;
             }
@@ -181,6 +195,7 @@ my $out = undef;
 my ( $in_file, $out_file, $nml_id);
 my ( $in_abs, $out_abs);
 my ( @ml_varlist, $n_varlist, $l);
+my $output_start;
 for $in_file (@in_files) {
     ( $nml_file = $in_file ) =~ s{.*/}{};
 
@@ -191,6 +206,15 @@ for $in_file (@in_files) {
     die "Error! Change output directory $dir!\n" .
         "Output file $out_file would overwrite\n" .
         " input file $in_file !\n"  if ( $out_abs eq $in_abs);
+
+    if ( -l $in_file) {
+        my $ilink = readlink $in_file;
+        $ilink =~ s{.*/}{};
+        print STDERR "Link $ilink -> $out_file\n";
+#       symlink "$dir/$ilink", $out_file;
+        symlink "$ilink", $out_file;
+        next;
+    }
 
     open( $in, "<", $in_file) or die "Error opening file $in_file!\n";
     print STDERR "Read $in_file\n" if ($debug);
@@ -206,7 +230,7 @@ for $in_file (@in_files) {
 
 #   Exclude WW, DTKE_CON, ... from assimilation namelists
     if ( $nml_file =~ /\.ass\.|\.pre\./) {
-        my @no_ass = grep( !/\bWW\b|\bDTKE_CON\b|\bH\w+_CON\b|\bHTOP_DC\b|\bHZEROCL\b|\bTC[HM]\b/,
+        my @no_ass = grep( !/\bWW\b|\bDTKE_CON\b|\bH\w+_CON\b|\bHTOP_DC\b|\bHZEROCL\b|\bTC[HM]\b|\bASWDI|\bTQ._DIA\b/,
                            @ml_varlist);
         @ml_varlist = @no_ass;
     }
@@ -215,13 +239,31 @@ for $in_file (@in_files) {
     print STDERR "$nml_id: ml_varlist = @ml_varlist\n" if ($debug);
 
     while (<$in>) {
+        if ( /output_bounds\s*=\s*(\S+)/) {
+            $output_start = $1;
+            if ( $output_start =~ /^(\d+)/) {
+                $output_start = $1;
+            } else {
+                $output_start = 0;
+            }
+        }
 #       Replace ml_varlist by the new list
         if ( $n_varlist && /^\s*ml_varlist *=/) {
           do { $_ = <$in>;
              } until ( /[^!]*\w+\s*=/);
              $l = " ml_varlist           = ";
              foreach $v (@ml_varlist) {
-                 $l .= "$v, ";
+                 $var = $v;
+                 if ( $output_start == 5400) {
+#                    P, T, U, V are not necessary in the first guest output after 5400 s = 90 min
+#                    because they are not prognostic variables
+                     next if ( $var =~ /\bP\b|\bT\b|\bU\b|\bV\b/);
+                 } else {
+                     next if ( $var =~ /SNOWC/);
+#  presently, tiles and SNOWC are only written to the first guess file forecast for 5400 s
+                     $var =~ s/tiles://;
+                 }
+                 $l .= "$var, ";
                  if ( length($l) > 72) {
                      print $out "$l\n";
                      $l = ' ' x 24;
@@ -241,6 +283,13 @@ exit;
 sub make_ml_varlist {
     my ( $nfile, $debug) = @_;
     my $r_var = $ml_var{$nfile};
-    my @nml_vars = sort keys %$r_var;
+    my @nml_vars = sort ignoreTiles keys %$r_var;
     return @nml_vars;
+}
+
+sub ignoreTiles {
+    my ( $aa, $bb);
+    ( $aa = $a ) =~ s/^'tiles:/'/;
+    ( $bb = $b ) =~ s/^'tiles:/'/;
+    $aa cmp $bb;
 }

@@ -17,5 +17,5 @@ z_ifc               HHL
 vn                  VN
 GEOSP               GEOSP
 GEOP_ML             GEOP_ML
-theta_v             theta_v
-rho                 rho
+theta_v             THETA_V
+rho                 DEN
