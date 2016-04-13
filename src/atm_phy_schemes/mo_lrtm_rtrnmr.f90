@@ -506,8 +506,8 @@ CONTAINS
               & faccmb1d(jl,lev-1) * gassrc + &
               & faccmb2d(jl,lev-1) * cldsrc
             rad(jl) = MERGE(-radmod &
-              + facclr2d(jl,lev-1) * (cldradd_temp - radmod) &
-              - faccld2d(jl,lev-1) * (clrradd_temp + radmod), rad(jl), &
+              + facclr2d(jl,lev-1) * (clrradd_temp + radmod) &
+              - faccld2d(jl,lev-1) * (cldradd_temp - radmod), rad(jl), &
               lcldlyr(jl,lev))
             cldradd(jl) = MERGE(cldradd_temp + rad(jl), cldradd(jl), &
               lcldlyr(jl,lev))
@@ -601,8 +601,8 @@ CONTAINS
               odepth(jl) = tau_tbl(itgas)
               atrans(jl,lev) = 1._wp - exp_tbl(itgas)
               tfacgas = tfn_tbl(itgas)
-              gassrc(jl) = atrans(jl,lev) * plfrac * (planklay(jl,lev,iband) &
-                                                   + tfacgas*dplankdn(jl,lev))
+              gassrc(jl) = plfrac * (planklay(jl,lev,iband) &
+                + tfacgas*dplankdn(jl,lev)) * atrans(jl,lev)
 
               tblind = odtot(jl)/(bpade+odtot(jl))
               ittot = INT(tblint*tblind + 0.5_wp)
@@ -748,8 +748,8 @@ CONTAINS
             odepth(jl) = tau_tbl(itgas)
             atrans(jl,lev) = 1._wp - exp_tbl(itgas)
             tfacgas = tfn_tbl(itgas)
-            gassrc(jl) = atrans(jl,lev) * plfrac * (planklay(jl,lev,iband) &
-                                                 + tfacgas*dplankdn(jl,lev))
+            gassrc(jl) = plfrac * (planklay(jl,lev,iband) &
+              + tfacgas*dplankdn(jl,lev)) * atrans(jl,lev)
 
             tblind = odtot(jl)/(bpade+odtot(jl))
             ittot = INT(tblint*tblind + 0.5_wp)
@@ -1128,7 +1128,7 @@ CONTAINS
 #endif
 
     REAL(wp) :: fmax, fmin, rat1(kproma), rat2(kproma)
-    INTEGER :: lev, jl, olev, icld, iclr
+    INTEGER :: lev, jl, blev, clev, olev, icld, iclr
 
     faccld1(:,start_lev-lev_incr+ofs) = 0.0_wp
     faccld2(:,start_lev-lev_incr+ofs) = 0.0_wp
@@ -1136,28 +1136,31 @@ CONTAINS
     facclr2(:,start_lev-lev_incr+ofs) = 0.0_wp
     faccmb1(:,start_lev-lev_incr+ofs) = 0.0_wp
     faccmb2(:,start_lev-lev_incr+ofs) = 0.0_wp
+
     DO lev = start_lev, end_lev - lev_incr, lev_incr
       olev = lev + ofs
+      blev = lev + 1 - ofs
+      clev = lev + lev_incr
       IF (n_cloudpoints(lev) == kproma) THEN ! all points are cloudy
         DO jl = 1, kproma ! Thus, direct addressing can be used
           ! Maximum/random cloud overlap
-          IF (cldfrac(jl,olev) .GE. cldfrac(jl,lev)) THEN
+          IF (cldfrac(jl,clev) .GE. cldfrac(jl,lev)) THEN
             faccld1(jl,olev) = 0._wp
             faccld2(jl,olev) = 0._wp
-            IF (.NOT. lcldlyr(jl,lev+1-lev_incr-ofs)) THEN
+            IF (.NOT. lcldlyr(jl,lev-lev_incr)) THEN
               facclr1(jl,olev) = 0._wp
               facclr2(jl,olev) = 0._wp
               IF (cldfrac(jl,lev) .LT. 1._wp) facclr2(jl,olev) = &
-                & (cldfrac(jl,olev)-cldfrac(jl,lev))/(1._wp-cldfrac(jl,lev))
-              facclr2(jl,lev+1-ofs) = 0._wp
-              faccld2(jl,lev+1-ofs) = 0._wp
+                & (cldfrac(jl,clev)-cldfrac(jl,lev))/(1._wp-cldfrac(jl,lev))
+              facclr2(jl,blev) = 0._wp
+              faccld2(jl,blev) = 0._wp
             ELSE
               fmax = MAX(cldfrac(jl,lev),cldfrac(jl,lev-lev_incr))
-              IF (cldfrac(jl,olev) .GT. fmax) THEN
+              IF (cldfrac(jl,clev) .GT. fmax) THEN
                 facclr1(jl,olev) = rat2(jl)
-                facclr2(jl,olev) = (cldfrac(jl,olev)-fmax)/(1._wp-fmax)
-              ELSEIF (cldfrac(jl,olev) .LT. fmax) THEN
-                facclr1(jl,olev) = (cldfrac(jl,olev)-cldfrac(jl,lev))/ &
+                facclr2(jl,olev) = (cldfrac(jl,clev)-fmax)/(1._wp-fmax)
+              ELSEIF (cldfrac(jl,clev) .LT. fmax) THEN
+                facclr1(jl,olev) = (cldfrac(jl,clev)-cldfrac(jl,lev))/ &
                   & (cldfrac(jl,lev-lev_incr)-cldfrac(jl,lev))
                 facclr2(jl,olev) = 0._wp
               ELSE
@@ -1171,19 +1174,19 @@ CONTAINS
           ELSE
             facclr1(jl,olev) = 0._wp
             facclr2(jl,olev) = 0._wp
-            IF (.NOT. lcldlyr(jl,lev+1-lev_incr-ofs)) THEN
+            IF (.NOT. lcldlyr(jl,lev-lev_incr)) THEN
               faccld1(jl,olev) = 0._wp
-              faccld2(jl,olev) = (cldfrac(jl,lev)-cldfrac(jl,olev))/cldfrac(jl,lev)
+              faccld2(jl,olev) = (cldfrac(jl,lev)-cldfrac(jl,clev))/cldfrac(jl,lev)
 
-              facclr2(jl,lev+1-ofs) = 0._wp
-              faccld2(jl,lev+1-ofs) = 0._wp
+              facclr2(jl,blev) = 0._wp
+              faccld2(jl,blev) = 0._wp
             ELSE
               fmin = MIN(cldfrac(jl,lev),cldfrac(jl,lev-lev_incr))
-              IF (cldfrac(jl,olev) .LE. fmin) THEN
+              IF (cldfrac(jl,clev) .LE. fmin) THEN
                 faccld1(jl,olev) = rat1(jl)
-                faccld2(jl,olev) = (fmin-cldfrac(jl,olev))/fmin
+                faccld2(jl,olev) = (fmin-cldfrac(jl,clev))/fmin
               ELSE
-                faccld1(jl,olev) = (cldfrac(jl,lev)-cldfrac(jl,olev))/(cldfrac(jl,lev)-fmin)
+                faccld1(jl,olev) = (cldfrac(jl,lev)-cldfrac(jl,clev))/(cldfrac(jl,lev)-fmin)
                 faccld2(jl,olev) = 0._wp
               ENDIF
             ENDIF
@@ -1193,10 +1196,10 @@ CONTAINS
           ENDIF
           IF (lev == start_lev) THEN
             faccmb1(jl,olev) = 0._wp
-            faccmb2(jl,olev) = faccld1(jl,olev) * facclr2(jl,lev)
+            faccmb2(jl,olev) = faccld1(jl,olev) * facclr2(jl,blev)
           ELSE
-            faccmb1(jl,olev) = facclr1(jl,olev) * faccld2(jl,lev) * cldfrac(jl,lev-lev_incr)
-            faccmb2(jl,olev) = faccld1(jl,olev) * facclr2(jl,lev) * (1._wp - cldfrac(jl,lev-lev_incr))
+            faccmb1(jl,olev) = facclr1(jl,olev) * faccld2(jl,blev) * cldfrac(jl,lev-lev_incr)
+            faccmb2(jl,olev) = faccld1(jl,olev) * facclr2(jl,blev) * (1._wp - cldfrac(jl,lev-lev_incr))
           ENDIF
         ENDDO
       ELSE IF (n_cloudpoints(lev) /= 0) THEN
@@ -1205,23 +1208,23 @@ CONTAINS
         DO icld = 1, n_cloudpoints(lev)
           jl = icld_ind(icld,lev)
           ! Maximum/random cloud overlap
-          IF (cldfrac(jl,olev) .GE. cldfrac(jl,lev)) THEN
+          IF (cldfrac(jl,clev) .GE. cldfrac(jl,lev)) THEN
             faccld1(jl,olev) = 0._wp
             faccld2(jl,olev) = 0._wp
-            IF (.NOT. lcldlyr(jl,lev+1-lev_incr-ofs)) THEN
+            IF (.NOT. lcldlyr(jl,lev-lev_incr)) THEN
               facclr1(jl,olev) = 0._wp
               facclr2(jl,olev) = 0._wp
               IF (cldfrac(jl,lev) .LT. 1._wp) facclr2(jl,olev) = &
-                & (cldfrac(jl,olev)-cldfrac(jl,lev))/(1._wp-cldfrac(jl,lev))
-              facclr2(jl,lev+1-ofs) = 0._wp
-              faccld2(jl,lev+1-ofs) = 0._wp
+                & (cldfrac(jl,clev)-cldfrac(jl,lev))/(1._wp-cldfrac(jl,lev))
+              facclr2(jl,blev) = 0._wp
+              faccld2(jl,blev) = 0._wp
             ELSE
               fmax = MAX(cldfrac(jl,lev),cldfrac(jl,lev-lev_incr))
-              IF (cldfrac(jl,olev) .GT. fmax) THEN
+              IF (cldfrac(jl,clev) .GT. fmax) THEN
                 facclr1(jl,olev) = rat2(jl)
-                facclr2(jl,olev) = (cldfrac(jl,olev)-fmax)/(1._wp-fmax)
-              ELSEIF (cldfrac(jl,olev) .LT. fmax) THEN
-                facclr1(jl,olev) = (cldfrac(jl,olev)-cldfrac(jl,lev))/ &
+                facclr2(jl,olev) = (cldfrac(jl,clev)-fmax)/(1._wp-fmax)
+              ELSEIF (cldfrac(jl,clev) .LT. fmax) THEN
+                facclr1(jl,olev) = (cldfrac(jl,clev)-cldfrac(jl,lev))/ &
                   & (cldfrac(jl,lev-lev_incr)-cldfrac(jl,lev))
                 facclr2(jl,olev) = 0._wp
               ELSE
@@ -1235,19 +1238,19 @@ CONTAINS
           ELSE
             facclr1(jl,olev) = 0._wp
             facclr2(jl,olev) = 0._wp
-            IF (.NOT. lcldlyr(jl,lev+1-lev_incr-ofs)) THEN
+            IF (.NOT. lcldlyr(jl,lev-lev_incr)) THEN
               faccld1(jl,olev) = 0._wp
-              faccld2(jl,olev) = (cldfrac(jl,lev)-cldfrac(jl,olev))/cldfrac(jl,lev)
+              faccld2(jl,olev) = (cldfrac(jl,lev)-cldfrac(jl,clev))/cldfrac(jl,lev)
 
-              facclr2(jl,lev+1-ofs) = 0._wp
-              faccld2(jl,lev+1-ofs) = 0._wp
+              facclr2(jl,blev) = 0._wp
+              faccld2(jl,blev) = 0._wp
             ELSE
               fmin = MIN(cldfrac(jl,lev),cldfrac(jl,lev-lev_incr))
-              IF (cldfrac(jl,olev) .LE. fmin) THEN
+              IF (cldfrac(jl,clev) .LE. fmin) THEN
                 faccld1(jl,olev) = rat1(jl)
-                faccld2(jl,olev) = (fmin-cldfrac(jl,olev))/fmin
+                faccld2(jl,olev) = (fmin-cldfrac(jl,clev))/fmin
               ELSE
-                faccld1(jl,olev) = (cldfrac(jl,lev)-cldfrac(jl,olev))/(cldfrac(jl,lev)-fmin)
+                faccld1(jl,olev) = (cldfrac(jl,lev)-cldfrac(jl,clev))/(cldfrac(jl,lev)-fmin)
                 faccld2(jl,olev) = 0._wp
               ENDIF
             ENDIF
@@ -1257,10 +1260,10 @@ CONTAINS
           ENDIF
           IF (lev == start_lev) THEN
             faccmb1(jl,olev) = 0._wp
-            faccmb2(jl,olev) = faccld1(jl,olev) * facclr2(jl,lev)
+            faccmb2(jl,olev) = faccld1(jl,olev) * facclr2(jl,blev)
           ELSE
-            faccmb1(jl,olev) = facclr1(jl,olev) * faccld2(jl,lev) * cldfrac(jl,lev-lev_incr)
-            faccmb2(jl,olev) = faccld1(jl,olev) * facclr2(jl,lev) * (1._wp - cldfrac(jl,lev-lev_incr))
+            faccmb1(jl,olev) = facclr1(jl,olev) * faccld2(jl,blev) * cldfrac(jl,lev-lev_incr)
+            faccmb2(jl,olev) = faccld1(jl,olev) * facclr2(jl,blev) * (1._wp - cldfrac(jl,lev-lev_incr))
           ENDIF
         ENDDO
         DO iclr = n_cloudpoints(lev) + 1, kproma
