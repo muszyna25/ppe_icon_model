@@ -23,17 +23,17 @@ echo $TO
 WORKDIR=$6
 # 
 echo QUELLE path $QUELLE
-   FIXCODE=/pool/data/ECHAM6/post/FixCodes
-   ERAin=/pool/data/ECHAM6/post/ERAin/T${eraRES}
+
 #
 
-   cdo=/client/bin/cdo
 
 
 ##
 inDat="${WORKDIR}/atm_3d_${NAME}"
-ATMera="${ERAin}/T${eraRES}_ATM_1979_${TO}_$TYP"
-ATMeralola="${ERAinDir}/ERAin_r2b4_atm_dyn_map_1979_2008_${TYP}.nc"
+ATMera="ERAin_T63_atm_3d_zon_${ERAystrt}_${ERAylast}_${TYP}.nc"
+ATMeralola="ERAin_${RES}_atm_2d_${ERAystrt}_${ERAylast}_${TYP}.nc"
+ls -la $ATMeralola
+
 #
 ###########################################################################
 # var.txt input for atm_3d.ncl
@@ -57,8 +57,7 @@ set -ex
 #
 #---interpolate r2b4 to t63 and modellevel to presure level
 #
-
-${CDO} -setpartabn,${QUELLE}/partab -ap2pl,${LEVELS}   $inDat Uatm_dyn_pl
+cdo -setpartabn,partab -ap2pl,${LEVELS}   $inDat Uatm_dyn_pl
 cdo -r remapycon,t63grid   Uatm_dyn_pl Uatm_dyn_t63
 
 rm -f  busy*
@@ -90,8 +89,7 @@ fi
 Cvar=ta
 if cdo -s showvar -selvar,${Cvar} $inDat > /dev/null 
 then
-${CDO} -setpartabn,${QUELLE}/partab -ap2pl,85000 $inDat busy1.nc
-cdo subc,273.15 -sellevel,85000 -selvar,${Cvar}  busy1.nc Ubusy_${Cvar}_lola.nc
+cdo subc,273.15 -sellevel,85000 -selvar,${Cvar}  Uatm_dyn_pl Ubusy_${Cvar}_lola.nc
 fi
 #
 rm -f  busy*
@@ -104,8 +102,7 @@ then
 cdo  -sellevel,85000 -selvar,${Cvar} $ATMeralola busy2.nc
   if cdo -s showvar -selvar,${Cvar} $inDat > /dev/null 
   then
-   ${CDO} -setpartabn,${QUELLE}/partab -ap2pl,85000  $inDat busy.nc
-   cdo selvar,${Cvar} busy.nc busy1.nc 
+   cdo selvar,${Cvar} -sellevel,85000 Uatm_dyn_pl busy1.nc 
   fi
 cdo sub  busy1.nc busy2.nc  Ubusy_d${Cvar}_lola.nc
 fi
@@ -129,14 +126,13 @@ rm -f  busy*
 #--------gpfull * 1/(10 * 9.81)------------
 #
 #
-Cvar_era=zg
 Cvar=zg
 if cdo -s showvar -selvar,${Cvar} Uatm_dyn_pl > /dev/null 
 then
   cdo  -mulc,0.1  -selvar,${Cvar} -sellevel,50000 Uatm_dyn_pl busy1.nc
-  if cdo -s showvar -selvar,${Cvar_era} $ATMeralola > /dev/null 
+  if cdo -s showvar -selvar,${Cvar} $ATMeralola > /dev/null 
   then
-     cdo -selvar,${Cvar_era}  $ATMeralola  busy2.nc
+     cdo -selvar,${Cvar}  $ATMeralola  busy2.nc
      cdo -sub  busy1.nc busy2.nc  Ubusy_d${Cvar}_lola.nc
   fi
 fi
@@ -146,10 +142,10 @@ rm -f  busy*
 #
 #---ERAin-------Geopotential-----500 hPa- ERAin: code129 CMOR: zg-----
 #
-Cvar_era=zg
-if cdo -s showvar -selvar,${Cvar_era} $inDat > /dev/null 
+Cvar=zg
+if cdo -s showvar -selvar,${Cvar} $inDat > /dev/null 
 then
-cdo -selvar,${Cvar_era}  $ATMeralola Ubusy_${Cvar_era}_erain_lola.nc
+cdo -selvar,${Cvar}  $ATMeralola Ubusy_${Cvar}_erain_lola.nc
 fi
 #
 #
@@ -168,13 +164,12 @@ fi
 #----code130-- Temperature- (Model-ERAin)-zonal--CMOR: ta ---
 #
 Cvar=ta
-Cvarera=var130
 if cdo -s showvar -selvar,${Cvar} Uatm_dyn_t63 > /dev/null 
 then
   cdo -zonmean -sellevel,${LEVELS} -selvar,${Cvar}  Uatm_dyn_t63 busy1
-  if cdo -s showvar -selvar,${Cvarera} $ATMera > /dev/null 
+  if cdo -s showvar -selvar,${Cvar} $ATMera > /dev/null 
   then
-     cdo -zonmean -sellevel,${LEVELS} -selvar,${Cvarera} $ATMera busy2
+     cdo -sellevel,${LEVELS} -selvar,${Cvar} $ATMera busy2
      cdo sub busy1 busy2 Ubusy_d${Cvar}.nc
   fi
 fi
@@ -195,13 +190,12 @@ fi
 #
 #
 Cvar=ua
-Cvarera=var131
 if cdo -s showvar -selvar,${Cvar} Uatm_dyn_t63 > /dev/null 
 then
   cdo -zonmean -sellevel,${LEVELS} -selvar,${Cvar}  Uatm_dyn_t63 busy1
-  if cdo -s showvar -selvar,${Cvarera} $ATMera > /dev/null 
+  if cdo -s showvar -selvar,${Cvar} $ATMera > /dev/null 
   then
-     cdo -zonmean -sellevel,${LEVELS} -selvar,${Cvarera} $ATMera busy2
+     cdo  -sellevel,${LEVELS} -selvar,${Cvar} $ATMera busy2
      cdo sub busy1 busy2 Ubusy_d${Cvar}.nc
   fi
 fi
@@ -221,13 +215,12 @@ fi
 #
 #
 Cvar=va
-Cvarera=var132
 if cdo -s showvar -selvar,${Cvar} Uatm_dyn_t63 > /dev/null 
 then
   cdo -zonmean -sellevel,${LEVELS} -selvar,${Cvar}  Uatm_dyn_t63 busy1
-  if cdo -s showvar -selvar,${Cvarera} $ATMera > /dev/null 
+  if cdo -s showvar -selvar,${Cvar} $ATMera > /dev/null 
   then
-     cdo -zonmean -sellevel,${LEVELS} -selvar,${Cvarera} $ATMera busy2
+     cdo  -sellevel,${LEVELS} -selvar,${Cvar} $ATMera busy2
      cdo sub busy1 busy2 Ubusy_d${Cvar}.nc
   fi
 fi
@@ -287,13 +280,13 @@ fi
 #
 #
 Cvar=hur
-Cvarera=var157
+
 if cdo -s showvar -selvar,${Cvar} Uatm_dyn_t63 > /dev/null 
 then
   cdo -mulc,100 -zonmean -sellevel,${LEVELS} -selvar,${Cvar}  Uatm_dyn_t63 busy1
-  if cdo -s showvar -selvar,${Cvarera} $ATMera > /dev/null 
+  if cdo -s showvar -selvar,${Cvar} $ATMera > /dev/null 
   then
-     cdo -zonmean -sellevel,${LEVELS} -selvar,${Cvarera} $ATMera busy2
+     cdo -sellevel,${LEVELS} -selvar,${Cvar} $ATMera busy2
      cdo sub busy1 busy2 Ubusy_d${Cvar}.nc
   fi
 fi

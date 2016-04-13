@@ -48,7 +48,7 @@ begin
 end
 
 undef("BWdefine_zon_draw_strings")
- procedure BWdefine_zon_draw_strings (nlati,Code,comment,wks,plot)
+ procedure BWdefine_zon_draw_strings (nlati,Code,comment,wks)
 ;************************************************
 ;  Define min max mean for black and white plot
 ;  Draw text on plot using NDC coordinates.
@@ -70,22 +70,18 @@ begin
   statV="min="+minV+"   mean="+meanV(0)+"   max="+maxV
 
   pltdate = systemfunc("date +%d-%m-%Y")
-;  print("actual_date: "+pltdate)
+  print("actual_date: "+pltdate)
 
-;--KMF create text object and add it to the plot
-  txres                  =  True                 ; text mods desired
-  txres@txFontHeightF    =  0.014                 ;-- smaller font
-  txid = gsn_create_text(wks, statV, txres)
-  
-  amres                  =  True
-  amres@amParallelPosF   =  0.0                  ;-- center position
-  amres@amOrthogonalPosF =  0.7                  ;-- move downward
-  amres@amSide           = "Bottom"
-  annoid = gsn_add_annotation(plot, txid, amres)
+  txres               = True                    ; text mods desired
+  txres@txFontHeightF = 0.014                   ; font smaller. default big
+  gsn_text_ndc(wks,pltdate,0.9,0.1,txres)
+  gsn_text_ndc(wks,comment,0.17,0.1,txres)
+  txres@txFontHeightF = 0.016 
+  gsn_text_ndc(wks,statV,0.5,0.22,txres)
 end
 ;***end procedure 
 undef("define_zon_draw_strings")
- procedure define_zon_draw_strings (nlati,Code,comment,wks,plot)
+ procedure define_zon_draw_strings (nlati,Code,comment,wks)
 ;************************************************
 ;  Define min max mean
 ;  Draw text on plot using NDC coordinates.
@@ -107,34 +103,29 @@ begin
   statV="min="+minV+"   mean="+meanV(0)+"   max="+maxV
 
   pltdate = systemfunc("date +%d-%m-%Y")
-;  print("actual_date: "+pltdate)
+  print("actual_date: "+pltdate)
 
-
-;--KMF create text object and add it to the plot
-  txres                  =  True                 ; text mods desired
-  txres@txFontHeightF    =  0.014                 ;-- smaller font
-  txid = gsn_create_text(wks, statV, txres)
-  
-  amres                  =  True
-  amres@amParallelPosF   =  0.0                  ;-- center position
-  amres@amOrthogonalPosF =  0.7                  ;-- move downward
-  amres@amSide           = "Bottom"
-  annoid = gsn_add_annotation(plot, txid, amres)
+  txres               = True                    ; text mods desired
+  txres@txFontHeightF = 0.014                   ; font smaller. default big
+  gsn_text_ndc(wks,pltdate,0.93,0.08,txres)
+  gsn_text_ndc(wks,comment,0.17,0.08,txres)
+  txres@txFontHeightF = 0.016 
+  gsn_text_ndc(wks,statV,0.6,0.22,txres)
 end
 ;***end procedure 
 
 
 undef("plot_cont_zon_log_bw")
- procedure plot_cont_zon_log_bw (plot,wks,var,nlati, BWres_in,pltName,\
+ procedure plot_cont_zon_log_bw (wks,var,nlati, BWres_in,pltName,\
                 mainTitle,subTitle,comment)
 ;************************************************
 
  local plot, BWres
 
 begin
-    BWres=BWres_in
+
+    BWres                      = True             ; plot mods desired
     BWres@gsnFrame             = False            ; don't advance frame yet
-    BWres@gsnDraw              = False             ; don't draw plot yet 
     BWres@tiMainString         = mainTitle
     BWres@tiYAxisString        = " "              ; Y-Axis no label
     BWres@gsnLeftString        = " "  
@@ -151,33 +142,35 @@ begin
     BWres@tmYLValues = (/0.01,0.02,0.05,0.1,0.2,0.5,1,2,5,10,20,50,100,200,500,1000/)
     BWres@tmYLLabels = (/0.01,0.02,0.05,0.1,0.2,0.5,1,2,5,10,20,50,100,200,500,1000/) 
     BWres@tmYRMode = "Automatic"
-    BWres@cnInfoLabelOn        = False            ; turn off contour label box
-    BWres@cnLineLabelFormat    = "#f"             ; no unnecessary 0
+    BWres@tmYROn               = False    ; Turn off y-axis (right) major ticks
+    BWres@tmXTOn               = True  
+    BWres@cnInfoLabelOn        = False    ; turn off contour label box
+    BWres@cnLineLabelFormat    = "#f"     ; no unnecessary 0
     BWres=BWres_in
 
-    BWres@vpWidthF  = 0.8		; set width of plot 
+    BWres@vpWidthF  = 0.78		; set width of plot 
     BWres@vpHeightF = 0.5		; set height of plot
 
 
     plot = gsn_csm_pres_hgt(wks,var, BWres)  ; create plot
 
 ;***define statistical Values and draw Values, comment, pltdate
-    BWdefine_zon_draw_strings (nlati,var,comment,wks,plot)
+    BWdefine_zon_draw_strings (nlati,var,comment,wks)
 
-;    frame(wks)                                    ; now advance frame
+    frame(wks)                                    ; now advance frame
 end
 ;***end procedure plot_cont_zon_log_bw
 undef("plot_cont_zon_log")
- procedure plot_cont_zon_log (plot,wks,var,nlati, res_in,pltName,\
+ procedure plot_cont_zon_log (wks,var,nlati, res_in,pltName,\
                 mainTitle,subTitle,comment)
 ;************************************************
 
  local plot, res
 
 begin
-    res=res_in
+    GridColorIndex = NhlNewColor(wks,0.4,0.4,0.4) ;MajorGridLineColor grey
+    res                      = True             ; plot mods desired
     res@gsnFrame             = False            ; don't advance frame yet
-    res@gsnDraw              = False             ; don't draw plot yet
     res@tiMainString         = mainTitle
     res@tiYAxisString        = " "              ; Y-Axis no label
     res@gsnLeftString        = " "  
@@ -186,13 +179,15 @@ begin
 
     res@trYLog                = True            ; logarithmic Y-axis
     res@tmXMajorGrid          = True            ; X Axis grid lines
-    res@tmXMajorGridLineColor = "grey"  ; color X Axis grid lines
+    res@tmXMajorGridLineColor = GridColorIndex  ; color X Axis grid lines
     res@tmYMajorGrid          = True            ; Y Axis grid lines
-    res@tmYMajorGridLineColor = "grey"  ; color Y Axis grid lines
+    res@tmYMajorGridLineColor = GridColorIndex  ; color Y Axis grid lines
     res@tmYLMode = "Explicit"
     res@tmYLValues = (/0.1,0.2,0.5,1,2,5,10,20,50,100,200,500,1000/)
     res@tmYLLabels = (/0.1,0.2,0.5,1,2,5,10,20,50,100,200,500,1000/) 
     res@tmYRMode = "Automatic"
+    res@tmYROn               = False     ; Turn off y-axis (right) major ticks
+    res@tmXTOn               = True  
     res=res_in
     res@cnFillOn             = True               ; turn on color fill
     res@cnLinesOn            = True               ; turn off contour lines
@@ -200,13 +195,15 @@ begin
     res@pmLabelBarOrthogonalPosF = 0.07           ; move farther to plot
     res@lbOrientation        = "horizontal"       ; vertical label bars
     
-    res@vpWidthF  = 0.8		; set width of plot 
+    res@vpWidthF  = 0.78		; set width of plot 
     res@vpHeightF = 0.5		; set height of plot
-
+print(res)
     plot = gsn_csm_pres_hgt(wks,var, res)  ; create plot
 
 ;***define statistical Values and draw Values, comment, pltdate
-    define_zon_draw_strings (nlati,var,comment,wks,plot)
+    define_zon_draw_strings (nlati,var,comment,wks)
+
+    frame(wks)                                    ; now advance frame
 
 end
 ;***end procedure plot_cont_zon_log
@@ -227,17 +224,9 @@ begin
 ;  print(workdir)
 ;  print(eratime)
 
-;***define plot and open
-   pltType = "pdf"                        ; x11, eps, ps, pdf, png
-   pltPath = workdir
-   pltName = pltPath+"/"+run+"_amip_atm_3d_"+typ+"_logp"        ; plot name
-   wks     = gsn_open_wks(pltType, pltName) 
-;***plot array for panel
-   listplots = new(14,graphic)
-   noPlot=-1  ;number of listplots
-;***Define color map and add gray 
-    gsn_define_colormap(wks,"amwg_blueyellowred") ; Define color map 
-    missColor = NhlNewColor(wks,0.5,0.5,0.5)      ; add gray to color map 
+;***define plot
+   pltType = "png"                        ; x11, eps, ps, pdf, png
+   pltPath = workdir+"/"+run+"_atm_"
 
 ;************************************************
 ;   Temperature code130 zonal CMOR:ta
@@ -256,8 +245,9 @@ if (isfilepresent(fili)) then
     print("ploted: "+mainTitle)
 ;   printVarSummary(var)
 
-;***number of listplots
-    noPlot=noPlot+1
+;***open plot
+    pltName = pltPath+ Cvar+"_"+typ+"_logp_cont"   
+    wks     = gsn_open_wks(pltType, pltName) 
 
 ;***create plot
     BWres                      = True             ; plot mods desired
@@ -266,7 +256,7 @@ if (isfilepresent(fili)) then
     BWres@cnMaxLevelValF       =   300.           ; set max contour level
     BWres@cnLevelSpacingF      =      5.          ; set contour spacing
 
-    plot_cont_zon_log_bw(listplots(noPlot), wks,var, nlati, BWres,pltName,\
+    plot_cont_zon_log_bw( wks,var, nlati, BWres,pltName,\
                 mainTitle,subTitle,comment )
 
   end if
@@ -290,9 +280,12 @@ if (isfilepresent(fili)) then
     print("ploted: "+mainTitle)
 ;   printVarSummary(d130new)
 
-;***number of listplots
-    noPlot=noPlot+1
+;***open plot
+    pltName = pltPath+Cvar+"_era_"+typ+"_logp_cont"
+    wks     = gsn_open_wks(pltType, pltName) 
 
+    gsn_define_colormap(wks,"amwg_blueyellowred") ; Define color map 
+    missColor = NhlNewColor(wks,0.5,0.5,0.5)      ; add gray to color map 
 
 ;***create plot
     res                      = True             ; plot mods desired
@@ -301,7 +294,7 @@ if (isfilepresent(fili)) then
     res@cnFillColors         = (/2,4,6,7,9,0,11,12,14,15,17/)
     res@cnMissingValFillColor = missColor 
                       
-    plot_cont_zon_log (listplots(noPlot), wks,d130new, nlati, res,pltName,\
+    plot_cont_zon_log ( wks,d130new, nlati, res,pltName,\
                 mainTitle,subTitle,comment )
 
     delete(res@cnLevels)
@@ -327,8 +320,10 @@ if (isfilepresent(fili)) then
     print("ploted: "+mainTitle)
 ;   printVarSummary(var)
 
-;***number of listplots
-    noPlot=noPlot+1
+;***open plot
+    pltName = pltPath+ Cvar+"_"+typ+"_logp_cont"
+    wks     = gsn_open_wks(pltType, pltName) 
+
 
 ;***create plot
     BWres                      = True             ; plot mods desired
@@ -337,7 +332,7 @@ if (isfilepresent(fili)) then
     BWres@cnMaxLevelValF       =    50.           ; set max contour level
     BWres@cnLevelSpacingF      =     5.           ; set contour spacing
 
-    plot_cont_zon_log_bw(listplots(noPlot), wks,var, nlati, BWres,pltName,\
+    plot_cont_zon_log_bw( wks,var, nlati, BWres,pltName,\
                 mainTitle,subTitle,comment )
 
   end if
@@ -361,8 +356,12 @@ if (isfilepresent(fili)) then
     print("ploted: "+mainTitle)
 ;   printVarSummary(d131new)
 
-;***number of listplots
-    noPlot=noPlot+1
+;***open plot
+    pltName = pltPath+ Cvar+"_era_"+typ+"_logp_cont"
+    wks     = gsn_open_wks(pltType, pltName) 
+
+    gsn_define_colormap(wks,"amwg_blueyellowred") ; Define color map 
+    missColor = NhlNewColor(wks,0.5,0.5,0.5)      ; add gray to color map 
 
 ;***create plot
     res                      = True             ; plot mods desired
@@ -371,7 +370,7 @@ if (isfilepresent(fili)) then
     res@cnFillColors         = (/2,4,6,7,9,0,11,12,14,15,17/)
     res@cnMissingValFillColor = missColor
                      
-    plot_cont_zon_log (listplots(noPlot), wks,d131new, nlati, res,pltName,\
+    plot_cont_zon_log ( wks,d131new, nlati, res,pltName,\
                 mainTitle,subTitle,comment )
 
     delete(res@cnLevels)
@@ -396,8 +395,10 @@ if (isfilepresent(fili)) then
     print("ploted: "+mainTitle)
 ;   printVarSummary(var)
 
-;***number of listplots
-    noPlot=noPlot+1
+;***open plot
+    pltName = pltPath+ Cvar+"_"+typ+"_logp_cont"
+    wks     = gsn_open_wks(pltType, pltName) 
+
 
 ;***create plot
     BWres                      = True             ; plot mods desired
@@ -406,7 +407,7 @@ if (isfilepresent(fili)) then
     BWres@cnMaxLevelValF       =    10.           ; set max contour level
     BWres@cnLevelSpacingF      =     0.5          ; set contour spacing
 
-    plot_cont_zon_log_bw(listplots(noPlot), wks,var, nlati, BWres,pltName,\
+    plot_cont_zon_log_bw( wks,var, nlati, BWres,pltName,\
                 mainTitle,subTitle,comment )
 
   end if
@@ -430,8 +431,12 @@ if (isfilepresent(fili)) then
     print("ploted: "+mainTitle)
 ;   printVarSummary(d132)
 
-;***number of listplots
-    noPlot=noPlot+1
+;***open plot
+    pltName = pltPath+ Cvar+"_era_"+typ+"_logp_cont"
+    wks     = gsn_open_wks(pltType, pltName) 
+
+    gsn_define_colormap(wks,"amwg_blueyellowred") ; Define color map 
+    missColor = NhlNewColor(wks,0.5,0.5,0.5)      ; add gray to color map 
 
 ;***create plot
     res                      = True             ; plot mods desired
@@ -440,19 +445,11 @@ if (isfilepresent(fili)) then
     res@cnFillColors         = (/2,4,7,8,9,0,11,12,14,15,17/)
     res@cnMissingValFillColor = missColor
                      
-    plot_cont_zon_log (listplots(noPlot), wks,d132new, nlati, res,pltName,\
+    plot_cont_zon_log ( wks,d132new, nlati, res,pltName,\
                 mainTitle,subTitle,comment )
 
     delete(res@cnLevels)
     delete (res@cnFillColors)
   end if
 
-print("number of plots:  "+noPlot)
-;--KMF prepare plots for panel   
-   pltres          =  True
-   pltres@gsnPanelScalePlotIndex = 1  ; 2rd plot in list, which is the biggest
-                    
-   gsn_panel(wks, (/listplots(0),listplots(1),\
-                    listplots(2),listplots(3),\
-                    listplots(4),listplots(5)/), (/3,2/), pltres)  
 end

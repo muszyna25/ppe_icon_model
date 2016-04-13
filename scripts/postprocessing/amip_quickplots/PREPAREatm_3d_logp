@@ -26,16 +26,14 @@ echo $WORKDIR
 #
 #
 echo QUELLE path $QUELLE 
-   FIXCODE=/pool/data/ECHAM6/post/FixCodes
-   ERAin=/pool/data/ECHAM6/post/ERAin/T${eraRES}
+
 #
 
-   cdo=/client/bin/cdo
 
 #
 ###############LOGmod="${WORKDIR}/atm_dyn_${NAME}"
 inDat="${WORKDIR}/atm_3d_${NAME}"
-ATMera="${ERAin}/T${eraRES}L${LEV}_1979_${TO}_$TYP"
+ATMera="ERAin_T63L47_atm_3d_zon_${ERAystrt}_${ERAylast}_${TYP}.nc"
 #
 ###########################################################################
 # var.txt input for ncl scripts
@@ -55,14 +53,15 @@ eraLEV="100900,99500,97100,93900,90200,86100,81700,77200,72500,67900,63300,58800
 #
 cp var.txt var1.txt
 
-CDO=/home/zmaw/m214003/local/thunder/bin/cdo
+
 ###########################################################################
 # 
 set  -ex
 #
 
+
 #--interpolate to pressure level and t63
-${CDO} -setpartabn,${QUELLE}/partab -ap2pl,${LEVELS} $inDat Uatm_dyn_pl_log
+cdo -setpartabn,partab -ap2pl,${LEVELS} $inDat Uatm_dyn_pl_log
 cdo -r remapycon,t63grid  Uatm_dyn_pl_log Uatm_dyn_t63_L47
 rm -f  busy*
 set +e
@@ -75,7 +74,7 @@ set +e
 Cvar=ta
 if cdo -s showvar -selvar,${Cvar} Uatm_dyn_t63_L47 > /dev/null
 then
-cdo -zonavg -selvar,${Cvar} Uatm_dyn_t63_L47  Ubusy_${Cvar}.nc
+cdo -zonmean -selvar,${Cvar} Uatm_dyn_t63_L47  Ubusy_${Cvar}.nc
 #
 fi
 
@@ -86,7 +85,7 @@ fi
 Cvar=ua
 if cdo -s showvar -selvar,${Cvar} Uatm_dyn_t63_L47 > /dev/null
 then
-cdo -zonavg -selvar,${Cvar}  Uatm_dyn_t63_L47 Ubusy_${Cvar}.nc
+cdo -zonmean -selvar,${Cvar}  Uatm_dyn_t63_L47 Ubusy_${Cvar}.nc
 fi
 #
 #
@@ -96,20 +95,19 @@ fi
 Cvar=va
 if cdo -s showvar -selvar,${Cvar} Uatm_dyn_t63_L47 > /dev/null
 then
-cdo -zonavg -selvar,${Cvar}  Uatm_dyn_t63_L47 Ubusy_${Cvar}.nc
+cdo -zonmean -selvar,${Cvar}  Uatm_dyn_t63_L47 Ubusy_${Cvar}.nc
 fi
 #
 #
 #----code130--- Temperature- (Model-ERAin)-zonal--
 #
 Cvar=ta
-Cvarera=var130
 if cdo -s showvar -selvar,${Cvar} Uatm_dyn_t63_L47 > /dev/null
 then
-  cdo -zonavg -sellevel,${eraLEV} -selvar,${Cvar} Uatm_dyn_t63_L47 busy1.nc
-  if cdo -s showvar -selvar,${Cvarera} $ATMera > /dev/null
+  cdo -zonmean -sellevel,${eraLEV} -selvar,${Cvar} Uatm_dyn_t63_L47 busy1.nc
+  if cdo -s showvar -selvar,${Cvar} $ATMera > /dev/null
   then
-    cdo -sellevel,${eraLEV} -selvar,${Cvarera} $ATMera busy2.nc
+    cdo -sellevel,${eraLEV} -selvar,${Cvar} $ATMera busy2.nc
     cdo sub busy1.nc busy2.nc Ubusy_d${Cvar}.nc
   fi
 fi
@@ -121,13 +119,12 @@ rm -f  busy*
 #
 #
 Cvar=ua
-Cvarera=var131
 if cdo -s showvar -selvar,${Cvar} Uatm_dyn_t63_L47 > /dev/null
 then
-  cdo -zonavg -sellevel,${eraLEV} -selvar,${Cvar} Uatm_dyn_t63_L47 busy1.nc
-  if cdo -s showvar -selvar,${Cvarera} $ATMera > /dev/null
+  cdo -zonmean -sellevel,${eraLEV} -selvar,${Cvar} Uatm_dyn_t63_L47 busy1.nc
+  if cdo -s showvar -selvar,${Cvar} $ATMera > /dev/null
   then
-    cdo -sellevel,${eraLEV} -selvar,${Cvarera} $ATMera busy2.nc
+    cdo -sellevel,${eraLEV} -selvar,${Cvar} $ATMera busy2.nc
     cdo sub busy1.nc busy2.nc Ubusy_d${Cvar}.nc
   fi
 fi
@@ -139,13 +136,12 @@ rm -f  busy*
 #
 #
 Cvar=va
-Cvarera=var132
 if cdo -s showvar -selvar,${Cvar} Uatm_dyn_t63_L47 > /dev/null
 then
-  cdo -zonavg -sellevel,${eraLEV} -selvar,${Cvar} Uatm_dyn_t63_L47 busy1.nc
-  if cdo -s showvar -selvar,${Cvarera} $ATMera > /dev/null
+  cdo -zonmean -sellevel,${eraLEV} -selvar,${Cvar} Uatm_dyn_t63_L47 busy1.nc
+  if cdo -s showvar -selvar,${Cvar} $ATMera > /dev/null
   then
-    cdo -sellevel,${eraLEV} -selvar,${Cvarera} $ATMera busy2.nc
+    cdo -sellevel,${eraLEV} -selvar,${Cvar} $ATMera busy2.nc
     cdo sub busy1.nc busy2.nc Ubusy_d${Cvar}.nc
   fi
 fi
