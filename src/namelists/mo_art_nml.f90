@@ -236,7 +236,7 @@ CONTAINS
       art_config(jg)%iart_aci_cold       = iart_aci_cold
       art_config(jg)%iart_ari            = iart_ari
       
-      ! Fast Physics Processes (Details: cf. Tab. 2.5 ICON-ART Use)r Guide)
+      ! Fast Physics Processes (Details: cf. Tab. 2.5 ICON-ART User Guide)
       art_config(jg)%lart_conv           = lart_conv
       art_config(jg)%lart_turb           = lart_turb
 
