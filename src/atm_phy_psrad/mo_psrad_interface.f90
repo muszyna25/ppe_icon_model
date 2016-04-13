@@ -15,6 +15,7 @@ MODULE mo_psrad_interface
   USE mo_psrad_cloud_optics,    ONLY: cloud_optics
   USE mo_bc_aeropt_kinne,       ONLY: set_bc_aeropt_kinne  
   USE mo_bc_aeropt_stenchikov,  ONLY: add_bc_aeropt_stenchikov 
+  USE mo_bc_aeropt_splumes,     ONLY: add_bc_aeropt_splumes
 !!$  USE mo_aero_volc,       ONLY: add_aop_volc
 !!$  USE mo_aero_volc_tab,   ONLY: add_aop_volc_ham, add_aop_volc_crow
 !!$  USE mo_lrtm_setup,      ONLY: lrtm_setup
@@ -31,8 +32,9 @@ MODULE mo_psrad_interface
 !!$                                locosp, cosp_f3d, Lisccp_sim,&
 !!$                                cisccp_cldtau3d, cisccp_cldemi3d
   USE mo_psrad_spec_sampling,   ONLY: spec_sampling_strategy, get_num_gpoints
-  USE mo_random_numbers,  ONLY: seed_size_random
-  USE mo_rad_diag,             ONLY: rad_aero_diag
+  USE mo_random_numbers,        ONLY: seed_size_random
+  USE mo_rad_diag,              ONLY: rad_aero_diag
+  USE mo_datetime,              ONLY: t_datetime
 
   IMPLICIT NONE
 
@@ -96,13 +98,14 @@ CONTAINS
   SUBROUTINE psrad_interface( jg,          &
        & iaero           ,kproma          ,kbdim           ,klev            ,&
        & krow            ,ktrac           ,ktype           ,nb_sw           ,&
-       & laland          ,laglac          ,cemiss          ,pmu0            ,&
-       & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif                      ,&
-       & alb_nir_dif     ,pp_fl           ,pp_hl           ,pp_sfc          ,&
-       & tk_fl           ,tk_hl           ,tk_sfc          ,xm_vap          ,&
-       & xm_liq          ,xm_ice          ,cdnc            ,cld_frc         ,&
-       & xm_o3           ,xm_co2          ,xm_ch4                           ,&
-       & xm_n2o          ,xm_cfc          ,xm_o2           ,&!!$pxtm1           ,&
+       & laland          ,laglac          ,cemiss          ,datetime        ,&
+       & pmu0            ,geoi            ,geom            ,oromea          ,&
+       & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
+       & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
+       & tk_hl           ,tk_sfc          ,xm_vap          ,xm_liq          ,&
+       & xm_ice          ,cdnc            ,cld_frc         ,xm_o3           ,&
+       & xm_co2          ,xm_ch4          ,xm_n2o          ,xm_cfc          ,&
+       & xm_o2           ,&!!$pxtm1           ,&
        & flx_uplw        ,flx_uplw_clr    ,flx_dnlw        ,flx_dnlw_clr    ,&
        & flx_upsw        ,flx_upsw_clr    ,flx_dnsw        ,flx_dnsw_clr    ,&
        & vis_frc_sfc     ,par_dn_sfc      ,nir_dff_frc     ,vis_dff_frc     ,&
@@ -123,9 +126,14 @@ CONTAINS
          laland(kbdim),                & !< land sea mask, land=.true.
          laglac(kbdim)                   !< glacier mask, glacier=.true.
 
+    TYPE(t_datetime), INTENT(IN) ::    datetime !< actual time step
+
     REAL(WP),INTENT(IN)  ::            &
          cemiss,                       & !< surface emissivity
          pmu0(kbdim),                  & !< mu0 for solar zenith angle
+         geoi(kbdim,klev+1),           & !< geopotential wrt surface at layer interfaces
+         geom(kbdim,klev),             & !< geopotential wrt surface at layer centres
+         oromea(kbdim),                & !< orography in m
          alb_vis_dir(kbdim),           & !< surface albedo for vis range and dir light
          alb_nir_dir(kbdim),           & !< surface albedo for NIR range and dir light
          alb_vis_dif(kbdim),           & !< surface albedo for vis range and dif light
@@ -201,8 +209,8 @@ CONTAINS
          aer_tau_lw_vr(kbdim,klev,nbndlw), & !< LW optical thickness of aerosols
          aer_tau_sw_vr(kbdim,klev,nb_sw),  & !< aerosol optical thickness
          aer_cg_sw_vr (kbdim,klev,nb_sw),  & !< aerosol asymmetry factor
-         aer_piz_sw_vr(kbdim,klev,nb_sw)     !< aerosol single scattering albedo
-
+         aer_piz_sw_vr(kbdim,klev,nb_sw),  & !< aerosol single scattering albedo
+         x_cdnc       (kbdim)                !< Scale factor for Cloud Droplet Number Concentration
     REAL(wp) ::                            &
          flx_uplw_vr(kbdim,klev+1),        & !< upward flux, total sky
          flx_uplw_clr_vr(kbdim,klev+1),    & !< upward flux, clear sky
@@ -337,15 +345,15 @@ CONTAINS
 ! iaero=13: only tropospheric Kinne aerosols
 ! iaero=14: only Stenchikov's volcanic aerosols
 ! iaero=15: tropospheric Kinne aerosols + volcanic Stenchikov's aerosols
-    IF (iaero==0 .OR. iaero==14) THEN
-      aer_tau_lw_vr(:,:,:) = 0.0_wp
-      aer_tau_sw_vr(:,:,:) = 0.0_wp
-      aer_piz_sw_vr(:,:,:) = 1.0_wp
-      aer_cg_sw_vr(:,:,:)  = 0.0_wp
-    END IF
-    IF (iaero==13 .OR. iaero==15) THEN
+! set all aerosols to zero first
+    aer_tau_lw_vr(:,:,:) = 0.0_wp
+    aer_tau_sw_vr(:,:,:) = 0.0_wp
+    aer_piz_sw_vr(:,:,:) = 1.0_wp
+    aer_cg_sw_vr(:,:,:)  = 0.0_wp
+    IF (iaero==13 .OR. iaero==15 .OR. iaero==18) THEN
 ! iaero=13: only Kinne aerosols are used
 ! iaero=15: Kinne aerosols plus Stenchikov's volcanic aerosols are used
+! iaero=18: Kinne background aerosols (of natural origin, 1850) are set
       CALL set_bc_aeropt_kinne( jg                                     ,&
            & kproma           ,kbdim                 ,klev             ,&
            & krow             ,nbndlw                ,nb_sw            ,&
@@ -353,9 +361,11 @@ CONTAINS
            & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
            & tk_fl                                                      )
     END IF
-    IF (iaero==14 .OR. iaero==15) THEN
+    IF (iaero==14 .OR. iaero==15 .OR. iaero==18) THEN
 ! iaero=14: only Stechnikov's volcanic aerosols are used (added to zero)
 ! iaero=15: Stenchikov's volcanic aerosols are added to Kinne aerosols
+! iaero=18: Stenchikov's volcanic aerosols are added to Kinne background
+!           aerosols (of natural origin, 1850) 
       CALL add_bc_aeropt_stenchikov( jg                                ,&
            & kproma           ,kbdim                 ,klev             ,&
            & krow             ,nbndlw                ,nb_sw            ,&
@@ -377,6 +387,16 @@ CONTAINS
 !!$           & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
 !!$           & aer_cg_sw_vr                                               )
 !!$    END IF
+   IF (iaero==18) THEN
+! iaero=18: Simple plumes are added to Stenchikov's volcanic aerosols 
+!           and Kinne background aerosols (of natural origin, 1850) 
+     CALL add_bc_aeropt_splumes(jg                                     ,&
+           & kproma           ,kbdim                 ,klev             ,&
+           & krow             ,nb_sw                 ,datetime         ,&
+           & geoi             ,geom                  ,oromea           ,&
+           & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
+           & x_cdnc                                                     )
+   END IF
 
       CALL rad_aero_diag (                                  &
       & jg              ,krow            ,kproma          , &
