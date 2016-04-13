@@ -15,7 +15,7 @@
 !! its most recent form.
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
-!! headers of the method_names.
+!! headers of the routines.
 !!
 !!
 MODULE mo_ocean_nml
@@ -100,7 +100,7 @@ MODULE mo_ocean_nml
                                             ! i_bc_veloc_top =2 : forced by difference between wind
                                             !                     field in p_os%p_aux%bc_top_veloc 
                                             !                     and ocean velocity at top layer
-  INTEGER            :: i_bc_veloc_bot = 0  !Bottom boundary condition for velocity: 
+  INTEGER            :: i_bc_veloc_bot = 1  !Bottom boundary condition for velocity:
                                             ! i_bc_veloc_bot =0 : zero value at bottom boundary 
                                             ! i_bc_veloc_bot =1 : bottom boundary friction
                                             ! i_bc_veloc_bot =2 : bottom friction plus topographic
@@ -414,9 +414,10 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: tapering_DanaMcWilliams=1
   INTEGER, PARAMETER :: tapering_Large=2
   INTEGER, PARAMETER :: tapering_Griffies=3
-  INTEGER            :: tapering_scheme=tapering_Griffies
+  INTEGER            :: tapering_scheme=tapering_DanaMcWilliams
   !Parameters for tapering schemes
   REAL(wp) :: S_max=1.0e-2   !maximally allowed slope
+  REAL(wp) :: S_critical=4.0e-3 !critical value at which tapering reduces slope by 50%  
   REAL(wp) :: S_d=1.0e-3     !width of transition zone from untapered to tapered
   REAL(wp) :: c_speed=2.0_wp !aproximation to first baroclinic wave speed. Used in tapering schemes to calculate
                              !Rossby radius in tapering schemes

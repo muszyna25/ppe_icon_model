@@ -1004,7 +1004,7 @@ CONTAINS
           
       ENDIF
 
-  END DO
+    END DO
       
   END SUBROUTINE calculate_explicit_vn_pred_3D_onBlock
   !-------------------------------------------------------------------------
