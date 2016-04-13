@@ -728,9 +728,11 @@ CONTAINS
 
           DO level = start_level, end_level
 
-            cell_max_slope      = S_max      * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo) \
+            cell_max_slope      = S_max  &
+              & * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo) &
               & * inv_cell_characteristic_length
-            cell_critical_slope = S_critical * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo) \
+            cell_critical_slope = S_critical &
+              & * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo) &
               & * inv_cell_characteristic_length
             slope_abs = sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo))
 
