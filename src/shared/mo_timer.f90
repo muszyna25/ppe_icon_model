@@ -159,6 +159,13 @@ MODULE mo_timer
   PUBLIC :: timer_ice_fast, timer_ice_slow, timer_ice_slow2, timer_ice_momentum,       &
     &      timer_ice_interp, timer_ice_advection
 
+  ! Timer IDs for HAMOCC
+
+  PUBLIC :: timer_bgc_up_bgc, timer_bgc_swr, timer_bgc_wea, timer_bgc_depo, &
+    &        timer_bgc_chemcon, timer_bgc_ocprod, timer_bgc_sett, timer_bgc_cya,&
+    &        timer_bgc_gx, timer_bgc_calc, timer_bgc_powach, timer_bgc_up_ic, &
+    &        timer_bgc_tend,timer_bgc_ini, timer_bgc_inv, timer_bgc_tot 
+
   PUBLIC :: timer_extra1,  timer_extra2,  timer_extra3,  timer_extra4,  timer_extra5,  &
             timer_extra6,  timer_extra7,  timer_extra8,  timer_extra9,  timer_extra10, &
             timer_extra11, timer_extra12, timer_extra13, timer_extra14, timer_extra15, &
@@ -304,6 +311,11 @@ MODULE mo_timer
   INTEGER :: timer_ice_fast, timer_ice_slow, timer_ice_slow2, timer_ice_momentum,       &
     &      timer_ice_interp, timer_ice_advection
 
+  ! Timer IDs HAMOCC
+  INTEGER :: timer_bgc_up_bgc, timer_bgc_swr, timer_bgc_wea, timer_bgc_depo, &
+   &         timer_bgc_chemcon, timer_bgc_ocprod, timer_bgc_sett, timer_bgc_cya,&
+   &         timer_bgc_gx, timer_bgc_calc, timer_bgc_powach, timer_bgc_up_ic, &
+   &         timer_bgc_tend, timer_bgc_ini, timer_bgc_inv, timer_bgc_tot
   ! The purpose of these "extra" timers is to have otherwise unused timers available for
   ! special-purpose measurements. Please do not remove them and do not use them permanently.
   INTEGER :: timer_extra1,  timer_extra2,  timer_extra3,  timer_extra4,  timer_extra5,  &
@@ -513,6 +525,24 @@ CONTAINS
     timer_ice_advection = new_timer("ice_advection")
     timer_ice_interp    = new_timer("ice_interp")
   
+    ! Timer IDs for HAMOCC
+    timer_bgc_up_bgc  = new_timer("hamocc_update_bgc")
+    timer_bgc_swr     = new_timer("hamocc_swr")
+    timer_bgc_wea     = new_timer("hamocc_weathering")
+    timer_bgc_depo    = new_timer("hamocc_dust_depo")
+    timer_bgc_chemcon = new_timer("hamocc_chemcon")
+    timer_bgc_ocprod  = new_timer("hamocc_ocprod")
+    timer_bgc_sett    = new_timer("hamocc_settling") 
+    timer_bgc_cya     = new_timer("hamocc_cyanos")
+    timer_bgc_gx      = new_timer("hamocc_gas_ex") 
+    timer_bgc_calc    = new_timer("hamocc_calc_dissol")
+    timer_bgc_powach  = new_timer("hamocc_powach") 
+    timer_bgc_up_ic   = new_timer("hamocc_update_icon")
+    timer_bgc_tend    = new_timer("hamocc_up_tendencies") 
+    timer_bgc_ini     = new_timer("hamocc_ini") 
+    timer_bgc_inv     = new_timer("hamocc_inventories") 
+    timer_bgc_tot     = new_timer("hamocc_total") 
+   
   ! extra timers for on-demand (non-permanent) timings
     timer_extra1  = new_timer("extra1")
     timer_extra2  = new_timer("extra2")

@@ -42,7 +42,7 @@ MODULE mo_var_metadata_types
   ! New groups can be added by extending the VAR_GROUPS list.
   !
 
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(52) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(56) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -78,6 +78,10 @@ MODULE mo_var_metadata_types
     &  "OCE_PROG              ",  &
     &  "OCE_DIAG              ",  &
     &  "OCE_DEFAULT           ",  &
+    &  "HAMOCC_BASE           ",  &
+    &  "HAMOCC_TEND           ",  &
+    &  "HAMOCC_MONI           ",  &
+    &  "HAMOCC_SED            ",  &
     &  "oce_essentials        ",  &
     &  "oce_force_essentials  ",  &
     &  "OCE_AUX               ",  &

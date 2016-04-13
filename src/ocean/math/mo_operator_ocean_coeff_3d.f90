@@ -1285,7 +1285,7 @@ CONTAINS
     !-------------------
     ! sync the results
     CALL sync_patch_array(SYNC_C, patch_2D, fixed_vol_norm(:,:))
-    DO neigbor=1,patch_2D%geometry_info%cell_type
+    DO neigbor=1,patch_2D%cells%max_connectivity
       CALL sync_patch_array(SYNC_C, patch_2D, edge2cell_coeff_cc(:,:,neigbor)%x(1))
       CALL sync_patch_array(SYNC_C, patch_2D, edge2cell_coeff_cc(:,:,neigbor)%x(2))
       CALL sync_patch_array(SYNC_C, patch_2D, edge2cell_coeff_cc(:,:,neigbor)%x(3))
@@ -1299,7 +1299,7 @@ CONTAINS
 
        operators_coefficients%fixed_vol_norm(:,level,cell_block) = fixed_vol_norm(:,cell_block)
 
-       DO neigbor=1,patch_2D%geometry_info%cell_type
+       DO neigbor=1,patch_2D%cells%max_connectivity
 
          operators_coefficients%edge2cell_coeff_cc(:,level,cell_block,neigbor)%x(1)  &
            &= edge2cell_coeff_cc(:,cell_block,neigbor)%x(1)
@@ -1313,7 +1313,7 @@ CONTAINS
 !          operators_coefficients%variable_vol_norm(:,level,cell_block,neigbor)  &
 !            &= variable_vol_norm(:,cell_block,neigbor)
 
-        ENDDO ! neigbor=1,patch_2D%geometry_info%cell_type
+        ENDDO ! neigbor=1,patch_2D%cells%max_connectivity
       ENDDO  !  level = 1, n_zlev
     ENDDO ! cell_block
 ! no need for sync
@@ -1429,7 +1429,7 @@ CONTAINS
           IF (orientation * (1.5_wp - REAL(neigbor, wp)) <=0) &
             & CALL finish(method_name, "wrong orientation in edge2edge_viacell_coeff_2D")
           !loop over the edges of neighbor 1 and 2
-          DO cell_edge=1,patch_2D%cells%num_edges(cell_index,cell_block)!no_primal_edges!patch_2D%cell_type
+          DO cell_edge=1,patch_2D%cells%num_edges(cell_index,cell_block)
 
             ictr=ictr+1
             !actual edge

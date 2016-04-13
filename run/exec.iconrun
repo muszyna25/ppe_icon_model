@@ -282,8 +282,15 @@ echo "============================"
 echo "Script run successfully: $finish_status"
 echo "============================"
 #-----------------------------------------------------------------------------
-
-
+if [[ "x$use_hamocc" = "xyes" ]]; then
+# store HAMOCC log file
+strg="$(ls -rt ${EXPNAME}_hamocc_EU*.nc* | tail -1 )"
+prefx="${EXPNAME}_hamocc_EU_tendencies"
+foo=${strg##${prefx}}
+foo=${foo%%.*}
+bgcout_file="bgcout_${foo}"
+mv bgcout $bgcout_file
+fi
 #-----------------------------------------------------------------------------
 namelist_list=""
 #-----------------------------------------------------------------------------
