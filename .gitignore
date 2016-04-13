@@ -242,10 +242,10 @@ scripts/prototypes/*.settings
 scripts/prototypes/.cproject
 scripts/prototypes/.project
 scripts/prototypes/icon-dev
-scripts/prototypes/test/*.settings
-scripts/prototypes/test/.cproject
-scripts/prototypes/test/.project
-scripts/prototypes/test/icon-dev
+scripts/prototypes/statistics/test/*.settings
+scripts/prototypes/statistics/test/.cproject
+scripts/prototypes/statistics/test/.project
+scripts/prototypes/statistics/test/icon-dev
 scripts/run_scripts/*.settings
 scripts/run_scripts/.cproject
 scripts/run_scripts/.project
