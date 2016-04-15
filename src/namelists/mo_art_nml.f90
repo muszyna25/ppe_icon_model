@@ -54,8 +54,9 @@ MODULE mo_art_nml
   INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
   CHARACTER(LEN=120) :: cart_emiss_table_path 
   CHARACTER(LEN=120) :: cart_emiss_table_file(0:max_dom)
-  CHARACTER(LEN=120) :: cart_vortex_init_date 
-
+  CHARACTER(LEN=120) :: cart_vortex_init_date
+  CHARACTER(LEN=120) :: cart_mozartfile 
+  CHARACTER(LEN=120) :: cart_chemistry_xml
   ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
   LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
   INTEGER :: iart_seasalt            !< Treatment of sea salt aerosol
@@ -84,7 +85,7 @@ MODULE mo_art_nml
    &                iart_aci_warm, iart_aci_cold, iart_ari,                            &
    &                lart_conv, lart_turb, iart_ntracer, iart_init_aero, iart_init_gas, &
    &                lart_diag_out, cart_emiss_table_path, cart_emiss_table_file,       &
-   &                cart_vortex_init_date  
+   &                cart_vortex_init_date , cart_mozartfile,  cart_chemistry_xml
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -130,6 +131,9 @@ CONTAINS
     cart_emiss_table_path = TRIM(cart_folder)//'docs/'   
     cart_emiss_table_file = 'art_emission_metadata_tables_DOM01.tex' 
     cart_vortex_init_date = ''
+    cart_mozartfile       = ''
+    cart_chemistry_xml    = ''
+
     ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
     lart_aerosol        = .FALSE.
     iart_seasalt        = 0
@@ -215,6 +219,9 @@ CONTAINS
       art_config(jg)%cart_emiss_table_path = TRIM(cart_emiss_table_path)   
       art_config(jg)%cart_emiss_table_file = TRIM(cart_emiss_table_file(jg)) 
       art_config(jg)%cart_vortex_init_date = TRIM(cart_vortex_init_date)
+      art_config(jg)%cart_mozartfile       = TRIM(cart_mozartfile) 
+      art_config(jg)%cart_chemistry_xml    = TRIM(cart_chemistry_xml) 
+
 
       ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
       art_config(jg)%lart_aerosol        = lart_aerosol

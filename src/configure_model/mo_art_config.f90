@@ -24,9 +24,11 @@
 !! headers of the routines.
 !!
 MODULE mo_art_config
+
   USE mo_kind,                 ONLY: wp
   USE mo_impl_constants,       ONLY: max_dom
   USE mo_math_utilities,       ONLY: t_geographical_coordinates  
+
   IMPLICIT NONE
   
   PRIVATE
@@ -36,7 +38,7 @@ MODULE mo_art_config
   PUBLIC :: t_art_config
   PUBLIC :: art_config
   PUBLIC :: configure_art
-  ! Tracer indices
+  ! Running tracer indices in ICON-ART
   PUBLIC :: iash1,iash2,iash3,iash4,iash5,iash6                          !Volcanic Ash 
   PUBLIC :: iasha, iashb, iashc, iasha0, iashb0, iashc0                  !Volcanic Ash
   PUBLIC :: iCS137,iI131,iTE132,iZR95,iXE133,iI131g,iI131o,iBA140,iRU103 !radioactive nuclides
@@ -51,9 +53,7 @@ MODULE mo_art_config
   PUBLIC :: iTR_nin,iTR_sin,iTR_ech,iTR_sea,iTR_sib,iTR_eur              !artificial tracer 
   PUBLIC :: iTR_med,iTR_naf,iTR_saf,iTR_mdg,iTR_aus,iTR_nam              !artificial tracer
   PUBLIC :: iTR_sam,iTR_tpo,iTR_tao,iTR_tio,iTR_bgn,iTR_bgs              !artificial tracer
-  PUBLIC :: iTR_art   
-  
-  
+  PUBLIC :: iTR_art                                                      !artificial tracer
   
   !!--------------------------------------------------------------------------
   !! Tracer indices of ICON-ART species
@@ -79,7 +79,7 @@ MODULE mo_art_config
     &  iTR_nin,iTR_sin,iTR_ech,iTR_sea,iTR_sib,iTR_eur,           &
     &  iTR_med,iTR_naf,iTR_saf,iTR_mdg,iTR_aus,iTR_nam,           &
     &  iTR_sam,iTR_tpo,iTR_tao,iTR_tio,iTR_bgn,iTR_bgs,           &
-    &  iTR_art 
+    &  iTR_art
   
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for ICON-ART
@@ -106,7 +106,9 @@ MODULE mo_art_config
     CHARACTER(LEN=120) :: cart_emiss_table_path  !< path of tex-files with meta data of emissions. ! MiW
     CHARACTER(LEN=120) :: cart_emiss_table_file  !< file names of tex-files with meta data of emissions without "_DOM??.tex" at the end. ! MiW
     CHARACTER(LEN=120) :: cart_vortex_init_date
- 
+    CHARACTER(LEN=120) :: cart_mozartfile 
+    CHARACTER(LEN=120) :: cart_chemistry_xml 
+
     ! Atmospheric Aerosol (Details: cf. Tab. 2.4 ICON-ART User Guide)
     LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
     INTEGER :: iart_seasalt            !< Treatment of sea salt aerosol
