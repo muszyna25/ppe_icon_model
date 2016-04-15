@@ -58,8 +58,8 @@ MODULE mo_io_restart
   USE mo_exception,             ONLY: finish, message, message_text, get_filename_noext
   USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, TLEV_NNOW, TLEV_NNOW_RCF
   USE mo_var_metadata_types,    ONLY: t_var_metadata
-  USE mo_linked_list,           ONLY: t_var_list, t_list_element, find_list_element
-  USE mo_var_list,              ONLY: nvar_lists, var_lists, get_var_timelevel
+  USE mo_linked_list,           ONLY: t_var_list, t_list_element
+  USE mo_var_list,              ONLY: nvar_lists, var_lists, get_var_timelevel, find_list_element
   USE mo_cdi,                   ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, ZAXIS_SURFACE, CDI_UNDEFID, COMPRESS_ZIP, &
                                     & DATATYPE_FLT64, TIME_VARIABLE, CDI_GLOBAL, DATATYPE_INT32, GRID_UNSTRUCTURED, &
                                     & TAXIS_ABSOLUTE, ZAXIS_DEPTH_BELOW_LAND, ZAXIS_GENERIC, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_HEIGHT, &
@@ -78,7 +78,7 @@ MODULE mo_io_restart
                                     & ZA_HYBRID, ZA_HYBRID_HALF, ZA_DEPTH_BELOW_LAND, ZA_DEPTH_BELOW_LAND_P1, ZA_DEPTH_RUNOFF_S, &
                                     & ZA_DEPTH_RUNOFF_G, ZA_SNOW, ZA_SNOW_HALF, ZA_TOA, ZA_HEIGHT_2M, ZA_HEIGHT_10M, &
                                     & ZA_LAKE_BOTTOM, ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, ZA_SEDIMENT_BOTTOM_TW_HALF, &
-                                    & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE
+                                    & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE, ZA_OCEAN_SEDIMENT
   USE mo_cf_convention
   USE mo_util_string,           ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                 int2string, separator
@@ -116,6 +116,11 @@ MODULE mo_io_restart
   USE mo_communication,         ONLY: t_comm_gather_pattern, exchange_data, &
     &                                 t_scatterPattern
 
+#ifndef __NO_ICON__OCEAN
+  USE mo_ocean_nml,                ONLY: lhamocc
+  USE mo_sedmnt,                ONLY: ks, ksp, dzsed
+  USE mo_math_utilities,        ONLY: set_zlev
+#endif
   !
   IMPLICIT NONE
   !
@@ -420,6 +425,7 @@ CONTAINS
     CALL set_vertical_grid(ZA_GENERIC_ICE         , nice_class )
     CALL set_vertical_grid(ZA_DEPTH_RUNOFF_S      , 1          )
     CALL set_vertical_grid(ZA_DEPTH_RUNOFF_G      , 1          )
+    if(lhamocc)CALL set_vertical_grid(ZA_OCEAN_SEDIMENT      , ks         )
     !
     ! define time axis
     !
@@ -457,7 +463,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: restart_filename
     !
     INTEGER :: status, i ,j, k, ia, ihg, ivg, nlevp1
-    REAL(wp), ALLOCATABLE :: levels(:), ubounds(:), lbounds(:)
+    REAL(wp), ALLOCATABLE :: levels(:), ubounds(:), lbounds(:), levels_sp(:)
     !
     CHARACTER(len=64) :: attribute_name
     CHARACTER(len=256) :: text_attribute
@@ -810,7 +816,19 @@ CONTAINS
             levels(1) = 1.0_wp
             CALL zaxisDefLevels(var_lists(i)%p%cdiIceGenericZaxisID, levels)
             DEALLOCATE(levels)
-
+    
+          CASE (ZA_OCEAN_SEDIMENT)
+           if(lhamocc)then
+           ! HAMOCC sediment
+            var_lists(i)%p%cdiOceanSedGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, &
+              &                                           vgrid_def(ivg)%nlevels)
+           ALLOCATE(levels(ks))
+           ALLOCATE(levels_sp(ksp))
+           CALL set_zlev(levels_sp, levels, ks, dzsed*1000._wp)
+           CALL zaxisDefLevels(var_lists(i)%p%cdiOceanSedGenericZaxisID, REAL(levels,wp))
+           DEALLOCATE(levels)
+           DEALLOCATE(levels_sp)
+          endif  
           CASE DEFAULT
             CALL finish('open_writing_restart_files','Vertical grid description not found.')
           END SELECT
@@ -872,6 +890,7 @@ CONTAINS
           var_lists(j)%p%cdiDepthRunoff_sZaxisID = var_lists(i)%p%cdiDepthRunoff_sZaxisID
           var_lists(j)%p%cdiDepthRunoff_gZaxisID = var_lists(i)%p%cdiDepthRunoff_gZaxisID
           var_lists(j)%p%cdiIceGenericZaxisID    = var_lists(i)%p%cdiIceGenericZaxisID
+          var_lists(j)%p%cdiOceanSedGenericZaxisID    = var_lists(i)%p%cdiOceanSedGenericZaxisID
           var_lists(j)%p%cdiSnowGenericZaxisID   = var_lists(i)%p%cdiSnowGenericZaxisID
           var_lists(j)%p%cdiSnowHalfGenericZaxisID = var_lists(i)%p%cdiSnowHalfGenericZaxisID
           var_lists(j)%p%cdiToaZaxisID           = var_lists(i)%p%cdiToaZaxisID
@@ -1035,6 +1054,8 @@ CONTAINS
           info%cdiZaxisID =  this_list%p%cdiDepthHalfZaxisID
         CASE (ZA_GENERIC_ICE)
           info%cdiZaxisID =  this_list%p%cdiIceGenericZaxisID
+        CASE (ZA_OCEAN_SEDIMENT)
+          info%cdiZaxisID =  this_list%p%cdiOceanSedGenericZaxisID
         END SELECT
       END IF
 
@@ -1120,7 +1141,7 @@ CONTAINS
     REAL(wp), INTENT(IN), OPTIONAL :: ocean_Zheight_CellInterfaces(:)
 
 
-    INTEGER :: klev, jg, kcell, kvert, kedge, icelltype
+    INTEGER :: klev, jg, kcell, kvert, kedge, max_cell_connectivity, max_vertex_connectivity
     INTEGER :: inlev_soil, inlev_snow, i, nice_class
     INTEGER :: ndepth    ! depth of n
     REAL(wp), ALLOCATABLE :: zlevels_full(:), zlevels_half(:)
@@ -1147,7 +1168,8 @@ CONTAINS
     kcell     = patch%n_patch_cells_g
     kvert     = patch%n_patch_verts_g
     kedge     = patch%n_patch_edges_g
-    icelltype = patch%geometry_info%cell_type
+    max_cell_connectivity   = patch%cells%max_connectivity
+    max_vertex_connectivity = patch%verts%max_connectivity
 
     CALL set_restart_attribute( 'current_caltime', datetime%caltime )
     CALL set_restart_attribute( 'current_calday' , datetime%calday )
@@ -1286,8 +1308,8 @@ CONTAINS
 
     CALL init_restart( 'ICON',            &! model name
                      & '1.4.00',          &! model version
-                     & kcell, icelltype,  &! total # of cells, # of vertices per cell
-                     & kvert, 9-icelltype,&! total # of vertices, # of vertices per dual cell
+                     & kcell, max_cell_connectivity,  &! total # of cells, # of vertices per cell
+                     & kvert, max_vertex_connectivity,&! total # of vertices, # of vertices per dual cell
                      & kedge, 4,          &! total # of cells, shape of control volume for edge
                      & klev,              &! total # of vertical layers
                      & ndepth,            &! total # of depths below sea
@@ -1701,6 +1723,8 @@ CONTAINS
              CALL zaxisDestroy(var_lists(i)%p%cdiDepthRunoff_gZaxisID)
         IF (var_lists(i)%p%cdiIceGenericZaxisID /= CDI_UNDEFID) &
              CALL zaxisDestroy(var_lists(i)%p%cdiIceGenericZaxisID)
+        IF (var_lists(i)%p%cdiOceanSedGenericZaxisID /= CDI_UNDEFID) &
+             CALL zaxisDestroy(var_lists(i)%p%cdiOceanSedGenericZaxisID)
         IF (var_lists(i)%p%cdiH2mZaxisID /= CDI_UNDEFID) &
              CALL zaxisDestroy(var_lists(i)%p%cdiH2mZaxisID)
         IF (var_lists(i)%p%cdiH10mZaxisID /= CDI_UNDEFID) &
@@ -1733,6 +1757,7 @@ CONTAINS
         var_lists(i)%p%cdiDepthRunoff_sZaxisID = CDI_UNDEFID
         var_lists(i)%p%cdiDepthRunoff_gZaxisID = CDI_UNDEFID
         var_lists(i)%p%cdiIceGenericZaxisID    = CDI_UNDEFID
+        var_lists(i)%p%cdiOceanSedGenericZaxisID    = CDI_UNDEFID
         var_lists(i)%p%cdiH2mZaxisID           = CDI_UNDEFID
         var_lists(i)%p%cdiH10mZaxisID          = CDI_UNDEFID
         var_lists(i)%p%cdiLakeBottomZaxisID    = CDI_UNDEFID
