@@ -652,7 +652,7 @@ CONTAINS
 
           ! Check for matching name (take care of suffix of
           ! time-dependent variables):
-          IF (TRIM(vname) /= TRIM(tolower(get_var_name(element%field)))) CYCLE VAR_LOOP
+          IF (TRIM(tolower(vname)) /= TRIM(tolower(get_var_name(element%field)))) CYCLE VAR_LOOP
 
           IF (info%hgrid /= GRID_UNSTRUCTURED_CELL)  CYCLE VAR_LOOP
 
