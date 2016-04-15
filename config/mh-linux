@@ -570,12 +570,12 @@ case "$ac_sitename" in
     kit.edu)
         case $ac_hostname in
             ic2*)
-                NETCDFROOT  = /pfs/imk/ICON/LIBRARIES
-                NETCDFFROOT = /pfs/imk/ICON/LIBRARIES
-                HDF5ROOT    = /pfs/imk/ICON/LIBRARIES
-                SZIPROOT    = /pfs/imk/ICON/LIBRARIES
+                NETCDFROOT  = /pfs/imk/ICON/LIBRARIES_IFORT16
+                NETCDFFROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
+                HDF5ROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16
+                SZIPROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16
                 ZLIBROOT    = /usr
-                MPIROOT     = /pfs/imk/ICON/LIBRARIES
+                MPIROOT     = /pfs/imk/ICON/LIBRARIES_IFORT16
                 MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
                 case "$with_art" in
                      yes)
