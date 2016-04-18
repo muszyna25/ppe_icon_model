@@ -248,6 +248,8 @@ CONTAINS
         & out_DiffusionCoefficients=physics_param%TracerDiffusion_BasisCoeff(:,:,i))
       CALL copy2Dto3D(physics_param%TracerDiffusion_BasisCoeff(:,:,i), physics_param%TracerDiffusion_coeff(:,:,:,i), &
         all_edges)
+      CALL dbg_print('Tracer Diff Basis:', physics_param%TracerDiffusion_BasisCoeff(:,:,i),str_module,0, &
+        & in_subset=patch_2D%edges%owned)
       CALL dbg_print('Tracer Diff:', physics_param%TracerDiffusion_coeff(:,:,:,i),str_module,0, &
         & in_subset=patch_2D%edges%owned)
 
@@ -730,13 +732,13 @@ CONTAINS
     !  & in_subset=patch_3d%p_patch_2d(1)%cells%owned)
     !CALL dbg_print('UpdPar: p_vn%x(2)'         ,ocean_state%p_diag%p_vn%x(2)    ,str_module,idt_src, &
     !  & in_subset=patch_3d%p_patch_2d(1)%cells%owned)
-    idt_src=2  ! output print levels (1-5, fix)
-    DO tracer_index = 1, no_tracer
-      CALL dbg_print('UpdPar FinalTracerMixing'  ,params_oce%a_tracer_v(:,:,:,tracer_index), str_module,idt_src, &
-        & in_subset=patch_3d%p_patch_2d(1)%cells%owned)
-    ENDDO
-    CALL dbg_print('UpdPar FinalVelocMixing'   ,params_oce%a_veloc_v     ,str_module,idt_src, &
-      & in_subset=patch_3d%p_patch_2d(1)%edges%owned)
+!     idt_src=2  ! output print levels (1-5, fix)
+!     DO tracer_index = 1, no_tracer
+!       CALL dbg_print('UpdPar FinalTracerMixing'  ,params_oce%a_tracer_v(:,:,:,tracer_index), str_module,idt_src, &
+!         & in_subset=patch_3d%p_patch_2d(1)%cells%owned)
+!     ENDDO
+!     CALL dbg_print('UpdPar FinalVelocMixing'   ,params_oce%a_veloc_v     ,str_module,idt_src, &
+!       & in_subset=patch_3d%p_patch_2d(1)%edges%owned)
     !---------------------------------------------------------------------
     IF (ltimer) CALL timer_stop(timer_upd_phys)
   END SUBROUTINE update_ho_params
@@ -938,10 +940,10 @@ CONTAINS
 !     CALL dbg_print('LeithClosure: div_e',param%TracerDiffusion_coeff(:,:,:,2),&
 !       &str_module,idt_src, in_subset=edges_in_domain)
     IF (TracerDiffusion_LeithWeight > 0.0_wp) THEN
-      DO i=1,no_tracer
-        CALL dbg_print('LeithClosure: tracer diff',param%TracerDiffusion_coeff(:,:,:,i),&
+!       DO i=1,no_tracer
+        CALL dbg_print('LeithClosure: tracer diff',param%TracerDiffusion_coeff(:,:,:,1),&
           &str_module,idt_src, in_subset=edges_in_domain)
-      END DO
+!       END DO
     ENDIF
 !   !---------------------------------------------------------------------
 
@@ -1032,7 +1034,7 @@ CONTAINS
 !    CALL sync_patch_array(sync_e, patch_2D, param%HarmonicViscosity_coeff)
 
 !    !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=1  ! output print level (1-5, fix)
+    idt_src=2  ! output print level (1-5, fix)
     CALL dbg_print('LeithClosure: viscosity',param%HarmonicViscosity_coeff,&
       & str_module,idt_src, in_subset=edges_in_domain)
 !     CALL dbg_print('LeithClosure: grad_vort_abs',param%TracerDiffusion_coeff(:,:,:,1),&
@@ -1040,10 +1042,12 @@ CONTAINS
 !     CALL dbg_print('LeithClosure: div_e',param%TracerDiffusion_coeff(:,:,:,2),&
 !       &str_module,idt_src, in_subset=edges_in_domain)
     IF (TracerDiffusion_LeithWeight > 0.0_wp) THEN
-      DO i=1,no_tracer
-        CALL dbg_print('LeithClosure: tracer diff',param%TracerDiffusion_coeff(:,:,:,i),&
+!       DO i=1,no_tracer
+        CALL dbg_print('Tracer diff BasisCoeff',param%TracerDiffusion_BasisCoeff(:,:,1),&
           &str_module,idt_src, in_subset=edges_in_domain)
-      END DO
+        CALL dbg_print('LeithClosure: tracer diff',param%TracerDiffusion_coeff(:,:,:,1),&
+          &str_module,idt_src, in_subset=edges_in_domain)
+!       END DO
     ENDIF
 !   !---------------------------------------------------------------------
 
@@ -2292,12 +2296,12 @@ CONTAINS
     CALL dbg_print('UpdPar: Richardson No',richardson_no               ,str_module,idt_src,in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdPar: windsp. fu10 ',fu10                        ,str_module,idt_src,in_subset=p_patch%cells%owned)
     idt_src=5  ! output print levels (1-5, fix)
-    DO tracer_index = 1, no_tracer
-      CALL dbg_print('UpdPar FinalTracerMixing'  ,params_oce%a_tracer_v(:,:,:,tracer_index), str_module,idt_src, &
-        & in_subset=p_patch%cells%owned)
-    ENDDO
-    CALL dbg_print('UpdPar FinalVelocMixing'   ,params_oce%a_veloc_v     ,str_module,idt_src, &
-      & in_subset=p_patch%edges%owned)
+!     DO tracer_index = 1, no_tracer
+!       CALL dbg_print('UpdPar FinalTracerMixing'  ,params_oce%a_tracer_v(:,:,:,tracer_index), str_module,idt_src, &
+!         & in_subset=p_patch%cells%owned)
+!     ENDDO
+!     CALL dbg_print('UpdPar FinalVelocMixing'   ,params_oce%a_veloc_v     ,str_module,idt_src, &
+!       & in_subset=p_patch%edges%owned)
     !---------------------------------------------------------------------
 
   END SUBROUTINE update_PhysicsParameters_MPIOM_PP_scheme

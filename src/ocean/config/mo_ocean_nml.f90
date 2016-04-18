@@ -446,7 +446,7 @@ MODULE mo_ocean_nml
     & &! GMRedi parameters !
     &  GMRedi_configuration        ,&
     &  tapering_scheme             ,&
-    &  S_max, S_d, c_speed,         &
+    &  S_max, S_d, S_critical, c_speed, &
     &  k_tracer_dianeutral_parameter,   &
     &  k_tracer_isoneutral_parameter,   &
     &  k_tracer_GM_kappa_parameter,     &
@@ -935,6 +935,10 @@ MODULE mo_ocean_nml
     !------------------------------------------------------------
     ! 6.0 check the consistency of the parameters
     !------------------------------------------------------------
+    If (laplacian_form /= 1 .and. laplacian_form /= 2) THEN
+      CALL finish(method_name, 'wrong laplacian_form parameter')
+    ENDIF
+      
 
     IF( n_zlev < 1 ) &
       & CALL finish(method_name,  'n_zlev < 1')

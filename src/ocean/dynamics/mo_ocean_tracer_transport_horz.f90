@@ -2111,11 +2111,11 @@ CONTAINS
       
         DO level = start_level, MIN(patch_3d%p_patch_1d(1)%dolic_e(edge_index,blockNo), end_level)
         
-!           IF( operators_coefficients%edges_SeaBoundaryLevel(edge_index,level,blockNo) > -2)THEN! edge < 2nd order boundary
-!           
-!             flx_tracer_final(edge_index,level,blockNo) = flx_tracer_low(edge_index,level,blockNo)
-!             
-!           ELSE!IF(sum_lsm_quad_edge==all_water_edges)THEN
+          IF( operators_coefficients%edges_SeaBoundaryLevel(edge_index,level,blockNo) > -2)THEN! edge < 2nd order boundary
+
+            flx_tracer_final(edge_index,level,blockNo) = flx_tracer_low(edge_index,level,blockNo)
+
+          ELSE!IF(sum_lsm_quad_edge==all_water_edges)THEN
           
             !z_anti>0 returns  1: here z_anti is outgoing, i.e. flux_high>flux_low
             !z_anti<0 returns -1: here z_anti is ingoing, i.e. flux_high<flux_low
@@ -2135,7 +2135,7 @@ CONTAINS
             flx_tracer_final(edge_index,level,blockNo) = flx_tracer_low(edge_index,level,blockNo)&
               & + MIN(1.0_wp,r_frac) *z_anti(edge_index,level,blockNo)      
                   
-!           ENDIF
+          ENDIF
         END DO
       ENDDO
     ENDDO
