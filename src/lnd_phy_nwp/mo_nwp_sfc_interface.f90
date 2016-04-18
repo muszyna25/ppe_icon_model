@@ -24,7 +24,7 @@
 MODULE mo_nwp_sfc_interface
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message, finish!, message_text
+  USE mo_exception,           ONLY: message !finish, message_text
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil, iedmf, icosmo
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
@@ -33,6 +33,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag 
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
+  USE mo_nwp_phy_state,       ONLY: phy_params
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: iqv, msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
@@ -48,7 +49,6 @@ MODULE mo_nwp_sfc_interface
   USE mo_seaice_nwp,          ONLY: seaice_timestep_nwp
   USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
   USE mo_physical_constants,  ONLY: tmelt
-  USE mo_turbdiff_config,     ONLY: turbdiff_config
 
   
   IMPLICIT NONE 
@@ -111,6 +111,7 @@ CONTAINS
     REAL(wp) :: ps_t        (nproma)
     REAL(wp) :: prr_con_t   (nproma)
     REAL(wp) :: prs_con_t   (nproma)
+    REAL(wp) :: conv_frac   (nproma)
     REAL(wp) :: prr_gsp_t   (nproma)
     REAL(wp) :: prs_gsp_t   (nproma)
     REAL(wp) :: prg_gsp_t   (nproma)
@@ -285,7 +286,7 @@ CONTAINS
 !$OMP   lhfl_bs_t,rstom_t,shfl_s_t,lhfl_s_t,qhfl_s_t,t_snow_mult_new_t,rho_snow_mult_new_t,      &
 !$OMP   wliq_snow_new_t,wtot_snow_new_t,dzh_snow_new_t,w_so_new_t,w_so_ice_new_t,lhfl_pl_t,      &
 !$OMP   shfl_soil_t,lhfl_soil_t,shfl_snow_t,lhfl_snow_t,t_snow_new_t,t_canp_new_t,graupel_gsp_rate,prg_gsp_t, &
-!$OMP   meltrate,h_snow_gp_t) ICON_OMP_GUIDED_SCHEDULE
+!$OMP   meltrate,h_snow_gp_t,conv_frac) ICON_OMP_GUIDED_SCHEDULE
  
     DO jb = i_startblk, i_endblk
 
@@ -394,6 +395,8 @@ CONTAINS
           ps_t(ic)      =  p_diag%pres_sfc(jc,jb)    
           prr_con_t(ic) =  rain_con_rate(jc,isubs)
           prs_con_t(ic) =  snow_con_rate(jc,isubs)
+          conv_frac(ic) =  phy_params(jg)%rcucov*     (1._wp - prm_diag%tropics_mask(jc,jb)) + &
+                           phy_params(jg)%rcucov_trop*         prm_diag%tropics_mask(jc,jb)
           prr_gsp_t(ic) =  rain_gsp_rate(jc,isubs)
           prs_gsp_t(ic) =  snow_gsp_rate(jc,isubs)
           prg_gsp_t(ic) =  graupel_gsp_rate(jc,isubs)
@@ -594,6 +597,7 @@ CONTAINS
 !
         &  prr_con       = prr_con_t             , & !IN precipitation rate of rain, convective       (kg/m2*s)
         &  prs_con       = prs_con_t             , & !IN precipitation rate of snow, convective       (kg/m2*s)
+        &  conv_frac     = conv_frac             , & !IN convective area fraction
         &  prr_gsp       = prr_gsp_t             , & !IN precipitation rate of rain, grid-scale       (kg/m2*s)
         &  prs_gsp       = prs_gsp_t             , & !IN precipitation rate of snow, grid-scale       (kg/m2*s)
         &  prg_gsp       = prg_gsp_t             , & !IN precipitation rate of graupel, grid-scale    (kg/m2*s)
@@ -1474,7 +1478,6 @@ CONTAINS
         ! for consistency, set 
         ! t_so(0) = t_wml_lk       mixed-layer temperature (273.15K if the lake is frozen)
         lnd_prog_new%t_s_t (jc,jb,isub_lake) = p_prog_wtr_new%t_wml_lk (jc,jb)
-        p_lnd_diag%t_seasfc(jc,jb)           = lnd_prog_new%t_s_t (jc,jb,isub_lake)
 
         ! surface saturation specific humidity over water/ice 
         !

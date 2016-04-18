@@ -19,7 +19,7 @@ MODULE mo_ls_forcing_nml
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
-  USE mo_master_config,       ONLY: isRestart
+  USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom
@@ -87,7 +87,7 @@ CONTAINS
     ! ltestcase is added here because it was causing trouble for AMIP runs
     ! restarting with a file generated long ago
     !------------------------------------------------------------------
-    IF (isRestart() .AND. .NOT.echam_phy_config%lamip) THEN 
+    IF (use_restart_namelists() .AND. .NOT.echam_phy_config%lamip) THEN 
       funit = open_and_restore_namelist('ls_forcing_nml')
       READ(funit,NML=ls_forcing_nml)
       CALL close_tmpfile(funit)

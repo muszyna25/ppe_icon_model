@@ -20,7 +20,9 @@
 MODULE mo_ensemble_pert_config
 
   USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: max_dom
+  USE mo_impl_constants,     ONLY: max_dom, min_rlcell_int
+  USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
+  USE mo_loopindices,        ONLY: get_indices_c
   USE mo_nwp_tuning_config,  ONLY: tune_gkwake, tune_gkdrag, tune_gfluxlaun, tune_zvz0i,    &
     &                        tune_entrorg, tune_capdcfac_et, tune_box_liq, tune_rhebc_land, &
     &                        tune_rhebc_ocean, tune_rcucov, tune_texc, tune_qexc,           &
@@ -28,7 +30,10 @@ MODULE mo_ensemble_pert_config
     &                        tune_rcucov_trop
   USE mo_turbdiff_config,    ONLY: turbdiff_config
   USE mo_gribout_config,     ONLY: gribout_config
+  USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water
   USE mo_grid_config,        ONLY: n_dom
+  USE mo_model_domain,       ONLY: t_patch
+  USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_extpar_config,      ONLY: nclass_lu
   USE mo_exception,          ONLY: message_text, message
@@ -37,10 +42,11 @@ MODULE mo_ensemble_pert_config
   PRIVATE
 
 
-  PUBLIC :: use_ensemble_pert, configure_ensemble_pert
+  PUBLIC :: use_ensemble_pert, configure_ensemble_pert, compute_ensemble_pert
   PUBLIC :: range_gkwake, range_gkdrag, range_gfluxlaun, range_zvz0i, range_entrorg, range_capdcfac_et, &
             range_box_liq, range_tkhmin, range_tkmmin, range_rlam_heat, range_rhebc, range_texc,        &
-            range_minsnowfrac, range_z0_lcc, range_rootdp, range_rsmin, range_laimax, range_charnock
+            range_minsnowfrac, range_z0_lcc, range_rootdp, range_rsmin, range_laimax, range_charnock,   &
+            range_tkred_sfc
 
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for ensemble perturbations
@@ -76,13 +82,19 @@ MODULE mo_ensemble_pert_config
     &  range_minsnowfrac           !  in case of melting show (in case of idiag_snowfrac = 20/30/40)
 
   REAL(wp) :: &                    !< Box width for liquid clouds assumed in the cloud cover scheme
-    &  range_box_liq                ! (in case of inwp_cldcover = 1)
+    &  range_box_liq               ! (in case of inwp_cldcover = 1)
 
   REAL(wp) :: &                    !< Minimum vertical diffusion for heat/moisture 
     &  range_tkhmin
 
   REAL(wp) :: &                    !< Minimum vertical diffusion for momentum 
     &  range_tkmmin
+
+  REAL(wp) :: &                    !< Perturbation scale (multiplicative) of reduction of minimum diffusion 
+    &  range_tkred_sfc             !  coefficients near the surface 
+
+  REAL(wp), ALLOCATABLE :: &        !< Array of random numbers used for computing the above-mentioned perturbation
+    &  fac_tkred_sfc(:)
 
   REAL(wp) :: &                    !< Laminar transport resistance parameter 
     &  range_rlam_heat
@@ -233,6 +245,8 @@ MODULE mo_ensemble_pert_config
         CALL RANDOM_NUMBER(rnd_num)
       ENDDO
 
+      ALLOCATE(fac_tkred_sfc(nclass_lu(1)))
+
       CALL message('','')
       CALL message('','Perturbed external parameters: roughness length, root depth, min. stomata resistance,&
                    & max. leaf area index; defaults in brackets')
@@ -267,11 +281,79 @@ MODULE mo_ensemble_pert_config
           ext_data(jg)%atm%laimax_lcc(i)     = laimax
         ENDDO
 
+        ! store random number for subsequent (in SR compute_ensemble_pert) computation of perturbation of 
+        ! minimum diffusion coefficients near the surface
+        CALL RANDOM_NUMBER(rnd_num)
+        fac_tkred_sfc(i) = rnd_num
+
       ENDDO
 
       DEALLOCATE(rnd_seed)
     ENDIF
 
   END SUBROUTINE configure_ensemble_pert
+
+
+  !>
+  !! Computation of array-based ensemble perturbation fields
+  !!
+  !! @par Revision History
+  !! Initial revision by Guenther Zaengl, DWD (2016-04-08)
+  !!
+  SUBROUTINE compute_ensemble_pert(p_patch, ext_data, prm_diag)
+
+    TYPE(t_patch),         INTENT(IN)    :: p_patch(:)
+    TYPE(t_external_data), INTENT(IN)    :: ext_data(:)
+    TYPE(t_nwp_phy_diag),  INTENT(INOUT) :: prm_diag(:)
+
+    INTEGER  :: jg, jb, jc, jt, ilu
+    INTEGER  :: rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
+    REAL(wp) :: wrnd_num, log_range_tkred
+
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    log_range_tkred = LOG(range_tkred_sfc)
+
+!$OMP PARALLEL PRIVATE(jg,i_startblk,i_endblk)
+    DO jg = 1, n_dom
+
+      i_startblk = p_patch(jg)%cells%start_block(rl_start)
+      i_endblk   = p_patch(jg)%cells%end_block(rl_end)
+
+      IF (use_ensemble_pert) THEN
+
+!$OMP DO PRIVATE(jb,jc,jt,i_startidx,i_endidx,wrnd_num,ilu)
+        DO jb = i_startblk, i_endblk
+
+          CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+            i_startidx, i_endidx, rl_start, rl_end)
+
+          DO jc = i_startidx, i_endidx
+            wrnd_num = 0._wp
+            DO jt = 1, ntiles_lnd
+              ilu = MAX(1,ext_data(jg)%atm%lc_class_t(jc,jb,jt))
+              wrnd_num = wrnd_num + fac_tkred_sfc(ilu)*ext_data(jg)%atm%lc_frac_t(jc,jb,jt)
+            ENDDO
+            DO jt = ntiles_total+1, ntiles_total+ntiles_water
+              ilu = MAX(1,ext_data(jg)%atm%lc_class_t(jc,jb,jt))
+              wrnd_num = wrnd_num + fac_tkred_sfc(ilu)*ext_data(jg)%atm%lc_frac_t(jc,jb,jt)
+            ENDDO
+            prm_diag(jg)%tkred_sfc(jc,jb) = EXP(log_range_tkred*2._wp*(wrnd_num-0.5_wp))
+          ENDDO
+
+        ENDDO
+!$OMP END DO
+      ELSE
+!$OMP DO
+        DO jb = i_startblk, i_endblk
+          prm_diag(jg)%tkred_sfc(:,jb) = 1._wp
+        ENDDO
+!$OMP END DO
+      ENDIF
+    ENDDO
+!$OMP END PARALLEL
+
+  END SUBROUTINE compute_ensemble_pert
 
 END MODULE mo_ensemble_pert_config

@@ -39,8 +39,7 @@ MODULE mo_var_list
     &                            post_op, groups, group_id,         &
     &                            actions, add_member_to_vargroup
   USE mo_tracer_metadata,  ONLY: create_tracer_metadata
-  USE mo_tracer_metadata_types,ONLY: t_tracer_meta, t_aero_meta,    &
-    &                            t_chem_meta, t_hydro_meta
+  USE mo_tracer_metadata_types,ONLY: t_tracer_meta
   USE mo_var_list_element, ONLY: t_var_list_element
   USE mo_linked_list,      ONLY: t_var_list, t_list_element,        &
        &                         new_list, delete_list,             &
@@ -94,6 +93,9 @@ MODULE mo_var_list
   PUBLIC :: fget_var_list_element_r1d
   PUBLIC :: fget_var_list_element_r2d
   PUBLIC :: fget_var_list_element_r3d
+
+  ! workaround, since mo_jsb_varlist_iface r345 expects find_list_element to be located in mo_var_list
+  PUBLIC :: find_list_element
 
  INTERFACE add_var  ! create a new list entry
     MODULE PROCEDURE add_var_list_element_5d

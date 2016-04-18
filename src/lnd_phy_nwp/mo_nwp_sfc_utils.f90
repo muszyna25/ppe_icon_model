@@ -188,8 +188,6 @@ CONTAINS
     INTEGER  :: icount_flk          ! total number of lake points per block
     !
     INTEGER  :: icount_ice          ! total number of sea-ice points per block
-    !
-    INTEGER  :: icount_water        ! total number of sea-water points per block
 
     INTEGER  :: i_count, ic, i_count_snow, isubs_snow
     REAL(wp) :: temp
@@ -215,7 +213,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,isubs,i_count,i_count_snow,icount_ice, &
-!$OMP            icount_water,icount_flk,temp,ic,isubs_snow,frsi,tice_now,hice_now,  &
+!$OMP            icount_flk,temp,ic,isubs_snow,frsi,tice_now,hice_now,               &
 !$OMP            tsnow_now,hsnow_now,tice_new,hice_new,tsnow_new,hsnow_new,fr_lake,  &
 !$OMP            depth_lk,fetch_lk,dp_bs_lk,t_bs_lk,gamso_lk,t_snow_lk_now,          &
 !$OMP            h_snow_lk_now,t_ice_now,h_ice_now,t_mnw_lk_now,t_wml_lk_now,        &
@@ -236,36 +234,38 @@ CONTAINS
 
           END DO
         END DO
-
-        ! t_s_t: special initialization for open water and sea-ice tiles
-        ! proper values are needed to perform surface analysis
-        ! open water points: set it to SST
-        ! lake points      : set it to tskin (note that t_seasfc=tskin for lake points)
-        ! sea-ice points   : set it to t_melt
-        !
-        ! Note that after aggregation, t_s is copied to t_so(1)
-        DO ic = 1, ext_data%atm%spw_count(jb)
-
-          jc = ext_data%atm%idx_lst_spw(ic,jb)
-          p_prog_lnd_now%t_s_t(jc,jb,isub_water) = p_lnd_diag%t_seasfc(jc,jb)
-          p_prog_lnd_new%t_s_t(jc,jb,isub_water) = p_lnd_diag%t_seasfc(jc,jb)
-        ENDDO
-
-        DO ic = 1, ext_data%atm%fp_count(jb)
-
-          jc = ext_data%atm%idx_lst_fp(ic,jb)
-          p_prog_lnd_now%t_s_t(jc,jb,isub_lake) = p_lnd_diag%t_seasfc(jc,jb)
-          p_prog_lnd_new%t_s_t(jc,jb,isub_lake) = p_lnd_diag%t_seasfc(jc,jb)
-        ENDDO
-
-        DO ic = 1, ext_data%atm%spi_count(jb)
-
-          jc = ext_data%atm%idx_lst_spi(ic,jb)
-          p_prog_lnd_now%t_s_t(jc,jb,isub_seaice) = tf_salt
-          p_prog_lnd_new%t_s_t(jc,jb,isub_seaice) = tf_salt
-        ENDDO
-
       ENDIF
+
+      ! t_s_t: initialization for open water and sea-ice tiles
+      ! proper values are needed to perform surface analysis
+      ! open water points: set it to SST
+      ! sea-ice points   : set it to tf_salt (salt-water freezing point)
+      !
+      ! Note that after aggregation, t_s is copied to t_so(1)
+      !
+      DO ic = 1, ext_data%atm%spw_count(jb)
+        jc = ext_data%atm%idx_lst_spw(ic,jb)
+        p_prog_lnd_now%t_s_t(jc,jb,isub_water) = p_lnd_diag%t_seasfc(jc,jb)
+        p_prog_lnd_new%t_s_t(jc,jb,isub_water) = p_lnd_diag%t_seasfc(jc,jb)
+      ENDDO
+
+      DO ic = 1, ext_data%atm%spi_count(jb)
+        jc = ext_data%atm%idx_lst_spi(ic,jb)
+        p_prog_lnd_now%t_s_t(jc,jb,isub_seaice) = tf_salt
+        p_prog_lnd_new%t_s_t(jc,jb,isub_seaice) = tf_salt
+      ENDDO
+
+
+      ! Init t_g_t for sea water points
+      !
+      DO ic = 1, ext_data%atm%spw_count(jb)
+        jc = ext_data%atm%idx_lst_spw(ic,jb)
+        temp =  p_lnd_diag%t_seasfc(jc,jb)
+        p_prog_lnd_now%t_g_t(jc,jb,isub_water) = temp
+        p_prog_lnd_new%t_g_t(jc,jb,isub_water) = temp
+        p_lnd_diag%qv_s_t(jc,jb,isub_water)    = spec_humi(sat_pres_water(temp ),&
+          &                                   p_diag%pres_sfc(jc,jb) )
+      END DO
 
 
 !---------- Copy input fields for each tile
@@ -875,22 +875,6 @@ CONTAINS
 
 
 
-      ! Init t_g_t for sea water points
-
-      icount_water = ext_data%atm%spw_count(jb) ! number of sea water points in block jb
-        !
-      DO ic = 1, icount_water
-        jc = ext_data%atm%idx_lst_spw(ic,jb)
-        temp =  p_lnd_diag%t_seasfc(jc,jb)
-        p_prog_lnd_now%t_g_t(jc,jb,isub_water) = temp
-        p_prog_lnd_new%t_g_t(jc,jb,isub_water) = temp
-        p_lnd_diag%qv_s_t(jc,jb,isub_water)    = spec_humi(sat_pres_water(temp ),&
-        &                                   p_diag%pres_sfc(jc,jb) )
-
-      END DO
-
-
-
       IF(lsnowtile .AND. .NOT. lsnowtile_warmstart) THEN ! snow is considered as separate tiles
         DO isubs = 1, ntiles_lnd
 
@@ -964,7 +948,7 @@ CONTAINS
       END IF
 
 
-      ! Remove snow on non-existing grid points. This has no impact on the prognostic
+      ! Remove snow and w_i on non-existing grid points. This has no impact on the prognostic
       ! results but is needed in order to have meaningful data on the tile-based fields 
       DO isubs = 1, ntiles_total
         DO jc = i_startidx, i_endidx
@@ -972,6 +956,7 @@ CONTAINS
             p_lnd_diag%h_snow_t(jc,jb,isubs)     = 0._wp
             p_prog_lnd_now%w_snow_t(jc,jb,isubs) = 0._wp
             p_lnd_diag%snowfrac_t(jc,jb,isubs)   = 0._wp
+            p_prog_lnd_now%w_i_t(jc,jb,isubs)    = 0._wp
           ENDIF
           IF (ext_data%atm%lc_frac_t(jc,jb,isubs) < 1.e-10_wp) THEN
             p_lnd_diag%snowfrac_lc_t(jc,jb,isubs)   = 0._wp

@@ -63,6 +63,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
+#include "mod1.inc"
 MODULE mo_datetime
 
   USE mo_kind,      ONLY: wp, i8
@@ -375,7 +376,7 @@ CONTAINS
       & +1720996.5_wp
 
     datetime%calday  = INT(time,i8)
-    datetime%caltime = MOD(time,1._wp)
+    datetime%caltime = MOD1(time)
     datetime%daysec = datetime%second+REAL(60*(datetime%minute+60*datetime%hour),wp)
 
   END SUBROUTINE date_to_julianday

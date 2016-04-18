@@ -102,20 +102,20 @@ column. The method used for lat-lon interpolation is indicated in the column \te
 %
 % List of pressure levels taken from COSMO-EU DB documentation, Section 5.1 (2015-03-27)
 %
-\renewcommand{\pressurelevelsRegular}{$1000$, \new{$975$}, $950$, \new{$925$}, \new{$900$}, 
-                                    \new{$875$}, $850$, \new{$825$}, \new{$800$}, 
-                                    \new{$775$}, \new{$750$}, \new{$725$}, $700$, $600$, 
-                                    $500$, $400$, $300$, $250$, $200$, \new{$150$}, \new{$100$}, 
-                                    \new{$70$}, \new{$50$}~$\mathrm{hPa}$}
+\renewcommand{\pressurelevelsRegular}{$1000$, $975$, $950$, $925$, $900$, 
+                                    $875$, $850$, $825$, $800$, 
+                                    $775$, $750$, $700$, $650$, $600$, $550$, 
+                                    $500$, $450$, $400$, $350$, $300$, $275$, 
+                                    $250$, $225$, $200$, $175$, $150$, $125$, 
+                                    $100$, $70$, $50$~$\mathrm{hPa}$}
 
-For regular grid output the following pressure levels are available: 
+For regular grid output the following $30$ pressure levels are available: 
 \begin{center}
 \begin{minipage}{0.5\linewidth}
 \pressurelevelsRegular. 
 \end{minipage}
 \end{center}
-
-Newly available pressure levels (as compared to COSMO-EU) are highlighted in red. 
+ 
 The output fields are listed in Table~\ref{table:nest:output_pressurelevels_regular}.
 
 On the native (triangular) grid no output is generated for pressure levels.
@@ -125,7 +125,8 @@ On the native (triangular) grid no output is generated for pressure levels.
 \begin{vartable}{\captionabove{Regular grid output on the ICON EU Nest:
       Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products 
       interpolated to pressure levels \pressurelevelsRegular.}\label{table:nest:output_pressurelevels_regular}}
-  
+
+  \groups[][ll] & CLC                        &  Cloud cover                                                                               &               0/6/22                      &                 100/--                          &                      inst     &              &        $\mathrm{\%}$ \\            
   \groups[][ll] & FI                         &  Geopotential                                                                              &               0/3/4                       &                 100/--                          &                      inst     &              &        $\mathrm{m^{2}\,s^{-2}}$   \\ % pl
   \groups[][ll] & OMEGA                      &  Vertical velocity in pressure coordinates ($\omega=\mathrm{d}p/\mathrm{d}t$)              &               0/2/8                       &                 100/--                          &                      inst     &              &        $\mathrm{Pa\,s^{-1}}$  \\     % pl
   \groups[][ll] & RELHUM                     &  Relative humidity (with respect to water)                                                 &               0/1/1                       &                 100/--                          &                      inst     &              &        $\mathrm{\%}$          \\     % pl

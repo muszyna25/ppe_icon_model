@@ -288,7 +288,7 @@ REAL(KIND=jprb) ::     zdmfen(klon), zdmfde(klon),&
 REAL(KIND=jprb) ::     zdpmean(klon)
 REAL(KIND=jprb) ::     zoentr(klon), zph(klon), zpbase(klon), zptop0(klon), zttop0(klon)
 REAL(KIND=jprb) ::     zcrit(klon), zdrain(klon), zdnoprc(klon), zentrorg(klon)
-LOGICAL ::  llflag(klon), llflaguv(klon), llo1(klon), llo3, llo4
+LOGICAL ::  llflag(klon), llflaguv(klon), llo1(klon), llo3
 
 INTEGER(KIND=jpim) :: icall, ik, is, jk, jl, ikb, kk
 INTEGER(KIND=jpim) :: jll, jlm, jlx(klon)
@@ -632,7 +632,6 @@ DO jk=klev-1,ktdia+2,-1
 
   IF(llo3) THEN
 
-    llo4=ptsphy>1800.0_jprb.AND.rmfcfl==1.0_jprb
     DO jl=kidia,kfdia
       zqold(jl)=0.0_JPRB
     ENDDO
@@ -647,7 +646,7 @@ DO jk=klev-1,ktdia+2,-1
         ENDIF
         IF(jk < kcbot(jl)) THEN
           zmfmax=(paph(jl,jk)-paph(jl,jk-1))*zcons2*rmflic+rmflia
-          IF(ktype(jl)==2.AND.llo4) zmfmax=zmfmax*3._jprb
+          IF (ktype(jl)==2) zmfmax=zmfmax*0.5_jprb
           zxs=MAX(pmfu(jl,jk+1)-zmfmax,0.0_JPRB)
           pwmean(jl)=pwmean(jl)+pkineu(jl,jk+1)*(pap(jl,jk+1)-pap(jl,jk))
           zdpmean(jl)=zdpmean(jl)+pap(jl,jk+1)-pap(jl,jk)

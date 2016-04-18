@@ -1240,12 +1240,8 @@ lepcld  =.TRUE.   ! produce detrained cloud water/ice
 
 !     RMFCFL:     MASSFLUX MULTIPLE OF CFL STABILITY CRITERIUM
 !     -------
+phy_params%mfcfl = 2._JPRB*MIN(2._JPRB,1._JPRB + 2.5e-5_JPRB*rsltn)
 
-IF( rsltn<=39000 ) THEN
-  phy_params%mfcfl=3.0_JPRB
-ELSE
-  phy_params%mfcfl=5.0_JPRB
-ENDIF
 rmflic=1.0_JPRB   ! use CFL mass flux limit (1) or absolut limit (0)
 rmflia=0.0_JPRB   ! value of absolut mass flux limit
 rmflmax=1.75_jprb ! mass flux limit following a suggestion by P. Bechtold [kg/(m**2s)]

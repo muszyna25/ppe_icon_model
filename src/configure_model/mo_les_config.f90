@@ -19,7 +19,6 @@ MODULE mo_les_config
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH
-  USE mo_grid_config,         ONLY: is_plane_torus
   USE mo_math_constants,      ONLY: dbl_eps
 
   IMPLICIT NONE

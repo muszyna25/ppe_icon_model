@@ -45,8 +45,7 @@ MODULE mo_advection_limiter
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
-  USE mo_impl_constants,      ONLY: min_rledge_int, min_rlcell_int, min_rlcell, &
-    &                               min_rledge
+  USE mo_impl_constants,      ONLY: min_rledge_int, min_rlcell_int, min_rlcell
   USE mo_advection_utils,     ONLY: laxfr_upflux, ptr_delp_mc_now,         &
     &                               ptr_delp_mc_new
 

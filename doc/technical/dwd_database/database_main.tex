@@ -38,6 +38,7 @@
 \usepackage{environ}
 \usepackage{pgf}
 \usepackage{pgffor}
+\usepackage[toc,section=chapter]{glossaries}
 
 \usetikzlibrary{calc}
 \usetikzlibrary{matrix}
@@ -49,7 +50,7 @@
 % define some colors
 \definecolor{darkred}{rgb}{0.5,0.,0.}
 \definecolor{darkblue}{rgb}{0.,0.,0.6}
-\definecolor{darkgreen}{rgb}{0.,0.5,0.}
+\definecolor{darkgreen}{rgb}{0.,0.25,0.}
 \definecolor{darkgrey}{rgb}{0.7,0.75,0.71}
 \definecolor{Gray}{gray}{0.9}
 \definecolor{DWDblue}{RGB}{47,79,162}
@@ -63,7 +64,7 @@
 
 
 % customize hyperref
-\hypersetup{colorlinks, linkcolor=darkblue, citecolor=blue, urlcolor=darkred, linktoc=all}
+\hypersetup{colorlinks, linkcolor=darkblue, citecolor=blue, urlcolor=darkgreen, linktoc=all}
 
 %\renewcommand{\sffamily}{\fontfamily{DejaVuSans-TLF}\selectfont}
 
@@ -144,13 +145,6 @@
 \definecolor{colorRed}{rgb}{1.,0.,0.}
 \newcommand{\colorA}{\listappend{"0.,0.,1."}}
 \newcommand{\colorB}{\listappend{"1.,0.,0."}}
-
-
-% ---------- Glossary: All the stuff and more ----------%
-% \newglossary{symbolslist}{sym}{sbl}{Symbolverzeichnis} % define new glossary i.e. a list of symbols
-% \makeglossaries
-
-% \input{./text/listofsymbols}  %--- include defined symbols
 
 
 \setkomafont{captionlabel}{\sffamily\bfseries}
@@ -266,7 +260,8 @@ p{1.1cm}p{0.9cm}p{1cm}p{1cm}}#1\\
 \setlength{\parskip}{0.2cm plus0.1cm minus0.1cm}
 \setlength{\parindent}{0.0em}
 
-\includeonly{./preface_title_toc,
+\includeonly{./glossary,
+             ./preface_title_toc,
              ./preface_intro,
              ./model_timeline,
              ./analysis,
@@ -315,12 +310,8 @@ p{1.1cm}p{0.9cm}p{1cm}p{1cm}}#1\\
  timeline color2=red!80!black,
  timeline color st/.style={fill=\vtmlcolor,draw=\vtmlcolor},
  timeline color st2/.style={fill=\vtmlcolortwo,draw=\vtmlcolortwo},
- use timeline header/.is if=vtimelinetitle,
- use timeline header=false,
  add bottom line/.is if=vtimebottomline,
  add bottom line=false,
- timeline title/.store in=\vtimelinetitle,
- timeline title={},
  line offset/.store in=\lineoffset,
  line offset=4pt,
 }
@@ -330,12 +321,12 @@ p{1.1cm}p{0.9cm}p{1cm}p{1cm}}#1\\
 \stepcounter{vtml}%
 \begin{tikzpicture}[column 1/.style={anchor=east},
  column 2/.style={anchor=west},
- text depth=0pt,text height=1.8ex,
+ minimum size=1.8ex,
  row sep=1ex,
  column sep=2em,
  #1
 ]
-\matrix(vtimeline\thevtml)[matrix of nodes]{\BODY};
+\matrix(vtimeline\thevtml)[matrix of nodes,nodes={anchor=north west,align=left}]{\BODY};
 \pgfmathtruncatemacro\endmtx{\thelines-1}
 \path[timeline color st, thick] 
 ($(vtimeline\thevtml-1-1.north east)!0.42!(vtimeline\thevtml-1-2.north west)$)--
@@ -346,20 +337,11 @@ p{1.1cm}p{0.9cm}p{1cm}p{1cm}}#1\\
 \foreach \x in {1,...,\endmtx}{
  \pgfmathparse{{\storedContent}[\x-1]};
  \definecolor{ballcolor}{rgb}{\pgfmathresult}
- \node[circle,timeline color st, inner sep=0.15pt, draw=white, fill=ballcolor, thick] 
+ \node[circle,timeline color st, inner sep=0.15pt, draw=white, fill=ballcolor, thick, yshift=-0.75em] 
  (vtimeline\thevtml-c-\x) at 
- ($(vtimeline\thevtml-\x-1.east)!0.5!(vtimeline\thevtml-\x-2.west)$){};
+ ($(vtimeline\thevtml-\x-1.north east)!0.5!(vtimeline\thevtml-\x-2.north west)$){};
  \draw[timeline color st,thick,color=ballcolor](vtimeline\thevtml-c-\x.west)--++(-5pt,0);
  }
- \ifvtimelinetitle%
-  \draw[timeline color st,thick]([yshift=\lineoffset]vtimeline\thevtml.north west)--
-  ([yshift=\lineoffset]vtimeline\thevtml.north east);
-  \node[anchor=west,yshift=16pt,font=\large]
-   at (vtimeline\thevtml-1-1.north west) 
-   {\textsc{Timeline \thevtml}: \textit{\vtimelinetitle}};
- \else%
-  \relax%
- \fi%
  \ifvtimebottomline%
    \draw[timeline color st, thick]([yshift=-\lineoffset]vtimeline\thevtml.south west)--
   ([yshift=-\lineoffset]vtimeline\thevtml.south east);
@@ -370,11 +352,18 @@ p{1.1cm}p{0.9cm}p{1cm}p{1cm}}#1\\
 }
 %--------------------- end of timeline code ------------------%
 
+
+%----------------------- create glossary ---------------------%
+\makeglossaries
+%-------------------------------------------------------------%
+
+
 % ------------------ start of document -----------------------%
 \begin{document}
 \svnInfo $Id$
 \setcounter{tocdepth}{3}     %--- maximum toc depth
 
+\include{./glossary}
 \pagestyle{scrheadings}
 
 \renewcommand{\chaptermark}[1]{%
@@ -503,6 +492,10 @@ p{1.1cm}p{0.9cm}p{1cm}p{1cm}}#1\\
 \renewcommand{\chaptermark}[1]{%
   \markboth{\chaptername
     \ \thechapter.\ #1}{}}
+
+%----------------------- print glossary ----------------------%
+\printglossaries
+%-------------------------------------------------------------%
 
 
 % --------------------------- Backside of document -------------------------------
