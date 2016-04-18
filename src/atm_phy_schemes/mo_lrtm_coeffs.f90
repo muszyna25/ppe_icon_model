@@ -11,6 +11,8 @@
 !     revision:  $Revision: 1.5 $
 !     created:   $Date: 2009/11/12 20:52:26 $
 !
+#include "consistent_fma.inc"
+
 module mo_lrtm_coeffs
 
   !  --------------------------------------------------------------------------
@@ -162,9 +164,9 @@ contains
     real(wp) :: dbdtlev, dbdtlay
     real(wp) :: plog, fp, ft, ft1, water, scalefac, factor, compfp
 
-
     stpfac = 296._wp/1013._wp
 
+!PREVENT_INCONSISTENT_IFORT_FMA
     do jl = 1, kproma  ! loop over columns
       indbound = INT(tbound(jl) - 159._wp)
       if (indbound .lt. 1) then
@@ -191,6 +193,7 @@ contains
     ! Begin layer loop
     !  Calculate the integrated Planck functions for each band at the
     !  surface, level, and layer temperatures.
+!PREVENT_INCONSISTENT_IFORT_FMA
     do lay = 1, nlayers
       do jl = 1, kproma  ! loop over columns
         t0frac   = t0fraca(jl)
