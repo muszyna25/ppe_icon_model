@@ -87,7 +87,6 @@ CONTAINS
                   t_snow_ex        , & ! temperature of the snow-surface               (  K  )
                   t_snow_mult_ex   , & ! temperature of the snow-surface               (  K  )
                   t_s_ex           , & ! temperature of the ground surface             (  K  )
-                  t_canp_ex        , & ! canopy surface temperature                    (  K  )
                   t_g_ex           , & ! weighted surface temperature                  (  K  )
                   qv_s_ex          , & ! specific humidity at the surface              (kg/kg)
                   w_snow_ex        , & ! water content of snow                         (m H2O)
@@ -174,7 +173,6 @@ CONTAINS
   REAL(wp), DIMENSION(nproma,ntiles_total), INTENT(INOUT) :: &
                   t_snow_ex        , & ! temperature of the snow-surface (K)
                   t_s_ex           , & ! temperature of the ground surface             (  K  )
-                  t_canp_ex        , & ! canopy surface temperature                    (  K  )
                   w_snow_ex        , & ! water content of snow                         (m H2O)
                   rho_snow_ex      , & ! snow density                                  (kg/m**3)
                   h_snow_ex        , & ! snow height
@@ -272,9 +270,6 @@ CONTAINS
     REAL(wp) :: t_s_now_t  (nproma, ntiles_total)
     REAL(wp) :: t_s_new_t  (nproma, ntiles_total)
 
-    REAL(wp) :: t_canp_now_t  (nproma, ntiles_total)
-    REAL(wp) :: t_canp_new_t  (nproma, ntiles_total)
-
     REAL(wp) :: t_g_t      (nproma, ntiles_total)
     REAL(wp) :: qv_s_t     (nproma, ntiles_total)
 
@@ -320,7 +315,6 @@ CONTAINS
     REAL(wp) :: sai_t     (nproma, ntiles_total)
     REAL(wp) :: tai_t     (nproma, ntiles_total)
     REAL(wp) :: eai_t     (nproma, ntiles_total)
-    REAL(wp) :: gz0_t     (nproma, ntiles_total)
     REAL(wp) :: rsmin2d_t (nproma, ntiles_total)
 
     ! local dummy variable for precipitation rate of graupel, grid-scale
@@ -501,7 +495,6 @@ CONTAINS
 
           t_snow_now_t  (ic,isubs) = t_snow_ex   (jc,isubs)
           t_s_now_t     (ic,isubs) = t_s_ex      (jc,isubs)
-          t_canp_now_t  (ic,isubs) = t_canp_ex   (jc,isubs)
           t_g_t         (ic,isubs) = t_g_ex      (jc,isubs)
           qv_s_t        (ic,isubs) = qv_s_ex     (jc,isubs)
           w_snow_now_t  (ic,isubs) = w_snow_ex   (jc,isubs)
@@ -536,7 +529,6 @@ CONTAINS
           sai_t         (ic,isubs) =  ext_data%atm%sai_t    (jc,jb,isubs)
           tai_t         (ic,isubs) =  ext_data%atm%tai_t    (jc,jb,isubs)
           eai_t         (ic,isubs) =  ext_data%atm%eai_t    (jc,jb,isubs)
-!          gz0_t         (ic,isubs) =  ext_data%atm%gz0(jc,jb,isubs) 
           rsmin2d_t     (ic,isubs) =  ext_data%atm%rsmin2d_t(jc,jb,isubs)
 
           t_so_now_t(ic,nlev_soil+1,isubs) = t_so_ex(jc,nlev_soil+1,isubs)
@@ -609,7 +601,6 @@ IF ( .true. ) THEN
         &  tai          = tai_t(:,isubs)                     , & ! surface area index                  --
         &  eai          = eai_t(:,isubs)                     , & ! surface area index                  --
         &  rsmin2d      = rsmin2d_t(:,isubs)                 , & ! minimum stomata resistance        ( s/m )
-        &  gz0          = gz0_t(:,isubs)                     , & ! surface rougness                  ( m )
 !
         &  u  = u_t(:)                                       , & ! zonal wind speed
         &  v  = v_t(:)                                       , & ! meridional wind speed
@@ -626,9 +617,6 @@ IF ( .true. ) THEN
 !
         &  t_s_now       = t_s_now_t(:,isubs)                , & ! temperature of the ground surface (  K  )
         &  t_s_new       = t_s_new_t(:,isubs)                , & ! temperature of the ground surface (  K  )
-!
-        &  t_canp_now       = t_canp_now_t(:,isubs)          , & ! temperature of the canopy surface (  K  )
-        &  t_canp_new       = t_canp_new_t(:,isubs)          , & ! temperature of the canopy surface (  K  )
 !
         &  t_g           =  t_g_t (:,isubs)                  , & ! weighted surface temperature      (  K  )
         &  qv_s          =  qv_s_t(:,isubs)                  , & ! specific humidity at the surface  (kg/kg)
@@ -771,7 +759,6 @@ endif
           jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
           t_snow_ex   (jc,isubs)  = t_snow_new_t  (ic,isubs)
           t_s_ex      (jc,isubs)  = t_s_new_t     (ic,isubs)
-          t_canp_ex      (jc,isubs)  = t_canp_new_t     (ic,isubs)
           t_g_ex      (jc,isubs)  = t_g_t         (ic,isubs)
           qv_s_ex     (jc,isubs)  = qv_s_t        (ic,isubs)
           w_snow_ex   (jc,isubs)  = w_snow_new_t  (ic,isubs)
@@ -916,7 +903,6 @@ endif
              is2 = it2(ic)
              t_snow_ex      (jc,is1) = t_snow_ex      (jc,is2)
              t_s_ex         (jc,is1) = t_s_ex         (jc,is2)
-             t_canp_ex      (jc,is1) = t_canp_ex      (jc,is2)
              t_g_ex         (jc,is1) = t_g_ex         (jc,is2)
              qv_s_ex        (jc,is1) = qv_s_ex        (jc,is2)
              w_snow_ex      (jc,is1) = w_snow_ex      (jc,is2)

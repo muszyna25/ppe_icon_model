@@ -119,8 +119,6 @@ CONTAINS
     REAL(wp) :: t_snow_now_t(nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: t_snow_mult_now_t(nproma, 1:nlev_snow+1, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: t_s_now_t(nproma, p_patch%nblks_c, ntiles_total)
-    REAL(wp) :: t_canp_now_t(nproma, p_patch%nblks_c, ntiles_total)
-    REAL(wp) :: t_canp_new_t(nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: t_g_t    (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: t_s_new_t(nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: w_snow_now_t(nproma, p_patch%nblks_c, ntiles_total)
@@ -283,8 +281,6 @@ CONTAINS
           t_snow_now_t(ic,jb,isubs)          =  p_prog_lnd_now%t_snow_t(jc,jb,isubs)
           t_s_now_t(ic,jb,isubs)             =  p_prog_lnd_now%t_s_t(jc,jb,isubs)
           t_s_new_t(ic,jb,isubs)             =  p_prog_lnd_new%t_s_t(jc,jb,isubs)
-          t_canp_now_t(ic,jb,isubs)          =  p_prog_lnd_now%t_canp_t(jc,jb,isubs)
-          t_canp_new_t(ic,jb,isubs)          =  p_prog_lnd_new%t_canp_t(jc,jb,isubs)
           w_snow_now_t(ic,jb,isubs)          =  p_prog_lnd_now%w_snow_t(jc,jb,isubs)
           rho_snow_now_t(ic,jb,isubs)        =  p_prog_lnd_now%rho_snow_t(jc,jb,isubs)
 
@@ -416,8 +412,6 @@ CONTAINS
         &  t_snow_mult_now   = t_snow_mult_now_t(:,:,jb,isubs)  , & ! temperature of the snow-surface   (  K  )
         &  t_s_now           = t_s_now_t(:,jb,isubs)            , & ! temperature of the ground surface (  K  )
         &  t_s_new           = t_s_new_t(:,jb,isubs)            , & ! temperature of the ground surface (  K  )
-        &  t_canp_now        = t_canp_now_t(:,jb,isubs)         , & ! temperature of the canopy surface (  K  )
-        &  t_canp_new        = t_canp_new_t(:,jb,isubs)         , & ! temperature of the canopy surface (  K  )
         &  w_snow_now        = w_snow_now_t(:,jb,isubs)         , & ! water content of snow             (m H2O)
         &  h_snow            = h_snow_t(:,jb,isubs)             , & ! snow depth                        (m H2O)
         &  rho_snow_now      = rho_snow_now_t(:,jb,isubs)       , & ! snow density                      (kg/m**3)
@@ -458,8 +452,6 @@ CONTAINS
           p_prog_lnd_now%t_snow_t(jc,jb,isubs)   = t_snow_now_t(ic,jb,isubs)
           p_prog_lnd_now%t_s_t(jc,jb,isubs)      = t_s_now_t(ic,jb,isubs)
           p_prog_lnd_new%t_s_t(jc,jb,isubs)      = t_s_new_t(ic,jb,isubs)
-          p_prog_lnd_now%t_canp_t(jc,jb,isubs)   = t_canp_now_t(ic,jb,isubs)
-          p_prog_lnd_new%t_canp_t(jc,jb,isubs)   = t_canp_new_t(ic,jb,isubs)
           p_prog_lnd_now%w_snow_t(jc,jb,isubs)   = w_snow_now_t(ic,jb,isubs)
           p_lnd_diag%h_snow_t(jc,jb,isubs)       = h_snow_t(ic,jb,isubs)
           p_prog_lnd_now%rho_snow_t(jc,jb,isubs) = rho_snow_now_t(ic,jb,isubs)
@@ -1108,7 +1100,6 @@ CONTAINS
         DO jc = i_startidx, i_endidx
           lnd_diag%t_snow   (jc,jb) = lnd_prog%t_snow_t   (jc,jb,1)
           lnd_diag%t_s      (jc,jb) = lnd_prog%t_s_t      (jc,jb,1)
-          lnd_diag%t_canp   (jc,jb) = lnd_prog%t_canp_t   (jc,jb,1)
           lnd_diag%w_snow   (jc,jb) = lnd_prog%w_snow_t   (jc,jb,1)
           lnd_diag%rho_snow (jc,jb) = lnd_prog%rho_snow_t (jc,jb,1)
           lnd_diag%w_i      (jc,jb) = lnd_prog%w_i_t      (jc,jb,1)
@@ -1210,8 +1201,6 @@ CONTAINS
 
             lnd_diag%t_snow(jc,jb)    = lnd_diag%t_snow(jc,jb) + tilefrac    &
               &                         * lnd_prog%t_snow_t(jc,jb,isubs)
-            lnd_diag%t_canp(jc,jb)    = lnd_diag%t_canp(jc,jb) + tilefrac    &
-              &                         * lnd_prog%t_canp_t(jc,jb,isubs)
             lnd_diag%w_snow(jc,jb)    = lnd_diag%w_snow(jc,jb) + tilefrac    &
               &                         * lnd_prog%w_snow_t(jc,jb,isubs)
             lnd_diag%rho_snow(jc,jb)  = lnd_diag%rho_snow(jc,jb) + tilefrac  &
@@ -2620,7 +2609,6 @@ CONTAINS
         p_prog_lnd_new%w_so_t(is:ie,:,jb,jt)     = p_prog_lnd_now%w_so_t(is:ie,:,jb,jt)
         p_prog_lnd_new%w_so_ice_t(is:ie,:,jb,jt) = p_prog_lnd_now%w_so_ice_t(is:ie,:,jb,jt)
         p_prog_lnd_new%t_snow_t(is:ie,jb,jt)     = p_prog_lnd_now%t_snow_t(is:ie,jb,jt)
-        p_prog_lnd_new%t_canp_t(is:ie,jb,jt)     = p_prog_lnd_now%t_canp_t(is:ie,jb,jt)
         p_prog_lnd_new%w_snow_t(is:ie,jb,jt)     = p_prog_lnd_now%w_snow_t(is:ie,jb,jt)
         p_prog_lnd_new%rho_snow_t(is:ie,jb,jt)   = p_prog_lnd_now%rho_snow_t(is:ie,jb,jt)
       ENDDO

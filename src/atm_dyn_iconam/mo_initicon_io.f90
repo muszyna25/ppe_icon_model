@@ -747,8 +747,6 @@ MODULE mo_initicon_io
         &                fill_array=initicon(jg)%sfc_in%snowdens)
       CALL read_2d_1time(stream_id, on_cells, 'W_I', &
         &                fill_array=initicon(jg)%sfc_in%skinres)
-!      CALL read_2d_1time(stream_id, on_cells, 'T_CANP', &
-!        &                fill_array=initicon(jg)%sfc_in%skinres)
       CALL read_2d_1time(stream_id, on_cells, 'LSM', &
         &                fill_array=initicon(jg)%sfc_in%ls_mask)
       CALL read_2d_1time(stream_id, on_cells, 'CI', &
@@ -1297,7 +1295,6 @@ MODULE mo_initicon_io
             ENDIF
             CALL fetchTiledSurface(params, 'w_snow', jg, ntiles_total, lnd_prog%w_snow_t)
             CALL fetchTiledSurface(params, 'w_i', jg, ntiles_total, lnd_prog%w_i_t)
-!            CALL fetchTiledSurface(params, 't_canp', jg, ntiles_total, lnd_prog%t_canp_t)
             CALL fetchTiledSurface(params, 'h_snow', jg, ntiles_total, lnd_diag%h_snow_t)
             CALL fetchTiledSurface(params, 't_snow', jg, ntiles_total, lnd_prog%t_snow_t)
             CALL fetchTiledSurface(params, 'rho_snow', jg, ntiles_total, lnd_prog%rho_snow_t)
@@ -1556,10 +1553,6 @@ MODULE mo_initicon_io
             ! w_i
             my_ptr2d => lnd_prog%w_i_t(:,:,jt)
             CALL fetchSurface(params, 'w_i', jg, my_ptr2d)
-
-            ! t_canp
-!!$            my_ptr2d => lnd_prog%t_canp_t(:,:,jt)
-!!$            CALL fetchSurface(params, 't_canp', jg, my_ptr2d)
 
             ! t_snow
             my_ptr2d => lnd_prog%t_snow_t(:,:,jt)

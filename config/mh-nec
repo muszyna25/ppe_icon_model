@@ -18,12 +18,12 @@ URDEPTHS = -D_URD=10 -D_URD2=10
 
 ###################################################################################
  
-config_target=sx9
-load_modules="sxf90/rev460.1" "sxcc/rev094" "crosskit/r201"
-load_profile="." "/etc/profile.d/modules.sh"
+config_target=sxace
+#load_modules="sxf90/rev460.1" "sxcc/rev094" "crosskit/r201"
+#load_profile="." "/etc/profile.d/modules.sh"
 make_command="make"
 mpi_startrun="mpirun" "-nn" "\\\$no_of_nodes" -nnp "\\\$mpi_procs_pernode"
-submit="qsubw"
+submit="qsub"
 # sync_submit=qsub -W block=true
 
 # OpenMP
@@ -33,69 +33,70 @@ OMPFLAGS =  -P openmp
 FTRFLAGS = -ftrace 
 
 # Fortran base flags
-BASEFLAGS =  -f2003 cptr_i8 -DHAVE_LIBNETCDF $URDEPTHS
+BASEFLAGS = -DHAVE_LIBNETCDF $URDEPTHS
 
 # Optimization
-OPTFLAGS =  -Chopt -Wf,-pvctl chgpwr
+OPTFLAGS =  -Chopt
 
 # Vectorization 
-VECTFLAGS = -Wf,-pvctl loopcnt=1000000 shape=1000000 fullmsg
+VECTFLAGS = -pvctl,loopcnt=1000000,fullmsg
 
 # Compiler messages, warnings etc.
-MSGFLAGS =  -Wf,'-L fmtlist transform summary' -R2 -Wf,-s -Wf,'-msg d o'
+MSGFLAGS =  -R,fmtlist,diaglist,summary
 
 # Preprocessing
-PREPFLAGS = -EP -USX  
+PREPFLAGS = -Ep -USX  
 
 # Floating point exception trapping (not used except for debugging purposes)
-FPTRAP = -Wf,'-M zdiv,flovf,noflunf,inv,setmain'  
+FPTRAP = -mask,zdiv,flovf,noflunf,inv,setmain
 
 # Initialization with NaN for debugging purposes
-DEBUGFLAGS = -Wf,-init stack=nan heap=nan -Wf,-K a -D__BOUNDCHECK
-LDDEBUG    = -Wf,-K a
+DEBUGFLAGS = -init stack=nan -D__BOUNDCHECK
+LDDEBUG    = 
 
 # linker flags (required for linking with OpenMP - specifies the OMP stacksize)
 LDFLAGS = -Wl,-Z 16G
 
 # Inlining
-INLINE   = -pi expin=../../../src/testcases/mo_ncar_testcases.f90
-INLINE   = $INLINE -pi expin=../../../src/parallel_infrastructure/mo_sync.f90
-INLINE   = $INLINE -pi expin=../../../src/parallel_infrastructure/mo_communication.f90
-INLINE   = $INLINE -pi expin=../../../src/shared/mo_math_utilities.f90
-INLINE   = $INLINE -pi expin=../../../src/shared/mo_loopindices.f90
-INLINE   = $INLINE -pi expin=../../../src/shared/mo_fortran_tools.f90
-INLINE   = $INLINE -pi expin=../../../src/advection/mo_advection_utils.f90
-INLINE   = $INLINE -pi expin=../../../src/testcases/mo_nh_testcases.f90
-INLINE   = $INLINE -pi expin=../../../src/atm_phy_schemes/mo_cufunctions.f90
-INLINE   = $INLINE -pi expin=../../../src/atm_phy_schemes/mo_cuparameters.f90
-INLINE   = $INLINE -pi expin=../../../src/atm_phy_schemes/mo_satad.f90
-INLINE   = $INLINE -pi expin=../../../src/parallel_infrastructure/mo_mpi.f90
-INLINE   = $INLINE -pi expin=../../../src/atm_phy_edmf/mo_edmf_param.f90
-INLINE   = $INLINE -pi expin=../../../src/atm_phy_edmf/mo_vdfthermo.f90
-INLINE   = $INLINE -pi expin=../../../src/atm_phy_edmf/mo_vdfpdftable.f90
-INLINE   = $INLINE -pi expin=../../../src/atm_phy_edmf/mo_vdfsat.f90
-INLINE   = $INLINE -pi expin=../../../src/atm_phy_nwp/mo_util_phys.f90
-INLINE   = $INLINE -pi rexp=tracer_q1_q2,tracer_q3,disp_new,dxg,regrot,turnwi
-INLINE   = $INLINE -pi rexp=init_pure_adv_wind,init_pure_adv_tracers
-INLINE   = $INLINE -pi rexp=global_sum_array2,laxfr_upflux
-INLINE   = $INLINE -pi rexp=foelhmcu,foeewmcu,foeewm,foeldcp,foeldcpm
-INLINE   = $INLINE -pi rexp=foeewm_v,foeewmcu_v,foedem,foeldcpmcu,foedemcu
-INLINE   = $INLINE -pi rexp=foeewl,foeewi
-INLINE   = $INLINE -pi rexp=idx_no,blk_no,idx_1d
-INLINE   = $INLINE -pi rexp=foealfa,vdfthermo,psimu,phihs,phims,psihu,psihs,vdfpdftable,psims,foeew,foedesu,vdfsat
-INLINE   = $INLINE -pi rexp=qsat_rho,sat_pres_water
-INLINE   = $INLINE -pi rexp=p_wait
-INLINE   = $INLINE -pi rexp=nwp_dyn_gust1
+INLINE   = -pi,auto,fullmsg
+#INLINE   = -pi expin=../../../src/testcases/mo_ncar_testcases.f90
+#INLINE   = $INLINE -pi expin=../../../src/parallel_infrastructure/mo_sync.f90
+#INLINE   = $INLINE -pi expin=../../../src/parallel_infrastructure/mo_communication.f90
+#INLINE   = $INLINE -pi expin=../../../src/shared/mo_math_utilities.f90
+#INLINE   = $INLINE -pi expin=../../../src/shared/mo_loopindices.f90
+#INLINE   = $INLINE -pi expin=../../../src/shared/mo_fortran_tools.f90
+#INLINE   = $INLINE -pi expin=../../../src/advection/mo_advection_utils.f90
+#INLINE   = $INLINE -pi expin=../../../src/testcases/mo_nh_testcases.f90
+#INLINE   = $INLINE -pi expin=../../../src/atm_phy_schemes/mo_cufunctions.f90
+#INLINE   = $INLINE -pi expin=../../../src/atm_phy_schemes/mo_cuparameters.f90
+#INLINE   = $INLINE -pi expin=../../../src/atm_phy_schemes/mo_satad.f90
+#INLINE   = $INLINE -pi expin=../../../src/parallel_infrastructure/mo_mpi.f90
+#INLINE   = $INLINE -pi expin=../../../src/atm_phy_edmf/mo_edmf_param.f90
+#INLINE   = $INLINE -pi expin=../../../src/atm_phy_edmf/mo_vdfthermo.f90
+#INLINE   = $INLINE -pi expin=../../../src/atm_phy_edmf/mo_vdfpdftable.f90
+#INLINE   = $INLINE -pi expin=../../../src/atm_phy_edmf/mo_vdfsat.f90
+#INLINE   = $INLINE -pi expin=../../../src/atm_phy_nwp/mo_util_phys.f90
+#INLINE   = $INLINE -pi rexp=tracer_q1_q2,tracer_q3,disp_new,dxg,regrot,turnwi
+#INLINE   = $INLINE -pi rexp=init_pure_adv_wind,init_pure_adv_tracers
+#INLINE   = $INLINE -pi rexp=global_sum_array2,laxfr_upflux
+#INLINE   = $INLINE -pi rexp=foelhmcu,foeewmcu,foeewm,foeldcp,foeldcpm
+#INLINE   = $INLINE -pi rexp=foeewm_v,foeewmcu_v,foedem,foeldcpmcu,foedemcu
+#INLINE   = $INLINE -pi rexp=foeewl,foeewi
+#INLINE   = $INLINE -pi rexp=idx_no,blk_no,idx_1d
+#INLINE   = $INLINE -pi rexp=foealfa,vdfthermo,psimu,phihs,phims,psihu,psihs,vdfpdftable,psims,foeew,foedesu,vdfsat
+#INLINE   = $INLINE -pi rexp=qsat_rho,sat_pres_water
+#INLINE   = $INLINE -pi rexp=p_wait
+#INLINE   = $INLINE -pi rexp=nwp_dyn_gust1
 
 # standard flags for C compiler
 SVNVERSION=`svnversion`
-CFLAGS  = -Chopt -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -I/usr/local/pkg-sx9/grib_api/prerelease-1.11.0/include -D__SVN_VERSION="${SVNVERSION}"
+CFLAGS  = -Xa -Kc99 -Chopt -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -I/gfs/essjob/grib_api-1.13.1/include -D__SVN_VERSION="${SVNVERSION}"
 
-NETCDFROOT = /usr/local/pkg-sx9/
-LAPACKROOT = /SX/opt/mathkeisan/inst
+NETCDFROOT = /gfs/essjob/NetCDF/F03-size_t64
+LAPACKROOT = /SX/opt/mathkeisan/inst/lib0/f03
 
-FC       = sxf90
-F77      = sxf90
+FC       = sxf03
+F77      = sxf03
 CC       = sxc++
 
 
@@ -103,24 +104,35 @@ CC       = sxc++
 
 case "$mh_setup" in
 
-*sx8)
+*sxacempi)
 
     # Specific flags for selected configuration
-    with_mpi=no
+    with_mpi=yes
     with_openmp=no
 
-    CFLAGS     = $CFLAGS -sx8r -DNOMPI
-    FbaseFLAGS =         -sx8r -DNOMPI
+    FC       = sxmpif03
+    F77      = sxmpif03
+    CC       = sxmpic++
+
+    CFLAGS     = $CFLAGS -size_t64 -D_REENTRANT
+    FbaseFLAGS =  -sxace -size_t64
+    LDFLAGS    = -size_t64 $LDFLAGS -Wl,-h size_t64 -Wl,-h muldefs
+
     ;;
 
-*sx8omp)
+*sxacempiftr)
 
     # Specific flags for selected configuration
-    with_mpi=no
-    with_openmp=yes
+    with_mpi=yes
+    with_openmp=no
 
-    CFLAGS     = $CFLAGS -sx8r -DNOMPI
-    FbaseFLAGS =         -sx8r -DNOMPI $OMPFLAGS
+    FC       = sxmpif03
+    F77      = sxmpif03
+    CC       = sxmpic++
+
+    CFLAGS     = $CFLAGS $FTRFLAGS -size_t64 -D_REENTRANT
+    FbaseFLAGS =  -sxace $FTRFLAGS -size_t64
+    LDFLAGS    = -size_t64 $FTRFLAGS $LDFLAGS -Wl,-h size_t64 -Wl,-h muldefs
 
     ;;
 
@@ -363,10 +375,10 @@ MPI_LIB =
 LAPACK_LIB  = -llapack -lblas
 
 LIBS        = -L../lib -lsupport $LIBS
-OTHER_LIBS  = -L/usr/local/pkg-sx9/grib_api/prerelease-1.11.0/lib -lgrib_api_f90 -lgrib_api $OTHER_LIBS
+OTHER_LIBS  = -L/gfs/essjob/grib_api-1.13.1/lib -lgrib_api_f90 -lgrib_api -lpthread $OTHER_LIBS
 
 AR       = sxar
-AS       = sxas
+AS       = sxas -h size_t64
 
 F77FLAGS = -Chopt
 OMPFLAG  = -Popenmp
