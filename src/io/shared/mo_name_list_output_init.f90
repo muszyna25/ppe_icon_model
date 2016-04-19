@@ -879,7 +879,7 @@ CONTAINS
               &               lremap_lonlat=(p_onl%remap == REMAP_REGULAR_LATLON), &
               &               opt_vlevel_type=i_typ)
             DO i=1,ngrp_vars
-              grp_vars(i) = grp_vars(i)
+              grp_vars(i) = tolower(grp_vars(i))
             END DO
             ! generate varlist where "grp_name" has been replaced;
             ! duplicates are removed
@@ -907,7 +907,7 @@ CONTAINS
               &               lremap_lonlat=(p_onl%remap == REMAP_REGULAR_LATLON), &
               &               opt_vlevel_type=i_typ)
             DO i=1,ngrp_vars
-              grp_vars(i) = grp_vars(i)
+              grp_vars(i) = tolower(grp_vars(i))
             END DO
             ! generate varlist where "grp_name" has been replaced;
             ! duplicates are removed
