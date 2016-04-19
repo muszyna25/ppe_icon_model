@@ -104,7 +104,7 @@ MODULE mo_name_list_output
   USE mo_name_list_output_gridinfo, ONLY: write_grid_info_grb2, GRID_INFO_NONE
   ! config
   USE mo_master_config,             ONLY: getModelBaseDir
-  USE mo_grid_config,               ONLY: n_dom
+  USE mo_grid_config,               ONLY: n_dom, l_limited_area
   USE mo_run_config,                ONLY: msg_level
   USE mo_io_config,                 ONLY: lkeep_in_sync,                   &
     &                                     config_lmask_boundary => lmask_boundary
@@ -1680,7 +1680,7 @@ CONTAINS
         IF ( info%lmiss .OR.                                            &
           &  ( info%lmask_boundary    .AND. &
           &    config_lmask_boundary  .AND. &
-          &    (i_log_dom > 1) ) ) THEN
+          &    ((i_log_dom > 1) .OR. l_limited_area) ) ) THEN
           nmiss = 1
         ELSE
           nmiss = 0
