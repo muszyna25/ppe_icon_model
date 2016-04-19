@@ -182,7 +182,7 @@ begin
 ;***define plot and open
    pltType = "pdf"                        ; x11, eps, ps, pdf, png
    pltPath = workdir
-   pltName = pltPath+"/"+run+"_amip_atm_3d_"+typ+"_linp"        ; plot name
+   pltName = pltPath+"/"+run+"_atm_3d_"+typ+"_linp"        ; plot name
    wks     = gsn_open_wks(pltType, pltName) 
 ;***define color map 
     gsn_define_colormap(wks,"amwg_blueyellowred") ; Define color map 

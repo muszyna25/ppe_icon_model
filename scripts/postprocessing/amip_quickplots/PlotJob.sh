@@ -7,37 +7,33 @@ set -e
 # explanation see below
 #
 
-
 TYP=ANN
 
+EXP=mbe0747
 
-EXP=mbe0662
+# atm_RES= ICON-grid resolution r2b4 or r2b6
+atm_RES=r2b4
 
 YY1=1979
-YY2=2008
+YY2=1988
 
-NAME=ml_${EXP}_${YY1}-${YY2}_${TYP}.nc
+NAME=ml_${EXP}_${YY1}-${YY2}_${TYP}
 
-COMMENT='amip r2b4'
-
+COMMENT='amip 160 km '
 
 SINGLE=1
-PAGE=0
+PAGE=1
 
-ATM_3d=0
+ATM_3d=1
 ATM_2d=1
-TAB=0
+TAB=1
 
+WORKDIR=/scratch/local1/m214002/icon-aes-dev/scripts/postprocessing/amip_quickplots/post
 
-WORKDIR=/home/zmaw/m214091/contrib_quick/test
-MODELDIR=/scratch/local1/m214091/icon-aes-bko
+MODELDIR=/pool/data/ICON/post/
+#
 #######################################################
 #
-QUELLE=${MODELDIR}/scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0
-export QUELLE
-echo QUELLE path $QUELLE
-echo $QUELLE
-
 # cell=filled triangles cont=filled contour 
 # default= 1: model=cell, ERAinterim=cont, model-ERAinterim=cont
 default=1
@@ -49,29 +45,38 @@ if [ "$default" = "1" ];then
    cell=-1
 fi
 
-date
 #
-# ERAinterim (1979-2008)
-TO=2008
+# ERAinterim (time frame: 1979-2008)
+ERAystrt=1979
+ERAylast=2008
+export ERAystrt
+echo ERAystrt path $ERAystrt
+export ERAylast
+echo ERAylast path $ERAylast
 # era_RES= atmospheric grid resolution 63 
-#          (used for ERAinterim-data and
+#          (used for ERAinterim-data and table program)
 era_RES=63
-# atm_RES= ICON-grid resolution 
-atm_RES=r2b4
 # oce_RES= ocean grid resolution GR15 GR30 TP04 TP10
 oce_RES=GR15
 # Lev 47 possible
 LEV=47
-FIXCODE=/pool/data/ECHAM6/post/FixCodes
-
-
-GrdDir=/pool/data/ICON/grids/private/r2b4_amip/
-   GrdInfoFile=${GrdDir}/r2b4_amip.nc
-export GrdInfoFile
-   GrdInfoCellFile=${GrdDir}/remapdis_r2b4_amip_cell_t63grid.nc
-export GrdInfoCellFile
-   ERAinDir=/pool/data/ICON/post/r2b4_amip/ERA-Interim/
+# ERAinterim path for trigangle data
+   ERAinDir=/pool/data/ICON/post/${atm_RES}_amip/ERA-Interim/
 export ERAinDir
+
+
+FIXCODE=/pool/data/ICON/post/ERA-Interim_T${era_RES}
+
+QUELLE=${MODELDIR}/scripts/postprocessing/amip_quickplots/
+
+export QUELLE
+echo QUELLE path $QUELLE
+echo $QUELLE
+
+GrdDir=/pool/data/ICON/post/${atm_RES}_amip
+GrdInfoFile=${GrdDir}/${atm_RES}_amip.nc
+export GrdInfoFile
+echo GrdInfoFile path $GrdInfoFile
 
   PLTDIR=${WORKDIR}/${EXP}_${TYP}
   export PLTDIR
@@ -84,26 +89,48 @@ cd ${PLTDIR}
 pwd
 
 
+# Load modules 
+MODULES=
 
- . /sw/share/Modules/init/ksh 
- module unload ncl
- module load ncl/6.2.0-precompiled 
- module unload cdo
- module load cdo/1.6.8
-which cdo  
+    case `hostname` in
+    mlogin*|mistral*)
+        CDO_MODULE=cdo/1.7.0-gcc48;;
+    *)  CDO_MODULE=cdo/1.7.0;;
+    esac
+    MODULES="$MODULES $CDO_MODULE"
+
+    case `hostname` in
+    mlogin*|mistral*)
+        NCL_MODULE=ncl/6.2.1-gccsys;;
+    *)  NCL_MODULE=ncl/6.2.0-precompiled;;
+    esac
+    MODULES="$MODULES $NCL_MODULE"
+
+    . $MODULESHOME/init/ksh
+    module unload cdo
+    module unload ncl
+    module load $MODULES
+
+which cdo 
 which ncl
-
 
 
 #
 #--------------- TABLE --------------------------
 if [ "$TAB" = "1" ]
 then
-cp ${FIXCODE}/F${era_RES}${oce_RES}_LAND F_LAND
-cp ${FIXCODE}/F${era_RES}_GLACIER F_GLACIER
 
-${QUELLE}/TABLEr2b4_job $TYP $NAME $EXP $YY1 $YY2  $WORKDIR 
+cp ${FIXCODE}/F${era_RES}${oce_RES}_LAND  F_LAND
+cp ${FIXCODE}/F${era_RES}_GLACIER F_GLACIER 
+
+  ${QUELLE}/TABLEjob_full $TYP $NAME $EXP $YY1 $YY2  $WORKDIR
+
+rm -f F_LAND F_GLACIER
 fi
+echo '####################################################'
+echo  you find your table on
+echo ${PLTDIR}
+echo '#####################################################'
 #
 #--------------- QUICKPLOTS ---------------------
 #
@@ -122,16 +149,24 @@ eof00
 #
 #
 
-${QUELLE}/PREPAREatm_2d_r2b4 $TYP $NAME $atm_RES $TO $WORKDIR
+#---prepare seasonal amd timaverage from 2d-ERA-iterim
+if [ ! -s "ERAin_${atm_RES}_atm_2d_${ERAystrt}_${ERAylast}_${TYP}.nc" ]
+then
+ ${QUELLE}/PREPAREera $ERAystrt $ERAylast $TYP $atm_RES $WORKDIR
+fi
+
+
+${QUELLE}/PREPAREatm_2d $TYP $NAME $atm_RES $WORKDIR
 
 if [ "$PAGE" = "1" ]
 then
-  nclsh  ${QUELLE}/atm_2d_r2b4_page.ncl -default=${default} -cell=${cell}
-
+  nclsh  ${QUELLE}/atm_2d_page.ncl -default=${default} -cell=${cell}
 fi
 if [ "$SINGLE" = "1" ]
 then
-  nclsh  ${QUELLE}/atm_2d_r2b4_single.ncl -default=${default} -cell=${cell}
+
+  nclsh ${QUELLE}/atm_2d_single.ncl -default=${default} -cell=${cell}
+
 fi
 
 set +e
@@ -162,7 +197,23 @@ $COMMENT
 $PLTDIR
 eof00
 
-${QUELLE}/PREPAREatm_3d_logp_r2b4 $TYP $NAME $atm_RES $era_RES $TO $LEV $WORKDIR
+cp ${QUELLE}/partab .
+
+#---prepare seasonal amd timaverage from 3d-ERA-iterim
+if [ ! -s "ERAin_T63_atm_3d_zon_${ERAystrt}_${ERAylast}_${TYP}.nc" -o \
+     ! -s "ERAin_T63L47_atm_3d_zon_${ERAystrt}_${ERAylast}_${TYP}.nc" ]
+then
+ ${QUELLE}/PREPAREera_3d $ERAystrt $ERAylast $TYP $atm_RES $WORKDIR
+fi
+
+#---prepare seasonal amd timaverage from 2d-ERA-iterim
+if [ ! -s "ERAin_${atm_RES}_atm_2d_${ERAystrt}_${ERAylast}_${TYP}.nc" ]
+then
+ ${QUELLE}/PREPAREera $ERAystrt $ERAylast $TYP $atm_RES $WORKDIR
+fi
+
+#---
+${QUELLE}/PREPAREatm_3d_logp $TYP $NAME $atm_RES $era_RES $ERAylast $LEV $WORKDIR
 if [ "$PAGE" = "1" ]
 then
   ncl   ${QUELLE}/atm_3d_logp_page.ncl
@@ -171,9 +222,12 @@ if [ "$SINGLE" = "1" ]
 then
   ncl   ${QUELLE}/atm_3d_logp_single.ncl
 fi
+
 rm -f Ubusy_*.nc  Uatm_dyn_pl_log Uatm_dyn_pl
 
-${QUELLE}/PREPAREatm_3d_r2b4 $TYP $NAME $atm_RES $era_RES $TO $WORKDIR
+
+#---
+${QUELLE}/PREPAREatm_3d $TYP $NAME $atm_RES $era_RES $ERAylast $WORKDIR
 
 if [ "$PAGE" = "1" ]
 then
@@ -216,19 +270,18 @@ exit
 #                                
 #      
 # NAME= XXX name of data files (maximum length 10 characters)
-# WORKDIR= working directory 
-#          (containing the input data atm_3d_XXX and atm_2d_XXX)
+# WORKDIR= working directory (containing the input data atm_dyn_XXX and atm_phy_XXX)
 #
 # MODELDIR= model directory
 #
 #
-# ATM_3d= 1 plot atmosphere data
+# ATM_dyn= 1 plot atmosphere data
 #          0 no plot of atmospheric data
-# ATM_2d= 1 plot surface data
+# ATM_phy= 1 plot surface data
 #          0 no plot of surface data
 #
 #       the plot program expects the following two files:
-#                 atm_2d_XXX (surface data, containing at least:
+#                 atm_phy_XXX (surface data, containing at least:
 #                           variable: 
 #                                     clwvi Liquid water + ice content
 #                                     clt   total cloud cover     
