@@ -149,7 +149,7 @@ CONTAINS
     write_last_restart      = config_write_last_restart
     timeSteps_per_outputStep        = config_timeSteps_per_outputStep
 
-    lmask_boundary          = .TRUE.
+    lmask_boundary          = .FALSE.
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
