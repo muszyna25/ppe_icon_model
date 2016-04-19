@@ -424,6 +424,7 @@ CONTAINS
     INTEGER               :: i_blk          ! block loop count
     INTEGER               :: nlen           ! nproma/npromz
     INTEGER               :: info, ierror   !< return values from cpl_put/get calls
+    INTEGER               :: no_arr         !  no of arrays in bundle
 
     REAL(wp), PARAMETER   :: dummy = 0.0_wp
 
@@ -463,24 +464,30 @@ CONTAINS
     !
     !  see drivers/mo_atmo_model.f90:
     !
-    !   field_id(1) represents "TAUX"   wind stress component
-    !   field_id(2) represents "TAUY"   wind stress component
+    !  Send fields to ocean:
+    !   field_id(1) represents "TAUX"   wind stress component over ice and water
+    !   field_id(2) represents "TAUY"   wind stress component over ice and water
     !   field_id(3) represents "SFWFLX" surface fresh water flux
     !   field_id(4) represents "THFLX"  total heat flux
-    !   field_id(5) represents "ICEATM" ice temperatures and melt potential
+    !   field_id(5) represents "ICEATM" ice melt potentials
     !
+    !  Receive fields from ocean:
     !   field_id(6) represents "SST"    sea surface temperature
     !   field_id(7) represents "OCEANU" u component of ocean surface current
     !   field_id(8) represents "OCEANV" v component of ocean surface current
-    !   field_id(9) represents "ICEOCE" ice thickness, concentration and temperatures
+    !   field_id(9) represents "ICEOCE" ice thickness, snow thickness, ice concentration
     !
-    !
-    ! Send fields away
-    ! ----------------
+
+    !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
+    !  Send fields from atmosphere to ocean
+    !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
     !
     write_coupler_restart = .FALSE.
+
     !
-    ! TAUX
+    ! ------------------------------
+    !   Send TAUX bundle
+    !   field_id(1) represents "TAUX"   wind stress component over ice and water
     !
 !ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
@@ -501,14 +508,17 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 
-    CALL yac_fput ( field_id(1), nbr_hor_cells, 2, 1, 1, buffer(1:nbr_hor_cells,1:2), info, ierror )
+    no_arr = 2
+    CALL yac_fput ( field_id(1), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
     IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
+
     !
-    !
-    ! TAUY
+    ! ------------------------------
+    !   Send TAUX bundle
+    !   field_id(2) represents "TAUY"   wind stress component over ice and water
     !
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
@@ -527,12 +537,17 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 
-    CALL yac_fput ( field_id(2), nbr_hor_cells, 2, 1, 1, buffer(1:nbr_hor_cells,1:2), info, ierror )
+    no_arr = 2
+    CALL yac_fput ( field_id(2), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
     IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
+
     !
+    ! ------------------------------
+    !   Send SFWFLX bundle
+    !   field_id(3) represents "SFWFLX" surface fresh water flux
     !
     ! SFWFLX Note: the evap_tile should be properly updated and added;
     !              as long as the tiles are not passed correctly, the evaporation over the
@@ -556,13 +571,17 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 
-    CALL yac_fput ( field_id(3), nbr_hor_cells, 3, 1, 1, buffer(1:nbr_hor_cells,1:3), info, ierror )
+    no_arr = 3
+    CALL yac_fput ( field_id(3), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
     IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
+
     !
-    ! THFLX, total heat flux
+    ! ------------------------------
+    !   Send THFLX bundle
+    !   field_id(4) represents "THFLX"  total heat flux
     !
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
@@ -589,8 +608,9 @@ CONTAINS
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
     !
-    !
-    ! ICEATM, Ice state determined by atmosphere
+    ! ------------------------------
+    !   Send ICEATM bundle
+    !   field_id(5) represents "ICEATM" ice melt potentials
     !
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
@@ -603,15 +623,14 @@ CONTAINS
       DO n = 1, nlen
         buffer(nn+n,1) = prm_field(jg)%Qtop(n,1,i_blk)
         buffer(nn+n,2) = prm_field(jg)%Qbot(n,1,i_blk)
-        buffer(nn+n,3) = prm_field(jg)%T1  (n,1,i_blk)
-        buffer(nn+n,4) = prm_field(jg)%T2  (n,1,i_blk)
       ENDDO
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 
-    CALL yac_fput ( field_id(5), nbr_hor_cells, 4, 1, 1, buffer(1:nbr_hor_cells,1:4), info, ierror )
+    no_arr = 2
+    CALL yac_fput ( field_id(5), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
     IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run')
 
@@ -622,11 +641,18 @@ CONTAINS
     ENDIF
 
     !
-    ! Receive fields, only assign values if something was received ( info > 0 )
-    ! -------------------------------------------------------------------------
+
+    !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
+    !  Receive fields from ocean to atmosphere
+    !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
     !
+    !  Receive fields, only assign values if something was received ( info > 0 )
     !
-    ! SST
+
+    !
+    ! ------------------------------
+    !   Receive SST
+    !   field_id(6) represents "SST"    sea surface temperature
     !
     IF (ltimer) CALL timer_start(timer_coupling_1stget)
 
@@ -659,8 +685,9 @@ CONTAINS
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%tsfc_tile(:,:,iwtr))
     END IF
     !
-    !
-    ! OCEANU
+    ! ------------------------------
+    !   Receive OCEANU
+    !   field_id(7) represents "OCEANU" u component of ocean surface current
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
@@ -694,7 +721,9 @@ CONTAINS
     END IF
     !
     !
-    ! OCEANV
+    ! ------------------------------
+    ! Receive OCEANV
+    !   field_id(8) represents "OCEANV" v component of ocean surface current
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
@@ -728,11 +757,13 @@ CONTAINS
     END IF
     !
     !
-    ! ICEOCE
+    !   Receive ICEOCE bundle
+    !   field_id(9) represents "ICEOCE" ice thickness, snow thickness, ice concentration
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
-    CALL yac_fget ( field_id(9), nbr_hor_cells, 5, 1, 1, buffer(1:nbr_hor_cells,1:5), info, ierror )
+    no_arr = 3
+    CALL yac_fget ( field_id(9), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     if ( info > 1 .AND. info < 7 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
     if ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fget called after end of run')
 
@@ -753,14 +784,10 @@ CONTAINS
             prm_field(jg)%hi  (n,1,i_blk) = dummy
             prm_field(jg)%hs  (n,1,i_blk) = dummy
             prm_field(jg)%conc(n,1,i_blk) = dummy
-            prm_field(jg)%T1  (n,1,i_blk) = dummy
-            prm_field(jg)%T2  (n,1,i_blk) = dummy
           ELSE
             prm_field(jg)%hi  (n,1,i_blk) = buffer(nn+n,1)
             prm_field(jg)%hs  (n,1,i_blk) = buffer(nn+n,2)
             prm_field(jg)%conc(n,1,i_blk) = buffer(nn+n,3)
-            prm_field(jg)%T1  (n,1,i_blk) = buffer(nn+n,4)
-            prm_field(jg)%T2  (n,1,i_blk) = buffer(nn+n,5)
           ENDIF
         ENDDO
       ENDDO
@@ -769,8 +796,6 @@ CONTAINS
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%hi  (:,1,:))
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%hs  (:,1,:))
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%conc(:,1,:))
-      CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%T1  (:,1,:))
-      CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%T2  (:,1,:))
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nlen) ICON_OMP_RUNTIME_SCHEDULE
       DO i_blk = 1, p_patch%nblks_c
         IF (i_blk /= p_patch%nblks_c) THEN
@@ -781,6 +806,7 @@ CONTAINS
         DO n = 1, nlen
           prm_field(jg)%seaice(n,i_blk) = prm_field(jg)%conc(n,1,i_blk)
           prm_field(jg)%siced(n,i_blk)  = prm_field(jg)%hi(n,1,i_blk)
+!  snow thickness not yet connected
 !!$          prm_field(jg)%...(n,i_blk)    = prm_field(jg)%hs(n,1,i_blk)
         ENDDO
       ENDDO

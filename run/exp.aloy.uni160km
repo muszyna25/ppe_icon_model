@@ -842,11 +842,11 @@ cat > ${cpl_namelist} << EOF
             <transient_grid_ref collection_size="2" grid_ref="1" id="2" transient_ref="2"/>
             <transient_grid_ref collection_size="3" grid_ref="1" id="3" transient_ref="3"/>
             <transient_grid_ref collection_size="4" grid_ref="1" id="4" transient_ref="4"/>
-            <transient_grid_ref collection_size="4" grid_ref="1" id="5" transient_ref="5"/>
+            <transient_grid_ref collection_size="2" grid_ref="1" id="5" transient_ref="5"/>
             <transient_grid_ref collection_size="1" grid_ref="1" id="6" transient_ref="6"/>
             <transient_grid_ref collection_size="1" grid_ref="1" id="7" transient_ref="7"/>
             <transient_grid_ref collection_size="1" grid_ref="1" id="8" transient_ref="8"/>
-            <transient_grid_ref collection_size="5" grid_ref="1" id="9" transient_ref="9"/>
+            <transient_grid_ref collection_size="3" grid_ref="1" id="9" transient_ref="9"/>
             <transient_grid_ref collection_size="1" grid_ref="1" id="10" transient_ref="10"/>
          </transient_grid_refs>
       </component>
@@ -859,11 +859,11 @@ cat > ${cpl_namelist} << EOF
             <transient_grid_ref collection_size="2" grid_ref="1" id="2" transient_ref="2"/>
             <transient_grid_ref collection_size="3" grid_ref="1" id="3" transient_ref="3"/>
             <transient_grid_ref collection_size="4" grid_ref="1" id="4" transient_ref="4"/>
-            <transient_grid_ref collection_size="4" grid_ref="1" id="5" transient_ref="5"/>
+            <transient_grid_ref collection_size="2" grid_ref="1" id="5" transient_ref="5"/>
             <transient_grid_ref collection_size="1" grid_ref="1" id="6" transient_ref="6"/>
             <transient_grid_ref collection_size="1" grid_ref="1" id="7" transient_ref="7"/>
             <transient_grid_ref collection_size="1" grid_ref="1" id="8" transient_ref="8"/>
-            <transient_grid_ref collection_size="5" grid_ref="1" id="9" transient_ref="9"/>
+            <transient_grid_ref collection_size="3" grid_ref="1" id="9" transient_ref="9"/>
             <transient_grid_ref collection_size="1" grid_ref="1" id="10" transient_ref="10"/>
          </transient_grid_refs>
       </component>

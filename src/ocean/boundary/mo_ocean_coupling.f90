@@ -399,6 +399,7 @@ CONTAINS
     INTEGER :: nn             ! block offset
     INTEGER :: i_blk          ! block loop count
     INTEGER :: nlen           ! nproma/npromz
+    INTEGER :: no_arr         !  no of arrays in bundle
     TYPE(t_patch), POINTER:: patch_horz
 
     INTEGER :: info, ierror   !< return values from cpl_put/get calls
@@ -418,25 +419,31 @@ CONTAINS
     !
     !  see drivers/mo_ocean_model.f90:
     !
-    !   field_id(1) represents "TAUX"   wind stress component
-    !   field_id(2) represents "TAUY"   wind stress component
+    !  Receive fields from atmosphere
+    !   field_id(1) represents "TAUX"   wind stress component over ice and water
+    !   field_id(2) represents "TAUY"   wind stress component over ice and water
     !   field_id(3) represents "SFWFLX" surface fresh water flux
     !   field_id(4) represents "THFLX"  total heat flux
-    !   field_id(5) represents "ICEATM" ice temperatures and melt potential
+    !   field_id(5) represents "ICEATM" ice melt potentials
     !
+    !  Send fields to atmosphere:
     !   field_id(6) represents "SST"    sea surface temperature
     !   field_id(7) represents "OCEANU" u component of ocean surface current
     !   field_id(8) represents "OCEANV" v component of ocean surface current
-    !   field_id(9) represents "ICEOCE" ice thickness, concentration and temperatures
+    !   field_id(9) represents "ICEOCE" ice thickness, snow thickness, ice concentration
     !
-    !
-    ! Send fields from ocean to atmosphere
-    ! ------------------------------------
+
+
+    !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
+    !  Send fields from ocean to atmosphere
+    !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
     !
     write_coupler_restart = .FALSE.
+
     !
-    !
-    ! SST
+    ! ------------------------------
+    !   Send SST
+    !   field_id(6) represents "SST"    sea surface temperature
     !
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO i_blk = 1, patch_horz%nblks_c
@@ -459,9 +466,11 @@ CONTAINS
     IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fput called after end of run')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
+
     !
-    !
-    ! zonal velocity
+    ! ------------------------------
+    !   Send zonal velocity
+    !   field_id(7) represents "OCEANU" u component of ocean surface current
     !
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO i_blk = 1, patch_horz%nblks_c
@@ -484,9 +493,11 @@ CONTAINS
     IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fput called after end of run')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
+
     !
-    !
-    ! meridional velocity
+    ! ------------------------------
+    !   Send meridional velocity
+    !   field_id(8) represents "OCEANV" v component of ocean surface current
     !
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO i_blk = 1, patch_horz%nblks_c
@@ -509,9 +520,11 @@ CONTAINS
     IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fput called after end of run')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
+
     !
-    !
-    ! Ice thickness, concentration, T1 and T2
+    ! ------------------------------
+    !   Send sea ice bundle
+    !   field_id(9) represents "ICEOCE" ice thickness, snow thickness, ice concentration
     !
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO i_blk = 1, patch_horz%nblks_c
@@ -525,15 +538,14 @@ CONTAINS
         buffer(nn+n,1) = ice%hi  (n,1,i_blk)
         buffer(nn+n,2) = ice%hs  (n,1,i_blk)
         buffer(nn+n,3) = ice%conc(n,1,i_blk)
-        buffer(nn+n,4) = ice%t1  (n,1,i_blk)
-        buffer(nn+n,5) = ice%t2  (n,1,i_blk)
       ENDDO
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 
-    CALL yac_fput ( field_id(9), nbr_hor_cells, 5, 1, 1, buffer(1:nbr_hor_cells,1:5), info, ierror )
+    no_arr = 3
+    CALL yac_fput ( field_id(9), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
     IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fput called after end of run')
 
@@ -542,18 +554,23 @@ CONTAINS
     IF ( write_coupler_restart ) THEN
        CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is put for restart')
     ENDIF
+
+
+    !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
+    !  Receive fields from atmosphere
+    !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
     !
-    ! Receive fields from atmosphere
+    !
+
+    !
     ! ------------------------------
-    !
-    !
-    ! Apply wind stress - records 0 and 1 of field_id
-    !
-    ! zonal wind stress
+    !   Receive zonal wind stress bundle
+    !   field_id(1) represents "TAUX"   wind stress component over ice and water
     !
     IF (ltimer) CALL timer_start(timer_coupling_1stget)
 
-    CALL yac_fget ( field_id(1), nbr_hor_cells, 2, 1, 1, buffer(1:nbr_hor_cells,1:2), info, ierror )
+    no_arr = 2
+    CALL yac_fget ( field_id(1), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
     IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run')
 
@@ -575,7 +592,7 @@ CONTAINS
             atmos_fluxes%stress_x (n,i_blk) = dummy
           ELSE
             atmos_fluxes%stress_xw(n,i_blk) = buffer(nn+n,1)
-            atmos_fluxes%stress_x (n,i_blk) = buffer(nn+n,2) !TODO + 100.0_wp
+            atmos_fluxes%stress_x (n,i_blk) = buffer(nn+n,2)
           ENDIF
         ENDDO
       ENDDO
@@ -584,13 +601,16 @@ CONTAINS
       CALL sync_patch_array(sync_c, patch_horz, atmos_fluxes%stress_xw(:,:))
       CALL sync_patch_array(sync_c, patch_horz, atmos_fluxes%stress_x (:,:))
     ENDIF
+
     !
-    !
-    ! meridional wind stress
+    ! ------------------------------
+    !   Receive meridional wind stress bundle
+    !   field_id(2) represents "TAUY"   wind stress component over ice and water
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
-    CALL yac_fget ( field_id(2), nbr_hor_cells, 2, 1, 1, buffer(1:nbr_hor_cells,1:2), info, ierror )
+    no_arr = 2
+    CALL yac_fget ( field_id(2), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
     IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run')
 
@@ -612,7 +632,7 @@ CONTAINS
             atmos_fluxes%stress_y (n,i_blk) = dummy
           ELSE
             atmos_fluxes%stress_yw(n,i_blk) = buffer(nn+n,1)
-            atmos_fluxes%stress_y (n,i_blk) = buffer(nn+n,2) !TODO + 100.0_wp
+            atmos_fluxes%stress_y (n,i_blk) = buffer(nn+n,2)
           ENDIF
         ENDDO
       ENDDO
@@ -621,16 +641,20 @@ CONTAINS
       CALL sync_patch_array(sync_c, patch_horz, atmos_fluxes%stress_yw(:,:))
       CALL sync_patch_array(sync_c, patch_horz, atmos_fluxes%stress_y (:,:))
     ENDIF
+
     !
-    !
-    ! Apply freshwater flux - 3 parts, liquid rain, snowfall, evaporation - record 3
-    !
+    ! ------------------------------
+    !   Receive freshwater flux bundle
+    !   field_id(3) represents "SFWFLX" surface fresh water flux
+    !    - 3 parts, liquid rain, snowfall, evaporation
+
     ! Note: freshwater fluxes are received in kg/m^2/s and are converted to m/s by division by rhoh2o below.
     ! Note: precipitation is the sum of rain and snowfall
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
-    CALL yac_fget ( field_id(3), nbr_hor_cells, 3, 1, 1, buffer(1:nbr_hor_cells,1:3), info, ierror )
+    no_arr = 3
+    CALL yac_fget ( field_id(3), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
     IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run')
 
@@ -667,9 +691,13 @@ CONTAINS
       CALL sync_patch_array(sync_c, patch_horz, atmos_fluxes%FrshFlux_SnowFall     (:,:))
       CALL sync_patch_array(sync_c, patch_horz, atmos_fluxes%FrshFlux_Evaporation  (:,:))
     END IF
+
     !
+    ! ------------------------------
+    !   Receive total heat flux bundle
+    !   field_id(4) represents "THFLX"  total heat flux
+    !    - 4 parts, short wave, long wave, sensible, latent heat flux
     !
-    ! Apply total heat flux - 4 parts - record 5
     ! atmos_fluxes%swflx(:,:)  ocean short wave heat flux                              [W/m2]
     ! atmos_fluxes%lwflx(:,:)  ocean long  wave heat fluxe                             [W/m2]
     ! atmos_fluxes%ssflx(:,:)  ocean sensible heat fluxes                              [W/m2]
@@ -677,7 +705,8 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
-    CALL yac_fget ( field_id(4), nbr_hor_cells, 4, 1, 1, buffer(1:nbr_hor_cells,1:4), info, ierror )
+    no_arr = 4
+    CALL yac_fget ( field_id(4), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
     IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run')
 
@@ -700,10 +729,10 @@ CONTAINS
             atmos_fluxes%HeatFlux_Sensible (n,i_blk) = dummy
             atmos_fluxes%HeatFlux_Latent   (n,i_blk) = dummy
           ELSE
-            atmos_fluxes%HeatFlux_ShortWave(n,i_blk) = buffer(nn+n,1)  !TODO+ 300.0_wp
-            atmos_fluxes%HeatFlux_LongWave (n,i_blk) = buffer(nn+n,2)  !TODO+ 300.0_wp
-            atmos_fluxes%HeatFlux_Sensible (n,i_blk) = buffer(nn+n,3)  !TODO+ 300.0_wp
-            atmos_fluxes%HeatFlux_Latent   (n,i_blk) = buffer(nn+n,4)  !TODO+ 300.0_wp
+            atmos_fluxes%HeatFlux_ShortWave(n,i_blk) = buffer(nn+n,1)
+            atmos_fluxes%HeatFlux_LongWave (n,i_blk) = buffer(nn+n,2)
+            atmos_fluxes%HeatFlux_Sensible (n,i_blk) = buffer(nn+n,3)
+            atmos_fluxes%HeatFlux_Latent   (n,i_blk) = buffer(nn+n,4)
           ENDIF
         ENDDO
       ENDDO
@@ -731,15 +760,20 @@ CONTAINS
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
     ENDIF
+
+    !
+    ! ------------------------------
+    !  Receive ice flux bundle
+    !   field_id(5) represents "ICEATM" ice melt potentials
     !
     ! ice%Qtop(:,:)         Surface melt potential of ice                           [W/m2]
     ! ice%Qbot(:,:)         Bottom melt potential of ice                            [W/m2]
-    ! ice%T1  (:,:)         Temperature of the upper ice layer                      [degC]
-    ! ice%T2  (:,:)         Temperature of the lower ice layer                      [degC]
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
-    CALL yac_fget ( field_id(5), nbr_hor_cells, 4, 1, 1, buffer(1:nbr_hor_cells,1:4), info, ierror )
+    no_arr = 2
+    CALL yac_fget ( field_id(5), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
+!   CALL yac_fget ( field_id(5), nbr_hor_cells, 2, 1, 1, buffer(1:nbr_hor_cells,1:2), info, ierror )
     IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
     IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run')
 
@@ -759,13 +793,9 @@ CONTAINS
           IF ( nn+n > nbr_inner_cells ) THEN
             ice%qtop(n,1,i_blk) = dummy
             ice%qbot(n,1,i_blk) = dummy
-            ice%t1  (n,1,i_blk) = dummy
-            ice%t2  (n,1,i_blk) = dummy
           ELSE
             ice%qtop(n,1,i_blk) = buffer(nn+n,1)
             ice%qbot(n,1,i_blk) = buffer(nn+n,2)
-            ice%t1  (n,1,i_blk) = buffer(nn+n,3)
-            ice%t2  (n,1,i_blk) = buffer(nn+n,4)
           ENDIF
         ENDDO
       ENDDO
@@ -773,8 +803,6 @@ CONTAINS
       !
       CALL sync_patch_array(sync_c, patch_horz, ice%qtop(:,1,:))
       CALL sync_patch_array(sync_c, patch_horz, ice%qbot(:,1,:))
-      CALL sync_patch_array(sync_c, patch_horz, ice%t1  (:,1,:))
-      CALL sync_patch_array(sync_c, patch_horz, ice%t2  (:,1,:))
     END IF
 
     !
