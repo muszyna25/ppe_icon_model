@@ -35,13 +35,13 @@ MODULE mo_icon_testbed_config
   
   ! ---------------
   ! the tesbed modes
-  INTEGER, PARAMETER :: null_model          = 0  ! does nothing
-  INTEGER, PARAMETER :: test_coupler_model  = 1  ! test the coupler
-  INTEGER, PARAMETER :: test_jitter_model   = 3  ! test the jitter
-  INTEGER, PARAMETER :: test_halo_communication  = 4  ! test the mpi communication
-  INTEGER, PARAMETER :: test_radiation_communication  = 5  ! test the mpi communication
-  INTEGER, PARAMETER :: test_netcdf_read_model = 6
-  INTEGER, PARAMETER :: testbed_ocean_model = 7
+  INTEGER, PARAMETER :: null_model                   = 0  ! does nothing
+  INTEGER, PARAMETER :: test_coupler_model           = 1  ! test the coupler
+  INTEGER, PARAMETER :: test_jitter_model            = 3  ! test the jitter
+  INTEGER, PARAMETER :: test_halo_communication      = 4  ! test the mpi communication
+  INTEGER, PARAMETER :: test_radiation_communication = 5  ! test the mpi communication
+  INTEGER, PARAMETER :: test_netcdf_read_model       = 6
+  INTEGER, PARAMETER :: testbed_ocean_model          = 7
   INTEGER, PARAMETER :: test_gather_communication = 8
   
 

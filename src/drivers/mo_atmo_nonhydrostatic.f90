@@ -97,6 +97,7 @@ USE mo_async_latbc,         ONLY: init_prefetch, close_prefetch
 
 USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
 USE mo_synsat_config,       ONLY: lsynsat
+USE mo_derived_variable_handling, ONLY: init_mean_stream, finish_mean_stream
 !-------------------------------------------------------------------------
 
 IMPLICIT NONE
@@ -455,6 +456,7 @@ CONTAINS
         CALL get_restart_attribute("jstep", jstep0)
       END IF
       sim_step_info%jstep0    = jstep0
+      CALL init_mean_stream(p_patch(1))
       CALL init_name_list_output(sim_step_info)
 
       !---------------------------------------------------------------------
@@ -596,6 +598,7 @@ CONTAINS
     ! Delete output variable lists
     IF (output_mode%l_nml) THEN
       CALL close_name_list_output
+      CALL finish_mean_stream()
     END IF
 
     ! finalize meteogram output

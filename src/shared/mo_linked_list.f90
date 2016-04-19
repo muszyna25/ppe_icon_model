@@ -96,6 +96,7 @@ MODULE mo_linked_list
     INTEGER                       :: cdiSnowGenericZaxisID
     INTEGER                       :: cdiSnowHalfGenericZaxisID
     INTEGER                       :: cdiIceGenericZaxisID
+    INTEGER                       :: cdiOceanSedGenericZaxisID
     INTEGER                       :: cdiToaZaxisID
     INTEGER                       :: cdiDepthRunoff_sZaxisID
     INTEGER                       :: cdiDepthRunoff_gZaxisID
@@ -110,6 +111,7 @@ MODULE mo_linked_list
   TYPE t_var_list
     TYPE(t_var_list_intrinsic), POINTER :: p
   END type t_var_list
+
   !
 CONTAINS
   !
