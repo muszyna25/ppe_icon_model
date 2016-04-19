@@ -82,7 +82,8 @@ MODULE mo_name_list_output
   ! constants
   USE mo_kind,                      ONLY: wp, i8, dp, sp
   USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS, MAX_CHAR_LENGTH,       &
-    &                                     ihs_ocean, BOUNDARY_MISSVAL, max_rlcell 
+    &                                     ihs_ocean, BOUNDARY_MISSVAL 
+  USE mo_impl_constants_grf,        ONLY: grf_bdywidth_c
   USE mo_dynamics_config,           ONLY: iequations
   USE mo_cdi,                       ONLY: streamOpenWrite, FILETYPE_GRB2, streamDefTimestep, cdiEncodeTime, cdiEncodeDate, &
       &                                   CDI_UNDEFID, TSTEP_CONSTANT, FILETYPE_GRB, taxisDestroy, zaxisDestroy, gridDestroy, &
@@ -740,7 +741,7 @@ CONTAINS
 
       ptr_patch => p_patch(i_log_dom)
       rl_start   = 1
-      rl_end     = max_rlcell
+      rl_end     = grf_bdywidth_c
       i_nchdom   = MAX(1,ptr_patch%n_childdom)
       i_startblk = ptr_patch%cells%start_blk(rl_start,1)
       i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
@@ -1278,7 +1279,7 @@ CONTAINS
               END IF
               ptr_patch => p_patch(i_log_dom)
               rl_start   = 1
-              rl_end     = max_rlcell
+              rl_end     = grf_bdywidth_c
               i_nchdom   = MAX(1,ptr_patch%n_childdom)
               i_startblk = ptr_patch%cells%start_blk(rl_start,1)
               i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
@@ -1322,7 +1323,7 @@ CONTAINS
               END IF
               ptr_patch => p_patch(i_log_dom)
               rl_start   = 1
-              rl_end     = max_rlcell
+              rl_end     = grf_bdywidth_c
               i_nchdom   = MAX(1,ptr_patch%n_childdom)
               i_startblk = ptr_patch%cells%start_blk(rl_start,1)
               i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)

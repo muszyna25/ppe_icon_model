@@ -40,8 +40,8 @@
     USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int,                                &
       &                               HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_RBF,                 &
       &                               HINTP_TYPE_LONLAT_NNB, HINTP_TYPE_LONLAT_BCTR,          &
-      &                               SCALE_MODE_TABLE, SCALE_MODE_AUTO, SCALE_MODE_PRESET,   &
-      &                               max_rlcell
+      &                               SCALE_MODE_TABLE, SCALE_MODE_AUTO, SCALE_MODE_PRESET
+    USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
     USE mo_model_domain,        ONLY: t_patch
     USE mo_run_config,          ONLY: ltimer
     USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius, is_plane_torus
@@ -1174,7 +1174,7 @@
       last_bdry_index = 0
 
       rl_start   = 1
-      rl_end     = max_rlcell
+      rl_end     = grf_bdywidth_c
       i_nchdom   = MAX(1,ptr_patch%n_childdom)
       i_startblk = ptr_patch%cells%start_blk(rl_start,1)
       i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
