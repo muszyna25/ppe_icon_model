@@ -72,17 +72,17 @@ fi
 # horizontal grid(s)
 # ------------------
 
-grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip
+grids_folder=/work/mh0287/users/stephan/Icon/Coupled/Topo
+grids_folder=${icon_data_poolFolder}/coupled_input_temp/aloy_mixed-40-160km
 atmo_dyn_grids='r2b4_amip.nc'
-ocean_grids='r2b4_amip.nc'
-
-add_required_file ${grids_folder}/${ocean_grids} ./
+#ocean_grids='Earth_Icos_0039km_from160km-amip.nc'
+ocean_grids='Earth_Icos_0039km_from160km-amip-cor.nc'
 
 # time stepping
 # -------------
 
 dtime_atm=${dtime_atm:=600}
-dtime_oce=$hour
+(( dtime_oce=dtime_atm * 1 ))  #  can be increased to 3 or 4 times $dtime_atm (1800 or 2400s) after initialization year(s)
 dtime_cpl=$dtime_oce
 
 # start and end date+time
@@ -636,7 +636,7 @@ cat > ${oce_namelist} << EOF
 /
 &run_nml
  dtime       = ${dtime_oce}                           ! model timestep in seconds
- !modelTimeStep    = "PT1H"                           ! not yet used
+ !modelTimeStep    = "PT10M"                          ! not yet used
  output      = 'nml'                                  ! output mechanism via namelist
  activate_sync_timers = .TRUE.
  profiling_output     = 2
@@ -659,8 +659,10 @@ cat > ${oce_namelist} << EOF
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'wet_c','basin_c','regio_c','mld','condep','h_acc','u_vint_acc','hi_acc','hs_acc','conc_acc',
                       'topBoundCond_windStress_u_acc','t_acc','s_acc','u_acc',
-                      'HeatFlux_Total_acc','FrshFlux_Runoff_acc','FrshFlux_Precipitation_acc','FrshFlux_Evaporation_acc',
-                      'FrshFlux_TotalIce_acc', 'FrshFlux_TotalSalt_acc', 'FrshFlux_TotalOcean_acc', 'FrshFlux_VolumeTotal_acc'
+                      'HeatFlux_Total_acc','FrshFlux_Runoff_acc','FrshFlux_Precipitation_acc',
+                      'FrshFlux_Evaporation_acc', 'FrshFlux_TotalIce_acc', 'FrshFlux_TotalSalt_acc',
+                      'FrshFlux_TotalOcean_acc', 'FrshFlux_VolumeTotal_acc', 'FrshFlux_SnowFall_acc',
+                      'atmos_fluxes_FrshFlux_VolumeIce'
 /
 &output_nml
   output_start     = "${start_date}"                  ! start date in ISO-format
@@ -682,20 +684,24 @@ cat > ${oce_namelist} << EOF
   str_mod_tst      ='all'                     ! define modules to print out in debug mode
 /
 &ocean_dynamics_nml
-! 40 unevenly spaced levels used by MPIOM/GR30
- n_zlev             =   40
- dzlev_m(1:40)      =   12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   13.0,   15.0,   20.0,   25.0,
-                        30.0,   35.0,   40.0,   45.0,   50.0,   55.0,   60.0,   70.0,   80.0,   90.0,
-                       100.0,  110.0,  120.0,  130.0,  140.0,  150.0,  170.0,  180.0,  190.0,  200.0,
-                       220.0,  250.0,  270.0,  300.0,  350.0,  400.0,  450.0,  500.0,  500.0,  600.0
+! 64 unevenly spaced levels used by MPIOM
+ n_zlev             =   64
+ dzlev_m(1:64)      =  12.0,   10.0,   10.0,   10.0,   10.0,   10.0,   10.0,   11.0,   11.0,   12.0,
+                       13.0,   14.0,   15.0,   16.0,   17.0,   18.0,   20.0,   22.0,   24.0,   26.0,
+                       29.0,   33.0,   36.0,   39.0,   42.0,   45.0,   48.0,   52.0,   56.0,   60.0,
+                       64.0,   68.0,   72.0,   76.0,   80.0,   85.0,   90.0,   95.0,  100.0,  106.0,
+                      112.0,  118.0,  124.0,  130.0,  138.0,  146.0,  154.0,  162.0,  170.0,  178.0,
+                      186.0,  196.0,  206.0,  216.0,  226.0,  236.0,  246.0,  256.0,  266.0,  276.0,
+                      286.0,  296.0,  306.0,  318.0
   l_edge_based                    = .FALSE.   ! edge- or cell-based mimetic discretization
   select_solver                   =   2       ! 1=gmres_oce_old
                                               ! 2=ocean_restart_gmres
 					      ! 3=mixed precisison restart
+  solver_FirstGuess               =   1
   use_absolute_solver_tolerance   = .true.
-  solver_tolerance                =   1.0E-13
-  solver_max_iter_per_restart     =  26       !
-  solver_tolerance_sp             =   1.0E-13 !
+  solver_tolerance                =   7.5E-14
+  solver_max_iter_per_restart     =  17
+  solver_tolerance_sp             =   1.0E-12 !
   solver_max_iter_per_restart_sp  =  26       !
   solver_max_restart_iterations   = 100       ! outer (restart solver)
   fast_performance_level          = 200       ! performance level 12: for cell-based; 5: default
@@ -704,29 +710,37 @@ cat > ${oce_namelist} << EOF
   cfl_write                       = .FALSE.
                                               ! horizontal viscosity parametrization:
   veloc_diffusion_form            =   1       ! 1: curlcurl 2: divgrad
-  veloc_diffusion_order           =   1       ! 1: laplace; 2: biharmonic
-! i_bc_veloc_top                  =   4       ! not used in prod8
-! i_bc_veloc_bot                  =   1       ! not used in prod8
+  veloc_diffusion_order           =   2       ! 1: laplace; 2: biharmonic
+  i_bc_veloc_top                  =   4
+  i_bc_veloc_bot                  =   1
 /
 &ocean_tracer_transport_nml
- !FLUX_CALCULATION_HORZ = 5      ! 1=upwind, 2=central, 3=Lax-Friedrichs, 4=Miura, 5=FCT with Zalesak limiter (default)
- !FLUX_CALCULATION_VERT = 7      ! 1=upwind 6=adpo; 7=upwind biased ppm (default); 8=FCT with zalesak limiter
+  FLUX_CALCULATION_HORZ = 5      ! 1=upwind, 2=central, 3=Lax-Friedrichs, 4=Miura, 5=FCT with Zalesak limiter (default)
+  FLUX_CALCULATION_VERT = 7      ! 1=upwind 6=adpo; 7=upwind biased ppm (default); 8=FCT with zalesak limiter
+  ! define low and high order methods to be used in horizontal flux corrected transport methods (flux_calculation_horz=4,5)
   fct_low_order_flux              =   1       ! horizontal low  order method: 1=upwind (def), no other implemented
-  fct_high_order_flux             =   2       ! horizontal high order method: 1=upwind
+  fct_high_order_flux             =   5       ! horizontal high order method: 1=upwind
                                               !                               2=central (def)
                                               !                               3=lax_friedrichs
                                               !                               4=miura_order1
+                                              !                               5=??
+  fct_limiter_horz                = 100 
   threshold_min_T                 =  -4.0     ! to avoid abort
 /
 &ocean_diffusion_nml
-  k_veloc_h                       =   3.0E+4  ! [m2/s] constant horizontal viscosity coefficient for velocity
-  biharmonic_const                =   0.01    ! used with veloc_diffusion_form=2 only
-  k_veloc_v                       =   1.5E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
+  HorizontalViscosity_type        =   5       ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
+  HorizontalViscosity_ScaleWeight = 1.0
+  HorizontalViscosity_SmoothIterations = 0
+  HorizontalViscosity_SpatialSmoothFactor = 0.1
+  HorizontalViscosityBackground_Biharmonic = 1.5E12
+  VerticalViscosity_TimeWeight = 0.005
+! k_veloc_h                       =   3.0E+4  ! [m2/s] constant horizontal viscosity coefficient for velocity
+  k_veloc_v                       =   5.0E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
   MAX_VERT_DIFF_VELOC             =   0.0     ! max vertical viscosity for convection used in case of instability
-  k_pot_temp_h                    = 600.0     ! [m2/s] constant horizontal diffusion coefficient for temperature
-  k_pot_temp_v                    =   1.5E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
-  k_sal_h                         = 600.0     ! [m2/s] constant horizontal diffusion coefficient for salinity
-  k_sal_v                         =   1.5E-5  ! [m2/s]  vertical background diffusion coefficient for salinity
+  k_pot_temp_h                    = 120.0     ! [m2/s] constant horizontal diffusion coefficient for temperature
+  k_pot_temp_v                    =   1.0E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
+  k_sal_h                         = 120.0     ! [m2/s] constant horizontal diffusion coefficient for salinity
+  k_sal_v                         =   1.0E-5  ! [m2/s]  vertical background diffusion coefficient for salinity
   MAX_VERT_DIFF_TRAC              =   0.1     ! max vertical tracer diffusion for convection used in case of instability
   k_tracer_GM_kappa_parameter     = 600.0     !
   k_tracer_isoneutral_parameter   = 600.0     ! 600: value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
@@ -735,9 +749,12 @@ cat > ${oce_namelist} << EOF
 &ocean_physics_nml
   richardson_tracer               =   2.0E-3  ! factor for vertical diffusion coefficient in PP scheme
   richardson_veloc                =   2.0E-3  ! factor for vertical viscosity coefficient in PP scheme
-  bottom_drag_coeff               =   1.0E-3  ! default=2.5E-3
-  physics_parameters_type         =   1       ! type of pp-scheme: 1=ICON-optimized; 2=MPIOM-type
-  use_wind_mixing                 = .FALSE.   ! true: use wind mixing scheme in MPIOM-type pp-scheme
+  bottom_drag_coeff               =   3.0E-3  ! default=2.5E-3
+  physics_parameters_type         =   1       ! type of pp-scheme: 1=ICON-optimized; 2=MPIOM-type;
+  !                                                                4=ICON-edge-based - factor e-3 for wind mixing needed
+  use_wind_mixing                 = .TRUE.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
+  tracer_TopWindMixing            =   0.5E-3  ! HH: changed in 2016 to MPIOM values
+  velocity_TopWindMixing          =   0.5E-3
   GMRedi_configuration            =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
 /                                           
 &sea_ice_nml
@@ -760,19 +777,7 @@ cat > ${oce_namelist} << EOF
   initial_temperature_type        =   1       ! read T from initial_state.nc
 /                                    
 &ocean_diagnostics_nml
-   diagnostics_level            = 1
-   gibraltar(1:10)              = 1367,1369
-   denmark_strait(1:10)         = 1411,1443
-   drake_passage(1:10)          = 7167,7201,7203,7288,7290,7505
-   indonesian_throughflow(1:20) = 2114,2118,2117,2120,4242,4245,4343,4349,4340,4350,4250,4615,4611,4616
-   scotland_iceland(1:10)       = 1240,1439,1238,1249,1248
-   mozambique(1:10)             = 1704,1688,1707,4200
-   framStrait(1:10)             = 116,118,1462
-   beringStrait(1:10)           = 693,721
-   barentsOpening(1:10)         = 68,65,67,42
-   agulhas(1:10)                = 8024,8022
-   agulhas_long(1:10)           = 8024,8022,6036
-   agulhas_longer(1:10)         = 8024,8022,6036,6025
+   diagnostics_level              =   1
 /
 &io_nml
   dt_checkpoint    = ${dt_checkpoint}  !  NEEDED TO KEEP THIS TEST WORKING WITHOUT "--enable-mtime-loop" CONFIGURATION.
@@ -783,9 +788,9 @@ EOF
 # III.2 Add standard ocean input files 
 # ------------------------------------
 
-# r2b4:
-datadir=/pool/data/ICON/coupled_input_temp/aloy_r2b4
-add_required_file ${datadir}/ts_phc3.0_annual_icon_r2b4_amip_L40.nc initial_state.nc
+# r2b6:
+datadir=/pool/data/ICON/coupled_input_temp/aloy_mixed-40-160km
+add_required_file ${datadir}/ts_phc3.0_annual_icon_r2b6_amip_L64.nc initial_state.nc
 
 #--------------------------------------------------------------------------------------------------
 # IV. coupling section
@@ -904,7 +909,7 @@ cat > ${cpl_namelist} << EOF
                <target_timelag>1</target_timelag>
             </timestep>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation allow_extrapolation="true" extend_source_patch="1" gauss_order="7" method="patch_recovery" polynomial_order="3"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
@@ -922,7 +927,7 @@ cat > ${cpl_namelist} << EOF
                <target_timelag>1</target_timelag>
             </timestep>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation allow_extrapolation="true" extend_source_patch="1" gauss_order="7" method="patch_recovery" polynomial_order="3"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
@@ -940,7 +945,7 @@ cat > ${cpl_namelist} << EOF
                <target_timelag>1</target_timelag>
             </timestep>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="true"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
@@ -958,7 +963,7 @@ cat > ${cpl_namelist} << EOF
                <target_timelag>1</target_timelag>
             </timestep>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="true"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
@@ -976,7 +981,7 @@ cat > ${cpl_namelist} << EOF
                <target_timelag>1</target_timelag>
             </timestep>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="true"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
@@ -994,7 +999,7 @@ cat > ${cpl_namelist} << EOF
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="true"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
@@ -1012,7 +1017,7 @@ cat > ${cpl_namelist} << EOF
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="true"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
@@ -1030,7 +1035,7 @@ cat > ${cpl_namelist} << EOF
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="true"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
@@ -1048,7 +1053,7 @@ cat > ${cpl_namelist} << EOF
                <target_timelag>${atm_lag}</target_timelag>
             </timestep>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="true"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
@@ -1075,6 +1080,7 @@ cat > ${cpl_namelist} << EOF
          </transient_couple>
       </couple>
    </couples>
+   <created date="30-03-2016 14:56" tool="YAC-CouplingGUI v.1.2.0"/>
 </coupling>
 EOF
 
