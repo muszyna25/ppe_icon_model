@@ -715,9 +715,9 @@ CONTAINS
     inv_S_d = 1.0_wp / S_d
     !-------------------------------------------------------------------------------
 !ICON_OMP_PARALLEL   
+    IF (GMRedi_usesRelativeMaxSlopes) THEN
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level, slope_abs, inv_cell_characteristic_length, &
 !ICON_OMP cell_max_slope, cell_critical_slope) ICON_OMP_DEFAULT_SCHEDULE
-    IF (GMRedi_usesRelativeMaxSlopes) THEN
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
 
