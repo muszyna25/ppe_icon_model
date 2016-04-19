@@ -88,8 +88,6 @@ MODULE mo_grid_nml
     CHARACTER(LEN=*), INTENT(IN) :: filename                                           
     INTEGER  :: i_status, i, funit
 
-!     INTEGER    :: cell_type                ! cell type: NOT USED
-
     LOGICAL    :: lfeedback(max_dom)       ! specifies if feedback to parent grid is performed
     INTEGER    :: ifeedback_type           ! type of feedback (incremental or relaxation)
     REAL(wp)   :: start_time(max_dom)      ! time at which execution of a (nested) model domain starts

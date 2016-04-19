@@ -662,7 +662,7 @@ case "$ac_sitename" in
                                    load_modules=gcc/5.1.0 ${load_modules}
                                    ;;
                                nag)
-                                   MPIROOT     = $software_tree/mpilib/openmpi-1.8.4-static-${compiler_version}
+                                   MPIROOT     = $software_tree/mpilib/openmpi-1.8.1-static-${compiler_version}
                                    MPI_LIB = -I$MPIROOT/lib $WLFLAG,-rpath,,$MPIROOT/lib $WLFLAG,--disable-new-dtags -L$MPIROOT/lib -lmpi_usempi -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lm -lnuma -ldl -lrt -libverbs -lrdmacm -lutil -lpthread
                                    load_modules=gcc/4.9.2 nag/6.0.1064 ${load_modules}
                                    ;;
@@ -672,11 +672,10 @@ case "$ac_sitename" in
                                    load_modules= gcc/4.8.2 pgi/14.7 ${load_modules}
                                    ;;
                                intel)
-                                   MPIROOT     = $software_tree/mpilib/openmpi-1.8.4-static-${compiler_version}
-                                   MPI_LIB     = -I$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib $WLFLAG,--disable-new-dtags -L$MPIROOT/lib -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lm -lnuma -ldl -lrt -libverbs -lrdmacm -lutil
-                                   # HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -no-prec-div -vec-report2 -diag-file -traceback -g
+                                   MPIROOT     = $software_tree/mpilib/openmpi-1.6.5-static-${compiler_version}
+                                   MPI_LIB     = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
                                    HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -g
-                                   load_modules=gcc/4.8.2 intel/14.0.2 ${load_modules}
+                                   load_modules=gcc/4.8.2 intel/16.0.0 ${load_modules}
                                    ;;
                            esac
                            ;;
