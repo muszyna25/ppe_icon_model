@@ -995,10 +995,7 @@
       CALL message(routine, '')
       IF (ptr_patch%n_patch_cells == 0) RETURN;
 
-!OMP PARALLEL PRIVATE (z_rbfmat,z_diag,z_rbfval, ist, grid_point),    &
-!OMP          SHARED  (nproma, rbf_dim_c2l, nblks_lonlat,             &
-!OMP                   npromz_lonlat, ptr_int_lonlat, ptr_patch,      &
-!OMP                   rbf_vec_kern_ll )
+!$OMP PARALLEL PRIVATE (z_rbfmat,z_diag,z_rbfval, ist)
 
       ALLOCATE( z_rbfmat(nproma,rbf_dim_c2l,rbf_dim_c2l),    &
         &       z_diag(nproma,rbf_dim_c2l),                  &
@@ -1007,9 +1004,9 @@
       IF (ist /= SUCCESS) &
         & CALL finish (routine, 'allocation for working arrays failed')
 
-!OMP DO PRIVATE (jb,jc,i_startidx,i_endidx,je1,je2,istencil,       &
-!OMP             ist,ilc1,ibc1, ilc2,ibc2,cc_1, cc_2,cc_c,z_dist,  &
-!OMP             cc_center, checksum, jb_cell, jc_cell, stencil )
+!$OMP DO PRIVATE (jb,jc,i_startidx,i_endidx,je1,je2,istencil, grid_point, &
+!$OMP             ist,ilc1,ibc1, ilc2,ibc2,cc_1, cc_2,cc_c,z_dist,        &
+!$OMP             cc_center, checksum, jb_cell, jc_cell )
       BLOCKS: DO jb = 1, nblks_lonlat
 
         i_startidx = 1
@@ -1125,12 +1122,12 @@
         END DO ! jc
 
       END DO BLOCKS
-!OMP END DO
+!$OMP END DO
 
       DEALLOCATE( z_rbfmat, z_diag, z_rbfval, STAT=ist )
       IF (ist /= SUCCESS) &
         CALL finish (routine, 'deallocation for working arrays failed')
-!OMP END PARALLEL
+!$OMP END PARALLEL
 
     END SUBROUTINE rbf_compute_coeff_c2l
 
@@ -1208,8 +1205,8 @@
           CALL finish(routine, "Internal error!")
         END SELECT
 
-!OMP PARALLEL DO PRIVATE(jb, i_startidx, i_endidx, jc, istencil, &
-!OMP                     istencil2, area, je1, iidx, iblk, local_idx, glb_idx)
+!$OMP PARALLEL DO PRIVATE(jb, i_startidx, i_endidx, jc, istencil, &
+!$OMP                     istencil2, area, je1, iidx, iblk, local_idx, glb_idx)
         BLOCKS: DO jb = 1, nblks_lonlat
 
           i_startidx = 1
@@ -1271,7 +1268,7 @@
           END DO ! jc
 
         END DO BLOCKS
-!OMP END PARALLEL DO
+!$OMP END PARALLEL DO
       END DO
       IF (dbg_level > 1)  CALL message(routine, "done.")
 
@@ -1606,7 +1603,7 @@
           ptr_int_lonlat%ll_coord(jc,jb)%lat = point(2)
         END DO
       END DO
-!OMP END PARALLEL DO
+!$OMP END PARALLEL DO
 
       ! clean up
       DEALLOCATE(in_points, pts_flags, rotated_pts, min_dist, stat=errstat)
