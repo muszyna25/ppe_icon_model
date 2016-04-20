@@ -253,14 +253,26 @@ CONTAINS
     
     INTEGER,                INTENT(IN) :: vlistID, varID
     TYPE (t_var_metadata),  INTENT(IN) :: info
+
+    ! Local
+    INTEGER  :: typeOfGeneratingProcess 
     
     ! ----------------------------------------------------------------
     
     ! Skip inapplicable fields
     IF ( info%var_class /= CLASS_SYNSAT ) RETURN
-    
-    ! change product definition template
-    CALL vlistDefVarProductDefinitionTemplate(vlistID, varID, 32)
+
+    ! get typeOfGeneratingProcess
+    typeOfGeneratingProcess = vlistInqVarTypeOfGeneratingProcess(vlistID, varID)
+
+    ! change product definition template    
+    IF (typeOfGeneratingProcess == 4) THEN  
+      ! Ensemble forecast
+      CALL vlistDefVarProductDefinitionTemplate(vlistID, varID, 33)
+    ELSE
+      ! Deterministic forecast
+      CALL vlistDefVarProductDefinitionTemplate(vlistID, varID, 32)
+    END IF
     
   END SUBROUTINE set_GRIB2_synsat_keys
 
