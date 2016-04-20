@@ -399,7 +399,7 @@ CONTAINS
     INTEGER :: nn             ! block offset
     INTEGER :: i_blk          ! block loop count
     INTEGER :: nlen           ! nproma/npromz
-    INTEGER :: no_arr         !  no of arrays in bundle
+    INTEGER :: no_arr         !  no of arrays in bundle for put/get calls
     TYPE(t_patch), POINTER:: patch_horz
 
     INTEGER :: info, ierror   !< return values from cpl_put/get calls
@@ -425,6 +425,7 @@ CONTAINS
     !   field_id(3) represents "SFWFLX" surface fresh water flux
     !   field_id(4) represents "THFLX"  total heat flux
     !   field_id(5) represents "ICEATM" ice melt potentials
+    !   field_id(10) represents river runoff
     !
     !  Send fields to atmosphere:
     !   field_id(6) represents "SST"    sea surface temperature
@@ -773,7 +774,6 @@ CONTAINS
 
     no_arr = 2
     CALL yac_fget ( field_id(5), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
-!   CALL yac_fget ( field_id(5), nbr_hor_cells, 2, 1, 1, buffer(1:nbr_hor_cells,1:2), info, ierror )
     IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
     IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run')
 
@@ -806,8 +806,9 @@ CONTAINS
     END IF
 
     !
-    !
-    ! Apply freshwater flux - river runoff
+    ! ------------------------------
+    !  Receive river runoff
+    !   field_id(10) represents river runoff
     !
     ! Note: freshwater fluxes are received in kg/m^2/s and are converted to m/s by division by rhoh2o below.
     !

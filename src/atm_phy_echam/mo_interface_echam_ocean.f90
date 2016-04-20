@@ -424,7 +424,7 @@ CONTAINS
     INTEGER               :: i_blk          ! block loop count
     INTEGER               :: nlen           ! nproma/npromz
     INTEGER               :: info, ierror   !< return values from cpl_put/get calls
-    INTEGER               :: no_arr         !  no of arrays in bundle
+    INTEGER               :: no_arr         !  no of arrays in bundle for put/get calls
 
     REAL(wp), PARAMETER   :: dummy = 0.0_wp
 
@@ -602,7 +602,8 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 
-    CALL yac_fput ( field_id(4), nbr_hor_cells, 4, 1, 1, buffer(1:nbr_hor_cells,1:4), info, ierror )
+    no_arr = 4
+    CALL yac_fput ( field_id(4), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
     IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run')
 
