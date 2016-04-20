@@ -730,6 +730,7 @@ run/checksuite.icon-dev/check.atm_rce_les -text
 run/checksuite.icon-dev/check.oce_omip_0160km -text
 run/checksuite.icon-dev/icon-dev.checksuite -text
 run/checksuite.icon-dev/timeMean/exp.atm_amip_acc_2dtime -text
+run/checksuite.icon-dev/timeMean/exp.atm_amip_acc_daily -text
 run/checksuite.icon-dev/timeMean/exp.atm_amip_acc_dtime -text
 run/checksuite.icon-dev/timeMean/exp.atm_amip_acc_dtime_sp -text
 run/checksuite.icon-dev/timeMean/exp.check_timemean_01 -text
@@ -737,6 +738,10 @@ run/checksuite.icon-dev/timeMean/exp.check_timemean_02 -text
 run/checksuite.icon-infrastructure/icon-testbed/exp.icon-testbed_communication -text
 run/checksuite.icon-infrastructure/icon-testbed/exp.icon-testbed_grid -text
 run/checksuite.icon-infrastructure/icon-testbed/exp.icon-testbed_jitter -text
+run/checksuite.infrastructure/meanStream/exp.atm_amip_noforcing_notransport_nodynamics_meanStream -text
+run/checksuite.infrastructure/meanStream/exp.atmo_amip -text
+run/checksuite.infrastructure/meanStream/exp.atmo_meanStream -text
+run/checksuite.infrastructure/meanStream/exp.ocean_meanStream -text
 run/checksuite.ocean_internal/eddies/exp.Channel_10km -text
 run/checksuite.ocean_internal/eddies/exp.SDACC_box_fplane65S -text
 run/checksuite.ocean_internal/eddies/exp.ShearFlow_20km -text
@@ -903,6 +908,7 @@ run/exp.test_atm_amip_noforcing_notransport_nodynamics -text
 run/exp.test_atm_amip_noparams -text
 run/exp.test_atm_icoles_nested -text
 run/exp.test_atm_rce_les -text
+run/exp.test_atmo_meanStream -text
 run/exp.test_couple_atmo-ocean -text
 run/exp.test_nat_jww_nwp_mpiomp -text
 run/exp.test_nat_rce_cbl_120km_nwp -text
@@ -1279,8 +1285,10 @@ scripts/preprocessing/preproc4omip.rb -text
 scripts/preprocessing/preproc4omip.sh -text
 scripts/preprocessing/preproc4phc.sh -text
 scripts/prototypes/findPath.rb -text
-scripts/prototypes/mo_statistics.rb -text
-scripts/prototypes/test/mo_statistics.rb -text
+scripts/prototypes/lists/list.rb -text
+scripts/prototypes/lists/test_list.rb -text
+scripts/prototypes/statistics/mo_statistics.rb -text
+scripts/prototypes/statistics/test/mo_statistics.rb -text
 scripts/run_scripts/experiments.rb -text
 scripts/run_scripts/luis.iconrun -text
 scripts/run_scripts/make_my_runscript -text
@@ -1814,6 +1822,7 @@ src/shared/mo_add_tracer_ref.f90 -text
 src/shared/mo_cdi_constants.f90 -text
 src/shared/mo_checksum.f90 -text
 src/shared/mo_datetime.f90 -text
+src/shared/mo_derived_variable_handling.f90 -text
 src/shared/mo_dictionary.f90 -text
 src/shared/mo_event_manager.f90 -text
 src/shared/mo_exception.f90 -text
@@ -1914,7 +1923,6 @@ src/testbed/mo_icon_testbed.f90 -text
 src/testbed/mo_icon_testbed_config.f90 -text
 src/testbed/mo_icon_testbed_nml.f90 -text
 src/testbed/mo_test_communication.f90 -text
-src/testbed/mo_test_coupler.f90 -text
 src/testbed/mo_test_jitter.f90 -text
 src/testbed/mo_test_netcdf_read.f90 -text
 src/testbed/mo_test_nh_communication.f90 -text

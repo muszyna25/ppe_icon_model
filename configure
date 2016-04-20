@@ -6278,7 +6278,7 @@ if [ "x$LAPACKROOT" = xlocal ] ; then
     LAPACKROOT=""
 fi
 
-my_srcdirs="externals/mtime/src ${my_srcdirs}"
+my_srcdirs="externals/self/src externals/mtime/src ${my_srcdirs}"
 
 if [ "x$use_yac" = xyes ] ; then
     my_srcdirs="externals/yac/src ${my_srcdirs}"
@@ -6553,7 +6553,7 @@ FlibFLAGS=$FlibFLAGS
 F77FLAGS=$F77FLAGS
 
 
-ac_libs="${ac_libs} -lmtime"
+ac_libs="${ac_libs} -lmtime -lself"
 
 LIB=$ac_libs
 

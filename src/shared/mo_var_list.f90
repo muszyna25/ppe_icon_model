@@ -44,7 +44,6 @@ MODULE mo_var_list
   USE mo_linked_list,      ONLY: t_var_list, t_list_element,        &
        &                         new_list, delete_list,             &
        &                         append_list_element,               &
-       &                         find_list_element,                 &
        &                         delete_list_element
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_util_hash,        ONLY: util_hashword
@@ -87,6 +86,8 @@ MODULE mo_var_list
   PUBLIC :: get_var_timelevel         ! return variable timelevel (or "-1")
   PUBLIC :: get_var_tileidx           ! return variable tile index
   PUBLIC :: get_var_list_element_info ! return a copy of the metadata for a var_list element
+  PUBLIC :: get_timelevel_string      ! return the default string with timelevel encoded
+  PUBLIC :: get_varname_with_timelevel! join varname with timelevel string
 
   PUBLIC :: total_number_of_variables ! returns total number of defined variables
 
@@ -94,8 +95,13 @@ MODULE mo_var_list
   PUBLIC :: fget_var_list_element_r2d
   PUBLIC :: fget_var_list_element_r3d
 
-  ! workaround, since mo_jsb_varlist_iface r345 expects find_list_element to be located in mo_var_list
-  PUBLIC :: find_list_element
+  PUBLIC :: find_list_element   ! find an element in the list
+  PUBLIC :: find_element   ! find an element in the list
+
+  INTERFACE find_element
+    MODULE PROCEDURE find_list_element
+    MODULE PROCEDURE find_element_from_all
+  END INTERFACE find_element
 
  INTERFACE add_var  ! create a new list entry
     MODULE PROCEDURE add_var_list_element_5d
@@ -152,7 +158,8 @@ MODULE mo_var_list
   ENUM, BIND(C)
     ENUMERATOR :: REAL_T, BOOL_T, INT_T
   END ENUM
-
+  PUBLIC  :: REAL_T, BOOL_T, INT_T
+  
   INTEGER,                  SAVE :: nvar_lists     =   0      ! var_lists allocated so far
   !
   TYPE(t_var_list), TARGET, SAVE :: var_lists(max_var_lists)  ! memory buffer array
@@ -400,6 +407,28 @@ CONTAINS
     END IF
   END FUNCTION get_var_name
 
+  !------------------------------------------------------------------------------------------------
+  ! construct varname  with timelevel
+  !
+  FUNCTION get_varname_with_timelevel(varname,timelevel)
+    CHARACTER(LEN=VARNAME_LEN) :: varname
+    INTEGER, INTENT(IN)        :: timelevel
+
+    CHARACTER(LEN=VARNAME_LEN) :: get_varname_with_timelevel
+
+    get_varname_with_timelevel = TRIM(varname)//get_timelevel_string(timelevel)
+  END FUNCTION get_varname_with_timelevel
+
+  !------------------------------------------------------------------------------------------------
+  ! construct string for timelevel encoding into variable names
+  !
+  FUNCTION get_timelevel_string(timelevel) RESULT(suffix)
+    INTEGER, INTENT(IN) :: timelevel
+
+    CHARACTER(len=4) :: suffix
+
+    WRITE(suffix,'(".TL",i1)') timelevel
+  END FUNCTION get_timelevel_string
 
   !------------------------------------------------------------------------------------------------
   !> @return time level (extracted from time level suffix ".TL") or "-1"
@@ -2769,7 +2798,7 @@ CONTAINS
             localMode(4:4) = 'e'
           END SELECT
 
-          WRITE(message_text, '(a4,3i4,a16,a48)') localMode,                                 &
+          WRITE(message_text, '(a4,3i4,a24,a40)') localMode,                                 &
                &                              this_list_element%field%info%grib2%discipline, &
                &                              this_list_element%field%info%grib2%category,   &
                &                              this_list_element%field%info%grib2%number,     &
@@ -3148,4 +3177,47 @@ CONTAINS
     y = x
   END SUBROUTINE assign_if_present_action_list
   !------------------------------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  !
+  ! Should be overloaded to be able to search for the different information 
+  ! In the proposed structure for the linked list, in the example only
+  ! A character string is used so it is straight forward only one find
+  !
+  FUNCTION find_list_element (this_list, name) RESULT(this_list_element)
+    !
+    TYPE(t_var_list),   INTENT(in) :: this_list
+    CHARACTER(len=*),   INTENT(in) :: name
+    !
+    TYPE(t_list_element), POINTER :: this_list_element
+    INTEGER :: key
+    !
+    key = util_hashword(name, LEN_TRIM(name), 0)
+    !
+    this_list_element => this_list%p%first_list_element
+    DO WHILE (ASSOCIATED(this_list_element))
+      IF (key == this_list_element%field%info%key) THEN
+        RETURN
+      ENDIF
+      this_list_element => this_list_element%next_list_element
+    ENDDO
+    !
+    NULLIFY (this_list_element)
+    !
+  END FUNCTION find_list_element
+  
+  !-----------------------------------------------------------------------------
+  !
+  ! Find named list element accross all knows variable lists
+  !
+  FUNCTION find_element_from_all (name) RESULT(this_list_element)
+    CHARACTER(len=*),   INTENT(in) :: name
+
+    TYPE(t_list_element), POINTER :: this_list_element
+    INTEGER :: i
+
+    DO i=1,nvar_lists
+      this_list_element => find_list_element(var_lists(i),name)
+      IF (ASSOCIATED (this_list_element)) RETURN
+    END DO
+  END FUNCTION! find_element_from_all_lists
 END MODULE mo_var_list

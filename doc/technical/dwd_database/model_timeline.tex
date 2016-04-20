@@ -17,8 +17,7 @@ Alternatively you can click on the timeline-date to see the corresponding change
 %           "\colorB" corresponds to data assimilation changes.
 %
 \begin{vtimeline}[description={text width=0.78\textwidth}, 
- row sep=3ex, 
- add bottom line,
+ row sep=3ex,
  line offset=10pt,
  timeline color=colorBlue,
  timeline color2=colorRed]
@@ -44,17 +43,25 @@ Alternatively you can click on the timeline-date to see the corresponding change
          {\textbf{2016-01-20}} & Launch of the ensemble data assimilation system (LETKF, Localized Ensemble Transform Kalman Filter), providing a $40$ member analysis ensemble at R2B6N7. 
                       For deterministic forecasts the 3D-Var assimilation system is replaced by En-Var (Ensemble Variational analysis system) which makes use 
                       of the ensemble-based model error covariances.\endlr
+\end{vtimeline}
+
+\begin{vtimeline}[description={text width=0.78\textwidth}, 
+ row sep=3ex, 
+ add bottom line,
+ line offset=10pt,
+ timeline color=colorBlue,
+ timeline color2=colorRed]
 \colorA  \href{http://www.dwd.de/DE/fachnutzer/forschung_lehre/numerische_wettervorhersage/nwv_aenderungen/_functions/DownloadBox_modellaenderungen/icon/pdf_2016/pdf_icon_13_04_2016.pdf?__blob=publicationFile&v=3}
          {\textbf{2016-04-13}} & Improved version of the ICON model which
                       \small
                       \begin{itemize}
                        \item accounts for oceanic salt content in the saturation vapor pressure computation.
                        \item contains modifications to the detrainment tendencies from the convection parameterization in order to reduce spurious drizzle.
-                       \item makes use of the aerosol climatology for the computation of cloud droplet number concentrations in the radiation parametzerization.
+                       \item makes use of the aerosol climatology for the computation of cloud droplet number concentrations in the radiation parameterization.
                       \end{itemize}
                       \endlr
 \colorA  \href{http://www.dwd.de/DE/fachnutzer/forschung_lehre/numerische_wettervorhersage/nwv_aenderungen/_functions/DownloadBox_modellaenderungen/icon/pdf_2016/pdf_icon_20_04_2016.pdf?__blob=publicationFile&v=2}
-         {\textbf{2016-04-20}} & The pressure levels for which output is available on a regular lat-lon grid have been revised. 
+         {\textbf{2016-04-20}} & The pressure levels for regular grid output have been revised. 
                       Newly available levels: $650$, $550$, $450$, $350$, $275$, $225$, $175$, $125\,\mathrm{hPa}$. 
                       Deprecated levels: $725$, $20$, $7$, $3$, $0.3\,\mathrm{hPa}$.\endlr
 \end{vtimeline}

@@ -20,31 +20,19 @@ MODULE mo_util_vcs
   INTERFACE
 
     SUBROUTINE private_util_repository_url(name, actual_len) BIND(c,name='repository_url')
-#ifdef __SX__
-      USE, INTRINSIC :: iso_c_binding, ONLY: c_int, c_char, c_null_char
-#else
       IMPORT :: c_int, c_char
-#endif
       CHARACTER(c_char), DIMENSION(*), INTENT(inout) :: name
       INTEGER(c_int), INTENT(inout) :: actual_len
     END SUBROUTINE private_util_repository_url
 
     SUBROUTINE private_util_branch_name(name, actual_len) BIND(c,name='branch_name')
-#ifdef __SX__
-      USE, INTRINSIC :: iso_c_binding, ONLY: c_int, c_char, c_null_char
-#else
       IMPORT :: c_int, c_char
-#endif
       CHARACTER(c_char), DIMENSION(*), INTENT(inout) :: name
       INTEGER(c_int), INTENT(inout) :: actual_len
     END SUBROUTINE private_util_branch_name
 
     SUBROUTINE private_util_revision_key(name, actual_len) BIND(c,name='revision_key')
-#ifdef __SX__
-      USE, INTRINSIC :: iso_c_binding, ONLY: c_int, c_char, c_null_char
-#else
       IMPORT :: c_int, c_char
-#endif
       CHARACTER(c_char), DIMENSION(*), INTENT(inout) :: name
       INTEGER(c_int), INTENT(inout) :: actual_len
     END SUBROUTINE private_util_revision_key
