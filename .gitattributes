@@ -742,6 +742,7 @@ run/checksuite.infrastructure/meanStream/exp.atm_amip_noforcing_notransport_nody
 run/checksuite.infrastructure/meanStream/exp.atmo_amip -text
 run/checksuite.infrastructure/meanStream/exp.atmo_meanStream -text
 run/checksuite.infrastructure/meanStream/exp.ocean_meanStream -text
+run/checksuite.nwp/run_ICON_R02B06N07_ifsinit -text
 run/checksuite.ocean_internal/eddies/exp.Channel_10km -text
 run/checksuite.ocean_internal/eddies/exp.SDACC_box_fplane65S -text
 run/checksuite.ocean_internal/eddies/exp.ShearFlow_20km -text
