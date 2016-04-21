@@ -300,7 +300,7 @@ CONTAINS
         & k_h,                            &
         & p_os%p_prog(nold(1))%h,         &
         & p_os%p_prog(nnew(1))%h,         &
-        & div_adv_flux_horz)
+        & div_adv_flux_horz,tracer_index)
 
       CALL diffuse_horz( patch_3d,      &
         & old_ocean_tracer%concentration, &
@@ -463,7 +463,8 @@ CONTAINS
       & k_h,                            &
       & p_os%p_prog(nold(1))%h,         &
       & p_os%p_prog(nnew(1))%h,         &
-      & div_adv_flux_horz)
+      & div_adv_flux_horz,              &
+      & tracer_index )
     !---------------------------------------------------------------------
 
 
@@ -703,7 +704,7 @@ CONTAINS
       & k_h,                            &
       & p_os%p_prog(nold(1))%h,         &
       & p_os%p_prog(nnew(1))%h,         &
-      & div_adv_flux_horz)
+      & div_adv_flux_horz,tracer_index)
     !---------------------------------------------------------------------
 
 

@@ -100,7 +100,9 @@ CONTAINS
     & h_old,               &
     & h_new,               &
     & flux_horz,           &
-    & horizontally_diffused_tracer)
+    & tracer_index,        &
+    & horizontally_diffused_tracer )
+
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp)                               :: trac_old(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
@@ -111,6 +113,7 @@ CONTAINS
     REAL(wp), INTENT(in)                   :: h_new(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(inout)                :: flux_horz(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(inout), OPTIONAL      :: horizontally_diffused_tracer(:,:,:)
+    INTEGER,  INTENT(in)                   :: tracer_index
     !
     !-------------------------------------------------------------------------------    
     start_timer(timer_adv_horz,2)
@@ -123,7 +126,7 @@ CONTAINS
       & k_h,                 &
       & h_old,               &
       & h_new,               &
-      & flux_horz)
+      & flux_horz,tracer_index)
     
     ELSE
 
@@ -134,7 +137,7 @@ CONTAINS
       & k_h,                 &
       & h_old,               &
       & h_new,               &
-      & flux_horz) !,           &
+      & flux_horz,tracer_index) !,           &
       ! & horizontally_diffused_tracer)
     
     ENDIF
@@ -206,7 +209,7 @@ CONTAINS
     & k_h,                 &
     & h_old,               &
     & h_new,               &
-    & div_advflux_horz)!,           &
+    & div_advflux_horz, tracer_index)!,           &
     ! & horizontally_diffused_tracer)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
@@ -217,6 +220,7 @@ CONTAINS
     REAL(wp), INTENT(in)                 :: h_old(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(in)                 :: h_new(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(inout)              :: div_advflux_horz(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    INTEGER, INTENT(in)                  :: tracer_index
     !
     !Local variables
     INTEGER :: start_index, end_index
@@ -276,7 +280,7 @@ CONTAINS
           & k_h,                                   &
           & h_old,                                 &
           & h_new,                                 &
-          & z_adv_flux_h)
+          & z_adv_flux_h,tracer_index)
               
       CASE default
         CALL finish('TRIM(advect_diffuse_flux_horz)',"This flux option is not supported")
@@ -469,7 +473,7 @@ CONTAINS
     & k_h,                 &
     & h_old,               &
     & h_new,               &
-    & div_advflux_horz)
+    & div_advflux_horz,tracer_index)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp)                             :: trac_old(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
@@ -479,6 +483,7 @@ CONTAINS
     REAL(wp), INTENT(in)                 :: h_old(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(in)                 :: h_new(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(inout)              :: div_advflux_horz(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    INTEGER, INTENT(in) :: tracer_index
     !
     !
     !Local variables
@@ -550,7 +555,7 @@ CONTAINS
           & k_h,                                &
           & h_old,                              &
           & h_new,                              &
-          & z_adv_flux_h)      
+          & z_adv_flux_h,tracer_index)      
               
       CASE default
         CALL finish('TRIM(advect_diffuse_flux_horz)',"This flux option is not supported")
@@ -652,7 +657,7 @@ CONTAINS
     & k_h,                                      &
     & h_old,                                    &
     & h_new,                                    &
-    & adv_flux_h)
+    & adv_flux_h,tracer_index)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp)                               :: trac_old(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
@@ -662,6 +667,7 @@ CONTAINS
     REAL(wp), INTENT(in)                   :: h_old(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(in)                   :: h_new(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), TARGET, INTENT(inout)        :: adv_flux_h(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)!< variable in which the upwind flux is stored
+    INTEGER, INTENT(in)                    :: tracer_index
     !Local Variables
     INTEGER          :: je, blockNo, level, start_index_e, end_index_e
     REAL(wp)         :: z_adv_flux_high(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
@@ -753,7 +759,8 @@ CONTAINS
        & adv_flux_h,                            &
        & operators_coefficients,                            &
        & h_old,                                 &
-       & h_new              )       
+       & h_new,                                 &
+       & p_os%p_diag%zlim,tracer_index             )       
        
     CASE(fct_limiter_horz_posdef)  
       CALL hflx_limiter_oce_posdef( patch_3d,  &
@@ -778,7 +785,7 @@ CONTAINS
     & k_h,                                        &
     & h_old,                                      &
     & h_new,                                      &
-    & adv_flux_h)
+    & adv_flux_h, tracer_index)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp)                               :: trac_old(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
@@ -788,6 +795,7 @@ CONTAINS
     REAL(wp), INTENT(in)                   :: h_old(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(in)                   :: h_new(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp),TARGET, INTENT(inout)         :: adv_flux_h(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)!< variable in which the upwind flux is stored
+    INTEGER, INTENT(in) :: tracer_index
     !Local Variables
     INTEGER, DIMENSION(:,:,:), POINTER :: iilc,iibc  ! pointer to line and block indices    
     INTEGER  :: je,blockNo,level,start_index_e, end_index_e, edge_index, jc
@@ -947,7 +955,8 @@ CONTAINS
         & adv_flux_h,                            &
         & operators_coefficients,                            &
         & h_old,                                 &
-        & h_new              )
+        & h_new,                                 &
+        & p_os%p_diag%zlim,tracer_index             )       
       stop_detail_timer(timer_extra13,4)
       
     CASE(fct_limiter_horz_posdef)  
@@ -1810,7 +1819,8 @@ CONTAINS
     & flx_tracer_final,  &
     & operators_coefficients,        &
     & h_old,             &
-    & h_new              )
+    & h_new,             &
+    & zlim,tracer_index  )
     
     TYPE(t_patch_3d ),TARGET, INTENT(in):: patch_3d
     REAL(wp),INTENT(inout)              :: vert_velocity(nproma,n_zlev+1,patch_3d%p_patch_2d(1)%alloc_cell_blocks)    
@@ -1822,7 +1832,8 @@ CONTAINS
     TYPE(t_operator_coeff),INTENT(in)   :: operators_coefficients
     REAL(wp), INTENT(in)                :: h_old(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), INTENT(in)                :: h_new(1:nproma,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    
+    REAL(wp), INTENT(inout)             :: zlim(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
+    INTEGER, INTENT(in) :: tracer_index
     !Local variables
     !REAL(wp)              :: flx_tracer_high2  (nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)     
     REAL(wp) :: z_mflx_anti(patch_3d%p_patch_2d(1)%cells%max_connectivity)
@@ -2125,6 +2136,8 @@ CONTAINS
             &+(1._wp - z_signum) * & !<- active for z_signum=-1
             & MIN(r_m(cellOfEdge_idx(edge_index,blockNo,2),level,cellOfEdge_blk(edge_index,blockNo,2)),  &
             &     r_p(cellOfEdge_idx(edge_index,blockNo,1),level,cellOfEdge_blk(edge_index,blockNo,1)))  )
+
+          if (tracer_index == 1) zlim(edge_index,level,blockNo)=r_frac
           
           ! Limited flux
           flx_tracer_final(edge_index,level,blockNo) = flx_tracer_low(edge_index,level,blockNo)&
