@@ -1,0 +1,18 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+#==============================================================================
+# delete an experiment lists
+#==============================================================================
+from model_paths import *
+import argparse
+
+parser = argparse.ArgumentParser(description='Copy an experiment list.')
+parser.add_argument('name', type=str, nargs=2, help='the names of the lists')
+args = parser.parse_args()
+
+#print(args.name)
+paths = model_paths()
+
+paths.copyList(args.name[0], args.name[1])
+print("Experiment list "+args.name[0]+" is copied to "+args.name[1]+".")
+

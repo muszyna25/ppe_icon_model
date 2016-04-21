@@ -482,6 +482,7 @@ case "$ac_sitename" in
                         CFLAGS = -std=gnu99 -g -O3 -march=native -mpc64 -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBSZ -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2 -DgFortran -DWITHOUT_PACK_EXTERNAL
                         F77    = gfortran
                         FC     = gfortran
+                        OCEAN_FLAGS = -march=native -O3 -mpc64 -D__LOOP_EXCHANGE -g
 
                         NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-$compiler_version
                         NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-gcc48
