@@ -417,7 +417,8 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: tapering_Griffies=3
   INTEGER            :: tapering_scheme=tapering_DanaMcWilliams
   !Parameters for tapering schemes
-  REAL(wp) :: S_max=1.0e-2   !maximally allowed slope
+  LOGICAL :: GMRedi_usesRelativeMaxSlopes = .true. ! the slopes are defined relatively the the grid slopes: dz/dx
+  REAL(wp) :: S_max=1.0e-2   !maximally allowed slope 
   REAL(wp) :: S_critical=4.0e-3 !critical value at which tapering reduces slope by 50%  
   REAL(wp) :: S_d=1.0e-3     !width of transition zone from untapered to tapered
   REAL(wp) :: c_speed=2.0_wp !aproximation to first baroclinic wave speed. Used in tapering schemes to calculate
@@ -503,6 +504,12 @@ MODULE mo_ocean_nml
     &  wma_visc                    ,&
     &  use_reduced_mixing_under_ice,&
     &  use_wind_mixing,             &
+    &  GMRedi_configuration        ,&
+    &  tapering_scheme             ,&
+    &  GMRedi_usesRelativeMaxSlopes, &
+    &  S_max, S_d,S_critical, c_speed,   &
+    &  LinearThermoExpansionCoefficient, &
+    &  OceanReferenceDensity,       &
     &  tracer_TopWindMixing,        &
     &  WindMixingDecayDepth,        &
     &  velocity_TopWindMixing,      &

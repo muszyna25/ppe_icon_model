@@ -25,7 +25,9 @@ dnl ######################################################################
 
 AC_PREFIX_DEFAULT(.)
 
-AC_CONFIG_AUX_DIR(config)
+AC_CONFIG_SRCDIR([src/drivers/icon.f90])
+AC_CONFIG_AUX_DIR([config])
+AC_CONFIG_MACRO_DIR([m4])
 
 AC_CANONICAL_SYSTEM
 
@@ -310,11 +312,15 @@ dnl ######################################################################
 AC_PROG_RANLIB
 
 dnl ######################################################################
+AC_PROG_FC
 
 if test -z "$CROSS" ; then
   AC_PROG_CC
 fi
 
+dnl ######################################################################
+dnl Checks for program properties
+dnl ######################################################################
 dnl ######################################################################
 dnl Checks for XML2.
 
@@ -991,6 +997,11 @@ if [[ "x$LDFLAGS" = "x" ]] ; then
   fi
 fi
 
+dnl this check should be far above, but has a dependency on the adding
+dnl of VARIANT_FFLAGS to FFLAGS above, which should also be moved.
+FCFLAGS=$FFLAGS
+ACX_FC_ATTRIBUTE_CONTIGUOUS(
+  [FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_FC_ATTRIBUTE_CONTIGUOUS"])
 
 
 #------------------------
@@ -1088,8 +1099,7 @@ AC_SUBST(SRCDIRS,$ac_srcdirs)
 
 AC_SUBST(OBJDIRS,$ac_objdirs)
 
-
-AC_OUTPUT(Makefile)
+AC_CONFIG_FILES([Makefile])
 
 if test -n "$CROSS" ; then
    case "${host}" in	
@@ -1103,8 +1113,6 @@ if test -n "$CROSS" ; then
    fi   
    cp $cross_config config/config.h
 fi
-
-config/createMakefiles.pl --target=$build_host --srcdirs="${my_srcdirs}" --enable_ocean="${enable_ocean}" --enable_atmo="${enable_atmo}" --enable_jsbach="${enable_jsbach}" --enable_testbed="${enable_testbed}"
 
 #-----------------------------------------------------------------------------
 case $host in
@@ -1281,14 +1289,50 @@ if test "x$mpi_startrun" = "x" ; then
 fi
 
 sync_submit=${sync_submit:=$submit}
-
-echo Creating set-up.info...
+dnl
+AC_CONFIG_COMMANDS([Makefiles],[
+config/createMakefiles.pl --target="$build_host" \
+  --srcdirs="${my_srcdirs}" \
+  --enable_ocean="${enable_ocean}" \
+  --enable_atmo="${enable_atmo}" \
+  --enable_jsbach="${enable_jsbach}" \
+  --enable_testbed="${enable_testbed}"
+],[build_host="${build_host}"
+my_srcdirs="$my_srcdirs"
+enable_ocean="${enable_ocean}"
+enable_atmo="${enable_atmo}"
+enable_jsbach="${enable_jsbach}"
+enable_testbed="${enable_testbed}"])
+dnl
+dnl
+AC_CONFIG_COMMANDS([config/set-up.info],[
+echo Creating set-up.info... >&2
 cat > config/set-up.info << EOF
 #############################
 # set-up.info created by configure
 # do not modify this file
 #############################
-use_site="${ac_sitename}"
+use_site='${use_site}'
+use_target='${use_target}'
+use_compiler='${use_compiler}'
+use_mpi='${use_mpi}'
+use_openmp='${use_openmp}'
+use_builddir='${use_builddir}'
+use_mpi_root='${use_mpi_root}'
+use_mpi_procs_pernode='${use_mpi_procs_pernode}'
+use_mpi_startrun='${use_mpi_startrun}'
+use_load_modules='${use_load_modules}'
+use_load_profile='${use_load_profile}'
+use_netcdflibpath='${use_netcdflibpath}'
+use_cdilibpath='${use_cdilibpath}'
+use_make_command='${use_make_command}'
+use_submit='${use_submit}'
+use_sync_submit='${use_sync_submit}'
+use_shell='${use_shell}'
+use_flags_group='${use_flags_group}'
+#############################
+EOF
+],[use_site="${ac_sitename}"
 use_target="${config_target}"
 use_compiler="${config_compiler}"
 use_mpi="${use_mpi}"
@@ -1305,27 +1349,35 @@ use_make_command="$make_command"
 use_submit="$submit"
 use_sync_submit="$sync_submit"
 use_shell="$use_shell"
-use_flags_group="$use_flags_group"
-#############################
-EOF
+use_flags_group="$use_flags_group"])
 
-echo Creating the build_command...
-echo "$load_profile" > build_command
+AC_CONFIG_COMMANDS([build_command],[
+echo Creating the build_command... >&2
+exec 8>build_command
+echo "@%:@! ${SHELL}" >&8
+echo "$load_profile" >&8
 if test "x$load_modules" != x; then
-   echo module purge >> build_command
-   echo module load "$load_modules" >> build_command
-   echo module list >> build_command
+   echo module purge >&8
+   echo module load "$load_modules" >&8
+   echo module list >&8
 fi
 if test "x${config_target}" = "xblizzard" ; then
-   echo "export LDR_CNTRL=MAXDATA=0xD0000000@DSA"  >> build_command
+   echo "export LDR_CNTRL=MAXDATA=0xD0000000@DSA"  >&8
 fi
-echo "$make_command" >> build_command
+echo "$make_command" >&8
+exec 8>-
 chmod +x build_command
+],[load_profile="$load_profile"
+load_modules="$load_modules"
+make_command="$make_command"
+config_target="$config_target"
+])
 
 #echo Creating the run scripts...
 #if test -f ./make_runscripts ; then
 #  ./make_runscripts
 #fi
+AC_OUTPUT
 
 #############################
 echo ""

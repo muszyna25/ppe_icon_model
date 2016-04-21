@@ -87,7 +87,9 @@ fi
 #
 # wait 5min to let GPFS finish the write operations
 if [ "x$restart" != 'x.false.' -a "x$submit" != 'x' ]; then
-  sleep 10;
+  if [ x$(df -T ${EXPDIR} | cut -d ' ' -f 2) = gpfs ]; then
+    sleep 10;
+  fi
 fi
 # fill some checks
 

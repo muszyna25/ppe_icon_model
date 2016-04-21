@@ -4,6 +4,7 @@
 /LICENSE -text
 /Makefile.in -text
 /README -text
+/acinclude.m4 -text
 /aclocal.m4 -text
 blas/CMakeLists.txt -text
 blas/dasum.f -text
@@ -704,6 +705,7 @@ lapack/slaswp.f -text
 lapack/spotf2.f -text
 lapack/spotrf.f -text
 lapack/spotrs.f -text
+m4/acx_fc_attribute_contiguous.m4 -text
 /make_runscripts -text
 run/README -text
 run/Rakefile -text
@@ -733,6 +735,7 @@ run/checksuite.icon-dev/timeMean/exp.check_timemean_02 -text
 run/checksuite.icon-infrastructure/icon-testbed/exp.icon-testbed_communication -text
 run/checksuite.icon-infrastructure/icon-testbed/exp.icon-testbed_grid -text
 run/checksuite.icon-infrastructure/icon-testbed/exp.icon-testbed_jitter -text
+run/checksuite.icon-infrastructure/output/exp.ocean_outputOnLimittedModelLevels -text
 run/checksuite.ocean_internal/LonLat/exp.omip_LeithBiha_PrimeVort_LonLatTria_Oct_0024km_NPoleOnGreenland_64levels.run -text
 run/checksuite.ocean_internal/eddies/exp.Channel_10km -text
 run/checksuite.ocean_internal/eddies/exp.SDACC_box_fplane65S -text

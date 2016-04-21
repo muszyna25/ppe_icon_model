@@ -116,7 +116,7 @@ CONTAINS
       CALL upwind_vflux_ppm( patch_3d,              &
         & trac_old,                                 &
         & ocean_state%p_diag%w_time_weighted,              &
-        & dtime, 1 ,                                &
+        & dtime, 1,                                &
         & patch_3d%p_patch_1d(1)%prism_thick_c,     &
         & patch_3d%p_patch_1d(1)%inv_prism_thick_c, &
         & operators_coeff%verticalAdvectionPPMcoeffs, &

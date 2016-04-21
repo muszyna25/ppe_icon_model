@@ -66,11 +66,11 @@ done
 #-----------------------------------------------------------------------------
 
 # We do not use this test with the NAG compiler, which is too slow
-if [[ "x$compiler" = "xnag" ]]; then
-  echo "Disabled for ${compiler} --> exit test without error"
-  check_error 0 "exp.nwp_R02B04N06multi2"
-  exit 0
-fi
+# if [[ "x$compiler" = "xnag" ]]; then
+#   echo "Disabled for ${compiler} --> exit test without error"
+#   check_error 0 "exp.nwp_R02B04N06multi2"
+#   exit 0
+# fi
 
 # If the model runs with mpi_procs=1, then this script exits without error:
 if [[ ${mpi_total_procs} = 1 ]]; then

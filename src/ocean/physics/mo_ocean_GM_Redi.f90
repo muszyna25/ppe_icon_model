@@ -33,7 +33,7 @@ MODULE mo_ocean_GM_Redi
     & k_tracer_GM_kappa_parameter,&
     & GMRedi_configuration,GMRedi_combined, GM_only,Redi_only,Cartesian_Mixing, &
     & tapering_scheme,tapering_DanaMcWilliams,tapering_Large,tapering_Griffies, &
-    & S_max, S_d, S_critical, c_speed
+    & S_max, S_d, S_critical, c_speed, GMRedi_usesRelativeMaxSlopes
     
 
   USE mo_util_dbg_prnt,             ONLY: dbg_print
@@ -715,37 +715,71 @@ CONTAINS
     inv_S_d = 1.0_wp / S_d
     !-------------------------------------------------------------------------------
 !ICON_OMP_PARALLEL   
+    IF (GMRedi_usesRelativeMaxSlopes) THEN
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level, slope_abs, inv_cell_characteristic_length, &
 !ICON_OMP cell_max_slope, cell_critical_slope) ICON_OMP_DEFAULT_SCHEDULE
-    DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
 
-      DO cell_index = start_cell_index, end_cell_index
-        end_level = patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
-        inv_cell_characteristic_length = 1.0_wp / SQRT(patch_2D%cells%area(cell_index,blockNo))
+        DO cell_index = start_cell_index, end_cell_index
+          end_level = patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
+          inv_cell_characteristic_length = 1.0_wp / SQRT(patch_2D%cells%area(cell_index,blockNo))
 
-        IF(end_level >= min_dolic) THEN
+          IF(end_level >= min_dolic) THEN
 
-          DO level = start_level, end_level
+            DO level = start_level, end_level
 
-            cell_max_slope      = S_max      * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo) \
-              & * inv_cell_characteristic_length
-            cell_critical_slope = S_critical * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo) \
-              & * inv_cell_characteristic_length
-            slope_abs = sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo))
+              cell_max_slope      = S_max  &
+                & * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo) &
+                & * inv_cell_characteristic_length
+              cell_critical_slope = S_critical &
+                & * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo) &
+                & * inv_cell_characteristic_length
+              slope_abs = sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo))
 
-            IF(slope_abs <= cell_max_slope)THEN
-              ocean_state%p_aux%taper_function_1(cell_index,level,blockNo) &
-                &= 0.5_wp*(1.0_wp + tanh((cell_critical_slope - slope_abs) * inv_S_d))
-            ELSE  
-              ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)=0.0_wp
-            ENDIF  
+              IF(slope_abs <= cell_max_slope)THEN
+                ocean_state%p_aux%taper_function_1(cell_index,level,blockNo) &
+                  &= 0.5_wp*(1.0_wp + tanh((cell_critical_slope - slope_abs)*inv_S_d))
+              ELSE
+                ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)=0.0_wp
+              ENDIF
 
-          END DO
-        ENDIF
+            END DO
+          ENDIF
+        END DO
       END DO
-    END DO
 !ICON_OMP_END_DO
+    ELSE! not GMRedi_usesRelativeMaxSlopes
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level, slope_abs, inv_cell_characteristic_length, &
+!ICON_OMP cell_max_slope, cell_critical_slope) ICON_OMP_DEFAULT_SCHEDULE
+      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+        cell_max_slope      = S_max
+        cell_critical_slope = S_critical
+        CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+
+        DO cell_index = start_cell_index, end_cell_index
+          end_level = patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
+          inv_cell_characteristic_length = 1.0_wp / SQRT(patch_2D%cells%area(cell_index,blockNo))
+
+          IF(end_level >= min_dolic) THEN
+
+            DO level = start_level, end_level
+
+              slope_abs = sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo))
+
+              IF(slope_abs <= cell_max_slope)THEN
+                ocean_state%p_aux%taper_function_1(cell_index,level,blockNo) &
+                  &= 0.5_wp*(1.0_wp + tanh((cell_critical_slope - slope_abs)*inv_S_d))
+              ELSE
+                ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)=0.0_wp
+              ENDIF
+
+            END DO
+          ENDIF
+        END DO
+      END DO
+!ICON_OMP_END_DO
+    ENDIF !GMRedi_usesRelativeMaxSlopes
 
 !     CALL sync_patch_array(sync_c, patch_2D,ocean_state%p_aux%taper_function_1)
 ! Do level=1,n_zlev
