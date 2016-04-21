@@ -33,7 +33,7 @@ START="srun --cpu-freq=2500000 --kill-on-bad-exit=1 --nodes=${SLURM_JOB_NUM_NODE
 
 cd ${SLURM_SUBMIT_DIR}
 
-basedir=${SLURM_SUBMIT_DIR}/../../
+basedir=${SLURM_SUBMIT_DIR}/../
 
 # ----------------------------------------------------------------------------
 # path definitions
@@ -369,4 +369,5 @@ EOF
 
 echo ${START} ${MODEL}
 ${START} ${MODEL}
+
 
