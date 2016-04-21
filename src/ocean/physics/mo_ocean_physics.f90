@@ -68,7 +68,8 @@ MODULE mo_ocean_physics
     &  LeithBiharmonicViscosity_background, LeithBiharmonicViscosity_reference,&
     &  LeithBiharmonicViscosity_scaling,                       &
     &  LeithClosure_order,   LeithClosure_form, &
-    &  TracerDiffusion_LeithWeight, Salinity_ConvectionRestrict
+    &  TracerDiffusion_LeithWeight, Salinity_ConvectionRestrict, &
+    &  max_turbulenece_TracerDiffusion_amplification
 
   USE mo_ocean_physics_state, ONLY: t_ho_params, v_params, WindMixingDecay, WindMixingLevel
    !, l_convection, l_pp_scheme
@@ -805,9 +806,10 @@ CONTAINS
 
           DO i=1,no_tracer
             param%TracerDiffusion_coeff(je,level,blockNo,i) = &
-              & param%TracerDiffusion_BasisCoeff(je,blockNo,i) + &
-              & grad_vort_abs * TracerDiffusion_LeithWeight * &
-              & param%LeithHarmonicViscosity_BasisCoeff(je,blockNo)
+              & param%TracerDiffusion_BasisCoeff(je,blockNo,i) +  &
+              & MIN(grad_vort_abs * TracerDiffusion_LeithWeight * &
+              &     param%LeithHarmonicViscosity_BasisCoeff(je,blockNo), &
+              &     param%TracerDiffusion_BasisCoeff(je,blockNo,i) * max_turbulenece_TracerDiffusion_amplification) 
           END DO
 
         END DO
@@ -921,7 +923,8 @@ CONTAINS
           DO i=1,no_tracer
             param%TracerDiffusion_coeff(je,level,blockNo,i) = &
               & param%TracerDiffusion_BasisCoeff(je,blockNo,i) + &
-              & LeithCoeff * TracerDiffusion_LeithWeight
+              & MIN(LeithCoeff * TracerDiffusion_LeithWeight,    &
+              &     param%TracerDiffusion_BasisCoeff(je,blockNo,i) * max_turbulenece_TracerDiffusion_amplification)
           END DO
 
         END DO
@@ -1023,7 +1026,8 @@ CONTAINS
           DO i=1,no_tracer
             param%TracerDiffusion_coeff(je,level,blockNo,i) = &
               & param%TracerDiffusion_BasisCoeff(je,blockNo,i) + &
-              & LeithCoeff * TracerDiffusion_LeithWeight
+              & MIN(LeithCoeff * TracerDiffusion_LeithWeight,    &
+              &     param%TracerDiffusion_BasisCoeff(je,blockNo,i) * max_turbulenece_TracerDiffusion_amplification)
           END DO
 
         END DO

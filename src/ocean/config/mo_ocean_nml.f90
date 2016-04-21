@@ -397,6 +397,7 @@ MODULE mo_ocean_nml
   INTEGER  :: LeithClosure_form = 0  ! 1=vort, 2=vort+div
 !   REAL(wp) :: LeithClosure_gamma = 0.25_wp !dimensionless constant for Leith closure, not used
   REAL(wp) :: TracerDiffusion_LeithWeight = 0.0_wp ! if Leith is active then the Leith coeff*this id added to the tracer diffusion coeff
+  REAL(wp) :: max_turbulenece_TracerDiffusion_amplification = 4.0_wp ! max tracer diffusion amplification from turbulenece on top of the standard one
   INTEGER  :: HorizontalViscosity_SmoothIterations = 0
   REAL(wp) :: HorizontalViscosity_SpatialSmoothFactor = 0.5_wp
   REAL(wp) :: VerticalViscosity_TimeWeight = 0.5_wp
@@ -460,7 +461,8 @@ MODULE mo_ocean_nml
     &  LeithBiharmonicViscosity_background,     &
     &  LeithBiharmonicViscosity_reference,      &
     &  LeithBiharmonicViscosity_scaling,        &
-    &  TracerDiffusion_LeithWeight, &        ! experimental, do not use!
+    &  TracerDiffusion_LeithWeight,             &       ! experimental, do not use!
+    &  max_turbulenece_TracerDiffusion_amplification, & ! experimental, do not use!
     & &
     & & ! other
     &  biharmonic_const                 ! obsolete
