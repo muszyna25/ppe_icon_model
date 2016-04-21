@@ -249,20 +249,22 @@ end
 begin
 
   values    = asciiread("var.txt",7,"string")
-  name = values(0)
-  typ = values(1)
-  run = values(2)
+  typ = values(0)
+  Arun = values(1)
+  Brun = values(2)
   meantime = values(3)
   comment = values(4)
   workdir = values(5)        ; plot & input directory
-  eratime = values(6)
+  nlati = stringtointeger(values(6))
 
-  print(eratime)
+  print(meantime)
   print(workdir)
+  print(nlati)
+ 
 
 ;***define plot and open
    pltType = "pdf"                        ; x11, eps, ps, pdf, png
-   pltName = workdir+"/"+run+"_amip_atm_3d_"+typ+"_map"
+   pltName = workdir+"/"+Arun+"_"+Brun+"_atm_3d_"+typ+"_map"
    wks     = gsn_open_wks(pltType, pltName) 
 ;***plot array for panel
    listplots = new(11,graphic)
@@ -296,66 +298,19 @@ begin
   vlon = where(vlon.lt.0, vlon + 360, vlon)       ; longitude: 0-360
   vlat = GridInfoFile->clat_vertices * rad2deg    ; cell lattitude vertices
 
-;************************************************
-;   Temperature 850 hPa CMOR: ta
-;************************************************
 
-;***setings
+;************************************************
+;   Temperature 850 hPa code130 CMOR: ta 
+;************************************************
     Cvar="ta"
-    fili    = workdir+"/Ubusy_"+Cvar+"_lola.nc"
-    
+    fili    = workdir+"/Ubusy_d"+Cvar+"_lola.nc"
     mainTitle = "Temperature [C] 850 hPa "+typ
-    subTitle  = run+meantime
+    subTitle  = meantime
 
     if (default.eq.1.or.cell.eq.1) then   ; set key and appendix for 
        fillKey="cell"                     ; contour or trigangels
     else
        fillKey="cont"                      
-    end if
-
-if (isfilepresent(fili)) then
-
-;***read code ta
-    File       = addfile (fili , "r") 
-    var     = File->$Cvar$(time|0,ncells|:,lev|0)
-    print("ploted: "+mainTitle)
-;   printVarSummary(var)
-
-;***number of listplots
-    noPlot=noPlot+1
-
-;***create plot
-    res                      = True             ; plot mods desired
-    res@cnLevelSelectionMode = "ExplicitLevels"   ; set explicit contour levels
-    res@cnLevels             = (/-30,-25,-20,-15,-10,-5,0,5,10,15,20,25,30/)
-    res@cnFillColors         = (/2,4,5,6,7,8,9,10,11,12,14,15,16,17/)
-    res@cnMissingValFillColor = missColor
-
-if (fillKey.eq."cont") then
-   plot1 = plot_cont ( wks,var,x,y,cArea,res,\
-                mainTitle,subTitle,comment )
-else
-   plot1 =  fast_cell ( wks,var,x,y,cArea,vlon,vlat,res,missColor,\
-                mainTitle,subTitle,comment )
-end if
-    listplots(noPlot)=plot1
-
-    delete(res@cnLevels)
-    delete (res@cnFillColors)
-end if
-
-;************************************************
-;   Temperature 850 hPa code130 CMOR: ta (model-ERAin)
-;************************************************
-    Cvar="ta"
-    fili    = workdir+"/Ubusy_d"+Cvar+"_lola.nc"
-    mainTitle = "Temperature [C] 850 hPa "+typ
-    subTitle  = run+meantime+" - Erain"+eratime
-
-    if (default.eq.1.or.cell.eq.0) then   ; set key and appendix for 
-       fillKey="cont"                     ; contour or trigangels
-    else
-       fillKey="cell"                      
     end if
                 
 if (isfilepresent(fili)) then
@@ -373,7 +328,7 @@ if (isfilepresent(fili)) then
 ;***create plot
     res                      = True             ; plot mods desired
     res@cnLevelSelectionMode = "ExplicitLevels" ; set explicit contour levels
-    res@cnLevels             = (/-16,-8,-4,-2,-1,1,2,4,8,16/)
+    res@cnLevels             = (/-8,-4,-2,-1,-.5,.5,1,2,4,8/)
     res@cnFillColors         = (/2,4,7,8,9,0,11,12,14,15,17/)
     res@cnMissingValFillColor = missColor
 
@@ -390,97 +345,6 @@ end if
     delete (res@cnFillColors)
 end if
 
-;********************************************************************
-;   Geopotential height [dam] 500 hPa code156 ERAin: code129 CMOR: zg
-;********************************************************************
-    Cvar="zg"
-    fili      = workdir+"/Ubusy_"+Cvar+"_lola.nc"
-    mainTitle = "Geopotential height [dam] 500 hPa "+typ
-
-if (isfilepresent(fili)) then
-
-;***read code 156
-    File       = addfile (fili , "r") 
-    var     = File->$Cvar$(0,0,:)             ; (time|0,lev|0,ncells|:)   
-;   printVarSummary(var)
-    print("ploted: "+mainTitle)
-
-;***number of listplots
-    noPlot=noPlot+1
-
-;***create plot
-    BWres                      = True              ; plot mods desired
-    BWres@gsnFrame             = False             ; don't advance frame yet
-    BWres@gsnDraw              = False 
-    BWres@tiMainString         = "Geopotential height [dam] 500 hPa "+typ
-    BWres@gsnCenterString      = run+meantime
-    BWres@gsnLeftString        = " " 
-    BWres@gsnRightString       = " " 
-    BWres@cnLevelSelectionMode = "ManualLevels"    ; set manual contour levels
-    BWres@cnMinLevelValF       =  480.             ; set min contour level
-    BWres@cnMaxLevelValF       =  600.             ; set max contour level
-    BWres@cnLevelSpacingF      =  16.              ; set contour spacing
-    BWres@cnInfoLabelOn        = False             ; turn off contour label box
-
-    BWres@mpCenterLonF         = 0                 ; Centers the plot at lon 0 
-
-    BWres@sfXArray = x      ; These are 1D arrays, so a triangular mesh
-    BWres@sfYArray = y      ; will be used to create the contours.
-
-    plot4 = gsn_csm_contour_map_ce(wks,var, BWres) ; create plot
-
-;***define statistical Values and draw Values, comment, pltdate
-    define_draw_strings (var,cArea,comment,wks,plot4)
-    listplots(noPlot)=plot4
-
-  end if
-
-;********************************************************************
-;   ERAin: code129 CMOR: zg
-;********************************************************************
-    Cvar="zg"
-    fili    = workdir+"/xUbusy_"+Cvar+"_erain_lola.nc"
-    mainTitle = "Geopotential height [dam] 500 hPa "+typ
-    
-if (isfilepresent(fili)) then
-
-;***read code 156
-    File       = addfile (fili , "r") 
-    var     = File->$Cvar$(0,0,:)             ; (time|0,lev|0,ncells|:)   
-;   printVarSummary(var)
-    print("ploted: "+mainTitle)
-
-
-;***number of listplots
-    noPlot=noPlot+1
-
-;***create plot
-    BWres                      = True              ; plot mods desired
-    BWres@gsnFrame             = False             ; don't advance frame yet
-    BWres@gsnDraw              = False 
-    BWres@tiMainString         = mainTitle
-    BWres@gsnCenterString      = "Erain"+eratime
-    BWres@gsnLeftString        = " " 
-    BWres@gsnRightString       = " " 
-    BWres@cnLevelSelectionMode = "ManualLevels"    ; set manual contour levels
-    BWres@cnMinLevelValF       =  480.             ; set min contour level
-    BWres@cnMaxLevelValF       =  600.             ; set max contour level
-    BWres@cnLevelSpacingF      =  16.              ; set contour spacing
-    BWres@cnInfoLabelOn        = False             ; turn off contour label box
-
-    BWres@mpCenterLonF         = 0                 ; Centers the plot at lon 0 
-
-    BWres@sfXArray = x      ; These are 1D arrays, so a triangular mesh
-    BWres@sfYArray = y      ; will be used to create the contours.
-
-    plot5 = gsn_csm_contour_map_ce(wks,var, BWres) ; create plot
-  
-;***define statistical Values and draw Values, comment, pltdate
-    define_draw_strings (var,cArea,comment,wks,plot5)
-    listplots(noPlot)=plot5
-
-
-  end if
 
 ;************************************************
 ;   Geopotential height [dam] 500 hPa  (zg model-era)
@@ -488,12 +352,12 @@ if (isfilepresent(fili)) then
     Cvar="zg"
     fili    = workdir+"/Ubusy_d"+Cvar+"_lola.nc"
     mainTitle = "Geopotential height [dam] 500 hPa "+typ
-    subTitle  = run+meantime+" - Erain"+eratime
+    subTitle  = meantime
 
-    if (default.eq.1.or.cell.eq.0) then   ; set key and appendix for 
-       fillKey="cont"                     ; contour or trigangels
+    if (default.eq.1.or.cell.eq.1) then   ; set key and appendix for 
+       fillKey="cell"                     ; contour or trigangels
     else
-       fillKey="cell"                      
+       fillKey="cont"                      
     end if
              
 if (isfilepresent(fili)) then
@@ -532,9 +396,7 @@ print("number of plots:  "+noPlot)
    pltres          =  True
    
 
-   gsn_panel(wks, (/listplots(0),listplots(1),\
-                    listplots(2),listplots(3)\
-                    /), (/3,2/), pltres)   
+   gsn_panel(wks, (/listplots(0),listplots(1)/), (/3,2/), pltres)   
 
  
 end

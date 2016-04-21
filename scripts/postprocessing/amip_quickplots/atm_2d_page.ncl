@@ -110,7 +110,9 @@ begin
   
   res@lbLabelBarOn         =  False        ;-- don't draw a labelbar yet
 
-  res@mpFillOn             =  False                    ;?-- fill map grey
+  res@mpFillOn             =  True         ;?-- fill map grey
+  res@mpOutlineOn          =  True 
+  res@mpLandFillColor      =  18
 
   res@mpMinLonF            =  lonMin         ;-- sub-region minimum longitude
   res@mpMaxLonF            =  lonMax         ;-- sub-region maximum longitude
@@ -184,6 +186,13 @@ print("min: "+min(var)+" max: "+max(var))
      ntri_calc = ntri_calc + dimsizes(vhgh)       ; number of triangles
   end if
 
+;--NEW set color for missing values
+  ismis = ind(ismissing(var))
+  if(.not. all(ismissing(ismis))) then
+     gscolors(ismis) = missColor                     ; set missing value color
+  end if
+;--NEW
+
 ;  print("--> triangles calculated:     "+ ntri_calc)
 
 ;***attach all the triangles using the list of colors
@@ -200,144 +209,6 @@ print("min: "+min(var)+" max: "+max(var))
 end
 ;***end function fast_cell
 ;--------------
-undef("fast_cell_sea")
- function fast_cell_sea  (wks,\
-                var,x,y,cArea,vlon,vlat,cnres_in,missColor,\
-                      mainTitle,subTitle,comment )
-;************************************************
-;  drawing triangle for ICON FASTER!!
-;************************************************
-local plot, cnres, mpres, pres, res
-
-begin
-
-  nv   = dimsizes(vlon(0,:))                      ; no of points in polygon
-
-  lonMin       = -180                             ; longitude minimum
-  lonMax       =  180                             ; longitude maximum
-  latMin       =  -90                             ; latitude minimum
-  latMax       =   90                             ; latitude maximum
-  mapCenter    =    0                             ; center of map
-
-;  print("")
-;  print("Data longitude min/max: " + min(vlon) + "   " + max(vlon)\
-;      + "   cell points = " + nv)
-;  print("")
-;  print("Plot area: "+lonMin+","+lonMax+" "+latMin+","+latMax)
-;  print("")
-
-;***set contour resources
-  res=cnres_in
-  res@gsnDraw              =  False        ;-- don't draw the plot
-  res@gsnFrame             =  False        ;-- don't advance the frame
-  res@cnLinesOn            =  False        ;-- don't draw contour lines
-  res@cnInfoLabelOn        =  False        ;-- switch off contour info label
-  res@cnFillOn             =  True         ;-- contour fill on
-
-  res@cnFillMode           = "CellFill"    ;-- set fill mode
-  res@sfXArray             =  x            ;-- transform x to mesh scalar field
-  res@sfYArray             =  y            ;-- transform y to mesh scalar field
-  res@sfXCellBounds        =  vlon         ;-- needed if cnFillMode= "CellFill"
-  res@sfYCellBounds        =  vlat         ;-- needed if cnFillMod = "CellFill"
-  
-  res@lbLabelBarOn         =  False        ;-- don't draw a labelbar yet
-
-  res@mpFillOn             =  False
-  res@mpOutlineOn          =  True 
-
-  res@mpMinLonF            =  lonMin         ;-- sub-region minimum longitude
-  res@mpMaxLonF            =  lonMax         ;-- sub-region maximum longitude
-  res@mpMinLatF            =  latMin         ;-- sub-region minimum latitude
-  res@mpMaxLatF            =  latMax         ;-- sub-region maximum latitude
-  res@mpGreatCircleLinesOn =  False          ;-- important: v6.2.0 False !!
-  res@gsnSpreadColors      =  False  
-    
-  res@tiMainString         =  mainTitle
-  res@gsnCenterString      =  subTitle
-  res@gsnLeftString        = " " 
-  res@gsnRightString       = " " 
-
-
-
-
-;***create the contour plot, but don't draw it. 
-;***We need it to get the colors of the data values
-    contour_object = gsn_csm_contour_map(wks,var,res)
-
-
-;***define statistical Values and draw Values, comment, pltdate
-    define_draw_strings (var,cArea,comment,wks,contour_object)
-
-;***to plot the filled polygons we need the data levels and their colors
-
-  getvalues contour_object@contour
-      "cnLevels"     :  levels      ;-- retrieve the levels from plot@contour
-      "cnFillColors" :  colors      ;-- retrieve the colors from plot@contour
-  end getvalues
-  nlevels = dimsizes(levels)        ;-- number of levels
-
-;***clear plot, but keep all the information
-  contour_object = setColorContourClear(contour_object,min(var),max(var)) 
- 
-print("min: "+min(var)+" max: "+max(var))
-
-;***attach a labelbar to the plot
-    contour_object = attach_labelbar(wks,contour_object,levels+"",colors)
-
-;***create color array for triangles
-  ntri     = dimsizes(y)          ;-- number of triangles
-  gscolors = new(ntri,string)
-;;  gscolors = "gray"               ;-- gray for missing colors
-  gscolors =  missColor            ;-- gray for missing colors
-
-;***set resources for the triangles (polygons)
-  pres                         =  True
-  pres@gsEdgesOn               =  False            ;-- turn on edges
-  pres@gsFillIndex             =  0                ;-- solid fill
-
-  ntri_calc = 0      ;-- number of triangles
-
-;*** set color for data less than given minimum value var_min
-  vlow = ind(var .lt. levels(0))   ;-- get the indices of values less levels(0)
-  if (.not. all(ismissing(vlow))) then
-     gscolors(vlow) = colors(0)       ;-- choose color
-     ntri_calc = dimsizes(vlow)       ;-- number of triangles
-  end if
-;***set colors for all cells in between var_min and var_max
-  do i = 1, dimsizes(levels) - 1
-;    get the indices of 'middle' values
-     vind := ind(var .ge. levels(i-1) .and. var .lt. levels(i))  
-     if (.not. all(ismissing(vind))) then
-        gscolors(vind) = colors(i)                  ;-- choose the colors
-        ntri_calc = ntri_calc + dimsizes(vind)      ;-- number of triangles
-     end if
-  end do
-
-;***set color for data greater than given maximum var_max
-  nc=dimsizes(colors)-1              ; get the number of colors minus one
-  nl=dimsizes(levels)-1              ; get the number of levels minues one
-  vhgh := ind(var .gt. levels(nl))   ; get indices of values greater levels(nl)
-  if (.not. all(ismissing(vhgh))) then
-     gscolors(vhgh) = colors(nc)                  ; choose color
-     ntri_calc = ntri_calc + dimsizes(vhgh)       ; number of triangles
-  end if
-
-;  print("--> triangles calculated:     "+ ntri_calc)
-
-;***attach all the triangles using the list of colors
-  pres@gsColors        = gscolors       ; set colors for polygons
-  pres@gsSegments      = ispan(0,dimsizes(var) * 3,3)  ; assign segments array
-;***draw all triangles
-  polygon = gsn_add_polygon(wks,contour_object,ndtooned(vlon),ndtooned(vlat),pres)  
-
-;-- define attribute polygon to hold the polygon ids
-  contour_object@polygon = polygon
-
-  return(contour_object)
-end
-;***end function fast_cell_sea
-
-
 
 undef("plot_cont")
  function plot_cont  ( wks,\
@@ -405,10 +276,10 @@ begin
 ;***define plot and open
    pltType = "pdf"                        ; x11, eps, ps, pdf, png
    pltPath = workdir
-   pltName = pltPath+"/"+run+"_amip_atm_2d_"+typ+"_map"        ; plot name
+   pltName = pltPath+"/"+run+"_atm_2d_"+typ+"_map"        ; plot name
    wks     = gsn_open_wks(pltType, pltName) 
 ;***plot array for panel
-   listplots = new(11,graphic)
+   listplots = new(12,graphic)
    noPlot=-1  ;number of listplots
 ;***define colors
     gsn_define_colormap(wks,"amwg_blueyellowred") ; Define color map 
@@ -486,7 +357,7 @@ if (isfilepresent(fili)) then
      plot1 = plot_cont ( wks,var,x,y,cArea,res,\
                  mainTitle,subTitle,comment )
  else 
-    plot1 = fast_cell_sea (  wks,var,x,y,cArea,vlon,vlat,res,missColor,\
+    plot1 = fast_cell (  wks,var,x,y,cArea,vlon,vlat,res,missColor,\
                 mainTitle,subTitle,comment)
  end if
  listplots(noPlot)=plot1
@@ -534,7 +405,7 @@ if (fillKey.eq."cont") then
     plot2 = plot_cont ( wks,var,x,y,cArea,res,\
                 mainTitle,subTitle,comment )
 else 
-    plot2 = fast_cell_sea ( wks,var,x,y,cArea,vlon,vlat,res,missColor,\
+    plot2 = fast_cell ( wks,var,x,y,cArea,vlon,vlat,res,missColor,\
                             mainTitle,subTitle,comment)
 end if
     listplots(noPlot)=plot2
@@ -570,13 +441,6 @@ if (isfilepresent(fili)) then
 ;***number of listplots
     noPlot=noPlot+1
 
-    res                      = True               ; plot mods desired
-    res@cnLevelSelectionMode = "ExplicitLevels"   ; set explicit contour levels
-    res@cnLevels             = (/1,2,4,8,12/)
-    res@cnFillColors         = (/0,18,9,6,3,17/)
-    res@cnMissingValFillColor = missColor
-
-         
 ;***create plot
     res                      = True             ; plot mods desired
     res@cnLevelSelectionMode = "ExplicitLevels"   ; set explicit contour levels
@@ -954,7 +818,6 @@ if (isfilepresent(fili)) then
 
 ;***open plot
     noPlot=noPlot+1
-
              
 ;***create plot
     res                      = True             ; plot mods desired
@@ -976,13 +839,63 @@ end if
     delete (res@cnFillColors)
 end if
 
+;************************************************
+;   Surface temperature  - SKIN temperature
+;************************************************
+
+;***setings
+    Cvar="ts"
+    fili     =  workdir+"/Ubusy_d"+Cvar+".nc"
+    
+    mainTitle = "Temperature [C] "+typ
+    subTitle  = "TSURF ["+run+meantime + "] - SKT [Erain"+eratime+"]"
+
+    if (default.eq.1.or.cell.eq.0) then   ; set key and appendix for 
+       fillKey="cont"                     ; contour or trigangels
+    else
+       fillKey="cell"                      
+    end if
+                
+if (isfilepresent(fili)) then
+;***read 
+    File    = addfile (fili , "r")  
+    var     = File->$Cvar$(time|0,ncells|:)   ; dims: (time,ncells)    
+   
+print(fili+" fili  "+min(var)+"   "+max(var))
+    print("ploted: "+mainTitle)
+
+;***open plot
+   noPlot=noPlot+1
+
+             
+;***number of listplots
+    res                       = True             ; plot mods desired
+    res@cnLevelSelectionMode  = "ExplicitLevels" ; set explicit contour levels
+    res@cnLevels              = (/-5,-3,-2,-1,-.5,.5,1,2,3,5/)
+    res@cnFillColors         = (/2,4,6,8,9,0,10,11,12,14,15,16/)
+    res@cnMissingValFillColor = missColor
+
+if (fillKey.eq."cont") then
+    plot12 = plot_cont ( wks,var,x,y,cArea,res,\
+                mainTitle,subTitle,comment )
+else 
+    plot12 = fast_cell ( wks,var,x,y,cArea,vlon,vlat,res,missColor,\
+                mainTitle,subTitle,comment )
+end if
+    listplots(noPlot)=plot12
+
+    delete(res@cnLevels)
+    delete (res@cnFillColors)
+end if
+
+;*** PANNEL
 print("pannel:  "+noPlot)
 ;--KMF prepare plots for panel   
    pltres          =  True
    
 
 
-   gsn_panel(wks, (/listplots(9),listplots(8),\
+   gsn_panel(wks, (/listplots(9),listplots(11),\
                     listplots(6),listplots(7),\
                     listplots(0),listplots(1)/), (/3,2/), pltres)   
    gsn_panel(wks, (/listplots(4),listplots(5),\

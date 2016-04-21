@@ -93,6 +93,8 @@ begin
     res@tmYLValues = (/100,200,300,400,500,600,700,800,900,1000/)
     res@tmYLLabels = (/100,200,300,400,500,600,700,800,900,1000/) 
     res@tmYRMode = "Automatic"
+    res@tmYROn               = False     ; Turn off y-axis (right) major ticks
+    res@tmXTOn               = True  
     res=res_in
     res@cnFillOn             = True               ; turn on color fill
     res@cnLinesOn            = True               ; turn off contour lines
@@ -100,7 +102,7 @@ begin
     res@pmLabelBarOrthogonalPosF = 0.07           ; move farther to plot
     res@lbOrientation        = "horizontal"       ; vertical label bars
 
-    res@vpWidthF  = 0.8		; set width of plot 
+    res@vpWidthF  = 0.78		; set width of plot 
     res@vpHeightF = 0.5		; set height of plot
 
     plot = gsn_csm_pres_hgt(wks,var, res)  ; create plot
@@ -139,10 +141,12 @@ begin
     BWres@tmYLValues = (/100,200,300,400,500,600,700,800,900,1000/)
     BWres@tmYLLabels = (/100,200,300,400,500,600,700,800,900,1000/) 
     BWres@tmYRMode = "Automatic"
+    BWres@tmYROn               = False   ; Turn off y-axis (right) major ticks
+    BWres@tmXTOn               = True  
     BWres@cnInfoLabelOn        = False            ; turn off contour label box
     BWres@cnLineLabelFormat    = "#f"             ; no unnecessary 0
 
-    BWres@vpWidthF  = 0.8		; set width of plot 
+    BWres@vpWidthF  = 0.78		; set width of plot 
     BWres@vpHeightF = 0.5		; set height of plot
 
 
@@ -173,7 +177,7 @@ begin
 
 ;***define plot
    pltType = "png"                        ; x11, eps, ps, pdf, png
-   pltPath = workdir+"/"+run+"_amip_atm_"
+   pltPath = workdir+"/"+run+"_atm_"
 
 ;************************************************
 ;   psi (mastrfu) zonal computed from va
