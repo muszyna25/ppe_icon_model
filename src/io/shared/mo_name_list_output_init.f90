@@ -161,6 +161,10 @@ MODULE mo_name_list_output_init
     &                                             setup_hl_axis_atmo, setup_il_axis_atmo,         &
     &                                             setup_zaxes_oce
   USE mo_util_vgrid_types,                  ONLY: vgrid_buffer
+  USE mo_derived_variable_handling,         ONLY: process_mean_stream
+  USE self_vector
+  USE self_map
+  USE self_assert
 
 #ifndef __NO_ICON_ATMO__
   USE mo_vertical_coord_table,              ONLY: vct
@@ -259,6 +263,7 @@ CONTAINS
     REAL(wp)                              :: h_levels(MAX_NZLEVS)             !< height levels
     REAL(wp)                              :: i_levels(MAX_NILEVS)             !< isentropic levels
     INTEGER                               :: remap
+    CHARACTER(LEN=MAX_CHAR_LENGTH)        :: operation
     REAL(wp)                              :: reg_lon_def(3)
     REAL(wp)                              :: reg_lat_def(3)
     INTEGER                               :: reg_def_mode
@@ -309,7 +314,7 @@ CONTAINS
       stream_partitions_hl, stream_partitions_il,            &
       pe_placement_ml, pe_placement_pl,                      &
       pe_placement_hl, pe_placement_il,                      &
-      filename_extn, rbf_scale
+      filename_extn, rbf_scale, operation
 
     ! -- preliminary checks:
     !
@@ -383,6 +388,7 @@ CONTAINS
       h_levels(:)              = -1._wp
       i_levels(:)              = -1._wp
       remap                    = REMAP_NONE
+      operation                = ''
       reg_lon_def(:)           = 0._wp
       reg_lat_def(:)           = 0._wp
       reg_def_mode             = 0
@@ -563,6 +569,7 @@ CONTAINS
       p_onl%z_levels                 = h_levels
       p_onl%i_levels                 = i_levels
       p_onl%remap                    = remap
+      p_onl%operation                = operation
       p_onl%lonlat_id                = -1
       p_onl%output_start(:)          = output_start(:)
       p_onl%output_end(:)            = output_end
@@ -599,19 +606,19 @@ CONTAINS
           &                            default=p_onl%il_varlist(i))
       END DO
 
-      ! allow case-insensitive variable names:
-      DO i=1,max_var_ml
-        p_onl%ml_varlist(i) = tolower(p_onl%ml_varlist(i))
-      END DO
-      DO i=1,max_var_pl
-        p_onl%pl_varlist(i) = tolower(p_onl%pl_varlist(i))
-      END DO
-      DO i=1,max_var_hl
-        p_onl%hl_varlist(i) = tolower(p_onl%hl_varlist(i))
-      END DO
-      DO i=1,max_var_il
-        p_onl%il_varlist(i) = tolower(p_onl%il_varlist(i))
-      END DO
+     !! allow case-insensitive variable names:
+     !DO i=1,max_var_ml
+     !  p_onl%ml_varlist(i) = tolower(p_onl%ml_varlist(i))
+     !END DO
+     !DO i=1,max_var_pl
+     !  p_onl%pl_varlist(i) = tolower(p_onl%pl_varlist(i))
+     !END DO
+     !DO i=1,max_var_hl
+     !  p_onl%hl_varlist(i) = tolower(p_onl%hl_varlist(i))
+     !END DO
+     !DO i=1,max_var_il
+     !  p_onl%il_varlist(i) = tolower(p_onl%il_varlist(i))
+     !END DO
 
       p_onl%next => NULL()
 
@@ -873,7 +880,7 @@ CONTAINS
               &               lremap_lonlat=(p_onl%remap == REMAP_REGULAR_LATLON), &
               &               opt_vlevel_type=i_typ)
             DO i=1,ngrp_vars
-              grp_vars(i) = tolower(grp_vars(i))
+              grp_vars(i) = grp_vars(i)
             END DO
             ! generate varlist where "grp_name" has been replaced;
             ! duplicates are removed
@@ -901,7 +908,7 @@ CONTAINS
               &               lremap_lonlat=(p_onl%remap == REMAP_REGULAR_LATLON), &
               &               opt_vlevel_type=i_typ)
             DO i=1,ngrp_vars
-              grp_vars(i) = tolower(grp_vars(i))
+              grp_vars(i) = grp_vars(i)
             END DO
             ! generate varlist where "grp_name" has been replaced;
             ! duplicates are removed
@@ -1221,28 +1228,6 @@ CONTAINS
       END DO
     END IF
 
-    ! ---------------------------------------------------------------------------
-
-    ! If async IO is used, replicate data (mainly the variable lists) on IO procs
-
-#ifndef NOMPI
-    IF (use_async_name_list_io) THEN
-      CALL replicate_data_on_io_procs
-
-      ! Clear patch_info fields clon, clat, etc. (especially on work
-      ! PE 0) since they aren't needed there any longer.
-      IF ( (.NOT. my_process_is_io()) .AND. &
-        &  (.NOT. my_process_is_mpi_test())) THEN
-        ! Go over all output domains (deallocation is skipped if data
-        ! structures were not allocated)
-        DO idom = 1, n_dom_out
-          CALL deallocate_all_grid_info(patch_info(idom))
-        END DO
-      END IF
-    END IF
-#endif
-! NOMPI
-
     ! Set the number of domains in output and the patch reorder information
     CALL set_patch_info
 
@@ -1369,6 +1354,15 @@ CONTAINS
 
     ALLOCATE(output_file(nfiles))
 
+    ! ---------------------------------------------------------------------------
+
+    ! If async IO is used, replicate data (mainly the variable lists) on IO procs
+
+#ifndef NOMPI
+    IF (use_async_name_list_io) CALL replicate_data_on_io_procs
+#endif
+! NOMPI
+
     output_file(:)%cdiFileID  = CDI_UNDEFID ! i.e. not opened
     output_file(:)%cdiVlistId = CDI_UNDEFID ! i.e. not defined
 
@@ -1463,6 +1457,12 @@ CONTAINS
                 vl_list(nvl) = j
 
               ENDDO
+
+#ifdef USE_MTIME_LOOP
+              CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch( patch_info(1)%log_patch_id ) ) ! works for amip and test_nat_rce
+              !CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch( 0 )) ! this is how it works for _nwp_R02B04N06multi2
+              !CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch( 1 )) ! initial setup
+#endif
 
               SELECT CASE(i_typ)
               CASE(level_type_ml)
@@ -1578,6 +1578,27 @@ CONTAINS
     IF ((process_mpi_io_size /= nremaining_io_procs) .AND. my_process_is_stdio()) THEN
       WRITE (0,*) " "
     END IF
+
+    ! ---------------------------------------------------------------------------
+    ! If async IO is used, replicate coordinate data on IO procs
+
+#ifndef NOMPI
+    IF (use_async_name_list_io) THEN
+      CALL replicate_coordinate_data_on_io_procs
+
+      ! Clear patch_info fields clon, clat, etc. (especially on work
+      ! PE 0) since they aren't needed there any longer.
+      IF ( (.NOT. my_process_is_io()) .AND. &
+        &  (.NOT. my_process_is_mpi_test())) THEN
+        ! Go over all output domains (deallocation is skipped if data
+        ! structures were not allocated)
+        DO idom = 1, n_dom_out
+          CALL deallocate_all_grid_info(patch_info(idom))
+        END DO
+      END IF
+    END IF
+#endif
+! NOMPI
 
     ! ------------------------------------------------------
     ! Create I/O event data structures:
@@ -1883,7 +1904,7 @@ CONTAINS
           tl = get_var_timelevel(element%field)
 
           ! Check for matching name
-          IF(TRIM(varlist(ivar)) /= TRIM(tolower(get_var_name(element%field)))) CYCLE
+          IF(tolower(varlist(ivar)) /= tolower(get_var_name(element%field))) CYCLE
 
           ! Found it, add it to the variable list of output file
           p_var_desc => var_desc
@@ -2663,7 +2684,12 @@ CONTAINS
       ENDIF
 
       ! Search name mapping for name in NetCDF file
-      mapped_name = TRIM(dict_get(out_varnames_dict, info%name, default=info%name))
+      IF (info%cf%short_name /= '') THEN
+!TODO   IF ( my_process_is_stdio() ) print *,'SHORTNAME gefunden!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+        mapped_name = dict_get(out_varnames_dict, info%cf%short_name, default=info%cf%short_name)
+      ELSE
+        mapped_name = dict_get(out_varnames_dict, info%name, default=info%name)
+      END IF
 
       ! note that an explicit call of vlistDefVarTsteptype is obsolete, since
       ! isteptype is already defined via vlistDefVar
@@ -2828,13 +2854,14 @@ CONTAINS
     ! var_list_name should have at least the length of var_list names
     ! (although this doesn't matter as long as it is big enough for every name)
     CHARACTER(LEN=256)            :: var_list_name
-    INTEGER                       :: idom
+    INTEGER                       :: idom, i
 
 !DR Test
     INTEGER :: nvgrid, ivgrid
     INTEGER :: size_tiles
     INTEGER :: size_var_groups_dyn
     INTEGER :: idom_log
+    LOGICAL :: keep_grid_info
 
     ! There is nothing to do for the test PE:
     IF(my_process_is_mpi_test()) RETURN
@@ -3026,6 +3053,27 @@ CONTAINS
       CALL p_bcast(vgrid_buffer(ivgrid)%uuid, bcast_root, p_comm_work_2_io)
     ENDDO
 
+  END SUBROUTINE replicate_data_on_io_procs
+
+  !-------------------------------------------------------------------------------------------------
+  !> Replicates coordinate data needed for async I/O on the I/O procs.
+  !  ATTENTION: The data is not completely replicated, only as far as needed for I/O.
+  !
+  !  This routine has to be called by all PEs (work and I/O)
+  !
+  SUBROUTINE replicate_coordinate_data_on_io_procs()
+
+    ! local variables
+    CHARACTER(len=*), PARAMETER :: routine = &
+      modname//"::replicate_coordinate_data_on_io_procs"
+    INTEGER                       :: idom, i
+
+    INTEGER :: idom_log
+    LOGICAL :: keep_grid_info
+
+    ! There is nothing to do for the test PE:
+    IF(my_process_is_mpi_test()) RETURN
+
     !-----------------------------------------------------------------------------------------------
     ! Replicate coordinates of cells/edges/vertices:
 
@@ -3039,11 +3087,19 @@ CONTAINS
       IF (patch_info(idom)%grid_info_mode == GRID_INFO_BCAST) THEN
         ! logical domain ID
         idom_log = patch_info(idom)%log_patch_id
-        CALL allgather_grid_info(patch_info(idom), idom_log)
+        keep_grid_info = .FALSE.
+        IF (my_process_is_io()) THEN
+          DO i = 1, SIZE(output_file, 1)
+            keep_grid_info = keep_grid_info .OR. &
+              &              ((output_file(i)%io_proc_id == p_pe) .AND. &
+              &               (output_file(i)%phys_patch_id == idom))
+          END DO
+        END IF
+        CALL allgather_grid_info(patch_info(idom), idom_log, keep_grid_info)
       END IF
     END DO
 
-  END SUBROUTINE replicate_data_on_io_procs
+  END SUBROUTINE replicate_coordinate_data_on_io_procs
 
 
 #ifndef NOMPI
@@ -3255,11 +3311,7 @@ CONTAINS
 
     IF (use_dp_mpi2io) THEN
 
-#ifdef __SX__
-      CALL C_F_POINTER(c_mem_ptr, of%mem_win%mem_ptr_dp, (/ INT(mem_size) /) )
-#else
       CALL C_F_POINTER(c_mem_ptr, of%mem_win%mem_ptr_dp, (/ mem_size /) )
-#endif
       ! Create memory window for communication
       of%mem_win%mem_ptr_dp(:) = 0._dp
       CALL MPI_Win_create( of%mem_win%mem_ptr_dp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
@@ -3268,11 +3320,7 @@ CONTAINS
 
     ELSE
 
-#ifdef __SX__
-      CALL C_F_POINTER(c_mem_ptr, of%mem_win%mem_ptr_sp, (/ INT(mem_size) /) )
-#else
       CALL C_F_POINTER(c_mem_ptr, of%mem_win%mem_ptr_sp, (/ mem_size /) )
-#endif
       ! Create memory window for communication
       of%mem_win%mem_ptr_sp(:) = 0._sp
       CALL MPI_Win_create( of%mem_win%mem_ptr_sp,mem_bytes,nbytes_real,MPI_INFO_NULL,&

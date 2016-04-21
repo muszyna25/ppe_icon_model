@@ -35,7 +35,7 @@ MODULE mo_ocean_tracer
     & l_skip_tracer,                                       &! , use_ThermoExpansion_Correction
     & GMRedi_configuration,GMRedi_combined,  GM_only,Redi_only ,          &
     & Cartesian_Mixing, tracer_threshold_min, tracer_threshold_max,       &
-    & namelist_tracer_name
+    & namelist_tracer_name, nbgcadv
   USE mo_util_dbg_prnt,             ONLY: dbg_print
   USE mo_parallel_config,           ONLY: nproma
   USE mo_dynamics_config,           ONLY: nold, nnew
@@ -58,6 +58,7 @@ MODULE mo_ocean_tracer
   USE mo_ocean_GM_Redi,             ONLY: calc_ocean_physics, prepare_ocean_physics
   USE mo_ocean_math_operators,      ONLY: div_oce_3d, verticalDiv_scalar_onFullLevels! !verticalDiv_scalar_midlevel
   USE mo_scalar_product,            ONLY: map_edges2edges_viacell_3d_const_z
+  
   IMPLICIT NONE
 
   PRIVATE
@@ -126,7 +127,7 @@ CONTAINS
 
     stop_detail_timer(timer_extra30,6)
 
-    DO tracer_index = 1, no_tracer
+    DO tracer_index = 1, no_tracer+nbgcadv 
       CALL advect_individual_tracer_ab( patch_3d,         &
         & p_os%p_prog(nold(1))%ocean_tracers(tracer_index), &
         & p_os, p_op_coeff,                                 &
@@ -568,10 +569,11 @@ CONTAINS
     CALL dbg_print('BefImplDiff: trac_inter', new_ocean_tracer%concentration,  str_module,idt_src, in_subset=cells_in_domain)
     !---------------------------------------------------------------------
 #ifdef __DEBUG_TRACER__
-    IF (debug_check_level > 1) &
-      CALL check_min_max_tracer(info_text="After advection", tracer=new_ocean_tracer%concentration,     &
-        & min_tracer=tracer_threshold_min(tracer_index), max_tracer=tracer_threshold_max(tracer_index), &
-        & tracer_name=namelist_tracer_name(tracer_index), in_subset=cells_in_domain)
+      IF (debug_check_level > 1 .and. tracer_index < 3) &
+        CALL check_min_max_tracer(info_text="After advection", tracer=new_ocean_tracer%concentration,     &
+          & min_tracer=tracer_threshold_min(tracer_index), max_tracer=tracer_threshold_max(tracer_index), &
+          & tracer_name=namelist_tracer_name(tracer_index), in_subset=cells_in_domain)
+
 
   ! Apply separatly boundary conditions
 !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, level, &
@@ -590,10 +592,10 @@ CONTAINS
       ENDDO
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
-    IF (debug_check_level > 1) &
-      CALL check_min_max_tracer(info_text="After top fluxes", tracer=new_ocean_tracer%concentration,     &
-        & min_tracer=tracer_threshold_min(tracer_index), max_tracer=tracer_threshold_max(tracer_index), &
-        & tracer_name=namelist_tracer_name(tracer_index), in_subset=cells_in_domain)
+      IF (debug_check_level > 1 .and. tracer_index < 3) &
+        CALL check_min_max_tracer(info_text="After top fluxes", tracer=new_ocean_tracer%concentration,     &
+          & min_tracer=tracer_threshold_min(tracer_index), max_tracer=tracer_threshold_max(tracer_index), &
+          & tracer_name=namelist_tracer_name(tracer_index), in_subset=cells_in_domain)
 #endif
 
     !calculate vert diffusion impicit: result is stored in trac_out
@@ -615,7 +617,7 @@ CONTAINS
     CALL dbg_print('AftImplDiff: trac_new', trac_new, str_module, idt_src, in_subset=cells_in_domain)
     !---------------------------------------------------------------------
 
-    IF (debug_check_level > 2) &
+    IF (debug_check_level > 1 .and. tracer_index < 3 ) &
       CALL check_min_max_tracer(info_text="After advect_individual_tracer", tracer=new_ocean_tracer%concentration,     &
         & min_tracer=tracer_threshold_min(tracer_index), max_tracer=tracer_threshold_max(tracer_index), &
         & tracer_name=namelist_tracer_name(tracer_index), in_subset=cells_in_domain)
@@ -955,7 +957,7 @@ old_ocean_tracer%concentration=new_ocean_tracer%concentration
 !END DO  
   
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    CALL dbg_print('aft. AdvIndivTrac: trac_old', trac_old, str_module, 3, in_subset=cells_in_domain)
+    CALL dbg_print('aft. AdvIndivTrac: trac_old', trac_old, str_module, 1, in_subset=cells_in_domain)
     CALL dbg_print('aft. AdvIndivTrac: trac_new', trac_new, str_module, 3, in_subset=cells_in_domain)
     !---------------------------------------------------------------------
   

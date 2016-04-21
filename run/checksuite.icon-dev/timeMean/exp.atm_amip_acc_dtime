@@ -32,17 +32,18 @@ author_list="Marco Giorgetta, MPIM"
 # (2) Set variables needed by the scripting mechanism
 
 # horizontal grid(s)
+icon_data_poolFolder=/pool/data/ICON
 grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip
 atmo_dyn_grids='r2b4_amip.nc'
 
 # start and end date+time
 start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
-  end_date="1979-01-01T00:50:00Z"        # ISO-format date+time
+  end_date="1979-01-02T00:00:00Z"        # ISO-format date+time
 
 # restart interval
-(( dt_checkpoint = 99 * minute))
-(( dt_restart    = 99 * minute))
-#
+checkpoint_interval="P1Y"
+restart_interval="P1Y"
+
 output_interval="PT10M"
 file_interval="P01D"
 
@@ -67,7 +68,7 @@ cat > ${atmo_namelist} << EOF
 /
 &run_nml
  num_lev          = 47          ! number of full levels
- dtime            = 600         ! [s] time step
+ modelTimeStep    = "PT10M"
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
@@ -76,9 +77,11 @@ cat > ${atmo_namelist} << EOF
  output           = 'nml'
  msg_level        = 15          ! level of details report during integration 
  restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
+ irad_type        = 2
+ activate_sync_timers = .TRUE.
 /
 &dbg_index_nml
-  idbg_mxmn  = 3
+  idbg_mxmn  = 0
   idbg_slev  = 30
   idbg_elev  = 31
 /
@@ -135,14 +138,16 @@ cat > ${atmo_namelist} << EOF
 /
 &radiation_nml
  irad_h2o         = 1           ! 1: prognostic vapor, liquid and ice
- irad_co2         = 2           ! 2: horizontally and vertically constant
- irad_ch4         = 3           ! 3: horizontally constant vertical profile
- irad_n2o         = 3           ! 3: horizontally constant vertical profile
+ irad_co2         = 4           ! 4: from greenhouse gas scenario
+ irad_ch4         = 4           ! 4: from greenhouse gas scenario
+ irad_n2o         = 4           ! 4: from greenhouse gas scenario
  irad_o3          = 8           ! 8: horizontally and vertically variable
  irad_o2          = 2           ! 2: horizontally and vertically constant
- irad_cfc11       = 2           ! 2: horizontally and vertically constant
- irad_cfc12       = 2           ! 2: horizontally and vertically constant
+ irad_cfc11       = 4           ! 4: from greenhouse gas scenario
+ irad_cfc12       = 4           ! 4: from greenhouse gas scenario
  irad_aero        = 15          ! 0: no aerosol
+                                !13: only Kinne's tropospheric aerosols 
+                                !14: only Stenchikov's volcanic aerosols
                                 !15: Kinne aerosol optics for troposphere
                                 !   +Stenchikov aerosol optics for stratosphere
  lrad_aero_diag   = .FALSE.     ! switch for diagnostics of the aerosol optical properties
@@ -150,9 +155,16 @@ cat > ${atmo_namelist} << EOF
  izenith          = 4           ! 4: seasonal and diurnal cycle
  isolrad          = 1           ! 1: transient solar irradiance (at 1 AE)
 /
+&psrad_nml
+rad_perm          = 1           ! Integer for perturbing random number seeds
+/
 &echam_conv_nml
 /
+&echam_cloud_nml
+/
 &gw_hines_nml
+/
+&sea_ice_nml
 /
 EOF
 
@@ -188,6 +200,7 @@ EOF
 # model files
 #
 add_link_file ${basedir}/data/rrtmg_lw.nc                               ./
+add_link_file ${basedir}/data/rrtmg_sw.nc                               ./
 add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 
 # namelist files
@@ -199,7 +212,6 @@ add_required_file ${basedir}/run/${lnd_namelist}                        ./
 #
 dict_file="dict.${EXPNAME}"
 cat dict.iconam.mpim  > ${dict_file}
-cat dict.echam.mpim  >> ${dict_file}
 add_required_file ${basedir}/run/${dict_file}                           ./
 
 # initial conditions
@@ -220,9 +232,6 @@ add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_lan
 # assume start_date and end_date have the format yyyy-...
 start_year=$(( ${start_date%%-*} - 1 ))
 end_year=$(( ${end_date%%-*} + 1 ))
-
-echo $start_year
-echo $end_year
 #
 # - well mixed greenhouse gases
 datadir=$INDATA/global/atm
@@ -291,40 +300,11 @@ add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_lan
 # -------------------------------
 cat >> ${atmo_namelist} << EOF
 &io_nml
- dt_checkpoint    = ${dt_checkpoint}  ! [s] restart file interval
  output_nml_dict  = "${dict_file}"
  netcdf_dict      = "${dict_file}"
  itype_pres_msl   = 4
 /
 EOF
-
-# Define grids for horizontal remapping
-# -------------------------------------
-#
-# The ICON RmBn grid has 3*m*2**n rows of triangles between the vertices at the N and S pole.
-# The number of triangles in a row around this axis increases linearly from 5 to 5*(1+2*(i-1))
-# at the base of the "polar" icosahedral triangles. In the "tropical" icosahedral triangles
-# all rows have a  5*(2*(m*2**n)) triangles. The triangles are either northward or southward
-# pointing. Thus the smallest periodic element in a tropical row is a rhombus formed by two
-# adjacent triangles. A tropical row has 5*(m*n**2) rhombi.
-#
-# The R2B4 grid has a total of 20480 triangular cells in 96 rows.
-# The tropical rows have 320 triangles or 160 rhombi.
-#
-# Therefore the following regular lon-lat grids are of interest for remapping:
-#
-# regular  grid: nlat=96, nlon=192, npts=18432, dlat=1.875 deg, dlon=1.875 deg
-reg_lat_def_reg=-89.0625,1.875,89.0625
-reg_lon_def_reg=0.,1.875,358.125
-#
-# rhombus  grid: nlat=96, nlon=160, npts=15360, dlat=1.875 deg, dlon=2.250 deg
-reg_lat_def_rmb=$reg_lat_def_reg
-reg_lon_def_rmb=0.,2.25,357.75
-#
-# triangle grid: nlat=96, nlon=320, npts=30720, dlat=1.875 deg, dlon=1.125 deg
-reg_lat_def_tri=$reg_lat_def_reg
-reg_lon_def_tri=0.,1.125,358.875
-
 
 # Define output files
 # -------------------
@@ -346,8 +326,8 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'ta','ua','va','wa','wap','hus','hur','cl','clw','cli','rho',
-                    'zg','zghalf','pfull','phalf','dpres_mc'
+ ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
+                    'zg','pfull','ps'
 /
 EOF
   cat >> ${atmo_namelist} << EOF
@@ -363,13 +343,13 @@ EOF
  include_last     = .FALSE.
  ml_varlist       = 'group:prog_timemean','group:atmo_ml_vars',
                     'group:tracer_timemean','group:echam_timemean',
-                    'group:atmo_pl_vars','pres_msl','pres_sfc'
-                    'prm_cosmu0','prm_flxdwswtoa','prm_aclcov','prm_rsfl',
-                    'prm_rsfc','prm_ssfl','prm_ssfc','prm_totprec',
-                    'prm_qvi','prm_xlvi','prm_xivi','prm_swflxsfc',
-                    'prm_swflxtoa','prm_lwflxsfc','prm_lwflxtoa',
-                    'prm_tsfc','prm_evap','prm_lhflx','prm_shflx',
-                    'prm_u_stress','prm_v_stress','rho'
+                    'group:atmo_pl_vars','pres_msl','pres_sfc',
+                    'cosmu0','rsdt','clt','prlr',
+                    'prcr','prls','prcs','pr',
+                    'prw','cllvi','clivi','rsns',
+                    'rsnt','rlns','rlnt',
+                    'ts','evspsbl','hfls','hfss',
+                    'tauu','tauv','rho'
 /
 EOF
 fi
@@ -389,14 +369,14 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'ps'      , 'psl'     ,
-                    'cosmu0'  , 'rsdt'    ,
+ ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
+                    'cosmu0'  , 'daylght_frc', 'rsdt'    ,
                     'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
                     'rsns_wtr', 'rsns_ice', 'rsns_lnd',
                     'rlns_wtr', 'rlns_ice', 'rlns_lnd', 'tend_ta_rlw_impl',
                     'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts'      , 'ts_rad'  ,
                     'sic'     , 'sit'     ,
-                    'swvis_dif_frac', 'swnir_dif_frac', 'swvis', 'swnir',
+                    'visdffsfc','nirdffsfc','vissfc'  , 'nirsfc'  ,
                     'albedo'  , 'albedo_wtr', 'albedo_ice', 'albedo_lnd',
                     'albvisdir','albvisdif' , 'albnirdir' , 'albnirdif',
                     'albvisdir_ice', 'albvisdir_wtr', 'albvisdir_lnd',
@@ -446,7 +426,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
                     'tend_va_cnv'  ,
                     'tend_hus'     , 'tend_hus_dyn' , 'tend_hus_phy' ,
                     'tend_hus_cld' , 'tend_hus_cnv' , 'tend_hus_vdf' ,
-                    'pfull'
+                    'pfull','ps'
 /
 EOF
 fi
@@ -467,10 +447,10 @@ if [[ "$output_aer_3d" == "yes" ]]; then
  output_interval  = "${output_interval}"             ! ISO-format interval
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'prm_aer_aod_533',  'prm_aer_ssa_533',  'prm_aer_asy_533' , 
-                    'prm_aer_aod_2325', 'prm_aer_ssa_2325', 'prm_aer_asy_2325', 
-                    'prm_aer_aod_9731',
-                    'pfull'
+ ml_varlist       = 'aer_aod_533',  'aer_ssa_533',  'aer_asy_533' , 
+                    'aer_aod_2325', 'aer_ssa_2325', 'aer_asy_2325', 
+                    'aer_aod_9731',
+                    'pfull','ps'
 /
 EOF
 fi
