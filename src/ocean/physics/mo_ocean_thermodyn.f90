@@ -120,6 +120,63 @@ MODULE mo_ocean_thermodyn
     & r_aj0=1.91075e-4_wp, &
     & r_ak0=8.50935e-5_wp, r_ak1=-6.12293e-6_wp, r_ak2=5.2787e-8_wp, &
     & r_am0=-9.9348e-7_wp, r_am1=2.0816e-8_wp, r_am2=9.1697e-10_wp
+
+  ! for the TESO10 EOS
+  ! copied from MOM5.1
+  REAL(wp), PARAMETER :: mbfj_rho   = 1.017775176234136d+3
+  REAL(wp), PARAMETER :: mbfj_alpha = 2.435473441547041d-4
+  REAL(wp), PARAMETER :: mbfj_beta  = 7.284367916939847d-4
+  REAL(wp), PARAMETER :: mb_neutralrho=1033.093610463980
+
+  REAL(wp), PARAMETER :: v01 =  9.998420897506056d+2
+  REAL(wp), PARAMETER :: v02 =  2.839940833161907
+  REAL(wp), PARAMETER :: v03 = -3.147759265588511d-2
+  REAL(wp), PARAMETER :: v04 =  1.181805545074306d-3
+  REAL(wp), PARAMETER :: v05 = -6.698001071123802
+  REAL(wp), PARAMETER :: v06 = -2.986498947203215d-2
+  REAL(wp), PARAMETER :: v07 =  2.327859407479162d-4
+  REAL(wp), PARAMETER :: v08 = -3.988822378968490d-2
+  REAL(wp), PARAMETER :: v09 =  5.095422573880500d-4
+  REAL(wp), PARAMETER :: v10 = -1.426984671633621d-5
+  REAL(wp), PARAMETER :: v11 =  1.645039373682922d-7
+  REAL(wp), PARAMETER :: v12 = -2.233269627352527d-2
+  REAL(wp), PARAMETER :: v13 = -3.436090079851880d-4
+  REAL(wp), PARAMETER :: v14 =  3.726050720345733d-6
+  REAL(wp), PARAMETER :: v15 = -1.806789763745328d-4
+  REAL(wp), PARAMETER :: v16 =  6.876837219536232d-7
+  REAL(wp), PARAMETER :: v17 = -3.087032500374211d-7
+  REAL(wp), PARAMETER :: v18 = -1.988366587925593d-8
+  REAL(wp), PARAMETER :: v19 = -1.061519070296458d-11
+  REAL(wp), PARAMETER :: v20 =  1.550932729220080d-10
+  REAL(wp), PARAMETER :: v21 =  1.0
+  REAL(wp), PARAMETER :: v22 =  2.775927747785646d-3
+  REAL(wp), PARAMETER :: v23 = -2.349607444135925d-5
+  REAL(wp), PARAMETER :: v24 =  1.119513357486743d-6
+  REAL(wp), PARAMETER :: v25 =  6.743689325042773d-10
+  REAL(wp), PARAMETER :: v26 = -7.521448093615448d-3
+  REAL(wp), PARAMETER :: v27 = -2.764306979894411d-5
+  REAL(wp), PARAMETER :: v28 =  1.262937315098546d-7
+  REAL(wp), PARAMETER :: v29 =  9.527875081696435d-10
+  REAL(wp), PARAMETER :: v30 = -1.811147201949891d-11
+  REAL(wp), PARAMETER :: v31 = -3.303308871386421d-5
+  REAL(wp), PARAMETER :: v32 =  3.801564588876298d-7
+  REAL(wp), PARAMETER :: v33 = -7.672876869259043d-9
+  REAL(wp), PARAMETER :: v34 = -4.634182341116144d-11
+  REAL(wp), PARAMETER :: v35 =  2.681097235569143d-12
+  REAL(wp), PARAMETER :: v36 =  5.419326551148740d-6
+  REAL(wp), PARAMETER :: v37 = -2.742185394906099d-5
+  REAL(wp), PARAMETER :: v38 = -3.212746477974189d-7
+  REAL(wp), PARAMETER :: v39 =  3.191413910561627d-9
+  REAL(wp), PARAMETER :: v40 = -1.931012931541776d-12
+  REAL(wp), PARAMETER :: v41 = -1.105097577149576d-7
+  REAL(wp), PARAMETER :: v42 =  6.211426728363857d-10
+  REAL(wp), PARAMETER :: v43 = -1.119011592875110d-10
+  REAL(wp), PARAMETER :: v44 = -1.941660213148725d-11
+  REAL(wp), PARAMETER :: v45 = -1.864826425365600d-14
+  REAL(wp), PARAMETER :: v46 =  1.119522344879478d-14
+  REAL(wp), PARAMETER :: v47 = -1.200507748551599d-15
+  REAL(wp), PARAMETER :: v48 =  6.057902487546866d-17
+
   
 CONTAINS
     !-------------------------------------------------------------------------
@@ -418,6 +475,8 @@ CONTAINS
     CASE(3)
       CALL calculate_density_jmdwfg06(patch_3d, tracer, rho)
       !CALL calculate_density_JM_EOS(patch_2D, tracer, rho)
+    CASE(10)
+      CALL calculate_density_EOS10(patch_3d, tracer, rho)
     CASE default
       
     END SELECT
@@ -443,6 +502,9 @@ CONTAINS
         & temperatute(1:levels),  salinity(1:levels), p(1:levels), levels)
     CASE(3)
       rho(1:levels) = calculate_density_jmdwfg06_onColumn( &
+        & temperatute(1:levels),  salinity(1:levels), p(1:levels), levels)
+    CASE(10)
+      rho(1:levels) = calculate_density_EOS10_onColumn( &
         & temperatute(1:levels),  salinity(1:levels), p(1:levels), levels)
     CASE default
 
@@ -635,6 +697,48 @@ CONTAINS
   END SUBROUTINE calculate_density_jmdwfg06
   !-------------------------------------------------------------------------
 
+  SUBROUTINE calculate_density_EOS10(patch_3d, tracer, rho)
+    !
+    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
+    REAL(wp), INTENT(in)                   :: tracer(:,:,:,:)
+    REAL(wp), INTENT(inout)                :: rho(:,:,:)       !< density
+
+    ! !LOCAL VARIABLES:
+    ! loop indices
+    REAL(wp):: z_p(n_zlev), salinityReference_column(n_zlev)
+    INTEGER :: jc, jk, jb
+    INTEGER :: levels
+    INTEGER :: i_startblk, i_endblk, start_index, end_index
+    TYPE(t_subset_range), POINTER :: all_cells
+    TYPE(t_patch), POINTER :: patch_2D
+    !-----------------------------------------------------------------------
+    patch_2D   => patch_3d%p_patch_2d(1)
+    !-------------------------------------------------------------------------
+    all_cells => patch_2D%cells%ALL
+
+    !NOTE: here we use the Boussinesq approximation
+    IF(no_tracer>=2)THEN
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc, levels, z_p) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, jb, start_index, end_index)
+        DO jc = start_index, end_index
+           levels = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+           z_p(1:levels) = patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels,jb) * OceanReferenceDensity * sitodbar
+           rho(jc,1:levels,jb) = calculate_density_EOS10_onColumn( &
+             & tracer(jc,1:levels,jb,1),  tracer(jc,1:levels,jb,2), z_p(1:levels), levels)
+        END DO
+      END DO
+!ICON_OMP_END_PARALLEL_DO
+
+    ELSE
+      CALL finish("calculate_density_jmdwfg06", "no_tracer < 2")
+    ENDIF
+
+    CALL dbg_print('calculate_density_EOS10: rho', rho , "" ,5, patch_2D%cells%in_domain)
+
+  END SUBROUTINE calculate_density_EOS10
+  !-------------------------------------------------------------------------
+
   !----------------------------------------------------------------
   !>
   !!  Calculates density as a function of potential temperature and salinity
@@ -821,6 +925,53 @@ CONTAINS
     ! &rhoConst*9.80665_wp*dz*SItodBar,rhoConst*9.80616_wp*dz*SItodBar,dz,&
     ! &locPres*SItodBar
   END FUNCTION calculate_density_jmdwfg06_onColumn
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  ! EOS10 implementation from MOM5.1
+  FUNCTION calculate_density_EOS10_onColumn(temperatute, salinity, pressure, levels) result(rho)
+    INTEGER,  INTENT(in)       :: levels
+    REAL(wp), INTENT(in)       :: temperatute(1:levels)
+    REAL(wp), INTENT(in)       :: salinity(1:levels)
+    REAL(wp), INTENT(in)       :: pressure(1:levels)
+    REAL(wp)                   :: rho (1:levels)      !< density
+
+    REAL (wp)  :: t1(1:levels), t2(1:levels), s1(1:levels), p1(1:levels), &
+      & num(1:levels), sp5(1:levels), den(1:levels), p1t1(1:levels)! , rhoden(1:levels)
+    ! standard atmospheric pressure (dbar).
+    ! Should be set to 0.0 if assume zero pressure for the
+    ! overlying atmosphere.  But if have a realistic atmospheric
+    ! pressure loading, then set press_standard=10.1325.
+    real :: press_standard(1:levels)
+    !-------------------------------------------------------------------------------------------------------
+    press_standard(1:levels) = 0.0
+    t1(1:levels)  = temperatute(1:levels)
+    s1(1:levels)  = salinity(1:levels)
+    p1(1:levels)  = pressure(1:levels) - press_standard(1:levels)
+
+    sp5(1:levels) = sqrt(s1)
+    t2(1:levels)  = t1*t1
+    p1t1(1:levels) = p1*t1
+
+    num(1:levels) = v01 + t1*(v02 + t1*(v03 + v04*t1))                &
+          + s1*(v05 + t1*(v06 + v07*t1)                     &
+          + sp5*(v08 + t1*(v09 + t1*(v10 + v11*t1))))       &
+          + p1*(v12 + t1*(v13 + v14*t1) + s1*(v15 + v16*t1) &
+          + p1*(v17 + t1*(v18 + v19*t1) + v20*s1))
+
+    den(1:levels) =  v21 + t1*(v22 + t1*(v23 + t1*(v24 + v25*t1)))                &
+          + s1*(v26 + t1*(v27 + t1*(v28 + t1*(v29 + v30*t1))) + v36*s1 &
+          + sp5*(v31 + t1*(v32 + t1*(v33 + t1*(v34 + v35*t1)))))       &
+          + p1*(v37 + t1*(v38 + t1*(v39 + v40*t1))                     &
+          + s1*(v41 + v42*t1)                                          &
+          + p1*(v43 + t1*(v44 + v45*t1 + v46*s1)                       &
+          + p1*(v47 + v48*t1)))
+
+
+!              rho(1:levels) = num(1:levels)/(epsln+den(1:levels))
+    rho(1:levels) = num(1:levels)/den(1:levels)
+
+  END FUNCTION calculate_density_EOS10_onColumn
   !-------------------------------------------------------------------------
 
   !----------------------------------------------------------------

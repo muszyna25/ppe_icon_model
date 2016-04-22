@@ -371,9 +371,9 @@ MODULE mo_ocean_nml
   REAL(wp) :: k_pot_temp_h          = 1.0E+3_wp  ! horizontal mixing coefficient for pot. temperature
   REAL(wp) :: Temperature_VerticalDiffusion_background          = 1.0E-4_wp  ! vertical mixing coefficient for pot. temperature
   REAL(wp) :: Salinity_VerticalDiffusion_background               = 1.0E-4_wp  ! vertical diffusion coefficient for salinity
-  REAL(wp) :: k_tracer_dianeutral_parameter   = 1.0E+3_wp  !dianeutral tracer diffusivity for GentMcWilliams-Redi parametrization
-  REAL(wp) :: k_tracer_isoneutral_parameter   = 1.0E-4_wp  !isoneutral tracer diffusivity for GentMcWilliams-Redi parametrization
-  REAL(wp) :: k_tracer_GM_kappa_parameter     = 1.0E-4_wp  !kappa parameter in GentMcWilliams parametrization
+  REAL(wp) :: k_tracer_dianeutral_parameter   = 1.0E-5_wp  !dianeutral tracer diffusivity for GentMcWilliams-Redi parametrization
+  REAL(wp) :: k_tracer_isoneutral_parameter   = 1.0E+3_wp  !isoneutral tracer diffusivity for GentMcWilliams-Redi parametrization
+  REAL(wp) :: k_tracer_GM_kappa_parameter     = 1.0E+3_wp  !kappa parameter in GentMcWilliams parametrization
 !   REAL(wp) :: max_vert_diff_veloc   = 0.0_wp     ! maximal diffusion coefficient for velocity
   REAL(wp) :: tracer_convection_MixingCoefficient    = 0.0_wp     ! maximal diffusion coefficient for tracer
   REAL(wp) :: biharmonic_const=0.005_wp !not used
@@ -448,6 +448,7 @@ MODULE mo_ocean_nml
     & &! GMRedi parameters !
     &  GMRedi_configuration        ,&
     &  tapering_scheme             ,&
+    &  GMRedi_usesRelativeMaxSlopes,&
     &  S_max, S_d, S_critical, c_speed, &
     &  k_tracer_dianeutral_parameter,   &
     &  k_tracer_isoneutral_parameter,   &
@@ -504,11 +505,7 @@ MODULE mo_ocean_nml
     &  wma_visc                    ,&
     &  use_reduced_mixing_under_ice,&
     &  use_wind_mixing,             &
-    &  GMRedi_configuration        ,&
-    &  tapering_scheme             ,&
-    &  GMRedi_usesRelativeMaxSlopes, &
-    &  S_max, S_d,S_critical, c_speed,   &
-    &  LinearThermoExpansionCoefficient, &
+   &  LinearThermoExpansionCoefficient, &
     &  OceanReferenceDensity,       &
     &  tracer_TopWindMixing,        &
     &  WindMixingDecayDepth,        &
@@ -520,6 +517,7 @@ MODULE mo_ocean_nml
 
   INTEGER  :: EOS_TYPE              = 2          ! 1=linear EOS,2=(nonlinear, from MPIOM)
                                                  ! 3=nonlinear Jacket-McDoudgall-formulation (not yet recommended)
+                                                 ! 10 = EOS10, note that the GMRedo needs to be updated to use the EOS10
   REAL(wp) :: LinearThermoExpansionCoefficient = a_T
   REAL(wp) :: OceanReferenceDensity = rho_ref
   
