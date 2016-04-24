@@ -31,7 +31,6 @@ MODULE mo_ocean_tracer
     & iswm_oce, l_edge_based,             &
     & flux_calculation_horz, flux_calculation_vert, miura_order1,         &
     & l_with_vert_tracer_diffusion, l_with_vert_tracer_advection,         &
-    & tracer_update_mode,      &
     & l_skip_tracer,                                       &! , use_ThermoExpansion_Correction
     & GMRedi_configuration,GMRedi_combined,  GM_only,Redi_only ,          &
     & Cartesian_Mixing, tracer_threshold_min, tracer_threshold_max,       &
@@ -58,7 +57,6 @@ MODULE mo_ocean_tracer
   USE mo_ocean_GM_Redi,             ONLY: calc_ocean_physics, prepare_ocean_physics
   USE mo_ocean_math_operators,      ONLY: div_oce_3d, verticalDiv_scalar_onFullLevels! !verticalDiv_scalar_midlevel
   USE mo_scalar_product,            ONLY: map_edges2edges_viacell_3d_const_z
-  
   IMPLICIT NONE
 
   PRIVATE
@@ -251,6 +249,7 @@ CONTAINS
     !Local variables
     REAL(wp) :: delta_t, delta_z,delta_z_new, delta_z1,delta_z_new1
     REAL(wp) :: div_adv_flux_horz(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: div_adv_flux_vert(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)    
     REAL(wp) :: div_diff_flux_horz(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: flux_vert(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: div_diff_flx(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
@@ -290,19 +289,22 @@ CONTAINS
     IF(iswm_oce == 1) THEN
 
       div_adv_flux_horz   (1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks) = 0.0_wp
+      div_adv_flux_vert   (1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks) = 0.0_wp      
       div_diff_flux_horz  (1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks) = 0.0_wp
 
       !---------------------------------------------------------------------
-      CALL advect_horz( patch_3d,       &
+      CALL advect_horz( patch_3d,         &
         & old_ocean_tracer%concentration, &
         & p_os,                           &
         & p_op_coeff,                     &
         & k_h,                            &
         & p_os%p_prog(nold(1))%h,         &
         & p_os%p_prog(nnew(1))%h,         &
-        & div_adv_flux_horz,tracer_index)
+        & div_adv_flux_horz,              &
+        & div_adv_flux_vert,              &
+        & tracer_index)
 
-      CALL diffuse_horz( patch_3d,      &
+      CALL diffuse_horz( patch_3d,         &
         & old_ocean_tracer%concentration, &
         & p_os,                           &
         & p_op_coeff,                     &
@@ -336,16 +338,20 @@ CONTAINS
 
       CALL sync_patch_array(sync_c, patch_2D, new_ocean_tracer%concentration)
         
-   !The 3D-case: first vertical fluxes than preliminary tracer value and
-    !finally implicit vertical diffusion
+    !The 3D-case
     ELSE ! IF( iswm_oce /= 1) THEN
 
-         CALL advect_diffuse_tracer( &
-           & patch_3d, old_ocean_tracer,         &
-           & p_os, p_op_coeff,                     &
-           & bc_top_tracer, bc_bot_tracer, p_param,&
-           & k_h, a_v,                             &
-           & new_ocean_tracer, tracer_index)
+         CALL advect_diffuse_tracer( patch_3d, &
+           & old_ocean_tracer,&
+           & p_os,            &
+           & p_op_coeff,      &
+           & bc_top_tracer,   &
+           & bc_bot_tracer,   &
+           & p_param,         &
+           & k_h,             &
+           & a_v,             &
+           & new_ocean_tracer,&
+           & tracer_index)
 
     ENDIF
 
@@ -411,14 +417,13 @@ CONTAINS
     trac_old => old_ocean_tracer%concentration
     trac_new => new_ocean_tracer%concentration
 
-    patch_2D         => patch_3d%p_patch_2d(1)
+    patch_2D        => patch_3d%p_patch_2d(1)
     cells_in_domain => patch_2D%cells%in_domain
     edges_in_domain => patch_2D%edges%in_domain
     delta_t = dtime
 
 !     div_adv_flux_horz (1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
 !     div_diff_flux_horz(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
-
 !     flux_horz(1:nproma,1:n_zlev,1: 1:patch_3d%p_patch_2d(1)%nblks_e)=0.0_wp
     !---------------------------------------------------------------------
  
@@ -426,12 +431,10 @@ CONTAINS
     !---------------------------------------------------------------------
     IF ( l_with_vert_tracer_advection ) THEN
 
-      CALL advect_flux_vertical( patch_3d,                     &
+      CALL advect_flux_vertical( patch_3d,&
         & old_ocean_tracer%concentration, &
         & p_os,                           &
         & p_op_coeff,                     &
-!         & bc_top_tracer,                  &
-!         & bc_bot_tracer,                  &
         & div_adv_flux_vert,              &
         & tracer_index)
 
@@ -453,15 +456,10 @@ CONTAINS
       & p_os%p_prog(nold(1))%h,         &
       & p_os%p_prog(nnew(1))%h,         &
       & div_adv_flux_horz,              &
+      & div_adv_flux_vert,              &
       & tracer_index )
     !---------------------------------------------------------------------
 
-
-
-    IF(GMRedi_configuration/=Cartesian_Mixing)THEN
-      !calculate horizontal and vertical Redi and GM fluxes
-      CALL calc_ocean_physics(patch_3d, p_os, p_param,p_op_coeff, tracer_index)
-    ENDIF
 
 
     IF(GMRedi_configuration==Cartesian_Mixing)THEN
@@ -475,8 +473,12 @@ CONTAINS
       & p_os%p_prog(nnew(1))%h,         &
       & div_diff_flux_horz)
 
-    ELSE
-      !horizontal
+    ELSEIF(GMRedi_configuration/=Cartesian_Mixing)THEN
+    
+      !calculate horizontal and vertical Redi and GM fluxes
+      CALL calc_ocean_physics(patch_3d, p_os, p_param,p_op_coeff, tracer_index)
+    
+      !calculate horizontal divergence of diffusive flux
       CALL div_oce_3d( p_os%p_diag%GMRedi_flux_horz(:,:,:,tracer_index),&
                    &   patch_3d, &
                    &   p_op_coeff%div_coeff, &
@@ -485,10 +487,10 @@ CONTAINS
       idt_src=3  ! output print level (1-5, fix)
       CALL dbg_print('AftGMRedi: GMRediflux_h',p_os%p_diag%GMRedi_flux_horz(:,:,:,tracer_index),&
       &str_module,idt_src, in_subset=edges_in_domain)
-      CALL dbg_print('AftGMRedi: GMRediflux_v',p_os%p_diag%GMRedi_flux_vert(:,:,:,tracer_index),&
-      & str_module, idt_src, in_subset=cells_in_domain)
       CALL dbg_print('AftGMRedi: divGMRediflux_h',div_diff_flux_horz(:,:,:),&
       &str_module,idt_src, in_subset=cells_in_domain)
+     CALL dbg_print('AftGMRedi: GMRediflux_v',p_os%p_diag%GMRedi_flux_vert(:,:,:,tracer_index),&
+      & str_module, idt_src, in_subset=cells_in_domain)      
       !---------------------------------------------------------------------
 
     END IF
@@ -551,7 +553,6 @@ CONTAINS
     END DO
 !ICON_OMP_END_PARALLEL_DO
 
-! write(1020,*)'tracer old-new',old_ocean_tracer%concentration(27,3,124),new_ocean_tracer%concentration(27,3,124)!,&
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
@@ -616,9 +617,7 @@ CONTAINS
     CALL dbg_print('aft. AdvIndivTrac: trac_old', trac_old, str_module, 3, in_subset=cells_in_domain)
     CALL dbg_print('aft. AdvIndivTrac: trac_new', trac_new, str_module, 3, in_subset=cells_in_domain)
     !---------------------------------------------------------------------
-  
 
-! write(1020,*)'------------------------------------'                
   END SUBROUTINE advect_diffuse_tracer
   !-------------------------------------------------------------------------
 
