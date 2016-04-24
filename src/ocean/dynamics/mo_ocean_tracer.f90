@@ -400,9 +400,9 @@ CONTAINS
     REAL(wp) :: delta_t, delta_z,delta_z_new, delta_z1,delta_z_new1
     REAL(wp) :: div_adv_flux_horz(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: div_diff_flux_horz(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-!     REAL(wp) :: div_diff_flux_horz2(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: flux_horz(nproma,n_zlev, patch_3d%p_patch_2D(1)%nblks_e)
     REAL(wp) :: div_adv_flux_vert(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: div_diff_flx_vert(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)        
     REAL(wp), POINTER :: trac_old(:,:,:), trac_new(:,:,:) ! temporary pointers to the concentration arrays
 
     INTEGER :: jc,level,jb, je
@@ -483,13 +483,18 @@ CONTAINS
                    &   patch_3d, &
                    &   p_op_coeff%div_coeff, &
                    &   div_diff_flux_horz )
+      !vertical div of GMRedi-flux
+      CALL verticalDiv_scalar_onFullLevels( patch_3d, &
+                                      & p_os%p_diag%GMRedi_flux_vert(:,:,:,tracer_index), &
+                                      & div_diff_flx_vert)
+                   
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=3  ! output print level (1-5, fix)
-      CALL dbg_print('AftGMRedi: GMRediflux_h',p_os%p_diag%GMRedi_flux_horz(:,:,:,tracer_index),&
-      &str_module,idt_src, in_subset=edges_in_domain)
+      !CALL dbg_print('AftGMRedi: GMRediflux_h',p_os%p_diag%GMRedi_flux_horz(:,:,:,tracer_index),&
+      !&str_module,idt_src, in_subset=edges_in_domain)
       CALL dbg_print('AftGMRedi: divGMRediflux_h',div_diff_flux_horz(:,:,:),&
       &str_module,idt_src, in_subset=cells_in_domain)
-     CALL dbg_print('AftGMRedi: GMRediflux_v',p_os%p_diag%GMRedi_flux_vert(:,:,:,tracer_index),&
+      CALL dbg_print('AftGMRedi: divGMRediflux_v',div_diff_flx_vert(:,:,:),&
       & str_module, idt_src, in_subset=cells_in_domain)      
       !---------------------------------------------------------------------
 
