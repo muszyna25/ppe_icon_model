@@ -67,7 +67,7 @@ MODULE mo_ocean_surface
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
-  USE mo_physical_constants,  ONLY: rho_ref, alv, tmelt, tf, clw, albedoW_sim, stbo, zemiss_def
+  USE mo_physical_constants,  ONLY: alv, tmelt, tf, clw, albedoW_sim, stbo, zemiss_def
   USE mo_physical_constants,  ONLY: rd, cpd, fr_fac, alf  ! cd_ia, used for omip bulk formula
   USE mo_impl_constants,      ONLY: max_char_length, sea_boundary, MIN_DOLIC
   USE mo_math_utilities,      ONLY: gvec2cvec
@@ -476,7 +476,7 @@ CONTAINS
 
       ! provide evaporation from latent heat flux for OMIP case
       ! under sea ice evaporation is neglected, atmos_fluxes%latw is flux in the absence of sea ice
-      atmos_fluxes%FrshFlux_Evaporation(:,:) = atmos_fluxes%latw(:,:) / (alv*rho_ref)
+      atmos_fluxes%FrshFlux_Evaporation(:,:) = atmos_fluxes%latw(:,:) / (alv*OceanReferenceDensity)
 
       !  copy variables into atmos_fluxes
       atmos_fluxes%FrshFlux_Runoff(:,:)      = p_as%FrshFlux_Runoff(:,:)
@@ -736,7 +736,7 @@ CONTAINS
         DO jc = i_startidx_c, i_endidx_c
           IF (p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary) THEN
             p_oce_sfc%sst(jc,jb) = p_oce_sfc%sst(jc,jb) + &
-              &                    p_oce_sfc%HeatFlux_Total(jc,jb)*dtime/(clw*rho_ref*zUnderIceIni(jc,jb))
+              &                    p_oce_sfc%HeatFlux_Total(jc,jb)*dtime/(clw*OceanReferenceDensity*zUnderIceIni(jc,jb))
           ENDIF
         ENDDO
       ENDDO

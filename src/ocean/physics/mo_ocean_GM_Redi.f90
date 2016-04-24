@@ -24,7 +24,7 @@ MODULE mo_ocean_GM_Redi
   USE mo_math_utilities,            ONLY: t_cartesian_coordinates
   USE mo_impl_constants,            ONLY: sea_boundary, sea, min_dolic
   USE mo_math_constants,            ONLY: pi, dbl_eps
-  USE mo_physical_constants,        ONLY: grav, sal_ref, rho_inv, a_t, b_s, &
+  USE mo_physical_constants,        ONLY: grav, sal_ref, a_t, b_s, &
     & sitodbar, sfc_press_bar
   USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer,                    &
     & GMRedi_configuration,&
@@ -33,8 +33,8 @@ MODULE mo_ocean_GM_Redi
     & k_tracer_GM_kappa_parameter,&
     & GMRedi_configuration,GMRedi_combined, GM_only,Redi_only,Cartesian_Mixing, &
     & tapering_scheme,tapering_DanaMcWilliams,tapering_Large,tapering_Griffies, &
-    & S_max, S_d, S_critical, c_speed, GMRedi_usesRelativeMaxSlopes
-    
+    & S_max, S_d, S_critical, c_speed, GMRedi_usesRelativeMaxSlopes, eos_type!,            &
+    ! & OceanReferenceDensity_inv
 
   USE mo_util_dbg_prnt,             ONLY: dbg_print
   USE mo_parallel_config,           ONLY: nproma
@@ -65,7 +65,7 @@ MODULE mo_ocean_GM_Redi
   PUBLIC  :: prepare_ocean_physics
   PUBLIC  :: calc_ocean_physics
   PUBLIC  :: calc_neutralslope_coeff
-  PUBLIC  :: calc_neutralslope_coeff_func_onColumn
+  PUBLIC  :: calc_neutralslope_coeff_onColumn
 !   PUBLIC  :: calc_neutralslope_coeff_func
   
   PRIVATE :: calc_combined_GentMcWilliamsRedi_flux
@@ -598,7 +598,7 @@ CONTAINS
         !4) calculate slope coefficients as thermal expansion and saline contraction coefficients
         IF (no_tracer==2) salinityColumn(1:end_level) = salinity(cell_index,1:end_level,blockNo)
 
-        neutral_coeff = calc_neutralslope_coeff_func_onColumn(         &
+        neutral_coeff = calc_neutralslope_coeff_onColumn(         &
           & pot_temp(cell_index,1:end_level,blockNo), salinityColumn(1:end_level),  &
           & depth_cellinterface(cell_index,2:end_level+1,blockNo), end_level)
 
@@ -1324,7 +1324,7 @@ CONTAINS
         
         IF (no_tracer>=2) salinity(1:levels) = tracer(cell_index,1:levels,blockNo,2)
 
-        neutral_coeff = calc_neutralslope_coeff_func_onColumn( &
+        neutral_coeff = calc_neutralslope_coeff_onColumn( &
           & tracer(cell_index,1:levels,blockNo,1), salinity(1:levels), &
           & depth_cellinterface(cell_index,2:levels+1,blockNo), levels)
           
@@ -1497,6 +1497,32 @@ CONTAINS
 !   END FUNCTION calc_neutralslope_coeff_func
   !-------------------------------------------------------------------------
 
+  FUNCTION calc_neutralslope_coeff_onColumn(t,s,p,levels) result(coeff)
+    INTEGER, INTENT(in)   :: levels
+    REAL(wp), INTENT(in)  :: t(:)        !  potential temperature (in ITS-90) [C]
+    REAL(wp), INTENT(in)  :: s(:)        !  salinity (in PSS-78) [psu]
+    REAL(wp), INTENT(in)  :: p(:)       !  pressure (in dezi-bar) [db]
+    REAL(wp)              :: coeff(1:n_zlev,2) !  thermal expansion [1/C] and saline contraction [1/psu] coefficients
+
+    CHARACTER(*), PARAMETER :: method_name = 'GMRedi/calc_neutralslope_coeff'
+    
+
+    SELECT CASE (eos_type)
+    CASE(1)
+      CALL finish(method_name, "not implemented for linear EOS")
+    CASE(2)
+      coeff = calc_neutralslope_coeff_MPIOM_onColumn(t,s,p,levels)
+    CASE(3)
+!       CALL warning(method_name, "this is not the correct GMRedi for the EOS3")
+      coeff = calc_neutralslope_coeff_MPIOM_onColumn(t,s,p,levels)
+    CASE(10)
+      CALL finish(method_name, "not implemented for EOS10")
+    CASE default
+
+    END SELECT
+
+
+  END FUNCTION calc_neutralslope_coeff_onColumn
   !-------------------------------------------------------------------------
   !>
   !! Calculates polynomial coefficients for thermal expansion and saline contraction
@@ -1509,7 +1535,7 @@ CONTAINS
   !! Initial version by Stephan Lorenz, MPI-M (2014)
   !!
   !<Optimize:inUse>
-  FUNCTION calc_neutralslope_coeff_func_onColumn(t,s,p,levels) result(coeff)
+  FUNCTION calc_neutralslope_coeff_MPIOM_onColumn(t,s,p,levels) result(coeff)
     !-----------------------------------------------------------------
     ! REFERENCES:
     !    McDougall, T.J. 1987.  Neutral Surfaces
@@ -1616,7 +1642,7 @@ CONTAINS
       coeff(level,1) = aob(level)* coeff(level, 2)
     ENDDO
 
-  END FUNCTION calc_neutralslope_coeff_func_onColumn
+  END FUNCTION calc_neutralslope_coeff_MPIOM_onColumn
 
 
 

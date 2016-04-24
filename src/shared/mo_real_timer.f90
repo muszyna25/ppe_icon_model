@@ -561,8 +561,6 @@ CONTAINS
     ENDIF
 
     SELECT CASE(profiling_output)
-    CASE(0) ! do nothing
-      RETURN
     CASE(TIMER_MODE_WRITE_FILES, TIMER_MODE_DETAILED)
       CALL timer_report_full(it)
     CASE(TIMER_MODE_AGGREGATED)

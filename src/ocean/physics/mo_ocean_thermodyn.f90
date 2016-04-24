@@ -29,12 +29,12 @@ MODULE mo_ocean_thermodyn
   !-------------------------------------------------------------------------
   USE mo_kind,                ONLY: wp
   USE mo_ocean_nml,           ONLY: n_zlev, eos_type, no_tracer, fast_performance_level,l_partial_cells, &
-    & LinearThermoExpansionCoefficient, OceanReferenceDensity
+    & LinearThermoExpansionCoefficient, OceanReferenceDensity, OceanReferenceDensity_inv
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
   USE mo_impl_constants,      ONLY: sea_boundary, sea_boundary, min_dolic !, &
   USE mo_exception,           ONLY: finish
   USE mo_loopindices,         ONLY: get_indices_c!, get_indices_e, get_indices_v
-  USE mo_physical_constants,  ONLY: grav, sal_ref, rho_inv, b_s, &
+  USE mo_physical_constants,  ONLY: grav, sal_ref, b_s, &
     & sitodbar, sfc_press_bar
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_parallel_config,     ONLY: nproma
@@ -211,7 +211,7 @@ CONTAINS
     INTEGER :: je, jk, jb, jc, ic1,ic2,ib1,ib2
     INTEGER :: i_startblk, i_endblk, start_index, end_index
     REAL(wp) :: z_full_c1, z_box_c1, z_full_c2, z_box_c2
-    REAL(wp),PARAMETER :: z_grav_rho_inv=rho_inv * grav
+    REAL(wp) :: z_grav_rho_inv
     TYPE(t_subset_range), POINTER :: edges_in_domain
     TYPE(t_patch), POINTER :: patch_2D
     INTEGER,  DIMENSION(:,:,:), POINTER :: iidx, iblk
@@ -219,6 +219,7 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_cells
     REAL(wp) :: prism_center_dist !distance between prism centers without surface elevation
     !-----------------------------------------------------------------------
+    z_grav_rho_inv = OceanReferenceDensity_inv * grav
     patch_2D        => patch_3d%p_patch_2d(1)
     edges_in_domain => patch_2D%edges%in_domain
     all_cells       => patch_2D%cells%ALL
@@ -304,7 +305,7 @@ CONTAINS
     INTEGER :: je, jk, jb, jc, ic1,ic2,ib1,ib2
     INTEGER :: i_startblk, i_endblk, start_index, end_index
     REAL(wp) :: z_full_c1, z_box_c1, z_full_c2, z_box_c2
-    REAL(wp),PARAMETER :: z_grav_rho_inv=rho_inv * grav
+    REAL(wp) :: z_grav_rho_inv
     TYPE(t_subset_range), POINTER :: edges_in_domain
     TYPE(t_patch), POINTER :: patch_2D
     INTEGER,  DIMENSION(:,:,:), POINTER :: iidx, iblk
@@ -312,6 +313,7 @@ CONTAINS
     REAL(wp) :: press_c1
     REAL(wp) :: press_c2
     !-----------------------------------------------------------------------
+    z_grav_rho_inv = OceanReferenceDensity_inv * grav
     patch_2D        => patch_3d%p_patch_2d(1)
     edges_in_domain => patch_2D%edges%in_domain   
     prism_thick_e   => patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_e
@@ -343,7 +345,7 @@ CONTAINS
           z_box_c2 = prism_thick_c(ic2,jk,ib2) * rho(ic2,jk,ib2)
           
           press_c1 = ( z_full_c1 + 0.5_wp * z_box_c1 ) * z_grav_rho_inv
-          press_c2 = ( z_full_c2 + 0.5_wp * z_box_c2 ) * z_grav_rho_inv 
+          press_c2 = ( z_full_c2 + 0.5_wp * z_box_c2 ) * z_grav_rho_inv
           
           press_grad(je,jk,jb)=(press_c2-press_c1)*grad_coeff(je,jk,jb)
           
@@ -388,10 +390,11 @@ CONTAINS
     INTEGER :: i_startblk, i_endblk, start_index, end_index
     REAL(wp) :: z_full, z_box
     !   REAL(wp), POINTER :: del_zlev_m(:)
-    REAL(wp),PARAMETER :: z_grav_rho_inv=rho_inv * grav
+    REAL(wp) :: z_grav_rho_inv
     TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_patch), POINTER :: patch_2D
     !-----------------------------------------------------------------------
+    z_grav_rho_inv = OceanReferenceDensity_inv * grav
     patch_2D   => patch_3d%p_patch_2d(1)
     !-------------------------------------------------------------------------
     IF(l_partial_cells)THEN
@@ -426,7 +429,7 @@ CONTAINS
           z_box = prism_thick_c(jc,jk,jb) * rho(jc,jk,jb)      !-OceanReferenceDensity!&!     pressure in single box at layer jk
 
           press_hyd(jc,jk,jb) = ( z_full + 0.5_wp * z_box ) * z_grav_rho_inv
-          ! rho_inv*grav  !hydrostatic press at level jk
+          ! OceanReferenceDensity_inv*grav  !hydrostatic press at level jk
           ! =half of pressure at actual box+ sum of all boxes above
           z_full              = z_full + z_box
           

@@ -505,8 +505,6 @@ MODULE mo_ocean_nml
     &  wma_visc                    ,&
     &  use_reduced_mixing_under_ice,&
     &  use_wind_mixing,             &
-   &  LinearThermoExpansionCoefficient, &
-    &  OceanReferenceDensity,       &
     &  tracer_TopWindMixing,        &
     &  WindMixingDecayDepth,        &
     &  velocity_TopWindMixing,      &
@@ -519,7 +517,8 @@ MODULE mo_ocean_nml
                                                  ! 3=nonlinear Jacket-McDoudgall-formulation (not yet recommended)
                                                  ! 10 = EOS10, note that the GMRedo needs to be updated to use the EOS10
   REAL(wp) :: LinearThermoExpansionCoefficient = a_T
-  REAL(wp) :: OceanReferenceDensity = rho_ref
+  REAL(wp) :: OceanReferenceDensity         ! Note that this is updated according the the eos, unless defined by the namelist
+  REAL(wp) :: OceanReferenceDensity_inv 
   
   NAMELIST/ocean_physics_nml/&
     &  EOS_TYPE                    , &
@@ -841,6 +840,9 @@ MODULE mo_ocean_nml
       END IF
     END SELECT
 
+    ! physics
+    ! this is a stupid way to see if we read the OceanReferenceDensity from the namelist
+    OceanReferenceDensity = -1.0_wp
     CALL position_nml ('ocean_physics_nml', status=i_status)
     IF (my_process_is_stdio()) THEN
       iunit = temp_defaults()
@@ -854,6 +856,18 @@ MODULE mo_ocean_nml
         WRITE(iunit, ocean_physics_nml)    ! write settings to temporary text file
       END IF
     END SELECT
+    IF (OceanReferenceDensity == -1.0_wp) THEN ! replace by default value
+      SELECT CASE(eos_type)
+      CASE(3)
+        OceanReferenceDensity = 1035.0_wp
+      CASE(10)
+        OceanReferenceDensity = 1035.0_wp
+        CALL warning("ocean_physics_nml","EOS10 requires absolute salinity and conservetive temperature")
+      CASE default
+        OceanReferenceDensity = rho_ref
+      END SELECT
+    ENDIF
+    OceanReferenceDensity_inv = 1.0_wp/OceanReferenceDensity
 
     CALL position_nml ('ocean_horizontal_diffusion_nml', status=i_status)
     IF (my_process_is_stdio()) THEN

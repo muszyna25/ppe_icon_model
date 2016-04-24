@@ -50,12 +50,13 @@ MODULE mo_ocean_ab_timestepping_mimetic
     & MASS_MATRIX_INVERSION_ALLTERMS,                     &
     & PPscheme_type,                            &
     & PPscheme_ICON_PP_Edge_vnPredict_type,     &
-    & solver_FirstGuess, MassMatrix_solver_tolerance
+    & solver_FirstGuess, MassMatrix_solver_tolerance, &
+    & OceanReferenceDensity_inv
     
   USE mo_run_config,                ONLY: dtime, ltimer, debug_check_level
   USE mo_timer  
   USE mo_dynamics_config,           ONLY: nold, nnew
-  USE mo_physical_constants,        ONLY: grav,rho_inv
+  USE mo_physical_constants,        ONLY: grav
   USE mo_ocean_initialization,      ONLY: is_initial_timestep
   USE mo_ocean_types,               ONLY: t_hydro_ocean_state, t_hydro_ocean_diag
   USE mo_model_domain,              ONLY: t_patch, t_patch_3d
@@ -1522,7 +1523,7 @@ CONTAINS
     
         !Step 4) Finalize LHS calculations
         DO jc = start_index, end_index        
-          !lhs(jc,blockNo) =(x(jc,blockNo) - gdt2 * ab_gam * ab_beta * lhs_div_z_c(jc,blockNo)) / gdt2 !rho_sfc(jc,blockNo)*rho_inv
+          !lhs(jc,blockNo) =(x(jc,blockNo) - gdt2 * ab_gam * ab_beta * lhs_div_z_c(jc,blockNo)) / gdt2 !rho_sfc(jc,blockNo)*OceanReferenceDensity_inv
           lhs(jc,blockNo) = x(jc,blockNo) * gdt2_inv - gam_times_beta * lhs(jc,blockNo)        
         END DO
       END DO ! blockNo
@@ -1536,7 +1537,7 @@ CONTAINS
                 & level=topLevel,blockNo=blockNo, start_index=start_index, end_index=end_index)        
         !Step 4) Finalize LHS calculations
         DO jc = start_index, end_index
-          !lhs(jc,blockNo) =(x(jc,blockNo) - gdt2 * ab_gam * ab_beta * lhs_div_z_c(jc,blockNo)) / gdt2 !rho_sfc(jc,blockNo)*rho_inv
+          !lhs(jc,blockNo) =(x(jc,blockNo) - gdt2 * ab_gam * ab_beta * lhs_div_z_c(jc,blockNo)) / gdt2 !rho_sfc(jc,blockNo)*OceanReferenceDensity_inv
           lhs(jc,blockNo) = x(jc,blockNo) * gdt2_inv - gam_times_beta * lhs(jc,blockNo)
         END DO
       END DO ! blockNo
@@ -1650,7 +1651,7 @@ CONTAINS
 
         !Step 4) Finalize LHS calculations
         DO jc = start_index, end_index
-          !lhs(jc,blockNo) =(x(jc,blockNo) - gdt2 * ab_gam * ab_beta * lhs_div_z_c(jc,blockNo)) / gdt2 !rho_sfc(jc,blockNo)*rho_inv
+          !lhs(jc,blockNo) =(x(jc,blockNo) - gdt2 * ab_gam * ab_beta * lhs_div_z_c(jc,blockNo)) / gdt2 !rho_sfc(jc,blockNo)*OceanReferenceDensity_inv
           lhs(jc,blockNo) = x(jc,blockNo) * gdt2_inv - gam_times_beta * lhs(jc,blockNo)
         END DO
       END DO ! blockNo

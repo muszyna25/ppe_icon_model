@@ -52,7 +52,7 @@ MODULE mo_ocean_testbed_modules
     & t_sea_ice
   USE mo_physical_constants,     ONLY: rhoi, rhos, clw, alf, Tf
   USE mo_ocean_physics_state,    ONLY: t_ho_params
-  USE mo_ocean_GM_Redi,          ONLY: calc_neutralslope_coeff, calc_neutralslope_coeff_func_onColumn, &
+  USE mo_ocean_GM_Redi,          ONLY: calc_neutralslope_coeff, calc_neutralslope_coeff_onColumn, &
   &                                    prepare_ocean_physics,calc_ocean_physics
   USE mo_ocean_diagnostics,      ONLY: calc_fast_oce_diagnostics, calc_psi
   USE mo_ocean_thermodyn,        ONLY: calc_potential_density, calculate_density
@@ -1171,7 +1171,7 @@ ENDIF
     t = 10.0_wp
     s = 40.0_wp
     p = 4000.0_wp    !  4000 dbar = 400 bar
-    co = calc_neutralslope_coeff_func_onColumn(t,s,p,n_zlev)
+    co = calc_neutralslope_coeff_onColumn(t,s,p,n_zlev)
     aob = co(1,1)/co(1,2)
 
     WRITE(message_text,'(3(a,1pg18.8))') '  Parameter: alpha = ',co(1,1), ' beta = ',co(1,2), ' alpha/beta = ',aob
