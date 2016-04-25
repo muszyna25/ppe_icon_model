@@ -671,7 +671,7 @@ CONTAINS
 
       ! create ID list for tracer group hydroMass
       ! This list contains the IDs of all condensate fields 
-      ! which are required for computing the liquid water loading term.
+      ! which are required for computing the water loading term.
       !
       IF ( iforcing == inwp .OR. iforcing == iecham ) THEN
         ! in these cases it is assured that the hydroMass group is not empty.
@@ -757,9 +757,9 @@ CONTAINS
 
   !-----------------------------------------------------------------------------
   !
-  ! Should be overloaded to be able to search for the different information 
-  ! In the proposed structure for the linked list, in the example only
-  ! A character string is used so it is straight forward only one find
+  ! Create vector containing all IDs of tracers which are of type 
+  ! hydroMass. This list will be used to compute the water loading 
+  ! term.
   !
   SUBROUTINE create_idlist_hydroMass (tracer_list, idList)
     !

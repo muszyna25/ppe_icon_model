@@ -87,9 +87,6 @@ MODULE mo_nh_diagnose_pres_temp
 
     LOGICAL  :: l_opt_calc_temp, l_opt_calc_pres, l_opt_calc_temp_ifc
 
-    INTEGER, POINTER :: condensate_list(:) ! list of tracer IDs which contain prognostic condensate.
-                                           ! Required for computing the liquid water loading.
-
 
     IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
 
@@ -140,13 +137,6 @@ MODULE mo_nh_diagnose_pres_temp
     i_startblk = pt_patch%cells%start_block(i_rlstart)
     i_endblk   = pt_patch%cells%end_block(i_rlend)
 
-    IF (ALLOCATED(advection_config(jg)%ilist_hydroMass)) THEN
-      ! Some compilers throw a runtime error, when pointing to  
-      ! a non-allocated array.
-      condensate_list => advection_config(jg)%ilist_hydroMass
-    ELSE
-      condensate_list =>NULL()
-    ENDIF
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jc) ICON_OMP_DEFAULT_SCHEDULE
@@ -158,8 +148,8 @@ MODULE mo_nh_diagnose_pres_temp
       IF ( l_opt_calc_temp) THEN
         IF ( lforcing .AND. iforcing /= iheldsuarez  ) THEN
 
-          CALL diag_temp (pt_prog, pt_prog_rcf, condensate_list, pt_diag, &
-            &            jb, i_startidx, i_endidx, slev, slev_moist, nlev)
+          CALL diag_temp (pt_prog, pt_prog_rcf, advection_config(jg)%ilist_hydroMass, &
+            &            pt_diag, jb, i_startidx, i_endidx, slev, slev_moist, nlev)
 
 
         ELSE ! .NOT. lforcing or Held-Suarez test forcing
