@@ -72,7 +72,6 @@ fi
 # horizontal grid(s)
 # ------------------
 
-grids_folder=/work/mh0287/users/stephan/Icon/Coupled/Topo
 grids_folder=${icon_data_poolFolder}/coupled_input_temp/aloy_mixed-40-160km
 atmo_dyn_grids='r2b4_amip.nc'
 #ocean_grids='Earth_Icos_0039km_from160km-amip.nc'
