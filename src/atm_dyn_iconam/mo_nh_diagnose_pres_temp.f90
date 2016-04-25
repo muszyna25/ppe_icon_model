@@ -228,7 +228,13 @@ MODULE mo_nh_diagnose_pres_temp
 
   !!
   !! Reduced version for pressure diagnosis to be called from within a block loop
-  !!
+  !! Diagnoses
+  !! - pressure on full levels
+  !! - pressure on half levels
+  !! - pressure thickness
+  !! - surface pressure
+  !! Note that the pressure is diagnosed by vertical integration of the 
+  !! hydrostatic equation!
   !!
   SUBROUTINE diag_pres (pt_prog, pt_diag, p_metrics,        &
                         jb, i_startidx, i_endidx, slev, nlev)
@@ -250,9 +256,9 @@ MODULE mo_nh_diagnose_pres_temp
 !DIR$ IVDEP
     DO jc = i_startidx, i_endidx
       ! Height differences between surface and third-lowest main level
-      dz1 = p_metrics%z_ifc(jc,nlev,jb)   - p_metrics%z_ifc(jc,nlev+1,jb)
-      dz2 = p_metrics%z_ifc(jc,nlev-1,jb) - p_metrics%z_ifc(jc,nlev,jb)
-      dz3 = p_metrics%z_mc (jc,nlev-2,jb) - p_metrics%z_ifc(jc,nlev-1,jb)
+      dz1 = p_metrics%ddqz_z_full(jc,nlev,jb)
+      dz2 = p_metrics%ddqz_z_full(jc,nlev-1,jb)
+      dz3 = 0.5_wp*p_metrics%ddqz_z_full(jc,nlev-2,jb)
 
       ! Compute surface pressure starting from third-lowest level; this is done
       ! in order to avoid contamination by sound-wave activity in the presence of strong latent heating
@@ -290,12 +296,15 @@ MODULE mo_nh_diagnose_pres_temp
       ENDDO
     ENDDO
 
-      
   END SUBROUTINE diag_pres
+
 
 
   !!
   !! Reduced version for temperature diagnosis to be called from within a block loop
+  !! Diagnoses 
+  !! - virtual temperature
+  !! - temperature
   !!
   !!
   SUBROUTINE diag_temp (pt_prog, pt_prog_rcf, condensate_list, pt_diag, &
@@ -321,7 +330,6 @@ MODULE mo_nh_diagnose_pres_temp
     DO jk = slev, slev_moist-1
       z_qsum(:,jk) = 0._wp
     ENDDO
-
 
     DO jk = slev_moist, nlev
       DO jc = i_startidx, i_endidx
