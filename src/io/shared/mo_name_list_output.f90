@@ -82,7 +82,7 @@ MODULE mo_name_list_output
   ! constants
   USE mo_kind,                      ONLY: wp, i8, dp, sp
   USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS, MAX_CHAR_LENGTH,       &
-    &                                     ihs_ocean, TLEV_NNOW, TLEV_NNOW_RCF, TLEV_NNEW, TLEV_NNEW_RCF
+    &                                     ihs_ocean
   USE mo_dynamics_config,           ONLY: iequations
   USE mo_cdi,                       ONLY: streamOpenWrite, FILETYPE_GRB2, streamDefTimestep, cdiEncodeTime, cdiEncodeDate, &
       &                                   CDI_UNDEFID, TSTEP_CONSTANT, FILETYPE_GRB, taxisDestroy, zaxisDestroy, gridDestroy, &
@@ -142,7 +142,7 @@ MODULE mo_name_list_output
     &                                     output_file, patch_info, lonlat_info,                     &
     &                                     collect_requested_ipz_levels
   USE mo_name_list_output_metadata, ONLY: metainfo_write_to_memwin, metainfo_get_from_memwin,       &
-    &                                     metainfo_get_size
+    &                                     metainfo_get_size, metainfo_get_timelevel
   USE mo_name_list_output_zaxes,    ONLY: deallocate_level_selection, create_mipz_level_selections
   USE mo_grib2_util,                ONLY: set_GRIB2_timedep_keys, set_GRIB2_timedep_local_keys
   ! post-ops
@@ -747,14 +747,7 @@ CONTAINS
 #ifndef __NO_ICON_ATMO__
       IF (.NOT. ASSOCIATED(of%var_desc(iv)%r_ptr)  .AND.    &
         & .NOT. ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
-        SELECT CASE (info%tlev_source)
-          CASE(TLEV_NNOW);     tl = nnow(i_log_dom)
-          CASE(TLEV_NNOW_RCF); tl = nnow_rcf(i_log_dom)
-          CASE(TLEV_NNEW);     tl = nnew(i_log_dom)
-          CASE(TLEV_NNEW_RCF); tl = nnew_rcf(i_log_dom)
-          CASE DEFAULT
-            CALL finish(routine,'Unsupported tlev_source')
-        END SELECT
+        tl = metainfo_get_timelevel(info,i_log_dom)
         IF(tl<=0 .OR. tl>max_time_levels) &
           CALL finish(routine, 'Illegal time level in nnow()/nnow_rcf()')
         ! Check if present

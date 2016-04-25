@@ -165,7 +165,7 @@ MODULE mo_pp_scheduler
     &                                   TLEV_NNOW, TLEV_NNOW_RCF
   USE mo_model_domain,            ONLY: p_patch, p_phys_patch
   USE mo_var_list,                ONLY: add_var, nvar_lists, var_lists, get_var_name,       &
-    &                                   get_var_timelevel
+    &                                   get_var_timelevel, find_list_element
   USE mo_var_list_element,        ONLY: level_type_ml,                                      &
     &                                   level_type_pl, level_type_hl, level_type_il
   USE mo_var_metadata_types,      ONLY: t_var_metadata, VARNAME_LEN, t_post_op_meta
@@ -190,7 +190,7 @@ MODULE mo_pp_scheduler
   USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE,     &
     &                                   ZA_PRESSURE, GRID_REGULAR_LONLAT,                   &
     &                                   is_2d_field, ZA_ISENTROPIC
-  USE mo_linked_list,             ONLY: t_var_list, t_list_element, find_list_element
+  USE mo_linked_list,             ONLY: t_var_list, t_list_element
   USE mo_pp_tasks,                ONLY: pp_task_lonlat, pp_task_sync, pp_task_ipzlev_setup, &
     &                                   pp_task_ipzlev, pp_task_compute_field,              &
     &                                   pp_task_intp_msl, pp_task_edge2cell,                & 
@@ -652,7 +652,7 @@ CONTAINS
 
           ! Check for matching name (take care of suffix of
           ! time-dependent variables):
-          IF (TRIM(vname) /= TRIM(tolower(get_var_name(element%field)))) CYCLE VAR_LOOP
+          IF (TRIM(tolower(vname)) /= TRIM(tolower(get_var_name(element%field)))) CYCLE VAR_LOOP
 
           IF (info%hgrid /= GRID_UNSTRUCTURED_CELL)  CYCLE VAR_LOOP
 

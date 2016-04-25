@@ -70,6 +70,10 @@
 !!  Modification by Daniel Reinert, DWD (2010-10-14)
 !!  - added subroutine recon_lsq_cell_c for fitting a cubic polynomial in a least
 !!    squares sense. Based on cell centered values.
+!!  Modification by Jens-Olaf Beismann, NEC (2016-03-30), committed by R. Redler MPI-M
+!!  - added an alternative for NEC SX-ACE to replace the calls of DOT_PRODUCT 
+!!    The DOT_PRODUCE has once been introduced to overcome performance penalties
+!!    on older NEC systems. 
 !!
 !! @par To Do
 !! Boundary exchange, nblks in presence of halos and dummy edge
@@ -1886,8 +1890,15 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
                                   !< constant coefficient for zonal and meridional
                                   !< direction
 
+#ifndef __SX__
   REAL(wp)  ::           &        !< difference of scalars i j
     &  z_b(lsq_high_set%dim_c,nproma,ptr_patch%nlev)
+#else
+  REAL(wp)  ::           & 
+    &  z_b1, z_b2, z_b3, z_b4, z_b5, z_b6, z_b7, z_b8, z_b9, &
+    &  zdp(nproma,ptr_patch%nlev)
+  INTEGER :: jj
+#endif
 
   INTEGER, POINTER  ::   &        !< Pointer to line and block indices of
     &  iidx(:,:,:), iblk(:,:,:)   !< required stencil
@@ -1948,6 +1959,7 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     !
     ! 1. compute right hand side of linear system
     !
+#ifndef __SX__
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -2014,6 +2026,63 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
       END DO ! end loop over cells
 
     END DO ! end loop over vertical levels
+
+#else
+
+    DO jj = 2, 10
+      DO jk = slev, elev
+!CDIR NODEP
+        DO jc = i_startidx, i_endidx
+
+          z_b1 = p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) - p_cc(jc,jk,jb)
+          z_b2 = p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) - p_cc(jc,jk,jb)
+          z_b3 = p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3)) - p_cc(jc,jk,jb)
+          z_b4 = p_cc(iidx(jc,jb,4),jk,iblk(jc,jb,4)) - p_cc(jc,jk,jb)
+          z_b5 = p_cc(iidx(jc,jb,5),jk,iblk(jc,jb,5)) - p_cc(jc,jk,jb)
+          z_b6 = p_cc(iidx(jc,jb,6),jk,iblk(jc,jb,6)) - p_cc(jc,jk,jb)
+          z_b7 = p_cc(iidx(jc,jb,7),jk,iblk(jc,jb,7)) - p_cc(jc,jk,jb)
+          z_b8 = p_cc(iidx(jc,jb,8),jk,iblk(jc,jb,8)) - p_cc(jc,jk,jb)
+          z_b9 = p_cc(iidx(jc,jb,9),jk,iblk(jc,jb,9)) - p_cc(jc,jk,jb)
+
+          !
+          ! 2. compute cell based coefficients for cubic reconstruction
+          !    calculate matrix vector product PINV(A) * b
+          !
+          ! (intrinsic function matmul not applied, due to massive
+          ! performance penalty on the NEC. Instead the intrinsic dot product
+          ! function is applied
+
+          p_coeff(jj,jc,jk,jb) = ptr_int_lsq%lsq_pseudoinv(jc,jj-1,1,jb) * z_b1 &
+                               + ptr_int_lsq%lsq_pseudoinv(jc,jj-1,2,jb) * z_b2 &
+                               + ptr_int_lsq%lsq_pseudoinv(jc,jj-1,3,jb) * z_b3 &
+                               + ptr_int_lsq%lsq_pseudoinv(jc,jj-1,4,jb) * z_b4 &
+                               + ptr_int_lsq%lsq_pseudoinv(jc,jj-1,5,jb) * z_b5 &
+                               + ptr_int_lsq%lsq_pseudoinv(jc,jj-1,6,jb) * z_b6 &
+                               + ptr_int_lsq%lsq_pseudoinv(jc,jj-1,7,jb) * z_b7 &
+                               + ptr_int_lsq%lsq_pseudoinv(jc,jj-1,8,jb) * z_b8 &
+                               + ptr_int_lsq%lsq_pseudoinv(jc,jj-1,9,jb) * z_b9
+
+        END DO ! end loop over cells
+      END DO ! end loop over vertical levels
+    END DO ! jj
+
+    zdp=0._wp
+
+    DO jj = 2, 10
+      DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+          zdp(jc,jk) = zdp(jc,jk) + &
+                       p_coeff(jj,jc,jk,jb) * ptr_int_lsq%lsq_moments(jc,jb,jj-1)
+        END DO ! end loop over cells
+      END DO ! end loop over vertical levels
+    END DO ! jj
+
+    DO jk = slev, elev
+      DO jc = i_startidx, i_endidx
+        p_coeff(1,jc,jk,jb)  = p_cc(jc,jk,jb) - zdp(jc,jk)
+      END DO ! end loop over cells
+    END DO ! end loop over vertical levels
+#endif
 
   END DO ! end loop over blocks
 !$OMP END DO NOWAIT
