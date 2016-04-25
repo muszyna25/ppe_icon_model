@@ -127,6 +127,10 @@ doc/resources/img/mpglogo.pdf -text svneol=unset#unset
 doc/resources/img/mpglogo.png -text
 doc/resources/img/mpilogo.pdf -text
 doc/resources/img/mpilogo.png -text
+doc/science/atm_echam_phy/Makefile -text
+doc/science/atm_echam_phy/icon_atm_echam_phy_scidoc.pdf -text
+doc/science/atm_echam_phy/icon_atm_echam_phy_scidoc.tex -text
+doc/science/atm_echam_phy/make_icon_guide.sh -text
 doc/science/dynamics/ICON-Ocean-Kladde.tex -text
 doc/science/dynamics/fig_edge_volume.pdf -text
 doc/science/dynamics/fig_edge_volume.tex -text
