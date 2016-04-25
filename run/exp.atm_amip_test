@@ -171,7 +171,7 @@ cat > ${atmo_namelist} << EOF
  irad_o2          = 2           ! 2: horizontally and vertically constant
  irad_cfc11       = 4           ! 4: from greenhouse gas scenario
  irad_cfc12       = 4           ! 4: from greenhouse gas scenario
- irad_aero        = 15          ! 0: no aerosol
+ irad_aero        = 18          ! 0: no aerosol
                                 !13: only Kinne's tropospheric aerosols 
                                 !14: only Stenchikov's volcanic aerosols
                                 !15: Kinne aerosol optics for troposphere
@@ -184,7 +184,7 @@ cat > ${atmo_namelist} << EOF
  isolrad          = 1           ! 1: transient solar irradiance (at 1 AE)
 /
 &psrad_nml
-lradforcing       = .FALSE.,.FALSE. ! diagnose instantaneous radiative forcing
+lradforcing       = .TRUE.,.TRUE. ! diagnose instantaneous radiative forcing
                                     ! for solar and lw spectrum
 irad_aero_forcing     = 15          ! Kinne aerosols + Stenchikov's volc aerosols
                                     ! as reference for instantaneous forcing
@@ -388,6 +388,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_interval  = "${output_interval_3d}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
+ operation        = "mean"
  ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
                     'zg','pfull','ps'
 /
@@ -528,7 +529,7 @@ if [[ "$output_aer_3d" == "yes" ]]; then
 /
 EOF
 fi
-output_radforcing_3d=no # "yes" needs lradforcing being set in psrad_nml
+output_radforcing_3d=yes # "yes" needs lradforcing being set in psrad_nml
 #
 if [[ "$output_radforcing_3d" == "yes" ]]; then
   #
@@ -536,16 +537,14 @@ if [[ "$output_radforcing_3d" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_radforcing_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = 1
- reg_def_mode     = 1
- reg_lat_def      = ${reg_lat_def_rmb}
- reg_lon_def      = ${reg_lon_def_rmb}
+ remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${output_interval_3d}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
+ operation  = "mean"
  ml_varlist       = 'fsw_clear_top','fsw_total_top',
                     'fsw_clear_sur','fsw_total_sur',
                     'd_aflx_sw'    ,'d_aflx_swc',
