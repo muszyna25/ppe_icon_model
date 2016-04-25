@@ -382,13 +382,15 @@ CONTAINS
   !--------------------------------------------------------------------------
 
   SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, datetime)
+! SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, fu10 datetime)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in)        :: patch_3d
     TYPE(t_hydro_ocean_state)                   :: ocean_state
     TYPE(t_sea_ice)                             :: ice
     TYPE(t_atmos_fluxes)                        :: atmos_fluxes !atmos_fluxes
     TYPE(t_datetime), INTENT(inout)             :: datetime
-    !
+!   REAL(wp),          INTENT(in)               :: fu10   (nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) ! t_atmos_for_ocean%fu10
+
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = 'couple_ocean_toatmo_fluxes'
     
@@ -417,14 +419,15 @@ CONTAINS
     nbr_hor_cells = patch_horz%n_patch_cells
 
     !
-    !  see drivers/mo_ocean_model.f90:
-    !
     !  Receive fields from atmosphere
-    !   field_id(1) represents "TAUX"   wind stress component over ice and water
-    !   field_id(2) represents "TAUY"   wind stress component over ice and water
-    !   field_id(3) represents "SFWFLX" surface fresh water flux
-    !   field_id(4) represents "THFLX"  total heat flux
-    !   field_id(5) represents "ICEATM" ice melt potentials
+    !   field_id(1) represents "surface_downward_eastward_stress" bundle - zonal wind stress component over ice and water
+    !   field_id(2) represents "surface_downward_northward_stress" bundle - meridional wind stress component over ice and water
+    !   field_id(3) represents "surface_fresh_water_flux" bundle - liquid rain, snowfall, evaporation
+    !   field_id(4) represents "total heat flux" bundle - short wave, long wave, sensible, latent heat flux
+    !   field_id(5) represents "atmosphere_sea_ice_bundle" - sea ice surface and bottom melt potentials
+    !    - in prep.: field_id(11) represents 10m wind speed
+    !
+    !  Receive field from HD-model:
     !   field_id(10) represents river runoff
     !
     !  Send fields to atmosphere:
@@ -566,7 +569,7 @@ CONTAINS
     !
     ! ------------------------------
     !   Receive zonal wind stress bundle
-    !   field_id(1) represents "TAUX"   wind stress component over ice and water
+    !   field_id(1) represents "surface_downward_eastward_stress" bundle - zonal wind stress component over ice and water
     !
     IF (ltimer) CALL timer_start(timer_coupling_1stget)
 
@@ -606,7 +609,7 @@ CONTAINS
     !
     ! ------------------------------
     !   Receive meridional wind stress bundle
-    !   field_id(2) represents "TAUY"   wind stress component over ice and water
+    !   field_id(2) represents "surface_downward_northward_stress" bundle - meridional wind stress component over ice and water
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
@@ -645,9 +648,8 @@ CONTAINS
 
     !
     ! ------------------------------
-    !   Receive freshwater flux bundle
-    !   field_id(3) represents "SFWFLX" surface fresh water flux
-    !    - 3 parts, liquid rain, snowfall, evaporation
+    !   Receive surface fresh water flux bundle
+    !   field_id(3) represents "surface_fresh_water_flux" bundle - liquid rain, snowfall, evaporation
 
     ! Note: freshwater fluxes are received in kg/m^2/s and are converted to m/s by division by rhoh2o below.
     ! Note: precipitation is the sum of rain and snowfall
@@ -696,8 +698,7 @@ CONTAINS
     !
     ! ------------------------------
     !   Receive total heat flux bundle
-    !   field_id(4) represents "THFLX"  total heat flux
-    !    - 4 parts, short wave, long wave, sensible, latent heat flux
+    !   field_id(4) represents "total heat flux" bundle - short wave, long wave, sensible, latent heat flux
     !
     ! atmos_fluxes%swflx(:,:)  ocean short wave heat flux                              [W/m2]
     ! atmos_fluxes%lwflx(:,:)  ocean long  wave heat fluxe                             [W/m2]
@@ -764,8 +765,8 @@ CONTAINS
 
     !
     ! ------------------------------
-    !  Receive ice flux bundle
-    !   field_id(5) represents "ICEATM" ice melt potentials
+    !  Receive sea ice flux bundle
+    !   field_id(5) represents "atmosphere_sea_ice_bundle" - sea ice surface and bottom melt potentials
     !
     ! ice%Qtop(:,:)         Surface melt potential of ice                           [W/m2]
     ! ice%Qbot(:,:)         Bottom melt potential of ice                            [W/m2]
@@ -803,6 +804,43 @@ CONTAINS
       !
       CALL sync_patch_array(sync_c, patch_horz, ice%qtop(:,1,:))
       CALL sync_patch_array(sync_c, patch_horz, ice%qbot(:,1,:))
+    END IF
+
+    !
+    ! ------------------------------
+    !  Receive 10m wind speed
+    !   field_id(11) represents 10m wind speed
+    !
+  ! IF (ltimer) CALL timer_start(timer_coupling_get)
+
+  ! no_arr = 1
+  ! CALL yac_fget ( field_id(11), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
+  ! IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
+  ! IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run')
+
+  ! IF (ltimer) CALL timer_stop(timer_coupling_get)
+  ! !
+  ! IF (info > 0 .AND. info < 7 ) THEN
+      !
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
+  !   DO i_blk = 1, patch_horz%nblks_c
+  !     nn = (i_blk-1)*nproma
+  !     IF (i_blk /= patch_horz%nblks_c) THEN
+  !       nlen = nproma
+  !     ELSE
+  !       nlen = patch_horz%npromz_c
+  !     END IF
+  !     DO n = 1, nlen
+  !       IF ( nn+n > nbr_inner_cells ) THEN
+  !         fu10(n,i_blk) = dummy
+  !       ELSE
+  !         fu10(n,i_blk) = buffer(nn+n,1)
+  !       ENDIF
+  !     ENDDO
+  !   ENDDO
+!ICON_OMP_END_PARALLEL_DO
+  !   !
+  !   CALL sync_patch_array(sync_c, patch_horz, ocean_surface%fu10(:,:))
     END IF
 
     !

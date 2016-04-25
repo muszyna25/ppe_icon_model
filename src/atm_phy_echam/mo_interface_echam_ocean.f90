@@ -465,11 +465,12 @@ CONTAINS
     !  see drivers/mo_atmo_model.f90:
     !
     !  Send fields to ocean:
-    !   field_id(1) represents "TAUX"   wind stress component over ice and water
-    !   field_id(2) represents "TAUY"   wind stress component over ice and water
-    !   field_id(3) represents "SFWFLX" surface fresh water flux
-    !   field_id(4) represents "THFLX"  total heat flux
-    !   field_id(5) represents "ICEATM" ice melt potentials
+    !   field_id(1) represents "surface_downward_eastward_stress" bundle - zonal wind stress component over ice and water
+    !   field_id(2) represents "surface_downward_northward_stress" bundle - meridional wind stress component over ice and water
+    !   field_id(3) represents "surface_fresh_water_flux" bundle - liquid rain, snowfall, evaporation
+    !   field_id(4) represents "total_heat_flux" bundle - short wave, long wave, sensible, latent heat flux
+    !   field_id(5) represents "atmosphere_sea_ice_bundle" - sea ice surface and bottom melt potentials
+    !    - in prep.: field_id(11) represents 10m wind speed
     !
     !  Receive fields from ocean:
     !   field_id(6) represents "SST"    sea surface temperature
@@ -486,8 +487,8 @@ CONTAINS
 
     !
     ! ------------------------------
-    !   Send TAUX bundle
-    !   field_id(1) represents "TAUX"   wind stress component over ice and water
+    !   Send zonal wind stress bundle
+    !   field_id(1) represents "surface_downward_eastward_stress" bundle - zonal wind stress component over ice and water
     !
 !ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
@@ -517,8 +518,8 @@ CONTAINS
 
     !
     ! ------------------------------
-    !   Send TAUX bundle
-    !   field_id(2) represents "TAUY"   wind stress component over ice and water
+    !   Send meridional wind stress bundle
+    !   field_id(2) represents "surface_downward_northward_stress" bundle - meridional wind stress component over ice and water
     !
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
@@ -546,12 +547,12 @@ CONTAINS
 
     !
     ! ------------------------------
-    !   Send SFWFLX bundle
-    !   field_id(3) represents "SFWFLX" surface fresh water flux
+    !   Send surface fresh water flux bundle
+    !   field_id(3) represents "surface_fresh_water_flux" bundle - liquid rain, snowfall, evaporation
     !
-    ! SFWFLX Note: the evap_tile should be properly updated and added;
-    !              as long as the tiles are not passed correctly, the evaporation over the
-    !              whole grid-cell is passed to the ocean
+    !   Note: the evap_tile should be properly updated and added;
+    !         as long as the tiles are not passed correctly, the evaporation over the
+    !         whole grid-cell is passed to the ocean
     !
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
@@ -580,8 +581,8 @@ CONTAINS
 
     !
     ! ------------------------------
-    !   Send THFLX bundle
-    !   field_id(4) represents "THFLX"  total heat flux
+    !   Send total heat flux bundle
+    !   field_id(4) represents "total heat flux" bundle - short wave, long wave, sensible, latent heat flux
     !
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
@@ -610,8 +611,8 @@ CONTAINS
     IF (ltimer) CALL timer_stop(timer_coupling_put)
     !
     ! ------------------------------
-    !   Send ICEATM bundle
-    !   field_id(5) represents "ICEATM" ice melt potentials
+    !   Send sea ice flux bundle
+    !   field_id(5) represents "atmosphere_sea_ice_bundle" - sea ice surface and bottom melt potentials
     !
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
@@ -640,6 +641,37 @@ CONTAINS
     IF ( write_coupler_restart ) THEN
        CALL warning('interface_echam_ocean', 'YAC says it is put for restart')
     ENDIF
+    !
+    ! ------------------------------
+    !   Send 10m wind speed
+    !   field_id(11) represents 10m wind speed
+    !
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
+  ! DO i_blk = 1, p_patch%nblks_c
+  !   nn = (i_blk-1)*nproma
+  !   IF (i_blk /= p_patch%nblks_c) THEN
+  !     nlen = nproma
+  !   ELSE
+  !     nlen = p_patch%npromz_c
+  !   END IF
+  !   DO n = 1, nlen
+  !     buffer(nn+n,1) = prm_field(jg)%wind10m(n,1,i_blk)
+  !   ENDDO
+  ! ENDDO
+!ICON_OMP_END_PARALLEL_DO
+    !
+  ! IF (ltimer) CALL timer_start(timer_coupling_put)
+
+  ! no_arr = 1
+  ! CALL yac_fput ( field_id(11), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
+  ! IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
+  ! IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run')
+
+  ! IF (ltimer) CALL timer_stop(timer_coupling_put)
+  ! !
+  ! IF ( write_coupler_restart ) THEN
+  !    CALL warning('interface_echam_ocean', 'YAC says it is put for restart')
+  ! ENDIF
 
     !
 
