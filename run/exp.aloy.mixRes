@@ -466,6 +466,15 @@ if [[ "$output_atm_min" == "yes" ]]; then
                     'tauv_wtr', 'tauv_ice', 'tauv_lnd',
                     'tauu_sso', 'tauv_sso', 'diss_sso' 
 /
+&dbg_index_nml
+  idbg_mxmn        = 1                        ! initialize MIN/MAX  debug output
+  idbg_val         = 0                        ! initialize one cell debug output
+  idbg_slev        = 1                        ! initialize start level for debug output
+  idbg_elev        = 2                        ! initialize end level for debug output
+  dbg_lat_in       =  30.0                    ! latitude location of one cell debug output
+  dbg_lon_in       = -30.0                    ! longitude location of one cell debug output
+  str_mod_tst      ='all'                     ! define modules to print out in debug mode
+/
 EOF
 fi
 
