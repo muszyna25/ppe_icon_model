@@ -52,6 +52,8 @@ MODULE mo_ocean_thermodyn
   PUBLIC :: calculate_density,calc_potential_density
   PUBLIC :: calculate_density_onColumn
   PUBLIC :: calc_internal_press_grad
+
+  PUBLIC :: calculate_density_mpiom_onColumn, calculate_density_jmdwfg06_onColumn
   !each specific EOS comes as a sbr and as a function. The sbr version is private as it is
   !only used in "calc_internal_press", whilethe function version is used in mo_ocean_physics
   !(sbr "update_ho_params") to calculate the local Richardson number.
