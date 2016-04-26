@@ -48,6 +48,10 @@ MODULE mo_art_nml
   INTEGER :: iart_init_aero          !< Initialization of aerosol species
   INTEGER :: iart_init_gas           !< Initialization of gaseous species
   LOGICAL :: lart_diag_out           !< Enable output of diagnostic fields
+  CHARACTER(LEN=20) :: & 
+   &  cart_io_suffix(0:max_dom)      !< user given suffix instead of automatically generated grid number 
+                                     !  in ICON-ART input filename convention: 
+                                     !  ART_iconR<n>B<kk>-grid-<yyyy-mm-dd-hh>_<grid_suffix>.nc
     
   ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
   LOGICAL :: lart_chem               !< Main switch to enable chemistry
@@ -82,7 +86,8 @@ MODULE mo_art_nml
    &                cart_radioact_file, iart_pollen,                                   &
    &                iart_aci_warm, iart_aci_cold, iart_ari,                            &
    &                lart_conv, lart_turb, iart_ntracer, iart_init_aero, iart_init_gas, &
-   &                lart_diag_out, cart_emiss_table_path, cart_emiss_table_file 
+   &                lart_diag_out, cart_emiss_table_path, cart_emiss_table_file,       &
+   &                cart_io_suffix 
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -116,11 +121,12 @@ CONTAINS
     !-----------------------
       
     ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
-    cart_folder         = './art/'
-    iart_ntracer        = 0
-    iart_init_aero      = 0
-    iart_init_gas       = 0
-    lart_diag_out       = .FALSE.
+    cart_folder                = './art/'
+    iart_ntracer               = 0
+    iart_init_aero             = 0
+    iart_init_gas              = 0
+    lart_diag_out              = .FALSE.
+    cart_io_suffix(0:max_dom)  = 'grid-number'
       
     ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
     lart_chem             = .FALSE.
@@ -205,6 +211,7 @@ CONTAINS
       art_config(jg)%iart_init_aero      = iart_init_aero
       art_config(jg)%iart_init_gas       = iart_init_gas
       art_config(jg)%lart_diag_out       = lart_diag_out
+      art_config(jg)%cart_io_suffix      = TRIM(cart_io_suffix(jg))
       
       ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
       art_config(jg)%lart_chem             = lart_chem
