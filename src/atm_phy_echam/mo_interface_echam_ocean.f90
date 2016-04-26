@@ -646,7 +646,7 @@ CONTAINS
     !   Send 10m wind speed
     !    - in prep.: field_id(10) represents "10m_wind_speed" - atmospheric wind speed
     !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
+!!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
   ! DO i_blk = 1, p_patch%nblks_c
   !   nn = (i_blk-1)*nproma
   !   IF (i_blk /= p_patch%nblks_c) THEN
@@ -658,7 +658,7 @@ CONTAINS
   !     buffer(nn+n,1) = prm_field(jg)%wind10m(n,1,i_blk)
   !   ENDDO
   ! ENDDO
-!ICON_OMP_END_PARALLEL_DO
+!!ICON_OMP_END_PARALLEL_DO
     !
   ! IF (ltimer) CALL timer_start(timer_coupling_put)
 

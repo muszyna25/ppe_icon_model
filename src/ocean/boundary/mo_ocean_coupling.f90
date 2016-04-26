@@ -823,7 +823,7 @@ CONTAINS
   ! !
   ! IF (info > 0 .AND. info < 7 ) THEN
       !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
+!!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
   !   DO i_blk = 1, patch_horz%nblks_c
   !     nn = (i_blk-1)*nproma
   !     IF (i_blk /= patch_horz%nblks_c) THEN
@@ -839,7 +839,7 @@ CONTAINS
   !       ENDIF
   !     ENDDO
   !   ENDDO
-!ICON_OMP_END_PARALLEL_DO
+!!ICON_OMP_END_PARALLEL_DO
   !   !
   !   CALL sync_patch_array(sync_c, patch_horz, ocean_surface%fu10(:,:))
   ! END IF
