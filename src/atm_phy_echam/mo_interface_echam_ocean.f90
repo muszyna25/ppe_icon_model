@@ -77,6 +77,7 @@ MODULE mo_interface_echam_ocean
   CHARACTER(len=*), PARAMETER :: thismodule = 'mo_interface_echam_ocean'
 
   INTEGER, PARAMETER    :: no_of_fields = 9
+! INTEGER, PARAMETER    :: no_of_fields = 10
   INTEGER               :: field_id(no_of_fields)
 
   REAL(wp), ALLOCATABLE :: buffer(:,:)
@@ -340,11 +341,12 @@ CONTAINS
     field_name(2) = "surface_downward_northward_stress"  ! bundled field containing two components
     field_name(3) = "surface_fresh_water_flux"           ! bundled field containing three components
     field_name(4) = "total_heat_flux"                    ! bundled field containing four components
-    field_name(5) = "atmosphere_sea_ice_bundle"          ! bundled field containing four components
+    field_name(5) = "atmosphere_sea_ice_bundle"          ! bundled field containing two components
     field_name(6) = "sea_surface_temperature"
     field_name(7) = "eastward_sea_water_velocity"
     field_name(8) = "northward_sea_water_velocity"
-    field_name(9) = "ocean_sea_ice_bundle"               ! bundled field containing five components
+    field_name(9) = "ocean_sea_ice_bundle"               ! bundled field containing three components
+!   field_name(10) = "10m_wind_speed"
 
     DO idx = 1, no_of_fields
       CALL yac_fdef_field (      &
@@ -462,21 +464,19 @@ CONTAINS
     nbr_hor_cells = p_patch%n_patch_cells
 
     !
-    !  see drivers/mo_atmo_model.f90:
-    !
     !  Send fields to ocean:
-    !   field_id(1) represents "surface_downward_eastward_stress" bundle - zonal wind stress component over ice and water
+    !   field_id(1) represents "surface_downward_eastward_stress" bundle  - zonal wind stress component over ice and water
     !   field_id(2) represents "surface_downward_northward_stress" bundle - meridional wind stress component over ice and water
-    !   field_id(3) represents "surface_fresh_water_flux" bundle - liquid rain, snowfall, evaporation
-    !   field_id(4) represents "total_heat_flux" bundle - short wave, long wave, sensible, latent heat flux
-    !   field_id(5) represents "atmosphere_sea_ice_bundle" - sea ice surface and bottom melt potentials
-    !    - in prep.: field_id(11) represents 10m wind speed
+    !   field_id(3) represents "surface_fresh_water_flux" bundle          - liquid rain, snowfall, evaporation
+    !   field_id(4) represents "total heat flux" bundle                   - short wave, long wave, sensible, latent heat flux
+    !   field_id(5) represents "atmosphere_sea_ice_bundle"                - sea ice surface and bottom melt potentials
+    !    - in prep.: field_id(10) represents "10m_wind_speed"             - atmospheric wind speed
     !
     !  Receive fields from ocean:
-    !   field_id(6) represents "SST"    sea surface temperature
-    !   field_id(7) represents "OCEANU" u component of ocean surface current
-    !   field_id(8) represents "OCEANV" v component of ocean surface current
-    !   field_id(9) represents "ICEOCE" ice thickness, snow thickness, ice concentration
+    !   field_id(6) represents "sea_surface_temperature"                  - SST
+    !   field_id(7) represents "eastward_sea_water_velocity"              - zonal velocity, u component of ocean surface current
+    !   field_id(8) represents "northward_sea_water_velocity"             - meridional velocity, v component of ocean surface current
+    !   field_id(9) represents "ocean_sea_ice_bundle"                     - ice thickness, snow thickness, ice concentration
     !
 
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
@@ -644,7 +644,7 @@ CONTAINS
     !
     ! ------------------------------
     !   Send 10m wind speed
-    !   field_id(11) represents 10m wind speed
+    !    - in prep.: field_id(10) represents "10m_wind_speed" - atmospheric wind speed
     !
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
   ! DO i_blk = 1, p_patch%nblks_c
@@ -685,7 +685,7 @@ CONTAINS
     !
     ! ------------------------------
     !   Receive SST
-    !   field_id(6) represents "SST"    sea surface temperature
+    !   field_id(6) represents "sea_surface_temperature" - SST
     !
     IF (ltimer) CALL timer_start(timer_coupling_1stget)
 
@@ -719,8 +719,8 @@ CONTAINS
     END IF
     !
     ! ------------------------------
-    !   Receive OCEANU
-    !   field_id(7) represents "OCEANU" u component of ocean surface current
+    !   Receive zonal velocity
+    !   field_id(7) represents "eastward_sea_water_velocity" - zonal velocity, u component of ocean surface current
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
@@ -755,8 +755,8 @@ CONTAINS
     !
     !
     ! ------------------------------
-    ! Receive OCEANV
-    !   field_id(8) represents "OCEANV" v component of ocean surface current
+    !   Receive meridional velocity
+    !   field_id(8) represents "northward_sea_water_velocity" - meridional velocity, v component of ocean surface current
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
@@ -789,9 +789,9 @@ CONTAINS
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%ocv(:,:))
     END IF
     !
-    !
-    !   Receive ICEOCE bundle
-    !   field_id(9) represents "ICEOCE" ice thickness, snow thickness, ice concentration
+    ! ------------------------------
+    !   Receive sea ice bundle
+    !   field_id(9) represents "ocean_sea_ice_bundle" - ice thickness, snow thickness, ice concentration
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
