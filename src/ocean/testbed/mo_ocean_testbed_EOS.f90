@@ -33,8 +33,8 @@ CONTAINS
   !-------------------------------------------------------------------------
   SUBROUTINE ocean_test_EOS()
 
-    INTEGER, PARAMETER :: temperature_size = 11
-    REAL(wp) :: temperature(temperature_size) = (/-1.7_wp, -1.5_wp, -1.2_wp, -1.0_wp, -0.8_wp, -0.6_wp, -0.4_wp, -0.2_wp, 0.0_wp, 0.2_wp, 0.4_wp/)
+    INTEGER, PARAMETER :: temperature_size = 13
+    REAL(wp) :: temperature(temperature_size) = (/-1.7_wp, -1.5_wp, -1.2_wp, -1.0_wp, -0.8_wp, -0.6_wp, -0.4_wp, -0.2_wp, 0.0_wp, 0.2_wp, 0.4_wp, 1.0_wp, 2.0_wp/)
     INTEGER, PARAMETER :: salinity_size = 8
     REAL(wp) :: salinity(salinity_size) = (/33.70_wp, 33.75_wp, 33.8_wp, 33.85_wp, 33.9_wp, 33.95_wp, 34.0_wp, 34.5_wp /)
     INTEGER, PARAMETER :: pressure_size = 15
