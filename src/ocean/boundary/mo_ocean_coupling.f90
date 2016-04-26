@@ -841,7 +841,7 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
   !   !
   !   CALL sync_patch_array(sync_c, patch_horz, ocean_surface%fu10(:,:))
-    END IF
+  ! END IF
 
     !
     ! ------------------------------
