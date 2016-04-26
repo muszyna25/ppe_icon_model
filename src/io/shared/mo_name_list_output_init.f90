@@ -39,7 +39,7 @@ MODULE mo_name_list_output_init
                                                 & vlistDefVarStdname, vlistDefVarUnits, vlistDefVarMissval, gridDefXvals, &
                                                 & gridDefYvals, gridDefXlongname, gridDefYlongname, taxisDefTunit, &
                                                 & taxisDefCalendar, taxisDefRdate, taxisDefRtime, vlistDefTaxis,   &
-                                                & vlistDefAttTxt, CDI_GLOBAL
+                                                & vlistDefAttTxt, CDI_GLOBAL, gridDefXpole, gridDefYpole
   USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, &
                                                 & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_EDGE, GRID_CELL, &
                                                 & ZA_reference_half_hhl, ZA_reference_half, ZA_reference, ZA_hybrid_half_hhl, &
@@ -2338,6 +2338,7 @@ CONTAINS
     REAL(wp)                        :: pi_180
     INTEGER                         :: max_cell_connectivity, max_vertex_connectivity
     REAL(wp), ALLOCATABLE           :: p_lonlat(:)
+    REAL(wp), PARAMETER             :: ZERO_TOL = 1.e-15_wp
 
     pi_180 = ATAN(1._wp)/45._wp
 
@@ -2396,6 +2397,12 @@ CONTAINS
       ll_dim(2) = lonlat%grid%lat_dim
 
       of%cdiLonLatGridID = gridCreate(GRID_LONLAT, ll_dim(1)*ll_dim(2))
+
+      IF ( ABS(90._wp - lonlat%grid%north_pole(2)) > ZERO_TOL .OR.  &
+      &    ABS( 0._wp - lonlat%grid%north_pole(1)) > ZERO_TOL ) THEN
+        CALL gridDefXpole( of%cdiLonLatGridID, lonlat%grid%north_pole(1))
+        CALL gridDefYpole( of%cdiLonLatGridID, lonlat%grid%north_pole(2))
+      END IF
 
       CALL gridDefXsize(of%cdiLonLatGridID, ll_dim(1))
       CALL gridDefXname(of%cdiLonLatGridID, 'lon')
