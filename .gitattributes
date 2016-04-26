@@ -1767,6 +1767,7 @@ src/ocean/physics/mo_ocean_physics.f90 -text
 src/ocean/physics/mo_ocean_physics_state.f90 -text
 src/ocean/physics/mo_ocean_thermodyn.f90 -text
 src/ocean/testbed/mo_ocean_testbed.f90 -text
+src/ocean/testbed/mo_ocean_testbed_EOS.f90 -text
 src/ocean/testbed/mo_ocean_testbed_modules.f90 -text
 src/ocean/testbed/mo_ocean_testbed_operators.f90 -text
 src/ocean/testbed/mo_ocean_testbed_performance.f90 -text

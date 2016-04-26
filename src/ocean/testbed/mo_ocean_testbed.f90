@@ -41,6 +41,7 @@ MODULE mo_ocean_testbed
   USE mo_ocean_testbed_operators,   ONLY: ocean_test_operators
   USE mo_ocean_testbed_read,        ONLY: ocean_test_read
   USE mo_ocean_testbed_quads,       ONLY: ocean_test_quads
+  USE mo_ocean_testbed_EOS,         ONLY: ocean_test_EOS
   USE mo_ocean_math_operators,      ONLY: update_height_depdendent_variables
 
 !-------------------------------------------------------------------------
@@ -98,13 +99,17 @@ CONTAINS
           & surface_fluxes, physics_parameters,             &
           & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients)
 
-      CASE (1101) ! 1000 - 1100 performance tests
+      ! 1101 -  other tests
+      CASE (1101) 
         CALL ocean_test_read( namelist_filename, shr_namelist_filename, &
           & patch_3d)
 
-      CASE (1102) ! 1101 -  other tests
+      CASE (1102) 
         CALL ocean_test_quads( namelist_filename, shr_namelist_filename, &
           & patch_3d)
+
+      CASE (1103)
+        CALL ocean_test_EOS()
 
       CASE DEFAULT
         CALL finish(method_name, "Unknown test_mode")
