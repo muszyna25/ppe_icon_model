@@ -2425,6 +2425,8 @@ MODULE mo_nonhydro_state
 
       ALLOCATE(p_diag%extra_2d_ptr(inextra_2d))
       DO jt =1,inextra_2d
+        ! GRIB2: extra fields are encoded as "DUMMY_x" (where x=jt)
+        grib2_desc = grib2_var( 0, 254, jt, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         WRITE(ctrc,'(I2)')jt
         CALL add_ref( p_diag_list, 'extra_2d', 'extra_2d'//TRIM(ADJUSTL(ctrc)), &
           &           p_diag%extra_2d_ptr(jt)%p_2d,                             &
@@ -2447,6 +2449,8 @@ MODULE mo_nonhydro_state
 
       ALLOCATE(p_diag%extra_3d_ptr(inextra_3d))
       DO jt =1,inextra_3d
+        ! GRIB2: extra fields are encoded as "DUMMY_x" (where x=jt)
+        grib2_desc = grib2_var( 0, 254, jt, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         WRITE(ctrc,'(I2)')jt
         CALL add_ref( p_diag_list, 'extra_3d', 'extra_3d'//TRIM(ADJUSTL(ctrc)), &
           &           p_diag%extra_3d_ptr(jt)%p_3d,                             &
