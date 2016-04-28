@@ -46,7 +46,7 @@ MODULE mo_ocean_statistics
   USE mo_sea_ice,                ONLY: compute_mean_ice_statistics, reset_ice_statistics
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
-  USE mo_ocean_physics,          ONLY: t_ho_params
+  USE mo_ocean_physics_types,    ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_linked_list,            ONLY: t_list_element, find_list_element
   USE mo_var_list,               ONLY: print_var_list

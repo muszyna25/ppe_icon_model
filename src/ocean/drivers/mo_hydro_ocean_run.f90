@@ -40,13 +40,13 @@ MODULE mo_hydro_ocean_run
   !USE mo_io_units,               ONLY: filename_max
   USE mo_datetime,               ONLY: t_datetime, add_time, datetime_to_string
   USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total, timer_solve_ab,  &
-    & timer_tracer_ab, timer_vert_veloc, timer_normal_veloc,     &
-    & timer_upd_phys, timer_upd_flx, timer_extra20, timers_level, &
-    & timer_scalar_prod_veloc, timer_extra21, timer_extra22
+    &                                  timer_tracer_ab, timer_vert_veloc, timer_normal_veloc,     &
+    &                                  timer_upd_phys, timer_upd_flx, timer_extra20, timers_level, &
+    &                                  timer_scalar_prod_veloc, timer_extra21, timer_extra22
   USE mo_ocean_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
-    & calc_normal_velocity_ab,  &
-    & calc_vert_velocity,       &
-    & update_time_indices
+    &                                    calc_normal_velocity_ab,  &
+    &                                    calc_vert_velocity,       &
+    &                                    update_time_indices
   USE mo_ocean_types,              ONLY: t_hydro_ocean_state, &
     & t_operator_coeff, t_solvercoeff_singleprecision
   USE mo_ocean_math_operators,   ONLY: update_height_depdendent_variables, check_cfl_horizontal, check_cfl_vertical
@@ -58,8 +58,9 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_surface_types,    ONLY: t_ocean_surface
   USE mo_sea_ice,                ONLY: update_ice_statistic, reset_ice_statistics
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
-    & t_sea_ice
-  USE mo_ocean_physics,            ONLY: t_ho_params, update_ho_params
+    &                                  t_sea_ice
+  USE mo_ocean_physics,            ONLY: update_ho_params
+  USE mo_ocean_physics_types,      ONLY: t_ho_params  
   USE mo_ocean_thermodyn,          ONLY: calc_potential_density, &
     & calculate_density! , ocean_correct_ThermoExpansion
   USE mo_name_list_output,       ONLY: write_name_list_output

@@ -29,7 +29,7 @@ MODULE mo_ocean_testbed
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_datetime,            ONLY: t_datetime
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state, t_solverCoeff_singlePrecision, t_operator_coeff
-  USE mo_ocean_physics,       ONLY: t_ho_params
+  USE mo_ocean_physics_types, ONLY: t_ho_params
   USE mo_sea_ice_types,       ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, t_sea_ice
   USE mo_ocean_surface_types, ONLY: t_ocean_surface
 

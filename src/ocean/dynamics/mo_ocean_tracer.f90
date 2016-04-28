@@ -44,7 +44,7 @@ MODULE mo_ocean_tracer
   USE mo_model_domain,              ONLY: t_patch, t_patch_3d
   USE mo_exception,                 ONLY: finish !, message_text, message
   USE mo_ocean_boundcond,           ONLY: top_bound_cond_tracer
-  USE mo_ocean_physics
+  USE mo_ocean_physics_types,       ONLY: t_ho_params
   USE mo_sea_ice_types,             ONLY: t_sfc_flx
   USE mo_ocean_diffusion,             ONLY: tracer_diffusion_vertical_implicit, tracer_diffusion_vert_explicit,tracer_diffusion_horz
   USE mo_ocean_tracer_transport_horz, ONLY: advect_horz, diffuse_horz

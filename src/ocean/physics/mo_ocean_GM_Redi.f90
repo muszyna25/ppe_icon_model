@@ -45,7 +45,7 @@ MODULE mo_ocean_GM_Redi
   USE mo_model_domain,              ONLY: t_patch, t_patch_3d
   USE mo_exception,                 ONLY: finish !, message_text, message
   USE mo_ocean_boundcond,           ONLY: top_bound_cond_tracer
-  USE mo_ocean_physics
+  USE mo_ocean_physics_types,       ONLY: t_ho_params 
   USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
   USE mo_sync,                      ONLY: sync_patch_array_mult, sync_c, sync_e!, sync_patch_array

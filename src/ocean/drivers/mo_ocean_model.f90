@@ -69,9 +69,9 @@ MODULE mo_ocean_model
   USE mo_ocean_check_tools,     ONLY: init_oce_index
   USE mo_util_dbg_prnt,       ONLY: init_dbg_index
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_ocean_physics,         ONLY: t_ho_params, construct_ho_params, init_ho_params, v_params, &
-    & destruct_ho_params
-
+  USE mo_ocean_physics_types,  ONLY: t_ho_params, construct_ho_params, v_params, &
+                                   & destruct_ho_params
+  USE mo_ocean_physics,          ONLY: init_ho_params                                 
   USE mo_operator_ocean_coeff_3d,ONLY: construct_operators_coefficients, &
     & destruct_operators_coefficients
 
