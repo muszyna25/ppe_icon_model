@@ -207,7 +207,7 @@ CONTAINS
 
     
 !ICON_OMP_DO PRIVATE(start_index, end_index, jc, level, delta_z, delta_z_new, &
-!ICON_OMP z_fluxdiv_c, flux_div_vert) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP z_fluxdiv_c, div_adv_flux_vert) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
       
