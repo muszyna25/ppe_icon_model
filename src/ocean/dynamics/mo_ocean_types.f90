@@ -176,7 +176,9 @@ MODULE mo_ocean_types
       & div            ,& ! divergence. Unit [m/s]
       & press_hyd      ,& ! hydrostatic pressure. Unit [m]
       & temp_insitu    ,&
-      & t,s ! dummy pointer for output variabless
+      & t,s            ,& ! dummy pointer for output variabless
+      & Buoyancy_Freq  ,&
+      & Richardson_Number
 
     onCells_2D :: &
       & thick_c          ,& ! individual fluid column thickness at cells. Unit [m].
@@ -184,7 +186,10 @@ MODULE mo_ocean_types
       & v_vint           ,& ! barotropic meridional velocity. Unit [m*m/s]
       & mld              ,& ! mixed layer depth [m].
       & condep           ,&! convection depth index
-      & h  ! dummy pointer for output variables
+      & h                ,&! dummy pointer for output variables 
+      & Rossby_Radius    ,&      
+      & Wavespeed_baroclinic
+      
       
     onCells_Type(t_cartesian_coordinates) :: &
       & p_vn              ! reconstructed velocity at cell center in cartesian coordinates
