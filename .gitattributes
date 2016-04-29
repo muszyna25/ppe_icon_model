@@ -1264,6 +1264,7 @@ scripts/postprocessing/tools/xsec.py -text
 scripts/preprocessing/README_MARS4ICON.TXT -text
 scripts/preprocessing/WARM_BUBBLE_INIT/findzero.m -text
 scripts/preprocessing/WARM_BUBBLE_INIT/init.m -text
+scripts/preprocessing/calculateOceanLevels.py -text
 scripts/preprocessing/estimate.py -text
 scripts/preprocessing/gauss_to_icon.ksh -text
 scripts/preprocessing/icon_pre_lnd_atm.ksh -text
