@@ -28,7 +28,7 @@ MODULE mo_ocean_nml
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
   USE mo_io_units,           ONLY: filename_max
-  USE mo_physical_constants, ONLY: a_T, rho_ref
+  USE mo_physical_constants, ONLY: a_T, rho_ref, grav, sitodbar
 
 #ifndef __NO_ICON_ATMO__
   USE mo_coupling_config,    ONLY: is_coupled_run
@@ -519,7 +519,8 @@ MODULE mo_ocean_nml
   REAL(wp) :: LinearThermoExpansionCoefficient = a_T
   REAL(wp) :: OceanReferenceDensity         ! Note that this is updated according the the eos, unless defined by the namelist
   REAL(wp) :: OceanReferenceDensity_inv 
-  
+  REAL(wp) :: ReferenceDensityTodbars
+
   NAMELIST/ocean_physics_nml/&
     &  EOS_TYPE                    , &
     &  i_sea_ice                   , &
@@ -868,6 +869,7 @@ MODULE mo_ocean_nml
       END SELECT
     ENDIF
     OceanReferenceDensity_inv = 1.0_wp/OceanReferenceDensity
+    ReferenceDensityTodbars = OceanReferenceDensity * grav * sitodbar
 
     CALL position_nml ('ocean_horizontal_diffusion_nml', status=i_status)
     IF (my_process_is_stdio()) THEN
