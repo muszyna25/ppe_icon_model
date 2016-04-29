@@ -29,7 +29,7 @@ MODULE mo_ocean_thermodyn
   !-------------------------------------------------------------------------
   USE mo_kind,                ONLY: wp
   USE mo_ocean_nml,           ONLY: n_zlev, eos_type, no_tracer, fast_performance_level,l_partial_cells, &
-    & LinearThermoExpansionCoefficient, OceanReferenceDensity, OceanReferenceDensity_inv, ReferenceDensityTodbars
+    & LinearThermoExpansionCoefficient, OceanReferenceDensity, OceanReferenceDensity_inv, ReferencePressureIndbars
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
   USE mo_impl_constants,      ONLY: sea_boundary, sea_boundary, min_dolic !, &
   USE mo_exception,           ONLY: finish
@@ -673,7 +673,7 @@ CONTAINS
         CALL get_index_range(all_cells, jb, start_index, end_index)
         DO jc = start_index, end_index
            levels = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-           z_p(1:levels) = patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels,jb) * ReferenceDensityTodbars
+           z_p(1:levels) = patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels,jb) * ReferencePressureIndbars
            rho(jc,1:levels,jb) = calculate_density_jmdwfg06_onColumn( &
              & tracer(jc,1:levels,jb,1),  tracer(jc,1:levels,jb,2), z_p(1:levels), levels)
         END DO
@@ -688,7 +688,7 @@ CONTAINS
         CALL get_index_range(all_cells, jb, start_index, end_index)
         DO jc = start_index, end_index
           levels = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-          z_p(1:levels) = patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels,jb) * ReferenceDensityTodbars
+          z_p(1:levels) = patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels,jb) * ReferencePressureIndbars
           rho(jc,1:levels,jb) = calculate_density_jmdwfg06_onColumn( &
              & tracer(jc,1:levels,jb,1),  salinityReference_column(1:levels), z_p(1:levels), levels)
         END DO
@@ -728,7 +728,7 @@ CONTAINS
         CALL get_index_range(all_cells, jb, start_index, end_index)
         DO jc = start_index, end_index
            levels = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-           z_p(1:levels) = patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels,jb) * ReferenceDensityTodbars
+           z_p(1:levels) = patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,1:levels,jb) * ReferencePressureIndbars
            rho(jc,1:levels,jb) = calculate_density_EOS10_onColumn( &
              & tracer(jc,1:levels,jb,1),  tracer(jc,1:levels,jb,2), z_p(1:levels), levels)
         END DO

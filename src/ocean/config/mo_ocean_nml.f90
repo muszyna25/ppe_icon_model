@@ -519,7 +519,7 @@ MODULE mo_ocean_nml
   REAL(wp) :: LinearThermoExpansionCoefficient = a_T
   REAL(wp) :: OceanReferenceDensity         ! Note that this is updated according the the eos, unless defined by the namelist
   REAL(wp) :: OceanReferenceDensity_inv 
-  REAL(wp) :: ReferenceDensityTodbars
+  REAL(wp) :: ReferencePressureIndbars
 
   NAMELIST/ocean_physics_nml/&
     &  EOS_TYPE                    , &
@@ -869,7 +869,7 @@ MODULE mo_ocean_nml
       END SELECT
     ENDIF
     OceanReferenceDensity_inv = 1.0_wp/OceanReferenceDensity
-    ReferenceDensityTodbars = OceanReferenceDensity * grav * sitodbar
+    ReferencePressureIndbars = OceanReferenceDensity * grav * sitodbar
 
     CALL position_nml ('ocean_horizontal_diffusion_nml', status=i_status)
     IF (my_process_is_stdio()) THEN

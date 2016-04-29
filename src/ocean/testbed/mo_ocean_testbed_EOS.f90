@@ -22,7 +22,7 @@ MODULE mo_ocean_testbed_EOS
   USE mo_ocean_thermodyn,   ONLY: calculate_density_jmdwfg06_onColumn, calculate_density_mpiom_onColumn
   USE mo_physical_constants,  ONLY: grav, sal_ref, b_s, &
     & sitodbar, sfc_press_bar
-  USE mo_ocean_nml,           ONLY: OceanReferenceDensity, ReferenceDensityTodbars
+  USE mo_ocean_nml,           ONLY: OceanReferenceDensity, ReferencePressureIndbars
 
   IMPLICIT NONE
   PRIVATE
@@ -65,7 +65,7 @@ CONTAINS
         write(0,*) "salinity=", salinity(s)
 
 !         pressure_column = depth * OceanReferenceDensity * grav * sitodbar
-        pressure_column = depth * ReferenceDensityTodbars
+        pressure_column = depth * ReferencePressureIndbars
 
         rho_EOS3 = calculate_density_jmdwfg06_onColumn( &
           & temperature_column,  salinity_column, pressure_column, columnn_size)
