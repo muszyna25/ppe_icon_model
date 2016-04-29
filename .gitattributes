@@ -804,6 +804,7 @@ run/checksuite.ocean_internal/technical/post.oce_omip_performance -text
 run/checksuite.ocean_internal/technical/post.ocean_accumulation -text
 run/checksuite.ocean_internal/technical/post.ocean_monitoring -text
 run/checksuite.ocean_internal/technical/post.test_compare_restarts -text
+run/checksuite.ocean_internal/testbed/exp.oce_testbed_EOS -text
 run/checksuite.ocean_internal/tracers/exp.oce_testbed_vertical_diffusion -text
 run/checksuite.ocean_internal/tracers/exp.oce_tracer_bubble -text
 run/checksuite.ocean_internal/tracers/exp.oce_tracer_bubble_0010km -text
