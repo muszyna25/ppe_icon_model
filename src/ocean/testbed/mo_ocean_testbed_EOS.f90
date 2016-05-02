@@ -19,10 +19,11 @@ MODULE mo_ocean_testbed_EOS
   !-------------------------------------------------------------------------
   USE mo_kind,                   ONLY: wp, sp
   USE mo_exception,              ONLY: message, message_text, finish
-  USE mo_ocean_thermodyn,   ONLY: calculate_density_jmdwfg06_onColumn, calculate_density_mpiom_onColumn, convert_insitu2pot_temp_func
-  USE mo_physical_constants,  ONLY: grav, sal_ref, b_s, &
+  USE mo_ocean_thermodyn,        ONLY: calculate_density_jmdwfg06_onColumn, calculate_density_mpiom_onColumn, convert_insitu2pot_temp_func
+  USE mo_physical_constants,     ONLY: grav, sal_ref, b_s, &
     & sitodbar, sfc_press_bar
-  USE mo_ocean_nml,           ONLY: OceanReferenceDensity, ReferencePressureIndbars
+  USE mo_ocean_nml,              ONLY: OceanReferenceDensity, ReferencePressureIndbars
+  USE mo_timer,                  ONLY: timer_start, timer_stop, timer_extra10, timer_extra11
 
   IMPLICIT NONE
   PRIVATE
@@ -59,7 +60,30 @@ CONTAINS
 !     DO t=1,temperature_size
 !       write(0,*) "temperature=", temperature(t)
 !       temperature_column = temperature(t)
+    ! performance test
+    p=1
+    s=1
+    salinity_column = salinity(s)
 
+    temperature_column = temperature
+
+    pressure_column = depth(p) !* ReferencePressureIndbars
+    CALL timer_start(timer_extra10)
+    DO l=1,10000
+      rho_EOS3 = calculate_density_jmdwfg06_onColumn( &
+        & temperature_column,  salinity_column, pressure_column, columnn_size)
+    ENDDO 
+    CALL timer_stop(timer_extra10)
+
+    pressure_column = depth(p) / 10.0_wp !* OceanReferenceDensity * sitodbar
+    CALL timer_start(timer_extra11)
+    DO l=1,10000
+      rho_MPIOM = calculate_density_mpiom_onColumn( &
+        & temperature_column,  salinity_column, pressure_column, columnn_size)
+    ENDDO
+    CALL timer_stop(timer_extra11)
+
+    ! calculate values
       DO p=1, depth_size
         write(0,*) "depth=", depth(p)
 
@@ -69,8 +93,8 @@ CONTAINS
 
 !         pressure_column = depth * OceanReferenceDensity * grav * sitodbar
 
+        ! the temperature in the UNESCO table is given as insitu, translate it to potential that the model uses...
         DO l=1,columnn_size
-!           temperature_column(l) = convert_insitu2pot_temp_func(temperature(t), salinity(s), depth(l) / 10.0_wp)
           temperature_column(l) = convert_insitu2pot_temp_func(temperature(l), salinity(s), depth(p) / 10.0_wp)
         ENDDO
 
@@ -91,6 +115,7 @@ CONTAINS
 
       ENDDO
     ENDDO
+
 
   END SUBROUTINE ocean_test_EOS
   !-------------------------------------------------------------------------
