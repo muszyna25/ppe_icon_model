@@ -63,7 +63,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nh_diagnose_pres_temp,   ONLY: diagnose_pres_temp, diag_pres, diag_temp
 
   USE mo_atm_phy_nwp_config,      ONLY: atm_phy_nwp_config, iprog_aero
-  USE mo_util_phys,               ONLY: nh_update_prog_phy
+  USE mo_util_phys,               ONLY: nh_update_tracer_phy
   USE mo_lnd_nwp_config,          ONLY: ntiles_total, ntiles_water
   USE mo_cover_koe,               ONLY: cover_koe
   USE mo_satad,                   ONLY: satad_v_3D
@@ -91,7 +91,6 @@ MODULE mo_nh_interface_nwp
   USE mo_ls_forcing_nml,          ONLY: is_ls_forcing
   USE mo_ls_forcing,              ONLY: apply_ls_forcing
   USE mo_advection_config,        ONLY: advection_config
-  USE mo_util_phys,               ONLY: nh_update_prog_phy
   USE mo_o3_util,                 ONLY: calc_o3_gems
 
   IMPLICIT NONE
@@ -248,29 +247,7 @@ CONTAINS
     ! condensate tracer IDs
     condensate_list => advection_config(jg)%ilist_hydroMass
 
-    !-------------------------------------------------------------------------
-    !>  Update the tracer for every advective timestep,
-    !!  all other updates are done in dynamics
-    !-------------------------------------------------------------------------
 
-    IF (.NOT. linit) THEN
-
-      IF (msg_level >= 15) &
-           & CALL message('mo_nh_interface_nwp:', 'update_tracers')
-
-      IF (timers_level > 2) CALL timer_start(timer_update_prog_phy)
-
-      CALL nh_update_prog_phy(pt_patch              ,& !in
-           &                  dt_phy_jg(itfastphy)  ,& !in
-           &                  pt_diag               ,& !in
-           &                  prm_nwp_tend          ,& !in
-           &                  prm_diag              ,& !inout phyfields
-           &                  pt_prog_rcf           ,& !inout tracer
-           &                  pt_prog                ) !in density
-
-      IF (timers_level > 2) CALL timer_stop(timer_update_prog_phy)
-
-    ENDIF
 
     IF ( lcall_phy_jg(itturb) .OR. lcall_phy_jg(itconv) .OR.           &
          lcall_phy_jg(itsso)  .OR. lcall_phy_jg(itgwd) .OR. linit ) THEN
@@ -330,6 +307,7 @@ CONTAINS
     i_startblk = pt_patch%cells%start_block(rl_start)
     i_endblk   = pt_patch%cells%end_block(rl_end)
 
+
     IF (jg > 1 .OR. l_limited_area) THEN
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx)
       DO jb = i_startblk, i_endblk
@@ -377,6 +355,21 @@ CONTAINS
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
         & i_startidx, i_endidx, rl_start, rl_end)
+
+
+      IF (.NOT. linit) THEN
+        ! update tracer fields with convective tendencies.
+        ! Update qv with DA increment (during IAU phase)
+        CALL nh_update_tracer_phy(pt_patch          ,& !in
+           &                  dt_phy_jg(itfastphy)  ,& !in
+           &                  pt_diag               ,& !in
+           &                  prm_nwp_tend          ,& !in
+           &                  prm_diag              ,& !inout phyfields
+           &                  pt_prog_rcf           ,& !inout tracer
+           &                  pt_prog               ,& !in density
+           &                  jb, i_startidx, i_endidx ) !in
+      ENDIF  ! linit
+
 
       IF (l_any_fastphys .OR. linit) THEN  ! diagnose temperature
         CALL diag_temp (pt_prog, pt_prog_rcf, condensate_list, pt_diag,    &
