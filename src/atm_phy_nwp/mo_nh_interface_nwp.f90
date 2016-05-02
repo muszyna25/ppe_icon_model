@@ -322,7 +322,7 @@ CONTAINS
                         jb, i_startidx, i_endidx, 1, nlev)
 
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
     ENDIF
 
     ! Save Exner pressure field on halo points (prognostic points are treated below)
@@ -340,7 +340,7 @@ CONTAINS
 
       z_exner_sv(i_startidx:i_endidx,:,jb) = pt_prog%exner(i_startidx:i_endidx,:,jb)
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
 
     ! computations on prognostic points
@@ -358,8 +358,14 @@ CONTAINS
 
 
       IF (.NOT. linit) THEN
-        ! update tracer fields with convective tendencies.
-        ! Update qv with DA increment (during IAU phase)
+
+        ! The provisional "new" tracer state, resulting from the advection 
+        ! step, still needs to be updated with the SLOW-physics tracer tendencies 
+        ! computed at the end of the last physics call for the then final 
+        ! "new" state. The corresponding update for the dynamics variables has 
+        ! already happened in the dynamical core.
+        !
+        ! In addition: Update qv with DA increment (during IAU phase)
         CALL nh_update_tracer_phy(pt_patch          ,& !in
            &                  dt_phy_jg(itfastphy)  ,& !in
            &                  pt_diag               ,& !in
