@@ -1342,7 +1342,8 @@ CONTAINS
 
               ! Check for matching name (take care of suffix of
               ! time-dependent variables):
-              IF (TRIM(varlist(ivar)) /= TRIM(tolower(get_var_name(element%field)))) CYCLE
+              
+              IF (TRIM(tolower(varlist(ivar))) /= TRIM(tolower(get_var_name(element%field)))) CYCLE
 
               ! throw error message, if this variable is not a REAL field:
               IF (.NOT. ASSOCIATED(element%field%r_ptr)) THEN
@@ -1368,6 +1369,8 @@ CONTAINS
                 &           loutput=.TRUE., new_element=new_element,        &
                 &           post_op=info%post_op, var_class=info%var_class, &
                 &           tlev_source=info%tlev_source )
+               CALL message(routine, "This is in vinterp search"//TRIM(info%name) )
+
 
               !-- add post-processing task for interpolation
 
