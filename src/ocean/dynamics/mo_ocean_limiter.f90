@@ -139,13 +139,7 @@ CONTAINS
     INTEGER, DIMENSION(:,:,:), POINTER :: edge_of_cell_idx, edge_of_cell_blk
     INTEGER :: start_level, end_level            
     INTEGER :: start_index, end_index
-!     INTEGER :: cell_1_idx,cell_2_idx,cell_1_blk,cell_2_blk
-!     INTEGER :: cell_1_edge_1_idx,cell_1_edge_2_idx,cell_1_edge_3_idx
-!     INTEGER :: cell_2_edge_1_idx,cell_2_edge_2_idx,cell_2_edge_3_idx        
-!     INTEGER :: cell_1_edge_1_blk,cell_1_edge_2_blk,cell_1_edge_3_blk
-!     INTEGER :: cell_2_edge_1_blk,cell_2_edge_2_blk,cell_2_edge_3_blk      
     INTEGER :: edge_index, level, blockNo, jc,  cell_connect, sum_lsm_quad_edge, ctr
-!    INTEGER :: all_water_edges 
     TYPE(t_subset_range), POINTER :: edges_in_domain,  cells_in_domain
     TYPE(t_patch), POINTER :: patch_2d    
     !-------------------------------------------------------------------------
@@ -170,7 +164,6 @@ CONTAINS
     r_m(:,:,:)          = 0.0_wp
     r_p(:,:,:)          = 0.0_wp
 #endif
-
    
 !ICON_OMP_PARALLEL
 ! !ICON_OMP_DO PRIVATE(start_index, end_index, edge_index, level) ICON_OMP_DEFAULT_SCHEDULE        
@@ -212,9 +205,12 @@ CONTAINS
       CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
       
       z_tracer_new_low(:,:,blockNo)    = 0.0_wp
-      z_tracer_update_horz(:,:,blockNo)= 0.0_wp           
+      z_tracer_update_horz(:,:,blockNo)= 0.0_wp
+      z_tracer_max(:,:,blockNo)        = 0.0_wp
+      z_tracer_min(:,:,blockNo)        = 0.0_wp
+
       DO jc = start_index, end_index
-        
+        IF (patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo) < 1) CYCLE
         ! get prism thickness
         !inv_prism_thick_new(start_level) = 1.0_wp / (patch_3d%p_patch_1d(1)%del_zlev_m(start_level) + h_new(jc,blockNo))
         !prism_thick_old(start_level)     = patch_3d%p_patch_1d(1)%del_zlev_m(start_level)           + h_old(jc,blockNo)
@@ -249,8 +245,6 @@ CONTAINS
          z_tracer_update_horz(jc,level,blockNo) = (tracer(jc,level,blockNo) * delta_z                     &
          & - dtime * (div_adv_flux_vert(jc,level,blockNo)))/delta_z_new
 
-        !write(0,*) "z_tracer_new_low is done"
-        !
         !Fluid interior       
         DO level = start_level+1, MIN(patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo), end_level)       
           !  compute divergence of low order fluxes
@@ -302,7 +296,7 @@ CONTAINS
 
 !ICON_OMP_MASTER
     CALL sync_patch_array_mult(sync_c1, patch_2d, 2, z_tracer_max, z_tracer_min)
-!ICON_OMP_END_MASTER    
+!ICON_OMP_END_MASTER
 !ICON_OMP_BARRIER
     ! 4. Limit the antidiffusive fluxes z_mflx_anti, such that the updated tracer
     !    field is free of any new extrema.    
