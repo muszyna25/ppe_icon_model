@@ -67,6 +67,8 @@ MODULE mo_interface_echam_ocean
     &                               yac_fdef_mask, yac_fdef_field, yac_fsearch,  &
     &                               yac_ffinalize
 
+  USE mo_util_dbg_prnt       ,ONLY: dbg_print
+
   IMPLICIT NONE
 
   PRIVATE
@@ -81,6 +83,9 @@ MODULE mo_interface_echam_ocean
 
   REAL(wp), ALLOCATABLE :: buffer(:,:)
   INTEGER, SAVE         :: nbr_inner_cells
+
+  CHARACTER(len=12)     :: str_module    = 'InterFaceOce'  ! Output of module for 1 line debug
+  INTEGER               :: idt_src       = 1               ! Level of detail for 1 line debug
 
 CONTAINS
 
@@ -428,6 +433,7 @@ CONTAINS
     INTEGER               :: no_arr         !  no of arrays in bundle for put/get calls
 
     REAL(wp), PARAMETER   :: dummy = 0.0_wp
+    REAL(wp)              :: scr(nproma,p_patch%alloc_cell_blocks)
 
     IF ( .NOT. is_coupled_run() ) RETURN
 
@@ -848,6 +854,25 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
       
     END IF
+
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    scr(:,:) = prm_field(jg)%u_stress_tile(:,:,iwtr)
+    CALL dbg_print('EchOce: u_stress.wtr',scr,str_module,2,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%u_stress_tile(:,:,iice)
+    CALL dbg_print('EchOce: u_stress.ice',scr,str_module,3,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%v_stress_tile(:,:,iwtr)
+    CALL dbg_print('EchOce: v_stress.wtr',scr,str_module,3,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%v_stress_tile(:,:,iice)
+    CALL dbg_print('EchOce: v_stress.ice',scr,str_module,3,in_subset=p_patch%cells%owned)
+
+    scr(:,:) = prm_field(jg)%u(:,nlev,:)
+    CALL dbg_print('EchOce: prm%u      ',scr,str_module,2,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%v(:,nlev,:)
+    CALL dbg_print('EchOce: prm%v      ',scr,str_module,2,in_subset=p_patch%cells%owned)
+    scr(:,:) = SQRT(prm_field(jg)%u(:,nlev,:)**2+prm_field(jg)%v(:,nlev,:)**2) 
+    CALL dbg_print('EchOce: sqrt(u2+v2)',scr,str_module,2,in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
 
   END SUBROUTINE interface_echam_ocean
 
