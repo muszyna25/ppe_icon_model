@@ -941,9 +941,8 @@ CONTAINS
 
     ! Local scalars:
     INTEGER  :: nlev        !< number of full levels
-    INTEGER  :: jb          !block index
     INTEGER  :: jt          !tracers
-    INTEGER  :: jk,jc,jg,jb
+    INTEGER  :: jk,jc,jg
     REAL(wp) :: zqc, zqi, zqcn, zqin
 
     REAL(wp) :: zrhw(nproma, pt_patch%nlev) ! relative humidity w.r.t. water
