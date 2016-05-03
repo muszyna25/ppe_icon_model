@@ -32,7 +32,6 @@ MODULE mo_util_phys
   USE mo_fortran_tools,         ONLY: assign_if_present
   USE mo_impl_constants,        ONLY: min_rlcell_int, min_rledge_int, &
     &                                 min_rlcell
-  USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c
   USE mo_model_domain,          ONLY: t_patch
   USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend

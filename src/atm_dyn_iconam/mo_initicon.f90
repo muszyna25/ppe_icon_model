@@ -114,7 +114,6 @@ MODULE mo_initicon
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//':init_icon'
     INTEGER :: jg, ist
-    INTEGER :: jb              ! block loop index
     TYPE(t_readInstructionListPtr) :: inputInstructions(n_dom)
 
     ! Allocate initicon data type

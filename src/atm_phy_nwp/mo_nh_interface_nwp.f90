@@ -55,7 +55,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nwp_phy_types,           ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,         ONLY: nproma, p_test_run, use_icon_comm, use_physics_barrier
   USE mo_diffusion_config,        ONLY: diffusion_config
-  USE mo_run_config,              ONLY: ntracer, iqv, iqc, iqi, iqr, iqs, iqtvar, iqtke, iqm_max,    &
+  USE mo_run_config,              ONLY: ntracer, iqv, iqc, iqi, iqs, iqtvar, iqtke,  &
     &                                   msg_level, ltimer, timers_level, lart
   USE mo_grid_config,             ONLY: l_limited_area
   USE mo_physical_constants,      ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cvd, cvv

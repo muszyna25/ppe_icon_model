@@ -19,7 +19,6 @@ MODULE mo_linked_list
   USE mo_kind,             ONLY: i8
   USE mo_exception,        ONLY: finish, message
   USE mo_var_list_element, ONLY: t_var_list_element, level_type_ml
-  USE mo_util_hash,        ONLY: util_hashword
   !
   IMPLICIT NONE
   !

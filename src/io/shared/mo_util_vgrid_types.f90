@@ -16,7 +16,6 @@
 !!
 MODULE mo_util_vgrid_types
 
-  USE ISO_C_BINDING, ONLY: C_SIGNED_CHAR
   USE mo_kind, ONLY: wp
   USE mo_util_uuid, ONLY: t_uuid
   IMPLICIT NONE
