@@ -114,7 +114,6 @@ MODULE mo_initicon
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//':init_icon'
     INTEGER :: jg, ist
-    INTEGER :: jb              ! block loop index
     TYPE(t_readInstructionListPtr) :: inputInstructions(n_dom)
 
     ! Allocate initicon data type
@@ -371,6 +370,7 @@ MODULE mo_initicon
     ! Scan the input files AND distribute the relevant variables across the processes.
     DO jg = 1, n_dom
         IF(p_patch(jg)%ldom_active .AND. lread_ana) THEN
+            IF (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg)) CYCLE
             IF(my_process_is_stdio()) THEN
                 CALL message (TRIM(routine), 'read atm_ANA fields from '//TRIM(anaFilename(p_patch(jg))))
             ENDIF  ! p_io
