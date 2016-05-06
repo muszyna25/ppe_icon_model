@@ -29,7 +29,7 @@ MODULE mo_ocean_output
   USE mo_sync,                   ONLY: sync_patch_array, sync_e, sync_c !, sync_v
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
     & diagnostics_level, &
-    & eos_type, i_sea_ice, gibraltar
+    & eos_type, i_sea_ice, gibraltar, lhamocc
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: timeSteps_per_outputStep
   USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode
@@ -58,7 +58,11 @@ MODULE mo_ocean_output
   USE mo_sea_ice_nml,            ONLY: i_ice_dyn
   USE mo_util_dbg_prnt,          ONLY: dbg_print
   USE mo_ocean_statistics
-
+  USE mo_hamocc_statistics
+  USE mo_hamocc_types,           ONLY: t_hamocc_state, t_hamocc_acc, t_hamocc_tend
+  USE mo_bgc_icon_comm,          ONLY: set_bgc_output_pointers
+  USE mo_hamocc_diagnostics,     ONLY: get_monitoring 
+ 
   IMPLICIT NONE
 
   PRIVATE
@@ -83,6 +87,7 @@ CONTAINS
     & datetime,        &
     & surface_fluxes,  &
     & sea_ice,         &
+    & hamocc,          &
     & jstep, jstep0,   &
     & force_output)
 
@@ -92,6 +97,7 @@ CONTAINS
     TYPE(t_sfc_flx)                                  :: surface_fluxes
     TYPE (t_sea_ice),         INTENT(inout)          :: sea_ice
     INTEGER,   INTENT(in)                            :: jstep, jstep0
+    TYPE(t_hamocc_state), TARGET, INTENT(inout)      :: hamocc
     LOGICAL, OPTIONAL                                :: force_output
    
     ! local variables
@@ -147,8 +153,13 @@ CONTAINS
     CALL compute_mean_ocean_statistics(ocean_state(1)%p_acc,surface_fluxes,nsteps_since_last_output)
     CALL compute_mean_ice_statistics(sea_ice%acc,nsteps_since_last_output)
   
-    ! set the output variable pointer to the correct timelevel
+    IF(lhamocc)THEN
+      CALL compute_mean_hamocc_statistics(hamocc%p_acc,nsteps_since_last_output)
+      CALL get_monitoring(hamocc,ocean_state(1),patch_3d)
+    ENDIF
+   ! set the output variable pointer to the correct timelevel
     CALL set_output_pointers(nnew(1), ocean_state(jg)%p_diag, ocean_state(jg)%p_prog(nnew(1)))
+    IF(lhamocc)CALL set_bgc_output_pointers(nnew(1), hamocc%p_diag, ocean_state(jg)%p_prog(nnew(1)))
   
     IF (output_mode%l_nml) THEN
       CALL write_name_list_output(out_step)
@@ -161,6 +172,8 @@ CONTAINS
     CALL reset_ocean_statistics(ocean_state(1)%p_acc,ocean_state(1)%p_diag,surface_fluxes,nsteps_since_last_output)
     IF (i_sea_ice >= 1) CALL reset_ice_statistics(sea_ice%acc)
 
+    IF(lhamocc)CALL reset_hamocc_statistics(hamocc%p_acc,nsteps_since_last_output)
+        
   END SUBROUTINE output_ocean
   !-------------------------------------------------------------------------
 

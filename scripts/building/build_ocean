@@ -1,0 +1,11 @@
+#!/bin/bash
+
+calldir=$(dirname $0)
+
+if [[ "_$2" == "_--clean" ]]; then
+  rm -rf $calldir/../../build $calldir/../../ocean_build
+fi
+
+cd $calldir/../buildbot_scripts
+./build ocean_$1 --list ocean
+cd -

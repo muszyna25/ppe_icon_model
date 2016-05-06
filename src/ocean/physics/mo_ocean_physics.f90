@@ -56,7 +56,7 @@ MODULE mo_ocean_physics
     & VerticalViscosity_TimeWeight, OceanReferenceDensity,    &
     & HorizontalViscosity_ScaleWeight,                        &
     & tracer_TopWindMixing, WindMixingDecayDepth,             &
-    & velocity_TopWindMixing
+    & velocity_TopWindMixing, nbgcadv
     
    !, l_convection, l_pp_scheme
   USE mo_parallel_config,     ONLY: nproma
@@ -386,7 +386,7 @@ CONTAINS
     ENDDO
 
 
-    DO i=1,no_tracer
+    DO i=1,no_tracer+ nbgcadv
 
       IF(i==1)THEN!temperature
         p_phys_param%k_tracer_h_back(i) = k_pot_temp_h
@@ -397,8 +397,10 @@ CONTAINS
         p_phys_param%a_tracer_v_back(2) = k_sal_v
       ELSE
 
-        CALL finish ('mo_ocean_physics:init_ho_params',  &
-          & 'number of tracers exceeds number of background values')
+        p_phys_param%k_tracer_h_back(i) = k_sal_h
+        p_phys_param%a_tracer_v_back(i) = k_sal_v
+       ! CALL finish ('mo_ocean_physics:init_ho_params',  &
+       !   & 'number of tracers exceeds number of background values')
       ENDIF
       p_phys_param%k_tracer_h(:,:,:,i) = p_phys_param%k_tracer_h_back(i)
       p_phys_param%a_tracer_v(:,:,:,i) = p_phys_param%a_tracer_v_back(i)
@@ -406,7 +408,7 @@ CONTAINS
 
     p_phys_param%bottom_drag_coeff = bottom_drag_coeff
 
-    DO i_no_trac=1, no_tracer
+    DO i_no_trac=1, no_tracer+nbgcadv
       CALL sync_patch_array(sync_c,patch_2D,p_phys_param%k_tracer_h(:,:,:,i_no_trac))
     END DO
     CALL sync_patch_array(sync_e,patch_2D,p_phys_param%k_veloc_h(:,:,:))
@@ -597,20 +599,20 @@ CONTAINS
         & grid_unstructured_edge, za_depth_below_sea, &
         & t_cf_var('K_tracer_h', '', '1:temperature 2:salinity', datatype_flt),&
         & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
-        & ldims=(/nproma,n_zlev,nblks_e,no_tracer/), &
+        & ldims=(/nproma,n_zlev,nblks_e,no_tracer+nbgcadv/), &
         & lcontainer=.TRUE., loutput=.FALSE., lrestart=.FALSE.)
       CALL add_var(ocean_params_list, 'A_tracer_v', params_oce%a_tracer_v , &
         & grid_unstructured_cell, za_depth_below_sea_half, &
         & t_cf_var('A_tracer_v', '', '1:temperature 2:salinity', datatype_flt),&
         & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
-        & ldims=(/nproma,n_zlev+1,alloc_cell_blocks,no_tracer/), &
+        & ldims=(/nproma,n_zlev+1,alloc_cell_blocks,no_tracer+nbgcadv/), &
         & lcontainer=.TRUE., loutput=.FALSE., lrestart=.FALSE.)
 
       ! Reference to individual tracer, for I/O
 
-      ALLOCATE(params_oce%tracer_h_ptr(no_tracer))
-      ALLOCATE(params_oce%tracer_v_ptr(no_tracer))
-      DO jtrc = 1,no_tracer
+      ALLOCATE(params_oce%tracer_h_ptr(no_tracer+nbgcadv))
+      ALLOCATE(params_oce%tracer_v_ptr(no_tracer+nbgcadv))
+      DO jtrc = 1,no_tracer+nbgcadv
         CALL add_ref( ocean_params_list, 'K_tracer_h',&
           & 'K_tracer_h_'//TRIM(oce_config%tracer_names(jtrc)),     &
           & params_oce%tracer_h_ptr(jtrc)%p,                             &
@@ -647,12 +649,12 @@ CONTAINS
     ENDIF ! no_tracer > 0
 
 
-    ALLOCATE(params_oce%k_tracer_h_back(no_tracer), stat=ist)
+    ALLOCATE(params_oce%k_tracer_h_back(no_tracer+nbgcadv), stat=ist)
     IF (ist/=success) THEN
       CALL finish(TRIM(routine), 'allocation for horizontal background tracer diffusion failed')
     END IF
 
-    ALLOCATE(params_oce%a_tracer_v_back(no_tracer), stat=ist)
+    ALLOCATE(params_oce%a_tracer_v_back(no_tracer+nbgcadv), stat=ist)
     IF (ist/=success) THEN
       CALL finish(TRIM(routine), 'allocation for vertical tracer background diffusion failed')
     END IF
@@ -687,7 +689,7 @@ CONTAINS
     ENDIF
 
 
-    DO i=1,no_tracer
+    DO i=1,no_tracer+nbgcadv
       params_oce%k_tracer_h_back(i)  = 0.0_wp
       params_oce%a_tracer_v_back(i)  = 0.0_wp
     END DO
@@ -816,7 +818,7 @@ CONTAINS
     !CALL dbg_print('UpdPar: p_vn%x(2)'         ,ocean_state%p_diag%p_vn%x(2)    ,str_module,idt_src, &
     !  & in_subset=patch_3d%p_patch_2d(1)%cells%owned)
     idt_src=2  ! output print levels (1-5, fix)
-    DO tracer_index = 1, no_tracer
+    DO tracer_index = 1, no_tracer+nbgcadv
       CALL dbg_print('UpdPar FinalTracerMixing'  ,params_oce%a_tracer_v(:,:,:,tracer_index), str_module,idt_src, &
         & in_subset=patch_3d%p_patch_2d(1)%cells%owned)
     ENDDO
@@ -1230,7 +1232,7 @@ CONTAINS
 
       END DO ! index
 
-      DO tracer_index = 1, no_tracer
+      DO tracer_index = 1, no_tracer+nbgcadv
 
         params_oce%a_tracer_v(start_index:end_index, 2:n_zlev, jb, tracer_index) =   &
           & MERGE(max_vert_diff_trac,                    & ! activate convection
@@ -1410,7 +1412,7 @@ CONTAINS
 
       END DO ! index
 
-      DO tracer_index = 1, no_tracer
+      DO tracer_index = 1, no_tracer+nbgcadv
 
         params_oce%a_tracer_v(start_index:end_index, 2:n_zlev, jb, tracer_index) =   &
           & MERGE(max_vert_diff_trac,                    & ! activate convection
@@ -1717,7 +1719,7 @@ CONTAINS
       END IF  ! use_wind_mixing
       !-----------------------------------------------------------
 
-      DO tracer_index = 1, no_tracer
+      DO tracer_index = 1, no_tracer+nbgcadv
 
         params_oce%a_tracer_v(start_index:end_index, 2:n_zlev, jb, tracer_index) =   &
           & MERGE(                                       &
@@ -1943,7 +1945,7 @@ CONTAINS
 
       ENDDO !  block index
 
-      DO tracer_index = 1, no_tracer
+      DO tracer_index = 1, no_tracer+nbgcadv
         DO jc = start_index, end_index
           levels = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
 
@@ -2130,7 +2132,7 @@ CONTAINS
     CALL dbg_print('UpdPar: Richardson No',richardson_no               ,str_module,idt_src,in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdPar: windsp. fu10 ',fu10                        ,str_module,idt_src,in_subset=p_patch%cells%owned)
     idt_src=5  ! output print levels (1-5, fix)
-    DO tracer_index = 1, no_tracer
+    DO tracer_index = 1, no_tracer+nbgcadv
       CALL dbg_print('UpdPar FinalTracerMixing'  ,params_oce%a_tracer_v(:,:,:,tracer_index), str_module,idt_src, &
         & in_subset=p_patch%cells%owned)
     ENDDO
