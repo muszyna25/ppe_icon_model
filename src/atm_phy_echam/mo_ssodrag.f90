@@ -86,12 +86,15 @@ CONTAINS
   !          SET THE VALUES OF THE PARAMETERS
   !
 
-  ! The parameters depend on the horizontal resolution. Ideally this
-  ! is expressed as a function of the (horizontal) area of the column.
-    gpicmea = 1.0_wp
-    gstd    = 1.0_wp
-    gkdrag  = 0.2_wp
-    gkwake  = 1.0_wp
+  ! Define the mask for the SSO parameterization:
+    gpicmea = 40.0_wp ! only where  (peak - mean height) is typically > 1st layer depth
+    gstd    = 10.0_wp ! only where SSO slope, asymmetry and orientation are defined by EXTPAR
+
+  ! Define the tuning parameters for SSO drag. These values depend on:
+  ! (1) the resolution of the topography DATA used to compute the SSO parameters, and
+  ! (2) the model resolution.
+    gkdrag  = 0.2_wp  ! drag due to blocking
+    gkwake  = 1.0_wp  ! drag due to gravity waves
 
   ! Compute globally valid layer index nktopg from the vertical coordinate tables that
   ! describe the hybrid sigma coordinate as follows:
