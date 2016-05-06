@@ -1250,7 +1250,7 @@ CONTAINS
     DO j = 1, wrk_p_patch%n_patch_cells
       jg = wrk_p_patch%cells%decomp_info%glb_index(j)
 
-      DO i=1,wrk_p_patch%geometry_info%cell_type
+      DO i=1,wrk_p_patch%cells%max_connectivity
         CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_neighbor, &
           &                      (/jg,i/), glb_cell_neighbor(j,i))
         CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_edge, &
@@ -1269,7 +1269,7 @@ CONTAINS
 
       jg = wrk_p_patch%cells%decomp_info%glb_index(j)
 
-      DO i=1,wrk_p_patch%geometry_info%cell_type
+      DO i=1,wrk_p_patch%cells%max_connectivity
 !CDIR IEXPAND
         CALL get_local_idx(wrk_p_patch%cells%decomp_info, &
           &                glb_cell_neighbor(j,i), jc)
@@ -1302,7 +1302,7 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      DO i=1,wrk_p_patch%geometry_info%cell_type
+      DO i=1,wrk_p_patch%cells%max_connectivity
         CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_neighbor, &
           &                      (/jg,i/), glb_cell_neighbor)
 !CDIR IEXPAND

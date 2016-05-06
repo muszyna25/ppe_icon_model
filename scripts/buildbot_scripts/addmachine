@@ -1,0 +1,30 @@
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+#==============================================================================
+# create an experiment list
+#==============================================================================
+from buildbot_builders import *
+#from model_paths import *
+import argparse
+
+parser = argparse.ArgumentParser(description='Add a machine to list.')
+parser.add_argument('machine_name', type=str,  help='machine name')
+parser.add_argument('--list', dest="list_name", type=str, help='buildbot list', required=True)
+parser.add_argument('--queue', dest="queue",    type=str,  help='queue for the machine', required=False)
+
+args = parser.parse_args()
+
+
+if not args.queue:
+  queue = ""
+else:
+  queue = args.queue
+  
+thisList  = buildbot_experiments_list(args.list_name)
+thisList.add_machine(args.machine_name, queue)
+thisList.write()
+print("Machine "+ args.machine_name+" is added to the "+args.list_name+" list.")
+
+quit()
+
+

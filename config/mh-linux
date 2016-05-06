@@ -420,6 +420,7 @@ case "$ac_sitename" in
                         FPPFLAGS    = -fpp
                         STD_FLAGS   = -ftz -O2 -march=native -pc64 -fp-model source -g -assume realloc_lhs -DIFORT_CONSISTENCY_ENFORCE -DLRTM_FULL_VECTORIZATION
                         HIOPT_FLAGS = -O3 -march=native -mkl=sequential -pc64 -no-prec-div -no-prec-sqrt -fast-transcendentials -reentrancy threaded
+                        OCEAN_FLAGS = -O3 -march=native -pc64 -fp-model source -mkl=sequential -reentrancy threaded -qopt-report-file=stdout -qopt-report=0 -qopt-report-phase=vec -D__OMP_FIRSTTOUCH__
                         FFLAGS      = $FPPFLAGS
                         F77FLAGS    = $FPPFLAGS
 
@@ -481,6 +482,7 @@ case "$ac_sitename" in
                         CFLAGS = -std=gnu99 -g -O3 -march=native -mpc64 -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBSZ -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2 -DgFortran -DWITHOUT_PACK_EXTERNAL
                         F77    = gfortran
                         FC     = gfortran
+                        OCEAN_FLAGS = -march=native -O3 -mpc64 -D__LOOP_EXCHANGE -g
 
                         NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-$compiler_version
                         NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-gcc48
