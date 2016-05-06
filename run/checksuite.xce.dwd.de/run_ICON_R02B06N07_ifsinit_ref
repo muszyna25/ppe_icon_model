@@ -148,7 +148,7 @@ cat > NAMELIST_NWP << EOF
 &parallel_nml
  nproma                      =                          8         ! loop chunk length
  p_test_run                  =                     .FALSE.        ! .TRUE. means verification run for MPI parallelization
- num_io_procs                =                          0         ! number of I/O processors
+ num_io_procs                =                          2         ! number of I/O processors
  num_restart_procs           =                          0         ! number of restart processors
  iorder_sendrecv             =                          3         ! sequence of MPI send/receive calls
 /
@@ -158,7 +158,7 @@ cat > NAMELIST_NWP << EOF
  ltestcase                   =                     .FALSE.        ! idealized testcase runs
  num_lev                     =                     90, 56         ! number of full levels (atm.) for each domain
  lvert_nest                  =                      .TRUE.        ! vertical nesting
- nsteps                      =                        100         ! number of time steps of this run
+ nsteps                      =                        420         ! number of time steps of this run
  dtime                       =                        360         ! timestep in seconds
  ldynamics                   =                      .TRUE.        ! compute adiabatic dynamic tendencies
  ltransport                  =                      .TRUE.        ! compute large-scale tracer transport
@@ -226,7 +226,6 @@ cat > NAMELIST_NWP << EOF
  dt_diag                     =                      21600.0       ! diagnostic integral output interval
  dt_checkpoint               =                     864000.0       ! time interval for writing restart files.
  itype_pres_msl              =                          2         ! method for computation of mean sea level pressure
-lmask_boundary = .true.
 /
 
 ! nonhydrostatic_nml: nonhydrostatic model -----------------------------------
@@ -268,7 +267,7 @@ lmask_boundary = .true.
 
 ! output_nml: specifies an output stream --------------------------------------
 &output_nml
- filetype                    =                          2         ! output format: 2=GRIB2, 4=NETCDFv2
+ filetype                    =                          4         ! output format: 2=GRIB2, 4=NETCDFv2
  dom                         =                         -1         ! write all domains
  output_bounds               =       0., 10000000., 10800.        ! output: start, end, increment
  steps_per_file              =                          2         ! number of output steps in one output file
