@@ -204,8 +204,6 @@ MODULE mo_var_metadata_types
     INTEGER                    :: isteptype             ! Type of statistical processing
     !                                         
     TYPE(t_union_vals)         :: resetval              ! reset value for accumulated fields
-    LOGICAL                    :: lmiss                 ! missing value flag
-    TYPE(t_union_vals)         :: missval               ! missing value
     LOGICAL                    :: lrestart_cont         ! continue if not in restart file     
     LOGICAL                    :: lrestart_read         ! field has been set from restart file
     TYPE(t_union_vals)         :: initval               ! value if not in restart file
@@ -256,6 +254,12 @@ MODULE mo_var_metadata_types
     ! Flag: defines, if this field is updated by the internal
     ! post-processing scheduler
     INTEGER :: l_pp_scheduler_task
+
+    ! Metadata for missing value masking
+
+    LOGICAL                    :: lmiss          ! flag: true, if variable should be initialized with missval
+    TYPE(t_union_vals)         :: missval        ! missing value
+    LOGICAL                    :: lmask_boundary ! flag: true, if interpolation zone should be masked *in output*
 
   END TYPE t_var_metadata
 

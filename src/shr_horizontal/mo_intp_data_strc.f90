@@ -548,12 +548,6 @@ TYPE t_lon_lat_intp
                                                       ! at lon-lat grid points
                                                       ! (rbf_vec_dim_c,2,nproma,nblks_lonlat)
 
-  REAL(wp), ALLOCATABLE :: rbf_c2grad_coeff(:,:,:,:)  ! array containing the
-                                                      ! coefficients used for
-                                                      ! 2D gradient reconstruction
-                                                      ! at lon-lat grid points
-                                                      ! (rbf_c2grad_dim,2,nproma,nblks_lonlat)
-
   REAL(wp), ALLOCATABLE :: rbf_c2l_coeff(:,:,:)       ! array containing the coefficients used
                                                       ! for direct interpolation from cell centers
                                                       ! to lon-lat points. Uses the same stencil as
@@ -573,13 +567,12 @@ TYPE t_lon_lat_intp
                                                       ! each cell center
                                                       ! (nproma,nblks_lonlat)
 
-  INTEGER, ALLOCATABLE  :: rbf_c2grad_idx(:,:,:)      ! index array defining the
-                                                      ! stencil of surrounding cells for
-                                                      ! 2D gradient reconstruction at each
-                                                      ! cell center
-                                                      ! (rbf_c2grad_dim,nproma,nblks_lonlat)
+  ! --- nearest-neighbor interpolation
+  !
+  !     (we need interpolation weights also here to blank out points)
 
-  INTEGER, ALLOCATABLE  :: rbf_c2grad_blk(:,:,:)      ! ... dito for the blocks
+  REAL(wp), ALLOCATABLE  :: nnb_coeff(:,:,:)          ! array containing nearest-neighbor interpolation 
+                                                      ! weights (1,nproma,nblks_lonlat)
 
 
   ! --- barycentric interpolation
@@ -606,10 +599,6 @@ TYPE t_lon_lat_intp
 
   ! --- other data fields
 
-  ! distances from cell center to lon-lat grid point
-  REAL(wp), ALLOCATABLE :: rdist(:,:,:)   ! 2, nproma, nblks_lonlat
-  ! distances from cell center to vertices; needed for gradient limiter
-  REAL(wp), ALLOCATABLE :: cell_vert_dist(:,:,:,:)   ! (nproma,3,2,nblks_lonlat)
   ! list of triangles containing lon-lat grid points (first dim: index and block)
   INTEGER, ALLOCATABLE  :: tri_idx(:,:,:) ! 2, nproma, nblks_lonlat
   ! coordinates of the lon-lat points (nproma,nb nblks_lonlat)

@@ -52,7 +52,6 @@ MODULE mo_linked_list
     INTEGER(i8)                   :: memory_used        ! memory allocated
     INTEGER                       :: list_elements      ! allocated elements
     LOGICAL                       :: loutput            ! output stream
-    LOGICAL                       :: lmiss              ! missing values
     LOGICAL                       :: lrestart           ! restart stream
     LOGICAL                       :: linitial           ! initial stream
     CHARACTER(len=256)            :: filename           ! name of file
@@ -104,6 +103,11 @@ MODULE mo_linked_list
     INTEGER                       :: cdiTimeIndex
     !
     INTEGER                       :: nvars
+
+    ! Metadata for missing value masking
+
+    LOGICAL                    :: lmiss          ! flag: true, if variables should be initialized with missval
+    LOGICAL                    :: lmask_boundary ! flag: true, if interpolation zone should be masked *in output*
   END TYPE t_var_list_intrinsic
   !
   TYPE t_var_list
@@ -131,6 +135,7 @@ CONTAINS
     !
     this_list%p%loutput            = .FALSE.
     this_list%p%lmiss              = .FALSE.
+    this_list%p%lmask_boundary     = .TRUE.
     this_list%p%lrestart           = .FALSE.
     this_list%p%linitial           = .FALSE.
     !

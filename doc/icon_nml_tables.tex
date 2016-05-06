@@ -1985,9 +1985,7 @@ Defined and used in: \verb+src/namelists/mo_initicon_nml.f90+
 %\hline
 l\_intp\_c2l&
 L& .TRUE.& &
-If .TRUE. directly interpolate scalar variables from cell centers to
-lon-lat points, otherwise do gradient interpolation and
-reconstruction.&
+DEPRECATED &
 \tabularnewline
 
 %\hline
@@ -2247,6 +2245,12 @@ This is currently implemented for the atm. dynamical core and ECHAM physics. &
 restart\_file\_type&
 I&  4& &
 Type of restart file. One of CDI's FILETYPE\_XXX. So far, only 4 (=FILETYPE\_NC2) is allowed&
+\tabularnewline
+
+%\hline
+lmask\_boundary&
+L&  F& &
+Set to \texttt{.TRUE.}, if interpolation zone should be masked in output.&
 \tabularnewline
 
 %\hline
