@@ -999,7 +999,7 @@ CONTAINS
 !ICON_OMP_END_DO
     
 
-!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level, &
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level &
 !ICON_OMP ) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
