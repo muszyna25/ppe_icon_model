@@ -3156,6 +3156,15 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
       CALL add_var( phy_tend_list, 'ddt_tke_pconv', phy_tend%ddt_tke_pconv,   &
                   GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,&
                 & ldims=shape3dkp1, lrestart=lrestart )  
+
+
+      !      phy_tend%ddt_tke_hsh(nproma,nlevp1,nblks)
+      cf_desc    = t_cf_var('ddt_tke_hsh', 'm**2 s**-3'          , &
+           &                'TKE tendency horizonzal shear production', datatype_flt)
+      grib2_desc = grib2_var(0, 19, 221, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( phy_tend_list, 'ddt_tke_hsh', phy_tend%ddt_tke_hsh,   &
+                  GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,&
+                & ldims=shape3dkp1)  
     END IF
 
    !Anurag Dipankar, MPIM (2013-May-31)
