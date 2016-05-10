@@ -3164,7 +3164,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
       grib2_desc = grib2_var(0, 19, 221, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( phy_tend_list, 'ddt_tke_hsh', phy_tend%ddt_tke_hsh,   &
                   GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,&
-                & ldims=shape3dkp1)  
+                & ldims=shape3dkp1, lrestart=.FALSE.)  
     END IF
 
    !Anurag Dipankar, MPIM (2013-May-31)
