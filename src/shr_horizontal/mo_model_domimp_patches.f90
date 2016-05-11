@@ -130,6 +130,7 @@ MODULE mo_model_domimp_patches
     &                              reorder_verts
   USE mo_mpi,                ONLY: p_pe_work, my_process_is_mpi_parallel, &
     &                              p_comm_work_test, p_comm_work
+  USE mo_reshuffle, ONLY: reshuffle
 #ifdef HAVE_PARALLEL_NETCDF
   USE mo_mpi,                ONLY: p_comm_input_bcast
 #endif
@@ -424,18 +425,6 @@ CONTAINS
             END IF
           ENDIF
         ENDIF
-        IF (patch_pre(jg)%n_childdom > 0) THEN
-          DO jg1 = 1, patch_pre(jg)%n_childdom
-            jgc = patch_pre(jg)%child_id(jg1)
-            IF (TRIM(uuid_chi(jg,jg1)) /= TRIM(uuid_grid(jgc))) THEN
-              IF (check_uuid_gracefully) THEN
-                CALL warning('import_pre_patches','incorrect uuids in parent-child connectivity file')
-              ELSE
-                CALL finish('import_pre_patches','incorrect uuids in parent-child connectivity file')
-              END IF
-            ENDIF
-          ENDDO
-        ENDIF
       ENDDO
     ENDIF
 
@@ -460,7 +449,6 @@ CONTAINS
 
     INTEGER :: jg, jgp, n_lp, id_lp(max_dom)
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:complete_patches'
-
 
     DO jg = n_dom_start, n_dom
 
@@ -665,7 +653,9 @@ CONTAINS
     TYPE(t_patch), INTENT(INOUT) :: p_pp   !> divided local parent patch
     TYPE(t_patch), INTENT(INOUT) :: p_pc   !> divided child patch
 
-    INTEGER :: i, j, jl, jb, jc, jc_g, jp, jp_g
+    INTEGER :: i, j, jl, jb, jc, jc_g, jp, jp_g, ierr 
+    INTEGER                           :: jc_c, jb_c, jc_p, jb_p, communicator
+    INTEGER, ALLOCATABLE :: in_child_id(:), parent_glb_idx(:), out_child_id(:)
 
     ! Before this call, child_idx/child_blk still point to the global values.
     ! This is changed here.
@@ -765,6 +755,46 @@ CONTAINS
 
     ENDDO
 
+    ! TODO [FP]
+    !
+    ! calculate cells%child_id
+    !
+    ! To calculate the child_id for each child cell, we loop over the
+    ! cells of the child domain and collect the global indices of
+    ! their parent cells. Then we send the ID of the child domain to
+    ! these parent cells. This involves parallel comm., since the
+    ! child cells and their parent cells may "live" on different PEs.
+
+    IF(p_test_run) THEN
+      communicator = p_comm_work_test
+    ELSE
+      communicator = p_comm_work
+    ENDIF
+
+    ALLOCATE(parent_glb_idx(p_pc%n_patch_cells), in_child_id(p_pc%n_patch_cells), &
+      &      out_child_id(p_pp%n_patch_cells))
+    DO j = 1, p_pc%n_patch_cells
+      jc_c = idx_no(j)
+      jb_c = blk_no(j)
+      parent_glb_idx(j) = idx_1d(p_pc%cells%parent_glb_idx(jc_c,jb_c), &
+        &                          p_pc%cells%parent_glb_blk(jc_c,jb_c))
+    END DO
+
+    in_child_id(:) = p_pc%id
+    CALL reshuffle(parent_glb_idx, in_child_id, p_pp%cells%decomp_info%glb_index, &
+      &            p_pp%n_patch_cells_g, communicator, out_child_id, ierr)
+    IF (ierr /= 0)  CALL finish('', 'ierr /= 0')
+
+    DO j = 1, p_pp%n_patch_cells
+      jc_p = idx_no(j)
+      jb_p = blk_no(j)
+      IF (out_child_id(j) /= p_pp%cells%child_id(jc_p,jb_p)) THEN
+        WRITE (0,*) "out_child_id(j) /= p_pp%cells%child_id(jc_p,jb_p): ", &
+          &  out_child_id(j), p_pp%cells%child_id(jc_p,jb_p), jc_p, jb_p
+      END IF
+    END DO
+    DEALLOCATE(in_child_id, parent_glb_idx, out_child_id)
+
     ! ... edges
 
     DO j = 1, p_pc%n_patch_edges
@@ -787,6 +817,40 @@ CONTAINS
       ENDIF
 
     ENDDO
+
+    ! TODO [FP]
+    !
+    ! calculate edges%child_id
+    !
+    ! To calculate the child_id for each child edge, we loop over the
+    ! edges of the child domain and collect the global indices of
+    ! their parent edges. Then we send the ID of the child domain to
+    ! these parent edges. This involves parallel comm., since the
+    ! child edges and their parent edges may "live" on different PEs.
+
+    ALLOCATE(parent_glb_idx(p_pc%n_patch_edges), in_child_id(p_pc%n_patch_edges), &
+      &      out_child_id(p_pp%n_patch_edges))
+    DO j = 1, p_pc%n_patch_edges
+      jc_c = idx_no(j)
+      jb_c = blk_no(j)
+      parent_glb_idx(j) = idx_1d(p_pc%edges%parent_glb_idx(jc_c,jb_c), &
+        &                        p_pc%edges%parent_glb_blk(jc_c,jb_c))
+    END DO
+
+    in_child_id(:) = p_pc%id
+    CALL reshuffle(parent_glb_idx, in_child_id, p_pp%edges%decomp_info%glb_index, &
+      &            p_pp%n_patch_edges_g, communicator, out_child_id, ierr)
+    IF (ierr /= 0)  CALL finish('', 'ierr /= 0')
+
+    DO j = 1, p_pp%n_patch_edges
+      jc_p = idx_no(j)
+      jb_p = blk_no(j)
+      IF (out_child_id(j) /= p_pp%edges%child_id(jc_p,jb_p)) THEN
+        WRITE (0,*) "out_child_id(j) /= p_pp%edges%child_id(jc_p,jb_p): ", &
+          &  out_child_id(j), p_pp%edges%child_id(jc_p,jb_p), jc_p, jb_p
+      END IF
+    END DO
+    DEALLOCATE(in_child_id, parent_glb_idx, out_child_id)
 
     ! Although this is not really necessary, we set the child index in child
     ! and the parent index in parent to 0 since these have no significance
@@ -1050,7 +1114,7 @@ CONTAINS
     INTEGER :: ncid, ncid_grf, dimid, varid, max_cell_connectivity, max_verts_connectivity
     INTEGER :: ji
     INTEGER :: jc, ic
-    INTEGER :: icheck, ilev, igrid_level, igrid_id, iparent_id, i_max_childdom, ipar_id, dim_idxlist
+    INTEGER :: icheck, ilev, igrid_level, iparent_id, ipar_id, dim_idxlist
     INTEGER, POINTER :: local_ptr(:), local_ptr_2d(:,:)
     REAL(wp), POINTER :: local_ptr_wp(:), local_ptr_wp_2d(:, :)
     !-----------------------------------------------------------------------
@@ -1120,10 +1184,6 @@ CONTAINS
       uuid_grid = uuid_string_grfinfo
       ! Read also parent and child grid uuids for subsequent crosscheck
       CALL nf(nf_get_att_text(ncid_grf, nf_global, 'uuidOfParHGrid', uuid_par))
-      DO ji=1,5
-        WRITE(child_id,'(i1)') ji
-        CALL nf(nf_get_att_text(ncid_grf, nf_global, 'uuidOfChiHGrid_'//child_id , uuid_chi(ji) ))
-      ENDDO
     ENDIF
 
     ! Read additional grid identifiers
@@ -1191,38 +1251,6 @@ CONTAINS
         & 'Mismatch between "grid_level" attribute and "B" parameter in the filename'
       CALL finish  (TRIM(method_name), TRIM(message_text))
     END IF
-
-    ! Check additional attributes for consistency with the current namelist settings
-    CALL nf(nf_get_att_int(ncid, nf_global, 'grid_ID', igrid_id))
-    IF ((.NOT.l_limited_area).AND.(igrid_id /= ig)) THEN
-      WRITE(message_text,'(a,i4,a,i4)') &
-        & 'grid ID attribute:', igrid_id,', namelist value:',ig
-      CALL message  (TRIM(method_name), TRIM(message_text))
-      WRITE(message_text,'(a)') &
-        & 'Mismatch between "grid ID" attribute and corresponding namelist setting'
-      CALL finish  (TRIM(method_name), TRIM(message_text))
-    END IF
-
-    CALL nf(nf_get_att_int(ncid_grf, nf_global, 'parent_grid_ID', iparent_id))
-    IF ((.NOT.l_limited_area).AND.(iparent_id /= ipar_id)) THEN
-      WRITE(message_text,'(a,i4,a,i4)') &
-        & 'parent ID attribute:', iparent_id,', namelist value:',ipar_id
-      CALL message  (TRIM(method_name), TRIM(message_text))
-      WRITE(message_text,'(a)') &
-        & 'Mismatch between "parent grid ID" attribute and corresponding namelist setting'
-      CALL finish  (TRIM(method_name), TRIM(message_text))
-    END IF
-
-    CALL nf(nf_get_att_int(ncid_grf, nf_global, 'max_childdom', i_max_childdom))
-    IF (i_max_childdom /= max_childdom) THEN
-      WRITE(message_text,'(a,i4,a,i4)') &
-        & 'max_childdom attribute:', i_max_childdom,', namelist value:',max_childdom
-      CALL message  (TRIM(method_name), TRIM(message_text))
-      WRITE(message_text,'(a)') &
-        & 'Mismatch between "max_childdom" attribute and corresponding namelist setting'
-      CALL message  (TRIM(method_name), TRIM(message_text))
-    END IF
-
 
     !--------------------------------------
     ! get number of cells, edges and vertices
@@ -1647,7 +1675,7 @@ CONTAINS
 
     INTEGER :: ncid, varid, ncid_grf
     TYPE(t_stream_id) :: stream_id, stream_id_grf
-    INTEGER :: ip, jv, igrid_id, idx, blk
+    INTEGER :: ip, jv, idx, blk
     INTEGER :: max_cell_connectivity, max_verts_connectivity
 
     INTEGER :: return_status
@@ -1708,17 +1736,23 @@ CONTAINS
       CALL message ('read_remaining_patch',&
         & 'nesting incompatible with non-triangular grid')
 
-    ! Preparation: In limited-area mode, check if child domain ID's read
-    ! from the grid files need to be shifted
-    IF (ig == 1 .AND. l_limited_area .AND. patch%n_childdom>0) THEN
-      CALL nf(nf_get_att_int(ncid_grf, nf_global, 'grid_ID', igrid_id))
-      ishift_child_id = igrid_id - 1
-      WRITE(message_text,'(a,i4)') 'Limited-area mode: child cell IDs are shifted by ',ishift_child_id
-      CALL message ('', TRIM(message_text))
-    ENDIF
+    ! TODO [FP] : We need an implementation of this shifting without
+    !             using the NetCDF attribute "grid_ID"
+
+    !! ! Preparation: In limited-area mode, check if child domain ID's read
+    !! ! from the grid files need to be shifted
+    !! IF (ig == 1 .AND. l_limited_area .AND. patch%n_childdom>0) THEN
+    !!   CALL nf(nf_get_att_int(ncid_grf, nf_global, 'grid_ID', igrid_id))
+    !!   ishift_child_id = igrid_id - 1
+    !!   WRITE(message_text,'(a,i4)') 'Limited-area mode: child cell IDs are shifted by ',ishift_child_id
+    !!   CALL message ('', TRIM(message_text))
+    !! ENDIF
 
     !------------------------------------------
     ! nesting/lateral boundary indexes
+
+    ! TODO [FP] : We need an implementation of this shifting without
+    !             using the NetCDF field
 
     ! patch%cells%child_id(:,:)
     DO ip = 0, n_lp
@@ -1731,7 +1765,7 @@ CONTAINS
       DO ip = 0, n_lp
         WHERE (multivar_2d_data_int(ip+1)%data(:,:) > 0) &
           multivar_2d_data_int(ip+1)%data(:,:) = &
-            multivar_2d_data_int(ip+1)%data(:,:) - ishift_child_id
+          multivar_2d_data_int(ip+1)%data(:,:) - ishift_child_id
       END DO
     ENDIF
 
@@ -1773,6 +1807,9 @@ CONTAINS
     END DO
     CALL read_2D(stream_id, on_cells, 'cell_area_p', n_lp+1, &
       &          multivar_2d_data_wp(:))
+
+    ! TODO [FP] : We need an implementation of this shifting without
+    !             using the NetCDF field
 
     ! p_p%edges%child_id(:,:)
     DO ip = 0, n_lp

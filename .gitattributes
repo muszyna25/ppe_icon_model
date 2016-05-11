@@ -1794,6 +1794,7 @@ src/parallel_infrastructure/mo_icon_comm_interface.f90 -text
 src/parallel_infrastructure/mo_icon_comm_lib.f90 -text
 src/parallel_infrastructure/mo_mpi.f90 -text
 src/parallel_infrastructure/mo_ompthreads.f90 -text
+src/parallel_infrastructure/mo_reshuffle.f90 -text
 src/parallel_infrastructure/mo_scatter.f90 svneol=native#text/plain
 src/parallel_infrastructure/mo_scatter_pattern_base.f90 -text
 src/parallel_infrastructure/mo_scatter_pattern_scatter.f90 -text
