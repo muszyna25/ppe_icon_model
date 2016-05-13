@@ -85,8 +85,8 @@ CONTAINS
     INTEGER :: timestep
 
     !Local variables
-    INTEGER :: tracer_index, level
-    INTEGER :: start_cell_index, end_cell_index, jc, jb
+    INTEGER :: tracer_index, TracerDiffusion_coeff_index
+    INTEGER :: start_cell_index, end_cell_index, jc, jb, level
     REAL(wp) :: z_relax!, delta_z
     INTEGER :: iloc(2)
     REAL(wp) :: zlat, zlon
@@ -125,15 +125,16 @@ CONTAINS
 
     stop_detail_timer(timer_extra30,6)
 
-    DO tracer_index = 1, no_tracer+nbgcadv 
+    DO tracer_index = 1, no_tracer+nbgcadv
+      TracerDiffusion_coeff_index = MIN(tracer_index, 2) ! use the salinity coeeficient for tracers > 2      
       CALL advect_diffuse_individual_tracer( patch_3d,         &
         & p_os%p_prog(nold(1))%ocean_tracers(tracer_index), &
         & p_os, p_op_coeff,                                 &
         & p_os%p_aux%bc_top_tracer(:,:,tracer_index),       &
         & p_os%p_aux%bc_bot_tracer(:,:,tracer_index),       &
         & p_param,                                          &
-        & p_param%k_tracer_h(:,:,:,tracer_index ),          &
-        & p_param%a_tracer_v(:,:,:, tracer_index),          &
+        & p_param%k_tracer_h(:,:,:,TracerDiffusion_coeff_index),          &
+        & p_param%a_tracer_v(:,:,:,TracerDiffusion_coeff_index),          &
         & p_os%p_prog(nnew(1))%ocean_tracers(tracer_index), &
         & tracer_index )
 

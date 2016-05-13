@@ -1654,20 +1654,20 @@ CONTAINS
         & grid_unstructured_edge, za_depth_below_sea, &
         & t_cf_var('K_tracer_h'//TRIM(var_suffix), '', '1:temperature 2:salinity', datatype_flt),&
         & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
-        & ldims=(/nproma,n_zlev,nblks_e,no_tracer+nbgcadv/), &
+        & ldims=(/nproma,n_zlev,nblks_e,no_tracer/), &
         & lcontainer=.TRUE., loutput=.FALSE., lrestart=.FALSE.)
       CALL add_var(ocean_default_list, 'A_tracer_v'//TRIM(var_suffix), ocean_state_acc%a_tracer_v , &
         & grid_unstructured_cell, za_depth_below_sea_half, &
         & t_cf_var('A_tracer_v'//TRIM(var_suffix), '', '1:temperature 2:salinity', datatype_flt),&
         & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
-        & ldims=(/nproma,n_zlev+1,alloc_cell_blocks,no_tracer+nbgcadv/), &
+        & ldims=(/nproma,n_zlev+1,alloc_cell_blocks,no_tracer/), &
         & lcontainer=.TRUE., loutput=.FALSE., lrestart=.FALSE.)
  
       ! Reference to individual tracer, for I/O
  
-      ALLOCATE(ocean_state_acc%tracer_horz_physics_ptr(no_tracer+nbgcadv))
-      ALLOCATE(ocean_state_acc%tracer_vert_physics_ptr(no_tracer+nbgcadv))
-      DO jtrc = 1,no_tracer+nbgcadv
+      ALLOCATE(ocean_state_acc%tracer_horz_physics_ptr(no_tracer))
+      ALLOCATE(ocean_state_acc%tracer_vert_physics_ptr(no_tracer+))
+      DO jtrc = 1,no_tracer
         CALL add_ref( ocean_default_list, 'K_tracer_h'//TRIM(var_suffix),&
           & 'K_tracer_h_'//TRIM(oce_config%tracer_names(jtrc))//TRIM(var_suffix),     &
           & ocean_state_acc%tracer_horz_physics_ptr(jtrc)%p,                             &

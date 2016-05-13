@@ -353,7 +353,7 @@ CONTAINS
     ENDDO
 
 
-    DO i=1,no_tracer+ nbgcadv
+    DO i=1,no_tracer
 
       IF(i==1)THEN!temperature
         p_phys_param%k_tracer_h_back(i) = k_pot_temp_h
@@ -375,7 +375,7 @@ CONTAINS
 
     p_phys_param%bottom_drag_coeff = bottom_drag_coeff
 
-    DO i_no_trac=1, no_tracer+nbgcadv
+    DO i_no_trac=1, no_tracer
       CALL sync_patch_array(sync_c,patch_2D,p_phys_param%k_tracer_h(:,:,:,i_no_trac))
     END DO
     CALL sync_patch_array(sync_e,patch_2D,p_phys_param%k_veloc_h(:,:,:))
@@ -593,7 +593,7 @@ CONTAINS
     !CALL dbg_print('UpdPar: p_vn%x(2)'         ,ocean_state%p_diag%p_vn%x(2)    ,str_module,idt_src, &
     !  & in_subset=patch_3d%p_patch_2d(1)%cells%owned)
     idt_src=2  ! output print levels (1-5, fix)
-    DO tracer_index = 1, no_tracer+nbgcadv
+    DO tracer_index = 1, no_tracer
       CALL dbg_print('UpdPar FinalTracerMixing'  ,params_oce%a_tracer_v(:,:,:,tracer_index), str_module,idt_src, &
         & in_subset=patch_3d%p_patch_2d(1)%cells%owned)
     ENDDO
