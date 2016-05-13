@@ -318,13 +318,12 @@ CONTAINS
                        & pt_2m_gbm,                       & ! out temperature in 2m
                        & ptd_2m_gbm,                      & ! out dew point temperature in 2m
                        & pu_10m_gbm,                      & ! out zonal wind in 10m
-                       & pv_10m_gbm                       ) ! out meridional wind in 10m
-!                       & pv_10m_gbm,                      & ! out meridional wind in 10m
-!                       & psp_10m_tile,                    & ! out 10m windspeed 
-!                       & pt_2m_tile,                      & ! out temperature in 2m
-!                       & ptd_2m_tile,                     & ! out dew point temperature in 2m
-!                       & pu_10m_tile,                     & ! out zonal wind in 10m
-!                       & pv_10m_tile                      ) ! out meridional wind in 10m
+                       & pv_10m_gbm,                      & ! out meridional wind in 10m
+                       & psp_10m_tile,                    & ! out 10m windspeed 
+                       & pt_2m_tile,                      & ! out temperature in 2m
+                       & ptd_2m_tile,                     & ! out dew point temperature in 2m
+                       & pu_10m_tile,                     & ! out zonal wind in 10m
+                       & pv_10m_tile                      ) ! out meridional wind in 10m
 
     INTEGER, INTENT(IN) :: kproma, kbdim, ksfc_type
     INTEGER, INTENT(IN) :: idx_wtr, idx_ice, idx_lnd
@@ -342,16 +341,11 @@ CONTAINS
     REAL(wp), INTENT(in)     :: ptm1(kbdim), papm1(kbdim), pxm1(kbdim)
     REAL(wp), INTENT(in)     :: pum1(kbdim), pvm1(kbdim), paphm1(kbdim) ! =paphm1(kbdim, klevp1)
     REAL(wp), INTENT(in)     :: pocu(kbdim), pocv(kbdim)
-    REAL(wp), INTENT(out)    :: psp_10m_gbm(kbdim)
-    REAL(wp), INTENT(out)    :: pt_2m_gbm(kbdim)
-    REAL(wp), INTENT(out)    :: ptd_2m_gbm(kbdim)
-    REAL(wp), INTENT(out)    :: pu_10m_gbm(kbdim)
-    REAL(wp), INTENT(out)    :: pv_10m_gbm(kbdim)
-!    REAL(wp), INTENT(out)    :: psp_10m_gbm(kbdim), psp_10m_tile(kbdim,ksfc_type)
-!    REAL(wp), INTENT(out)    :: pt_2m_gbm(kbdim),   pt_2m_tile(kbdim,ksfc_type)
-!    REAL(wp), INTENT(out)    :: ptd_2m_gbm(kbdim),  ptd_2m_tile(kbdim,ksfc_type)
-!    REAL(wp), INTENT(out)    :: pu_10m_gbm(kbdim),  pu_10m_tile(kbdim,ksfc_type)
-!    REAL(wp), INTENT(out)    :: pv_10m_gbm(kbdim),  pv_10m_tile(kbdim,ksfc_type)
+    REAL(wp), INTENT(out)    :: psp_10m_gbm(kbdim), psp_10m_tile(kbdim,ksfc_type)
+    REAL(wp), INTENT(out)    :: pt_2m_gbm(kbdim),   pt_2m_tile(kbdim,ksfc_type)
+    REAL(wp), INTENT(out)    :: ptd_2m_gbm(kbdim),  ptd_2m_tile(kbdim,ksfc_type)
+    REAL(wp), INTENT(out)    :: pu_10m_gbm(kbdim),  pu_10m_tile(kbdim,ksfc_type)
+    REAL(wp), INTENT(out)    :: pv_10m_gbm(kbdim),  pv_10m_tile(kbdim,ksfc_type)
 
     ! Local variables
     
@@ -363,11 +357,6 @@ CONTAINS
     REAL(wp)     :: zh2m(kbdim), zqs1(kbdim), zrh2m(kbdim), zcvm3(kbdim), zcvm4(kbdim)
     REAL(wp)     :: zaph2m(kbdim), zqs2(kbdim), zq2m(kbdim), zfrac(kbdim)
     REAL(wp)     :: ua(kbdim)
-    REAL(wp)    :: zsp_10m_tile(kbdim,ksfc_type)
-    REAL(wp)    :: zt_2m_tile(kbdim,ksfc_type)
-    REAL(wp)    :: ztd_2m_tile(kbdim,ksfc_type)
-    REAL(wp)    :: zu_10m_tile(kbdim,ksfc_type)
-    REAL(wp)    :: zv_10m_tile(kbdim,ksfc_type)
     
     
     !CONSTANTS
@@ -383,11 +372,11 @@ CONTAINS
    
     ! set total- and tile-fields to zero in order to avoid uninitialised values
 
-    zsp_10m_tile(1:kproma,:) = 0._wp
-    zu_10m_tile (1:kproma,:) = 0._wp
-    zv_10m_tile (1:kproma,:) = 0._wp
-    zt_2m_tile  (1:kproma,:) = 0._wp
-    ztd_2m_tile (1:kproma,:) = 0._wp
+    psp_10m_tile(1:kproma,:) = 0._wp
+    pu_10m_tile (1:kproma,:) = 0._wp
+    pv_10m_tile (1:kproma,:) = 0._wp
+    pt_2m_tile  (1:kproma,:) = 0._wp
+    ptd_2m_tile (1:kproma,:) = 0._wp
 
     DO jsfc = 1,ksfc_type
 
@@ -421,7 +410,7 @@ CONTAINS
            zmerge = MERGE(zcbs,zcbu,pri_tile(jl,jsfc) .GT. 0._wp)
            zred   = (zcbn + zmerge) / pbh_tile(jl,jsfc)
            zh2m(jl)   = pcpt_tile(jl,jsfc) + zred * (pcptgz(jl) - pcpt_tile(jl,jsfc))
-           zt_2m_tile(jl,jsfc) = (zh2m(jl) - zhtq ) / (cpd * (1._wp + vtmpc2 * pqm1(jl)))    
+           pt_2m_tile(jl,jsfc) = (zh2m(jl) - zhtq ) / (cpd * (1._wp + vtmpc2 * pqm1(jl)))    
         ENDDO
       ENDDO
        !
@@ -457,7 +446,7 @@ CONTAINS
 !      zqs2(jl)      = zqs2(jl) / (1._wp- vtmpc1 * zqs2(jl))
 !      zq2m(jl)      = zrh2m(jl) * zqs2(jl)
 !      zfrac(jl)     = LOG(zaph2m(jl) * zq2m(jl) / (zc2es * (1._wp + vtmpc1 * zq2m(jl)))) / zcvm3(jl)
-!      ztd_2m_tile(jl,jsfc)    = MIN(zt_2m_tile(jl,jsfc), (tmelt - zfrac(jl) * zcvm4(jl)) / (1._wp - zfrac(jl)))
+!      ptd_2m_tile(jl,jsfc)    = MIN(zt_2m_tile(jl,jsfc), (tmelt - zfrac(jl) * zcvm4(jl)) / (1._wp - zfrac(jl)))
 !    ENDDO
 
        !
@@ -472,9 +461,9 @@ CONTAINS
            zcbu   = -LOG(1._wp + (EXP (pbn_tile(jl,jsfc) - pbm_tile(jl,jsfc)) - 1._wp) * zrat)
            zmerge = MERGE(zcbs,zcbu,pri_tile(jl,jsfc) .GT. 0._wp)
            zred   = (zcbn + zmerge) / pbm_tile(jl,jsfc)
-           zu_10m_tile(jl,jsfc)    = zred * pum1(jl)
-           zv_10m_tile(jl,jsfc)    = zred * pvm1(jl)
-           zsp_10m_tile(jl,jsfc)   = zred*SQRT((pum1(jl)-pocu(jl))**2+(pvm1(jl)-pocv(jl))**2)
+           pu_10m_tile(jl,jsfc)    = zred * pum1(jl)
+           pv_10m_tile(jl,jsfc)    = zred * pvm1(jl)
+           psp_10m_tile(jl,jsfc)   = zred*SQRT((pum1(jl)-pocu(jl))**2+(pvm1(jl)-pocv(jl))**2)
         ENDDO
     ENDDO
 
@@ -490,11 +479,11 @@ CONTAINS
       DO jls = 1,is(jsfc)
 ! set index
       js=loidx(jls,jsfc)
-        psp_10m_gbm(js) = psp_10m_gbm(js) + pfrc(js,jsfc)*zsp_10m_tile(js,jsfc)
-        pu_10m_gbm (js) = pu_10m_gbm (js) + pfrc(js,jsfc)*zu_10m_tile (js,jsfc)
-        pv_10m_gbm (js) = pv_10m_gbm (js) + pfrc(js,jsfc)*zv_10m_tile (js,jsfc)
-        pt_2m_gbm  (js) = pt_2m_gbm  (js) + pfrc(js,jsfc)*zt_2m_tile  (js,jsfc)
-        ptd_2m_gbm (js) = ptd_2m_gbm (js) + pfrc(js,jsfc)*ztd_2m_tile (js,jsfc)
+        psp_10m_gbm(js) = psp_10m_gbm(js) + pfrc(js,jsfc)*psp_10m_tile(js,jsfc)
+        pu_10m_gbm (js) = pu_10m_gbm (js) + pfrc(js,jsfc)*pu_10m_tile (js,jsfc)
+        pv_10m_gbm (js) = pv_10m_gbm (js) + pfrc(js,jsfc)*pv_10m_tile (js,jsfc)
+        pt_2m_gbm  (js) = pt_2m_gbm  (js) + pfrc(js,jsfc)*pt_2m_tile  (js,jsfc)
+        ptd_2m_gbm (js) = ptd_2m_gbm (js) + pfrc(js,jsfc)*ptd_2m_tile (js,jsfc)
       ENDDO
     ENDDO
     

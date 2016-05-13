@@ -974,13 +974,12 @@ CONTAINS
                    & field%t_2m  (:,  jb),            & ! out temperature in 2m
                    & field%td_2m (:,  jb),            & ! out dew point temperature in 2m
                    & field%u_10m (:,  jb),            & ! out zonal wind in 10m
-                   & field%v_10m (:,  jb)             ) ! out meridional wind in 10m
-!                       & pv_10m_gbm,                      & ! out meridional wind in 10m
-!                       & psp_10m_tile,                    & ! out 10m windspeed
-!                       & pt_2m_tile,                      & ! out temperature in 2m
-!                       & ptd_2m_tile,                     & ! out dew point temperature in 2m
-!                       & pu_10m_tile,                     & ! out zonal wind in 10m
-!                       & pv_10m_tile                      ) ! out meridional wind in 10m
+                   & field%v_10m (:,  jb),            & ! out meridional wind in 10m
+                   & field%sp_10m_tile(:,jb,:),       & ! out 10m windspeed
+                   & field%t_2m_tile  (:,jb,:),       & ! out temperature in 2m
+                   & field%td_2m_tile (:,jb,:),       & ! out dew point temperature in 2m
+                   & field%u_10m_tile (:,jb,:),       & ! out zonal wind in 10m
+                   & field%v_10m_tile (:,jb,:)        ) ! out meridional wind in 10m
 
     ELSE
       zvmixtau   (jcs:jce,:) = 0._wp
