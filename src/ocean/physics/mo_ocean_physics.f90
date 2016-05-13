@@ -353,7 +353,7 @@ CONTAINS
     ENDDO
 
 
-    DO i=1,no_tracer
+    DO i=1,no_tracer+ nbgcadv
 
       IF(i==1)THEN!temperature
         p_phys_param%k_tracer_h_back(i) = k_pot_temp_h
@@ -364,8 +364,10 @@ CONTAINS
         p_phys_param%a_tracer_v_back(2) = k_sal_v
       ELSE
 
-        CALL finish ('mo_ocean_physics:init_ho_params',  &
-          & 'number of tracers exceeds number of background values')
+        p_phys_param%k_tracer_h_back(i) = k_sal_h
+        p_phys_param%a_tracer_v_back(i) = k_sal_v
+       ! CALL finish ('mo_ocean_physics:init_ho_params',  &
+       !   & 'number of tracers exceeds number of background values')
       ENDIF
       p_phys_param%k_tracer_h(:,:,:,i) = p_phys_param%k_tracer_h_back(i)
       p_phys_param%a_tracer_v(:,:,:,i) = p_phys_param%a_tracer_v_back(i)
@@ -373,7 +375,7 @@ CONTAINS
 
     p_phys_param%bottom_drag_coeff = bottom_drag_coeff
 
-    DO i_no_trac=1, no_tracer
+    DO i_no_trac=1, no_tracer+nbgcadv
       CALL sync_patch_array(sync_c,patch_2D,p_phys_param%k_tracer_h(:,:,:,i_no_trac))
     END DO
     CALL sync_patch_array(sync_e,patch_2D,p_phys_param%k_veloc_h(:,:,:))
@@ -591,7 +593,7 @@ CONTAINS
     !CALL dbg_print('UpdPar: p_vn%x(2)'         ,ocean_state%p_diag%p_vn%x(2)    ,str_module,idt_src, &
     !  & in_subset=patch_3d%p_patch_2d(1)%cells%owned)
     idt_src=2  ! output print levels (1-5, fix)
-    DO tracer_index = 1, no_tracer
+    DO tracer_index = 1, no_tracer+nbgcadv
       CALL dbg_print('UpdPar FinalTracerMixing'  ,params_oce%a_tracer_v(:,:,:,tracer_index), str_module,idt_src, &
         & in_subset=patch_3d%p_patch_2d(1)%cells%owned)
     ENDDO

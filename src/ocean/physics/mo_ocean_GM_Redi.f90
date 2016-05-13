@@ -298,6 +298,7 @@ CONTAINS
           END DO                  
         END DO                
       END DO
+      END DO
 !ICON_OMP_END_DO_PARALLEL
 
       CALL dbg_print('New vert coeff: A_v', param%a_tracer_v(:,:,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)

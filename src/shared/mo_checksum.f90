@@ -336,7 +336,7 @@ CONTAINS
         CHARACTER(LEN = *), INTENT(IN) :: prefix
         REAL(KIND = C_DOUBLE), INTENT(IN) :: array(:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printChecksum(prefix, TRANSFER(RESHAPE(array,(/size(array)/)), mold), opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_3d_double
 
 

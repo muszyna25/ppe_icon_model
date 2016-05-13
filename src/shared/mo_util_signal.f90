@@ -13,7 +13,7 @@ MODULE mo_util_signal
 
   INTERFACE
     FUNCTION signal_trap(create_dump, signals) RESULT(iret) BIND(C,NAME='signal_trap')
-#if defined(__SX__) || defined (__SUNPRO_F95)
+#if defined (__SUNPRO_F95)
       USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT
 #else
       IMPORT :: C_INT

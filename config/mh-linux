@@ -69,7 +69,7 @@ case "$fortran_compiler" in
         GRIB_APIBASE     = /opt/grib_api
         CFLAGS      = $CFLAGS -DpgiFortran
         FCPP        = -cpp
-        FLANG       = -std=f2003 -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-132
+        FLANG       = -std=f2008 -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-132
         FWARN       = -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter
         FDEBUG      = -g -fbacktrace
         FCHECK      = -finit-real=nan -finit-integer=-2147483648 -finit-character=127
@@ -140,11 +140,11 @@ case "$fortran_compiler" in
         FDEBUG      =  -gline -g -C=all -mtrace=all
         FDEBUG      =  -gline -g -C=all
         GEN_FLAGS   = -colour -fpp
-        DEBUG_FLAGS = -Wc,-O0 -Wc,-march=native -float-store -nan $FDEBUG
-        STD_FLAGS   = -Wc,-O3 -Wc,-march=native -float-store -nan $FDEBUG
-	HIOPT_FLAGS = -Wc,-O3 -Wc,-march=native -O3 -Wc=$(which gcc)
+        DEBUG_FLAGS = -O0 -float-store -nan $FDEBUG
+        STD_FLAGS   = -Wc,-O2 -Wc,-march=native -O0 -float-store -nan $FDEBUG
+	HIOPT_FLAGS = -Wc,-O3 -Wc,-march=native -float-store -nan $FDEBUG
 	MISMATCHS   = -wmismatch=mpi_allgather,mpi_allgatherv,mpi_allreduce,mpi_alltoall,mpi_alltoallv,mpi_bcast,mpi_free_mem,mpi_gather,mpi_gatherv,mpi_get,mpi_get_address,mpi_isend,mpi_irecv,mpi_op_create,mpi_pack,mpi_recv,mpi_reduce,mpi_scatter,mpi_scatterv,mpi_send,mpi_sendrecv,mpi_type_commit,mpi_type_extent,mpi_type_struct,mpi_unpack,mpi_win_create,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double,psmile_bsend -w=uep
-        FFLAGS      = $GEN_FLAGS -f2003 $MISMATCHS $INCLUDES
+        FFLAGS      = $GEN_FLAGS -f2008 $MISMATCHS $INCLUDES
         F77         = nagfor
         F77FLAGS    = $GEN_FLAGS -w=obs -O -dcfuns -mismatch_all
         case "$with_openmp" in
@@ -227,7 +227,7 @@ case "$fortran_compiler" in
         FC          = ifort
         DEBUG_FLAGS = -check bounds -check pointers -check uninit -debug -O0 -g
         STD_FLAGS   = -O2 -msse2 -fltconsistency -g -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
-        FFLAGS      = -g -pc64 -fpp -D__LOOP_EXCHANGE
+        FFLAGS      = -g -pc64 -fpp -D__LOOP_EXCHANGE -assume realloc_lhs
         F77         = $FC
         F77FLAGS    = $FFLAGS $STD_FLAGS
         OMPFLAG     = -openmp
@@ -472,11 +472,12 @@ case "$ac_sitename" in
                         # intel 14.0.3
                         CHECK_FLAGS = -check bounds -check pointers -debug -g -traceback
                         DEBUG_FLAGS = -debug-parameters -debug -g -O0
-                        # replaced -fltconsitency because the option is deprected and should be replaced by -fp-model source
-                        FPPFLAGS    = -fpp -D__LOOP_EXCHANGE  
-                        STD_FLAGS   =  -ftz -O2 -march=native -pc64 -fp-model source -qopt-report-file=stdout -qopt-report=0 -qopt-report-phase=vec -gline
-                        HIOPT_FLAGS = -O3 -march=native -pc64 -fp-model source -mkl=sequential -reentrancy threaded -qopt-report-file=stdout -qopt-report=0 -qopt-report-phase=vec -D__OMP_FIRSTTOUCH__
-                        F77FLAGS    = $FPPFLAGS $STD_FLAGS
+                        FPPFLAGS    = -fpp
+                        STD_FLAGS   = -ftz -O2 -march=native -pc64 -fp-model source -g -assume realloc_lhs -DIFORT_CONSISTENCY_ENFORCE -DLRTM_FULL_VECTORIZATION
+                        HIOPT_FLAGS = -O3 -march=native -mkl=sequential -pc64 -no-prec-div -no-prec-sqrt -fast-transcendentials -reentrancy threaded
+                        OCEAN_FLAGS = -O3 -march=native -pc64 -fp-model source -mkl=sequential -reentrancy threaded -qopt-report-file=stdout -qopt-report=0 -qopt-report-phase=vec -D__OMP_FIRSTTOUCH__
+                        FFLAGS      = $FPPFLAGS
+                        F77FLAGS    = $FPPFLAGS
 
                         NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-intel14
                         NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-gcc48
@@ -536,6 +537,7 @@ case "$ac_sitename" in
                         CFLAGS = -std=gnu99 -g -O3 -march=native -mpc64 -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBSZ -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2 -DgFortran -DWITHOUT_PACK_EXTERNAL
                         F77    = gfortran
                         FC     = gfortran
+                        OCEAN_FLAGS = -march=native -O3 -mpc64 -D__LOOP_EXCHANGE -g
 
                         NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-$compiler_version
                         NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-gcc48
@@ -656,6 +658,7 @@ case "$ac_sitename" in
                       NETCDFFROOT = $software_tree/netcdf_fortran-4.4.2-static-${compiler_version}
                       MPIROOT     = $software_tree/mpilib/openmpi-1.8.4-static-${compiler_version}
                       MPI_LIB     = -L$MPIROOT/lib -Wl,-rpath -Wl,$MPIROOT/lib -Wl,--disable-new-dtags -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lm -lnuma -ldl -lrt -lpthread -libverbs -lrdmacm -lutil
+                      HDF5_LIB    = -I/sw/squeeze-x64/szip-2.1-static/include -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_BSD_SOURCE -O2 -L/sw/squeeze-x64/hdf5-1.8.12-static/lib /sw/squeeze-x64/hdf5-1.8.12-static/lib/libhdf5_hl.a /sw/squeeze-x64/hdf5-1.8.12-static/lib/libhdf5.a -L/sw/squeeze-x64/szip-2.1-static/lib -lsz -lz -lrt -ldl -lm -Wl,-rpath -Wl,/sw/squeeze-x64/hdf5-1.8.12-static/lib
                       load_modules=gcc/5.1.0 ${load_modules}
                       ;;
                     pgi)
@@ -666,18 +669,29 @@ case "$ac_sitename" in
                       ;;
                     intel)
                       NETCDFFROOT = $software_tree/netcdf_fortran-4.4.2-static-${compiler_version}
-                      MPIROOT     = $software_tree/mpilib/openmpi-1.6.5-static-intel14
+                      MPIROOT     = $software_tree/mpilib/openmpi-1.6.5-static-intel15
                       MPI_LIB     = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
+                      HDF5_LIB    = -L/sw/squeeze-x64/szip-2.1-static/lib /sw/squeeze-x64/hdf5-1.8.12-static/lib/libhdf5.la /sw/squeeze-x64/szip-2.1-static/lib/libsz.la -lz -lrt -ldl -lm
                       # HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -no-prec-div -vec-report2 -diag-file -traceback -g
                       HIOPT_FLAGS = -O3 -fltconsistency -fpp -mkl -static -xHost -xAVX -g -traceback -D__LOOP_EXCHANGE -D__OMP_FIRSTTOUCH__
                       STD_FLAGS   = -O1 -fltconsistency -fpp -static -xHost -xAVX -traceback -g -D__LOOP_EXCHANGE
-                      load_modules=gcc/4.8.2 intel/14.0.2 ${load_modules}
+                      load_modules=gcc/4.8.2 intel/15.0.2 ${load_modules}
+                      ;;
+                    intel16)
+                      NETCDFFROOT = $software_tree/netcdf_fortran-4.4.2-static-${compiler_version}
+                      MPIROOT     = $software_tree/mpilib/openmpi-1.6.5-static-intel16
+                      MPI_LIB     = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
+                      HDF5_LIB    = -L/sw/squeeze-x64/szip-2.1-static/lib /sw/squeeze-x64/hdf5-1.8.12-static/lib/libhdf5.la /sw/squeeze-x64/szip-2.1-static/lib/libsz.la -lz -lrt -ldl -lm
+                      # HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -no-prec-div -vec-report2 -diag-file -traceback -g
+                      HIOPT_FLAGS = -O3 -fltconsistency -fpp -mkl -static -xHost -xAVX -g -traceback -D__LOOP_EXCHANGE -D__OMP_FIRSTTOUCH__
+                      STD_FLAGS   = -O1 -fltconsistency -fpp -static -xHost -xAVX -traceback -g -D__LOOP_EXCHANGE
+                      load_modules=gcc/4.8.2 intel/16.0.0 ${load_modules}
                       ;;
                     nag)
                       NETCDFFROOT  = $software_tree/netcdf_fortran-4.4.2-static-nag60
                       MPIROOT     = $software_tree/mpilib/openmpi-1.8.1-static-${compiler_version}
                       MPI_LIB = -I$MPIROOT/lib $WLFLAG,-rpath,,$MPIROOT/lib $WLFLAG,--disable-new-dtags -L$MPIROOT/lib -lmpi_usempi -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lm -lnuma -ldl -lrt -libverbs -lrdmacm -lutil -lpthread
-                      load_modules=gcc/4.8.2 nag/6.0.1064 ${load_modules}
+                      load_modules=gcc/4.9.2 nag/6.0.1064 ${load_modules}
                       ;;
                 esac
                 ;;
@@ -704,7 +718,7 @@ case "$ac_sitename" in
                                nag)
                                    MPIROOT     = $software_tree/mpilib/openmpi-1.8.1-static-${compiler_version}
                                    MPI_LIB = -I$MPIROOT/lib $WLFLAG,-rpath,,$MPIROOT/lib $WLFLAG,--disable-new-dtags -L$MPIROOT/lib -lmpi_usempi -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lm -lnuma -ldl -lrt -libverbs -lrdmacm -lutil -lpthread
-                                   load_modules=gcc/4.8.2 nag/6.0.1064 ${load_modules}
+                                   load_modules=gcc/4.9.2 nag/6.0.1064 ${load_modules}
                                    ;;
                                pgi)
                                    MPIROOT     = $software_tree/mpilib/openmpi-1.8.4-static-${compiler_version}
@@ -712,11 +726,10 @@ case "$ac_sitename" in
                                    load_modules= gcc/4.8.2 pgi/14.7 ${load_modules}
                                    ;;
                                intel)
-                                   MPIROOT     = $software_tree/mpilib/openmpi-1.8.4-static-${compiler_version}
-                                   MPI_LIB     = -I$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib $WLFLAG,--disable-new-dtags -L$MPIROOT/lib -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lm -lnuma -ldl -lrt -libverbs -lrdmacm -lutil
-                                   # HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -no-prec-div -vec-report2 -diag-file -traceback -g
+                                   MPIROOT     = $software_tree/mpilib/openmpi-1.6.5-static-${compiler_version}
+                                   MPI_LIB     = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
                                    HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -g
-                                   load_modules=gcc/4.8.2 intel/14.0.2 ${load_modules}
+                                   load_modules=gcc/4.8.2 intel/16.0.0 ${load_modules}
                                    ;;
                            esac
                            ;;
