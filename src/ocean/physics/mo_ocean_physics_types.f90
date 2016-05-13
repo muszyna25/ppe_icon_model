@@ -56,7 +56,7 @@ MODULE mo_ocean_physics_types
     & VerticalViscosity_TimeWeight, OceanReferenceDensity,    &
     & HorizontalViscosity_ScaleWeight,                        &
     & tracer_TopWindMixing, WindMixingDecayDepth,             &
-    & velocity_TopWindMixing, Salinity_ConvectionRestrict
+    & velocity_TopWindMixing
     
    !, l_convection, l_pp_scheme
   USE mo_parallel_config,     ONLY: nproma

@@ -101,7 +101,7 @@ MODULE mo_ocean_nml
                                             ! i_bc_veloc_top =2 : forced by difference between wind
                                             !                     field in p_os%p_aux%bc_top_veloc 
                                             !                     and ocean velocity at top layer
-  INTEGER            :: i_bc_veloc_bot = 0  !Bottom boundary condition for velocity: 
+  INTEGER            :: i_bc_veloc_bot = 1  !Bottom boundary condition for velocity:
                                             ! i_bc_veloc_bot =0 : zero value at bottom boundary 
                                             ! i_bc_veloc_bot =1 : bottom boundary friction
                                             ! i_bc_veloc_bot =2 : bottom friction plus topographic
@@ -165,7 +165,7 @@ MODULE mo_ocean_nml
 
   ! parameters for gmres solver
   REAL(wp) :: solver_tolerance                   = 1.e-14_wp   ! Maximum value allowed for solver absolute tolerance
-  REAL(wp) :: MassMatrix_solver_tolerance       = 1.e-11_wp   ! Maximum value allowed for solver absolute tolerance
+  REAL(wp) :: MassMatrix_solver_tolerance        = 1.e-11_wp   ! Maximum value allowed for solver absolute tolerance
   !  REAL(wp) :: solver_start_tolerance          = -1.0_wp
   INTEGER  :: solver_max_restart_iterations      = 100       ! For restarting gmres
   INTEGER  :: solver_max_iter_per_restart        = 200       ! For inner loop after restart
@@ -313,6 +313,7 @@ MODULE mo_ocean_nml
     &                 solver_tolerance             , &
     &                 solver_max_iter_per_restart_sp, &
     &                 solver_tolerance_sp          , &
+    &                 MassMatrix_solver_tolerance  , &
     &                 threshold_vn                 , &
     &                 surface_module               , &
     &                 use_continuity_correction    , &
@@ -353,9 +354,6 @@ MODULE mo_ocean_nml
   REAL(wp) :: k_pot_temp_v          = 1.0E-4_wp  ! vertical mixing coefficient for pot. temperature
   REAL(wp) :: k_sal_h               = 1.0E+3_wp  ! horizontal diffusion coefficient for salinity
   REAL(wp) :: k_sal_v               = 1.0E-4_wp  ! vertical diffusion coefficient for salinity
-  REAL(wp) :: k_tracer_dianeutral_parameter   = 1.0E+3_wp  !dianeutral tracer diffusivity for GentMcWilliams-Redi parametrization
-  REAL(wp) :: k_tracer_isoneutral_parameter   = 1.0E-4_wp  !isoneutral tracer diffusivity for GentMcWilliams-Redi parametrization
-  REAL(wp) :: k_tracer_GM_kappa_parameter     = 1.0E-4_wp  !kappa parameter in GentMcWilliams parametrization
   REAL(wp) :: MAX_VERT_DIFF_VELOC   = 0.0_wp     ! maximal diffusion coefficient for velocity
   REAL(wp) :: MAX_VERT_DIFF_TRAC    = 0.0_wp     ! maximal diffusion coefficient for tracer
   REAL(wp) :: biharmonic_const=0.005_wp !This constant is used in spatially varying biharmoinc velocity diffusion
@@ -370,8 +368,9 @@ MODULE mo_ocean_nml
   INTEGER  :: HorizontalViscosity_SmoothIterations = 1
   REAL(wp) :: HorizontalViscosity_SpatialSmoothFactor = 0.5_wp
   REAL(wp) :: HorizontalViscosity_ScaleWeight = 0.5_wp
-  REAL(wp) :: VerticalViscosity_TimeWeight = 0.0_wp
-  
+  REAL(wp) :: VerticalViscosity_TimeWeight = 0.5_wp
+  REAL(wp) :: Salinity_ConvectionRestrict = 0.0_wp
+
   NAMELIST/ocean_diffusion_nml/&
     &  HorizontalViscosity_type,    &
     &  HorizontalViscosity_SmoothIterations,       &
@@ -389,30 +388,50 @@ MODULE mo_ocean_nml
     &  MAX_VERT_DIFF_VELOC         ,    &
     &  convection_InstabilityThreshold, &
     &  RichardsonDiffusion_threshold,   &
-    &  k_tracer_dianeutral_parameter,   &
-    &  k_tracer_isoneutral_parameter,   &
-    &  k_tracer_GM_kappa_parameter,     &
     &  leith_closure,                   &
     &  leith_closure_gamma,             &
-    &  biharmonic_const
-
+    &  biharmonic_const,                &
+    &  Salinity_ConvectionRestrict
 
   !Parameters for GM-Redi configuration
+  REAL(wp) :: k_tracer_dianeutral_parameter   = 1.0E-4_wp  !dianeutral tracer diffusivity for GentMcWilliams-Redi parametrization
+  REAL(wp) :: k_tracer_isoneutral_parameter   = 600.0_wp  !isoneutral tracer diffusivity for GentMcWilliams-Redi parametrization
+  REAL(wp) :: k_tracer_GM_kappa_parameter     = 600.0_wp  !kappa parameter in GentMcWilliams parametrization
   INTEGER            :: GMRedi_configuration=0
-  INTEGER, PARAMETER :: Cartesian_Mixing=0                            
+  INTEGER, PARAMETER :: Cartesian_Mixing=0
   INTEGER, PARAMETER :: GMRedi_combined =1   !both parametrizations active
-  INTEGER, PARAMETER :: GM_only         =2                      
+  INTEGER, PARAMETER :: GM_only         =2
   INTEGER, PARAMETER :: Redi_only       =3
   !Parameters for tapering configuration
-  INTEGER            :: tapering_scheme=3
   INTEGER, PARAMETER :: tapering_DanaMcWilliams=1
-  INTEGER, PARAMETER :: tapering_Large=2    
+  INTEGER, PARAMETER :: tapering_Large=2
   INTEGER, PARAMETER :: tapering_Griffies=3
+  INTEGER            :: tapering_scheme=tapering_DanaMcWilliams
+  LOGICAL            :: switch_off_diagonal_vert_expl=.TRUE.
   !Parameters for tapering schemes
-  REAL(wp) :: S_max=1.0e-2   !maximally allowed slope 
-  REAL(wp) :: S_d=1.0e-3     !width of transition zone from untapered to tapered
-  REAL(wp) :: c_speed=2.0_wp !aproximation to first baroclinic wave speed. Used in tapering schemes to calculate
-                             !Rossby radius in tapering schemes
+  LOGICAL  :: GMRedi_usesRelativeMaxSlopes = .true. ! the slopes are defined relatively the the grid slopes: dz/dx
+  REAL(wp) :: S_max      = 8.0_wp                   !maximally allowed slope
+  REAL(wp) :: S_critical = 2.5_wp                   !critical value at which tapering reduces slope by 50%
+  REAL(wp) :: S_d        = 0.2_wp                   !width of transition zone from untapered to tapered
+  REAL(wp) :: c_speed    = 2.0_wp                   !aproximation to first baroclinic wave speed. Used in tapering scheme "Large"
+  REAL(wp) :: RossbyRadius_min = 15000.0_wp
+  REAL(wp) :: RossbyRadius_max =100000.0_wp
+
+
+ NAMELIST/ocean_GentMcWilliamsRedi_nml/&
+    &  GMRedi_configuration           ,&
+    &  tapering_scheme                ,&
+    &  GMRedi_usesRelativeMaxSlopes   ,&
+    &  S_max                          ,&
+    &  S_d                            ,&
+    &  S_critical                     ,&
+    &  c_speed                        ,&
+    &  k_tracer_dianeutral_parameter  ,&
+    &  k_tracer_isoneutral_parameter  ,&
+    &  k_tracer_GM_kappa_parameter    ,&
+    &  RossbyRadius_min               ,&
+    &  RossbyRadius_max               ,&
+    &  switch_off_diagonal_vert_expl
   
   ! ocean_physics_nml
   ! LOGICAL :: use_ThermoExpansion_Correction = .FALSE.
@@ -463,15 +482,12 @@ MODULE mo_ocean_nml
     &  wma_visc                    ,&
     &  use_reduced_mixing_under_ice,&
     &  use_wind_mixing,             &
-    &  GMRedi_configuration        ,&
-    &  tapering_scheme             ,&
-    &  S_max, S_d, c_speed,         &
     &  LinearThermoExpansionCoefficient, &
     &  OceanReferenceDensity,       &
     &  tracer_TopWindMixing,        &
     &  WindMixingDecayDepth,        &
     &  velocity_TopWindMixing,      &
-    & lhamocc, lbgcadv
+    &  lhamocc, lbgcadv
   ! ------------------------------------------------------------------------
   ! FORCING {
   ! iforc_oce: parameterized forcing for ocean model:

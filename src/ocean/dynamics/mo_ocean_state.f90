@@ -1666,7 +1666,7 @@ CONTAINS
       ! Reference to individual tracer, for I/O
  
       ALLOCATE(ocean_state_acc%tracer_horz_physics_ptr(no_tracer))
-      ALLOCATE(ocean_state_acc%tracer_vert_physics_ptr(no_tracer+))
+      ALLOCATE(ocean_state_acc%tracer_vert_physics_ptr(no_tracer))
       DO jtrc = 1,no_tracer
         CALL add_ref( ocean_default_list, 'K_tracer_h'//TRIM(var_suffix),&
           & 'K_tracer_h_'//TRIM(oce_config%tracer_names(jtrc))//TRIM(var_suffix),     &
