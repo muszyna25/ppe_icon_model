@@ -401,9 +401,9 @@ MODULE mo_ocean_nml
     &  Salinity_ConvectionRestrict
 
   !Parameters for GM-Redi configuration
-  REAL(wp) :: k_tracer_dianeutral_parameter   = 1.0E+3_wp  !dianeutral tracer diffusivity for GentMcWilliams-Redi parametrization
-  REAL(wp) :: k_tracer_isoneutral_parameter   = 1.0E-4_wp  !isoneutral tracer diffusivity for GentMcWilliams-Redi parametrization
-  REAL(wp) :: k_tracer_GM_kappa_parameter     = 1.0E-4_wp  !kappa parameter in GentMcWilliams parametrization  
+  REAL(wp) :: k_tracer_dianeutral_parameter   = 1.0E-4_wp  !dianeutral tracer diffusivity for GentMcWilliams-Redi parametrization
+  REAL(wp) :: k_tracer_isoneutral_parameter   = 600.0_wp  !isoneutral tracer diffusivity for GentMcWilliams-Redi parametrization
+  REAL(wp) :: k_tracer_GM_kappa_parameter     = 600.0_wp  !kappa parameter in GentMcWilliams parametrization
   INTEGER            :: GMRedi_configuration=0
   INTEGER, PARAMETER :: Cartesian_Mixing=0                            
   INTEGER, PARAMETER :: GMRedi_combined =1   !both parametrizations active
@@ -417,10 +417,10 @@ MODULE mo_ocean_nml
   LOGICAL            :: switch_off_diagonal_vert_expl=.TRUE.
   !Parameters for tapering schemes
   LOGICAL  :: GMRedi_usesRelativeMaxSlopes = .true. ! the slopes are defined relatively the the grid slopes: dz/dx
-  REAL(wp) :: S_max=1.0e-2                          !maximally allowed slope 
-  REAL(wp) :: S_critical=4.0e-3                     !critical value at which tapering reduces slope by 50%  
-  REAL(wp) :: S_d=1.0e-3                            !width of transition zone from untapered to tapered
-  REAL(wp) :: c_speed=2.0_wp                        !aproximation to first baroclinic wave speed. Used in tapering scheme "Large"
+  REAL(wp) :: S_max      = 8.0_wp                   !maximally allowed slope
+  REAL(wp) :: S_critical = 2.5_wp                   !critical value at which tapering reduces slope by 50%
+  REAL(wp) :: S_d        = 0.2_wp                   !width of transition zone from untapered to tapered
+  REAL(wp) :: c_speed    = 2.0_wp                   !aproximation to first baroclinic wave speed. Used in tapering scheme "Large"
   REAL(wp) :: RossbyRadius_min = 15000.0_wp
   REAL(wp) :: RossbyRadius_max =100000.0_wp
                              
@@ -520,12 +520,7 @@ MODULE mo_ocean_nml
   INTEGER  :: forcing_windstress_v_type            = 0
 
   REAL(wp) :: forcing_windstress_zonal_waveno      = 3.0_wp  ! For the periodic analytic forcing (wind)
-#ifdef __SX__
-  REAL(wp) :: forcing_windstress_zonalWavePhas     = 0.0_wp
-#else
   REAL(wp) :: forcing_windstress_zonalWavePhase    = 0.0_wp
-#endif
-!DR  REAL(wp) :: forcing_windstress_meridional_waveno = 3.0_wp
   REAL(wp) :: forcing_windstress_merid_waveno      = 3.0_wp
   REAL(wp) :: forcing_windStress_u_amplitude       = 1.0_wp
   REAL(wp) :: forcing_windStress_v_amplitude       = 1.0_wp
@@ -563,16 +558,11 @@ MODULE mo_ocean_nml
     &                 forcing_timescale                   , &
     &                 forcing_windStress_u_amplitude      , &
     &                 forcing_windStress_v_amplitude      , &
-!DR    &                 forcing_windstress_meridional_waveno, &
     &                 forcing_windstress_merid_waveno     , &
     &                 forcing_windstress_u_type           , &
     &                 forcing_windstress_v_type           , &
     &                 forcing_windstress_zonal_waveno     , &
-#ifdef __SX__
-    &                 forcing_windstress_zonalWavePhas    , &
-#else
     &                 forcing_windstress_zonalWavePhase   , &
-#endif
     &                 forcing_windspeed_type              , &
     &                 forcing_windspeed_amplitude         , &
     &                 forcing_HeatFlux_amplitude   , &

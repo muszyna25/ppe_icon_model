@@ -408,9 +408,6 @@ CONTAINS
     z_mflux(1:nproma,1:n_zlev,1:patch_2d%alloc_cell_blocks,1:2) = 0.0_wp
     
     
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, startIndex, endIndex)
       DO jk = 2, n_zlev-1

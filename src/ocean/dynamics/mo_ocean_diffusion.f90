@@ -183,9 +183,6 @@ CONTAINS
     ! loop over cells in local domain + halo
     DO blockNo = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, blockNo, start_index, end_index)
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
       DO level = start_level, end_level
         DO cell_index = start_index, end_index
           z_div_grad_u(cell_index,level,blockNo)%x =  0.0_wp
@@ -240,9 +237,6 @@ CONTAINS
     DO blockNo = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, blockNo, start_index, end_index)
       
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
       DO level = start_level, end_level
         DO cell_index = start_index, end_index
           

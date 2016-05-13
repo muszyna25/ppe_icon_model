@@ -8,9 +8,9 @@
   #  in other cases where 
   #    ocean_location/="" then ocean_data_MainFolder=/pool/data/ICON/oes/${ocean_location}
   
-  #ocean_location=${ocean_location:="fluent"}
+  ocean_location=${ocean_location:="fluent"}
   #ocean_location= ${ocean_location:="buildbot"}
-  ocean_location="local" #${ocean_location:="local"}
+#   ocean_location="local" #${ocean_location:="local"}
 
   get_file=${get_file:='add_link_file'} # or 'add_required_file' for copying
 
