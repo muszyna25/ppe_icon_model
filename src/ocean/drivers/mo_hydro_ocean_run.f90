@@ -52,7 +52,7 @@ MODULE mo_hydro_ocean_run
     & t_operator_coeff, t_solvercoeff_singleprecision
   USE mo_ocean_math_operators,   ONLY: update_height_depdendent_variables, check_cfl_horizontal, check_cfl_vertical
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
-  USE mo_ocean_tracer,             ONLY: advect_tracer_ab
+  USE mo_ocean_tracer,             ONLY: advect_ocean_tracers
   USE mo_io_restart,             ONLY: create_restart_file
   USE mo_ocean_bulk,             ONLY: update_surface_flux
   USE mo_ocean_surface,          ONLY: update_ocean_surface
@@ -376,7 +376,7 @@ CONTAINS
       ! Step 6: transport tracers and diffuse them
       IF (no_tracer>=1) THEN
         start_timer(timer_tracer_ab,1)
-        CALL advect_tracer_ab( patch_3d, ocean_state(jg), p_phys_param,&
+        CALL advect_ocean_tracers( patch_3d, ocean_state(jg), p_phys_param,&
           & surface_fluxes,&
           & operators_coefficients,&
           & jstep)
