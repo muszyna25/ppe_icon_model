@@ -144,9 +144,6 @@ cat > ${ocean_namelist} << EOF
   MAX_VERT_DIFF_TRAC              =   0.1     ! max vertical tracer diffusion for convection used in case of instability
 ! convection_InstabilityThreshold =  -5.0E-5  ! used in update_ho_params - default=-5e-8
 ! RichardsonDiffusion_threshold   =   0.0     ! used in update_ho_params - default=+5e-8
-  k_tracer_GM_kappa_parameter     = 600.0     !
-  k_tracer_isoneutral_parameter   = 600.0     ! 600: value for cell-based cartesian diffusion - mpiom: 1000/400km = 400/160km
-  k_tracer_dianeutral_parameter   =   1.0E-5  !
 /
 &ocean_physics_nml
 ! i_sea_ice                       =   1       ! 0 = no sea ice; 1 = sea ice model on; default=1
@@ -155,7 +152,9 @@ cat > ${ocean_namelist} << EOF
   bottom_drag_coeff               =   1.0E-3  ! default=2.5E-3; active for i_bc_veloc_bot=1
   physics_parameters_type         =   1       ! type of pp-scheme: 1=ICON-optimized; 2=MPIOM-type
   use_wind_mixing                 = .FALSE.   ! true: use wind mixing scheme in MPIOM-type pp-scheme
-  GMRedi_configuration            =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
+/                                           
+&ocean_GentMcWilliamsRedi_nml
+  GMRedi_configuration           =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
 /                                           
 &sea_ice_nml
   i_ice_therm                     =   1       ! 1=zero-layer (default), 2=Winton, 0/2: not allowed
