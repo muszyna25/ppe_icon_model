@@ -933,8 +933,8 @@ CONTAINS
     REAL(wp), POINTER :: z_vert_density_grad_c(:,:,:)
     REAL(wp), PARAMETER :: beta_param=2.29E-11
     REAL(wp), PARAMETER :: latitude_threshold=5.0_wp
-    REAL(wp) :: Rossby_radius_equator(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    REAL(wp) :: Rossby_radius_offequator(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)  
+    REAL(wp) :: Rossby_radius_equator(nproma)
+    REAL(wp) :: Rossby_radius_offequator(nproma)  
     
     
     REAL(wp) :: z_shear_cell  
@@ -952,7 +952,7 @@ CONTAINS
 
 !ICON_OMP_PARALLEL PRIVATE(salinity)
     salinity(1:n_zlev) = sal_ref
-!ICON_OMP_DO PRIVATE(start_cell_index, end_cell_index, cell_index, end_level, jk, pressure, z_rho_up, z_rho_down, &
+!ICON_OMP_DO PRIVATE(start_cell_index, end_cell_index, cell_index, end_level, level, pressure, z_rho_up, z_rho_down, &
 !ICON_OMP z_shear_cell) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
@@ -999,13 +999,13 @@ CONTAINS
 !ICON_OMP_END_DO
     
 
-!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level &
-!ICON_OMP ) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level, &
+!ICON_OMP Rossby_radius_equator, Rossby_radius_offequator) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
       
-      Rossby_radius_equator   (:,blockNo)               =0.0_wp
-      Rossby_radius_offequator(:,blockNo)               =0.0_wp
+      Rossby_radius_equator   (:)               =0.0_wp
+      Rossby_radius_offequator(:)               =0.0_wp
       ocean_state%p_diag%Wavespeed_baroclinic(:,blockNo)=0.0_wp     
        
       DO cell_index = start_cell_index, end_cell_index
@@ -1027,15 +1027,15 @@ CONTAINS
           END DO
           
           IF(abs(patch_2d%cells%center(cell_index, blockNo)%lat)*rad2deg>=latitude_threshold)THEN
-            Rossby_radius_offequator(cell_index,blockNo)&
+            Rossby_radius_offequator(cell_index)&
             &=ocean_state%p_diag%Wavespeed_baroclinic(cell_index,blockNo)&
             &/abs(patch_2d%cells%f_c(cell_index,blockNo))
           ENDIF
-          Rossby_radius_equator(cell_index,blockNo)&
+          Rossby_radius_equator(cell_index)&
             &=ocean_state%p_diag%Wavespeed_baroclinic(cell_index,blockNo)/(2.0_wp*beta_param)  
           
           ocean_state%p_diag%Rossby_Radius(cell_index,blockNo)&
-          &=min(Rossby_radius_offequator(cell_index,blockNo),Rossby_radius_equator(cell_index,blockNo))
+            &=min(Rossby_radius_offequator(cell_index),Rossby_radius_equator(cell_index))
       END DO
     END DO
 !ICON_OMP_END_DO
@@ -1043,18 +1043,18 @@ CONTAINS
 
 !ICON_OMP_END_PARALLEL
 
-  Do level=1,n_zlev
-  write(0,*)'max-min',level,&
-   &maxval( ocean_state%p_diag%Richardson_Number(:,level,:)),&
-   &minval( ocean_state%p_diag%Richardson_Number(:,level,:)),& 
-   &maxval( ocean_state%p_diag%Buoyancy_Freq(:,level,:)),&
-   &minval( ocean_state%p_diag%Buoyancy_Freq(:,level,:))
-  End do   
-  write(0,*)'max-min',&     
-   &maxval( ocean_state%p_diag%Wavespeed_baroclinic),&
-   &minval( ocean_state%p_diag%Wavespeed_baroclinic),& 
-   &maxval( ocean_state%p_diag%Rossby_Radius),&
-   &maxval(Rossby_radius_offequator), maxval(Rossby_radius_equator)
+!   Do level=1,n_zlev
+!   write(0,*)'max-min',level,&
+!    &maxval( ocean_state%p_diag%Richardson_Number(:,level,:)),&
+!    &minval( ocean_state%p_diag%Richardson_Number(:,level,:)),& 
+!    &maxval( ocean_state%p_diag%Buoyancy_Freq(:,level,:)),&
+!    &minval( ocean_state%p_diag%Buoyancy_Freq(:,level,:))
+!   End do   
+!   write(0,*)'max-min',&     
+!    &maxval( ocean_state%p_diag%Wavespeed_baroclinic),&
+!    &minval( ocean_state%p_diag%Wavespeed_baroclinic),& 
+!    &maxval( ocean_state%p_diag%Rossby_Radius),&
+!    &maxval(Rossby_radius_offequator), maxval(Rossby_radius_equator)
   
 !  stop
    

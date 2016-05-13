@@ -920,14 +920,15 @@ CONTAINS
     SELECT CASE(tapering_scheme)
 
     CASE(tapering_DanaMcWilliams)
-!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
 
         DO cell_index = start_cell_index, end_cell_index
           end_level = patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
 
-          IF(end_level >= min_dolic) THEN
+!           IF(end_level >= min_dolic) THEN
           
             DO level = start_level, end_level
             
@@ -959,35 +960,37 @@ CONTAINS
 
               
             END DO
-          ENDIF
+!           ENDIF
         END DO
       END DO
-!ICON_OMP_END_PARALLEL_DO
+!ICON_OMP_END_DO
 
-!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE     
       IF(switch_off_diagonal_vert_expl)THEN
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE
         DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
           CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
 
           DO cell_index = start_cell_index, end_cell_index
             end_level = patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
 
-            IF(end_level >= min_dolic) THEN
+!             IF(end_level >= min_dolic) THEN
           
               DO level = start_level, end_level
                 taper_diagonal_vert_expl(cell_index,level,blockNo)=0.0_wp
               END DO
-            ENDIF
+!             ENDIF
           END DO
         END DO      
+!ICON_OMP_END_DO
       ELSEIF(.NOT.switch_off_diagonal_vert_expl)THEN
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE
        DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
           CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
 
           DO cell_index = start_cell_index, end_cell_index
             end_level = patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
 
-            IF(end_level >= min_dolic) THEN
+!             IF(end_level >= min_dolic) THEN
           
               DO level = start_level, end_level
       
@@ -995,12 +998,13 @@ CONTAINS
                 &=K_D(cell_index,level,blockNo)&
                 &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)
                END DO
-              ENDIF
+!               ENDIF
             END DO
           END DO
+!ICON_OMP_END_DO
         
       ENDIF      
-!ICON_OMP_END_PARALLEL_DO
+!ICON_OMP_END_PARALLEL
       
 ! Do level=start_level,end_level
 ! write(*,*)'max/min',level,&
@@ -1050,7 +1054,7 @@ CONTAINS
         END DO
       END DO
 !ICON_OMP_END_PARALLEL_DO
-!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE     
+! !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE     
       IF(switch_off_diagonal_vert_expl)THEN
         DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
           CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
@@ -1086,7 +1090,7 @@ CONTAINS
           END DO
         
       ENDIF      
-!ICON_OMP_END_PARALLEL_DO
+! !ICON_OMP_END_PARALLEL_DO
                
 
     CASE(tapering_Griffies)
