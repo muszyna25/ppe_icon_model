@@ -777,6 +777,30 @@ CONTAINS
       zwst    (1:kproma,1:ksfc_type) = 0._wp   ! affects TKE at surface
     END IF
 
+    !------------------------------------------------------------------------------
+    ! Store values
+    ! to be used in subroutine "nsurf_diag" to compute
+    ! new t2m, 2m dew point, 10m wind components
+    !------------------------------------------------------------------------------
+
+    pbn_sfc (1:kproma,1:ksfc_type) = 0._wp  !
+    pbhn_sfc(1:kproma,1:ksfc_type) = 0._wp  !
+    pbm_sfc (1:kproma,1:ksfc_type) = 0._wp  !
+    pbh_sfc (1:kproma,1:ksfc_type) = 0._wp  !
+    DO jsfc = 1,ksfc_type
+      DO jls = 1,is(jsfc)
+! set index
+      js=loidx(jls,jsfc)
+        pbn_sfc(js,jsfc) = ckap / SQRT(pcdn_sfc(js,jsfc))
+        pbhn_sfc(js,jsfc) = ckap / SQRT(pchn_sfc(js,jsfc))
+        pbm_sfc(js,jsfc) = MAX(zepsec, SQRT(pcfm_sfc(js,jsfc)*pcdn_sfc(js,jsfc) *  &
+                               zcons17 / pcfnc_sfc(js,jsfc)))
+        pbh_sfc(js,jsfc) = MAX(zepsec, pch_sfc(js,jsfc)/pbm_sfc(js,jsfc)*zcons17)
+        pbm_sfc(js,jsfc) = 1._wp / pbm_sfc(js,jsfc)
+        pbh_sfc(js,jsfc) = 1._wp / pbh_sfc(js,jsfc)
+      END DO
+    END DO
+
     !-------------------------------------------------------------------------
     ! Get the aggregated exchange coefficient for momentum
     !-------------------------------------------------------------------------
@@ -936,30 +960,6 @@ CONTAINS
 
         ztvsfc(js) = ptsfc(js,jsfc)*(1._wp + vtmpc1*zqts(js,jsfc))
         prho_sfc(js) = prho_sfc(js) + zrrd*ppsfc(js)/ztvsfc(js)
-      END DO
-    END DO
-
-    !------------------------------------------------------------------------------
-    ! Store values
-    ! to be used in subroutine "nsurf_diag" to compute
-    ! new t2m, 2m dew point, 10m wind components
-    !------------------------------------------------------------------------------
-
-    pbn_sfc (1:kproma,1:ksfc_type) = 0._wp  !
-    pbhn_sfc(1:kproma,1:ksfc_type) = 0._wp  !
-    pbm_sfc (1:kproma,1:ksfc_type) = 0._wp  !
-    pbh_sfc (1:kproma,1:ksfc_type) = 0._wp  !
-    DO jsfc = 1,ksfc_type
-      DO jls = 1,is(jsfc)
-! set index
-      js=loidx(jls,jsfc)
-        pbn_sfc(js,jsfc) = ckap / SQRT(pcdn_sfc(js,jsfc))
-        pbhn_sfc(js,jsfc) = ckap / SQRT(pchn_sfc(js,jsfc))
-        pbm_sfc(js,jsfc) = MAX(zepsec, SQRT(pcfm_sfc(js,jsfc)*pcdn_sfc(js,jsfc) *  &
-                               zcons17 * pcfnc_sfc(js,jsfc)))
-        pbh_sfc(js,jsfc) = MAX(zepsec, pch_sfc(js,jsfc)/pbm_sfc(js,jsfc)*zcons17)
-        pbm_sfc(js,jsfc) = 1._wp / pbm_sfc(js,jsfc)
-        pbh_sfc(js,jsfc) = 1._wp / pbh_sfc(js,jsfc)
       END DO
     END DO
 ! extra variable for land points:
