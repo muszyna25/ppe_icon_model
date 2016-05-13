@@ -461,12 +461,6 @@ CONTAINS
       & tracer_index )
     !---------------------------------------------------------------------
 
-!     IF(GMRedi_configuration/=Cartesian_Mixing)THEN
-!       !calculate horizontal and vertical Redi and GM fluxes
-!       CALL calc_ocean_physics(patch_3d, p_os, p_param,p_op_coeff, tracer_index)
-!     ENDIF
-
-
     IF(GMRedi_configuration==Cartesian_Mixing)THEN
       !horizontal diffusion, vertical is handled implicitely below
       CALL diffuse_horz( patch_3d,      &
@@ -484,7 +478,6 @@ CONTAINS
       CALL calc_ocean_physics(patch_3d, p_os, p_param,p_op_coeff, tracer_index)
     
       !calculate horizontal divergence of diffusive flux
-!       CALL sync_patch_array(sync_e, patch_2D, p_os%p_diag%GMRedi_flux_horz(:,:,:,tracer_index))
       CALL div_oce_3d( p_os%p_diag%GMRedi_flux_horz(:,:,:,tracer_index),&
                    &   patch_3d, &
                    &   p_op_coeff%div_coeff, &
@@ -592,9 +585,6 @@ CONTAINS
         DO level = 1, MIN(patch_3d%p_patch_1d(1)%dolic_c(jc,jb),1)  ! this at most should be 1
 
           delta_z_new = patch_3d%p_patch_1d(1)%del_zlev_m(level) + p_os%p_prog(nnew(1))%h(jc,jb)
-          new_ocean_tracer%concentration(jc,level,jb) =         &
-            & ( new_ocean_tracer%concentration(jc,level,jb) +   &
-            & (delta_t  / delta_z_new) * bc_top_tracer(jc,jb))
           new_ocean_tracer%concentration(jc,level,jb) =         &
             & ( new_ocean_tracer%concentration(jc,level,jb) +   &
             & (delta_t  / delta_z_new) * bc_top_tracer(jc,jb))

@@ -771,7 +771,6 @@ CONTAINS
 
        CALL limiter_ocean_zalesak_horizontal( patch_3d, &
        & p_os%p_diag%w_time_weighted,           &
-       & p_os%p_diag%w_time_weighted,           &
        & trac_old,                              &
        & p_os%p_diag%mass_flx_e,                &
        & z_adv_flux_low,                        &
