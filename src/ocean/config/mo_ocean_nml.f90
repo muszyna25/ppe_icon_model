@@ -407,7 +407,7 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: tapering_Large=2
   INTEGER, PARAMETER :: tapering_Griffies=3
   INTEGER            :: tapering_scheme=tapering_DanaMcWilliams
-  LOGICAL            :: switch_off_diagonal_vert_expl=.TRUE.
+  LOGICAL            :: switch_off_diagonal_vert_expl=.false.
   !Parameters for tapering schemes
   LOGICAL  :: GMRedi_usesRelativeMaxSlopes = .true. ! the slopes are defined relatively the the grid slopes: dz/dx
   REAL(wp) :: S_max      = 8.0_wp                   !maximally allowed slope

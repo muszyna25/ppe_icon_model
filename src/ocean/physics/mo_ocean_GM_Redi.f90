@@ -913,7 +913,7 @@ CONTAINS
     !
     !The dianeutral diffusivity is the number determined by the PP-scheme
     K_I           => param%k_tracer_isoneutral
-    K_D           => param%a_tracer_v(:,:,:,tracer_index) ! param%k_tracer_dianeutral
+    K_D           => param%k_tracer_dianeutral ! param%a_tracer_v(:,:,:,tracer_index) ! 
     kappa         => param%k_tracer_GM_kappa
     !-------------------------------------------------------------------------------
     
