@@ -566,11 +566,7 @@ MODULE mo_ocean_nml
     &                 forcing_windstress_u_type           , &
     &                 forcing_windstress_v_type           , &
     &                 forcing_windstress_zonal_waveno     , &
-#ifdef __SX__
-    &                 forcing_windstress_zonalWavePhas    , &
-#else
     &                 forcing_windstress_zonalWavePhase   , &
-#endif
     &                 forcing_windspeed_type              , &
     &                 forcing_windspeed_amplitude         , &
     &                 forcing_HeatFlux_amplitude   , &
@@ -834,7 +830,23 @@ MODULE mo_ocean_nml
       END IF
     END SELECT
 
-  CALL position_nml ('ocean_tracer_transport_nml', status=i_status)
+    CALL position_nml ('ocean_GentMcWilliamsRedi_nml', status=i_status)
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, ocean_GentMcWilliamsRedi_nml)    ! write defaults to temporary text file
+    END IF
+    SELECT CASE (i_status)
+    CASE (positioned)
+      READ (nnml, ocean_GentMcWilliamsRedi_nml)                            ! overwrite default settings
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, ocean_GentMcWilliamsRedi_nml)    ! write settings to temporary text file
+      END IF
+!     CASE default
+!       call finish("","ocean_GentMcWilliamsRedi_nml not positioned")
+    END SELECT
+
+    CALL position_nml ('ocean_tracer_transport_nml', status=i_status)
     IF (my_process_is_stdio()) THEN
       iunit = temp_defaults()
       WRITE(iunit, ocean_tracer_transport_nml)    ! write defaults to temporary text file
@@ -1021,6 +1033,7 @@ MODULE mo_ocean_nml
       WRITE(nnml_output,nml=ocean_physics_nml) 
       WRITE(nnml_output,nml=ocean_diffusion_nml)       
       WRITE(nnml_output,nml=ocean_tracer_transport_nml)
+      WRITE(nnml_output,nml=ocean_GentMcWilliamsRedi_nml)
       WRITE(nnml_output,nml=ocean_forcing_nml)
       WRITE(nnml_output,nml=ocean_initialConditions_nml)
       WRITE(nnml_output,nml=ocean_diagnostics_nml)
