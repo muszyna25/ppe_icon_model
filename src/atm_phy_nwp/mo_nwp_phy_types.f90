@@ -434,6 +434,7 @@ MODULE mo_nwp_phy_types
       ddt_tracer_turb (:,:,:,:),& !! Hydromet-tendency from turbulence
       ddt_tracer_pconv(:,:,:,:),& !! Hydromet-tendency from convective prec
       ddt_tke_pconv   (:,:,:)  ,& !! TKE tendency from convective prec
+      ddt_tke_hsh     (:,:,:)  ,& !! TKE tendency from horizontal shear
       ddt_tke         (:,:,:)     !! tendency for turbulent velocity scale [m/s^2]
 
     !Anurag Dipankar, MPIM (2013-May-31)

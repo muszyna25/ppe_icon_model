@@ -162,7 +162,7 @@ MODULE mo_pp_scheduler
     &                                   TASK_INTP_VER_ILEV, TASK_INTP_EDGE2CELL,            &
     &                                   max_phys_dom, UNDEF_TIMELEVEL, ALL_TIMELEVELS,      &
     &                                   vname_len, TASK_COMPUTE_OMEGA,                      &
-    &                                   TLEV_NNOW, TLEV_NNOW_RCF
+    &                                   TLEV_NNOW, TLEV_NNOW_RCF, HINTP_TYPE_LONLAT_NNB
   USE mo_model_domain,            ONLY: p_patch, p_phys_patch
   USE mo_var_list,                ONLY: add_var, nvar_lists, var_lists, get_var_name,       &
     &                                   get_var_timelevel, find_list_element
@@ -683,6 +683,16 @@ CONTAINS
             var_shape(2:3)   =  (/ 1, nblks_lonlat /)
           ELSE
             var_shape(3)     =  nblks_lonlat
+          END IF
+
+          ! cross-check: some output fields set "undefined" values as
+          ! a fixed value and communicate this to the output module to
+          ! create a bit mask (GRIB). However, for lon-lat
+          ! interpolated output products this "missval" is preserved
+          ! exactly only when nearest-neighbor interpolation is
+          ! applied.
+          IF (info%lmiss .AND. (info%hor_interp%hor_intp_type /= HINTP_TYPE_LONLAT_NNB)) THEN
+            CALL finish(routine, "User tried to interpolate field with missing value!")
           END IF
 
           SELECT CASE (info%hgrid)

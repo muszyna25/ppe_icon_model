@@ -623,8 +623,11 @@ CONTAINS
     this_info%lrestart            = this_list%p%lrestart
     this_info%lrestart_cont       = .FALSE.
     this_info%lrestart_read       = .FALSE.
+
     this_info%lmiss               = this_list%p%lmiss
     this_info%missval             = t_union_vals( 0.0_wp, 0, .FALSE.)
+    this_info%lmask_boundary      = this_list%p%lmask_boundary
+
     this_info%initval             = t_union_vals( 0.0_wp, 0, .FALSE.)
     !
     this_info%lcontainer          = .FALSE.
