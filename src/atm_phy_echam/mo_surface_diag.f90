@@ -18,6 +18,7 @@ MODULE mo_surface_diag
   USE mo_kind,              ONLY: wp
   USE mo_physical_constants,ONLY: grav, als, alv, vtmpc2, cpd, rdv, tmelt,    &
                                   vtmpc1, vtmpc2, rd
+  USE mo_echam_convect_tables,     ONLY: lookup_ua_list_spline
   USE mo_echam_vdiff_params,ONLY: tpfac2
   USE mo_exception,         ONLY: finish
 
@@ -380,74 +381,75 @@ CONTAINS
 
     DO jsfc = 1,ksfc_type
 
-! check for masks
-!
-     is(jsfc) = 0
+    ! check for masks
+    !
+    is(jsfc) = 0
      DO jl = 1,kproma
        IF(pfrc(jl,jsfc).GT.0.0_wp) THEN
          is(jsfc) = is(jsfc) + 1
          loidx(is(jsfc),jsfc) = jl
        ENDIF
      ENDDO
-   ENDDO
+    ENDDO
 
-      !
-      !     Compute new t2m
-      !
-      DO jsfc = 1,ksfc_type
-       DO jls=1,is(jsfc)
-         jl = loidx(jls,jsfc)
-           zrat   = zhtq / pgeom1(jl)
-           IF ( jsfc == idx_lnd ) THEN                    ! land only
-             zcbn   = LOG(1._wp + (EXP (pbhn_tile(jl,jsfc)) - 1._wp) * zrat )
-             zcbs   = -(pbhn_tile(jl,jsfc) - pbh_tile(jl,jsfc)) * zrat
-             zcbu   = -LOG(1._wp + (EXP (pbhn_tile(jl,jsfc) - pbh_tile(jl,jsfc)) - 1._wp) * zrat)
-           ELSE                                           ! water and ice
-             zcbn   = LOG(1._wp + (EXP (pbn_tile(jl,jsfc)) - 1._wp) * zrat )
-             zcbs   = -(pbn_tile(jl,jsfc) - pbh_tile(jl,jsfc)) * zrat
-             zcbu   = -LOG(1._wp + (EXP (pbn_tile(jl,jsfc) - pbh_tile(jl,jsfc)) - 1._wp) * zrat)
-           ENDIF
-           zmerge = MERGE(zcbs,zcbu,pri_tile(jl,jsfc) .GT. 0._wp)
-           zred   = (zcbn + zmerge) / pbh_tile(jl,jsfc)
-           zh2m(jl)   = pcpt_tile(jl,jsfc) + zred * (pcptgz(jl) - pcpt_tile(jl,jsfc))
-           pt_2m_tile(jl,jsfc) = (zh2m(jl) - zhtq ) / (cpd * (1._wp + vtmpc2 * pqm1(jl)))    
-        ENDDO
-      ENDDO
-       !
-!       !           5.96   2M DEW POINT
-!       !
-!
-!    CALL lookup_ua_list_spline('postproc_ocean(1)', kbdim, is, loidx(1,jsfc), ptm1(1), ua(1))
-!
-!    DO jls=1,is(jsfc)
-!      jl = loidx(jls,jsfc)
-!      zqs1(jl)      = ua(jls) / papm1(jl)
-!      zqs1(jl)      = zqs1(jl) / (1._wp- vtmpc1 * zqs1(jl))
-!      zrh2m(jl)     = MAX(zephum, pqm1(jl) / zqs1(jl))
-!    ENDDO
-!
-!    DO jsfc = 1,ksfc_type
-!       WHERE(pt_2m_tile(1:kproma,jsfc) .GT. tmelt)
-!          zcvm3(1:kproma)   = zc3les
-!          zcvm4(1:kproma)   = zc4les
-!       ELSEWHERE
-!          zcvm3(1:kproma)   = zc3ies
-!          zcvm4(1:kproma)   = zc4ies
-!       ENDWHERE
-!       zaph2m(1:kproma)     = paphm1(1:kproma) * &  ! = paphm1(1:kproma, klevp1)
-!            (1._wp - zhtq / ( rd * zt_2m_tile(1:kproma,jsfc) * (1._wp + vtmpc1 * pqm1(1:kproma) - pxm1(1:kproma))))
-!    ENDDO
-!
-!    CALL lookup_ua_list_spline('postproc_ocean(2)', kbdim, is, loidx(1,jsfc), pt_2m_tile(1,jsfc), ua(1))
-!
-!    DO jls=1,is(jsfc)
-!      jl = loidx(jls,jsfc)
-!      zqs2(jl)      = ua(jls) / zaph2m(jl)
-!      zqs2(jl)      = zqs2(jl) / (1._wp- vtmpc1 * zqs2(jl))
-!      zq2m(jl)      = zrh2m(jl) * zqs2(jl)
-!      zfrac(jl)     = LOG(zaph2m(jl) * zq2m(jl) / (zc2es * (1._wp + vtmpc1 * zq2m(jl)))) / zcvm3(jl)
-!      ptd_2m_tile(jl,jsfc)    = MIN(zt_2m_tile(jl,jsfc), (tmelt - zfrac(jl) * zcvm4(jl)) / (1._wp - zfrac(jl)))
-!    ENDDO
+    !     Compute new t2m
+    !
+    DO jsfc = 1,ksfc_type
+     DO jls=1,is(jsfc)
+       jl = loidx(jls,jsfc)
+       zrat   = zhtq / pgeom1(jl)
+       IF ( jsfc == idx_lnd ) THEN                    ! land only
+          zcbn   = LOG(1._wp + (EXP (pbhn_tile(jl,jsfc)) - 1._wp) * zrat )
+          zcbs   = -(pbhn_tile(jl,jsfc) - pbh_tile(jl,jsfc)) * zrat
+          zcbu   = -LOG(1._wp + (EXP (pbhn_tile(jl,jsfc) - pbh_tile(jl,jsfc)) - 1._wp) * zrat)
+       ELSE                                           ! water and ice
+          zcbn   = LOG(1._wp + (EXP (pbn_tile(jl,jsfc)) - 1._wp) * zrat )
+          zcbs   = -(pbn_tile(jl,jsfc) - pbh_tile(jl,jsfc)) * zrat
+          zcbu   = -LOG(1._wp + (EXP (pbn_tile(jl,jsfc) - pbh_tile(jl,jsfc)) - 1._wp) * zrat)
+       ENDIF
+       zmerge = MERGE(zcbs,zcbu,pri_tile(jl,jsfc) .GT. 0._wp)
+       zred   = (zcbn + zmerge) / pbh_tile(jl,jsfc)
+       zh2m(jl)   = pcpt_tile(jl,jsfc) + zred * (pcptgz(jl) - pcpt_tile(jl,jsfc))
+       pt_2m_tile(jl,jsfc) = (zh2m(jl) - zhtq ) / (cpd * (1._wp + vtmpc2 * pqm1(jl)))    
+     ENDDO
+    ENDDO
+    !
+    !           5.96   2M DEW POINT
+    !
+
+    DO jsfc = 1,ksfc_type
+
+    CALL lookup_ua_list_spline('nsurf_diag(1)', kproma, is(jsfc), loidx(1,jsfc), ptm1(1), ua(1))
+
+     DO jls=1,is(jsfc)
+      jl = loidx(jls,jsfc)
+      zqs1(jl)      = ua(jls) / papm1(jl)
+      zqs1(jl)      = zqs1(jl) / (1._wp- vtmpc1 * zqs1(jl))
+      zrh2m(jl)     = MAX(zephum, pqm1(jl) / zqs1(jl))
+ 
+      zaph2m(jl)     = paphm1(jl) * &  ! = paphm1(1:kproma, klevp1)
+          (1._wp - zhtq / ( rd * pt_2m_tile(jl,jsfc) * (1._wp + vtmpc1 * pqm1(jl) - pxm1(jl))))
+     ENDDO
+
+     WHERE(pt_2m_tile(1:kproma,jsfc) .GT. tmelt)
+        zcvm3(1:kproma)   = zc3les
+        zcvm4(1:kproma)   = zc4les
+     ELSEWHERE
+        zcvm3(1:kproma)   = zc3ies
+        zcvm4(1:kproma)   = zc4ies
+     ENDWHERE
+
+    CALL lookup_ua_list_spline('nsurf_diag(2)', kbdim, is(jsfc), loidx(1,jsfc), pt_2m_tile(1,jsfc), ua(1))
+
+    DO jls=1,is(jsfc)
+      jl = loidx(jls,jsfc)
+      zqs2(jl)      = ua(jls) / zaph2m(jl)
+      zqs2(jl)      = zqs2(jl) / (1._wp- vtmpc1 * zqs2(jl))
+      zq2m(jl)      = zrh2m(jl) * zqs2(jl)
+      zfrac(jl)     = LOG(zaph2m(jl) * zq2m(jl) / (zc2es * (1._wp + vtmpc1 * zq2m(jl)))) / zcvm3(jl)
+      ptd_2m_tile(jl,jsfc)    = MIN(pt_2m_tile(jl,jsfc), (tmelt - zfrac(jl) * zcvm4(jl)) / (1._wp - zfrac(jl)))
+    ENDDO
+   ENDDO
 
        !
        !*          5.97   10M WIND COMPONENTS, MAX 10M WINDSPEED
