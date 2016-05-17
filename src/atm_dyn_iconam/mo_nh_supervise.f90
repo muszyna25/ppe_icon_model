@@ -29,10 +29,11 @@ MODULE mo_nh_supervise
   USE mo_grid_config,         ONLY: n_dom, l_limited_area, grid_sphere_radius
   USE mo_math_constants,      ONLY: pi
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: dtime, msg_level, output_mode,          &
-    &                               ltransport, ntracer, lforcing, iforcing
+  USE mo_run_config,          ONLY: dtime, msg_level, output_mode,           &
+    &                               ltransport, ntracer, lforcing, iforcing, &
+    &                               iqm_max
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, inwp, iecham, &
-    &                               min_rlcell_int, min_rledge_int
+    &                               min_rlcell_int, min_rledge_int, iheldsuarez
   USE mo_physical_constants,  ONLY: cvd
   USE mo_mpi,                 ONLY: my_process_is_stdio, get_my_mpi_all_id, &
     &                               process_mpi_stdio_id
@@ -114,28 +115,47 @@ CONTAINS
   !! Initial release by Almut Gassmann (2009-06-03)
   !! Modification by Daniel Reinert, DWD (2010-04-30):
   !! - computation of tracer mass error
+  !! Modification by Daniel Reinert, DWD (2016-04-20):
+  !! - computation of total dry mass
   !!
   SUBROUTINE supervise_total_integrals_nh( k_step, patch, nh_state, int_state, ntimlev, ntimlev_rcf, l_last_step)
 
-    INTEGER,                INTENT(in) :: k_step            ! actual time step
-    TYPE(t_patch),            INTENT(IN) :: patch(n_dom)    ! Patch
-    TYPE(t_nh_state), TARGET, INTENT(in) :: nh_state(n_dom) ! NH State
-    TYPE(t_int_state),      INTENT(in) :: int_state(n_dom)  ! Interpolation State
-    INTEGER,                INTENT(in) :: ntimlev(n_dom)    ! time level
-    INTEGER,                INTENT(in) :: ntimlev_rcf(n_dom)! rcf time level
-    LOGICAL,                INTENT(IN) :: l_last_step
+    INTEGER,                  INTENT(IN) :: k_step            ! actual time step
+    TYPE(t_patch),            INTENT(IN) :: patch(n_dom)      ! Patch
+    TYPE(t_nh_state), TARGET, INTENT(IN) :: nh_state(n_dom)   ! NH State
+    TYPE(t_int_state),        INTENT(IN) :: int_state(n_dom)  ! Interpolation State
+    INTEGER,                  INTENT(IN) :: ntimlev(n_dom)    ! time level
+    INTEGER,                  INTENT(IN) :: ntimlev_rcf(n_dom)! rcf time level
+    LOGICAL,                  INTENT(IN) :: l_last_step
 
-    REAL(wp),SAVE :: z_total_mass_0, z_total_energy_0
-    REAL(wp) :: z_total_mass, z_help, z_mean_surfp,   &
-      & z_total_energy, z_kin_energy, z_pot_energy, z_int_energy, &
-      & z_kin_energy_re, z_int_energy_re, z_pot_energy_re, z_total_mass_re, z_total_energy_re
+    REAL(wp), SAVE :: z_total_mass_0    !< total air mass including vapor and condensate at first time step [kg]
+    REAL(wp), SAVE :: z_total_drymass_0 !< total dry air mass at first time step [kg]
+    REAL(wp), SAVE :: z_total_energy_0  !< total energy at first time step [kg]
+    !
+    REAL(wp) :: z_total_mass            !< total air mass, including vapor and condensate partial densities [kg]
+    REAL(wp) :: z_total_drymass         !< total dry air mass (i.e. excluding vapor and condensate) [kg]
+    REAL(wp) :: z_kin_energy            !< kinetic energy [Nm]
+    REAL(wp) :: z_pot_energy            !< potential energy [Nm]
+    REAL(wp) :: z_int_energy            !< internal energy [Nm]
+    REAL(wp) :: z_total_energy          !< kinetic + potential + internal energy
+    REAL(wp) :: z_mean_surfp            !< mean surface pressure [Pa]
+    !
+    REAL(wp) :: z_total_mass_re         !< changes in total mass compared to first step
+    REAL(wp) :: z_total_drymass_re      !< changes in total dry mass compared to first step
+    REAL(wp) :: z_total_energy_re       ! changes in total energy compared to first step
+    !
+    REAL(wp) :: z_kin_energy_re         !< percentage of kinetic energy out of total energy
+    REAL(wp) :: z_int_energy_re         !< percentage of internal energy out of total energy
+    REAL(wp) :: z_pot_energy_re         !< percentage of potential energy out of total energy
+    REAL(wp) :: z_help
 #ifndef NOMPI
     REAL(wp) :: z0(nproma),&
       &           z1(nproma,patch(1)%nblks_c), &
       &           z2(nproma,patch(1)%nblks_c), &
       &           z3(nproma,patch(1)%nblks_c), &
       &           z4(nproma,patch(1)%nblks_c), &
-      &           z5(nproma,patch(1)%nblks_c)
+      &           z5(nproma,patch(1)%nblks_c), &
+      &           z6(nproma,patch(1)%nblks_c)
 #endif
 
     REAL (wp):: z_total_tracer(ntracer)       ! total tracer mass
@@ -150,8 +170,9 @@ CONTAINS
     TYPE(t_nh_prog), POINTER :: prog       ! prog state
     TYPE(t_nh_prog), POINTER :: prog_rcf   ! prog_rcf state
     TYPE(t_nh_diag), POINTER :: diag       ! diag state
-    REAL (wp):: z_total_moist, z_elapsed_time
-    REAL (wp), TARGET :: z_ekin(nproma,patch(1)%nlev,patch(1)%nblks_c)
+    REAL(wp) :: z_qsum(nproma,patch(1)%nlev,patch(1)%nblks_c)  ! total condensate including vapour
+    REAL(wp) :: z_total_moist, z_elapsed_time
+    REAL(wp), TARGET :: z_ekin(nproma,patch(1)%nlev,patch(1)%nblks_c)
     REAL(wp), DIMENSION(:,:,:),   POINTER :: ptr_ekin
 
     REAL(wp) :: max_vn, max_w
@@ -201,6 +222,8 @@ CONTAINS
       CALL rbf_vec_interpol_cell(prog%vn,patch(jg),int_state(jg),diag%u,diag%v)
     ENDIF
 
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,jt,nlen)
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
         nlen = nproma
@@ -213,15 +236,33 @@ CONTAINS
             0.25_wp*(prog%w(jc,jk,jb)**2 + prog%w(jc,jk+1,jb)**2)
         ENDDO
       ENDDO
+
+      ! compute total condensate INCLUDING vapour
+      DO jk = 1, nlev
+        z_qsum(:,jk,jb) = 0._wp
+      ENDDO
+      IF ( ltransport .AND. lforcing .AND. iforcing /= iheldsuarez ) THEN
+        DO jt=1, iqm_max
+          DO jk = 1, nlev
+            DO jc = 1, nlen
+              z_qsum(jc,jk,jb) = z_qsum(jc,jk,jb) + prog_rcf%tracer(jc,jk,jb,jt)
+            ENDDO  !jc
+          ENDDO  !jk
+        ENDDO  !jt
+      ENDIF
     ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
 
 #ifdef NOMPI
 
-    z_total_mass = 0.0_wp
-    z_kin_energy = 0.0_wp
-    z_pot_energy = 0.0_wp
-    z_int_energy = 0.0_wp
-    z_mean_surfp = 0.0_wp
+    z_total_mass    = 0.0_wp
+    z_total_drymass = 0.0_wp
+    z_kin_energy    = 0.0_wp
+    z_pot_energy    = 0.0_wp
+    z_int_energy    = 0.0_wp
+    z_mean_surfp    = 0.0_wp
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
         nlen = nproma
@@ -240,6 +281,8 @@ CONTAINS
             &              cvd*prog%exner(jc,jk,jb)*prog%rho(jc,jk,jb)*prog%theta_v(jc,jk,jb)*z_help
           z_pot_energy = z_pot_energy + &
             &              prog%rho(jc,jk,jb)*nh_state(jg)%metrics%geopot(jc,jk,jb)*z_help
+          z_total_drymass = z_total_drymass + &
+            &              prog%rho(jc,jk,jb)*(1._wp - z_qsum(jc,jk,jb))*z_help
         ENDDO
       ENDDO
       DO jc = 1, nlen
@@ -262,6 +305,7 @@ CONTAINS
       z3(1:nlen,jb) = 0.0_wp
       z4(1:nlen,jb) = 0.0_wp
       z5(1:nlen,jb) = 0.0_wp
+      z6(1:nlen,jb) = 0.0_wp
       DO jk = 1,nlev
         z0(1:nlen) = patch(jg)%cells%area(1:nlen,jb)      &
           & *nh_state(jg)%metrics%ddqz_z_full(1:nlen,jk,jb) &
@@ -274,6 +318,8 @@ CONTAINS
           & +cvd*prog%exner(1:nlen,jk,jb)*prog%rho(1:nlen,jk,jb)*prog%theta_v(1:nlen,jk,jb)*z0(1:nlen)
         z4(1:nlen,jb) = z4(1:nlen,jb)&
           & +prog%rho(1:nlen,jk,jb)*nh_state(jg)%metrics%geopot(1:nlen,jk,jb)*z0(1:nlen)
+        z6(1:nlen,jb) = z6(1:nlen,jb)&
+          & +prog%rho(1:nlen,jk,jb)*(1._wp-z_qsum(1:nlen,jk,jb))*z0(1:nlen)
       ENDDO
       z5(1:nlen,jb) = diag%pres_sfc(1:nlen,jb)*patch(jg)%cells%area(1:nlen,jb)
       WHERE(.NOT.patch(jg)%cells%decomp_info%owner_mask(:,jb)) z1(:,jb) = 0._wp
@@ -281,19 +327,22 @@ CONTAINS
       WHERE(.NOT.patch(jg)%cells%decomp_info%owner_mask(:,jb)) z3(:,jb) = 0._wp
       WHERE(.NOT.patch(jg)%cells%decomp_info%owner_mask(:,jb)) z4(:,jb) = 0._wp
       WHERE(.NOT.patch(jg)%cells%decomp_info%owner_mask(:,jb)) z5(:,jb) = 0._wp
+      WHERE(.NOT.patch(jg)%cells%decomp_info%owner_mask(:,jb)) z6(:,jb) = 0._wp
     ENDDO
-    z_mean_surfp = global_sum_array( z5 )/(4._wp*grid_sphere_radius**2*pi)
-    z_total_mass = global_sum_array( z1 )
-    z_kin_energy = global_sum_array( z2 )
-    z_int_energy = global_sum_array( z3 )
-    z_pot_energy = global_sum_array( z4 )
+    z_mean_surfp    = global_sum_array( z5 )/(4._wp*grid_sphere_radius**2*pi)
+    z_total_mass    = global_sum_array( z1 )
+    z_kin_energy    = global_sum_array( z2 )
+    z_int_energy    = global_sum_array( z3 )
+    z_pot_energy    = global_sum_array( z4 )
+    z_total_drymass = global_sum_array( z6 )
     z_total_energy = z_int_energy+z_kin_energy+z_pot_energy
 
 #endif
 
     IF (k_step == 1) THEN
-      z_total_mass_0   = z_total_mass
-      z_total_energy_0 = z_total_energy
+      z_total_mass_0    = z_total_mass
+      z_total_drymass_0 = z_total_drymass
+      z_total_energy_0  = z_total_energy
     ENDIF
 
     ! percentage of single energies out of the total energy
@@ -301,14 +350,15 @@ CONTAINS
     z_int_energy_re = z_int_energy/z_total_energy*100.0_wp
     z_pot_energy_re = z_pot_energy/z_total_energy*100.0_wp
     ! changes compared to first step
-    z_total_mass_re   = z_total_mass  /z_total_mass_0  -1.0_wp
-    z_total_energy_re = z_total_energy/z_total_energy_0-1.0_wp
+    z_total_mass_re   = z_total_mass   /z_total_mass_0    -1.0_wp
+    z_total_drymass_re= z_total_drymass/z_total_drymass_0 -1.0_wp
+    z_total_energy_re = z_total_energy /z_total_energy_0  -1.0_wp
 
     IF (my_process_is_stdio()) THEN
       if (n_file_ti >= 0) &
-        WRITE(n_file_ti,'(i8,6e20.12)') &
-        &   k_step, z_total_mass_re, z_total_energy_re, z_kin_energy_re, z_int_energy_re, &
-        &   z_pot_energy_re, z_mean_surfp
+        WRITE(n_file_ti,'(i8,7e20.12)') &
+        &   k_step, z_total_mass_re, z_total_drymass_re, z_total_energy_re, z_kin_energy_re, &
+        &   z_int_energy_re, z_pot_energy_re, z_mean_surfp
       IF (l_last_step) THEN
         if (n_file_ti >= 0) &
           CLOSE(n_file_ti)
@@ -446,8 +496,9 @@ CONTAINS
     IF (istat/=SUCCESS) THEN
       CALL finish('supervise_total_integrals_nh','could not open total_integrals.dat')
     ENDIF
-    WRITE (n_file_ti,'(A8,6A20)')'TIMESTEP',&
+    WRITE (n_file_ti,'(A8,7A20)')'TIMESTEP',&
       '            m/m0 -1,',&
+      '      mdry/mdry0 -1,',&
       '            e/e0 -1,',&
       '             % kine,',&
       '             % inne,',&
