@@ -347,11 +347,8 @@ if [[ "$output_atm_2d" == "yes" ]]; then
                     'hfls'    , 'hfss'    , 'evspsbl' ,
                     'tauu'    , 'tauv'    ,
                     'tauu_sso', 'tauv_sso', 'diss_sso', 
-                    'sp_10m'  , 'u_10m'   , 'v_10m'   ,
-                    't_2m'    , 'td_2m'   ,
-                    'sp_10m_wtr', 'u_10m_wtr', 'v_10m_wtr', 't_2m_wtr', 'td_2m_wtr',
-                    'sp_10m_ice', 'u_10m_ice', 'v_10m_ice', 't_2m_ice', 'td_2m_ice',
-                    'sp_10m_lnd', 'u_10m_lnd', 'v_10m_lnd', 't_2m_lnd', 'td_2m_lnd'
+                    'sfcWind' , 'uas'     , 'vas'     ,
+                    'tas'     , 'dew2'    , 'tasmax'  , 'tasmin'
 /
 EOF
 fi

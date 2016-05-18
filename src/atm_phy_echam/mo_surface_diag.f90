@@ -20,7 +20,6 @@ MODULE mo_surface_diag
                                   vtmpc1, vtmpc2, rd
   USE mo_echam_convect_tables,     ONLY: lookup_ua_list_spline
   USE mo_echam_vdiff_params,ONLY: tpfac2
-  USE mo_exception,         ONLY: finish
 
   IMPLICIT NONE
   PRIVATE
@@ -31,7 +30,7 @@ CONTAINS
   !!
   !!
   SUBROUTINE surface_fluxes( lsfc_heat_flux, psteplen,             &! in
-                           & kproma, kbdim, klev, ksfc_type,       &! in
+                           & kproma, kbdim, ksfc_type,             &! in
                            & idx_wtr, idx_ice, idx_lnd, ih, iqv,   &! in
                            & pfrc, pcfh_tile, pfac_sfc,            &! in
                            & pcptv_tile, pqsat_tile,               &! in
@@ -45,7 +44,7 @@ CONTAINS
 
     LOGICAL, INTENT(IN) :: lsfc_heat_flux
     REAL(wp),INTENT(IN) :: psteplen
-    INTEGER, INTENT(IN) :: kproma, kbdim, klev, ksfc_type
+    INTEGER, INTENT(IN) :: kproma, kbdim, ksfc_type
     INTEGER, INTENT(IN) :: idx_wtr, idx_ice, idx_lnd
     INTEGER, INTENT(IN) :: ih, iqv
 
@@ -299,7 +298,7 @@ CONTAINS
   !!                      temperature in 2m, dew point temperature in 2m
   !!
   SUBROUTINE nsurf_diag( kproma, kbdim, ksfc_type,        &! in
-                       & idx_wtr, idx_ice, idx_lnd,       &! in
+                       & idx_lnd,                         &! in
                        & pfrc,                            &! in
                        & pqm1,                            &! in humidity 
                        & ptm1,                            &
@@ -315,19 +314,21 @@ CONTAINS
                        & pbh_tile,                        &! in for diagnostic
                        & pbm_tile,                        &! in for diagnostic
                        & pri_tile,                        &! in moist Richardson number
-                       & psp_10m_gbm,                     & ! out 10m windspeed 
-                       & pt_2m_gbm,                       & ! out temperature in 2m
-                       & ptd_2m_gbm,                      & ! out dew point temperature in 2m
-                       & pu_10m_gbm,                      & ! out zonal wind in 10m
-                       & pv_10m_gbm,                      & ! out meridional wind in 10m
-                       & psp_10m_tile,                    & ! out 10m windspeed 
-                       & pt_2m_tile,                      & ! out temperature in 2m
-                       & ptd_2m_tile,                     & ! out dew point temperature in 2m
-                       & pu_10m_tile,                     & ! out zonal wind in 10m
-                       & pv_10m_tile                      ) ! out meridional wind in 10m
+                       & psfcWind_gbm,                    &! out 10m windspeed 
+                       & ptas_gbm,                        &! out temperature in 2m
+                       & pdew2_gbm,                       &! out dew point temperature in 2m
+                       & puas_gbm,                        &! out zonal wind in 10m
+                       & pvas_gbm,                        &! out meridional wind in 10m
+                       & ptasmax,                         &! inout max 2m temperature
+                       & ptasmin,                         &! inout min 2m temperature
+                       & psfcWind_tile,                   &! out 10m windspeed 
+                       & ptas_tile,                       &! out temperature in 2m
+                       & pdew2_tile,                      &! out dew point temperature in 2m
+                       & puas_tile,                       &! out zonal wind in 10m
+                       & pvas_tile                        )! out meridional wind in 10m
 
     INTEGER, INTENT(IN) :: kproma, kbdim, ksfc_type
-    INTEGER, INTENT(IN) :: idx_wtr, idx_ice, idx_lnd
+    INTEGER, INTENT(IN) :: idx_lnd
 
     REAL(wp),INTENT(IN) :: pfrc     (kbdim,ksfc_type) !< fraction of the grid box occupied by
                                                       !< each surface type
@@ -342,11 +343,12 @@ CONTAINS
     REAL(wp), INTENT(in)     :: ptm1(kbdim), papm1(kbdim), pxm1(kbdim)
     REAL(wp), INTENT(in)     :: pum1(kbdim), pvm1(kbdim), paphm1(kbdim) ! =paphm1(kbdim, klevp1)
     REAL(wp), INTENT(in)     :: pocu(kbdim), pocv(kbdim)
-    REAL(wp), INTENT(out)    :: psp_10m_gbm(kbdim), psp_10m_tile(kbdim,ksfc_type)
-    REAL(wp), INTENT(out)    :: pt_2m_gbm(kbdim),   pt_2m_tile(kbdim,ksfc_type)
-    REAL(wp), INTENT(out)    :: ptd_2m_gbm(kbdim),  ptd_2m_tile(kbdim,ksfc_type)
-    REAL(wp), INTENT(out)    :: pu_10m_gbm(kbdim),  pu_10m_tile(kbdim,ksfc_type)
-    REAL(wp), INTENT(out)    :: pv_10m_gbm(kbdim),  pv_10m_tile(kbdim,ksfc_type)
+    REAL(wp), INTENT(out)    :: psfcWind_gbm(kbdim), psfcWind_tile(kbdim,ksfc_type)
+    REAL(wp), INTENT(out)    :: ptas_gbm(kbdim),     ptas_tile(kbdim,ksfc_type)
+    REAL(wp), INTENT(out)    :: pdew2_gbm(kbdim),    pdew2_tile(kbdim,ksfc_type)
+    REAL(wp), INTENT(out)    :: puas_gbm(kbdim),     puas_tile(kbdim,ksfc_type)
+    REAL(wp), INTENT(out)    :: pvas_gbm(kbdim),     pvas_tile(kbdim,ksfc_type)
+    REAL(wp), INTENT(inout)  :: ptasmax(kbdim),      ptasmin(kbdim)
 
     ! Local variables
     
@@ -373,11 +375,11 @@ CONTAINS
    
     ! set total- and tile-fields to zero in order to avoid uninitialised values
 
-    psp_10m_tile(1:kproma,:) = 0._wp
-    pu_10m_tile (1:kproma,:) = 0._wp
-    pv_10m_tile (1:kproma,:) = 0._wp
-    pt_2m_tile  (1:kproma,:) = 0._wp
-    ptd_2m_tile (1:kproma,:) = 0._wp
+    psfcWind_tile(1:kproma,:) = 0._wp
+    puas_tile    (1:kproma,:) = 0._wp
+    pvas_tile    (1:kproma,:) = 0._wp
+    ptas_tile    (1:kproma,:) = 0._wp
+    pdew2_tile   (1:kproma,:) = 0._wp
 
     DO jsfc = 1,ksfc_type
 
@@ -410,7 +412,7 @@ CONTAINS
        zmerge = MERGE(zcbs,zcbu,pri_tile(jl,jsfc) .GT. 0._wp)
        zred   = (zcbn + zmerge) / pbh_tile(jl,jsfc)
        zh2m(jl)   = pcpt_tile(jl,jsfc) + zred * (pcptgz(jl) - pcpt_tile(jl,jsfc))
-       pt_2m_tile(jl,jsfc) = (zh2m(jl) - zhtq ) / (cpd * (1._wp + vtmpc2 * pqm1(jl)))    
+       ptas_tile(jl,jsfc) = (zh2m(jl) - zhtq ) / (cpd * (1._wp + vtmpc2 * pqm1(jl)))    
      ENDDO
     ENDDO
     !
@@ -428,10 +430,10 @@ CONTAINS
       zrh2m(jl)     = MAX(zephum, pqm1(jl) / zqs1(jl))
  
       zaph2m(jl)     = paphm1(jl) * &  ! = paphm1(1:kproma, klevp1)
-          (1._wp - zhtq / ( rd * pt_2m_tile(jl,jsfc) * (1._wp + vtmpc1 * pqm1(jl) - pxm1(jl))))
+          (1._wp - zhtq / ( rd * ptas_tile(jl,jsfc) * (1._wp + vtmpc1 * pqm1(jl) - pxm1(jl))))
      ENDDO
 
-     WHERE(pt_2m_tile(1:kproma,jsfc) .GT. tmelt)
+     WHERE(ptas_tile(1:kproma,jsfc) .GT. tmelt)
         zcvm3(1:kproma)   = zc3les
         zcvm4(1:kproma)   = zc4les
      ELSEWHERE
@@ -439,7 +441,7 @@ CONTAINS
         zcvm4(1:kproma)   = zc4ies
      ENDWHERE
 
-    CALL lookup_ua_list_spline('nsurf_diag(2)', kbdim, is(jsfc), loidx(1,jsfc), pt_2m_tile(1,jsfc), ua(1))
+    CALL lookup_ua_list_spline('nsurf_diag(2)', kbdim, is(jsfc), loidx(1,jsfc), ptas_tile(1,jsfc), ua(1))
 
     DO jls=1,is(jsfc)
       jl = loidx(jls,jsfc)
@@ -447,13 +449,13 @@ CONTAINS
       zqs2(jl)      = zqs2(jl) / (1._wp- vtmpc1 * zqs2(jl))
       zq2m(jl)      = zrh2m(jl) * zqs2(jl)
       zfrac(jl)     = LOG(zaph2m(jl) * zq2m(jl) / (zc2es * (1._wp + vtmpc1 * zq2m(jl)))) / zcvm3(jl)
-      ptd_2m_tile(jl,jsfc)    = MIN(pt_2m_tile(jl,jsfc), (tmelt - zfrac(jl) * zcvm4(jl)) / (1._wp - zfrac(jl)))
+      pdew2_tile(jl,jsfc) = MIN(ptas_tile(jl,jsfc), (tmelt - zfrac(jl) * zcvm4(jl)) / (1._wp - zfrac(jl)))
     ENDDO
    ENDDO
 
-       !
-       !*          5.97   10M WIND COMPONENTS, MAX 10M WINDSPEED
-       !
+    !
+    !*          5.97   10M WIND COMPONENTS
+    !
     DO jsfc = 1,ksfc_type
        DO jls=1,is(jsfc)
          jl = loidx(jls,jsfc)
@@ -463,30 +465,39 @@ CONTAINS
            zcbu   = -LOG(1._wp + (EXP (pbn_tile(jl,jsfc) - pbm_tile(jl,jsfc)) - 1._wp) * zrat)
            zmerge = MERGE(zcbs,zcbu,pri_tile(jl,jsfc) .GT. 0._wp)
            zred   = (zcbn + zmerge) / pbm_tile(jl,jsfc)
-           pu_10m_tile(jl,jsfc)    = zred * pum1(jl)
-           pv_10m_tile(jl,jsfc)    = zred * pvm1(jl)
-           psp_10m_tile(jl,jsfc)   = zred*SQRT((pum1(jl)-pocu(jl))**2+(pvm1(jl)-pocv(jl))**2)
+           puas_tile(jl,jsfc)    = zred * pum1(jl)
+           pvas_tile(jl,jsfc)    = zred * pvm1(jl)
+           psfcWind_tile(jl,jsfc)   = zred*SQRT((pum1(jl)-pocu(jl))**2+(pvm1(jl)-pocv(jl))**2)
+    ! for ice and land this is identical to
+    !      psfcWind_tile(jl,jsfc)   = SQRT(puas_tile(jl,jsfc)**2+pvas_tile(jl,jsfc)**2)
         ENDDO
     ENDDO
 
     ! Aggregate all diagnostics 
     !
-    psp_10m_gbm (1:kproma)   = 0._wp
-    pu_10m_gbm  (1:kproma)   = 0._wp
-    pv_10m_gbm  (1:kproma)   = 0._wp
-    pt_2m_gbm   (1:kproma)   = 0._wp
-    ptd_2m_gbm  (1:kproma)   = 0._wp
+    psfcWind_gbm (1:kproma)   = 0._wp
+    puas_gbm     (1:kproma)   = 0._wp
+    pvas_gbm     (1:kproma)   = 0._wp
+    ptas_gbm     (1:kproma)   = 0._wp
+    pdew2_gbm    (1:kproma)   = 0._wp
     !
     DO jsfc = 1,ksfc_type
       DO jls = 1,is(jsfc)
 ! set index
       js=loidx(jls,jsfc)
-        psp_10m_gbm(js) = psp_10m_gbm(js) + pfrc(js,jsfc)*psp_10m_tile(js,jsfc)
-        pu_10m_gbm (js) = pu_10m_gbm (js) + pfrc(js,jsfc)*pu_10m_tile (js,jsfc)
-        pv_10m_gbm (js) = pv_10m_gbm (js) + pfrc(js,jsfc)*pv_10m_tile (js,jsfc)
-        pt_2m_gbm  (js) = pt_2m_gbm  (js) + pfrc(js,jsfc)*pt_2m_tile  (js,jsfc)
-        ptd_2m_gbm (js) = ptd_2m_gbm (js) + pfrc(js,jsfc)*ptd_2m_tile (js,jsfc)
+        psfcWind_gbm(js) = psfcWind_gbm(js) + pfrc(js,jsfc)*psfcWind_tile(js,jsfc)
+        puas_gbm    (js) = puas_gbm (js)    + pfrc(js,jsfc)*puas_tile (js,jsfc)
+        pvas_gbm    (js) = pvas_gbm (js)    + pfrc(js,jsfc)*pvas_tile (js,jsfc)
+        ptas_gbm    (js) = ptas_gbm  (js)   + pfrc(js,jsfc)*ptas_tile  (js,jsfc)
+        pdew2_gbm   (js) = pdew2_gbm (js)   + pfrc(js,jsfc)*pdew2_tile (js,jsfc)
       ENDDO
+    ENDDO
+! 
+! find max and min values for 2m temperature
+!
+    DO jl=1,kproma
+        ptasmax  (jl) = MAX(ptasmax(jl),ptas_gbm(jl))
+        ptasmin  (jl) = MIN(ptasmin(jl),ptas_gbm(jl))
     ENDDO
     
   END SUBROUTINE nsurf_diag

@@ -586,7 +586,7 @@ CONTAINS
    !-------------------------------------------------------------------
 
    CALL surface_fluxes( lsfc_heat_flux, psteplen,             &! in
-                      & kproma, kbdim, klev, ksfc_type,       &! in
+                      & kproma, kbdim, ksfc_type,             &! in
                       & idx_wtr, idx_ice, idx_lnd, ih, iqv,   &! in
                       & pfrc, pcfh_tile, pfac_sfc,            &! in
                       & pcpt_tile, pqsat_tile,                &! in

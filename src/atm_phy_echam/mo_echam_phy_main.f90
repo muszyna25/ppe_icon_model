@@ -951,7 +951,7 @@ CONTAINS
     !     - Further diagnostics.
 
     CALL nsurf_diag( jce, nbdim, nsfc_type,           &! in
-                   & iwtr, iice, ilnd,                &! in
+                   & ilnd,                            &! in
                    & zfrc(:,:),                       &! in
                    & field%     q(:,nlev,jb,iqv),     &! in humidity qm1
                    & field%  temp(:,nlev,jb),         &! in tm1
@@ -970,16 +970,18 @@ CONTAINS
                    & zbh_tile(:,:),                   &! in for diagnostic
                    & zbm_tile(:,:),                   &! in for diagnostic
                    & zri_tile(:,:),                   &! in 
-                   & field%sp_10m(:,  jb),            & ! out 10m windspeed
-                   & field%t_2m  (:,  jb),            & ! out temperature in 2m
-                   & field%td_2m (:,  jb),            & ! out dew point temperature in 2m
-                   & field%u_10m (:,  jb),            & ! out zonal wind in 10m
-                   & field%v_10m (:,  jb),            & ! out meridional wind in 10m
-                   & field%sp_10m_tile(:,jb,:),       & ! out 10m windspeed
-                   & field%t_2m_tile  (:,jb,:),       & ! out temperature in 2m
-                   & field%td_2m_tile (:,jb,:),       & ! out dew point temperature in 2m
-                   & field%u_10m_tile (:,jb,:),       & ! out zonal wind in 10m
-                   & field%v_10m_tile (:,jb,:)        ) ! out meridional wind in 10m
+                   & field%sfcWind(:,  jb),           &! out 10m windspeed
+                   & field%    tas(:,  jb),           &! out temperature in 2m
+                   & field%   dew2(:,  jb),           &! out dew point temperature in 2m
+                   & field%    uas(:,  jb),           &! out zonal wind in 10m
+                   & field%    vas(:,  jb),           &! out meridional wind in 10m
+                   & field%tasmax (:,  jb),           &! out max 2m temperature
+                   & field%tasmin (:,  jb),           &! out min 2m temperature
+                   & field%sfcWind_tile(:,jb,:),      &! out 10m windspeed on tiles
+                   & field%    tas_tile(:,jb,:),      &! out temperature in 2m on tiles
+                   & field%   dew2_tile(:,jb,:),      &! out dew point temperature in 2m on tiles
+                   & field%    uas_tile(:,jb,:),      &! out zonal wind in 10m on tiles
+                   & field%    vas_tile(:,jb,:)       )! out meridional wind in 10m on tiles
 
     ELSE
       zvmixtau   (jcs:jce,:) = 0._wp
