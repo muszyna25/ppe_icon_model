@@ -265,6 +265,7 @@ MODULE mo_nwp_phy_types
       tvm(:,:)        ,    & !! turbulent transfer velocity for momentum      (m/s)
       tvh(:,:)        ,    & !! factor of laminar transfer of scalars           --
       tkr(:,:)        ,    & !! turbulent reference surface diffusion coeff.  (m2/s) (Ustar*kap*z0)
+      tkred_sfc(:,:)  ,    & !! reduction factor for minimum diffusion coefficients near the surface
       gz0(:,:),            & !! roughness length * g of the vertically not
                              !! resolved canopy                               (m2/s2)
       tkvm(:,:,:),         & !! turbulent diffusion coefficients for momentum (m/s2 )
@@ -364,6 +365,10 @@ MODULE mo_nwp_phy_types
                               !< of the standard atmosphere 850hPa level above ground
       &  k950    (:,:),     & !< level index that corresponds to the height 
                               !< of the standard atmosphere 950hPa level above ground
+      &  k800    (:,:),     & !< level index that corresponds to the height 
+                              !< of the standard atmosphere 800hPa level above ground
+      &  k400    (:,:),     & !< level index that corresponds to the height 
+                              !< of the standard atmosphere 400hPa level above ground
       &  ktop_envel(:,:),   & !< level index of upper boundary of SSO envelope layer
       &  iww     (:,:)        !< significant weather
 
@@ -429,6 +434,7 @@ MODULE mo_nwp_phy_types
       ddt_tracer_turb (:,:,:,:),& !! Hydromet-tendency from turbulence
       ddt_tracer_pconv(:,:,:,:),& !! Hydromet-tendency from convective prec
       ddt_tke_pconv   (:,:,:)  ,& !! TKE tendency from convective prec
+      ddt_tke_hsh     (:,:,:)  ,& !! TKE tendency from horizontal shear
       ddt_tke         (:,:,:)     !! tendency for turbulent velocity scale [m/s^2]
 
     !Anurag Dipankar, MPIM (2013-May-31)

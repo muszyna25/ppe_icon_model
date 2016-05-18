@@ -119,7 +119,7 @@ case "$fortran_compiler" in
         DEBUG_FLAGS = -O0 -float-store -nan $FDEBUG
         STD_FLAGS   = -Wc,-O2 -Wc,-march=native -O0 -float-store -nan $FDEBUG
 	HIOPT_FLAGS = -Wc,-O3 -Wc,-march=native -float-store -nan $FDEBUG
-	MISMATCHS   = -wmismatch=mpi_allgather,mpi_allgatherv,mpi_allreduce,mpi_alltoall,mpi_alltoallv,mpi_bcast,mpi_free_mem,mpi_gather,mpi_gatherv,mpi_get,mpi_get_address,mpi_isend,mpi_irecv,mpi_op_create,mpi_pack,mpi_recv,mpi_reduce,mpi_scatter,mpi_scatterv,mpi_send,mpi_sendrecv,mpi_type_commit,mpi_type_extent,mpi_type_struct,mpi_unpack,mpi_win_create,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double,psmile_bsend -w=uep
+	MISMATCHS   = -wmismatch=mpi_allgather,mpi_allgatherv,mpi_allreduce,mpi_alltoall,mpi_alltoallv,mpi_bcast,mpi_free_mem,mpi_gather,mpi_gatherv,mpi_get,mpi_get_address,mpi_isend,mpi_irecv,mpi_sendrecv,mpi_op_create,mpi_pack,mpi_recv,mpi_reduce,mpi_scatter,mpi_scatterv,mpi_send,mpi_type_commit,mpi_type_extent,mpi_type_struct,mpi_unpack,mpi_win_create,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double,psmile_bsend -w=uep
         FFLAGS      = $GEN_FLAGS -f2008 $MISMATCHS $INCLUDES
         F77         = nagfor
         F77FLAGS    = $GEN_FLAGS -w=obs -O -dcfuns -mismatch_all
@@ -161,8 +161,8 @@ case "$fortran_compiler" in
         CC          = cc
         FC          = ftn
         F77         = $FC
-        FFLAGS      = -v -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -r am -Ktrap=divz,ovf,inv
-        CFLAGS      = -v -I${GRIB_API}/include -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -O3
+        FFLAGS      = -v -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc  -O cache0 -r am -Ktrap=divz,ovf,inv
+        CFLAGS      = -v -I${GRIB_API}/include -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -O3
         F77FLAGS    = $FFLAGS
         FCLIBS      = -v
         GEN_FLAGS   =

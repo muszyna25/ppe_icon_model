@@ -14,8 +14,10 @@
 #include <math.h>
 #include "util_arithmetic_expr.h"
 
-const char*  const priorities = "(;><;+-;*/;^";
-const char * const fct_name[NUM_FCT] = { "exp", "log", "sin", "cos", "min", "max", "if", "sqrt" };
+const char*  const priorities = "(;><;+-;/*;^";
+const char*  const left_assoc = "><+-/*";
+const char * const fct_name[NUM_FCT] = { "exp", "log", "sin", "cos", "min", "max", 
+					 "if", "sqrt" };
 
 /* All data needed to define the state of the Finite State Machine parser. */
 struct t_parsedata {
@@ -35,17 +37,24 @@ int priority(char op) {
   return -1;
 }
 
+/* Associativity of an arithmetic operator */
+int left_associative(char op) {
+  const char* o = left_assoc;
+  for (; o!='\0'; o++) if ((*o) == op) return 1;
+  return 0;
+}
+
 
 /* --------------------------------------------------------------------- *
  * DEFINITION OF RAGEL FINITE STATE MACHINE "parse_infix"
  * --------------------------------------------------------------------- */
 
 
-#line 158 "util_arithmetic_expr.rl"
+#line 167 "util_arithmetic_expr.rl"
 
 
 
-#line 49 "util_arithmetic_expr.c"
+#line 58 "util_arithmetic_expr.c"
 static const char _parse_infix_actions[] = {
 	0, 1, 0, 1, 1, 1, 2, 1, 
 	3, 1, 4, 1, 5, 1, 6, 1, 
@@ -57,7 +66,7 @@ static const char _parse_infix_key_offsets[] = {
 	0, 0, 24, 31, 39, 40, 41, 42, 
 	43, 44, 45, 46, 48, 49, 50, 51, 
 	53, 54, 55, 79, 82, 85, 88, 93, 
-	99, 102, 107, 110, 113
+	100, 103, 109, 114, 117, 120
 };
 
 static const char _parse_infix_trans_keys[] = {
@@ -72,31 +81,32 @@ static const char _parse_infix_trans_keys[] = {
 	101, 105, 108, 109, 112, 114, 115, 9, 
 	13, 40, 41, 42, 43, 48, 57, 32, 
 	9, 13, 32, 9, 13, 32, 9, 13, 
-	32, 9, 13, 48, 57, 32, 46, 9, 
-	13, 48, 57, 32, 9, 13, 32, 9, 
-	13, 48, 57, 32, 9, 13, 32, 9, 
-	13, 32, 9, 13, 0
+	32, 9, 13, 48, 57, 32, 46, 101, 
+	9, 13, 48, 57, 32, 9, 13, 32, 
+	101, 9, 13, 48, 57, 32, 9, 13, 
+	48, 57, 32, 9, 13, 32, 9, 13, 
+	32, 9, 13, 0
 };
 
 static const char _parse_infix_single_lengths[] = {
 	0, 16, 1, 2, 1, 1, 1, 1, 
 	1, 1, 1, 2, 1, 1, 1, 2, 
-	1, 1, 16, 1, 1, 1, 1, 2, 
-	1, 1, 1, 1, 1
+	1, 1, 16, 1, 1, 1, 1, 3, 
+	1, 2, 1, 1, 1, 1
 };
 
 static const char _parse_infix_range_lengths[] = {
 	0, 4, 3, 3, 0, 0, 0, 0, 
 	0, 0, 0, 0, 0, 0, 0, 0, 
 	0, 0, 4, 1, 1, 1, 2, 2, 
-	1, 2, 1, 1, 1
+	1, 2, 2, 1, 1, 1
 };
 
 static const unsigned char _parse_infix_index_offsets[] = {
 	0, 0, 21, 26, 32, 34, 36, 38, 
 	40, 42, 44, 46, 49, 51, 53, 55, 
 	58, 60, 62, 83, 86, 89, 92, 96, 
-	101, 104, 108, 111, 114
+	102, 105, 110, 114, 117, 120
 };
 
 static const char _parse_infix_indicies[] = {
@@ -112,18 +122,19 @@ static const char _parse_infix_indicies[] = {
 	10, 11, 12, 13, 14, 15, 0, 2, 
 	3, 6, 1, 28, 28, 27, 30, 30, 
 	29, 4, 4, 31, 30, 30, 32, 29, 
-	34, 35, 34, 32, 33, 34, 34, 33, 
-	34, 34, 35, 33, 17, 17, 36, 38, 
-	38, 37, 40, 40, 39, 0
+	34, 35, 36, 34, 32, 33, 34, 34, 
+	33, 34, 36, 34, 35, 33, 34, 34, 
+	36, 33, 17, 17, 37, 39, 39, 38, 
+	41, 41, 40, 0
 };
 
 static const char _parse_infix_trans_targs[] = {
 	1, 0, 19, 20, 21, 22, 23, 2, 
-	4, 6, 8, 9, 11, 14, 28, 15, 
-	3, 26, 5, 27, 7, 10, 12, 13, 
-	28, 16, 17, 18, 19, 18, 20, 18, 
-	23, 18, 24, 25, 18, 18, 27, 18, 
-	28
+	4, 6, 8, 9, 11, 14, 29, 15, 
+	3, 27, 5, 28, 7, 10, 12, 13, 
+	29, 16, 17, 18, 19, 18, 20, 18, 
+	23, 18, 24, 25, 26, 18, 18, 28, 
+	18, 29
 };
 
 static const char _parse_infix_trans_actions[] = {
@@ -131,29 +142,29 @@ static const char _parse_infix_trans_actions[] = {
 	23, 23, 23, 23, 23, 23, 23, 23, 
 	1, 0, 1, 1, 1, 1, 1, 1, 
 	1, 1, 1, 15, 0, 13, 0, 17, 
-	1, 9, 0, 1, 21, 11, 0, 19, 
-	0
+	1, 9, 0, 1, 1, 21, 11, 0, 
+	19, 0
 };
 
 static const char _parse_infix_to_state_actions[] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 
 	0, 0, 0, 0, 0, 0, 0, 0, 
 	0, 0, 5, 0, 0, 0, 0, 0, 
-	0, 0, 0, 0, 0
+	0, 0, 0, 0, 0, 0
 };
 
 static const char _parse_infix_from_state_actions[] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 
 	0, 0, 0, 0, 0, 0, 0, 0, 
 	0, 0, 7, 0, 0, 0, 0, 0, 
-	0, 0, 0, 0, 0
+	0, 0, 0, 0, 0, 0
 };
 
 static const unsigned char _parse_infix_eof_trans[] = {
 	0, 0, 0, 0, 0, 0, 0, 0, 
 	0, 0, 0, 0, 0, 0, 0, 0, 
 	0, 0, 0, 28, 30, 32, 30, 34, 
-	34, 34, 37, 38, 40
+	34, 34, 34, 38, 39, 41
 };
 
 static const int parse_infix_start = 18;
@@ -163,7 +174,7 @@ static const int parse_infix_error = 0;
 static const int parse_infix_en_main = 18;
 
 
-#line 161 "util_arithmetic_expr.rl"
+#line 170 "util_arithmetic_expr.rl"
 
 
 /* --------------------------------------------------------------------- */
@@ -179,7 +190,7 @@ int do_parse_infix(const char *in_parse_line, struct t_list *queue) {
   struct t_parsedata *data = &pdata;
   
   
-#line 183 "util_arithmetic_expr.c"
+#line 194 "util_arithmetic_expr.c"
 	{
 	 data->cs = parse_infix_start;
 	 data->ts = 0;
@@ -187,9 +198,9 @@ int do_parse_infix(const char *in_parse_line, struct t_list *queue) {
 	 data->act = 0;
 	}
 
-#line 177 "util_arithmetic_expr.rl"
+#line 186 "util_arithmetic_expr.rl"
   
-#line 193 "util_arithmetic_expr.c"
+#line 204 "util_arithmetic_expr.c"
 	{
 	int _klen;
 	unsigned int _trans;
@@ -210,7 +221,7 @@ _resume:
 #line 1 "NONE"
 	{ data->ts = p;}
 	break;
-#line 214 "util_arithmetic_expr.c"
+#line 225 "util_arithmetic_expr.c"
 		}
 	}
 
@@ -277,17 +288,17 @@ _eof_trans:
 		switch ( *_acts++ )
 		{
 	case 0:
-#line 46 "util_arithmetic_expr.rl"
+#line 55 "util_arithmetic_expr.rl"
 	{ if ((data->buflen < MAX_BUF_LEN) && ((*p)!='\n'))
    data->buffer[data->buflen++] = (*p);
  }
 	break;
 	case 1:
-#line 50 "util_arithmetic_expr.rl"
+#line 59 "util_arithmetic_expr.rl"
 	{ data->buflen = 0; }
 	break;
 	case 4:
-#line 52 "util_arithmetic_expr.rl"
+#line 61 "util_arithmetic_expr.rl"
 	{ data->te = p;p--;{ 
    data->queue->list[data->queue->size].type = VALUE;
    if (data->buflen < MAX_BUF_LEN) data->buffer[data->buflen] = 0;	
@@ -295,7 +306,7 @@ _eof_trans:
  }}
 	break;
 	case 5:
-#line 68 "util_arithmetic_expr.rl"
+#line 75 "util_arithmetic_expr.rl"
 	{ data->te = p;p--;{ 
    if (data->buflen < MAX_BUF_LEN) data->buffer[data->buflen] = 0;	
    const char* fct = data->buffer;
@@ -306,22 +317,24 @@ _eof_trans:
  }}
 	break;
 	case 6:
-#line 86 "util_arithmetic_expr.rl"
+#line 93 "util_arithmetic_expr.rl"
 	{ data->te = p;p--;{ 
   /*  While the stack is not empty and an operator is at the top and
-      the operator at the top is higher priority that the item then
-      pop the operator on the top of the stack, add the popped
-      operator to the queue. */
+      the operator at the top is higher (or, if left associative,
+      equal) priority that the item then pop the operator on the top
+      of the stack, add the popped operator to the queue. */
   char this_op = data->buffer[0];
-  while ((data->ostack.size > 0) && (data->ostack.list[data->ostack.size-1].type==OPERATOR) &&
-	 (priority(this_op) < priority(data->ostack.list[data->ostack.size-1].op)))
-    data->queue->list[data->queue->size++] = data->ostack.list[--data->ostack.size];
+  int lassoc   = left_associative(this_op);
+  while (((data->ostack.size > 0) && (data->ostack.list[data->ostack.size-1].type==OPERATOR)) &&
+	 ( ((lassoc==1) && (priority(this_op) <= priority(data->ostack.list[data->ostack.size-1].op)) ) ||
+	   ((lassoc==0) && (priority(this_op) <  priority(data->ostack.list[data->ostack.size-1].op)) ) ) )
+	data->queue->list[data->queue->size++] = data->ostack.list[--data->ostack.size];
   struct t_item new_item =  { .type=OPERATOR, .op=this_op };
   data->ostack.list[data->ostack.size++] = new_item;
  }}
 	break;
 	case 7:
-#line 99 "util_arithmetic_expr.rl"
+#line 108 "util_arithmetic_expr.rl"
 	{ data->te = p;p--;{ 
   switch (data->buffer[0]) {
      case '(': {
@@ -348,7 +361,7 @@ _eof_trans:
  }}
 	break;
 	case 8:
-#line 77 "util_arithmetic_expr.rl"
+#line 84 "util_arithmetic_expr.rl"
 	{ data->te = p;p--;{
   /* If the token is a function argument separator (i.e. a comma):
      Until the token at the top of the stack is a left parenthesis, pop
@@ -359,26 +372,24 @@ _eof_trans:
 }}
 	break;
 	case 9:
-#line 58 "util_arithmetic_expr.rl"
+#line 67 "util_arithmetic_expr.rl"
 	{ data->te = p;p--;{ 
    if (data->buflen < MAX_BUF_LEN) data->buffer[data->buflen] = 0;	
    const char* constant = data->buffer;
    data->queue->list[data->queue->size].type = VALUE;
    if (strcmp(constant, "pi") == 0)
      data->queue->list[data->queue->size++].val = 4.*atan(1.);
-   else if (strcmp(constant, "r") == 0)
-     data->queue->list[data->queue->size++].val = 6.371229e6;
  }}
 	break;
 	case 10:
-#line 124 "util_arithmetic_expr.rl"
+#line 133 "util_arithmetic_expr.rl"
 	{ data->te = p;p--;{ 
    data->queue->list[data->queue->size].type = VARIABLE;
    if (data->buflen < MAX_BUF_LEN) data->buffer[data->buflen] = 0;	
    strcpy(data->queue->list[data->queue->size++].field, data->buffer);
  }}
 	break;
-#line 382 "util_arithmetic_expr.c"
+#line 393 "util_arithmetic_expr.c"
 		}
 	}
 
@@ -391,7 +402,7 @@ _again:
 #line 1 "NONE"
 	{ data->ts = 0;}
 	break;
-#line 395 "util_arithmetic_expr.c"
+#line 406 "util_arithmetic_expr.c"
 		}
 	}
 
@@ -411,7 +422,7 @@ _again:
 	_out: {}
 	}
 
-#line 179 "util_arithmetic_expr.rl"
+#line 188 "util_arithmetic_expr.rl"
   free(p0);
   if (data->cs == parse_infix_error) return 1;
 

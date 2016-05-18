@@ -927,6 +927,14 @@ CONTAINS
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
       & ldims=(/nproma,n_zlev,nblks_e/),loutput=.FALSE., lrestart_cont=.TRUE.)
     ! predicted vn normal velocity component
+
+    CALL add_var(ocean_restart_list, 'zlim', ocean_state_diag%zlim, &
+      & grid_unstructured_cell, za_depth_below_sea, &
+      & t_cf_var('zlim','1','zalesak limiter factor', &
+      & datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
+      & ldims=(/nproma,n_zlev,nblks_e/),loutput=.true., lrestart_cont=.false.)
+
     CALL add_var(ocean_restart_list, 'vn_pred', ocean_state_diag%vn_pred, &
       & grid_unstructured_edge, za_depth_below_sea, &
       & t_cf_var('vn_pred','m/s','predicted vn normal velocity component', &

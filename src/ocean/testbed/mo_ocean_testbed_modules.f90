@@ -44,7 +44,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_io_restart,             ONLY: create_restart_file
   USE mo_io_config,              ONLY: n_checkpoints
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
-  USE mo_ocean_tracer,           ONLY: advect_tracer_ab
+  USE mo_ocean_tracer,           ONLY: advect_ocean_tracers
   USE mo_ocean_bulk,             ONLY: update_surface_flux
   USE mo_ocean_surface,          ONLY: update_ocean_surface
   USE mo_ocean_surface_types,    ONLY: t_ocean_surface
@@ -441,7 +441,7 @@ ENDIF
 !          ENDIF
 
         !CALL calc_vert_velocity(patch_3d, ocean_state(jg),operators_coefficients)
-        CALL advect_tracer_ab( patch_3d, ocean_state(jg),  &
+        CALL advect_ocean_tracers( patch_3d, ocean_state(jg),  &
           & physics_parameters,surface_fluxes,&
           & operators_coefficients,&
           & jstep)

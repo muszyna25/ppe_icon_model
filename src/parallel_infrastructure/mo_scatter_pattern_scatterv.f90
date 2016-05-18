@@ -57,16 +57,17 @@ CONTAINS
     !-------------------------------------------------------------------------------------------------------------------------------
     !> constructor
     !-------------------------------------------------------------------------------------------------------------------------------
-    SUBROUTINE constructScatterPatternScatterV(me, loc_arr_len, glb_index, communicator)
-        CLASS(t_scatterPatternScatterV), INTENT(OUT) :: me
-        INTEGER, INTENT(IN) :: loc_arr_len, glb_index(:), communicator
+    SUBROUTINE constructScatterPatternScatterV(me, jg, loc_arr_len, glb_index, communicator)
+        CLASS(t_scatterPatternScatterV), TARGET, INTENT(OUT) :: me
+        INTEGER, VALUE :: jg, loc_arr_len, communicator
+        INTEGER, INTENT(IN) :: glb_index(:)
 
         CHARACTER(*), PARAMETER :: routine = modname//":constructScatterPatternScatterV"
         INTEGER :: procCount, i, ierr
 
         IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "entering ", routine
 
-        CALL constructScatterPattern(me, loc_arr_len, glb_index, communicator)
+        CALL constructScatterPattern(me, jg, loc_arr_len, glb_index, communicator)
         IF(my_process_is_stdio()) THEN
             procCount = p_comm_size(communicator)
             ALLOCATE(me%pointCounts(procCount), stat = ierr)
@@ -275,7 +276,7 @@ CONTAINS
     !> destructor
     !-------------------------------------------------------------------------------------------------------------------------------
     SUBROUTINE destructScatterPatternScatterV(me)
-        CLASS(t_scatterPatternScatterV), INTENT(INOUT) :: me
+        CLASS(t_scatterPatternScatterV), TARGET, INTENT(INOUT) :: me
 
         CHARACTER(*), PARAMETER :: routine = modname//":destructScatterPatternScatterV"
 
