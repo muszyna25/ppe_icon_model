@@ -49,7 +49,6 @@ MODULE mo_read_interface
     &                                   netcdf_get_missValue
   USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data, distrib_nf_open, &
     &                                   distrib_read, distrib_nf_close, &
-    &                                   var_data_1d_int, &
     &                                   var_data_2d_wp, var_data_2d_int, &
     &                                   var_data_3d_wp, var_data_3d_int, &
     &                                   distrib_inq_var_dims, idx_lvl_blk, &

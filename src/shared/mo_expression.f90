@@ -1029,7 +1029,7 @@ CONTAINS
     REAL(real_kind), POINTER :: arg1,arg2
     CALL result_stack%pop(arg2)
     CALL result_stack%pop(arg1)
-    arg1 = EXP(arg2*LOG(arg1))
+    arg1 = arg1**arg2
     CALL result_stack%push(arg1)
     DEALLOCATE(arg2)
   END SUBROUTINE stack_op_pow_eval_0D
@@ -1040,7 +1040,7 @@ CONTAINS
     REAL(real_kind), DIMENSION(:,:), POINTER :: arg1,arg2
     CALL result_stack%pop(arg2)
     CALL result_stack%pop(arg1)
-    arg1 = EXP(arg2*LOG(arg1))
+    arg1 = arg1**arg2
     CALL result_stack%push(arg1)
     DEALLOCATE(arg2)
   END SUBROUTINE stack_op_pow_eval_2D
@@ -1051,7 +1051,7 @@ CONTAINS
     REAL(real_kind), DIMENSION(:,:,:), POINTER :: arg1,arg2
     CALL result_stack%pop(arg2)
     CALL result_stack%pop(arg1)
-    arg1 = EXP(arg2*LOG(arg1))
+    arg1 = arg1**arg2
     CALL result_stack%push(arg1)
     DEALLOCATE(arg2)
   END SUBROUTINE stack_op_pow_eval_3D

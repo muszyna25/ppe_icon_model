@@ -905,7 +905,7 @@ run\_nml:iforcing = inwp
 \hline
 range\_gkwake&
 R&
-0.1666&
+0.333&
 &
 Variability range for low level wake drag constant&
 \tabularnewline
@@ -913,7 +913,7 @@ Variability range for low level wake drag constant&
 \hline
 range\_gkdrag&
 R&
-0.02&
+0.04&
 &
 Variability range for orographic gravity wave drag constant&
 \tabularnewline
@@ -922,7 +922,7 @@ Variability range for orographic gravity wave drag constant&
 \hline
 range\_gfluxlaun&
 R&
-0.50e-3&
+0.75e-3&
 &
 Variability range for non-orographic gravity wave launch momentum flux &
 \tabularnewline
@@ -931,7 +931,7 @@ Variability range for non-orographic gravity wave launch momentum flux &
 \hline
 range\_zvz0i&
 R&
-0.125&
+0.2&
 m/s&
 Variability range for terminal fall velocity of ice&
 inwp\_gscp = 1 or 2
@@ -941,7 +941,7 @@ inwp\_gscp = 1 or 2
 \hline
 range\_entrorg&
 R&
-0.125e-3&
+0.2e-3&
 1/m&
 Variability range for entrainment parameter in convection scheme & 
 inwp\_convection = 1
@@ -951,7 +951,7 @@ inwp\_convection = 1
 \hline
 range\_capdcfac\_et&
 R&
-0.1&
+0.75&
 &
 Maximum fraction of CAPE diurnal cycle correction applied in the extratropics &
 icapdcycl = 3
@@ -969,7 +969,7 @@ inwp\_convection = 1
 \hline
 range\_texc&
 R&
-0.025&
+0.05&
 K&
 Variability range for temperature excess value in test parcel ascent & 
 inwp\_convection = 1
@@ -988,7 +988,7 @@ inwp\_cldcover = 1
 \hline
 range\_tkhmin&
 R&
-0.15&
+0.2&
 &
 Variability range for minimum vertical diffusion for heat/moisture &
 inwp\_turb = 1
@@ -997,16 +997,25 @@ inwp\_turb = 1
 \hline
 range\_tkmmin&
 R&
-0.15&
+0.2&
 &
 Variability range for minimum vertical diffusion for momentum &
 inwp\_turb = 1
 \tabularnewline
 
 \hline
+range\_tkred\_sfc&
+R&
+4.0&
+&
+Range for multiplicative change of reduction of minimum diffusion coefficients near the surface &
+inwp\_turb = 1
+\tabularnewline
+
+\hline
 range\_rlam\_heat&
 R&
-1.5&
+3.0&
 &
 Variability range (multiplicative!) of laminar transport resistance parameter &
 inwp\_turb = 1
@@ -1033,7 +1042,7 @@ idiag\_snowfrac = 20/30/40
 \hline
 range\_z0\_lcc&
 R&
-0.2&
+0.25&
 &
 Variability range (relative change) of roughness length attributed to each landuse class &
 \tabularnewline
@@ -1282,6 +1291,8 @@ L & .FALSE.& & &
 %\hline
 grid\_rescale\_factor &
 R & 1.0   &  &
+Defined as the inverse of the reduced-size earth reduction factor $X$. 
+Choose \texttt{grid\_rescale\_factor $<$ 1} for a reduced-size earth.\\
 The geometry and the timestep will be multiplied by this factor.\\
 The angular velocity will be divided by this factor.
 &
@@ -1976,9 +1987,7 @@ Defined and used in: \verb+src/namelists/mo_initicon_nml.f90+
 %\hline
 l\_intp\_c2l&
 L& .TRUE.& &
-If .TRUE. directly interpolate scalar variables from cell centers to
-lon-lat points, otherwise do gradient interpolation and
-reconstruction.&
+DEPRECATED &
 \tabularnewline
 
 %\hline
@@ -2241,6 +2250,12 @@ Type of restart file. One of CDI's FILETYPE\_XXX. So far, only 4 (=FILETYPE\_NC2
 \tabularnewline
 
 %\hline
+lmask\_boundary&
+L&  F& &
+Set to \texttt{.TRUE.}, if interpolation zone should be masked in output.&
+\tabularnewline
+
+%\hline
 \end{longtab}
 
 Defined and used in: \verb+src/namelists/mo_io_nml.f90+
@@ -2376,7 +2391,7 @@ Defined and used in: \verb+src/namelists/mo_les_nml.f90+
 %------------------------------------------------------------------------------
 % limarea_nml:
 %------------------------------------------------------------------------------
-\subsection{limarea\_nml (Scope: l\_limited\_area=1 in grid\_nml)}
+\subsection{limarea\_nml (Scope: l\_limited\_area=.TRUE. in grid\_nml)}
 
 \begin{longtab}
 
@@ -2395,16 +2410,6 @@ R &
 10800.0& s
 &
 Time difference between two consecutive boundary data.
-&
-itype\_latbc $\ge$ 1
-\tabularnewline
-
-%\hline
-\textbf{dt\_latbc}&
-C &
-PT03H & 
-&
-Time difference between two consecutive boundary data in mtime format.
 &
 itype\_latbc $\ge$ 1
 \tabularnewline
@@ -2546,9 +2551,17 @@ init\_mode=1
 %\hline
 \textbf{lmulti\_snow} &
 L&
-.TRUE.&
+.FALSE.&
 &
-.TRUE. for use of multi-layer snow model&
+.TRUE. for use of multi-layer snow model (default is single-sayer scheme)&
+\tabularnewline
+
+l2lay\_rho\_snow &
+L&
+.FALSE.&
+&
+.TRUE. predict additional snow density for upper part of the snowpack, having
+a maximum depth of max\_toplaydepth & lmulti\_snow = .FALSE.
 \tabularnewline
 
 %\hline
@@ -2556,7 +2569,7 @@ max\_toplaydepth &
 R &
 0.25&
 m &
-maximum depth of uppermost snow layer & lmulti\_snow=.TRUE.
+maximum depth of uppermost snow layer & lmulti\_snow=.TRUE. or l2lay\_rho\_snow=.TRUE.
 \tabularnewline
 
 %\hline
@@ -2569,10 +2582,11 @@ I & 1 &  & Type of snow-fraction diagnosis:\\
 
 %\hline
 itype\_lndtbl &
-I & 1 &  & Table values used for associating surface parameters to land-cover classes: \\
+I & 3 &  & Table values used for associating surface parameters to land-cover classes: \\
 1 = defaults from extpar (GLC2000 and GLOBCOVER2009)\\
 2 = Tuned version based on IFS values for globcover classes (GLOBCOVER2009 only)\\
-3 = even more tuned version (EXPERIMENTAL!!, GLOBCOVER2009 only) &
+3 = even more tuned operational version (GLOBCOVER2009 only) \\
+4 = tuned version for new bare soil evaporation scheme (itype\_evsl=4) &
 \tabularnewline
 
 %\hline
@@ -2586,21 +2600,29 @@ I & 2 &  & root density distribution: \\
 itype\_evsl &
 I & 2 &  & type of bare soil evaporation parameterization \\
 2 = Dickinson (1984)\\
-3 = Noilhan and Platon (1989) &
+3 = Noilhan and Planton (1989) \\
+4 = Resistance-based scheme by Jan-Peter Schulz &
 \tabularnewline
 
 %\hline
 itype\_heatcond &
 I & 2 &  & type of soil heat conductivity \\
 1 = constant soil heat conductivity\\
-2 = moisture dependent soil heat conductivity &
+2 = moisture dependent soil heat conductivity\\
+3 = variant of option 2 with reduced near-surface heat conductivity in the presence of plant cover &
 \tabularnewline
 
 %\hline
 itype\_interception &
 I & 1 &  & type of plant interception \\
-1 = effectively switched off (secirity minimum of $1E-6\,\mathrm{m}$ for surface area index)\\
+1 = standard scheme, effectively switched off by tiny value cwimax\_ml\\
 2 = Rain and snow interception (\textcolor{red}{under development}) &
+\tabularnewline
+
+%\hline
+cwimax\_ml &
+R & 1.e-6 & m & scaling parameter for maximum interception storage (almost switched off); \\
+use 5.e-4 to activate interception storage & itype\_interception = 1
 \tabularnewline
 
 %\hline
@@ -3776,8 +3798,9 @@ I&2& &
  Time unit of the TAXIS\_RELATIVE time axis.\\
  1 = TUNIT\_SECOND\\ 
  2 = TUNIT\_MINUTE\\
- 3 = TUNIT\_HOUR\\
- For a complete list of possible values see cdi.inc
+ 5 = TUNIT\_HOUR\\
+ 9 = TUNIT\_DAY\\
+ For a complete list of possible values see cdilib.c
 & mode=1
 \tabularnewline
 
@@ -3934,7 +3957,7 @@ I&0& &
 %\hline
  north\_pole &
 R(2)&0,90& &
- definition of north pole for rotated lon-lat grids.
+ definition of north pole for rotated lon-lat grids (\texttt{[longitude, latitude]}.
 &
 \tabularnewline
 
@@ -4520,7 +4543,7 @@ iforcing=inwp
 I&
 4&
 &
-Direct beam surface albedo. Options mainly differ in terms of their solar zenith angle (SZA) dependency\\
+Direct beam surface albedo. Options mainly differ in terms of their solar zenith angle (SZA) dependency)\\
 1: SZA dependency following Ritter-Geleyn; applied to unconditionally all grid points\\
 2: SZA dependency following Zaengl (pers.\ comm.). Same as 1 for water, but for 'rough surfaces' over land the direct albedo 
    is not allowed to exceed the corresponding broadband diffuse albedo.\\
@@ -4529,6 +4552,21 @@ Direct beam surface albedo. Options mainly differ in terms of their solar zenith
 &
 iforcing=inwp\\
 albedo\_type=2
+\tabularnewline
+
+%\hline
+icld\_overlap &
+I&
+2&
+&
+Method for cloud overlap calculation in shortwave part of RRTM\\
+1: maximum-random overlap \\
+2: generalized overlap (Hogan, Illingworth, 2000) \\
+3: maximum overlap \\
+4: random overlap
+&
+iforcing=inwp\\
+inwp\_radiation=1
 \tabularnewline
 
 %\hline

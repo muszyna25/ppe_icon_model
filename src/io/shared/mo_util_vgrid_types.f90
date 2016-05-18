@@ -16,7 +16,8 @@
 !!
 MODULE mo_util_vgrid_types
 
-  USE mo_kind,                              ONLY: wp
+  USE mo_kind, ONLY: wp
+  USE mo_util_uuid, ONLY: t_uuid
   IMPLICIT NONE
 
   PRIVATE
@@ -41,7 +42,7 @@ MODULE mo_util_vgrid_types
       z_ifc(:,:,:)
 
     ! UUID of vertical grid
-    CHARACTER(len=1) :: uuid(16)
+    TYPE(t_uuid) :: uuid
   END TYPE t_vgrid_buffer
 
   ! module variable: temporary buffer for coordinate arrays
