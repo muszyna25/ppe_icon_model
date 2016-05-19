@@ -347,6 +347,8 @@ if [[ "$output_atm_2d" == "yes" ]]; then
                     'hfls'    , 'hfss'    , 'evspsbl' ,
                     'tauu'    , 'tauv'    ,
                     'tauu_sso', 'tauv_sso', 'diss_sso', 
+                    'sfcWind' , 'uas'     , 'vas'     ,
+                    'tas'     , 'dew2'    , 'tasmax'  , 'tasmin'
 /
 EOF
 fi
