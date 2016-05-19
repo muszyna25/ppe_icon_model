@@ -8,22 +8,15 @@
 ! global indices "glb_idx". This involves, of course, some
 ! send/receive operations, since the destination indices may be stored
 ! on a different PE. This implementation of the "reshuffle" operation
-! involves no global-size arrays, but it costs 2x MPI_ALLTOALL
-! operations and 4x MPI_ALLTOALLV operations.
-!
-! IN:  glb_idx(1,...,nsend)    : global indices
-!      values(1,...,nsend)     : values to send
-!      owner_idx(1,...,nlocal) : global indices owned by this PE
-! OUT: recv_buf(1,...,nlocal)  : buffer for received values
-!
-! TODO[FP]
-! - Non-MPI version missing for this subroutine.
-
+! involves no global-size arrays.
 ! -----------------------------------------------------------------------
 
 MODULE mo_reshuffle
   IMPLICIT NONE
   INCLUDE 'mpif.h'
+  PRIVATE 
+
+  PUBLIC :: reshuffle
 
   TYPE t_regular_partition
     INTEGER :: n_indices, n_pes, irank
@@ -201,7 +194,7 @@ CONTAINS
       &                          send_counts2(:), recv_counts2(:), send_displs2(:),        &
       &                          recv_displs2(:), tmp_idx(:), irecv_tmp(:)
     TYPE(t_regular_partition) :: reg_partition
-        
+
     ierr   = 0
     nlocal = SIZE(owner_idx)
     nsend  = SIZE(in_glb_idx)
@@ -224,6 +217,7 @@ CONTAINS
       ierr = 1
     END IF
 
+#ifndef NOMPI
     CALL MPI_COMM_RANK(communicator, rank, ierr)      ; IF (ierr /= 0) WRITE (*,*) "MPI Error!"
     CALL MPI_COMM_SIZE(communicator, isize, ierr)     ; IF (ierr /= 0) WRITE (*,*) "MPI Error!"
 
@@ -370,5 +364,12 @@ CONTAINS
       &        permutation_owner, irecv_idx_owner, send_displs_owner, recv_displs_owner,     &
       &        send_counts2, recv_counts2, tmp_idx, irecv_tmp)
   END SUBROUTINE reshuffle
+
+#else
+
+  ! non-MPI mode: local copy
+  out_values(in_glb_idx(:)) = in_values(:)
+
+#endif
 
 END MODULE mo_reshuffle
