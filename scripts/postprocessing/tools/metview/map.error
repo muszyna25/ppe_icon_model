@@ -61,7 +61,6 @@ dataref  = getenv("DATAREF")
 tailfile = getenv("TAILFILE")
 lmonth   = getenv("LMONTH")
 yyyymm   = getenv("YYYYMM")
-#plotdir = '/fe1-daten/'&user&'/plots/icon/nwp.exp'&expnum
 
 
 #-----------------------------------------------------------------------
@@ -239,6 +238,8 @@ case varname of
  'T_SEAICE':  varfile = 'ist'         end
  'W_SO'    :  varfile = '2.3.20'      end  # levtype =sfc
  'T_SO'    :  varfile = '2.3.18'      end  # levtype =sfc
+ 'EXTRA3D1':  varfile = '255.255.1'   end
+ 'EXTRA3D2':  varfile = '255.255.2'   end
 end case
 
 if varname = 'W_SO' or varname = 'T_SO' then
@@ -272,8 +273,10 @@ for nd=1 to ndays do
 
   if stat = 'rms' then
     # replace mn with var
+    end_tailfile = parse(tailfile,'-')
     index    = search(tailfile, 'mn')
-    tailfile = substring(tailfile,1,index-1)&"var"&substring(tailfile,index+2,length(tailfile))
+    tailfile = substring(tailfile,1,index-1)&"var-"&end_tailfile[2]
+   #tailfile = substring(tailfile,1,index-1)&"var"&substring(tailfile,index+2,length(tailfile))
   end if
 
   if lmonth = 0 then
@@ -507,6 +510,13 @@ if varname = 'SP_10M'    or varname = 'T_2M'      or varname = 'T_G' or varname 
 end if
 
 #--- CERES TOA radiative fluxes
+#--- Product info: 
+#     - data web:  http://ceres.larc.nasa.gov (monthly and daily)
+#     - data ecfs: ec:/deia/climplot.obs/ceres
+#     - cdo -f grb2 -remapcon,r360x181 -seldate,20150815 -selname,toa_lw_all_mon -mulc,-1 -invertlat CERES_EBAF-TOA_Ed2.8_Subset_201501-201512.nc  toa_lw_ceres_201508.grb
+#     - cdo -f grb2 -remapcon,r360x181 -seldate,20150815 -selname,toa_sw_all_mon -mulc,-1 -invertlat CERES_EBAF-TOA_Ed2.8_Subset_201501-201512.nc  toa_sw_ceres_201508.grb
+#     - cdo -f grb2 -remapcon,r360x181 -seldate,20150815 -selname,solar_mon               -invertlat CERES_EBAF-TOA_Ed2.8_Subset_201501-201512.nc  solar_ceres_201508.grb
+#     - cdo add toa_sw_ceres_201508.grb solar_ceres_201508.grb toa_sw_net_ceres_201508.grb # ?????
 
 if varname = 'ACCSOB_T' or varname = 'ACCTHB_T' then
    case varname of
