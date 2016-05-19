@@ -762,6 +762,29 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & hor_interp=create_hor_interp_metadata(                       &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_NNB ) )
 
+    ! &      diag%k800(nproma,nblks_c)
+    cf_desc    = t_cf_var('k800', '', 'level index corresponding to the HAG of the 800hPa level', &
+      &                   datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'k800', diag%k800,                                &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,                 &
+                & grib2_desc,ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,  &
+                & isteptype=TSTEP_CONSTANT,                                    &
+                & hor_interp=create_hor_interp_metadata(                       &
+                &    hor_intp_type=HINTP_TYPE_LONLAT_NNB ) )
+
+    ! &      diag%k400(nproma,nblks_c)
+    cf_desc    = t_cf_var('k400', '', 'level index corresponding to the HAG of the 400hPa level', &
+      &                   datatype_flt)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'k400', diag%k400,                                &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,                 &
+                & grib2_desc,ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,  &
+                & isteptype=TSTEP_CONSTANT,                                    &
+                & hor_interp=create_hor_interp_metadata(                       &
+                &    hor_intp_type=HINTP_TYPE_LONLAT_NNB ) )
+
+
     ! &      diag%ktop_envel(nproma,nblks_c)
     cf_desc    = t_cf_var('ktop_envel', '', 'level index of upper boundary of SSO envelope layer', &
       &                   datatype_flt)
@@ -1875,6 +1898,14 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
       & ldims=shape2d,                                                    &
       & in_group=groups("pbl_vars") )
+
+    ! &      diag%tkred_sfc(nproma,nblks_c)
+    cf_desc    = t_cf_var('tkred_sfc', ' ','reduction factor for minimum diffusion coefficients', &
+         &                DATATYPE_FLT32)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'tkred_sfc', diag%tkred_sfc,                 &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
+      & ldims=shape2d )
 
     ! &      diag%gz0(nproma,nblks_c)
     cf_desc     = t_cf_var('gz0', 'm2 s-2 ','roughness length times gravity', datatype_flt)
@@ -3125,6 +3156,15 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
       CALL add_var( phy_tend_list, 'ddt_tke_pconv', phy_tend%ddt_tke_pconv,   &
                   GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,&
                 & ldims=shape3dkp1, lrestart=lrestart )  
+
+
+      !      phy_tend%ddt_tke_hsh(nproma,nlevp1,nblks)
+      cf_desc    = t_cf_var('ddt_tke_hsh', 'm**2 s**-3'          , &
+           &                'TKE tendency horizonzal shear production', datatype_flt)
+      grib2_desc = grib2_var(0, 19, 221, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( phy_tend_list, 'ddt_tke_hsh', phy_tend%ddt_tke_hsh,   &
+                  GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,&
+                & ldims=shape3dkp1, lrestart=.FALSE.)  
     END IF
 
    !Anurag Dipankar, MPIM (2013-May-31)

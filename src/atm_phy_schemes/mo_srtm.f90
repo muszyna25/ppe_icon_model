@@ -25,6 +25,7 @@ MODULE mo_srtm
     &    srtm_taumol20, srtm_taumol21, srtm_taumol22, srtm_taumol23, &
     &    srtm_taumol24, srtm_taumol25, srtm_taumol26, srtm_taumol27, &
     &    srtm_taumol28, srtm_taumol29
+  USE mo_radiation_config, ONLY: icld_overlap
 
   IMPLICIT NONE
 
@@ -39,7 +40,8 @@ MODULE mo_srtm
   REAL(wp), PARAMETER :: par_upper_boundary = 25000._wp     ! equivalent to
   !                                                         ! 400nm wavelength
 
-  INTEGER,  PARAMETER :: i_overlap = 1       ! 1: maximum-random overlap
+  ! replaced with namelist parameter icld_overlap
+! INTEGER,  PARAMETER :: i_overlap = 1       ! 1: maximum-random overlap
                                              ! 2: generalized overlap (Hogan, Illingworth, 2000)
                                              ! 3: maximum overlap
                                              ! 4: random overlap
@@ -62,11 +64,6 @@ CONTAINS
     &  flxd_dff_sfc    , flxd_par_sfc    , vis_frc_sfc                       , &
     &  nir_dff_frc_sfc , vis_dff_frc_sfc , par_dff_frc_sfc                     )
 
-!!$    &  flxd_sw         , flxu_sw         , flxd_sw_clr     , flxu_sw_clr     , &
-!!$    &  flxd_nir_all_sfc, flxd_vis_all_sfc, flxu_nir_all_toa, flxu_vis_all_toa, &
-!!$    &  flxd_nir_clr_sfc, flxd_vis_clr_sfc, flxu_nir_clr_toa, flxu_vis_clr_toa, &
-!!$    &  psudu           , flxn_nir_all_sfc, dff_frc_nir_sfc , flxn_vis_all_sfc, &
-!!$    &  dff_frc_vis_sfc , flxd_par_all_sfc, dff_frc_par_sfc)
 
     !-- Interface to RRTM_SW
     !     JJMorcrette 030225
@@ -109,25 +106,10 @@ CONTAINS
 
     !-- Output arguments
 
-!!$    REAL(wp), INTENT(out)   :: psudu(kbdim)              !<
     REAL(wp), INTENT(out)   :: flxd_sw(kbdim,klev+1)     !< downward flux total sky
     REAL(wp), INTENT(out)   :: flxd_sw_clr(kbdim,klev+1) !< downward flux clear sky
     REAL(wp), INTENT(out)   :: flxu_sw(kbdim,klev+1)     !< upward flux total sky
     REAL(wp), INTENT(out)   :: flxu_sw_clr(kbdim,klev+1) !< upward flux clear sky
-!!$    REAL(wp), INTENT(out)   :: flxd_nir_clr_sfc(kbdim)   !< surf. NIR downw.
-!!$    REAL(wp), INTENT(out)   :: flxd_vis_clr_sfc(kbdim)   !< surf. vis. downw.
-!!$    REAL(wp), INTENT(out)   :: flxd_nir_all_sfc(kbdim)   !< surf. NIR downw. cloudy sky
-!!$    REAL(wp), INTENT(out)   :: flxd_par_all_sfc(kbdim)   !< surf. PAR downw. total sky
-!!$    REAL(wp), INTENT(out)   :: flxd_vis_all_sfc(kbdim)   !< surf. vis. downw. cloudy sky
-!!$    REAL(wp), INTENT(out)   :: flxu_nir_clr_toa(kbdim)   !< top NIR upw.
-!!$    REAL(wp), INTENT(out)   :: flxu_vis_clr_toa(kbdim)   !< top vis. upw.
-!!$    REAL(wp), INTENT(out)   :: flxu_nir_all_toa(kbdim)   !< top NIR upw. cloudy sky
-!!$    REAL(wp), INTENT(out)   :: flxu_vis_all_toa(kbdim)   !< top vis. upw. cloudy sky
-!!$    REAL(wp), INTENT(out)   :: flxn_nir_all_sfc(kbdim)   !< net surface NIR flux
-!!$    REAL(wp), INTENT(out)   :: flxn_vis_all_sfc(kbdim)   !< net surface visible flux
-!!$    REAL(wp), INTENT(out)   :: dff_frc_nir_sfc(kbdim)    !< fraction of diffuse NIR
-!!$    REAL(wp), INTENT(out)   :: dff_frc_vis_sfc(kbdim)    !< fraction of diffuse visible
-!!$    REAL(wp), INTENT(out)   :: dff_frc_par_sfc(kbdim)    !< fraction of diffuse PAR at the surface
 
     REAL(wp), INTENT(out), OPTIONAL :: &
       & flxd_dff_sfc(kbdim),     & !< surface downward diffuse rad
@@ -163,8 +145,10 @@ CONTAINS
     REAL(wp) :: zwkl_vr(kbdim,jpinpx,klev)
     REAL(wp) :: zflxd_sw(kbdim,klev+1)
     REAL(wp) :: zflxd_sw_clr(kbdim,klev+1)
+    REAL(wp) :: zflxd_sw_cld(kbdim,klev+1)
     REAL(wp) :: zflxu_sw(kbdim,klev+1)
     REAL(wp) :: zflxu_sw_clr(kbdim,klev+1)
+    REAL(wp) :: zflxu_sw_cld(kbdim,klev+1)
 
     INTEGER  :: i_laytrop(kbdim), i_layswtch(kbdim), i_laylow(kbdim)
     INTEGER  :: indfor(kbdim,klev), indself(kbdim,klev)
@@ -176,13 +160,14 @@ CONTAINS
     REAL(wp) :: frc_vis(ksw), frc_nir(ksw), frc_par
     REAL(wp) :: zfvis, zfnir, zfpar, total
     REAL(wp) :: zflxn_vis(kbdim), zflxn(kbdim), zflxd_vis(kbdim), zflxd_nir(kbdim), zflxd_par(kbdim), &
-                zflxd_diff(kbdim), zflxd_vis_diff(kbdim), zflxd_nir_diff(kbdim), zflxd_par_diff(kbdim)
+                zflxd_diff(kbdim), zflxd_vis_diff(kbdim), zflxd_nir_diff(kbdim), zflxd_par_diff(kbdim), &
+                zrat_swdn(kbdim)
 
     INTEGER  :: icldatm, inflag, iceflag, i_liqflag, i_nstr
     INTEGER(i4) :: idx(kbdim)
-    INTEGER(i4) :: icount, ic, jl, jk, jsw, jb
+    INTEGER(i4) :: icount, ic, jl, jk, jsw, jb, jk1, jkp1
     REAL(wp) :: zrmu0(kbdim)
-    REAL(wp) :: ccmax, ccran, alpha, deltaz
+    REAL(wp) :: ccmax, ccran, alpha, deltaz, ccrat
     LOGICAL  :: lcomp_fractions
 
     !-----------------------------------------------------------------------
@@ -256,15 +241,6 @@ CONTAINS
 
     !-------------------------------
 
-!IBM* ASSERT(NODEPS)
-    DO ic = 1, icount
-      zclear(ic)     = 1.0_wp
-      zcloud(ic)     = 0.0_wp
-      zfrcl_above(ic)= 0.0_wp
-    ENDDO
-    !
-    ! --- overlap
-    !
     DO jk = 1, klev
 
       DO ic = 1, icount
@@ -276,52 +252,6 @@ CONTAINS
 !CDIR EXPAND=jpinpx
         zwkl_vr(ic,1:jpinpx,jk) = wkl_vr(jl,1:jpinpx,jk)
       ENDDO
-
-      SELECT CASE ( i_overlap )
-
-      CASE ( 1 )   ! maximum-random overlap
-!IBM* NOVECTOR
-!IBM* ASSERT(NODEPS)
-        DO ic = 1, icount
-          zclear(ic) = zclear(ic)*(1.0_wp-MAX(zfrcl(ic,jk),zfrcl_above(ic))) &
-            & /(1.0_wp-MIN(zfrcl_above(ic),1.0_wp-zeps))
-          zfrcl_above(ic) = zfrcl(ic,jk)
-          zcloud(ic) = 1.0_wp-zclear(ic)
-        ENDDO
-
-      CASE ( 2 )   ! generalized maximum-random overlap (Hogan, Illingworth, 2000)
-        DO ic = 1, icount
-          ccmax = MAX( zfrcl(ic,jk),  zcloud(ic) )
-          ccran =      zfrcl(ic,jk) + zcloud(ic) - &
-                   & ( zfrcl(ic,jk) * zcloud(ic) )
-          IF ( zfrcl_above(ic) > 0.0_wp ) THEN
-            ! layer thickness [m] between level jk and next lower (!) level jk-1
-            deltaz = (zpm_fl_vr(ic,jk-1)-zpm_fl_vr(ic,jk))/(zpm_fl_vr(ic,jk-1)+zpm_fl_vr(ic,jk)) * &
-                     (ztk_fl_vr(ic,jk-1)+ztk_fl_vr(ic,jk))*rd*rgrav
-            alpha = exp( - deltaz / zdecorr )
-          ELSE
-            alpha = 0.0_wp
-          ENDIF
-          zfrcl_above(ic) = zfrcl(ic,jk)
-          zcloud(ic) = alpha * ccmax + (1-alpha) * ccran
-          zclear(ic) = 1.0_wp-zcloud(ic)
-        ENDDO
-
-      CASE ( 3 )   ! maximum overlap
-!IBM* ASSERT(NODEPS)
-        DO ic = 1, icount
-          zcloud(ic) = MAX(zcloud(ic),zfrcl(ic,jk))
-          zclear(ic) = 1.0_wp-zcloud(ic)
-        ENDDO
-
-      CASE ( 4 )   ! random overlap
-!IBM* ASSERT(NODEPS)
-        DO ic = 1, icount
-          zclear(ic) = zclear(ic)*(1.0_wp-zfrcl(ic,jk))
-          zcloud(ic) = 1.0_wp-zclear(ic)
-        ENDDO
-
-      END SELECT
 
     END DO
 
@@ -338,10 +268,8 @@ CONTAINS
       &   z_forfac  , z_forfrac, indfor      ,                          &
       &   z_selffac , z_selffrac,indself     ,                          &
       &   z_fac00   , z_fac01  , z_fac10     , z_fac11     ,            &
-      &   jp        , jt       , jt1                                    &
-                                !   input
-                                !&   zrmu0 )
-      &)
+      &   jp        , jt       , jt1                                    )
+
 
     !- call the radiation transfer routine
 
@@ -418,36 +346,18 @@ CONTAINS
       &   z_selffac , z_selffrac  , indself    ,                           &
       &   z_fac00   , z_fac01     , z_fac10    , z_fac11    ,              &
       &   jp        , jt          , jt1        ,                           &
-                                !   output
       &   zbbfd     , zbbfu       , zbbcd      , zbbcu      ,              &
       &   zsudu     , zsuduc      )
 
     DO jk=1,klev+1
       DO ic = 1, icount
-        zflxu_sw(ic,jk)     = 0.0_wp
-        zflxd_sw(ic,jk)     = 0.0_wp
+        zflxu_sw_cld(ic,jk) = 0.0_wp
+        zflxd_sw_cld(ic,jk) = 0.0_wp
         zflxu_sw_clr(ic,jk) = 0.0_wp
         zflxd_sw_clr(ic,jk) = 0.0_wp
       END DO
     END DO
 
-!!$    DO jl = 1, kproma
-!!$      psudu(jl)              = 0.0_wp
-!!$      flxd_nir_clr_sfc(jl)   = 0.0_wp
-!!$      flxd_vis_clr_sfc(jl)   = 0.0_wp
-!!$      flxd_nir_all_sfc(jl)   = 0.0_wp
-!!$      flxd_vis_all_sfc(jl)   = 0.0_wp
-!!$      flxd_par_all_sfc(jl)   = 0.0_wp
-!!$      flxu_vis_clr_toa(jl)   = 0.0_wp
-!!$      flxu_nir_clr_toa(jl)   = 0.0_wp
-!!$      flxu_nir_all_toa(jl)   = 0.0_wp
-!!$      flxu_vis_all_toa(jl)   = 0.0_wp
-!!$      flxn_nir_all_sfc(jl)   = 0.0_wp
-!!$      flxn_vis_all_sfc(jl)   = 0.0_wp
-!!$      dff_frc_nir_sfc(jl)    = 0.0_wp
-!!$      dff_frc_vis_sfc(jl)    = 0.0_wp
-!!$      dff_frc_par_sfc(jl)    = 0.0_wp
-!!$    ENDDO
 
     IF (PRESENT(flxd_dff_sfc)) THEN ! compute diffuse parts of surface radiation
       zflxd_diff(:) = 0._wp
@@ -470,21 +380,100 @@ CONTAINS
 
     DO jb = 1,ksw
 
-      ! all bands
+      ! sum up fluxes over all bands
       DO jk=1,klev+1
 !IBM* ASSERT(NODEPS)
         DO ic = 1, icount
-          zflxu_sw(ic,jk)     = zflxu_sw(ic,jk) + bnd_wght(jb)*(     &
-            &   zcloud(ic)*zbbfu(ic,jk,jb)                      &
-            & + zclear(ic)*zbbcu(ic,jk,jb))
-          zflxd_sw(ic,jk)     = zflxd_sw(ic,jk) + bnd_wght(jb)*(     &
-            &   zcloud(ic)*zbbfd(ic,jk,jb)                      &
-            & + zclear(ic)*zbbcd(ic,jk,jb))
           zflxu_sw_clr(ic,jk)=zflxu_sw_clr(ic,jk)+bnd_wght(jb)*zbbcu(ic,jk,jb)
           zflxd_sw_clr(ic,jk)=zflxd_sw_clr(ic,jk)+bnd_wght(jb)*zbbcd(ic,jk,jb)
+          zflxu_sw_cld(ic,jk)=zflxu_sw_cld(ic,jk)+bnd_wght(jb)*zbbfu(ic,jk,jb)
+          zflxd_sw_cld(ic,jk)=zflxd_sw_cld(ic,jk)+bnd_wght(jb)*zbbfd(ic,jk,jb)
 
         ENDDO
       ENDDO
+
+    ENDDO
+
+
+    !
+    ! --- overlap computation
+    !
+!IBM* ASSERT(NODEPS)
+    DO ic = 1, icount
+      zclear(ic)     = 1.0_wp
+      zcloud(ic)     = 0.0_wp
+      zfrcl_above(ic)= 0.0_wp
+    ENDDO
+
+    SELECT CASE ( icld_overlap )
+
+    CASE ( 1 )   ! maximum-random overlap
+!IBM* NOVECTOR
+!IBM* ASSERT(NODEPS)
+      DO jk = 1, klev
+        DO ic = 1, icount
+          zclear(ic) = zclear(ic)*(1.0_wp-MAX(zfrcl(ic,jk),zfrcl_above(ic))) &
+            & /(1.0_wp-MIN(zfrcl_above(ic),1.0_wp-zeps))
+          zfrcl_above(ic) = zfrcl(ic,jk)
+          zcloud(ic) = 1.0_wp-zclear(ic)
+        ENDDO
+      ENDDO
+
+    CASE ( 2 )   ! generalized maximum-random overlap (Hogan, Illingworth, 2000)
+      DO ic = 1, icount
+        zrat_swdn(ic) = zflxd_sw_cld(ic,klev+1)/zflxd_sw_clr(ic,klev+1)
+      ENDDO
+
+      DO jk = klev, 1, -1
+        jkp1 = MIN(jk+1,klev)
+        jk1 = klev+2-jk
+
+        DO ic = 1, icount
+          ! reduction factor for thin cirrus clouds lying above optically thicker water clouds
+          ccrat = MIN(1._wp,20._wp*MAX(5.e-5_wp,1._wp-zflxd_sw_cld(ic,jk1)/zflxd_sw_clr(ic,jk1))/&
+                                   MAX(1.e-3_wp,1._wp-zrat_swdn(ic)) )
+          ccmax = MAX( ccrat*zfrcl(ic,jk),  zcloud(ic) )
+          ccran =      ccrat*zfrcl(ic,jk) + zcloud(ic) - zfrcl(ic,jk) * zcloud(ic)
+
+          ! layer thickness [m] between level jk and next upper (!) level jk+1
+          deltaz = (zpm_fl_vr(ic,jk)-zpm_fl_vr(ic,jkp1))/(zpm_fl_vr(ic,jkp1)+zpm_fl_vr(ic,jk)) * &
+                   (ztk_fl_vr(ic,jkp1)+ztk_fl_vr(ic,jk))*rd*rgrav
+
+          alpha  = MIN(EXP(-deltaz/zdecorr), zfrcl(ic,jkp1)/MAX(zeps,zfrcl(ic,jk)) )
+
+          zcloud(ic) = alpha * ccmax + (1-alpha) * ccran
+          zclear(ic) = 1.0_wp-zcloud(ic)
+        ENDDO
+      ENDDO
+
+    CASE ( 3 )   ! maximum overlap
+      DO jk = 1, klev
+!IBM* ASSERT(NODEPS)
+        DO ic = 1, icount
+          zcloud(ic) = MAX(zcloud(ic),zfrcl(ic,jk))
+          zclear(ic) = 1.0_wp-zcloud(ic)
+        ENDDO
+      ENDDO
+
+    CASE ( 4 )   ! random overlap
+      DO jk = 1, klev
+!IBM* ASSERT(NODEPS)
+        DO ic = 1, icount
+          zclear(ic) = zclear(ic)*(1.0_wp-zfrcl(ic,jk))
+          zcloud(ic) = 1.0_wp-zclear(ic)
+        ENDDO
+      ENDDO
+
+    END SELECT
+
+    DO jk = 1, klev+1
+      DO ic = 1, icount
+        zflxu_sw(ic,jk) = zcloud(ic)*zflxu_sw_cld(ic,jk) + zclear(ic)*zflxu_sw_clr(ic,jk)
+        zflxd_sw(ic,jk) = zcloud(ic)*zflxd_sw_cld(ic,jk) + zclear(ic)*zflxd_sw_clr(ic,jk)
+      ENDDO
+    ENDDO
+
+    DO jb = 1,ksw
 
       IF (jb == 9) THEN
         frc_par = 0.533725_wp
@@ -550,100 +539,6 @@ CONTAINS
         END DO
       END IF
 
-!!$      ! PAR fraction
-!!$      IF (ksw /= 14 ) CALL finish ('srtm_srtm_224gp', &
-!!$        &                          'Number of bands changed. Please check diagnosis of PAR')
-!!$      IF (jb == 9) THEN
-!!$        IF (ABS(wavenum1(jb+jpb1-1)-12850.0_wp) > 1.0_wp .OR. &
-!!$          & ABS(wavenum2(jb+jpb1-1)-16000.0_wp) > 1.0_wp)     &
-!!$          & CALL finish ('srtm_srtm_224gp','Solar band changed. Please check diagnosis of PAR')
-!!$#ifdef __WP__
-!!$        frc_par = 0.533725_wp
-!!$#else
-!!$        frc_par = 0.533725
-!!$#endif
-!!$      ELSE IF (jb == 10) THEN
-!!$        IF (ABS(wavenum1(jb+jpb1-1)-16000.0_wp) > 1.0_wp .OR. &
-!!$          & ABS(wavenum2(jb+jpb1-1)-22650.0_wp) > 1.0_wp)     &
-!!$          & CALL finish ('srtm_srtm_224gp','Solar band changed. Please check diagnosis of PAR')
-!!$        frc_par = 1.0_wp
-!!$      ELSE IF (jb == 11) THEN
-!!$        IF (ABS(wavenum1(jb+jpb1-1)-22650.0_wp) > 1.0_wp .OR. &
-!!$          & ABS(wavenum2(jb+jpb1-1)-29000.0_wp) > 1.0_wp)     &
-!!$          & CALL finish ('srtm_srtm_224gp','Solar band changed. Please check diagnosis of PAR')
-!!$#ifdef __WP__
-!!$        frc_par = 0.550164_wp
-!!$#else
-!!$        frc_par = 0.550164
-!!$#endif
-!!$      ELSE
-!!$        frc_par = 0.0_wp
-!!$      END IF
-!!$
-!!$      ! VIS, NIR and PAR fractions of bands
-!!$      zfvis = bnd_wght(jb)*frc_vis(jb)
-!!$      zfnir = bnd_wght(jb)*frc_nir(jb)
-!!$      zfpar = bnd_wght(jb)*frc_par
-!!$
-!!$      DO jl = 1, kproma
-!!$        IF (prmu0(jl) > 0.0_wp) THEN
-!!$          flxd_nir_clr_sfc(jl) = flxd_nir_clr_sfc(jl)+zfnir*zbbcd(jl,klev+1,jb)
-!!$          flxd_vis_clr_sfc(jl) = flxd_vis_clr_sfc(jl)+zfvis*zbbcd(jl,klev+1,jb)
-!!$
-!!$          flxd_nir_all_sfc(jl)  = flxd_nir_all_sfc(jl) + zfnir*( &
-!!$            &                 zcloud(jl)*zbbfd(jl,klev+1,jb)     &
-!!$            &               + zclear(jl)*zbbcd(jl,klev+1,jb)     )
-!!$          flxd_vis_all_sfc(jl)  = flxd_vis_all_sfc(jl) + zfvis*( &
-!!$            &                 zcloud(jl)*zbbfd(jl,klev+1,jb)     &
-!!$            &               + zclear(jl)*zbbcd(jl,klev+1,jb)     )
-!!$          flxd_par_all_sfc(jl)  = flxd_par_all_sfc(jl) + zfpar*( &
-!!$            &                 zcloud(jl)*zbbfd(jl,klev+1,jb)     &
-!!$            &               + zclear(jl)*zbbcd(jl,klev+1,jb)     )
-!!$
-!!$          flxu_nir_clr_toa(jl)  = flxu_nir_clr_toa(jl) + zfnir*zbbcu(jl,1,jb)
-!!$          flxu_vis_clr_toa(jl)  = flxu_vis_clr_toa(jl) + zfvis*zbbcu(jl,1,jb)
-!!$          flxu_nir_all_toa(jl)  = flxu_nir_all_toa(jl) + zfnir*( &
-!!$            &                 zcloud(jl)*zbbfu(jl,1,jb)          &
-!!$            &               + zclear(jl)*zbbcu(jl,1,jb)          )
-!!$          flxu_vis_all_toa(jl)  = flxu_vis_all_toa(jl) + zfvis*( &
-!!$            &                 zcloud(jl)*zbbfu(jl,1,jb)          &
-!!$            &               + zclear(jl)*zbbcu(jl,1,jb)          )
-!!$
-!!$          flxn_nir_all_sfc(jl)  = flxn_nir_all_sfc(jl) + zfnir*( &
-!!$            &                 zcloud(jl)*zbbfd(jl,klev+1,jb)     &
-!!$            &               + zclear(jl)*zbbcd(jl,klev+1,jb)     &
-!!$            &               - zcloud(jl)*zbbfu(jl,klev+1,jb)     &
-!!$            &               - zclear(jl)*zbbcu(jl,klev+1,jb)     )
-!!$          flxn_vis_all_sfc(jl)  = flxn_vis_all_sfc(jl) + zfvis*( &
-!!$            &                 zcloud(jl)*zbbfd(jl,klev+1,jb)     &
-!!$            &               + zclear(jl)*zbbcd(jl,klev+1,jb)     &
-!!$            &               - zcloud(jl)*zbbfu(jl,klev+1,jb)     &
-!!$            &               - zclear(jl)*zbbcu(jl,klev+1,jb)     )
-!!$
-!!$          dff_frc_nir_sfc(jl)   = dff_frc_nir_sfc(jl)  + zfnir*( &
-!!$            &                 zcloud(jl)*zbbfd(jl,klev+1,jb)     &
-!!$            &               + zclear(jl)*zbbcd(jl,klev+1,jb)     &
-!!$            &               - zcloud(jl)*zsudu(jl,jb)            &
-!!$            &               - zclear(jl)*zsuduc(jl,jb))
-!!$
-!!$          dff_frc_vis_sfc(jl)   = dff_frc_vis_sfc(jl)  + zfvis*( &
-!!$            &                 zcloud(jl)*zbbfd(jl,klev+1,jb)     &
-!!$            &               + zclear(jl)*zbbcd(jl,klev+1,jb)     &
-!!$            &               - zcloud(jl)*zsudu(jl,jb)            &
-!!$            &               - zclear(jl)*zsuduc(jl,jb))
-!!$
-!!$          dff_frc_par_sfc(jl)   = dff_frc_par_sfc(jl)  + zfpar*( &
-!!$            &                 zcloud(jl)*zbbfd(jl,klev+1,jb)     &
-!!$            &               + zclear(jl)*zbbcd(jl,klev+1,jb)     &
-!!$            &               - zcloud(jl)*zsudu(jl,jb)            &
-!!$            &               - zclear(jl)*zsuduc(jl,jb))
-!!$
-!!$          psudu(jl) = psudu(jl) + bnd_wght(jb)* (     &
-!!$            &      zcloud(jl)*zsudu(jl,jb)            &
-!!$            &    + zclear(jl)*zsuduc(jl,jb))
-!!$        ENDIF
-!!$      ENDDO
-
     END DO ! jb
 
       DO jk=1,klev+1
@@ -687,14 +582,6 @@ CONTAINS
         END DO
       END IF
 
-!!$    DO jl=1,kproma
-!!$      total = flxd_nir_all_sfc(jl) + zeps
-!!$      dff_frc_nir_sfc(jl) = dff_frc_nir_sfc(jl)/total
-!!$      total = flxd_vis_all_sfc(jl) + zeps
-!!$      dff_frc_vis_sfc(jl) = dff_frc_vis_sfc(jl)/total
-!!$      total = flxd_par_all_sfc(jl) + zeps
-!!$      dff_frc_par_sfc(jl) = dff_frc_par_sfc(jl)/total
-!!$    END DO
 
   END SUBROUTINE srtm_srtm_224gp
   !-----------------------------------------------------------

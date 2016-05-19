@@ -771,8 +771,8 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
           zsf = (zsenh(jl,jk+1) + zsenh(jl,jk))*0.5_JPRB
 !         zmix(jl)=2.0_JPRB*0.8E-4_JPRB*zdz(jl)*(paph(jl,jk)/paph(jl,klev+1))**3
 !         ZMIX(JL)=0.4_JPRB*ENTRORG*ZDZ(JL)*MIN(1.0_JPRB,(PQSEN(JL,JK)/PQSEN(JL,KLEV))**3)
-          ZMIX(JL)=MERGE(1.3_JPRB - MIN(1.0_JPRB,PQEN(JL,JK)/PQSEN(JL,JK)), 0.3_JPRB,  &
-         & ldland(jl).OR.ldlake(jl)) * ENTRORG*ZDZ(JL)*MIN(1.0_JPRB,(PQSEN(JL,JK)/PQSEN(JL,KLEV))**2)
+          ZMIX(JL)=MERGE(1.3_JPRB - MIN(1.0_JPRB,PQEN(JL,JK)/PQSEN(JL,JK)), 0.3_JPRB, ldland(jl).OR.ldlake(jl)) &
+         &  * ENTRORG*ZDZ(JL)*MAX(0.2_JPRB,MIN(1.0_JPRB,(PQSEN(JL,JK)/PQSEN(JL,KLEV))**2))
           ! Limitation to avoid trouble at very coarse vertical resolution
           zmix(jl) = MIN(1.0_jprb,zmix(jl))
           zqu(jl,jk)= zqu(jl,jk+1)*(1.0_JPRB-zmix(jl))+ zqf*zmix(jl)
