@@ -34,19 +34,23 @@ pwd | awk 'BEGIN { FS = "/" } ; { print $6 }'        # compile local branch
 
 arch=x86_64-unknown-linux-gnu
 
-module swap cce cce/8.3.12
+export CRAY_ADD_RPATH=yes 
+
+module swap cce cce/8.4.1
     
 module load subversion
 module swap grib_api grib_api/1.12.3
-module load hdf5/1.8.13
+#module load hdf5/1.8.13
+#module load cray-hdf5/1.8.12
 module load netcdf4/4.3.2
 
-#module load cray-hdf5/1.8.14
+module load cray-hdf5/1.8.12  # ??
 
 
 # --- configure -----------------------------------------------------------
 
 #make clean
+#make distclean
 
 ./configure --with-fortran=cray  #--with-openmp     # --with-flags=hiopt
 

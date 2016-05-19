@@ -24,14 +24,14 @@
 echo "POST_PREPARE.SMS" 
 
 module load python
-module load cdo/1.6.4
-module swap grib_api grib_api/1.12.3
+module load cdo/1.7.0
+module swap grib_api grib_api/1.13.0
 
 dwd_grib_api=/home/ms/de/dwd/grib_api
 #dwd_grib_api=/home/ms/de/dei4
 #export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/1.11.0/share/definitions:${dwd_grib_api}/definitions.edzw-1.11.0"
 #export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.11.0:/usr/local/apps/grib_api/1.11.0/CRAY/82/share/grib_api/definitions"
-export GRIB_DEFINITION_PATH="/usr/local/apps/grib_api/1.12.3/CRAY/82/share/grib_api/definitions:${dwd_grib_api}/definitions.edzw-1.12.3"
+export GRIB_DEFINITION_PATH="/usr/local/apps/grib_api/1.13.0/CRAY/82/share/grib_api/definitions:${dwd_grib_api}/definitions.edzw-1.13.0-4"
 
 lsplitdata=1
 lcpdata=1 
@@ -136,9 +136,9 @@ if [[ $lmeteo = 1 ]] ; then
   else
     ecp $ecfsdir/$outfile_mtg2 .
   fi
-  if [[ $lcpdata = 1 ]] ; then
+####  if [[ $lcpdata = 1 ]] ; then
     scp $outfile_mtg2 ecgb:${gatedir}
-  fi
+####  fi
   smsevent meteogram_data
 fi
 
@@ -170,11 +170,9 @@ else
   done
 fi
 
-##### test
-# set -A ecp_files ${outdir}/${basename}_*_DOM01_ML_0001.nc ${outdir}/${basename}_*_DOM01_PL_0001.nc
-##### test
-
-ecp -o ${ecp_files[*]} $ecfsdir
+if [[ -n ${ecp_files} ]] ; then
+  ecp -o ${ecp_files[*]} $ecfsdir
+fi
 
 if [[ %NENS% -gt 0 ]] ; then
   for nmem in 001 002 003 004 005 006 007 008 009 010 ; do
@@ -200,7 +198,8 @@ if [[ $lsplitdata = 1 ]] ; then
      grb_data/${basename}_DOM01_0001_[shortName]_[typeOfFirstFixedSurface].grb
 # HCC, MCC, LCC:
   grib_copy grb_data/${basename}_DOM01_0001_unknown_pl.grb \
-     grb_data/${basename}_DOM01_0001_cc.[topLevel]_sfc.grb
+            grb_data/${basename}_DOM01_0001_cc.[topLevel]_sfc.grb
+  \rm -f    grb_data/${basename}_DOM01_0001_unknown_pl.grb
 
   grib_copy   ${basename}_DOM01_PL_0001.grb  \
      grb_data/${basename}_DOM01_0001_[shortName]_[typeOfFirstFixedSurface].grb
@@ -223,10 +222,10 @@ if [[ $lsplitdata = 1 ]] ; then
   done
 
 # fix table from 5 to 4 to work with metview (ML type need to be present in GRIB file!!)
-  for ml_file in grb_data/${basename}_DOM01_0001_*_ml.grb  grb_data/${basename}_DOM01_0001_*_pl.grb ; do
-    cdo -P 2 copy ${ml_file}      ${ml_file}_temp
-    mv            ${ml_file}_temp ${ml_file}
-  done
+#  for ml_file in grb_data/${basename}_DOM01_0001_*_ml.grb  grb_data/${basename}_DOM01_0001_*_pl.grb ; do
+#    cdo -P 2 copy ${ml_file}      ${ml_file}_temp
+#    mv            ${ml_file}_temp ${ml_file}
+#  done
 
   ls -l grb_data
 
@@ -283,17 +282,16 @@ if [[ $lcatdata = 1 ]] ; then
     mkdir -p ${mondir}/tmp_dir
   
     if [[     -f           grb_data/${basename}_DOM01_0001_${var}.grb  ]] ; then
-      if [[ ! -f  ${mondir}/tmp_dir/${basename}_DOM01_0001_${var}_24.grb  ||  $lreprocess = 1 ]] ; then
+      if [[ ! -f  ${mondir}/tmp_dir/${basename}_DOM01_0001_${var}_48.grb  ||  $lreprocess = 1 ]] ; then
         grib_copy          grb_data/${basename}_DOM01_0001_${var}.grb            \
                                     ${basename}_DOM01_0001_${var}_[endStep].grb
         if [[ $ldeldata = 1 ]] ; then
           \rm -rf          grb_data/${basename}_DOM01_0001_${var}.grb
         fi
-        cp -f ${basename}_DOM01_0001_${var}_0.grb   \
-              ${basename}_DOM01_0001_${var}_24.grb  \
-              ${basename}_DOM01_0001_${var}_216.grb \
-              ${basename}_DOM01_0001_${var}_240.grb ${mondir}/tmp_dir
-        rm -f ${basename}_DOM01_0001_${var}_*.grb
+        for time in 0 24 48 72 96 120 144 168 192 216 240 ; do
+          cp -f ${basename}_DOM01_0001_${var}_${time}.grb ${mondir}/tmp_dir
+        done
+        rm -f   ${basename}_DOM01_0001_${var}_*.grb
       fi
     fi 
     

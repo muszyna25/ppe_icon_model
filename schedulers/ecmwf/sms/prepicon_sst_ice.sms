@@ -40,7 +40,7 @@ cd ${SSTICEDIR}
 # Important: ==================================
 # export the DWD GRIB short names:
 dwd_grib_api=/home/ms/de/dwd/grib_api
-export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.12.3:/usr/local/apps/grib_api/1.12.3/CRAY/82/share/grib_api/definitions"
+export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.14.5:/usr/local/apps/grib_api/1.14.5/CRAY/82/share/grib_api/definitions"
 # =============================================
 
 ICON_GRIDFILE="icon_grid_%RES%_G.nc"

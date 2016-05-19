@@ -115,7 +115,10 @@ module unload netcdf
 #module load netcdf4/4.1.2
 module load netcdf4/4.3.2
 #module load hdf5/1.8.13
-#export HDF5_DISABLE_VERSION_CHECK=1   # 1: turn of HDF5 version check
+export HDF5_DISABLE_VERSION_CHECK=1   # 1: turn of HDF5 version check
+module load cray-hdf5/1.8.12
+
+module list
 
 
 # -------------------------------------------------

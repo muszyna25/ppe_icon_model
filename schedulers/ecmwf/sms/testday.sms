@@ -30,6 +30,13 @@ echo "METVIEW.SMS"
 #  include the entire month, as well as the last day of the previous month?
 #========================================================================
 
+lquickshots=1
+
+
+####
+lquickshots=0
+####
+
 
 # -------------------------------------------------
 # test end-of-month
@@ -43,18 +50,26 @@ fi
 
 
 # -------------------------------------------------
-# test or 12th or 20th of month to do plotting like end-of-month
+# test if 2nd or 12th or 20th of month to do plotting like end-of-month
 # (see also eom_prepare.sms)
 
-if [[ `echo %YMD% | cut -c 7-8` -eq "12" ]]
+if [[ $lquickshots -eq "1"  ]]
 then
-    echo "12th of month - do some plots!"
-    smsevent time_eom
-fi
-if [[ `echo %YMD% | cut -c 7-8` -eq "20" ]]
-then
-    echo "20th of month - do some plots!"
-    smsevent time_eom
+  if [[ `echo %YMD% | cut -c 7-8` -eq "2"  ]]
+  then
+      echo "2nd of month - do some plots!"
+      smsevent time_eom
+  fi
+  if [[ `echo %YMD% | cut -c 7-8` -eq "12" ]]
+  then
+      echo "12th of month - do some plots!"
+      smsevent time_eom
+  fi
+  if [[ `echo %YMD% | cut -c 7-8` -eq "20" ]]
+  then
+      echo "20th of month - do some plots!"
+      smsevent time_eom
+  fi
 fi
 
 ssh cca-log ls -l

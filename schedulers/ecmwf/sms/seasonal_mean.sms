@@ -20,8 +20,8 @@
 echo "SEASONAL_MEAN.SMS" 
 
 module load python
-module load cdo/1.6.4
-module swap grib_api grib_api/1.12.3
+module load cdo/1.7.0
+module swap grib_api grib_api/1.14.5
 
 set -A means          # nothing, or: all year seas mon
 lsplitdata=1
