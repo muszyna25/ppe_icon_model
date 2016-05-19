@@ -59,7 +59,7 @@ MODULE mo_ocean_surface
     &  limit_elevation, l_relaxsal_ice, &
     &  relax_width, forcing_HeatFlux_amplitude, forcing_HeatFlux_base, &
     &  OceanReferenceDensity, &
-    &  use_wind_mixing
+    &  use_wind_mixing, nbgctra,lhamocc
   USE mo_dynamics_config,     ONLY: nold
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_util_dbg_prnt,       ONLY: dbg_print
@@ -252,10 +252,14 @@ CONTAINS
     REAL(wp)              :: zUnderIceOld(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp)              :: zUnderIceIni(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp)              :: zUnderIceArt(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp)              :: bgctra_inter(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks, nbgctra)
+
+    REAL(wp) :: h_old_test
 
     TYPE(t_patch), POINTER:: p_patch 
     TYPE(t_subset_range), POINTER :: all_cells
 
+    INTEGER:: i_bgc_tra
     !-----------------------------------------------------------------------
     p_patch         => p_patch_3D%p_patch_2D(1)
     all_cells       => p_patch%cells%all
@@ -270,6 +274,13 @@ CONTAINS
     zUnderIceOld(:,:) = 0.0_wp
     zUnderIceIni(:,:) = 0.0_wp
     zUnderIceArt(:,:) = 0.0_wp
+
+    if(lhamocc)then 
+    DO i_bgc_tra = no_tracer+1, no_tracer+nbgctra
+      ! for HAMOCC tracer dilution
+      bgctra_inter(:,:,i_bgc_tra-no_tracer)  = p_os%p_prog(nold(1))%tracer(:,1,:,i_bgc_tra)
+    ENDDO
+    endif
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     CALL dbg_print('on entry: hi     ',p_ice%hi       ,str_module,3, in_subset=p_patch%cells%owned)
@@ -743,6 +754,7 @@ CONTAINS
 
     END IF
     
+    CALL dbg_print('UpdSfc: h-old',p_os%p_prog(nold(1))%h,         str_module, 1, in_subset=p_patch%cells%owned)
     ! apply volume flux to surface elevation
     !  - add to h_old before explicit term
     !  - change in salt concentration applied here
@@ -769,12 +781,33 @@ CONTAINS
           !    - for i_sea_ice=0 it is FrshFlux_TotalIce=0 and no change here
           zUnderIceArt(jc,jb)= p_ice%zUnderIce(jc,jb) - p_oce_sfc%FrshFlux_TotalIce(jc,jb)*dtime
           sss_inter(jc,jb)   = p_oce_sfc%sss(jc,jb) * zUnderIceArt(jc,jb) / p_ice%zUnderIce(jc,jb)
+        
+          if(lhamocc.and.p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)>0.5)then 
+          DO i_bgc_tra = no_tracer+1, no_tracer+nbgctra
+           ! for HAMOCC tracer dilution
+             
+
+             bgctra_inter(jc,jb,i_bgc_tra-no_tracer)  = p_os%p_prog(nold(1))%tracer(jc,1,jb,i_bgc_tra) &
+           &        * zUnderIceArt(jc,jb) / p_ice%zUnderIce(jc,jb)
+          ENDDO
+          endif
 
           !******  (Thermodynamic Eq. 4)  ******
           !! Next, calculate salinity change caused by rain and runoff without snowfall by adding their freshwater to zUnderIce
           zUnderIceOld(jc,jb)    = p_ice%zUnderIce(jc,jb)
           p_ice%zUnderIce(jc,jb) = zUnderIceOld(jc,jb) + p_oce_sfc%FrshFlux_VolumeTotal(jc,jb) * dtime
           p_oce_sfc%SSS(jc,jb)   = sss_inter(jc,jb) * zUnderIceOld(jc,jb) / p_ice%zUnderIce(jc,jb)
+
+          if(lhamocc.and.p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)>0.5)then 
+          DO i_bgc_tra = no_tracer+1, no_tracer+nbgctra
+           ! HAMOCC tracer dilution
+             p_os%p_prog(nold(1))%tracer(jc,1,jb,i_bgc_tra) =  bgctra_inter(jc,jb,i_bgc_tra-no_tracer)  &
+            & * zUnderIceOld(jc,jb)/  p_ice%zUnderIce(jc,jb)
+          ENDDO
+          endif
+
+          h_old_test=  (p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)+p_os%p_prog(nold(1))%h(jc,jb))
+
 
           !******  (Thermodynamic Eq. 5)  ******
           !! Finally, let sea-level change from P-E+RO plus snow fall on ice, net total volume forcing to ocean surface

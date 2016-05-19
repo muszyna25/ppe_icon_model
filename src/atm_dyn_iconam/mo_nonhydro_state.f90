@@ -66,16 +66,18 @@ MODULE mo_nonhydro_state
     &                                add_ref, new_var_list, delete_var_list, &
     &                                add_var_list_reference, get_timelevel_string
   USE mo_linked_list,          ONLY: t_list_element
-  USE mo_var_metadata_types,   ONLY: t_var_metadata, MAX_GROUPS
-  USE mo_var_metadata,         ONLY: create_tracer_metadata,                 &
-    &                                create_vert_interp_metadata,            &
+  USE mo_var_metadata_types,   ONLY: t_var_metadata,t_var_metadata_dynamic,  &
+    &                                MAX_GROUPS
+  USE mo_var_metadata,         ONLY: create_vert_interp_metadata,            &
     &                                create_hor_interp_metadata,             &
     &                                groups, vintp_types, new_action, actions
+  USE mo_tracer_metadata,      ONLY: create_tracer_metadata,                 &
+    &                                create_tracer_metadata_hydro
+  USE mo_add_tracer_ref,       ONLY: add_tracer_ref
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var, grib2_var, t_grib2_int_key, OPERATOR(+)
   USE mo_gribout_config,       ONLY: gribout_config
   USE mo_art_tracer_interface, ONLY: art_tracer_interface
-  USE mo_add_tracer_ref,       ONLY: add_tracer_ref
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
     &                                GRID_UNSTRUCTURED_VERT, GRID_CELL, GRID_EDGE,   &
@@ -589,6 +591,14 @@ MODULE mo_nonhydro_state
         ! add_tracer_ref. 
         
 
+        ! Note that we make use of 
+        ! create_tracer_metadata
+        ! create_tracer_metadata_hydroMass
+        ! create_tracer_metadata_hydroNr
+        ! for creating tracer-specific metadata. As a side effect, tracers are added to 
+        ! distinct tracer groups, depending on the create_tracer_metadata[...] routine 
+        ! used. Thus, make sure to use the right one when adding additional tracers.
+        ! create_tracer_metadata[...] are described in more detail in mo_tracer_metadata.
         ktracer=ntracer
         ALLOCATE( p_prog%tracer_ptr(ktracer) )
         !QV
@@ -602,6 +612,7 @@ MODULE mo_nonhydro_state
             &           ldims=shape3d_c,                                               &
             &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
             &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &                       name        = TRIM(vname_prefix)//'qv'//suffix,    &
             &                       ihadv_tracer=advconf%ihadv_tracer(iqv),            &
             &                       ivadv_tracer=advconf%ivadv_tracer(iqv)),           & 
             &           vert_interp=create_vert_interp_metadata(                       &
@@ -628,7 +639,8 @@ MODULE mo_nonhydro_state
             &         grib2_var(0, 1, 22, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
             &         ldims=shape3d_c,                                               &
             &         tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
-            &         tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &         tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+            &                     name        = TRIM(vname_prefix)//'qc'//suffix,    &
             &                     ihadv_tracer=advconf%ihadv_tracer(iqc),            &
             &                     ivadv_tracer=advconf%ivadv_tracer(iqc)),           &
             &         vert_interp=create_vert_interp_metadata(                       &
@@ -651,7 +663,8 @@ MODULE mo_nonhydro_state
             &         grib2_var(0, 1, 82, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
             &         ldims=shape3d_c,                                               &
             &         tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
-            &         tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &         tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+            &                     name        = TRIM(vname_prefix)//'qi'//suffix,    &
             &                     ihadv_tracer=advconf%ihadv_tracer(iqi),            &
             &                     ivadv_tracer=advconf%ivadv_tracer(iqi)),           &
             &         vert_interp=create_vert_interp_metadata(                       &
@@ -675,7 +688,8 @@ MODULE mo_nonhydro_state
             &           grib2_var(0, 1, 24, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
             &           ldims=shape3d_c,                                               &
             &           tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
-            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &           tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+            &                       name        = TRIM(vname_prefix)//'qr'//suffix,    &
             &                       ihadv_tracer=advconf%ihadv_tracer(iqr),            &
             &                       ivadv_tracer=advconf%ivadv_tracer(iqr)),           &
             &           vert_interp=create_vert_interp_metadata(                       &
@@ -699,7 +713,8 @@ MODULE mo_nonhydro_state
             &           grib2_var(0, 1, 25, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
             &           ldims=shape3d_c,                                               &
             &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
-            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &           tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+            &                       name        = TRIM(vname_prefix)//'qs'//suffix,    &
             &                       ihadv_tracer=advconf%ihadv_tracer(iqs),            &
             &                       ivadv_tracer=advconf%ivadv_tracer(iqs)),           &
             &           vert_interp=create_vert_interp_metadata(                       &
@@ -724,7 +739,8 @@ MODULE mo_nonhydro_state
             &           grib2_var(0, 1, 32, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
             &           ldims=shape3d_c,                                               &
             &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
-            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &           tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+            &                       name        = TRIM(vname_prefix)//'qg'//suffix,    &
             &                       ihadv_tracer=advconf%ihadv_tracer(iqg),            &
             &                       ivadv_tracer=advconf%ivadv_tracer(iqg)),           &
             &           vert_interp=create_vert_interp_metadata(                       &
@@ -748,6 +764,7 @@ MODULE mo_nonhydro_state
             &           ldims=shape3d_c,                                               &
             &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
             &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &                       name        = TRIM(vname_prefix)//'qni'//suffix,   &
             &                       ihadv_tracer=advconf%ihadv_tracer(iqni),           &
             &                       ivadv_tracer=advconf%ivadv_tracer(iqni)),          &
             &           vert_interp=create_vert_interp_metadata(                       &
@@ -767,6 +784,7 @@ MODULE mo_nonhydro_state
             &           ldims=shape3d_c,                                               &
             &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
             &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &                       name        = TRIM(vname_prefix)//'qni_nuc'//suffix, &
             &                       ihadv_tracer=advconf%ihadv_tracer(iqni_nuc),       &
             &                       ivadv_tracer=advconf%ivadv_tracer(iqni_nuc)),      &
             &           vert_interp=create_vert_interp_metadata(                       &
@@ -795,7 +813,8 @@ MODULE mo_nonhydro_state
                     & grib2_var(0, 1, 32, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
-                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    & tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+                    &             name        = TRIM(vname_prefix)//'qg'//suffix,    &
                     &             ihadv_tracer=advconf%ihadv_tracer(iqg),            &
                     &             ivadv_tracer=advconf%ivadv_tracer(iqg)),           &
                     & vert_interp=create_vert_interp_metadata(                       &
@@ -815,7 +834,8 @@ MODULE mo_nonhydro_state
                     & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
-                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    & tracer_info=create_tracer_metadata_hydro(lis_tracer=.TRUE.,    &
+                    &             name        = TRIM(vname_prefix)//'qh'//suffix,    &
                     &             ihadv_tracer=advconf%ihadv_tracer(iqh),            &
                     &             ivadv_tracer=advconf%ivadv_tracer(iqh)),           &
                     & vert_interp=create_vert_interp_metadata(                       &
@@ -836,6 +856,7 @@ MODULE mo_nonhydro_state
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             name        = TRIM(vname_prefix)//'qni'//suffix,   &
                     &             ihadv_tracer=advconf%ihadv_tracer(iqni),           &
                     &             ivadv_tracer=advconf%ivadv_tracer(iqni)),          &
                     & vert_interp=create_vert_interp_metadata(                       &
@@ -856,6 +877,7 @@ MODULE mo_nonhydro_state
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             name        = TRIM(vname_prefix)//'qnr'//suffix,   &
                     &             ihadv_tracer=advconf%ihadv_tracer(iqnr),           &
                     &             ivadv_tracer=advconf%ivadv_tracer(iqnr)),          &
                     & vert_interp=create_vert_interp_metadata(                       &
@@ -876,6 +898,7 @@ MODULE mo_nonhydro_state
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             name        = TRIM(vname_prefix)//'qns'//suffix,   &
                     &             ihadv_tracer=advconf%ihadv_tracer(iqns),           &
                     &             ivadv_tracer=advconf%ivadv_tracer(iqns)),          &
                     & vert_interp=create_vert_interp_metadata(                       &
@@ -896,6 +919,7 @@ MODULE mo_nonhydro_state
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             name        = TRIM(vname_prefix)//'qng'//suffix,   &
                     &             ihadv_tracer=advconf%ihadv_tracer(iqng),           &
                     &             ivadv_tracer=advconf%ivadv_tracer(iqng)),          &
                     & vert_interp=create_vert_interp_metadata(                       &
@@ -916,6 +940,7 @@ MODULE mo_nonhydro_state
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             name        = TRIM(vname_prefix)//'qnh'//suffix,   &
                     &             ihadv_tracer=advconf%ihadv_tracer(iqnh),           &
                     &             ivadv_tracer=advconf%ivadv_tracer(iqnh)),          &
                     & vert_interp=create_vert_interp_metadata(                       &
@@ -940,6 +965,7 @@ MODULE mo_nonhydro_state
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             name        = TRIM(vname_prefix)//'qnc'//suffix,   &
                     &             ihadv_tracer=advconf%ihadv_tracer(iqnc),           &
                     &             ivadv_tracer=advconf%ivadv_tracer(iqnc)),          &
                     & vert_interp=create_vert_interp_metadata(                       &
@@ -964,6 +990,7 @@ MODULE mo_nonhydro_state
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             name        = TRIM(vname_prefix)//'ninact'//suffix,&
                     &             ihadv_tracer=advconf%ihadv_tracer(ininact),        &
                     &             ivadv_tracer=advconf%ivadv_tracer(ininact)),       &
                     & vert_interp=create_vert_interp_metadata(                       &
@@ -986,6 +1013,7 @@ MODULE mo_nonhydro_state
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             name        = TRIM(vname_prefix)//'nccn'//suffix,  &
                     &             ihadv_tracer=advconf%ihadv_tracer(inccn),          &
                     &             ivadv_tracer=advconf%ivadv_tracer(inccn)),         &
                     & vert_interp=create_vert_interp_metadata(                       &
@@ -1004,6 +1032,7 @@ MODULE mo_nonhydro_state
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
                     & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             name        = TRIM(vname_prefix)//'ninpot'//suffix,&
                     &             ihadv_tracer=advconf%ihadv_tracer(ininpot),        &
                     &             ivadv_tracer=advconf%ivadv_tracer(ininpot)),       &
                     & vert_interp=create_vert_interp_metadata(                       &
@@ -1025,7 +1054,8 @@ MODULE mo_nonhydro_state
             &           grib2_var(192, 201, 39, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
             &           ldims=shape3d_c,                                               &
             &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
-            &           tracer_info=create_tracer_metadata(),                          &
+            &           tracer_info=create_tracer_metadata(                            &
+            &                       name = TRIM(vname_prefix)//'qtvar'//suffix)       ,&
             &           vert_interp=create_vert_interp_metadata(                       &
             &                       vert_intp_type=vintp_types("P","Z","I"),           &
             &                       vert_intp_method=VINTP_METHOD_LIN,                 &
@@ -1045,7 +1075,8 @@ MODULE mo_nonhydro_state
                     & cf_desc, grib2_desc,                                           &
                     & ldims=shape3d_c,                                               &
                     & tlev_source=TLEV_NNOW_RCF,                                     &              ! output from nnow_rcf slice
-                    & tracer_info=create_tracer_metadata(),                          &
+                    & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                    &             name = TRIM(vname_prefix)//'tke_mc'//suffix),      &
                     & vert_interp=create_vert_interp_metadata(                       &
                     &             vert_intp_type=vintp_types("P","Z","I"),           &
                     &             vert_intp_method=VINTP_METHOD_LIN,                 &
@@ -1067,12 +1098,13 @@ MODULE mo_nonhydro_state
             &                  p_prog%tracer_ptr(:),                                 &
             &                  cf_desc, grib2_desc,                                  &
             &                  advection_config(p_patch%id),                         &
-            &                  p_patch%id,                                           &
+            &                  jg=p_patch%id,                                        &
             &                  ldims=shape3d_c,                                      &
             &                  loutput=.TRUE.,                                       &
             &                  lrestart=.FALSE.,                                     &
             &                  tlev_source=TLEV_NNOW_RCF,                            &  ! output from nnow_rcf slice
-            &                  lis_tracer=.TRUE. )
+            &                  tracer_info=create_tracer_metadata(lis_tracer=.TRUE., &
+            &                              name = 'Qpassive_'//TRIM(ADJUSTL(passive_tracer_suffix))//suffix) )
         ENDDO
 
 
@@ -1117,7 +1149,7 @@ MODULE mo_nonhydro_state
             & grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL),          &
             & ldims=shape3d_c,                                                  &
             & tlev_source=TLEV_NNOW_RCF,                                        &              ! output from nnow_rcf slice
-            & tracer_info=create_tracer_metadata(),                             &
+            & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.),            &
             & vert_interp=create_vert_interp_metadata(                          &
             &             vert_intp_type=vintp_types("P","Z","I"),              & 
             &             vert_intp_method=VINTP_METHOD_LIN,                    &
@@ -1162,9 +1194,10 @@ MODULE mo_nonhydro_state
       &  listname
 
     ! local variables
-    TYPE (t_var_metadata), POINTER :: from_info
-    TYPE (t_list_element), POINTER :: element
-    TYPE (t_list_element), TARGET  :: start_with
+    TYPE (t_var_metadata), POINTER         :: from_info
+    TYPE (t_var_metadata_dynamic), POINTER :: from_info_dyn
+    TYPE (t_list_element), POINTER         :: element
+    TYPE (t_list_element), TARGET          :: start_with
 
     !--------------------------------------------------------------
 
@@ -1190,10 +1223,11 @@ MODULE mo_nonhydro_state
       !
       ! retrieve information from actual linked list element
       !
-      from_info => element%field%info
+      from_info     => element%field%info
+      from_info_dyn => element%field%info_dyn
 
       ! Only add tracer fields to the tracer list
-      IF (from_info%tracer%lis_tracer .AND. .NOT. from_info%lcontainer ) THEN
+      IF (from_info_dyn%tracer%lis_tracer .AND. .NOT. from_info%lcontainer ) THEN
 
         CALL add_var_list_reference(p_tracer_list, from_info%name, &
           &                         from_var_list%p%name, in_group=groups() )
@@ -2391,6 +2425,8 @@ MODULE mo_nonhydro_state
 
       ALLOCATE(p_diag%extra_2d_ptr(inextra_2d))
       DO jt =1,inextra_2d
+        ! GRIB2: extra fields are encoded as "DUMMY_x" (where x=jt)
+        grib2_desc = grib2_var( 0, 254, jt, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         WRITE(ctrc,'(I2)')jt
         CALL add_ref( p_diag_list, 'extra_2d', 'extra_2d'//TRIM(ADJUSTL(ctrc)), &
           &           p_diag%extra_2d_ptr(jt)%p_2d,                             &
@@ -2413,6 +2449,8 @@ MODULE mo_nonhydro_state
 
       ALLOCATE(p_diag%extra_3d_ptr(inextra_3d))
       DO jt =1,inextra_3d
+        ! GRIB2: extra fields are encoded as "DUMMY_x" (where x=jt)
+        grib2_desc = grib2_var( 0, 254, jt, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         WRITE(ctrc,'(I2)')jt
         CALL add_ref( p_diag_list, 'extra_3d', 'extra_3d'//TRIM(ADJUSTL(ctrc)), &
           &           p_diag%extra_3d_ptr(jt)%p_3d,                             &
@@ -2776,114 +2814,114 @@ MODULE mo_nonhydro_state
                 & isteptype=TSTEP_CONSTANT )
 
     IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
-    ! slope of the terrain in normal direction (half level)
-    ! ddxn_z_half_e  p_metrics%ddxn_z_full(nproma,nlevp1,nblks_e)
-    !
-    cf_desc    = t_cf_var('terrain_slope_in_normal_direction', '-',             &
-      &                   'terrain slope in normal direction', datatype_flt)
-    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
-    CALL add_var( p_metrics_list, 'ddxn_z_half_e', p_metrics%ddxn_z_half_e,         &
-                & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID_HALF, cf_desc, grib2_desc,       &
-                & ldims=shape3d_ehalf, loutput=.TRUE.,                             &
-                & isteptype=TSTEP_CONSTANT )
+      ! slope of the terrain in normal direction (half level)
+      ! ddxn_z_half_e  p_metrics%ddxn_z_full(nproma,nlevp1,nblks_e)
+      !
+      cf_desc    = t_cf_var('terrain_slope_in_normal_direction', '-',             &
+           &                   'terrain slope in normal direction', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+      CALL add_var( p_metrics_list, 'ddxn_z_half_e', p_metrics%ddxn_z_half_e,         &
+           & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID_HALF, cf_desc, grib2_desc,       &
+           & ldims=shape3d_ehalf, loutput=.TRUE.,                             &
+           & isteptype=TSTEP_CONSTANT )
 
 
-    ! slope of the terrain in normal direction (half level)
-    ! ddxn_z_half_c  p_metrics%ddxn_z_full(nproma,nlevp1,nblks_e)
-    !
-    cf_desc    = t_cf_var('terrain_slope_in_normal_direction', '-',             &
-      &                   'terrain slope in normal direction', datatype_flt)
-    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( p_metrics_list, 'ddxn_z_half_c', p_metrics%ddxn_z_half_c,         &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,     &
-                & ldims=shape3d_chalf, loutput=.TRUE.,                             &
-                & isteptype=TSTEP_CONSTANT )
+      ! slope of the terrain in normal direction (half level)
+      ! ddxn_z_half_c  p_metrics%ddxn_z_full(nproma,nlevp1,nblks_e)
+      !
+      cf_desc    = t_cf_var('terrain_slope_in_normal_direction', '-',             &
+           &                   'terrain slope in normal direction', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_metrics_list, 'ddxn_z_half_c', p_metrics%ddxn_z_half_c,         &
+           & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,     &
+           & ldims=shape3d_chalf, loutput=.TRUE.,                             &
+           & isteptype=TSTEP_CONSTANT )
 
 
-
-    ! slope of the terrain in normal direction (full level)
-    ! ddxn_z_full_c  p_metrics%ddxn_z_full(nproma,nlev,nblks_e)
-    !
-    cf_desc    = t_cf_var('terrain_slope_in_normal_direction', '-',             &
-      &                   'terrain slope in normal direction', datatype_flt)
-    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( p_metrics_list, 'ddxn_z_full_c', p_metrics%ddxn_z_full_c,         &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
-                & ldims=shape3d_c, loutput=.TRUE.,                             &
-                & isteptype=TSTEP_CONSTANT )
-
-
-    ! slope of the terrain in normal direction (full level)
-    ! ddxn_z_full_v  p_metrics%ddxn_z_full(nproma,nlev,nblks_e)
-    !
-    cf_desc    = t_cf_var('terrain_slope_in_normal_direction', '-',             &
-      &                   'terrain slope in normal direction', datatype_flt)
-    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_VERTEX)
-    CALL add_var( p_metrics_list, 'ddxn_z_full_v', p_metrics%ddxn_z_full_v,     &
-                & GRID_UNSTRUCTURED_VERT, ZA_HYBRID, cf_desc, grib2_desc,       &
-                & ldims=shape3d_v, loutput=.TRUE.,                             &
-                & isteptype=TSTEP_CONSTANT )
+      ! slope of the terrain in normal direction (full level)
+      ! ddxn_z_full_c  p_metrics%ddxn_z_full(nproma,nlev,nblks_e)
+      !
+      cf_desc    = t_cf_var('terrain_slope_in_normal_direction', '-',             &
+           &                   'terrain slope in normal direction', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_metrics_list, 'ddxn_z_full_c', p_metrics%ddxn_z_full_c,         &
+           & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
+           & ldims=shape3d_c, loutput=.TRUE.,                             &
+           & isteptype=TSTEP_CONSTANT )
 
 
-    ! slope of the terrain in tangential direction (full level)
-    ! ddxt_z_half_e  p_metrics%ddxt_z_full(nproma,nlev,nblks_e)
-    !
-    cf_desc    = t_cf_var('terrain_slope_in_tangential_direction', '-',         &
-      &                   'terrain slope in tangential direction', datatype_flt)
-    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
-    CALL add_var( p_metrics_list, 'ddxt_z_half_e', p_metrics%ddxt_z_half_e,         &
-                & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID_HALF, cf_desc, grib2_desc,       &
-                & ldims=shape3d_ehalf, loutput=.TRUE.,                             &
-                & isteptype=TSTEP_CONSTANT )
+      ! slope of the terrain in normal direction (full level)
+      ! ddxn_z_full_v  p_metrics%ddxn_z_full(nproma,nlev,nblks_e)
+      !
+      cf_desc    = t_cf_var('terrain_slope_in_normal_direction', '-',             &
+           &                   'terrain slope in normal direction', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_VERTEX)
+      CALL add_var( p_metrics_list, 'ddxn_z_full_v', p_metrics%ddxn_z_full_v,     &
+           & GRID_UNSTRUCTURED_VERT, ZA_HYBRID, cf_desc, grib2_desc,       &
+           & ldims=shape3d_v, loutput=.TRUE.,                             &
+           & isteptype=TSTEP_CONSTANT )
 
 
-    ! slope of the terrain in tangential direction (full level)
-    ! ddxt_z_half_c  p_metrics%ddxt_z_full(nproma,nlevp1,nblks_c)
-    !
-    cf_desc    = t_cf_var('terrain_slope_in_tangential_direction', '-',         &
-      &                   'terrain slope in tangential direction', datatype_flt)
-    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( p_metrics_list, 'ddxt_z_half_c', p_metrics%ddxt_z_half_c,         &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,       &
-                & ldims=shape3d_chalf, loutput=.TRUE.,                             &
-                & isteptype=TSTEP_CONSTANT )
+      ! slope of the terrain in tangential direction (full level)
+      ! ddxt_z_half_e  p_metrics%ddxt_z_full(nproma,nlev,nblks_e)
+      !
+      cf_desc    = t_cf_var('terrain_slope_in_tangential_direction', '-',         &
+           &                   'terrain slope in tangential direction', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
+      CALL add_var( p_metrics_list, 'ddxt_z_half_e', p_metrics%ddxt_z_half_e,         &
+           & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID_HALF, cf_desc, grib2_desc,       &
+           & ldims=shape3d_ehalf, loutput=.TRUE.,                             &
+           & isteptype=TSTEP_CONSTANT )
 
 
-    ! slope of the terrain in tangential direction (full level)
-    ! ddxt_z_half_v  p_metrics%ddxt_z_full(nproma,nlevp1,nblks_e)
-    !
-    cf_desc    = t_cf_var('terrain_slope_in_tangential_direction', '-',         &
-      &                   'terrain slope in tangential direction', datatype_flt)
-    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_VERTEX)
-    CALL add_var( p_metrics_list, 'ddxt_z_half_v', p_metrics%ddxt_z_half_v,         &
-                & GRID_UNSTRUCTURED_VERT, ZA_HYBRID_HALF, cf_desc, grib2_desc,       &
-                & ldims=shape3d_vhalf, loutput=.TRUE.,                             &
-                & isteptype=TSTEP_CONSTANT )
+      ! slope of the terrain in tangential direction (full level)
+      ! ddxt_z_half_c  p_metrics%ddxt_z_full(nproma,nlevp1,nblks_c)
+      !
+      cf_desc    = t_cf_var('terrain_slope_in_tangential_direction', '-',         &
+           &                   'terrain slope in tangential direction', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_metrics_list, 'ddxt_z_half_c', p_metrics%ddxt_z_half_c,         &
+           & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,       &
+           & ldims=shape3d_chalf, loutput=.TRUE.,                             &
+           & isteptype=TSTEP_CONSTANT )
 
 
-    ! slope of the terrain in tangential direction (full level)
-    ! ddxt_z_full_c  p_metrics%ddxt_z_full_c(nproma,nlev,nblks_c)
-    !
-    cf_desc    = t_cf_var('terrain_slope_in_tangential_direction', '-',         &
-      &                   'terrain slope in tangential direction', datatype_flt)
-    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( p_metrics_list, 'ddxt_z_full_c', p_metrics%ddxt_z_full_c,     &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
-                & ldims=shape3d_c, loutput=.TRUE.,                              &
-                & isteptype=TSTEP_CONSTANT )
+      ! slope of the terrain in tangential direction (full level)
+      ! ddxt_z_half_v  p_metrics%ddxt_z_full(nproma,nlevp1,nblks_e)
+      !
+      cf_desc    = t_cf_var('terrain_slope_in_tangential_direction', '-',         &
+           &                   'terrain slope in tangential direction', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_VERTEX)
+      CALL add_var( p_metrics_list, 'ddxt_z_half_v', p_metrics%ddxt_z_half_v,         &
+           & GRID_UNSTRUCTURED_VERT, ZA_HYBRID_HALF, cf_desc, grib2_desc,       &
+           & ldims=shape3d_vhalf, loutput=.TRUE.,                             &
+           & isteptype=TSTEP_CONSTANT )
 
 
-    ! slope of the terrain in tangential direction (full level)
-    ! ddxt_z_full_v  p_metrics%ddxt_z_full(nproma,nlev,nblks_e)
-    !
-    cf_desc    = t_cf_var('terrain_slope_in_tangential_direction', '-',         &
-      &                   'terrain slope in tangential direction', datatype_flt)
-    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_VERTEX)
-    CALL add_var( p_metrics_list, 'ddxt_z_full_v', p_metrics%ddxt_z_full_v,         &
-                & GRID_UNSTRUCTURED_VERT, ZA_HYBRID, cf_desc, grib2_desc,       &
-                & ldims=shape3d_v, loutput=.TRUE.,                             &
-                & isteptype=TSTEP_CONSTANT )
-    ENDIF
+      ! slope of the terrain in tangential direction (full level)
+      ! ddxt_z_full_c  p_metrics%ddxt_z_full_c(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('terrain_slope_in_tangential_direction', '-',         &
+           &                   'terrain slope in tangential direction', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_metrics_list, 'ddxt_z_full_c', p_metrics%ddxt_z_full_c,     &
+           & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
+           & ldims=shape3d_c, loutput=.TRUE.,                              &
+           & isteptype=TSTEP_CONSTANT )
+
+
+      ! slope of the terrain in tangential direction (full level)
+      ! ddxt_z_full_v  p_metrics%ddxt_z_full(nproma,nlev,nblks_e)
+      !
+      cf_desc    = t_cf_var('terrain_slope_in_tangential_direction', '-',         &
+           &                   'terrain slope in tangential direction', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_VERTEX)
+      CALL add_var( p_metrics_list, 'ddxt_z_full_v', p_metrics%ddxt_z_full_v,         &
+           & GRID_UNSTRUCTURED_VERT, ZA_HYBRID, cf_desc, grib2_desc,       &
+           & ldims=shape3d_v, loutput=.TRUE.,                             &
+           & isteptype=TSTEP_CONSTANT )
+
+    ENDIF  !is_les_phy
 
 
     ! functional determinant of the metrics [sqrt(gamma)]
@@ -3455,17 +3493,16 @@ MODULE mo_nonhydro_state
                   & ldims=shape3d_e,                                                   &
                   & isteptype=TSTEP_CONSTANT )
 
-      IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
-        ! inv_ddqz_z_full_v  p_metrics%inv_ddqz_z_full_v(nproma,nlev,nblks_v)
-        !
-        cf_desc    = t_cf_var('metrics_functional_determinant', '-',         &
-          &                   'metrics functional determinant', datatype_flt)
-        grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_VERTEX)
-        CALL add_var( p_metrics_list, 'inv_ddqz_z_full_v', p_metrics%inv_ddqz_z_full_v,         &
-                    & GRID_UNSTRUCTURED_VERT, ZA_HYBRID, cf_desc, grib2_desc,       &
-                    & ldims=shape3d_v, loutput=.TRUE.,                              &
-                    & isteptype=TSTEP_CONSTANT )
-      ENDIF
+      ! inv_ddqz_z_full_v  p_metrics%inv_ddqz_z_full_v(nproma,nlev,nblks_v)
+      !
+      cf_desc    = t_cf_var('metrics_functional_determinant', '-',         &
+        &                   'metrics functional determinant', datatype_flt)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_VERTEX)
+      CALL add_var( p_metrics_list, 'inv_ddqz_z_full_v', p_metrics%inv_ddqz_z_full_v, &
+                  & GRID_UNSTRUCTURED_VERT, ZA_HYBRID, cf_desc, grib2_desc,       &
+                  & ldims=shape3d_v, loutput=.TRUE.,                              &
+                  & isteptype=TSTEP_CONSTANT )
+
 
       ! inv_ddqz_z_half  p_metrics%inv_ddqz_z_half(nproma,nlevp1,nblks_c)
       !

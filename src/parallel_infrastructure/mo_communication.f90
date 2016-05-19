@@ -36,7 +36,7 @@ MODULE mo_communication
 !
 !
 USE mo_impl_constants, ONLY: SUCCESS
-USE mo_scatter_pattern_base, ONLY: t_scatterPattern, deleteScatterPattern
+USE mo_scatter_pattern_base, ONLY: t_ScatterPattern, t_ScatterPatternPtr, deleteScatterPattern
 USE mo_kind,               ONLY: wp
 USE mo_exception,          ONLY: finish, message, message_text
 USE mo_mpi,                ONLY: p_send, p_recv, p_irecv, p_wait, p_isend, &
@@ -78,7 +78,7 @@ PUBLIC :: t_comm_allgather_pattern
 PUBLIC :: setup_comm_allgather_pattern
 PUBLIC :: delete_comm_allgather_pattern
 
-PUBLIC :: t_scatterPattern, makeScatterPattern, deleteScatterPattern
+PUBLIC :: t_ScatterPattern, t_ScatterPatternPtr, makeScatterPattern, deleteScatterPattern
 
 PUBLIC :: ASSIGNMENT(=)
 !
@@ -2757,6 +2757,11 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
    ENDIF
 
    ! Copy exchanged data back to receive buffer
+
+#ifdef __OMPPAR_COPY__
+!$OMP PARALLEL PRIVATE(ioffset,pid,isum,irs,ire,isum1)
+#endif
+
    ioffset = 0
    DO np = 1, num_recv ! loop over PEs from where to receive the data
 
@@ -2768,8 +2773,15 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
        ire = p_pat(n)%recv_limits(pid+1) + ioffset_r(n)
        isum1 = ire - irs + 1
        IF (isum1 > 0) THEN
-!CDIR COLLAPSE
-         recv_buf(:,irs:ire) = auxr_buf(:,isum+1:isum+isum1)
+#ifdef __OMPPAR_COPY__
+!$OMP DO
+#endif
+         DO i = 1, isum1
+           recv_buf(:,irs-1+i) = auxr_buf(:,isum+i)
+         ENDDO
+#ifdef __OMPPAR_COPY__
+!$OMP END DO
+#endif
          isum = isum + isum1
        ENDIF
      ENDDO
@@ -2793,9 +2805,6 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
      ENDDO
    ENDDO
 #else
-#ifdef __OMPPAR_COPY__
-!$OMP PARALLEL
-#endif
    DO np = 1, npats
 #ifdef __OMPPAR_COPY__
 !$OMP DO PRIVATE(jb,jl,ik)
@@ -3659,20 +3668,21 @@ SUBROUTINE two_phase_gather_second(recv_buffer_r, recv_buffer_i, fill_value, &
 END SUBROUTINE two_phase_gather_second
 
     !-------------------------------------------------------------------------------------------------------------------------------
-    !> Factory method for t_scatterPattern. Destroy with deleteScatterPattern().
+    !> Factory method for t_ScatterPattern. Destroy with deleteScatterPattern().
     !-------------------------------------------------------------------------------------------------------------------------------
-    FUNCTION makeScatterPattern(loc_arr_len, glb_index, communicator)
+    FUNCTION makeScatterPattern(jg, loc_arr_len, glb_index, communicator)
         USE mo_scatter_pattern_scatter
         IMPLICIT NONE
-        CLASS(t_scatterPattern), POINTER :: makeScatterPattern
-        INTEGER, INTENT(IN) :: loc_arr_len, glb_index(:), communicator
+        CLASS(t_ScatterPattern), POINTER :: makeScatterPattern
+        INTEGER, VALUE :: jg, loc_arr_len, communicator
+        INTEGER, INTENT(IN) :: glb_index(:)
 
         CHARACTER(*), PARAMETER :: routine = modname//":makeScatterPattern"
         INTEGER :: ierr
 
-        ALLOCATE(t_scatterPatternScatter::makeScatterPattern, stat = ierr)
+        ALLOCATE(t_ScatterPatternScatter::makeScatterPattern, stat = ierr)
         IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
-        CALL makeScatterPattern%construct(loc_arr_len, glb_index, communicator)
+        CALL makeScatterPattern%construct(jg, loc_arr_len, glb_index, communicator)
     END FUNCTION makeScatterPattern
 
 END MODULE mo_communication

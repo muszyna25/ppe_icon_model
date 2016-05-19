@@ -783,9 +783,13 @@ CONTAINS
     auto_typ  = MOD(cloud_type,10)        ! choice of warm rain scheme, see clouds_twomoment()
 
     CALL setup_particle_coeffs(rain,rain_coeffs)
-    rain_coeffs%alfa = rainSBBcoeffs%alfa
-    rain_coeffs%beta = rainSBBcoeffs%beta
-    rain_coeffs%gama = rainSBBcoeffs%gama
+    ! work around to avoid internal compiler error with old gfortran (gcc version 4.8.1)
+    rain_coeffs%particle_nonsphere%alfa = rainSBBcoeffs%particle_nonsphere%alfa
+    rain_coeffs%particle_nonsphere%beta = rainSBBcoeffs%particle_nonsphere%beta
+    rain_coeffs%particle_nonsphere%gama = rainSBBcoeffs%particle_nonsphere%gama
+!    rain_coeffs%alfa = rainSBBcoeffs%alfa
+!    rain_coeffs%beta = rainSBBcoeffs%beta
+!    rain_coeffs%gama = rainSBBcoeffs%gama 
     rain_coeffs%cmu0 = rainSBBcoeffs%cmu0
     rain_coeffs%cmu1 = rainSBBcoeffs%cmu1
     rain_coeffs%cmu2 = rainSBBcoeffs%cmu2
