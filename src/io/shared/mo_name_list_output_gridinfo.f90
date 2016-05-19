@@ -690,24 +690,13 @@ CONTAINS
     CALL nf(nf_inq_dimid(ncid, 'ne', dimid))
     CALL nf(nf_inq_dimlen(ncid, dimid, max_verts_connectivity))
     !
-    ! SELECT CASE (max_cell_connectivity)
-    ! CASE (3)
     CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
-    ! CASE (6)
-    !  CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
-    ! END SELECT
     CALL nf(nf_inq_dimlen(ncid, dimid, i_nc))
     !
     CALL nf(nf_inq_dimid(ncid, 'edge', dimid))
     CALL nf(nf_inq_dimlen(ncid, dimid, i_ne))
     !
-    ! SELECT CASE (max_cell_connectivity)
-    ! CASE (3)
-      CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
-    ! CASE (6)
-      CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
-    ! END SELECT
-
+    CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
     CALL nf(nf_inq_dimlen(ncid, dimid, i_nv))
 
     IF(i_nc /= patch_info(i_dom)%cells%n_log) &
@@ -719,14 +708,7 @@ CONTAINS
     !
     !---------------------------------------------------------------------------
     ! cell grid
-
-    ! SELECT CASE (max_cell_connectivity)
-    ! CASE (3)
     CALL nf(nf_inq_varid(ncid, 'clon', varid))
-    ! CASE (6)
-    !   CALL nf(nf_inq_varid(ncid, 'vlon', varid))
-    ! END SELECT
-
     ALLOCATE(clon(i_nc))
     CALL nf(nf_get_var_double(ncid, varid, clon))
     CALL reorder1(patch_info(i_dom)%cells%n_glb, &
@@ -735,13 +717,7 @@ CONTAINS
     DEALLOCATE(clon)
 
 
-    ! SELECT CASE (max_cell_connectivity)
-    ! CASE (3)
     CALL nf(nf_inq_varid(ncid, 'clat', varid))
-    ! CASE (6)
-    !  CALL nf(nf_inq_varid(ncid, 'vlat', varid))
-    ! END SELECT
-
     ALLOCATE(clat(i_nc))
     CALL nf(nf_get_var_double(ncid, varid, clat))
     CALL reorder1(patch_info(i_dom)%cells%n_glb, &
@@ -751,13 +727,7 @@ CONTAINS
     DEALLOCATE(clat)
 
 
-    ! SELECT CASE (max_cell_connectivity)
-    ! CASE (3)
     CALL nf(nf_inq_varid(ncid, 'clon_vertices', varid))
-    ! CASE (6)
-    ! CALL nf(nf_inq_varid(ncid, 'vlon_vertices', varid))
-    ! END SELECT
-
     ALLOCATE(clonv(max_cell_connectivity, i_nc))
     CALL nf(nf_get_var_double(ncid, varid, clonv))
     CALL reorder2(patch_info(i_dom)%cells%n_glb, &
@@ -767,13 +737,7 @@ CONTAINS
     DEALLOCATE(clonv)
 
 
-    ! SELECT CASE (max_cell_connectivity)
-    ! CASE (3)
     CALL nf(nf_inq_varid(ncid, 'clat_vertices', varid))
-    !CASE (6)
-    !  CALL nf(nf_inq_varid(ncid, 'vlat_vertices', varid))
-    ! END SELECT
-
     ALLOCATE(clatv(max_cell_connectivity, i_nc))
     CALL nf(nf_get_var_double(ncid, varid, clatv))
     CALL reorder2(patch_info(i_dom)%cells%n_glb, &
@@ -823,14 +787,7 @@ CONTAINS
 
     !-------------------------------------------------------------------------
     ! vertex grid
-
-    ! SELECT CASE (max_cell_connectivity)
-    ! CASE (3)
     CALL nf(nf_inq_varid(ncid, 'vlon', varid))
-    ! CASE (6)
-    !  CALL nf(nf_inq_varid(ncid, 'clon', varid))
-    !END SELECT
-
     ALLOCATE(vlon(i_nv))
     CALL nf(nf_get_var_double(ncid, varid, vlon))
     CALL reorder1(patch_info(i_dom)%verts%n_glb, &
@@ -839,13 +796,7 @@ CONTAINS
     CALL gridDefXvals(of%cdiVertGridID, vlon)
     DEALLOCATE(vlon)
 
-    ! SELECT CASE (max_cell_connectivity)
-    ! CASE (3)
-      CALL nf(nf_inq_varid(ncid, 'vlat', varid))
-    ! CASE (6)
-    !  CALL nf(nf_inq_varid(ncid, 'clat', varid))
-    !END SELECT
-
+    CALL nf(nf_inq_varid(ncid, 'vlat', varid))
     ALLOCATE(vlat(i_nv))
     CALL nf(nf_get_var_double(ncid, varid, vlat))
     CALL reorder1(patch_info(i_dom)%verts%n_glb, &
@@ -854,12 +805,7 @@ CONTAINS
     CALL gridDefYvals(of%cdiVertGridID, vlat)
     DEALLOCATE(vlat)
 
-    !IF(max_cell_connectivity==3) THEN
-      CALL nf(nf_inq_varid(ncid, 'vlon_vertices', varid))
-    !ELSEIF(max_cell_connectivity==6) THEN
-    !  CALL nf(nf_inq_varid(ncid, 'clon_vertices', varid))
-    !ENDIF
-
+    CALL nf(nf_inq_varid(ncid, 'vlon_vertices', varid))
     ALLOCATE(vlonv(max_verts_connectivity, i_nv))
     CALL nf(nf_get_var_double(ncid, varid, vlonv))
     CALL reorder2(patch_info(i_dom)%verts%n_glb, &
@@ -868,12 +814,7 @@ CONTAINS
     CALL gridDefXbounds(of%cdiVertGridID, vlonv)
     DEALLOCATE(vlonv)
 
-    ! IF(max_cell_connectivity==3) THEN
     CALL nf(nf_inq_varid(ncid, 'vlat_vertices', varid))
-    ! ELSEIF(max_cell_connectivity==6) THEN
-    !  CALL nf(nf_inq_varid(ncid, 'clat_vertices', varid))
-    !ENDIF
-
     ALLOCATE(vlatv(max_verts_connectivity, i_nv))
     CALL nf(nf_get_var_double(ncid, varid, vlatv))
     CALL reorder2(patch_info(i_dom)%verts%n_glb, &
@@ -1033,7 +974,7 @@ CONTAINS
     END IF
 
     IF (my_process_is_ocean()) THEN
-      CALL allgather_grid_info_cve(idom_log, 9 - patch_info%max_cell_connectivity, &
+      CALL allgather_grid_info_cve(idom_log, patch_info%max_vertex_connectivity, &
         &                          patch_info%nblks_glb_v, patch_info%nblks_glb_v, &
         &                          coordinates, patch_info%verts%grid_info, &
         &                          gather_pattern, cf_1_1_grid_verts_ocean, &

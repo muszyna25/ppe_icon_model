@@ -10,7 +10,7 @@ MODULE mo_util_uuid
 
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_CHAR, C_SIGNED_CHAR, C_NULL_CHAR
 
-  IMPLICIT NONE 
+  IMPLICIT NONE
 
   PRIVATE
 
@@ -19,9 +19,6 @@ MODULE mo_util_uuid
   PUBLIC :: uuid_generate
   PUBLIC :: uuid_parse
   PUBLIC :: uuid_unparse
-
-  PUBLIC :: uuid2char
-  PUBLIC :: char2uuid
 
   PUBLIC :: OPERATOR(==)
 
@@ -69,7 +66,7 @@ CONTAINS
     TYPE(t_uuid), INTENT(out) :: uuid
     CALL my_uuid_get(uuid)
   END SUBROUTINE uuid_generate
-  
+
   SUBROUTINE uuid_parse(uuid_string, uuid)
     CHARACTER(len=*), INTENT(in)  :: uuid_string
     TYPE(t_uuid),     INTENT(out) :: uuid
@@ -92,18 +89,6 @@ CONTAINS
       uuid_compare = .FALSE.
     ENDIF
   END FUNCTION uuid_compare
-  
-  SUBROUTINE uuid2char(uuid, string)
-    TYPE(t_uuid), INTENT(in) :: uuid
-    CHARACTER(len=1), INTENT(out) :: string(16)
-    string = TRANSFER(uuid%data, string)
-  END SUBROUTINE uuid2char
-
-  SUBROUTINE char2uuid(string, uuid)
-    CHARACTER(len=1), INTENT(in) :: string(16)
-    TYPE(t_uuid), INTENT(out) :: uuid
-    uuid%data  = TRANSFER(string, uuid%data)
-  END SUBROUTINE char2uuid
 
   SUBROUTINE clear_uuid(uuid)
     TYPE(t_uuid), INTENT(inout) :: uuid

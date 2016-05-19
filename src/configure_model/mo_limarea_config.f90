@@ -44,7 +44,6 @@ MODULE mo_limarea_config
     ! variables from namelist
     INTEGER                         :: itype_latbc      ! type of limited area boundary nudging
     REAL(wp)                        :: dtime_latbc      ! dt between two consequtive external latbc files
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dt_latbc         ! dt between two consequtive external latbc files
     INTEGER                         :: nlev_in
     CHARACTER(LEN=filename_max)     :: latbc_filename   ! prefix of latbc files
     CHARACTER(LEN=MAX_CHAR_LENGTH)  :: latbc_path       ! directory containing external latbc files
