@@ -45,7 +45,7 @@ MODULE mo_art_config
   PUBLIC :: iseasa,iseasb,iseasc,iseasa0,iseasb0,iseasc0                 !sea salt 
   PUBLIC :: idusta,idustb,idustc,idusta0,idustb0,idustc0                 !mineral dust
   PUBLIC :: iTRCHBR3,iTRCH2BR2                                           !chemical tracer - VSLS
-  PUBLIC :: iTRCH4,iTRC2H6,iTRC5H8,iTRCH3COCH3,iTRCO,iTRCO2              !chemical tracer - CH4-C2H6-C5H8-CH3COCH3-CO-CO2
+  PUBLIC :: iTRCH4,iTRC2H6,iTRC3H8,iTRC5H8,iTRCH3COCH3,iTRCO,iTRCO2      !chemical tracer - CH4-C2H6-C3H5-C5H8-CH3COCH3-CO-CO2
   PUBLIC :: iTRH2O,iTRO3,iTRN2O,iTRNH3,iTRSO2,iTRH2SO4,iTRHNO3,iTRAGE    !chemical tracer - others
   PUBLIC :: iTR_vortex,iTR_stn,iTR_stt,iTR_sts                           !artificial tracer
   PUBLIC :: iTR_trn,iTR_trt,iTR_trs,iTR_ttln,iTR_ttls                    !artificial tracer
@@ -71,7 +71,7 @@ MODULE mo_art_config
     &  idusta, idustb, idustc, idusta0, idustb0, idustc0
   INTEGER :: & !< Chemical tracers
     &  iTRCHBR3,iTRCH2BR2,                                        &
-    &  iTRCH4,iTRC2H6,iTRC5H8,iTRCH3COCH3,iTRCO,iTRCO2,           &
+    &  iTRCH4,iTRC2H6,iTRC3H8,iTRC5H8,iTRCH3COCH3,iTRCO,iTRCO2,   &
     &  iTRH2O,iTRO3,iTRN2O,iTRNH3,iTRSO2,iTRH2SO4,iTRHNO3,iTRAGE, &
     &  iTR_vortex,iTR_stn,iTR_stt,iTR_sts,                        &
     &  iTR_trn,iTR_trt,iTR_trs,iTR_ttln,iTR_ttls,                 &
@@ -94,11 +94,14 @@ MODULE mo_art_config
     ! Namelist variables
     
     ! General control variables (Details: cf. Tab. 2.2 ICON-ART User Guide)
-    CHARACTER(LEN=120) :: cart_folder  !< Absolute Path to ART source code
-    INTEGER :: iart_ntracer            !< number of transported ART tracers
-    INTEGER :: iart_init_aero          !< Initialization of aerosol species
-    INTEGER :: iart_init_gas           !< Initialization of gaseous species
-    LOGICAL :: lart_diag_out           !< Enable output of diagnostic fields
+    CHARACTER(LEN=120) :: cart_folder    !< Absolute Path to ART source code
+    INTEGER :: iart_ntracer              !< number of transported ART tracers
+    INTEGER :: iart_init_aero            !< Initialization of aerosol species
+    INTEGER :: iart_init_gas             !< Initialization of gaseous species
+    LOGICAL :: lart_diag_out             !< Enable output of diagnostic fields
+    CHARACTER(LEN=20) :: cart_io_suffix  !< user given suffix instead of automatically generated grid number 
+                                         !  in ICON-ART input filename convention: 
+                                         !  ART_iconR<n>B<kk>-grid-<yyyy-mm-dd-hh>_<grid_suffix>.nc
     
     ! Atmospheric Chemistry (Details: cf. Tab. 2.3 ICON-ART User Guide)
     LOGICAL :: lart_chem               !< Main switch to enable chemistry
