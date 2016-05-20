@@ -260,6 +260,10 @@ doc/technical/icondoc_fig1.pdf -text svneol=unset#unset
 doc/technical/icondoc_fig2.pdf -text
 doc/technical/radiation_variables.pdf -text
 doc/technical/radiation_variables.tex -text
+doc/technical/torus.pdf -text
+doc/technical/torus_grid.pdf -text
+doc/technical/torus_grid.tex -text
+doc/technical/torus_plane.pdf -text
 doc/technical/transport_arlists.tex -text
 doc/userguide/Makefile -text
 doc/userguide/authorlist.tex -text
