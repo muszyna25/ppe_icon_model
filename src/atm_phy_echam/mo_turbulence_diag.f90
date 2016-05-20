@@ -416,7 +416,7 @@ CONTAINS
         IF (zktest.LE.1._wp) THEN
            ptkevn(jl,jk)=tke_min
         ELSE
-           ptkevn(jl,jk)=MAX(tke_min,(zdisl*(SQRT(zktest)-1._wp))**2._wp)
+           ptkevn(jl,jk)=MAX(tke_min,(zdisl*(SQRT(zktest)-1._wp))**2)
         END IF
 
 #ifdef __ICON__
@@ -440,7 +440,7 @@ CONTAINS
         ! of which consists of a production term and dissipation.
         ! An explicit time stepping method is used here.
 
-        zthvprod = 2._wp*kh(jl,jk)*zthvirdif**2._wp     ! production rate
+        zthvprod = 2._wp*kh(jl,jk)*zthvirdif**2        ! production rate
         zthvdiss = pthvvar(jl,jk)*ztkesq/(da1*lmix)    ! dissipation rate
         pzthvvar(jl,jk) = pthvvar(jl,jk)+(zthvprod-zthvdiss)*pstep_len
         pzthvvar(jl,jk) = MAX(tke_min,pzthvvar(jl,jk))
@@ -723,12 +723,12 @@ CONTAINS
         zdqt     = zqtl - zqts(js,jsfc)                           ! d qt
         zdthetal(js,jsfc) = pthetal_b(js) - ztheta                         ! d theta_l
         IF (jsfc == idx_lnd) THEN                                 ! over land
-          zdu2(js,jsfc) = MAX(zepdu2,(pum1_b(js)**2._wp+pvm1_b(js)**2._wp &
-                                    +(wmc*pwstar_sfc(js,jsfc))**2._wp))
+          zdu2(js,jsfc) = MAX(zepdu2,(pum1_b(js)**2+pvm1_b(js)**2 &
+                                    +(wmc*pwstar_sfc(js,jsfc))**2))
         ELSE                                                      ! over water or ice
-          zdu2(js,jsfc) = MAX(zepdu2,(pum1_b(js)-pocu(js))**2._wp &   ! (d u)^2
-                                    +(pvm1_b(js)-pocv(js))**2._wp &   ! (d v)^2
-                                    +(wmc*pwstar_sfc(js,jsfc))**2._wp )
+          zdu2(js,jsfc) = MAX(zepdu2,(pum1_b(js)-pocu(js))**2 &   ! (d u)^2
+                                    +(pvm1_b(js)-pocv(js))**2 &   ! (d v)^2
+                                    +(wmc*pwstar_sfc(js,jsfc))**2 )
         END IF
 
         zbuoy        = zdus1*zdthetal(js,jsfc) + zdus2*zthetamit*zdqt
@@ -760,7 +760,7 @@ CONTAINS
 
         IF(pri_sfc(js,jsfc).GT.0._wp) THEN
            lmix(js,jsfc)=1._wp*grav/(ckap*fsl*pgeom1_b(js))+2._wp*earth_angular_velocity/(c_f*SQRT(f_tau(js,jsfc)*e_kin(js,jsfc))) &
-            +SQRT(grav**2._wp*zbuoy/(zthetavmit(js,jsfc)*pgeom1_b(js)))/(c_n*SQRT(f_tau(js,jsfc)*e_kin(js,jsfc)))
+            +SQRT(grav**2*zbuoy/(zthetavmit(js,jsfc)*pgeom1_b(js)))/(c_n*SQRT(f_tau(js,jsfc)*e_kin(js,jsfc)))
         ELSE
            lmix(js,jsfc)=1._wp*grav/(ckap*fsl*pgeom1_b(js))+2._wp*earth_angular_velocity/(c_f*SQRT(f_tau(js,jsfc)*e_kin(js,jsfc)))
         END IF 
@@ -774,8 +774,8 @@ CONTAINS
 
 ! neutral drag coefficient for momentum, z0m is effectively limited to half the first level height! 
        
-        pcdn_sfc(js,jsfc) = lmix(js,jsfc)**2._wp/((fsl*pgeom1_b(js)/grav)**2._wp &
-                            *((LOG(MAX(2._wp,pgeom1_b(js)/(grav*pz0m(js,jsfc)))))**2._wp))
+        pcdn_sfc(js,jsfc) = lmix(js,jsfc)**2/((fsl*pgeom1_b(js)/grav)**2 &
+                            *((LOG(MAX(2._wp,pgeom1_b(js)/(grav*pz0m(js,jsfc)))))**2))
 
         pcfnc_sfc(js,jsfc)= SQRT(zdu2(js,jsfc))*pcdn_sfc(js,jsfc)
 
@@ -934,7 +934,7 @@ CONTAINS
         DO jls = 1,is(jsfc)
 ! set index
         js=loidx(jls,jsfc)
-          zust   = pcfm_sfc(js,jsfc)*SQRT(zdu2(js,jsfc)-(wmc*pwstar_sfc(js,jsfc))**2._wp)
+          zust   = pcfm_sfc(js,jsfc)*SQRT(zdu2(js,jsfc)-(wmc*pwstar_sfc(js,jsfc))**2)
           zustar(js,jsfc) = SQRT(zust)
          IF (pri_sfc(js,jsfc).LT. 0._wp) THEN
            pwstar_sfc(js,jsfc)= 0.5_wp*(pwstar_sfc(js,jsfc)+(pghabl(js)/zthetavmit(js,jsfc)*pcfh_sfc(js,jsfc) & 
@@ -983,10 +983,10 @@ CONTAINS
       js=loidx(jls,jsfc)
 
        IF(pri_sfc(js,jsfc).GT.0._wp) THEN
-         ztkev    = (1._wp+e_pot(js,jsfc)/e_kin(js,jsfc))/f_tau(js,jsfc)*(pustarm(js)**2._wp)
+         ztkev    = (1._wp+e_pot(js,jsfc)/e_kin(js,jsfc))/f_tau(js,jsfc)*(pustarm(js)**2)
        ELSE
-         ztkev    = (1._wp+e_pot(js,jsfc)/e_kin(js,jsfc))/f_tau(js,jsfc)*(pustarm(js)**3._wp+lmix(js,jsfc)*2._wp &
-                  *grav/zthetavmit(js,jsfc)*pcfh_sfc(js,jsfc)*abs(zdthetal(js,jsfc)))**2._wp/3._wp
+         ztkev    = (1._wp+e_pot(js,jsfc)/e_kin(js,jsfc))/f_tau(js,jsfc)*(pustarm(js)**3+lmix(js,jsfc)*2._wp &
+                  *grav/zthetavmit(js,jsfc)*pcfh_sfc(js,jsfc)*abs(zdthetal(js,jsfc)))**2/3._wp
        END IF
 
         ptkevn_sfc(js) = ptkevn_sfc(js) + ztkev*pfrc(js,jsfc)
