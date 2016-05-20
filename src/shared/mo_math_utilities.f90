@@ -1511,7 +1511,7 @@ CONTAINS
   !!
   !! The lon-lat parameterization of the torus is 
   !!    (lon,lat) = [0, 2*pi] x [-max_lat, max_lat]
-  !! where max_lat := pi/180 = 10 degrees  (hard-coded in the torus grid generator)
+  !! where max_lat := pi/18 = 10 degrees  (hard-coded in the torus grid generator)
   !!
   !! The Cartesian coordinates of the torus grid are: v = (x,y,0)
   !! where
@@ -1589,7 +1589,7 @@ CONTAINS
   !!
   !! The lon-lat parameterization of the torus is 
   !!    (lon,lat) = [0, 2*pi] x [-max_lat, max_lat]
-  !! where max_lat := pi/180 = 10 degrees  (hard-coded in the torus grid generator)
+  !! where max_lat := pi/18 = 10 degrees  (hard-coded in the torus grid generator)
   !!
   !! The Cartesian coordinates of the torus grid are: v = (x,y,0)
   !! where
