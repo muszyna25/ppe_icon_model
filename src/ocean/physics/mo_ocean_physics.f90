@@ -566,8 +566,8 @@ CONTAINS
       CALL update_physics_parameters_ICON_PP_Edge_scheme(patch_3d, ocean_state, params_oce)
       
     CASE (physics_parameters_ICON_PP_Edge_vnPredict_type)
-!       CALL update_physics_parameters_ICON_PP_Tracer(patch_3d, ocean_state)
-      CALL update_physics_parameters_ICON_PP_Edge_scheme(patch_3d, ocean_state, params_oce)
+      CALL update_physics_parameters_ICON_PP_Tracer(patch_3d, ocean_state)
+!       CALL update_physics_parameters_ICON_PP_Edge_scheme(patch_3d, ocean_state, params_oce)
       ! the velovity friction will be updated during dynamics
       
     CASE default
