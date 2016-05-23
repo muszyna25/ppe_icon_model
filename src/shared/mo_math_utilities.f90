@@ -1525,7 +1525,7 @@ CONTAINS
     TYPE(t_geographical_coordinates)          :: p_pos        ! geo. coordinates
 
     p_pos%lon = p_x%x(1) * 2._wp * pi          / geometry_info%domain_length
-    p_pos%lat = p_x%x(2) * 2._wp*TORUS_MAX_LAT / geometry_info%domain_height
+    p_pos%lat = p_x%x(2) * 2._wp*TORUS_MAX_LAT / geometry_info%domain_height - TORUS_MAX_LAT
   END FUNCTION cc2gc_plane_torus
   !-------------------------------------------------------------------------
   
@@ -1602,8 +1602,8 @@ CONTAINS
     TYPE(t_grid_geometry_info),       INTENT(in) :: geometry_info
     TYPE(t_cartesian_coordinates)                :: p_x            ! Cart. coordinates
 
-    p_x%x(:) = (/ p_pos%lon * geometry_info%domain_length/(2._wp*pi),            &
-      &           p_pos%lat * geometry_info%domain_height/(2._wp*TORUS_MAX_LAT), &
+    p_x%x(:) = (/ p_pos%lon * geometry_info%domain_length/(2._wp*pi),                              &
+      &           (p_pos%lat + TORUS_MAX_LAT) * geometry_info%domain_height/(2._wp*TORUS_MAX_LAT), &
       &           0._wp /)
   END FUNCTION gc2cc_plane_torus
   !-------------------------------------------------------------------------
