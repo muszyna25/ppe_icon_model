@@ -938,7 +938,7 @@ CONTAINS
           zustar(js,jsfc) = SQRT(zust)
          IF (pri_sfc(js,jsfc).LT. 0._wp) THEN
            pwstar_sfc(js,jsfc)= 0.5_wp*(pwstar_sfc(js,jsfc)+(pghabl(js)/zthetavmit(js,jsfc)*pcfh_sfc(js,jsfc) & 
-                                       *abs(zdthetal(js,jsfc)))**(1._wp/3._wp))
+                                       *abs(zdthetal(js,jsfc)))**zonethird)
          ELSE
            pwstar_sfc(js,jsfc) = 0._wp
          END IF
@@ -986,7 +986,7 @@ CONTAINS
          ztkev    = (1._wp+e_pot(js,jsfc)/e_kin(js,jsfc))/f_tau(js,jsfc)*(pustarm(js)**2)
        ELSE
          ztkev    = (1._wp+e_pot(js,jsfc)/e_kin(js,jsfc))/f_tau(js,jsfc)*(pustarm(js)**3+lmix(js,jsfc)*2._wp &
-                  *grav/zthetavmit(js,jsfc)*pcfh_sfc(js,jsfc)*abs(zdthetal(js,jsfc)))**2/3._wp
+                  *grav/zthetavmit(js,jsfc)*pcfh_sfc(js,jsfc)*abs(zdthetal(js,jsfc)))**ztwothirds
        END IF
 
         ptkevn_sfc(js) = ptkevn_sfc(js) + ztkev*pfrc(js,jsfc)
