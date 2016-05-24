@@ -593,11 +593,11 @@ CONTAINS
           END DO
           !
           !Perform nearest neighbor interpolation at level where slopes are not well-defined
-          ocean_state%p_aux%slopes(cell_index,start_level,blockNo)%x &
-          &= ocean_state%p_aux%slopes(cell_index,start_level+1,blockNo)%x   
-            
-          ocean_state%p_aux%slopes(cell_index,end_level,blockNo)%x &
-          &= ocean_state%p_aux%slopes(cell_index,end_level-1,blockNo)%x    
+!           ocean_state%p_aux%slopes(cell_index,start_level,blockNo)%x &
+!           &= ocean_state%p_aux%slopes(cell_index,start_level+1,blockNo)%x   
+!             
+!           ocean_state%p_aux%slopes(cell_index,end_level,blockNo)%x &
+!           &= ocean_state%p_aux%slopes(cell_index,end_level-1,blockNo)%x    
             
         ELSEIF(no_tracer==1)THEN
     
@@ -613,11 +613,11 @@ CONTAINS
           END DO
           !
           !Perform nearest neighbor interpolation at level where slopes are not well-defined
-          ocean_state%p_aux%slopes(cell_index,start_level,blockNo)%x &
-          &= ocean_state%p_aux%slopes(cell_index,start_level+1,blockNo)%x   
-            
-          ocean_state%p_aux%slopes(cell_index,end_level,blockNo)%x &
-          &= ocean_state%p_aux%slopes(cell_index,end_level-1,blockNo)%x    
+!           ocean_state%p_aux%slopes(cell_index,start_level,blockNo)%x &
+!           &= ocean_state%p_aux%slopes(cell_index,start_level+1,blockNo)%x   
+!             
+!           ocean_state%p_aux%slopes(cell_index,end_level,blockNo)%x &
+!           &= ocean_state%p_aux%slopes(cell_index,end_level-1,blockNo)%x    
           
         ENDIF
           
