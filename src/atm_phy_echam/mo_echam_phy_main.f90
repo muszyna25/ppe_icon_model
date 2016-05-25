@@ -53,6 +53,7 @@ MODULE mo_echam_phy_main
   USE mo_ham_aerosol_params,  ONLY: ncdnc, nicnc
   USE mo_echam_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_surface,             ONLY: update_surface
+  USE mo_surface_diag,        ONLY: nsurf_diag
   USE mo_cloud,               ONLY: cloud
   USE mo_cover,               ONLY: cover
   USE mo_radiation,           ONLY: radheat
@@ -113,6 +114,7 @@ CONTAINS
     REAL(wp) :: zfrw (nbdim)              !< fraction of water (without ice) in the grid point
     REAL(wp) :: zfri (nbdim)              !< fraction of ice in the grid box
     REAL(wp) :: zfrc (nbdim,nsfc_type)    !< zfrl, zfrw, zfrc combined
+    REAL(wp) :: zri_tile(nbdim,nsfc_type) !< Richardson number
 
     INTEGER  :: ilab   (nbdim,nlev)
 !    REAL(wp) :: zcvcbot(nbdim)
@@ -172,7 +174,15 @@ CONTAINS
     REAL(wp) :: zqshear  (nbdim,nlev) !<
     REAL(wp) :: zthvvar  (nbdim,nlev) !< intermediate value of thvvar
     REAL(wp) :: ztkevn   (nbdim,nlev) !< intermediate value of tke
-    REAL(wp) :: zch_tile (nbdim,nsfc_type)
+    REAL(wp) :: zch_tile (nbdim,nsfc_type)   !<  for "nsurf_diag"
+!    REAL(wp) :: zchn_tile(nbdim,nsfc_type)   !<  for "nsurf_diag"
+!    REAL(wp) :: zcdn_tile(nbdim,nsfc_type)   !<  for "nsurf_diag"
+!    REAL(wp) :: zcfnc_tile(nbdim,nsfc_type)  !<  for "nsurf_diag"
+    REAL(wp) :: zbn_tile (nbdim,nsfc_type)   !<  for "nsurf_diag"
+    REAL(wp) :: zbhn_tile(nbdim,nsfc_type)   !<  for "nsurf_diag"
+    REAL(wp) :: zbm_tile (nbdim,nsfc_type)   !<  for "nsurf_diag"
+    REAL(wp) :: zbh_tile (nbdim,nsfc_type)   !<  for "nsurf_diag"
+
     REAL(wp) :: ztte_corr(nbdim)      !< tte correction for snow melt over land (JSBACH)
 
     ! Temporary array used by GW_HINES
@@ -727,6 +737,7 @@ CONTAINS
                      & ihpbl(:),                        &! out, for "vdiff_up"
                      & field%    ghpbl(:,jb),           &! out, for output
                      & field%      ri (:,:,jb),         &! out, for output
+                     & zri_tile (:,:),                  &! out, for nsurf_diag
                      & field%  mixlen (:,:,jb),         &! out, for output
                      & field% cfm     (:,:,jb),         &! out, for output
                      & field% cfm_tile(:,jb,:),         &! out, for output and "vdiff_up"
@@ -743,7 +754,14 @@ CONTAINS
                      & zthvvar(:,:),                    &! out, for "vdiff_up"
                      & field%   thvsig(:,  jb),         &! out, for "cucall"
                      & ztkevn (:,:),                    &! out, for "vdiff_up"
-                     & pch_tile = zch_tile(:,:),        &! out, optional, for JSBACH
+                     & zch_tile(:,:),                   &! out, for "nsurf_diag"
+!                     & zchn_tile(:,:),                  &! out, for "nsurf_diag"
+!                     & zcdn_tile(:,:),                  &! out, for "nsurf_diag"
+!                     & zcfnc_tile(:,:),                 &! out, for "nsurf_diag"
+                     & zbn_tile(:,:),                   &! out, for "nsurf_diag"
+                     & zbhn_tile(:,:),                  &! out, for "nsurf_diag"
+                     & zbm_tile(:,:),                   &! out, for "nsurf_diag"
+                     & zbh_tile(:,:),                   &! out, for "nsurf_diag"
                      & pcsat = field% csat(:,jb),       &! in, optional, area fraction with wet land surface
                      & pcair = field% cair(:,jb),       &! in, optional, area fraction with wet land surface (air)
                      & paz0lh = field% z0h_lnd(:,jb))     ! in, optional, roughness length for heat over land
@@ -931,6 +949,42 @@ CONTAINS
         ! 2-tl-scheme
         field% tkem1(jcs:jce,:,jb) = field% tke  (jcs:jce,:,jb)
       ENDIF
+
+    ! 5.6 Turbulent mixing, part III:
+    !     - Further diagnostics.
+
+    CALL nsurf_diag( jce, nbdim, nsfc_type,           &! in
+                   & ilnd,                            &! in
+                   & zfrc(:,:),                       &! in
+                   & field%     q(:,nlev,jb,iqv),     &! in humidity qm1
+                   & field%  temp(:,nlev,jb),         &! in tm1
+                   & field% presm_old(:,nlev,jb),     &! in, apm1
+                   & field% presi_old(:,nlevp1,jb),   &! in, aphm1
+                   & field%   qx(:,nlev,jb),          &! in, xlm1 + xim1
+                   & field%    u(:,nlev,jb),          &! in, um1
+                   & field%    v(:,nlev,jb),          &! in, vm1
+                   & field% ocu (:,jb),               &! in, ocean sfc velocity, u-component
+                   & field% ocv (:,jb),               &! in, ocean sfc velocity, v-component
+                   & field%  geom(:,nlev,jb),         &! in geopotential above surface
+                   & zcptgz(:,nlev),                  &! in dry static energy
+                   & zcpt_sfc_tile(:,:),              &! in dry static energy
+                   & zbn_tile(:,:),                   &! in for diagnostic
+                   & zbhn_tile(:,:),                  &! in for diagnostic
+                   & zbh_tile(:,:),                   &! in for diagnostic
+                   & zbm_tile(:,:),                   &! in for diagnostic
+                   & zri_tile(:,:),                   &! in 
+                   & field%sfcWind(:,  jb),           &! out 10m windspeed
+                   & field%    tas(:,  jb),           &! out temperature in 2m
+                   & field%   dew2(:,  jb),           &! out dew point temperature in 2m
+                   & field%    uas(:,  jb),           &! out zonal wind in 10m
+                   & field%    vas(:,  jb),           &! out meridional wind in 10m
+                   & field%tasmax (:,  jb),           &! out max 2m temperature
+                   & field%tasmin (:,  jb),           &! out min 2m temperature
+                   & field%sfcWind_tile(:,jb,:),      &! out 10m windspeed on tiles
+                   & field%    tas_tile(:,jb,:),      &! out temperature in 2m on tiles
+                   & field%   dew2_tile(:,jb,:),      &! out dew point temperature in 2m on tiles
+                   & field%    uas_tile(:,jb,:),      &! out zonal wind in 10m on tiles
+                   & field%    vas_tile(:,jb,:)       )! out meridional wind in 10m on tiles
 
     ELSE
       zvmixtau   (jcs:jce,:) = 0._wp

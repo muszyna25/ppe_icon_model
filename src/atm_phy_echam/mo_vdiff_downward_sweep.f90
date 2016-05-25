@@ -53,14 +53,18 @@ CONTAINS
 #endif
                        & pustar,     pwstar,    pwstar_tile,            &! inout
                        & pqsat_tile, ihpbl,     pghpbl,                 &! out
-                       & pri,        pmixlen,                           &! out
+                       & pri,        pri_tile,  pmixlen,                &! out
                        & pcfm,       pcfm_tile, pcfh,       pcfh_tile,  &! out
                        & pcfv,       pcftke,    pcfthv,                 &! out
                        & aa,         aa_btm,    bb,         bb_btm,     &! out
                        & pfactor_sfc, pcpt_tile,                        &! out
                        & pcptgz,     prhoh,     pqshear,                &! out
                        & pzthvvar,   pthvsig,   pztkevn,                &! out
-                       & pch_tile,                                      &! out
+                       & pch_tile,                                      &! out, for "nsurf_diag"
+!                       & pch_tile,   pchn_tile,                         &! out, for "nsurf_diag"
+!                       & pcdn_tile,  pcfnc_tile,                        &! out, for "nsurf_diag"
+                       & pbn_tile,   pbhn_tile,                         &! out, for "nsurf_diag"
+                       & pbm_tile,   pbh_tile,                          &! out, for "nsurf_diag"
                        & pcsat,                                         &! in
                        & pcair,                                         &! in
                        & paz0lh)
@@ -135,6 +139,7 @@ CONTAINS
 
     REAL(wp),INTENT(INOUT) ::      &   ! out
       & pri      (kbdim,klev)     ,&!< Richardson number
+      & pri_tile (kbdim,ksfc_type),&!< Richardson number
       & pmixlen  (kbdim,klev)     ,&!< mixing length
       & pcfm     (kbdim,klev)     ,&!< exchange coeff. for u, v
       & pcfm_tile(kbdim,ksfc_type),&!< exchange coeff. for u, v
@@ -165,7 +170,14 @@ CONTAINS
       & pthvsig   (kbdim)          ,&
       & pztkevn   (kbdim,klev)       !< intermediate value of TKE
 
-    REAL(wp), OPTIONAL, INTENT(INOUT) :: pch_tile(kbdim,ksfc_type)  ! out
+    REAL(wp), INTENT(OUT) :: pch_tile(kbdim,ksfc_type)    ! out, for "nsurf_diag"
+!    REAL(wp), INTENT(OUT) :: pchn_tile(kbdim,ksfc_type)   ! out, for "nsurf_diag"
+!    REAL(wp), INTENT(OUT) :: pcdn_tile(kbdim,ksfc_type)   ! out, for "nsurf_diag"
+!    REAL(wp), INTENT(OUT) :: pcfnc_tile(kbdim,ksfc_type)  ! out, for "nsurf_diag"
+    REAL(wp), INTENT(OUT) :: pbn_tile(kbdim,ksfc_type)    ! out, for "nsurf_diag"
+    REAL(wp), INTENT(OUT) :: pbhn_tile(kbdim,ksfc_type)   ! out, for "nsurf_diag"
+    REAL(wp), INTENT(OUT) :: pbm_tile(kbdim,ksfc_type)    ! out, for "nsurf_diag"
+    REAL(wp), INTENT(OUT) :: pbh_tile(kbdim,ksfc_type)    ! out, for "nsurf_diag"
 
     REAL(wp), OPTIONAL, INTENT(IN) ::          &
       & pcsat     (kbdim)          ,&!< area fraction with wet land surface
@@ -248,7 +260,7 @@ CONTAINS
                            & pthvsig(:),                            &! inout
                            & pwstar(:),       pwstar_tile(:,:),     &! inout
                            & pqsat_tile(:,:), pcpt_tile(:,:),       &! out
-                           & pri    (:,klev),                       &! out
+                           & pri    (:,klev), pri_tile(:,:),        &! out
                            & pcfm   (:,klev), pcfm_tile(:,:),       &! out
                            & pcfh   (:,klev), pcfh_tile(:,:),       &! out
                            & pcfv   (:,klev),                       &! out
@@ -257,7 +269,11 @@ CONTAINS
                            & pztkevn(:,klev), pzthvvar(:,klev),     &! out
                            & pqshear(:,klev),                       &! out, for "vdiff_tendencies"
                            & pustar(:),                             &! out, for "atm_exchange_coeff" at next time step
-                           & pch_tile(:,:),                         &! out
+                           & pch_tile(:,:),                         &! out, for "nsurf_diag"
+!                           & pch_tile(:,:),   pchn_tile(:,:),       &! out, for "nsurf_diag"
+!                           & pcdn_tile(:,:),  pcfnc_tile(:,:),      &! out, for "nsurf_diag"
+                           & pbn_tile(:,:),   pbhn_tile(:,:),       &! out, for "nsurf_diag"
+                           & pbm_tile(:,:),   pbh_tile(:,:),        &! out, for "nsurf_diag"
                            & paz0lh(:),                             &! in, optional
                            & pcsat(:),                              &! in, optional
                            & pcair(:))                               ! in, optional
