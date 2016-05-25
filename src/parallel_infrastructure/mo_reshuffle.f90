@@ -171,6 +171,9 @@ CONTAINS
   !      values(1,...,nsend)     : values to send
   !      owner_idx(1,...,nlocal) : global indices owned by this PE
   ! OUT: recv_buf(1,...,nlocal)  : buffer for received values
+  !
+  ! Note: Only those entries in out_values are modified which correspond to 
+  !       entries in "in_glb_idx" on some PE.
   ! -----------------------------------------------------------------------
   SUBROUTINE reshuffle(in_glb_idx, in_values, owner_idx, nglb_indices, communicator, out_values, ierr)
     INTEGER, INTENT(IN)    :: in_glb_idx(:)    !< global indices to which "values" correspond
@@ -187,12 +190,13 @@ CONTAINS
       &                          isend_idx(:), send_vals(:), i_pe(:), glb_idx(:),          &
       &                          values(:), permutation(:), send_displs(:),                &
       &                          recv_displs(:), reg_partition_buf(:),                     &
-      &                          reordered_owner_idx(:), isendbuf(:), i_pe_owner(:),       &
+      &                          reordered_owner_idx(:), isendbuf(:,:), i_pe_owner(:),     &
       &                          icounts_owner(:), irecv_owner(:), icounts_buf(:,:),       &
       &                          irecv_buf(:,:), permutation_owner(:), irecv_idx_owner(:), &
       &                          send_displs_owner(:), recv_displs_owner(:),               &
       &                          send_counts2(:), recv_counts2(:), send_displs2(:),        &
-      &                          recv_displs2(:), tmp_idx(:), irecv_tmp(:)
+      &                          recv_displs2(:), tmp_idx(:), irecv_tmp(:),                &
+      &                          irecv_idx_owner2(:,:), reg_partition_modified(:)
     TYPE(t_regular_partition) :: reg_partition
 
     ierr   = 0
@@ -221,13 +225,13 @@ CONTAINS
     CALL MPI_COMM_RANK(communicator, rank, ierr)      ; IF (ierr /= 0) WRITE (*,*) "MPI Error!"
     CALL MPI_COMM_SIZE(communicator, isize, ierr)     ; IF (ierr /= 0) WRITE (*,*) "MPI Error!"
 
-    ! 1)   intermediate, regular partitioning of global index space:
+    ! ---   intermediate, regular partitioning of global index space:
     reg_partition%n_indices = nglb_indices
     reg_partition%n_pes     = isize
     reg_partition%irank     = rank
 
-    ! 1.0) for every "glb_idx" entry compute the destination PE,
-    !      for every "owner_idx" entry compute the source PE
+    ! ---   for every "glb_idx" entry compute the destination PE,
+    !       for every "owner_idx" entry compute the source PE
     ALLOCATE(i_pe(nsend), i_pe_owner(nlocal))
     DO i=1,nsend
       i_pe(i) = reg_partition%glbidx2pe(in_glb_idx(i))
@@ -236,10 +240,10 @@ CONTAINS
       i_pe_owner(i) = reg_partition%glbidx2pe(owner_idx(i))
     END DO
 
-    ! 1.2) each PE "a" sends to every other PE "b" the no. of
-    !      "glb_idx" entries for "b",
-    !      each PE "a" sends to every other PE "b" the no. of
-    !      "owner_idx" entries he wants to receive
+    ! ---   each PE "a" sends to every other PE "b" the no. of
+    !       "glb_idx" entries for "b",
+    !       each PE "a" sends to every other PE "b" the no. of
+    !       "owner_idx" entries he wants to receive
     ALLOCATE(icounts(0:(isize-1)), irecv(0:(isize-1)), &
       &      icounts_owner(0:(isize-1)), irecv_owner(0:(isize-1)))
     icounts(:)        = 0
@@ -266,7 +270,7 @@ CONTAINS
     irecv(:)         = irecv_buf(1,:)
     irecv_owner(:)   = irecv_buf(2,:)
 
-    ! 1.1) reorder "glb_idx" and "values" according to the rank of the
+    ! ---  reorder "glb_idx" and "values" according to the rank of the
     !      destination PE ;
     !      reorder "owner_idx" according to the rank of the source PE
     ALLOCATE(permutation(nsend), glb_idx(nsend), values(nsend), &
@@ -279,7 +283,7 @@ CONTAINS
     values(:)              = in_values(permutation(:))
     reordered_owner_idx(:) = owner_idx(permutation_owner(:))
  
-    ! 1.3a) PE "a" sends "glb_idx", "owner_idx" to "b"
+    ! ---  PE "a" sends "glb_idx", "owner_idx" to "b"
     npairs_recv       = SUM(irecv)
     npairs_recv_owner = SUM(irecv_owner)
 
@@ -325,44 +329,58 @@ CONTAINS
       j = j+irecv_owner(i)
     END DO
 
-    ! 1.3b) PE "a" sends values to "b"
+    ! ---  PE "a" sends values to "b"
     CALL MPI_ALLTOALLV(values, icounts, send_displs, MPI_INTEGER, recv_vals, &
       &                irecv, recv_displs, MPI_INTEGER, communicator, ierr)
     IF (ierr /= 0) WRITE (*,*) "MPI Error!"
 
-    ! 1.4) each PE inserts the received index/value pairs into "its"
+    ! ---  each PE inserts the received index/value pairs into "its"
     !      part of the global index space (wrt. to the regular
     !      partition).
-    ALLOCATE(reg_partition_buf(reg_partition%local_size()))
-    reg_partition_buf(:) = 0
+    ALLOCATE(reg_partition_buf(reg_partition%local_size()), &
+      &      reg_partition_modified(reg_partition%local_size()))
+    reg_partition_buf(:)      = 0
+    reg_partition_modified(:) = 0
     DO i=1,npairs_recv
       local_idx = reg_partition%glb2local(irecv_idx(i))
-      reg_partition_buf(local_idx) = recv_vals(i)
+      reg_partition_buf(local_idx)      = recv_vals(i)
+      reg_partition_modified(local_idx) = 1
     END DO
 
-    ! 2.4) collect send buffer based on received "owner_idx"
-    ALLOCATE(isendbuf(npairs_recv_owner))
+    ! ---  collect send buffer based on received "owner_idx"
+    ALLOCATE(isendbuf(2,npairs_recv_owner))
+    isendbuf(:,:) = 0
     DO i=1,npairs_recv_owner
-      isendbuf(i) = reg_partition_buf( reg_partition%glb2local(irecv_idx_owner(i)) )
+      isendbuf(1,i) = reg_partition_buf( reg_partition%glb2local(irecv_idx_owner(i)) )
+      isendbuf(2,i) = reg_partition_modified( reg_partition%glb2local(irecv_idx_owner(i)) )
     END DO
 
-    ! 2.5) PE "b" sends values back to "a"
+    ! ---  PE "b" sends values back to "a", together with the information, 
+    !      which entries have been modified
     DEALLOCATE(irecv_idx_owner)
-    ALLOCATE(irecv_idx_owner(SUM(icounts_owner)))
-    CALL MPI_ALLTOALLV(isendbuf, irecv_owner, recv_displs_owner, MPI_INTEGER, irecv_idx_owner, &
+    ALLOCATE(irecv_idx_owner2(2,SUM(icounts_owner)))
+    irecv_owner       = 2*irecv_owner
+    recv_displs_owner = 2*recv_displs_owner
+    icounts_owner     = 2*icounts_owner
+    send_displs_owner = 2*send_displs_owner
+    CALL MPI_ALLTOALLV(isendbuf, irecv_owner, recv_displs_owner, MPI_INTEGER, irecv_idx_owner2, &
       &                icounts_owner, send_displs_owner, MPI_INTEGER, communicator, ierr)
     IF (ierr /= 0) WRITE (*,*) "MPI Error!"
     
-    ! 2.5) each PE inserts the received index/values pairs into its
+    ! ---  each PE inserts the received index/values pairs into its
     !      part of the global index space
-    out_values(permutation_owner(1:nlocal)) = irecv_idx_owner(1:nlocal)
+    DO i=1,nlocal
+      IF (irecv_idx_owner2(2,i) == 1) THEN
+        out_values(permutation_owner(i)) = irecv_idx_owner2(1,i)
+      END IF
+    END DO
     
-    ! 3)   clean-up
+    ! ---  clean-up
     DEALLOCATE(icounts, irecv, i_pe, permutation, glb_idx, values, send_displs, recv_displs, &
       &        irecv_idx, recv_vals, reg_partition_buf, reordered_owner_idx, isendbuf,       &
       &        i_pe_owner, icounts_owner, irecv_owner, icounts_buf, irecv_buf,               &
-      &        permutation_owner, irecv_idx_owner, send_displs_owner, recv_displs_owner,     &
-      &        send_counts2, recv_counts2, tmp_idx, irecv_tmp)
+      &        permutation_owner, irecv_idx_owner2, send_displs_owner, recv_displs_owner,    &
+      &        send_counts2, recv_counts2, tmp_idx, irecv_tmp, reg_partition_modified)
   END SUBROUTINE reshuffle
 
 #else
