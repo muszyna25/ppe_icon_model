@@ -93,8 +93,8 @@ CONTAINS
   ! Define the tuning parameters for SSO drag. These values depend on:
   ! (1) the resolution of the topography DATA used to compute the SSO parameters, and
   ! (2) the model resolution.
-    gkdrag  = 0.070_wp  ! gravity wave drag
-    gkwake  = 0.000_wp  ! low level blocking
+    gkdrag  = 0.20_wp ! gravity wave drag
+    gkwake  = 0.00_wp ! low level blocking
 
   ! Compute globally valid layer index nktopg from the vertical coordinate tables that
   ! describe the hybrid sigma coordinate as follows:
