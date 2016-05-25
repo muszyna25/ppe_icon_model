@@ -447,7 +447,7 @@ CONTAINS
     !> If .true., read fields related to grid refinement from separate  grid files
     LOGICAL,                   INTENT(IN)    :: lsep_grfinfo
 
-    INTEGER :: jg, jgp, n_lp, id_lp(max_dom), jc_p,jb_p,j
+    INTEGER :: jg, jgp, n_lp, id_lp(max_dom), j
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:complete_patches'
 
     DO jg = n_dom_start, n_dom
@@ -655,8 +655,8 @@ CONTAINS
     TYPE(t_patch), INTENT(INOUT) :: p_pp_glb   !> divided (global) parent patch
 
     INTEGER :: i, j, jl, jb, jc, jc_g, jp, jp_g, ierr 
-    INTEGER                           :: jc_c, jb_c, jc_p, jb_p, communicator
-    INTEGER, ALLOCATABLE :: in_child_id(:), parent_glb_idx(:), out_child_id(:)
+    INTEGER                           :: jc_c, jb_c, communicator
+    INTEGER, ALLOCATABLE :: in_child_id(:), parent_idx(:), out_child_id(:)
 
     ! Before this call, child_idx/child_blk still point to the global values.
     ! This is changed here.
@@ -750,6 +750,8 @@ CONTAINS
       ELSE
         p_pc%cells%parent_loc_blk(jl,jb) = blk_no(jp)
         p_pc%cells%parent_loc_idx(jl,jb) = idx_no(jp)
+        ! set the cell child_id for the (global) parent grid:
+        p_pp%cells%child_id(idx_no(jp),blk_no(jp))  = p_pc%id
       ENDIF
 
     ENDDO
@@ -768,38 +770,31 @@ CONTAINS
       communicator = p_comm_work
     ENDIF
 
-    ALLOCATE(parent_glb_idx(p_pc%n_patch_cells), in_child_id(p_pc%n_patch_cells))
-    DO j = 1, p_pc%n_patch_cells
-      jc_c = idx_no(j)
-      jb_c = blk_no(j)
-      parent_glb_idx(j) = idx_1d(p_pc%cells%parent_glb_idx(jc_c,jb_c), &
-        &                          p_pc%cells%parent_glb_blk(jc_c,jb_c))
-    END DO
+    ALLOCATE(parent_idx(p_pc%n_patch_cells), in_child_id(p_pc%n_patch_cells))
     in_child_id(:) = p_pc%id
 
     ! set the cell child_id for the (global) parent grid:
+    DO j = 1, p_pc%n_patch_cells
+      jc_c = idx_no(j)
+      jb_c = blk_no(j)
+      parent_idx(j) = idx_1d(p_pc%cells%parent_glb_idx(jc_c,jb_c), &
+        &                    p_pc%cells%parent_glb_blk(jc_c,jb_c))
+    END DO
+
     ALLOCATE(out_child_id(p_pp_glb%n_patch_cells))
-    CALL reshuffle(parent_glb_idx, in_child_id, p_pp_glb%cells%decomp_info%glb_index, &
+    DO j = 1, p_pp_glb%n_patch_cells
+      out_child_id(j) = p_pp_glb%cells%child_id(idx_no(j), blk_no(j))
+    END DO
+
+    CALL reshuffle(parent_idx, in_child_id, p_pp_glb%cells%decomp_info%glb_index, &
       &            p_pp_glb%n_patch_cells_g, communicator, out_child_id, ierr)
     IF (ierr /= 0)  CALL finish('', 'ierr /= 0')
 
     DO j = 1, p_pp_glb%n_patch_cells
-      p_pp_glb%cells%child_id(idx_no(j), blk_no(j)) = out_child_id(j)
+      p_pp_glb%cells%child_id(idx_no(j),  blk_no(j)) = out_child_id(j)
     END DO
-    DEALLOCATE(out_child_id)
 
-    ! set the cell child_id for the local parent grid:
-    ALLOCATE(out_child_id(p_pp%n_patch_cells))
-    CALL reshuffle(parent_glb_idx, in_child_id, p_pp%cells%decomp_info%glb_index, &
-      &            p_pp%n_patch_cells_g, communicator, out_child_id, ierr)
-    IF (ierr /= 0)  CALL finish('', 'ierr /= 0')
-
-    DO j = 1, p_pp%n_patch_cells
-      p_pp%cells%child_id(idx_no(j), blk_no(j)) = out_child_id(j)
-    END DO
-    DEALLOCATE(out_child_id)
-
-    DEALLOCATE(in_child_id, parent_glb_idx)
+    DEALLOCATE(out_child_id, in_child_id, parent_idx)
 
     ! ... edges
 
@@ -820,9 +815,12 @@ CONTAINS
       ELSE
         p_pc%edges%parent_loc_blk(jl,jb) = blk_no(jp)
         p_pc%edges%parent_loc_idx(jl,jb) = idx_no(jp)
+        ! set the edge child_id for the (global) parent grid:
+        p_pp%edges%child_id(idx_no(jp),blk_no(jp))  = p_pc%id
       ENDIF
 
     ENDDO
+
 
     ! calculate edges%child_id
     !
@@ -832,38 +830,30 @@ CONTAINS
     ! these parent edges. This involves parallel comm., since the
     ! child edges and their parent edges may "live" on different PEs.
 
-    ALLOCATE(parent_glb_idx(p_pc%n_patch_edges), in_child_id(p_pc%n_patch_edges))
-    DO j = 1, p_pc%n_patch_edges
-      jc_c = idx_no(j)
-      jb_c = blk_no(j)
-      parent_glb_idx(j) = idx_1d(p_pc%edges%parent_glb_idx(jc_c,jb_c), &
-        &                        p_pc%edges%parent_glb_blk(jc_c,jb_c))
-    END DO
+    ALLOCATE(parent_idx(p_pc%n_patch_edges), in_child_id(p_pc%n_patch_edges))
     in_child_id(:) = p_pc%id
 
     ! set the edge child_id for the (global) parent grid:
+    DO j = 1, p_pc%n_patch_edges
+      jc_c = idx_no(j)
+      jb_c = blk_no(j)
+      parent_idx(j) = idx_1d(p_pc%edges%parent_glb_idx(jc_c,jb_c), &
+        &                    p_pc%edges%parent_glb_blk(jc_c,jb_c))
+    END DO
+
     ALLOCATE(out_child_id(p_pp_glb%n_patch_edges))
-    CALL reshuffle(parent_glb_idx, in_child_id, p_pp_glb%edges%decomp_info%glb_index, &
+    DO j = 1, p_pp_glb%n_patch_edges
+      out_child_id(j) = p_pp_glb%edges%child_id(idx_no(j), blk_no(j))
+    END DO
+
+    CALL reshuffle(parent_idx, in_child_id, p_pp_glb%edges%decomp_info%glb_index, &
       &            p_pp_glb%n_patch_edges_g, communicator, out_child_id, ierr)
     IF (ierr /= 0)  CALL finish('', 'ierr /= 0')
 
     DO j = 1, p_pp_glb%n_patch_edges
-      p_pp_glb%edges%child_id(idx_no(j), blk_no(j)) = out_child_id(j)
+      p_pp_glb%edges%child_id(idx_no(j),  blk_no(j)) = out_child_id(j)
     END DO
-    DEALLOCATE(out_child_id)
-
-    ! set the edge child_id for the local parent grid:
-    ALLOCATE(out_child_id(p_pp%n_patch_edges))
-    CALL reshuffle(parent_glb_idx, in_child_id, p_pp%edges%decomp_info%glb_index, &
-      &            p_pp%n_patch_edges_g, communicator, out_child_id, ierr)
-    IF (ierr /= 0)  CALL finish('', 'ierr /= 0')
-
-    DO j = 1, p_pp%n_patch_edges
-      p_pp%edges%child_id(idx_no(j), blk_no(j)) = out_child_id(j)
-    END DO
-    DEALLOCATE(out_child_id)
-
-    DEALLOCATE(in_child_id, parent_glb_idx)
+    DEALLOCATE(out_child_id, in_child_id, parent_idx)
 
     ! Although this is not really necessary, we set the child index in child
     ! and the parent index in parent to 0 since these have no significance
@@ -1766,19 +1756,19 @@ CONTAINS
 
     ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     ! patch%cells%child_id(:,:)
-!    DO ip = 0, n_lp
-!      p_p => get_patch_ptr(patch, id_lp, ip)
-!      multivar_2d_data_int(ip+1)%data => p_p%cells%child_id(:,:)
-!    END DO
-!    CALL read_2D_int(stream_id_grf, on_cells, 'child_cell_id', n_lp+1, &
-!      &              multivar_2d_data_int(:))
-!    IF(ishift_child_id /= 0 .AND. patch%n_childdom>0) THEN
 !      DO ip = 0, n_lp
-!        WHERE (multivar_2d_data_int(ip+1)%data(:,:) > 0) &
-!          multivar_2d_data_int(ip+1)%data(:,:) = &
-!          multivar_2d_data_int(ip+1)%data(:,:) - ishift_child_id
+!        p_p => get_patch_ptr(patch, id_lp, ip)
+!        multivar_2d_data_int(ip+1)%data => p_p%cells%child_id(:,:)
 !      END DO
-!    ENDIF
+!      CALL read_2D_int(stream_id_grf, on_cells, 'child_cell_id', n_lp+1, &
+!        &              multivar_2d_data_int(:))
+!      IF(ishift_child_id /= 0 .AND. patch%n_childdom>0) THEN
+!        DO ip = 0, n_lp
+!          WHERE (multivar_2d_data_int(ip+1)%data(:,:) > 0) &
+!            multivar_2d_data_int(ip+1)%data(:,:) = &
+!            multivar_2d_data_int(ip+1)%data(:,:) - ishift_child_id
+!        END DO
+!      ENDIF
     ! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     ! p_p%cells%phys_id(:,:)
@@ -1824,19 +1814,19 @@ CONTAINS
     !             using the NetCDF field
 
     ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-!    ! p_p%edges%child_id(:,:)
-!    DO ip = 0, n_lp
-!      p_p => get_patch_ptr(patch, id_lp, ip)
-!      multivar_2d_data_int(ip+1)%data => p_p%edges%child_id(:,:)
-!    END DO
-!    CALL read_2D_int(stream_id_grf, on_edges, 'child_edge_id', n_lp+1, &
-!      &              multivar_2d_data_int(:))
-!    IF(ishift_child_id /= 0 .AND. patch%n_childdom>0) THEN
+!      ! p_p%edges%child_id(:,:)
 !      DO ip = 0, n_lp
-!        multivar_2d_data_int(ip+1)%data(:,:) = &
-!          multivar_2d_data_int(ip+1)%data(:,:) - ishift_child_id
+!        p_p => get_patch_ptr(patch, id_lp, ip)
+!        multivar_2d_data_int(ip+1)%data => p_p%edges%child_id(:,:)
 !      END DO
-!    ENDIF
+!      CALL read_2D_int(stream_id_grf, on_edges, 'child_edge_id', n_lp+1, &
+!        &              multivar_2d_data_int(:))
+!      IF(ishift_child_id /= 0 .AND. patch%n_childdom>0) THEN
+!        DO ip = 0, n_lp
+!          multivar_2d_data_int(ip+1)%data(:,:) = &
+!            multivar_2d_data_int(ip+1)%data(:,:) - ishift_child_id
+!        END DO
+!      ENDIF
     ! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     ! p_p%edges%phys_id(:,:)
