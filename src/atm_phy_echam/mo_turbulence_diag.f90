@@ -20,19 +20,15 @@
 MODULE mo_turbulence_diag
 
   USE mo_kind,              ONLY: wp
-  USE mo_exception,         ONLY: finish
   USE mo_convect_tables,    ONLY: prepare_ua_index_spline, lookup_ua_spline, &
     &                             compute_qsat
-  USE mo_echam_vdiff_params,ONLY: clam, cgam, ckap, cb,cc, chneu, shn, smn, &
-    &                             da1, custf, cwstf, cfreec, tpfac1,        &
-    &                             eps_shear, eps_corio, tke_min,            &
-    &                             cons2, cons25, cons5,                     &
+  USE mo_echam_vdiff_params,ONLY: clam, ckap, cb,cc, chneu, da1, tpfac1,    &
+    &                             eps_shear, eps_corio, tke_min, cons5,     &
     &                             f_tau0, f_theta0, c_f, c_n, c_e, pr0,     &
     &                             wmc,fsl,fbl 
   USE mo_physical_constants,ONLY: grav, rd, cpd, cpv, rd_o_cpd, rv,         &
     &                             vtmpc1, tmelt, alv, als, p0ref,           &
     &                             earth_angular_velocity
-  USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config
 
   IMPLICIT NONE
   PRIVATE
@@ -139,25 +135,20 @@ CONTAINS
     ! - 1D variables and scalars
 
     INTEGER  :: ihpblc(kbdim),          ihpbld(kbdim),          idx(kbdim)
-    INTEGER  :: jk, jl, it
+    INTEGER  :: jk, jl
     REAL(wp) :: za(kbdim),              zhdyn(kbdim)                          &
                ,zpapm1i(kbdim),         zua(kbdim)
     REAL(wp) :: hdt(kbdim)
     REAL(wp) :: f_tau, f_theta, e_kin, e_pot, lmix, ldis, lmc, kmc, khc
-    REAL(wp) :: z2geomf, zalf, zalh2, zbet, zbuoy
-    REAL(wp) :: zcons18, zcons23
-    REAL(wp) :: zcor, zdisl, zdusq, zdvsq
+    REAL(wp) :: zalh2, zbuoy,zcor, zdisl, zdusq, zdvsq
     REAL(wp) :: zdqtot, zds, zdus1, zdus2, zdz
-    REAL(wp) :: zes, zfox, zfux, zhexp
-    REAL(wp) :: zktest, zlam
-    REAL(wp) :: zmix, zmult1, zmult2, zmult3, zmult4
+    REAL(wp) :: zes, zfox, zfux, zktest
+    REAL(wp) :: zmult1, zmult2, zmult3, zmult4
     REAL(wp) :: zmult5, zqddif, zqtmit, zrdp
     REAL(wp) :: zrdrv, zri, zrvrd, zsdep1
-    REAL(wp) :: zsdep2, zsh, zshear, zsm
-    REAL(wp) :: zteldif, ztkesq
+    REAL(wp) :: zsdep2, zshear, zteldif, ztkesq
     REAL(wp) :: zthvprod, zthvdiss, zthvirdif
-    REAL(wp) :: zucf, zusus1
-    REAL(wp) :: zz2geo, zzb, ztvm
+    REAL(wp) :: zucf, zusus1, zzb, ztvm
 
     REAL(wp) :: zonethird
 
@@ -167,7 +158,6 @@ CONTAINS
     zrvrd     = rv/rd
     zrdrv     = rd/rv
     zonethird = 1._wp/3._wp
-    zcons18   = tpfac1*pstep_len*grav**2
 
     !-------------------------------------
     ! 2. NEW THERMODYNAMIC VARIABLES
@@ -584,8 +574,6 @@ CONTAINS
 
     REAL(wp) :: zdu2   (kbdim,ksfc_type) !<
     REAL(wp) :: zcfnch (kbdim,ksfc_type) !<
-    REAL(wp) :: zcr    (kbdim)           !< for open water only
-    REAL(wp) :: zwst   (kbdim,ksfc_type) !<
     REAL(wp) :: zcsat  (kbdim,ksfc_type) !<
     REAL(wp) :: zustar (kbdim,ksfc_type) !< friction velocity
     REAL(wp) :: ztvsfc (kbdim)           !< virtual temperature at surface
@@ -603,15 +591,15 @@ CONTAINS
     INTEGER  :: is     (ksfc_type)       !< counter for masks
 
     
-    REAL(wp) :: zrdrv, zrvrd, zrgam, zonethird, ztwothirds
-    REAL(wp) :: z2b, z3b, z3bc, zcons17, zepsr, zepdu2, zepsec
+    REAL(wp) :: zrdrv, zrvrd, zonethird, ztwothirds
+    REAL(wp) :: z2b, z3b, z3bc, zcons17, zepdu2, zepsec
     REAL(wp) :: zqtl, zqtmit, zdqt, zqsmit
     REAL(wp) :: ztmit, ztheta, zthetav, zthetamit, zfux, zfox
     REAL(wp) :: zmult1, zmult2, zmult3, zmult4, zmult5
-    REAL(wp) :: zdus1, zdus2, zbuoy, zalo, zaloh, ztkev, zstabf
-    REAL(wp) :: zdthv, zscf,  zconvs, zucf, zucfh
-    REAL(wp) :: z2m, zcdn2m, zcdnr, zcfm2m, zust, zrrd
-    REAL (wp):: lmc, thvsig
+    REAL(wp) :: zdus1, zdus2, zbuoy, ztkev
+    REAL(wp) :: zdthv, zucf, zucfh
+    REAL(wp) :: zust, zrrd
+    REAL(wp) :: lmc
     LOGICAL  :: lhighz0
     INTEGER  :: jsfc, jl, jls, js
 
@@ -622,12 +610,10 @@ CONTAINS
     zrrd       = 1._wp/rd
     zrvrd      = rv/rd
     zrdrv      = rd/rv
-    zrgam      = 1._wp/cgam
     z2b        = 2._wp*cb
     z3b        = 3._wp*cb
     z3bc       = 3._wp*cb*cc
     zcons17    = 1._wp / ckap**2
-    zepsr      = 1.E-10_wp
     zepdu2     = 1._wp
     zonethird  = 1._wp/3._wp
     ztwothirds = 2._wp/3._wp
@@ -785,7 +771,6 @@ CONTAINS
  !  subroutine matrix_setup_elim
 
         zdthv         = MAX(0._wp,(zthetav-pthetav_b(js)))
-        zwst(js,jsfc) = zdthv*SQRT(zdu2(js,jsfc))/zthetavmit(js,jsfc)
 
  ! compute/extract roughness length for heat over each surface, currently                &
  !  equal to z0m over ice
@@ -827,7 +812,6 @@ CONTAINS
           ! set index
           js=loidx(jls,jsfc)
           IF ( pri_sfc(js,jsfc) > 0._wp ) THEN
-            zscf = SQRT(1._wp+pri_sfc(js,jsfc))
             pcfm_sfc(js,jsfc) = pcfnc_sfc (js,jsfc)*f_tau(js,jsfc)/f_tau0
             pcfh_sfc(js,jsfc) = zcfnch(js,jsfc)*f_theta(js,jsfc)/f_theta0                &
                               & *SQRT(f_tau(js,jsfc)/f_tau0)  
@@ -864,7 +848,6 @@ CONTAINS
 
     IF (.NOT.lsfc_heat_flux) THEN  ! Surface heat flux is switched off
       pcfh_sfc(1:kproma,1:ksfc_type) = 0._wp
-      zwst    (1:kproma,1:ksfc_type) = 0._wp   ! affects TKE at surface
     END IF
 
     !------------------------------------------------------------------------------
