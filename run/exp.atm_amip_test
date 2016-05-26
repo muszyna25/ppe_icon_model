@@ -184,6 +184,7 @@ cat > ${atmo_namelist} << EOF
  isolrad          = 1           ! 1: transient solar irradiance (at 1 AE)
 /
 &psrad_nml
+!fco2              = 4.0
 lradforcing       = .FALSE.,.FALSE. ! diagnose instantaneous radiative forcing
                                     ! for solar and lw spectrum
 irad_aero_forcing     = 15          ! Kinne aerosols + Stenchikov's volc aerosols
