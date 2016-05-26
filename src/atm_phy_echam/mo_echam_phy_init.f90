@@ -574,6 +574,7 @@ CONTAINS
 
 !$OMP PARALLEL WORKSHARE
         field% ustar (:,:)   = 1._wp
+        field% wstar_tile (:,:,:) = 0._wp 
         field% kedisp(:,:)   = 0._wp
         field% tkem0 (:,:,:) = 1.e-4_wp
         field% tkem1 (:,:,:) = 1.e-4_wp
