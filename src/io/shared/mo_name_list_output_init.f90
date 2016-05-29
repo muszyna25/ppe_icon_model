@@ -39,7 +39,7 @@ MODULE mo_name_list_output_init
                                                 & vlistDefVarStdname, vlistDefVarUnits, vlistDefVarMissval, gridDefXvals, &
                                                 & gridDefYvals, gridDefXlongname, gridDefYlongname, taxisDefTunit, &
                                                 & taxisDefCalendar, taxisDefRdate, taxisDefRtime, vlistDefTaxis,   &
-                                                & vlistDefAttTxt, CDI_GLOBAL
+                                                & vlistDefAttTxt, CDI_GLOBAL, gridDefXpole, gridDefYpole
   USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, &
                                                 & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_EDGE, GRID_CELL, &
                                                 & ZA_reference_half_hhl, ZA_reference_half, ZA_reference, ZA_hybrid_half_hhl, &
@@ -50,7 +50,7 @@ MODULE mo_name_list_output_init
     &                                             MAX_TIME_LEVELS, vname_len,                     &
     &                                             MAX_CHAR_LENGTH, MAX_NUM_IO_PROCS,              &
     &                                             MAX_TIME_INTERVALS, ihs_ocean, MAX_NPLEVS,      &
-    &                                             MAX_NZLEVS, MAX_NILEVS
+    &                                             MAX_NZLEVS, MAX_NILEVS, BOUNDARY_MISSVAL
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
   USE mo_master_config,                     ONLY: getModelBaseDir, isRestart
   USE mo_master_control,                    ONLY: my_process_is_ocean
@@ -63,7 +63,6 @@ MODULE mo_name_list_output_init
     &                                             set_GRIB2_ensemble_keys, set_GRIB2_local_keys,  &
     &                                             set_GRIB2_synsat_keys, set_GRIB2_chem_keys,     &
     &                                             set_GRIB2_art_keys
-  USE mo_util_uuid,                         ONLY: uuid2char
   USE mo_io_util,                           ONLY: get_file_extension
   USE mo_util_string,                       ONLY: t_keyword_list, associate_keyword,              &
     &                                             with_keywords, insert_group,                    &
@@ -83,7 +82,8 @@ MODULE mo_name_list_output_init
     &                                             number_of_grid_used
   USE mo_grid_config,                       ONLY: n_dom, n_phys_dom, start_time, end_time,        &
     &                                             DEFAULT_ENDTIME
-  USE mo_io_config,                         ONLY: netcdf_dict, output_nml_dict
+  USE mo_io_config,                         ONLY: netcdf_dict, output_nml_dict,                   &
+    &                                             config_lmask_boundary => lmask_boundary
   USE mo_name_list_output_config,           ONLY: use_async_name_list_io,                         &
     &                                             first_output_name_list,                         &
     &                                             add_var_desc
@@ -606,19 +606,19 @@ CONTAINS
           &                            default=p_onl%il_varlist(i))
       END DO
 
-     !! allow case-insensitive variable names:
-     !DO i=1,max_var_ml
-     !  p_onl%ml_varlist(i) = tolower(p_onl%ml_varlist(i))
-     !END DO
-     !DO i=1,max_var_pl
-     !  p_onl%pl_varlist(i) = tolower(p_onl%pl_varlist(i))
-     !END DO
-     !DO i=1,max_var_hl
-     !  p_onl%hl_varlist(i) = tolower(p_onl%hl_varlist(i))
-     !END DO
-     !DO i=1,max_var_il
-     !  p_onl%il_varlist(i) = tolower(p_onl%il_varlist(i))
-     !END DO
+     ! allow case-insensitive variable names:
+     DO i=1,max_var_ml
+       p_onl%ml_varlist(i) = tolower(p_onl%ml_varlist(i))
+     END DO
+     DO i=1,max_var_pl
+       p_onl%pl_varlist(i) = tolower(p_onl%pl_varlist(i))
+     END DO
+     DO i=1,max_var_hl
+       p_onl%hl_varlist(i) = tolower(p_onl%hl_varlist(i))
+     END DO
+     DO i=1,max_var_il
+       p_onl%il_varlist(i) = tolower(p_onl%il_varlist(i))
+     END DO
 
       p_onl%next => NULL()
 
@@ -880,7 +880,7 @@ CONTAINS
               &               lremap_lonlat=(p_onl%remap == REMAP_REGULAR_LATLON), &
               &               opt_vlevel_type=i_typ)
             DO i=1,ngrp_vars
-              grp_vars(i) = grp_vars(i)
+              grp_vars(i) = tolower(grp_vars(i))
             END DO
             ! generate varlist where "grp_name" has been replaced;
             ! duplicates are removed
@@ -908,7 +908,7 @@ CONTAINS
               &               lremap_lonlat=(p_onl%remap == REMAP_REGULAR_LATLON), &
               &               opt_vlevel_type=i_typ)
             DO i=1,ngrp_vars
-              grp_vars(i) = grp_vars(i)
+              grp_vars(i) = tolower(grp_vars(i))
             END DO
             ! generate varlist where "grp_name" has been replaced;
             ! duplicates are removed
@@ -2336,10 +2336,10 @@ CONTAINS
     INTEGER                         :: k, i_dom, ll_dim(2), gridtype, idate, itime, iret
     TYPE(t_lon_lat_data), POINTER   :: lonlat
     TYPE(t_datetime)                :: ini_datetime
-    CHARACTER(len=1)                :: uuid_string(16)
     REAL(wp)                        :: pi_180
     INTEGER                         :: max_cell_connectivity, max_vertex_connectivity
     REAL(wp), ALLOCATABLE           :: p_lonlat(:)
+    REAL(wp), PARAMETER             :: ZERO_TOL = 1.e-15_wp
 
     pi_180 = ATAN(1._wp)/45._wp
 
@@ -2399,6 +2399,12 @@ CONTAINS
 
       of%cdiLonLatGridID = gridCreate(GRID_LONLAT, ll_dim(1)*ll_dim(2))
 
+      IF ( ABS(90._wp - lonlat%grid%north_pole(2)) > ZERO_TOL .OR.  &
+      &    ABS( 0._wp - lonlat%grid%north_pole(1)) > ZERO_TOL ) THEN
+        CALL gridDefXpole( of%cdiLonLatGridID, lonlat%grid%north_pole(1))
+        CALL gridDefYpole( of%cdiLonLatGridID, lonlat%grid%north_pole(2))
+      END IF
+
       CALL gridDefXsize(of%cdiLonLatGridID, ll_dim(1))
       CALL gridDefXname(of%cdiLonLatGridID, 'lon')
       CALL gridDefXunits(of%cdiLonLatGridID, 'degrees_east')
@@ -2449,8 +2455,7 @@ CONTAINS
       CALL gridDefYlongname(of%cdiCellGridID, 'center latitude')
       CALL gridDefYunits(of%cdiCellGridID, 'radian')
       !
-      CALL uuid2char(patch_info(i_dom)%grid_uuid, uuid_string)
-      CALL gridDefUUID(of%cdiCellGridID, uuid_string)
+      CALL gridDefUUID(of%cdiCellGridID, patch_info(i_dom)%grid_uuid%DATA)
       !
       CALL gridDefNumber(of%cdiCellGridID, patch_info(i_dom)%number_of_grid_used)
 
@@ -2484,8 +2489,7 @@ CONTAINS
       CALL gridDefYlongname(of%cdiVertGridID, 'vertex latitude')
       CALL gridDefYunits(of%cdiVertGridID, 'radian')
       !
-      CALL uuid2char(patch_info(i_dom)%grid_uuid, uuid_string)
-      CALL gridDefUUID(of%cdiVertGridID, uuid_string)
+      CALL gridDefUUID(of%cdiVertGridID, patch_info(i_dom)%grid_uuid%DATA)
       !
       CALL gridDefNumber(of%cdiVertGridID, patch_info(i_dom)%number_of_grid_used)
 
@@ -2506,8 +2510,7 @@ CONTAINS
       CALL gridDefYlongname(of%cdiEdgeGridID, 'edge midpoint latitude')
       CALL gridDefYunits(of%cdiEdgeGridID, 'radian')
       !
-      CALL uuid2char(patch_info(i_dom)%grid_uuid, uuid_string)
-      CALL gridDefUUID(of%cdiEdgeGridID, uuid_string)
+      CALL gridDefUUID(of%cdiEdgeGridID, patch_info(i_dom)%grid_uuid%DATA)
       !
       CALL gridDefNumber(of%cdiEdgeGridID, patch_info(i_dom)%number_of_grid_used)
 
@@ -2720,8 +2723,9 @@ CONTAINS
           ! the masked data in the buffer might be different values.
           CALL vlistDefVarMissval(vlistID, varID, REAL(REAL(info%missval%rval,sp),dp))
         END IF
-      ENDIF  ! info%lmiss
-
+      ELSE IF (info%lmask_boundary .AND. config_lmask_boundary) THEN
+        CALL vlistDefVarMissval(vlistID, varID, BOUNDARY_MISSVAL)
+      END IF
 
       ! Set GRIB2 Triplet
       IF (info%post_op%lnew_grib2) THEN
@@ -3050,7 +3054,7 @@ CONTAINS
     ENDIF
     ! broadcast
     DO ivgrid = 1,nvgrid
-      CALL p_bcast(vgrid_buffer(ivgrid)%uuid, bcast_root, p_comm_work_2_io)
+      CALL p_bcast(vgrid_buffer(ivgrid)%uuid%DATA, SIZE(vgrid_buffer(ivgrid)%uuid%DATA, 1), bcast_root, p_comm_work_2_io)
     ENDDO
 
   END SUBROUTINE replicate_data_on_io_procs

@@ -488,6 +488,19 @@ CONTAINS
       field% u_stress_tile(:,:,:) = 0._wp
       field% v_stress_tile(:,:,:) = 0._wp
 
+      field% sfcWind(:,  :) =   0._wp
+      field% uas    (:,  :) =   0._wp
+      field% vas    (:,  :) =   0._wp
+      field% tas    (:,  :) =   0._wp
+      field% dew2   (:,  :) =   0._wp
+      field% tasmax (:,  :) = -99._wp
+      field% tasmin (:,  :) = 999._wp
+      field% sfcWind_tile(:,:,:) = 0._wp
+      field% uas_tile    (:,:,:) = 0._wp
+      field% vas_tile    (:,:,:) = 0._wp
+      field% tas_tile    (:,:,:) = 0._wp
+      field% dew2_tile   (:,:,:) = 0._wp
+
       field% u_stress_sso(:,:) = 0._wp
       field% v_stress_sso(:,:) = 0._wp
       field% dissipation_sso(:,:) = 0._wp
@@ -557,6 +570,7 @@ CONTAINS
 
 !$OMP PARALLEL WORKSHARE
         field% ustar (:,:)   = 1._wp
+        field% wstar_tile (:,:,:) = 0._wp 
         field% kedisp(:,:)   = 0._wp
         field% tkem0 (:,:,:) = 1.e-4_wp
         field% tkem1 (:,:,:) = 1.e-4_wp

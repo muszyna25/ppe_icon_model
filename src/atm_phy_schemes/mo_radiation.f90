@@ -223,8 +223,11 @@ CONTAINS
 
 !DIR$ SIMD
         DO jc = 1,ie
-          zsmu0(jc,jb) = MERGE(SQRT(zsmu0(jc,jb)/REAL(n_cosmu0pos(jc,jb),wp)), &
-               cosmu0_dark, n_cosmu0pos(jc,jb) > 0)
+          IF (n_cosmu0pos(jc,jb) > 0) THEN
+            zsmu0(jc,jb) = SQRT(zsmu0(jc,jb)/REAL(n_cosmu0pos(jc,jb),wp))
+          ELSE
+            zsmu0(jc,jb) = cosmu0_dark
+          ENDIF
         ENDDO
 
       ENDDO !jb
