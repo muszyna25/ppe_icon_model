@@ -421,7 +421,7 @@ CONTAINS
                 sedlay(j,k,isssc12) = 1.e-8_wp
 
                 sedlay(j,k,issster) = 30._wp
-                sedlay(j,k,issssil) = 3._wp
+                sedlay(j,k,issssil) = 0._wp
 
                 sedhpl(j,k)         = hi(j,kbo(j))
              ELSE
