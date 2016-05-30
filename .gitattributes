@@ -733,6 +733,7 @@ run/checksuite.icon-dev/check.atm_amip_noforcing_notransport_nodynamics -text
 run/checksuite.icon-dev/check.atm_amip_noparams -text
 run/checksuite.icon-dev/check.atm_ape -text
 run/checksuite.icon-dev/check.atm_icoles_nested -text
+run/checksuite.icon-dev/check.atm_rce -text
 run/checksuite.icon-dev/check.atm_rce_les -text
 run/checksuite.icon-dev/check.oce_omip_0160km -text
 run/checksuite.icon-dev/icon-dev.checksuite -text
@@ -856,6 +857,7 @@ run/exp.atm_icoles_nested -text
 run/exp.atm_jww_hs -text
 run/exp.atm_jww_hs_test -text
 run/exp.atm_rce_les -text
+run/exp.atm_rce_test -text
 run/exp.bench_nh_hdcp2_lam_r0416 -text
 run/exp.couple_atmo-ocean -text
 run/exp.couple_atmo-radiation -text

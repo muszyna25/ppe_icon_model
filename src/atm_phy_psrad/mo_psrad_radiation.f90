@@ -118,8 +118,8 @@ MODULE mo_psrad_radiation
                                            mmr_o2,             &
                                            vmr_cfc11,          &
                                            vmr_cfc12,          &
-                                           ch4_v,              &
-                                           n2o_v,              &
+                                           ch4_v=>vpp_ch4,     &
+                                           n2o_v=>vpp_n2o,     &
                                            vmr_o2,             &
                                            nmonth,             &
                                            isolrad,            &
