@@ -107,10 +107,13 @@ MODULE mo_model_domimp_setup
 
   PRIVATE
 
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_model_domimp_setup'
+
   PUBLIC :: reshape_int
   PUBLIC :: reshape_real
   PUBLIC :: init_quad_twoadjcells
   PUBLIC :: init_coriolis
+  PUBLIC :: set_trivial_phys_id
   PUBLIC :: set_verts_phys_id
   PUBLIC :: init_butterfly_idx
 
@@ -261,7 +264,7 @@ CONTAINS
         ENDDO
         IF (MAXVAL(ierror) > 0) THEN
           WRITE(0,*) "Number of errors", SUM(ierror(1:nproma))
-          CALL finish ('mo_model_domain_import:init_quad_twoadjcells',  &
+          CALL finish (modname//':init_quad_twoadjcells',  &
             & 'edge-cell index relationships are apparently incorrect')
         ENDIF
 
@@ -320,7 +323,7 @@ CONTAINS
 
           IF (iie /= 4) THEN
             PRINT *, "ERROR ==>  iie = ", iie,  " /= 4 "
-            CALL finish ('mo_model_domain_import:init_quad_twoadjcells',  &
+            CALL finish (modname//':init_quad_twoadjcells',  &
               & 'wrong number of edge indices for quad')
           ENDIF
 
@@ -623,6 +626,27 @@ CONTAINS
   END SUBROUTINE init_coriolis
   !-------------------------------------------------------------------------
 
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Sets trivial phys_id for cells/edges, if this is not read from input.
+  !!
+  !! "Trivial" means that there is no distinction between physical and
+  !! logical patches.
+  !!
+  SUBROUTINE set_trivial_phys_id(patch)
+    TYPE(t_patch), INTENT(INOUT) :: patch ! patch on specific level
+    CHARACTER(*), PARAMETER    :: routine = modname//"::set_trivial_phys_id"
+
+    ! consistency check:
+    IF (patch%geometry_info%cell_type /= 3)  CALL finish (routine, "Not yet implemented!")
+
+    patch%cells%phys_id(:,:) = patch%id
+    patch%edges%phys_id(:,:) = patch%id
+  END SUBROUTINE set_trivial_phys_id
+  !-------------------------------------------------------------------------
+
+
   !-------------------------------------------------------------------------
   !>
   !! Sets phys_id for verts since this is not read from input
@@ -772,7 +796,7 @@ CONTAINS
   SUBROUTINE fill_grid_subsets(patch)
     TYPE(t_patch), TARGET :: patch
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_setup:fill_grid_subsets'
+    CHARACTER(LEN=*), PARAMETER :: method_name = modname//':fill_grid_subsets'
 
     !--------------------------------------------------------------------------------
     ! make sure the levels are correct when running sequentially

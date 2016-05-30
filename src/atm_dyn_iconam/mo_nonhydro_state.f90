@@ -95,7 +95,7 @@ MODULE mo_nonhydro_state
   PRIVATE
 
 
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_util_vgrid'
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_nonhydro_state'
 
 
   PUBLIC :: construct_nh_state    ! Constructor for the nonhydrostatic state

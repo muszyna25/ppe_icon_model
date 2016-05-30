@@ -105,7 +105,7 @@ MODULE mo_model_domimp_patches
     &                              t_grid_domain_decomp_info, get_local_index
   USE mo_parallel_config,    ONLY: nproma, p_test_run
   USE mo_model_domimp_setup, ONLY: init_quad_twoadjcells, init_coriolis, &
-    & set_verts_phys_id, init_butterfly_idx, fill_grid_subsets
+    & set_trivial_phys_id, set_verts_phys_id, init_butterfly_idx, fill_grid_subsets
   USE mo_grid_tools,         ONLY: calculate_patch_cartesian_positions, rescale_grid
   USE mo_grid_config,        ONLY: start_lev, nroot, n_dom, n_dom_start, &
     & l_limited_area, max_childdom, dynamics_parent_grid_id, &
@@ -194,6 +194,10 @@ MODULE mo_model_domimp_patches
 
   INTEGER, SAVE :: ishift_child_id
 
+  ! The "phys_id" is not necessarily defined for cells/edges in the
+  ! input file:
+  LOGICAL, ALLOCATABLE :: lhave_phys_id(:) ! (0:n_dom)
+
   !-------------------------------------------------------------------------
 
 CONTAINS
@@ -267,6 +271,10 @@ CONTAINS
     ELSE
       patch_pre(1)%parent_child_index = 0
     ENDIF
+
+    ! A "phys_id" is not necessarily defined for cells/edges in the
+    ! input file:
+    ALLOCATE(lhave_phys_id(0:n_dom))
 
     DO jg = 1, n_dom
 
@@ -572,6 +580,11 @@ CONTAINS
 
     ! do other stuff
     DO jg = n_dom_start, n_dom
+      ! set trivial phys_id for cells/edges, if not read from input:
+      IF (.NOT. lhave_phys_id(jg)) THEN
+        CALL set_trivial_phys_id( patch(jg) )
+      END IF
+      ! set phys_id for verts since this is not read from input
       CALL set_verts_phys_id( patch(jg) )
     ENDDO
 
@@ -606,7 +619,14 @@ CONTAINS
         IF (jg>n_dom_start) THEN
           CALL disable_sync_checks
           CALL init_coriolis( lcoriolis, lplane, p_patch_local_parent(jg) )
+          
+          ! set trivial phys_id for cells/edges, if not read from input:
+          IF (.NOT. lhave_phys_id(jg)) THEN
+            CALL set_trivial_phys_id( patch(jg) )
+          END IF
+          ! set phys_id for verts since this is not read from input
           CALL set_verts_phys_id( p_patch_local_parent(jg) )
+
           CALL enable_sync_checks
         ENDIF
 
@@ -1366,14 +1386,18 @@ CONTAINS
     IF (dim_idxlist > 1) &
       patch_pre%verts%end(min_rlvert_int) = patch_pre%n_patch_verts_g
 
-!     write(0,*) "get phys_cell_id..."
     ! patch_pre%cells%phys_id(:)
-    CALL nf(nf_inq_varid(ncid_grf, 'phys_cell_id', varid))
-    CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_phys_id, local_ptr)
-    CALL nf(nf_get_vara_int(ncid_grf, varid, &
-      &                     (/patch_pre%cells%local_chunk(1,1)%first/), &
-      &                     (/patch_pre%cells%local_chunk(1,1)%size/), &
-      &                     local_ptr(:)))
+    !
+    ! If no domain merging is used, the physical cell/edge ID must not
+    ! necessarily specified in the grid file:
+    lhave_phys_id(ig) = (nf_inq_varid(ncid_grf, 'phys_cell_id', varid) == nf_noerr)
+    IF (lhave_phys_id(ig)) THEN
+      CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_phys_id, local_ptr)
+      CALL nf(nf_get_vara_int(ncid_grf, varid, &
+        &                     (/patch_pre%cells%local_chunk(1,1)%first/), &
+        &                     (/patch_pre%cells%local_chunk(1,1)%size/), &
+        &                     local_ptr(:)))
+    END IF
 
     ! patch_pre%cells%neighbor
     CALL nf(nf_inq_varid(ncid, 'neighbor_cell_index', varid))
@@ -1772,7 +1796,7 @@ CONTAINS
     ! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     ! p_p%cells%phys_id(:,:)
-    IF (ig <= 1) THEN
+    IF ((ig <= 1) .OR. .NOT. lhave_phys_id(ig)) THEN
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
         p_p%cells%phys_id(:,:) = ig
@@ -1830,7 +1854,7 @@ CONTAINS
     ! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     ! p_p%edges%phys_id(:,:)
-    IF (ig <= 1) THEN
+    IF ((ig <= 1) .OR. .NOT. lhave_phys_id(ig)) THEN
       DO ip = 0, n_lp
         p_p => get_patch_ptr(patch, id_lp, ip)
         p_p%edges%phys_id(:,:) = ig
