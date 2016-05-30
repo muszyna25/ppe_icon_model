@@ -4,7 +4,7 @@
 !!
 !! See the LICENSE and the WARRANTY conditions.
 !!
-MODULE MO_INI_BGC
+MODULE mo_ini_bgc
 
   USE mo_kind, ONLY        : wp
   USE mo_carbch, ONLY      : hi, co3, totarea, bgctra, atdifv, atm, &
