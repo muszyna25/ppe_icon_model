@@ -448,7 +448,7 @@ CONTAINS
     REAL(dp), ALLOCATABLE           :: levels(:)
     REAL(wp), ALLOCATABLE           :: levels_i(:), levels_m(:)
     REAL(wp), ALLOCATABLE           :: levels_s(:), levels_sp(:)
-    INTEGER                         :: nzlevp1,iz
+    INTEGER                         :: nzlevp1
 
 #ifndef __NO_ICON_OCEAN__
     of%cdiZaxisID(:) = CDI_UNDEFID ! not all are set

@@ -12,8 +12,21 @@
 ! -----------------------------------------------------------------------
 
 MODULE mo_reshuffle
+  ! actual method (MPI-2)
+#ifndef NOMPI
+#if !defined (__SUNPRO_F95)
+  USE mpi
+#endif
+#endif
+
   IMPLICIT NONE
-  INCLUDE 'mpif.h'
+
+#ifndef NOMPI
+#if defined (__SUNPRO_F95)
+  INCLUDE "mpif.h"
+#endif
+#endif
+
   PRIVATE 
 
   PUBLIC :: reshuffle
@@ -184,12 +197,11 @@ CONTAINS
     INTEGER, INTENT(INOUT) :: out_values(:)    !< resulting local part of distributed array
     INTEGER, INTENT(OUT)   :: ierr             !< error return code 
     ! local variables
-    INTEGER                   :: i, j, nsend, nlocal, rank, isize, ierr, communicator,     &
+    INTEGER                   :: i, j, nsend, nlocal, rank, isize,                         &
       &                          npairs_recv, local_idx, npairs_recv_owner                 
     INTEGER, ALLOCATABLE      :: icounts(:), irecv(:), irecv_idx(:), recv_vals(:),         &
-      &                          isend_idx(:), send_vals(:), i_pe(:), glb_idx(:),          &
-      &                          values(:), permutation(:), send_displs(:),                &
-      &                          recv_displs(:), reg_partition_buf(:),                     &
+      &                          i_pe(:), glb_idx(:), values(:), permutation(:),           &
+      &                          send_displs(:), recv_displs(:), reg_partition_buf(:),     &
       &                          reordered_owner_idx(:), isendbuf(:,:), i_pe_owner(:),     &
       &                          icounts_owner(:), irecv_owner(:), icounts_buf(:,:),       &
       &                          irecv_buf(:,:), permutation_owner(:), irecv_idx_owner(:), &
