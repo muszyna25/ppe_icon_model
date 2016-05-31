@@ -42,11 +42,11 @@ MODULE mo_grf_intp_coeffs
 !
 USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: finish
-USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell, min_rledge, min_rlcell_int, min_rledge_int
+USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, min_rledge_int
 USE mo_model_domain,        ONLY: t_patch, t_grid_edges, t_grid_cells, t_grid_vertices, &
  &                                p_patch_local_parent
 
-USE mo_grid_config,         ONLY: n_dom, n_dom_start, l_limited_area, grid_sphere_radius
+USE mo_grid_config,         ONLY: n_dom, n_dom_start, grid_sphere_radius
 
 USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, arc_length, &
                                   t_cartesian_coordinates, arc_length_v
@@ -420,7 +420,7 @@ TYPE(t_patch),      POINTER :: p_pc => NULL()
 TYPE(t_gridref_state), POINTER :: p_grfp
 
 INTEGER  :: jb, jc, jg, je, j, ki(2), kb(2), i_startblk, i_endblk, &
-            i_startidx, i_endidx, j1, j2, js1, js2, jgp, i_chidx
+            i_startidx, i_endidx, j1, j2, js1, js2, i_chidx
 REAL(wp) :: sum1,wgt(4),x(4),y(4)
 
 INTEGER  ::  ici1, icb1, ici2, icb2, ici3, icb3, ici4, icb4, ierror
@@ -438,7 +438,6 @@ TYPE(t_cartesian_coordinates) :: cc_center, cc_ch1, cc_ch2, cc_ch3, cc_ch4, &
 
 DO jg = n_dom_start+1, n_dom
 
-  jgp  = p_patch(jg)%parent_id
   p_pc => p_patch(jg)
 
   p_pp   => p_patch_local_parent(jg)

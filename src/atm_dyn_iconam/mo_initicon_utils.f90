@@ -24,7 +24,7 @@ MODULE mo_initicon_utils
 
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma, p_test_run
-  USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, check_uuid_gracefully
+  USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_metrics, t_nh_diag, t_nh_prog
@@ -32,11 +32,9 @@ MODULE mo_initicon_utils
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_initicon_types,      ONLY: t_initicon_state, alb_snow_var, t_pi_atm_in, t_pi_sfc_in, t_pi_atm, t_pi_sfc, t_sfc_inc, &
-                                    ana_varnames_dict, inventory_list_fg, inventory_list_ana
+                                    ana_varnames_dict
   USE mo_initicon_config,     ONLY: init_mode, nlevatm_in, nlevsoil_in, l_sst_in,       &
-    &                               timeshift, initicon_config, ltile_coldstart,        &
-    &                               ana_varnames_map_file, lread_ana, lread_vn,         &
-    &                               lconsistency_checks, lp2cintp_incr, lp2cintp_sfcana,&
+    &                               ana_varnames_map_file, lread_vn,         &
     &                               lvert_remap_fg, aerosol_fg_present
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA, MODE_IAU,             &
                                     MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED,           &
@@ -46,36 +44,32 @@ MODULE mo_initicon_utils
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_radiation_config,    ONLY: albedo_type
   USE mo_physical_constants,  ONLY: tf_salt, tmelt
-  USE mo_exception,           ONLY: message, finish, message_text, warning
+  USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom
   USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work_test, p_comm_work
-  USE mo_util_string,         ONLY: tolower, difference, add_to_list, one_of, int2string
+  USE mo_util_string,         ONLY: tolower
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lseaice, llake, lmulti_snow,         &
-    &                               isub_lake, frlnd_thrhld, frlake_thrhld, frsea_thrhld,         &
-    &                               nlev_snow, ntiles_lnd, lsnowtile
+    &                               isub_lake, frlnd_thrhld,             &
+    &                               frlake_thrhld, frsea_thrhld, nlev_snow, ntiles_lnd,           &
+    &                               l2lay_rho_snow
   USE mo_nwp_sfc_utils,       ONLY: init_snowtile_lists
-  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, iprog_aero
+  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max, csalb_snow, crhosmin_ml, crhosmax_ml
   USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1
   USE mo_nh_init_utils,       ONLY: hydro_adjust
   USE mo_seaice_nwp,          ONLY: frsi_min, seaice_coldinit_nwp
   USE mo_dictionary,          ONLY: dict_init, dict_finalize,                           &
-    &                               dict_loadfile, dict_get, DICT_MAX_STRLEN, dict_resize
+    &                               dict_loadfile, dict_resize
   USE mo_post_op,             ONLY: perform_post_op
-  USE mo_var_metadata_types,  ONLY: t_var_metadata, POST_OP_NONE, VARNAME_LEN
+  USE mo_var_metadata_types,  ONLY: t_var_metadata, POST_OP_NONE
   USE mo_linked_list,         ONLY: t_list_element
-  USE mo_var_list,            ONLY: get_var_name, nvar_lists, var_lists, collect_group
+  USE mo_var_list,            ONLY: get_var_name, nvar_lists, var_lists
   USE mo_var_list_element,    ONLY: level_type_ml
-  USE mo_util_cdi_table,      ONLY: t_inventory_list, t_inventory_element, &
-    &                               find_inventory_list_element
-  USE mo_util_bool_table,     ONLY: init_bool_table, add_column, print_bool_table, &
-    &                               t_bool_table
   USE mo_util_uuid,           ONLY: OPERATOR(==)
   USE mo_flake,               ONLY: flake_coldinit
   USE mo_time_config,         ONLY: time_config
-  USE mtime,                  ONLY: newDatetime, datetime, OPERATOR(==), OPERATOR(+), &
-    &                               deallocateDatetime
+  USE mtime,                  ONLY: OPERATOR(==), OPERATOR(+)
   USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_statistics,          ONLY: time_avg
@@ -93,8 +87,6 @@ MODULE mo_initicon_utils
 
 
   PUBLIC :: initicon_inverse_post_op
-  PUBLIC :: validate_input
-  PUBLIC :: create_input_groups
   PUBLIC :: copy_initicon2prog_atm
   PUBLIC :: copy_initicon2prog_sfc
   PUBLIC :: copy_fg2initicon
@@ -126,10 +118,9 @@ MODULE mo_initicon_utils
   !! Initial version by Daniel Reinert, DWD(2013-07-05)
   !!
   !!
-  SUBROUTINE initicon_inverse_post_op(varname, mapped_name, optvar_out2D, optvar_out3D)
+  SUBROUTINE initicon_inverse_post_op(varname, optvar_out2D, optvar_out3D)
 
     CHARACTER(len=*), INTENT(IN)      :: varname             !< var name of field to be read
-    CHARACTER(LEN=DICT_MAX_STRLEN)    :: mapped_name         !< mapped input name
     REAL(wp), OPTIONAL, INTENT(INOUT) :: optvar_out2D(:,:)   !< 3D output field
     REAL(wp), OPTIONAL, INTENT(INOUT) :: optvar_out3D(:,:,:) !< 2D output field
 
@@ -187,7 +178,7 @@ MODULE mo_initicon_utils
     ! perform post_op
     IF (info%post_op%ipost_op_type /= POST_OP_NONE) THEN
       IF(my_process_is_stdio() .AND. msg_level>10) THEN
-        WRITE(message_text,'(a)') 'Inverse Post_op for: '//TRIM(mapped_name)//' ('//TRIM(varname)//')'
+        WRITE(message_text,'(a)') 'Inverse Post_op for: '//TRIM(varname)
         CALL message(TRIM(routine), TRIM(message_text))
       ENDIF
       IF (PRESENT(optvar_out2D)) THEN
@@ -199,797 +190,6 @@ MODULE mo_initicon_utils
 
   END SUBROUTINE initicon_inverse_post_op
 
-
-
-
-  !>
-  !! Check validity of input fields
-  !!
-  !! Check validity of input fields. So far, the following checks are performed:
-  !!
-  !! For First Guess:
-  !! - Check validity of uuidOfHgrid: The uuidOfHGrid of the input fields must 
-  !!   match the uuidOfHgrid of the horizontal grid file.
-  !! - Check validity of first guess validity time: First guess validity time 
-  !!   must comply with the model's initialization time (ini_datetime) minus 
-  !!   dt_shift.
-  !!
-  !! For Analysis (increments)
-  !! - Check validity of uuidOfHgrid: The uuidOfHGrid of the input fields must 
-  !!   match the uuidOfHgrid of the horizontal grid file.
-  !! - Check validity of analysis validity time:  The analysis field's validity 
-  !!   time must match the model's initialization time (ini_datetime)
-  !! - MODE_IAU, MODE_IAU_OLD:  check for matching typeOfGeneratingProcess.
-  !!
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2014-07-28)
-  !!
-  SUBROUTINE validate_input(p_patch, inventory_list_fg, inventory_list_ana, &
-    &                       grp_vars_fg, grp_vars_ana, ngrp_vars_fg,        &
-    &                       ngrp_vars_ana)
-
-    TYPE(t_patch)                , INTENT(IN) :: p_patch
-    TYPE(t_inventory_list)       , INTENT(IN) :: inventory_list_fg
-    TYPE(t_inventory_list)       , INTENT(IN) :: inventory_list_ana
-    CHARACTER(LEN=VARNAME_LEN)   , INTENT(IN) :: grp_vars_fg(:)   ! vars (names) to be read from fg-file
-    CHARACTER(LEN=VARNAME_LEN)   , INTENT(IN) :: grp_vars_ana(:)  ! vars (names) to be read from ana-file
-    INTEGER                      , INTENT(IN) :: ngrp_vars_fg     ! number of fields in grp_vars_fg
-    INTEGER                      , INTENT(IN) :: ngrp_vars_ana    ! number of fields in grp_vars_ana
-
-    ! local
-    TYPE(t_inventory_element), POINTER  :: this_list_element => NULL()
-    INTEGER :: ivar                     ! loop counter
-    LOGICAL :: lmatch_uuid
-    LOGICAL :: lmatch_vtime
-
-    TYPE(datetime),  POINTER :: mtime_inidatetime  ! INI-datetime in mtime format
-    TYPE(datetime)           :: start_datetime     ! true start date (includes timeshift)
-    !
-    INTEGER :: index_inc, index_ful
-    CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_iau_grp_inc(20)
-    CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_iau_old_grp_inc(20)
-    !
-    CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_iau_grp_ful(SIZE(grp_vars_ana))
-    CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_iau_old_grp_ful(SIZE(grp_vars_ana))
-    !
-    INTEGER :: nvars_mode_iau_grp_ful, nvars_mode_iau_old_grp_ful
-    CHARACTER(LEN=VARNAME_LEN), POINTER :: grp_inc(:)  ! pointer to mode-specific 'inc' group
-    CHARACTER(LEN=VARNAME_LEN), POINTER :: grp_ful(:)  ! pointer to mode-specific 'full' group
-    !
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':validate_input'
-
-  !-------------------------------------------------------------------
-
-    !*************
-
-    ! initialization
-    !
-
-    ! setup groups for checking the generating process type of analysis fields
-    !
-    ! MODE_IAU: mandatory increments
-    mode_iau_grp_inc(1:8)        = (/'u        ','v        ','pres     ','temp     ', &
-      &                              'qv       ','w_so     ','h_snow   ','freshsnow'/)
-    ! MODE_IAU_OLD: mandatory increments
-    mode_iau_old_grp_inc(1:6)    = (/'u        ','v        ','pres     ','temp     ', &
-      &                              'qv       ','w_so     '/)
-
-    !
-    ! groups containing mandatory full fields (= grp_vars_ana - inc fields)
-    mode_iau_grp_ful      = grp_vars_ana
-    mode_iau_old_grp_ful  = grp_vars_ana
-    !
-    nvars_mode_iau_grp_ful      = ngrp_vars_ana
-    nvars_mode_iau_old_grp_ful  = ngrp_vars_ana
-
-    ! Remove mandatory 'inc' fields to arrrive at list of mandatory 'full' fields
-    CALL difference(mode_iau_grp_ful, nvars_mode_iau_grp_ful, mode_iau_grp_inc, 8)
-    CALL difference(mode_iau_old_grp_ful, nvars_mode_iau_old_grp_ful, mode_iau_old_grp_inc, 6)
-
-
-
-    lmatch_uuid  = .FALSE. 
-    lmatch_vtime = .FALSE.
-
-    ! get ini-datetime in mtime-format
-    mtime_inidatetime => newDatetime(time_config%ini_datetime%year,       &
-      &                              time_config%ini_datetime%month,      &
-      &                              time_config%ini_datetime%day,        &
-      &                              time_config%ini_datetime%hour,       &
-      &                              time_config%ini_datetime%minute,     &
-      &                              INT(time_config%ini_datetime%second),&
-      &                              ms=0)
-
-    ! add timeshift to INI-datetime to get true starting time
-    start_datetime = mtime_inidatetime + timeshift%mtime_shift
-
-
-
-    ! Loop over all required input fields and perform some sanity checks.
-    ! This is done separately for the analysis- and first guess fields.
-
-    !
-    ! First guess
-    !
-    DO ivar = 1,ngrp_vars_fg
-      ! find matching list element
-      this_list_element => find_inventory_list_element (inventory_list_fg, &
-        &                                              TRIM(grp_vars_fg(ivar)) )
-
-
-      !************************!
-      !  Check uuidOfHGrid     !
-      !************************!
-      lmatch_uuid = (this_list_element%field%uuidOfHGrid == p_patch%grid_uuid)
-
-      IF (.NOT. lmatch_uuid) THEN
-        WRITE(message_text,'(a)') 'Non-matching uuidOfHGrid for first guess field '&
-          &                       //TRIM(grp_vars_fg(ivar))//'.'
-        IF (check_uuid_gracefully) THEN
-          CALL warning(routine, TRIM(message_text))
-        ELSE
-          CALL finish(routine, TRIM(message_text))
-        END IF
-      ENDIF
-
-
-      !**************************************!
-      !  Check Validity time of first guess  !
-      !**************************************!
-
-      ! check correctness of validity-time
-      lmatch_vtime = (this_list_element%field%vdatetime == start_datetime)
-
-!       write(0,*) "vdatetime, start_datetime: ", this_list_element%field%vdatetime, start_datetime
-!       write(0,*) "mtime_inidatetime, mtime_shift: ", mtime_inidatetime, timeshift%mtime_shift
-
-      IF (.NOT. lmatch_vtime) THEN
-        WRITE(message_text,'(a)') 'Non-matching validity datetime for first guess field '&
-          &                       //TRIM(grp_vars_fg(ivar))//'.'
-        CALL finish(routine, TRIM(message_text))
-      ENDIF
-
-    ENDDO
-
-
-    !
-    ! Analysis (full fields/increments)
-    !
-    DO ivar = 1,ngrp_vars_ana
-      ! find matching list element
-      this_list_element => find_inventory_list_element (inventory_list_ana, &
-        &                                              TRIM(grp_vars_ana(ivar)) )
-
-      !************************!
-      !  Check uuidOfHGrid     !
-      !************************!
-      lmatch_uuid = (this_list_element%field%uuidOfHGrid == p_patch%grid_uuid)
-
-      IF (.NOT. lmatch_uuid) THEN
-        WRITE(message_text,'(a)') 'Non-matching uuidOfHGrid for analysis field '&
-          &                       //TRIM(grp_vars_ana(ivar))//'.'
-        IF (check_uuid_gracefully) THEN
-          CALL warning(routine, TRIM(message_text))
-        ELSE
-          CALL finish(routine, TRIM(message_text))
-        END IF
-      ENDIF
-
-
-      !**************************************!
-      !  Check Validity time of analysis     !
-      !**************************************!
-      !
-      ! analysis field's validity time must match the model's initialization time
-      !
-      lmatch_vtime = (this_list_element%field%vdatetime == mtime_inidatetime)
-
-      ! write(0,*) "vname: ", TRIM(grp_vars_ana(ivar))
-      ! write(0,*) "vdatetime, inidatetime: ", this_list_element%field%vdatetime, mtime_inidatetime
-
-      IF (.NOT. lmatch_vtime) THEN
-        WRITE(message_text,'(a)') 'Non-matching validity datetime for analysis field '&
-          &                       //TRIM(grp_vars_ana(ivar))//'.'
-        CALL finish(routine, TRIM(message_text))
-      ENDIF
-
-
-      !****************************************!
-      !  Check typeOfGeneratingProcess         !
-      !   (quick hack)                         !
-      !****************************************!
-      SELECT CASE (init_mode)
-      CASE(MODE_IAU)
-        !
-        grp_inc => mode_iau_grp_inc
-        grp_ful => mode_iau_grp_ful
-      CASE(MODE_IAU_OLD)
-        !
-        grp_inc => mode_iau_old_grp_inc
-        grp_ful => mode_iau_old_grp_ful
-      CASE default
-        !
-        grp_inc => NULL()
-        grp_ful => NULL()
-      END SELECT
-
-      IF (ASSOCIATED(grp_inc) .AND. ASSOCIATED(grp_ful)) THEN
-        ! determine whether the field is required as inc- or full- field
-        index_inc = one_of(TRIM(this_list_element%field%name),grp_inc(:))
-        index_ful = one_of(TRIM(this_list_element%field%name),grp_ful(:))
-
-        IF ( index_inc /= -1) THEN  ! field required as increment
-          IF (this_list_element%field%typeOfGeneratingProcess /=201) THEN
-            WRITE(message_text,'(a)') 'Non-matching typeOfGeneratingProcess for analysis field '&
-              &                       //TRIM(this_list_element%field%name)//'. 201 expected'
-            CALL finish(routine, TRIM(message_text))
-          ENDIF
-        
-        ELSE IF ( index_ful /= -1) THEN  ! field required as full field
-          IF (this_list_element%field%typeOfGeneratingProcess /=0) THEN
-            WRITE(message_text,'(a)') 'Non-matching typeOfGeneratingProcess for analysis field '&
-              &                       //TRIM(this_list_element%field%name)//'. 0 expected'
-            CALL finish(routine, TRIM(message_text))
-          ENDIF
-        ELSE   ! index_inc = index_ful = -1
-          WRITE(message_text,'(a)') 'Unidentified field: '//TRIM(this_list_element%field%name)// &
-            &                       ' typeOfGeneratingProcess could not be checked'
-          CALL finish(routine, TRIM(message_text))
-        ENDIF
-        !
-      ENDIF  ! associated
-
-    ENDDO
-
-
-    ! cleanup
-    CALL deallocateDatetime(mtime_inidatetime)
-
-  END SUBROUTINE validate_input
-
-
-
-  !-------------
-  !>
-  !! SUBROUTINE create_input_groups
-  !! Generates groups 'grp_vars_fg' and 'grp_vars_ana', which contain all those fields that  
-  !! must be read from the FG- and ANA-File, respectively.
-  !! Both groups are based on two out of a bunch of available ICON-internal output groups, depending on 
-  !! which input mode is used
-  !! groups for MODE_DWD     : mode_dwd_fg_in, mode_dwd_ana_in
-  !! groups for MODE_IAU     : mode_iau_fg_in, mode_iau_ana_in
-  !! groups for MODE_IAU_OLD : mode_iau_old_fg_in, mode_iau_old_ana_in
-  !! groups for MODE_COMBINED: mode_combined_in
-  !! groups for MODE_COSMODE : mode_cosmode_in
-  !!
-  !! In a first step it is checked, whether the ANA-File contains all members of the group 'grp_vars_ana'.
-  !! If a member is missing, it is checked (based on the group grp_vars_ana_mandatory) whether the 
-  !! ANA-Field is mandatory or not. If the field is mandatory, i.e. if it is part of the group 
-  !! grp_vars_ana_mandatory provided via Namelist, the model aborts. If it is not mandatory, the model 
-  !! tries to fall back to the corresponding FG-Field. This is done as follows:
-  !! The missing ANA-Field is removed from the group 'grp_vars_ana' and added to the group 
-  !! 'in_grp_vars_fg'. A warning is issued, however the model does not abort. In a second step it is 
-  !! checked, whether the FG-File contains all members of the group 'grp_vars_fg'. If this is not the 
-  !! case, the model aborts.
-  !! At the end, a table is printed that shows which variables are part of which input group, meaning 
-  !! which field will be read from which file.
-  !!
-  !! Special case: lread_ana=.FALSE.  : In this case, ICON will be started from first guess fields only
-  !!                                    The analysis group varlist is re-set to 0 accordingly.
-  !!
-  !! @par Revision History
-  !! Initial version by Daniel Reinert, DWD(2013-07-08)
-  !!
-  !!
-  SUBROUTINE create_input_groups(p_patch, grp_vars_fg, ngrp_vars_fg, grp_vars_ana, ngrp_vars_ana, &
-    &                            grp_vars_ana_mandatory, ngrp_vars_ana_mandatory, &
-    &                            init_mode)
-
-    TYPE(t_patch)             , INTENT(IN)    :: p_patch                   ! current patch
-    CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_fg(:)            ! vars (names) to be read from fg-file
-    CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_ana(:)           ! vars (names) to be read from ana-file
-    CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_ana_mandatory(:) ! list of mandatory analysis fields (provided via Namelist)
-    INTEGER                   , INTENT(OUT)   :: ngrp_vars_fg              ! number of fields in grp_vars_fg
-    INTEGER                   , INTENT(OUT)   :: ngrp_vars_ana             ! number of fields in grp_vars_ana
-    INTEGER                   , INTENT(OUT)   :: ngrp_vars_ana_mandatory   ! number of fields in grp_vars_ana_mandatory
-    INTEGER                   , INTENT(IN)    :: init_mode                 ! initialization mode
-
-    ! local variables
-    INTEGER                    :: jg                                       ! patch id
-    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_anafile(200)                    ! ana-file inventory group
-    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fgfile(200)                     ! fg-file inventory group
-    INTEGER :: ivar, ivar1, mpi_comm
-    INTEGER :: idx, is_one_of
-
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':create_input_groups'
-    TYPE(t_bool_table) :: bool_table
-
-    ! lists to hold the default sets of fields
-    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fg_default(200), grp_vars_ana_default(200)
-    INTEGER :: ngrp_vars_fg_default, ngrp_vars_ana_default
-
-    
-
-    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_anaatm_default(SIZE(grp_vars_ana_default))  ! default vars atm-ana
-    INTEGER                    :: ngrp_vars_anaatm_default ! default number grp_vars_anaatm
-
-    ! additional list for LOG printout
-    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fg_default_grib2(SIZE(grp_vars_fg_default))
-    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_ana_default_grib2(SIZE(grp_vars_ana_default))
-    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fg_grib2(SIZE(grp_vars_fg))
-    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_ana_grib2(SIZE(grp_vars_ana))
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: ana_default_txt, ana_this_txt
-
-    CHARACTER(LEN=200) :: buffer_miss_ana   ! buffer for names of missing mandatory analysis fields
-    CHARACTER(LEN=200) :: buffer_miss_fg    ! buffer for names of missing mandatory first guess fields
-    LOGICAL :: lmiss_ana                    ! True, if there are missing mandatory analysis fields
-    LOGICAL :: lmiss_fg                     ! True, if there are missing mandatory first guess fields
-
-    INTEGER :: nelement                     ! element counter
-    TYPE(t_inventory_element), POINTER :: current_element  ! pointer to linked list element
-
-    !-------------------------------------------------------------------------
-
-    IF(my_process_is_stdio()) THEN
-
-
-      ! Initialization
-      jg = p_patch%id
-      lmiss_ana = .FALSE.
-      lmiss_fg  = .FALSE.
-      ngrp_vars_ana_mandatory = 0
-      grp_vars_anafile(:) = ""
-      grp_vars_fgfile (:) = ""
-
-
-      !===================
-      ! 1: Collect groups
-      !====================
-
-      SELECT CASE(init_mode)
-        CASE(MODE_DWDANA, MODE_ICONVREMAP)
-          ! Collect group 'grp_vars_fg_default' from mode_dwd_fg_in
-          !
-          CALL collect_group('mode_dwd_fg_in', grp_vars_fg_default, ngrp_vars_fg_default,    &
-            &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
-
-
-
-          ! Collect group 'grp_vars_ana_default' from mode_dwd_ana_in
-          !
-          CALL collect_group('mode_dwd_ana_in', grp_vars_ana_default, ngrp_vars_ana_default,    &
-            &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
-
-          ! initialize grp_vars_fg and grp_vars_ana which will be the groups that control 
-          ! the reading stuff
-          !
-          IF (lread_ana) THEN
-            ! initialize grp_vars_fg and grp_vars_ana with grp_vars_fg_default and grp_vars_ana_default
-
-            grp_vars_fg (1:ngrp_vars_fg_default) = grp_vars_fg_default (1:ngrp_vars_fg_default)
-            grp_vars_ana(1:ngrp_vars_ana_default)= grp_vars_ana_default(1:ngrp_vars_ana_default)
-            ngrp_vars_fg  = ngrp_vars_fg_default
-            ngrp_vars_ana = ngrp_vars_ana_default
-          ELSE
-            ! lump together grp_vars_fg_default and grp_vars_ana_default
-            !
-            ! grp_vars_fg = grp_vars_fg_default + grp_vars_ana_default
-            ngrp_vars_fg = 0
-            CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_fg_default(1:ngrp_vars_fg_default)  , &
-              &              ngrp_vars_fg_default)
-            CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_ana_default(1:ngrp_vars_ana_default), &
-              &              ngrp_vars_ana_default)
-
-            ! Remove fields 'u', 'v', 'temp', 'pres'
-            CALL difference(grp_vars_fg, ngrp_vars_fg, (/'u   ','v   ','temp','pres'/), 4)
-
-            ! grp_vars_ana = --
-            ngrp_vars_ana = 0
-          ENDIF
-
-        CASE(MODE_IAU)
-          ! Collect group 'grp_vars_fg_default' from mode_dwd_fg_in
-          !
-          CALL collect_group('mode_iau_fg_in', grp_vars_fg_default, ngrp_vars_fg_default,    &
-            &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
-
-          ! in case of tile coldstart, we can omit snowfrac
-          ! Remove field 'snowfrac_lc' from FG list
-          IF (ltile_coldstart .OR. .NOT. lsnowtile) THEN
-            CALL difference(grp_vars_fg_default, ngrp_vars_fg_default, (/'snowfrac_lc'/), 1)
-          ENDIF
-
-          ! Collect group 'grp_vars_ana_default' from mode_dwd_ana_in
-          !
-          CALL collect_group('mode_iau_ana_in' , grp_vars_ana_default, ngrp_vars_ana_default,    &
-            &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
-
-          ! initialize grp_vars_fg and grp_vars_ana which will be the groups that control 
-          ! the reading stuff
-          !
-          IF (.NOT. lp2cintp_incr(jg) .AND. .NOT. lp2cintp_sfcana(jg) ) THEN
-            ! full ANA read
-            ! initialize grp_vars_fg and grp_vars_ana with grp_vars_fg_default and grp_vars_ana_default
-
-            grp_vars_fg (1:ngrp_vars_fg_default) = grp_vars_fg_default (1:ngrp_vars_fg_default)
-            grp_vars_ana(1:ngrp_vars_ana_default)= grp_vars_ana_default(1:ngrp_vars_ana_default)
-            ngrp_vars_fg  = ngrp_vars_fg_default
-            ngrp_vars_ana = ngrp_vars_ana_default
-
-          ELSE IF (lp2cintp_incr(jg) .AND. .NOT. lp2cintp_sfcana(jg)) THEN
-            ! SFC-ANA read
-            ! atmospheric analysis fieds are interpolated from parent domain, 
-            ! however surface analysis fields are read from file
-
-            ! Remove fields atmospheric analysis fields from grp_vars_ana_default
-            CALL collect_group(TRIM('mode_iau_anaatm_in' ), grp_vars_anaatm_default, ngrp_vars_anaatm_default,   &
-              &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
-            CALL difference(grp_vars_ana_default, ngrp_vars_ana_default, &
-              &             grp_vars_anaatm_default, ngrp_vars_anaatm_default)
-
-
-            grp_vars_fg (1:ngrp_vars_fg_default) = grp_vars_fg_default (1:ngrp_vars_fg_default)
-            grp_vars_ana(1:ngrp_vars_ana_default)= grp_vars_ana_default(1:ngrp_vars_ana_default)
-            ngrp_vars_fg  = ngrp_vars_fg_default
-            ngrp_vars_ana = ngrp_vars_ana_default
-
-          ELSE IF (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg) ) THEN
-            ! no ANA-read
-            ! lump together grp_vars_fg_default and grp_vars_ana_default
-            !
-            ! grp_vars_fg = grp_vars_fg_default + grp_vars_ana_default
-            ngrp_vars_fg = 0
-            CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_fg_default(1:ngrp_vars_fg_default)  , &
-              &              ngrp_vars_fg_default)
-            CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_ana_default(1:ngrp_vars_ana_default), &
-              &              ngrp_vars_ana_default)
-
-            ! Remove fields 'u', 'v', 'temp', 'pres'
-            CALL difference(grp_vars_fg, ngrp_vars_fg, (/'u   ','v   ','temp','pres'/), 4)
-
-            ! grp_vars_ana = --
-            ngrp_vars_ana = 0
-          ELSE
-            WRITE(message_text,'(a,l1,a,l1,a)') 'Combination lp2cintp_incr=',lp2cintp_incr(jg), &
-              &                       ' and lp2cintp_sfcana=',lp2cintp_sfcana(jg),' not allowed'
-            CALL finish(routine, TRIM(message_text))
-          ENDIF
-
-
-        CASE(MODE_IAU_OLD)
-          ! Collect group 'grp_vars_fg_default' from mode_iau_old_fg_in
-          !
-          CALL collect_group(TRIM('mode_iau_old_fg_in' ), grp_vars_fg_default, ngrp_vars_fg_default,    &
-            &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
-
-          ! in case of tile coldstart, we can omit snowfrac
-          ! Remove field 'snowfrac_lc' from FG list
-          IF (ltile_coldstart) THEN
-            CALL difference(grp_vars_fg_default, ngrp_vars_fg_default, (/'snowfrac_lc'/), 1)
-          ENDIF
-
-          ! Collect group 'grp_vars_ana_default' from mode_iau_old_ana_in
-          !
-          CALL collect_group(TRIM('mode_iau_old_ana_in' ), grp_vars_ana_default, ngrp_vars_ana_default,    &
-            &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
-
-          ! initialize grp_vars_fg and grp_vars_ana which will be the groups that control 
-          ! the reading stuff
-          !
-          IF (.NOT. lp2cintp_incr(jg) .AND. .NOT. lp2cintp_sfcana(jg) ) THEN
-            ! full ANA read
-            ! initialize grp_vars_fg and grp_vars_ana with grp_vars_fg_default and grp_vars_ana_default
-
-            grp_vars_fg (1:ngrp_vars_fg_default) = grp_vars_fg_default (1:ngrp_vars_fg_default)
-            grp_vars_ana(1:ngrp_vars_ana_default)= grp_vars_ana_default(1:ngrp_vars_ana_default)
-            ngrp_vars_fg  = ngrp_vars_fg_default
-            ngrp_vars_ana = ngrp_vars_ana_default
-
-          ELSE IF (lp2cintp_incr(jg) .AND. .NOT. lp2cintp_sfcana(jg)) THEN
-            ! SFC-ANA read
-            ! atmospheric analysis fieds are interpolated from parent domain, 
-            ! however surface analysis fields are read from file
-
-            ! Remove fields atmospheric analysis fields from grp_vars_ana_default
-            CALL collect_group(TRIM('mode_iau_anaatm_in' ), grp_vars_anaatm_default, ngrp_vars_anaatm_default,   &
-              &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
-            CALL difference(grp_vars_ana_default, ngrp_vars_ana_default,     &
-              &             grp_vars_anaatm_default, ngrp_vars_anaatm_default)
-
-
-            grp_vars_fg (1:ngrp_vars_fg_default) = grp_vars_fg_default (1:ngrp_vars_fg_default)
-            grp_vars_ana(1:ngrp_vars_ana_default)= grp_vars_ana_default(1:ngrp_vars_ana_default)
-            ngrp_vars_fg  = ngrp_vars_fg_default
-            ngrp_vars_ana = ngrp_vars_ana_default
-
-          ELSE IF (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg) ) THEN
-            ! no ANA-read
-            ! lump together grp_vars_fg_default and grp_vars_ana_default
-            !
-            ! grp_vars_fg = grp_vars_fg_default + grp_vars_ana_default
-            ngrp_vars_fg = 0
-            CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_fg_default(1:ngrp_vars_fg_default)  , &
-              &              ngrp_vars_fg_default)
-            CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_ana_default(1:ngrp_vars_ana_default), &
-              &              ngrp_vars_ana_default)
-
-            ! Remove fields 'u', 'v', 'temp', 'pres'
-            CALL difference(grp_vars_fg, ngrp_vars_fg, (/'u   ','v   ','temp','pres'/), 4)
-
-            ! grp_vars_ana = --
-            ngrp_vars_ana = 0
-          ELSE
-            WRITE(message_text,'(a,l1,a,l1,a)') 'Combination lp2cintp_incr=',lp2cintp_incr(jg), &
-              &                       ' and lp2cintp_sfcana=',lp2cintp_sfcana(jg),' not allowed'
-            CALL finish(routine, TRIM(message_text))
-          ENDIF
-
-        CASE(MODE_COMBINED,MODE_COSMODE)
-          ! Collect group 'grp_vars_fg_default' from mode_combined_in or mode_cosmode_in
-          !
-          IF (init_mode == MODE_COMBINED) THEN
-              CALL collect_group('mode_combined_in', grp_vars_fg_default, ngrp_vars_fg_default,    &
-                &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
-          ELSE
-              CALL collect_group('mode_cosmode_in', grp_vars_fg_default, ngrp_vars_fg_default,    &
-                &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
-          ENDIF
-
-
-          ! remove W_SO from default list and replace it by SMI
-          CALL difference (grp_vars_fg_default, ngrp_vars_fg_default, (/'w_so'/), 1)
-          CALL add_to_list(grp_vars_fg_default, ngrp_vars_fg_default, (/'smi'/) , 1)
-
-          ! initialize grp_vars_fg which will be the group that controls the reading stuff
-          !
-          ! initialize grp_vars_fg with grp_vars_fg_default
-          grp_vars_fg (1:ngrp_vars_fg_default) = grp_vars_fg_default (1:ngrp_vars_fg_default)
-
-          ngrp_vars_fg = ngrp_vars_fg_default
-
-          ! no analysis group
-          ! ngrp_vars_ana_[default] = --
-          ngrp_vars_ana_default = 0
-          ngrp_vars_ana         = 0
-
-        CASE DEFAULT
-
-      END SELECT
-
-
-
-      !===============================================================================
-      ! 2: generate list of mandatory analysis fields (i.e. for which no fall back to
-      !    FG fields is allowed )
-      !===============================================================================
-
-      IF( lread_ana .AND. initicon_config(jg)%ana_varlist(1) /= ' ' ) THEN
-        ! translate GRIB2 varname to internal netcdf varname
-        ! If requested GRIB2 varname is not found in the dictionary 
-        ! (i.e. due to typos) -> Model abort
-        DO ivar=1,SIZE(initicon_config(jg)%ana_varlist)
-          IF (initicon_config(jg)%ana_varlist(ivar) /= ' ') THEN
-            ngrp_vars_ana_mandatory = ngrp_vars_ana_mandatory + 1
-            ! Sanity check
-            IF (ngrp_vars_ana_mandatory > SIZE(grp_vars_ana_mandatory)) THEN
-              WRITE(message_text,'(a)') 'Number of declared mandatory analysis fields exceeds internal limit.'
-              CALL finish(routine, TRIM(message_text))
-            ENDIF
-            ! translate GRIB2 -> NetCDF
-            grp_vars_ana_mandatory(ivar) = TRIM(dict_get(ana_varnames_dict,       &
-              &                            initicon_config(jg)%ana_varlist(ivar), &
-              &                            linverse=.TRUE.))
-          ELSE
-            EXIT
-          ENDIF
-        ENDDO
-      END IF
-
-
-      !========================================================
-      ! 3: Generate file inventory lists for FG- and ANA-files
-      !========================================================
-
-      ! get ANA-file varnames from inventory list (surface fields, only)
-      ! Translation to internal names has already been performed in
-      ! complete_inventory_list
-      !
-      IF (lread_ana .AND. .NOT. (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg)) ) THEN  ! skip, when starting from first guess, only
-        nelement = 0
-        current_element => inventory_list_ana(jg)%p%first_list_element
-        DO WHILE (ASSOCIATED(current_element))
-          nelement = nelement + 1
-          grp_vars_anafile(nelement) = TRIM(current_element%field%name)
-          current_element => current_element%next_list_element
-        ENDDO
-      ENDIF
-
-
-
-      ! get FG-file varnames from inventory list
-      ! Translation to internal names has already been performed in
-      ! complete_inventory_list
-      !
-      nelement = 0
-      current_element => inventory_list_fg(jg)%p%first_list_element
-      DO WHILE (ASSOCIATED(current_element))
-        nelement = nelement + 1
-        grp_vars_fgfile(nelement) = TRIM(current_element%field%name)
-        current_element => current_element%next_list_element
-      ENDDO
-
-
-
-      !======================================
-      ! 4: Check for missing input fields
-      !======================================
-
-      ! Check, whether the ANA-file inventory list contains all required analysis fields.
-      ! If not, check whether the missing field is mandatory. If so, issue an error and abort. If 
-      ! the field is not mandatory, remove the corresponding variable name from the group 
-      ! 'grp_vars_ana' and issue a warning. The missing field is added to the group 'grp_vars_fg' 
-      ! and thus the model tries to read it from the FG-File as fall back.
-      !
-      IF (lread_ana .AND. .NOT. (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg)) ) THEN
-        DO ivar=1,ngrp_vars_ana_default
-          idx = one_of(TRIM(grp_vars_ana_default(ivar)),grp_vars_anafile(:))
-
-          IF ( idx == -1) THEN  ! variable not found
-            ! Check whether this field is mandatory, or whether we may fall back to 
-            ! the first guess
-            is_one_of = one_of(TRIM(grp_vars_ana_default(ivar)),grp_vars_ana_mandatory(1:ngrp_vars_ana_mandatory))
-
-            IF ( is_one_of == -1) THEN  ! analysis field is not mandatory
-              ! fall back to first guess
-              !
-              WRITE(message_text,'(a)') 'Field '//TRIM(grp_vars_ana_default(ivar))//' not found in ANA-input file.'
-              CALL message(routine, TRIM(message_text))
-              WRITE(message_text,'(a)') 'Field '//TRIM(grp_vars_ana_default(ivar))//' will be read from FG-input, instead.'
-              CALL message(routine, TRIM(message_text))
-
-              ! remove missing field from analysis input-group grp_vars_ana
-              CALL difference(grp_vars_ana, ngrp_vars_ana, grp_vars_ana_default(ivar:ivar), 1)
-
-              ! add missing field to the FG-group grp_vars_fg
-              CALL add_to_list(grp_vars_fg, ngrp_vars_fg, grp_vars_ana_default(ivar:ivar), 1)
-
-            ELSE  ! analysis field is mandatory
-
-              ! add missing field to buffer
-              IF (.NOT. lmiss_ana) THEN
-                buffer_miss_ana = TRIM(grp_vars_ana_default(ivar))//', '
-                lmiss_ana = .TRUE.
-              ELSE
-                IF ((LEN_TRIM(buffer_miss_ana)+LEN_TRIM(grp_vars_ana_default(ivar))+2)<= LEN(buffer_miss_ana)) THEN
-                  buffer_miss_ana = TRIM(buffer_miss_ana)//TRIM(grp_vars_ana_default(ivar))//', '
-                ELSE
-                  CYCLE
-                ENDIF
-              ENDIF
-
-            ENDIF
-          ENDIF
-        ENDDO
-      ENDIF  ! lread_ana  
-
-
-      ! Check, whether the FG-file inventory group contains all fields which are needed for a 
-      ! successful model start. If not, then stop the model and issue an error.
-      ivar = 0
-      DO ivar1=1,ngrp_vars_fg
-        ivar = ivar + 1
-        idx = one_of(TRIM(grp_vars_fg(ivar)),grp_vars_fgfile(:))
-
-        IF ( idx == -1) THEN   ! variable not found
-          IF (INDEX(grp_vars_fg(ivar),'aer_') > 0) THEN
-            ! aerosol variables allowed to be missing; they are initialized from the climatology in this case
-          ELSE IF (.NOT. lmiss_fg) THEN ! add missing field to buffer
-            buffer_miss_fg = TRIM(grp_vars_fg(ivar))//', '
-            lmiss_fg = .TRUE.
-          ELSE
-            IF ((LEN_TRIM(buffer_miss_fg)+LEN_TRIM(grp_vars_fg(ivar))+2)<= LEN(buffer_miss_fg)) THEN
-              buffer_miss_fg = TRIM(buffer_miss_fg)//TRIM(grp_vars_fg(ivar))//', '
-            ELSE
-              CYCLE
-            ENDIF
-          ENDIF
-
-          ! remove missing field from first guess input-group grp_vars_fg
-          CALL difference(grp_vars_fg, ngrp_vars_fg, grp_vars_fg(ivar:ivar), 1)
-          ivar = ivar - 1
-        ENDIF
-      ENDDO
-
-
-
-
-      !====================
-      ! 5: Printout table
-      !====================
-
-      !
-      ! For printout, translate variable names from Netcdf (internal) to GRIB2
-      ! print both GRIB2 (internal)
-      DO ivar = 1,ngrp_vars_fg_default
-        grp_vars_fg_default_grib2(ivar) = TRIM(dict_get(ana_varnames_dict,        &
-          &                               TRIM(grp_vars_fg_default(ivar)),        &
-          &                               linverse=.FALSE.))//" ("//              &
-          &                               TRIM(grp_vars_fg_default(ivar))//")"
-      ENDDO
-      DO ivar = 1,ngrp_vars_fg
-        grp_vars_fg_grib2(ivar) = TRIM(dict_get(ana_varnames_dict,     &
-          &                       TRIM(grp_vars_fg(ivar)),             &
-          &                       linverse=.FALSE.))//" ("//           &
-          &                       TRIM(grp_vars_fg(ivar))//")"
-      ENDDO
-      DO ivar = 1,ngrp_vars_ana_default
-        grp_vars_ana_default_grib2(ivar) = TRIM(dict_get(ana_varnames_dict,       &
-          &                                TRIM(grp_vars_ana_default(ivar)),      &
-          &                                linverse=.FALSE.))//" ("//             &
-          &                                TRIM(grp_vars_ana_default(ivar))//")"
-      ENDDO
-      DO ivar = 1,ngrp_vars_ana
-        grp_vars_ana_grib2(ivar) = TRIM(dict_get(ana_varnames_dict,    &
-          &                        TRIM(grp_vars_ana(ivar)),           &
-          &                        linverse=.FALSE.))//" ("//          &
-          &                        TRIM(grp_vars_ana(ivar))//")"
-      ENDDO
-      WRITE(message_text,'(a,i2,a)') 'DOM ', jg, ': Juxtaposition of expected and actual input fields'
-      CALL message(" ", message_text)
-      CALL init_bool_table(bool_table)
-      IF ((init_mode == MODE_IAU) .OR. (init_mode == MODE_IAU_OLD) ) THEN
-        ana_default_txt = "ANA_inc (expected)"
-        ana_this_txt    = "ANA_inc (this run)"
-      ELSE
-        ana_default_txt = "ANA (expected)"
-        ana_this_txt    = "ANA (this run)"
-      ENDIF
-      CALL add_column(bool_table, "FG (expected)", grp_vars_fg_default_grib2,  ngrp_vars_fg_default)
-      CALL add_column(bool_table, "FG (this run)",           grp_vars_fg_grib2,          ngrp_vars_fg)
-      CALL add_column(bool_table, TRIM(ana_default_txt),grp_vars_ana_default_grib2, ngrp_vars_ana_default)
-      CALL add_column(bool_table, TRIM(ana_this_txt)   ,grp_vars_ana_grib2,         ngrp_vars_ana)
-      CALL print_bool_table(bool_table)
-
-
-      !
-      ! abort, if any mandatory first guess or analysis field is missing
-      !
-      IF (lmiss_ana) THEN
-        WRITE(message_text,'(a)') 'Field(s) '//TRIM(buffer_miss_ana)// &
-          &                       ' mandatory, but not found in ANA-file.'
-        CALL finish(routine, TRIM(message_text))
-      ENDIF
-      !
-      IF (lmiss_fg) THEN
-
-        WRITE(message_text,'(a)') 'Field(s) '//TRIM(buffer_miss_fg)// &
-          &                       ' missing in FG-input file.'
-        CALL finish(routine, TRIM(message_text))
-      ENDIF  
-
-
-
-      ! additional sanity checks for input fields
-      !
-      IF ( lconsistency_checks ) THEN
-        CALL validate_input(p_patch, inventory_list_fg(jg), inventory_list_ana(jg), &
-          &                 grp_vars_fg, grp_vars_ana, ngrp_vars_fg, ngrp_vars_ana)
-      ENDIF
-
-    ENDIF  ! my_process_is_stdio()
-
-
-    IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test 
-    ELSE
-      mpi_comm = p_comm_work
-    ENDIF
-    CALL p_bcast(grp_vars_fg,  p_io, mpi_comm)
-    CALL p_bcast(ngrp_vars_fg, p_io, mpi_comm)
-    CALL p_bcast(grp_vars_ana, p_io, mpi_comm)
-    CALL p_bcast(ngrp_vars_ana,p_io, mpi_comm)
-
-  END SUBROUTINE create_input_groups
 
 
   !>
@@ -1277,6 +477,10 @@ MODULE mo_initicon_utils
                 CALL ngb_search(lnd_prog%rho_snow_t (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
 
                 CALL ngb_search(lnd_prog%t_so_t(:,nlev_soil+1,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+
+                IF (l2lay_rho_snow) THEN ! only rho_snow layer 1 is relevant in this case
+                  CALL ngb_search(lnd_prog%rho_snow_mult_t(:,1,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+                ENDIF
               ENDIF
             ENDDO
 
@@ -1829,6 +1033,15 @@ MODULE mo_initicon_utils
     INTEGER  :: nblks_c, npromz_c, nlen
     REAL(wp) :: zfrice_thrhld, zminsnow_alb, zmaxsnow_alb, zsnowalb_lu, t_fac
 
+
+    ! set frice_thrhld depending on tile usage
+    IF ( ntiles_total == 1 ) THEN  ! no tile approach
+      zfrice_thrhld = 0.5_wp
+    ELSE
+      zfrice_thrhld = frsi_min
+    ENDIF
+
+
 !$OMP PARALLEL PRIVATE(jg,nblks_c,npromz_c)
     DO jg = 1, n_dom
 
@@ -1838,7 +1051,7 @@ MODULE mo_initicon_utils
       npromz_c  = p_patch(jg)%npromz_c
 
 
-!$OMP DO PRIVATE(jb,jc,nlen,jt,js,jp,ic,zfrice_thrhld,zminsnow_alb,zmaxsnow_alb,zsnowalb_lu,t_fac,ilu) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,nlen,jt,js,jp,ic,zminsnow_alb,zmaxsnow_alb,zsnowalb_lu,t_fac,ilu) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
 
         IF (jb /= nblks_c) THEN
@@ -1853,6 +1066,13 @@ MODULE mo_initicon_utils
           p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g(jc,jb) = initicon(jg)%sfc%tskin(jc,jb)
           p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_g(jc,jb) = initicon(jg)%sfc%tskin(jc,jb)
         ENDDO
+        ! In addition, write skin temperature to lake points, limited to 33 deg C. We stick 
+        ! to that until something more reasonable becomes available
+        DO ic = 1, ext_data(jg)%atm%fp_count(jb)
+          jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+          p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g(jc,jb) = MIN(306.15_wp,initicon(jg)%sfc%tskin(jc,jb))
+          p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_g(jc,jb) = MIN(306.15_wp,initicon(jg)%sfc%tskin(jc,jb))
+        ENDDO
 
         ! Fill also SST and sea ice fraction fields over ocean points; SST is limited to 30 deg C
         ! Note: missing values of the sea ice fraction, which may occur due to differing land-sea masks, 
@@ -1863,7 +1083,7 @@ MODULE mo_initicon_utils
           IF ( l_sst_in .AND. initicon(jg)%sfc%sst(jc,jb) > 10._wp  ) THEN
             p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = initicon(jg)%sfc%sst(jc,jb)              
           ELSE
-           p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MIN(303.15_wp,initicon(jg)%sfc%tskin(jc,jb))
+            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MIN(303.15_wp,initicon(jg)%sfc%tskin(jc,jb))
           ENDIF
           !
           ! In case of missing sea ice fraction values, we make use of the sea 
@@ -1882,13 +1102,7 @@ MODULE mo_initicon_utils
           ENDIF
 
         ENDDO
-        ! In addition, write skin temperature to lake points, limited to 33 deg C. These will
-        ! be used to initialize lake points until something more reasonable becomes available
-!CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, ext_data(jg)%atm%fp_count(jb)
-          jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
-          p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MIN(306.15_wp,initicon(jg)%sfc%tskin(jc,jb))
-        ENDDO
+
 
         IF ( atm_phy_nwp_config(jg)%inwp_surface > 0 ) THEN
           DO jt = 1, ntiles_total
@@ -1977,8 +1191,15 @@ MODULE mo_initicon_utils
               ENDDO
             ENDDO
 
+            ! set t_s for land tiles to t_so_t(1)
+            DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
+              jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_s_t(jc,jb,jt)= &
+                &                                              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,1,jb,jt)
+              p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_s_t(jc,jb,jt)= &
+                &                                              p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_so_t(jc,1,jb,jt)
+            ENDDO
           ENDDO
-
 
 
           ! Coldstart for sea-ice parameterization scheme
@@ -1993,11 +1214,6 @@ MODULE mo_initicon_utils
           !        in mo_nwp_sfc_utils:nwp_surface_init
           !
           IF (lseaice) THEN
-            IF ( ntiles_total == 1 ) THEN  ! no tile approach
-              zfrice_thrhld = 0.5_wp
-            ELSE
-              zfrice_thrhld = frsi_min
-            ENDIF
 
             CALL seaice_coldinit_nwp(nproma, zfrice_thrhld,                               &
               &         frsi    = p_lnd_state(jg)%diag_lnd%fr_seaice(:,jb),               &
@@ -2011,7 +1227,7 @@ MODULE mo_initicon_utils
               &         tsnow_n = p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%t_snow_si(:,jb), &
               &         hsnow_n = p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%h_snow_si(:,jb)  )
 
-          ENDIF  ! leseaice
+          ENDIF  ! lseaice
 
           ! Cold-start initialization of the fresh-water lake model FLake.
           ! The procedure is the same as in "int2lm".
@@ -2039,6 +1255,21 @@ MODULE mo_initicon_utils
               &     t_b1_lk_p   = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_b1_lk  (:,jb), &
               &     h_b1_lk_p   = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_b1_lk  (:,jb), &
               &     t_g_lk_p    = p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t    (:,jb,isub_lake) )
+
+            ! t_s for lake tile
+            DO ic = 1, ext_data(jg)%atm%fp_count(jb)
+              jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_s_t(jc,jb,isub_lake) = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk(jc,jb)
+              p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_s_t(jc,jb,isub_lake) = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk(jc,jb)
+            ENDDO
+
+          ELSE
+
+            DO ic = 1, ext_data(jg)%atm%fp_count(jb)
+              jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_s_t(jc,jb,isub_lake) = MIN(306.15_wp,initicon(jg)%sfc%tskin(jc,jb))
+              p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_s_t(jc,jb,isub_lake) = MIN(306.15_wp,initicon(jg)%sfc%tskin(jc,jb))
+            ENDDO
           ENDIF  ! llake
 
         ENDIF   ! inwp_surface > 0
@@ -2048,6 +1279,11 @@ MODULE mo_initicon_utils
     ENDDO
 !$OMP END PARALLEL
 
+    ! NOTE: Initialization of sea-water and sea-ice tiles 
+    ! for t_s_t is done later in mo_nwp_sfc_utils:nwp_surface_init, 
+    ! because
+    ! I)  index lists for sea-ice and sea-water are 
+    !     not yet available at this point.
   END SUBROUTINE copy_initicon2prog_sfc
 
 
@@ -2093,14 +1329,6 @@ MODULE mo_initicon_utils
     initicon%z_ifc(:,:,:) = metrics%z_ifc(:,:,:)
     initicon%z_mc(:,:,:) = metrics%z_mc(:,:,:)
 !$OMP END PARALLEL WORKSHARE
-
-    ! allocate groups for list of fields that must be read during initialization
-    ALLOCATE(initicon%grp_vars_fg (200), &
-             initicon%grp_vars_ana(200), &
-             initicon%grp_vars_ana_mandatory(200))
-    initicon%ngrp_vars_fg = -1
-    initicon%ngrp_vars_ana = -1
-    initicon%ngrp_vars_ana_mandatory = -1
 
     CALL construct_atm_in(initicon%atm_in)
     CALL construct_sfc_in(initicon%sfc_in)
@@ -2474,10 +1702,6 @@ MODULE mo_initicon_utils
       DEALLOCATE(initicon(jg)%topography_c,     &
                  initicon(jg)%z_ifc,            &
                  initicon(jg)%z_mc              )
-      ! deallocate groups for list of fields that must be read during initialization
-      DEALLOCATE(initicon(jg)%grp_vars_fg, &
-               & initicon(jg)%grp_vars_ana, &
-               & initicon(jg)%grp_vars_ana_mandatory )
 
       ! atmospheric output data
       IF (initicon(jg)%atm%linitialized) THEN
