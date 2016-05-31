@@ -1000,6 +1000,9 @@ schedulers/ecmwf/sms/eom_data2dwd.sms -text
 schedulers/ecmwf/sms/eom_getmars.sms -text
 schedulers/ecmwf/sms/eom_metview.sms -text
 schedulers/ecmwf/sms/eom_prepare.sms -text
+schedulers/ecmwf/sms/eom_prepare_1.sms -text
+schedulers/ecmwf/sms/eom_prepare_2.sms -text
+schedulers/ecmwf/sms/eom_prepare_3.sms -text
 schedulers/ecmwf/sms/fct_ifs.sms -text
 schedulers/ecmwf/sms/get_data.sms -text
 schedulers/ecmwf/sms/getmeans.sms -text

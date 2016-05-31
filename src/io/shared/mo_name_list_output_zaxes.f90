@@ -552,7 +552,7 @@ CONTAINS
   !
   SUBROUTINE define_vertical_axis(of, za_type, cdi_type, in_nlevs, levels,     &
     &                             opt_set_bounds, opt_set_ubounds_value,       &
-    &                             opt_number, opt_uuid, opt_set_vct_as_levels)
+    &                             opt_name, opt_number, opt_uuid, opt_set_vct_as_levels)
     TYPE(t_output_file),     INTENT(INOUT) :: of             !< output file meta-data
     INTEGER,                 INTENT(IN)    :: za_type        !< ICON-internal axis ID (see mo_cdi_constants)
     INTEGER,                 INTENT(IN)    :: cdi_type       !< CDI-internal axis name 
@@ -560,6 +560,7 @@ CONTAINS
     REAL(dp),                INTENT(IN)    :: levels(:)      !< axis levels
     LOGICAL,                 INTENT(IN), OPTIONAL :: opt_set_bounds        !< Flag. Set lower/upper bounds if .TRUE.
     REAL(dp),                INTENT(IN), OPTIONAL :: opt_set_ubounds_value !< Explicit value for ubounds
+    CHARACTER(*),            INTENT(IN), OPTIONAL :: opt_name              !< Name of the zaxis    
     INTEGER,                 INTENT(IN), OPTIONAL :: opt_number            !< numberOfVGridUsed
     INTEGER(KIND = C_SIGNED_CHAR), INTENT(IN), OPTIONAL :: opt_uuid(16)          !< UUID of vertical grid
     LOGICAL,                 INTENT(IN), OPTIONAL :: opt_set_vct_as_levels !< set VCT to level values
@@ -597,6 +598,8 @@ CONTAINS
     ! create vertical axis object
     of%cdiZaxisID(za_type) = zaxisCreate(cdi_type, nlev)
     CALL zaxisDefLevels(of%cdiZaxisID(za_type), axis_levels ) !necessary for NetCDF
+
+    IF (PRESENT(opt_name)) CALL zaxisDefName(of%cdiZaxisID(za_type), TRIM(opt_name))
 
     set_bounds = .FALSE.
     IF (PRESENT(opt_set_bounds)) set_bounds = opt_set_bounds

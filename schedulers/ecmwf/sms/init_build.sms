@@ -42,11 +42,11 @@ case ${compiler} in
     #module swap fortran fortran/xlf/14.1.0.3
     
     #---CRAY 8.3.1
-    module swap cce cce/8.3.12
+    module swap cce cce/8.4.1
    #module swap PrgEnv-cray PrgEnv-cray/5.1.29
     
     module load subversion
-    module swap grib_api grib_api/1.12.3
+    module swap grib_api grib_api/1.14.5
     module load hdf5/1.8.13
     module load netcdf4/4.3.2
    #module load netcdf
@@ -86,7 +86,10 @@ svn update %SCPERMIII%/dwd_icon_tools
 cd %SCPERMIII%/dwd_icon_tools/${toolstag}/icontools
 case ${compiler} in
   cray)
-    module swap cce/8.3.1
+    module swap cce/8.4.1
+    module swap grib_api grib_api/1.12.3
+    module load netcdf4/4.3.0
+    module load hdf5/1.8.13
    #module swap PrgEnv-cray/5.1.29
     gmake clean
     gmake cray_mpi             #-j%SCTOTALTASKS%   

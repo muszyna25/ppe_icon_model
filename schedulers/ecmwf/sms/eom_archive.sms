@@ -27,6 +27,7 @@ echo "EOM_ARCHIVE.SMS"
 
 ldeldata=0
 
+#rm -rf /scratch/ms/de/deia/icon/dei2/245/*/grb_data
 
 #-----------------------------------------------------------------------------
 # directories

@@ -2054,7 +2054,7 @@ determined for lon-lat interpolation.\\
 1 : lookup table based on grid level\\
 2 : determine automatically.\\
 So far, this routine only estimates the smallest value for the shape parameter for which the Cholesky is likely to succeed in floating point arithmetic.
-3 : explicitly set shape parameter in each output namelist
+3 : explicitly set shape parameter in each output namelist (namelist parameter \texttt{output\_nml::rbf\_scale}, p.~\pageref{output_nml__rbf_scale}).
 &
 \tabularnewline
 
@@ -4037,6 +4037,7 @@ See namelist parameter \texttt{stream\_partitions\_ml} for details.
 
 
 %\hline
+ \label{output_nml__rbf_scale}%
  rbf\_scale &
 R&-1.& &
 Explicit setting of RBF shape parameter for interpolated lon-lat output. 
