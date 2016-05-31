@@ -160,7 +160,7 @@ CONTAINS
       counts(i_pe(i)) = counts(i_pe(i)) + 1
     END DO
     displs(:) = 0
-    DO i=1,SIZE(displs)
+    DO i=1,(SIZE(displs)-1)
       displs(i) = displs(i-1) + counts(i-1)
     END DO
   END SUBROUTINE calc_displs
