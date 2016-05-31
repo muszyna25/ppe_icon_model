@@ -240,7 +240,7 @@ CONTAINS
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches/import_basic_patch'
     INTEGER                           :: jg, jg1, n_chd, n_chdc
-    INTEGER                           :: jgp, jgc            ! parent/child patch index
+    INTEGER                           :: jgp            ! parent/child patch index
     CHARACTER(LEN=uuid_string_length) :: uuid_grid(0:max_dom), &
       &                                  uuid_par(0:max_dom),  &
       &                                  uuid_chi(0:max_dom,5)
@@ -455,7 +455,7 @@ CONTAINS
     !> If .true., read fields related to grid refinement from separate  grid files
     LOGICAL,                   INTENT(IN)    :: lsep_grfinfo
 
-    INTEGER :: jg, jgp, n_lp, id_lp(max_dom), j
+    INTEGER :: jg, jgp, n_lp, id_lp(max_dom)
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:complete_patches'
 
     DO jg = n_dom_start, n_dom
@@ -1129,7 +1129,6 @@ CONTAINS
     ! CHARACTER(len=filename_max) :: file
 
     CHARACTER(LEN=uuid_string_length) :: uuid_string, uuid_string_grfinfo
-    CHARACTER(LEN=1) :: child_id
 
     ! status variables
     INTEGER :: ist, netcd_status
@@ -1137,9 +1136,9 @@ CONTAINS
     INTEGER :: ncid, ncid_grf, dimid, varid, max_cell_connectivity, max_verts_connectivity
     INTEGER :: ji
     INTEGER :: jc, ic
-    INTEGER :: icheck, ilev, igrid_level, iparent_id, ipar_id, dim_idxlist
+    INTEGER :: icheck, ilev, igrid_level, dim_idxlist
     INTEGER, POINTER :: local_ptr(:), local_ptr_2d(:,:)
-    REAL(wp), POINTER :: local_ptr_wp(:), local_ptr_wp_2d(:, :)
+    REAL(wp), POINTER :: local_ptr_wp_2d(:, :)
     !-----------------------------------------------------------------------
 
     ! set dummy values to zero
@@ -1148,8 +1147,6 @@ CONTAINS
 !    n_e_halo_verts = 0
 
     ilev = patch_pre%level
-    ipar_id = patch_pre%parent_id
-
 
     CALL message (TRIM(method_name), 'start to init patch_pre')
 
@@ -2380,23 +2377,9 @@ CONTAINS
     INTEGER, INTENT(in)    :: ncid
 
     INTEGER :: varid
-    REAL(wp) :: x(3)
 
     gridfile_has_cartesian_info = &
       nf_inq_varid(ncid, 'cell_circumcenter_cartesian_x', varid) == nf_noerr
-
-!     IF (gridfile_has_cartesian_info) THEN
-!
-!       CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_x', varid))
-!       CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(1)))
-!       CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_y', varid))
-!       CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(2)))
-!       CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_z', varid))
-!       CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(3)))
-!
-!       gridfile_has_cartesian_info = ANY(ABS(x(:)) >= 0.001_wp)
-!
-!     END IF
 
   END FUNCTION gridfile_has_cartesian_info
   !-------------------------------------------------------------------------
