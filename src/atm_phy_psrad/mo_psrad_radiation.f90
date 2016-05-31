@@ -982,9 +982,7 @@ MODULE mo_psrad_radiation
          &  gas_scenario = ghg_co2mmr &
 !         &  gas_val = co2 &
           & )
-!++jsr
-    write(0,*) 'xm_co2(1,47)=',xm_co2(1,47)
-!--jsr
+
     xm_ch4(1:kproma,:)   = gas_profile(kproma, klev, ich4, gas_mmr = mmr_ch4,     &
          &  gas_scenario = ghg_ch4mmr, &
          &  pressure = pp_fl, xp = ch4_v)
