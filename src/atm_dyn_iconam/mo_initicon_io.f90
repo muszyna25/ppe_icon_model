@@ -22,54 +22,120 @@
 
 MODULE mo_initicon_io
 
-  USE mo_kind,                ONLY: wp, i8
+  USE mo_kind,                ONLY: wp, dp
   USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_nonhydro_types,      ONLY: t_nh_state
+  USE mo_ext_data_types,      ONLY: t_external_data
+  USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
-  USE mo_initicon_types,      ONLY: t_initicon_state, t_pi_atm, alb_snow_var, geop_ml_var, &
-                                    ana_varnames_dict, inventory_list_fg, inventory_list_ana
+  USE mo_initicon_types,      ONLY: t_initicon_state, t_pi_atm, alb_snow_var, geop_ml_var
+  USE mo_input_instructions,  ONLY: t_readInstructionListPtr, kInputSourceNone, kInputSourceFg, &
+    &                               kInputSourceAna, kInputSourceBoth, kStateFailedFetch
   USE mo_initicon_config,     ONLY: init_mode, nlevatm_in, l_sst_in, generate_filename, &
     &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
-    &                               nml_filetype => filetype, lread_ana, lread_vn,      &
+    &                               nml_filetype => filetype, lread_vn,      &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart,    &
     &                               lvert_remap_fg, aerosol_fg_present
   USE mo_nh_init_nest_utils,  ONLY: interpolate_increments, interpolate_sfcana
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom,                           &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED, &
-    &                               MODE_COSMODE, iss, iorg, ibc, iso4, idu
+    &                               MODE_COSMODE, iss, iorg, ibc, iso4, idu, SUCCESS
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot, l_limited_area
-  USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work,    &
+  USE mo_mpi,                 ONLY: p_io, p_bcast, p_comm_work,    &
     &                               p_comm_work_test, my_process_is_mpi_workroot
   USE mo_io_config,           ONLY: default_read_method
   USE mo_read_interface,      ONLY: t_stream_id, nf, openInputFile, closeFile, &
     &                               read_2d_1time, read_2d_1lev_1time, &
     &                               read_3d_1time, on_cells, on_edges
-  USE mo_util_cdi,            ONLY: read_cdi_2d, read_cdi_3d, t_inputParameters,        &
-    &                               makeInputParameters, deleteInputParameters,         &
-    &                               get_cdi_NlevRef, t_tileinfo_elt, trivial_tileinfo
-  USE mo_util_string,         ONLY: one_of
-  USE mo_util_file,           ONLY: util_filesize
+  USE mo_util_cdi,            ONLY: trivial_tileId
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, nlev_snow, &
-    &                               ntiles_water, lmulti_snow, tiles, get_tile_suffix
+  USE mo_lnd_nwp_config,      ONLY: ntiles_total,  l2lay_rho_snow, &
+    &                               ntiles_water, lmulti_snow, lsnowtile, &
+    &                               isub_lake, llake
   USE mo_master_config,       ONLY: getModelBaseDir
-  USE mo_dictionary,          ONLY: dict_get, DICT_MAX_STRLEN
-  USE mo_var_metadata_types,  ONLY: VARNAME_LEN
-  USE mo_cdi,                 ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, &
-    &                               streamInqVlist, streamOpenRead, cdiGetStringError, streamClose, cdiDefMissval
   USE mo_nwp_sfc_interp,      ONLY: smi_to_wsoil
-  USE mo_util_cdi_table,      ONLY: print_cdi_summary, &
-    &                               new_inventory_list, delete_inventory_list, complete_inventory_list
   USE mo_io_util,             ONLY: get_filetype
-  USE mo_initicon_utils,      ONLY: initicon_inverse_post_op, allocate_extana_atm, allocate_extana_sfc
-  USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1
+  USE mo_initicon_utils,      ONLY: allocate_extana_atm, allocate_extana_sfc
+  USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1, tmelt
   USE mo_fortran_tools,       ONLY: init
+  USE mo_input_request_list,  ONLY: t_InputRequestList
+  USE mo_util_string,         ONLY: int2string
+  USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
+
+
+
+  ! High level overview of how `mo_initicon` reads input data
+  ! =========================================================
+  !
+  ! Knobs that control what is read
+  ! -------------------------------
+  !
+  !  1. variable groups
+  !
+  !  2. init_mode
+  !
+  !  3. further flags and the `ana_varlist` field from the namelists
+  !
+  !
+  ! Steps of reading
+  ! ----------------
+  !
+  !  1. A list with input instructions is generated.
+  !     The code for this is found in `mo_input_instructions`.
+  !
+  !     This is where the variable groups enter the process, all further processing depends on the variable groups only indirectly via `t_ReadInstructions`.
+  !     This is also the place where the `ana_varlist` namelist parameter is evaluated.
+  !
+  !     The input instructions serve a dual purpose (which is a source of confusion, unfortunately):
+  !     They encode from which input file a read attempt for a variable should be made,
+  !     but they also collect whether such an attempt has been made, and whether that attempt was successfull.
+  !
+  !  2. The input instructions are used to generate a `t_InputRequestList`.
+  !     This is done by the `fileRequests()` method of `t_ReadInstructionList`, and is quite straight-forward:
+  !     All variables that can be read from a file are requested from that file.
+  !
+  !  3. The files are read, and a file inventory output is produced in the process (mo_initicon: read_dwdfg() and read_dwdana()).
+  !     Note that the file inventory contains only information about variables that have been requested!
+  !
+  !  4. The data is fetched from the `t_InputRequestList`.
+  !     This happens in `fetch_dwd...()` routines in `mo_initicon_io`.
+  !
+  !     This is a complicated process that takes much more conditions into account then the code generating the `t_ReadInstructions` does.
+  !     Especially, this is the place where all the different namelist flags are honored, and it's the place where optional reading is handled
+  !     (variables that are read if they are present in the file, but which are not necessary to start the run).
+  !
+  !     The `fetch_dwd...()` routines generally first ask the `t_ReadInstructions` whether they should attempt to read a variable,
+  !     then they try to fetch the data from the `t_InputRequestList`, and finally inform the `t_ReadInstructions` about the result of this operation.
+  !     It is then the duty of `t_ReadInstructions` to check whether a failure to read is fatal or whether it can be compensated.
+  !
+  !     This ask-fetch-inform triple is usually encapsulated within the wrapper functions `fetch2d()` etc. within this file.
+  !     Exceptions exist, like the all-or-nothing behavior that's implemented for the aerosol variables, but they are not frequent.
+  !
+  !  5. The `t_ReadInstructions` is asked to output a table describing what read attempts have been made
+  !     and which data is actually used for the model run.
+  !
+  !     Note that this is about what read attempts have *really* been made (= there was an ask-fetch-inform triple for this variable),
+  !     not what read attempts *should* have been made (= `t_ReadInstructions::wantVar()` would have returned `.true.` if it had been called).
+  !
+  !
+  ! How to add variables
+  ! --------------------
+  !
+  ! There are two places that need to be changed to add support for a new input variable:
+  !
+  !  1. The variable has to be added to the relevant variable groups, so that input instructions are generated for it, and so that it's requested from the right files.
+  !
+  !  2. Code has to be added to one of the `fetch_dwd...()` routines in this file to retrieve the data from the file(s)
+  !     and to inform the `t_ReadInstructions` about the succes/failure to do so.
+  !
+  !     In most cases, this is simply done by calling the right wrapper routine (`fetch2d()` and friends).
+  !     If the appropriate wrapper routine is missing, just copy-paste-modify one of the existing wrappers;
+  !     I have only generated the ones that were actually needed to implement the current functionality, so the list of wrappers is incomplete.
 
   IMPLICIT NONE
 
@@ -77,399 +143,72 @@ MODULE mo_initicon_io
 
   PRIVATE
 
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_io_initicon'
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_initicon_io'
 
 
-  ! Remark on usage of "cdiDefMissval"
+  PUBLIC :: fgFilename
+  PUBLIC :: fgFiletype
+  PUBLIC :: anaFilename
+  PUBLIC :: anaFiletype
 
-  ! Inside the GRIB_API (v.1.9.18) the missing value is converted into
-  ! LONG INT for a test, but the default CDI missing value is outside
-  ! of the valid range for LONG INT (U. Schulzweida, bug report
-  ! SUP-277). This causes a crash with INVALID OPERATION.
-
-  ! As a workaround we can choose a different missing value in the
-  ! calling subroutine (here). For the SX-9 this must lie within 53
-  ! bits, because "the SX compiler generates codes using HW
-  ! instructions for floating-point data instead of instructions for
-  ! integers. Therefore, the operation result is not guaranteed if the
-  ! value cannot be represented as integer within 53 bits."
-  DOUBLE PRECISION, PARAMETER :: cdimissval = -9.E+15
-
-
-  PUBLIC :: open_init_files
-  PUBLIC :: close_init_files
   PUBLIC :: read_extana_atm
   PUBLIC :: read_extana_sfc
 
-  PUBLIC :: read_dwdfg_atm
-  PUBLIC :: read_dwdfg_sfc
-  PUBLIC :: read_dwdana_atm
-  PUBLIC :: read_dwdana_sfc
-  PUBLIC :: read_dwdfg_atm_ii
+  PUBLIC :: fetch_dwdfg_atm
+  PUBLIC :: fetch_dwdfg_atm_ii
+  PUBLIC :: fetch_dwdfg_sfc
+  PUBLIC :: fetch_dwdana_atm
+  PUBLIC :: fetch_dwdana_sfc
 
-! PUBLIC :: process_input_dwdfg_atm     !This is currently not required.
+! PUBLIC :: process_input_dwdfg_atm     !This is currently not needed.
+! PUBLIC :: process_input_dwdfg_atm_ii
   PUBLIC :: process_input_dwdfg_sfc
   PUBLIC :: process_input_dwdana_atm
   PUBLIC :: process_input_dwdana_sfc
-  PUBLIC :: process_input_dwdfg_atm_ii
 
 
+  TYPE :: t_fetchParams
+    TYPE(t_readInstructionListPtr), ALLOCATABLE :: inputInstructions(:)
+    CLASS(t_InputRequestList), POINTER :: requestList
+    CHARACTER(LEN = :), ALLOCATABLE :: routine
+    LOGICAL :: isFg
+  END TYPE t_fetchParams
 
   CONTAINS
 
+  FUNCTION fgFilename(p_patch) RESULT(RESULT)
+    CHARACTER(LEN = filename_max) :: RESULT
+    TYPE(t_patch), INTENT(IN) :: p_patch
 
-  !> open files containing first guess and analysis.
-  !
-  !  @author F. Prill, DWD
-  !
-  SUBROUTINE open_init_files(p_patch, fileID_fg, fileID_ana, filetype_fg, filetype_ana, &
-    &                        dwdfg_file, dwdana_file)
-    TYPE(t_patch),               INTENT(IN)    :: p_patch(:)
-    INTEGER,                     INTENT(INOUT) :: fileID_ana(:), fileID_fg(:)     ! dim (1:n_dom)
-    INTEGER,                     INTENT(INOUT) :: filetype_ana(:), filetype_fg(:) ! dim (1:n_dom)
-    CHARACTER(LEN=filename_max), INTENT(INOUT) :: dwdfg_file(max_dom)             ! first guess
-    CHARACTER(LEN=filename_max), INTENT(INOUT) :: dwdana_file(max_dom)            ! analysis
-    ! local variables
-    CHARACTER(*), PARAMETER :: routine = modname//':open_init_files'
-    INTEGER :: jg, vlistID, jlev, mpi_comm
-    INTEGER(KIND=i8) :: flen_fg, flen_ana                     ! filesize in bytes
-    LOGICAL :: l_exist, lread_process
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
+    RESULT = generate_filename(dwdfg_filename, getModelBaseDir(), nroot, p_patch%level, p_patch%id)
+  END FUNCTION fgFilename
 
-    CALL cdiDefMissval(cdimissval)
-    fileID_fg(:)  = -1
-    fileID_ana(:) = -1
-    dwdfg_file (:)=' '
-    dwdana_file(:)=' '
+  FUNCTION anaFilename(p_patch) RESULT(RESULT)
+    CHARACTER(LEN = filename_max) :: RESULT
+    TYPE(t_patch), INTENT(IN) :: p_patch
 
-    ! flag. if true, then this PE reads data from file and broadcasts
-    lread_process = my_process_is_mpi_workroot()
+    RESULT = generate_filename(dwdana_filename, getModelBaseDir(), nroot, p_patch%level, p_patch%id)
+  END FUNCTION anaFilename
 
-    IF(lread_process) THEN
-      ! first guess ("_fg")
-      !
-      DO jg=1,n_dom
-
-        IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-        jlev = p_patch(jg)%level
-        ! generate file name
-        dwdfg_file(jg) = generate_filename(dwdfg_filename, getModelBaseDir(), nroot, jlev, jg)
-        INQUIRE (FILE=dwdfg_file(jg), EXIST=l_exist)
-        IF (.NOT.l_exist) THEN
-          CALL finish(TRIM(routine),'DWD FG file not found: '//TRIM(dwdfg_file(jg)))
-        ENDIF
-        IF (nml_filetype == -1) THEN
-          filetype_fg(jg) = get_filetype(TRIM(dwdfg_file(jg))) ! determine filetype
-        ELSE
-          filetype_fg(jg) = nml_filetype
-        END IF
-
-        ! open file
-        !
-        WRITE (0,"(a)") " "
-        WRITE (0,"(a,a)") "file inventory: ", TRIM(dwdfg_file(jg))
-        fileID_fg(jg)  = streamOpenRead(TRIM(dwdfg_file(jg)))
-        ! check if the file could be opened
-        IF (fileID_fg(jg) < 0) THEN
-          CALL cdiGetStringError(fileID_fg(jg), cdiErrorText)
-          WRITE(message_text,'(4a)') 'File ', TRIM(dwdfg_file(jg)), &
-               ' cannot be opened: ', TRIM(cdiErrorText)
-          CALL finish(routine, TRIM(message_text))
-        ENDIF
-
-        ! check whether the file is empty (does not work unfortunately; internal CDI error)
-        flen_fg = util_filesize(TRIM(dwdfg_file(jg)))
-        IF (flen_fg <= 0 ) THEN
-          WRITE(message_text,'(a)') 'File '//TRIM(dwdfg_file(jg))//' is empty'
-          CALL message(TRIM(routine), TRIM(message_text))
-          CALL finish(routine, "Arrggh!: Empty input file")
-        ENDIF
-
-        vlistID = streamInqVlist(fileID_fg(jg))
-
-        ! create new inventory list (linked list) for first guess input
-        CALL new_inventory_list(inventory_list_fg(jg))
-
-        ! print inventory and store in linked list
-        CALL print_cdi_summary(vlistID, opt_dstlist=inventory_list_fg(jg))
-        CALL complete_inventory_list(filetype_fg(jg), ana_varnames_dict, inventory_list_fg(jg) )
-
-      END DO
-
-      ! analysis ("_ana")
-      !
-      IF (lread_ana) THEN
-        DO jg=1,n_dom
-
-          IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-          IF (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg)) CYCLE
-          jlev = p_patch(jg)%level
-          ! generate file name
-          dwdana_file(jg) = generate_filename(dwdana_filename, getModelBaseDir(), nroot, jlev, jg)
-          INQUIRE (FILE=dwdana_file(jg), EXIST=l_exist)
-          IF (.NOT.l_exist) THEN
-            CALL finish(TRIM(routine),'DWD ANA file not found: '//TRIM(dwdana_file(jg)))
-          ENDIF
-          IF (nml_filetype == -1) THEN
-            filetype_ana(jg) = get_filetype(TRIM(dwdana_file(jg))) ! determine filetype
-          ELSE
-            filetype_ana(jg) = nml_filetype
-          END IF
-
-          ! open file
-          !
-          WRITE (0,"(a)") " "
-          WRITE (0,"(a,a)") "file inventory: ", TRIM(dwdana_file(jg))
-          fileID_ana(jg)  = streamOpenRead(TRIM(dwdana_file(jg)))
-          ! check if the file could be opened
-          IF (fileID_ana(jg) < 0) THEN
-            CALL cdiGetStringError(fileID_ana(jg), cdiErrorText)
-            WRITE(message_text,'(4a)') 'File ', TRIM(dwdana_file(jg)), &
-                 ' cannot be opened: ', TRIM(cdiErrorText)
-            CALL finish(routine, TRIM(message_text))
-          ENDIF
-
-          ! check whether the file is empty (does not work unfortunately; internal CDI error)
-          flen_ana = util_filesize(TRIM(dwdana_file(jg)))
-          IF (flen_ana <= 0 ) THEN
-            WRITE(message_text,'(a)') 'File '//TRIM(dwdana_file(jg))//' is empty'
-            CALL message(TRIM(routine), TRIM(message_text))
-            CALL finish(routine, "Arrggh!: Empty analysis file")
-          ENDIF
-
-          vlistID = streamInqVlist(fileID_ana(jg))
-
-          ! create new inventory list (linked list) for analysis input
-          CALL new_inventory_list(inventory_list_ana(jg))
-
-          ! print inventory and store in linked list
-          CALL print_cdi_summary(vlistID, opt_dstlist=inventory_list_ana(jg))
-          CALL complete_inventory_list(filetype_ana(jg), ana_varnames_dict, inventory_list_ana(jg) )
-
-        END DO
-      ENDIF  ! lread_ana
-    END IF  ! lread_process
-
-
-
-    IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test
+  INTEGER FUNCTION fgFiletype() RESULT(RESULT)
+    IF(nml_filetype == -1) THEN
+        ! get_filetype() ONLY uses the suffix, which IS already a part of the template IN dwdfg_filename.
+        ! This IS why it suffices to USE the dwdfg_filename directly here without expanding it first via generate_filename().
+        RESULT = get_filetype(TRIM(dwdfg_filename))
     ELSE
-      mpi_comm = p_comm_work
-    ENDIF
-
-    CALL p_bcast(filetype_fg,  p_io, mpi_comm)
-    CALL p_bcast(filetype_ana, p_io, mpi_comm)
-    CALL p_bcast(fileID_fg,    p_io, mpi_comm)
-    CALL p_bcast(fileID_ana,   p_io, mpi_comm)
-
-  END SUBROUTINE open_init_files
-
-
-  !> close files containing first guess and analysis.
-  !
-  !  @author F. Prill, DWD
-  !
-  SUBROUTINE close_init_files(fileID_fg, fileID_ana)
-    INTEGER, INTENT(INOUT) :: fileID_ana(:), fileID_fg(:) ! dim (1:n_dom)
-    ! local variables
-    INTEGER :: jg
-    LOGICAL :: lread_process
-
-    ! flag. if true, then this PE reads data from file and broadcasts
-    lread_process = my_process_is_mpi_workroot()
-
-    IF(lread_process) THEN
-      ! first guess ("_fg")
-      DO jg=1,n_dom
-        IF (fileID_fg(jg) == -1) CYCLE
-        CALL streamClose(fileID_fg(jg))
-        CALL delete_inventory_list(inventory_list_fg(jg))
-      END DO
-      ! analysis ("_ana")
-      IF (lread_ana) THEN
-        DO jg=1,n_dom
-          IF (fileID_ana(jg) == -1) CYCLE
-            CALL streamClose(fileID_ana(jg))
-            CALL delete_inventory_list(inventory_list_ana(jg))
-        END DO
-      ENDIF
+        RESULT = nml_filetype
     END IF
-    fileID_fg(:)  = -1
-    fileID_ana(:) = -1
-  END SUBROUTINE close_init_files
+  END FUNCTION fgFiletype
 
-
-  !-------------------------------------------------------------------------
-  !> Wrapper routine for NetCDF and GRIB2 read routines, 2D case.
-  !  If necessary an inverse post_op is performed for the input field
-  !
-  !  @return .TRUE. if the field has been read, .FALSE. otherwise
-  !          (e.g. when field was not contained in @p opt_checkgroup).
-  !
-  LOGICAL FUNCTION read_data_2d (parameters, filetype, varname, var_out, tileinfo, opt_checkgroup)
-    TYPE(t_inputParameters), INTENT(INOUT) :: parameters
-    INTEGER,                 INTENT(IN)    :: filetype       !< FILETYPE_NC2 or FILETYPE_GRB2
-    CHARACTER(len=*),        INTENT(IN)    :: varname        !< var name of field to be read
-    REAL(wp), POINTER,       INTENT(INOUT) :: var_out(:,:)   !< output field
-    TYPE(t_tileinfo_elt),    INTENT(IN)    :: tileinfo
-    CHARACTER(LEN=VARNAME_LEN), INTENT(IN), OPTIONAL :: opt_checkgroup(:) !< read only, if varname is
-                                                                          !< contained in opt_checkgroup
-    ! local variables
-    CHARACTER(len=*), PARAMETER     :: routine ='read_data_2d'
-    CHARACTER(LEN=DICT_MAX_STRLEN)  :: mapped_name
-    CHARACTER(LEN=MAX_CHAR_LENGTH)  :: filetyp_read   !< filetype for log message
-    LOGICAL                         :: lread          !< .FALSE.: skip reading
-    CHARACTER(LEN=MAX_CHAR_LENGTH)  :: full_varname   !< varname, including tile suffix, if present
-
-    IF (PRESENT(opt_checkgroup)) THEN
-      lread = ( one_of(varname,  opt_checkgroup(:)) /= -1)
+  INTEGER FUNCTION anaFiletype() RESULT(RESULT)
+    IF(nml_filetype == -1) THEN
+        ! get_filetype() ONLY uses the suffix, which IS already a part of the template IN dwdana_filename.
+        ! This IS why it suffices to USE the dwdana_filename directly here without expanding it first via generate_filename().
+        RESULT = get_filetype(TRIM(dwdana_filename))
     ELSE
-      lread = .TRUE.
-    ENDIF
-!!$      write(0,*) "lread: varname",lread, varname
-
-
-    IF (lread) THEN
-
-      SELECT CASE(filetype)
-      CASE (FILETYPE_NC2, FILETYPE_NC4)
-        ! Trivial name mapping for NetCDF file
-        mapped_name = TRIM(varname)
-
-        WRITE(filetyp_read,'(a)') 'NC-Read:'
-
-      CASE (FILETYPE_GRB2)
-        ! Search name mapping for name in GRIB2 file
-        mapped_name = TRIM(dict_get(ana_varnames_dict, varname, default=varname))
-
-        WRITE(filetyp_read,'(a)') 'GRB2-Read:'
-
-      CASE DEFAULT
-        lread = .FALSE. ! (... but the application aborts anyway)
-        CALL finish(routine, "Unknown file type")
-      END SELECT
-
-
-
-      ! Perform CDI read operation
-      !
-      IF(my_process_is_stdio() .AND. msg_level>10) THEN
-        IF ( (tileinfo%idx == trivial_tileinfo%idx) .AND. (tileinfo%att == trivial_tileinfo%att)) THEN
-          WRITE(message_text,'(a)') TRIM(filetyp_read)//' '//TRIM(mapped_name)
-        ELSE
-          WRITE(message_text,'(a,i2,a,i2)') TRIM(filetyp_read)//' '//TRIM(mapped_name)//', Tile:',tileinfo%idx,', Att:',tileinfo%att
-        ENDIF
-        CALL message(TRIM(routine), TRIM(message_text))
-      ENDIF
-
-      CALL read_cdi_2d(parameters, mapped_name, var_out, tileinfo)
-
-
-      ! add tile suffix (if available) to varname
-      ! This is necessary, in order to select the right post-op
-      IF ((tileinfo%idx /= trivial_tileinfo%idx) .AND. (tileinfo%att /= trivial_tileinfo%att)) THEN
-        full_varname = TRIM(varname//TRIM(get_tile_suffix(tileinfo%idx,tileinfo%att)))
-      ELSE
-        full_varname = varname
-      ENDIF
-
-      ! Perform inverse post_op on input field, if necessary
-      !
-      CALL initicon_inverse_post_op(full_varname, mapped_name, optvar_out2D=var_out)
-
-    ENDIF  ! lread
-    read_data_2d = lread
-
-  END FUNCTION read_data_2d
-
-
-
-  !-------------------------------------------------------------------------
-  !> Wrapper routine for NetCDF and GRIB2 read routines, 3D case.
-  !
-  !  @return .TRUE. if the field has been read, .FALSE. otherwise
-  !          (e.g. when field was not contained in @p opt_checkgroup).
-  !
-  LOGICAL FUNCTION read_data_3d(parameters, filetype, varname, nlevs, var_out, tileinfo, opt_checkgroup)
-    TYPE(t_inputParameters), INTENT(INOUT) :: parameters
-    INTEGER,                 INTENT(IN)    :: filetype       !< FILETYPE_NC2 or FILETYPE_GRB2
-    CHARACTER(len=*),        INTENT(IN)    :: varname        !< var name of field to be read
-    INTEGER,                 INTENT(IN)    :: nlevs          !< vertical levels of netcdf file
-    REAL(wp), POINTER,       INTENT(INOUT) :: var_out(:,:,:) !< output field
-    TYPE(t_tileinfo_elt),    INTENT(IN)    :: tileinfo
-    CHARACTER(LEN=VARNAME_LEN), INTENT(IN), OPTIONAL :: opt_checkgroup(:) !< read only, if varname is
-                                                                          !< contained in opt_checkgroup
-    ! local variables
-    CHARACTER(len=*), PARAMETER     :: routine = 'read_data_3d'
-    CHARACTER(LEN=DICT_MAX_STRLEN)  :: mapped_name
-    CHARACTER(LEN=MAX_CHAR_LENGTH)  :: filetyp_read   !< filetype for log message
-    LOGICAL                         :: lread          !< .FALSE.: skip reading
-    CHARACTER(LEN=MAX_CHAR_LENGTH)  :: full_varname   !< varname, including tile suffix, if present
-
-    IF (PRESENT(opt_checkgroup)) THEN
-      lread = ( one_of(varname,  opt_checkgroup(:)) /= -1)
-    ELSE
-      lread = .TRUE.
-    ENDIF
-
-    IF (lread) THEN
-
-      SELECT CASE(filetype)
-      CASE (FILETYPE_NC2, FILETYPE_NC4)
-        !
-        ! Trivial name mapping for NetCDF file
-        mapped_name = TRIM(varname)
-
-        WRITE(filetyp_read,'(a)') 'NC-Read:'
-
-      CASE (FILETYPE_GRB2)
-        !
-        ! Search name mapping for name in GRIB2 file
-        mapped_name = TRIM(dict_get(ana_varnames_dict, varname, default=varname))
-
-        WRITE(filetyp_read,'(a)') 'GRB2-Read:'
-
-      CASE DEFAULT
-        lread = .FALSE. ! (... but the application aborts anyway)
-        CALL finish(routine, "Unknown file type")
-      END SELECT
-
-
-      ! Perform CDI read operation
-      !
-      IF(my_process_is_stdio() .AND. msg_level>10) THEN
-        IF ( (tileinfo%idx == trivial_tileinfo%idx) .AND. (tileinfo%att == trivial_tileinfo%att)) THEN
-          WRITE(message_text,'(a)') TRIM(filetyp_read)//' '//TRIM(mapped_name)
-        ELSE
-          WRITE(message_text,'(a,i2,a,i2)') TRIM(filetyp_read)//' '//TRIM(mapped_name)//', Tile:',tileinfo%idx,', Att:',tileinfo%att
-        ENDIF
-        CALL message(TRIM(routine), TRIM(message_text))
-      ENDIF
-
-      CALL read_cdi_3d (parameters, mapped_name, nlevs, var_out, tileinfo)
-
-
-      ! add tile suffix (if available) to varname
-      ! This is necessary, in order to select the right post-op
-      IF ((tileinfo%idx /= trivial_tileinfo%idx) .AND. (tileinfo%att /= trivial_tileinfo%att)) THEN
-        full_varname = TRIM(varname//TRIM(get_tile_suffix(tileinfo%idx,tileinfo%att)))
-      ELSE
-        full_varname = varname
-      ENDIF
-
-      ! Perform inverse post_op on input field, if necessary
-      !
-      ! SMI is skipped manually, since it is not contained in any of the ICON variable
-      ! lists, and is thus not handled correctly by the following routine.
-      IF( TRIM(mapped_name)/='smi' .AND. TRIM(mapped_name)/='SMI') &
-        CALL initicon_inverse_post_op(full_varname, mapped_name, optvar_out3D=var_out)
-
-    ENDIF  ! lread
-    read_data_3d = lread
-
-  END FUNCTION read_data_3d
-
+        RESULT = nml_filetype
+    END IF
+  END FUNCTION anaFiletype
 
 
   !>
@@ -1039,299 +778,367 @@ MODULE mo_initicon_io
 
   END SUBROUTINE read_extana_sfc
 
-
-
-  !>
-  !! Read DWD first guess (atmosphere only)
-  !!
-  !! Read DWD first guess (atmosphere only)
-  !! First guess (FG) is read for theta_v, rho, vn, w, tke,
-  !! whereas DA output is read for T, p, u, v,
-  !! qv, qc, qi, qr, qs.
-  !!
-  !! @par Revision History
-  !! Initial version by Daniel Reinert, DWD(2012-12-18)
-  !! Modifications for GRIB2 : F. Prill, DWD (2013-02-19)
-  !! Modifications by Daniel Reinert, DWD (2014-01-27)
-  !! - split off reading of FG fields
-  !!
-  !!
-  SUBROUTINE read_dwdfg_atm (p_patch, p_nh_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
-
-    TYPE(t_patch),          INTENT(IN)            :: p_patch(:)
-    TYPE(t_nh_state),       INTENT(INOUT)         :: p_nh_state(:)
-    INTEGER,                INTENT(IN)            :: fileID_fg(:), filetype_fg(:)
-    TYPE(t_initicon_state), INTENT(INOUT), TARGET :: initicon(:)
-    CHARACTER(LEN=filename_max), INTENT(IN)       :: dwdfg_file(:)
-    ! local variables
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':read_dwdfg_atm'
-    INTEGER                             :: jg
-    INTEGER                             :: nlev, nlevp1
-    INTEGER                             :: ngrp_vars_fg, filetype
-    REAL(wp), POINTER                   :: my_ptr3d(:,:,:)
-    TYPE(t_inputParameters)             :: parameters
-    CHARACTER(LEN=VARNAME_LEN), POINTER :: checkgrp(:)
-    TYPE(t_tileinfo_elt)                :: tileinfo
-    LOGICAL                             :: ret
-
-    !-------------------------------------------------------------------------
-
-    tileinfo = trivial_tileinfo
-
-    DO jg = 1, n_dom
-
-      ! number of vertical full and half levels
-      nlev   = p_patch(jg)%nlev
-      nlevp1 = p_patch(jg)%nlevp1
-
-      ! Skip reading the atmospheric input data if a model domain
-      ! is not active at initial time
-      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-
-      ! save some paperwork
-      ngrp_vars_fg  = initicon(jg)%ngrp_vars_fg
-
-      !---------------------------------------!
-      ! Read in DWD first guess (atmosphere)  !
-      !---------------------------------------!
-
-      IF(my_process_is_stdio() ) THEN
-        CALL message (TRIM(routine), 'read atm_FG fields from '//TRIM(dwdfg_file(jg)))
-      ENDIF  ! p_io
-
-      parameters = makeInputParameters(fileID_fg(jg), p_patch(jg)%n_patch_cells_g, p_patch(jg)%comm_pat_scatter_c)
-
-      filetype = filetype_fg(jg)
-      checkgrp => initicon(jg)%grp_vars_fg(1:ngrp_vars_fg)
-
-      ! start reading first guess (atmosphere only)
-      !
-      ret = read_data_3d (parameters, filetype, 'theta_v', nlev, p_nh_state(jg)%prog(nnow(jg))%theta_v, tileinfo)
-      ret = read_data_3d (parameters, filetype, 'rho', nlev, p_nh_state(jg)%prog(nnow(jg))%rho, tileinfo)
-      ret = read_data_3d (parameters, filetype, 'w', nlevp1, p_nh_state(jg)%prog(nnow(jg))%w, tileinfo)
-      ret = read_data_3d (parameters, filetype, 'tke', nlevp1, p_nh_state(jg)%prog(nnow(jg))%tke, tileinfo)
-
-      ! Only needed for FG-only runs; usually read from ANA
-      my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv)
-      ret = read_data_3d (parameters, filetype, 'qv', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp)
-
-      my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc)
-      ret = read_data_3d (parameters, filetype, 'qc', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp)
-
-      my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi)
-      ret = read_data_3d (parameters, filetype, 'qi', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp)
-
-      IF ( iqr /= 0 ) THEN
-        my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr)
-        ret = read_data_3d (parameters, filetype, 'qr', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp)
-      END IF
-
-      IF ( iqs /= 0 ) THEN
-        my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs)
-        ret = read_data_3d (parameters, filetype, 'qs', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp)
-      END IF
-
-      IF (lvert_remap_fg) THEN
-        ! allocate required data structure
-        nlevatm_in(jg) = nlev
-        CALL allocate_extana_atm(jg, p_patch(jg)%nblks_c, p_patch(jg)%nblks_e, initicon)
-
-        ret = read_data_3d (parameters, filetype, 'z_ifc', nlevp1, initicon(jg)%atm_in%z3d_ifc, tileinfo)
-      ENDIF
-
-      CALL deleteInputParameters(parameters)
-
-      !This call needs its own input parameter object because it's edge based.
-      parameters = makeInputParameters(fileID_fg(jg), p_patch(jg)%n_patch_edges_g, p_patch(jg)%comm_pat_scatter_e)
-      ret = read_data_3d (parameters, filetype, 'vn', nlev, p_nh_state(jg)%prog(nnow(jg))%vn, tileinfo)
-      CALL deleteInputParameters(parameters)
-
-    ENDDO ! loop over model domains
-
-  END SUBROUTINE read_dwdfg_atm
-
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   !>
-  !! Read DWD first guess (atmosphere only) and store to initicon input state
-  !! First guess (FG) is read for theta_v, rho, vn, w, tke,
-  !! whereas DA output is read for T, p, u, v,
-  !! qv, qc, qi, qr, qs.
-  !!
-  !! @par Revision History
-  !! Initial version by Daniel Reinert, DWD(2012-12-18)
-  !! Modifications for GRIB2 : F. Prill, DWD (2013-02-19)
-  !! Modifications by Daniel Reinert, DWD (2014-01-27)
-  !! - split off reading of FG fields
-  !!
-  !!
-  SUBROUTINE read_dwdfg_atm_ii (p_patch, initicon, fileID_fg, filetype_fg, dwdfg_file)
+  !! Some wrapper routines to fetch DATA from an InputRequestList that first ask the inputInstructions whether a READ attempt should be made,
+  !! AND proceed to tell the inputInstructions whether that attempt was successful.
+  !! In the CASE of tiled input, these also take care of checking the ltile_coldstart flag, falling back to reading AND copying untiled input DATA IF it's set.
 
-    TYPE(t_patch),          INTENT(IN)            :: p_patch(:)
-    INTEGER,                INTENT(IN)            :: fileID_fg(:), filetype_fg(:)
-    TYPE(t_initicon_state), INTENT(INOUT), TARGET :: initicon(:)
-    CHARACTER(LEN=filename_max), INTENT(IN)       :: dwdfg_file(:)
-    ! local variables
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':read_dwdfg_atm_ii'
-    INTEGER                             :: jg
-    INTEGER                             :: mpi_comm
-    INTEGER                             :: ngrp_vars_fg, filetype, nlev_in
-    TYPE(t_inputParameters)             :: parameters
-    CHARACTER(LEN=VARNAME_LEN), POINTER :: checkgrp(:)
-    LOGICAL                             :: lread_process
-    TYPE(t_tileinfo_elt)                :: tileinfo
-    LOGICAL                             :: ret
+  SUBROUTINE fetch2d(params, varName, level, jg, field)
+    TYPE(t_fetchParams), INTENT(INOUT) :: params
+    CHARACTER(LEN = *), INTENT(IN) :: varName
+    REAL(dp), VALUE :: level
+    INTEGER, VALUE :: jg
+    REAL(wp), INTENT(INOUT) :: field(:,:)
 
-    !-------------------------------------------------------------------------
+    LOGICAL :: fetchResult
 
-    tileinfo = trivial_tileinfo
+    IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
+        fetchResult = params%requestList%fetch2d(varName, level, trivial_tileId, jg, field)
+        CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varName, params%routine, params%isFg)
+    END IF
+  END SUBROUTINE fetch2d
 
-    ! flag. if true, then this PE reads data from file and broadcasts
-    lread_process = my_process_is_mpi_workroot()
+  SUBROUTINE fetch3d(params, varName, jg, field)
+    TYPE(t_fetchParams), INTENT(INOUT) :: params
+    CHARACTER(LEN = *), INTENT(IN) :: varName
+    INTEGER, VALUE :: jg
+    REAL(wp), INTENT(INOUT) :: field(:,:,:)
 
-    DO jg = 1, n_dom
+    LOGICAL :: fetchResult
 
-      ! Skip reading the atmospheric input data if a model domain
-      ! is not active at initial time
-      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+    IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
+        fetchResult = params%requestList%fetch3d(varName, trivial_tileId, jg, field)
+        CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varName, params%routine, params%isFg)
+    END IF
+  END SUBROUTINE fetch3d
 
+  FUNCTION fetchSurfaceOptional(params, varName, jg, field) RESULT(RESULT)
+    TYPE(t_fetchParams), INTENT(INOUT) :: params
+    CHARACTER(LEN = *), INTENT(IN) :: varName
+    INTEGER, VALUE :: jg
+    REAL(wp), INTENT(INOUT) :: field(:,:)
+    LOGICAL :: RESULT
 
-      ! determine number of HALF LEVELS of generalized Z-AXIS
-      IF(lread_process) THEN
-        IF (filetype_fg(jg) == FILETYPE_GRB2) THEN
-          nlev_in = get_cdi_NlevRef(fileID_fg(jg), 'z_ifc', opt_dict=ana_varnames_dict)
+    INTEGER :: jt
+
+    IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
+        RESULT = params%requestList%fetchSurface(varName, trivial_tileId, jg, field)
+        CALL params%inputInstructions(jg)%ptr%optionalReadResult(RESULT, varName, params%routine, params%isFg)
+    END IF
+  END FUNCTION fetchSurfaceOptional
+
+  SUBROUTINE fetchSurface(params, varName, jg, field)
+    TYPE(t_fetchParams), INTENT(INOUT) :: params
+    CHARACTER(LEN = *), INTENT(IN) :: varName
+    INTEGER, VALUE :: jg
+    REAL(wp), INTENT(INOUT) :: field(:,:)
+
+    INTEGER :: jt
+    LOGICAL :: fetchResult
+
+    IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
+        fetchResult = params%requestList%fetchSurface(varName, trivial_tileId, jg, field)
+        CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varName, params%routine, params%isFg)
+    END IF
+  END SUBROUTINE fetchSurface
+
+  ! Wrapper for requestList%fetchTiledSurface() that falls back to reading copies of untiled input IF ltile_coldstart IS set.
+  SUBROUTINE fetchTiledSurface(params, varName, jg, tileCount, field)
+    TYPE(t_fetchParams), INTENT(INOUT) :: params
+    CHARACTER(LEN = *), INTENT(IN) :: varName
+    INTEGER, VALUE :: jg, tileCount
+    REAL(wp), INTENT(INOUT) :: field(:,:,:)
+
+    INTEGER :: jt
+    LOGICAL :: fetchResult
+
+    IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
+        IF(ltile_coldstart) THEN
+            !Fake tiled input by copying the input field to all tiles.
+            fetchResult = .TRUE.
+            DO jt = 1, tileCount
+                fetchResult = fetchResult.AND.params%requestList%fetchSurface(varName, trivial_tileId, jg, field(:,:,jt))
+            END DO
         ELSE
-          nlev_in = get_cdi_NlevRef(fileID_fg(jg), 'z_ifc')
-        ENDIF
-        ! number of LAYERS:
-        nlev_in = nlev_in - 1
-      ENDIF  ! p_io
+            !True tiled input.
+            fetchResult = params%requestList%fetchTiledSurface(varName, jg, field)
+        END IF
+        CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varName, params%routine, params%isFg)
+    END IF
+  END SUBROUTINE fetchTiledSurface
 
-      IF(p_test_run) THEN
-        mpi_comm = p_comm_work_test
-      ELSE
-        mpi_comm = p_comm_work
-      ENDIF
-      CALL p_bcast(nlev_in, p_io, mpi_comm)
-      nlevatm_in(jg) = nlev_in
+  ! Wrapper for requestList%fetchTiled3d() that falls back to reading copies of untiled input IF ltile_coldstart IS set.
+  SUBROUTINE fetchTiled3d(params, varName, jg, tileCount, field)
+    TYPE(t_fetchParams), INTENT(INOUT) :: params
+    CHARACTER(LEN = *), INTENT(IN) :: varName
+    INTEGER, VALUE :: jg, tileCount
+    REAL(wp), INTENT(INOUT) :: field(:,:,:,:)
 
-      ! allocate data structure for reading input data
-      CALL allocate_extana_atm(jg, p_patch(jg)%nblks_c, p_patch(jg)%nblks_e, initicon)
+    INTEGER :: jt
+    LOGICAL :: fetchResult
+
+    IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
+        IF(ltile_coldstart) THEN
+            !Fake tiled input by copying the input field to all tiles.
+            fetchResult = .TRUE.
+            DO jt = 1, tileCount
+                fetchResult = fetchResult.AND.params%requestList%fetch3d(varName, trivial_tileId, jg, field(:,:,:,jt))
+            END DO
+        ELSE
+            !True tiled input.
+            fetchResult = params%requestList%fetchTiled3d(varName, jg, field)
+        END IF
+        CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varName, params%routine, params%isFg)
+    END IF
+  END SUBROUTINE fetchTiled3d
+
+  ! Same as above for variables that are optionally read from input file.
+  SUBROUTINE fetchTiled3dOptional(params, varName, jg, tileCount, field, avail)
+    TYPE(t_fetchParams), INTENT(INOUT) :: params
+    CHARACTER(LEN = *), INTENT(IN) :: varName
+    INTEGER, VALUE :: jg, tileCount
+    REAL(wp), INTENT(INOUT) :: field(:,:,:,:)
+    LOGICAL, INTENT(OUT) :: avail
+
+    INTEGER :: jt
+
+    IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
+        IF(ltile_coldstart) THEN
+            !Fake tiled input by copying the input field to all tiles.
+            avail = .TRUE.
+            DO jt = 1, tileCount
+                avail = avail.AND.params%requestList%fetch3d(varName, trivial_tileId, jg, field(:,:,:,jt))
+            END DO
+        ELSE
+            !True tiled input.
+            avail = params%requestList%fetchTiled3d(varName, jg, field)
+        END IF
+        CALL params%inputInstructions(jg)%ptr%optionalReadResult(avail, varName, params%routine, params%isFg)
+    END IF
+  END SUBROUTINE fetchTiled3dOptional
+
+  SUBROUTINE fetchRequired3d(params, varName, jg, field)
+    TYPE(t_fetchParams), INTENT(INOUT) :: params
+    CHARACTER(LEN = *), INTENT(IN) :: varName
+    INTEGER, VALUE :: jg
+    REAL(wp), INTENT(INOUT) :: field(:,:,:)
+
+    CALL params%requestList%fetchRequired3d(varName, trivial_tileId, jg, field)
+    CALL params%inputInstructions(jg)%ptr%handleError(.TRUE., varName, params%routine, params%isFg)
+  END SUBROUTINE fetchRequired3d
+
+  ! Wrapper for requestList%fetchRequiredTiledSurface() that falls back to reading copies of untiled input IF ltile_coldstart IS set.
+  SUBROUTINE fetchRequiredTiledSurface(params, varName, jg, tileCount, field)
+    TYPE(t_fetchParams), INTENT(INOUT) :: params
+    CHARACTER(LEN = *), INTENT(IN) :: varName
+    INTEGER, VALUE :: jg, tileCount
+    REAL(wp), INTENT(INOUT) :: field(:,:,:)
+
+    INTEGER :: jt
+
+    IF(ltile_coldstart) THEN
+        !Fake tiled input by copying the input field to all tiles.
+        DO jt = 1, tileCount
+            CALL params%requestList%fetchRequiredSurface(varName, trivial_tileId, jg, field(:,:,jt))
+        END DO
+    ELSE
+        !True tiled input.
+        CALL params%requestList%fetchRequiredTiledSurface(varName, jg, field)
+    END IF
+    CALL params%inputInstructions(jg)%ptr%handleError(.TRUE., varName, params%routine, params%isFg)
+  END SUBROUTINE fetchRequiredTiledSurface
 
 
-      ! save some paperwork
-      ngrp_vars_fg  = initicon(jg)%ngrp_vars_fg
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-      !---------------------------------------!
-      ! Read in DWD first guess (atmosphere)  !
-      !---------------------------------------!
+  !>
+  !! Fetch the DWD first guess from the request list (atmosphere only)
+  !! First guess (FG) is read for theta_v, rho, vn, w, tke,
+  !! whereas DA output is read for T, p, u, v,
+  !! qv, qc, qi, qr, qs.
+  SUBROUTINE fetch_dwdfg_atm(requestList, p_patch, p_nh_state, initicon, inputInstructions)
+    CLASS(t_InputRequestList), POINTER, INTENT(INOUT) :: requestList
+    TYPE(t_patch), INTENT(INOUT) :: p_patch(:)
+    TYPE(t_nh_state), INTENT(INOUT), TARGET :: p_nh_state(:)
+    TYPE(t_initicon_state), INTENT(INOUT), TARGET :: initicon(:)
+    TYPE(t_readInstructionListPtr), INTENT(INOUT) :: inputInstructions(:)
 
-      IF(my_process_is_stdio() ) THEN
-        CALL message (TRIM(routine), 'read atm_FG fields from '//TRIM(dwdfg_file(jg)))
-      ENDIF  ! p_io
+    CHARACTER(*), PARAMETER :: routine = modname//':fetch_dwdfg_atm'
+    INTEGER jg
+    TYPE(t_nh_prog), POINTER :: prognosticFields
+    REAL(wp), POINTER :: my_ptr3d(:,:,:)
+    TYPE(t_fetchParams) :: params
 
-      parameters = makeInputParameters(fileID_fg(jg), p_patch(jg)%n_patch_cells_g, p_patch(jg)%comm_pat_scatter_c)
+    params%inputInstructions = inputInstructions
+    params%requestList => requestList
+    params%routine = routine
+    params%isFg = .TRUE.
 
-      filetype = filetype_fg(jg)
-      checkgrp => initicon(jg)%grp_vars_fg(1:ngrp_vars_fg)
+    DO jg = 1, n_dom
+        IF(p_patch(jg)%ldom_active) THEN
+            ! save some paperwork
+            prognosticFields => p_nh_state(jg)%prog(nnow(jg))
 
-      ! start reading first guess (atmosphere only)
-      !
-      ret = read_data_3d (parameters, filetype, 'z_ifc', nlev_in+1, initicon(jg)%atm_in%z3d_ifc, tileinfo)
+            ! request the first guess fields (atmosphere only)
+            CALL fetchRequired3d(params, 'theta_v', jg, prognosticFields%theta_v)
+            CALL fetchRequired3d(params, 'rho', jg, prognosticFields%rho)
+            CALL fetchRequired3d(params, 'w', jg, prognosticFields%w)
+            CALL fetchRequired3d(params, 'tke', jg, prognosticFields%tke)
 
-      ret = read_data_3d (parameters, filetype, 'theta_v', nlev_in, initicon(jg)%atm_in%theta_v, tileinfo)
-      ret = read_data_3d (parameters, filetype, 'rho', nlev_in, initicon(jg)%atm_in%rho, tileinfo)
-      ret = read_data_3d (parameters, filetype, 'w', nlev_in+1, initicon(jg)%atm_in%w_ifc, tileinfo)
-      ret = read_data_3d (parameters, filetype, 'tke', nlev_in+1, initicon(jg)%atm_in%tke_ifc, tileinfo)
+            ! Only needed for FG-only runs; usually read from ANA
+            my_ptr3d => prognosticFields%tracer(:,:,:,iqv)
+            CALL fetch3d(params, 'qv', jg, my_ptr3d)
 
-      ret = read_data_3d (parameters, filetype, 'qv', nlev_in, initicon(jg)%atm_in%qv, tileinfo)
+            my_ptr3d => prognosticFields%tracer(:,:,:,iqc)
+            CALL fetch3d(params, 'qc', jg, my_ptr3d)
 
-      ret = read_data_3d (parameters, filetype, 'qc', nlev_in, initicon(jg)%atm_in%qc, tileinfo)
+            my_ptr3d => prognosticFields%tracer(:,:,:,iqi)
+            CALL fetch3d(params, 'qi', jg, my_ptr3d)
 
-      ret = read_data_3d (parameters, filetype, 'qi', nlev_in, initicon(jg)%atm_in%qi, tileinfo)
+            IF ( iqr /= 0 ) THEN
+              my_ptr3d => prognosticFields%tracer(:,:,:,iqr)
+              CALL fetch3d(params, 'qr', jg, my_ptr3d)
+            END IF
 
-      IF ( iqr /= 0 ) THEN
-        ret = read_data_3d (parameters, filetype, 'qr', nlev_in, initicon(jg)%atm_in%qr, tileinfo)
-      ELSE
-        initicon(jg)%atm_in%qr(:,:,:) = 0._wp
-      END IF
+            IF ( iqs /= 0 ) THEN
+              my_ptr3d => prognosticFields%tracer(:,:,:,iqs)
+              CALL fetch3d(params, 'qs', jg, my_ptr3d)
+            END IF
 
-      IF ( iqs /= 0 ) THEN
-        ret = read_data_3d (parameters, filetype, 'qs', nlev_in, initicon(jg)%atm_in%qs, tileinfo)
-      ELSE
-        initicon(jg)%atm_in%qs(:,:,:) = 0._wp
-      END IF
+            IF (lvert_remap_fg) THEN
+                CALL allocate_extana_atm(jg, p_patch(jg)%nblks_c, p_patch(jg)%nblks_e, initicon)
+                CALL fetchRequired3d(params, 'z_ifc', jg, initicon(jg)%atm_in%z3d_ifc)
+            END IF
 
-      CALL deleteInputParameters(parameters)
+            CALL fetchRequired3d(params, 'vn', jg, prognosticFields%vn)
+        END IF
+    END DO
 
-      !This call needs its own input parameter object because it's edge based.
-      parameters = makeInputParameters(fileID_fg(jg), p_patch(jg)%n_patch_edges_g, p_patch(jg)%comm_pat_scatter_e)
-      ret = read_data_3d (parameters, filetype, 'vn', nlev_in, initicon(jg)%atm_in%vn, tileinfo)
-      CALL deleteInputParameters(parameters)
-    ENDDO ! loop over model domains
+  END SUBROUTINE fetch_dwdfg_atm
 
-    ! Tell the vertical interpolation routine that vn needs to be processed
-    lread_vn = .TRUE.
-  END SUBROUTINE read_dwdfg_atm_ii
-
-  ! Interpolate half level variables from interface levels to main levels, and convert thermodynamic variables
-  ! into temperature and pressure as expected by the vertical interpolation routine
-  SUBROUTINE process_input_dwdfg_atm_ii(p_patch, initicon)
+  !>
+  !! Fetch DWD first guess from the request list (atmosphere only) and store to initicon input state
+  !! First guess (FG) is read for z_ifc, theta_v, rho, vn, w, tke,
+  !! whereas DA output is read for T, p, u, v,
+  !! qv, qc, qi, qr, qs.
+  !!
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD(2012-12-18)
+  !! Modifications for GRIB2 : F. Prill, DWD (2013-02-19)
+  !! Modifications by Daniel Reinert, DWD (2014-01-27)
+  !! - split off reading of FG fields
+  !!
+  !!
+  SUBROUTINE fetch_dwdfg_atm_ii(requestList, p_patch, initicon, inputInstructions)
+    CLASS(t_InputRequestList), POINTER, INTENT(INOUT) :: requestList
     TYPE(t_patch), INTENT(IN) :: p_patch(:)
     TYPE(t_initicon_state), INTENT(INOUT), TARGET :: initicon(:)
+    TYPE(t_readInstructionListPtr), INTENT(INOUT) :: inputInstructions(:)
 
+    CHARACTER(len=*), PARAMETER :: routine = modname//':fetch_dwdfg_atm_ii'
     INTEGER :: jg, jb, jk, jc, i_endidx
     REAL(wp) :: tempv, exner
+    REAL(dp), POINTER :: levelValues(:)
+    TYPE(t_fetchParams) :: params
+
+    params%inputInstructions = inputInstructions
+    params%requestList => requestList
+    params%routine = routine
+    params%isFg = .TRUE.
 
     DO jg = 1, n_dom
-      IF(p_patch(jg)%ldom_active) THEN
+        IF(p_patch(jg)%ldom_active) THEN  ! Skip reading the atmospheric input data if a model domain is not active at initial time
+
+            ! determine number of HALF LEVELS of generalized Z-AXIS
+            levelValues => requestList%getLevels('z_ifc', jg)
+            IF(.NOT.ASSOCIATED(levelValues)) CALL finish(routine, "no DATA found for domain "//TRIM(int2string(jg))//" of &
+                                                                  &required variable 'z_ifc'")
+            nlevatm_in(jg) = SIZE(levelValues, 1) - 1
+
+            CALL allocate_extana_atm(jg, p_patch(jg)%nblks_c, p_patch(jg)%nblks_e, initicon)
+
+            ! start reading first guess (atmosphere only)
+            CALL fetchRequired3d(params, 'z_ifc', jg, initicon(jg)%atm_in%z3d_ifc)
+            CALL fetchRequired3d(params, 'theta_v', jg, initicon(jg)%atm_in%theta_v)
+            CALL fetchRequired3d(params, 'rho', jg, initicon(jg)%atm_in%rho)
+            CALL fetchRequired3d(params, 'w', jg, initicon(jg)%atm_in%w_ifc)
+            CALL fetchRequired3d(params, 'tke', jg, initicon(jg)%atm_in%tke_ifc)
+
+            CALL fetchRequired3d(params, 'qv', jg, initicon(jg)%atm_in%qv)
+            CALL fetchRequired3d(params, 'qc', jg, initicon(jg)%atm_in%qc)
+            CALL fetchRequired3d(params, 'qi', jg, initicon(jg)%atm_in%qi)
+            IF ( iqr /= 0 ) THEN
+            CALL fetchRequired3d(params, 'qr', jg, initicon(jg)%atm_in%qr)
+            ELSE
+            initicon(jg)%atm_in%qr(:,:,:) = 0._wp
+            END IF
+
+            IF ( iqs /= 0 ) THEN
+            CALL fetchRequired3d(params, 'qs', jg, initicon(jg)%atm_in%qs)
+            ELSE
+            initicon(jg)%atm_in%qs(:,:,:) = 0._wp
+            END IF
+
+            CALL fetchRequired3d(params, 'vn', jg, initicon(jg)%atm_in%vn)
+
+            ! Interpolate half level variables from interface levels to main levels, and convert thermodynamic variables
+            ! into temperature and pressure as expected by the vertical interpolation routine  
 !$OMP PARALLEL
 !$OMP DO PRIVATE (jk,jc,jb,i_endidx,tempv,exner) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = 1,p_patch(jg)%nblks_c
+            DO jb = 1,p_patch(jg)%nblks_c
 
-          IF (jb /= p_patch(jg)%nblks_c) THEN
-            i_endidx = nproma
-          ELSE
-            i_endidx = p_patch(jg)%npromz_c
-          END IF
+                IF (jb /= p_patch(jg)%nblks_c) THEN
+                    i_endidx = nproma
+                ELSE
+                    i_endidx = p_patch(jg)%npromz_c
+                END IF
 
-          DO jk = 1, nlevatm_in(jg)
-            DO jc = 1, i_endidx
+                DO jk = 1, nlevatm_in(jg)
+                    DO jc = 1, i_endidx
 
-              initicon(jg)%atm_in%z3d(jc,jk,jb) = (initicon(jg)%atm_in%z3d_ifc(jc,jk,jb) + &
-                &   initicon(jg)%atm_in%z3d_ifc(jc,jk+1,jb)) * 0.5_wp
-              initicon(jg)%atm_in%w(jc,jk,jb) = (initicon(jg)%atm_in%w_ifc(jc,jk,jb) +     &
-                &   initicon(jg)%atm_in%w_ifc(jc,jk+1,jb)) * 0.5_wp
-              initicon(jg)%atm_in%tke(jc,jk,jb) = (initicon(jg)%atm_in%tke_ifc(jc,jk,jb) + &
-                &   initicon(jg)%atm_in%tke_ifc(jc,jk+1,jb)) * 0.5_wp
+                        !XXX: This code IS a waste of resources:
+                        !       1. It IS memory bound.
+                        !       2. Like all other places that USE the fields z3d_ifc, w_ifc, AND tke_ifc,
+                        !          it uses them purely as temporary buffers to cache the input to the interpolation.
+                        !     This could be avoided by moving these calculations directly after the fetch calls above (better cache USE),
+                        !     scraping the *_ifc fields, AND using a temporary buffer instead (which can be reused for the next variable, smaller memory footprint).
+                        !     However, since the fields are also used IN mo_initicon_utils, mo_async_latbc_utils, AND mo_sync_latbc IN a similar pattern,
+                        !     all these places would need to be rewritten to scrape the *_ifc fields.
+                        initicon(jg)%atm_in%z3d(jc,jk,jb) = (initicon(jg)%atm_in%z3d_ifc(jc,jk,jb) + &
+                            &   initicon(jg)%atm_in%z3d_ifc(jc,jk+1,jb)) * 0.5_wp
+                        initicon(jg)%atm_in%w(jc,jk,jb) = (initicon(jg)%atm_in%w_ifc(jc,jk,jb) +     &
+                            &   initicon(jg)%atm_in%w_ifc(jc,jk+1,jb)) * 0.5_wp
+                        initicon(jg)%atm_in%tke(jc,jk,jb) = (initicon(jg)%atm_in%tke_ifc(jc,jk,jb) + &
+                            &   initicon(jg)%atm_in%tke_ifc(jc,jk+1,jb)) * 0.5_wp
 
-              exner = (initicon(jg)%atm_in%rho(jc,jk,jb)*initicon(jg)%atm_in%theta_v(jc,jk,jb)*rd/p0ref)**(1._wp/cvd_o_rd)
-              tempv = initicon(jg)%atm_in%theta_v(jc,jk,jb)*exner
+                        exner = (initicon(jg)%atm_in%rho(jc,jk,jb)*initicon(jg)%atm_in%theta_v(jc,jk,jb)*rd/p0ref)**(1._wp/cvd_o_rd)
+                        tempv = initicon(jg)%atm_in%theta_v(jc,jk,jb)*exner
 
-              initicon(jg)%atm_in%pres(jc,jk,jb) = exner**(cpd/rd)*p0ref
-              initicon(jg)%atm_in%temp(jc,jk,jb) = tempv / (1._wp + vtmpc1*initicon(jg)%atm_in%qv(jc,jk,jb) - &
-                (initicon(jg)%atm_in%qc(jc,jk,jb) + initicon(jg)%atm_in%qi(jc,jk,jb) +                        &
-                 initicon(jg)%atm_in%qr(jc,jk,jb) + initicon(jg)%atm_in%qs(jc,jk,jb)) )
+                        initicon(jg)%atm_in%pres(jc,jk,jb) = exner**(cpd/rd)*p0ref
+                        initicon(jg)%atm_in%temp(jc,jk,jb) = tempv / (1._wp + vtmpc1*initicon(jg)%atm_in%qv(jc,jk,jb) - &
+                            (initicon(jg)%atm_in%qc(jc,jk,jb) + initicon(jg)%atm_in%qi(jc,jk,jb) +                      &
+                             initicon(jg)%atm_in%qr(jc,jk,jb) + initicon(jg)%atm_in%qs(jc,jk,jb)) )
 
+                    END DO
+                END DO
             END DO
-          END DO
-        END DO
 !$OMP END DO
 !$OMP END PARALLEL
-      END IF
-    END DO ! loop over model domains
-  END SUBROUTINE process_input_dwdfg_atm_ii
+        END IF
+    ENDDO
 
+    lread_vn = .TRUE.  ! Tell the vertical interpolation routine that vn needs to be processed
+  END SUBROUTINE fetch_dwdfg_atm_ii
 
 
   !>
-  !! Read DA-analysis fields (atmosphere only)
+  !! Fetch DA-analysis DATA from the request list (atmosphere only)
   !!
   !! Depending on the initialization mode, either full fields or increments
-  !! are read (atmosphere only):
-  !! MODE_DWDANA: The following full fields are read, if available
-  !!              u, v, t, p, qv
-  !! MODE_IAO_OLD: 
-  !! MODE_IAU:
+  !! are read (atmosphere only). The following full fields are read, if available:
+  !!     u, v, t, p, qv, qi, qc, qr, qs
   !!
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2012-12-18)
@@ -1339,116 +1146,78 @@ MODULE mo_initicon_io
   !! Modifications by Daniel Reinert, DWD (2014-01-27)
   !! - split off reading of FG fields
   !!
-  SUBROUTINE read_dwdana_atm (p_patch, p_nh_state, initicon, fileID_ana,  filetype_ana, dwdana_file)
-
-    TYPE(t_patch),          INTENT(IN)            :: p_patch(:)
-    TYPE(t_nh_state),       INTENT(INOUT)         :: p_nh_state(:)
-    INTEGER,                INTENT(IN)            :: fileID_ana(:), filetype_ana(:)
+  SUBROUTINE fetch_dwdana_atm(requestList, p_patch, p_nh_state, initicon, inputInstructions)
+    CLASS(t_InputRequestList), POINTER, INTENT(INOUT) :: requestList
+    TYPE(t_patch), INTENT(IN) :: p_patch(:)
+    TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_initicon_state), INTENT(INOUT), TARGET :: initicon(:)
-    CHARACTER(LEN=filename_max), INTENT(IN)       :: dwdana_file(:)
-    ! local variables
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':read_dwdana_atm'
-    INTEGER                             :: jg
-    INTEGER                             :: nlev
-    INTEGER                             :: ngrp_vars_ana, filetype
-    TYPE(t_pi_atm), POINTER             :: my_ptr
-    REAL(wp),       POINTER             :: my_ptr3d(:,:,:)
-    TYPE(t_inputParameters)             :: parameters
-    CHARACTER(LEN=VARNAME_LEN), POINTER :: checkgrp(:)
-    TYPE(t_tileinfo_elt)                :: tileinfo
-    LOGICAL                             :: ret
+    TYPE(t_readInstructionListPtr), INTENT(INOUT) :: inputInstructions(:)
 
-    !-------------------------------------------------------------------------
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//':fetch_dwdana_atm'
+    INTEGER :: jg
+    TYPE(t_pi_atm), POINTER :: my_ptr
+    REAL(wp), POINTER :: my_ptr3d(:,:,:)
+    TYPE(t_fetchParams) :: params
+    LOGICAL :: lHaveFg
 
-    tileinfo = trivial_tileinfo
-
-    !----------------------------------------!
-    ! read in DWD analysis (atmosphere)      !
-    !----------------------------------------!
+    params%inputInstructions = inputInstructions
+    params%requestList => requestList
+    params%routine = routine
+    params%isFg = .FALSE.
 
     DO jg = 1, n_dom
+        IF(p_patch(jg)%ldom_active) THEN  ! Skip reading the atmospheric input data if a model domain is not active at initial time
+            ! Depending on the initialization mode chosen (incremental vs. non-incremental)
+            ! input fields are stored in different locations.
+            IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
+                ! Skip this domain if its interpolated from its parent in process_input_dwdana_atm()
+                IF (lp2cintp_incr(jg)) CYCLE
+                my_ptr => initicon(jg)%atm_inc
+            ELSE
+                my_ptr => initicon(jg)%atm
+            ENDIF
 
-      ! Skip reading the atmospheric input data if a model domain
-      ! is not active at initial time
-      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+            ! start reading DA output (atmosphere only)
+            ! The dynamical variables temp, pres, u and v, which need further processing,
+            ! are either stored in initicon(jg)%atm or initicon(jg)%atm_inc, depending on whether
+            ! IAU is used or not. The moisture variables, which can be taken over directly from
+            ! the Analysis, are written to the NH prognostic state
+            CALL fetch3d(params, 'temp', jg, my_ptr%temp)
+            CALL fetch3d(params, 'pres', jg, my_ptr%pres)
+            CALL fetch3d(params, 'u', jg, my_ptr%u)
+            CALL fetch3d(params, 'v', jg, my_ptr%v)
 
-      ! number of vertical full and half levels
-      nlev   = p_patch(jg)%nlev
+            IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
+                lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qv') == kInputSourceFg
+                CALL fetch3d(params, 'qv', jg, my_ptr%qv)
+                ! check whether we are using DATA from both FG AND ANA input, so that it's correctly listed IN the input source table
+                IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qv') == kInputSourceAna) THEN
+                    CALL inputInstructions(jg)%ptr%setSource('qv', kInputSourceBoth)
+                END IF
+            ELSE
+                my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv)
+                CALL fetch3d(params, 'qv', jg, my_ptr3d)
+            ENDIF
 
-      ! save some paperwork
-      ngrp_vars_ana = initicon(jg)%ngrp_vars_ana
-
-      ! Depending on the initialization mode chosen (incremental vs. non-incremental)
-      ! input fields are stored in different locations.
-      IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
-        ! Skip this domain if its interpolated from its parent in process_input_dwdana_atm()
-        IF (lp2cintp_incr(jg)) CYCLE
-        my_ptr => initicon(jg)%atm_inc
-      ELSE
-        my_ptr => initicon(jg)%atm
-      ENDIF
-
-      IF( lread_ana .AND. my_process_is_stdio() ) THEN
-        CALL message (TRIM(routine), 'read atm_ANA fields from '//TRIM(dwdana_file(jg)))
-      ENDIF  ! p_io
-
-      parameters = makeInputParameters(fileID_ana(jg), p_patch(jg)%n_patch_cells_g, p_patch(jg)%comm_pat_scatter_c)
-      filetype = filetype_ana(jg)
-      checkgrp => initicon(jg)%grp_vars_ana(1:ngrp_vars_ana)
-
-      ! start reading DA output (atmosphere only)
-      ! The dynamical variables temp, pres, u and v, which need further processing,
-      ! are either stored in initicon(jg)%atm or initicon(jg)%atm_inc, depending on whether
-      ! IAU is used or not. The moisture variables, which can be taken over directly from
-      ! the Analysis, are written to the NH prognostic state
-      !
-      my_ptr3d => my_ptr%temp
-      ret = read_data_3d (parameters, filetype, 'temp', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp)
-
-      my_ptr3d => my_ptr%pres
-      ret = read_data_3d (parameters, filetype, 'pres', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
-
-      my_ptr3d => my_ptr%u
-      ret = read_data_3d (parameters, filetype, 'u', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
-
-      my_ptr3d => my_ptr%v
-      ret = read_data_3d (parameters, filetype, 'v', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
-
-      IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
-        my_ptr3d => my_ptr%qv
-      ELSE
-        my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv)
-      ENDIF
-
-      ret = read_data_3d (parameters, filetype, 'qv', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
-
-      ! For the time being identical to qc from FG => usually read from FG
-      my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc)
-      ret = read_data_3d (parameters, filetype, 'qc', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
-
-      ! For the time being identical to qi from FG => usually read from FG
-      my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi)
-      ret = read_data_3d (parameters, filetype, 'qi', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
-
-      ! For the time being identical to qr from FG => usually read from FG
-      IF ( iqr /= 0 ) THEN
-        my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr)
-        ret = read_data_3d (parameters, filetype, 'qr', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
-      END IF
-
-      ! For the time being identical to qs from FG => usually read from FG
-      IF ( iqs /= 0 ) THEN
-        my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs)
-        ret = read_data_3d (parameters, filetype, 'qs', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
-      END IF
-
-      CALL deleteInputParameters(parameters)
-
+            ! For the time being, these are identical to qc, qi, qr, AND qs from FG => usually read from FG
+            my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc)
+            CALL fetch3d(params, 'qc', jg, my_ptr3d)
+            my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi)
+            CALL fetch3d(params, 'qi', jg, my_ptr3d)
+            IF ( iqr /= 0 ) THEN
+                my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr)
+                CALL fetch3d(params, 'qr', jg, my_ptr3d)
+            END IF
+            IF ( iqs /= 0 ) THEN
+                my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs)
+                CALL fetch3d(params, 'qs', jg, my_ptr3d)
+            END IF
+        END IF
     ENDDO ! loop over model domains
 
-  END SUBROUTINE read_dwdana_atm
+  END SUBROUTINE fetch_dwdana_atm
 
-
+  !XXX: Cannot be moved into fetch_dwdana_atm() since it needs input from fetch_dwdana_sfc()
   SUBROUTINE process_input_dwdana_atm (p_patch, initicon)
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
     TYPE(t_initicon_state), INTENT(INOUT), TARGET :: initicon(:)
@@ -1468,264 +1237,239 @@ MODULE mo_initicon_io
   END SUBROUTINE process_input_dwdana_atm
 
 
-
   !>
-  !! Read DWD first guess (land/surface only)
-  !!
-  !! Read DWD first guess for land/surface.
-  !! First guess is read for:
-  !! fr_seaice, t_ice, h_ice, t_g, qv_s, freshsnow, w_snow, w_i, t_snow,
-  !! rho_snow, w_so, w_so_ice, t_so, gz0
-  !!
-  !!
-  !! @par Revision History
-  !! Initial version by Daniel Reinert, DWD(2012-12-18)
-  !! Modifications by Daniel Reinert, DWD (2014-07-16)
-  !! - split off reading of FG fields
-  !!
-  SUBROUTINE read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
-
-    TYPE(t_patch),                INTENT(IN)      :: p_patch(:)
-    TYPE(t_nwp_phy_diag), TARGET, INTENT(INOUT)   :: prm_diag(:)
-    TYPE(t_lnd_state), TARGET,    INTENT(INOUT)   :: p_lnd_state(:)
-    INTEGER,                      INTENT(IN)      :: fileID_fg(:), filetype_fg(:)
-    TYPE(t_initicon_state), INTENT(INOUT), TARGET :: initicon(:)
-    CHARACTER(LEN=filename_max), INTENT(IN)       :: dwdfg_file(:)
-    ! local variables
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':read_dwdfg_sfc'
-    INTEGER                             :: jg, jt, i_endidx, filetype
-    INTEGER                             :: ngrp_vars_fg
-    REAL(wp), POINTER                   :: my_ptr2d(:,:)
-    REAL(wp), POINTER                   :: my_ptr3d(:,:,:)
-    TYPE(t_lnd_prog), POINTER           :: lnd_prog
-    TYPE(t_lnd_diag), POINTER           :: lnd_diag
-    TYPE(t_wtr_prog), POINTER           :: wtr_prog
-    CHARACTER(LEN=VARNAME_LEN), POINTER :: checkgrp(:)
-    TYPE(t_inputParameters)             :: parameters
-    TYPE(t_tileinfo_elt)                :: tileinfo
-    LOGICAL                             :: ret
-
-    !-------------------------------------------------------------------------
-
-    tileinfo = trivial_tileinfo
-
-    !----------------------------------------!
-    ! read in DWD First Guess (surface)      !
-    !----------------------------------------!
-
-    DO jg = 1, n_dom
-
-      lnd_prog => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
-      lnd_diag => p_lnd_state(jg)%diag_lnd
-      wtr_prog => p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))
-
-      ! Skip reading the atmospheric input data if a model domain
-      ! is not active at initial time
-      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-
-      ! save some paperwork
-      ngrp_vars_fg  = initicon(jg)%ngrp_vars_fg
-
-      IF(my_process_is_stdio() ) THEN
-        CALL message (TRIM(routine), 'read sfc_FG fields from '//TRIM(dwdfg_file(jg)))
-      ENDIF  ! p_io
-
-      parameters = makeInputParameters(fileID_fg(jg), p_patch(jg)%n_patch_cells_g, p_patch(jg)%comm_pat_scatter_c)
-      filetype = filetype_fg(jg)
-      checkgrp => initicon(jg)%grp_vars_fg(1:ngrp_vars_fg)
-
-      ! COSMO-DE does not provide sea ice field. In that case set fr_seaice to 0
-      IF (init_mode /= MODE_COSMODE) THEN
-        ret = read_data_2d(parameters, filetype, 'fr_seaice', lnd_diag%fr_seaice, tileinfo, opt_checkgroup=checkgrp)
-      ELSE
-!$OMP PARALLEL
-        CALL init(lnd_diag%fr_seaice(:,:))
-!$OMP END PARALLEL
-      ENDIF ! init_mode /= MODE_COSMODE
-
-
-      ! sea-ice related fields
-      ret = read_data_2d(parameters, filetype, 't_ice', wtr_prog%t_ice, tileinfo, opt_checkgroup=checkgrp)
-      ret = read_data_2d(parameters, filetype, 'h_ice', wtr_prog%h_ice, tileinfo, opt_checkgroup=checkgrp)
-
-      ! tile based fields
-      DO jt=1, ntiles_total + ntiles_water
-
-        IF ( .NOT. ltile_coldstart ) THEN
-          tileinfo%idx = tiles(jt)%GRIB2_tile%tileIndex
-          tileinfo%att = tiles(jt)%GRIB2_att%tileAttribute
-        ENDIF
-
-        my_ptr2d => lnd_prog%t_g_t(:,:,jt)
-        ret = read_data_2d(parameters, filetype, 't_g', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
-
-        my_ptr2d =>lnd_diag%qv_s_t(:,:,jt)
-        ret = read_data_2d(parameters, filetype, 'qv_s', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
-
-      END DO
-
-      !  tile based fields
-      DO jt=1, ntiles_total
-
-        IF (.NOT. ltile_coldstart) THEN
-          tileinfo%idx = tiles(jt)%GRIB2_tile%tileIndex
-          tileinfo%att = tiles(jt)%GRIB2_att%tileAttribute
-        ENDIF
-
-        my_ptr2d => lnd_diag%freshsnow_t(:,:,jt)
-        ret = read_data_2d(parameters, filetype, 'freshsnow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
-
-        my_ptr2d => lnd_diag%snowfrac_lc_t(:,:,jt)
-        ret = read_data_2d(parameters, filetype, 'snowfrac_lc', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
-
-        my_ptr2d => lnd_prog%w_snow_t(:,:,jt)
-        ret = read_data_2d(parameters, filetype, 'w_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
-
-        my_ptr2d => lnd_prog%w_i_t(:,:,jt)
-        ret = read_data_2d(parameters, filetype, 'w_i', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
-
-        my_ptr2d => lnd_diag%h_snow_t(:,:,jt)
-        ret = read_data_2d(parameters, filetype, 'h_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
-
-        my_ptr2d => lnd_prog%t_snow_t(:,:,jt)
-        ret = read_data_2d(parameters, filetype, 't_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
-
-        my_ptr2d => lnd_prog%rho_snow_t(:,:,jt)
-        ret = read_data_2d(parameters, filetype, 'rho_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
-
-
-        IF (lmulti_snow) THEN
-        ! multi layer snow fields
-           my_ptr3d => lnd_prog%t_snow_mult_t(:,:,:,jt)
-           ret = read_data_3d (parameters, filetype, 't_snow_mult', nlev_snow+1, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
-
-           my_ptr3d => lnd_prog%rho_snow_mult_t(:,:,:,jt)
-           ret = read_data_3d (parameters, filetype, 'rho_snow_mult', nlev_snow, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
-
-           my_ptr3d => lnd_prog%wtot_snow_t(:,:,:,jt)
-           ret = read_data_3d (parameters, filetype, 'wtot_snow', nlev_snow, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
-
-           my_ptr3d => lnd_prog%wliq_snow_t(:,:,:,jt)
-           ret = read_data_3d (parameters, filetype, 'wliq_snow', nlev_snow, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
-
-           my_ptr3d => lnd_prog%dzh_snow_t(:,:,:,jt)
-           ret = read_data_3d (parameters, filetype, 'dzh_snow', nlev_snow, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
-        END IF ! lmulti_snow
-
-
-        ! multi layer fields
-        !
-        ! Note that either w_so OR smi is written to w_so_t. Which one is required depends
-        ! on the initialization mode. Checking grp_vars_fg takes care of this. In case
-        ! that smi is read, it is lateron converted to w_so (see smi_to_wsoil)
-        my_ptr3d => lnd_prog%w_so_t(:,:,:,jt)
-        ret = read_data_3d (parameters, filetype, 'w_so', nlev_soil, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
-        !
-        ! Note that no pointer assignment is missing here, since either W_SO or SMI is read
-        ! into w_so_t. Whether SMI or W_SO must be read, is taken care of by 'checkgrp'.
-        ret = read_data_3d (parameters, filetype, 'smi', nlev_soil, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
-
-
-        ! Skipped in MODE_COMBINED and in MODE_COSMODE. In that case, w_so_ice
-        ! is re-diagnosed in terra_multlay_init
-        my_ptr3d => lnd_prog%w_so_ice_t(:,:,:,jt)
-        ret = read_data_3d (parameters, filetype, 'w_so_ice', nlev_soil, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
-
-        my_ptr3d => lnd_prog%t_so_t(:,:,:,jt)
-        ret = read_data_3d (parameters, filetype, 't_so', nlev_soil+1, my_ptr3d, tileinfo, opt_checkgroup=checkgrp)
-
-      ENDDO ! jt
-
-
-      tileinfo = trivial_tileinfo
-
-      ! Skipped in MODE_COMBINED and in MODE_COSMODE (i.e. when starting from GME soil)
-      ! Instead z0 is re-initialized (see mo_nwp_phy_init)
-      ret = read_data_2d(parameters, filetype, 'gz0', prm_diag(jg)%gz0, tileinfo, opt_checkgroup=checkgrp )
-
-
-      ! first guess for fresh water lake fields
-      !
-      ret = read_data_2d(parameters, filetype, 't_mnw_lk', wtr_prog%t_mnw_lk, tileinfo, opt_checkgroup=checkgrp)
-      ret = read_data_2d(parameters, filetype, 't_wml_lk', wtr_prog%t_wml_lk, tileinfo, opt_checkgroup=checkgrp)
-      ret = read_data_2d(parameters, filetype, 'h_ml_lk', wtr_prog%h_ml_lk, tileinfo, opt_checkgroup=checkgrp)
-      ret = read_data_2d(parameters, filetype, 't_bot_lk', wtr_prog%t_bot_lk, tileinfo, opt_checkgroup=checkgrp)
-      ret = read_data_2d(parameters, filetype, 'c_t_lk', wtr_prog%c_t_lk, tileinfo, opt_checkgroup=checkgrp)
-      ret = read_data_2d(parameters, filetype, 't_b1_lk', wtr_prog%t_b1_lk, tileinfo, opt_checkgroup=checkgrp)
-      ret = read_data_2d(parameters, filetype, 'h_b1_lk', wtr_prog%h_b1_lk, tileinfo, opt_checkgroup=checkgrp)
-
-      ! read prognostic aerosol fields, if necessary (iprog_aero=1)
-      my_ptr2d => prm_diag(jg)%aerosol(:,iss,:)
-      ret =           read_data_2d(parameters, filetype, 'aer_ss', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
-      my_ptr2d => prm_diag(jg)%aerosol(:,iorg,:)
-      ret = ret .AND. read_data_2d(parameters, filetype, 'aer_or', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
-      my_ptr2d => prm_diag(jg)%aerosol(:,ibc,:)
-      ret = ret .AND. read_data_2d(parameters, filetype, 'aer_bc', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
-      my_ptr2d => prm_diag(jg)%aerosol(:,iso4,:)
-      ret = ret .AND. read_data_2d(parameters, filetype, 'aer_su', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
-      my_ptr2d => prm_diag(jg)%aerosol(:,idu,:)
-      ret = ret .AND. read_data_2d(parameters, filetype, 'aer_du', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
-      aerosol_fg_present(jg) = ret
-
-
-      CALL deleteInputParameters(parameters)
-
-    ENDDO ! loop over model domains
-
-  END SUBROUTINE read_dwdfg_sfc
-
-  SUBROUTINE process_input_dwdfg_sfc(p_patch, p_lnd_state)
-    TYPE(t_patch), INTENT(IN) :: p_patch(:)
+  !! Fetch DWD first guess DATA from request list (land/surface only)
+  SUBROUTINE fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_lnd_state, inputInstructions)
+    CLASS(t_InputRequestList), POINTER, INTENT(INOUT) :: requestList
+    TYPE(t_patch),             INTENT(IN)    :: p_patch(:)
+    TYPE(t_nwp_phy_diag),      INTENT(INOUT) :: prm_diag(:)
     TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_readInstructionListPtr), INTENT(INOUT) :: inputInstructions(:)
 
-    INTEGER :: jg, jt, jb, jc, i_endidx
+    INTEGER :: jg, error
+    LOGICAL :: avail
+    REAL(wp), POINTER :: my_ptr2d(:,:)
     TYPE(t_lnd_prog), POINTER :: lnd_prog
     TYPE(t_lnd_diag), POINTER :: lnd_diag
+    TYPE(t_wtr_prog), POINTER :: wtr_prog
+    TYPE(t_fetchParams) :: params
+
+    CHARACTER(len=*), PARAMETER :: routine = modname//':fetch_dwdfg_sfc'
+
+    ! Workaround for the intel compiler botching implicit allocation.
+    ALLOCATE(params%inputInstructions(SIZE(inputInstructions, 1)), STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+
+    params%inputInstructions = inputInstructions
+    params%requestList => requestList
+    params%routine = routine
+    params%isFg = .TRUE.
 
     DO jg = 1, n_dom
-      IF(p_patch(jg)%ldom_active) THEN
-        lnd_prog => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
-        lnd_diag => p_lnd_state(jg)%diag_lnd
-        DO jt=1, ntiles_total + ntiles_water
-          ! Copy t_g_t and qv_s_t to t_g and qv_s, respectively, on limited-area domains.
-          ! This is needed to avoid invalid operations in the initialization of the turbulence scheme
-          IF (jt == 1 .AND. (jg > 1 .OR. l_limited_area) ) THEN
-!$OMP PARALLEL DO PRIVATE(jb,jc,i_endidx)
-          ! include boundary interpolation zone of nested domains and halo points
-            DO jb = 1, p_patch(jg)%nblks_c
-              IF (jb == p_patch(jg)%nblks_c) THEN
-                i_endidx = p_patch(jg)%npromz_c
-              ELSE
-                i_endidx = nproma
-              END IF
+        IF(p_patch(jg)%ldom_active) THEN ! Skip reading the atmospheric input data if a model domain is not active at initial time
+            lnd_prog => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
+            lnd_diag => p_lnd_state(jg)%diag_lnd
+            wtr_prog => p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))
 
-              DO jc = 1, i_endidx
-                lnd_prog%t_g(jc,jb)  = lnd_prog%t_g_t(jc,jb,1)
-                lnd_diag%qv_s(jc,jb) = lnd_diag%qv_s_t(jc,jb,1)
-              END DO  ! jc
-            END DO  ! jb
-!$OMP END PARALLEL DO
-          END IF
-        END DO
-        ! Only required, when starting from GME or COSMO soil (i.e. MODE_COMBINED or MODE_COSMODE).
-        ! SMI stored in w_so_t must be converted to w_so
-        IF (ANY((/MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
-          DO jt=1, ntiles_total
-            CALL smi_to_wsoil(p_patch(jg), lnd_prog%w_so_t(:,:,:,jt))
-          END DO
+            ! COSMO-DE does not provide sea ice field. In that case set fr_seaice to 0
+            IF (init_mode /= MODE_COSMODE) THEN
+                CALL fetchSurface(params, 'fr_seaice', jg, lnd_diag%fr_seaice)
+            ELSE
+!$OMP PARALLEL
+                CALL init(lnd_diag%fr_seaice(:,:))
+!$OMP END PARALLEL
+            ENDIF ! init_mode /= MODE_COSMODE
+
+            ! sea-ice related fields
+            CALL fetchSurface(params, 't_ice', jg, wtr_prog%t_ice)
+            CALL fetchSurface(params, 'h_ice', jg, wtr_prog%h_ice)
+
+            !These two fields are required for the processing step below, AND they are NOT initialized before this SUBROUTINE IS called, so they are fetched as required.
+            !This diverges from the code that I found which READ them conditionally.
+            CALL fetchRequiredTiledSurface(params, 't_g', jg, ntiles_total + ntiles_water, lnd_prog%t_g_t)
+            CALL fetchRequiredTiledSurface(params, 'qv_s', jg, ntiles_total + ntiles_water, lnd_diag%qv_s_t)
+
+            CALL fetchTiledSurface(params, 'freshsnow', jg, ntiles_total, lnd_diag%freshsnow_t)
+            IF (lsnowtile .AND. .NOT. ltile_coldstart) THEN
+                CALL fetchTiledSurface(params, 'snowfrac_lc', jg, ntiles_total, lnd_diag%snowfrac_lc_t)
+            ENDIF
+            CALL fetchTiledSurface(params, 'w_snow', jg, ntiles_total, lnd_prog%w_snow_t)
+            CALL fetchTiledSurface(params, 'w_i', jg, ntiles_total, lnd_prog%w_i_t)
+            CALL fetchTiledSurface(params, 'h_snow', jg, ntiles_total, lnd_diag%h_snow_t)
+            CALL fetchTiledSurface(params, 't_snow', jg, ntiles_total, lnd_prog%t_snow_t)
+            CALL fetchTiledSurface(params, 'rho_snow', jg, ntiles_total, lnd_prog%rho_snow_t)
+
+            IF (lmulti_snow) THEN
+                ! multi layer snow fields
+                CALL fetchTiled3d(params, 't_snow_mult', jg, ntiles_total, lnd_prog%t_snow_mult_t)
+                CALL fetchTiled3d(params, 'rho_snow_mult', jg, ntiles_total, lnd_prog%rho_snow_mult_t)
+                CALL fetchTiled3d(params, 'wtot_snow', jg, ntiles_total, lnd_prog%wtot_snow_t)
+                CALL fetchTiled3d(params, 'wliq_snow', jg, ntiles_total, lnd_prog%wliq_snow_t)
+                CALL fetchTiled3d(params, 'dzh_snow', jg, ntiles_total, lnd_prog%dzh_snow_t)
+            ELSE IF (l2lay_rho_snow) THEN
+                CALL fetchTiled3dOptional(params, 'rho_snow_mult', jg, ntiles_total, lnd_prog%rho_snow_mult_t, avail)
+                IF(.NOT. avail) THEN
+                    ! initialize top-layer snow density with average density if no input field is available
+                    lnd_prog%rho_snow_mult_t(:,1,:,:) = lnd_prog%rho_snow_t(:,:,:)
+                ENDIF
+            END IF ! lmulti_snow
+
+
+            ! multi layer fields
+            !
+            ! Note that either w_so OR smi is written to w_so_t. Which one is required depends
+            ! on the initialization mode. Checking grp_vars_fg takes care of this. In case
+            ! that smi is read, it is lateron converted to w_so (see smi_to_wsoil)
+            SELECT CASE(init_mode)
+                CASE(MODE_COMBINED, MODE_COSMODE)
+                    CALL fetchTiled3d(params, 'smi', jg, ntiles_total, lnd_prog%w_so_t)
+                CASE DEFAULT
+                    CALL fetchTiled3d(params, 'w_so', jg, ntiles_total, lnd_prog%w_so_t)
+                    CALL fetchTiled3d(params, 'w_so_ice', jg, ntiles_total, lnd_prog%w_so_ice_t) ! w_so_ice is re-diagnosed in terra_multlay_init
+            END SELECT
+
+            CALL fetchTiled3d(params, 't_so', jg, ntiles_total, lnd_prog%t_so_t)
+
+            ! Skipped in MODE_COMBINED and in MODE_COSMODE (i.e. when starting from GME soil)
+            ! Instead z0 is re-initialized (see mo_nwp_phy_init)
+            CALL fetchSurface(params, 'gz0', jg, prm_diag(jg)%gz0)
+
+            ! first guess for fresh water lake fields
+            IF(ASSOCIATED(wtr_prog%t_mnw_lk)) CALL fetchSurface(params, 't_mnw_lk', jg, wtr_prog%t_mnw_lk)
+            IF(ASSOCIATED(wtr_prog%t_wml_lk)) CALL fetchSurface(params, 't_wml_lk', jg, wtr_prog%t_wml_lk)
+            IF(ASSOCIATED(wtr_prog%h_ml_lk)) CALL fetchSurface(params, 'h_ml_lk', jg, wtr_prog%h_ml_lk)
+            IF(ASSOCIATED(wtr_prog%t_bot_lk)) CALL fetchSurface(params, 't_bot_lk', jg, wtr_prog%t_bot_lk)
+            IF(ASSOCIATED(wtr_prog%c_t_lk)) CALL fetchSurface(params, 'c_t_lk', jg, wtr_prog%c_t_lk)
+            IF(ASSOCIATED(wtr_prog%t_b1_lk)) CALL fetchSurface(params, 't_b1_lk', jg, wtr_prog%t_b1_lk)
+            IF(ASSOCIATED(wtr_prog%h_b1_lk)) CALL fetchSurface(params, 'h_b1_lk', jg, wtr_prog%h_b1_lk)
+
+            IF(iprog_aero == 1) THEN
+                aerosol_fg_present(jg) = .TRUE.
+
+                my_ptr2d => prm_diag(jg)%aerosol(:,iss,:)
+                IF(.NOT.fetchSurfaceOptional(params, 'aer_ss', jg, my_ptr2d)) aerosol_fg_present(jg) = .FALSE.
+                my_ptr2d => prm_diag(jg)%aerosol(:,iorg,:)
+                IF(.NOT.fetchSurfaceOptional(params, 'aer_or', jg, my_ptr2d)) aerosol_fg_present(jg) = .FALSE.
+                my_ptr2d => prm_diag(jg)%aerosol(:,ibc,:)
+                IF(.NOT.fetchSurfaceOptional(params, 'aer_bc', jg, my_ptr2d)) aerosol_fg_present(jg) = .FALSE.
+                my_ptr2d => prm_diag(jg)%aerosol(:,iso4,:)
+                IF(.NOT.fetchSurfaceOptional(params, 'aer_su', jg, my_ptr2d)) aerosol_fg_present(jg) = .FALSE.
+                my_ptr2d => prm_diag(jg)%aerosol(:,idu,:)
+                IF(.NOT.fetchSurfaceOptional(params, 'aer_du', jg, my_ptr2d)) aerosol_fg_present(jg) = .FALSE.
+
+                ! Reading of these variables IS purely OPTIONAL, but IF reading of one fails, we USE NONE. Inform the InputInstructions about this.
+                IF(.NOT.aerosol_fg_present(jg)) THEN
+                    CALL inputInstructions(jg)%ptr%setSource('aer_ss', kInputSourceNone)
+                    CALL inputInstructions(jg)%ptr%setSource('aer_or', kInputSourceNone)
+                    CALL inputInstructions(jg)%ptr%setSource('aer_bc', kInputSourceNone)
+                    CALL inputInstructions(jg)%ptr%setSource('aer_su', kInputSourceNone)
+                    CALL inputInstructions(jg)%ptr%setSource('aer_du', kInputSourceNone)
+                END IF
+            ELSE
+                aerosol_fg_present(jg) = .FALSE.
+            END IF
         END IF
-      END IF
+    END DO
+
+  END SUBROUTINE fetch_dwdfg_sfc
+
+
+  !! processing of DWD first-guess DATA
+  SUBROUTINE process_input_dwdfg_sfc(p_patch, p_lnd_state, ext_data)
+    TYPE(t_patch),             INTENT(IN)    :: p_patch(:)
+    TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_external_data)    , INTENT(INOUT) :: ext_data(:)
+
+    INTEGER :: jg, jt, jb, jc, ic, i_endidx
+    TYPE(t_lnd_prog), POINTER :: lnd_prog
+    TYPE(t_wtr_prog), POINTER :: wtr_prog
+    TYPE(t_lnd_diag), POINTER :: lnd_diag
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":process_input_dwdfg_sfc"
+
+    DO jg = 1, n_dom
+        IF(p_patch(jg)%ldom_active) THEN
+            lnd_prog => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
+            wtr_prog => p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))
+            lnd_diag => p_lnd_state(jg)%diag_lnd
+            DO jt=1, ntiles_total + ntiles_water
+                ! Copy t_g_t and qv_s_t to t_g and qv_s, respectively, on limited-area domains.
+                ! This is needed to avoid invalid operations in the initialization of the turbulence scheme
+                IF (jt == 1 .AND. (jg > 1 .OR. l_limited_area) ) THEN
+!$OMP PARALLEL DO PRIVATE(jb,jc,i_endidx)
+                    ! include boundary interpolation zone of nested domains and halo points
+                    DO jb = 1, p_patch(jg)%nblks_c
+                        IF (jb == p_patch(jg)%nblks_c) THEN
+                            i_endidx = p_patch(jg)%npromz_c
+                        ELSE
+                            i_endidx = nproma
+                        END IF
+
+                        DO jc = 1, i_endidx
+                            lnd_prog%t_g(jc,jb)  = lnd_prog%t_g_t(jc,jb,1)
+                            lnd_diag%qv_s(jc,jb) = lnd_diag%qv_s_t(jc,jb,1)
+                        END DO  ! jc
+                    END DO  ! jb
+!$OMP END PARALLEL DO
+                END IF
+            END DO
+
+            ! Only required, when starting from GME or COSMO soil (i.e. MODE_COMBINED or MODE_COSMODE).
+            ! SMI stored in w_so_t must be converted to w_so
+            IF (ANY((/MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
+                DO jt=1, ntiles_total
+                    CALL smi_to_wsoil(p_patch(jg), lnd_prog%w_so_t(:,:,:,jt))
+                END DO
+            END IF
+
+
+            ! Initialize t_s_t, which is not read in
+            !
+!$OMP PARALLEL DO PRIVATE(jb,jt,ic,jc)
+            DO jb = 1, p_patch(jg)%nblks_c
+
+              ! set t_s_t to t_so_t(1) for land tiles
+              DO jt = 1, ntiles_total
+                DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
+                  jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+                  lnd_prog%t_s_t(jc,jb,jt) = lnd_prog%t_so_t(jc,1,jb,jt)
+                ENDDO
+              ENDDO  ! ntiles
+
+              IF (llake) THEN
+                ! take lake surface temperature from t_wml_lk
+                DO ic = 1, ext_data(jg)%atm%fp_count(jb)
+                  jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+                  lnd_prog%t_s_t(jc,jb,isub_lake) = wtr_prog%t_wml_lk(jc,jb)
+                ENDDO
+              ELSE
+                ! without lake model, take t_g as an estimate of the lake temperature
+                DO ic = 1, ext_data(jg)%atm%fp_count(jb)
+                  jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+                  lnd_prog%t_s_t(jc,jb,isub_lake) = MAX(tmelt, lnd_prog%t_g_t(jc,jb,isub_lake))
+                ENDDO
+              ENDIF
+
+              ! NOTE: Initialization of sea-water and sea-ice tiles 
+              ! is done later in mo_nwp_sfc_utils:nwp_surface_init for 
+              ! two reasons:
+              ! I)  index lists for sea-ice and sea-water are 
+              !     not yet available at this point.
+              ! II) If an SST-analysis is read in, t_s_t(isub_water) 
+              !     must be updated another time, anyway.
+
+            ENDDO  ! jb
+!$OMP END PARALLEL DO
+        END IF
+
     END DO
   END SUBROUTINE process_input_dwdfg_sfc
 
 
   !>
-  !! Read DWD analysis (land/surface only)
+  !! Fetch DWD analysis DATA from the request list (land/surface only)
   !!
-  !! Read DWD analysis for land/surface.
   !! Analysis is read for:
-  !! fr_seaice, t_ice, h_ice, t_g, qv_s, freshsnow, w_snow, w_i, t_snow,
-  !! rho_snow, w_so, w_so_ice, t_so, gz0
+  !! fr_seaice, t_ice, h_ice, t_so, h_snow, w_snow, w_i, t_snow, rho_snow, freshsnow, w_so
   !!
   !!
   !! @par Revision History
@@ -1733,117 +1477,122 @@ MODULE mo_initicon_io
   !! Modifications by Daniel Reinert, DWD (2014-07-16)
   !! - split off reading of ANA fields
   !!
-  SUBROUTINE read_dwdana_sfc (p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
-
-    TYPE(t_patch),             INTENT(IN)         :: p_patch(:)
-    TYPE(t_lnd_state), TARGET, INTENT(INOUT)      :: p_lnd_state(:)
-    INTEGER,                   INTENT(IN)         :: fileID_ana(:), filetype_ana(:)
+  SUBROUTINE fetch_dwdana_sfc(requestList, p_patch, p_lnd_state, initicon, inputInstructions)
+    CLASS(t_InputRequestList), POINTER, INTENT(INOUT) :: requestList
+    TYPE(t_patch),             INTENT(IN)    :: p_patch(:)
+    TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_initicon_state), INTENT(INOUT), TARGET :: initicon(:)
-    CHARACTER(LEN=filename_max), INTENT(IN)       :: dwdana_file(:)
-    ! local variables
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':read_dwdana_sfc'
-    INTEGER                             :: jg, jt
-    INTEGER                             :: ngrp_vars_ana, filetype
-    REAL(wp), POINTER                   :: my_ptr2d(:,:)
-    REAL(wp), POINTER                   :: my_ptr3d(:,:,:)
-    TYPE(t_lnd_prog), POINTER           :: lnd_prog
-    TYPE(t_lnd_diag), POINTER           :: lnd_diag
-    TYPE(t_wtr_prog), POINTER           :: wtr_prog
-    TYPE(t_inputParameters)             :: parameters
-    CHARACTER(LEN=VARNAME_LEN), POINTER :: checkgrp(:)
-    TYPE(t_tileinfo_elt)                :: tileinfo
-    LOGICAL                             :: ret
+    TYPE(t_readInstructionListPtr), INTENT(INOUT) :: inputInstructions(:)
 
-    !-------------------------------------------------------------------------
+    INTEGER :: jg
+    INTEGER, PARAMETER :: jt = 1
+    REAL(wp), POINTER :: my_ptr2d(:,:)
+    REAL(wp), POINTER :: my_ptr3d(:,:,:)
+    TYPE(t_lnd_prog), POINTER :: lnd_prog
+    TYPE(t_lnd_diag), POINTER :: lnd_diag
+    TYPE(t_wtr_prog), POINTER :: wtr_prog
+    TYPE(t_fetchParams) :: params
+    LOGICAL :: lHaveFg
 
-    tileinfo = trivial_tileinfo
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//':fetch_dwdana_sfc'
 
-    !----------------------------------------!
-    ! read in DWD analysis (surface)         !
-    !----------------------------------------!
+    params%inputInstructions = inputInstructions
+    params%requestList => requestList
+    params%routine = routine
+    params%isFg = .FALSE.
 
     DO jg = 1, n_dom
+        IF(p_patch(jg)%ldom_active) THEN
+            IF (ANY((/MODE_IAU, MODE_IAU_OLD /) == init_mode) .AND. lp2cintp_sfcana(jg)) CYCLE  ! Skip this domain if it will be interpolated from its parent domain in process_input_dwdana_sfc()
 
-      lnd_prog => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
-      lnd_diag => p_lnd_state(jg)%diag_lnd
-      wtr_prog => p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))
+            lnd_prog => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
+            lnd_diag => p_lnd_state(jg)%diag_lnd
+            wtr_prog => p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))
 
-      ! Skip reading the atmospheric input data if a model domain
-      ! is not active at initial time
-      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+            ! sea-ice fraction
+            CALL fetchSurface(params, 'fr_seaice', jg, lnd_diag%fr_seaice)
+            ! sea-ice temperature
+            CALL fetchSurface(params, 't_ice', jg, wtr_prog%t_ice)
+            ! sea-ice height
+            CALL fetchSurface(params, 'h_ice', jg, wtr_prog%h_ice)
 
-      ! save some paperwork
-      ngrp_vars_ana = initicon(jg)%ngrp_vars_ana
+            ! sea-surface temperature: fetch T_SEA or, alternatively, T_SO(0)
+            my_ptr2d => initicon(jg)%sfc%sst(:,:)
+            CALL fetch2d(params, 't_seasfc', 0.0_wp, jg, my_ptr2d)
+            !
+            IF (inputInstructions(jg)%ptr%fetchStatus('t_seasfc', lIsFg=.FALSE.) == kStateFailedFetch) THEN
 
-      ! Skip this domain if it will be interpolated from its parent domain in process_input_dwdana_sfc()
-      IF (ANY((/MODE_IAU, MODE_IAU_OLD /) == init_mode) .AND. lp2cintp_sfcana(jg)) CYCLE
+              ! T_SO(0). Note that the file may contain a 3D field, of which we ONLY fetch the level at 0.0.
+              lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('t_so') == kInputSourceFg
+              CALL fetch2d(params, 't_so', 0.0_wp, jg, my_ptr2d)
+              ! check whether we are using DATA from both FG AND ANA input, so that it's correctly listed IN the input source table
+              IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('t_so') == kInputSourceAna) THEN
+                  CALL inputInstructions(jg)%ptr%setSource('t_so', kInputSourceBoth)
+              END IF
+            ENDIF
 
-      IF(my_process_is_stdio()) THEN
-        CALL message (TRIM(routine), 'read sfc_ANA fields from '//TRIM(dwdana_file(jg)))
-      END IF   ! p_io
 
+            ! h_snow
+            IF ( init_mode == MODE_IAU ) THEN
+                lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('h_snow') == kInputSourceFg
+                my_ptr2d => initicon(jg)%sfc_inc%h_snow(:,:)
+                CALL fetchSurface(params, 'h_snow', jg, my_ptr2d)
+                ! check whether we are using DATA from both FG AND ANA input, so that it's correctly listed IN the input source table
+                IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('h_snow') == kInputSourceAna) THEN
+                    CALL inputInstructions(jg)%ptr%setSource('h_snow', kInputSourceBoth)
+                END IF
+            ELSE
+                my_ptr2d => lnd_diag%h_snow_t(:,:,jt)
+                CALL fetchSurface(params, 'h_snow', jg, my_ptr2d)
+            ENDIF
 
-      ! set tile-index explicitly
-      jt = 1
-      parameters = makeInputParameters(fileID_ana(jg), p_patch(jg)%n_patch_cells_g, p_patch(jg)%comm_pat_scatter_c)
-      filetype = filetype_ana(jg)
-      checkgrp => initicon(jg)%grp_vars_ana(1:ngrp_vars_ana)
+            ! w_snow
+            my_ptr2d => lnd_prog%w_snow_t(:,:,jt)
+            CALL fetchSurface(params, 'w_snow', jg, my_ptr2d)
 
-      ! sea-ice fraction
-      ret = read_data_2d (parameters, filetype, 'fr_seaice', lnd_diag%fr_seaice, tileinfo, opt_checkgroup=checkgrp )
-      ! sea-ice temperature
-      ret = read_data_2d (parameters, filetype, 't_ice', wtr_prog%t_ice, tileinfo, opt_checkgroup=checkgrp )
-      ! sea-ice height
-      ret = read_data_2d (parameters, filetype, 'h_ice', wtr_prog%h_ice, tileinfo, opt_checkgroup=checkgrp )
+            ! w_i
+            my_ptr2d => lnd_prog%w_i_t(:,:,jt)
+            CALL fetchSurface(params, 'w_i', jg, my_ptr2d)
 
-      ! T_SO(0)
-      my_ptr2d => initicon(jg)%sfc%sst(:,:)
-      ret = read_data_2d (parameters, filetype, 't_so', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
+            ! t_snow
+            my_ptr2d => lnd_prog%t_snow_t(:,:,jt)
+            CALL fetchSurface(params, 't_snow', jg, my_ptr2d)
 
-      ! h_snow
-      IF ( init_mode == MODE_IAU ) THEN
-        my_ptr2d => initicon(jg)%sfc_inc%h_snow(:,:)
-      ELSE
-        my_ptr2d => lnd_diag%h_snow_t(:,:,jt)
-      ENDIF
-      ret = read_data_2d (parameters, filetype, 'h_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
+            ! rho_snow
+            my_ptr2d => lnd_prog%rho_snow_t(:,:,jt)
+            CALL fetchSurface(params, 'rho_snow', jg, my_ptr2d)
 
-      ! w_snow
-      my_ptr2d => lnd_prog%w_snow_t(:,:,jt)
-      ret = read_data_2d (parameters, filetype, 'w_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
+            ! freshsnow
+            IF ( init_mode == MODE_IAU ) THEN
+                lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('freshsnow') == kInputSourceFg
+                my_ptr2d => initicon(jg)%sfc_inc%freshsnow(:,:)
+                CALL fetchSurface(params, 'freshsnow', jg, my_ptr2d)
+                ! check whether we are using DATA from both FG AND ANA input, so that it's correctly listed IN the input source table
+                IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('freshsnow') == kInputSourceAna) THEN
+                    CALL inputInstructions(jg)%ptr%setSource('freshsnow', kInputSourceBoth)
+                END IF
+            ELSE
+                my_ptr2d => lnd_diag%freshsnow_t(:,:,jt)
+                CALL fetchSurface(params, 'freshsnow', jg, my_ptr2d)
+            ENDIF
 
-      ! w_i
-      my_ptr2d => lnd_prog%w_i_t(:,:,jt)
-      ret = read_data_2d (parameters, filetype, 'w_i', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
-
-      ! t_snow
-      my_ptr2d => lnd_prog%t_snow_t(:,:,jt)
-      ret = read_data_2d (parameters, filetype, 't_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
-
-      ! rho_snow
-      my_ptr2d => lnd_prog%rho_snow_t(:,:,jt)
-      ret = read_data_2d (parameters, filetype, 'rho_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
-
-      ! freshsnow
-      IF ( init_mode == MODE_IAU ) THEN
-        my_ptr2d => initicon(jg)%sfc_inc%freshsnow(:,:)
-      ELSE
-        my_ptr2d => lnd_diag%freshsnow_t(:,:,jt)
-      ENDIF
-      ret = read_data_2d (parameters, filetype, 'freshsnow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
-
-      ! w_so
-      IF ( (init_mode == MODE_IAU) .OR. (init_mode == MODE_IAU_OLD) ) THEN
-        my_ptr3d => initicon(jg)%sfc_inc%w_so(:,:,:)
-      ELSE
-        my_ptr3d => lnd_prog%w_so_t(:,:,:,jt)
-      END IF
-      ret = read_data_3d (parameters, filetype, 'w_so', nlev_soil, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
-
-      CALL deleteInputParameters(parameters)
-
+            ! w_so
+            IF ( (init_mode == MODE_IAU) .OR. (init_mode == MODE_IAU_OLD) ) THEN
+                lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('w_so') == kInputSourceFg
+                my_ptr3d => initicon(jg)%sfc_inc%w_so(:,:,:)
+                CALL fetch3d(params, 'w_so', jg, my_ptr3d)
+                ! check whether we are using DATA from both FG AND ANA input, so that it's correctly listed IN the input source table
+                IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('w_so') == kInputSourceAna) THEN
+                    CALL inputInstructions(jg)%ptr%setSource('w_so', kInputSourceBoth)
+                END IF
+            ELSE
+                my_ptr3d => lnd_prog%w_so_t(:,:,:,jt)
+                CALL fetch3d(params, 'w_so', jg, my_ptr3d)
+            END IF
+        END IF
     END DO ! loop over model domains
-  END SUBROUTINE read_dwdana_sfc
+
+  END SUBROUTINE fetch_dwdana_sfc
 
 
   ! Fill remaining tiles for snow variables if tile approach is used
@@ -1894,7 +1643,6 @@ MODULE mo_initicon_io
       END IF
     END DO ! loop over model domains
   END SUBROUTINE process_input_dwdana_sfc
-
 
 END MODULE mo_initicon_io
 

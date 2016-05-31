@@ -28,8 +28,6 @@ MODULE mo_initicon_types
   USE mo_kind,                 ONLY: wp
   USE mo_var_metadata_types,   ONLY: VARNAME_LEN
   USE mo_dictionary,           ONLY: t_dictionary
-  USE mo_impl_constants,       ONLY: max_dom
-  USE mo_util_cdi_table,       ONLY: t_inventory_list
 
   IMPLICIT NONE
   PRIVATE
@@ -44,7 +42,7 @@ MODULE mo_initicon_types
   PUBLIC :: t_pi_sfc
   PUBLIC :: t_sfc_inc
   PUBLIC :: geop_ml_var, alb_snow_var
-  PUBLIC :: ana_varnames_dict, inventory_list_fg, inventory_list_ana
+  PUBLIC :: ana_varnames_dict
 
   ! atmospheric input variables
   TYPE :: t_pi_atm_in ! surface geopotential is regarded as
@@ -121,10 +119,6 @@ MODULE mo_initicon_types
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: z_ifc, z_mc
 
-    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE, DIMENSION(:)    :: grp_vars_fg, grp_vars_ana, grp_vars_ana_mandatory
-
-    INTEGER :: ngrp_vars_fg, ngrp_vars_ana, ngrp_vars_ana_mandatory
-
     TYPE (t_pi_atm_in)     :: atm_in
     TYPE (t_pi_sfc_in)     :: sfc_in
     TYPE (t_pi_atm)        :: atm
@@ -135,17 +129,12 @@ MODULE mo_initicon_types
   END TYPE t_initicon_state
  
 
-  CHARACTER(LEN=10) :: geop_ml_var  ! model level surface geopotential
-  CHARACTER(LEN=10) :: alb_snow_var ! snow albedo
+  CHARACTER(LEN=VARNAME_LEN) :: geop_ml_var  ! model level surface geopotential
+  CHARACTER(LEN=VARNAME_LEN) :: alb_snow_var ! snow albedo
 
 
   ! dictionary which maps internal variable names onto
   ! GRIB2 shortnames or NetCDF var names.
   TYPE (t_dictionary) :: ana_varnames_dict
-
-  ! linked lists for storing CDI file inventory info
-  ! separate lists for analysis and first guess fields
-  TYPE(t_inventory_list), TARGET, SAVE :: inventory_list_fg(max_dom)
-  TYPE(t_inventory_list), TARGET, SAVE :: inventory_list_ana(max_dom)
 
 END MODULE mo_initicon_types

@@ -77,22 +77,22 @@
     USE mtime,                  ONLY: event, newEvent, datetime, newDatetime,      &
          &                            isCurrentEventActive, deallocateDatetime,    &
          &                            MAX_DATETIME_STR_LEN, MAX_EVENTNAME_STR_LEN, &
-         &                            MAX_TIMEDELTA_STR_LEN,                       &
+         &                            MAX_TIMEDELTA_STR_LEN, getPTStringFromMS,    &
          &                            OPERATOR(>=), OPERATOR(-), OPERATOR(>)
     USE mo_mtime_extensions,    ONLY: get_datetime_string, get_duration_string_real
     USE mo_datetime,            ONLY: t_datetime
     USE mo_time_config,         ONLY: time_config
     USE mo_limarea_config,      ONLY: latbc_config, generate_filename_mtime
     USE mo_ext_data_types,      ONLY: t_external_data
-    USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, dtime
+    USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, dtime, nsteps
     USE mo_initicon_config,     ONLY: init_mode
     USE mtime_events,           ONLY: deallocateEvent
     USE mtime_timedelta,        ONLY: timedelta, newTimedelta, deallocateTimedelta, &
          &                            operator(+)
-    USE mo_cdi,                 ONLY: streamOpenRead, streamClose, cdiGetStringError
+    USE mo_cdi,                 ONLY: streamOpenRead, streamClose
     USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
+    USE mo_util_cdi,            ONLY: cdiGetStringError
     USE mo_master_config,       ONLY: isRestart
-    USE mo_run_config,          ONLY: nsteps, dtime
     USE mo_fortran_tools,       ONLY: copy, init
     IMPLICIT NONE
 
@@ -280,10 +280,11 @@
       TYPE(datetime), pointer :: mtime_finish
       LOGICAL       :: done
       INTEGER       :: i, add_delta, end_delta, finish_delta
-      REAL(wp)      :: tdiff
+      REAL(wp)      :: tdiff, seconds
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: tdiff_string
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
            "mo_async_latbc_utils::prepare_pref_latbc_data"
+      CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: td_string
 
       !   CALL message(TRIM(routine),'start')
 
@@ -299,14 +300,23 @@
 
       event_name = 'Prefetch input'
 
+      ! convert namelist parameter "limarea_nml/dtime_latbc" into
+      ! mtime object:
+      IF (latbc_config%dtime_latbc > 86400._wp) THEN
+        CALL finish(routine, "Namelist setting of limarea_nml/dtime_latbc too large for mtime conversion!")
+      END IF
+      seconds = latbc_config%dtime_latbc*1000._wp
+      CALL getPTStringFromMS(NINT(seconds,i8), td_string)
+
+      ! create prefetching event:
       prefetchEvent => newEvent(TRIM(event_name), TRIM(sim_start), &
-           TRIM(sim_cur_read), TRIM(sim_end), TRIM(latbc_config%dt_latbc))
+           TRIM(sim_cur_read), TRIM(sim_end), td_string)
 
       tdiff = (0.5_wp*dtime)
       CALL get_duration_string_real(tdiff, tdiff_string)
       my_duration_slack => newTimedelta(tdiff_string)
 
-      delta_dtime => newTimedelta(latbc_config%dt_latbc)
+      delta_dtime => newTimedelta(td_string)
 
       mtime_read  => newDatetime(TRIM(sim_start))
 
@@ -331,8 +341,7 @@
 
       ELSE
          mtime_finish => newDatetime(TRIM(sim_end))
-         delta_tend => newTimedelta(latbc_config%dt_latbc)
-
+         delta_tend => newTimedelta("PT0S")
          delta_tend = mtime_finish - mtime_read
 
          finish_delta = 86400 *INT(delta_tend%day)    &
@@ -360,7 +369,7 @@
       ! time step for reading the boundary data
       IF(isRestart()) THEN
          mtime_current => newDatetime(TRIM(sim_cur_read))
-         delta_tstep => newTimedelta(latbc_config%dt_latbc)
+         delta_tstep => newTimedelta("PT0S")
          delta_tstep = mtime_read - mtime_current
 
          ! time interval delta_tstep_secs in seconds
@@ -1628,7 +1637,7 @@
       CALL get_datetime_string(sim_step, step_datetime)
       mtime_step  => newDatetime(TRIM(sim_step))
 
-      delta_tstep => newTimedelta(latbc_config%dt_latbc)
+      delta_tstep => newTimedelta("PT0S")
       delta_tstep = mtime_read - mtime_step
 
       IF(delta_tstep%month /= 0) &
