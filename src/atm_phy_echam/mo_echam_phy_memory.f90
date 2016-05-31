@@ -315,6 +315,8 @@ MODULE mo_echam_phy_memory
       & z0m   (:,:),        &!< aerodynamic roughness length (grid box mean)
       & z0h_lnd(:,:),       &!< roughness length for heat (over land)
       & ustar (:,:),        &!<
+      & wstar (:,:),        &!< convective velocity scale
+      & wstar_tile(:,:,:),  &!< convective velocity scale (over each surface type)
       & kedisp(:,:),        &!< time-mean (or integrated?) vertically integrated dissipation of kinetic energy
       & ocu   (:,:),        &!< eastward  velocity of ocean surface current
       & ocv   (:,:)          !< northward velocity of ocean surface current
@@ -335,6 +337,7 @@ MODULE mo_echam_phy_memory
     TYPE(t_ptr2d),ALLOCATABLE :: lwflxsfc_tile_ptr(:)
 
     TYPE(t_ptr2d),ALLOCATABLE :: z0m_tile_ptr(:)
+    TYPE(t_ptr2d),ALLOCATABLE :: wstar_tile_ptr(:)
 
     ! need only for vdiff ----
 
@@ -1678,6 +1681,9 @@ CONTAINS
                     & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
       END DO
 
+   
+
+
       ! &        field% z0h_lnd(nproma, nblks), &
       cf_desc    = t_cf_var('z0h_lnd', '', 'roughness length heat, land', &
         &                datatype_flt)
@@ -1693,6 +1699,31 @@ CONTAINS
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( field_list, prefix//'ustar', field%ustar,                   &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+      ! &       field% wstar  (nproma,nblks),                &
+      cf_desc    = t_cf_var('conv_velocity_scale', 'm s-1', 'convective velocity scale', datatype_flt)
+      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( field_list, prefix//'wstar', field%wstar,                   &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+      ! &       field% wstar_tile(nproma,nblks,nsfc_type), &
+      CALL add_var( field_list, prefix//'wstar_tile', field%wstar_tile,              &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
+                  & t_cf_var('wstar_tile', '', 'convective velocity scale', datatype_flt),&
+                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED,GRID_CELL),&
+                  & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,            &
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
+
+      ALLOCATE(field%wstar_tile_ptr(ksfc_type))
+      DO jsfc = 1,ksfc_type
+        CALL add_ref( field_list, prefix//'wstar_tile',                              &
+                    & prefix//'wstar_'//csfc(jsfc), field%wstar_tile_ptr(jsfc)%p,      &
+                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
+                    & t_cf_var('z0m_'//csfc(jsfc), '','', datatype_flt),           &
+                    & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED,GRID_CELL),&
+                    & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
+      END DO
+
 
       ! &       field% kedisp (nproma,nblks),                &
       cf_desc    = t_cf_var('KE dissipation rate', '', '', datatype_flt)

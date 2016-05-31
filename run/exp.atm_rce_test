@@ -1,16 +1,22 @@
 #--------------------------------------------------------------------------------------------------
 #
-# AMIP experiment without parameterizations
+# Radiative Convective Equilibrium experiment (RCE)
 #
 author_list="Marco Giorgetta, MPIM"
 #
 #--------------------------------------------------------------------------------------------------
 #
-# This file describes an AMIP experiment based on the non-hydrostatic atmosphere and the
-# ECHAM physics, but with each parameterizations switched off.
-# The experiment is intialized from IFS analysis.
+# This file describes a radiative convective equilibrium experiment on the sphere based on the
+# non-hydrostatic atmosphere and the ECHAM physics. The experiment is intialized analytically
+# and uses constant-in-time boundary conditions for:
+# - SST and sea ice
+# - spectral solar irradiation
+# - well mixed greenhouse gases CO2, CH4, N2O, CFCs
+# - O3 concentration
 #
-# _bb_table_Description_  AMIP experiment, no parameterizations
+# No aerosols are used
+#
+# _bb_table_Description_  radiative convective equilibrium
 # _bb_table_Model_        non-hydrostatic atmosphere with ECHAM physics
 #
 #--------------------------------------------------------------------------------------------------
@@ -51,7 +57,6 @@ file_interval="PT4M"
 
 # namelist files
 atmo_namelist=NAMELIST_${EXPNAME}_atm
-lnd_namelist=NAMELIST_${EXPNAME}_lnd
 
 #--------------------------------------------------------------------------------------------------
 
@@ -71,7 +76,7 @@ cat > ${atmo_namelist} << EOF
  num_lev          = 47          ! number of full levels
  dtime            = 240         ! [s] time step   !! MUST BE EQUAL TO "modelTimeStep" !!
  modelTimeStep    = "PT4M"
- ltestcase        = .FALSE.     ! run testcase
+ ltestcase        = .TRUE.      ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
  ntracer          = 3           ! number of tracers
@@ -79,14 +84,16 @@ cat > ${atmo_namelist} << EOF
  output           = 'nml'
  msg_level        = 15          ! level of details report during integration 
  restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
+ irad_type        = 2
  activate_sync_timers = .TRUE.
 /
-&extpar_nml
- itopo            = 1           ! 1: read topography from the grid file
- l_emiss          = .FALSE.
+&dynamics
+ lcoriolis        = .FALSE.
 /
-&initicon_nml
- init_mode        = 2           ! 2: initialize from IFS analysis
+&nh_testcase_nml
+ nh_test_name     = 'APE_echam'
+ ape_sst_case     = 'sst_const'
+ ape_sst_val      = 29.0        ! [degC]
 /
 &nonhydrostatic_nml
  ndyn_substeps    = 2           ! dtime/dt_dyn
@@ -116,35 +123,29 @@ cat > ${atmo_namelist} << EOF
 /
 &echam_phy_nml
  dt_rad           =  480.       ! [s] radiation time step
- lrad             = .FALSE.
- lvdiff           = .FALSE.
- lconv            = .FALSE.
- lcond            = .FALSE.
- lgw_hines        = .FALSE.
+ lrad             = .TRUE.
+ lvdiff           = .TRUE.
+ lconv            = .TRUE.
+ lcond            = .TRUE.
+ lgw_hines        = .TRUE.
  lssodrag         = .FALSE.
  lice             = .FALSE.
  ljsbach          = .FALSE.
  lebudget         = .FALSE.
  lmlo             = .FALSE.
- lamip            = .TRUE.
+ lamip            = .FALSE.
 /
 &radiation_nml
  irad_h2o         = 1           ! 1: prognostic vapor, liquid and ice
- irad_co2         = 4           ! 4: from greenhouse gas scenario
- irad_ch4         = 4           ! 4: from greenhouse gas scenario
- irad_n2o         = 4           ! 4: from greenhouse gas scenario
- irad_o3          = 8           ! 8: horizontally and vertically variable
- irad_o2          = 2           ! 2: horizontally and vertically constant
- irad_cfc11       = 4           ! 4: from greenhouse gas scenario
- irad_cfc12       = 4           ! 4: from greenhouse gas scenario
- irad_aero        = 15          ! 0: no aerosol
-                                !13: only Kinne's tropospheric aerosols 
-                                !14: only Stenchikov's volcanic aerosols
-                                !15: Kinne aerosol optics for troposphere
-                                !   +Stenchikov aerosol optics for stratosphere
- lrad_aero_diag   = .FALSE.     ! switch for diagnostics of the aerosol optical properties
- ighg             = 1           ! 1: transient well mixed greenhouse gas concentrations
- isolrad          = 1           ! 1: transient solar irradiance (at 1 AE)
+ irad_co2         = 2           ! 2: constant co2
+ irad_ch4         = 0           ! 0: no ch4
+ irad_n2o         = 0           ! 0: no n2o
+ irad_o3          = 0           ! 0: no o3 FOR TESTING
+ irad_o2          = 0           ! 0: no o2
+ irad_cfc11       = 0           ! 0: no cfc11
+ irad_cfc12       = 0           ! 0: no cfc12
+ irad_aero        = 0           ! 0: no aerosol
+ isolrad          = 0           ! 0: constant default solar irradiance (at 1 AE)
 /
 &psrad_nml
 rad_perm          = 1           ! Integer for perturbing random number seeds
@@ -154,33 +155,6 @@ rad_perm          = 1           ! Integer for perturbing random number seeds
 &echam_cloud_nml
 /
 &gw_hines_nml
-/
-&sea_ice_nml
-/
-EOF
-
-# land surface and soil
-# ---------------------
-cat > ${lnd_namelist} <<EOF
-&jsb_model_nml
-  usecase         = 'jsbach_lite'
-/
-&jsb_srf_nml
-  bc_filename     = 'bc_land_phys.nc'
-  bc_sso_filename = 'bc_land_sso.nc'
-  ic_filename     = 'ic_land_soil.nc'
-/
-&jsb_soil_nml
-  active          = .TRUE.
-  nsoil_energy    = 5
-  nsoil_water     = 5
-  bc_filename     = 'bc_land_soil.nc'
-  ic_filename     = 'ic_land_soil.nc'
-/
-&jsb_veg_nml
-  active          = .TRUE.
-  bc_filename     = 'bc_land_phys.nc'
-  ic_filename     = 'ic_land_soil.nc'
 /
 EOF
 
@@ -197,7 +171,6 @@ add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
 # namelist files
 #
 add_required_file ${basedir}/run/${atmo_namelist}                       ./
-add_required_file ${basedir}/run/${lnd_namelist}                        ./
 
 # dictionary file for output variable names
 #
@@ -205,17 +178,7 @@ dict_file="dict.${EXPNAME}"
 cat dict.iconam.mpim_inst  > ${dict_file}
 add_required_file ${basedir}/run/${dict_file}                           ./
 
-# initial conditions
-#
 INDATA=${icon_data_poolFolder}/input/r0004
-#
-# - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
-datadir=${icon_data_poolFolder}/setup/ifs_iconremap_amip
-add_link_file $datadir/ifs_remap_R2B4_00XX_AMIP_2012010100_setyear1979.nc ./ifs2icon_R2B04_DOM01.nc
-#
-# - land: source?, date+time?
-datadir=$INDATA/r2b4_amip/lnd
-add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil.nc
 
 # boundary conditions
 #
@@ -236,52 +199,6 @@ do
   add_link_file $datadir/bc_ozone_cmip5_${year}.nc                      ./bc_ozone_${year}.nc
   (( year = year+1 ))
 done
-#
-# - tropospheric aerosol
-datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
-year=$start_year
-while [[ $year -le $end_year ]]
-do
-  add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
-  add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                  ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
-  if [[ $year -le 2000 ]]
-  then
-    add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_${year}.nc        ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
-  else
-    add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_rcp45_${year}.nc  ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
-  fi
-  (( year = year+1 ))
-done
-#
-# - stratospheric aerosol
-datadir=$INDATA/r2b4_amip/atm/bc_aeropt_stenchikov
-year=$start_year
-while [[ $year -le $end_year ]]
-do
-  if [[ $year -le 1999 ]]
-  then
-    add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc  ./bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc
-  else
-    add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_1999.nc     ./bc_aeropt_stenchikov_lw_b16_sw_b14_${year}.nc
-  fi
-  (( year = year+1 ))
-done
-#
-# - sst and sic
-datadir=$INDATA/r2b4_amip/oce
-add_link_file $datadir/bc_sic_pcmdi_1870-2010.nc                        ./bc_sic.nc
-add_link_file $datadir/bc_sst_pcmdi_1870-2010.nc                        ./bc_sst.nc
-#
-# - ssi and tsi
-datadir=$INDATA/global/sun
-add_link_file $datadir/bc_solar_irradiance_14band_1849-2399.nc          ./bc_solar_irradiance_sw_b14.nc
-#
-# - land parameters
-datadir=$INDATA/r2b4_amip/lnd
-add_link_file $datadir/bc_land_frac_1976.nc                             ./bc_land_frac.nc
-add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
-add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
-add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
 
 #--------------------------------------------------------------------------------------------------
 
@@ -342,30 +259,17 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
-                    'cosmu0'  , 'daylght_frc', 'rsdt'    ,
+                    'cosmu0'  , 'rsdt'    ,
                     'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
-                    'rsns_wtr', 'rsns_ice', 'rsns_lnd',
-                    'rlns_wtr', 'rlns_ice', 'rlns_lnd', 'tend_ta_rlw_impl',
-                    'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts'      , 'ts_rad'  ,
+                    'ts'      ,
                     'sic'     , 'sit'     ,
-                    'visdffsfc','nirdffsfc','vissfc'  , 'nirsfc'  ,
-                    'albedo'  , 'albedo_wtr', 'albedo_ice', 'albedo_lnd',
-                    'albvisdir','albvisdif' , 'albnirdir' , 'albnirdif',
-                    'albvisdir_ice', 'albvisdir_wtr', 'albvisdir_lnd',
+                    'albedo'  ,
                     'clt'     ,
                     'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
                     'hfls'    , 'hfss'    , 'evspsbl' ,
-                    'hfls_wtr', 'hfls_ice', 'hfls_lnd',
-                    'hfss_wtr', 'hfss_ice', 'hfss_lnd',
                     'tauu'    , 'tauv'    ,
-                    'tauu_wtr', 'tauu_ice', 'tauu_lnd',
-                    'tauv_wtr', 'tauv_ice', 'tauv_lnd',
                     'tauu_sso', 'tauv_sso', 'diss_sso', 
-                    'sh_vdiff', 'qv_vdiff',
-                    'ch_concloud',
-                    'con_dtrl', 'con_dtri', 'con_iteqv',
-                    'cld_dtrl', 'cld_dtri', 'cld_iteq'
 /
 EOF
 fi
@@ -388,13 +292,13 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  include_last     = .FALSE.
  ml_varlist       = 'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
                     'tend_ta_rlw'  , 'tend_ta_rsw'  ,
-                    'tend_ta_vdf'  , 'tend_ta_gwh'  , 'tend_ta_sso'  ,
+                    'tend_ta_vdf'  , 'tend_ta_gwh'  ,
                     'tend_ta_cnv'  , 'tend_ta_cld'  , 
                     'tend_ua'      , 'tend_ua_dyn'  , 'tend_ua_phy'  ,
-                    'tend_ua_vdf'  , 'tend_ua_gwh'  , 'tend_ua_sso'  ,
+                    'tend_ua_vdf'  , 'tend_ua_gwh'  ,
                     'tend_ua_cnv'  , 
                     'tend_va'      , 'tend_va_dyn'  , 'tend_va_phy'  ,
-                    'tend_va_vdf'  , 'tend_va_gwh'  , 'tend_va_sso'  ,
+                    'tend_va_vdf'  , 'tend_va_gwh'  ,
                     'tend_va_cnv'  ,
                     'tend_hus'     , 'tend_hus_dyn' , 'tend_hus_phy' ,
                     'tend_hus_cld' , 'tend_hus_cnv' , 'tend_hus_vdf' ,

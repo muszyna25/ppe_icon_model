@@ -108,7 +108,6 @@ CONTAINS
                                           !< due to turbulence. Computed in "vdiff",
                                           !< used by "cloud"
     INTEGER  :: itype(nbdim)              !< type of convection
-    INTEGER  :: invb (nbdim)
     INTEGER  :: ictop (nbdim)             !< from massflux
 
     REAL(wp) :: zfrl (nbdim)              !< fraction of land in the grid box
@@ -363,7 +362,6 @@ CONTAINS
         &         field%     q(:,:,jb,iqv), &! in    qm1
         &         field%     q(:,:,jb,iqi), &! in    xim1
         &         field%  aclc(:,:,jb),     &! out   (for "radiation" and "vdiff_down")
-        &         invb,                     &! out   (for "cloud")
         &         field% rintop(:,  jb)    ) ! out   (for output)
 
       IF (ltimer) CALL timer_stop(timer_cover)
@@ -699,6 +697,7 @@ CONTAINS
     IF (phy_config%lvdiff) THEN
       IF (ltimer) CALL timer_start(timer_vdiff_down)
 
+
       CALL vdiff_down( vdiff_config%lsfc_mom_flux,      &! in
                      & vdiff_config%lsfc_heat_flux,     &! in
                      & jce, nbdim, nlev, nlevm1, nlevp1,&! in
@@ -723,6 +722,7 @@ CONTAINS
                      & field% presm_old(:,:,jb),        &! in, apm1
                      & zdelp(:,:),                      &! in, layer thickness [Pa]
                      & field% geom(:,:,jb),             &! in, pgeom1 = geopotential above ground
+                     & field% geoi(:,:,jb),             &! in, pgeohm1 = half-level geopotential
                      & field%   tv(:,:,jb),             &! in, virtual temperaturea
                      & field% aclc(:,:,jb),             &! in, cloud fraction
                      & zxt_emis,                        &! in, zxtems
@@ -731,6 +731,8 @@ CONTAINS
                      & field% z0m_tile(:,jb,:),         &! in
                      & field%  tkem1(:,:,jb),           &! in, TKE at step t-dt
                      & field%  ustar(:,  jb),           &! inout
+                     & field%  wstar(:,  jb),           &! out, convective velocity scale
+                     & field%  wstar_tile(:,jb,:),      &! inout, convective velocity scale (each sfc type)
                      & field% qs_sfc_tile(:,jb,:),      &! out, sfc specific humidity at saturation
                      & ihpbl(:),                        &! out, for "vdiff_up"
                      & field%    ghpbl(:,jb),           &! out, for output
@@ -750,6 +752,7 @@ CONTAINS
                      & zcptgz(:,:), zrhoh(:,:),         &! out, for "vdiff_up"
                      & zqshear(:,:),                    &! out, for "vdiff_up"
                      & zthvvar(:,:),                    &! out, for "vdiff_up"
+                     & field%   thvsig(:,  jb),         &! out, for "cucall"
                      & ztkevn (:,:),                    &! out, for "vdiff_up"
                      & zch_tile(:,:),                   &! out, for "nsurf_diag"
 !                     & zchn_tile(:,:),                  &! out, for "nsurf_diag"
@@ -1249,7 +1252,6 @@ CONTAINS
 
         CALL cloud(jce, nbdim, jks, nlev, nlevp1, &! in
           &        psteplen,                  &! in
-          &        invb,                      &! in (from "cover")
           &        ictop,                     &! in (from "cucall")
           &        field% presi_old(:,:,jb),  &! in
           &        field% omega(:,:,jb),      &! in. vervel

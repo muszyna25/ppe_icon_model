@@ -87,6 +87,7 @@ CONTAINS
       CALL message('','Use predefined greenhouse gases secenario from 1990 based on CMIP5')
       RETURN  
     CASE (1)
+      CALL message('','Use transient, annually resolved greenhouse gases secenario based on CMIP5')
       CALL nf_check(p_nf_open('bc_greenhouse_gases.nc', nf_read, ncid))
       CALL nf_check(p_nf_inq_dimid (ncid, 'time', ndimid)) 
       CALL nf_check(p_nf_inq_dimlen (ncid, ndimid, ghg_no_years))
@@ -133,10 +134,7 @@ CONTAINS
     REAL(wp) :: zw1, zw2
     REAL(wp) :: zco2int, zch4int, zn2oint
     REAL(wp) :: zcfc(ghg_no_cfc)
-    INTEGER :: iyear, iyearm, iyearp
-
-    CHARACTER(len=32)  :: cdate, cformat
-    CHARACTER(len=256) :: ccfc
+    INTEGER  :: iyear, iyearm, iyearp
 
     ! interpolation in time
 
@@ -155,7 +153,7 @@ CONTAINS
       zco2int   = 1.0e-06_wp * ( zw1*ghg_co2(iyear)   + zw2*ghg_co2(iyearm)   )
       zch4int   = 1.0e-09_wp * ( zw1*ghg_ch4(iyear)   + zw2*ghg_ch4(iyearm)   )
       zn2oint   = 1.0e-09_wp * ( zw1*ghg_n2o(iyear)   + zw2*ghg_n2o(iyearm)   )
-      zcfc(:) = zw1*ghg_cfc(iyear,:)+zw2*ghg_cfc(iyearm,:)
+      zcfc(:)   = 1.0e-12_wp * ( zw1*ghg_cfc(iyear,:) + zw2*ghg_cfc(iyearm,:) )
     ELSE                                    ! second half of year
 
       zw2= zsecnow/zsecref - 0.5_wp
@@ -164,31 +162,20 @@ CONTAINS
       zco2int   = 1.0e-06_wp * ( zw1*ghg_co2(iyear)   + zw2*ghg_co2(iyearp)   )
       zch4int   = 1.0e-09_wp * ( zw1*ghg_ch4(iyear)   + zw2*ghg_ch4(iyearp)   )
       zn2oint   = 1.0e-09_wp * ( zw1*ghg_n2o(iyear)   + zw2*ghg_n2o(iyearp)   )
-      zcfc(:) = zw1*ghg_cfc(iyear,:)+zw2*ghg_cfc(iyearp,:)
+      zcfc(:)   = 1.0e-12_wp * ( zw1*ghg_cfc(iyear,:) + zw2*ghg_cfc(iyearp,:) )
     END IF
 
     IF (ABS(fco2-1.0_wp) > EPSILON(1.0_wp)) zco2int = fco2 * zco2int
-
-    WRITE (cdate,'( i6,a,i2.2,a,i2.2,a, i2.2,a,i2.2,a,f9.6,a )')                         &
-      &   radiation_date%year,'-', radiation_date%month ,'-', radiation_date%day   ,'T', &
-      &   radiation_date%hour,':', radiation_date%minute,':', radiation_date%second,'Z'
-    WRITE(cformat,'(a,i0,a)') '(a,', ghg_no_cfc, 'f7.2)'
-    WRITE(ccfc,cformat) ' CFC = ', zcfc(1:ghg_no_cfc)
-   ! writing done in update_opt_nh_acc, too
-   ! WRITE (message_text,'(a,a, a,e15.6, a,e15.6, a,e15.6, a,e15.6, a,e15.6)') &
-   !   &   'Greenhouse gas vol.mixing ratios ', TRIM(cdate),                   &
-   !   &   ' CO2 = ', zco2int, ' CH4 = ', zch4int,' N2O = ', zn2oint,          &
-   !   &   TRIM(ccfc) 
-   ! CALL message('', TRIM(message_text))
 
     ! convert CO2, CH4 and N2O from volume to mass mixing ratio
 
     ghg_co2mmr    = zco2int*amco2/amd 
     ghg_ch4mmr    = zch4int*amch4/amd
     ghg_n2ommr    = zn2oint*amn2o/amd
+
     ! Scale CFCs only, keep the volume mixing ratio 
 
-    ghg_cfcvmr(:) = zcfc(:)*1.0e-12_wp
+    ghg_cfcvmr(:) = zcfc(:)
 
   END SUBROUTINE bc_greenhouse_gases_time_interpolation
 

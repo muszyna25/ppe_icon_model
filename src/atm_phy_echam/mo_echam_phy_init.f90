@@ -164,19 +164,15 @@ CONTAINS
         ssi_radt(:) = ssi_amip(:)
         tsi_radt = SUM(ssi_amip)
         tsi      = tsi_radt
+      CASE (4)
+        ssi_radt(:) = ssi_rce(:)
+        tsi_radt = SUM(ssi_rce)
+        tsi      = tsi_radt
       CASE default
         WRITE (message_text, '(a,i2,a)') &
              'isolrad = ', isolrad, ' in radiation_nml namelist is not supported'
         CALL message('init_echam_phy', message_text)
       END SELECT
-      IF ( ctest_name == 'RCE' ) THEN
-        tsi_radt = 0._wp
-        ! solar flux (W/m2) in 14 SW bands
-        ssi_radt(:) = ssi_rce(:)
-        ! solar constant (W/m2)
-        tsi_radt    = SUM(ssi_radt(:))
-        tsi         = tsi_radt
-      ENDIF
       CALL setup_srtm
       CALL lrtm_setup('rrtmg_lw.nc')
       CALL setup_newcld_optics('ECHAM6_CldOptProps.nc')
@@ -574,6 +570,7 @@ CONTAINS
 
 !$OMP PARALLEL WORKSHARE
         field% ustar (:,:)   = 1._wp
+        field% wstar_tile (:,:,:) = 0._wp 
         field% kedisp(:,:)   = 0._wp
         field% tkem0 (:,:,:) = 1.e-4_wp
         field% tkem1 (:,:,:) = 1.e-4_wp
