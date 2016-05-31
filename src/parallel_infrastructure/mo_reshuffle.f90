@@ -393,13 +393,14 @@ CONTAINS
       &        i_pe_owner, icounts_owner, irecv_owner, icounts_buf, irecv_buf,               &
       &        permutation_owner, irecv_idx_owner2, send_displs_owner, recv_displs_owner,    &
       &        send_counts2, recv_counts2, tmp_idx, irecv_tmp, reg_partition_modified)
-  END SUBROUTINE reshuffle
 
 #else
 
-  ! non-MPI mode: local copy
-  out_values(in_glb_idx(:)) = in_values(:)
+    ! non-MPI mode: local copy
+    out_values(in_glb_idx(:)) = in_values(:)
 
 #endif
+
+  END SUBROUTINE reshuffle
 
 END MODULE mo_reshuffle
