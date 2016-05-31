@@ -306,12 +306,12 @@ CONTAINS
       &      irecv_idx_owner(npairs_recv_owner))
     CALL calc_displs(i_pe, send_displs)
     recv_displs(0) = 0
-    DO i=1,SIZE(recv_displs)
+    DO i=1,(SIZE(recv_displs)-1)
       recv_displs(i) = recv_displs(i-1) + irecv(i-1)
     END DO
     CALL calc_displs(i_pe_owner, send_displs_owner)
     recv_displs_owner(0) = 0
-    DO i=1,SIZE(recv_displs_owner)
+    DO i=1,(SIZE(recv_displs_owner)-1)
       recv_displs_owner(i) = recv_displs_owner(i-1) + irecv_owner(i-1)
     END DO
 
