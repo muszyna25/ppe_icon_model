@@ -664,6 +664,9 @@ CONTAINS
       DO n = 1, nlen
         ! as far as no 10m wind speed is available, the lowest level (nlev) wind field is used for wind speed;
         buffer(nn+n,1) = SQRT(prm_field(jg)%u(n,nlev,i_blk)**2+prm_field(jg)%v(n,nlev,i_blk)**2) 
+   !    buffer(nn+n,1) = 0.0_wp
+   !    buffer(nn+n,1) = 1.0_wp
+   !    buffer(nn+n,1) = 99.9_wp  !   tests
       ENDDO
     ENDDO
 !!ICON_OMP_END_PARALLEL_DO
@@ -857,21 +860,53 @@ CONTAINS
 
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
+
+    ! SST, sea ice, ocean velocity received
+    scr(:,:) = prm_field(jg)%tsfc_tile(:,:,iwtr)
+    CALL dbg_print('EchOce: tsfc_til.wtr',scr,str_module,2,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%siced(:,:)
+    CALL dbg_print('EchOce: siced       ',scr,str_module,3,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%seaice(:,:)
+    CALL dbg_print('EchOce: seaice      ',scr,str_module,4,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%ocu(:,:)
+    CALL dbg_print('EchOce: ocu         ',scr,str_module,4,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%ocv(:,:)
+    CALL dbg_print('EchOce: ocv         ',scr,str_module,4,in_subset=p_patch%cells%owned)
+
+    ! u/v-stress on ice and water sent
     scr(:,:) = prm_field(jg)%u_stress_tile(:,:,iwtr)
-    CALL dbg_print('EchOce: u_stress.wtr',scr,str_module,2,in_subset=p_patch%cells%owned)
+    CALL dbg_print('EchOce: u_stress.wtr',scr,str_module,3,in_subset=p_patch%cells%owned)
     scr(:,:) = prm_field(jg)%u_stress_tile(:,:,iice)
     CALL dbg_print('EchOce: u_stress.ice',scr,str_module,3,in_subset=p_patch%cells%owned)
     scr(:,:) = prm_field(jg)%v_stress_tile(:,:,iwtr)
-    CALL dbg_print('EchOce: v_stress.wtr',scr,str_module,3,in_subset=p_patch%cells%owned)
+    CALL dbg_print('EchOce: v_stress.wtr',scr,str_module,4,in_subset=p_patch%cells%owned)
     scr(:,:) = prm_field(jg)%v_stress_tile(:,:,iice)
-    CALL dbg_print('EchOce: v_stress.ice',scr,str_module,3,in_subset=p_patch%cells%owned)
+    CALL dbg_print('EchOce: v_stress.ice',scr,str_module,4,in_subset=p_patch%cells%owned)
+
+    ! short wave, long wave, sensible, latent heat flux sent
+    scr(:,:) = prm_field(jg)%swflxsfc_tile(:,:,iwtr)
+    CALL dbg_print('EchOce: swflxsfc.wtr',scr,str_module,3,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%lwflxsfc_tile(:,:,iwtr)
+    CALL dbg_print('EchOce: lwflxsfc.wtr',scr,str_module,3,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%shflx_tile(:,:,iwtr)
+    CALL dbg_print('EchOce: shflx.wtr   ',scr,str_module,3,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%lhflx_tile(:,:,iwtr)
+    CALL dbg_print('EchOce: lhflx.wtr   ',scr,str_module,3,in_subset=p_patch%cells%owned)
+
+    ! rain, snow, evaporation, windspeed sent
+    scr(:,:) = prm_field(jg)%rsfl(:,:) + prm_field(jg)%rsfc(:,:)
+    CALL dbg_print('EchOce: total rain  ',scr,str_module,3,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%ssfl(:,:) + prm_field(jg)%ssfc(:,:)
+    CALL dbg_print('EchOce: total snow  ',scr,str_module,4,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%evap(:,:)
+    CALL dbg_print('EchOce: evaporation ',scr,str_module,4,in_subset=p_patch%cells%owned)
 
     scr(:,:) = prm_field(jg)%u(:,nlev,:)
     CALL dbg_print('EchOce: prm%u      ',scr,str_module,2,in_subset=p_patch%cells%owned)
     scr(:,:) = prm_field(jg)%v(:,nlev,:)
-    CALL dbg_print('EchOce: prm%v      ',scr,str_module,2,in_subset=p_patch%cells%owned)
+    CALL dbg_print('EchOce: prm%v      ',scr,str_module,3,in_subset=p_patch%cells%owned)
     scr(:,:) = SQRT(prm_field(jg)%u(:,nlev,:)**2+prm_field(jg)%v(:,nlev,:)**2) 
-    CALL dbg_print('EchOce: sqrt(u2+v2)',scr,str_module,2,in_subset=p_patch%cells%owned)
+    CALL dbg_print('EchOce: sqrt(u2+v2)',scr,str_module,3,in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
   END SUBROUTINE interface_echam_ocean
