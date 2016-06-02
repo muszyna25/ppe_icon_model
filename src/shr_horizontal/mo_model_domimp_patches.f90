@@ -187,6 +187,15 @@ MODULE mo_model_domimp_patches
   INCLUDE 'netcdf.inc'
 #endif
 
+  ! derived type: some grid metadata used for consistency checks
+  TYPE t_grid_metadata
+    CHARACTER(LEN=uuid_string_length) :: uuid_grid  !< UUID of grid
+    CHARACTER(LEN=uuid_string_length) :: uuid_par   !< UUID of parent grid
+    INTEGER                           :: grid_root  !< grid root subdivision
+    INTEGER                           :: grid_level !< grid bisection level
+  END TYPE t_grid_metadata
+
+
   !modules interface-------------------------------------------
   !subroutines
   PUBLIC :: import_pre_patches
@@ -243,8 +252,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':import_pre_patches'
     INTEGER                           :: jg, jg1, n_chd, n_chdc
     INTEGER                           :: jgp            ! parent/child patch index
-    CHARACTER(LEN=uuid_string_length) :: uuid_grid(0:max_dom), &
-      &                                  uuid_par(0:max_dom)
+    TYPE(t_grid_metadata)             :: grid_metadata(0:max_dom)
     TYPE(t_pre_patch), POINTER        :: p_single_patch => NULL()
 
     !-----------------------------------------------------------------------
@@ -382,36 +390,41 @@ CONTAINS
 
     ! initialize UUID buffer
     DO jg = n_dom_start, n_dom
-      uuid_grid(jg) = ""
-      uuid_par(jg)  = ""
+      grid_metadata(jg)%uuid_grid = ""
+      grid_metadata(jg)%uuid_par  = ""
     END DO
 
     grid_level_loop: DO jg = n_dom_start, n_dom
 
       p_single_patch => patch_pre(jg)
-      CALL read_pre_patch( jg, p_single_patch, uuid_grid(jg), uuid_par(jg), lsep_grfinfo )
+      CALL read_pre_patch( jg, p_single_patch, grid_metadata(jg), lsep_grfinfo )
 
     ENDDO grid_level_loop
 
-    ! Perform uuid crosscheck for parent-child connectivities
+    ! Perform consistency checks for parent-child connectivities
     !
     ! Note: this metadata is not necessarily available in the grid
     ! file. For reasons of backward compatibility, this check will
     ! then be skipped.
 
-    DO jg = n_dom_start, n_dom
-      IF (jg > n_dom_start) THEN
-        jgp = patch_pre(jg)%parent_id
-
-        IF ((TRIM(uuid_par(jg)) /= TRIM(uuid_grid(jgp))) .AND. &
-          & ((LEN_TRIM(uuid_par(jg)) > 0) .OR. (LEN_TRIM(uuid_grid(jgp)) > 0))) THEN
-          IF (check_uuid_gracefully) THEN
-            CALL warning(routine, 'incorrect uuids in parent-child connectivity file')
-          ELSE
-            CALL finish(routine,  'incorrect uuids in parent-child connectivity file')
-          END IF
-        ENDIF
+    DO jg = n_dom_start+1, n_dom
+      jgp = patch_pre(jg)%parent_id
+      
+      ! perform UUID crosscheck for parent-child connectivities
+      IF ((TRIM(grid_metadata(jg)%uuid_par) /= TRIM(grid_metadata(jgp)%uuid_grid)) .AND. &
+        & ((LEN_TRIM(grid_metadata(jg)%uuid_par) > 0) .OR. (LEN_TRIM(grid_metadata(jgp)%uuid_grid) > 0))) THEN
+        IF (check_uuid_gracefully) THEN
+          CALL warning(routine, 'incorrect uuids in parent-child connectivity file')
+        ELSE
+          CALL finish(routine,  'incorrect uuids in parent-child connectivity file')
+        END IF
       ENDIF
+
+      ! check matching grid root and bisection level:
+      IF ((grid_metadata(jg)%grid_root  /= grid_metadata(jgp)%grid_root)  .OR.   &
+        & (grid_metadata(jg)%grid_level /= grid_metadata(jgp)%grid_level)) THEN
+        CALL finish(routine, "incorrect grid root and/or bisection level!")
+      END IF
     ENDDO
   END SUBROUTINE import_pre_patches
   !-------------------------------------------------------------------------
@@ -503,7 +516,7 @@ CONTAINS
         ENDIF
       ENDDO
 
-      ! Get all patch information not read by read_pre_patch
+      ! Get all patch information not read by "read_pre_patch"
       CALL read_remaining_patch( jg, patch(jg), n_lp, id_lp, lsep_grfinfo )
     ENDDO
 
@@ -1093,12 +1106,12 @@ CONTAINS
   !!   for subdivision into the fully allocated patch and read_remaining_patch
   !!   for reading the remaining information
   !!
-  SUBROUTINE read_pre_patch( ig, patch_pre, uuid_grid, uuid_par, lsep_grfinfo )
+  SUBROUTINE read_pre_patch( ig, patch_pre, grid_metadata, lsep_grfinfo )
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':read_pre_patch'
     INTEGER,                           INTENT(in)    ::  ig                  ! domain ID
     TYPE(t_pre_patch), TARGET,         INTENT(inout) ::  patch_pre           ! patch data structure
-    CHARACTER(LEN=uuid_string_length), INTENT(inout) ::  uuid_grid, uuid_par
+    TYPE(t_grid_metadata),             intent(INOUT) ::  grid_metadata
     !> If .true., read fields related to grid refinement from separate  grid files:
     LOGICAL,                           INTENT(OUT)   ::  lsep_grfinfo
 
@@ -1112,8 +1125,7 @@ CONTAINS
 
     ! status variables
     INTEGER :: ist, netcd_status, ncid, ncid_grf, dimid, varid, max_cell_connectivity, &
-      &        max_verts_connectivity, ji, jc, ic, icheck, ilev, igrid_level,          &
-      &        dim_idxlist, ierr
+      &        max_verts_connectivity, ji, jc, ic, icheck, ilev, dim_idxlist, ierr
     INTEGER,  POINTER :: local_ptr(:), local_ptr_2d(:,:)
     REAL(wp), POINTER :: local_ptr_wp_2d(:, :)
     !-----------------------------------------------------------------------
@@ -1181,9 +1193,9 @@ CONTAINS
     END IF
 
     ! Read also parent grid UUID for subsequent crosscheck (if available):
-    uuid_grid = uuid_string
-    ierr = nf_get_att_text(ncid_grf, nf_global, 'uuidOfParHGrid', uuid_par)
-    IF (ierr /= nf_noerr)  uuid_par = ""
+    grid_metadata%uuid_grid = uuid_string
+    ierr = nf_get_att_text(ncid_grf, nf_global, 'uuidOfParHGrid', grid_metadata%uuid_par)
+    IF (ierr /= nf_noerr)  grid_metadata%uuid_par = ""
 
     ! Read additional grid identifiers
     ! grid_generatingCenter
@@ -1231,20 +1243,20 @@ CONTAINS
       number_of_grid_used(ig) = 42
     ENDIF
 
-    CALL nf(nf_get_att_int(ncid, nf_global, 'grid_root', icheck))
-    IF (icheck /= nroot) THEN
+    CALL nf(nf_get_att_int(ncid, nf_global, 'grid_root', grid_metadata%grid_root))
+    IF (grid_metadata%grid_root /= nroot) THEN
       WRITE(message_text,'(a,i4,a,i4)') &
-        & 'grid_root attribute:', icheck,', R:',nroot
+        & 'grid_root attribute:', grid_metadata%grid_root,', R:',nroot
       CALL message  (routine, TRIM(message_text))
       WRITE(message_text,'(a)') &
         & 'Mismatch between "grid_root" attribute and "R" parameter in the filename'
       CALL finish  (routine, TRIM(message_text))
     END IF
 
-    CALL nf(nf_get_att_int(ncid, nf_global, 'grid_level', igrid_level))
-    IF (igrid_level /= ilev) THEN
+    CALL nf(nf_get_att_int(ncid, nf_global, 'grid_level', grid_metadata%grid_level))
+    IF (grid_metadata%grid_level /= ilev) THEN
       WRITE(message_text,'(a,i4,a,i4)') &
-        & 'grid_level attribute:', igrid_level,', B:',ilev
+        & 'grid_level attribute:', grid_metadata%grid_level,', B:',ilev
       CALL message  (routine, TRIM(message_text))
       WRITE(message_text,'(a)') &
         & 'Mismatch between "grid_level" attribute and "B" parameter in the filename'
