@@ -240,18 +240,16 @@ CONTAINS
     !> If .true., read fields related to grid refinement from separate  grid files
     LOGICAL,                   INTENT(OUT)   :: lsep_grfinfo
     ! local variables:
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':import_basic_patch'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':import_pre_patches'
     INTEGER                           :: jg, jg1, n_chd, n_chdc
     INTEGER                           :: jgp            ! parent/child patch index
     CHARACTER(LEN=uuid_string_length) :: uuid_grid(0:max_dom), &
-      &                                  uuid_par(0:max_dom),  &
-      &                                  uuid_chi(0:max_dom,5)
+      &                                  uuid_par(0:max_dom)
     TYPE(t_pre_patch), POINTER        :: p_single_patch => NULL()
 
     !-----------------------------------------------------------------------
 
-    CALL message ('mo_model_domimp_patches:import_pre_patches', &
-      & 'start to import patches')
+    CALL message (routine, 'start to import patches')
 
     ! Set some basic flow control variables on the patch
 
@@ -360,8 +358,7 @@ CONTAINS
         DO jg1 = 1, patch_pre(jg)%n_childdom
           IF (patch_pre(patch_pre(jg)%child_id(jg1))%nshift /= &
             & patch_pre(jg)%nshift_child) &
-            & CALL finish (modname//':import_pre_patches', &
-            & 'multiple nests at the same level must have the same nshift')
+            & CALL finish (routine, 'multiple nests at the same level must have the same nshift')
         ENDDO
       ELSE
         patch_pre(jg)%nshift_child = 0
@@ -381,61 +378,41 @@ CONTAINS
 
     patch_pre(n_dom_start:n_dom)%max_childdom =  max_childdom
 
-
-    !init patch by reading data from file
-    !required: path to patch directory and file names, see top of module
-    ! l_exist = .FALSE.
-
-    ! IF (lplane) THEN
-    !   gridtype='plan'
-    ! ELSE
-    !   gridtype='icon'
-    ! END IF
-
     CALL set_patches_grid_filename(patch_pre)
+
+    ! initialize UUID buffer
+    DO jg = n_dom_start, n_dom
+      uuid_grid(jg) = ""
+      uuid_par(jg)  = ""
+    END DO
 
     grid_level_loop: DO jg = n_dom_start, n_dom
 
-      !   jlev = patch_pre(jg)%level
-
-      ! Allow file names without "DOM" specifier if n_dom=1.
-      !   IF (n_dom == 1) THEN
-      !     ! Check if file name without "DOM" specifier exists.
-      !     WRITE (patch_file,'(a,a,i0,a,i2.2,a)') &
-      !          & TRIM(gridtype),'R',nroot,'B',jlev,'-grid.nc'
-      !     INQUIRE (FILE=patch_file, EXIST=l_exist)
-      !     ! Otherwise use file name with "DOM" specifier
-      !     IF (.NOT. l_exist)                                            &
-      !          & WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)')              &
-      !          & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
-      !   ELSE
-      !     ! n_dom >1 --> "'_DOM',jg" required in file name
-      !     WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)') &
-      !          & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
-      !   ENDIF
-
-
       p_single_patch => patch_pre(jg)
-
-      CALL read_pre_patch( jg, p_single_patch, uuid_grid(jg), uuid_par(jg), uuid_chi(jg,:), lsep_grfinfo )
+      CALL read_pre_patch( jg, p_single_patch, uuid_grid(jg), uuid_par(jg), lsep_grfinfo )
 
     ENDDO grid_level_loop
 
-    IF (lsep_grfinfo) THEN ! perform uuid crosscheck for parent-child connectivities
-      DO jg = n_dom_start, n_dom
-        IF (jg > n_dom_start) THEN
-          jgp = patch_pre(jg)%parent_id
-          IF (TRIM(uuid_par(jg)) /= TRIM(uuid_grid(jgp))) THEN
-            IF (check_uuid_gracefully) THEN
-              CALL warning(modname//':import_pre_patches','incorrect uuids in parent-child connectivity file')
-            ELSE
-              CALL finish(modname//':import_pre_patches','incorrect uuids in parent-child connectivity file')
-            END IF
-          ENDIF
-        ENDIF
-      ENDDO
-    ENDIF
+    ! Perform uuid crosscheck for parent-child connectivities
+    !
+    ! Note: this metadata is not necessarily available in the grid
+    ! file. For reasons of backward compatibility, this check will
+    ! then be skipped.
 
+    DO jg = n_dom_start, n_dom
+      IF (jg > n_dom_start) THEN
+        jgp = patch_pre(jg)%parent_id
+
+        IF ((TRIM(uuid_par(jg)) /= TRIM(uuid_grid(jgp))) .AND. &
+          & ((LEN_TRIM(uuid_par(jg)) > 0) .OR. (LEN_TRIM(uuid_grid(jgp)) > 0))) THEN
+          IF (check_uuid_gracefully) THEN
+            CALL warning(routine, 'incorrect uuids in parent-child connectivity file')
+          ELSE
+            CALL finish(routine,  'incorrect uuids in parent-child connectivity file')
+          END IF
+        ENDIF
+      ENDIF
+    ENDDO
   END SUBROUTINE import_pre_patches
   !-------------------------------------------------------------------------
 
@@ -1116,14 +1093,14 @@ CONTAINS
   !!   for subdivision into the fully allocated patch and read_remaining_patch
   !!   for reading the remaining information
   !!
-  SUBROUTINE read_pre_patch( ig, patch_pre, uuid_grid, uuid_par, uuid_chi, lsep_grfinfo )
+  SUBROUTINE read_pre_patch( ig, patch_pre, uuid_grid, uuid_par, lsep_grfinfo )
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':read_pre_patch'
     INTEGER,                           INTENT(in)    ::  ig                  ! domain ID
     TYPE(t_pre_patch), TARGET,         INTENT(inout) ::  patch_pre           ! patch data structure
-    CHARACTER(LEN=uuid_string_length), INTENT(inout) :: uuid_grid, uuid_par, uuid_chi(5)
+    CHARACTER(LEN=uuid_string_length), INTENT(inout) ::  uuid_grid, uuid_par
     !> If .true., read fields related to grid refinement from separate  grid files:
-    LOGICAL,                           INTENT(OUT)   :: lsep_grfinfo
+    LOGICAL,                           INTENT(OUT)   ::  lsep_grfinfo
 
     ! local variables
     INTEGER, ALLOCATABLE :: &
@@ -1131,26 +1108,13 @@ CONTAINS
       & start_idx_e(:,:), end_idx_e(:,:), &
       & start_idx_v(:,:), end_idx_v(:,:)
 
-    ! dummy values for number of internal halo cells, edges, vertices, not actually used
-!    INTEGER :: n_e_halo_cells
-!    INTEGER :: n_e_halo_edges
-!    INTEGER :: n_e_halo_verts
-
-    ! INTEGER :: patch_unit
-
-    ! LOGICAL :: lnetcdf = .TRUE.
-    ! CHARACTER(len=filename_max) :: file
-
     CHARACTER(LEN=uuid_string_length) :: uuid_string, uuid_string_grfinfo
 
     ! status variables
-    INTEGER :: ist, netcd_status
-
-    INTEGER :: ncid, ncid_grf, dimid, varid, max_cell_connectivity, max_verts_connectivity
-    INTEGER :: ji
-    INTEGER :: jc, ic
-    INTEGER :: icheck, ilev, igrid_level, dim_idxlist
-    INTEGER, POINTER :: local_ptr(:), local_ptr_2d(:,:)
+    INTEGER :: ist, netcd_status, ncid, ncid_grf, dimid, varid, max_cell_connectivity, &
+      &        max_verts_connectivity, ji, jc, ic, icheck, ilev, igrid_level,          &
+      &        dim_idxlist, ierr
+    INTEGER,  POINTER :: local_ptr(:), local_ptr_2d(:,:)
     REAL(wp), POINTER :: local_ptr_wp_2d(:, :)
     !-----------------------------------------------------------------------
 
@@ -1214,10 +1178,12 @@ CONTAINS
           CALL finish (routine, TRIM(message_text))
         END IF
       ENDIF
-      uuid_grid = uuid_string_grfinfo
-      ! Read also parent grid uuid for subsequent crosscheck
-      CALL nf(nf_get_att_text(ncid_grf, nf_global, 'uuidOfParHGrid', uuid_par))
-    ENDIF
+    END IF
+
+    ! Read also parent grid UUID for subsequent crosscheck (if available):
+    uuid_grid = uuid_string
+    ierr = nf_get_att_text(ncid_grf, nf_global, 'uuidOfParHGrid', uuid_par)
+    IF (ierr /= nf_noerr)  uuid_par = ""
 
     ! Read additional grid identifiers
     ! grid_generatingCenter
