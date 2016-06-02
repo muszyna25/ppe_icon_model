@@ -492,7 +492,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
-                    'zg','pfull','ps
+                    'zg','pfull','ps'
 /
 EOF
 fi
