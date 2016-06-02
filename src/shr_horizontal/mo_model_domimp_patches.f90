@@ -388,10 +388,12 @@ CONTAINS
 
     CALL set_patches_grid_filename(patch_pre)
 
-    ! initialize UUID buffer
+    ! nullify UUID buffer and other metadata vars
     DO jg = n_dom_start, n_dom
-      grid_metadata(jg)%uuid_grid = ""
-      grid_metadata(jg)%uuid_par  = ""
+      grid_metadata(jg)%uuid_grid      = ""
+      grid_metadata(jg)%uuid_par       = ""
+      grid_metadata(jg)%grid_level     = -1
+      grid_metadata(jg)%grid_bisection = -1
     END DO
 
     grid_level_loop: DO jg = n_dom_start, n_dom
