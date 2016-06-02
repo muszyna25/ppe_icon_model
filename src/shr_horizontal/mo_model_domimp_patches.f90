@@ -192,8 +192,6 @@ MODULE mo_model_domimp_patches
   PUBLIC :: complete_patches
   PUBLIC :: reorder_patch_refin_ctrl
 
-  INTEGER, SAVE :: ishift_child_id
-
   ! The "phys_id" is not necessarily defined for cells/edges in the
   ! input file:
   LOGICAL, ALLOCATABLE :: lhave_phys_id(:) ! (0:n_dom)
@@ -391,8 +389,6 @@ CONTAINS
     ! END IF
 
     CALL set_patches_grid_filename(patch_pre)
-
-    ishift_child_id = 0
 
     grid_level_loop: DO jg = n_dom_start, n_dom
 
@@ -1760,37 +1756,8 @@ CONTAINS
       CALL message ('read_remaining_patch',&
         & 'nesting incompatible with non-triangular grid')
 
-    ! TODO [FP] : We need an implementation of this shifting without
-    !             using the NetCDF attribute "grid_ID"
-
-    !! ! Preparation: In limited-area mode, check if child domain ID's read
-    !! ! from the grid files need to be shifted
-    !! IF (ig == 1 .AND. l_limited_area .AND. patch%n_childdom>0) THEN
-    !!   CALL nf(nf_get_att_int(ncid_grf, nf_global, 'grid_ID', igrid_id))
-    !!   ishift_child_id = igrid_id - 1
-    !!   WRITE(message_text,'(a,i4)') 'Limited-area mode: child cell IDs are shifted by ',ishift_child_id
-    !!   CALL message ('', TRIM(message_text))
-    !! ENDIF
-
     !------------------------------------------
     ! nesting/lateral boundary indexes
-
-    ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    ! patch%cells%child_id(:,:)
-!      DO ip = 0, n_lp
-!        p_p => get_patch_ptr(patch, id_lp, ip)
-!        multivar_2d_data_int(ip+1)%data => p_p%cells%child_id(:,:)
-!      END DO
-!      CALL read_2D_int(stream_id_grf, on_cells, 'child_cell_id', n_lp+1, &
-!        &              multivar_2d_data_int(:))
-!      IF(ishift_child_id /= 0 .AND. patch%n_childdom>0) THEN
-!        DO ip = 0, n_lp
-!          WHERE (multivar_2d_data_int(ip+1)%data(:,:) > 0) &
-!            multivar_2d_data_int(ip+1)%data(:,:) = &
-!            multivar_2d_data_int(ip+1)%data(:,:) - ishift_child_id
-!        END DO
-!      ENDIF
-    ! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     ! p_p%cells%phys_id(:,:)
     IF ((ig <= 1) .OR. .NOT. lhave_phys_id(ig)) THEN
@@ -1805,12 +1772,6 @@ CONTAINS
       END DO
       CALL read_2D_int(stream_id_grf, on_cells, 'phys_cell_id', n_lp+1, &
         &              multivar_2d_data_int(:))
-      IF(ishift_child_id > 0) THEN
-        DO ip = 0, n_lp
-          multivar_2d_data_int(ip+1)%data(:,:) = &
-            multivar_2d_data_int(ip+1)%data(:,:) - ishift_child_id
-        END DO
-      ENDIF
     END IF
 
     ! p_p%cells%edge_orientation(:,:,:)
@@ -1831,25 +1792,6 @@ CONTAINS
     CALL read_2D(stream_id, on_cells, 'cell_area_p', n_lp+1, &
       &          multivar_2d_data_wp(:))
 
-    ! TODO [FP] : We need an implementation of this shifting without
-    !             using the NetCDF field
-
-    ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-!      ! p_p%edges%child_id(:,:)
-!      DO ip = 0, n_lp
-!        p_p => get_patch_ptr(patch, id_lp, ip)
-!        multivar_2d_data_int(ip+1)%data => p_p%edges%child_id(:,:)
-!      END DO
-!      CALL read_2D_int(stream_id_grf, on_edges, 'child_edge_id', n_lp+1, &
-!        &              multivar_2d_data_int(:))
-!      IF(ishift_child_id /= 0 .AND. patch%n_childdom>0) THEN
-!        DO ip = 0, n_lp
-!          multivar_2d_data_int(ip+1)%data(:,:) = &
-!            multivar_2d_data_int(ip+1)%data(:,:) - ishift_child_id
-!        END DO
-!      ENDIF
-    ! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
     ! p_p%edges%phys_id(:,:)
     IF ((ig <= 1) .OR. .NOT. lhave_phys_id(ig)) THEN
       DO ip = 0, n_lp
@@ -1863,12 +1805,6 @@ CONTAINS
       END DO
       CALL read_2D_int(stream_id_grf, on_edges, 'phys_edge_id', n_lp+1, &
         &              multivar_2d_data_int(:))
-      IF(ishift_child_id > 0) THEN
-        DO ip = 0, n_lp
-          multivar_2d_data_int(ip+1)%data(:,:) = &
-            multivar_2d_data_int(ip+1)%data(:,:) - ishift_child_id
-        END DO
-      ENDIF
     END IF
 
     ! p_p%edges%cell_idx(:,:,:)
