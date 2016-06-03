@@ -99,6 +99,7 @@ cat > ${atmo_namelist} << EOF
 /
 &grid_nml
  dynamics_grid_filename = "${atmo_dyn_grids}",
+ grid_angular_velocity = 0.
 /
 &run_nml
  num_lev          = 47          ! number of full levels
@@ -115,8 +116,10 @@ cat > ${atmo_namelist} << EOF
  activate_sync_timers = .TRUE.
 /
 &nh_testcase_nml
- nh_test_name     = 'APE_echam'
+ nh_test_name     = 'RCE_glb'
  ape_sst_case     = 'sst_const'
+ tpe_psfc         = 1013.25e2
+ tpe_temp         = 298.15
 /
 &nonhydrostatic_nml
  ndyn_substeps    = 2           ! dtime/dt_dyn
@@ -155,7 +158,7 @@ cat > ${atmo_namelist} << EOF
  lice             = .FALSE.
  ljsbach          = .FALSE.
  lebudget         = .FALSE.
- lmlo             = .FALSE.
+ lmlo             = .TRUE.
  lamip            = .FALSE.
 /
 &radiation_nml

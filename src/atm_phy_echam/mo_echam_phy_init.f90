@@ -642,7 +642,7 @@ CONTAINS
       END IF
 
       SELECT CASE (ctest_name)
-      CASE('APE','APE_echam','RCEhydro') !Note that there is only one surface type in this case
+      CASE('APE','APE_echam','RCEhydro','RCE_glb') !Note that there is only one surface type in this case
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = jbs,nblks_c
@@ -659,7 +659,7 @@ CONTAINS
 
         IF ( is_coupled_run() ) CALL finish('ERROR: Use testcase APEc or APEc_nh for a coupled run')
 
-      CASE('RCE','RCE_glb') !Note that there is only one surface type in this case
+      CASE('RCE') !Note that there is only one surface type in this case
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = jbs,nblks_c
