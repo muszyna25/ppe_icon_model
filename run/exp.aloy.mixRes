@@ -100,20 +100,19 @@ start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
 # TO BE DELETED AFTER THE "mtime time loop" IS COMPLETELY IMPLEMENTED.
 
 # high frequency output and restart intervals
-(( dt_checkpoint =  10 * day))
 (( dt_restart    =  10 * day))
-atm_output_interval="PT1H"
-lnd_output_interval="PT1H"
-oce_output_interval="PT1H"
+atm_output_interval="PT6H"
+lnd_output_interval="PT6H"
+oce_output_interval="PT6H"
 output_lnd=yes
 
 ## long-term low frequency output and restart intervals - must be multiple of atm/oce output_interval
-#(( dt_checkpoint = 1860 * day))  #  5y
 #(( dt_restart    = 1860 * day))  #  5y
-#atm_output_interval="P5DT6H"
-#lnd_output_interval="P5DT6H"
-#oce_output_interval="P30D"
+#atm_output_interval="P5DT1H"
+#lnd_output_interval="P5DT1H"
+#oce_output_interval="P30DT1H"
 
+(( dt_checkpoint = 1860 * day))
 atm_file_interval="P6Y"
 lnd_file_interval="P6Y"
 oce_file_interval="P6Y"
@@ -472,7 +471,7 @@ if [[ "$output_atm_min" == "yes" ]]; then
   idbg_elev        = 2                        ! initialize end level for debug output
   dbg_lat_in       =  30.0                    ! latitude location of one cell debug output
   dbg_lon_in       = -30.0                    ! longitude location of one cell debug output
-  str_mod_tst      ='all'                     ! define modules to print out in debug mode
+  str_mod_tst      ='InterFaceOce'            ! define modules to print out in debug mode
 /
 EOF
 fi
@@ -685,7 +684,7 @@ cat > ${oce_namelist} << EOF
   idbg_mxmn        = 1                        ! initialize MIN/MAX  debug output
   idbg_val         = 0                        ! initialize one cell debug output
   idbg_slev        = 1                        ! initialize start level for debug output
-  idbg_elev        = 5                        ! initialize end level for debug output
+  idbg_elev        = 2                        ! initialize end level for debug output
   dbg_lat_in       =  30.0                    ! latitude location of one cell debug output
   dbg_lon_in       = -30.0                    ! longitude location of one cell debug output
   str_mod_tst      ='all'                     ! define modules to print out in debug mode
@@ -860,6 +859,7 @@ cat > ${cpl_xmlctrfn} << EOF
             <transient_grid_ref collection_size="1" grid_ref="1" id="8" transient_ref="8"/>
             <transient_grid_ref collection_size="3" grid_ref="1" id="9" transient_ref="9"/>
             <transient_grid_ref collection_size="1" grid_ref="1" id="10" transient_ref="10"/>
+            <transient_grid_ref collection_size="1" grid_ref="1" id="11" transient_ref="11"/>
          </transient_grid_refs>
       </component>
       <component id="2">
