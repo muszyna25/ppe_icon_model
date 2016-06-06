@@ -194,14 +194,14 @@ CONTAINS
     INTEGER, INTENT(IN)    :: owner_idx(:)     !< array indices "owned" by local PE
     INTEGER, INTENT(IN)    :: nglb_indices     !< total size of distributed array
     INTEGER, INTENT(IN)    :: communicator     !< MPI comm.
-    INTEGER, INTENT(INOUT) :: out_values(:)    !< resulting local part of distributed array
+    INTEGER, INTENT(INOUT) :: out_values(:,:)  !< resulting local part of distributed array
     INTEGER, INTENT(OUT)   :: ierr             !< error return code 
     ! local variables
     INTEGER                   :: i, j, nsend, nlocal, rank, isize,                         &
-      &                          npairs_recv, local_idx, npairs_recv_owner                 
+      &                          npairs_recv, local_idx, npairs_recv_owner, ncollisions                 
     INTEGER, ALLOCATABLE      :: icounts(:), irecv(:), irecv_idx(:), recv_vals(:),         &
       &                          i_pe(:), glb_idx(:), values(:), permutation(:),           &
-      &                          send_displs(:), recv_displs(:), reg_partition_buf(:),     &
+      &                          send_displs(:), recv_displs(:), reg_partition_buf(:,:),   &
       &                          reordered_owner_idx(:), isendbuf(:,:), i_pe_owner(:),     &
       &                          icounts_owner(:), irecv_owner(:), icounts_buf(:,:),       &
       &                          irecv_buf(:,:), permutation_owner(:), irecv_idx_owner(:), &
@@ -214,9 +214,10 @@ CONTAINS
     ierr   = 0
     nlocal = SIZE(owner_idx)
     nsend  = SIZE(in_glb_idx)
+    ncollisions = SIZE(out_values,1) ! max no. of concurrent sets
 
     ! consistency checks:
-    IF (SIZE(out_values) /= nlocal) THEN
+    IF (SIZE(out_values,2) /= nlocal) THEN
       WRITE (0,*) "SIZE(out_values) /= nlocal"
       ierr = 1
     END IF
@@ -349,32 +350,40 @@ CONTAINS
     ! ---  each PE inserts the received index/value pairs into "its"
     !      part of the global index space (wrt. to the regular
     !      partition).
-    ALLOCATE(reg_partition_buf(reg_partition%local_size()), &
+    ALLOCATE(reg_partition_buf(ncollisions, reg_partition%local_size()), &
       &      reg_partition_modified(reg_partition%local_size()))
     reg_partition_buf(:)      = 0
     reg_partition_modified(:) = 0
     DO i=1,npairs_recv
       local_idx = reg_partition%glb2local(irecv_idx(i))
-      reg_partition_buf(local_idx)      = recv_vals(i)
-      reg_partition_modified(local_idx) = 1
+      ! we try to avoid collisions, when one entry is modified several
+      ! times:
+      IF ((reg_partition_modified(local_idx) == 0) .OR. &
+        & (reg_partition_buf(reg_partition_modified(local_idx), local_idx) /= recv_vals(i))) THEN
+        reg_partition_modified(local_idx) = reg_partition_modified(local_idx) + 1
+        IF (reg_partition_modified(local_idx) > ncollisions) THEN
+          WRITE (0,*) "Error! Too many collisions!"
+        END IF
+        reg_partition_buf(reg_partition_modified(local_idx), local_idx) = recv_vals(i)
+      END IF
     END DO
 
     ! ---  collect send buffer based on received "owner_idx"
-    ALLOCATE(isendbuf(2,npairs_recv_owner))
+    ALLOCATE(isendbuf(ncollisions+1,npairs_recv_owner))
     isendbuf(:,:) = 0
     DO i=1,npairs_recv_owner
-      isendbuf(1,i) = reg_partition_buf( reg_partition%glb2local(irecv_idx_owner(i)) )
-      isendbuf(2,i) = reg_partition_modified( reg_partition%glb2local(irecv_idx_owner(i)) )
+      isendbuf(1,i) = reg_partition_modified( reg_partition%glb2local(irecv_idx_owner(i)) )
+      isendbuf(2:(ncollisions+1),i) = reg_partition_buf(:, reg_partition%glb2local(irecv_idx_owner(i)) )
     END DO
 
     ! ---  PE "b" sends values back to "a", together with the information, 
     !      which entries have been modified
     DEALLOCATE(irecv_idx_owner)
-    ALLOCATE(irecv_idx_owner2(2,SUM(icounts_owner)))
-    irecv_owner       = 2*irecv_owner
-    recv_displs_owner = 2*recv_displs_owner
-    icounts_owner     = 2*icounts_owner
-    send_displs_owner = 2*send_displs_owner
+    ALLOCATE(irecv_idx_owner2((ncollisions+1),SUM(icounts_owner)))
+    irecv_owner       = (ncollisions+1)*irecv_owner
+    recv_displs_owner = (ncollisions+1)*recv_displs_owner
+    icounts_owner     = (ncollisions+1)*icounts_owner
+    send_displs_owner = (ncollisions+1)*send_displs_owner
     CALL MPI_ALLTOALLV(isendbuf, irecv_owner, recv_displs_owner, MPI_INTEGER, irecv_idx_owner2, &
       &                icounts_owner, send_displs_owner, MPI_INTEGER, communicator, ierr)
     IF (ierr /= 0) WRITE (*,*) "MPI Error!"
@@ -382,8 +391,8 @@ CONTAINS
     ! ---  each PE inserts the received index/values pairs into its
     !      part of the global index space
     DO i=1,nlocal
-      IF (irecv_idx_owner2(2,i) == 1) THEN
-        out_values(permutation_owner(i)) = irecv_idx_owner2(1,i)
+      IF (irecv_idx_owner2(1,i) == 1) THEN
+        out_values(:, permutation_owner(i)) = irecv_idx_owner2(2:(ncollisions+1),i)
       END IF
     END DO
     
@@ -397,7 +406,8 @@ CONTAINS
 #else
 
     ! non-MPI mode: local copy
-    out_values(in_glb_idx(:)) = in_values(:)
+    out_values(1, in_glb_idx(:))                 = in_values(:)
+    out_values(2:(ncollisions+1), in_glb_idx(:)) = 0
 
 #endif
 

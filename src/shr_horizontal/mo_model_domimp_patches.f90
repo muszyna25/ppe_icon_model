@@ -393,7 +393,7 @@ CONTAINS
       grid_metadata(jg)%uuid_grid      = ""
       grid_metadata(jg)%uuid_par       = ""
       grid_metadata(jg)%grid_level     = -1
-      grid_metadata(jg)%grid_bisection = -1
+      grid_metadata(jg)%grid_level     = -1
     END DO
 
     grid_level_loop: DO jg = n_dom_start, n_dom
@@ -414,17 +414,19 @@ CONTAINS
       
       ! perform UUID crosscheck for parent-child connectivities
       IF ((TRIM(grid_metadata(jg)%uuid_par) /= TRIM(grid_metadata(jgp)%uuid_grid)) .AND. &
-        & ((LEN_TRIM(grid_metadata(jg)%uuid_par) > 0) .OR. (LEN_TRIM(grid_metadata(jgp)%uuid_grid) > 0))) THEN
+        & (LEN_TRIM(grid_metadata(jg)%uuid_par) > 0) .AND. (LEN_TRIM(grid_metadata(jgp)%uuid_grid) > 0)) THEN
         IF (check_uuid_gracefully) THEN
           CALL warning(routine, 'incorrect uuids in parent-child connectivity file')
         ELSE
+          WRITE (0,*) "parent grid UUID in child file: ", grid_metadata(jg)%uuid_par
+          WRITE (0,*) "parent grid UUID: ", grid_metadata(jgp)%uuid_grid
           CALL finish(routine,  'incorrect uuids in parent-child connectivity file')
         END IF
       ENDIF
 
       ! check matching grid root and bisection level:
       IF ((grid_metadata(jg)%grid_root  /= grid_metadata(jgp)%grid_root)  .OR.   &
-        & (grid_metadata(jg)%grid_level /= grid_metadata(jgp)%grid_level)) THEN
+        & (grid_metadata(jg)%grid_level /= (grid_metadata(jgp)%grid_level+1))) THEN
         CALL finish(routine, "incorrect grid root and/or bisection level!")
       END IF
     ENDDO
@@ -669,7 +671,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_parent_child_relations"
     INTEGER   :: i, j, jl, jb, jc, jc_g, jp, jp_g, ierr, &
       &         jc_c, jb_c, communicator, jc_glb, jb_glb
-    INTEGER, ALLOCATABLE :: in_child_id(:), parent_idx(:), out_child_id(:)
+    INTEGER, ALLOCATABLE :: in_child_id(:), parent_idx(:), out_child_id(:,:)
 
     ! Before this call, child_idx/child_blk still point to the global values.
     ! This is changed here.
@@ -784,9 +786,10 @@ CONTAINS
     ENDIF
 
     ALLOCATE(parent_idx(p_pc%n_patch_cells), in_child_id(p_pc%n_patch_cells))
+    ! set the cell child_id for the (global) parent grid
     in_child_id(:) = p_pc%id
 
-    ! set the cell child_id for the (global) parent grid:
+    ! get the parent cell indices:
     DO j = 1, p_pc%n_patch_cells
       jc_c = idx_no(j)
       jb_c = blk_no(j)
@@ -794,22 +797,28 @@ CONTAINS
         &                    p_pc%cells%parent_glb_blk(jc_c,jb_c))
     END DO
 
-    ALLOCATE(out_child_id(p_pp_glb%n_patch_cells))
+    ! save the previous state of the child_id:
+    ALLOCATE(out_child_id(1,p_pp_glb%n_patch_cells))
     DO j = 1, p_pp_glb%n_patch_cells
       out_child_id(j) = p_pp_glb%cells%child_id(idx_no(j), blk_no(j))
     END DO
 
+    ! communicate ID data between processors:
     CALL reshuffle(parent_idx, in_child_id, p_pp_glb%cells%decomp_info%glb_index, &
       &            p_pp_glb%n_patch_cells_g, communicator, out_child_id, ierr)
     IF (ierr /= 0)  CALL finish(routine, 'ierr /= 0')
 
+    ! communication finished. now copy the result to the local arrays:
     DO j = 1, p_pp_glb%n_patch_cells
       jc_glb = idx_no(j)
       jb_glb = blk_no(j)
-      IF (p_pp_glb%cells%child_id(jc,jb) == 0) THEN
-        p_pp_glb%cells%child_id(jc,jb) = out_child_id(j)
+      ! check for overlap (i.e.: child id already exists)
+      IF (p_pp_glb%cells%child_id(jc_glb,jb_glb) == 0) THEN
+        p_pp_glb%cells%child_id(jc_glb,jb_glb) = out_child_id(1,j)
       ELSE
-        CALL finish(routine, "DOM "//int2string(p_pc%id,'(i0)')//" overlaps with another domain!")
+        IF (p_pp_glb%cells%child_id(jc_glb,jb_glb) /= out_child_id(1,j)) THEN
+          CALL finish(routine, "Cell in DOM "//int2string(p_pc%id,'(i0)')//" overlaps with another domain!")
+        END IF
       END IF
     END DO
 
@@ -849,10 +858,11 @@ CONTAINS
     ! these parent edges. This involves parallel comm., since the
     ! child edges and their parent edges may "live" on different PEs.
 
+    ! set the edge child_id for the (global) parent grid:
     ALLOCATE(parent_idx(p_pc%n_patch_edges), in_child_id(p_pc%n_patch_edges))
     in_child_id(:) = p_pc%id
 
-    ! set the edge child_id for the (global) parent grid:
+    ! get the parent cell indices:
     DO j = 1, p_pc%n_patch_edges
       jc_c = idx_no(j)
       jb_c = blk_no(j)
@@ -860,22 +870,28 @@ CONTAINS
         &                    p_pc%edges%parent_glb_blk(jc_c,jb_c))
     END DO
 
-    ALLOCATE(out_child_id(p_pp_glb%n_patch_edges))
+    ! save the previous state of the child_id:
+    ALLOCATE(out_child_id(1,p_pp_glb%n_patch_edges))
     DO j = 1, p_pp_glb%n_patch_edges
       out_child_id(j) = p_pp_glb%edges%child_id(idx_no(j), blk_no(j))
     END DO
 
+    ! communicate ID data between processors:
     CALL reshuffle(parent_idx, in_child_id, p_pp_glb%edges%decomp_info%glb_index, &
       &            p_pp_glb%n_patch_edges_g, communicator, out_child_id, ierr)
     IF (ierr /= 0)  CALL finish(routine, 'ierr /= 0')
 
+    ! communication finished. now copy the result to the local arrays:
     DO j = 1, p_pp_glb%n_patch_edges
       jc_glb = idx_no(j)
       jb_glb = blk_no(j)
-      IF (p_pp_glb%edges%child_id(jc,jb) == 0) THEN
-        p_pp_glb%edges%child_id(jc,jb) = out_child_id(j)
+      ! check for overlap (i.e.: child id already exists)
+      IF (p_pp_glb%edges%child_id(jc_glb,jb_glb) == 0) THEN
+        p_pp_glb%edges%child_id(jc_glb,jb_glb) = out_child_id(1,j)
       ELSE
-        CALL finish(routine, "DOM "//int2string(p_pc%id,'(i0)')//" overlaps with another domain!")
+        IF (p_pp_glb%edges%child_id(jc_glb,jb_glb) /= out_child_id(1,j)) THEN
+          CALL finish(routine, "Edge in DOM "//int2string(p_pc%id,'(i0)')//" overlaps with another domain!")
+        END IF
       END IF
     END DO
     DEALLOCATE(out_child_id, in_child_id, parent_idx)
