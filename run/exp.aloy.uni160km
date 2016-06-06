@@ -103,19 +103,16 @@ start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
 # high frequency output and restart intervals
 (( dt_checkpoint =  10 * day))
 (( dt_restart    =  10 * day))
-atm_output_interval_2d="PT6H"
-atm_output_interval_3d="PT6H"
-lnd_output_interval_2d="PT6H"
-lnd_output_interval_3d="PT6H"
-oce_output_interval="PT6H"
+atm_output_interval="PT1H"
+lnd_output_interval="PT1H"
+oce_output_interval="PT1H"
+output_lnd=yes
 
 ## long-term low frequency output and restart intervals - must be multiple of atm/oce output_interval
 #(( dt_checkpoint = 1860 * day))  #  5y
 #(( dt_restart    = 1860 * day))  #  5y
-#atm_output_interval_2d="P5DT6H"
-#atm_output_interval_3d="P5DT6H"
-#lnd_output_interval_2d="P5DT6H"
-#lnd_output_interval_3d="P5DT6H"
+#atm_output_interval="P5DT6H"
+#lnd_output_interval="P5DT6H"
 #oce_output_interval="P30D"
 
 atm_file_interval="P6Y"
@@ -128,7 +125,7 @@ oce_file_interval="P6Y"
 atm_namelist=NAMELIST_${EXPNAME}_atm
 lnd_namelist=NAMELIST_${EXPNAME}_lnd
 oce_namelist=NAMELIST_${EXPNAME}_oce
-cpl_namelist=NAMELIST_${EXPNAME}_cpl
+cpl_xmlctrfn=XMLCTRFN_${EXPNAME}_cpl
 
 #--------------------------------------------------------------------------------------------------
 # II. Atmosphere & land section
@@ -434,7 +431,9 @@ output_atm_3d=no
 output_atm_2d=no
 output_phy_3d=no
 output_aer_3d=no # "yes" needs lrad_aero_diag=.TRUE. in radiation_nml
-output_lnd=yes
+
+atm_output_interval_2d="P10D"
+atm_output_interval_3d="P10D"
 
 if [[ "$output_atm_min" == "yes" ]]; then
   cat >> ${atm_namelist} <<EOF
@@ -446,7 +445,7 @@ if [[ "$output_atm_min" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${atm_output_interval_2d}"
+ output_interval  = "${atm_output_interval}"
  file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'ps'      , 'psl'     ,
@@ -601,7 +600,7 @@ if [[ "$output_lnd" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "${lnd_output_interval_2d}"      ! ISO-format interval
+ output_interval  = "${lnd_output_interval}"         ! ISO-format interval
  file_interval    = "${lnd_file_interval}"           ! ISO-format interval
  include_last     = .FALSE.
  ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'qsat_srf'
@@ -835,7 +834,7 @@ incrank_list[1]=$oce_inc_rank
 #
 atm_lag=1  #  time lag of counting of timesteps in atmosphere
 #
-cat > ${cpl_namelist} << EOF
+cat > ${cpl_xmlctrfn} << EOF
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <coupling xmlns="http://www.w3schools.com"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -1090,7 +1089,7 @@ EOF
 # IV.4 xsd and xml files for yac
 # ------------------------------
 
-add_required_file ${basedir}/run/${cpl_namelist}  ./coupling.xml
+add_required_file ${basedir}/run/${cpl_xmlctrfn}  ./coupling.xml
 add_required_file ${basedir}/run/coupling.xsd  ./
 add_required_file ${basedir}/run/component.xsd ./
 

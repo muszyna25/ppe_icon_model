@@ -105,6 +105,7 @@ start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
 atm_output_interval="PT1H"
 lnd_output_interval="PT1H"
 oce_output_interval="PT1H"
+output_lnd=yes
 
 ## long-term low frequency output and restart intervals - must be multiple of atm/oce output_interval
 #(( dt_checkpoint = 1860 * day))  #  5y
@@ -117,17 +118,13 @@ atm_file_interval="P6Y"
 lnd_file_interval="P6Y"
 oce_file_interval="P6Y"
 
-#atm_output_interval_2d="PT6H"
-#atm_output_interval_3d="PT6H"
-#lnd_output_interval_3d="PT6H"
-
 # namelist files
 # --------------
 
 atm_namelist=NAMELIST_${EXPNAME}_atm
 lnd_namelist=NAMELIST_${EXPNAME}_lnd
 oce_namelist=NAMELIST_${EXPNAME}_oce
-cpl_namelist=NAMELIST_${EXPNAME}_cpl
+cpl_xmlctrfn=XMLCTRFN_${EXPNAME}_cpl
 
 #--------------------------------------------------------------------------------------------------
 # II. Atmosphere & land section
@@ -433,7 +430,9 @@ output_atm_3d=no
 output_atm_2d=no
 output_phy_3d=no
 output_aer_3d=no # "yes" needs lrad_aero_diag=.TRUE. in radiation_nml
-output_lnd=yes
+
+atm_output_interval_2d="P10D"
+atm_output_interval_3d="P10D"
 
 if [[ "$output_atm_min" == "yes" ]]; then
   cat >> ${atm_namelist} <<EOF
@@ -839,7 +838,7 @@ incrank_list[1]=$oce_inc_rank
 #
 atm_lag=1  #  time lag of counting of timesteps in atmosphere
 #
-cat > ${cpl_namelist} << EOF
+cat > ${cpl_xmlctrfn} << EOF
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <coupling xmlns="http://www.w3schools.com"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -878,6 +877,7 @@ cat > ${cpl_namelist} << EOF
             <transient_grid_ref collection_size="1" grid_ref="1" id="8" transient_ref="8"/>
             <transient_grid_ref collection_size="3" grid_ref="1" id="9" transient_ref="9"/>
             <transient_grid_ref collection_size="1" grid_ref="1" id="10" transient_ref="10"/>
+            <transient_grid_ref collection_size="1" grid_ref="1" id="11" transient_ref="11"/>
          </transient_grid_refs>
       </component>
    </components>
@@ -891,7 +891,8 @@ cat > ${cpl_namelist} << EOF
       <transient id="7" transient_standard_name="eastward_sea_water_velocity"/>
       <transient id="8" transient_standard_name="northward_sea_water_velocity"/>
       <transient id="9" transient_standard_name="ocean_sea_ice_bundle"/>
-      <transient id="10" transient_standard_name="river_runoff"/>
+      <transient id="10" transient_standard_name="10m_wind_speed"/>
+      <transient id="11" transient_standard_name="river_runoff"/>
    </transients>
    <grids>
       <grid alias_name="grid1" id="1"/>
@@ -1068,9 +1069,9 @@ cat > ${cpl_namelist} << EOF
             <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
-         <transient_couple transient_id="10">
-            <source component_ref="1" transient_grid_ref="10"/>
-            <target transient_grid_ref="10"/>
+         <transient_couple transient_id="11">
+            <source component_ref="1" transient_grid_ref="11"/>
+            <target transient_grid_ref="11"/>
             <timestep>
                <source>${dtime_atm}</source>
                <target>${dtime_oce}</target>
@@ -1086,16 +1087,34 @@ cat > ${cpl_namelist} << EOF
             <enforce_write_restart>false</enforce_write_restart>
             <enforce_write_weight_file filename="">false</enforce_write_weight_file>
          </transient_couple>
+         <transient_couple transient_id="10">
+            <source component_ref="1" transient_grid_ref="10"/>
+            <target transient_grid_ref="10"/>
+            <timestep>
+               <source>${dtime_atm}</source>
+               <target>${dtime_oce}</target>
+               <coupling_period operation="average">${dtime_cpl}</coupling_period>
+               <source_timelag>${atm_lag}</source_timelag>
+               <target_timelag>1</target_timelag>
+            </timestep>
+            <interpolation_requirements use_source_mask="true" use_target_mask="true">
+               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="true"/>
+               <interpolation method="fixed_value" user_value="-999.0"/>
+            </interpolation_requirements>
+            <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
+            <enforce_write_restart>false</enforce_write_restart>
+            <enforce_write_weight_file filename="">false</enforce_write_weight_file>
+         </transient_couple>
       </couple>
    </couples>
-   <created date="30-03-2016 14:56" tool="YAC-CouplingGUI v.1.2.0"/>
+   <created date="19-04-2016 15:39" tool="YAC-CouplingGUI v.1.2.0"/>
 </coupling>
 EOF
 
 # IV.4 xsd and xml files for yac
 # ------------------------------
 
-add_required_file ${basedir}/run/${cpl_namelist}  ./coupling.xml
+add_required_file ${basedir}/run/${cpl_xmlctrfn}  ./coupling.xml
 add_required_file ${basedir}/run/coupling.xsd  ./
 add_required_file ${basedir}/run/component.xsd ./
 
