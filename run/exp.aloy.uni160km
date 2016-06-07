@@ -102,6 +102,7 @@ start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
 
 # high frequency output and restart intervals
 (( dt_restart    =  10 * day))
+(( dt_checkpoint =  10 * day))
 atm_output_interval="PT6H"
 lnd_output_interval="PT6H"
 oce_output_interval="PT6H"
@@ -109,11 +110,11 @@ output_lnd=yes
 
 ## long-term low frequency output and restart intervals - must be multiple of atm/oce output_interval
 #(( dt_restart    = 1860 * day))  #  5y
+#(( dt_checkpoint = 1860 * day))
 #atm_output_interval="P5DT1H"
 #lnd_output_interval="P5DT1H"
 #oce_output_interval="P30DT1H"
 
-(( dt_checkpoint = 1860 * day))
 atm_file_interval="P6Y"
 lnd_file_interval="P6Y"
 oce_file_interval="P6Y"
@@ -332,7 +333,7 @@ add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc                 ./bc_gre
 # - ozone
 
 datadir=/pool/data/ICON/coupled_input_temp/aloy_r2b4
-add_link_file $datadir/bc_ozone_cmip5_clim1979-2009.nc 			./bc_ozone.nc
+add_link_file $datadir/bc_ozone_cmip5_clim1979-2009.nc                  ./bc_ozone.nc
 #datadir=$INDATA/r2b4_amip/atm/bc_ozone_cmip5
 #year=$start_year
 #while [[ $year -le $end_year ]]
@@ -344,10 +345,10 @@ add_link_file $datadir/bc_ozone_cmip5_clim1979-2009.nc 			./bc_ozone.nc
 # - tropospheric aerosol
 
 datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
-add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  	./bc_aeropt_kinne_lw_b16_coa.nc
-add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                  	./bc_aeropt_kinne_sw_b14_coa.nc
+add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                    ./bc_aeropt_kinne_lw_b16_coa.nc
+add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                    ./bc_aeropt_kinne_sw_b14_coa.nc
 datadir=/pool/data/ICON/coupled_input_temp/aloy_r2b4
-add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_clim1979-2009.nc	./bc_aeropt_kinne_sw_b14_fin.nc
+add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_clim1979-2009.nc      ./bc_aeropt_kinne_sw_b14_fin.nc
 
 #datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
 #year=$start_year
@@ -698,7 +699,8 @@ cat > ${oce_namelist} << EOF
   l_edge_based                    = .FALSE.   ! edge- or cell-based mimetic discretization
   select_solver                   =   2       ! 1=gmres_oce_old
                                               ! 2=ocean_restart_gmres
-					      ! 3=mixed precisison restart
+                                              ! 3=mixed precisison restart
+  solver_FirstGuess               =   1
   use_absolute_solver_tolerance   = .true.
   solver_tolerance                =   1.0E-13
   solver_max_iter_per_restart     =  26       !
@@ -754,8 +756,6 @@ cat > ${oce_namelist} << EOF
 &ocean_forcing_nml
   iforc_oce                       =  14       ! ocean forcing: FORCING_FROM_COUPLED_FLUX  = 14
   type_surfRelax_Temp             =  -1       ! -1: use net surface heat flux from atmosphere as boundary condition - no relaxation
-  para_surfRelax_Temp             =   3.0     ! strength of 2-dim relaxation for temperature (months)
-                                              ! this value is divided by number of seconds per month (=30*24*3600)
   forcing_enable_freshwater       = .TRUE.    ! enable freshwater flux
   forcing_windstress_u_type       =  22       ! 0: wind-stress set to zero (default) 1: read from (OMIP-) file; 2-100: untouched wind stress
   forcing_windstress_v_type       =  22

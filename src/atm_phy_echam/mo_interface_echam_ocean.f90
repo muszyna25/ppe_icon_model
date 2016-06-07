@@ -905,9 +905,9 @@ CONTAINS
     CALL dbg_print('EchOce: evaporation ',scr,str_module,4,in_subset=p_patch%cells%owned)
 
     scr(:,:) = prm_field(jg)%u(:,nlev,:)
-    CALL dbg_print('EchOce: prm%u      ',scr,str_module,2,in_subset=p_patch%cells%owned)
+    CALL dbg_print('EchOce: prm%u      ',scr,str_module,4,in_subset=p_patch%cells%owned)
     scr(:,:) = prm_field(jg)%v(:,nlev,:)
-    CALL dbg_print('EchOce: prm%v      ',scr,str_module,3,in_subset=p_patch%cells%owned)
+    CALL dbg_print('EchOce: prm%v      ',scr,str_module,4,in_subset=p_patch%cells%owned)
     scr(:,:) = SQRT(prm_field(jg)%u(:,nlev,:)**2+prm_field(jg)%v(:,nlev,:)**2) 
     CALL dbg_print('EchOce: sqrt(u2+v2)',scr,str_module,3,in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
