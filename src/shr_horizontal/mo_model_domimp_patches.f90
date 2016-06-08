@@ -451,6 +451,7 @@ CONTAINS
 
     INTEGER :: jg, jgp, n_lp, id_lp(max_dom)
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':complete_patches'
+    INTEGER :: j, jc_glb, jb_glb
 
     DO jg = n_dom_start, n_dom
 
@@ -669,7 +670,7 @@ CONTAINS
     TYPE(t_patch), INTENT(INOUT) :: p_pp_glb   !> divided (global) parent patch
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_parent_child_relations"
-    INTEGER   :: i, j, jl, jb, jc, jc_g, jp, jp_g, ierr, &
+    INTEGER   :: i, j, jl, jb, jc, jc_g, jp, jp_g, &
       &         jc_c, jb_c, communicator, jc_glb, jb_glb
     INTEGER, ALLOCATABLE :: in_child_id(:), parent_idx(:), out_child_id(:,:)
 
@@ -800,13 +801,12 @@ CONTAINS
     ! save the previous state of the child_id:
     ALLOCATE(out_child_id(1,p_pp_glb%n_patch_cells))
     DO j = 1, p_pp_glb%n_patch_cells
-      out_child_id(j) = p_pp_glb%cells%child_id(idx_no(j), blk_no(j))
+      out_child_id(1,j) = p_pp_glb%cells%child_id(idx_no(j), blk_no(j))
     END DO
 
     ! communicate ID data between processors:
-    CALL reshuffle(parent_idx, in_child_id, p_pp_glb%cells%decomp_info%glb_index, &
-      &            p_pp_glb%n_patch_cells_g, communicator, out_child_id, ierr)
-    IF (ierr /= 0)  CALL finish(routine, 'ierr /= 0')
+    CALL reshuffle("send cell id to parent", parent_idx, in_child_id, p_pp_glb%cells%decomp_info%glb_index, &
+      &            p_pp_glb%n_patch_cells_g, communicator, out_child_id)
 
     ! communication finished. now copy the result to the local arrays:
     DO j = 1, p_pp_glb%n_patch_cells
@@ -821,7 +821,6 @@ CONTAINS
         END IF
       END IF
     END DO
-
     DEALLOCATE(out_child_id, in_child_id, parent_idx)
 
     ! ... edges
@@ -873,13 +872,12 @@ CONTAINS
     ! save the previous state of the child_id:
     ALLOCATE(out_child_id(1,p_pp_glb%n_patch_edges))
     DO j = 1, p_pp_glb%n_patch_edges
-      out_child_id(j) = p_pp_glb%edges%child_id(idx_no(j), blk_no(j))
+      out_child_id(1,j) = p_pp_glb%edges%child_id(idx_no(j), blk_no(j))
     END DO
 
     ! communicate ID data between processors:
-    CALL reshuffle(parent_idx, in_child_id, p_pp_glb%edges%decomp_info%glb_index, &
-      &            p_pp_glb%n_patch_edges_g, communicator, out_child_id, ierr)
-    IF (ierr /= 0)  CALL finish(routine, 'ierr /= 0')
+    CALL reshuffle("send edge ID to parent", parent_idx, in_child_id, p_pp_glb%edges%decomp_info%glb_index, &
+      &            p_pp_glb%n_patch_edges_g, communicator, out_child_id)
 
     ! communication finished. now copy the result to the local arrays:
     DO j = 1, p_pp_glb%n_patch_edges

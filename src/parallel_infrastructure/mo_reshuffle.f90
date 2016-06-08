@@ -19,6 +19,8 @@ MODULE mo_reshuffle
 #endif
 #endif
 
+  USE mo_exception,          ONLY: finish
+
   IMPLICIT NONE
 
 #ifndef NOMPI
@@ -38,6 +40,9 @@ MODULE mo_reshuffle
     PROCEDURE :: glb2local  => regular_partition_glb2local
     PROCEDURE :: glbidx2pe  => regular_partition_glbidx2pe
   END TYPE t_regular_partition
+
+  !> module name string
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_reshuffle'
 
 CONTAINS
 
@@ -188,16 +193,19 @@ CONTAINS
   ! Note: Only those entries in out_values are modified which correspond to 
   !       entries in "in_glb_idx" on some PE.
   ! -----------------------------------------------------------------------
-  SUBROUTINE reshuffle(in_glb_idx, in_values, owner_idx, nglb_indices, communicator, out_values, ierr)
+  SUBROUTINE reshuffle(description, in_glb_idx, in_values, owner_idx, nglb_indices, communicator, out_values, &
+    &                  opt_count)
+    CHARACTER(LEN=*), INTENT(IN) :: description !< description string (for debugging purposes)
     INTEGER, INTENT(IN)    :: in_glb_idx(:)    !< global indices to which "values" correspond
     INTEGER, INTENT(IN)    :: in_values(:)     !< values to send
     INTEGER, INTENT(IN)    :: owner_idx(:)     !< array indices "owned" by local PE
     INTEGER, INTENT(IN)    :: nglb_indices     !< total size of distributed array
     INTEGER, INTENT(IN)    :: communicator     !< MPI comm.
     INTEGER, INTENT(INOUT) :: out_values(:,:)  !< resulting local part of distributed array
-    INTEGER, INTENT(OUT)   :: ierr             !< error return code 
+    INTEGER, INTENT(INOUT), OPTIONAL :: opt_count(:,:) !< (optional:) counts, how often an entry was received
     ! local variables
-    INTEGER                   :: i, j, nsend, nlocal, rank, isize,                         &
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':reshuffle'
+    INTEGER                   :: i, j, nsend, nlocal, rank, isize, nvals, ierr, src_idx,   &
       &                          npairs_recv, local_idx, npairs_recv_owner, ncollisions                 
     INTEGER, ALLOCATABLE      :: icounts(:), irecv(:), irecv_idx(:), recv_vals(:),         &
       &                          i_pe(:), glb_idx(:), values(:), permutation(:),           &
@@ -208,35 +216,28 @@ CONTAINS
       &                          send_displs_owner(:), recv_displs_owner(:),               &
       &                          send_counts2(:), recv_counts2(:), send_displs2(:),        &
       &                          recv_displs2(:), tmp_idx(:), irecv_tmp(:),                &
-      &                          irecv_idx_owner2(:,:), reg_partition_modified(:)
+      &                          irecv_idx_owner2(:,:), reg_partition_modified(:),         &
+      &                          reg_partition_count(:,:)
     TYPE(t_regular_partition) :: reg_partition
+    LOGICAL                   :: lfound
 
-    ierr   = 0
     nlocal = SIZE(owner_idx)
     nsend  = SIZE(in_glb_idx)
     ncollisions = SIZE(out_values,1) ! max no. of concurrent sets
 
     ! consistency checks:
-    IF (SIZE(out_values,2) /= nlocal) THEN
-      WRITE (0,*) "SIZE(out_values) /= nlocal"
-      ierr = 1
-    END IF
-    IF (SIZE(in_values) /= nsend) THEN
-      WRITE (0,*) "SIZE(in_values) /= nsend"
-      ierr = 1
-    END IF
+    IF (SIZE(out_values,2) /= nlocal)  CALL finish(routine, TRIM(description)//" - SIZE(out_values) /= nlocal")
+    IF (SIZE(in_values) /= nsend)  CALL finish(routine, TRIM(description)//" - SIZE(in_values) /= nsend")
     IF ((MAXVAL(in_glb_idx) > nglb_indices) .OR. (MINVAL(in_glb_idx) < 1)) THEN
-      WRITE (0,*) "MAXVAL(in_glb_idx) > nglb_indices"
-      ierr = 1
+      CALL finish(routine, TRIM(description)//" - MAXVAL(in_glb_idx) > nglb_indices")
     END IF
     IF ((MAXVAL(owner_idx) > nglb_indices)  .OR. (MINVAL(owner_idx) < 1)) THEN
-      WRITE (0,*) "MAXVAL(in_glb_idx) > nglb_indices"
-      ierr = 1
+      CALL finish(routine, TRIM(description)//" - MAXVAL(in_glb_idx) > nglb_indices")
     END IF
 
 #ifndef NOMPI
-    CALL MPI_COMM_RANK(communicator, rank, ierr)      ; IF (ierr /= 0) WRITE (*,*) "MPI Error!"
-    CALL MPI_COMM_SIZE(communicator, isize, ierr)     ; IF (ierr /= 0) WRITE (*,*) "MPI Error!"
+    CALL MPI_COMM_RANK(communicator, rank, ierr)      ; IF (ierr /= 0) CALL finish(routine,"MPI Error!")
+    CALL MPI_COMM_SIZE(communicator, isize, ierr)     ; IF (ierr /= 0) CALL finish(routine,"MPI Error!")
 
     ! ---   intermediate, regular partitioning of global index space:
     reg_partition%n_indices = nglb_indices
@@ -277,7 +278,7 @@ CONTAINS
     irecv_buf(1,:)   = irecv(:)
     irecv_buf(2,:)   = irecv_owner(:)
     CALL MPI_ALLTOALL(icounts_buf, 2, MPI_INTEGER, irecv_buf, 2, MPI_INTEGER, communicator, ierr)
-    IF (ierr /= 0) WRITE (*,*) "MPI Error!"
+    IF (ierr /= 0)  CALL finish(routine, TRIM(description)//" - MPI Error!")
     icounts(:)       = icounts_buf(1,:)
     icounts_owner(:) = icounts_buf(2,:)
     irecv(:)         = irecv_buf(1,:)
@@ -333,7 +334,7 @@ CONTAINS
     END DO
     CALL MPI_ALLTOALLV(tmp_idx, send_counts2, send_displs2, MPI_INTEGER, irecv_tmp, &
       &                recv_counts2, recv_displs2, MPI_INTEGER, communicator, ierr)
-    IF (ierr /= 0) WRITE (*,*) "MPI Error!"
+    IF (ierr /= 0) CALL finish(routine, TRIM(description)//" - MPI Error!")
     j = 1
     DO i=0,(isize-1)
       irecv_idx( (1+recv_displs(i)):(recv_displs(i)+irecv(i)) ) = irecv_tmp(j:(j+irecv(i)-1))
@@ -345,70 +346,113 @@ CONTAINS
     ! ---  PE "a" sends values to "b"
     CALL MPI_ALLTOALLV(values, icounts, send_displs, MPI_INTEGER, recv_vals, &
       &                irecv, recv_displs, MPI_INTEGER, communicator, ierr)
-    IF (ierr /= 0) WRITE (*,*) "MPI Error!"
+    IF (ierr /= 0) CALL finish(routine, TRIM(description)//" - MPI Error!")
 
     ! ---  each PE inserts the received index/value pairs into "its"
     !      part of the global index space (wrt. to the regular
     !      partition).
     ALLOCATE(reg_partition_buf(ncollisions, reg_partition%local_size()), &
-      &      reg_partition_modified(reg_partition%local_size()))
-    reg_partition_buf(:)      = 0
-    reg_partition_modified(:) = 0
+      &      reg_partition_modified(reg_partition%local_size()),         &
+      &      reg_partition_count(ncollisions, reg_partition%local_size()))
+    reg_partition_buf      = 0
+    reg_partition_modified = 0
+    reg_partition_count    = 0
     DO i=1,npairs_recv
       local_idx = reg_partition%glb2local(irecv_idx(i))
       ! we try to avoid collisions, when one entry is modified several
       ! times:
-      IF ((reg_partition_modified(local_idx) == 0) .OR. &
-        & (reg_partition_buf(reg_partition_modified(local_idx), local_idx) /= recv_vals(i))) THEN
-        reg_partition_modified(local_idx) = reg_partition_modified(local_idx) + 1
-        IF (reg_partition_modified(local_idx) > ncollisions) THEN
-          WRITE (0,*) "Error! Too many collisions!"
+      nvals  = reg_partition_modified(local_idx)
+      lfound = .FALSE.
+      LOOP_FOUND : DO j=1,nvals
+        IF (reg_partition_buf(j, local_idx) == recv_vals(i)) THEN
+          reg_partition_count(j, local_idx) = reg_partition_count(j, local_idx) + 1
+          lfound = .TRUE. ; EXIT LOOP_FOUND
         END IF
-        reg_partition_buf(reg_partition_modified(local_idx), local_idx) = recv_vals(i)
+      END DO LOOP_FOUND
+      IF ((nvals == 0) .OR. (.NOT. lfound)) THEN
+        nvals = nvals + 1
+        IF (nvals > ncollisions)  CALL finish(routine, TRIM(description)//" - Error! Too many collisions!")
+        reg_partition_buf(nvals, local_idx) = recv_vals(i)
+        reg_partition_count(j, local_idx)   = 1 
+        reg_partition_modified(local_idx)   = nvals
       END IF
     END DO
 
     ! ---  collect send buffer based on received "owner_idx"
-    ALLOCATE(isendbuf(ncollisions+1,npairs_recv_owner))
+    ALLOCATE(isendbuf(2*ncollisions+1,npairs_recv_owner))
     isendbuf(:,:) = 0
     DO i=1,npairs_recv_owner
-      isendbuf(1,i) = reg_partition_modified( reg_partition%glb2local(irecv_idx_owner(i)) )
-      isendbuf(2:(ncollisions+1),i) = reg_partition_buf(:, reg_partition%glb2local(irecv_idx_owner(i)) )
+      src_idx = reg_partition%glb2local(irecv_idx_owner(i))
+      isendbuf(1,i) = reg_partition_modified(src_idx)
+      isendbuf(2:(ncollisions+1),i) = reg_partition_buf(:, src_idx)
+      isendbuf((ncollisions+2):,i)  = reg_partition_count(:, src_idx)
     END DO
 
     ! ---  PE "b" sends values back to "a", together with the information, 
-    !      which entries have been modified
+    !      which entries have been modified. Each value is a pair: the
+    !      value itself and the number of time it has been received.
     DEALLOCATE(irecv_idx_owner)
-    ALLOCATE(irecv_idx_owner2((ncollisions+1),SUM(icounts_owner)))
-    irecv_owner       = (ncollisions+1)*irecv_owner
-    recv_displs_owner = (ncollisions+1)*recv_displs_owner
-    icounts_owner     = (ncollisions+1)*icounts_owner
-    send_displs_owner = (ncollisions+1)*send_displs_owner
+    ALLOCATE(irecv_idx_owner2((2*ncollisions+1),SUM(icounts_owner)))
+    irecv_idx_owner2(:,:) = 0
+    irecv_owner       = (2*ncollisions+1)*irecv_owner
+    recv_displs_owner = (2*ncollisions+1)*recv_displs_owner
+    icounts_owner     = (2*ncollisions+1)*icounts_owner
+    send_displs_owner = (2*ncollisions+1)*send_displs_owner
     CALL MPI_ALLTOALLV(isendbuf, irecv_owner, recv_displs_owner, MPI_INTEGER, irecv_idx_owner2, &
       &                icounts_owner, send_displs_owner, MPI_INTEGER, communicator, ierr)
-    IF (ierr /= 0) WRITE (*,*) "MPI Error!"
+    IF (ierr /= 0)  CALL finish(routine, TRIM(description)//" - MPI Error!")
     
     ! ---  each PE inserts the received index/values pairs into its
     !      part of the global index space
     DO i=1,nlocal
-      IF (irecv_idx_owner2(1,i) == 1) THEN
+      IF (irecv_idx_owner2(1,i) >= 1) THEN
         out_values(:, permutation_owner(i)) = irecv_idx_owner2(2:(ncollisions+1),i)
       END IF
     END DO
+    IF (PRESENT(opt_count)) THEN
+      DO i=1,nlocal
+        IF (irecv_idx_owner2(1,i) >= 1) THEN
+          opt_count(:, permutation_owner(i)) = irecv_idx_owner2((ncollisions+2):,i)
+        END IF
+      END DO
+    END IF
     
     ! ---  clean-up
     DEALLOCATE(icounts, irecv, i_pe, permutation, glb_idx, values, send_displs, recv_displs, &
       &        irecv_idx, recv_vals, reg_partition_buf, reordered_owner_idx, isendbuf,       &
       &        i_pe_owner, icounts_owner, irecv_owner, icounts_buf, irecv_buf,               &
       &        permutation_owner, irecv_idx_owner2, send_displs_owner, recv_displs_owner,    &
-      &        send_counts2, recv_counts2, tmp_idx, irecv_tmp, reg_partition_modified)
+      &        send_counts2, recv_counts2, tmp_idx, irecv_tmp, reg_partition_modified,       &
+      &        reg_partition_count)
 
 #else
 
     ! non-MPI mode: local copy
-    out_values(1, in_glb_idx(:))                 = in_values(:)
-    out_values(2:(ncollisions+1), in_glb_idx(:)) = 0
+    IF (PRESENT(opt_count))  opt_count = 0
+    ALLOCATE(reg_partition_modified(nsend))
+    reg_partition_modified = 0
+    DO i=1,nsend
+      local_idx = in_glb_idx(i)
+      ! we try to avoid collisions, when one entry is modified several
+      ! times:
+      nvals  = reg_partition_modified(local_idx)
+      lfound = .FALSE.
+      LOOP_FOUND : DO j=1,nvals
+        IF (out_values(j, local_idx) == in_values(i)) THEN
+          IF (PRESENT(opt_count))  opt_count(j, local_idx) = opt_count(j, local_idx) + 1
+          lfound = .TRUE. ; EXIT LOOP_FOUND
+        END IF
+      END DO LOOP_FOUND
+      IF ((nvals == 0) .OR. (.NOT. lfound)) THEN
+        nvals = nvals + 1
+        IF (nvals > ncollisions)  CALL finish(routine, TRIM(description)//" - Error! Too many collisions!")
+        out_values(nvals, local_idx)      = recv_vals(i)
+        reg_partition_modified(local_idx) = nvals
+      END IF
+    END DO
 
+    ! non-MPI mode: clean up
+    DEALLOCATE(reg_partition_modified)
 #endif
 
   END SUBROUTINE reshuffle
