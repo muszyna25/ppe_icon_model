@@ -177,7 +177,7 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
                    &         ( sedb1(l,iv) - tredsy(l,3) * powtra(j,l+1,iv) ) &
                    &         / tredsy(l,2)
 
-              sedfluxo(j,iv) = (bgctra(j,kbo(j),iv)-aprior)*bolay(j)/dtbgc
+              sedfluxo(j,iv) = (bgctra(j,kbo(j),iv_oc)-aprior)*bolay(j)/dtbgc
            ENDIF       !----------------------------------------------------------------------
 
 
