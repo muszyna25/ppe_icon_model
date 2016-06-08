@@ -61,6 +61,7 @@ MODULE mo_art_nml
   CHARACTER(LEN=120) :: cart_vortex_init_date
   CHARACTER(LEN=120) :: cart_mozartfile 
   CHARACTER(LEN=120) :: cart_chemistry_xml
+  CHARACTER(LEN=120) :: cart_aerosol_xml
   ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
   LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
   INTEGER :: iart_seasalt            !< Treatment of sea salt aerosol
@@ -89,7 +90,8 @@ MODULE mo_art_nml
    &                iart_aci_warm, iart_aci_cold, iart_ari,                            &
    &                lart_conv, lart_turb, iart_ntracer, iart_init_aero, iart_init_gas, &
    &                lart_diag_out, cart_emiss_table_path, cart_emiss_table_file,       &
-   &                cart_vortex_init_date , cart_mozartfile,  cart_chemistry_xml
+   &                cart_vortex_init_date , cart_mozartfile,  cart_chemistry_xml,      &
+   &                cart_aerosol_xml
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -123,7 +125,7 @@ CONTAINS
     !-----------------------
       
     ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
-    cart_folder                = './art/'
+    cart_folder                = ''
     iart_ntracer               = 0
     iart_init_aero             = 0
     iart_init_gas              = 0
@@ -138,6 +140,7 @@ CONTAINS
     cart_vortex_init_date = ''
     cart_mozartfile       = ''
     cart_chemistry_xml    = ''
+    cart_aerosol_xml      = ''
 
     ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
     lart_aerosol        = .FALSE.
@@ -146,9 +149,9 @@ CONTAINS
     iart_anthro         = 0
     iart_fire           = 0
     iart_volcano        = 0
-    cart_volcano_file   = './volcanofile'
+    cart_volcano_file   = ''
     iart_radioact       = 0
-    cart_radioact_file  = './radioactfile'
+    cart_radioact_file  = ''
     iart_pollen         = 0
       
     ! Feedback processes (Details: cf. Tab. 2.4 ICON-ART User Guide)
@@ -222,11 +225,12 @@ CONTAINS
       ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
       art_config(jg)%lart_chem             = lart_chem
       art_config(jg)%iart_chem_mechanism   = iart_chem_mechanism
-      art_config(jg)%cart_emiss_table_path = TRIM(cart_emiss_table_path)   
-      art_config(jg)%cart_emiss_table_file = TRIM(cart_emiss_table_file(jg)) 
+      art_config(jg)%cart_emiss_table_path = TRIM(cart_emiss_table_path)
+      art_config(jg)%cart_emiss_table_file = TRIM(cart_emiss_table_file(jg))
       art_config(jg)%cart_vortex_init_date = TRIM(cart_vortex_init_date)
-      art_config(jg)%cart_mozartfile       = TRIM(cart_mozartfile) 
-      art_config(jg)%cart_chemistry_xml    = TRIM(cart_chemistry_xml) 
+      art_config(jg)%cart_mozartfile       = TRIM(cart_mozartfile)
+      art_config(jg)%cart_chemistry_xml    = TRIM(cart_chemistry_xml)
+      art_config(jg)%cart_aerosol_xml      = TRIM(cart_aerosol_xml)
 
 
       ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)

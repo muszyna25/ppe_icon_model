@@ -1112,6 +1112,22 @@ CONTAINS
         CALL finish(TRIM(method_name),'iart_ari > 0 requires irad_aero=9')
       ENDIF
     ENDDO
+    
+    ! XML specification checks
+    
+    DO jg= 1,n_dom
+      IF(art_config(jg)%lart_aerosol) THEN
+        IF(TRIM(art_config(jg)%cart_aerosol_xml)=='') THEN
+          CALL finish(TRIM(method_name),'lart_aerosol=.TRUE. but no cart_aerosol_xml specified')
+        ENDIF
+      ENDIF
+      IF(art_config(jg)%lart_chem) THEN
+        IF(TRIM(art_config(jg)%cart_chemistry_xml)=='') THEN
+          CALL finish(TRIM(method_name),'lart_chem=.TRUE. but no cart_chemistry_xml specified')
+        ENDIF
+      ENDIF
+    ENDDO
+    
 #endif
   END SUBROUTINE art_crosscheck
   !---------------------------------------------------------------------------------------
