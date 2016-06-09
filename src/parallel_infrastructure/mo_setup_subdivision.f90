@@ -49,14 +49,14 @@ MODULE mo_setup_subdivision
   USE mo_run_config,         ONLY: msg_level
   USE mo_io_units,           ONLY: filename_max
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent, t_pre_patch, &
-       c_num_edges, c_parent, c_child, c_phys_id, c_neighbor, c_edge, &
-       c_vertex, c_center, c_refin_ctrl, e_parent, e_child, e_cell, &
+       c_num_edges, c_parent, c_phys_id, c_neighbor, c_edge, &
+       c_vertex, c_center, c_refin_ctrl, e_parent, e_cell, &
        e_refin_ctrl, v_cell, v_num_edges, v_vertex, v_refin_ctrl
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              get_local_index, get_valid_local_index, &
     &                              set_inner_glb_index, set_outer_glb_index, &
     &                              uniform_partition
-  USE mo_mpi,                ONLY: proc_split, p_max, p_comm_work_test
+  USE mo_mpi,                ONLY: proc_split, p_max
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_COMM_NULL, p_int, &
        mpi_in_place, mpi_success, mpi_sum, mpi_lor, p_bool
@@ -66,7 +66,7 @@ MODULE mo_setup_subdivision
 
   USE mo_parallel_config,       ONLY:  nproma, ldiv_phys_dom, &
     & division_method, division_file_name, n_ghost_rows, &
-    & div_geometric, ext_div_from_file, write_div_to_file, use_div_from_file, p_test_run
+    & div_geometric, ext_div_from_file, write_div_to_file, use_div_from_file
 
   USE mo_communication,      ONLY: blk_no, idx_no, idx_1d
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight, l_limited_area
@@ -75,15 +75,13 @@ MODULE mo_setup_subdivision
   USE mo_decomposition_tools, ONLY: divide_cells_by_location, t_cell_info, &
     & sort_cell_info_by_cell_number, partidx_of_elem_uniform_deco
   USE mo_math_utilities,      ONLY: fxp_lat, fxp_lon
-  USE mo_master_control,      ONLY: get_my_process_type, ocean_process, &
-                                    testbed_process
+  USE mo_master_control,      ONLY: get_my_process_type, ocean_process
 #ifndef NOMPI
   USE mo_divide_cells_by_location_mpi, ONLY: divide_cells_by_location_mpi, &
        init_divide_cells_by_location_mpi
 #endif
   USE mo_grid_config,         ONLY: use_dummy_cell_closure
   USE mo_util_sort,           ONLY: quicksort, insertion_sort
-  USE mo_util_string,         ONLY: int2string
   USE mo_dist_dir,            ONLY: dist_dir_setup
   USE ppm_distributed_array,  ONLY: dist_mult_array, global_array_desc, &
     &                               dist_mult_array_new, &

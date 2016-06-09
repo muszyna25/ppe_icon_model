@@ -821,8 +821,6 @@ MODULE mo_initicon_io
     REAL(wp), INTENT(INOUT) :: field(:,:)
     LOGICAL :: RESULT
 
-    INTEGER :: jt
-
     IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
         RESULT = params%requestList%fetchSurface(varName, trivial_tileId, jg, field)
         CALL params%inputInstructions(jg)%ptr%optionalReadResult(RESULT, varName, params%routine, params%isFg)
@@ -835,7 +833,6 @@ MODULE mo_initicon_io
     INTEGER, VALUE :: jg
     REAL(wp), INTENT(INOUT) :: field(:,:)
 
-    INTEGER :: jt
     LOGICAL :: fetchResult
 
     IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN

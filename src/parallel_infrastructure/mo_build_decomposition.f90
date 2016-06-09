@@ -187,8 +187,8 @@ CONTAINS
     LOGICAL, INTENT(IN) :: set_pc_idx
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":set_child_indices"
-    INTEGER              :: i, j, k, jc_c, jb_c, communicator, i1, i2, iidx,                 &
-      &                     tmp, glb_idx(4), jc_e, jb_e, ordered(4), cmp1, cmp2, iglb
+    INTEGER              :: i, j, jc_c, jb_c, communicator, i1, i2, iidx,                 &
+      &                     tmp, jc_e, jb_e, ordered(4), iglb
     INTEGER, ALLOCATABLE :: in_data(:), dst_idx(:), out_data(:,:), out_pc_data(:,:),         &
       &                     out_data34(:,:), out_data_e(:,:), out_count(:,:),                &
       &                     out_data_e3(:,:), out_data_c3(:,:), out_child_id(:,:)

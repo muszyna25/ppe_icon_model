@@ -52,7 +52,7 @@
 !!    of the module "mo_util_string_parse" and converted into a
 !!    "t_level_selection" object.
 !!
-!! b) Definition of namelist paramters "p_levels", "h_levels", "i_levels"
+!! b) Definition of namelist parameters "p_levels", "h_levels", "i_levels"
 !!
 !!    Each output namelist "output_nml" may specify its own range of
 !!    pressure levels for output (or for height, isentropic levels as
