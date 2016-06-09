@@ -205,21 +205,25 @@ CONTAINS
     INTEGER, INTENT(INOUT), OPTIONAL :: opt_count(:,:) !< (optional:) counts, how often an entry was received
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':reshuffle'
-    INTEGER                   :: i, j, nsend, nlocal, rank, isize, nvals, ierr, src_idx,   &
-      &                          npairs_recv, local_idx, npairs_recv_owner, ncollisions                 
+    INTEGER                   :: nsend, nlocal, i, j, ncollisions, local_idx, nvals
+    LOGICAL                   :: lfound
+    INTEGER, ALLOCATABLE      :: reg_partition_buf(:,:), reg_partition_modified(:),        &
+      &                          reg_partition_count(:,:)
+#ifndef NOMPI
+    INTEGER                   :: rank, isize, ierr, src_idx,                               &
+      &                          npairs_recv, npairs_recv_owner                 
     INTEGER, ALLOCATABLE      :: icounts(:), irecv(:), irecv_idx(:), recv_vals(:),         &
       &                          i_pe(:), glb_idx(:), values(:), permutation(:),           &
-      &                          send_displs(:), recv_displs(:), reg_partition_buf(:,:),   &
+      &                          send_displs(:), recv_displs(:)                            &
       &                          reordered_owner_idx(:), isendbuf(:,:), i_pe_owner(:),     &
       &                          icounts_owner(:), irecv_owner(:), icounts_buf(:,:),       &
       &                          irecv_buf(:,:), permutation_owner(:), irecv_idx_owner(:), &
       &                          send_displs_owner(:), recv_displs_owner(:),               &
       &                          send_counts2(:), recv_counts2(:), send_displs2(:),        &
       &                          recv_displs2(:), tmp_idx(:), irecv_tmp(:),                &
-      &                          irecv_idx_owner2(:,:), reg_partition_modified(:),         &
-      &                          reg_partition_count(:,:)
+      &                          irecv_idx_owner2(:,:)
     TYPE(t_regular_partition) :: reg_partition
-    LOGICAL                   :: lfound
+#endif
 
     nlocal = SIZE(owner_idx)
     nsend  = SIZE(in_glb_idx)
@@ -435,26 +439,37 @@ CONTAINS
 
     ! non-MPI mode: local copy
     IF (PRESENT(opt_count))  opt_count = 0
-    ALLOCATE(reg_partition_modified(nlocal))
+    ALLOCATE(reg_partition_buf(ncollisions, nglb_indices),    &
+      &      reg_partition_modified(nglb_indices),            &
+      &      reg_partition_count(ncollisions, nglb_indices))
     reg_partition_modified = 0
+    reg_partition_buf      = 0
     DO i=1,nsend
       local_idx = in_glb_idx(i)
-      ! we try to avoid collisions, when one entry is modified several
-      ! times:
+      ! we try to avoid collisions, when one entry is repeatedly
+      ! modified:
       nvals  = reg_partition_modified(local_idx)
       lfound = .FALSE.
       LOOP_FOUND : DO j=1,nvals
-        IF (out_values(j, local_idx) == in_values(i)) THEN
-          IF (PRESENT(opt_count))  opt_count(j, local_idx) = opt_count(j, local_idx) + 1
+        IF (reg_partition_buf(j, local_idx) == in_values(i)) THEN
+          reg_partition_count(j, local_idx) = reg_partition_count(j, local_idx) + 1
           lfound = .TRUE. ; EXIT LOOP_FOUND
         END IF
       END DO LOOP_FOUND
       IF ((nvals == 0) .OR. (.NOT. lfound)) THEN
         nvals = nvals + 1
         IF (nvals > ncollisions)  CALL finish(routine, TRIM(description)//" - Error! Too many collisions!")
-        out_values(nvals, local_idx)      = in_values(i)
-        IF (PRESENT(opt_count))  opt_count(j, local_idx) = 1 
-        reg_partition_modified(local_idx) = nvals
+        reg_partition_buf(nvals, local_idx) = in_values(i)
+        reg_partition_count(j, local_idx)   = 1 
+        reg_partition_modified(local_idx)   = nvals
+      END IF
+    END DO
+    DO i=1,nlocal
+      IF (reg_partition_modified(owner_idx(i)) > 0) THEN
+        out_values(:,i) = reg_partition_buf(:,owner_idx(i))
+        IF (PRESENT(opt_count)) THEN
+          opt_count(:,i) = reg_partition_count(:,owner_idx(i))
+        END IF
       END IF
     END DO
 
