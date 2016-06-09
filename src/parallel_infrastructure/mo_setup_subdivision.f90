@@ -69,7 +69,7 @@ MODULE mo_setup_subdivision
     & div_geometric, ext_div_from_file, write_div_to_file, use_div_from_file, p_test_run
 
   USE mo_communication,      ONLY: blk_no, idx_no, idx_1d
-  USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight
+  USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight, l_limited_area
   USE mo_alloc_patches,ONLY: allocate_basic_patch, allocate_remaining_patch, &
                              deallocate_pre_patch
   USE mo_decomposition_tools, ONLY: divide_cells_by_location, t_cell_info, &
@@ -84,6 +84,7 @@ MODULE mo_setup_subdivision
 #endif
   USE mo_grid_config,         ONLY: use_dummy_cell_closure
   USE mo_util_sort,           ONLY: quicksort, insertion_sort
+  USE mo_util_string,         ONLY: int2string
   USE mo_dist_dir,            ONLY: dist_dir_setup
   USE ppm_distributed_array,  ONLY: dist_mult_array, global_array_desc, &
     &                               dist_mult_array_new, &
@@ -304,9 +305,12 @@ CONTAINS
 
       IF (my_process_is_mpi_parallel()) THEN
         ! Set division method, divide_for_radiation is only used for patch 0
-        CALL divide_patch_cells(p_patch_pre(jg), jg, p_patch(jg)%n_proc, &
-             p_patch(jg)%proc0, dist_cell_owner, dist_cell_owner_p, &
-             wrk_p_parent_patch_pre, divide_for_radiation = (jg == 0))
+        ! (...  but not in limited area mode because the load balancing for radiation grids
+        !       does not make sense there.)
+        CALL divide_patch_cells(p_patch_pre(jg), jg, p_patch(jg)%n_proc,               &
+          &                     p_patch(jg)%proc0, dist_cell_owner, dist_cell_owner_p, &
+          &                     wrk_p_parent_patch_pre,                                &
+          &                     divide_for_radiation = ((jg == 0) .AND. .NOT. l_limited_area))
       ELSE
         ! trivial "decomposition"
         CALL create_dist_cell_owner(dist_cell_owner, &
@@ -349,12 +353,11 @@ CONTAINS
 
         CALL dist_mult_array_delete(dist_cell_owner_p)
 
-        CALL set_pc_idx(p_patch(jg), p_patch_pre(jgp), p_patch(jgp))
+        CALL set_pc_idx(p_patch(jg), p_patch_pre(jgp))
         IF (jgp > n_dom_start) THEN
 
           CALL set_pc_idx(p_patch_local_parent(jg), &
-            &             p_patch_pre(p_patch_local_parent(jg)%parent_id), &
-            &             p_patch_local_parent(jgp))
+            &             p_patch_pre(p_patch_local_parent(jg)%parent_id))
         END IF
       ENDIF
 
@@ -362,15 +365,32 @@ CONTAINS
 
     ENDDO
 
-    DO jg = (n_dom_start+1), n_dom
-      jgp = p_patch(jg)%parent_id
-      CALL set_child_indices(p_patch(jg), p_patch(jgp))
-    END DO
-
     ! The patches may be discarded now
     DO jg = n_dom_start, n_dom
       CALL deallocate_pre_patch( p_patch_pre(jg) )
     ENDDO
+
+
+    ! compute the child/edge indices on parent patch from the
+    ! corresponding information on parent indices stored in the child
+    ! patch
+    DO jg = n_dom_start,n_dom
+      ! set child indices of patch
+      jgp = p_patch(jg)%parent_id
+      IF (jgp > n_dom_start) THEN
+        CALL set_child_indices("patch "//TRIM(int2string(jgp))//" -> "//int2string(jg), &
+          &                    p_patch(jg), p_patch(jgp))
+      END IF
+    END DO
+
+    DO jg = n_dom_start, n_dom
+      ! set child indices of local parent patch
+      jgp = p_patch(jg)%parent_id
+      IF (jgp > n_dom_start) THEN
+        CALL set_child_indices("loc par patch "//TRIM(int2string(jgp))//" -> "//int2string(jg), &
+          &                    p_patch(jg), p_patch_local_parent(jg))
+      END IF
+    END DO
 
   CONTAINS
 !-------------------------------------------------------------------------
@@ -380,11 +400,10 @@ CONTAINS
   !! @par Revision History
   !! Developed  by Rainer Johanni, Dec 2011
   !!
-    SUBROUTINE set_pc_idx(patch, parent_patch_pre, parent_patch)
+    SUBROUTINE set_pc_idx(patch, parent_patch_pre)
 
       TYPE(t_patch), TARGET, INTENT(inout) :: patch
       TYPE(t_pre_patch), TARGET, INTENT(inout) :: parent_patch_pre
-      TYPE(t_patch), TARGET, INTENT(in) :: parent_patch
 
     ! local variables
 
@@ -493,7 +512,7 @@ CONTAINS
   ! child cells and their parent cells may "live" on different PEs.
   !
   ! We also compute the pc_idx here, i.e. the relative ordering of the
-  ! child cells in the parent cell. 
+  ! child cells/edges in the parent cell/edge. 
   !
   !          *---------------o--------------*
   !           \__   4     _/  \_    2    __/
@@ -504,30 +523,42 @@ CONTAINS
   !                        \_ _/
   !                          *
   !
-  ! This operations makes the important implicit assumption on the
-  ! grid that the global child indices reflect this ordering, i.e. the
-  ! smallest global child index corresponds to local child #1 etc.
+  ! input:   n_patch_cells, n_patch_cells_g  (on child and parent patch)
+  !          n_patch_edges, n_patch_edges_g  (on child and parent patch)
+  !          parent_glb_idx/blk  on child patch            (cells and edges)
+  !          glb_index           on child and parent patch (cells and edges)
+  !          edge_idx/blk        on child patch
+  !          decomp_domain, i.e. cell ownership
+  !
+  ! output:
   !
   ! 06/2016 : F. Prill, DWD
   !
-  SUBROUTINE set_child_indices(p_c, p_p)
+  SUBROUTINE set_child_indices(description, p_c, p_p)
+    CHARACTER(LEN=*), INTENT(IN) :: description !< description string (for debugging purposes)
     TYPE(t_patch), TARGET, INTENT(inout) :: p_c ! child patch
     TYPE(t_patch), TARGET, INTENT(inout) :: p_p ! parent patch
-
-    INTEGER :: i, j, k, jc_c, jb_c, communicator, i1, i2, iidx, tmp, glb_idx(4), &
-      &        jc_e, jb_e, ordered(4), cmp1, cmp2, iglb
-    INTEGER, ALLOCATABLE :: in_data(:), dst_idx(:), out_data(:,:), out_pc_data(:,:), out_data34(:,:), &
-      &     out_data_e(:,:), out_count(:,:), out_data_e3(:,:), out_data_c3(:,:)
-    LOGICAL :: lfound
+    ! local variables
+    INTEGER              :: i, j, k, jc_c, jb_c, communicator, i1, i2, iidx,                 &
+      &                     tmp, glb_idx(4), jc_e, jb_e, ordered(4), cmp1, cmp2, iglb, nskip
+    INTEGER, ALLOCATABLE :: in_data(:), dst_idx(:), out_data(:,:), out_pc_data(:,:),         &
+      &                     out_data34(:,:), out_data_e(:,:), out_count(:,:),                &
+      &                     out_data_e3(:,:), out_data_c3(:,:)
+    LOGICAL              :: lfound
 
     IF (p_pe_work == 0) THEN
-      WRITE (0,*) "set_child_indices: Enter."
+      WRITE (0,*) "set_child_indices: ", TRIM(description), " - Enter."
     END IF
 
     communicator = p_comm_work
-    IF(p_test_run)   communicator = p_comm_work_test
+    IF(p_test_run)  communicator = p_comm_work_test
 
+    ! -----------------------------------------------------------------
     ! --- create CELL indices -----------------------------------------
+    ! -----------------------------------------------------------------
+
+    ! --- CHILD PATCH -> PARENT PATCH
+    ! --- send the four child cells to the parent cell ----------------
 
     ALLOCATE(dst_idx(p_c%n_patch_cells), in_data(p_c%n_patch_cells))
 
@@ -549,6 +580,7 @@ CONTAINS
       &            p_p%n_patch_cells_g, communicator, out_data)
     DEALLOCATE(in_data, dst_idx)      
 
+    ! --- CHILD PATCH -> PARENT PATCH
     ! --- each child cell sends its three edge indices to the parent
     !     cell. Edges which arrive twice are those of the "central"
     !     child.
@@ -588,6 +620,7 @@ CONTAINS
       ! consistency check
       IF (COUNT(out_count(:,j) > 1) /= 3) THEN
         WRITE (0,*) "edge counting went wrong"
+        WRITE (0,*) "out_data = ", out_data(:,j)
         WRITE (0,*) "out_data_e = ", out_data_e(:,j)
         WRITE (0,*) "out_count = ", out_count(:,j)
       END IF
@@ -595,6 +628,7 @@ CONTAINS
 
     DEALLOCATE(in_data, dst_idx)      
 
+    ! --- PARENT PATCH -> CHILD PATCH
     ! --- now, send back the "counting" of the edges to the child patch
 
     ALLOCATE(dst_idx(12*p_p%n_patch_cells), in_data(12*p_p%n_patch_cells))
@@ -626,6 +660,7 @@ CONTAINS
 
     DEALLOCATE(in_data, dst_idx,out_data_e, out_count)      
 
+    ! --- CHILD PATCH -> PARENT PATCH
     ! --- determine the global index of the "inner child cell" no. 3
     !     and send this to parent cell:
 
@@ -685,7 +720,6 @@ CONTAINS
 
     DEALLOCATE(out_data_c3)
 
-
     ! consistency check
     DO j = 1, p_p%n_patch_cells
       jc_c = idx_no(j)
@@ -701,6 +735,7 @@ CONTAINS
         IF (.NOT. ANY(glb_idx(i1) == out_data(:,j)))  lfound=.FALSE.
       END DO
       IF (.NOT. (glb_idx(3) == out_data(3,j)))      lfound=.FALSE.
+
       IF (.NOT. lfound) THEN
         WRITE (0,*) p_p%id, " -> ", p_c%id
         WRITE (0,*) "child_idx: ", glb_idx
@@ -708,6 +743,7 @@ CONTAINS
       END IF
     END DO
 
+    ! --- PARENT PATCH -> CHILD PATCH
     ! --- create CELL pc_idx array ------------------------------------
     !
     ! The "pc_idx" contains the relative ordering of the child cells
@@ -751,7 +787,9 @@ CONTAINS
 
     DEALLOCATE(out_pc_data,out_data, in_data, dst_idx)      
 
+    ! -----------------------------------------------------------------
     ! --- create EDGE indices -----------------------------------------
+    ! -----------------------------------------------------------------
     !
     ! The situation is a bit more complicated here: For a given edge,
     ! children 1 and 2 are the sub-triangle edges coinciding with the
@@ -759,8 +797,8 @@ CONTAINS
     ! sub-triangles having (roughly) the same orientation as the
     ! parent edge.
 
-    ! -----------------------------------------------------------------
-    ! - in a first step, we communicate child edges 3 and 4:
+    ! --- CHILD PATCH -> PARENT PATCH
+    ! --- in a first step, we communicate child edges 3 and 4:
     ALLOCATE(dst_idx(3*p_c%n_patch_cells), in_data(3*p_c%n_patch_cells))
 
     iidx = 0
@@ -788,8 +826,8 @@ CONTAINS
       &            p_p%n_patch_edges_g, communicator, out_data34)
     DEALLOCATE(in_data, dst_idx)      
 
-    ! -----------------------------------------------------------------
-    ! - in a second step, we communicate *all four* edge children
+    ! --- CHILD PATCH -> PARENT PATCH
+    ! --- in a second step, we communicate *all four* edge children
 
     ALLOCATE(dst_idx(p_c%n_patch_edges), in_data(p_c%n_patch_edges))
     DO j = 1, p_c%n_patch_edges
@@ -828,6 +866,7 @@ CONTAINS
     END DO
     DEALLOCATE(dst_idx, in_data)
 
+    ! --- PARENT PATCH -> CHILD PATCH
     ! --- create EDGE pc_idx array ------------------------------------
     !
     ! The "pc_idx" contains the relative ordering of the child edges (1...4).
@@ -859,50 +898,51 @@ CONTAINS
       jc_e = idx_no(j)
       jb_e = blk_no(j)
 
-      IF (p_pe_work == 0) THEN
-        cmp1 = p_c%edges%pc_idx(jc_e,jb_e)
-        IF (cmp1 == 4)  cmp1 = 3
-        IF (cmp1 == 2)  cmp1 = 1
-        cmp2 = out_pc_data(1,j)
-        IF (cmp2 == 4)  cmp2 = 3
-        IF (cmp2 == 2)  cmp2 = 1
-
-        IF (cmp1 /= cmp2) THEN
-          WRITE (0,*) p_p%id, " -> ", p_c%id
-          WRITE (0,*) "e pc_idx: ", p_c%edges%pc_idx(jc_e,jb_e)
-          WRITE (0,*) "e out_pc_data: ", out_pc_data(1,j)
-        END IF
+      cmp1 = p_c%edges%pc_idx(jc_e,jb_e)
+      IF (cmp1 == 4)  cmp1 = 3
+      IF (cmp1 == 2)  cmp1 = 1
+      cmp2 = out_pc_data(1,j)
+      IF (cmp2 == 4)  cmp2 = 3
+      IF (cmp2 == 2)  cmp2 = 1
+      
+      IF (cmp1 /= cmp2) THEN
+        WRITE (0,*) p_p%id, " -> ", p_c%id
+        WRITE (0,*) "e pc_idx: ", p_c%edges%pc_idx(jc_e,jb_e)
+        WRITE (0,*) "e out_pc_data: ", out_pc_data(1,j)
       END IF
     END DO
 
-
     ! consistency check
-    
+    nskip = 0
     DO j = 1, p_p%n_patch_edges
       jc_e = idx_no(j)
       jb_e = blk_no(j)
 
-      IF (p_p%edges%child_id(jc_e,jb_e) /= p_c%id)  CYCLE
+      IF (ALL(out_data(:,j) == 0)) THEN
+        nskip = nskip + 1; CYCLE
+      END IF
+
       DO i=1,4
         glb_idx(i) = idx_1d(p_p%edges%child_idx(jc_e,jb_e,i),p_p%edges%child_blk(jc_e,jb_e,i))
       END DO
 
       IF ((ANY(out_data(1:2,j) /= glb_idx(1:2)) .AND. ANY(out_data((/2,1/),j) /= glb_idx(1:2))) .OR. &
         & (ANY(out_data(3:4,j) /= glb_idx(3:4)) .AND. ANY(out_data((/4,3/),j) /= glb_idx(3:4)))) THEN
-        WRITE (0,*) p_p%id, " -> ", p_c%id
+        WRITE (0,*) "PE ", p_pe_work, ": ", p_p%id, " -> ", p_c%id
         WRITE (0,*) "edge global index: ", p_p%edges%decomp_info%glb_index(j)
         WRITE (0,*) "edge child_idx: ", glb_idx(1:4)
-        WRITE (0,*) "edge out_data: ", ordered
+        WRITE (0,*) "edge out_data: ", out_data(1:4,j)
+        CALL finish(routine, "Error!")
       END IF
     END DO
 
     DEALLOCATE(out_data,out_data34,in_data, dst_idx)      
 
     IF (p_pe_work == 0) THEN
-      WRITE (0,*) "set_child_indices: Done."
+      WRITE (0,*) "set_child_indices: ", TRIM(description), " - Done."
     END IF
-
   END SUBROUTINE set_child_indices
+
 
   END SUBROUTINE decompose_domain
 
