@@ -192,14 +192,16 @@ CONTAINS
     LOGICAL, INTENT(IN) :: is_local_parent
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":set_child_indices"
-    INTEGER              :: i, j, jc_c, jb_c, communicator, i1, i2, iidx,                 &
+    INTEGER              :: i, j, jc_c, jb_c, communicator, i1, i2, iidx,                    &
       &                     tmp, jc_e, jb_e, ordered(4), iglb
     INTEGER, ALLOCATABLE :: in_data(:), dst_idx(:), out_data(:,:), out_pc_data(:,:),         &
       &                     out_data34(:,:), out_data_e(:,:), out_count(:,:),                &
       &                     out_data_e3(:,:), out_data_c3(:,:), out_child_id(:,:)
     LOGICAL              :: lfound, set_pc_idx
-    INTEGER, POINTER     :: parent_idx_c(:,:), parent_blk_c(:,:), &
-      &                     parent_idx_e(:,:), parent_blk_e(:,:)
+    INTEGER, POINTER     :: parent_idx_c(:,:), parent_blk_c(:,:),                            &
+      &                     parent_idx_e(:,:), parent_blk_e(:,:),                            &
+      &                     lparent_glb_idx_c(:,:), lparent_glb_blk_c(:,:),                  &
+      &                     lparent_glb_idx_e(:,:), lparent_glb_blk_e(:,:)
 
 
     IF (p_pe_work == 0) THEN
@@ -211,15 +213,41 @@ CONTAINS
 
     parent_idx_c => p_c%cells%parent_glb_idx
     parent_blk_c => p_c%cells%parent_glb_blk
-    IF (is_local_parent) THEN
-      parent_idx_c => p_c%cells%parent_loc_idx
-      parent_blk_c => p_c%cells%parent_loc_blk
-    END IF
     parent_idx_e => p_c%edges%parent_glb_idx
     parent_blk_e => p_c%edges%parent_glb_blk
+
     IF (is_local_parent) THEN
-      parent_idx_e => p_c%edges%parent_loc_idx
-      parent_blk_e => p_c%edges%parent_loc_blk
+      ! if "p_p" is a local parent patch, we need to create a mapping
+      ! between child patch cells and "p_p" parent cells, but as
+      ! global indices (this is why we cannot use
+      ! p_c%parent_loc_idx/blk).
+      ALLOCATE(lparent_glb_idx_c, source=p_c%cells%parent_loc_idx)
+      ALLOCATE(lparent_glb_blk_c, source=p_c%cells%parent_loc_blk)
+      DO j = 1, p_c%n_patch_cells
+        jc_c = idx_no(j)
+        jb_c = blk_no(j)
+        ! (we now exploit the fact that p_c and p_p have the same domain decomp.:)
+        iglb = p_p%cells%decomp_info%glb_index(idx_1d(p_c%cells%parent_loc_idx(jc_c,jb_c), &
+          &                                           p_c%cells%parent_loc_blk(jc_c,jb_c)))
+        lparent_glb_idx_c(jc_c,jb_c) = idx_no(iglb)
+        lparent_glb_blk_c(jc_c,jb_c) = blk_no(iglb)
+      END DO
+      parent_idx_c => lparent_glb_idx_c
+      parent_blk_c => lparent_glb_blk_c
+
+      ALLOCATE(lparent_glb_idx_e, source=p_c%edges%parent_loc_idx)
+      ALLOCATE(lparent_glb_blk_e, source=p_c%edges%parent_loc_blk)
+      DO j = 1, p_c%n_patch_edges
+        jc_e = idx_no(j)
+        jb_e = blk_no(j)
+        ! (we now exploit the fact that p_c and p_p have the same domain decomp.:)
+        iglb = p_p%edges%decomp_info%glb_index(idx_1d(p_c%edges%parent_loc_idx(jc_e,jb_e), &
+          &                                           p_c%edges%parent_loc_blk(jc_e,jb_e)))
+        lparent_glb_idx_e(jc_e,jb_e) = idx_no(iglb)
+        lparent_glb_blk_e(jc_e,jb_e) = blk_no(iglb)
+      END DO
+      parent_idx_e => lparent_glb_idx_e
+      parent_blk_e => lparent_glb_blk_e
     END IF
     set_pc_idx = .NOT. is_local_parent
 
@@ -236,26 +264,8 @@ CONTAINS
     DO j = 1, p_c%n_patch_cells
       jc_c = idx_no(j)
       jb_c = blk_no(j)
-        dst_idx(j) = idx_1d(parent_idx_c(jc_c,jb_c), &
-          &                 parent_blk_c(jc_c,jb_c))
-!      IF (dst_idx(j) < 1) THEN
-!        WRITE (0,*) idx_1d(p_c%cells%parent_loc_idx(jc_c,jb_c), &
-!        &                  p_c%cells%parent_loc_blk(jc_c,jb_c)), &
-!        &                 p_c%cells%parent_loc_idx(jc_c,jb_c),  &
-!        &                 p_c%cells%parent_loc_blk(jc_c,jb_c)
-!        WRITE (0,*) "p_p%n_patch_cells = ", p_p%n_patch_cells
-!        WRITE (0,*) "p_p%n_patch_cells_g = ", p_p%n_patch_cells_g
-!        CALL finish(routine, "Error!")
-!      END IF
-!      IF (dst_idx(j) > p_p%n_patch_cells) THEN
-!        WRITE (0,*) idx_1d(p_c%cells%parent_glb_idx(jc_c,jb_c), &
-!        &                  p_c%cells%parent_glb_blk(jc_c,jb_c)), &
-!        &                 p_c%cells%parent_glb_idx(jc_c,jb_c),  &
-!        &                 p_c%cells%parent_glb_blk(jc_c,jb_c)
-!        WRITE (0,*) "p_p%n_patch_cells = ", p_p%n_patch_cells
-!        WRITE (0,*) "p_p%n_patch_cells_g = ", p_p%n_patch_cells_g
-!        CALL finish(routine, "Error!")
-!      END IF
+      dst_idx(j) = idx_1d(parent_idx_c(jc_c,jb_c), &
+        &                 parent_blk_c(jc_c,jb_c))
     END DO
 
     in_data(:) = p_c%cells%decomp_info%glb_index(:)
@@ -583,6 +593,10 @@ CONTAINS
     DEALLOCATE(out_data, out_data34, in_data, dst_idx)      
 
     ! -----------------------------------------------------------------
+    ! --- create CHILD ID's -------------------------------------------
+    ! -----------------------------------------------------------------
+
+    ! -----------------------------------------------------------------
     ! --- calculate cells%child_id
     !
     ! To calculate the child_id for each child cell, we loop over
@@ -671,6 +685,10 @@ CONTAINS
       END IF
     END DO
     DEALLOCATE(out_child_id, in_data, dst_idx)
+
+    IF (is_local_parent) THEN
+      DEALLOCATE(lparent_glb_idx_c, lparent_glb_blk_c, lparent_glb_idx_e, lparent_glb_blk_e)
+    END IF
 
     IF (p_pe_work == 0) THEN
       WRITE (0,*) "set_child_indices: ", TRIM(description), " - Done."
