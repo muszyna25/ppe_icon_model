@@ -228,11 +228,17 @@ CONTAINS
     ! consistency checks:
     IF (SIZE(out_values,2) /= nlocal)  CALL finish(routine, TRIM(description)//" - SIZE(out_values) /= nlocal")
     IF (SIZE(in_values) /= nsend)  CALL finish(routine, TRIM(description)//" - SIZE(in_values) /= nsend")
-    IF ((MAXVAL(in_glb_idx) > nglb_indices) .OR. (MINVAL(in_glb_idx) < 1)) THEN
+    IF (MAXVAL(in_glb_idx) > nglb_indices)  THEN
       CALL finish(routine, TRIM(description)//" - MAXVAL(in_glb_idx) > nglb_indices")
     END IF
-    IF ((MAXVAL(owner_idx) > nglb_indices)  .OR. (MINVAL(owner_idx) < 1)) THEN
-      CALL finish(routine, TRIM(description)//" - MAXVAL(in_glb_idx) > nglb_indices")
+    IF (MINVAL(in_glb_idx) < 1) THEN
+      CALL finish(routine, TRIM(description)//" - MINVAL(in_glb_idx) < 1")
+    END IF
+    IF (MAXVAL(owner_idx) > nglb_indices) THEN
+      CALL finish(routine, TRIM(description)//" - MAXVAL(owner-idx) > nglb_indices")
+    END IF
+    IF (MINVAL(owner_idx) < 1) THEN
+      CALL finish(routine, TRIM(description)//" - MINVAL(owner_idx) < 1")
     END IF
 
 #ifndef NOMPI
@@ -429,7 +435,7 @@ CONTAINS
 
     ! non-MPI mode: local copy
     IF (PRESENT(opt_count))  opt_count = 0
-    ALLOCATE(reg_partition_modified(nsend))
+    ALLOCATE(reg_partition_modified(nlocal))
     reg_partition_modified = 0
     DO i=1,nsend
       local_idx = in_glb_idx(i)
@@ -446,7 +452,8 @@ CONTAINS
       IF ((nvals == 0) .OR. (.NOT. lfound)) THEN
         nvals = nvals + 1
         IF (nvals > ncollisions)  CALL finish(routine, TRIM(description)//" - Error! Too many collisions!")
-        out_values(nvals, local_idx)      = recv_vals(i)
+        out_values(nvals, local_idx)      = in_values(i)
+        IF (PRESENT(opt_count))  opt_count(j, local_idx) = 1 
         reg_partition_modified(local_idx) = nvals
       END IF
     END DO
