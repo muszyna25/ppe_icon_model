@@ -551,7 +551,8 @@ CONTAINS
 
       ELSE
 
-        CALL set_parent_child_relations(p_patch_local_parent(jg), patch(jg), patch(patch(jg)%parent_id))
+        CALL set_parent_child_relations(p_patch_local_parent(jg), patch(jg))
+        CALL set_parent_loc_idx(p_patch_local_parent(jg), patch(jg))
       ENDIF
     END DO
 
@@ -660,13 +661,12 @@ CONTAINS
 
   !-------------------------------------------------------------------------------------------------
   !
-  !> Sets parent_loc_idx/blk in child and child_idx/blk in parent patches.
+  !> Sets child_idx/blk in parent patches.
 
-  SUBROUTINE set_parent_child_relations(p_pp, p_pc, p_pp_glb)
+  SUBROUTINE set_parent_child_relations(p_pp, p_pc)
 
     TYPE(t_patch), INTENT(INOUT) :: p_pp       !> divided local parent patch
     TYPE(t_patch), INTENT(INOUT) :: p_pc       !> divided child patch
-    TYPE(t_patch), INTENT(INOUT) :: p_pp_glb   !> divided (global) parent patch
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_parent_child_relations"
     INTEGER   :: i, j, jl, jb, jc, jc_g, jp, jp_g
@@ -742,6 +742,36 @@ CONTAINS
 
     ENDDO
 
+    ! Although this is not really necessary, we set the child index in child
+    ! and the parent index in parent to 0 since these have no significance
+    ! in the parallel code (and must not be used as they are).
+
+    IF (my_process_is_mpi_parallel()) THEN
+      p_pc%cells%child_idx  = 0
+      p_pc%cells%child_blk  = 0
+      p_pp%cells%parent_glb_idx = 0
+      p_pp%cells%parent_glb_blk = 0
+
+      p_pc%edges%child_idx  = 0
+      p_pc%edges%child_blk  = 0
+      p_pp%edges%parent_glb_idx = 0
+      p_pp%edges%parent_glb_blk = 0
+    END IF
+
+  END SUBROUTINE set_parent_child_relations
+
+
+  !-------------------------------------------------------------------------------------------------
+  !
+  !> Sets parent_loc_idx/blk in child patches.
+  !
+  SUBROUTINE set_parent_loc_idx(p_pp, p_pc)
+    TYPE(t_patch), INTENT(INOUT) :: p_pp       !> divided local parent patch
+    TYPE(t_patch), INTENT(INOUT) :: p_pc       !> divided child patch
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_parent_loc_idx"
+    INTEGER   :: i, j, jl, jb, jc, jc_g, jp, jp_g
+
     ! Set parent indices in child ...
 
     ! ... cells
@@ -795,22 +825,15 @@ CONTAINS
     ! in the parallel code (and must not be used as they are).
 
     IF (my_process_is_mpi_parallel()) THEN
-      p_pc%cells%child_idx  = 0
-      p_pc%cells%child_blk  = 0
-      p_pp%cells%parent_glb_idx = 0
-      p_pp%cells%parent_glb_blk = 0
       p_pp%cells%parent_loc_idx = 0
       p_pp%cells%parent_loc_blk = 0
 
-      p_pc%edges%child_idx  = 0
-      p_pc%edges%child_blk  = 0
-      p_pp%edges%parent_glb_idx = 0
-      p_pp%edges%parent_glb_blk = 0
       p_pp%edges%parent_loc_idx = 0
       p_pp%edges%parent_loc_blk = 0
     END IF
 
-  END SUBROUTINE set_parent_child_relations
+  END SUBROUTINE set_parent_loc_idx
+
 
   !-----------------------------------------------------------------------------
   !>
