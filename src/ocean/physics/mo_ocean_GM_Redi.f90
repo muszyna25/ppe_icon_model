@@ -284,8 +284,9 @@ CONTAINS
       !this is the diagonal part that is handled implicitely in time  
       CALL map_scalar_center2prismtop( patch_3d, &
         &                              taper_diagonal_vert_impl,&
-        &                              op_coeff,           &
-        &                              mapped_vertical_diagonal_impl)!param%a_tracer_v(:,:,:, tracer_index))
+        &                              op_coeff,                &
+        &                              ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit)        
+      !  &                              mapped_vertical_diagonal_impl)!param%a_tracer_v(:,:,:, tracer_index))
       !
       CALL dbg_print('Old vert coeff: A_v', param%a_tracer_v(:,:,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
       !
@@ -302,7 +303,7 @@ CONTAINS
           DO level = start_level, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
             param%a_tracer_v(cell_index,level,blockNo, tracer_index) =                &
              & param%a_tracer_v(cell_index,level,blockNo, tracer_index) + &
-             & mapped_vertical_diagonal_impl(cell_index,level,blockNo)
+             & ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit(cell_index,level,blockNo)
           END DO                  
         END DO                
       END DO

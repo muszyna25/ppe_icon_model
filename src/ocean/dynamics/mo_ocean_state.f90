@@ -1173,6 +1173,14 @@ CONTAINS
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
 
+   CALL add_var(ocean_default_list,'vertical_mixing_coeff_GMRedi_implicit',&
+   &ocean_state_diag%vertical_mixing_coeff_GMRedi_implicit,grid_unstructured_cell,&
+      & za_depth_below_sea, &
+      & t_cf_var('temp_insitu', 'm', 'vertical_mixing_coeff_GMRedi_implicit', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
+
+
 
    CALL add_var(ocean_default_list,'div_of_GM_flux',ocean_state_diag%div_of_GM_flux,grid_unstructured_cell,&
       & za_depth_below_sea, &

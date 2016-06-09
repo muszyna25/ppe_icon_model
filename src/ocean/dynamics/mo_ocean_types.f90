@@ -183,7 +183,8 @@ MODULE mo_ocean_types
       & div_of_GMRedi_flux_horizontal,&
       & div_of_GMRedi_flux_vertical,  &
       & div_of_GM_flux,               &
-      & div_of_Redi_flux
+      & div_of_Redi_flux,             &
+      & vertical_mixing_coeff_GMRedi_implicit
 
     onCells_2D :: &
       & thick_c          ,& ! individual fluid column thickness at cells. Unit [m].
