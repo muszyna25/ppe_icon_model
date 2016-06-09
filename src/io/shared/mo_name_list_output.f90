@@ -436,7 +436,7 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER  :: routine = modname//"::write_name_list_output"
     INTEGER                           :: i, j, idate, itime, iret
-    TYPE(datetime),           POINTER :: io_datetime => NULL()
+    TYPE(datetime),           POINTER :: io_datetime
     CHARACTER(LEN=filename_max+100)   :: text
     TYPE(t_par_output_event), POINTER :: ev
     INTEGER                           :: noutput_pe_list, list_idx
