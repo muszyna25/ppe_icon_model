@@ -214,7 +214,7 @@ CONTAINS
       &                          npairs_recv, npairs_recv_owner                 
     INTEGER, ALLOCATABLE      :: icounts(:), irecv(:), irecv_idx(:), recv_vals(:),         &
       &                          i_pe(:), glb_idx(:), values(:), permutation(:),           &
-      &                          send_displs(:), recv_displs(:)                            &
+      &                          send_displs(:), recv_displs(:),                           &
       &                          reordered_owner_idx(:), isendbuf(:,:), i_pe_owner(:),     &
       &                          icounts_owner(:), irecv_owner(:), icounts_buf(:,:),       &
       &                          irecv_buf(:,:), permutation_owner(:), irecv_idx_owner(:), &
