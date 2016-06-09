@@ -69,6 +69,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_grid_subset,            ONLY: t_subset_range, get_index_range 
   USE mo_ocean_diffusion,        ONLY: tracer_diffusion_vertical_implicit,tracer_diffusion_horz
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
+  USE mo_ocean_tracer,           ONLY:advect_diffuse_tracer
   USE mo_ocean_tracer_transport_horz, ONLY: diffuse_horz
   USE mo_hydro_ocean_run,        ONLY: write_initial_ocean_timestep
   USE mo_hamocc_types,          ONLY: t_hamocc_state
@@ -188,7 +189,7 @@ CONTAINS
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & method_name = 'mo_ocean_testbed_modules:ocean_test_advection'
     !------------------------------------------------------------------
-    tracer_index=2!test is on salinity
+    tracer_index=1!test is on salinity
 
     
     
@@ -228,119 +229,143 @@ CONTAINS
 !          ocean_state(jg)%p_diag%w        =  0.0_wp!0.0833_wp!0.025_wp
 !          ocean_state(jg)%p_diag%w(:,:,:) = -0.0833_wp!0.025_wp
 !          ENDIF  
-       CALL calc_scalar_product_veloc_3d( patch_3d,  &
-        & ocean_state(n_dom)%p_prog(nold(1))%vn,     &
-        & ocean_state(n_dom)%p_diag,                 &
+!       CALL calc_scalar_product_veloc_3d( patch_3d,  &
+!        & ocean_state(n_dom)%p_prog(nold(1))%vn,     &
+!        & ocean_state(n_dom)%p_diag,                 &
+!        & operators_coefficients)
+IF(GMRedi_configuration/=Cartesian_Mixing)THEN 
+      CALL prepare_ocean_physics(patch_3d, &
+        & ocean_state(n_dom),    &
+        & physics_parameters, &
         & operators_coefficients)
+ENDIF
+         CALL advect_diffuse_tracer( patch_3d, &
+           & ocean_state(n_dom)%p_prog(nold(1))%ocean_tracers(tracer_index),&
+           & ocean_state(n_dom),            &
+           & operators_coefficients,      &
+           & ocean_state(n_dom)%p_aux%bc_top_tracer(:,:,tracer_index),   &
+           & ocean_state(n_dom)%p_aux%bc_bot_tracer,   &
+           & physics_parameters,         &
+           & physics_parameters%k_tracer_h(:,:,:,1),             &
+           & physics_parameters%a_tracer_v(:,:,:,1),             &
+           & ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index),&
+           & tracer_index)
+
+
+
+
+
+
         
-        IF(GMRedi_configuration/=Cartesian_Mixing)THEN    
-          CALL prepare_ocean_physics(patch_3d, &
-            & ocean_state(n_dom),    &
-            & physics_parameters, &
-            & operators_coefficients)
-        ENDIF
-        
-!        DO tracer_index=1,2
-        
-          IF(GMRedi_configuration/=Cartesian_Mixing)THEN
-        
-            CALL calc_ocean_physics( patch_3d, &
-                                   & ocean_state(n_dom),     &
-                                   &  physics_parameters,    &
-                                   &  operators_coefficients,&
-                                   &  tracer_index)
-            CALL div_oce_3d( ocean_state(n_dom)%p_diag%GMRedi_flux_horz(:,:,:,tracer_index),&
-                     &   patch_3D, &
-                     &   operators_coefficients%div_coeff, &
-                     &   div_diff_flux_horz )
-            !vertical div of GMRedi-flux
-            CALL verticalDiv_scalar_onFullLevels( patch_3d, &
-                                            & ocean_state(n_dom)%p_diag%GMRedi_flux_vert(:,:,:,tracer_index), &
-                                            & div_diff_flx_vert)
-                                   
-         ELSE
-          CALL tracer_diffusion_horz(patch_3D,&
-                                   & ocean_state(n_dom)%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration,&
-                                   & ocean_state(n_dom), z_diff_flux_h, physics_parameters%k_tracer_h(:,:,:,tracer_index ))
-
-            CALL div_oce_3d( z_diff_flux_h,&
-                     &   patch_3D, &
-                     &   operators_coefficients%div_coeff, &
-                     &   div_diff_flux_horz_cart )
-    
-         ENDIF
-
-         !cart
-         DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-           CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
-           DO jc = start_cell_index, end_cell_index
-
-              DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-              ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index-1)%concentration(jc,level,jb) &
-                & = ocean_state(n_dom)%p_prog(nold(1))%ocean_tracers(tracer_index-1)%concentration(jc,level,jb)-  &
-                &  (delta_t /  patch_3D%p_patch_1D(1)%prism_thick_c(jc,level,jb))  &
-                &    * ( - (div_diff_flux_horz_cart(jc,level,jb)))
-! write(123,*)'details',level,  ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index)%concentration(jc,level,jb),&
-! & ocean_state(n_dom)%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration(jc,level,jb),&
-! & div_diff_flux_horz(jc,level,jb)
-
-           ENDDO
-         END DO
-       END DO
-
-
-       !GM                               
-       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-         CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
-         DO jc = start_cell_index, end_cell_index
-
-           DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-             ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index)%concentration(jc,level,jb) &
-                & = ocean_state(n_dom)%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration(jc,level,jb)-  &
-                &  (delta_t /  patch_3D%p_patch_1D(1)%prism_thick_c(jc,level,jb))  &
-                &    * ( - (div_diff_flux_horz(jc,level,jb)-div_diff_flx_vert(jc,level,jb)))
-!  write(123,*)'details',level,  ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index)%concentration(jc,level,jb),&
-!  & ocean_state(n_dom)%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration(jc,level,jb),&
-!  & div_diff_flux_horz(jc,level,jb),div_diff_flx_vert(jc,level,jb),&
-! &ocean_state(n_dom)%p_aux%slopes_squared(jc,level,jb),&
-! &ocean_state(n_dom)%p_aux%taper_function_1(jc,level,jb),&
-! &ocean_state(n_dom)%p_aux%taper_function_2(jc,level,jb)!,&
-
-           ENDDO
-         END DO
-       END DO
-
-
-      !cart    
-      CALL tracer_diffusion_vertical_implicit(                         &
-      & patch_3d,                                                      &
-      & ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index-1),&
-      & physics_parameters%a_tracer_v(:,:,:, tracer_index),            &
-      & operators_coefficients)
-
-          
-      !GM    
-      CALL tracer_diffusion_vertical_implicit(                         &
-      & patch_3d,                                                      &
-      & ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index),&
-      & physics_parameters%a_tracer_v(:,:,:, tracer_index),            &
-      & operators_coefficients)
-      
-      
-      ocean_state(n_dom)%p_diag%rho=ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index-1)%concentration&
-      &-ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index)%concentration
-         
-IF(tracer_index==2)THEN
+!        IF(GMRedi_configuration/=Cartesian_Mixing)THEN    
+!          CALL prepare_ocean_physics(patch_3d, &
+!            & ocean_state(n_dom),    &
+!            & physics_parameters, &
+!            & operators_coefficients)
+!        ENDIF
+!        
+!!        DO tracer_index=1,2
+!        
+!          IF(GMRedi_configuration/=Cartesian_Mixing)THEN
+!        
+!            CALL calc_ocean_physics( patch_3d, &
+!                                   & ocean_state(n_dom),     &
+!                                   &  physics_parameters,    &
+!                                   &  operators_coefficients,&
+!                                   &  tracer_index)
+!            CALL div_oce_3d( ocean_state(n_dom)%p_diag%GMRedi_flux_horz(:,:,:,tracer_index),&
+!                     &   patch_3D, &
+!                     &   operators_coefficients%div_coeff, &
+!                     &   div_diff_flux_horz )
+!            !vertical div of GMRedi-flux
+!            CALL verticalDiv_scalar_onFullLevels( patch_3d, &
+!                                            & ocean_state(n_dom)%p_diag%GMRedi_flux_vert(:,:,:,tracer_index), &
+!                                            & div_diff_flx_vert)
+!                                   
+!         ELSE
+!          CALL tracer_diffusion_horz(patch_3D,&
+!                                   & ocean_state(n_dom)%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration,&
+!                                   & ocean_state(n_dom), z_diff_flux_h, physics_parameters%k_tracer_h(:,:,:,tracer_index ))
+!
+!            CALL div_oce_3d( z_diff_flux_h,&
+!                     &   patch_3D, &
+!                     &   operators_coefficients%div_coeff, &
+!                     &   div_diff_flux_horz_cart )
+!    
+!         ENDIF
+!
+!         !cart
+!         DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+!           CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
+!           DO jc = start_cell_index, end_cell_index
+!
+!              DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+!              ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index-1)%concentration(jc,level,jb) &
+!                & = ocean_state(n_dom)%p_prog(nold(1))%ocean_tracers(tracer_index-1)%concentration(jc,level,jb)-  &
+!                &  (delta_t /  patch_3D%p_patch_1D(1)%prism_thick_c(jc,level,jb))  &
+!                &    * ( - (div_diff_flux_horz_cart(jc,level,jb)))
+!! write(123,*)'details',level,  ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index)%concentration(jc,level,jb),&
+!! & ocean_state(n_dom)%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration(jc,level,jb),&
+!! & div_diff_flux_horz(jc,level,jb)
+!
+!           ENDDO
+!         END DO
+!       END DO
+!
+!
+!       !GM                               
+!       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+!         CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
+!         DO jc = start_cell_index, end_cell_index
+!
+!           DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+!             ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index)%concentration(jc,level,jb) &
+!                & = ocean_state(n_dom)%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration(jc,level,jb)-  &
+!                &  (delta_t /  patch_3D%p_patch_1D(1)%prism_thick_c(jc,level,jb))  &
+!                &    * ( - (div_diff_flux_horz(jc,level,jb)-div_diff_flx_vert(jc,level,jb)))
+!!  write(123,*)'details',level,  ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index)%concentration(jc,level,jb),&
+!!  & ocean_state(n_dom)%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration(jc,level,jb),&
+!!  & div_diff_flux_horz(jc,level,jb),div_diff_flx_vert(jc,level,jb),&
+!! &ocean_state(n_dom)%p_aux%slopes_squared(jc,level,jb),&
+!! &ocean_state(n_dom)%p_aux%taper_function_1(jc,level,jb),&
+!! &ocean_state(n_dom)%p_aux%taper_function_2(jc,level,jb)!,&
+!
+!           ENDDO
+!         END DO
+!       END DO
+!
+!
+!      !cart    
+!      CALL tracer_diffusion_vertical_implicit(                         &
+!      & patch_3d,                                                      &
+!      & ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index-1),&
+!      & physics_parameters%a_tracer_v(:,:,:, tracer_index),            &
+!      & operators_coefficients)
+!
+!          
+!      !GM    
+!      CALL tracer_diffusion_vertical_implicit(                         &
+!      & patch_3d,                                                      &
+!      & ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index),&
+!      & physics_parameters%a_tracer_v(:,:,:, tracer_index),            &
+!      & operators_coefficients)
+!      
+!      
+!      ocean_state(n_dom)%p_diag%rho=ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index-1)%concentration&
+!      &-ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index)%concentration
+!         
+IF(tracer_index==1)THEN
 DO level = 1, 5
 write(0,*)'tracer:GM:Cart',&
 & maxval( ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index)%concentration(:,level,:)),&
 & minval( ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index)%concentration(:,level,:)),&
-& maxval( ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index-1)%concentration(:,level,:)),&
-& minval( ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index-1)%concentration(:,level,:)),&
+!& maxval( ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index-1)%concentration(:,level,:)),&
+!& minval( ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index-1)%concentration(:,level,:)),&
 & maxval( ocean_state(n_dom)%p_diag%rho(:,level,:)),&
-& minval( ocean_state(n_dom)%p_diag%rho(:,level,:)),&
-& maxval( div_diff_flux_horz(:,level,:)),&
-& minval( div_diff_flux_horz(:,level,:))
+& minval( ocean_state(n_dom)%p_diag%rho(:,level,:))!,&
+!& maxval( div_diff_flux_horz(:,level,:)),&
+!& minval( div_diff_flux_horz(:,level,:))
+
 END DO
 ENDIF
       !END DO       

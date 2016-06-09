@@ -65,6 +65,7 @@ MODULE mo_ocean_tracer
   INTEGER :: idt_src    = 1               ! Level of detail for 1 line debug
 
   PUBLIC :: advect_ocean_tracers
+  PUBLIC :: advect_diffuse_tracer
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -331,8 +332,7 @@ CONTAINS
             delta_z = p_os%p_prog(nnew(1))%h(jc,jb) !- p_ext_data%oce%bathymetry_c(jc,jb)
             new_ocean_tracer%concentration(jc,level,jb)= old_ocean_tracer%concentration(jc,level,jb) - &
               & (delta_t/delta_z) * (div_adv_flux_horz(jc,level,jb)-div_diff_flux_horz(jc,level,jb))
-!write(123,*)'data',new_ocean_tracer%concentration(jc,level,jb), old_ocean_tracer%concentration(jc,level,jb),&
-!&delta_z,div_adv_flux_horz(jc,level,jb),div_diff_flux_horz(jc,level,jb),patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+
           END DO
         END DO
       END DO
@@ -484,9 +484,7 @@ CONTAINS
                    &   patch_3d, &
                    &   p_op_coeff%div_coeff, &
                    &   div_diff_flux_horz )
-
-                   
-                   
+                                     
       !vertical div of GMRedi-flux
       CALL verticalDiv_scalar_onFullLevels( patch_3d, &
         & p_os%p_diag%GMRedi_flux_vert(:,:,:,tracer_index), &
@@ -529,14 +527,6 @@ CONTAINS
           delta_z     = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nold(1))%h(jc,jb)
           delta_z_new = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nnew(1))%h(jc,jb)
 
-!           new_ocean_tracer%concentration(jc,level,jb)= &
-!             & (old_ocean_tracer%concentration(jc,level,jb) * delta_z &
-!             & - delta_t * (div_adv_flux_vert(jc,level,jb)-&
-!             &  (div_diff_flux_horz(jc,level,jb)-div_adv_flux_horz(jc,level,jb)))) / delta_z_new
-!
-!           new_ocean_tracer%concentration(jc,level,jb) =         &
-!             & ( new_ocean_tracer%concentration(jc,level,jb) +   &
-!             & (delta_t  / delta_z_new) * bc_top_tracer(jc,jb))
 
           new_ocean_tracer%concentration(jc,level,jb)= &
             & (old_ocean_tracer%concentration(jc,level,jb) * delta_z &
@@ -555,10 +545,6 @@ CONTAINS
           ! delta_z = patch_3d%p_patch_1d(1)%del_zlev_m(level)
           ! delta_z = patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb)
 
-!           new_ocean_tracer%concentration(jc,level,jb) =                          &
-!             &  old_ocean_tracer%concentration(jc,level,jb) -                     &
-!             &  (delta_t /  patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb))  &
-!             &    * (div_adv_flux_vert(jc,level,jb) - (div_diff_flux_horz(jc,level,jb)-div_adv_flux_horz(jc,level,jb)))
 
           new_ocean_tracer%concentration(jc,level,jb) =                          &
             &  old_ocean_tracer%concentration(jc,level,jb) -                     &

@@ -563,7 +563,8 @@ CONTAINS
     IF(no_tracer>=1)THEN
       CALL calc_potential_density( patch_3d,                     &
         & ocean_state%p_prog(nold(1))%tracer,&
-        & ocean_state%p_diag%rhopot )
+       & ocean_state%p_diag%rhopot )
+        
       CALL calculate_density( patch_3d,                        &
         & ocean_state%p_prog(nold(1))%tracer, &
         & ocean_state%p_diag%rho )
