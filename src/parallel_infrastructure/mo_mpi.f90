@@ -334,11 +334,15 @@ MODULE mo_mpi
   INTEGER :: p_mrequest ! actual size of p_request
   INTEGER, PARAMETER :: p_request_alloc_size = 4096
   INTEGER, PARAMETER :: p_address_kind = MPI_ADDRESS_KIND
+  ! this is the global communicator
+  INTEGER :: global_mpi_communicator = mpi_comm_world ! replaces MPI_COMM_WORLD
 #else
   INTEGER, PARAMETER :: p_address_kind = i8    ! should not get touched at all
   INTEGER, PARAMETER :: MPI_COMM_NULL  = 0
   ! dummy arguments for function calls:
   INTEGER, PARAMETER :: MPI_ANY_SOURCE = 0
+  ! this is the global communicator
+  INTEGER, PARAMETER :: global_mpi_communicator = 0  ! replaces MPI_COMM_WORLD
 #endif
 
   ! public parallel run information
@@ -351,8 +355,6 @@ MODULE mo_mpi
   INTEGER, PARAMETER :: null_comm_type = 0
 
   ! communicator sets
-  ! this is the global communicator
-  INTEGER :: global_mpi_communicator  ! replaces MPI_COMM_WORLD
   INTEGER :: global_mpi_size          ! total number of processes in global world
   INTEGER :: my_global_mpi_id         ! process id in global world
   LOGICAL :: is_global_mpi_parallel
@@ -1764,12 +1766,6 @@ CONTAINS
 !    USE mo_util_string, ONLY: toupper
 !#endif
 
-#ifndef NOMPI
-#if defined (__prism) && defined (use_comm_MPI1)
-    USE mod_prism_proto, ONLY: prism_ok
-#endif
-#endif
-
     CHARACTER(len=*), INTENT(in), OPTIONAL :: global_name
 
     ! variables are required for determing I/O size in bytes of the defined
@@ -1801,16 +1797,6 @@ CONTAINS
 #endif
 #endif
 
-#ifndef NOMPI
-#if defined (__prism) && defined (use_comm_MPI1)
-    INTEGER :: prism_model_number
-    CHARACTER(len=132) :: prism_model_name
-
-    EXTERNAL :: prism_abort_proto
-    EXTERNAL :: prism_init_comp_proto
-    EXTERNAL :: prism_get_localcomm_proto
-#endif
-#endif
     CHARACTER(len=*), PARAMETER :: method_name = 'start_mpi'
 
 
@@ -1873,38 +1859,6 @@ CONTAINS
     END IF
     global_mpi_name = TRIM(yname)
 
-    ! create communicator for this process alone before
-    ! potentially joining MPI2
-#if defined (__prism) && defined (use_comm_MPI1)
-
-    prism_model_name = TRIM(yname)
-
-    CALL prism_init_comp_proto (prism_model_number, TRIM(prism_model_name), &
-         p_error)
-
-    IF (p_error /= prism_ok) THEN
-      WRITE (nerr,*) method_name, ' prism_init_comp_proto failed'
-      CALL prism_abort_proto(prism_model_number, TRIM(yname),'abort1')
-    ENDIF
-
-    CALL prism_get_localcomm_proto(global_mpi_communicator, p_error)
-
-    IF (p_error /= prism_ok) THEN
-      WRITE (nerr,*) method_name, ' prism_get_localcomm_proto failed'
-      CALL prism_abort_proto(prism_model_number, TRIM(yname),'abort2')
-    ENDIF
-
-#else
-
-    CALL MPI_COMM_DUP (MPI_COMM_WORLD, global_mpi_communicator, p_error)
-
-    IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a,a)') method_name, ' MPI_COMM_DUP failed.'
-       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-       CALL abort_mpi
-    END IF
-
-#endif
 
     ! get local PE identification
     CALL MPI_COMM_RANK (global_mpi_communicator, my_global_mpi_id, p_error)
@@ -1997,7 +1951,6 @@ CONTAINS
 
     WRITE (nerr,'(a,a)')  method_name, ' No MPI: Single processor run.'
     ! set defaults for sequential run
-    global_mpi_communicator = MPI_COMM_NULL
     global_mpi_size  = 1        ! total number of processes in global world
     my_global_mpi_id = 0        ! process id in global world
     is_global_mpi_parallel = .false.
