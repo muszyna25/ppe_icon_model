@@ -34,7 +34,8 @@ MODULE mo_ocean_tracer
     & l_skip_tracer,                                       &! , use_ThermoExpansion_Correction
     & GMRedi_configuration,GMRedi_combined,  GM_only,Redi_only ,          &
     & Cartesian_Mixing, tracer_threshold_min, tracer_threshold_max,       &
-    & namelist_tracer_name, nbgcadv
+    & namelist_tracer_name, nbgcadv,                                      &
+    & GMREDI_COMBINED_DIAGNOSTIC,GM_INDIVIDUAL_DIAGNOSTIC,REDI_INDIVIDUAL_DIAGNOSTIC
   USE mo_util_dbg_prnt,             ONLY: dbg_print
   USE mo_parallel_config,           ONLY: nproma
   USE mo_dynamics_config,           ONLY: nold, nnew
@@ -491,7 +492,27 @@ CONTAINS
         & div_diff_flx_vert)
                    
                    
-                   
+       IF(GMREDI_COMBINED_DIAGNOSTIC)THEN
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, level, &
+!ICON_OMP ) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+        DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+        
+        p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
+        &=div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb)
+        
+        ENDDO
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+       
+      CALL dbg_print('AftGMRedi: divofGMRediflux',p_os%p_diag%div_of_GMRedi_flux(:,:,:),&
+      & str_module, idt_src, in_subset=cells_in_domain)      
+       
+       ENDIF            
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=3  ! output print level (1-5, fix)
       !CALL dbg_print('AftGMRedi: GMRediflux_h',p_os%p_diag%GMRedi_flux_horz(:,:,:,tracer_index),&

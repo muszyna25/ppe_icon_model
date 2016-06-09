@@ -408,6 +408,9 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: tapering_Griffies=3
   INTEGER            :: tapering_scheme=tapering_DanaMcWilliams
   LOGICAL            :: switch_off_diagonal_vert_expl=.false.
+  LOGICAL            :: GMREDI_COMBINED_DIAGNOSTIC=.TRUE.
+  LOGICAL            :: GM_INDIVIDUAL_DIAGNOSTIC=.TRUE.  
+  LOGICAL            :: REDI_INDIVIDUAL_DIAGNOSTIC=.TRUE.    
   !Parameters for tapering schemes
   LOGICAL  :: GMRedi_usesRelativeMaxSlopes = .true. ! the slopes are defined relatively the the grid slopes: dz/dx
   REAL(wp) :: S_max      = 8.0_wp                   !maximally allowed slope
@@ -431,7 +434,8 @@ MODULE mo_ocean_nml
     &  k_tracer_GM_kappa_parameter    ,&
     &  RossbyRadius_min               ,&
     &  RossbyRadius_max               ,&
-    &  switch_off_diagonal_vert_expl
+    &  switch_off_diagonal_vert_expl, &
+    &  GMREDI_COMBINED_DIAGNOSTIC
   
   ! ocean_physics_nml
   ! LOGICAL :: use_ThermoExpansion_Correction = .FALSE.

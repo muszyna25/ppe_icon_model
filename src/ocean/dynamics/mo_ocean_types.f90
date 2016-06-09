@@ -178,7 +178,10 @@ MODULE mo_ocean_types
       & temp_insitu    ,&
       & t,s            ,& ! dummy pointer for output variabless
       & Buoyancy_Freq  ,&
-      & Richardson_Number
+      & Richardson_Number,&
+      & div_of_GMRedi_flux, &
+      & div_of_GM_flux,     &
+      & div_of_Redi_flux
 
     onCells_2D :: &
       & thick_c          ,& ! individual fluid column thickness at cells. Unit [m].

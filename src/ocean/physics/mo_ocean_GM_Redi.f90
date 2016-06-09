@@ -34,7 +34,8 @@ MODULE mo_ocean_GM_Redi
     & GMRedi_configuration,GMRedi_combined, GM_only,Redi_only,Cartesian_Mixing, &
     & tapering_scheme,tapering_DanaMcWilliams,tapering_Large,tapering_Griffies, &
     & S_max, S_d, S_critical, c_speed, GMRedi_usesRelativeMaxSlopes,            &
-    & RossbyRadius_max, RossbyRadius_min,switch_off_diagonal_vert_expl
+    & RossbyRadius_max, RossbyRadius_min,switch_off_diagonal_vert_expl,         &
+    & GMREDI_COMBINED_DIAGNOSTIC,GM_INDIVIDUAL_DIAGNOSTIC,REDI_INDIVIDUAL_DIAGNOSTIC
     
 
   USE mo_util_dbg_prnt,             ONLY: dbg_print
