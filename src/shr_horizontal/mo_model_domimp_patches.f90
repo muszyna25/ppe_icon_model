@@ -131,7 +131,6 @@ MODULE mo_model_domimp_patches
     &                              reorder_verts
   USE mo_mpi,                ONLY: p_pe_work, my_process_is_mpi_parallel, &
     &                              p_comm_work_test, p_comm_work
-  USE mo_reshuffle,          ONLY: reshuffle
 #ifdef HAVE_PARALLEL_NETCDF
   USE mo_mpi,                ONLY: p_comm_input_bcast
 #endif
@@ -670,9 +669,7 @@ CONTAINS
     TYPE(t_patch), INTENT(INOUT) :: p_pp_glb   !> divided (global) parent patch
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_parent_child_relations"
-    INTEGER   :: i, j, jl, jb, jc, jc_g, jp, jp_g, &
-      &         jc_c, jb_c, communicator, jc_glb, jb_glb
-    INTEGER, ALLOCATABLE :: in_child_id(:), parent_idx(:), out_child_id(:,:)
+    INTEGER   :: i, j, jl, jb, jc, jc_g, jp, jp_g
 
     ! Before this call, child_idx/child_blk still point to the global values.
     ! This is changed here.
@@ -766,62 +763,9 @@ CONTAINS
       ELSE
         p_pc%cells%parent_loc_blk(jl,jb) = blk_no(jp)
         p_pc%cells%parent_loc_idx(jl,jb) = idx_no(jp)
-        ! set the cell child_id for the (global) parent grid:
-        p_pp%cells%child_id(idx_no(jp),blk_no(jp))  = p_pc%id
       ENDIF
 
     ENDDO
-
-    ! calculate cells%child_id
-    !
-    ! To calculate the child_id for each child cell, we loop over the
-    ! cells of the child domain and collect the global indices of
-    ! their parent cells. Then we send the ID of the child domain to
-    ! these parent cells. This involves parallel comm., since the
-    ! child cells and their parent cells may "live" on different PEs.
-
-    IF(p_test_run) THEN
-      communicator = p_comm_work_test
-    ELSE
-      communicator = p_comm_work
-    ENDIF
-
-    ALLOCATE(parent_idx(p_pc%n_patch_cells), in_child_id(p_pc%n_patch_cells))
-    ! set the cell child_id for the (global) parent grid
-    in_child_id(:) = p_pc%id
-
-    ! get the parent cell indices:
-    DO j = 1, p_pc%n_patch_cells
-      jc_c = idx_no(j)
-      jb_c = blk_no(j)
-      parent_idx(j) = idx_1d(p_pc%cells%parent_glb_idx(jc_c,jb_c), &
-        &                    p_pc%cells%parent_glb_blk(jc_c,jb_c))
-    END DO
-
-    ! save the previous state of the child_id:
-    ALLOCATE(out_child_id(1,p_pp_glb%n_patch_cells))
-    DO j = 1, p_pp_glb%n_patch_cells
-      out_child_id(1,j) = p_pp_glb%cells%child_id(idx_no(j), blk_no(j))
-    END DO
-
-    ! communicate ID data between processors:
-    CALL reshuffle("send cell id to parent", parent_idx, in_child_id, p_pp_glb%cells%decomp_info%glb_index, &
-      &            p_pp_glb%n_patch_cells_g, communicator, out_child_id)
-
-    ! communication finished. now copy the result to the local arrays:
-    DO j = 1, p_pp_glb%n_patch_cells
-      jc_glb = idx_no(j)
-      jb_glb = blk_no(j)
-      ! check for overlap (i.e.: child id already exists)
-      IF (p_pp_glb%cells%child_id(jc_glb,jb_glb) == 0) THEN
-        p_pp_glb%cells%child_id(jc_glb,jb_glb) = out_child_id(1,j)
-      ELSE
-        IF (p_pp_glb%cells%child_id(jc_glb,jb_glb) /= out_child_id(1,j)) THEN
-          CALL finish(routine, "Cell in DOM "//int2string(p_pc%id,'(i0)')//" overlaps with another domain!")
-        END IF
-      END IF
-    END DO
-    DEALLOCATE(out_child_id, in_child_id, parent_idx)
 
     ! ... edges
 
@@ -842,57 +786,9 @@ CONTAINS
       ELSE
         p_pc%edges%parent_loc_blk(jl,jb) = blk_no(jp)
         p_pc%edges%parent_loc_idx(jl,jb) = idx_no(jp)
-        ! set the edge child_id for the (global) parent grid:
-        p_pp%edges%child_id(idx_no(jp),blk_no(jp))  = p_pc%id
       ENDIF
 
     ENDDO
-
-
-    ! calculate edges%child_id
-    !
-    ! To calculate the child_id for each child edge, we loop over the
-    ! edges of the child domain and collect the global indices of
-    ! their parent edges. Then we send the ID of the child domain to
-    ! these parent edges. This involves parallel comm., since the
-    ! child edges and their parent edges may "live" on different PEs.
-
-    ! set the edge child_id for the (global) parent grid:
-    ALLOCATE(parent_idx(p_pc%n_patch_edges), in_child_id(p_pc%n_patch_edges))
-    in_child_id(:) = p_pc%id
-
-    ! get the parent cell indices:
-    DO j = 1, p_pc%n_patch_edges
-      jc_c = idx_no(j)
-      jb_c = blk_no(j)
-      parent_idx(j) = idx_1d(p_pc%edges%parent_glb_idx(jc_c,jb_c), &
-        &                    p_pc%edges%parent_glb_blk(jc_c,jb_c))
-    END DO
-
-    ! save the previous state of the child_id:
-    ALLOCATE(out_child_id(1,p_pp_glb%n_patch_edges))
-    DO j = 1, p_pp_glb%n_patch_edges
-      out_child_id(1,j) = p_pp_glb%edges%child_id(idx_no(j), blk_no(j))
-    END DO
-
-    ! communicate ID data between processors:
-    CALL reshuffle("send edge ID to parent", parent_idx, in_child_id, p_pp_glb%edges%decomp_info%glb_index, &
-      &            p_pp_glb%n_patch_edges_g, communicator, out_child_id)
-
-    ! communication finished. now copy the result to the local arrays:
-    DO j = 1, p_pp_glb%n_patch_edges
-      jc_glb = idx_no(j)
-      jb_glb = blk_no(j)
-      ! check for overlap (i.e.: child id already exists)
-      IF (p_pp_glb%edges%child_id(jc_glb,jb_glb) == 0) THEN
-        p_pp_glb%edges%child_id(jc_glb,jb_glb) = out_child_id(1,j)
-      ELSE
-        IF (p_pp_glb%edges%child_id(jc_glb,jb_glb) /= out_child_id(1,j)) THEN
-          CALL finish(routine, "Edge in DOM "//int2string(p_pc%id,'(i0)')//" overlaps with another domain!")
-        END IF
-      END IF
-    END DO
-    DEALLOCATE(out_child_id, in_child_id, parent_idx)
 
     ! Although this is not really necessary, we set the child index in child
     ! and the parent index in parent to 0 since these have no significance
@@ -1577,13 +1473,6 @@ CONTAINS
       &                     (/patch_pre%edges%local_chunk(1,1)%first/), &
       &                     (/patch_pre%edges%local_chunk(1,1)%size/), &
       &                     local_ptr))
-
-    ! First ensure that child edge indices are all positive;
-    ! if there are negative values, grid files are too old
-    IF(ANY(local_ptr_2d(:,1:4)<0)) THEN
-      CALL finish (routine, &
-        & 'negative child edge indices detected - patch files are too old')
-    ENDIF
 
     ! patch_pre%edges%refin_ctrl
 !     write(0,*) "refin_e_ctrl..."

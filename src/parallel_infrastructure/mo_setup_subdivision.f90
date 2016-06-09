@@ -428,7 +428,7 @@ CONTAINS
         &                     tmp, glb_idx(4), jc_e, jb_e, ordered(4), cmp1, cmp2, iglb
       INTEGER, ALLOCATABLE :: in_data(:), dst_idx(:), out_data(:,:), out_pc_data(:,:),         &
         &                     out_data34(:,:), out_data_e(:,:), out_count(:,:),                &
-        &                     out_data_e3(:,:), out_data_c3(:,:)
+        &                     out_data_e3(:,:), out_data_c3(:,:), out_child_id(:,:)
       LOGICAL              :: lfound
 
       IF (p_pe_work == 0) THEN
@@ -711,7 +711,7 @@ CONTAINS
         &            p_p%n_patch_edges_g, communicator, out_data)
 
       ! -----------------------------------------------------------------
-      ! - step 3: copy results
+      ! - copy results
 
       DO j = 1, p_p%n_patch_edges
         jc_e = idx_no(j)
@@ -777,7 +777,97 @@ CONTAINS
         p_p%edges%child_blk(jc_e,jb_e,:) = blk_no( out_data(:,j) )
       END DO
 
-      DEALLOCATE(out_data,out_data34,in_data, dst_idx)      
+      DEALLOCATE(out_data, out_data34, in_data, dst_idx)      
+
+      ! -----------------------------------------------------------------
+      ! --- calculate cells%child_id
+      !
+      ! To calculate the child_id for each child cell, we loop over
+      ! the cells of the child patch and collect the global indices of
+      ! their parent cells. Then we send the ID of the child domain to
+      ! these parent cells. 
+
+      ALLOCATE(dst_idx(p_c%n_patch_cells), in_data(p_c%n_patch_cells))
+      
+      ! get the parent cell indices:
+      DO j = 1, p_c%n_patch_cells
+        jc_c = idx_no(j)
+        jb_c = blk_no(j)
+        dst_idx(j) = idx_1d(p_c%cells%parent_glb_idx(jc_c,jb_c), &
+          &                 p_c%cells%parent_glb_blk(jc_c,jb_c))
+      END DO
+      ! set the cell child_id for the (global) parent grid
+      in_data(:) = p_c%id
+
+      ALLOCATE(out_child_id(1,p_p%n_patch_cells))
+      out_child_id = -1
+
+      ! communicate ID data between processors:
+      CALL reshuffle("send cell id to parent", dst_idx, in_data, p_p%cells%decomp_info%glb_index, &
+        &            p_p%n_patch_cells_g, communicator, out_child_id)
+
+      ! communication finished. now copy the result to the local arrays:
+      DO j = 1, p_p%n_patch_cells
+        jc_c = idx_no(j)
+        jb_c = blk_no(j)
+
+        IF (out_child_id(1,j) < 0)  CYCLE
+
+        ! check for overlap (i.e.: child id already exists)
+        IF (p_p%cells%child_id(jc_c,jb_c) == 0) THEN
+          p_p%cells%child_id(jc_c,jb_c) = out_child_id(1,j)
+        ELSE
+          IF (p_p%cells%child_id(jc_c,jb_c) /= out_child_id(1,j)) THEN
+            CALL finish(routine, "Cell in DOM "//int2string(p_c%id,'(i0)')//" overlaps with another domain!")
+          END IF
+        END IF
+      END DO
+      DEALLOCATE(out_child_id, in_data, dst_idx)
+
+      ! -----------------------------------------------------------------
+      ! --- calculate edges%child_id
+      !
+      ! To calculate the child_id for each child edge, we loop over the
+      ! edges of the child domain and collect the global indices of
+      ! their parent edges. Then we send the ID of the child domain to
+      ! these parent edges. 
+
+      ALLOCATE(dst_idx(p_c%n_patch_edges), in_data(p_c%n_patch_edges))
+
+      ! get the parent cell indices:
+      DO j = 1, p_c%n_patch_edges
+        jc_c = idx_no(j)
+        jb_c = blk_no(j)
+        dst_idx(j) = idx_1d(p_c%edges%parent_glb_idx(jc_c,jb_c), &
+          &                 p_c%edges%parent_glb_blk(jc_c,jb_c))
+      END DO
+      ! set the edge child_id for the (global) parent grid:
+      in_data(:) = p_c%id
+
+      ALLOCATE(out_child_id(1,p_p%n_patch_edges))
+      out_child_id = -1
+
+      ! communicate ID data between processors:
+      CALL reshuffle("send edge ID to parent", dst_idx, in_data, p_p%edges%decomp_info%glb_index, &
+        &            p_p%n_patch_edges_g, communicator, out_child_id)
+
+      ! communication finished. now copy the result to the local arrays:
+      DO j = 1, p_p%n_patch_edges
+        jc_c = idx_no(j)
+        jb_c = blk_no(j)
+
+        IF (out_child_id(1,j) < 0)  CYCLE
+
+        ! check for overlap (i.e.: child id already exists)
+        IF (p_p%edges%child_id(jc_c,jb_c) == 0) THEN
+          p_p%edges%child_id(jc_c,jb_c) = out_child_id(1,j)
+        ELSE
+          IF (p_p%edges%child_id(jc_c,jb_c) /= out_child_id(1,j)) THEN
+            CALL finish(routine, "Edge in DOM "//int2string(p_c%id,'(i0)')//" overlaps with another domain!")
+          END IF
+        END IF
+      END DO
+      DEALLOCATE(out_child_id, in_data, dst_idx)
 
       IF (p_pe_work == 0) THEN
         WRITE (0,*) "set_child_indices: ", TRIM(description), " - Done."
