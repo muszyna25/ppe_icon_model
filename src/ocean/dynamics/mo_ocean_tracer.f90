@@ -406,7 +406,7 @@ CONTAINS
     REAL(wp) :: div_adv_flux_vert(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: div_diff_flx_vert(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)        
     REAL(wp), POINTER :: trac_old(:,:,:), trac_new(:,:,:) ! temporary pointers to the concentration arrays
-
+    REAL(wp) :: temp_tracer(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)       
     INTEGER :: jc,level,jb, je
     INTEGER :: z_dolic
     INTEGER :: start_cell_index, end_cell_index
@@ -509,7 +509,7 @@ CONTAINS
     END DO
 !ICON_OMP_END_PARALLEL_DO
        
-      CALL dbg_print('AftGMRedi: divofGMRediflux',p_os%p_diag%div_of_GMRedi_flux(:,:,:),&
+      CALL dbg_print('AftGMRedi: divofGMRediflux1',p_os%p_diag%div_of_GMRedi_flux(:,:,:),&
       & str_module, idt_src, in_subset=cells_in_domain)      
        
        ENDIF            
@@ -595,11 +595,44 @@ CONTAINS
     !calculate vert diffusion impicit: result is stored in trac_out
     ! no sync because of columnwise computation
     IF ( l_with_vert_tracer_diffusion ) THEN
+    
+      IF(GMREDI_COMBINED_DIAGNOSTIC)THEN
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, level, &
+!ICON_OMP ) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+          CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
+          DO jc = start_cell_index, end_cell_index
+            DO level = 1, MIN(patch_3d%p_patch_1d(1)%dolic_c(jc,jb),1)  ! this at most should be 1      
+             temp_tracer(jc,level,jb)=new_ocean_tracer%concentration(jc,level,jb)            
+            END DO
+          END DO
+        ENDDO 
+!ICON_OMP_END_PARALLEL_DO         
+      ENDIF
+      
       CALL tracer_diffusion_vertical_implicit( &
           & patch_3d,                      &
           & new_ocean_tracer,                &
           & a_v,                             &
           & p_op_coeff)
+          
+      IF(GMREDI_COMBINED_DIAGNOSTIC)THEN
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, level, &
+!ICON_OMP ) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+          CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
+          DO jc = start_cell_index, end_cell_index
+            DO level = 1, MIN(patch_3d%p_patch_1d(1)%dolic_c(jc,jb),1)  ! this at most should be 1      
+             p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
+             &=p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)-(new_ocean_tracer%concentration(jc,level,jb)-temp_tracer(jc,level,jb))            
+            END DO
+          END DO
+        ENDDO 
+!ICON_OMP_END_PARALLEL_DO         
+        CALL dbg_print('AftGMRedi: divofGMRediflux2',p_os%p_diag%div_of_GMRedi_flux(:,:,:),&
+        & str_module, idt_src, in_subset=cells_in_domain)      
+      ENDIF          
+          
     ENDIF
 
     CALL sync_patch_array(sync_c, patch_2D, new_ocean_tracer%concentration)

@@ -178,9 +178,11 @@ MODULE mo_ocean_types
       & temp_insitu    ,&
       & t,s            ,& ! dummy pointer for output variabless
       & Buoyancy_Freq  ,&
-      & Richardson_Number,&
-      & div_of_GMRedi_flux, &
-      & div_of_GM_flux,     &
+      & Richardson_Number,            &
+      & div_of_GMRedi_flux,           &
+      & div_of_GMRedi_flux_horizontal,&
+      & div_of_GMRedi_flux_vertical,  &
+      & div_of_GM_flux,               &
       & div_of_Redi_flux
 
     onCells_2D :: &

@@ -1158,6 +1158,22 @@ CONTAINS
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
 
+
+   CALL add_var(ocean_default_list,'div_of_GMRedi_flux_horizontal',&
+   &ocean_state_diag%div_of_GMRedi_flux_horizontal,grid_unstructured_cell,&
+      & za_depth_below_sea, &
+      & t_cf_var('temp_insitu', 'm', 'div_of_GMRedi_flux_horizontal', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
+
+   CALL add_var(ocean_default_list,'div_of_GMRedi_flux_vertical',&
+   &ocean_state_diag%div_of_GMRedi_flux_vertical,grid_unstructured_cell,&
+      & za_depth_below_sea, &
+      & t_cf_var('temp_insitu', 'm', 'div_of_GMRedi_flux_vertical', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
+
+
    CALL add_var(ocean_default_list,'div_of_GM_flux',ocean_state_diag%div_of_GM_flux,grid_unstructured_cell,&
       & za_depth_below_sea, &
       & t_cf_var('temp_insitu', 'm', 'div_of_GM_flux', datatype_flt),&
