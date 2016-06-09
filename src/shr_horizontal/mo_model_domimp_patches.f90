@@ -1544,8 +1544,6 @@ CONTAINS
     !------------------------------------------
     ! nesting/lateral boundary indexes
     IF (max_cell_connectivity == 3) THEN ! triangular grid
-
-!       write(0,*) "get parent_cell_index..."
       ! patch_pre%cells%parent
       CALL nf(nf_inq_varid(ncid_grf, 'parent_cell_index', varid))
       CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_parent, local_ptr)
@@ -1553,14 +1551,6 @@ CONTAINS
         &                     (/patch_pre%cells%local_chunk(1,1)%first/), &
         &                     (/patch_pre%cells%local_chunk(1,1)%size/), &
         &                     local_ptr))
-      ! patch_pre%cells%child(:,:)
-      CALL nf(nf_inq_varid(ncid_grf, 'child_cell_index', varid))
-      CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_child, local_ptr_2d)
-      CALL nf(nf_get_vara_int(ncid_grf, varid, &
-        &                     (/patch_pre%cells%local_chunk(1,1)%first, 1/), &
-        &                     (/patch_pre%cells%local_chunk(1,1)%size, 4/), &
-        &                     local_ptr_2d))
-
     ELSE
       CALL message ('read_patch',&
         & 'nesting incompatible with non-triangular grid')
@@ -1587,15 +1577,6 @@ CONTAINS
       &                     (/patch_pre%edges%local_chunk(1,1)%first/), &
       &                     (/patch_pre%edges%local_chunk(1,1)%size/), &
       &                     local_ptr))
-
-    ! patch_pre%edges%child
-!     write(0,*) "child_edge_index..."
-    CALL nf(nf_inq_varid(ncid_grf, 'child_edge_index', varid))
-    CALL dist_mult_array_local_ptr(patch_pre%edges%dist, e_child, local_ptr_2d)
-    CALL nf(nf_get_vara_int(ncid_grf, varid, &
-      &                     (/patch_pre%edges%local_chunk(1,1)%first, 1/), &
-      &                     (/patch_pre%edges%local_chunk(1,1)%size, 4/), &
-      &                     local_ptr_2d))
 
     ! First ensure that child edge indices are all positive;
     ! if there are negative values, grid files are too old

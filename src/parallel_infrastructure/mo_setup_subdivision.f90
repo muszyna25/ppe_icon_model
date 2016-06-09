@@ -1348,14 +1348,10 @@ CONTAINS
     INTEGER, ALLOCATABLE :: owned_cells(:), owned_edges(:), owned_verts(:)
 #ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
     INTEGER, ALLOCATABLE :: glb_cell_neighbor(:,:), glb_cell_edge(:,:), &
-      &                     glb_cell_vertex(:,:), cell_parent_idx(:), &
-      &                     cell_child_idx(:,:), edge_parent_idx(:), &
-      &                     edge_child_idx(:,:)
+      &                     glb_cell_vertex(:,:), cell_parent_idx(:), edge_parent_idx(:)
 #else
     INTEGER :: glb_cell_neighbor, glb_cell_edge, &
-      &        glb_cell_vertex, cell_parent_idx, &
-      &        cell_child_idx, edge_parent_idx, &
-      &        edge_child_idx
+      &        glb_cell_vertex, cell_parent_idx, edge_parent_idx
 #endif
 
     IF (msg_level >= 10)  CALL message(routine, 'dividing patch')
@@ -1646,8 +1642,7 @@ CONTAINS
 
 #ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
 
-    ALLOCATE(cell_parent_idx(wrk_p_patch%n_patch_cells), &
-      &      cell_child_idx(wrk_p_patch%n_patch_cells, 4))
+    ALLOCATE(cell_parent_idx(wrk_p_patch%n_patch_cells))
 
     DO j = 1, wrk_p_patch%n_patch_cells
 
@@ -1661,10 +1656,6 @@ CONTAINS
 
       CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_parent, (/jg/), &
         &                      cell_parent_idx(j))
-      DO i = 1, 4
-        CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_child, &
-          &                      (/jg, i/), cell_child_idx(j,i))
-      END DO
 
       CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_num_edges, (/jg/), &
         &                      wrk_p_patch%cells%num_edges(jl,jb))
@@ -1683,13 +1674,9 @@ CONTAINS
       jl = idx_no(j) ! Line  index in distributed patch
       wrk_p_patch%cells%parent_glb_idx(jl,jb)  = idx_no(cell_parent_idx(j))
       wrk_p_patch%cells%parent_glb_blk(jl,jb)  = blk_no(cell_parent_idx(j))
-!      DO i = 1, 4
-!        wrk_p_patch%cells%child_idx(jl,jb,i) = idx_no(cell_child_idx(j,i))
-!        wrk_p_patch%cells%child_blk(jl,jb,i) = blk_no(cell_child_idx(j,i))
-!     END DO
     END DO
 
-    DEALLOCATE(cell_parent_idx, cell_child_idx)
+    DEALLOCATE(cell_parent_idx)
 
 #else
 
@@ -1707,13 +1694,6 @@ CONTAINS
         &                      cell_parent_idx)
       wrk_p_patch%cells%parent_glb_idx(jl,jb)  = idx_no(cell_parent_idx)
       wrk_p_patch%cells%parent_glb_blk(jl,jb)  = blk_no(cell_parent_idx)
-
-      DO i = 1, 4
-        CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_child, &
-          &                      (/jg, i/), cell_child_idx)
-!        wrk_p_patch%cells%child_idx(jl,jb,i) = idx_no(cell_child_idx)
-!        wrk_p_patch%cells%child_blk(jl,jb,i) = blk_no(cell_child_idx)
-      END DO
 
       CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_num_edges, (/jg/), &
         &                      wrk_p_patch%cells%num_edges(jl,jb))
@@ -1741,8 +1721,7 @@ CONTAINS
 
 #ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
 
-    ALLOCATE(edge_parent_idx(wrk_p_patch%n_patch_edges), &
-      &      edge_child_idx(wrk_p_patch%n_patch_edges,4))
+    ALLOCATE(edge_parent_idx(wrk_p_patch%n_patch_edges))
 
     DO j = 1,wrk_p_patch%n_patch_edges
 
@@ -1753,10 +1732,6 @@ CONTAINS
 
       CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_parent, &
         &                      (/jg/), edge_parent_idx(j))
-      DO i = 1, 4
-        CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_child, &
-             (/jg, i/), edge_child_idx(j,i))
-      END DO
 
       CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_refin_ctrl, &
            (/jg/), wrk_p_patch%edges%refin_ctrl(jl,jb))
@@ -1774,11 +1749,9 @@ CONTAINS
 
       wrk_p_patch%edges%parent_glb_idx(jl,jb)    = idx_no(edge_parent_idx(j))
       wrk_p_patch%edges%parent_glb_blk(jl,jb)    = blk_no(edge_parent_idx(j))
-!      wrk_p_patch%edges%child_idx(jl,jb,1:4) = idx_no(edge_child_idx(j,:))
-!      wrk_p_patch%edges%child_blk(jl,jb,1:4) = blk_no(edge_child_idx(j,:))
     ENDDO
 
-    DEALLOCATE(edge_parent_idx, edge_child_idx)
+    DEALLOCATE(edge_parent_idx)
 
 #else
 
@@ -1793,12 +1766,6 @@ CONTAINS
         &                      (/jg/), edge_parent_idx)
       wrk_p_patch%edges%parent_glb_idx(jl,jb)    = idx_no(edge_parent_idx)
       wrk_p_patch%edges%parent_glb_blk(jl,jb)    = blk_no(edge_parent_idx)
-      DO i = 1, 4
-        CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_child, &
-             (/jg, i/), edge_child_idx)
-!        wrk_p_patch%edges%child_idx(jl,jb,i) = idx_no(edge_child_idx)
-!        wrk_p_patch%edges%child_blk(jl,jb,i) = blk_no(edge_child_idx)
-      END DO
 
       ! parent and child_idx/child_blk still point to the global values.
       ! This will be changed in set_parent_child_relations.
