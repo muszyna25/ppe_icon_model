@@ -27,7 +27,7 @@ MODULE mo_build_decomposition
     &                                t_patch, p_patch_local_parent
   USE mo_reshuffle,            ONLY: reshuffle
   USE mo_model_domimp_patches, ONLY: reorder_patch_refin_ctrl,                &
-    & import_pre_patches, complete_patches
+    &                                import_pre_patches, complete_patches, set_parent_loc_idx
   USE mo_parallel_config,      ONLY: p_test_run, l_test_openmp, num_io_procs, division_method
   USE mo_impl_constants,       ONLY: success, max_dom
   USE mo_exception,            ONLY: finish, message, message_text, get_filename_noext
@@ -91,6 +91,11 @@ CONTAINS
     CALL decompose_domain(p_patch, p_patch_pre)
     DEALLOCATE(p_patch_pre)
 
+    ! set local parent indices 
+    DO jg = n_dom_start+1, n_dom
+      CALL set_parent_loc_idx(p_patch_local_parent(jg), p_patch(jg))
+    END DO
+
     ! compute the child/edge indices on parent patch from the
     ! corresponding information on parent indices stored in the child
     ! patch
@@ -99,7 +104,7 @@ CONTAINS
       jgp = p_patch(jg)%parent_id
       IF (jgp >= n_dom_start) THEN
         CALL set_child_indices("patch "//TRIM(int2string(jgp))//" -> "//int2string(jg), &
-          &                    p_patch(jg), p_patch(jgp), set_pc_idx=.TRUE.)
+          &                    p_patch(jg), p_patch(jgp), is_local_parent=.FALSE.)
       END IF
     END DO
 
@@ -109,7 +114,7 @@ CONTAINS
       jgp = p_patch(jg)%parent_id
       IF (jgp >= n_dom_start) THEN
         CALL set_child_indices("loc par patch "//TRIM(int2string(jgp))//" -> "//int2string(jg), &
-          &                    p_patch(jg), p_patch_local_parent(jg), set_pc_idx=.FALSE.)
+          &                    p_patch(jg), p_patch_local_parent(jg), is_local_parent=.TRUE.)
       END IF
     END DO
 
@@ -180,11 +185,11 @@ CONTAINS
   !
   ! 06/2016 : F. Prill, DWD
   !
-  SUBROUTINE set_child_indices(description, p_c, p_p, set_pc_idx)
+  SUBROUTINE set_child_indices(description, p_c, p_p, is_local_parent)
     CHARACTER(LEN=*), INTENT(IN) :: description !< description string (for debugging purposes)
     TYPE(t_patch), TARGET, INTENT(inout) :: p_c ! child patch
     TYPE(t_patch), TARGET, INTENT(inout) :: p_p ! parent patch
-    LOGICAL, INTENT(IN) :: set_pc_idx
+    LOGICAL, INTENT(IN) :: is_local_parent
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":set_child_indices"
     INTEGER              :: i, j, jc_c, jb_c, communicator, i1, i2, iidx,                 &
@@ -192,7 +197,10 @@ CONTAINS
     INTEGER, ALLOCATABLE :: in_data(:), dst_idx(:), out_data(:,:), out_pc_data(:,:),         &
       &                     out_data34(:,:), out_data_e(:,:), out_count(:,:),                &
       &                     out_data_e3(:,:), out_data_c3(:,:), out_child_id(:,:)
-    LOGICAL              :: lfound
+    LOGICAL              :: lfound, set_pc_idx
+    INTEGER, POINTER     :: parent_idx_c(:,:), parent_blk_c(:,:), &
+      &                     parent_idx_e(:,:), parent_blk_e(:,:)
+
 
     IF (p_pe_work == 0) THEN
       WRITE (0,*) "set_child_indices: ", TRIM(description), " - Enter."
@@ -200,6 +208,20 @@ CONTAINS
 
     communicator = p_comm_work
     IF(p_test_run)  communicator = p_comm_work_test
+
+    parent_idx_c => p_c%cells%parent_glb_idx
+    parent_blk_c => p_c%cells%parent_glb_blk
+    IF (is_local_parent) THEN
+      parent_idx_c => p_c%cells%parent_loc_idx
+      parent_blk_c => p_c%cells%parent_loc_blk
+    END IF
+    parent_idx_e => p_c%edges%parent_glb_idx
+    parent_blk_e => p_c%edges%parent_glb_blk
+    IF (is_local_parent) THEN
+      parent_idx_e => p_c%edges%parent_loc_idx
+      parent_blk_e => p_c%edges%parent_loc_blk
+    END IF
+    set_pc_idx = .NOT. is_local_parent
 
     ! -----------------------------------------------------------------
     ! --- create CELL indices -----------------------------------------
@@ -214,8 +236,26 @@ CONTAINS
     DO j = 1, p_c%n_patch_cells
       jc_c = idx_no(j)
       jb_c = blk_no(j)
-      dst_idx(j) = idx_1d(p_c%cells%parent_glb_idx(jc_c,jb_c), &
-        &                 p_c%cells%parent_glb_blk(jc_c,jb_c))
+        dst_idx(j) = idx_1d(parent_idx_c(jc_c,jb_c), &
+          &                 parent_blk_c(jc_c,jb_c))
+!      IF (dst_idx(j) < 1) THEN
+!        WRITE (0,*) idx_1d(p_c%cells%parent_loc_idx(jc_c,jb_c), &
+!        &                  p_c%cells%parent_loc_blk(jc_c,jb_c)), &
+!        &                 p_c%cells%parent_loc_idx(jc_c,jb_c),  &
+!        &                 p_c%cells%parent_loc_blk(jc_c,jb_c)
+!        WRITE (0,*) "p_p%n_patch_cells = ", p_p%n_patch_cells
+!        WRITE (0,*) "p_p%n_patch_cells_g = ", p_p%n_patch_cells_g
+!        CALL finish(routine, "Error!")
+!      END IF
+!      IF (dst_idx(j) > p_p%n_patch_cells) THEN
+!        WRITE (0,*) idx_1d(p_c%cells%parent_glb_idx(jc_c,jb_c), &
+!        &                  p_c%cells%parent_glb_blk(jc_c,jb_c)), &
+!        &                 p_c%cells%parent_glb_idx(jc_c,jb_c),  &
+!        &                 p_c%cells%parent_glb_blk(jc_c,jb_c)
+!        WRITE (0,*) "p_p%n_patch_cells = ", p_p%n_patch_cells
+!        WRITE (0,*) "p_p%n_patch_cells_g = ", p_p%n_patch_cells_g
+!        CALL finish(routine, "Error!")
+!      END IF
     END DO
 
     in_data(:) = p_c%cells%decomp_info%glb_index(:)
@@ -246,8 +286,8 @@ CONTAINS
         jc_e = p_c%cells%edge_idx(jc_c,jb_c,i)
         jb_e = p_c%cells%edge_blk(jc_c,jb_c,i)
         iidx = iidx + 1
-        dst_idx(iidx) = idx_1d(p_c%cells%parent_glb_idx(jc_c,jb_c), &
-          &                    p_c%cells%parent_glb_blk(jc_c,jb_c))
+        dst_idx(iidx) = idx_1d(parent_idx_c(jc_c,jb_c), &
+          &                    parent_blk_c(jc_c,jb_c))
         in_data(iidx) = p_c%edges%decomp_info%glb_index(idx_1d(jc_e,jb_e))
       END DO
     END DO
@@ -334,8 +374,8 @@ CONTAINS
       IF (lfound) THEN
         iidx = iidx + 1
         in_data(iidx) = p_c%cells%decomp_info%glb_index(j)
-        dst_idx(iidx) = idx_1d(p_c%cells%parent_glb_idx(jc_c,jb_c), &
-          &                      p_c%cells%parent_glb_blk(jc_c,jb_c))
+        dst_idx(iidx) = idx_1d(parent_idx_c(jc_c,jb_c), &
+          &                    parent_blk_c(jc_c,jb_c))
       END IF
     END DO
 
@@ -439,8 +479,8 @@ CONTAINS
           jc_e = p_c%cells%edge_idx(jc_c,jb_c,i)
           jb_e = p_c%cells%edge_blk(jc_c,jb_c,i)
           iidx = iidx + 1
-          dst_idx(iidx) = idx_1d(p_c%edges%parent_glb_idx(jc_e,jb_e), &
-            &                    p_c%edges%parent_glb_blk(jc_e,jb_e))
+          dst_idx(iidx) = idx_1d(parent_idx_e(jc_e,jb_e), &
+            &                    parent_blk_e(jc_e,jb_e))
           in_data(iidx) = p_c%edges%decomp_info%glb_index(idx_1d(jc_e,jb_e))
         END DO
       END IF
@@ -461,8 +501,8 @@ CONTAINS
     DO j = 1, p_c%n_patch_edges
       jc_e = idx_no(j)
       jb_e = blk_no(j)
-      dst_idx(j) = idx_1d(p_c%edges%parent_glb_idx(jc_e,jb_e), &
-        &                 p_c%edges%parent_glb_blk(jc_e,jb_e))
+      dst_idx(j) = idx_1d(parent_idx_e(jc_e,jb_e), &
+        &                 parent_blk_e(jc_e,jb_e))
       in_data(j) = p_c%edges%decomp_info%glb_index(j)
     END DO
 
@@ -556,8 +596,8 @@ CONTAINS
     DO j = 1, p_c%n_patch_cells
       jc_c = idx_no(j)
       jb_c = blk_no(j)
-      dst_idx(j) = idx_1d(p_c%cells%parent_glb_idx(jc_c,jb_c), &
-        &                 p_c%cells%parent_glb_blk(jc_c,jb_c))
+      dst_idx(j) = idx_1d(parent_idx_c(jc_c,jb_c), &
+        &                 parent_blk_c(jc_c,jb_c))
     END DO
     ! set the cell child_id for the (global) parent grid
     in_data(:) = p_c%id
@@ -599,10 +639,10 @@ CONTAINS
 
     ! get the parent cell indices:
     DO j = 1, p_c%n_patch_edges
-      jc_c = idx_no(j)
-      jb_c = blk_no(j)
-      dst_idx(j) = idx_1d(p_c%edges%parent_glb_idx(jc_c,jb_c), &
-        &                 p_c%edges%parent_glb_blk(jc_c,jb_c))
+      jc_e = idx_no(j)
+      jb_e = blk_no(j)
+      dst_idx(j) = idx_1d(parent_idx_e(jc_e,jb_e), &
+        &                 parent_blk_e(jc_e,jb_e))
     END DO
     ! set the edge child_id for the (global) parent grid:
     in_data(:) = p_c%id
@@ -616,16 +656,16 @@ CONTAINS
 
     ! communication finished. now copy the result to the local arrays:
     DO j = 1, p_p%n_patch_edges
-      jc_c = idx_no(j)
-      jb_c = blk_no(j)
+      jc_e = idx_no(j)
+      jb_e = blk_no(j)
 
       IF (out_child_id(1,j) < 0)  CYCLE
 
       ! check for overlap (i.e.: child id already exists)
-      IF (p_p%edges%child_id(jc_c,jb_c) == 0) THEN
-        p_p%edges%child_id(jc_c,jb_c) = out_child_id(1,j)
+      IF (p_p%edges%child_id(jc_e,jb_e) == 0) THEN
+        p_p%edges%child_id(jc_e,jb_e) = out_child_id(1,j)
       ELSE
-        IF (p_p%edges%child_id(jc_c,jb_c) /= out_child_id(1,j)) THEN
+        IF (p_p%edges%child_id(jc_e,jb_e) /= out_child_id(1,j)) THEN
           CALL finish(routine, "Edge in DOM "//int2string(p_c%id,'(i0)')//" overlaps with another domain!")
         END IF
       END IF

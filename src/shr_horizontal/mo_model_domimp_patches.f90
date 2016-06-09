@@ -97,8 +97,8 @@ MODULE mo_model_domimp_patches
     &                              min_rlvert_int
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
   USE mo_model_domain,       ONLY: t_patch, t_pre_patch, p_patch_local_parent, &
-       c_num_edges, c_parent, c_child, c_phys_id, c_neighbor, c_edge, &
-       c_vertex, c_center, c_refin_ctrl, e_parent, e_child, e_cell, &
+       c_num_edges, c_parent, c_phys_id, c_neighbor, c_edge, &
+       c_vertex, c_center, c_refin_ctrl, e_parent, e_cell, &
        e_refin_ctrl, v_cell, v_num_edges, v_vertex, v_refin_ctrl
   USE mo_decomposition_tools,ONLY: t_glb2loc_index_lookup, &
     &                              get_valid_local_index, &
@@ -108,7 +108,7 @@ MODULE mo_model_domimp_patches
     & set_trivial_phys_id, set_verts_phys_id, init_butterfly_idx, fill_grid_subsets
   USE mo_grid_tools,         ONLY: calculate_patch_cartesian_positions, rescale_grid
   USE mo_grid_config,        ONLY: start_lev, nroot, n_dom, n_dom_start, &
-    & l_limited_area, max_childdom, dynamics_parent_grid_id, &
+    & max_childdom, dynamics_parent_grid_id, &
     & lplane, grid_length_rescale_factor, is_plane_torus, grid_sphere_radius, &
     & use_duplicated_connectivity
   USE mo_dynamics_config,    ONLY: lcoriolis
@@ -118,7 +118,6 @@ MODULE mo_model_domimp_patches
   USE mo_sync,               ONLY: disable_sync_checks, enable_sync_checks
   USE mo_communication,      ONLY: idx_no, blk_no, idx_1d, makeScatterPattern
   USE mo_util_uuid,          ONLY: uuid_string_length, uuid_parse, clear_uuid
-  USE mo_util_string,        ONLY: int2string
   USE mo_name_list_output_config, ONLY: is_grib_output
 
   USE mo_grid_geometry_info, ONLY: planar_torus_geometry, sphere_geometry, &
@@ -200,6 +199,7 @@ MODULE mo_model_domimp_patches
   PUBLIC :: import_pre_patches
   PUBLIC :: complete_patches
   PUBLIC :: reorder_patch_refin_ctrl
+  PUBLIC :: set_parent_loc_idx
 
   ! The "phys_id" is not necessarily defined for cells/edges in the
   ! input file:
@@ -450,7 +450,6 @@ CONTAINS
 
     INTEGER :: jg, jgp, n_lp, id_lp(max_dom)
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':complete_patches'
-    INTEGER :: j, jc_glb, jb_glb
 
     DO jg = n_dom_start, n_dom
 
@@ -526,9 +525,9 @@ CONTAINS
 
     ! set parent-child relationships
     DO jg = n_dom_start, n_dom
-
+      
       IF(jg == n_dom_start) THEN
-
+        
         ! parent_loc/glb_idx/blk is set to 0 since it just doesn't exist,
         patch(jg)%cells%parent_glb_idx = 0
         patch(jg)%cells%parent_glb_blk = 0
@@ -548,11 +547,10 @@ CONTAINS
           patch(jg)%edges%child_idx  = 0
           patch(jg)%edges%child_blk  = 0
         END IF
-
+        
       ELSE
 
         CALL set_parent_child_relations(p_patch_local_parent(jg), patch(jg))
-        CALL set_parent_loc_idx(p_patch_local_parent(jg), patch(jg))
       ENDIF
     END DO
 
@@ -669,7 +667,7 @@ CONTAINS
     TYPE(t_patch), INTENT(INOUT) :: p_pc       !> divided child patch
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_parent_child_relations"
-    INTEGER   :: i, j, jl, jb, jc, jc_g, jp, jp_g
+    INTEGER   :: i, j, jl, jb, jc, jc_g
 
     ! Before this call, child_idx/child_blk still point to the global values.
     ! This is changed here.
@@ -770,7 +768,7 @@ CONTAINS
     TYPE(t_patch), INTENT(INOUT) :: p_pc       !> divided child patch
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_parent_loc_idx"
-    INTEGER   :: i, j, jl, jb, jc, jc_g, jp, jp_g
+    INTEGER   :: j, jl, jb, jp, jp_g
 
     ! Set parent indices in child ...
 
@@ -1060,7 +1058,7 @@ CONTAINS
 
     ! status variables
     INTEGER :: ist, netcd_status, ncid, ncid_grf, dimid, varid, max_cell_connectivity, &
-      &        max_verts_connectivity, ji, jc, ic, icheck, ilev, dim_idxlist, ierr
+      &        max_verts_connectivity, ji, jc, ic, ilev, dim_idxlist, ierr
     INTEGER,  POINTER :: local_ptr(:), local_ptr_2d(:,:)
     REAL(wp), POINTER :: local_ptr_wp_2d(:, :)
     !-----------------------------------------------------------------------
