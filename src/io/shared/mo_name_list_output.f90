@@ -873,13 +873,9 @@ CONTAINS
       END DO
       CALL MPI_Win_unlock(p_pe_work, of%mem_win%mpi_win_metainfo, mpierr)
     END IF
-#endif
-
-#ifndef NOMPI
-    ! In case of async IO: Lock own window before writing to it
-    IF(use_async_name_list_io .AND. .NOT.my_process_is_mpi_test()) THEN
-      CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, of%mem_win%mpi_win, mpierr)
-    END IF
+    IF (participate_in_async_io) &
+      CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, &
+      of%mem_win%mpi_win, mpierr)
 #endif
 
     ! "lmask_boundary": Some of the output fields are not updated with
@@ -903,8 +899,7 @@ CONTAINS
     ! Only for synchronous output mode: communicate the largest global
     ! index of the lateral boundary cells, if required:
 
-    IF ( (.NOT.use_async_name_list_io .OR. my_process_is_mpi_test()) .AND.   &
-      &  config_lmask_boundary )  THEN
+    IF ((.NOT. participate_in_async_io) .AND. config_lmask_boundary)  THEN
       last_bdry_index = get_last_bdry_index(i_log_dom)
     END IF
 
@@ -1121,9 +1116,8 @@ CONTAINS
 
 #ifndef NOMPI
     ! In case of async IO: Done writing to memory window, unlock it
-    IF(use_async_name_list_io .AND. .NOT.my_process_is_mpi_test()) THEN
+    IF (participate_in_async_io) &
       CALL MPI_Win_unlock(p_pe_work, of%mem_win%mpi_win, mpierr)
-    END IF
 #endif
 
   END SUBROUTINE write_name_list
@@ -1365,20 +1359,20 @@ CONTAINS
     lwrite_single_precision = (.NOT. use_dp_mpi2io) .AND. (.NOT. have_GRIB)
 
     IF (idata_type == iREAL) THEN
-      ALLOCATE(r_out_dp(MERGE(n_points, 0, my_process_is_mpi_workroot())))
+      ALLOCATE(r_out_dp(MERGE(n_points, 0, is_mpi_workroot)))
     END IF
     IF ((idata_type == iREAL_sp) .OR. lwrite_single_precision) THEN
-      ALLOCATE(r_out_sp(MERGE(n_points, 0, my_process_is_mpi_workroot())))
+      ALLOCATE(r_out_sp(MERGE(n_points, 0, is_mpi_workroot)))
     END IF
     IF (idata_type == iINTEGER) THEN
-      IF ( .NOT. ALLOCATED(r_out_sp) ) ALLOCATE(r_out_sp(MERGE(n_points, 0, my_process_is_mpi_workroot())))
-      IF ( .NOT. ALLOCATED(r_out_dp) ) ALLOCATE(r_out_dp(MERGE(n_points, 0, my_process_is_mpi_workroot())))
-      ALLOCATE(r_out_int(MERGE(n_points, 0, my_process_is_mpi_workroot())))
+      IF ( .NOT. ALLOCATED(r_out_sp) ) ALLOCATE(r_out_sp(MERGE(n_points, 0, is_mpi_workroot)))
+      IF ( .NOT. ALLOCATED(r_out_dp) ) ALLOCATE(r_out_dp(MERGE(n_points, 0, is_mpi_workroot)))
+      ALLOCATE(r_out_int(MERGE(n_points, 0, is_mpi_workroot)))
     END IF
 
-    IF(my_process_is_mpi_workroot()) THEN
+    IF(is_mpi_workroot) THEN
 
-      IF (my_process_is_mpi_test()) THEN
+      IF (is_mpi_test) THEN
 
         IF (p_test_run .AND. use_dp_mpi2io) ALLOCATE(r_out_recv(n_points))
 
@@ -1408,7 +1402,7 @@ CONTAINS
       !
       ! gather the array on stdio PE and write it out there
       IF ( info%hgrid == GRID_LONLAT ) THEN
-        IF (my_process_is_mpi_workroot()) THEN
+        IF (is_mpi_workroot) THEN
           !write(0,*)'#--- n_points:',n_points,'idata_type:',idata_type,'iREAL:',iREAL,'iINTEGER:',iINTEGER
           IF      (idata_type == iREAL ) THEN
             r_out_dp(:)  = r_ptr(:,1,1)
@@ -1420,7 +1414,7 @@ CONTAINS
         END IF
       ELSE IF ( info%hgrid == GRID_ZONAL ) THEN ! 1deg zonal grid
         lev_idx = lev
-        IF (my_process_is_mpi_workroot()) THEN
+        IF (is_mpi_workroot) THEN
           IF      (idata_type == iREAL ) THEN
             r_out_dp(:)  = r_ptr(lev_idx,1,:)
           ELSE IF (idata_type == iREAL_sp ) THEN
@@ -1472,7 +1466,7 @@ CONTAINS
         END IF
       END IF ! n_points
 
-      IF(my_process_is_mpi_workroot()) THEN
+      IF (is_mpi_workroot) THEN
 
         SELECT CASE(idata_type)
         CASE(iREAL)
@@ -1521,7 +1515,7 @@ CONTAINS
         IF (p_test_run  .AND.  use_dp_mpi2io) THEN
           ! Currently we don't do the check for REAL*4, we would need
           ! p_send/p_recv for this type
-          IF(.NOT. my_process_is_mpi_test()) THEN
+          IF (.NOT. is_mpi_test) THEN
             ! Send to test PE
             CALL p_send(r_out_dp, process_mpi_all_test_id, 1)
           ELSE IF (p_pe == process_mpi_all_test_id) THEN
@@ -1559,8 +1553,8 @@ CONTAINS
       END IF ! is_mpi_workroot
     END DO ! lev = 1, nlevs
 
-    IF (my_process_is_mpi_workroot() .AND. lkeep_in_sync .AND. &
-       & .NOT. my_process_is_mpi_test()) CALL streamSync(of%cdiFileID)
+    IF (is_mpi_workroot .AND. lkeep_in_sync .AND. &
+       & .NOT. is_mpi_test) CALL streamSync(of%cdiFileID)
 
   END SUBROUTINE gather_on_workroot_and_write
 
