@@ -107,7 +107,7 @@ CONTAINS
     INTEGER :: comp_id
     INTEGER :: comp_ids(1)
     INTEGER :: cell_point_ids(1)
-    INTEGER :: cell_mask_ids(1)
+    INTEGER :: cell_mask_ids(2)
     INTEGER :: domain_id
     INTEGER :: subdomain_id
     INTEGER :: subdomain_ids(nbr_subdomain_ids)
@@ -321,8 +321,6 @@ CONTAINS
       & cell_point_ids(1),        &
       & cell_mask_ids(1) )
 
-    DEALLOCATE (ibuffer)
-
     field_name(1) = "surface_downward_eastward_stress"   ! bundled field containing two components
     field_name(2) = "surface_downward_northward_stress"  ! bundled field containing two components
     field_name(3) = "surface_fresh_water_flux"           ! bundled field containing three components
@@ -335,16 +333,58 @@ CONTAINS
     field_name(10) = "10m_wind_speed"
     field_name(11) = "river_runoff"
 
-    DO idx = 1, no_of_fields 
+    ! Define all fields but the runoff
+
+    DO idx = 1, no_of_fields-1 
       CALL yac_fdef_field (      &
         & TRIM(field_name(idx)), &
         & comp_id,               &
         & domain_id,             &
         & cell_point_ids,        &
-        & cell_mask_ids,         &
+        & cell_mask_ids(1),      &
         & 1,                     &
         & field_id(idx) )
     ENDDO
+
+    ! Set mask for runnoff
+
+    IF ( mask_checksum > 0 ) THEN
+
+!ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_DEFAULT_SCHEDULE
+      DO BLOCK = 1, patch_horz%nblks_c
+        nn = (BLOCK-1)*nproma
+        DO idx = 1, nproma
+          IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) == -1 ) THEN
+            ! water (-2, -1)
+            ibuffer(nn+idx) = 0
+          ELSE
+            ! land or boundary
+            ibuffer(nn+idx) = 1
+          ENDIF
+        ENDDO
+      ENDDO
+!ICON_OMP_END_PARALLEL_DO
+
+      CALL yac_fdef_mask (          &
+        & patch_horz%n_patch_cells, &
+        & ibuffer,                  &
+        & cell_point_ids(1),        &
+        & cell_mask_ids(2) )
+
+    ENDIF
+
+    DEALLOCATE(ibuffer)
+
+    ! Define the runoff
+
+    CALL yac_fdef_field (               &
+      & TRIM(field_name(no_of_fields)), &
+      & comp_id,                        &
+      & domain_id,                      &
+      & cell_point_ids,                 &
+      & cell_mask_ids(1),               & ! still uses (1) for nn-interpolation; change for spmapping to (2)
+      & 1,                              &
+      & field_id(no_of_fields) )
 
     CALL yac_fsearch ( 1, comp_ids, no_of_fields, field_id, error_status )
 

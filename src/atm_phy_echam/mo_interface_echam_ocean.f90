@@ -126,7 +126,7 @@ CONTAINS
     INTEGER :: comp_id
     INTEGER :: comp_ids(1)
     INTEGER :: cell_point_ids(1)
-    INTEGER :: cell_mask_ids(1)
+    INTEGER :: cell_mask_ids(2)
     INTEGER :: domain_id
     INTEGER :: subdomain_id
     INTEGER :: subdomain_ids(nbr_subdomain_ids)
@@ -316,10 +316,10 @@ CONTAINS
        DO BLOCK = 1, patch_horz%nblks_c
           DO idx = 1, nproma
              IF ( ext_data(1)%atm%lsm_ctr_c(idx, BLOCK) < 0 ) THEN
-               ! Ocean point
+               ! Ocean point (lsm_ctr_c = -1 or -2)
                ibuffer((BLOCK-1)*nproma+idx) = 0
              ELSE
-               ! Land point
+               ! Land point (lsm_ctr_c = 1 or 2)
                ibuffer((BLOCK-1)*nproma+idx) = 1
              ENDIF
           ENDDO
@@ -339,8 +339,6 @@ CONTAINS
       & cell_point_ids(1),         &
       & cell_mask_ids(1) )
 
-    DEALLOCATE (ibuffer)
-
     field_name(1) = "surface_downward_eastward_stress"   ! bundled field containing two components
     field_name(2) = "surface_downward_northward_stress"  ! bundled field containing two components
     field_name(3) = "surface_fresh_water_flux"           ! bundled field containing three components
@@ -358,15 +356,43 @@ CONTAINS
         & comp_id,               &
         & domain_id,             &
         & cell_point_ids,        &
-        & cell_mask_ids,         &
+        & cell_mask_ids(1),      &
         & 1,                     &
         & field_id(idx) )
     ENDDO
 
 #ifndef __NO_JSBACH__
+    IF ( mask_checksum > 0 ) THEN
+!ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_RUNTIME_SCHEDULE
+       DO BLOCK = 1, patch_horz%nblks_c
+          nn = (BLOCK-1)*nproma
+          DO idx = 1, nproma
+             IF ( ext_data(1)%atm%lsm_ctr_c(idx, BLOCK) == -1 ) THEN
+                ! Ocean point at coast
+                ibuffer(nn+idx) = 0
+             ELSE
+                ! Land point or ocean point without coast
+                ibuffer(nn+idx) = 1
+             ENDIF
+          ENDDO
+       ENDDO
+!ICON_OMP_END_PARALLEL_DO
+
+       CALL yac_fdef_mask (           &
+         & patch_horz%n_patch_cells,  &
+         & ibuffer,                   &
+         & cell_point_ids(1),         &
+         & cell_mask_ids(2) )
+
+    ENDIF
+
     ! Define additional coupling field(s) for JSBACH/HD
-    CALL jsb_fdef_hd_fields(comp_id, domain_id, cell_point_ids, cell_mask_ids)
+    !  - still uses (1) for nearest neighbor interpolation
+    !  - change to (2) for spmapping
+    CALL jsb_fdef_hd_fields(comp_id, domain_id, cell_point_ids, cell_mask_ids(1))
 #endif
+
+    DEALLOCATE (ibuffer)
 
     ! End definition of coupling fields and search
     CALL yac_fget_nbr_fields(no_of_fields_total)
@@ -902,13 +928,8 @@ CONTAINS
     CALL dbg_print('EchOce: total snow  ',scr,str_module,4,in_subset=p_patch%cells%owned)
     CALL dbg_print('EchOce: evaporation ',prm_field(jg)%evap   ,str_module,4,in_subset=p_patch%cells%owned)
     CALL dbg_print('EchOce: sfcWind     ',prm_field(jg)%sfcWind,str_module,3,in_subset=p_patch%cells%owned)
-  ! scr(:,:) = prm_field(jg)%sfcWind(:,:)
-  ! CALL dbg_print('EchOce: prm%u      ',scr,str_module,4,in_subset=p_patch%cells%owned)
-  ! scr(:,:) = prm_field(jg)%v(:,nlev,:)
-  ! CALL dbg_print('EchOce: prm%v      ',scr,str_module,4,in_subset=p_patch%cells%owned)
-  ! scr(:,:) = SQRT(prm_field(jg)%u(:,nlev,:)**2+prm_field(jg)%v(:,nlev,:)**2) 
-  ! CALL dbg_print('EchOce: sqrt(u2+v2)',scr,str_module,3,in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
+
 
   END SUBROUTINE interface_echam_ocean
 
