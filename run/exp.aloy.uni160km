@@ -665,6 +665,7 @@ cat > ${oce_namelist} << EOF
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
+  m_levels         = "1...3,9,15,22,30,34,37"         ! 40 levels (0-27m, 100m, 310m, 845m, 2080m, 3070m, 4195m)
   ml_varlist       =  'wet_c','basin_c','regio_c','mld','condep','h_acc','u_vint_acc','hi_acc','hs_acc','conc_acc',
                       'topBoundCond_windStress_u_acc','t_acc','s_acc','u_acc',
                       'HeatFlux_Total_acc','FrshFlux_Runoff_acc','FrshFlux_Precipitation_acc','FrshFlux_Evaporation_acc',
