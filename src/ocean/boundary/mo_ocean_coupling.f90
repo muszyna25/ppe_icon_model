@@ -352,14 +352,13 @@ CONTAINS
 
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_DEFAULT_SCHEDULE
       DO BLOCK = 1, patch_horz%nblks_c
-        nn = (BLOCK-1)*nproma
         DO idx = 1, nproma
           IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) == -1 ) THEN
             ! water (-2, -1)
-            ibuffer(nn+idx) = 0
+            ibuffer((BLOCK-1)*nproma+idx) = 0
           ELSE
             ! land or boundary
-            ibuffer(nn+idx) = 1
+            ibuffer((BLOCK-1)*nproma+idx) = 1
           ENDIF
         ENDDO
       ENDDO

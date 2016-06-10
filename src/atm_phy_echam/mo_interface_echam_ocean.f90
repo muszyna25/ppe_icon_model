@@ -365,14 +365,13 @@ CONTAINS
     IF ( mask_checksum > 0 ) THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_RUNTIME_SCHEDULE
        DO BLOCK = 1, patch_horz%nblks_c
-          nn = (BLOCK-1)*nproma
           DO idx = 1, nproma
              IF ( ext_data(1)%atm%lsm_ctr_c(idx, BLOCK) == -1 ) THEN
                 ! Ocean point at coast
-                ibuffer(nn+idx) = 0
+                ibuffer((BLOCK-1)*nproma+idx) = 0
              ELSE
                 ! Land point or ocean point without coast
-                ibuffer(nn+idx) = 1
+                ibuffer((BLOCK-1)*nproma+idx) = 1
              ENDIF
           ENDDO
        ENDDO
