@@ -388,7 +388,7 @@ CONTAINS
     ! Define additional coupling field(s) for JSBACH/HD
     !  - still uses (1) for nearest neighbor interpolation
     !  - change to (2) for spmapping
-    CALL jsb_fdef_hd_fields(comp_id, domain_id, cell_point_ids, cell_mask_ids(1))
+    CALL jsb_fdef_hd_fields(comp_id, domain_id, cell_point_ids, cell_mask_ids(1:1))
 #endif
 
     DEALLOCATE (ibuffer)
