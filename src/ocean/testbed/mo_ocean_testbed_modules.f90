@@ -355,8 +355,8 @@ ENDIF
 !      &-ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index)%concentration
 !         
 IF(tracer_index==1)THEN
-DO level = 1, 5
-write(0,*)'tracer:GM:Cart',&
+DO level = 1, n_zlev
+write(0,*)'tracer:rho',&
 & maxval( ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index)%concentration(:,level,:)),&
 & minval( ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index)%concentration(:,level,:)),&
 !& maxval( ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index-1)%concentration(:,level,:)),&

@@ -171,6 +171,7 @@ MODULE mo_ocean_types
       & div_mass_flx_c ,& !
       & u              ,& ! reconstructed zonal velocity component. Unit [m/s]
       & v              ,& ! reconstructed meridional velocity component. Unit [m/s]
+      & w_prismcenter  ,&         
 !       & potential_vort_c ,& ! potential vorticity averaged to triangle cells. Unit [1/s]
       & kin            ,& ! kinetic energy. Unit [m/s].
       & div            ,& ! divergence. Unit [m/s]

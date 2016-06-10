@@ -669,10 +669,11 @@ CONTAINS
 
   !---------------------------------------------------------------------
 
-!   DO level= start_level+1, end_level-1  
-!   write(*,*)'max-min SLOPE squared',level,maxval(ocean_state%p_aux%slopes_squared(:,level,:)),&
-!   & minval(ocean_state%p_aux%slopes_squared(:,level,:))
-!   END DO
+   DO level= 1, n_zlev  
+   write(0,*)'max-min vert deriv',level,maxval(grad_T_vert_center(:,level,:)),&
+   & minval(grad_T_vert_center(:,level,:)),maxval(grad_S_vert_center(:,level,:)),&
+   & minval(grad_S_vert_center(:,level,:))
+   END DO
 
   END SUBROUTINE calc_neutral_slopes
   !-------------------------------------------------------------------------
@@ -940,14 +941,14 @@ CONTAINS
               &   K_I(cell_index,level,blockNo)
 
               taper_off_diagonal_horz(cell_index,level,blockNo)%x&
-              & = (ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)&
-              & *K_I(cell_index,level,blockNo)-kappa(cell_index,level,blockNo))&
-              &*ocean_state%p_aux%slopes(cell_index,level,blockNo)%x
+              & = (K_I(cell_index,level,blockNo)-kappa(cell_index,level,blockNo))&
+              &*ocean_state%p_aux%slopes(cell_index,level,blockNo)%x&
+              &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)
 
               !coefficients for vertical fluxes
               taper_off_diagonal_vert(cell_index,level,blockNo)%x&
-              &= (K_I(cell_index,level,blockNo)*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)&
-              &+kappa(cell_index,level,blockNo))&                
+              &= (K_I(cell_index,level,blockNo)+kappa(cell_index,level,blockNo))&
+              &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)&                
               &*ocean_state%p_aux%slopes(cell_index,level,blockNo)%x
 
               

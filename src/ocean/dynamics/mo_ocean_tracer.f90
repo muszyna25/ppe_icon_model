@@ -636,7 +636,7 @@ CONTAINS
           CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
           DO jc = start_cell_index, end_cell_index
             DO level = 1, MIN(patch_3d%p_patch_1d(1)%dolic_c(jc,jb),1)  ! this at most should be 1      
-             p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
+               p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
              &=p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
              &+(temp_tracer_after%concentration(jc,level,jb)-temp_tracer_before%concentration(jc,level,jb))            
             END DO
