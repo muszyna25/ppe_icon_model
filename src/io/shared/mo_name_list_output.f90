@@ -115,8 +115,10 @@ MODULE mo_name_list_output
   ! data types
   USE mo_var_metadata_types,        ONLY: t_var_metadata, POST_OP_SCALE, POST_OP_LUC
   USE mo_name_list_output_types,    ONLY: t_output_file, t_reorder_info, &
-       msg_io_start, msg_io_done, msg_io_meteogram_flush, msg_io_shutdown, &
-       all_events
+    &                                     msg_io_start, msg_io_done, &
+    &                                     msg_io_meteogram_flush, &
+    &                                     msg_io_shutdown, all_events, &
+    &                                     t_var_desc
   USE mo_output_event_types,        ONLY: t_sim_step_info, t_par_output_event
   ! parallelization
   USE mo_communication,             ONLY: exchange_data, t_comm_gather_pattern, idx_no, blk_no,     &
@@ -702,21 +704,19 @@ CONTAINS
 #endif
     TYPE (t_var_metadata), POINTER              :: info
     TYPE(t_reorder_info),  POINTER              :: p_ri
-    REAL(wp), POINTER :: r_ptr(:,:,:), r_ptr_t(:,:,:,:,:,:)
-    REAL(sp), POINTER :: s_ptr(:,:,:), s_ptr_t(:,:,:,:,:,:)
 #ifndef __NO_ICON_ATMO__
     REAL(wp), ALLOCATABLE, TARGET :: r_ptr_m(:,:,:)
     REAL(sp), ALLOCATABLE, TARGET :: s_ptr_m(:,:,:)
     INTEGER, ALLOCATABLE, TARGET :: i_ptr_m(:,:,:)
 #endif
-    INTEGER, POINTER :: i_ptr(:,:,:), i_ptr_t(:,:,:,:,:,:)
+    REAL(wp), POINTER :: r_ptr(:,:,:)
+    REAL(sp), POINTER :: s_ptr(:,:,:)
+    INTEGER, POINTER :: i_ptr(:,:,:)
     TYPE(t_comm_gather_pattern), POINTER        :: p_pat
     LOGICAL                                     :: var_ignore_level_selection
-    INTEGER                                     :: var_ref_pos, last_bdry_index
+    INTEGER                                     :: last_bdry_index
     INTEGER                                     :: rl_start, rl_end, i_nchdom, &
          i_startblk, i_endblk, i_startidx, i_endidx
-    REAL(wp), TARGET :: r_dummy(1,1,1)
-    INTEGER, TARGET :: i_dummy(1,1,1)
 #ifndef __NO_ICON_ATMO__
     INTEGER :: ipost_op_type, alloc_shape(3), alloc_shape_op(3)
     LOGICAL :: post_op_apply
@@ -845,206 +845,8 @@ CONTAINS
         idata_type = iINTEGER
       END IF
 
-      r_ptr => r_dummy
-      i_ptr => i_dummy
-
-      SELECT CASE (info%ndims)
-      CASE (1)
-        IF (info%lcontained .AND. (info%var_ref_pos /= -1))  &
-          & CALL finish(routine, "internal error")
-        IF (ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
-          r_ptr => of%var_desc(iv)%r_ptr(:,1:1,1:1,1,1)
-        ELSE IF (ASSOCIATED(of%var_desc(iv)%s_ptr)) THEN
-          s_ptr => of%var_desc(iv)%s_ptr(:,1:1,1:1,1,1)
-        ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
-          i_ptr => of%var_desc(iv)%i_ptr(:,1:1,1:1,1,1)
-        ELSE
-          CALL finish(routine, "Internal error!")
-        ENDIF
-
-      CASE (2)
-        var_ref_pos = 3
-        IF (info%lcontained)  var_ref_pos = info%var_ref_pos
-
-        IF (ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN !double precision
-          SELECT CASE(var_ref_pos)
-          CASE (1)
-            CALL insert_dimension(r_ptr_t, of%var_desc(iv)%r_ptr, 3)
-            r_ptr => r_ptr_t(nindex,:,1:1,:,1,1)
-          CASE (2)
-            r_ptr => of%var_desc(iv)%r_ptr(:,nindex:nindex,:,1,1)
-          CASE (3)
-            CALL insert_dimension(r_ptr_t, of%var_desc(iv)%r_ptr, 2)
-            r_ptr => r_ptr_t(:,1:1,:,nindex,1,1)
-          CASE default
-            CALL finish(routine, "internal error!")
-          END SELECT
-        ELSE IF (ASSOCIATED(of%var_desc(iv)%s_ptr)) THEN ! single precision
-          SELECT CASE(var_ref_pos)
-          CASE (1)
-            CALL insert_dimension(s_ptr_t, of%var_desc(iv)%s_ptr, 3)
-            s_ptr => s_ptr_t(nindex,:,1:1,:,1,1)
-          CASE (2)
-            s_ptr => of%var_desc(iv)%s_ptr(:,nindex:nindex,:,1,1)
-          CASE (3)
-            CALL insert_dimension(s_ptr_t, of%var_desc(iv)%s_ptr, 2)
-            s_ptr => s_ptr_t(:,1:1,:,nindex,1,1)
-          CASE default
-            CALL finish(routine, "internal error!")
-          END SELECT
-        ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN ! integer output
-          SELECT CASE(var_ref_pos)
-          CASE (1)
-            CALL insert_dimension(i_ptr_t, of%var_desc(iv)%i_ptr, 3)
-            i_ptr => i_ptr_t(nindex,:,1:1,:,1,1)
-          CASE (2)
-            i_ptr => of%var_desc(iv)%i_ptr(:,nindex:nindex,:,1,1)
-          CASE (3)
-            CALL insert_dimension(i_ptr_t, of%var_desc(iv)%i_ptr, 2)
-            i_ptr => i_ptr_t(:,1:1,:,nindex,1,1)
-          CASE default
-            CALL finish(routine, "internal error!")
-          END SELECT
-        ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)) THEN
-          SELECT CASE(var_ref_pos)
-          CASE (1)
-            CALL insert_dimension(r_ptr_t, of%var_desc(iv)%tlev_rptr(tl)%p, 3)
-            r_ptr => r_ptr_t(nindex,:,1:1,:,1,1)
-          CASE (2)
-            r_ptr => of%var_desc(iv)%tlev_rptr(tl)%p(:,nindex:nindex,:,1,1)
-          CASE (3)
-            CALL insert_dimension(r_ptr_t, of%var_desc(iv)%tlev_rptr(tl)%p, 2)
-            r_ptr => r_ptr_t(:,1:1,:,nindex,1,1)
-          CASE default
-            CALL finish(routine, "internal error!")
-          END SELECT
-        ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_sptr(tl)%p)) THEN
-          SELECT CASE(var_ref_pos)
-          CASE (1)
-            CALL insert_dimension(s_ptr_t, of%var_desc(iv)%tlev_sptr(tl)%p, 3)
-            s_ptr => s_ptr_t(nindex,:,1:1,:,1,1)
-          CASE (2)
-            s_ptr => of%var_desc(iv)%tlev_sptr(tl)%p(:,nindex:nindex,:,1,1)
-          CASE (3)
-            CALL insert_dimension(s_ptr_t, of%var_desc(iv)%tlev_sptr(tl)%p, 2)
-            s_ptr => s_ptr_t(:,1:1,:,nindex,1,1)
-          CASE default
-            CALL finish(routine, "internal error!")
-          END SELECT
-        ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_iptr(tl)%p)) THEN
-          SELECT CASE(var_ref_pos)
-          CASE (1)
-            CALL insert_dimension(i_ptr_t, of%var_desc(iv)%tlev_iptr(tl)%p, 3)
-            i_ptr => i_ptr_t(nindex,:,1:1,:,1,1)
-          CASE (2)
-            i_ptr => of%var_desc(iv)%tlev_iptr(tl)%p(:,nindex:nindex,:,1,1)
-          CASE (3)
-            CALL insert_dimension(i_ptr_t, of%var_desc(iv)%tlev_iptr(tl)%p, 2)
-            i_ptr => i_ptr_t(:,1:1,:,nindex,1,1)
-          CASE default
-            CALL finish(routine, "internal error!")
-          END SELECT
-        ELSE
-          CALL finish(routine, "Internal error!")
-        ENDIF
-      CASE (3)
-
-        var_ref_pos = 4
-        IF (info%lcontained)  var_ref_pos = info%var_ref_pos
-
-        ! 3D fields: Here we could just set a pointer to the
-        ! array... if there were no post-ops
-        IF(ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
-          SELECT CASE(var_ref_pos)
-          CASE (1)
-            r_ptr => of%var_desc(iv)%r_ptr(nindex,:,:,:,1)
-          CASE (2)
-            r_ptr => of%var_desc(iv)%r_ptr(:,nindex,:,:,1)
-          CASE (3)
-            r_ptr => of%var_desc(iv)%r_ptr(:,:,nindex,:,1)
-          CASE (4)
-            r_ptr => of%var_desc(iv)%r_ptr(:,:,:,nindex,1)
-          CASE default
-            CALL finish(routine, "internal error!")
-          END SELECT
-        ELSE IF (ASSOCIATED(of%var_desc(iv)%s_ptr)) THEN
-          SELECT CASE(var_ref_pos)
-          CASE (1)
-            s_ptr => of%var_desc(iv)%s_ptr(nindex,:,:,:,1)
-          CASE (2)
-            s_ptr => of%var_desc(iv)%s_ptr(:,nindex,:,:,1)
-          CASE (3)
-            s_ptr => of%var_desc(iv)%s_ptr(:,:,nindex,:,1)
-          CASE (4)
-            s_ptr => of%var_desc(iv)%s_ptr(:,:,:,nindex,1)
-          CASE default
-            CALL finish(routine, "internal error!")
-          END SELECT
-        ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
-          SELECT CASE(var_ref_pos)
-          CASE (1)
-            i_ptr => of%var_desc(iv)%i_ptr(nindex,:,:,:,1)
-          CASE (2)
-            i_ptr => of%var_desc(iv)%i_ptr(:,nindex,:,:,1)
-          CASE (3)
-            i_ptr => of%var_desc(iv)%i_ptr(:,:,nindex,:,1)
-          CASE (4)
-            i_ptr => of%var_desc(iv)%i_ptr(:,:,:,nindex,1)
-          CASE default
-            CALL finish(routine, "internal error!")
-          END SELECT
-        ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)) THEN
-          SELECT CASE(var_ref_pos)
-          CASE (1)
-            r_ptr => of%var_desc(iv)%tlev_rptr(tl)%p(nindex,:,:,:,1)
-          CASE (2)
-            r_ptr => of%var_desc(iv)%tlev_rptr(tl)%p(:,nindex,:,:,1)
-          CASE (3)
-            r_ptr => of%var_desc(iv)%tlev_rptr(tl)%p(:,:,nindex,:,1)
-          CASE (4)
-            r_ptr => of%var_desc(iv)%tlev_rptr(tl)%p(:,:,:,nindex,1)
-          CASE default
-            CALL finish(routine, "internal error!")
-          END SELECT
-        ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_sptr(tl)%p)) THEN
-          SELECT CASE(var_ref_pos)
-          CASE (1)
-            s_ptr => of%var_desc(iv)%tlev_sptr(tl)%p(nindex,:,:,:,1)
-          CASE (2)
-            s_ptr => of%var_desc(iv)%tlev_sptr(tl)%p(:,nindex,:,:,1)
-          CASE (3)
-            s_ptr => of%var_desc(iv)%tlev_sptr(tl)%p(:,:,nindex,:,1)
-          CASE (4)
-            s_ptr => of%var_desc(iv)%tlev_sptr(tl)%p(:,:,:,nindex,1)
-          CASE default
-            CALL finish(routine, "internal error!")
-          END SELECT
-        ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_iptr(tl)%p)) THEN
-          SELECT CASE(var_ref_pos)
-          CASE (1)
-            i_ptr => of%var_desc(iv)%tlev_iptr(tl)%p(nindex,:,:,:,1)
-          CASE (2)
-            i_ptr => of%var_desc(iv)%tlev_iptr(tl)%p(:,nindex,:,:,1)
-          CASE (3)
-            i_ptr => of%var_desc(iv)%tlev_iptr(tl)%p(:,:,nindex,:,1)
-          CASE (4)
-            i_ptr => of%var_desc(iv)%tlev_iptr(tl)%p(:,:,:,nindex,1)
-          CASE default
-            CALL finish(routine, "internal error!")
-          END SELECT
-        ELSE
-          CALL finish(routine, "Internal error!")
-        ENDIF
-      CASE (4)
-        CALL message(routine, info%name)
-        CALL finish(routine,'4d arrays not handled yet.')
-      CASE (5)
-        CALL message(routine, info%name)
-        CALL finish(routine,'5d arrays not handled yet.')
-      CASE DEFAULT
-        CALL message(routine, info%name)
-        CALL finish(routine,'dimension not set.')
-      END SELECT
+      CALL get_ptr_to_var_data(i_ptr, r_ptr, s_ptr, &
+        &                      nindex, tl, of%var_desc(iv), info)
 
       ! --------------------------------------------------------
       ! Perform post-ops (small arithmetic operations on fields)
@@ -1216,16 +1018,236 @@ CONTAINS
     last_bdry_index = p_max(glb_idx, p_comm_work)
   END FUNCTION get_last_bdry_index
 
+  SUBROUTINE get_ptr_to_var_data(i_ptr, r_ptr, s_ptr, nindex, tl, var_desc, info)
+    TYPE (t_var_metadata), INTENT(in) :: info
+    REAL(wp), POINTER, INTENT(out) :: r_ptr(:,:,:)
+    REAL(sp), POINTER, INTENT(out) :: s_ptr(:,:,:)
+    INTEGER, POINTER, INTENT(out) :: i_ptr(:,:,:)
+    INTEGER, INTENT(in) :: nindex, tl
+    TYPE(t_var_desc), TARGET, INTENT(in) :: var_desc
+
+    REAL(wp), SAVE, TARGET :: r_dummy(1,1,1)
+    REAL(wp), POINTER :: r_ptr_t(:,:,:,:,:,:)
+    REAL(sp), SAVE, TARGET :: s_dummy(1,1,1)
+    REAL(sp), POINTER :: s_ptr_t(:,:,:,:,:,:)
+    INTEGER, SAVE, TARGET :: i_dummy(1,1,1)
+    INTEGER, POINTER :: i_ptr_t(:,:,:,:,:,:)
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::get_ptr_to_var_data"
+    INTEGER :: var_ref_pos
+
+    r_ptr => r_dummy
+    s_ptr => s_dummy
+    i_ptr => i_dummy
+
+    SELECT CASE (info%ndims)
+    CASE (1)
+      IF (info%lcontained .AND. (info%var_ref_pos /= -1))  &
+           & CALL finish(routine, "internal error")
+      IF (ASSOCIATED(var_desc%r_ptr)) THEN
+        r_ptr => var_desc%r_ptr(:,1:1,1:1,1,1)
+      ELSE IF (ASSOCIATED(var_desc%s_ptr)) THEN
+        s_ptr => var_desc%s_ptr(:,1:1,1:1,1,1)
+      ELSE IF (ASSOCIATED(var_desc%i_ptr)) THEN
+        i_ptr => var_desc%i_ptr(:,1:1,1:1,1,1)
+      ELSE
+        CALL finish(routine, "Internal error!")
+      ENDIF
+
+    CASE (2)
+      var_ref_pos = 3
+      IF (info%lcontained)  var_ref_pos = info%var_ref_pos
+
+      IF (ASSOCIATED(var_desc%r_ptr)) THEN
+        SELECT CASE(var_ref_pos)
+        CASE (1)
+          CALL insert_dimension(r_ptr_t, var_desc%r_ptr, 3)
+          r_ptr => r_ptr_t(nindex,:,1:1,:,1,1)
+        CASE (2)
+          r_ptr => var_desc%r_ptr(:,nindex:nindex,:,1,1)
+        CASE (3)
+          CALL insert_dimension(r_ptr_t, var_desc%r_ptr, 2)
+          r_ptr => r_ptr_t(:,1:1,:,nindex,1,1)
+        CASE default
+          CALL finish(routine, "internal error!")
+        END SELECT
+      ELSE IF (ASSOCIATED(var_desc%s_ptr)) THEN
+        SELECT CASE(var_ref_pos)
+        CASE (1)
+          CALL insert_dimension(s_ptr_t, var_desc%s_ptr, 3)
+          s_ptr => s_ptr_t(nindex,:,1:1,:,1,1)
+        CASE (2)
+          s_ptr => var_desc%s_ptr(:,nindex:nindex,:,1,1)
+        CASE (3)
+          CALL insert_dimension(s_ptr_t, var_desc%s_ptr, 2)
+          s_ptr => s_ptr_t(:,1:1,:,nindex,1,1)
+        CASE default
+          CALL finish(routine, "internal error!")
+        END SELECT
+      ELSE IF (ASSOCIATED(var_desc%i_ptr)) THEN
+        SELECT CASE(var_ref_pos)
+        CASE (1)
+          CALL insert_dimension(i_ptr_t, var_desc%i_ptr, 3)
+          i_ptr => i_ptr_t(nindex,:,1:1,:,1,1)
+        CASE (2)
+          i_ptr => var_desc%i_ptr(:,nindex:nindex,:,1,1)
+        CASE (3)
+          CALL insert_dimension(i_ptr_t, var_desc%i_ptr, 2)
+          i_ptr => i_ptr_t(:,1:1,:,nindex,1,1)
+        CASE default
+          CALL finish(routine, "internal error!")
+        END SELECT
+      ELSE IF (ASSOCIATED(var_desc%tlev_rptr(tl)%p)) THEN
+        SELECT CASE(var_ref_pos)
+        CASE (1)
+          CALL insert_dimension(r_ptr_t, var_desc%tlev_rptr(tl)%p, 3)
+          r_ptr => r_ptr_t(nindex,:,1:1,:,1,1)
+        CASE (2)
+          r_ptr => var_desc%tlev_rptr(tl)%p(:,nindex:nindex,:,1,1)
+        CASE (3)
+          CALL insert_dimension(r_ptr_t, var_desc%tlev_rptr(tl)%p, 2)
+          r_ptr => r_ptr_t(:,1:1,:,nindex,1,1)
+        CASE default
+          CALL finish(routine, "internal error!")
+        END SELECT
+      ELSE IF (ASSOCIATED(var_desc%tlev_sptr(tl)%p)) THEN
+        SELECT CASE(var_ref_pos)
+        CASE (1)
+          CALL insert_dimension(s_ptr_t, var_desc%tlev_sptr(tl)%p, 3)
+          s_ptr => s_ptr_t(nindex,:,1:1,:,1,1)
+        CASE (2)
+          s_ptr => var_desc%tlev_sptr(tl)%p(:,nindex:nindex,:,1,1)
+        CASE (3)
+          CALL insert_dimension(s_ptr_t, var_desc%tlev_sptr(tl)%p, 2)
+          s_ptr => s_ptr_t(:,1:1,:,nindex,1,1)
+        CASE default
+          CALL finish(routine, "internal error!")
+        END SELECT
+      ELSE IF (ASSOCIATED(var_desc%tlev_iptr(tl)%p)) THEN
+        SELECT CASE(var_ref_pos)
+        CASE (1)
+          CALL insert_dimension(i_ptr_t, var_desc%tlev_iptr(tl)%p, 3)
+          i_ptr => i_ptr_t(nindex,:,1:1,:,1,1)
+        CASE (2)
+          i_ptr => var_desc%tlev_iptr(tl)%p(:,nindex:nindex,:,1,1)
+        CASE (3)
+          CALL insert_dimension(i_ptr_t, var_desc%tlev_iptr(tl)%p, 2)
+          i_ptr => i_ptr_t(:,1:1,:,nindex,1,1)
+        CASE default
+          CALL finish(routine, "internal error!")
+        END SELECT
+      ELSE
+        CALL finish(routine, "Internal error!")
+      ENDIF
+    CASE (3)
+
+      var_ref_pos = 4
+      IF (info%lcontained)  var_ref_pos = info%var_ref_pos
+
+      ! 3D fields: Here we could just set a pointer to the
+      ! array... if there were no post-ops
+      IF(ASSOCIATED(var_desc%r_ptr)) THEN
+        SELECT CASE(var_ref_pos)
+        CASE (1)
+          r_ptr => var_desc%r_ptr(nindex,:,:,:,1)
+        CASE (2)
+          r_ptr => var_desc%r_ptr(:,nindex,:,:,1)
+        CASE (3)
+          r_ptr => var_desc%r_ptr(:,:,nindex,:,1)
+        CASE (4)
+          r_ptr => var_desc%r_ptr(:,:,:,nindex,1)
+        CASE default
+          CALL finish(routine, "internal error!")
+        END SELECT
+      ELSE IF (ASSOCIATED(var_desc%s_ptr)) THEN
+        SELECT CASE(var_ref_pos)
+        CASE (1)
+          s_ptr => var_desc%s_ptr(nindex,:,:,:,1)
+        CASE (2)
+          s_ptr => var_desc%s_ptr(:,nindex,:,:,1)
+        CASE (3)
+          s_ptr => var_desc%s_ptr(:,:,nindex,:,1)
+        CASE (4)
+          s_ptr => var_desc%s_ptr(:,:,:,nindex,1)
+        CASE default
+          CALL finish(routine, "internal error!")
+        END SELECT
+      ELSE IF (ASSOCIATED(var_desc%i_ptr)) THEN
+        SELECT CASE(var_ref_pos)
+        CASE (1)
+          i_ptr => var_desc%i_ptr(nindex,:,:,:,1)
+        CASE (2)
+          i_ptr => var_desc%i_ptr(:,nindex,:,:,1)
+        CASE (3)
+          i_ptr => var_desc%i_ptr(:,:,nindex,:,1)
+        CASE (4)
+          i_ptr => var_desc%i_ptr(:,:,:,nindex,1)
+        CASE default
+          CALL finish(routine, "internal error!")
+        END SELECT
+      ELSE IF (ASSOCIATED(var_desc%tlev_rptr(tl)%p)) THEN
+        SELECT CASE(var_ref_pos)
+        CASE (1)
+          r_ptr => var_desc%tlev_rptr(tl)%p(nindex,:,:,:,1)
+        CASE (2)
+          r_ptr => var_desc%tlev_rptr(tl)%p(:,nindex,:,:,1)
+        CASE (3)
+          r_ptr => var_desc%tlev_rptr(tl)%p(:,:,nindex,:,1)
+        CASE (4)
+          r_ptr => var_desc%tlev_rptr(tl)%p(:,:,:,nindex,1)
+        CASE default
+          CALL finish(routine, "internal error!")
+        END SELECT
+      ELSE IF (ASSOCIATED(var_desc%tlev_sptr(tl)%p)) THEN
+        SELECT CASE(var_ref_pos)
+        CASE (1)
+          s_ptr => var_desc%tlev_sptr(tl)%p(nindex,:,:,:,1)
+        CASE (2)
+          s_ptr => var_desc%tlev_sptr(tl)%p(:,nindex,:,:,1)
+        CASE (3)
+          s_ptr => var_desc%tlev_sptr(tl)%p(:,:,nindex,:,1)
+        CASE (4)
+          s_ptr => var_desc%tlev_sptr(tl)%p(:,:,:,nindex,1)
+        CASE default
+          CALL finish(routine, "internal error!")
+        END SELECT
+      ELSE IF (ASSOCIATED(var_desc%tlev_iptr(tl)%p)) THEN
+        SELECT CASE(var_ref_pos)
+        CASE (1)
+          i_ptr => var_desc%tlev_iptr(tl)%p(nindex,:,:,:,1)
+        CASE (2)
+          i_ptr => var_desc%tlev_iptr(tl)%p(:,nindex,:,:,1)
+        CASE (3)
+          i_ptr => var_desc%tlev_iptr(tl)%p(:,:,nindex,:,1)
+        CASE (4)
+          i_ptr => var_desc%tlev_iptr(tl)%p(:,:,:,nindex,1)
+        CASE default
+          CALL finish(routine, "internal error!")
+        END SELECT
+      ELSE
+        CALL finish(routine, "Internal error!")
+      ENDIF
+    CASE (4)
+      CALL message(routine, info%name)
+      CALL finish(routine,'4d arrays not handled yet.')
+    CASE (5)
+      CALL message(routine, info%name)
+      CALL finish(routine,'5d arrays not handled yet.')
+    CASE DEFAULT
+      CALL message(routine, info%name)
+      CALL finish(routine,'dimension not set.')
+    END SELECT
+  END SUBROUTINE get_ptr_to_var_data
+
   SUBROUTINE gather_on_workroot_and_write(of, idata_type, r_ptr, s_ptr, &
        i_ptr, p_ri, iv, last_bdry_index, &
        nlevs, var_ignore_level_selection, p_pat, info)
     TYPE (t_output_file), INTENT(IN) :: of
     INTEGER, INTENT(in) :: idata_type, iv, nlevs, last_bdry_index
     LOGICAL, INTENT(in) :: var_ignore_level_selection
-    REAL(dp), POINTER, INTENT(in) :: r_ptr(:,:,:)
-    REAL(sp), POINTER, INTENT(in) :: s_ptr(:,:,:)
-    INTEGER, POINTER, INTENT(in) :: i_ptr(:,:,:)
-    TYPE(t_reorder_info), INTENT(in), POINTER :: p_ri
+    REAL(dp), INTENT(in) :: r_ptr(:,:,:)
+    REAL(sp), INTENT(in) :: s_ptr(:,:,:)
+    INTEGER,  INTENT(in) :: i_ptr(:,:,:)
+    TYPE(t_reorder_info),  INTENT(in) :: p_ri
 
     REAL(dp), ALLOCATABLE :: r_out_dp(:)
     INTEGER, ALLOCATABLE :: r_out_int(:)
@@ -1470,9 +1492,9 @@ CONTAINS
     TYPE (t_output_file), INTENT(IN) :: of
     INTEGER, INTENT(in) :: idata_type, nlevs
     LOGICAL, INTENT(in) :: var_ignore_level_selection
-    REAL(dp), POINTER, INTENT(in) :: r_ptr(:,:,:)
-    REAL(sp), POINTER, INTENT(in) :: s_ptr(:,:,:)
-    INTEGER, POINTER, INTENT(in) :: i_ptr(:,:,:)
+    REAL(dp), INTENT(in) :: r_ptr(:,:,:)
+    REAL(sp), INTENT(in) :: s_ptr(:,:,:)
+    INTEGER, INTENT(in) :: i_ptr(:,:,:)
     INTEGER(i8), INTENT(inout) :: ioff
     TYPE(t_reorder_info),  INTENT(in) :: p_ri
     TYPE(t_var_metadata), INTENT(in) :: info
