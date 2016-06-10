@@ -30,6 +30,7 @@ MODULE mo_radiation_nml
                                  & config_isolrad    => isolrad,     &
                                  & config_albedo_type=> albedo_type, &
                                  & config_direct_albedo => direct_albedo, &
+                                 & config_icld_overlap => icld_overlap, &
                                  & config_irad_h2o   => irad_h2o,    &
                                  & config_irad_co2   => irad_co2,    &
                                  & config_irad_ch4   => irad_ch4,    &
@@ -104,6 +105,12 @@ MODULE mo_radiation_nml
                              ! 4: Parameterization after Briegleb (1992) for snow-free land points
                              !    limitation after Zaengl for snow-coverer points
 
+  INTEGER :: icld_overlap    ! method for cloud overlap calculation in shortwave part of RRTM
+                             ! 1: maximum-random overlap
+                             ! 2: generalized overlap (Hogan, Illingworth, 2000)
+                             ! 3: maximum overlap
+                             ! 4: random overlap
+
   ! --- Switches for radiative agents
   !     irad_x=0 : radiation uses tracer x = 0
   !     irad_x=1 : radiation uses tracer x from a tracer variable
@@ -170,7 +177,7 @@ MODULE mo_radiation_nml
     &                      irad_aero,             &
     &                      lrad_aero_diag,        &
     &                      ighg,                  &
-    &                      izenith
+    &                      izenith, icld_overlap
 
 CONTAINS
 
@@ -209,6 +216,7 @@ CONTAINS
     isolrad        = 0
     albedo_type    = 1
     direct_albedo  = 4   ! Parameterization after Briegleb (1992)
+    icld_overlap   = 2   ! generalized random overlap
 
     irad_h2o    = 1
     irad_co2    = 2
@@ -275,6 +283,7 @@ CONTAINS
     config_isolrad    = isolrad
     config_albedo_type= albedo_type
     config_direct_albedo = direct_albedo
+    config_icld_overlap = icld_overlap
     config_irad_h2o   = irad_h2o
     config_irad_co2   = irad_co2
     config_irad_ch4   = irad_ch4

@@ -62,7 +62,7 @@ reg_lon_def_tri=0.,1.125,358.875
 # (2) Set variables needed by the scripting mechanism
 
 # horizontal grid(s)
-grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip
+grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip/r0002
 atmo_dyn_grids='r2b4_amip.nc'
 
 # start and end date+time
@@ -184,6 +184,7 @@ cat > ${atmo_namelist} << EOF
  isolrad          = 1           ! 1: transient solar irradiance (at 1 AE)
 /
 &psrad_nml
+!fco2              = 4.0
 lradforcing       = .FALSE.,.FALSE. ! diagnose instantaneous radiative forcing
                                     ! for solar and lw spectrum
 irad_aero_forcing     = 15          ! Kinne aerosols + Stenchikov's volc aerosols
@@ -253,7 +254,7 @@ add_required_file ${basedir}/run/${dict_file}                           ./
 
 # initial conditions
 #
-INDATA=${icon_data_poolFolder}/input/r0003
+INDATA=${icon_data_poolFolder}/input/r0004
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
 datadir=${icon_data_poolFolder}/setup/ifs_iconremap_amip

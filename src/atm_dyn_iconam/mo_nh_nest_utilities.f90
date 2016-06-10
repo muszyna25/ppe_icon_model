@@ -48,7 +48,7 @@ MODULE mo_nh_nest_utilities
     grf_fbk_start_c,                           &
     grf_bdywidth_c, grf_bdywidth_e,            &
     grf_nudgintp_start_c, grf_nudgintp_start_e,&
-    grf_nudge_start_c, grf_nudge_start_e
+    grf_nudge_start_c
   USE mo_mpi,                 ONLY: my_process_is_mpi_seq
   USE mo_communication,       ONLY: exchange_data, exchange_data_mult
   USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array, &

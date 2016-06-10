@@ -37,7 +37,7 @@ MODULE mo_nwp_soil_init
 
   USE mo_lnd_nwp_config,     ONLY: lmulti_snow, lana_rho_snow, &
     &                              lmelt, lmelt_var,           &
-    &                              max_toplaydepth
+    &                              max_toplaydepth, l2lay_rho_snow
   USE mo_phyparam_soil,      ONLY: cdw0, cdw1, ckw0, ckw1, cik2, &
     &                              cporv, cpwp, cadp, cfcap,     & 
     &                              crock, crhoc, cala0, cala1,   &
@@ -452,6 +452,7 @@ CONTAINS
          ENDDO
        ELSE
          rho_snow_now(istarts:iends) = 250.0_ireals    ! average initial density
+         IF (l2lay_rho_snow) rho_snow_mult_now(istarts:iends,:) = 250.0_ireals
        ENDIF
     ELSE
       IF(lmulti_snow) THEN
@@ -512,9 +513,13 @@ CONTAINS
           t_snow_mult_now  (i,0  ) = t_snow_now(i)
         END DO
       ELSE
-          DO i = istarts, iends
-              IF(rho_snow_now(i) .EQ. 0._ireals) rho_snow_now(i) = 250._ireals
-          END DO
+        DO i = istarts, iends
+          IF(rho_snow_now(i) .EQ. 0._ireals) rho_snow_now(i) = 250._ireals
+          IF (l2lay_rho_snow) THEN
+            IF(rho_snow_mult_now(i,1) == 0._ireals) rho_snow_mult_now(i,1) = rho_snow_now(i)
+            IF(rho_snow_mult_now(i,2) == 0._ireals) rho_snow_mult_now(i,2) = rho_snow_now(i)
+          ENDIF
+        END DO
       END IF
     ENDIF
 
@@ -843,21 +848,6 @@ CONTAINS
   ENDIF  ! init_mode
 
 
-
-#ifdef __ICON__
-  IF (msg_level >= 19) THEN
-        DO i = istarts, iends
-             IF (w_snow_now(i) > 2.410E-003 .AND. w_snow_now(i) < 2.411E-003 ) THEN
-              write(0,*) "SFC-DIAGNOSIS TERRA INIT",i
-              write(0,*) "t_s",t_s_now(i),t_s_new(i)
-              write(0,*) "t_snow",t_snow_now(i)
-              write(0,*) "w_snow",w_snow_now(i)
-              write(0,*) "h_snow",h_snow(i)
-              write(0,*) "t_so",t_so_now(i,:),t_so_new(i,:)
-           END IF
-         END DO
-  ENDIF
-#endif
 
 ! End of timestep 0 preparations
 ! ==============================

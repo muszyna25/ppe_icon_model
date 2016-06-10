@@ -23,17 +23,19 @@
 !!
 MODULE mo_advection_config
 
-  USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom,  &
-    &                              MIURA, MIURA3, FFSL, FFSL_HYB, MCYCL,   &
-    &                              MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL,  &
-    &                              FFSL_HYB_MCYCL, ippm_vcfl, ippm_v,      &
-    &                              ino_flx, izero_grad, iparent_flx, inwp, &
-    &                              TRACER_ONLY
-  USE mo_exception,          ONLY: message, message_text
-  USE mo_expression,         ONLY: expression
-  USE mo_linked_list,        ONLY: t_var_list
-  USE mo_var_list,           ONLY: fget_var_list_element_r3d
+  USE mo_kind,                  ONLY: wp
+  USE mo_impl_constants,        ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom,  &
+    &                                 MIURA, MIURA3, FFSL, FFSL_HYB, MCYCL,   &
+    &                                 MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL,  &
+    &                                 FFSL_HYB_MCYCL, ippm_vcfl, ippm_v,      &
+    &                                 ino_flx, izero_grad, iparent_flx, inwp, &
+    &                                 iecham, TRACER_ONLY, SUCCESS
+  USE mo_exception,             ONLY: message, message_text, finish
+  USE mo_expression,            ONLY: expression
+  USE mo_linked_list,           ONLY: t_var_list, t_list_element
+  USE mo_var_list,              ONLY: fget_var_list_element_r3d
+  USE mo_var_metadata_types,    ONLY: t_var_metadata
+  USE mo_tracer_metadata_types, ONLY: t_tracer_meta, t_hydro_meta 
 
   IMPLICIT NONE
   PUBLIC
@@ -174,6 +176,11 @@ MODULE mo_advection_config
                                  !< .FALSE.: the majority of setup computations
                                  !<          is performed in the dycore.  
 
+    INTEGER, ALLOCATABLE :: &    ! list of tracer IDs for tracer group hydroMass 
+      &  ilist_hydroMass(:)      ! allocated and filled in 
+                                 ! create_idlist_hydroMass
+
+
     ! scheme specific derived variables
     !
     TYPE(t_scheme) :: ppm_v      !< vertical PPM scheme
@@ -258,7 +265,8 @@ CONTAINS
     LOGICAL, INTENT(IN) :: lvert_nest
     LOGICAL, INTENT(IN) :: l_open_ubc
     TYPE(t_var_list), OPTIONAL, INTENT(IN) :: tracer_list(:)
-
+    !
+    CHARACTER(*), PARAMETER :: routine = "configure_advection"
     INTEGER :: jt          !< tracer loop index
     INTEGER :: jm          !< loop index for shape functions
     INTEGER :: ivadv_tracer(MAX_NTRACER)
@@ -651,14 +659,31 @@ CONTAINS
     END IF
 
 
-    ! initialize passive tracers, if required
-    !
+
     IF ( PRESENT(tracer_list) ) THEN
+
+      ! initialize passive tracers, if required
+      !
       IF (advection_config(jg)%npassive_tracer > 0) THEN 
         CALL init_passive_tracer (tracer_list, advection_config(jg), ntl=1)
       ENDIF
-    ENDIF
 
+
+      ! create ID list for tracer group hydroMass
+      ! This list contains the IDs of all condensate fields 
+      ! which are required for computing the water loading term.
+      !
+      IF ( iforcing == inwp .OR. iforcing == iecham ) THEN
+        ! in these cases it is assured that the hydroMass group is not empty.
+        CALL create_idlist_hydroMass (tracer_list(1), advection_config(jg)%ilist_hydroMass)
+        !
+        IF (.NOT. ALLOCATED(advection_config(jg)%ilist_hydroMass) &
+          & .OR. SIZE(advection_config(jg)%ilist_hydroMass) < 1 ) THEN
+          CALL finish (TRIM(routine), 'ilist_hydroMass is not ASSOCIATED')
+        ENDIF
+      ENDIF
+
+    ENDIF
 
   END SUBROUTINE configure_advection
 
@@ -727,5 +752,74 @@ CONTAINS
     ENDDO
 
   END SUBROUTINE init_passive_tracer
+
+
+
+  !-----------------------------------------------------------------------------
+  !
+  ! Create vector containing all IDs of tracers which are of type 
+  ! hydroMass. This list will be used to compute the water loading 
+  ! term.
+  !
+  SUBROUTINE create_idlist_hydroMass (tracer_list, idList)
+    !
+    TYPE(t_var_list)    , INTENT(IN)    :: tracer_list
+    INTEGER, ALLOCATABLE, INTENT(INOUT) :: idList(:)
+    !
+    !
+    CHARACTER(*), PARAMETER :: routine = "create_idlist_HydroMass"
+    TYPE(t_list_element) , POINTER :: this_list_element
+    TYPE (t_var_metadata), POINTER :: info             ! static info state
+    CLASS(t_tracer_meta) , POINTER :: tracer_info      ! dynamic (tracer) info state
+
+    INTEGER, ALLOCATABLE :: tmp(:)     ! auxiliary array
+    INTEGER :: cnt                     ! counter
+    INTEGER :: ist                     ! status flag
+
+
+    ! allocate with maximum size
+    ALLOCATE(tmp(tracer_list%p%list_elements), stat=ist)
+    IF(ist/=SUCCESS) THEN
+      CALL finish (TRIM(routine), 'allocation of tmp failed')
+    ENDIF
+
+    cnt = 0
+    !
+    this_list_element => tracer_list%p%first_list_element
+    DO WHILE (ASSOCIATED(this_list_element))
+      !
+      ! retrieve information from actual linked list element
+      !
+      info          => this_list_element%field%info
+      tracer_info   => this_list_element%field%info_dyn%tracer
+
+      ! build hydroMass ID list
+      SELECT TYPE(tracer_info)
+      TYPE IS (t_hydro_meta)
+        cnt = cnt+1
+        tmp(cnt) = info%ncontained 
+      CLASS default
+      !
+      END SELECT      
+
+      this_list_element => this_list_element%next_list_element
+    ENDDO
+    !
+    NULLIFY (this_list_element)
+    !
+    ! copy from temporary array to output array
+    ALLOCATE(idList(cnt), stat=ist)
+    IF(ist/=SUCCESS) THEN
+      CALL finish (TRIM(routine), 'allocation of idlist failed')
+    ENDIF
+    idList(1:cnt) = tmp(1:cnt)
+    !
+    ! cleanup
+    DEALLOCATE(tmp, stat=ist)
+    IF(ist/=SUCCESS) THEN
+      CALL finish (TRIM(routine), 'deallocation of tmp failed')
+    ENDIF
+  END SUBROUTINE create_idlist_hydroMass
+
 
 END MODULE mo_advection_config

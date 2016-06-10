@@ -72,6 +72,12 @@ MODULE mo_radiation_config
                                ! 4: Parameterization after Briegleb (1992) for snow-free land points
                                !    limitation after Zaengl for snow-coverer points
 
+    INTEGER :: icld_overlap    ! method for cloud overlap calculation in shortwave part of RRTM
+                               ! 1: maximum-random overlap
+                               ! 2: generalized overlap (Hogan, Illingworth, 2000)
+                               ! 3: maximum overlap
+                               ! 4: random overlap
+
     ! --- Switches for radiative agents
     !     irad_x=0 : radiation uses tracer x = 0
     !     irad_x=1 : radiation uses tracer x from a tracer variable
@@ -159,10 +165,6 @@ MODULE mo_radiation_config
     ! --------------------------------
     !
     REAL(wp) :: mmr_co2, mmr_ch4, mmr_n2o, mmr_o2                ! setup_radiation
-
-  REAL(wp), PARAMETER :: ch4_v(3) = (/1.25e-01_wp,  683.0_wp, -1.43_wp  /)
-  REAL(wp), PARAMETER :: n2o_v(3) = (/1.20e-02_wp, 1395.0_wp, -1.43_wp/)
-
   
   !END TYPE t_radiation_config
   !>
