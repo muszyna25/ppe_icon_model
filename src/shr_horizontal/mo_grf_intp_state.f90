@@ -76,6 +76,9 @@ PUBLIC :: create_grf_index_lists
 
 TYPE(t_comm_pattern) :: comm_pat_loc_to_glb_c, comm_pat_loc_to_glb_e
 
+  !> module name string
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_grf_intp_state'
+
 CONTAINS
 
 !-------------------------------------------------------------------------
@@ -92,6 +95,7 @@ SUBROUTINE allocate_grf_state( ptr_patch, ptr_grf )
 TYPE(t_patch), INTENT(IN) :: ptr_patch
 TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: ptr_grf
 
+CHARACTER(LEN=*), PARAMETER :: routine = modname//':allocate_grf_state'
 TYPE(t_gridref_single_state), POINTER :: ptr_int    => NULL()
 
 INTEGER :: jcd
@@ -117,7 +121,7 @@ INTEGER :: grf_vec_dim_1, grf_vec_dim_2
   ! build data structure for grid refinement for each child domain
   ALLOCATE(ptr_grf%p_dom(i_nchdom), STAT=ist )
   IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_grf_intp_state:allocate_grf_state',  &
+    CALL finish (routine,  &
       &             'allocation for p_dom failed')
   ENDIF
 
@@ -149,22 +153,22 @@ INTEGER :: grf_vec_dim_1, grf_vec_dim_2
 
     ALLOCATE (ptr_int%grf_vec_ind_1a(nproma_grf, grf_vec_dim_1, isb_e:ieb_e), STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'allocation for grf_vec_ind_1a failed')
     ENDIF
     ALLOCATE (ptr_int%grf_vec_ind_1b(nproma_grf, grf_vec_dim_1, isb_e:ieb_e), STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'allocation for grf_vec_ind_1b failed')
     ENDIF
     ALLOCATE (ptr_int%grf_vec_ind_2a(nproma_grf, grf_vec_dim_2, isb_e:ieb_e), STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'allocation for grf_vec_ind_2a failed')
     ENDIF
     ALLOCATE (ptr_int%grf_vec_ind_2b(nproma_grf, grf_vec_dim_2, isb_e:ieb_e), STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'allocation for grf_vec_ind_2b failed')
     ENDIF
 
@@ -172,22 +176,22 @@ INTEGER :: grf_vec_dim_1, grf_vec_dim_2
 
     ALLOCATE (ptr_int%grf_vec_blk_1a(nproma_grf, grf_vec_dim_1, isb_e:ieb_e), STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'allocation for grf_vec_blk_1a failed')
     ENDIF
     ALLOCATE (ptr_int%grf_vec_blk_1b(nproma_grf, grf_vec_dim_1, isb_e:ieb_e), STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'allocation for grf_vec_blk_1b failed')
     ENDIF
     ALLOCATE (ptr_int%grf_vec_blk_2a(nproma_grf, grf_vec_dim_2, isb_e:ieb_e), STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'allocation for grf_vec_blk_2a failed')
     ENDIF
     ALLOCATE (ptr_int%grf_vec_blk_2b(nproma_grf, grf_vec_dim_2, isb_e:ieb_e), STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'allocation for grf_vec_blk_2b failed')
     ENDIF
 
@@ -195,22 +199,22 @@ INTEGER :: grf_vec_dim_1, grf_vec_dim_2
 
     ALLOCATE (ptr_int%grf_vec_stencil_1a(nproma_grf, isb_e:ieb_e), STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'allocation for grf_vec_stencil_1a failed')
     ENDIF
     ALLOCATE (ptr_int%grf_vec_stencil_1b(nproma_grf, isb_e:ieb_e), STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'allocation for grf_vec_stencil_1b failed')
     ENDIF
     ALLOCATE (ptr_int%grf_vec_stencil_2a(nproma_grf, isb_e:ieb_e), STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'allocation for grf_vec_stencil_2a failed')
     ENDIF
     ALLOCATE (ptr_int%grf_vec_stencil_2b(nproma_grf, isb_e:ieb_e), STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'allocation for grf_vec_stencil_2b failed')
     ENDIF
 
@@ -218,36 +222,36 @@ INTEGER :: grf_vec_dim_1, grf_vec_dim_2
 
     ALLOCATE (ptr_int%grf_vec_coeff_1a(grf_vec_dim_1, nproma_grf, isb_e:ieb_e), STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'allocation for grf_vec_coeff_1a failed')
     ENDIF
     ALLOCATE (ptr_int%grf_vec_coeff_1b(grf_vec_dim_1, nproma_grf, isb_e:ieb_e), STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'allocation for grf_vec_coeff_1b failed')
     ENDIF
     ALLOCATE (ptr_int%grf_vec_coeff_2a(grf_vec_dim_2, nproma_grf, isb_e:ieb_e), STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'allocation for grf_vec_coeff_2a failed')
     ENDIF
     ALLOCATE (ptr_int%grf_vec_coeff_2b(grf_vec_dim_2, nproma_grf, isb_e:ieb_e), STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'allocation for grf_vec_coeff_2b failed')
     ENDIF
 
     ! Distances from parent cell to child cells
     ALLOCATE (ptr_int%grf_dist_pc2cc(nproma_grf, 4, 2, isb_c:ieb_c), STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'allocation for grf_dist_pc2cc failed')
     ENDIF
 
     ! Normalized distances from parent edge to child edges 1 and 2
     ALLOCATE (ptr_int%grf_dist_pe2ce(nproma_grf, 2, isb_e:ieb_e), STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'allocation for grf_dist_pe2ce failed')
     ENDIF
 
@@ -279,25 +283,25 @@ INTEGER :: grf_vec_dim_1, grf_vec_dim_2
   ! Feedback weights for cell-based variables
   ALLOCATE (ptr_grf%fbk_wgt_aw(nproma,nblks_c,4), STAT=ist )
   IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+    CALL finish (routine,                       &
       &             'allocation for fbk_wgt_aw failed')
   ENDIF
   ALLOCATE (ptr_grf%fbk_wgt_bln(nproma,nblks_c,4), STAT=ist )
   IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+    CALL finish (routine,                       &
       &             'allocation for fbk_wgt_bln failed')
   ENDIF
 
   ! Feedback weights for edge-based variables
   ALLOCATE (ptr_grf%fbk_wgt_e(nproma,nblks_e,6), STAT=ist )
   IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+    CALL finish (routine,                       &
       &             'allocation for fbk_wgt_e failed')
   ENDIF
 
   ALLOCATE (ptr_grf%fbk_dom_area(i_nchdom), STAT=ist )
   IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+    CALL finish (routine,                       &
       &             'allocation for fbk_dom_area failed')
   ENDIF
 
@@ -325,11 +329,12 @@ SUBROUTINE construct_2d_gridref_state( ptr_patch, ptr_grf_state )
 TYPE(t_patch), TARGET, INTENT(INOUT) :: ptr_patch(n_dom_start:)
 TYPE(t_gridref_state), INTENT(INOUT) :: ptr_grf_state(n_dom_start:)
 
+CHARACTER(LEN=*), PARAMETER :: routine = modname//':construct_2d_gridref_state'
 INTEGER :: jg
 
 !-----------------------------------------------------------------------
 
-CALL message('mo_grf_intp_state:construct_2d_gridref_state', &
+CALL message(routine, &
   & 'start to construct grf_state')
 
 DO jg = n_dom_start, n_dom
@@ -339,7 +344,7 @@ DO jg = n_dom_start+1, n_dom
   CALL allocate_grf_state(p_patch_local_parent(jg), p_grf_state_local_parent(jg))
 ENDDO
 
-CALL message ('mo_grf_intp_state:construct_2d_gridref_state',   &
+CALL message (routine,   &
   & 'memory allocation finished')
 
 IF (n_dom_start == 0 .OR. n_dom > 1) THEN
@@ -362,7 +367,7 @@ IF (n_dom_start == 0 .OR. n_dom > 1) THEN
 
 ENDIF
 
-CALL message ('mo_grf_intp_state:construct_2d_gridref_state',                        &
+CALL message (routine,                        &
   & 'construction of interpolation state finished')
 
 END SUBROUTINE construct_2d_gridref_state
@@ -836,6 +841,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
   TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom_start:)
   TYPE(t_int_state), TARGET, INTENT(IN)        :: p_int_state(n_dom_start:)
 
+  CHARACTER(LEN=*), PARAMETER :: routine = modname//':create_grf_index_lists'
   TYPE(t_gridref_single_state), POINTER :: p_grf_s
   TYPE(t_gridref_state),        POINTER :: p_grf
   TYPE(t_patch),                POINTER :: p_patch
@@ -982,7 +988,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
               inv_ind_c(nproma,p_patch%nblks_c), inv_glb2loc_loc_index_c(p_patch%n_patch_cells),   &
               STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_intp_state:create_grf_index_lists','allocation of cell index lists failed')
+      CALL finish (routine,'allocation of cell index lists failed')
     ENDIF
 
     inv_glb2loc_loc_index_c = -1
@@ -999,7 +1005,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
               inv_ind_e_ubc(nproma,p_patch%nblks_e),                                              &
               inv_glb2loc_loc_index_e_ubc(p_patch%n_patch_edges), STAT=ist)
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_intp_state:create_grf_index_lists','allocation of edge index lists failed')
+      CALL finish (routine,'allocation of edge index lists failed')
     ENDIF
 
     p_grf_s%idxlist_bdyintp_e(:,:) = 0
@@ -1009,7 +1015,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
     ALLOCATE (p_grf_s%idxlist_rbfintp_v(6,npoints_lbc),p_grf_s%blklist_rbfintp_v(6,npoints_lbc), &
               p_grf_s%coeff_rbf_v(6,2,npoints_lbc), inv_ind_v(nproma,p_patch%nblks_v), STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_intp_state:create_grf_index_lists','allocation of vertex index lists failed')
+      CALL finish (routine,'allocation of vertex index lists failed')
     ENDIF
 
     ! Part 2: Compute index and coefficient lists
@@ -1506,7 +1512,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
               p_grf%idxlist_bdyintp_src_e(MAX(1,p_grf%npoints_bdyintp_src_e)),         &
               p_grf%blklist_bdyintp_src_e(MAX(1,p_grf%npoints_bdyintp_src_e)), STAT=ist)
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_intp_state:create_grf_index_lists','allocation of parent-level index lists failed')
+      CALL finish (routine,'allocation of parent-level index lists failed')
     ENDIF
 
     ! Now compute index lists
@@ -1589,7 +1595,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
              p_grf%mask_ovlp_e(nproma,p_patch%nblks_e,i_nchdom),p_grf%mask_ovlp_v (nproma,p_patch%nblks_v,i_nchdom),&
              STAT=ist)
    IF (ist /= SUCCESS) THEN
-     CALL finish ('mo_grf_intp_state:create_grf_index_lists','allocation of mask fields failed')
+     CALL finish (routine,'allocation of mask fields failed')
    ENDIF
 
    ! Initialization of mask fields with .FALSE.
@@ -1747,6 +1753,7 @@ TYPE(t_patch), INTENT(IN) :: ptr_patch
 
 TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: ptr_grf
 
+CHARACTER(LEN=*), PARAMETER :: routine = modname//':deallocate_grf_state'
 TYPE(t_gridref_single_state), POINTER :: ptr_int    => NULL()
 
 INTEGER :: jcd, i_nchdom
@@ -1764,22 +1771,22 @@ INTEGER :: ist
 
     DEALLOCATE (ptr_int%grf_vec_ind_1a, STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'deallocation for grf_vec_ind_1a failed')
     ENDIF
     DEALLOCATE (ptr_int%grf_vec_ind_1b, STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'deallocation for grf_vec_ind_1b failed')
     ENDIF
     DEALLOCATE (ptr_int%grf_vec_ind_2a, STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'deallocation for grf_vec_ind_2a failed')
     ENDIF
     DEALLOCATE (ptr_int%grf_vec_ind_2b, STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'deallocation for grf_vec_ind_2b failed')
     ENDIF
 
@@ -1787,22 +1794,22 @@ INTEGER :: ist
 
     DEALLOCATE (ptr_int%grf_vec_blk_1a, STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'deallocation for grf_vec_ind_1a failed')
     ENDIF
     DEALLOCATE (ptr_int%grf_vec_blk_1b, STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'deallocation for grf_vec_ind_1b failed')
     ENDIF
     DEALLOCATE (ptr_int%grf_vec_blk_2a, STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'deallocation for grf_vec_ind_2a failed')
     ENDIF
     DEALLOCATE (ptr_int%grf_vec_blk_2b, STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'deallocation for grf_vec_ind_2b failed')
     ENDIF
 
@@ -1810,22 +1817,22 @@ INTEGER :: ist
 
     DEALLOCATE (ptr_int%grf_vec_stencil_1a, STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'deallocation for grf_vec_stencil_1a failed')
     ENDIF
     DEALLOCATE (ptr_int%grf_vec_stencil_1b, STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'deallocation for grf_vec_stencil_1b failed')
     ENDIF
     DEALLOCATE (ptr_int%grf_vec_stencil_2a, STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'deallocation for grf_vec_stencil_2a failed')
     ENDIF
     DEALLOCATE (ptr_int%grf_vec_stencil_2b, STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'deallocation for grf_vec_stencil_2b failed')
     ENDIF
 
@@ -1833,33 +1840,33 @@ INTEGER :: ist
 
     DEALLOCATE (ptr_int%grf_vec_coeff_1a, STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'deallocation for grf_vec_coeff_1a failed')
     ENDIF
     DEALLOCATE (ptr_int%grf_vec_coeff_1b, STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'deallocation for grf_vec_coeff_1b failed')
     ENDIF
     DEALLOCATE (ptr_int%grf_vec_coeff_2a, STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'deallocation for grf_vec_coeff_2a failed')
     ENDIF
     DEALLOCATE (ptr_int%grf_vec_coeff_2b, STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'deallocation for grf_vec_coeff_2b failed')
     ENDIF
 
     DEALLOCATE (ptr_int%grf_dist_pc2cc, STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'deallocation for grf_dist_pc2cc failed')
     ENDIF
     DEALLOCATE (ptr_int%grf_dist_pe2ce, STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+      CALL finish (routine,                       &
       &             'deallocation for grf_dist_pe2ce failed')
     ENDIF
 
@@ -1867,29 +1874,29 @@ INTEGER :: ist
 
   DEALLOCATE (ptr_grf%fbk_wgt_aw, STAT=ist )
   IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+    CALL finish (routine,                       &
       &             'deallocation for fbk_wgt_aw failed')
   ENDIF
   DEALLOCATE (ptr_grf%fbk_wgt_bln, STAT=ist )
   IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+    CALL finish (routine,                       &
       &             'deallocation for fbk_wgt_bln failed')
   ENDIF
   DEALLOCATE (ptr_grf%fbk_wgt_e, STAT=ist )
   IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+    CALL finish (routine,                       &
       &             'deallocation for fbk_wgt_e failed')
   ENDIF
 
   DEALLOCATE (ptr_grf%fbk_dom_area, STAT=ist )
   IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+    CALL finish (routine,                       &
       &             'deallocation for fbk_dom_area failed')
   ENDIF
 
   DEALLOCATE (ptr_grf%p_dom, STAT=ist )
   IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_grf_interpolation:construct_grf_state',                       &
+    CALL finish (routine,                       &
       &             'deallocation for p_dom failed')
   ENDIF
 
@@ -1910,11 +1917,12 @@ SUBROUTINE destruct_2d_gridref_state( ptr_patch, ptr_grf_state )
 TYPE(t_patch), INTENT(IN) :: ptr_patch(n_dom_start:)
 TYPE(t_gridref_state), INTENT(INOUT) :: ptr_grf_state(n_dom_start:)
 
+CHARACTER(LEN=*), PARAMETER :: routine = modname//':destruct_2d_gridref_state'
 INTEGER :: jg
 
 !-----------------------------------------------------------------------
 
-CALL message('mo_grf_intp_state:destruct_2d_gridref_state', &
+CALL message(routine, &
   & 'start to destruct grf state')
 
 !
@@ -1924,7 +1932,7 @@ DO jg = n_dom_start, n_dom
   CALL deallocate_grf_state(ptr_patch(jg), ptr_grf_state(jg))
 END DO
 
-CALL message ('mo_grf_intp_state:destruct_2d_gridref_state', &
+CALL message (routine, &
   & 'destruction of grf state finished')
 
 END SUBROUTINE destruct_2d_gridref_state

@@ -1087,7 +1087,7 @@ END SUBROUTINE grf_index
 !
 !
 !>
-!! This routine computes the coefficients needed for vector RBF interpolation to.
+!! This routine computes the coefficients needed for vector RBF interpolation.
 !!
 !! This routine computes the coefficients needed for vector RBF interpolation to
 !! child edges, which is required along the lateral boundaries

@@ -59,7 +59,7 @@ CONTAINS
     LOGICAL, INTENT(in)                 :: is_ocean_decomposition
     TYPE(t_patch_3d), POINTER, OPTIONAL :: patch_3d
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = 'build_decomposition'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':build_decomposition'
     TYPE(t_pre_patch), ALLOCATABLE :: p_patch_pre(:)
     INTEGER                        :: error_status, jg, jgp
     !> If .true., read fields related to grid refinement from separate  grid files:
