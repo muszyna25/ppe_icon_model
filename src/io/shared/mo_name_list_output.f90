@@ -827,11 +827,7 @@ CONTAINS
       ENDIF
 #endif
 
-      IF (info%lcontained) THEN
-        nindex = info%ncontained
-      ELSE
-        nindex = 1
-      ENDIF
+      nindex = MERGE(info%ncontained, 1, info%lcontained)
 
       ! determine, if this is a REAL or an INTEGER variable:
       IF (ASSOCIATED(of%var_desc(iv)%r_ptr) .OR.  &
