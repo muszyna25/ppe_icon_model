@@ -2333,7 +2333,8 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER       :: routine = modname//"::setup_output_vlist"
     REAL(wp),         PARAMETER       :: ZERO_TOL = 1.e-15_wp
     ! local variables
-    INTEGER                           :: k, i_dom, ll_dim(2), gridtype, idate, itime, iret
+    INTEGER                           :: k, i_dom, ll_dim(2), gridtype, idate, &
+      &                                  itime, iret, tlen
     TYPE(t_lon_lat_data), POINTER     :: lonlat
     REAL(wp)                          :: pi_180
     INTEGER                           :: max_cell_connectivity, max_vertex_connectivity, &
@@ -2369,18 +2370,24 @@ CONTAINS
     ! define Institute
     CALL vlistDefInstitut(of%cdiVlistID,cdiInstID)
 
+    tlen = LEN_TRIM(cf_global_info%title)
     iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'title',       &
-         &                LEN_TRIM(cf_global_info%title),       TRIM(cf_global_info%title))
+         &                tlen, cf_global_info%title(1:tlen))
+    tlen = LEN_TRIM(cf_global_info%institution)
     iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'institution', &
-         &                LEN_TRIM(cf_global_info%institution), TRIM(cf_global_info%institution))
+         &                tlen, cf_global_info%institution(1:tlen))
+    tlen = LEN_TRIM(cf_global_info%source)
     iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'source',      &
-         &                LEN_TRIM(cf_global_info%source),      TRIM(cf_global_info%source))
+         &                tlen, cf_global_info%source(1:tlen))
+    tlen = LEN_TRIM(cf_global_info%history)
     iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'history',     &
-         &                LEN_TRIM(cf_global_info%history),     TRIM(cf_global_info%history))
+         &                tlen, cf_global_info%history(1:tlen))
+    tlen = LEN_TRIM(cf_global_info%references)
     iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'references',  &
-         &                LEN_TRIM(cf_global_info%references),  TRIM(cf_global_info%references))
+         &                tlen, cf_global_info%references(1:tlen))
+    tlen = LEN_TRIM(cf_global_info%comment)
     iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'comment',     &
-         &                LEN_TRIM(cf_global_info%comment),     TRIM(cf_global_info%comment))
+         &                tlen, cf_global_info%comment(1:tlen))
 
     ! 3. add horizontal grid descriptions
 
