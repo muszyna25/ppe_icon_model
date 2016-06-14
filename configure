@@ -647,8 +647,8 @@ SRCDIRS
 YAXT_VERSION
 YAXT_INCLUDE
 YAXT_LIB
-YAXTROOT
 subdirs
+YAXTROOT
 MODDIR
 LIB
 F77FLAGS
@@ -808,7 +808,8 @@ LIBS
 CC
 CFLAGS
 CPPFLAGS
-CPP'
+CPP
+YAXTROOT'
 ac_subdirs_all='externals/yaxt'
 
 # Initialize some variables set by options.
@@ -1468,6 +1469,7 @@ Some influential environment variables:
   CPPFLAGS    (Objective) C/C++ preprocessor flags, e.g. -I<include dir> if
               you have headers in a nonstandard directory <include dir>
   CPP         C preprocessor
+  YAXTROOT    directory YAXT is installed in
 
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -6771,6 +6773,15 @@ LDFLAGS=$LDFLAGS
 
 
 if test "x$use_yaxt" = "xyes" -a "x$with_mpi" != "xno"; then :
+  if test "x$YAXTROOT" != xexternals/yaxt -a "x$YAXTROOT" != x; then :
+  PKG_CONFIG_PATH="$YAXTROOT/lib/pkgconfig${PKG_CONFIG_PATH+:$PKG_CONFIG_PATH}" ; export PKG_CONFIG_PATH
+fi
+   if test "x$YAXTROOT" != xexternals/yaxt -a "x$YAXTROOT" != x && pkg-config --exists yaxt; then :
+  YAXT_VERSION=`pkg-config --modversion yaxt`
+      YAXT_INCLUDE="${MODOPT}${YAXTROOT}/include"
+      FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_YAXT"
+      YAXT_LIB="-L${YAXTROOT}/lib -lyaxt"
+else
 
        ac_sub_configure_args=$(echo " $ac_configure_args " | $SED 's/ '\''FC=^'\''*//
 s/ '\''FCFLAGS=^'\''*//
@@ -6811,19 +6822,20 @@ else
 fi
               YAXT_INCLUDE="${MODOPT}../../../${YAXTROOT}/inst_headers/f90"
               YAXT_CFLAGS="-I${YAXTROOT}/inst_headers"
-              YAXT_LIBS="${YAXT_LIB}"
               YAXT_VERSION="internal"
               FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_YAXT"
 else
   as_fn_error $? "internal YAXT sources not found" "$LINENO" 5
 fi
-
-
-
-
        ac_srcdirs="externals/yaxt ${ac_srcdirs}"
        ac_objdirs="externals/yaxt ${ac_objdirs}"
 fi
+else
+  YAXT_LIB= YAXT_INCLUDE= YAXT_VERSION=
+fi
+
+
+
 
 
 

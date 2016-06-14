@@ -1337,9 +1337,16 @@ AC_SUBST(LDFLAGS,$LDFLAGS)
 
 dnl ######################################################################
 dnl Checks/configure yaxt, if requested
-
+AC_ARG_VAR([YAXTROOT],[directory YAXT is installed in])
 AS_IF([test "x$use_yaxt" = "xyes" -a "x$with_mpi" != "xno"],
-      [AC_CONFIG_COMMANDS_POST([ac_configure_args=$ac_sub_configure_args])
+  [AS_IF([test "x$YAXTROOT" != xexternals/yaxt -a "x$YAXTROOT" != x],
+     [PKG_CONFIG_PATH="$YAXTROOT/lib/pkgconfig${PKG_CONFIG_PATH+:$PKG_CONFIG_PATH}" ; export PKG_CONFIG_PATH])
+   AS_IF([test "x$YAXTROOT" != xexternals/yaxt -a "x$YAXTROOT" != x && pkg-config --exists yaxt],
+     [YAXT_VERSION=`pkg-config --modversion yaxt`
+      YAXT_INCLUDE="${MODOPT}${YAXTROOT}/include"
+      FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_YAXT"
+      YAXT_LIB="-L${YAXTROOT}/lib -lyaxt"],
+     [AC_CONFIG_COMMANDS_POST([ac_configure_args=$ac_sub_configure_args])
        ac_sub_configure_args=$(echo " $ac_configure_args " | $SED 's/ '\''FC=[^'\'']*//
 s/ '\''FCFLAGS=[^'\'']*//
 s/ '\''CC=[^'\'']*//
@@ -1375,17 +1382,15 @@ fi
                 [YAXT_LIB="$YAXT_LIB -lyaxt_c"])
               YAXT_INCLUDE="${MODOPT}../../../${YAXTROOT}/inst_headers/f90"
               YAXT_CFLAGS="-I${YAXTROOT}/inst_headers"
-              YAXT_LIBS="${YAXT_LIB}"
               YAXT_VERSION="internal"
               FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_YAXT"],
              [AC_MSG_ERROR([internal YAXT sources not found])])
-       AC_SUBST([YAXTROOT])
-       AC_SUBST([YAXT_LIB])
-       AC_SUBST([YAXT_INCLUDE])
-       AC_SUBST([YAXT_VERSION])
        ac_srcdirs="externals/yaxt ${ac_srcdirs}"
-       ac_objdirs="externals/yaxt ${ac_objdirs}"],       
-      [])
+       ac_objdirs="externals/yaxt ${ac_objdirs}"])],
+  [YAXT_LIB= YAXT_INCLUDE= YAXT_VERSION=])
+AC_SUBST([YAXT_LIB])
+AC_SUBST([YAXT_INCLUDE])
+AC_SUBST([YAXT_VERSION])
 
 
 dnl ######################################################################
