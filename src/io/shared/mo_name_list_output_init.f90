@@ -1779,15 +1779,15 @@ CONTAINS
 
     ! Initial launch of non-blocking requests to all participating PEs
     ! to acknowledge the completion of the next output event
-    IF (.NOT. is_mpi_test) THEN
-      IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
-        & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
-        ev => all_events
-        DO WHILE (ASSOCIATED(ev))
-          CALL trigger_output_step_irecv(ev)
-          ev => ev%next
-        END DO
-      END IF
+    IF (.NOT. is_mpi_test &
+      & .AND. (    (use_async_name_list_io .AND. my_process_is_mpi_ioroot()) &
+      &        .OR.(.NOT. use_async_name_list_io &
+      &             .AND. my_process_is_mpi_workroot()))) THEN
+      ev => all_events
+      DO WHILE (ASSOCIATED(ev))
+        CALL trigger_output_step_irecv(ev)
+        ev => ev%next
+      END DO
     END IF
 #endif ! NOMPI
 
