@@ -953,7 +953,7 @@ if test -n "$SCTROOT" ; then
   fi
 
   FFLAGS="${FFLAGS} ${DEFOPT}__SCT__"
-  CFLAGS="${CFLAGS} ${DEFCOPT}__SCT__"
+  CFLAGS="${CFLAGS} -D__SCT__"
 
   AS_CASE([$ac_hostname],
           [mlogin*|btc*],
