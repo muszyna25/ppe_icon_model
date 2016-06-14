@@ -195,6 +195,14 @@ AS_IF([test "x$with_yac" = "xno"],
 
 dnl selects DLR's MESSy
 
+AC_ARG_ENABLE([cdi-pio],
+  [AS_HELP_STRING([--enable-cdi-pio],
+    [enable experimental use of parallel output via CDI-PIO])],,
+    [enable_cdi_pio=no])
+AS_IF([test "x$enable_cdi_pio" != "xyes" -o $use_yaxt != yes],
+      [enable_cdi_pio=no],
+      [enable_cdi_pio=yes])
+
 AC_ARG_WITH([messy],
   [AS_HELP_STRING([--with-messy],
     [enable Modular Earth Submodel System (MESSy) interface])],
@@ -1538,7 +1546,15 @@ AC_SUBST([YAXT_LIB])
 AC_SUBST([YAXT_INCLUDE])
 AC_SUBST([YAXT_VERSION])
 
-
+AS_IF([test $enable_cdi_pio = yes],
+  [AS_IF([test -n "$CDIROOT" -a x"$YAXTROOT" != xexternals/yaxt],
+     [PKG_CONFIG_PATH="$CDIROOT/lib/pkgconfig:${PKG_CONFIG_PATH}"
+      AS_IF([pkg-config --exists cdipio],
+        [CDI_LIB=`pkg-config --libs cdipio`
+         CDI_INCLUDE=`pkg-config --variable=fcflags cdipio`
+         FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_CDI_PIO"],
+        [AC_MSG_ERROR([Cannot find cdipio pkg-conf description.])])],
+     [AC_MSG_ERROR([Unsupported YAXT/CDI-PIO configuration.])])])
 dnl ######################################################################
 
 AC_SUBST(SRCDIRS,$ac_srcdirs)
