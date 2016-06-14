@@ -189,6 +189,9 @@ MODULE mo_name_list_output_init
 
   PRIVATE
 
+#ifdef HAVE_CDI_PIO
+  INCLUDE 'cdipio.inc'
+#endif
   ! variables and data types
   PUBLIC :: out_varnames_dict
   PUBLIC :: varnames_dict
