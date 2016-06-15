@@ -662,7 +662,6 @@ cat > ${oce_namelist} << EOF
   mode             =  2                               ! 1: forecast mode (relative t-axis),
                                                       ! 2: climate mode (absolute t-axis)
   include_last     = .false.
-  output_grid      = .TRUE.
   m_levels         = "1...3,10,21,32,44,51,56"        ! 64 levels (0-27m, 100m, 305.5, 829, 1986, 3092, 4147m) 
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'wet_c','basin_c','regio_c','mld','condep','h_acc','u_vint_acc','hi_acc','hs_acc','conc_acc',
