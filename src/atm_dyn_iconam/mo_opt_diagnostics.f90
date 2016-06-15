@@ -89,6 +89,7 @@ MODULE mo_opt_diagnostics
     INTEGER,  ALLOCATABLE, DIMENSION(:,:)   :: bot_idx_lin         ! (nproma, nblks)
     INTEGER,  ALLOCATABLE, DIMENSION(:,:)   :: kpbl1, kpbl2        ! (nproma, nblks)
     REAL(wp), ALLOCATABLE, DIMENSION(:,:)   :: wfacpbl1, wfacpbl2  ! (nproma, nblks)
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:)   :: zextrap             ! (nproma, nblks)
   END TYPE t_vcoeff_lin
 
   ! Sub-type of "t_vcoeff" containing cubic interpolation
@@ -1859,7 +1860,7 @@ CONTAINS
       &       STAT=ierrstat )
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     ALLOCATE( vcoeff_lin%kpbl1(nproma,nblks), vcoeff_lin%kpbl2(nproma,nblks),                 &
-      &       STAT=ierrstat )
+      &       vcoeff_lin%zextrap(nproma,nblks), STAT=ierrstat )
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     ! Initialization
@@ -1870,6 +1871,7 @@ CONTAINS
     vcoeff_lin%wfacpbl2    = 0._wp
     vcoeff_lin%kpbl1       = 0
     vcoeff_lin%kpbl2       = 0
+    vcoeff_lin%zextrap     = 0._wp
   END SUBROUTINE vcoeff_lin_allocate
 
 
@@ -1949,7 +1951,7 @@ CONTAINS
 
     DEALLOCATE( vcoeff_lin%wfacpbl1, vcoeff_lin%wfacpbl2, STAT=ierrstat )
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-    DEALLOCATE( vcoeff_lin%kpbl1, vcoeff_lin%kpbl2, STAT=ierrstat )
+    DEALLOCATE( vcoeff_lin%kpbl1, vcoeff_lin%kpbl2, vcoeff_lin%zextrap, STAT=ierrstat )
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
   END SUBROUTINE vcoeff_lin_deallocate

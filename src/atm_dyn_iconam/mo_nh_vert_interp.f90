@@ -36,7 +36,7 @@ MODULE mo_nh_vert_interp
   USE mo_grid_config,         ONLY: n_dom
   USE mo_run_config,          ONLY: iforcing, num_lev
   USE mo_io_config,           ONLY: itype_pres_msl
-  USE mo_impl_constants,      ONLY: inwp, iecham, PRES_MSL_METHOD_GME, PRES_MSL_METHOD_IFS, &
+  USE mo_impl_constants,      ONLY: inwp, iecham, PRES_MSL_METHOD_GME, PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_DWD, &
     &                               PRES_MSL_METHOD_IFS_CORR, MODE_IFSANA, MODE_COMBINED, MODE_ICONVREMAP
   USE mo_exception,           ONLY: finish, message, message_text
   USE mo_initicon_config,     ONLY: zpbl1, zpbl2, l_coarse2fine_mode, init_mode, lread_vn, lvert_remap_fg
@@ -68,7 +68,10 @@ MODULE mo_nh_vert_interp
   REAL(wp), PARAMETER :: t_high = 290.5_wp
 
   ! Height above ground level from where the temperature is used for downward extrapolation
-  REAL(wp), PARAMETER :: zagl_ifsextrap = 150._wp
+  REAL(wp), PARAMETER :: zagl_extrap_1 = 10._wp
+  REAL(wp), PARAMETER :: topo_extrap_1 = 1500._wp  ! 10 m AGL valid for grid points below 1500 m
+  REAL(wp), PARAMETER :: zagl_extrap_2 = 150._wp
+  REAL(wp), PARAMETER :: trans_depth   = 500._wp   ! depth of transition zone 500 m
 
 
   PUBLIC :: vert_interp
@@ -606,10 +609,10 @@ CONTAINS
       &                   vcoeff_z%lin_cell%wfac_lin,                                        & !out
       &                   vcoeff_z%lin_cell%idx0_lin,                                        & !out
       &                   vcoeff_z%lin_cell%bot_idx_lin  )                                     !out
-!DR    IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
-    IF ( ANY((/PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_IFS_CORR/)== itype_pres_msl) ) THEN
+    IF ( ANY((/PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_IFS_CORR, PRES_MSL_METHOD_DWD/)== itype_pres_msl) ) THEN
       CALL prepare_extrap_ifspp(p_metrics%z_ifc, p_metrics%z_mc, nblks_c, npromz_c, nlev,    & !in
-        &                       vcoeff_z%lin_cell%kpbl1, vcoeff_z%lin_cell%wfacpbl1)           !out
+        &                       vcoeff_z%lin_cell%kpbl1, vcoeff_z%lin_cell%zextrap,          & !out
+        &                       vcoeff_z%lin_cell%wfacpbl1)                                    !out
       vcoeff_z%lin_cell%kpbl2(:,:) = 0
       vcoeff_z%lin_cell%wfacpbl2(:,:) = 0._wp
     ELSE
@@ -632,7 +635,8 @@ CONTAINS
       &                   vcoeff_z%lin_cell%wfacpbl1, vcoeff_z%lin_cell%kpbl1,              & !in
       &                   vcoeff_z%lin_cell%wfacpbl2, vcoeff_z%lin_cell%kpbl2,              & !in
       &                   l_restore_sfcinv=.FALSE., l_hires_corr=.FALSE.,                   & !in
-      &                   extrapol_dist=0._wp, l_pz_mode=.TRUE.              ) !in
+      &                   extrapol_dist=0._wp, l_pz_mode=.TRUE., zextrap=vcoeff_z%lin_cell%zextrap) !in
+
 
     IF (jg > 1) THEN ! copy outermost nest boundary row in order to avoid missing values
       i_endblk = p_patch%cells%end_blk(1,1)
@@ -653,7 +657,7 @@ CONTAINS
       &                vcoeff_z%lin_cell%wfac_lin,    vcoeff_z%lin_cell%idx0_lin,           & !in
       &                vcoeff_z%lin_cell%bot_idx_lin, vcoeff_z%lin_cell%wfacpbl1,           & !in
       &                vcoeff_z%lin_cell%kpbl1, vcoeff_z%lin_cell%wfacpbl2,                 & !in
-      &                vcoeff_z%lin_cell%kpbl2)                                               !in
+      &                vcoeff_z%lin_cell%kpbl2, vcoeff_z%lin_cell%zextrap)                    !in
 
     IF (jg > 1) THEN ! copy outermost nest boundary row in order to avoid missing values
       i_endblk = p_patch%cells%end_blk(1,1)
@@ -661,8 +665,7 @@ CONTAINS
     ENDIF
     CALL cell_avg(z_auxz, p_patch, p_int_state(jg)%c_bln_avg, pres_z_out)
 
-!DR    IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
-    IF ( ANY((/PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_IFS_CORR/)== itype_pres_msl) ) THEN
+    IF ( ANY((/PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_IFS_CORR, PRES_MSL_METHOD_DWD/)== itype_pres_msl) ) THEN
       CALL prepare_extrap(p_metrics%z_mc, nblks_c, npromz_c, nlev,                           & !in
         &                 vcoeff_z%lin_cell%kpbl1, vcoeff_z%lin_cell%wfacpbl1,               & !out
         &                 vcoeff_z%lin_cell%kpbl2, vcoeff_z%lin_cell%wfacpbl2 )                !out
@@ -746,10 +749,10 @@ CONTAINS
     CALL vcoeff_allocate(nblks_c, nblks_e, nplev, vcoeff_p)
 
     !--- Coefficients: Interpolation to pressure-level fields
-!DR    IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
-    IF ( ANY((/PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_IFS_CORR/)== itype_pres_msl) ) THEN
+    IF ( ANY((/PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_IFS_CORR, PRES_MSL_METHOD_DWD/)== itype_pres_msl) ) THEN
       CALL prepare_extrap_ifspp(p_metrics%z_ifc, p_metrics%z_mc, nblks_c, npromz_c, nlev, & !in
-        &                       vcoeff_p%lin_cell%kpbl1, vcoeff_p%lin_cell%wfacpbl1)        !out
+        &                       vcoeff_p%lin_cell%kpbl1, vcoeff_p%lin_cell%zextrap,       & !out
+        &                       vcoeff_p%lin_cell%wfacpbl1)                                 !out
       vcoeff_p%lin_cell%kpbl2(:,:) = 0
       vcoeff_p%lin_cell%wfacpbl2(:,:) = 0._wp
     ELSE
@@ -769,7 +772,8 @@ CONTAINS
     CALL z_at_plevels(p_diag%pres, ptr_tempv, p_metrics%z_mc,                               & !in
       &               p_p3d_out, z_auxp, nblks_c, npromz_c, nlev, nplev,                    & !in,out,in
       &               vcoeff_p%lin_cell%kpbl1, vcoeff_p%lin_cell%wfacpbl1,                  & !in
-      &               vcoeff_p%lin_cell%kpbl2, vcoeff_p%lin_cell%wfacpbl2              )      !in
+      &               vcoeff_p%lin_cell%kpbl2, vcoeff_p%lin_cell%wfacpbl2,                  & !in
+      &               vcoeff_p%lin_cell%zextrap)                                              !in
 
     IF (jg > 1) THEN ! copy outermost nest boundary row in order to avoid missing values
       i_endblk = p_patch%cells%end_blk(1,1)
@@ -799,7 +803,8 @@ CONTAINS
       &                   vcoeff_p%lin_cell%bot_idx_lin, vcoeff_p%lin_cell%wfacpbl1,        & !in
       &                   vcoeff_p%lin_cell%kpbl1, vcoeff_p%lin_cell%wfacpbl2,              & !in
       &                   vcoeff_p%lin_cell%kpbl2, l_restore_sfcinv=.FALSE.,                & !in
-      &                   l_hires_corr=.FALSE., extrapol_dist=0._wp, l_pz_mode=.TRUE.)        !in
+      &                   l_hires_corr=.FALSE., extrapol_dist=0._wp, l_pz_mode=.TRUE.,      & !in
+      &                   zextrap=vcoeff_p%lin_cell%zextrap)
 
     IF (jg > 1) THEN ! copy outermost nest boundary row in order to avoid missing values
       i_endblk = p_patch%cells%end_blk(1,1)
@@ -807,8 +812,7 @@ CONTAINS
     ENDIF
     CALL cell_avg(z_auxp, p_patch, p_int_state(jg)%c_bln_avg, temp_p_out)
 
-!DR    IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
-    IF ( ANY((/PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_IFS_CORR/)== itype_pres_msl) ) THEN
+    IF ( ANY((/PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_IFS_CORR, PRES_MSL_METHOD_DWD/)== itype_pres_msl) ) THEN
       CALL prepare_extrap(p_metrics%z_mc, nblks_c, npromz_c, nlev,                          & !in
         &                 vcoeff_p%lin_cell%kpbl1, vcoeff_p%lin_cell%wfacpbl1,              & !out
         &                 vcoeff_p%lin_cell%kpbl2, vcoeff_p%lin_cell%wfacpbl2 )               !out
@@ -1200,7 +1204,7 @@ CONTAINS
   !!
   !!
   !!
-  SUBROUTINE prepare_extrap_ifspp(z3d_h_in, z3d_in, nblks, npromz, nlevs_in, kextrap, wfac_extrap)
+  SUBROUTINE prepare_extrap_ifspp(z3d_h_in, z3d_in, nblks, npromz, nlevs_in, kextrap, zextrap, wfac_extrap)
 
     ! Input fields
     REAL(wp), INTENT(IN) :: z3d_h_in(:,:,:) ! half-level height coordinate field of input data (m)
@@ -1212,17 +1216,28 @@ CONTAINS
     INTEGER , INTENT(IN) :: nlevs_in   ! Number of input levels
 
     ! Output fields
-    INTEGER , INTENT(OUT) :: kextrap(:,:) ! Indices of model levels lying immediately above
-                                          ! (by default) 150 m AGL
+    INTEGER , INTENT(OUT) :: kextrap(:,:) ! Indices of model levels lying immediately above zextrap
+    REAL(wp), INTENT(OUT) :: zextrap(:,:) ! AGL height from which downward extrapolation starts (between 10 m and 150 m)
     REAL(wp), INTENT(OUT) :: wfac_extrap(:,:) ! Corresponding interpolation coefficients
 
     ! LOCAL VARIABLES
 
     INTEGER :: jb, jk, jc, jk_start
     INTEGER :: nlen
+    REAL(wp) :: zagl_extrap
 
 
 !-------------------------------------------------------------------------
+
+    ! Use extrapolation from 150 m AGL if one of the IFS methods is selected, and 
+    ! orography-height dependent blending between 10 m and 150 m AGL if the new DWD
+    ! method is selected (which constitutes a mixture between the IFS method and the old GME method)
+    SELECT CASE (itype_pres_msl)
+    CASE (PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_IFS_CORR)
+      zagl_extrap = zagl_extrap_2
+    CASE (PRES_MSL_METHOD_DWD)
+      zagl_extrap = zagl_extrap_1
+    END SELECT
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jk,jc,jk_start) ICON_OMP_DEFAULT_SCHEDULE
@@ -1237,9 +1252,21 @@ CONTAINS
         wfac_extrap(nlen+1:nproma,jb) = 0.5_wp
       ENDIF
 
+      ! Compute start height above ground for downward extrapolation, depending on topography height
+      DO jc = 1, nlen
+        IF (z3d_h_in(jc,nlevs_in+1,jb) <= topo_extrap_1) THEN
+          zextrap(jc,jb) = zagl_extrap
+        ELSE IF (z3d_h_in(jc,nlevs_in+1,jb) >= topo_extrap_1 + trans_depth) THEN
+          zextrap(jc,jb) = zagl_extrap_2
+        ELSE
+          zextrap(jc,jb) = zagl_extrap + (zagl_extrap_2 - zagl_extrap) *            &
+                           (z3d_h_in(jc,nlevs_in+1,jb) - topo_extrap_1) / trans_depth
+        ENDIF
+      ENDDO
+
       jk_start = nlevs_in-1
       DO jk = 1, nlevs_in
-        IF (MINVAL(z3d_in(1:nlen,jk,jb)-z3d_h_in(1:nlen,nlevs_in+1,jb)) <= zagl_ifsextrap) THEN
+        IF (MINVAL(z3d_in(1:nlen,jk,jb)-z3d_h_in(1:nlen,nlevs_in+1,jb)) <= zagl_extrap_2) THEN
           jk_start = jk - 1
           EXIT
         ENDIF
@@ -1248,11 +1275,11 @@ CONTAINS
       DO jk = jk_start, nlevs_in-1
         DO jc = 1, nlen
 
-          IF (z3d_in(jc,jk,jb)  >= z3d_h_in(jc,nlevs_in+1,jb)+zagl_ifsextrap .AND. &
-              z3d_in(jc,jk+1,jb) < z3d_h_in(jc,nlevs_in+1,jb)+zagl_ifsextrap .OR.  & 
+          IF (z3d_in(jc,jk,jb)  >= z3d_h_in(jc,nlevs_in+1,jb)+zextrap(jc,jb) .AND. &
+              z3d_in(jc,jk+1,jb) < z3d_h_in(jc,nlevs_in+1,jb)+zextrap(jc,jb) .OR.  & 
               kextrap(jc,jb) == -1 .AND. jk == nlevs_in-1) THEN
             kextrap(jc,jb) = jk
-            wfac_extrap(jc,jb) = (z3d_h_in(jc,nlevs_in+1,jb)+zagl_ifsextrap - z3d_in(jc,jk+1,jb)) / &
+            wfac_extrap(jc,jb) = (z3d_h_in(jc,nlevs_in+1,jb)+zextrap(jc,jb) - z3d_in(jc,jk+1,jb)) / &
                                  (z3d_in(jc,jk,jb)                          - z3d_in(jc,jk+1,jb))
           ENDIF
 
@@ -1552,9 +1579,9 @@ CONTAINS
   !!
   !!
   !!
-  SUBROUTINE pressure_intp(pres_in, tempv_in, z3d_in, pres_out, z3d_out, &
-                           nblks, npromz, nlevs_in, nlevs_out,                      &
-                           wfac, idx0, bot_idx, wfacpbl1, kpbl1, wfacpbl2, kpbl2)
+  SUBROUTINE pressure_intp(pres_in, tempv_in, z3d_in, pres_out, z3d_out,                 &
+                           nblks, npromz, nlevs_in, nlevs_out,                           &
+                           wfac, idx0, bot_idx, wfacpbl1, kpbl1, wfacpbl2, kpbl2, zextrap)
 
 
     ! Input fields
@@ -1581,6 +1608,8 @@ CONTAINS
     INTEGER , INTENT(IN) :: kpbl2(:,:)     ! index of model level immediately above (by default) 1000 m AGL
     REAL(wp), INTENT(IN) :: wfacpbl2(:,:)  ! corresponding interpolation coefficient
 
+    REAL(wp), OPTIONAL, INTENT(IN) :: zextrap(:,:)   ! AGL height from which downward extrapolation starts (in postprocesing mode)
+
     ! LOCAL VARIABLES
 
     INTEGER  :: jb, jk, jc, jk1, nlen
@@ -1592,6 +1621,10 @@ CONTAINS
 
     ! return, if nothing to do:
     IF ((nblks == 0) .OR. ((nblks == 1) .AND. (npromz == 0))) RETURN
+
+    IF (.NOT. PRESENT(zextrap) .AND. itype_pres_msl >= 3 ) THEN
+      CALL finish("pressure_intp:", "zextrap missing in argument list")
+    ENDIF
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jk,jk1,jc,dtvdz_down,p_up,p_down,tmsl,tsfc_mod,tempv1,tempv2,&
@@ -1629,8 +1662,7 @@ CONTAINS
           ENDIF
         ENDDO
 
-!DR      ELSE IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
-      ELSE IF ( ANY((/PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_IFS_CORR/)== itype_pres_msl) ) THEN
+      ELSE IF ( itype_pres_msl >= 3 ) THEN
 
         ! Similar method to option 1, but we use the temperature at 150 m AGL
         ! for extrapolation (kpbl1 contains the required index in this case)
@@ -1639,7 +1671,7 @@ CONTAINS
 
           tsfc_mod(jc) = wfacpbl1(jc,jb) *tempv_in(jc,kpbl1(jc,jb),jb  ) + &
                   (1._wp-wfacpbl1(jc,jb))*tempv_in(jc,kpbl1(jc,jb)+1,jb) - &
-                  dtdz_standardatm*(zagl_ifsextrap-0.5_wp*vct_a(num_lev(1)))
+                  dtdz_standardatm*(zextrap(jc,jb)-0.5_wp*vct_a(num_lev(1)))
 
           IF (tsfc_mod(jc) < t_low) tsfc_mod(jc) = 0.5_wp*(t_low+tsfc_mod(jc))
           tmsl(jc) = tsfc_mod(jc) - dtdz_standardatm*z3d_in(jc,nlevs_in,jb)
@@ -1948,7 +1980,7 @@ CONTAINS
   !!
   SUBROUTINE z_at_plevels(pres_ml, tempv_ml, z3d_ml, pres_pl, z3d_pl, &
                           nblks, npromz, nlevs_ml, nlevs_pl,          &
-                          kpbl1, wfacpbl1, kpbl2, wfacpbl2            )
+                          kpbl1, wfacpbl1, kpbl2, wfacpbl2, zextrap   )
 
 
     ! Input fields
@@ -1975,6 +2007,8 @@ CONTAINS
     INTEGER , INTENT(IN) :: kpbl2(:,:)     ! index of model level immediately above (by default) 1000 m AGL
     REAL(wp), INTENT(IN) :: wfacpbl2(:,:)  ! corresponding interpolation coefficient
 
+    REAL(wp), OPTIONAL, INTENT(IN) :: zextrap(:,:)   ! AGL height from which downward extrapolation starts (in postprocesing mode)
+
     ! LOCAL VARIABLES
 
     ! Threshold for switching between analytical formulas for constant
@@ -1993,11 +2027,15 @@ CONTAINS
     REAL(wp), DIMENSION(nproma,nlevs_ml) :: z3d_ml_di
     REAL(wp), DIMENSION(nproma)          :: tmsl, tsfc_mod, tempv1, tempv2, vtgrad_up, sfc_inv
 
-    LOGICAL :: l_found(nproma),lfound_all
+    LOGICAL :: l_found(nproma),lfound_all,lzextrap
 
 !-------------------------------------------------------------------------
 
-
+    IF (PRESENT(zextrap)) THEN
+      lzextrap = .TRUE.
+    ELSE
+      lzextrap = .FALSE.
+    ENDIF
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jkm,jkp,jc,nlen,jkm_start,bot_idx_ml,idx0_ml,z_up,z_down,&
@@ -2079,8 +2117,7 @@ CONTAINS
           ENDIF
         ENDDO
 
-!DR      ELSE IF (itype_pres_msl == PRES_MSL_METHOD_IFS) THEN
-      ELSE IF ( ANY((/PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_IFS_CORR/)== itype_pres_msl) ) THEN
+      ELSE IF ( lzextrap .AND. itype_pres_msl >= 3 ) THEN
 
         ! Similar method to option 1, but we use the temperature at 150 m AGL
         ! for extrapolation (kpbl1 contains the required index in this case)
@@ -2089,7 +2126,7 @@ CONTAINS
 
           tsfc_mod(jc) = wfacpbl1(jc,jb) *tempv_ml(jc,kpbl1(jc,jb),jb  ) + &
                   (1._wp-wfacpbl1(jc,jb))*tempv_ml(jc,kpbl1(jc,jb)+1,jb) - &
-                  dtdz_standardatm*(zagl_ifsextrap-0.5_wp*vct_a(num_lev(1)))
+                  dtdz_standardatm*(zextrap(jc,jb)-0.5_wp*vct_a(num_lev(1)))
 
           IF (tsfc_mod(jc) < t_low) tsfc_mod(jc) = 0.5_wp*(t_low+tsfc_mod(jc))
           tmsl(jc) = tsfc_mod(jc) - dtdz_standardatm*z3d_ml(jc,nlevs_ml,jb)
@@ -2523,8 +2560,9 @@ CONTAINS
                              nblks, npromz, nlevs_in, nlevs_out,             &
                              coef1, coef2, coef3, wfac_lin,                  &
                              idx0_cub, idx0_lin, bot_idx_cub, bot_idx_lin,   &
-                             wfacpbl1, kpbl1, wfacpbl2, kpbl2, l_hires_corr, &
-                             l_restore_sfcinv, extrapol_dist, l_pz_mode, slope)
+                             wfacpbl1, kpbl1, wfacpbl2, kpbl2,               &
+                             l_hires_corr, l_restore_sfcinv, extrapol_dist,  &
+                             l_pz_mode, zextrap, slope)
 
 
     ! Atmospheric fields
@@ -2556,6 +2594,8 @@ CONTAINS
     REAL(wp), INTENT(IN) :: wfacpbl1(:,:)   ! corresponding interpolation coefficient
     INTEGER , INTENT(IN) :: kpbl2(:,:)      ! index of model level immediately above (by default) 1000 m AGL
     REAL(wp), INTENT(IN) :: wfacpbl2(:,:)   ! corresponding interpolation coefficient
+
+    REAL(wp), OPTIONAL, INTENT(IN) :: zextrap(:,:)    ! AGL height from which downward extrapolation starts (in postprocesing mode)
 
     ! Logical switch if slope-based reduction of surface inversion is to be performed
     ! (recommended when target model has a much finer resolution than source model)
@@ -2593,6 +2633,10 @@ CONTAINS
     IF (l_hires_corr .AND. .NOT. PRESENT(slope)) CALL finish("temperature_intp:",&
       "slope correction requires slope data as input")
 
+    IF (.NOT. PRESENT(zextrap) .AND. l_pz_mode .AND. itype_pres_msl >= 3) THEN
+      CALL finish("pressure_intp:", "zextrap missing in argument list")
+    ENDIF
+
     ! Artificial upper limit on sea-level temperature for so-called plateau correction
     tmsl_max = 298._wp
 
@@ -2624,9 +2668,7 @@ CONTAINS
         temp_out(nlen+1:nproma,:,jb)  = 0.0_wp
       ENDIF
 
-!DR      IF (l_pz_mode .AND. itype_pres_msl /= PRES_MSL_METHOD_IFS) THEN
-      IF (l_pz_mode .AND. itype_pres_msl /= PRES_MSL_METHOD_IFS     &
-        &           .AND. itype_pres_msl /= PRES_MSL_METHOD_IFS_CORR) THEN
+      IF (l_pz_mode .AND. itype_pres_msl < 3) THEN
 
         DO jk1 = 1, nlevs_in
           DO jc = 1, nlen
@@ -2651,7 +2693,7 @@ CONTAINS
             IF (jk1 <= kpbl1(jc,jb)) THEN ! just use the input temperature
               temp_mod(jc,jk1) = temp_in(jc,jk1,jb)
             ELSE ! extrapolate downward from 150 m AGL with 6.5 K/km
-              temp_mod(jc,jk1) = temp1(jc) - dtdz_standardatm*(zagl_ifsextrap -       &
+              temp_mod(jc,jk1) = temp1(jc) - dtdz_standardatm*(zextrap(jc,jb) -       &
                 0.5_wp*vct_a(num_lev(1)) - (z3d_in(jc,jk1,jb) - z3d_in(jc,nlevs_in,jb)) )
             ENDIF
           ENDDO
@@ -3759,7 +3801,7 @@ CONTAINS
   !
   SUBROUTINE diagnose_pmsl_ifs(pres_sfc_in, temp3d_in, z3d_in, pmsl_out,      &
     &                          nblks, npromz, nlevs_in, wfac_extrap, kextrap, &
-    &                          method )
+    &                          zextrap, method )
 
     ! Input fields
     REAL(wp), INTENT(IN)  :: pres_sfc_in (:,:)   ! surface pressure field (input data)
@@ -3777,6 +3819,7 @@ CONTAINS
     ! Coefficients
     INTEGER , INTENT(IN) :: kextrap(:,:)     ! index of model level immediately above (by default) 150 m AGL
     REAL(wp), INTENT(IN) :: wfac_extrap(:,:) ! corresponding interpolation coefficient
+    REAL(wp), INTENT(IN) :: zextrap(:,:)     ! AGL height from which downward extrapolation starts (in postprocesing mode)
 
     ! Method (PRES_MSL_METHOD_IFS or PRES_MSL_METHOD_IFS_CORR)
     INTEGER , INTENT(IN) :: method           ! valid input: PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_IFS_CORR
@@ -3801,9 +3844,8 @@ CONTAINS
 
     ! sanity check
     !
-    IF (method/=PRES_MSL_METHOD_IFS .AND. method/=PRES_MSL_METHOD_IFS_CORR) THEN
-      WRITE(message_text,'(a,i2,a,i2)') 'invalid method! must be ', PRES_MSL_METHOD_IFS, &
-        &                               'or ', PRES_MSL_METHOD_IFS_CORR
+    IF (method < 3) THEN
+      WRITE(message_text,'(a)') 'invalid value for itype_pres_msl! must be >= 3'
       CALL finish(routine, message_text)
     ENDIF
 
@@ -3825,7 +3867,7 @@ CONTAINS
                (1._wp-wfac_extrap(jc,jb))*temp3d_in(jc,kextrap(jc,jb)+1,jb)
 
         ! extrapolated surface temperature (tstar in IFS nomenclature)
-        tsfc(jc) = temp_extrap - dtdz_standardatm*zagl_ifsextrap
+        tsfc(jc) = temp_extrap - dtdz_standardatm*zextrap(jc,jb)
 
         ! extrapolated sea-level temperature (t0 in IFS nomenclature)
         tmsl(jc) = tsfc(jc) - dtdz_standardatm*z3d_in(jc,nlevp1,jb)

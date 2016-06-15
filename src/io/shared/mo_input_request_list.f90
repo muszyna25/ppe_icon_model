@@ -622,6 +622,7 @@ CONTAINS
         TYPE(t_CdiIterator) :: iterator
         REAL(dp) :: level
         CHARACTER(KIND = C_CHAR), DIMENSION(:), POINTER :: vtime, variableName
+        CHARACTER(LEN = :), POINTER :: fortranName
         INTEGER :: i, tileId, recordsRead, recordsIgnored
         TYPE(t_ListEntry), POINTER :: listEntry
         TYPE(t_DomainData), POINTER :: domainData
@@ -643,7 +644,9 @@ CONTAINS
             listEntry => me%findTranslatedName(variableName)
             IF(.NOT.ASSOCIATED(listEntry)) CALL finish(routine, "Assertion failed: Processes have different input request lists!")
             domainData => findDomainData(listEntry, p_patch%id, opt_lcreate = .TRUE.)
-            CALL domainData%container%readField(level, tileId, p_patch%id, iterator)
+            fortranName => toCharacter(variableName)
+            CALL domainData%container%readField(fortranName, level, tileId, p_patch%id, iterator)
+            DEALLOCATE(fortranName)
             DEALLOCATE(variableName)
         END DO
         IF(my_process_is_mpi_workroot()) THEN

@@ -20,7 +20,7 @@ MODULE mo_input_container
     USE mo_parallel_config, ONLY: blk_no, nproma
     USE mo_scatter_pattern_base, ONLY: lookupScatterPattern
     USE mo_util_cdi, ONLY: trivial_tileId
-    USE mo_util_string, ONLY: int2string, REAL2string
+    USE mo_util_string, ONLY: int2string, real2string
 
     IMPLICIT NONE
 
@@ -429,8 +429,9 @@ CONTAINS
         CALL me%levels%destruct()
     END SUBROUTINE InputContainer_destruct
 
-    SUBROUTINE InputContainer_readField(me, level, tile, jg, iterator)
+    SUBROUTINE InputContainer_readField(me, variableName, level, tile, jg, iterator)
         CLASS(t_InputContainer), INTENT(INOUT) :: me
+        CHARACTER(LEN = *), INTENT(IN) :: variableName
         REAL(dp), VALUE :: level
         INTEGER, VALUE :: tile, jg
         TYPE(t_CdiIterator), VALUE :: iterator
@@ -452,7 +453,9 @@ CONTAINS
             CLASS DEFAULT
                 CALL finish(routine, "assertion failed")
         END SELECT
-        IF(ASSOCIATED(me%fields%getEntry(key))) CALL finish(routine, "double definition of a field in an input file")
+        IF(ASSOCIATED(me%fields%getEntry(key))) THEN
+            CALL finish(routine, "double definition of variable '"//variableName//"' in an input file")
+        END IF
 
         !Inquire buffer SIZE information AND broadcast it.
         IF(C_ASSOCIATED(iterator%ptr)) THEN
