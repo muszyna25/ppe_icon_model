@@ -269,8 +269,8 @@ MODULE mo_psrad_radiation
         solc = SUM(ssi_RCEdiurnOff)
       CASE default
         WRITE (message_text, '(a,i2,a)') &
-             'isolrad = ', isolrad, ' in radctl namelist is not supported'
-        CALL message('pre_radiation', message_text)
+             'isolrad = ',isolrad, ' in radiation_nml namelist is not supported'
+        CALL finish('pre_psrad_radiation', message_text)
       END SELECT
       psct = flx_ratio_cur*solc
 
@@ -726,10 +726,10 @@ MODULE mo_psrad_radiation
         CALL message('','isolrad = 2 --> preindustrial solar constant')
       CASE (3) 
         CALL message('','isolrad = 3 --> solar constant for amip runs')
-!!$      CASE (4)
-!!$        CALL message('','isolrad = 4 --> solar constant for rad.-convective eq. runs with diurnal cycle ON')
-!!$      CASE (5)
-!!$        CALL message('','isolrad = 5 --> solar constant for rad.-convective eq. runs with diurnal cycle OFF')
+      CASE (4)
+        CALL message('','isolrad = 4 --> solar constant for rad.-convective eq. runs with diurnal cycle ON')
+      CASE (5)
+        CALL message('','isolrad = 5 --> solar constant for rad.-convective eq. runs with diurnal cycle OFF')
       CASE default 
         WRITE (message_text, '(a,i3,a)') &
              'Run terminated isolrad = ', isolrad, ' not supported'

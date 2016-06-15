@@ -118,8 +118,9 @@ cat > ${atmo_namelist} << EOF
 &nh_testcase_nml
  nh_test_name     = 'RCE_glb'
  ape_sst_case     = 'sst_const'
- tpe_psfc         = 1013.25e2
+ ape_sst_val      = 25.
  tpe_temp         = 298.15
+ tpe_psfc         = 1013.25e2
 /
 &nonhydrostatic_nml
  ndyn_substeps    = 2           ! dtime/dt_dyn
@@ -171,8 +172,8 @@ cat > ${atmo_namelist} << EOF
  irad_cfc11       = 0           ! 0: no cfc11
  irad_cfc12       = 0           ! 0: no cfc12
  irad_aero        = 0           ! 0: no aerosol
- isolrad          = 2           ! 2: preindustrial solar constant 1360.875 W/m^ at 1 AE
- ldiur            = .FALSE.
+ isolrad          = 5           ! 5: solar constant 433.3371 W/m^2 at 1 AE for RCE
+ ldiur            = .FALSE.. 
 /
 &psrad_nml
 rad_perm          = 1           ! Integer for perturbing random number seeds
