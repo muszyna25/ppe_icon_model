@@ -13,6 +13,7 @@
 !!
 MODULE mo_build_decomposition
 
+  USE mo_kind,                     ONLY: wp
   USE mo_complete_subdivision, ONLY: finalize_decomposition,                  &
     &                                copy_processor_splitting,                &
     &                                complete_parallel_setup
@@ -64,6 +65,7 @@ CONTAINS
     INTEGER                        :: error_status, jg, jgp
     !> If .true., read fields related to grid refinement from separate  grid files:
     LOGICAL                        :: lsep_grfinfo
+    INTEGER :: jc_c,jb_c,jc_e,jb_e, j, min_refin_e,i,refin_e
     
     ! Check p_patch allocation status
     
@@ -92,9 +94,9 @@ CONTAINS
     DEALLOCATE(p_patch_pre)
 
     ! set local parent indices 
-    DO jg = n_dom_start+1, n_dom
-      CALL set_parent_loc_idx(p_patch_local_parent(jg), p_patch(jg))
-    END DO
+!    DO jg = n_dom_start+1, n_dom
+!      CALL set_parent_loc_idx(p_patch_local_parent(jg), p_patch(jg))
+!    END DO
 
     ! compute the child/edge indices on parent patch from the
     ! corresponding information on parent indices stored in the child
@@ -150,7 +152,133 @@ CONTAINS
       ENDIF
       patch_3d%p_patch_2d => p_patch
     END IF
-    
+
+    IF (p_pe_work == 0) THEN
+      DO jg = n_dom_start,n_dom
+        jgp = p_patch(jg)%parent_id
+        IF (jgp >= n_dom_start) THEN
+!          DO j = 1,p_patch(jgp)%n_patch_edges
+!            jc_e = idx_no(j)
+!            jb_e = blk_no(j)
+!            WRITE  (0,*) "edge child_idx: ", idx_1d(p_patch(jgp)%edges%child_idx(jc_e,jb_e,:), &
+!              &                                     p_patch(jgp)%edges%child_blk(jc_e,jb_e,:))
+!          END DO
+!          DO j = 1,p_patch(jgp)%n_patch_cells
+!            jc_e = idx_no(j)
+!            jb_e = blk_no(j)
+!            WRITE  (0,*) "cell child_idx: ", idx_1d(p_patch(jgp)%cells%child_idx(jc_e,jb_e,:), &
+!              &                                     p_patch(jgp)%cells%child_blk(jc_e,jb_e,:))
+!          END DO
+
+
+           DO j = 1,p_patch_local_parent(jg)%n_patch_edges
+            jc_e = idx_no(j)
+            jb_e = blk_no(j)
+            WRITE  (0,*) "jg = ", jg, ": ", &
+              & "edge child_idx: ", idx_1d(p_patch_local_parent(jg)%edges%child_idx(jc_e,jb_e,:), &
+              &                            p_patch_local_parent(jg)%edges%child_blk(jc_e,jb_e,:))
+            WRITE  (0,*) " = ", p_patch(jg)%edges%decomp_info%glb_index(&
+              &idx_1d(p_patch_local_parent(jg)%edges%child_idx(jc_e,jb_e,:), &
+              &       p_patch_local_parent(jg)%edges%child_blk(jc_e,jb_e,:)))
+            WRITE (0,*) "center: ", p_patch_local_parent(jg)%edges%center(jc_e,jb_e)%lon*57.296_wp, &
+              &          p_patch_local_parent(jg)%edges%center(jc_e,jb_e)%lat*57.296_wp
+          END DO
+
+!          DO j = 1,p_patch_local_parent(jg)%n_patch_cells
+!            jc_e = idx_no(j)
+!            jb_e = blk_no(j)
+!            WRITE  (0,*) "cell child_idx: ", idx_1d(p_patch_local_parent(jg)%cells%child_idx(jc_e,jb_e,:), &
+!              &                                     p_patch_local_parent(jg)%cells%child_blk(jc_e,jb_e,:))
+!          END DO
+        END IF
+      END DO
+    END IF
+
+    ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    ! in parent grids: compute refin_ctrl flags for overlap with nested domain
+    IF (p_pe_work == 7) THEN
+    DO jg = n_dom_start,n_dom
+      jgp = p_patch(jg)%parent_id
+      IF (jgp >= n_dom_start) THEN
+        DO j = 1,p_patch(jgp)%n_patch_verts
+
+          jc_c = idx_no(j) ! Line  index in distributed patch
+          jb_c = blk_no(j) ! Block index in distributed patch
+            
+          IF (.NOT. p_patch(jgp)%verts%decomp_info%owner_mask(jc_c,jb_c))  CYCLE
+          
+          IF (p_patch(jgp)%verts%refin_ctrl(jc_c,jb_c) < 0) THEN
+            ! determine min. of adjacent "refin_e_ctrl" flags
+            min_refin_e = 99
+            DO i=1,SIZE(p_patch(jgp)%verts%edge_idx,3)
+              jc_e = p_patch(jgp)%verts%edge_idx(jc_c,jb_c,i)
+              jb_e = p_patch(jgp)%verts%edge_blk(jc_c,jb_c,i)
+              IF (jc_e > 0) THEN
+                refin_e = p_patch(jgp)%edges%refin_ctrl(jc_e,jb_e)
+                min_refin_e = MIN(min_refin_e, refin_e)
+              END IF
+            END DO
+            IF (((min_refin_e)/2) /= p_patch(jgp)%verts%refin_ctrl(jc_c,jb_c)) THEN
+              WRITE (0,*) "PE ", p_pe_work, ": min_refin_e = ", (min_refin_e)/2, &
+                & "; p_patch(jgp)%verts%refin_ctrl(jc_c,jb_c) = ", p_patch(jgp)%verts%refin_ctrl(jc_c,jb_c)
+              WRITE (0,*) "jgp = ", jgp, "; vid = ", p_patch(jgp)%verts%decomp_info%glb_index(j)
+              WRITE (0,*) "vlon,vlat=",p_patch(jgp)%verts%vertex(jc_c,jb_c)
+              DO i=1,SIZE(p_patch(jgp)%verts%edge_idx,3)
+                jc_e = p_patch(jgp)%verts%edge_idx(jc_c,jb_c,i)
+                jb_e = p_patch(jgp)%verts%edge_blk(jc_c,jb_c,i)
+                IF (jc_e > 0) THEN
+                  WRITE (0,*) "edge refin ",i," = ",p_patch(jgp)%edges%refin_ctrl(jc_e,jb_e)
+                END IF
+              END DO
+              DO i=1,SIZE(p_patch(jgp)%verts%cell_idx,3)
+                jc_e = p_patch(jgp)%verts%cell_idx(jc_c,jb_c,i)
+                jb_e = p_patch(jgp)%verts%cell_blk(jc_c,jb_c,i)
+                IF (jc_e > 0) THEN
+                  WRITE (0,*) "cell refin ",i," = ",p_patch(jgp)%cells%refin_ctrl(jc_e,jb_e)
+                  WRITE (0,*) " at ", 180._wp/(4._wp*ATAN(1._wp)) *p_patch(jgp)%cells%center(jc_e,jb_e)%lon,&
+                    & 180._wp/(4._wp*ATAN(1._wp)) *p_patch(jgp)%cells%center(jc_e,jb_e)%lat
+                  WRITE (0,*) " global idx: ", p_patch(jgp)%cells%decomp_info%glb_index(idx_1d(jc_e,jb_e))
+                END IF
+              END DO
+!                CALL finish("", "Error!")
+            END IF
+          END IF
+        ENDDO
+      END IF
+    END DO
+end if
+!    jgp = 2
+!    DO j = 1,p_patch(jgp)%n_patch_verts
+!      
+!      IF (p_patch(jgp)%verts%decomp_info%glb_index(j) == 1890) THEN
+!        jc_c = idx_no(j) ! Line  index in distributed patch
+!        jb_c = blk_no(j) ! Block index in distributed patch
+!        
+!        WRITE (0,*) "PE ", p_pe_work, &
+!          & "; p_patch(jgp)%verts%refin_ctrl(jc_c,jb_c) = ", p_patch(jgp)%verts%refin_ctrl(jc_c,jb_c)
+!        WRITE (0,*) "jgp = ", jgp, "; vid = ", p_patch(jgp)%verts%decomp_info%glb_index(j)
+!        WRITE (0,*) "vlon,vlat=",p_patch(jgp)%verts%vertex(jc_c,jb_c)
+!        DO i=1,SIZE(p_patch(jgp)%verts%edge_idx,3)
+!          jc_e = p_patch(jgp)%verts%edge_idx(jc_c,jb_c,i)
+!          jb_e = p_patch(jgp)%verts%edge_blk(jc_c,jb_c,i)
+!          IF (jc_e > 0) THEN
+!            WRITE (0,*) "edge refin ",i," = ",p_patch(jgp)%edges%refin_ctrl(jc_e,jb_e)
+!          END IF
+!        END DO
+!        DO i=1,SIZE(p_patch(jgp)%verts%cell_idx,3)
+!          jc_e = p_patch(jgp)%verts%cell_idx(jc_c,jb_c,i)
+!          jb_e = p_patch(jgp)%verts%cell_blk(jc_c,jb_c,i)
+!          IF (jc_e > 0) THEN
+!            WRITE (0,*) "cell refin ",i," = ",p_patch(jgp)%cells%refin_ctrl(jc_e,jb_e)
+!            WRITE (0,*) " at ", 180._wp/(4._wp*ATAN(1._wp)) *p_patch(jgp)%cells%center(jc_e,jb_e)%lon,&
+!              & 180._wp/(4._wp*ATAN(1._wp)) *p_patch(jgp)%cells%center(jc_e,jb_e)%lat
+!            WRITE (0,*) " global idx: ", p_patch(jgp)%cells%decomp_info%glb_index(idx_1d(jc_e,jb_e))
+!          END IF
+!        END DO
+!      END IF
+!    END DO
+    ! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+CALL message("build_decomposition", "Done.")
   END SUBROUTINE build_decomposition
   !----------------------------------------------------------------------------
 
@@ -181,7 +309,8 @@ CONTAINS
   !          edge_idx/blk        on child patch
   !          decomp_domain, i.e. cell ownership
   !
-  ! output:
+  ! output:  p_p%cells/edges%child_idx
+  !          p_c%cells/edges%pc_idx (if not "is_local_parent")
   !
   ! 06/2016 : F. Prill, DWD
   !
@@ -193,10 +322,11 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":set_child_indices"
     INTEGER              :: i, j, jc_c, jb_c, communicator, i1, i2, iidx,                    &
-      &                     tmp, jc_e, jb_e, ordered(4), iglb
+      &                     jc_e, jb_e, ordered(4), iglb, je
     INTEGER, ALLOCATABLE :: in_data(:), dst_idx(:), out_data(:,:), out_pc_data(:,:),         &
       &                     out_data34(:,:), out_data_e(:,:), out_count(:,:),                &
-      &                     out_data_e3(:,:), out_data_c3(:,:), out_child_id(:,:)
+      &                     out_data_e3(:,:), out_data_c3(:,:), out_child_id(:,:),           &
+      &                     je_loc(:,:)
     LOGICAL              :: lfound, set_pc_idx
     INTEGER, POINTER     :: parent_idx_c(:,:), parent_blk_c(:,:),                            &
       &                     parent_idx_e(:,:), parent_blk_e(:,:)
@@ -364,18 +494,20 @@ CONTAINS
 
     DEALLOCATE(in_data, dst_idx,out_data_e3)      
 
-    ! Now, we order the (global) child indices, s.t. the child 3 is in
-    ! correct position.
+    ! Now, we order the (global) child indices, s.t. 
+    ! - the child 3 is in correct position, and
+    ! - the remaining children are ordered according to their index.
     DO j = 1, p_p%n_patch_cells
       ! find position of child no. 3
       i1 = 0
       DO i2=1,4
         IF (out_data(i2,j) == out_data_c3(1,j))  i1=i2
       END DO
-      IF (i1 /= 3) THEN
-        ! we need to reorder; 
-        tmp = out_data(i1,j) ; out_data(i1,j)=out_data(3,j) ; out_data(3,j)=tmp
-      END IF
+      ! reordering:
+      IF (i1 /= 3)  CALL swap_int(out_data(i1,j), out_data(3,j))
+      IF (out_data(1,j) > out_data(2,j))  CALL swap_int(out_data(1,j), out_data(2,j))
+      IF (out_data(2,j) > out_data(4,j))  CALL swap_int(out_data(2,j), out_data(4,j))
+      IF (out_data(1,j) > out_data(2,j))  CALL swap_int(out_data(1,j), out_data(2,j))
     END DO
 
     DEALLOCATE(out_data_c3)
@@ -469,6 +601,7 @@ CONTAINS
       &            p_p%n_patch_edges_g, communicator, out_data34)
     DEALLOCATE(in_data, dst_idx)      
 
+
     ! --- CHILD PATCH -> PARENT PATCH
     ! --- in a second step, we communicate *all four* edge children
 
@@ -488,6 +621,39 @@ CONTAINS
     CALL reshuffle("send edge indices to parent", dst_idx, in_data, p_p%edges%decomp_info%glb_index, &
       &            p_p%n_patch_edges_g, communicator, out_data)
 
+    DEALLOCATE(dst_idx, in_data)
+
+    ! -----------------------------------------------------------------
+    ! - build a temporary array which denotes for all parent grid
+    !   edges, if the local edge numbering wrt. to the left/right cell
+    !   is equal or different.
+
+    ALLOCATE(dst_idx(2*p_p%n_patch_edges), in_data(2*p_p%n_patch_edges))
+    iidx = 0
+    DO j = 1, p_p%n_patch_cells
+      jc_c = idx_no(j)
+      jb_c = blk_no(j)
+      DO i=1,3
+        ! each edge is traversed twice: 
+        jc_e = p_p%cells%edge_idx(jc_c,jb_c,i)
+        jb_e = p_p%cells%edge_blk(jc_c,jb_c,i)        
+        IF (.NOT. p_p%edges%decomp_info%owner_mask(jc_e,jb_e))  CYCLE
+        je = p_p%edges%decomp_info%glb_index(idx_1d(jc_e,jb_e))
+
+        iidx = iidx + 1
+        dst_idx(iidx) = je
+        in_data(iidx) = i
+      END DO
+    END DO
+
+    ALLOCATE(je_loc(2,p_p%n_patch_edges), out_count(2,p_p%n_patch_edges))
+    je_loc(:,:)    = 0
+    out_count(:,:) = 0
+
+    CALL reshuffle("send local edge index", dst_idx(1:iidx), in_data(1:iidx), p_p%edges%decomp_info%glb_index, &
+      &            p_p%n_patch_edges_g, communicator, je_loc, out_count)
+
+
     ! -----------------------------------------------------------------
     ! - copy results
 
@@ -505,9 +671,76 @@ CONTAINS
         END IF
       END DO
       ordered(3:4)  = out_data34(:,j)
+
+      ! -----------------------------------------------------------------
+      ! Do some reordering which would not be strictly necessary but
+      ! which maintains backward compatibility with the "old" grid
+      ! generator.
+      ! 
+      ! Note that we cannot resemble the numbering in the nest
+      ! boundary region here, where the reordering leads to cell and
+      ! edge indices which break, e.g., the rule that four consecutive
+      ! cell indices form the sub-cells of one parent grid cell.
+
+      ! ascending order of edge index 3,4:
+      IF ((ordered(3) > ordered(4)) .AND. (ordered(4) > 0)) THEN
+        CALL swap_int(ordered(3), ordered(4))
+      END IF
+      !   The rule for edge indices 1,2 is as follows: determine the
+      !   local edge index (1/2/3) of the left and right parent grid
+      !   cell. If these local edge indices match, then
+      !   edges%child_idx(1:2) are ordered in an descending way,
+      !   otherwise ascending ordering.
+      !
+      !   The edge indices 3,4 are always in ascending order.
+      !
+      ! Behind these rules are three observations:
+      !
+      ! 1. for a given parent grid edge the left/right cell with the
+      !    smaller index defines the child edge numbers, but the
+      !    left/right cell with the *larger* index sets the entries
+      !    1,2 in the edges%child_idx array (or, more precisely,
+      !    overwrites previous settings).
+      !
+      ! 2. If the local edge index for the parent grid is 1 or 2, then
+      !    the indices of the sub-edges are ordered ascendingly, but
+      !    if the local edge index for the parent grid is 3, then the
+      !    indices are ordered descendingly, (since the child cells
+      !    are then #4 and #1).
+      !
+      ! 3. The edges%child_idx(3) is always set by the *smaller* cell,
+      !    and the edges%child_idx(4) by the larger index cell.
+
+
+      ! (do not distinguish between 1/2:)
+      IF (je_loc(1,j) == 2)  je_loc(1,j) = 1
+      IF (je_loc(2,j) == 2)  je_loc(2,j) = 1
+
+      IF (je_loc(2,j) == 0) THEN
+        IF (ordered(4) /= 0) THEN
+          ! (je_loc(2,j) == 0 can mean that both je_loc values were
+          ! equal: descending order)
+          IF (ordered(1) < ordered(2))  THEN
+            ordered(:) = ordered((/2,1,3,4/))
+          END IF
+        ELSE
+          ! (je_loc(2,j) == 0 can also mean that we are at the
+          !  boundary: ascending order
+          IF (ordered(1) > ordered(2)) THEN
+            ordered(:) = ordered((/2,1,3,4/))
+          END IF
+        END IF
+      ELSE
+        ! standard case: ascending order, if je_loc not matching,
+        ! (the other option - ascending ordering for matching - was handled above):
+        IF ((je_loc(1,j) /= je_loc(2,j)) .AND. (ordered(1) > ordered(2))) THEN
+          ordered(:) = ordered((/2,1,3,4/))
+        END IF
+      END IF
+
       out_data(:,j) = ordered(:)
     END DO
-    DEALLOCATE(dst_idx, in_data)
+    DEALLOCATE(dst_idx, in_data, out_data34, je_loc, out_count)
 
     ! --- PARENT PATCH -> CHILD PATCH
     ! --- create EDGE pc_idx array ------------------------------------
@@ -518,8 +751,6 @@ CONTAINS
 
     iidx = 0
     DO j = 1, p_p%n_patch_edges
-      jc_c = idx_no(j)
-      jb_c = blk_no(j)
       DO i=1,4
         IF (out_data(i,j) > 0) THEN
           iidx = iidx + 1
@@ -555,7 +786,7 @@ CONTAINS
       p_p%edges%child_blk(jc_e,jb_e,:) = blk_no( out_data(:,j) )
     END DO
 
-    DEALLOCATE(out_data, out_data34, in_data, dst_idx)      
+    DEALLOCATE(out_data, in_data, dst_idx)      
 
     ! -----------------------------------------------------------------
     ! --- create CHILD ID's -------------------------------------------
@@ -654,7 +885,16 @@ CONTAINS
     IF (p_pe_work == 0) THEN
       WRITE (0,*) "set_child_indices: ", TRIM(description), " - Done."
     END IF
-  END SUBROUTINE set_child_indices
 
+  CONTAINS
+
+    SUBROUTINE swap_int(a,b)
+      INTEGER,  INTENT(INOUT) :: a,b
+      ! local variables
+      INTEGER :: tmp
+      tmp = a ; a = b; b = tmp
+    END SUBROUTINE swap_int
+
+  END SUBROUTINE set_child_indices
  
 END MODULE mo_build_decomposition

@@ -56,7 +56,7 @@ CONTAINS
 !
 !
 !>
-!! Performs interpolation from parent edges to child edges using inverse.
+!! Performs interpolation from parent edges to child edges.
 !!
 !! Performs interpolation from parent edges to child edges using inverse
 !! distance weighting (IDW) or RBF. The output field (p_vn_out) contains

@@ -551,6 +551,8 @@ CONTAINS
       ELSE
 
         CALL set_parent_child_relations(p_patch_local_parent(jg), patch(jg))
+        CALL set_parent_loc_idx(p_patch_local_parent(jg), patch(jg))
+
       ENDIF
     END DO
 
