@@ -221,7 +221,6 @@ CALL message("build_decomposition", "Done.")
     END IF
 
     communicator = p_comm_work
-    IF(p_test_run)  communicator = p_comm_work_test
 
     parent_idx_c => p_c%cells%parent_glb_idx
     parent_blk_c => p_c%cells%parent_glb_blk
@@ -834,7 +833,7 @@ CALL message("build_decomposition", "Done.")
   SUBROUTINE set_parent_refin_ev_ctrl(p_p)
     TYPE(t_patch), TARGET, INTENT(inout) :: p_p ! parent patch
     ! local variables
-    INTEGER :: jc_c,jb_c,jc_v,jb_v, j, min_refin_c,i,refin_c,refin_e,jc_e,jb_e
+    INTEGER :: jc_c,jb_c,jc_v,jb_v, j, min_refin_c,i,refin_c,jc_e,jb_e
     LOGICAL :: l_one_sided
 
     ! The "refin_e_ctrl" value is the sum of the "refin_c_ctrl" values
