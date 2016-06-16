@@ -78,18 +78,18 @@ ocean_grids='r2b4_amip.nc'
 
 add_required_file ${grids_folder}/${ocean_grids} ./
 
-# time stepping
-# -------------
-
-dtime_atm=${dtime_atm:=600}
-dtime_oce=$hour
-dtime_cpl=$dtime_oce
-
 # start and end date+time
 # -----------------------
 
 start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
   end_date="1979-01-02T00:00:00Z"        # ISO-format date+time
+
+# time step length
+# ----------------
+
+dtime_atm=${dtime_atm:=600}
+dtime_oce=$hour
+dtime_cpl=$dtime_oce
 
 # restart interval
 # ----------------

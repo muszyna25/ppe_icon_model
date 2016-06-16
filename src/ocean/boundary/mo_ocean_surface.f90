@@ -401,6 +401,9 @@ CONTAINS
 
     END SELECT
 
+    ! copy atmospheric wind speed from p_as%fu10 into new forcing variable for output purpose - not accumulated yet
+    p_oce_sfc%Wind_Speed_10m(:,:) = p_as%fu10(:,:)
+
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('bef.fast: Tsurf  ',        p_ice%tsurf          ,str_module,idt_src, in_subset=p_patch%cells%owned)
