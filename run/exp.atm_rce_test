@@ -167,13 +167,13 @@ cat > ${atmo_namelist} << EOF
  irad_co2         = 2           ! 2: constant co2
  irad_ch4         = 0           ! 0: no ch4
  irad_n2o         = 0           ! 0: no n2o
- irad_o3          = 4           ! 4: APE ozone (perpetual january of ozone file linked below)
+ irad_o3          = 4           ! 4: RCE ozone (perpetual january of ozone file linked below)
  irad_o2          = 0           ! 0: no o2
  irad_cfc11       = 0           ! 0: no cfc11
  irad_cfc12       = 0           ! 0: no cfc12
  irad_aero        = 0           ! 0: no aerosol
  isolrad          = 5           ! 5: solar constant 433.3371 W/m^2 at 1 AE for RCE
- ldiur            = .FALSE.. 
+ ldiur            = .FALSE.     ! no diurnal cycle, .TRUE. for diurnal cycle
 /
 &psrad_nml
 rad_perm          = 1           ! Integer for perturbing random number seeds
