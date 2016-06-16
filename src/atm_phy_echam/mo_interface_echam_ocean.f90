@@ -643,7 +643,7 @@ CONTAINS
     !
     ! ------------------------------
     !  Send sea ice flux bundle
-    !   field_id(5) represents "atmosphere_sea_ice_bundle" - sea ice surface and bottom melt potentials
+    !   field_id(5) represents "atmosphere_sea_ice_bundle" - sea ice surface and bottom melt potentials Qtop, Qbot
     !
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
@@ -891,15 +891,6 @@ CONTAINS
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
 
-    ! SST, sea ice, ocean velocity received
-    scr(:,:) = prm_field(jg)%tsfc_tile(:,:,iwtr)
-    CALL dbg_print('EchOce: tsfc_til.wtr',scr                  ,str_module,2,in_subset=p_patch%cells%owned)
-    CALL dbg_print('EchOce: siced       ',prm_field(jg)%siced  ,str_module,3,in_subset=p_patch%cells%owned)
-    CALL dbg_print('EchOce: seaice      ',prm_field(jg)%seaice ,str_module,4,in_subset=p_patch%cells%owned)
-    scr(:,:) = prm_field(jg)%ocu(:,:)
-    CALL dbg_print('EchOce: ocu         ',prm_field(jg)%ocu    ,str_module,4,in_subset=p_patch%cells%owned)
-    CALL dbg_print('EchOce: ocv         ',prm_field(jg)%ocv    ,str_module,4,in_subset=p_patch%cells%owned)
-
     ! u/v-stress on ice and water sent
     scr(:,:) = prm_field(jg)%u_stress_tile(:,:,iwtr)
     CALL dbg_print('EchOce: u_stress.wtr',scr,str_module,3,in_subset=p_patch%cells%owned)
@@ -909,6 +900,13 @@ CONTAINS
     CALL dbg_print('EchOce: v_stress.wtr',scr,str_module,4,in_subset=p_patch%cells%owned)
     scr(:,:) = prm_field(jg)%v_stress_tile(:,:,iice)
     CALL dbg_print('EchOce: v_stress.ice',scr,str_module,4,in_subset=p_patch%cells%owned)
+
+    ! rain, snow, evaporation
+    scr(:,:) = prm_field(jg)%rsfl(:,:) + prm_field(jg)%rsfc(:,:)
+    CALL dbg_print('EchOce: total rain  ',scr,str_module,3,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%ssfl(:,:) + prm_field(jg)%ssfc(:,:)
+    CALL dbg_print('EchOce: total snow  ',scr,str_module,4,in_subset=p_patch%cells%owned)
+    CALL dbg_print('EchOce: evaporation ',prm_field(jg)%evap   ,str_module,4,in_subset=p_patch%cells%owned)
 
     ! short wave, long wave, sensible, latent heat flux sent
     scr(:,:) = prm_field(jg)%swflxsfc_tile(:,:,iwtr)
@@ -920,13 +918,22 @@ CONTAINS
     scr(:,:) = prm_field(jg)%lhflx_tile(:,:,iwtr)
     CALL dbg_print('EchOce: lhflx.wtr   ',scr,str_module,3,in_subset=p_patch%cells%owned)
 
-    ! rain, snow, evaporation, windspeed sent
-    scr(:,:) = prm_field(jg)%rsfl(:,:) + prm_field(jg)%rsfc(:,:)
-    CALL dbg_print('EchOce: total rain  ',scr,str_module,3,in_subset=p_patch%cells%owned)
-    scr(:,:) = prm_field(jg)%ssfl(:,:) + prm_field(jg)%ssfc(:,:)
-    CALL dbg_print('EchOce: total snow  ',scr,str_module,4,in_subset=p_patch%cells%owned)
-    CALL dbg_print('EchOce: evaporation ',prm_field(jg)%evap   ,str_module,4,in_subset=p_patch%cells%owned)
+    ! Qtop and Qbot, windspeed sent
+    !scr(:,:) = prm_field(jg)%Qtop(:,1,:)
+    !CALL dbg_print('EchOce: u_stress.wtr',scr,str_module,3,in_subset=p_patch%cells%owned)
+    CALL dbg_print('EchOce: ice-Qtop    ',prm_field(jg)%Qtop   ,str_module,4,in_subset=p_patch%cells%owned)
+    CALL dbg_print('EchOce: ice-Qbot    ',prm_field(jg)%Qbot   ,str_module,3,in_subset=p_patch%cells%owned)
     CALL dbg_print('EchOce: sfcWind     ',prm_field(jg)%sfcWind,str_module,3,in_subset=p_patch%cells%owned)
+
+    ! SST, sea ice, ocean velocity received
+    scr(:,:) = prm_field(jg)%tsfc_tile(:,:,iwtr)
+    CALL dbg_print('EchOce: tsfc_til.wtr',scr                  ,str_module,2,in_subset=p_patch%cells%owned)
+    CALL dbg_print('EchOce: siced       ',prm_field(jg)%siced  ,str_module,3,in_subset=p_patch%cells%owned)
+    CALL dbg_print('EchOce: seaice      ',prm_field(jg)%seaice ,str_module,4,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%ocu(:,:)
+    CALL dbg_print('EchOce: ocu         ',prm_field(jg)%ocu    ,str_module,4,in_subset=p_patch%cells%owned)
+    CALL dbg_print('EchOce: ocv         ',prm_field(jg)%ocv    ,str_module,4,in_subset=p_patch%cells%owned)
+
     !---------------------------------------------------------------------
 
 
