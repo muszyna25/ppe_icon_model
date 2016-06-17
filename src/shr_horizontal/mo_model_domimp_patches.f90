@@ -525,9 +525,13 @@ CONTAINS
       CALL read_remaining_patch( jg, patch(jg), n_lp, id_lp, lsep_grfinfo )
     ENDDO
 
-    ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     ! In parent grids: compute "refin_e_ctrl", "refin_v_ctrl" flags
     ! for overlap with nested domain:
+    !   
+    ! Note: we need to compute these values here, since necessary
+    ! indices are only read by "read_remaining_patch" above, but the
+    ! resulting "refin_ctrl" flags are used by the
+    ! "set_parent_child_relations" subroutine below.
     !   
     DO jg = n_dom_start,n_dom
       jgp = patch(jg)%parent_id
@@ -536,7 +540,6 @@ CONTAINS
         CALL set_parent_refin_ev_ctrl("local parent patch", p_patch_local_parent(jg))
       END IF
     END DO
-    ! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     ! set parent-child relationships
     DO jg = n_dom_start, n_dom
@@ -2649,10 +2652,11 @@ CONTAINS
 
   END SUBROUTINE nf
 
+
   ! -----------------------------------------------------------------
   !
-  ! In parent grids: compute "refin_e_ctrl", "refin_v_ctrl" flags for
-  ! overlap with nested domain.
+  !  In parent grids: compute "refin_e_ctrl", "refin_v_ctrl" flags for
+  !  overlap with nested domain.
   !
   !  @author F. Prill, DWD (2016-06-16)
   !
@@ -2663,12 +2667,16 @@ CONTAINS
     INTEGER :: jc_c,jb_c,jc_v,jb_v, j, min_refin_c,i,refin_c,jc_e,jb_e,communicator,refin_e,iidx
     INTEGER, ALLOCATABLE :: in_data(:),dst_idx(:),out_data(:,:),out_count(:,:)
 
+    CALL message(modname, "set negative edge/vertex refin_ctrl flags "//&
+      &"for "//TRIM(description)//" (id "//TRIM(int2string(p_p%id))//")")
+
+    ! CELLS ------------------------------------------------------
+    !
     ! The "refin_e_ctrl" value is the sum of the "refin_c_ctrl" values
     ! of the two adjacent cells!
     !   
     ALLOCATE(in_data(3*p_p%n_patch_cells), dst_idx(3*p_p%n_patch_cells))
-    CALL message(modname//': set_parent_refin_ev_ctrl', "modifying patch "//&
-      &TRIM(int2string(p_p%id))//" : "//TRIM(description))
+
     ! by looping over the cells, we visit each edge twice
     iidx = 0
     DO j = 1,p_p%n_patch_cells
@@ -2687,14 +2695,9 @@ CONTAINS
 
         iidx = iidx + 1
         dst_idx(iidx) = p_p%edges%decomp_info%glb_index(idx_1d(jc_e,jb_e))
+        ! (we need a shift of -1 to distinguish between zero values
+        ! and unset values:)
         in_data(iidx) = p_p%cells%refin_ctrl(jc_c,jb_c) - 1
-
-!      IF (p_pe_work == 28) THEN
-!        IF (p_p%edges%decomp_info%glb_index(j)==429) THEN
-!          WRITE (0,*) "cell ", p_p%edges%decomp_info%glb_index(j), " adjacent to edge ", &
-!            & dst_idx(iidx)
-!        END IF
- !     END IF
       END DO
     END DO
 
@@ -2704,46 +2707,28 @@ CONTAINS
     communicator   = p_comm_work
  
     ! communicate between processors:
-    CALL reshuffle("send refin_c_ctrl to edges", dst_idx(1:iidx), in_data(1:iidx), &
-      &            p_p%edges%decomp_info%glb_index, p_p%n_patch_edges_g, communicator, out_data, out_count)
+    CALL reshuffle("send refin_c_ctrl to edges", dst_idx(1:iidx), in_data(1:iidx),     &
+      &            p_p%edges%decomp_info%glb_index, p_p%n_patch_edges_g, communicator, &
+      &            out_data, out_count)
 
+    ! now loop over the edges and sum the two adjacent cell refin_ctrl
+    ! flags:
     DO j = 1,p_p%n_patch_edges
       jc_e = idx_no(j) ! Line  index in distributed patch
       jb_e = blk_no(j) ! Block index in distributed patch
             
-!      IF (.NOT. p_p%edges%decomp_info%owner_mask(jc_e,jb_e))  CYCLE
       IF (out_count(1,j) == 0)  CYCLE
 
       IF (out_count(2,j) == 0)  out_data(2,j) = out_data(1,j)
       refin_e = out_data(1,j) + out_data(2,j) + 2
 
-!      IF (p_p%edges%refin_ctrl(jc_e,jb_e) >= 0) CYCLE
-!     IF (p_pe_work == 26) THEN
-
-!!!         IF (    p_p%edges%refin_ctrl(jc_e,jb_e) /= refin_e ) THEN
-!!! !        IF (p_p%edges%decomp_info%glb_index(j)==693) THEN
-!!!           WRITE (0,*) "PE ", p_pe_work, " - ", TRIM(description)
-!!!           WRITE (0,*) "p_p%edges%refin_ctrl(jc_e,jb_e) = ", p_p%edges%refin_ctrl(jc_e,jb_e)
-!!!           WRITE (0,*) "refin_e = ", refin_e
-!!!           WRITE (0,*) "out_data(:,j) = ", out_data(:,j)
-!!!           WRITE (0,*) "out_count(:,j) = ", out_count(:,j)
-!!!           WRITE (0,*) "jg = ", p_p%id
-!!!           WRITE (0,*) "edge # ", p_p%edges%decomp_info%glb_index(j)
-!!!           WRITE (0,*) "lon,lat = ", 57.296*p_p%edges%center(jc_e,jb_e)%lon, ", ",&
-!!!             & 57.296*p_p%edges%center(jc_e,jb_e)%lat
-!!!           DO i=1,2
-!!!             jc_c = p_p%edges%cell_idx(jc_e,jb_e,i)
-!!!             jb_c = p_p%edges%cell_blk(jc_e,jb_e,i)
-!!!             IF (jc_c > 0) THEN
-!!!               WRITE (0,*) "cell #", p_p%cells%decomp_info%glb_index(idx_1d(jc_c,jb_c))
-!!!               WRITE (0,*) "refin ctrl cell: ",  p_p%cells%refin_ctrl(jc_c,jb_c)
-!!!             END IF
-!!!           END DO
-!!! !        END IF
-!!!      END IF
       p_p%edges%refin_ctrl(jc_e,jb_e) = refin_e 
     END DO
 
+    DEALLOCATE(in_data, dst_idx, out_data, out_count)
+
+    ! VERTICES ---------------------------------------------------
+    !
     ! The "refin_v_ctrl" value is the minimum of the adjacent
     ! "refin_c_ctrl" values!
     !
@@ -2764,9 +2749,7 @@ CONTAINS
         END IF
       END DO
       
-      IF (min_refin_c < 0) THEN
-        p_p%verts%refin_ctrl(jc_v,jb_v) = min_refin_c
-      END IF
+      IF (min_refin_c < 0)  p_p%verts%refin_ctrl(jc_v,jb_v) = min_refin_c
     END DO
   END SUBROUTINE set_parent_refin_ev_ctrl
 

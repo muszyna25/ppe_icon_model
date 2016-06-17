@@ -1396,11 +1396,14 @@ CONTAINS
       END DO
     END DO
 
+    ! ------------------------------------------------------------
     ! > The following block masks negative refin_ctrl flags. This
     ! > happens just to test the correctness of the algorithm which
     ! > sets the parent-side of the refin_ctrl flags automatically.
 
-    CALL message(modname//': divide_patch', "modifying patch "//int2string(wrk_p_patch%id))
+    CALL message(modname//': divide_patch', "erase negative refin_ctrl flags in patch "//&
+      &TRIM(int2string(wrk_p_patch%id)))
+
     WHERE (wrk_p_patch%cells%refin_ctrl(:,:) < 0)
       wrk_p_patch%cells%refin_ctrl(:,:) = 0
     END WHERE
@@ -1410,6 +1413,7 @@ CONTAINS
     WHERE (wrk_p_patch%verts%refin_ctrl(:,:) < 0)
       wrk_p_patch%verts%refin_ctrl(:,:) = 0
     END WHERE
+    ! ------------------------------------------------------------
 
     DEALLOCATE(owned_cells)
 

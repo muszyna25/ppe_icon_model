@@ -27,6 +27,7 @@ MODULE mo_build_decomposition
   USE mo_model_domain,         ONLY: p_patch, t_pre_patch, t_patch_3d,        &
     &                                t_patch, p_patch_local_parent
   USE mo_reshuffle,            ONLY: reshuffle
+  USE mo_run_config,           ONLY: msg_level
   USE mo_model_domimp_patches, ONLY: reorder_patch_refin_ctrl,                &
     &                                import_pre_patches, complete_patches, set_parent_loc_idx
   USE mo_parallel_config,      ONLY: p_test_run, l_test_openmp, num_io_procs, division_method
@@ -198,9 +199,7 @@ CONTAINS
       &                     parent_idx_e(:,:), parent_blk_e(:,:)
 
 
-    IF (p_pe_work == 0) THEN
-      WRITE (0,*) "set_child_indices: ", TRIM(description), " - Enter."
-    END IF
+    IF (msg_level >= 15)  CALL message(routine, TRIM(description)//" - Enter.")
 
     communicator = p_comm_work
 
@@ -759,6 +758,8 @@ CONTAINS
       ! loop only over inner domain
       IF (p_c%cells%decomp_info%decomp_domain(jc_c,jb_c) /= 0)  CYCLE
       
+      ! (we need a shift of +1 to distinguish between zero values
+      ! and unset values:)
       refin_c = (p_c%cells%refin_ctrl(jc_c,jb_c)+1)/2 + 1
 
       iidx = iidx + 1
@@ -792,9 +793,7 @@ CONTAINS
     END DO
     DEALLOCATE(out_data, in_data, dst_idx)
 
-    IF (p_pe_work == 0) THEN
-      WRITE (0,*) "set_child_indices: ", TRIM(description), " - Done."
-    END IF
+    IF (msg_level >= 15)  CALL message(routine, TRIM(description)//" - Done.")
 
   CONTAINS
 
