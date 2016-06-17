@@ -981,7 +981,7 @@ CONTAINS
     TYPE(t_sea_ice)                             :: ice
     TYPE(t_atmos_fluxes)                        :: atmos_fluxes
     TYPE(t_datetime), INTENT(inout)             :: datetime
-    REAL(wp),         INTENT(inout)             :: atm_wind_speed(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp), TARGET                            :: fu10(:,:)
 
     IF ( is_coupled_run() ) THEN
        CALL finish('couple_ocean_toatmo_fluxes: unintentionally called. Check your source code and configure.')
