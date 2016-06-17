@@ -76,6 +76,7 @@ MODULE mo_fortran_tools
   INTERFACE copy
     MODULE PROCEDURE copy_2d_dp
     MODULE PROCEDURE copy_3d_dp
+    MODULE PROCEDURE copy_4d_dp
     MODULE PROCEDURE copy_5d_dp
     MODULE PROCEDURE copy_5d_sp
     MODULE PROCEDURE copy_5d_spdp
@@ -287,6 +288,32 @@ CONTAINS
     END DO
 !$omp end do nowait
   END SUBROUTINE copy_3d_dp
+
+  !> copy state, omp parallel, does not wait for other threads to complete
+  SUBROUTINE copy_4d_dp(src, dest)
+    REAL(dp), INTENT(in) :: src(:, :, :, :)
+    REAL(dp), INTENT(out) :: dest(:, :, :, :)
+    INTEGER :: i1, i2, i3, i4, m1, m2, m3, m4
+    m1 = SIZE(dest, 1)
+    m2 = SIZE(dest, 2)
+    m3 = SIZE(dest, 3)
+    m4 = SIZE(dest, 4)
+#ifdef _CRAYFTN
+!$omp do
+#else
+!$omp do collapse(4)
+#endif
+    DO i4 = 1, m4
+      DO i3 = 1, m3
+        DO i2 = 1, m2
+          DO i1 = 1, m1
+            dest(i1, i2, i3, i4) = src(i1, i2, i3, i4)
+          END DO
+        END DO
+      END DO
+    END DO
+!$omp end do nowait
+  END SUBROUTINE copy_4d_dp
 
   !> copy state, omp parallel, does not wait for other threads to complete
   SUBROUTINE copy_5d_dp(src, dest)
