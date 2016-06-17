@@ -30,7 +30,7 @@ MODULE mo_build_decomposition
   USE mo_model_domimp_patches, ONLY: reorder_patch_refin_ctrl,                &
     &                                import_pre_patches, complete_patches, set_parent_loc_idx
   USE mo_parallel_config,      ONLY: p_test_run, l_test_openmp, num_io_procs, division_method
-  USE mo_impl_constants,       ONLY: success, max_dom
+  USE mo_impl_constants,       ONLY: success, max_dom, min_rlcell_int
   USE mo_exception,            ONLY: finish, message, message_text, get_filename_noext
   USE mo_communication,        ONLY: blk_no, idx_no, idx_1d
   USE mo_util_string,          ONLY: int2string
@@ -92,11 +92,6 @@ CONTAINS
     CALL decompose_domain(p_patch, p_patch_pre)
     DEALLOCATE(p_patch_pre)
 
-    ! set local parent indices 
-!    DO jg = n_dom_start+1, n_dom
-!      CALL set_parent_loc_idx(p_patch_local_parent(jg), p_patch(jg))
-!    END DO
-
     ! compute the child/edge indices on parent patch from the
     ! corresponding information on parent indices stored in the child
     ! patch
@@ -147,20 +142,7 @@ CONTAINS
       patch_3d%p_patch_2d => p_patch
     END IF
 
-    ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    ! In parent grids: compute "refin_e_ctrl", "refin_v_ctrl" flags
-    ! for overlap with nested domain:
-    !   
-    DO jg = n_dom_start,n_dom
-      jgp = p_patch(jg)%parent_id
-      IF (jgp >= n_dom_start) THEN
-        CALL set_parent_refin_ev_ctrl(p_patch(jgp))
-        CALL set_parent_refin_ev_ctrl(p_patch_local_parent(jg))
-      END IF
-    END DO
-
-    ! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-CALL message("build_decomposition", "Done.")
+    CALL message("build_decomposition", "Done.")
   END SUBROUTINE build_decomposition
   !----------------------------------------------------------------------------
 
@@ -206,7 +188,7 @@ CALL message("build_decomposition", "Done.")
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":set_child_indices"
     INTEGER              :: i, j, jc_c, jb_c, communicator, i1, i2, iidx,                    &
-      &                     jc_e, jb_e, ordered(4), iglb, je
+      &                     jc_e, jb_e, ordered(4), iglb, je, refin_c
     INTEGER, ALLOCATABLE :: in_data(:), dst_idx(:), out_data(:,:), out_pc_data(:,:),         &
       &                     out_data34(:,:), out_data_e(:,:), out_count(:,:),                &
       &                     out_data_e3(:,:), out_data_c3(:,:), out_child_id(:,:),           &
@@ -775,36 +757,39 @@ CALL message("build_decomposition", "Done.")
       jc_c = idx_no(j)
       jb_c = blk_no(j)
       ! loop only over inner domain
-!      IF (p_c%cells%decomp_info%decomp_domain(jc_c,jb_c) /= 0)  CYCLE
-      !   IF (p_c%cells%refin_ctrl(jc_c,jb_c) <= 0)                 CYCLE
+      IF (p_c%cells%decomp_info%decomp_domain(jc_c,jb_c) /= 0)  CYCLE
       
+      refin_c = (p_c%cells%refin_ctrl(jc_c,jb_c)+1)/2 + 1
+
       iidx = iidx + 1
-      dst_idx(iidx) = j!idx_1d(parent_idx_c(jc_c,jb_c), parent_blk_c(jc_c,jb_c))
-      in_data(iidx) = j!(p_c%cells%refin_ctrl(jc_c,jb_c)+1)/2
+      dst_idx(iidx) = idx_1d(parent_idx_c(jc_c,jb_c), parent_blk_c(jc_c,jb_c))
+      in_data(iidx) = refin_c
     END DO
     
-    ALLOCATE(out_data(1,p_p%n_patch_cells))
-    out_data(:,:) = -1
+    ALLOCATE(out_data(2,p_p%n_patch_cells))
+    out_data(:,:) = 0
+ 
+    ! communicate between processors:
+    CALL reshuffle("send refin_c_ctrl to parent", dst_idx(1:iidx), in_data(1:iidx), &
+      &            p_p%cells%decomp_info%glb_index, p_p%n_patch_cells_g, communicator, out_data)
+    
+    ! communication finished. now copy the result to the local arrays:
+    DO j = 1, p_p%n_patch_cells
+      jc_c = idx_no(j)
+      jb_c = blk_no(j)
 
-!  !!! 
-!  !!!     ! communicate ID data between processors:
-!  !!!     CALL reshuffle("send refin_c_ctrl to parent", dst_idx(1:iidx), in_data(1:iidx), &
-!  !!!       &            p_p%cells%decomp_info%glb_index, p_p%n_patch_cells_g, communicator, out_data)
-!  !!! 
-!  !!!     ! communication finished. now copy the result to the local arrays:
-!  !!!     DO j = 1, p_p%n_patch_cells
-!  !!!       jc_c = idx_no(j)
-!  !!!       jb_c = blk_no(j)
-!  !!! 
-!  !!!       IF (out_data(1,j) <= 0)  CYCLE
-!  !!! !      p_p%cells%refin_ctrl(jc_c,jb_c) = -1*out_data(1,j)
-!  !!!       
-!  !!! !      IF (p_pe_work == 0) THEN
-!  !!! !        IF (out_data(1,j) /= 0) THEN
-!  !!! !          WRITE (0,*) "out_data = ", out_data(:,j), "; p_p%cells%refin_ctrl = ", p_p%cells%refin_ctrl(jc_c,jb_c)
-!  !!! !        END IF
-!  !!! !      END IF
-!  !!!     END DO
+      IF (out_data(1,j) == 0)  CYCLE
+
+      ! take care of the "innermost" part of the domain, which is
+      ! numbered with "0" on the child patch
+      IF (ANY(out_data(1:2,j) == 1)) THEN
+        refin_c = min_rlcell_int
+      ELSE
+        refin_c = MAX( -1*(out_data(1,j)-1), min_rlcell_int )
+      END IF
+           
+      p_p%cells%refin_ctrl(jc_c,jb_c) = refin_c
+    END DO
     DEALLOCATE(out_data, in_data, dst_idx)
 
     IF (p_pe_work == 0) THEN
@@ -822,75 +807,5 @@ CALL message("build_decomposition", "Done.")
 
   END SUBROUTINE set_child_indices
 
-
-  ! -----------------------------------------------------------------
-  !
-  ! In parent grids: compute "refin_e_ctrl", "refin_v_ctrl" flags for
-  ! overlap with nested domain.
-  !
-  !  @author F. Prill, DWD (2016-06-16)
-  !
-  SUBROUTINE set_parent_refin_ev_ctrl(p_p)
-    TYPE(t_patch), TARGET, INTENT(inout) :: p_p ! parent patch
-    ! local variables
-    INTEGER :: jc_c,jb_c,jc_v,jb_v, j, min_refin_c,i,refin_c,jc_e,jb_e
-    LOGICAL :: l_one_sided
-
-    ! The "refin_e_ctrl" value is the sum of the "refin_c_ctrl" values
-    ! of the two adjacent cells!
-    !   
-    DO j = 1,p_p%n_patch_edges
-      jc_e = idx_no(j) ! Line  index in distributed patch
-      jb_e = blk_no(j) ! Block index in distributed patch
-            
-      IF (.NOT. p_p%edges%decomp_info%owner_mask(jc_e,jb_e))  CYCLE
-          
-      ! determine adjacent "refin_c_ctrl" flags
-      l_one_sided = .FALSE.
-      refin_c     = 0
-      min_refin_c = 99
-      DO i=1,2
-        jc_c = p_p%edges%cell_idx(jc_e,jb_e,i)
-        jb_c = p_p%edges%cell_blk(jc_e,jb_e,i)
-        IF (jc_c > 0) THEN
-          refin_c = refin_c + p_p%cells%refin_ctrl(jc_c,jb_c)
-          min_refin_c = MIN(min_refin_c, p_p%cells%refin_ctrl(jc_c,jb_c))
-        ELSE
-          l_one_sided = .TRUE.
-        END IF
-      END DO
-      ! take care of boundary edges:
-      IF (l_one_sided)  refin_c = 2*refin_c
-      
-      IF (min_refin_c < 0) THEN
-        p_p%edges%refin_ctrl(jc_e,jb_e) = refin_c
-      END IF
-    END DO
-
-    ! The "refin_v_ctrl" value is the minimum of the adjacent
-    ! "refin_c_ctrl" values!
-    !
-    DO j = 1,p_p%n_patch_verts
-      jc_v = idx_no(j) ! Line  index in distributed patch
-      jb_v = blk_no(j) ! Block index in distributed patch
-            
-      IF (.NOT. p_p%verts%decomp_info%owner_mask(jc_v,jb_v))  CYCLE
-      
-      ! determine min. of adjacent "refin_c_ctrl" flags
-      min_refin_c = 99
-      DO i=1,SIZE(p_p%verts%cell_idx,3)
-        jc_c = p_p%verts%cell_idx(jc_v,jb_v,i)
-        jb_c = p_p%verts%cell_blk(jc_v,jb_v,i)
-        IF (jc_c > 0) THEN
-          refin_c = p_p%cells%refin_ctrl(jc_c,jb_c)
-          min_refin_c = MIN(min_refin_c, refin_c)
-        END IF
-      END DO
-      
-      IF (min_refin_c < 0) THEN
-        p_p%verts%refin_ctrl(jc_v,jb_v) = min_refin_c
-      END IF
-    END DO
-  END SUBROUTINE set_parent_refin_ev_ctrl
  
 END MODULE mo_build_decomposition

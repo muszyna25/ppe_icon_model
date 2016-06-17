@@ -40,6 +40,7 @@ MODULE mo_setup_subdivision
   !-------------------------------------------------------------------------
   !
   USE mo_kind,               ONLY: wp
+  USE mo_util_string,        ONLY: int2string
   USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell,  &
     & min_rledge, max_rledge, min_rlvert, max_rlvert, max_phys_dom,  &
     & min_rlcell_int, min_rledge_int, min_rlvert_int, max_hw
@@ -118,6 +119,9 @@ MODULE mo_setup_subdivision
     INTEGER, ALLOCATABLE :: idx(:)
     INTEGER, ALLOCATABLE :: owner(:)
   END TYPE nb_flag_list_elem
+
+  !> module name string
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_setup_subdivision'
 
 CONTAINS
 
@@ -908,7 +912,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: my_proc
 
     ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_setup_subdivision::divide_patch'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::divide_patch'
     INTEGER :: i, j, jl, jb, je, jv, jg, jc
 
 #ifdef __PGIC__
@@ -1391,6 +1395,21 @@ CONTAINS
         wrk_p_patch%verts%decomp_info%decomp_domain(jl,jb) = j
       END DO
     END DO
+
+    ! > The following block masks negative refin_ctrl flags. This
+    ! > happens just to test the correctness of the algorithm which
+    ! > sets the parent-side of the refin_ctrl flags automatically.
+
+    CALL message(modname//': divide_patch', "modifying patch "//int2string(wrk_p_patch%id))
+    WHERE (wrk_p_patch%cells%refin_ctrl(:,:) < 0)
+      wrk_p_patch%cells%refin_ctrl(:,:) = 0
+    END WHERE
+    WHERE (wrk_p_patch%edges%refin_ctrl(:,:) < 0)
+      wrk_p_patch%edges%refin_ctrl(:,:) = 0
+    END WHERE
+    WHERE (wrk_p_patch%verts%refin_ctrl(:,:) < 0)
+      wrk_p_patch%verts%refin_ctrl(:,:) = 0
+    END WHERE
 
     DEALLOCATE(owned_cells)
 
@@ -2671,7 +2690,7 @@ CONTAINS
       END FUNCTION refinement_predicate
     END INTERFACE
 
-    CHARACTER(LEN=*), PARAMETER :: routine = 'mo_setup_subdivision::build_patch_start_end'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'::build_patch_start_end'
 
     INTEGER :: i, ilev, ilev1, ilev_st, irlev, j, jb, jf, jl, &
          exec_sequence, ref_flag, k, k_start, n_inner, temp

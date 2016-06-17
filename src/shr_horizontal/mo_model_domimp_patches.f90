@@ -96,6 +96,7 @@ MODULE mo_model_domimp_patches
     &                              min_rledge_int,         &
     &                              min_rlvert_int
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
+  USE mo_util_string,        ONLY: int2string
   USE mo_model_domain,       ONLY: t_patch, t_pre_patch, p_patch_local_parent, &
        c_num_edges, c_parent, c_phys_id, c_neighbor, c_edge, &
        c_vertex, c_center, c_refin_ctrl, e_parent, e_cell, &
@@ -115,6 +116,7 @@ MODULE mo_model_domimp_patches
   USE mo_run_config,         ONLY: grid_generatingCenter, grid_generatingSubcenter, &
     &                              number_of_grid_used, msg_level, check_uuid_gracefully
   USE mo_master_control,     ONLY: my_process_is_ocean
+  USE mo_reshuffle,          ONLY: reshuffle
   USE mo_sync,               ONLY: disable_sync_checks, enable_sync_checks
   USE mo_communication,      ONLY: idx_no, blk_no, idx_1d, makeScatterPattern
   USE mo_util_uuid,          ONLY: uuid_string_length, uuid_parse, clear_uuid
@@ -523,6 +525,19 @@ CONTAINS
       CALL read_remaining_patch( jg, patch(jg), n_lp, id_lp, lsep_grfinfo )
     ENDDO
 
+    ! >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    ! In parent grids: compute "refin_e_ctrl", "refin_v_ctrl" flags
+    ! for overlap with nested domain:
+    !   
+    DO jg = n_dom_start,n_dom
+      jgp = patch(jg)%parent_id
+      IF (jgp >= n_dom_start) THEN
+        CALL set_parent_refin_ev_ctrl("patch", patch(jgp))
+        CALL set_parent_refin_ev_ctrl("local parent patch", p_patch_local_parent(jg))
+      END IF
+    END DO
+    ! <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
     ! set parent-child relationships
     DO jg = n_dom_start, n_dom
       
@@ -635,7 +650,7 @@ CONTAINS
 
     SUBROUTINE set_comm_pat_scatter(p, jg)
       TYPE(t_patch), INTENT(INOUT):: p
-	  INTEGER, VALUE :: jg
+      INTEGER, VALUE :: jg
 
       INTEGER :: communicator
 
@@ -735,7 +750,7 @@ CONTAINS
         jc = get_valid_local_index(p_pc%edges%decomp_info%glb2loc_index, &
           &                        jc_g, .TRUE.)
         IF(jc == 0) &
-          & CALL finish(routine, 'edge child index outside child domain')
+          & CALL finish(routine, 'edge child index outside child domain '//int2string(p_pc%id))
         p_pp%edges%child_blk(jl,jb,i) = blk_no(jc)
         p_pp%edges%child_idx(jl,jb,i) = SIGN(idx_no(jc),jc_g)
       ENDDO
@@ -2633,6 +2648,128 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE nf
+
+  ! -----------------------------------------------------------------
+  !
+  ! In parent grids: compute "refin_e_ctrl", "refin_v_ctrl" flags for
+  ! overlap with nested domain.
+  !
+  !  @author F. Prill, DWD (2016-06-16)
+  !
+  SUBROUTINE set_parent_refin_ev_ctrl(description, p_p)
+    CHARACTER(LEN=*), INTENT(IN) :: description !< description string (for debugging purposes)
+    TYPE(t_patch), TARGET, INTENT(inout) :: p_p ! parent patch
+    ! local variables
+    INTEGER :: jc_c,jb_c,jc_v,jb_v, j, min_refin_c,i,refin_c,jc_e,jb_e,communicator,refin_e,iidx
+    INTEGER, ALLOCATABLE :: in_data(:),dst_idx(:),out_data(:,:),out_count(:,:)
+
+    ! The "refin_e_ctrl" value is the sum of the "refin_c_ctrl" values
+    ! of the two adjacent cells!
+    !   
+    ALLOCATE(in_data(3*p_p%n_patch_cells), dst_idx(3*p_p%n_patch_cells))
+    CALL message(modname//': set_parent_refin_ev_ctrl', "modifying patch "//&
+      &TRIM(int2string(p_p%id))//" : "//TRIM(description))
+    ! by looping over the cells, we visit each edge twice
+    iidx = 0
+    DO j = 1,p_p%n_patch_cells
+      jc_c = idx_no(j)
+      jb_c = blk_no(j)
+
+      ! loop only over inner domain + shared edge with owned
+      IF (p_p%cells%decomp_info%decomp_domain(jc_c,jb_c) > 1)  CYCLE
+
+      ! (set this entry only, if the left or right side is zero or
+      ! negative:)
+      IF (p_p%cells%refin_ctrl(jc_c,jb_c) > 0)  CYCLE
+      DO i=1,3
+        jc_e = p_p%cells%edge_idx(jc_c,jb_c,i)
+        jb_e = p_p%cells%edge_blk(jc_c,jb_c,i)
+
+        iidx = iidx + 1
+        dst_idx(iidx) = p_p%edges%decomp_info%glb_index(idx_1d(jc_e,jb_e))
+        in_data(iidx) = p_p%cells%refin_ctrl(jc_c,jb_c) - 1
+
+!      IF (p_pe_work == 28) THEN
+!        IF (p_p%edges%decomp_info%glb_index(j)==429) THEN
+!          WRITE (0,*) "cell ", p_p%edges%decomp_info%glb_index(j), " adjacent to edge ", &
+!            & dst_idx(iidx)
+!        END IF
+ !     END IF
+      END DO
+    END DO
+
+    ALLOCATE(out_data(2,p_p%n_patch_edges),out_count(2,p_p%n_patch_edges))
+    out_data(:,:)  = 0
+    out_count(:,:) = 0
+    communicator   = p_comm_work
+ 
+    ! communicate between processors:
+    CALL reshuffle("send refin_c_ctrl to edges", dst_idx(1:iidx), in_data(1:iidx), &
+      &            p_p%edges%decomp_info%glb_index, p_p%n_patch_edges_g, communicator, out_data, out_count)
+
+    DO j = 1,p_p%n_patch_edges
+      jc_e = idx_no(j) ! Line  index in distributed patch
+      jb_e = blk_no(j) ! Block index in distributed patch
+            
+!      IF (.NOT. p_p%edges%decomp_info%owner_mask(jc_e,jb_e))  CYCLE
+      IF (out_count(1,j) == 0)  CYCLE
+
+      IF (out_count(2,j) == 0)  out_data(2,j) = out_data(1,j)
+      refin_e = out_data(1,j) + out_data(2,j) + 2
+
+!      IF (p_p%edges%refin_ctrl(jc_e,jb_e) >= 0) CYCLE
+!     IF (p_pe_work == 26) THEN
+
+!!!         IF (    p_p%edges%refin_ctrl(jc_e,jb_e) /= refin_e ) THEN
+!!! !        IF (p_p%edges%decomp_info%glb_index(j)==693) THEN
+!!!           WRITE (0,*) "PE ", p_pe_work, " - ", TRIM(description)
+!!!           WRITE (0,*) "p_p%edges%refin_ctrl(jc_e,jb_e) = ", p_p%edges%refin_ctrl(jc_e,jb_e)
+!!!           WRITE (0,*) "refin_e = ", refin_e
+!!!           WRITE (0,*) "out_data(:,j) = ", out_data(:,j)
+!!!           WRITE (0,*) "out_count(:,j) = ", out_count(:,j)
+!!!           WRITE (0,*) "jg = ", p_p%id
+!!!           WRITE (0,*) "edge # ", p_p%edges%decomp_info%glb_index(j)
+!!!           WRITE (0,*) "lon,lat = ", 57.296*p_p%edges%center(jc_e,jb_e)%lon, ", ",&
+!!!             & 57.296*p_p%edges%center(jc_e,jb_e)%lat
+!!!           DO i=1,2
+!!!             jc_c = p_p%edges%cell_idx(jc_e,jb_e,i)
+!!!             jb_c = p_p%edges%cell_blk(jc_e,jb_e,i)
+!!!             IF (jc_c > 0) THEN
+!!!               WRITE (0,*) "cell #", p_p%cells%decomp_info%glb_index(idx_1d(jc_c,jb_c))
+!!!               WRITE (0,*) "refin ctrl cell: ",  p_p%cells%refin_ctrl(jc_c,jb_c)
+!!!             END IF
+!!!           END DO
+!!! !        END IF
+!!!      END IF
+      p_p%edges%refin_ctrl(jc_e,jb_e) = refin_e 
+    END DO
+
+    ! The "refin_v_ctrl" value is the minimum of the adjacent
+    ! "refin_c_ctrl" values!
+    !
+    DO j = 1,p_p%n_patch_verts
+      jc_v = idx_no(j) ! Line  index in distributed patch
+      jb_v = blk_no(j) ! Block index in distributed patch
+            
+      IF (.NOT. p_p%verts%decomp_info%owner_mask(jc_v,jb_v))  CYCLE
+      
+      ! determine min. of adjacent "refin_c_ctrl" flags
+      min_refin_c = 99
+      DO i=1,SIZE(p_p%verts%cell_idx,3)
+        jc_c = p_p%verts%cell_idx(jc_v,jb_v,i)
+        jb_c = p_p%verts%cell_blk(jc_v,jb_v,i)
+        IF (jc_c > 0) THEN
+          refin_c = p_p%cells%refin_ctrl(jc_c,jb_c)
+          min_refin_c = MIN(min_refin_c, refin_c)
+        END IF
+      END DO
+      
+      IF (min_refin_c < 0) THEN
+        p_p%verts%refin_ctrl(jc_v,jb_v) = min_refin_c
+      END IF
+    END DO
+  END SUBROUTINE set_parent_refin_ev_ctrl
+
 
 END MODULE mo_model_domimp_patches
 
