@@ -667,7 +667,7 @@ cat > ${oce_namelist} << EOF
   m_levels         = "1...3,10,21,32,44,51,56"        ! 64 levels (0-27m, 100m, 305.5, 829, 1986, 3092, 4147m) 
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'wet_c','basin_c','regio_c','mld','condep','h_acc','u_vint_acc','hi_acc','hs_acc','conc_acc',
-                      'topBoundCond_windStress_u_acc','t_acc','s_acc','u_acc',
+                      'Qbot','Qtop','topBoundCond_windStress_u_acc','t_acc','s_acc','u_acc',
                       'HeatFlux_Total_acc','FrshFlux_Runoff_acc','FrshFlux_Precipitation_acc',
                       'FrshFlux_Evaporation_acc', 'FrshFlux_TotalIce_acc', 'FrshFlux_TotalSalt_acc',
                       'FrshFlux_TotalOcean_acc', 'FrshFlux_VolumeTotal_acc', 'FrshFlux_SnowFall_acc',
