@@ -31,6 +31,8 @@ MODULE mo_psrad_orbit_config
   REAL(wp) :: cobld          !< Obliquity of Earth [Deg]
   LOGICAL  :: l_orbvsop87    !< .TRUE. for VSOP87 orbit, 
                              !< .FALSE. for Kepler orbit
+  LOGICAL  :: l_sph_symm_irr !< .TRUE. for globally averaged irradiation (RCE)
+                             !< .FALSE. for lat (lon) dependent irradiation
 
   END TYPE t_psrad_orbit_config
 
