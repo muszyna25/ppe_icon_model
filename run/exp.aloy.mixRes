@@ -467,7 +467,6 @@ if [[ "$output_atm_min" == "yes" ]]; then
                     'ch_concloud',
                     'con_dtrl', 'con_dtri', 'con_iteqv',
                     'cld_dtrl', 'cld_dtri', 'cld_iteq' ,
-! variables for fldmean-tables
                     'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
                     'sic'     , 'sit'     ,
                     'hfls'    , 'hfss'    , 'evspsbl' ,
@@ -475,12 +474,9 @@ if [[ "$output_atm_min" == "yes" ]]; then
                     'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
                     'rsdt'    ,
                     'tauu_sso', 'tauv_sso', 'diss_sso', 
-!                   'aprl'    , 'aprc'    ,    
-! variables for 2d-plotting incl. tas
                     'clt'     , 'psl'     , 'tas'     , 'ts'      ,
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
                     'tauu'    ,
-! new diagnostic
                     'sfcWind' , 'uas'     , 'vas'     ,
                     'dew2'    , 'tasmax'  , 'tasmin'
 /
@@ -510,8 +506,6 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'ta','ua','va','hus','hur','cl','clw','cli','zg'
-! these are not necessary for plots:
-!                   'wap','pfull','ps','rho'
 /
 EOF
 fi
