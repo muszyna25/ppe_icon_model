@@ -816,6 +816,7 @@ CONTAINS
              prm_diag%shfl_s_t      (jc,jb,is1) = prm_diag%shfl_s_t      (jc,jb,is2)
              prm_diag%lhfl_s_t      (jc,jb,is1) = prm_diag%lhfl_s_t      (jc,jb,is2)
              prm_diag%qhfl_s_t      (jc,jb,is1) = prm_diag%qhfl_s_t      (jc,jb,is2)
+             prm_diag%albdif_t      (jc,jb,is1) = prm_diag%albdif_t      (jc,jb,is2)
 
              lnd_prog_new%t_so_t    (jc,:,jb,is1) = lnd_prog_new%t_so_t    (jc,:,jb,is2)          
              lnd_prog_new%w_so_t    (jc,:,jb,is1) = lnd_prog_new%w_so_t    (jc,:,jb,is2)        
