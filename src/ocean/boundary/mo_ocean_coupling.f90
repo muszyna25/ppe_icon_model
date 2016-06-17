@@ -37,7 +37,7 @@ MODULE mo_ocean_coupling
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
 
   USE mo_ocean_types
-  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
+  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes, t_atmos_for_ocean
 
   !-------------------------------------------------------------
   ! For the coupling
@@ -421,15 +421,14 @@ CONTAINS
 
   !--------------------------------------------------------------------------
 
-  SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, atm_wind_speed, datetime)
+  SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, atmos_forcing, datetime)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in)        :: patch_3d
     TYPE(t_hydro_ocean_state)                   :: ocean_state
     TYPE(t_sea_ice)                             :: ice
     TYPE(t_atmos_fluxes)                        :: atmos_fluxes
+    TYPE(t_atmos_for_ocean)                     :: atmos_forcing
     TYPE(t_datetime), INTENT(inout)             :: datetime
-    ! currently, wind speed comes from t_atmos_for_ocean%fu10
-    REAL(wp),         INTENT(inout)             :: atm_wind_speed(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = 'couple_ocean_toatmo_fluxes'
@@ -873,15 +872,15 @@ CONTAINS
         END IF
         DO n = 1, nlen
           IF ( nn+n > nbr_inner_cells ) THEN
-            atm_wind_speed(n,i_blk) = dummy
+            atmos_forcing%fu10(n,i_blk) = dummy
           ELSE
-            atm_wind_speed(n,i_blk) = buffer(nn+n,1)
+            atmos_forcing%fu10(n,i_blk) = buffer(nn+n,1)
           ENDIF
         ENDDO
       ENDDO
 !!ICON_OMP_END_PARALLEL_DO
       !
-      CALL sync_patch_array(sync_c, patch_horz, atm_wind_speed(:,:))
+      CALL sync_patch_array(sync_c, patch_horz, atmos_forcing%fu10(:,:))
     END IF
 
     !
@@ -936,7 +935,7 @@ CONTAINS
     CALL dbg_print('toatmo: HeatFluxSensible ',atmos_fluxes%HeatFlux_Sensible    ,str_module,4,in_subset=patch_horz%cells%owned)
     CALL dbg_print('toatmo: HeatFluxLatent   ',atmos_fluxes%HeatFlux_Latent      ,str_module,3,in_subset=patch_horz%cells%owned)
     CALL dbg_print('toatmo: FrshFluxRunoff   ',atmos_fluxes%FrshFlux_Runoff      ,str_module,3,in_subset=patch_horz%cells%owned)
-    CALL dbg_print('toatmo: 10m_wind_speed   ',atm_wind_speed                    ,str_module,3,in_subset=patch_horz%cells%owned)
+    CALL dbg_print('toatmo: 10m_wind_speed   ',atmos_forcing%fu10                ,str_module,3,in_subset=patch_horz%cells%owned)
     !---------------------------------------------------------------------
 
     IF (ltimer) CALL timer_stop(timer_coupling)
@@ -952,7 +951,7 @@ MODULE mo_ocean_coupling
 
   USE mo_model_domain,        ONLY: t_patch_3d
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
-  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
+  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes, t_atmos_for_ocean
   USE mo_datetime,            ONLY: t_datetime
   USE mo_coupling_config,     ONLY: is_coupled_run
   USE mo_exception,           ONLY: finish
@@ -974,14 +973,14 @@ CONTAINS
 
   END SUBROUTINE construct_ocean_coupling
 
-  SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, atm_wind_speed, datetime)
+  SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, atmos_forcing, datetime)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in)        :: patch_3d
     TYPE(t_hydro_ocean_state)                   :: ocean_state
     TYPE(t_sea_ice)                             :: ice
     TYPE(t_atmos_fluxes)                        :: atmos_fluxes
+    TYPE(t_atmos_for_ocean)                     :: atmos_forcing
     TYPE(t_datetime), INTENT(inout)             :: datetime
-    REAL(wp), TARGET                            :: fu10(:,:)
 
     IF ( is_coupled_run() ) THEN
        CALL finish('couple_ocean_toatmo_fluxes: unintentionally called. Check your source code and configure.')
