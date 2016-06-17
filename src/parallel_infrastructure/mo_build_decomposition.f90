@@ -220,21 +220,24 @@ CONTAINS
     ALLOCATE(dst_idx(p_c%n_patch_cells), in_data(p_c%n_patch_cells))
 
     ! get the parent cell indices:
+    iidx = 0
     DO j = 1, p_c%n_patch_cells
       jc_c = idx_no(j)
       jb_c = blk_no(j)
-      dst_idx(j) = idx_1d(parent_idx_c(jc_c,jb_c), &
-        &                 parent_blk_c(jc_c,jb_c))
-    END DO
+      ! loop only over inner domain
+      IF (p_c%cells%decomp_info%decomp_domain(jc_c,jb_c) /= 0)  CYCLE
 
-    in_data(:) = p_c%cells%decomp_info%glb_index(:)
+      iidx = iidx + 1
+      dst_idx(iidx) = idx_1d(parent_idx_c(jc_c,jb_c), parent_blk_c(jc_c,jb_c))
+      in_data(iidx) = p_c%cells%decomp_info%glb_index(j)
+    END DO
 
     ALLOCATE(out_data(4,p_p%n_patch_cells))
     out_data(:,:) = 0
 
     ! communicate child index between processors:
-    CALL reshuffle("send cell child indices to parent", dst_idx, in_data, p_p%cells%decomp_info%glb_index, &
-      &            p_p%n_patch_cells_g, communicator, out_data)
+    CALL reshuffle("send cell child indices to parent", dst_idx(1:iidx), in_data(1:iidx), &
+      &            p_p%cells%decomp_info%glb_index, p_p%n_patch_cells_g, communicator, out_data)
     DEALLOCATE(in_data, dst_idx)      
 
     ! --- CHILD PATCH -> PARENT PATCH
@@ -342,9 +345,8 @@ CONTAINS
 
       IF (lfound) THEN
         iidx = iidx + 1
+        dst_idx(iidx) = idx_1d(parent_idx_c(jc_c,jb_c), parent_blk_c(jc_c,jb_c))
         in_data(iidx) = p_c%cells%decomp_info%glb_index(j)
-        dst_idx(iidx) = idx_1d(parent_idx_c(jc_c,jb_c), &
-          &                    parent_blk_c(jc_c,jb_c))
       END IF
     END DO
 
@@ -389,13 +391,15 @@ CONTAINS
       jc_c = idx_no(j)
       jb_c = blk_no(j)
 
-      IF (out_data(1,j) > 0) THEN
-        DO i=1,4
-          iidx = iidx + 1
-          dst_idx(iidx) = out_data(i,j)
-          in_data(iidx) = i
-        END DO
-      END IF
+      ! loop only over inner domain
+      IF (p_p%cells%decomp_info%decomp_domain(jc_c,jb_c) /= 0)  CYCLE
+      IF (out_data(1,j) <= 0)  CYCLE
+
+      DO i=1,4
+        iidx = iidx + 1
+        dst_idx(iidx) = out_data(i,j)
+        in_data(iidx) = i
+      END DO
     END DO
 
     ALLOCATE(out_pc_data(1,p_c%n_patch_cells))
@@ -450,8 +454,7 @@ CONTAINS
           jc_e = p_c%cells%edge_idx(jc_c,jb_c,i)
           jb_e = p_c%cells%edge_blk(jc_c,jb_c,i)
           iidx = iidx + 1
-          dst_idx(iidx) = idx_1d(parent_idx_e(jc_e,jb_e), &
-            &                    parent_blk_e(jc_e,jb_e))
+          dst_idx(iidx) = idx_1d(parent_idx_e(jc_e,jb_e), parent_blk_e(jc_e,jb_e))
           in_data(iidx) = p_c%edges%decomp_info%glb_index(idx_1d(jc_e,jb_e))
         END DO
       END IF
@@ -470,52 +473,61 @@ CONTAINS
     ! --- in a second step, we communicate *all four* edge children
 
     ALLOCATE(dst_idx(p_c%n_patch_edges), in_data(p_c%n_patch_edges))
+    iidx = 0
     DO j = 1, p_c%n_patch_edges
       jc_e = idx_no(j)
       jb_e = blk_no(j)
-      dst_idx(j) = idx_1d(parent_idx_e(jc_e,jb_e), &
-        &                 parent_blk_e(jc_e,jb_e))
-      in_data(j) = p_c%edges%decomp_info%glb_index(j)
+      IF (p_c%edges%decomp_info%decomp_domain(jc_e,jb_e) > 1) CYCLE
+
+      iidx = iidx + 1
+      dst_idx(iidx) = idx_1d(parent_idx_e(jc_e,jb_e), parent_blk_e(jc_e,jb_e))
+      in_data(iidx) = p_c%edges%decomp_info%glb_index(j)
     END DO
 
     ALLOCATE(out_data(4,p_p%n_patch_edges))
     out_data(:,:) = 0
 
     ! communicate data between processors:
-    CALL reshuffle("send edge indices to parent", dst_idx, in_data, p_p%edges%decomp_info%glb_index, &
-      &            p_p%n_patch_edges_g, communicator, out_data)
+    CALL reshuffle("send edge indices to parent", dst_idx(1:iidx), in_data(1:iidx), &
+      &            p_p%edges%decomp_info%glb_index, p_p%n_patch_edges_g, communicator, out_data)
 
     DEALLOCATE(dst_idx, in_data)
+
+    IF (MAXVAL(out_data) >  p_c%n_patch_edges_g) THEN
+      WRITE (0,*) "MAXVAL(out_data)=",MAXVAL(out_data)," > p_c%n_patch_edges_g=",p_c%n_patch_edges_g
+      CALL finish(routine, "MAXVAL error 1!")
+    END IF
 
     ! -----------------------------------------------------------------
     ! - build a temporary array which denotes for all parent grid
     !   edges, if the local edge numbering wrt. to the left/right cell
     !   is equal or different.
 
-    ALLOCATE(dst_idx(2*p_p%n_patch_edges), in_data(2*p_p%n_patch_edges))
-    iidx = 0
-    DO j = 1, p_p%n_patch_cells
-      jc_c = idx_no(j)
-      jb_c = blk_no(j)
-      DO i=1,3
-        ! each edge is traversed twice: 
-        jc_e = p_p%cells%edge_idx(jc_c,jb_c,i)
-        jb_e = p_p%cells%edge_blk(jc_c,jb_c,i)        
-        IF (.NOT. p_p%edges%decomp_info%owner_mask(jc_e,jb_e))  CYCLE
-        je = p_p%edges%decomp_info%glb_index(idx_1d(jc_e,jb_e))
-
-        iidx = iidx + 1
-        dst_idx(iidx) = je
-        in_data(iidx) = i
-      END DO
-    END DO
+    ALLOCATE(dst_idx(3*p_p%n_patch_cells), in_data(3*p_p%n_patch_cells))
+!    iidx = 0
+!    DO j = 1, p_p%n_patch_cells
+!      jc_c = idx_no(j)
+!      jb_c = blk_no(j)
+!      DO i=1,3
+!        ! each edge is traversed twice: 
+!        jc_e = p_p%cells%edge_idx(jc_c,jb_c,i)
+!        jb_e = p_p%cells%edge_blk(jc_c,jb_c,i)        
+!        IF (p_p%edges%decomp_info%decomp_domain(jc_e,jb_e) > 1)  CYCLE
+!        je = p_p%edges%decomp_info%glb_index(idx_1d(jc_e,jb_e))
+!
+!        iidx = iidx + 1
+!        dst_idx(iidx) = je
+!        in_data(iidx) = i
+!      END DO
+!    END DO
 
     ALLOCATE(je_loc(2,p_p%n_patch_edges), out_count(2,p_p%n_patch_edges))
     je_loc(:,:)    = 0
-    out_count(:,:) = 0
+!    out_count(:,:) = 0
 
-    CALL reshuffle("send local edge index", dst_idx(1:iidx), in_data(1:iidx), p_p%edges%decomp_info%glb_index, &
-      &            p_p%n_patch_edges_g, communicator, je_loc, out_count)
+!    CALL reshuffle("send local edge index", dst_idx(1:iidx), in_data(1:iidx), p_p%edges%decomp_info%glb_index, &
+!      &            p_p%n_patch_edges_g, communicator, je_loc, out_count)
+
 
     ! -----------------------------------------------------------------
     ! - copy results
@@ -575,34 +587,39 @@ CONTAINS
       !    and the edges%child_idx(4) by the larger index cell.
 
       ! (do not distinguish between 1/2:)
-      IF (je_loc(1,j) == 2)  je_loc(1,j) = 1
-      IF (je_loc(2,j) == 2)  je_loc(2,j) = 1
-
-      IF (je_loc(2,j) == 0) THEN
-        IF (ordered(4) /= 0) THEN
-          ! (je_loc(2,j) == 0 can mean that both je_loc values were
-          ! equal: descending order)
-          IF (ordered(1) < ordered(2))  THEN
-            ordered(:) = ordered((/2,1,3,4/))
-          END IF
-        ELSE
-          ! (je_loc(2,j) == 0 can also mean that we are at the
-          !  boundary: ascending order
-          IF (ordered(1) > ordered(2)) THEN
-            ordered(:) = ordered((/2,1,3,4/))
-          END IF
-        END IF
-      ELSE
-        ! standard case: ascending order, if je_loc not matching,
-        ! (the other option - ascending ordering for matching - was handled above):
-        IF ((je_loc(1,j) /= je_loc(2,j)) .AND. (ordered(1) > ordered(2))) THEN
-          ordered(:) = ordered((/2,1,3,4/))
-        END IF
+!      IF (je_loc(1,j) == 2)  je_loc(1,j) = 1
+!      IF (je_loc(2,j) == 2)  je_loc(2,j) = 1
+!
+!      IF (je_loc(2,j) == 0) THEN
+!        IF (ordered(4) /= 0) THEN
+!          ! (je_loc(2,j) == 0 can mean that both je_loc values were
+!          ! equal: descending order)
+!          IF (ordered(1) < ordered(2))  THEN
+!            ordered(:) = ordered((/2,1,3,4/))
+!          END IF
+!        ELSE
+!          ! (je_loc(2,j) == 0 can also mean that we are at the
+!          !  boundary: ascending order
+!          IF (ordered(1) > ordered(2)) THEN
+!            ordered(:) = ordered((/2,1,3,4/))
+!          END IF
+!        END IF
+!      ELSE
+!        ! standard case: ascending order, if je_loc not matching,
+!        ! (the other option - ascending ordering for matching - was handled above):
+!        IF ((je_loc(1,j) /= je_loc(2,j)) .AND. (ordered(1) > ordered(2))) THEN
+!          ordered(:) = ordered((/2,1,3,4/))
+!        END IF
+!      END IF
+!
+      IF (ordered(1) > ordered(2))  THEN ! DEVELOPMENT: Simple ascending ordering
+        ordered(:) = ordered((/2,1,3,4/))
       END IF
 
       out_data(:,j) = ordered(:)
     END DO
     DEALLOCATE(dst_idx, in_data, out_data34, je_loc, out_count)
+
 
     ! --- PARENT PATCH -> CHILD PATCH
     ! --- create EDGE pc_idx array ------------------------------------
@@ -668,8 +685,7 @@ CONTAINS
     DO j = 1, p_c%n_patch_cells
       jc_c = idx_no(j)
       jb_c = blk_no(j)
-      dst_idx(j) = idx_1d(parent_idx_c(jc_c,jb_c), &
-        &                 parent_blk_c(jc_c,jb_c))
+      dst_idx(j) = idx_1d(parent_idx_c(jc_c,jb_c), parent_blk_c(jc_c,jb_c))
     END DO
     ! set the cell child_id for the (global) parent grid
     in_data(:) = p_c%id
@@ -713,8 +729,7 @@ CONTAINS
     DO j = 1, p_c%n_patch_edges
       jc_e = idx_no(j)
       jb_e = blk_no(j)
-      dst_idx(j) = idx_1d(parent_idx_e(jc_e,jb_e), &
-        &                 parent_blk_e(jc_e,jb_e))
+      dst_idx(j) = idx_1d(parent_idx_e(jc_e,jb_e), parent_blk_e(jc_e,jb_e))
     END DO
     ! set the edge child_id for the (global) parent grid:
     in_data(:) = p_c%id
@@ -750,14 +765,15 @@ CONTAINS
 
     ALLOCATE(dst_idx(p_c%n_patch_cells), in_data(p_c%n_patch_cells))
   
-    ! get the parent cell indices:
+    ! send the children's refin_ctrl to the parent cell:
     iidx = 0
     DO j = 1, p_c%n_patch_cells
       jc_c = idx_no(j)
       jb_c = blk_no(j)
       ! loop only over inner domain
       IF (p_c%cells%decomp_info%decomp_domain(jc_c,jb_c) /= 0)  CYCLE
-      
+      IF (p_c%cells%refin_ctrl(jc_c,jb_c) < 0)  CYCLE
+
       ! (we need a shift of +1 to distinguish between zero values
       ! and unset values:)
       refin_c = (p_c%cells%refin_ctrl(jc_c,jb_c)+1)/2 + 1

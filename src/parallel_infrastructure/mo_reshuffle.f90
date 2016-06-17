@@ -180,6 +180,10 @@ CONTAINS
   ! different PE. This implementation of the "reshuffle" operation
   ! involves no global-size arrays.
   !
+  ! This routine allows to receive multiple entries for one global
+  ! destination index. In this case, these are counted and at most
+  ! "ncollisions" distinct values are stored.
+  !
   ! MPI_ALLTOALL operations needed:
   ! 1x MPI_ALLTOALL : send/receive counts
   ! 1x MPI_ALLTOALLV: send/receive indices
@@ -188,7 +192,8 @@ CONTAINS
   ! IN:  glb_idx(1,...,nsend)    : global indices
   !      values(1,...,nsend)     : values to send
   !      owner_idx(1,...,nlocal) : global indices owned by this PE
-  ! OUT: recv_buf(1,...,nlocal)  : buffer for received values
+  ! OUT: out_values(1,...,ncollisions,1,...,nlocal): buffer for received values
+  !      opt_count(1,...,ncollisions,1,...,nlocal) : (optional) number of received duplicates
   !
   ! Note: Only those entries in out_values are modified which correspond to 
   !       entries in "in_glb_idx" on some PE.
@@ -233,13 +238,14 @@ CONTAINS
     IF (SIZE(out_values,2) /= nlocal)  CALL finish(routine, TRIM(description)//" - SIZE(out_values) /= nlocal")
     IF (SIZE(in_values) /= nsend)  CALL finish(routine, TRIM(description)//" - SIZE(in_values) /= nsend")
     IF (MAXVAL(in_glb_idx) > nglb_indices)  THEN
+      WRITE (0,*) "MAXVAL(in_glb_idx) = ", MAXVAL(in_glb_idx), "; nglb_indices = ", nglb_indices
       CALL finish(routine, TRIM(description)//" - MAXVAL(in_glb_idx) > nglb_indices")
     END IF
     IF (MINVAL(in_glb_idx) < 1) THEN
       CALL finish(routine, TRIM(description)//" - MINVAL(in_glb_idx) < 1")
     END IF
     IF (MAXVAL(owner_idx) > nglb_indices) THEN
-      CALL finish(routine, TRIM(description)//" - MAXVAL(owner-idx) > nglb_indices")
+      CALL finish(routine, TRIM(description)//" - MAXVAL(owner_idx) > nglb_indices")
     END IF
     IF (MINVAL(owner_idx) < 1) THEN
       CALL finish(routine, TRIM(description)//" - MINVAL(owner_idx) < 1")
@@ -294,6 +300,7 @@ CONTAINS
     irecv(:)         = irecv_buf(1,:)
     irecv_owner(:)   = irecv_buf(2,:)
 
+
     ! ---  reorder "glb_idx" and "values" according to the rank of the
     !      destination PE ;
     !      reorder "owner_idx" according to the rank of the source PE
@@ -316,6 +323,8 @@ CONTAINS
       &      send_displs_owner(0:(isize-1)), recv_displs_owner(0:(isize-1)), &
       &      send_displs2(0:(isize-1)),      recv_displs2(0:(isize-1)),      &
       &      irecv_idx_owner(npairs_recv_owner))
+    recv_vals(:) = 0
+
     CALL calc_displs(i_pe, send_displs)
     recv_displs(0) = 0
     DO i=1,(SIZE(recv_displs)-1)
@@ -364,11 +373,16 @@ CONTAINS
     ALLOCATE(reg_partition_buf(ncollisions, reg_partition%local_size()), &
       &      reg_partition_modified(reg_partition%local_size()),         &
       &      reg_partition_count(ncollisions, reg_partition%local_size()))
-    reg_partition_buf      = 0
-    reg_partition_modified = 0
-    reg_partition_count    = 0
+    reg_partition_buf(:,:)    = 0
+    reg_partition_modified(:) = 0
+    reg_partition_count(:,:)   = 0
+
     DO i=1,npairs_recv
       local_idx = reg_partition%glb2local(irecv_idx(i))
+
+      IF ((local_idx<1) .OR. (local_idx > SIZE(reg_partition_buf,2))) THEN
+        CALL finish(routine, TRIM(description)//" - Error! Out of bounds!")
+      END IF
       ! we try to avoid collisions, when one entry is modified several
       ! times:
       nvals  = reg_partition_modified(local_idx)
@@ -381,7 +395,12 @@ CONTAINS
       END DO LOOP_FOUND
       IF ((nvals == 0) .OR. (.NOT. lfound)) THEN
         nvals = nvals + 1
-        IF (nvals > ncollisions)  CALL finish(routine, TRIM(description)//" - Error! Too many collisions!")
+        IF (nvals > ncollisions) THEN
+          WRITE (0,*) "no space for value ", recv_vals(i), " at global index ", irecv_idx(i)
+          WRITE (0,*) "already received ", reg_partition_buf(:, local_idx), " with counts ", &
+            & reg_partition_count(:, local_idx)
+          CALL finish(routine, TRIM(description)//" - Error! Too many collisions!")
+        END IF
         reg_partition_buf(nvals, local_idx) = recv_vals(i)
         reg_partition_count(j, local_idx)   = 1 
         reg_partition_modified(local_idx)   = nvals
@@ -412,6 +431,7 @@ CONTAINS
       &                icounts_owner, send_displs_owner, MPI_INTEGER, communicator, ierr)
     IF (ierr /= 0)  CALL finish(routine, TRIM(description)//" - MPI Error!")
     
+
     ! ---  each PE inserts the received index/values pairs into its
     !      part of the global index space
     DO i=1,nlocal
@@ -426,7 +446,7 @@ CONTAINS
         END IF
       END DO
     END IF
-    
+   
     ! ---  clean-up
     DEALLOCATE(icounts, irecv, i_pe, permutation, glb_idx, values, send_displs, recv_displs, &
       &        irecv_idx, recv_vals, reg_partition_buf, reordered_owner_idx, isendbuf,       &
