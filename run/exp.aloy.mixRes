@@ -107,7 +107,7 @@ dtime_cpl=$dtime_oce
 atm_output_interval="PT6H"
 lnd_output_interval="PT6H"
 oce_output_interval="PT6H"
-output_lnd=yes
+atm_output_interval_3d="P1D"
 
 ## long-term low frequency output and restart intervals - must be multiple of atm/oce output_interval
 #(( dt_restart    = 1440 * day))  #  5y
@@ -116,9 +116,15 @@ output_lnd=yes
 #lnd_output_interval="P5D"
 #oce_output_interval="P30D"
 
+output_atm_min=yes
+output_atm_3d=yes
+output_lnd=yes
+
 atm_file_interval="P6Y"
 lnd_file_interval="P6Y"
 oce_file_interval="P6Y"
+
+atm_output_interval_2d="P10D"
 
 # namelist files
 # --------------
@@ -427,14 +433,9 @@ EOF
 #
 # output_<xyz>=yes : yes --> output files for <xyz>, any other value --> no files for <xyz>
 
-output_atm_min=yes
-output_atm_3d=no
 output_atm_2d=no
 output_phy_3d=no
 output_aer_3d=no # "yes" needs lrad_aero_diag=.TRUE. in radiation_nml
-
-atm_output_interval_2d="P10D"
-atm_output_interval_3d="P10D"
 
 if [[ "$output_atm_min" == "yes" ]]; then
   cat >> ${atm_namelist} <<EOF
@@ -449,23 +450,39 @@ if [[ "$output_atm_min" == "yes" ]]; then
  output_interval  = "${atm_output_interval}"
  file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'ps'      , 'psl'     ,
-                    'rsdt'    ,
-                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
+ ml_varlist       = 'orog'    , 'ps'      ,
+                    'cosmu0'  , 'daylght_frc',
                     'rsns_wtr', 'rsns_ice', 'rsns_lnd',
-                    'rlns_wtr', 'rlns_ice', 'rlns_lnd', 
-                    'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts'      , 'ts_rad'  ,
-                    'sic'     , 'sit'     ,
-                    'clt'     ,
-                    'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
-                    'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
-                    'hfls'    , 'hfss'    , 'evspsbl' ,
+                    'rlns_wtr', 'rlns_ice', 'rlns_lnd', 'tend_ta_rlw_impl',
+                    'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts_rad'  ,
+                    'visdffsfc','nirdffsfc','vissfc'  , 'nirsfc'  ,
+                    'albedo_wtr', 'albedo_ice', 'albedo_lnd',
+                    'albvisdir','albvisdif' , 'albnirdir' , 'albnirdif',
+                    'albvisdir_ice', 'albvisdir_wtr', 'albvisdir_lnd',
                     'hfls_wtr', 'hfls_ice', 'hfls_lnd',
                     'hfss_wtr', 'hfss_ice', 'hfss_lnd',
-                    'tauu'    , 'tauv'    ,
                     'tauu_wtr', 'tauu_ice', 'tauu_lnd',
                     'tauv_wtr', 'tauv_ice', 'tauv_lnd',
-                    'tauu_sso', 'tauv_sso', 'diss_sso' 
+                    'sh_vdiff', 'qv_vdiff',
+                    'ch_concloud',
+                    'con_dtrl', 'con_dtri', 'con_iteqv',
+                    'cld_dtrl', 'cld_dtri', 'cld_iteq' ,
+! variables for fldmean-tables
+                    'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
+                    'sic'     , 'sit'     ,
+                    'hfls'    , 'hfss'    , 'evspsbl' ,
+                    'tauv'    , 'albedo'  ,
+                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
+                    'rsdt'    ,
+                    'tauu_sso', 'tauv_sso', 'diss_sso', 
+!                   'aprl'    , 'aprc'    ,    
+! variables for 2d-plotting incl. tas
+                    'clt'     , 'psl'     , 'tas'     , 'ts'      ,
+                    'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
+                    'tauu'    ,
+! new diagnostic
+                    'sfcWind' , 'uas'     , 'vas'     ,
+                    'dew2'    , 'tasmax'  , 'tasmin'
 /
 &dbg_index_nml
   idbg_mxmn        = 1                        ! initialize MIN/MAX  debug output
@@ -492,8 +509,9 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_interval  = "${atm_output_interval_3d}"
  file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
-                    'zg','pfull','ps'
+ ml_varlist       = 'ta','ua','va','hus','hur','cl','clw','cli','zg'
+! these are not necessary for plots:
+!                   'wap','pfull','ps','rho'
 /
 EOF
 fi
