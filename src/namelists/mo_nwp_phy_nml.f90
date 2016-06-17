@@ -129,7 +129,7 @@ CONTAINS
     INTEGER :: istat, funit, jg
     INTEGER :: iunit
     CHARACTER(len=*), PARAMETER ::  &
-         &  routine = 'mo_atm_phy_nwp_nml:read_nwp_phy_namelist'
+         &  routine = 'mo_nwp_phy_nml:read_nwp_phy_namelist'
 
     !-----------------------
     ! 0a. dummy settings; will be replaced with defaults after reading the namelist

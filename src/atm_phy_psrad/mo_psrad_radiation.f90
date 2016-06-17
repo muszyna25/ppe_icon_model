@@ -118,8 +118,8 @@ MODULE mo_psrad_radiation
                                            mmr_o2,             &
                                            vmr_cfc11,          &
                                            vmr_cfc12,          &
-                                           ch4_v,              &
-                                           n2o_v,              &
+                                           ch4_v=>vpp_ch4,     &
+                                           n2o_v=>vpp_n2o,     &
                                            vmr_o2,             &
                                            nmonth,             &
                                            isolrad,            &
@@ -228,9 +228,10 @@ MODULE mo_psrad_radiation
     REAL(wp) :: rasc_sun, decl_sun, dist_sun, time_of_day, zrae
     REAL(wp) :: orbit_date
     REAL(wp) :: solcm
-    LOGICAL  :: l_orbvsop87
+    LOGICAL  :: l_orbvsop87, l_sph_symm_irr
 
     l_orbvsop87 = psrad_orbit_config%l_orbvsop87
+    l_sph_symm_irr = psrad_orbit_config%l_sph_symm_irr
 
     !
     ! 1.0 Compute orbital parameters for current time step
@@ -244,10 +245,9 @@ MODULE mo_psrad_radiation
       CALL orbit_kepler (orbit_date, rasc_sun, decl_sun, dist_sun)
     END IF
 !!$    decl_sun_cur = decl_sun       ! save for aerosol and chemistry submodels
-    CALL solar_parameters(decl_sun, dist_sun, time_of_day, &
-!!$         &                sinlon_2d, sinlat_2d, coslon_2d, coslat_2d, &
-         &                p_patch,                         &
-         &                flx_ratio_cur, amu0_x, rdayl_x)
+    CALL solar_parameters(decl_sun,       dist_sun,         time_of_day,       &
+         &                ldiur,          l_sph_symm_irr,   p_patch,           &
+         &                flx_ratio_cur,  amu0_x,           rdayl_x            )
 
     IF (phy_config%lrad) THEN
 !!$
@@ -269,8 +269,8 @@ MODULE mo_psrad_radiation
         solc = SUM(ssi_RCEdiurnOff)
       CASE default
         WRITE (message_text, '(a,i2,a)') &
-             'isolrad = ', isolrad, ' in radctl namelist is not supported'
-        CALL message('pre_radiation', message_text)
+             'isolrad = ',isolrad, ' in radiation_nml namelist is not supported'
+        CALL finish('pre_psrad_radiation', message_text)
       END SELECT
       psct = flx_ratio_cur*solc
 
@@ -288,10 +288,9 @@ MODULE mo_psrad_radiation
       ELSE
         CALL orbit_kepler (orbit_date, rasc_sun, decl_sun, dist_sun)
       END IF
-      CALL solar_parameters(decl_sun, dist_sun, time_of_day, &
-!!$           &                sinlon_2d, sinlat_2d, coslon_2d, coslat_2d, &
-           &                p_patch,                         &
-           &                flx_ratio_rad ,amu0m_x, rdaylm_x)
+      CALL solar_parameters(decl_sun,        dist_sun,          time_of_day,        &
+           &                ldiur,           l_sph_symm_irr,    p_patch,            &
+           &                flx_ratio_rad,   amu0m_x,           rdaylm_x            )
       !
       ! consider curvature of the atmosphere for high zenith angles
       !
@@ -404,13 +403,19 @@ MODULE mo_psrad_radiation
     CHARACTER(len=*), INTENT(IN)      :: file_name
     INTEGER :: istat, funit
 
-    NAMELIST /psrad_nml/ lradforcing,       &
-                       & irad_aero_forcing, &
+    NAMELIST /psrad_nml/ lradforcing,       & ! switch for short and longwave
+     ! radiative forcing calculation by double call to radiation (default:
+     ! (/.FALSE.,.FALSE./)) 
+                       & irad_aero_forcing, & ! key number of aerosols 
+     ! in reference radiation computation for radiative forcing calculation
+     ! by double call to radiation
                        & lw_gpts_ts,        &
                        & lw_spec_samp,      &
                        & rad_perm,          &
                        & sw_gpts_ts,        &
-                       & sw_spec_samp
+                       & sw_spec_samp,      &
+                       & fco2                  ! factor to multiply a CO2 
+                                               ! scenario (default: 1.)       
     ! 0.9 Read psrad_orbit namelist
     CALL read_psrad_orbit_namelist(file_name)
     !
@@ -489,6 +494,12 @@ MODULE mo_psrad_radiation
       CASE(2)
         WRITE (message_text, '(a,e16.8)') &
              'irad_co2 = 2 --> CO2 mass mixing ratio=', mmr_co2
+        IF (ABS(fco2-1._wp) > EPSILON(1._wp)) THEN
+           WRITE (message_text, '(a,e16.8,a)') &
+                'fco2 = ', fco2, ' --> Factor for CO2 concentration'
+           CALL message('',message_text)
+           mmr_co2 = mmr_co2*fco2
+        END IF
         CALL message('',message_text)
 !!$        co2mmr = co2vmr*amco2/amd
       CASE(4)
@@ -497,27 +508,17 @@ MODULE mo_psrad_radiation
            WRITE (message_text, '(a,e16.8,a)') &
                 'fco2 = ', fco2, ' --> Factor for CO2 scenario'
            CALL message('',message_text)
+           mmr_co2 = mmr_co2*fco2
         END IF
-!!$        co2mmr = co2vmr*fco2*amco2/amd    ! This is only a dummy value for the first
-!!$                                          ! initialization of co2m1 in the co2-module. 
-!!$                                          ! co2m1 will be overwritten with the correct
-!!$                                          ! values as soon as the ghg-data are
-!!$                                          ! interpolated to the right date.
       CASE default
         WRITE (message_text, '(a,i2,a)') &
              'irad_co2 = ', ico2, ' in radctl namelist is not supported'
         CALL message('',message_text)
         CALL finish('setup_psrad_radiation','Run terminated irad_co2')
       END SELECT
-!!$
-!!$      IF (ico2 /= 4 .AND. ABS(fco2-1._wp) > EPSILON(1._wp)) THEN
-!!$         WRITE (message_text, '(a,i2,a)') &
-!!$              'ico2 = ', ico2, ' and fco2 != 1. --> Ignoring fco2'
-!!$         CALL message('',message_text)
-!!$      END IF
-!!$      !
-!!$      ! --- Check CH4
-!!$      ! 
+      !
+      ! --- Check CH4
+      ! 
       SELECT CASE (ich4)
       CASE(0)
         CALL message('','irad_ch4 = 0 --> no CH4 in radiation')
@@ -725,10 +726,10 @@ MODULE mo_psrad_radiation
         CALL message('','isolrad = 2 --> preindustrial solar constant')
       CASE (3) 
         CALL message('','isolrad = 3 --> solar constant for amip runs')
-!!$      CASE (4)
-!!$        CALL message('','isolrad = 4 --> solar constant for rad.-convective eq. runs with diurnal cycle ON')
-!!$      CASE (5)
-!!$        CALL message('','isolrad = 5 --> solar constant for rad.-convective eq. runs with diurnal cycle OFF')
+      CASE (4)
+        CALL message('','isolrad = 4 --> solar constant for rad.-convective eq. runs with diurnal cycle ON')
+      CASE (5)
+        CALL message('','isolrad = 5 --> solar constant for rad.-convective eq. runs with diurnal cycle OFF')
       CASE default 
         WRITE (message_text, '(a,i3,a)') &
              'Run terminated isolrad = ', isolrad, ' not supported'
@@ -980,6 +981,7 @@ MODULE mo_psrad_radiation
          &  gas_scenario = ghg_co2mmr &
 !         &  gas_val = co2 &
           & )
+
     xm_ch4(1:kproma,:)   = gas_profile(kproma, klev, ich4, gas_mmr = mmr_ch4,     &
          &  gas_scenario = ghg_ch4mmr, &
          &  pressure = pp_fl, xp = ch4_v)

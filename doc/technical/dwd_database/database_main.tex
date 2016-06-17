@@ -1,12 +1,10 @@
-\documentclass[a4paper,twoside,10pt]{book}
+\documentclass[a4paper,twoside,10pt,DIV13,BCOR=5mm]{scrbook}
 
 \usepackage[english]{babel}
 \usepackage{float}
 \usepackage{xparse}
 \usepackage[utf8]{inputenc}
 \usepackage{amsmath}
-\usepackage{fancyhdr}
-\usepackage{geometry}
 \usepackage{pgfplots,pgfplotstable}
 \usepackage{colortbl}
 \usepackage[notoday,nofancy]{svninfo}
@@ -14,13 +12,7 @@
 \usepackage[nottoc]{tocbibind}     %--- adds bibliography to toc 
 % --- but without toc itself [nottoc] 
 \usepackage[round,sort,comma,authoryear]{natbib} %--- creates bibliography; author-year with curly brackets within the text
-% \usepackage[  %--- no numbering of positions 
-% toc,           %--- let it appear in the document's table of contents
-% style=mylong3colheader %--- see glossaries Documentation for a list of available styles
-% ]{glossaries}  %--- use the glossary package
-\geometry{a4paper,textwidth=15.8cm,textheight=23.0cm,twoside,rmargin=0.96in} %--- Variation Randbereiche
-\usepackage{caption}
-\usepackage{subcaption}  %--- simplifies putting pictures side by side
+\usepackage[font={it,sf}]{subcaption}  %--- simplifies putting pictures side by side
 \usepackage{longtable}
 \usepackage{multirow}
 \usepackage{tabularx}
@@ -42,10 +34,14 @@
 \usepackage[titletoc]{appendix}
 \usepackage{soul}
 \usepackage[T1]{fontenc}
-\usepackage{DejaVuSans}
+\usepackage{scrpage2}
+\usepackage{environ}
+\usepackage{pgf}
+\usepackage{pgffor}
+\usepackage[toc,section=chapter]{glossaries}
 
 \usetikzlibrary{calc}
-
+\usetikzlibrary{matrix}
 
 % left-aligned fixed-width table column
 \newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
@@ -54,7 +50,7 @@
 % define some colors
 \definecolor{darkred}{rgb}{0.5,0.,0.}
 \definecolor{darkblue}{rgb}{0.,0.,0.6}
-\definecolor{darkgreen}{rgb}{0.,0.5,0.}
+\definecolor{darkgreen}{rgb}{0.,0.25,0.}
 \definecolor{darkgrey}{rgb}{0.7,0.75,0.71}
 \definecolor{Gray}{gray}{0.9}
 \definecolor{DWDblue}{RGB}{47,79,162}
@@ -68,7 +64,12 @@
 
 
 % customize hyperref
-\hypersetup{colorlinks, linkcolor=darkblue, citecolor=blue, urlcolor=darkred, linktoc=all}
+\hypersetup{colorlinks, linkcolor=darkblue, citecolor=blue, urlcolor=darkgreen, linktoc=all}
+
+%\renewcommand{\sffamily}{\fontfamily{DejaVuSans-TLF}\selectfont}
+
+% change komafont sections from sansserif to serif
+\setkomafont{sectioning}{\normalfont\normalcolor\bfseries}
 
 % Select Sans-Serif DejaVu font
 \newenvironment{sansserif}{\fontfamily{DejaVuSans-TLF}\selectfont}{\par}
@@ -122,31 +123,34 @@
   >{\centering\hspace{0pt}}p{#1}}%
 
 
-% ---------- Glossary: All the stuff and more ----------%
-% \newglossary{symbolslist}{sym}{sbl}{Symbolverzeichnis} % define new glossary i.e. a list of symbols
-% \makeglossaries
-
-% \input{./text/listofsymbols}  %--- include defined symbols
-
-
-
-% ---------------bold caption for figures-------------------------%
+% LaTeX macro storing an array of strings
+%
+% individual entries can be accessed by
+%   \pgfmathparse{{\storedContent}[\i]}\pgfmathresult
+\newcommand{\storedContent}{}
 \makeatletter
-\long\def\@makecaption#1#2{%
-  \fontfamily{cmr}
-  \fontseries{m}
-  \fontshape{sl}
-  \fontsize{10pt}{11pt}
-  \selectfont
-  \vskip 10\p@
-  \setbox\@tempboxa\hbox{{\bf#1:} #2}%
-  \ifdim \wd\@tempboxa >\hsize
-  {\bf #1:} #2\par
-  \else
-  \hbox to\hsize{\hfil\box\@tempboxa\hfil}%
-  \fi}
+\let\storedContent\@empty
+\newcommand{\listappend}[1]{%
+    \ifx\storedContent\@empty
+     \g@addto@macro\storedContent{#1}%
+    \else
+     \g@addto@macro\storedContent{, #1}%
+    \fi 
+}
 \makeatother
-% ----------------------------------------------------------------%
+
+% macros storing colors in "storedContent" array
+% ... these are then used in the timeline of model changes.
+\definecolor{colorBlue}{rgb}{0.,0.,1.}
+\definecolor{colorRed}{rgb}{1.,0.,0.}
+\newcommand{\colorA}{\listappend{"0.,0.,1."}}
+\newcommand{\colorB}{\listappend{"1.,0.,0."}}
+
+
+\setkomafont{captionlabel}{\sffamily\bfseries}
+\setkomafont{caption}{\sffamily}
+\setcaphanging
+
 
 % sign function
 \newcommand{\sgn}{\operatorname{sgn}}
@@ -205,19 +209,17 @@
 @{\hskip 0.05in}%
 p{2.0cm}%
 >{\small\raggedright}p{5cm}<{\normalsize}%
-p{0.5cm}%
-p{0.5cm}%
-p{0.5cm}%
-p{1.4cm}p{1cm}p{1cm}}#1\\
+p{1.4cm}%
+p{1.1cm}p{0.9cm}p{1cm}p{1cm}}#1\\
   \toprule
-&\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \begin{sideways}\textbf{Discipline}\end{sideways} & \begin{sideways}\bf{Category}\end{sideways} & \begin{sideways}\bf{Number}\end{sideways}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
+&\multicolumn{1}{c}{\begin{sideways}\textbf{ShortName}\end{sideways}}  &  \multicolumn{1}{c}{\rb{\textbf{Description}}}  & \multicolumn{1}{l}{\begin{sideways}\textbf{Discipline}\end{sideways}\,\,\begin{sideways}\bf{Category}\end{sideways}\,\,\begin{sideways}\bf{Number}\end{sideways}}  & \begin{sideways}\bf{Lev-Typ 1/2}\end{sideways}  & \begin{sideways}\bf{stepType}\end{sideways} & \begin{sideways}\bf{LL IntpType}\end{sideways} &\begin{sideways}\bf{Unit}\end{sideways}\\
 \midrule
 
 \endfirsthead
 \caption[]{\emph{continued}}\\
 \midrule
 \endhead
-\hline \multicolumn{8}{r}{\textit{Continued on next page}} \\
+\hline \multicolumn{8}{r}{\textit{Continued on next page}\hspace*{2em}} \\
 \endfoot
 \endlastfoot
 }%
@@ -231,7 +233,7 @@ p{1.4cm}p{1cm}p{1cm}}#1\\
 % - im Fliesstext:
 \newcommand{\nml}[1]{\texttt{#1}}
 
-
+\addtolength{\skip\footins}{2em} % Länge zwischen Fußnotenbereich und Text
 
 % environment derived from framed.sty: see leftbar environment definition
 \definecolor{formalshade}{rgb}{0.95,0.95,1}
@@ -258,8 +260,10 @@ p{1.4cm}p{1cm}p{1cm}}#1\\
 \setlength{\parskip}{0.2cm plus0.1cm minus0.1cm}
 \setlength{\parindent}{0.0em}
 
-\includeonly{./preface_title_toc,
+\includeonly{./glossary,
+             ./preface_title_toc,
              ./preface_intro,
+             ./model_timeline,
              ./analysis,
              ./input,
              ./grid_geometry,
@@ -276,22 +280,91 @@ p{1.4cm}p{1cm}p{1cm}}#1\\
 
 
 
+% code for generating a vertical timeline
+% http://tex.stackexchange.com/a/28452/13304
+\makeatletter
+\let\matamp=&
+\catcode`\&=13
+\makeatletter
+\def&{\iftikz@is@matrix
+  \pgfmatrixnextcell
+  \else
+  \matamp
+  \fi}
+\makeatother
+
+\newcounter{lines}
+\def\endlr{\stepcounter{lines}\\}
+
+\newcounter{vtml}
+\setcounter{vtml}{0}
+
+\newif\ifvtimelinetitle
+\newif\ifvtimebottomline
+\tikzset{description/.style={
+  column 2/.append style={#1}
+ },
+ timeline color/.store in=\vtmlcolor,
+ timeline color2/.store in=\vtmlcolortwo,
+ timeline color=red!80!black,
+ timeline color2=red!80!black,
+ timeline color st/.style={fill=\vtmlcolor,draw=\vtmlcolor},
+ timeline color st2/.style={fill=\vtmlcolortwo,draw=\vtmlcolortwo},
+ add bottom line/.is if=vtimebottomline,
+ add bottom line=false,
+ line offset/.store in=\lineoffset,
+ line offset=4pt,
+}
+
+\NewEnviron{vtimeline}[1][]{%
+\setcounter{lines}{1}%
+\stepcounter{vtml}%
+\begin{tikzpicture}[column 1/.style={anchor=east},
+ column 2/.style={anchor=west},
+ minimum size=1.8ex,
+ row sep=1ex,
+ column sep=2em,
+ #1
+]
+\matrix(vtimeline\thevtml)[matrix of nodes,nodes={anchor=north west,align=left}]{\BODY};
+\pgfmathtruncatemacro\endmtx{\thelines-1}
+\path[timeline color st, thick] 
+($(vtimeline\thevtml-1-1.north east)!0.42!(vtimeline\thevtml-1-2.north west)$)--
+($(vtimeline\thevtml-\endmtx-1.south east)!0.42!(vtimeline\thevtml-\endmtx-2.south west)$);
+\path[timeline color st2, thick] 
+($(vtimeline\thevtml-1-1.north east)!0.58!(vtimeline\thevtml-1-2.north west)$)--
+($(vtimeline\thevtml-\endmtx-1.south east)!0.58!(vtimeline\thevtml-\endmtx-2.south west)$);
+\foreach \x in {1,...,\endmtx}{
+ \pgfmathparse{{\storedContent}[\x-1]};
+ \definecolor{ballcolor}{rgb}{\pgfmathresult}
+ \node[circle,timeline color st, inner sep=0.15pt, draw=white, fill=ballcolor, thick, yshift=-0.75em] 
+ (vtimeline\thevtml-c-\x) at 
+ ($(vtimeline\thevtml-\x-1.north east)!0.5!(vtimeline\thevtml-\x-2.north west)$){};
+ \draw[timeline color st,thick,color=ballcolor](vtimeline\thevtml-c-\x.west)--++(-5pt,0);
+ }
+ \ifvtimebottomline%
+   \draw[timeline color st, thick]([yshift=-\lineoffset]vtimeline\thevtml.south west)--
+  ([yshift=-\lineoffset]vtimeline\thevtml.south east);
+ \else%
+   \relax%
+ \fi%
+\end{tikzpicture}
+}
+%--------------------- end of timeline code ------------------%
+
+
+%----------------------- create glossary ---------------------%
+\makeglossaries
+%-------------------------------------------------------------%
+
+
 % ------------------ start of document -----------------------%
 \begin{document}
 \svnInfo $Id$
 \setcounter{tocdepth}{3}     %--- maximum toc depth
 
-
-\pagestyle{fancy}
-\fancyhead{}
-\fancyfoot{}
-% --- Seitenzahl bei geraden/linken Seiten nach links/aussen
-% --- Seitenzahl bei ungeraden/rechten Seiten nach rechts/aussen
-\fancyhead[EL,OR]{\thepage}
-% --- Kapitel/Abschnitt bei geraden/linken Seiten rechts/aussen
-\fancyhead[ER]{\leftmark}
-% --- Unterkapitel/Unterabschnitt bei ungeraden/rechten Seiten links/aussen
-\fancyhead[OL]{\rightmark}
+\include{./glossary}
+\pagestyle{scrheadings}
 
 \renewcommand{\chaptermark}[1]{%
   \markboth{\chaptername
@@ -353,6 +426,10 @@ p{1.4cm}p{1cm}p{1cm}}#1\\
 % --------------------------------------------------------------------------------
 
 % --------------------------------------------------------------------------------
+\include{./model_timeline}
+% --------------------------------------------------------------------------------
+
+% --------------------------------------------------------------------------------
 \include{./grid_geometry}
 % --------------------------------------------------------------------------------
 
@@ -376,7 +453,7 @@ p{1.4cm}p{1cm}p{1cm}}#1\\
 %\input{./cosmo_eu_fields.tex}
 
 % --------------------------------------------------------------------------------
-\chapter{Output fields for soil moisture analysis SMA}
+\chapter{Output fields for soil moisture analysis~SMA}
 \label{output_for_sma}
 \input{./output_GRIB2_sma}
 
@@ -415,6 +492,10 @@ p{1.4cm}p{1cm}p{1cm}}#1\\
 \renewcommand{\chaptermark}[1]{%
   \markboth{\chaptername
     \ \thechapter.\ #1}{}}
+
+%----------------------- print glossary ----------------------%
+\printglossaries
+%-------------------------------------------------------------%
 
 
 % --------------------------- Backside of document -------------------------------

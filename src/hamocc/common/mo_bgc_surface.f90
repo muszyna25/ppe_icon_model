@@ -1,4 +1,4 @@
-MODULE MO_BGC_SURFACE
+MODULE mo_bgc_surface
 !! @file mo_bgc_surface.f90
 !! @brief module contains gas exchange, weathering fluxes,
 !!        dust deposition
@@ -273,4 +273,4 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
      END DO
 
 END SUBROUTINE 
-END MODULE MO_BGC_SURFACE
+END MODULE mo_bgc_surface

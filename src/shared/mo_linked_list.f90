@@ -19,7 +19,6 @@ MODULE mo_linked_list
   USE mo_kind,             ONLY: i8
   USE mo_exception,        ONLY: finish, message
   USE mo_var_list_element, ONLY: t_var_list_element, level_type_ml
-  USE mo_util_hash,        ONLY: util_hashword
   !
   IMPLICIT NONE
   !
@@ -53,7 +52,6 @@ MODULE mo_linked_list
     INTEGER(i8)                   :: memory_used        ! memory allocated
     INTEGER                       :: list_elements      ! allocated elements
     LOGICAL                       :: loutput            ! output stream
-    LOGICAL                       :: lmiss              ! missing values
     LOGICAL                       :: lrestart           ! restart stream
     LOGICAL                       :: linitial           ! initial stream
     CHARACTER(len=256)            :: filename           ! name of file
@@ -70,9 +68,10 @@ MODULE mo_linked_list
     INTEGER                       :: patch_id           ! ID of patch to which list variables belong
     INTEGER                       :: vlevel_type        ! 1: model levels, 2: pressure levels, 3: height levels
     !--------------------------------------------------------------------------------------------
-    ! Internal used handler for cdi
+    ! Internal used handler for CDI setup of synchronous restart
+    !
+    ! Todo: This metadata should not be placed in this location ?!
     INTEGER                       :: cdiFileId_restart  ! cdi file handler for restart
-    INTEGER                       :: cdiFileId_output   ! cdi file handler for output
     INTEGER                       :: cdiVlistId         ! cdi vlist handler
     !
     INTEGER                       :: cdiCellGridID
@@ -105,6 +104,11 @@ MODULE mo_linked_list
     INTEGER                       :: cdiTimeIndex
     !
     INTEGER                       :: nvars
+
+    ! Metadata for missing value masking
+
+    LOGICAL                    :: lmiss          ! flag: true, if variables should be initialized with missval
+    LOGICAL                    :: lmask_boundary ! flag: true, if interpolation zone should be masked *in output*
   END TYPE t_var_list_intrinsic
   !
   TYPE t_var_list
@@ -132,6 +136,7 @@ CONTAINS
     !
     this_list%p%loutput            = .FALSE.
     this_list%p%lmiss              = .FALSE.
+    this_list%p%lmask_boundary     = .TRUE.
     this_list%p%lrestart           = .FALSE.
     this_list%p%linitial           = .FALSE.
     !
@@ -154,7 +159,6 @@ CONTAINS
     this_list%p%vlevel_type        =  level_type_ml ! Default is model levels
     !
     this_list%p%cdiFileID_restart  = -1
-    this_list%p%cdiFileID_output   = -1
     this_list%p%cdiVlistID         = -1
     this_list%p%cdiCellGridID      = -1
     this_list%p%cdiVertGridID      = -1

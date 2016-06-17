@@ -51,19 +51,18 @@ MODULE mo_radiation
   USE mo_math_constants,       ONLY: pi, rpi
   USE mo_physical_constants,   ONLY: grav,  rd,    avo,   amd,  amw,  &
     &                                amco2, amch4, amn2o, amo3, amo2, &
-    &                                stbo,  vpp_ch4, vpp_n2o
+    &                                stbo
 
   USE mo_datetime,             ONLY: rdaylen
 
-  USE mo_radiation_config,     ONLY: tsi_radt,   ssi_radt,    &
-    &                                irad_co2,   mmr_co2,     &
-    &                                irad_ch4,   mmr_ch4,     &
-    &                                irad_n2o,   mmr_n2o,     &
-    &                                irad_o2,    mmr_o2,      &
-    &                                irad_cfc11, vmr_cfc11,   &
-    &                                irad_cfc12, vmr_cfc12,   &
-    &                                irad_aero,               &
-    &                                lrad_aero_diag,          &
+  USE mo_radiation_config,     ONLY: tsi_radt,   ssi_radt,            &
+    &                                irad_co2,   mmr_co2,             &
+    &                                irad_ch4,   mmr_ch4,   vpp_ch4,  &
+    &                                irad_n2o,   mmr_n2o,   vpp_n2o,  &
+    &                                irad_o2,    mmr_o2,              &
+    &                                irad_cfc11, vmr_cfc11,           &
+    &                                irad_cfc12, vmr_cfc12,           &
+    &                                irad_aero,  lrad_aero_diag,      &
     &                                izenith, lradforcing
   USE mo_lnd_nwp_config,       ONLY: isub_seaice, isub_lake
 
@@ -224,8 +223,11 @@ CONTAINS
 
 !DIR$ SIMD
         DO jc = 1,ie
-          zsmu0(jc,jb) = MERGE(SQRT(zsmu0(jc,jb)/REAL(n_cosmu0pos(jc,jb),wp)), &
-               cosmu0_dark, n_cosmu0pos(jc,jb) > 0)
+          IF (n_cosmu0pos(jc,jb) > 0) THEN
+            zsmu0(jc,jb) = SQRT(zsmu0(jc,jb)/REAL(n_cosmu0pos(jc,jb),wp))
+          ELSE
+            zsmu0(jc,jb) = cosmu0_dark
+          ENDIF
         ENDDO
 
       ENDDO !jb

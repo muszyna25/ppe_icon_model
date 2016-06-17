@@ -1950,7 +1950,12 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP BARRIER
   ENDIF
 
+#ifndef __SX__
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
+#else
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b1,z_b2,z_b3,z_b4,z_b5,z_b6,z_b7,z_b8,z_b9, &
+!$OMP            zdp), ICON_OMP_RUNTIME_SCHEDULE
+#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &

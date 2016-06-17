@@ -62,7 +62,7 @@ reg_lon_def_tri=0.,1.125,358.875
 # (2) Set variables needed by the scripting mechanism
 
 # horizontal grid(s)
-grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip
+grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip/r0002
 atmo_dyn_grids='r2b4_amip.nc'
 
 # start and end date+time
@@ -184,7 +184,8 @@ cat > ${atmo_namelist} << EOF
  isolrad          = 1           ! 1: transient solar irradiance (at 1 AE)
 /
 &psrad_nml
-lradforcing       = .TRUE.,.TRUE. ! diagnose instantaneous radiative forcing
+!fco2              = 4.0
+lradforcing       = .FALSE.,.FALSE. ! diagnose instantaneous radiative forcing
                                     ! for solar and lw spectrum
 irad_aero_forcing     = 15          ! Kinne aerosols + Stenchikov's volc aerosols
                                     ! as reference for instantaneous forcing
@@ -253,7 +254,7 @@ add_required_file ${basedir}/run/${dict_file}                           ./
 
 # initial conditions
 #
-INDATA=${icon_data_poolFolder}/input/r0003
+INDATA=${icon_data_poolFolder}/input/r0004
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
 datadir=${icon_data_poolFolder}/setup/ifs_iconremap_amip
@@ -537,11 +538,43 @@ if [[ "$output_radforcing_3d" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_radforcing_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = 0
+ remap            = 1
+ reg_def_mode     = 1
+ reg_lat_def      = ${reg_lat_def_rmb}
+ reg_lon_def      = ${reg_lon_def_rmb}
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${output_interval_3d}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'fsw_clear_top','fsw_total_top',
+                    'fsw_clear_sur','fsw_total_sur',
+                    'd_aflx_sw'    ,'d_aflx_swc',
+                    'netht_sw',
+                    'flw_clear_top','flw_total_top',
+                    'flw_clear_sur','flw_total_sur',
+                    'd_aflx_lw'    ,'d_aflx_lwc',
+                    'netht_lw',
+		    'emter_for'    ,'emtef_for',
+                    'trsol_for'    ,'trsof_for'
+/
+output_radforcing_3d=yes # "yes" needs lradforcing being set in psrad_nml
+#
+if [[ "$output_radforcing_3d" == "yes" ]]; then
+  #
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_radforcing_3d_mean"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ reg_def_mode     = 1
+ reg_lat_def      = ${reg_lat_def_rmb}
+ reg_lon_def      = ${reg_lon_def_rmb}
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT8M"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  operation  = "mean"
