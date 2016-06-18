@@ -174,7 +174,8 @@ ENDIF
         CALL cyadyn(levels, start_index,end_index, &  ! vertical range, cell range,
      &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),& ! cell thickness
      &               p_os%p_prog(nold(1))%h(:,jb), &                 ! surface height
-     &               p_os%p_prog(nold(1))%tracer(:,:,jb,1) )          ! pot. temperature 
+     &               p_os%p_prog(nold(1))%tracer(:,:,jb,1), &        ! pot. temperature 
+     &               p_patch_3d%p_patch_1d(1)%depth_CellInterface(:,:,jb) ) ! depths at interface  
        ELSE
         ! diagnostic N2 fixation
         CALL cyano (start_index, end_index,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&
