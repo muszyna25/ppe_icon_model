@@ -92,7 +92,7 @@ END SUBROUTINE cyano
 
 
 
-SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu)
+SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_jerlov_pi)
 !! @brief prognostic N2 fixation, cyanobacteria
 
       USE mo_biomod, ONLY         : cycdec, pi_alpha_cya,cya_growth_max,          &
@@ -121,6 +121,8 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu)
       REAL(wp), INTENT(in) :: za(bgc_nproma)               !< potential temperature [deg C]
       REAL(wp), INTENT(in) :: ptiestu(bgc_nproma,bgc_zlevs) !< depth of scalar grid cell [m]
 
+      LOGICAL, INTENT(in) :: l_jerlov_pi
+
       !! Local variables
    
       INTEGER  :: j,k, kpke
@@ -132,7 +134,7 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu)
       REAL(wp) :: T_min_Topt,sgnT
       REAL(wp) :: xa_P, xa_fe, avnit,l_P,l_fe
       REAL(wp) :: xn_p,xn_fe
-      REAL(wp) :: jer_pi_alpha
+      REAL(wp) :: jer_pi_alpha_cya
    
 !HAMOCC_OMP_PARALLEL 
 !HAMOCC_OMP_DO PRIVATE(j,kpke,k,avcyabac,avanut,avanfe,avnit,l_fe,l_I,T_min_Topt,&
@@ -156,7 +158,7 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu)
  
               if (l_jerlov_pi)then
                  
-                   jer_pi_alpha = pi_alpha_cya + 0.05_wp* ptiestu(k)/(ptiestu(k) + 90._wp) ! jerlov pi_alpha  
+                   jer_pi_alpha_cya = pi_alpha_cya + 0.05_wp* ptiestu(j,k)/(ptiestu(j,k) + 90._wp) ! jerlov pi_alpha  
                    
                    l_I = (jer_pi_alpha_cya*fPAR*strahl(j))*meanswr(j,k) &     ! light limitation
                         /SQRT(cya_growth_max**2 + (jer_pi_alpha_cya**2)*(fPAR*strahl(j)*meanswr(j,k))**2) 
