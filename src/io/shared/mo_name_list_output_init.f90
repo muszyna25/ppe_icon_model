@@ -2775,15 +2775,17 @@ CONTAINS
 
     INTEGER :: nvgrid, ivgrid
     INTEGER :: size_var_groups_dyn
+    INTEGER :: idom_log
+    LOGICAL :: is_io
 
+    is_io = my_process_is_io()
     !-----------------------------------------------------------------------------------------------
-
     ! Replicate vertical coordinate table
 #ifndef __NO_ICON_ATMO__
-    IF(.NOT.my_process_is_io()) ivct_len = SIZE(vct)
+    IF (.NOT. is_io) ivct_len = SIZE(vct)
     CALL p_bcast(ivct_len, bcast_root, p_comm_work_2_io)
 
-    IF(my_process_is_io()) ALLOCATE(vct(ivct_len))
+    IF (is_io) ALLOCATE(vct(ivct_len))
     CALL p_bcast(vct, bcast_root, p_comm_work_2_io)
 #endif
 ! #ifndef __NO_ICON_ATMO__
@@ -2796,17 +2798,17 @@ CONTAINS
     info_size = SIZE(TRANSFER(info, (/ 0 /)))
 
     ! Get the number of var_lists
-    IF(.NOT.my_process_is_io()) nv = nvar_lists
+    IF (.NOT. is_io) nv = nvar_lists
     CALL p_bcast(nv, bcast_root, p_comm_work_2_io)
 
     ! For each var list, get its components
     DO iv = 1, nv
 
       ! Send name
-      IF(.NOT.my_process_is_io()) var_list_name = var_lists(iv)%p%name
+      IF (.NOT. is_io) var_list_name = var_lists(iv)%p%name
       CALL p_bcast(var_list_name, bcast_root, p_comm_work_2_io)
 
-      IF(.NOT.my_process_is_io()) THEN
+      IF (.NOT. is_io) THEN
 
         ! Count the number of variable entries
         element => var_lists(iv)%p%first_list_element
@@ -2831,7 +2833,7 @@ CONTAINS
 
       CALL p_bcast(list_info, bcast_root, p_comm_work_2_io)
 
-      IF(my_process_is_io()) THEN
+      IF (is_io) THEN
         nelems = list_info(1)
         ! Create var list
         CALL new_var_list( p_var_list, var_list_name, patch_id=list_info(2), &
@@ -2849,7 +2851,7 @@ CONTAINS
 
       ALLOCATE(info_storage(info_size, nelems))
 
-      IF(.NOT.my_process_is_io()) THEN
+      IF (.NOT. is_io) THEN
         element => var_lists(iv)%p%first_list_element
         nelems = 0
         DO
@@ -2864,7 +2866,7 @@ CONTAINS
 
       CALL p_bcast(info_storage, bcast_root, p_comm_work_2_io)
 
-      IF(my_process_is_io()) THEN
+      IF (is_io) THEN
 
         ! Insert elements into var list
 
@@ -2951,7 +2953,7 @@ CONTAINS
     CALL p_bcast(nvgrid, bcast_root, p_comm_work_2_io)
     !
     ! allocate on asynchronous PEs
-    IF(my_process_is_io()) THEN
+    IF (is_io) THEN
       ALLOCATE(vgrid_buffer(nvgrid))
     ENDIF
     ! broadcast
@@ -2976,8 +2978,9 @@ CONTAINS
     INTEGER                       :: idom, i
 
     INTEGER :: idom_log
-    LOGICAL :: keep_grid_info
+    LOGICAL :: keep_grid_info, is_io
 
+    is_io = my_process_is_io()
     !-----------------------------------------------------------------------------------------------
     ! Replicate coordinates of cells/edges/vertices:
 
@@ -2992,7 +2995,7 @@ CONTAINS
         ! logical domain ID
         idom_log = patch_info(idom)%log_patch_id
         keep_grid_info = .FALSE.
-        IF (my_process_is_io()) THEN
+        IF (is_io) THEN
           DO i = 1, SIZE(output_file, 1)
             keep_grid_info = keep_grid_info .OR. &
               &              ((output_file(i)%io_proc_id == p_pe) .AND. &
