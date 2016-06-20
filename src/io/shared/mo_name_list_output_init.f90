@@ -1009,14 +1009,11 @@ CONTAINS
     INTEGER,          PARAMETER :: print_patch_id = 1
 
     LOGICAL                              :: l_print_list ! Flag. Enables  a list of all variables
-    INTEGER                              :: i, j, nfiles, i_typ, nvl, vl_list(max_var_lists), &
+    INTEGER                              :: i, j, nfiles, &
       &                                     jp, idom, jg, local_i, idom_log,                  &
-      &                                     grid_info_mode, ierrstat, jl, ifile,              &
-      &                                     npartitions, ifile_partition, errno
-    INTEGER, POINTER                     :: pe_placement(:)
-    CHARACTER(len=vname_len), POINTER :: varlist_ptr(:)
+      &                                     grid_info_mode, ierrstat, jl,                     &
+      &                                     errno
     TYPE (t_output_name_list), POINTER   :: p_onl
-    TYPE (t_output_file),      POINTER   :: p_of
     TYPE(t_list_element),      POINTER   :: element
     TYPE(t_par_output_event),  POINTER   :: ev
     TYPE (t_sim_step_info)               :: dom_sim_step_info
@@ -1316,113 +1313,7 @@ CONTAINS
     ! Loop over all output namelists, set up the output_file struct for all associated files
     ! --------------------------------------------------------------------------------------
 
-    p_onl => first_output_name_list
-    ifile = 0
-    LOOP_NML : DO WHILE (ASSOCIATED(p_onl))
-
-      idom = p_onl%dom ! domain for which this name list should be used
-      ! non-existent domains are simply ignored:
-      IF(idom > n_dom_out) THEN
-        p_onl => p_onl%next
-        CYCLE
-      END IF
-
-      ! Loop over model/pressure/height levels
-      DO i_typ = 1, 4
-        
-        ! Check if name_list has variables of corresponding type
-        SELECT CASE(i_typ)
-        CASE (level_type_ml)
-          IF (p_onl%ml_varlist(1) == ' ') CYCLE
-          npartitions     = p_onl%stream_partitions_ml
-          pe_placement => p_onl%pe_placement_ml(1:npartitions)
-        CASE (level_type_pl)
-          IF (p_onl%pl_varlist(1) == ' ') CYCLE
-          npartitions     = p_onl%stream_partitions_pl
-          pe_placement => p_onl%pe_placement_pl(:)
-        CASE (level_type_hl)
-          IF (p_onl%hl_varlist(1) == ' ') CYCLE
-          npartitions     = p_onl%stream_partitions_hl
-          pe_placement => p_onl%pe_placement_hl(:)
-        CASE (level_type_il)
-          IF (p_onl%il_varlist(1) == ' ') CYCLE
-          npartitions     = p_onl%stream_partitions_il
-          pe_placement => p_onl%pe_placement_il(:)
-        END SELECT
-        
-        IF (npartitions > 1) THEN
-          WRITE(message_text,'(a,i4,a)') "Fork file into: ", npartitions, " concurrent parts."
-          CALL message(routine, message_text)
-        END IF
-        
-        ! Split one namelist into concurrent, alternating files:
-        DO ifile_partition = 1,npartitions
-
-          ifile = ifile+1
-          p_of => output_file(ifile)
-          p_of%ilev_type = i_typ
-          
-          ! Fill data members of "t_output_file" data structures
-          p_of%filename_pref   = TRIM(p_onl%output_filename)
-          p_of%phys_patch_id   = idom
-          p_of%log_patch_id    = patch_info(idom)%log_patch_id
-          p_of%output_type     = p_onl%filetype
-          p_of%name_list       => p_onl
-          p_of%remap           = p_onl%remap
-          p_of%cdiCellGridID   = CDI_UNDEFID
-          p_of%cdiEdgeGridID   = CDI_UNDEFID
-          p_of%cdiVertGridID   = CDI_UNDEFID
-          p_of%cdiLonLatGridID = CDI_UNDEFID
-          p_of%cdiTaxisID      = CDI_UNDEFID
-          p_of%cdiVlistID      = CDI_UNDEFID
-          
-          p_of%npartitions     = npartitions
-          p_of%ifile_partition = ifile_partition
-
-          ! (optional:) explicitly specified I/O rank
-          p_of%io_proc_id      = -1 ! undefined MPI rank
-          p_of%pe_placement    = pe_placement(ifile_partition)
-
-          ! Select all var_lists which belong to current logical domain and i_typ
-          nvl = 0
-          DO j = 1, nvar_lists
-
-            IF(.NOT. var_lists(j)%p%loutput) CYCLE
-            ! patch_id in var_lists always corresponds to the LOGICAL domain
-            IF(var_lists(j)%p%patch_id /= patch_info(idom)%log_patch_id) CYCLE
-
-            IF(i_typ /= var_lists(j)%p%vlevel_type) CYCLE
-
-            nvl = nvl + 1
-            vl_list(nvl) = j
-
-          ENDDO
-
-          IF ( my_process_is_work() ) THEN ! avoid addidional io or restart processes
-            IF ( p_of%log_patch_id == 1 ) THEN             ! use global domain, only
-              CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch(p_of%log_patch_id))
-            ENDIF
-          ENDIF
-
-          SELECT CASE(i_typ)
-          CASE(level_type_ml)
-            varlist_ptr => p_onl%ml_varlist
-          CASE(level_type_pl)
-            varlist_ptr => p_onl%pl_varlist
-          CASE(level_type_hl)
-            varlist_ptr => p_onl%hl_varlist
-          CASE(level_type_il)
-            varlist_ptr => p_onl%il_varlist
-          END SELECT
-          CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),varlist_ptr)
-
-        END DO ! ifile_partition
-
-      ENDDO ! i_typ
-
-      p_onl => p_onl%next
-
-    ENDDO LOOP_NML
+    CALL output_name_lists_to_files(sim_step_info)
 
     CALL assign_output_task(output_file%io_proc_id, output_file%pe_placement)
 
@@ -1542,6 +1433,127 @@ CONTAINS
     CALL message(routine,'Done')
 
   END SUBROUTINE init_name_list_output
+
+  SUBROUTINE output_name_lists_to_files(sim_step_info)
+    TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
+    TYPE (t_output_name_list), POINTER   :: p_onl
+    TYPE (t_output_file),      POINTER   :: p_of
+    CHARACTER(len=vname_len), POINTER :: varlist_ptr(:)
+    INTEGER, POINTER                     :: pe_placement(:)
+    INTEGER :: ifile, ifile_partition, npartitions, i_typ, idom, nvl, &
+         vl_list(max_var_lists), i, j
+    CHARACTER(len=*), PARAMETER :: routine &
+         = modname//"::output_name_lists_to_files"
+
+    p_onl => first_output_name_list
+    ifile = 0
+    LOOP_NML : DO WHILE (ASSOCIATED(p_onl))
+
+      idom = p_onl%dom ! domain for which this name list should be used
+      ! non-existent domains are simply ignored:
+      IF(idom > n_dom_out) THEN
+        p_onl => p_onl%next
+        CYCLE
+      END IF
+
+      ! Loop over model/pressure/height levels
+      DO i_typ = 1, 4
+
+        ! Check if name_list has variables of corresponding type
+        SELECT CASE(i_typ)
+        CASE (level_type_ml)
+          IF (p_onl%ml_varlist(1) == ' ') CYCLE
+          npartitions     = p_onl%stream_partitions_ml
+          pe_placement => p_onl%pe_placement_ml(1:npartitions)
+        CASE (level_type_pl)
+          IF (p_onl%pl_varlist(1) == ' ') CYCLE
+          npartitions     = p_onl%stream_partitions_pl
+          pe_placement => p_onl%pe_placement_pl(:)
+        CASE (level_type_hl)
+          IF (p_onl%hl_varlist(1) == ' ') CYCLE
+          npartitions     = p_onl%stream_partitions_hl
+          pe_placement => p_onl%pe_placement_hl(:)
+        CASE (level_type_il)
+          IF (p_onl%il_varlist(1) == ' ') CYCLE
+          npartitions     = p_onl%stream_partitions_il
+          pe_placement => p_onl%pe_placement_il(:)
+        END SELECT
+
+        IF (npartitions > 1) THEN
+          WRITE(message_text,'(a,i4,a)') "Fork file into: ", npartitions, " concurrent parts."
+          CALL message(routine, message_text)
+        END IF
+
+        ! Split one namelist into concurrent, alternating files:
+        DO ifile_partition = 1,npartitions
+
+          ifile = ifile+1
+          p_of => output_file(ifile)
+          p_of%ilev_type = i_typ
+
+          ! Fill data members of "t_output_file" data structures
+          p_of%filename_pref   = TRIM(p_onl%output_filename)
+          p_of%phys_patch_id   = idom
+          p_of%log_patch_id    = patch_info(idom)%log_patch_id
+          p_of%output_type     = p_onl%filetype
+          p_of%name_list       => p_onl
+          p_of%remap           = p_onl%remap
+          p_of%cdiCellGridID   = CDI_UNDEFID
+          p_of%cdiEdgeGridID   = CDI_UNDEFID
+          p_of%cdiVertGridID   = CDI_UNDEFID
+          p_of%cdiLonLatGridID = CDI_UNDEFID
+          p_of%cdiZonal1DegID  = CDI_UNDEFID
+          p_of%cdiTaxisID      = CDI_UNDEFID
+          p_of%cdiVlistID      = CDI_UNDEFID
+
+          p_of%npartitions     = npartitions
+          p_of%ifile_partition = ifile_partition
+
+          ! (optional:) explicitly specified I/O rank
+          p_of%io_proc_id      = -1 ! undefined MPI rank
+          p_of%pe_placement    = pe_placement(ifile_partition)
+
+          ! Select all var_lists which belong to current logical domain and i_typ
+          nvl = 0
+          DO j = 1, nvar_lists
+
+            IF(.NOT. var_lists(j)%p%loutput) CYCLE
+            ! patch_id in var_lists always corresponds to the LOGICAL domain
+            IF(var_lists(j)%p%patch_id /= patch_info(idom)%log_patch_id) CYCLE
+
+            IF(i_typ /= var_lists(j)%p%vlevel_type) CYCLE
+
+            nvl = nvl + 1
+            vl_list(nvl) = j
+
+          ENDDO
+
+          IF ( my_process_is_work() ) THEN ! avoid addidional io or restart processes
+            IF ( p_of%log_patch_id == 1 ) THEN             ! use global domain, only
+              CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch(p_of%log_patch_id))
+            ENDIF
+          ENDIF
+
+          SELECT CASE(i_typ)
+          CASE(level_type_ml)
+            varlist_ptr => p_onl%ml_varlist
+          CASE(level_type_pl)
+            varlist_ptr => p_onl%pl_varlist
+          CASE(level_type_hl)
+            varlist_ptr => p_onl%hl_varlist
+          CASE(level_type_il)
+            varlist_ptr => p_onl%il_varlist
+          END SELECT
+          CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),varlist_ptr)
+
+        END DO ! ifile_partition
+
+      ENDDO ! i_typ
+
+      p_onl => p_onl%next
+
+    ENDDO LOOP_NML
+  END SUBROUTINE output_name_lists_to_files
 
   SUBROUTINE assign_output_task(io_proc_id, pe_placement)
     INTEGER, INTENT(out) :: io_proc_id(:)
