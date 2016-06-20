@@ -1431,6 +1431,7 @@ CONTAINS
       p_comm_work_2_pref = MPI_COMM_NULL
     ENDIF
 
+    CALL mpi_comm_free(peer_comm, p_error)
     ! if OpenMP is used, the test PE uses only 1 thread in order to check
     ! the correctness of the OpenMP implementation
     ! Currently the I/O PEs are also single threaded!
