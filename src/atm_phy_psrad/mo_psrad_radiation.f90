@@ -228,9 +228,10 @@ MODULE mo_psrad_radiation
     REAL(wp) :: rasc_sun, decl_sun, dist_sun, time_of_day, zrae
     REAL(wp) :: orbit_date
     REAL(wp) :: solcm
-    LOGICAL  :: l_orbvsop87
+    LOGICAL  :: l_orbvsop87, l_sph_symm_irr
 
     l_orbvsop87 = psrad_orbit_config%l_orbvsop87
+    l_sph_symm_irr = psrad_orbit_config%l_sph_symm_irr
 
     !
     ! 1.0 Compute orbital parameters for current time step
@@ -244,10 +245,9 @@ MODULE mo_psrad_radiation
       CALL orbit_kepler (orbit_date, rasc_sun, decl_sun, dist_sun)
     END IF
 !!$    decl_sun_cur = decl_sun       ! save for aerosol and chemistry submodels
-    CALL solar_parameters(decl_sun, dist_sun, time_of_day, &
-!!$         &                sinlon_2d, sinlat_2d, coslon_2d, coslat_2d, &
-         &                p_patch,                         &
-         &                flx_ratio_cur, amu0_x, rdayl_x)
+    CALL solar_parameters(decl_sun,       dist_sun,         time_of_day,       &
+         &                ldiur,          l_sph_symm_irr,   p_patch,           &
+         &                flx_ratio_cur,  amu0_x,           rdayl_x            )
 
     IF (phy_config%lrad) THEN
 !!$
@@ -269,8 +269,8 @@ MODULE mo_psrad_radiation
         solc = SUM(ssi_RCEdiurnOff)
       CASE default
         WRITE (message_text, '(a,i2,a)') &
-             'isolrad = ', isolrad, ' in radctl namelist is not supported'
-        CALL message('pre_radiation', message_text)
+             'isolrad = ',isolrad, ' in radiation_nml namelist is not supported'
+        CALL finish('pre_psrad_radiation', message_text)
       END SELECT
       psct = flx_ratio_cur*solc
 
@@ -288,10 +288,9 @@ MODULE mo_psrad_radiation
       ELSE
         CALL orbit_kepler (orbit_date, rasc_sun, decl_sun, dist_sun)
       END IF
-      CALL solar_parameters(decl_sun, dist_sun, time_of_day, &
-!!$           &                sinlon_2d, sinlat_2d, coslon_2d, coslat_2d, &
-           &                p_patch,                         &
-           &                flx_ratio_rad ,amu0m_x, rdaylm_x)
+      CALL solar_parameters(decl_sun,        dist_sun,          time_of_day,        &
+           &                ldiur,           l_sph_symm_irr,    p_patch,            &
+           &                flx_ratio_rad,   amu0m_x,           rdaylm_x            )
       !
       ! consider curvature of the atmosphere for high zenith angles
       !
@@ -727,10 +726,10 @@ MODULE mo_psrad_radiation
         CALL message('','isolrad = 2 --> preindustrial solar constant')
       CASE (3) 
         CALL message('','isolrad = 3 --> solar constant for amip runs')
-!!$      CASE (4)
-!!$        CALL message('','isolrad = 4 --> solar constant for rad.-convective eq. runs with diurnal cycle ON')
-!!$      CASE (5)
-!!$        CALL message('','isolrad = 5 --> solar constant for rad.-convective eq. runs with diurnal cycle OFF')
+      CASE (4)
+        CALL message('','isolrad = 4 --> solar constant for rad.-convective eq. runs with diurnal cycle ON')
+      CASE (5)
+        CALL message('','isolrad = 5 --> solar constant for rad.-convective eq. runs with diurnal cycle OFF')
       CASE default 
         WRITE (message_text, '(a,i3,a)') &
              'Run terminated isolrad = ', isolrad, ' not supported'

@@ -270,6 +270,7 @@ doc/userguide/Makefile -text
 doc/userguide/authorlist.tex -text
 doc/userguide/content/cr2014_01_30_rjs.tex -text
 doc/userguide/content/cr2016_02_16_rjs.tex -text
+doc/userguide/content/cr2016_06_14_rjs.tex -text
 doc/userguide/content/namelist.tex -text
 doc/userguide/content/new_user.tex -text
 doc/userguide/content/output.tex -text
@@ -277,6 +278,7 @@ doc/userguide/content/preface.tex -text
 doc/userguide/content/title.tex -text
 doc/userguide/content/visualization.tex -text
 doc/userguide/cr2016_02_16_rjs.bib -text
+doc/userguide/cr2016_06_14_rjs.bib -text
 doc/userguide/icon_user_guide.pdf -text svneol=unset#unset
 doc/userguide/icon_user_guide.tex -text
 doc/userguide/icon_user_guide_bib.bib -text
