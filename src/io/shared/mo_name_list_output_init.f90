@@ -1027,7 +1027,7 @@ CONTAINS
       &                                     mtime_date
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: lower_bound_str
     INTEGER                              :: idx, istart
-    LOGICAL                              :: is_io
+    LOGICAL                              :: is_io, is_stdio
     INTEGER(c_int64_t)                   :: total_ms
     LOGICAL                              :: is_mpi_test
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
@@ -1060,6 +1060,7 @@ CONTAINS
     IF(dtime<=0._wp) CALL finish(routine, 'dtime must be set before reading output namelists')
 
     is_io = my_process_is_io()
+    is_stdio = my_process_is_stdio()
 
 #ifndef NOMPI
     ! Set broadcast root for intercommunicator broadcasts
@@ -1222,7 +1223,7 @@ CONTAINS
         mtime_date2 = mtime_date2 + mtime_td2
         CALL datetimeToString(mtime_date2, p_onl%output_end(idx))
 
-        IF (my_process_is_stdio()) THEN
+        IF (is_stdio) THEN
           WRITE (0,*) "setting output bounds as ", TRIM(p_onl%output_start(idx)), " / ", &
             &                                      TRIM(p_onl%output_end(idx)),   " / ", &
             &                                      TRIM(p_onl%output_interval(idx))
@@ -1547,7 +1548,7 @@ CONTAINS
   SUBROUTINE assign_output_task
     INTEGER :: i, j, nfiles, test_rank_offset
     INTEGER :: nremaining_io_procs !< no. of non-placed I/O ranks
-    LOGICAL :: lmy_process_is_stdio
+    LOGICAL :: is_stdio
     CHARACTER(len=MAX_CHAR_LENGTH) :: proc_list_str !< string (unoccupied I/O ranks)
     INTEGER :: remaining_io_procs(process_mpi_io_size) !< non-placed I/O ranks
     LOGICAL :: occupied_pes(process_mpi_io_size) !< explicitly placed I/O ranks
@@ -1563,7 +1564,7 @@ CONTAINS
     is_mpi_test = my_process_is_mpi_test()
     nfiles = SIZE(output_file)
     occupied_pes(:) = .FALSE.
-    lmy_process_is_stdio = my_process_is_stdio()
+    is_stdio = my_process_is_stdio()
     IF(use_async_name_list_io) THEN
       IF (process_mpi_io_size == 0) &
         CALL finish(routine, "Asynchronous I/O but no IO procs!")
@@ -1607,7 +1608,7 @@ CONTAINS
       END IF
     END DO
     ! status output, if some ranks were explicitly specified
-    IF ((process_mpi_io_size /= nremaining_io_procs) .AND. lmy_process_is_stdio) THEN
+    IF ((process_mpi_io_size /= nremaining_io_procs) .AND. is_stdio) THEN
       WRITE (0,'(a)') " ", "I/O : Explicit placement of I/O ranks:"
       DO i = 1, nfiles
         IF (output_file(i)%pe_placement /= -1) THEN
@@ -1625,7 +1626,7 @@ CONTAINS
     !
     ! status print-out only when some PEs were explicitly set.
     IF ((process_mpi_io_size /= nremaining_io_procs) .AND. &
-      & lmy_process_is_stdio                        .AND. &
+      & is_stdio                        .AND. &
       & (nremaining_io_procs > 0)                    .AND. &
       & ANY(output_file%pe_placement == -1)) THEN
       WRITE (0,'(a)') " ", "I/O : Round-Robin placement of I/O ranks:"
@@ -1640,13 +1641,13 @@ CONTAINS
           ! Asynchronous I/O
           j = j + 1
           output_file(i)%io_proc_id = p_io_pe0 + remaining_io_procs(MOD(j-1,nremaining_io_procs) + 1)
-          IF ((process_mpi_io_size /= nremaining_io_procs) .AND. lmy_process_is_stdio) THEN
+          IF ((process_mpi_io_size /= nremaining_io_procs) .AND. is_stdio) THEN
             WRITE (0,'(a,i0,a,i0)') "    file #", i, " placed on rank #", output_file(i)%io_proc_id
           END IF
         END IF
       END DO
     END IF
-    IF ((process_mpi_io_size /= nremaining_io_procs) .AND. lmy_process_is_stdio) THEN
+    IF ((process_mpi_io_size /= nremaining_io_procs) .AND. is_stdio) THEN
       WRITE (0,'(a)') ""
     END IF
 
