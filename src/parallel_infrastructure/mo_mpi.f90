@@ -210,7 +210,7 @@ MODULE mo_mpi
   PUBLIC :: my_process_is_restart, my_process_is_mpi_restartroot,my_process_is_work
 
   ! get parameters
-  PUBLIC :: get_my_global_mpi_communicator   ! essentially a copy of MPI_COMM_WORLD   
+  PUBLIC :: get_my_global_mpi_communicator   ! essentially a copy of MPI_COMM_WORLD
   PUBLIC :: get_my_mpi_all_communicator   ! the communicator for the specific component, ie the process_mpi_all_comm
   PUBLIC :: get_my_mpi_all_comm_size   ! this is the the size of the communicator for the specific component
   PUBLIC :: get_my_mpi_work_communicator   ! the communicator for the workers of this component
@@ -1117,7 +1117,8 @@ CONTAINS
     INTEGER,INTENT(INOUT), OPTIONAL :: num_prefetch_proc
 
 !   !local variables
-    INTEGER :: my_color, peer_comm, peer_comm_restart, peer_comm_pref, p_error
+    INTEGER :: my_color, remote_leader, peer_comm, p_error
+    INTEGER :: my_function_comm
     CHARACTER(*), PARAMETER :: method_name = "set_mpi_work_communicators"
     INTEGER :: grp_process_mpi_all_comm, grp_comm_work_io, input_ranks(1), &
                translated_ranks(1), grp_comm_work_pref
@@ -1311,49 +1312,57 @@ CONTAINS
       my_mpi_function = pref_mpi_process
     ENDIF
 
-    CALL MPI_Comm_split(process_mpi_all_comm, my_mpi_function, p_pe, p_comm_work, p_error)
+    ! create intra-communicators for
+    ! * test ranks and work ranks (later
+    !   split into p_comm_work for the respective groups)
+    ! * io ranks
+    ! * restart ranks and
+    ! * prefetch ranks
+    my_color = MERGE(1, my_mpi_function, &
+      &                   my_mpi_function == test_mpi_process &
+      &              .OR. my_mpi_function == work_mpi_process)
+    CALL mpi_comm_split(process_mpi_all_comm, my_color, p_pe, &
+         my_function_comm, p_error)
 
-    ! Set p_comm_work_test, the communicator spanning work group and test PE
-    IF(p_test_run) THEN
-      IF(p_pe < p_io_pe0) THEN
-        my_color = 1
-      ELSE
-        my_color = MPI_UNDEFINED ! p_comm_work_test must never be used on I/O PEs
-      ENDIF
-
-      CALL MPI_Comm_split(process_mpi_all_comm, my_color, p_pe, p_comm_work_test, p_error)
+    IF(p_test_run .AND. my_color == 1) THEN
+      p_comm_work_test = my_function_comm
+      my_color = MERGE(1, 2, my_mpi_function == test_mpi_process)
+      CALL mpi_comm_split(p_comm_work_test, my_color, p_pe, &
+           p_comm_work, p_error)
+      my_function_comm = p_comm_work
     ELSE
+      p_comm_work = my_function_comm
       ! If not a test run, p_comm_work_test must not be used at all
       p_comm_work_test = MPI_COMM_NULL
     ENDIF
 
-    ! Set p_comm_work_io, the communicator spanning work group and I/O PEs
-    IF (p_test_run .AND. (p_pe < p_work_pe0)) THEN
-       my_color = 1
-    ELSE IF ((num_io_procs > 0) .AND. (p_pe >= p_work_pe0) .AND. (p_pe < p_restart_pe0)) THEN
-       my_color = 2
-    ELSE IF ((num_io_procs == 0) .AND. (p_pe < p_restart_pe0)) THEN
-       my_color = 3
+    ! Create p_comm_work_io, the communicator spanning work group and I/O PEs
+    IF (num_io_procs > 0) THEN
+      my_color = MERGE(2, &
+        &              MERGE(1, mpi_undefined, &
+        &                    my_mpi_function == test_mpi_process), &
+        &       my_mpi_function == work_mpi_process &
+           .OR. my_mpi_function == io_mpi_process)
+      CALL mpi_comm_split(process_mpi_all_comm, my_color, p_pe, &
+           p_comm_work_io, p_error)
+      IF (     my_mpi_function == work_mpi_process &
+          .OR. my_mpi_function == io_mpi_process) THEN
+        my_color = MERGE(1, mpi_undefined, my_mpi_function == io_mpi_process)
+        CALL mpi_comm_split(p_comm_work_io, my_color, p_pe, p_comm_io, p_error)
+      ELSE
+        p_comm_io = mpi_comm_null
+      END IF
+    ELSE IF (     my_mpi_function == work_mpi_process &
+      &      .OR. my_mpi_function == test_mpi_process) THEN
+      p_comm_work_io = my_function_comm
+      p_comm_io = MERGE(mpi_comm_self, mpi_comm_null, p_pe <= p_work_pe0)
     ELSE
-       my_color = MPI_UNDEFINED
+      p_comm_io = mpi_comm_null
+      p_comm_work_io = mpi_comm_null
     END IF
-    CALL MPI_Comm_split(process_mpi_all_comm, my_color, p_pe, p_comm_work_io, p_error)
-    if (my_color == MPI_UNDEFINED)  p_comm_work_io = MPI_COMM_NULL
-
-    ! Set p_comm_io, the communicator spanning the I/O PEs
-    IF (p_test_run .AND. (p_pe < p_work_pe0)) THEN
-       my_color = 1
-    ELSE IF (((num_io_procs > 0) .AND. ((p_pe >= p_io_pe0) .AND. (p_pe < p_restart_pe0))) .OR.  &
-         &   ((num_io_procs == 0) .AND. (p_pe == p_work_pe0))) THEN
-       my_color = 2
-    ELSE
-       my_color = MPI_UNDEFINED ! p_comm_work_io must only be used on test, work, I/O PEs
-    END IF
-    CALL MPI_Comm_split(process_mpi_all_comm, my_color, p_pe, p_comm_io, p_error)
-    if (my_color == MPI_UNDEFINED)  p_comm_io = MPI_COMM_NULL
 
     ! translate the rank "p_io_pe0" to the communicator "p_comm_work_io":
-    IF (p_comm_work_io /= MPI_COMM_NULL) THEN
+    IF (p_comm_work_io /= mpi_comm_null) THEN
       CALL MPI_Comm_group(process_mpi_all_comm, grp_process_mpi_all_comm, p_error)
       CALL MPI_Comm_group(p_comm_work_io,       grp_comm_work_io,         p_error)
       IF (num_io_procs > 0) THEN
@@ -1371,29 +1380,22 @@ CONTAINS
     END IF
 
     ! Set p_comm_work_restart, the communicator spanning work group and Restart Ouput PEs
-    ! In the CASE that num_restart_procs IS zero, this includes ONLY the work processes, which IS what we want for joint-mode multifile restart writing.
-    IF((p_pe >= p_work_pe0 .AND. p_pe < p_io_pe0) .OR. &
-      &(p_pe >= p_restart_pe0 .AND. p_pe < p_pref_pe0)) THEN
-        my_color = 1    ! This is set only for all workers and for all restart PEs
-    ELSE
-        my_color = MPI_UNDEFINED ! p_comm_work_restart must never be used on test and IO PE
-    END IF
-    CALL MPI_Comm_split(process_mpi_all_comm, my_color, p_pe, p_comm_work_restart, p_error)
+    my_color = MERGE(1, MPI_UNDEFINED, &
+      &                   my_mpi_function == work_mpi_process &
+      &              .OR. my_mpi_function == restart_mpi_process)
+    CALL mpi_comm_split(process_mpi_all_comm, my_color, p_pe, &
+      p_comm_work_restart, p_error)
 
     ! Set p_comm_work_pref, the communicator spanning work group and prefetching PEs
-    IF(sizeof_prefetch_processes > 0) THEN
-      IF(p_pe < p_work_pe0 .OR. &
-      &  ((num_io_procs > 0 .AND. (p_pe >= p_io_pe0 .AND. p_pe < p_restart_pe0)) .OR. &
-      &  ( num_restart_procs > 0 .AND. (p_pe >= p_restart_pe0 .AND. p_pe < p_pref_pe0)))) THEN
-        my_color = MPI_UNDEFINED ! p_comm_work_restart must never be used on test and IO PE
-      ELSE
-        my_color = 1    ! This is set only for all workers and for all prefetching PEs
-      ENDIF
-
-      CALL MPI_Comm_split(process_mpi_all_comm, my_color, p_pe, p_comm_work_pref, p_error)
+    IF (sizeof_prefetch_processes > 0) THEN
+      my_color = MERGE(1, MPI_UNDEFINED, &
+        &                   my_mpi_function == work_mpi_process &
+        &              .OR. my_mpi_function == pref_mpi_process)
+      CALL mpi_comm_split(process_mpi_all_comm, my_color, p_pe, &
+           p_comm_work_pref, p_error)
     ELSE
       ! If no prefetching PEs are present, p_comm_inp_pref must not be used at all
-      p_comm_work_pref = MPI_COMM_NULL
+      p_comm_work_pref = mpi_comm_null
     ENDIF
 
     ! translate the rank "p_pref_pe0" to the communicator "p_comm_work_pref":
@@ -1449,62 +1451,42 @@ CONTAINS
 
     CALL MPI_Comm_dup(process_mpi_all_comm, peer_comm, p_error)
 
-    IF(p_pe /= p_test_pe .AND. num_io_procs>0) THEN
-
-      IF(p_pe < p_io_pe0) THEN
-        CALL MPI_Intercomm_create(p_comm_work, 0, peer_comm, p_io_pe0, &
-          & 1, p_comm_work_2_io, p_error)
-      ELSE IF(p_pe < p_restart_pe0) THEN
-        CALL MPI_Intercomm_create(p_comm_work, 0, peer_comm, p_work_pe0,&
-          & 1, p_comm_work_2_io, p_error)
-      ELSE
-        ! No Intercommunicator for restart PEs
-        p_comm_work_2_io = MPI_COMM_NULL
-      ENDIF
+    IF (num_io_procs > 0 .AND. (my_mpi_function == work_mpi_process &
+      &                         .OR. my_mpi_function == io_mpi_process)) THEN
+      remote_leader &
+        = MERGE(p_io_pe0, p_work_pe0, my_mpi_function == work_mpi_process)
+      CALL mpi_intercomm_create(my_function_comm, 0, peer_comm, remote_leader, &
+        & 1, p_comm_work_2_io, p_error)
     ELSE
       ! No Intercommunicator for test PE or for all, when no IO PEs are defined
       p_comm_work_2_io = MPI_COMM_NULL
     ENDIF
 
-    ! Perform the same as above, but create the intra-communicators between
+    ! Perform the same as above, but create the inter-communicators between
     ! the worker PEs and the restart PEs.
-    CALL MPI_Comm_dup(process_mpi_all_comm, peer_comm_restart, p_error)
-
-    IF(p_pe /= p_test_pe .AND. num_restart_procs>0) THEN
-
-      IF(p_pe < p_io_pe0) THEN ! All workers
-        CALL MPI_Intercomm_create(p_comm_work, 0, peer_comm_restart, p_restart_pe0, &
-          & 2, p_comm_work_2_restart, p_error)
-      ELSE IF((p_pe >= p_restart_pe0).AND. (p_pref_pe0 > p_pe)) THEN ! All restart PEs
-        CALL MPI_Intercomm_create(p_comm_work, 0, peer_comm_restart, p_work_pe0,&
-          & 2, p_comm_work_2_restart, p_error)
-      ELSE
-        ! No Intercommunicator for IO PEs
-        p_comm_work_2_restart = MPI_COMM_NULL
-      ENDIF
+    IF (num_restart_procs > 0 &
+      & .AND. (my_mpi_function == work_mpi_process &
+      &        .OR. my_mpi_function == restart_mpi_process)) THEN
+      remote_leader &
+        = MERGE(p_restart_pe0, p_work_pe0, my_mpi_function == work_mpi_process)
+      CALL mpi_intercomm_create(my_function_comm, 0, peer_comm, remote_leader, &
+        & 2, p_comm_work_2_restart, p_error)
     ELSE
       ! No Intercommunicator for Test PE or for all, when no restart PEs
       p_comm_work_2_restart = MPI_COMM_NULL
     ENDIF
 
-    ! Perform the same as above, but create the intra-communicators between
+    ! Perform the same as above, but create the inter-communicator between
     ! the worker PEs and the prefetching PEs.
-    CALL MPI_Comm_dup(process_mpi_all_comm, peer_comm_pref, p_error)
-
-    IF(p_pe /= p_test_pe .AND. sizeof_prefetch_processes>0) THEN
-
-      IF(p_pe < p_io_pe0) THEN ! All workers
-        CALL MPI_Intercomm_create(p_comm_work, 0, peer_comm_pref, p_pref_pe0, &
-          & 3, p_comm_work_2_pref, p_error)
-      ELSE IF(p_pe >= p_pref_pe0) THEN ! All prefetching PEs
-        CALL MPI_Intercomm_create(p_comm_work, 0, peer_comm_pref, p_work_pe0,&
-          & 3, p_comm_work_2_pref, p_error)
-      ELSE
-        ! No Intercommunicator for prefetching PEs
-        p_comm_work_2_pref = MPI_COMM_NULL
-      ENDIF
+    IF (sizeof_prefetch_processes > 0 &
+      & .AND. (my_mpi_function == work_mpi_process &
+      &        .OR. my_mpi_function == pref_mpi_process)) THEN
+      remote_leader &
+           = MERGE(p_pref_pe0, p_work_pe0, my_mpi_function == work_mpi_process)
+      CALL mpi_intercomm_create(my_function_comm, 0, peer_comm, remote_leader, &
+           & 3, p_comm_work_2_pref, p_error)
     ELSE
-      ! No Intercommunicator for Test PE or for all, when no restart PEs
+      ! No Intercommunicator for Test PE or for all, when no prefetch PEs
       p_comm_work_2_pref = MPI_COMM_NULL
     ENDIF
 
