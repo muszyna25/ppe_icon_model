@@ -1013,7 +1013,8 @@ CONTAINS
       &                                     jp, idom, jg, local_i, idom_log,                  &
       &                                     grid_info_mode, ierrstat, jl, ifile,              &
       &                                     npartitions, ifile_partition, errno
-    INTEGER                              :: pe_placement(MAX_NUM_IO_PROCS)
+    INTEGER, POINTER                     :: pe_placement(:)
+    CHARACTER(len=vname_len), POINTER :: varlist_ptr(:)
     TYPE (t_output_name_list), POINTER   :: p_onl
     TYPE (t_output_file),      POINTER   :: p_of
     TYPE(t_list_element),      POINTER   :: element
@@ -1334,19 +1335,19 @@ CONTAINS
         CASE (level_type_ml)
           IF (p_onl%ml_varlist(1) == ' ') CYCLE
           npartitions     = p_onl%stream_partitions_ml
-          pe_placement(:) = p_onl%pe_placement_ml(:)
+          pe_placement => p_onl%pe_placement_ml(1:npartitions)
         CASE (level_type_pl)
           IF (p_onl%pl_varlist(1) == ' ') CYCLE
           npartitions     = p_onl%stream_partitions_pl
-          pe_placement(:) = p_onl%pe_placement_pl(:)
+          pe_placement => p_onl%pe_placement_pl(:)
         CASE (level_type_hl)
           IF (p_onl%hl_varlist(1) == ' ') CYCLE
           npartitions     = p_onl%stream_partitions_hl
-          pe_placement(:) = p_onl%pe_placement_hl(:)
+          pe_placement => p_onl%pe_placement_hl(:)
         CASE (level_type_il)
           IF (p_onl%il_varlist(1) == ' ') CYCLE
           npartitions     = p_onl%stream_partitions_il
-          pe_placement(:) = p_onl%pe_placement_il(:)
+          pe_placement => p_onl%pe_placement_il(:)
         END SELECT
         
         IF (npartitions > 1) THEN
@@ -1405,14 +1406,15 @@ CONTAINS
 
           SELECT CASE(i_typ)
           CASE(level_type_ml)
-            CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%ml_varlist)
+            varlist_ptr => p_onl%ml_varlist
           CASE(level_type_pl)
-            CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%pl_varlist)
+            varlist_ptr => p_onl%pl_varlist
           CASE(level_type_hl)
-            CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%hl_varlist)
+            varlist_ptr => p_onl%hl_varlist
           CASE(level_type_il)
-            CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%il_varlist)
+            varlist_ptr => p_onl%il_varlist
           END SELECT
+          CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),varlist_ptr)
 
         END DO ! ifile_partition
 
