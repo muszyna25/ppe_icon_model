@@ -1139,8 +1139,7 @@ CONTAINS
 
     p_onl => first_output_name_list
     ! Loop over all "output_nml" namelists:
-    DO
-      IF(.NOT.ASSOCIATED(p_onl)) EXIT
+    DO WHILE (ASSOCIATED(p_onl))
 
       idom = p_onl%dom ! domain for which this name list should be used
 
