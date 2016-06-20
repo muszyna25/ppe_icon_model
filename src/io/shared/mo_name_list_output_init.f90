@@ -1069,11 +1069,7 @@ CONTAINS
     ELSE
       ! Special root setting for intercommunicators:
       ! The PE really sending must use MPI_ROOT, the others MPI_PROC_NULL
-      IF(p_pe_work == 0) THEN
-        bcast_root = MPI_ROOT
-      ELSE
-        bcast_root = MPI_PROC_NULL
-      ENDIF
+      bcast_root = MERGE(MPI_ROOT, MPI_PROC_NULL, p_pe_work == 0)
     ENDIF
 #else
     ! bcast_root is not used in this case
@@ -1083,14 +1079,6 @@ CONTAINS
 
     ! ---------------------------------------------------------------------------
 
-    ! Set the number of output domains depending on
-    ! l_output_phys_patch
-
-    IF(l_output_phys_patch) THEN
-      n_dom_out = n_phys_dom
-    ELSE
-      n_dom_out = n_dom
-    ENDIF
 
     ! Replicate physical domain setup, only the number of domains and
     ! the logical ID is needed
@@ -1101,12 +1089,9 @@ CONTAINS
       ENDDO
     END IF
 
-    ! reset n_dom_out (required on I/O PEs):
-    IF(l_output_phys_patch) THEN
-      n_dom_out = n_phys_dom
-    ELSE
-      n_dom_out = n_dom
-    ENDIF
+    ! Set the number of output domains depending on
+    ! l_output_phys_patch
+    n_dom_out = MERGE(n_phys_dom, n_dom, l_output_phys_patch)
 
     ! allocate patch info data structure for unstructured and regular
     ! grids:
