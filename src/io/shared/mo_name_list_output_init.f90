@@ -1422,7 +1422,7 @@ CONTAINS
 
     ENDDO LOOP_NML
 
-    CALL assign_output_task()
+    CALL assign_output_task(output_file%io_proc_id, output_file%pe_placement)
 
     ! ---------------------------------------------------------------------------
     ! If async IO is used, replicate coordinate data on IO procs
@@ -1541,7 +1541,9 @@ CONTAINS
 
   END SUBROUTINE init_name_list_output
 
-  SUBROUTINE assign_output_task
+  SUBROUTINE assign_output_task(io_proc_id, pe_placement)
+    INTEGER, INTENT(out) :: io_proc_id(:)
+    INTEGER, INTENT(in) :: pe_placement(:)
     INTEGER :: i, j, nfiles, test_rank_offset
     INTEGER :: nremaining_io_procs !< no. of non-placed I/O ranks
     LOGICAL :: is_stdio
@@ -1558,39 +1560,35 @@ CONTAINS
     !     by the user:
     !
     is_mpi_test = my_process_is_mpi_test()
-    nfiles = SIZE(output_file)
+    nfiles = SIZE(io_proc_id)
     occupied_pes(:) = .FALSE.
     is_stdio = my_process_is_stdio()
     IF(use_async_name_list_io) THEN
       IF (process_mpi_io_size == 0) &
         CALL finish(routine, "Asynchronous I/O but no IO procs!")
-      IF (ANY(output_file%pe_placement /= -1 .AND. &
-        &     (output_file%pe_placement < 0 .OR.   &
-           &   output_file%pe_placement > process_mpi_io_size))) &
+      IF (ANY(pe_placement /= -1 .AND. &
+        &     (pe_placement < 0 .OR. pe_placement > process_mpi_io_size))) &
         CALL finish(routine, "Invalid explicit placement of IO rank!")
       DO i = 1, nfiles
         ! Asynchronous I/O
         !
         ! MPI ranks "p_io_pe0 ... (p_io_pe0+process_mpi_io_size-1)" are available.
 
-        IF (output_file(i)%pe_placement /= -1) THEN
-          output_file(i)%io_proc_id = p_io_pe0 + output_file(i)%pe_placement
-          occupied_pes(output_file(i)%pe_placement+1) = .TRUE.
+        IF (pe_placement(i) /= -1) THEN
+          io_proc_id(i) = p_io_pe0 + pe_placement(i)
+          occupied_pes(pe_placement(i)+1) = .TRUE.
         END IF
       END DO
     ELSE
-      IF (ANY(output_file%pe_placement /= -1 &
-        &     .AND. output_file%pe_placement /=  0)) &
+      IF (ANY(pe_placement /= -1 .AND. pe_placement /= 0)) &
         &  CALL finish(routine, "Invalid explicit placement of IO rank!")
 
       test_rank_offset = MERGE(num_test_procs, 0, &
         &                      p_test_run .AND. .NOT. is_mpi_test)
-      DO i = 1, nfiles
-        ! Normal I/O done by the standard I/O processor
-        !
-        ! Only MPI rank "process_mpi_stdio_id" is available.
-        output_file(i)%io_proc_id = process_mpi_stdio_id + test_rank_offset
-      END DO
+      ! Normal I/O done by the standard I/O processor
+      !
+      ! Only MPI rank "process_mpi_stdio_id" is available.
+      io_proc_id(1:nfiles) = process_mpi_stdio_id + test_rank_offset
     END IF
 
     ! --- Build a list of MPI ranks that have not yet been occupied:
@@ -1606,8 +1604,8 @@ CONTAINS
     IF ((process_mpi_io_size /= nremaining_io_procs) .AND. is_stdio) THEN
       WRITE (0,'(a)') " ", "I/O : Explicit placement of I/O ranks:"
       DO i = 1, nfiles
-        IF (output_file(i)%pe_placement /= -1) THEN
-          WRITE (0,'(a,i0,a,i0)') "    file #", i, " placed on rank #", output_file(i)%io_proc_id
+        IF (pe_placement(i) /= -1) THEN
+          WRITE (0,'(a,i0,a,i0)') "    file #", i, " placed on rank #", io_proc_id(i)
         END IF
       END DO
       IF (nremaining_io_procs > 0) THEN
@@ -1623,21 +1621,21 @@ CONTAINS
     IF ((process_mpi_io_size /= nremaining_io_procs) .AND. &
       & is_stdio                        .AND. &
       & (nremaining_io_procs > 0)                    .AND. &
-      & ANY(output_file%pe_placement == -1)) THEN
+      & ANY(pe_placement == -1)) THEN
       WRITE (0,'(a)') " ", "I/O : Round-Robin placement of I/O ranks:"
     END IF
     IF (use_async_name_list_io) THEN
       j = 0
       DO i = 1, nfiles
-        IF (output_file(i)%pe_placement == -1) THEN
+        IF (pe_placement(i) == -1) THEN
           IF (nremaining_io_procs == 0) THEN
             CALL finish(routine, "No I/O proc left after explicit placement!")
           END IF
           ! Asynchronous I/O
           j = j + 1
-          output_file(i)%io_proc_id = p_io_pe0 + remaining_io_procs(MOD(j-1,nremaining_io_procs) + 1)
+          io_proc_id(i) = p_io_pe0 + remaining_io_procs(MOD(j-1,nremaining_io_procs) + 1)
           IF ((process_mpi_io_size /= nremaining_io_procs) .AND. is_stdio) THEN
-            WRITE (0,'(a,i0,a,i0)') "    file #", i, " placed on rank #", output_file(i)%io_proc_id
+            WRITE (0,'(a,i0,a,i0)') "    file #", i, " placed on rank #", io_proc_id(i)
           END IF
         END IF
       END DO
