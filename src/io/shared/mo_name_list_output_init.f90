@@ -1016,28 +1016,23 @@ CONTAINS
     TYPE (t_output_name_list), POINTER   :: p_onl
     TYPE (t_output_file),      POINTER   :: p_of
     TYPE(t_list_element),      POINTER   :: element
-    TYPE(t_fname_metadata)               :: fname_metadata
     TYPE(t_par_output_event),  POINTER   :: ev
     TYPE (t_sim_step_info)               :: dom_sim_step_info
     TYPE(timedelta),           POINTER   :: mtime_output_interval,                             &
-      &                                     mtime_interval, mtime_td1, mtime_td2, mtime_td3,   &
+      &                                     mtime_td1, mtime_td2, mtime_td3,   &
       &                                     mtime_td, mtime_day
-    TYPE(datetime),            POINTER   :: mtime_datetime, mtime_datetime_start,              &
+    TYPE(datetime),            POINTER   :: mtime_datetime_start,              &
       &                                     mtime_datetime_end, mtime_date1, mtime_date2,      &
       &                                     mtime_date
-    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: lower_bound_str, time_offset_str
-    CHARACTER(len=MAX_CHAR_LENGTH)       :: attname                        !< attribute name
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: lower_bound_str
     CHARACTER(len=MAX_CHAR_LENGTH)       :: proc_list_str                  !< string (unoccupied I/O ranks)
     LOGICAL                              :: occupied_pes(MAX_NUM_IO_PROCS) !< explicitly placed I/O ranks
     INTEGER                              :: nremaining_io_procs            !< no. of non-placed I/O ranks
     INTEGER                              :: remaining_io_procs(MAX_NUM_IO_PROCS) !< non-placed I/O ranks
 
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN+1):: output_start(MAX_TIME_INTERVALS)    !< time stamps + modifier
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: output_interval(MAX_TIME_INTERVALS) !< time stamps + modifier
-    INTEGER                              :: idx, istart, iintvl,  nintvls
+    INTEGER                              :: idx, istart
     INTEGER(c_int64_t)                   :: total_ms
-    LOGICAL                              :: include_last, is_mpi_test
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    LOGICAL                              :: is_mpi_test
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
     CHARACTER(LEN=max_char_length)       :: comp_name
 #endif
@@ -1592,132 +1587,13 @@ CONTAINS
     !
     local_i = 0
     DO i = 1, nfiles
-      p_of  => output_file(i)
-
-      IF (use_async_name_list_io  .AND. &
-        & my_process_is_io()      .AND. &
-        & p_of%io_proc_id /= p_pe) THEN
-        NULLIFY(p_of%out_event)
-        CYCLE
-      END IF
-
-      p_onl => p_of%name_list
-      ! pack file-name meta-data into a derived type to pass them
-      ! to "new_parallel_output_event":
-      fname_metadata%steps_per_file             = p_onl%steps_per_file
-      fname_metadata%steps_per_file_inclfirst   = p_onl%steps_per_file_inclfirst
-      fname_metadata%file_interval              = p_onl%file_interval
-      fname_metadata%phys_patch_id              = p_of%phys_patch_id
-      fname_metadata%ilev_type                  = p_of%ilev_type
-      fname_metadata%filename_format            = TRIM(p_onl%filename_format)
-      fname_metadata%filename_pref              = TRIM(p_of%filename_pref)
-      fname_metadata%npartitions                = p_of%npartitions
-      fname_metadata%ifile_partition            = p_of%ifile_partition
-      ! set user-specified filename extension or use the default
-      ! extension:
-      IF (TRIM(p_onl%filename_extn) == "default") THEN
-        fname_metadata%extn                     = TRIM(get_file_extension(p_onl%filetype))
+      IF (.NOT. use_async_name_list_io .OR. .NOT. my_process_is_io() &
+           .OR. output_file(i)%io_proc_id == p_pe) THEN
+        CALL add_out_event(output_file(i)%name_list, output_file(i), &
+             i, local_i, sim_step_info, dom_sim_step_info)
       ELSE
-        fname_metadata%extn                     = TRIM(p_onl%filename_extn)
+        NULLIFY(output_file(i)%out_event)
       END IF
-
-      restartAttributes => getAttributesForRestarting()
-      IF (ASSOCIATED(restartAttributes)) THEN
-        ! Restart case: Get starting index of ouput from restart file
-        !               (if there is such an attribute available).
-        WRITE(attname,'(a,i2.2)') 'output_jfile_',i
-        fname_metadata%jfile_offset = restartAttributes%getInteger(TRIM(attname), opt_default=0)
-      ELSE
-        fname_metadata%jfile_offset             = 0
-      END IF
-
-      ! set model domain start/end time
-      dom_sim_step_info = sim_step_info
-      mtime_date => newDatetime(time_config%tc_startdate)
-      CALL getPTStringFromSeconds(NINT(start_time(p_of%log_patch_id),i8), time_offset_str)
-      mtime_td   => newTimedelta(time_offset_str)
-      mtime_date = mtime_date + mtime_td
-      CALL datetimeToString(mtime_date, dom_sim_step_info%dom_start_time)
-      CALL deallocateDatetime(mtime_date)
-      CALL deallocateTimedelta(mtime_td)
-
-      IF (end_time(p_of%log_patch_id) < DEFAULT_ENDTIME) THEN
-        mtime_date => newDatetime(time_config%tc_startdate)
-        CALL getPTStringFromSeconds(NINT(end_time(p_of%log_patch_id),i8), time_offset_str)        
-        mtime_td   => newTimedelta(time_offset_str)
-        mtime_date = mtime_date + mtime_td
-        CALL datetimeToString(mtime_date, dom_sim_step_info%dom_end_time)
-        CALL deallocateDatetime(mtime_date)
-        CALL deallocateTimedelta(mtime_td)
-      ELSE
-        dom_sim_step_info%dom_end_time = dom_sim_step_info%sim_end
-      END IF
-      local_i = local_i + 1
-
-      include_last    = p_onl%include_last
-      output_interval = p_onl%output_interval
-      output_start    = p_onl%output_start
-
-      ! Handle the case that one namelist has been split into
-      ! concurrent, alternating files ("streams"):
-      !
-      IF (p_of%npartitions > 1) THEN
-        ! count the number of different time intervals for this event (usually 1)
-        nintvls = 0
-        DO
-          IF (TRIM(output_start(nintvls+1)) == '') EXIT
-          nintvls = nintvls + 1
-          IF (nintvls == MAX_TIME_INTERVALS) EXIT
-        END DO
-
-        DO iintvl=1,nintvls
-          mtime_interval => newTimedelta(output_interval(iintvl),errno=errno)
-          IF (errno /= SUCCESS) CALL finish(routine,"Wrong output interval")
-          mtime_datetime => newDatetime(TRIM(strip_from_modifiers(output_start(iintvl))))
-          !
-          ! - The start_date gets an offset of
-          !         "(ifile_partition - 1) * output_interval"
-          DO ifile=1,(p_of%ifile_partition-1)
-            mtime_datetime = mtime_datetime + mtime_interval
-          END DO
-          CALL datetimeToString(mtime_datetime, output_start(iintvl))
-          ! - The output_interval is replaced by "
-          !         "npartitions * output_interval"
-          total_ms = getTotalMilliSecondsTimeDelta(mtime_interval, mtime_datetime)
-          total_ms = total_ms * p_of%npartitions
-
-          mtime_td => newTimedelta("PT"//TRIM(int2string(INT(total_ms/1000), '(i0)'))//"S")
-          CALL timedeltaToString(mtime_td, output_interval(iintvl))
-          CALL deallocateTimedelta(mtime_td)
-
-          IF (p_of%ifile_partition == 1) THEN
-            WRITE(message_text,'(a,a)') "File stream partitioning: total output interval = ", &
-              &                         output_interval(iintvl)
-            CALL message(routine, message_text)
-          END IF
-          ! - The "include_last" flag is set to .FALSE.
-          include_last                  = .FALSE.
-          ! - The "steps_per_file" counter is set to 1
-          fname_metadata%steps_per_file = 1
-          ! - The "steps_per_file_inclfirst" flag is set to .FALSE.
-          fname_metadata%steps_per_file_inclfirst = .FALSE.
-          !
-          CALL deallocateTimedelta(mtime_interval)
-          CALL deallocateDatetime(mtime_datetime)
-        END DO ! iintvl
-      END IF
-
-      ! ------------------------------------------------------------------------------------------
-      ! --- I/O PEs communicate their event data, the other PEs create
-      ! --- the event data only locally for their own event control:
-      p_of%out_event => new_parallel_output_event(p_onl%ready_file,                              &
-        &                  output_start, p_onl%output_end, output_interval, include_last,        &
-        &                  dom_sim_step_info, fname_metadata, compute_matching_sim_steps,        &
-        &                  generate_output_filenames, local_i, p_comm_io)
-      ! ------------------------------------------------------------------------------------------
-      IF (dom_sim_step_info%jstep0 > 0) &
-        &  CALL set_event_to_simstep(p_of%out_event, dom_sim_step_info%jstep0 + 1, &
-        &                            isRestart(), lrecover_open_file=.TRUE.)
     END DO
 
     ! tell the root I/O process that all output event data structures
@@ -1795,6 +1671,151 @@ CONTAINS
 
   END SUBROUTINE init_name_list_output
 
+  SUBROUTINE add_out_event(p_onl, p_of, i, local_i, &
+       sim_step_info, dom_sim_step_info)
+    TYPE (t_output_name_list), INTENT(inout) :: p_onl
+    TYPE (t_output_file), INTENT(inout) :: p_of
+    INTEGER, INTENT(in) :: i
+    INTEGER, INTENT(inout) :: local_i
+    TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
+    TYPE (t_sim_step_info), INTENT(inout) :: dom_sim_step_info
+
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::add_out_event"
+
+    TYPE(t_fname_metadata) :: fname_metadata
+    TYPE(timedelta), POINTER :: mtime_interval, mtime_td
+    TYPE(datetime), POINTER :: mtime_datetime, mtime_date
+    INTEGER(c_int64_t) :: total_ms
+    INTEGER :: tlen, additional_days(max_time_intervals)
+    INTEGER :: iintvl, nintvls, ifile
+    INTEGER :: errno
+
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    LOGICAL :: l_is_restart
+    LOGICAL :: include_last
+    CHARACTER(LEN=max_timedelta_str_len) :: time_offset_str
+    CHARACTER(LEN=max_datetime_str_len+1) :: output_start(max_time_intervals)
+    CHARACTER(LEN=max_datetime_str_len) :: output_interval(max_time_intervals)
+    CHARACTER(len=max_char_length) :: attname !< attribute name
+
+    ! pack file-name meta-data into a derived type to pass them
+    ! to "new_parallel_output_event":
+    fname_metadata%steps_per_file             = p_onl%steps_per_file
+    fname_metadata%steps_per_file_inclfirst   = p_onl%steps_per_file_inclfirst
+    fname_metadata%file_interval              = p_onl%file_interval
+    fname_metadata%phys_patch_id              = p_of%phys_patch_id
+    fname_metadata%ilev_type                  = p_of%ilev_type
+    fname_metadata%filename_format            = TRIM(p_onl%filename_format)
+    fname_metadata%filename_pref              = TRIM(p_of%filename_pref)
+    fname_metadata%npartitions                = p_of%npartitions
+    fname_metadata%ifile_partition            = p_of%ifile_partition
+    ! set user-specified filename extension or use the default
+    ! extension:
+    tlen = LEN_TRIM(p_onl%filename_extn)
+    IF (p_onl%filename_extn(1:tlen) == "default") THEN
+      fname_metadata%extn = TRIM(get_file_extension(p_onl%filetype))
+    ELSE
+      fname_metadata%extn = p_onl%filename_extn(1:tlen)
+    END IF
+
+    restartAttributes => getAttributesForRestarting()
+    IF (ASSOCIATED(restartAttributes)) THEN
+      ! Restart case: Get starting index of ouput from restart file
+      !               (if there is such an attribute available).
+      WRITE(attname,'(a,i2.2)') 'output_jfile_',i
+      fname_metadata%jfile_offset = restartAttributes%getInteger(TRIM(attname), opt_default=0)
+    ELSE
+      NULLIFY(p_of%out_event)
+    END IF
+
+    ! set model domain start/end time
+    dom_sim_step_info = sim_step_info
+    mtime_date => newDatetime(time_config%tc_startdate)
+    CALL getPTStringFromSeconds(NINT(start_time(p_of%log_patch_id),i8), time_offset_str)
+    mtime_td   => newTimedelta(time_offset_str)
+    mtime_date = mtime_date + mtime_td
+    CALL datetimeToString(mtime_date, dom_sim_step_info%dom_start_time)
+    CALL deallocateDatetime(mtime_date)
+    CALL deallocateTimedelta(mtime_td)
+
+    IF (end_time(p_of%log_patch_id) < DEFAULT_ENDTIME) THEN
+      mtime_date => newDatetime(time_config%tc_startdate)
+      CALL getPTStringFromSeconds(NINT(end_time(p_of%log_patch_id),i8), time_offset_str)
+      mtime_td   => newTimedelta(time_offset_str)
+      mtime_date = mtime_date + mtime_td
+      CALL datetimeToString(mtime_date, dom_sim_step_info%dom_end_time)
+      CALL deallocateDatetime(mtime_date)
+      CALL deallocateTimedelta(mtime_td)
+    ELSE
+      dom_sim_step_info%dom_end_time = dom_sim_step_info%sim_end
+    END IF
+    local_i = local_i + 1
+
+    include_last    = p_onl%include_last
+    output_interval = p_onl%output_interval
+    output_start    = p_onl%output_start
+
+    ! Handle the case that one namelist has been split into
+    ! concurrent, alternating files ("streams"):
+    !
+    IF (p_of%npartitions > 1) THEN
+      ! count the number of different time intervals for this event (usually 1)
+      nintvls = 0
+      DO WHILE (LEN_TRIM(output_start(nintvls+1)) > 0)
+        nintvls = nintvls + 1
+        IF (nintvls == MAX_TIME_INTERVALS) EXIT
+      END DO
+
+      DO iintvl=1,nintvls
+        mtime_interval => newTimedelta(output_interval(iintvl),errno=errno)
+        IF (errno /= SUCCESS) CALL finish(routine,"Wrong output interval")
+        mtime_datetime => newDatetime(TRIM(strip_from_modifiers(output_start(iintvl))))
+        !
+        ! - The start_date gets an offset of
+        !         "(ifile_partition - 1) * output_interval"
+        DO ifile=1,(p_of%ifile_partition-1)
+          mtime_datetime = mtime_datetime + mtime_interval
+        END DO
+        CALL datetimeToString(mtime_datetime, output_start(iintvl))
+        ! - The output_interval is replaced by "
+        !         "npartitions * output_interval"
+        total_ms = getTotalMilliSecondsTimeDelta(mtime_interval, mtime_datetime)
+        total_ms = total_ms * p_of%npartitions
+
+        mtime_td => newTimedelta("PT"//TRIM(int2string(INT(total_ms/1000), '(i0)'))//"S")
+        CALL timedeltaToString(mtime_td, output_interval(iintvl))
+        CALL deallocateTimedelta(mtime_td)
+        IF (p_of%ifile_partition == 1) THEN
+          WRITE(message_text,'(a,a)') "File stream partitioning: total output interval = ", &
+               &                         output_interval(iintvl)
+          CALL message(routine, message_text)
+        END IF
+        ! - The "include_last" flag is set to .FALSE.
+        include_last                  = .FALSE.
+        ! - The "steps_per_file" counter is set to 1
+        fname_metadata%steps_per_file = 1
+        ! - The "steps_per_file_inclfirst" flag is set to .FALSE.
+        fname_metadata%steps_per_file_inclfirst = .FALSE.
+        !
+        CALL deallocateTimedelta(mtime_interval)
+        CALL deallocateDatetime(mtime_datetime)
+      END DO ! iintvl
+    END IF
+
+    ! ------------------------------------------------------------------------------------------
+    ! --- I/O PEs communicate their event data, the other PEs create
+    ! --- the event data only locally for their own event control:
+    p_of%out_event => new_parallel_output_event(p_onl%ready_file,            &
+         &                  output_start, p_onl%output_end, output_interval, &
+         &                  include_last, dom_sim_step_info, fname_metadata, &
+         &                  compute_matching_sim_steps,                      &
+         &                  generate_output_filenames, local_i, p_comm_io)
+    ! ------------------------------------------------------------------------------------------
+    IF (dom_sim_step_info%jstep0 > 0) &
+         &  CALL set_event_to_simstep(p_of%out_event, dom_sim_step_info%jstep0 + 1, &
+         &                            isRestart(), lrecover_open_file=.TRUE.)
+
+  END SUBROUTINE add_out_event
 
   !------------------------------------------------------------------------------------------------
   !> Create meta-data for vertical axes.
