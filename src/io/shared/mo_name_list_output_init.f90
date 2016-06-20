@@ -1203,9 +1203,7 @@ CONTAINS
     ! "output_start" / "output_end" / "output_interval" from this
     ! info:
     p_onl => first_output_name_list
-    DO
-      IF(.NOT.ASSOCIATED(p_onl))  EXIT
-
+    DO WHILE (ASSOCIATED(p_onl))
       ! there may be multiple "output_bounds" intervals, consider all:
       DO idx=1,MAX_TIME_INTERVALS
         istart = (idx-1)*3
@@ -1319,9 +1317,7 @@ CONTAINS
 
     p_onl => first_output_name_list
     ifile = 0
-    LOOP_NML : DO
-
-      IF(.NOT.ASSOCIATED(p_onl)) EXIT
+    LOOP_NML : DO WHILE (ASSOCIATED(p_onl))
 
       idom = p_onl%dom ! domain for which this name list should be used
       ! non-existent domains are simply ignored:
