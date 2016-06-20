@@ -1564,15 +1564,14 @@ CONTAINS
     IF(use_async_name_list_io) THEN
       IF (process_mpi_io_size == 0) &
         CALL finish(routine, "Asynchronous I/O but no IO procs!")
+      IF (ANY(output_file%pe_placement /= -1 .AND. &
+        &     (output_file%pe_placement < 0 .OR.   &
+           &   output_file%pe_placement > process_mpi_io_size))) &
+        CALL finish(routine, "Invalid explicit placement of IO rank!")
       DO i = 1, nfiles
         ! Asynchronous I/O
         !
         ! MPI ranks "p_io_pe0 ... (p_io_pe0+process_mpi_io_size-1)" are available.
-        IF ((output_file(i)%pe_placement /= -1) .AND. &
-          & ((output_file(i)%pe_placement < 0) .OR.   &
-          &  (output_file(i)%pe_placement > process_mpi_io_size))) THEN
-          CALL finish(routine, "Invalid explicit placement of IO rank!")
-        END IF
 
         IF (output_file(i)%pe_placement /= -1) THEN
           output_file(i)%io_proc_id = p_io_pe0 + output_file(i)%pe_placement
