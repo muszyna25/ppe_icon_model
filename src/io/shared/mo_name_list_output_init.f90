@@ -1084,9 +1084,7 @@ CONTAINS
     ! the logical ID is needed
     IF (use_async_name_list_io .AND. .NOT. is_mpi_test) THEN
       CALL p_bcast(n_phys_dom, bcast_root, p_comm_work_2_io)
-      DO jg = 1, n_phys_dom
-        CALL p_bcast(p_phys_patch(jg)%logical_id, bcast_root, p_comm_work_2_io)
-      ENDDO
+      CALL p_bcast(p_phys_patch(1:n_phys_dom)%logical_id, bcast_root, p_comm_work_2_io)
     END IF
 
     ! Set the number of output domains depending on
@@ -1166,15 +1164,11 @@ CONTAINS
     ! replicate grid_info_mode on I/O PEs:
     IF (use_async_name_list_io .AND. .NOT. is_mpi_test) THEN
       ! Go over all output domains
-      DO idom = 1, n_dom_out
-        CALL p_bcast(patch_info(idom)%grid_info_mode, bcast_root, p_comm_work_2_io)
-      END DO
+      CALL p_bcast(patch_info(1:n_dom_out)%grid_info_mode, &
+        &          bcast_root, p_comm_work_2_io)
       ! A similar process as above - for the lon-lat grids
-      DO jl = 1,lonlat_grids%ngrids
-        DO jg = 1,n_dom
-          CALL p_bcast(lonlat_info(jl,jg)%grid_info_mode, bcast_root, p_comm_work_2_io)
-        END DO
-      END DO
+      CALL p_bcast(lonlat_info(1:lonlat_grids%ngrids,1:n_dom)%grid_info_mode, &
+        &          bcast_root, p_comm_work_2_io)
     END IF
 
     ! Prepare the output of grid information: For each
