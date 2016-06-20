@@ -1300,30 +1300,16 @@ CONTAINS
 
     p_onl => first_output_name_list
     nfiles = 0
-    DO
-
-      IF(.NOT.ASSOCIATED(p_onl))  EXIT
-
+    DO WHILE(ASSOCIATED(p_onl))
       ! non-existent domains are simply ignored:
-      IF (p_onl%dom <= n_dom_out) THEN
-        DO i_typ = 1, 4
-          ! Check if name_list has variables of corresponding type,
-          ! then increase file counter.
-          SELECT CASE(i_typ)
-          CASE (level_type_ml)
-            IF (p_onl%ml_varlist(1) == ' ') CYCLE
-            nfiles = nfiles + p_onl%stream_partitions_ml
-          CASE (level_type_pl)
-            IF (p_onl%pl_varlist(1) == ' ') CYCLE
-            nfiles = nfiles + p_onl%stream_partitions_pl
-          CASE (level_type_hl)
-            IF (p_onl%hl_varlist(1) == ' ') CYCLE
-            nfiles = nfiles + p_onl%stream_partitions_hl
-          CASE (level_type_il)
-            IF (p_onl%il_varlist(1) == ' ') CYCLE
-            nfiles = nfiles + p_onl%stream_partitions_il
-          END SELECT
-        ENDDO
+      IF(p_onl%dom <= n_dom_out) THEN
+
+        ! Check if name_list has variables of corresponding type,
+        ! then increase file counter.
+        IF (p_onl%ml_varlist(1) /= ' ') nfiles = nfiles + p_onl%stream_partitions_ml
+        IF (p_onl%pl_varlist(1) /= ' ') nfiles = nfiles + p_onl%stream_partitions_pl
+        IF (p_onl%hl_varlist(1) /= ' ') nfiles = nfiles + p_onl%stream_partitions_hl
+        IF (p_onl%il_varlist(1) /= ' ') nfiles = nfiles + p_onl%stream_partitions_il
       END IF
 
       p_onl => p_onl%next
