@@ -67,7 +67,8 @@ MODULE mo_name_list_output_init
   USE mo_model_domain,                      ONLY: p_patch, p_phys_patch
   USE mo_math_utilities,                    ONLY: merge_values_into_set
   ! config modules
-  USE mo_parallel_config,                   ONLY: nproma, p_test_run, use_dp_mpi2io
+  USE mo_parallel_config,                   ONLY: nproma, p_test_run, &
+       use_dp_mpi2io, num_io_procs
 
   USE mo_run_config,                        ONLY: dtime, msg_level, output_mode,                  &
     &                                             number_of_grid_used, iforcing
@@ -1025,11 +1026,6 @@ CONTAINS
       &                                     mtime_datetime_end, mtime_date1, mtime_date2,      &
       &                                     mtime_date
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: lower_bound_str
-    CHARACTER(len=MAX_CHAR_LENGTH)       :: proc_list_str                  !< string (unoccupied I/O ranks)
-    LOGICAL                              :: occupied_pes(MAX_NUM_IO_PROCS) !< explicitly placed I/O ranks
-    INTEGER                              :: nremaining_io_procs            !< no. of non-placed I/O ranks
-    INTEGER                              :: remaining_io_procs(MAX_NUM_IO_PROCS) !< non-placed I/O ranks
-
     INTEGER                              :: idx, istart
     LOGICAL                              :: is_io
     INTEGER(c_int64_t)                   :: total_ms
@@ -1451,96 +1447,7 @@ CONTAINS
 
     ENDDO LOOP_NML
 
-    ! ------------------------------------------------------
-    ! Set ID of process doing I/O
-    ! ------------------------------------------------------
-
-    ! --- First, set those MPI ranks which were explicitly specified
-    !     by the user:
-    !
-    occupied_pes(:) = .FALSE.
-    DO i = 1, nfiles
-      IF(use_async_name_list_io) THEN
-        ! Asynchronous I/O
-        !
-        ! MPI ranks "p_io_pe0 ... (p_io_pe0+process_mpi_io_size-1)" are available.
-        IF (process_mpi_io_size == 0) CALL finish(routine, "Asynchronous I/O but no IO procs!")
-        IF ((output_file(i)%pe_placement /= -1) .AND. &
-          & ((output_file(i)%pe_placement < 0) .OR.   &
-          &  (output_file(i)%pe_placement > process_mpi_io_size))) THEN
-          CALL finish(routine, "Invalid explicit placement of IO rank!")
-        END IF
-
-        IF (output_file(i)%pe_placement /= -1) THEN
-          output_file(i)%io_proc_id = p_io_pe0 + output_file(i)%pe_placement
-          occupied_pes(output_file(i)%pe_placement+1) = .TRUE.
-        END IF
-      ELSE
-        ! Normal I/O done by the standard I/O processor
-        !
-        ! Only MPI rank "process_mpi_stdio_id" is available.
-        IF ((output_file(i)%pe_placement /= -1) .AND. &
-          & (output_file(i)%pe_placement /=  0)) &
-          &  CALL finish(routine, "Invalid explicit placement of IO rank!")
-
-        output_file(i)%io_proc_id = process_mpi_stdio_id &
-             + MERGE(num_test_procs, 0, p_test_run .AND. .NOT. is_mpi_test)
-      ENDIF
-    ENDDO
-
-    ! --- Build a list of MPI ranks that have not yet been occupied:
-    !
-    nremaining_io_procs = 0
-    DO i=1,process_mpi_io_size
-      IF (.NOT. occupied_pes(i)) THEN
-        nremaining_io_procs = nremaining_io_procs + 1
-        remaining_io_procs(nremaining_io_procs) = (i-1)
-      END IF
-    END DO
-    ! status output, if some ranks were explicitly specified
-    IF ((process_mpi_io_size /= nremaining_io_procs) .AND. my_process_is_stdio()) THEN
-      WRITE (0,*) " "
-      WRITE (0,*) "I/O : Explicit placement of I/O ranks:"
-      DO i = 1, nfiles
-        IF (output_file(i)%pe_placement /= -1) THEN
-          WRITE (0,'(a,i0,a,i0)') "    file #", i, " placed on rank #", output_file(i)%io_proc_id
-        END IF
-      END DO
-      IF (nremaining_io_procs > 0) THEN
-        CALL sort_and_compress_list(remaining_io_procs(1:nremaining_io_procs), proc_list_str)
-        WRITE (0,*) "I/O : Remaining I/O ranks: # ", TRIM(proc_list_str)
-      END IF
-    END IF
-
-    ! --- Then, set MPI ranks in a Round-Robin fashion for those
-    !     namelists which had no explicitly specified "pe_placement":
-    !
-    ! status print-out only when some PEs were explicitly set.
-    IF ((process_mpi_io_size /= nremaining_io_procs) .AND. &
-      & my_process_is_stdio()                        .AND. &
-      & (nremaining_io_procs > 0)                    .AND. &
-      & ANY(output_file(1:nfiles)%pe_placement == -1)) THEN
-      WRITE (0,*) " "
-      WRITE (0,*) "I/O : Round-Robin placement of I/O ranks:"
-    END IF
-    j = 0
-    DO i = 1, nfiles
-      IF (output_file(i)%pe_placement /= -1) CYCLE
-      IF(use_async_name_list_io) THEN
-        IF (nremaining_io_procs == 0) THEN
-          CALL finish(routine, "No I/O proc left after explicit placement!")
-        END IF
-        ! Asynchronous I/O
-        j = j + 1
-        output_file(i)%io_proc_id = p_io_pe0 + remaining_io_procs(MOD(j-1,nremaining_io_procs) + 1)
-        IF ((process_mpi_io_size /= nremaining_io_procs) .AND. my_process_is_stdio()) THEN
-          WRITE (0,'(a,i0,a,i0)') "    file #", i, " placed on rank #", output_file(i)%io_proc_id
-        END IF
-      ENDIF
-    ENDDO
-    IF ((process_mpi_io_size /= nremaining_io_procs) .AND. my_process_is_stdio()) THEN
-      WRITE (0,*) " "
-    END IF
+    CALL assign_output_task()
 
     ! ---------------------------------------------------------------------------
     ! If async IO is used, replicate coordinate data on IO procs
@@ -1658,6 +1565,114 @@ CONTAINS
     CALL message(routine,'Done')
 
   END SUBROUTINE init_name_list_output
+
+  SUBROUTINE assign_output_task
+    INTEGER :: i, j, nfiles, test_rank_offset
+    INTEGER :: nremaining_io_procs !< no. of non-placed I/O ranks
+    LOGICAL :: lmy_process_is_stdio
+    CHARACTER(len=MAX_CHAR_LENGTH) :: proc_list_str !< string (unoccupied I/O ranks)
+    INTEGER :: remaining_io_procs(process_mpi_io_size) !< non-placed I/O ranks
+    LOGICAL :: occupied_pes(process_mpi_io_size) !< explicitly placed I/O ranks
+    LOGICAL :: is_mpi_test
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::assign_output_task"
+    ! ------------------------------------------------------
+    ! Set ID of process doing I/O
+    ! ------------------------------------------------------
+
+    ! --- First, set those MPI ranks which were explicitly specified
+    !     by the user:
+    !
+    is_mpi_test = my_process_is_mpi_test()
+    nfiles = SIZE(output_file)
+    occupied_pes(:) = .FALSE.
+    lmy_process_is_stdio = my_process_is_stdio()
+    IF(use_async_name_list_io) THEN
+      IF (process_mpi_io_size == 0) &
+        CALL finish(routine, "Asynchronous I/O but no IO procs!")
+      DO i = 1, nfiles
+        ! Asynchronous I/O
+        !
+        ! MPI ranks "p_io_pe0 ... (p_io_pe0+process_mpi_io_size-1)" are available.
+        IF ((output_file(i)%pe_placement /= -1) .AND. &
+          & ((output_file(i)%pe_placement < 0) .OR.   &
+          &  (output_file(i)%pe_placement > process_mpi_io_size))) THEN
+          CALL finish(routine, "Invalid explicit placement of IO rank!")
+        END IF
+
+        IF (output_file(i)%pe_placement /= -1) THEN
+          output_file(i)%io_proc_id = p_io_pe0 + output_file(i)%pe_placement
+          occupied_pes(output_file(i)%pe_placement+1) = .TRUE.
+        END IF
+      END DO
+    ELSE
+      IF (ANY(output_file%pe_placement /= -1 &
+        &     .AND. output_file%pe_placement /=  0)) &
+        &  CALL finish(routine, "Invalid explicit placement of IO rank!")
+
+      test_rank_offset = MERGE(num_test_procs, 0, &
+        &                      p_test_run .AND. .NOT. is_mpi_test)
+      DO i = 1, nfiles
+        ! Normal I/O done by the standard I/O processor
+        !
+        ! Only MPI rank "process_mpi_stdio_id" is available.
+        output_file(i)%io_proc_id = process_mpi_stdio_id + test_rank_offset
+      END DO
+    END IF
+
+    ! --- Build a list of MPI ranks that have not yet been occupied:
+    !
+    nremaining_io_procs = 0
+    DO i=1,process_mpi_io_size
+      IF (.NOT. occupied_pes(i)) THEN
+        nremaining_io_procs = nremaining_io_procs + 1
+        remaining_io_procs(nremaining_io_procs) = (i-1)
+      END IF
+    END DO
+    ! status output, if some ranks were explicitly specified
+    IF ((process_mpi_io_size /= nremaining_io_procs) .AND. lmy_process_is_stdio) THEN
+      WRITE (0,'(a)') " ", "I/O : Explicit placement of I/O ranks:"
+      DO i = 1, nfiles
+        IF (output_file(i)%pe_placement /= -1) THEN
+          WRITE (0,'(a,i0,a,i0)') "    file #", i, " placed on rank #", output_file(i)%io_proc_id
+        END IF
+      END DO
+      IF (nremaining_io_procs > 0) THEN
+        CALL sort_and_compress_list(remaining_io_procs(1:nremaining_io_procs), proc_list_str)
+        WRITE (0,'(a)') "I/O : Remaining I/O ranks: # ", TRIM(proc_list_str)
+      END IF
+    END IF
+
+    ! --- Then, set MPI ranks in a Round-Robin fashion for those
+    !     namelists which had no explicitly specified "pe_placement":
+    !
+    ! status print-out only when some PEs were explicitly set.
+    IF ((process_mpi_io_size /= nremaining_io_procs) .AND. &
+      & lmy_process_is_stdio                        .AND. &
+      & (nremaining_io_procs > 0)                    .AND. &
+      & ANY(output_file%pe_placement == -1)) THEN
+      WRITE (0,'(a)') " ", "I/O : Round-Robin placement of I/O ranks:"
+    END IF
+    IF (use_async_name_list_io) THEN
+      j = 0
+      DO i = 1, nfiles
+        IF (output_file(i)%pe_placement == -1) THEN
+          IF (nremaining_io_procs == 0) THEN
+            CALL finish(routine, "No I/O proc left after explicit placement!")
+          END IF
+          ! Asynchronous I/O
+          j = j + 1
+          output_file(i)%io_proc_id = p_io_pe0 + remaining_io_procs(MOD(j-1,nremaining_io_procs) + 1)
+          IF ((process_mpi_io_size /= nremaining_io_procs) .AND. lmy_process_is_stdio) THEN
+            WRITE (0,'(a,i0,a,i0)') "    file #", i, " placed on rank #", output_file(i)%io_proc_id
+          END IF
+        END IF
+      END DO
+    END IF
+    IF ((process_mpi_io_size /= nremaining_io_procs) .AND. lmy_process_is_stdio) THEN
+      WRITE (0,'(a)') ""
+    END IF
+
+  END SUBROUTINE assign_output_task
 
   SUBROUTINE add_out_event(p_onl, p_of, i, local_i, &
        sim_step_info, dom_sim_step_info)
