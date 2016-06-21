@@ -89,7 +89,8 @@ MODULE mo_model_domain
   USE mo_kind
   USE mo_math_utilities,          ONLY: t_geographical_coordinates, t_cartesian_coordinates
   USE mo_impl_constants,          ONLY: max_dom, max_phys_dom
-  USE mo_communication,           ONLY: t_comm_pattern, t_comm_gather_pattern, t_scatterPattern
+  USE mo_communication,           ONLY: t_comm_pattern, t_comm_gather_pattern, &
+    &                                   t_scatterPattern, t_comm_pattern_collection
   USE mo_io_units,                ONLY: filename_max
   USE mo_util_uuid_types,         ONLY: t_uuid
   USE mo_grid_geometry_info,      ONLY: t_grid_geometry_info
@@ -907,10 +908,10 @@ MODULE mo_model_domain
 
     ! Interpolation for grid refinement, defined only on regular patches
     TYPE(t_comm_pattern) :: comm_pat_interpolation_c
-    TYPE(t_comm_pattern) :: comm_pat_interpol_vec_grf(4)
-    TYPE(t_comm_pattern) :: comm_pat_interpol_scal_grf(4)
-    TYPE(t_comm_pattern) :: comm_pat_interpol_vec_ubc(4)
-    TYPE(t_comm_pattern) :: comm_pat_interpol_scal_ubc(4)
+    TYPE(t_comm_pattern_collection) :: comm_pat_coll_interpol_vec_grf
+    TYPE(t_comm_pattern_collection) :: comm_pat_coll_interpol_scal_grf
+    TYPE(t_comm_pattern_collection) :: comm_pat_coll_interpol_vec_ubc
+    TYPE(t_comm_pattern_collection) :: comm_pat_coll_interpol_scal_ubc
 
     ! Gather complete patch to proc 0
     ! Useful only for regular patches (defined but unused on local parents)

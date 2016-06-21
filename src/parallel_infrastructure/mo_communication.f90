@@ -84,6 +84,9 @@ PUBLIC :: delete_comm_allgather_pattern
 
 PUBLIC :: t_ScatterPattern, t_ScatterPatternPtr, makeScatterPattern, deleteScatterPattern
 
+PUBLIC :: t_comm_pattern_collection, setup_comm_pattern_collection, &
+  &       delete_comm_pattern_collection
+
 PUBLIC :: ASSIGNMENT(=)
 !
 !variables
@@ -159,6 +162,17 @@ TYPE t_comm_pattern
    INTEGER, ALLOCATABLE :: recv_count(:)
 
 END TYPE t_comm_pattern
+
+!
+!------------------------------------------------------------------------------------------------
+!
+
+TYPE t_comm_pattern_collection
+
+   PRIVATE
+
+   TYPE(t_comm_pattern), ALLOCATABLE :: patterns(:)
+END TYPE t_comm_pattern_collection
 
 !
 !------------------------------------------------------------------------------------------------
@@ -534,6 +548,20 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   
+  SUBROUTINE setup_comm_pattern_collection(patterns, pattern_collection)
+
+    TYPE(t_comm_pattern), INTENT(IN) :: patterns(:)
+    TYPE(t_comm_pattern_collection), INTENT(out) :: pattern_collection
+
+    ALLOCATE(pattern_collection%patterns(SIZE(patterns)))
+    pattern_collection%patterns = patterns
+
+  END SUBROUTINE setup_comm_pattern_collection
+
+
+  !-------------------------------------------------------------------------
+
+  
   SUBROUTINE setup_comm_gather_pattern(global_size, owner_local, glb_index, &
     &                                  gather_pattern, disable_consistency_check)
     INTEGER, INTENT(IN) :: global_size, owner_local(:), glb_index(:)
@@ -775,11 +803,28 @@ CONTAINS
     p_pat%np_send = 0
 
   END SUBROUTINE delete_comm_pattern
-  
+
 
   !-------------------------------------------------------------------------
 
-  
+
+  SUBROUTINE delete_comm_pattern_collection(pattern_collection)
+
+    TYPE(t_comm_pattern_collection), INTENT(INOUT) :: pattern_collection
+
+    INTEGER :: i
+
+    DO i = 1, SIZE(pattern_collection%patterns)
+      CALL delete_comm_pattern(pattern_collection%patterns(i))
+    END DO
+    DEALLOCATE(pattern_collection%patterns)
+
+  END SUBROUTINE delete_comm_pattern_collection
+
+
+  !-------------------------------------------------------------------------
+
+
   SUBROUTINE delete_comm_gather_pattern(gather_pattern)
     TYPE(t_comm_gather_pattern), INTENT(INOUT) :: gather_pattern
 
@@ -3324,12 +3369,12 @@ CONTAINS
   !! Optimized version by Guenther Zaengl to process up to two 4D fields or up to six 3D fields
   !! for an array-sized communication pattern (as needed for boundary interpolation) in one step
   !!
-  SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
+  SUBROUTINE exchange_data_grf(p_pat_coll, nfields, ndim2tot, recv1, send1, &
     recv2, send2, recv3, send3, recv4, send4, &
     recv5, send5, recv6, send6, recv4d1, send4d1, &
     recv4d2, send4d2)
 
-    TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat(:)
+    TYPE(t_comm_pattern_collection), INTENT(IN), TARGET :: p_pat_coll
 
     REAL(dp), INTENT(INOUT), TARGET, OPTIONAL ::  &
       recv1(:,:,:), recv2(:,:,:), recv3(:,:,:), recv4d1(:,:,:,:), &
@@ -3356,10 +3401,11 @@ CONTAINS
     END TYPE t_fieldptr_send
 
     TYPE(t_fieldptr_recv) :: recv(nfields)
-    TYPE(t_fieldptr_send) :: send(nfields*SIZE(p_pat))
+    TYPE(t_fieldptr_send) :: send(nfields*SIZE(p_pat_coll%patterns))
 
-    INTEGER        :: ndim2(nfields), noffset(nfields),            &
-      ioffset_s(SIZE(p_pat)), ioffset_r(SIZE(p_pat))
+    INTEGER        :: ndim2(nfields), noffset(nfields), &
+      ioffset_s(SIZE(p_pat_coll%patterns)), &
+      ioffset_r(SIZE(p_pat_coll%patterns))
 
     REAL(dp), ALLOCATABLE :: send_buf(:,:),recv_buf(:,:), &
       auxs_buf(:,:),auxr_buf(:,:)
@@ -3367,6 +3413,12 @@ CONTAINS
     INTEGER :: i, k, ik, jb, jl, n, np, irs, ire, iss, ise, &
       npats, isum, ioffset, isum1, n4d, pid, num_send, num_recv, j
     INTEGER, ALLOCATABLE :: pelist_send(:), pelist_recv(:)
+
+    TYPE(t_comm_pattern), POINTER :: p_pat(:)
+
+    !-----------------------------------------------------------------------
+
+    p_pat => p_pat_coll%patterns
 
     !-----------------------------------------------------------------------
 

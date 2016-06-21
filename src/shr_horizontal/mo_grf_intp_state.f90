@@ -50,7 +50,8 @@ USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e, grf_
 USE mo_parallel_config,     ONLY: nproma
 USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
   &                               setup_comm_pattern, delete_comm_pattern, &
-  &                               exchange_data
+  &                               exchange_data, t_comm_pattern_collection, &
+  &                               setup_comm_pattern_collection
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_intp_data_strc,      ONLY: t_int_state
 USE mo_decomposition_tools, ONLY: t_glb2loc_index_lookup, get_valid_local_index, &
@@ -1424,7 +1425,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
       &                            inv_glb2loc, n, &
       &                            owner_local, glb_index, scal_grf_select_func, &
       &                            p_patch_all(icid), &
-      &                            p_patch_all(icid)%comm_pat_interpol_scal_grf)
+      &                            p_patch_all(icid)%comm_pat_coll_interpol_scal_grf)
     CALL deallocate_glb2loc_index_lookup(inv_glb2loc)
     DEALLOCATE(owner_local, glb_index)
 
@@ -1448,7 +1449,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
       &                            inv_glb2loc, n, &
       &                            owner_local, glb_index, scal_ubc_select_func, &
       &                            p_patch_all(icid), &
-      &                            p_patch_all(icid)%comm_pat_interpol_scal_ubc)
+      &                            p_patch_all(icid)%comm_pat_coll_interpol_scal_ubc)
     CALL deallocate_glb2loc_index_lookup(inv_glb2loc)
     DEALLOCATE(owner_local, glb_index)
 
@@ -1472,7 +1473,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
       &                            inv_glb2loc, n, &
       &                            owner_local, glb_index, vec_grf_select_func, &
       &                            p_patch_all(icid), &
-      &                            p_patch_all(icid)%comm_pat_interpol_vec_grf)
+      &                            p_patch_all(icid)%comm_pat_coll_interpol_vec_grf)
     CALL deallocate_glb2loc_index_lookup(inv_glb2loc)
     DEALLOCATE(owner_local, glb_index)
 
@@ -1496,7 +1497,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
       &                            inv_glb2loc, n, &
       &                            owner_local, glb_index, vec_ubc_select_func, &
       &                            p_patch_all(icid), &
-      &                            p_patch_all(icid)%comm_pat_interpol_vec_ubc)
+      &                            p_patch_all(icid)%comm_pat_coll_interpol_vec_ubc)
     CALL deallocate_glb2loc_index_lookup(inv_glb2loc)
     DEALLOCATE(owner_local, glb_index)
 
@@ -1753,14 +1754,14 @@ CONTAINS
     &                                  glb2loc, n_src, owner_local_src, &
     &                                  glb_index_src, &
     &                                  select_func, p_patch, &
-    &                                  comm_pat_interpol)
+    &                                  comm_pat_coll_interpol)
 
     INTEGER, INTENT(IN) :: n_patch_cve, parent_glb_idx(:,:), parent_glb_blk(:,:)
     TYPE(t_dist_dir), INTENT(IN) :: parent_owner_dist_dir
     TYPE(t_glb2loc_index_lookup), INTENT(IN) :: glb2loc
     INTEGER, INTENT(IN) :: n_src, owner_local_src(:), glb_index_src(:)
     TYPE(t_patch), INTENT(IN) :: p_patch
-    TYPE(t_comm_pattern), INTENT(OUT) :: comm_pat_interpol(4)
+    TYPE(t_comm_pattern_collection), INTENT(OUT) :: comm_pat_coll_interpol
     INTERFACE
       FUNCTION select_func(idx, blk, n, p_patch) RESULT(p)
         USE mo_model_domain, ONLY : t_patch
@@ -1770,6 +1771,7 @@ CONTAINS
       END FUNCTION select_func
     END INTERFACE
 
+    TYPE(t_comm_pattern) :: comm_pat_interpol(4)
     INTEGER :: i, n, idx, blk
     INTEGER :: owner_local_dst(n_patch_cve), glb_index_dst(n_patch_cve)
 
@@ -1802,6 +1804,9 @@ CONTAINS
         &                     comm_pat_interpol(n))
 
     ENDDO
+
+    CALL setup_comm_pattern_collection(comm_pat_interpol, &
+      &                                comm_pat_coll_interpol)
 
   END SUBROUTINE generate_interpol_pattern
 
