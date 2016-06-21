@@ -187,19 +187,22 @@ CONTAINS
     TYPE(t_patch), TARGET, INTENT(inout) :: p_p ! parent patch
     LOGICAL, INTENT(IN) :: is_local_parent
     ! local variables
+    INTEGER, PARAMETER :: UNDEFINED_VALUE = 99
+
     CHARACTER(*), PARAMETER :: routine = modname//":set_child_indices"
     INTEGER              :: i, j, jc_c, jb_c, communicator, i1, i2, iidx,                    &
       &                     jc_e, jb_e, ordered(4), iglb, je, refin_c
     INTEGER, ALLOCATABLE :: in_data(:), dst_idx(:), out_data(:,:), out_pc_data(:,:),         &
       &                     out_data34(:,:), out_data_e(:,:), out_count(:,:),                &
       &                     out_data_e3(:,:), out_data_c3(:,:), out_child_id(:,:),           &
-      &                     je_loc(:,:)
+      &                     je_loc(:,:), out_count_e3(:,:), out_count_e(:,:),                &
+      &                     out_pc_count(:,:), out_id_count(:,:)
     LOGICAL              :: lfound, set_pc_idx
     INTEGER, POINTER     :: parent_idx_c(:,:), parent_blk_c(:,:),                            &
       &                     parent_idx_e(:,:), parent_blk_e(:,:)
 
 
-    IF (msg_level >= 15)  CALL message(routine, TRIM(description)//" - Enter.")
+    IF (msg_level >= 5)  CALL message(routine, TRIM(description)//" - Enter.")
 
     communicator = p_comm_work
 
@@ -232,13 +235,24 @@ CONTAINS
       in_data(iidx) = p_c%cells%decomp_info%glb_index(j)
     END DO
 
-    ALLOCATE(out_data(4,p_p%n_patch_cells))
-    out_data(:,:) = 0
+    ! consistency check
+    IF (MAXVAL(in_data(1:iidx)) > p_c%n_patch_cells_g) THEN
+      CALL finish(routine, "Error! - MAXVAL(in_data(1:iidx)) > p_c%n_patch_cells_g")
+    END IF
+
+    ALLOCATE(out_data(4,p_p%n_patch_cells), out_count(4,p_p%n_patch_cells))
+    out_data(:,:)  = 0
+    out_count(:,:) = 0
 
     ! communicate child index between processors:
     CALL reshuffle("send cell child indices to parent", dst_idx(1:iidx), in_data(1:iidx), &
-      &            p_p%cells%decomp_info%glb_index, p_p%n_patch_cells_g, communicator, out_data)
-    DEALLOCATE(in_data, dst_idx)      
+      &            p_p%cells%decomp_info%glb_index, p_p%n_patch_cells_g, communicator, out_data, out_count)
+    DEALLOCATE(in_data, dst_idx, out_count)      
+
+    ! consistency check
+    IF (MAXVAL(out_data) > p_c%n_patch_cells_g) THEN
+      CALL finish(routine, "Error! - MAXVAL(out_data) > p_c%n_patch_cells_g")
+    END IF
 
     ! --- CHILD PATCH -> PARENT PATCH
     ! --- each child cell sends its three edge indices to the parent
@@ -258,27 +272,28 @@ CONTAINS
         jc_e = p_c%cells%edge_idx(jc_c,jb_c,i)
         jb_e = p_c%cells%edge_blk(jc_c,jb_c,i)
         iidx = iidx + 1
-        dst_idx(iidx) = idx_1d(parent_idx_c(jc_c,jb_c), &
-          &                    parent_blk_c(jc_c,jb_c))
+        dst_idx(iidx) = idx_1d(parent_idx_c(jc_c,jb_c), parent_blk_c(jc_c,jb_c))
         in_data(iidx) = p_c%edges%decomp_info%glb_index(idx_1d(jc_e,jb_e))
       END DO
     END DO
 
     ALLOCATE(out_data_e(9,p_p%n_patch_cells), & ! each refined cell has 9 sub-edges
-      &      out_count(9,p_p%n_patch_cells))
+      &      out_count_e(9,p_p%n_patch_cells))
     out_data_e(:,:) = 0
-    out_count(:,:)  = 0
+    out_count_e(:,:)  = 0
 
     ! communicate between processors:
     CALL reshuffle("send cell-edge indices to parent", dst_idx(1:iidx), in_data(1:iidx), &
       &            p_p%cells%decomp_info%glb_index, p_p%n_patch_cells_g, communicator,   &
-      &            out_data_e, out_count)
+      &            out_data_e, out_count_e)
 
     DO j = 1, p_p%n_patch_cells
-      IF (SUM(out_count(:,j)) == 0)  CYCLE
+      IF (SUM(out_count_e(:,j)) == 0)  CYCLE
 
       ! consistency check: there must be exactly 3 inner edges
-      IF (COUNT(out_count(:,j) > 1) /= 3) THEN
+      IF (COUNT(out_count_e(:,j) > 1) /= 3) THEN
+        WRITE (0,*) "out_count(:,j) = ", out_count_e(:,j)
+        WRITE (0,*) "out_data_e(:,j) = ", out_data_e(:,j)
         CALL finish(routine, "edge counting went wrong")
       END IF
     END DO
@@ -294,11 +309,11 @@ CONTAINS
 
     iidx = 0
     DO j = 1, p_p%n_patch_cells
-      IF (SUM(out_count(:,j)) == 0)  CYCLE
-
+      IF (SUM(out_count_e(:,j)) == 0)  CYCLE
       DO i=1,SIZE(out_data_e,1)
-        IF (out_count(i,j) > 1) THEN
+        IF (out_count_e(i,j) > 1) THEN
           DO i1=1,4
+            IF (out_data(i1,j) <= 0)  CYCLE
             iidx = iidx + 1
             dst_idx(iidx) = out_data(i1,j)
             in_data(iidx) = out_data_e(i,j)
@@ -307,15 +322,21 @@ CONTAINS
       END DO
     END DO
 
-    ALLOCATE(out_data_e3(3,p_c%n_patch_cells))
-    out_data_e3(:,:) = 0
+    ! consistency check
+    IF (MAXVAL(dst_idx(1:iidx)) > p_c%n_patch_cells_g) THEN
+      CALL finish(routine, "Error! - MAXVAL(dst_idx(1:iidx)) > p_c%n_patch_cells_g")
+    END IF
+
+    ALLOCATE(out_data_e3(3,p_c%n_patch_cells), out_count_e3(3,p_c%n_patch_cells))
+    out_data_e3(:,:)  = 0
+    out_count_e3(:,:) = 0
 
     ! communicate between processors:
     CALL reshuffle("send inner child edges", dst_idx(1:iidx), in_data(1:iidx),         &
       &            p_c%cells%decomp_info%glb_index, p_c%n_patch_cells_g, communicator, &
-      &            out_data_e3)
+      &            out_data_e3, out_count_e3)
 
-    DEALLOCATE(in_data, dst_idx,out_data_e, out_count)      
+    DEALLOCATE(in_data, dst_idx,out_data_e, out_count_e, out_count_e3)      
 
     ! --- CHILD PATCH -> PARENT PATCH
     ! --- determine the global index of the "inner child cell" no. 3
@@ -350,15 +371,15 @@ CONTAINS
       END IF
     END DO
 
-    ALLOCATE(out_data_c3(1,p_p%n_patch_cells))
+    ALLOCATE(out_data_c3(1,p_p%n_patch_cells), out_count(1,p_p%n_patch_cells))
     out_data_c3(:,:) = 0
 
     ! communicate between processors:
     CALL reshuffle("send child 3 to parent cell", dst_idx(1:iidx), in_data(1:iidx),    &
       &            p_p%cells%decomp_info%glb_index, p_p%n_patch_cells_g, communicator, &
-      &            out_data_c3)
+      &            out_data_c3, out_count)
 
-    DEALLOCATE(in_data, dst_idx,out_data_e3)      
+    DEALLOCATE(in_data, dst_idx,out_data_e3, out_count)      
 
     ! Now, we order the (global) child indices, s.t. 
     ! - the child 3 is in correct position, and
@@ -402,12 +423,12 @@ CONTAINS
       END DO
     END DO
 
-    ALLOCATE(out_pc_data(1,p_c%n_patch_cells))
+    ALLOCATE(out_pc_data(1,p_c%n_patch_cells), out_count(1,p_c%n_patch_cells))
     out_pc_data(:,:) = 0
 
     ! communicate child index between processors:
     CALL reshuffle("send pc_idx to child", dst_idx(1:iidx), in_data(1:iidx), p_c%cells%decomp_info%glb_index, &
-      &            p_c%n_patch_cells_g, communicator, out_pc_data)
+      &            p_c%n_patch_cells_g, communicator, out_pc_data, out_count)
 
     ! --- as a result, we now have
     !     out_pc_data(1,j) = p_c%cells%pc_idx(j)
@@ -428,7 +449,7 @@ CONTAINS
       p_p%cells%child_blk(jc_c,jb_c,:) = blk_no( out_data(:,j) )
     END DO
 
-    DEALLOCATE(out_pc_data,out_data, in_data, dst_idx)      
+    DEALLOCATE(out_pc_data,out_data, in_data, dst_idx, out_count)      
 
     ! -----------------------------------------------------------------
     ! --- create EDGE indices -----------------------------------------
@@ -460,13 +481,14 @@ CONTAINS
       END IF
     END DO
 
-    ALLOCATE(out_data34(2,p_p%n_patch_edges))
+    ALLOCATE(out_data34(2,p_p%n_patch_edges), out_count(2,p_p%n_patch_edges))
     out_data34(:,:) = 0
+    out_count(:,:)  = 0
 
     ! communicate data between processors:
     CALL reshuffle("send child edges 3,4", dst_idx(1:iidx), in_data(1:iidx), p_p%edges%decomp_info%glb_index, &
-      &            p_p%n_patch_edges_g, communicator, out_data34)
-    DEALLOCATE(in_data, dst_idx)      
+      &            p_p%n_patch_edges_g, communicator, out_data34, out_count)
+    DEALLOCATE(in_data, dst_idx, out_count)      
 
 
     ! --- CHILD PATCH -> PARENT PATCH
@@ -484,14 +506,15 @@ CONTAINS
       in_data(iidx) = p_c%edges%decomp_info%glb_index(j)
     END DO
 
-    ALLOCATE(out_data(4,p_p%n_patch_edges))
-    out_data(:,:) = 0
+    ALLOCATE(out_data(4,p_p%n_patch_edges), out_count(4,p_p%n_patch_edges))
+    out_data(:,:)  = 0
+    out_count(:,:) = 0
 
     ! communicate data between processors:
     CALL reshuffle("send edge indices to parent", dst_idx(1:iidx), in_data(1:iidx), &
-      &            p_p%edges%decomp_info%glb_index, p_p%n_patch_edges_g, communicator, out_data)
+      &            p_p%edges%decomp_info%glb_index, p_p%n_patch_edges_g, communicator, out_data, out_count)
 
-    DEALLOCATE(dst_idx, in_data)
+    DEALLOCATE(dst_idx, in_data, out_count)
 
     IF (MAXVAL(out_data) >  p_c%n_patch_edges_g) THEN
       WRITE (0,*) "MAXVAL(out_data)=",MAXVAL(out_data)," > p_c%n_patch_edges_g=",p_c%n_patch_edges_g
@@ -639,12 +662,13 @@ CONTAINS
       END DO
     END DO
 
-    ALLOCATE(out_pc_data(1,p_c%n_patch_edges))
-    out_pc_data(:,:) = 0
+    ALLOCATE(out_pc_data(1,p_c%n_patch_edges), out_pc_count(1,p_c%n_patch_edges))
+    out_pc_data(:,:)  = 0
+    out_pc_count(:,:) = 0
 
     ! communicate child index between processors:
     CALL reshuffle("send edge pc_idx", dst_idx(1:iidx), in_data(1:iidx), p_c%edges%decomp_info%glb_index, &
-      &            p_c%n_patch_edges_g, communicator, out_pc_data)
+      &            p_c%n_patch_edges_g, communicator, out_pc_data, out_pc_count)
 
     ! --- as a result, we now have
     !     out_pc_data(1,j) = p_c%edges%pc_idx(j)
@@ -665,7 +689,7 @@ CONTAINS
       p_p%edges%child_blk(jc_e,jb_e,:) = blk_no( out_data(:,j) )
     END DO
 
-    DEALLOCATE(out_data, in_data, dst_idx)      
+    DEALLOCATE(out_data, in_data, dst_idx, out_pc_count)      
 
     ! -----------------------------------------------------------------
     ! --- create CHILD ID's -------------------------------------------
@@ -690,12 +714,13 @@ CONTAINS
     ! set the cell child_id for the (global) parent grid
     in_data(:) = p_c%id
 
-    ALLOCATE(out_child_id(1,p_p%n_patch_cells))
-    out_child_id = -1
+    ALLOCATE(out_child_id(1,p_p%n_patch_cells), out_id_count(1,p_p%n_patch_cells))
+    out_child_id(:,:) = -1
+    out_id_count(:,:) = -1
 
     ! communicate ID data between processors:
     CALL reshuffle("send cell id to parent", dst_idx, in_data, p_p%cells%decomp_info%glb_index, &
-      &            p_p%n_patch_cells_g, communicator, out_child_id)
+      &            p_p%n_patch_cells_g, communicator, out_child_id, out_id_count)
 
     ! communication finished. now copy the result to the local arrays:
     DO j = 1, p_p%n_patch_cells
@@ -713,7 +738,7 @@ CONTAINS
         END IF
       END IF
     END DO
-    DEALLOCATE(out_child_id, in_data, dst_idx)
+    DEALLOCATE(out_child_id, in_data, dst_idx, out_id_count)
 
     ! -----------------------------------------------------------------
     ! --- calculate edges%child_id
@@ -734,12 +759,13 @@ CONTAINS
     ! set the edge child_id for the (global) parent grid:
     in_data(:) = p_c%id
 
-    ALLOCATE(out_child_id(1,p_p%n_patch_edges))
-    out_child_id = -1
+    ALLOCATE(out_child_id(1,p_p%n_patch_edges), out_id_count(1,p_p%n_patch_edges))
+    out_child_id(:,:) = -1
+    out_id_count(:,:)    = -1
 
     ! communicate ID data between processors:
     CALL reshuffle("send edge ID to parent", dst_idx, in_data, p_p%edges%decomp_info%glb_index, &
-      &            p_p%n_patch_edges_g, communicator, out_child_id)
+      &            p_p%n_patch_edges_g, communicator, out_child_id, out_id_count)
 
     ! communication finished. now copy the result to the local arrays:
     DO j = 1, p_p%n_patch_edges
@@ -757,7 +783,8 @@ CONTAINS
         END IF
       END IF
     END DO
-    DEALLOCATE(out_child_id, in_data, dst_idx)
+    DEALLOCATE(out_child_id, in_data, dst_idx, out_id_count)
+
 
     ! -----------------------------------------------------------------
     ! --- create REFIN_C_CTRL of parent grid --------------------------
@@ -768,48 +795,61 @@ CONTAINS
     ! send the children's refin_ctrl to the parent cell:
     iidx = 0
     DO j = 1, p_c%n_patch_cells
-      jc_c = idx_no(j)
-      jb_c = blk_no(j)
+      jc_c = idx_no(j) ; jb_c = blk_no(j)
       ! loop only over inner domain
       IF (p_c%cells%decomp_info%decomp_domain(jc_c,jb_c) /= 0)  CYCLE
-      IF (p_c%cells%refin_ctrl(jc_c,jb_c) < 0)  CYCLE
+      IF (p_c%cells%refin_ctrl(jc_c,jb_c) <= 0)  CYCLE
 
-      ! (we need a shift of +1 to distinguish between zero values
-      ! and unset values:)
-      refin_c = (p_c%cells%refin_ctrl(jc_c,jb_c)+1)/2 + 1
+      refin_c = (p_c%cells%refin_ctrl(jc_c,jb_c)+1)/2 
 
       iidx = iidx + 1
       dst_idx(iidx) = idx_1d(parent_idx_c(jc_c,jb_c), parent_blk_c(jc_c,jb_c))
       in_data(iidx) = refin_c
     END DO
     
-    ALLOCATE(out_data(2,p_p%n_patch_cells))
-    out_data(:,:) = 0
+    ALLOCATE(out_data(4,p_p%n_patch_cells), out_count(4,p_p%n_patch_cells))
+    out_data(:,:)  = 0
+    out_count(:,:) = 0
  
     ! communicate between processors:
-    CALL reshuffle("send refin_c_ctrl to parent", dst_idx(1:iidx), in_data(1:iidx), &
-      &            p_p%cells%decomp_info%glb_index, p_p%n_patch_cells_g, communicator, out_data)
-    
+    CALL reshuffle("send refin_c_ctrl to parent", dst_idx(1:iidx), in_data(1:iidx),    &
+      &            p_p%cells%decomp_info%glb_index, p_p%n_patch_cells_g, communicator, &
+      &            out_data, out_count)
+  
     ! communication finished. now copy the result to the local arrays:
     DO j = 1, p_p%n_patch_cells
       jc_c = idx_no(j)
       jb_c = blk_no(j)
 
-      IF (out_data(1,j) == 0)  CYCLE
-
-      ! take care of the "innermost" part of the domain, which is
-      ! numbered with "0" on the child patch
-      IF (ANY(out_data(1:2,j) == 1)) THEN
+      ! first, set all parent cell refin_ctrl flags to min_rlcell_int
+      ! based on the information in "p_p%cells%child_id": this handles
+      ! the innermost part of the domain:
+      IF (p_p%cells%child_id(jc_c,jb_c) == p_c%id) THEN
         refin_c = min_rlcell_int
       ELSE
-        refin_c = MAX( -1*(out_data(1,j)-1), min_rlcell_int )
+        refin_c = UNDEFINED_VALUE
       END IF
-           
-      p_p%cells%refin_ctrl(jc_c,jb_c) = refin_c
-    END DO
-    DEALLOCATE(out_data, in_data, dst_idx)
 
-    IF (msg_level >= 15)  CALL message(routine, TRIM(description)//" - Done.")
+      IF (out_data(1,j) /= 0) THEN
+        refin_c = MAX( -1*out_data(1,j), min_rlcell_int )
+      END IF
+
+!      IF (refin_c /= UNDEFINED_VALUE) THEN
+        IF (p_p%cells%refin_ctrl(jc_c,jb_c) /= refin_c) THEN
+          IF ((p_p%cells%refin_ctrl(jc_c,jb_c) < 0) .AND. (p_p%cells%child_id(jc_c,jb_c) == p_c%id)) THEN
+            WRITE (0,*) "p_p%cells%refin_ctrl(jc_c,jb_c) /= refin_c: ", p_p%cells%refin_ctrl(jc_c,jb_c) , refin_c
+          END IF
+        END IF
+ !     END IF
+      IF (out_count(2,j) > 0) THEN
+        WRITE (0,*) "out_count = ", out_count(:,j)
+      END IF
+
+!      p_p%cells%refin_ctrl(jc_c,jb_c) = refin_c
+    END DO
+    DEALLOCATE(out_data, in_data, dst_idx, out_count)
+
+    IF (msg_level >= 5)  CALL message(routine, TRIM(description)//" - Done.")
 
   CONTAINS
 

@@ -536,8 +536,8 @@ CONTAINS
     DO jg = n_dom_start,n_dom
       jgp = patch(jg)%parent_id
       IF (jgp >= n_dom_start) THEN
-        CALL set_parent_refin_ev_ctrl("patch", patch(jgp))
-        CALL set_parent_refin_ev_ctrl("local parent patch", p_patch_local_parent(jg))
+        CALL set_parent_refin_ev_ctrl("patch", patch(jgp), patch(jgp))
+        CALL set_parent_refin_ev_ctrl("local parent patch", p_patch_local_parent(jg), patch(jgp))
       END IF
     END DO
 
@@ -2660,17 +2660,21 @@ CONTAINS
   !
   !  @author F. Prill, DWD (2016-06-16)
   !
-  SUBROUTINE set_parent_refin_ev_ctrl(description, p_p)
+  SUBROUTINE set_parent_refin_ev_ctrl(description, p_p, p_p_nolp)
     CHARACTER(LEN=*), INTENT(IN) :: description !< description string (for debugging purposes)
     TYPE(t_patch), TARGET, INTENT(inout) :: p_p ! parent patch
+    TYPE(t_patch), TARGET, INTENT(inout) :: p_p_nolp ! corresponding non-local-parent
     ! local variables
-    INTEGER :: jc_c,jb_c,jc_v,jb_v, j, min_refin_c,i,refin_c,jc_e,jb_e,communicator,refin_e,iidx
-    INTEGER, ALLOCATABLE :: in_data(:),dst_idx(:),out_data(:,:),out_count(:,:)
+    INTEGER, PARAMETER :: UNDEFINED_VALUE = 99
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':set_parent_refin_ev_ctrl'
+    INTEGER              :: jc_c, jb_c, jc_v, jb_v, j, min_refin_c, i, refin_c, jc_e, jb_e, &
+      &                     communicator, refin_e, iidx, j_v
+    INTEGER, ALLOCATABLE :: in_data(:), dst_idx(:), out_data(:,:), out_count(:,:),     refin_v_ctrl(:,:)
 
     CALL message(modname, "set negative edge/vertex refin_ctrl flags "//&
       &"for "//TRIM(description)//" (id "//TRIM(int2string(p_p%id))//")")
 
-    ! CELLS ------------------------------------------------------
+    ! EDGES ------------------------------------------------------
     !
     ! The "refin_e_ctrl" value is the sum of the "refin_c_ctrl" values
     ! of the two adjacent cells!
@@ -2680,10 +2684,9 @@ CONTAINS
     ! by looping over the cells, we visit each edge twice
     iidx = 0
     DO j = 1,p_p%n_patch_cells
-      jc_c = idx_no(j)
-      jb_c = blk_no(j)
+      jc_c = idx_no(j) ;  jb_c = blk_no(j)
 
-      ! loop only over inner domain + shared edge with owned
+      ! loop over inner domain and boundary
       IF (p_p%cells%decomp_info%decomp_domain(jc_c,jb_c) > 1)  CYCLE
 
       ! (set this entry only, if the left or right side is zero or
@@ -2714,14 +2717,22 @@ CONTAINS
     ! now loop over the edges and sum the two adjacent cell refin_ctrl
     ! flags:
     DO j = 1,p_p%n_patch_edges
-      jc_e = idx_no(j) ! Line  index in distributed patch
-      jb_e = blk_no(j) ! Block index in distributed patch
-            
+      jc_e = idx_no(j)  ;  jb_e = blk_no(j) 
+
+      ! nothing was set for this entry:
       IF (out_count(1,j) == 0)  CYCLE
+            
+      IF (out_count(2,j) == 0) THEN
+        ! (the "+2" takes care of the "-1"-shift above:)
+        refin_e = 2*out_data(1,j) + 2
+      ELSE
+        refin_e = out_data(1,j) + out_data(2,j) + 2
+      END IF
 
-      IF (out_count(2,j) == 0)  out_data(2,j) = out_data(1,j)
-      refin_e = out_data(1,j) + out_data(2,j) + 2
-
+!      IF (p_p%edges%refin_ctrl(jc_e,jb_e) /= refin_e) THEN
+!        WRITE (0,*) "out_count=", out_count(:,j), "; out_data=",out_data(:,j),"; ",&
+!          & "p_p%edges%refin_ctrl(jc_e,jb_e) /= refin_e: ", p_p%edges%refin_ctrl(jc_e,jb_e) ,refin_e
+!      END IF
       p_p%edges%refin_ctrl(jc_e,jb_e) = refin_e 
     END DO
 
@@ -2731,26 +2742,48 @@ CONTAINS
     !
     ! The "refin_v_ctrl" value is the minimum of the adjacent
     ! "refin_c_ctrl" values!
-    !
-    DO j = 1,p_p%n_patch_verts
-      jc_v = idx_no(j) ! Line  index in distributed patch
-      jb_v = blk_no(j) ! Block index in distributed patch
-            
-      IF (.NOT. p_p%verts%decomp_info%owner_mask(jc_v,jb_v))  CYCLE
-      
-      ! determine min. of adjacent "refin_c_ctrl" flags
-      min_refin_c = 99
-      DO i=1,SIZE(p_p%verts%cell_idx,3)
-        jc_c = p_p%verts%cell_idx(jc_v,jb_v,i)
-        jb_c = p_p%verts%cell_blk(jc_v,jb_v,i)
-        IF (jc_c > 0) THEN
-          refin_c = p_p%cells%refin_ctrl(jc_c,jb_c)
-          min_refin_c = MIN(min_refin_c, refin_c)
-        END IF
+
+    ALLOCATE(refin_v_ctrl(SIZE(p_p%verts%refin_ctrl,1),SIZE(p_p%verts%refin_ctrl,2)))
+    refin_v_ctrl(:,:) = UNDEFINED_VALUE
+
+    DO j = 1,p_p%n_patch_cells
+      jc_c = idx_no(j) ;  jb_c = blk_no(j)
+
+      ! loop over inner domain and boundary
+      IF (p_p%cells%decomp_info%decomp_domain(jc_c,jb_c) > 0)  CYCLE
+      IF (p_p%cells%refin_ctrl(jc_c,jb_c) > 0)  CYCLE
+
+      DO i=1,3
+        jc_v = p_p%cells%vertex_idx(jc_c,jb_c,i)
+        jb_v = p_p%cells%vertex_blk(jc_c,jb_c,i)
+        j_v = idx_1d(jc_v,jb_v)
+
+        refin_v_ctrl(jc_v,jb_v) = MIN(refin_v_ctrl(jc_v,jb_v), p_p%cells%refin_ctrl(jc_c,jb_c))
       END DO
-      
-      IF (min_refin_c < 0)  p_p%verts%refin_ctrl(jc_v,jb_v) = min_refin_c
     END DO
+    DO j = 1,p_p%n_patch_verts
+      jc_v = idx_no(j)  ;  jb_v = blk_no(j) 
+            
+      IF (p_p%verts%decomp_info%decomp_domain(jc_v,jb_v) /= 0)  CYCLE
+
+!      IF (p_p%verts%refin_ctrl(jc_v,jb_v) < 0) THEN
+!        IF (refin_v_ctrl(jc_v,jb_v) < 0) THEN     
+!          IF (p_p%verts%refin_ctrl(jc_v,jb_v) /= refin_v_ctrl(jc_v,jb_v)) THEN
+!            IF (p_pe_work == 12) THEN
+!              WRITE (0,*) "p_p%id = ", p_p%id, "; vertex = ", &
+!                & 57.296*p_p%verts%vertex(jc_v,jb_v)%lon,p_p%verts%vertex(jc_v,jb_v)%lat*57.296
+!              WRITE (0,*) "p_p%verts%refin_ctrl(jc_v,jb_v) /= refin_v: ", p_p%verts%refin_ctrl(jc_v,jb_v) , refin_v_ctrl(jc_v,jb_v)
+!            END IF
+!          END IF
+!        END IF
+!      END IF
+      IF (refin_v_ctrl(jc_v,jb_v) < 0) THEN     
+        p_p%verts%refin_ctrl(jc_v,jb_v) = refin_v_ctrl(jc_v,jb_v)
+      END IF
+!      IF (min_refin_c < 0)  p_p%verts%refin_ctrl(jc_v,jb_v) = min_refin_c
+    END DO
+    DEALLOCATE(refin_v_ctrl)
+
   END SUBROUTINE set_parent_refin_ev_ctrl
 
 
