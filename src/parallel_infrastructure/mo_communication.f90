@@ -267,7 +267,6 @@ CHARACTER(*), PARAMETER :: modname = "mo_communication"
 
 CONTAINS
 
-
   !-------------------------------------------------------------------------
   !
   !
@@ -278,41 +277,55 @@ CONTAINS
   !! Note: This setup routine works only for the trivial communication
   !!       patterns in sequential runs.
   !!
-  !! n_points       Total number of points in the RECEIVER array,
-  !!                not every point is necessarily set during exchange
-  !!                (see owner!)
+  !! dst_n_points     Total number of points in the RECEIVER array,
+  !!                  not every point is necessarily set during exchange
+  !!                  (see owner!)
   !!
-  !! owner          Owner PE number of every point in the RECEIVER array,
-  !!                if owner(.) == -1, this point will not be set during exchange.
-  !!                If owner(.) == p_pe, this point will be exchanged,
-  !!                this is necessary if sender and receiver arrays are
-  !!                different (e.g. feedback, gather, scatter)
+  !! dst_owner        Owner PE number of every point in the RECEIVER array,
+  !!                  if owner(.) == -1, this point will not be set during exchange.
+  !!                  If owner(.) == p_pe, this point will be exchanged,
+  !!                  this is necessary if sender and receiver arrays are
+  !!                  different (e.g. feedback, gather, scatter)
   !!
-  !! global_index   Global index of of every point in the RECEIVER array
-  !!                There may be more than 1 point with the same global index,
-  !!                in this case the point is exchanged only once and
-  !!                locally distributed.
-  !!                - If this argument is not present, we assume global_index=1,2.3,...
+  !! dst_global_index Global index of of every point in the RECEIVER array
+  !!                  There may be more than 1 point with the same global index,
+  !!                  in this case the point is exchanged only once and
+  !!                  locally distributed.
+  !!                  - If this argument is not present, we assume global_index=1,2.3,...
+  !! inplace          In-place data exchanges are allowed (source and destination
+  !!                  arrays can be identically for the exchange)
+  !!                  - if inplace == true, the user guarantees that
+  !!                    (src_n_points == dst_n_points) and that points, which will
+  !!                    have to be sent to other processes, are disjunct from the
+  !!                    points that will have to be received
+  !!                  - in case the user only provides the receive array to an
+  !!                    exchange call and not send array, the exchange will be
+  !!                    faster if inplace == true
   !!
   !! send_decomp_info domain decomposition information for the SENDER array
   !!
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
   !!
-  SUBROUTINE setup_comm_pattern(n_points, owner, global_index, &
-    &                           send_glb2loc_index, p_pat)
+  SUBROUTINE setup_comm_pattern(dst_n_points, dst_owner, dst_global_index, &
+                                send_glb2loc_index, src_n_points, src_owner, &
+                                src_global_index, p_pat, inplace)
 
-    !
-
-    INTEGER, INTENT(IN) :: n_points             ! Total number of points
-    INTEGER, INTENT(IN) :: owner(:)             ! Owner of every point
-    INTEGER, INTENT(IN) :: global_index(:)      ! Global index of every point
+    INTEGER, INTENT(IN) :: dst_n_points        ! Total number of points
+    INTEGER, INTENT(IN) :: dst_owner(:)        ! Owner of every point
+    INTEGER, INTENT(IN) :: dst_global_index(:) ! Global index of every point
     TYPE(t_glb2loc_index_lookup), INTENT(IN) :: send_glb2loc_index
-    ! global to local index
-    ! lookup information
-    ! of the SENDER array
+                                               ! global to local index
+                                               ! lookup information
+                                               ! of the SENDER array
+    INTEGER, INTENT(IN) :: src_n_points        ! Total number of points
+    INTEGER, INTENT(IN) :: src_owner(:)        ! Owner of every point
+    INTEGER, INTENT(IN) :: src_global_index(:) ! Global index of every point
+
 
     TYPE(t_comm_pattern), INTENT(INOUT) :: p_pat
+
+    LOGICAL, OPTIONAL, INTENT(IN) :: inplace
 
 
     INTEGER, ALLOCATABLE :: icnt(:), flag(:), global_recv_index(:), send_src(:), num_rcv(:)
@@ -321,7 +334,8 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     ALLOCATE(icnt(0:p_n_work-1), num_rcv(0:p_n_work-1))
-    max_glb = MAX(MAXVAL(ABS(global_index(1:n_points)),mask=(owner(1:n_points)>=0)),1)
+    max_glb = MAX(MAXVAL(ABS(dst_global_index(1:dst_n_points)), &
+      &                  mask=(dst_owner(1:dst_n_points)>=0)),1)
     ALLOCATE(flag(max_glb))
 
     ! Count the number of points we want to receive from every PE
@@ -332,12 +346,12 @@ CONTAINS
 
     p_pat%n_pnts = 0
 
-    DO i = 1, n_points
-      IF(owner(i)>=0) THEN
+    DO i = 1, dst_n_points
+      IF(dst_owner(i)>=0) THEN
         p_pat%n_pnts = p_pat%n_pnts + 1 ! Count total number of points we output
-        IF(flag(ABS(global_index(i)))==0) THEN
-          icnt(owner(i)) = icnt(owner(i))+1 ! Number to get from owner(i)
-          flag(ABS(global_index(i))) = 1 ! Flag that this global point is already on the list
+        IF(flag(ABS(dst_global_index(i)))==0) THEN
+          icnt(dst_owner(i)) = icnt(dst_owner(i))+1 ! Number to get from dst_owner(i)
+          flag(ABS(dst_global_index(i))) = 1 ! Flag that this global point is already on the list
         ENDIF
       ENDIF
     ENDDO
@@ -369,20 +383,21 @@ CONTAINS
     flag(:) = 0
     n = 0 ! Counts total number of local points
 
-    DO i = 1, n_points
-      IF(owner(i)>=0) THEN
+    DO i = 1, dst_n_points
+      IF(dst_owner(i)>=0) THEN
         n = n+1
-        IF(flag(ABS(global_index(i)))==0) THEN
-          icnt(owner(i)) = icnt(owner(i)) + 1    ! Current index in recv array
-          global_recv_index(icnt(owner(i))) = ABS(global_index(i))
-          ! Global index of points in receive array
-          p_pat%recv_src(n) = icnt(owner(i))     ! From where in the receive array we get
-          ! the local point
-          p_pat%recv_dst_blk(n) = blk_no(i)      ! Where to put the local point
-          p_pat%recv_dst_idx(n) = idx_no(i)      ! Where to put the local point
-          flag(ABS(global_index(i))) = icnt(owner(i)) ! Store from where to get duplicates
+        IF(flag(ABS(dst_global_index(i)))==0) THEN
+          icnt(dst_owner(i)) = icnt(dst_owner(i)) + 1 ! Current index in recv array
+          global_recv_index(icnt(dst_owner(i))) = &
+            ABS(dst_global_index(i))                  ! Global index of points in receive array
+          p_pat%recv_src(n) = icnt(dst_owner(i))      ! From where in the receive array we get
+                                                      ! the local point
+          p_pat%recv_dst_blk(n) = blk_no(i)           ! Where to put the local point
+          p_pat%recv_dst_idx(n) = idx_no(i)           ! Where to put the local point
+          flag(ABS(dst_global_index(i))) = &
+            icnt(dst_owner(i))                        ! Store from where to get duplicates
         ELSE
-          p_pat%recv_src(n) = flag(ABS(global_index(i)))
+          p_pat%recv_src(n) = flag(ABS(dst_global_index(i)))
           p_pat%recv_dst_blk(n) = blk_no(i)
           p_pat%recv_dst_idx(n) = idx_no(i)
         ENDIF

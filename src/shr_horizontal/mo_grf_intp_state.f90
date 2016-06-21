@@ -482,6 +482,9 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   CALL setup_comm_pattern(p_p%n_patch_edges, owner(1:p_p%n_patch_edges), &
     &                     p_p%edges%decomp_info%glb_index, &
     &                     p_lp%edges%decomp_info%glb2loc_index, &
+    &                     p_lp%n_patch_edges, &
+    &                     p_lp%edges%decomp_info%owner_local, &
+    &                     p_lp%edges%decomp_info%glb_index, &
     &                     comm_pat_loc_to_glb_e)
 
   mask(1:p_p%n_patch_cells) = .FALSE.
@@ -498,6 +501,9 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   CALL setup_comm_pattern(p_p%n_patch_cells, owner(1:p_p%n_patch_cells), &
     &                     p_p%cells%decomp_info%glb_index, &
     &                     p_lp%cells%decomp_info%glb2loc_index, &
+    &                     p_lp%n_patch_cells, &
+    &                     p_lp%cells%decomp_info%owner_local, &
+    &                     p_lp%cells%decomp_info%glb_index, &
     &                     comm_pat_loc_to_glb_c)
   DEALLOCATE(owner, mask)
 
@@ -703,6 +709,9 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   CALL setup_comm_pattern(p_p%n_patch_edges, owner(1:p_p%n_patch_edges), &
     &                     p_p%edges%decomp_info%glb_index, &
     &                     p_lp%edges%decomp_info%glb2loc_index, &
+    &                     p_lp%n_patch_edges, &
+    &                     p_lp%edges%decomp_info%owner_local, &
+    &                     p_lp%edges%decomp_info%glb_index, &
     &                     comm_pat_loc_to_glb_e)
 
   owner(1:p_p%n_patch_cells) = &
@@ -711,6 +720,9 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   CALL setup_comm_pattern(p_p%n_patch_cells, owner(1:p_p%n_patch_cells), &
     &                     p_p%cells%decomp_info%glb_index, &
     &                     p_lp%cells%decomp_info%glb2loc_index, &
+    &                     p_lp%n_patch_cells, &
+    &                     p_lp%cells%decomp_info%owner_local, &
+    &                     p_lp%cells%decomp_info%glb_index, &
     &                     comm_pat_loc_to_glb_c)
   DEALLOCATE(owner)
 
@@ -846,18 +858,20 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
   TYPE(t_patch),                POINTER :: p_patch
   TYPE(t_int_state),            POINTER :: p_int
 
-  INTEGER :: jcd, icid, i_nchdom, ist
+  INTEGER :: jcd, icid, i_nchdom, ist, n
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
   INTEGER :: jg, jb, jc, je, jv, i, ic, ib, iv, iv1, iv2, ib1, ib2
   INTEGER :: npoints_lbc, npoints_ubc, icount_lbc, icount_ubc, npoints_lbc_src, icount_lbc_src
   LOGICAL :: lprocess, lfound(2,6)
   INTEGER, ALLOCATABLE :: inv_ind_c(:,:), inv_ind_e_lbc(:,:), inv_ind_e_ubc(:,:), &
                           inv_ind_v(:,:)
-  TYPE(t_glb2loc_index_lookup) :: inv_glb2loc_c, inv_glb2loc_e_lbc, &
-    &                             inv_glb2loc_e_ubc
-  INTEGER, ALLOCATABLE :: inv_glb2loc_loc_index_c(:), &
+  TYPE(t_glb2loc_index_lookup) :: inv_glb2loc
+  INTEGER, ALLOCATABLE :: inv_glb2loc_loc_index_c_grf(:), &
+    &                     inv_glb2loc_loc_index_c_ubc(:), &
     &                     inv_glb2loc_loc_index_e_lbc(:), &
     &                     inv_glb2loc_loc_index_e_ubc(:)
+  INTEGER, ALLOCATABLE :: owner_local(:)
+  INTEGER, ALLOCATABLE :: glb_index(:)
 
 !-----------------------------------------------------------------------
 
@@ -984,13 +998,15 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
               p_grf_s%blklist_bdyintp_c(10,npoints_lbc),p_grf_s%blklist_ubcintp_c(10,npoints_ubc), &
               p_grf_s%coeff_bdyintp_c(10,2,npoints_lbc),p_grf_s%coeff_ubcintp_c(10,2,npoints_ubc), &
               p_grf_s%dist_pc2cc_bdy(4,2,npoints_lbc),  p_grf_s%dist_pc2cc_ubc(4,2,npoints_ubc),   &
-              inv_ind_c(nproma,p_patch%nblks_c), inv_glb2loc_loc_index_c(p_patch%n_patch_cells),   &
-              STAT=ist )
+              inv_ind_c(nproma,p_patch%nblks_c), &
+              inv_glb2loc_loc_index_c_grf(p_patch%n_patch_cells),   &
+              inv_glb2loc_loc_index_c_ubc(p_patch%n_patch_cells), STAT=ist )
     IF (ist /= SUCCESS) THEN
       CALL finish (routine,'allocation of cell index lists failed')
     ENDIF
 
-    inv_glb2loc_loc_index_c = -1
+    inv_glb2loc_loc_index_c_grf = -1
+    inv_glb2loc_loc_index_c_ubc = -1
 
     npoints_lbc = MAX(1,p_grf_s%npoints_bdyintp_e)
     npoints_ubc = MAX(1,p_grf_s%npoints_ubcintp_e)
@@ -1003,6 +1019,10 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
               inv_glb2loc_loc_index_e_lbc(p_patch%n_patch_edges),                                  &
               inv_ind_e_ubc(nproma,p_patch%nblks_e),                                              &
               inv_glb2loc_loc_index_e_ubc(p_patch%n_patch_edges), STAT=ist)
+
+    inv_glb2loc_loc_index_e_lbc = -1
+    inv_glb2loc_loc_index_e_ubc = -1
+
     IF (ist /= SUCCESS) THEN
       CALL finish (routine,'allocation of edge index lists failed')
     ENDIF
@@ -1041,7 +1061,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
           p_grf_s%idxlist_bdyintp_c(1,icount_lbc) = jc
           p_grf_s%blklist_bdyintp_c(1,icount_lbc) = jb
           inv_ind_c(jc,jb) = icount_lbc
-          inv_glb2loc_loc_index_c(idx_1d(jc, jb)) = icount_lbc
+          inv_glb2loc_loc_index_c_grf(idx_1d(jc, jb)) = icount_lbc
           p_grf_s%idxlist_bdyintp_c(2:10,icount_lbc)   = p_int%rbf_c2grad_idx(2:10,jc,jb)
           p_grf_s%blklist_bdyintp_c(2:10,icount_lbc)   = p_int%rbf_c2grad_blk(2:10,jc,jb)
           p_grf_s%coeff_bdyintp_c(1:10,1:2,icount_lbc) = p_int%rbf_c2grad_coeff(1:10,1:2,jc,jb)
@@ -1053,7 +1073,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
           p_grf_s%idxlist_ubcintp_c(1,icount_ubc) = jc
           p_grf_s%blklist_ubcintp_c(1,icount_ubc) = jb
           inv_ind_c(jc,jb) = icount_ubc
-          inv_glb2loc_loc_index_c(idx_1d(jc, jb)) = icount_ubc
+          inv_glb2loc_loc_index_c_ubc(idx_1d(jc, jb)) = icount_ubc
           p_grf_s%idxlist_ubcintp_c(2:10,icount_ubc)   = p_int%rbf_c2grad_idx(2:10,jc,jb)
           p_grf_s%blklist_ubcintp_c(2:10,icount_ubc)   = p_int%rbf_c2grad_blk(2:10,jc,jb)
           p_grf_s%coeff_ubcintp_c(1:10,1:2,icount_ubc) = p_int%rbf_c2grad_coeff(1:10,1:2,jc,jb)
@@ -1384,54 +1404,104 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
 
     ! Generate the communication patterns for lateral and upper boundary
     ! interpolation
-
-    CALL init_glb2loc_index_lookup(inv_glb2loc_c, p_patch%n_patch_cells_g)
-    CALL init_glb2loc_index_lookup(inv_glb2loc_e_lbc, p_patch%n_patch_edges_g)
-    CALL init_glb2loc_index_lookup(inv_glb2loc_e_ubc, p_patch%n_patch_edges_g)
-    CALL set_inner_glb_index( &
-      inv_glb2loc_c, p_patch%cells%decomp_info%glb_index, &
-      inv_glb2loc_loc_index_c)
-    CALL set_inner_glb_index( &
-      inv_glb2loc_e_lbc, p_patch%edges%decomp_info%glb_index, &
-      inv_glb2loc_loc_index_e_lbc)
-    CALL set_inner_glb_index( &
-      inv_glb2loc_e_ubc, p_patch%edges%decomp_info%glb_index, &
-      inv_glb2loc_loc_index_e_ubc)
+    n = COUNT(inv_glb2loc_loc_index_c_grf > 0)
+    CALL init_glb2loc_index_lookup(inv_glb2loc, p_patch%n_patch_cells_g)
+    CALL set_inner_glb_index(inv_glb2loc, p_patch%cells%decomp_info%glb_index, &
+                             inv_glb2loc_loc_index_c_grf)
+    ALLOCATE(owner_local(n), glb_index(n))
+    DO i = 1, p_patch%n_patch_cells
+      IF (inv_glb2loc_loc_index_c_grf(i) > 0) THEN
+        owner_local(inv_glb2loc_loc_index_c_grf(i)) = &
+          p_patch%cells%decomp_info%owner_local(i)
+        glb_index(inv_glb2loc_loc_index_c_grf(i)) = &
+          p_patch%cells%decomp_info%glb_index(i)
+      END IF
+    END DO
     CALL generate_interpol_pattern(p_patch_all(icid)%n_patch_cells, &
       &                            p_patch_all(icid)%cells%parent_glb_idx, &
       &                            p_patch_all(icid)%cells%parent_glb_blk, &
       &                            p_patch_all(jg)%cells%decomp_info%owner_dist_dir, &
-      &                            inv_glb2loc_c, scal_grf_select_func, &
+      &                            inv_glb2loc, n, &
+      &                            owner_local, glb_index, scal_grf_select_func, &
       &                            p_patch_all(icid), &
       &                            p_patch_all(icid)%comm_pat_interpol_scal_grf)
+    CALL deallocate_glb2loc_index_lookup(inv_glb2loc)
+    DEALLOCATE(owner_local, glb_index)
+
+    n = COUNT(inv_glb2loc_loc_index_c_ubc > 0)
+    CALL init_glb2loc_index_lookup(inv_glb2loc, p_patch%n_patch_cells_g)
+    CALL set_inner_glb_index(inv_glb2loc, p_patch%cells%decomp_info%glb_index, &
+                             inv_glb2loc_loc_index_c_ubc)
+    ALLOCATE(owner_local(n), glb_index(n))
+    DO i = 1, p_patch%n_patch_cells
+      IF (inv_glb2loc_loc_index_c_ubc(i) > 0) THEN
+        owner_local(inv_glb2loc_loc_index_c_ubc(i)) = &
+          p_patch%cells%decomp_info%owner_local(i)
+        glb_index(inv_glb2loc_loc_index_c_ubc(i)) = &
+          p_patch%cells%decomp_info%glb_index(i)
+      END IF
+    END DO
     CALL generate_interpol_pattern(p_patch_all(icid)%n_patch_cells, &
       &                            p_patch_all(icid)%cells%parent_glb_idx, &
       &                            p_patch_all(icid)%cells%parent_glb_blk, &
       &                            p_patch_all(jg)%cells%decomp_info%owner_dist_dir, &
-      &                            inv_glb2loc_c, scal_ubc_select_func, &
+      &                            inv_glb2loc, n, &
+      &                            owner_local, glb_index, scal_ubc_select_func, &
       &                            p_patch_all(icid), &
       &                            p_patch_all(icid)%comm_pat_interpol_scal_ubc)
+    CALL deallocate_glb2loc_index_lookup(inv_glb2loc)
+    DEALLOCATE(owner_local, glb_index)
 
+    n = COUNT(inv_glb2loc_loc_index_e_lbc > 0)
+    CALL init_glb2loc_index_lookup(inv_glb2loc, p_patch%n_patch_edges_g)
+    CALL set_inner_glb_index(inv_glb2loc, p_patch%edges%decomp_info%glb_index, &
+                             inv_glb2loc_loc_index_e_lbc)
+    ALLOCATE(owner_local(n), glb_index(n))
+    DO i = 1, p_patch%n_patch_edges
+      IF (inv_glb2loc_loc_index_e_lbc(i) > 0) THEN
+        owner_local(inv_glb2loc_loc_index_e_lbc(i)) = &
+          p_patch%edges%decomp_info%owner_local(i)
+        glb_index(inv_glb2loc_loc_index_e_lbc(i)) = &
+          p_patch%edges%decomp_info%glb_index(i)
+      END IF
+    END DO
     CALL generate_interpol_pattern(p_patch_all(icid)%n_patch_edges, &
       &                            p_patch_all(icid)%edges%parent_glb_idx, &
       &                            p_patch_all(icid)%edges%parent_glb_blk, &
       &                            p_patch_all(jg)%edges%decomp_info%owner_dist_dir, &
-      &                            inv_glb2loc_e_lbc, vec_grf_select_func, &
+      &                            inv_glb2loc, n, &
+      &                            owner_local, glb_index, vec_grf_select_func, &
       &                            p_patch_all(icid), &
       &                            p_patch_all(icid)%comm_pat_interpol_vec_grf)
+    CALL deallocate_glb2loc_index_lookup(inv_glb2loc)
+    DEALLOCATE(owner_local, glb_index)
 
+    n = COUNT(inv_glb2loc_loc_index_e_ubc > 0)
+    CALL init_glb2loc_index_lookup(inv_glb2loc, p_patch%n_patch_edges_g)
+    CALL set_inner_glb_index(inv_glb2loc, p_patch%edges%decomp_info%glb_index, &
+                             inv_glb2loc_loc_index_e_ubc)
+    ALLOCATE(owner_local(n), glb_index(n))
+    DO i = 1, p_patch%n_patch_edges
+      IF (inv_glb2loc_loc_index_e_ubc(i) > 0) THEN
+        owner_local(inv_glb2loc_loc_index_e_ubc(i)) = &
+          p_patch%edges%decomp_info%owner_local(i)
+        glb_index(inv_glb2loc_loc_index_e_ubc(i)) = &
+          p_patch%edges%decomp_info%glb_index(i)
+      END IF
+    END DO
     CALL generate_interpol_pattern(p_patch_all(icid)%n_patch_edges, &
       &                            p_patch_all(icid)%edges%parent_glb_idx, &
       &                            p_patch_all(icid)%edges%parent_glb_blk, &
       &                            p_patch_all(jg)%edges%decomp_info%owner_dist_dir, &
-      &                            inv_glb2loc_e_ubc, vec_ubc_select_func, &
+      &                            inv_glb2loc, n, &
+      &                            owner_local, glb_index, vec_ubc_select_func, &
       &                            p_patch_all(icid), &
       &                            p_patch_all(icid)%comm_pat_interpol_vec_ubc)
-    CALL deallocate_glb2loc_index_lookup(inv_glb2loc_c)
-    CALL deallocate_glb2loc_index_lookup(inv_glb2loc_e_lbc)
-    CALL deallocate_glb2loc_index_lookup(inv_glb2loc_e_ubc)
-    DEALLOCATE(inv_glb2loc_loc_index_c, inv_glb2loc_loc_index_e_lbc, &
-               inv_glb2loc_loc_index_e_ubc)
+    CALL deallocate_glb2loc_index_lookup(inv_glb2loc)
+    DEALLOCATE(owner_local, glb_index)
+
+    DEALLOCATE(inv_glb2loc_loc_index_c_grf, inv_glb2loc_loc_index_c_ubc, &
+      &        inv_glb2loc_loc_index_e_lbc, inv_glb2loc_loc_index_e_ubc)
 
    ENDDO ! child domains
 
@@ -1680,12 +1750,15 @@ CONTAINS
 
   SUBROUTINE generate_interpol_pattern(n_patch_cve, parent_glb_idx, &
     &                                  parent_glb_blk, parent_owner_dist_dir, &
-    &                                  glb2loc, select_func, p_patch, &
+    &                                  glb2loc, n_src, owner_local_src, &
+    &                                  glb_index_src, &
+    &                                  select_func, p_patch, &
     &                                  comm_pat_interpol)
 
     INTEGER, INTENT(IN) :: n_patch_cve, parent_glb_idx(:,:), parent_glb_blk(:,:)
     TYPE(t_dist_dir), INTENT(IN) :: parent_owner_dist_dir
     TYPE(t_glb2loc_index_lookup), INTENT(IN) :: glb2loc
+    INTEGER, INTENT(IN) :: n_src, owner_local_src(:), glb_index_src(:)
     TYPE(t_patch), INTENT(IN) :: p_patch
     TYPE(t_comm_pattern), INTENT(OUT) :: comm_pat_interpol(4)
     INTERFACE
@@ -1698,7 +1771,7 @@ CONTAINS
     END INTERFACE
 
     INTEGER :: i, n, idx, blk
-    INTEGER, ALLOCATABLE :: owner(:), glb_index(:)
+    INTEGER :: owner_local_dst(n_patch_cve), glb_index_dst(n_patch_cve)
 
     !--------------------------------------------------------------------
     ! Cells
@@ -1706,31 +1779,29 @@ CONTAINS
     ! For our local child patch, gather which cells receive values from which parent cell
     ! This is done once for every of the four child cells
 
-    ALLOCATE(glb_index(n_patch_cve), owner(n_patch_cve))
-
     DO n = 1, 4
 
-      glb_index(:) = -1
+      glb_index_dst(:) = -1
 
       ! Communication to nest boundary points includes halo points in order to save subsequent synchronization
       DO i = 1, n_patch_cve
         idx = idx_no(i)
         blk = blk_no(i)
         IF (select_func(idx, blk, n, p_patch)) &
-          glb_index(i) = idx_1d(parent_glb_idx(idx, blk), &
-            &                   parent_glb_blk(idx, blk))
+          glb_index_dst(i) = idx_1d(parent_glb_idx(idx, blk), &
+            &                       parent_glb_blk(idx, blk))
       ENDDO
 
-      owner(:) = dist_dir_get_owners(parent_owner_dist_dir, glb_index(:), &
-        &                            glb_index(:) /= -1)
+      owner_local_dst(:) = dist_dir_get_owners(parent_owner_dist_dir, &
+        &                                      glb_index_dst(:), &
+        &                                      glb_index_dst(:) /= -1)
 
       ! Set up communication pattern
-      CALL setup_comm_pattern(n_patch_cve, owner, glb_index,  &
-        &                     glb2loc, comm_pat_interpol(n))
+      CALL setup_comm_pattern(n_patch_cve, owner_local_dst, glb_index_dst,  &
+        &                     glb2loc, n_src, owner_local_src, glb_index_src, &
+        &                     comm_pat_interpol(n))
 
     ENDDO
-
-    DEALLOCATE(owner, glb_index)
 
   END SUBROUTINE generate_interpol_pattern
 

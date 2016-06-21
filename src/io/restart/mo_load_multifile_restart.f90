@@ -101,7 +101,7 @@ MODULE mo_load_multifile_restart
       REAL(dp), POINTER :: readBuffer_1d_d(:)
       INTEGER,  POINTER :: readBuffer_1d_int(:)
 
-      TYPE(t_comm_pattern) :: commPattern
+      CLASS(t_comm_pattern), POINTER :: commPattern
     CONTAINS
         PROCEDURE :: construct => readBuffer_construct
 
@@ -390,7 +390,7 @@ CONTAINS
 
         ! Build the communication pattern.
         ! Note: These communication patterns also set the halo points.
-        me%commPattern = makeRedistributionPattern(name, providedGlobalIndices, requiredGlobalIndices)
+        me%commPattern => makeRedistributionPattern(name, providedGlobalIndices, requiredGlobalIndices)
 
         ! Allocate the READ buffers.
         pointCount = SIZE(providedGlobalIndices)
@@ -618,21 +618,33 @@ CONTAINS
     ! must be IN the range [1, globalSize].  owners(M): Rank of the PE
     ! providing each of the required points.
     FUNCTION makeCommPattern(globalSize, providedGlobalIndices, requiredGlobalIndices, owners) RESULT(resultVar)
-        TYPE(t_comm_pattern) :: resultVar
+        CLASS(t_comm_pattern), POINTER :: resultVar
         INTEGER, VALUE :: globalSize
         INTEGER, INTENT(IN) :: providedGlobalIndices(:), requiredGlobalIndices(:), owners(:)
 
-        INTEGER :: i
+        INTEGER :: i, nreq, nown
+        INTEGER :: local_index(SIZE(providedGlobalIndices)), &
+             local_owner(SIZE(providedGlobalIndices))
         TYPE(t_glb2loc_index_lookup) :: lookupTable
         CHARACTER(*), PARAMETER :: routine = modname//":makeCommPattern"
 
-        IF(SIZE(requiredGlobalIndices) /= SIZE(owners)) THEN
-            CALL finish(routine, "assertion failed: requiredGlobalIndices(:) and owners(:) must have the same number of entries")
+        nreq = SIZE(requiredGlobalIndices)
+        IF(nreq /= SIZE(owners)) THEN
+          CALL finish(routine, "assertion failed: requiredGlobalIndices(:) &
+               &and owners(:) must have the same number of entries")
         END IF
 
         CALL init_glb2loc_index_lookup(lookupTable, globalSize)
-        CALL set_inner_glb_index(lookupTable, providedGlobalIndices, [(i, i = 1, SIZE(providedGlobalIndices))])
-        CALL setup_comm_pattern(SIZE(requiredGlobalIndices), owners, requiredGlobalIndices, lookupTable, resultVar)
+        nown = SIZE(providedGlobalIndices)
+        DO i = 1, nown
+          local_index(i) = i
+        END DO
+        CALL set_inner_glb_index(lookupTable, providedGlobalIndices, local_index)
+        local_owner = p_comm_rank(p_comm_work)
+
+        CALL setup_comm_pattern(nreq, owners, requiredGlobalIndices, &
+             lookupTable, nown, local_owner, providedGlobalIndices, &
+             resultVar)
         CALL deallocate_glb2loc_index_lookup(lookupTable)
     END FUNCTION makeCommPattern
 
@@ -677,7 +689,7 @@ CONTAINS
     !
     ! The resulting t_comm_pattern will also initialize the halo points.
     FUNCTION makeRedistributionPattern(name, providedGlobalIndices, requiredGlobalIndices) RESULT(resultVar)
-        TYPE(t_comm_pattern) :: resultVar
+        CLASS(t_comm_pattern), POINTER :: resultVar
         CHARACTER(LEN=*), INTENT(IN) :: name
         INTEGER, INTENT(IN) :: providedGlobalIndices(:), requiredGlobalIndices(:)
 
@@ -728,7 +740,7 @@ CONTAINS
         CALL providerToBroker%communicateToBroker(providerBuffer, brokerBuffer)
         CALL consumerToBroker%communicateFromBroker(brokerBuffer, providerOfRequiredPoint)
 
-        resultVar = makeCommPattern(globalSize, providedGlobalIndices, requiredGlobalIndices, &
+        resultVar => makeCommPattern(globalSize, providedGlobalIndices, requiredGlobalIndices, &
           &                         providerOfRequiredPoint)
 
         ! cleanup

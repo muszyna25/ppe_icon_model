@@ -319,7 +319,7 @@ CONTAINS
     TYPE(t_grid_domain_decomp_info), INTENT(in) :: decomp_info
     TYPE(t_distrib_read_data), INTENT(inout) :: io_data
 
-    INTEGER :: n
+    INTEGER :: n, n_inner, i
     INTEGER, ALLOCATABLE :: owner(:)
     TYPE(t_basic_distrib_read_data), POINTER :: basic_io_data
 
@@ -332,9 +332,11 @@ CONTAINS
 
     CALL distrib_read_compute_owner(n, decomp_info%glb_index(:), &
       & owner(:), basic_io_data)
+    n_inner = SIZE(basic_io_data%glb2loc_index%inner_glb_index, 1)
     CALL setup_comm_pattern(n, owner(:), decomp_info%glb_index(:), &
-      & basic_io_data%glb2loc_index, &
-      & io_data%redistrib_pattern)
+      & basic_io_data%glb2loc_index, n_inner, &
+      & (/(p_pe_work, i = 1, n_inner)/), &
+      & basic_io_data%glb2loc_index%inner_glb_index, io_data%redistrib_pattern)
 
     DEALLOCATE(owner)
 
