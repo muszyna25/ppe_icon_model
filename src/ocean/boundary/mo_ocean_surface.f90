@@ -401,6 +401,9 @@ CONTAINS
 
     END SELECT
 
+    ! copy atmospheric wind speed from p_as%fu10 into new forcing variable for output purpose - not accumulated yet
+    p_oce_sfc%Wind_Speed_10m(:,:) = p_as%fu10(:,:)
+
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('bef.fast: Tsurf  ',        p_ice%tsurf          ,str_module,idt_src, in_subset=p_patch%cells%owned)
@@ -516,7 +519,7 @@ CONTAINS
       atmos_fluxes%sensw  (:,:)   = atmos_fluxes%HeatFlux_Sensible (:,:)
       atmos_fluxes%latw   (:,:)   = atmos_fluxes%HeatFlux_Latent   (:,:)
      
-      WHERE ( p_ice%concSum(:,:) > 0._wp) !  corresponding to 1-concSum in TotalOcean
+      WHERE ( p_ice%concSum(:,:) > 0._wp) !  corresponding to (1-concSum)*Precip in TotalOcean
    !  WHERE ( ALL( p_ice%hi   (:,:,:) > 0._wp, 2 ) )  !  corresponding to hi>0 in ice_growth_zero
    !  WHERE ( ALL( p_ice%Tsurf(:,:,:) < 0._wp, 2 ) )  !  Tsurf is -1.8 over open water, incorrect specification
         ! SnowFall and liquid rain over ice-covered part of ocean are taken from the atmosphere model
@@ -531,9 +534,12 @@ CONTAINS
       ! copy flux for use in TotalOcean, since analytical/omip use p_as:
       !p_as%FrshFlux_Precipitation      = atmos_fluxes%FrshFlux_Precipitation
 
-      ! total water flux (runoff added elsewhere) on ice-free ocean water, snowfall is included as water
-      atmos_fluxes%FrshFlux_TotalOcean(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) * &
-        &  (atmos_fluxes%FrshFlux_Precipitation(:,:) + atmos_fluxes%FrshFlux_Evaporation(:,:))
+      ! total water flux over ice-free ocean water: P*(1-C)+E
+      !  - whole evaporation over grid-box enters open ocean, this includes evaporation over sea ice covered part
+      !  - snowfall is included as (melted) water equivalent
+      !  - runoff is added to VolumeTotal below
+      atmos_fluxes%FrshFlux_TotalOcean(:,:) = p_patch_3d%wet_c(:,1,:)* &
+        &  (( 1.0_wp-p_ice%concSum(:,:) ) * atmos_fluxes%FrshFlux_Precipitation(:,:) + atmos_fluxes%FrshFlux_Evaporation(:,:))
 
     ENDIF  ! iforc_oce
 
