@@ -22,7 +22,7 @@ MODULE mo_bc_aeropt_kinne
   USE mo_parallel_config,      ONLY: nproma
   USE mo_lrtm_par,             ONLY: nbndlw
   USE mo_srtm_config,          ONLY: nbndsw=>jpsw
-  USE mo_exception,            ONLY: finish, message
+  USE mo_exception,            ONLY: finish
   USE mo_io_config,            ONLY: default_read_method
   USE mo_read_interface,       ONLY: openInputFile, closeFile, on_cells, &
     &                                t_stream_id, read_0D_real, read_3D_time
@@ -386,8 +386,6 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
       cfnameyear=cfname//'.nc'
     ENDIF
 
-    CALL message ('read_months_bc_aeropt_kinne of mo_bc_aeropt_kinne', &
-   &              'reading from file '//TRIM(ADJUSTL(cfnameyear)))
     stream_id=openInputFile(cfnameyear, p_patch, default_read_method)
 !    IF (ALLOCATED(zvar)) DEALLOCATE(zvar)
     CALL read_3D_time(stream_id=stream_id, location=on_cells, variable_name=caod, &

@@ -38,7 +38,7 @@ IMPLICIT NONE
 
   PRIVATE
 
-  PUBLIC :: ldiur, lradforcing, irad_aero_forcing
+  PUBLIC :: ldiur, lradforcing
   PUBLIC :: lyr_perp, yr_perp, nmonth, isolrad, nb_sw
   PUBLIC :: lw_spec_samp, sw_spec_samp, lw_gpts_ts, sw_gpts_ts, rad_perm
   PUBLIC :: i_overlap, l_do_sep_clear_sky
@@ -56,8 +56,6 @@ IMPLICIT NONE
   LOGICAL :: lradforcing(2) = (/.FALSE.,.FALSE./) !< &! switch on/off diagnostic 
              !of instantaneous aerosol solar (lradforcing(1)) and 
              !thermal (lradforcing(2)) radiation forcing
-  INTEGER :: irad_aero_forcing = 0 !< reference aerosols for instantaneous 
-                                   !< radiative forcing
   LOGICAL :: lyr_perp    = .FALSE. !< switch to specify perpetual vsop87 year
   INTEGER :: yr_perp     = -99999  !< year if (lyr_perp == .TRUE.)
   INTEGER :: nmonth      =  0      !< 0=annual cycle; 1-12 for perpetual month

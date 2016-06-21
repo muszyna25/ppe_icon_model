@@ -62,7 +62,7 @@ MODULE mo_radiation
     &                                irad_cfc12, vmr_cfc12,   &
     &                                irad_aero,               &
     &                                lrad_aero_diag,          &
-    &                                izenith, lradforcing
+    &                                izenith
   USE mo_lnd_nwp_config,       ONLY: isub_seaice, isub_lake
 
   USE mo_newcld_optics,        ONLY: newcld_optics
@@ -88,7 +88,6 @@ MODULE mo_radiation
   USE mo_nh_testcases_nml,     ONLY: zenithang
   USE mo_rad_diag,             ONLY: rad_aero_diag
   USE mo_art_radiation_interface, ONLY: art_rad_aero_interface
-  USE mo_psrad_radiation_forcing, ONLY: calculate_psrad_radiation_forcing
 
   IMPLICIT NONE
 
@@ -1675,12 +1674,8 @@ CONTAINS
     &                 cosmu0,          & ! optional: cosine of zenith angle
     &                 opt_nh_corr   ,  & ! optional: switch for applying corrections for NH model
     &                 use_trsolclr_sfc,& ! optional: use clear-sky surface transmissivity passed on input
-    &                 jg            ,  & ! optional: domain index
-    &                 krow          ,  & ! optional: block index
     &                 ptrmsw        ,  &
     &                 pflxlw        ,  &
-    &                 ptrmswclr     ,  & ! optional: shortwave net transmissivity at last rad. step clear sky []
-    &                 pflxlwclr     ,  & ! optional: longwave net flux at last rad. step clear sky [W/m2]
     &                 pdtdtradsw    ,  &
     &                 pdtdtradlw    ,  &
     &                 pflxsfcsw     ,  &
@@ -1737,14 +1732,6 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL   ::  &
       &     opt_nh_corr, use_trsolclr_sfc
 
-    INTEGER, INTENT(in), OPTIONAL   ::  &
-      &     jg,                         & ! index of domain
-      &     krow                          ! block index
-
-    REAL(wp), INTENT(in), OPTIONAL  ::  &
-      &     ptrmswclr   (kbdim,klevp1), & ! shortwave net transmissivity at last rad. step clear sky []
-      &     pflxlwclr   (kbdim,klevp1)    ! longwave net flux at last rad. step clear sky [W/m2]
-   
     REAL(wp), INTENT(inout) ::       &
       &     pdtdtradsw (kbdim,klev), & ! shortwave temperature tendency           [K/s]
       &     pdtdtradlw (kbdim,klev)    ! longwave temperature tendency            [K/s]
@@ -1768,8 +1755,6 @@ CONTAINS
     REAL(wp) ::                    &
       &     zflxsw (kbdim,klevp1), &
       &     zflxlw (kbdim,klevp1), &
-      &     zflxswclr(kbdim,klevp1),&
-      &     zflxlwclr(kbdim,klevp1),&
       &     zconv  (kbdim,klev)  , &
       &     tqv    (kbdim)       , &
       &     dlwem_o_dtg(kbdim)   , &
@@ -1778,7 +1763,6 @@ CONTAINS
       &     intclw (kbdim,klevp1), &
       &     intcli (kbdim,klevp1), &
       &     dlwflxall_o_dtg(kbdim,klevp1)
-    REAL(wp) :: dummy(kbdim,klevp1)
 
     REAL(wp) :: swfac1(kbdim), swfac2(kbdim), dflxsw_o_dalb(kbdim), trsolclr(kbdim), logtqv(kbdim)
 
@@ -1808,18 +1792,15 @@ CONTAINS
     ! Conversion factor for heating rates
     zconv(jcs:jce,1:klev) = 1._wp/(pmair(jcs:jce,1:klev)*(pcd+(pcv-pcd)*pqv(jcs:jce,1:klev)))
 
+    ! Shortwave fluxes = transmissivity * local solar incoming flux at TOA
+    ! ----------------
+
     ! lev == 1        => TOA
     ! lev in [2,klev] => Atmosphere
     ! lev == klevp1   => Surface
     DO jk = 1, klevp1
       zflxsw(jcs:jce,jk)      = ptrmsw(jcs:jce,jk) * pi0(jcs:jce)
     END DO
-    IF (lradforcing(1)) THEN
-      ! Shortwave fluxes clear sky = transmissivity clear sky * local solar incoming flux at TOA
-      DO jk = 1, klevp1
-        zflxswclr(jcs:jce,jk)  = ptrmswclr(jcs:jce,jk)*pi0(jcs:jce)
-      END DO
-    END IF
     ! Longwave fluxes
     ! - TOA
 !    zflxlw(jcs:jce,1)      = pflxlw(jcs:jce,1)
@@ -1987,24 +1968,7 @@ CONTAINS
 !!$      zflxlw(jcs:jce,klevp1) = pflxlw(jcs:jce,klevp1)                      &
 !!$        &                   + pemiss(jcs:jce)*stbo * ptsfctrad(jcs:jce)**4 &
 !!$        &                   - pemiss(jcs:jce)*stbo * ptsfc    (jcs:jce)**4
-      IF (lradforcing(2)) THEN
-        ! Longwave fluxes clear sky: For now keep fluxes fixed at TOA and in atmosphere,
-        ! but adjust flux from surface to the current surface temperature.
-        ! - TOA
-        zflxlwclr(jcs:jce,1)      = pflxlwclr(jcs:jce,1)
-        ! - Atmosphere
-        zflxlwclr(jcs:jce,2:klev) = pflxlwclr(jcs:jce,2:klev)
 
-        ! - Surface
-        !   Adjust net sfc longwave radiation for changed surface temperature (ptsfc) with respect to the
-        !   surface temperature used for the longwave flux computation (ptsfctrad).
-        !   --> modifies heating in lowermost layer only (is this smart?)
-        !   This assumes that downward sfc longwave radiation is constant between radiation time steps and
-        !   upward and net sfc longwave radiation are updated between radiation time steps
-        dlwem_o_dtg(jcs:jce) = pemiss(jcs:jce)*4._wp*stbo*ptsfc(jcs:jce)**3    ! Derivative of upward sfc rad wrt to sfc temperature
-        zflxlwclr(jcs:jce,klevp1) = pflxlwclr(jcs:jce,klevp1)                & ! Net longwave sfc rad at radiation time step
-        & - dlwem_o_dtg(jcs:jce) * (ptsfc(jcs:jce) - ptsfctrad(jcs:jce))       ! Correction for new sfc temp between radiation time steps
-      END IF
 
     ENDIF
 
@@ -2029,26 +1993,6 @@ CONTAINS
     IF ( PRESENT(pflxtoasw) ) pflxtoasw(jcs:jce) = zflxsw(jcs:jce,1)
     IF ( PRESENT(pflxtoalw) ) pflxtoalw(jcs:jce) = zflxlw(jcs:jce,1)
 
-! Calculate radiative forcing
-    IF (lradforcing(1).OR.lradforcing(2)) THEN
-      zconv(jcs:jce,1:klev) = 1._wp/(pmair(jcs:jce,1:klev)*(pcd+(pcv-pcd)*pqv(jcs:jce,1:klev)))
-      CALL calculate_psrad_radiation_forcing( &
-                  & jg=jg,                    &
-                  & jcs=jcs,                  &
-                  & jce=jce,                  &
-                  & kbdim=kbdim,              &
-                  & klevp1=klevp1,            &
-                  & krow=krow,                &       
-                  & pi0=pi0,                  &
-                  & pconvfact=zconv,          &
-                  & pflxs=zflxsw,             &
-                  & pflxs0=zflxswclr,         &
-                  & pflxt=zflxlw,             &
-                  & pflxt0=zflxlwclr,         &   
-                  & pemiss=pemiss,            &
-                  & ptsfctrad=ptsfctrad,      &
-                  & pztsnew=ptsfc             )
-   END IF
 
   END SUBROUTINE radheat
 

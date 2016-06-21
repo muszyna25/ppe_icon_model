@@ -545,11 +545,7 @@ CONTAINS
         & ktype      = itype(:)   ,&!< in  type of convection
         & loland     = lland      ,&!< in  land-sea mask. (logical)
         & loglac     = lglac      ,&!< in  glacier mask (logical)
-        & datetime   = datetime   ,&!< in  actual time step
         & pcos_mu0   = field%cosmu0_rad(:,jb)  ,&!< in  solar zenith angle
-        & geoi       = field%geoi(:,:,jb)      ,&!< geopotential wrt surface at layer interfaces
-        & geom       = field%geom(:,:,jb)      ,&!< geopotential wrt surface at layer centres
-        & oromea     = field%oromea(:,jb)      ,&!< mean orography in m
         & alb_vis_dir= field%albvisdir(:,jb)   ,&!< in  surface albedo for visible range, direct
         & alb_nir_dir= field%albnirdir(:,jb)   ,&!< in  surface albedo for near IR range, direct
         & alb_vis_dif= field%albvisdif(:,jb)   ,&!< in  surface albedo for visible range, diffuse
@@ -625,13 +621,9 @@ CONTAINS
         & pemiss     = ext_data(jg)%atm%emis_rad(:,jb),&! in    lw sfc emissivity
         & ptsfc      = field%tsfc_rad (:,jb)          ,&! in    rad. surface temperature now         [K]
         & ptsfctrad  = field%tsfc_radt(:,jb)          ,&! in    rad. surface temp. at last rad. step [K]
-        & jg         = jg                             ,&! in    domain index
-        & krow       = jb                             ,&! in    block index
-        & ptrmsw     = field%swtrmall         (:,:,jb),&! in    shortwave net transmissivity at last rad. step []
+        & ptrmsw     = field%swtrmall         (:,:,jb),&! in    shortwave net tranmissivity at last rad. step []
         & pflxlw     = field%lwflxall         (:,:,jb),&! in    longwave net flux at last rad. step [W/m2]
         & lwflx_up_sfc_rs = field%lwflxupsfc  (:,  jb),&! in    surface longwave upward flux at last rad. step [W/m2]
-        & ptrmswclr  = field%swtrmclr         (:,:,jb),&! in    shortwave net transmissivity at last rad. step clear sky []
-        & pflxlwclr  = field%lwflxclr         (:,:,jb),&! in    longwave net flux at last rad. step clear sky [W/m2]
         !
         ! output
         ! ------
