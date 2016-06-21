@@ -26,6 +26,7 @@ MODULE mo_test_nh_communication
   
   USE mo_icon_comm_lib
   USE mo_atmo_nonhydrostatic, ONLY: construct_atmo_nonhydrostatic, destruct_atmo_nonhydrostatic
+  USE mo_async_latbc_types,   ONLY: t_latbc_data
 
   !-------------------------------------------------------------------------
   ! for the nh run
@@ -59,7 +60,8 @@ CONTAINS
     
     INTEGER :: patch_no, i
 
-    
+    TYPE(t_latbc_data) :: latbc !< data structure for async latbc prefetching
+
     CHARACTER(*), PARAMETER :: method_name = "mo_test_communication:test_nh_communication"
 
     !---------------------------------------------------------------------
@@ -69,7 +71,7 @@ CONTAINS
 
     ltimer = .false.
     CALL construct_atmo_model(namelist_filename,shr_namelist_filename)
-    CALL construct_atmo_nonhydrostatic()
+    CALL construct_atmo_nonhydrostatic(latbc)
         
     CALL work_mpi_barrier()
     
@@ -85,7 +87,7 @@ CONTAINS
     !---------------------------------------------------------------------
     ! Carry out the shared clean-up processes
     !---------------------------------------------------------------------
-    CALL destruct_atmo_nonhydrostatic()
+    CALL destruct_atmo_nonhydrostatic(latbc)
     CALL destruct_atmo_model()
 !     CALL destruct_icon_communication()
     CALL message(TRIM(method_name),'clean-up finished')
