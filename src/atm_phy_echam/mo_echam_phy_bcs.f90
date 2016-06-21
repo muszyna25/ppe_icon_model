@@ -208,6 +208,13 @@ CONTAINS
         CALL read_bc_aeropt_kinne     (mtime_current%date%year, patch)
         CALL read_bc_aeropt_stenchikov(mtime_current%date%year)
       END IF
+      ! tropospheric background aerosols (Kinne) and stratospheric
+      ! aerosols (Stenchikov) + simple plumes (analytical, nothing to be read
+      ! here, initialization see init_echam_phy (mo_echam_phy_init)) 
+      IF (irad_aero == 18) THEN
+        CALL read_bc_aeropt_kinne     (year=1850, p_patch=patch)
+        CALL read_bc_aeropt_stenchikov(datetime%year)
+      END IF
       !
     END IF ! ltrig_rad
 
