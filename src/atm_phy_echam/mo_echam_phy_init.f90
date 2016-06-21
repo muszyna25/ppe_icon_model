@@ -57,7 +57,8 @@ MODULE mo_echam_phy_init
   ! radiation
   USE mo_radiation_config,     ONLY: ssi_radt, tsi_radt, tsi, &
                                    & ighg, isolrad, irad_aero
-  USE mo_srtm_config,          ONLY: setup_srtm, ssi_amip, ssi_default, ssi_preind, ssi_rce
+  USE mo_psrad_srtm_setup,     ONLY: setup_srtm, ssi_amip, ssi_default, &
+                                   & ssi_preind, ssi_RCEdiurnOn, ssi_RCEdiurnOFF
   USE mo_lrtm_setup,           ONLY: lrtm_setup
   USE mo_newcld_optics,        ONLY: setup_newcld_optics
 
@@ -165,13 +166,17 @@ CONTAINS
         tsi_radt = SUM(ssi_amip)
         tsi      = tsi_radt
       CASE (4)
-        ssi_radt(:) = ssi_rce(:)
-        tsi_radt = SUM(ssi_rce)
+        ssi_radt(:) = ssi_RCEdiurnOn(:)
+        tsi_radt = SUM(ssi_RCEdiurnON)
+        tsi      = tsi_radt
+      CASE (5)
+        ssi_radt(:) = ssi_RCEdiurnOFF(:)
+        tsi_radt = SUM(ssi_RCEdiurnOFF)
         tsi      = tsi_radt
       CASE default
         WRITE (message_text, '(a,i2,a)') &
              'isolrad = ', isolrad, ' in radiation_nml namelist is not supported'
-        CALL message('init_echam_phy', message_text)
+        CALL finish('init_echam_phy', message_text)
       END SELECT
       CALL setup_srtm
       CALL lrtm_setup('rrtmg_lw.nc')
@@ -652,7 +657,7 @@ CONTAINS
       END IF
 
       SELECT CASE (ctest_name)
-      CASE('APE','APE_echam','RCEhydro') !Note that there is only one surface type in this case
+      CASE('APE','APE_echam','RCEhydro','RCE_glb') !Note that there is only one surface type in this case
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = jbs,nblks_c
@@ -669,7 +674,7 @@ CONTAINS
 
         IF ( is_coupled_run() ) CALL finish('ERROR: Use testcase APEc or APEc_nh for a coupled run')
 
-      CASE('RCE','RCE_glb') !Note that there is only one surface type in this case
+      CASE('RCE') !Note that there is only one surface type in this case
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = jbs,nblks_c

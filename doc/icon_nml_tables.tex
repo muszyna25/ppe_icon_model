@@ -4467,6 +4467,49 @@ sw\_spec\_samp = 2: Monte--Carlo spectral integration (MSCI); lw\_gpts\_ts
 \end{longtab}
 
 Defined and used in: \verb+src/echam_phy_psrad/mo_psrad_radiation.f90+
+
+%------------------------------------------------------------------------------
+% psrad_orbit_nml:
+%------------------------------------------------------------------------------
+\subsection{psrad\_orbit\_nml}
+
+\begin{longtab}
+
+%\hline
+cecc &
+R&
+0.016715&
+&
+eccentricity of earth's orbit&
+\tabularnewline
+
+cobld &
+R&
+23.44100&
+&
+obliquity of earth in degrees&
+\tabularnewline
+
+l\_orbvsop87 &
+L&
+.TRUE.&
+&
+switch on (.TRUE.) the (real) observed orbit of the earth (not
+idealized) or switch it off (.FALSE.). In the latter case, a Kepler
+orbit is used.&
+\tabularnewline
+
+l\_sph\_symm\_irr&
+L&
+.FALSE.&
+&
+switch on (.TRUE.) a spherically symmetric irradiation from all sides
+or use an irradiation by a point source like the sun (.FALSE.).&
+\tabularnewline 
+
+\end{longtab}
+
+Defined and used in: \verb+src/namelists/mo_psrad_radiation.f90+
 %------------------------------------------------------------------------------
 % radiation_nml:
 %------------------------------------------------------------------------------
@@ -4517,7 +4560,10 @@ Insolation scheme\\
 resolved insolation (monthly means)\\
 2: Use preindustrial insolation as in CMIP5 (average from 1844--1856)\\
 3: Use insolation for AMIP--type CMIP5 simulation (average from 1979--1988)\\
-4: Use insolation for RCE--type simulation with cos(zenith angle) = pi/4
+4: Use insolation for RCE--type simulation with cos(zenith angle) =
+pi/4 (with PSRAD: use ``4'' if the diurnal cycle is switched on)\\
+5: Use insolation for RCE--type simulation with PSRAD if the diurnal
+cycle is switched off.
  &
 \tabularnewline
 
