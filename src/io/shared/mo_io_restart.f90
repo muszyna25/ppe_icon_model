@@ -1434,7 +1434,7 @@ CONTAINS
   !
   SUBROUTINE write_restart(p_patch, restart_filename)
     TYPE(t_patch), INTENT(in) :: p_patch
-    CHARACTER(len=80)         :: restart_filename
+    CHARACTER(len=*)          :: restart_filename
 
     INTEGER :: i,j
     LOGICAL :: write_info
