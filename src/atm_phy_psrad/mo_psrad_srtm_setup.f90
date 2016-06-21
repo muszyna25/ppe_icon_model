@@ -17,7 +17,8 @@ MODULE mo_psrad_srtm_setup
   PRIVATE
 
   PUBLIC :: ngb, ngc, ngs, nspa, nspb, ssi_default, ssi_preind, ssi_amip, &
-          & ssi_RCEdiurnOn, ssi_RCEdiurnOff, wavenum2, delwave, setup_srtm
+          & ssi_RCEdiurnOn, ssi_RCEdiurnOff, wavenum1, wavenum2, &
+          & delwave, setup_srtm
   ! ------- Definitions -------
   !     Arrays for the g-point reduction from 224 to 112 for the 16 LW bands:
   !     This mapping from 224 to 112 points has been carefully selected to 
