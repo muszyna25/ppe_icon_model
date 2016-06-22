@@ -695,6 +695,14 @@ MODULE mo_nh_stepping
 
   CALL getPTStringFromMS(NINT(1000.0_wp*dtime,i8), dtime_str)
   model_time_step => newTimedelta(dtime_str)
+
+  ! IMPORTANT NOTE: The MTIME implementation of the time loop does not
+  ! take the IAU mode of the ICON model into account which starts with
+  ! "negative" time steps, controlled by "jstep_shift".
+  IF (jstep_shift /= 0) THEN
+    CALL finish('perform_nh_timeloop', "Backward time shift of model not yet implemented!")
+  END IF
+
   current_date => newDatetime(tc_startdate)
   end_date => newDatetime(current_date)
   end_date = end_date + getEventInterval(restartEvent)
@@ -1172,10 +1180,6 @@ MODULE mo_nh_stepping
        CALL prefetch_input( datetime_current, p_patch(1), p_int_state(1), p_nh_state(1))
     ENDIF
 
-#ifdef USE_MTIME_LOOP
-    IF (current_date >= end_date) EXIT TIME_LOOP
-#endif
-
     ! Reset model to initial state if IAU iteration is selected and the first iteration cycle has been completed
     IF (jstep == 0 .AND. iau_iter == 1) THEN
       jstep_adv(:)%marchuk_order = 0
@@ -1186,10 +1190,14 @@ MODULE mo_nh_stepping
       datetime_old = datetime_current
       CALL reset_to_initial_state(datetime_current)
       iau_iter = 2
-      jstep = jstep_shift+1
+      jstep = jstep0+jstep_shift+1
     ELSE
       jstep = jstep + 1
     ENDIF
+
+#ifdef USE_MTIME_LOOP
+    IF (current_date >= end_date) EXIT TIME_LOOP
+#endif
 
   ENDDO TIME_LOOP
 
