@@ -1401,8 +1401,10 @@ CONTAINS
     ! > happens just to test the correctness of the algorithm which
     ! > sets the parent-side of the refin_ctrl flags automatically.
 
-    CALL message(modname//': divide_patch', "erase negative refin_ctrl flags in patch "//&
-      &TRIM(int2string(wrk_p_patch%id)))
+    IF (msg_level >= 10) THEN
+      CALL message(modname//': divide_patch', "erase negative refin_ctrl flags in patch "//&
+        &TRIM(int2string(wrk_p_patch%id)))
+    END IF
 
     DO j=1,wrk_p_patch%n_patch_cells
       jc = idx_no(j) ; jb = blk_no(j)

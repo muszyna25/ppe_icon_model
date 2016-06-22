@@ -834,16 +834,6 @@ CONTAINS
         refin_c = MAX( -1*out_data(1,j), min_rlcell_int )
       END IF
 
-!!      IF (refin_c /= UNDEFINED_VALUE) THEN
-!        IF (p_p%cells%refin_ctrl(jc_c,jb_c) /= refin_c) THEN
-!          IF ((p_p%cells%refin_ctrl(jc_c,jb_c) < 0) .AND. (p_p%cells%child_id(jc_c,jb_c) == p_c%id)) THEN
-!            WRITE (0,*) "p_p%cells%refin_ctrl(jc_c,jb_c) /= refin_c: ", p_p%cells%refin_ctrl(jc_c,jb_c) , refin_c
-!          END IF
-!        END IF
-! !     END IF
-!      IF (out_count(2,j) > 0) THEN
-!        WRITE (0,*) "out_count = ", out_count(:,j)
-!      END IF
       IF (refin_c /= UNDEFINED_VALUE) THEN
         p_p%cells%refin_ctrl(jc_c,jb_c) = refin_c
       END IF

@@ -2661,14 +2661,15 @@ CONTAINS
   !  @author F. Prill, DWD (2016-06-16)
   !
   SUBROUTINE set_parent_refin_ev_ctrl(description, p_p)
-    CHARACTER(LEN=*), INTENT(IN) :: description !< description string (for debugging purposes)
-    TYPE(t_patch), TARGET, INTENT(inout) :: p_p ! parent patch
+    CHARACTER(LEN=*),      INTENT(IN)    :: description !< description string (for debugging purposes)
+    TYPE(t_patch), TARGET, INTENT(INOUT) :: p_p         !< parent patch
     ! local variables
-    INTEGER, PARAMETER :: UNDEFINED_VALUE = 99
+    INTEGER,          PARAMETER :: UNDEFINED_VALUE = 99
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':set_parent_refin_ev_ctrl'
-    INTEGER              :: jc_c, jb_c, jc_v, jb_v, j, i, jc_e, jb_e, &
+    INTEGER              :: jc_c, jb_c, jc_v, jb_v, j, i, jc_e, jb_e,              &
       &                     communicator, refin_e, iidx, j_v
-    INTEGER, ALLOCATABLE :: in_data(:), dst_idx(:), out_data(:,:), out_count(:,:),     refin_v_ctrl(:,:)
+    INTEGER, ALLOCATABLE :: in_data(:), dst_idx(:), out_data(:,:), out_count(:,:), &
+      &                     refin_v_ctrl(:,:)
 
     CALL message(modname, "set negative edge/vertex refin_ctrl flags "//&
       &"for "//TRIM(description)//" (id "//TRIM(int2string(p_p%id))//")")
@@ -2728,11 +2729,6 @@ CONTAINS
         refin_e = out_data(1,j) + out_data(2,j) + 2
       END IF
 
-!      IF (p_p%edges%refin_ctrl(jc_e,jb_e) /= refin_e) THEN
-!        WRITE (0,*) "out_count=", out_count(:,j), "; out_data=",out_data(:,j),"; ",&
-!          & "p_p%edges%refin_ctrl(jc_e,jb_e) /= refin_e: ", p_p%edges%refin_ctrl(jc_e,jb_e) ,refin_e
-!      END IF
-
       p_p%edges%refin_ctrl(jc_e,jb_e) = refin_e 
     END DO
 
@@ -2764,15 +2760,6 @@ CONTAINS
     DO j = 1,p_p%n_patch_verts
       jc_v = idx_no(j)  ;  jb_v = blk_no(j) 
             
-!      IF (p_p%verts%refin_ctrl(jc_v,jb_v) < 0) THEN
-!        IF (refin_v_ctrl(jc_v,jb_v) < 0) THEN     
-!          IF (p_p%verts%refin_ctrl(jc_v,jb_v) /= refin_v_ctrl(jc_v,jb_v)) THEN
-!            WRITE (0,*) "p_p%id = ", p_p%id, "; vertex = ", &
-!              & 57.296*p_p%verts%vertex(jc_v,jb_v)%lon,p_p%verts%vertex(jc_v,jb_v)%lat*57.296
-!            WRITE (0,*) "p_p%verts%refin_ctrl(jc_v,jb_v) /= refin_v: ", p_p%verts%refin_ctrl(jc_v,jb_v) , refin_v_ctrl(jc_v,jb_v)
-!          END IF
-!        END IF
-!      END IF
       IF (refin_v_ctrl(jc_v,jb_v) < 0) THEN     
         p_p%verts%refin_ctrl(jc_v,jb_v) = refin_v_ctrl(jc_v,jb_v)
       END IF
