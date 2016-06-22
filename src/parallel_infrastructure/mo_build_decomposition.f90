@@ -187,9 +187,10 @@ CONTAINS
     TYPE(t_patch), TARGET, INTENT(inout) :: p_p ! parent patch
     LOGICAL, INTENT(IN) :: is_local_parent
     ! local variables
-    INTEGER, PARAMETER :: UNDEFINED_VALUE = 99
-
     CHARACTER(*), PARAMETER :: routine = modname//":set_child_indices"
+    INTEGER,      PARAMETER :: UNDEFINED_VALUE = 99
+    LOGICAL,      PARAMETER :: EDGE12_REORDER  = .FALSE.
+
     INTEGER              :: i, j, jc_c, jb_c, communicator, i1, i2, iidx,                    &
       &                     jc_e, jb_e, ordered(4), iglb, je, refin_c
     INTEGER, ALLOCATABLE :: in_data(:), dst_idx(:), out_data(:,:), out_pc_data(:,:),         &
@@ -526,31 +527,32 @@ CONTAINS
     !   edges, if the local edge numbering wrt. to the left/right cell
     !   is equal or different.
 
-    ALLOCATE(dst_idx(3*p_p%n_patch_cells), in_data(3*p_p%n_patch_cells))
-!    iidx = 0
-!    DO j = 1, p_p%n_patch_cells
-!      jc_c = idx_no(j)
-!      jb_c = blk_no(j)
-!      DO i=1,3
-!        ! each edge is traversed twice: 
-!        jc_e = p_p%cells%edge_idx(jc_c,jb_c,i)
-!        jb_e = p_p%cells%edge_blk(jc_c,jb_c,i)        
-!        IF (p_p%edges%decomp_info%decomp_domain(jc_e,jb_e) > 1)  CYCLE
-!        je = p_p%edges%decomp_info%glb_index(idx_1d(jc_e,jb_e))
-!
-!        iidx = iidx + 1
-!        dst_idx(iidx) = je
-!        in_data(iidx) = i
-!      END DO
-!    END DO
+    IF (EDGE12_REORDER) THEN
+      ALLOCATE(dst_idx(3*p_p%n_patch_cells), in_data(3*p_p%n_patch_cells))
+      iidx = 0
+      DO j = 1, p_p%n_patch_cells
+        jc_c = idx_no(j)
+        jb_c = blk_no(j)
+        DO i=1,3
+          ! each edge is traversed twice: 
+          jc_e = p_p%cells%edge_idx(jc_c,jb_c,i)
+          jb_e = p_p%cells%edge_blk(jc_c,jb_c,i)        
+          IF (p_p%edges%decomp_info%decomp_domain(jc_e,jb_e) > 1)  CYCLE
+          je = p_p%edges%decomp_info%glb_index(idx_1d(jc_e,jb_e))
 
-    ALLOCATE(je_loc(2,p_p%n_patch_edges), out_count(2,p_p%n_patch_edges))
-    je_loc(:,:)    = 0
-!    out_count(:,:) = 0
+          iidx = iidx + 1
+          dst_idx(iidx) = je
+          in_data(iidx) = i
+        END DO
+      END DO
 
-!    CALL reshuffle("send local edge index", dst_idx(1:iidx), in_data(1:iidx), p_p%edges%decomp_info%glb_index, &
-!      &            p_p%n_patch_edges_g, communicator, je_loc, out_count)
+      ALLOCATE(je_loc(2,p_p%n_patch_edges), out_count(2,p_p%n_patch_edges))
+      je_loc(:,:)    = 0
+      out_count(:,:) = 0
 
+      CALL reshuffle("send local edge index", dst_idx(1:iidx), in_data(1:iidx), p_p%edges%decomp_info%glb_index, &
+        &            p_p%n_patch_edges_g, communicator, je_loc, out_count)
+    END IF
 
     ! -----------------------------------------------------------------
     ! - copy results
@@ -584,64 +586,69 @@ CONTAINS
       IF ((ordered(3) > ordered(4)) .AND. (ordered(4) > 0)) THEN
         CALL swap_int(ordered(3), ordered(4))
       END IF
-      !   The rule for edge indices 1,2 is as follows: determine the
-      !   local edge index (1/2/3) of the left and right parent grid
-      !   cell. If these local edge indices match, then
-      !   edges%child_idx(1:2) are ordered in an descending way,
-      !   otherwise ascending ordering.
-      !
-      !   The edge indices 3,4 are always in ascending order.
-      !
-      ! Behind these rules are three observations:
-      !
-      ! 1. for a given parent grid edge the left/right cell with the
-      !    smaller index defines the child edge numbers, but the
-      !    left/right cell with the *larger* index sets the entries
-      !    1,2 in the edges%child_idx array (or, more precisely,
-      !    overwrites previous settings).
-      !
-      ! 2. If the local edge index for the parent grid is 1 or 2, then
-      !    the indices of the sub-edges are ordered ascendingly, but
-      !    if the local edge index for the parent grid is 3, then the
-      !    indices are ordered descendingly, (since the child cells
-      !    are then #4 and #1).
-      !
-      ! 3. The edges%child_idx(3) is always set by the *smaller* cell,
-      !    and the edges%child_idx(4) by the larger index cell.
 
-      ! (do not distinguish between 1/2:)
-!      IF (je_loc(1,j) == 2)  je_loc(1,j) = 1
-!      IF (je_loc(2,j) == 2)  je_loc(2,j) = 1
-!
-!      IF (je_loc(2,j) == 0) THEN
-!        IF (ordered(4) /= 0) THEN
-!          ! (je_loc(2,j) == 0 can mean that both je_loc values were
-!          ! equal: descending order)
-!          IF (ordered(1) < ordered(2))  THEN
-!            ordered(:) = ordered((/2,1,3,4/))
-!          END IF
-!        ELSE
-!          ! (je_loc(2,j) == 0 can also mean that we are at the
-!          !  boundary: ascending order
-!          IF (ordered(1) > ordered(2)) THEN
-!            ordered(:) = ordered((/2,1,3,4/))
-!          END IF
-!        END IF
-!      ELSE
-!        ! standard case: ascending order, if je_loc not matching,
-!        ! (the other option - ascending ordering for matching - was handled above):
-!        IF ((je_loc(1,j) /= je_loc(2,j)) .AND. (ordered(1) > ordered(2))) THEN
-!          ordered(:) = ordered((/2,1,3,4/))
-!        END IF
-!      END IF
-!
-      IF (ordered(1) > ordered(2))  THEN ! DEVELOPMENT: Simple ascending ordering
-        ordered(:) = ordered((/2,1,3,4/))
+      IF (EDGE12_REORDER) THEN
+        !   The rule for edge indices 1,2 is as follows: determine the
+        !   local edge index (1/2/3) of the left and right parent grid
+        !   cell. If these local edge indices match, then
+        !   edges%child_idx(1:2) are ordered in an descending way,
+        !   otherwise ascending ordering.
+        !
+        !   The edge indices 3,4 are always in ascending order.
+        !
+        ! Behind these rules are three observations:
+        !
+        ! 1. for a given parent grid edge the left/right cell with the
+        !    smaller index defines the child edge numbers, but the
+        !    left/right cell with the *larger* index sets the entries
+        !    1,2 in the edges%child_idx array (or, more precisely,
+        !    overwrites previous settings).
+        !
+        ! 2. If the local edge index for the parent grid is 1 or 2, then
+        !    the indices of the sub-edges are ordered ascendingly, but
+        !    if the local edge index for the parent grid is 3, then the
+        !    indices are ordered descendingly, (since the child cells
+        !    are then #4 and #1).
+        !
+        ! 3. The edges%child_idx(3) is always set by the *smaller* cell,
+        !    and the edges%child_idx(4) by the larger index cell.
+        
+        ! (do not distinguish between 1/2:)
+        !      IF (je_loc(1,j) == 2)  je_loc(1,j) = 1
+        IF (je_loc(2,j) == 2)  je_loc(2,j) = 1
+
+        IF (je_loc(2,j) == 0) THEN
+          IF (ordered(4) /= 0) THEN
+            ! (je_loc(2,j) == 0 can mean that both je_loc values were
+            ! equal: descending order)
+            IF (ordered(1) < ordered(2))  THEN
+              ordered(:) = ordered((/2,1,3,4/))
+            END IF
+          ELSE
+            ! (je_loc(2,j) == 0 can also mean that we are at the
+            !  boundary: ascending order
+            IF (ordered(1) > ordered(2)) THEN
+              ordered(:) = ordered((/2,1,3,4/))
+            END IF
+          END IF
+        ELSE
+          ! standard case: ascending order, if je_loc not matching,
+          ! (the other option - ascending ordering for matching - was handled above):
+          IF ((je_loc(1,j) /= je_loc(2,j)) .AND. (ordered(1) > ordered(2))) THEN
+            ordered(:) = ordered((/2,1,3,4/))
+          END IF
+        END IF
+      ELSE
+        IF (ordered(1) > ordered(2))  THEN ! DEVELOPMENT: Simple ascending ordering
+          ordered(:) = ordered((/2,1,3,4/))
+        END IF
       END IF
 
       out_data(:,j) = ordered(:)
     END DO
-    DEALLOCATE(dst_idx, in_data, out_data34, je_loc, out_count)
+    IF (EDGE12_REORDER) THEN
+      DEALLOCATE(dst_idx, in_data, out_data34, je_loc, out_count)
+    END IF
 
 
     ! --- PARENT PATCH -> CHILD PATCH
