@@ -252,6 +252,9 @@ ENDIF
            & tracer_index)
 
 
+ !     CALL calculate_density( patch_3d,                         &
+ !      & ocean_state(n_dom)%p_prog(nold(1))%tracer(:,:,:,1:no_tracer),&
+ !      & ocean_state(n_dom)%p_diag%rho(:,:,:) )
 
 
 
@@ -354,20 +357,6 @@ ENDIF
 !      ocean_state(n_dom)%p_diag%rho=ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index-1)%concentration&
 !      &-ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index)%concentration
 !         
-IF(tracer_index==1)THEN
-DO level = 1, n_zlev
-write(0,*)'tracer:rho',&
-& maxval( ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index)%concentration(:,level,:)),&
-& minval( ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index)%concentration(:,level,:)),&
-!& maxval( ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index-1)%concentration(:,level,:)),&
-!& minval( ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index-1)%concentration(:,level,:)),&
-& maxval( ocean_state(n_dom)%p_diag%rho(:,level,:)),&
-& minval( ocean_state(n_dom)%p_diag%rho(:,level,:))!,&
-!& maxval( div_diff_flux_horz(:,level,:)),&
-!& minval( div_diff_flux_horz(:,level,:))
-
-END DO
-ENDIF
       !END DO       
 
         ! One integration cycle finished on the lowest grid level (coarsest
@@ -398,6 +387,20 @@ ENDIF
         CALL update_time_indices(jg)
         ! update intermediate timestepping variables for the tracers
         ! velocity
+IF(tracer_index==1)THEN
+DO level = 1, n_zlev
+write(0,*)'tracer:rho',&
+& maxval( ocean_state(n_dom)%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration(:,level,:)),&
+& minval( ocean_state(n_dom)%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration(:,level,:)),&
+!& maxval( ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index-1)%concentration(:,level,:)),&
+!& minval( ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index-1)%concentration(:,level,:)),&
+& maxval( ocean_state(n_dom)%p_diag%rho(:,level,:)),&
+& minval( ocean_state(n_dom)%p_diag%rho(:,level,:))!,&
+!& maxval( div_diff_flux_horz(:,level,:)),&
+!& minval( div_diff_flux_horz(:,level,:))
+
+END DO
+ENDIF
 
       END DO
     ! ENDIF!(l_no_time_marching)THEN

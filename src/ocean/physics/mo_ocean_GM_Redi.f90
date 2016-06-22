@@ -248,8 +248,8 @@ CONTAINS
           
             !horizontal GM-Redi Flux
             flux_vec_horz_center(cell_index,level,blockNo)%x &
-              &=taper_diagonal_horz(cell_index,level,blockNo)  &
-              &*tracer_gradient_horz_vec_center(cell_index,level,blockNo)%x&
+              &=taper_diagonal_horz(cell_index,level,blockNo)*  &
+              &tracer_gradient_horz_vec_center(cell_index,level,blockNo)%x&
               !the second term vanishes if GM-Kappa=isoneutral diffusion
               &+taper_off_diagonal_horz(cell_index,level,blockNo)%x&
               &*tracer_gradient_vert_center(cell_index,level,blockNo)
@@ -288,7 +288,9 @@ CONTAINS
         &                              ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit)        
       !  &                              mapped_vertical_diagonal_impl)!param%a_tracer_v(:,:,:, tracer_index))
       !
-      CALL dbg_print('Old vert coeff: A_v', param%a_tracer_v(:,:,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
+      Do level=1,n_zlev
+      CALL dbg_print('Old vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
+      End do
       !
       !2.) Here we combine the vertical GMRedicoefficient that is treated implicitely (mapped_vertical_diagonal_impl, this
       !term involves the slopes-squared times the isopycnal mixing coefficient and is potentially large, therefore
@@ -308,16 +310,12 @@ CONTAINS
         END DO                
       END DO
 !ICON_OMP_END_DO_PARALLEL
-
-      CALL dbg_print('New vert coeff: A_v', param%a_tracer_v(:,:,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
-! !      Do level=1,4!n_zlev
-! !      write(0,*)'New vert coeff',tracer_index,level,maxval(param%a_tracer_v(:,level,:, tracer_index)),&
-! !      &minval(param%a_tracer_v(:,level,:, tracer_index)),maxval(K_I(:,level,:)),&
-! !      &minval(K_I(:,level,:))
-! !      END DO
-   
-
-
+     Do level=1,n_zlev
+      CALL dbg_print('New vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
+      !CALL dbg_print('New vert coeff: A_v', &
+      !&ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit(:,level,:),&
+      !& this_mod_name, 4, patch_2D%cells%in_domain)
+     END DO 
         
     !Map the explicit horizontal tracer flux from cell centers to edges (where the horizontal divergence is calculated)
     !
@@ -329,12 +327,15 @@ CONTAINS
       
       
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('InGMRedi: GMRedi_vert',GMredi_flux_vert(:,:,:),&
+    Do level=1,n_zlev
+    idt_src=1  ! output print level (1-5, fix)
+    CALL dbg_print('InGMRedi: GMRedi_vert',GMredi_flux_vert(:,level,:),&
     & str_module, idt_src, in_subset=cells_in_domain)
-    CALL dbg_print('InGMRedi: GMRedi_horz',GMredi_flux_horz(:,:,:),&
-    & str_module, idt_src, in_subset=cells_in_domain)
-
+    END DO
+    Do level=1,n_zlev
+    CALL dbg_print('InGMRedi: GMRedi_horz',GMredi_flux_horz(:,level,:),&
+    & str_module, idt_src, in_subset=edges_in_domain)
+    END DO
     !---------------------------------------------------------------------
     
 !      CALL sync_patch_array(sync_e, patch_2D, GMredi_flux_horz(:,:,:))
@@ -346,18 +347,9 @@ CONTAINS
   ENDIF
 
    ! for debugging
-!    GMredi_flux_vert(:,:,:) = 0.0_wp
+   ! GMredi_flux_vert(:,:,:) = 0.0_wp
 
 
-!   Do level=1,n_zlev
-!   write(0,*)'Horz/vert GMREDI flux',tracer_index,level,&
-!   &maxval(GMredi_flux_horz(:,level,:)),minval(GMredi_flux_horz(:,level,:)),&
-!   &maxval(GMredi_flux_vert(:,level,:)),minval(GMredi_flux_vert(:,level,:))
-!   END DO
-  
-!   Do level=1,n_zlev
-!   write(0,*)'VERT GMREDI flux',tracer_index,level,maxval(GMredi_flux_vert(:,level,:)),minval(GMredi_flux_vert(:,level,:))
-!   END DO
 
   END SUBROUTINE calc_combined_GentMcWilliamsRedi_flux
   !-------------------------------------------------------------------------
@@ -506,18 +498,21 @@ CONTAINS
     idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('calc_slopes: grad_T_horz',grad_T_horz,&
       & str_module,idt_src, in_subset=edges_in_domain)
+    IF(no_tracer>=2)THEN  
     CALL dbg_print('calc_slopes: grad_S_horz',grad_S_horz,&
       & str_module,idt_src, in_subset=edges_in_domain)
-
+    ENDIF
 !    CALL sync_patch_array(sync_c, patch_2D, grad_T_vert)       
 !    IF(no_tracer>=2)   CALL sync_patch_array(sync_c, patch_2D, grad_S_vert)   
 
    !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
     CALL dbg_print('neutral_slopes: grad_T_vert',grad_T_vert,&
-      & str_module,idt_src, in_subset=cells_in_domain)      
+      & str_module,idt_src, in_subset=cells_in_domain)
+    IF(no_tracer>=2)THEN        
     CALL dbg_print('neutral_slopes: grad_S_vert',grad_S_vert,&
-      & str_module,idt_src, in_subset=cells_in_domain)      
+      & str_module,idt_src, in_subset=cells_in_domain) 
+    ENDIF       
   !---------------------------------------------------------------------   
    
     !2) map horizontal and vertial derivative to cell centered vector
@@ -612,9 +607,14 @@ CONTAINS
     
           DO level = start_level+1, end_level-1
           
+              !ocean_state%p_aux%slopes(cell_index,level,blockNo)%x                      &
+              ! & = - (neutral_coeff(level,1) * grad_T_vec(cell_index,level,blockNo)%x)  &
+              ! &    /(neutral_coeff(level,1) * grad_T_vert_center(cell_index,level,blockNo)-dbl_eps)
+ 
               ocean_state%p_aux%slopes(cell_index,level,blockNo)%x                      &
-               & = - (neutral_coeff(level,1) * grad_T_vec(cell_index,level,blockNo)%x)  &
-               &    /(neutral_coeff(level,1) * grad_T_vert_center(cell_index,level,blockNo)-dbl_eps)
+               & = - grad_T_vec(cell_index,level,blockNo)%x  &
+               &    /(grad_T_vert_center(cell_index,level,blockNo)-dbl_eps)
+ 
             
               ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)=&
                & DOT_PRODUCT(ocean_state%p_aux%slopes(cell_index,level,blockNo)%x,&
@@ -659,21 +659,21 @@ CONTAINS
 
   !---------------------------------------------------------------------
   !---------DEBUG DIAGNOSTICS-------------------------------------------
-  idt_src=3  ! output print level (1-5, fix)
-  CALL dbg_print('calc_slopes: squared',(ocean_state%p_aux%slopes_squared(:,:,:)),&
-    & str_module,idt_src, in_subset=cells_in_domain)
-!   DO level=1,n_zlev
-!     CALL dbg_print('calc_slopes: squared',(ocean_state%p_aux%slopes_squared(:,level,:)),&
-!       & str_module,idt_src, in_subset=cells_in_domain)
-!   END DO
+  idt_src=1  ! output print level (1-5, fix)
+ ! CALL dbg_print('calc_slopes: squared',(ocean_state%p_aux%slopes_squared(:,:,:)),&
+ !   & str_module,idt_src, in_subset=cells_in_domain)
+   DO level=1,n_zlev
+     CALL dbg_print('calc_slopes: slobe abs',sqrt(ocean_state%p_aux%slopes_squared(:,level,:)),&
+       & str_module,idt_src, in_subset=cells_in_domain)
+   END DO
 
   !---------------------------------------------------------------------
 
-   DO level= 1, n_zlev  
-   write(0,*)'max-min vert deriv',level,maxval(grad_T_vert_center(:,level,:)),&
-   & minval(grad_T_vert_center(:,level,:)),maxval(grad_S_vert_center(:,level,:)),&
-   & minval(grad_S_vert_center(:,level,:))
-   END DO
+!   DO level= 1, n_zlev  
+!   write(0,*)'max-min vert deriv',level,maxval(grad_T_vert_center(:,level,:)),&
+!   & minval(grad_T_vert_center(:,level,:)),maxval(grad_S_vert_center(:,level,:)),&
+!   & minval(grad_S_vert_center(:,level,:))
+!   END DO
 
   END SUBROUTINE calc_neutral_slopes
   !-------------------------------------------------------------------------
@@ -736,13 +736,13 @@ CONTAINS
                 
               slope_abs = sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo))
 
-              IF(slope_abs <= cell_max_slope)THEN
+              !IF(slope_abs <= cell_max_slope)THEN
                 ocean_state%p_aux%taper_function_1(cell_index,level,blockNo) &
-                  &= 0.5_wp*(1.0_wp + tanh((cell_critical_slope - slope_abs)*inv_S_d))
-              ELSE
-                ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)=0.0_wp
-              ENDIF
-!write(12345,*)'data',cell_max_slope,cell_critical_slope,slope_abs,ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)
+                  &= 0.5_wp*(1.0_wp + tanh((cell_max_slope - slope_abs)*inv_S_d))
+              !ELSE
+              !  ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)=0.0_wp
+              !ENDIF
+
             END DO
           ENDIF
         END DO
@@ -767,12 +767,12 @@ CONTAINS
             
              slope_abs    = sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo))           
               
-              IF(slope_abs <= cell_max_slope)THEN
+              !IF(slope_abs <= cell_max_slope)THEN
                 ocean_state%p_aux%taper_function_1(cell_index,level,blockNo) &
                   &= 0.5_wp*(1.0_wp + tanh((cell_critical_slope - slope_abs)*inv_S_d))
-              ELSE
-                ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)=0.0_wp
-              ENDIF
+              !ELSE
+              !  ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)=0.0_wp
+              !ENDIF
 
             END DO
           ENDIF
@@ -937,7 +937,7 @@ CONTAINS
               
               !coefficients for horizontal fluxes
               taper_diagonal_horz(cell_index,level,blockNo)  &
-              & = ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)*&
+              & =&! ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)*&
               &   K_I(cell_index,level,blockNo)
 
               taper_off_diagonal_horz(cell_index,level,blockNo)%x&
@@ -956,7 +956,11 @@ CONTAINS
               &=K_I(cell_index,level,blockNo)&
               &*ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)&
               &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)
-
+              
+!write(123,*)'v-impl:h-diag',ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)&
+!              &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo),&
+!              &ocean_state%p_aux%slopes_squared(cell_index,level,blockNo),&
+!              &ocean_state%p_aux%taper_function_1(cell_index,level,blockNo),taper_diagonal_horz(cell_index,level,blockNo) 
               
             END DO
 !           ENDIF
@@ -1152,10 +1156,18 @@ CONTAINS
 !     CALL sync_patch_array(sync_c, patch_2D,K_I)
 !     CALL sync_patch_array(sync_c, patch_2D,K_D)
 !     CALL sync_patch_array(sync_c, patch_2D,kappa)
-    CALL dbg_print('apply_tapering: vert diag expl', taper_diagonal_vert_expl , this_mod_name, 3, patch_2D%cells%in_domain)
-    CALL dbg_print('apply_tapering: vert off-diag impl', taper_diagonal_vert_impl , this_mod_name, 3, patch_2D%cells%in_domain)
-    CALL dbg_print('apply_tapering: horz diag', taper_diagonal_horz , this_mod_name, 3, patch_2D%cells%in_domain)
-   
+Do level=1,n_zlev
+    CALL dbg_print('apply_tapering: vert diag expl', taper_diagonal_vert_expl(:,level,:),&
+    & this_mod_name, 1, patch_2D%cells%in_domain)
+END DO    
+Do level=1,n_zlev
+    CALL dbg_print('apply_tapering: vert off-diag impl', taper_diagonal_vert_impl(:,level,:),&
+    & this_mod_name, 1, patch_2D%cells%in_domain)
+END DO
+Do level=1,n_zlev    
+    CALL dbg_print('apply_tapering: horz diag', taper_diagonal_horz(:,level,:),&
+    & this_mod_name, 1, patch_2D%cells%in_domain)
+END DO   
   END SUBROUTINE calc_tapering
   !-------------------------------------------------------------------------
   

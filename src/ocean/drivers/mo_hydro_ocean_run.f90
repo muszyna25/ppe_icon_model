@@ -560,15 +560,15 @@ CONTAINS
       ocean_state%p_diag%s = ocean_state%p_prog(nold(1))%tracer(:,:,:,2)
     ENDIF
     ocean_state%p_diag%h = ocean_state%p_prog(nold(1))%h
-    IF(no_tracer>=1)THEN
-      CALL calc_potential_density( patch_3d,                     &
-        & ocean_state%p_prog(nold(1))%tracer,&
-       & ocean_state%p_diag%rhopot )
-        
-      CALL calculate_density( patch_3d,                        &
-        & ocean_state%p_prog(nold(1))%tracer, &
-        & ocean_state%p_diag%rho )
-    ENDIF
+!    IF(no_tracer>=1)THEN
+!      CALL calc_potential_density( patch_3d,                     &
+!        & ocean_state%p_prog(nold(1))%tracer,&
+!       & ocean_state%p_diag%rhopot )
+!        
+!      CALL calculate_density( patch_3d,                        &
+!        & ocean_state%p_prog(nold(1))%tracer, &
+!        & ocean_state%p_diag%rho )
+!    ENDIF
 
     CALL update_ocean_statistics( &
       & ocean_state,            &

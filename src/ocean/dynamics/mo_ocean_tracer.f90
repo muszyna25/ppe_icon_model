@@ -515,13 +515,22 @@ CONTAINS
        
        ENDIF            
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=3  ! output print level (1-5, fix)
+      idt_src=1  ! output print level (1-5, fix)
       !CALL dbg_print('AftGMRedi: GMRediflux_h',p_os%p_diag%GMRedi_flux_horz(:,:,:,tracer_index),&
       !&str_module,idt_src, in_subset=edges_in_domain)
-      CALL dbg_print('AftGMRedi: divGMRediflux_h',div_diff_flux_horz(:,:,:),&
+      Do level=1,n_zlev
+      CALL dbg_print('AftGMRedi: divGMRediflux_h',div_diff_flux_horz(:,level,:),&
       &str_module,idt_src, in_subset=cells_in_domain)
-      CALL dbg_print('AftGMRedi: divGMRediflux_v',div_diff_flx_vert(:,:,:),&
+      !!CALL dbg_print('AftGMRedi: divGMRediflux_v',div_diff_flx_vert(:,level,:),&
+      !& str_module, idt_src, in_subset=cells_in_domain)      
+      END DO
+      Do level=1,n_zlev
+      !CALL dbg_print('AftGMRedi: divGMRediflux_h',div_diff_flux_horz(:,level,:),&
+      !&str_module,idt_src, in_subset=cells_in_domain)
+      CALL dbg_print('AftGMRedi: divGMRediflux_v',div_diff_flx_vert(:,level,:),&
       & str_module, idt_src, in_subset=cells_in_domain)      
+      END DO
+      
       !---------------------------------------------------------------------
 
     END IF
