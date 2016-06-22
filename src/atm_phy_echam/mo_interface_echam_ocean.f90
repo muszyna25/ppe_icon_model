@@ -678,6 +678,7 @@ CONTAINS
     !  Send 10m wind speed
     !   field_id(10) represents "10m_wind_speed" - atmospheric wind speed
     !
+    buffer(:,:) = 0.0_wp
 !!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
       nn = (i_blk-1)*nproma
@@ -687,8 +688,6 @@ CONTAINS
         nlen = p_patch%npromz_c
       END IF
       DO n = 1, nlen
-   !    ! as far as no 10m wind speed is available, the lowest level (nlev) wind field is used for wind speed;
-   !    buffer(nn+n,1) = SQRT(prm_field(jg)%u(n,nlev,i_blk)**2+prm_field(jg)%v(n,nlev,i_blk)**2) 
         ! as far as no tiles (pre04) are correctly implemented, use the grid-point mean of 10m wind for coupling
         buffer(nn+n,1) = prm_field(jg)%sfcWind(n,i_blk)
       ENDDO
