@@ -222,8 +222,8 @@ CONTAINS
       &                          i_pe(:), glb_idx(:), values(:), permutation(:),           &
       &                          send_displs(:), recv_displs(:),                           &
       &                          reordered_owner_idx(:), isendbuf(:), i_pe_owner(:),       &
-      &                          icounts_owner(:), irecv_owner(:), icounts_buf(:,:),       &
-      &                          irecv_buf(:,:), permutation_owner(:), irecv_idx_owner(:), &
+      &                          icounts_owner(:), irecv_owner(:), icounts_buf(:),         &
+      &                          irecv_buf(:), permutation_owner(:), irecv_idx_owner(:),   &
       &                          send_displs_owner(:), recv_displs_owner(:),               &
       &                          send_counts2(:), recv_counts2(:), send_displs2(:),        &
       &                          recv_displs2(:), tmp_idx(:), irecv_tmp(:),                &
@@ -294,7 +294,7 @@ CONTAINS
 
     ! we use a temp buffer to exchange both index arrays in one step
     iblock = 2
-    ALLOCATE(icounts_buf(2,0:(isize-1)), irecv_buf(2,0:(isize-1)))
+    ALLOCATE(icounts_buf(2*isize), irecv_buf(2*isize))
     DO i=0,(isize-1)
       offset = iblock*i
       icounts_buf(1+offset) = icounts(i)

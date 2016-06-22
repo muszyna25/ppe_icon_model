@@ -1404,28 +1404,19 @@ CONTAINS
     CALL message(modname//': divide_patch', "erase negative refin_ctrl flags in patch "//&
       &TRIM(int2string(wrk_p_patch%id)))
 
-!    DO j=1,wrk_p_patch%n_patch_cells
-!      jc = idx_no(j) ; jb = blk_no(j)
-!      IF (wrk_p_patch%cells%refin_ctrl(jc,jb) < 0)  wrk_p_patch%cells%refin_ctrl(jc,jb) = 0
-!    END DO
-!    DO j=1,wrk_p_patch%n_patch_edges
-!      jc = idx_no(j) ; jb = blk_no(j)
-!      IF (wrk_p_patch%edges%refin_ctrl(jc,jb) < 0)  wrk_p_patch%edges%refin_ctrl(jc,jb) = 0
-!    END DO
-!    DO j=1,wrk_p_patch%n_patch_verts
-!      jc = idx_no(j) ; jb = blk_no(j)
-!      IF (wrk_p_patch%verts%refin_ctrl(jc,jb) < 0)  wrk_p_patch%verts%refin_ctrl(jc,jb) = 0
-!    END DO
+    DO j=1,wrk_p_patch%n_patch_cells
+      jc = idx_no(j) ; jb = blk_no(j)
+      IF (wrk_p_patch%cells%refin_ctrl(jc,jb) < 0)  wrk_p_patch%cells%refin_ctrl(jc,jb) = 0
+    END DO
+    DO j=1,wrk_p_patch%n_patch_edges
+      jc = idx_no(j) ; jb = blk_no(j)
+      IF (wrk_p_patch%edges%refin_ctrl(jc,jb) < 0)  wrk_p_patch%edges%refin_ctrl(jc,jb) = 0
+    END DO
+    DO j=1,wrk_p_patch%n_patch_verts
+      jc = idx_no(j) ; jb = blk_no(j)
+      IF (wrk_p_patch%verts%refin_ctrl(jc,jb) < 0)  wrk_p_patch%verts%refin_ctrl(jc,jb) = 0
+    END DO
 
-!    WHERE (wrk_p_patch%cells%refin_ctrl(:,:) < 0)
-!      wrk_p_patch%cells%refin_ctrl(:,:) = 0
-!    END WHERE
-!    WHERE (wrk_p_patch%edges%refin_ctrl(:,:) < 0)
-!      wrk_p_patch%edges%refin_ctrl(:,:) = 0
-!    END WHERE
-!    WHERE (wrk_p_patch%verts%refin_ctrl(:,:) < 0)
-!      wrk_p_patch%verts%refin_ctrl(:,:) = 0
-!    END WHERE
     ! ------------------------------------------------------------
 
     DEALLOCATE(owned_cells)
