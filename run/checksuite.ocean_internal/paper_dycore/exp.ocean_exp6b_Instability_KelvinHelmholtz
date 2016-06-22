@@ -106,7 +106,6 @@ dzlev_m(1:20)      =   14.0,   12.0,   15.0,   18.0,   21.0,   25.0,   30.0,   4
   veloc_diffusion_form=2
   veloc_diffusion_order=2
   !i_bc_veloc_bot=1
-  !vertical_tracer_diffusion_type=0
 /
 &ocean_tracer_transport_nml
 ! no_tracer             = 2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity

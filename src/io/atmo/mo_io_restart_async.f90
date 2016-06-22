@@ -63,10 +63,11 @@ MODULE mo_io_restart_async
                                       & vlistDefAttInt, vlistDefVar, zaxisCreate, gridCreate, cdiEncodeDate, cdiEncodeTime, &
                                       & streamDefTimestep, taxisCreate, vlistDefAttFlt, vlistDefAttTxt, vlistCreate, &
                                       & streamOpenWrite, taxisDestroy, zaxisDestroy, gridDestroy, vlistDestroy, streamClose, &
-                                      & streamWriteVarSlice, streamDefVlist, cdiGetStringError, vlistDefVarDatatype, &
+                                      & streamWriteVarSlice, streamDefVlist, vlistDefVarDatatype, &
                                       & vlistDefVarName, zaxisDefLevels, gridDefNvertex, zaxisDefVct, vlistDefVarLongname, &
                                       & vlistDefVarUnits, vlistDefVarMissval, gridDefXlongname, gridDefYlongname, vlistDefTaxis, &
                                       & taxisDefVdate, taxisDefVtime, gridDefXname, gridDefYname, gridDefXunits, gridDefYunits
+  USE mo_util_cdi,                ONLY: cdiGetStringError
   USE mo_cdi_constants,           ONLY: ZA_SURFACE, ZA_HYBRID, ZA_HYBRID_HALF, ZA_DEPTH_BELOW_LAND, ZA_DEPTH_BELOW_LAND_P1, &
                                       & ZA_SNOW, ZA_SNOW_HALF, ZA_HEIGHT_2M, ZA_HEIGHT_10M, ZA_TOA, ZA_LAKE_BOTTOM, ZA_MIX_LAYER, &
                                       & ZA_LAKE_BOTTOM_HALF, ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_DEPTH_BELOW_SEA, &

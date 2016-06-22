@@ -743,7 +743,6 @@ SHELL'
 ac_subst_files=''
 ac_user_opts='
 enable_option_checking
-enable_mtime_loop
 enable_atmo
 enable_jsbach
 enable_ocean
@@ -1392,7 +1391,6 @@ Optional Features:
   --disable-option-checking  ignore unrecognized --enable/--with options
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
-  --enable-mtime-loop     Use mtime based time loop in nh stepping.
   --enable-atmo           Use atmosphere model component.
   --enable-jsbach         Use jsbach model component.
   --enable-ocean          Use ocean model component.
@@ -1407,7 +1405,7 @@ Optional Packages:
   --with-yac              enable use of yac
   --with-messy            enable Modular Earth Submodel System (MESSy)
                           interface
-  --with-flags=<name>     use specified group od flags (std, hiopt, noopt, etc
+  --with-flags=<name>     use specified group of flags (std, hiopt, noopt, etc
   --with-art              enable ART modules via precprocessing directive, if
                           available for selected compiler
   --with-xml2=DIR         Required libxml2
@@ -2437,12 +2435,6 @@ fi
 fi
 
 
-# Check whether --enable-mtime-loop was given.
-if test "${enable_mtime_loop+set}" = set; then :
-  enableval=$enable_mtime_loop;
-fi
-
-
 # Check whether --enable-atmo was given.
 if test "${enable_atmo+set}" = set; then :
   enableval=$enable_atmo;
@@ -2798,7 +2790,7 @@ if test "x$load_modules" != x ;  then
     echo 'exit $rc' >>conf_load_module.tmp
     chmod +x conf_load_module.tmp
     ./conf_load_module.tmp ; rc=$?
-#    rm conf_load_module.tmp
+    rm conf_load_module.tmp
     exit $rc
   fi
 fi
@@ -2893,11 +2885,6 @@ for other_flags in $icon_flags ; do
   CFLAGS="${CFLAGS} ${DEFCOPT}__${other_flags}__"
 done
 
-
-
-if test "x$enable_mtime_loop" = "xyes"; then :
-  FFLAGS="${FFLAGS} ${DEFOPT}USE_MTIME_LOOP"
-fi
 
 
 if test -n "$ac_tool_prefix"; then
@@ -4180,16 +4167,16 @@ if test x$withval = xyes; then
 fi
 
 if test -n "$HDF5ROOT" ; then
-  if test -r "$HDF5ROOT/lib/libhdf5.a" ; then
-     HDF5_LIB='-L$(HDF5ROOT)/lib -lhdf5_hl -lhdf5'
+  if test -r "$HDF5ROOT/lib/hdf5-18/libhdf5.a" ; then
+     HDF5_LIB='-L$(HDF5ROOT)/lib/hdf5-18 -lhdf5_hl -lhdf5'
   else
-     echo "cannot read $HDF5ROOT/lib/libhdf5.a"
+     echo "cannot read $HDF5ROOT/lib/hdf5-18/libhdf5.a"
      exit 1
   fi
-  if test -d "$HDF5ROOT/include" ; then
-     HDF5_INCLUDE='-I$(HDF5ROOT)/include'
+  if test -d "$HDF5ROOT/include/hdf5-18" ; then
+     HDF5_INCLUDE='-I$(HDF5ROOT)/include/hdf5-18'
   else
-     echo "cannot find $HDF5ROOT/include"
+     echo "cannot find $HDF5ROOT/include/hdf5-18"
      exit 1
   fi
   case $ac_hostname in
@@ -6278,7 +6265,7 @@ if [ "x$LAPACKROOT" = xlocal ] ; then
     LAPACKROOT=""
 fi
 
-my_srcdirs="externals/mtime/src ${my_srcdirs}"
+my_srcdirs="externals/self/src externals/mtime/src ${my_srcdirs}"
 
 if [ "x$use_yac" = xyes ] ; then
     my_srcdirs="externals/yac/src ${my_srcdirs}"
@@ -6357,6 +6344,10 @@ fi
 
 if [ "x$use_yac" = xyes ] ; then
    ac_libs="$ac_libs -lyac"
+fi
+
+if [ x"$OCEAN_FLAGS" == x ]; then
+  OCEAN_FLAGS=$HIOPT_FLAGS
 fi
 
 if eval test x\$\{`echo ${use_flags_group} | tr a-z A-Z`_FLAGS+set\} = xset; then :
@@ -6553,7 +6544,7 @@ FlibFLAGS=$FlibFLAGS
 F77FLAGS=$F77FLAGS
 
 
-ac_libs="${ac_libs} -lmtime"
+ac_libs="${ac_libs} -lmtime -lself"
 
 LIB=$ac_libs
 
@@ -8106,6 +8097,7 @@ if test "x${config_target}" = "xblizzard" ; then
    echo "export LDR_CNTRL=MAXDATA=0xD0000000@DSA"  >&8
 fi
 echo "$make_command" >&8
+echo "exit \$?" >&8
 exec 8>-
 chmod +x build_command
  ;;

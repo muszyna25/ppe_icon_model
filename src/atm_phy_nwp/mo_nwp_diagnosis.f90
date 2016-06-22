@@ -617,18 +617,18 @@ CONTAINS
     REAL(wp):: rhodz(nproma,pt_patch%nlev)   ! rho times delta z
     REAL(wp):: z_help
 
-    INTEGER :: jc,jk,jb,jg      ! block index
+    INTEGER :: jc,jk,jb,jg,jk1      ! block index
     INTEGER :: jt               ! tracer loop index
 
     REAL(wp):: clearsky(nproma)
-    REAL(wp):: ccmax, ccran, alpha
+    REAL(wp):: ccmax, ccran, alpha(nproma,pt_patch%nlev)
 
 
     REAL(wp), PARAMETER :: eps_clc = 1.e-7_wp
 
-    INTEGER,  PARAMETER :: i_overlap = 1       ! 1: maximum-random overlap
+    INTEGER,  PARAMETER :: i_overlap = 2       ! 1: maximum-random overlap
                                                ! 2: generalized overlap (Hogan, Illingworth, 2000) 
-    REAL(wp), PARAMETER :: zdecorr = 2000.0_wp ! decorrelation length scale del(z0) 
+    REAL(wp) :: zdecorr(pt_patch%nlev)         ! decorrelation length scale del(z0) 
 
   !-----------------------------------------------------------------
 
@@ -643,7 +643,18 @@ CONTAINS
 
     i_startblk = pt_patch%cells%start_block(rl_start)
     i_endblk   = pt_patch%cells%end_block(rl_end)
-    
+
+    ! set height-dependent decorrelation length scale
+    zdecorr(:) = 2000._wp
+    DO jk = nlev, 1, -1
+      jk1 = jk + pt_patch%nshift_total
+      z_help = 0.5_wp*(vct_a(jk1)+vct_a(jk1+1))
+      IF (z_help < 3000._wp) THEN
+        zdecorr(jk) = 800._wp + 0.4_wp*z_help
+      ELSE
+        EXIT
+      ENDIF
+    ENDDO
 
 !$OMP PARALLEL
     IF ( atm_phy_nwp_config(jg)%lproc_on(itccov) ) THEN
@@ -759,61 +770,44 @@ CONTAINS
 
           ! total cloud cover
           DO jk = kstart_moist+1, nlev
+!DIR$ IVDEP
             DO jc = i_startidx, i_endidx
               ccmax = MAX( prm_diag%clc(jc,jk,jb),  prm_diag%clct(jc,jb) )
               ccran =      prm_diag%clc(jc,jk,jb) + prm_diag%clct(jc,jb) - &
                        & ( prm_diag%clc(jc,jk,jb) * prm_diag%clct(jc,jb) )
-              IF ( prm_diag%clc(jc,jk-1,jb) > 0.0_wp ) THEN 
-                alpha = exp( - (p_metrics%z_mc(jc,jk-1,jb) - p_metrics%z_mc(jc,jk,jb)) / zdecorr )
-              ELSE
-                alpha = 0.0_wp
-              ENDIF
-              prm_diag%clct(jc,jb) = alpha * ccmax + (1-alpha) * ccran
+              alpha(jc,jk) = MIN( EXP( - (p_metrics%z_mc(jc,jk-1,jb)-p_metrics%z_mc(jc,jk,jb)) / zdecorr(jk) ), &
+                             prm_diag%clc(jc,jk-1,jb)/MAX(eps_clc,prm_diag%clc(jc,jk,jb)) )
+              prm_diag%clct(jc,jb) = alpha(jc,jk) * ccmax + (1._wp-alpha(jc,jk)) * ccran
             ENDDO
           ENDDO
 
           ! high cloud cover
-          DO jk = kstart_moist+1, ih_clch
-            DO jc = i_startidx, i_endidx
+          DO jc = i_startidx, i_endidx
+            DO jk = kstart_moist+1, prm_diag%k400(jc,jb)-1
               ccmax = MAX( prm_diag%clc(jc,jk,jb),  prm_diag%clch(jc,jb) )
               ccran =      prm_diag%clc(jc,jk,jb) + prm_diag%clch(jc,jb) - &
                        & ( prm_diag%clc(jc,jk,jb) * prm_diag%clch(jc,jb) )
-              IF ( prm_diag%clc(jc,jk-1,jb) > 0.0_wp ) THEN 
-                alpha = exp( - (p_metrics%z_mc(jc,jk-1,jb) - p_metrics%z_mc(jc,jk,jb)) / zdecorr )
-              ELSE
-                alpha = 0.0_wp
-              ENDIF
-              prm_diag%clch(jc,jb) = alpha * ccmax + (1-alpha) * ccran
+              prm_diag%clch(jc,jb) = alpha(jc,jk) * ccmax + (1._wp-alpha(jc,jk)) * ccran
             ENDDO
           ENDDO
 
           ! middle cloud cover
-          DO jk = ih_clch+1, ih_clcm
-            DO jc = i_startidx, i_endidx
+          DO jc = i_startidx, i_endidx
+            DO jk = prm_diag%k400(jc,jb), prm_diag%k800(jc,jb)-1
               ccmax = MAX( prm_diag%clc(jc,jk,jb),  prm_diag%clcm(jc,jb) )
               ccran =      prm_diag%clc(jc,jk,jb) + prm_diag%clcm(jc,jb) - &
                        & ( prm_diag%clc(jc,jk,jb) * prm_diag%clcm(jc,jb) )
-              IF ( prm_diag%clc(jc,jk-1,jb) > 0.0_wp ) THEN 
-                alpha = exp( - (p_metrics%z_mc(jc,jk-1,jb) - p_metrics%z_mc(jc,jk,jb)) / zdecorr )
-              ELSE
-                alpha = 0.0_wp
-              ENDIF
-              prm_diag%clcm(jc,jb) = alpha * ccmax + (1-alpha) * ccran
+              prm_diag%clcm(jc,jb) = alpha(jc,jk) * ccmax + (1._wp-alpha(jc,jk)) * ccran
             ENDDO
           ENDDO
 
           ! low cloud cover
-          DO jk = ih_clcm+1, nlev
-            DO jc = i_startidx, i_endidx
+          DO jc = i_startidx, i_endidx
+            DO jk = prm_diag%k800(jc,jb), nlev
               ccmax = MAX( prm_diag%clc(jc,jk,jb),  prm_diag%clcl(jc,jb) )
               ccran =      prm_diag%clc(jc,jk,jb) + prm_diag%clcl(jc,jb) - &
                        & ( prm_diag%clc(jc,jk,jb) * prm_diag%clcl(jc,jb) )
-              IF ( prm_diag%clc(jc,jk-1,jb) > 0.0_wp ) THEN 
-                alpha = exp( - (p_metrics%z_mc(jc,jk-1,jb) - p_metrics%z_mc(jc,jk,jb)) / zdecorr )
-              ELSE
-                alpha = 0.0_wp
-              ENDIF
-              prm_diag%clcl(jc,jb) = alpha * ccmax + (1-alpha) * ccran
+              prm_diag%clcl(jc,jb) = alpha(jc,jk) * ccmax + (1._wp-alpha(jc,jk)) * ccran
             ENDDO
           ENDDO
 

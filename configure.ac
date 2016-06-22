@@ -112,7 +112,7 @@ AS_IF([test "x$with_messy" = "xyes"],
 
 AC_ARG_WITH([flags],
   [AS_HELP_STRING([--with-flags=<name>],
-    [use specified group od flags (std, hiopt, noopt, etc])],
+    [use specified group of flags (std, hiopt, noopt, etc])],
     [],
     [])
 
@@ -255,7 +255,7 @@ if test "x$load_modules" != x ;  then
     echo 'exit $rc' >>conf_load_module.tmp
     chmod +x conf_load_module.tmp
     ./conf_load_module.tmp ; rc=$?
-#    rm conf_load_module.tmp
+    rm conf_load_module.tmp
     exit $rc
   fi  
 fi
@@ -503,16 +503,16 @@ if test x$withval = xyes; then
 fi
 
 if test -n "$HDF5ROOT" ; then
-  if test -r "$HDF5ROOT/lib/libhdf5.a" ; then
-     HDF5_LIB='-L$(HDF5ROOT)/lib -lhdf5_hl -lhdf5'
+  if test -r "$HDF5ROOT/lib/hdf5-18/libhdf5.a" ; then
+     HDF5_LIB='-L$(HDF5ROOT)/lib/hdf5-18 -lhdf5_hl -lhdf5'
   else
-     echo "cannot read $HDF5ROOT/lib/libhdf5.a"  
+     echo "cannot read $HDF5ROOT/lib/hdf5-18/libhdf5.a"  
      exit 1    
   fi
-  if test -d "$HDF5ROOT/include" ; then
-     HDF5_INCLUDE='-I$(HDF5ROOT)/include'
+  if test -d "$HDF5ROOT/include/hdf5-18" ; then
+     HDF5_INCLUDE='-I$(HDF5ROOT)/include/hdf5-18'
   else
-     echo "cannot find $HDF5ROOT/include"  
+     echo "cannot find $HDF5ROOT/include/hdf5-18"  
      exit 1    
   fi
   case $ac_hostname in
@@ -891,7 +891,7 @@ if [[ "x$LAPACKROOT" = xlocal ]] ; then
     LAPACKROOT=""
 fi
 
-my_srcdirs="externals/mtime/src ${my_srcdirs}"
+my_srcdirs="externals/self/src externals/mtime/src ${my_srcdirs}"
 
 if [[ "x$use_yac" = xyes ]] ; then
     my_srcdirs="externals/yac/src ${my_srcdirs}"
@@ -970,6 +970,11 @@ fi
 
 if [[ "x$use_yac" = xyes ]] ; then
    ac_libs="$ac_libs -lyac"
+fi
+
+dnl if the OCEAN_FLAGS are not defined use the HIOPT_FLAGS
+if [[ x"$OCEAN_FLAGS" == x ]]; then
+  OCEAN_FLAGS=$HIOPT_FLAGS
 fi
 
 dnl the following prepends VARIANT_FLAGS to FFLAGS
@@ -1078,7 +1083,7 @@ AC_SUBST(FFLAGS,$FFLAGS)
 AC_SUBST(FlibFLAGS,$FlibFLAGS)
 AC_SUBST(F77FLAGS,$F77FLAGS)
 
-ac_libs="${ac_libs} -lmtime"
+ac_libs="${ac_libs} -lmtime -lself"
 
 AC_SUBST(LIB,$ac_libs)
 
@@ -1356,6 +1361,7 @@ if test "x${config_target}" = "xblizzard" ; then
    echo "export LDR_CNTRL=MAXDATA=0xD0000000@DSA"  >&8
 fi
 echo "$make_command" >&8
+echo "exit \$?" >&8
 exec 8>-
 chmod +x build_command
 ],[load_profile="$load_profile"

@@ -19,6 +19,9 @@
 !! headers of the routines.
 !----------------------------
 #include "omp_definitions.inc"
+#ifndef _OPENMP
+#include "consistent_fma.inc"
+#endif
 !----------------------------
 MODULE mo_sea_ice
   !-------------------------------------------------------------------------
@@ -1932,6 +1935,7 @@ CONTAINS
 
     CASE (2)
       ! This is the CCSM 3 albedo scheme
+!PREVENT_INCONSISTENT_IFORT_FMA
       DO k=1,kice
         DO jc = i_startidx_c,i_endidx_c
           frac_snow = hs(jc,k)/( hs(jc,k)+0.02_wp )

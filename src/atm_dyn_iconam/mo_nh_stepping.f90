@@ -158,7 +158,8 @@ MODULE mo_nh_stepping
   USE mo_nonhydro_types,           ONLY: t_nh_state
   USE mo_interface_les,            ONLY: init_les_phy_interface
   USE mo_fortran_tools,            ONLY: swap, copy, init
-  USE mtime,                       ONLY: datetime, datetimeToString, deallocateDatetime,              &
+  USE mtime,                       ONLY: datetime, newDatetime, deallocateDatetime, datetimeToString, &
+       &                                 PROLEPTIC_GREGORIAN, setCalendar,  timedeltaToString,        &
        &                                 timedelta, newTimedelta, deallocateTimedelta,                &
        &                                 MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN, newDatetime,    &
        &                                 MAX_MTIME_ERROR_STR_LEN, no_error, mtime_strerror,           &
@@ -169,6 +170,7 @@ MODULE mo_nh_stepping
        &                                 getTotalMillisecondsTimedelta, getTimedeltaFromDatetime,     &
        &                                 timedeltaToString
   USE mo_event_manager,            ONLY: initEventManager, addEventGroup, getEventGroup, printEventGroup
+  USE mo_derived_variable_handling, ONLY: perform_accumulation, reset_accumulation
 #ifdef MESSY
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
     &                                  , IOMODE_RST
@@ -433,6 +435,7 @@ MODULE mo_nh_stepping
       &                                       i_timelevel_dyn= nnow, i_timelevel_phy= nnow_rcf)
     CALL pp_scheduler_process(simulation_status)
 
+    CALL perform_accumulation(nnow(1),nnow_rcf(1))
     IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
       CALL update_opt_acc(p_nh_opt_diag(1)%acc,            &
         &                 p_nh_state(1)%prog(nnow_rcf(1)), &
@@ -449,6 +452,7 @@ MODULE mo_nh_stepping
     IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
       CALL reset_opt_acc(p_nh_opt_diag(1)%acc)
     END IF
+    CALL reset_accumulation
 
     ! sample meteogram output
     DO jg = 1, n_dom
@@ -996,6 +1000,7 @@ MODULE mo_nh_stepping
 #endif
 
     ! update accumlated values
+    CALL perform_accumulation(nnow(1),nnow_rcf(1))
     IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
       CALL update_opt_acc(p_nh_opt_diag(1)%acc,            &
         &                 p_nh_state(1)%prog(nnow_rcf(1)), &
@@ -1011,6 +1016,8 @@ MODULE mo_nh_stepping
     IF (l_nml_output) THEN
       CALL write_name_list_output(jstep)
     ENDIF
+
+    CALL reset_accumulation
 
 
     ! sample meteogram output

@@ -33,13 +33,14 @@ MODULE mo_nwp_sfc_interface
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag 
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
+  USE mo_nwp_phy_state,       ONLY: phy_params
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: iqv, msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ibot_w_so, ntiles_total,    &
     &                               ntiles_water, lseaice, llake, lmulti_snow,        &
     &                               ntiles_lnd, lsnowtile, isub_water, isub_seaice,   &
-    &                               isub_lake, itype_interception
+    &                               isub_lake, itype_interception, l2lay_rho_snow
   USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi  
   USE mo_soil_ml,             ONLY: terra_multlay
   USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_idx_lists_lnd, update_idx_lists_sea
@@ -48,7 +49,6 @@ MODULE mo_nwp_sfc_interface
   USE mo_seaice_nwp,          ONLY: seaice_timestep_nwp
   USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
   USE mo_physical_constants,  ONLY: tmelt
-  USE mo_turbdiff_config,     ONLY: turbdiff_config
 
   
   IMPLICIT NONE 
@@ -111,6 +111,7 @@ CONTAINS
     REAL(wp) :: ps_t        (nproma)
     REAL(wp) :: prr_con_t   (nproma)
     REAL(wp) :: prs_con_t   (nproma)
+    REAL(wp) :: conv_frac   (nproma)
     REAL(wp) :: prr_gsp_t   (nproma)
     REAL(wp) :: prs_gsp_t   (nproma)
     REAL(wp) :: prg_gsp_t   (nproma)
@@ -281,7 +282,7 @@ CONTAINS
 !$OMP   lhfl_bs_t,rstom_t,shfl_s_t,lhfl_s_t,qhfl_s_t,t_snow_mult_new_t,rho_snow_mult_new_t,      &
 !$OMP   wliq_snow_new_t,wtot_snow_new_t,dzh_snow_new_t,w_so_new_t,w_so_ice_new_t,lhfl_pl_t,      &
 !$OMP   shfl_soil_t,lhfl_soil_t,shfl_snow_t,lhfl_snow_t,t_snow_new_t,graupel_gsp_rate,prg_gsp_t, &
-!$OMP   meltrate,h_snow_gp_t) ICON_OMP_GUIDED_SCHEDULE
+!$OMP   meltrate,h_snow_gp_t,conv_frac) ICON_OMP_GUIDED_SCHEDULE
  
     DO jb = i_startblk, i_endblk
 
@@ -390,6 +391,8 @@ CONTAINS
           ps_t(ic)      =  p_diag%pres_sfc(jc,jb)    
           prr_con_t(ic) =  rain_con_rate(jc,isubs)
           prs_con_t(ic) =  snow_con_rate(jc,isubs)
+          conv_frac(ic) =  phy_params(jg)%rcucov*     (1._wp - prm_diag%tropics_mask(jc,jb)) + &
+                           phy_params(jg)%rcucov_trop*         prm_diag%tropics_mask(jc,jb)
           prr_gsp_t(ic) =  rain_gsp_rate(jc,isubs)
           prs_gsp_t(ic) =  snow_gsp_rate(jc,isubs)
           prg_gsp_t(ic) =  graupel_gsp_rate(jc,isubs)
@@ -453,6 +456,11 @@ CONTAINS
           IF(lmulti_snow) THEN
             t_snow_mult_now_t(ic,nlev_snow+1) = lnd_prog_now%t_snow_mult_t(jc,nlev_snow+1,jb,isubs)
           ENDIF
+
+          IF (l2lay_rho_snow) THEN ! only level 1 is actually needed as input
+            rho_snow_mult_now_t(ic,1) = lnd_prog_now%rho_snow_mult_t(jc,1,jb,isubs)
+          ENDIF
+
         ENDDO
 
        MSNOWI: IF(lmulti_snow) THEN
@@ -579,6 +587,7 @@ CONTAINS
 !
         &  prr_con       = prr_con_t             , & !IN precipitation rate of rain, convective       (kg/m2*s)
         &  prs_con       = prs_con_t             , & !IN precipitation rate of snow, convective       (kg/m2*s)
+        &  conv_frac     = conv_frac             , & !IN convective area fraction
         &  prr_gsp       = prr_gsp_t             , & !IN precipitation rate of rain, grid-scale       (kg/m2*s)
         &  prs_gsp       = prs_gsp_t             , & !IN precipitation rate of snow, grid-scale       (kg/m2*s)
         &  prg_gsp       = prg_gsp_t             , & !IN precipitation rate of graupel, grid-scale    (kg/m2*s)
@@ -675,6 +684,11 @@ CONTAINS
           IF(lmulti_snow) THEN
             lnd_prog_new%t_snow_mult_t(jc,nlev_snow+1,jb,isubs) = t_snow_mult_new_t(ic,nlev_snow+1)
           ENDIF
+
+          IF (l2lay_rho_snow) THEN
+            lnd_prog_new%rho_snow_mult_t(jc,1:2,jb,isubs) = rho_snow_mult_new_t(ic,1:2)
+          ENDIF
+
         ENDDO
 
         IF (lsnowtile .AND. isubs > ntiles_lnd) THEN ! copy snowfrac_t to snow-free tile
@@ -808,9 +822,12 @@ CONTAINS
              lnd_prog_new%w_so_ice_t(jc,:,jb,is1) = lnd_prog_new%w_so_ice_t(jc,:,jb,is2)
              prm_diag%lhfl_pl_t     (jc,:,jb,is1) = prm_diag%lhfl_pl_t     (jc,:,jb,is2)     
 
+             IF (l2lay_rho_snow .OR. lmulti_snow) THEN
+               lnd_prog_new%rho_snow_mult_t(jc,:,jb,is1) = lnd_prog_new%rho_snow_mult_t(jc,:,jb,is2)
+             ENDIF
+
              IF (lmulti_snow) THEN
                lnd_prog_new%t_snow_mult_t  (jc,:,jb,is1) = lnd_prog_new%t_snow_mult_t  (jc,:,jb,is2)
-               lnd_prog_new%rho_snow_mult_t(jc,:,jb,is1) = lnd_prog_new%rho_snow_mult_t(jc,:,jb,is2)
                lnd_prog_new%wliq_snow_t    (jc,:,jb,is1) = lnd_prog_new%wliq_snow_t    (jc,:,jb,is2)
                lnd_prog_new%wtot_snow_t    (jc,:,jb,is1) = lnd_prog_new%wtot_snow_t    (jc,:,jb,is2)
                lnd_prog_new%dzh_snow_t     (jc,:,jb,is1) = lnd_prog_new%dzh_snow_t     (jc,:,jb,is2)
@@ -920,6 +937,11 @@ CONTAINS
              IF (lmulti_snow) THEN
                lnd_prog_new%t_snow_mult_t(jc,nlev_snow+1,jb,isubs) = lnd_prog_new%t_s_t(jc,jb,isubs)
              ENDIF
+
+             IF (l2lay_rho_snow) THEN
+               lnd_prog_new%rho_snow_mult_t(jc,1:2,jb,isubs) = lnd_prog_new%rho_snow_mult_t(jc,1:2,jb,isubs_snow)
+             ENDIF
+
            END DO
 
            IF (lmulti_snow) THEN
@@ -1444,7 +1466,6 @@ CONTAINS
         ! for consistency, set 
         ! t_so(0) = t_wml_lk       mixed-layer temperature (273.15K if the lake is frozen)
         lnd_prog_new%t_s_t (jc,jb,isub_lake) = p_prog_wtr_new%t_wml_lk (jc,jb)
-        p_lnd_diag%t_seasfc(jc,jb)           = lnd_prog_new%t_s_t (jc,jb,isub_lake)
 
         ! surface saturation specific humidity over water/ice 
         !

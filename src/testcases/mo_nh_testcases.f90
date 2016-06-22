@@ -36,7 +36,7 @@ MODULE mo_nh_testcases
                                    & t_geographical_coordinates,     &
                                    & arc_length
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_run_config,           ONLY: ltransport, iforcing, iqv, iqc, iqi
+  USE mo_run_config,           ONLY: ltransport, iforcing, iqv
   USE mo_extpar_config,        ONLY: itopo
     
   USE mo_dynamics_config,      ONLY: nnow, nnew, lcoriolis
@@ -69,7 +69,7 @@ MODULE mo_nh_testcases
   USE mo_nh_lim_area_testcases,ONLY: init_nh_atmo_ana_nconstlayers,               &
                                    & init_nh_anaprof_uv, init_nh_topo_ana,        &
                                    & itype_atmo_ana, init_nh_atmo_ana_poly
-  USE mo_nh_prog_util,         ONLY: nh_prog_add_random, init_nh_state_prog_isoRest
+  USE mo_nh_prog_util,         ONLY: nh_prog_add_random
   USE mo_random_util,          ONLY: add_random_noise_global
   USE mo_grid_geometry_info,   ONLY: planar_torus_geometry
   USE mo_nh_rce_exp,           ONLY: init_nh_state_rce_glb
@@ -118,8 +118,8 @@ MODULE mo_nh_testcases
   TYPE(t_patch),TARGET,  INTENT(INOUT) :: p_patch(n_dom)
   TYPE(t_external_data), INTENT(INOUT) :: ext_data(n_dom)
 
-  INTEGER        :: jg, jc, jv, jb, nlen
-  INTEGER        :: nblks_c, npromz_c, nblks_v, npromz_v
+  INTEGER        :: jg, jc, jb, nlen
+  INTEGER        :: nblks_c, npromz_c
   REAL(wp)       :: z_lon, z_lat, z_dist
   TYPE(t_geographical_coordinates) :: z_x2_geo
   TYPE(t_cartesian_coordinates)    :: z_x1_cart, z_x2_cart
@@ -205,8 +205,6 @@ MODULE mo_nh_testcases
     DO jg = 1, n_dom 
      nblks_c   = p_patch(jg)%nblks_c
      npromz_c  = p_patch(jg)%npromz_c
-     nblks_v   = p_patch(jg)%nblks_v
-     npromz_v  = p_patch(jg)%npromz_v
 
      CALL init_nh_topo_jabw ( p_patch(jg),ext_data(jg)%atm%topography_c, nblks_c, npromz_c)
     END DO
@@ -216,8 +214,6 @@ MODULE mo_nh_testcases
     DO jg = 1, n_dom 
      nblks_c   = p_patch(jg)%nblks_c
      npromz_c  = p_patch(jg)%npromz_c
-     nblks_v   = p_patch(jg)%nblks_v
-     npromz_v  = p_patch(jg)%npromz_v
 
      CALL init_nh_topo_jabw ( p_patch(jg),ext_data(jg)%atm%topography_c, nblks_c, npromz_c, &
                           & opt_m_height = mount_height, opt_m_half_width = mount_half_width )
@@ -235,8 +231,6 @@ MODULE mo_nh_testcases
    DO jg = 1, n_dom 
      nblks_c   = p_patch(jg)%nblks_c
      npromz_c  = p_patch(jg)%npromz_c
-     nblks_v   = p_patch(jg)%nblks_v
-     npromz_v  = p_patch(jg)%npromz_v
 
      CALL init_nh_topo_mrw ( p_patch(jg),ext_data(jg)%atm%topography_c, nblks_c, npromz_c, l_modified) 
    ENDDO
@@ -248,8 +242,6 @@ MODULE mo_nh_testcases
     DO jg = 1, n_dom 
      nblks_c   = p_patch(jg)%nblks_c
      npromz_c  = p_patch(jg)%npromz_c
-     nblks_v   = p_patch(jg)%nblks_v
-     npromz_v  = p_patch(jg)%npromz_v
 
      CALL init_nh_topo_wk ( p_patch(jg),ext_data(jg)%atm%topography_c, nblks_c, npromz_c)
     END DO
@@ -315,8 +307,6 @@ MODULE mo_nh_testcases
     DO jg = 1, n_dom 
      nblks_c   = p_patch(jg)%nblks_c
      npromz_c  = p_patch(jg)%npromz_c
-     nblks_v   = p_patch(jg)%nblks_v
-     npromz_v  = p_patch(jg)%npromz_v
 
      CALL init_nh_topo_ana ( p_patch(jg), lplane, ext_data(jg)%atm%topography_c, nblks_c, npromz_c)
 
@@ -347,6 +337,17 @@ MODULE mo_nh_testcases
     END DO
 
     CALL message(TRIM(routine),'running the dcmip_rest_200 (steady state at rest dcmip) test')
+
+!!$  CASE ('dcmip_mw_2x')
+!DR topography_v no longer read in available. If needed, it should be 
+!DR interpolated from topography_c.
+!!$
+!!$    DO jg = 1, n_dom 
+!!$
+!!$     CALL init_nh_topo_dcmip_schaer ( p_patch(jg),  ext_data(jg)%atm%topography_c,  &
+!!$                          & ext_data(jg)%atm%topography_v, ext_data(jg)%atm%fis  )
+!!$    END DO
+!!$    CALL message(TRIM(routine),'running the dcmip_mw_2x (schaer-type dcmip) test')
 
   CASE ('dcmip_tc_51')
     ! itopo == 0 --> The topography is initialized to 0 at the begining of this subroutine
@@ -436,7 +437,7 @@ MODULE mo_nh_testcases
   REAL(wp)              :: global_moist
   REAL(wp) :: z_help
 
-  LOGICAL  :: l_hydro_adjust, l_moist, lprofile
+  LOGICAL  :: l_hydro_adjust, l_moist
   
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine =  &
                                    '(mo_nh_testcases) init_nh_testcase:' 

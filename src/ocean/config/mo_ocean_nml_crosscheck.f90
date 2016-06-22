@@ -26,10 +26,11 @@ MODULE mo_ocean_nml_crosscheck
   USE mo_exception,         ONLY: message, finish, warning
   USE mo_grid_config,       ONLY: init_grid_configuration
   USE mo_parallel_config,   ONLY: check_parallel_configuration, p_test_run, l_fast_sum
-  USE mo_run_config,        ONLY: nsteps
-  USE mo_time_config,       ONLY: dt_restart
-  USE mo_io_config,         ONLY: write_initial_state
-  USE mo_grid_config,       ONLY: use_duplicated_connectivity
+  USE mo_run_config,        ONLY: nsteps, dtime, nlev
+  USE mo_time_config,       ONLY: time_config, restart_experiment
+  USE mo_datetime,          ONLY: add_time, print_datetime_all
+  USE mo_io_config,         ONLY: dt_checkpoint, write_initial_state
+  USE mo_grid_config,       ONLY: grid_rescale_factor, use_duplicated_connectivity
   USE mo_ocean_nml
   USE mo_master_config,     ONLY: isRestart
   USE mo_time_management,   ONLY: compute_timestep_settings,                        &
@@ -77,10 +78,13 @@ CONTAINS
 
     CALL init_grid_configuration
 
-    IF (p_test_run .AND. l_fast_sum ) THEN
-       CALL warning(method_name, "p_test_run sets l_fast_sum=.false.")
-       l_fast_sum = .false.
-    ENDIF
+    ! set the patch-related nlev variable to the ocean setup n_ zlev
+    nlev = n_zlev
+
+    IF (p_test_run .AND. l_fast_sum ) THEN                      
+       CALL warning(method_name, "p_test_run sets l_fast_sum=.f alse.")
+       l_fast_sum = .false.                                     
+    ENDIF                                                       
     
     SELECT CASE (select_solver)
       CASE (select_gmres)

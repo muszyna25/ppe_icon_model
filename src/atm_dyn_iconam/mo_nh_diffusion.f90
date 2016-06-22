@@ -98,6 +98,7 @@ MODULE mo_nh_diffusion
 
     ! For Smagorinsky diffusion - vp means variable precision depending on the __MIXED_PRECISION cpp flag
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: kh_smag_e
+    REAL(vp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: kh_smag_ec
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_v) :: u_vert
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_v) :: v_vert
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: u_cell
@@ -365,6 +366,7 @@ MODULE mo_nh_diffusion
 
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
+            kh_smag_ec(je,jk,jb) = kh_smag_e(je,jk,jb)
             ! Subtract part of the fourth-order background diffusion coefficient
             kh_smag_e(je,jk,jb) = MAX(0._wp,kh_smag_e(je,jk,jb) - smag_offset)
             ! Limit diffusion coefficient to the theoretical CFL stability threshold
@@ -544,6 +546,7 @@ MODULE mo_nh_diffusion
               (vn_vert2(je,jk) + vn_vert1(je,jk) - 2._wp*p_nh_prog%vn(je,jk,jb))  &
               *p_patch%edges%inv_primal_edge_length(je,jb)**2 )
 
+            kh_smag_ec(je,jk,jb) = kh_smag_e(je,jk,jb)
             ! Subtract part of the fourth-order background diffusion coefficient
             kh_smag_e(je,jk,jb) = MAX(0._wp,kh_smag_e(je,jk,jb) - smag_offset)
             ! Limit diffusion coefficient to the theoretical CFL stability threshold
@@ -659,6 +662,7 @@ MODULE mo_nh_diffusion
 
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
+            kh_smag_ec(je,jk,jb) = kh_smag_e(je,jk,jb)
             ! Subtract part of the fourth-order background diffusion coefficient
             kh_smag_e(je,jk,jb) = MAX(0._wp,kh_smag_e(je,jk,jb) - smag_offset)
             ! Limit diffusion coefficient to the theoretical CFL stability threshold
@@ -697,9 +701,9 @@ MODULE mo_nh_diffusion
           DO jc = i_startidx, i_endidx
 #endif
 
-            kh_c(jc,jk) = (kh_smag_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))*p_int%e_bln_c_s(jc,1,jb) + &
-                           kh_smag_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))*p_int%e_bln_c_s(jc,2,jb) + &
-                           kh_smag_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))*p_int%e_bln_c_s(jc,3,jb))/ &
+            kh_c(jc,jk) = (kh_smag_ec(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))*p_int%e_bln_c_s(jc,1,jb) + &
+                           kh_smag_ec(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))*p_int%e_bln_c_s(jc,2,jb) + &
+                           kh_smag_ec(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))*p_int%e_bln_c_s(jc,3,jb))/ &
                           diff_multfac_smag(jk)
 
             div(jc,jk) = p_nh_prog%vn(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))*p_int%geofac_div(jc,1,jb) + &

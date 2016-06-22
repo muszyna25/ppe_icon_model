@@ -76,6 +76,7 @@ MODULE mo_interface_les
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
   USE mo_ls_forcing,          ONLY: apply_ls_forcing
+  USE mo_advection_config,    ONLY: advection_config
   USE mo_nwp_turbtrans_interface, ONLY: nwp_turbtrans
   USE mo_turbulent_diagnostic, ONLY: calculate_turbulent_diagnostics, &
                                      write_vertical_profiles, write_time_series, &
@@ -169,12 +170,12 @@ CONTAINS
 
     ! Local scalars:
 
-    INTEGER :: jc,jk,jb,jce,jt   !loop indices
+    INTEGER :: jc,jk,jb,jce      !loop indices
     INTEGER :: jg                !domain id
 
     LOGICAL :: ltemp, lpres, ltemp_ifc, l_any_fastphys, l_any_slowphys
 
-    INTEGER,  POINTER ::  iidx(:,:,:), iblk(:,:,:), ieidx(:,:,:), ieblk(:,:,:)
+    INTEGER,  POINTER ::  iidx(:,:,:), iblk(:,:,:)
 
     REAL(wp), TARGET :: &                                     !> temporal arrays for
       & z_ddt_temp  (nproma,pt_patch%nlev,pt_patch%nblks_c)   !< Temperature tendency
@@ -216,6 +217,9 @@ CONTAINS
     p_sim_time =  getTotalMillisecondsTimedelta(time_diff, mtime_current)*1.e-3_wp
     CALL deallocateTimedelta(time_diff)
 
+    ! Pointer to IDs of tracers which contain prognostic condensate.
+    ! Required for computing the water loading term 
+    INTEGER, POINTER :: condensate_list(:)
 
     IF (ltimer) CALL timer_start(timer_physics)
 
@@ -231,8 +235,6 @@ CONTAINS
     !define pointers
     iidx  => pt_patch%edges%cell_idx
     iblk  => pt_patch%edges%cell_blk
-    ieidx => pt_patch%cells%edge_idx
-    ieblk => pt_patch%cells%edge_blk
 
     ! inverse of fast physics time step
     inv_dt_fastphy = 1._wp / dt_phy_jg(itfastphy)
@@ -250,6 +252,9 @@ CONTAINS
     ELSE
       l_any_slowphys = .FALSE.
     ENDIF
+
+    ! condensate tracer IDs
+    condensate_list => advection_config(jg)%ilist_hydroMass
 
     !Check if time to sample data
     IF(sampl_freq_step > 0)THEN
@@ -375,7 +380,7 @@ CONTAINS
       CALL copy(pt_prog%exner(:,:,:), z_exner_sv(:,:,:))
 !$OMP BARRIER
 
-!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx,i_endidx,z_qsum) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_qsum) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -407,24 +412,11 @@ CONTAINS
 
             ! calculate virtual temperature from condens' output temperature
             ! taken from SUBROUTINE update_tempv_geopot in hydro_atmos/mo_ha_update_diag.f90
-            z_qsum(jc,jk) = pt_prog_rcf%tracer (jc,jk,jb,iqc) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqs)
+            z_qsum(jc,jk) = SUM(pt_prog_rcf%tracer (jc,jk,jb,condensate_list))
 
           ENDDO
         ENDDO
 
-        ! Add further hydrometeor species to water loading term if required
-        IF (iqm_max > iqs) THEN
-          DO jt = iqs+1, iqm_max
-            DO jk = kstart_moist(jg), nlev
-              DO jc = i_startidx, i_endidx
-                z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
-              ENDDO
-            ENDDO
-          ENDDO
-        ENDIF
 
         DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
@@ -607,7 +599,7 @@ CONTAINS
       i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx, i_endidx, z_qsum ) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx, z_qsum ) ICON_OMP_DEFAULT_SCHEDULE
 
       DO jb = i_startblk, i_endblk
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -624,24 +616,11 @@ CONTAINS
         DO jk = kstart_moist(jg), nlev
           DO jc = i_startidx, i_endidx
 
-            z_qsum(jc,jk) = pt_prog_rcf%tracer (jc,jk,jb,iqc) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqs)
+            z_qsum(jc,jk) = SUM(pt_prog_rcf%tracer (jc,jk,jb,condensate_list))
 
           ENDDO
         ENDDO
 
-        ! Add further hydrometeor species to water loading term if required
-        IF (iqm_max > iqs) THEN
-          DO jt = iqs+1, iqm_max
-            DO jk = kstart_moist(jg), nlev
-              DO jc = i_startidx, i_endidx
-                z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
-              ENDDO
-            ENDDO
-          ENDDO
-        ENDIF
 
         DO jk = 1, nlev
 !DIR$ IVDEP
@@ -823,6 +802,7 @@ CONTAINS
 &              qv     = pt_prog_rcf%tracer   (:,:,jb,iqv) ,       & !! in:  spec. humidity
 &              qc     = pt_prog_rcf%tracer   (:,:,jb,iqc) ,       & !! in:  cloud water
 &              qi     = pt_prog_rcf%tracer   (:,:,jb,iqi) ,       & !! in:  cloud ice
+&              qs     = pt_prog_rcf%tracer   (:,:,jb,iqs) ,       & !! in:  snow
 &              qtvar  = qtvar                             ,       & !! in:  qtvar !ONLY for inwp_turb==iedmf
 &              cc_tot = prm_diag%clc         (:,:,jb)     ,       & !! out: cloud cover
 &              qv_tot = prm_diag%tot_cld     (:,:,jb,iqv) ,       & !! out: qv       -"-
@@ -1090,7 +1070,7 @@ CONTAINS
       i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx, i_endidx , z_qsum, z_ddt_qsum &
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx , z_qsum, z_ddt_qsum &
 !$OMP  ) ICON_OMP_DEFAULT_SCHEDULE
 !
       DO jb = i_startblk, i_endblk
@@ -1107,24 +1087,12 @@ CONTAINS
         DO jk = kstart_moist(jg), nlev
           DO jc = i_startidx, i_endidx
 
-            z_qsum(jc,jk) = pt_prog_rcf%tracer (jc,jk,jb,iqc) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqs)
+            z_qsum(jc,jk) = SUM(pt_prog_rcf%tracer (jc,jk,jb,condensate_list))
 
           ENDDO
         ENDDO
 
-        ! Add further hydrometeor species to water loading term if required
-        IF (iqm_max > iqs) THEN
-          DO jt = iqs+1, iqm_max
-            DO jk = kstart_moist(jg), nlev
-              DO jc = i_startidx, i_endidx
-                z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
-              ENDDO
-            ENDDO
-          ENDDO
-        ENDIF
+
 
         ! Convert temperature tendency into Exner function tendency
         DO jk = 1, nlev

@@ -89,10 +89,10 @@
     USE mtime_events,           ONLY: deallocateEvent
     USE mtime_timedelta,        ONLY: timedelta, newTimedelta, deallocateTimedelta,   &
       &                               OPERATOR(+)
-    USE mo_cdi,                 ONLY: streamOpenRead, streamClose, cdiGetStringError
+    USE mo_cdi,                 ONLY: streamOpenRead, streamClose
     USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
+    USE mo_util_cdi,            ONLY: cdiGetStringError
     USE mo_master_config,       ONLY: isRestart
-    USE mo_run_config,          ONLY: nsteps, dtime
     USE mo_fortran_tools,       ONLY: copy, init
     IMPLICIT NONE
 
@@ -282,6 +282,7 @@
       INTEGER       :: i, add_delta, end_delta, finish_delta
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
            "mo_async_latbc_utils::prepare_pref_latbc_data"
+      CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: td_string
 
       !   CALL message(TRIM(routine),'start')
 
@@ -297,13 +298,22 @@
 
       event_name = 'Prefetch input'
 
+      ! convert namelist parameter "limarea_nml/dtime_latbc" into
+      ! mtime object:
+      IF (latbc_config%dtime_latbc > 86400._wp) THEN
+        CALL finish(routine, "Namelist setting of limarea_nml/dtime_latbc too large for mtime conversion!")
+      END IF
+      seconds = latbc_config%dtime_latbc*1000._wp
+      CALL getPTStringFromMS(NINT(seconds,i8), td_string)
+
+      ! create prefetching event:
       prefetchEvent => newEvent(TRIM(event_name), TRIM(sim_start), &
-           TRIM(sim_cur_read), TRIM(sim_end), TRIM(latbc_config%dt_latbc))
+           TRIM(sim_cur_read), TRIM(sim_end), td_string)
 
       my_duration_slack => newTimedelta(time_config%tc_dt_model)
       my_duration_slack = my_duration_slack * 0.5_wp
 
-      delta_dtime => newTimedelta(latbc_config%dt_latbc)
+      delta_dtime => newTimedelta(td_string)
 
       mtime_read  => newDatetime(TRIM(sim_start))
 
@@ -328,8 +338,7 @@
 
       ELSE
          mtime_finish => newDatetime(TRIM(sim_end))
-         delta_tend => newTimedelta(latbc_config%dt_latbc)
-
+         delta_tend => newTimedelta("PT0S")
          delta_tend = mtime_finish - mtime_read
 
          finish_delta = 86400 *INT(delta_tend%day)    &
@@ -357,7 +366,7 @@
       ! time step for reading the boundary data
       IF(isRestart()) THEN
          mtime_current => newDatetime(TRIM(sim_cur_read))
-         delta_tstep => newTimedelta(latbc_config%dt_latbc)
+         delta_tstep => newTimedelta("PT0S")
          delta_tstep = mtime_read - mtime_current
 
          ! time interval delta_tstep_secs in seconds
@@ -1619,7 +1628,7 @@
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
            "mo_async_latbc_utils::update_lin_interpolation"
 
-      delta_tstep => newTimedelta(latbc_config%dt_latbc)
+      delta_tstep => newTimedelta("PT0S")
       delta_tstep = mtime_read - current_date
 
       IF(delta_tstep%month /= 0) &

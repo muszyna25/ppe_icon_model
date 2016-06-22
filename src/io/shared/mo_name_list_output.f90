@@ -82,13 +82,15 @@ MODULE mo_name_list_output
   ! constants
   USE mo_kind,                      ONLY: wp, i8, dp, sp
   USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS, MAX_CHAR_LENGTH,       &
-    &                                     ihs_ocean, TLEV_NNOW, TLEV_NNOW_RCF, TLEV_NNEW, TLEV_NNEW_RCF
+    &                                     ihs_ocean, BOUNDARY_MISSVAL 
+  USE mo_impl_constants_grf,        ONLY: grf_bdywidth_c
   USE mo_dynamics_config,           ONLY: iequations
   USE mo_cdi,                       ONLY: streamOpenWrite, FILETYPE_GRB2, streamDefTimestep, cdiEncodeTime, cdiEncodeDate, &
       &                                   CDI_UNDEFID, TSTEP_CONSTANT, FILETYPE_GRB, taxisDestroy, zaxisDestroy, gridDestroy, &
       &                                   vlistDestroy, streamClose, streamWriteVarSlice, streamWriteVarSliceF, streamDefVlist, &
-      &                                   cdiGetStringError, streamSync, taxisDefVdate, taxisDefVtime, GRID_LONLAT, &
+      &                                   streamSync, taxisDefVdate, taxisDefVtime, GRID_LONLAT, &
       &                                   streamOpenAppend, streamInqVlist, vlistInqTaxis, vlistNtsteps
+  USE mo_util_cdi,                  ONLY: cdiGetStringError
   USE mo_cdi_constants,             ONLY: GRID_REGULAR_LONLAT, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL, &
       &                                   GRID_UNSTRUCTURED_EDGE
   ! utility functions
@@ -102,9 +104,10 @@ MODULE mo_name_list_output
   USE mo_name_list_output_gridinfo, ONLY: write_grid_info_grb2, GRID_INFO_NONE
   ! config
   USE mo_master_config,             ONLY: getModelBaseDir
-  USE mo_grid_config,               ONLY: n_dom
+  USE mo_grid_config,               ONLY: n_dom, l_limited_area
   USE mo_run_config,                ONLY: msg_level
-  USE mo_io_config,                 ONLY: lkeep_in_sync
+  USE mo_io_config,                 ONLY: lkeep_in_sync,                   &
+    &                                     config_lmask_boundary => lmask_boundary
   USE mo_gribout_config,            ONLY: gribout_config
   USE mo_parallel_config,           ONLY: p_test_run, use_dp_mpi2io, &
        num_io_procs, io_proc_chunk_size
@@ -115,7 +118,8 @@ MODULE mo_name_list_output
   &                                       msg_io_start, msg_io_done, msg_io_shutdown, all_events
   USE mo_output_event_types,        ONLY: t_sim_step_info, t_par_output_event
   ! parallelization
-  USE mo_communication,             ONLY: exchange_data, t_comm_gather_pattern, idx_no, blk_no
+  USE mo_communication,             ONLY: exchange_data, t_comm_gather_pattern, idx_no, blk_no,     &
+    &                                     idx_1d
   USE mo_mpi,                       ONLY: p_send, p_recv, p_barrier, stop_mpi,                      &
     &                                     p_mpi_wtime, p_irecv, p_wait, p_test, p_isend,            &
     &                                     p_comm_work, p_real_dp, p_real_sp, p_int,                 &
@@ -123,7 +127,8 @@ MODULE mo_name_list_output
     &                                     my_process_is_mpi_workroot,                               &
     &                                     my_process_is_io, my_process_is_mpi_ioroot,               &
     &                                     process_mpi_all_test_id, process_mpi_all_workroot_id,     &
-    &                                     num_work_procs, p_pe, p_pe_work, p_work_pe0, p_io_pe0
+    &                                     num_work_procs, p_pe, p_pe_work, p_work_pe0, p_io_pe0,    &
+    &                                     p_max
   ! calendar operations
   USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime, OPERATOR(-),   &
     &                                     timedelta, newTimedelta, deallocateTimedelta
@@ -141,9 +146,12 @@ MODULE mo_name_list_output
     &                                     output_file, patch_info, lonlat_info,                     &
     &                                     collect_requested_ipz_levels
   USE mo_name_list_output_metadata, ONLY: metainfo_write_to_memwin, metainfo_get_from_memwin,       &
-    &                                     metainfo_get_size
+    &                                     metainfo_get_size, metainfo_get_timelevel
   USE mo_name_list_output_zaxes,    ONLY: deallocate_level_selection, create_mipz_level_selections
   USE mo_grib2_util,                ONLY: set_GRIB2_timedep_keys, set_GRIB2_timedep_local_keys
+  ! model domain
+  USE mo_model_domain,              ONLY: t_patch, p_patch
+  USE mo_loopindices,               ONLY: get_indices_c
   ! post-ops
 
 #ifndef __NO_ICON_ATMO__
@@ -671,7 +679,11 @@ CONTAINS
     LOGICAL                                     :: have_GRIB
     LOGICAL                                     :: var_ignore_level_selection
     INTEGER                                     :: nmiss    ! missing value indicator
-    INTEGER                                     :: var_ref_pos
+    INTEGER                                     :: var_ref_pos, last_bdry_index
+    REAL(wp)                                    :: missval
+    INTEGER                                     :: rl_start, rl_end, i_nchdom, i_startblk, i_endblk, &
+      &                                            i_startidx, i_endidx, local_idx, glb_idx, jc, jb
+    TYPE(t_patch), POINTER                      :: ptr_patch
 
     ! Offset in memory window for async I/O
     ioff = 0_i8
@@ -716,6 +728,31 @@ CONTAINS
     END IF
 #endif
 
+    ! only for synchronous output mode: communicate the largest global
+    ! index of the lateral boundary cells, if required:
+
+    last_bdry_index = 0
+    IF ( (.NOT.use_async_name_list_io .OR. my_process_is_mpi_test()) .AND.   &
+      &  config_lmask_boundary )  THEN
+
+      ptr_patch => p_patch(i_log_dom)
+      rl_start   = 1
+      rl_end     = grf_bdywidth_c
+      i_nchdom   = MAX(1,ptr_patch%n_childdom)
+      i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+      i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+      glb_idx    = 0
+      DO jb=i_startblk,i_endblk
+        CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+          i_startidx, i_endidx, rl_start, rl_end)
+        DO jc=i_startidx, i_endidx
+          local_idx = idx_1d(jc,jb)
+          glb_idx   = MAX(glb_idx, ptr_patch%cells%decomp_info%glb_index(local_idx))
+        END DO
+      END DO
+      last_bdry_index = p_max(glb_idx, p_comm_work)
+    END IF
+
     ! ----------------------------------------------------
     ! Go over all name list variables for this output file
     ! ----------------------------------------------------
@@ -743,14 +780,7 @@ CONTAINS
 #ifndef __NO_ICON_ATMO__
       IF (.NOT. ASSOCIATED(of%var_desc(iv)%r_ptr)  .AND.    &
         & .NOT. ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
-        SELECT CASE (info%tlev_source)
-          CASE(TLEV_NNOW);     tl = nnow(i_log_dom)
-          CASE(TLEV_NNOW_RCF); tl = nnow_rcf(i_log_dom)
-          CASE(TLEV_NNEW);     tl = nnew(i_log_dom)
-          CASE(TLEV_NNEW_RCF); tl = nnew_rcf(i_log_dom)
-          CASE DEFAULT
-            CALL finish(routine,'Unsupported tlev_source')
-        END SELECT
+        tl = metainfo_get_timelevel(info,i_log_dom)
         IF(tl<=0 .OR. tl>max_time_levels) &
           CALL finish(routine, 'Illegal time level in nnow()/nnow_rcf()')
         ! Check if present
@@ -1048,7 +1078,9 @@ CONTAINS
 
         ! set missval flag, if applicable
         !
-        IF (of%var_desc(iv)%info%lmiss ) THEN
+        IF ( ( of%var_desc(iv)%info%lmiss .OR.                                            &
+          &    ( of%var_desc(iv)%info%lmask_boundary .AND. config_lmask_boundary) ) .AND. &
+          &  ( last_bdry_index >  0 ) ) THEN
           nmiss = 1
         ELSE
           nmiss = 0
@@ -1124,7 +1156,20 @@ CONTAINS
               ENDIF
             END SELECT
 
-
+            ! If required, set lateral boundary points to missing
+            ! value. Note that this modifies only the output buffer!
+            IF ( info%lmask_boundary                   .AND. &
+              & (info%hgrid == GRID_UNSTRUCTURED_CELL) .AND. &
+              & config_lmask_boundary ) THEN
+              missval = BOUNDARY_MISSVAL
+              IF (info%lmiss)  missval = info%missval%rval
+              
+              IF ( (.NOT. use_dp_mpi2io) .AND. (.NOT. have_GRIB) ) THEN
+                r_out_sp(1:last_bdry_index) = missval
+              ELSE
+                r_out_dp(1:last_bdry_index) = missval
+              END IF
+            END IF
 
             ! ------------------
             ! case of a test run
@@ -1170,7 +1215,7 @@ CONTAINS
             ELSE
               CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, lev-1, r_out_sp(:), nmiss)
             ENDIF
-          ENDIF
+          END IF
 
         END DO ! lev = 1, nlevs
 
@@ -1214,6 +1259,37 @@ CONTAINS
                   & REAL(i_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),dp)
               ENDDO
             END IF
+
+            ! If required, set lateral boundary points to missing
+            ! value. Note that this modifies only the output buffer!
+            IF ( info%lmask_boundary                    .AND. &
+              &  (info%hgrid == GRID_UNSTRUCTURED_CELL) .AND. &
+              &  config_lmask_boundary ) THEN
+              missval = BOUNDARY_MISSVAL
+              IF (info%lmiss) THEN
+                IF (idata_type == iREAL) THEN
+                  missval = info%missval%rval
+                ELSE IF (idata_type == iINTEGER) THEN
+                  missval = REAL(info%missval%ival,dp)
+                END IF
+              END IF
+              ptr_patch => p_patch(i_log_dom)
+              rl_start   = 1
+              rl_end     = grf_bdywidth_c
+              i_nchdom   = MAX(1,ptr_patch%n_childdom)
+              i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+              i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+              CALL get_indices_c(ptr_patch, i_endblk, i_startblk, i_endblk, &
+                i_startidx, i_endidx, rl_start, rl_end)
+              DO i = 1, p_ri%n_own
+                IF ( (p_ri%own_blk(i) < i_endblk) .OR. &
+                  &  ((p_ri%own_blk(i) == i_endblk) .AND. &
+                  &   (p_ri%own_idx(i) <= i_endidx)) ) THEN
+                  of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = missval
+                END IF
+              END DO
+            END IF
+
           ELSE
             IF (idata_type == iREAL) THEN
               DO i = 1, p_ri%n_own
@@ -1227,6 +1303,37 @@ CONTAINS
                   & REAL(i_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),sp)
               ENDDO
             END IF
+
+            ! If required, set lateral boundary points to missing
+            ! value. Note that this modifies only the output buffer!
+            IF ( info%lmask_boundary                    .AND. &
+              &  (info%hgrid == GRID_UNSTRUCTURED_CELL) .AND. &
+              &  config_lmask_boundary ) THEN
+              missval = BOUNDARY_MISSVAL
+              IF (info%lmiss) THEN
+                IF (idata_type == iREAL) THEN
+                  missval = info%missval%rval
+                ELSE IF (idata_type == iINTEGER) THEN
+                  missval = REAL(info%missval%ival,sp)
+                END IF
+              END IF
+              ptr_patch => p_patch(i_log_dom)
+              rl_start   = 1
+              rl_end     = grf_bdywidth_c
+              i_nchdom   = MAX(1,ptr_patch%n_childdom)
+              i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+              i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+              CALL get_indices_c(ptr_patch, i_endblk, i_startblk, i_endblk, &
+                i_startidx, i_endidx, rl_start, rl_end)
+              DO i = 1, p_ri%n_own
+                IF ( (p_ri%own_blk(i) < i_endblk) .OR. &
+                  &  ((p_ri%own_blk(i) == i_endblk) .AND. &
+                  &   (p_ri%own_idx(i) <= i_endidx)) ) THEN
+                  of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = REAL(missval,sp)
+                END IF
+              END DO
+            END IF
+
           END IF
           ioff = ioff + INT(p_ri%n_own,i8)
         END DO ! nlevs
@@ -1559,10 +1666,17 @@ CONTAINS
           &                               gribout_config(of%phys_patch_id) )
       END IF
 
-      ! set missval flag, if applicable
+      ! Set missval flag, if applicable
+      !
+      ! Missing value masks are available in GRIB output format
+      ! only. A missing value might be set by the user (info%lmiss) or
+      ! automatically on nest boundary regions.
       !
       IF ( (of%output_type == FILETYPE_GRB) .OR. (of%output_type == FILETYPE_GRB2) ) THEN
-        IF ( info%lmiss ) THEN
+        IF ( info%lmiss .OR.                                            &
+          &  ( info%lmask_boundary    .AND. &
+          &    config_lmask_boundary  .AND. &
+          &    ((i_log_dom > 1) .OR. l_limited_area) ) ) THEN
           nmiss = 1
         ELSE
           nmiss = 0

@@ -101,7 +101,7 @@ MODULE mo_name_list_output_types
   ! or logical patches.
   LOGICAL, PARAMETER :: l_output_phys_patch = .TRUE. !** DO NOT CHANGE - needed for GRIB output **!
 
-  INTEGER, PARAMETER :: max_z_axes = 42
+  INTEGER, PARAMETER :: max_z_axes = 43
 
   ! Character-strings denoting the "special" GRIB2 output fields that
   ! describe the grid coordinates. These fields are ignored by most
@@ -286,6 +286,11 @@ MODULE mo_name_list_output_types
     REAL(wp) :: p_levels(MAX_NPLEVS) ! pressure levels
     REAL(wp) :: z_levels(MAX_NZLEVS) ! height levels
     REAL(wp) :: i_levels(MAX_NILEVS) ! isentropic levels
+
+    ! -------------------------------------
+    ! data operations
+    ! ------------------------------------
+    CHARACTER(len=MAX_CHAR_LENGTH) :: operation ! "mean"
 
     ! -------------------------------------
     ! Internal members, not read from input

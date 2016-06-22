@@ -48,7 +48,7 @@ MODULE mo_nwp_gscp_interface
   USE mo_parallel_config,      ONLY: nproma
 
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_impl_constants,       ONLY: min_rlcell_int, iss, iorg, ibc, iso4, idu
+  USE mo_impl_constants,       ONLY: min_rlcell_int, iss, iorg, iso4, idu
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
 

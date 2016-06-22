@@ -1,0 +1,196 @@
+#!/bin/ksh
+#------------------------------------------------------------------------------
+# This script is called on all buildbot slaves and should be used to run the runscripts
+#------------------------------------------------------------------------------
+
+#Define of the text which is written in case of a script fail or OK run
+
+TEXT_RUN_FAILED="FAILED"
+TEXT_RUN_OK="OK"
+
+#==============================================================================
+stop_on_error()
+{
+# Check if the first parameter (return status) is not OK
+    echo STATUS_IN_FILE ${STATUS_IN_FILE}
+    if [[ $1 -ne 0 || ${STATUS_IN_FILE} -ne 0 ]] 
+    then
+      if [[ $1 -ne 0 ]] 
+      then
+        printf '%-50s : %s \n' $2 ${TEXT_RUN_FAILED} >> ../${LOOP_STATUS_FILE}
+        exit $1
+      else
+        printf '%-50s : %s\n' $2 ${TEXT_RUN_FAILED} >> ../${LOOP_STATUS_FILE}
+        exit ${STATUS_IN_FILE}
+      fi
+    fi
+
+    printf '%-50s : %s\n' $2 ${TEXT_RUN_OK} >> ../${LOOP_STATUS_FILE}
+}
+
+#------------------------------------------------------------------------------------
+
+warning_on_error()
+{
+# Check if the first parameter (return status) is not OK
+    if [[ $1 -ne 0 || ${STATUS_IN_FILE} -ne 0 ]] 
+    then
+      if [[ $1 -ne 0 ]] 
+      then
+        printf '%-50s : %s \n' $2 ${TEXT_RUN_FAILED} >> ../${LOOP_STATUS_FILE}
+        echo "*********** WARNING: script failed  $1 ****************"
+      else
+        printf '%-50s : %s \n' $2 ${TEXT_RUN_FAILED} >> ../${LOOP_STATUS_FILE}
+        echo "*********** WARNING: script failed  ${STATUS_IN_FILE} ****************"
+      fi
+    else
+      printf '%-50s : %s\n' $2 ${TEXT_RUN_OK} >> ../${LOOP_STATUS_FILE}
+      if [ "${build_post_file}" == "true" ]
+      then
+        name="`echo $2 | cut -d '.' -f2`"
+        RUN_POST="${RUN_POST} post.${name}.run"
+        echo "${RUN_POST}" > ./run_post_list
+
+        compare_run="post.${name}_compare_restarts.run"
+        if [  -a ./${compare_run} ] ; then
+          RUN_POST_COMP="${RUN_POST_COMP} $compare_run"
+          echo "${RUN_POST_COMP}" > ./run_post_comp_list
+        fi
+      fi
+    fi
+}
+
+#------------------------------------------------------------------------------------
+
+return_ok()
+{
+    # Exit with status = 0 = OK
+    # Arguments:
+    #   $1 =  message
+    echo "return_ok()"
+    echo "$1"
+
+    exit 0
+}
+
+#------------------------------------------------------------------------------------
+
+
+
+#==============================================================================
+# runs the scrpits 
+run_scripts_submit()
+{
+
+  echo "|======================================================|"
+  echo "|                                                      |"
+  echo "|         Running exp-scripts                          |"
+  echo "|                                                      |"
+  echo "|======================================================|"
+
+  LOOP_STATUS_FILE="LOOP_STATUS_EXP_FILE"
+
+  rm -f ${LOOP_STATUS_FILE}
+
+  stop_check="warning_on_error"
+
+  echo "Run all *.run in run directory"
+  cd run
+  EXP_FILES=`ls *.run`
+
+  for EXP_FILE in $EXP_FILES
+  do 
+    run_command="$submit ./$EXP_FILE"
+
+    if [ -r $EXP_FILE ]
+    then 
+        echo "---------------------------------------------------------"
+        echo " Submit new Script: ${EXP_FILE} at $(date)"
+        echo " $run_command "
+        echo "---------------------------------------------------------"
+
+        echo $run_command > submit.$EXP_FILE
+        chmod +x submit.$EXP_FILE        
+       ./submit.$EXP_FILE &    
+    fi
+  
+  done
+
+  # wait for all jobs to finish
+  wait
+  sleep 10
+  
+  # print and check the results
+  for EXP_FILE in $EXP_FILES
+  do
+    
+    if [ -r $EXP_FILE ]
+    then 
+      echo "---------------------------------------------------------"
+      echo " "
+      echo " Start of ${EXP_FILE}"
+      echo " "
+      echo "---------------------------------------------------------"
+      cat LOG.$EXP_FILE.*
+      echo "---------------------------------------------------------"
+      echo " "
+      echo " End of ${EXP_FILE}"
+      echo " "
+      echo "---------------------------------------------------------"
+
+      STATUS_IN_FILE=255
+      if [ -r $EXP_FILE.status ]
+      then
+        STATUS_IN_FILE=`cat ${EXP_FILE}.status`
+      fi
+
+      $stop_check 0 $EXP_FILE
+    else
+      echo "---------------------------------------------------------"
+      echo " ${EXP_FILE} does not exist"
+      echo "---------------------------------------------------------"
+      echo
+    fi
+  done
+  
+  cd ..
+
+  ALL_RUNS_OK=`grep ${TEXT_RUN_FAILED} ${LOOP_STATUS_FILE}`
+
+  if [ $? == 0 ]
+  then
+    echo "One or more Exp-Runs were not successful"
+    RETURN_STATUS=1
+  else
+    echo "All Exp-Runs were successful"
+    RETURN_STATUS=0
+  fi
+
+
+
+  #==============================================================
+  echo "|======================================================|"
+  echo "|                                                      |"
+  echo "|           Ends                                       |"
+  echo "|              $(date)                                 |"
+  echo "|                                                      |"
+  echo "|======================================================|"
+}
+#==============================================================================
+
+#------------------------------------------------------------------------------\
+# read set-up info
+. ./config/set-up.info
+submit=$use_sync_submit
+#-----------------------------------------------------------------------------
+# load ../setting if exists
+if [ -a ./setting ]
+then
+  . ./setting
+fi
+#-----------------------------------------------------------------------------
+run_scripts_submit
+#------------------------------------------------------------------------------
+# return OK Status
+exit ${RETURN_STATUS}
+

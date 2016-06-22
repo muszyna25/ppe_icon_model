@@ -28,7 +28,7 @@ MODULE mo_hydro_ocean_run
   USE mo_impl_constants,         ONLY: max_char_length
   USE mo_model_domain,           ONLY: t_patch, t_patch_3d
   USE mo_grid_config,            ONLY: n_dom
-  USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
+  USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, lhamocc,&
     & i_sea_ice, cfl_check, cfl_threshold, cfl_stop_on_violation,   &
     & cfl_write, surface_module
   USE mo_ocean_nml,              ONLY: iforc_oce, Coupled_FluxFromAtmo
@@ -42,7 +42,8 @@ MODULE mo_hydro_ocean_run
   USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total, timer_solve_ab,  &
     & timer_tracer_ab, timer_vert_veloc, timer_normal_veloc,     &
     & timer_upd_phys, timer_upd_flx, timer_extra20, timers_level, &
-    & timer_scalar_prod_veloc, timer_extra21, timer_extra22
+    & timer_scalar_prod_veloc, timer_extra21, timer_extra22, timer_bgc_ini, &
+    & timer_bgc_inv, timer_bgc_tot
   USE mo_ocean_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
     & calc_normal_velocity_ab,  &
     & calc_vert_velocity,       &
@@ -51,7 +52,7 @@ MODULE mo_hydro_ocean_run
     & t_operator_coeff, t_solvercoeff_singleprecision
   USE mo_ocean_math_operators,   ONLY: update_height_depdendent_variables, check_cfl_horizontal, check_cfl_vertical
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
-  USE mo_ocean_tracer,             ONLY: advect_tracer_ab
+  USE mo_ocean_tracer,             ONLY: advect_ocean_tracers
   USE mo_io_restart,             ONLY: create_restart_file
   USE mo_ocean_bulk,             ONLY: update_surface_flux
   USE mo_ocean_surface,          ONLY: update_ocean_surface
@@ -73,8 +74,12 @@ MODULE mo_hydro_ocean_run
   USE mo_dbg_nml,                ONLY: idbg_mxmn
   USE mo_statistics
   USE mo_ocean_statistics
+  USE mo_hamocc_statistics,     ONLY: update_hamocc_statistics, reset_hamocc_statistics
+  USE mo_hamocc_types,          ONLY: t_hamocc_state
+  USE mo_derived_variable_handling, ONLY: perform_accumulation
   USE mo_ocean_output
   USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes
+
   USE mtime,                     ONLY: datetime, datetimeToString, deallocateDatetime,              &
        &                               timedelta, newTimedelta, deallocateTimedelta,                &
        &                               MAX_DATETIME_STR_LEN, newDatetime,                           &
@@ -85,6 +90,11 @@ MODULE mo_hydro_ocean_run
        &                               addEventToEventGroup, isCurrentEventActive
   USE mo_event_manager,          ONLY: initEventManager, addEventGroup, getEventGroup, printEventGroup
   
+  USE mo_bgc_bcond,          ONLY: ext_data_bgc, update_bgc_bcond
+  USE mo_hamocc_diagnostics,    ONLY: get_inventories
+  USE mo_hamocc_nml,         ONLY: io_stdo_bgc
+
+
   IMPLICIT NONE
 
   PRIVATE
@@ -111,6 +121,11 @@ CONTAINS
 ! !   TYPE (t_ho_params)                :: p_phys_param
     LOGICAL, INTENT(in)               :: is_restart
     TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
+    if(lhamocc)then
+      if(ltimer)call timer_start(timer_bgc_ini)
+      CALL ini_bgc_icon(patch_3d,ocean_state,is_restart)
+      if(ltimer)call timer_stop(timer_bgc_ini)
+    endif
 ! 
 !     IF (is_restart) THEN
 !       ! Prepare ocean_state%p_prog, since it is needed by the sea ice model (e.g. wind stress computation)
@@ -157,8 +172,9 @@ CONTAINS
   SUBROUTINE perform_ho_stepping( patch_3d, ocean_state, p_ext_data,          &
     & this_datetime,                                    &
     & surface_fluxes, p_sfc, p_phys_param,              &
-    & p_as, p_atm_f, sea_ice,operators_coefficients,    &
+    & p_as, p_atm_f, sea_ice, hamocc_state, operators_coefficients, &
     & solvercoeff_sp)
+   USE mo_hamocc_diagnostics,  ONLY: get_inventories
 
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
@@ -170,6 +186,7 @@ CONTAINS
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: p_atm_f
     TYPE (t_sea_ice),         INTENT(inout)          :: sea_ice
+    TYPE(t_hamocc_state), INTENT(INOUT)                :: hamocc_state
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
     TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
 
@@ -276,6 +293,7 @@ CONTAINS
     CALL message('',message_text)
     CALL message('','')
 
+
     !------------------------------------------------------------------
     ! call the dynamical core: start the time loop
     !------------------------------------------------------------------
@@ -283,6 +301,12 @@ CONTAINS
 
     jstep = jstep0
     TIME_LOOP: DO 
+    IF(lhamocc) THEN
+     if(ltimer)CALL timer_start(timer_bgc_inv)
+     CALL message ('start of time loop', 'HAMOCC inventories', io_stdo_bgc)
+     if(ltimer)CALL get_inventories(hamocc_state,ocean_state(1),patch_3d,nold(1))
+    CALL timer_stop(timer_bgc_inv)
+    ENDIF
 
       ! update model date and time mtime based
       mtime_current = mtime_current + model_time_step
@@ -324,6 +348,11 @@ CONTAINS
         CALL update_ocean_surface( patch_3d, ocean_state(jg), p_as, sea_ice, p_atm_f, surface_fluxes, p_sfc, &
           & jstep, mtime_current, operators_coefficients)
       ENDIF
+
+    
+
+
+      IF(lhamocc)CALL update_bgc_bcond( patch_3d, ext_data_bgc, jstep, datetime)
       stop_timer(timer_upd_flx,3)
 
       start_detail_timer(timer_extra22,4)
@@ -368,10 +397,12 @@ CONTAINS
          & this_datetime=mtime_current, &
          & surface_fluxes=surface_fluxes, &
          & sea_ice=sea_ice,            &
+         & hamocc=hamocc_state,        &
          & jstep=jstep, jstep0=jstep0, &
          & force_output=.true.)
         CALL finish(TRIM(routine), 'solve_free_surface_eq_ab  returned error')
       ENDIF
+      
       stop_timer(timer_solve_ab,1)
 
       !------------------------------------------------------------------------
@@ -416,11 +447,18 @@ CONTAINS
       END IF
       !------------------------------------------------------------------------
 
+
+         ! Step : call HAMOCC
+      if(lhamocc)then
+        if(ltimer) call timer_start(timer_bgc_tot)
+        CALL bgc_icon(patch_3d,ocean_state(jg),p_as,sea_ice)
+        if(ltimer) call timer_stop(timer_bgc_tot)
+      endif
       !------------------------------------------------------------------------
       ! Step 6: transport tracers and diffuse them
       IF (no_tracer>=1) THEN
         start_timer(timer_tracer_ab,1)
-        CALL advect_tracer_ab( patch_3d, ocean_state(jg), p_phys_param,&
+        CALL advect_ocean_tracers( patch_3d, ocean_state(jg), p_phys_param,&
           & surface_fluxes,&
           & operators_coefficients,&
           & jstep)
@@ -460,6 +498,12 @@ CONTAINS
         
       IF (i_sea_ice >= 1) CALL update_ice_statistic(sea_ice%acc,sea_ice,patch_2d%cells%owned)
 
+      IF(lhamocc)CALL update_hamocc_statistics(hamocc_state,&
+        & patch_2d%cells%owned,&
+        & patch_2d%edges%owned,&
+        & patch_2d%verts%owned,&
+        & n_zlev)
+
       CALL calc_fast_oce_diagnostics( patch_2d,      &
         & patch_3d%p_patch_1d(1)%dolic_c, &
         & patch_3d%p_patch_1d(1)%prism_thick_c, &
@@ -467,21 +511,28 @@ CONTAINS
         & ocean_state(jg)%p_diag)
 
       stop_detail_timer(timer_extra20,5)
-      
+
+      CALL perform_accumulation(nnew(1),0)
+
       CALL output_ocean( patch_3d, ocean_state, &
         &                mtime_current,              &
         &                surface_fluxes,             &
         &                sea_ice,                 &
+        &                hamocc_state,            &
         &                jstep, jstep0)
       
-      ! receive coupling fluxes for ocean at the end of time stepping loop
+      ! send and receive coupling fluxes for ocean at the end of time stepping loop
       IF (iforc_oce == Coupled_FluxFromAtmo) &  !  14
-        &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, mtime_current)
+        &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, p_as, mtime_current)
+!       &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, p_as%fu10, mtime_current)
+!       &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, mtime_current)
 
+  
       start_detail_timer(timer_extra21,5)
       ! Shift time indices for the next loop
       ! this HAS to ge into the restart files, because the start with the following loop
       CALL update_time_indices(jg)
+  
       ! update intermediate timestepping variables for the tracers
       CALL update_time_g_n(ocean_state(jg))
 
@@ -538,7 +589,14 @@ CONTAINS
       
       stop_detail_timer(timer_extra21,5)
 
-    ENDDO TIME_LOOP
+    ENDDO time_loop
+    
+    IF(lhamocc) THEN
+     if(ltimer)CALL timer_start(timer_bgc_inv)
+     CALL message ('end of time loop', 'HAMOCC inventories', io_stdo_bgc)
+     CALL get_inventories(hamocc_state,ocean_state(1),patch_3d,nold(1))
+     if(ltimer)CALL timer_stop(timer_bgc_inv)
+    ENDIF
 
     IF (write_last_restart .and. .not. lwrite_checkpoint) &
         & CALL create_restart_file( patch = patch_2d,       &
@@ -557,11 +615,14 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 !<Optimize:inUse>
-  SUBROUTINE write_initial_ocean_timestep(patch_3d,ocean_state,surface_fluxes,sea_ice, operators_coefficients, p_phys_param)
+  SUBROUTINE write_initial_ocean_timestep(patch_3d,ocean_state,surface_fluxes,sea_ice, &
+& hamocc_state, operators_coefficients, p_phys_param)
+
     TYPE(t_patch_3D), INTENT(IN) :: patch_3d
     TYPE(t_hydro_ocean_state), INTENT(INOUT)    :: ocean_state
     TYPE(t_sfc_flx) , INTENT(INOUT)             :: surface_fluxes
     TYPE(t_sea_ice),          INTENT(INOUT)     :: sea_ice
+    TYPE(t_hamocc_state), INTENT(INOUT)         :: hamocc_state
     TYPE(t_operator_coeff),   INTENT(inout)     :: operators_coefficients    
     TYPE(t_ho_params), INTENT(IN), OPTIONAL     :: p_phys_param
     
@@ -610,11 +671,19 @@ CONTAINS
       & patch_2d%verts%owned,   &
       & n_zlev,p_phys_param=p_phys_param)
     IF (i_sea_ice >= 1) CALL update_ice_statistic(sea_ice%acc, sea_ice,patch_2d%cells%owned)
+      IF (lhamocc) CALL update_hamocc_statistics( &
+      & hamocc_state,            &
+      & patch_2d%cells%owned,   &
+      & patch_2d%edges%owned,   &
+      & patch_2d%verts%owned,   &
+      & n_zlev)
+
 
     CALL write_name_list_output(jstep=0)
 
     CALL reset_ocean_statistics(ocean_state%p_acc,ocean_state%p_diag,surface_fluxes)
     IF (i_sea_ice >= 1) CALL reset_ice_statistics(sea_ice%acc)
+    IF (lhamocc) CALL reset_hamocc_statistics(hamocc_state%p_acc)
 
   END SUBROUTINE write_initial_ocean_timestep
   !-------------------------------------------------------------------------

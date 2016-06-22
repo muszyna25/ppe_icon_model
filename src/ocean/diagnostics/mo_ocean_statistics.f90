@@ -47,8 +47,8 @@ MODULE mo_ocean_statistics
     & t_sea_ice
   USE mo_ocean_physics,          ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
-  USE mo_linked_list,            ONLY: t_list_element, find_list_element
-  USE mo_var_list,               ONLY: print_var_list
+  USE mo_linked_list,            ONLY: t_list_element
+  USE mo_var_list,               ONLY: print_var_list, find_list_element
   USE mo_mpi,                    ONLY: my_process_is_stdio
   USE mo_statistics
   USE mo_sea_ice_nml,            ONLY: i_ice_dyn

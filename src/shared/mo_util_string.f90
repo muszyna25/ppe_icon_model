@@ -15,14 +15,14 @@
 !! headers of the routines.
 !!
 !!
+
+! String conversion utilities
 MODULE mo_util_string
 
-  !
-  ! String conversion utilities
-  !
-  USE ISO_C_BINDING,         ONLY: C_INT8_T
-  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
-  USE mo_util_sort,          ONLY: quicksort
+  USE ISO_C_BINDING,     ONLY: C_INT8_T, C_CHAR
+  ! Note: This file must not use mo_exception:finish() to avoid a circular dependency.
+  USE mo_impl_constants, ONLY: MAX_CHAR_LENGTH
+  USE mo_util_sort,      ONLY: quicksort
   IMPLICIT NONE
   !
   PRIVATE
@@ -49,6 +49,13 @@ MODULE mo_util_string
   PUBLIC :: sort_and_compress_list
   PUBLIC :: tohex                ! For debugging: Produce a hex dump of the given string, revealing any unprintable characters.
   PUBLIC :: remove_whitespace
+
+  !functions to handle character arrays as strings
+  PUBLIC :: toCharArray     ! convert a fortran string to a character array of kind = c_char
+  PUBLIC :: toCharacter     ! convert a character array of kind = c_char back to a fortran string
+  PUBLIC :: charArray_dup   ! make a copy of a character array
+  PUBLIC :: charArray_equal ! compare two character arrays for equality
+  PUBLIC :: charArray_toLower   ! canonicalize to lower case
 
   !
   PUBLIC :: normal, bold
@@ -783,5 +790,74 @@ CONTAINS
       END IF
     END DO
   END FUNCTION remove_whitespace
+
+  FUNCTION toCharArray(string) RESULT(result)
+    CHARACTER(LEN = *), INTENT(IN) :: string
+    CHARACTER(KIND = C_CHAR), POINTER :: result(:)
+    INTEGER :: i, error
+
+    CHARACTER(LEN = *), PARAMETER :: routine = modName//":toCharArray"
+
+    ALLOCATE(result(LEN(string)), STAT = error)
+    ! note: we don't call "finish" to avoid circular dependency
+    IF(error /= 0) WRITE(0,*) "memory allocation error"
+    DO i = 1, LEN(string)
+        result(i) = string(i:i)
+    END DO
+  END FUNCTION toCharArray
+
+  FUNCTION toCharacter(charArray) RESULT(result)
+    CHARACTER(KIND = C_CHAR), INTENT(IN) :: charArray(:)
+    CHARACTER(LEN = :), POINTER :: result
+    INTEGER :: i, error, stringSize
+
+    CHARACTER(LEN = *), PARAMETER :: routine = modName//":toCharacter"
+
+    stringSize = SIZE(charArray, 1) !XXX: This may not be merged into the next line, because that triggers a bug in gfortran
+    ALLOCATE(CHARACTER(LEN = stringSize) :: result, STAT = error)
+    ! note: we don't call "finish" to avoid circular dependency
+    IF(error /= 0) WRITE(0,*) "memory allocation error"
+    DO i = 1, SIZE(charArray, 1)
+        result(i:i) = charArray(i)
+    END DO
+  END FUNCTION toCharacter
+
+  FUNCTION charArray_dup(charArray) RESULT(result)
+    CHARACTER(KIND = C_CHAR), INTENT(IN) :: charArray(:)
+    CHARACTER(KIND = C_CHAR), POINTER :: result(:)
+    INTEGER :: i, error
+
+    CHARACTER(LEN = *), PARAMETER :: routine = modName//":charArray_dup"
+
+    ALLOCATE(result(SIZE(charArray, 1)), STAT = error)
+    ! note: we don't call "finish" to avoid circular dependency
+    IF(error /= 0) WRITE(0,*) "memory allocation error"
+    result(:) = charArray(:)
+  END FUNCTION charArray_dup
+
+  LOGICAL FUNCTION charArray_equal(stringA, stringB) RESULT(result)
+    CHARACTER(KIND = C_CHAR), INTENT(IN) :: stringA(:), stringB(:)
+    INTEGER :: i
+
+    result = .FALSE.
+    IF(SIZE(stringA, 1) /= SIZE(stringB, 1)) RETURN
+    DO i = 1, SIZE(stringA, 1)
+        IF(stringA(i) /= stringB(i)) RETURN
+    END DO
+    result = .TRUE.
+  END FUNCTION charArray_equal
+
+  SUBROUTINE charArray_toLower(string)
+    CHARACTER(KIND = C_CHAR), INTENT(INOUT) :: string(:)
+    INTEGER :: i, curChar
+
+    DO i = 1, SIZE(string, 1)
+        curChar = IACHAR(string(i))
+        IF(curChar >= IACHAR('A') .AND. curChar <= IACHAR('Z')) THEN
+            curChar = curChar - IACHAR('A') + IACHAR('a')
+            string(i) = ACHAR(curChar)
+        END IF
+    END DO
+  END SUBROUTINE charArray_toLower
 
 END MODULE mo_util_string
