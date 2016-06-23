@@ -503,16 +503,16 @@ if test x$withval = xyes; then
 fi
 
 if test -n "$HDF5ROOT" ; then
-  if test -r "$HDF5ROOT/lib/hdf5-18/libhdf5.a" ; then
-     HDF5_LIB='-L$(HDF5ROOT)/lib/hdf5-18 -lhdf5_hl -lhdf5'
+  if test -r "$HDF5ROOT/lib/libhdf5.a" ; then
+     HDF5_LIB='-L$(HDF5ROOT)/lib -lhdf5_hl -lhdf5'
   else
-     echo "cannot read $HDF5ROOT/lib/hdf5-18/libhdf5.a"  
+     echo "cannot read $HDF5ROOT/lib/libhdf5.a"  
      exit 1    
   fi
-  if test -d "$HDF5ROOT/include/hdf5-18" ; then
-     HDF5_INCLUDE='-I$(HDF5ROOT)/include/hdf5-18'
+  if test -d "$HDF5ROOT/include" ; then
+     HDF5_INCLUDE='-I$(HDF5ROOT)/include'
   else
-     echo "cannot find $HDF5ROOT/include/hdf5-18"  
+     echo "cannot find $HDF5ROOT/include"  
      exit 1    
   fi
   case $ac_hostname in
