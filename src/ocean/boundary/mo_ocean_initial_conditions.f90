@@ -579,7 +579,7 @@ CONTAINS
 
     CASE (220)
     
-      CALL tracer_GM_test(patch_3d=patch_3d, ocean_tracer=ocean_temperature,ocean_state=ocean_state)
+      CALL tracer_Redi_test(patch_3d=patch_3d, ocean_tracer=ocean_temperature,ocean_state=ocean_state)
 
     CASE (221)
       ! Abernathey setup 01; initial SST reflects the heat fluxes
@@ -606,7 +606,11 @@ CONTAINS
       CALL temperature_dirac_signal(patch_3d, ocean_temperature)
 
     CASE(224)
-      CALL tracer_GM_test_withdensity(patch_3d=patch_3d, ocean_tracer=ocean_temperature,ocean_state=ocean_state)      
+      CALL tracer_Redi_test(patch_3d=patch_3d, ocean_tracer=ocean_temperature,ocean_state=ocean_state)      
+
+    CASE(225)
+      CALL tracer_GM_test(patch_3d=patch_3d, ocean_tracer=ocean_temperature,ocean_state=ocean_state)      
+
 
     CASE(300)
      CALL message(TRIM(method_name), 'Temperature Kelvin-Helmholtz Test ')
@@ -2210,7 +2214,9 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
 
 
   !-------------------------------------------------------------------------------
-  SUBROUTINE tracer_GM_test(patch_3d, ocean_tracer,ocean_state)
+  SUBROUTINE tracer_Redi_test(patch_3d, ocean_tracer,ocean_state)
+  !
+  !This test is for testsuite use: it reuqires the density field to be stationary!
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: ocean_tracer(:,:,:)
    TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
@@ -2229,10 +2235,10 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     REAL(wp) :: temperature_difference,basin_northBoundary,basin_southBoundary,lat_diff,bottom_value
     REAL(wp) :: lat(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp), POINTER :: tracer(:,:,:) 
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_GM_test'
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_Redi_test'
     !-------------------------------------------------------------------------
 
-    CALL message(TRIM(method_name), ' tracer_GM_test')
+    CALL message(TRIM(method_name), ' tracer_Redi_test')
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
@@ -2244,7 +2250,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     ocean_tracer=0.0_wp
     density=0.0_wp
     slope_parameter =0.00001_wp
-!    slope_parameter =0.5_wp
+!    slope_parameter =0.15_wp !0.5
     temperature_difference = slope_parameter*(initial_temperature_south - initial_temperature_north)
     
     basin_northBoundary    = (basin_center_lat + 0.5_wp*basin_height_deg) * deg2rad
@@ -2346,8 +2352,8 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
 !    END DO
  
  
-    density(:,:,:)=0.0_wp
-    ocean_tracer(:,:,:)=0.0_wp
+    density(:,:,:)=1023.0_wp
+    ocean_tracer(:,:,:)=2.0_wp
     DO block = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
       DO idx = start_cell_index, end_cell_index
@@ -2363,8 +2369,8 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
           z_coord =&
           & (patch_3d%p_patch_1d(1)%zlev_m(1)- patch_3d%p_patch_1d(1)%zlev_m(level))/patch_3d%p_patch_1d(1)%zlev_m(n_zlev)  
 
-           density(idx,level,block)=density(idx,level,block)&
-           &-tanh(slope_parameter*(z_coord+tanh(x_coord))) !-tanh(x_coord)*(1.0_wp+z_coord) !
+           !density(idx,level,block)=density(idx,level,block)&
+           !&-tanh(slope_parameter*(z_coord+tanh(x_coord))) !-tanh(x_coord)*(1.0_wp+z_coord) !
 
           !density(idx,level,block)=density(idx,level,block)+tanh(z_coord)*density(idx,level,block)         
           !density(idx,level,block)=1023+density(idx,level,block)
@@ -2386,7 +2392,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
           !&exp(-0.01*((z_coord+0.45)**2+(x_coord-0.55)**2))
           &+0.5_wp*(cos((20_wp*(z_coord+0.4_wp))*pi/3.0_wp))&
           &*(cos((20_wp*(x_coord-0.4_wp))*pi/3.0_wp))
-          !ocean_tracer(idx,level,block)=max(ocean_tracer(idx,level,block),0.0_wp)
+
   !write(2040,*)'density',x_coord,z_coord,level!,density(idx,level,block),ocean_tracer(idx,level,block)         
           ENDIF
 !IF(density(idx,level,block)/=1.0_wp.and. density(idx,level,block)/=-1.0_wp)THEN         
@@ -2396,7 +2402,197 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
         ENDIF          
       END DO
     END DO
+    DO block = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
+      DO idx = start_cell_index, end_cell_index
 
+        lat_deg = patch_2d%cells%center(idx,block)%lat * rad2deg
+        lon_deg = patch_2d%cells%center(idx,block)%lon * rad2deg
+        
+        x_coord = (lon_deg - (basin_center_lon -0.5_wp*basin_width_deg))/(basin_width_deg)
+        IF(lat_deg>=basin_center_lat-0.5.AND.lat_deg<basin_center_lat+0.5)THEN
+
+        DO level = 1,n_zlev
+
+          z_coord =&
+          & (patch_3d%p_patch_1d(1)%zlev_m(1)- patch_3d%p_patch_1d(1)%zlev_m(level))/patch_3d%p_patch_1d(1)%zlev_m(n_zlev)  
+
+           !density(idx,level,block)=density(idx,level,block)&
+           !&-tanh(slope_parameter*(z_coord+tanh(x_coord))) !-tanh(x_coord)*(1.0_wp+z_coord) !
+!To be preserved: this is used for Redi test
+          IF(x_coord+z_coord>=0.25_wp.OR.x_coord+z_coord<=-0.25_wp)THEN
+           density(idx,level,block)=density(idx,level,block)+0.000115_wp*density(idx,level,block)!&
+          ! &-tanh(0.5*slope_parameter*(z_coord+tanh(x_coord))) !-tanh(x_coord)*(1.0_wp+z_coord) !          
+          !ENDIF
+          !ELSEIF(x_coord+z_coord<=-0.25_wp)THEN
+          ! density(idx,level,block)=density(idx,level,block)-0.000115_wp*density(idx,level,block)!&
+          ! &-tanh(0.5*slope_parameter*(z_coord+tanh(x_coord))) !-tanh(x_coord)*(1.0_wp+z_coord) !          
+          ELSE
+          density(idx,level,block)=1023_wp&
+           !&-tanh(slope_parameter*(z_coord+tanh(x_coord))) !-tanh(x_coord)*(1.0_wp+z_coord) 
+           &-tanh(slope_parameter*(z_coord+tanh(x_coord+z_coord)))!this introduces another variation in density
+          
+          ENDIF
+
+        END DO
+        ENDIF          
+      END DO
+    END DO
+
+DO level = 1, n_zlev
+!z_coord = (patch_3d%p_patch_1d(1)%zlev_m(level)- patch_3d%p_patch_1d(1)%zlev_m(1))/patch_3d%p_patch_1d(1)%zlev_m(n_zlev)  
+!write(*,*)'temp',level,maxval(ocean_tracer(:,level,:)),minval(ocean_tracer(:,level,:))                
+    CALL dbg_print('trac_init', ocean_tracer(:,level,:), method_name, 3, in_subset=all_cells)
+!     CALL dbg_print('rho init', density(:,level,:), method_name, 3, in_subset=all_cells)
+END DO
+DO level = 1, n_zlev
+!z_coord = (patch_3d%p_patch_1d(1)%zlev_m(level)- patch_3d%p_patch_1d(1)%zlev_m(1))/patch_3d%p_patch_1d(1)%zlev_m(n_zlev)  
+!write(*,*)'temp',level,maxval(ocean_tracer(:,level,:)),minval(ocean_tracer(:,level,:))                
+!    CALL dbg_print('trac_init', ocean_tracer(:,level,:), method_name, 3, in_subset=all_cells)
+     CALL dbg_print('rho init', density(:,level,:), method_name, 3, in_subset=all_cells)
+END DO
+!write(*,*)'leave init'
+!    CALL dbg_print('aft. AdvIndivTrac: trac_old', ocean_tracer(:,2,:), method_name, 3, in_subset=all_cells)
+
+!stop
+  END SUBROUTINE tracer_Redi_test
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE tracer_GM_test(patch_3d, ocean_tracer,ocean_state)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_tracer(:,:,:)
+   TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: block, idx, level
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp):: lat_deg, lon_deg, z_tmp
+    REAL(wp),POINTER :: density(:,:,:)
+    REAL(wp):: slope_parameter =0.5_wp
+    REAL(wp) :: x_coord, z_coord,linear_increase,linear_decrease
+    REAL(wp) :: left_basin_boundary_lon, right_basin_boundary_lon
+    !REAL(wp) :: upper_level, middle_level, lower_level
+    REAL(wp) :: temperature_difference,basin_northBoundary,basin_southBoundary,lat_diff,bottom_value
+    REAL(wp) :: lat(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp), POINTER :: tracer(:,:,:) 
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_Redi_test'
+    !-------------------------------------------------------------------------
+
+    CALL message(TRIM(method_name), ' tracer_Redi_test')
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    cell_center => patch_2d%cells%center
+    lat(:,:) = patch_2d%cells%center(:,:)%lat    
+    
+    tracer =>ocean_tracer(:,:,:)
+    density=> ocean_state%p_diag%rho(:,:,:)
+    ocean_tracer=0.0_wp
+    density=0.0_wp
+!    slope_parameter =0.00001_wp
+    slope_parameter =0.5
+    temperature_difference = slope_parameter*(initial_temperature_south - initial_temperature_north)
+    
+    basin_northBoundary    = (basin_center_lat + 0.5_wp*basin_height_deg) * deg2rad
+    basin_southBoundary    = (basin_center_lat - 0.5_wp*basin_height_deg) * deg2rad
+    lat_diff               = basin_northBoundary - basin_southBoundary  !  basin_height_deg*deg2rad
+!write(*,*)'surface gradient',temperature_difference
+!    lat(:,:) = patch_2d%cells%center(:,:)%lat    
+!    level=1
+!    DO block = all_cells%start_block, all_cells%end_block
+!      CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
+!      DO idx = start_cell_index, end_cell_index
+!        tracer(idx,level,block) = &
+!          & initial_temperature_south - temperature_difference*((basin_northBoundary-lat(idx,block))/lat_diff)
+!          
+!      END DO
+!    END DO
+!    bottom_value=initial_temperature_bottom 
+!
+!    DO block = all_cells%start_block, all_cells%end_block
+!     CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
+!     DO idx = start_cell_index, end_cell_index
+!        
+!       IF (patch_3d%p_patch_1d(1)%zlev_m(n_zlev) - patch_3d%p_patch_1d(1)%zlev_m(1) /= 0.0_wp) THEN
+!         linear_increase = (ocean_tracer(idx,1,block)- bottom_value  ) / & 
+!           & (patch_3d%p_patch_1d(1)%zlev_m(n_zlev) - patch_3d%p_patch_1d(1)%zlev_m(1))
+!       ELSE
+!         linear_increase = 0.0_wp
+!       ENDIF
+!       !linear_increase=slope_parameter*linear_increase
+!        
+!       !First third of levels
+!       DO level = 2,7!INT(n_zlev/3.0_wp)+1!patch_3d%p_patch_1d(1)%dolic_c(idx,block) !2,7
+!         ocean_tracer(idx,level,block) &
+!           & = ocean_tracer(idx,level-1,block) - linear_increase * &
+!           &     patch_3d%p_patch_1d(1)%del_zlev_i(level)
+!       END DO
+!
+!       !Second third of levels
+!       level=8!INT(n_zlev/3.0_wp)+2
+!       ocean_tracer(:,level,:)  = 16.5_WP!max(ocean_tracer(:,level-1,:),0.0_wp)! maxval(ocean_tracer(:,level-1,:))
+!       DO level = 9,12!INT(n_zlev/3.0_wp)+3,2*INT(n_zlev/3.0_wp)!patch_3d%p_patch_1d(1)%dolic_c(idx,block)
+!         ocean_tracer(idx,level,block) &
+!           & = ocean_tracer(idx,level-1,block) -0.1_wp! linear_increase * &
+!           !            &     patch_3d%p_patch_1d(1)%del_zlev_i(level)
+!       END DO
+!       level=20!n_zlev
+!        tracer(idx,level,block) = &
+!          & initial_temperature_bottom + temperature_difference*((basin_northBoundary-lat(idx,block))/lat_diff)
+!          
+!        DO level =19,13,-1!n_zlev-1,2*INT(n_zlev/3.0_wp)+1,-1!INT(2.0_wp*n_zlev/3.0_wp)+1, n_zlev!patch_3d%p_patch_1d(1)%dolic_c(idx,block)
+!          ocean_tracer(idx,level,block) &
+!            & = ocean_tracer(idx,level+1,block) + linear_increase * &
+!            &     patch_3d%p_patch_1d(1)%del_zlev_i(level)
+!        END DO
+!      END DO
+!    END DO
+!
+!    level=1
+!    DO block = all_cells%start_block, all_cells%end_block
+!      CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
+!      DO idx = start_cell_index, end_cell_index
+!        tracer(idx,level,block) = &
+!          & initial_temperature_south - temperature_difference*((basin_northBoundary-lat(idx,block))/lat_diff)
+!          
+!        density(idx,level,block)=OceanReferenceDensity - LinearThermoExpansionCoefficient*tracer(idx,level,block)  
+!
+!      END DO
+!    END DO
+!
+!    bottom_value=initial_temperature_bottom 
+!
+!    DO block = all_cells%start_block, all_cells%end_block
+!     CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
+!     DO idx = start_cell_index, end_cell_index
+!        
+!       IF (patch_3d%p_patch_1d(1)%zlev_m(n_zlev) - patch_3d%p_patch_1d(1)%zlev_m(1) /= 0.0_wp) THEN
+!         linear_increase = (ocean_tracer(idx,1,block)- bottom_value  ) / & 
+!           & (patch_3d%p_patch_1d(1)%zlev_m(n_zlev) - patch_3d%p_patch_1d(1)%zlev_m(1))
+!       ELSE
+!         linear_increase = 0.0_wp
+!       ENDIF
+!       !linear_increase=slope_parameter*linear_increase
+!        
+!       DO level = 2,n_zlev!INT(n_zlev/3.0_wp)+1!patch_3d%p_patch_1d(1)%dolic_c(idx,block) !2,7
+!         !ocean_tracer(idx,level,block) &
+!         !  & = ocean_tracer(idx,level-1,block) - linear_increase * &
+!         !  &     patch_3d%p_patch_1d(1)%del_zlev_i(level)
+!
+!         density(idx,level,block) &
+!           & = density(idx,level-1,block) + 0.5_wp*linear_increase * &
+!           &     patch_3d%p_patch_1d(1)%del_zlev_i(level)
+!           
+!       END DO
+!      END DO
+!    END DO
+ 
+ 
+    density(:,:,:)=OceanReferenceDensity
+    ocean_tracer(:,:,:)=2.0_wp
     DO block = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
       DO idx = start_cell_index, end_cell_index
@@ -2415,18 +2611,68 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
            !density(idx,level,block)=density(idx,level,block)&
            !&-tanh(slope_parameter*(z_coord+tanh(x_coord))) !-tanh(x_coord)*(1.0_wp+z_coord) !
 
-          IF(x_coord+z_coord>=0.25_wp.OR.x_coord+z_coord<=-0.25_wp)THEN
-           density(idx,level,block)=density(idx,level,block)+0.00115_wp*density(idx,level,block)!&
-          ! &-tanh(0.5*slope_parameter*(z_coord+tanh(x_coord))) !-tanh(x_coord)*(1.0_wp+z_coord) !          
-          !ENDIF
-          !ELSEIF(x_coord+z_coord<=-0.25_wp)THEN
-          ! density(idx,level,block)=density(idx,level,block)-0.000115_wp*density(idx,level,block)!&
-          ! &-tanh(0.5*slope_parameter*(z_coord+tanh(x_coord))) !-tanh(x_coord)*(1.0_wp+z_coord) !          
-          ELSE
-          density(idx,level,block)=1023_wp&
-           &-tanh(slope_parameter*(z_coord+tanh(x_coord))) !-tanh(x_coord)*(1.0_wp+z_coord) !
-          
-          
+          !density(idx,level,block)=density(idx,level,block)+tanh(z_coord)*density(idx,level,block)         
+          !density(idx,level,block)=1023+density(idx,level,block)
+!  write(2040,*)'dens',z_coord,level,density(idx,level,block),tanh(slope_parameter*(z_coord-tanh(x_coord))),&
+!&tanh(z_coord),tanh(z_coord)*density(idx,level,block)
+!           ENDIF
+!          density(idx,level,block)=tanh(5.0_wp*(z_coord-0.0_wp-slope_parameter*8.0_wp*(pi**3)*(x_coord**3)&
+!          &*(sin(pi*x_coord)-0.5_wp*sin(2_wp*pi*x_coord))**2)) 
+!          density(idx,level,block)=tanh(5.0_wp*(x_coord-0.0_wp-slope_parameter*8.0_wp*(pi**3)*(z_coord**3)&
+!          &*(sin(pi*z_coord)-0.5_wp*sin(2_wp*pi*z_coord))**2)) 
+          !density(idx,level,block)=-tanh(x_coord)!(5.0_wp*(z_coord-0.25_wp-slope_parameter*8.0_wp*(pi**3)*(x_coord**3)))!&
+!          &*(sin(pi*x_coord)-0.5_wp*sin(2_wp*pi*x_coord)))) 
+
+           ocean_tracer(idx,level,block)=20.0_wp&
+           &-tanh(slope_parameter*(-z_coord+tanh(x_coord))) !-tanh(x_coord)*(1.0_wp+z_coord) 
+           !&-tanh(slope_parameter*(z_coord+tanh(x_coord+z_coord)))!this introduces another variation in density
+ 
+
+!          IF(x_coord<=0.5_wp.and.x_coord>=0.3_wp.and.-z_coord<=0.5_wp.and.-z_coord>=0.3_wp)THEN
+!          !ocean_tracer(idx,level,block)=0.25_wp*(cos((20_wp*z_coord-5)*pi/3.0_wp)+1.0_wp)&
+!          !&*(cos((20_wp*x_coord-5_wp)*pi/3.0_wp)+1.0_wp)
+!          
+!          ocean_tracer(idx,level,block)=ocean_tracer(idx,level,block)&
+!          !&exp(-0.01*((z_coord+0.45)**2+(x_coord-0.55)**2))
+!          &+0.5_wp*(cos((20_wp*(z_coord+0.4_wp))*pi/3.0_wp))&
+!          &*(cos((20_wp*(x_coord-0.4_wp))*pi/3.0_wp))
+!          !ocean_tracer(idx,level,block)=max(ocean_tracer(idx,level,block),0.0_wp)
+!  !write(2040,*)'density',x_coord,z_coord,level!,density(idx,level,block),ocean_tracer(idx,level,block)         
+!          ENDIF
+
+        END DO
+        ENDIF          
+      END DO
+    END DO
+    DO block = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
+      DO idx = start_cell_index, end_cell_index
+
+        lat_deg = patch_2d%cells%center(idx,block)%lat * rad2deg
+        lon_deg = patch_2d%cells%center(idx,block)%lon * rad2deg
+        
+        x_coord = (lon_deg - (basin_center_lon -0.5_wp*basin_width_deg))/(basin_width_deg)
+        IF(lat_deg>=basin_center_lat-0.5.AND.lat_deg<basin_center_lat+0.5)THEN
+
+        DO level = 1,n_zlev
+
+          z_coord =&
+          & (patch_3d%p_patch_1d(1)%zlev_m(1)- patch_3d%p_patch_1d(1)%zlev_m(level))/patch_3d%p_patch_1d(1)%zlev_m(n_zlev)  
+
+           !density(idx,level,block)=density(idx,level,block)&
+           !&-tanh(slope_parameter*(z_coord+tanh(x_coord))) !-tanh(x_coord)*(1.0_wp+z_coord) !
+         IF(x_coord+z_coord>=0.25)THEN
+           ocean_tracer(idx,level,block)=ocean_tracer(idx,level,block)+0.115_wp*ocean_tracer(idx,level,block)!&
+!          ! &-tanh(0.5*slope_parameter*(z_coord+tanh(x_coord))) !-tanh(x_coord)*(1.0_wp+z_coord) !          
+!          !ENDIF
+          ELSEIF(x_coord+z_coord<=-0.25_wp)THEN
+           ocean_tracer(idx,level,block)=ocean_tracer(idx,level,block)-0.115_wp*ocean_tracer(idx,level,block)!&
+!          ! &-tanh(0.5*slope_parameter*(z_coord+tanh(x_coord))) !-tanh(x_coord)*(1.0_wp+z_coord) !          
+!!          !ELSE
+!!          !density(idx,level,block)=1023_wp&
+!!          ! !&-tanh(slope_parameter*(z_coord+tanh(x_coord))) !-tanh(x_coord)*(1.0_wp+z_coord) !
+!!          ! &-tanh(slope_parameter*(z_coord+tanh(x_coord+z_coord)))
+!!          
           ENDIF
 
 
@@ -2435,8 +2681,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
       END DO
     END DO
 
-!ocean_tracer=density-1023.0_wp
-
+density=OceanReferenceDensity - LinearThermoExpansionCoefficient * ocean_tracer
 DO level = 1, n_zlev
 !z_coord = (patch_3d%p_patch_1d(1)%zlev_m(level)- patch_3d%p_patch_1d(1)%zlev_m(1))/patch_3d%p_patch_1d(1)%zlev_m(n_zlev)  
 !write(*,*)'temp',level,maxval(ocean_tracer(:,level,:)),minval(ocean_tracer(:,level,:))                
@@ -2457,9 +2702,8 @@ END DO
   !-------------------------------------------------------------------------------
 
 
-
  !-------------------------------------------------------------------------------
-  SUBROUTINE tracer_GM_test_withdensity(patch_3d, ocean_tracer,ocean_state)
+  SUBROUTINE tracer_Redi_test_withdensity(patch_3d, ocean_tracer,ocean_state)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: ocean_tracer(:,:,:)
    TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
@@ -2478,10 +2722,10 @@ END DO
     REAL(wp) :: temperature_difference,basin_northBoundary,basin_southBoundary,lat_diff,bottom_value
     REAL(wp) :: lat(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks),linear_increase  
     REAL(wp), POINTER :: tracer(:,:,:) 
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_GM_test'
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_Redi_test'
     !-------------------------------------------------------------------------
 
-    CALL message(TRIM(method_name), ' tracer_GM_test')
+    CALL message(TRIM(method_name), ' tracer_Redi_test')
 
     patch_2d    => patch_3d%p_patch_2d(1)
     all_cells   => patch_2d%cells%ALL
@@ -2579,13 +2823,13 @@ DO level = 1, n_zlev
 END DO
 
 
-  END SUBROUTINE tracer_GM_test_withdensity
+  END SUBROUTINE tracer_Redi_test_withdensity
   !-------------------------------------------------------------------------------
 
 
 
   !-------------------------------------------------------------------------------
-  SUBROUTINE tracer_GM_test_withdensity0(patch_3d, ocean_tracer,ocean_state)
+  SUBROUTINE tracer_Redi_test_withdensity0(patch_3d, ocean_tracer,ocean_state)
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     REAL(wp), TARGET :: ocean_tracer(:,:,:)
    TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
@@ -2607,10 +2851,10 @@ END DO
     REAL(wp) :: lon(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)  
     REAL(wp), POINTER :: tracer(:,:,:) 
     REAL(wp) :: x_1, x_3,xi
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_GM_test'
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_Redi_test'
     !-------------------------------------------------------------------------
 
-    CALL message(TRIM(method_name), ' tracer_GM_test')
+    CALL message(TRIM(method_name), ' tracer_Redi_test')
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
@@ -2726,7 +2970,7 @@ END DO
 !    CALL dbg_print('aft. AdvIndivTrac: trac_old', ocean_tracer(:,2,:), method_name, 3, in_subset=all_cells)
 
 stop
-  END SUBROUTINE tracer_GM_test_withdensity0
+  END SUBROUTINE tracer_Redi_test_withdensity0
   !-------------------------------------------------------------------------------
 
 

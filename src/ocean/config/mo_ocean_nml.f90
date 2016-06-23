@@ -28,7 +28,7 @@ MODULE mo_ocean_nml
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
   USE mo_io_units,           ONLY: filename_max
-  USE mo_physical_constants, ONLY: a_T, rho_ref
+  USE mo_physical_constants, ONLY: a_T, b_S,rho_ref
   USE mo_param1_bgc,         ONLY: n_bgctra, ntraad
 
 #ifndef __NO_ICON_ATMO__
@@ -463,6 +463,7 @@ MODULE mo_ocean_nml
   LOGICAL  :: use_wind_mixing = .FALSE.          ! .TRUE.: wind mixing parametrization switched on
   LOGICAL  :: use_reduced_mixing_under_ice = .TRUE. ! .TRUE.: reduced wind mixing under sea ice in pp-scheme
   REAL(wp) :: LinearThermoExpansionCoefficient = a_T
+  REAL(wp) :: LinearHalineContractionCoefficient=b_S
   REAL(wp) :: OceanReferenceDensity = rho_ref
   REAL(wp) :: tracer_TopWindMixing   = 2.5E-4_wp
   REAL(wp) :: velocity_TopWindMixing = 2.5E-4_wp
@@ -490,7 +491,8 @@ MODULE mo_ocean_nml
     &  wma_visc                    ,&
     &  use_reduced_mixing_under_ice,&
     &  use_wind_mixing,             &
-    &  LinearThermoExpansionCoefficient, &
+    &  LinearThermoExpansionCoefficient,  &
+    &  LinearHalineContractionCoefficient,&
     &  OceanReferenceDensity,       &
     &  tracer_TopWindMixing,        &
     &  WindMixingDecayDepth,        &

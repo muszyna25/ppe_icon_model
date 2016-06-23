@@ -252,9 +252,9 @@ ENDIF
            & tracer_index)
 
 
- !     CALL calculate_density( patch_3d,                         &
- !      & ocean_state(n_dom)%p_prog(nold(1))%tracer(:,:,:,1:no_tracer),&
- !      & ocean_state(n_dom)%p_diag%rho(:,:,:) )
+      CALL calculate_density( patch_3d,                         &
+       & ocean_state(n_dom)%p_prog(nold(1))%tracer(:,:,:,1:no_tracer),&
+       & ocean_state(n_dom)%p_diag%rho(:,:,:) )
 
 
 
