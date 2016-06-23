@@ -688,6 +688,8 @@ CONTAINS
         nlen = p_patch%npromz_c
       END IF
       DO n = 1, nlen
+        ! as far as no 10m wind speed is available, the lowest level (nlev) wind field is used for wind speed;
+        !buffer(nn+n,1) = SQRT(prm_field(jg)%u(n,nlev,i_blk)**2+prm_field(jg)%v(n,nlev,i_blk)**2)
         ! as far as no tiles (pre04) are correctly implemented, use the grid-point mean of 10m wind for coupling
         buffer(nn+n,1) = prm_field(jg)%sfcWind(n,i_blk)
       ENDDO
