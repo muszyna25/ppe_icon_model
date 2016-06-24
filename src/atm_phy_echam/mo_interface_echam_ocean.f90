@@ -520,6 +520,7 @@ CONTAINS
     !  Send zonal wind stress bundle
     !   field_id(1) represents "surface_downward_eastward_stress" bundle - zonal wind stress component over ice and water
     !
+    buffer(:,:) = 0.0_wp  ! temporarily
 !ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
@@ -551,6 +552,7 @@ CONTAINS
     !  Send meridional wind stress bundle
     !   field_id(2) represents "surface_downward_northward_stress" bundle - meridional wind stress component over ice and water
     !
+    buffer(:,:) = 0.0_wp  ! temporarily
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
       nn = (i_blk-1)*nproma
@@ -584,6 +586,7 @@ CONTAINS
     !         as long as the tiles are not passed correctly, the evaporation over the
     !         whole grid-cell is passed to the ocean
     !
+    buffer(:,:) = 0.0_wp  ! temporarily
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
       nn = (i_blk-1)*nproma
@@ -614,6 +617,7 @@ CONTAINS
     !  Send total heat flux bundle
     !   field_id(4) represents "total heat flux" bundle - short wave, long wave, sensible, latent heat flux
     !
+    buffer(:,:) = 0.0_wp  ! temporarily
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
       nn = (i_blk-1)*nproma
@@ -645,6 +649,7 @@ CONTAINS
     !  Send sea ice flux bundle
     !   field_id(5) represents "atmosphere_sea_ice_bundle" - sea ice surface and bottom melt potentials Qtop, Qbot
     !
+    buffer(:,:) = 0.0_wp  ! temporarily
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
       nn = (i_blk-1)*nproma
