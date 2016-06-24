@@ -513,7 +513,8 @@ CONTAINS
             CALL message(TRIM(method_name),'radiation is used without ozone')
           CASE (2,4,6,7,8,9) ! ok
             CALL message(TRIM(method_name),'radiation is used with ozone')
-          CASE (10) ! ok                                                                                                                                                                                            CALL message(TRIM(method_name),'radiation is used with ozone calculated from ART')
+          CASE (10) ! ok
+!           CALL message(TRIM(method_name),'radiation is used with ozone calculated from ART')
             IF ( .NOT. lart ) THEN
               CALL finish(TRIM(method_name),'irad_o3 currently is 10 but lart is false.')
             ENDIF

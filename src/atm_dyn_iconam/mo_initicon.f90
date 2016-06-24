@@ -243,7 +243,11 @@ MODULE mo_initicon
     requestList => InputRequestList_create()
     DO jg = 1, n_dom
       IF(p_patch(jg)%ldom_active) THEN
+#ifdef __PGI
+        CALL inputInstructions(jg)%ptr%fileRequests(requestList, .TRUE.)
+#else
         CALL inputInstructions(jg)%ptr%fileRequests(requestList, lIsFg = .TRUE.)
+#endif
       ENDIF
     END DO
 
@@ -266,8 +270,13 @@ MODULE mo_initicon
     IF(my_process_is_stdio()) THEN
         CALL requestList%printInventory()
         IF(lconsistency_checks) THEN
+#ifdef __PGI
+          CALL requestList%checkRuntypeAndUuids([CHARACTER(LEN=1)::], gridUuids(p_patch), .TRUE., &
+            .NOT.check_uuid_gracefully)
+#else
           CALL requestList%checkRuntypeAndUuids([CHARACTER(LEN=1)::], gridUuids(p_patch), lIsFg=.TRUE., &
             lHardCheckUuids=.NOT.check_uuid_gracefully)
+#endif
         END IF
     END IF
 
@@ -363,7 +372,11 @@ MODULE mo_initicon
     END SELECT
     DO jg = 1, n_dom
       IF(p_patch(jg)%ldom_active) THEN
+#ifdef __PGI
+        CALL inputInstructions(jg)%ptr%fileRequests(requestList, .FALSE.)
+#else
         CALL inputInstructions(jg)%ptr%fileRequests(requestList, lIsFg = .FALSE.)
+#endif
       ENDIF
     END DO
 
@@ -395,8 +408,13 @@ MODULE mo_initicon
                 CASE DEFAULT
                     incrementsList = [CHARACTER(LEN=1) :: ]
             END SELECT
+#ifdef __PGI
+            CALL requestList%checkRuntypeAndUuids(incrementsList, gridUuids(p_patch), .FALSE., &
+              .NOT.check_uuid_gracefully)
+#else
             CALL requestList%checkRuntypeAndUuids(incrementsList, gridUuids(p_patch), lIsFg = .FALSE., &
               lHardCheckUuids = .NOT.check_uuid_gracefully)
+#endif
         END IF
     END IF
 

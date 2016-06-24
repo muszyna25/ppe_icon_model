@@ -3144,11 +3144,15 @@ CONTAINS
     IF (PRESENT(x)) THEN
       ALLOCATE(y, source=x)
     ELSE
+#ifdef __PGI
+      STOP "PGF90-S-0155-Left hand side of assignment cannot be polymorphic"
+#else
       ALLOCATE(t_tracer_meta :: y)
       SELECT TYPE(y)
         TYPE IS(t_tracer_meta)
           y = create_tracer_metadata(lis_tracer=.FALSE.)
       END SELECT
+#endif
     ENDIF
   END SUBROUTINE assign_if_present_tracer_meta
   !------------------------------------------------------------------------------------------------

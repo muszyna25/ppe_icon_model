@@ -80,7 +80,10 @@ PUBLIC :: kStateNoFetch, kStateFailedFetch, kStateRead
 
         PROCEDURE :: fetchStatus => readInstructionList_fetchStatus  ! returns the result of a read attempt for a particular field
 
-        PROCEDURE :: printSummary => readInstructionList_printSummary   ! print a table with the information obtained via `handleErrorXXX()`, `optionalReadResult()`, and `setSource()`; THIS DEPENDS ON THE ACTUAL READ ATTEMPTS AND THEIR RESULTS, NOT ON `lReadFg` or `lReadAna`.
+        ! print a table with the information obtained via `handleErrorXXX()`, `optionalReadResult()`,
+        ! and `setSource()`; THIS DEPENDS ON THE ACTUAL READ ATTEMPTS AND THEIR RESULTS,
+        ! NOT ON `lReadFg` or `lReadAna`.
+        PROCEDURE :: printSummary => readInstructionList_printSummary
 
         PROCEDURE :: destruct => readInstructionList_destruct
 

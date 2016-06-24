@@ -49,10 +49,15 @@ MODULE mo_delaunay_types
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_delaunay_types'
 
   ! quadruple precision, needed for some determinant computations
-#ifndef NAGFOR
-  INTEGER, PARAMETER :: QR_K = SELECTED_REAL_KIND (32)
-#else
+#ifdef NAGFOR
   INTEGER, PARAMETER :: QR_K = SELECTED_REAL_KIND (2*precision(1.0_wp))
+#else
+#ifdef __PGI
+#warning quadruple precision not supported by pgfortran - falling back to double precision
+  INTEGER, PARAMETER :: QR_K = SELECTED_REAL_KIND (12,307)
+#else
+  INTEGER, PARAMETER :: QR_K = SELECTED_REAL_KIND (32)
+#endif
 #endif
 
 

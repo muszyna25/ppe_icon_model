@@ -153,11 +153,17 @@ CONTAINS
     FUNCTION findDomainData(listEntry, domain, opt_lcreate) RESULT(RESULT)
         TYPE(t_ListEntry), POINTER, INTENT(INOUT) :: listEntry
         INTEGER, VALUE :: domain
+#ifdef __PGI
+        ! pgi-16.5 does not allow value here. Since opt_lcreate is only read in function, it is save to skip attribute
+        LOGICAL, OPTIONAL :: opt_lcreate
+#else
         LOGICAL, OPTIONAL, VALUE :: opt_lcreate
+#endif
         TYPE(t_DomainData), POINTER :: RESULT
 
         CHARACTER(*), PARAMETER :: routine = modname//":findDomainData"
         INTEGER :: error
+
 
         IF(.NOT.ASSOCIATED(listEntry)) CALL finish(routine, "assertion failed, listEntry IS NOT ASSOCIATED")
 

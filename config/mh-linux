@@ -523,6 +523,25 @@ case "$ac_sitename" in
                         XML2ROOT    = /usr
                         mpi_startrun = srun
                         ;;
+                    pgi*)
+                        load_modules    = pgi/16.5 intelmpi/5.1.2.150 ${load_modules}
+                        config_compiler = pgi
+                        CC              = pgcc
+			CFLAGS          = -O0 -g -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBSZ -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2 -DpgiFortran
+			FFLAGS          = -O0 -g -Mpreprocess -Mrecursive -Mallocatable=03
+
+                        NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.3-pgi16
+                        NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.4.0-gcc48
+                        HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-threadsafe-gcc48
+
+                        SZIPROOT    = $software_tree/sys/libaec-0.3.2-gcc48
+                        XML2ROOT    = /usr
+                        ZLIBROOT    = /usr
+
+                        #MPIROOT    = /opt/mpi/bullxmpi_mlx/1.2.8.3 -> mpi.mod just for intel-14.0 compiler !!!
+                        MPIROOT     = $software_tree/intel/impi/5.1.2.150/compilers_and_libraries/linux/mpi/intel64
+                        MPI_LIB     = $WLFLAG,--disable-new-dtags -L$MPIROOT/lib/release_mt $WLFLAG,-rpath,$MPIROOT/lib/release_mt -L$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib -lmpifort -lmpi -lmpigi -ldl -lrt -lpthread -lmpipgf
+                        ;;
                     *)
                         echo
                         echo

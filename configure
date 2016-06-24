@@ -4727,6 +4727,9 @@ fi
   gfortran) :
     vers=$(gfortran --version | $AWK 'NR==1{print $4}')
                  mod_file=$(find $real_path/include/gfortran/$vers -name mpi.mod -print | $AWK 'NR==1') ;; #(
+  pgfortran) :
+    vers=$(pgfortran --version | $AWK 'NR==2{print $2}' | cut -d. -f1)
+                 mod_file=$(find $real_path/include/pgfortran -name mpi.mod -print | $AWK 'NR==1') ;; #(
   *) :
     mod_file=$(find $real_path -not \( -path */gfortran/* -prune \) -name mpi.mod -print | $AWK 'NR==1') ;;
 esac
@@ -6628,7 +6631,7 @@ case $host in
       ;;
     pgi)
       f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==2')
-      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==2')
       ;;
     sun)
       f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1' | cut -f2- -d" ")
@@ -8105,6 +8108,9 @@ if test "x$load_modules" != x; then
    echo module purge >&8
    echo module load "$load_modules" >&8
    echo module list >&8
+fi
+if test "x${config_compiler}" = "xpgi" ; then
+   echo "export TMPDIR=/scratch/${USER:0:1}/$USER/" >&8
 fi
 if test "x${config_target}" = "xblizzard" ; then
    echo "export LDR_CNTRL=MAXDATA=0xD0000000@DSA"  >&8

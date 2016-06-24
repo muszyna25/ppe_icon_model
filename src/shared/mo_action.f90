@@ -124,7 +124,7 @@ MODULE mo_action
   END TYPE t_action_obj
   !
   ! kernel interface
-  abstract INTERFACE
+  ABSTRACT INTERFACE
     SUBROUTINE kernel(act_obj, ivar)
       IMPORT                    :: t_action_obj
       CLASS(t_action_obj)       :: act_obj
@@ -462,13 +462,7 @@ CONTAINS
   !! - extend reset kernel to integer fields
   !!
   SUBROUTINE reset_kernel(act_obj, ivar)
-    ! usually, we have "t_reset_obj" as PASS type for this deferred
-    ! subroutine, however, the PGI 12.3 expects the base class type...
-#if defined (__PGI)
-    CLASS (t_action_obj) :: act_obj
-#else
     CLASS (t_reset_obj)  :: act_obj
-#endif
     INTEGER, INTENT(IN) :: ivar    ! element number
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
