@@ -1110,8 +1110,8 @@ cat > ${cpl_xmlctrfn} << EOF
                <source_timelag>${atm_lag}</source_timelag>
                <target_timelag>1</target_timelag>
             </timestep>
-            <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation enforced_conservation="false" method="conservative" normalisation="FRACAREA" partial_coverage="true"/>
+            <interpolation_requirements use_source_mask="false" use_target_mask="true">
+               <interpolation allow_extrapolation="true" extend_source_patch="1" gauss_order="7" method="patch_recovery" polynomial_order="1"/>
                <interpolation method="fixed_value" user_value="-999.0"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
