@@ -804,7 +804,7 @@ MODULE mo_psrad_radiation
     & ktype      ,&!< in  type of convection
     & loland     ,&!< in  land-sea mask. (1. = land, 0. = sea/lakes)
     & loglac     ,&!< in  fraction of land covered by glaciers
-    & datetime   ,&!< in  actual time step
+    & this_datetime,&!< in  actual time step
     & pcos_mu0   ,&!< in  cosine of solar zenith angle
     & geoi       ,&!< in  geopotential wrt surface at layer interfaces
     & geom       ,&!< in  geopotential wrt surface at layer centres
@@ -852,7 +852,7 @@ MODULE mo_psrad_radiation
     & loland(kbdim),     & !< land mask
     & loglac(kbdim)        !< glacier mask
 
-    TYPE(t_datetime), INTENT(in) :: datetime !< actual time step
+    TYPE(datetime), POINTER :: this_datetime !< actual time step
 
     REAL(wp), INTENT(IN) :: &
     & pcos_mu0(kbdim),   & !< cosine of solar zenith angle
@@ -1027,7 +1027,7 @@ MODULE mo_psrad_radiation
       CALL psrad_interface( jg,       &
            & iaero_call      ,kproma          ,kbdim           ,klev            ,& 
            & jb              ,ktrac           ,ktype           ,nb_sw           ,&
-           & loland          ,loglac          ,cemiss          ,datetime        ,&
+           & loland          ,loglac          ,cemiss          ,this_datetime   ,&
            & cos_mu0         ,geoi            ,geom            ,oromea          ,&
            & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
            & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&

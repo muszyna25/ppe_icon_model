@@ -74,21 +74,20 @@
     USE mo_sync,                ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E, SYNC_C
     USE mo_initicon_types,      ONLY: t_initicon_state
     USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
-    USE mtime,                  ONLY: event, newEvent, datetime, newDatetime,      &
-         &                            isCurrentEventActive, deallocateDatetime,    &
-         &                            MAX_DATETIME_STR_LEN, MAX_EVENTNAME_STR_LEN, &
-         &                            OPERATOR(>=), OPERATOR(-), OPERATOR(>),      &
-         &                            datetimeToString, OPERATOR(*),               &
-         &                            newTimedelta, deallocateTimedelta
-    USE mo_limarea_config,      ONLY: latbc_config, generate_filename
-    USE mo_ext_data_types,      ONLY: t_external_data
-    USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, dtime
+    USE mtime,                  ONLY: timedelta, newTimedelta, deallocateTimedelta, &
+         &                            event, newEvent, deallocateEvent,             &
+         &                            isCurrentEventActive,                         &
+         &                            datetime, newDatetime, deallocateDatetime,    &
+         &                            datetimeToString,                             &
+         &                            MAX_DATETIME_STR_LEN, MAX_EVENTNAME_STR_LEN,  &
+         &                            MAX_TIMEDELTA_STR_LEN, getPTStringFromMS,     &
+         &                            OPERATOR(>=), OPERATOR(>),                    &
+         &                            OPERATOR(-), OPERATOR(+)
     USE mo_time_config,         ONLY: time_config
-
+    USE mo_limarea_config,      ONLY: latbc_config, generate_filename_mtime
+    USE mo_ext_data_types,      ONLY: t_external_data
+    USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, dtime, nsteps
     USE mo_initicon_config,     ONLY: init_mode
-    USE mtime_events,           ONLY: deallocateEvent
-    USE mtime_timedelta,        ONLY: timedelta, newTimedelta, deallocateTimedelta,   &
-      &                               OPERATOR(+)
     USE mo_cdi,                 ONLY: streamOpenRead, streamClose
     USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
     USE mo_util_cdi,            ONLY: cdiGetStringError
@@ -131,9 +130,10 @@
          prev_latbc_tlev    ! new_latbc_tlev is the time level index carrying the most recent data
     TYPE(t_initicon_state) :: latbc_data(2)     ! storage for two time-level boundary data
     INTEGER                :: nlev_in             ! number of vertical levels in the boundary data
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: sim_start, sim_end, sim_cur_read
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: sim_start, sim_end, sim_cur, sim_cur_read
     CHARACTER(LEN=MAX_EVENTNAME_STR_LEN) :: event_name
     TYPE(timedelta), pointer :: my_duration_slack
+    TYPE(datetime), pointer :: mtime_date
     TYPE(datetime), pointer :: mtime_read
     TYPE(datetime), pointer :: mtime_end
     TYPE(event), pointer :: prefetchEvent
@@ -263,9 +263,8 @@
     !! Modified version by M.Pondkule, DWD (2014-01-27)
     !!
 
-    SUBROUTINE prepare_pref_latbc_data(patch_data, current_date, p_patch, p_int_state, p_nh_state, ext_data)
+    SUBROUTINE prepare_pref_latbc_data(patch_data, p_patch, p_int_state, p_nh_state, ext_data)
       TYPE(t_patch_data),     INTENT(IN)   :: patch_data
-      TYPE(datetime),         INTENT(IN)            :: current_date !< current time
       TYPE(t_patch),          OPTIONAL,INTENT(IN)   :: p_patch
       TYPE(t_int_state),      OPTIONAL,INTENT(IN)   :: p_int_state
       TYPE(t_nh_state),       OPTIONAL,INTENT(INOUT):: p_nh_state  !< nonhydrostatic state on the global domain
@@ -280,6 +279,8 @@
       TYPE(datetime), pointer :: mtime_finish
       LOGICAL       :: done
       INTEGER       :: i, add_delta, end_delta, finish_delta
+      REAL(wp)      :: tdiff, seconds
+      CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: tdiff_string
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
            "mo_async_latbc_utils::prepare_pref_latbc_data"
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: td_string
@@ -292,9 +293,9 @@
       ENDIF
 
       ! compute sim_start, sim_end in a formate appropriate for mtime
-      call datetimeToString(time_config%tc_startdate, sim_start)
-      call datetimeToString(time_config%tc_stopdate,  sim_end)
-      call datetimeToString(time_config%tc_startdate, sim_cur_read)
+      CALL datetimeToString(time_config%tc_startdate, sim_start)
+      CALL datetimeToString(time_config%tc_stopdate,sim_end)
+      CALL datetimeToString(time_config%tc_current_date,sim_cur_read)
 
       event_name = 'Prefetch input'
 
@@ -310,8 +311,9 @@
       prefetchEvent => newEvent(TRIM(event_name), TRIM(sim_start), &
            TRIM(sim_cur_read), TRIM(sim_end), td_string)
 
-      my_duration_slack => newTimedelta(time_config%tc_dt_model)
-      my_duration_slack = my_duration_slack * 0.5_wp
+      tdiff = 500*dtime
+      CALL getPTStringFromMS(NINT(tdiff,i8), tdiff_string)
+      my_duration_slack => newTimedelta(tdiff_string)
 
       delta_dtime => newTimedelta(td_string)
 
@@ -346,7 +348,7 @@
               &                  + 60    *INT(delta_tend%minute) &
               &                  +        INT(delta_tend%second)
 
-         end_delta = NINT(FLOOR(REAL(finish_delta,wp)/delta_dtime_secs) * delta_dtime_secs)
+         end_delta = FLOOR(finish_delta/delta_dtime_secs) * delta_dtime_secs
          ! check if the difference is less than zero than
          ! point mtime_end to time sim_end
          IF((finish_delta - end_delta) < 1e-15) THEN
@@ -393,9 +395,9 @@
       ! read first two time steps
       IF( my_process_is_work()) THEN  ! IF (PRESENT(p_patch)) THEN
          CALL pref_latbc_data( patch_data, p_patch, p_nh_state, p_int_state, &
-              &                   current_date, lopt_check_read=.FALSE., lopt_time_incr=.FALSE.)
+              &                   current_datetime=time_config%tc_current_date, lopt_check_read=.FALSE., lopt_time_incr=.FALSE.)
       ELSE IF( my_process_is_pref()) THEN
-         CALL pref_latbc_data( patch_data, current_date=current_date, &
+         CALL pref_latbc_data( patch_data, current_datetime=time_config%tc_current_date, &
               &                   lopt_check_read=.FALSE., lopt_time_incr=.FALSE. )
          ! Inform compute PEs that we are done
          CALL async_pref_send_handshake()
@@ -405,9 +407,9 @@
 
       IF( my_process_is_work()) THEN  !IF (PRESENT(p_patch)) THEN
          CALL pref_latbc_data( patch_data, p_patch, p_nh_state, p_int_state, &
-              &                   current_date, lopt_check_read=.FALSE., lopt_time_incr=.TRUE.)
+              &                   current_datetime=time_config%tc_current_date, lopt_check_read=.FALSE., lopt_time_incr=.TRUE.)
       ELSE IF( my_process_is_pref()) THEN
-         CALL pref_latbc_data( patch_data,current_date=current_date, &
+         CALL pref_latbc_data( patch_data,current_datetime=time_config%tc_current_date, &
               &                   lopt_check_read=.FALSE., lopt_time_incr=.TRUE.)
          ! Inform compute PEs that we are done
          CALL async_pref_send_handshake()
@@ -429,13 +431,13 @@
     !! Modified version by M. Pondkule, DWD (2014-02-11)
     !!
 
-    SUBROUTINE pref_latbc_data( patch_data, p_patch, p_nh_state, p_int, current_date,&
+    SUBROUTINE pref_latbc_data( patch_data, p_patch, p_nh_state, p_int, current_datetime,&
          &                   lopt_check_read, lopt_time_incr)
       TYPE(t_patch_data),     INTENT(IN), TARGET     :: patch_data
       TYPE(t_patch),          OPTIONAL,INTENT(IN)    :: p_patch
-      TYPE(t_nh_state),       OPTIONAL,INTENT(INOUT) :: p_nh_state   !< nonhydrostatic state on the global domain
+      TYPE(t_nh_state),       OPTIONAL,INTENT(INOUT) :: p_nh_state  !< nonhydrostatic state on the global domain
       TYPE(t_int_state),      OPTIONAL,INTENT(IN)    :: p_int
-      TYPE(datetime),         OPTIONAL,TARGET,INTENT(IN)    :: current_date !< current time
+      TYPE(datetime),         OPTIONAL,POINTER       :: current_datetime       !< current time
       LOGICAL,      INTENT(IN), OPTIONAL    :: lopt_check_read
       LOGICAL,      INTENT(IN), OPTIONAL    :: lopt_time_incr  !< increment latbc_datetime
 
@@ -444,15 +446,14 @@
       LOGICAL                               :: lcheck_read
       LOGICAL                               :: ltime_incr
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_async_latbc_utils::pref_latbc_data"
-      TYPE(datetime), POINTER   :: ptr_current_date !< current time
 
       IF( my_process_is_work()) THEN
-        IF (.NOT. PRESENT(current_date)) THEN
-          CALL finish('pref_latbc_data', "Optional argument not present!")
-        END IF
-        ptr_current_date => current_date
+         ! compute current datetime in a format appropriate for mtime
+         CALL datetimeToString(current_datetime, sim_cur) ! time_config%tc_current_date)
+         mtime_date  => newDatetime(TRIM(sim_cur))
+
          ! check for event been active
-         isactive = isCurrentEventActive(prefetchEvent, ptr_current_date, my_duration_slack)
+         isactive = isCurrentEventActive(prefetchEvent, mtime_date, my_duration_slack)
       ENDIF
 
       ! flag to set wether compute processor need to read boundary
@@ -560,7 +561,7 @@
       ! proceeding to generate filename and than looking for boundary data file
       IF(mtime_read >= mtime_end) &
            RETURN
-      latbc_filename = generate_filename(nroot, patch_data%level, mtime_read)
+      latbc_filename = generate_filename_mtime(nroot, patch_data%level, mtime_read)
       latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
       WRITE(0,*) 'reading boundary data: ', TRIM(latbc_filename)
       INQUIRE (FILE=TRIM(ADJUSTL(latbc_full_filename)), EXIST=l_exist)
@@ -866,7 +867,7 @@
       ! proceeding to generate filename and than looking for boundary data file
       IF(mtime_read >= mtime_end) &
            RETURN
-      latbc_filename = generate_filename(nroot, patch_data%level, mtime_read)
+      latbc_filename = generate_filename_mtime(nroot, patch_data%level, mtime_read)
       latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
       WRITE(0,*) 'reading boundary data: ', TRIM(latbc_filename)
       INQUIRE (FILE=TRIM(ADJUSTL(latbc_full_filename)), EXIST=l_exist)
@@ -1339,6 +1340,7 @@
       ! deallocating prefetch input event
       CALL deallocateEvent(prefetchEvent)
       ! deallocating Date and time
+      CALL deallocateDatetime(mtime_date)
       CALL deallocateDatetime(mtime_read)
       CALL deallocateDatetime(mtime_end)
       CALL deallocateTimedelta(my_duration_slack)
@@ -1622,14 +1624,20 @@
     !! @par Revision History
     !! Initial version by M. Pondkule, DWD (2014-08-15)
     !!
-    SUBROUTINE update_lin_interpolation( current_date )
-      TYPE(datetime),   INTENT(IN)     :: current_date !< current time
-      TYPE(timedelta),  POINTER        :: delta_tstep
+    SUBROUTINE update_lin_interpolation( step_datetime )
+      TYPE(datetime), pointer  :: step_datetime
+      TYPE(datetime), pointer  :: mtime_step
+      TYPE(timedelta), pointer :: delta_tstep
+      CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: sim_step
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
            "mo_async_latbc_utils::update_lin_interpolation"
 
+      ! compute current datetime in a format appropriate for mtime
+      CALL datetimeToString(step_datetime,sim_step)
+      mtime_step  => newDatetime(sim_step)
+
       delta_tstep => newTimedelta("PT0S")
-      delta_tstep = mtime_read - current_date
+      delta_tstep = mtime_read - mtime_step
 
       IF(delta_tstep%month /= 0) &
            CALL finish(TRIM(routine), "time difference for reading boundary data cannot be more than a month.")
@@ -1642,6 +1650,7 @@
 
       ! deallocating mtime and deltatime
       CALL deallocateTimedelta(delta_tstep)
+      CALL deallocateDatetime(mtime_step)
 
     END SUBROUTINE update_lin_interpolation
 

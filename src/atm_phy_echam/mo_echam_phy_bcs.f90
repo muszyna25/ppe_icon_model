@@ -20,7 +20,7 @@
 
 MODULE mo_echam_phy_bcs
 
-  USE mo_kind                       ,ONLY: wp
+  USE mo_kind                       ,ONLY: wp, i8
   USE mtime,                         ONLY: datetime, newDatetime, operator(+), &
        &                                   newTimedelta, timedelta, max_timedelta_str_len, &
        &                                   getPTStringFromSeconds, getNoOfSecondsElapsedInDayDateTime
@@ -49,7 +49,7 @@ MODULE mo_echam_phy_bcs
 
   USE mo_echam_phy_memory           ,ONLY: prm_field
 
-  USE mo_exception, ONLY: message
+!  USE mo_exception, ONLY: message
   
   IMPLICIT NONE
   PRIVATE
@@ -212,8 +212,8 @@ CONTAINS
       ! aerosols (Stenchikov) + simple plumes (analytical, nothing to be read
       ! here, initialization see init_echam_phy (mo_echam_phy_init)) 
       IF (irad_aero == 18) THEN
-        CALL read_bc_aeropt_kinne     (year=1850, p_patch=patch)
-        CALL read_bc_aeropt_stenchikov(datetime%year)
+        CALL read_bc_aeropt_kinne     (1850_i8, patch)
+        CALL read_bc_aeropt_stenchikov(mtime_current%date%year)
       END IF
       !
     END IF ! ltrig_rad

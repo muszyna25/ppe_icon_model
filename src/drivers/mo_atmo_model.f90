@@ -286,7 +286,7 @@ CONTAINS
       num_prefetch_proc = 1
       CALL message(routine,'asynchronous input prefetching is enabled.')
       IF (my_process_is_pref() .AND. (.NOT. my_process_is_mpi_test())) THEN
-        CALL prefetch_main_proc(time_config%tc_startdate)
+        CALL prefetch_main_proc()
       ENDIF
     ENDIF
  

@@ -88,12 +88,12 @@ CONTAINS
     INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
     INTEGER         ,INTENT(IN) :: nbdim          !< size of this block
 
-    TYPE(datetime),  INTENT(IN) :: this_datetime  !< time step
+    TYPE(datetime), POINTER     :: this_datetime  !< time step
     REAL(wp)        ,INTENT(IN) :: pdtime         !< time step
     REAL(wp)        ,INTENT(IN) :: psteplen       !< 2*pdtime in case of leapfrog
 
     LOGICAL         ,INTENT(IN) :: ltrig_rad      !< perform radiative transfer computation
-    TYPE(datetime),  INTENT(IN) :: datetime_radtran !< date and time for radiative transfer calculation
+    TYPE(datetime), POINTER :: datetime_radtran !< date and time for radiative transfer calculation
 
     ! Local variables
 
@@ -553,7 +553,7 @@ CONTAINS
         & ktype      = itype(:)   ,&!< in  type of convection
         & loland     = lland      ,&!< in  land-sea mask. (logical)
         & loglac     = lglac      ,&!< in  glacier mask (logical)
-        & datetime   = datetime   ,&!< in  actual time step
+        & this_datetime = this_datetime   ,&!< in  actual time step
         & pcos_mu0   = field%cosmu0_rad(:,jb)  ,&!< in  solar zenith angle
         & geoi       = field%geoi(:,:,jb)      ,&!< geopotential wrt surface at layer interfaces
         & geom       = field%geom(:,:,jb)      ,&!< geopotential wrt surface at layer centres

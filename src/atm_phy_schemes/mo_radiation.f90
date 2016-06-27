@@ -88,7 +88,8 @@ MODULE mo_radiation
   USE mo_rad_diag,             ONLY: rad_aero_diag
   USE mo_art_radiation_interface, ONLY: art_rad_aero_interface
   USE mo_psrad_radiation_forcing, ONLY: calculate_psrad_radiation_forcing
-
+  USE mtime,                   ONLY: no_of_sec_in_a_day
+  
   IMPLICIT NONE
 
   PRIVATE
@@ -624,7 +625,7 @@ CONTAINS
       !     The width of the halo is set to the change in cos(zenith angle) over
       !     half of the radiation time step dt_rad at the equator at equinox.
       !
-      cos_mu0_halo = -SIN(pi*dt_rad/rdaylen)
+      cos_mu0_halo = -SIN(pi*dt_rad/REAL(no_of_sec_in_a_day,wp))
       !
       WHERE (cos_mu0(1:jce) > cos_mu0_halo)
         ! Within the sun-lit hemisphere and the halo: use a minimum value of

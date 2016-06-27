@@ -50,7 +50,7 @@ MODULE mo_name_list_output_init
     &                                             MAX_TIME_LEVELS, vname_len,                       &
     &                                             MAX_CHAR_LENGTH, MAX_NUM_IO_PROCS,                &
     &                                             MAX_TIME_INTERVALS, ihs_ocean, MAX_NPLEVS,        &
-    &                                             MAX_NZLEVS, MAX_NILEVS,                           &
+    &                                             MAX_NZLEVS, MAX_NILEVS, BOUNDARY_MISSVAL,         &
     &                                             dtime_proleptic_gregorian => proleptic_gregorian, &
     &                                             dtime_cly360              => cly360
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output

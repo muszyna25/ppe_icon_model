@@ -66,7 +66,7 @@ CONTAINS
     INTEGER                              :: iunit, errno
     REAL(wp)                             :: dtime_latbc_in_ms
     TYPE(timedelta), POINTER             :: td
-    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: dt_latbc_str
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: dt_latbc, dt_latbc_str
     TYPE(datetime), POINTER              :: base_dt
 
     !------------------------------------------------------------

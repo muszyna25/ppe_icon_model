@@ -208,6 +208,10 @@ CONTAINS
 
     INTEGER :: ntracer_sync
 
+    ! Pointer to IDs of tracers which contain prognostic condensate.
+    ! Required for computing the water loading term 
+    INTEGER, POINTER :: condensate_list(:)
+
     TYPE(timeDelta), POINTER            :: time_diff
     REAL(wp)                            :: p_sim_time     !< elapsed simulation time on this grid level
 
@@ -217,12 +221,6 @@ CONTAINS
     time_diff  =  getTimeDeltaFromDateTime(mtime_datetime, time_config%tc_startdate)
     p_sim_time =  getTotalMillisecondsTimedelta(time_diff, mtime_datetime)*1.e-3_wp
     CALL deallocateTimedelta(time_diff)
-
-    ! Pointer to IDs of tracers which contain prognostic condensate.
-    ! Required for computing the water loading term 
-    INTEGER, POINTER :: condensate_list(:)
-
-
 
     IF (ltimer) CALL timer_start(timer_physics)
 

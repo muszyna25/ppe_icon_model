@@ -29,7 +29,6 @@ MODULE mo_derived_variable_handling
   USE mtime, ONLY: MAX_DATETIME_STR_LEN, newEvent, event, isCurrentEventActive,&
     & newDatetime, datetime, eventToString, divideDatetimeDifferenceInSeconds, &
     & divisionquotientTimespan
-  USE mo_mtime_extensions,    ONLY: get_datetime_string
   USE mo_output_event_types,  ONLY: t_sim_step_info
   USE mo_time_config,         ONLY: time_config
   USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64
@@ -464,7 +463,6 @@ CONTAINS
     type(t_list_element), pointer :: source, destination
     type(vector_iterator) :: meanMapIterator, meanEventIterator
     TYPE(datetime), POINTER :: mtime_date 
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: mtime_cur_datetime
     logical :: isactive
     integer :: varcounter
     integer :: timelevel
@@ -481,8 +479,7 @@ CONTAINS
     ! Check events first {{{
     ! this is necessary because of mtime internals
     isactive = .false.
-    CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
-    mtime_date  => newDatetime(TRIM(mtime_cur_datetime)) 
+    mtime_date  => newDatetime(time_config%tc_current_date) 
 !DEBUG           if (my_process_is_stdio()) call print_summary('Current mtime timestamp:'//trim(mtime_cur_datetime))
     ! Save results for (not so much) later
     do while (meanEventIterator%next(myItem))

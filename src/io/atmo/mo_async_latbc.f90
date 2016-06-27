@@ -72,6 +72,7 @@ MODULE mo_async_latbc
     USE mo_mpi,                       ONLY: num_work_procs, p_n_work
     ! Processor numbers
     USE mo_mpi,                       ONLY: p_pe_work, p_work_pe0, p_comm_work_pref_compute_pe0
+    USE mo_time_config,               ONLY: time_config
     USE mo_async_latbc_types,         ONLY: t_patch_data, t_reorder_data, latbc_buffer
     USE mo_grid_config,               ONLY: nroot
     USE mo_async_latbc_utils,         ONLY: pref_latbc_data, prepare_pref_latbc_data, &
@@ -92,17 +93,17 @@ MODULE mo_async_latbc
          &                                  dict_finalize
     USE mo_util_string,               ONLY: add_to_list, tolower
     USE mo_initicon_config,           ONLY: latbc_varnames_map_file, init_mode
+    USE mo_time_config,               ONLY: time_config
     USE mo_cdi,                       ONLY: vlistInqVarZaxis , streamOpenRead, streamInqVlist, &
          &                                  vlistNvars, zaxisInqSize, vlistInqVarName,         &
-         &                                  streamClose, streamInqFiletype,                    &
+         &                                  vlistInqVarGrid, streamClose, streamInqFiletype,   &
          &                                  FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2
     USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
     USE mo_io_units,                  ONLY: filename_max
     USE mo_util_file,                 ONLY: util_filesize
     USE mo_util_cdi,                  ONLY: test_cdi_varID, cdiGetStringError
     USE mtime,                        ONLY: datetime
-    USE mo_time_config,               ONLY: time_config
-
+    
 #ifdef USE_CRAY_POINTER
     USE mo_name_list_output_init,     ONLY: set_mem_ptr_sp
 #endif
@@ -126,6 +127,9 @@ MODULE mo_async_latbc
 
     ! maximum text lengths in this module
     INTEGER, PARAMETER :: MAX_ERROR_LENGTH  = 256
+
+    ! NetCDF file IDs / CDI stream IDs for first guess and analysis file
+    INTEGER, ALLOCATABLE :: fileID_fg(:)
 
     !> constant for better readability
     INTEGER, PARAMETER :: WAIT_UNTIL_FINISHED = -1
@@ -192,8 +196,8 @@ MODULE mo_async_latbc
     !  This routine also cares about opening the output files the first time
     !  and reopening the files after a certain number of steps.
     !
-    SUBROUTINE prefetch_input( current_date, p_patch, p_int_state, p_nh_state)
-      TYPE(datetime),         OPTIONAL, INTENT(IN)   :: current_date !< current time
+    SUBROUTINE prefetch_input( this_datetime, p_patch, p_int_state, p_nh_state)
+      TYPE(datetime),         OPTIONAL, POINTER      :: this_datetime
       TYPE(t_patch),          OPTIONAL, INTENT(IN)   :: p_patch
       TYPE(t_int_state),      OPTIONAL, INTENT(IN)   :: p_int_state
       TYPE(t_nh_state),       OPTIONAL, INTENT(INOUT):: p_nh_state  !< nonhydrostatic state on the global domain
@@ -202,7 +206,7 @@ MODULE mo_async_latbc
 #ifndef NOMPI
       ! Set input prefetch attributes
       IF( my_process_is_work()) THEN
-         CALL pref_latbc_data(patch_data, p_patch, p_nh_state, p_int_state, current_date=current_date)
+         CALL pref_latbc_data(patch_data, p_patch, p_nh_state, p_int_state, current_datetime=this_datetime)
       ELSE IF( my_process_is_pref()) THEN
          CALL pref_latbc_data(patch_data)
       END IF
@@ -218,14 +222,13 @@ MODULE mo_async_latbc
     !> Main routine for Input Prefetcing PEs.
     !  Please note that this routine never returns.
     !
-    SUBROUTINE prefetch_main_proc(current_date)
-      TYPE(datetime),         INTENT(IN)   :: current_date !< current time
+    SUBROUTINE prefetch_main_proc()
       ! local variables
       LOGICAL                         :: done
       CHARACTER(*), PARAMETER :: method_name = "prefetch_main_proc"
 
       ! call to initalize the prefetch processor with grid data
-      CALL init_prefetch(current_date)
+      CALL init_prefetch()
       ! Enter prefetch loop
       DO
          ! Wait for a message from the compute PEs to start
@@ -352,8 +355,7 @@ MODULE mo_async_latbc
     !------------------------------------------------------------------------------------------------
     !> Replicates data (mainly the variable lists) needed for async prefetching
     !  on the prefetching procs.
-    SUBROUTINE init_prefetch(current_date)
-      TYPE(datetime),         INTENT(IN)   :: current_date !< current time
+    SUBROUTINE init_prefetch()
 
       ! local variables:
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_prefetch"
@@ -388,11 +390,10 @@ MODULE mo_async_latbc
 
       IF( my_process_is_work()) THEN
          ! allocate input data for lateral boundary nudging
-         CALL prepare_pref_latbc_data(patch_data, current_date, p_patch(1), p_int_state(1), &
-           &                          p_nh_state(1), ext_data(1))
+         CALL prepare_pref_latbc_data(patch_data, p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
       ELSE IF( my_process_is_pref()) THEN
          ! allocate input data for lateral boundary nudging
-         CALL prepare_pref_latbc_data(patch_data, current_date)
+         CALL prepare_pref_latbc_data(patch_data)
       ENDIF
 
       CALL message(routine,'Done')
@@ -417,7 +418,7 @@ MODULE mo_async_latbc
       CHARACTER(*), PARAMETER :: routine = "mo_async_latbc::read_init_files"
       CHARACTER (len=MAX_CHAR_LENGTH) :: name
       CHARACTER(len=132) :: message_text
-      INTEGER :: jlev, ierrstat, vlistID, nvars, varID, zaxisID, &
+      INTEGER :: jlev, ierrstat, vlistID, nvars, varID, zaxisID, gridID, &
            &       jp, fileID_latbc, counter, filetype, ngrp_prefetch_vars
       INTEGER(KIND=i8) :: flen_latbc
       LOGICAL :: l_exist, l_icon_lbc
@@ -480,7 +481,7 @@ MODULE mo_async_latbc
       IF(my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN !!!!!!!use prefetch processor here
          jlev = patch_data%level
          ! generate file name
-         latbc_filename = generate_filename(nroot, jlev, time_config%tc_exp_startdate)
+         latbc_filename = generate_filename(nroot, jlev, time_config%tc_startdate)
          latbc_file = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
          INQUIRE (FILE=latbc_file, EXIST=l_exist)
          IF (.NOT.l_exist) THEN
@@ -549,6 +550,8 @@ MODULE mo_async_latbc
                IF(tolower(name) == tolower(latbc_buffer%grp_vars(jp))) THEN
                   ! get the vertical axis ID
                   zaxisID = vlistInqVarZaxis(vlistID, varID)
+                  ! get the grid ID using vlistID and varID
+                  gridID = vlistInqVarGrid(vlistID, varID)
                   counter = counter + 1
                   ! get the respective vertical levels for
                   ! the respective variable
@@ -617,7 +620,7 @@ MODULE mo_async_latbc
       IF( my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN !!!!!!!use prefetch processor here
          jlev = patch_data%level
          ! generate file name
-         latbc_filename = generate_filename(nroot, jlev, time_config%tc_exp_startdate)
+         latbc_filename = generate_filename(nroot, jlev, time_config%tc_startdate)
          latbc_file = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
          INQUIRE (FILE=latbc_file, EXIST=l_exist)
          IF (.NOT.l_exist) THEN

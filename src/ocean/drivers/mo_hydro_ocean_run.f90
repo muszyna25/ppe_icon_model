@@ -352,7 +352,7 @@ CONTAINS
     
 
 
-      IF(lhamocc)CALL update_bgc_bcond( patch_3d, ext_data_bgc, jstep, datetime)
+      IF(lhamocc)CALL update_bgc_bcond( patch_3d, ext_data_bgc, jstep, this_datetime)
       stop_timer(timer_upd_flx,3)
 
       start_detail_timer(timer_extra22,4)

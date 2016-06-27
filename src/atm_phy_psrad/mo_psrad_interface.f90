@@ -34,7 +34,7 @@ MODULE mo_psrad_interface
   USE mo_psrad_spec_sampling,   ONLY: spec_sampling_strategy, get_num_gpoints
   USE mo_random_numbers,        ONLY: seed_size_random
   USE mo_rad_diag,              ONLY: rad_aero_diag
-  USE mo_datetime,              ONLY: t_datetime
+  USE mtime,                    ONLY: datetime
 
   IMPLICIT NONE
 
@@ -98,7 +98,7 @@ CONTAINS
   SUBROUTINE psrad_interface( jg,          &
        & iaero           ,kproma          ,kbdim           ,klev            ,&
        & krow            ,ktrac           ,ktype           ,nb_sw           ,&
-       & laland          ,laglac          ,cemiss          ,datetime        ,&
+       & laland          ,laglac          ,cemiss          ,this_datetime   ,&
        & pmu0            ,geoi            ,geom            ,oromea          ,&
        & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
        & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
@@ -126,7 +126,7 @@ CONTAINS
          laland(kbdim),                & !< land sea mask, land=.true.
          laglac(kbdim)                   !< glacier mask, glacier=.true.
 
-    TYPE(t_datetime), INTENT(IN) ::    datetime !< actual time step
+    TYPE(datetime), POINTER ::  this_datetime !< actual time step
 
     REAL(WP),INTENT(IN)  ::            &
          cemiss,                       & !< surface emissivity
@@ -392,7 +392,7 @@ CONTAINS
 !           and Kinne background aerosols (of natural origin, 1850) 
      CALL add_bc_aeropt_splumes(jg                                     ,&
            & kproma           ,kbdim                 ,klev             ,&
-           & krow             ,nb_sw                 ,datetime         ,&
+           & krow             ,nb_sw                 ,this_datetime    ,&
            & geoi             ,geom                  ,oromea           ,&
            & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
            & x_cdnc                                                     )
