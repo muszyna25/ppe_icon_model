@@ -716,7 +716,8 @@ CONTAINS
     REAL(wp),INTENT(in) :: p     !  pressure is unused
     REAL(wp)            :: rho   !< density
 
-    rho = OceanReferenceDensity - LinearThermoExpansionCoefficient * t  + LinearHalineContractionCoefficient * s
+    rho = OceanReferenceDensity - LinearThermoExpansionCoefficient * t  &
+    &+ LinearHalineContractionCoefficient * s
 
   END FUNCTION density_linear_function
   !---------------------------------------------------------------------------
@@ -736,7 +737,8 @@ CONTAINS
     REAL(wp),INTENT(in) :: p(1:levels)     !  pressure is unused
     REAL(wp)            :: rho(1:levels)   !< density
 
-    rho(1:levels) = OceanReferenceDensity - LinearThermoExpansionCoefficient * t(1:levels)  + LinearHalineContractionCoefficient * s(1:levels)
+    rho(1:levels) = OceanReferenceDensity - LinearThermoExpansionCoefficient * t(1:levels) &
+    & + LinearHalineContractionCoefficient * s(1:levels)
 
   END FUNCTION calculate_density_linear_onColumn
   !---------------------------------------------------------------------------
