@@ -63,8 +63,6 @@ MODULE mo_ocean_coupling
   PUBLIC :: construct_ocean_coupling, destruct_ocean_coupling
   PUBLIC :: couple_ocean_toatmo_fluxes
 
-! CHARACTER(LEN=12)     :: module_name    = 'ocean_coupli'
-
   INTEGER, PARAMETER    :: no_of_fields = 11
   INTEGER               :: field_id(no_of_fields)
 
