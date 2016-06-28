@@ -29,6 +29,7 @@ MODULE mo_delaunay_types
   USE mo_impl_constants,    ONLY: SUCCESS
   USE mo_kind,              ONLY: wp
   USE mo_mpi,               ONLY: p_comm_work, p_real_dp
+  USE mo_exception,         ONLY: warning, message_text
   IMPLICIT NONE
   
   PRIVATE
@@ -53,7 +54,7 @@ MODULE mo_delaunay_types
   INTEGER, PARAMETER :: QR_K = SELECTED_REAL_KIND (2*precision(1.0_wp))
 #else
 #ifdef __PGI
-#warning quadruple precision not supported by pgfortran - falling back to double precision
+  ! warning quadruple precision not supported by pgfortran - falling back to double precision
   INTEGER, PARAMETER :: QR_K = SELECTED_REAL_KIND (12,307)
 #else
   INTEGER, PARAMETER :: QR_K = SELECTED_REAL_KIND (32)
@@ -325,6 +326,12 @@ CONTAINS
     ! local variables
     REAL(QR_K) :: d1_x, d1_y, d1_z,d2_x, d2_y, d2_z,d3_x, d3_y, d3_z
 
+#ifdef __PGI
+    WRITE(message_text,'(a)') &
+      ' pgfortran does not support quadruple precision - falling back to double precision '
+    CALL warning('', TRIM(message_text))
+#endif
+
     ! p lies above the plane of (p1,p3,p2) iff p2 lies above the plane
     ! of (p3,p1,p) iff Det(p2-p,p3-p,p1-p) = (p2-p,p3-p X p1-p) > 0.
     !
@@ -399,6 +406,12 @@ CONTAINS
     LOGICAL :: ccw_spherical_q128
     TYPE (t_point), INTENT(IN)  :: v1,v2,v3
     REAL(QR_K) :: v1_x, v1_y, v1_z,v2_x, v2_y, v2_z,v3_x, v3_y, v3_z
+
+#ifdef __PGI
+    WRITE(message_text,'(a)') &
+      ' pgfortran does not support quadruple precision - falling back to double precision '
+    CALL warning('', TRIM(message_text))
+#endif
 
     ! det(v1,v2,v3) = <v1 x v2, v3> = | v1 x v2 | cos(a) 
     !  
