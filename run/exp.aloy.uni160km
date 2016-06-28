@@ -499,6 +499,7 @@ fi
 
 
 if [[ "$output_atm_2d" == "yes" ]]; then
+# minimum list for table and quickplots
   cat >> ${atm_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_atm_2d"
@@ -510,31 +511,18 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_interval  = "${atm_output_interval_2d}"
  file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
-                    'cosmu0'  , 'daylght_frc', 'rsdt'    ,
-                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
-                    'rsns_wtr', 'rsns_ice', 'rsns_lnd',
-                    'rlns_wtr', 'rlns_ice', 'rlns_lnd', 'tend_ta_rlw_impl',
-                    'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts'      , 'ts_rad'  ,
-                    'sic'     , 'sit'     ,
-                    'visdffsfc','nirdffsfc','vissfc'  , 'nirsfc'  ,
-                    'albedo'  , 'albedo_wtr', 'albedo_ice', 'albedo_lnd',
-                    'albvisdir','albvisdif' , 'albnirdir' , 'albnirdif',
-                    'albvisdir_ice', 'albvisdir_wtr', 'albvisdir_lnd',
-                    'clt'     ,
+ ml_varlist       = 'ps'      , 'psl' ,
+                    'daylght_frc',
                     'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
-                    'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
+                    'sic'     , 'sit'     ,
                     'hfls'    , 'hfss'    , 'evspsbl' ,
-                    'hfls_wtr', 'hfls_ice', 'hfls_lnd',
-                    'hfss_wtr', 'hfss_ice', 'hfss_lnd',
-                    'tauu'    , 'tauv'    ,
-                    'tauu_wtr', 'tauu_ice', 'tauu_lnd',
-                    'tauv_wtr', 'tauv_ice', 'tauv_lnd',
+                    'tauv'    , 'albedo'  ,
+                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
+                    'rsdt'    ,
                     'tauu_sso', 'tauv_sso', 'diss_sso', 
-                    'sh_vdiff', 'qv_vdiff',
-                    'ch_concloud',
-                    'con_dtrl', 'con_dtri', 'con_iteqv',
-                    'cld_dtrl', 'cld_dtri', 'cld_iteq'
+                    'clt'     , 'tas'     , 'ts'      ,
+                    'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
+                    'tauu'
 /
 EOF
 fi

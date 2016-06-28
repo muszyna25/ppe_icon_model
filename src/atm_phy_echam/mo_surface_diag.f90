@@ -343,7 +343,7 @@ CONTAINS
     REAL(wp), INTENT(in)     :: ptm1(kbdim), papm1(kbdim), pxm1(kbdim)
     REAL(wp), INTENT(in)     :: pum1(kbdim), pvm1(kbdim), paphm1(kbdim) ! =paphm1(kbdim, klevp1)
     REAL(wp), INTENT(in)     :: pocu(kbdim), pocv(kbdim)
-    REAL(wp), INTENT(out)    :: psfcWind_gbm(kbdim), psfcWind_tile(kbdim,ksfc_type)
+    REAL(wp), INTENT(inout)  :: psfcWind_gbm(kbdim), psfcWind_tile(kbdim,ksfc_type)
     REAL(wp), INTENT(out)    :: ptas_gbm(kbdim),     ptas_tile(kbdim,ksfc_type)
     REAL(wp), INTENT(out)    :: pdew2_gbm(kbdim),    pdew2_tile(kbdim,ksfc_type)
     REAL(wp), INTENT(out)    :: puas_gbm(kbdim),     puas_tile(kbdim,ksfc_type)
