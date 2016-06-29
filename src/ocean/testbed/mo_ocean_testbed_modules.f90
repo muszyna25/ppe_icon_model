@@ -26,7 +26,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_model_domain,           ONLY: t_patch, t_patch_3d,t_subset_range
   USE mo_grid_config,            ONLY: n_dom
   USE mo_ocean_nml,              ONLY: n_zlev, GMRedi_configuration, GMRedi_combined, Cartesian_Mixing, &
-    & atmos_flux_analytical_type, no_tracer, surface_module, OceanReferenceDensity
+    & atmos_flux_analytical_type, no_tracer, surface_module, OceanReferenceDensity,k_pot_temp_v
   USE mo_sea_ice_nml,            ONLY: init_analytic_conc_param, t_heat_base
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_run_config,             ONLY: nsteps, dtime, output_mode, test_mode !, test_param
@@ -222,7 +222,7 @@ CONTAINS
         CALL datetime_to_string(datestring, datetime)
         WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
         CALL message (TRIM(method_name), message_text)
- 
+ physics_parameters%a_tracer_v=k_pot_temp_v
 !          IF(jstep==1)THEN
 !          ocean_state(jg)%p_diag%vn_time_weighted = ocean_state(jg)%p_prog(nold(1))%vn
 !          ocean_state(jg)%p_prog(nnew(1))%vn = ocean_state(jg)%p_prog(nold(1))%vn
@@ -252,9 +252,9 @@ ENDIF
            & tracer_index)
 
 
-      CALL calculate_density( patch_3d,                         &
-       & ocean_state(n_dom)%p_prog(nold(1))%tracer(:,:,:,1:no_tracer),&
-       & ocean_state(n_dom)%p_diag%rho(:,:,:) )
+!      CALL calculate_density( patch_3d,                         &
+!       & ocean_state(n_dom)%p_prog(nold(1))%tracer(:,:,:,1:no_tracer),&
+!       & ocean_state(n_dom)%p_diag%rho(:,:,:) )
 
 
 

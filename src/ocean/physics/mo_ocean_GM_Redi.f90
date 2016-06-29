@@ -298,7 +298,9 @@ CONTAINS
       !  &                              mapped_vertical_diagonal_impl)!param%a_tracer_v(:,:,:, tracer_index))
       !
       Do level=1,n_zlev
-      CALL dbg_print('Old vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
+      !CALL dbg_print('Old vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
+      CALL dbg_print('Old vert coeff: A_v', ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit,&
+      & this_mod_name, 4, patch_2D%cells%in_domain)
       End do
       !
       !2.) Here we combine the vertical GMRedicoefficient that is treated implicitely (mapped_vertical_diagonal_impl, this
@@ -313,7 +315,7 @@ CONTAINS
         DO cell_index = start_cell_index, end_cell_index
           DO level = start_level, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
             param%a_tracer_v(cell_index,level,blockNo, tracer_index) =                &
-             & param%a_tracer_v(cell_index,level,blockNo, tracer_index) + &
+             & 1.0E-05+&!param%a_tracer_v(cell_index,level,blockNo, tracer_index) + &
              & ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit(cell_index,level,blockNo)
           END DO                  
         END DO                
@@ -742,18 +744,18 @@ CONTAINS
               !cell_max_slope      = S_max*SQRT(patch_2D%cells%area(cell_index,blockNo))&
               !& / patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo)
 
-              cell_critical_slope = S_critical &
-                & * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo) &
-                & * inv_cell_characteristic_length
+              !cell_critical_slope = S_critical &
+              !  & * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo) &
+              !  & * inv_cell_characteristic_length
                 
               slope_abs = sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo))
 
-              !IF(slope_abs <= cell_max_slope)THEN
+              IF(slope_abs <= cell_max_slope)THEN
                 ocean_state%p_aux%taper_function_1(cell_index,level,blockNo) &
                   &= 0.5_wp*(1.0_wp + tanh((cell_max_slope - slope_abs)*inv_S_d))
-              !ELSE
-              !  ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)=0.0_wp
-              !ENDIF
+              ELSE
+                ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)=0.0_wp
+              ENDIF
 
             END DO
           ENDIF
@@ -779,12 +781,12 @@ CONTAINS
             
              slope_abs    = sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo))           
               
-              !IF(slope_abs <= cell_max_slope)THEN
+              IF(slope_abs <= cell_max_slope)THEN
                 ocean_state%p_aux%taper_function_1(cell_index,level,blockNo) &
                   &= 0.5_wp*(1.0_wp + tanh((cell_max_slope - slope_abs)*inv_S_d))
-              !ELSE
-              !  ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)=0.0_wp
-              !ENDIF
+              ELSE
+                ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)=0.0_wp
+              ENDIF
 
             END DO
           ENDIF
@@ -968,12 +970,13 @@ CONTAINS
               &=K_I(cell_index,level,blockNo)&
               &*ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)&
               &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)
-              
-!write(123,*)'v-impl:h-diag',ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)&
+!IF(level<=5)THEN              
+!write(12345,*)'v-impl:h-diag',level,taper_diagonal_vert_impl(cell_index,level,blockNo),&
+!              &ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)&
 !              &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo),&
 !              &ocean_state%p_aux%slopes_squared(cell_index,level,blockNo),&
-!              &ocean_state%p_aux%taper_function_1(cell_index,level,blockNo),taper_diagonal_horz(cell_index,level,blockNo) 
-              
+!              &ocean_state%p_aux%taper_function_1(cell_index,level,blockNo) 
+!ENDIF              
             END DO
 !           ENDIF
         END DO
@@ -1173,7 +1176,7 @@ Do level=1,n_zlev
     & this_mod_name, 1, patch_2D%cells%in_domain)
 END DO    
 Do level=1,n_zlev
-    CALL dbg_print('apply_tapering: vert off-diag impl', taper_diagonal_vert_impl(:,level,:),&
+    CALL dbg_print('apply_tapering: vert diag impl', taper_diagonal_vert_impl(:,level,:),&
     & this_mod_name, 1, patch_2D%cells%in_domain)
 END DO
 Do level=1,n_zlev    
@@ -1252,7 +1255,7 @@ END DO
               !Danabasoglou-McWilliams tapering is for horizontal flux only applied to
               !off-diagonal terms
               
-              !coefficients for horizontal fluxes
+              !coefficients for horizontal fluxes: horizontal diffusion is retained here !
               taper_diagonal_horz(cell_index,level,blockNo)  &
               & =&! ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)*&
               &   K_I(cell_index,level,blockNo)
@@ -1268,7 +1271,8 @@ END DO
               &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)&                
               &*ocean_state%p_aux%slopes(cell_index,level,blockNo)%x
 
-              
+              !implicit part of vertical diffusion due to GM is here set to zero.
+              !The implicit part due to PP-scheme is retained.
               taper_diagonal_vert_impl(cell_index,level,blockNo)  &              
               &=0.0_wp!
               
@@ -1297,7 +1301,7 @@ END DO
               !Danabasoglou-McWilliams tapering is for horizontal flux only applied to
               !off-diagonal terms
               
-              !coefficients for horizontal fluxes
+              !coefficients for horizontal fluxes: horizontal diffusion is untapered.
               taper_diagonal_horz(cell_index,level,blockNo)  &
               & =&! ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)*&
               &   K_I(cell_index,level,blockNo)
