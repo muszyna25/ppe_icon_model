@@ -5884,6 +5884,8 @@ l\_limited\_area =.TRUE.
  itype\_atmos\_ana determines the atmospheric profile, itype\_anaprof\_uv
 determines the wind profile and itype\_topo\_ana determines the topography&
 \tabularnewline
+&&&&'\textbf{dcmip\_bw\_11}': Initializes (moist) baroclinic instability/wave (\textbf{DCMIP2016}) &
+\tabularnewline
 &&&&'\textbf{dcmip\_pa\_12}': Initializes Hadley-like meridional circulation pure advection test case.&
 \tabularnewline
 &&&&'\textbf{dcmip\_rest\_200}': atmosphere at rest test (Schaer-type mountain)&
@@ -5907,6 +5909,34 @@ lcoriolis = .TRUE.
 &&&&'\textbf{CBL}': convective boundary layer simulations for LES package on torus (doubly periodic) grid&
 is\_plane\_torus= .TRUE.
 \tabularnewline
+
+\hline
+\hline
+\multicolumn{4}{|l|}{\textbf{dcmip\_bw\%}}& DCMIP2016 baroclinic wave test &  'dcmip\_bw\_11'
+\tabularnewline
+\hline
+
+deep&
+I& 0 &  &
+deep atmosphere\\
+(1 = yes or 0 = no)&
+\tabularnewline
+
+%\hline
+moist&
+I& 0 &  &
+include moisture, i.e.\ $qv\neq 0$\\
+(1 = yes or 0 = no)&
+\tabularnewline
+
+%\hline
+pertt&
+I& 0 &  &
+type of initial perturbation\\
+(0 = exponential, 1 = stream function)&
+\tabularnewline
+\hline
+
 %\hline
 jw\_up&
 R& 1.0& m/s&
