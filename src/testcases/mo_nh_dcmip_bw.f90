@@ -30,6 +30,12 @@ MODULE mo_nh_dcmip_bw
   USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, SUCCESS
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_math_constants,      ONLY: deg2rad, pi
+  USE mo_physical_constants,  ONLY: omega=>earth_angular_velocity !, &
+!    &                               a => earth_radius,             &
+!    &                               rd,                            &
+!    &                               g => grav,                     &
+!    &                               cp=> cpd,                      &
+!    &                               Mvap => vtmpc1
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_intp_data_strc,      ONLY: t_int_state
@@ -57,9 +63,7 @@ MODULE mo_nh_dcmip_bw
        g     = 9.80616_wp,            & ! Gravity (m s^2)
        cp    = 1004.5_wp,             & ! Specific heat capacity (J kg^-1 K^1)
        Mvap  = 0.608_wp,              & ! Ratio of molar mass of dry air/water
-       p0    = 100000.0_wp,           & ! surface pressure (Pa)
-       kappa = 2._wp/7._wp,           & ! Ratio of Rd to cp
-       omega = 7.29212e-5_wp            ! Reference rotation rate of the Earth (s^-1)
+       p0    = 100000.0_wp              ! surface pressure (Pa)
 
   !=======================================================================
   !    Test case parameters
