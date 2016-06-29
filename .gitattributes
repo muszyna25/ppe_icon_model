@@ -2006,6 +2006,7 @@ src/testcases/mo_ldf_test.f90 -text
 src/testcases/mo_mrw_test.f90 -text
 src/testcases/mo_ncar_testcases.f90 -text
 src/testcases/mo_nh_ape_exp.f90 -text
+src/testcases/mo_nh_dcmip_bw.f90 -text
 src/testcases/mo_nh_dcmip_gw.f90 -text
 src/testcases/mo_nh_dcmip_hadley.f90 -text
 src/testcases/mo_nh_dcmip_rest_atm.f90 -text
