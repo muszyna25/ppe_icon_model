@@ -68,6 +68,8 @@ MODULE mo_nh_testcases_nml
     &       linit_tracer_fv, lhs_fric_heat, lcoupled_rho, u_cbl, v_cbl,      &
     &       th_cbl, psfc_cbl, sol_const, zenithang, bubctr_x, bubctr_y
 
+  PUBLIC :: dcmip_bw
+
   CHARACTER(len=MAX_CHAR_LENGTH) :: nh_test_name
   CHARACTER(len=MAX_CHAR_LENGTH) :: ape_sst_case      !SST for APE experiments
 
@@ -103,6 +105,15 @@ MODULE mo_nh_testcases_nml
   REAL(wp) :: bubctr_x  !X-Center of the warm bubble on torus
   REAL(wp) :: bubctr_y  !Y-Center of the warm bubble on torus
 
+  ! DCMIP 2016 baroclinic wave namelist switches
+  TYPE t_dcmip_bw
+    INTEGER :: deep           ! deep atmosphere (1 = yes or 0 = no) 
+    INTEGER :: moist          ! include moisture (1 = yes or 0 = no)
+    INTEGER :: pertt          ! type of perturbation (0 = exponential, 1 = stream function)
+  END TYPE
+
+  TYPE(t_dcmip_bw) :: dcmip_bw
+
   NAMELIST/nh_testcase_nml/ nh_test_name, mount_height, torus_domain_length, &
                             nh_brunt_vais, nh_u0, nh_t0, layer_thickness,    &
                             n_flat_level, jw_up, u0_mrw, mount_height_mrw,   &
@@ -130,8 +141,9 @@ MODULE mo_nh_testcases_nml
                             nlayers_poly, p_base_poly, h_poly, t_poly,       &
                             tgr_poly, rh_poly, rhgr_poly, lshear_dcmip,      &
                             lcoupled_rho, gw_clat, gw_u0, gw_delta_temp,     & 
-                            u_cbl, v_cbl, th_cbl, w_perturb, th_perturb,    &
-                            psfc_cbl, sol_const, zenithang, bubctr_x, bubctr_y
+                            u_cbl, v_cbl, th_cbl, w_perturb, th_perturb,     &
+                            psfc_cbl, sol_const, zenithang, bubctr_x,        &
+                            bubctr_y, dcmip_bw
                       
 
   CONTAINS
@@ -285,6 +297,11 @@ MODULE mo_nh_testcases_nml
     !Note that (0,0) is the center of the torus
     bubctr_x = 0._wp
     bubctr_y = 0._wp
+
+    ! DCMIP 2016 baroclinic wave
+    dcmip_bw%deep          = 0   ! shallow atmosphere
+    dcmip_bw%moist         = 0   ! dry (qv=0)
+    dcmip_bw%pertt         = 0   ! exponential perturbation
 
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nh_testcase_nml', status=i_status)
