@@ -328,6 +328,7 @@ MODULE mo_ocean_types
       & rho              ,& ! density. Unit: [kg/m^3]
       & rhopot           ,& ! potential density. Unit: [kg/m^3]
       & div_mass_flx_c   ,& ! divergence of mass flux at cells. Unit [?].
+      & div_of_GMRedi_flux, &
       & kin                 ! kinetic energy. Unit [m/s].
 
     onCells_HalfLevels :: &
