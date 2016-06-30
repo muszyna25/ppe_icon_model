@@ -104,7 +104,7 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_jerlov_pi)
       USE mo_carbch, ONLY         : bgctra, bgctend, swr_frac, meanswr, satoxy
       USE mo_param1_bgc, ONLY     : iano3, iphosph, igasnit, &
            &                        ioxygen, ialkali, icya,  &
-           &                        isco212, idoccya, kaou, &
+           &                        isco212, idoc, kaou, &
            &                        idet, iiron, knfix, &
            &                        kpho_cya, kcyaloss, kn2b, &
            &                        kcTlim, kcLlim, kcPlim, kcFlim
@@ -243,7 +243,7 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_jerlov_pi)
               bgctend(j,k,kcyaloss) =  cyaloss/dtbgc   
 
               ! --------- decaying cyanobacteria are distributed to DOCCYA and detritus  
-              bgctra(j,k,idoccya) = bgctra(j,k,idoccya) + doccya_fac*cyaloss     
+              bgctra(j,k,idoc) = bgctra(j,k,idoc) + doccya_fac*cyaloss     
               bgctra(j,k,idet) = bgctra(j,k,idet) + (1.0_wp - doccya_fac)*cyaloss        
 
 

@@ -14,7 +14,7 @@
        &                        rcalc, rcar, dremopal, relaxfe, fesoly,            &
        &                        denitrification, nitdem, dremn2o,         &
        &                        n2prod, sulfate_reduction, strahl,                 &
-       &                        remido_cya, thresh_aerob,   & 
+       &                        thresh_aerob,   & 
        &                        thresh_sred, dmsp, calmax
  
    USE mo_carbch, ONLY         : satoxy, &
@@ -26,14 +26,13 @@
    USE mo_param1_bgc, ONLY     : icalc, iopal, ian2o, igasnit, idms, &
        &                         iphy, izoo, isilica, iphosph, &
        &                         iano3, ioxygen, idet, idoc, isco212, &
-       &                         ialkali, idoccya, kphosy, kremin,   &
+       &                         ialkali, kphosy, kremin,   &
        &                         iiron, ksred, kdenit, kgraz, kbacfra, &
        &                         kn2b, kh2ob, kdelcar, kdelsil, kbacfrac, &
        &                         kdmsprod, kdmsuv, kdmsbac,keuexp, knlim, kflim,&
        &                         kplim, kgraton, kexudp, kexudz, kpdy,kzdy, kaou
 
 
-   USE mo_hamocc_nml, ONLY     : l_cyadyn
 
     IMPLICIT NONE
 
@@ -56,23 +55,21 @@
        &      gratpoc,grawa,bacfra,phymor,zoothresh,zoomor,excdoc,exud,  &
        &      export, delsil, delcar, remin,             &
        &      opalrem, remin2o, aou, refra,                      &
-       &      bacfra_cya, tpremin, r_bacfra, r_bacfra_cya,   &
-       &      r_remin, avoxy, rcyano
+       &      tpremin, r_bacfra,   &
+       &      r_remin, avoxy
 
    REAL(wp) :: surface_height
 
    REAL(wp) :: dms_prod, dms_uv, dms_bac 
  
-! check if cyanobacteria are switched on
- rcyano=merge(1._wp,0._wp,l_cyadyn)
 
 !HAMOCC_OMP_PARALLEL
 !HAMOCC_OMP_DO PRIVATE(j,kpke,k,surface_height,avphy,avgra,avsil,avanut,&
 !HAMOCC_OMP            avanfe,phofa,temfa,pho,phosy,xa,xn,ya,yn,grazing,&
 !HAMOCC_OMP            graton,gratpoc,grawa,phymor,zoomor,zoothresh,excdoc,&
 !HAMOCC_OMP            exud,export,delsil,delcar,opalrem,dms_prod,dms_bac,&
-!HAMOCC_OMP            dms_uv,avoxy,tpremin,r_bacfra,r_bacfra_cya,r_remin,&
-!HAMOCC_OMP            bacfra,bacfra_cya,remin,aou,refra,remin2o) HAMOCC_OMP_DEFAULT_SCHEDULE
+!HAMOCC_OMP            dms_uv,avoxy,tpremin,r_bacfra,r_remin,&
+!HAMOCC_OMP            bacfra,remin,aou,refra,remin2o) HAMOCC_OMP_DEFAULT_SCHEDULE
 
  DO j = start_idx, end_idx
   
@@ -219,12 +216,10 @@
        IF (avoxy >= thresh_aerob) THEN                          
            !=====AEROB REMINERALIZATION ========================
            tpremin = remido*bgctra(j,k,idoc)  &
-              &         + rcyano *remido_cya*bgctra(j,k,idoccya) &
               &         + drempoc * bgctra(j,k,idet)
  
            ! Indiv. fractions of decomp.
            r_bacfra = remido*bgctra(j,k,idoc) / tpremin 
-           r_bacfra_cya = rcyano * remido_cya*bgctra(j,k,idoccya) / tpremin
            r_remin  =  drempoc * bgctra(j,k,idet) / tpremin
         
            ! DOC decomposition
@@ -233,11 +228,6 @@
            bacfra    = MIN(bacfra,   &                         !
                &     r_bacfra*(avoxy-thresh_aerob)/ro2ut)
 
-           ! DOCcya decomposition
-           xn=bgctra(j,k,idoccya)/(1._wp+remido_cya)
-           bacfra_cya=MAX(0._wp,bgctra(j,k,idoccya) - xn )
-           bacfra_cya = rcyano * MIN(bacfra_cya, &
-              &     r_bacfra_cya*(avoxy-thresh_aerob)/ro2ut)
    
            ! POC decomposition
            xn=bgctra(j,k,idet)/(1._wp+drempoc)
@@ -247,30 +237,28 @@
           
            bgctra(j,k,idoc)  = bgctra(j,k,idoc) - bacfra 
        
-           bgctra(j,k,idoccya) = bgctra(j,k,idoccya) - bacfra_cya
 
            bgctra(j,k,idet)  = bgctra(j,k,idet) - remin
 
-           bgctra(j,k,iiron)  = bgctra(j,k,iiron) + (bacfra+bacfra_cya+remin)*riron  
+           bgctra(j,k,iiron)  = bgctra(j,k,iiron) + (bacfra+remin)*riron  
 
-           bgctra(j,k,iphosph) =  bgctra(j,k,iphosph) + bacfra +remin                    &
-        &                     + bacfra_cya
+           bgctra(j,k,iphosph) =  bgctra(j,k,iphosph) + bacfra +remin                    
 
            
 
            bgctra(j,k,isco212) = bgctra(j,k,isco212)             &  
-        &                + rcar*( bacfra + bacfra_cya + remin)                       ! + remineralization C-units
+        &                + rcar*( bacfra +  remin)                       ! + remineralization C-units
 
 
            bgctra(j,k,ioxygen) = bgctra(j,k,ioxygen)               &
-        &            -(bacfra + bacfra_cya +remin)*ro2ut     
+        &            -(bacfra + remin)*ro2ut     
 
           
            bgctra(j,k,ialkali) = bgctra(j,k,ialkali)       &
-        &             - (bacfra + bacfra_cya + remin)*rnit
+        &             - (bacfra +  remin)*rnit
 
            bgctra(j,k,iano3)= bgctra(j,k,iano3)                  &
-        &             +(bacfra + bacfra_cya +remin)*rnit
+        &             +(bacfra + remin)*rnit
 
 
            !***********************************************************************
@@ -282,19 +270,18 @@
            refra = 1._wp + 3._wp * (0.5_wp + SIGN(0.5_wp, aou - 1.97e-4_wp))
 
            bgctra(j,k,ian2o)   = bgctra(j,k,ian2o)                  &
-                   &    + (remin + bacfra + bacfra_cya) * 1.e-4_wp * ro2ut * refra
+                   &    + (remin + bacfra ) * 1.e-4_wp * ro2ut * refra
 
            bgctra(j,k,igasnit) = bgctra(j,k,igasnit)                &
-                   &     - (remin + bacfra + bacfra_cya) * 1.e-4_wp * ro2ut * refra
+                   &     - (remin + bacfra ) * 1.e-4_wp * ro2ut * refra
 
           
 
            bgctra(j,k,ioxygen) = bgctra(j,k,ioxygen)               &
-                   &     - (remin+bacfra+bacfra_cya)*1.e-4_wp*ro2ut*refra*0.5_wp
+                   &     - (remin+bacfra)*1.e-4_wp*ro2ut*refra*0.5_wp
          
            bgctend(j,k,kremin) = remin / dtbgc 
            bgctend(j,k,kbacfra) = bacfra / dtbgc 
-           bgctend(j,k,kbacfrac) = bacfra_cya / dtbgc 
            bgctend(j,k,kdenit) = 0._wp 
        ENDIF   ! O2 >= thresh_aerob
 

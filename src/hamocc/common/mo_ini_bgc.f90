@@ -52,7 +52,7 @@ MODULE mo_ini_bgc
        &                     ipowaph, ipowasi, ipown2, ipowno3,           &
        &                     isco212, isilica, isssc12, issso12, issssil, &
        &                     izoo, ipowafe, issster, &
-       &                     idoccya, icya, iiron, idms
+       &                     icya, iiron, idms
 !  USE mo_planetary_constants, ONLY: g, rhoref_water
   IMPLICIT NONE
 
@@ -153,7 +153,6 @@ CONTAINS
     bkcya_P           = 1.e-8_wp     ! kmol/m3  
     bkcya_fe          = 90.e-8_wp     ! kmol/m3  
     bkcya_N           = 1.e-9_wp     ! kmol/m3  
-    remido_cya        = 0.0008_wp 
     doccya_fac        = 0.1_wp
 ! ------
 
@@ -341,7 +340,6 @@ CONTAINS
                 bgctra(j,k,idms)   = 0._wp
                 bgctra(j,k,iopal)  = 1.e-8_wp
                 bgctra(j,k,idust)  = 0._wp
-                bgctra(j,k,idoccya)= 1.e-10_wp
                 bgctra(j,k,icya)   = 1.e-10_wp
                 bgctra(j,k,ian2o)    = 1.e-10_wp
                 hi(j,k)              = 3.e-9_wp
@@ -378,7 +376,6 @@ CONTAINS
                    bgctra(j,k,iopal)   = rmasko
                    bgctra(j,k,ian2o)   = rmasko
                    bgctra(j,k,iiron)   = rmasko
-                   bgctra(j,k,idoccya) = rmasko
                    bgctra(j,k,icya)    = rmasko
                    bgctra(j,k,idms)    = rmasko
                    hi(j,k)             = rmasko

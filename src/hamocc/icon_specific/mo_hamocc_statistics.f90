@@ -58,7 +58,6 @@ CONTAINS
     CALL add_fields(hamocc_state%p_acc%remins          , hamocc_state%p_tend%remins          , cells,levels=max_zlev)
     CALL add_fields(hamocc_state%p_acc%reminn          , hamocc_state%p_tend%reminn          , cells,levels=max_zlev)
     CALL add_fields(hamocc_state%p_acc%bacfra          , hamocc_state%p_tend%bacfra          , cells,levels=max_zlev)
-    CALL add_fields(hamocc_state%p_acc%bacfrac         , hamocc_state%p_tend%bacfrac        , cells,levels=max_zlev)
     CALL add_fields(hamocc_state%p_acc%delsil          , hamocc_state%p_tend%delsil          , cells,levels=max_zlev)
     CALL add_fields(hamocc_state%p_acc%delcar          , hamocc_state%p_tend%delcar          , cells,levels=max_zlev)
     CALL add_fields(hamocc_state%p_acc%dmsprod         , hamocc_state%p_tend%dmsprod         , cells,levels=max_zlev)
@@ -134,7 +133,6 @@ CONTAINS
     p_acc%remina                      = p_acc%remina                     /REAL(nsteps_since_last_output,wp)
     p_acc%remins                      = p_acc%remins                     /REAL(nsteps_since_last_output,wp)
     p_acc%reminn                      = p_acc%reminn                     /REAL(nsteps_since_last_output,wp)
-    p_acc%bacfrac                      = p_acc%bacfrac                   /REAL(nsteps_since_last_output,wp)
     p_acc%cflux                       = p_acc%cflux                      /REAL(nsteps_since_last_output,wp)
     p_acc%oflux                       = p_acc%oflux                      /REAL(nsteps_since_last_output,wp)
     p_acc%dmsflux                     = p_acc%dmsflux                    /REAL(nsteps_since_last_output,wp)
@@ -210,7 +208,6 @@ CONTAINS
     p_acc%remins                      = 0._wp
     p_acc%reminn                      = 0._wp
     p_acc%bacfra                      = 0._wp
-    p_acc%bacfrac                     = 0._wp
     p_acc%cflux                       = 0._wp
     p_acc%oflux                       = 0._wp
     p_acc%dmsflux                     = 0._wp
