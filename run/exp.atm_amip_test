@@ -530,7 +530,7 @@ if [[ "$output_aer_3d" == "yes" ]]; then
 /
 EOF
 fi
-output_radforcing_3d=yes # "yes" needs lradforcing being set in psrad_nml
+output_radforcing_3d=no # "yes" needs lradforcing being set in psrad_nml
 #
 if [[ "$output_radforcing_3d" == "yes" ]]; then
   #
@@ -538,7 +538,7 @@ if [[ "$output_radforcing_3d" == "yes" ]]; then
 &output_nml
  output_filename  = "${EXPNAME}_radforcing_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = 1
+ remap            = 0
  reg_def_mode     = 1
  reg_lat_def      = ${reg_lat_def_rmb}
  reg_lon_def      = ${reg_lon_def_rmb}
@@ -559,7 +559,7 @@ if [[ "$output_radforcing_3d" == "yes" ]]; then
 		    'emter_for'    ,'emtef_for',
                     'trsol_for'    ,'trsof_for'
 /
-output_radforcing_3d=yes # "yes" needs lradforcing being set in psrad_nml
+output_radforcing_3d=no # "yes" needs lradforcing being set in psrad_nml
 #
 if [[ "$output_radforcing_3d" == "yes" ]]; then
   #
