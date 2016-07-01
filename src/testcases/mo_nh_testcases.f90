@@ -864,7 +864,7 @@ MODULE mo_nh_testcases
     CALL   init_nh_env_wk ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
                                      & p_nh_state(jg)%diag,                 &
                                      & p_nh_state(jg)%metrics,              &
-                                     & p_int(jg),l_hydro_adjust  )
+                                     & p_int(jg), l_hydro_adjust )
          ! add perturbation to theta and recalculate theta_v and rho 
     CALL init_nh_buble_wk ( p_patch(jg),p_nh_state(jg)%metrics,            &
                                      & p_nh_state(jg)%prog(nnow(jg)),      &
@@ -890,7 +890,7 @@ MODULE mo_nh_testcases
       CALL init_nh_env_bb13   ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
                                      & p_nh_state(jg)%diag,                 &
                                      & p_nh_state(jg)%metrics,              &
-                                     & p_int(jg),l_hydro_adjust  )
+                                     & p_int(jg), l_hydro_adjust  )
          ! add perturbation to theta and recalculate theta_v and rho 
       CALL init_nh_bubble_bb13 ( p_patch(jg), p_nh_state(jg)%metrics,       &
                                      & p_nh_state(jg)%prog(nnow(jg)),       &

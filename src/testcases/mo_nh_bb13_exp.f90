@@ -37,6 +37,8 @@ MODULE mo_nh_bb13_exp
    USE mo_physical_constants,   ONLY: rd, rd_o_cpd, cvd_o_rd,   &
                                       p0ref, grav
    USE mo_math_constants,       ONLY: pi, deg2rad
+   USE mo_math_utilities,       ONLY: gc2cc
+   USE mo_math_types,           ONLY: t_cartesian_coordinates
    USE mo_model_domain,         ONLY: t_patch
    USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
    USE mo_run_config,           ONLY: iqv
@@ -50,7 +52,10 @@ MODULE mo_nh_bb13_exp
    !USE mo_extpar_config,        ONLY: itopo
    USE mo_sync,                 ONLY: sync_patch_array, SYNC_C
    USE mo_vertical_coord_table, ONLY: vct_a
-   USE mo_grid_config,         ONLY: grid_sphere_radius
+   USE mo_grid_config,          ONLY: grid_sphere_radius
+   USE mo_nh_init_utils,        ONLY: hydro_adjust
+
+   USE mo_nh_wk_exp,            ONLY: u_infty_wk
 
    IMPLICIT NONE
 
@@ -58,8 +63,6 @@ MODULE mo_nh_bb13_exp
   
    PRIVATE
 
-
-   REAL(wp), PUBLIC :: u_infty_wk  != 0 - 45  ms-1          !NAMELIST PARAMETER
 
    REAL(wp), PARAMETER :: T_bb13 = 250.0_wp    ! background atmosphere [K]
   
@@ -71,7 +74,7 @@ MODULE mo_nh_bb13_exp
 
   !>
   !! Initialization of prognostic state vector for the Baldauf, Brdar (2013) test case 
-  !! 
+  !! here: define the horizontally homogenous environmental state
   !!
   !! @par Revision History
   !!
@@ -98,7 +101,7 @@ MODULE mo_nh_bb13_exp
                        nlen
     INTEGER        :: i_startidx, i_endidx, i_startblk
 
-    REAL(wp)       :: z_u
+    REAL(wp)       :: zu, zv
 
     REAL(wp), DIMENSION(ptr_patch%nlev) :: z_full, theta, exner, pres, qv, theta_v, rh, temp
 
@@ -125,8 +128,6 @@ MODULE mo_nh_bb13_exp
 
     ENDDO
 
-    ! Achtung: das muss noch numerisch hydrostatisch balanciert werden!
-
     DO jb = 1, ptr_patch%nblks_c
       IF (jb /= ptr_patch%nblks_c) THEN
          nlen = nproma
@@ -145,8 +146,25 @@ MODULE mo_nh_bb13_exp
       ENDDO  !jk     
     ENDDO  !jb
 
+    ! Achtung: das muss noch numerisch hydrostatisch balanciert werden!
+    if ( l_hydro_adjust ) then
+      CALL hydro_adjust(ptr_patch, p_metrics, ptr_nh_prog%rho, ptr_nh_prog%exner, ptr_nh_prog%theta_v )
+    end if
+
     ! initialize horizontal velocities
     i_startblk = ptr_patch%edges%start_blk(2,1)
+
+    ! Kontrolloutput:
+    !jb = 1
+    !jc = 1
+    !DO jk = ptr_patch%nlev, 1, -1
+    ! write(*,'(A,F13.3,4E13.6)') "BB13,env: ", z_full(jk), &
+    !      ptr_nh_prog%theta_v(jc,jk,jb), ptr_nh_prog%exner(jc,jk,jb), ptr_nh_prog%rho(jc,jk,jb),   &
+    !      ptr_nh_prog%theta_v(jc,jk,jb)*ptr_nh_prog%exner(jc,jk,jb)
+    !ENDDO
+
+
+    write(*,*)  "u_infty_wk=", u_infty_wk
 
     ! horizontal normal components of the velocity
     DO jb = i_startblk, ptr_patch%nblks_e
@@ -156,8 +174,10 @@ MODULE mo_nh_bb13_exp
 
       DO jk = 1, ptr_patch%nlev
         DO je = i_startidx, i_endidx
-          z_u = u_infty_wk
-          ptr_nh_prog%vn(je,jk,jb) = z_u * ptr_patch%edges%primal_normal(je,jb)%v1
+          zu = u_infty_wk
+          zv = 0.0_wp
+          ptr_nh_prog%vn(je,jk,jb) = zu * ptr_patch%edges%primal_normal(je,jb)%v1   &
+            &                      + zv * ptr_patch%edges%primal_normal(je,jb)%v2
         ENDDO  !je
       ENDDO  !jk
     ENDDO  !jb
@@ -202,17 +222,18 @@ MODULE mo_nh_bb13_exp
     REAL(KIND=wp)            :: x, z_full
     REAL(KIND=wp)            :: dT_breth, dp_breth, dT
     REAL(KIND=wp)            :: delta_B, fac_breth
-    REAL(KIND=wp)            :: bubctr_lon, lon, bub_dT, bub_radx
+    REAL(KIND=wp)            :: bubctr_x, lon, bub_dT, bub_radx
 
     INTEGER        ::  jc, jb, jk, je,   &
                        nlen 
+    TYPE(t_cartesian_coordinates)   :: p
 
     call message( "init_nh_bubble_bb13", "ACHTUNG: model_height sollte extern vorgegeben sein!" )
 
     model_height = 10000.0_wp
 
-    bubctr_lon = 0.0_wp
-    bub_dT = 0.01_wp  ! [K]
+    bubctr_x = -50000.0_wp
+    bub_dT   = 0.01_wp  ! [K]
     bub_radx = 5000.0_wp
 
     delta_B = grav / Rd / T_bb13
@@ -227,17 +248,17 @@ MODULE mo_nh_bb13_exp
       DO jk = ptr_patch%nlev, 1, -1
         DO jc = 1, nlen
 
-          z_full = 0.5_wp * ( p_metrics%z_ifc(jc,jk,jb) + &
-                              p_metrics%z_ifc(jc,jk+1,jb) )
-          lon = ptr_patch%cells%center(jc,jb)%lon
-
-          x = ( lon - bubctr_lon ) * grid_sphere_radius * deg2rad
+          ! Koordinaten dieses Punktes:
+          p = gc2cc( ptr_patch%cells%center(jc,jb), ptr_patch%geometry_info ) 
+          !z_full = 0.5_wp * ( p_metrics%z_ifc(jc,jk,  jb)     &
+          !  &               + p_metrics%z_ifc(jc,jk+1,jb) )
+          z_full = p_metrics%z_mc(jc,jk,jb)
 
           fac_breth = EXP( 0.5 * delta_B * z_full ) 
 
           dT_breth = bub_dT                          &
             &    * SIN( z_full * pi / model_height )    &
-            &    * EXP( - ( x / bub_radx )**2 )
+            &    * EXP( - ( ( p%x(1)- bubctr_x ) / bub_radx )**2 )
 
           dT = dT_breth * fac_breth
 
