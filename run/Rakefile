@@ -6,7 +6,7 @@ require 'parallel'
 require 'colorize'
 require 'iconPlot'
 require 'unifiedPlot'
-require 'gsl'
+#require 'gsl'
 begin
   require 'facets'
 rescue
@@ -808,14 +808,14 @@ def getResultFiles(dir)
   [regularFiles ,meanFiles]
 end
 
-def hist(inputs)
-  nbins = 1000 
-  max = inputs[:y].abs.max   
-  h = GSL::Histogram.alloc(nbins, [-max, max])                                                                                                                                                                                               
-  h.fill(inputs[:y])         
-  GSL::graph(h)
-
-end
+#def hist(inputs)
+#  nbins = 1000 
+#  max = inputs[:y].abs.max   
+#  h = GSL::Histogram.alloc(nbins, [-max, max])                                                                                                                                                                                               
+#  h.fill(inputs[:y])         
+#  GSL::graph(h)
+#
+#end
 desc "check general mena value solution based on amip expriment"
 task :checkAtmoMeanStream, :dir, :what, :variable do |t,args|
 

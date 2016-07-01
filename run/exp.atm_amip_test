@@ -62,6 +62,7 @@ reg_lon_def_tri=0.,1.125,358.875
 # (2) Set variables needed by the scripting mechanism
 
 # horizontal grid(s)
+icon_data_poolFolder=/pool/data/ICON
 grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip/r0002
 atmo_dyn_grids='r2b4_amip.nc'
 
@@ -171,7 +172,7 @@ cat > ${atmo_namelist} << EOF
  irad_o2          = 2           ! 2: horizontally and vertically constant
  irad_cfc11       = 4           ! 4: from greenhouse gas scenario
  irad_cfc12       = 4           ! 4: from greenhouse gas scenario
- irad_aero        = 18          ! 0: no aerosol
+ irad_aero        = 15          ! 0: no aerosol
                                 !13: only Kinne's tropospheric aerosols 
                                 !14: only Stenchikov's volcanic aerosols
                                 !15: Kinne aerosol optics for troposphere

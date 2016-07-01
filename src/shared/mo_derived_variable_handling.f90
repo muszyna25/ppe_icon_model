@@ -238,7 +238,7 @@ CONTAINS
       ! }}}
 
       eventKey = get_event_key(p_onl)
-!DEBUG      if (my_process_is_stdio()) call print_summary('eventKey:'//trim(eventKey))
+!DEBUG     if (my_process_is_stdio()) call print_summary('eventKey:'//trim(eventKey))
       IF ( meanMap%has_key(eventKey) ) THEN
         myBuffer => meanMap%get(eventKey)
         select type (myBuffer)
