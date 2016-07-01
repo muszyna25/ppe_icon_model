@@ -69,7 +69,8 @@ MODULE mo_ocean_physics
     &  LeithBiharmonicViscosity_scaling,                       &
     &  LeithClosure_order,   LeithClosure_form, &
     &  TracerDiffusion_LeithWeight, Salinity_ConvectionRestrict, &
-    &  max_turbulenece_TracerDiffusion_amplification
+    &  max_turbulenece_TracerDiffusion_amplification, &
+    &  ReferencePressureIndbars
 
   USE mo_ocean_physics_state, ONLY: t_ho_params, v_params, WindMixingDecay, WindMixingLevel
    !, l_convection, l_pp_scheme
@@ -1341,7 +1342,8 @@ CONTAINS
         ENDIF
 
         !--------------------------------------------------------
-        pressure(2:levels) = patch_3d%p_patch_1d(1)%depth_CellInterface(jc, 2:levels, blockNo) * OceanReferenceDensity * sitodbar
+        ! pressure in dbars
+        pressure(2:levels) = patch_3d%p_patch_1d(1)%depth_CellInterface(jc, 2:levels, blockNo) * ReferencePressureIndbars 
         z_rho_up(1:levels-1)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,1:levels-1,blockNo,1), &
           & salinity(1:levels-1), pressure(2:levels), levels-1)
         z_rho_down(2:levels)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,2:levels,blockNo,1), &
@@ -1523,7 +1525,8 @@ CONTAINS
         ENDIF
 
         !--------------------------------------------------------
-        pressure(2:levels) = patch_3d%p_patch_1d(1)%depth_CellInterface(jc, 2:levels, blockNo) * OceanReferenceDensity * sitodbar
+        ! pressure in dbars
+        pressure(2:levels) = patch_3d%p_patch_1d(1)%depth_CellInterface(jc, 2:levels, blockNo) * ReferencePressureIndbars
         z_rho_up(1:levels-1)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,1:levels-1,blockNo,1), &
           & salinity(1:levels-1), pressure(2:levels), levels-1)
         z_rho_down(2:levels)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,2:levels,blockNo,1), &
@@ -2051,7 +2054,8 @@ CONTAINS
         !  - S and T taken from upper and lower level, i.e. 2 times calculation of density per layer
 
         !  - old formulation without including z in reference interface level
-        pressure(2:levels) = patch_3d%p_patch_1d(1)%zlev_i(2:levels) * OceanReferenceDensity * sitodbar
+        ! pressure in dbars
+        pressure(2:levels) = patch_3d%p_patch_1d(1)%depth_CellInterface(jc, 2:levels, blockNo) * ReferencePressureIndbars
         rho_up(1:levels-1)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,1:levels-1,blockNo,1), &
           & salinity(1:levels-1), pressure(2:levels), levels-1)
         rho_down(2:levels)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,2:levels,blockNo,1), &

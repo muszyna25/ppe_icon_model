@@ -123,7 +123,7 @@ MODULE mo_ocean_thermodyn
     & r_ak0=8.50935e-5_wp, r_ak1=-6.12293e-6_wp, r_ak2=5.2787e-8_wp, &
     & r_am0=-9.9348e-7_wp, r_am1=2.0816e-8_wp, r_am2=9.1697e-10_wp
 
-  ! for the TESO10 EOS
+  ! for the TEOS10
   ! copied from MOM5.1
   REAL(wp), PARAMETER :: mbfj_rho   = 1.017775176234136d+3
   REAL(wp), PARAMETER :: mbfj_alpha = 2.435473441547041d-4
@@ -503,8 +503,9 @@ CONTAINS
       rho(1:levels) = calculate_density_linear_onColumn( &
         & temperatute(1:levels),  salinity(1:levels), p(1:levels), levels)
     CASE(2)
+      ! pressure for density_mpiom should be in bars 
       rho(1:levels) = calculate_density_mpiom_onColumn( &
-        & temperatute(1:levels),  salinity(1:levels), p(1:levels), levels)
+        & temperatute(1:levels),  salinity(1:levels), p(1:levels)*0.1_wp, levels)
     CASE(3)
       rho(1:levels) = calculate_density_jmdwfg06_onColumn( &
         & temperatute(1:levels),  salinity(1:levels), p(1:levels), levels)
