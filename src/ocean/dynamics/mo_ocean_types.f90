@@ -171,12 +171,21 @@ MODULE mo_ocean_types
       & div_mass_flx_c ,& !
       & u              ,& ! reconstructed zonal velocity component. Unit [m/s]
       & v              ,& ! reconstructed meridional velocity component. Unit [m/s]
+      & w_prismcenter  ,&         
 !       & potential_vort_c ,& ! potential vorticity averaged to triangle cells. Unit [1/s]
       & kin            ,& ! kinetic energy. Unit [m/s].
 !       & div            ,& ! divergence. Unit [m/s]
       & press_hyd      ,& ! hydrostatic pressure. Unit [m]
       & temp_insitu    ,&
-      & t,s ! dummy pointer for output variabless
+      & t,s            ,& ! dummy pointer for output variabless
+      & Buoyancy_Freq  ,&
+      & Richardson_Number,            &
+      & div_of_GMRedi_flux,           &
+      & div_of_GMRedi_flux_horizontal,&
+      & div_of_GMRedi_flux_vertical,  &
+      & div_of_GM_flux,               &
+      & div_of_Redi_flux,             &
+      & vertical_mixing_coeff_GMRedi_implicit
 
     onCells_2D :: &
       & thick_c          ,& ! individual fluid column thickness at cells. Unit [m].
@@ -184,7 +193,10 @@ MODULE mo_ocean_types
       & v_vint           ,& ! barotropic meridional velocity. Unit [m*m/s]
       & mld              ,& ! mixed layer depth [m].
       & condep           ,&! convection depth index
-      & h  ! dummy pointer for output variables
+      & h                ,&! dummy pointer for output variables 
+      & Rossby_Radius    ,&      
+      & Wavespeed_baroclinic
+      
       
     onCells_Type(t_cartesian_coordinates) :: &
       & p_vn              ! reconstructed velocity at cell center in cartesian coordinates
@@ -220,7 +232,8 @@ MODULE mo_ocean_types
       & laplacian_vert ,& ! vertical diffusion of horizontal velocity
       & grad           ,& ! gradient of kinetic energy. Unit [m/s]
       & press_grad     ,& ! hydrostatic pressure gradient term. Unit [m/s]
-      & cfl_horz! ,       & ! horizontal cfl values
+      & cfl_horz       ,& ! horizontal cfl values
+      & zlim         !,& ! zalesak limiter factor
       ! & vn  
       
 !     onEdges_HalfLevels :: &
@@ -315,6 +328,7 @@ MODULE mo_ocean_types
       & rho              ,& ! density. Unit: [kg/m^3]
       & rhopot           ,& ! potential density. Unit: [kg/m^3]
       & div_mass_flx_c   ,& ! divergence of mass flux at cells. Unit [?].
+      & div_of_GMRedi_flux, &
       & kin                 ! kinetic energy. Unit [m/s].
 
     onCells_HalfLevels :: &
@@ -375,7 +389,7 @@ MODULE mo_ocean_types
   END TYPE t_hydro_ocean_acc
   
   !-------------------------------
-  INTEGER, PARAMETER :: max_tracers = 2
+  INTEGER, PARAMETER :: max_tracers = 20
   TYPE t_oce_config
     CHARACTER(LEN=max_char_length) :: tracer_names(max_tracers)
     CHARACTER(LEN=max_char_length) :: tracer_longnames(max_tracers)
