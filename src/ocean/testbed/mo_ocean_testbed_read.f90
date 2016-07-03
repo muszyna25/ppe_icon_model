@@ -194,15 +194,15 @@ CONTAINS
       dummy_patch%n_patch_verts = 2*nproma
 
       dummy_patch%comm_pat_scatter_c => &
-        makeScatterPattern(dummy_patch%n_patch_cells, &
+        makeScatterPattern(1, dummy_patch%n_patch_cells, &
         &                  dummy_patch%cells%decomp_info%glb_index, &
         &                  p_comm_work)
       dummy_patch%comm_pat_scatter_e => &
-        makeScatterPattern(dummy_patch%n_patch_edges, &
+        makeScatterPattern(1, dummy_patch%n_patch_edges, &
         &                  dummy_patch%edges%decomp_info%glb_index, &
         &                  p_comm_work)
       dummy_patch%comm_pat_scatter_v => &
-        makeScatterPattern(dummy_patch%n_patch_verts, &
+        makeScatterPattern(1, dummy_patch%n_patch_verts, &
         &                  dummy_patch%verts%decomp_info%glb_index, &
         &                  p_comm_work)
 

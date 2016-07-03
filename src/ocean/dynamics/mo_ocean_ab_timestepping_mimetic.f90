@@ -66,7 +66,7 @@ MODULE mo_ocean_ab_timestepping_mimetic
   USE mo_exception,                 ONLY: message, finish, warning, message_text
   USE mo_util_dbg_prnt,             ONLY: dbg_print, debug_print_MaxMinMean
   USE mo_ocean_boundcond,           ONLY: VelocityBottomBoundaryCondition_onBlock, top_bound_cond_horz_veloc
-  USE mo_ocean_thermodyn,           ONLY: calculate_density, calc_internal_press, calc_internal_press_grad
+  USE mo_ocean_thermodyn,           ONLY: calculate_density, calc_internal_press_grad
   USE mo_ocean_physics_types,       ONLY: t_ho_params
   USE mo_ocean_pp_scheme,           ONLY: update_physics_parameters_ICON_PP_Edge_vnPredict_scheme
   USE mo_sea_ice_types,             ONLY: t_sfc_flx

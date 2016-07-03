@@ -29,12 +29,12 @@ MODULE mo_ocean_thermodyn
   !-------------------------------------------------------------------------
   USE mo_kind,                ONLY: wp
   USE mo_ocean_nml,           ONLY: n_zlev, eos_type, no_tracer, fast_performance_level,l_partial_cells, &
-    & LinearThermoExpansionCoefficient, OceanReferenceDensity, OceanReferenceDensity_inv, ReferencePressureIndbars
+    & LinearThermoExpansionCoefficient, LinearHalineContractionCoefficient,OceanReferenceDensity
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
   USE mo_impl_constants,      ONLY: sea_boundary, sea_boundary, min_dolic !, &
   USE mo_exception,           ONLY: finish
   USE mo_loopindices,         ONLY: get_indices_c!, get_indices_e, get_indices_v
-  USE mo_physical_constants,  ONLY: grav, sal_ref, b_s, &
+  USE mo_physical_constants,  ONLY: grav, sal_ref, rho_inv,  &
     & sitodbar, sfc_press_bar
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_parallel_config,     ONLY: nproma
@@ -490,7 +490,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
-!<Optimize:inUse>
+  ! pressure is in dbars !
   FUNCTION calculate_density_onColumn(temperatute, salinity, p, levels) result(rho)
     INTEGER,  INTENT(in)       :: levels
     REAL(wp), INTENT(in)       :: temperatute(1:levels)
@@ -581,7 +581,7 @@ CONTAINS
 !            IF(patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
               rho(jc,jk,jb) = OceanReferenceDensity          &
                 & - LinearThermoExpansionCoefficient * tracer(jc,jk,jb,1)   &
-                & + b_s * tracer(jc,jk,jb,2)
+                & + LinearHalineContractionCoefficient * tracer(jc,jk,jb,2)
               !write(123,*)'density',jk,jc,jb,OceanReferenceDensity, tracer(jc,jk,jb,1),&
               ! &tracer(jc,jk,jb,2),rho(jc,jk,jb), a_T, b_S
 !            ELSE
@@ -604,7 +604,8 @@ CONTAINS
         DO jc = start_index, end_index
           DO jk=1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
 !            IF(patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-              rho(jc,jk,jb) = OceanReferenceDensity - LinearThermoExpansionCoefficient * tracer(jc,jk,jb,1) + b_s * sal_ref
+              rho(jc,jk,jb) = OceanReferenceDensity - LinearThermoExpansionCoefficient * tracer(jc,jk,jb,1) &
+              &+ LinearHalineContractionCoefficient * sal_ref
               !write(123,*)'density',jk,jc,jb,rho(jc,jk,jb), tracer(jc,jk,jb,1),a_T
 !            ELSE
 !              rho(jc,jk,jb) = OceanReferenceDensity   !  plotting purpose
@@ -825,7 +826,8 @@ CONTAINS
     REAL(wp),INTENT(in) :: p     !  pressure is unused
     REAL(wp)            :: rho   !< density
 
-    rho = OceanReferenceDensity - LinearThermoExpansionCoefficient * t  + b_s * s
+    rho = OceanReferenceDensity - LinearThermoExpansionCoefficient * t  &
+    &+ LinearHalineContractionCoefficient * s
 
   END FUNCTION density_linear_function
   !---------------------------------------------------------------------------
@@ -845,7 +847,8 @@ CONTAINS
     REAL(wp),INTENT(in) :: p(1:levels)     !  pressure is unused
     REAL(wp)            :: rho(1:levels)   !< density
 
-    rho(1:levels) = OceanReferenceDensity - LinearThermoExpansionCoefficient * t(1:levels)  + b_s * s(1:levels)
+    rho(1:levels) = OceanReferenceDensity - LinearThermoExpansionCoefficient * t(1:levels) &
+    & + LinearHalineContractionCoefficient * s(1:levels)
 
   END FUNCTION calculate_density_linear_onColumn
   !---------------------------------------------------------------------------

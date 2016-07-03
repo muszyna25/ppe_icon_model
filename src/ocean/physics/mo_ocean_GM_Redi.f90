@@ -33,8 +33,11 @@ MODULE mo_ocean_GM_Redi
     & k_tracer_GM_kappa_parameter,&
     & GMRedi_configuration,GMRedi_combined, GM_only,Redi_only,Cartesian_Mixing, &
     & tapering_scheme,tapering_DanaMcWilliams,tapering_Large,tapering_Griffies, &
-    & S_max, S_d, S_critical, c_speed, GMRedi_usesRelativeMaxSlopes, eos_type!,            &
-    ! & OceanReferenceDensity_inv
+    & S_max, S_d, S_critical, c_speed, GMRedi_usesRelativeMaxSlopes,            &
+    & RossbyRadius_max, RossbyRadius_min,switch_off_diagonal_vert_expl,         &
+    & GMREDI_COMBINED_DIAGNOSTIC,GM_INDIVIDUAL_DIAGNOSTIC,REDI_INDIVIDUAL_DIAGNOSTIC,&
+    &TEST_MODE_REDI_ONLY,TEST_MODE_GM_ONLY
+    
 
   USE mo_util_dbg_prnt,             ONLY: dbg_print
   USE mo_parallel_config,           ONLY: nproma
@@ -44,7 +47,7 @@ MODULE mo_ocean_GM_Redi
   USE mo_model_domain,              ONLY: t_patch, t_patch_3d
   USE mo_exception,                 ONLY: finish !, message_text, message
   USE mo_ocean_boundcond,           ONLY: top_bound_cond_tracer
-  USE mo_ocean_physics
+  USE mo_ocean_physics_types,       ONLY: t_ho_params 
   USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
   USE mo_sync,                      ONLY: sync_patch_array_mult, sync_c, sync_e!, sync_patch_array
@@ -92,23 +95,12 @@ CONTAINS
     TYPE(t_ho_params),                 INTENT(inout) :: param
     TYPE(t_operator_coeff),            INTENT(inout) :: op_coeff
         
-!     TYPE(t_cartesian_coordinates) :: taper_off_diagonal_vert(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)    
-!     TYPE(t_cartesian_coordinates) :: taper_off_diagonal_horz(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-!     REAL(wp)                      :: taper_diagonal_horz(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-!     REAL(wp)                      :: taper_diagonal_vert_expl(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)    
-!     REAL(wp)                      :: taper_diagonal_vert_impl(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)           
    !-------------------------------------------------------------------------------
 
     CALL calc_neutral_slopes(patch_3d, ocean_state, param, op_coeff)
 
     CALL calc_tapering_function(patch_3d, ocean_state)
     
-!    CALL calc_tapering(patch_3d, ocean_state, param, &
-!                    & taper_diagonal_horz,           &
-!                    & taper_diagonal_vert_expl,      &
-!                    & taper_diagonal_vert_impl,      &
-!                    & taper_off_diagonal_horz,       &
-!                    & taper_off_diagonal_vert  )
      
   END SUBROUTINE prepare_ocean_physics
   !-------------------------------------------------------------------------
@@ -170,7 +162,6 @@ CONTAINS
   !!
   !<Optimize:inUse>
   SUBROUTINE calc_combined_GentMcWilliamsRedi_flux(patch_3d, ocean_state, param, op_coeff,&
-  !&taper_off_diagonal_vert,taper_off_diagonal_horz,taper_diagonal_horz,taper_diagonal_vert_expl,taper_diagonal_vert_impl,&
     &GMredi_flux_horz, GMredi_flux_vert, tracer_index)
     TYPE(t_patch_3d ),TARGET, INTENT(inout)  :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET        :: ocean_state
@@ -189,7 +180,6 @@ CONTAINS
     TYPE(t_cartesian_coordinates) :: flux_vec_horz_center(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     TYPE(t_cartesian_coordinates),POINTER :: tracer_gradient_horz_vec_center(:,:,:), slopes(:,:,:)
     REAL(wp), POINTER :: tracer_gradient_vert_center(:,:,:)
-!     REAL(wp), POINTER :: slopes_squared(:,:,:)!K_I(:,:,:), K_D(:,:,:), kappa(:,:,:)  
 
     TYPE(t_cartesian_coordinates)            :: taper_off_diagonal_vert(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)    
     TYPE(t_cartesian_coordinates)            :: taper_off_diagonal_horz(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
@@ -204,13 +194,17 @@ CONTAINS
     edges_in_domain => patch_2D%edges%in_domain 
     slopes          => ocean_state%p_aux%slopes 
 
-    !K_I           => param%k_tracer_isoneutral
-    !K_D           => param%k_tracer_dianeutral
-    !kappa         => param%k_tracer_GM_kappa
-!     slopes_squared=> ocean_state%p_aux%slopes_squared
     
     start_level=1
-   
+    IF(TEST_MODE_REDI_ONLY.OR.TEST_MODE_GM_ONLY)THEN
+    CALL selective_GMRedi(patch_3d, ocean_state, param, &
+                    & taper_diagonal_horz,           &
+                    & taper_diagonal_vert_expl,      &
+                    & taper_diagonal_vert_impl,      &
+                    & taper_off_diagonal_horz,       &
+                    & taper_off_diagonal_vert,       &
+                    & tracer_index )
+    ELSE
     CALL calc_tapering(patch_3d, ocean_state, param, &
                     & taper_diagonal_horz,           &
                     & taper_diagonal_vert_expl,      &
@@ -218,7 +212,7 @@ CONTAINS
                     & taper_off_diagonal_horz,       &
                     & taper_off_diagonal_vert,       &
                     & tracer_index )
-                    
+    ENDIF                
     IF(no_tracer<=2)THEN
 
       IF(tracer_index==1)THEN
@@ -245,7 +239,7 @@ CONTAINS
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)      
         DO cell_index = start_cell_index, end_cell_index
  
-          !horizontal GMRedi Flux at top layer
+          !horizontal GMRedi Flux at top layer: with the tapering this is the just horizontal diffusion
           DO level = start_level, MIN(patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo),start_level)
             flux_vec_horz_center(cell_index,start_level,blockNo)%x &
               &=taper_diagonal_horz(cell_index,start_level,blockNo) &
@@ -255,7 +249,7 @@ CONTAINS
 !               &=taper_diagonal_vert_expl(cell_index,start_level,blockNo)&
 !               &*tracer_gradient_vert_center(cell_index,start_level,blockNo)
 
-!             ! the top level flux_vert_center will be filled from the second level, if it exists
+!            ! the top level flux_vert_center will be filled from the second level, if it exists
              flux_vert_center(cell_index,start_level,blockNo) = 0.0_wp
           ENDDO
 
@@ -263,18 +257,22 @@ CONTAINS
           
             !horizontal GM-Redi Flux
             flux_vec_horz_center(cell_index,level,blockNo)%x &
-              &=taper_diagonal_horz(cell_index,level,blockNo)  &
-              &*tracer_gradient_horz_vec_center(cell_index,level,blockNo)%x&
+              &=taper_diagonal_horz(cell_index,level,blockNo)*  &
+              &tracer_gradient_horz_vec_center(cell_index,level,blockNo)%x&
+              !the second term vanishes if GM-Kappa=isoneutral diffusion
               &+taper_off_diagonal_horz(cell_index,level,blockNo)%x&
               &*tracer_gradient_vert_center(cell_index,level,blockNo)
               
-            !vertical GM-Redi Flux (this part is explicit in time)
+            !vertical GM-Redi Flux: this is the part that is explicit in time
+            !If namelist option "switch_off_diagonal_vert_expl=TRUE" the
+            !first (diagonal) term is set to zero. Default option "switch_off_diagonal_vert_expl=FALSE"
+            !Second term contains isoneutral and GM components
             flux_vert_center(cell_index,level,blockNo)= &
               &taper_diagonal_vert_expl(cell_index,level,blockNo)&
-              &*(tracer_gradient_vert_center(cell_index,level,blockNo)&
+              &*tracer_gradient_vert_center(cell_index,level,blockNo)&
               &+&
               &Dot_Product(tracer_gradient_horz_vec_center(cell_index,level,blockNo)%x,&
-              &            taper_off_diagonal_vert(cell_index,level,blockNo)%x))
+              &            taper_off_diagonal_vert(cell_index,level,blockNo)%x)
                 
           END DO
           ! fill the top level flux_vert_center from the second level, if it exists
@@ -285,31 +283,27 @@ CONTAINS
       END DO
 !ICON_OMP_END_DO_PARALLEL
 
-!   IF(tracer_index==2)THEN
-!      Do level=1,5!n_zlev
-!      write(0,*)'GMR',level,&
-!      &maxval(tracer_gradient_vert_center(:,level,:)),minval(tracer_gradient_vert_center(:,level,:)),&
-!      &maxval(slopes_squared(:,level,:)),minval(slopes_squared(:,level,:)),&
-!      &maxval(K_I(:,:,:) * slopes_squared),minval(K_I(:,:,:) * slopes_squared)
-!      END DO
-!    ENDIF
+    !Map the (explicit) vertical tracer flux to the prsim top (where the vertical divergence is calculated later)
+    CALL map_scalar_center2prismtop(patch_3d, flux_vert_center, op_coeff,GMredi_flux_vert)
 
-      CALL dbg_print('Old vert coeff: A_v', param%a_tracer_v(:,:,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
-
-      !Interpolate the tapered coefficient for the vertical tracer flux that is handled 
-      !implicitely in time from prism center to prism top. 
+      
+      ! now we treat the vertical isoneutral flux that is discretized implicitely in time.
+      ! 
+      !1.) Interpolate the tapered coefficient for the vertical tracer flux from prism center to prism top: 
+      !this is the diagonal part that is handled implicitely in time  
       CALL map_scalar_center2prismtop( patch_3d, &
         &                              taper_diagonal_vert_impl,&
-        &                              op_coeff,           &
-        &                              mapped_vertical_diagonal_impl)!param%a_tracer_v(:,:,:, tracer_index))
-
-!         param%a_tracer_v(:,:,:, tracer_index)=param%a_tracer_v(:,:,:, tracer_index) + &
-!           & mapped_vertical_diagonal_impl(:,:,:)
-!         param%a_tracer_v(:,:,:, tracer_index)=max(param%a_tracer_v(:,:,:, tracer_index),mapped_vertical_diagonal_impl).
-
-
+        &                              op_coeff,                &
+        &                              ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit)        
+      !  &                              mapped_vertical_diagonal_impl)!param%a_tracer_v(:,:,:, tracer_index))
       !
-      !Here we combine the vertical GMRedicoefficient that is treated implicitely (mapped_vertical_diagonal_impl, this
+      Do level=1,n_zlev
+      !CALL dbg_print('Old vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
+      CALL dbg_print('Old vert coeff: A_v', ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit,&
+      & this_mod_name, 4, patch_2D%cells%in_domain)
+      End do
+      !
+      !2.) Here we combine the vertical GMRedicoefficient that is treated implicitely (mapped_vertical_diagonal_impl, this
       !term involves the slopes-squared times the isopycnal mixing coefficient and is potentially large, therefore
       !it is discretized implicitely) with the vertical mixing coefficient from the PP-scheme. 
       !We follow the approach in POP, where these two contributions are added
@@ -321,39 +315,38 @@ CONTAINS
         DO cell_index = start_cell_index, end_cell_index
           DO level = start_level, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
             param%a_tracer_v(cell_index,level,blockNo, tracer_index) =                &
-             & param%a_tracer_v(cell_index,level,blockNo, tracer_index) + &
-             & mapped_vertical_diagonal_impl(cell_index,level,blockNo)
+             & 1.0E-05+&!param%a_tracer_v(cell_index,level,blockNo, tracer_index) + &
+             & ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit(cell_index,level,blockNo)
           END DO                  
         END DO                
       END DO
 !ICON_OMP_END_DO_PARALLEL
-
-      CALL dbg_print('New vert coeff: A_v', param%a_tracer_v(:,:,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
-! !      Do level=1,4!n_zlev
-! !      write(0,*)'New vert coeff',tracer_index,level,maxval(param%a_tracer_v(:,level,:, tracer_index)),&
-! !      &minval(param%a_tracer_v(:,level,:, tracer_index)),maxval(K_I(:,level,:)),&
-! !      &minval(K_I(:,level,:))
-! !      END DO
-   
-    !Map the (explicit) vertical tracer flux to the prsim top (where the vertical divergence is calculated later)
-    CALL map_scalar_center2prismtop(patch_3d, flux_vert_center, op_coeff,GMredi_flux_vert)
-
+     Do level=1,n_zlev
+      CALL dbg_print('New vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
+      !CALL dbg_print('New vert coeff: A_v', &
+      !&ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit(:,level,:),&
+      !& this_mod_name, 4, patch_2D%cells%in_domain)
+     END DO 
+        
+    !Map the explicit horizontal tracer flux from cell centers to edges (where the horizontal divergence is calculated)
+    !
     ! use a vector communicator
     CALL sync_patch_array_mult(sync_c, patch_2D, 3, &
         & flux_vec_horz_center(:,:,:)%x(1), flux_vec_horz_center(:,:,:)%x(2), flux_vec_horz_center(:,:,:)%x(3))
-
-        
-    !Map the explicit horizontal tracer flux from cell centers to edges (where the horizontal divergence is calculated)
+    !    
     CALL map_cell2edges_3D( patch_3D,flux_vec_horz_center, GMredi_flux_horz, op_coeff)
       
       
     !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('InGMRedi: GMRedi_vert',GMredi_flux_vert(:,:,:),&
+    Do level=1,n_zlev
+    idt_src=1  ! output print level (1-5, fix)
+    CALL dbg_print('InGMRedi: GMRedi_vert',GMredi_flux_vert(:,level,:),&
     & str_module, idt_src, in_subset=cells_in_domain)
-    CALL dbg_print('InGMRedi: GMRedi_horz',GMredi_flux_horz(:,:,:),&
-    & str_module, idt_src, in_subset=cells_in_domain)
-
+    END DO
+    Do level=1,n_zlev
+    CALL dbg_print('InGMRedi: GMRedi_horz',GMredi_flux_horz(:,level,:),&
+    & str_module, idt_src, in_subset=edges_in_domain)
+    END DO
     !---------------------------------------------------------------------
     
 !      CALL sync_patch_array(sync_e, patch_2D, GMredi_flux_horz(:,:,:))
@@ -365,18 +358,9 @@ CONTAINS
   ENDIF
 
    ! for debugging
-!    GMredi_flux_vert(:,:,:) = 0.0_wp
+   ! GMredi_flux_vert(:,:,:) = 0.0_wp
 
 
-!   Do level=1,n_zlev
-!   write(0,*)'Horz/vert GMREDI flux',tracer_index,level,&
-!   &maxval(GMredi_flux_horz(:,level,:)),minval(GMredi_flux_horz(:,level,:)),&
-!   &maxval(GMredi_flux_vert(:,level,:)),minval(GMredi_flux_vert(:,level,:))
-!   END DO
-  
-!   Do level=1,n_zlev
-!   write(0,*)'VERT GMREDI flux',tracer_index,level,maxval(GMredi_flux_vert(:,level,:)),minval(GMredi_flux_vert(:,level,:))
-!   END DO
 
   END SUBROUTINE calc_combined_GentMcWilliamsRedi_flux
   !-------------------------------------------------------------------------
@@ -525,18 +509,21 @@ CONTAINS
     idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('calc_slopes: grad_T_horz',grad_T_horz,&
       & str_module,idt_src, in_subset=edges_in_domain)
+    IF(no_tracer>=2)THEN  
     CALL dbg_print('calc_slopes: grad_S_horz',grad_S_horz,&
       & str_module,idt_src, in_subset=edges_in_domain)
-
+    ENDIF
 !    CALL sync_patch_array(sync_c, patch_2D, grad_T_vert)       
 !    IF(no_tracer>=2)   CALL sync_patch_array(sync_c, patch_2D, grad_S_vert)   
 
    !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
     CALL dbg_print('neutral_slopes: grad_T_vert',grad_T_vert,&
-      & str_module,idt_src, in_subset=cells_in_domain)      
+      & str_module,idt_src, in_subset=cells_in_domain)
+    IF(no_tracer>=2)THEN        
     CALL dbg_print('neutral_slopes: grad_S_vert',grad_S_vert,&
-      & str_module,idt_src, in_subset=cells_in_domain)      
+      & str_module,idt_src, in_subset=cells_in_domain) 
+    ENDIF       
   !---------------------------------------------------------------------   
    
     !2) map horizontal and vertial derivative to cell centered vector
@@ -609,30 +596,49 @@ CONTAINS
         IF (no_tracer==2) THEN
           DO level = start_level+1, end_level-1
               
-              ocean_state%p_aux%slopes(cell_index,level,blockNo)%x &
-                & = -( neutral_coeff(level,1) * grad_T_vec(cell_index,level,blockNo)%x + &
-                &      neutral_coeff(level,2) * grad_S_vec(cell_index,level,blockNo)%x)  &           
-                &   / (neutral_coeff(level,1) * grad_T_vert_center(cell_index,level,blockNo)+ &
-                &      neutral_coeff(level,2) * grad_S_vert_center(cell_index,level,blockNo)-dbl_eps)
+            ocean_state%p_aux%slopes(cell_index,level,blockNo)%x &
+              & = -( neutral_coeff(level,1) * grad_T_vec(cell_index,level,blockNo)%x + &
+              &      neutral_coeff(level,2) * grad_S_vec(cell_index,level,blockNo)%x)  &           
+              &   / (neutral_coeff(level,1) * grad_T_vert_center(cell_index,level,blockNo)+ &
+              &      neutral_coeff(level,2) * grad_S_vert_center(cell_index,level,blockNo)-dbl_eps)
 
-              ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)=&
-                & DOT_PRODUCT(ocean_state%p_aux%slopes(cell_index,level,blockNo)%x,&
+            ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)=&
+              & DOT_PRODUCT(ocean_state%p_aux%slopes(cell_index,level,blockNo)%x,&
                            &ocean_state%p_aux%slopes(cell_index,level,blockNo)%x)
-            END DO
-      
+          END DO
+          !
+          !Perform nearest neighbor interpolation at level where slopes are not well-defined
+!           ocean_state%p_aux%slopes(cell_index,start_level,blockNo)%x &
+!           &= ocean_state%p_aux%slopes(cell_index,start_level+1,blockNo)%x   
+!             
+!           ocean_state%p_aux%slopes(cell_index,end_level,blockNo)%x &
+!           &= ocean_state%p_aux%slopes(cell_index,end_level-1,blockNo)%x    
+            
         ELSEIF(no_tracer==1)THEN
     
           DO level = start_level+1, end_level-1
           
+              !ocean_state%p_aux%slopes(cell_index,level,blockNo)%x                      &
+              ! & = - (neutral_coeff(level,1) * grad_T_vec(cell_index,level,blockNo)%x)  &
+              ! &    /(neutral_coeff(level,1) * grad_T_vert_center(cell_index,level,blockNo)-dbl_eps)
+ 
               ocean_state%p_aux%slopes(cell_index,level,blockNo)%x                      &
-               & = - (neutral_coeff(level,1) * grad_T_vec(cell_index,level,blockNo)%x)  &
-               &    /(neutral_coeff(level,1) * grad_T_vert_center(cell_index,level,blockNo)-dbl_eps)
+               & = - grad_T_vec(cell_index,level,blockNo)%x  &
+               &    /(grad_T_vert_center(cell_index,level,blockNo)-dbl_eps)
+ 
             
               ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)=&
                & DOT_PRODUCT(ocean_state%p_aux%slopes(cell_index,level,blockNo)%x,&
                          &ocean_state%p_aux%slopes(cell_index,level,blockNo)%x)
-
           END DO
+          !
+          !Perform nearest neighbor interpolation at level where slopes are not well-defined
+!           ocean_state%p_aux%slopes(cell_index,start_level,blockNo)%x &
+!           &= ocean_state%p_aux%slopes(cell_index,start_level+1,blockNo)%x   
+!             
+!           ocean_state%p_aux%slopes(cell_index,end_level,blockNo)%x &
+!           &= ocean_state%p_aux%slopes(cell_index,end_level-1,blockNo)%x    
+          
         ENDIF
           
       END DO ! cell_index = start_cell_index, end_cell_index
@@ -664,19 +670,20 @@ CONTAINS
 
   !---------------------------------------------------------------------
   !---------DEBUG DIAGNOSTICS-------------------------------------------
-  idt_src=4  ! output print level (1-5, fix)
-  CALL dbg_print('calc_slopes: squared',(ocean_state%p_aux%slopes_squared(:,:,:)),&
-    & str_module,idt_src, in_subset=cells_in_domain)
-!   DO level=1,n_zlev
-!     CALL dbg_print('calc_slopes: squared',(ocean_state%p_aux%slopes_squared(:,level,:)),&
-!       & str_module,idt_src, in_subset=cells_in_domain)
-!   END DO
+  idt_src=1  ! output print level (1-5, fix)
+ ! CALL dbg_print('calc_slopes: squared',(ocean_state%p_aux%slopes_squared(:,:,:)),&
+ !   & str_module,idt_src, in_subset=cells_in_domain)
+   DO level=1,n_zlev
+     CALL dbg_print('calc_slopes: slobe abs',sqrt(ocean_state%p_aux%slopes_squared(:,level,:)),&
+       & str_module,idt_src, in_subset=cells_in_domain)
+   END DO
 
   !---------------------------------------------------------------------
 
-!   DO level= start_level+1, end_level-1  
-!   write(*,*)'max-min SLOPE squared',level,maxval(ocean_state%p_aux%slopes_squared(:,level,:)),&
-!   & minval(ocean_state%p_aux%slopes_squared(:,level,:))
+!   DO level= 1, n_zlev  
+!   write(0,*)'max-min vert deriv',level,maxval(grad_T_vert_center(:,level,:)),&
+!   & minval(grad_T_vert_center(:,level,:)),maxval(grad_S_vert_center(:,level,:)),&
+!   & minval(grad_S_vert_center(:,level,:))
 !   END DO
 
   END SUBROUTINE calc_neutral_slopes
@@ -713,6 +720,8 @@ CONTAINS
     cells_in_domain => patch_2D%cells%in_domain 
     start_level=1
     inv_S_d = 1.0_wp / S_d
+    
+    
     !-------------------------------------------------------------------------------
 !ICON_OMP_PARALLEL   
     IF (GMRedi_usesRelativeMaxSlopes) THEN
@@ -732,14 +741,18 @@ CONTAINS
               cell_max_slope      = S_max  &
                 & * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo) &
                 & * inv_cell_characteristic_length
-              cell_critical_slope = S_critical &
-                & * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo) &
-                & * inv_cell_characteristic_length
+              !cell_max_slope      = S_max*SQRT(patch_2D%cells%area(cell_index,blockNo))&
+              !& / patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo)
+
+              !cell_critical_slope = S_critical &
+              !  & * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo) &
+              !  & * inv_cell_characteristic_length
+                
               slope_abs = sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo))
 
               IF(slope_abs <= cell_max_slope)THEN
                 ocean_state%p_aux%taper_function_1(cell_index,level,blockNo) &
-                  &= 0.5_wp*(1.0_wp + tanh((cell_critical_slope - slope_abs)*inv_S_d))
+                  &= 0.5_wp*(1.0_wp + tanh((cell_max_slope - slope_abs)*inv_S_d))
               ELSE
                 ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)=0.0_wp
               ENDIF
@@ -748,6 +761,7 @@ CONTAINS
           ENDIF
         END DO
       END DO
+
 !ICON_OMP_END_DO
     ELSE! not GMRedi_usesRelativeMaxSlopes
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level, slope_abs, inv_cell_characteristic_length, &
@@ -764,12 +778,12 @@ CONTAINS
           IF(end_level >= min_dolic) THEN
 
             DO level = start_level, end_level
-
-              slope_abs = sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo))
-
+            
+             slope_abs    = sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo))           
+              
               IF(slope_abs <= cell_max_slope)THEN
                 ocean_state%p_aux%taper_function_1(cell_index,level,blockNo) &
-                  &= 0.5_wp*(1.0_wp + tanh((cell_critical_slope - slope_abs)*inv_S_d))
+                  &= 0.5_wp*(1.0_wp + tanh((cell_max_slope - slope_abs)*inv_S_d))
               ELSE
                 ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)=0.0_wp
               ENDIF
@@ -793,6 +807,7 @@ CONTAINS
 
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level, &
 !ICON_OMP Coriolis_abs,lambda,depth_scale,depth) ICON_OMP_DEFAULT_SCHEDULE
+
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
 
@@ -813,9 +828,7 @@ CONTAINS
               ELSE
                 ocean_state%p_aux%taper_function_2(cell_index,level,blockNo) =1.0_wp
               ENDIF
-! write(123,*)'tapering', level,cell_index,blockNo,ocean_state%p_aux%taper_function_1(cell_index,level,blockNo),&
-! & ocean_state%p_aux%taper_function_2(cell_index,level,blockNo),&
-! & ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)            
+
             END DO
           ENDIF
         END DO
@@ -835,12 +848,12 @@ CONTAINS
 ! &minval( ocean_state%p_aux%slopes_squared(:,level,:)) 
 !  End do        
 !  stop
-!     CALL dbg_print('calc_tapering_function: function 1', ocean_state%p_aux%taper_function_1 ,&
-!       & this_mod_name, 3, patch_2D%cells%in_domain)
-!     IF(tapering_scheme/=tapering_DanaMcWilliams) THEN
-!       CALL dbg_print('calc_tapering_function: function 2', ocean_state%p_aux%taper_function_2 ,&
-!       & this_mod_name, 3, patch_2D%cells%in_domain)
-!     ENDIF
+     CALL dbg_print('calc_tapering_fct1:', ocean_state%p_aux%taper_function_1 ,&
+       & this_mod_name, 3, patch_2D%cells%in_domain)
+     IF(tapering_scheme/=tapering_DanaMcWilliams) THEN
+       CALL dbg_print('calc_tapering_fct2:', ocean_state%p_aux%taper_function_2 ,&
+       & this_mod_name, 3, patch_2D%cells%in_domain)
+     ENDIF
    
   END SUBROUTINE calc_tapering_function
   !-------------------------------------------------------------------------
@@ -913,21 +926,22 @@ CONTAINS
     !
     !The dianeutral diffusivity is the number determined by the PP-scheme
     K_I           => param%k_tracer_isoneutral
-    K_D           => param%k_tracer_dianeutral ! param%a_tracer_v(:,:,:,tracer_index) ! 
+    K_D           => param%k_tracer_dianeutral !param%a_tracer_v(:,:,:,tracer_index) !  
     kappa         => param%k_tracer_GM_kappa
     !-------------------------------------------------------------------------------
     
     SELECT CASE(tapering_scheme)
 
     CASE(tapering_DanaMcWilliams)
-!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
 
         DO cell_index = start_cell_index, end_cell_index
           end_level = patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
 
-          IF(end_level >= min_dolic) THEN
+!           IF(end_level >= min_dolic) THEN
           
             DO level = start_level, end_level
             
@@ -937,40 +951,78 @@ CONTAINS
               
               !coefficients for horizontal fluxes
               taper_diagonal_horz(cell_index,level,blockNo)  &
-              & = &!ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)*&
+              & =&! ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)*&
               &   K_I(cell_index,level,blockNo)
 
               taper_off_diagonal_horz(cell_index,level,blockNo)%x&
-              & = ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)&
-              & *(K_I(cell_index,level,blockNo)-kappa(cell_index,level,blockNo))&
-              &*ocean_state%p_aux%slopes(cell_index,level,blockNo)%x
+              & = (K_I(cell_index,level,blockNo)-kappa(cell_index,level,blockNo))&
+              &*ocean_state%p_aux%slopes(cell_index,level,blockNo)%x&
+              &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)
 
               !coefficients for vertical fluxes
               taper_off_diagonal_vert(cell_index,level,blockNo)%x&
-              &= (K_I(cell_index,level,blockNo)+kappa(cell_index,level,blockNo))&                
-              & *ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)&
+              &= (K_I(cell_index,level,blockNo)+kappa(cell_index,level,blockNo))&
+              &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)&                
               &*ocean_state%p_aux%slopes(cell_index,level,blockNo)%x
 
-              taper_diagonal_vert_expl(cell_index,level,blockNo)  &
-              &=K_D(cell_index,level,blockNo)*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)
               
               taper_diagonal_vert_impl(cell_index,level,blockNo)  &              
               &=K_I(cell_index,level,blockNo)&
               &*ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)&
               &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)
-
-              
-! write(123,*)'data',taper_diagonal_vert_impl(cell_index,level,blockNo),&
-! &ocean_state%p_aux%slopes_squared(cell_index,level,blockNo),&
-! &ocean_state%p_aux%taper_function_1(cell_index,level,blockNo),&
-! &(K_I(cell_index,level,blockNo)*ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)&
-! &+K_D(cell_index,level,blockNo)),&
-! Dot_Product(ocean_state%p_aux%slopes(cell_index,level,blockNo)%x,ocean_state%p_aux%slopes(cell_index,level,blockNo)%x)
+!IF(level<=5)THEN              
+!write(12345,*)'v-impl:h-diag',level,taper_diagonal_vert_impl(cell_index,level,blockNo),&
+!              &ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)&
+!              &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo),&
+!              &ocean_state%p_aux%slopes_squared(cell_index,level,blockNo),&
+!              &ocean_state%p_aux%taper_function_1(cell_index,level,blockNo) 
+!ENDIF              
             END DO
-          ENDIF
+!           ENDIF
         END DO
       END DO
-!ICON_OMP_END_PARALLEL_DO
+!ICON_OMP_END_DO
+
+      IF(switch_off_diagonal_vert_expl)THEN
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE
+        DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+          CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+
+          DO cell_index = start_cell_index, end_cell_index
+            end_level = patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
+
+!             IF(end_level >= min_dolic) THEN
+          
+              DO level = start_level, end_level
+                taper_diagonal_vert_expl(cell_index,level,blockNo)=0.0_wp
+              END DO
+!             ENDIF
+          END DO
+        END DO      
+!ICON_OMP_END_DO
+      ELSEIF(.NOT.switch_off_diagonal_vert_expl)THEN
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE
+       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+          CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+
+          DO cell_index = start_cell_index, end_cell_index
+            end_level = patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
+
+!             IF(end_level >= min_dolic) THEN
+          
+              DO level = start_level, end_level
+      
+                taper_diagonal_vert_expl(cell_index,level,blockNo)  &
+                &=K_D(cell_index,level,blockNo)&
+                &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)
+               END DO
+!               ENDIF
+            END DO
+          END DO
+!ICON_OMP_END_DO
+        
+      ENDIF      
+!ICON_OMP_END_PARALLEL
       
 ! Do level=start_level,end_level
 ! write(*,*)'max/min',level,&
@@ -1008,29 +1060,56 @@ CONTAINS
               &*ocean_state%p_aux%taper_function_2(cell_index,level,blockNo)&
               &*ocean_state%p_aux%slopes(cell_index,level,blockNo)%x
 
-              taper_diagonal_vert_expl(cell_index,level,blockNo)  &
-              &=K_D(cell_index,level,blockNo)!!*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)
               
               taper_diagonal_vert_impl(cell_index,level,blockNo)  &              
               &=K_I(cell_index,level,blockNo)&
               &*ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)&
               &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)&
               &*ocean_state%p_aux%taper_function_2(cell_index,level,blockNo)
-                           
-
-! write(123,*)'data',taper_diagonal_vert_impl(cell_index,level,blockNo),&
-! &ocean_state%p_aux%slopes_squared(cell_index,level,blockNo),&
-! &ocean_state%p_aux%taper_function_1(cell_index,level,blockNo),&
-! &(K_I(cell_index,level,blockNo)*ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)&
-! &+K_D(cell_index,level,blockNo)),&
-! Dot_Product(ocean_state%p_aux%slopes(cell_index,level,blockNo)%x,ocean_state%p_aux%slopes(cell_index,level,blockNo)%x)
-              
+ 
             END DO
           ENDIF
         END DO
       END DO
 !ICON_OMP_END_PARALLEL_DO
-              
+! !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE     
+      IF(switch_off_diagonal_vert_expl)THEN
+        DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+          CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+
+          DO cell_index = start_cell_index, end_cell_index
+            end_level = patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
+
+            IF(end_level >= min_dolic) THEN
+          
+              DO level = start_level, end_level
+                taper_diagonal_vert_expl(cell_index,level,blockNo)=0.0_wp
+              END DO
+            ENDIF
+          END DO
+        END DO      
+      ELSEIF(.NOT.switch_off_diagonal_vert_expl)THEN
+       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+          CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+
+          DO cell_index = start_cell_index, end_cell_index
+            end_level = patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
+
+            IF(end_level >= min_dolic) THEN
+          
+              DO level = start_level, end_level
+      
+                taper_diagonal_vert_expl(cell_index,level,blockNo)  &
+                &=K_D(cell_index,level,blockNo)&
+                &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)
+               END DO
+              ENDIF
+            END DO
+          END DO
+        
+      ENDIF      
+! !ICON_OMP_END_PARALLEL_DO
+               
 
     CASE(tapering_Griffies)
     CALL finish(TRIM('mo_ocean_GM_Redi'), 'The tapering option = tapering_Griffies is not supported yet')    
@@ -1092,13 +1171,289 @@ CONTAINS
 !     CALL sync_patch_array(sync_c, patch_2D,K_I)
 !     CALL sync_patch_array(sync_c, patch_2D,K_D)
 !     CALL sync_patch_array(sync_c, patch_2D,kappa)
-      
-    CALL dbg_print('apply_tapering: vert diag expl', taper_diagonal_vert_expl , this_mod_name, 3, patch_2D%cells%in_domain)
-    CALL dbg_print('apply_tapering: vert off-diag impl', taper_diagonal_vert_impl , this_mod_name, 3, patch_2D%cells%in_domain)
-    CALL dbg_print('apply_tapering: horz diag', taper_diagonal_horz , this_mod_name, 3, patch_2D%cells%in_domain)
-   
+Do level=1,n_zlev
+    CALL dbg_print('apply_tapering: vert diag expl', taper_diagonal_vert_expl(:,level,:),&
+    & this_mod_name, 1, patch_2D%cells%in_domain)
+END DO    
+Do level=1,n_zlev
+    CALL dbg_print('apply_tapering: vert diag impl', taper_diagonal_vert_impl(:,level,:),&
+    & this_mod_name, 1, patch_2D%cells%in_domain)
+END DO
+Do level=1,n_zlev    
+    CALL dbg_print('apply_tapering: horz diag', taper_diagonal_horz(:,level,:),&
+    & this_mod_name, 1, patch_2D%cells%in_domain)
+END DO   
   END SUBROUTINE calc_tapering
   !-------------------------------------------------------------------------
+  
+  
+  
+  
+  
+  
+   !-------------------------------------------------------------------------
+  !
+  !>
+  !!
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2014).
+  !!
+!<Optimize:inUse>
+  SUBROUTINE selective_GMRedi(patch_3d, ocean_state, param,taper_diagonal_horz,taper_diagonal_vert_expl,&
+    & taper_diagonal_vert_impl, taper_off_diagonal_horz, taper_off_diagonal_vert,tracer_index )
+    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
+    TYPE(t_ho_params),                 INTENT(inout) :: param
+    REAL(wp), INTENT(inout)                          :: taper_diagonal_horz(:,:,:)
+    REAL(wp), INTENT(inout)                          :: taper_diagonal_vert_expl(:,:,:)        
+    REAL(wp), INTENT(inout)                          :: taper_diagonal_vert_impl(:,:,:)    
+    TYPE(t_cartesian_coordinates), INTENT(inout)     :: taper_off_diagonal_horz(:,:,:)
+    TYPE(t_cartesian_coordinates), INTENT(inout)     :: taper_off_diagonal_vert(:,:,:) 
+    INTEGER                                          :: tracer_index   
+    
+    
+    !Local variables
+    INTEGER :: start_cell_index, end_cell_index, cell_index,level,start_level,end_level, blockNo
+    INTEGER :: start_edge_index, end_edge_index, je     
+    TYPE(t_subset_range), POINTER :: cells_in_domain!,edges_in_domain
+    TYPE(t_patch), POINTER :: patch_2D    
+    REAL(wp), POINTER :: K_I(:,:,:), K_D(:,:,:), kappa(:,:,:)
+    REAL(wp)           :: geometric_scale, geometric_scale_factor_GMR
+    !-------------------------------------------------------------------------------
+    patch_2D        => patch_3d%p_patch_2d(1)
+    cells_in_domain => patch_2D%cells%in_domain 
+    start_level=1
+    !-------------------------------------------------------------------------------
+
+    !-------------------------------------------------------------------------------
+    !
+    !The dianeutral diffusivity is the number determined by the PP-scheme
+    K_I           => param%k_tracer_isoneutral
+    K_D           => param%k_tracer_dianeutral !param%a_tracer_v(:,:,:,tracer_index) !  
+    kappa         => param%k_tracer_GM_kappa
+    !-------------------------------------------------------------------------------
+    
+    SELECT CASE(tapering_scheme)
+
+    CASE(tapering_DanaMcWilliams)
+    
+    
+    IF(TEST_MODE_GM_ONLY)THEN
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE
+      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+
+        DO cell_index = start_cell_index, end_cell_index
+          end_level = patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
+
+!           IF(end_level >= min_dolic) THEN
+          
+            DO level = start_level, end_level
+            
+              !Following recommendations in Griffies Ocean Climate Model book (sect. 15.3.4.2)
+              !Danabasoglou-McWilliams tapering is for horizontal flux only applied to
+              !off-diagonal terms
+              
+              !coefficients for horizontal fluxes: horizontal diffusion is retained here !
+              taper_diagonal_horz(cell_index,level,blockNo)  &
+              & =&! ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)*&
+              &   K_I(cell_index,level,blockNo)
+
+              taper_off_diagonal_horz(cell_index,level,blockNo)%x&
+              & =(-kappa(cell_index,level,blockNo))&
+              &*ocean_state%p_aux%slopes(cell_index,level,blockNo)%x&
+              &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)
+
+              !coefficients for vertical fluxes
+              taper_off_diagonal_vert(cell_index,level,blockNo)%x&
+              &= (kappa(cell_index,level,blockNo))&
+              &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)&                
+              &*ocean_state%p_aux%slopes(cell_index,level,blockNo)%x
+
+              !implicit part of vertical diffusion due to GM is here set to zero.
+              !The implicit part due to PP-scheme is retained.
+              taper_diagonal_vert_impl(cell_index,level,blockNo)  &              
+              &=0.0_wp!
+              
+              taper_diagonal_vert_expl(cell_index,level,blockNo)=0.0_wp
+            END DO
+!           ENDIF
+        END DO
+      END DO
+!ICON_OMP_END_DO
+
+!ICON_OMP_END_PARALLEL
+     ELSEIF(TEST_MODE_REDI_ONLY)THEN
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE
+      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+
+        DO cell_index = start_cell_index, end_cell_index
+          end_level = patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
+
+!           IF(end_level >= min_dolic) THEN
+          
+            DO level = start_level, end_level
+            
+              !Following recommendations in Griffies Ocean Climate Model book (sect. 15.3.4.2)
+              !Danabasoglou-McWilliams tapering is for horizontal flux only applied to
+              !off-diagonal terms
+              
+              !coefficients for horizontal fluxes: horizontal diffusion is untapered.
+              taper_diagonal_horz(cell_index,level,blockNo)  &
+              & =&! ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)*&
+              &   K_I(cell_index,level,blockNo)
+
+              taper_off_diagonal_horz(cell_index,level,blockNo)%x&
+              & = (K_I(cell_index,level,blockNo))&
+              &*ocean_state%p_aux%slopes(cell_index,level,blockNo)%x&
+              &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)
+
+              !coefficients for vertical fluxes
+              taper_off_diagonal_vert(cell_index,level,blockNo)%x&
+              &= (K_I(cell_index,level,blockNo))&
+              &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)&                
+              &*ocean_state%p_aux%slopes(cell_index,level,blockNo)%x
+
+              
+              taper_diagonal_vert_impl(cell_index,level,blockNo)  &              
+              &=K_I(cell_index,level,blockNo)&
+              &*ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)&
+              &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)
+              
+            END DO
+!           ENDIF
+        END DO
+      END DO
+!ICON_OMP_END_DO
+
+      IF(switch_off_diagonal_vert_expl)THEN
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE
+        DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+          CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+
+          DO cell_index = start_cell_index, end_cell_index
+            end_level = patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
+
+!             IF(end_level >= min_dolic) THEN
+          
+              DO level = start_level, end_level
+                taper_diagonal_vert_expl(cell_index,level,blockNo)=0.0_wp
+              END DO
+!             ENDIF
+          END DO
+        END DO      
+!ICON_OMP_END_DO
+      ELSEIF(.NOT.switch_off_diagonal_vert_expl)THEN
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE
+       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+          CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+
+          DO cell_index = start_cell_index, end_cell_index
+            end_level = patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
+
+!             IF(end_level >= min_dolic) THEN
+          
+              DO level = start_level, end_level
+      
+                taper_diagonal_vert_expl(cell_index,level,blockNo)  &
+                &=K_D(cell_index,level,blockNo)&
+                &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)
+               END DO
+!               ENDIF
+            END DO
+          END DO
+!ICON_OMP_END_DO
+        
+      ENDIF      
+!ICON_OMP_END_PARALLEL
+     
+     
+        
+     ENDIF
+    CASE(tapering_Large)
+       CALL finish(TRIM('mo_ocean_GM_Redi'), 'The testing mode for LARGE-tapering option is not supported yet')        
+
+    CASE(tapering_Griffies)
+    CALL finish(TRIM('mo_ocean_GM_Redi'), 'The tapering option = tapering_Griffies is not supported yet')    
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level, geometric_scale) ICON_OMP_DEFAULT_SCHEDULE
+      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+
+        DO cell_index = start_cell_index, end_cell_index
+          end_level = patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
+
+          IF(end_level >= min_dolic) THEN
+            geometric_scale=1.0_wp!sqrt(patch_2D%cells%area(cell_index,blockNo))*geometric_scale_factor_GMR
+            DO level = start_level, end_level
+            
+              taper_diagonal_horz(cell_index,level,blockNo)  &
+                &=K_I(cell_index,level,blockNo)
+
+              taper_diagonal_vert_expl(cell_index,level,blockNo)  &
+                &=K_D(cell_index,level,blockNo)              
+
+               taper_diagonal_vert_impl(cell_index,level,blockNo)  &              
+                 &=(K_I(cell_index,level,blockNo)*ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)&
+                 &+K_D(cell_index,level,blockNo))*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)&
+                 &*ocean_state%p_aux%taper_function_2(cell_index,level,blockNo)              
+              
+              taper_off_diagonal_horz(cell_index,level,blockNo)%x&
+                = (K_I(cell_index,level,blockNo)-kappa(cell_index,level,blockNo))&
+                &*ocean_state%p_aux%slopes(cell_index,level,blockNo)%x&
+                &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)&
+                &*ocean_state%p_aux%taper_function_2(cell_index,level,blockNo)
+
+              taper_off_diagonal_vert(cell_index,level,blockNo)%x&
+                = (K_I(cell_index,level,blockNo)+kappa(cell_index,level,blockNo))&
+                &*ocean_state%p_aux%slopes(cell_index,level,blockNo)%x&
+                &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)&
+                &*ocean_state%p_aux%taper_function_2(cell_index,level,blockNo)
+            
+! write(123,*)'data',taper_diagonal_vert_impl(cell_index,level,blockNo),&
+! &ocean_state%p_aux%slopes_squared(cell_index,level,blockNo),&
+! &ocean_state%p_aux%taper_function_1(cell_index,level,blockNo),&
+! &(K_I(cell_index,level,blockNo)*ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)&
+! &+K_D(cell_index,level,blockNo)),&
+! Dot_Product(ocean_state%p_aux%slopes(cell_index,level,blockNo)%x,ocean_state%p_aux%slopes(cell_index,level,blockNo)%x)
+            
+            END DO
+          ENDIF
+        END DO
+      END DO
+!ICON_OMP_END_PARALLEL_DO
+
+    END SELECT
+! Do level=start_level,4!end_level
+! write(*,*)'max/min',level,&
+! & maxval(taper_diagonal_horz(:,level,:)),minval(taper_diagonal_horz(:,level,:)),&
+! & maxval(taper_diagonal_vert_expl(:,level,:)),minval(taper_diagonal_vert_expl(:,level,:)),&
+! & maxval(taper_diagonal_vert_impl(:,level,:)),minval(taper_diagonal_vert_impl(:,level,:)) 
+! END DO
+    
+!     CALL sync_patch_array(sync_c, patch_2D,K_I)
+!     CALL sync_patch_array(sync_c, patch_2D,K_D)
+!     CALL sync_patch_array(sync_c, patch_2D,kappa)
+Do level=1,n_zlev
+    CALL dbg_print('selective_GMRedi: vert diag expl', taper_diagonal_vert_expl(:,level,:),&
+    & this_mod_name, 1, patch_2D%cells%in_domain)
+END DO    
+Do level=1,n_zlev
+    CALL dbg_print('selective_GMRedi: vert off-diag impl', taper_diagonal_vert_impl(:,level,:),&
+    & this_mod_name, 1, patch_2D%cells%in_domain)
+END DO
+Do level=1,n_zlev    
+    CALL dbg_print('selective_GMRedi: horz diag', taper_diagonal_horz(:,level,:),&
+    & this_mod_name, 1, patch_2D%cells%in_domain)
+END DO   
+  END SUBROUTINE selective_GMRedi
+  !-------------------------------------------------------------------------
+  
+   
+  
+  
   
   
   

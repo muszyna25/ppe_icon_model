@@ -50,7 +50,7 @@ MODULE mo_ocean_testbed_vertical_diffusion
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
   USE mo_physical_constants,     ONLY: rhoi, rhos
-  USE mo_ocean_physics_state,    ONLY: t_ho_params
+  USE mo_ocean_physics_types,    ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_var_list,               ONLY: print_var_list
   USE mo_io_restart_attributes,  ONLY: get_restart_attribute
