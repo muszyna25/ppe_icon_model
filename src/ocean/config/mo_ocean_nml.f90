@@ -28,7 +28,7 @@ MODULE mo_ocean_nml
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
   USE mo_io_units,           ONLY: filename_max
-  USE mo_physical_constants, ONLY: a_T, b_S,rho_ref
+  USE mo_physical_constants, ONLY: a_T, b_S,rho_ref, grav, sitodbar
   USE mo_param1_bgc,         ONLY: n_bgctra, ntraad
   USE mo_param1_bgc,         ONLY: n_bgctra, ntraad
 

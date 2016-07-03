@@ -29,8 +29,7 @@ MODULE mo_ocean_boundcond
   USE mo_impl_constants,     ONLY: max_char_length, sea_boundary, sea, min_rlcell, min_dolic
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D
   USE mo_ocean_nml,          ONLY: iswm_oce, i_bc_veloc_top, i_bc_veloc_bot, forcing_smooth_steps, &
-    & forcing_windstress_u_type, OceanReferenceDensity, forcing_windStress_weight, &
-    & windstress_smoothIterations, windstress_smoothWeight
+    & forcing_windstress_u_type, OceanReferenceDensity, forcing_windStress_weight
   USE mo_dynamics_config,    ONLY: nold,nnew
   USE mo_run_config,         ONLY: dtime
   USE mo_exception,          ONLY: message, finish
@@ -356,19 +355,6 @@ CONTAINS
 
     END SELECT
 !ICON_OMP_END_PARALLEL
-
-!     IF (windstress_smoothIterations > 0) THEN
-!       ALLOCATE(smoothed_stress(nproma,patch_2d%alloc_cell_blocks))
-!       DO i=1,windstress_smoothIterations
-! !         CALL message(method_name, "Smoothing initial height...")
-!         old_height = ocean_height
-!         CALL smooth_onCells(patch_3D=patch_3d, &
-!           & in_value=old_height, out_value=ocean_height,  &
-!           & smooth_weights=smooth_initial_height_weights, &
-!           & has_missValue=has_missValue, missValue=missValue)
-!       ENDDO
-!       DEALLOCATE(old_height)
-!     ENDIF
 
     CALL map_cell2edges_3D( patch_3D, ocean_state%p_aux%bc_top_veloc_cc,ocean_state%p_aux%bc_top_vn,p_op_coeff,level=1)
     ! CALL sync_patch_array(SYNC_E, patch_3D%p_patch_2D(1), ocean_state%p_aux%bc_top_vn)
