@@ -364,23 +364,48 @@ MODULE mo_ocean_nml
     &                 l_GRADIENT_RECONSTRUCTION
 
 
-  REAL(wp) :: convection_InstabilityThreshold            = -5.0E-8_wp ! used in update_ho_params
-  REAL(wp) :: RichardsonDiffusion_threshold              =  5.0E-8_wp ! used in update_ho_params
+  ! tracer horizontal diffusion
   REAL(wp) :: Temperature_HorizontalDiffusion_Background = 0.0_wp
   REAL(wp) :: Temperature_HorizontalDiffusion_Reference  = 1.0E+3_wp
   REAL(wp) :: Salinity_HorizontalDiffusion_Background    = 0.0_wp
   REAL(wp) :: Salinity_HorizontalDiffusion_Reference     = 1.0E+3_wp
-  REAL(wp) :: velocity_VerticalDiffusion_background             = 1.0E-3_wp  ! vertical diffusion coefficient
-  REAL(wp) :: k_pot_temp_h          = 1.0E+3_wp  ! horizontal mixing coefficient for pot. temperature
-  REAL(wp) :: k_pot_temp_v          = 1.0E-4_wp  ! vertical mixing coefficient for pot. temperature
-  REAL(wp) :: k_sal_h               = 1.0E+3_wp  ! horizontal diffusion coefficient for salinity
-  REAL(wp) :: k_sal_v               = 1.0E-4_wp  ! vertical diffusion coefficient for salinity
-  REAL(wp) :: MAX_VERT_DIFF_VELOC   = 0.0_wp     ! maximal diffusion coefficient for velocity
-  REAL(wp) :: MAX_VERT_DIFF_TRAC    = 0.0_wp     ! maximal diffusion coefficient for tracer
-  REAL(wp) :: biharmonic_const=0.005_wp !This constant is used in spatially varying biharmoinc velocity diffusion
-                                        !with option HorizontalViscosity_type=3. Constanjt has no physical meaning, just trial and error.
+  INTEGER  :: TracerHorizontalDiffusion_scaling          = 1 ! 1= constant, 5=scale with edge (dual) **3
+  REAL(wp) :: TracerHorizontalDiffusion_ScaleWeight      = 1.0_wp
+  REAL(wp) :: Tracer_HorizontalDiffusion_PTP_coeff       = 1.0E+3_wp  ! horizontal mixing coefficient for ptp 
+
+  REAL(wp) :: TracerDiffusion_LeithWeight = 0.0_wp ! if Leith is active then the Leith coeff*this id added to the tracer diffusion coeff
+  REAL(wp) :: max_turbulenece_TracerDiffusion_amplification = 4.0_wp ! max tracer diffusion amplification from turbulenece on top of the standard one
+
+  ! tracer vertical diffusion
+  INTEGER, PARAMETER  :: physics_parameters_Constant_type   = 0  ! are kept constant over time and are set to the background values; no convection
+  INTEGER, PARAMETER  :: physics_parameters_ICON_PP_type    = 1
+  INTEGER, PARAMETER  :: physics_parameters_MPIOM_PP_type   = 2
+  INTEGER, PARAMETER  :: physics_parameters_ICON_PP_Edge_type    = 3
+  INTEGER, PARAMETER  :: physics_parameters_ICON_PP_Edge_vnPredict_type = 4
+  INTEGER  :: physics_parameters_type = physics_parameters_MPIOM_PP_type
+
+  REAL(wp) :: convection_InstabilityThreshold            = -5.0E-8_wp ! used in update_ho_params
+  REAL(wp) :: RichardsonDiffusion_threshold              =  5.0E-8_wp ! used in update_ho_params
+  REAL(wp) :: Temperature_VerticalDiffusion_background   = 1.0E-4_wp  ! vertical mixing coefficient for pot. temperature
+  REAL(wp) :: Salinity_VerticalDiffusion_background      = 1.0E-4_wp  ! vertical diffusion coefficient for salinity
+  REAL(wp) :: Salinity_ConvectionRestrict = 0.0_wp ! do not change !
+  REAL(wp) :: richardson_tracer     = 0.5E-2_wp  ! see above, valid for tracer instead velocity, see variable z_dv0 in update_ho_params
+  REAL(wp) :: lambda_wind           = 0.05_wp     ! 0.03_wp for 20km omip   !  wind mixing stability parameter, eq. (16) of Marsland et al. (2003)
+  REAL(wp) :: wma_diff              = 5.0e-4_wp  !  wind mixing amplitude for diffusivity
+  REAL(wp) :: wma_visc              = 5.0e-4_wp  !  wind mixing amplitude for viscosity
+  LOGICAL  :: use_wind_mixing = .FALSE.          ! .TRUE.: wind mixing parametrization switched on
+  LOGICAL  :: use_reduced_mixing_under_ice = .TRUE. ! .TRUE.: reduced wind mixing under sea ice in pp-scheme
+  REAL(wp) :: tracer_TopWindMixing   = 2.5E-4_wp
+  REAL(wp) :: velocity_TopWindMixing = 2.5E-4_wp
+  REAL(wp) :: WindMixingDecayDepth  = 40.0
+
+ 
+
+  REAL(wp) :: VerticalViscosity_TimeWeight = 0.0_wp
+  REAL(wp) :: velocity_VerticalDiffusion_background      = 1.0E-3_wp  ! vertical diffusion coefficient
   INTEGER  :: leith_closure = 1       !viscosity calculation for biharmonic operator: =1 pure leith closure, =2 modified leith closure
   REAL(wp) :: leith_closure_gamma = 0.25_wp !dimensionless constant for Leith closure
+
   REAL(wp) :: HorizontalViscosityBackground_Biharmonic = 5.0E12_wp! factor for adjusting the biharmonic diffusion coefficient
                                       !has to be adjusted for each resolution, the bigger this number
                                       !the smaller becomes the effect of biharmonic diffusion.The appropriate
@@ -388,6 +413,10 @@ MODULE mo_ocean_nml
                                       !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
   INTEGER  :: BiharmonicViscosity_scaling = 4
   INTEGER  :: HarmonicViscosity_scaling = 1
+  REAL(wp) :: velocity_RichardsonCoeff      = 0.5E-2_wp  ! Factor with which the richarseon related part of the vertical
+                                                 ! diffusion is multiplied before it is added to the background
+                                                 ! vertical diffusion ! coeffcient for the velocity. See usage in
+                                                 ! mo_ocean_physics.f90, update_ho_params, variable z_av0
   REAL(wp) :: LeithHarmonicViscosity_background = 0.0_wp
   REAL(wp) :: LeithHarmonicViscosity_reference = 3.82E-12_wp
   INTEGER  :: LeithHarmonicViscosity_scaling = 6
@@ -397,38 +426,68 @@ MODULE mo_ocean_nml
   INTEGER  :: LeithClosure_order = 0 ! 1=laplacian, 2= biharmonc, 21 =laplacian+biharmonc
   INTEGER  :: LeithClosure_form = 0  ! 1=vort, 2=vort+div
 !   REAL(wp) :: LeithClosure_gamma = 0.25_wp !dimensionless constant for Leith closure, not used
-  REAL(wp) :: TracerDiffusion_LeithWeight = 0.0_wp ! if Leith is active then the Leith coeff*this id added to the tracer diffusion coeff
-  REAL(wp) :: max_turbulenece_TracerDiffusion_amplification = 4.0_wp ! max tracer diffusion amplification from turbulenece on top of the standard one
   INTEGER  :: HorizontalViscosity_SmoothIterations = 0
   REAL(wp) :: HorizontalViscosity_SpatialSmoothFactor = 0.5_wp
   REAL(wp) :: HorizontalViscosity_ScaleWeight = 0.5_wp
-  REAL(wp) :: VerticalViscosity_TimeWeight = 0.0_wp
-  REAL(wp) :: Salinity_ConvectionRestrict = 0.0_wp
 
-  NAMELIST/ocean_diffusion_nml/&
-    &  HorizontalViscosity_type,    &
-    &  HorizontalViscosity_SmoothIterations,       &
-    &  HorizontalViscosity_SpatialSmoothFactor,    &
-    &  HorizontalViscosityBackground_Biharmonic,   &
-    &  HorizontalViscosity_ScaleWeight,            &
-    &  VerticalViscosity_TimeWeight,  &
-    &  k_pot_temp_h                ,    &
-    &  k_pot_temp_v                ,    &
-    &  k_sal_h                     ,    &
-    &  k_sal_v                     ,    &
-    &  k_veloc_h                   ,    &
-    &  k_veloc_v                   ,    &
-    &  MAX_VERT_DIFF_TRAC          ,    &
-    &  MAX_VERT_DIFF_VELOC         ,    &
+ NAMELIST/ocean_horizontal_diffusion_nml/&
+    & &! define harmonic and biharmonic parameters !
+    &  laplacian_form,                  & ! 1=curlcurl-graddiv, 2=div k  grad
+    &  VelocityDiffusion_order        , & ! 1=harmonic, 2=biharmonic, 21=harmonic+biharmonc
+    &  N_POINTS_IN_MUNK_LAYER         , &
+    &  BiharmonicViscosity_scaling,     & ! the scaling type for the biharmonic viscosity
+    &  HarmonicViscosity_scaling,       & ! the scaling type for the harmonic viscosity
+    &  HarmonicViscosity_background,    & ! the harmonic viscosity background value (not scaled)
+    &  HarmonicViscosity_reference,     & ! the harmonic viscosity parameter for scaling
+    &  BiharmonicViscosity_background,  & ! the biharmonic viscosity background value (not scaled)
+    &  BiharmonicViscosity_reference,   & ! the biharmonic viscosity parameter for scaling
+    &  HorizontalViscosity_SmoothIterations,      & ! smoothing iterations for the scaled viscosity (both harmonic and biharmonic)
+    &  HorizontalViscosity_SpatialSmoothFactor,   & ! the weight of the neigbors during the smoothing
+    & &
+    & &  ! define tracer horizontal diffusion parameters !
+    &  TracerHorizontalDiffusion_scaling,         & ! the scaling type for the  tracer diffusion
+    &  Temperature_HorizontalDiffusion_Background,&
+    &  Temperature_HorizontalDiffusion_Reference, &
+    &  Salinity_HorizontalDiffusion_Background,   &
+    &  Salinity_HorizontalDiffusion_Reference,    &
+    & &
+    & & ! define Leith parameters
+    &  LeithClosure_order,              & ! 1=harmonic, 2=biharmonic, 21=biharmonic+harmonic
+    &  LeithClosure_form,               & ! 1=rotation only, 2=rot+div, 4=rot+div using a div grad harmonic form
+    &  LeithHarmonicViscosity_background,       &
+    &  LeithHarmonicViscosity_reference,        &
+    &  LeithHarmonicViscosity_scaling,          &
+    &  LeithBiharmonicViscosity_background,     &
+    &  LeithBiharmonicViscosity_reference,      &
+    &  LeithBiharmonicViscosity_scaling,        &
+    &  TracerDiffusion_LeithWeight,             &     ! experimental, do not use!
+    &  max_turbulenece_TracerDiffusion_amplification, &  ! experimental, do not use!
+    & &
+    & & ! other
+    & Tracer_HorizontalDiffusion_PTP_coeff
+
+  NAMELIST/ocean_vertical_diffusion_nml/&
+    &  PPscheme_type               ,&         !2=as in MPIOM, 4=used for higher resolutions
+    &  VerticalViscosity_TimeWeight,&         ! timeweight of the vertical viscosity calculated from the previous velocity (valid only with PPscheme_type=4)
+    &  Temperature_VerticalDiffusion_background, &
+    &  Salinity_VerticalDiffusion_background,    &
+    &  velocity_VerticalDiffusion_background,    &
+    &  bottom_drag_coeff           ,&
+    &  velocity_RichardsonCoeff    ,&
+    &  tracer_RichardsonCoeff,      &
+    &  lambda_wind                 ,&
+    &  wma_visc                    ,&
+    &  use_reduced_mixing_under_ice,&
+    &  use_wind_mixing,             &
+    &  tracer_TopWindMixing,        &
+    &  WindMixingDecayDepth,        &
+    &  velocity_TopWindMixing,      &
+    &  tracer_convection_MixingCoefficient ,    &
     &  convection_InstabilityThreshold, &
     &  RichardsonDiffusion_threshold,   &
-    &  leith_closure,                   &
-    &  leith_closure_gamma,             &
-    &  biharmonic_const,                &
     &  Salinity_ConvectionRestrict
 
-  INTEGER :: TracerHorizontalDiffusion_scaling = 1 ! 1= constant, 5=scale with edge (dual) **3
-  REAL(wp) :: TracerHorizontalDiffusion_ScaleWeight = 1.0_wp
+
   !Parameters for GM-Redi configuration
   REAL(wp) :: k_tracer_dianeutral_parameter   = 1.0E-4_wp  !dianeutral tracer diffusivity for GentMcWilliams-Redi parametrization
   REAL(wp) :: k_tracer_isoneutral_parameter   = 600.0_wp  !isoneutral tracer diffusivity for GentMcWilliams-Redi parametrization
@@ -477,109 +536,23 @@ MODULE mo_ocean_nml
     & TEST_MODE_GM_ONLY,              &
     & TEST_MODE_REDI_ONLY 
   
- NAMELIST/ocean_horizontal_diffusion_nml/&
-    & &! define harmonic and biharmonic parameters !
-    &  laplacian_form,                  & ! 1=curlcurl-graddiv, 2=div k  grad
-    &  VelocityDiffusion_order        , & ! 1=harmonic, 2=biharmonic, 21=harmonic+biharmonc
-    &  N_POINTS_IN_MUNK_LAYER         , &
-    &  BiharmonicViscosity_scaling,     & ! the scaling type for the biharmonic viscosity
-    &  HarmonicViscosity_scaling,       & ! the scaling type for the harmonic viscosity
-    &  HarmonicViscosity_background,    & ! the harmonic viscosity background value (not scaled)
-    &  HarmonicViscosity_reference,     & ! the harmonic viscosity parameter for scaling
-    &  BiharmonicViscosity_background,  & ! the biharmonic viscosity background value (not scaled)
-    &  BiharmonicViscosity_reference,   & ! the biharmonic viscosity parameter for scaling
-    &  HorizontalViscosity_SmoothIterations,      & ! smoothing iterations for the scaled viscosity (both harmonic and biharmonic)
-    &  HorizontalViscosity_SpatialSmoothFactor,   & ! the weight of the neigbors during the smoothing
-    & &
-    & &  ! define tracer horizontal diffusion parameters !
-    &  TracerHorizontalDiffusion_scaling,         & ! the scaling type for the  tracer diffusion
-    &  Temperature_HorizontalDiffusion_Background,&
-    &  Temperature_HorizontalDiffusion_Reference, &
-    &  Salinity_HorizontalDiffusion_Background,   &
-    &  Salinity_HorizontalDiffusion_Reference,    &
-    & &
-    & &! GMRedi parameters !
-    &  GMRedi_configuration        ,&
-    &  tapering_scheme             ,&
-    &  GMRedi_usesRelativeMaxSlopes,&
-    &  S_max, S_d, S_critical, c_speed, &
-    &  k_tracer_dianeutral_parameter,   &
-    &  k_tracer_isoneutral_parameter,   &
-    &  k_tracer_GM_kappa_parameter,     &
-    & &
-    & & ! define Leith parameters
-    &  LeithClosure_order,              & ! 1=harmonic, 2=biharmonic, 21=biharmonic+harmonic
-    &  LeithClosure_form,               & ! 1=rotation only, 2=rot+div, 4=rot+div using a div grad harmonic form
-    &  LeithHarmonicViscosity_background,       &
-    &  LeithHarmonicViscosity_reference,        &
-    &  LeithHarmonicViscosity_scaling,          &
-    &  LeithBiharmonicViscosity_background,     &
-    &  LeithBiharmonicViscosity_reference,      &
-    &  LeithBiharmonicViscosity_scaling,        &
-    &  TracerDiffusion_LeithWeight,             &       ! experimental, do not use!
-    &  max_turbulenece_TracerDiffusion_amplification, & ! experimental, do not use!
-    & &
-    & & ! other
-    &  biharmonic_const                 ! obsolete
-
-
-  
-  REAL(wp) :: velocity_RichardsonCoeff      = 0.5E-2_wp  ! Factor with which the richarseon related part of the vertical
-                                                 ! diffusion is multiplied before it is added to the background
-                                                 ! vertical diffusion ! coeffcient for the velocity. See usage in
-                                                 ! mo_ocean_physics.f90, update_ho_params, variable z_av0
-  REAL(wp) :: richardson_tracer     = 0.5E-2_wp  ! see above, valid for tracer instead velocity, see variable z_dv0 in update_ho_params
-  INTEGER, PARAMETER  :: physics_parameters_Constant_type   = 0  ! are kept constant over time and are set to the background values; no convection
-  INTEGER, PARAMETER  :: physics_parameters_ICON_PP_type    = 1
-  INTEGER, PARAMETER  :: physics_parameters_MPIOM_PP_type   = 2
-  INTEGER, PARAMETER  :: physics_parameters_ICON_PP_Edge_type    = 3
-  INTEGER, PARAMETER  :: physics_parameters_ICON_PP_Edge_vnPredict_type = 4
-  INTEGER  :: physics_parameters_type = physics_parameters_MPIOM_PP_type
-  REAL(wp) :: lambda_wind           = 0.05_wp     ! 0.03_wp for 20km omip   !  wind mixing stability parameter, eq. (16) of Marsland et al. (2003)
-  REAL(wp) :: wma_diff              = 5.0e-4_wp  !  wind mixing amplitude for diffusivity
-  REAL(wp) :: wma_visc              = 5.0e-4_wp  !  wind mixing amplitude for viscosity
-  LOGICAL  :: use_wind_mixing = .FALSE.          ! .TRUE.: wind mixing parametrization switched on
-  LOGICAL  :: use_reduced_mixing_under_ice = .TRUE. ! .TRUE.: reduced wind mixing under sea ice in pp-scheme
   REAL(wp) :: LinearThermoExpansionCoefficient = a_T
   REAL(wp) :: LinearHalineContractionCoefficient=b_S
   REAL(wp) :: OceanReferenceDensity = rho_ref
-  REAL(wp) :: tracer_TopWindMixing   = 2.5E-4_wp
-  REAL(wp) :: velocity_TopWindMixing = 2.5E-4_wp
-  REAL(wp) :: WindMixingDecayDepth  = 40.0
   
   ! ist : todo move into different nml
   LOGICAL  :: lhamocc=.FALSE.
   LOGICAL  :: lbgcadv=.FALSE.
-  INTEGER :: nbgctra, nbgcadv 
+  INTEGER  :: nbgctra, nbgcadv 
                                  
   
   NAMELIST/ocean_physics_nml/&
-    &  CWA                         , &
-    &  CWT                         , &
     &  EOS_TYPE                    , &
-    &  N_POINTS_IN_MUNK_LAYER      , &
-    &  bottom_drag_coeff           , &
     &  i_sea_ice                   , &
-    &  physics_parameters_type     , &
-    &  richardson_tracer           , &
-    &  richardson_veloc            , &
-    &  use_convection_parameterization, &
-    &  lambda_wind                 ,&
-    &  wma_visc                    ,&
-    &  use_reduced_mixing_under_ice,&
-    &  use_wind_mixing,             &
     &  LinearThermoExpansionCoefficient,  &
     &  LinearHalineContractionCoefficient,&
     &  OceanReferenceDensity,       &
-    &  tracer_TopWindMixing,        &
-    &  WindMixingDecayDepth,        &
-    &  velocity_TopWindMixing,      &
     &  lhamocc, lbgcadv
-  NAMELIST/ocean_physics_nml/&
-    &  EOS_TYPE                    , &
-    &  i_sea_ice                   , &
-    &  LinearThermoExpansionCoefficient, &
-    &  OceanReferenceDensity
 
   ! ------------------------------------------------------------------------
   ! FORCING {
@@ -639,8 +612,8 @@ MODULE mo_ocean_nml
   REAL(wp) :: atmos_sensw_const                    = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
   REAL(wp) :: atmos_precip_const                   = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
   REAL(wp) :: atmos_evap_const                     = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
-  INTEGER  :: windstress_smoothIterations          = 0
-  REAL(wp) :: windstress_smoothWeight              = 0.0_wp
+!   INTEGER  :: windstress_smoothIterations          = 0
+!   REAL(wp) :: windstress_smoothWeight              = 0.0_wp
                                                               
 
   NAMELIST/ocean_forcing_nml/&
@@ -660,8 +633,8 @@ MODULE mo_ocean_nml
     &                 forcing_windstress_zonalWavePhase   , &
     &                 forcing_windspeed_type              , &
     &                 forcing_windspeed_amplitude         , &
-    &                 windstress_smoothIterations         , &
-    &                 windstress_smoothWeight            , &
+!     &                 windstress_smoothIterations         , &
+!     &                 windstress_smoothWeight            , &
     &                 forcing_HeatFlux_amplitude   , &
     &                 forcing_HeatFlux_base        , &
     &                 iforc_oce                           , &
@@ -829,12 +802,6 @@ MODULE mo_ocean_nml
  !!               Initialization of variables that set up the configuration
  !!               of the ocean using values read from
  !!               namelist 'ocean_nml' and 'octst_nml'.
- !!
- !! @par Revision History
- !!   Modification by Constantin Junk, MPI-M (2010-02-22)
- !!    - separated submethod_name ocean_nml_setup from the original
- !!      setup_run submethod_name (which is moved to mo_run_nml)
- !!
 !<Optimize:inUse>
  SUBROUTINE read_ocean_namelist( filename )
 
@@ -868,7 +835,6 @@ MODULE mo_ocean_nml
     ! maximal diffusion coefficient for tracer used in implicit vertical tracer diffusion,
     !   if stability criterion is met
     tracer_convection_MixingCoefficient  = 100.0_wp * Temperature_VerticalDiffusion_background
-!     max_vert_diff_veloc = 100.0_wp * velocity_VerticalDiffusion_background
 
     !------------------------------------------------------------
     ! 5.0 Read ocean_nml namelist
@@ -936,6 +902,20 @@ MODULE mo_ocean_nml
       IF (my_process_is_stdio()) THEN
         iunit = temp_settings()
         WRITE(iunit, ocean_horizontal_diffusion_nml)    ! write settings to temporary text file
+      END IF
+    END SELECT
+
+    CALL position_nml ('ocean_vertical_diffusion_nml', status=i_status)
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, ocean_vertical_diffusion_nml)    ! write defaults to temporary text file
+    END IF
+    SELECT CASE (i_status)
+    CASE (positioned)
+      READ (nnml, ocean_vertical_diffusion_nml)                            ! overwrite default settings
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, ocean_vertical_diffusion_nml)    ! write settings to temporary text file
       END IF
     END SELECT
 
@@ -1036,9 +1016,9 @@ MODULE mo_ocean_nml
 
     !consistency check for horizontal advection in edge_based configuration
     IF(l_edge_based)THEN
-      CALL message(TRIM(routine),'You are using the EDGE_BASED discretization')
+      CALL message(TRIM(method_name),'You are using the EDGE_BASED discretization')
       IF( flux_calculation_horz > horz_flux_twisted_vec_recon .OR. flux_calculation_horz <upwind ) THEN
-        CALL finish(TRIM(routine), 'wrong parameter for horizontal advection scheme; use 1-5')
+        CALL finish(TRIM(method_name), 'wrong parameter for horizontal advection scheme; use 1-5')
       ENDIF
       !the fct case requires suitable choices of high- and low order fluxes and of limiter
       IF( flux_calculation_horz == horz_flux_twisted_vec_recon) THEN
@@ -1059,15 +1039,15 @@ MODULE mo_ocean_nml
       ENDIF
     !consistency check for horizontal advection in cell_based configuration       
     ELSEIF(.NOT.l_edge_based)THEN
-      CALL message(TRIM(routine),'You are using the CELL_BASED discretization')
+      CALL message(TRIM(method_name),'You are using the CELL_BASED discretization')
       IF( flux_calculation_horz > horz_flux_twisted_vec_recon&
        & .OR. flux_calculation_horz <upwind.OR.flux_calculation_horz==lax_friedrichs ) THEN
-        CALL finish(TRIM(routine), 'wrong parameter for horizontal advection scheme; use 1-5 without 3')
+        CALL finish(TRIM(method_name), 'wrong parameter for horizontal advection scheme; use 1-5 without 3')
       ENDIF     
       IF( flux_calculation_horz == horz_flux_twisted_vec_recon) THEN
         !high and low order flux check
         IF(fct_low_order_flux/=upwind .AND. fct_low_order_flux/=miura_order1)THEN
-          CALL finish(TRIM(routine), 'wrong parameter for low order advection scheme in horizontal fct')
+          CALL finish(TRIM(method_name), 'wrong parameter for low order advection scheme in horizontal fct')
         ENDIF
         !there is no option for high- or low order fluxes in cell_based config, this is all prescribed.
         !a wrong option has no effect.

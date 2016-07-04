@@ -29,7 +29,7 @@ MODULE mo_ocean_tracer_transport_horz
     & upwind, central,lax_friedrichs, horz_flux_twisted_vec_recon, miura_order1, flux_calculation_horz,      &
     & fct_high_order_flux,  fct_low_order_flux,FCT_Limiter_horz, fct_limiter_horz_zalesak,&
     & fct_limiter_horz_minmod, fct_limiter_horz_posdef, l_with_horz_tracer_diffusion, l_with_horz_tracer_advection,&
-    &l_LAX_FRIEDRICHS, l_GRADIENT_RECONSTRUCTION, k_pot_temp_h, tracer_HorizontalAdvection_type, &
+    &l_LAX_FRIEDRICHS, l_GRADIENT_RECONSTRUCTION, Tracer_HorizontalDiffusion_PTP_coeff, tracer_HorizontalAdvection_type, &
     & edge_based, cell_based
   USE mo_util_dbg_prnt,             ONLY: dbg_print
   USE mo_parallel_config,           ONLY: nproma, p_test_run
@@ -469,7 +469,7 @@ CONTAINS
 
         
        DO jk = 1, patch_3D%p_patch_1D(1)%dolic_c(jc,blockNo)
-         flux_vec_horz_center(jc,jk,blockNo)%x=k_pot_temp_h*grad_T_vec_horz(jc,jk,blockNo)%x
+         flux_vec_horz_center(jc,jk,blockNo)%x=Tracer_HorizontalDiffusion_PTP_coeff*grad_T_vec_horz(jc,jk,blockNo)%x
        END DO
      END DO
    END DO

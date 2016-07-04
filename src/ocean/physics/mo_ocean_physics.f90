@@ -46,15 +46,15 @@ MODULE mo_ocean_physics
     & HorizontalViscosity_SmoothIterations,                   &
     & convection_InstabilityThreshold,                        &
     & RichardsonDiffusion_threshold,                          &
-    & lambda_wind, wma_diff, wma_visc,                        &
+    & lambda_wind, wma_visc,                                  &
     & use_reduced_mixing_under_ice,                           &
     & k_tracer_dianeutral_parameter,                          &
     & k_tracer_isoneutral_parameter, k_tracer_GM_kappa_parameter,    &
     & GMRedi_configuration,GMRedi_combined,                   &
     & GM_only,Redi_only,                                      &
-    & laplacian_form, biharmonic_const,                 &
+    & laplacian_form,                                         &
     & HorizontalViscosity_SpatialSmoothFactor,                &
-    & VerticalViscosity_TimeWeight, OceanReferenceDensity,    &
+    & OceanReferenceDensity,                                  &
     & tracer_TopWindMixing, WindMixingDecayDepth,             &
     & velocity_TopWindMixing, TracerHorizontalDiffusion_scaling, &
     &  Temperature_HorizontalDiffusion_Background,            &
@@ -464,11 +464,11 @@ CONTAINS
       !            END DO
       !          END DO
 
-    CASE(12)
+   CASE(12)
       ! Simple scaling of the backgound diffusion by the dual edge length^4
       ! This is meant to be used with the non-uniform grids
       !This follows the MPI-OM convention
-      C_MPIOM = biharmonic_const*dtime/3600.0_wp
+      C_MPIOM = DiffusionReferenceValue*dtime/3600.0_wp
       DO jb = all_edges%start_block, all_edges%end_block
         CALL get_index_range(all_edges, jb, start_index, end_index)
         DO je = start_index, end_index
@@ -480,14 +480,13 @@ CONTAINS
         END DO
       END DO
 
-        p_phys_param%k_tracer_h_back(i) = k_sal_h
-        p_phys_param%a_tracer_v_back(i) = k_sal_v
-       ! CALL finish ('mo_ocean_physics:init_ho_params',  &
-       !   & 'number of tracers exceeds number of background values')
-      ENDIF
-      p_phys_param%k_tracer_h(:,:,:,i) = p_phys_param%k_tracer_h_back(i)
-      p_phys_param%a_tracer_v(:,:,:,i) = p_phys_param%a_tracer_v_back(i)
-    END DO
+    CASE(13)
+      ! Simple scaling of the constant diffusion by prime edge lenght + cell area (estimated)
+      reference_scale = 4.0_wp / (3.0_wp * maxEdgeLength * maxCellArea)
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, start_index, end_index)
+        out_DiffusionCoefficients(:,jb) = 0.0_wp
+        DO je = start_index, end_index
 
           length_scale = &
             & patch_2D%edges%primal_edge_length(je,jb)**2 * patch_2D%edges%dual_edge_length(je,jb) &
@@ -499,7 +498,7 @@ CONTAINS
 
         END DO
       END DO
- 
+
     CASE(14)
       ! Simple scaling of the constant diffusion using the dual edge
       ! this is the default scaling

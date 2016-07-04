@@ -34,15 +34,14 @@ MODULE mo_ocean_pp_scheme
     & tracer_convection_MixingCoefficient,                                     &
     & BiharmonicViscosity_scaling, HarmonicViscosity_scaling, &
     & VelocityDiffusion_order,                                &
-    & n_points_in_munk_layer,                                 &
     & BiharmonicViscosity_reference,                          &
     & tracer_RichardsonCoeff, velocity_RichardsonCoeff,                    &
     & PPscheme_type,                                &
     & PPscheme_Constant_type,                       &
-    & PPscheme_ICON_PP_type,                        &
-    & PPscheme_ICON_PP_Edge_type,                   &
-    & PPscheme_ICON_PP_Edge_vnPredict_type,         &
-    & PPscheme_MPIOM_PP_type,                       &
+    & PPscheme_ICON_type,                        &
+    & PPscheme_ICON_Edge_type,                   &
+    & PPscheme_ICON_Edge_vnPredict_type,         &
+    & PPscheme_MPIOM_type,                       &
     & use_wind_mixing,                                        &
     & HorizontalViscosity_SmoothIterations,                   &
     & convection_InstabilityThreshold,                        &
@@ -53,7 +52,7 @@ MODULE mo_ocean_pp_scheme
     & k_tracer_isoneutral_parameter, k_tracer_GM_kappa_parameter,    &
     & GMRedi_configuration,GMRedi_combined,                   &
     & GM_only,Redi_only,                                      &
-    & laplacian_form, biharmonic_const,                 &
+    & laplacian_form,                                         &
     & HorizontalViscosity_SpatialSmoothFactor,                &
     & VerticalViscosity_TimeWeight, OceanReferenceDensity,    &
     & tracer_TopWindMixing, WindMixingDecayDepth,             &
@@ -119,16 +118,7 @@ MODULE mo_ocean_pp_scheme
   INTEGER :: idt_src       = 1               ! Level of detail for 1 line debug
 
   PUBLIC :: update_PP_scheme
-!   PUBLIC :: update_physics_parameters_ICON_PP_scheme
-!   PUBLIC :: update_physics_parameters_ICON_PP_Edge_vnPredict_scheme
-!   PUBLIC :: update_physics_parameters_ICON_PP_Edge_scheme
-!   PUBLIC :: update_physics_parameters_ICON_PP_Tracer
-!   PUBLIC :: update_physics_parameters_MPIOM_PP_scheme
-  
-  !TYPE(t_ho_params),PUBLIC,TARGET :: v_params  
-!  REAL(wp), POINTER :: WindAmplitude_at10m(:,:)  ! can be single precision
-!  REAL(wp), POINTER :: SeaIceConcentration(:,:)
-!  REAL(wp), POINTER :: WindMixingDecay(:), WindMixingLevel(:)
+
 
 CONTAINS
 
@@ -160,18 +150,18 @@ CONTAINS
       IF (ltimer) CALL timer_stop(timer_upd_phys)
       RETURN
 
-    CASE (PPscheme_ICON_PP_type)
-      CALL update_PhysicsParameters_ICON_PP_scheme(patch_3d, ocean_state, params_oce)
+    CASE (PPscheme_ICON_type)
+      CALL ICON_PP_scheme(patch_3d, ocean_state, params_oce)
 
-    CASE (PPscheme_MPIOM_PP_type)
-      CALL update_PhysicsParameters_MPIOM_PP_scheme(patch_3d, ocean_state, fu10, concsum, params_oce)
+    CASE (PPscheme_MPIOM_type)
+      CALL MPIOM_PP_scheme(patch_3d, ocean_state, fu10, concsum, params_oce)
 
-    CASE (PPscheme_ICON_PP_Edge_type)
-      CALL update_PhysicsParameters_ICON_PP_Edge_scheme(patch_3d, ocean_state, params_oce)
+    CASE (PPscheme_ICON_Edge_type)
+      CALL ICON_PP_Edge_scheme(patch_3d, ocean_state, params_oce)
 
-    CASE (PPscheme_ICON_PP_Edge_vnPredict_type)
+    CASE (PPscheme_ICON_Edge_vnPredict_type)
 !       CALL update_PhysicsParameters_ICON_PP_Tracer(patch_3d, ocean_state)
-      CALL update_PhysicsParameters_ICON_PP_Edge_scheme(patch_3d, ocean_state, params_oce)
+      CALL ICON_PP_Edge_scheme(patch_3d, ocean_state, params_oce)
       ! the velovity friction will be updated during dynamics
 
     CASE default
@@ -198,7 +188,7 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011-02)
   !<Optimize:inUse:done>
-  SUBROUTINE update_PhysicsParameters_ICON_PP_scheme(patch_3d, ocean_state, params_oce) !, calculate_density_func)
+  SUBROUTINE ICON_PP_scheme(patch_3d, ocean_state, params_oce) !, calculate_density_func)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
@@ -369,18 +359,18 @@ CONTAINS
 !ICON_OMP_END_PARALLEL
 !     IF (ltimer) CALL timer_stop(timer_extra11)
 
-  END SUBROUTINE update_PhysicsParameters_ICON_PP_scheme
+  END SUBROUTINE ICON_PP_scheme
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
-  !! As in the update_PhysicsParameters_ICON_PP_scheme, but
+  !! As in the ICON_PP_scheme, but
   !! velocity gradients for the vertical viscocity are clculated on edges
   !!
   !! @par Revision History
   !! Initial release by Leonidas Linardakis, MPI-M (2011-02)
   !<Optimize:inUse:done>
-  SUBROUTINE update_PhysicsParameters_ICON_PP_Edge_scheme(patch_3d, ocean_state, params_oce) !, calculate_density_func)
+  SUBROUTINE ICON_PP_Edge_scheme(patch_3d, ocean_state, params_oce) !, calculate_density_func)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
@@ -595,14 +585,14 @@ CONTAINS
 !ICON_OMP_END_PARALLEL
 !     IF (ltimer) CALL timer_stop(timer_extra11)
 
-  END SUBROUTINE update_PhysicsParameters_ICON_PP_Edge_scheme
+  END SUBROUTINE ICON_PP_Edge_scheme
   !-------------------------------------------------------------------------
 
 
 
   !-------------------------------------------------------------------------
   !>
-  !! As in the update_PhysicsParameters_ICON_PP_scheme, but
+  !! As in the ICON_PP_scheme, but
   !! velocity gradients for the vertical viscocity are clculated on edges
   !!
   !! @par Revision History
@@ -698,7 +688,7 @@ CONTAINS
 
 !   !-------------------------------------------------------------------------
 !   !>
-!   !! As in the update_PhysicsParameters_ICON_PP_scheme, but
+!   !! As in the ICON_PP_scheme, but
 !   !! velocity gradients for the vertical viscocity are calculated on edges
 !   !!
 !   !! @par Revision History
@@ -864,7 +854,7 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011-02)
 !<Optimize:inUse>
-  SUBROUTINE update_PhysicsParameters_MPIOM_PP_scheme(patch_3d, ocean_state, fu10, concsum, params_oce) !, calculate_density_func)
+  SUBROUTINE MPIOM_PP_scheme(patch_3d, ocean_state, fu10, concsum, params_oce) !, calculate_density_func)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in)  :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET     :: ocean_state
@@ -1232,7 +1222,7 @@ CONTAINS
 !       & in_subset=p_patch%edges%owned)
     !---------------------------------------------------------------------
 
-  END SUBROUTINE update_PhysicsParameters_MPIOM_PP_scheme
+  END SUBROUTINE MPIOM_PP_scheme
   !-------------------------------------------------------------------------
 
 

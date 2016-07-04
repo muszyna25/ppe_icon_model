@@ -32,20 +32,19 @@ MODULE mo_ocean_physics_state
     & no_tracer,                                    &
     & BiharmonicViscosity_scaling, HarmonicViscosity_scaling, &
     & VelocityDiffusion_order,                                &
-    & n_points_in_munk_layer,                                 &
     & BiharmonicViscosity_reference,                          &
     & HorizontalViscosity_SmoothIterations,                   &
     & convection_InstabilityThreshold,                        &
     & RichardsonDiffusion_threshold,                          &
-    & lambda_wind, wma_diff, wma_visc,                        &
+    & lambda_wind, wma_visc,                                  &
     & use_reduced_mixing_under_ice,                           &
     & k_tracer_dianeutral_parameter,                          &
     & k_tracer_isoneutral_parameter, k_tracer_GM_kappa_parameter,    &
     & GMRedi_configuration,GMRedi_combined,                   &
     & GM_only,Redi_only,                                      &
-    & laplacian_form, biharmonic_const,                 &
+    & laplacian_form,                                         &
     & HorizontalViscosity_SpatialSmoothFactor,                &
-    & VerticalViscosity_TimeWeight, OceanReferenceDensity,    &
+    & OceanReferenceDensity,    &
     & tracer_TopWindMixing, WindMixingDecayDepth,             &
     & velocity_TopWindMixing, TracerHorizontalDiffusion_scaling, &
     &  Temperature_HorizontalDiffusion_Background,            &

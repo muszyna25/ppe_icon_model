@@ -27,9 +27,8 @@ MODULE mo_ocean_physics_types
   !-------------------------------------------------------------------------
   USE mo_kind,                ONLY: wp
   USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_v,        &
-    & k_pot_temp_h, k_sal_v, no_tracer,&
+    & no_tracer,                                              &
     & HorizontalViscosity_type, veloc_diffusion_order,        &
-    & n_points_in_munk_layer,                                 &
     & HorizontalViscosityBackground_Biharmonic,               &
     & richardson_tracer, richardson_veloc,                    &
     & physics_parameters_type,                                &
@@ -43,16 +42,16 @@ MODULE mo_ocean_physics_types
     & convection_InstabilityThreshold,                        &
     & RichardsonDiffusion_threshold,                          &
     & use_convection_parameterization,                        &
-    & lambda_wind, wma_diff, wma_visc,                        &
+    & lambda_wind, wma_visc,                                  &
     & use_reduced_mixing_under_ice,                           &
     & k_tracer_dianeutral_parameter,                          &
     & k_tracer_isoneutral_parameter, k_tracer_GM_kappa_parameter,    &
     & GMRedi_configuration,GMRedi_combined,                   &
     & GM_only,Redi_only,                                      &
     & leith_closure, leith_closure_gamma,                     & 
-    & veloc_diffusion_form, biharmonic_const,                 &
+    & veloc_diffusion_form,                                   &
     & HorizontalViscosity_SpatialSmoothFactor,                &
-    & VerticalViscosity_TimeWeight, OceanReferenceDensity,    &
+    & OceanReferenceDensity,                                  &
     & HorizontalViscosity_ScaleWeight,                        &
     & tracer_TopWindMixing, WindMixingDecayDepth,             &
     & velocity_TopWindMixing
