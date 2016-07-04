@@ -600,6 +600,11 @@ MODULE mo_impl_constants
 
   REAL(WP), PARAMETER, PUBLIC :: BOUNDARY_MISSVAL = -999.e-10
 
+  ! The lon-lat parameterization of the torus is 
+  !    (lon,lat) = [0, 2*pi] x [-max_lat, max_lat]
+  ! where max_lat := pi/180 = 10 degrees 
+  ! (hard-coded in the torus grid generator)
+  REAL(wp), PARAMETER :: TORUS_MAX_LAT = 4._wp / 18._wp * ATAN(1._wp)
 
 !--------------------------------------------------------------------
 END MODULE mo_impl_constants

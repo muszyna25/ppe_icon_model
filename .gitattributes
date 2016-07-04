@@ -260,6 +260,10 @@ doc/technical/icondoc_fig1.pdf -text svneol=unset#unset
 doc/technical/icondoc_fig2.pdf -text
 doc/technical/radiation_variables.pdf -text
 doc/technical/radiation_variables.tex -text
+doc/technical/torus.pdf -text
+doc/technical/torus_grid.pdf -text
+doc/technical/torus_grid.tex -text
+doc/technical/torus_plane.pdf -text
 doc/technical/transport_arlists.tex -text
 doc/userguide/Makefile -text
 doc/userguide/authorlist.tex -text
@@ -2006,6 +2010,7 @@ src/testcases/mo_ldf_test.f90 -text
 src/testcases/mo_mrw_test.f90 -text
 src/testcases/mo_ncar_testcases.f90 -text
 src/testcases/mo_nh_ape_exp.f90 -text
+src/testcases/mo_nh_bb13_exp.f90 -text
 src/testcases/mo_nh_dcmip_bw.f90 -text
 src/testcases/mo_nh_dcmip_gw.f90 -text
 src/testcases/mo_nh_dcmip_hadley.f90 -text

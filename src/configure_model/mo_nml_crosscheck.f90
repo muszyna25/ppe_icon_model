@@ -374,6 +374,17 @@ CONTAINS
 
     END SELECT
 
+    ! Limited area mode must not be enabled for torus grid:
+    IF (is_plane_torus .AND. l_limited_area) THEN
+      CALL finish(method_name, 'Plane torus grid requires l_limited_area = .FALSE.!')
+    END IF
+
+    ! Root bisection "0" does not make sense for limited area mode; it
+    ! is more likely that the user tried to use a torus grid here:
+    IF (l_limited_area .AND. (nroot == 0)) THEN
+      CALL finish(method_name, "Root bisection 0 does not make sense for limited area mode; did you try to use a torus grid?")
+    END IF
+
     !--------------------------------------------------------------------
     ! If ltestcase is set to .FALSE. in run_nml set testcase name to empty
     ! (in case it is still set in the run script)
