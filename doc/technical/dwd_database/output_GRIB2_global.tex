@@ -158,14 +158,14 @@ are needed as input by the wave models.}
 
 
 % --------------------------------------------------------------------------------
-\subsection{Time-constant (external parameter) fields}
+\subsection{Time-constant (external parameter) fields}\label{sec_const_outfields}
 % --------------------------------------------------------------------------------
 
 Table \ref{table_constdb} provides an overview of the available time invariant fields. They are available from the database category 
 \texttt{CAT\_NAME=\$model\_\tblu{const}\_\tblu{an}\_\$suite}. As mentioned in Section \ref{section:extpar}, \texttt{DEPTH\_LK}, 
-\texttt{HSURF}, \texttt{FR\_LAND}, \texttt{FR\_LAKE} and \texttt{Z0} are modified by ICON. Thus, the latter should not be taken from 
-the \emph{const\_an} database category, unless you definitely know what you are doing. For convenience, the modified invariant fields 
-(and some more) are stored in the \emph{forecast} database categories for step $s[h]=0$ 
+\texttt{HSURF}, \texttt{FR\_LAND}, \texttt{FR\_LAKE} and \texttt{Z0} are modified by ICON. Thus, the latter should 
+not be taken from the \emph{const\_an} database category, unless you definitely know what you are doing. For convenience, the 
+modified invariant fields (and some more) are stored in the \emph{forecast} database categories for step $s[h]=0$ 
 (\texttt{CAT\_NAME=\$model\_\$run\_\tblu{fc}\_\$suite}). Table \ref{table_init_output} provides a list of all fields which are exclusively 
 written for $s[h]=0$.
 
