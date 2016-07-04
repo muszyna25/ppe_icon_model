@@ -107,6 +107,17 @@ MODULE mo_ocean_nml
                                             ! i_bc_veloc_bot =1 : bottom boundary friction
                                             ! i_bc_veloc_bot =2 : bottom friction plus topographic
                                             !                     slope (not implemented yet)
+  ! Parameters for tracer transport scheme
+  !
+  !identifiers for different modes of updating the tracer state (substep
+  INTEGER, PARAMETER :: use_none    = 0
+  INTEGER, PARAMETER :: use_all     = 32767    ! =7FFF
+
+  INTEGER, PARAMETER :: cell_based    = 1
+  INTEGER, PARAMETER :: edge_based    = 2
+
+  INTEGER :: tracer_update_mode = use_all
+  INTEGER :: tracer_HorizontalAdvection_type = cell_based
 
   !Options for non-linear corilois term in vector invariant velocity equations
   INTEGER, PARAMETER :: no_coriolis                   = 0
@@ -347,6 +358,7 @@ MODULE mo_ocean_nml
     &                 threshold_max_T              , &
     &                 threshold_min_S              , &
     &                 threshold_min_T              , &
+    &                 tracer_update_mode           , &
     &                 tracer_HorizontalAdvection_type, &
     &                 l_LAX_FRIEDRICHS             , &
     &                 l_GRADIENT_RECONSTRUCTION

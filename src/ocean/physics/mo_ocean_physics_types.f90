@@ -27,8 +27,7 @@ MODULE mo_ocean_physics_types
   !-------------------------------------------------------------------------
   USE mo_kind,                ONLY: wp
   USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_v,        &
-    & k_pot_temp_h, k_pot_temp_v, k_sal_h, k_sal_v, no_tracer,&
-    & max_vert_diff_veloc, max_vert_diff_trac,                &
+    & k_pot_temp_h, k_sal_v, no_tracer,&
     & HorizontalViscosity_type, veloc_diffusion_order,        &
     & n_points_in_munk_layer,                                 &
     & HorizontalViscosityBackground_Biharmonic,               &

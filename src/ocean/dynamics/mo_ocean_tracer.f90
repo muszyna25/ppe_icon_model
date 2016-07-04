@@ -28,7 +28,7 @@ MODULE mo_ocean_tracer
     & threshold_min_t, threshold_max_t, threshold_min_s, threshold_max_s, &
     & type_3dimrelax_temp, para_3dimrelax_temp,                           &
     & type_3dimrelax_salt, para_3dimrelax_salt,                           &
-    & iswm_oce, l_edge_based,             &
+    & iswm_oce,                 use_none,                                 &
     & flux_calculation_horz, flux_calculation_vert, miura_order1,         &
     & l_with_vert_tracer_diffusion, l_with_vert_tracer_advection,         &
     & GMRedi_configuration,GMRedi_combined,  GM_only,Redi_only ,          &
@@ -96,7 +96,7 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: cells_in_domain
     TYPE(t_patch), POINTER :: patch_2D
     !-------------------------------------------------------------------------------
-    IF(tracer_update_mode == NoTracerAdvectionDiffusion) THEN
+    IF(tracer_update_mode == use_none ) THEN
       DO tracer_index = 1, no_tracer
         CALL copy_individual_tracer_ab( patch_3d,            &
           & p_os%p_prog(nold(1))%ocean_tracers(tracer_index), &
