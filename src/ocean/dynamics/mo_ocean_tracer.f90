@@ -33,7 +33,7 @@ MODULE mo_ocean_tracer
     & l_with_vert_tracer_diffusion, l_with_vert_tracer_advection,         &
     & GMRedi_configuration,GMRedi_combined,  GM_only,Redi_only ,          &
     & Cartesian_Mixing, tracer_threshold_min, tracer_threshold_max,       &
-    & namelist_tracer_name, nbgcadv,                                      &
+    & namelist_tracer_name, tracer_update_mode, use_none, nbgcadv,        &
     & GMREDI_COMBINED_DIAGNOSTIC,GM_INDIVIDUAL_DIAGNOSTIC,REDI_INDIVIDUAL_DIAGNOSTIC
   USE mo_util_dbg_prnt,             ONLY: dbg_print
   USE mo_parallel_config,           ONLY: nproma
@@ -143,7 +143,7 @@ CONTAINS
         & p_os%p_aux%bc_top_tracer(:,:,tracer_index),       &
         & p_os%p_aux%bc_bot_tracer(:,:,tracer_index),       &
         & p_param,                                          &
-        & p_param%k_tracer_h(:,:,:,TracerDiffusion_coeff_index),          &
+        & p_param%TracerDiffusion_coeff(:,:,:,TracerDiffusion_coeff_index),          &
         & p_param%a_tracer_v(:,:,:,TracerDiffusion_coeff_index),          &
         & p_os%p_prog(nnew(1))%ocean_tracers(tracer_index), &
         & tracer_index )

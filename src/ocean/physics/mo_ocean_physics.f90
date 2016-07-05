@@ -104,6 +104,7 @@ MODULE mo_ocean_physics
   USE mo_ocean_pp_scheme,     ONLY: update_PP_scheme
   USE mo_ocean_physics_types, ONLY: t_ho_params, v_params, &
    & WindMixingDecay, WindMixingLevel
+  USE mo_ocean_diffusion,     ONLY: veloc_diff_harmonic_div_grad
   
 
   IMPLICIT NONE
