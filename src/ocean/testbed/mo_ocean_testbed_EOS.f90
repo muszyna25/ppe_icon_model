@@ -19,7 +19,8 @@ MODULE mo_ocean_testbed_EOS
   !-------------------------------------------------------------------------
   USE mo_kind,                   ONLY: wp, sp
   USE mo_exception,              ONLY: message, message_text, finish
-  USE mo_ocean_thermodyn,        ONLY: calculate_density_jmdwfg06_onColumn, calculate_density_mpiom_onColumn, convert_insitu2pot_temp_func
+  USE mo_ocean_thermodyn,        ONLY: calculate_density_jmdwfg06_onColumn, calculate_density_mpiom_onColumn, &
+    & convert_insitu2pot_temp_func
   USE mo_physical_constants,     ONLY: grav, sal_ref, b_s, &
     & sitodbar, sfc_press_bar
   USE mo_ocean_nml,              ONLY: OceanReferenceDensity, ReferencePressureIndbars
@@ -39,13 +40,14 @@ CONTAINS
 
     INTEGER, PARAMETER :: temperature_size = 14
 !     REAL(wp) :: temperature(temperature_size) = (/-1.7_wp, -1.5_wp, -1.2_wp, -1.0_wp, -0.8_wp, -0.6_wp, -0.4_wp, -0.2_wp, 0.0_wp, 0.2_wp, 0.4_wp, 1.0_wp, 2.0_wp/)
-    REAL(wp) :: temperature(temperature_size) = (/-2.0_wp, 0.0_wp, 2.0_wp, 4.0_wp, 7.0_wp, 10.0_wp, 13.0_wp, 16.0_wp, 19.0_wp, 22.0_wp, 25.4_wp, 28.0_wp, 31.0_wp, &
+    REAL(wp) :: temperature(temperature_size) = (/-2.0_wp, 0.0_wp, 2.0_wp, 4.0_wp, 7.0_wp, 10.0_wp, &
+      & 13.0_wp, 16.0_wp, 19.0_wp, 22.0_wp, 25.4_wp, 28.0_wp, 31.0_wp, &
       & 35.0_wp/)
     INTEGER, PARAMETER :: salinity_size = 1
 !     REAL(wp) :: salinity(salinity_size) = (/33.70_wp, 33.75_wp, 33.8_wp, 33.85_wp, 33.9_wp, 33.95_wp, 34.0_wp, 34.5_wp /)
     REAL(wp) :: salinity(salinity_size) = (/35._wp /)
     INTEGER, PARAMETER :: depth_size = 20
-    REAL(wp) :: depth(depth_size) = (/0.0_wp, 100.0_wp,  200.0_wp, 300.0_wp, 500.0_wp, 750.0_wp, 1000.0_wp, 1500.0_wp, 2000.0_wp,  &
+    REAL(wp) :: depth(depth_size) = (/0.0_wp, 100.0_wp,  200.0_wp, 300.0_wp, 500.0_wp, 750.0_wp, 1000.0_wp, 1500.0_wp, 2000.0_wp,&
      & 2500.0_wp, 3000.0_wp, 3500.0_wp, 4000.0_wp, 4500.0_wp, 5000.0_wp, 6000.0_wp, 7000.0_wp, 8000._wp, 9000._wp, 10000._wp /)
 
     INTEGER, PARAMETER :: columnn_size = temperature_size ! depth_size
