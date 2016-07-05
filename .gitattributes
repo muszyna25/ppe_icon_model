@@ -1767,7 +1767,6 @@ src/ocean/math/mo_operator_ocean_coeff_3d.f90 -text
 src/ocean/math/mo_scalar_product.f90 -text
 src/ocean/physics/mo_ocean_GM_Redi.f90 -text
 src/ocean/physics/mo_ocean_physics.f90 -text
-src/ocean/physics/mo_ocean_physics_state.f90 -text
 src/ocean/physics/mo_ocean_physics_types.f90 -text
 src/ocean/physics/mo_ocean_pp_scheme.f90 -text
 src/ocean/physics/mo_ocean_thermodyn.f90 -text
