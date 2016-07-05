@@ -69,8 +69,7 @@ MODULE mo_ocean_physics
     &  LeithBiharmonicViscosity_scaling,                       &
     &  LeithClosure_order,   LeithClosure_form, &
     &  TracerDiffusion_LeithWeight, Salinity_ConvectionRestrict, &
-    &  max_turbulenece_TracerDiffusion_amplification, &
-    &  ReferencePressureIndbars
+    &  max_turbulenece_TracerDiffusion_amplification
 
   USE mo_ocean_physics_state, ONLY: t_ho_params, v_params, WindMixingDecay, WindMixingLevel
    !, l_convection, l_pp_scheme

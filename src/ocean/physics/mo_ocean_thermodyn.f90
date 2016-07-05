@@ -29,7 +29,8 @@ MODULE mo_ocean_thermodyn
   !-------------------------------------------------------------------------
   USE mo_kind,                ONLY: wp
   USE mo_ocean_nml,           ONLY: n_zlev, eos_type, no_tracer, fast_performance_level,l_partial_cells, &
-    & LinearThermoExpansionCoefficient, LinearHalineContractionCoefficient,OceanReferenceDensity
+    & LinearThermoExpansionCoefficient, LinearHalineContractionCoefficient,OceanReferenceDensity, &
+   &  ReferencePressureIndbars, OceanReferenceDensity_inv
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
   USE mo_impl_constants,      ONLY: sea_boundary, sea_boundary, min_dolic !, &
   USE mo_exception,           ONLY: finish

@@ -216,7 +216,7 @@ MODULE mo_ocean_nml
   REAL(wp) :: threshold_max_S       = 60.0_wp    ! abort criterion for salinity minimum
 
   REAL(wp) :: tracer_threshold_min(8), tracer_threshold_max(8) ! as above but with indexes
-  CHARACTER(LEN=8) :: namelist_tracer_name(8) 
+  CHARACTER(LEN=8) :: namelist_tracer_name(12) 
 
   INTEGER  :: no_tracer             = 2          ! number of tracers
 
@@ -377,17 +377,19 @@ MODULE mo_ocean_nml
   REAL(wp) :: max_turbulenece_TracerDiffusion_amplification = 4.0_wp ! max tracer diffusion amplification from turbulenece on top of the standard one
 
   ! tracer vertical diffusion
-  INTEGER, PARAMETER  :: physics_parameters_Constant_type   = 0  ! are kept constant over time and are set to the background values; no convection
-  INTEGER, PARAMETER  :: physics_parameters_ICON_PP_type    = 1
-  INTEGER, PARAMETER  :: physics_parameters_MPIOM_PP_type   = 2
-  INTEGER, PARAMETER  :: physics_parameters_ICON_PP_Edge_type    = 3
-  INTEGER, PARAMETER  :: physics_parameters_ICON_PP_Edge_vnPredict_type = 4
-  INTEGER  :: physics_parameters_type = physics_parameters_MPIOM_PP_type
+  INTEGER, PARAMETER  :: PPscheme_Constant_type   = 0  ! are kept constant over time and are set to the background values; no convection
+  INTEGER, PARAMETER  :: PPscheme_ICON_type       = 1
+  INTEGER, PARAMETER  :: PPscheme_MPIOM_type      = 2
+  INTEGER, PARAMETER  :: PPscheme_ICON_Edge_type  = 3
+  INTEGER, PARAMETER  :: PPscheme_ICON_Edge_vnPredict_type = 4
+  INTEGER  :: PPscheme_type = PPscheme_MPIOM_type
 
-  REAL(wp) :: convection_InstabilityThreshold            = -5.0E-8_wp ! used in update_ho_params
-  REAL(wp) :: RichardsonDiffusion_threshold              =  5.0E-8_wp ! used in update_ho_params
-  REAL(wp) :: Temperature_VerticalDiffusion_background   = 1.0E-4_wp  ! vertical mixing coefficient for pot. temperature
-  REAL(wp) :: Salinity_VerticalDiffusion_background      = 1.0E-4_wp  ! vertical diffusion coefficient for salinity
+  REAL(wp) :: tracer_convection_MixingCoefficient        = 0.1_wp     ! convection diffusion coefficient for tracer, used in PP scheme
+  REAL(wp) :: convection_InstabilityThreshold            = -5.0E-8_wp ! used in PP scheme
+  REAL(wp) :: RichardsonDiffusion_threshold              =  5.0E-8_wp ! used in PP scheme
+  REAL(wp) :: tracer_RichardsonCoeff                     =  1.5E-3  ! factor for vertical diffusion coefficient in PP schemes
+  REAL(wp) :: Temperature_VerticalDiffusion_background   = 1.5E-5   ! vertical mixing coefficient for pot. temperature
+  REAL(wp) :: Salinity_VerticalDiffusion_background      = 1.5E-5   ! vertical diffusion coefficient for salinity
   REAL(wp) :: Salinity_ConvectionRestrict = 0.0_wp ! do not change !
   REAL(wp) :: richardson_tracer     = 0.5E-2_wp  ! see above, valid for tracer instead velocity, see variable z_dv0 in update_ho_params
   REAL(wp) :: lambda_wind           = 0.05_wp     ! 0.03_wp for 20km omip   !  wind mixing stability parameter, eq. (16) of Marsland et al. (2003)
@@ -400,31 +402,22 @@ MODULE mo_ocean_nml
   REAL(wp) :: WindMixingDecayDepth  = 40.0
 
  
-
+  ! velocity diffusion
   REAL(wp) :: VerticalViscosity_TimeWeight = 0.0_wp
   REAL(wp) :: velocity_VerticalDiffusion_background      = 1.0E-3_wp  ! vertical diffusion coefficient
-  INTEGER  :: leith_closure = 1       !viscosity calculation for biharmonic operator: =1 pure leith closure, =2 modified leith closure
-  REAL(wp) :: leith_closure_gamma = 0.25_wp !dimensionless constant for Leith closure
-
-  REAL(wp) :: HorizontalViscosityBackground_Biharmonic = 5.0E12_wp! factor for adjusting the biharmonic diffusion coefficient
-                                      !has to be adjusted for each resolution, the bigger this number
-                                      !the smaller becomes the effect of biharmonic diffusion.The appropriate
-                                      !size of this number depends also on the position of the biharmonic diffusion coefficient
-                                      !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
   REAL(wp) :: velocity_RichardsonCoeff      = 0.5E-2_wp  ! Factor with which the richarseon related part of the vertical
                                                  ! diffusion is multiplied before it is added to the background
-                                                 ! vertical diffusion ! coeffcient for the velocity. See usage in
-                                                 ! mo_ocean_physics.f90, update_ho_params, variable z_av0
-  REAL(wp) :: BiharmonicViscosity_background = 0.0_wp! factor for adjusting the biharmonic diffusion coefficient
-  REAL(wp) :: HarmonicViscosity_reference  = 1.0E+5_wp  ! horizontal harmonic diffusion coefficient
-  REAL(wp) :: BiharmonicViscosity_reference = 5.0E12_wp! factor for adjusting the biharmonic diffusion coefficient
-                                      !has to be adjusted for each resolution, the bigger this number
-                                      !the smaller becomes the effect of biharmonic diffusion.The appropriate
-                                      !size of this number depends also on the position of the biharmonic diffusion coefficient
-                                      !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
-  INTEGER  :: BiharmonicViscosity_scaling = 4
-  INTEGER  :: HarmonicViscosity_scaling = 1
+                                                 ! vertical diffusion coeffcient for the velocity. See usage in
+                                                 ! mo_pp_scheme.f90
+  REAL(wp) :: BiharmonicViscosity_background = 0.0_wp
+  REAL(wp) :: BiharmonicViscosity_reference  = 1.0E-2_wp
+  INTEGER  :: BiharmonicViscosity_scaling = 6
 
+  REAL(wp) :: HarmonicViscosity_background = 0.0_wp
+  REAL(wp) :: HarmonicViscosity_reference  = 4.0E-2_wp
+  INTEGER  :: HarmonicViscosity_scaling = 2
+
+  INTEGER  :: N_POINTS_IN_MUNK_LAYER = 1
 
   REAL(wp) :: LeithHarmonicViscosity_background = 0.0_wp
   REAL(wp) :: LeithHarmonicViscosity_reference = 3.82E-12_wp
