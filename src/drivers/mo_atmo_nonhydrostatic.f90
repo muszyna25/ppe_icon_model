@@ -49,7 +49,7 @@ USE mo_nonhydrostatic_config,ONLY: kstart_moist, kend_qvsubstep, l_open_ubc, &
   &                                itime_scheme
 
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
-USE mo_ensemble_pert_config, ONLY: configure_ensemble_pert
+USE mo_ensemble_pert_config, ONLY: configure_ensemble_pert, compute_ensemble_pert
 USE mo_synsat_config,        ONLY: configure_synsat
 ! NH-Model states
 USE mo_nonhydro_state,       ONLY: p_nh_state, p_nh_state_lists,               &
@@ -97,6 +97,7 @@ USE mo_async_latbc,         ONLY: init_prefetch, close_prefetch
 
 USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
 USE mo_synsat_config,       ONLY: lsynsat
+USE mo_derived_variable_handling, ONLY: init_mean_stream, finish_mean_stream
 !-------------------------------------------------------------------------
 
 IMPLICIT NONE
@@ -237,6 +238,7 @@ CONTAINS
     IF (iforcing == inwp) THEN
       CALL construct_nwp_phy_state( p_patch(1:), l_rh, l_pv )
       CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
+      CALL compute_ensemble_pert  ( p_patch(1:), ext_data, prm_diag)
     END IF
 
 #ifdef MESSY
@@ -455,6 +457,7 @@ CONTAINS
         CALL get_restart_attribute("jstep", jstep0)
       END IF
       sim_step_info%jstep0    = jstep0
+      CALL init_mean_stream(p_patch(1))
       CALL init_name_list_output(sim_step_info)
 
       !---------------------------------------------------------------------
@@ -596,6 +599,7 @@ CONTAINS
     ! Delete output variable lists
     IF (output_mode%l_nml) THEN
       CALL close_name_list_output
+      CALL finish_mean_stream()
     END IF
 
     ! finalize meteogram output

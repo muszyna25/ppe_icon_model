@@ -865,7 +865,7 @@ CONTAINS
 
   SUBROUTINE allgather_grid_info_cve(idom_log, connectivity, nblks, nblks_glb, &
     &                                coordinates, grid_info, gather_pattern, &
-    &                                cf_1_1_grid)
+    &                                cf_1_1_grid, keep_grid_info)
     INTEGER,            INTENT(IN)                     :: idom_log
     INTEGER,            INTENT(IN)                     :: connectivity
     INTEGER,            INTENT(IN)                     :: nblks
@@ -881,6 +881,7 @@ CONTAINS
         REAL(wp),           INTENT(INOUT) :: lonv(:,:,:), latv(:,:,:)
       END SUBROUTINE cf_1_1_grid
     END INTERFACE
+    LOGICAL,            INTENT(IN)                     :: keep_grid_info
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allgather_grid_info_cve"
@@ -890,7 +891,7 @@ CONTAINS
     REAL(wp), POINTER              :: r1d(:)
     REAL(wp), TARGET               :: dummy(1)
 
-    IF(my_process_is_io()) THEN
+    IF(my_process_is_io() .AND. keep_grid_info) THEN
       ALLOCATE(grid_info%lon(nproma*nblks_glb),                &
         &      grid_info%lat(nproma*nblks_glb),                &
         &      grid_info%lonv(connectivity, nproma*nblks_glb), &
@@ -900,41 +901,45 @@ CONTAINS
       grid_info%lat = 0._wp
       grid_info%lonv = 0._wp
       grid_info%latv = 0._wp
+    ELSE IF (my_process_is_io() .AND. .NOT. keep_grid_info) THEN
+      ALLOCATE(r1d(nproma*nblks_glb), lonv(0,0,1), latv(0,0,1))
     ELSE
       ALLOCATE(lonv(nproma, nblks, connectivity), &
         &      latv(nproma, nblks, connectivity))
       CALL cf_1_1_grid(p_patch(idom_log), lonv, latv)
+      r1d => dummy
     END IF
 
     CALL setup_comm_allgather_pattern(gather_pattern, p_comm_work_2_io, &
       &                               allgather_pattern)
 
-    r1d => dummy
-
     ! gathers coordinates on all io procs
-    IF (my_process_is_io()) r1d => grid_info%lon
+    IF (my_process_is_io() .AND. keep_grid_info) r1d => grid_info%lon
     CALL exchange_data(in_array=coordinates(:,:)%lon, out_array=r1d, &
       &                allgather_pattern=allgather_pattern)
-    IF (my_process_is_io()) r1d => grid_info%lat
+    IF (my_process_is_io() .AND. keep_grid_info) r1d => grid_info%lat
     CALL exchange_data(in_array=coordinates(:,:)%lat, out_array=r1d, &
       &                allgather_pattern=allgather_pattern)
     DO i = 1, connectivity
-      IF (my_process_is_io()) r1d => grid_info%lonv(i,:)
+      IF (my_process_is_io() .AND. keep_grid_info) r1d => grid_info%lonv(i,:)
       CALL exchange_data(in_array=lonv(:,:,i), out_array=r1d, &
         &                allgather_pattern=allgather_pattern)
-      IF (my_process_is_io()) r1d => grid_info%latv(i,:)
+      IF (my_process_is_io() .AND. keep_grid_info) r1d => grid_info%latv(i,:)
       CALL exchange_data(in_array=latv(:,:,i), out_array=r1d, &
         &                allgather_pattern=allgather_pattern)
     END DO
+
+    IF (my_process_is_io() .AND. .NOT. keep_grid_info) DEALLOCATE(r1d)
 
     CALL delete_comm_allgather_pattern(allgather_pattern)
 
     DEALLOCATE (lonv, latv)
   END SUBROUTINE allgather_grid_info_cve
 
-  SUBROUTINE allgather_grid_info(patch_info, idom_log)
+  SUBROUTINE allgather_grid_info(patch_info, idom_log, keep_grid_info)
     TYPE(t_patch_info),    INTENT(INOUT) :: patch_info
     INTEGER,               INTENT(IN)    :: idom_log
+    LOGICAL,               INTENT(IN)    :: keep_grid_info
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allgather_grid_info"
@@ -960,7 +965,8 @@ CONTAINS
     CALL allgather_grid_info_cve(idom_log, patch_info%max_cell_connectivity, &
       &                          patch_info%nblks_glb_c, patch_info%nblks_glb_c, &
       &                          coordinates, patch_info%cells%grid_info, &
-      &                          gather_pattern, cf_1_1_grid_cells)
+      &                          gather_pattern, cf_1_1_grid_cells, &
+      &                          keep_grid_info)
 
     IF (.NOT. my_process_is_io()) THEN
       coordinates => p_patch(idom_log)%verts%vertex
@@ -971,12 +977,14 @@ CONTAINS
       CALL allgather_grid_info_cve(idom_log, patch_info%max_vertex_connectivity, &
         &                          patch_info%nblks_glb_v, patch_info%nblks_glb_v, &
         &                          coordinates, patch_info%verts%grid_info, &
-        &                          gather_pattern, cf_1_1_grid_verts_ocean)
+        &                          gather_pattern, cf_1_1_grid_verts_ocean, &
+      &                          keep_grid_info)
     ELSE
       CALL allgather_grid_info_cve(idom_log, 9 - patch_info%max_cell_connectivity, &
         &                          patch_info%nblks_glb_v, patch_info%nblks_glb_v, &
         &                          coordinates, patch_info%verts%grid_info, &
-        &                          gather_pattern, cf_1_1_grid_verts)
+        &                          gather_pattern, cf_1_1_grid_verts, &
+      &                          keep_grid_info)
     END IF
 
     IF (.NOT. my_process_is_io()) THEN
@@ -987,7 +995,8 @@ CONTAINS
     CALL allgather_grid_info_cve(idom_log, 4, &
       &                          patch_info%nblks_glb_e, patch_info%nblks_glb_e, &
       &                          coordinates, patch_info%edges%grid_info, &
-      &                          gather_pattern, cf_1_1_grid_edges)
+      &                          gather_pattern, cf_1_1_grid_edges, &
+      &                          keep_grid_info)
 
     IF(my_process_is_io()) THEN
       CALL delete_comm_gather_pattern(empty_gather_pattern)

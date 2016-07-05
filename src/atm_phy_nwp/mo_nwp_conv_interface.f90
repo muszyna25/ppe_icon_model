@@ -120,7 +120,7 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
     lfocvd  = alf/cvd
-    ticeini = 261.15_wp
+    ticeini = 258.15_wp
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_omega_p,z_plitot,z_qhfl,z_shfl,z_dtdqv,&

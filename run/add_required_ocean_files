@@ -8,9 +8,9 @@
   #  in other cases where 
   #    ocean_location/="" then ocean_data_MainFolder=/pool/data/ICON/oes/${ocean_location}
   
-  #ocean_location=${ocean_location:="fluent"}
-  ocean_location= ${ocean_location:="buildbot"}
-  #ocean_location="local" #${ocean_location:="local"}
+   #ocean_location=${ocean_location:="fluent"}
+  #ocean_location= ${ocean_location:="buildbot"}
+  ocean_location="local" #${ocean_location:="local"}
 
   get_file=${get_file:='add_link_file'} # or 'add_required_file' for copying
 
@@ -37,13 +37,15 @@
   ocean_forcing_folder=${ocean_forcing_folder:=${ocean_data_InputFolder}}
   ocean_init_folder=${ocean_init_folder:=${ocean_data_InputFolder}}
   ocean_relax_folder=${ocean_relax_folder:=${ocean_data_InputFolder}}
-
+  ocean_dust_folder=${ocean_dust_folder:=${ocean_data_InputFolder}}
+  
   #=======================================================
   # input file names  
   #pre/postfixes of input files
   file_vertical_levels="${ocean_vertical_levels}levels"
   init_DataType=${init_DataType:="omipInitialState-AnnualAverage"}  # needs to be changed to phc3.0 30 year climatology
   relax_DataType=${relax_DataType:="omipRelaxSurface"}  
+  dust_DataType=${dust_DataType:="MAHOWALDDUST"}  
   forcing_DataType=${forcing_DataType:="omipForcing-mpiom"}
   if [[ "x$forcing_timescale" = "x1" ]] ; then
     forcing_FileFrequence=${forcing_FileFrequence:="Annual"}
@@ -62,11 +64,15 @@
   ocean_relax_filename=${ocean_relax_filename:=${relax_DataType}-${grid_name}.nc}
   ocean_relax_InputFilename=${ocean_relax_folder}/${ocean_relax_filename}
 
+  ocean_dust_filename=${ocean_dust_filename:=${dust_DataType}_${grid_name}.nc}
+  ocean_dust_InputFilename=${ocean_dust_folder}/${ocean_dust_filename}
+
   #=======================================================
   # re-naming of the input files when copying to the experiment folder
   ocean_forcing_modelFilename="ocean-flux.nc"
   ocean_initialState_modelFilename="initial_state.nc"
   ocean_relax_modelFilename="ocean-relax.nc"
+  ocean_dust_modelFilename="dust.nc"
    
   #=======================================================
   # add required files if this is not post processing
@@ -97,6 +103,14 @@
         else
           echo "WARNING: $ocean_initialState_InputFilename does not exist - proceed from local disk"
         fi
+      fi
+      if [[ "x$use_hamocc" = "xyes" ]] ; then
+       ls -l $ocean_dust_InputFilename
+       if [ $? -eq 0 ]; then
+         $get_file ${ocean_dust_InputFilename}          $ocean_dust_modelFilename
+       else
+         echo "WARNING: $ocean_initialState_InputFilename does not exist - proceed from local disk"
+       fi
       fi
 
       #--------------------------------------------------

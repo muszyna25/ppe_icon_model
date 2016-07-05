@@ -6,8 +6,8 @@
 set -x
 
 here=`pwd`
-icon_dev_from=$here/svn/$1
-icon_dev_to=$here/$2
+# icon_dev_from=/mnt/lustre01/pf/zmaw/m300056/icon/svn/$1
+# icon_dev_to=$here/$2
 
 if [ ! -d ${icon_dev_to} ] ; then
   mkdir -p ${icon_dev_to}
@@ -40,7 +40,7 @@ link_source_list()
 
 #-----------------------------------------------------------------------------------
 #get src
-link_source_list "src/" "ocean sea_ice parallel_infrastructure include shared"
+link_source_list "src/" "ocean hamocc sea_ice parallel_infrastructure include shared"
 link_source_list "src/io/" "shared"
 
 link_source_list "src/advection/" "mo_advection_utils.f90"
@@ -73,18 +73,17 @@ link_source_list "src/testcases/" "mo_ape_params.f90"
 #get the rest
 cd ${icon_dev_from}/run
 run_scripts=`ls -d *oce*`
-run_scripts="$run_scripts exec.iconrun add_run_routines checksuite.icon-dev post.test_compare_restarts postFunx.sh Rakefile"
+run_scripts="$run_scripts exp.hamocc_omip_long exp.hamocc_omip_10days  exec.iconrun add_run_routines checksuite.icon-dev post.test_compare_restarts postFunx.sh Rakefile"
 cd -
 
 link_source_list "run/" "$run_scripts"
 
 link_source_list "config/" all
 
-link_source_list "externals/" "mtime"
+link_source_list "externals/" "mtime self"
 
-link_source_list "" "data doc include scripts support
-aclocal.m4 configure.ac configure make_runscripts make_nat-ape-dec_runs 
-Makefile.in"
+link_source_list "" "data doc scripts support
+aclocal.m4 configure.ac configure make_runscripts Makefile.in"
  
 #-----------------------------------------------------------------------------------
 # add some parameteres files
@@ -107,20 +106,20 @@ run_scripts=*
 
 #==============================================
 # Define parameters for each build (testbed is disabled by default) - examples:
-build_folder=gcc_yMyO_hiopt configure_options=--with-fortran=gcc --with-mpi  --with-openmp --with-flags=hiopt --disable-atmo --disable-jsbach --without-yac
+build_folder=gcc_yMyO_ocean configure_options=--with-fortran=gcc --with-mpi  --with-openmp --with-flags=ocean --disable-atmo --disable-jsbach --without-yac
 build_folder=gcc_nMnO configure_options=--with-fortran=gcc --without-mpi --disable-atmo --disable-jsbach --without-yac
 build_folder=gcc_nMyO configure_options=--with-fortran=gcc --without-mpi --with-openmp --disable-atmo --disable-jsbach --without-yac
 build_folder=gcc_yMnO configure_options=--with-fortran=gcc --with-mpi --disable-atmo --disable-jsbach --without-yac
-build_folder=gcc_yMnO_hiopt configure_options=--with-fortran=gcc --with-mpi --with-flags=hiopt --disable-atmo --disable-jsbach --without-yac
+build_folder=gcc_yMnO_ocean configure_options=--with-fortran=gcc --with-mpi --with-flags=ocean --disable-atmo --disable-jsbach --without-yac
 build_folder=nag_nMnO configure_options=--with-fortran=nag --without-mpi --disable-atmo --disable-jsbach --without-yac
 build_folder=nag_yMnO configure_options=--with-fortran=nag --with-mpi --disable-atmo --disable-jsbach --without-yac
 build_folder=intel_nMyO configure_options=--with-fortran=intel --without-mpi --with-openmp --disable-atmo --disable-jsbach --without-yac
-build_folder=intel_nMyO_hiopt configure_options=--with-fortran=intel --without-mpi --with-openmp  --with-flags=hiopt --disable-atmo --disable-jsbach --without-yac
+build_folder=intel_nMyO_ocean configure_options=--with-fortran=intel --without-mpi --with-openmp  --with-flags=ocean --disable-atmo --disable-jsbach --without-yac
 build_folder=intel_nMnO configure_options=--with-fortran=intel --without-mpi --disable-atmo --disable-jsbach --without-yac
 build_folder=intel_yMnO configure_options=--with-fortran=intel --with-mpi --disable-atmo --disable-jsbach --without-yac
 build_folder=intel_yMyO configure_options=--with-fortran=intel --with-mpi --with-openmp --disable-atmo --disable-jsbach --without-yac
-build_folder=intel_yMyO_hiopt configure_options=--with-fortran=intel --with-mpi --with-openmp --with-flags=hiopt --disable-atmo --disable-jsbach --without-yac
-build_folder=intel_yMnO_hiopt configure_options=--with-fortran=intel --with-mpi --with-flags=hiopt --disable-atmo --disable-jsbach --without-yac
+build_folder=intel_yMyO_ocean configure_options=--with-fortran=intel --with-mpi --with-openmp --with-flags=ocean --disable-atmo --disable-jsbach --without-yac
+build_folder=intel_yMnO_ocean configure_options=--with-fortran=intel --with-mpi --with-flags=ocean --disable-atmo --disable-jsbach --without-yac
 build_folder=pgi_yMnO configure_options=--with-fortran=pgi  --with-mpi --disable-atmo --disable-jsbach --without-yac
 EOF
 

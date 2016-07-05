@@ -34,7 +34,7 @@
     USE mo_exception,           ONLY: message, finish
     USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, min_rlcell
     USE mo_model_domain,        ONLY: t_patch
-    USE mo_math_utilities,      ONLY: gc2cc, t_cartesian_coordinates,                       &
+    USE mo_math_utilities,      ONLY: gc2cc, cc2gc, t_cartesian_coordinates,                &
       &                               t_geographical_coordinates, cc_dot_product
     USE mo_math_constants,      ONLY: pi, pi_2
     USE mo_parallel_config,     ONLY: nproma
@@ -193,6 +193,9 @@
         &                                  rl_start, rl_end, i_startidx,     &
         &                                  i_endidx, i_nchdom
       TYPE (t_spherical_cap)            :: subset
+      TYPE(t_cartesian_coordinates)     :: cc          ! Cart. coordinates
+      TYPE(t_geographical_coordinates)  :: gc          ! geo. coordinates
+      REAL(wp)                          :: perturbation
 !$  DOUBLE PRECISION                    :: time_s, toc
 
       ! --- create an array-like data structure containing the local
@@ -244,21 +247,23 @@
 
       ! slightly disturb symmetric coordinates; this should make the
       ! Delaunay triangulation unique, cf. [Lawson1984]
+      !
+      ! we disturb the triangulation by adding
+      !  f(lon,lat) = 1.e-10 * cos(lon) * sin(lat)
 
       IF (dbg_level > 10)  WRITE (0,*) "# slightly disturb symmetric coordinates"
 
       dim = 0
-!$OMP PARALLEL DO PRIVATE(dim)
+!$OMP PARALLEL DO PRIVATE(perturbation,gc,cc)
       DO i=0,(p_global%nentries-1)
-        dim = MOD(i+1,3)
-        SELECT CASE(dim)
-        CASE (0)
-          p_global%a(i)%x = p_global%a(i)%x + 1.e-10_wp
-        CASE (1)
-          p_global%a(i)%y = p_global%a(i)%y + 1.e-10_wp
-        CASE (2)
-          p_global%a(i)%z = p_global%a(i)%z + 1.e-10_wp
-        END SELECT
+        cc%x(1:3)       = (/ p_global%a(i)%x, p_global%a(i)%y, p_global%a(i)%z /)
+        gc              = cc2gc(cc)
+        perturbation    = COS(gc%lon) * SIN(gc%lat) * 1.e-10_wp
+        gc%lon          = gc%lon + perturbation
+        cc              = gc2cc(gc)
+        p_global%a(i)%x = cc%x(1)
+        p_global%a(i)%y = cc%x(2)
+        p_global%a(i)%z = cc%x(3)
       END DO
 !$OMP END PARALLEL DO
 
@@ -651,8 +656,9 @@
     !> Compute barycentric coordinates for a set of points, based on a
     !  given auxiliary triangulation.
     !
-    SUBROUTINE compute_barycentric_coordinates(p_global, tri_global, octree, &
+    SUBROUTINE compute_barycentric_coordinates(ptr_patch,p_global, tri_global, octree, &
       &                                        g2l_index, ptr_int_lonlat)
+      TYPE(t_patch), TARGET,  INTENT(IN)    :: ptr_patch          !< data structure containing grid info:
       TYPE (t_point_list),    INTENT(IN)    :: p_global             !< set of global points
       TYPE (t_triangulation), INTENT(IN)    :: tri_global           !< global auxiliary triangulation
       TYPE (t_range_octree),  INTENT(IN)    :: octree               !< octree data structure
@@ -675,6 +681,8 @@
       TYPE(t_cartesian_coordinates)         :: ll_point_c           !< cartes. coordinates of lon-lat points
       REAL(wp)                              :: v(0:2,3)
       LOGICAL                               :: inside_test
+      TYPE(t_cartesian_coordinates)         :: p_x
+      INTEGER                               :: last_idx1(3)
 
       IF (dbg_level > 10)  WRITE (0,*) "# compute barycentric coordinates"
 
@@ -690,8 +698,8 @@
 
       !$  time_s = omp_get_wtime()
 
-!$OMP PARALLEL DO PRIVATE(jb,jc,start_idx,end_idx,ll_point_c,nobjects,obj_list, &
-!$OMP                     idx0, idx1, v,i,j,k, inside_test )
+!$OMP PARALLEL DO PRIVATE(jb,jc,start_idx,end_idx,ll_point_c,nobjects,obj_list,      &
+!$OMP                     idx0, idx1, v,i,j,k, inside_test, p_x, last_idx1)
       DO jb=1,nblks_lonlat
         start_idx = 1
         end_idx   = nproma
@@ -719,9 +727,11 @@
 
           ! now test which of the triangles in "obj_list" actually
           ! contains "ll_point_c":
-          idx0 = -1
+          idx0         = -1
+          last_idx1(:) = -1
           LOOP: DO i=1,nobjects
             j = obj_list(i)
+
             DO k=0,2
               v(k,:) = (/ p_global%a(tri_global%a(j)%p(k))%x, &
                 &         p_global%a(tri_global%a(j)%p(k))%y, &
@@ -730,6 +740,7 @@
 
             ! --- compute the barycentric interpolation weights for
             ! --- this triangle
+
             CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb),     &
               &                             v(0,:),v(1,:),v(2,:),               &
               &                             ptr_int_lonlat%baryctr_coeff(1:3,jc,jb))
@@ -748,26 +759,57 @@
 
             IF (inside_test) THEN
               idx0    = j
-              idx1(:) = g2l_index(tri_global%a(idx0)%p(0:2)+1)
-              IF (ALL(idx1(:) /= -1)) THEN
-                ! get indices of the containing triangle
-                ptr_int_lonlat%baryctr_idx(1:3,jc,jb) = idx_no(idx1(1:3))
-                ptr_int_lonlat%baryctr_blk(1:3,jc,jb) = blk_no(idx1(1:3))
+              ! get global index of cell circumcenters:
+              idx1(:) = p_global%a(tri_global%a(idx0)%p(0:2))%gindex+1
+              ! a query point may lie exactly on the edge between two
+              ! triangles. We need to make sure that the result is
+              ! processor-independent by choosing the triangles with
+              ! larger indices.
+              IF  (.NOT.  ((idx1(1) >  last_idx1(1))                                    .OR. &
+                &         ((idx1(1) == last_idx1(1)) .AND. (idx1(2) >  last_idx1(2)))   .OR. &
+                &         ((idx1(1) == last_idx1(1)) .AND. (idx1(2) == last_idx1(2)) &
+                &                                    .AND. (idx1(3) >  last_idx1(3))))) THEN
+                CYCLE LOOP
+              END IF
+              ! convert global to local indices
+              idx1(:) = g2l_index(idx1(:))
+              last_idx1(:) = idx1(:)
 
-                IF (ANY(ptr_int_lonlat%baryctr_idx(1:3,jc,jb) <= 0)) THEN
-                  WRITE (0,*) "g2l_index(tri_global%a(idx0)%p(0:2)) = ", idx1(:)
-                  CALL finish(routine, "Internal error!")
-                END IF
-              ELSE
+              IF (ANY(idx1(:) == -1)) THEN
                 ! the containing triangle is not local for this PE?
                 WRITE (0,*) "indices: ", idx1
-                CALL finish(routine, "Internal error!")
+                CALL finish(routine, "Internal error: The containing triangle is not local for this PE!")
               END IF
-
-              EXIT LOOP
+              
             END IF
           END DO LOOP
+          
+          ! no triangle was matching?
+          IF (last_idx1(1) == -1) THEN
+            CALL finish(routine, "Internal error: no triangle was matching!")
+          END IF
 
+          ! since the point set for the auxiliary triangulation
+          ! had been distorted, we need to re-compute the
+          ! barycentric coordinates based on the original
+          ! triangle circumcenters:
+          DO k=0,2
+            p_x = gc2cc(ptr_patch%cells%center(idx_no(last_idx1(k+1)),blk_no(last_idx1(k+1))))
+            v(k,:) = p_x%x(1:3)
+          END DO
+          CALL compute_barycentric_coords(ptr_int_lonlat%ll_coord(jc,jb),     &
+            &                             v(0,:),v(1,:),v(2,:),               &
+            &                             ptr_int_lonlat%baryctr_coeff(1:3,jc,jb))
+            
+          ! get indices of the containing triangle
+          ptr_int_lonlat%baryctr_idx(1:3,jc,jb) = idx_no(last_idx1(1:3))
+          ptr_int_lonlat%baryctr_blk(1:3,jc,jb) = blk_no(last_idx1(1:3))
+                
+          IF (ANY(ptr_int_lonlat%baryctr_idx(1:3,jc,jb) <= 0)) THEN
+            WRITE (0,*) "g2l_index(tri_global%a(idx0)%p(0:2)) = ", last_idx1(:)
+            CALL finish(routine, "Internal error!")
+          END IF
+          
         END DO
       END DO
 !$OMP END PARALLEL DO
@@ -868,7 +910,7 @@
       CALL compute_triangle_bboxes(p_global, tri_global, minrange, maxrange, octree)
 
       ! --- compute barycentric coordinates
-      CALL compute_barycentric_coordinates(p_global, tri_global, octree,     &
+      CALL compute_barycentric_coordinates(ptr_patch,p_global, tri_global, octree,     &
         &                                  g2l_index, ptr_int_lonlat)
 
       ! clean up

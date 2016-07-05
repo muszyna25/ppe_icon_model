@@ -34,6 +34,7 @@ MODULE mo_ext_data_types
   PUBLIC :: t_external_atmos
   PUBLIC :: t_external_atmos_td
   PUBLIC :: t_external_ocean
+  PUBLIC :: t_external_bgc
 
 
 
@@ -393,7 +394,10 @@ MODULE mo_ext_data_types
   END TYPE t_external_atmos_td
 
 
-
+  TYPE :: t_external_bgc
+   REAL(wp), POINTER ::   &   !< (monthly) SST
+      &  dust(:,:,:)   
+  END TYPE t_external_bgc
 
   !>
   !! ocean external data class
@@ -459,6 +463,8 @@ MODULE mo_ext_data_types
     TYPE(t_external_ocean)    :: oce
     TYPE(t_var_list)          :: oce_list
 
+    TYPE(t_external_bgc)      :: bgc
+    TYPE(t_var_list)          :: bgc_list
 !    TYPE(t_external_ocean_td) :: oce_td
 !    TYPE(t_var_list), POINTER :: oce_td_list
 

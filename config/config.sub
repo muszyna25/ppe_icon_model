@@ -1089,6 +1089,10 @@ case $basic_machine in
                 basic_machine=sx9-nec
                 os=-superux
                 ;;
+        sxace | sxace-nec)
+                basic_machine=sxace-nec
+                os=-superux
+                ;;
 	t3e)
 		basic_machine=alphaev5-cray
 		os=-unicos

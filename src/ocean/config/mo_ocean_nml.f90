@@ -487,7 +487,6 @@ MODULE mo_ocean_nml
     &  RichardsonDiffusion_threshold,   &
     &  Salinity_ConvectionRestrict
 
-
   !Parameters for GM-Redi configuration
   REAL(wp) :: k_tracer_dianeutral_parameter   = 1.0E-4_wp  !dianeutral tracer diffusivity for GentMcWilliams-Redi parametrization
   REAL(wp) :: k_tracer_isoneutral_parameter   = 600.0_wp  !isoneutral tracer diffusivity for GentMcWilliams-Redi parametrization

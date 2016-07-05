@@ -23,9 +23,8 @@
 MODULE mo_initicon
 
   USE mo_kind,                ONLY: wp
-  USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, iqm_max, iforcing, msg_level
+  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, iqm_max, iforcing, check_uuid_gracefully
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
@@ -36,10 +35,10 @@ MODULE mo_initicon
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_initicon_types,      ONLY: t_initicon_state, ana_varnames_dict
   USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlevatm_in, lvert_remap_fg, &
-    &                               rho_incr_filter_wgt, lread_ana, ltile_init,    &
-    &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart
+    &                               rho_incr_filter_wgt, lread_ana, ltile_init, &
+    &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart, lconsistency_checks
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,   &
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_DWDANA,   &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA,              &
     &                               MODE_ICONVREMAP, MODE_COMBINED, MODE_COSMODE,     &
     &                               min_rlcell, INWP, min_rledge_int, grf_bdywidth_c, &
@@ -61,18 +60,21 @@ MODULE mo_initicon
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
   USE mo_math_laplace,        ONLY: nabla4_vec
-  USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
-  USE mo_cdi,                 ONLY: cdiDefAdditionalKey, cdiInqMissval
+  USE mo_cdi,                 ONLY: cdiDefAdditionalKey, cdiInqMissval, FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2
   USE mo_flake,               ONLY: flake_coldinit
-  USE mo_initicon_utils,      ONLY: create_input_groups, fill_tile_points, init_snowtiles,             &
+  USE mo_initicon_utils,      ONLY: fill_tile_points, init_snowtiles,             &
                                   & copy_initicon2prog_atm, copy_initicon2prog_sfc, construct_initicon, &
                                   & deallocate_initicon, deallocate_extana_atm, deallocate_extana_sfc, &
                                   & copy_fg2initicon, initVarnamesDict, printChecksums, init_aerosol
-  USE mo_initicon_io,         ONLY: open_init_files, close_init_files, read_extana_atm, read_extana_sfc, read_dwdfg_atm, &
-                                  & read_dwdfg_sfc, read_dwdana_atm, read_dwdana_sfc, read_dwdfg_atm_ii, &
-                                  & process_input_dwdana_sfc, process_input_dwdfg_atm_ii, process_input_dwdana_atm, &
-                                  & process_input_dwdfg_sfc
-  USE mo_util_string,         ONLY: one_of
+  USE mo_initicon_io,         ONLY: read_extana_atm, read_extana_sfc, fetch_dwdfg_atm, fetch_dwdana_sfc, &
+                                  & process_input_dwdana_sfc, process_input_dwdana_atm, process_input_dwdfg_sfc, &
+                                  & fetch_dwdfg_sfc, fetch_dwdfg_atm_ii, fetch_dwdana_atm, &
+                                  & fgFilename, fgFiletype, anaFilename, anaFiletype
+  USE mo_input_request_list,  ONLY: t_InputRequestList, InputRequestList_create
+  USE mo_mpi,                 ONLY: my_process_is_stdio
+  USE mo_input_instructions,  ONLY: t_readInstructionListPtr, readInstructionList_make, kInputSourceAna, &
+                                    kInputSourceBoth
+  USE mo_util_uuid,           ONLY: t_uuid
 
   IMPLICIT NONE
 
@@ -83,20 +85,9 @@ MODULE mo_initicon
 
   TYPE(t_initicon_state), ALLOCATABLE, TARGET :: initicon(:)
 
-  ! NetCDF file IDs / CDI stream IDs for first guess and analysis file
-  INTEGER, ALLOCATABLE :: fileID_fg(:),   fileID_ana(:)
-
-  ! file type (NetCDF/GRB2) for first guess and analysis file
-  INTEGER, ALLOCATABLE :: filetype_fg(:), filetype_ana(:)
-
-  ! filename: first guess
-  CHARACTER(LEN=filename_max) :: dwdfg_file(max_dom)
-
-  ! filename: analysis
-  CHARACTER(LEN=filename_max) :: dwdana_file(max_dom)
-
   PUBLIC :: init_icon
 
+  DOUBLE PRECISION, PARAMETER :: kMissval = -9.E+15
 
 
   CONTAINS
@@ -113,7 +104,7 @@ MODULE mo_initicon
   SUBROUTINE init_icon (p_patch,  p_int_state, p_grf_state, p_nh_state, &
     &                   ext_data, prm_diag, p_lnd_state)
 
-    TYPE(t_patch),          INTENT(IN)              :: p_patch(:)
+    TYPE(t_patch),          INTENT(INOUT)              :: p_patch(:)
     TYPE(t_int_state),      INTENT(IN)              :: p_int_state(:)
     TYPE(t_gridref_state),  INTENT(IN)              :: p_grf_state(:)
     TYPE(t_nh_state),       INTENT(INOUT)           :: p_nh_state(:)
@@ -123,12 +114,10 @@ MODULE mo_initicon
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//':init_icon'
     INTEGER :: jg, ist
-    INTEGER :: jb              ! block loop index
+    TYPE(t_readInstructionListPtr) :: inputInstructions(n_dom)
 
     ! Allocate initicon data type
     ALLOCATE (initicon(n_dom),                         &
-      &       filetype_fg(n_dom), filetype_ana(n_dom), &
-      &       fileID_fg(n_dom),   fileID_ana(n_dom),   &
       &       stat=ist)
     IF (ist /= SUCCESS)  CALL finish(TRIM(routine),'allocation for initicon failed')
 
@@ -154,34 +143,23 @@ MODULE mo_initicon
     CALL cdiDefAdditionalKey("tileAttribute")
 
 
+
     ! -----------------------------------------------
-    ! open files containing first guess and analysis
-    ! and generate analysis/FG input lists
+    ! generate analysis/FG input instructions
     ! -----------------------------------------------
-    !
-    IF (ANY((/MODE_DWDANA,MODE_IAU,MODE_IAU_OLD,MODE_COMBINED,MODE_COSMODE,MODE_ICONVREMAP/) &
-      &  == init_mode)) THEN ! read in DWD analysis
-      CALL open_init_files(p_patch, fileID_fg, fileID_ana, filetype_fg, filetype_ana, &
-        &                  dwdfg_file, dwdana_file)
+    DO jg = 1, n_dom
+      inputInstructions(jg)%ptr => NULL()
+      IF(p_patch(jg)%ldom_active) inputInstructions(jg)%ptr => readInstructionList_make(p_patch(jg), init_mode)
+    END DO
 
-      ! Generate lists of fields that must be read from FG/ANA files
-      !
-      DO jg = 1, n_dom
-        IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-        CALL create_input_groups(p_patch(jg),                        &
-          &   initicon(jg)%grp_vars_fg,  initicon(jg)%ngrp_vars_fg,  &
-          &   initicon(jg)%grp_vars_ana, initicon(jg)%ngrp_vars_ana, &
-          &   initicon(jg)%grp_vars_ana_mandatory, initicon(jg)%ngrp_vars_ana_mandatory, &
-          &   init_mode)
-      ENDDO
-
-    END IF
-
+    ! -----------------------------------------------
+    ! READ AND process the input DATA
+    ! -----------------------------------------------
     CALL print_init_mode()
+
     ! read and initialize ICON prognostic fields
     !
-    CALL process_input_data(p_patch, p_nh_state, p_int_state, p_grf_state, prm_diag, p_lnd_state, ext_data)
-
+    CALL process_input_data(p_patch, inputInstructions, p_nh_state, p_int_state, p_grf_state, ext_data, prm_diag, p_lnd_state)
     CALL printChecksums(initicon, p_nh_state, p_lnd_state)
 
     ! Deallocate initicon data type
@@ -190,14 +168,16 @@ MODULE mo_initicon
     CALL deallocate_extana_atm (initicon)
     CALL deallocate_extana_sfc (initicon)
 
-    ! close first guess and analysis files and corresponding inventory lists
-    !
-    IF (ANY((/MODE_DWDANA,MODE_IAU,MODE_IAU_OLD,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
-      CALL close_init_files(fileID_fg, fileID_ana)
-    END IF
-
-    DEALLOCATE (initicon, filetype_fg, filetype_ana, fileID_fg, fileID_ana, stat=ist)
+    DEALLOCATE (initicon, stat=ist)
     IF (ist /= success) CALL finish(TRIM(routine),'deallocation for initicon failed')
+    DO jg = 1, n_dom
+      IF(p_patch(jg)%ldom_active) THEN
+        IF(my_process_is_stdio()) CALL inputInstructions(jg)%ptr%printSummary(jg)
+        CALL inputInstructions(jg)%ptr%destruct()
+        DEALLOCATE(inputInstructions(jg)%ptr, stat=ist)
+        IF(ist /= success) CALL finish(TRIM(routine),'deallocation of an input instruction list failed')
+      END IF
+    END DO
 
     ! splitting of sea-points list into open water and sea-ice points could be placed
     ! here, instead of nwp_phy_init/init_nwp_phy
@@ -231,43 +211,99 @@ MODULE mo_initicon
     END SELECT
   END SUBROUTINE print_init_mode
 
-  ! Read the data from the first-guess file.
-  SUBROUTINE read_dwdfg(p_patch, p_nh_state, prm_diag, p_lnd_state)
+  FUNCTION gridUuids(p_patch) RESULT(RESULT)
     TYPE(t_patch), INTENT(IN) :: p_patch(:)
+    TYPE(t_uuid), DIMENSION(n_dom) :: RESULT
+
+    RESULT(:) = p_patch(:)%grid_uuid
+  END FUNCTION gridUuids
+
+  ! Read the data from the first-guess file.
+  SUBROUTINE read_dwdfg(p_patch, inputInstructions, p_nh_state, prm_diag, p_lnd_state)
+    TYPE(t_patch), INTENT(INOUT) :: p_patch(:)
+    TYPE(t_readInstructionListPtr) :: inputInstructions(n_dom)
     TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_nwp_phy_diag), INTENT(INOUT), OPTIONAL :: prm_diag(:)
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
 
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":read_dwdfg"
+    INTEGER :: jg
+    CLASS(t_InputRequestList), POINTER :: requestList
+
+    !The input file paths & types are NOT initialized IN all modes, so we need to avoid creating InputRequestLists IN these cases.
+    SELECT CASE(init_mode)
+        CASE(MODE_IFSANA)    !MODE_IFSANA uses the read_extana_*() routines, which directly use NetCDF input.
+            RETURN
+        CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU, MODE_ICONVREMAP, MODE_COMBINED, MODE_COSMODE)
+        CASE DEFAULT
+            CALL finish(routine, "assertion failed: unknown init_mode")
+    END SELECT
+
+    ! Create a request list for all the relevant variable names.
+    requestList => InputRequestList_create()
+    DO jg = 1, n_dom
+      IF(p_patch(jg)%ldom_active) THEN
+        CALL inputInstructions(jg)%ptr%fileRequests(requestList, lIsFg = .TRUE.)
+      ENDIF
+    END DO
+
+    ! Scan the input files AND distribute the relevant variables across the processes.
+    DO jg = 1, n_dom
+        IF(p_patch(jg)%ldom_active) THEN
+            IF(my_process_is_stdio()) THEN
+                CALL message (TRIM(routine), 'read atm_FG fields from '//TRIM(fgFilename(p_patch(jg))))
+            ENDIF  ! p_io
+            SELECT CASE(fgFiletype())
+                CASE(FILETYPE_NC2, FILETYPE_NC4)
+                    CALL requestList%readFile(p_patch(jg), TRIM(fgFilename(p_patch(jg))), .TRUE.)
+                CASE(FILETYPE_GRB2)
+                    CALL requestList%readFile(p_patch(jg), TRIM(fgFilename(p_patch(jg))), .TRUE., opt_dict = ana_varnames_dict)
+                CASE DEFAULT
+                    CALL finish(routine, "Unknown file TYPE")
+            END SELECT
+        END IF
+    END DO
+    IF(my_process_is_stdio()) THEN
+        CALL requestList%printInventory()
+        IF(lconsistency_checks) THEN
+          CALL requestList%checkRuntypeAndUuids([CHARACTER(LEN=1)::], gridUuids(p_patch), lIsFg=.TRUE., &
+            lHardCheckUuids=.NOT.check_uuid_gracefully)
+        END IF
+    END IF
+
+    ! Fetch the input DATA from the request list.
     SELECT CASE(init_mode)
         CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU)
-            CALL read_dwdfg_atm (p_patch, p_nh_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
-            CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
+            CALL fetch_dwdfg_atm(requestList, p_patch, p_nh_state, initicon, inputInstructions)
+            CALL fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_lnd_state, inputInstructions)
         CASE(MODE_ICONVREMAP)
-            ! read DWD first guess for atmosphere and store to
-            ! initicon input state variables (input data are allowed
-            ! to have a different number of model levels than the
-            ! current model grid)
-            CALL read_dwdfg_atm_ii (p_patch, initicon, fileID_fg, filetype_fg, dwdfg_file)
-            CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
+            CALL fetch_dwdfg_atm_ii(requestList, p_patch, initicon, inputInstructions)
+            CALL fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_lnd_state, inputInstructions)
         CASE(MODE_COMBINED, MODE_COSMODE)
-            CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
+            CALL fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_lnd_state, inputInstructions)
     END SELECT
+
+    ! Cleanup.
+    CALL requestList%destruct()
+    DEALLOCATE(requestList)
   END SUBROUTINE read_dwdfg
 
   ! Do postprocessing of data from first-guess file.
-  SUBROUTINE process_dwdfg(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, ext_data, prm_diag)
+  SUBROUTINE process_dwdfg(p_patch, p_nh_state, p_int_state, p_grf_state, ext_data, p_lnd_state, prm_diag)
     TYPE(t_patch), INTENT(IN) :: p_patch(:)
     TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_int_state), INTENT(IN) :: p_int_state(:)
     TYPE(t_gridref_state), INTENT(IN) :: p_grf_state(:)
+    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
-    TYPE(t_external_data), INTENT(INOUT), OPTIONAL :: ext_data(:)
     TYPE(t_nwp_phy_diag), INTENT(INOUT), OPTIONAL :: prm_diag(:)
+    TYPE(t_nwp_phy_diag), INTENT(INOUT), OPTIONAL :: prm_diag(:)
+
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":process_dwdfg"
 
     SELECT CASE(init_mode)
         CASE(MODE_ICONVREMAP)
-            CALL process_input_dwdfg_atm_ii (p_patch, initicon)
-            CALL process_input_dwdfg_sfc (p_patch, p_lnd_state)
+            CALL process_input_dwdfg_sfc (p_patch, p_lnd_state, ext_data)
         CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU, MODE_COMBINED, MODE_COSMODE)
             IF (lvert_remap_fg) THEN ! apply vertical remapping of FG input (requires that the number of model levels
                                      ! does not change; otherwise, init_mode = 7 must be used based on a full analysis)
@@ -276,7 +312,7 @@ MODULE mo_initicon
                 &                    opt_convert_omega2w=.FALSE.)
                 CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
             END IF
-            CALL process_input_dwdfg_sfc (p_patch, p_lnd_state)
+            CALL process_input_dwdfg_sfc (p_patch, p_lnd_state, ext_data)
             IF(ANY((/MODE_IAU_OLD, MODE_IAU/) == init_mode)) THEN
                 ! In case of tile coldstart, fill sub-grid scale land
                 ! and water points with reasonable data from
@@ -295,37 +331,103 @@ MODULE mo_initicon
   END SUBROUTINE process_dwdfg
 
   ! Read data from analysis files.
-  SUBROUTINE read_dwdana(p_patch, p_nh_state, p_lnd_state)
+  SUBROUTINE read_dwdana(p_patch, inputInstructions, p_nh_state, p_lnd_state)
     TYPE(t_patch), INTENT(IN) :: p_patch(:)
+    TYPE(t_readInstructionListPtr) :: inputInstructions(n_dom)
     TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
 
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":read_dwdana"
+    CHARACTER(LEN = :), ALLOCATABLE :: incrementsList(:)
+    CLASS(t_InputRequestList), POINTER :: requestList
+    INTEGER :: jg
+
+    !The input file paths & types are NOT initialized IN all modes, so we need to avoid creating InputRequestLists IN these cases.
     SELECT CASE(init_mode)
-        CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU)
-            IF(lread_ana) CALL read_dwdana_atm(p_patch, p_nh_state, initicon, fileID_ana, filetype_ana, dwdana_file)
-            IF(lread_ana) CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
         CASE(MODE_IFSANA)
             CALL read_extana_atm(p_patch, initicon)
             ! Perform vertical interpolation from intermediate
             ! IFS2ICON grid to ICON grid and convert variables to the
             ! NH set of prognostic variables
             IF (iforcing == inwp) CALL read_extana_sfc(p_patch, initicon)
+            RETURN
+        CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU, MODE_ICONVREMAP, MODE_COMBINED, MODE_COSMODE)
+        CASE DEFAULT
+            CALL finish(routine, "assertion failed: unknown init_mode")
+    END SELECT
+
+    ! Create a request list for all the relevant variable names.
+    requestList => InputRequestList_create()
+    SELECT CASE(init_mode)
         CASE(MODE_COMBINED, MODE_COSMODE)
             CALL read_extana_atm(p_patch, initicon)
-            IF(lread_ana) CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
-        CASE(MODE_ICONVREMAP)
-            IF(lread_ana) CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
     END SELECT
+    DO jg = 1, n_dom
+      IF(p_patch(jg)%ldom_active) THEN
+        CALL inputInstructions(jg)%ptr%fileRequests(requestList, lIsFg = .FALSE.)
+      ENDIF
+    END DO
+
+    ! Scan the input files AND distribute the relevant variables across the processes.
+    DO jg = 1, n_dom
+        IF(p_patch(jg)%ldom_active .AND. lread_ana) THEN
+            IF (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg)) CYCLE
+            IF(my_process_is_stdio()) THEN
+                CALL message (TRIM(routine), 'read atm_ANA fields from '//TRIM(anaFilename(p_patch(jg))))
+            ENDIF  ! p_io
+            SELECT CASE(anaFiletype())
+                CASE(FILETYPE_NC2, FILETYPE_NC4)
+                    CALL requestList%readFile(p_patch(jg), TRIM(anaFilename(p_patch(jg))), .FALSE.)
+                CASE(FILETYPE_GRB2)
+                    CALL requestList%readFile(p_patch(jg), TRIM(anaFilename(p_patch(jg))), .FALSE., opt_dict = ana_varnames_dict)
+                CASE DEFAULT
+                    CALL finish(routine, "Unknown file TYPE")
+            END SELECT
+        END IF
+    END DO
+    IF(my_process_is_stdio()) THEN
+        CALL requestList%printInventory()
+        IF(lconsistency_checks) THEN
+            SELECT CASE(init_mode)
+                CASE(MODE_IAU)
+                    incrementsList = [CHARACTER(LEN=9) :: 'u', 'v', 'pres', 'temp', 'qv', 'w_so', 'h_snow', 'freshsnow']
+                CASE(MODE_IAU_OLD)
+                    incrementsList = [CHARACTER(LEN=4) :: 'u', 'v', 'pres', 'temp', 'qv', 'w_so']
+                CASE DEFAULT
+                    incrementsList = [CHARACTER(LEN=1) :: ]
+            END SELECT
+            CALL requestList%checkRuntypeAndUuids(incrementsList, gridUuids(p_patch), lIsFg = .FALSE., &
+              lHardCheckUuids = .NOT.check_uuid_gracefully)
+        END IF
+    END IF
+
+    ! Fetch the input DATA from the request list.
+    SELECT CASE(init_mode)
+        CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU)
+            IF(lread_ana) CALL fetch_dwdana_atm(requestList, p_patch, p_nh_state, initicon, inputInstructions)
+            IF(lread_ana) CALL fetch_dwdana_sfc(requestList, p_patch, p_lnd_state, initicon, inputInstructions)
+        CASE(MODE_COMBINED, MODE_COSMODE)
+            IF(lread_ana) CALL fetch_dwdana_sfc(requestList, p_patch, p_lnd_state, initicon, inputInstructions)
+        CASE(MODE_ICONVREMAP)
+            IF(lread_ana) CALL fetch_dwdana_sfc(requestList, p_patch, p_lnd_state, initicon, inputInstructions)
+    END SELECT
+
+    ! Cleanup.
+    CALL requestList%destruct()
+    DEALLOCATE(requestList)
   END SUBROUTINE read_dwdana
 
   ! Do postprocessing of data from analysis files.
-  SUBROUTINE process_dwdana(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, ext_data)
+  SUBROUTINE process_dwdana(p_patch, inputInstructions, p_nh_state, p_int_state, p_grf_state, ext_data, p_lnd_state)
     TYPE(t_patch), INTENT(IN) :: p_patch(:)
+    TYPE(t_readInstructionListPtr) :: inputInstructions(n_dom)
     TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_int_state), INTENT(IN) :: p_int_state(:)
     TYPE(t_gridref_state), INTENT(IN) :: p_grf_state(:)
+    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
-    TYPE(t_external_data), INTENT(INOUT), OPTIONAL :: ext_data(:)
+
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":process_dwdana"
 
     INTEGER :: jg, jb
     INTEGER :: i_rlstart, i_rlend, i_nchdom
@@ -368,11 +470,11 @@ MODULE mo_initicon
             ! Add increments to time-shifted first guess in one go.
             ! The following CALL must not be moved after create_dwdana_sfc()!
             IF(ANY((/MODE_IAU_OLD, MODE_IAU/) == init_mode)) THEN
-              CALL create_iau_sfc (p_patch, p_nh_state, p_lnd_state, ext_data)
+                CALL create_iau_sfc (p_patch, p_nh_state, p_lnd_state, ext_data)
             END IF
-            ! get SST from first soil level t_so (for sea and lake points)
+            ! get SST from first soil level t_so or t_seasfc
             ! perform consistency checks
-            CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data)
+            CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data, inputInstructions)
             IF (ANY((/MODE_IAU_OLD, MODE_IAU/) == init_mode) .AND. ntiles_total > 1) THEN
                 ! Call neighbor-filling routine for a second time in
                 ! order to ensure that fr_seaice is filled with
@@ -433,21 +535,24 @@ MODULE mo_initicon
   END SUBROUTINE process_dwdana
 
   ! Reads the data from the first-guess and analysis files, and does any required processing of that input data.
-  SUBROUTINE process_input_data(p_patch, p_nh_state, p_int_state, p_grf_state, prm_diag, p_lnd_state, ext_data)
-    TYPE(t_patch), INTENT(IN) :: p_patch(:)
+  SUBROUTINE process_input_data(p_patch, inputInstructions, p_nh_state, p_int_state, p_grf_state, ext_data, prm_diag, p_lnd_state)
+    TYPE(t_patch), INTENT(INOUT) :: p_patch(:)
+    TYPE(t_readInstructionListPtr) :: inputInstructions(n_dom)
     TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_int_state), INTENT(IN) :: p_int_state(:)
     TYPE(t_gridref_state), INTENT(IN) :: p_grf_state(:)
+    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
     TYPE(t_nwp_phy_diag), INTENT(INOUT), OPTIONAL :: prm_diag(:)
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
-    TYPE(t_external_data), INTENT(INOUT), OPTIONAL :: ext_data(:)
 
-    CALL read_dwdfg(p_patch, p_nh_state, prm_diag, p_lnd_state)
-    CALL process_dwdfg(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, ext_data, prm_diag)
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":process_input_data"
 
-    CALL read_dwdana(p_patch, p_nh_state, p_lnd_state)
+    CALL read_dwdfg(p_patch, inputInstructions, p_nh_state, prm_diag, p_lnd_state)
+    CALL process_dwdfg(p_patch, p_nh_state, p_int_state, p_grf_state, ext_data, p_lnd_state, prm_diag)
+
+    CALL read_dwdana(p_patch, inputInstructions, p_nh_state, p_lnd_state)
     ! process DWD analysis data
-    CALL process_dwdana(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, ext_data)
+    CALL process_dwdana(p_patch, inputInstructions, p_nh_state, p_int_state, p_grf_state, ext_data, p_lnd_state)
   END SUBROUTINE process_input_data
 
   !>
@@ -1518,11 +1623,12 @@ MODULE mo_initicon
   !!
   !!
   !-------------------------------------------------------------------------
-  SUBROUTINE create_dwdana_sfc (p_patch, p_lnd_state, ext_data)
+  SUBROUTINE create_dwdana_sfc (p_patch, p_lnd_state, ext_data, inputInstructions)
 
     TYPE(t_patch),    TARGET ,INTENT(IN)    :: p_patch(:)
     TYPE(t_lnd_state)        ,INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data)    ,INTENT(INOUT) :: ext_data(:)
+    TYPE(t_readInstructionListPtr) :: inputInstructions(n_dom)
 
     INTEGER :: jg, ic, jc, jk, jb, jt, jgch, ist          ! loop indices
     INTEGER :: ntlr
@@ -1531,7 +1637,10 @@ MODULE mo_initicon
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startidx, i_endidx, i_endblk
     LOGICAL :: lanaread_tso                    ! .TRUE. T_SO(0) was read from analysis
+    LOGICAL :: lanaread_tseasfc                ! .TRUE. T_SEA was read from analysis
     LOGICAL :: lp_mask(nproma)
+    REAL(wp):: z_t_seasfc(nproma)              ! temporary field containing both SST 
+                                               ! and lake-surface temperatures 
   !-------------------------------------------------------------------------
 
     ! get CDImissval
@@ -1554,53 +1663,33 @@ MODULE mo_initicon
       ELSE
         jgch = jg
       ENDIF
-      lanaread_tso = ( one_of('t_so', initicon(jgch)%grp_vars_ana(1:initicon(jgch)%ngrp_vars_ana)) /= -1)
+
+      lanaread_tso  = ANY((/kInputSourceAna,kInputSourceBoth/) == inputInstructions(jgch)%ptr%sourceOfVar('t_so'))
+      lanaread_tseasfc = inputInstructions(jgch)%ptr%sourceOfVar('t_seasfc') == kInputSourceAna
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jc,ic,jk,jb,jt,i_startidx,i_endidx,lp_mask,ist) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jc,ic,jk,jb,jt,i_startidx,i_endidx,lp_mask,ist,z_t_seasfc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
 
         CALL get_indices_c(p_patch(jg), jb, 1, nblks_c, &
                            i_startidx, i_endidx, rl_start, rl_end)
 
 
-        IF (lanaread_tso) THEN
+
+        IF (lanaread_tso .OR. lanaread_tseasfc) THEN
           !
-          ! SST analysis (T_SO(0)) was read into initicon(jg)%sfc%sst.
-          ! Now copy to diag_lnd%t_seasfc for water, ice and lake points
+          ! SST analysis (T_SO(0) or T_SEA) was read into initicon(jg)%sfc%sst.
+          ! Now copy to diag_lnd%t_seasfc for sea water points (including ice-covered ones)
           !
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, ext_data(jg)%atm%sp_count(jb)
              jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
              p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tf_salt,initicon(jg)%sfc%sst(jc,jb))
           END DO
-!CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, ext_data(jg)%atm%fp_count(jb)
-           jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
-           p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tmelt,initicon(jg)%sfc%sst(jc,jb))
-          END DO
 
-          ! Compute mask field for land points
-          lp_mask(:) = .FALSE.
-          DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,1)
-            jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,1)
-            lp_mask(jc) = .TRUE.
-          ENDDO
-
-          ! Fill T_SO with SST analysis over pure water points
-          DO jt = 1, ntiles_total
-            DO jk = 1, nlev_soil
-              DO jc = i_startidx, i_endidx
-                IF (.NOT. lp_mask(jc)) THEN
-                  p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,jk,jb,jt) = initicon(jg)%sfc%sst(jc,jb)
-                ENDIF
-              ENDDO
-            ENDDO
-          ENDDO
-
-        ELSE  ! SST (T_SO(0)) is not read from the analysis
+        ELSE  ! SST is not read from the analysis
           !
-          ! get SST from first guess T_G (for sea and lake points)
+          ! get SST from first guess T_G
           !
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, ext_data(jg)%atm%sp_count(jb)
@@ -1608,14 +1697,47 @@ MODULE mo_initicon
             p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =  &
               & MAX(tf_salt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_water))
           END DO
-!CDIR NODEP,VOVERTAKE,VOB
+
+        ENDIF  ! lanaread_t_so .OR. lanaread_tseasfc
+
+
+        ! construct temporary field containing both SST and lake-surface temperatures
+        ! which is needed for initializing T_SO at pure water points
+        z_t_seasfc(:) = 0._wp
+        DO ic = 1, ext_data(jg)%atm%sp_count(jb)
+          jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+          z_t_seasfc(jc) = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+        END DO
+        IF (llake) THEN
           DO ic = 1, ext_data(jg)%atm%fp_count(jb)
             jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
-            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = &
-              & MAX(tmelt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_lake))
+            z_t_seasfc(jc) = MAX(tmelt, p_lnd_state(jg)%prog_wtr(ntlr)%t_wml_lk(jc,jb))
           END DO
-
-        ENDIF  ! lanaread_t_so
+        ELSE
+          DO ic = 1, ext_data(jg)%atm%fp_count(jb)
+            jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+            z_t_seasfc(jc) = MAX(tmelt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_lake))
+          END DO
+        ENDIF
+        !
+        ! Fill T_SO with SST analysis over pure water points
+        !
+        ! Compute mask field for land points
+        lp_mask(:) = .FALSE.
+        DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,1)
+          jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,1)
+          lp_mask(jc) = .TRUE.
+        ENDDO
+        !
+        DO jt = 1, ntiles_total
+          DO jk = 1, nlev_soil
+            DO jc = i_startidx, i_endidx
+              IF (.NOT. lp_mask(jc)) THEN
+                p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,jk,jb,jt) = z_t_seasfc(jc)
+              ENDIF
+            ENDDO
+          ENDDO
+        ENDDO
 
 
 
@@ -1631,15 +1753,34 @@ MODULE mo_initicon
           DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
              jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
 
-             IF ( (p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(jc,jb,jt) < crhosmin_ml)  &
-               &  .AND. ( (ext_data(jg)%atm%fr_land(jc,jb) < 0.5_wp)  .OR.                     &
-               &          (p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(jc,jb,jt) >0._wp) ) &
+             IF ( (p_lnd_state(jg)%prog_lnd(ntlr)%rho_snow_t(jc,jb,jt) < crhosmin_ml)  &
+               &  .AND. ( (ext_data(jg)%atm%fr_land(jc,jb) < 0.5_wp)  .OR.             &
+               &          (p_lnd_state(jg)%prog_lnd(ntlr)%w_snow_t(jc,jb,jt) >0._wp) ) &
                & )  THEN
 
                ! re-initialize rho_snow_t with minimum density of fresh snow (taken from TERRA)
-               p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(jc,jb,jt) = crhosmin_ml
+               p_lnd_state(jg)%prog_lnd(ntlr)%rho_snow_t(jc,jb,jt) = crhosmin_ml
              ENDIF
           ENDDO  ! ic
+
+          IF (init_mode == MODE_ICONVREMAP) THEN
+
+            ! Constrain both rho_snow and t_snow because initial fields interpolated from a coarser grid
+            ! may suffer from missing values near coasts
+            DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
+              jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+
+              p_lnd_state(jg)%prog_lnd(ntlr)%rho_snow_t(jc,jb,jt) = &
+                MAX(crhosmin_ml,p_lnd_state(jg)%prog_lnd(ntlr)%rho_snow_t(jc,jb,jt))
+
+              p_lnd_state(jg)%prog_lnd(ntlr)%t_snow_t(jc,jb,jt) = &
+                MIN(p_lnd_state(jg)%prog_lnd(ntlr)%t_snow_t(jc,jb,jt), p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,jt))
+              IF (p_lnd_state(jg)%prog_lnd(ntlr)%t_snow_t(jc,jb,jt) < tmelt-10._wp) &
+                p_lnd_state(jg)%prog_lnd(ntlr)%t_snow_t(jc,jb,jt) = &
+                MAX(p_lnd_state(jg)%prog_lnd(ntlr)%t_snow_t(jc,jb,jt), p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,jt)-10._wp)
+
+             ENDDO
+           ENDIF
 
 
           ! Catch problematic coast cases: ICON-land but GME ocean for moisture
@@ -1730,9 +1871,9 @@ MODULE mo_initicon
 
           DO jc = i_startidx, i_endidx
             IF (ext_data(jg)%atm%fr_land(jc,jb) <= 1-frlnd_thrhld) THEN ! grid points with non-zero water fraction
-              IF (lanaread_tso) THEN
+              IF (lanaread_tso .OR. lanaread_tseasfc) THEN
                 p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tmelt,initicon(jg)%sfc%sst(jc,jb))
-              ELSE IF (ext_data(jg)%atm%fr_land(jc,jb) >= frlake_thrhld) THEN
+              ELSE IF (ext_data(jg)%atm%fr_lake(jc,jb) >= frlake_thrhld) THEN
                 p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tmelt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_lake))
               ELSE
                 p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tf_salt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_water))
@@ -1747,7 +1888,7 @@ MODULE mo_initicon
       ! This sync is needed because of the subsequent neighbor point filling
       CALL sync_patch_array(SYNC_C,p_patch(jg),p_lnd_state(jg)%diag_lnd%t_seasfc)
 
-      ! Initialization of t_g_t(:,:,isub_water) and t_s_t(:,:,isub_water/isub_lake)
+      ! Initialization of t_g_t(:,:,isub_water) and t_s_t(:,:,isub_water)
       ! with t_seasfc is performed in mo_nwp_sfc_utils:nwp_surface_init (nnow and nnew)
 
     ENDDO  ! jg domain loop

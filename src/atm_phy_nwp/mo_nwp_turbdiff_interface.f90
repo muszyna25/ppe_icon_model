@@ -278,7 +278,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb),  & !in
         &  h_ice=wtr_prog_now%h_ice(:,jb),                                            & !in
         &  sai=ext_data%atm%sai(:,jb), d_pat = ext_data%atm%sso_stdh_raw(:,jb),       &
-        &  gz0=prm_diag%gz0(:,jb),                                                    & !inout 
+        &  tkred_sfc=prm_diag%tkred_sfc(:,jb),  gz0=prm_diag%gz0(:,jb),               & !inout 
         &  t_g=lnd_prog_now%t_g(:,jb), qv_s=lnd_diag%qv_s(:,jb),                      & !in
         &  ps=p_diag%pres_sfc(:,jb),                                                  & !in
         &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog%w(:,:,jb),                & !in
@@ -303,6 +303,7 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         &  ut_sso=prm_nwp_tend%ddt_u_sso(:,:,jb),                                     & !in
         &  vt_sso=prm_nwp_tend%ddt_v_sso(:,:,jb),                                     & !in
         &  tket_conv=prm_nwp_tend%ddt_tke_pconv(:,:,jb),                              & !in
+        &  tket_hshr=prm_nwp_tend%ddt_tke_hsh(:,:,jb),                                & !out
         &  shfl_s=prm_diag%shfl_s(:,jb), qvfl_s=prm_diag%qhfl_s(:,jb),                & !in
         &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
 

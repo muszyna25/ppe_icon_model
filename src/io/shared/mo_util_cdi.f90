@@ -18,6 +18,7 @@
 !!
 MODULE mo_util_cdi
 
+  USE ISO_C_BINDING,         ONLY: C_INT, C_CHAR
   USE mo_kind,               ONLY: wp, sp, dp, i8
   USE mo_exception,          ONLY: finish
   USE mo_communication,      ONLY: t_scatterPattern
@@ -35,7 +36,7 @@ MODULE mo_util_cdi
                                  & taxisInqTunit, TUNIT_SECOND, TUNIT_MINUTE, TUNIT_HOUR, vlistDefVarIntKey, &
                                  & vlistDefVarTypeOfGeneratingProcess, streamReadVarSliceF, streamReadVarSlice, vlistInqVarName, &
                                  & TSTEP_AVG,TSTEP_ACCUM,TSTEP_MAX,TSTEP_MIN, vlistInqVarSubtype, subtypeInqSize, &
-                                 & subtypeDefActiveIndex, DATATYPE_PACK23, DATATYPE_PACK32
+                                 & subtypeDefActiveIndex, DATATYPE_PACK23, DATATYPE_PACK32, cdiStringError
 
   IMPLICIT NONE
   PRIVATE
@@ -46,7 +47,8 @@ MODULE mo_util_cdi
   PUBLIC :: get_cdi_varID
   PUBLIC :: get_cdi_NlevRef
   PUBLIC :: t_inputParameters, makeInputParameters, deleteInputParameters
-  PUBLIC :: t_tileinfo_elt, trivial_tileinfo
+  PUBLIC :: t_tileinfo_elt, trivial_tileinfo, trivial_tileId
+  PUBLIC :: cdiGetStringError
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_util_cdi'
 
@@ -77,7 +79,8 @@ MODULE mo_util_cdi
   END TYPE t_tileinfo
 
   ! trivial tile information, denoting a "no-tile" field:
-  TYPE(t_tileinfo_elt), PARAMETER :: trivial_tileinfo = t_tileinfo_elt(idx=-99, att=-99)
+  TYPE(t_tileinfo_elt), PARAMETER :: trivial_tileinfo = t_tileinfo_elt(idx = 0, att = 0)
+  INTEGER, PARAMETER :: trivial_tileId = 0
 
   ! This is a small type that serves two functions:
   ! 1. It encapsulates three parameters to the read functions into one, significantly reducing the hassle to call them.
@@ -194,7 +197,7 @@ CONTAINS
             IF (vlistInqVarIntKey(vlistId, i-1, "totalNumberOfTileAttributePairs") <= 0) THEN
               ! not a tile variable
               me%variableTileinfo(i)%tile(:)       = trivial_tileinfo
-              me%variableTileinfo(i)%tile_index(:) = -99
+              me%variableTileinfo(i)%tile_index(:) = trivial_tileId
             ELSE
               ! tile
               DO ientry=1, subtypeSize(i)
@@ -686,7 +689,7 @@ CONTAINS
 
     CALL parameters%findVarId(varname, tileinfo, varID, tile_index)
 
-    IF ((tile_index < 0) .AND. (tileinfo%idx >= 0)) THEN
+    IF ((tile_index < 0) .AND. (tileinfo%idx > 0)) THEN
       CALL finish(routine, "Requested tile not found!")
     END IF
 
@@ -694,7 +697,7 @@ CONTAINS
       ! set active tile index, if this is a tile-based variable
       vlistId = streamInqVlist(parameters%streamId)
       subtypeID  = vlistInqVarSubtype(vlistID,varID)
-      IF (tile_index >= 0)  CALL subtypeDefActiveIndex(subtypeID, tile_index)
+      IF (tile_index > 0)  CALL subtypeDefActiveIndex(subtypeID, tile_index)
       ! sanity check of the variable dimensions
       zaxisId = vlistInqVarZaxis(vlistId, varId)
       gridId = vlistInqVarGrid(vlistId, varId)
@@ -720,7 +723,7 @@ CONTAINS
 
     IF(my_process_is_mpi_workroot()) THEN
       ! reset tile index
-      IF (tile_index >= 0)  CALL subtypeDefActiveIndex(subtypeID, 0)
+      IF (tile_index > 0)  CALL subtypeDefActiveIndex(subtypeID, 0)
     END IF
   END SUBROUTINE read_cdi_3d_real_tiles
 
@@ -823,7 +826,7 @@ CONTAINS
 
     CALL parameters%findVarId(varname, tileinfo, varID, tile_index)
 
-    IF ((tile_index < 0) .AND. (tileinfo%idx >= 0)) THEN
+    IF ((tile_index < 0) .AND. (tileinfo%idx > 0)) THEN
       CALL finish(routine, "Requested tile not found!")
     END IF
 
@@ -831,7 +834,7 @@ CONTAINS
       ! set active tile index, if this is a tile-based variable
       vlistId   = streamInqVlist(parameters%streamId)
       subtypeID  = vlistInqVarSubtype(vlistID,varID)
-      IF (tile_index >= 0)  CALL subtypeDefActiveIndex(subtypeID, tile_index)
+      IF (tile_index > 0)  CALL subtypeDefActiveIndex(subtypeID, tile_index)
       !sanity check on the variable dimensions
       gridId    = vlistInqVarGrid(vlistId, varId)
       IF (gridInqSize(gridId) /= parameters%glb_arr_len) CALL finish(routine, "Incompatible dimensions!"//&
@@ -850,7 +853,7 @@ CONTAINS
 
     IF(my_process_is_mpi_workroot()) THEN
       ! reset tile index
-      IF (tile_index >= 0)  CALL subtypeDefActiveIndex(subtypeID, 0)
+      IF (tile_index > 0)  CALL subtypeDefActiveIndex(subtypeID, 0)
     END IF
   END SUBROUTINE read_cdi_2d_real_tiles
 
@@ -943,7 +946,7 @@ CONTAINS
     ! Get var ID
     CALL parameters%findVarId(varname, tileinfo, varID, tile_index)
 
-    IF ((tile_index < 0) .AND. (tileinfo%idx >= 0)) THEN
+    IF ((tile_index < 0) .AND. (tileinfo%idx > 0)) THEN
       CALL finish(routine, "Requested tile not found!")
     END IF
 
@@ -952,7 +955,7 @@ CONTAINS
         ! set active tile index, if this is a tile-based variable
         vlistId    = streamInqVlist(parameters%streamId)
         subtypeID  = vlistInqVarSubtype(vlistID, varID)
-        IF (tile_index >= 0)  CALL subtypeDefActiveIndex(subtypeID, tile_index)
+        IF (tile_index > 0)  CALL subtypeDefActiveIndex(subtypeID, tile_index)
         nrecs = streamInqTimestep(parameters%streamId, (jt-1))
       END IF
       SELECT CASE(parameters%lookupDatatype(varId))
@@ -968,7 +971,7 @@ CONTAINS
     END DO
     IF(my_process_is_mpi_workroot()) THEN
       ! reset tile index
-      IF (tile_index >= 0)  CALL subtypeDefActiveIndex(subtypeID, 0)
+      IF (tile_index > 0)  CALL subtypeDefActiveIndex(subtypeID, 0)
     END IF
   END SUBROUTINE read_cdi_2d_time_tiles
 
@@ -988,5 +991,20 @@ CONTAINS
 
     CALL read_cdi_2d_time_tiles (parameters, ntime, varname, var_out, trivial_tileinfo)
   END SUBROUTINE read_cdi_2d_time
+
+  SUBROUTINE cdiGetStringError(errorId, outErrorString)
+    INTEGER(C_INT), VALUE :: errorId
+    CHARACTER(KIND = C_CHAR), INTENT(INOUT) :: outErrorString
+    CHARACTER(KIND = C_CHAR), dimension(:), POINTER :: cString
+    INTEGER :: i
+
+    cString => cdiStringError(errorId)
+    outErrorString = ""
+    IF(ASSOCIATED(cString)) THEN
+        DO i = 1, MIN(LEN(outErrorString), SIZE(cString, 1))
+            outErrorString(i:i) = cString(i)
+        END DO
+    END IF
+  END SUBROUTINE cdiGetStringError
 
 END MODULE mo_util_cdi

@@ -66,6 +66,7 @@
 !!
 MODULE mo_name_list_output_zaxes
 
+  USE ISO_C_BINDING,                        ONLY: C_SIGNED_CHAR
   USE mo_cdi,                               ONLY: CDI_UNDEFID, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_GENERIC, ZAXIS_SURFACE, &
                                                 & ZAXIS_ISENTROPIC, ZAXIS_ALTITUDE, ZAXIS_PRESSURE, ZAXIS_CLOUD_BASE, &
                                                 & ZAXIS_CLOUD_TOP, ZAXIS_DEPTH_BELOW_LAND, ZAXIS_HEIGHT, ZAXIS_HYBRID, &
@@ -83,7 +84,7 @@ MODULE mo_name_list_output_zaxes
                                                 & ZA_ATMOSPHERE, ZA_PRES_FL_SFC_200, ZA_PRES_FL_200_350, ZA_PRES_FL_350_550,      &
                                                 & ZA_PRES_FL_SFC_100, ZA_PRES_FL_100_245, ZA_PRES_FL_245_390, ZA_PRES_FL_390_530, &
                                                 & ZA_reference, ZA_reference_half, ZA_reference_half_hhl, &
-                                                & ZA_sediment_bottom_tw_half, ZA_snow, ZA_snow_half, ZA_toa
+                                                & ZA_sediment_bottom_tw_half, ZA_snow, ZA_snow_half, ZA_toa, ZA_OCEAN_SEDIMENT
   USE mo_kind,                              ONLY: wp, dp
   USE mo_impl_constants,                    ONLY: zml_soil, SUCCESS
   USE mo_var_list_element,                  ONLY: level_type_ml, level_type_pl, level_type_hl,    &
@@ -101,7 +102,10 @@ MODULE mo_name_list_output_zaxes
   USE mo_lnd_nwp_config,                    ONLY: nlev_snow
 #endif
 #ifndef __NO_ICON_OCEAN__
-  USE mo_ocean_nml,                         ONLY: n_zlev, dzlev_m
+  USE mo_ocean_nml,                         ONLY: n_zlev, dzlev_m,lhamocc
+  USE mo_sedmnt,                            ONLY: ks, ksp, dzsed
+
+
 #endif
 
   IMPLICIT NONE
@@ -241,7 +245,7 @@ CONTAINS
       &                           levels           = (/ ( REAL(k,dp),   k=1,nlevp1 ) /), &
       &                           opt_set_bounds   = .TRUE.,                             &
       &                           opt_number       = get_numberOfVgridUsed(ivctype),     &
-      &                           opt_uuid         = vgrid_buffer(of%log_patch_id)%uuid )
+      &                           opt_uuid         = vgrid_buffer(of%log_patch_id)%uuid%DATA )
     ! Define number of half levels for z-axis 
     CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference),nlevp1)
 
@@ -249,7 +253,7 @@ CONTAINS
     CALL define_vertical_axis(of, ZA_reference_half, ZAXIS_REFERENCE, nlevp1,        &
       &                           levels   = (/ ( REAL(k,dp),   k=1,nlevp1 ) /),     &
       &                           opt_number = get_numberOfVgridUsed(ivctype),       &
-      &                           opt_uuid   = vgrid_buffer(of%log_patch_id)%uuid )
+      &                           opt_uuid   = vgrid_buffer(of%log_patch_id)%uuid%DATA )
     ! Define number of half levels for z-axis 
     CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference_half),nlevp1)
 
@@ -259,7 +263,7 @@ CONTAINS
       &                           opt_set_bounds   = .TRUE.,                             &
       &                           opt_set_ubounds_value = 0._dp,                         &
       &                           opt_number       = get_numberOfVgridUsed(ivctype),     &
-      &                           opt_uuid         = vgrid_buffer(of%log_patch_id)%uuid )
+      &                           opt_uuid         = vgrid_buffer(of%log_patch_id)%uuid%DATA )
     ! Define number of half levels for z-axis 
     CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference_half_hhl),nlevp1)
 
@@ -443,6 +447,8 @@ CONTAINS
     ! local variables
     REAL(dp), ALLOCATABLE           :: levels(:)
     REAL(wp), ALLOCATABLE           :: levels_i(:), levels_m(:)
+    REAL(wp), ALLOCATABLE           :: levels_s(:), levels_sp(:)
+    INTEGER                         :: nzlevp1,iz
 
 #ifndef __NO_ICON_OCEAN__
     of%cdiZaxisID(:) = CDI_UNDEFID ! not all are set
@@ -471,6 +477,18 @@ CONTAINS
 
     DEALLOCATE(levels_i)
     DEALLOCATE(levels_m)
+    of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(ZAXIS_GENERIC, 1)
+    if(lhamocc)then
+    ! ocean sediment
+    of%cdiZaxisID(ZA_OCEAN_SEDIMENT) = zaxisCreate(ZAXIS_GENERIC, ks)
+    ALLOCATE(levels_s(ks))
+    ALLOCATE(levels_sp(ksp))
+
+    CALL set_zlev(levels_sp, levels_s, ks, dzsed*1000._dp)
+    CALL zaxisDefLevels(of%cdiZaxisID(ZA_OCEAN_SEDIMENT), REAL(levels_s,dp))
+    DEALLOCATE(levels_s)
+    DEALLOCATE(levels_sp)
+    endif
 #endif
 
   END SUBROUTINE setup_zaxes_oce
@@ -543,7 +561,7 @@ CONTAINS
     LOGICAL,                 INTENT(IN), OPTIONAL :: opt_set_bounds        !< Flag. Set lower/upper bounds if .TRUE.
     REAL(dp),                INTENT(IN), OPTIONAL :: opt_set_ubounds_value !< Explicit value for ubounds
     INTEGER,                 INTENT(IN), OPTIONAL :: opt_number            !< numberOfVGridUsed
-    CHARACTER(len=1),        INTENT(IN), OPTIONAL :: opt_uuid(16)          !< UUID of vertical grid
+    INTEGER(KIND = C_SIGNED_CHAR), INTENT(IN), OPTIONAL :: opt_uuid(16)          !< UUID of vertical grid
     LOGICAL,                 INTENT(IN), OPTIONAL :: opt_set_vct_as_levels !< set VCT to level values
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM(modname)//":define_vertical_axis"
