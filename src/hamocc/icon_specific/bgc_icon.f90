@@ -30,9 +30,10 @@ SUBROUTINE BGC_ICON(p_patch_3D, p_os, p_as, p_ice)
        &                            set_bgc_tendencies_output
   USE mo_dynamics_config,     ONLY: nold, nnew
   USE mo_sea_ice_types,       ONLY: t_atmos_for_ocean, t_sea_ice ! for now, use different later
-  USE mo_hamocc_nml,          ONLY: i_settling, l_cyadyn,l_bgc_check,io_stdo_bgc,l_implsed 
+  USE mo_hamocc_nml,          ONLY: i_settling, l_cyadyn,l_bgc_check,io_stdo_bgc,l_implsed, &
+       &                            l_jerlov_pi 
   USE mo_control_bgc,         ONLY: dtb, dtbgc, inv_dtbgc, ndtdaybgc, icyclibgc,  &
-       &                        ndtrunbgc, ldtrunbgc, bgc_zlevs, bgc_nproma
+       &                        ndtrunbgc, ldtrunbgc, bgc_zlevs,bgc_nproma
 
   USE mo_cyano,               ONLY: cyano, cyadyn
   USE mo_bgc_surface,         ONLY: gasex, update_weathering, dust_deposition
@@ -174,7 +175,9 @@ ENDIF
         CALL cyadyn(levels, start_index,end_index, &  ! vertical range, cell range,
      &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),& ! cell thickness
      &               p_os%p_prog(nold(1))%h(:,jb), &                 ! surface height
-     &               p_os%p_prog(nold(1))%tracer(:,:,jb,1) )          ! pot. temperature 
+     &               p_os%p_prog(nold(1))%tracer(:,:,jb,1), &        ! pot. temperature 
+     &               p_patch_3d%p_patch_1d(1)%depth_CellInterface(:,:,jb),& ! depths at interface  
+     &               l_jerlov_pi ) ! depths at interface  
        ELSE
         ! diagnostic N2 fixation
         CALL cyano (start_index, end_index,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&

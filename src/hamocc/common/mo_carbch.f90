@@ -38,6 +38,7 @@ MODULE mo_carbch
   REAL(wp), ALLOCATABLE, TARGET :: aksp(:,:)
 
   REAL(wp), ALLOCATABLE :: swr_frac (:,:)
+  REAL(wp), ALLOCATABLE :: meanswr(:,:)
   REAL(wp), ALLOCATABLE :: akw3(:,:)
   REAL(wp), ALLOCATABLE :: akb3(:,:)
   REAL(wp), ALLOCATABLE :: ak13(:,:)
@@ -132,6 +133,8 @@ CONTAINS
     ALLOCATE (akw3(bgc_nproma,bgc_zlevs))
     ALLOCATE (swr_frac(bgc_nproma,bgc_zlevs))
     swr_frac=1._wp
+    ALLOCATE (meanswr(bgc_nproma,bgc_zlevs))
+    meanswr=0._wp
     ALLOCATE (aksurf(bgc_nproma,4))
      aksurf(:,:) = rmasko
     ALLOCATE (atm(bgc_nproma,natm))
