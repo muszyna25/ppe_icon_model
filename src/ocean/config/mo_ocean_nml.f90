@@ -411,12 +411,21 @@ MODULE mo_ocean_nml
                                       !the smaller becomes the effect of biharmonic diffusion.The appropriate
                                       !size of this number depends also on the position of the biharmonic diffusion coefficient
                                       !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
-  INTEGER  :: BiharmonicViscosity_scaling = 4
-  INTEGER  :: HarmonicViscosity_scaling = 1
   REAL(wp) :: velocity_RichardsonCoeff      = 0.5E-2_wp  ! Factor with which the richarseon related part of the vertical
                                                  ! diffusion is multiplied before it is added to the background
                                                  ! vertical diffusion ! coeffcient for the velocity. See usage in
                                                  ! mo_ocean_physics.f90, update_ho_params, variable z_av0
+  REAL(wp) :: BiharmonicViscosity_background = 0.0_wp! factor for adjusting the biharmonic diffusion coefficient
+  REAL(wp) :: HarmonicViscosity_reference  = 1.0E+5_wp  ! horizontal harmonic diffusion coefficient
+  REAL(wp) :: BiharmonicViscosity_reference = 5.0E12_wp! factor for adjusting the biharmonic diffusion coefficient
+                                      !has to be adjusted for each resolution, the bigger this number
+                                      !the smaller becomes the effect of biharmonic diffusion.The appropriate
+                                      !size of this number depends also on the position of the biharmonic diffusion coefficient
+                                      !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
+  INTEGER  :: BiharmonicViscosity_scaling = 4
+  INTEGER  :: HarmonicViscosity_scaling = 1
+
+
   REAL(wp) :: LeithHarmonicViscosity_background = 0.0_wp
   REAL(wp) :: LeithHarmonicViscosity_reference = 3.82E-12_wp
   INTEGER  :: LeithHarmonicViscosity_scaling = 6
@@ -535,9 +544,14 @@ MODULE mo_ocean_nml
     & TEST_MODE_GM_ONLY,              &
     & TEST_MODE_REDI_ONLY 
   
+  INTEGER  :: EOS_TYPE              = 2          ! 1=linear EOS,2=(nonlinear, from MPIOM)
+                                                 ! 3=nonlinear Jacket-McDoudgall-formulation (not yet recommended)
+                                                 ! 10 = EOS10, note that the GMRedo needs to be updated to use the EOS10
   REAL(wp) :: LinearThermoExpansionCoefficient = a_T
   REAL(wp) :: LinearHalineContractionCoefficient=b_S
   REAL(wp) :: OceanReferenceDensity = rho_ref
+  REAL(wp) :: OceanReferenceDensity_inv
+  REAL(wp) :: ReferencePressureIndbars
   
   ! ist : todo move into different nml
   LOGICAL  :: lhamocc=.FALSE.
