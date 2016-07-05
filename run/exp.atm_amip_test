@@ -394,6 +394,36 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
                     'zg','pfull','ps'
 /
+&output_nml
+ output_filename  = "${EXPNAME}_atm_3d_lonlat"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 1
+ reg_def_mode     = 1
+ reg_lat_def      = ${reg_lat_def_rmb}
+ reg_lon_def      = ${reg_lon_def_rmb}
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval_3d}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
+                    'zg','pfull','ps'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_atm_3d_mean"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval_3d}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ operation        = "mean"
+ ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
+                    'zg','pfull','ps'
+/
 EOF
 fi
 
