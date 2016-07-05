@@ -24,7 +24,7 @@
 #include "omp_definitions.inc"
 #include "iconfor_dsl_definitions.inc"
 !----------------------------
-MODULE mo_ocean_physics_state
+MODULE mo_ocean_physics_types
   !-------------------------------------------------------------------------
   USE mo_kind,                ONLY: wp
   USE mo_ocean_nml,           ONLY: &
@@ -95,7 +95,7 @@ MODULE mo_ocean_physics_state
 
   PRIVATE
 
-  CHARACTER(LEN=*), PARAMETER :: this_mod_name = 'mo_ocean_physics_state'
+  CHARACTER(LEN=*), PARAMETER :: this_mod_name = 'mo_ocean_physics_types'
 !   CHARACTER(LEN=12)           :: str_module    = 'ocePhysics  '  ! Output of module for 1 line debug
 
   ! Public interface
@@ -402,4 +402,4 @@ CONTAINS
   !-------------------------------------------------------------------------
 
 
-END MODULE mo_ocean_physics_state
+END MODULE mo_ocean_physics_types

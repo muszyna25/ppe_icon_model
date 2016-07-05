@@ -69,7 +69,7 @@ case "$fortran_compiler" in
         GRIB_APIBASE     = /opt/grib_api
         CFLAGS      = $CFLAGS -DpgiFortran
         FCPP        = -cpp
-        FLANG       = -std=f2008 -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-132
+        FLANG       = -std=f2008 -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-192
         FWARN       = -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter
         FDEBUG      = -g -fbacktrace
         FCHECK      = -finit-real=nan -finit-integer=-2147483648 -finit-character=127

@@ -36,12 +36,6 @@ MODULE mo_ocean_physics
     & n_points_in_munk_layer,                                 &
     & BiharmonicViscosity_reference,                          &
     & tracer_RichardsonCoeff, velocity_RichardsonCoeff,                    &
-    & PPscheme_type,                                &
-    & PPscheme_Constant_type,                       &
-    & PPscheme_ICON_PP_type,                        &
-    & PPscheme_ICON_PP_Edge_type,                   &
-    & PPscheme_ICON_PP_Edge_vnPredict_type,         &
-    & PPscheme_MPIOM_PP_type,                       &
     & use_wind_mixing,                                        &
     & HorizontalViscosity_SmoothIterations,                   &
     & convection_InstabilityThreshold,                        &
@@ -71,7 +65,7 @@ MODULE mo_ocean_physics
     &  TracerDiffusion_LeithWeight, Salinity_ConvectionRestrict, &
     &  max_turbulenece_TracerDiffusion_amplification
 
-  USE mo_ocean_physics_state, ONLY: t_ho_params, v_params, WindMixingDecay, WindMixingLevel
+  USE mo_ocean_physics_types, ONLY: t_ho_params, v_params, WindMixingDecay, WindMixingLevel
    !, l_convection, l_pp_scheme
   USE mo_parallel_config,     ONLY: nproma
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
@@ -109,8 +103,7 @@ MODULE mo_ocean_physics
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
   USE mo_ocean_pp_scheme,     ONLY: update_PP_scheme
   USE mo_ocean_physics_types, ONLY: t_ho_params, v_params, &
-   &                                WindAmplitude_at10m, SeaIceConcentration, &
-   &                                WindMixingDecay, WindMixingLevel
+   & WindMixingDecay, WindMixingLevel
   
 
   IMPLICIT NONE
@@ -126,8 +119,7 @@ MODULE mo_ocean_physics
   !PUBLIC :: init_ho_physics
   PUBLIC :: init_ho_params
   PUBLIC :: update_ho_params
-  PRIVATE :: calculate_leith_closure
-  PUBLIC  :: calc_characteristic_physical_numbers
+  PUBLIC :: calc_characteristic_physical_numbers
 
   ! variables
   TYPE (t_var_list), PUBLIC :: ocean_params_list
@@ -159,8 +151,6 @@ CONTAINS
     !-------------------------------------------------------------------------
     all_edges => patch_2D%edges%ALL
     owned_edges => patch_2D%edges%owned
-    !-------------------------------------------------------------------------
-    WindAmplitude_at10m => fu10
     !-------------------------------------------------------------------------
     !Init from namelist
     physics_param%a_veloc_v_back = velocity_VerticalDiffusion_background
@@ -684,9 +674,6 @@ CONTAINS
     INTEGER :: tracer_index
     !-------------------------------------------------------------------------
     IF (ltimer) CALL timer_start(timer_upd_phys)
-!     WindAmplitude_at10m => fu10
-    SeaIceConcentration => concsum
-
 
     CALL calc_characteristic_physical_numbers(patch_3d, ocean_state)
 

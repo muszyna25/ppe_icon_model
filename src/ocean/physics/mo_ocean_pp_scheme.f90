@@ -72,7 +72,7 @@ MODULE mo_ocean_pp_scheme
     &  max_turbulenece_TracerDiffusion_amplification, &
     &  ReferencePressureIndbars
 
-  USE mo_ocean_physics_state, ONLY: t_ho_params, v_params, WindMixingDecay, WindMixingLevel
+  USE mo_ocean_physics_types, ONLY: t_ho_params, v_params, WindMixingDecay, WindMixingLevel
    !, l_convection, l_pp_scheme
   USE mo_parallel_config,     ONLY: nproma
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
@@ -114,11 +114,14 @@ MODULE mo_ocean_pp_scheme
   IMPLICIT NONE
   PRIVATE
 
-  CHARACTER(LEN=*), PARAMETER :: this_mod_name = 'mo_pp_scheme'
+  CHARACTER(LEN=*), PARAMETER :: module_name = 'mo_pp_scheme'
   INTEGER :: idt_src       = 1               ! Level of detail for 1 line debug
 
   PUBLIC :: update_PP_scheme
+  PUBLIC :: ICON_PP_Edge_vnPredict_scheme
 
+  REAL(wp), POINTER :: WindAmplitude_at10m(:,:)  
+  REAL(wp), POINTER :: SeaIceConcentration(:,:)
 
 CONTAINS
 
@@ -135,7 +138,7 @@ CONTAINS
     INTEGER :: tracer_index
     !-------------------------------------------------------------------------
     IF (ltimer) CALL timer_start(timer_upd_phys)
-!     WindAmplitude_at10m => fu10
+    WindAmplitude_at10m => fu10
     SeaIceConcentration => concsum
 
     SELECT CASE (PPscheme_type)
@@ -598,7 +601,7 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Leonidas Linardakis, MPI-M (2011-02)
   !<Optimize:inUse:done>
-  SUBROUTINE update_PhysicsParameters_ICON_PP_Edge_vnPredict_scheme(patch_3d, &
+  SUBROUTINE ICON_PP_Edge_vnPredict_scheme(patch_3d, &
     & blockNo, start_index, end_index, ocean_state, vn_predict) !, calculate_density_func)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
@@ -683,7 +686,7 @@ CONTAINS
       END DO ! jk = 2, levels
     ENDDO ! je = start_index, end_index
 
-  END SUBROUTINE update_PhysicsParameters_ICON_PP_Edge_vnPredict_scheme
+  END SUBROUTINE ICON_PP_Edge_vnPredict_scheme
   !-------------------------------------------------------------------------
 
 !   !-------------------------------------------------------------------------
@@ -1206,19 +1209,19 @@ CONTAINS
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print levels (1-5, fix)
-    CALL dbg_print('UpdPar: p_vn%x(1)    ',ocean_state%p_diag%p_vn%x(1),str_module,idt_src,in_subset=p_patch%cells%owned)
-  ! CALL dbg_print('UpdPar: p_vn%x(2)    ',ocean_state%p_diag%p_vn%x(2),str_module,idt_src,in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdPar: windMix Diff ',dv_wind                     ,str_module,idt_src,in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdPar: windMix Visc ',av_wind                     ,str_module,idt_src,in_subset=p_patch%edges%owned)
-    CALL dbg_print('UpdPar: VertDensGrad ',vert_density_grad           ,str_module,idt_src,in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdPar: Richardson No',richardson_no               ,str_module,idt_src,in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdPar: windsp. fu10 ',fu10                        ,str_module,idt_src,in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdPar: p_vn%x(1)    ',ocean_state%p_diag%p_vn%x(1),module_name,idt_src,in_subset=p_patch%cells%owned)
+  ! CALL dbg_print('UpdPar: p_vn%x(2)    ',ocean_state%p_diag%p_vn%x(2),module_name,idt_src,in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdPar: windMix Diff ',dv_wind                     ,module_name,idt_src,in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdPar: windMix Visc ',av_wind                     ,module_name,idt_src,in_subset=p_patch%edges%owned)
+    CALL dbg_print('UpdPar: VertDensGrad ',vert_density_grad           ,module_name,idt_src,in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdPar: Richardson No',richardson_no               ,module_name,idt_src,in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdPar: windsp. fu10 ',fu10                        ,module_name,idt_src,in_subset=p_patch%cells%owned)
     idt_src=5  ! output print levels (1-5, fix)
 !     DO tracer_index = 1, no_tracer
-!       CALL dbg_print('UpdPar FinalTracerMixing'  ,params_oce%a_tracer_v(:,:,:,tracer_index), str_module,idt_src, &
+!       CALL dbg_print('UpdPar FinalTracerMixing'  ,params_oce%a_tracer_v(:,:,:,tracer_index), module_name,idt_src, &
 !         & in_subset=p_patch%cells%owned)
 !     ENDDO
-!     CALL dbg_print('UpdPar FinalVelocMixing'   ,params_oce%a_veloc_v     ,str_module,idt_src, &
+!     CALL dbg_print('UpdPar FinalVelocMixing'   ,params_oce%a_veloc_v     ,module_name,idt_src, &
 !       & in_subset=p_patch%edges%owned)
     !---------------------------------------------------------------------
 

@@ -48,9 +48,9 @@ MODULE mo_ocean_ab_timestepping_mimetic
     & MASS_MATRIX_INVERSION_TYPE,NO_INVERSION,            &
     & MASS_MATRIX_INVERSION_ADVECTION,                    &
     & MASS_MATRIX_INVERSION_ALLTERMS,                     &
-    & PPscheme_type,                            &
-    & PPscheme_ICON_PP_Edge_vnPredict_type,     &
-    & solver_FirstGuess, MassMatrix_solver_tolerance, &
+    & PPscheme_type,                                      &
+    & PPscheme_ICON_Edge_vnPredict_type,                  &
+    & solver_FirstGuess, MassMatrix_solver_tolerance,     &
     & OceanReferenceDensity_inv
     
   USE mo_run_config,                ONLY: dtime, ltimer, debug_check_level
@@ -68,7 +68,7 @@ MODULE mo_ocean_ab_timestepping_mimetic
   USE mo_ocean_boundcond,           ONLY: VelocityBottomBoundaryCondition_onBlock, top_bound_cond_horz_veloc
   USE mo_ocean_thermodyn,           ONLY: calculate_density, calc_internal_press_grad
   USE mo_ocean_physics_types,       ONLY: t_ho_params
-  USE mo_ocean_pp_scheme,           ONLY: update_physics_parameters_ICON_PP_Edge_vnPredict_scheme
+  USE mo_ocean_pp_scheme,           ONLY: ICON_PP_Edge_vnPredict_scheme
   USE mo_sea_ice_types,             ONLY: t_sfc_flx
   USE mo_scalar_product,            ONLY:   &
     & calc_scalar_product_veloc_3d,         &
@@ -809,8 +809,8 @@ CONTAINS
         & start_edge_index, end_edge_index, blockNo)
 
         ! calculate vertical friction, ie p_phys_param%a_veloc_v
-        IF (PPscheme_type == PPscheme_ICON_PP_Edge_vnPredict_type) &
-          CALL update_PhysicsParameters_ICON_PP_Edge_vnPredict_scheme(patch_3d, &
+        IF (PPscheme_type == PPscheme_ICON_Edge_vnPredict_type) &
+          CALL ICON_PP_Edge_vnPredict_scheme(patch_3d, &
                & blockNo, start_edge_index, end_edge_index, ocean_state, ocean_state%p_diag%vn_pred(:,:,blockNo))
 
         !In 3D case implicit vertical velocity diffusion is chosen

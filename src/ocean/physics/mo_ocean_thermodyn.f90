@@ -35,7 +35,7 @@ MODULE mo_ocean_thermodyn
   USE mo_impl_constants,      ONLY: sea_boundary, sea_boundary, min_dolic !, &
   USE mo_exception,           ONLY: finish
   USE mo_loopindices,         ONLY: get_indices_c!, get_indices_e, get_indices_v
-  USE mo_physical_constants,  ONLY: grav, sal_ref, rho_inv,  &
+  USE mo_physical_constants,  ONLY: grav, sal_ref,  &
     & sitodbar, sfc_press_bar
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_parallel_config,     ONLY: nproma
@@ -53,7 +53,6 @@ MODULE mo_ocean_thermodyn
   PUBLIC :: calculate_density,calc_potential_density
   PUBLIC :: calculate_density_onColumn
   PUBLIC :: calc_internal_press_grad
-
   PUBLIC :: calculate_density_mpiom_onColumn, calculate_density_jmdwfg06_onColumn
   !each specific EOS comes as a sbr and as a function. The sbr version is private as it is
   !only used in "calc_internal_press", whilethe function version is used in mo_ocean_physics
