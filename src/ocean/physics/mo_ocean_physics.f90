@@ -108,12 +108,8 @@ MODULE mo_ocean_physics
     & timer_extra10, timer_extra11
   USE mo_statistics,          ONLY: global_minmaxmean
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
-  USE mo_ocean_pp_scheme,     ONLY: update_physics_parameters_ICON_PP_scheme,&
-    &                               update_physics_parameters_ICON_PP_Edge_vnPredict_scheme,&
-    &                               update_physics_parameters_ICON_PP_Edge_scheme,&
-    &                               update_physics_parameters_ICON_PP_Tracer,&
-    &                               update_physics_parameters_MPIOM_PP_scheme
-  USE mo_ocean_physics_types, ONLY:	t_ho_params, v_params, &
+  USE mo_ocean_pp_scheme,     ONLY: update_PP_scheme
+  USE mo_ocean_physics_types, ONLY: t_ho_params, v_params, &
    &                                WindAmplitude_at10m, SeaIceConcentration, &
    &                                WindMixingDecay, WindMixingLevel
   
@@ -695,37 +691,8 @@ CONTAINS
 
     CALL calc_characteristic_physical_numbers(patch_3d, ocean_state)
 
+    CALL update_PP_scheme(patch_3d, ocean_state, fu10, concsum, params_oce,op_coeffs)
     
-    SELECT CASE (PPscheme_type)
-    CASE (PPscheme_Constant_type)
-      !nothing to do!In sbr init_ho_params (see above)
-      !tracer mixing coefficient params_oce%A_tracer_v(:,:,:, tracer_index) is already
-      !initialzed with params_oce%A_tracer_v_back(tracer_index)
-      !and velocity diffusion coefficient
-
-      ! prepare independent logicals for PP and convection parametrizations - not yet activated
-      ! IF (.NOT. (l_convection .AND. l_pp_scheme)) THEN
-      IF (ltimer) CALL timer_stop(timer_upd_phys)
-      RETURN
-
-    CASE (PPscheme_ICON_PP_type)
-      CALL update_PhysicsParameters_ICON_PP_scheme(patch_3d, ocean_state, params_oce)
-
-    CASE (PPscheme_MPIOM_PP_type)
-      CALL update_PhysicsParameters_MPIOM_PP_scheme(patch_3d, ocean_state, fu10, concsum, params_oce)
-
-    CASE (PPscheme_ICON_PP_Edge_type)
-      CALL update_PhysicsParameters_ICON_PP_Edge_scheme(patch_3d, ocean_state, params_oce)
-      
-    CASE (physics_parameters_ICON_PP_Edge_vnPredict_type)
-      CALL update_physics_parameters_ICON_PP_Tracer(patch_3d, ocean_state)
-!       CALL update_physics_parameters_ICON_PP_Edge_scheme(patch_3d, ocean_state, params_oce)
-      ! the velovity friction will be updated during dynamics
-      
-    CASE default
-      CALL finish("update_ho_params", "unknown PPscheme_type")
-    END SELECT
-
     IF (LeithClosure_order == 1 .or.  LeithClosure_order == 21) THEN
       IF (LeithClosure_form == 1) THEN
         CALL calculate_LeithClosure_harmonic_vort(patch_3d, ocean_state, params_oce, op_coeffs)
