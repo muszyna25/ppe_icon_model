@@ -4,6 +4,8 @@
 # links the ocean only needed files from the <icon-dev full path> to the <ocean only full path>
 
 set -x
+icon_dev_from=$1
+icon_dev_to=$2
 
 here=`pwd`
 # icon_dev_from=/mnt/lustre01/pf/zmaw/m300056/icon/svn/$1

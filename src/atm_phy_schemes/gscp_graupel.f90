@@ -1280,10 +1280,8 @@ SUBROUTINE graupel     (             &
             zsvisub   =  0.0_wp
           ENDIF
 
-          IF (qsg > 1.e-7_wp) THEN
-            zxfac = 1.0_wp + zbsdep * EXP(ccsdxp*LOG(zcslam))
-            ssdep = zcsdep * zxfac * zqvsidiff / (zcslam+zeps)**2
-          ENDIF
+          zxfac = 1.0_wp + zbsdep * EXP(ccsdxp*LOG(zcslam))
+          ssdep = zcsdep * zxfac * zqvsidiff / (zcslam+zeps)**2
           !FR new: depositional growth reduction
           IF (lred_depgrow .AND. ssdep > 0.0_wp) THEN
             ssdep = ssdep*reduce_dep

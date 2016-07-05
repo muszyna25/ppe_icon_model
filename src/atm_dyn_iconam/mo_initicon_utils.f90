@@ -53,8 +53,7 @@ MODULE mo_initicon_utils
     &                               frlake_thrhld, frsea_thrhld, nlev_snow, ntiles_lnd,           &
     &                               l2lay_rho_snow
   USE mo_nwp_sfc_utils,       ONLY: init_snowtile_lists
-  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, iprog_aero
-  USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
+  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max, csalb_snow, crhosmin_ml, crhosmax_ml
   USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1
@@ -201,61 +200,6 @@ MODULE mo_initicon_utils
   !! Initial version by Guenther Zaengl, DWD (2015-11-06)
   !!
   SUBROUTINE init_aerosol(p_patch, ext_data, prm_diag)
-
-    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
-    TYPE(t_external_data),  INTENT(IN)    :: ext_data(:)
-    TYPE(t_nwp_phy_diag),   INTENT(INOUT) :: prm_diag(:)
-
-    INTEGER  :: imo1, imo2
-    INTEGER  :: rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER  :: jb, jc, jg
-
-    REAL(wp) :: wgt
-
-    CALL month2hour (time_config%cur_datetime, imo1, imo2, wgt)
-
-!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
-    DO jg = 1, n_dom
-
-      IF (aerosol_fg_present(jg)) CYCLE
-
-      rl_start = 1
-      rl_end   = min_rlcell
-
-      i_startblk = p_patch(jg)%cells%start_block(rl_start)
-      i_endblk   = p_patch(jg)%cells%end_block(rl_end)
-
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-
-        DO jc = i_startidx, i_endidx
-
-          prm_diag(jg)%aerosol(jc,iss,jb) = ext_data(jg)%atm_td%aer_ss(jc,jb,imo1) + &
-            ( ext_data(jg)%atm_td%aer_ss(jc,jb,imo2)   - ext_data(jg)%atm_td%aer_ss(jc,jb,imo1)   ) * wgt
-          prm_diag(jg)%aerosol(jc,iorg,jb) = ext_data(jg)%atm_td%aer_org(jc,jb,imo1) + &
-            ( ext_data(jg)%atm_td%aer_org(jc,jb,imo2)  - ext_data(jg)%atm_td%aer_org(jc,jb,imo1)  ) * wgt
-          prm_diag(jg)%aerosol(jc,ibc,jb) = ext_data(jg)%atm_td%aer_bc(jc,jb,imo1) + &
-            ( ext_data(jg)%atm_td%aer_bc(jc,jb,imo2)   - ext_data(jg)%atm_td%aer_bc(jc,jb,imo1)   ) * wgt
-          prm_diag(jg)%aerosol(jc,iso4,jb) = ext_data(jg)%atm_td%aer_so4(jc,jb,imo1) + &
-            ( ext_data(jg)%atm_td%aer_so4(jc,jb,imo2)  - ext_data(jg)%atm_td%aer_so4(jc,jb,imo1)  ) * wgt
-          prm_diag(jg)%aerosol(jc,idu,jb) = ext_data(jg)%atm_td%aer_dust(jc,jb,imo1) + &
-            ( ext_data(jg)%atm_td%aer_dust(jc,jb,imo2) - ext_data(jg)%atm_td%aer_dust(jc,jb,imo1) ) * wgt
-
-        ENDDO
-
-      ENDDO
-!$OMP END DO
-!$OMP MASTER
-      WRITE(message_text,'(a,i3)') 'Aerosol initialized from climatology, domain ',jg
-      CALL message('init_aerosol', TRIM(message_text))
-!$OMP END MASTER
-    ENDDO
-!$OMP END PARALLEL
-
-  END SUBROUTINE init_aerosol
-
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
     TYPE(t_external_data),  INTENT(IN)    :: ext_data(:)

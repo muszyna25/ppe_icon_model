@@ -807,8 +807,6 @@ MODULE mo_initicon_io
     REAL(wp), INTENT(INOUT) :: field(:,:,:)
 
     LOGICAL :: fetchResult
-    TYPE(t_tileinfo_elt)                :: tileinfo
-    LOGICAL                             :: ret
 
     IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
         fetchResult = params%requestList%fetch3d(varName, trivial_tileId, jg, field)
@@ -977,9 +975,6 @@ MODULE mo_initicon_io
     params%requestList => requestList
     params%routine = routine
     params%isFg = .TRUE.
-    LOGICAL                             :: lread_process
-    TYPE(t_tileinfo_elt)                :: tileinfo
-    LOGICAL                             :: ret
 
     DO jg = 1, n_dom
         IF(p_patch(jg)%ldom_active) THEN
@@ -1164,8 +1159,6 @@ MODULE mo_initicon_io
     REAL(wp), POINTER :: my_ptr3d(:,:,:)
     TYPE(t_fetchParams) :: params
     LOGICAL :: lHaveFg
-    TYPE(t_tileinfo_elt)                :: tileinfo
-    LOGICAL                             :: ret
 
     params%inputInstructions = inputInstructions
     params%requestList => requestList
@@ -1500,8 +1493,6 @@ MODULE mo_initicon_io
     TYPE(t_wtr_prog), POINTER :: wtr_prog
     TYPE(t_fetchParams) :: params
     LOGICAL :: lHaveFg
-    TYPE(t_tileinfo_elt)                :: tileinfo
-    LOGICAL                             :: ret
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//':fetch_dwdana_sfc'
 

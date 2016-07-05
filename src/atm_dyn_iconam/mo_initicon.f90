@@ -297,7 +297,6 @@ MODULE mo_initicon
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
     TYPE(t_nwp_phy_diag), INTENT(INOUT), OPTIONAL :: prm_diag(:)
-    TYPE(t_nwp_phy_diag), INTENT(INOUT), OPTIONAL :: prm_diag(:)
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":process_dwdfg"
 
