@@ -68,11 +68,12 @@ fields is provided in Section \ref{sec_outfields}.
 \midrule
 \multicolumn{3}{c}{\textbf{Atmosphere}}\\
 \midrule
-\textbf{DEN}                            &  $\mathrm{kg\,m^{-3}}$      &  density of moist air (3D field) \\
+\textbf{DEN}                            &  $\mathrm{kg\,m^{-3}}$      &  Density of moist air (3D field) \\
 \textbf{TKE}                            &  $\mathrm{m^{2}\,s^{-2}}$   &  Turbulent kinetic energy (3D field) \\
 \textbf{DTKE\_CON}                      &  $\mathrm{m^{2}\,s^{-3}}$   &  Buoyancy-production of TKE due to sub grid scale convection (3D field) \\
-\textbf{W}                              &  $\mathrm{m\,s^{-1}}$       &  vertical velocity in height coordinates $w=\frac{\mathrm{d}z}{\mathrm{d}t}$ (3D field)\\
-\textbf{P}                              &  $\mathrm{Pa}$              &  pressure (3D field)\\
+\textbf{DTKE\_HSH}                      &  $\mathrm{m^{2}\,s^{-3}}$   &  Production of TKE due to horizontal shear (3D field) \\
+\textbf{W}                              &  $\mathrm{m\,s^{-1}}$       &  Vertical velocity in height coordinates $w=\frac{\mathrm{d}z}{\mathrm{d}t}$ (3D field)\\
+\textbf{P}                              &  $\mathrm{Pa}$              &  Pressure (3D field)\\
 \midrule
 \multicolumn{3}{c}{\textbf{Surface}}\\
 \midrule
@@ -309,7 +310,7 @@ See Section \ref{sec_skycat} for more details on the database categories and Sec
                                     $775$, $750$, $700$, $650$, $600$, $550$, 
                                     $500$, $450$, $400$, $350$, $300$, $275$, 
                                     $250$, $225$, $200$, $175$, $150$, $125$, 
-                                    $100$, $70$, $50$, \tblu{$30$}, \tblu{$10$}, \tblu{$5$}, \tblu{$2$}, 
+                                    $100$, $70$, $50$, $30$, $10$, $5$, \tblu{$2$}, 
                                     \tblu{$1$}, \tblu{$0.1$} $\mathrm{hPa}$}
 
 For regular grid output the following $36$ pressure levels are available: 
