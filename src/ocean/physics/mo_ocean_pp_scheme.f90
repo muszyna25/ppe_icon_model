@@ -104,7 +104,7 @@ MODULE mo_ocean_pp_scheme
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array, global_max, sync_patch_array_mult
   USE  mo_ocean_thermodyn,    ONLY: calculate_density_onColumn
   USE mo_ocean_math_operators,ONLY: div_oce_3d
-  USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_upd_phys, &
+  USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, &
     & timer_extra10, timer_extra11
   USE mo_statistics,          ONLY: global_minmaxmean
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
@@ -136,7 +136,6 @@ CONTAINS
 
     INTEGER :: tracer_index
     !-------------------------------------------------------------------------
-    IF (ltimer) CALL timer_start(timer_upd_phys)
     WindAmplitude_at10m => fu10
     SeaIceConcentration => concsum
 
@@ -149,7 +148,6 @@ CONTAINS
 
       ! prepare independent logicals for PP and convection parametrizations - not yet activated
       ! IF (.NOT. (l_convection .AND. l_pp_scheme)) THEN
-      IF (ltimer) CALL timer_stop(timer_upd_phys)
       RETURN
 
     CASE (PPscheme_ICON_type)

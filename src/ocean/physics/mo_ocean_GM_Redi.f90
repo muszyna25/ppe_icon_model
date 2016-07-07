@@ -194,6 +194,15 @@ CONTAINS
     edges_in_domain => patch_2D%edges%in_domain 
     slopes          => ocean_state%p_aux%slopes 
 
+    taper_off_diagonal_vert(:,:,:)%x(1) = 0.0_wp
+    taper_off_diagonal_vert(:,:,:)%x(2) = 0.0_wp
+    taper_off_diagonal_vert(:,:,:)%x(3) = 0.0_wp
+    taper_off_diagonal_horz(:,:,:)%x(1) = 0.0_wp
+    taper_off_diagonal_horz(:,:,:)%x(2) = 0.0_wp
+    taper_off_diagonal_horz(:,:,:)%x(3) = 0.0_wp
+    taper_diagonal_horz(:,:,:)          = 0.0_wp
+    taper_diagonal_vert_expl(:,:,:)     = 0.0_wp
+    taper_diagonal_vert_impl(:,:,:)     = 0.0_wp
     
     start_level=1
     IF(TEST_MODE_REDI_ONLY.OR.TEST_MODE_GM_ONLY)THEN

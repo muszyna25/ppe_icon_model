@@ -22,6 +22,7 @@
 !!
 !----------------------------
 #include "omp_definitions.inc"
+#include "icon_definitions.inc"
 !----------------------------
 MODULE mo_ocean_physics
   !-------------------------------------------------------------------------
@@ -674,7 +675,7 @@ CONTAINS
 
     INTEGER :: tracer_index
     !-------------------------------------------------------------------------
-    IF (ltimer) CALL timer_start(timer_upd_phys)
+    start_timer(timer_upd_phys,1)
 
     CALL calc_characteristic_physical_numbers(patch_3d, ocean_state)
 
@@ -707,7 +708,8 @@ CONTAINS
 !     CALL dbg_print('UpdPar FinalVelocMixing'   ,params_oce%a_veloc_v     ,str_module,idt_src, &
 !       & in_subset=patch_3d%p_patch_2d(1)%edges%owned)
     !---------------------------------------------------------------------
-    IF (ltimer) CALL timer_stop(timer_upd_phys)
+    stop_timer(timer_upd_phys,1)
+
   END SUBROUTINE update_ho_params
   !-------------------------------------------------------------------------
 

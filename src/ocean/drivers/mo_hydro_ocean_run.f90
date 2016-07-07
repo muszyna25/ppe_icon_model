@@ -41,7 +41,7 @@ MODULE mo_hydro_ocean_run
   USE mo_datetime,               ONLY: t_datetime, add_time, datetime_to_string
   USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total, timer_solve_ab,  &
     & timer_tracer_ab, timer_vert_veloc, timer_normal_veloc,     &
-    & timer_upd_phys, timer_upd_flx, timer_extra20, timers_level, &
+    & timer_upd_flx, timer_extra20, timers_level, &
     & timer_scalar_prod_veloc, timer_extra21, timer_extra22, timer_bgc_ini, &
     & timer_bgc_inv, timer_bgc_tot
   USE mo_ocean_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &

@@ -639,8 +639,8 @@ CONTAINS
     IF ( l_with_vert_tracer_diffusion ) THEN
     
       IF(GMREDI_COMBINED_DIAGNOSTIC)THEN
-      ALLOCATE(temp_tracer_before%concentration(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks))
-      ALLOCATE(temp_tracer_after%concentration(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks))      
+        ALLOCATE(temp_tracer_before%concentration(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks))
+        ALLOCATE(temp_tracer_after%concentration(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks))
 !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, &
 !ICON_OMP level) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = cells_in_domain%start_block, cells_in_domain%end_block
@@ -686,11 +686,11 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO         
         CALL dbg_print('AftGMRedi: divofGMRediflux2',p_os%p_diag%div_of_GMRedi_flux(:,:,:),&
         & str_module, idt_src, in_subset=cells_in_domain)      
-      ENDIF          
-      DEALLOCATE(temp_tracer_before%concentration)
-      DEALLOCATE(temp_tracer_after%concentration)      
+        DEALLOCATE(temp_tracer_before%concentration)
+        DEALLOCATE(temp_tracer_after%concentration)
+      ENDIF
           
-    ENDIF
+    ENDIF ! l_with_vert_tracer_diffusion
 
     CALL sync_patch_array(sync_c, patch_2D, new_ocean_tracer%concentration)
 

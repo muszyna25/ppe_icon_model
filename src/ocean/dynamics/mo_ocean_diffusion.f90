@@ -1187,6 +1187,8 @@ CONTAINS
     INTEGER :: cell_index, level
     TYPE(t_subset_range), POINTER :: cells_in_domain
     TYPE(t_patch), POINTER :: patch_2d
+
+!     REAL(wp) :: tmp, tmp_add
     !-----------------------------------------------------------------------
     patch_2d        => patch_3d%p_patch_2d(1)
     cells_in_domain => patch_2d%cells%in_domain
@@ -1223,15 +1225,35 @@ CONTAINS
 
       ! precondition: set diagonal equal to diagonal_product
       diagonal_product = PRODUCT(b(1:bottom_level))
+!       tmp_add = 0.0_wp
 
       DO level = 1, bottom_level
         fact(level) = diagonal_product / b(level)
         a(level)  = a(level)  * fact(level)
         b(level)  = diagonal_product
         c(level)  = dt_inv * fact(level) - a(level) - b(level)
+ 
+!         tmp = field_column(cell_index,level,blockNo)
+!         column_tracer(level) = tmp
+!         tmp_add = tmp_add + column_tracer(level)
+!         tmp = dt_inv
+!         column_tracer(level) = tmp
+!         tmp_add = tmp_add + column_tracer(level)
+!         tmp = diagonal_product
+!         column_tracer(level) = tmp
+!         tmp_add = tmp_add + column_tracer(level)
+!         tmp = b(level)
+!         column_tracer(level) = tmp
+!         tmp_add = tmp_add + column_tracer(level)
+!         tmp = fact(level)
+!         column_tracer(level) = tmp
+!         tmp_add = tmp_add + column_tracer(level)
+
         column_tracer(level) = field_column(cell_index,level,blockNo) * dt_inv * fact(level)
+
       ENDDO
       c(bottom_level) = 0.0_wp
+!       write(0,*) tmp_add
 
       !------------------------------------
       ! solver from lapack

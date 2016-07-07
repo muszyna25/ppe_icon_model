@@ -107,9 +107,6 @@ cat > ${ocean_namelist} << EOF
   use_continuity_correction       = .TRUE.    ! height adjustment according to vertical velocity in dynamics
   cfl_check                       = .FALSE.
   cfl_write                       = .FALSE.
-                                              ! horizontal viscosity parametrization:
-  veloc_diffusion_form            =   1       ! 1: laplace; 2: biharmonic
-  veloc_diffusion_order           =   1       ! 1: curlcurl 2: divgrad
 /
 &ocean_tracer_transport_nml
 ! no_tracer             = 2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
@@ -120,25 +117,35 @@ cat > ${ocean_namelist} << EOF
   fct_high_order_flux   = 2      ! horizontal high order method: 1=upwind, 2=central (def), 3=lax_friedrichs, 4=miura_order1
   threshold_min_T       = -4.0   ! to avoid abort
 /
-&ocean_diffusion_nml
-  HorizontalViscosity_type            =   1       ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
-  k_veloc_h                       =   3.0E+4  ! [m2/s] constant horizontal viscosity coefficient for velocity
-  biharmonic_const                =   0.01    ! used with veloc_diffusion_form=2 only
-  k_veloc_v                       =   1.5E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
-  MAX_VERT_DIFF_VELOC             =   0.0     ! max vertical viscosity for convection used in case of instability
-  k_pot_temp_h                    = 600.0     ! [m2/s] constant horizontal diffusion coefficient for temperature
-  k_pot_temp_v                    =   1.5E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
-  k_sal_h                         = 600.0     ! [m2/s] constant horizontal diffusion coefficient for salinity
-  k_sal_v                         =   1.5E-5  ! [m2/s]  vertical background diffusion coefficient for salinity
-  MAX_VERT_DIFF_TRAC              =   0.1     ! max vertical tracer diffusion for convection used in case of instability
+&ocean_horizontal_diffusion_nml
+  laplacian_form  = 1                ! 1=curlcurl-graddiv, 2=div k  grad
+  VelocityDiffusion_order = 1       ! 1=harmonic, 2=biharmonic, 21=harmonic+biharmonc
+  HarmonicViscosity_scaling = 1     ! constant
+  HarmonicViscosity_background = 0.0   ! the harmonic viscosity background value (not scaled)
+  HarmonicViscosity_reference  = 3.0E4 ! the harmonic viscosity parameter for scaling
+  ! define tracer horizontal diffusion parameters !
+  TracerHorizontalDiffusion_scaling = 1  ! constant
+  Temperature_HorizontalDiffusion_Background = 0.0
+  Temperature_HorizontalDiffusion_Reference  = 600.0
+  Salinity_HorizontalDiffusion_Background    = 0.0
+  Salinity_HorizontalDiffusion_Reference     = 600.0
+/
+&ocean_vertical_diffusion_nml
+  PPscheme_type = 4       ! 4 = use vn predict for velocity with timeweight 
+  VerticalViscosity_TimeWeight = 0.1         ! timeweight of the vertical viscosity calculated from the previous velocity (valid only with PPscheme_type=4)
+  velocity_VerticalDiffusion_background     = 1.5E-5
+  Temperature_VerticalDiffusion_background  = 1.5E-5 
+  Salinity_VerticalDiffusion_background     = 1.5E-5
+  bottom_drag_coeff                           = 1.5E-5
+  velocity_RichardsonCoeff                   = 2.0E-3
+  tracer_RichardsonCoeff                     = 2.0E-3
+  tracer_convection_MixingCoefficient       = 0.1
+  convection_InstabilityThreshold           = -1.0E-6
+  RichardsonDiffusion_threshold             = 0.0
+  use_wind_mixing  = .false.
 /
 &ocean_physics_nml
   i_sea_ice                       =   1       ! 0 = no sea ice; 1 = sea ice model on
-  richardson_tracer               =   2.0E-3  ! factor for vertical diffusion coefficient in PP scheme
-  richardson_veloc                =   2.0E-3  ! factor for vertical viscosity coefficient in PP scheme
-! bottom_drag_coeff               =   2.5E-3  ! default=2.5E-3
-  physics_parameters_type         =   1       ! type of pp-scheme: 1=ICON-optimized; 2=MPIOM-type
-  use_wind_mixing                 = .FALSE.   ! true: use wind mixing scheme in MPIOM-type pp-scheme
 /                                           
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration           =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
