@@ -1607,7 +1607,7 @@ CONTAINS
     INTEGER :: ip, jv, idx, blk
     INTEGER :: max_cell_connectivity, max_verts_connectivity
 
-    INTEGER :: return_status
+    INTEGER :: return_status, varid
 
     TYPE(t_patch), POINTER :: p_p, patch0
     TYPE(p_t_patch) :: patches(0:n_lp)
@@ -1615,6 +1615,7 @@ CONTAINS
     TYPE(var_data_2d_wp)  :: multivar_2d_data_wp(n_lp+1)
     TYPE(var_data_3d_int) :: multivar_3d_data_int(n_lp+1)
     TYPE(var_data_3d_wp) :: multivar_3d_data_wp(n_lp+1)
+    LOGICAL :: lhave_phys_id
 
 
 !    REAL(wp), POINTER :: tmp_check_array(:,:)
@@ -1678,8 +1679,14 @@ CONTAINS
         p_p => get_patch_ptr(patch, id_lp, ip)
         multivar_2d_data_int(ip+1)%data => p_p%cells%phys_id(:,:)
       END DO
-      CALL read_2D_int(stream_id_grf, on_cells, 'phys_cell_id', n_lp+1, &
-        &              multivar_2d_data_int(:))
+
+      lhave_phys_id = (nf_inq_varid(ncid_grf, 'phys_cell_id', varid) == nf_noerr)
+      IF (lhave_phys_id) THEN
+        CALL read_2D_int(stream_id_grf, on_cells, 'phys_cell_id', n_lp+1, &
+          &              multivar_2d_data_int(:))
+      ELSE
+        p_p%cells%phys_id(:,:) = ig
+      END IF
     END IF
 
     ! p_p%cells%edge_orientation(:,:,:)
@@ -1711,8 +1718,13 @@ CONTAINS
         p_p => get_patch_ptr(patch, id_lp, ip)
         multivar_2d_data_int(ip+1)%data => p_p%edges%phys_id(:,:)
       END DO
-      CALL read_2D_int(stream_id_grf, on_edges, 'phys_edge_id', n_lp+1, &
-        &              multivar_2d_data_int(:))
+      lhave_phys_id = (nf_inq_varid(ncid_grf, 'phys_edge_id', varid) == nf_noerr)
+      IF (lhave_phys_id) THEN
+        CALL read_2D_int(stream_id_grf, on_edges, 'phys_edge_id', n_lp+1, &
+          &              multivar_2d_data_int(:))
+      ELSE
+        p_p%edges%phys_id(:,:) = ig
+      END IF
     END IF
 
     ! p_p%edges%cell_idx(:,:,:)
