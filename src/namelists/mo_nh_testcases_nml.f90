@@ -69,6 +69,7 @@ MODULE mo_nh_testcases_nml
     &       th_cbl, psfc_cbl, sol_const, zenithang, bubctr_x, bubctr_y
 
   PUBLIC :: dcmip_bw
+  PUBLIC :: is_toy_chem, toy_chem
 
   CHARACTER(len=MAX_CHAR_LENGTH) :: nh_test_name
   CHARACTER(len=MAX_CHAR_LENGTH) :: ape_sst_case      !SST for APE experiments
@@ -105,6 +106,16 @@ MODULE mo_nh_testcases_nml
   REAL(wp) :: bubctr_x  !X-Center of the warm bubble on torus
   REAL(wp) :: bubctr_y  !Y-Center of the warm bubble on torus
 
+  LOGICAL  :: is_toy_chem            ! .TRUE.: switch on terminator toy chemistry
+
+  ! terminator toy chemistry namelist switches 
+  TYPE t_toy_chem
+    REAL(wp) :: dt_chem       ! chemistry tendency update interval
+    REAL(wp) :: dt_cpl        ! transport-chemistry coupling interval
+    INTEGER  :: id_cl         ! CL tracer ID (which slice of tracer container)
+    INTEGER  :: id_cl2        ! CL2 tracer ID (which slice of tracer container)
+  END TYPE
+
   ! DCMIP 2016 baroclinic wave namelist switches
   TYPE t_dcmip_bw
     INTEGER :: deep           ! deep atmosphere (1 = yes or 0 = no) 
@@ -112,6 +123,7 @@ MODULE mo_nh_testcases_nml
     INTEGER :: pertt          ! type of perturbation (0 = exponential, 1 = stream function)
   END TYPE
 
+  TYPE(t_toy_chem) :: toy_chem
   TYPE(t_dcmip_bw) :: dcmip_bw
 
   NAMELIST/nh_testcase_nml/ nh_test_name, mount_height, torus_domain_length, &
@@ -143,7 +155,7 @@ MODULE mo_nh_testcases_nml
                             lcoupled_rho, gw_clat, gw_u0, gw_delta_temp,     & 
                             u_cbl, v_cbl, th_cbl, w_perturb, th_perturb,     &
                             psfc_cbl, sol_const, zenithang, bubctr_x,        &
-                            bubctr_y, dcmip_bw
+                            bubctr_y, is_toy_chem, toy_chem, dcmip_bw
                       
 
   CONTAINS
@@ -302,6 +314,13 @@ MODULE mo_nh_testcases_nml
     dcmip_bw%deep          = 0   ! shallow atmosphere
     dcmip_bw%moist         = 0   ! dry (qv=0)
     dcmip_bw%pertt         = 0   ! exponential perturbation
+
+    !Terminator toy chemistry
+    is_toy_chem            = .FALSE.
+    toy_chem%dt_chem       = 300._wp
+    toy_chem%dt_cpl        = 300._wp
+    toy_chem%id_cl         = 1
+    toy_chem%id_cl2        = 2
 
     CALL open_nml(TRIM(filename))
     CALL position_nml ('nh_testcase_nml', status=i_status)

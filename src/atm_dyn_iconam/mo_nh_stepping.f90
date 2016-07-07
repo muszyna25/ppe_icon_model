@@ -65,10 +65,11 @@ MODULE mo_nh_stepping
   USE mo_grid_config,              ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
     &                                    n_dom_start, lredgrid_phys, start_time, end_time, patch_weight
   USE mo_nh_testcases,             ONLY: init_nh_testcase
-  USE mo_nh_testcases_nml,         ONLY: nh_test_name, rotate_axis_deg, lcoupled_rho
+  USE mo_nh_testcases_nml,         ONLY: nh_test_name, rotate_axis_deg, lcoupled_rho, is_toy_chem
   USE mo_nh_pa_test,               ONLY: set_nh_w_rho
   USE mo_nh_df_test,               ONLY: get_nh_df_velocity
   USE mo_nh_dcmip_hadley,          ONLY: set_nh_velocity_hadley
+  USE mo_nh_dcmip_terminator,      ONLY: dcmip_terminator_interface
   USE mo_nh_supervise,             ONLY: supervise_total_integrals_nh, print_maxwinds,  &
     &                                    init_supervise_nh, finalize_supervise_nh
   USE mo_intp_data_strc,           ONLY: p_int_state, t_int_state
@@ -1767,6 +1768,20 @@ MODULE mo_nh_stepping
           IF (ltimer)            CALL timer_stop(timer_nesting)
 
         ENDIF !iforcing
+
+        ! Terminator toy chemistry
+        !
+        ! So far it can only be activated for testcases and not for real-cases, 
+        ! since the initialization is done in init_nh_testcase. However, 
+        ! nothing speaks against combining toy chemistry with real case runs.
+        IF (ltestcase .AND. is_toy_chem) THEN
+          CALL dcmip_terminator_interface (p_patch(jg),            & !in
+            &                              p_nh_state(jg)%metrics, & !in
+            &                              p_nh_state(jg)%prog,    & !inout
+            &                              p_nh_state(jg)%diag,    & !inout
+            &                              datetime_current,       & !in
+            &                              dt_loc                  ) !in
+        ENDIF
 
 #ifdef MESSY
         call messy_physc(jg)
