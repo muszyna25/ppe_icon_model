@@ -106,15 +106,16 @@ fields is provided in Section \ref{sec_outfields}.
 \section{Available output fields}\label{sec_outfields}
 % --------------------------------------------------------------------------------
 
-ICON forecasts are performed multiple times a day with varying forecast times. An overview of the various forecasts, including its  
-forecast time and output intervals is provided in Figure \ref{fig:forecast_length_global}.
+ICON forecasts are performed multiple times a day with varying forecast periods. An overview of the forecast runs, including its  
+forecast period and output intervals is provided in Figure \ref{fig:forecast_length_global}.
 \begin{figure}[hbt]
  \centering
  \includegraphics[width=0.90\textwidth]{forecast_length_global.png}
- \caption{Time span covered by the various ICON forecasts. A forecast run is launched every three hours.
- Output fields are available hourly up to $VV=78\,\mathrm{h}$ and 3-hourly for larger forecast times. 
- The vertical rules (\protect\markRed) and (\protect\markBlue) indicate the time until when output is generally 
- available on the native grid (\protect\markRed) and/or on the lat-lon grid (\protect\markBlue).}\label{fig:forecast_length_global}
+ \caption{Time span covered by the various global ICON forecasts which are launched every three hours.
+          Output on the native (triangular) grid (\protect\markRed) and the regular grid (\protect\markBlue) 
+          is generally available until forecast end, as indicated by the lenght of the two bars shown for 
+          each forecast run. Output fields are available hourly up to $VV=78\,\mathrm{h}$ and 3-hourly for 
+          larger forecast times.}\label{fig:forecast_length_global}
 \end{figure}
 
 Main forecasts are performed $4$ times a day at $0,\, 6,\, 12,\, 18$ UTC, covering a forecast time span of $180\,\mathrm{h}$ for the 
