@@ -1158,6 +1158,7 @@ MODULE mo_nh_testcases
   IF (is_toy_chem) THEN
     DO jg = 1, n_dom 
       CALL init_nh_dcmip_terminator (p_patch(jg),              &
+        &                            p_nh_state(jg)%metrics,   &
         &                            p_nh_state(jg)%prog(:),   &
         &                            p_nh_state(jg)%diag       )
     ENDDO

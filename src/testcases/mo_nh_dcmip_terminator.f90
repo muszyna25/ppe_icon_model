@@ -86,10 +86,13 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2016-04-04)
   !!
-  SUBROUTINE init_nh_dcmip_terminator (p_patch, p_nh_prog, p_nh_diag)
+  SUBROUTINE init_nh_dcmip_terminator (p_patch, p_metrics, p_nh_prog, p_nh_diag)
 
     TYPE(t_patch),        INTENT(INOUT) :: &  !< patch on which computation is performed
       &  p_patch
+
+    TYPE(t_nh_metrics),   INTENT(IN)    :: &  !< NH metrics state
+      &  p_metrics
 
     TYPE(t_nh_prog),      INTENT(INOUT) :: &  !< prognostic state vector (now)
       &  p_nh_prog(:)
@@ -121,13 +124,13 @@ CONTAINS
     nlev = p_patch%nlev
 
     ! Print some information about tracer IDs assigned to CL and CL2
-    WRITE(message_text,'(a,i2)') 'Tracer ID assigned to CL ', toy_chem%id_cl
+    WRITE(message_text,'(a,i2)') 'Tracer ID assigned for CL ', toy_chem%id_cl
     CALL message(TRIM(routine),message_text)
-    WRITE(message_text,'(a,i2)') 'Tracer ID assigned to CL2 ', toy_chem%id_cl2
+    WRITE(message_text,'(a,i2)') 'Tracer ID assigned for CL2 ', toy_chem%id_cl2
     CALL message(TRIM(routine),message_text)
 
     ! Sanity check
-    ! make sure that sufficient tracer fields are allocated
+    ! make sure that a sufficient number of tracer fields is allocated
     IF (.NOT. ASSOCIATED(p_nh_prog(nnow_rcf(jg))%tracer)) THEN
       CALL finish (routine, 'Tracer field not allocated')
     ENDIF
@@ -217,6 +220,14 @@ CONTAINS
               &          cpl_action%end  ,    &
               &          cpl_action%intvl)
 
+
+
+    ! Call diagnostics routine for initial conditions
+    CALL dcmip_terminator_diag_vint (p_patch   = p_patch,                        & !in
+      &                              tracer    = p_nh_prog(nnow_rcf(jg))%tracer, & !in
+      &                              rho       = p_nh_prog(nnow(jg))%rho,        & !in
+      &                              dz        = p_metrics%ddqz_z_full,          & !in
+      &                              p_nh_diag = p_nh_diag                       ) !inout
 
   END SUBROUTINE init_nh_dcmip_terminator
 
