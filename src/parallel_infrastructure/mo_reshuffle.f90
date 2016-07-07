@@ -381,27 +381,10 @@ CONTAINS
       j = j+irecv_owner(i)
     END DO
 
-    IF (TRIM(description) == "send refin_c_ctrl to parent") THEN
-      IF (rank == 0) THEN
-        WRITE (0,*) "send refin_c_ctrl to parent"
-      END IF
-      IF (MINVAL(values) < 0) THEN
-        WRITE (0,*) "PE #", rank, ": minval(values)=", MINVAL(values)
-        CALL finish(routine, TRIM(description)//" - Error! Too many collisions!")        
-      END IF
-    END IF
-
     ! ---  PE "a" sends values to "b"
     CALL MPI_ALLTOALLV(values, icounts, send_displs, MPI_INTEGER, recv_vals, &
       &                irecv, recv_displs, MPI_INTEGER, communicator, ierr)
     IF (ierr /= 0) CALL finish(routine, TRIM(description)//" - MPI Error!")
-
-    IF (TRIM(description) == "send refin_c_ctrl to parent") THEN
-      IF (MINVAL(recv_vals) < 0) THEN
-        WRITE (0,*) "PE #", rank, ": minval(recv_vals)=", MINVAL(recv_vals)
-        CALL finish(routine, TRIM(description)//" - Error! Too many collisions!")        
-      END IF
-    END IF
 
     ! ---  each PE inserts the received index/value pairs into "its"
     !      part of the global index space (wrt. to the regular
