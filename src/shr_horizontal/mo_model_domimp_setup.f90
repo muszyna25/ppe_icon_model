@@ -113,7 +113,6 @@ MODULE mo_model_domimp_setup
   PUBLIC :: reshape_real
   PUBLIC :: init_quad_twoadjcells
   PUBLIC :: init_coriolis
-  PUBLIC :: set_trivial_phys_id
   PUBLIC :: set_verts_phys_id
   PUBLIC :: init_butterfly_idx
 
@@ -624,26 +623,6 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE init_coriolis
-  !-------------------------------------------------------------------------
-
-
-  !-------------------------------------------------------------------------
-  !>
-  !! Sets trivial phys_id for cells/edges, if this is not read from input.
-  !!
-  !! "Trivial" means that there is no distinction between physical and
-  !! logical patches.
-  !!
-  SUBROUTINE set_trivial_phys_id(patch)
-    TYPE(t_patch), INTENT(INOUT) :: patch ! patch on specific level
-    CHARACTER(*), PARAMETER    :: routine = modname//"::set_trivial_phys_id"
-
-    ! consistency check:
-    IF (patch%geometry_info%cell_type /= 3)  CALL finish (routine, "Not yet implemented!")
-
-    patch%cells%phys_id(:,:) = patch%id
-    patch%edges%phys_id(:,:) = patch%id
-  END SUBROUTINE set_trivial_phys_id
   !-------------------------------------------------------------------------
 
 
