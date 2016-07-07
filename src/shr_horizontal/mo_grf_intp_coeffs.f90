@@ -73,6 +73,13 @@ TYPE(t_patch), POINTER :: p_patch(:)
 PUBLIC :: grf_intp_coeffs_setpatch
 PUBLIC :: compute_pc2cc_distances, compute_pe2ce_distances, gridref_info,         &
         & init_fbk_wgt, grf_index, rbf_compute_coeff_grf_e, idw_compute_coeff_grf_e
+
+
+!> module name string
+CHARACTER(LEN=*), PARAMETER :: modname = 'mo_grf_intp_coeffs'
+
+
+
 CONTAINS
 
 #include "intp_functions.inc"
@@ -473,7 +480,7 @@ DO jg = n_dom_start+1, n_dom
   ENDDO
   IF (ierror > 0) THEN
     write(0,*) 'Error in domain ID: ',jg
-    CALL finish ('mo_grf_interpolation:init_fbk_wgt',  &
+    CALL finish (modname//':init_fbk_wgt',  &
       &          'size of nested domain is too small')
   ENDIF
 
@@ -1070,7 +1077,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
 
       IF (MAXVAL(ierror) > 0) THEN
         write(0,*) 'Number of errors: ',SUM(ierror(1:nproma))
-        CALL finish ('mo_grf_interpolation:grf_index',  &
+        CALL finish (modname//':grf_index',  &
           &          'orientation of edge points incorrect')
       ENDIF
 
@@ -1209,7 +1216,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
               z_diag(nproma,max_points),               &
               z_rbfval(nproma,max_points), STAT=ist )
     IF (ist /= SUCCESS) THEN
-          CALL finish ('mo_grf_interpolation:rbf_compute_coeff_grf',      &
+          CALL finish (modname//':rbf_compute_coeff_grf',      &
         &             'allocation for working arrays failed')
     ENDIF
 
@@ -1374,7 +1381,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
 
     DEALLOCATE( z_rbfmat, z_diag, z_rbfval, STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish ('mo_grf_interpolation:rbf_compute_coeff_grf',      &
+      CALL finish (modname//':rbf_compute_coeff_grf',      &
       &             'deallocation for working arrays failed')
     ENDIF
 
