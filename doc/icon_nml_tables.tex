@@ -3222,6 +3222,15 @@ L (max\_ dom)&
 \tabularnewline
 
 %\hline
+ldetrain\_conv\_prec&
+L (max\_ dom)&
+.FALSE.&
+&
+.TRUE.: Activate detrainment of convective rain and snow\\
+& inwp\_convection = 1
+\tabularnewline
+
+%\hline
 icapdcycl&
 I & 0 &  & Type of CAPE correction to improve diurnal cycle for convection: \\
 0 = none (IFS default prior to autumn 2013) \\
@@ -3531,7 +3540,7 @@ run\_nml:iforcing = inwp
 \hline
 tune\_capdcfac\_et&
 R&
-0&
+0.125&
 &
 Fraction of CAPE diurnal cycle correction applied in the extratropics&
 icapdcycl = 3
