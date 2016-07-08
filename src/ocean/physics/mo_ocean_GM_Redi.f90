@@ -285,7 +285,7 @@ CONTAINS
 
     !Map the (explicit) vertical tracer flux to the prsim top (where the vertical divergence is calculated later)
     CALL map_scalar_center2prismtop(patch_3d, flux_vert_center, op_coeff,GMredi_flux_vert)
-
+!   hier GMredi_flux_vert fuer T,S abgreifen
       
       ! now we treat the vertical isoneutral flux that is discretized implicitely in time.
       ! 
@@ -335,7 +335,7 @@ CONTAINS
         & flux_vec_horz_center(:,:,:)%x(1), flux_vec_horz_center(:,:,:)%x(2), flux_vec_horz_center(:,:,:)%x(3))
     !    
     CALL map_cell2edges_3D( patch_3D,flux_vec_horz_center, GMredi_flux_horz, op_coeff)
-      
+    !hier GMredi_flux_horz fuer T und S abgreifen
       
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     Do level=1,n_zlev
@@ -595,6 +595,8 @@ CONTAINS
         !5) calculate slope as cell centered vector
         IF (no_tracer==2) THEN
           DO level = start_level+1, end_level-1
+
+! hier die neutral_coeff abgreifen (alpha=neutral_coeff(level,1),beta=neutral_coeff(level,2))
               
             ocean_state%p_aux%slopes(cell_index,level,blockNo)%x &
               & = -( neutral_coeff(level,1) * grad_T_vec(cell_index,level,blockNo)%x + &
