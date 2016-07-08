@@ -1591,9 +1591,9 @@ CONTAINS
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"))
       
-    CALL add_var(ocean_default_list,'div_of_GMRedi_flux',ocean_state_acc%div_of_GMRedi_flux, &
+    CALL add_var(ocean_default_list,'div_of_GMRedi_flux_acc',ocean_state_acc%div_of_GMRedi_flux, &
       & grid_unstructured_cell, za_depth_below_sea, &
-      & t_cf_var('div_of_GMRedi_flux', 'TODO', 'div_of_GMRedi_flux', datatype_flt),&
+      & t_cf_var('div_of_GMRedi_flux_acc', 'TODO', 'div_of_GMRedi_flux_acc', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
 
