@@ -35,8 +35,9 @@ MODULE mo_nh_dcmip_terminator
   USE mo_grid_config,         ONLY: grid_rescale_factor
   USE mo_parallel_config,     ONLY: nproma
   USE mo_dynamics_config,     ONLY: nnow_rcf, nnew_rcf, nnow, nnew
+  USE mo_run_config,          ONLY: iqv, ntracer, msg_level
+  USE mo_advection_config,    ONLY: advection_config
   USE mo_exception,           ONLY: finish, message_text, message
-  USE mo_run_config,          ONLY: iqv, ntracer
   USE mo_nh_testcases_nml,    ONLY: toy_chem
   USE mo_sync,                ONLY: sync_patch_array, SYNC_E
   USE mo_action_types,        ONLY: t_var_action_element
@@ -48,7 +49,6 @@ MODULE mo_nh_dcmip_terminator
     &                               getPTStringFromSeconds,                &
     &                               MAX_EVENTNAME_STR_LEN, MAX_DATETIME_STR_LEN
   USE mo_mtime_extensions,    ONLY: get_datetime_string
-  USE mo_mpi,                 ONLY: my_process_is_stdio
 
   IMPLICIT NONE
 
@@ -123,19 +123,14 @@ CONTAINS
 
     nlev = p_patch%nlev
 
-    ! Print some information about tracer IDs assigned to CL and CL2
-    WRITE(message_text,'(a,i2)') 'Tracer ID assigned for CL ', toy_chem%id_cl
-    CALL message(TRIM(routine),message_text)
-    WRITE(message_text,'(a,i2)') 'Tracer ID assigned for CL2 ', toy_chem%id_cl2
-    CALL message(TRIM(routine),message_text)
-
-    ! Sanity check
+    ! Sanity checks
+    !
     ! make sure that a sufficient number of tracer fields is allocated
     IF (.NOT. ASSOCIATED(p_nh_prog(nnow_rcf(jg))%tracer)) THEN
       CALL finish (routine, 'Tracer field not allocated')
     ENDIF
-    IF (SIZE(p_nh_prog(nnow_rcf(jg))%tracer,4) < 2) THEN
-      CALL finish (routine, 'Testcase necessitates allocation of at least 2 tracer fields')
+    IF (advection_config(jg)%npassive_tracer < 2) THEN
+      CALL finish(routine, 'Testcase requires allocation of 2 passive tracers')
     ENDIF
 
     ! sanity checks for diagnostics 
@@ -148,6 +143,13 @@ CONTAINS
       WRITE(message_text,'(a,i2,a)') 'Numer of extra_2d fields (',SIZE(p_nh_diag%extra_2d,3),') smaller than minimum (3)'
       CALL finish (routine, message_text)
     ENDIF
+
+
+    ! Print some information about tracer IDs assigned to CL and CL2
+    WRITE(message_text,'(a,i2)') 'Tracer ID assigned for CL ', toy_chem%id_cl
+    CALL message(TRIM(routine),message_text)
+    WRITE(message_text,'(a,i2)') 'Tracer ID assigned for CL2 ', toy_chem%id_cl2
+    CALL message(TRIM(routine),message_text)
 
 
     ! allocate time rate of change for cl and cl2
@@ -300,10 +302,13 @@ CONTAINS
     chem_event_isactive = LOGICAL(isCurrentEventActive(chem_event,mtime_date, plus_slack=p_slack))
     cpl_event_isactive  = LOGICAL(isCurrentEventActive(cpl_event ,mtime_date, plus_slack=p_slack))
 
-    IF(my_process_is_stdio()) THEN
-      write(0,*) "chem_event_isactive: ", chem_event_isactive
-      write(0,*) "cpl_event_isactive: ", cpl_event_isactive
-    END IF
+    IF (msg_level >= 8) THEN
+      WRITE(message_text,'(a,l)') 'chem_event_isactive: ', chem_event_isactive
+      CALL message("toy chemistry: ",message_text)
+      WRITE(message_text,'(a,l)') 'cpl_event_isactive: ', cpl_event_isactive
+      CALL message("toy chemistry: ",message_text)
+    ENDIF
+
 
     jg = p_patch%id
 
@@ -497,7 +502,6 @@ CONTAINS
     REAL(wp) :: r, det  ! useful algebraic forms
     REAL(wp) :: k1, k2  ! reaction rates
 
-!!$    CALL k_vals( lat*degrees_to_radians, lon*degrees_to_radians, k1, k2 )
     CALL k_vals( lat*deg2rad, lon*deg2rad, k1, k2 )
 
     r = k1 / (4._wp*k2)
@@ -555,7 +559,6 @@ CONTAINS
     REAL(wp) :: k1, k2            ! reaction rates
     REAL(wp) :: cly               ! quantity that should be conseved
 
-!!$    CALL k_vals( lat*degrees_to_radians, lon*degrees_to_radians, k1, k2 )
     CALL k_vals( lat*deg2rad, lon*deg2rad, k1, k2 )
 
     r = k1 / (4._wp*k2)

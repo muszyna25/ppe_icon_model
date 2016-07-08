@@ -1086,29 +1086,6 @@ MODULE mo_nonhydro_state
         ENDIF
 
 
-        ! add references to additional passive tracers, if existing
-        DO ipassive=1,advection_config(p_patch%id)%npassive_tracer
-          WRITE(passive_tracer_suffix,'(I2)') ipassive
-          cf_desc    = t_cf_var('Qpassive_'//TRIM(ADJUSTL(passive_tracer_suffix)),   &
-            &          'kg kg-1', 'passive tracer', datatype_flt)
-          grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-          CALL add_tracer_ref( p_prog_list, 'tracer',                                &
-            &                 'Qpassive_'//TRIM(ADJUSTL(passive_tracer_suffix))//suffix, &
-            &                  dummy_idx,                                            &
-            &                  p_prog%tracer_ptr(:),                                 &
-            &                  cf_desc, grib2_desc,                                  &
-            &                  advection_config(p_patch%id),                         &
-            &                  jg=p_patch%id,                                        &
-            &                  ldims=shape3d_c,                                      &
-            &                  loutput=.TRUE.,                                       &
-            &                  lrestart=.FALSE.,                                     &
-            &                  tlev_source=TLEV_NNOW_RCF,                            &  ! output from nnow_rcf slice
-            &                  tracer_info=create_tracer_metadata(lis_tracer=.TRUE., &
-            &                              name = 'Qpassive_'//TRIM(ADJUSTL(passive_tracer_suffix))//suffix) )
-        ENDDO
-
-
-
         ! art
         IF (lart) THEN
           CALL art_tracer_interface('prog',p_patch%id,p_patch%nblks_c,p_prog_list,vname_prefix,&
@@ -1138,7 +1115,7 @@ MODULE mo_nonhydro_state
         ! (used for example with test cases)
         ALLOCATE( p_prog%tracer_ptr(ntracer) )
 
-        DO jt = 1, ntracer
+        DO jt = 1, ntracer - advection_config(p_patch%id)%npassive_tracer
           ctracer = advconf%ctracer_list(jt:jt)
           WRITE(name,'(A1,A1)') "q", ctracer
           CALL add_ref( p_prog_list, 'tracer',                                  &
@@ -1158,6 +1135,28 @@ MODULE mo_nonhydro_state
             &             lower_limit=0._wp  )  )
         END DO
       ENDIF
+
+
+      ! add references to additional passive tracers, if existing
+      DO ipassive=1,advection_config(p_patch%id)%npassive_tracer
+        WRITE(passive_tracer_suffix,'(I2)') ipassive
+        cf_desc    = t_cf_var('Qpassive_'//TRIM(ADJUSTL(passive_tracer_suffix)),   &
+          &          'kg kg-1', 'passive tracer', datatype_flt)
+        grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+        CALL add_tracer_ref( p_prog_list, 'tracer',                                &
+          &                 'Qpassive_'//TRIM(ADJUSTL(passive_tracer_suffix))//suffix, &
+          &                  dummy_idx,                                            &
+          &                  p_prog%tracer_ptr(:),                                 &
+          &                  cf_desc, grib2_desc,                                  &
+          &                  advection_config(p_patch%id),                         &
+          &                  jg=p_patch%id,                                        &
+          &                  ldims=shape3d_c,                                      &
+          &                  loutput=.TRUE.,                                       &
+          &                  lrestart=.FALSE.,                                     &
+          &                  tlev_source=TLEV_NNOW_RCF,                            &  ! output from nnow_rcf slice
+          &                  tracer_info=create_tracer_metadata(lis_tracer=.TRUE., &
+          &                              name = 'Qpassive_'//TRIM(ADJUSTL(passive_tracer_suffix))//suffix) )
+      ENDDO
 
     ENDIF ! allocation only if not extra_timelev
 
