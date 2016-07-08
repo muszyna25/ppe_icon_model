@@ -1068,10 +1068,10 @@ CONTAINS
                                  & variableCol = "variable", &
                                  & tripleCol = "triple", &
                                  & vtimeCol = "validity time", &
-                                 & levelTypeCol = "level type", &
-                                 & levelCountCol = "level count", &
-                                 & tileCountCol = "tileCount", &
-                                 & untiledCol = "untiled data", &
+                                 & levelTypeCol = "levTyp", &
+                                 & levelCountCol = "nlev", &
+                                 & tileCountCol = "tileCnt", &
+                                 & untiledCol = "untiled", &
                                  & runtypeCol = "runtype", &
                                  & vvmmCol = "vvmm", &
                                  & clasCol = "clas", &
