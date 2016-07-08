@@ -431,7 +431,7 @@ MODULE mo_nonhydro_state
     INTEGER :: nblks_c, &    !< number of cell blocks to allocate
                nblks_e       !< number of edge blocks to allocate
 
-    INTEGER :: nlev, nlevp1, ktracer
+    INTEGER :: nlev, nlevp1
 
     INTEGER :: shape3d_c(3), shape3d_e(3), shape3d_chalf(3), &
       &        shape4d_c(4)
@@ -599,8 +599,8 @@ MODULE mo_nonhydro_state
         ! distinct tracer groups, depending on the create_tracer_metadata[...] routine 
         ! used. Thus, make sure to use the right one when adding additional tracers.
         ! create_tracer_metadata[...] are described in more detail in mo_tracer_metadata.
-        ktracer=ntracer
-        ALLOCATE( p_prog%tracer_ptr(ktracer) )
+        !
+        ALLOCATE( p_prog%tracer_ptr(ntracer) )
         !QV
         IF ( iqv /= 0 ) THEN
           CALL add_ref( p_prog_list, 'tracer',                                         &
