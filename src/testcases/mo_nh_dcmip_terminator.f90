@@ -25,21 +25,17 @@
 MODULE mo_nh_dcmip_terminator
 
   USE mo_kind,                ONLY: wp, i8
-  USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, SUCCESS
-  USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
-  USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
+  USE mo_impl_constants,      ONLY: min_rlcell, SUCCESS
+  USE mo_math_constants,      ONLY: deg2rad, rad2deg
+  USE mo_loopindices,         ONLY: get_indices_c
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_intp_data_strc,      ONLY: t_int_state
-  USE mo_intp,                ONLY: cells2edges_scalar
-  USE mo_grid_config,         ONLY: grid_rescale_factor
   USE mo_parallel_config,     ONLY: nproma
   USE mo_dynamics_config,     ONLY: nnow_rcf, nnew_rcf, nnow, nnew
-  USE mo_run_config,          ONLY: iqv, ntracer, msg_level
+  USE mo_run_config,          ONLY: msg_level
   USE mo_advection_config,    ONLY: advection_config
   USE mo_exception,           ONLY: finish, message_text, message
   USE mo_nh_testcases_nml,    ONLY: toy_chem
-  USE mo_sync,                ONLY: sync_patch_array, SYNC_E
   USE mo_action_types,        ONLY: t_var_action_element
   USE mo_var_metadata,        ONLY: new_action
   USE mo_datetime,            ONLY: t_datetime
@@ -103,7 +99,7 @@ CONTAINS
     ! local
     CHARACTER(LEN = *), PARAMETER :: routine = modname//':init_nh_dcmip_terminator'
     INTEGER :: jg                      ! patch ID
-    INTEGER :: jc, jk, jb              ! loop indices for cell, edge, level, block
+    INTEGER :: jc, jb                  ! loop indices for cell, edge, block
     INTEGER :: i_rlstart, i_rlend, i_nchdom
     INTEGER :: i_startidx, i_endidx, i_startblk, i_endblk
     INTEGER :: nlev                        ! number of vertical (full) levels
@@ -354,10 +350,12 @@ CONTAINS
       IF (cpl_event_isactive) THEN
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
-            p_nh_prog(nnew_rcf(jg))%tracer(jc,jk,jb,toy_chem%id_cl) = MAX(0._wp,p_nh_prog(nnew_rcf(jg))%tracer(jc,jk,jb,toy_chem%id_cl)  &
-              &                                    + toy_chem%dt_cpl*ddtcl(jc,jk,jb) )
-            p_nh_prog(nnew_rcf(jg))%tracer(jc,jk,jb,toy_chem%id_cl2) = MAX(0._wp,p_nh_prog(nnew_rcf(jg))%tracer(jc,jk,jb,toy_chem%id_cl2)  &
-              &                                    + toy_chem%dt_cpl*ddtcl2(jc,jk,jb))
+            p_nh_prog(nnew_rcf(jg))%tracer(jc,jk,jb,toy_chem%id_cl) =                 &
+              &    MAX(0._wp,p_nh_prog(nnew_rcf(jg))%tracer(jc,jk,jb,toy_chem%id_cl)  &
+              &  + toy_chem%dt_cpl*ddtcl(jc,jk,jb) )
+            p_nh_prog(nnew_rcf(jg))%tracer(jc,jk,jb,toy_chem%id_cl2) =                &
+              &    MAX(0._wp,p_nh_prog(nnew_rcf(jg))%tracer(jc,jk,jb,toy_chem%id_cl2) &
+              &  + toy_chem%dt_cpl*ddtcl2(jc,jk,jb))
           ENDDO  ! jc
         ENDDO  ! jk
       ENDIF  ! cpl_event_isactive
