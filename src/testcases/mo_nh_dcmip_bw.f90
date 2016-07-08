@@ -27,9 +27,9 @@
 MODULE mo_nh_dcmip_bw
 
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, SUCCESS
+  USE mo_impl_constants,      ONLY: min_rlcell, min_rledge
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
-  USE mo_math_constants,      ONLY: deg2rad, pi
+  USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: omega=>earth_angular_velocity !, &
 !    &                               a => earth_radius,             &
 !    &                               rd,                            &
@@ -135,7 +135,6 @@ CONTAINS
     INTEGER :: i_rlstart, i_rlend
     INTEGER :: i_startidx, i_endidx, i_startblk, i_endblk
     INTEGER :: nlev                        ! number of vertical (full) levels
-    INTEGER :: ist                         ! status flag
 
     REAL(wp) :: zlon, zlat                 ! lat/lon of cell circumcenter
     REAL(wp) :: zu, zv                     ! zonal and meridional velocity component
@@ -324,8 +323,7 @@ CONTAINS
   !=======================================================================
   !    Generate the baroclinic instability initial conditions
   !=======================================================================
-  SUBROUTINE baroclinic_wave_test(deep,moist,pertt,X,lon,lat,p,z,zcoords,u,v,t,thetav,phis,ps,rho,q) &
-       BIND(c, name = "baroclinic_wave_test")
+  SUBROUTINE baroclinic_wave_test(deep,moist,pertt,X,lon,lat,p,z,zcoords,u,v,t,thetav,phis,ps,rho,q)
 
     IMPLICIT NONE
 

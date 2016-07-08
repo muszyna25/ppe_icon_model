@@ -269,7 +269,6 @@ CONTAINS
     INTEGER :: i_rlstart, i_rlend, i_nchdom
     INTEGER :: i_startidx, i_endidx, i_startblk, i_endblk
     INTEGER :: nlev                        ! number of vertical (full) levels
-    INTEGER :: ist                         ! status flag
 
     REAL(wp) :: zlon, zlat                 ! lat/lon of cell circumcenter
     LOGICAL :: chem_event_isactive, cpl_event_isactive
@@ -299,9 +298,9 @@ CONTAINS
     cpl_event_isactive  = LOGICAL(isCurrentEventActive(cpl_event ,mtime_date, plus_slack=p_slack))
 
     IF (msg_level >= 8) THEN
-      WRITE(message_text,'(a,l)') 'chem_event_isactive: ', chem_event_isactive
+      WRITE(message_text,'(a,l1)') 'chem_event_isactive: ', chem_event_isactive
       CALL message("toy chemistry: ",message_text)
-      WRITE(message_text,'(a,l)') 'cpl_event_isactive: ', cpl_event_isactive
+      WRITE(message_text,'(a,l1)') 'cpl_event_isactive: ', cpl_event_isactive
       CALL message("toy chemistry: ",message_text)
     ENDIF
 
@@ -406,7 +405,6 @@ CONTAINS
 
     ! local
     CHARACTER(LEN = *), PARAMETER :: routine = modname//':dcmip_terminator_diag_vint'
-    INTEGER :: jg                          ! patch ID
     INTEGER :: jc, jk, jb                  ! loop indices for cell, edge, level, block
     INTEGER :: i_rlstart, i_rlend, i_nchdom
     INTEGER :: i_startidx, i_endidx, i_startblk, i_endblk
@@ -414,8 +412,6 @@ CONTAINS
     REAL(wp):: mass                        ! column integrated mass [kg m-2]
     REAL(wp):: rhodz(nproma,p_patch%nlev)  ! rho times delta z
 
-
-    jg = p_patch%id
 
     nlev = p_patch%nlev
 
