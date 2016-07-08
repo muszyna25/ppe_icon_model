@@ -2017,6 +2017,7 @@ src/testcases/mo_nh_dcmip_hadley.f90 -text
 src/testcases/mo_nh_dcmip_rest_atm.f90 -text
 src/testcases/mo_nh_dcmip_schaer.f90 -text
 src/testcases/mo_nh_dcmip_tc.f90 -text
+src/testcases/mo_nh_dcmip_terminator.f90 -text
 src/testcases/mo_nh_df_test.f90 -text
 src/testcases/mo_nh_hs_test.f90 -text
 src/testcases/mo_nh_jabw_exp.f90 -text

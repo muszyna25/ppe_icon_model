@@ -5919,6 +5919,11 @@ lcoriolis = .TRUE.
 is\_plane\_torus= .TRUE.
 \tabularnewline
 
+is\_toy\_chem & 
+L & .FALSE. &  &
+Terminator toy chemistry activated when .TRUE. &
+\tabularnewline
+
 \hline
 \hline
 \multicolumn{4}{|l|}{\textbf{dcmip\_bw\%}}& DCMIP2016 baroclinic wave test &  'dcmip\_bw\_11'
@@ -5944,7 +5949,35 @@ I& 0 &  &
 type of initial perturbation\\
 (0 = exponential, 1 = stream function)&
 \tabularnewline
+
+
 \hline
+\hline
+\multicolumn{4}{|l|}{\textbf{toy\_chem\%}}& terminator toy chemistry &  is\_toy\_chem=.TRUE.
+\tabularnewline
+\hline
+
+dt\_chem&
+R& 300&  s &
+chemistry tendency update interval&
+\tabularnewline
+
+dt\_cpl&
+R& 300&  s &
+chemistry-transport coupling interval&
+\tabularnewline
+
+id\_cl&
+I& 1&   &
+Tracer container slice index for species CL&
+\tabularnewline
+
+id\_cl2&
+I& 2&   &
+Tracer container slice index for species CL2&
+\tabularnewline
+\hline
+
 
 %\hline
 jw\_up&
@@ -5952,6 +5985,7 @@ R& 1.0& m/s&
 amplitude of the u-perturbation in jabw test case&
 nh\_test\_name='jabw'
 \tabularnewline
+
 
 %\hline
 u0\_mrw&

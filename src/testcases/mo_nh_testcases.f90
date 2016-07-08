@@ -68,6 +68,7 @@ MODULE mo_nh_testcases
                                    & init_nh_prog_dcmip_rest_atm  
   USE mo_nh_dcmip_tc,          ONLY: init_nh_dcmip_tc
   USE mo_nh_dcmip_bw,          ONLY: init_nh_dcmip_bw
+  USE mo_nh_dcmip_terminator,  ONLY: init_nh_dcmip_terminator
   USE mo_nh_lim_area_testcases,ONLY: init_nh_atmo_ana_nconstlayers,               &
                                    & init_nh_anaprof_uv, init_nh_topo_ana,        &
                                    & itype_atmo_ana, init_nh_atmo_ana_poly
@@ -1200,6 +1201,18 @@ MODULE mo_nh_testcases
       END DO !jg
     ENDIF
   END IF
+
+  ! Terminator toy chemistry
+  ! possible add on for various test cases
+  IF (is_toy_chem) THEN
+    DO jg = 1, n_dom 
+      CALL init_nh_dcmip_terminator (p_patch(jg),              &
+        &                            p_nh_state(jg)%metrics,   &
+        &                            p_nh_state(jg)%prog(:),   &
+        &                            p_nh_state(jg)%diag       )
+    ENDDO
+    CALL message(TRIM(routine),'End setup terminator chemistry')
+  ENDIF
 
  END SUBROUTINE init_nh_testcase
 
