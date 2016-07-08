@@ -29,6 +29,7 @@ MODULE mo_input_request_list
     USE mo_communication, ONLY: t_ScatterPattern
     USE mo_dictionary, ONLY: t_dictionary, dict_copy, dict_init, dict_get, dict_finalize
     USE mo_exception, ONLY: message, finish
+    USE mo_fortran_tools, ONLY: t_Destructible
     USE mo_grid_config, ONLY: n_dom
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_initicon_config, ONLY: timeshift, lconsistency_checks
@@ -36,13 +37,15 @@ MODULE mo_input_request_list
     USE mo_input_container, ONLY: t_InputContainer, inputContainer_make
     USE mo_kind, ONLY: wp, dp
     USE mo_lnd_nwp_config, ONLY: t_tile, select_tile, get_tile_suffix, find_tile_id
+    USE mo_math_types, ONLY: t_Statistics
     USE mo_model_domain, ONLY: t_patch
     USE mo_mpi, ONLY: my_process_is_mpi_workroot, get_my_mpi_work_id, p_bcast, process_mpi_root_id, p_comm_work, &
                     & my_process_is_stdio, p_pe, p_isEqual
     USE mo_run_config, ONLY: msg_level
     USE mo_time_config, ONLY: getIniTime
     USE mo_util_cdi, ONLY: trivial_tileId
-    USE mo_util_string, ONLY: int2string, toCharArray, toCharacter, charArray_equal, charArray_toLower, charArray_dup, one_of
+    USE mo_util_string, ONLY: real2string, int2string, toCharArray, toCharacter, charArray_equal, charArray_toLower, &
+                            & charArray_dup, one_of
     USE mo_util_table, ONLY: t_table, initialize_table, add_table_column, set_table_entry, print_table, finalize_table
     USE mo_util_uuid, ONLY: t_uuid, uuid_string_length, uuid_unparse, OPERATOR(==)
     USE mtime, ONLY: datetime, timedelta, newDatetime, newTimedelta, timedeltaToString, deallocateDatetime, deallocateTimedelta, &
@@ -107,6 +110,7 @@ PRIVATE
 
         CLASS(t_InputContainer), POINTER :: container
         TYPE(t_MetadataCache), POINTER :: metadata  !< Some metadata connected with the variable, which IS only used for consistency checking AND printing of the inventory table.
+        TYPE(t_Statistics) :: statistics
     END TYPE
 
     TYPE :: t_ListEntry
@@ -115,7 +119,7 @@ PRIVATE
         TYPE(t_DomainData), POINTER :: domainData   !< A linked list of an InputContainer AND a MetadataCache for each domain. Only accessed via findDomainData().
     END TYPE
 
-    TYPE :: t_MetadataCache
+    TYPE, EXTENDS(t_Destructible) :: t_MetadataCache
         CHARACTER(KIND = C_CHAR), POINTER :: rtime(:), vtime(:)
         INTEGER :: levelType, gridNumber, gridPosition, runClass, experimentId, generatingProcessType
         TYPE(t_CdiParam) :: param
@@ -123,6 +127,7 @@ PRIVATE
 
     CONTAINS
         PROCEDURE :: equalTo => MetadataCache_equalTo
+        PROCEDURE :: destruct => MetadataCache_destruct
     END TYPE
 
     CHARACTER(*), PARAMETER :: modname = "mo_input_request_list"
@@ -178,6 +183,7 @@ CONTAINS
                 RESULT%next => listEntry%domainData
                 RESULT%container => InputContainer_make()
                 RESULT%metadata => NULL()
+                CALL RESULT%statistics%construct()
                 listEntry%domainData => RESULT
             END IF
         END IF
@@ -468,7 +474,8 @@ CONTAINS
         listEntry => me%findTranslatedName(variableName)
         IF(.NOT.ASSOCIATED(listEntry)) THEN
             RESULT = .FALSE.    !We are NOT interested IN this variable.
-            CALL MetadataCache_delete(metadata)
+            CALL metadata%destruct()
+            DEALLOCATE(metadata)
             RETURN
         END IF
         IF(RESULT) domainData => findDomainData(listEntry, p_patch%id)
@@ -477,7 +484,8 @@ CONTAINS
         !Commit AND cleanup.
         IF(RESULT) THEN
             IF(ASSOCIATED(domainData)) THEN
-                CALL MetadataCache_delete(metadata)
+                CALL metadata%destruct()
+                DEALLOCATE(metadata)
             ELSE
                 domainData => findDomainData(listEntry, p_patch%id, opt_lcreate = .TRUE.)
                 domainData%metadata => metadata  !We don't have a metadata cache yet, so we just remember this one.
@@ -486,7 +494,8 @@ CONTAINS
             !The record was not valid.
             DEALLOCATE(variableName)
             variableName => NULL()
-            CALL MetadataCache_delete(metadata)
+            CALL metadata%destruct()
+            DEALLOCATE(metadata)
         END IF
 
     CONTAINS
@@ -645,7 +654,7 @@ CONTAINS
             IF(.NOT.ASSOCIATED(listEntry)) CALL finish(routine, "Assertion failed: Processes have different input request lists!")
             domainData => findDomainData(listEntry, p_patch%id, opt_lcreate = .TRUE.)
             fortranName => toCharacter(variableName)
-            CALL domainData%container%readField(fortranName, level, tileId, p_patch%id, iterator)
+            CALL domainData%container%readField(fortranName, level, tileId, p_patch%id, iterator, domainData%statistics)
             DEALLOCATE(fortranName)
             DEALLOCATE(variableName)
         END DO
@@ -1059,16 +1068,19 @@ CONTAINS
                                  & variableCol = "variable", &
                                  & tripleCol = "triple", &
                                  & vtimeCol = "validity time", &
-                                 & levelTypeCol = "level type", &
-                                 & levelCountCol = "level count", &
-                                 & tileCountCol = "tileCount", &
-                                 & untiledCol = "untiled data", &
+                                 & levelTypeCol = "levTyp", &
+                                 & levelCountCol = "nlev", &
+                                 & tileCountCol = "tileCnt", &
+                                 & untiledCol = "untiled", &
                                  & runtypeCol = "runtype", &
                                  & vvmmCol = "vvmm", &
                                  & clasCol = "clas", &
                                  & expidCol = "expid", &
                                  & gridCol = "grid", &
-                                 & rgridCol = "rgrid"
+                                 & rgridCol = "rgrid", &
+                                 & minCol = "min", &
+                                 & meanCol = "mean", &
+                                 & maxCol = "max"
         CHARACTER(LEN = 3*3+2) :: parameterString
         TYPE(datetime), POINTER :: rtime, vtime
         TYPE(timedelta), POINTER :: forecastTime
@@ -1090,6 +1102,9 @@ CONTAINS
         CALL add_table_column(table, expidCol)
         CALL add_table_column(table, gridCol)
         CALL add_table_column(table, rgridCol)
+        CALL add_table_column(table, minCol)
+        CALL add_table_column(table, meanCol)
+        CALL add_table_column(table, maxCol)
 
         IF(.NOT.my_process_is_mpi_workroot()) CALL finish(routine, "assertion failed")
         curRow = 1  !we can have zero to n_dom rows for each variable, so we can't USE the loop counter for the rows
@@ -1150,6 +1165,9 @@ CONTAINS
                 IF(curDomain%metadata%gridPosition /= -1) THEN
                     CALL set_table_entry(table, curRow, rgridCol, TRIM(int2string(curDomain%metadata%gridPosition)))
                 END IF
+                CALL set_table_entry(table, curRow, minCol, TRIM(real2string(curDomain%statistics%MIN)))
+                CALL set_table_entry(table, curRow, meanCol, TRIM(real2string(curDomain%statistics%mean)))
+                CALL set_table_entry(table, curRow, MAXCol, TRIM(real2string(curDomain%statistics%MAX)))
 
 
                 !next row
@@ -1180,7 +1198,11 @@ CONTAINS
                     CALL domainData%container%destruct()
                     DEALLOCATE(domainData%container)
                 END IF
-                IF(ASSOCIATED(domainData%metadata)) CALL MetadataCache_delete(domainData%metadata)
+                IF(ASSOCIATED(domainData%metadata)) THEN
+                    CALL domainData%metadata%destruct()
+                    DEALLOCATE(domainData%metadata)
+                END IF
+                CALL domainData%statistics%destruct()
                 domainDataTemp => domainData%next
                 DEALLOCATE(domainData)
                 domainData => domainDataTemp
@@ -1280,11 +1302,11 @@ CONTAINS
         RESULT = .TRUE.
     END FUNCTION MetadataCache_equalTo
 
-    SUBROUTINE MetadataCache_delete(me)
-        TYPE(t_MetadataCache), POINTER, INTENT(INOUT) :: me
+    SUBROUTINE MetadataCache_destruct(me)
+        CLASS(t_MetadataCache), INTENT(INOUT) :: me
 
         IF(ASSOCIATED(me%vtime)) DEALLOCATE(me%vtime)
-        DEALLOCATE(me)
-    END SUBROUTINE MetadataCache_delete
+        IF(ASSOCIATED(me%rtime)) DEALLOCATE(me%rtime)
+    END SUBROUTINE MetadataCache_destruct
 
 END MODULE mo_input_request_list

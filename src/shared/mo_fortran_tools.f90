@@ -22,7 +22,7 @@ MODULE mo_fortran_tools
 
   USE mo_kind,                    ONLY: wp, sp, dp, ik4 => i4
   USE mo_exception,               ONLY: finish
-  USE mo_var_metadata_types,      ONLY: VARNAME_LEN
+  USE mo_impl_constants,          ONLY: VARNAME_LEN
 
   IMPLICIT NONE
 
