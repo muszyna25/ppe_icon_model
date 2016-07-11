@@ -79,7 +79,7 @@ config/pvcs.pl -text
 /configure -text
 /configure.ac -text
 data/ECHAM6_CldOptProps.nc -text
-data/MACv2.0-SP_v1-beta.nc -text
+data/MACv2.0-SP_v1.nc -text
 data/README -text
 data/dmin_wetgrowth_lookup.dat -text
 data/external/etopo40.cdf -text

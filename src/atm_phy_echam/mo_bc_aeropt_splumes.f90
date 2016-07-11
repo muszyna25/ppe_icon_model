@@ -92,7 +92,7 @@ MODULE mo_bc_aeropt_splumes
     !
     INTEGER           :: ifile_id
 
-    cfname='MACv2.0-SP_v1-beta.nc'
+    cfname='MACv2.0-SP_v1.nc'
     ifile_id=openInputFile(cfname)
 
     CALL read_1d_wrapper(ifile_id=ifile_id,        variable_name='plume_lat',&
@@ -213,18 +213,7 @@ MODULE mo_bc_aeropt_splumes
     DO iplume=1,nplumes
       time_weight(1,iplume) = year_weight(iyear,iplume) * ann_cycle(1,iweek,iplume)
       time_weight(2,iplume) = year_weight(iyear,iplume) * ann_cycle(2,iweek,iplume)
-    END DO
-    !
-    ! check if code is being used in beta version and stop if it is after June 1, 2016
-    !
-    CALL DATE_AND_TIME(VALUES=idate)
-    IF (idate(1) >= 2016 .AND. idate(2) >= 6) THEN
-      message='System clock says the date is after June 2016 at which time this release should be depreciated.'
-      message=TRIM(ADJUSTL(message))//'REASON: input data for spimple plumes may be outdated, code may be buggy'
-      message=TRIM(ADJUSTL(message))//'Terminating; please check with developers for a finalized CMIP6 version of the code.'
-      CALL finish('set_time_weight of mo_bc_aeropt_splumes',message)
-    END IF
-    
+    END DO    
     RETURN
   END SUBROUTINE set_time_weight
   !
