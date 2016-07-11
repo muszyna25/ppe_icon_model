@@ -602,8 +602,8 @@ end if
 ;************************************************
 ;***setings
     Cvar="clwvi"
-    fili     =  workdir+"/Ubusy_"+Cvar+".nc"
-    
+    fili     =  workdir+"/Ubusy_d"+Cvar+".nc"
+
     mainTitle = "Liquid water + ice content [g/m~S~2~N~] "+typ
     subTitle  = meantime
 
@@ -614,6 +614,7 @@ end if
     end if
                 
 if (isfilepresent(fili)) then
+
 ;***read 
     File    = addfile (fili , "r")  
     var     = File->$Cvar$(time|0,ncells|:)   ; dims: (time,ncells)    
@@ -643,16 +644,68 @@ end if
     delete (res@cnFillColors)
 end if
 
+;************************************************
+;   2 m temperature code167 CMOR: tas
+;************************************************
+
+;***setings
+    Cvar="tas"
+    fili     =  workdir+"/Ubusy_d"+Cvar+".nc"
+    
+    mainTitle = "2 m temperature [C] "+typ
+    subTitle  = meantime
+
+    if (default.eq.1.or.cell.eq.1) then   ; set key and appendix for 
+       fillKey="cell"                     ; contour or trigangels
+    else
+       fillKey="cont"                      
+    end if
+                
+if (isfilepresent(fili)) then
+;***read 
+    File    = addfile (fili , "r")  
+    var     = File->$Cvar$(time|0,ncells|:)   ; dims: (time,ncells)    
+   
+print(fili+" fili  "+min(var)+"   "+max(var))
+    print("ploted: "+mainTitle)
+
+;***open plot
+   noPlot=noPlot+1
+
+;***number of listplots
+    res                       = True             ; plot mods desired
+    res@cnLevelSelectionMode  = "ExplicitLevels" ; set explicit contour levels
+    res@cnLevels             = (/-5,-2,-1,-0.5,0.5,1,2,5/)
+    res@cnFillColors         = (/4,6,8,9,0,11,12,14,15,17/)
+    res@cnMissingValFillColor = missColor
+
+if (fillKey.eq."cont") then
+    plot0 = plot_cont ( wks,var,x,y,cArea,res,\
+                mainTitle,subTitle,comment )
+else 
+    plot0 = fast_cell ( wks,var,x,y,cArea,vlon,vlat,res,missColor,\
+                mainTitle,subTitle,comment )
+end if
+    listplots(noPlot)=plot0
+print("noPlot: "+noPlot)
+    delete(res@cnLevels)
+    delete (res@cnFillColors)
+end if
+
+
    noPlot=noPlot+1
    print("pannel:  "+noPlot)
 ;--KMF prepare plots for panel   
    pltres          =  True
    
 
-
    gsn_panel(wks, (/listplots(0),listplots(1),\
                     listplots(2),listplots(3),\
-                    listplots(4),listplots(5)/), (/3,2/), pltres)   
+                    listplots(4),listplots(6)/), (/3,2/), pltres)   
+
+
+   gsn_panel(wks, (/listplots(5),listplots(7)\
+                                             /), (/3,2/), pltres)   
 
 
 end

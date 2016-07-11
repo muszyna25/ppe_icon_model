@@ -58,6 +58,7 @@ set -ex
 #---interpolate r2b4 to t63 and modellevel to presure level
 #
 cdo -setpartabn,partab -ap2pl,${LEVELS}   $inDat Uatm_dyn_pl
+REMAP_AREA_MIN=0.5 
 cdo -r remapycon,t63grid   Uatm_dyn_pl Uatm_dyn_t63
 
 rm -f  busy*

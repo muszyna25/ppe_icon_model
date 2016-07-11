@@ -135,6 +135,17 @@ then
              -selvar,${Cvar} $BinDat Ubusy_d${Cvar}.nc
 fi
 fi
+#
+#----code167---2m temperature---
+#
+Cvar=tas
+if cdo -s showvar -selvar,${Cvar} $AinDat > /dev/null 
+then
+  if cdo -s showvar -selvar,${Cvar} $BinDat > /dev/null ;then
+     cdo sub -selvar,${Cvar} $AinDat  \
+             -selvar,${Cvar} $BinDat Ubusy_d${Cvar}.nc
+fi
+fi
 exit
 
 
