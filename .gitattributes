@@ -1265,6 +1265,25 @@ scripts/postprocessing/tools/metview/paperclose.pro -text
 scripts/postprocessing/tools/metview/paperopenl.pro -text
 scripts/postprocessing/tools/metview/scores.pro -text
 scripts/postprocessing/tools/metview/zonal.error -text
+scripts/postprocessing/tools/mjo_analysis_suite/diagnostics_cam.ncl -text
+scripts/postprocessing/tools/mjo_analysis_suite/mjo_analysis_clivar_anomalies.ncl -text
+scripts/postprocessing/tools/mjo_analysis_suite/mjo_analysis_clivar_correlations.ncl -text
+scripts/postprocessing/tools/mjo_analysis_suite/mjo_analysis_clivar_eofs.ncl -text
+scripts/postprocessing/tools/mjo_analysis_suite/mjo_analysis_clivar_filtering.ncl -text
+scripts/postprocessing/tools/mjo_analysis_suite/mjo_analysis_clivar_mean_state.ncl -text
+scripts/postprocessing/tools/mjo_analysis_suite/mjo_analysis_clivar_mean_state_filtered.ncl -text
+scripts/postprocessing/tools/mjo_analysis_suite/mjo_analysis_clivar_patcor_rmse.ncl -text
+scripts/postprocessing/tools/mjo_analysis_suite/mjo_analysis_clivar_rmm-index.ncl -text
+scripts/postprocessing/tools/mjo_analysis_suite/mjo_analysis_clivar_wk_spacetime.ncl -text
+scripts/postprocessing/tools/mjo_analysis_suite/mjo_analysis_procedure.pdf -text svneol=unset#application/pdf
+scripts/postprocessing/tools/mjo_analysis_suite/mjo_analysis_procedure.sh -text
+scripts/postprocessing/tools/mjo_analysis_suite/mjo_analysis_pt1_mean_state.sh -text
+scripts/postprocessing/tools/mjo_analysis_suite/mjo_analysis_pt2_anomalies.sh -text
+scripts/postprocessing/tools/mjo_analysis_suite/mjo_analysis_pt3_filtering.sh -text
+scripts/postprocessing/tools/mjo_analysis_suite/mjo_analysis_pt4_correlations.sh -text
+scripts/postprocessing/tools/mjo_analysis_suite/mjo_analysis_pt5_wk_spacetime.sh -text
+scripts/postprocessing/tools/mjo_analysis_suite/mjo_analysis_pt6_rmm-index.sh -text
+scripts/postprocessing/tools/mjo_analysis_suite/mjo_analysis_pt7_eofs.sh -text
 scripts/postprocessing/tools/mld.py -text
 scripts/postprocessing/tools/mld.sh -text
 scripts/postprocessing/tools/mocTimeseries.rb -text
