@@ -76,7 +76,7 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_statistics
   USE mo_hamocc_statistics,     ONLY: update_hamocc_statistics, reset_hamocc_statistics
   USE mo_hamocc_types,          ONLY: t_hamocc_state
-  USE mo_derived_variable_handling, ONLY: perform_accumulation
+  USE mo_derived_variable_handling, ONLY: perform_accumulation, reset_accumulation
   USE mo_ocean_output
   USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes
 
@@ -521,6 +521,7 @@ CONTAINS
         &                hamocc_state,            &
         &                jstep, jstep0)
       
+    CALL reset_accumulation
       ! send and receive coupling fluxes for ocean at the end of time stepping loop
       IF (iforc_oce == Coupled_FluxFromAtmo) &  !  14
         &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, p_as, mtime_current)
@@ -678,10 +679,12 @@ CONTAINS
       & patch_2d%verts%owned,   &
       & n_zlev)
 
+    CALL perform_accumulation(nold(1),0)
 
     CALL write_name_list_output(jstep=0)
 
     CALL reset_ocean_statistics(ocean_state%p_acc,ocean_state%p_diag,surface_fluxes)
+    CALL reset_accumulation
     IF (i_sea_ice >= 1) CALL reset_ice_statistics(sea_ice%acc)
     IF (lhamocc) CALL reset_hamocc_statistics(hamocc_state%p_acc)
 

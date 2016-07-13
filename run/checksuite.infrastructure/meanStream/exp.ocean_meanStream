@@ -213,6 +213,7 @@ cat > ${ocean_namelist} << EOF
 ! netcdf_dict      = "${dict_file}"
   dt_checkpoint = ${dt_checkpoint}
   lkeep_in_sync = .TRUE.          ! sync after each timestep
+ lnetcdf_flt64_output = .true.
 /
 EOF
 #-----------------------------------------------------------------------------
