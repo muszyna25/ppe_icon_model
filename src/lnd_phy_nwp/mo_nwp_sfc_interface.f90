@@ -1249,6 +1249,7 @@ CONTAINS
         &              fr_seaice     = p_lnd_diag%fr_seaice(:,jb),              &!inout
         &              hice_old      = p_prog_wtr_now%h_ice(:,jb),              &!inout
         &              tice_old      = p_prog_wtr_now%t_ice(:,jb),              &!inout
+        &              t_g_t_now     = lnd_prog_now%t_g_t(:,jb,isub_water),     &!inout
         &              t_g_t_new     = lnd_prog_new%t_g_t(:,jb,isub_water),     &!inout
         &              t_s_t_now     = lnd_prog_now%t_s_t(:,jb,isub_water),     &!inout
         &              t_s_t_new     = lnd_prog_new%t_s_t(:,jb,isub_water),     &!inout
