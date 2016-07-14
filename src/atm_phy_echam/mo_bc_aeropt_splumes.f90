@@ -481,6 +481,11 @@ MODULE mo_bc_aeropt_splumes
            & z_fl_vr(:,:)       ,dz_vr(:,:)         ,sp_xcdnc(:)         ,sp_aod_vr(:,:)      , &
            & sp_ssa_vr(:,:)     ,sp_asy_vr(:,:)                                               )
 
+        sp_xcdnc(:)=0.01_wp
+        sp_aod_vr(:,:)=0.01_wp
+        sp_ssa_vr(:,:)=0.9_wp
+        sp_asy_vr(:,:)=0.9_wp
+
         DO jk=1,klev
           DO jl=1,kproma
             asy_sw_vr(jl,jk,jwl) = asy_sw_vr(jl,jk,jwl) * ssa_sw_vr(jl,jk,jwl) * aod_sw_vr(jl,jk,jwl)    &
