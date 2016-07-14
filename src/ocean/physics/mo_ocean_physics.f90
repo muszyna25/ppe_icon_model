@@ -903,7 +903,7 @@ CONTAINS
 !    CALL sync_patch_array(sync_e, patch_2D, param%HarmonicViscosity_coeff)
 
 !    !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=2  ! output print level (1-5, fix)
+    idt_src=1  ! output print level (1-5, fix)
     CALL dbg_print('LeithClosure: viscosity',param%HarmonicViscosity_coeff,&
       & str_module,idt_src, in_subset=edges_in_domain)
 !     CALL dbg_print('LeithClosure: grad_vort_abs',param%TracerDiffusion_coeff(:,:,:,1),&
@@ -1111,7 +1111,7 @@ CONTAINS
 
     !2) calculate laplacian of vertical velocity
     CALL tracer_diffusion_horz_local(patch_3D, vort_c, ocean_state, vort_e)!,subset_range = edges_in_domain)
-
+    CALL sync_patch_array(sync_e, patch_2D, vort_e)
     CALL div_oce_3d( vort_e, patch_3D, operators_coeff%div_coeff, laplacian_vort)
     CALL sync_patch_array(sync_c, patch_2D, laplacian_vort)
 
@@ -1156,10 +1156,11 @@ CONTAINS
     ELSEIF(LeithClosure_form==2)THEN
 
       CALL div_oce_3d(ocean_state%p_diag%vn_time_weighted, patch_3D, operators_coeff%div_coeff, div_c)
+      CALL sync_patch_array(sync_c, patch_2D, div_c)
       !CALL div_oce_3d( ocean_state%p_diag%ptp_vn, patch_3D, operators_coeff%div_coeff, div_c)
-
       !  The next two calls calculate the laplacian of the divergence without any diffusion parameter
       CALL tracer_diffusion_horz_local(patch_3D, div_c, ocean_state, div_e)!,subset_range = edges_in_domain)
+      CALL sync_patch_array(sync_e, patch_2D, div_e)
       CALL div_oce_3d( div_e, patch_3D, operators_coeff%div_coeff, laplacian_div)
       CALL sync_patch_array(sync_c, patch_2D, laplacian_div)
 
@@ -1214,7 +1215,7 @@ CONTAINS
 !      CALL debug_print_MaxMinMean('after ocean_gmres: h-new', minmaxmean, str_module, idt_src)
 
 !    !---------DEBUG DIAGNOSTICS-------------------------------------------
-     idt_src=2  ! output print level (1-5, fix)
+     idt_src=1  ! output print level (1-5, fix)
      CALL dbg_print('LeithClosure_type: biharm visc',param%BiharmonicViscosity_coeff,&
        &str_module,idt_src, in_subset=edges_in_domain)
 !   !---------------------------------------------------------------------

@@ -1353,12 +1353,14 @@ CONTAINS
       
       coriolis_lat =  coriolis_fplane_latitude* deg2rad
       
+      patch_2D%cells%f_c  = 2.0_wp*grid_angular_velocity*SIN(coriolis_lat)
       patch_2D%edges%f_e  = 2.0_wp*grid_angular_velocity*SIN(coriolis_lat)
       patch_2D%verts%f_v  = 2.0_wp*grid_angular_velocity*SIN(coriolis_lat)
       
     CASE(zero_coriolis)
       
       CALL message (TRIM(routine), 'ZERO_CORIOLIS: set to zero')
+      patch_2D%cells%f_c = 0.0_wp
       patch_2D%verts%f_v = 0.0_wp
       patch_2D%edges%f_e = 0.0_wp
       

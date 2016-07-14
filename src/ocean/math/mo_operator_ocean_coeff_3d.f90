@@ -77,7 +77,6 @@ MODULE mo_operator_ocean_coeff_3d
   LOGICAL, PARAMETER :: MID_POINT_DUAL_EDGE = .TRUE. !Please do not change this unless you are sure, you know what you do.
   LOGICAL, PARAMETER :: LARC_LENGTH = .FALSE.
   CHARACTER(LEN=*), PARAMETER :: this_mod_name = 'opcoeff'
-  CHARACTER(LEN=16)           :: str_module = 'opcoeff'  ! Output of module for 1 line debug
   INTEGER :: idt_src    = 1               ! Level of detail for 1 line debug
 
 
@@ -1439,7 +1438,7 @@ CONTAINS
    ! output print level (1-5, fix)
    idt_src=5  
    CALL dbg_print('scalarprod: fixed_vol_norm',operators_coefficients%fixed_vol_norm, &
-     & str_module,idt_src, in_subset=all_cells)  
+     & this_mod_name,idt_src, in_subset=all_cells)
     !-------------------------------------------
     ! 4) compute:
     !   edge2cell_coeff_cc_t
@@ -2569,10 +2568,10 @@ CONTAINS
     DO je=1,no_dual_edges
       CALL sync_patch_array(SYNC_V, patch_2D, operators_coefficients%rot_coeff(:,:,:, je))
     ENDDO
-    DO je=1,no_dual_edges
-      CALL dbg_print('rot_coeff'    ,operators_coefficients%rot_coeff(:,:,:, je), str_module,1, &
-            patch_2D%verts%owned )
-    ENDDO
+!     DO je=1,no_dual_edges
+!       CALL dbg_print('rot_coeff'    ,operators_coefficients%rot_coeff(:,:,:, je), this_mod_name,1, &
+!             patch_2D%verts%owned )
+!     ENDDO
 
 !     DO jev=1,2*no_dual_edges
 !       DO jk = 1, n_zlev
@@ -2662,7 +2661,6 @@ CONTAINS
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = ('mo_operator_ocean_coeff_3d:init_diff_operator_coeff_3D')
     !-----------------------------------------------------------------------
-    CALL message (TRIM(routine), 'start')
     i_nchdom   = MAX(1,patch_2D%n_childdom)
     all_edges => patch_2D%edges%all
     owned_cells => patch_2D%cells%owned
@@ -2749,8 +2747,6 @@ CONTAINS
     DO ie = 1, no_dual_edges
       CALL sync_patch_array(sync_v, patch_2D, operators_coefficients%rot_coeff(:,:,:,ie))
     END DO
-
-    CALL message (TRIM(routine), 'end')
 
   END SUBROUTINE init_diff_operator_coeff_3D
   !-------------------------------------------------------------------------
