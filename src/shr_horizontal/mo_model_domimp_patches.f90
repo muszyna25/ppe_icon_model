@@ -1607,7 +1607,7 @@ CONTAINS
     INTEGER :: ip, jv, idx, blk
     INTEGER :: max_cell_connectivity, max_verts_connectivity
 
-    INTEGER :: return_status, varid
+    INTEGER :: return_status
 
     TYPE(t_patch), POINTER :: p_p, patch0
     TYPE(p_t_patch) :: patches(0:n_lp)
