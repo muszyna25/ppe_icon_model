@@ -2657,6 +2657,16 @@ CONTAINS
   !  In parent grids: compute "refin_e_ctrl", "refin_v_ctrl" flags for
   !  overlap with nested domain.
   !
+  !  input: 
+  !   p_p% id
+  !        n_patch_cells, n_patch_edges, n_patch_verts, n_patch_edges_g
+  !        cells%decomp_info%decomp_domain
+  !        edges%decomp_info%glb_index
+  !        cells%refin_ctrl
+  !
+  !        cells%edge_idx/blk  (from "read_remaining_patch")
+  !        cells%vertex_idx/blk  (from "read_remaining_patch")
+  !
   !  @author F. Prill, DWD (2016-06-16)
   !
   SUBROUTINE set_parent_refin_ev_ctrl(description, p_p)
