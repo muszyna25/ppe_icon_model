@@ -1673,12 +1673,12 @@ src/hamocc/common/mo_cyano.f90 -text
 src/hamocc/common/mo_ini_bgc.f90 -text
 src/hamocc/common/mo_param1_bgc.f90 -text
 src/hamocc/common/mo_sedmnt.f90 -text
+src/hamocc/common/mo_settling.f90 -text
 src/hamocc/common/ocprod.f90 -text
 src/hamocc/common/powach.f90 -text
 src/hamocc/common/powach_impl.f90 -text
 src/hamocc/common/powadi.f90 -text
 src/hamocc/common/sedshi.f90 -text
-src/hamocc/common/settling.f90 -text
 src/hamocc/common/swr_absorption.f90 -text
 src/hamocc/icon_specific/bgc_icon.f90 -text
 src/hamocc/icon_specific/ini_bgc_icon.f90 -text
