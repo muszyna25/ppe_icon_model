@@ -73,8 +73,8 @@ cat > ${ocean_namelist} << EOF
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
 !  ml_varlist       = 'group:oce_essentials', 'A_tracer_v_T_acc', 'group:ice_default'
-  ml_varlist       = 'div_of_GMRedi_flux', 'group:oce_essentials', 'A_tracer_v_T_acc', 'group:ice_default'
-! ml_varlist       = 'group:oce_essentials', 'group:oce_diag', 'group:oce_physics', 'group:oce_prog',
+!  ml_varlist       = 'div_of_GMRedi_flux', 'group:oce_essentials', 'A_tracer_v_T_acc', 'group:ice_default'
+ ml_varlist       = 'group:oce_essentials', 'group:oce_diag', 'group:oce_physics', 'group:oce_prog',
 !                    'group:ice_default',    'group:ice_diag'
 /
 &output_nml
@@ -156,17 +156,19 @@ cat > ${ocean_namelist} << EOF
   use_wind_mixing                 = .TRUE.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
 /                                           
 &ocean_GentMcWilliamsRedi_nml
-  GMRedi_configuration            = 1         ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
-  k_tracer_dianeutral_parameter   = 1.0E-4 !dianeutral tracer diffusivity for GentMcWilliams-Redi parametrization
-  k_tracer_isoneutral_parameter   = 600.0  !isoneutral tracer diffusivity for GentMcWilliams-Redi parametrization
-  k_tracer_GM_kappa_parameter     = 600.0  !kappa parameter in GentMcWilliams parametrization
-  tapering_scheme                 = 1         !tapering configuration : tapering_DanaMcWilliams=1, tapering_Large=2, tapering_Griffies=3
-  GMRedi_usesRelativeMaxSlopes    = .true.    ! the slopes are defined relatively the the grid slopes: dz/dx
-  S_max                           = 8.0       !maximally allowed slope
-  S_critical                      = 2.5       !critical value at which tapering reduces slope by 50%
-  S_d                             = 0.2       !width of transition zone from untapered to tapered
-  c_speed                         = 2.0       !aproximation to first baroclinic wave speed. Used in tapering scheme "Large"
-!  GMREDI_COMBINED_DIAGNOSTIC       = .TRUE.    ! diagnose divergence of the combined GMRedi-fluxes
+ GMRedi_configuration            =   1        ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
+ tapering_scheme=1
+ S_max=0.01                                   !Dann vielleicht auf 0.1 hochgehen  
+ S_critical=0.0025
+ S_d=0.02
+! GMRedi_usesRelativeMaxSlopes=.FALSE.
+ k_tracer_GM_kappa_parameter     = 600.0  !kappa parameter in GentMcWilliams parametrization
+ k_tracer_isoneutral_parameter   = 600    !oder ein Wert deiner Wahl
+ k_tracer_dianeutral_parameter   = 1.0E-5  
+! switch_off_diagonal_vert_expl =.TRUE.
+  GMREDI_COMBINED_DIAGNOSTIC    =.TRUE. 
+  TEST_MODE_GM_ONLY             =.FALSE.
+  TEST_MODE_REDI_ONLY           =.FALSE.
 /                                           
 &sea_ice_nml
 ! i_ice_therm                     =   1       ! 1=zero-layer (default), 2=Winton, 0/2: not allowed

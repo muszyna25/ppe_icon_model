@@ -91,7 +91,8 @@ CONTAINS
     CALL add_fields(ocean_state%p_acc%v_vint        , ocean_state%p_diag%v_vint        , cells)
     CALL add_fields(ocean_state%p_acc%w             , ocean_state%p_diag%w             , cells,levels=max_zlev+1)
     CALL add_fields(ocean_state%p_acc%div_mass_flx_c, ocean_state%p_diag%div_mass_flx_c, cells)
-    CALL add_fields(ocean_state%p_acc%div_of_GMRedi_flux, ocean_state%p_diag%div_of_GMRedi_flux, cells)
+   CALL add_fields(ocean_state%p_acc%opottempGMRedi, ocean_state%p_diag%opottempGMRedi, cells)
+   CALL add_fields(ocean_state%p_acc%osaltGMRedi   , ocean_state%p_diag%osaltGMRedi   , cells)
     CALL add_fields(ocean_state%p_acc%rho           , ocean_state%p_diag%rho           , cells)
     CALL add_fields(ocean_state%p_acc%mass_flx_e    , ocean_state%p_diag%mass_flx_e    , edges)
     CALL add_fields(ocean_state%p_acc%vort          , ocean_state%p_diag%vort          , verts,levels=max_zlev)
@@ -183,7 +184,8 @@ CONTAINS
     p_acc%edgeFlux_total                   = p_acc%edgeFlux_total                  /REAL(nsteps_since_last_output,wp)
     p_acc%w                         = p_acc%w                        /REAL(nsteps_since_last_output,wp)
     p_acc%div_mass_flx_c            = p_acc%div_mass_flx_c           /REAL(nsteps_since_last_output,wp)
-    p_acc%div_of_GMRedi_flux        = p_acc%div_of_GMRedi_flux       /REAL(nsteps_since_last_output,wp)
+    p_acc%opottempGMRedi            = p_acc%opottempGMRedi           /REAL(nsteps_since_last_output,wp)
+    p_acc%osaltGMRedi               = p_acc%osaltGMRedi              /REAL(nsteps_since_last_output,wp)
     p_acc%rho                       = p_acc%rho                      /REAL(nsteps_since_last_output,wp)
     p_acc%mass_flx_e                = p_acc%mass_flx_e               /REAL(nsteps_since_last_output,wp)
     p_acc%vort                      = p_acc%vort                     /REAL(nsteps_since_last_output,wp)
@@ -259,7 +261,8 @@ CONTAINS
     p_acc%edgeFlux_total                   = 0.0_wp
     p_acc%w                         = 0.0_wp
     p_acc%div_mass_flx_c            = 0.0_wp
-    p_acc%div_of_GMRedi_flux        = 0.0_wp
+    p_acc%opottempGMRedi            = 0.0_wp
+    p_acc%osaltGMRedi               = 0.0_wp
     p_acc%rho                       = 0.0_wp
     p_acc%mass_flx_e                = 0.0_wp
     p_acc%vort                      = 0.0_wp

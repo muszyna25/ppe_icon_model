@@ -180,6 +180,8 @@ MODULE mo_ocean_types
       & t,s            ,& ! dummy pointer for output variabless
       & Buoyancy_Freq  ,&
       & Richardson_Number,            &
+      & osaltGMRedi,           &
+      & opottempGMRedi,           &
       & div_of_GMRedi_flux,           &
       & div_of_GMRedi_flux_horizontal,&
       & div_of_GMRedi_flux_vertical,  &
@@ -328,7 +330,8 @@ MODULE mo_ocean_types
       & rho              ,& ! density. Unit: [kg/m^3]
       & rhopot           ,& ! potential density. Unit: [kg/m^3]
       & div_mass_flx_c   ,& ! divergence of mass flux at cells. Unit [?].
-      & div_of_GMRedi_flux, &
+      & opottempGMRedi, &
+      & osaltGMRedi, &
       & kin                 ! kinetic energy. Unit [m/s].
 
     onCells_HalfLevels :: &
