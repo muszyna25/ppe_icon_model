@@ -48,6 +48,7 @@ USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e, grf_
                                   grf_fbk_start_c, grf_fbk_start_e, grf_bdywidth_c,               &
                                   grf_bdywidth_e
 USE mo_parallel_config,     ONLY: nproma
+  USE mo_mpi,                  ONLY: p_pe_work
 
 USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
   &                               setup_comm_pattern, delete_comm_pattern, &
@@ -442,7 +443,7 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
   icid     = p_p%child_id(jcd)
 
   isb_e      = p_p%edges%start_blk(1,1)
-  ieb_e      = p_p%edges%end_blk(min_rledge_int,i_nchdom)
+  ieb_e      = p_p%edges%end_blk(min_rledge_int-1,i_nchdom)
   isb_c      = p_p%cells%start_blk(1,1)
   ieb_c      = p_p%cells%end_blk(min_rlcell_int,i_nchdom)
 
@@ -453,8 +454,8 @@ SUBROUTINE transfer_grf_state(p_p, p_lp, p_grf, p_lgrf, jcd)
 
   is_e = idx_1d(p_p%edges%start_idx(1,1), &
                 p_p%edges%start_blk(1,1))
-  ie_e = idx_1d(p_p%edges%end_idx(min_rledge_int,i_nchdom), &
-                p_p%edges%end_blk(min_rledge_int,i_nchdom))
+  ie_e = idx_1d(p_p%edges%end_idx(min_rledge_int-1,i_nchdom), &
+                p_p%edges%end_blk(min_rledge_int-1,i_nchdom))
 
   is_c = idx_1d(p_p%cells%start_idx(1,1), &
                 p_p%cells%start_blk(1,1))
@@ -917,12 +918,12 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
     npoints_ubc = 0
 
     i_startblk = p_patch%edges%start_blk(1,1)
-    i_endblk   = p_patch%edges%end_blk(min_rledge_int,i_nchdom)
+    i_endblk   = p_patch%edges%end_blk(min_rledge_int-1,i_nchdom)
 
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, 1, min_rledge_int)
+                         i_startidx, i_endidx, 1, min_rledge_int-1)
 
       DO je = i_startidx, i_endidx
 
@@ -948,12 +949,12 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
     npoints_lbc = 0
 
     i_startblk = p_patch%verts%start_blk(1,1)
-    i_endblk   = p_patch%verts%end_blk(min_rlvert_int,i_nchdom)
+    i_endblk   = p_patch%verts%end_blk(min_rlvert_int-1,i_nchdom)
 
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_v(p_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, 1, min_rlvert_int)
+                         i_startidx, i_endidx, 1, min_rlvert_int-1)
 
       DO jv = i_startidx, i_endidx
 
@@ -1068,7 +1069,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
     !     this is done before the edges because of the remapping needed for the edge-vertex connectivity
     !
     i_startblk = p_patch%verts%start_blk(1,1)
-    i_endblk   = p_patch%verts%end_blk(min_rlvert_int,i_nchdom)
+    i_endblk   = p_patch%verts%end_blk(min_rlvert_int-1,i_nchdom)
 
     icount_lbc = 0
     inv_ind_v(:,:) = -1
@@ -1076,7 +1077,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_v(p_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, 1, min_rlvert_int)
+                         i_startidx, i_endidx, 1, min_rlvert_int-1)
 
       DO jv = i_startidx, i_endidx
 
@@ -1107,7 +1108,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
             inv_ind_v(jv,jb) = icount_lbc
           ENDIF
         ENDIF
-
+        
       ENDDO
     ENDDO
 
@@ -1115,7 +1116,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
     ! 2c) lateral/upper boundary interpolation for edges
     !
     i_startblk = p_patch%edges%start_blk(1,1)
-    i_endblk   = p_patch%edges%end_blk(min_rledge_int,i_nchdom)
+    i_endblk   = p_patch%edges%end_blk(min_rledge_int-1,i_nchdom)
 
     icount_lbc = 0
     icount_ubc = 0
@@ -1123,7 +1124,7 @@ SUBROUTINE create_grf_index_lists( p_patch_all, p_grf_state, p_int_state )
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, 1, min_rledge_int)
+                         i_startidx, i_endidx, 1, min_rledge_int-1)
 
       DO je = i_startidx, i_endidx
 
