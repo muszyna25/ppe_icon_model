@@ -237,14 +237,14 @@ MODULE mo_bc_aeropt_splumes
     REAL(wp), INTENT(IN)       :: &
        & lambda,                  & !< wavelength
        & year_fr,                 & !< Fractional Year (1903.0 is the 0Z on the first of January 1903, Gregorian)
-       & oro(ncol),               & !< orographic height (m)
-       & lon(ncol),               & !< longitude in degrees E
-       & lat(ncol),               & !< latitude in degrees N
+       & oro(ncol_max),           & !< orographic height (m)
+       & lon(ncol_max),           & !< longitude in degrees E
+       & lat(ncol_max),           & !< latitude in degrees N
        & z (ncol_max,nlevels),    & !< height above sea-level (m)
        & dz(ncol_max,nlevels)       !< level thickness (difference between half levels)
 
     REAL(wp), INTENT(OUT)      ::     &
-       & dNovrN(ncol)               , & !< anthropogenic incroment to cloud drop number concentration 
+       & dNovrN(ncol_max)           , & !< anthropogenic incroment to cloud drop number concentration 
        & aod_prof(ncol_max,nlevels) , & !< profile of aerosol optical depth
        & ssa_prof(ncol_max,nlevels) , & !< profile of single scattering albedo
        & asy_prof(ncol_max,nlevels)     !< profile of asymmetry parameter
@@ -255,13 +255,13 @@ MODULE mo_bc_aeropt_splumes
        & eta(ncol_max,nlevels),    & !< normalized height (by 15 km)
        & z_beta(ncol_max,nlevels), & !< profile for scaling column optical depth
        & prof(ncol_max,nlevels),   & !< scaled profile (by beta function)
-       & beta_sum(ncol),           & !< vertical sum of beta function
-       & ssa(ncol),                & !< aerosol optical depth 
-       & asy(ncol),                & !< aerosol optical depth 
-       & cw_an(ncol),              & !< column weight for simple plume (anthropogenic) aod at 550 nm
-       & cw_bg(ncol),              & !< column weight for fine-mode background aod at 550 nm
-       & caod_sp(ncol),            & !< column simple plume (anthropogenic) aod at 550 nm
-       & caod_bg(ncol),            & !< column fine-mode background aod at 550 nm
+       & beta_sum(ncol_max),       & !< vertical sum of beta function
+       & ssa(ncol_max),            & !< aerosol optical depth 
+       & asy(ncol_max),            & !< aerosol optical depth 
+       & cw_an(ncol_max),          & !< column weight for simple plume (anthropogenic) aod at 550 nm
+       & cw_bg(ncol_max),          & !< column weight for fine-mode background aod at 550 nm
+       & caod_sp(ncol_max),        & !< column simple plume (anthropogenic) aod at 550 nm
+       & caod_bg(ncol_max),        & !< column fine-mode background aod at 550 nm
        & a_plume1,                 & !< gaussian longitude factor for feature 1
        & a_plume2,                 & !< gaussian longitude factor for feature 2
        & b_plume1,                 & !< gaussian latitude factor for feature 1
@@ -442,15 +442,15 @@ MODULE mo_bc_aeropt_splumes
     REAL(wp) ::                       &
          year_fr                     ,& !< time in year fraction (1989.0 is 0Z on Jan 1 1989)
          lambda                      ,& !< wavelength at central band wavenumber [nm]
-         z_sfc(kproma)               ,& !< surface height [m]
-         lon_sp(kproma)              ,& !< longitude passed to sp
-         lat_sp(kproma)              ,& !< latitude passed to sp
+         z_sfc(kbdim)               ,& !< surface height [m]
+         lon_sp(kbdim)              ,& !< longitude passed to sp
+         lat_sp(kbdim)              ,& !< latitude passed to sp
          z_fl_vr(kbdim,klev)         ,& !< level height [m], vertically reversed indexing (1=lowest level)
          dz_vr(kbdim,klev)           ,& !< level thickness [m], vertically reversed 
          sp_aod_vr(kbdim,klev)       ,& !< simple plume aerosol optical depth, vertically reversed 
          sp_ssa_vr(kbdim,klev)       ,& !< simple plume single scattering albedo, vertically reversed
          sp_asy_vr(kbdim,klev)       ,& !< simple plume asymmetry factor, vertically reversed indexing
-         sp_xcdnc(kproma)               !< drop number scale factor
+         sp_xcdnc(kbdim)               !< drop number scale factor
 
     year_fr=datetime%yeafrc+REAL(datetime%year)
     IF (datetime%year > 1850) THEN
@@ -481,10 +481,10 @@ MODULE mo_bc_aeropt_splumes
            & z_fl_vr(:,:)       ,dz_vr(:,:)         ,sp_xcdnc(:)         ,sp_aod_vr(:,:)      , &
            & sp_ssa_vr(:,:)     ,sp_asy_vr(:,:)                                               )
 
-        sp_xcdnc(:)=0.01_wp
-        sp_aod_vr(:,:)=0.01_wp
-        sp_ssa_vr(:,:)=0.9_wp
-        sp_asy_vr(:,:)=0.9_wp
+!!$        sp_xcdnc(:)=0.01_wp
+!!$        sp_aod_vr(:,:)=0.01_wp
+!!$        sp_ssa_vr(:,:)=0.9_wp
+!!$        sp_asy_vr(:,:)=0.9_wp
 
         DO jk=1,klev
           DO jl=1,kproma
