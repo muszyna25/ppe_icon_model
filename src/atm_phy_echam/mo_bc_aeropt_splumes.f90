@@ -277,6 +277,7 @@ MODULE mo_bc_aeropt_splumes
        & aod_550,                  & !< aerosol optical depth at 550nm
        & aod_lmd,                  & !< aerosol optical depth at input wavelength
        & lfactor                     !< factor to compute wavelength dependence of optical properties
+    REAL(wp)                     :: ssaf !< factor in fraction
     !
     ! ---------- 
     !
@@ -334,11 +335,27 @@ MODULE mo_bc_aeropt_splumes
         !
         delta_lat = lat(icol) - plume_lat(iplume)
         delta_lon = lon(icol) - plume_lon(iplume)
-        delta_lon = MERGE ( delta_lon-SIGN(360._wp,delta_lon) , delta_lon , ABS(delta_lon) > 180._wp )
-        a_plume1  = 0.5_wp / (MERGE(sig_lon_E(1,iplume), sig_lon_W(1,iplume), delta_lon > 0)**2)
-        b_plume1  = 0.5_wp / (MERGE(sig_lat_E(1,iplume), sig_lat_W(1,iplume), delta_lon > 0)**2)
-        a_plume2  = 0.5_wp / (MERGE(sig_lon_E(2,iplume), sig_lon_W(2,iplume), delta_lon > 0)**2)
-        b_plume2  = 0.5_wp / (MERGE(sig_lat_E(2,iplume), sig_lat_W(2,iplume), delta_lon > 0)**2)
+!!$        delta_lon = MERGE ( delta_lon-SIGN(360._wp,delta_lon) , delta_lon , ABS(delta_lon) > 180._wp )
+!!$        a_plume1  = 0.5_wp / (MERGE(sig_lon_E(1,iplume), sig_lon_W(1,iplume), delta_lon > 0)**2)
+!!$        b_plume1  = 0.5_wp / (MERGE(sig_lat_E(1,iplume), sig_lat_W(1,iplume), delta_lon > 0)**2)
+!!$        a_plume2  = 0.5_wp / (MERGE(sig_lon_E(2,iplume), sig_lon_W(2,iplume), delta_lon > 0)**2)
+!!$        b_plume2  = 0.5_wp / (MERGE(sig_lat_E(2,iplume), sig_lat_W(2,iplume), delta_lon > 0)**2)
+        IF (ABS(delta_lon) > 180._wp) THEN
+          delta_lon=delta_lon-SIGN(360._wp,delta_lon)
+        ELSE
+          delta_lon=delta_lon
+        END IF
+        IF (delta_lon > 0._wp) THEN
+          a_plume1  = 0.5_wp / sig_lon_E(1,iplume)*sig_lon_E(1,iplume)
+          b_plume1  = 0.5_wp / sig_lat_E(1,iplume)*sig_lat_E(1,iplume)
+          a_plume2  = 0.5_wp / sig_lon_E(2,iplume)*sig_lon_E(2,iplume)
+          b_plume2  = 0.5_wp / sig_lat_E(2,iplume)*sig_lat_E(2,iplume)
+        ELSE
+          a_plume1  = 0.5_wp / sig_lon_W(1,iplume)*sig_lon_W(1,iplume)
+          b_plume1  = 0.5_wp / sig_lat_W(1,iplume)*sig_lat_W(1,iplume)
+          a_plume2  = 0.5_wp / sig_lon_W(2,iplume)*sig_lon_W(2,iplume)
+          b_plume2  = 0.5_wp / sig_lat_W(2,iplume)*sig_lat_W(2,iplume)
+        END IF
         !
         ! adjust for a plume specific rotation which helps match plume state to climatology.
         !
@@ -359,7 +376,9 @@ MODULE mo_bc_aeropt_splumes
         ! calculate wavelength-dependent scattering properties
         !
         lfactor   = MIN(1.0_wp,700.0_wp/lambda)
-        ssa(icol) = (ssa550(iplume) * lfactor**4) / ((ssa550(iplume) * lfactor**4) + ((1-ssa550(iplume)) * lfactor))
+        ssaf      = ssa550(iplume)*lfactor*lfactor*lfactor
+        ssa(icol) = 1._wp/(1._wp+(1._wp-ssa550(iplume))/ssaf)
+!!$        ssa(icol) = (ssa550(iplume) * lfactor**4) / ((ssa550(iplume) * lfactor**4) + ((1-ssa550(iplume)) * lfactor))
         asy(icol) =  asy550(iplume) * SQRT(lfactor)
       END DO
       !
@@ -369,11 +388,6 @@ MODULE mo_bc_aeropt_splumes
       lfactor = EXP(-angstrom(iplume) * LOG(lambda/550.0_wp))
       DO k=1,nlevels
         DO icol = 1,ncol
-!!$          aod_550          = prof(icol,k)     * cw_an(icol)
-!!$          aod_lmd          = aod_550          * lfactor
-!!$          caod_sp(icol)    = caod_sp(icol)    + prof(icol,k) * cw_an(icol)
-!!$          caod_bg(icol)    = caod_bg(icol)    + prof(icol,k) * cw_bg(icol)
-          prof(icol,k) = 0.02_wp
           aod_550          = prof(icol,k)     * cw_an(icol)
           aod_lmd          = aod_550          * lfactor
           caod_sp(icol)    = caod_sp(icol)    + prof(icol,k) * cw_an(icol)
@@ -387,16 +401,10 @@ MODULE mo_bc_aeropt_splumes
     !
     ! complete optical depth weighting
     !
-!!$    DO k=1,nlevels
-!!$      DO icol = 1,ncol
-!!$        asy_prof(icol,k) = MERGE(asy_prof(icol,k)/ssa_prof(icol,k), 0.0_wp, ssa_prof(icol,k) > TINY(1._wp))
-!!$        ssa_prof(icol,k) = MERGE(ssa_prof(icol,k)/aod_prof(icol,k), 1.0_wp, aod_prof(icol,k) > TINY(1._wp))
-!!$      END DO
-!!$    END DO
     DO k=1,nlevels
       DO icol = 1,ncol
-        asy_prof(icol,k) = asy_prof(icol,k)/ssa_prof(icol,k)
-        ssa_prof(icol,k) = ssa_prof(icol,k)/aod_prof(icol,k)
+        asy_prof(icol,k) = MERGE(asy_prof(icol,k)/ssa_prof(icol,k), 0.0_wp, ssa_prof(icol,k) > TINY(1._wp))
+        ssa_prof(icol,k) = MERGE(ssa_prof(icol,k)/aod_prof(icol,k), 1.0_wp, aod_prof(icol,k) > TINY(1._wp))
       END DO
     END DO
     !
