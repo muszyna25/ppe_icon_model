@@ -24,8 +24,8 @@ MODULE mo_atmo_model
     &                                   timers_level, timer_model_init,                       &
     &                                   timer_domain_decomp, timer_compute_coeffs,            &
     &                                   timer_ext_data, print_timer
-  USE mo_parallel_config,         ONLY: p_test_run, l_test_openmp, num_io_procs,              &
-    &                                   num_prefetch_proc
+  USE mo_parallel_config,         ONLY: p_test_run, num_test_pe, l_test_openmp,&
+    &                                   num_io_procs, num_prefetch_proc
   USE mo_master_config,           ONLY: isRestart
   USE mo_memory_log,              ONLY: memory_log_terminate
 #ifndef NOMPI
@@ -265,8 +265,9 @@ CONTAINS
     ! 3.1 Initialize the mpi work groups
     !-------------------------------------------------------------------
     CALL restartWritingParameters(opt_dedicatedProcCount = dedicatedRestartProcs)
-    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, dedicatedRestartProcs, &
-               &                    num_prefetch_proc)
+    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, &
+         &                          num_io_procs, dedicatedRestartProcs, &
+         &                          num_prefetch_proc, num_test_pe)
 
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers

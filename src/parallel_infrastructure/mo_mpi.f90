@@ -282,7 +282,6 @@ MODULE mo_mpi
        &    p_work_pe0, p_io_pe0,               &
        &    p_n_work, p_pe_work, p_restart_pe0, &
        &    p_pref_pe0
-  !     p_test_pe,
   !--------------------------------------------------------------------
 
 #ifndef NOMPI
@@ -370,7 +369,6 @@ MODULE mo_mpi
 
   LOGICAL :: process_is_mpi_parallel
   LOGICAL :: process_is_stdio
-  LOGICAL :: is_mpi_test_run = .false.
   LOGICAL :: is_openmp_test_run = .false.
 
   ! this is the local work communicator (computation, i/o, etc)
@@ -399,12 +397,8 @@ MODULE mo_mpi
   INTEGER :: process_mpi_restart_size
   INTEGER :: process_mpi_pref_size
 
-  ! Note: p_test_pe, p_work_pe0, p_io_pe0 are identical on all PEs
+  ! Note: p_work_pe0, p_io_pe0 are identical on all PEs
 
-  ! In a verification run, p_test_pe is the number of the PE running the complete model,
-  ! otherwise it contains -1
-
-  INTEGER :: p_test_pe     ! Number of test PE
   INTEGER :: p_work_pe0    ! Number of workgroup PE 0 within all PEs
   INTEGER :: p_io_pe0      ! Number of I/O PE 0 within all PEs (process_mpi_all_size if no I/O PEs)
   INTEGER :: p_restart_pe0 ! Number of Restart Output PE 0 within all PEs
@@ -1060,11 +1054,12 @@ CONTAINS
   !          rather, it IS the number of *dedicated* restart processes.
   !          We don't care about work processes here that are reused as restart writing processes.
   SUBROUTINE set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs, &
-    &                                   num_restart_procs, num_prefetch_proc)
+    &                                   num_restart_procs, num_prefetch_proc, &
+    &                                   num_test_pe)
     LOGICAL,INTENT(INOUT) :: p_test_run, l_test_openmp
     INTEGER,INTENT(INOUT) :: num_io_procs
     INTEGER,INTENT(INOUT) :: num_restart_procs
-    INTEGER,INTENT(INOUT), OPTIONAL :: num_prefetch_proc
+    INTEGER,INTENT(IN), OPTIONAL :: num_prefetch_proc, num_test_pe
 
 !   !local variables
     INTEGER :: my_color, remote_leader, peer_comm, p_error
@@ -1173,11 +1168,13 @@ CONTAINS
     ! -----------------------------------------
     ! Set if test
     IF(p_test_run) THEN
-      num_test_procs = 1
-      p_test_pe = 0
+      IF (PRESENT(num_test_pe)) THEN
+        num_test_procs = MERGE(num_test_pe, 1, num_test_pe > 1)
+      ELSE
+        num_test_procs = 1
+      END IF
     ELSE
       num_test_procs = 0
-      p_test_pe = -1
     ENDIF
 
     ! -----------------------------------------
@@ -1205,7 +1202,7 @@ CONTAINS
     CALL print_info_stderr(method_name, message_text)
 
     ! Everything seems ok. Proceed to setup the communicators and ids
-    ! Set up p_test_pe, p_work_pe0, p_io_pe0, p_restart_pe0, p_pref_pe0
+    ! Set up p_work_pe0, p_io_pe0, p_restart_pe0, p_pref_pe0
     ! which are identical on all PEs
     p_work_pe0    = num_test_procs
     p_io_pe0      = num_test_procs + num_work_procs
@@ -1419,7 +1416,8 @@ CONTAINS
     ! the correctness of the OpenMP implementation
     ! Currently the I/O PEs are also single threaded!
 #ifdef _OPENMP
-    IF (l_test_openmp .AND. p_pe == p_test_pe) CALL OMP_SET_NUM_THREADS(1)
+    IF (l_test_openmp .AND. my_mpi_function == test_mpi_process) &
+         CALL OMP_SET_NUM_THREADS(1)
     IF (p_pe >= p_io_pe0) CALL OMP_SET_NUM_THREADS(1)
 #endif
 
@@ -1458,12 +1456,7 @@ CONTAINS
 #endif
 
     ! fill my  parameters
-    is_mpi_test_run = p_test_run
     is_openmp_test_run = l_test_openmp
-
-    IF (PRESENT(num_prefetch_proc)) THEN
-      num_prefetch_proc = sizeof_prefetch_processes
-    ENDIF
 
   END SUBROUTINE set_mpi_work_communicators
   !-------------------------------------------------------------------------
@@ -1483,7 +1476,6 @@ CONTAINS
     process_mpi_restart_size    = 0
     process_mpi_pref_size       = 0
     p_comm_work_pref_compute_pe0 = 0
-    is_mpi_test_run = .false.
     is_openmp_test_run = .false.
 
 !     process_mpi_local_comm  = process_mpi_all_comm
@@ -1496,7 +1488,6 @@ CONTAINS
     p_io           = 0
     num_test_procs = 0
     num_work_procs = process_mpi_all_size
-    p_test_pe      = -1
     p_work_pe0     = 0
     p_io_pe0       = process_mpi_all_size    ! Number of I/O PE 0 within all PEs (process_mpi_all_size if no I/O PEs)
     ! Number of restart PE 0 within all PEs (process_mpi_all_size if no restart PEs)

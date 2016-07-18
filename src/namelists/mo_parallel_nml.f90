@@ -35,6 +35,7 @@ MODULE mo_parallel_nml
     & config_l_log_checks        => l_log_checks,        &
     & config_l_fast_sum          => l_fast_sum,          &
     & config_p_test_run          => p_test_run,          &
+    & config_num_test_pe         => num_test_pe,         &
     & config_l_test_openmp       => l_test_openmp,       &
     & config_num_restart_procs   => num_restart_procs,   &
     & config_num_io_procs        => num_io_procs,        &
@@ -109,6 +110,9 @@ MODULE mo_parallel_nml
     ! model whereas the other PEs do a real parallelized run
     LOGICAL :: p_test_run
 
+    ! use more than 1 PE for verification if p_test_run and num_test_pe is set
+    ! to a value > 1
+    INTEGER :: num_test_pe
     LOGICAL :: use_dycore_barrier ! put an mpi barrier before the dycore to synchronize MPI tasks
     LOGICAL :: use_physics_barrier
     INTEGER :: itype_exch_barrier ! 1: put an mpi barrier at the beginning of exchange calls to synchronize MPI tasks
@@ -177,7 +181,7 @@ MODULE mo_parallel_nml
 
     NAMELIST /parallel_nml/ n_ghost_rows,  division_method, ldiv_phys_dom, &
       & l_log_checks,      l_fast_sum,          &
-      & p_test_run,        l_test_openmp,       &
+      & p_test_run, num_test_pe, l_test_openmp,       &
       & num_restart_procs,                      &
       & num_io_procs,      pio_type,            &
       & itype_comm,        iorder_sendrecv,     &
@@ -225,6 +229,7 @@ MODULE mo_parallel_nml
     ! p_test_run indicates a verification run, i.e. a run where 1 PE runs the complete
     ! model whereas the other PEs do a real parallelized run
     p_test_run = .FALSE.
+    num_test_pe = -1
 
     ! The barriers should be used for dedicated tests only, not for production runs
     use_dycore_barrier = config_use_dycore_barrier
@@ -340,6 +345,7 @@ MODULE mo_parallel_nml
     config_l_log_checks        = l_log_checks
     config_l_fast_sum          = l_fast_sum
     config_p_test_run          = p_test_run
+    config_num_test_pe         = num_test_pe
     config_l_test_openmp       = l_test_openmp
     config_num_restart_procs   = num_restart_procs
     config_num_io_procs        = num_io_procs
