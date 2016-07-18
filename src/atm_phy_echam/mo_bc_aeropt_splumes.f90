@@ -346,15 +346,15 @@ MODULE mo_bc_aeropt_splumes
           delta_lon=delta_lon
         END IF
         IF (delta_lon > 0._wp) THEN
-          a_plume1  = 0.5_wp / sig_lon_E(1,iplume)*sig_lon_E(1,iplume)
-          b_plume1  = 0.5_wp / sig_lat_E(1,iplume)*sig_lat_E(1,iplume)
-          a_plume2  = 0.5_wp / sig_lon_E(2,iplume)*sig_lon_E(2,iplume)
-          b_plume2  = 0.5_wp / sig_lat_E(2,iplume)*sig_lat_E(2,iplume)
+          a_plume1  = 0.5_wp / (sig_lon_E(1,iplume)*sig_lon_E(1,iplume))
+          b_plume1  = 0.5_wp / (sig_lat_E(1,iplume)*sig_lat_E(1,iplume))
+          a_plume2  = 0.5_wp / (sig_lon_E(2,iplume)*sig_lon_E(2,iplume))
+          b_plume2  = 0.5_wp / (sig_lat_E(2,iplume)*sig_lat_E(2,iplume))
         ELSE
-          a_plume1  = 0.5_wp / sig_lon_W(1,iplume)*sig_lon_W(1,iplume)
-          b_plume1  = 0.5_wp / sig_lat_W(1,iplume)*sig_lat_W(1,iplume)
-          a_plume2  = 0.5_wp / sig_lon_W(2,iplume)*sig_lon_W(2,iplume)
-          b_plume2  = 0.5_wp / sig_lat_W(2,iplume)*sig_lat_W(2,iplume)
+          a_plume1  = 0.5_wp / (sig_lon_W(1,iplume)*sig_lon_W(1,iplume))
+          b_plume1  = 0.5_wp / (sig_lat_W(1,iplume)*sig_lat_W(1,iplume))
+          a_plume2  = 0.5_wp / (sig_lon_W(2,iplume)*sig_lon_W(2,iplume))
+          b_plume2  = 0.5_wp / (sig_lat_W(2,iplume)*sig_lat_W(2,iplume))
         END IF
         !
         ! adjust for a plume specific rotation which helps match plume state to climatology.
