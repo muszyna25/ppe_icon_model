@@ -291,15 +291,23 @@ MODULE mo_bc_aeropt_splumes
     !
     ! initialize variables, including output
     !
+    aod_prof(1:ncol,1:nlevels) = 0.0
+    ssa_prof(1:ncol,1:nlevels) = 0.0
+    asy_prof(1:ncol,1:nlevels) = 0.0
     DO k=1,nlevels
-      DO icol=1,ncol
-        aod_prof(icol,k) = 0.0
-        ssa_prof(icol,k) = 0.0
-        asy_prof(icol,k) = 0.0
-        z_beta(icol,k)   = MERGE(1.0_wp, 0.0_wp, z(icol,k) >= oro(icol))
-        eta(icol,k)      = MAX(0.0_wp,MIN(1.0_wp,z(icol,k)/15000.))
-      END DO
+       z_beta(1:ncol,k)   = MERGE(1.0_wp, 0.0_wp, z(1:ncol,k) >= oro(1:ncol))
+       eta(1:ncol,k)      = MAX(0.0_wp,MIN(1.0_wp,z(1:ncol,k)/15000._wp))
     END DO
+
+!!$    DO k=1,nlevels
+!!$      DO icol=1,ncol
+!!$        aod_prof(icol,k) = 0.0
+!!$        ssa_prof(icol,k) = 0.0
+!!$        asy_prof(icol,k) = 0.0
+!!$        z_beta(icol,k)   = MERGE(1.0_wp, 0.0_wp, z(icol,k) >= oro(icol))
+!!$        eta(icol,k)      = MAX(0.0_wp,MIN(1.0_wp,z(icol,k)/15000.))
+!!$      END DO
+!!$    END DO
     DO icol=1,ncol
       dNovrN(icol)   = 1.0_wp
       caod_sp(icol)  = 0.00_wp
@@ -401,12 +409,14 @@ MODULE mo_bc_aeropt_splumes
     !
     ! complete optical depth weighting
     !
-    DO k=1,nlevels
-      DO icol = 1,ncol
-        asy_prof(icol,k) = MERGE(asy_prof(icol,k)/ssa_prof(icol,k), 0.0_wp, ssa_prof(icol,k) > TINY(1._wp))
-        ssa_prof(icol,k) = MERGE(ssa_prof(icol,k)/aod_prof(icol,k), 1.0_wp, aod_prof(icol,k) > TINY(1._wp))
-      END DO
-    END DO
+!!$    DO k=1,nlevels
+!!$      DO icol = 1,ncol
+        asy_prof(1:ncol,1:nlevels) = MERGE(asy_prof(1:ncol,1:nlevels)/ssa_prof(1:ncol,1:nlevels), &
+                                   & 0.0_wp, ssa_prof(1:ncol,1:nlevels) > TINY(1._wp))
+        ssa_prof(1:ncol,1:nlevels) = MERGE(ssa_prof(1:ncol,1:nlevels)/aod_prof(1:ncol,1:nlevels), &
+                                   & 1.0_wp, aod_prof(1:ncol,1:nlevels) > TINY(1._wp))
+!!$      END DO
+!!$    END DO
     !
     ! calcuate effective radius normalization (divisor) factor
     !
