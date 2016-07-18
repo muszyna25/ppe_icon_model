@@ -88,8 +88,6 @@
 !!         description  : MPI communicator spanning I/O PEs
 !!       p_comm_work_2_io
 !!         description  : Inter(!)communicator work PEs - I/O PEs
-!!       p_comm_input_bcast
-!!         description  : MPI communicator for broadcasts in NetCDF input
 !!       p_comm_work_pref
 !!         description  : MPI Communicator spanning work group and prefetch PEs
 !!       p_comm_work_2_pref
@@ -192,8 +190,6 @@ MODULE mo_mpi
 !   PUBLIC :: set_process_mpi_communicator
   ! Sets the test, work, i/o and prefetch communicators
   PUBLIC :: set_mpi_work_communicators
-  ! Sets the p_comm_input_bcast
-  PUBLIC :: set_comm_input_bcast
   ! set other parameters
   PUBLIC :: set_process_mpi_name
 
@@ -229,7 +225,7 @@ MODULE mo_mpi
     &       process_mpi_all_prefroot_id, p_comm_work_pref_compute_pe0
 
   PUBLIC :: p_comm_work, p_comm_work_test
-  PUBLIC :: p_comm_work_2_io, p_comm_input_bcast, p_comm_work_io, &
+  PUBLIC :: p_comm_work_2_io, p_comm_work_io, &
     &       p_comm_io, p_comm_work_pref, p_comm_work_2_pref
   !restart communicators
   PUBLIC :: p_comm_work_2_restart, p_comm_work_restart
@@ -434,7 +430,6 @@ MODULE mo_mpi
   INTEGER :: p_comm_work_io        ! Communicator spanning work group and I/O PEs
   INTEGER :: p_comm_io             ! Communicator spanning the I/O PEs
   INTEGER :: p_comm_work_2_io      ! Inter(!)communicator work PEs - I/O PEs
-  INTEGER :: p_comm_input_bcast    ! Communicator for broadcasts in NetCDF input
   INTEGER :: p_comm_work_restart   ! Communicator spanning work group and Restart Output PEs
   INTEGER :: p_comm_work_2_restart ! Inter(!)communicator work PEs - Restart PEs
   INTEGER :: p_comm_work_pref           ! Communicator spanning work group and prefetch PEs
@@ -1060,56 +1055,6 @@ CONTAINS
 
 
   !------------------------------------------------------------------------------
-  !>
-  !! Sets the p_comm_input_bcast
-  !! If comm_flag == null_comm_type then
-  !!    only the test process reads and
-  !!    no broadcast takes place
-  !! Otherwise
-  !!    the test or the root process reads
-  !!    and broadcasts to the rest
-  SUBROUTINE set_comm_input_bcast (comm_flag)
-    INTEGER, INTENT(in), OPTIONAL:: comm_flag
-
-    INTEGER :: comm_type
-
-    comm_type = default_comm_type
-
-    IF (PRESENT(comm_flag)) THEN
-       comm_type = comm_flag
-    ENDIF
-
-#ifndef NOMPI
-    SELECT CASE(comm_type)
-
-    CASE(null_comm_type)
-      IF(my_process_is_mpi_test()) THEN
-        p_comm_input_bcast = MPI_COMM_SELF ! i.e. effectively no broadcast
-      ELSE
-        p_comm_input_bcast = MPI_COMM_NULL ! Must not be used!
-      ENDIF
-
-    CASE default
-
-      IF (my_process_is_io() .OR.(my_process_is_restart().OR. my_process_is_pref())) THEN
-        ! I/O PEs and Restart PEs and prefetching PEs never participate in reading
-        p_comm_input_bcast = MPI_COMM_NULL
-      ELSE
-        IF(is_mpi_test_run) THEN
-          ! Test PE reads and broadcasts to workers
-          p_comm_input_bcast = p_comm_work_test
-        ELSE
-          ! PE 0 reads and broadcasts
-          p_comm_input_bcast = p_comm_work
-        ENDIF
-      ENDIF
-
-    END SELECT
-#endif
-
-  END SUBROUTINE set_comm_input_bcast
-  !-------------------------------------------------------------------------
-
   !-------------------------------------------------------------------------
   ! Warning: The dummy argument num_restart_procs IS NOT identical to the namelist PARAMETER anymore,
   !          rather, it IS the number of *dedicated* restart processes.
@@ -1421,31 +1366,6 @@ CONTAINS
       CALL MPI_group_free(grp_comm_work_pref, p_error)
     END IF
 
-
-!     The following is moved to set_comm_input_bcast
-!     ! Set p_comm_input_bcast, the communicator for broadcasting the NetCDF input
-!     IF(lrestore_states) THEN
-!       ! NetCDF input is only read by the test pe and MUST NOT be broadcast
-!       IF(p_pe == p_test_pe) THEN
-!         p_comm_input_bcast = MPI_COMM_SELF ! i.e. effectively no broadcast
-!       ELSE
-!         p_comm_input_bcast = MPI_COMM_NULL ! Must not be used!
-!       ENDIF
-!     ELSE
-!       IF(p_pe < p_io_pe0) THEN
-!         IF(p_test_run) THEN
-!           ! Test PE reads and broadcasts to workers
-!           p_comm_input_bcast = p_comm_work_test
-!         ELSE
-!           ! PE 0 reads and broadcasts
-!           p_comm_input_bcast = p_comm_work
-!         ENDIF
-!       ELSE
-!         ! I/O PEs never participate in reading
-!         p_comm_input_bcast = MPI_COMM_NULL
-!       ENDIF
-!     ENDIF
-
     ! Create Intercommunicator work PEs - I/O PEs
 
     ! From MPI-Report:
@@ -1540,8 +1460,6 @@ CONTAINS
     ! fill my  parameters
     is_mpi_test_run = p_test_run
     is_openmp_test_run = l_test_openmp
-    ! fill other default
-    CALL set_comm_input_bcast()
 
     IF (PRESENT(num_prefetch_proc)) THEN
       num_prefetch_proc = sizeof_prefetch_processes
@@ -1589,7 +1507,6 @@ CONTAINS
     p_pe_work      = my_process_mpi_all_id
 
     p_comm_work             = process_mpi_all_comm
-    p_comm_input_bcast      = process_mpi_all_comm
     p_comm_work_io          = MPI_COMM_NULL
     p_comm_work_test        = MPI_COMM_NULL
     p_comm_work_2_io        = MPI_COMM_NULL
