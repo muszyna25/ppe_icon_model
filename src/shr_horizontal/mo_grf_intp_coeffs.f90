@@ -724,6 +724,36 @@ END SUBROUTINE init_fbk_wgt
 !! Because both scalars and wind vectors need to be interpolated to the
 !! nest boundaries, different groups of indices are computed.
 !!
+!! Detailed illustration of the idx_2a/idx_2b stencils:
+!!
+!!   The dotted edges "..." denote
+!!   
+!!             idx_2a for edge "_____"                          idx_2b for edge "_____"       
+!!                              ^^^^^                                     ^^^^^        
+!!                                                                                      
+!!     /    \    /   \    /    \    /    \                /    \    /   \    /    \    /    \   
+!!    /      \  /     \  /      \  /      \              /      \  /     \  /      \  /      \  
+!!   /________\/...5...\/....4...\/________\            /________\/_______\/________\/________\ 
+!!   \        /\       ::        /\        /            \        /\       /\        /\        / 
+!!    \      /  \     :  :      /  \      /              \      /  \     /  \      /  \      /  
+!!     \    /    \   3    2    /    \    /                \    /    \   /    \    /    \    /   
+!!      \  /      \ :      :  /      \  /                  \  /      \ /      \  /      \  /    
+!!       \/________:____1___:/________\/                    \/________/________\/________\/     
+!!       /\       /\^^^^^^^^/\        /\                    /\       /:^^^^^^^^:\        /\     
+!!      /  \     /  \      /  \      /  \                  /  \     /  :      :  \      /  \    
+!!     /    \   /    \    /    \    /    \                /    \   /    :    :    \    /    \   
+!!    /      \ /      \  /      \  /      \              /      \ /      :  :      \  /      \  
+!!   /________/________\/________\/________\            /________/........::........\/________\ 
+!!   \        /\       /\        /\        /            \        /\       /\        /\        / 
+!!    \      /  \     /  \      /  \      /              \      /  \     /  \      /  \      /  
+!!   
+!!   These stencils are calculated as follows:
+!!   
+!!   1   : parent edge
+!!   2,3 : edges of parent cell in which inner child edge of 1 is located
+!!   4,5 : calculated via "quad indices".
+!!   
+!!   
 !! @par Revision History
 !! Developed and tested  by G. Zaengl (June 2008)
 !! Rewritten for vectorization by G. Zaengl (May 2010)
