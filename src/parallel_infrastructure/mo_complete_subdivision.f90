@@ -32,7 +32,7 @@ MODULE mo_complete_subdivision
 #endif
   USE mo_mpi,                ONLY: p_comm_work, my_process_is_mpi_test, &
     & my_process_is_mpi_seq, process_mpi_all_test_id, process_mpi_all_workroot_id, &
-    & my_process_is_mpi_workroot, p_pe_work, p_n_work
+    & my_process_is_mpi_workroot, p_pe_work, p_n_work, p_bcast, p_io
 
   USE mo_parallel_config,    ONLY:  p_test_run
   USE mo_communication,      ONLY: setup_comm_pattern, blk_no, idx_no, idx_1d, &
@@ -66,22 +66,27 @@ CONTAINS
     TYPE(t_patch), INTENT(INOUT) :: p_patch(n_dom_start:)
 
     INTEGER :: ibuf(n_dom_start:n_dom,2)
+    LOGICAL :: l_my_process_is_mpi_test
 
     IF(.NOT. p_test_run) RETURN ! Nothing to do
 
-    IF(my_process_is_mpi_test()) THEN
+    ! TODO: use intercomm bcast once a test/work intercomm exists
+    l_my_process_is_mpi_test = my_process_is_mpi_test()
+    IF (l_my_process_is_mpi_test .AND. p_pe_work == p_io) THEN
       CALL p_recv(proc_split, process_mpi_all_workroot_id, 1)
       CALL p_recv(ibuf, process_mpi_all_workroot_id, 2)
-      p_patch(:)%n_proc = ibuf(:,1)
-      p_patch(:)%proc0  = ibuf(:,2)
-
     ELSEIF(my_process_is_mpi_workroot()) THEN
       CALL p_send(proc_split, process_mpi_all_test_id, 1)
       ibuf(:,1) = p_patch(:)%n_proc
       ibuf(:,2) = p_patch(:)%proc0
       CALL p_send(ibuf, process_mpi_all_test_id, 2)
-
     ENDIF
+
+    IF (l_my_process_is_mpi_test) THEN
+      CALL p_bcast(ibuf, p_io, comm=p_comm_work)
+      p_patch(:)%n_proc = ibuf(:,1)
+      p_patch(:)%proc0  = ibuf(:,2)
+    END IF
 
 
   END SUBROUTINE copy_processor_splitting
@@ -190,7 +195,7 @@ CONTAINS
 
     DO jg = n_dom_start, n_dom
 
-      ! Set communication patterns for boundary exchange 
+      ! Set communication patterns for boundary exchange
       CALL set_comm_pat_bound_exch(patch(jg))
 
       IF (jg > n_dom_start) THEN
