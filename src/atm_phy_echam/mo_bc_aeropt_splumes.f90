@@ -369,6 +369,11 @@ MODULE mo_bc_aeropt_splumes
       lfactor = EXP(-angstrom(iplume) * LOG(lambda/550.0_wp))
       DO k=1,nlevels
         DO icol = 1,ncol
+!!$          aod_550          = prof(icol,k)     * cw_an(icol)
+!!$          aod_lmd          = aod_550          * lfactor
+!!$          caod_sp(icol)    = caod_sp(icol)    + prof(icol,k) * cw_an(icol)
+!!$          caod_bg(icol)    = caod_bg(icol)    + prof(icol,k) * cw_bg(icol)
+          prof(icol,k) = 0.02_wp
           aod_550          = prof(icol,k)     * cw_an(icol)
           aod_lmd          = aod_550          * lfactor
           caod_sp(icol)    = caod_sp(icol)    + prof(icol,k) * cw_an(icol)
@@ -382,10 +387,16 @@ MODULE mo_bc_aeropt_splumes
     !
     ! complete optical depth weighting
     !
+!!$    DO k=1,nlevels
+!!$      DO icol = 1,ncol
+!!$        asy_prof(icol,k) = MERGE(asy_prof(icol,k)/ssa_prof(icol,k), 0.0_wp, ssa_prof(icol,k) > TINY(1._wp))
+!!$        ssa_prof(icol,k) = MERGE(ssa_prof(icol,k)/aod_prof(icol,k), 1.0_wp, aod_prof(icol,k) > TINY(1._wp))
+!!$      END DO
+!!$    END DO
     DO k=1,nlevels
       DO icol = 1,ncol
-        asy_prof(icol,k) = MERGE(asy_prof(icol,k)/ssa_prof(icol,k), 0.0_wp, ssa_prof(icol,k) > TINY(1._wp))
-        ssa_prof(icol,k) = MERGE(ssa_prof(icol,k)/aod_prof(icol,k), 1.0_wp, aod_prof(icol,k) > TINY(1._wp))
+        asy_prof(icol,k) = asy_prof(icol,k)/ssa_prof(icol,k)
+        ssa_prof(icol,k) = ssa_prof(icol,k)/aod_prof(icol,k)
       END DO
     END DO
     !
