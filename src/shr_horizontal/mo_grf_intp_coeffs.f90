@@ -729,7 +729,7 @@ END SUBROUTINE init_fbk_wgt
 !!   The dotted edges "..." denote
 !!   
 !!             idx_2a for edge "_____"                          idx_2b for edge "_____"       
-!!                              ^^^^^                                     ^^^^^        
+!!                              ^^^^^                                            ^^^^^        
 !!                                                                                      
 !!     /    \    /   \    /    \    /    \                /    \    /   \    /    \    /    \   
 !!    /      \  /     \  /      \  /      \              /      \  /     \  /      \  /      \  
