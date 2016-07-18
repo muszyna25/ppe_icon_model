@@ -705,23 +705,25 @@ case "$ac_sitename" in
                            NETCDFFROOT = $software_tree/netcdf_fortran-4.4.0-static-${compiler_version}
                            NETCDFROOT = $software_tree/netcdf-4.3.2-static-gccsys
                            HDF5ROOT = $software_tree/hdf5-1.8.13-static-gccsys
-                           MPIROOT     = $software_tree/mpilib/openmpi-1.8.4-static-${compiler_version}
-                           MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal $IB_LIBS $SYS_LIBS
                            XML2ROOT = /usr
                            case "$fortran_compiler" in
                                default|gcc)
                                    load_modules=gcc/5.1.0 ${load_modules}
+                                   MPIROOT = $software_tree/mpilib/openmpi-1.8.4-static-${compiler_version}
+                                   MPI_LIB = -lmpi_usempif08 -lmpi_mpifh -lmpi -lopen-rte -lopen-pal $IB_LIBS $SYS_LIBS
                                    ;;
                                nag)
                                    load_modules=gcc/4.9.1 nag/6.0.1064 ${load_modules}
-                                   ;;
-                               pgi)
-                                   load_modules= gcc/4.9.1 pgi/14.7 ${load_modules}
+                                   FFLAGS  = ${FFLAGS} -Wc,-fno-var-tracking
+                                   MPIROOT = $software_tree/mpilib/openmpi-1.8.2-static-${compiler_version}
+                                   MPI_LIB = -I$MPIROOT/lib $WLFLAG,-rpath,,$MPIROOT/lib $WLFLAG,--disable-new-dtags -L$MPIROOT/lib -lmpi_usempi -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lm -lnuma -ldl -lrt -libverbs -lrdmacm -lutil -lpthread
                                    ;;
                                intel)
-                                   # HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -no-prec-div -vec-report2 -diag-file -traceback -g
+                                   load_modules=gcc/5.1.0 intel/15.0.2 ${load_modules}
+                                   MPIROOT = $software_tree/mpilib/openmpi-1.8.4-static-${compiler_version}
+                                   MPI_LIB = -lmpi_usempif08 -lmpi_mpifh -lmpi -lopen-rte -lopen-pal $IB_LIBS $SYS_LIBS
+                                   STD_FLAGS = -O1 -fltconsistency -fpp -xHost -xAVX -traceback -g -D__LOOP_EXCHANGE
                                    HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -g
-                                   load_modules=gcc/4.9.1 intel/14.0.2 ${load_modules}
                                    ;;
                            esac
                            ;;
