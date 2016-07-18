@@ -1539,7 +1539,7 @@ CONTAINS
           IF(.NOT. my_process_is_mpi_test()) THEN
             ! Send to test PE
             CALL p_send(r_out_dp, process_mpi_all_test_id, 1)
-          ELSE
+          ELSE IF (p_pe == process_mpi_all_test_id) THEN
             ! Receive result from parallel worker PEs
             CALL p_recv(r_out_recv, process_mpi_all_workroot_id, 1)
             ! check for correctness
