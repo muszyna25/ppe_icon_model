@@ -549,11 +549,8 @@ MODULE mo_initicon_io
 !$OMP DO PRIVATE (jk,jc,jb,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1,p_patch(jg)%nblks_c
 
-          IF (jb /= p_patch(jg)%nblks_c) THEN
-            i_endidx = nproma
-          ELSE
-            i_endidx = p_patch(jg)%npromz_c
-          ENDIF
+          i_endidx = MERGE(nproma, p_patch(jg)%npromz_c, &
+               jb /= p_patch(jg)%nblks_c)
 
           DO jk = 1, nlev_in
             DO jc = 1, i_endidx
