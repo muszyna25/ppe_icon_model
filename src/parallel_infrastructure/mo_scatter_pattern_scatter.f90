@@ -64,7 +64,7 @@ CONTAINS
 
         CHARACTER(*), PARAMETER :: routine &
              = modname//":costructScatterPatternScatter"
-        INTEGER :: comm_size, ierr
+        INTEGER :: comm_size, ierr, pt_shape(2)
         INTEGER, ALLOCATABLE :: myIndices(:)
         LOGICAL :: l_write_debug_info
 
@@ -77,17 +77,13 @@ CONTAINS
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
         CALL constructScatterPattern(me, jg, loc_arr_len, glb_index, communicator, root_rank)
         me%slapSize = p_max(me%myPointCount, comm = communicator)
-        IF(me%rank == me%root_rank) THEN
-          comm_size = me%comm_size
-          ALLOCATE(me%pointIndices(me%slapSize, comm_size), &
-            &      me%point_counts(comm_size), stat = ierr)
-        ELSE
-            ALLOCATE(me%pointIndices(1,1), me%point_counts(1), stat = ierr)   !Just some dummy memory block.
-        END IF
+        pt_shape(1) = MERGE(me%slapSize, 1, me%rank == me%root_rank)
+        pt_shape(2) = MERGE(me%comm_size, 1, me%rank == me%root_rank)
+        ALLOCATE(me%pointIndices(pt_shape(1), pt_shape(2)), &
+                 me%point_counts(pt_shape(2)), myIndices(me%slapSize), &
+                 stat = ierr)
         IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
-        ALLOCATE(myIndices(me%slapSize), stat = ierr)
-        IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
-        myIndices(1:me%myPointCount) = glb_index(:)
+        myIndices(1:me%myPointCount) = glb_index
         myIndices(me%myPointCount+1:me%slapSize) = -1
         CALL p_gather(me%myPointCount, me%point_counts, me%root_rank, &
              communicator)
