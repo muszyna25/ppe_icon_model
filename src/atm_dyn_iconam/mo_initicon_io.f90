@@ -242,7 +242,7 @@ MODULE mo_initicon_io
     INTEGER :: no_cells, no_levels, nlev_in, nhyi
     INTEGER :: ncid, dimid, varid, mpi_comm, ierrstat
     TYPE(t_stream_id) :: stream_id
-    INTEGER :: psvar_ndims, geopvar_ndims
+    INTEGER :: psvar_ndims, geopvar_ndims, itemp(7)
 
     REAL(wp), ALLOCATABLE               :: psfc(:,:), phi_sfc(:,:), z_ifc_in(:,:,:), &
       &                                    w_ifc(:,:,:), omega(:,:,:)
@@ -255,7 +255,6 @@ MODULE mo_initicon_io
     CHARACTER(LEN=filename_max) :: ifs2icon_file(max_dom)
     LOGICAL :: lread_process
     LOGICAL :: lread_qr, lread_qs ! are qr, qs provided as input?
-
     !-------------------------------------------------------------------------
 
     ! flag. if true, then this PE reads data from file and broadcasts
@@ -408,15 +407,27 @@ MODULE mo_initicon_io
         mpi_comm = p_comm_work
       ENDIF
 
-      CALL p_bcast(nlev_in,       p_io, mpi_comm)
-      CALL p_bcast(lread_qs,      p_io, mpi_comm)
-      CALL p_bcast(lread_qr,      p_io, mpi_comm)
-      CALL p_bcast(lread_vn,      p_io, mpi_comm)
+      itemp(1) = nlev_in
+      itemp(2) = MERGE(1, 0, lread_qs)
+      itemp(3) = MERGE(1, 0, lread_qr)
+      itemp(4) = MERGE(1, 0, lread_vn)
       IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN
-        CALL p_bcast( nhyi, p_io, mpi_comm)
-        CALL p_bcast(psvar_ndims,   p_io, mpi_comm)
-        CALL p_bcast(geopvar_ndims, p_io, mpi_comm)
-      ENDIF
+        itemp(5) = nhyi
+        itemp(6) = psvar_ndims
+        itemp(7) = geopvar_ndims
+      END IF
+
+      CALL p_bcast(itemp, p_io, mpi_comm)
+
+      nlev_in  = itemp(1)
+      lread_qs = itemp(2) /= 0
+      lread_qr = itemp(3) /= 0
+      lread_vn = itemp(4) /= 0
+      IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN
+        nhyi = itemp(5)
+        psvar_ndims = itemp(6)
+        geopvar_ndims = itemp(7)
+      END IF
 
       IF (msg_level >= 10) THEN
         IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN
