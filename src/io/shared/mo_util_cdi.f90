@@ -319,17 +319,18 @@ CONTAINS
     ! insanity check
     IF(varID < 0) THEN
       IF(my_process_is_stdio()) THEN
-        print*, routine//": mapped_name = '"//TRIM(mapped_name)//"'"
-        print*, routine//": tile idx = ", tileinfo%idx, ", att = ", tileinfo%att
-        print*, routine//": list of variables:"
+        PRINT '(5a)', routine, ": mapped_name = '", TRIM(mapped_name), "'", "", &
+             routine, ": tile idx = ", tileinfo%idx, ", att = ", tileinfo%att, &
+             routine, ": list of variables:"
         DO i = 1, SIZE(me%variableNames)
           ! the following "tolower" function call should be enclosed
           ! in a TRIM() intrinsic; however, this throws an (erroneous)
           ! compiler error on some Cray compiler versions.
-          print*, routine//":     '"//tolower(me%variableNames(i))//"'"
+          PRINT '(4a)', routine, ":     '", tolower(me%variableNames(i)), "'"
           DO j = 1, SIZE(me%variableTileinfo(i)%tile)
-            print*, routine//":         tile idx = ", me%variableTileinfo(i)%tile(j)%idx, &
-            &                             ", att = ", me%variableTileinfo(i)%tile(j)%att
+            PRINT '(5a)', routine, ":         tile idx = ", &
+                 me%variableTileinfo(i)%tile(j)%idx, &
+                 ", att = ", me%variableTileinfo(i)%tile(j)%att
           END DO
         END DO
       END IF
