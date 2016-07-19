@@ -634,6 +634,7 @@ MODULE mo_mpi
      MODULE PROCEDURE p_bcast_cchar
      MODULE PROCEDURE p_bcast_char_1d
      MODULE PROCEDURE p_bcast_datetime
+     MODULE PROCEDURE p_bcast_char_2d
   END INTERFACE
 
   INTERFACE p_scatter
@@ -7908,7 +7909,7 @@ CONTAINS
 
   END SUBROUTINE p_bcast_char
 
-  SUBROUTINE p_bcast_char_1d (t_buffer, p_source, comm)
+  SUBROUTINE p_bcast_char_1d(t_buffer, p_source, comm)
 
     CHARACTER (*), INTENT(inout) :: t_buffer(:)
     INTEGER,       INTENT(in)    :: p_source
@@ -7962,6 +7963,47 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_bcast_char_1d
+
+  SUBROUTINE p_bcast_char_2d(t_buffer, p_source, comm)
+    CHARACTER(*),  INTENT(inout) :: t_buffer(:,:)
+    INTEGER,       INTENT(in)    :: p_source
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+    INTEGER :: lexlength, flength
+
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+#ifdef DEBUG
+    nbcast = nbcast+1
+#endif
+
+    IF (process_mpi_all_size == 1) THEN
+       RETURN
+    ELSE
+       lexlength=LEN(t_buffer(1,1))
+       flength=SIZE(t_buffer)
+       lexlength=lexlength*flength
+       CALL mpi_bcast(t_buffer, lexlength, p_char, p_source, p_comm, p_error)
+#ifdef DEBUG
+       WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
+            ' with broadcast number ', nbcast, ' successful.'
+
+       IF (p_error /= MPI_SUCCESS) THEN
+          WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
+               ' failed.'
+          WRITE (nerr,'(a,i4)') ' Error = ', p_error
+          CALL abort_mpi
+       END IF
+#endif
+    ENDIF
+#endif
+  END SUBROUTINE p_bcast_char_2d
 
 
 
