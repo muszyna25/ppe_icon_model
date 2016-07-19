@@ -118,7 +118,7 @@ PRIVATE
         MODULE PROCEDURE ScatterPattern_lookupSize
     END INTERFACE lookupScatterPattern
 
-    TYPE(t_ScatterPatternPtr), POINTER :: existingPatterns(:)
+    TYPE(t_ScatterPatternPtr), ALLOCATABLE :: existingPatterns(:)
     INTEGER :: existingPatternCount = -1
 
 CONTAINS
@@ -134,7 +134,6 @@ CONTAINS
 
         CHARACTER(*), PARAMETER :: routine = modname//":ScatterPattern_lookupSize"
         INTEGER :: i
-        CLASS(t_ScatterPatternPtr), POINTER :: temp
         LOGICAL :: l_write_debug_info
 
         IF (debugModule) THEN
@@ -145,12 +144,14 @@ CONTAINS
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
 
+        NULLIFY(resultVar)
         DO i = 1, existingPatternCount
-            temp => existingPatterns(i)
-            resultVar => temp%ptr
-            IF(resultVar%globalSize() == globalSize .and. resultVar%jg == jg) RETURN
+          IF (existingPatterns(i)%ptr%globalSize() == globalSize &
+            & .AND. existingPatterns(i)%ptr%jg == jg) THEN
+            resultVar => existingPatterns(i)%ptr
+            EXIT
+          END IF
         END DO
-        resultVar => NULL()
 
         IF (l_write_debug_info) WRITE(0,*) "leaving ", routine
     END FUNCTION ScatterPattern_lookupSize
@@ -185,7 +186,7 @@ CONTAINS
         INTEGER, INTENT(IN) :: glb_index(:)
 
         CHARACTER(*), PARAMETER :: routine = modname//":constructScatterPattern"
-        CLASS(t_ScatterPatternPtr), POINTER :: temp(:)
+        TYPE(t_ScatterPatternPtr), ALLOCATABLE :: temp(:)
         INTEGER :: i, error
         LOGICAL :: l_write_debug_info
 
@@ -206,19 +207,17 @@ CONTAINS
         me%distributionTime = 0.0
 
         !add the new scatter pattern to the list of existing ones
-        IF(existingPatternCount == -1) THEN
+        IF (existingPatternCount == -1) THEN
             ALLOCATE(existingPatterns(8), STAT = error)
             IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
             existingPatternCount = 0
-        END IF
-        IF(SIZE(existingPatterns, 1) == existingPatternCount) THEN
-            temp => existingPatterns
-            ALLOCATE(existingPatterns(2*existingPatternCount), STAT = error)
+        ELSE IF (SIZE(existingPatterns) == existingPatternCount) THEN
+            ALLOCATE(temp(2*existingPatternCount), STAT = error)
             IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
             DO i = 1, existingPatternCount
-                existingPatterns(i)%ptr => temp(i)%ptr
+                temp(i)%ptr => existingPatterns(i)%ptr
             END DO
-            DEALLOCATE(temp)
+            CALL MOVE_ALLOC(temp, existingPatterns)
         END IF
         existingPatternCount = existingPatternCount + 1
         existingPatterns(existingPatternCount)%ptr => me
@@ -379,6 +378,7 @@ CONTAINS
             IF(ASSOCIATED(existingPatterns(i)%ptr, me)) EXIT
         END DO
         existingPatterns(i)%ptr => existingPatterns(existingPatternCount)%ptr
+        NULLIFY(existingPatterns(existingPatternCount)%ptr)
         existingPatternCount = existingPatternCount - 1
 
         IF (l_write_debug_info) WRITE(0,*) "leaving ", routine
