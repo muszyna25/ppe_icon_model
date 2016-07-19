@@ -19,7 +19,7 @@ MODULE mo_scatter_pattern_scatter
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_kind, ONLY: wp, dp, sp, i8
     USE mo_scatter_pattern_base
-    USE mo_mpi, ONLY: p_io, my_process_is_stdio, &
+    USE mo_mpi, ONLY: my_process_is_stdio, &
     &                 p_comm_size, p_max, p_gather, p_scatter
     USE mo_parallel_config, ONLY: blk_no, idx_no
     USE mo_exception, ONLY: finish
@@ -30,8 +30,8 @@ PUBLIC :: t_scatterPatternScatter
 
     TYPE, EXTENDS(t_scatterPattern) :: t_scatterPatternScatter
         INTEGER :: slapSize    !The count of points sent to each pe, calculated as the maximum of all myPointCount members.
-        !This global description is only created on p_io.
-        INTEGER, POINTER :: pointIndices(:)    !For each point requested by a process, this lists the global index of the point.
+        !This global description is only created on the root rank.
+        INTEGER, ALLOCATABLE :: pointIndices(:)    !For each point requested by a process, this lists the global index of the point.
         INTEGER :: pointCount !size of pointIndices
     CONTAINS
         PROCEDURE :: construct       => constructScatterPatternScatter !< override
@@ -52,10 +52,12 @@ CONTAINS
     !-------------------------------------------------------------------------------------------------------------------------------
     !> constructor
     !-------------------------------------------------------------------------------------------------------------------------------
-    SUBROUTINE constructScatterPatternScatter(me, jg, loc_arr_len, glb_index, communicator)
+    SUBROUTINE constructScatterPatternScatter(me, jg, loc_arr_len, glb_index, &
+         communicator, root_rank)
         CLASS(t_scatterPatternScatter), TARGET, INTENT(OUT) :: me
         INTEGER, VALUE :: jg, loc_arr_len, communicator
         INTEGER, INTENT(IN) :: glb_index(:)
+        INTEGER, OPTIONAL, INTENT(in) :: root_rank
 
         CHARACTER(*), PARAMETER :: routine &
              = modname//":costructScatterPatternScatter"
@@ -70,9 +72,9 @@ CONTAINS
         END IF
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
-        CALL constructScatterPattern(me, jg, loc_arr_len, glb_index, communicator)
+        CALL constructScatterPattern(me, jg, loc_arr_len, glb_index, communicator, root_rank)
         me%slapSize = p_max(me%myPointCount, comm = communicator)
-        IF(my_process_is_stdio()) THEN
+        IF(me%rank == me%root_rank) THEN
             processCount = p_comm_size(communicator)
             me%pointCount = processCount * me%slapSize
             ALLOCATE(me%pointIndices(me%pointCount), stat = ierr)
@@ -85,7 +87,7 @@ CONTAINS
         IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
         myIndices = 1
         myIndices(1:me%myPointCount) = glb_index(:)
-        CALL p_gather(myIndices, me%pointIndices, p_io, communicator)
+        CALL p_gather(myIndices, me%pointIndices, me%root_rank, communicator)
         IF (l_write_debug_info) WRITE(0,*) "leaving ", routine
     END SUBROUTINE constructScatterPatternScatter
 
@@ -113,7 +115,7 @@ CONTAINS
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
         CALL me%startDistribution()
 
-        IF(my_process_is_stdio()) THEN
+        IF (me%rank == me%root_rank) THEN
             ALLOCATE(sendArray(me%pointCount), stat = ierr)
             IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
             DO i = 1, me%pointCount
@@ -125,7 +127,7 @@ CONTAINS
         END IF
         ALLOCATE(recvArray(me%slapSize), stat = ierr)
         IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
-        CALL p_scatter(sendArray, recvArray, p_io, me%communicator)
+        CALL p_scatter(sendArray, recvArray, me%root_rank, me%communicator)
         IF(ladd_value) THEN
             DO i = 1, me%myPointCount
                 blk = blk_no(i)
@@ -168,7 +170,7 @@ CONTAINS
 
         CALL me%startDistribution()
 
-        IF (my_process_is_stdio()) THEN
+        IF (me%rank == me%root_rank) THEN
             ALLOCATE(sendArray(me%pointCount), stat = ierr)
             IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
             DO i = 1, me%pointCount
@@ -180,7 +182,7 @@ CONTAINS
         END IF
         ALLOCATE(recvArray(me%slapSize), stat = ierr)
         IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
-        CALL p_scatter(sendArray, recvArray, p_io, me%communicator)
+        CALL p_scatter(sendArray, recvArray, me%root_rank, me%communicator)
         IF(ladd_value) THEN
             DO i = 1, me%myPointCount
                 blk = blk_no(i)
@@ -224,7 +226,7 @@ CONTAINS
 
         CALL me%startDistribution()
 
-        IF(my_process_is_stdio()) THEN
+        IF(me%rank == me%root_rank) THEN
             ALLOCATE(sendArray(me%pointCount), stat = ierr)
             IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
             DO i = 1, me%pointCount
@@ -236,7 +238,7 @@ CONTAINS
         END IF
         ALLOCATE(recvArray(me%slapSize), stat = ierr)
         IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
-        CALL p_scatter(sendArray, recvArray, p_io, me%communicator)
+        CALL p_scatter(sendArray, recvArray, me%root_rank, me%communicator)
         IF(ladd_value) THEN
             DO i = 1, me%myPointCount
                 blk = blk_no(i)
@@ -268,9 +270,8 @@ CONTAINS
              = modname//":distributeDataScatter_sp"
         INTEGER, ALLOCATABLE :: sendArray(:), recvArray(:)
         INTEGER :: i, blk, idx, ierr
-        LOGICAL :: l_write_debug_info, is_stdio
+        LOGICAL :: l_write_debug_info
 
-        is_stdio = my_process_is_stdio()
         IF (debugModule) THEN
           l_write_debug_info = my_process_is_stdio()
         ELSE
@@ -280,7 +281,7 @@ CONTAINS
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
         CALL me%startDistribution()
 
-        IF (is_stdio) THEN
+        IF (me%rank == me%root_rank) THEN
             ALLOCATE(sendArray(me%pointCount), stat = ierr)
             IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
             DO i = 1, me%pointCount
@@ -292,7 +293,7 @@ CONTAINS
         END IF
         ALLOCATE(recvArray(me%slapSize), stat = ierr)
         IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
-        CALL p_scatter(sendArray, recvArray, p_io, me%communicator)
+        CALL p_scatter(sendArray, recvArray, me%root_rank, me%communicator)
         IF(ladd_value) THEN
             DO i = 1, me%myPointCount
                 blk = blk_no(i)

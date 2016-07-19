@@ -33,11 +33,11 @@ MODULE mo_scatter_pattern_scatterv
 PUBLIC :: t_scatterPatternScatterV
 
     TYPE, EXTENDS(t_scatterPattern) :: t_scatterPatternScatterV
-        !This global description is only created on p_io.
-        INTEGER, POINTER :: pointCounts(:), displacements(:)    !The recvcounts/sendcounts & displs arrays for
+        !This global description is only created on root rank.
+        INTEGER, ALLOCATABLE :: pointCounts(:), displacements(:)    !The recvcounts/sendcounts & displs arrays for
                                                                 !MPI_GATHERV/MPI_SCATTERV. Indexes into pointIndices or other
                                                                 !arrays that need to be distributed.
-        INTEGER, POINTER :: pointIndices(:)    !For each point requested by a process, this lists the global index of the point.
+        INTEGER, ALLOCATABLE :: pointIndices(:)    !For each point requested by a process, this lists the global index of the point.
         INTEGER :: pointCount !size of pointIndices
     CONTAINS
         PROCEDURE :: construct       => constructScatterPatternScatterV !< override
@@ -58,10 +58,12 @@ CONTAINS
     !-------------------------------------------------------------------------------------------------------------------------------
     !> constructor
     !-------------------------------------------------------------------------------------------------------------------------------
-    SUBROUTINE constructScatterPatternScatterV(me, jg, loc_arr_len, glb_index, communicator)
+    SUBROUTINE constructScatterPatternScatterV(me, jg, loc_arr_len, glb_index, &
+         communicator, root_rank)
         CLASS(t_scatterPatternScatterV), TARGET, INTENT(OUT) :: me
         INTEGER, VALUE :: jg, loc_arr_len, communicator
         INTEGER, INTENT(IN) :: glb_index(:)
+        INTEGER, OPTIONAL, INTENT(in) :: root_rank
 
         CHARACTER(*), PARAMETER :: routine = modname//":constructScatterPatternScatterV"
         INTEGER :: procCount, i, ierr
@@ -76,8 +78,9 @@ CONTAINS
 
         IF (l_write_debug_info) WRITE(0,*) "entering ", routine
 
-        CALL constructScatterPattern(me, jg, loc_arr_len, glb_index, communicator)
-        IF (is_scatter_root) THEN
+        CALL constructScatterPattern(me, jg, loc_arr_len, glb_index, &
+             communicator, root_rank)
+        IF (me%rank == me%root_rank) THEN
             procCount = p_comm_size(communicator)
             ALLOCATE(me%pointCounts(procCount), stat = ierr)
             IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
@@ -89,8 +92,8 @@ CONTAINS
             ALLOCATE(me%displacements(1), stat = ierr)
             IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
         END IF
-        CALL p_gather(me%myPointCount, me%pointCounts, p_io, communicator)
-        IF (is_scatter_root) THEN
+        CALL p_gather(me%myPointCount, me%pointCounts, me%root_rank, communicator)
+        IF (me%rank == me%root_rank) THEN
             me%pointCount = 0
             DO i = 1, procCount
                 me%displacements(i) = me%pointCount
@@ -102,7 +105,7 @@ CONTAINS
             ALLOCATE(me%pointIndices(1), stat = ierr)
             IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
         END IF
-        CALL p_gatherv(glb_index, loc_arr_len, me%pointIndices, me%pointCounts, me%displacements, p_io, communicator)
+        CALL p_gatherv(glb_index, loc_arr_len, me%pointIndices, me%pointCounts, me%displacements, me%root_rank, communicator)
 
         IF (l_write_debug_info) WRITE(0,*) "leaving ", routine
     END SUBROUTINE constructScatterPatternScatterV
@@ -132,7 +135,7 @@ CONTAINS
 
         CALL me%startDistribution()
 
-        IF (my_process_is_stdio()) THEN
+        IF (me%rank == me%root_rank) THEN
             ALLOCATE(sendArray(me%pointCount), stat = ierr)
             IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
             DO i = 1, me%pointCount
@@ -148,8 +151,9 @@ CONTAINS
         !For some very weird reason, I always get a crash on my system if the following block is moved to its own subroutine.
 !       CALL p_scatterv(sendArray, me%pointCounts, me%displacements, recvArray, me%myPointCount, p_io, me%communicator)
 #ifndef NOMPI
-        CALL MPI_Scatterv(sendArray, me%pointCounts, me%displacements, p_real_dp, recvArray, me%myPointCount, p_real_dp, p_io, &
-        &                 me%communicator, ierr)
+        CALL MPI_Scatterv(sendArray, me%pointCounts, me%displacements, &
+          &               p_real_dp, recvArray, me%myPointCount, &
+          &               p_real_dp, me%root_rank, me%communicator, ierr)
         IF (ierr /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_Scatterv operation!')
 #else
         recvArray(1:me%myPointCount) = sendArray((me%displacements(1)+1):(me%displacements(1)+me%myPointCount))
@@ -265,7 +269,7 @@ CONTAINS
 
         CALL me%startDistribution()
 
-        IF (my_process_is_stdio()) THEN
+        IF (me%rank == me%root_rank) THEN
             ALLOCATE(sendArray(me%pointCount), stat = ierr)
             IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
             DO i = 1, me%pointCount
@@ -281,8 +285,9 @@ CONTAINS
         !For some very weird reason, I always get a crash on my system if the following block is moved to its own subroutine.
 !       CALL p_scatterv(sendArray, me%pointCounts, me%displacements, recvArray, me%myPointCount, p_io, me%communicator)
 #ifndef NOMPI
-        CALL MPI_Scatterv(sendArray, me%pointCounts, me%displacements, p_real_sp, recvArray, me%myPointCount, p_real_sp, p_io, &
-        &                 me%communicator, ierr)
+        CALL MPI_Scatterv(sendArray, me%pointCounts, me%displacements, &
+             &            p_real_sp, recvArray, me%myPointCount, &
+             &            p_real_sp, me%root_rank, me%communicator, ierr)
         IF (ierr /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_Scatterv operation!')
 #else
         recvArray(1:me%myPointCount) = sendArray((me%displacements(1)+1):(me%displacements(1)+me%myPointCount))
@@ -331,7 +336,7 @@ CONTAINS
 
         CALL me%startDistribution()
 
-        IF (my_process_is_stdio()) THEN
+        IF (me%rank == me%root_rank) THEN
             ALLOCATE(sendArray(me%pointCount), stat = ierr)
             IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
             DO i = 1, me%pointCount
@@ -347,8 +352,9 @@ CONTAINS
         !For some very weird reason, I always get a crash on my system if the following block is moved to its own subroutine.
 !       CALL p_scatterv(sendArray, me%pointCounts, me%displacements, recvArray, me%myPointCount, p_io, me%communicator)
 #ifndef NOMPI
-        CALL MPI_Scatterv(sendArray, me%pointCounts, me%displacements, p_int, recvArray, me%myPointCount, p_int, p_io, &
-        &                 me%communicator, ierr)
+        CALL MPI_Scatterv(sendArray, me%pointCounts, me%displacements, &
+             &            p_int, recvArray, me%myPointCount, &
+             &            p_int, me%root_rank, me%communicator, ierr)
         IF (ierr /=  MPI_SUCCESS) CALL finish (routine, 'Error in MPI_Scatterv operation!')
 #else
         recvArray(1:me%myPointCount) = sendArray((me%displacements(1)+1):(me%displacements(1)+me%myPointCount))
