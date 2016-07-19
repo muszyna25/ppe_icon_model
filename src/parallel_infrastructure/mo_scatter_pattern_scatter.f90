@@ -57,11 +57,19 @@ CONTAINS
         INTEGER, VALUE :: jg, loc_arr_len, communicator
         INTEGER, INTENT(IN) :: glb_index(:)
 
-        CHARACTER(*), PARAMETER :: routine = modname//":costructScatterPatternScatter"
+        CHARACTER(*), PARAMETER :: routine &
+             = modname//":costructScatterPatternScatter"
         INTEGER :: processCount, ierr
         INTEGER, ALLOCATABLE :: myIndices(:)
+        LOGICAL :: l_write_debug_info
 
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "entering ", routine
+        IF (debugModule) THEN
+          l_write_debug_info = my_process_is_stdio()
+        ELSE
+          l_write_debug_info = .FALSE.
+        END IF
+
+        IF (l_write_debug_info) WRITE(0,*) "entering ", routine
         CALL constructScatterPattern(me, jg, loc_arr_len, glb_index, communicator)
         me%slapSize = p_max(me%myPointCount, comm = communicator)
         IF(my_process_is_stdio()) THEN
@@ -78,7 +86,7 @@ CONTAINS
         myIndices = 1
         myIndices(1:me%myPointCount) = glb_index(:)
         CALL p_gather(myIndices, me%pointIndices, p_io, communicator)
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "leaving ", routine
+        IF (l_write_debug_info) WRITE(0,*) "leaving ", routine
     END SUBROUTINE constructScatterPatternScatter
 
     !-------------------------------------------------------------------------------------------------------------------------------
@@ -90,11 +98,19 @@ CONTAINS
         REAL(wp), INTENT(INOUT) :: localArray(:,:)
         LOGICAL, INTENT(IN) :: ladd_value
 
-        CHARACTER(*), PARAMETER :: routine = modname//":distributeDataScatter_dp"
+        CHARACTER(*), PARAMETER :: routine &
+             = modname//":distributeDataScatter_dp"
         REAL(dp), ALLOCATABLE :: sendArray(:), recvArray(:)
         INTEGER :: i, blk, idx, ierr
+        LOGICAL :: l_write_debug_info
 
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "entering ", routine
+        IF (debugModule) THEN
+          l_write_debug_info = my_process_is_stdio()
+        ELSE
+          l_write_debug_info = .FALSE.
+        END IF
+
+        IF (l_write_debug_info) WRITE(0,*) "entering ", routine
         CALL me%startDistribution()
 
         IF(my_process_is_stdio()) THEN
@@ -125,7 +141,7 @@ CONTAINS
         DEALLOCATE(recvArray)
         DEALLOCATE(sendArray)
         CALL me%endDistribution(INT(me%pointCount, i8) * 8_i8)
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "leaving ", routine
+        IF (l_write_debug_info) WRITE(0,*) "leaving ", routine
     END SUBROUTINE distributeDataScatter_dp
 
     !-------------------------------------------------------------------------------------------------------------------------------
@@ -140,12 +156,19 @@ CONTAINS
         CHARACTER(*), PARAMETER :: routine = modname//":distributeDataScatter_spdp"
         REAL(sp), ALLOCATABLE :: sendArray(:), recvArray(:)
         INTEGER :: i, blk, idx, ierr
+        LOGICAL :: l_write_debug_info
 
+        IF (debugModule) THEN
+          l_write_debug_info = my_process_is_stdio()
+        ELSE
+          l_write_debug_info = .FALSE.
+        END IF
 
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "entering ", routine
+        IF (l_write_debug_info) WRITE(0,*) "entering ", routine
+
         CALL me%startDistribution()
 
-        IF(my_process_is_stdio()) THEN
+        IF (my_process_is_stdio()) THEN
             ALLOCATE(sendArray(me%pointCount), stat = ierr)
             IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
             DO i = 1, me%pointCount
@@ -173,7 +196,7 @@ CONTAINS
         DEALLOCATE(recvArray)
         DEALLOCATE(sendArray)
         CALL me%endDistribution(INT(me%pointCount, i8) * 4_i8)
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "leaving ", routine
+        IF (l_write_debug_info) WRITE(0,*) "leaving ", routine
     END SUBROUTINE distributeDataScatter_spdp
 
     !-------------------------------------------------------------------------------------------------------------------------------
@@ -185,11 +208,20 @@ CONTAINS
         REAL(sp), INTENT(INOUT) :: localArray(:,:)
         LOGICAL, INTENT(IN) :: ladd_value
 
-        CHARACTER(*), PARAMETER :: routine = modname//":distributeDataScatter_sp"
+        CHARACTER(*), PARAMETER :: routine &
+             = modname//":distributeDataScatter_sp"
         REAL(sp), ALLOCATABLE :: sendArray(:), recvArray(:)
         INTEGER :: i, blk, idx, ierr
+        LOGICAL :: l_write_debug_info
 
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "entering ", routine
+        IF (debugModule) THEN
+          l_write_debug_info = my_process_is_stdio()
+        ELSE
+          l_write_debug_info = .FALSE.
+        END IF
+
+        IF (l_write_debug_info) WRITE(0,*) "entering ", routine
+
         CALL me%startDistribution()
 
         IF(my_process_is_stdio()) THEN
@@ -220,7 +252,7 @@ CONTAINS
         DEALLOCATE(recvArray)
         DEALLOCATE(sendArray)
         CALL me%endDistribution(INT(me%pointCount, i8) * 4_i8)
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "leaving ", routine
+        IF (l_write_debug_info) WRITE(0,*) "leaving ", routine
     END SUBROUTINE distributeDataScatter_sp
 
     !-------------------------------------------------------------------------------------------------------------------------------
@@ -232,15 +264,23 @@ CONTAINS
         INTEGER, INTENT(INOUT) :: localArray(:,:)
         LOGICAL, INTENT(IN) :: ladd_value
 
-        CHARACTER(*), PARAMETER :: routine = modname//":distributeDataScatter_sp"
+        CHARACTER(*), PARAMETER :: routine &
+             = modname//":distributeDataScatter_sp"
         INTEGER, ALLOCATABLE :: sendArray(:), recvArray(:)
         INTEGER :: i, blk, idx, ierr
+        LOGICAL :: l_write_debug_info, is_stdio
 
+        is_stdio = my_process_is_stdio()
+        IF (debugModule) THEN
+          l_write_debug_info = my_process_is_stdio()
+        ELSE
+          l_write_debug_info = .FALSE.
+        END IF
 
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "entering ", routine
+        IF (l_write_debug_info) WRITE(0,*) "entering ", routine
         CALL me%startDistribution()
 
-        IF(my_process_is_stdio()) THEN
+        IF (is_stdio) THEN
             ALLOCATE(sendArray(me%pointCount), stat = ierr)
             IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
             DO i = 1, me%pointCount
@@ -268,7 +308,7 @@ CONTAINS
         DEALLOCATE(recvArray)
         DEALLOCATE(sendArray)
         CALL me%endDistribution(INT(me%pointCount, i8) * 4_i8)
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "leaving ", routine
+        IF (l_write_debug_info) WRITE(0,*) "leaving ", routine
     END SUBROUTINE distributeDataScatter_int
 
     !-------------------------------------------------------------------------------------------------------------------------------
@@ -277,12 +317,20 @@ CONTAINS
     SUBROUTINE destructScatterPatternScatter(me)
         CLASS(t_scatterPatternScatter), TARGET, INTENT(INOUT) :: me
 
-        CHARACTER(*), PARAMETER :: routine = modname//":destructScatterPatternScatter"
+        CHARACTER(*), PARAMETER :: routine &
+             = modname//":destructScatterPatternScatter"
+        LOGICAL :: l_write_debug_info
 
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "entering ", routine
+        IF (debugModule) THEN
+          l_write_debug_info = my_process_is_stdio()
+        ELSE
+          l_write_debug_info = .FALSE.
+        END IF
+
+        IF (l_write_debug_info) WRITE(0,*) "entering ", routine
         DEALLOCATE(me%pointIndices)
         CALL destructScatterPattern(me)
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "leaving ", routine
+        IF (l_write_debug_info) WRITE(0,*) "leaving ", routine
     END SUBROUTINE destructScatterPatternScatter
 
 END MODULE

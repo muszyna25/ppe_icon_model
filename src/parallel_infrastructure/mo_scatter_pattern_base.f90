@@ -135,8 +135,15 @@ CONTAINS
         CHARACTER(*), PARAMETER :: routine = modname//":ScatterPattern_lookupSize"
         INTEGER :: i
         CLASS(t_ScatterPatternPtr), POINTER :: temp
+        LOGICAL :: l_write_debug_info
 
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "entering ", routine
+        IF (debugModule) THEN
+          l_write_debug_info = my_process_is_stdio()
+        ELSE
+          l_write_debug_info = .FALSE.
+        END IF
+
+        IF (l_write_debug_info) WRITE(0,*) "entering ", routine
 
         DO i = 1, existingPatternCount
             temp => existingPatterns(i)
@@ -145,7 +152,7 @@ CONTAINS
         END DO
         resultVar => NULL()
 
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "leaving ", routine
+        IF (l_write_debug_info) WRITE(0,*) "leaving ", routine
     END FUNCTION ScatterPattern_lookupSize
 
     !-------------------------------------------------------------------------------------------------------------------------------
@@ -155,11 +162,18 @@ CONTAINS
         CLASS(t_ScatterPattern), POINTER, INTENT(INOUT) :: me
 
         CHARACTER(*), PARAMETER :: routine = modname//":deleteScatterPattern"
+        LOGICAL :: l_write_debug_info
 
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "entering ", routine
+        IF (debugModule) THEN
+          l_write_debug_info = my_process_is_stdio()
+        ELSE
+          l_write_debug_info = .FALSE.
+        END IF
+
+        IF (l_write_debug_info) WRITE(0,*) "entering ", routine
         CALL me%destruct()
         DEALLOCATE(me)
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "leaving ", routine
+        IF (l_write_debug_info) WRITE(0,*) "leaving ", routine
     END SUBROUTINE deleteScatterPattern
 
     !-------------------------------------------------------------------------------------------------------------------------------
@@ -173,8 +187,15 @@ CONTAINS
         CHARACTER(*), PARAMETER :: routine = modname//":constructScatterPattern"
         CLASS(t_ScatterPatternPtr), POINTER :: temp(:)
         INTEGER :: i, error
+        LOGICAL :: l_write_debug_info
 
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "entering ", routine
+        IF (debugModule) THEN
+          l_write_debug_info = my_process_is_stdio()
+        ELSE
+          l_write_debug_info = .FALSE.
+        END IF
+
+        IF (l_write_debug_info) WRITE(0,*) "entering ", routine
 
         !init the object itself
         me%totalPointCount = p_max(MAXVAL(glb_index), comm = communicator)
@@ -202,7 +223,7 @@ CONTAINS
         existingPatternCount = existingPatternCount + 1
         existingPatterns(existingPatternCount)%ptr => me
 
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "leaving ", routine
+        IF (l_write_debug_info) WRITE(0,*) "leaving ", routine
     END SUBROUTINE constructScatterPattern
 
     !-------------------------------------------------------------------------------------------------------------------------------
@@ -229,11 +250,18 @@ CONTAINS
         CLASS(t_ScatterPattern), INTENT(INOUT) :: me
 
         CHARACTER(*), PARAMETER :: routine = modname//":scatterPatternResetStatistics"
+        LOGICAL :: l_write_debug_info
 
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "entering ", routine
+        IF (debugModule) THEN
+          l_write_debug_info = my_process_is_stdio()
+        ELSE
+          l_write_debug_info = .FALSE.
+        END IF
+
+        IF (l_write_debug_info) WRITE(0,*) "entering ", routine
         me%distributedData = 0_i8
         me%distributionTime = 0.0_dp
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "leaving ", routine
+        IF (l_write_debug_info) WRITE(0,*) "leaving ", routine
     END SUBROUTINE scatterPatternResetStatistics
 
     !-------------------------------------------------------------------------------------------------------------------------------
@@ -244,9 +272,17 @@ CONTAINS
         CLASS(t_ScatterPattern), INTENT(INOUT) :: me
         REAL(dp) :: bandwidth
 
-        CHARACTER(*), PARAMETER :: routine = modname//":scatterPatternPrintStatistics"
+        CHARACTER(*), PARAMETER :: routine &
+             = modname//":scatterPatternPrintStatistics"
+        LOGICAL :: l_write_debug_info
 
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "entering ", routine
+        IF (debugModule) THEN
+          l_write_debug_info = my_process_is_stdio()
+        ELSE
+          l_write_debug_info = .FALSE.
+        END IF
+
+        IF (l_write_debug_info) WRITE(0,*) "entering ", routine
         IF(me%distributedData > 0) THEN
             IF(msg_level >= 10 .and. my_process_is_stdio()) THEN
                 WRITE(0,*) routine, ": data distribution totals:"
@@ -261,7 +297,7 @@ CONTAINS
             END IF
         END IF
         call me%resetStatistics()
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "leaving ", routine
+        IF (l_write_debug_info) WRITE(0,*) "leaving ", routine
     END SUBROUTINE scatterPatternPrintStatistics
 
     !-------------------------------------------------------------------------------------------------------------------------------
@@ -271,11 +307,18 @@ CONTAINS
         CLASS(t_ScatterPattern), INTENT(INOUT) :: me
 
         CHARACTER(*), PARAMETER :: routine = modname//":scatterPatternStartDistribution"
+        LOGICAL :: l_write_debug_info
 
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "entering ", routine
+        IF (debugModule) THEN
+          l_write_debug_info = my_process_is_stdio()
+        ELSE
+          l_write_debug_info = .FALSE.
+        END IF
+
+        IF (l_write_debug_info) WRITE(0,*) "entering ", routine
         me%curStartTime = p_mpi_wtime()
         me%distributionTime = me%distributionTime - me%curStartTime
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "leaving ", routine
+        IF (l_write_debug_info) WRITE(0,*) "leaving ", routine
     END SUBROUTINE scatterPatternStartDistribution
 
     !-------------------------------------------------------------------------------------------------------------------------------
@@ -287,12 +330,19 @@ CONTAINS
 
         CHARACTER(*), PARAMETER :: routine = modname//":scatterPatternEndDistribution"
         REAL(dp) :: curEndTime, bw
+        LOGICAL :: l_write_debug_info
 
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "entering ", routine
+        IF (debugModule) THEN
+          l_write_debug_info = my_process_is_stdio()
+        ELSE
+          l_write_debug_info = .FALSE.
+        END IF
+
+        IF (l_write_debug_info) WRITE(0,*) "entering ", routine
         curEndTime = p_mpi_wtime()
         me%distributionTime = me%distributionTime + curEndTime
         me%distributedData = me%distributedData + bytes
-        IF(msg_level >= 20 .and. my_process_is_stdio()) THEN
+        IF (msg_level >= 20 .AND. l_write_debug_info) THEN
           IF (curEndTime - me%curStartTime == 0) THEN
             bw = -1.0_dp
           ELSE
@@ -301,7 +351,7 @@ CONTAINS
           WRITE(0,*) routine, ": Distributed ", bytes, " bytes in ", &
                curEndTime - me%curStartTime, " seconds (", bw, " MiB/s"
         END IF
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "leaving ", routine
+        IF (l_write_debug_info) WRITE(0,*) "leaving ", routine
     END SUBROUTINE scatterPatternEndDistribution
 
     !-------------------------------------------------------------------------------------------------------------------------------
@@ -312,8 +362,15 @@ CONTAINS
 
         CHARACTER(*), PARAMETER :: routine = modname//":destructScatterPattern"
         INTEGER :: i
+        LOGICAL :: l_write_debug_info
 
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "entering ", routine
+        IF (debugModule) THEN
+          l_write_debug_info = my_process_is_stdio()
+        ELSE
+          l_write_debug_info = .FALSE.
+        END IF
+
+        IF (l_write_debug_info) WRITE(0,*) "entering ", routine
 
         call me%printStatistics()
 
@@ -324,7 +381,7 @@ CONTAINS
         existingPatterns(i)%ptr => existingPatterns(existingPatternCount)%ptr
         existingPatternCount = existingPatternCount - 1
 
-        IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "leaving ", routine
+        IF (l_write_debug_info) WRITE(0,*) "leaving ", routine
     END SUBROUTINE destructScatterPattern
 
 END MODULE
