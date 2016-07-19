@@ -46,7 +46,8 @@ MODULE mo_initicon_utils
   USE mo_physical_constants,  ONLY: tf_salt, tmelt
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom
-  USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work_test, p_comm_work
+  USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, &
+    p_comm_work_test, p_comm_work, my_process_is_mpi_workroot
   USE mo_util_string,         ONLY: tolower
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lseaice, llake, lmulti_snow,         &
     &                               isub_lake, frlnd_thrhld,             &
@@ -1382,24 +1383,18 @@ MODULE mo_initicon_utils
 
     INTEGER :: mpi_comm
 
-    IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test
-    ELSE
-      mpi_comm = p_comm_work
-    ENDIF
+    mpi_comm = p_comm_work
 
     ! read the map file into dictionary data structure:
     CALL dict_init(dictionary, lcase_sensitive=.FALSE.)
     IF(ana_varnames_map_file /= ' ') THEN
-      IF (my_process_is_stdio()) THEN
+      IF (my_process_is_mpi_workroot()) &
         CALL dict_loadfile(dictionary, TRIM(ana_varnames_map_file))
-      END IF
       CALL p_bcast(dictionary%nmax_entries,     p_io, mpi_comm)
       CALL p_bcast(dictionary%nentries,         p_io, mpi_comm)
       CALL p_bcast(dictionary%lcase_sensitive,  p_io, mpi_comm)
-      IF (.NOT. my_process_is_stdio()) THEN
+      IF (.NOT. my_process_is_mpi_workroot()) &
         CALL dict_resize(dictionary, dictionary%nmax_entries)
-      END IF
       CALL p_bcast(dictionary%array(1,:), p_io, mpi_comm)
       CALL p_bcast(dictionary%array(2,:), p_io, mpi_comm)
     END IF
