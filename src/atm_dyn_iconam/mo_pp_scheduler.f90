@@ -1369,7 +1369,6 @@ CONTAINS
                 &           loutput=.TRUE., new_element=new_element,        &
                 &           post_op=info%post_op, var_class=info%var_class, &
                 &           tlev_source=info%tlev_source )
-               CALL message(routine, "This is in vinterp search"//TRIM(info%name) )
 
 
               !-- add post-processing task for interpolation
