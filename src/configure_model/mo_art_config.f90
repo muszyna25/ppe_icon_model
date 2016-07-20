@@ -105,13 +105,15 @@ MODULE mo_art_config
     
     ! Atmospheric Chemistry (Details: cf. Tab. 2.3 ICON-ART User Guide)
     LOGICAL :: lart_chem               !< Main switch to enable chemistry
+    LOGICAL :: lart_passive            !< Main switch to enable chemistry
     INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
     CHARACTER(LEN=120) :: cart_emiss_table_path  !< path of tex-files with meta data of emissions. ! MiW
     CHARACTER(LEN=120) :: cart_emiss_table_file  !< file names of tex-files with meta data of emissions without "_DOM??.tex" at the end. ! MiW
     CHARACTER(LEN=120) :: cart_vortex_init_date
     CHARACTER(LEN=120) :: cart_mozartfile
-    CHARACTER(LEN=120) :: cart_chemistry_xml
-    CHARACTER(LEN=120) :: cart_aerosol_xml
+    CHARACTER(LEN=120) :: cart_chemistry_xml     !< Path to XML file for chemical tracers
+    CHARACTER(LEN=120) :: cart_aerosol_xml       !< Path to XML file for aerosol tracers
+    CHARACTER(LEN=120) :: cart_passive_xml       !< Path to XML file for passive tracers
 
     ! Atmospheric Aerosol (Details: cf. Tab. 2.4 ICON-ART User Guide)
     LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol

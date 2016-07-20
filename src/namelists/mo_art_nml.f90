@@ -55,13 +55,15 @@ MODULE mo_art_nml
     
   ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
   LOGICAL :: lart_chem               !< Main switch to enable chemistry
+  LOGICAL :: lart_passive            !< Main switch to enable passive tracers
   INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
   CHARACTER(LEN=120) :: cart_emiss_table_path 
   CHARACTER(LEN=120) :: cart_emiss_table_file(0:max_dom)
   CHARACTER(LEN=120) :: cart_vortex_init_date
   CHARACTER(LEN=120) :: cart_mozartfile 
-  CHARACTER(LEN=120) :: cart_chemistry_xml
-  CHARACTER(LEN=120) :: cart_aerosol_xml
+  CHARACTER(LEN=120) :: cart_chemistry_xml     !< Path to XML file for chemical tracers
+  CHARACTER(LEN=120) :: cart_aerosol_xml       !< Path to XML file for aerosol tracers
+  CHARACTER(LEN=120) :: cart_passive_xml       !< Path to XML file for passive tracers
   ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
   LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
   INTEGER :: iart_seasalt            !< Treatment of sea salt aerosol
@@ -83,7 +85,7 @@ MODULE mo_art_nml
   LOGICAL :: lart_conv               !< Convection of aerosol (TRUE/FALSE)
   LOGICAL :: lart_turb               !< Turbulent diffusion of aerosol (TRUE/FALSE)
 
-  NAMELIST/art_nml/ cart_folder, lart_chem, iart_chem_mechanism,                       &
+  NAMELIST/art_nml/ cart_folder, lart_chem, lart_passive, iart_chem_mechanism,         &
    &                lart_aerosol, iart_seasalt, iart_dust, iart_anthro, iart_fire,     &
    &                iart_volcano, cart_volcano_file, iart_radioact,                    &
    &                cart_radioact_file, iart_pollen,                                   &
@@ -91,7 +93,7 @@ MODULE mo_art_nml
    &                lart_conv, lart_turb, iart_ntracer, iart_init_aero, iart_init_gas, &
    &                lart_diag_out, cart_emiss_table_path, cart_emiss_table_file,       &
    &                cart_vortex_init_date , cart_mozartfile,  cart_chemistry_xml,      &
-   &                cart_aerosol_xml
+   &                cart_aerosol_xml, cart_passive_xml
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -134,6 +136,7 @@ CONTAINS
       
     ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
     lart_chem             = .FALSE.
+    lart_passive          = .FALSE.
     iart_chem_mechanism   = 0
     cart_emiss_table_path = TRIM(cart_folder)//'docs/'   
     cart_emiss_table_file = 'art_emission_metadata_tables_DOM01.tex' 
@@ -141,6 +144,7 @@ CONTAINS
     cart_mozartfile       = ''
     cart_chemistry_xml    = ''
     cart_aerosol_xml      = ''
+    cart_passive_xml      = ''
 
     ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
     lart_aerosol        = .FALSE.
@@ -224,6 +228,7 @@ CONTAINS
       
       ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
       art_config(jg)%lart_chem             = lart_chem
+      art_config(jg)%lart_passive          = lart_passive
       art_config(jg)%iart_chem_mechanism   = iart_chem_mechanism
       art_config(jg)%cart_emiss_table_path = TRIM(cart_emiss_table_path)
       art_config(jg)%cart_emiss_table_file = TRIM(cart_emiss_table_file(jg))
@@ -231,6 +236,7 @@ CONTAINS
       art_config(jg)%cart_mozartfile       = TRIM(cart_mozartfile)
       art_config(jg)%cart_chemistry_xml    = TRIM(cart_chemistry_xml)
       art_config(jg)%cart_aerosol_xml      = TRIM(cart_aerosol_xml)
+      art_config(jg)%cart_passive_xml      = TRIM(cart_passive_xml)
 
 
       ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)

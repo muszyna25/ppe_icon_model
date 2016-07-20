@@ -1126,6 +1126,11 @@ CONTAINS
           CALL finish(TRIM(method_name),'lart_chem=.TRUE. but no cart_chemistry_xml specified')
         ENDIF
       ENDIF
+      IF(art_config(jg)%lart_passive) THEN
+        IF(TRIM(art_config(jg)%cart_passive_xml)=='') THEN
+          CALL finish(TRIM(method_name),'lart_passive=.TRUE. but no cart_passive_xml specified')
+        ENDIF
+      ENDIF
     ENDDO
     
 #endif
