@@ -342,4 +342,3 @@ CONTAINS
   END SUBROUTINE delete_list_element
   !-----------------------------------------------------------------------------
 END MODULE mo_linked_list
-
