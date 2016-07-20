@@ -308,12 +308,14 @@ MODULE mo_ocean_types
     onCells :: &
       & slopes_squared,   &
       & taper_function_1, &
-      & taper_function_2
-
+      & taper_function_2, &
+      & diagnose_Redi_flux_vert
+      
     onCells_Type(t_cartesian_coordinates) :: &
       & PgradTemperature_horz_center,        & ! reconstructed temperature gradient at cell center in cartesian coordinates
-      & PgradSalinity_horz_center              ! reconstructed salinity gradient at cell center in cartesian coordinates
-
+      & PgradSalinity_horz_center,           & ! reconstructed salinity gradient at cell center in cartesian coordinates
+      & diagnose_Redi_flux_temp,             & ! diagnostics used for balance of density fluxes in GM,   
+      & diagnose_Redi_flux_sal                 ! can be removed once diagnostic is no longer necessary
    onCells ::         &
       & DerivTemperature_vert_center, &  
       & DerivSalinity_vert_center 

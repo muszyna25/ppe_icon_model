@@ -1198,7 +1198,6 @@ CONTAINS
       & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
 
 
-
    CALL add_var(ocean_default_list,'div_of_GM_flux',ocean_state_diag%div_of_GM_flux,grid_unstructured_cell,&
       & za_depth_below_sea, &
       & t_cf_var('temp_insitu', 'm', 'div_of_GM_flux', datatype_flt),&
@@ -1494,7 +1493,22 @@ CONTAINS
      ocean_state_aux%PgradSalinity_horz_center       (:,:,:)%x(2)=0.0_wp
      ocean_state_aux%PgradSalinity_horz_center       (:,:,:)%x(3)=0.0_wp
 
-     
+     ALLOCATE(ocean_state_aux%diagnose_Redi_flux_temp(nproma,n_zlev,alloc_cell_blocks), stat=ist)
+     IF (ist/=success) THEN
+      CALL finish(TRIM(routine), 'allocation for diagnose_Redi_flux_temp at cells failed')
+     END IF
+     ocean_state_aux%diagnose_Redi_flux_temp       (:,:,:)%x(1)=0.0_wp
+     ocean_state_aux%diagnose_Redi_flux_temp       (:,:,:)%x(2)=0.0_wp
+     ocean_state_aux%diagnose_Redi_flux_temp       (:,:,:)%x(3)=0.0_wp
+
+    ALLOCATE(ocean_state_aux%diagnose_Redi_flux_sal(nproma,n_zlev,alloc_cell_blocks), stat=ist)
+     IF (ist/=success) THEN
+      CALL finish(TRIM(routine), 'allocation for diagnose_Redi_flux_sal at cells failed')
+     END IF
+     ocean_state_aux%diagnose_Redi_flux_sal       (:,:,:)%x(1)=0.0_wp
+     ocean_state_aux%diagnose_Redi_flux_sal       (:,:,:)%x(2)=0.0_wp
+     ocean_state_aux%diagnose_Redi_flux_sal       (:,:,:)%x(3)=0.0_wp     
+          
      CALL add_var(ocean_default_list,'DerivTemperature_vert',ocean_state_aux%DerivTemperature_vert_center,&
         & grid_unstructured_cell,&
         & za_depth_below_sea, t_cf_var('DerivTemperature_vert','','', datatype_flt),&
@@ -1527,6 +1541,11 @@ CONTAINS
         & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
         & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.FALSE.)
         
+     CALL add_var(ocean_default_list,'diagnose_Redi_flux_vert',ocean_state_aux%diagnose_Redi_flux_vert,&
+        & grid_unstructured_cell,&
+        & za_depth_below_sea, t_cf_var('diagnose_Redi_flux_vert','','', datatype_flt),&
+        & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
+        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.FALSE.)
         
         
      ! set all values - incl. last block - of cartesian coordinates to zero (NAG compiler)

@@ -577,9 +577,9 @@ CONTAINS
         & waveNumber=1.0_wp * initial_perturbation_waveNumber, &
         &  max_ratio=0.5_wp * initial_perturbation_max_ratio)
 
-    CASE (220)
+    !CASE (220)
     
-      CALL tracer_Redi_test(patch_3d=patch_3d, ocean_tracer=ocean_temperature,ocean_state=ocean_state)
+    !  CALL tracer_Redi_test(patch_3d=patch_3d, ocean_tracer=ocean_temperature,ocean_state=ocean_state)
 
     CASE (221)
       ! Abernathey setup 01; initial SST reflects the heat fluxes
@@ -2497,8 +2497,8 @@ END DO
     density=> ocean_state%p_diag%rho(:,:,:)
     ocean_tracer=0.0_wp
     density=0.0_wp
-    slope_parameter =0.00001_wp
-!    slope_parameter =0.15_wp !0.5
+!    slope_parameter =0.00001_wp
+    slope_parameter =0.5_wp !0.15
     temperature_difference = slope_parameter*(initial_temperature_south - initial_temperature_north)
     
     basin_northBoundary    = (basin_center_lat + 0.5_wp*basin_height_deg) * deg2rad
@@ -2564,7 +2564,7 @@ END DO
         lon_deg = patch_2d%cells%center(idx,block)%lon * rad2deg
         
         x_coord = (lon_deg - (basin_center_lon -0.5_wp*basin_width_deg))/(basin_width_deg)
-write(123,*)'x-coord',x_coord        
+!write(123,*)'x-coord',x_coord        
         IF(lat_deg>=basin_center_lat-0.5.AND.lat_deg<basin_center_lat+0.5)THEN
 
         DO level = 1,n_zlev
@@ -2572,14 +2572,14 @@ write(123,*)'x-coord',x_coord
           z_coord =&
           & (patch_3d%p_patch_1d(1)%zlev_m(1)- patch_3d%p_patch_1d(1)%zlev_m(level))/patch_3d%p_patch_1d(1)%zlev_m(n_zlev)
           !z_coord =-z_coord   
-write(123,*)'z-coord',level,z_coord
+!write(123,*)'z-coord',level,z_coord
            !density(idx,level,block)=density(idx,level,block)&
            !&-tanh(slope_parameter*(z_coord+tanh(x_coord))) !-tanh(x_coord)*(1.0_wp+z_coord) !
 !To be preserved: this is used for Redi test
 
           IF((x_coord+z_coord>=0.25_wp.OR.x_coord+z_coord<=-0.25_wp).AND.x_coord<=0.5)THEN
           !density(idx,level,block)=4.0
-           density(idx,level,block)=density(idx,level,block)+0.000115_wp*density(idx,level,block)!&
+           density(idx,level,block)=density(idx,level,block)-0.000115_wp*density(idx,level,block)!&
           ! &-tanh(0.5*slope_parameter*(z_coord+tanh(x_coord))) !-tanh(x_coord)*(1.0_wp+z_coord) !          
 !          ENDIF
 !          !ELSEIF(x_coord+z_coord<=-0.25_wp)THEN
@@ -2588,7 +2588,7 @@ write(123,*)'z-coord',level,z_coord
           !ELSEIF(x_coord>0.5.AND.(x_coord-z_coord<0.75.OR.x_coord+z_coord<0.0))THEN
           ELSEIF(x_coord>0.5.AND.(x_coord-z_coord<0.75.OR.(1.0-x_coord+z_coord)<-0.25))THEN
           !density(idx,level,block)=4.0        
-           density(idx,level,block)=density(idx,level,block)+0.000115_wp*density(idx,level,block)!&          
+           density(idx,level,block)=density(idx,level,block)-0.000115_wp*density(idx,level,block)!&          
           ELSE
          ! density(idx,level,block)=2.0
           density(idx,level,block)=1023_wp&

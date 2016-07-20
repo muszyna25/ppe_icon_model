@@ -624,7 +624,8 @@ CONTAINS
         DO jb = cells_in_domain%start_block, cells_in_domain%end_block
           CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
           DO jc = start_cell_index, end_cell_index
-            DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+            DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)     
+				
              temp_tracer_before%concentration(jc,level,jb)=new_ocean_tracer%concentration(jc,level,jb)            
              temp_tracer_after%concentration(jc,level,jb)=new_ocean_tracer%concentration(jc,level,jb)                         
             END DO
@@ -654,7 +655,9 @@ CONTAINS
         DO jb = cells_in_domain%start_block, cells_in_domain%end_block
           CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
           DO jc = start_cell_index, end_cell_index
-            DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+
+            DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)       
+
                p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
              &=p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
              &+(temp_tracer_after%concentration(jc,level,jb)-temp_tracer_before%concentration(jc,level,jb))            

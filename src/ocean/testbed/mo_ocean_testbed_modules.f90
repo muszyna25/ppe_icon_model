@@ -53,7 +53,7 @@ MODULE mo_ocean_testbed_modules
     & t_sea_ice
   USE mo_physical_constants,     ONLY: rhoi, rhos, clw, alf, Tf
   USE mo_ocean_physics_types,    ONLY: t_ho_params
-  USE mo_ocean_GM_Redi,          ONLY: calc_neutralslope_coeff, calc_neutralslope_coeff_func_onColumn, &
+  USE mo_ocean_GM_Redi,          ONLY: calc_neutralslope_coeff_func_onColumn, &
   &                                    prepare_ocean_physics,calc_ocean_physics
   USE mo_ocean_diagnostics,      ONLY: calc_fast_oce_diagnostics, calc_psi
   USE mo_ocean_thermodyn,        ONLY: calc_potential_density, calculate_density
@@ -239,6 +239,7 @@ IF(GMRedi_configuration/=Cartesian_Mixing)THEN
         & physics_parameters, &
         & operators_coefficients)
 ENDIF
+DO tracer_index=1,2
          CALL advect_diffuse_tracer( patch_3d, &
            & ocean_state(n_dom)%p_prog(nold(1))%ocean_tracers(tracer_index),&
            & ocean_state(n_dom),            &
@@ -250,7 +251,7 @@ ENDIF
            & physics_parameters%a_tracer_v(:,:,:,1),             &
            & ocean_state(n_dom)%p_prog(nnew(1))%ocean_tracers(tracer_index),&
            & tracer_index)
-
+END DO
 
 !      CALL calculate_density( patch_3d,                         &
 !       & ocean_state(n_dom)%p_prog(nold(1))%tracer(:,:,:,1:no_tracer),&
@@ -1202,11 +1203,11 @@ ENDIF
     alph(:,:,:) = 0.0_wp
     beta(:,:,:) = 0.0_wp
 
-    CALL calc_neutralslope_coeff( &
-      &    patch_3d,              &
-      &    p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,:), &
-!       &    p_os(n_dom)%p_prog(nold(1))%h(:,:), &
-      &    alph, beta)
+!    CALL calc_neutralslope_coeff( &
+!      &    patch_3d,              &
+!      &    p_os(n_dom)%p_prog(nold(1))%tracer(:,:,:,:), &
+!!       &    p_os(n_dom)%p_prog(nold(1))%h(:,:), &
+!      &    alph, beta)
 
     !  test values
     t = 10.0_wp

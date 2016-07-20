@@ -30,13 +30,14 @@ MODULE mo_ocean_GM_Redi
     & GMRedi_configuration,&
     & GMRedi_combined, GM_only, Redi_only,Cartesian_Mixing,&
     & k_tracer_dianeutral_parameter, k_tracer_isoneutral_parameter, &
-    & k_tracer_GM_kappa_parameter,&
+    & k_tracer_GM_kappa_parameter,EOS_TYPE,&
     & GMRedi_configuration,GMRedi_combined, GM_only,Redi_only,Cartesian_Mixing, &
     & tapering_scheme,tapering_DanaMcWilliams,tapering_Large,tapering_Griffies, &
     & S_max, S_d, S_critical, c_speed, GMRedi_usesRelativeMaxSlopes,            &
     & RossbyRadius_max, RossbyRadius_min,switch_off_diagonal_vert_expl,         &
     & GMREDI_COMBINED_DIAGNOSTIC,GM_INDIVIDUAL_DIAGNOSTIC,REDI_INDIVIDUAL_DIAGNOSTIC,&
-    &TEST_MODE_REDI_ONLY,TEST_MODE_GM_ONLY
+    &TEST_MODE_REDI_ONLY,TEST_MODE_GM_ONLY,LinearThermoExpansionCoefficient, LinearHalineContractionCoefficient,&
+    & SWITCH_OFF_TAPERING,SWITCH_ON_REDI_BALANCE_DIAGONSTIC
     
 
   USE mo_util_dbg_prnt,             ONLY: dbg_print
@@ -67,7 +68,7 @@ MODULE mo_ocean_GM_Redi
 
   PUBLIC  :: prepare_ocean_physics
   PUBLIC  :: calc_ocean_physics
-  PUBLIC  :: calc_neutralslope_coeff
+  !PUBLIC  :: calc_neutralslope_coeff
   PUBLIC  :: calc_neutralslope_coeff_func_onColumn
 !   PUBLIC  :: calc_neutralslope_coeff_func
   
@@ -76,6 +77,7 @@ MODULE mo_ocean_GM_Redi
   !PRIVATE :: apply_tapering_function2mixingcoeff
   PRIVATE :: calc_tapering_function
   PRIVATE :: calc_tapering
+  PUBLIC :: diagnose_Redi_flux_balance
   
 CONTAINS
 
@@ -136,6 +138,8 @@ CONTAINS
     SELECT CASE(GMRedi_configuration)!GMRedi_configuration==Cartesian_Mixing)RETURN
  
     CASE(GMRedi_combined)
+    
+    
         CALL calc_combined_GentMcWilliamsRedi_flux( patch_3d,        &
             & ocean_state,      &
             & param,            &
@@ -147,6 +151,13 @@ CONTAINS
       CALL finish(TRIM('mo_ocean_GM_Redi'), 'This GMRedi_configuration is not supported')
     
     END SELECT
+    
+    IF(SWITCH_ON_REDI_BALANCE_DIAGONSTIC)THEN
+
+     CALL diagnose_Redi_flux_balance(patch_3d, ocean_state, param, op_coeff,&
+     & tracer_index)
+    ENDIF           
+    
 
   END SUBROUTINE calc_ocean_physics
   !-------------------------------------------------------------------------
@@ -186,7 +197,7 @@ CONTAINS
     REAL(wp)                                 :: taper_diagonal_horz(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp)                                 :: taper_diagonal_vert_expl(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)    
     REAL(wp)                                 :: taper_diagonal_vert_impl(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)            
-    REAL(wp) :: mapped_vertical_diagonal_impl(nproma,n_zlev+1,patch_3D%p_patch_2D(1)%alloc_cell_blocks)            
+    REAL(wp) :: mapped_vertical_diagonal_impl(nproma,n_zlev+1,patch_3D%p_patch_2D(1)%alloc_cell_blocks)         
     !-------------------------------------------------------------------------------
     patch_2D        => patch_3d%p_patch_2d(1)
     cells_in_domain => patch_2D%cells%in_domain 
@@ -212,7 +223,8 @@ CONTAINS
                     & taper_off_diagonal_horz,       &
                     & taper_off_diagonal_vert,       &
                     & tracer_index )
-    ENDIF                
+    ENDIF    
+     
     IF(no_tracer<=2)THEN
 
       IF(tracer_index==1)THEN
@@ -315,7 +327,7 @@ CONTAINS
         DO cell_index = start_cell_index, end_cell_index
           DO level = start_level, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
             param%a_tracer_v(cell_index,level,blockNo, tracer_index) =                &
-             & 1.0E-05+&!param%a_tracer_v(cell_index,level,blockNo, tracer_index) + &
+             & param%a_tracer_v(cell_index,level,blockNo, tracer_index) + &
              & ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit(cell_index,level,blockNo)
           END DO                  
         END DO                
@@ -431,7 +443,8 @@ CONTAINS
     !Note that in case of 1-component fluid we use the density for the slope calculation,
     !all relevant imformation is stored in the tracer%temperature structure
     ELSEIF(no_tracer==1)THEN      
-      pot_temp          => ocean_state%p_diag%rho
+      pot_temp          => ocean_state%p_diag%rho	
+      !pot_temp          => ocean_state%p_prog(nold(1))%ocean_tracers(1)%concentration  
       grad_T_vec        => ocean_state%p_aux%PgradTemperature_horz_center
       grad_T_vert_center=> ocean_state%p_aux%DerivTemperature_vert_center
     
@@ -582,26 +595,36 @@ CONTAINS
         end_level = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
         IF(end_level <= min_dolic) CYCLE
 
-        !4) calculate slope coefficients as thermal expansion and saline contraction coefficients
-        IF (no_tracer==2) salinityColumn(1:end_level) = salinity(cell_index,1:end_level,blockNo)
 
-        neutral_coeff = calc_neutralslope_coeff_func_onColumn(         &
-          & pot_temp(cell_index,1:end_level,blockNo), salinityColumn(1:end_level),  &
-          & depth_cellinterface(cell_index,2:end_level+1,blockNo), end_level)
-
-         !neutral_alpha(1:end_level) = neutral_coeff(1:end_level,1)
-         !neutral_beta(1:end_level)  = neutral_coeff(1:end_level,2)
         
-        !5) calculate slope as cell centered vector
+        !4) calculate slope as cell centered vector
         IF (no_tracer==2) THEN
+          salinityColumn(1:end_level) = salinity(cell_index,1:end_level,blockNo)
+
+          !4.1) calculate slope coefficients as thermal expansion and saline contraction coefficients
+          !
+          !Nonlinear EOS, slope coefficients are calculated via the McDougall-method
+          IF(EOS_TYPE/=1)THEN
+          
+            neutral_coeff = calc_neutralslope_coeff_func_onColumn(         &
+            & pot_temp(cell_index,1:end_level,blockNo), salinityColumn(1:end_level),  &
+            & depth_cellinterface(cell_index,2:end_level+1,blockNo), end_level)
+          !Linear EOS: slope coefficients are equal to EOS-coefficients
+          ELSEIF(EOS_TYPE==1)THEN
+          
+            neutral_coeff(:,1) = LinearThermoExpansionCoefficient 
+            neutral_coeff(:,2) = LinearHalineContractionCoefficient
+            
+          ENDIF
+        
           DO level = start_level+1, end_level-1
 
 ! hier die neutral_coeff abgreifen (alpha=neutral_coeff(level,1),beta=neutral_coeff(level,2))
               
             ocean_state%p_aux%slopes(cell_index,level,blockNo)%x &
-              & = -( neutral_coeff(level,1) * grad_T_vec(cell_index,level,blockNo)%x + &
+              & = -(-neutral_coeff(level,1) * grad_T_vec(cell_index,level,blockNo)%x + &
               &      neutral_coeff(level,2) * grad_S_vec(cell_index,level,blockNo)%x)  &           
-              &   / (neutral_coeff(level,1) * grad_T_vert_center(cell_index,level,blockNo)+ &
+              &   /(-neutral_coeff(level,1) * grad_T_vert_center(cell_index,level,blockNo)+ &
               &      neutral_coeff(level,2) * grad_S_vert_center(cell_index,level,blockNo)-dbl_eps)
 
             ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)=&
@@ -746,15 +769,15 @@ CONTAINS
               !cell_max_slope      = S_max*SQRT(patch_2D%cells%area(cell_index,blockNo))&
               !& / patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo)
 
-              !cell_critical_slope = S_critical &
-              !  & * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo) &
-              !  & * inv_cell_characteristic_length
+              cell_critical_slope = S_critical &
+                & * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo) &
+                & * inv_cell_characteristic_length
                 
               slope_abs = sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo))
 
               IF(slope_abs <= cell_max_slope)THEN
                 ocean_state%p_aux%taper_function_1(cell_index,level,blockNo) &
-                  &= 0.5_wp*(1.0_wp + tanh((cell_max_slope - slope_abs)*inv_S_d))
+                  &= 0.5_wp*(1.0_wp + tanh((cell_critical_slope - slope_abs)*inv_S_d))
               ELSE
                 ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)=0.0_wp
               ENDIF
@@ -930,6 +953,11 @@ CONTAINS
     K_I           => param%k_tracer_isoneutral
     K_D           => param%k_tracer_dianeutral !param%a_tracer_v(:,:,:,tracer_index) !  
     kappa         => param%k_tracer_GM_kappa
+    
+    IF(SWITCH_OFF_TAPERING)THEN
+     ocean_state%p_aux%taper_function_1(:,:,:)=1.0_wp
+     ocean_state%p_aux%taper_function_2(:,:,:)=1.0_wp
+    ENDIF
     !-------------------------------------------------------------------------------
     
     SELECT CASE(tapering_scheme)
@@ -937,6 +965,7 @@ CONTAINS
     CASE(tapering_DanaMcWilliams)
 !ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE
+
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
 
@@ -1053,7 +1082,6 @@ CONTAINS
               & * ocean_state%p_aux%taper_function_2(cell_index,level,blockNo)&
               & *(K_I(cell_index,level,blockNo)-kappa(cell_index,level,blockNo))&
               &*ocean_state%p_aux%slopes(cell_index,level,blockNo)%x
-
 
               !coefficients for vertical fluxes
               taper_off_diagonal_vert(cell_index,level,blockNo)%x&
@@ -1187,10 +1215,6 @@ Do level=1,n_zlev
 END DO   
   END SUBROUTINE calc_tapering
   !-------------------------------------------------------------------------
-  
-  
-  
-  
   
   
    !-------------------------------------------------------------------------
@@ -1455,11 +1479,492 @@ END DO
   
    
   
-  
-  
-  
-  
-  
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Calculates polynomial coefficients for thermal expansion and saline contraction
+  !! matching the equation of state as described in (UNESCO)
+  !!   Fofonoff and Millard, 1984, UNESCO, Paris, Tech. Pap. Mar. Sci., 44, 53pp
+  !! This method is using the older !! IPTS (International Practical Temperature Scale) of 1968.
+  !! The code below is adopted from FESOM (Quiang Wang, Sergey Danilov)
+  !!
+  !! @par Revision History
+  !! Initial version by Stephan Lorenz, MPI-M (2014)
+  !!
+  !<Optimize:inUse>
+  FUNCTION calc_neutralslope_coeff_func_onColumn(t,s,p,levels) result(coeff)
+    !-----------------------------------------------------------------
+    ! REFERENCES:
+    !    McDougall, T.J. 1987.  Neutral Surfaces
+    !    Journal of Physical Oceanography, Vol 17, 1950-1964,
+    !-----------------------------------------------------------------
+    ! CHECK VALUE:
+    !    sw_beta=0.72088e-3 psu^-1 @ S=40.0psu, ptmp=10.0C (ITS-90), p=4000db
+    !    a_over_b=0.34765 psu*C^-1 @ S=40.0psu, ptmp=10.0C, p=4000db
+    ! Valid Range:
+    !    S=25 to 40psu, p=0 to 4000db (ptmp=10C)
+    !                   p=0 to 1000db (ptmp=20-40C)
+    !-----------------------------------------------------------------
+    !
+    INTEGER, INTENT(in)   :: levels
+    REAL(wp), INTENT(in)  :: t(:)        !  potential temperature (in ITS-90) [C]
+    REAL(wp), INTENT(in)  :: s(:)        !  salinity (in PSS-78) [psu]
+    REAL(wp), INTENT(in)  :: p(:)       !  pressure (in dezi-bar) [db]
+    REAL(wp)              :: coeff(1:n_zlev,2) !  thermal expansion [1/C] and saline contraction [1/psu] coefficients
+
+    ! local variables, following the naming of the FESOM implementation
+    REAL(wp):: aob(1:levels), t1(1:levels), t2(1:levels), t3(1:levels), t4(1:levels), &
+      & s35(1:levels), s35sq(1:levels), s1(1:levels), s2(1:levels), s3(1:levels), p1(1:levels), p2(1:levels), p3(1:levels)
+
+    INTEGER :: level
+
+    !  polynomial parameter for calculation of saline contraction coeff beta
+    REAL(wp), PARAMETER :: &
+      & bet_t0   = 0.785567e-3_wp,  &
+      & bet_t1   = 0.301985e-5_wp,  &
+      & bet_t2   = 0.555579e-7_wp,  &
+      & bet_t3   = 0.415613e-9_wp,  &
+      & bet_st0  = 0.356603e-6_wp,  &
+      & bet_st1  = 0.788212e-8_wp,  &
+      & bet_sp1  = 0.408195e-10_wp, &
+      & bet_sp2  = 0.602281e-15_wp, &
+      & bet_s2   = 0.515032e-8_wp,  &
+      & bet_p1t0 = 0.121555e-7_wp,  &
+      & bet_p1t1 = 0.192867e-9_wp,  &
+      & bet_p1t2 = 0.213127e-11_wp, &
+      & bet_p2t0 = 0.176621e-12_wp, &
+      & bet_p2t1 = 0.175379e-14_wp, &
+      & bet_p3   = 0.121551e-17_wp
+
+    !  polynomial parameter for calculation of thermal expansion coefficient alpha
+    !  via fraction alpha over beta (aob)
+    REAL(wp), PARAMETER :: &
+      & aob_t0   = 0.665157e-1_wp,  &
+      & aob_t1   = 0.170907e-1_wp,  &
+      & aob_t2   = 0.203814e-3_wp,  &
+      & aob_t3   = 0.298357e-5_wp,  &
+      & aob_t4   = 0.255019e-7_wp,  &
+      & aob_st0  = 0.378110e-2_wp,  &
+      & aob_st1  = 0.846960e-4_wp,  &
+      & aob_sp1  = 0.164759e-6_wp,  &
+      & aob_sp2  = 0.251520e-11_wp, &
+      & aob_s2   = 0.678662e-5_wp,  &
+      & aob_p1t0 = 0.380374e-4_wp,  &
+      & aob_p1t1 = 0.933746e-6_wp,  &
+      & aob_p1t2 = 0.791325e-8_wp,  &
+      & aob_p2t2 = 0.512857e-12_wp, &
+      & aob_p3   = 0.302285e-13_wp
+
+    ! t1 = t
+    s1(1:levels) = s(1:levels)
+    p1(1:levels) = p(1:levels)
+
+   ! correction factor for conversion of 1990 to 1968 temperature standard (IPTS-68 to IPTS-90)
+   ! the correction is less than 0.01 K in ocean water temperature range
+   !  - T68 = 1.00024*T90
+   !  - above mentioned CHECK VALUES of the paper are better met by this correction
+    t1(1:levels) = t(1:levels) * 1.00024_wp
+
+    t2(1:levels)    = t1(1:levels) * t1(1:levels)
+    t3(1:levels)    = t2(1:levels) * t1(1:levels)
+    t4(1:levels)    = t3(1:levels) * t1(1:levels)
+    p2(1:levels)    = p1(1:levels )* p1(1:levels)
+    p3(1:levels)    = p2(1:levels )* p1(1:levels)
+    s35(1:levels)   = s(1:levels) - 35.0_wp
+    s35sq(1:levels) = s35(1:levels) * s35(1:levels)
+
+    DO level=1,levels
+      ! calculate beta, saline contraction
+      coeff(level,2) = bet_t0 - bet_t1*t1(level)                             &
+        &         + bet_t2*t2(level) - bet_t3*t3(level)                      &
+        &         + s35(level)*(-bet_st0    + bet_st1*t1(level)              &
+        &         +       bet_sp1*p1(level) - bet_sp2*p2(level))             &
+        &         + s35sq(level)*bet_s2                                      &
+        &         + p1(level)*(-bet_p1t0 + bet_p1t1*t1(level) - bet_p1t2*t2(level)) &
+        &         + p2(level)*( bet_p2t0 - bet_p2t1*t1(level))               &
+        &         + p3(level)*bet_p3
+
+      ! calculate alpha/beta
+      aob(level) = aob_t0 + aob_t1*t1 (level)                                &
+        &         - aob_t2*t2(level) + aob_t3*t3(level)                      &
+        &         - aob_t4*t4(level)                                         &
+        &         + s35(level)*(+aob_st0    - aob_st1*t1(level)              &
+        &                -aob_sp1*p1(level) - aob_sp2*p2(level))             &
+        &         - s35sq(level)*aob_s2                                      &
+        &         + p1(level)*(+aob_p1t0 - aob_p1t1*t1(level) + aob_p1t2*t2(level)) &
+        &         + p2(level)*t2(level)*aob_p2t2                             &
+        &         - p3(level)*aob_p3
+
+      ! calculate alpha, thermal expansion
+      coeff(level,1) = aob(level)* coeff(level, 2)
+    ENDDO
+
+  END FUNCTION calc_neutralslope_coeff_func_onColumn
+
+  !-------------------------------------------------------------------------
+  !
+  !>
+  !! !  SUBROUTINE calculates the fluxes of the isoycnical diffusion following Redi and the eddy flux of GM.
+  !!
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2014).
+  !!
+  !<Optimize:inUse>
+  SUBROUTINE diagnose_Redi_flux_balance(patch_3d, ocean_state, param, op_coeff,&
+    &tracer_index)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout)  :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET        :: ocean_state
+    TYPE(t_ho_params),      INTENT(inout)    :: param
+    TYPE(t_operator_coeff), INTENT(in)       :: op_coeff
+    INTEGER, INTENT(IN)                      :: tracer_index 
+    
+    !Local variables
+    INTEGER :: start_cell_index, end_cell_index, cell_index,level,start_level,end_level,blockNo
+    INTEGER :: start_edge_index, end_edge_index, je     
+    TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain, edges_in_domain
+    TYPE(t_patch), POINTER :: patch_2D
+    REAL(wp) :: flux_vert_center(nproma, n_zlev,patch_3D%p_patch_2d(1)%alloc_cell_blocks)
+    TYPE(t_cartesian_coordinates) :: flux_vec_horz_center(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    TYPE(t_cartesian_coordinates),POINTER :: tracer_gradient_horz_vec_center(:,:,:), slopes(:,:,:)
+    REAL(wp), POINTER :: tracer_gradient_vert_center(:,:,:)
+
+    TYPE(t_cartesian_coordinates)            :: taper_off_diagonal_vert(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)    
+    TYPE(t_cartesian_coordinates)            :: taper_off_diagonal_horz(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp)                                 :: taper_diagonal_horz(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp)                                 :: taper_diagonal_vert_expl(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)    
+    REAL(wp)                                 :: taper_diagonal_vert_impl(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)            
+    REAL(wp) :: mapped_vertical_diagonal_impl(nproma,n_zlev+1,patch_3D%p_patch_2D(1)%alloc_cell_blocks)     
+    TYPE(t_cartesian_coordinates) :: flux_sum_horz(nproma,n_zlev, patch_3d%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp)                      :: flux_sum_vert(nproma,n_zlev, patch_3d%p_patch_2D(1)%alloc_cell_blocks)                      
+    REAL(wp) :: flux_vert_temp(nproma,n_zlev, patch_3d%p_patch_2D(1)%alloc_cell_blocks)           
+    REAL(wp) :: flux_vert_sal(nproma,n_zlev, patch_3d%p_patch_2D(1)%alloc_cell_blocks)           
+    REAL(wp):: neutral_coeff(1:n_zlev, 2), salinityColumn(1:n_zlev)
+    REAL(wp), POINTER :: pot_temp(:,:,:), salinity(:,:,:)
+    REAL(wp), POINTER :: depth_cellinterface(:,:,:)
+    
+    REAL(wp)        :: GMredi_flux_horz(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp)        :: GMredi_flux_vert(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
+    
+    !-------------------------------------------------------------------------------
+    patch_2D        => patch_3d%p_patch_2d(1)
+    cells_in_domain => patch_2D%cells%in_domain 
+    all_cells       => patch_2D%cells%all
+    edges_in_domain => patch_2D%edges%in_domain 
+    slopes          => ocean_state%p_aux%slopes 
+    depth_cellinterface => patch_3D%p_patch_1d(1)%depth_cellinterface
+    
+    
+    GMredi_flux_horz(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%nblks_e)=0.0_wp
+    GMredi_flux_vert(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%nblks_e)=0.0_wp
+    
+   IF(no_tracer>=2)THEN
+      pot_temp          => ocean_state%p_prog(nold(1))%ocean_tracers(1)%concentration
+      salinity          => ocean_state%p_prog(nold(1))%ocean_tracers(2)%concentration
+    ELSEIF(no_tracer==1)THEN      
+      pot_temp          => ocean_state%p_diag%rho
+    ENDIF
+    
+ write(0,*)'Call to diag-Redi', tracer_index,no_tracer  
+    start_level=1
+
+    CALL calc_tapering(patch_3d, ocean_state, param, &
+                    & taper_diagonal_horz,           &
+                    & taper_diagonal_vert_expl,      &
+                    & taper_diagonal_vert_impl,      &
+                    & taper_off_diagonal_horz,       &
+                    & taper_off_diagonal_vert,       &
+                    & tracer_index )
+!    ENDIF   
+             
+    IF(no_tracer<=2)THEN
+
+      flux_sum_horz(1:nproma,1:n_zlev, 1:patch_3d%p_patch_2D(1)%alloc_cell_blocks)%x(1)=0.0_wp 
+      flux_sum_horz(1:nproma,1:n_zlev, 1:patch_3d%p_patch_2D(1)%alloc_cell_blocks)%x(2)=0.0_wp         
+      flux_sum_horz(1:nproma,1:n_zlev, 1:patch_3d%p_patch_2D(1)%alloc_cell_blocks)%x(3)=0.0_wp
+      
+      flux_sum_vert(:,:,:) =0.0_wp                
+      flux_vert_temp(:,:,:)=0.0_wp  
+
+
+      IF(tracer_index==1)THEN
+        
+!       write(0,*) "DerivTemperature_vert_center"
+        tracer_gradient_horz_vec_center => ocean_state%p_aux%PgradTemperature_horz_center
+        tracer_gradient_vert_center     => ocean_state%p_aux%DerivTemperature_vert_center
+      ELSEIF(tracer_index==2)THEN
+        
+        flux_vert_sal(1:nproma,1:n_zlev, 1:patch_3d%p_patch_2D(1)%alloc_cell_blocks)=0.0_wp        
+
+!       write(0,*) "DerivSalinity_vert_center"
+        tracer_gradient_horz_vec_center => ocean_state%p_aux%PgradSalinity_horz_center
+        tracer_gradient_vert_center     => ocean_state%p_aux%DerivSalinity_vert_center
+      ENDIF
+
+      DO blockNo = all_cells%start_block, all_cells%end_block        
+        CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)      
+        DO cell_index = start_cell_index, end_cell_index
+          DO level = 1, n_zlev
+            flux_vec_horz_center(cell_index,level,blockNo)%x = 0.0_wp
+          ENDDO
+        ENDDO
+      ENDDO
+!ICON_OMP_DO_PARALLEL PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
+      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block        
+        CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)      
+        DO cell_index = start_cell_index, end_cell_index
+ 
+          !horizontal GMRedi Flux at top layer: with the tapering this is the just horizontal diffusion
+          DO level = start_level, MIN(patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo),start_level)
+            flux_vec_horz_center(cell_index,start_level,blockNo)%x &
+              &=taper_diagonal_horz(cell_index,start_level,blockNo) &
+              &*tracer_gradient_horz_vec_center(cell_index,start_level,blockNo)%x
+
+!             flux_vert_center(cell_index,start_level,blockNo) &
+!               &=taper_diagonal_vert_expl(cell_index,start_level,blockNo)&
+!               &*tracer_gradient_vert_center(cell_index,start_level,blockNo)
+!            ! the top level flux_vert_center will be filled from the second level, if it exists
+             flux_vert_center(cell_index,start_level,blockNo) = 0.0_wp
+          ENDDO
+
+          DO level = start_level+1, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
+          
+            !horizontal GM-Redi Flux
+            flux_vec_horz_center(cell_index,level,blockNo)%x &
+              &=taper_diagonal_horz(cell_index,level,blockNo)*  &
+              &tracer_gradient_horz_vec_center(cell_index,level,blockNo)%x&
+              !the second term vanishes if GM-Kappa=isoneutral diffusion
+              &+taper_off_diagonal_horz(cell_index,level,blockNo)%x&
+              &*tracer_gradient_vert_center(cell_index,level,blockNo)
+              
+            !vertical GM-Redi Flux: this is the part that is explicit in time
+            !If namelist option "switch_off_diagonal_vert_expl=TRUE" the
+            !first (diagonal) term is set to zero. Default option "switch_off_diagonal_vert_expl=FALSE"
+            !Second term contains isoneutral and GM components
+            !
+            !For diagnostic purposes everything is handled exlicitely.
+            flux_vert_center(cell_index,level,blockNo)= &
+              &(taper_diagonal_vert_expl(cell_index,level,blockNo)&
+              &+taper_diagonal_vert_impl(cell_index,level,blockNo))&
+              &*tracer_gradient_vert_center(cell_index,level,blockNo)&
+              &+&
+              &Dot_Product(tracer_gradient_horz_vec_center(cell_index,level,blockNo)%x,&
+              &            taper_off_diagonal_vert(cell_index,level,blockNo)%x)
+                
+          END DO
+          ! fill the top level flux_vert_center from the second level, if it exists
+!           DO level = start_level+1, MIN(patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo),start_level+1)
+!             flux_vert_center(cell_index,start_level,blockNo) = flux_vert_center(cell_index,start_level+1,blockNo)
+!           END DO
+        END DO                
+      END DO
+!ICON_OMP_END_DO_PARALLEL
+
+!    !Map the (explicit) vertical tracer flux to the prism top (where the vertical divergence is calculated later)
+!    CALL map_scalar_center2prismtop(patch_3d, flux_vert_center, op_coeff,GMredi_flux_vert)
+
+      ! now we treat the vertical isoneutral flux that is discretized implicitely in time.
+      ! 
+      !1.) Interpolate the tapered coefficient for the vertical tracer flux from prism center to prism top: 
+      !this is the diagonal part that is handled implicitely in time  
+      !CALL map_scalar_center2prismtop( patch_3d, &
+      !  &                              taper_diagonal_vert_impl,&
+      !  &                              op_coeff,                &
+      !  &                              ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit)        
+      !  &                              mapped_vertical_diagonal_impl)!param%a_tracer_v(:,:,:, tracer_index))
+      !
+      !Do level=1,n_zlev
+      !CALL dbg_print('Old vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
+      !CALL dbg_print('Old vert coeff: A_v', ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit,&
+      !& this_mod_name, 4, patch_2D%cells%in_domain)
+      !End do
+      !
+      !2.) Here we combine the vertical GMRedicoefficient that is treated implicitely (mapped_vertical_diagonal_impl, this
+      !term involves the slopes-squared times the isopycnal mixing coefficient and is potentially large, therefore
+      !it is discretized implicitely) with the vertical mixing coefficient from the PP-scheme. 
+      !We follow the approach in POP, where these two contributions are added
+      !(see Reference manual POP, sect 5.1.3, in particular p. 41, after eq (150)).
+      !
+!ICON_OMP_DO_PARALLEL PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
+      !DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block     
+      !  CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)      
+      !  DO cell_index = start_cell_index, end_cell_index
+      !    DO level = start_level, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
+      !      param%a_tracer_v(cell_index,level,blockNo, tracer_index) =                &
+      !       & param%a_tracer_v(cell_index,level,blockNo, tracer_index) + &
+      !       & ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit(cell_index,level,blockNo)
+      !    END DO                  
+      !  END DO                
+      !END DO
+!ICON_OMP_END_DO_PARALLEL
+     !Do level=1,n_zlev
+     ! CALL dbg_print('New vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
+      !CALL dbg_print('New vert coeff: A_v', &
+      !&ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit(:,level,:),&
+      !& this_mod_name, 4, patch_2D%cells%in_domain)
+     !END DO 
+        
+    !Map the explicit horizontal tracer flux from cell centers to edges (where the horizontal divergence is calculated)
+    !
+    ! use a vector communicator
+    CALL sync_patch_array_mult(sync_c, patch_2D, 3, &
+        & flux_vec_horz_center(:,:,:)%x(1), flux_vec_horz_center(:,:,:)%x(2), flux_vec_horz_center(:,:,:)%x(3))
+    !CALL map_cell2edges_3D( patch_3D,flux_vec_horz_center, GMredi_flux_horz, op_coeff)
+
+
+
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,neutral_coeff, &
+!ICON_OMP  level) ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+
+      DO cell_index = start_cell_index, end_cell_index
+        end_level = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+        IF(end_level <= min_dolic) CYCLE
+
+        
+         IF (no_tracer>=2)THEN
+         
+           salinityColumn(1:end_level) = salinity(cell_index,1:end_level,blockNo)
+           
+           !Nonlinear EOS 
+           IF(EOS_TYPE/=1)THEN
+             neutral_coeff = calc_neutralslope_coeff_func_onColumn(         &
+             & pot_temp(cell_index,1:end_level,blockNo), salinityColumn(1:end_level),  &
+             & depth_cellinterface(cell_index,2:end_level+1,blockNo), end_level)
+           !Linear EOS: slope coefficients are equal to EOS-coefficients
+           ELSEIF(EOS_TYPE==1)THEN
+              neutral_coeff(:,1) = LinearThermoExpansionCoefficient 
+              neutral_coeff(:,2) = LinearHalineContractionCoefficient       
+            ENDIF
+          
+         ELSEIF(no_tracer==1)THEN         
+           neutral_coeff(:,1)=1.0         
+         ENDIF 
+
+
+         IF(tracer_index==1)THEN
+           DO level = start_level+1, end_level-1
+                       
+            ocean_state%p_aux%diagnose_Redi_flux_temp(cell_index,level,blockNo)%x&
+            &=-neutral_coeff(level,1)*flux_vec_horz_center(cell_index,level,blockNo)%x
+            
+            flux_sum_horz(cell_index,level,blockNo)%x&
+            &= ocean_state%p_aux%diagnose_Redi_flux_temp(cell_index,level,blockNo)%x
+
+
+            flux_vert_temp(cell_index,level,blockNo)&
+            &=-neutral_coeff(level,1)*flux_vert_center(cell_index,level,blockNo)
+            
+            ocean_state%p_aux%diagnose_Redi_flux_vert(cell_index,level,blockNo)  = flux_vert_temp(cell_index,level,blockNo)
+            
+           END DO
+         ELSEIF(tracer_index==2)THEN
+          DO level = start_level+1, end_level-1         
+           
+           ocean_state%p_aux%diagnose_Redi_flux_sal(cell_index,level,blockNo)%x&
+           &=neutral_coeff(level,2)*flux_vec_horz_center(cell_index,level,blockNo)%x  
+                       
+            flux_sum_horz(cell_index,level,blockNo)%x&
+            &=ocean_state%p_aux%diagnose_Redi_flux_temp(cell_index,level,blockNo)%x&
+            &+ ocean_state%p_aux%diagnose_Redi_flux_sal(cell_index,level,blockNo)%x
+            !flux_sum_horz(cell_index,level,blockNo)%x&
+            !&=-neutral_coeff(level,1)*ocean_state%p_aux%PgradTemperature_horz_center(cell_index,level,blockNo)%x&
+            !&+neutral_coeff(level,2)*ocean_state%p_aux%PgradSalinity_horz_center(cell_index,level,blockNo)%x
+
+
+            flux_vert_sal(cell_index,level,blockNo)&
+            &=neutral_coeff(level,2)*flux_vert_center(cell_index,level,blockNo)
+
+            flux_sum_vert(cell_index,level,blockNo)  = ocean_state%p_aux%diagnose_Redi_flux_vert(cell_index,level,blockNo)&
+            &+flux_vert_sal(cell_index,level,blockNo)
+            !flux_sum_vert(cell_index,level,blockNo)&
+            !&=-neutral_coeff(level,1)*ocean_state%p_aux%DerivTemperature_vert_center(cell_index,level,blockNo)&
+            !&+neutral_coeff(level,2)*ocean_state%p_aux%DerivSalinity_vert_center(cell_index,level,blockNo)
+          END DO                        
+         ENDIF
+!IF(tracer_index==2)THEN         
+!DO level = start_level+1, end_level-1
+!IF(  flux_sum_horz(cell_index,level,blockNo)%x(1)/=0.0_wp)THEN        
+!write(1234,*)'fluxsum vert',level,&
+!&flux_sum_horz(cell_index,level,blockNo)%x(1),&
+!&flux_sum_vert(cell_index,level,blockNo)*ocean_state%p_aux%slopes(cell_index,level,blockNo)%x(1),&
+!&(ocean_state%p_aux%diagnose_Redi_flux_temp(cell_index,level,blockNo)%x(1)&
+!&+ocean_state%p_aux%diagnose_Redi_flux_sal(cell_index,level,blockNo)%x(1)),&
+!&ocean_state%p_aux%diagnose_Redi_flux_temp(cell_index,level,blockNo)%x(1),&
+!&ocean_state%p_aux%diagnose_Redi_flux_sal(cell_index,level,blockNo)%x(1)
+!!&ocean_state%p_aux%slopes(cell_index,level,blockNo)%x(1),&
+!!&flux_sum_vert(cell_index,level,blockNo),&
+!!&flux_vert_sal(cell_index,end_level,blockNo),&
+!!&ocean_state%p_aux%diagnose_Redi_flux_vert(cell_index,level,blockNo),tracer_gradient_vert_center(cell_index,level,blockNo),&
+!!&taper_diagonal_vert_expl(cell_index,level,blockNo),taper_diagonal_vert_impl(cell_index,level,blockNo)
+!!&flux_sum_horz(cell_index,level,blockNo)%x(2),&
+!!&flux_sum_vert(cell_index,level,blockNo)*ocean_state%p_aux%slopes(cell_index,level,blockNo)%x(2),&
+!!&flux_sum_horz(cell_index,level,blockNo)%x(3),&
+!!&flux_sum_vert(cell_index,level,blockNo)*ocean_state%p_aux%slopes(cell_index,level,blockNo)%x(3)
+!!&flux_sum_vert_temp(cell_index,end_level,blockNo)+flux_sum_vert_sal(cell_index,end_level,blockNo),&
+!!&flux_sum_vert_temp(cell_index,end_level,blockNo),flux_sum_vert_sal(cell_index,end_level,blockNo)
+!ENDIF
+!END DO
+!ENDIF                 
+          
+      END DO ! cell_index = start_cell_index, end_cell_index
+    END DO  ! blockNo = all_cells%start_block, all_cells%end_block
+!ICON_OMP_END_DO_NOWAIT
+!ICON_OMP_END_PARALLEL
+
+
+   !Map the explicit horizontal tracer flux from cell centers to edges (where the horizontal divergence is calculated)
+    !
+    ! use a vector communicator
+    CALL sync_patch_array_mult(sync_c, patch_2D, 3, &
+        & flux_sum_horz(:,:,:)%x(1), flux_sum_horz(:,:,:)%x(2), flux_sum_horz(:,:,:)%x(3))
+    !    
+!    CALL map_cell2edges_3D( patch_3D,flux_sum_horz, GMredi_flux_horz, op_coeff)
+
+    !Map the (explicit) vertical tracer flux to the prism top (where the vertical divergence is calculated later)
+    CALL map_scalar_center2prismtop(patch_3d, flux_sum_vert, op_coeff,GMredi_flux_vert)
+
+    
+!    !---------DEBUG DIAGNOSTICS-------------------------------------------edges_in_domain
+    IF(tracer_index==no_tracer)THEN
+
+
+GMredi_flux_horz=0.0_wp
+    CALL map_cell2edges_3D( patch_3D,flux_sum_horz, GMredi_flux_horz, op_coeff)
+    Do level=start_level+1,n_zlev-1
+    idt_src=1  ! output print level (1-5, fix)
+    write(0,*)'level',level,tracer_index
+    CALL dbg_print('diagnose_Redi:horz',GMredi_flux_horz(:,level,:),&
+    & str_module, idt_src, in_subset=edges_in_domain)
+    END DO
+    
+    Do level=start_level+1,n_zlev-1
+    idt_src=1  ! output print level (1-5, fix)
+    write(0,*)'level',level,tracer_index
+    CALL dbg_print('diagnose_Redi:vert',GMredi_flux_vert(:,level,:),&
+    & str_module, idt_src, in_subset=cells_in_domain)
+    END DO
+    ENDIF
+    
+    !---------------------------------------------------------------------
+    
+!      CALL sync_patch_array(sync_e, patch_2D, GMredi_flux_horz(:,:,:))
+!      CALL sync_patch_array(sync_c, patch_2D, GMredi_flux_vert(:,:,:))
+     
+  ELSEIF( no_tracer>2)THEN
+    CALL finish(TRIM('calc_GMRediflux'),&
+    & 'diagnose_Redi_flux_balance beyond temperature and salinity is not impemented yet')
+  ENDIF
+
+   ! for debugging
+   ! GMredi_flux_vert(:,:,:) = 0.0_wp
+
+!IF(tracer_index==no_tracer)stop
+
+  END SUBROUTINE diagnose_Redi_flux_balance
+  !-------------------------------------------------------------------------
+
+!---------------------------------------------------------------------------
 !  !-------------------------------------------------------------------------
 !  !
 !  !>
@@ -1631,111 +2136,108 @@ END DO
 !  !-------------------------------------------------------------------------
 !  
 !  
-  !-------------------------------------------------------------------------
-  !>
-  !! Calculates polynomial coefficients for thermal expansion and saline contraction
-  !! matching the equation of state as in Gill, Atmosphere-Ocean Dynamics, Appendix 3
-  !!
-  !! @par Revision History
-  !! Initial version by Stephan Lorenz, MPI-M (2014)
-  !!
-!<Optimize:inUse>
-  SUBROUTINE calc_neutralslope_coeff(patch_3d, tracer, neutral_alph, neutral_beta)
-    !
-    !-----------------------------------------------------------------
-    ! REFERENCE:
-    !    McDougall, T.J. 1987.  Neutral Surfaces
-    !    Journal of Physical Oceanography, vol 17, 1950-1964,
-    !-----------------------------------------------------------------
-
-    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
-    REAL(wp), INTENT(in)                   :: tracer(:,:,:,:)         !  tracer(1): temperature, tracer(2): salinity
-!    REAL(wp), INTENT(in)                   :: surface_elevation(:,:)  !  surface elevation due to height equation
-    REAL(wp), INTENT(inout)                :: neutral_alph(:,:,:)     !  thermal expansion coefficient [1/C]
-    REAL(wp), INTENT(inout)                :: neutral_beta(:,:,:)     !  saline contraction coefficient [1/psu]
-    
-    ! !LOCAL VARIABLES:
-    ! loop indices
-    REAL(wp), POINTER :: depth_cellinterface(:,:,:)
-    
-    REAL(wp):: neutral_coeff(1:n_zlev, 2), salinity(1:n_zlev)
-    INTEGER :: cell_index, blockNo, levels
-    INTEGER :: start_cell_index, end_cell_index
-    TYPE(t_subset_range), POINTER :: all_cells
-    TYPE(t_patch), POINTER :: patch_2D
-    !-----------------------------------------------------------------------
-    patch_2D   => patch_3d%p_patch_2d(1)
-    all_cells => patch_2D%cells%ALL
-    depth_cellinterface => patch_3D%p_patch_1d(1)%depth_cellinterface
-    !-------------------------------------------------------------------------
-    !  tracer 1: potential temperature
-    !  tracer 2: salinity
-!ICON_OMP_PARALLEL PRIVATE(salinity ) 
-    salinity(1:n_zlev) = sal_ref  ! in case of absent salinty tracer
-      
-!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index,cell_index,levels, neutral_coeff) ICON_OMP_DEFAULT_SCHEDULE
-    DO blockNo = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
-      DO cell_index = start_cell_index, end_cell_index
-        levels = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
-        
-        IF (no_tracer>=2) salinity(1:levels) = tracer(cell_index,1:levels,blockNo,2)
-
-        neutral_coeff = calc_neutralslope_coeff_func_onColumn( &
-          & tracer(cell_index,1:levels,blockNo,1), salinity(1:levels), &
-          & depth_cellinterface(cell_index,2:levels+1,blockNo), levels)
-          
-        neutral_alph(cell_index,1:levels,blockNo) = neutral_coeff(1:levels,1)
-        neutral_beta(cell_index,1:levels,blockNo) = neutral_coeff(1:levels,2)
-        
-!         DO level=1, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo) ! operate on wet ocean points only
-!           ! compute pressure in dezi-bar, i.e. depth of water column in vertical centre (meter)
-!           !  - account for individual layer depth at bottom for use of partial cells (prism_thick_flat_sfc_c)
-!           !  - add elevation by passing old, new, or intermediate value of surface elevation (e.g. p_prog(nold(1)%h)
-! !             pressure = patch_3d%p_patch_1d(1)%zlev_i(level) &
-! !               &      + patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(cell_index,level,blockNo)*0.5_wp &
-! !               &      + surface_elevation(cell_index,blockNo)
-! !            pressure = depth_cellinterface(cell_index,level+1,blockNo)
-!           neutral_coeff = calc_neutralslope_coeff_func( &
-!             & tracer(cell_index,level,blockNo,1), tracer(cell_index,level,blockNo,2), depth_cellinterface(cell_index,level+1,blockNo))
-!             
-!           neutral_alph(cell_index,level,blockNo) = neutral_coeff(1)
-!           neutral_beta(cell_index,level,blockNo) = neutral_coeff(2)
-!         END DO
-      END DO
-    END DO
-!ICON_OMP_END_DO_NOWAIT
-!ICON_OMP_END_PARALLEL
-    
-!     ELSEIF(no_tracer==1)THEN
-!       
-! !ICON_OMP_PARALLEL
-! !ICON_OMP_DO PRIVATE(start_index, end_index, cell_index, level, pressure, neutral_coeff) ICON_OMP_DEFAULT_SCHEDULE
-!       DO blockNo = all_cells%start_block, all_cells%end_block
-!         CALL get_index_range(all_cells, blockNo, start_index, end_index)
-!         DO cell_index = start_index, end_index
-!           DO level=1, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo) ! operate on wet ocean points only
-! !             pressure = patch_3d%p_patch_1d(1)%zlev_i(level) &
-! !               &      + patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(cell_index,level,blockNo)*0.5_wp &
-! !               &      + surface_elevation(cell_index,blockNo)
-! !            pressure = depth_cellinterface(cell_index,level+1,blockNo)
-!             neutral_coeff = calc_neutralslope_coeff_func( &
-!               & tracer(cell_index,level,blockNo,1), sal_ref, depth_cellinterface(cell_index,level+1,blockNo))
-!             neutral_alph(cell_index,level,blockNo) = neutral_coeff(1)
-!             neutral_beta(cell_index,level,blockNo) = neutral_coeff(2)
-!           END DO
-!         END DO
-!       END DO
-! !ICON_OMP_END_DO NOWAIT
-! !ICON_OMP_END_PARALLEL
-!       
-!     ENDIF
-
-    CALL dbg_print('calc_neutral_coeff: alpha', neutral_alph , this_mod_name, 3, patch_2D%cells%in_domain)
-    CALL dbg_print('calc_neutral_coeff: beta ', neutral_beta , this_mod_name, 3, patch_2D%cells%in_domain)
-
-  END SUBROUTINE calc_neutralslope_coeff
-  !-------------------------------------------------------------------------
+!  !-------------------------------------------------------------------------
+!  !>
+!  !! Calculates polynomial coefficients for thermal expansion and saline contraction
+!  !! matching the equation of state as in Gill, Atmosphere-Ocean Dynamics, Appendix 3
+!  !!
+!  !! @par Revision History
+!  !! Initial version by Stephan Lorenz, MPI-M (2014)
+!  !!
+!!<Optimize:inUse>
+!  SUBROUTINE calc_neutralslope_coeff(patch_3d, tracer, neutral_alph, neutral_beta)
+!    !
+!    !-----------------------------------------------------------------
+!    ! REFERENCE:
+!    !    McDougall, T.J. 1987.  Neutral Surfaces
+!    !    Journal of Physical Oceanography, vol 17, 1950-1964,
+!    !-----------------------------------------------------------------
+!
+!    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
+!    REAL(wp), INTENT(in)                   :: tracer(:,:,:,:)         !  tracer(1): temperature, tracer(2): salinity
+!!    REAL(wp), INTENT(in)                   :: surface_elevation(:,:)  !  surface elevation due to height equation
+!    REAL(wp), INTENT(inout)                :: neutral_alph(:,:,:)     !  thermal expansion coefficient [1/C]
+!    REAL(wp), INTENT(inout)                :: neutral_beta(:,:,:)     !  saline contraction coefficient [1/psu]
+!    
+!    ! !LOCAL VARIABLES:
+!    ! loop indices
+!    REAL(wp), POINTER :: depth_cellinterface(:,:,:)
+!    
+!    REAL(wp):: neutral_coeff(1:n_zlev, 2), salinity(1:n_zlev)
+!    INTEGER :: cell_index, blockNo, levels
+!    INTEGER :: start_cell_index, end_cell_index
+!    TYPE(t_subset_range), POINTER :: all_cells
+!    TYPE(t_patch), POINTER :: patch_2D
+!    !-----------------------------------------------------------------------
+!    patch_2D   => patch_3d%p_patch_2d(1)
+!    all_cells => patch_2D%cells%ALL
+!    depth_cellinterface => patch_3D%p_patch_1d(1)%depth_cellinterface
+!    !-------------------------------------------------------------------------
+!    !  tracer 1: potential temperature
+!    !  tracer 2: salinity
+!!ICON_OMP_PARALLEL PRIVATE(salinity ) 
+!    salinity(1:n_zlev) = sal_ref  ! in case of absent salinty tracer
+!      
+!!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index,cell_index,levels, neutral_coeff) ICON_OMP_DEFAULT_SCHEDULE
+!    DO blockNo = all_cells%start_block, all_cells%end_block
+!      CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
+!      DO cell_index = start_cell_index, end_cell_index
+!        levels = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+!        
+!        IF (no_tracer>=2) salinity(1:levels) = tracer(cell_index,1:levels,blockNo,2)
+!
+!        neutral_coeff = calc_neutralslope_coeff_func_onColumn( &
+!          & tracer(cell_index,1:levels,blockNo,1), salinity(1:levels), &
+!          & depth_cellinterface(cell_index,2:levels+1,blockNo), levels)
+!        
+!!         DO level=1, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo) ! operate on wet ocean points only
+!!           ! compute pressure in dezi-bar, i.e. depth of water column in vertical centre (meter)
+!!           !  - account for individual layer depth at bottom for use of partial cells (prism_thick_flat_sfc_c)
+!!           !  - add elevation by passing old, new, or intermediate value of surface elevation (e.g. p_prog(nold(1)%h)
+!! !             pressure = patch_3d%p_patch_1d(1)%zlev_i(level) &
+!! !               &      + patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(cell_index,level,blockNo)*0.5_wp &
+!! !               &      + surface_elevation(cell_index,blockNo)
+!! !            pressure = depth_cellinterface(cell_index,level+1,blockNo)
+!!           neutral_coeff = calc_neutralslope_coeff_func( &
+!!             & tracer(cell_index,level,blockNo,1), tracer(cell_index,level,blockNo,2), depth_cellinterface(cell_index,level+1,blockNo))
+!!             
+!!           neutral_alph(cell_index,level,blockNo) = neutral_coeff(1)
+!!           neutral_beta(cell_index,level,blockNo) = neutral_coeff(2)
+!!         END DO
+!      END DO
+!    END DO
+!!ICON_OMP_END_DO_NOWAIT
+!!ICON_OMP_END_PARALLEL
+!    
+!!     ELSEIF(no_tracer==1)THEN
+!!       
+!! !ICON_OMP_PARALLEL
+!! !ICON_OMP_DO PRIVATE(start_index, end_index, cell_index, level, pressure, neutral_coeff) ICON_OMP_DEFAULT_SCHEDULE
+!!       DO blockNo = all_cells%start_block, all_cells%end_block
+!!         CALL get_index_range(all_cells, blockNo, start_index, end_index)
+!!         DO cell_index = start_index, end_index
+!!           DO level=1, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo) ! operate on wet ocean points only
+!! !             pressure = patch_3d%p_patch_1d(1)%zlev_i(level) &
+!! !               &      + patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(cell_index,level,blockNo)*0.5_wp &
+!! !               &      + surface_elevation(cell_index,blockNo)
+!! !            pressure = depth_cellinterface(cell_index,level+1,blockNo)
+!!             neutral_coeff = calc_neutralslope_coeff_func( &
+!!               & tracer(cell_index,level,blockNo,1), sal_ref, depth_cellinterface(cell_index,level+1,blockNo))
+!!             neutral_alph(cell_index,level,blockNo) = neutral_coeff(1)
+!!             neutral_beta(cell_index,level,blockNo) = neutral_coeff(2)
+!!           END DO
+!!         END DO
+!!       END DO
+!! !ICON_OMP_END_DO NOWAIT
+!! !ICON_OMP_END_PARALLEL
+!!       
+!!     ENDIF
+!
+!    CALL dbg_print('calc_neutral_coeff: alpha', neutral_alph , this_mod_name, 3, patch_2D%cells%in_domain)
+!    CALL dbg_print('calc_neutral_coeff: beta ', neutral_beta , this_mod_name, 3, patch_2D%cells%in_domain)
+!
+!  END SUBROUTINE calc_neutralslope_coeff
+!  !-------------------------------------------------------------------------
  
   !-------------------------------------------------------------------------
   !>
@@ -1853,129 +2355,6 @@ END DO
 !     
 !   END FUNCTION calc_neutralslope_coeff_func
   !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  !>
-  !! Calculates polynomial coefficients for thermal expansion and saline contraction
-  !! matching the equation of state as described in (UNESCO)
-  !!   Fofonoff and Millard, 1984, UNESCO, Paris, Tech. Pap. Mar. Sci., 44, 53pp
-  !! This method is using the older !! IPTS (International Practical Temperature Scale) of 1968.
-  !! The code below is adopted from FESOM (Quiang Wang, Sergey Danilov)
-  !!
-  !! @par Revision History
-  !! Initial version by Stephan Lorenz, MPI-M (2014)
-  !!
-  !<Optimize:inUse>
-  FUNCTION calc_neutralslope_coeff_func_onColumn(t,s,p,levels) result(coeff)
-    !-----------------------------------------------------------------
-    ! REFERENCES:
-    !    McDougall, T.J. 1987.  Neutral Surfaces
-    !    Journal of Physical Oceanography, Vol 17, 1950-1964,
-    !-----------------------------------------------------------------
-    ! CHECK VALUE:
-    !    sw_beta=0.72088e-3 psu^-1 @ S=40.0psu, ptmp=10.0C (ITS-90), p=4000db
-    !    a_over_b=0.34765 psu*C^-1 @ S=40.0psu, ptmp=10.0C, p=4000db
-    ! Valid Range:
-    !    S=25 to 40psu, p=0 to 4000db (ptmp=10C)
-    !                   p=0 to 1000db (ptmp=20-40C)
-    !-----------------------------------------------------------------
-    !
-    INTEGER, INTENT(in)   :: levels
-    REAL(wp), INTENT(in)  :: t(:)        !  potential temperature (in ITS-90) [C]
-    REAL(wp), INTENT(in)  :: s(:)        !  salinity (in PSS-78) [psu]
-    REAL(wp), INTENT(in)  :: p(:)       !  pressure (in dezi-bar) [db]
-    REAL(wp)              :: coeff(1:n_zlev,2) !  thermal expansion [1/C] and saline contraction [1/psu] coefficients
-
-    ! local variables, following the naming of the FESOM implementation
-    REAL(wp):: aob(1:levels), t1(1:levels), t2(1:levels), t3(1:levels), t4(1:levels), &
-      & s35(1:levels), s35sq(1:levels), s1(1:levels), s2(1:levels), s3(1:levels), p1(1:levels), p2(1:levels), p3(1:levels)
-
-    INTEGER :: level
-
-    !  polynomial parameter for calculation of saline contraction coeff beta
-    REAL(wp), PARAMETER :: &
-      & bet_t0   = 0.785567e-3_wp,  &
-      & bet_t1   = 0.301985e-5_wp,  &
-      & bet_t2   = 0.555579e-7_wp,  &
-      & bet_t3   = 0.415613e-9_wp,  &
-      & bet_st0  = 0.356603e-6_wp,  &
-      & bet_st1  = 0.788212e-8_wp,  &
-      & bet_sp1  = 0.408195e-10_wp, &
-      & bet_sp2  = 0.602281e-15_wp, &
-      & bet_s2   = 0.515032e-8_wp,  &
-      & bet_p1t0 = 0.121555e-7_wp,  &
-      & bet_p1t1 = 0.192867e-9_wp,  &
-      & bet_p1t2 = 0.213127e-11_wp, &
-      & bet_p2t0 = 0.176621e-12_wp, &
-      & bet_p2t1 = 0.175379e-14_wp, &
-      & bet_p3   = 0.121551e-17_wp
-
-    !  polynomial parameter for calculation of thermal expansion coefficient alpha
-    !  via fraction alpha over beta (aob)
-    REAL(wp), PARAMETER :: &
-      & aob_t0   = 0.665157e-1_wp,  &
-      & aob_t1   = 0.170907e-1_wp,  &
-      & aob_t2   = 0.203814e-3_wp,  &
-      & aob_t3   = 0.298357e-5_wp,  &
-      & aob_t4   = 0.255019e-7_wp,  &
-      & aob_st0  = 0.378110e-2_wp,  &
-      & aob_st1  = 0.846960e-4_wp,  &
-      & aob_sp1  = 0.164759e-6_wp,  &
-      & aob_sp2  = 0.251520e-11_wp, &
-      & aob_s2   = 0.678662e-5_wp,  &
-      & aob_p1t0 = 0.380374e-4_wp,  &
-      & aob_p1t1 = 0.933746e-6_wp,  &
-      & aob_p1t2 = 0.791325e-8_wp,  &
-      & aob_p2t2 = 0.512857e-12_wp, &
-      & aob_p3   = 0.302285e-13_wp
-
-    ! t1 = t
-    s1(1:levels) = s(1:levels)
-    p1(1:levels) = p(1:levels)
-
-   ! correction factor for conversion of 1990 to 1968 temperature standard (IPTS-68 to IPTS-90)
-   ! the correction is less than 0.01 K in ocean water temperature range
-   !  - T68 = 1.00024*T90
-   !  - above mentioned CHECK VALUES of the paper are better met by this correction
-    t1(1:levels) = t(1:levels) * 1.00024_wp
-
-    t2(1:levels)    = t1(1:levels) * t1(1:levels)
-    t3(1:levels)    = t2(1:levels) * t1(1:levels)
-    t4(1:levels)    = t3(1:levels) * t1(1:levels)
-    p2(1:levels)    = p1(1:levels )* p1(1:levels)
-    p3(1:levels)    = p2(1:levels )* p1(1:levels)
-    s35(1:levels)   = s(1:levels) - 35.0_wp
-    s35sq(1:levels) = s35(1:levels) * s35(1:levels)
-
-    DO level=1,levels
-      ! calculate beta, saline contraction
-      coeff(level,2) = bet_t0 - bet_t1*t1(level)                             &
-        &         + bet_t2*t2(level) - bet_t3*t3(level)                      &
-        &         + s35(level)*(-bet_st0    + bet_st1*t1(level)              &
-        &         +       bet_sp1*p1(level) - bet_sp2*p2(level))             &
-        &         + s35sq(level)*bet_s2                                      &
-        &         + p1(level)*(-bet_p1t0 + bet_p1t1*t1(level) - bet_p1t2*t2(level)) &
-        &         + p2(level)*( bet_p2t0 - bet_p2t1*t1(level))               &
-        &         + p3(level)*bet_p3
-
-      ! calculate alpha/beta
-      aob(level) = aob_t0 + aob_t1*t1 (level)                                &
-        &         - aob_t2*t2(level) + aob_t3*t3(level)                      &
-        &         - aob_t4*t4(level)                                         &
-        &         + s35(level)*(+aob_st0    - aob_st1*t1(level)              &
-        &                -aob_sp1*p1(level) - aob_sp2*p2(level))             &
-        &         - s35sq(level)*aob_s2                                      &
-        &         + p1(level)*(+aob_p1t0 - aob_p1t1*t1(level) + aob_p1t2*t2(level)) &
-        &         + p2(level)*t2(level)*aob_p2t2                             &
-        &         - p3(level)*aob_p3
-
-      ! calculate alpha, thermal expansion
-      coeff(level,1) = aob(level)* coeff(level, 2)
-    ENDDO
-
-  END FUNCTION calc_neutralslope_coeff_func_onColumn
-
-
 
 END MODULE mo_ocean_GM_Redi
 
