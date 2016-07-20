@@ -101,7 +101,6 @@ MODULE mo_var_metadata_types
     &  "ART_ARTIFICIAL        ",  &  ! ICON-ART fields for lifetime based chemical tracer
     &  "RTTOV                 " /)
 
-
   ! maximum number of variable groups supported by info state
   INTEGER, PARAMETER :: MAX_GROUPS = 99
 
