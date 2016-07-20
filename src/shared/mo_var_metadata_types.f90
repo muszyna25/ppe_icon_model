@@ -42,7 +42,7 @@ MODULE mo_var_metadata_types
   ! New groups can be added by extending the VAR_GROUPS list.
   !
 
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(56) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(57) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -98,6 +98,7 @@ MODULE mo_var_metadata_types
     &  "ART_AERO_DUST         ",  &  ! ICON-ART fields for mineral dust aerosol
     &  "ART_AERO_SEAS         ",  &  ! ICON-ART fields for sea salt aerosol
     &  "ART_CHEMTRACER        ",  &  ! ICON-ART fields for lifetime based chemical tracer
+    &  "ART_ARTIFICIAL        ",  &  ! ICON-ART fields for lifetime based chemical tracer
     &  "RTTOV                 " /)
 
   ! maximum number of variable groups supported by info state

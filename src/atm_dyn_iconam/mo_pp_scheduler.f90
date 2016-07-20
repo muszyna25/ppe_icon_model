@@ -1342,7 +1342,7 @@ CONTAINS
 
               ! Check for matching name (take care of suffix of
               ! time-dependent variables):
-              IF (TRIM(varlist(ivar)) /= TRIM(tolower(get_var_name(element%field)))) CYCLE
+              IF (TRIM(tolower(varlist(ivar))) /= TRIM(tolower(get_var_name(element%field)))) CYCLE
 
               ! throw error message, if this variable is not a REAL field:
               IF (.NOT. ASSOCIATED(element%field%r_ptr)) THEN
