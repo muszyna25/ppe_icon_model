@@ -1342,7 +1342,6 @@ CONTAINS
 
               ! Check for matching name (take care of suffix of
               ! time-dependent variables):
-              
               IF (TRIM(tolower(varlist(ivar))) /= TRIM(tolower(get_var_name(element%field)))) CYCLE
 
               ! throw error message, if this variable is not a REAL field:
@@ -1369,7 +1368,6 @@ CONTAINS
                 &           loutput=.TRUE., new_element=new_element,        &
                 &           post_op=info%post_op, var_class=info%var_class, &
                 &           tlev_source=info%tlev_source )
-
 
               !-- add post-processing task for interpolation
 
