@@ -31,7 +31,8 @@ MODULE mo_fortran_tools
   PUBLIC :: t_ptr_2d3d
   PUBLIC :: t_ptr_i2d3d
   PUBLIC :: t_ptr_tracer
-  PUBLIC :: copy, init, swap, var_scale, negative2zero
+  PUBLIC :: copy, init, swap, negative2zero
+  PUBLIC :: var_scale, var_add
   PUBLIC :: init_zero_contiguous_dp, init_zero_contiguous_sp
   PUBLIC :: resize_arr_c1d
 
@@ -108,6 +109,10 @@ MODULE mo_fortran_tools
   INTERFACE var_scale
     MODULE PROCEDURE var_scale_3d_dp
   END INTERFACE var_scale
+
+  INTERFACE var_add
+    MODULE PROCEDURE var_addc_3d_dp
+  END INTERFACE var_add
 
   INTERFACE swap
     MODULE PROCEDURE swap_int
@@ -734,6 +739,29 @@ CONTAINS
     END DO
 !$omp end do nowait
   END SUBROUTINE var_scale_3d_dp
+
+
+  ! add a constant value to a 3D field
+  SUBROUTINE var_addc_3d_dp(var, add_val)
+    REAL(dp), INTENT(inout) :: var(:, :, :)
+    REAL(dp), INTENT(in) :: add_val
+
+    INTEGER :: i1, i2, i3, m1, m2, m3
+
+    m1 = SIZE(var, 1)
+    m2 = SIZE(var, 2)
+    m3 = SIZE(var, 3)
+!$omp do collapse(3)
+    DO i3 = 1, m3
+      DO i2 = 1, m2
+        DO i1 = 1, m1
+          var(i1, i2, i3) = var(i1, i2, i3) + add_val
+        END DO
+      END DO
+    END DO
+!$omp end do nowait
+  END SUBROUTINE var_addc_3d_dp
+
 
   SUBROUTINE negative2zero_4d_dp(var)
     REAL(dp), INTENT(inout) :: var(:, :, :, :)

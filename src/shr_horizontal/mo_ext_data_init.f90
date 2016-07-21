@@ -39,9 +39,10 @@ MODULE mo_ext_data_init
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape,                     &
     &                              ihs_atm_temp, ihs_atm_theta, inh_atmosphere,                     &
     &                              max_char_length, min_rlcell_int, min_rlcell,                     &
-    &                              MODIS, GLOBCOVER2009, GLC2000, SUCCESS, SSTICE_CLIM
+    &                              MODIS, GLOBCOVER2009, GLC2000, SUCCESS, SSTICE_ANA_CLINC,        &
+    &                              SSTICE_CLIM
   USE mo_math_constants,     ONLY: dbl_eps, rad2deg
-  USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
+  USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def, tmelt
   USE mo_run_config,         ONLY: msg_level, iforcing, check_uuid_gracefully
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
@@ -93,7 +94,7 @@ MODULE mo_ext_data_init
     &                              vlistInqVarIntKey, CDI_GLOBAL, gridInqUUID, &
     &                              streamClose, cdiStringError
   USE mo_math_gradients,     ONLY: grad_fe_cell
-  USE mo_fortran_tools,      ONLY: var_scale
+  USE mo_fortran_tools,      ONLY: var_scale, var_add
 
   IMPLICIT NONE
 
@@ -487,7 +488,12 @@ CONTAINS
         ENDIF
       ENDIF
 
-
+      ! Check whether external parameter file contains SST climatology
+      IF ( sstice_mode == SSTICE_ANA_CLINC ) THEN
+        IF ( test_cdi_varID(cdi_extpar_id, 'SST_CL')  == -1 ) THEN
+          CALL finish(routine,'SST climatology SST_CL missing in '//TRIM(extpar_filename))
+        ENDIF
+      ENDIF
 
       ! Search for glacier fraction in Extpar file
       !
@@ -1047,9 +1053,13 @@ CONTAINS
 
           CALL read_cdi_2d(parameters, nmonths_ext(jg), 'NDVI_MRAT', ext_data(jg)%atm_td%ndvi_mrat)
 
-!!$          IF (sstice_mode == 2) THEN
-!!$            CALL read_cdi_2d(parameters, nmonths_ext(jg), 'SST_CL', ext_data(jg)%atm_td%sst_m)
-!!$          ENDIF
+          IF (sstice_mode == SSTICE_ANA_CLINC) THEN
+            CALL read_cdi_2d(parameters, nmonths_ext(jg), 'SST_CL', ext_data(jg)%atm_td%sst_m)
+            ! transform from C to K
+!$OMP PARALLEL
+            CALL var_add(ext_data(jg)%atm_td%sst_m(:,:,:), tmelt)
+!$OMP END PARALLEL
+          ENDIF
 
           !--------------------------------
           ! If MODIS albedo is used
