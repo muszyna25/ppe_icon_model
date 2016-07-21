@@ -39,7 +39,9 @@ MODULE mo_ext_data_state
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: inwp, iecham, MODIS, ildf_echam, &
     &                              ihs_atm_temp, ihs_atm_theta, io3_clim, io3_ape, &
-    &                              HINTP_TYPE_LONLAT_NNB, MAX_CHAR_LENGTH
+    &                              HINTP_TYPE_LONLAT_NNB, MAX_CHAR_LENGTH,         &
+    &                              SSTICE_ANA, SSTICE_CLIM, SSTICE_AVG_MONTHLY,    &
+    &                              SSTICE_AVG_DAILY
   USE mo_exception,          ONLY: message, finish
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_atmos_td, &
@@ -1078,18 +1080,19 @@ CONTAINS
     shape3d_c   = (/ nproma, nblks_c, nmonths_ext(jg)  /)
     shape4d_c   = (/ nproma, nlev_o3, nblks_c, nmonths /)
 
-    IF ( sstice_mode > 1 ) THEN
-     SELECT CASE (sstice_mode)
-     CASE(2)
-      shape3d_sstice = (/ nproma, nblks_c, 12 /)
-     CASE(3)
-      shape3d_sstice = (/ nproma, nblks_c,  2 /)
-     CASE(4)
-      CALL finish (TRIM(routine), 'sstice_mode=4  not implemented!')
-     CASE DEFAULT
-      CALL finish (TRIM(routine), 'sstice_mode not valid!')
-     END SELECT
-    END IF
+    SELECT CASE (sstice_mode)
+      CASE(SSTICE_ANA)
+        ! nothing to do
+      CASE(SSTICE_CLIM)
+        shape3d_sstice = (/ nproma, nblks_c, 12 /)
+      CASE(SSTICE_AVG_MONTHLY)
+        shape3d_sstice = (/ nproma, nblks_c,  2 /)
+      CASE(SSTICE_AVG_DAILY)
+        CALL finish (TRIM(routine), 'sstice_mode=4  not implemented!')
+      CASE DEFAULT
+        CALL finish (TRIM(routine), 'sstice_mode not valid!')
+    END SELECT
+ 
 
     !
     ! Register a field list and apply default settings
@@ -1276,6 +1279,39 @@ CONTAINS
     !--------------------------------
     !SST and sea ice fraction
     !--------------------------------
+!!$    SELECT CASE (sstice_mode)
+!!$      CASE (2)  ! SST is read from analysis and gets updated by climatological increments 
+!!$                ! on a daily basis. Therefore, sst_m is required to store the monthly fields
+!!$        ! sst_m     p_ext_atm_td%sst_m(nproma,nblks_c,ntimes)
+!!$        cf_desc    = t_cf_var('sst_m', 'K', &
+!!$          &                   '(monthly) sea surface temperature '  &
+!!$          &                   , datatype_flt)
+!!$        grib2_desc = grib2_var(192 ,128 , 34, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+!!$        CALL add_var( p_ext_atm_td_list, 'sst_m', p_ext_atm_td%sst_m, &
+!!$          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
+!!$          &           ldims=shape3d_sstice, loutput=.FALSE. )
+!!$      CASE (SSTICE_CLIM,SSTICE_AVG_MONTHLY,SSTICE_AVG_DAILY)
+!!$        ! sst_m     p_ext_atm_td%sst_m(nproma,nblks_c,ntimes)
+!!$        cf_desc    = t_cf_var('sst_m', 'K', &
+!!$          &                   '(monthly) sea surface temperature '  &
+!!$          &                   , datatype_flt)
+!!$        grib2_desc = grib2_var(192 ,128 , 34, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+!!$        CALL add_var( p_ext_atm_td_list, 'sst_m', p_ext_atm_td%sst_m, &
+!!$          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
+!!$          &           ldims=shape3d_sstice, loutput=.FALSE. )
+!!$
+!!$        ! fr_ice_m     p_ext_atm_td%fr_ice_m(nproma,nblks_c,ntimes)
+!!$        cf_desc    = t_cf_var('fr_ice_m', '(0-1)', &
+!!$          &                   '(monthly) sea ice fraction '  &
+!!$          &                   , datatype_flt)
+!!$        grib2_desc = grib2_var( 192,128 ,31 , ibits, GRID_UNSTRUCTURED, GRID_CELL)
+!!$        CALL add_var( p_ext_atm_td_list, 'fr_ice_m', p_ext_atm_td%fr_ice_m, &
+!!$          &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
+!!$          &           ldims=shape3d_sstice, loutput=.FALSE. )
+!!$      CASE default
+!!$        ! do nothing
+!!$    END SELECT
+!!$
     IF ( sstice_mode > 1 ) THEN
       ! sst_m     p_ext_atm_td%sst_m(nproma,nblks_c,ntimes)
       cf_desc    = t_cf_var('sst_m', 'K', &

@@ -39,7 +39,7 @@ MODULE mo_ext_data_init
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape,                     &
     &                              ihs_atm_temp, ihs_atm_theta, inh_atmosphere,                     &
     &                              max_char_length, min_rlcell_int, min_rlcell,                     &
-    &                              MODIS, GLOBCOVER2009, GLC2000, SUCCESS
+    &                              MODIS, GLOBCOVER2009, GLC2000, SUCCESS, SSTICE_CLIM
   USE mo_math_constants,     ONLY: dbl_eps, rad2deg
   USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
   USE mo_run_config,         ONLY: msg_level, iforcing, check_uuid_gracefully
@@ -227,7 +227,7 @@ CONTAINS
       ! call read_ext_data_atm to read O3
       ! topography is used from analytical functions, except for ljsbach=.TRUE. in which case
       ! elevation of cell centers is read in and the topography is "grown" gradually to this elevation
-      IF ( irad_o3 == io3_clim .OR. irad_o3 == io3_ape .OR. sstice_mode == 2 .OR. &
+      IF ( irad_o3 == io3_clim .OR. irad_o3 == io3_ape .OR. sstice_mode == SSTICE_CLIM .OR. &
          & echam_phy_config%ljsbach) THEN
         IF ( echam_phy_config%ljsbach .AND. (iequations /= inh_atmosphere) ) THEN
           CALL message( TRIM(routine),'topography is grown to elevation' )
@@ -1047,6 +1047,10 @@ CONTAINS
 
           CALL read_cdi_2d(parameters, nmonths_ext(jg), 'NDVI_MRAT', ext_data(jg)%atm_td%ndvi_mrat)
 
+!!$          IF (sstice_mode == 2) THEN
+!!$            CALL read_cdi_2d(parameters, nmonths_ext(jg), 'SST_CL', ext_data(jg)%atm_td%sst_m)
+!!$          ENDIF
+
           !--------------------------------
           ! If MODIS albedo is used
           !--------------------------------
@@ -1253,7 +1257,7 @@ CONTAINS
     !------------------------------------------
     ! Read time dependent SST and ICE Fraction
     !------------------------------------------
-    IF (sstice_mode == 2 .AND. iforcing == inwp) THEN
+    IF (sstice_mode == SSTICE_CLIM .AND. iforcing == inwp) THEN
 
       DO jg = 1,n_dom
        !Read the climatological values for SST and ice cover

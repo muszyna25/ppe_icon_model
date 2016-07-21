@@ -415,6 +415,13 @@ MODULE mo_impl_constants
 
   
 
+  ! NWP SST-ICE modes
+  INTEGER, PARAMETER :: SSTICE_ANA         = 1     ! SST and sea ice read from analysis and kept constant
+  INTEGER, PARAMETER :: SSTICE_CLIM        = 2     ! SST and sea ice based on climatology (monthly fields)
+  INTEGER, PARAMETER :: SSTICE_AVG_MONTHLY = 3     ! SST and sea ice based on monthly averages
+  INTEGER, PARAMETER :: SSTICE_AVG_DAILY   = 4     ! SST and sea ice based on daily averages
+
+
   !---------------------!
   !        LAND         !
   !---------------------!

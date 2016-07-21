@@ -161,8 +161,8 @@ MODULE mo_lnd_nwp_nml
     !-----------------------
 
     sstice_mode  = 1         ! forecast mode, sst and sea ice fraction is read from 
-                             !  the analysis, sst ist kept constant, sea ice fraction
-                             !  is modified by the sea ice model
+                             ! the analysis, sst ist kept constant, sea ice fraction
+                             ! is modified by the sea ice model
                              ! default names for the time dependent SST and CI ext param files
                              ! if sstice=2, <year> is substituted by "CLIM"
     sst_td_filename = "<path>SST_<year>_<month>_<gridfile>"
