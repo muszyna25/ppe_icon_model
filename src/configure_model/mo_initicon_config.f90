@@ -46,6 +46,7 @@ MODULE mo_initicon_config
   PUBLIC :: init_mode, nlevatm_in, nlevsoil_in, zpbl1, zpbl2
   PUBLIC :: dt_iau
   PUBLIC :: type_iau_wgt
+  PUBLIC :: iterate_iau
   PUBLIC :: l_sst_in
   PUBLIC :: lread_ana
   PUBLIC :: lread_vn
@@ -148,6 +149,7 @@ MODULE mo_initicon_config
                             ! 1: Top-hat
                             ! 2: SIN2
                             ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD
+  LOGICAL  :: iterate_iau   ! if .TRUE., iterate IAU phase with halved dt_iau in first iteration
   REAL(wp) :: rho_incr_filter_wgt  ! Vertical filtering weight for density increments 
                                    ! Only applicable for init_mode=MODE_IAU, MODE_IAU_OLD
 
@@ -254,6 +256,8 @@ CONTAINS
         CALL message('',message_text)
       ENDIF
       timeshift%dt_shift = zdt_shift
+    ELSE
+      iterate_iau = .FALSE. ! IAU iteration is meaningless if the model starts without backward time shift
     END IF
     !
     ! transform timeshift to mtime-format

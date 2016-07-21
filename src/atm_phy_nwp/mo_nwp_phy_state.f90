@@ -2851,8 +2851,8 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    INTEGER :: shape3d(3), shape3dkp1(3), shape4d(4)
-    INTEGER :: ibits, ktracer, ist
+    INTEGER :: shape3d(3), shape3dkp1(3), shape4d(4), shape4d_conv(4)
+    INTEGER :: ibits, ktracer, ist, ntr_conv
     LOGICAL :: lrestart
     INTEGER :: datatype_flt
 
@@ -2872,6 +2872,13 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
     ELSE
      shape4d    = (/nproma, klev  , kblks, nqtendphy /)
     ENDIF 
+      
+    ! dimension of convective tracer field
+    ntr_conv = nqtendphy
+    IF (lart)                                        ntr_conv = ntr_conv + nart_tendphy
+    IF (atm_phy_nwp_config(k_jg)%ldetrain_conv_prec) ntr_conv = ntr_conv + 2 ! plus qr and qs
+
+    shape4d_conv = (/nproma, klev  , kblks, ntr_conv /)
 
     CALL new_var_list( phy_tend_list, TRIM(listname), patch_id=k_jg )
     CALL default_var_list_settings( phy_tend_list,             &
@@ -3081,15 +3088,17 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
       cf_desc    = t_cf_var('ddt_tracer_pconv', 's-1', &
            &                            'convective tendency of tracers', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( phy_tend_list, 'ddt_tracer_pconv', phy_tend%ddt_tracer_pconv,         &
-                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape4d,&
-                    & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+      CALL add_var( phy_tend_list, 'ddt_tracer_pconv', phy_tend%ddt_tracer_pconv,              &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape4d_conv,&
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
       IF (lart) THEN
        ktracer=nqtendphy+nart_tendphy 
       ELSE
        ktracer=nqtendphy 
       ENDIF
+      IF (atm_phy_nwp_config(k_jg)%ldetrain_conv_prec) ktracer = ktracer+2
+
       ALLOCATE( phy_tend%tracer_conv_ptr(ktracer) )
 
       !qv
@@ -3117,7 +3126,24 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
                   & grib2_var(0, 1, 199, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
                   & ldims=shape3d)
 
-
+      IF (atm_phy_nwp_config(k_jg)%ldetrain_conv_prec) THEN
+        !qr
+        CALL add_ref( phy_tend_list, 'ddt_tracer_pconv', &
+                  & 'ddt_qr_conv', phy_tend%tracer_conv_ptr(4)%p_3d,               &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                  & t_cf_var('ddt_qr_conv', 'kg kg**-1 s**-1',                     &
+                  & 'convective tendency of rain', datatype_flt),                  &
+                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
+                  & ldims=shape3d)
+        !qs
+        CALL add_ref( phy_tend_list, 'ddt_tracer_pconv', &
+                  & 'ddt_qs_conv', phy_tend%tracer_conv_ptr(5)%p_3d,               &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                  & t_cf_var('ddt_qs_conv', 'kg kg**-1 s**-1',                     &
+                  & 'convective tendency of snow', datatype_flt),                  &
+                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
+                  & ldims=shape3d)
+      ENDIF
 
       ! art
       IF (lart) THEN

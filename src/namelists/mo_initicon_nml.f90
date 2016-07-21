@@ -51,6 +51,7 @@ MODULE mo_initicon_nml
     & config_interval_avg_fg     => interval_avg_fg,     &
     & config_filetype            => filetype,            &
     & config_dt_iau              => dt_iau,              &
+    & config_iterate_iau         => iterate_iau,         &
     & config_timeshift           => timeshift,           &
     & config_type_iau_wgt        => type_iau_wgt,        &
     & config_rho_incr_filter_wgt => rho_incr_filter_wgt, &
@@ -109,6 +110,7 @@ MODULE mo_initicon_nml
                             ! 1: Top-hat
                             ! 2: SIN2
                             ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD
+  LOGICAL  :: iterate_iau   ! if .TRUE., iterate IAU phase with halved dt_iau in first iteration
   REAL(wp) :: rho_incr_filter_wgt  ! Vertical filtering weight for density increments 
                                    ! Only applicable for init_mode=MODE_IAU, MODE_IAU_OLD
 
@@ -150,7 +152,7 @@ MODULE mo_initicon_nml
                           lp2cintp_sfcana, latbc_varnames_map_file,         &
                           start_time_avg_fg, end_time_avg_fg,               &
                           interval_avg_fg, ltile_coldstart, ltile_init,     &
-                          lvert_remap_fg
+                          lvert_remap_fg, iterate_iau
                           
 CONTAINS
 
@@ -191,6 +193,7 @@ CONTAINS
   lconsistency_checks = .TRUE. ! check validity of input fields  
   filetype    = -1             ! "-1": undefined
   dt_iau      = 10800._wp      ! 3-hour interval for IAU
+  iterate_iau = .FALSE.        ! no iteration of IAU
   dt_shift    = 0._wp          ! do not shift actual simulation start backward
   rho_incr_filter_wgt = 0._wp  ! density increment filtering turned off
   type_iau_wgt= 1              ! Top-hat weighting function
@@ -333,6 +336,7 @@ CONTAINS
   config_interval_avg_fg     = interval_avg_fg
   config_filetype            = filetype
   config_dt_iau              = dt_iau
+  config_iterate_iau         = iterate_iau
   config_timeshift%dt_shift  = dt_shift
   config_type_iau_wgt        = type_iau_wgt
   config_ana_varnames_map_file = ana_varnames_map_file
