@@ -57,7 +57,7 @@ USE mo_communication,      ONLY: exchange_data, exchange_data_4de1,            &
 
 USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
   & timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
-USE mo_fortran_tools,   ONLY: t_ptr_3d
+USE mo_fortran_tools,   ONLY: t_ptr_3d, insert_dimension
 
 IMPLICIT NONE
 
@@ -295,16 +295,13 @@ END SUBROUTINE sync_patch_array_i3
 SUBROUTINE sync_patch_array_r2(typ, p_patch, arr, opt_varname)
    INTEGER,       INTENT(IN)    :: typ
    TYPE(t_patch), INTENT(INOUT) :: p_patch
-   REAL(wp),      INTENT(INOUT) :: arr(:,:)
+   REAL(wp), TARGET, INTENT(INOUT) :: arr(:,:)
    CHARACTER*(*), INTENT(IN), OPTIONAL :: opt_varname
    ! local variable
-   REAL(wp), ALLOCATABLE :: arr3(:,:,:)
+   REAL(wp), POINTER :: arr3(:,:,:)
 
-   ALLOCATE(arr3(UBOUND(arr,1), 1, UBOUND(arr,2)))
-   arr3(:,1,:) = arr(:,:)
+   CALL insert_dimension(arr3, arr, 2)
    CALL sync_patch_array_r3(typ, p_patch, arr3, opt_varname)
-   arr(:,:) = arr3(:,1,:)
-   DEALLOCATE(arr3)
 END SUBROUTINE sync_patch_array_r2
 
 
@@ -320,15 +317,12 @@ END SUBROUTINE sync_patch_array_r2
 SUBROUTINE sync_patch_array_i2(typ, p_patch, arr)
    INTEGER,       INTENT(IN)    :: typ
    TYPE(t_patch), INTENT(INOUT) :: p_patch
-   INTEGER,       INTENT(INOUT) :: arr(:,:)
+   INTEGER, TARGET, INTENT(INOUT) :: arr(:,:)
    ! local variable
-   INTEGER, ALLOCATABLE :: arr3(:,:,:)
+   INTEGER, POINTER :: arr3(:,:,:)
 
-   ALLOCATE(arr3(UBOUND(arr,1), 1, UBOUND(arr,2)))
-   arr3(:,1,:) = arr(:,:)
+   CALL insert_dimension(arr3, arr, 2)
    CALL sync_patch_array_i3(typ, p_patch, arr3)
-   arr(:,:) = arr3(:,1,:)
-   DEALLOCATE(arr3)
 END SUBROUTINE sync_patch_array_i2
 
 
