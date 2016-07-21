@@ -615,15 +615,13 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
    TYPE(t_patch), INTENT(IN), TARGET :: p_patch
    CHARACTER*(*), INTENT(IN), OPTIONAL :: opt_varname
 
-!  Please note: this is also an input parameter in reality, but for using it
-!  as an argument of p_bcast it has to be declared INTENT(INOUT)
-   REAL(wp), INTENT(INOUT) :: arr(:,:,:)
+   REAL(wp), INTENT(IN) :: arr(:,:,:)
 
    REAL(wp), ALLOCATABLE:: arr_g(:,:,:)
    INTEGER :: j, jb, jl, jb_g, jl_g, n, ndim2, ndim3, nblks_g, flag
    INTEGER :: ityp, ndim, ndim_g
    INTEGER :: nerr(0:n_ghost_rows)
-   INTEGER, POINTER :: p_glb_index(:)=>NULL(), p_decomp_domain(:,:)=>NULL()
+   INTEGER, POINTER :: p_glb_index(:), p_decomp_domain(:,:)
 
    CHARACTER(len=256) :: varname, cfmt
 
@@ -635,6 +633,7 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
    ndim   = -1
    ndim_g = -1
 
+   NULLIFY(p_glb_index, p_decomp_domain)
 !-----------------------------------------------------------------------
 
    IF(.NOT. p_test_run) RETURN ! This routine is only effective in a verification run
@@ -858,28 +857,17 @@ SUBROUTINE check_patch_array_2(typ, p_patch, arr, opt_varname)
 !
 
    INTEGER, INTENT(IN)     :: typ
-   TYPE(t_patch), INTENT(IN), TARGET :: p_patch
-   REAL(wp), INTENT(IN)    :: arr(:,:)
+   TYPE(t_patch), INTENT(IN) :: p_patch
+   REAL(wp), TARGET, INTENT(IN)    :: arr(:,:)
    CHARACTER*(*), INTENT(IN), OPTIONAL :: opt_varname
 
-   REAL(wp), ALLOCATABLE :: arr3(:,:,:)
+   REAL(wp), POINTER :: arr3(:,:,:)
 !-----------------------------------------------------------------------
 
    IF(.NOT. p_test_run) RETURN ! This routine is only effective in a verification run
+   CALL insert_dimension(arr3, arr, 2)
 
-   ALLOCATE(arr3(UBOUND(arr,1), 1, UBOUND(arr,2)))
-!$ACC DATA CREATE( arr3 ), IF ( i_am_accel_node .AND. acc_on )
-!$ACC KERNELS PRESENT( arr ), IF ( i_am_accel_node .AND. acc_on )
-   arr3(:,1,:) = arr(:,:)
-!$ACC END KERNELS
-
-   IF(PRESENT(opt_varname)) THEN
-      CALL check_patch_array_3(typ, p_patch, arr3, opt_varname)
-   ELSE
-      CALL check_patch_array_3(typ, p_patch, arr3)
-   ENDIF
-!$ACC END DATA
-   DEALLOCATE(arr3) ! NB: No back-copy here!
+   CALL check_patch_array_3(typ, p_patch, arr3, opt_varname)
 
 END SUBROUTINE check_patch_array_2
 !-------------------------------------------------------------------------
