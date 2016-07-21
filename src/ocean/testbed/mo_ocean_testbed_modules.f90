@@ -239,7 +239,7 @@ IF(GMRedi_configuration/=Cartesian_Mixing)THEN
         & physics_parameters, &
         & operators_coefficients)
 ENDIF
-DO tracer_index=1,2
+DO tracer_index=1,no_tracer
          CALL advect_diffuse_tracer( patch_3d, &
            & ocean_state(n_dom)%p_prog(nold(1))%ocean_tracers(tracer_index),&
            & ocean_state(n_dom),            &

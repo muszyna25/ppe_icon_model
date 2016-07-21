@@ -415,6 +415,7 @@ MODULE mo_ocean_nml
   LOGICAL            :: TEST_MODE_REDI_ONLY=.FALSE.
   LOGICAL            :: SWITCH_OFF_TAPERING=.FALSE.
   LOGICAL            :: SWITCH_ON_REDI_BALANCE_DIAGONSTIC=.FALSE.
+  LOGICAL            :: SWITCH_ON_TAPERING_HORIZONTAL_DIFFUSION=.FALSE.
   !Parameters for tapering schemes
   LOGICAL  :: GMRedi_usesRelativeMaxSlopes = .true. ! the slopes are defined relatively the the grid slopes: dz/dx
   REAL(wp) :: S_max      = 8.0_wp                   !maximally allowed slope
@@ -443,7 +444,8 @@ MODULE mo_ocean_nml
     & TEST_MODE_GM_ONLY,              &
     & TEST_MODE_REDI_ONLY,            &
     & SWITCH_OFF_TAPERING,            &
-    & SWITCH_ON_REDI_BALANCE_DIAGONSTIC 
+    & SWITCH_ON_REDI_BALANCE_DIAGONSTIC,&
+    & SWITCH_ON_TAPERING_HORIZONTAL_DIFFUSION 
   
   ! ocean_physics_nml
   ! LOGICAL :: use_ThermoExpansion_Correction = .FALSE.

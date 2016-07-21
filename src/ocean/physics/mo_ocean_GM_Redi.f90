@@ -37,7 +37,7 @@ MODULE mo_ocean_GM_Redi
     & RossbyRadius_max, RossbyRadius_min,switch_off_diagonal_vert_expl,         &
     & GMREDI_COMBINED_DIAGNOSTIC,GM_INDIVIDUAL_DIAGNOSTIC,REDI_INDIVIDUAL_DIAGNOSTIC,&
     &TEST_MODE_REDI_ONLY,TEST_MODE_GM_ONLY,LinearThermoExpansionCoefficient, LinearHalineContractionCoefficient,&
-    & SWITCH_OFF_TAPERING,SWITCH_ON_REDI_BALANCE_DIAGONSTIC
+    & SWITCH_OFF_TAPERING,SWITCH_ON_REDI_BALANCE_DIAGONSTIC, SWITCH_ON_TAPERING_HORIZONTAL_DIFFUSION
     
 
   USE mo_util_dbg_prnt,             ONLY: dbg_print
@@ -958,11 +958,21 @@ CONTAINS
      ocean_state%p_aux%taper_function_1(:,:,:)=1.0_wp
      ocean_state%p_aux%taper_function_2(:,:,:)=1.0_wp
     ENDIF
+    taper_diagonal_horz(:,:,:)     =0.0_wp
+    taper_diagonal_vert_expl(:,:,:)=0.0_wp        
+    taper_diagonal_vert_impl(:,:,:)=0.0_wp    
+    taper_off_diagonal_horz(:,:,:)%x(1)=0.0_wp
+    taper_off_diagonal_horz(:,:,:)%x(2)=0.0_wp
+    taper_off_diagonal_horz(:,:,:)%x(3)=0.0_wp    
+    taper_off_diagonal_vert(:,:,:)%x(1)=0.0_wp
+    taper_off_diagonal_vert(:,:,:)%x(2)=0.0_wp
+    taper_off_diagonal_vert(:,:,:)%x(3)=0.0_wp
     !-------------------------------------------------------------------------------
     
     SELECT CASE(tapering_scheme)
 
     CASE(tapering_DanaMcWilliams)
+      IF(SWITCH_ON_TAPERING_HORIZONTAL_DIFFUSION)THEN
 !ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE
 
@@ -982,7 +992,7 @@ CONTAINS
               
               !coefficients for horizontal fluxes
               taper_diagonal_horz(cell_index,level,blockNo)  &
-              & =&! ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)*&
+              & = ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)*&
               &   K_I(cell_index,level,blockNo)
 
               taper_off_diagonal_horz(cell_index,level,blockNo)%x&
@@ -1013,7 +1023,62 @@ CONTAINS
         END DO
       END DO
 !ICON_OMP_END_DO
+      
+      
+      ELSEIF(.NOT.SWITCH_ON_TAPERING_HORIZONTAL_DIFFUSION)THEN
 
+
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE
+
+      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+
+        DO cell_index = start_cell_index, end_cell_index
+          end_level = patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
+
+!           IF(end_level >= min_dolic) THEN
+          
+            DO level = start_level, end_level
+            
+              !Following recommendations in Griffies Ocean Climate Model book (sect. 15.3.4.2)
+              !Danabasoglou-McWilliams tapering is for horizontal flux only applied to
+              !off-diagonal terms
+              
+              !coefficients for horizontal fluxes
+              taper_diagonal_horz(cell_index,level,blockNo)  &
+              & = K_I(cell_index,level,blockNo)
+
+              taper_off_diagonal_horz(cell_index,level,blockNo)%x&
+              & = (K_I(cell_index,level,blockNo)-kappa(cell_index,level,blockNo))&
+              &*ocean_state%p_aux%slopes(cell_index,level,blockNo)%x&
+              &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)
+
+              !coefficients for vertical fluxes
+              taper_off_diagonal_vert(cell_index,level,blockNo)%x&
+              &= (K_I(cell_index,level,blockNo)+kappa(cell_index,level,blockNo))&
+              &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)&                
+              &*ocean_state%p_aux%slopes(cell_index,level,blockNo)%x
+
+              
+              taper_diagonal_vert_impl(cell_index,level,blockNo)  &              
+              &=K_I(cell_index,level,blockNo)&
+              &*ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)&
+              &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)
+!IF(level<=5)THEN              
+!write(12345,*)'v-impl:h-diag',level,taper_diagonal_vert_impl(cell_index,level,blockNo),&
+!              &ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)&
+!              &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo),&
+!              &ocean_state%p_aux%slopes_squared(cell_index,level,blockNo),&
+!              &ocean_state%p_aux%taper_function_1(cell_index,level,blockNo) 
+!ENDIF              
+            END DO
+!           ENDIF
+        END DO
+      END DO
+!ICON_OMP_END_DO
+
+      ENDIF
       IF(switch_off_diagonal_vert_expl)THEN
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE
         DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block

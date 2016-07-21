@@ -2427,6 +2427,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
            density(idx,level,block)=density(idx,level,block)+0.000115_wp*density(idx,level,block)!&
           ! &-tanh(0.5*slope_parameter*(z_coord+tanh(x_coord))) !-tanh(x_coord)*(1.0_wp+z_coord) !          
           !ENDIF
+          !ocean_tracer(idx,level,block)=ocean_tracer(idx,level,block)-0.5_wp*ocean_tracer(idx,level,block)
           !ELSEIF(x_coord+z_coord<=-0.25_wp)THEN
           ! density(idx,level,block)=density(idx,level,block)-0.000115_wp*density(idx,level,block)!&
           ! &-tanh(0.5*slope_parameter*(z_coord+tanh(x_coord))) !-tanh(x_coord)*(1.0_wp+z_coord) !          
@@ -2657,7 +2658,7 @@ END DO
     ocean_tracer=0.0_wp
     density=0.0_wp
 !    slope_parameter =0.00001_wp
-    slope_parameter =0.5
+    slope_parameter =0.05
     temperature_difference = slope_parameter*(initial_temperature_south - initial_temperature_north)
     
     basin_northBoundary    = (basin_center_lat + 0.5_wp*basin_height_deg) * deg2rad
