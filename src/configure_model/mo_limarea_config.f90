@@ -42,12 +42,16 @@ MODULE mo_limarea_config
   TYPE t_latbc_config
 
     ! variables from namelist
-    INTEGER                         :: itype_latbc      ! type of limited area boundary nudging
-    REAL(wp)                        :: dtime_latbc      ! dt between two consequtive external latbc files
+    INTEGER                         :: itype_latbc         ! type of limited area boundary nudging
+    REAL(wp)                        :: dtime_latbc         ! dt between two consequtive external latbc files
     INTEGER                         :: nlev_in
-    CHARACTER(LEN=filename_max)     :: latbc_filename   ! prefix of latbc files
-    CHARACTER(LEN=MAX_CHAR_LENGTH)  :: latbc_path       ! directory containing external latbc files
-    REAL(wp)                        :: lc1, lc2         ! linear interpolation coefficients
+    CHARACTER(LEN=filename_max)     :: latbc_filename      ! prefix of latbc files
+    CHARACTER(LEN=MAX_CHAR_LENGTH)  :: latbc_path          ! directory containing external latbc files
+    REAL(wp)                        :: lc1, lc2            ! linear interpolation coefficients
+    CHARACTER(LEN=FILENAME_MAX)     :: latbc_boundary_grid ! grid file defining the lateral boundary
+
+    ! settings derived from the namelist parameters above:
+    LOGICAL                         :: lsparse_latbc       ! Flag: TRUE if only boundary rows are read.
 
   END TYPE t_latbc_config
   !------------------------------------------------------------------------

@@ -39,13 +39,15 @@ MODULE mo_limarea_nml
   !------------------------------------------------------------------------
   ! Namelist variables
   !------------------------------------------------------------------------
-  INTEGER                         :: itype_latbc    ! type of limited area boundary nudging
-  REAL(wp)                        :: dtime_latbc    ! dt between two consequtive external latbc files
-  INTEGER                         :: nlev_latbc     ! number of vertical levels in boundary data
-  CHARACTER(LEN=filename_max)     :: latbc_filename ! prefix of latbc files
-  CHARACTER(LEN=MAX_CHAR_LENGTH)  :: latbc_path     ! directory containing external latbc files
+  INTEGER                         :: itype_latbc         ! type of limited area boundary nudging
+  REAL(wp)                        :: dtime_latbc         ! dt between two consequtive external latbc files
+  INTEGER                         :: nlev_latbc          ! number of vertical levels in boundary data
+  CHARACTER(LEN=filename_max)     :: latbc_filename      ! prefix of latbc files
+  CHARACTER(LEN=MAX_CHAR_LENGTH)  :: latbc_path          ! directory containing external latbc files
+  CHARACTER(LEN=FILENAME_MAX)     :: latbc_boundary_grid ! grid file defining the lateral boundary
 
-  NAMELIST /limarea_nml/ itype_latbc, dtime_latbc, nlev_latbc, latbc_filename, latbc_path
+  NAMELIST /limarea_nml/ itype_latbc, dtime_latbc, nlev_latbc, latbc_filename, &
+    &                    latbc_path, latbc_boundary_grid
 
 CONTAINS
   !>
@@ -59,11 +61,12 @@ CONTAINS
     !------------------------------------------------------------
     ! Default settings
     !------------------------------------------------------------
-    itype_latbc      = 0
-    dtime_latbc      = 10800._wp
-    nlev_latbc       = 0
-    latbc_filename   = "prepiconR<nroot>B<jlev>_<y><m><d><h>.nc"
-    latbc_path       = "./"
+    itype_latbc         = 0
+    dtime_latbc         = 10800._wp
+    nlev_latbc          = 0
+    latbc_filename      = "prepiconR<nroot>B<jlev>_<y><m><d><h>.nc"
+    latbc_path          = "./"
+    latbc_boundary_grid = ""  ! empty string means: whole domain is read for lateral boundary
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
@@ -97,11 +100,13 @@ CONTAINS
     !----------------------------------------------------
     ! Fill the configuration state
     !----------------------------------------------------
-    latbc_config% itype_latbc     = itype_latbc
-    latbc_config% dtime_latbc     = dtime_latbc
-    latbc_config% nlev_in         = nlev_latbc
-    latbc_config% latbc_filename  = latbc_filename
-    latbc_config% latbc_path      = TRIM(latbc_path)//'/'
+    latbc_config% itype_latbc         = itype_latbc
+    latbc_config% dtime_latbc         = dtime_latbc
+    latbc_config% nlev_in             = nlev_latbc
+    latbc_config% latbc_filename      = latbc_filename
+    latbc_config% latbc_path          = TRIM(latbc_path)//'/'
+    latbc_config% latbc_boundary_grid = latbc_boundary_grid
+    latbc_config% lsparse_latbc       = (LEN_TRIM(latbc_boundary_grid) == 0)
 
     !-----------------------------------------------------
     ! Store the namelist for restart
