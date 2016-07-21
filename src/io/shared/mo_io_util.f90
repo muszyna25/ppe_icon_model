@@ -30,13 +30,17 @@ MODULE mo_io_util
   USE mo_cdi,                   ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4,         &
     &                                 FILETYPE_GRB, FILETYPE_GRB2
   USE mo_util_string,           ONLY: tolower
+  USE mo_read_interface,        ONLY: nf
 
   IMPLICIT NONE
 
   PRIVATE
 
+  INCLUDE 'netcdf.inc'
+
   PUBLIC :: get_filetype
   PUBLIC :: get_file_extension
+  PUBLIC :: read_netcdf_int_1d
 
   ! module name
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_io_util'
@@ -95,6 +99,76 @@ CONTAINS
       CALL finish(routine,'unknown output_type')
     END SELECT
   END FUNCTION get_file_extension
+
+
+  !----------------------------------------------------------------
+  !> Reads integer variables from NetCDF file
+  !
+  !  Note: opens and closes file and allocates output variables.
+  !----------------------------------------------------------------
+  SUBROUTINE read_netcdf_int_1d(filename, varname1, var1, opt_varname2, opt_var2) 
+    CHARACTER(len=*),                INTENT(IN)    :: filename      ! NetCDF file name
+    CHARACTER(len=*),                INTENT(IN)    :: varname1      ! variable name string
+    INTEGER, ALLOCATABLE,            INTENT(INOUT) :: var1(:)       ! output data
+    CHARACTER(len=*), OPTIONAL,      INTENT(IN)    :: opt_varname2  ! variable name string
+    INTEGER, ALLOCATABLE, OPTIONAL,  INTENT(INOUT) :: opt_var2(:)   ! output data
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine    = "read_netcdf_int_1d"
+    INTEGER :: dimID, varid, ndims, dimids(1), dimlen, ncfileID
+    LOGICAL :: l_exist
+
+    ! consistency check
+    IF ((PRESENT(opt_var2) .AND. .NOT. PRESENT(opt_varname2)) .OR.  &
+      & (PRESENT(opt_varname2) .AND. .NOT. PRESENT(opt_var2))) THEN
+      CALL finish(routine, "Internal error!")
+    END IF
+
+    ! --- open NetCDF file
+    INQUIRE (FILE=filename, EXIST=l_exist)
+    IF (.NOT. l_exist) THEN
+      CALL finish(routine, 'file "'//TRIM(filename)//'" not found!')
+    END IF
+    CALL nf(nf_open(TRIM(FILENAME), NF_NOWRITE, ncfileID), routine)
+
+    ! ----------------------
+    ! --- variable "var1"
+    ! ----------------------
+
+    ! --- find out about variable dimensions:
+    CALL nf(nf_inq_varid(ncfileID, TRIM(varname1), varid), routine)
+    CALL nf(nf_inq_varndims(ncfileID, varID, ndims), routine)
+    IF (ndims /= 1)  CALL finish(routine, "Variable '"//TRIM(varname1)//"' has more than one dimension!")
+    CALL nf(nf_inq_vardimid(ncfileID, varID, dimids), routine)
+    CALL nf(nf_inq_dimlen(ncfileID, dimID, dimlen), routine)
+
+    ! --- allocate output variable, read data
+    ALLOCATE(var1(dimlen))
+    CALL nf(nf_get_var_int(ncfileID, varID, var1), routine)
+
+    ! -------------------------
+    ! --- variable "opt_var2"
+    ! -------------------------
+
+    IF (PRESENT(opt_var2)) THEN
+
+      ! --- find out about variable dimensions:
+      CALL nf(nf_inq_varid(ncfileID, TRIM(opt_varname2), varid), routine)
+      CALL nf(nf_inq_varndims(ncfileID, varID, ndims), routine)
+      IF (ndims /= 1)  CALL finish(routine, "Variable '"//TRIM(opt_varname2)//"' has more than one dimension!")
+      CALL nf(nf_inq_vardimid(ncfileID, varID, dimids), routine)
+      CALL nf(nf_inq_dimlen(ncfileID, dimID, dimlen), routine)
+      
+      ! --- allocate output variable, read data
+      ALLOCATE(opt_var2(dimlen))
+      CALL nf(nf_get_var_int(ncfileID, varID, opt_var2), routine)
+
+    END IF
+
+    ! --- close NetCDF file
+    CALL nf(nf_close(ncfileID), routine)
+
+  END SUBROUTINE read_netcdf_int_1d
+
 
 END MODULE mo_io_util
 

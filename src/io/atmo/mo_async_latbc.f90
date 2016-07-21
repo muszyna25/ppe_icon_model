@@ -53,7 +53,6 @@ MODULE mo_async_latbc
 
     ! basic modules
     USE mo_kind,                      ONLY: i8, sp
-    USE mo_io_units,                  ONLY: nerr
     USE mo_exception,                 ONLY: finish, message
     USE mo_mpi,                       ONLY: stop_mpi, my_process_is_io,  my_process_is_pref, &
          &                                  my_process_is_mpi_test, p_int, p_real_sp
@@ -100,7 +99,8 @@ MODULE mo_async_latbc
          &                                  vlistInqVarGrid, streamClose, streamInqFiletype,   &
          &                                  FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2
     USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
-    USE mo_io_units,                  ONLY: filename_max
+    USE mo_io_units,                  ONLY: filename_max, nerr
+    USE mo_io_util,                   ONLY: read_netcdf_int_1d
     USE mo_util_file,                 ONLY: util_filesize
     USE mo_util_cdi,                  ONLY: test_cdi_varID, cdiGetStringError
 
@@ -113,10 +113,10 @@ MODULE mo_async_latbc
     PRIVATE
 
     ! subroutines
-    PUBLIC :: init_prefetch
     PUBLIC :: latbc_buffer
     PUBLIC :: prefetch_input
     PUBLIC :: prefetch_main_proc
+    PUBLIC :: init_prefetch
     PUBLIC :: close_prefetch
 
     !------------------------------------------------------------------------------------------------
@@ -130,6 +130,9 @@ MODULE mo_async_latbc
 
     ! NetCDF file IDs / CDI stream IDs for first guess and analysis file
     INTEGER, ALLOCATABLE :: fileID_fg(:)
+
+    ! for sparse latbc mode: index data for boundary rows
+    INTEGER, ALLOCATABLE :: global_cell_index(:), global_edge_index(:)
 
     !> constant for better readability
     INTEGER, PARAMETER :: WAIT_UNTIL_FINISHED = -1
@@ -185,6 +188,9 @@ MODULE mo_async_latbc
       DEALLOCATE(latbc_buffer%internal_name)
       DEALLOCATE(latbc_buffer%varID)
       DEALLOCATE(latbc_buffer%nlev)
+
+      IF (ALLOCATED(global_cell_index))  DEALLOCATE(global_cell_index)
+      IF (ALLOCATED(global_edge_index))  DEALLOCATE(global_edge_index)
 
 #endif
       ! NOMPI
@@ -395,6 +401,16 @@ MODULE mo_async_latbc
          ! allocate input data for lateral boundary nudging
          CALL prepare_pref_latbc_data(patch_data)
       ENDIF
+
+      ! --- "sparse latbc mode": read only data for boundary rows
+      !
+      !     this requires index information obtained from an additional
+      !     grid file:
+      IF (my_process_is_pref() .AND. latbc_config%lsparse_latbc) THEN
+        CALL read_netcdf_int_1d(latbc_config%latbc_boundary_grid,       &
+          &                     "global_cell_index", global_cell_index, &
+          &                     "global_edge_index", global_edge_index)
+      END IF
 
       CALL message(routine,'Done')
 #endif
