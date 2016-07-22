@@ -378,14 +378,6 @@ MODULE mo_async_latbc
       ! initialize the memory window for communication
       CALL init_remote_memory_window
 
-      IF( my_process_is_work()) THEN
-         ! allocate input data for lateral boundary nudging
-         CALL prepare_pref_latbc_data(patch_data, p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
-      ELSE IF( my_process_is_pref()) THEN
-         ! allocate input data for lateral boundary nudging
-         CALL prepare_pref_latbc_data(patch_data)
-      ENDIF
-
       ! --- "sparse latbc mode": read only data for boundary rows
       !
       !     this requires index information obtained from an additional
@@ -407,6 +399,14 @@ MODULE mo_async_latbc
           CALL finish(routine, "LatBC boundary edge list does not match in size!")
         END IF
       END IF
+
+      IF( my_process_is_work()) THEN
+         ! allocate input data for lateral boundary nudging
+         CALL prepare_pref_latbc_data(patch_data, p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
+      ELSE IF( my_process_is_pref()) THEN
+         ! allocate input data for lateral boundary nudging
+         CALL prepare_pref_latbc_data(patch_data)
+      ENDIF
 
       CALL message(routine,'Done')
 #endif
