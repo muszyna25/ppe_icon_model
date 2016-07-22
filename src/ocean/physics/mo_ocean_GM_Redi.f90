@@ -1023,10 +1023,9 @@ CONTAINS
         END DO
       END DO
 !ICON_OMP_END_DO
-      
+!ICON_OMP_END_PARALLEL      
       
       ELSEIF(.NOT.SWITCH_ON_TAPERING_HORIZONTAL_DIFFUSION)THEN
-
 
 !ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE
@@ -1077,9 +1076,10 @@ CONTAINS
         END DO
       END DO
 !ICON_OMP_END_DO
-
+!ICON_OMP_END_PARALLEL      
       ENDIF
       IF(switch_off_diagonal_vert_expl)THEN
+!ICON_OMP_PARALLEL      
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE
         DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
           CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
@@ -1096,7 +1096,9 @@ CONTAINS
           END DO
         END DO      
 !ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL
       ELSEIF(.NOT.switch_off_diagonal_vert_expl)THEN
+!ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE
        DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
           CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
@@ -1116,10 +1118,8 @@ CONTAINS
             END DO
           END DO
 !ICON_OMP_END_DO
-        
-      ENDIF      
 !ICON_OMP_END_PARALLEL
-      
+      ENDIF            
 ! Do level=start_level,end_level
 ! write(*,*)'max/min',level,&
 ! & maxval(taper_diagonal_horz(:,level,:)),minval(taper_diagonal_horz(:,level,:)),&
@@ -1849,7 +1849,7 @@ END DO
       !We follow the approach in POP, where these two contributions are added
       !(see Reference manual POP, sect 5.1.3, in particular p. 41, after eq (150)).
       !
-!ICON_OMP_DO_PARALLEL PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
+! !ICON_OMP_DO_PARALLEL PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
       !DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block     
       !  CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)      
       !  DO cell_index = start_cell_index, end_cell_index
@@ -1860,7 +1860,7 @@ END DO
       !    END DO                  
       !  END DO                
       !END DO
-!ICON_OMP_END_DO_PARALLEL
+! !ICON_OMP_END_DO_PARALLEL
      !Do level=1,n_zlev
      ! CALL dbg_print('New vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
       !CALL dbg_print('New vert coeff: A_v', &
@@ -1877,8 +1877,10 @@ END DO
 
 
 
-!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,neutral_coeff, &
-!ICON_OMP  level) ICON_OMP_DEFAULT_SCHEDULE
+! !ICON_OMP_DO_PARALLEL PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,neutral_coeff, &
+! !ICON_OMP  level) ICON_OMP_DEFAULT_SCHEDULE
+
+!ICON_OMP_DO_PARALLEL PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,neutral_coeff,level) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
 
@@ -1974,8 +1976,7 @@ END DO
           
       END DO ! cell_index = start_cell_index, end_cell_index
     END DO  ! blockNo = all_cells%start_block, all_cells%end_block
-!ICON_OMP_END_DO_NOWAIT
-!ICON_OMP_END_PARALLEL
+!ICON_OMP_END_DO_PARALLEL
 
 
    !Map the explicit horizontal tracer flux from cell centers to edges (where the horizontal divergence is calculated)
