@@ -14,6 +14,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
+#include "consistent_fma.inc"
 MODULE mo_bc_aeropt_splumes
 
   USE mo_kind,                 ONLY: wp
@@ -337,6 +338,7 @@ MODULE mo_bc_aeropt_splumes
       !
       ! calculate plume weights
       !
+!PREVENT_INCONSISTENT_IFORT_FMA
       DO icol=1,ncol
         !
         ! get plume-center relative spatial parameters for specifying amplitude of plume at given lat and lon
