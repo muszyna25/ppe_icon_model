@@ -29,19 +29,6 @@ MODULE mo_psrad_orbit_nml
   PRIVATE
   PUBLIC :: read_psrad_orbit_namelist
 
-  !--------------------
-  ! namelist variables   
-  !--------------------
-
-  REAL(wp) :: cecc           !< Eccentricity of Earth's Orbit
-  REAL(wp) :: cobld          !< Obliquity of Earth [Deg]
-  LOGICAL  :: l_orbvsop87    !< .TRUE. for VSOP87 orbit, 
-                             !< .FALSE. for Kepler orbit
-  LOGICAL  :: l_sph_symm_irr !< .TRUE. for globally averaged irradiation (RCE)
-                             !< .FALSE. for lat (lon) dependent irradiation
-
-  NAMELIST /psrad_orbit_nml/ cecc, cobld, l_orbvsop87, l_sph_symm_irr
-
 CONTAINS
   !>
   !!
@@ -50,6 +37,19 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: ist, funit
     INTEGER :: iunit
+
+    !--------------------
+    ! namelist variables   
+    !--------------------
+
+    REAL(wp) :: cecc           !< Eccentricity of Earth's Orbit
+    REAL(wp) :: cobld          !< Obliquity of Earth [Deg]
+    LOGICAL  :: l_orbvsop87    !< .TRUE. for VSOP87 orbit, 
+                               !< .FALSE. for Kepler orbit
+    LOGICAL  :: l_sph_symm_irr !< .TRUE. for globally averaged irradiation (RCE)
+                               !< .FALSE. for lat (lon) dependent irradiation
+
+    NAMELIST /psrad_orbit_nml/ cecc, cobld, l_orbvsop87, l_sph_symm_irr
 
     !----------------------------------------------------------------
     ! Default values
