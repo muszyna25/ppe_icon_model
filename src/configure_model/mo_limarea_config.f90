@@ -27,6 +27,7 @@ MODULE mo_limarea_config
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_datetime,           ONLY: t_datetime
   USE mtime,                 ONLY: MAX_DATETIME_STR_LEN, datetime
+  USE mo_parallel_config,    ONLY: num_prefetch_proc
 
   IMPLICIT NONE
 
@@ -80,12 +81,17 @@ MODULE mo_limarea_config
     ! for sparse latbc mode: index data for boundary rows:
     TYPE(t_glb_indices)             :: global_index
 
+    ! dictionary which maps internal variable names onto GRIB2
+    ! shortnames or NetCDF var names used in lateral boundary nudging.
+    CHARACTER(LEN=filename_max) :: latbc_varnames_map_file  
+
   END TYPE t_latbc_config
   !------------------------------------------------------------------------
 
   !------------------------------------------------------------------------
   TYPE(t_latbc_config), TARGET :: latbc_config
   !!----------------------------------------------------------------------------
+
 
 CONTAINS
 
@@ -121,6 +127,14 @@ CONTAINS
        CALL finish(TRIM(routine),message_text)
 
     END IF
+
+    ! Check whether an mapping file is provided for prefetching boundary data
+    ! calls a finish either when the flag is absent
+    !
+    IF ((num_prefetch_proc == 1) .AND. (latbc_config%latbc_varnames_map_file == ' ')) THEN
+       WRITE(message_text,'(a)') 'latbc_varnames_map_file required, but not found due to missing flag.'
+       CALL finish(TRIM(routine),message_text)
+    ENDIF
   
   END SUBROUTINE configure_latbc
   !--------------------------------------------------------------------------------------

@@ -92,7 +92,7 @@ MODULE mo_async_latbc
     USE mo_dictionary,                ONLY: t_dictionary, dict_get, dict_init, dict_loadfile, &
          &                                  dict_finalize
     USE mo_util_string,               ONLY: add_to_list, tolower
-    USE mo_initicon_config,           ONLY: latbc_varnames_map_file, init_mode
+    USE mo_initicon_config,           ONLY: init_mode
     USE mo_time_config,               ONLY: time_config
     USE mo_cdi,                       ONLY: vlistInqVarZaxis , streamOpenRead, streamInqVlist, &
          &                                  vlistNvars, zaxisInqSize, vlistInqVarName,         &
@@ -476,8 +476,8 @@ MODULE mo_async_latbc
       ! read the map file into dictionary data structure
       CALL dict_init(latbc_varnames_dict, lcase_sensitive=.FALSE.)
 
-      IF(latbc_varnames_map_file /= ' ') THEN
-         CALL dict_loadfile(latbc_varnames_dict, TRIM(latbc_varnames_map_file))
+      IF(LEN_TRIM(latbc_config%latbc_varnames_map_file) > 0) THEN
+         CALL dict_loadfile(latbc_varnames_dict, TRIM(latbc_config%latbc_varnames_map_file))
       END IF
 
       ! allocate the number of vertical levels with the

@@ -46,8 +46,12 @@ MODULE mo_limarea_nml
   CHARACTER(LEN=MAX_CHAR_LENGTH)  :: latbc_path          ! directory containing external latbc files
   CHARACTER(LEN=FILENAME_MAX)     :: latbc_boundary_grid ! grid file defining the lateral boundary
 
+  ! dictionary which maps internal variable names onto
+  ! GRIB2 shortnames or NetCDF var names used for lateral boundary nudging.
+  CHARACTER(LEN=filename_max) :: latbc_varnames_map_file  
+
   NAMELIST /limarea_nml/ itype_latbc, dtime_latbc, nlev_latbc, latbc_filename, &
-    &                    latbc_path, latbc_boundary_grid
+    &                    latbc_path, latbc_boundary_grid, latbc_varnames_map_file
 
 CONTAINS
   !>
@@ -67,6 +71,7 @@ CONTAINS
     latbc_filename      = "prepiconR<nroot>B<jlev>_<y><m><d><h>.nc"
     latbc_path          = "./"
     latbc_boundary_grid = ""  ! empty string means: whole domain is read for lateral boundary
+    latbc_varnames_map_file = " "
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
@@ -107,6 +112,7 @@ CONTAINS
     latbc_config% latbc_path          = TRIM(latbc_path)//'/'
     latbc_config% latbc_boundary_grid = latbc_boundary_grid
     latbc_config% lsparse_latbc       = (LEN_TRIM(latbc_boundary_grid) == 0)
+    latbc_config% latbc_varnames_map_file = latbc_varnames_map_file
 
     !-----------------------------------------------------
     ! Store the namelist for restart
