@@ -95,8 +95,10 @@ CONTAINS
 
       SELECT CASE (ext_data_mode)
 
-       CASE (SSTICE_CLIM) !SST and sea ice fraction updated based
-                !  on the climatological monthly values
+       ! SST and sea ice fraction updated based on the climatological monthly values
+       !
+       CASE (SSTICE_CLIM)
+
         CALL month2hour (datetime, month1, month2, pw2 )
         pw1 = 1._wp - pw2
 
@@ -205,7 +207,6 @@ CONTAINS
        CASE DEFAULT
          ! do nothing
       END SELECT
-
 
 
   END SUBROUTINE set_actual_td_ext_data
