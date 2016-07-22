@@ -66,6 +66,7 @@
 !!
 MODULE mo_name_list_output_zaxes
 
+  USE ISO_C_BINDING,                        ONLY: C_SIGNED_CHAR
   USE mo_cdi,                               ONLY: CDI_UNDEFID, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_GENERIC, ZAXIS_SURFACE, &
                                                 & ZAXIS_ISENTROPIC, ZAXIS_ALTITUDE, ZAXIS_PRESSURE, ZAXIS_CLOUD_BASE, &
                                                 & ZAXIS_CLOUD_TOP, ZAXIS_DEPTH_BELOW_LAND, ZAXIS_HEIGHT, ZAXIS_HYBRID, &
@@ -244,7 +245,7 @@ CONTAINS
       &                           levels           = (/ ( REAL(k,dp),   k=1,nlevp1 ) /), &
       &                           opt_set_bounds   = .TRUE.,                             &
       &                           opt_number       = get_numberOfVgridUsed(ivctype),     &
-      &                           opt_uuid         = vgrid_buffer(of%log_patch_id)%uuid )
+      &                           opt_uuid         = vgrid_buffer(of%log_patch_id)%uuid%DATA )
     ! Define number of half levels for z-axis 
     CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference),nlevp1)
 
@@ -252,7 +253,7 @@ CONTAINS
     CALL define_vertical_axis(of, ZA_reference_half, ZAXIS_REFERENCE, nlevp1,        &
       &                           levels   = (/ ( REAL(k,dp),   k=1,nlevp1 ) /),     &
       &                           opt_number = get_numberOfVgridUsed(ivctype),       &
-      &                           opt_uuid   = vgrid_buffer(of%log_patch_id)%uuid )
+      &                           opt_uuid   = vgrid_buffer(of%log_patch_id)%uuid%DATA )
     ! Define number of half levels for z-axis 
     CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference_half),nlevp1)
 
@@ -262,7 +263,7 @@ CONTAINS
       &                           opt_set_bounds   = .TRUE.,                             &
       &                           opt_set_ubounds_value = 0._dp,                         &
       &                           opt_number       = get_numberOfVgridUsed(ivctype),     &
-      &                           opt_uuid         = vgrid_buffer(of%log_patch_id)%uuid )
+      &                           opt_uuid         = vgrid_buffer(of%log_patch_id)%uuid%DATA )
     ! Define number of half levels for z-axis 
     CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference_half_hhl),nlevp1)
 
@@ -560,7 +561,7 @@ CONTAINS
     LOGICAL,                 INTENT(IN), OPTIONAL :: opt_set_bounds        !< Flag. Set lower/upper bounds if .TRUE.
     REAL(dp),                INTENT(IN), OPTIONAL :: opt_set_ubounds_value !< Explicit value for ubounds
     INTEGER,                 INTENT(IN), OPTIONAL :: opt_number            !< numberOfVGridUsed
-    CHARACTER(len=1),        INTENT(IN), OPTIONAL :: opt_uuid(16)          !< UUID of vertical grid
+    INTEGER(KIND = C_SIGNED_CHAR), INTENT(IN), OPTIONAL :: opt_uuid(16)          !< UUID of vertical grid
     LOGICAL,                 INTENT(IN), OPTIONAL :: opt_set_vct_as_levels !< set VCT to level values
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM(modname)//":define_vertical_axis"

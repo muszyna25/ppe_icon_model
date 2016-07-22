@@ -1370,6 +1370,7 @@ if test "x${config_target}" = "xblizzard" ; then
    echo "export LDR_CNTRL=MAXDATA=0xD0000000@DSA"  >&8
 fi
 echo "$make_command" >&8
+echo "exit \$?" >&8
 exec 8>-
 chmod +x build_command
 ],[load_profile="$load_profile"

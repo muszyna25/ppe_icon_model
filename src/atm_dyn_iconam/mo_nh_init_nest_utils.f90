@@ -121,7 +121,6 @@ MODULE mo_nh_init_nest_utils
     TYPE(t_patch),      POINTER     :: p_pp => NULL()
     TYPE(t_patch),      POINTER     :: p_pc => NULL()
 
-    TYPE(t_lnd_diag),   POINTER     :: lnd_diag
     TYPE(t_lnd_prog),   POINTER     :: lnd_prog
 
     ! local variables
@@ -182,7 +181,6 @@ MODULE mo_nh_init_nest_utils
     p_grfc            => p_grf_state(jgc)
     p_pc              => p_patch(jgc)
 
-    lnd_diag          => p_lnd_state(jg)%diag_lnd
     lnd_prog          => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
 
     p_grf => p_grf_state_local_parent(jgc)
@@ -906,7 +904,7 @@ MODULE mo_nh_init_nest_utils
     ! local variables
 
     ! Indices
-    INTEGER :: jb, jc, jk, jk1, jt, i_chidx, i_startblk, i_endblk, &
+    INTEGER :: jb, jc, jk, jk1, i_chidx, i_startblk, i_endblk, &
                i_startidx, i_endidx
 
     INTEGER :: num_lndvars
@@ -1044,7 +1042,7 @@ MODULE mo_nh_init_nest_utils
     i_startblk = p_pc%cells%start_block(1)
     i_endblk   = p_pc%cells%end_block(min_rlcell)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt,jk1) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jk1) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_pc, jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, min_rlcell)

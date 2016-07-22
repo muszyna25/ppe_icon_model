@@ -214,3 +214,19 @@ EOF
 #-----------------------------------------------------------------------------
 . ${thisdir}/add_required_ocean_files
 #-----------------------------------------------------------------------------
+. ${thisdir}/exec.iconrun
+#-----------------------------------------------------------------------------
+#  compare with reference
+if [[ x$BB_SYSTEM != x ]]; then
+. ${thisdir}/postFunx.sh
+  dataPath="${ICON_BASE_PATH}/experiments/${EXPNAME}/"
+  cd ${dataPath}
+  slave=${BB_SYSTEM:-thunder}_${BB_SLAVE:-gcc}
+  refDir=${ocean_data_MainFolder}/reference/${slave}/${EXPNAME}
+
+  directoryDiff ${refDir} .
+  check_error $? "DIFFCHECK for exp: ${EXPNAME}"
+  cd -
+fi
+
+exit

@@ -27,7 +27,7 @@ D) Running other real-data tests (DWD example scripts)
 
 #-----------------------------------------------------------------------------
 
-General Remarks.
+General Remarks:
 
 Sections A) - C) are tested for the following configurations:
 (valid for revision 3272 on "trunk/icon-dev")

@@ -42,6 +42,7 @@ w_so                W_SO
 w_so_ice            W_SO_ICE
 smi                 SMI
 t_so                T_SO
+t_seasfc            T_SEA
 gz0                 Z0
 t_mnw_lk            T_MNW_LK
 t_wml_lk            T_WML_LK

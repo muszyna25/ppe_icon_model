@@ -38,6 +38,7 @@ MODULE mo_ocean_tracer_transport_vert
   USE mo_ocean_physics
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
   USE mo_sync,                      ONLY: sync_c, sync_patch_array
+  USE mo_ocean_limiter,             ONLY: v_ppm_slimiter_mo, v_ppm_slimiter_mo_onblock 
 
 IMPLICIT NONE
   
@@ -49,7 +50,8 @@ IMPLICIT NONE
   PUBLIC :: advect_flux_vertical
   PUBLIC :: advect_flux_vertical_high_res
   PUBLIC :: adpo_vtrac_oce
-
+  PUBLIC :: upwind_vflux_oce
+ 
 CONTAINS
   
   !-------------------------------------------------------------------------
@@ -70,12 +72,12 @@ CONTAINS
     & tracer_id)
     
     TYPE(t_patch_3d ),TARGET :: patch_3d
-    REAL(wp), INTENT(inout)           :: trac_old(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp), INTENT(inout)           :: trac_old(:,:,:) ! (nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
     TYPE(t_operator_coeff), TARGET    :: operators_coeff
 !     REAL(wp)                          :: bc_top_tracer(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
 !     REAL(wp)                          :: bc_bot_tracer(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    REAL(wp), INTENT(inout)           :: flux_div_vert(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !new tracer
+    REAL(wp), INTENT(inout)           :: flux_div_vert(:,:,:) ! (nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !new tracer
     INTEGER, INTENT(in)               :: tracer_id
     
     !Local variables
@@ -112,7 +114,7 @@ CONTAINS
 
     IF (flux_calculation_vert == fct_vert_ppm) THEN
 
-      ! Vertical advection scheme: piecewise parabolic method (ppm) inUse      
+      ! Vertical advection scheme: piecewise parabolic method (ppm) inUse
       CALL upwind_vflux_ppm( patch_3d,              &
         & trac_old,                                 &
         & ocean_state%p_diag%w_time_weighted,              &
@@ -122,9 +124,9 @@ CONTAINS
         & operators_coeff%verticalAdvectionPPMcoeffs, &
         & flux_div_vert)
 
-        ! CALL sync_patch_array(sync_c, patch_2D, flux_div_vert)
         stop_timer(timer_adv_vert,2)
         RETURN
+
     ENDIF
 
     !  The rest is for not upwind_vflux_ppm cases, notInUse
@@ -556,7 +558,7 @@ CONTAINS
   !! mpi parallelized, no sync
   SUBROUTINE upwind_vflux_oce( patch_3d, pvar_c, pw_c, pupflux_i )
     
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)   :: patch_3d
+    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp), INTENT(inout)           :: pvar_c(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)     !< advected cell centered variable
     REAL(wp), INTENT(inout)           :: pw_c(nproma,n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)     !< in: vertical velocity on cells
     REAL(wp), INTENT(inout)           :: pupflux_i(nproma,n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !< variable in which the upwind flux is stored
@@ -567,30 +569,29 @@ CONTAINS
     !INTEGER             :: z_dolic
     INTEGER :: startIndex, endIndex
     INTEGER :: jc, jk, jb               !< index of cell, vertical thisLevel and block
-    INTEGER :: jkm1                     !< jk - 1
     
     TYPE(t_patch), POINTER :: patch_2D
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: cells_in_domain
     !-------------------------------------------------------------------------
-#ifndef __SX__
     patch_2D         => patch_3d%p_patch_2d(1)
     cells_in_domain => patch_2D%cells%in_domain
     
+!ICON_OMP_PARALLEL_DO PRIVATE(startIndex, endIndex, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, startIndex, endIndex)
+      pupflux_i(:,:,jb) = 0.0_wp
       DO jc = startIndex, endIndex
         DO jk = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-          jkm1 = jk - 1
           ! calculate vertical tracer flux using upwind method
           pupflux_i(jc,jk,jb) =                 &
             & laxfr_upflux_v( pw_c(jc,jk,jb),  &
-            & pvar_c(jc,jkm1,jb), pvar_c(jc,jk,jb) )
+            & pvar_c(jc,jk - 1,jb), pvar_c(jc,jk,jb) )
         ENDDO
       END DO
     END DO
+!ICON_OMP_END_PARALLEL_DO
     
-#endif
   END SUBROUTINE upwind_vflux_oce
   !-------------------------------------------------------------------------
   
@@ -617,7 +618,6 @@ CONTAINS
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: cells_in_domain
     !-------------------------------------------------------------------------
-#ifndef __SX__
     patch_2D         => patch_3d%p_patch_2d(1)
     cells_in_domain => patch_2D%cells%in_domain
     
@@ -638,7 +638,6 @@ CONTAINS
       END DO
     END DO
     
-#endif
   END SUBROUTINE central_vflux_oce
   
   !-------------------------------------------------------------------------
@@ -834,12 +833,12 @@ CONTAINS
     
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), INTENT(inout)           :: p_cc(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)  !< advected cell centered variable
-    REAL(wp), INTENT(inout)           :: p_w(nproma,n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !<  in, but synced: vertical velocity
+    REAL(wp), INTENT(inout)           :: p_w(nproma,n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !<  in, vertical velocity
     REAL(wp), INTENT(in)              :: p_dtime  !< time step
     REAL(wp), INTENT(inout)           :: p_cellhgt_mc_now(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)!< layer thickness at cell center at time n
     REAL(wp), INTENT(inout)           :: cell_invheight(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)!< layer thickness at cell center at time n
     TYPE(t_verticalAdvection_ppm_coefficients), POINTER :: verticalAdvection_ppm_coefficients(:)
-    REAL(wp), INTENT(inout)           :: flux_div_vert(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !new tracer
+    REAL(wp), INTENT(inout)           :: flux_div_vert(:,:,:) ! (nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !new tracer
     INTEGER, INTENT(in)               :: p_itype_vlimit                                  !< parameter to select limiter
     !
     !local variables
@@ -1222,7 +1221,7 @@ CONTAINS
     REAL(wp), INTENT(inout)           :: cell_thickeness(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)!< in: layer thickness at cell center at time n
     REAL(wp), INTENT(inout)           :: cell_invheight(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)!< layer thickness at cell center at time n
     TYPE(t_verticalAdvection_ppm_coefficients) :: verticalAdvection_ppm_coefficients(patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    REAL(wp), INTENT(inout)           :: flux_div_vert(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !new tracer
+    REAL(wp), INTENT(inout)           :: flux_div_vert(:,:,:) ! (nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !new tracer
     INTEGER, INTENT(in)               :: vertical_limiter_type                                  !< parameter to select limiter
     !
     !-----------------------------------------------------------------------
@@ -1230,7 +1229,10 @@ CONTAINS
     INTEGER                       :: startIndex, endIndex, jb
     !-----------------------------------------------------------------------
     cells_in_domain => patch_3d%p_patch_2d(1)%cells%in_domain
-    
+#ifdef NAGFOR
+    flux_div_vert(:,:,:) = 0.0_wp
+#endif
+   
 !ICON_OMP_PARALLEL_DO PRIVATE(startIndex, endIndex) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, startIndex, endIndex)
@@ -1569,301 +1571,16 @@ CONTAINS
         flux_div_vert(jc,thisLevel) = upward_tracer_flux(jc, thisLevel) &
           & - upward_tracer_flux(jc, thisLevel+1)
       ENDDO
+      DO thisLevel = cells_noOfLevels(jc)+1, n_zlev
+        ! positive vertical divergence in direction of w (upward positive)
+        flux_div_vert(jc,thisLevel) = 0.0_wp
+      ENDDO
     END DO
 
   END SUBROUTINE upwind_vflux_ppm_onBlock
   !-------------------------------------------------------------------------
  
-  !-------------------------------------------------------------------------
-  !>
-  !! Limiter for PPM (3rd order) vertical advection (monotone version)
-  !!
-  !! Removes over- and undershoots in first guess parabola by resetting the
-  !! upper or lower interface values.
-  !! Avoids non-physical over/undershoots in advected fields.
-  !!
-  !! Note that this limiter was coded assuming a pressure based vertical
-  !! coordinate system. Nevertheless this limiter works for a height based
-  !! vertical system, too. This is due to a 'wrong' computation of z_delta
-  !! in the case of a height based coordinate system (i.e. z_delta is
-  !! implicity multiplied by -1)
-  !!
-  !! Literature
-  !! Lin and Rood (1996), MWR, 124, 2046-2070
-  !!
-  !! @par Revision History
-  !! Developed by Daniel Reinert, DWD (2010-02-04)
-  !!
-  SUBROUTINE v_ppm_slimiter_mo( patch_3d, p_cc, p_face, p_slope, p_face_up, p_face_low )
-    
-    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
-    REAL(wp), INTENT(inout)           :: p_cc(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)      !< advected cell centered variable
-    REAL(wp), INTENT(inout)           :: p_face(nproma,n_zlev+1,patch_3d%p_patch_2d(1)%alloc_cell_blocks)  !< reconstructed face values of the advected field
-    REAL(wp), INTENT(inout)           :: p_slope(nproma,n_zlev+1,patch_3d%p_patch_2d(1)%alloc_cell_blocks) !< monotonized slope
-    REAL(wp), INTENT(inout)           :: p_face_up(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks) !< final face value (upper face, height based)
-    REAL(wp), INTENT(inout)           :: p_face_low(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)!< final face value (lower face, height based)
-    
-    ! locals
-    INTEGER :: nlev                      !< number of full levels
-    INTEGER :: firstLevel                      !< vertical start thisLevel
-    INTEGER :: jc, jk, jb                !< index of cell, vertical thisLevel and block
-    INTEGER :: startIndex, endIndex
-    INTEGER :: ikp1                      !< vertical thisLevel plus one
-    INTEGER :: i_dolic
-    REAL(wp) :: z_delta                   !< lower minus upper face value
-    REAL(wp) :: z_a6i                     !< curvature of parabola
-    TYPE(t_patch), POINTER :: patch_2D
-    !-----------------------------------------------------------------------
-    TYPE(t_subset_range), POINTER :: cells_in_domain
-    !-----------------------------------------------------------------------
-    patch_2D         => patch_3d%p_patch_2d(1)
-    cells_in_domain => patch_2D%cells%in_domain
-    
-    firstLevel = 1
-    nlev = n_zlev
-    ! !$OMP PARALLEL
-    ! !$OMP DO PRIVATE(jb,jk,jc,startIndex,endIndex,ikp1,z_delta,z_a6i)
-    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, jb, startIndex, endIndex)
-      DO jc = startIndex, endIndex
-        
-        i_dolic=patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-        
-        DO jk = firstLevel, i_dolic
-          ! index of bottom half thisLevel
-          ikp1 = jk + 1
-          
-          IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-            z_delta   = p_face(jc,ikp1,jb) - p_face(jc,jk,jb)
-            z_a6i     = 6._wp * (p_cc(jc,jk,jb)                           &
-              & - 0.5_wp * (p_face(jc,jk,jb) + p_face(jc,ikp1,jb)))
-            
-            IF ( p_slope(jc,jk,jb) == 0._wp) THEN
-              p_face_up(jc,jk,jb)  = p_cc(jc,jk,jb)
-              p_face_low(jc,jk,jb) = p_cc(jc,jk,jb)
-              
-            ELSE IF (z_delta * z_a6i > z_delta * z_delta) THEN
-              p_face_up(jc,jk,jb)  = 3._wp*p_cc(jc,jk,jb) - 2._wp*p_face(jc,ikp1,jb)
-              p_face_low(jc,jk,jb) = p_face(jc,ikp1,jb)
-              
-            ELSE IF (z_delta * z_a6i < -1._wp * (z_delta * z_delta)) THEN
-              p_face_up(jc,jk,jb)  = p_face(jc,jk,jb)
-              p_face_low(jc,jk,jb) = 3._wp*p_cc(jc,jk,jb) - 2._wp*p_face(jc,jk,jb)
-              
-            ELSE
-              p_face_up(jc,jk,jb)  = p_face(jc,jk,jb)
-              p_face_low(jc,jk,jb) = p_face(jc,ikp1,jb)
-            ENDIF
-          ENDIF
-        END DO
-      END DO
-    END DO
-    ! !$OMP END DO
-    ! !$OMP END PARALLEL
-    
-  END SUBROUTINE v_ppm_slimiter_mo
-  !-------------------------------------------------------------------------
-  !>
-  !! Limiter for PPM (3rd order) vertical advection (monotone version)
-  !!
-  !! Removes over- and undershoots in first guess parabola by resetting the
-  !! upper or lower interface values.
-  !! Avoids non-physical over/undershoots in advected fields.
-  !!
-  !! Note that this limiter was coded assuming a pressure based vertical
-  !! coordinate system. Nevertheless this limiter works for a height based
-  !! vertical system, too. This is due to a 'wrong' computation of z_delta
-  !! in the case of a height based coordinate system (i.e. z_delta is
-  !! implicity multiplied by -1)
-  !!
-  !! Literature
-  !! Lin and Rood (1996), MWR, 124, 2046-2070
-  !!
-  !! @par Revision History
-  !! Developed by Daniel Reinert, DWD (2010-02-04)
-  !!
-  !! mpi parallelized, only cells_in_domain are computed, no sync
-!<Optimize:inUse>
-  SUBROUTINE v_ppm_slimiter_mo_onBlock( p_cc, p_face, p_slope, p_face_up, p_face_low, &
-    & startIndex, endIndex, cells_noOfLevels )
 
-    REAL(wp), INTENT(in)           :: p_cc(nproma,n_zlev)      !< advected cell centered variable
-    REAL(wp), INTENT(in)           :: p_face(nproma,n_zlev+1)  !< reconstructed face values of the advected field
-    REAL(wp), INTENT(in)           :: p_slope(nproma,n_zlev+1) !< monotonized slope
-    REAL(wp), INTENT(inout)        :: p_face_up(nproma,n_zlev) !< final face value (upper face, height based)
-    REAL(wp), INTENT(inout)        :: p_face_low(nproma,n_zlev)!< final face value (lower face, height based)
-    INTEGER,  INTENT(in)           :: startIndex, endIndex
-    INTEGER,  INTENT(in)           :: cells_noOfLevels(nproma)
-
-    ! locals
-    INTEGER :: nlev                      !< number of full levels
-    INTEGER :: firstLevel                      !< vertical start thisLevel
-    INTEGER :: jc, jk                   !< index of cell, vertical thisLevel
-    INTEGER :: ikp1                      !< vertical thisLevel plus one
-    REAL(wp) :: z_delta                   !< lower minus upper face value
-    REAL(wp) :: z_a6i                     !< curvature of parabola
-    TYPE(t_patch), POINTER :: patch_2D
-    !-----------------------------------------------------------------------
-
-    firstLevel = 1
-    nlev = n_zlev
-
-! !CDIR NODEP
-    DO jc = startIndex, endIndex
-
-! !CDIR NODEP
-      DO jk = firstLevel, cells_noOfLevels(jc)
-        ! index of bottom half thisLevel
-        ikp1 = jk + 1
-
-        z_delta   = p_face(jc,ikp1) - p_face(jc,jk)
-        z_a6i     = 6._wp * (p_cc(jc,jk)                           &
-          & - 0.5_wp * (p_face(jc,jk) + p_face(jc,ikp1)))
-
-        IF ( p_slope(jc,jk) == 0._wp) THEN
-          p_face_up(jc,jk)  = p_cc(jc,jk)
-          p_face_low(jc,jk) = p_cc(jc,jk)
-
-        ELSE IF (z_delta * z_a6i > z_delta * z_delta) THEN
-          p_face_up(jc,jk)  = 3._wp*p_cc(jc,jk) - 2._wp*p_face(jc,ikp1)
-          p_face_low(jc,jk) = p_face(jc,ikp1)
-
-        ELSE IF (z_delta * z_a6i < -1._wp * (z_delta * z_delta)) THEN
-          p_face_up(jc,jk)  = p_face(jc,jk)
-          p_face_low(jc,jk) = 3._wp*p_cc(jc,jk) - 2._wp*p_face(jc,jk)
-
-        ELSE
-          p_face_up(jc,jk)  = p_face(jc,jk)
-          p_face_low(jc,jk) = p_face(jc,ikp1)
-        ENDIF
-
-      END DO
-        
-    END DO
-
-  END SUBROUTINE v_ppm_slimiter_mo_onBlock
-  !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  !>
-  !! Positive definite flux limiter for vertical advection
-  !!
-  !! Positive definite Zalesak Flux-Limiter (Flux corrected transport).
-  !! for the hydrostatic core. Only outward fluxes are re-scaled, in
-  !! order to maintain positive definiteness.
-  !!
-  !! @par Literature:
-  !! - Zalesak, S.T. (1979): Fully Multidimensional Flux-corrected Transport
-  !!   Algorithms for Fluids. JCP, 31, 335-362
-  !! - Harris, L. M. and P. H. Lauritzen (2010): A flux-form version of the
-  !!   Conservative Semi-Lagrangian Multi-tracer transport scheme (CSLAM) on
-  !!   the cubed sphere grid.  J. Comput. Phys., 230, 1215-1237
-  !! - Smolarkiewicz, P. K., 1989: Comment on "A positive definite advection
-  !!   scheme obtained by nonlinear renormalization of the advective fluxes.",
-  !!   Mon. Wea. Rev., 117, 2626-2632
-  !!
-  !! @par Revision History
-  !! - Inital revision by Daniel Reinert, DWD (2011-01-07)
-  !!
-  SUBROUTINE vflx_limiter_pd_oce( patch_3d, p_dtime, p_cc, p_cellhgt_mc_now, p_flx_tracer_v, &
-    & opt_slev, opt_elev )
-    
-    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
-    REAL(wp), INTENT(inout)          :: p_cc(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)           !< advected cell centered variable at time (n)
-    REAL(wp), INTENT(inout)          :: p_cellhgt_mc_now(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    REAL(wp), INTENT(in)             :: p_dtime
-    REAL(wp), INTENT(inout)          :: p_flx_tracer_v(nproma,n_zlev+1,patch_3d%p_patch_2d(1)%alloc_cell_blocks) !< calculated vertical tracer mass flux
-    INTEGER,  INTENT(in), OPTIONAL :: opt_slev
-    INTEGER,  INTENT(in), OPTIONAL :: opt_elev
-    !
-    !Local variables
-    REAL(wp) :: r_m(nproma,n_zlev)      !< fraction which must multiply all
-    !< outgoing fluxes of cell jc
-    !< to guarantee positive definiteness
-    REAL(wp) :: p_m(nproma)            !< sum of fluxes out of cell
-    REAL(wp) :: z_signum(nproma)       !< sign of mass flux       !< >0: upward; <0: downward
-    
-    INTEGER :: firstLevel, elev             !< vertical start and end thisLevel
-    INTEGER :: startIndex, endIndex
-    INTEGER :: jk, jb, jc            !< index of edge, vert thisLevel, block, cell
-    INTEGER :: jkp1, jkm1
-    TYPE(t_patch), POINTER :: patch_2D
-    !-----------------------------------------------------------------------
-    TYPE(t_subset_range), POINTER :: cells_in_domain
-    !-----------------------------------------------------------------------
-    patch_2D         => patch_3d%p_patch_2d(1)
-    cells_in_domain => patch_2D%cells%in_domain
-    ! Do jk=1,n_zlev
-    ! write(0,*)'profile before limit',jk,p_flx_tracer_v(5,jk,5)
-    ! END DO
-    ! Check for optional arguments
-    IF ( PRESENT(opt_slev) ) THEN
-      firstLevel = opt_slev
-    ELSE
-      firstLevel = 1
-    END IF
-    IF ( PRESENT(opt_elev) ) THEN
-      elev = opt_elev
-    ELSE
-      elev = n_zlev
-    END IF
-    
-    r_m(1:nproma,1:n_zlev)= 0.0_wp
-    p_m(1:nproma)         = 0.0_wp
-    z_signum(1:nproma)    = 0.0_wp
-    
-    
-    ! !$OMP PARALLEL
-    ! !$OMP DO PRIVATE(jb,jk,jc,startIndex,endIndex,jkp1,p_m,r_m,jkm1,z_signum)
-    DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, jb, startIndex, endIndex)
-      !
-      ! 1. Compute total outward mass
-      !
-      DO jk = firstLevel, elev
-        jkp1 = jk+1
-        
-        DO jc = startIndex, endIndex
-          
-          IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-            ! Sum of all outgoing fluxes out of cell jk
-            p_m(jc) = p_dtime                                &
-              & * (MAX(0._wp,p_flx_tracer_v(jc,jk,jb))  &  ! upper half thisLevel
-              & - MIN(0._wp,p_flx_tracer_v(jc,jkp1,jb)) )     ! lower half thisLevel
-            ! fraction which must multiply the fluxes out of cell jk to guarantee no
-            ! undershoot
-            ! Nominator: maximum allowable decrease \rho^n q^n
-            r_m(jc,jk) = MIN(1._wp, (p_cc(jc,jk,jb)*p_cellhgt_mc_now(jc,jk,jb)) &
-              & /(p_m(jc) + dbl_eps) )
-          ENDIF
-        ENDDO
-        
-      ENDDO
-      !
-      ! 2. Limit outward fluxes (loop over half levels)
-      !    Choose r_m depending on the sign of p_mflx_tracer_v
-      !
-      DO jk = firstLevel+1, elev
-        jkm1 = jk-1
-        DO jc = startIndex, endIndex
-          
-          IF ( patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-            ! p_mflx_tracer_v(k-1/2) > 0: flux directed from cell k   -> k-1
-            ! p_mflx_tracer_v(k-1/2) < 0: flux directed from cell k-1 -> k
-            z_signum(jc) = SIGN(1._wp,p_flx_tracer_v(jc,jk,jb))
-            
-            p_flx_tracer_v(jc,jk,jb) =  p_flx_tracer_v(jc,jk,jb)  * 0.5_wp    &
-              & * ( (1._wp + z_signum(jc)) * r_m(jc,jk) &
-              & +   (1._wp - z_signum(jc)) * r_m(jc,jkm1) )
-          ENDIF
-        ENDDO
-      ENDDO
-    ENDDO
-    
-    ! !$OMP END DO NOWAIT
-    ! !$OMP END PARALLEL
-  END SUBROUTINE vflx_limiter_pd_oce
-  
   !-------------------------------------------------------------------------
   !
   !
@@ -1888,7 +1605,7 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2010-04-23)
   !! - generalized for p- and z-based vertical coordinate systems
   !!
-  FUNCTION laxfr_upflux_v( p_vn, p_psi1, p_psi2 )  result(p_upflux)
+  ELEMENTAL FUNCTION laxfr_upflux_v( p_vn, p_psi1, p_psi2 )  result(p_upflux)
     
     REAL(wp), INTENT(in) :: p_vn
     REAL(wp), INTENT(in) :: p_psi1, p_psi2
@@ -1903,7 +1620,7 @@ CONTAINS
   END FUNCTION laxfr_upflux_v
   
 END MODULE mo_ocean_tracer_transport_vert
-  !------------------------------------------------------------------------
+!  !------------------------------------------------------------------------
 
 
   !------------------------------------------------------------------------
