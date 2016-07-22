@@ -106,20 +106,28 @@ CONTAINS
   !
   !  Note: opens and closes file and allocates output variables.
   !----------------------------------------------------------------
-  SUBROUTINE read_netcdf_int_1d(filename, varname1, var1, opt_varname2, opt_var2) 
+  SUBROUTINE read_netcdf_int_1d(filename, varname1, var1, opt_varname2, opt_var2, &
+    &                           opt_attname, opt_attvar1, opt_attvar2) 
     CHARACTER(len=*),                INTENT(IN)    :: filename      ! NetCDF file name
     CHARACTER(len=*),                INTENT(IN)    :: varname1      ! variable name string
     INTEGER, ALLOCATABLE,            INTENT(INOUT) :: var1(:)       ! output data
-    CHARACTER(len=*), OPTIONAL,      INTENT(IN)    :: opt_varname2  ! variable name string
+    CHARACTER(len=*),     OPTIONAL,  INTENT(IN)    :: opt_varname2  ! variable name string
     INTEGER, ALLOCATABLE, OPTIONAL,  INTENT(INOUT) :: opt_var2(:)   ! output data
+    CHARACTER(len=*),     OPTIONAL,  INTENT(IN)    :: opt_attname   ! optional variable attribute name
+    INTEGER,              OPTIONAL,  INTENT(INOUT) :: opt_attvar1   ! attribute value for variable 1
+    INTEGER,              OPTIONAL,  INTENT(INOUT) :: opt_attvar2   ! attribute value for variable 2
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine    = "read_netcdf_int_1d"
     INTEGER :: dimID, varid, ndims, dimids(1), dimlen, ncfileID
     LOGICAL :: l_exist
 
-    ! consistency check
+    ! consistency checks
     IF ((PRESENT(opt_var2) .AND. .NOT. PRESENT(opt_varname2)) .OR.  &
       & (PRESENT(opt_varname2) .AND. .NOT. PRESENT(opt_var2))) THEN
+      CALL finish(routine, "Internal error!")
+    END IF
+    IF ((PRESENT(opt_attvar1) .AND. .NOT. PRESENT(opt_attname)) .OR. &
+      & (PRESENT(opt_attvar2) .AND. .NOT. PRESENT(opt_attname))) THEN
       CALL finish(routine, "Internal error!")
     END IF
 
@@ -145,6 +153,11 @@ CONTAINS
     ALLOCATE(var1(dimlen))
     CALL nf(nf_get_var_int(ncfileID, varID, var1), routine)
 
+    ! --- optional: read integer attribute
+    IF (PRESENT(opt_attvar1)) THEN
+      CALL nf(nf_get_att_int(ncfileID, varID, opt_attname, opt_attvar1), routine)
+    END IF
+
     ! -------------------------
     ! --- variable "opt_var2"
     ! -------------------------
@@ -161,6 +174,11 @@ CONTAINS
       ! --- allocate output variable, read data
       ALLOCATE(opt_var2(dimlen))
       CALL nf(nf_get_var_int(ncfileID, varID, opt_var2), routine)
+
+      ! --- optional: read integer attribute
+      IF (PRESENT(opt_attvar2)) THEN
+        CALL nf(nf_get_att_int(ncfileID, varID, opt_attname, opt_attvar2), routine)
+      END IF
 
     END IF
 

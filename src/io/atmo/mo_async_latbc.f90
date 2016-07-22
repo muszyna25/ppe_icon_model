@@ -88,7 +88,7 @@ MODULE mo_async_latbc
     USE mo_var_metadata_types,        ONLY: t_var_metadata, VARNAME_LEN
     USE mo_var_list,                  ONLY: nvar_lists, var_lists, new_var_list, &
          &                                  collect_group
-    USE mo_limarea_config,            ONLY: latbc_config, generate_filename
+    USE mo_limarea_config,            ONLY: latbc_config, generate_filename, t_glb_indices
     USE mo_dictionary,                ONLY: t_dictionary, dict_get, dict_init, dict_loadfile, &
          &                                  dict_finalize
     USE mo_util_string,               ONLY: add_to_list, tolower
@@ -131,9 +131,6 @@ MODULE mo_async_latbc
     ! NetCDF file IDs / CDI stream IDs for first guess and analysis file
     INTEGER, ALLOCATABLE :: fileID_fg(:)
 
-    ! for sparse latbc mode: index data for boundary rows
-    INTEGER, ALLOCATABLE :: global_cell_index(:), global_edge_index(:)
-
     !> constant for better readability
     INTEGER, PARAMETER :: WAIT_UNTIL_FINISHED = -1
     ! common constant strings
@@ -167,30 +164,17 @@ MODULE mo_async_latbc
       END IF
 
       ! deallocating patch data
-      DEALLOCATE(patch_data%var_data)
-      DEALLOCATE(patch_data%cells%reorder_index)
-    !  DEALLOCATE(patch_data%cells%own_idx)
-    !  DEALLOCATE(patch_data%cells%own_blk)
-      DEALLOCATE(patch_data%cells%pe_own)
-      DEALLOCATE(patch_data%cells%pe_off)
-      DEALLOCATE(patch_data%edges%reorder_index)
-    !  DEALLOCATE(patch_data%edges%own_idx)
-    !  DEALLOCATE(patch_data%edges%own_blk)
-      DEALLOCATE(patch_data%edges%pe_own)
-      DEALLOCATE(patch_data%edges%pe_off)
-   !   DEALLOCATE(patch_data%mem_win%mem_ptr_sp)
+      DEALLOCATE(patch_data%var_data, patch_data%cells%reorder_index, patch_data%cells%pe_own,     &
+        &        patch_data%cells%pe_off, patch_data%edges%reorder_index, patch_data%edges%pe_own, &
+        &        patch_data%edges%pe_off)
 
       ! deallocating intermediate storage latbc_buffer
-      DEALLOCATE(latbc_buffer%grp_vars)
-      DEALLOCATE(latbc_buffer%hgrid)
-      DEALLOCATE(latbc_buffer%vars)
-      DEALLOCATE(latbc_buffer%mapped_name)
-      DEALLOCATE(latbc_buffer%internal_name)
-      DEALLOCATE(latbc_buffer%varID)
-      DEALLOCATE(latbc_buffer%nlev)
+      DEALLOCATE(latbc_buffer%grp_vars, latbc_buffer%hgrid, latbc_buffer%vars,                     &
+        &        latbc_buffer%mapped_name, latbc_buffer%internal_name, latbc_buffer%varID,         &
+        &        latbc_buffer%nlev)
 
-      IF (ALLOCATED(global_cell_index))  DEALLOCATE(global_cell_index)
-      IF (ALLOCATED(global_edge_index))  DEALLOCATE(global_edge_index)
+      ! clean up global indices data structure.
+      CALL latbc_config%global_index%finalize()
 
 #endif
       ! NOMPI
@@ -407,9 +391,21 @@ MODULE mo_async_latbc
       !     this requires index information obtained from an additional
       !     grid file:
       IF (my_process_is_pref() .AND. latbc_config%lsparse_latbc) THEN
-        CALL read_netcdf_int_1d(latbc_config%latbc_boundary_grid,       &
-          &                     "global_cell_index", global_cell_index, &
-          &                     "global_edge_index", global_edge_index)
+        CALL read_netcdf_int_1d(latbc_config%latbc_boundary_grid,                          &
+          &                     varname1     = "global_cell_index",                        &
+          &                     var1         = latbc_config%global_index%cells,            &
+          &                     opt_varname2 = "global_edge_index",                        &
+          &                     opt_var2     = latbc_config%global_index%edges,            &
+          &                     opt_attname  = "nglobal",                                  &
+          &                     opt_attvar1  = latbc_config%global_index%n_patch_cells_g,  &
+          &                     opt_attvar2  = latbc_config%global_index%n_patch_edges_g)
+        ! consistency checks:
+        IF (latbc_config%global_index%n_patch_cells_g /= p_patch(1)%n_patch_cells_g) THEN
+          CALL finish(routine, "LatBC boundary cell list does not match in size!")
+        END IF
+        IF (latbc_config%global_index%n_patch_edges_g /= p_patch(1)%n_patch_edges_g) THEN
+          CALL finish(routine, "LatBC boundary edge list does not match in size!")
+        END IF
       END IF
 
       CALL message(routine,'Done')

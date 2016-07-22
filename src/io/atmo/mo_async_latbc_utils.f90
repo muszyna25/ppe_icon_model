@@ -55,7 +55,7 @@
     USE mo_latbc_read_recv,     ONLY: prefetch_cdi_2d, prefetch_cdi_3d, compute_data_receive
 #endif
 
-    USE mo_async_latbc_types,   ONLY: t_patch_data, t_reorder_data, latbc_buffer ! for testing win_put
+    USE mo_async_latbc_types,   ONLY: t_patch_data, t_reorder_data, latbc_buffer
     USE mo_kind,                ONLY: wp, sp, i8
     USE mo_parallel_config,     ONLY: nproma
     USE mo_model_domain,        ONLY: t_patch
@@ -114,6 +114,8 @@
          &     latbc_data, latbc_fileID, new_latbc_tlev, prev_latbc_tlev,  &
          &     update_lin_interpolation, deallocate_pref_latbc_data, mtime_read
 
+
+
     !------------------------------------------------------------------------------------------------
     ! CONSTANTS
     !------------------------------------------------------------------------------------------------
@@ -126,6 +128,12 @@
     INTEGER, PARAMETER :: msg_latbc_done    = 20883
     CHARACTER(len=*), PARAMETER :: version = '$Id$'
     CHARACTER(LEN=*), PARAMETER :: modname = 'mo_async_latbc_utils'
+
+
+    !------------------------------------------------------------------------------------------------
+    ! VARIABLES
+    !------------------------------------------------------------------------------------------------
+
     INTEGER                :: latbc_fileID, &
          new_latbc_tlev, &  ! time level indices for  latbc_data. can be 1 or 2.
          prev_latbc_tlev    ! new_latbc_tlev is the time level index carrying the most recent data
@@ -506,25 +514,18 @@
       !
       ! start reading boundary data
       !
-      IF (latbc_config%itype_latbc == 1) THEN
-         IF( my_process_is_pref()) THEN
-            CALL prefetch_latbc_intp_data( patch_data )
-         ELSE IF( my_process_is_work()) THEN
-            CALL compute_latbc_intp_data( p_patch, patch_data, p_nh_state, p_int )
-            ! NOMPI
-            ! Compute tendencies for nest boundary update
-            IF (ltime_incr) CALL compute_boundary_tendencies(p_patch, p_nh_state)
-         ENDIF
-      ELSE
-         IF( my_process_is_pref()) THEN
-            CALL prefetch_latbc_icon_data( patch_data )
-         ELSE IF( my_process_is_work()) THEN
-            CALL compute_latbc_icon_data( p_patch, patch_data, p_int )
-            ! NOMPI
-            ! Compute tendencies for nest boundary update
-            IF (ltime_incr) CALL compute_boundary_tendencies(p_patch, p_nh_state)
-         ENDIF
+      IF( my_process_is_pref()) THEN
+        CALL prefetch_latbc_intp_data( patch_data )
+      ELSE IF( my_process_is_work()) THEN
+        IF (latbc_config%itype_latbc == 1) THEN
+          CALL compute_latbc_intp_data( p_patch, patch_data, p_nh_state, p_int )
+        ELSE
+          CALL compute_latbc_icon_data( p_patch, patch_data, p_int )
+        END IF
+        ! Compute tendencies for nest boundary update
+        IF (ltime_incr) CALL compute_boundary_tendencies(p_patch, p_nh_state)
       ENDIF
+      
 #endif
     END SUBROUTINE pref_latbc_data
 
