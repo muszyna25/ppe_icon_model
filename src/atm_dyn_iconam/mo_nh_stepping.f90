@@ -183,6 +183,11 @@ MODULE mo_nh_stepping
 #endif
 #endif
 
+#if defined( _OPENACC )
+  USE mo_nonhydro_gpu_types,       ONLY: save_convenience_pointers, refresh_convenience_pointers
+  USE mo_mpi,                      ONLY: i_am_accel_node, my_process_is_work
+#endif
+
   IMPLICIT NONE
 
   PRIVATE
@@ -698,6 +703,19 @@ MODULE mo_nh_stepping
 !LK++
 #endif
 
+#if defined( _OPENACC )
+!
+  i_am_accel_node = my_process_is_work()    ! Activate GPUs
+
+  CALL save_convenience_pointers( )
+
+!$ACC DATA COPYIN( p_int_state, p_patch, p_nh_state, prep_adv, advection_config ), IF ( i_am_accel_node )
+
+  CALL refresh_convenience_pointers( )
+  i_am_accel_node = .FALSE.                 ! Deactivate GPUs
+
+#endif
+
 #ifdef USE_MTIME_LOOP
   jstep = jstep0+jstep_shift+1
   TIME_LOOP: DO
@@ -1157,6 +1175,14 @@ MODULE mo_nh_stepping
     jstep = jstep + 1
 #endif
   ENDDO TIME_LOOP
+
+#if defined( _OPENACC )
+  i_am_accel_node = my_process_is_work()    ! Activate GPUs
+  CALL save_convenience_pointers( )
+!$ACC END DATA
+  CALL refresh_convenience_pointers( )
+  i_am_accel_node = .FALSE.                 ! Deactivate GPUs
+#endif
 
   ! clean-up routine for mo_nh_supervise module (eg. closing of files)
   CALL finalize_supervise_nh()
