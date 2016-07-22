@@ -135,6 +135,11 @@ CONTAINS
        WRITE(message_text,'(a)') 'latbc_varnames_map_file required, but not found due to missing flag.'
        CALL finish(TRIM(routine),message_text)
     ENDIF
+
+    IF (latbc_config%lsparse_latbc .AND. (num_prefetch_proc == 0)) THEN
+      WRITE(message_text,'(a)') 'Synchronous latBC mode: sparse read-in not implemented!'
+      CALL finish(TRIM(routine),message_text)
+    END IF
   
   END SUBROUTINE configure_latbc
   !--------------------------------------------------------------------------------------
