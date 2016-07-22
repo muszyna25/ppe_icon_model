@@ -238,14 +238,14 @@ MODULE mo_bc_aeropt_splumes
     REAL(wp), INTENT(IN)       :: &
        & lambda,                  & !< wavelength
        & year_fr,                 & !< Fractional Year (1903.0 is the 0Z on the first of January 1903, Gregorian)
-       & oro(ncol_max),           & !< orographic height (m)
-       & lon(ncol_max),           & !< longitude in degrees E
-       & lat(ncol_max),           & !< latitude in degrees N
+       & oro(ncol),               & !< orographic height (m)
+       & lon(ncol),               & !< longitude in degrees E
+       & lat(ncol),               & !< latitude in degrees N
        & z (ncol_max,nlevels),    & !< height above sea-level (m)
        & dz(ncol_max,nlevels)       !< level thickness (difference between half levels)
 
     REAL(wp), INTENT(OUT)      ::     &
-       & dNovrN(ncol_max)           , & !< anthropogenic incroment to cloud drop number concentration 
+       & dNovrN(ncol)               , & !< anthropogenic incroment to cloud drop number concentration 
        & aod_prof(ncol_max,nlevels) , & !< profile of aerosol optical depth
        & ssa_prof(ncol_max,nlevels) , & !< profile of single scattering albedo
        & asy_prof(ncol_max,nlevels)     !< profile of asymmetry parameter
@@ -256,13 +256,13 @@ MODULE mo_bc_aeropt_splumes
        & eta(ncol_max,nlevels),    & !< normalized height (by 15 km)
        & z_beta(ncol_max,nlevels), & !< profile for scaling column optical depth
        & prof(ncol_max,nlevels),   & !< scaled profile (by beta function)
-       & beta_sum(ncol_max),       & !< vertical sum of beta function
-       & ssa(ncol_max),            & !< aerosol optical depth 
-       & asy(ncol_max),            & !< aerosol optical depth 
-       & cw_an(ncol_max),          & !< column weight for simple plume (anthropogenic) aod at 550 nm
-       & cw_bg(ncol_max),          & !< column weight for fine-mode background aod at 550 nm
-       & caod_sp(ncol_max),        & !< column simple plume (anthropogenic) aod at 550 nm
-       & caod_bg(ncol_max),        & !< column fine-mode background aod at 550 nm
+       & beta_sum(ncol),           & !< vertical sum of beta function
+       & ssa(ncol),                & !< aerosol optical depth 
+       & asy(ncol),                & !< aerosol optical depth 
+       & cw_an(ncol),              & !< column weight for simple plume (anthropogenic) aod at 550 nm
+       & cw_bg(ncol),              & !< column weight for fine-mode background aod at 550 nm
+       & caod_sp(ncol),            & !< column simple plume (anthropogenic) aod at 550 nm
+       & caod_bg(ncol),            & !< column fine-mode background aod at 550 nm
        & a_plume1,                 & !< gaussian longitude factor for feature 1
        & a_plume2,                 & !< gaussian longitude factor for feature 2
        & b_plume1,                 & !< gaussian latitude factor for feature 1
@@ -278,7 +278,6 @@ MODULE mo_bc_aeropt_splumes
        & aod_550,                  & !< aerosol optical depth at 550nm
        & aod_lmd,                  & !< aerosol optical depth at input wavelength
        & lfactor                     !< factor to compute wavelength dependence of optical properties
-    REAL(wp)                     :: ssaf !< factor in fraction
     !
     ! ---------- 
     !
@@ -292,23 +291,15 @@ MODULE mo_bc_aeropt_splumes
     !
     ! initialize variables, including output
     !
-    aod_prof(1:ncol,1:nlevels) = 0.0
-    ssa_prof(1:ncol,1:nlevels) = 0.0
-    asy_prof(1:ncol,1:nlevels) = 0.0
     DO k=1,nlevels
-       z_beta(1:ncol,k)   = MERGE(1.0_wp, 0.0_wp, z(1:ncol,k) >= oro(1:ncol))
-       eta(1:ncol,k)      = MAX(0.0_wp,MIN(1.0_wp,z(1:ncol,k)/15000._wp))
+      DO icol=1,ncol
+        aod_prof(icol,k) = 0.0
+        ssa_prof(icol,k) = 0.0
+        asy_prof(icol,k) = 0.0
+        z_beta(icol,k)   = MERGE(1.0_wp, 0.0_wp, z(icol,k) >= oro(icol))
+        eta(icol,k)      = MAX(0.0_wp,MIN(1.0_wp,z(icol,k)/15000.))
+      END DO
     END DO
-
-!!$    DO k=1,nlevels
-!!$      DO icol=1,ncol
-!!$        aod_prof(icol,k) = 0.0
-!!$        ssa_prof(icol,k) = 0.0
-!!$        asy_prof(icol,k) = 0.0
-!!$        z_beta(icol,k)   = MERGE(1.0_wp, 0.0_wp, z(icol,k) >= oro(icol))
-!!$        eta(icol,k)      = MAX(0.0_wp,MIN(1.0_wp,z(icol,k)/15000.))
-!!$      END DO
-!!$    END DO
     DO icol=1,ncol
       dNovrN(icol)   = 1.0_wp
       caod_sp(icol)  = 0.00_wp
@@ -345,27 +336,11 @@ MODULE mo_bc_aeropt_splumes
         !
         delta_lat = lat(icol) - plume_lat(iplume)
         delta_lon = lon(icol) - plume_lon(iplume)
-!!$        delta_lon = MERGE ( delta_lon-SIGN(360._wp,delta_lon) , delta_lon , ABS(delta_lon) > 180._wp )
-!!$        a_plume1  = 0.5_wp / (MERGE(sig_lon_E(1,iplume), sig_lon_W(1,iplume), delta_lon > 0)**2)
-!!$        b_plume1  = 0.5_wp / (MERGE(sig_lat_E(1,iplume), sig_lat_W(1,iplume), delta_lon > 0)**2)
-!!$        a_plume2  = 0.5_wp / (MERGE(sig_lon_E(2,iplume), sig_lon_W(2,iplume), delta_lon > 0)**2)
-!!$        b_plume2  = 0.5_wp / (MERGE(sig_lat_E(2,iplume), sig_lat_W(2,iplume), delta_lon > 0)**2)
-        IF (ABS(delta_lon) > 180._wp) THEN
-          delta_lon=delta_lon-SIGN(360._wp,delta_lon)
-        ELSE
-          delta_lon=delta_lon
-        END IF
-        IF (delta_lon > 0._wp) THEN
-          a_plume1  = 0.5_wp / (sig_lon_E(1,iplume)*sig_lon_E(1,iplume))
-          b_plume1  = 0.5_wp / (sig_lat_E(1,iplume)*sig_lat_E(1,iplume))
-          a_plume2  = 0.5_wp / (sig_lon_E(2,iplume)*sig_lon_E(2,iplume))
-          b_plume2  = 0.5_wp / (sig_lat_E(2,iplume)*sig_lat_E(2,iplume))
-        ELSE
-          a_plume1  = 0.5_wp / (sig_lon_W(1,iplume)*sig_lon_W(1,iplume))
-          b_plume1  = 0.5_wp / (sig_lat_W(1,iplume)*sig_lat_W(1,iplume))
-          a_plume2  = 0.5_wp / (sig_lon_W(2,iplume)*sig_lon_W(2,iplume))
-          b_plume2  = 0.5_wp / (sig_lat_W(2,iplume)*sig_lat_W(2,iplume))
-        END IF
+        delta_lon = MERGE ( delta_lon-SIGN(360._wp,delta_lon) , delta_lon , ABS(delta_lon) > 180._wp )
+        a_plume1  = 0.5_wp / (MERGE(sig_lon_E(1,iplume), sig_lon_W(1,iplume), delta_lon > 0)**2)
+        b_plume1  = 0.5_wp / (MERGE(sig_lat_E(1,iplume), sig_lat_W(1,iplume), delta_lon > 0)**2)
+        a_plume2  = 0.5_wp / (MERGE(sig_lon_E(2,iplume), sig_lon_W(2,iplume), delta_lon > 0)**2)
+        b_plume2  = 0.5_wp / (MERGE(sig_lat_E(2,iplume), sig_lat_W(2,iplume), delta_lon > 0)**2)
         !
         ! adjust for a plume specific rotation which helps match plume state to climatology.
         !
@@ -386,9 +361,7 @@ MODULE mo_bc_aeropt_splumes
         ! calculate wavelength-dependent scattering properties
         !
         lfactor   = MIN(1.0_wp,700.0_wp/lambda)
-        ssaf      = ssa550(iplume)*lfactor*lfactor*lfactor
-        ssa(icol) = 1._wp/(1._wp+(1._wp-ssa550(iplume))/ssaf)
-!!$        ssa(icol) = (ssa550(iplume) * lfactor**4) / ((ssa550(iplume) * lfactor**4) + ((1-ssa550(iplume)) * lfactor))
+        ssa(icol) = (ssa550(iplume) * lfactor**4) / ((ssa550(iplume) * lfactor**4) + ((1-ssa550(iplume)) * lfactor))
         asy(icol) =  asy550(iplume) * SQRT(lfactor)
       END DO
       !
@@ -411,14 +384,12 @@ MODULE mo_bc_aeropt_splumes
     !
     ! complete optical depth weighting
     !
-!!$    DO k=1,nlevels
-!!$      DO icol = 1,ncol
-        asy_prof(1:ncol,1:nlevels) = MERGE(asy_prof(1:ncol,1:nlevels)/ssa_prof(1:ncol,1:nlevels), &
-                                   & 0.0_wp, ssa_prof(1:ncol,1:nlevels) > TINY(1._wp))
-        ssa_prof(1:ncol,1:nlevels) = MERGE(ssa_prof(1:ncol,1:nlevels)/aod_prof(1:ncol,1:nlevels), &
-                                   & 1.0_wp, aod_prof(1:ncol,1:nlevels) > TINY(1._wp))
-!!$      END DO
-!!$    END DO
+    DO k=1,nlevels
+      DO icol = 1,ncol
+        asy_prof(icol,k) = MERGE(asy_prof(icol,k)/ssa_prof(icol,k), 0.0_wp, ssa_prof(icol,k) > TINY(1._wp))
+        ssa_prof(icol,k) = MERGE(ssa_prof(icol,k)/aod_prof(icol,k), 1.0_wp, aod_prof(icol,k) > TINY(1._wp))
+      END DO
+    END DO
     !
     ! calcuate effective radius normalization (divisor) factor
     !
@@ -473,15 +444,15 @@ MODULE mo_bc_aeropt_splumes
     REAL(wp) ::                       &
          year_fr                     ,& !< time in year fraction (1989.0 is 0Z on Jan 1 1989)
          lambda                      ,& !< wavelength at central band wavenumber [nm]
-         z_sfc(kbdim)               ,& !< surface height [m]
-         lon_sp(kbdim)              ,& !< longitude passed to sp
-         lat_sp(kbdim)              ,& !< latitude passed to sp
+         z_sfc(kproma)               ,& !< surface height [m]
+         lon_sp(kproma)              ,& !< longitude passed to sp
+         lat_sp(kproma)              ,& !< latitude passed to sp
          z_fl_vr(kbdim,klev)         ,& !< level height [m], vertically reversed indexing (1=lowest level)
          dz_vr(kbdim,klev)           ,& !< level thickness [m], vertically reversed 
          sp_aod_vr(kbdim,klev)       ,& !< simple plume aerosol optical depth, vertically reversed 
          sp_ssa_vr(kbdim,klev)       ,& !< simple plume single scattering albedo, vertically reversed
          sp_asy_vr(kbdim,klev)       ,& !< simple plume asymmetry factor, vertically reversed indexing
-         sp_xcdnc(kbdim)               !< drop number scale factor
+         sp_xcdnc(kproma)               !< drop number scale factor
 
     year_fr=datetime%yeafrc+REAL(datetime%year)
     IF (datetime%year > 1850) THEN
@@ -511,11 +482,6 @@ MODULE mo_bc_aeropt_splumes
            & z_sfc(:)           ,lon_sp(:)          ,lat_sp(:)           ,year_fr             , &
            & z_fl_vr(:,:)       ,dz_vr(:,:)         ,sp_xcdnc(:)         ,sp_aod_vr(:,:)      , &
            & sp_ssa_vr(:,:)     ,sp_asy_vr(:,:)                                               )
-
-!!$        sp_xcdnc(:)=0.01_wp
-!!$        sp_aod_vr(:,:)=0.01_wp
-!!$        sp_ssa_vr(:,:)=0.9_wp
-!!$        sp_asy_vr(:,:)=0.9_wp
 
         DO jk=1,klev
           DO jl=1,kproma
