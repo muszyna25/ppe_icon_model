@@ -37,7 +37,6 @@ MODULE mo_tracer_metadata_types
     !
     LOGICAL :: lis_tracer         ! this is a tracer field (TRUE/FALSE)
     CHARACTER(LEN=VARNAME_LEN) :: name         ! Name of tracer
-    CHARACTER(len=VARNAME_LEN) :: tracer_class ! Type of tracer
     ! Advection
     INTEGER :: ihadv_tracer       ! Method for horizontal transport
     INTEGER :: ivadv_tracer       ! Method for vertical transport
