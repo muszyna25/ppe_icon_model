@@ -25,9 +25,8 @@
 
 #ifndef NOMPI
     USE mpi
-    USE mo_mpi,                 ONLY: my_process_is_mpi_test, &
-         &                            my_process_is_pref, my_process_is_work,   &
-         &                            my_process_is_io, p_comm_work
+    USE mo_mpi,                 ONLY: my_process_is_pref, my_process_is_work,   &
+         &                            p_comm_work
     ! Processor numbers
     USE mo_mpi,                 ONLY: p_pref_pe0, p_pe_work, p_work_pe0, num_work_procs
     ! MPI Communication routines
@@ -643,8 +642,7 @@
       ! compute processors wait for msg from
       ! prefetch processor that they can start
       ! reading latbc data from memory window
-      IF (.NOT. my_process_is_io() .AND. &
-        & .NOT. my_process_is_mpi_test()) THEN
+      IF(my_process_is_work()) THEN
         CALL compute_wait_for_async_pref()
       END IF
 
@@ -717,9 +715,7 @@
 
       ! Reading the next time step
 #ifndef NOMPI
-      IF((.NOT. my_process_is_io()       .AND. &
-           & .NOT. my_process_is_pref()) .AND. &
-           & .NOT. my_process_is_mpi_test()) THEN
+      IF(my_process_is_work()) THEN
          CALL compute_start_async_pref()
       ENDIF
 #endif
@@ -864,11 +860,7 @@
       ENDDO
 
       ! Reading the next time step
-      IF((.NOT. my_process_is_io()       .AND. &
-           & .NOT. my_process_is_pref()) .AND. &
-           & .NOT. my_process_is_mpi_test()) THEN
-         CALL compute_start_async_pref()
-      END IF
+      IF (my_process_is_work()) CALL compute_start_async_pref()
 
       p_ri => latbc%patch_data%cells
 
