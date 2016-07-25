@@ -166,9 +166,8 @@ MODULE mo_async_latbc
     !
     SUBROUTINE close_prefetch()
 #ifndef NOMPI
-      IF((.not. my_process_is_io() .AND.&
-           & .not. my_process_is_pref()) .AND.&
-           & .not. my_process_is_mpi_test()) THEN
+
+      IF (my_process_is_work()) THEN
 
          CALL compute_wait_for_async_pref()
          CALL compute_shutdown_async_pref()
@@ -269,7 +268,7 @@ MODULE mo_async_latbc
       ! allocate patch data structure
       ! set number of global cells/edges/verts and patch ID
 
-      IF (my_process_is_work() .AND. .NOT. my_process_is_pref()) THEN
+      IF (my_process_is_work()) THEN
          latbc%patch_data%nlev          = p_patch(1)%nlev
          latbc%patch_data%nlevp1        = p_patch(1)%nlevp1
          latbc%patch_data%level         = p_patch(1)%level

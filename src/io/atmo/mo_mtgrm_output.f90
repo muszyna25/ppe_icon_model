@@ -196,7 +196,7 @@ MODULE mo_meteogram_output
   INTEGER, PARAMETER :: VAR_GROUP_SOIL_MLp2  =    5  !< height levels [0m, soil half levels, -14.58m]
   INTEGER, PARAMETER :: FLAG_DIAG            =    4  !< Flag bit: if set then this variable is a diagnostic
 
-  INTEGER :: ntiles_mtgrm          ! notal number of tiles (ntiles_total + ntiles_water) 
+  INTEGER :: ntiles_mtgrm          ! notal number of tiles (ntiles_total + ntiles_water)
                                    ! if NWP tiles are set up
                                    ! 1 otherwise
 
@@ -821,8 +821,7 @@ CONTAINS
     ! (only relevant if pure I/O PEs exist)
     mtgrm(jg)%l_is_varlist_sender = (process_mpi_io_size > 0)    .AND.  &
       &                   my_process_is_work() .AND. &
-      &                   l_my_process_is_mpi_workroot .AND.  &
-      &             .NOT. my_process_is_mpi_test()
+      &                   l_my_process_is_mpi_workroot
 
     ! Flag. True, if this PE is a pure I/O PE without own patch data:
     mtgrm(jg)%l_pure_io_pe        = (process_mpi_io_size > 0) .AND.  &

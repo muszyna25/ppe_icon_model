@@ -17,7 +17,7 @@ MODULE mo_atmo_model
 
   ! basic modules
   USE mo_exception,               ONLY: message, finish
-  USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
+  USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io,   &
     &                                   set_mpi_work_communicators, process_mpi_io_size,      &
     &                                   my_process_is_pref, process_mpi_pref_size
   USE mo_timer,                   ONLY: init_timer, timer_start, timer_stop,                  &
@@ -305,7 +305,7 @@ CONTAINS
     IF (process_mpi_pref_size > 0) THEN
       num_prefetch_proc = 1
       CALL message(routine,'asynchronous input prefetching is enabled.')
-      IF (my_process_is_pref() .AND. (.NOT. my_process_is_mpi_test())) THEN
+      IF (my_process_is_pref()) THEN
         CALL prefetch_main_proc
       ENDIF
     ENDIF
@@ -324,7 +324,7 @@ CONTAINS
         use_async_name_list_io = .TRUE.
         CALL message(routine,'asynchronous namelist I/O scheme is enabled.')
         ! consistency check
-        IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
+        IF (my_process_is_io()) THEN
           ! Stop timer which is already started but would not be stopped
           ! since xxx_io_main_proc never returns
           IF (timers_level > 3) CALL timer_stop(timer_model_init)
@@ -345,7 +345,7 @@ CONTAINS
           sim_step_info%jstep0    = jstep0
           CALL name_list_io_main_proc(sim_step_info)
         END IF
-      ELSE IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN
+      ELSE IF (my_process_is_io()) THEN
         ! Shut down MPI
         CALL stop_mpi
         STOP
