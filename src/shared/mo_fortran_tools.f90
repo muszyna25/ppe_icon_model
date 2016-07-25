@@ -23,6 +23,9 @@ MODULE mo_fortran_tools
   USE mo_kind,                    ONLY: wp, sp, dp, ik4 => i4
   USE mo_exception,               ONLY: finish
   USE mo_var_metadata_types,      ONLY: VARNAME_LEN
+#ifdef _OPENACC
+  USE mo_mpi,                     ONLY: i_am_accel_node
+#endif
 
   IMPLICIT NONE
 
@@ -36,7 +39,6 @@ MODULE mo_fortran_tools
   PUBLIC :: resize_arr_c1d
 
   PRIVATE
-
 
   !> Just a small base CLASS for anything that needs a destructor.
   !> XXX: This will become unnecessary once all relevant compilers support the FINAL keyword.
@@ -119,6 +121,16 @@ MODULE mo_fortran_tools
         CLASS(t_Destructible), INTENT(INOUT) :: me
     END SUBROUTINE interface_destructor
   END INTERFACE
+
+#if defined( _OPENACC )
+#define ACC_DEBUG $ACC
+#if defined(__FORTRAN_TOOLS_NOACC)
+  LOGICAL, PARAMETER ::  acc_on = .FALSE.
+#else
+  LOGICAL, PARAMETER ::  acc_on = .TRUE.
+#endif
+#endif
+
 
 CONTAINS
 
@@ -256,13 +268,27 @@ CONTAINS
     INTEGER :: i1, i2, m1, m2
     m1 = SIZE(dest, 1)
     m2 = SIZE(dest, 2)
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP COLLAPSE(2)
+#else
 !$omp do collapse(2)
+#endif
     DO i2 = 1, m2
       DO i1 = 1, m1
         dest(i1, i2) = src(i1, i2)
       END DO
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
+
   END SUBROUTINE copy_2d_dp
 
   !> copy state, omp parallel, does not wait for other threads to complete
@@ -273,10 +299,17 @@ CONTAINS
     m1 = SIZE(dest, 1)
     m2 = SIZE(dest, 2)
     m3 = SIZE(dest, 3)
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP COLLAPSE(3)
+#else
 #ifdef _CRAYFTN
 !$omp do
 #else
 !$omp do collapse(3)
+#endif
 #endif
     DO i3 = 1, m3
       DO i2 = 1, m2
@@ -285,7 +318,13 @@ CONTAINS
         END DO
       END DO
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
   END SUBROUTINE copy_3d_dp
 
   !> copy state, omp parallel, does not wait for other threads to complete
@@ -298,7 +337,14 @@ CONTAINS
     m3 = SIZE(dest, 3)
     m4 = SIZE(dest, 4)
     m5 = SIZE(dest, 5)
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP COLLAPSE(5)
+#else
 !$omp do collapse(5)
+#endif
     DO i5 = 1, m5
       DO i4 = 1, m4
         DO i3 = 1, m3
@@ -310,7 +356,13 @@ CONTAINS
         END DO
       END DO
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
   END SUBROUTINE copy_5d_dp
 
   !> copy state, omp parallel, does not wait for other threads to complete
@@ -323,7 +375,14 @@ CONTAINS
     m3 = SIZE(dest, 3)
     m4 = SIZE(dest, 4)
     m5 = SIZE(dest, 5)
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP COLLAPSE(5)
+#else
 !$omp do collapse(5)
+#endif
     DO i5 = 1, m5
       DO i4 = 1, m4
         DO i3 = 1, m3
@@ -335,7 +394,13 @@ CONTAINS
         END DO
       END DO
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
   END SUBROUTINE copy_5d_sp
 
   !> copy state, omp parallel, does not wait for other threads to complete
@@ -348,7 +413,14 @@ CONTAINS
     m3 = SIZE(dest, 3)
     m4 = SIZE(dest, 4)
     m5 = SIZE(dest, 5)
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP COLLAPSE(5)
+#else
 !$omp do collapse(5)
+#endif
     DO i5 = 1, m5
       DO i4 = 1, m4
         DO i3 = 1, m3
@@ -360,7 +432,13 @@ CONTAINS
         END DO
       END DO
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
   END SUBROUTINE copy_5d_spdp
 
   !> copy state, omp parallel, does not wait for other threads to complete
@@ -370,13 +448,26 @@ CONTAINS
     INTEGER :: i1, i2, m1, m2
     m1 = SIZE(dest, 1)
     m2 = SIZE(dest, 2)
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP COLLAPSE(2)
+#else
 !$omp do collapse(2)
+#endif
     DO i2 = 1, m2
       DO i1 = 1, m1
         dest(i1, i2) = src(i1, i2)
       END DO
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
   END SUBROUTINE copy_2d_i4
 
   !> copy state, omp parallel, does not wait for other threads to complete
@@ -389,7 +480,15 @@ CONTAINS
     m3 = SIZE(dest, 3)
     m4 = SIZE(dest, 4)
     m5 = SIZE(dest, 5)
+
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP COLLAPSE(5)
+#else
 !$omp do collapse(5)
+#endif
     DO i5 = 1, m5
       DO i4 = 1, m4
         DO i3 = 1, m3
@@ -401,7 +500,13 @@ CONTAINS
         END DO
       END DO
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
   END SUBROUTINE copy_5d_i4
 
   !> copy state, omp parallel, does not wait for other threads to complete
@@ -412,7 +517,14 @@ CONTAINS
     m1 = SIZE(dest, 1)
     m2 = SIZE(dest, 2)
     m3 = SIZE(dest, 3)
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( src ), PCOPYOUT( dest ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( src ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( src, dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP COLLAPSE(3)
+#else
 !$omp do collapse(3)
+#endif
     DO i3 = 1, m3
       DO i2 = 1, m2
         DO i1 = 1, m1
@@ -420,7 +532,13 @@ CONTAINS
         END DO
       END DO
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( dest ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
   END SUBROUTINE copy_3d_i4
 
 
@@ -431,10 +549,16 @@ CONTAINS
     m1 = SIZE(init_var, 1)
     m2 = SIZE(init_var, 2)
     m3 = SIZE(init_var, 3)
+#ifdef _OPENACC
+!$ACC DATA PCOPYOUT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP COLLAPSE(3)
+#else
 #ifdef _CRAYFTN
 !$omp do
 #else
 !$omp do collapse(3)
+#endif
 #endif
     DO i3 = 1, m3
       DO i2 = 1, m2
@@ -443,7 +567,13 @@ CONTAINS
         END DO
       END DO
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
   END SUBROUTINE init_zero_3d_dp
 
   SUBROUTINE init_zero_4d_dp(init_var)
@@ -454,10 +584,16 @@ CONTAINS
     m2 = SIZE(init_var, 2)
     m3 = SIZE(init_var, 3)
     m4 = SIZE(init_var, 4)
+#ifdef _OPENACC
+!$ACC DATA PCOPYOUT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP COLLAPSE(4)
+#else
 #ifdef _CRAYFTN
 !$omp do
 #else
 !$omp do collapse(4)
+#endif
 #endif
     DO i4 = 1, m4
       DO i3 = 1, m3
@@ -468,7 +604,13 @@ CONTAINS
         END DO
       END DO
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
   END SUBROUTINE init_zero_4d_dp
 
   SUBROUTINE init_zero_4d_sp(init_var)
@@ -479,10 +621,16 @@ CONTAINS
     m2 = SIZE(init_var, 2)
     m3 = SIZE(init_var, 3)
     m4 = SIZE(init_var, 4)
+#ifdef _OPENACC
+!$ACC DATA PCOPYOUT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP COLLAPSE(4)
+#else
 #ifdef _CRAYFTN
 !$omp do
 #else
 !$omp do collapse(4)
+#endif
 #endif
     DO i4 = 1, m4
       DO i3 = 1, m3
@@ -493,7 +641,13 @@ CONTAINS
         END DO
       END DO
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
   END SUBROUTINE init_zero_4d_sp
 
   SUBROUTINE init_zero_3d_sp(init_var)
@@ -503,7 +657,13 @@ CONTAINS
     m1 = SIZE(init_var, 1)
     m2 = SIZE(init_var, 2)
     m3 = SIZE(init_var, 3)
+#ifdef _OPENACC
+!$ACC DATA PCOPYOUT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP COLLAPSE(3)
+#else
 !$omp do collapse(3)
+#endif
     DO i3 = 1, m3
       DO i2 = 1, m2
         DO i1 = 1, m1
@@ -511,7 +671,14 @@ CONTAINS
         END DO
       END DO
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
+
   END SUBROUTINE init_zero_3d_sp
 
   SUBROUTINE init_zero_2d_i4(init_var)
@@ -520,13 +687,26 @@ CONTAINS
 
     m1 = SIZE(init_var, 1)
     m2 = SIZE(init_var, 2)
+
+#ifdef _OPENACC
+!$ACC DATA PCOPYOUT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP COLLAPSE(2)
+#else
 !$omp do collapse(2)
+#endif
     DO i2 = 1, m2
       DO i1 = 1, m1
         init_var(i1, i2) = 0_ik4
       END DO
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
   END SUBROUTINE init_zero_2d_i4
 
   SUBROUTINE init_zero_3d_i4(init_var)
@@ -536,7 +716,13 @@ CONTAINS
     m1 = SIZE(init_var, 1)
     m2 = SIZE(init_var, 2)
     m3 = SIZE(init_var, 3)
+#ifdef _OPENACC
+!$ACC DATA PCOPYOUT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP COLLAPSE(3)
+#else
 !$omp do collapse(3)
+#endif
     DO i3 = 1, m3
       DO i2 = 1, m2
         DO i1 = 1, m1
@@ -544,7 +730,13 @@ CONTAINS
         END DO
       END DO
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
   END SUBROUTINE init_zero_3d_i4
 
   SUBROUTINE init_zero_4d_i4(init_var)
@@ -555,7 +747,13 @@ CONTAINS
     m2 = SIZE(init_var, 2)
     m3 = SIZE(init_var, 3)
     m4 = SIZE(init_var, 4)
+#ifdef _OPENACC
+!$ACC DATA PCOPY( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP COLLAPSE(4)
+#else
 !$omp do collapse(4)
+#endif
     DO i4 = 1, m4
       DO i3 = 1, m3
         DO i2 = 1, m2
@@ -565,7 +763,13 @@ CONTAINS
         END DO
       END DO
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
   END SUBROUTINE init_zero_4d_i4
 
   SUBROUTINE init_zero_1d_dp(init_var)
@@ -573,11 +777,23 @@ CONTAINS
     INTEGER :: i1, m1
 
     m1 = SIZE(init_var, 1)
+#ifdef _OPENACC
+!$ACC DATA PCOPYOUT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP 
+#else
 !$omp do
+#endif
     DO i1 = 1, m1
       init_var(i1) = 0.0_dp
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
   END SUBROUTINE init_zero_1d_dp
 
   SUBROUTINE init_zero_2d_dp(init_var)
@@ -586,13 +802,25 @@ CONTAINS
 
     m1 = SIZE(init_var, 1)
     m2 = SIZE(init_var, 2)
+#ifdef _OPENACC
+!$ACC DATA PCOPYOUT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP COLLAPSE(2)
+#else
 !$omp do collapse(2)
+#endif
     DO i2 = 1, m2
       DO i1 = 1, m1
         init_var(i1, i2) = 0.0_dp
       END DO
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
   END SUBROUTINE init_zero_2d_dp
 
   SUBROUTINE init_3d_dp(init_var, init_val)
@@ -604,7 +832,13 @@ CONTAINS
     m1 = SIZE(init_var, 1)
     m2 = SIZE(init_var, 2)
     m3 = SIZE(init_var, 3)
+#ifdef _OPENACC
+!$ACC DATA PCOPYOUT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP COLLAPSE(3)
+#else
 !$omp do collapse(3)
+#endif
     DO i3 = 1, m3
       DO i2 = 1, m2
         DO i1 = 1, m1
@@ -612,7 +846,13 @@ CONTAINS
         END DO
       END DO
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
   END SUBROUTINE init_3d_dp
 
   SUBROUTINE init_3d_spdp(init_var, init_val)
@@ -624,7 +864,13 @@ CONTAINS
     m1 = SIZE(init_var, 1)
     m2 = SIZE(init_var, 2)
     m3 = SIZE(init_var, 3)
+#ifdef _OPENACC
+!$ACC DATA PCOPYOUT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP COLLAPSE(3)
+#else
 !$omp do collapse(3)
+#endif
     DO i3 = 1, m3
       DO i2 = 1, m2
         DO i1 = 1, m1
@@ -632,7 +878,13 @@ CONTAINS
         END DO
       END DO
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
   END SUBROUTINE init_3d_spdp
 
   SUBROUTINE init_5d_dp(init_var, init_val)
@@ -646,7 +898,13 @@ CONTAINS
     m3 = SIZE(init_var, 3)
     m4 = SIZE(init_var, 4)
     m5 = SIZE(init_var, 5)
+#ifdef _OPENACC
+!$ACC DATA PCOPYOUT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP COLLAPSE(5)
+#else
 !$omp do collapse(5)
+#endif
     DO i5 = 1, m5
       DO i4 = 1, m4
         DO i3 = 1, m3
@@ -658,7 +916,13 @@ CONTAINS
         END DO
       END DO
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
   END SUBROUTINE init_5d_dp
 
   SUBROUTINE init_5d_i4(init_var, init_val)
@@ -672,7 +936,13 @@ CONTAINS
     m3 = SIZE(init_var, 3)
     m4 = SIZE(init_var, 4)
     m5 = SIZE(init_var, 5)
+#ifdef _OPENACC
+!$ACC DATA PCOPYOUT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP COLLAPSE(5)
+#else
 !$omp do collapse(5)
+#endif
     DO i5 = 1, m5
       DO i4 = 1, m4
         DO i3 = 1, m3
@@ -684,7 +954,13 @@ CONTAINS
         END DO
       END DO
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( init_var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
   END SUBROUTINE init_5d_i4
 
 
@@ -697,7 +973,15 @@ CONTAINS
     m1 = SIZE(var, 1)
     m2 = SIZE(var, 2)
     m3 = SIZE(var, 3)
+
+#ifdef _OPENACC
+!$ACC DATA PCOPYOUT( var ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP COLLAPSE(3)
+#else
 !$omp do collapse(3)
+#endif
     DO i3 = 1, m3
       DO i2 = 1, m2
         DO i1 = 1, m1
@@ -705,7 +989,13 @@ CONTAINS
         END DO
       END DO
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
   END SUBROUTINE var_scale_3d_dp
 
   SUBROUTINE negative2zero_4d_dp(var)
@@ -718,7 +1008,15 @@ CONTAINS
     m2 = SIZE(var, 2)
     m3 = SIZE(var, 3)
     m4 = SIZE(var, 4)
+
+#ifdef _OPENACC
+!$ACC DATA PCOPY( var ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP COLLAPSE(4)
+#else
 !$omp do collapse(4)
+#endif
     DO i4 = 1, m4
       DO i3 = 1, m3
         DO i2 = 1, m2
@@ -729,7 +1027,13 @@ CONTAINS
         END DO
       END DO
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
   END SUBROUTINE negative2zero_4d_dp
 
   SUBROUTINE init_zero_contiguous_dp(var, n)
@@ -737,11 +1041,23 @@ CONTAINS
     REAL(dp), INTENT(out) :: var(n)
 
     INTEGER :: i
+#ifdef _OPENACC
+!$ACC DATA PCOPYOUT( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP
+#else
 !$omp do
+#endif
     DO i = 1, n
       var(i) = 0.0_dp
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
   END SUBROUTINE init_zero_contiguous_dp
 
   SUBROUTINE init_zero_contiguous_sp(var, n)
@@ -749,11 +1065,23 @@ CONTAINS
     REAL(sp), INTENT(out) :: var(n)
 
     INTEGER :: i
+#ifdef _OPENACC
+!$ACC DATA PCOPYOUT( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL PRESENT( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP
+#else
 !$omp do
+#endif
     DO i = 1, n
       var(i) = 0.0_sp
     END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( var ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$omp end do nowait
+#endif
   END SUBROUTINE init_zero_contiguous_sp
 
 

@@ -702,9 +702,9 @@ if string_in_list $MD $CMODES; then
             # find out how many nodes and processes per node are in use
 
             N_NODES=`grep "no_of_nodes=" exp.${SCRIPT}.run`
-            echo ${N_NODES} | grep SLURM_JOB_NUM_NODES && N_NODES=1 || N_NODES=${N_NODES#'no_of_nodes='}
+            eval N_NODES=\""${N_NODES#'no_of_nodes='}"\"
             N_PPNODE=`grep "mpi_procs_pernode=" exp.${SCRIPT}.run`
-            N_PPNODE=${N_PPNODE#'mpi_procs_pernode='}
+            eval N_PPNODE=\""${N_PPNODE#'mpi_procs_pernode='}"\"
             N_PROCS=$(( N_NODES * N_PPNODE ))
 
             if [ $N_PROCS -gt 1 ]; then
