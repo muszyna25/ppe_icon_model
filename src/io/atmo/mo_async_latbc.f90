@@ -472,7 +472,8 @@ MODULE mo_async_latbc
       CALL dict_finalize(latbc_varnames_dict)
 
       ! initialize the memory window for communication
-      CALL init_remote_memory_window(latbc, StrLowCasegrp)
+      IF (.NOT. my_process_is_mpi_test()) &
+           CALL init_remote_memory_window(latbc, StrLowCasegrp)
 
       DEALLOCATE(StrLowCasegrp)
 
@@ -1330,9 +1331,6 @@ MODULE mo_async_latbc
       INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size
       LOGICAL ,ALLOCATABLE :: grp_vars_bool(:)
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_memory_window"
-
-      ! There is nothing to do for the test PE:
-      IF(my_process_is_mpi_test()) RETURN
 
       latbc%patch_data%mem_win%mpi_win = MPI_WIN_NULL
 
