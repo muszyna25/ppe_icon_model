@@ -277,7 +277,7 @@ CONTAINS
     CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN) :: ready_file  !< ready filename prefix (=output event name)
 
     TYPE(t_lon_lat_data),  POINTER        :: lonlat
-    TYPE (t_keyword_list), POINTER        :: keywords => NULL()
+    TYPE (t_keyword_list), POINTER        :: keywords
     CHARACTER(len=MAX_CHAR_LENGTH)        :: cfilename
     INTEGER                               :: iunit, lonlat_id, jg
     TYPE (t_lon_lat_grid)                 :: new_grid
@@ -469,14 +469,15 @@ CONTAINS
       CALL dict_init(varnames_dict,     lcase_sensitive=.FALSE.)
       CALL dict_init(out_varnames_dict, lcase_sensitive=.FALSE.)
 
+      NULLIFY(keywords)
       CALL associate_keyword("<path>", TRIM(getModelBaseDir()), keywords)
       IF(output_nml_dict     /= ' ') THEN
-        cfilename = TRIM(with_keywords(keywords, output_nml_dict))
+        cfilename = with_keywords(keywords, output_nml_dict)
         CALL message(routine, "load dictionary file.")
         CALL dict_loadfile(varnames_dict, cfilename)
       END IF
       IF(netcdf_dict /= ' ') THEN
-        cfilename = TRIM(with_keywords(keywords, netcdf_dict))
+        cfilename = with_keywords(keywords, netcdf_dict)
         CALL message(routine, "load dictionary file (output names).")
         CALL dict_loadfile(out_varnames_dict, cfilename, linverse=.TRUE.)
       END IF

@@ -634,7 +634,7 @@ CONTAINS
     TYPE(datetime),  POINTER            :: mtime_begin, mtime_date
     TYPE(timedelta), POINTER            :: forecast_delta
     INTEGER                             :: iunit
-    TYPE (t_keyword_list), POINTER      :: keywords     => NULL()
+    TYPE (t_keyword_list), POINTER      :: keywords
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string
 
     ! compute current forecast time (delta):
@@ -653,14 +653,14 @@ CONTAINS
     CALL deallocateDatetime(mtime_begin)
     CALL deallocateTimedelta(forecast_delta)
 
+    NULLIFY(keywords)
     ! substitute tokens in ready file name
     CALL associate_keyword("<path>",            TRIM(getModelBaseDir()),         keywords)
     CALL associate_keyword("<datetime>",        TRIM(get_current_date(ev)),      keywords)
     CALL associate_keyword("<ddhhmmss>",        TRIM(forecast_delta_str),        keywords)
     CALL associate_keyword("<datetime2>",       TRIM(dtime_string),              keywords)
 
-    rdy_filename = TRIM(with_keywords(keywords, ev%output_event%event_data%name))
-
+    rdy_filename = with_keywords(keywords, ev%output_event%event_data%name)
     IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
       & (.NOT. use_async_name_list_io .AND. my_process_is_stdio())) THEN
       WRITE (0,*) 'Write ready file "', TRIM(rdy_filename), '"'
