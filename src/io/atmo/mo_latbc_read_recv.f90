@@ -163,17 +163,18 @@ CONTAINS
     END IF
 
     DO jk=1, nlevs
-      ! initialize temporary buffer
-      tmp_buf(:) = 0._sp 
 
       ! read record as 1D field
       CALL streamReadVarSliceF(streamID, varID, jk-1, read_buf(:), nmiss)
       
       ! --- "sparse latbc mode": read only data for boundary rows
+      ! the non-zero initialization of tmp_buf is needed because the subsequent vertical interpolation crashes otherwise
       IF (latbc_config%lsparse_latbc) THEN
         IF (hgrid == GRID_UNSTRUCTURED_CELL) THEN
+          tmp_buf(:) = read_buf(1)
           tmp_buf(latbc_config%global_index%cells(:)) = read_buf(:)
         ELSE IF (hgrid == GRID_UNSTRUCTURED_EDGE) THEN
+          tmp_buf(:) = read_buf(1)
           tmp_buf(latbc_config%global_index%edges(:)) = read_buf(:)
         END IF
       END IF

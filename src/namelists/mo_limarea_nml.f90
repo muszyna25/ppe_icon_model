@@ -111,7 +111,7 @@ CONTAINS
     latbc_config% latbc_filename      = latbc_filename
     latbc_config% latbc_path          = TRIM(latbc_path)//'/'
     latbc_config% latbc_boundary_grid = latbc_boundary_grid
-    latbc_config% lsparse_latbc       = (LEN_TRIM(latbc_boundary_grid) == 0)
+    latbc_config% lsparse_latbc       = (LEN_TRIM(latbc_boundary_grid) > 0)
     latbc_config% latbc_varnames_map_file = latbc_varnames_map_file
 
     !-----------------------------------------------------

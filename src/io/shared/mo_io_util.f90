@@ -147,7 +147,7 @@ CONTAINS
     CALL nf(nf_inq_varndims(ncfileID, varID, ndims), routine)
     IF (ndims /= 1)  CALL finish(routine, "Variable '"//TRIM(varname1)//"' has more than one dimension!")
     CALL nf(nf_inq_vardimid(ncfileID, varID, dimids), routine)
-    CALL nf(nf_inq_dimlen(ncfileID, dimID, dimlen), routine)
+    CALL nf(nf_inq_dimlen(ncfileID, dimids, dimlen), routine)
 
     ! --- allocate output variable, read data
     ALLOCATE(var1(dimlen))
@@ -169,7 +169,7 @@ CONTAINS
       CALL nf(nf_inq_varndims(ncfileID, varID, ndims), routine)
       IF (ndims /= 1)  CALL finish(routine, "Variable '"//TRIM(opt_varname2)//"' has more than one dimension!")
       CALL nf(nf_inq_vardimid(ncfileID, varID, dimids), routine)
-      CALL nf(nf_inq_dimlen(ncfileID, dimID, dimlen), routine)
+      CALL nf(nf_inq_dimlen(ncfileID, dimids, dimlen), routine)
       
       ! --- allocate output variable, read data
       ALLOCATE(opt_var2(dimlen))
