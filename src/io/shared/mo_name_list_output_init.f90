@@ -1013,12 +1013,14 @@ CONTAINS
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: output_interval(MAX_TIME_INTERVALS) !< time stamps + modifier
     INTEGER                              :: idx, istart, iintvl,  nintvls
     INTEGER(c_int64_t)                   :: total_ms
-    LOGICAL                              :: include_last
+    LOGICAL                              :: include_last, is_mpi_test
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
     CHARACTER(LEN=max_char_length)       :: comp_name
 #endif
     l_print_list = .FALSE.
+    is_mpi_test = my_process_is_mpi_test()
+
     CALL assign_if_present(l_print_list, opt_lprintlist)
 
     ! -- preliminary checks:
@@ -1091,8 +1093,7 @@ CONTAINS
 
     ! Replicate physical domain setup, only the number of domains and
     ! the logical ID is needed
-    IF (use_async_name_list_io .AND.  &
-      & .NOT. my_process_is_mpi_test()) THEN
+    IF (use_async_name_list_io .AND. .NOT. is_mpi_test) THEN
       CALL p_bcast(n_phys_dom, bcast_root, p_comm_work_2_io)
       DO jg = 1, n_phys_dom
         CALL p_bcast(p_phys_patch(jg)%logical_id, bcast_root, p_comm_work_2_io)
@@ -1201,8 +1202,7 @@ CONTAINS
     ENDDO
 
     ! replicate grid_info_mode on I/O PEs:
-    IF (use_async_name_list_io .AND.  &
-      & .NOT. my_process_is_mpi_test()) THEN
+    IF (use_async_name_list_io .AND. .NOT. is_mpi_test) THEN
       ! Go over all output domains
       DO idom = 1, n_dom_out
         CALL p_bcast(patch_info(idom)%grid_info_mode, bcast_root, p_comm_work_2_io)
@@ -1220,7 +1220,7 @@ CONTAINS
     ! locations of cells, edges, and vertices
 
     ! Only needed if no async name list io is used
-    IF (.NOT. use_async_name_list_io) THEN
+    IF (.NOT. use_async_name_list_io .AND. .NOT. is_mpi_test) THEN
       ! Go over all output domains
       DO idom = 1, n_dom_out
         IF (patch_info(idom)%grid_info_mode == GRID_INFO_BCAST) THEN
@@ -1364,7 +1364,7 @@ CONTAINS
     ! If async IO is used, replicate data (mainly the variable lists) on IO procs
 
 #ifndef NOMPI
-    IF (use_async_name_list_io .AND. .NOT. my_process_is_mpi_test()) &
+    IF (use_async_name_list_io .AND. .NOT. is_mpi_test) &
          CALL replicate_data_on_io_procs
 #endif
 ! NOMPI
@@ -1523,7 +1523,7 @@ CONTAINS
           & (output_file(i)%pe_placement /=  0)) &
           &  CALL finish(routine, "Invalid explicit placement of IO rank!")
 
-        IF (p_test_run .AND. .NOT. my_process_is_mpi_test()) THEN
+        IF (p_test_run .AND. .NOT. is_mpi_test) THEN
           output_file(i)%io_proc_id = process_mpi_stdio_id + 1
         ELSE
           output_file(i)%io_proc_id = process_mpi_stdio_id
@@ -1589,7 +1589,7 @@ CONTAINS
     ! If async IO is used, replicate coordinate data on IO procs
 
 #ifndef NOMPI
-    IF (use_async_name_list_io .AND. .NOT. my_process_is_mpi_test()) THEN
+    IF (use_async_name_list_io .AND. .NOT. is_mpi_test) THEN
       CALL replicate_coordinate_data_on_io_procs
 
       ! Clear patch_info fields clon, clat, etc. (especially on work
@@ -1761,7 +1761,7 @@ CONTAINS
       &  CALL set_event_to_simstep(all_events, dom_sim_step_info%jstep0 + 1, &
       &                            isRestart(), lrecover_open_file=.TRUE.)
     ! print a table with all output events
-    IF (.NOT. my_process_is_mpi_test()) THEN
+    IF (.NOT. is_mpi_test) THEN
        IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
             & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
           CALL print_output_event(all_events)                                       ! screen output
@@ -1800,12 +1800,12 @@ CONTAINS
 
     ! If async IO is used, initialize the memory window for communication
 #ifndef NOMPI
-    IF (use_async_name_list_io .AND. .NOT. my_process_is_mpi_test()) &
+    IF (use_async_name_list_io .AND. .NOT. is_mpi_test) &
          CALL init_memory_window
 
     ! Initial launch of non-blocking requests to all participating PEs
     ! to acknowledge the completion of the next output event
-    IF (.NOT. my_process_is_mpi_test()) THEN
+    IF (.NOT. is_mpi_test) THEN
       IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
         & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
         ev => all_events
@@ -2064,6 +2064,9 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_patch_info"
     INTEGER :: jp, jl, jg
+    LOGICAL :: is_mpi_test
+
+    is_mpi_test = my_process_is_mpi_test()
 
     DO jp = 1, n_dom_out
 
@@ -2094,7 +2097,7 @@ CONTAINS
 
       ENDIF
 #ifndef NOMPI
-      IF(use_async_name_list_io .AND. .NOT. my_process_is_mpi_test()) THEN
+      IF (use_async_name_list_io .AND. .NOT. is_mpi_test) THEN
         ! Transfer reorder_info to IO PEs
         CALL transfer_reorder_info(patch_info(jp)%cells, patch_info(jp)%grid_info_mode)
         CALL transfer_reorder_info(patch_info(jp)%edges, patch_info(jp)%grid_info_mode)
@@ -2121,7 +2124,7 @@ CONTAINS
             &                          lonlat_info(jl,jg))
         ENDIF
 #ifndef NOMPI
-        IF(use_async_name_list_io .AND. .NOT. my_process_is_mpi_test()) THEN
+        IF (use_async_name_list_io .AND. .NOT. is_mpi_test) THEN
           ! Transfer reorder_info to IO PEs
           CALL transfer_reorder_info(lonlat_info(jl,jg)%ri, lonlat_info(jl,jg)%grid_info_mode)
         ENDIF
@@ -2685,6 +2688,9 @@ CONTAINS
     CHARACTER(LEN=DICT_MAX_STRLEN) :: mapped_name
     TYPE(t_cf_var), POINTER        :: this_cf
     TYPE(t_verticalAxis), POINTER  :: zaxis
+    LOGICAL                        :: is_mpi_test
+
+    is_mpi_test = my_process_is_mpi_test()
 
     vlistID = of%cdiVlistID
 
@@ -2748,7 +2754,7 @@ CONTAINS
       ! Currently only real valued variables are allowed, so we can always use info%missval%rval
       IF (info%lmiss) THEN
         ! set the missing value
-        IF ((.NOT.use_async_name_list_io .OR. my_process_is_mpi_test()) .OR. use_dp_mpi2io) THEN
+        IF ((.NOT.use_async_name_list_io .OR. is_mpi_test) .OR. use_dp_mpi2io) THEN
           CALL vlistDefVarMissval(vlistID, varID, info%missval%rval)
         ELSE
           ! In cases, where we use asynchronous output and the data is
