@@ -248,8 +248,6 @@
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::compute_init_latbc_data"
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: td_string
 
-      IF (.NOT. my_process_is_work())  RETURN
-
       ! convert namelist parameter "limarea_nml/dtime_latbc" into
       ! mtime object:
       IF (latbc_config%dtime_latbc > 86400._wp) THEN
@@ -642,9 +640,7 @@
       ! compute processors wait for msg from
       ! prefetch processor that they can start
       ! reading latbc data from memory window
-      IF(my_process_is_work()) THEN
-        CALL compute_wait_for_async_pref()
-      END IF
+      IF(my_process_is_work()) CALL compute_wait_for_async_pref()
 
       ! Prepare the mtime_read for the next time level
       IF (ltime_incr) THEN
@@ -714,11 +710,7 @@
       ENDDO
 
       ! Reading the next time step
-#ifndef NOMPI
-      IF(my_process_is_work()) THEN
-         CALL compute_start_async_pref()
-      ENDIF
-#endif
+      IF (my_process_is_work()) CALL compute_start_async_pref()
 
       !
       ! get prognostic 3d fields
