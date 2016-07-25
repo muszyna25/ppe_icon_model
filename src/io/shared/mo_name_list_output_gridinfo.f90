@@ -206,9 +206,6 @@ CONTAINS
     INTEGER               :: ierrstat, jb, jc, idim
     REAL(wp), ALLOCATABLE :: r_tmp_lon(:,:), r_tmp_lat(:,:)
 
-    ! skip this on test PE...
-    IF (my_process_is_mpi_test()) RETURN
-
     ! allocate destination (on work root)
     IF ( my_process_is_mpi_workroot() ) THEN
       ALLOCATE(out_lonlat%lon (nproma*nblks_glb),      &

@@ -1364,7 +1364,8 @@ CONTAINS
     ! If async IO is used, replicate data (mainly the variable lists) on IO procs
 
 #ifndef NOMPI
-    IF (use_async_name_list_io) CALL replicate_data_on_io_procs
+    IF (use_async_name_list_io .AND. .NOT. my_process_is_mpi_test()) &
+         CALL replicate_data_on_io_procs
 #endif
 ! NOMPI
 
@@ -1588,13 +1589,12 @@ CONTAINS
     ! If async IO is used, replicate coordinate data on IO procs
 
 #ifndef NOMPI
-    IF (use_async_name_list_io) THEN
+    IF (use_async_name_list_io .AND. .NOT. my_process_is_mpi_test()) THEN
       CALL replicate_coordinate_data_on_io_procs
 
       ! Clear patch_info fields clon, clat, etc. (especially on work
       ! PE 0) since they aren't needed there any longer.
-      IF ( (.NOT. my_process_is_io()) .AND. &
-        &  (.NOT. my_process_is_mpi_test())) THEN
+      IF ((.NOT. my_process_is_io())) THEN
         ! Go over all output domains (deallocation is skipped if data
         ! structures were not allocated)
         DO idom = 1, n_dom_out
@@ -1800,8 +1800,8 @@ CONTAINS
 
     ! If async IO is used, initialize the memory window for communication
 #ifndef NOMPI
-    IF(use_async_name_list_io) CALL init_memory_window
-! NOMPI
+    IF (use_async_name_list_io .AND. .NOT. my_process_is_mpi_test()) &
+         CALL init_memory_window
 
     ! Initial launch of non-blocking requests to all participating PEs
     ! to acknowledge the completion of the next output event
@@ -1816,7 +1816,7 @@ CONTAINS
         END DO HANDLE_COMPLETE_STEPS
       END IF
     END IF
-#endif
+#endif ! NOMPI
 
     CALL message(routine,'Done')
 
@@ -2839,9 +2839,6 @@ CONTAINS
     TYPE(t_reorder_info), INTENT(INOUT) :: p_ri ! Result: reorder info
     INTEGER,              INTENT(IN)    :: grid_info_mode
 
-    ! There is nothing to do for the test PE:
-    IF(my_process_is_mpi_test()) RETURN
-
     ! Transfer the global number of points, this is not yet known on IO PEs
     CALL p_bcast(p_ri%n_glb,  bcast_root, p_comm_work_2_io)
     CALL p_bcast(p_ri%n_log,  bcast_root, p_comm_work_2_io)
@@ -2897,9 +2894,6 @@ CONTAINS
     INTEGER :: nvgrid, ivgrid
     INTEGER :: size_tiles
     INTEGER :: size_var_groups_dyn
-
-    ! There is nothing to do for the test PE:
-    IF(my_process_is_mpi_test()) RETURN
 
     !-----------------------------------------------------------------------------------------------
 
@@ -3108,9 +3102,6 @@ CONTAINS
     INTEGER :: idom_log
     LOGICAL :: keep_grid_info
 
-    ! There is nothing to do for the test PE:
-    IF(my_process_is_mpi_test()) RETURN
-
     !-----------------------------------------------------------------------------------------------
     ! Replicate coordinates of cells/edges/vertices:
 
@@ -3174,9 +3165,6 @@ CONTAINS
       &                                n_own, lonlat_id
     INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size
 
-
-    ! There is nothing to do for the test PE:
-    IF(my_process_is_mpi_test()) RETURN
 
     ! Go over all output files
     OUT_FILE_LOOP : DO i = 1, SIZE(output_file)
