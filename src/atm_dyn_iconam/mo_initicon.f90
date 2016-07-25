@@ -1778,9 +1778,14 @@ MODULE mo_initicon
           !
           ! get SST from first guess T_G
           !
-!CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, ext_data(jg)%atm%sp_count(jb)
-            jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+          ! Ensure that t_seasfc is filled with tf_salt on completely frozen ocean points;
+          ! on partly ice-covered grid points, it is overwritten with the water temperature below
+          DO ic = 1, ext_data(jg)%atm%spi_count(jb)
+            jc = ext_data(jg)%atm%idx_lst_spi(ic,jb)
+            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = tf_salt
+          END DO
+          DO ic = 1, ext_data(jg)%atm%spw_count(jb)
+            jc = ext_data(jg)%atm%idx_lst_spw(ic,jb)
             p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =  &
               & MAX(tf_salt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_water))
           END DO
