@@ -179,6 +179,11 @@ MODULE mo_opt_diagnostics
     &  seaice(:,:),     &
     &  siced(:,:),      &
     &  albedo(:,:),     &
+    &  sfcWind(:,:),    &
+    &  uas(:,:),        &
+    &  vas(:,:),        &
+    &  tas(:,:),        &
+    &  dew2(:,:),       &
     !
     ! tendencies
     ! - temperature:
@@ -279,6 +284,11 @@ MODULE mo_opt_diagnostics
     LOGICAL :: l_sic_m
     LOGICAL :: l_sit_m
     LOGICAL :: l_albedo_m
+    LOGICAL :: l_sfcWind_m
+    LOGICAL :: l_uas_m
+    LOGICAL :: l_vas_m
+    LOGICAL :: l_tas_m
+    LOGICAL :: l_dew2_m
     !
     !  tendencies
     !  of temperature:
@@ -1044,6 +1054,71 @@ CONTAINS
                    & isteptype=TSTEP_INSTANT )
     END IF
 
+    p_acc%l_sfcWind_m = is_variable_in_output(first_output_name_list, var_name="sfcWind_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_sfcWind_m
+    IF (p_acc%l_sfcWind_m) THEN
+       CALL add_var( list, 'sfcWind_m', p_acc%sfcWind,                                           &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                         &
+                   & t_cf_var('sfcWind', 'm s-1',                                                &
+                   &          '10m windspeed (time mean)',                                       &
+                   &          datatype_flt),                                                     &
+                   & grib2_var(0,2,1, ibits, GRID_REFERENCE, GRID_CELL),                         &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),            &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
+
+    p_acc%l_uas_m = is_variable_in_output(first_output_name_list, var_name="uas_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_uas_m
+    IF (p_acc%l_uas_m) THEN
+       CALL add_var( list, 'uas_m', p_acc%uas,                                                   &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                         &
+                   & t_cf_var('uas', 'm s-1',                                                    &
+                   &          'zonal wind in 10m (time mean)',                                   &
+                   &          datatype_flt),                                                     &
+                   & grib2_var(0,2,2, ibits, GRID_REFERENCE, GRID_CELL),                         &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),            &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
+
+    p_acc%l_vas_m = is_variable_in_output(first_output_name_list, var_name="vas_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_vas_m
+    IF (p_acc%l_vas_m) THEN
+       CALL add_var( list, 'vas_m', p_acc%vas,                                                   &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                         &
+                   & t_cf_var('vas', 'm s-1',                                                    &
+                   &          'meridional wind in 10m (time mean)',                              &
+                   &          datatype_flt),                                                     &
+                   & grib2_var(0,2,3, ibits, GRID_REFERENCE, GRID_CELL),                         &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),            &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
+
+    p_acc%l_tas_m = is_variable_in_output(first_output_name_list, var_name="tas_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tas_m
+    IF (p_acc%l_tas_m) THEN
+       CALL add_var( list, 'tas_m', p_acc%tas,                                                   &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                         &
+                   & t_cf_var('tas', 'K',                                                        &
+                   &          'temperature in 2m (time mean)',                                   &
+                   &          datatype_flt),                                                     &
+                   & grib2_var(0,0,0, ibits, GRID_REFERENCE, GRID_CELL),                         &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),            &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
+
+    p_acc%l_dew2_m = is_variable_in_output(first_output_name_list, var_name="dew2_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_dew2_m
+    IF (p_acc%l_dew2_m) THEN
+       CALL add_var( list, 'dew2_m', p_acc%dew2,                                                 &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                         &
+                   & t_cf_var('dew2', 'K',                                                       &
+                   &          'dew point temperature in 2m (time mean)',                         &
+                   &          datatype_flt),                                                     &
+                   & grib2_var(0,0,6, ibits, GRID_REFERENCE, GRID_CELL),                         &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),            &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
+
     !------------------------------
     ! Temperature tendencies
     !------------------------------
@@ -1488,9 +1563,11 @@ CONTAINS
     IF (acc%l_ua_m)    CALL add_fields(acc%u       , nh_diag%u       , subset, levels=levels)
     IF (acc%l_va_m)    CALL add_fields(acc%v       , nh_diag%v       , subset, levels=levels)
     IF (acc%l_wa_m)    CALL add_fields(acc%w       , nh_prog%w       , subset, levels=levels+1)
-    IF (acc%l_rho_m)   CALL add_fields(acc%rho     , rho             , subset, levels=levels)
-    CALL dbg_print('RHO Update FROM',nh_prog%rho  ,'opt_diag',5, in_subset=subset)
-    CALL dbg_print('RHO Update TO  ',acc%rho      ,'opt_diag',5, in_subset=subset)
+    IF (acc%l_rho_m) THEN
+      CALL add_fields(acc%rho     , rho             , subset, levels=levels)
+      CALL dbg_print('RHO Update FROM',nh_prog%rho  ,'opt_diag',5, in_subset=subset)
+      CALL dbg_print('RHO Update TO  ',acc%rho      ,'opt_diag',5, in_subset=subset)
+    ENDIF
     IF (acc%l_ta_m)    CALL add_fields(acc%temp    , nh_diag%temp    , subset, levels=levels)
     IF (acc%l_ps_m)    CALL add_fields(acc%pres_sfc, nh_diag%pres_sfc, subset)
     IF (acc%l_psl_m)   CALL add_fields(acc%pres_msl, nh_diag%pres_msl, subset)
@@ -1537,6 +1614,11 @@ CONTAINS
     IF (acc%l_sic_m)      CALL add_fields(acc%seaice         , prm_field(jg)%seaice         , subset)
     IF (acc%l_sit_m)      CALL add_fields(acc%siced          , prm_field(jg)%siced          , subset)
     IF (acc%l_albedo_m)   CALL add_fields(acc%albedo         , prm_field(jg)%albedo         , subset)
+    IF (acc%l_sfcWind_m)  CALL add_fields(acc%sfcWind        , prm_field(jg)%sfcWind        , subset)
+    IF (acc%l_uas_m)      CALL add_fields(acc%uas            , prm_field(jg)%uas            , subset)
+    IF (acc%l_vas_m)      CALL add_fields(acc%vas            , prm_field(jg)%vas            , subset)
+    IF (acc%l_tas_m)      CALL add_fields(acc%tas            , prm_field(jg)%tas            , subset)
+    IF (acc%l_dew2_m)     CALL add_fields(acc%dew2           , prm_field(jg)%dew2           , subset)
 
     IF (acc%l_tend_ta_m    )      CALL add_fields(acc%tend_ta         , prm_tend(jg)%temp         , subset, levels=levels)
     IF (acc%l_tend_ta_dyn_m)      CALL add_fields(acc%tend_ta_dyn     , prm_tend(jg)%temp_dyn     , subset, levels=levels)
@@ -1626,6 +1708,11 @@ CONTAINS
     IF (acc%l_sic_m)      acc%seaice          = 0.0_wp
     IF (acc%l_sit_m)      acc%siced           = 0.0_wp
     IF (acc%l_albedo_m)   acc%albedo          = 0.0_wp
+    IF (acc%l_sfcWind_m)  acc%sfcWind         = 0.0_wp
+    IF (acc%l_uas_m)      acc%uas             = 0.0_wp
+    IF (acc%l_vas_m)      acc%vas             = 0.0_wp
+    IF (acc%l_tas_m)      acc%tas             = 0.0_wp
+    IF (acc%l_dew2_m)     acc%dew2            = 0.0_wp
 
     IF (acc%l_tend_ta_m    )      acc%tend_ta          = 0.0_wp
     IF (acc%l_tend_ta_dyn_m)      acc%tend_ta_dyn      = 0.0_wp
@@ -1716,6 +1803,11 @@ CONTAINS
     IF (acc%l_sic_m)      acc%seaice          = acc%seaice          *xfactor
     IF (acc%l_sit_m)      acc%siced           = acc%siced           *xfactor
     IF (acc%l_albedo_m)   acc%albedo          = acc%albedo          *xfactor
+    IF (acc%l_sfcWind_m)  acc%sfcWind         = acc%sfcWind         *xfactor
+    IF (acc%l_uas_m)      acc%uas             = acc%uas             *xfactor
+    IF (acc%l_vas_m)      acc%vas             = acc%vas             *xfactor
+    IF (acc%l_tas_m)      acc%tas             = acc%tas             *xfactor
+    IF (acc%l_dew2_m)     acc%dew2            = acc%dew2            *xfactor
 
     IF (acc%l_tend_ta_m    )      acc%tend_ta          = acc%tend_ta          *xfactor
     IF (acc%l_tend_ta_dyn_m)      acc%tend_ta_dyn      = acc%tend_ta_dyn      *xfactor

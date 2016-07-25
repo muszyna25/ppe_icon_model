@@ -253,7 +253,7 @@ MODULE mo_nh_stepping
   IF (ltestcase) THEN
 
     CALL init_nh_testcase(p_patch(1:), p_nh_state, p_int_state(1:), p_lnd_state(1:), &
-      & ext_data, ntl)
+                        & ext_data, ntl)
 
     IF(is_ls_forcing) &
        CALL init_ls_forcing(p_nh_state(1)%metrics)

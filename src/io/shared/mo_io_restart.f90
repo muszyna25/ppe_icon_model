@@ -1332,7 +1332,9 @@ CONTAINS
 
     CALL open_writing_restart_files( jg, TRIM(string) )
 
-    CALL write_restart( patch )
+    !CALL write_restart( patch )
+    !CALL write_restart( patch, TRIM(restart_filename) )
+    CALL write_restart( patch, TRIM(string) )
 
     CALL close_writing_restart_files(jg, opt_ndom)
     CALL finish_restart
@@ -1430,8 +1432,9 @@ CONTAINS
   !
   ! loop over all var_lists for restart
   !
-  SUBROUTINE write_restart(p_patch)
+  SUBROUTINE write_restart(p_patch, restart_filename)
     TYPE(t_patch), INTENT(in) :: p_patch
+    CHARACTER(len=*)          :: restart_filename
 
     INTEGER :: i,j
     LOGICAL :: write_info
@@ -1447,13 +1450,16 @@ CONTAINS
         IF (write_info) THEN
           SELECT CASE (var_lists(i)%p%restart_type)
           CASE (FILETYPE_NC2)
-            CALL message('','Write netCDF2 restart for : '//TRIM(private_restart_time))
+            CALL message('write_restart: ', &
+              &  'Write netCDF2 restart for : '//TRIM(private_restart_time)//' restart filename: '//TRIM(restart_filename))
           CASE (FILETYPE_NC4)
             IF (var_lists(i)%p%compression_type == COMPRESS_ZIP) THEN
-              CALL message('', &
-                   'Write compressed netCDF4 restart for : '//TRIM(private_restart_time))
+              CALL message('write_restart: ', &
+                &  'Write compressed netCDF4 restart for : '//&
+                &TRIM(private_restart_time)//' restart filename: '//restart_filename)
             ELSE
-              CALL message('','Write netCDF4 restart for : '//TRIM(private_restart_time))
+              CALL message('write_restart: ', &
+                &  'Write netCDF4 restart for : '//TRIM(private_restart_time)//' restart filename: '//TRIM(restart_filename))
             END IF
           END SELECT
         ENDIF
@@ -1484,7 +1490,8 @@ CONTAINS
       ENDIF
     ENDDO
 !PR
-  CALL message('','Finished Write netCDF2 restart for : '//TRIM(private_restart_time))
+  CALL message('write_restart: ', &
+    &  'Finished Write netCDF2 restart for : '//TRIM(private_restart_time)//' restart filename: '//TRIM(restart_filename))
     !
   END SUBROUTINE write_restart
 

@@ -165,10 +165,6 @@ MODULE mo_radiation_config
     ! --------------------------------
     !
     REAL(wp) :: mmr_co2, mmr_ch4, mmr_n2o, mmr_o2                ! setup_radiation
-
-  REAL(wp), PARAMETER :: ch4_v(3) = (/1.25e-01_wp,  683.0_wp, -1.43_wp  /)
-  REAL(wp), PARAMETER :: n2o_v(3) = (/1.20e-02_wp, 1395.0_wp, -1.43_wp/)
-
   
   !END TYPE t_radiation_config
   !>
