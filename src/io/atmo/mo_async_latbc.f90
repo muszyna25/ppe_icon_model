@@ -294,7 +294,7 @@ MODULE mo_async_latbc
       ! ---------------------------------------------------------------------------
       ! replicate data on prefetch proc
       ! ---------------------------------------------------------------------------
-      CALL replicate_data_on_pref_proc(latbc%patch_data, bcast_root)
+      IF (.NOT. my_process_is_mpi_test()) CALL replicate_data_on_pref_proc(latbc%patch_data, bcast_root)
 
       IF(.NOT. my_process_is_pref()) THEN
 
@@ -1020,9 +1020,6 @@ MODULE mo_async_latbc
       TYPE(t_var_list)              :: p_var_list
       ! var_list_name should have at least the length of var_list names
       CHARACTER(LEN=256)            :: var_list_name
-
-      ! There is nothing to do for the test PE:
-      IF(my_process_is_mpi_test()) RETURN
 
       ! get the size - in default INTEGER words - which is needed to
       ! hold the contents of TYPE(t_var_metadata)
