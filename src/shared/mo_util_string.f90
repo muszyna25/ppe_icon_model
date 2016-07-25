@@ -671,14 +671,15 @@ CONTAINS
   END SUBROUTINE insert_group
 
   !==============================================================================
-  RECURSIVE SUBROUTINE delete_keyword_list(list_head)
+  SUBROUTINE delete_keyword_list(list_head)
     ! Parameters
-    TYPE(t_keyword_list),    POINTER    :: list_head
+    TYPE(t_keyword_list),    POINTER    :: list_head, next
 
-    IF (ASSOCIATED(list_head)) THEN
-      CALL delete_keyword_list(list_head%next)
+    DO WHILE (ASSOCIATED(list_head))
+      next => list_head%next
       DEALLOCATE(list_head)
-    ENDIF
+      list_head => next
+    END DO
 
   END SUBROUTINE delete_keyword_list
   !==============================================================================
