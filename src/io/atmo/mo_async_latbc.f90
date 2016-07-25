@@ -1292,9 +1292,6 @@ MODULE mo_async_latbc
       INTEGER                             :: ierrstat
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::transfer_reorder_data"
 
-      ! There is nothing to do for the test PE:
-      IF(my_process_is_mpi_test()) RETURN
-
       !transfer the global number of points, this is not known on prefetching PE
       CALL p_bcast(p_reo%n_glb, bcast_root, p_comm_work_2_pref)
 
