@@ -411,7 +411,7 @@ MODULE mo_mpi
   ! p_n_work: Number of PEs working together:
   ! - num_work_procs    for non-verification runs
   ! - num_work_procs    for verification runs on pes != p_test_pe
-  ! - 1                 for verification runs on p_test_pe
+  ! - num_test_procs    for verification runs on p_test_pe
   ! - num_io_procs      always on I/O pes
   ! - num_restart_procs on restart PEs
 
@@ -1221,8 +1221,8 @@ CONTAINS
     ! Set up p_n_work and p_pe_work which are NOT identical on all PEs
     IF(p_pe < p_work_pe0) THEN
       ! Test PE (if present)
-      p_n_work  = 1          ! 1 PE in verification work group
-      p_pe_work = 0          ! PE number within work group
+      p_n_work  = num_test_procs ! PE in verification work group
+      p_pe_work = p_pe           ! PE number within work group
     ELSE IF(p_pe < p_io_pe0) THEN
       ! Work PE
       p_n_work  = num_work_procs
@@ -1436,8 +1436,7 @@ CONTAINS
 
     ! In case of test run, only the test process is stdio
     process_is_stdio = (my_process_mpi_all_id == process_mpi_stdio_id)
-    process_is_mpi_parallel = (num_work_procs > 1)
-    IF (my_process_is_mpi_test()) process_is_mpi_parallel = .false.
+    process_is_mpi_parallel = p_n_work > 1
 
     ! still to be filled
 !     process_mpi_local_comm  = process_mpi_all_comm
