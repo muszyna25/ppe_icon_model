@@ -40,7 +40,7 @@ MODULE mo_icon_comm_interface
   ! public constants
   PUBLIC :: construct_icon_communication
   PUBLIC :: destruct_icon_communication
-  
+
   PUBLIC :: icon_comm_barrier
 
 
@@ -55,7 +55,7 @@ CONTAINS
     INTEGER :: n_dom
 
     INTEGER :: grid_id
-    
+
     CHARACTER(*), PARAMETER :: method_name = "construct_icon_communication"
 
     !-------------------------------------------------------------------------------------
@@ -73,7 +73,7 @@ CONTAINS
     IF (.NOT. use_icon_comm) RETURN
 
     CALL construct_icon_comm_lib()
-    
+
     DO grid_id = 1, n_dom
       ! create the communication patterns
       CALL init_icon_std_comm_patterns(patch(grid_id))
@@ -82,17 +82,17 @@ CONTAINS
 !       p_hydro_state(grid_id)%tend_phy%temp_comm = &
 !         & new_comm_variable(p_hydro_state(grid_id)%tend_phy%temp, on_cells, &
 !         & patch(grid_id))
-    
+
     ENDDO
 
 !     CALL work_mpi_barrier()
 !     CALL finish("barrier returns", "")
-    
+
     RETURN
 
   END SUBROUTINE construct_icon_communication
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   !>
   SUBROUTINE destruct_icon_communication()
@@ -100,10 +100,10 @@ CONTAINS
     IF (.NOT. use_icon_comm) RETURN
 
     CALL destruct_icon_comm_lib()
-     
+
   END SUBROUTINE destruct_icon_communication
   !-----------------------------------------------------------------------
-  
+
   !-----------------------------------------------------------------------
   SUBROUTINE icon_comm_barrier(for_patch)
     TYPE(t_patch), TARGET ::  for_patch
