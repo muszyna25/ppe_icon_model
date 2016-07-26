@@ -1027,9 +1027,6 @@ CONTAINS
     TYPE(t_grid_info_ptr)          :: gptr(3)
     CHARACTER(LEN=vname_len), POINTER :: p_varlist(:)
 
-    ! skip this on test PE...
-    IF (my_process_is_mpi_test()) RETURN
-
     SELECT CASE(of%name_list%remap)
     CASE (REMAP_NONE)
       idom     = of%phys_patch_id

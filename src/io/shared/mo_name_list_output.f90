@@ -380,8 +380,10 @@ CONTAINS
 
     ! GRB2 format: define geographical longitude, latitude as special
     ! variables "RLON", "RLAT"
-    is_output_process = my_process_is_io() .OR. &
-      &                 ((.NOT. use_async_name_list_io) .AND. my_process_is_mpi_workroot())
+    is_output_process = (my_process_is_io() .OR. &
+      &                  ((.NOT. use_async_name_list_io) &
+      &                   .AND. my_process_is_mpi_workroot())) &
+      &                 .AND. .NOT. my_process_is_mpi_test()
 
     IF(of%cdiFileID /= CDI_UNDEFID) THEN
 #ifndef __NO_ICON_ATMO__
