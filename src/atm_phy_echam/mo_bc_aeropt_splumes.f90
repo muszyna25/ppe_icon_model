@@ -14,6 +14,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
+#include "consistent_fma.inc"
 MODULE mo_bc_aeropt_splumes
 
   USE mo_kind,                 ONLY: wp
@@ -92,7 +93,7 @@ MODULE mo_bc_aeropt_splumes
     !
     INTEGER           :: ifile_id
 
-    cfname='MACv2.0-SP_v1-beta.nc'
+    cfname='MACv2.0-SP_v1.nc'
     ifile_id=openInputFile(cfname)
 
     CALL read_1d_wrapper(ifile_id=ifile_id,        variable_name='plume_lat',&
@@ -213,18 +214,7 @@ MODULE mo_bc_aeropt_splumes
     DO iplume=1,nplumes
       time_weight(1,iplume) = year_weight(iyear,iplume) * ann_cycle(1,iweek,iplume)
       time_weight(2,iplume) = year_weight(iyear,iplume) * ann_cycle(2,iweek,iplume)
-    END DO
-    !
-    ! check if code is being used in beta version and stop if it is after June 1, 2016
-    !
-    CALL DATE_AND_TIME(VALUES=idate)
-    IF (idate(1) >= 2016 .AND. idate(2) >= 6) THEN
-      message='System clock says the date is after June 2016 at which time this release should be depreciated.'
-      message=TRIM(ADJUSTL(message))//'REASON: input data for spimple plumes may be outdated, code may be buggy'
-      message=TRIM(ADJUSTL(message))//'Terminating; please check with developers for a finalized CMIP6 version of the code.'
-      CALL finish('set_time_weight of mo_bc_aeropt_splumes',message)
-    END IF
-    
+    END DO    
     RETURN
   END SUBROUTINE set_time_weight
   !
@@ -303,11 +293,11 @@ MODULE mo_bc_aeropt_splumes
     !
     DO k=1,nlevels
       DO icol=1,ncol
-        aod_prof(icol,k) = 0.0
-        ssa_prof(icol,k) = 0.0
-        asy_prof(icol,k) = 0.0
+        aod_prof(icol,k) = 0.0_wp
+        ssa_prof(icol,k) = 0.0_wp
+        asy_prof(icol,k) = 0.0_wp
         z_beta(icol,k)   = MERGE(1.0_wp, 0.0_wp, z(icol,k) >= oro(icol))
-        eta(icol,k)      = MAX(0.0_wp,MIN(1.0_wp,z(icol,k)/15000.))
+        eta(icol,k)      = MAX(0.0_wp,MIN(1.0_wp,z(icol,k)/15000._wp))
       END DO
     END DO
     DO icol=1,ncol
@@ -339,6 +329,7 @@ MODULE mo_bc_aeropt_splumes
       !
       ! calculate plume weights
       !
+!PREVENT_INCONSISTENT_IFORT_FMA
       DO icol=1,ncol
         !
         ! get plume-center relative spatial parameters for specifying amplitude of plume at given lat and lon
@@ -346,10 +337,10 @@ MODULE mo_bc_aeropt_splumes
         delta_lat = lat(icol) - plume_lat(iplume)
         delta_lon = lon(icol) - plume_lon(iplume)
         delta_lon = MERGE ( delta_lon-SIGN(360._wp,delta_lon) , delta_lon , ABS(delta_lon) > 180._wp )
-        a_plume1  = 0.5_wp / (MERGE(sig_lon_E(1,iplume), sig_lon_W(1,iplume), delta_lon > 0)**2)
-        b_plume1  = 0.5_wp / (MERGE(sig_lat_E(1,iplume), sig_lat_W(1,iplume), delta_lon > 0)**2)
-        a_plume2  = 0.5_wp / (MERGE(sig_lon_E(2,iplume), sig_lon_W(2,iplume), delta_lon > 0)**2)
-        b_plume2  = 0.5_wp / (MERGE(sig_lat_E(2,iplume), sig_lat_W(2,iplume), delta_lon > 0)**2)
+        a_plume1  = 0.5_wp / (MERGE(sig_lon_E(1,iplume), sig_lon_W(1,iplume), delta_lon > 0.0_wp)**2)
+        b_plume1  = 0.5_wp / (MERGE(sig_lat_E(1,iplume), sig_lat_W(1,iplume), delta_lon > 0.0_wp)**2)
+        a_plume2  = 0.5_wp / (MERGE(sig_lon_E(2,iplume), sig_lon_W(2,iplume), delta_lon > 0.0_wp)**2)
+        b_plume2  = 0.5_wp / (MERGE(sig_lat_E(2,iplume), sig_lat_W(2,iplume), delta_lon > 0.0_wp)**2)
         !
         ! adjust for a plume specific rotation which helps match plume state to climatology.
         !
