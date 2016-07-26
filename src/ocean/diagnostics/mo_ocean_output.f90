@@ -131,8 +131,9 @@ CONTAINS
       out_step = jstep - nsteps_since_last_output + timeSteps_per_outputStep
     ENDIF
 
-!     write(0,*) "out_step=", jstep, nsteps_since_last_output, timeSteps_per_outputStep, out_step
-    IF (.not. istime4name_list_output(out_step) )  RETURN
+   !write(0,*) "out_step=", jstep, nsteps_since_last_output, timeSteps_per_outputStep, out_step
+   !IF (.not. istime4name_list_output(out_step) )  RETURN
+   !write(0,*) "write ....."
 
     !------------------------------------------------------------------
     CALL calc_slow_oce_diagnostics( patch_3d       , &
@@ -163,9 +164,7 @@ CONTAINS
     CALL set_output_pointers(nnew(1), ocean_state(jg)%p_diag, ocean_state(jg)%p_prog(nnew(1)))
     IF(lhamocc)CALL set_bgc_output_pointers(nnew(1), hamocc%p_diag, ocean_state(jg)%p_prog(nnew(1)))
   
-    IF (output_mode%l_nml) THEN
-      CALL write_name_list_output(out_step)
-    ENDIF
+    CALL write_name_list_output(out_step)
 
     fmtstr = '%Y-%m-%d %H:%M:%S'
     call datetimeToPosixString(this_datetime, datestring, fmtstr)

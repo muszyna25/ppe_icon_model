@@ -220,11 +220,9 @@ MODULE mo_ocean_model
     !------------------------------------------------------------------
     ! write initial state
     !------------------------------------------------------------------
-    IF (output_mode%l_nml .and. write_initial_state) THEN
+    IF (output_mode%l_nml .and. .true.) THEN
       CALL write_initial_ocean_timestep(ocean_patch_3d,ocean_state(1),v_sfc_flx,v_sea_ice,hamocc_state, operators_coefficients)
-      !CALL write_initial_ocean_timestep(ocean_patch_3d,ocean_state(1),v_sfc_flx,v_sea_ice,v_oce_sfc)
     ENDIF
-
     !------------------------------------------------------------------
     SELECT CASE (test_mode)
       CASE (0)  !  ocean model

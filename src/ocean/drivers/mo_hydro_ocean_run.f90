@@ -174,7 +174,6 @@ CONTAINS
     & surface_fluxes, p_sfc, p_phys_param,              &
     & p_as, p_atm_f, sea_ice, hamocc_state, operators_coefficients, &
     & solvercoeff_sp)
-   USE mo_hamocc_diagnostics,  ONLY: get_inventories
 
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
@@ -301,11 +300,11 @@ CONTAINS
 
     jstep = jstep0
     TIME_LOOP: DO 
-    IF(lhamocc) THEN
-     if(ltimer)CALL timer_start(timer_bgc_inv)
-     CALL message ('start of time loop', 'HAMOCC inventories', io_stdo_bgc)
-     if(ltimer)CALL get_inventories(hamocc_state,ocean_state(1),patch_3d,nold(1))
-    CALL timer_stop(timer_bgc_inv)
+    IF (lhamocc) THEN
+      IF (ltimer) CALL timer_start(timer_bgc_inv)
+      CALL message ('start of time loop', 'HAMOCC inventories', io_stdo_bgc)
+      IF (ltimer) CALL get_inventories(hamocc_state,ocean_state(1),patch_3d,nold(1))
+      CALL timer_stop(timer_bgc_inv)
     ENDIF
 
       ! update model date and time mtime based
@@ -679,7 +678,7 @@ CONTAINS
       & patch_2d%verts%owned,   &
       & n_zlev)
 
-    CALL perform_accumulation(nold(1),0)
+    CALL perform_accumulation(nnew(1),0)
 
     CALL write_name_list_output(jstep=0)
 
