@@ -83,8 +83,8 @@ CONTAINS
     !
     ! Load correct tables
     !
-    ! set tablesVersion=14
-    CALL vlistDefVarIntKey(vlistID, varID, "tablesVersion", 14)
+    ! set tablesVersion=15
+    CALL vlistDefVarIntKey(vlistID, varID, "tablesVersion", 15)
     !
     CALL vlistDefVarIntKey(vlistID, varID, "significanceOfReferenceTime",     &
       &                    grib_conf%significanceOfReferenceTime)
