@@ -81,6 +81,7 @@ MODULE mo_psrad_radiation
 ! the present mo_orbit is different from the one in echam6
   USE mo_psrad_orbit,     ONLY: orbit_kepler, orbit_vsop87, &
                               & get_orbit_times
+  USE mo_psrad_orbit_nml, ONLY: read_psrad_orbit_namelist
   USE mo_psrad_radiation_parameters, ONLY: solar_parameters, &
                               & l_interp_rad_in_time,        &
                               & zepzen
@@ -117,8 +118,8 @@ MODULE mo_psrad_radiation
                                            mmr_o2,             &
                                            vmr_cfc11,          &
                                            vmr_cfc12,          &
-                                           ch4_v,              &
-                                           n2o_v,              &
+                                           ch4_v=>vpp_ch4,     &
+                                           n2o_v=>vpp_n2o,     &
                                            vmr_o2,             &
                                            nmonth,             &
                                            isolrad,            &
@@ -132,6 +133,7 @@ MODULE mo_psrad_radiation
   USE mo_psrad_radiation_parameters, ONLY:                     &
 !!$                                     ldiur,                    &
 !!$                                     lradforcing,              &
+                                     irad_aero_forcing,        &
                                      l_interp_rad_in_time,     &
                                      zepzen,                   &
 !!$                                     lyr_perp,                 &
@@ -177,7 +179,7 @@ MODULE mo_psrad_radiation
                                      solar_parameters
 
 ! following module for diagnostic of radiative forcing only
-!  USE mo_radiation_forcing,ONLY: prepare_forcing
+  USE mo_psrad_radiation_forcing,ONLY: prepare_psrad_radiation_forcing
 
   USE mo_rrtm_params,   ONLY : nbndsw
 ! new to icon
@@ -186,6 +188,7 @@ MODULE mo_psrad_radiation
   USE mo_psrad_interface,ONLY : setup_psrad, psrad_interface, &
                                 lw_strat, sw_strat
   USE mo_psrad_spec_sampling, ONLY : set_spec_sampling_lw, set_spec_sampling_sw, get_num_gpoints
+  USE mo_psrad_orbit_config,  ONLY : psrad_orbit_config
 
   IMPLICIT NONE
   
@@ -225,9 +228,10 @@ MODULE mo_psrad_radiation
     REAL(wp) :: rasc_sun, decl_sun, dist_sun, time_of_day, zrae
     REAL(wp) :: orbit_date
     REAL(wp) :: solcm
-    LOGICAL  :: l_orbvsop87
+    LOGICAL  :: l_orbvsop87, l_sph_symm_irr
 
-    l_orbvsop87 = .TRUE.
+    l_orbvsop87 = psrad_orbit_config%l_orbvsop87
+    l_sph_symm_irr = psrad_orbit_config%l_sph_symm_irr
 
     !
     ! 1.0 Compute orbital parameters for current time step
@@ -241,10 +245,9 @@ MODULE mo_psrad_radiation
       CALL orbit_kepler (orbit_date, rasc_sun, decl_sun, dist_sun)
     END IF
 !!$    decl_sun_cur = decl_sun       ! save for aerosol and chemistry submodels
-    CALL solar_parameters(decl_sun, dist_sun, time_of_day, &
-!!$         &                sinlon_2d, sinlat_2d, coslon_2d, coslat_2d, &
-         &                p_patch,                         &
-         &                flx_ratio_cur, amu0_x, rdayl_x)
+    CALL solar_parameters(decl_sun,       dist_sun,         time_of_day,       &
+         &                ldiur,          l_sph_symm_irr,   p_patch,           &
+         &                flx_ratio_cur,  amu0_x,           rdayl_x            )
 
     IF (phy_config%lrad) THEN
 !!$
@@ -266,8 +269,8 @@ MODULE mo_psrad_radiation
         solc = SUM(ssi_RCEdiurnOff)
       CASE default
         WRITE (message_text, '(a,i2,a)') &
-             'isolrad = ', isolrad, ' in radctl namelist is not supported'
-        CALL message('pre_radiation', message_text)
+             'isolrad = ',isolrad, ' in radiation_nml namelist is not supported'
+        CALL finish('pre_psrad_radiation', message_text)
       END SELECT
       psct = flx_ratio_cur*solc
 
@@ -285,10 +288,9 @@ MODULE mo_psrad_radiation
       ELSE
         CALL orbit_kepler (orbit_date, rasc_sun, decl_sun, dist_sun)
       END IF
-      CALL solar_parameters(decl_sun, dist_sun, time_of_day, &
-!!$           &                sinlon_2d, sinlat_2d, coslon_2d, coslat_2d, &
-           &                p_patch,                         &
-           &                flx_ratio_rad ,amu0m_x, rdaylm_x)
+      CALL solar_parameters(decl_sun,        dist_sun,          time_of_day,        &
+           &                ldiur,           l_sph_symm_irr,    p_patch,            &
+           &                flx_ratio_rad,   amu0m_x,           rdaylm_x            )
       !
       ! consider curvature of the atmosphere for high zenith angles
       !
@@ -401,12 +403,21 @@ MODULE mo_psrad_radiation
     CHARACTER(len=*), INTENT(IN)      :: file_name
     INTEGER :: istat, funit
 
-    NAMELIST /psrad_nml/ lradforcing, &
-                       & lw_gpts_ts,  &
-                       & lw_spec_samp,&
-                       & rad_perm,    &
-                       & sw_gpts_ts,  &
-                       & sw_spec_samp
+    NAMELIST /psrad_nml/ lradforcing,       & ! switch for short and longwave
+     ! radiative forcing calculation by double call to radiation (default:
+     ! (/.FALSE.,.FALSE./)) 
+                       & irad_aero_forcing, & ! key number of aerosols 
+     ! in reference radiation computation for radiative forcing calculation
+     ! by double call to radiation
+                       & lw_gpts_ts,        &
+                       & lw_spec_samp,      &
+                       & rad_perm,          &
+                       & sw_gpts_ts,        &
+                       & sw_spec_samp,      &
+                       & fco2                  ! factor to multiply a CO2 
+                                               ! scenario (default: 1.)       
+    ! 0.9 Read psrad_orbit namelist
+    CALL read_psrad_orbit_namelist(file_name)
     !
     ! 1.0 Read psrad_nml namelist 
     ! --------------------------------
@@ -483,6 +494,12 @@ MODULE mo_psrad_radiation
       CASE(2)
         WRITE (message_text, '(a,e16.8)') &
              'irad_co2 = 2 --> CO2 mass mixing ratio=', mmr_co2
+        IF (ABS(fco2-1._wp) > EPSILON(1._wp)) THEN
+           WRITE (message_text, '(a,e16.8,a)') &
+                'fco2 = ', fco2, ' --> Factor for CO2 concentration'
+           CALL message('',message_text)
+           mmr_co2 = mmr_co2*fco2
+        END IF
         CALL message('',message_text)
 !!$        co2mmr = co2vmr*amco2/amd
       CASE(4)
@@ -491,27 +508,17 @@ MODULE mo_psrad_radiation
            WRITE (message_text, '(a,e16.8,a)') &
                 'fco2 = ', fco2, ' --> Factor for CO2 scenario'
            CALL message('',message_text)
+           mmr_co2 = mmr_co2*fco2
         END IF
-!!$        co2mmr = co2vmr*fco2*amco2/amd    ! This is only a dummy value for the first
-!!$                                          ! initialization of co2m1 in the co2-module. 
-!!$                                          ! co2m1 will be overwritten with the correct
-!!$                                          ! values as soon as the ghg-data are
-!!$                                          ! interpolated to the right date.
       CASE default
         WRITE (message_text, '(a,i2,a)') &
              'irad_co2 = ', ico2, ' in radctl namelist is not supported'
         CALL message('',message_text)
         CALL finish('setup_psrad_radiation','Run terminated irad_co2')
       END SELECT
-!!$
-!!$      IF (ico2 /= 4 .AND. ABS(fco2-1._wp) > EPSILON(1._wp)) THEN
-!!$         WRITE (message_text, '(a,i2,a)') &
-!!$              'ico2 = ', ico2, ' and fco2 != 1. --> Ignoring fco2'
-!!$         CALL message('',message_text)
-!!$      END IF
-!!$      !
-!!$      ! --- Check CH4
-!!$      ! 
+      !
+      ! --- Check CH4
+      ! 
       SELECT CASE (ich4)
       CASE(0)
         CALL message('','irad_ch4 = 0 --> no CH4 in radiation')
@@ -719,10 +726,10 @@ MODULE mo_psrad_radiation
         CALL message('','isolrad = 2 --> preindustrial solar constant')
       CASE (3) 
         CALL message('','isolrad = 3 --> solar constant for amip runs')
-!!$      CASE (4)
-!!$        CALL message('','isolrad = 4 --> solar constant for rad.-convective eq. runs with diurnal cycle ON')
-!!$      CASE (5)
-!!$        CALL message('','isolrad = 5 --> solar constant for rad.-convective eq. runs with diurnal cycle OFF')
+      CASE (4)
+        CALL message('','isolrad = 4 --> solar constant for rad.-convective eq. runs with diurnal cycle ON')
+      CASE (5)
+        CALL message('','isolrad = 5 --> solar constant for rad.-convective eq. runs with diurnal cycle OFF')
       CASE default 
         WRITE (message_text, '(a,i3,a)') &
              'Run terminated isolrad = ', isolrad, ' not supported'
@@ -737,14 +744,15 @@ MODULE mo_psrad_radiation
       ELSE
         CALL message('','ldiur =.FALSE. --> diurnal cycle off')
       ENDIF
-!!$      !
-!!$      ! --- Check for diagnosis of instantaneous aerosol radiative forcing
-!!$      ! 
-!!$      CALL message('','instantaneous forcing diagnostic:')
-!!$      WRITE (message_text,'(a16,L3,a18,L3)')       &
-!!$           ' solar radiation: ',   lradforcing(1), &
-!!$           ' thermal radiation: ', lradforcing(2)
-!!$      CALL message('',message_text)
+      !
+      ! --- Check for diagnosis of instantaneous aerosol radiative forcing
+      ! 
+      CALL message('','instantaneous forcing diagnostic:')
+      WRITE (message_text,'(a18,L3,a20,L3,a39,I3)')       &
+           ' solar radiation: ',   lradforcing(1), &
+           ' thermal radiation: ', lradforcing(2), &
+           ' irad_aero_forcing for reference aerosols: ', irad_aero_forcing
+      CALL message('',message_text)
       !
       ! --- Check perpetual orbit
       ! 
@@ -793,7 +801,11 @@ MODULE mo_psrad_radiation
     & ktype      ,&!< in  type of convection
     & loland     ,&!< in  land-sea mask. (1. = land, 0. = sea/lakes)
     & loglac     ,&!< in  fraction of land covered by glaciers
+    & datetime   ,&!< in  actual time step
     & pcos_mu0   ,&!< in  cosine of solar zenith angle
+    & geoi       ,&!< in  geopotential wrt surface at layer interfaces
+    & geom       ,&!< in  geopotential wrt surface at layer centres
+    & oromea     ,&!< in  orography in m
     & alb_vis_dir,&!< in  surface albedo for visible range, direct
     & alb_nir_dir,&!< in  surface albedo for near IR range, direct
     & alb_vis_dif,&!< in  surface albedo for visible range, diffuse
@@ -837,8 +849,13 @@ MODULE mo_psrad_radiation
     & loland(kbdim),     & !< land mask
     & loglac(kbdim)        !< glacier mask
 
+    TYPE(t_datetime), INTENT(in) :: datetime !< actual time step
+
     REAL(wp), INTENT(IN) :: &
     & pcos_mu0(kbdim),   & !< cosine of solar zenith angle
+    & geoi(kbdim,klevp1),& !< geopotential wrt surface at layer interfaces
+    & geom(kbdim,klev),  & !< geopotential wrt surface at layer centres
+    & oromea(kbdim),     & !< orography in m
     & alb_vis_dir(kbdim),& !< surface albedo for visible range and direct light
     & alb_nir_dir(kbdim),& !< surface albedo for NIR range and direct light
     & alb_vis_dif(kbdim),& !< surface albedo for visible range and diffuse light
@@ -964,6 +981,7 @@ MODULE mo_psrad_radiation
          &  gas_scenario = ghg_co2mmr &
 !         &  gas_val = co2 &
           & )
+
     xm_ch4(1:kproma,:)   = gas_profile(kproma, klev, ich4, gas_mmr = mmr_ch4,     &
          &  gas_scenario = ghg_ch4mmr, &
          &  pressure = pp_fl, xp = ch4_v)
@@ -1001,18 +1019,19 @@ MODULE mo_psrad_radiation
 
     DO i_rad_call = 1,number_rad_call
       iaero_call = iaero
-      IF (i_rad_call < number_rad_call) iaero_call = 0
+      IF (i_rad_call < number_rad_call) iaero_call = irad_aero_forcing
 
       CALL psrad_interface( jg,       &
            & iaero_call      ,kproma          ,kbdim           ,klev            ,& 
            & jb              ,ktrac           ,ktype           ,nb_sw           ,&
-           & loland          ,loglac          ,cemiss          ,cos_mu0         ,&
-           & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif                      ,&
-           & alb_nir_dif     ,pp_fl           ,pp_hl           ,pp_sfc          ,&
-           & tk_fl           ,tk_hl           ,tk_sfc          ,xq_vap          ,&
-           & xq_liq          ,xq_ice          ,cdnc            ,xc_frc          ,&
-           & xm_o3           ,xm_co2          ,xm_ch4                           ,&
-           & xm_n2o          ,xm_cfc          ,xm_o2           ,&!!$pxtm1           ,&
+           & loland          ,loglac          ,cemiss          ,datetime        ,&
+           & cos_mu0         ,geoi            ,geom            ,oromea          ,&
+           & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
+           & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
+           & tk_hl           ,tk_sfc          ,xq_vap          ,xq_liq          ,&
+           & xq_ice          ,cdnc            ,xc_frc          ,xm_o3           ,&
+           & xm_co2          ,xm_ch4          ,xm_n2o          ,xm_cfc          ,&
+           & xm_o2           ,&!!$pxtm1           ,&
            & flx_uplw        ,flx_uplw_clr    ,flx_dnlw        ,flx_dnlw_clr    ,&
            & flx_upsw        ,flx_upsw_clr    ,flx_dnsw        ,flx_dnsw_clr    ,&
            & vis_frc_sfc     ,par_dn_sfc      ,nir_dff_frc     ,vis_dff_frc     ,&
@@ -1031,9 +1050,9 @@ MODULE mo_psrad_radiation
            &                      SPREAD(flux_factor(1:kproma),2,klevp1)
       par_dn_sfc(1:kproma) = par_dn_sfc(1:kproma) * flux_factor(1:kproma)
 
-!!$      IF (i_rad_call < number_rad_call) CALL prepare_forcing(                & 
-!!$           & kproma          ,kbdim           ,klevp1          ,jb          ,&
-!!$           & lw_net          ,sw_net          ,lw_net_clr      ,sw_net_clr   )
+      IF (i_rad_call < number_rad_call) CALL prepare_psrad_radiation_forcing(jg, & 
+           & kproma          ,kbdim           ,klevp1          ,jb          ,&
+           & lw_net          ,sw_net          ,lw_net_clr      ,sw_net_clr   )
     END DO
     !
     ! 2.1 Fluxes to advance to the model, compute cloud radiative effect 
