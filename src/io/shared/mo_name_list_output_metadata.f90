@@ -14,7 +14,6 @@ MODULE mo_name_list_output_metadata
   USE mo_var_metadata_types,                ONLY: t_var_metadata
   USE mo_name_list_output_types,            ONLY: t_mem_win
   USE mo_mpi,                               ONLY: p_int, p_comm_work_io,      &
-    &                                             my_process_is_mpi_test,     &
     &                                             my_process_is_mpi_workroot, &
     &                                             my_process_is_io
   USE mo_name_list_output_config,           ONLY: use_async_name_list_io
@@ -155,11 +154,6 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::metainfo_get_from_memwin"
     TYPE(t_var_metadata) :: dummy_info  ! dummy meta data object
     INTEGER              :: info_size, offset
-
-    ! This subroutine does nothing on PEs except compute PE #0 or if
-    !  we are not running in asynchronous I/O mode.
-    IF (.NOT. use_async_name_list_io .OR. my_process_is_mpi_test()) RETURN
-    IF (.NOT. my_process_is_io())                                   RETURN
 
     ! get size of a single meta-info field
     info_size = metainfo_get_size()
