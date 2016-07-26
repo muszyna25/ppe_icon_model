@@ -31,6 +31,8 @@ MODULE mo_echam_vdiff_params
   PUBLIC :: cons2, cons25, cons5                        !< parameters
   PUBLIC :: cvdifts, tpfac1, tpfac2, tpfac3, tpfac4     !< parameters
   PUBLIC :: itop, itopp1, ibl, iblm1, iblmin, iblmax    !< parameters
+  PUBLIC :: f_tau0, f_theta0, c_f, c_n, c_e, pr0        !< TTE scheme closure constants
+  PUBLIC :: wmc, fsl, fbl 
   PUBLIC :: init_vdiff_params              !< subroutine
 
 
@@ -62,6 +64,17 @@ MODULE mo_echam_vdiff_params
   REAL(wp),PARAMETER :: cons25 = cons2/clam
   REAL(wp),PARAMETER :: cons5  = 3._wp*cb*cc*grav**2
 
+  REAL(wp),PARAMETER :: pr0      =  0.85_wp  ! neutral limit Prandtl number, can be varied from about 0.6 to 1.0
+  REAL(wp),PARAMETER :: f_tau0   =  0.17_wp  ! neutral non-dimensional stress factor
+  REAL(wp),PARAMETER :: f_theta0 = -SQRT(f_tau0**2/2.0_wp/pr0) ! neutral non-dimensional heat flux factor 
+  REAL(wp),PARAMETER :: c_f      =  0.185_wp ! mixing length: coriolis term tuning parameter
+  REAL(wp),PARAMETER :: c_n      =  2.0_wp   ! mixing length: stability term tuning parameter
+  REAL(wp),PARAMETER :: c_e      =  0.07_wp  ! dissipation coefficient (=f_tau0^(3/2))
+  REAL(wp),PARAMETER :: wmc      =  0.5_wp   ! ratio of typical horizontal velocity to wstar at free convection
+  REAL(wp),PARAMETER :: fsl      =  0.4_wp   ! fraction of first-level height at which surface fluxes
+                                             ! are nominally evaluated, tuning param for sfc stress
+  REAL(wp),PARAMETER :: fbl      =  3._wp    ! 1/fbl: fraction of BL height at which lmix hat its max
+  
   ! Parameters related to time step weighting in *rhs* of *vdiff* and *scv*
 
   REAL(wp),PARAMETER :: cvdifts = 1.5_wp

@@ -43,6 +43,7 @@ CONTAINS
                        & pum1,       pvm1,      ptm1,       pqm1,       &! in
                        & pxlm1,      pxim1,     pxm1,       pxtm1,      &! in
                        & paphm1,     papm1,     pdelpm1,    pgeom1,     &! in
+                       & pgeohm1,                                       &! in
                        & ptvm1,      paclc,     pxt_emis,   pthvvar,    &! in
                        & pxvar,      pz0m_tile,                         &! in
 #ifdef __ICON__
@@ -50,16 +51,20 @@ CONTAINS
 #else
                        & ptkem1,     ptkem0,                            &! inout
 #endif
-                       & pustar,                                        &! inout
+                       & pustar,     pwstar,    pwstar_tile,            &! inout
                        & pqsat_tile, ihpbl,     pghpbl,                 &! out
-                       & pri,        pmixlen,                           &! out
+                       & pri,        pri_tile,  pmixlen,                &! out
                        & pcfm,       pcfm_tile, pcfh,       pcfh_tile,  &! out
                        & pcfv,       pcftke,    pcfthv,                 &! out
                        & aa,         aa_btm,    bb,         bb_btm,     &! out
                        & pfactor_sfc, pcpt_tile,                        &! out
                        & pcptgz,     prhoh,     pqshear,                &! out
-                       & pzthvvar,   pztkevn,                           &! out
-                       & pch_tile,                                      &! out
+                       & pzthvvar,   pthvsig,   pztkevn,                &! out
+                       & pch_tile,                                      &! out, for "nsurf_diag"
+!                       & pch_tile,   pchn_tile,                         &! out, for "nsurf_diag"
+!                       & pcdn_tile,  pcfnc_tile,                        &! out, for "nsurf_diag"
+                       & pbn_tile,   pbhn_tile,                         &! out, for "nsurf_diag"
+                       & pbm_tile,   pbh_tile,                          &! out, for "nsurf_diag"
                        & pcsat,                                         &! in
                        & pcair,                                         &! in
                        & paz0lh)
@@ -93,6 +98,7 @@ CONTAINS
       & papm1   (kbdim,klev)     ,&!< full level pressure [Pa]
       & pdelpm1 (kbdim,klev)     ,&!< layer thickness [Pa]
       & pgeom1  (kbdim,klev)     ,&!< geopotential above ground
+      & pgeohm1 (kbdim,klevp1)   ,&!< half-level geopotential
       & ptvm1   (kbdim,klev)     ,&!< virtual temperature
       & paclc   (kbdim,klev)     ,&!< cloud fraction
       & pxt_emis(kbdim,ktrac)      !< tracer tendency due to surface emission
@@ -115,7 +121,9 @@ CONTAINS
     ! used in the computation of PBL height (then mixing length);
     ! Out: computed in sfc_exchange_coeff at step t-dt.
 
-    REAL(wp),INTENT(INOUT) :: pustar (kbdim)
+    REAL(wp),INTENT(INOUT) :: pustar (kbdim),      &
+                            & pwstar (kbdim),      &
+                            & pwstar_tile(kbdim,ksfc_type)
 
     ! Variables with intent(out)
 
@@ -131,6 +139,7 @@ CONTAINS
 
     REAL(wp),INTENT(INOUT) ::      &   ! out
       & pri      (kbdim,klev)     ,&!< Richardson number
+      & pri_tile (kbdim,ksfc_type),&!< Richardson number
       & pmixlen  (kbdim,klev)     ,&!< mixing length
       & pcfm     (kbdim,klev)     ,&!< exchange coeff. for u, v
       & pcfm_tile(kbdim,ksfc_type),&!< exchange coeff. for u, v
@@ -158,9 +167,17 @@ CONTAINS
       & prhoh     (kbdim,klev)     ,&!< air density at half levels
       & pqshear   (kbdim,klev)     ,&!<
       & pzthvvar  (kbdim,klev)     ,&!<
+      & pthvsig   (kbdim)          ,&
       & pztkevn   (kbdim,klev)       !< intermediate value of TKE
 
-    REAL(wp), OPTIONAL, INTENT(INOUT) :: pch_tile(kbdim,ksfc_type)  ! out
+    REAL(wp), INTENT(OUT) :: pch_tile(kbdim,ksfc_type)    ! out, for "nsurf_diag"
+!    REAL(wp), INTENT(OUT) :: pchn_tile(kbdim,ksfc_type)   ! out, for "nsurf_diag"
+!    REAL(wp), INTENT(OUT) :: pcdn_tile(kbdim,ksfc_type)   ! out, for "nsurf_diag"
+!    REAL(wp), INTENT(OUT) :: pcfnc_tile(kbdim,ksfc_type)  ! out, for "nsurf_diag"
+    REAL(wp), INTENT(OUT) :: pbn_tile(kbdim,ksfc_type)    ! out, for "nsurf_diag"
+    REAL(wp), INTENT(OUT) :: pbhn_tile(kbdim,ksfc_type)   ! out, for "nsurf_diag"
+    REAL(wp), INTENT(OUT) :: pbm_tile(kbdim,ksfc_type)    ! out, for "nsurf_diag"
+    REAL(wp), INTENT(OUT) :: pbh_tile(kbdim,ksfc_type)    ! out, for "nsurf_diag"
 
     REAL(wp), OPTIONAL, INTENT(IN) ::          &
       & pcsat     (kbdim)          ,&!< area fraction with wet land surface
@@ -198,7 +215,7 @@ CONTAINS
 
     CALL atm_exchange_coeff( kproma, kbdim, klev, klevm1, klevp1,     &! in
                            & pstep_len, pcoriol,                      &! in
-                           & pum1, pvm1, ptm1, ptvm1, pgeom1,         &! in
+                           & pum1, pvm1, ptm1, ptvm1, pgeom1, pgeohm1,&! in
                            & pqm1, pxm1,                              &! in
                            & papm1, paphm1, paclc, pustar,            &! in
 #ifdef __ICON__
@@ -225,6 +242,7 @@ CONTAINS
     !    Get boundary condition for TKE and variance of theta_v.
     !-----------------------------------------------------------------------
 
+    pztkevn(:,klev)=ptkem1(:,klev)
 !
     CALL sfc_exchange_coeff( kproma, kbdim, ksfc_type,              &! in
                            & idx_wtr, idx_ice, idx_lnd,             &! in
@@ -239,8 +257,10 @@ CONTAINS
                            & ztheta_b (:),    zthetav_b(:),         &! in
                            & zthetal_b(:),    paclc (:,klev),       &! in
                            & pzthvvar(:,klevm1),                    &! in
+                           & pthvsig(:),                            &! inout
+                           & pwstar(:),       pwstar_tile(:,:),     &! inout
                            & pqsat_tile(:,:), pcpt_tile(:,:),       &! out
-                           & pri    (:,klev),                       &! out
+                           & pri    (:,klev), pri_tile(:,:),        &! out
                            & pcfm   (:,klev), pcfm_tile(:,:),       &! out
                            & pcfh   (:,klev), pcfh_tile(:,:),       &! out
                            & pcfv   (:,klev),                       &! out
@@ -249,7 +269,11 @@ CONTAINS
                            & pztkevn(:,klev), pzthvvar(:,klev),     &! out
                            & pqshear(:,klev),                       &! out, for "vdiff_tendencies"
                            & pustar(:),                             &! out, for "atm_exchange_coeff" at next time step
-                           & pch_tile(:,:),                         &! out
+                           & pch_tile(:,:),                         &! out, for "nsurf_diag"
+!                           & pch_tile(:,:),   pchn_tile(:,:),       &! out, for "nsurf_diag"
+!                           & pcdn_tile(:,:),  pcfnc_tile(:,:),      &! out, for "nsurf_diag"
+                           & pbn_tile(:,:),   pbhn_tile(:,:),       &! out, for "nsurf_diag"
+                           & pbm_tile(:,:),   pbh_tile(:,:),        &! out, for "nsurf_diag"
                            & paz0lh(:),                             &! in, optional
                            & pcsat(:),                              &! in, optional
                            & pcair(:))                               ! in, optional

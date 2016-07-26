@@ -397,6 +397,16 @@ if [ "${EXPERIMENT}" == 'atm_jww_hs_test' ]; then
     DATES=${DATES='20080901T001000Z 20080901T002000Z 20080901T003000Z 20080901T005000Z 20080901T010000Z'}
     RESTART_DATE=${RESTART_DATE='20080901T003000Z'}
 fi
+if [ "${EXPERIMENT}" == 'atm_ape_test' ]; then
+    TYPES=${TYPES='atm_2d_ml atm_2d_rmb_ml phy_3d_ml phy_3d_rmb_ml'}
+    DATES=${DATES='19790101T000000Z 19790101T000400Z 19790101T000800Z 19790101T001200Z 19790101T001600Z'}
+    RESTART_DATE=${RESTART_DATE='19790101T000800Z'}
+fi
+if [ "${EXPERIMENT}" == 'atm_rce_test' ]; then
+    TYPES=${TYPES='atm_2d_ml atm_2d_rmb_ml phy_3d_ml phy_3d_rmb_ml'}
+    DATES=${DATES='19790101T000000Z 19790101T000400Z 19790101T000800Z 19790101T001200Z 19790101T001600Z'}
+    RESTART_DATE=${RESTART_DATE='19790101T000800Z'}
+fi
 
 echo " "
 echo "=============================================================="
@@ -692,9 +702,9 @@ if string_in_list $MD $CMODES; then
             # find out how many nodes and processes per node are in use
 
             N_NODES=`grep "no_of_nodes=" exp.${SCRIPT}.run`
-            echo ${N_NODES} | grep SLURM_JOB_NUM_NODES && N_NODES=1 || N_NODES=${N_NODES#'no_of_nodes='}
+            eval N_NODES=\""${N_NODES#'no_of_nodes='}"\"
             N_PPNODE=`grep "mpi_procs_pernode=" exp.${SCRIPT}.run`
-            N_PPNODE=${N_PPNODE#'mpi_procs_pernode='}
+            eval N_PPNODE=\""${N_PPNODE#'mpi_procs_pernode='}"\"
             N_PROCS=$(( N_NODES * N_PPNODE ))
 
             if [ $N_PROCS -gt 1 ]; then

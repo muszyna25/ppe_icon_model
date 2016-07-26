@@ -1,0 +1,184 @@
+\subsection[cr2016\_02\_16\_rjs: Aqua planet in ICON]{cr2016\_02\_16\_rjs:
+  Aqua planet in ICON}\label{cr20140715rjs}
+
+The Aqua Planet Experiment (APE) is incorporated in ICON as a set of 
+testcases, all of them having in common that the bottom boundary
+consists of water only, with all land surface and orography being
+removed. Originally APEs where constructed as a test--bed for model
+intercomparison regarding the interaction of dynamics and physical
+parameterizations in atmospheric General Circulation Models (GCMs)
+\cite{nea019,nea010}. However, this idealized setup is also well
+suited for studies focusing on the interaction of basic atmospheric
+phenomena and the ocean surface, e.g.~tropical convection, when a
+realistic representation of the atmosphere is secondary. 
+
+The APE is one of the test cases of ICON and can be switched on
+by setting the respective {\tt nh\_test\_name} variable in the {\tt
+  nh\_testcase\_nml} namelist, see Listing~\ref{cr20160216_testcasenml}.
+
+Sea Surface Temperatures (SSTs) can either be prescribed by one of
+several analytical functions and kept constant in time, or alternatively SSTs
+may interact with the atmosphere by the use of a slab ocean layer. The 
+slab ocean is not tested yet.
+The following SSTs $T_{\rm surf}$ are available from {\tt
+  mo\_ape\_params.f90} under the respective keywords ($T_{\rm
+  m}=273.15\,{\rm K}$):  
+\begin{description}
+\item[keyword {\tt sst1}]
+\begin{equation}
+T_{\rm surf}=
+\begin{cases}
+T_{\rm m} + 27\,{\rm K} \left(1-\left(\sin(3\phi/2)\right)^2\right)
+&\quad \text{for all} \quad -\pi/3<\phi<\pi/3\\
+T_{\rm m} &\quad \text{otherwise}
+\end{cases}
+\end{equation}
+\item[keyword {\tt sst2}]
+\begin{equation}
+T_{\rm surf}=
+\begin{cases}
+T_{\rm m} + 27\,{\rm K} \left(1-\frac{3}{\pi}|\phi|\right)
+&\quad \text{for all} \quad -\pi/3<\phi<\pi/3\\
+T_{\rm m} &\quad \text{otherwise}
+\end{cases}
+\end{equation}
+\item[keyword {\tt sst3}]
+\begin{equation}
+T_{\rm surf}=
+\begin{cases}
+T_{\rm m} + 27\,{\rm K} \left(1-\left(\sin(3\phi/2)\right)^4\right)
+&\quad \text{for all} \quad -\pi/3<\phi<\pi/3\\
+T_{\rm m} &\quad \text{otherwise}
+\end{cases}
+\end{equation}
+\item[keyword {\tt sst4}:]
+This distribution has its temperature peak at $5^\circ$N:
+\begin{equation}
+T_{\rm surf}=
+\begin{cases}
+T_{\rm m} + 27\,{\rm K} \left(1-\left(\sin(1.6363(\phi-\frac{\pi}{36}))\right)^2\right)
+&\quad \text{for all} \quad \pi/36<\phi<\pi/3\\
+T_{\rm m} + 27\,{\rm K} \left(1-\left(\sin(1.3846(\phi-\frac{\pi}{36}))\right)^2\right)
+&\quad \text{for all} \quad -\pi/3<\phi\le\pi/36\\
+T_{\rm m} &\quad \text{otherwise}
+\end{cases}
+\end{equation}
+\item[keyword {\tt sst\_qobs}]
+\begin{equation}
+T_{\rm surf}=
+\begin{cases}
+T_{\rm m} + \frac{27}{2}\,{\rm K} \left(2-\left(\sin(3\phi/2)\right)^2
+\left(1+\left(\sin(3\phi/2)\right)^2
+\right)\right)
+&\quad \text{for all} \quad -\pi/3<\phi<\pi/3\\
+T_{\rm m} &\quad \text{otherwise}
+\end{cases}
+\end{equation}
+\item[keyword {\tt sst\_ice}]
+\begin{equation}
+T_{\rm surf}=
+\begin{cases}
+T_{\rm m} + 1.9\,{\rm K} + 27\,{\rm K} \left(1-\left(\sin(3\phi/2)\right)^2\right)
+&\quad \text{for all} \quad -\pi/3<\phi<\pi/3\\
+T_{\rm m}-1.9\,{\rm K} &\quad \text{otherwise}
+\end{cases}
+\end{equation}
+\item[keyword {\tt sst\_const}]
+\begin{equation}
+T_{\rm surf}=T_{\rm m}+29\,{\rm K}
+\end{equation}
+ 
+\end{description}
+
+%Further description of these SSTs can be found at {\tt http://www.met.reading.ac.uk/~mike/APE/ape\_spec\_sst\_2.pdf}
+The various SSTs can be set in the namelist {\tt nh\_testcase\_nml} by
+attributing the corresponding keyword to the variable {\tt
+  ape\_sst\_case}. For an example see Listing~\ref{cr20160216_testcasenml}.
+
+\begin{lstlisting}[caption=Testcase namelist for APE ({\tt
+    exp.atm\_ape\_test}), label=cr20160216_testcasenml]
+&nh_testcase_nml
+ nh_test_name     = 'APE_echam'
+ ape_sst_case     = 'sst_qobs'
+/
+\end{lstlisting}
+
+The
+APE can be conducted with the MPI/ECHAM physics only since 
+the use of the PSRAD radiation is essential for the APE. A standard
+example script {\tt exp.atm\_ape\_test} is provided.
+In this standard version, a Kepler orbit with no eccentricity and
+zero obliquity is used. The orbit parameters are set in the {\tt
+  psrad\_orbit\_nml} namelist (Listing~\ref{cr20160216_orbitnml}).
+
+\begin{lstlisting}[caption=Orbit namelist for APE ({\tt exp.atm\_ape\_test}),
+label=cr20160216_orbitnml]
+&psrad_orbit_nml
+cecc        = 0.0      ! zero excentricity
+cobld       = 0.0      ! zero obliquity
+l_orbvsop87 = .FALSE.  ! use Kepler orbit instead of historic one
+/
+\end{lstlisting}
+
+If a circular orbit with no obliquity is used, a year with months of a
+different number of 
+days does not make sense. Instead, a 360 day year should be used.
+The calendar must be set by two variables at the beginning of the {\tt
+  exp.atm\_ape\_test} script (Listing~\ref{cr20160216_calendar}).
+
+\begin{lstlisting}[caption=Calendar for APE ({\tt
+    exp.atm\_ape\_test}), label=cr20160216_calendar]
+  calendar="'360 day year'"
+  calendar_type=2
+\end{lstlisting}
+
+The solar irradiation is set to the preindustrial value, i.e.~to a
+value of $1360.875\,{\rm W/m}^2$. The APE uses a composition of the
+atmosphere where the O$_3$ concentration is read from a special file. Prognostic
+water vapour and prognostic liquid and ice cloud water is used
+together with constant CO$_2$ in space and time, and no
+aerosols. All 
+other greenhouse gases are set to zero (Listing~\ref{cr20160216_radiationnml}). 
+
+\begin{lstlisting}[caption=Solar irradiation and composition of
+  atmosphere ({\tt exp.atm\_ape\_test}), label=cr20160216_radiationnml] 
+&radiation_nml
+ isolrad    = 2 ! preindustrial solar constant of 1360.875 W/m^ at 1 AE
+ irad_h2o   = 1 ! prognostic vapor, liquid and ice
+ irad_co2   = 2 ! constant co2
+ irad_o3    = 4 ! perpetual january of ozone file linked
+ irad_ch4   = 0 ! no ch4
+ irad_n2o   = 0 ! no n2o
+ irad_o2    = 0 ! no o2
+ irad_cfc11 = 0 ! no cfc11
+ irad_cfc12 = 0 ! no cfc12
+ irad_aero  = 0 ! no aerosol
+/
+\end{lstlisting}
+
+The O$_3$ concentrations are read from the file {\tt
+  ape\_o3\_iconR2B04-ocean\_aqua\_planet.nc} that is provided in the
+directory {\tt data/external/ape\_ozone} of the ICON main directory.
+Table~\ref{cr20160216_tabozone} lists possible ozone files.
+
+\begin{table}[ht]\caption{Possible ozone file}\label{cr20160216_tabozone}
+\begin{tabular*}{\textwidth}{l@{\extracolsep\fill}p{6.7cm}}\hline
+file name & description\\\hline
+{\tt ape\_o3\_iconR2B03-ocean\_aqua\_planet.nc} & contains one time
+step of ozone values, interpolated from {\tt ape\_o3\_T42\_1Pa.nc} to
+r2b3 resolution\\
+{\tt ape\_o3\_iconR2B04-ocean\_aqua\_planet.nc} & contains one time
+step of ozone values, interpolated from {\tt ape\_o3\_T42\_1Pa.nc} to
+r2b4 resolution\\
+{\tt ape\_o3\_R2B04\_1Pa\_spr0.90-cell.nc} & contains the same ozone
+values as the file above\\
+{\tt ape\_o3\_R2B04\_hex\_1Pa\_c.nc} & unclear, contains 10242 grid
+points only instead of 20480 as the files for r2b4 resolution
+(hexagons instead of triangles?)\\
+{\tt tor120000s64\_ozone\_CMIP5\_aqua\_1870\_march.nc} & one time step
+on 8192 cells, 36 levels, seems to be on a torus grid.\\
+\hline
+\end{tabular*}
+\end{table}
+
+
