@@ -946,7 +946,6 @@ MODULE mo_model_domain
     ! basic parallelization info for this patch
     LOGICAL :: compute_is_parallel  ! if true more than 1 processes are used
     LOGICAL :: is_in_parallel_test  ! if true there's one process that runs seq and compares the results to the parallel runs
-    LOGICAL :: is_test_parallel_process  ! if true this process runs seq and compares the results to the parallel runs
 
     ! basic communicators concerning this patch
     !> the work universe of this patch, halo exchange, global sum,

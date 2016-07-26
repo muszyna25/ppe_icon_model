@@ -65,7 +65,6 @@ CONTAINS
     ! Will be moved in the future
     patch(:)%compute_is_parallel = my_process_is_mpi_parallel()
     patch(:)%is_in_parallel_test = p_test_run
-    patch(:)%is_test_parallel_process = my_process_is_mpi_test()
 
     patch(:)%work_communicator = p_comm_work
     patch(:)%parallel_test_communicator = p_comm_work_test
