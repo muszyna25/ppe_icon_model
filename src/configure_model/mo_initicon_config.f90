@@ -31,7 +31,6 @@ MODULE mo_initicon_config
     &                              MAX_DATETIME_STR_LEN, OPERATOR(<=), OPERATOR(>=), &
     &                              getPTStringFromSeconds
   USE mo_mtime_extensions,   ONLY: get_datetime_string
-  USE mo_parallel_config,    ONLY: num_prefetch_proc
   USE mo_exception,          ONLY: finish, message_text, message
 
   IMPLICIT NONE
@@ -68,7 +67,6 @@ MODULE mo_initicon_config
   PUBLIC :: dwdana_filename
   PUBLIC :: filetype
   PUBLIC :: ana_varnames_map_file
-  PUBLIC :: latbc_varnames_map_file
   PUBLIC :: init_mode_soil
   PUBLIC :: is_iau_active
   PUBLIC :: iau_wgt_dyn, iau_wgt_adv
@@ -173,9 +171,6 @@ MODULE mo_initicon_config
   ! GRIB2 shortnames or NetCDF var names.
   CHARACTER(LEN=filename_max) :: ana_varnames_map_file      
 
-  ! analysis file: dictionary which maps internal variable names onto
-  ! GRIB2 shortnames or NetCDF var names used in lateral boundary nudging.
-  CHARACTER(LEN=filename_max) :: latbc_varnames_map_file  
    
   ! ----------------------------------------------------------------------------
   ! Derived variables / variables based on input file contents
@@ -227,13 +222,7 @@ CONTAINS
     !
     !-----------------------------------------------------------------------
     !
-    ! Check whether an mapping file is provided for prefetching boundary data
-    ! calls a finish either when the flag is absent
-    !
-    IF ((num_prefetch_proc == 1) .AND. (latbc_varnames_map_file == ' ')) THEN
-       WRITE(message_text,'(a)') 'latbc_varnames_map_file required, but not found due to missing flag.'
-       CALL finish(TRIM(routine),message_text)
-    ENDIF
+
 
     IF ( ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMODE/) == init_mode) ) THEN
        init_mode_soil = 1   ! full coldstart is executed
