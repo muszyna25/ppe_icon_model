@@ -392,10 +392,10 @@ MODULE mo_async_latbc
           &                     opt_attvar1  = latbc_config%global_index%n_patch_cells_g,  &
           &                     opt_attvar2  = latbc_config%global_index%n_patch_edges_g)
         ! consistency checks:
-        IF (latbc_config%global_index%n_patch_cells_g /= p_patch(1)%n_patch_cells_g) THEN
+        IF (latbc_config%global_index%n_patch_cells_g /= patch_data%n_patch_cells_g) THEN
           CALL finish(routine, "LatBC boundary cell list does not match in size!")
         END IF
-        IF (latbc_config%global_index%n_patch_edges_g /= p_patch(1)%n_patch_edges_g) THEN
+        IF (latbc_config%global_index%n_patch_edges_g /= patch_data%n_patch_edges_g) THEN
           CALL finish(routine, "LatBC boundary edge list does not match in size!")
         END IF
       END IF

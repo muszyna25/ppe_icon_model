@@ -221,7 +221,7 @@ CONTAINS
     CLASS(t_glb_indices) :: this
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'::t_glb_indices_finalize'
-    INTEGER :: ierrstat
+    INTEGER :: ierrstat=0
     IF (ALLOCATED(this%cells))  DEALLOCATE(this%cells, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
     IF (ALLOCATED(this%edges))  DEALLOCATE(this%edges, STAT=ierrstat)

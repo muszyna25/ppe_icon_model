@@ -155,7 +155,7 @@ CONTAINS
 
     ! --- optional: read integer attribute
     IF (PRESENT(opt_attvar1)) THEN
-      CALL nf(nf_get_att_int(ncfileID, varID, opt_attname, opt_attvar1), routine)
+      CALL nf(nf_get_att_int(ncfileID, varID, TRIM(opt_attname), opt_attvar1), routine)
     END IF
 
     ! -------------------------
@@ -177,7 +177,7 @@ CONTAINS
 
       ! --- optional: read integer attribute
       IF (PRESENT(opt_attvar2)) THEN
-        CALL nf(nf_get_att_int(ncfileID, varID, opt_attname, opt_attvar2), routine)
+        CALL nf(nf_get_att_int(ncfileID, varID, TRIM(opt_attname), opt_attvar2), routine)
       END IF
 
     END IF
