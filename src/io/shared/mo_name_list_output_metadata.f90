@@ -128,11 +128,6 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::metainfo_write_to_memwin"
     INTEGER :: info_size, offset
 
-    ! This subroutine does nothing on PEs except compute PE #0 or if
-    !  we are not running in asynchronous I/O mode.
-    IF (.NOT. use_async_name_list_io .OR. my_process_is_mpi_test()) RETURN
-    IF (.NOT. my_process_is_mpi_workroot())                         RETURN
-    
     IF (.NOT. ASSOCIATED(memwin%mem_ptr_metainfo_pe0)) THEN
       CALL finish(routine, "Internal error!")
     END IF
