@@ -28,13 +28,14 @@ MODULE mo_complete_subdivision
   USE mo_mpi,                ONLY: p_send, p_recv, p_max, p_min, proc_split, p_sum
   USE mo_util_string,        ONLY: int2string
 #ifndef NOMPI
+  USE mpi
   USE mo_mpi,                ONLY: MPI_COMM_NULL
 #endif
   USE mo_mpi,                ONLY: p_comm_work, my_process_is_mpi_test, &
     & my_process_is_mpi_seq, process_mpi_all_test_id, process_mpi_all_workroot_id, &
-    & my_process_is_mpi_workroot, p_pe_work, p_n_work, p_bcast, p_io
+    & my_process_is_mpi_workroot, p_pe_work, p_n_work, p_bcast, p_io, &
+    & p_comm_work_2_test
 
-  USE mo_parallel_config,    ONLY:  p_test_run
   USE mo_communication,      ONLY: setup_comm_pattern, blk_no, idx_no, idx_1d, &
     &                              setup_comm_gather_pattern, t_comm_gather_pattern, &
     &                              ASSIGNMENT(=), delete_comm_gather_pattern, &
@@ -65,31 +66,33 @@ CONTAINS
 
     TYPE(t_patch), INTENT(INOUT) :: p_patch(n_dom_start:)
 
-    INTEGER :: ibuf(n_dom_start:n_dom,2)
+#ifndef NOMPI
+    INTEGER :: ibuf(n_dom_start:n_dom+1,2), bcast_source
     LOGICAL :: l_my_process_is_mpi_test
 
-    IF(.NOT. p_test_run) RETURN ! Nothing to do
-
-    ! TODO: use intercomm bcast once a test/work intercomm exists
     l_my_process_is_mpi_test = my_process_is_mpi_test()
-    IF (l_my_process_is_mpi_test .AND. p_pe_work == p_io) THEN
-      CALL p_recv(proc_split, process_mpi_all_workroot_id, 1)
-      CALL p_recv(ibuf, process_mpi_all_workroot_id, 2)
-    ELSEIF(my_process_is_mpi_workroot()) THEN
-      CALL p_send(proc_split, process_mpi_all_test_id, 1)
-      ibuf(:,1) = p_patch(:)%n_proc
-      ibuf(:,2) = p_patch(:)%proc0
-      CALL p_send(ibuf, process_mpi_all_test_id, 2)
-    ENDIF
-
     IF (l_my_process_is_mpi_test) THEN
-      CALL p_bcast(ibuf, p_io, comm=p_comm_work)
-      p_patch(:)%n_proc = ibuf(:,1)
-      p_patch(:)%proc0  = ibuf(:,2)
+      bcast_source=0
+    ELSE
+      IF (p_pe_work == 0) THEN
+        ibuf(n_dom_start:n_dom,1) = p_patch(:)%n_proc
+        ibuf(n_dom_start:n_dom,2) = p_patch(:)%proc0
+        ibuf(n_dom+1,1) = MERGE(1, 0, proc_split)
+        bcast_source=mpi_root
+      ELSE
+        bcast_source=mpi_proc_null
+      END IF
     END IF
-
+    CALL p_bcast(ibuf, bcast_source, comm=p_comm_work_2_test)
+    IF (l_my_process_is_mpi_test) THEN
+      proc_split = ibuf(n_dom+1,1) == 1
+      p_patch(:)%n_proc = ibuf(n_dom_start:n_dom,1)
+      p_patch(:)%proc0  = ibuf(n_dom_start:n_dom,2)
+    END IF
+#endif
 
   END SUBROUTINE copy_processor_splitting
+
   !-------------------------------------------------------------------------
   !>
   !!  Sets the communicators in the patches if these have been read.
