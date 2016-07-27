@@ -1831,8 +1831,11 @@ SUBROUTINE check_result(res, routine, res_on_testpe)
   LOGICAL :: out_of_sync, is_mpi_test
 
   is_mpi_test = my_process_is_mpi_test()
-  aux(:) = 0.0_wp ! Safety only
-  IF(is_mpi_test) aux(:) = res(:)
+  IF (is_mpi_test) THEN
+    aux(:) = res(:)
+  ELSE
+    aux(:) = 0.0_wp ! Safety only
+  END IF
 
   IF(comm_lev==0) THEN
     CALL p_bcast(aux, process_mpi_all_test_id, comm=p_comm_work_test)
@@ -1845,13 +1848,17 @@ SUBROUTINE check_result(res, routine, res_on_testpe)
     ENDIF
   ENDIF
 
-  out_of_sync = .FALSE.
-  DO k = 1, SIZE(res)
-    IF( .NOT. is_mpi_test .AND. l_log_checks .AND. log_unit>0) &
-      & WRITE(log_unit,'(a,2g25.18,a,g25.18)') routine,aux(k),res(k),' Error: ',ABS(aux(k)-res(k))
-    IF(PRESENT(res_on_testpe)) THEN
-      res_on_testpe(k) = aux(k)
-    ELSE
+  IF( .NOT. is_mpi_test .AND. l_log_checks .AND. log_unit>0) THEN
+    DO k = 1, SIZE(res)
+      WRITE(log_unit,'(a,2g25.18,a,g25.18)') routine,aux(k),res(k),&
+           ' Error: ',ABS(aux(k)-res(k))
+    END DO
+  END IF
+  IF(PRESENT(res_on_testpe)) THEN
+    res_on_testpe = aux
+  ELSE
+    out_of_sync = .FALSE.
+    DO k = 1, SIZE(res)
       ! Check if result is identical
 #if defined( __ROUNDOFF_CHECK )
       IF ( ( ( ABS(aux(k)- res(k)) > ABS_TOL ) ) .AND.     &
@@ -1860,12 +1867,12 @@ SUBROUTINE check_result(res, routine, res_on_testpe)
         PRINT *, 'Abs. error ', ABS(aux(k)- res(k)), ' rel. error ', ( ABS(aux(k)- res(k) ) ) / (ABS(res(k))+MACH_TOL)
       ENDIF
 #else
-      IF(aux(k)/=res(k)) out_of_sync = .TRUE.
+      out_of_sync = out_of_sync .OR. (aux(k)/=res(k))
 #endif
-    ENDIF
-  ENDDO
+    END DO
+    IF (out_of_sync) CALL finish(routine, 'Result out of sync')
+  END IF
 
-  IF(out_of_sync) CALL finish(routine, 'Result out of sync')
 
 END SUBROUTINE check_result
 
