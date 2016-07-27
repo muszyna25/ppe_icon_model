@@ -1828,11 +1828,11 @@ SUBROUTINE check_result(res, routine, res_on_testpe)
 
   REAL(wp) :: aux(SIZE(res))
   INTEGER :: k
-  LOGICAL :: out_of_sync
+  LOGICAL :: out_of_sync, is_mpi_test
 
-
+  is_mpi_test = my_process_is_mpi_test()
   aux(:) = 0.0_wp ! Safety only
-  IF(my_process_is_mpi_test()) aux(:) = res(:)
+  IF(is_mpi_test) aux(:) = res(:)
 
   IF(comm_lev==0) THEN
     CALL p_bcast(aux, process_mpi_all_test_id, comm=p_comm_work_test)
@@ -1847,7 +1847,7 @@ SUBROUTINE check_result(res, routine, res_on_testpe)
 
   out_of_sync = .FALSE.
   DO k = 1, SIZE(res)
-    IF( .NOT. my_process_is_mpi_test() .AND. l_log_checks .AND. log_unit>0) &
+    IF( .NOT. is_mpi_test .AND. l_log_checks .AND. log_unit>0) &
       & WRITE(log_unit,'(a,2g25.18,a,g25.18)') routine,aux(k),res(k),' Error: ',ABS(aux(k)-res(k))
     IF(PRESENT(res_on_testpe)) THEN
       res_on_testpe(k) = aux(k)
