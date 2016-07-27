@@ -2796,7 +2796,7 @@ CONTAINS
 
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_hflux: upwind_hflux_ffsl'
+      &  routine = 'mo_advection_hflux: upwind_hflux_hybrid'
 
     TYPE(t_patch), INTENT(INOUT) ::  &  !< patch on which computation is performed
       &  p_patch
