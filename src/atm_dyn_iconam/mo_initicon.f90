@@ -53,6 +53,7 @@ MODULE mo_initicon
   USE mo_satad,               ONLY: sat_pres_ice, spec_humi
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, ntiles_lnd, llake, &
     &                               isub_lake, isub_water, lsnowtile, frlnd_thrhld, frlake_thrhld
+  USE mo_seaice_nwp,          ONLY: frsi_min
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
   USE mo_phyparam_soil,       ONLY: cporv, cadp, crhosmaxf, crhosmin_ml, crhosmax_ml
   USE mo_nwp_soil_init,       ONLY: get_wsnow
@@ -1778,16 +1779,13 @@ MODULE mo_initicon
           !
           ! get SST from first guess T_G
           !
-          ! Ensure that t_seasfc is filled with tf_salt on completely frozen ocean points;
-          ! on partly ice-covered grid points, it is overwritten with the water temperature below
-          DO ic = 1, ext_data(jg)%atm%spi_count(jb)
-            jc = ext_data(jg)%atm%idx_lst_spi(ic,jb)
-            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = tf_salt
-          END DO
-          DO ic = 1, ext_data(jg)%atm%spw_count(jb)
-            jc = ext_data(jg)%atm%idx_lst_spw(ic,jb)
+          DO ic = 1, ext_data(jg)%atm%sp_count(jb)
+            jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
             p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =  &
               & MAX(tf_salt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_water))
+            ! Ensure that t_seasfc is filled with tf_salt on completely frozen ocean points;
+            IF (p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) >= 1._wp-frsi_min) &
+              p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = tf_salt
           END DO
 
         ENDIF  ! lanaread_t_so .OR. lanaread_tseasfc
