@@ -224,7 +224,7 @@ MODULE mo_mpi
     &       process_mpi_all_ioroot_id, process_mpi_all_restartroot_id, &
     &       process_mpi_all_prefroot_id, p_comm_work_pref_compute_pe0
 
-  PUBLIC :: p_comm_work, p_comm_work_test
+  PUBLIC :: p_comm_work, p_comm_work_test, p_comm_work_2_test
   PUBLIC :: p_comm_work_2_io, p_comm_work_io, &
     &       p_comm_io, p_comm_work_pref, p_comm_work_2_pref
   !restart communicators
@@ -421,6 +421,7 @@ MODULE mo_mpi
   ! MPI communicators
   INTEGER :: p_comm_work           ! Communicator for work group
   INTEGER :: p_comm_work_test      ! Communicator spanning work group and test PE
+  INTEGER :: p_comm_work_2_test
   INTEGER :: p_comm_work_io        ! Communicator spanning work group and I/O PEs
   INTEGER :: p_comm_io             ! Communicator spanning the I/O PEs
   INTEGER :: p_comm_work_2_io      ! Inter(!)communicator work PEs - I/O PEs
@@ -1382,6 +1383,18 @@ CONTAINS
     ELSE
       ! No Intercommunicator for test PE or for all, when no IO PEs are defined
       p_comm_work_2_io = MPI_COMM_NULL
+    ENDIF
+
+    IF (num_test_procs > 0 .AND. (my_mpi_function == work_mpi_process &
+      &                           .OR. my_mpi_function == test_mpi_process)) THEN
+      remote_leader &
+        = MERGE(0, p_work_pe0, my_mpi_function == work_mpi_process)
+      CALL mpi_intercomm_create(my_function_comm, 0, peer_comm, remote_leader, &
+        & 1, p_comm_work_2_test, p_error)
+    ELSE
+      ! No Intercommunicator when no test PEs are requested or the process is
+      ! of neither work nor test function
+      p_comm_work_2_test = MPI_COMM_NULL
     ENDIF
 
     ! Perform the same as above, but create the inter-communicators between
