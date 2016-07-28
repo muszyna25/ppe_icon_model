@@ -250,7 +250,7 @@ CONTAINS
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     , CONTIGUOUS        &
 #endif
-      & :: ptr_current_tracer(:,:,:,:) => NULL()  !< pointer to tracer field
+      & :: ptr_current_tracer(:,:,:,:)  !< pointer to tracer field
 
     REAL(wp) :: pdtime_mod        !< modified time step
                                   !< (multiplied by cSTR * coeff_grid)
