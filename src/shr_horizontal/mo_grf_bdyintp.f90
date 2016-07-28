@@ -605,11 +605,7 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
 !$OMP   val_ctr, maxval_neighb, minval_neighb) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1, nblks_bdyintp
 
-      IF (jb == nblks_bdyintp) THEN
-        nlen = npromz_bdyintp
-      ELSE
-        nlen = nproma_bdyintp
-      ENDIF
+      nlen = MERGE(nproma_bdyintp, npromz_bdyintp, jb /= nblks_bdyintp)
       nshift = (jb-1)*nproma_bdyintp
 
       DO jn = 1, nfields
