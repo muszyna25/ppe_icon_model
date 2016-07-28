@@ -225,7 +225,7 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
   INTEGER, INTENT(IN) :: nfields
 
   ! reconstructed edge-normal vector component; dim: (nproma,nlev_c,nblks_e)
-  REAL(wp), INTENT(INOUT), DIMENSION(:,:,:), OPTIONAL, TARGET :: f3dout1, f3dout2, f3dout3, f3dout4
+  REAL(wp), INTENT(INOUT), DIMENSION(:,:,:), OPTIONAL :: f3dout1, f3dout2, f3dout3, f3dout4
 
 
   INTEGER :: jb, jk, je, jv, jn        ! loop indices
@@ -249,7 +249,7 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
   TYPE t_fieldptr
     REAL(wp), POINTER :: fld(:,:,:)
   END TYPE t_fieldptr
-  TYPE(t_fieldptr) :: p_in(nfields), p_out(nfields)
+  TYPE(t_fieldptr) :: p_in(nfields)
 
   INTEGER :: nlev_c       !< number of vertical full levels (child domain)
 !-----------------------------------------------------------------------
@@ -257,19 +257,15 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
 
   IF (PRESENT(f3din1)) THEN
     p_in(1)%fld  => f3din1
-    p_out(1)%fld => f3dout1
   ENDIF
   IF (PRESENT(f3din2)) THEN
     p_in(2)%fld  => f3din2
-    p_out(2)%fld => f3dout2
   ENDIF
   IF (PRESENT(f3din3)) THEN
     p_in(3)%fld  => f3din3
-    p_out(3)%fld => f3dout3
   ENDIF
   IF (PRESENT(f3din4)) THEN
     p_in(4)%fld  => f3din4
-    p_out(4)%fld => f3dout4
   ENDIF
 
   ! Set pointers to index lists
