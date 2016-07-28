@@ -76,31 +76,68 @@ CONTAINS
     SUBROUTINE stastistics_addData_s1d(me, DATA)
         CLASS(t_Statistics), INTENT(INOUT) :: me
         REAL(sp), INTENT(IN) :: DATA(:)
+        INTEGER :: i, icount
+        REAL(wp) :: data_sum, data_max, data_min
 
         TYPE(t_Statistics) :: newStatistics
 
         CALL newStatistics%construct()
-        newStatistics%sampleCount = SIZE(DATA)
-        newStatistics%MIN = REAL(MINVAL(DATA), wp)
-        newStatistics%mean = REAL(SUM(DATA), wp)/REAL(newStatistics%sampleCount, wp)
-        newStatistics%MAX = REAL(MAXVAL(DATA), wp)
+
+        icount = 0
+        data_sum = 0._wp
+        data_max = -HUGE(DATA)
+        data_min =  HUGE(DATA)        
+!$OMP PARALLEL DO REDUCTION(+:data_sum,icount), REDUCTION(MAX:data_max), REDUCTION(MIN:data_min)
+        DO i = 1, SIZE(DATA)
+          icount   = icount+1
+          data_sum = data_sum + DATA(i)
+          data_max = MAX(data_max, DATA(i))
+          data_min = MIN(data_min, DATA(i))
+        ENDDO
+!$OMP END PARALLEL DO
+        newStatistics%sampleCount = icount
+        newStatistics%MIN = data_min
+        newStatistics%MAX = data_max
+        IF (icount > 0) THEN
+          newStatistics%mean = data_sum / REAL(icount,wp)
+        ENDIF
         CALL me%add(newStatistics)
         CALL newStatistics%destruct()
+
     END SUBROUTINE stastistics_addData_s1d
 
     SUBROUTINE stastistics_addData_d1d(me, DATA)
         CLASS(t_Statistics), INTENT(INOUT) :: me
         REAL(dp), INTENT(IN) :: DATA(:)
+        INTEGER :: i, icount
+        REAL(wp) :: data_sum, data_max, data_min
 
         TYPE(t_Statistics) :: newStatistics
 
         CALL newStatistics%construct()
-        newStatistics%sampleCount = SIZE(DATA)
-        newStatistics%MIN = REAL(MINVAL(DATA), wp)
-        newStatistics%mean = REAL(SUM(DATA), wp)/REAL(newStatistics%sampleCount, wp)
-        newStatistics%MAX = REAL(MAXVAL(DATA), wp)
+
+        icount = 0
+        data_sum = 0._wp
+        data_max = -HUGE(DATA)
+        data_min =  HUGE(DATA)        
+!$OMP PARALLEL DO REDUCTION(+:data_sum,icount), REDUCTION(MAX:data_max), REDUCTION(MIN:data_min)
+        DO i = 1, SIZE(DATA)
+          icount   = icount+1
+          data_sum = data_sum + DATA(i)
+          data_max = MAX(data_max, DATA(i))
+          data_min = MIN(data_min, DATA(i))
+        ENDDO
+!$OMP END PARALLEL DO
+        newStatistics%sampleCount = icount
+        newStatistics%MIN = data_min
+        newStatistics%MAX = data_max
+        IF (icount > 0) THEN
+          newStatistics%mean = data_sum / REAL(icount,wp)
+        ENDIF
+
         CALL me%add(newStatistics)
         CALL newStatistics%destruct()
+
     END SUBROUTINE stastistics_addData_d1d
 
     SUBROUTINE stastistics_addStatistics(me, other)
