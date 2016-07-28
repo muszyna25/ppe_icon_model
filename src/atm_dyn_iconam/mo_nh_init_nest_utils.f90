@@ -158,11 +158,7 @@ MODULE mo_nh_init_nest_utils
       CALL message(TRIM(routine),message_text)
     ENDIF
 
-    IF (.NOT. my_process_is_mpi_parallel()) THEN
-      l_parallel = .FALSE.
-    ELSE
-      l_parallel = .TRUE.
-    ENDIF
+    l_parallel = my_process_is_mpi_parallel()
 
     p_parent_prog     => p_nh_state(jg)%prog(nnow(jg))
     p_child_prog      => p_nh_state(jgc)%prog(nnow(jgc))
@@ -774,12 +770,7 @@ MODULE mo_nh_init_nest_utils
     LOGICAL :: l_parallel
 
 
-    IF (.NOT. my_process_is_mpi_parallel()) THEN
-      l_parallel = .FALSE.
-    ELSE
-      l_parallel = .TRUE.
-    ENDIF
-
+    l_parallel = my_process_is_mpi_parallel()
 
     p_pp           => p_patch_local_parent(jgc)
     p_pc           => p_patch(jgc)
@@ -979,11 +970,7 @@ MODULE mo_nh_init_nest_utils
       CALL message('interpolate_sfcana',message_text)
     ENDIF
 
-    IF (.NOT. my_process_is_mpi_parallel()) THEN
-      l_parallel = .FALSE.
-    ELSE
-      l_parallel = .TRUE.
-    ENDIF
+    l_parallel = my_process_is_mpi_parallel()
 
     p_parent_lprog    => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
     p_child_lprog     => p_lnd_state(jgc)%prog_lnd(nnow_rcf(jgc))
