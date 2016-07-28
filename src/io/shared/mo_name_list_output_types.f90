@@ -145,8 +145,6 @@ MODULE mo_name_list_output_types
     INTEGER                    :: n_own  ! Number of own points (without halo, only belonging to phyiscal patch)
     ! Only set on compute PEs, set to 0 on IO PEs
     INTEGER, ALLOCATABLE       :: own_idx(:), own_blk(:)
-    ! idx and blk for own points, only set on compute PEs
-    INTEGER, ALLOCATABLE       :: own_dst_idx(:), own_dst_blk(:)
     ! dest idx and blk for own points, only set on sequential/test PEs
     INTEGER, ALLOCATABLE       :: pe_own(:)
     ! n_own, gathered for all compute PEs (set on all PEs)

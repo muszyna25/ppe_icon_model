@@ -98,7 +98,7 @@ MODULE mo_name_list_output_init
     &                                             p_int, p_real_dp, p_real_sp,                    &
     &                                             my_process_is_stdio, my_process_is_mpi_test,    &
     &                                             my_process_is_mpi_workroot,                     &
-    &                                             my_process_is_mpi_seq, my_process_is_io,        &
+    &                                             my_process_is_io,        &
     &                                             my_process_is_mpi_ioroot,                       &
     &                                             process_mpi_stdio_id, process_work_io0,         &
     &                                             process_mpi_io_size, num_work_procs, p_n_work,  &
@@ -2267,16 +2267,6 @@ CONTAINS
     ! Safety check
     IF(n/=p_ri%n_glb) CALL finish(routine,'Reordering failed')
 
-    ! set trivial destination indices:
-    IF(my_process_is_mpi_seq()) THEN
-      ALLOCATE(p_ri%own_dst_idx(p_ri%n_own), &
-        &      p_ri%own_dst_blk(p_ri%n_own))
-      DO i=1,p_ri%n_own
-        p_ri%own_dst_idx(i) = idx_no(i)
-        p_ri%own_dst_blk(i) = blk_no(i)
-      END DO ! i
-    END IF
-
     DEALLOCATE(phys_owner_mask)
     DEALLOCATE(glbidx_own)
     DEALLOCATE(glbidx_glb)
@@ -2315,19 +2305,6 @@ CONTAINS
       patch_info_ll%ri%own_idx(i) = MOD(i - 1, nproma) + 1
       patch_info_ll%ri%own_blk(i) =    (i - 1)/nproma  + 1
     END DO ! i
-
-    ! set destination indices (for sequential/test PEs). This is
-    ! important for the case that the local patch is smaller than the
-    ! lon-lat grid:
-    IF(my_process_is_mpi_seq()) THEN
-      ALLOCATE(patch_info_ll%ri%own_dst_idx(n_own), &
-        &      patch_info_ll%ri%own_dst_blk(n_own))
-      DO i=1,n_own
-        gidx = intp%global_idx(i)
-        patch_info_ll%ri%own_dst_idx(i) = idx_no(gidx)
-        patch_info_ll%ri%own_dst_blk(i) = blk_no(gidx)
-      END DO ! i
-    END IF
 
     ! Gather the number of own points for every PE into p_ri%pe_own
     ALLOCATE(patch_info_ll%ri%pe_own(0:p_n_work-1), &
