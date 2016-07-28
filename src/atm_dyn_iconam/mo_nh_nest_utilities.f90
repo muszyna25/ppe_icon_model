@@ -49,7 +49,7 @@ MODULE mo_nh_nest_utilities
     grf_bdywidth_c, grf_bdywidth_e,            &
     grf_nudgintp_start_c, grf_nudgintp_start_e,&
     grf_nudge_start_c
-  USE mo_mpi,                 ONLY: my_process_is_mpi_seq
+  USE mo_mpi,                 ONLY: my_process_is_mpi_parallel
   USE mo_communication,       ONLY: exchange_data, exchange_data_mult
   USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array, &
     global_sum_array3, sync_patch_array_mult
@@ -1034,11 +1034,7 @@ CONTAINS
       CALL message(TRIM(routine),message_text)
     ENDIF
 
-    IF (my_process_is_mpi_seq()) THEN
-      l_parallel = .FALSE.
-    ELSE
-      l_parallel = .TRUE.
-    ENDIF
+    l_parallel = my_process_is_mpi_parallel()
 
     IF (iforcing > 1) THEN  ! tracers represent moisture variables
       ntracer_nudge = 3     ! take only QV, QC and QI - nudging precip variables does not make much sense
@@ -1333,11 +1329,7 @@ CONTAINS
     !-----------------------------------------------------------------------
 
 
-    IF (my_process_is_mpi_seq()) THEN
-      l_parallel = .FALSE.
-    ELSE
-      l_parallel = .TRUE.
-    ENDIF
+    l_parallel = my_process_is_mpi_parallel()
 
     p_parent_prog     => p_nh_state(jgp)%prog(nsav1(jgp))
     p_child_prog      => p_nh_state(jg)%prog(nnow(jg))
