@@ -240,10 +240,6 @@ CONTAINS
 
       IF (jg > n_dom_start) THEN
 
-        ! Note: The following call is deprecated and will be removed.
-        !
-        ! CALL setup_comm_cpy_interpolation(patch(jg), patch(jgp))
-
         CALL delete_comm_pattern(p_patch_local_parent(jg)%comm_pat_c)
         CALL delete_comm_pattern(p_patch_local_parent(jg)%comm_pat_v)
         CALL delete_comm_pattern(p_patch_local_parent(jg)%comm_pat_e)
@@ -706,77 +702,6 @@ CONTAINS
 
     DEALLOCATE(owner, mask)
   END SUBROUTINE set_glb_loc_comm
-
-  !-------------------------------------------------------------------------
-  !>
-  !! This routine sets up a communication pattern for interpolation by direct copying.
-  !!
-  !! This routine sets up a communication pattern for interpolation by direct copying.
-  !!
-  !! @par Revision History
-  !! Initial version by Rainer Johanni, Nov 2009
-  SUBROUTINE setup_comm_cpy_interpolation(p_patch, p_parent_patch)
-
-    TYPE(t_patch), INTENT(INOUT) :: p_patch, p_parent_patch
-
-    INTEGER :: j, jc, jb, jp, p_index_s, p_index_e, i_chidx
-    INTEGER, ALLOCATABLE :: owner(:), glb_index(:)
-
-    !-----------------------------------------------------------------------
-
-    i_chidx = p_patch%parent_child_index
-
-    !--------------------------------------------------------------------
-    ! Cells
-
-    ! Get start and end index of the GLOBAL parent cells as used in the interpolation
-
-    p_index_s = idx_1d(p_parent_patch%cells%start_idx(grf_bdyintp_start_c,i_chidx), &
-                       p_parent_patch%cells%start_blk(grf_bdyintp_start_c,i_chidx))
-    p_index_e = idx_1d(p_parent_patch%cells%end_idx(grf_bdyintp_end_c,i_chidx), &
-                       p_parent_patch%cells%end_blk(grf_bdyintp_end_c,i_chidx))
-    IF(p_index_s <= p_index_e) THEN
-      p_index_s = p_parent_patch%cells%decomp_info%glb_index(p_index_s)
-      p_index_e = p_parent_patch%cells%decomp_info%glb_index(p_index_e)
-    ELSE
-      p_index_s =  HUGE(0)
-      p_index_e = -HUGE(0)
-    ENDIF
-    p_index_s = p_min(p_index_s, p_comm_work)
-    p_index_e = p_max(p_index_e, p_comm_work)
-
-    ! For our local child patch, gather which cells receive values from which parent cell
-
-    ALLOCATE(glb_index(p_patch%n_patch_cells), &
-      &      owner(p_patch%n_patch_cells))
-
-    glb_index(:) = -1
-
-    DO j = 1, p_patch%n_patch_cells
-      jc = idx_no(j)
-      jb = blk_no(j)
-      jp = idx_1d(p_patch%cells%parent_glb_idx(jc,jb), &
-        &         p_patch%cells%parent_glb_blk(jc,jb))
-      IF(jp<p_index_s .OR. jp>p_index_e) CYCLE
-      glb_index(j) = jp
-    ENDDO
-
-    owner(:) = &
-      dist_dir_get_owners(p_parent_patch%cells%decomp_info%owner_dist_dir, &
-      &                   glb_index(:), glb_index(:) /= -1)
-
-    ! Set up communication pattern
-
-    CALL setup_comm_pattern(p_patch%n_patch_cells, owner, glb_index,  &
-      & p_parent_patch%cells%decomp_info%glb2loc_index, &
-      & p_parent_patch%n_patch_cells, &
-      & p_parent_patch%cells%decomp_info%owner_local, &
-      & p_parent_patch%cells%decomp_info%glb_index, &
-      & p_patch%comm_pat_interpolation_c)
-
-    DEALLOCATE(owner, glb_index)
-
-  END SUBROUTINE setup_comm_cpy_interpolation
 
   !-------------------------------------------------------------------------
   !>
