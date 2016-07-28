@@ -4,18 +4,20 @@
 !! properties of aerosols and trace gases
 !!
 !! Author: Daniel Rieger, KIT
+!! Initial Release: 2014-08-04
 !!
-!! Revision History
-!! Initial Daniel Rieger, KIT (2014-08-04)
-!!
-!! Copyright
-!! Institute for Meteorology and Climate Research, KIT, Karlsruhe
+!! Copyright and License
+!! This code is subject to the KIT-Software-License-Agreement in
+!! its most recent form.
+!! Where software is supplied by third parties, it is indicated in the
+!! headers of the routines.
 !! This software is provided for non-commercial use only.
 !!
 !! See the LICENSE conditions:
 !! http://icon-art.imk-tro.kit.edu/
-!!
-!!-----------------------------------------------------------------------------
+!! Institute of Meteorology and Climate Research, KIT, Karlsruhe
+!>
+
 MODULE mo_art_diagnostics_interface
 
 ! ICON

@@ -346,6 +346,7 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: io3_ape      =  4
   INTEGER, PARAMETER :: io3_amip     =  8
   INTEGER, PARAMETER :: iaero_kinne  =  3
+  INTEGER, PARAMETER :: io3_art      =  10
 
   ! identifier for landcover classification
   INTEGER, PARAMETER :: GLOBCOVER2009 =  1
@@ -591,6 +592,12 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: RTTOV_BT_CS  = 2
   INTEGER, PARAMETER, PUBLIC :: RTTOV_RAD_CL = 3
   INTEGER, PARAMETER, PUBLIC :: RTTOV_RAD_CS = 4
+
+  !------------------------------------------------!
+  !  MISSING VALUE FOR BOUNDARY INTERPOLATION ZONE !
+  !------------------------------------------------!
+
+  REAL(WP), PARAMETER, PUBLIC :: BOUNDARY_MISSVAL = -999.e-10
 
 
 !--------------------------------------------------------------------

@@ -264,7 +264,7 @@ LOGICAL :: &
   ltkesso       =.TRUE. , & ! calculation SSO-wake turbulence production for TKE
   ltkecon       =.FALSE., & ! consider convective buoyancy production for TKE
   ltkeshs       =.TRUE. , & ! consider separ. horiz. shear production for TKE
-  loutshs       =.FALSE., & ! consider separ. horiz. shear production of TKE for output
+  loutshs       =.TRUE., & ! consider separ. horiz. shear production of TKE for output
   
   lnonloc       =.FALSE., & ! nonlocal calculation of vertical gradients used for turbul. diff.
   lprfcor       =.FALSE., & ! using the profile values of the lowest main level instead of

@@ -220,7 +220,8 @@ MODULE mo_ocean_types
       & laplacian_vert ,& ! vertical diffusion of horizontal velocity
       & grad           ,& ! gradient of kinetic energy. Unit [m/s]
       & press_grad     ,& ! hydrostatic pressure gradient term. Unit [m/s]
-      & cfl_horz! ,       & ! horizontal cfl values
+      & cfl_horz       ,& ! horizontal cfl values
+      & zlim         !,& ! zalesak limiter factor
       ! & vn  
       
     onEdges_HalfLevels :: &

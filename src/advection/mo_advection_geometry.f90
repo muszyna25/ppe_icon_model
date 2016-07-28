@@ -36,7 +36,6 @@ MODULE mo_advection_geometry
   USE mo_math_utilities,      ONLY: lintersect, line_intersect, t_line, &
     &                               t_geographical_coordinates
   USE mo_advection_utils,     ONLY: t_list2D
-  USE mo_run_config,          ONLY: msg_level
   USE mo_fortran_tools,       ONLY: copy
 
 

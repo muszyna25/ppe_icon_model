@@ -687,14 +687,9 @@ DO jl=kidia,kfdia
       zdh=rg*MAX(zdh,1.e5_jprb*zdqmin)
       IF (zdhpbl(jl) > 0.0_JPRB) THEN
         zmfub(jl)=zdhpbl(jl)/zdh
-        !EPS: temporary solution for explicit
-        IF(ptsphy>(3.6E3_JPRB/2.0_JPRB).AND.phy_params%mfcfl==1.0_jprb) THEN
-          zmfub(jl)=MIN(zmfub(jl),3._jprb*zmfmax)
-        ELSE
-          zmfub(jl)=MIN(zmfub(jl),zmfmax)
-        ENDIF
+        zmfub(jl)=MIN(zmfub(jl),0.5_jprb*zmfmax)
       ELSE
-        zmfub(jl)=zmfmax*0.1_JPRB
+        zmfub(jl)=zmfmax*0.05_JPRB
         ldcum(jl)=.FALSE.
       ENDIF
       IF(lmfwstar) zmfub(jl)=zmf_shal(jl)
@@ -940,12 +935,8 @@ DO jl=kidia,kfdia
         zmfub1(jl)=zmfub(jl)
       ENDIF
 
-      !EPS: temporary solution for explicit
-      IF(ptsphy>1800._jprb.AND.phy_params%mfcfl==1.0_jprb) THEN
-        zmfub1(jl)=MIN(zmfub1(jl),3._jprb*zmfmax)
-      ELSE
-        zmfub1(jl)=MIN(zmfub1(jl),zmfmax)
-      ENDIF
+      zmfub1(jl)=MIN(zmfub1(jl),0.5_jprb*zmfmax)
+
       IF(lmfwstar) zmfub1(jl)=zmf_shal(jl)
     ENDIF
 

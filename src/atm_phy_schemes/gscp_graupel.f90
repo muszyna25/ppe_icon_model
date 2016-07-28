@@ -1280,10 +1280,8 @@ SUBROUTINE graupel     (             &
             zsvisub   =  0.0_wp
           ENDIF
 
-          IF (qsg > 1.e-7_wp) THEN
-            zxfac = 1.0_wp + zbsdep * EXP(ccsdxp*LOG(zcslam))
-            ssdep = zcsdep * zxfac * zqvsidiff / (zcslam+zeps)**2
-          ENDIF
+          zxfac = 1.0_wp + zbsdep * EXP(ccsdxp*LOG(zcslam))
+          ssdep = zcsdep * zxfac * zqvsidiff / (zcslam+zeps)**2
           !FR new: depositional growth reduction
           IF (lred_depgrow .AND. ssdep > 0.0_wp) THEN
             ssdep = ssdep*reduce_dep
@@ -1291,6 +1289,9 @@ SUBROUTINE graupel     (             &
           ! GZ: This limitation, which was missing in the original graupel scheme,
           ! is crucial for numerical stability in the tropics!
           IF (ssdep > 0.0_wp) ssdep = MIN(ssdep, zsvmax-zsvidep)
+          ! Suppress depositional growth of snow if the existing amount is too small for a
+          ! a meaningful distiction between cloud ice and snow
+          IF (qsg <= 1.e-7_wp) ssdep = MIN(ssdep, 0.0_wp)
 ! ** GZ: this numerical fit should be replaced with a physically more meaningful formulation **
           sgdep = (0.398561_wp-0.00152398_wp*tg                 &
                    + 2554.99_wp/ppg+ 2.6531E-7_wp*ppg) *        &

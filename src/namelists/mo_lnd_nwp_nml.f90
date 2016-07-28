@@ -34,16 +34,18 @@ MODULE mo_lnd_nwp_nml
   USE mo_lnd_nwp_config,      ONLY: config_nlev_snow   => nlev_snow     , &
     &                               config_ntiles      => ntiles_lnd    , &
     &                               config_frlnd_thrhld => frlnd_thrhld , &
-    &                               config_frlndtile_thrhld => frlndtile_thrhld, &
-    &                               config_frlake_thrhld => frlake_thrhld , &
+    &                        config_frlndtile_thrhld => frlndtile_thrhld, &
+    &                             config_frlake_thrhld => frlake_thrhld , &
     &                               config_frsea_thrhld => frsea_thrhld , &
     &                               config_lseaice     => lseaice       , &
     &                               config_llake       => llake         , &
     &                               config_lmelt       => lmelt         , &
     &                               config_lmelt_var   => lmelt_var     , &
     &                               config_lmulti_snow => lmulti_snow   , &
+    &                            config_l2lay_rho_snow => l2lay_rho_snow, &
     &                          config_max_toplaydepth => max_toplaydepth, &
     &                            config_idiag_snowfrac => idiag_snowfrac, &
+    &                                 config_cwimax_ml => cwimax_ml     , &
     &                               config_itype_trvg  => itype_trvg    , &
     &                               config_itype_evsl  => itype_evsl    , &
     &                              config_itype_lndtbl => itype_lndtbl  , &
@@ -51,12 +53,12 @@ MODULE mo_lnd_nwp_nml
     &                               config_lstomata    => lstomata      , &
     &                               config_l2tls       => l2tls         , &
     &                            config_itype_heatcond => itype_heatcond, &
-    &                            config_itype_interception => itype_interception, &
+    &                    config_itype_interception => itype_interception, &
     &                            config_itype_hydbound => itype_hydbound, &
     &                            config_lana_rho_snow  => lana_rho_snow , &
     &                            config_lsnowtile      => lsnowtile     , &
     &                            config_sstice_mode  => sstice_mode     , &
-    &                            config_sst_td_filename => sst_td_filename,&
+    &                           config_sst_td_filename => sst_td_filename,&
     &                            config_ci_td_filename => ci_td_filename
 
   IMPLICIT NONE
@@ -80,6 +82,7 @@ MODULE mo_lnd_nwp_nml
   INTEGER ::  itype_root        !< type of root density distribution
   INTEGER ::  itype_heatcond    !< type of soil heat conductivity
   INTEGER ::  itype_interception!< type of plant interception
+  REAL(wp)::  cwimax_ml         !< scaling parameter for maximum interception storage
   INTEGER ::  itype_hydbound    !< type of hydraulic lower boundary condition
   INTEGER ::  idiag_snowfrac    !< method for diagnosis of snow-cover fraction       
 
@@ -92,6 +95,7 @@ MODULE mo_lnd_nwp_nml
        lmelt     , & !! soil model with melting process
        lmelt_var , & !! freezing temperature dependent on water content
        lmulti_snow,& !! run the multi-layer snow model
+       l2lay_rho_snow, & ! use two-layer snow density for single-layer snow scheme
        lstomata   , & ! map of minimum stomata resistance
        l2tls      , & ! forecast with 2-TL integration scheme
        lana_rho_snow, &  ! if .TRUE., take rho_snow-values from analysis file 
@@ -113,11 +117,11 @@ MODULE mo_lnd_nwp_nml
     &               itype_hydbound                            , & 
     &               lstomata                                  , & 
     &               l2tls                                     , & 
-    &               lana_rho_snow                             , & 
+    &               lana_rho_snow, l2lay_rho_snow             , & 
     &               lsnowtile                                 , &
     &               sstice_mode                               , &
     &               sst_td_filename                           , &
-    &               ci_td_filename
+    &               ci_td_filename, cwimax_ml
    
   PUBLIC :: read_nwp_lnd_namelist
 
@@ -176,20 +180,24 @@ MODULE mo_lnd_nwp_nml
                              ! tile for a grid point
     lmelt          = .TRUE.  ! soil model with melting process
     lmelt_var      = .TRUE.  ! freezing temperature dependent on water content
-    lmulti_snow    = .TRUE.  ! run the multi-layer snow model
+    lmulti_snow    = .FALSE. ! .TRUE. = run the multi-layer snow model, .FALSE. = use single-layer scheme
+    l2lay_rho_snow = .FALSE. ! use two-layer snow density for single-layer snow model
     max_toplaydepth = 0.25_wp ! maximum depth of uppermost snow layer for multi-layer snow scheme (25 cm)
+                              ! (also used for simplified two-layer snow density scheme)
     lsnowtile      = .FALSE. ! if .TRUE., snow is considered as a separate tile
     idiag_snowfrac = 1       ! 1: old method based on SWE, 2: more advanced experimental method
     !
     itype_trvg     = 2       ! type of vegetation transpiration parameterization
                              ! Note that this is currently the only available option!
     itype_evsl     = 2       ! type of parameterization of bare soil evaporation
-    itype_lndtbl   = 1       ! choice of table for associating surface parameters to land-cover classes
+    itype_lndtbl   = 3       ! choice of table for associating surface parameters to land-cover classes
     itype_root     = 2       ! type of root density distribution
                              ! 1: constant
                              ! 2: exponential
     itype_heatcond = 2       ! type of soil heat conductivity
     itype_interception = 1   ! type of plant interception
+    cwimax_ml      = 1.e-6_wp ! scaling parameter for maximum interception storage. Almost turned off by default;
+                              ! the recommended value to activate interception storage is 5.e-4
     itype_hydbound = 1       ! type of hydraulic lower boundary condition
     lstomata       =.TRUE.   ! map of minimum stomata resistance
     l2tls          =.TRUE.   ! forecast with 2-TL integration scheme
@@ -242,7 +250,12 @@ MODULE mo_lnd_nwp_nml
         &  'nlev_snow must be >1 when running the multi-layer snow model')
     ENDIF
 
+    IF ( lmulti_snow .AND. l2lay_rho_snow ) THEN
+      CALL finish( TRIM(routine), 'multi-layer snow model cannot be combined with l2lay_rho_snow option')
+    ENDIF
 
+    ! For simplicity, in order to avoid further case discriminations
+    IF (l2lay_rho_snow) nlev_snow = 2
 
     !----------------------------------------------------
     ! 5. Fill the configuration state
@@ -270,8 +283,10 @@ MODULE mo_lnd_nwp_nml
       config_l2tls       = l2tls
       config_itype_heatcond = itype_heatcond
       config_itype_interception = itype_interception
+      config_cwimax_ml   = cwimax_ml
       config_itype_hydbound = itype_hydbound
       config_lana_rho_snow  = lana_rho_snow
+      config_l2lay_rho_snow = l2lay_rho_snow
       config_lsnowtile   = lsnowtile
       config_sstice_mode   = sstice_mode
       config_sst_td_filename = sst_td_filename

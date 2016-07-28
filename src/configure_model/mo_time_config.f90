@@ -24,51 +24,67 @@
 !!
 MODULE mo_time_config
 
-  USE mo_kind,                  ONLY: wp
-  USE mo_datetime,              ONLY: t_datetime
-  USE mo_impl_constants,        ONLY: max_dom
- 
-  IMPLICIT NONE
-  PRIVATE
-  PUBLIC :: t_time_config, time_config, restart_experiment
+    USE mo_datetime,              ONLY: t_datetime
+    USE mo_impl_constants,        ONLY: max_dom
+    USE mo_kind,                  ONLY: wp
+    USE mtime,                    ONLY: datetime, newDatetime, deallocateDatetime
+
+    IMPLICIT NONE
+    PRIVATE
+    PUBLIC :: t_time_config, time_config, restart_experiment
+
+    PUBLIC :: getIniTime
 
 
-  !>
-  !! Derived type containing information for time control. 
-  !!
-  TYPE t_time_config
+    !>
+    !! Derived type containing information for time control.
+    !!
+    TYPE t_time_config
 
-    ! from namelist 
+        ! from namelist
 
-    REAL(wp)         :: dt_restart         !< Length of restart cycle in seconds
-    INTEGER          :: calendar           !< calendar type
+        REAL(wp)         :: dt_restart         !< Length of restart cycle in seconds
+        INTEGER          :: calendar           !< calendar type
 
-    ! not directly from namelist  
+        ! not directly from namelist
 
-    TYPE(t_datetime) :: ini_datetime       !< Starting time of model integration
-    TYPE(t_datetime) :: end_datetime       !< Ending   time of model integration
-    TYPE(t_datetime) :: cur_datetime       !< Current  time model time 
+        TYPE(t_datetime) :: ini_datetime       !< Starting time of model integration
+        TYPE(t_datetime) :: end_datetime       !< Ending   time of model integration
+        TYPE(t_datetime) :: cur_datetime       !< Current  time model time
 
-    REAL(wp)         :: sim_time(max_dom)  !< elapsed simulation time (may locally differ between domains!)
+        REAL(wp)         :: sim_time(max_dom)  !< elapsed simulation time (may locally differ between domains!)
 
-    !> LOGICAL is_relative_time: .TRUE., if time loop shall start with
-    !> step 0 regardless whether we are in a standard run or in a
-    !> restarted run (which means re-initialized run):
-    LOGICAL          ::  is_relative_time
- 
-  END TYPE t_time_config
-  !>
-  !! 
-  !! The actual variable
-  !!
-  TYPE(t_time_config) :: time_config
+        !> LOGICAL is_relative_time: .TRUE., if time loop shall start with
+        !> step 0 regardless whether we are in a standard run or in a
+        !> restarted run (which means re-initialized run):
+        LOGICAL          ::  is_relative_time
 
-  LOGICAL :: restart_experiment ! if true, we have to restart the experiment
-  
-!CONTAINS
-!
-!  SUBROUTINE configure_time
-!  END SUBROUTINE configure_time
+    END TYPE t_time_config
+
+    !>
+    !! The actual variable
+    !!
+    TYPE(t_time_config) :: time_config
+
+    LOGICAL :: restart_experiment ! if true, we have to restart the experiment
+
+CONTAINS
+
+    FUNCTION getIniTime() RESULT(RESULT)
+        TYPE(datetime) :: RESULT
+
+        TYPE(datetime), POINTER :: tempTime
+
+        ! get ini-datetime in mtime-format
+        tempTime => newDatetime(time_config%ini_datetime%year,       &
+          &                     time_config%ini_datetime%month,      &
+          &                     time_config%ini_datetime%day,        &
+          &                     time_config%ini_datetime%hour,       &
+          &                     time_config%ini_datetime%minute,     &
+          &                     INT(time_config%ini_datetime%second),&
+          &                     ms=0)
+        RESULT = tempTime
+        CALL deallocateDatetime(tempTime)
+    END FUNCTION getIniTime
 
 END MODULE mo_time_config
-
