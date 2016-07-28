@@ -60,7 +60,7 @@ CONTAINS
 !!
 SUBROUTINE interpol_vec_ubc(p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
   !
-  TYPE(t_patch), TARGET, INTENT(in) :: p_pp
+  TYPE(t_patch), INTENT(in) :: p_pp
   TYPE(t_patch), TARGET, INTENT(inout) :: p_pc
 
   ! input: delta vn at interface level
@@ -79,15 +79,9 @@ SUBROUTINE interpol_vec_ubc(p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
   REAL(wp) :: vn_aux(1,p_grf%npoints_ubcintp_e,4)
 
   ! Pointers to index fields/lists
-  INTEGER,  DIMENSION(:,:,:), POINTER :: icheidx, icheblk
   INTEGER,  DIMENSION(:,:),   POINTER :: iidx, iblk
 
   !-----------------------------------------------------------------------
-
-  ! Set pointers to child edge indices (needed for non-MPI case only)
-  icheidx => p_pp%edges%child_idx
-  icheblk => p_pp%edges%child_blk
-
   ! Set pointers to index lists
   iidx    => p_grf%idxlist_ubcintp_e
   iblk    => p_grf%blklist_ubcintp_e
@@ -192,8 +186,8 @@ END SUBROUTINE interpol_vec_ubc
 SUBROUTINE interpol_scal_ubc(p_pp, p_pc, p_grf, nfields, f3din, f3dout, llimit_nneg)
 
   !
-  TYPE(t_patch), TARGET, INTENT(in) :: p_pp
-  TYPE(t_patch), TARGET, INTENT(inout) :: p_pc
+  TYPE(t_patch), INTENT(in) :: p_pp
+  TYPE(t_patch), INTENT(inout) :: p_pc
 
   ! Indices of source points and interpolation coefficients
   TYPE(t_gridref_single_state),   TARGET, INTENT(IN)    ::  p_grf
@@ -224,7 +218,6 @@ SUBROUTINE interpol_scal_ubc(p_pp, p_pc, p_grf, nfields, f3din, f3dout, llimit_n
 
   ! Pointers to index fields
   INTEGER, DIMENSION(:,:),   POINTER :: iidx, iblk
-  INTEGER, DIMENSION(:,:,:), POINTER :: ichcidx, ichcblk
 
 !-----------------------------------------------------------------------
 
@@ -252,11 +245,6 @@ SUBROUTINE interpol_scal_ubc(p_pp, p_pc, p_grf, nfields, f3din, f3dout, llimit_n
   ! Pointers to index lists for gradient computation
   iidx => p_grf%idxlist_ubcintp_c
   iblk => p_grf%blklist_ubcintp_c
-
-  ! child cell indices and blocks for non-MPI parent-to-child communication
-  ichcidx => p_pp%cells%child_idx
-  ichcblk => p_pp%cells%child_blk
-
 
 !$OMP PARALLEL
 

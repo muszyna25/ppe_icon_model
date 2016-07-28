@@ -503,7 +503,6 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
 
   ! Pointers to index fields
   INTEGER, DIMENSION(:,:),   POINTER :: iidx, iblk
-  INTEGER, DIMENSION(:,:,:), POINTER :: ichcidx, ichcblk
 
   ! Allocatable pointer to input and output fields
   TYPE t_fieldptr
@@ -591,9 +590,6 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
   iidx => p_grf%idxlist_bdyintp_c
   iblk => p_grf%blklist_bdyintp_c
 
-  ! child cell indices and blocks for non-MPI parent-to-child communication
-  ichcidx => p_pp%cells%child_idx
-  ichcblk => p_pp%cells%child_blk
 
   IF (l_noshift) THEN
     js = 0
