@@ -79,7 +79,7 @@ config/pvcs.pl -text
 /configure -text
 /configure.ac -text
 data/ECHAM6_CldOptProps.nc -text
-data/MACv2.0-SP_v1-beta.nc -text
+data/MACv2.0-SP_v1.nc -text
 data/README -text
 data/dmin_wetgrowth_lookup.dat -text
 data/external/etopo40.cdf -text
@@ -1424,6 +1424,7 @@ src/atm_dyn_iconam/mo_nh_prog_util.f90 -text
 src/atm_dyn_iconam/mo_nh_stepping.f90 -text
 src/atm_dyn_iconam/mo_nh_supervise.f90 -text
 src/atm_dyn_iconam/mo_nh_vert_interp.f90 -text
+src/atm_dyn_iconam/mo_nonhydro_gpu_types.f90 -text
 src/atm_dyn_iconam/mo_nonhydro_state.f90 -text
 src/atm_dyn_iconam/mo_nonhydro_types.f90 -text
 src/atm_dyn_iconam/mo_opt_diagnostics.f90 -text

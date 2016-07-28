@@ -601,7 +601,7 @@ end if
 ;************************************************
 
     Cvar="tas"
-    fili     =  workdir+"/xUbusy_"+Cvar+"_erain.nc"
+    fili     =  workdir+"/Ubusy_"+Cvar+"_ERAin.nc"
     mainTitle = "2 m Temperature [C] "+typ
     subTitle  = "ERAinterim "+eratime
 
@@ -611,6 +611,55 @@ end if
     else
        fillKey="cell"                      
     end if
+
+if (isfilepresent(fili)) then
+
+;***read code 167
+    File       = addfile (fili , "r") 
+    var     = File->$Cvar$(time|0,ncells|:)   ; dims: (time,ncells)    
+;   printVarSummary(var)
+    print("ploted: "+mainTitle)
+
+;***open plot
+    pltName = pltPath+Cvar+"_ERAin_"+typ+"_map_"+fillKey
+    wks     = gsn_open_wks(pltType, pltName) 
+
+    gsn_define_colormap(wks,"amwg_blueyellowred") ; Define color map 
+    missColor = NhlNewColor(wks,0.5,0.5,0.5)      ; add gray to color map 
+
+
+;***create plot
+    res                      = True             ; plot mods desired
+    res@cnLevelSelectionMode = "ExplicitLevels"   ; set explicit contour levels
+    res@cnLevels             = (/-30,-25,-20,-15,-10,-5,0,5,10,15,20,25,30/)
+    res@cnFillColors         = (/2,4,5,6,7,8,9,10,11,12,14,15,16,17/)
+    res@cnMissingValFillColor = missColor
+if (fillKey.eq."cont") then
+    plot_cont ( wks,var,x,y,cArea,res,pltName,\
+                mainTitle,subTitle,comment )
+else 
+    fast_cell ( wks,var,x,y,cArea,vlon,vlat,res,missColor,pltName,\
+                mainTitle,subTitle,comment )
+end if
+    delete(res@cnLevels)
+    delete (res@cnFillColors)
+end if
+;************************************************
+;   2 m Temperature code167  Cmor: tas
+;************************************************
+
+    Cvar="tas"
+    fili     =  workdir+"/Ubusy_"+Cvar+".nc"
+    mainTitle = "2 m Temperature [C] "+typ
+    subTitle  = run+meantime
+
+
+    if (default.eq.1.or.cell.eq.1) then   ; set key and appendix for 
+       fillKey="cell"                     ; contour or trigangels
+    else
+       fillKey="cont"                      
+    end if
+
 
 if (isfilepresent(fili)) then
 
@@ -794,6 +843,58 @@ end if
     delete (res@cnFillColors)
 end if
 ;************************************************
+;   2 m temperature code167 CMOR: tas model - ERAin
+;************************************************
+
+;***setings
+    Cvar="tas"
+    fili     =  workdir+"/Ubusy_"+Cvar+"_erain.nc"
+    
+    mainTitle = "2 m Temperature [C] "+typ
+    subTitle  = run+meantime + " - Erain"+eratime
+
+    if (default.eq.1.or.cell.eq.0) then   ; set key and appendix for 
+       fillKey="cont"                     ; contour or trigangels
+    else
+       fillKey="cell"                      
+    end if
+
+                
+if (isfilepresent(fili)) then
+;***read 
+    File    = addfile (fili , "r")  
+    var     = File->$Cvar$(time|0,ncells|:)   ; dims: (time,ncells)    
+
+    print("ploted: "+mainTitle)
+
+;***open plot
+    pltName = pltPath+Cvar+"_era_"+typ+"_map_"+fillKey
+    wks     = gsn_open_wks(pltType, pltName) 
+
+    gsn_define_colormap(wks,"amwg_blueyellowred") ; Define color map 
+    i = NhlNewColor(wks,0.8,0.8,0.8)              ; add gray to color map 
+    i = NhlNewColor(wks,0.6,0.6,0.6)               
+    i = NhlNewColor(wks,0.4,0.4,0.4)  
+    missColor = NhlNewColor(wks,0.5,0.5,0.5)     ; add gray to color map
+             
+;***create plot
+    res                       = True             ; plot mods desired
+    res@cnLevelSelectionMode  = "ExplicitLevels" ; set explicit contour levels
+    res@cnLevels              = (/-5,-3,-2,-1,-.5,.5,1,2,3,5/)
+    res@cnFillColors         = (/2,4,6,8,9,0,10,11,12,14,15,16/)
+;    res@cnFillColors          = (/2,4,5,6,7,8,9,10,11,12,14,15,16,17/)
+    res@cnMissingValFillColor = missColor
+if (fillKey.eq."cont") then
+    plot_cont ( wks,var,x,y,cArea,res,pltName,\
+                mainTitle,subTitle,comment )
+else
+    fast_cell ( wks,var,x,y,cArea,vlon,vlat,res,missColor,pltName,\
+                mainTitle,subTitle,comment )
+end if
+    delete(res@cnLevels)
+    delete (res@cnFillColors)
+end if
+;************************************************
 ;   Liquid water + ice content code231_150 
 ;************************************************
 ;***setings
@@ -842,106 +943,5 @@ end if
     delete(res@cnLevels)
     delete (res@cnFillColors)
 end if
-;************************************************
-;   Skin temperature 
-;************************************************
 
-;***setings
-    Cvar="skt"
-    fili     =  workdir+"/Ubusy_"+Cvar+".nc"
-    
-    mainTitle = "Skin temperature [C] "+typ
-    subTitle  = "ERAinterim"
-
-    if (default.eq.1.or.cell.eq.1) then   ; set key and appendix for 
-       fillKey="cell"                     ; contour or trigangels
-    else
-       fillKey="cont"                      
-    end if
-                
-if (isfilepresent(fili)) then
-;***read 
-    File    = addfile (fili , "r")  
-    var     = File->$Cvar$(time|0,ncells|:)   ; dims: (time,ncells)    
-
-    print("ploted: "+mainTitle)
-
-;***open plot
-    pltName = pltPath+Cvar+"_"+typ+"_map_"+fillKey
-    wks     = gsn_open_wks(pltType, pltName) 
-
-    gsn_define_colormap(wks,"amwg_blueyellowred") ; Define color map 
-    i = NhlNewColor(wks,0.8,0.8,0.8)              ; add gray to color map 
-    i = NhlNewColor(wks,0.6,0.6,0.6)               
-    i = NhlNewColor(wks,0.4,0.4,0.4)  
-    missColor = NhlNewColor(wks,0.5,0.5,0.5)     ; add gray to color map
-             
-;***create plot
-    res                       = True             ; plot mods desired
-    res@cnLevelSelectionMode  = "ExplicitLevels" ; set explicit contour levels
-    res@cnLevels              = (/-30,-25,-20,-15,-10,-5,0,5,10,15,20,25,30/)
-    res@cnFillColors          = (/2,4,5,6,7,8,9,10,11,12,14,15,16,17/)
-    res@cnMissingValFillColor = missColor
-if (fillKey.eq."cont") then
-    plot_cont ( wks,var,x,y,cArea,res,pltName,\
-                mainTitle,subTitle,comment )
-else
-    fast_cell ( wks,var,x,y,cArea,vlon,vlat,res,missColor,pltName,\
-                mainTitle,subTitle,comment )
-end if
-    delete(res@cnLevels)
-    delete (res@cnFillColors)
-end if
-;************************************************
-;   Surface temperature code169 CMOR: ts -skin temperrature
-;************************************************
-
-;***setings
-    Cvar="ts"
-    fili     =  workdir+"/Ubusy_d"+Cvar+".nc"
-    
-    mainTitle = "Temperature [C] "+typ
-    subTitle  = "TSURF ["+run+meantime + "] - SKT [Erain"+eratime+"]"
-
-    if (default.eq.1.or.cell.eq.0) then   ; set key and appendix for 
-       fillKey="cont"                     ; contour or trigangels
-    else
-       fillKey="cell"                      
-    end if
-
-                
-if (isfilepresent(fili)) then
-;***read 
-    File    = addfile (fili , "r")  
-    var     = File->$Cvar$(time|0,ncells|:)   ; dims: (time,ncells)    
-
-    print("ploted: "+mainTitle)
-
-;***open plot
-    pltName = pltPath+Cvar+"_era_"+typ+"_map_"+fillKey
-    wks     = gsn_open_wks(pltType, pltName) 
-
-    gsn_define_colormap(wks,"amwg_blueyellowred") ; Define color map 
-    i = NhlNewColor(wks,0.8,0.8,0.8)              ; add gray to color map 
-    i = NhlNewColor(wks,0.6,0.6,0.6)               
-    i = NhlNewColor(wks,0.4,0.4,0.4)  
-    missColor = NhlNewColor(wks,0.5,0.5,0.5)     ; add gray to color map
-             
-;***create plot
-    res                       = True             ; plot mods desired
-    res@cnLevelSelectionMode  = "ExplicitLevels" ; set explicit contour levels
-    res@cnLevels              = (/-5,-3,-2,-1,-.5,.5,1,2,3,5/)
-    res@cnFillColors         = (/2,4,6,8,9,0,10,11,12,14,15,16/)
-;    res@cnFillColors          = (/2,4,5,6,7,8,9,10,11,12,14,15,16,17/)
-    res@cnMissingValFillColor = missColor
-if (fillKey.eq."cont") then
-    plot_cont ( wks,var,x,y,cArea,res,pltName,\
-                mainTitle,subTitle,comment )
-else
-    fast_cell ( wks,var,x,y,cArea,vlon,vlat,res,missColor,pltName,\
-                mainTitle,subTitle,comment )
-end if
-    delete(res@cnLevels)
-    delete (res@cnFillColors)
-end if
 end
