@@ -331,7 +331,7 @@ MODULE mo_name_list_output_types
     TYPE(t_var_metadata), POINTER         :: info_ptr
 
     !> Info structure for variable: this is a modified copy of the
-    !! variable's "info" data object!
+    !> variable's "info" data object!
     TYPE(t_var_metadata)                  :: info
   END TYPE t_var_desc
 
@@ -424,7 +424,7 @@ MODULE mo_name_list_output_types
     INTEGER                               :: cdiTaxisID_orig
     INTEGER                               :: cdiTimeIndex
     INTEGER                               :: cdi_grb2(3,2)                    !< geographical position: (GRID, latitude/longitude)
-    LOGICAL                               :: appending = .FALSE.              !< the current file is appended (.true.), otherwise .false. 
+    LOGICAL                               :: appending = .FALSE.              !< the current file is appended (.true.), otherwise .false.
 
   END TYPE t_output_file
 
