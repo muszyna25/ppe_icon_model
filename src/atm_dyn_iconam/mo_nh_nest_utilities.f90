@@ -14,7 +14,7 @@
 !! headers of the routines.
 !!
 !!
-  
+
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
@@ -152,7 +152,7 @@ CONTAINS
 
       ENDDO
 
-      ! Second part: compute correction term needed to use perturbation density for boundary nudging 
+      ! Second part: compute correction term needed to use perturbation density for boundary nudging
 
       DO ji = 1, i_nchdom
 
@@ -374,7 +374,7 @@ CONTAINS
     INTEGER :: nproma_bdyintp, nblks_bdyintp, npromz_bdyintp, nlen, ntracer_bdyintp, nsubs
 
     REAL(wp) :: rdt_ubc, dthalf
-    ! Switch to control if the child domain is vertically nested and therefore 
+    ! Switch to control if the child domain is vertically nested and therefore
     ! needs interpolation of upper boundary conditions
     LOGICAL :: l_child_vertnest
 
@@ -410,7 +410,7 @@ CONTAINS
     ENDIF
 
     ! determine if upper boundary interpolation is needed
-    IF (lvert_nest .AND. (p_patch(jg)%nshift_child > 0)) THEN  
+    IF (lvert_nest .AND. (p_patch(jg)%nshift_child > 0)) THEN
       l_child_vertnest = .TRUE.
       nshift = p_patch(jg)%nshift_child + 1
     ELSE
@@ -688,7 +688,7 @@ CONTAINS
       theta_prc(nproma,p_patch(jgc)%nlev,p_patch(jgc)%nblks_c), &
       rho_prc(nproma,p_patch(jgc)%nlev,p_patch(jgc)%nblks_c)
 
-    ! Switch to control if the child domain is vertically nested and therefore 
+    ! Switch to control if the child domain is vertically nested and therefore
     ! needs interpolation of upper boundary conditions
     LOGICAL :: l_child_vertnest
 
@@ -725,7 +725,7 @@ CONTAINS
     nlev_c   = p_pc%nlev
 
     ! determine if upper boundary interpolation is needed
-    IF (lvert_nest .AND. (p_pp%nshift_child > 0)) THEN  
+    IF (lvert_nest .AND. (p_pp%nshift_child > 0)) THEN
       l_child_vertnest = .TRUE.
     ELSE
       l_child_vertnest = .FALSE.
@@ -864,7 +864,7 @@ CONTAINS
       ! grf_intmethod_c = 2, use gradient at cell center for interpolation
     ELSE IF (grf_intmethod_c == 2) THEN
 
-      ! Interpolation of temporal tendencies, full w, perturbation density (stored in div) 
+      ! Interpolation of temporal tendencies, full w, perturbation density (stored in div)
       !  and perturbationvirtual potential temperature (stored in dpres_mc)
       CALL interpol_scal_grf (p_pp, p_pc, p_grf%p_dom(i_chidx), 6,         &
         p_diagp%grf_tend_rho, p_diagc%grf_tend_rho,  &
@@ -1011,8 +1011,8 @@ CONTAINS
     INTEGER :: jb, jc, jk, jt, je, js, i_chidx, i_startblk, i_endblk, &
       i_startidx, i_endidx, istartblk_c, istartblk_e
     INTEGER :: nlev_c, nlev_p
-    INTEGER :: nshift      !< difference between upper boundary of parent or feedback-parent 
-                           !< domain and upper boundary of child domain (in terms 
+    INTEGER :: nshift      !< difference between upper boundary of parent or feedback-parent
+                           !< domain and upper boundary of child domain (in terms
                            !< of vertical levels)
     INTEGER :: ntracer_nudge !< number of tracers to be nudged
 
@@ -1154,7 +1154,7 @@ CONTAINS
       DO jk = 1, nlev_c
         DO jc = i_startidx, i_endidx
 #endif
-          
+
           diff_thv(jc,jk,jb) = parent_thv(jc,jk+js,jb) - (                           &
             p_child_prog%theta_v(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
             p_child_prog%theta_v(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
@@ -1226,7 +1226,7 @@ CONTAINS
       DO jk = 1, nlev_c
         DO je = i_startidx, i_endidx
 #endif
-          
+
           diff_vn(je,jk,jb) = parent_vn(je,jk+js,jb) - (                            &
             p_child_prog%vn(ieidx(je,jb,1),jk,ieblk(je,jb,1))*p_fbkwgt_v(je,jb,1) + &
             p_child_prog%vn(ieidx(je,jb,2),jk,ieblk(je,jb,2))*p_fbkwgt_v(je,jb,2)   )
@@ -1315,9 +1315,9 @@ CONTAINS
     INTEGER :: jb, jc, jk, js, i_chidx, i_startblk, i_endblk, &
       i_startidx, i_endidx, istartblk_c
     INTEGER :: nlev_c, nlev_p
-    INTEGER :: nshift      !< difference between upper boundary of parent or feedback-parent 
-    !< domain and upper boundary of child domain (in terms 
-    !< of vertical levels) 
+    INTEGER :: nshift      !< difference between upper boundary of parent or feedback-parent
+    !< domain and upper boundary of child domain (in terms
+    !< of vertical levels)
 
     ! Local arrays for interpolated parent-grid values, and difference fields. These have
     ! to be allocatable because their dimensions differ between MPI and non-MPI runs
@@ -1380,7 +1380,7 @@ CONTAINS
     ! (trivial without MPI parallelization, but communication call needed for MPI)
 
     CALL exchange_data(p_pp%comm_pat_glb_to_loc_c,        &
-      &                RECV=parent_rho, SEND=p_parent_prog%rho )  
+      &                RECV=parent_rho, SEND=p_parent_prog%rho )
 
     ! 2nd step: perform feedback from refined grid to intermediate grid and compute differences
 
@@ -1405,7 +1405,7 @@ CONTAINS
       DO jk = 1, nlev_c
         DO jc = i_startidx, i_endidx
 #endif
-          
+
           diff_rho(jc,jk,jb) = parent_rho(jc,jk+js,jb) - (                       &
             p_child_prog%rho(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
             p_child_prog%rho(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
@@ -1567,7 +1567,7 @@ CONTAINS
             p_diag%grf_tend_tracer(jc,jk,jb,iqv) = wfac_old*p_latbc_old%qv(jc,jk,jb) + &
               wfac_new*p_latbc_new%qv(jc,jk,jb) - p_prog_rcf%tracer(jc,jk,jb,iqv)
             ! Suppress positive nudging tendencies in saturated (=cloudy) regions in order to avoid
-            ! runaway effects 
+            ! runaway effects
             IF (p_prog_rcf%tracer(jc,jk,jb,iqc) > 1.e-10_wp) THEN
                p_diag%grf_tend_tracer(jc,jk,jb,iqv) = MIN(0._wp,p_diag%grf_tend_tracer(jc,jk,jb,iqv))
             ENDIF

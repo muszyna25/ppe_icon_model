@@ -358,7 +358,7 @@ CONTAINS
         ptr_delp_mc_new  => z_delp_mc1
 
         ! integration of tracer continuity equation in vertical
-        ! direction. Must be computed prior to the vertical tracer flux, 
+        ! direction. Must be computed prior to the vertical tracer flux,
         ! since it is required for FCT (to be implemented).
         ! This is independent of the tracer and thus must be
         ! computed only once.
