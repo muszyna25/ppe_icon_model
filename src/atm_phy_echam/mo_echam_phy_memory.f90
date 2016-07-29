@@ -400,20 +400,20 @@ MODULE mo_echam_phy_memory
     ! Near surface diagnostics (2m temp; 2m dew point temp; 10m wind)
     !
     REAL(wp),POINTER ::        &
-      & sfcWind     (:,  :),   &!< grid box mean 10 m wind
+      & sfcwind     (:,  :),   &!< grid box mean 10 m wind
       & uas         (:,  :),   &!< grid box mean 10m u-velocity
       & vas         (:,  :),   &!< grid box mean 10m v-velocity
       & tas         (:,  :),   &!< grid box mean 2m temperature
       & dew2        (:,  :),   &!< grid box mean 2m dew point temperature
       & tasmax      (:,  :),   &!< grid box mean maximum 2m temperature
       & tasmin      (:,  :),   &!< grid box mean minimum 2m temperature
-      & sfcWind_tile(:,:,:),   &!< 10 m wind on tiles
+      & sfcwind_tile(:,:,:),   &!< 10 m wind on tiles
       & uas_tile    (:,:,:),   &!< 10m u-velocity on tiles
       & vas_tile    (:,:,:),   &!< 10m v-velocity on tiles
       & tas_tile    (:,:,:),   &!< 2m temperature on tiles
       & dew2_tile   (:,:,:)     !< 2m dew point temperature on tiles
 
-    TYPE(t_ptr2d),ALLOCATABLE :: sfcWind_tile_ptr(:)
+    TYPE(t_ptr2d),ALLOCATABLE :: sfcwind_tile_ptr(:)
     TYPE(t_ptr2d),ALLOCATABLE :: uas_tile_ptr(:)
     TYPE(t_ptr2d),ALLOCATABLE :: vas_tile_ptr(:)
     TYPE(t_ptr2d),ALLOCATABLE :: tas_tile_ptr(:)
@@ -2172,9 +2172,9 @@ CONTAINS
     ! near surface diagnostics, grid box mean
     !-----------------------------------------
 
-    CALL add_var( field_list, prefix//'sfcWind', field%sfcWind,                 &
+    CALL add_var( field_list, prefix//'sfcwind', field%sfcwind,                 &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
-                & t_cf_var('sfcWind','m s-1','10m windspeed',                   &
+                & t_cf_var('sfcwind','m s-1','10m windspeed',                   &
                 &          datatype_flt),                                       &
                 & grib2_var(0,2,1, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
                 & ldims=shape2d,                                                &
@@ -2239,9 +2239,9 @@ CONTAINS
     ! near surface diagnostics, tile values
     !--------------------------------------
 
-    CALL add_var( field_list, prefix//'sfcWind_tile', field%sfcWind_tile,       &
+    CALL add_var( field_list, prefix//'sfcwind_tile', field%sfcwind_tile,       &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
-                & t_cf_var('sfcWind_tile','m s-1','10m windspeed on tiles',     &
+                & t_cf_var('sfcwind_tile','m s-1','10m windspeed on tiles',     &
                 &          datatype_flt),                                       &
                 & grib2_var(0,2,1, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
                 & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,             &
@@ -2284,7 +2284,7 @@ CONTAINS
                 & lcontainer=.TRUE., lrestart=.FALSE.,                          &
                 & isteptype=TSTEP_INSTANT                                       )
 
-    ALLOCATE(field%sfcWind_tile_ptr(ksfc_type))
+    ALLOCATE(field%sfcwind_tile_ptr(ksfc_type))
     ALLOCATE(field%uas_tile_ptr(ksfc_type))
     ALLOCATE(field%vas_tile_ptr(ksfc_type))
     ALLOCATE(field%tas_tile_ptr(ksfc_type))
@@ -2292,10 +2292,10 @@ CONTAINS
 
     DO jsfc = 1,ksfc_type
 
-      CALL add_ref( field_list, prefix//'sfcWind_tile',                             &
-                  & prefix//'sfcWind_'//csfc(jsfc), field%sfcWind_tile_ptr(jsfc)%p, &
+      CALL add_ref( field_list, prefix//'sfcwind_tile',                             &
+                  & prefix//'sfcwind_'//csfc(jsfc), field%sfcwind_tile_ptr(jsfc)%p, &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
-                  & t_cf_var('sfcWind_'//csfc(jsfc), 'm s-1',                       &
+                  & t_cf_var('sfcwind_'//csfc(jsfc), 'm s-1',                       &
                   &          '10m windspeed on tile '//csfc(jsfc),                  &
                   &          datatype_flt),                                         &
                   & grib2_var(0,2,1, ibits, GRID_UNSTRUCTURED, GRID_CELL),          &

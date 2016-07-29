@@ -463,7 +463,7 @@ if [[ "$output_atm_min" == "yes" ]]; then
                     'clt'     , 'psl'     , 'tas'     , 'ts'      ,
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
                     'tauu'    , 'tauv'    , 'albedo'  ,
-                    'sfcWind' , 'uas'     , 'vas'
+                    'sfcwind' , 'uas'     , 'vas'
 /
 &dbg_index_nml
   idbg_mxmn        = 1                        ! initialize MIN/MAX  debug output
