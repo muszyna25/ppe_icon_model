@@ -497,7 +497,7 @@ fi
 #  'con_dtrl', 'con_dtri', 'con_iteqv',
 #  'cld_dtrl', 'cld_dtri', 'cld_iteq' ,
 #  'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
-#  'dew2'    , 'tasmax'  , 'tasmin'  ,
+#  'dew2'
 
 
 if [[ "$output_atm_3d" == "yes" ]]; then
