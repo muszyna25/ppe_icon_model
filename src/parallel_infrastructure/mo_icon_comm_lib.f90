@@ -95,7 +95,6 @@ MODULE mo_icon_comm_lib
   
   !--------------------------------------------------------------
   ! internal parameters
-  REAL(wp), PARAMETER::  header_separator = 99999999.0_wp
   INTEGER, PARAMETER ::  checksum_size = 2
   ! TAG parameters
   INTEGER, PARAMETER ::  halo_tag = 1
