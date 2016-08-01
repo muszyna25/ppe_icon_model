@@ -386,8 +386,10 @@ CONTAINS
     ENDIF
 
     ! Define additional coupling field(s) for JSBACH/HD
-    !  - still uses (1) for nearest neighbor interpolation
-    !  - change to (2) for spmapping
+
+    ! Utilize mask field for runoff
+    !  - cell_mask_ids(1:1) is whole ocean for nearest neighbor interpolation
+    !  - cell_mask_ids(2:2) is ocean coast points only for source point mapping (source_to_target_map)
     CALL jsb_fdef_hd_fields(comp_id, domain_id, cell_point_ids, cell_mask_ids(1:1))
 #endif
 

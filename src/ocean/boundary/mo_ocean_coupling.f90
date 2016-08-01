@@ -374,6 +374,10 @@ CONTAINS
 
     ! Define the runoff
 
+    ! Utilize mask field for runoff
+    !  - cell_mask_ids(1) is whole ocean for nearest neighbor interpolation
+    !  - cell_mask_ids(2) is ocean coast points only for source point mapping (source_to_target_map)
+
     CALL yac_fdef_field (               &
       & TRIM(field_name(no_of_fields)), &
       & comp_id,                        &
