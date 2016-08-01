@@ -365,7 +365,9 @@ if [[ "$output_atm_2d" == "yes" ]]; then
                     'sh_vdiff', 'qv_vdiff',
                     'ch_concloud',
                     'con_dtrl', 'con_dtri', 'con_iteqv',
-                    'cld_dtrl', 'cld_dtri', 'cld_iteq'
+                    'cld_dtrl', 'cld_dtri', 'cld_iteq',
+                    'sfcwind' , 'uas'     , 'vas'     ,
+                    'tas'     , 'dew2'
 /
 EOF
 fi
