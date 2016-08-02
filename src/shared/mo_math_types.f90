@@ -77,7 +77,7 @@ CONTAINS
         CLASS(t_Statistics), INTENT(INOUT) :: me
         REAL(sp), INTENT(IN) :: DATA(:)
         INTEGER :: i, icount
-        REAL(wp) :: data_sum, data_max, data_min
+        REAL(wp) :: data_sum, data_max, data_min, data_wp
 
         TYPE(t_Statistics) :: newStatistics
 
@@ -87,12 +87,13 @@ CONTAINS
         data_sum = 0._wp
         data_max = -HUGE(DATA)
         data_min =  HUGE(DATA)        
-!$OMP PARALLEL DO REDUCTION(+:data_sum,icount), REDUCTION(MAX:data_max), REDUCTION(MIN:data_min)
+!$OMP PARALLEL DO PRIVATE(data_wp), REDUCTION(+:data_sum,icount), REDUCTION(MAX:data_max), REDUCTION(MIN:data_min)
         DO i = 1, SIZE(DATA)
           icount   = icount+1
-          data_sum = data_sum + DATA(i)
-          data_max = MAX(data_max, DATA(i))
-          data_min = MIN(data_min, DATA(i))
+          data_wp  = REAL(DATA(i), wp)
+          data_sum = data_sum + data_wp
+          data_max = MAX(data_max, data_wp)
+          data_min = MIN(data_min, data_wp)
         ENDDO
 !$OMP END PARALLEL DO
         newStatistics%sampleCount = icount

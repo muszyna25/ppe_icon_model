@@ -118,7 +118,7 @@ CONTAINS
     INTEGER,              OPTIONAL,  INTENT(INOUT) :: opt_attvar2   ! attribute value for variable 2
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine    = "read_netcdf_int_1d"
-    INTEGER :: dimID, varid, ndims, dimids(1), dimlen, ncfileID
+    INTEGER :: dimID, varid, ndims, dimids(1), dimlen, ncfileID, dim_aux
     LOGICAL :: l_exist
 
     ! consistency checks
@@ -147,7 +147,8 @@ CONTAINS
     CALL nf(nf_inq_varndims(ncfileID, varID, ndims), routine)
     IF (ndims /= 1)  CALL finish(routine, "Variable '"//TRIM(varname1)//"' has more than one dimension!")
     CALL nf(nf_inq_vardimid(ncfileID, varID, dimids), routine)
-    CALL nf(nf_inq_dimlen(ncfileID, dimids, dimlen), routine)
+    dim_aux = dimids(1)
+    CALL nf(nf_inq_dimlen(ncfileID, dim_aux, dimlen), routine)
 
     ! --- allocate output variable, read data
     ALLOCATE(var1(dimlen))
@@ -169,7 +170,8 @@ CONTAINS
       CALL nf(nf_inq_varndims(ncfileID, varID, ndims), routine)
       IF (ndims /= 1)  CALL finish(routine, "Variable '"//TRIM(opt_varname2)//"' has more than one dimension!")
       CALL nf(nf_inq_vardimid(ncfileID, varID, dimids), routine)
-      CALL nf(nf_inq_dimlen(ncfileID, dimids, dimlen), routine)
+      dim_aux = dimids(1)
+      CALL nf(nf_inq_dimlen(ncfileID, dim_aux, dimlen), routine)
       
       ! --- allocate output variable, read data
       ALLOCATE(opt_var2(dimlen))
