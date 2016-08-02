@@ -1323,7 +1323,7 @@ CONTAINS
   FUNCTION meteogram_is_sample_step(meteogram_output_config, cur_step)
     LOGICAL :: meteogram_is_sample_step
     ! station data from namelist
-    TYPE(t_meteogram_output_config), TARGET, INTENT(IN) :: meteogram_output_config
+    TYPE(t_meteogram_output_config), INTENT(IN) :: meteogram_output_config
     INTEGER,          INTENT(IN)  :: cur_step     !< current model iteration step
 
     meteogram_is_sample_step = &
