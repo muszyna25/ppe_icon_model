@@ -73,6 +73,9 @@ MODULE mo_tracer_metadata_types
     !
     REAL(wp)    ::  lifetime_tracer ! Lifetime of tracer [s]
     REAL(wp)    ::  mol_weight      ! Molar mass [g mol-1]
+    INTEGER     :: init_mode        ! Chemical tracer initialization mode
+    INTEGER     :: init_number      ! Chemical tracer initialization number
+    INTEGER     :: number           ! Index of species in KPP-generated routines
     !
   END TYPE
 
