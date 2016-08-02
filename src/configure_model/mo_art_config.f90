@@ -99,8 +99,7 @@ MODULE mo_art_config
     INTEGER :: iart_init_aero            !< Initialization of aerosol species
     INTEGER :: iart_init_gas             !< Initialization of gaseous species
     LOGICAL :: lart_diag_out             !< Enable output of diagnostic fields
-    CHARACTER(LEN=20) :: cart_io_suffix(0:max_dom)  
-                                         !< user given suffix instead of automatically generated grid number 
+    CHARACTER(LEN=20) :: cart_io_suffix  !< user given suffix instead of automatically generated grid number 
                                          !  in ICON-ART input filename convention: 
                                          !  ART_iconR<n>B<kk>-grid-<yyyy-mm-dd-hh>_<grid_suffix>.nc
     
