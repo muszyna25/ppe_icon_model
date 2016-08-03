@@ -55,7 +55,7 @@
     USE mo_latbc_read_recv,     ONLY: prefetch_cdi_2d, prefetch_cdi_3d, compute_data_receive
 #endif
 
-    USE mo_async_latbc_types,   ONLY: t_patch_data, t_reorder_data, latbc_buffer ! for testing win_put
+    USE mo_async_latbc_types,   ONLY: t_patch_data, t_reorder_data, latbc_buffer
     USE mo_kind,                ONLY: wp, sp, i8
     USE mo_parallel_config,     ONLY: nproma
     USE mo_model_domain,        ONLY: t_patch
@@ -114,6 +114,8 @@
          &     latbc_data, latbc_fileID, new_latbc_tlev, prev_latbc_tlev,  &
          &     update_lin_interpolation, deallocate_pref_latbc_data, mtime_read
 
+
+
     !------------------------------------------------------------------------------------------------
     ! CONSTANTS
     !------------------------------------------------------------------------------------------------
@@ -126,6 +128,12 @@
     INTEGER, PARAMETER :: msg_latbc_done    = 20883
     CHARACTER(len=*), PARAMETER :: version = '$Id$'
     CHARACTER(LEN=*), PARAMETER :: modname = 'mo_async_latbc_utils'
+
+
+    !------------------------------------------------------------------------------------------------
+    ! VARIABLES
+    !------------------------------------------------------------------------------------------------
+
     INTEGER                :: latbc_fileID, &
          new_latbc_tlev, &  ! time level indices for  latbc_data. can be 1 or 2.
          prev_latbc_tlev    ! new_latbc_tlev is the time level index carrying the most recent data
@@ -326,42 +334,7 @@
            &                  + 60    *INT(delta_dtime%minute) &
            &                  +        INT(delta_dtime%second)
 
-      ! a check so that prefetch processor checks whether to
-      ! read the boundary data from a file
-      IF(nsteps /= 0) THEN
-         mtime_end => newDatetime(TRIM(sim_start))
-
-         end_date = nsteps * dtime
-
-         add_delta = FLOOR(end_date / delta_dtime_secs)
-
-         DO i = 1, add_delta+1
-            mtime_end = mtime_end + delta_dtime
-         ENDDO
-
-      ELSE
-         mtime_finish => newDatetime(TRIM(sim_end))
-         delta_tend => newTimedelta("PT0S")
-         delta_tend = mtime_finish - mtime_read
-
-         finish_delta = 86400 *INT(delta_tend%day)    &
-              &                  + 3600  *INT(delta_tend%hour)   &
-              &                  + 60    *INT(delta_tend%minute) &
-              &                  +        INT(delta_tend%second)
-
-         end_delta = FLOOR(finish_delta/delta_dtime_secs) * delta_dtime_secs
-         ! check if the difference is less than zero than
-         ! point mtime_end to time sim_end
-         IF((finish_delta - end_delta) < 1e-15) THEN
-            mtime_end => newDatetime(TRIM(sim_end))
-         ELSE
-            ! deallocating mtime and deltatime
-            mtime_end => newDatetime(TRIM(sim_end))
-            mtime_end = mtime_end + delta_dtime
-         ENDIF
-         CALL deallocateDatetime(mtime_finish)
-         CALL deallocateTimedelta(delta_tend)
-      ENDIF
+      mtime_end => newDatetime(TRIM(sim_end))
 
       ! if there is lrestart flag than prefetch processor needs to start reading
       ! the data from the new date time of restart file. Below the time at which
@@ -506,125 +479,21 @@
       !
       ! start reading boundary data
       !
-      IF (latbc_config%itype_latbc == 1) THEN
-         IF( my_process_is_pref()) THEN
-            CALL prefetch_latbc_intp_data( patch_data )
-         ELSE IF( my_process_is_work()) THEN
-            CALL compute_latbc_intp_data( p_patch, patch_data, p_nh_state, p_int )
-            ! NOMPI
-            ! Compute tendencies for nest boundary update
-            IF (ltime_incr) CALL compute_boundary_tendencies(p_patch, p_nh_state)
-         ENDIF
-      ELSE
-         IF( my_process_is_pref()) THEN
-            CALL prefetch_latbc_icon_data( patch_data )
-         ELSE IF( my_process_is_work()) THEN
-            CALL compute_latbc_icon_data( p_patch, patch_data, p_int )
-            ! NOMPI
-            ! Compute tendencies for nest boundary update
-            IF (ltime_incr) CALL compute_boundary_tendencies(p_patch, p_nh_state)
-         ENDIF
+      IF( my_process_is_pref()) THEN
+        CALL prefetch_latbc_intp_data( patch_data )
+      ELSE IF( my_process_is_work()) THEN
+        IF (latbc_config%itype_latbc == 1) THEN
+          CALL compute_latbc_intp_data( p_patch, patch_data, p_nh_state, p_int )
+        ELSE
+          CALL compute_latbc_icon_data( p_patch, patch_data, p_int )
+        END IF
+        ! Compute tendencies for nest boundary update
+        IF (ltime_incr) CALL compute_boundary_tendencies(p_patch, p_nh_state)
       ENDIF
+      
 #endif
     END SUBROUTINE pref_latbc_data
 
-    !-------------------------------------------------------------------------
-    !>
-    !! Read atmospheric ICON output provided on the same vertical (and horizontal) grid
-    !! as used in the limited-area run. This in practice means that the data need to come
-    !! from a nested global or larger-scale ICON run whose nested domain is identical to
-    !! the limited-area domain considered here. Thus, the functionality of this routine is
-    !! restricted to a very specific test configuration.
-    !!
-    !! This subroutine is called by prefetch processor.
-    !! The following steps are performed:
-    !! - read atmospheric input data,
-    !! - Write input data to memory window buffer. The offset for data
-    !!   is set such that each of dataset belongs to the respective compute processor,
-
-    !! @par Revision History
-    !! Initial version by M. Pondkule, DWD (2014-05-07)
-    !!
-    SUBROUTINE prefetch_latbc_icon_data( patch_data )
-      TYPE(t_patch_data), INTENT(IN)      :: patch_data
-
-#ifndef NOMPI
-      INTEGER(KIND=MPI_ADDRESS_KIND)      :: ioff(0:num_work_procs-1)
-      ! local variables
-      INTEGER                             :: jm, latbc_fileID
-      LOGICAL                             :: l_exist
-      CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_async_latbc_utils::prefetch_latbc_icon_data"
-      CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
-      CHARACTER(len=132)             :: message_text
-      CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
-
-      ! if mtime_read is same as mtime_end the prefetch processor returns without further
-      ! proceeding to generate filename and than looking for boundary data file
-      IF(mtime_read >= mtime_end) &
-           RETURN
-      latbc_filename = generate_filename_mtime(nroot, patch_data%level, mtime_read)
-      latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
-      WRITE(0,*) 'reading boundary data: ', TRIM(latbc_filename)
-      INQUIRE (FILE=TRIM(ADJUSTL(latbc_full_filename)), EXIST=l_exist)
-      IF (.NOT. l_exist) THEN
-         WRITE (message_text,'(a,a)') 'file not found:', TRIM(latbc_filename)
-         CALL finish(TRIM(routine), message_text)
-      ENDIF
-      !
-      ! open file
-      !
-      latbc_fileID  = streamOpenRead(TRIM(latbc_full_filename))
-      ! check if the file could be opened
-      IF (latbc_fileID < 0) THEN
-         CALL cdiGetStringError(latbc_fileID, cdiErrorText)
-         WRITE(message_text,'(4a)') 'File ', TRIM(latbc_full_filename), &
-              ' cannot be opened: ', TRIM(cdiErrorText)
-         CALL finish(routine, TRIM(message_text))
-      ENDIF
-
-      ! initializing the displacement array for each compute processor
-      ioff(:) = 0_MPI_ADDRESS_KIND
-
-      !
-      ! Prefetch ICON data using CDI read
-      ! read prognostic 3d fields
-      !
-      DO jm = 1, latbc_buffer%ngrp_vars
-         ! IF(jm == 1) THEN ! testing values for temperature
-         IF(latbc_buffer%nlev(jm) /= 1 ) THEN
-            SELECT CASE (latbc_buffer%hgrid(jm))
-            CASE(GRID_UNSTRUCTURED_CELL)
-               ! Read 3d variables
-               CALL prefetch_cdi_3d ( latbc_fileID, latbc_buffer%mapped_name(jm), patch_data, &
-                    &                 latbc_buffer%nlev(jm), latbc_buffer%hgrid(jm), ioff )
-            CASE(GRID_UNSTRUCTURED_EDGE)
-               CALL prefetch_cdi_3d ( latbc_fileID, latbc_buffer%mapped_name(jm), patch_data, &
-                    &                 latbc_buffer%nlev(jm), latbc_buffer%hgrid(jm), ioff )
-            CASE default
-               CALL finish(routine,'unknown grid type')
-            END SELECT
-         ELSE
-            SELECT CASE (latbc_buffer%hgrid(jm))
-            CASE(GRID_UNSTRUCTURED_CELL)
-               ! Read 2d variables
-               CALL prefetch_cdi_2d ( latbc_fileID, latbc_buffer%mapped_name(jm), patch_data, &
-                    &                 latbc_buffer%hgrid(jm), ioff )
-            CASE(GRID_UNSTRUCTURED_EDGE)
-               CALL prefetch_cdi_2d ( latbc_fileID, latbc_buffer%mapped_name(jm), patch_data, &
-                    &                 latbc_buffer%hgrid(jm), ioff )
-            CASE default
-               CALL finish(routine,'unknown grid type')
-            END SELECT
-         ENDIF
-      ENDDO
-
-      !
-      ! close the open dataset file
-      !
-      CALL streamClose(latbc_fileID)
-
-#endif
-    END SUBROUTINE prefetch_latbc_icon_data
 
     !-------------------------------------------------------------------------
     !>
@@ -864,10 +733,9 @@
       CHARACTER(LEN=132)             :: message_text
       CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
-      ! if mtime_read is same as mtime_end the prefetch processor returns without further
-      ! proceeding to generate filename and than looking for boundary data file
-      IF(mtime_read >= mtime_end) &
-           RETURN
+      ! return if mtime_read is at least one full boundary data interval beyond the simulation end,
+      ! implying that no further data are required for correct results
+      IF(mtime_read >= mtime_end + delta_dtime) RETURN
       latbc_filename = generate_filename_mtime(nroot, patch_data%level, mtime_read)
       latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
       WRITE(0,*) 'reading boundary data: ', TRIM(latbc_filename)

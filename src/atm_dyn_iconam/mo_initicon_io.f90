@@ -40,7 +40,7 @@ MODULE mo_initicon_io
     &                               nml_filetype => filetype, lread_vn,      &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart,    &
     &                               lvert_remap_fg, aerosol_fg_present
-  USE mo_nh_init_nest_utils,  ONLY: interpolate_increments, interpolate_sfcana
+  USE mo_nh_init_nest_utils,  ONLY: interpolate_scal_increments, interpolate_sfcana
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom,                           &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED, &
     &                               MODE_COSMODE, iss, iorg, ibc, iso4, idu, SUCCESS
@@ -1226,7 +1226,7 @@ MODULE mo_initicon_io
         IF (ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode)) THEN
           IF (lp2cintp_incr(jg)) THEN
             ! Perform parent-to-child interpolation of atmospheric DA increments
-            CALL interpolate_increments(initicon, p_patch(jg)%parent_id, jg)
+            CALL interpolate_scal_increments(initicon, p_patch(jg)%parent_id, jg)
           END IF
         END IF
       END IF

@@ -31,7 +31,6 @@ MODULE mo_initicon_config
     &                              MAX_DATETIME_STR_LEN, OPERATOR(<=), OPERATOR(>=), &
     &                              getPTStringFromSeconds
   USE mo_mtime_extensions,   ONLY: get_datetime_string
-  USE mo_parallel_config,    ONLY: num_prefetch_proc
   USE mo_exception,          ONLY: finish, message_text, message
 
   IMPLICIT NONE
@@ -68,11 +67,11 @@ MODULE mo_initicon_config
   PUBLIC :: dwdana_filename
   PUBLIC :: filetype
   PUBLIC :: ana_varnames_map_file
-  PUBLIC :: latbc_varnames_map_file
   PUBLIC :: init_mode_soil
   PUBLIC :: is_iau_active
   PUBLIC :: iau_wgt_dyn, iau_wgt_adv
   PUBLIC :: rho_incr_filter_wgt
+  PUBLIC :: niter_divdamp, niter_diffu
   PUBLIC :: t_timeshift
   PUBLIC :: timeshift
   PUBLIC :: initicon_config
@@ -153,6 +152,9 @@ MODULE mo_initicon_config
   REAL(wp) :: rho_incr_filter_wgt  ! Vertical filtering weight for density increments 
                                    ! Only applicable for init_mode=MODE_IAU, MODE_IAU_OLD
 
+  INTEGER  :: niter_divdamp ! number of divergence damping iterations on wind increment from DA
+  INTEGER  :: niter_diffu   ! number of diffusion iterations on wind increment from DA
+
   ! IFS2ICON input filename, may contain keywords, by default
   ! ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
   CHARACTER(LEN=filename_max) :: ifs2icon_filename
@@ -169,9 +171,6 @@ MODULE mo_initicon_config
   ! GRIB2 shortnames or NetCDF var names.
   CHARACTER(LEN=filename_max) :: ana_varnames_map_file      
 
-  ! analysis file: dictionary which maps internal variable names onto
-  ! GRIB2 shortnames or NetCDF var names used in lateral boundary nudging.
-  CHARACTER(LEN=filename_max) :: latbc_varnames_map_file  
    
   ! ----------------------------------------------------------------------------
   ! Derived variables / variables based on input file contents
@@ -223,13 +222,7 @@ CONTAINS
     !
     !-----------------------------------------------------------------------
     !
-    ! Check whether an mapping file is provided for prefetching boundary data
-    ! calls a finish either when the flag is absent
-    !
-    IF ((num_prefetch_proc == 1) .AND. (latbc_varnames_map_file == ' ')) THEN
-       WRITE(message_text,'(a)') 'latbc_varnames_map_file required, but not found due to missing flag.'
-       CALL finish(TRIM(routine),message_text)
-    ENDIF
+
 
     IF ( ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMODE/) == init_mode) ) THEN
        init_mode_soil = 1   ! full coldstart is executed

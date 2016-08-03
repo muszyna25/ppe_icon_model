@@ -63,10 +63,11 @@ CONTAINS
   !! Modification by Almut Gassmann (2009-02-02)
   !! - beta_spring comes via the namelist input
   !!
-  SUBROUTINE spring_dynamics (sph, beta_spring)
+  SUBROUTINE spring_dynamics (sph, beta_spring, lopt)
     !
     TYPE(t_spheres), INTENT(inout)    :: sph
-    REAL(wp) :: beta_spring
+    REAL(wp), INTENT(IN) :: beta_spring
+    LOGICAL,  INTENT(IN) :: lopt
 
     INTEGER :: i, i_e, i_h, maxit
     REAL (wp) :: len0, lambda, friction, dt, hori, maxekin, maxtest, ekin, test
@@ -92,7 +93,6 @@ CONTAINS
     lambda   = 2.0_wp*pi/(SQRT(REAL(sph%no_triangles,wp)*1.0_wp))
     len0     = beta_spring*lambda
     friction = 1.0_wp
-    dt       = 1.6e-2_wp
     maxit    = 1000000
     maxekin  = 0.0_wp
     maxtest  = 0.0_wp
@@ -106,6 +106,18 @@ CONTAINS
 
       ekin = 0._wp
       test = 0._wp
+
+      IF (lopt) THEN  ! Convergence acceleration
+        IF (i <= 50) THEN
+          dt = 1.6e-2_wp
+        ELSE IF (i <= 150) THEN
+          dt = 1.6e-2_wp*(1._wp+0.03_wp*(i-50))
+        ELSE
+          dt = 6.4e-2_wp
+        ENDIF
+      ELSE ! constant "time step"
+        dt = 1.6e-2_wp
+      ENDIF
 
 !$OMP PARALLEL
 #ifdef __SX__
