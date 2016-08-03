@@ -161,6 +161,7 @@ CONTAINS
 
     INTEGER :: ji, j, jl
     INTEGER :: i_nots, i_c_grid
+    LOGICAL :: lopt
 
     !-------------------------------------------------------------------------
     !BOC
@@ -306,7 +307,7 @@ CONTAINS
           !
         ENDDO
 
-        CASE (4)
+        CASE (4, 5)
           !
           ! Spring dynamics
           !
@@ -322,6 +323,11 @@ CONTAINS
             ENDDO
           ENDDO
 
+          IF (itype_optimize == 5) THEN
+            lopt = .TRUE.
+          ELSE
+            lopt = .FALSE.
+          ENDIF
           !
           ! 2) Call spring dynamics
           !
@@ -342,7 +348,7 @@ CONTAINS
             ! 2. perform the optimization on that level
             !
             IF (jl <= maxlev_optim) THEN
-              CALL spring_dynamics(spheres_on_levels(jl),beta_spring)
+              CALL spring_dynamics(spheres_on_levels(jl),beta_spring,lopt)
             ENDIF
 
           ENDDO
