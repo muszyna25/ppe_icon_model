@@ -93,6 +93,7 @@ MODULE mo_geometry
      ! = 2 : equal area subdivision
      ! = 3 : c-grid small circle constraint
      ! = 4 : spring dynamics
+     ! = 5 : spring dynamics with convergence acceleration
     & l_c_grid, &
      ! = T : last subdivision step uses
      !       C-grid small circle constraint
@@ -324,7 +325,7 @@ CONTAINS
           ENDDO
 
           IF (itype_optimize == 5) THEN
-            lopt = .TRUE.
+            lopt = .TRUE.  ! use convergence acceleration
           ELSE
             lopt = .FALSE.
           ENDIF
@@ -375,7 +376,7 @@ CONTAINS
           ! Prepare values needed for c-grid subdivision,
           ! if they are not yet available
           !
-          IF (itype_optimize <=1 .or. itype_optimize==4) THEN
+          IF (itype_optimize <=1 .or. itype_optimize>=4) THEN
             CALL scc_prepare(ptr_tl)
           ENDIF
           !
@@ -1061,7 +1062,7 @@ CONTAINS
       noeds= ptr_tl%no_edges
       novs = ptr_tl%no_vertices
 
-      IF ((itype_optimize <=1 .or. itype_optimize ==4).and. &
+      IF ((itype_optimize <=1 .or. itype_optimize >=4).and. &
         & (.not. (l_c_grid .and. klev==number_of_levels))) THEN
 
         !
