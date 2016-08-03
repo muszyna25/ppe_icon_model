@@ -19,32 +19,50 @@ MODULE mo_complete_subdivision
   !-------------------------------------------------------------------------
   USE mo_impl_constants,     ONLY: min_rlcell, min_rledge, &
     & min_rlcell_int, min_rledge_int, max_phys_dom
+  USE mo_cdi_constants,      ONLY: grid_cell, grid_edge, grid_vertex
   USE mo_exception,          ONLY: finish, message, message_text
 
   USE mo_model_domain,       ONLY: t_patch, p_patch, p_patch_local_parent, &
     &                              p_phys_patch
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
-    &                              get_valid_local_index, t_glb2loc_index_lookup
+    &                              get_valid_local_index, &
+    &                              t_glb2loc_index_lookup, &
+    &                              uniform_partition_start, &
+    &                              partidx_of_elem_uniform_deco, &
+    &                              uniform_partition
   USE mo_mpi,                ONLY: p_send, p_recv, p_max, p_min, proc_split, p_sum
   USE mo_util_string,        ONLY: int2string
 #ifndef NOMPI
   USE mpi
-  USE mo_mpi,                ONLY: MPI_COMM_NULL
+  USE mo_mpi,                ONLY: mpi_comm_null
+  USE mo_parallel_config,    ONLY: p_test_run
+  USE ppm_extents,           ONLY: extent
 #endif
   USE mo_mpi,                ONLY: p_comm_work, my_process_is_mpi_test, &
     & my_process_is_mpi_seq, process_mpi_all_test_id, process_mpi_all_workroot_id, &
-    & my_process_is_mpi_workroot, p_pe_work, p_n_work, p_bcast, p_io, &
-    & p_comm_work_2_test
+    & my_process_is_mpi_workroot, p_pe_work, p_pe, p_n_work, p_bcast, &
+    & p_comm_work_2_test, num_test_procs, p_comm_remote_size, &
+    & p_isend, p_irecv, p_wait
 
   USE mo_communication,      ONLY: setup_comm_pattern, blk_no, idx_no, idx_1d, &
     &                              setup_comm_gather_pattern, t_comm_gather_pattern, &
     &                              ASSIGNMENT(=), delete_comm_gather_pattern, &
-    &                              delete_comm_pattern
+    &                              delete_comm_pattern, t_comm_pattern, &
+    &                              setup_comm_pattern2, xfer_list
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &
     & grf_bdyintp_end_c, grf_fbk_start_c, grf_fbk_start_e, grf_bdywidth_c, &
     & grf_bdywidth_e
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, n_phys_dom
   USE mo_dist_dir,            ONLY: dist_dir_get_owners
+  USE ppm_distributed_array, ONLY: global_array_desc, dist_mult_array, &
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+       sync_mode_active_target, &
+#else
+       sync_mode_passive_target, &
+#endif
+       dist_mult_array_new, dist_mult_array_delete, &
+       dist_mult_array_get, dist_mult_array_local_ptr, &
+       dist_mult_array_expose
   IMPLICIT NONE
 
   PRIVATE
@@ -56,6 +74,9 @@ MODULE mo_complete_subdivision
   PUBLIC :: setup_phys_patches
   PUBLIC :: complete_parallel_setup
   PUBLIC :: generate_comm_pat_cvec1
+#ifndef NOMPI
+  PUBLIC :: create_work2test_patterns
+#endif
 
 CONTAINS
 
@@ -218,7 +239,7 @@ CONTAINS
     TYPE(t_patch), INTENT(INOUT) :: patch(n_dom_start:)
     LOGICAL, INTENT(IN) :: is_ocean_decomposition
 
-    INTEGER :: jg, jgp
+    INTEGER :: jg, jgp, i
 
     IF (is_ocean_decomposition .AND. (n_dom > n_dom_start)) &
       CALL finish('complete_parallel_setup', &
@@ -238,6 +259,15 @@ CONTAINS
       ! Set communication patterns for gathering on proc 0
       CALL set_comm_pat_gather(patch(jg))
 
+      ! Create communication pattern with test processes
+#ifndef NOMPI
+      IF (p_test_run) THEN
+        DO i = 1, 3
+          CALL delete_comm_pattern(patch(jg)%comm_pat_work2test(i)%p)
+        END DO
+        CALL create_work2test_patterns(patch(jg))
+      END IF
+#endif
       IF (jg > n_dom_start) THEN
 
         CALL delete_comm_pattern(p_patch_local_parent(jg)%comm_pat_c)
@@ -703,6 +733,205 @@ CONTAINS
     DEALLOCATE(owner, mask)
   END SUBROUTINE set_glb_loc_comm
 
+#ifndef NOMPI
+  SUBROUTINE create_work2test_patterns(patch)
+    TYPE(t_patch), INTENT(INOUT) :: patch
+    LOGICAL :: is_mpi_test
+    is_mpi_test = my_process_is_mpi_test()
+    CALL create_work2test_pattern(patch%n_patch_cells_g, &
+         patch%cells%decomp_info, is_mpi_test, p_comm_work_2_test, &
+         patch%comm_pat_work2test(grid_cell)%p)
+    CALL create_work2test_pattern(patch%n_patch_verts_g, &
+         patch%verts%decomp_info, is_mpi_test, p_comm_work_2_test, &
+         patch%comm_pat_work2test(grid_vertex)%p)
+    CALL create_work2test_pattern(patch%n_patch_edges_g, &
+         patch%edges%decomp_info, is_mpi_test, p_comm_work_2_test, &
+         patch%comm_pat_work2test(grid_edge)%p)
+  END SUBROUTINE create_work2test_patterns
+
+  SUBROUTINE create_work2test_pattern(n_g, decomp_info, is_mpi_test, &
+       intercomm, p_pat)
+    INTEGER, INTENT(in) :: n_g, intercomm
+    TYPE(t_grid_domain_decomp_info), INTENT(in) :: decomp_info
+    LOGICAL, INTENT(in) :: is_mpi_test
+    CLASS(t_comm_pattern), POINTER, INTENT(INOUT) :: p_pat
+    TYPE(global_array_desc) :: dist_owner_glob(1)
+    TYPE(dist_mult_array) :: dist_owner_work
+    INTEGER, ALLOCATABLE :: test2send2(:), send_counts(:), recv_counts(:), &
+         rowned(:), rowner(:), glb_index_sendbuf(:), sofs(:)
+    TYPE(xfer_list), ALLOCATABLE :: list_recv(:), list_send(:)
+    TYPE(extent) :: glob_range, local_range(1,1)
+    INTEGER :: rank, jl, n_l, part_idx, p_n_send, ierror, dummy, &
+         ofs, rcount, scount, syncmode, coord(1), np_recv, np_send, i, &
+         n_owned
+    INTEGER, POINTER :: rowner_dist(:)
+    CHARACTER(len=*), PARAMETER :: routine &
+         = "mo_complete_subdivision::create_work2test_pattern"
+    glob_range = extent(1, n_g)
+    IF (is_mpi_test) THEN
+      ! 1. for a regular decomposition of n_g over the test processes,
+      !    a. figure out how many owners in the remote group need to send
+      !       remote owner information to this rank
+      ! number of work processes to potentially receive from
+      p_n_send = p_comm_remote_size(intercomm)
+      ! for which and...
+      local_range(1,1) = uniform_partition(glob_range, p_n_work, p_pe_work+1)
+      ! ... how many indices to build a local lookup index for
+      n_l = local_range(1,1)%size
+      ALLOCATE(recv_counts(0:p_n_send-1), rowned(n_l))
+      ! receive from every rank in remote group for how many indices
+      ! in local_range it is the owner
+      CALL mpi_alltoall(dummy, 0, mpi_integer, &
+           recv_counts, 1, mpi_integer, intercomm, ierror)
+      IF (ierror /=  mpi_success) CALL finish(routine, 'Error in mpi_alltoall!')
+      IF (SUM(recv_counts) /= local_range(1,1)%size) &
+           CALL finish(routine, 'mismatch in bucket sizes!')
+      ! receive global indices each remote rank is owner of
+      ofs = 1
+      DO rank = 0, p_n_send-1
+        rcount = recv_counts(rank)
+        IF (rcount > 0) THEN
+          CALL p_irecv(rowned(ofs:ofs+rcount-1), rank, 777, recv_counts(rank),&
+               intercomm)
+          ofs = ofs + rcount
+        END IF
+      END DO
+      CALL p_wait
+      ! transform localized information into shared, distributed array
+      dist_owner_glob(1)%a_rank = 1
+      dist_owner_glob(1)%element_dt = mpi_integer
+      dist_owner_glob(1)%rect(1) = glob_range
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+      syncmode = sync_mode_active_target
+#else
+      syncmode = sync_mode_passive_target
+#endif
+      dist_owner_work = dist_mult_array_new(dist_owner_glob, local_range, &
+           p_comm_work, 16, syncmode)
+      CALL dist_mult_array_local_ptr(dist_owner_work, 1, rowner_dist)
+      ofs = 0
+      DO rank = 0, p_n_send-1
+        rcount = recv_counts(rank)
+        DO jl = 1, rcount
+          rowner_dist(rowned(ofs+jl)) = rank
+        END DO
+        ofs = ofs + rcount
+      END DO
+      CALL dist_mult_array_expose(dist_owner_work)
+      ! use shared, distributed array to retrieve remote owner of the indices
+      ! stored on this rank
+      n_l = SIZE(decomp_info%owner_local)
+      DEALLOCATE(rowned) ; ALLOCATE(rowner(n_l), rowned(n_l))
+      n_owned = 0
+      DO jl = 1, n_l
+        IF (decomp_info%owner_local(jl) == p_pe_work) THEN
+          coord(1) = decomp_info%glb_index(jl)
+          CALL dist_mult_array_get(dist_owner_work, 1, coord, rowner(jl))
+        END IF
+      END DO
+      CALL dist_mult_array_delete(dist_owner_work)
+      ! tell remote group how many indices this rank will receive from each
+      ! remote rank
+      recv_counts = 0
+      DO jl = 1, n_l
+        IF (decomp_info%owner_local(jl) == p_pe_work) THEN
+          rank = rowner(jl)
+          recv_counts(rank) = recv_counts(rank) + 1
+        END IF
+      END DO
+      CALL mpi_alltoall(recv_counts, 1, mpi_integer, &
+           dummy, 0, mpi_integer, intercomm, ierror)
+      IF (ierror /=  mpi_success) CALL finish(routine, 'Error in mpi_alltoall!')
+
+      ! create list of messages
+      np_recv = COUNT(recv_counts > 0)
+      ALLOCATE(list_send(0), list_recv(np_recv))
+      rank = 0
+      DO i = 1, np_recv
+        DO WHILE(recv_counts(rank) == 0)
+          rank = rank + 1
+        END DO
+        list_recv(i)%rank = rank
+        ALLOCATE(list_recv(i)%glob_idx(recv_counts(rank)))
+        ofs = 1
+        list_recv(i)%glob_idx = PACK(decomp_info%glb_index, rowner == rank &
+          .AND. decomp_info%owner_local == p_pe_work)
+        ! and also tell remote side what to send
+        CALL p_isend(list_recv(i)%glob_idx, list_recv(i)%rank, 778, &
+             recv_counts(rank), intercomm)
+        rank = rank + 1
+      END DO
+    ELSE
+      ! this is a work rank
+      ! number of locally stored cells/edges/vertices
+      n_l = SIZE(decomp_info%owner_local)
+      ALLOCATE(test2send2(n_l), send_counts(0:num_test_procs-1))
+      send_counts = 0
+      DO jl = 1, n_l
+        IF (decomp_info%owner_local(jl) == p_pe_work) THEN
+          part_idx = partidx_of_elem_uniform_deco(glob_range, num_test_procs, &
+               decomp_info%glb_index(jl)) - 1
+          test2send2(jl) = part_idx
+          send_counts(part_idx) = send_counts(part_idx) + 1
+        ELSE
+          test2send2(jl) = -1
+        END IF
+      END DO
+      CALL mpi_alltoall(send_counts, 1, mpi_integer, &
+           dummy, 0, mpi_integer, intercomm, ierror)
+      IF (ierror /=  mpi_success) CALL finish(routine, 'Error in mpi_alltoall!')
+      ALLOCATE(sofs(0:num_test_procs), glb_index_sendbuf(n_l))
+      sofs(0) = 0
+      ofs = 0
+      DO rank = 1, num_test_procs
+        ofs = ofs + send_counts(rank-1)
+        sofs(rank) = ofs
+      END DO
+      send_counts = 0
+      DO jl = 1, n_l
+        rank = test2send2(jl)
+        IF (rank >= 0) THEN
+          ofs = send_counts(rank) + 1
+          glb_index_sendbuf(sofs(rank) + ofs) = decomp_info%glb_index(jl)
+          send_counts(rank) = ofs
+        END IF
+      END DO
+      DO rank = 0, num_test_procs-1
+        scount = send_counts(rank)
+        IF (scount > 0) THEN
+          ofs = sofs(rank)
+          CALL p_isend(glb_index_sendbuf(ofs+1:ofs+scount), &
+               rank, 777, scount, comm=intercomm)
+        END IF
+      END DO
+      CALL p_wait
+      CALL mpi_alltoall(dummy, 0, mpi_integer, &
+           send_counts, 1, mpi_integer, intercomm, ierror)
+      IF (ierror /= mpi_success) CALL finish(routine, 'Error in mpi_alltoall!')
+      np_send = COUNT(send_counts > 0)
+      ALLOCATE(list_send(np_send), list_recv(0))
+      ! recv what indices to send data for
+      rank = 0
+      DO i = 1, np_send
+        DO WHILE(send_counts(rank) == 0)
+          rank = rank + 1
+        END DO
+        list_send(i)%rank = rank
+        ALLOCATE(list_send(i)%glob_idx(send_counts(rank)))
+        ofs = 1
+        CALL p_irecv(list_send(i)%glob_idx, list_send(i)%rank, 778, &
+             send_counts(rank), intercomm)
+        rank = rank + 1
+      END DO
+    END IF
+    CALL p_wait
+    ! create pattern
+    ! actually one of the glb2loc_index arguments is unused so we pass
+    ! the same to both dummy arguments
+    CALL setup_comm_pattern2(p_pat, intercomm, list_recv, list_send, &
+         decomp_info%glb2loc_index, decomp_info%glb2loc_index)
+  END SUBROUTINE create_work2test_pattern
+#endif
   !-------------------------------------------------------------------------
   !>
   !! This routine sets up a the physical patches

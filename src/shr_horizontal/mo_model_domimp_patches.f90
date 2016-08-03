@@ -134,6 +134,9 @@ MODULE mo_model_domimp_patches
     &                              p_comm_work_test, p_comm_work,         &
     &                              my_process_is_stdio
   USE mo_complete_subdivision, ONLY: generate_comm_pat_cvec1
+#ifndef NOMPI
+  USE mo_complete_subdivision, ONLY: create_work2test_patterns
+#endif
   USE mo_read_netcdf_distributed, ONLY: setup_distrib_read
   USE mo_read_interface, ONLY: t_stream_id, p_t_patch, openInputFile, &
     &                          closeFile, on_cells, on_edges, on_vertices, &
@@ -594,6 +597,9 @@ CONTAINS
 
     IF (.not. my_process_is_ocean()) THEN
       DO jg = n_dom_start, n_dom
+#ifndef NOMPI
+        IF (p_test_run) CALL create_work2test_patterns(patch(jg))
+#endif
         ! Initialize the data for the quadrilateral cells
         ! formed by the two adjacent cells of an edge.
         ! (later this should be provided by the grid generator)
