@@ -75,8 +75,9 @@ MODULE mo_decomposition_tools
     ! For cells this is the same as decomp_domain(:,:)==0
     ! index1=nproma, index2=1,nblks_c
     ! For edges, this can not be derived from decomp_domain:
-    ! edges at the border are assigned the PE with the bigger number
-    ! index1=nproma, index2=1,nblks_e    ! For verts, this can not be derived from decomp_domain:
+    ! edges at the border are assigned to the PE with the bigger number
+    ! index1=nproma, index2=1,nblks_e
+    ! For verts, this can not be derived from decomp_domain:
     ! verts at the border are assigned the PE with the bigger number
     ! index1=nproma, index2=1,nblks_v
     LOGICAL, ALLOCATABLE :: owner_mask(:,:)
