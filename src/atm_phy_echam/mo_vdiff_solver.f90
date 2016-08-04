@@ -880,7 +880,7 @@ CONTAINS
     ! STD DEV OF VIRTUAL POT TEMPERATURE AT STANDARD HALF LEVEL KLEV-1/2
     ! (CORRESPONDING TO HALF LEVEL KLEV-1 FOR TKE AND PTHVVAR)
 
-    pthvsig(1:kproma) = SQRT(pthvvar(1:kproma,klev-1))
+!    pthvsig(1:kproma) = SQRT(pthvvar(1:kproma,klev-1))
 
     !-------------------------------------------------------------
     ! Tendency of velocity; kinetic energy dissipation

@@ -37,7 +37,6 @@ MODULE mo_interface_les
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
   USE mo_intp_rbf,           ONLY: rbf_vec_interpol_cell
-  USE mo_intp,               ONLY: edges2cells_scalar
   USE mo_model_domain,       ONLY: t_patch
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
@@ -75,6 +74,7 @@ MODULE mo_interface_les
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
   USE mo_ls_forcing,          ONLY: apply_ls_forcing
+  USE mo_advection_config,    ONLY: advection_config
   USE mo_nwp_turbtrans_interface, ONLY: nwp_turbtrans
   USE mo_turbulent_diagnostic, ONLY: calculate_turbulent_diagnostics, &
                                      write_vertical_profiles, write_time_series, &
@@ -82,8 +82,7 @@ MODULE mo_interface_les
                                      is_sampling_time, is_writing_time
   USE mo_les_utilities,       ONLY: init_vertical_grid_for_les
   USE mo_fortran_tools,       ONLY: copy
-  USE mo_util_dbg_prnt,       ONLY: dbg_print
-
+  USE mo_util_dbg_prnt,      ONLY: dbg_print
   IMPLICIT NONE
 
   PRIVATE
@@ -171,17 +170,17 @@ CONTAINS
 
     ! Local scalars:
 
-    INTEGER :: jc,jk,jb,jce,jt   !loop indices
+    INTEGER :: jc,jk,jb,jce      !loop indices
     INTEGER :: jg                !domain id
 
     LOGICAL :: ltemp, lpres, ltemp_ifc, l_any_fastphys, l_any_slowphys
 
-    INTEGER,  POINTER ::  iidx(:,:,:), iblk(:,:,:), ieidx(:,:,:), ieblk(:,:,:)
+    INTEGER,  POINTER ::  iidx(:,:,:), iblk(:,:,:)
 
     REAL(wp), TARGET :: &                                     !> temporal arrays for
       & z_ddt_temp  (nproma,pt_patch%nlev,pt_patch%nblks_c)   !< Temperature tendency
 
-    REAL(wp) :: z_exner_sv(nproma,pt_patch%nlev,pt_patch%nblks_c), z_tempv
+    REAL(wp) :: z_exner_sv(nproma,pt_patch%nlev,pt_patch%nblks_c)
     REAL(wp) :: z_temp_old(nproma,pt_patch%nlev,pt_patch%nblks_c)
 
     !< vertical interfaces
@@ -190,7 +189,7 @@ CONTAINS
     REAL(wp) :: zsct ! solar constant (at time of year)
     REAL(wp) :: zcosmu0 (nproma,pt_patch%nblks_c)
 
-    REAL(wp) :: r_sim_time, inv_dt_fastphy
+    REAL(wp) :: inv_dt_fastphy
 
     REAL(wp) :: z_qsum(nproma,pt_patch%nlev)  !< summand of virtual increment
     REAL(wp) :: z_ddt_qsum                    !< summand of tendency of virtual increment
@@ -208,6 +207,9 @@ CONTAINS
 
     CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_interface_les:les_phy_interface:'
 
+    ! Pointer to IDs of tracers which contain prognostic condensate.
+    ! Required for computing the water loading term 
+    INTEGER, POINTER :: condensate_list(:)
 
     IF (ltimer) CALL timer_start(timer_physics)
 
@@ -223,14 +225,10 @@ CONTAINS
     !define pointers
     iidx  => pt_patch%edges%cell_idx
     iblk  => pt_patch%edges%cell_blk
-    ieidx => pt_patch%cells%edge_idx
-    ieblk => pt_patch%cells%edge_blk
 
     ! inverse of fast physics time step
     inv_dt_fastphy = 1._wp / dt_phy_jg(itfastphy)
 
-    ! Inverse of simulation time
-    r_sim_time = 1._wp/MAX(1.e-6_wp, p_sim_time)
 
     IF (lcall_phy_jg(itsatad) .OR. lcall_phy_jg(itgscp) .OR. &
         lcall_phy_jg(itturb)  .OR. lcall_phy_jg(itsfc)) THEN
@@ -245,6 +243,9 @@ CONTAINS
     ELSE
       l_any_slowphys = .FALSE.
     ENDIF
+
+    ! condensate tracer IDs
+    condensate_list => advection_config(jg)%ilist_hydroMass
 
     !Check if time to sample data
     IF(sampl_freq_step > 0)THEN
@@ -370,7 +371,7 @@ CONTAINS
       CALL copy(pt_prog%exner(:,:,:), z_exner_sv(:,:,:))
 !$OMP BARRIER
 
-!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx,i_endidx,z_qsum) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_qsum) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -402,24 +403,11 @@ CONTAINS
 
             ! calculate virtual temperature from condens' output temperature
             ! taken from SUBROUTINE update_tempv_geopot in hydro_atmos/mo_ha_update_diag.f90
-            z_qsum(jc,jk) = pt_prog_rcf%tracer (jc,jk,jb,iqc) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqs)
+            z_qsum(jc,jk) = SUM(pt_prog_rcf%tracer (jc,jk,jb,condensate_list))
 
           ENDDO
         ENDDO
 
-        ! Add further hydrometeor species to water loading term if required
-        IF (iqm_max > iqs) THEN
-          DO jt = iqs+1, iqm_max
-            DO jk = kstart_moist(jg), nlev
-              DO jc = i_startidx, i_endidx
-                z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
-              ENDDO
-            ENDDO
-          ENDDO
-        ENDIF
 
         DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
@@ -604,7 +592,7 @@ CONTAINS
       i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx, i_endidx, z_qsum ) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx, z_qsum ) ICON_OMP_DEFAULT_SCHEDULE
 
       DO jb = i_startblk, i_endblk
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -621,24 +609,11 @@ CONTAINS
         DO jk = kstart_moist(jg), nlev
           DO jc = i_startidx, i_endidx
 
-            z_qsum(jc,jk) = pt_prog_rcf%tracer (jc,jk,jb,iqc) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqs)
+            z_qsum(jc,jk) = SUM(pt_prog_rcf%tracer (jc,jk,jb,condensate_list))
 
           ENDDO
         ENDDO
 
-        ! Add further hydrometeor species to water loading term if required
-        IF (iqm_max > iqs) THEN
-          DO jt = iqs+1, iqm_max
-            DO jk = kstart_moist(jg), nlev
-              DO jc = i_startidx, i_endidx
-                z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
-              ENDDO
-            ENDDO
-          ENDDO
-        ENDIF
 
         DO jk = 1, nlev
 !DIR$ IVDEP
@@ -820,6 +795,7 @@ CONTAINS
 &              qv     = pt_prog_rcf%tracer   (:,:,jb,iqv) ,       & !! in:  spec. humidity
 &              qc     = pt_prog_rcf%tracer   (:,:,jb,iqc) ,       & !! in:  cloud water
 &              qi     = pt_prog_rcf%tracer   (:,:,jb,iqi) ,       & !! in:  cloud ice
+&              qs     = pt_prog_rcf%tracer   (:,:,jb,iqs) ,       & !! in:  snow
 &              qtvar  = qtvar                             ,       & !! in:  qtvar !ONLY for inwp_turb==iedmf
 &              cc_tot = prm_diag%clc         (:,:,jb)     ,       & !! out: cloud cover
 &              qv_tot = prm_diag%tot_cld     (:,:,jb,iqv) ,       & !! out: qv       -"-
@@ -1087,7 +1063,7 @@ CONTAINS
       i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx, i_endidx , z_qsum, z_ddt_qsum &
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx , z_qsum, z_ddt_qsum &
 !$OMP  ) ICON_OMP_DEFAULT_SCHEDULE
 !
       DO jb = i_startblk, i_endblk
@@ -1104,24 +1080,12 @@ CONTAINS
         DO jk = kstart_moist(jg), nlev
           DO jc = i_startidx, i_endidx
 
-            z_qsum(jc,jk) = pt_prog_rcf%tracer (jc,jk,jb,iqc) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqs)
+            z_qsum(jc,jk) = SUM(pt_prog_rcf%tracer (jc,jk,jb,condensate_list))
 
           ENDDO
         ENDDO
 
-        ! Add further hydrometeor species to water loading term if required
-        IF (iqm_max > iqs) THEN
-          DO jt = iqs+1, iqm_max
-            DO jk = kstart_moist(jg), nlev
-              DO jc = i_startidx, i_endidx
-                z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
-              ENDDO
-            ENDDO
-          ENDDO
-        ENDIF
+
 
         ! Convert temperature tendency into Exner function tendency
         DO jk = 1, nlev

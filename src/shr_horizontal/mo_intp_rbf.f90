@@ -127,16 +127,6 @@
 !!
 
 !----------------------------
-#if defined(__INTP_RBF_NOACC)
-#undef ACC_LOCAL_FLAG
-#else
-#define ACC_LOCAL_FLAG
-#endif
-#define ACC_DEBUG !$ACC
-#undef DEBUG_INTP_RBF
-!----------------------------
-
-!----------------------------
 #include "omp_definitions.inc"
 !----------------------------
 

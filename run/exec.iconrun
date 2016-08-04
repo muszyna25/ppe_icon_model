@@ -157,12 +157,20 @@ cat > $master_namelist << EOF
 /
 EOF
 else
+if [ x$calendar = x ]; then
+  calendar="'proleptic gregorian'"
+  calendar_type=1
+else
+  calendar=$calendar
+  calendar_type=$calendar_type
+fi
 cat > $master_namelist << EOF
 &master_nml
  lrestart            = $restart
 /
 &master_time_control_nml
- calendar             = "proleptic gregorian" 
+ calendar             =  $calendar
+!"proleptic gregorian" 
  checkpointTimeIntval = "$checkpoint_interval" 
  restartTimeIntval    = "$restart_interval" 
  experimentStartDate  = "$start_date" 
@@ -171,6 +179,7 @@ cat > $master_namelist << EOF
 &time_nml
  ini_datetime_string = "$start_date"
  end_datetime_string = "$end_date"
+ calendar            = $calendar_type
  dt_restart          = $dt_restart
 /
 EOF
@@ -282,8 +291,15 @@ echo "============================"
 echo "Script run successfully: $finish_status"
 echo "============================"
 #-----------------------------------------------------------------------------
-
-
+if [[ "x$use_hamocc" = "xyes" ]]; then
+# store HAMOCC log file
+strg="$(ls -rt ${EXPNAME}_hamocc_EU*.nc* | tail -1 )"
+prefx="${EXPNAME}_hamocc_EU_tendencies"
+foo=${strg##${prefx}}
+foo=${foo%%.*}
+bgcout_file="bgcout_${foo}"
+mv bgcout $bgcout_file
+fi
 #-----------------------------------------------------------------------------
 namelist_list=""
 #-----------------------------------------------------------------------------

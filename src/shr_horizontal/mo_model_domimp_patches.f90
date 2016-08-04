@@ -506,9 +506,9 @@ CONTAINS
 
     ! initialise scatter patterns (required for io used in read_remaining_patch)
     DO jg = n_dom_start, n_dom
-      CALL set_comm_pat_scatter(patch(jg))
+      CALL set_comm_pat_scatter(patch(jg), jg)
       IF (jg > n_dom_start) &
-        CALL set_comm_pat_scatter(p_patch_local_parent(jg))
+        CALL set_comm_pat_scatter(p_patch_local_parent(jg), jg)
     ENDDO
 
     ! Fill the subsets information
@@ -630,8 +630,9 @@ CONTAINS
     !-------------------------------------------------------------------------------------------------
     !> Sets the gather communication patterns of a patch
 
-    SUBROUTINE set_comm_pat_scatter(p)
+    SUBROUTINE set_comm_pat_scatter(p, jg)
       TYPE(t_patch), INTENT(INOUT):: p
+	  INTEGER, VALUE :: jg
 
       INTEGER :: communicator
 
@@ -642,13 +643,13 @@ CONTAINS
       ENDIF
 
       p%comm_pat_scatter_c => &
-        makeScatterPattern(p%n_patch_cells, p%cells%decomp_info%glb_index, &
+        makeScatterPattern(jg, p%n_patch_cells, p%cells%decomp_info%glb_index, &
         &                  communicator)
       p%comm_pat_scatter_e => &
-        makeScatterPattern(p%n_patch_edges, p%edges%decomp_info%glb_index, &
+        makeScatterPattern(jg, p%n_patch_edges, p%edges%decomp_info%glb_index, &
         &                  communicator)
       p%comm_pat_scatter_v => &
-        makeScatterPattern(p%n_patch_verts, p%verts%decomp_info%glb_index, &
+        makeScatterPattern(jg, p%n_patch_verts, p%verts%decomp_info%glb_index, &
         &                  communicator)
 
     END SUBROUTINE set_comm_pat_scatter

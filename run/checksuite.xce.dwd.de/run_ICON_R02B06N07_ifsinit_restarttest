@@ -371,7 +371,7 @@ cat > NAMELIST_NWP << EOF
 &lnd_nml
  ntiles                      =                          3         ! number of tiles
  nlev_snow                   =                          2         ! number of snow layers
- lmulti_snow                 =                      .TRUE.        ! .TRUE. for use of multi-layer snow model
+ lmulti_snow                 =                     .FALSE.        ! .TRUE. for use of multi-layer snow model
  idiag_snowfrac              =                          4         ! type of snow-fraction diagnosis
  lsnowtile                   =                      .TRUE.        ! .TRUE.=consider snow-covered and snow-free separately
  itype_root                  =                          2         ! root density distribution

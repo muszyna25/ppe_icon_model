@@ -29,7 +29,8 @@ MODULE mo_lnd_nwp_config
   USE mo_var_metadata_types, ONLY: CLASS_TILE, CLASS_TILE_LAND
   USE mo_io_units,           ONLY: filename_max
   USE mo_exception,          ONLY: finish
-  USE mo_util_cdi,           ONLY: trivial_tileinfo
+  USE mo_util_cdi,           ONLY: trivial_tileinfo, trivial_tileId
+  USE mo_util_string,        ONLY: int2string
 
   IMPLICIT NONE
 
@@ -41,6 +42,7 @@ MODULE mo_lnd_nwp_config
   PUBLIC :: configure_lnd_nwp
   PUBLIC :: convert_luc_ICON2GRIB
   PUBLIC :: get_tile_suffix
+  PUBLIC :: find_tile_id
 
   ! TYPES
   PUBLIC :: t_GRIB2_tile
@@ -51,9 +53,9 @@ MODULE mo_lnd_nwp_config
   PUBLIC :: nlev_soil, nlev_snow, ibot_w_so, ntiles_total, ntiles_lnd, ntiles_water
   PUBLIC :: frlnd_thrhld, frlndtile_thrhld, frlake_thrhld, frsea_thrhld
   PUBLIC :: lseaice,  llake, lmelt, lmelt_var, lmulti_snow, lsnowtile, max_toplaydepth
-  PUBLIC :: itype_trvg, itype_evsl, itype_lndtbl
+  PUBLIC :: itype_trvg, itype_evsl, itype_lndtbl, l2lay_rho_snow
   PUBLIC :: itype_root, itype_heatcond, itype_interception, &
-             itype_hydbound, idiag_snowfrac
+             itype_hydbound, idiag_snowfrac, cwimax_ml
   PUBLIC :: lstomata, l2tls, lana_rho_snow 
   PUBLIC :: isub_water, isub_lake, isub_seaice
   PUBLIC :: sstice_mode, sst_td_filename, ci_td_filename
@@ -80,6 +82,7 @@ MODULE mo_lnd_nwp_config
   INTEGER ::  itype_root         !< type of root density distribution
   INTEGER ::  itype_heatcond     !< type of soil heat conductivity
   INTEGER ::  itype_interception !< type of plant interception
+  REAL(wp)::  cwimax_ml          !< scaling parameter for maximum interception storage
   INTEGER ::  itype_hydbound     !< type of hydraulic lower boundary condition
   INTEGER ::  idiag_snowfrac     !< method for diagnosis of snow-cover fraction
 
@@ -88,6 +91,7 @@ MODULE mo_lnd_nwp_config
   LOGICAL ::  lmelt       !! soil model with melting process
   LOGICAL ::  lmelt_var   !! freezing temperature dependent on water content
   LOGICAL ::  lmulti_snow !! run the multi-layer snow model
+  LOGICAL ::  l2lay_rho_snow !! use two-layer snow density for single-layer snow model
   REAL(wp)::  max_toplaydepth !< maximum depth of uppermost snow layer for multi-layer snow scheme
   LOGICAL ::  lstomata    !! map of minimum stomata resistance
   LOGICAL ::  l2tls       !! forecast with 2-TL integration scheme
@@ -130,6 +134,9 @@ MODULE mo_lnd_nwp_config
    END TYPE t_tile
 
    TYPE(t_tile), ALLOCATABLE :: tiles(:)
+
+   CHARACTER(LEN = *), PARAMETER :: modname = "mo_lnd_nwp_config"
+
 CONTAINS
 
   !>
@@ -377,7 +384,7 @@ CONTAINS
     ELSE IF (ntiles_total == 1) THEN  ! no tile apporach
       ! set trivial tile info
       tiles(1)%GRIB2_tile%tileIndex                = trivial_tileinfo%idx
-      tiles(1)%GRIB2_tile%numberOfTileAttributes   = -99
+      tiles(1)%GRIB2_tile%numberOfTileAttributes   = 0
       tiles(1)%GRIB2_att%tileAttribute             = trivial_tileinfo%att
     ELSE
       CALL finish('mo_lnd_nwp_config:setup_tile_metainfo', &
@@ -403,10 +410,19 @@ CONTAINS
     INTEGER, INTENT(IN) :: tileID_int
 
     TYPE(t_tile) :: selected_tile
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":select_tile"
 
     !-----------------------------------------------------------------------
 
-    selected_tile =  tiles(tileID_int)
+    IF(tileID_int == trivial_tileId) then
+        selected_tile%GRIB2_tile%tileIndex = trivial_tileinfo%idx
+        selected_tile%GRIB2_tile%numberOfTileAttributes = 0
+        selected_tile%GRIB2_att%tileAttribute = trivial_tileinfo%att
+    ELSE IF(tileID_int < 1 .OR. tileID_int > SIZE(tiles, 1)) THEN
+        CALL finish(routine, "illegal tileID "//int2string(tileID_int))
+    ELSE
+        selected_tile =  tiles(tileID_int)
+    END IF
 
   END FUNCTION select_tile
 
@@ -415,36 +431,56 @@ CONTAINS
   !! Convert tile/attribute pair into ICON-internal varname suffix
   !!
   !! Convert tile/attribute pair into ICON-internal varname suffix '_t_X'
+  !! Returns the empty string for the trivial_tileinfo.
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2015-03-05)
   !!
   FUNCTION get_tile_suffix(tileIdx, tileAtt) RESULT (tileSuffix)
+    INTEGER, VALUE :: tileIdx        ! GRIB2 Tile ID
+    INTEGER, VALUE :: tileAtt        ! GRIB2 Tile Attribute
 
-    INTEGER, INTENT(IN) :: tileIdx        ! GRIB2 Tile ID
-    INTEGER, INTENT(IN) :: tileAtt        ! GRIB2 Tile Attribute
-
-    INTEGER :: i
+    INTEGER :: tileId
     CHARACTER(LEN=2) :: tileIdx_str
     CHARACTER(LEN=5) :: tileSuffix
 
-    tileSuffix =''
+    !special case: trivial tileinfo => empty suffix
+    IF(tileIdx == trivial_tileinfo%idx .OR. tileAtt == trivial_tileinfo%att) THEN
+        tileSuffix =''
+        RETURN
+    END IF
 
-    DO i=1, SIZE(tiles)
-      IF ( (tiles(i)%GRIB2_tile%tileIndex == tileIdx) ) THEN
-        IF ((tiles(i)%GRIB2_att%tileAttribute == tileAtt)) THEN
-          WRITE(tileIdx_str,'(i2)') i 
-          tileSuffix = '_t_'//TRIM(ADJUSTL(tileIdx_str))
-          RETURN
-        ENDIF
-      ENDIF
-    ENDDO
+    !get the tile ID
+    tileId = find_tile_id(tileIdx, tileAtt)
+    IF(tileId == 0) THEN
+        CALL finish('mo_lnd_nwp_config:get_tile_suffix', &
+        &           'Invalid tile/attribute pair ('//int2string(tileIdx)//', '//int2string(tileAtt)//')' )
+    END IF
 
-    IF (tileSuffix == '') THEN
-      CALL finish( 'mo_lnd_nwp_config:get_tile_suffix', 'Invalid tile/attribute pair' )
-    ENDIF
-
+    !convert the tile ID to the corresponding suffix string
+    WRITE(tileIdx_str,'(i2)') tileId
+    tileSuffix = '_t_'//TRIM(ADJUSTL(tileIdx_str))
   END FUNCTION get_tile_suffix
+
+  !>
+  !! Find a given tile index-attribute pair within the tiles array AND RETURN its index.
+  !! This results IN a unique, ICON-internal ID for the tile.
+  !!
+  !! Returns zero on failure to find the given tile.
+  !!
+  FUNCTION find_tile_id(tileIndex, tileAttribute) RESULT(RESULT)
+    INTEGER, VALUE :: tileIndex, tileAttribute  !GRIB2 tile index AND attribute values
+    INTEGER :: RESULT
+
+    DO RESULT = 1, SIZE(tiles, 1)
+        IF(tiles(RESULT)%GRIB2_tile%tileIndex == tileIndex) THEN
+            IF(tiles(RESULT)%GRIB2_att%tileAttribute == tileAttribute) THEN
+                RETURN
+            END IF
+        END IF
+    END DO
+    RESULT = -1
+  END FUNCTION find_tile_id
 
 
   !>

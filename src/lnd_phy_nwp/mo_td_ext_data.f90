@@ -68,7 +68,7 @@ CONTAINS
   !!  sea ice cover to the actual (day, month, year) daily mean
   !!
   !! @par Revision History
-  !! Developed  by P. R�ipodas (2012-12)
+  !! Developed  by P. Ripodas (2012-12)
   !!
   SUBROUTINE set_actual_td_ext_data (lread, datetime,datetime_old,ext_data_mode,  &
                                   &  p_patch, ext_data, p_lnd_state)
@@ -82,7 +82,6 @@ CONTAINS
 
     INTEGER                       :: month1, month2, year1, year2
     INTEGER                       :: m1, m2
-    INTEGER                       :: mpi_comm
     REAL (wp)                     :: pw1, pw2, pw2_old
     INTEGER                       :: jg, jb, jc, i_startidx, i_endidx
     INTEGER                       :: i_nchdom, i_rlstart, i_rlend
@@ -92,12 +91,6 @@ CONTAINS
       routine = 'mo_td_ext_data:set_actual_td_ext_data  '
 
     !---------------------------------------------------------------
-
-      IF(p_test_run) THEN
-        mpi_comm = p_comm_work_test
-      ELSE
-        mpi_comm = p_comm_work
-      ENDIF
 
       SELECT CASE (ext_data_mode)
 
@@ -245,7 +238,7 @@ CONTAINS
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
 
     CHARACTER(LEN=filename_max) :: extpar_file
-    INTEGER                     :: jg, mpi_comm
+    INTEGER                     :: jg
     TYPE(t_stream_id)           :: stream_id
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &  routine = 'mo_td_ext_data:read_td_ext_data_file:'
@@ -254,12 +247,6 @@ CONTAINS
    ! extpar_td_filename = "<path>extpar_<year>_<month>_<gridfile>"
 
    ! Set the months needed to interpolate the ext_para to the actual day
-
-    IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test
-    ELSE
-      mpi_comm = p_comm_work
-    ENDIF
 
       DO jg = 1,n_dom
         IF (p_patch(jg)%geometry_info%cell_type == 6) THEN ! hexagonal grid

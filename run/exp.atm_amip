@@ -30,7 +30,7 @@ author_list="Marco Giorgetta, MPIM"
 # (2) Set variables needed by the scripting mechanism
 
 # horizontal grid(s)
-grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip
+grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip/r0002
 atmo_dyn_grids='r2b4_amip.nc'
 
 # start and end date+time
@@ -74,7 +74,6 @@ cat > ${atmo_namelist} << EOF
  output           = 'nml'
  msg_level        = 15          ! level of details report during integration 
  restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
- irad_type        = 2
  activate_sync_timers = .TRUE.
 /
 &extpar_nml
@@ -133,11 +132,14 @@ cat > ${atmo_namelist} << EOF
  irad_o2          = 2           ! 2: horizontally and vertically constant
  irad_cfc11       = 4           ! 4: from greenhouse gas scenario
  irad_cfc12       = 4           ! 4: from greenhouse gas scenario
- irad_aero        = 15          ! 0: no aerosol
+ irad_aero        = 18          ! 0: no aerosol
                                 !13: only Kinne's tropospheric aerosols 
                                 !14: only Stenchikov's volcanic aerosols
                                 !15: Kinne aerosol optics for troposphere
                                 !   +Stenchikov aerosol optics for stratosphere
+                                !18: Kinne background aerosols of 1850 (natural
+                                !    background + Stenchikov's volc. aerosols
+                                !    + simple plumes (anthropogenic)
  lrad_aero_diag   = .FALSE.     ! switch for diagnostics of the aerosol optical properties
  ighg             = 1           ! 1: transient well mixed greenhouse gas concentrations
  isolrad          = 1           ! 1: transient solar irradiance (at 1 AE)
@@ -204,7 +206,7 @@ add_required_file ${basedir}/run/${dict_file}                           ./
 
 # initial conditions
 #
-INDATA=${icon_data_poolFolder}/input/r0003
+INDATA=${icon_data_poolFolder}/input/r0004
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
 datadir=${icon_data_poolFolder}/setup/ifs_iconremap_amip
@@ -250,6 +252,19 @@ do
   (( year = year+1 ))
 done
 #
+# - tropospheric anthropogenic aerosols, simple plumes
+  add_link_file ${basedir}/data/MACv2.0-SP_v1.nc ./MACv2.0-SP_v1.nc
+#   Kinne background aerosols are needed for the years 1849, 1850, 1851 
+!   accessing all the same data of 1850:
+datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
+year=1849
+while [[ $year -le 1851 ]]
+do
+  add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
+  add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                  ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
+  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
+  (( year = year+1 ))
+done
 # - stratospheric aerosol
 datadir=$INDATA/r2b4_amip/atm/bc_aeropt_stenchikov
 year=$start_year
@@ -348,6 +363,8 @@ if [[ "$output_atm_2d" == "yes" ]]; then
                     'hfls'    , 'hfss'    , 'evspsbl' ,
                     'tauu'    , 'tauv'    ,
                     'tauu_sso', 'tauv_sso', 'diss_sso', 
+                    'sfcWind' , 'uas'     , 'vas'     ,
+                    'tas'     , 'dew2'    , 'tasmax'  , 'tasmin'
 /
 EOF
 fi

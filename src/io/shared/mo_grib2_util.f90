@@ -253,14 +253,26 @@ CONTAINS
     
     INTEGER,                INTENT(IN) :: vlistID, varID
     TYPE (t_var_metadata),  INTENT(IN) :: info
+
+    ! Local
+    INTEGER  :: typeOfGeneratingProcess 
     
     ! ----------------------------------------------------------------
     
     ! Skip inapplicable fields
     IF ( info%var_class /= CLASS_SYNSAT ) RETURN
-    
-    ! change product definition template
-    CALL vlistDefVarProductDefinitionTemplate(vlistID, varID, 32)
+
+    ! get typeOfGeneratingProcess
+    typeOfGeneratingProcess = vlistInqVarTypeOfGeneratingProcess(vlistID, varID)
+
+    ! change product definition template    
+    IF (typeOfGeneratingProcess == 4) THEN  
+      ! Ensemble forecast
+      CALL vlistDefVarProductDefinitionTemplate(vlistID, varID, 33)
+    ELSE
+      ! Deterministic forecast
+      CALL vlistDefVarProductDefinitionTemplate(vlistID, varID, 32)
+    END IF
     
   END SUBROUTINE set_GRIB2_synsat_keys
 
@@ -387,149 +399,149 @@ CONTAINS
     INTEGER,                INTENT(IN) :: vlistID, varID
     TYPE (t_var_metadata),  INTENT(IN) :: info
 
-    ! local
-    CHARACTER(LEN=VARNAME_LEN) :: tracer_class
-    INTEGER                    :: scale_factor, first_factor, second_param
-    INTEGER      :: productDefinitionTemplate
-    INTEGER      :: numberOfDistributionFunctionParameter
-    INTEGER, ALLOCATABLE ::  &
-      &  scaledValueOfDistributionFunctionParameter(:),  &
-      &  scaleFactorOfDistributionFunctionParameter(:)
-
-  !----------------------------------------------------------------
-    WRITE(message_text,'(a,i4,a,i4)') 'vlistID = ', vlistID, '  varID = ', varID
-! JF:     CALL message(' ==> set_GRIB2_art_keys :',TRIM(message_text),0,5,.TRUE.)
-! JF:     CALL message(' ==> set_GRIB2_art_keys :','tracer_class = '//TRIM(info%tracer%tracer_class),0,5,.TRUE.)
-
-    tracer_class = info%tracer%tracer_class
-    scale_factor = 0
-    first_factor = 3
-
-    ! set a generic tracer_class to simplify differentation of cases
-    SELECT CASE(TRIM(info%tracer%tracer_class))
-    CASE ('volcash_diag_mc', 'volcash_diag_mc_max')
-      tracer_class = 'volcash_diag'
-      scale_factor = 9
-    CASE ('volcash_diag_mc_vi')
-      tracer_class = 'volcash_diag'
-      scale_factor = 3
-    CASE ('volcash_diag_hml')
-      tracer_class = 'volcash_diag'
-    CASE ('asha', 'ashb', 'ashc')
-      tracer_class = 'aerosol'
-      second_param = 2600
-      scale_factor = 9
-    CASE ('asha_number', 'ashb_number', 'ashc_number')
-      tracer_class = 'aerosol_number'
-      second_param = 2600
-    CASE ('dusta', 'dustb', 'dustc')
-      tracer_class = 'aerosol'
-      second_param = 2650
-      scale_factor = 9
-    CASE ('dusta_number', 'dustb_number', 'dustc_number')
-      tracer_class = 'aerosol_number'
-      second_param = 2650
-    CASE ('seasa', 'seasb', 'seasc')
-      tracer_class = 'aerosol'
-      second_param = 2200
-      scale_factor = 9
-    CASE ('seasa_number', 'seasb_number', 'seasc_number')
-      tracer_class = 'aerosol_number'
-      second_param = 2200
-    CASE ('dust_diag_tau', 'seas_diag_tau')
-      tracer_class = 'aerosol_diag_tau'
-    END SELECT
-    
-    ! change product definition template
-    SELECT CASE(TRIM(tracer_class))
-    CASE ('volcash')
-! JF:       CALL message(' ==> set_GRIB2_art_keys :','volcash --> PDT=57',0,5,.TRUE.)
-      productDefinitionTemplate = 57
-      numberOfDistributionFunctionParameter = 1
-    CASE ('volcash_diag', 'radioact')
-! JF:       CALL message(' ==> set_GRIB2_art_keys :','volcash_diag|radioact --> PDT=40',0,5,.TRUE.)
-      productDefinitionTemplate = 40
-      numberOfDistributionFunctionParameter = 0
-    CASE ('aerosol', 'aerosol_number')
-! JF:       CALL message(' ==> set_GRIB2_art_keys :','aerosol[_number] --> PDT=57',0,5,.TRUE.)
-      productDefinitionTemplate = 57
-      numberOfDistributionFunctionParameter = 2
-    CASE ('aerosol_diag_tau')
-! JF:       CALL message(' ==> set_GRIB2_art_keys :','aerosol_diag_tau --> PDT=48',0,5,.TRUE.)
-      productDefinitionTemplate = 48
-      numberOfDistributionFunctionParameter = 0
-    CASE ('radioact_diag')
-! JF:       CALL message(' ==> set_GRIB2_art_keys :','radioact_diag --> PDT=42',0,5,.TRUE.)
-      productDefinitionTemplate = 42
-      numberOfDistributionFunctionParameter = 0
-    CASE DEFAULT
-      ! skip inapplicable fields
-      RETURN
-    END SELECT
-
-    ! set product definition template
-    CALL vlistDefVarProductDefinitionTemplate(vlistID, varID, productDefinitionTemplate)
-
-    IF ( numberOfDistributionFunctionParameter /= 0 ) THEN
-      ALLOCATE( scaledValueOfDistributionFunctionParameter(numberOfDistributionFunctionParameter),    &
-        &       scaleFactorOfDistributionFunctionParameter(numberOfDistributionFunctionParameter) )
-    END IF
-    
-    SELECT CASE(TRIM(tracer_class))
-
-    CASE ('volcash')
-      CALL vlistDefVarIntKey(vlistID, varID, "typeOfDistributionFunction", 1)
-      CALL vlistDefVarIntKey(vlistID, varID, "numberOfModeOfDistribution", 6)
-      CALL vlistDefVarIntKey(vlistID, varID, "numberOfDistributionFunctionParameter",  &
-        &                    numberOfDistributionFunctionParameter)
-      CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62025)
-      CALL vlistDefVarIntKey(vlistID, varID, "modeNumber", info%tracer%mode_number)
-      scaledValueOfDistributionFunctionParameter(1) = info%tracer%diameter
-      scaleFactorOfDistributionFunctionParameter(1) = 6
-! JF:       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledValueOfDistributionFunctionParameter",     &
-! JF:         &   numberOfDistributionFunctionParameter, scaledValueOfDistributionFunctionParameter)
-! JF:       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaleFactorOfDistributionFunctionParameter",    &
-! JF:         &   numberOfDistributionFunctionParameter, scaleFactorOfDistributionFunctionParameter)
-      CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", 9)
-
-    CASE ('volcash_diag')
-      CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62025)
-      CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", scale_factor)
-      
-    CASE ('aerosol', 'aerosol_number')
-      CALL vlistDefVarIntKey(vlistID, varID, "typeOfDistributionFunction", 7)
-      CALL vlistDefVarIntKey(vlistID, varID, "numberOfModeOfDistribution", 3)
-      CALL vlistDefVarIntKey(vlistID, varID, "numberOfDistributionFunctionParameter",  &
-        &                    numberOfDistributionFunctionParameter)
-      CALL vlistDefVarIntKey(vlistID, varID, "constituentType", info%tracer%constituent)
-      CALL vlistDefVarIntKey(vlistID, varID, "modeNumber", info%tracer%mode_number)
-      scaledValueOfDistributionFunctionParameter(1) = info%tracer%variance
-      scaleFactorOfDistributionFunctionParameter(1) = first_factor
-      scaledValueOfDistributionFunctionParameter(2) = second_param
-      scaleFactorOfDistributionFunctionParameter(2) = 0
-! JF:       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledValueOfDistributionFunctionParameter",    &
-! JF:         &   numberOfDistributionFunctionParameter, scaledValueOfDistributionFunctionParameter)
-! JF:       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaleFactorOfDistributionFunctionParameter",    &
-! JF:         &   numberOfDistributionFunctionParameter, scaleFactorOfDistributionFunctionParameter)
-      CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", scale_factor)
-      
-    CASE ('aerosol_diag_tau')
-      CALL vlistDefVarIntKey(vlistID, varID, "aerosolType", info%tracer%constituent)
-      CALL vlistDefVarIntKey(vlistID, varID, "typeOfSizeInterval", 192)
-      CALL vlistDefVarIntKey(vlistID, varID, "typeOfWavelengthInterval", 11)
-      CALL vlistDefVarIntKey(vlistID, varID, "scaledValueOfFirstWavelength", info%tracer%tau_wavelength)
-      CALL vlistDefVarIntKey(vlistID, varID, "scaleFactorOfFirstWavelength", 9)
-      
-    CASE ('radioact', 'radioact_diag')
-      CALL vlistDefVarIntKey(vlistID, varID, "constituentType", info%tracer%constituent)
-
-    END SELECT
-
-    IF ( numberOfDistributionFunctionParameter /= 0 ) THEN
-      DEALLOCATE( scaledValueOfDistributionFunctionParameter,    &
-        &         scaleFactorOfDistributionFunctionParameter )
-    END IF
-    
+!<drieg: needs adaption>    ! local
+!<drieg: needs adaption>    CHARACTER(LEN=VARNAME_LEN) :: tracer_class
+!<drieg: needs adaption>    INTEGER                    :: scale_factor, first_factor, second_param
+!<drieg: needs adaption>    INTEGER      :: productDefinitionTemplate
+!<drieg: needs adaption>    INTEGER      :: numberOfDistributionFunctionParameter
+!<drieg: needs adaption>    INTEGER, ALLOCATABLE ::  &
+!<drieg: needs adaption>      &  scaledValueOfDistributionFunctionParameter(:),  &
+!<drieg: needs adaption>      &  scaleFactorOfDistributionFunctionParameter(:)
+!<drieg: needs adaption>
+!<drieg: needs adaption>  !----------------------------------------------------------------
+!<drieg: needs adaption>    WRITE(message_text,'(a,i4,a,i4)') 'vlistID = ', vlistID, '  varID = ', varID
+!<drieg: needs adaption>! JF:     CALL message(' ==> set_GRIB2_art_keys :',TRIM(message_text),0,5,.TRUE.)
+!<drieg: needs adaption>! JF:     CALL message(' ==> set_GRIB2_art_keys :','tracer_class = '//TRIM(info%tracer%tracer_class),0,5,.TRUE.)
+!<drieg: needs adaption>
+!<drieg: needs adaption>    tracer_class = info%tracer%tracer_class
+!<drieg: needs adaption>    scale_factor = 0
+!<drieg: needs adaption>    first_factor = 3
+!<drieg: needs adaption>
+!<drieg: needs adaption>    ! set a generic tracer_class to simplify differentation of cases
+!<drieg: needs adaption>    SELECT CASE(TRIM(info%tracer%tracer_class))
+!<drieg: needs adaption>    CASE ('volcash_diag_mc', 'volcash_diag_mc_max')
+!<drieg: needs adaption>      tracer_class = 'volcash_diag'
+!<drieg: needs adaption>      scale_factor = 9
+!<drieg: needs adaption>    CASE ('volcash_diag_mc_vi')
+!<drieg: needs adaption>      tracer_class = 'volcash_diag'
+!<drieg: needs adaption>      scale_factor = 3
+!<drieg: needs adaption>    CASE ('volcash_diag_hml')
+!<drieg: needs adaption>      tracer_class = 'volcash_diag'
+!<drieg: needs adaption>    CASE ('asha', 'ashb', 'ashc')
+!<drieg: needs adaption>      tracer_class = 'aerosol'
+!<drieg: needs adaption>      second_param = 2600
+!<drieg: needs adaption>      scale_factor = 9
+!<drieg: needs adaption>    CASE ('asha_number', 'ashb_number', 'ashc_number')
+!<drieg: needs adaption>      tracer_class = 'aerosol_number'
+!<drieg: needs adaption>      second_param = 2600
+!<drieg: needs adaption>    CASE ('dusta', 'dustb', 'dustc')
+!<drieg: needs adaption>      tracer_class = 'aerosol'
+!<drieg: needs adaption>      second_param = 2650
+!<drieg: needs adaption>      scale_factor = 9
+!<drieg: needs adaption>    CASE ('dusta_number', 'dustb_number', 'dustc_number')
+!<drieg: needs adaption>      tracer_class = 'aerosol_number'
+!<drieg: needs adaption>      second_param = 2650
+!<drieg: needs adaption>    CASE ('seasa', 'seasb', 'seasc')
+!<drieg: needs adaption>      tracer_class = 'aerosol'
+!<drieg: needs adaption>      second_param = 2200
+!<drieg: needs adaption>      scale_factor = 9
+!<drieg: needs adaption>    CASE ('seasa_number', 'seasb_number', 'seasc_number')
+!<drieg: needs adaption>      tracer_class = 'aerosol_number'
+!<drieg: needs adaption>      second_param = 2200
+!<drieg: needs adaption>    CASE ('dust_diag_tau', 'seas_diag_tau')
+!<drieg: needs adaption>      tracer_class = 'aerosol_diag_tau'
+!<drieg: needs adaption>    END SELECT
+!<drieg: needs adaption>    
+!<drieg: needs adaption>    ! change product definition template
+!<drieg: needs adaption>    SELECT CASE(TRIM(tracer_class))
+!<drieg: needs adaption>    CASE ('volcash')
+!<drieg: needs adaption>! JF:       CALL message(' ==> set_GRIB2_art_keys :','volcash --> PDT=57',0,5,.TRUE.)
+!<drieg: needs adaption>      productDefinitionTemplate = 57
+!<drieg: needs adaption>      numberOfDistributionFunctionParameter = 1
+!<drieg: needs adaption>    CASE ('volcash_diag', 'radioact')
+!<drieg: needs adaption>! JF:       CALL message(' ==> set_GRIB2_art_keys :','volcash_diag|radioact --> PDT=40',0,5,.TRUE.)
+!<drieg: needs adaption>      productDefinitionTemplate = 40
+!<drieg: needs adaption>      numberOfDistributionFunctionParameter = 0
+!<drieg: needs adaption>    CASE ('aerosol', 'aerosol_number')
+!<drieg: needs adaption>! JF:       CALL message(' ==> set_GRIB2_art_keys :','aerosol[_number] --> PDT=57',0,5,.TRUE.)
+!<drieg: needs adaption>      productDefinitionTemplate = 57
+!<drieg: needs adaption>      numberOfDistributionFunctionParameter = 2
+!<drieg: needs adaption>    CASE ('aerosol_diag_tau')
+!<drieg: needs adaption>! JF:       CALL message(' ==> set_GRIB2_art_keys :','aerosol_diag_tau --> PDT=48',0,5,.TRUE.)
+!<drieg: needs adaption>      productDefinitionTemplate = 48
+!<drieg: needs adaption>      numberOfDistributionFunctionParameter = 0
+!<drieg: needs adaption>    CASE ('radioact_diag')
+!<drieg: needs adaption>! JF:       CALL message(' ==> set_GRIB2_art_keys :','radioact_diag --> PDT=42',0,5,.TRUE.)
+!<drieg: needs adaption>      productDefinitionTemplate = 42
+!<drieg: needs adaption>      numberOfDistributionFunctionParameter = 0
+!<drieg: needs adaption>    CASE DEFAULT
+!<drieg: needs adaption>      ! skip inapplicable fields
+!<drieg: needs adaption>      RETURN
+!<drieg: needs adaption>    END SELECT
+!<drieg: needs adaption>
+!<drieg: needs adaption>    ! set product definition template
+!<drieg: needs adaption>    CALL vlistDefVarProductDefinitionTemplate(vlistID, varID, productDefinitionTemplate)
+!<drieg: needs adaption>
+!<drieg: needs adaption>    IF ( numberOfDistributionFunctionParameter /= 0 ) THEN
+!<drieg: needs adaption>      ALLOCATE( scaledValueOfDistributionFunctionParameter(numberOfDistributionFunctionParameter),    &
+!<drieg: needs adaption>        &       scaleFactorOfDistributionFunctionParameter(numberOfDistributionFunctionParameter) )
+!<drieg: needs adaption>    END IF
+!<drieg: needs adaption>    
+!<drieg: needs adaption>    SELECT CASE(TRIM(tracer_class))
+!<drieg: needs adaption>
+!<drieg: needs adaption>    CASE ('volcash')
+!<drieg: needs adaption>      CALL vlistDefVarIntKey(vlistID, varID, "typeOfDistributionFunction", 1)
+!<drieg: needs adaption>      CALL vlistDefVarIntKey(vlistID, varID, "numberOfModeOfDistribution", 6)
+!<drieg: needs adaption>      CALL vlistDefVarIntKey(vlistID, varID, "numberOfDistributionFunctionParameter",  &
+!<drieg: needs adaption>        &                    numberOfDistributionFunctionParameter)
+!<drieg: needs adaption>      CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62025)
+!<drieg: needs adaption>      CALL vlistDefVarIntKey(vlistID, varID, "modeNumber", info%tracer%mode_number)
+!<drieg: needs adaption>      scaledValueOfDistributionFunctionParameter(1) = info%tracer%diameter
+!<drieg: needs adaption>      scaleFactorOfDistributionFunctionParameter(1) = 6
+!<drieg: needs adaption>! JF:       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledValueOfDistributionFunctionParameter",     &
+!<drieg: needs adaption>! JF:         &   numberOfDistributionFunctionParameter, scaledValueOfDistributionFunctionParameter)
+!<drieg: needs adaption>! JF:       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaleFactorOfDistributionFunctionParameter",    &
+!<drieg: needs adaption>! JF:         &   numberOfDistributionFunctionParameter, scaleFactorOfDistributionFunctionParameter)
+!<drieg: needs adaption>      CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", 9)
+!<drieg: needs adaption>
+!<drieg: needs adaption>    CASE ('volcash_diag')
+!<drieg: needs adaption>      CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62025)
+!<drieg: needs adaption>      CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", scale_factor)
+!<drieg: needs adaption>      
+!<drieg: needs adaption>    CASE ('aerosol', 'aerosol_number')
+!<drieg: needs adaption>      CALL vlistDefVarIntKey(vlistID, varID, "typeOfDistributionFunction", 7)
+!<drieg: needs adaption>      CALL vlistDefVarIntKey(vlistID, varID, "numberOfModeOfDistribution", 3)
+!<drieg: needs adaption>      CALL vlistDefVarIntKey(vlistID, varID, "numberOfDistributionFunctionParameter",  &
+!<drieg: needs adaption>        &                    numberOfDistributionFunctionParameter)
+!<drieg: needs adaption>      CALL vlistDefVarIntKey(vlistID, varID, "constituentType", info%tracer%constituent)
+!<drieg: needs adaption>      CALL vlistDefVarIntKey(vlistID, varID, "modeNumber", info%tracer%mode_number)
+!<drieg: needs adaption>      scaledValueOfDistributionFunctionParameter(1) = info%tracer%variance
+!<drieg: needs adaption>      scaleFactorOfDistributionFunctionParameter(1) = first_factor
+!<drieg: needs adaption>      scaledValueOfDistributionFunctionParameter(2) = second_param
+!<drieg: needs adaption>      scaleFactorOfDistributionFunctionParameter(2) = 0
+!<drieg: needs adaption>! JF:       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledValueOfDistributionFunctionParameter",    &
+!<drieg: needs adaption>! JF:         &   numberOfDistributionFunctionParameter, scaledValueOfDistributionFunctionParameter)
+!<drieg: needs adaption>! JF:       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaleFactorOfDistributionFunctionParameter",    &
+!<drieg: needs adaption>! JF:         &   numberOfDistributionFunctionParameter, scaleFactorOfDistributionFunctionParameter)
+!<drieg: needs adaption>      CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", scale_factor)
+!<drieg: needs adaption>      
+!<drieg: needs adaption>    CASE ('aerosol_diag_tau')
+!<drieg: needs adaption>      CALL vlistDefVarIntKey(vlistID, varID, "aerosolType", info%tracer%constituent)
+!<drieg: needs adaption>      CALL vlistDefVarIntKey(vlistID, varID, "typeOfSizeInterval", 192)
+!<drieg: needs adaption>      CALL vlistDefVarIntKey(vlistID, varID, "typeOfWavelengthInterval", 11)
+!<drieg: needs adaption>      CALL vlistDefVarIntKey(vlistID, varID, "scaledValueOfFirstWavelength", info%tracer%tau_wavelength)
+!<drieg: needs adaption>      CALL vlistDefVarIntKey(vlistID, varID, "scaleFactorOfFirstWavelength", 9)
+!<drieg: needs adaption>      
+!<drieg: needs adaption>    CASE ('radioact', 'radioact_diag')
+!<drieg: needs adaption>      CALL vlistDefVarIntKey(vlistID, varID, "constituentType", info%tracer%constituent)
+!<drieg: needs adaption>
+!<drieg: needs adaption>    END SELECT
+!<drieg: needs adaption>
+!<drieg: needs adaption>    IF ( numberOfDistributionFunctionParameter /= 0 ) THEN
+!<drieg: needs adaption>      DEALLOCATE( scaledValueOfDistributionFunctionParameter,    &
+!<drieg: needs adaption>        &         scaleFactorOfDistributionFunctionParameter )
+!<drieg: needs adaption>    END IF
+!<drieg: needs adaption>    
 
     END SUBROUTINE set_GRIB2_art_keys
 

@@ -18,7 +18,7 @@
 ! (GZ, 2013-08-30): So far, the Cray compiler is the only one for which an OpenMP parallelization
 ! of copying data into / back from the MPI-buffer seems to give a benefit. Further compilers may
 ! be added here once the OpenMP implementation is sufficiently efficient
-#if (defined(_CRAYFTN) )
+#if (defined(_CRAYFTN) && !defined(_OPENACC) )
 #define __OMPPAR_COPY__
 #endif
 
@@ -36,7 +36,7 @@ MODULE mo_communication
 !
 !
 USE mo_impl_constants, ONLY: SUCCESS
-USE mo_scatter_pattern_base, ONLY: t_scatterPattern, deleteScatterPattern
+USE mo_scatter_pattern_base, ONLY: t_ScatterPattern, t_ScatterPatternPtr, deleteScatterPattern
 USE mo_kind,               ONLY: wp
 USE mo_exception,          ONLY: finish, message, message_text
 USE mo_mpi,                ONLY: p_send, p_recv, p_irecv, p_wait, p_isend, &
@@ -54,6 +54,9 @@ USE mo_decomposition_tools, ONLY: t_glb2loc_index_lookup, get_local_index
 USE mo_util_sort,          ONLY: quicksort
 USE mo_util_string,        ONLY: int2string
 USE mo_parallel_config, ONLY: blk_no, idx_no, idx_1d
+#ifdef _OPENACC
+USE mo_mpi,                 ONLY: i_am_accel_node
+#endif
 
 
 IMPLICIT NONE
@@ -78,7 +81,7 @@ PUBLIC :: t_comm_allgather_pattern
 PUBLIC :: setup_comm_allgather_pattern
 PUBLIC :: delete_comm_allgather_pattern
 
-PUBLIC :: t_scatterPattern, makeScatterPattern, deleteScatterPattern
+PUBLIC :: t_ScatterPattern, t_ScatterPatternPtr, makeScatterPattern, deleteScatterPattern
 
 PUBLIC :: ASSIGNMENT(=)
 !
@@ -222,6 +225,16 @@ INTERFACE exchange_data_seq
    MODULE PROCEDURE exchange_data_r2d_seq
 END INTERFACE
 
+#if defined( _OPENACC )
+#define ACC_DEBUG NO_ACC
+! OpenACC Not currently enabled
+#define __COMMUNICATION_NOACC
+#if defined(__COMMUNICATION_NOACC)
+  LOGICAL, PARAMETER ::  acc_on = .FALSE.
+#else
+  LOGICAL, PARAMETER ::  acc_on = .TRUE.
+#endif
+#endif
 
 CHARACTER(*), PARAMETER :: modname = "mo_communication"
 
@@ -1015,6 +1028,8 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add, send_lbound3)
 
    ndim2 = SIZE(recv,2)
 
+!$ACC DATA CREATE( send_buf, recv_buf ) IF ( i_am_accel_node .AND. acc_on )
+
    IF (iorder_sendrecv == 1 .OR. iorder_sendrecv == 3) THEN
      ! Set up irecv's for receive buffers
      DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
@@ -1042,17 +1057,24 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add, send_lbound3)
    ENDIF
 
    IF (ndim2 == 1) THEN
+!$ACC PARALLEL PRESENT( p_pat, send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
      DO i = 1, p_pat%n_send
        send_buf(1,i) = send_ptr(p_pat%send_src_idx(i),1,p_pat%send_src_blk(i)-lbound3+1)
      ENDDO
+!$ACC END PARALLEL
    ELSE
-#ifdef __SX__
+#if defined( __SX__ ) || defined( _OPENACC )
 !CDIR UNROLL=6
+!$ACC PARALLEL PRESENT( p_pat, send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
      DO k = 1, ndim2
+!$ACC LOOP VECTOR
        DO i = 1, p_pat%n_send
          send_buf(k,i) = send_ptr(p_pat%send_src_idx(i),k,p_pat%send_src_blk(i)-lbound3+1)
        ENDDO
      ENDDO
+!$ACC END PARALLEL
 #else
 #ifdef __OMPPAR_COPY__
 !$OMP PARALLEL DO
@@ -1067,7 +1089,9 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add, send_lbound3)
 #endif
    ENDIF
 
-
+#ifndef __USE_G2G
+!$ACC UPDATE HOST( send_buf ), IF ( i_am_accel_node .AND. acc_on )
+#endif
 
    ! Send our data
    IF (iorder_sendrecv == 1) THEN
@@ -1112,18 +1136,25 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add, send_lbound3)
      ! Wait for all outstanding requests to finish
      start_sync_timer(timer_exch_data_wait)
      CALL p_wait
+#ifndef __USE_G2G
+!$ACC UPDATE DEVICE( recv_buf ), IF ( i_am_accel_node .AND. acc_on )
+#endif
      stop_sync_timer(timer_exch_data_wait)
 
    ELSE IF (iorder_sendrecv == 0) THEN
      ! dummy mode; just fill the receive buffer with "something reasonable"
      IF (p_pat%n_send > 0) THEN
+!$ACC KERNELS PRESENT( send_buf, recv_buf ), IF( i_am_accel_node .AND. acc_on )
        DO k = 1, ndim2
          recv_buf(k,:) = send_buf(k,1)
        ENDDO
+!$ACC END KERNELS
      ELSE
+!$ACC KERNELS PRESENT( recv_buf ), IF( i_am_accel_node .AND. acc_on )
        DO k = 1, ndim2
          recv_buf(k,:) = 1._wp
        ENDDO
+!$ACC END KERNELS
      ENDIF
    ENDIF
 
@@ -1138,21 +1169,28 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add, send_lbound3)
    IF(PRESENT(add)) THEN
      IF (ndim2 == 1) THEN
        k = 1
+!$ACC PARALLEL PRESENT( p_pat, add, recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
        DO i = 1, p_pat%n_pnts
          recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) =   &
            recv_buf(k,p_pat%recv_src(i)) +                       &
            add(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i))
        ENDDO
+!$ACC END PARALLEL
      ELSE
-#ifdef __SX__
+#if defined( __SX__ ) || defined( _OPENACC )
+!$ACC PARALLEL PRESENT( p_pat, recv_buf, add, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
 !CDIR UNROLL=6
        DO k = 1, ndim2
+!$ACC LOOP VECTOR
          DO i = 1, p_pat%n_pnts
            recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) =   &
              recv_buf(k,p_pat%recv_src(i)) +                       &
              add(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i))
          ENDDO
        ENDDO
+!$ACC END PARALLEL
 #else
 #ifdef __OMPPAR_COPY__
 !$OMP PARALLEL DO
@@ -1170,19 +1208,26 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add, send_lbound3)
    ELSE
      IF (ndim2 == 1) THEN
        k = 1
+!$ACC PARALLEL PRESENT( p_pat, recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
        DO i = 1, p_pat%n_pnts
          recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
            recv_buf(k,p_pat%recv_src(i))
        ENDDO
+!$ACC END PARALLEL
      ELSE
-#ifdef __SX__
+#if defined( __SX__ ) || defined( _OPENACC )
+!$ACC PARALLEL PRESENT( p_pat, recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
 !CDIR UNROLL=6
        DO k = 1, ndim2
+!$ACC LOOP VECTOR
          DO i = 1, p_pat%n_pnts
            recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
              recv_buf(k,p_pat%recv_src(i))
          ENDDO
        ENDDO
+!$ACC END PARALLEL
 #else
 #ifdef __OMPPAR_COPY__
 !$OMP PARALLEL DO
@@ -1197,6 +1242,8 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add, send_lbound3)
 #endif
      ENDIF
    ENDIF
+
+!$ACC END DATA
 
    stop_sync_timer(timer_exch_data)
 
@@ -1264,6 +1311,7 @@ SUBROUTINE exchange_data_r3d_seq(p_pat, recv, send, add, send_lbound3)
    !     END DO
 
    IF(PRESENT(add)) THEN
+!$ACC KERNELS PRESENT( p_pat, add, send, recv ), IF( i_am_accel_node .AND. acc_on )
      DO i=1,p_pat%n_pnts
        recv( p_pat%recv_dst_idx(i), 1:ndim2, p_pat%recv_dst_blk(i) )  =                    &
          &  add( p_pat%recv_dst_idx(i), 1:ndim2, p_pat%recv_dst_blk(i) )                +  &
@@ -1271,13 +1319,16 @@ SUBROUTINE exchange_data_r3d_seq(p_pat, recv, send, add, send_lbound3)
          &       1:ndim2,                                                                  &
          &       p_pat%send_src_blk(p_pat%recv_src(i))-lbound3)
      END DO
+!$ACC END KERNELS
    ELSE
+!$ACC KERNELS PRESENT( p_pat, send, recv ), IF( i_am_accel_node .AND. acc_on )
      DO i=1,p_pat%n_pnts
        recv( p_pat%recv_dst_idx(i), 1:ndim2, p_pat%recv_dst_blk(i) )  =                    &
          &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
          &       1:ndim2,                                                                  &
          &       p_pat%send_src_blk(p_pat%recv_src(i))-lbound3)
      END DO
+!$ACC END KERNELS
    END IF
 
  END SUBROUTINE exchange_data_r3d_seq
@@ -1319,6 +1370,8 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add, send_lbound3)
 
    ndim2 = SIZE(recv,2)
 
+!$ACC DATA CREATE( send_buf, recv_buf ) IF ( i_am_accel_node .AND. acc_on )
+
    IF (iorder_sendrecv == 1 .OR. iorder_sendrecv >= 3) THEN
      ! Set up irecv's for receive buffers
      DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
@@ -1346,17 +1399,24 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add, send_lbound3)
    ENDIF
 
    IF (ndim2 == 1) THEN
+!$ACC PARALLEL PRESENT( p_pat, send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
      DO i = 1, p_pat%n_send
        send_buf(1,i) = send_ptr(p_pat%send_src_idx(i),1,p_pat%send_src_blk(i)-lbound3+1)
      ENDDO
+!$ACC END PARALLEL
    ELSE
-#ifdef __SX__
+#if defined( __SX__ ) || defined( _OPENACC )
+!$ACC PARALLEL PRESENT( p_pat, send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
 !CDIR UNROLL=6
      DO k = 1, ndim2
+!$ACC LOOP VECTOR
        DO i = 1, p_pat%n_send
          send_buf(k,i) = send_ptr(p_pat%send_src_idx(i),k,p_pat%send_src_blk(i)-lbound3+1)
        ENDDO
      ENDDO
+!$ACC END PARALLEL
 #else
      DO i = 1, p_pat%n_send
        send_buf(1:ndim2,i) = send_ptr(p_pat%send_src_idx(i),1:ndim2,   &
@@ -1365,6 +1425,9 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add, send_lbound3)
 #endif
    ENDIF
 
+#ifndef __USE_G2G
+!$ACC UPDATE HOST( send_buf ), IF ( i_am_accel_node .AND. acc_on )
+#endif
 
    ! Send our data
    IF (iorder_sendrecv == 1) THEN
@@ -1408,27 +1471,37 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add, send_lbound3)
    ! Wait for all outstanding requests to finish
 
    CALL p_wait
+#ifndef __USE_G2G
+!$ACC UPDATE DEVICE( recv_buf ), IF ( i_am_accel_node .AND. acc_on )
+#endif
 
    ! Fill in receive buffer
 
    IF(PRESENT(add)) THEN
      IF (ndim2 == 1) THEN
        k = 1
+!$ACC PARALLEL PRESENT( p_pat, recv_buf, add, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
        DO i = 1, p_pat%n_pnts
          recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) =   &
            recv_buf(k,p_pat%recv_src(i)) +                       &
            add(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i))
        ENDDO
+!$ACC END PARALLEL
      ELSE
-#ifdef __SX__
+#if defined( __SX__ ) || defined( _OPENACC )
+!$ACC PARALLEL PRESENT( p_pat, recv_buf, add, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
 !CDIR UNROLL=6
        DO k = 1, ndim2
+!$ACC LOOP VECTOR
          DO i = 1, p_pat%n_pnts
            recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) =   &
              recv_buf(k,p_pat%recv_src(i)) +                       &
              add(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i))
          ENDDO
        ENDDO
+!$ACC END PARALLEL
 #else
        DO i = 1, p_pat%n_pnts
          recv(p_pat%recv_dst_idx(i),:,p_pat%recv_dst_blk(i)) =   &
@@ -1440,19 +1513,26 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add, send_lbound3)
    ELSE
      IF (ndim2 == 1) THEN
        k = 1
+!$ACC PARALLEL PRESENT( p_pat, recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
        DO i = 1, p_pat%n_pnts
          recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
            recv_buf(k,p_pat%recv_src(i))
        ENDDO
+!$ACC END PARALLEL
      ELSE
-#ifdef __SX__
+#if defined( __SX__ ) || defined( _OPENACC )
+!$ACC PARALLEL PRESENT( p_pat, recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
 !CDIR UNROLL=6
        DO k = 1, ndim2
+!$ACC LOOP VECTOR
          DO i = 1, p_pat%n_pnts
            recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
              recv_buf(k,p_pat%recv_src(i))
          ENDDO
        ENDDO
+!$ACC END PARALLEL
 #else
        DO i = 1, p_pat%n_pnts
          recv(p_pat%recv_dst_idx(i),:,p_pat%recv_dst_blk(i)) = &
@@ -1461,6 +1541,8 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add, send_lbound3)
 #endif
      ENDIF
    ENDIF
+
+!$ACC END DATA
 
    stop_sync_timer(timer_exch_data)
 
@@ -1495,6 +1577,8 @@ SUBROUTINE exchange_data_l3d(p_pat, recv, send, send_lbound3)
 
    ndim2 = SIZE(recv,2)
 
+!$ACC DATA CREATE( send_buf, recv_buf ) IF ( i_am_accel_node .AND. acc_on )
+
    IF (iorder_sendrecv == 1 .OR. iorder_sendrecv >= 3) THEN
      ! Set up irecv's for receive buffers
      DO np = 0, p_n_work-1 ! loop over PEs from where to receive the data
@@ -1522,17 +1606,24 @@ SUBROUTINE exchange_data_l3d(p_pat, recv, send, send_lbound3)
    ENDIF
 
    IF (ndim2 == 1) THEN
+!$ACC PARALLEL PRESENT( p_pat, send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
      DO i = 1, p_pat%n_send
        send_buf(1,i) = send_ptr(p_pat%send_src_idx(i),1,p_pat%send_src_blk(i)-lbound3+1)
      ENDDO
+!$ACC END PARALLEL
    ELSE
-#ifdef __SX__
+#if defined( __SX__ ) || defined( _OPENACC )
+!$ACC PARALLEL PRESENT( p_pat, send_ptr, send_buf ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
 !CDIR UNROLL=6
      DO k = 1, ndim2
+!$ACC LOOP VECTOR
        DO i = 1, p_pat%n_send
          send_buf(k,i) = send_ptr(p_pat%send_src_idx(i),k,p_pat%send_src_blk(i)-lbound3+1)
        ENDDO
      ENDDO
+!$ACC END PARALLEL
 #else
      DO i = 1, p_pat%n_send
        send_buf(1:ndim2,i) = send_ptr(p_pat%send_src_idx(i),1:ndim2,   &
@@ -1541,6 +1632,9 @@ SUBROUTINE exchange_data_l3d(p_pat, recv, send, send_lbound3)
 #endif
    ENDIF
 
+#ifndef __USE_G2G
+!$ACC UPDATE HOST( send_buf ), IF ( i_am_accel_node .AND. acc_on )
+#endif
 
    ! Send our data
    IF (iorder_sendrecv == 1) THEN
@@ -1587,24 +1681,34 @@ SUBROUTINE exchange_data_l3d(p_pat, recv, send, send_lbound3)
    ! Wait for all outstanding requests to finish
 
    CALL p_wait
+#ifndef __USE_G2G
+!$ACC UPDATE DEVICE( recv_buf ), IF ( i_am_accel_node .AND. acc_on )
+#endif
 
    ! Fill in receive buffer
 
    IF (ndim2 == 1) THEN
      k = 1
+!$ACC PARALLEL PRESENT( p_pat, recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
      DO i = 1, p_pat%n_pnts
        recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
             recv_buf(k,p_pat%recv_src(i))
      ENDDO
+!$ACC END PARALLEL
    ELSE
-#ifdef __SX__
+#if defined( __SX__ ) || defined( _OPENACC )
+!$ACC PARALLEL PRESENT( p_pat, recv_buf, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
 !CDIR UNROLL=6
      DO k = 1, ndim2
+!$ACC LOOP VECTOR
        DO i = 1, p_pat%n_pnts
          recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
               recv_buf(k,p_pat%recv_src(i))
        ENDDO
      ENDDO
+!$ACC END PARALLEL
 #else
      DO i = 1, p_pat%n_pnts
        recv(p_pat%recv_dst_idx(i),:,p_pat%recv_dst_blk(i)) = &
@@ -1612,6 +1716,8 @@ SUBROUTINE exchange_data_l3d(p_pat, recv, send, send_lbound3)
      ENDDO
 #endif
    ENDIF
+
+!$ACC END DATA
 
    stop_sync_timer(timer_exch_data)
 
@@ -1656,6 +1762,7 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
    INTEGER        :: ndim2(nfields), noffset(nfields)
 
    REAL(wp) :: send_buf(ndim2tot,p_pat%n_send),recv_buf(ndim2tot,p_pat%n_recv)
+   REAL(wp), POINTER :: send_fld(:,:,:), recv_fld(:,:,:), add_fld(:,:,:)  ! Refactoring for OpenACC
 
    INTEGER :: i, k, kshift(nfields), jb,ik, jl, n, np, irs, iss, pid, icount, nf4d
    LOGICAL :: lsend, ladd
@@ -1678,6 +1785,8 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
    ELSE
      kshift = 0
    ENDIF
+
+!$ACC DATA CREATE( send_buf, recv_buf ) IF ( i_am_accel_node .AND. acc_on )
 
    IF ((iorder_sendrecv == 1 .OR. iorder_sendrecv == 3) .AND. &
      & .NOT. my_process_is_mpi_seq()) THEN
@@ -1772,10 +1881,7 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
        ENDIF
      ENDDO
 
-     stop_sync_timer(timer_exch_data)
-     RETURN
-     !---------------------------------------------------------------
-   ENDIF
+  ELSE          ! WS: Removed RETURN in order to properly support OpenACC DATA region
 
    ! Reset kshift to 0 if 2D fields are passed together with 3D fields
    DO n = 1, nfields
@@ -1790,27 +1896,37 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
    ENDDO
 
    ! Set up send buffer
-#ifdef __SX__
+#if defined( __SX__ ) || defined( _OPENACC )
    IF ( lsend ) THEN
      DO n = 1, nfields
+       send_fld => send(n)%fld   ! Refactoring for OpenACC
+!$ACC PARALLEL PRESENT( p_pat, send_fld, send_buf ), COPYIN( kshift, noffset, ndim2 ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
 !CDIR UNROLL=6
        DO k = 1, ndim2(n)
+!$ACC LOOP VECTOR
          DO i = 1, p_pat%n_send
            send_buf(k+noffset(n),i) = &
              send(n)%fld(p_pat%send_src_idx(i),k+kshift(n),p_pat%send_src_blk(i))
          ENDDO
        ENDDO
+!$ACC END PARALLEL
      ENDDO
    ELSE
        ! Send and receive arrays are identical (for boundary exchange)
      DO n = 1, nfields
+       recv_fld => recv(n)%fld
+!$ACC PARALLEL PRESENT( p_pat, recv_fld, send_buf ), COPYIN( kshift, noffset, ndim2 ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
 !CDIR UNROLL=6
        DO k = 1, ndim2(n)
+!$ACC LOOP VECTOR
          DO i = 1, p_pat%n_send
            send_buf(k+noffset(n),i) = &
              recv(n)%fld(p_pat%send_src_idx(i),k+kshift(n),p_pat%send_src_blk(i))
          ENDDO
        ENDDO
+!$ACC END PARALLEL
      ENDDO
    ENDIF
 #else
@@ -1839,6 +1955,9 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
 #endif
 #endif
 
+#ifndef __USE_G2G
+!$ACC UPDATE HOST( send_buf ), IF ( i_am_accel_node .AND. acc_on )
+#endif
 
    ! Send our data
    IF (iorder_sendrecv == 1) THEN
@@ -1883,18 +2002,25 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
      ! Wait for all outstanding requests to finish
      start_sync_timer(timer_exch_data_wait)
      CALL p_wait
+#ifndef __USE_G2G
+!$ACC UPDATE DEVICE( recv_buf ), IF ( i_am_accel_node .AND. acc_on )
+#endif
      stop_sync_timer(timer_exch_data_wait)
 
    ELSE IF (iorder_sendrecv == 0) THEN
      ! dummy mode; just fill the receive buffer with "something reasonable"
      IF (p_pat%n_send > 0) THEN
+!$ACC KERNELS PRESENT( send_buf, recv_buf ), IF( i_am_accel_node .AND. acc_on )
        DO k = 1, ndim2tot
          recv_buf(k,:) = send_buf(k,1)
        ENDDO
+!$ACC END KERNELS
      ELSE
+!$ACC KERNELS PRESENT( recv_buf ), IF( i_am_accel_node .AND. acc_on )
        DO k = 1, ndim2tot
          recv_buf(k,:) = 1._wp
        ENDDO
+!$ACC END KERNELS
      ENDIF
    ENDIF
 
@@ -1906,27 +2032,40 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
 
    ! Fill in receive buffer
 
-#ifdef __SX__
+#if defined( __SX__ ) || defined( _OPENACC )
    IF (ladd) THEN
      DO n = 1, nfields
+       recv_fld => recv(n)%fld
+       add_fld  => add(n)%fld
+!$ACC PARALLEL PRESENT( p_pat, recv_buf, recv_fld, add_fld ), COPYIN( kshift, noffset, ndim2 ), &
+!$ACC          IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
 !CDIR UNROLL=6
        DO k = 1, ndim2(n)
+!$ACC LOOP VECTOR
          DO i = 1, p_pat%n_pnts
-           recv(n)%fld(p_pat%recv_dst_idx(i),k+kshift(n),p_pat%recv_dst_blk(i)) =  &
+           recv_fld(p_pat%recv_dst_idx(i),k+kshift(n),p_pat%recv_dst_blk(i)) =  &
              recv_buf(k+noffset(n),p_pat%recv_src(i)) +                         &
-             add(n)%fld(p_pat%recv_dst_idx(i),k+kshift(n),p_pat%recv_dst_blk(i))
+             add_fld(p_pat%recv_dst_idx(i),k+kshift(n),p_pat%recv_dst_blk(i))
          ENDDO
        ENDDO
+!$ACC END PARALLEL
      ENDDO
    ELSE
      DO n = 1, nfields
+       recv_fld => recv(n)%fld
+!$ACC PARALLEL &
+!$ACC PRESENT( p_pat, recv_buf, recv_fld ), COPYIN( kshift, noffset, ndim2 ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
 !CDIR UNROLL=6
        DO k = 1, ndim2(n)
+!$ACC LOOP VECTOR
          DO i = 1, p_pat%n_pnts
            recv(n)%fld(p_pat%recv_dst_idx(i),k+kshift(n),p_pat%recv_dst_blk(i)) =  &
              recv_buf(k+noffset(n),p_pat%recv_src(i))
          ENDDO
        ENDDO
+!$ACC END PARALLEL
      ENDDO
    ENDIF
 #else
@@ -1955,6 +2094,10 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
 !$OMP END PARALLEL DO
 #endif
 #endif
+
+  ENDIF  ! .NOT. my_process_is_mpi_seq()
+
+!$ACC END DATA
 
    stop_sync_timer(timer_exch_data)
 
@@ -2010,6 +2153,8 @@ SUBROUTINE exchange_data_4de1(p_pat, nfields, ndim2tot, recv, send)
 
    ndim2 = SIZE(recv,3)
 
+!$ACC DATA CREATE( send_buf, recv_buf ), IF ( i_am_accel_node .AND. acc_on )
+
    IF ((iorder_sendrecv == 1 .OR. iorder_sendrecv == 3)) THEN
      ! Set up irecv's for receive buffers
      DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
@@ -2022,8 +2167,13 @@ SUBROUTINE exchange_data_4de1(p_pat, nfields, ndim2tot, recv, send)
      ENDDO
    ENDIF
 
-#ifdef __OMPPAR_COPY__
+#if defined( __OMPPAR_COPY__ ) && !defined( _OPENACC )
 !$OMP PARALLEL DO PRIVATE(jb,jl,koffset)
+#else
+!$ACC PARALLEL &
+!$ACC PRESENT( p_pat, send, recv, send_buf ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
 #endif
    DO i = 1, p_pat%n_send
      jb = p_pat%send_src_blk(i)
@@ -2044,10 +2194,15 @@ SUBROUTINE exchange_data_4de1(p_pat, nfields, ndim2tot, recv, send)
        ENDDO
      ENDIF
    ENDDO
-#ifdef __OMPPAR_COPY__
+#if defined( __OMPPAR_COPY__ ) && !defined( _OPENACC )
 !$OMP END PARALLEL DO
+#else
+!$ACC END PARALLEL
 #endif
 
+#ifndef __USE_G2G
+!$ACC UPDATE HOST( send_buf ), IF ( i_am_accel_node .AND. acc_on )
+#endif
 
    ! Send our data
    IF (iorder_sendrecv == 1) THEN
@@ -2094,16 +2249,24 @@ SUBROUTINE exchange_data_4de1(p_pat, nfields, ndim2tot, recv, send)
      CALL p_wait
      stop_sync_timer(timer_exch_data_wait)
 
+#ifndef __USE_G2G
+!$ACC UPDATE DEVICE( recv_buf ), IF ( i_am_accel_node .AND. acc_on )
+#endif
+
    ELSE IF (iorder_sendrecv == 0) THEN
      ! dummy mode; just fill the receive buffer with "something reasonable"
      IF (p_pat%n_send > 0) THEN
+!$ACC KERNELS PRESENT( recv_buf, send_buf ), IF ( i_am_accel_node .AND. acc_on )
        DO k = 1, ndim2tot
          recv_buf(k,:) = send_buf(k,1)
        ENDDO
+!$ACC END KERNELS
      ELSE
+!$ACC KERNELS PRESENT( recv_buf ), IF ( i_am_accel_node .AND. acc_on )
        DO k = 1, ndim2tot
          recv_buf(k,:) = 1._wp
        ENDDO
+!$ACC END KERNELS
      ENDIF
    ENDIF
 
@@ -2114,13 +2277,19 @@ SUBROUTINE exchange_data_4de1(p_pat, nfields, ndim2tot, recv, send)
    ENDIF
 
    ! Fill in receive buffer
-#ifdef __OMPPAR_COPY__
+#if defined( __OMPPAR_COPY__ ) && !defined( _OPENACC )
 !$OMP PARALLEL DO PRIVATE(jb,jl,ik,koffset)
+#else
+!$ACC PARALLEL &
+!$ACC PRESENT( p_pat, recv_buf, recv ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
 #endif
    DO i = 1, p_pat%n_pnts
      jb = p_pat%recv_dst_blk(i)
      jl = p_pat%recv_dst_idx(i)
      ik  = p_pat%recv_src(i)
+!$ACC LOOP VECTOR
      DO k = 1, ndim2
        koffset = (k-1)*nfields
        DO n = 1, nfields
@@ -2128,9 +2297,13 @@ SUBROUTINE exchange_data_4de1(p_pat, nfields, ndim2tot, recv, send)
        ENDDO
      ENDDO
    ENDDO
-#ifdef __OMPPAR_COPY__
+#if defined( __OMPPAR_COPY__ ) && !defined( _OPENACC )
 !$OMP END PARALLEL DO
+#else
+!$ACC END PARALLEL
 #endif
+
+!$ACC END DATA
 
    stop_sync_timer(timer_exch_data)
 
@@ -2170,6 +2343,8 @@ SUBROUTINE start_async_comm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1,
    start_sync_timer(timer_exch_data_async)
 
    IF(my_process_is_mpi_seq()) RETURN
+
+!$ACC DATA CREATE( send_buf, recv_buf, recv ), IF ( i_am_accel_node .AND. acc_on )
 
    ! Start with non-blocking receive calls
    DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
@@ -2212,7 +2387,10 @@ SUBROUTINE start_async_comm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1,
    ENDDO
 
    ! Set up send buffer
-#ifdef __SX__
+#if defined( __SX__ ) || defined( _OPENACC )
+!$ACC PARALLEL &
+!$ACC PRESENT( p_pat, recv, send_buf ), COPYIN( noffset, ndim2 ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
    DO n = 1, nfields
 !CDIR UNROLL=6
      DO k = 1, ndim2(n)
@@ -2222,6 +2400,7 @@ SUBROUTINE start_async_comm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1,
        ENDDO
      ENDDO
    ENDDO
+!$ACC END PARALLEL
 #else
    DO i = 1, p_pat%n_send
      jb = p_pat%send_src_blk(i)
@@ -2234,6 +2413,10 @@ SUBROUTINE start_async_comm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1,
    ENDDO
 #endif
 
+#ifndef __USE_G2G
+!$ACC UPDATE HOST( send_buf ), IF ( i_am_accel_node .AND. acc_on )
+#endif
+
    ! Finally issue the non-blocking send calls
    DO np = 1, p_pat%np_send ! loop over PEs where to send the data
 
@@ -2243,6 +2426,8 @@ SUBROUTINE start_async_comm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1,
      CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
 
    ENDDO
+
+!$ACC END DATA
 
    stop_sync_timer(timer_exch_data_async)
 
@@ -2283,6 +2468,8 @@ SUBROUTINE complete_async_comm(p_pat, nfields, recv_buf, recv1, recv2, recv3, &
 
    IF(my_process_is_mpi_seq()) RETURN
 
+!$ACC DATA CREATE( recv ), IF ( i_am_accel_node .AND. acc_on )
+
    ! Set pointers to output fields
    IF (PRESENT(recv4d)) THEN
      DO i = 1, nfields
@@ -2317,11 +2504,18 @@ SUBROUTINE complete_async_comm(p_pat, nfields, recv_buf, recv1, recv2, recv3, &
    ! Wait for all outstanding requests (issued in start_async_comm) to finish
 
    CALL p_wait
+#ifndef __USE_G2G
+!$ACC UPDATE DEVICE( recv_buf ), IF ( i_am_accel_node .AND. acc_on )
+#endif
 
    ! Fill in receive buffer
 
-#ifdef __SX__
+#if defined( __SX__ ) || defined( _OPENACC )
+!$ACC PARALLEL &
+!$ACC PRESENT( p_pat, recv_buf, recv ), COPYIN( noffset, ndim2 ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
    DO n = 1, nfields
+!$ACC LOOP VECTOR
 !CDIR UNROLL=6
      DO k = 1, ndim2(n)
        DO i = 1, p_pat%n_pnts
@@ -2330,11 +2524,13 @@ SUBROUTINE complete_async_comm(p_pat, nfields, recv_buf, recv1, recv2, recv3, &
        ENDDO
      ENDDO
    ENDDO
+!$ACC END PARALLEL
 #else
    DO i = 1, p_pat%n_pnts
      jb = p_pat%recv_dst_blk(i)
      jl = p_pat%recv_dst_idx(i)
      ik  = p_pat%recv_src(i)
+
      DO n = 1, nfields
        DO k = 1, ndim2(n)
          recv(n)%fld(jl,k,jb) = recv_buf(k+noffset(n),ik)
@@ -2342,6 +2538,8 @@ SUBROUTINE complete_async_comm(p_pat, nfields, recv_buf, recv1, recv2, recv3, &
      ENDDO
    ENDDO
 #endif
+
+!$ACC END DATA
 
    stop_sync_timer(timer_exch_data_async)
 
@@ -2487,6 +2685,8 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
 
 !-----------------------------------------------------------------------
 
+!$ACC DATA CREATE( send_buf, recv_buf, auxs_buf, auxr_buf), IF ( i_am_accel_node .AND. acc_on )
+
    ! Set up irecv's for receive buffers
    ! Note: the dummy mode (iorder_sendrecv=0) does not work for nest boundary communication
    ! because there may be PEs receiving but not sending data. Therefore, iorder_sendrecv=0
@@ -2590,7 +2790,12 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
 
 
    IF (my_process_is_mpi_seq()) THEN
+
+!$ACC PARALLEL &
+!$ACC PRESENT( p_pat, send, recv ), COPYIN( ndim2 ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
      DO np = 1, npats
+!$ACC LOOP VECTOR
        DO i = 1, p_pat(np)%n_pnts
          DO n = 1, nfields
            DO k = 1, ndim2(n)
@@ -2602,16 +2807,20 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
          ENDDO
        ENDDO
      ENDDO
+!$ACC END PARALLEL
+
      stop_sync_timer(timer_exch_data)
 
-     RETURN
-     !---------------------------------------------------------
-   ENDIF
+ ELSE    ! WS: removed RETURN statement to allow for OpenACC DATA region
 
 
    ! Set up send buffer
-#ifdef __SX__
+#if defined( __SX__ ) || defined( _OPENACC )
+!$ACC PARALLEL &
+!$ACC PRESENT( p_pat, send, send_buf ), COPYIN( ndim2, noffset ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
    DO n = 1, nfields
+!$ACC LOOP VECTOR
      DO np = 1, npats
 !CDIR UNROLL=6
        DO k = 1, ndim2(n)
@@ -2623,6 +2832,7 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
        ENDDO
      ENDDO
    ENDDO
+!$ACC END PARALLEL
 #else
 #ifdef __OMPPAR_COPY__
 !$OMP PARALLEL
@@ -2650,6 +2860,11 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
 #endif
 
    IF (iorder_sendrecv <= 1) THEN
+
+#ifndef __USE_G2G
+!$ACC UPDATE HOST( send_buf ), IF ( i_am_accel_node .AND. acc_on )
+#endif
+
      ! Send our data
      ioffset = 0
      DO np = 1, num_send ! loop over PEs where to send the data
@@ -2664,10 +2879,16 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
          isum1 = ise - iss + 1
          IF (isum1 > 0) THEN
 !CDIR COLLAPSE
+!$ACC KERNELS PRESENT( auxs_buf, send_buf ), IF ( i_am_accel_node .AND. acc_on )
            auxs_buf(:,isum+1:isum+isum1) = send_buf(:,iss:ise)
+!$ACC END KERNELS
            isum = isum+isum1
          ENDIF
        ENDDO
+
+#ifndef __USE_G2G
+!$ACC UPDATE HOST( auxs_buf ), IF ( i_am_accel_node .AND. acc_on )
+#endif
 
        IF(isum > ioffset) CALL p_send(auxs_buf(1,ioffset+1), pid, 1,             &
                                p_count=(isum-ioffset)*ndim2tot, comm=p_comm_work)
@@ -2689,11 +2910,16 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
          isum1 = ise - iss + 1
          IF (isum1 > 0) THEN
 !CDIR COLLAPSE
+!$ACC KERNELS PRESENT( auxs_buf, send_buf ), IF ( i_am_accel_node .AND. acc_on )
            auxs_buf(:,isum+1:isum+isum1) = send_buf(:,iss:ise)
+!$ACC END KERNELS
            isum = isum+isum1
          ENDIF
        ENDDO
 
+#ifndef __USE_G2G
+!$ACC UPDATE HOST( auxs_buf ), IF ( i_am_accel_node .AND. acc_on )
+#endif
        IF(isum > ioffset) CALL p_isend(auxs_buf(1,ioffset+1), pid, 1,            &
                                p_count=(isum-ioffset)*ndim2tot, comm=p_comm_work)
 
@@ -2714,6 +2940,9 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
 
        IF(isum > ioffset) CALL p_recv(auxr_buf(1,ioffset+1), pid, 1,             &
                                p_count=(isum-ioffset)*ndim2tot, comm=p_comm_work)
+#ifndef __USE_G2G
+!$ACC UPDATE DEVICE( auxs_buf ), IF ( i_am_accel_node .AND. acc_on )
+#endif
        ioffset = isum
 
      ENDDO
@@ -2731,11 +2960,16 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
          isum1 = ise - iss + 1
          IF (isum1 > 0) THEN
 !CDIR COLLAPSE
+!$ACC KERNELS PRESENT( auxs_buf, send_buf ), IF ( i_am_accel_node .AND. acc_on )
            auxs_buf(:,isum+1:isum+isum1) = send_buf(:,iss:ise)
+!$ACC END KERNELS
            isum = isum+isum1
          ENDIF
        ENDDO
 
+#ifndef __USE_G2G
+!$ACC UPDATE HOST( auxs_buf ), IF ( i_am_accel_node .AND. acc_on )
+#endif
        IF(isum > ioffset) CALL p_isend(auxs_buf(1,ioffset+1), pid, 1,            &
                                p_count=(isum-ioffset)*ndim2tot, comm=p_comm_work)
 
@@ -2757,6 +2991,11 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
    ENDIF
 
    ! Copy exchanged data back to receive buffer
+
+#ifdef __OMPPAR_COPY__
+!$OMP PARALLEL PRIVATE(ioffset,pid,isum,irs,ire,isum1)
+#endif
+
    ioffset = 0
    DO np = 1, num_recv ! loop over PEs from where to receive the data
 
@@ -2768,8 +3007,17 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
        ire = p_pat(n)%recv_limits(pid+1) + ioffset_r(n)
        isum1 = ire - irs + 1
        IF (isum1 > 0) THEN
-!CDIR COLLAPSE
-         recv_buf(:,irs:ire) = auxr_buf(:,isum+1:isum+isum1)
+#ifdef __OMPPAR_COPY__
+!$OMP DO
+#endif
+!$ACC KERNELS PRESENT( recv_buf, auxr_buf ), IF ( i_am_accel_node .AND. acc_on )
+         DO i = 1, isum1
+           recv_buf(:,irs-1+i) = auxr_buf(:,isum+i)
+         ENDDO
+!$ACC END KERNELS
+#ifdef __OMPPAR_COPY__
+!$OMP END DO
+#endif
          isum = isum + isum1
        ENDIF
      ENDDO
@@ -2780,9 +3028,16 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
 
    ! Fill in receive buffer
 
-#ifdef __SX__
+#ifndef __USE_G2G
+!$ACC UPDATE DEVICE( recv_buf ), IF ( i_am_accel_node .AND. acc_on )
+#endif
+
+#if defined( __SX__ ) || defined( _OPENACC )
+!$ACC PARALLEL PRESENT( p_pat, recv_buf, recv ), COPYIN( ndim2, noffset, ioffset_r ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
    DO n = 1, nfields
      DO np = 1, npats
+!$ACC LOOP VECTOR
 !CDIR UNROLL=6
        DO k = 1, ndim2(n)
          DO i = 1, p_pat(np)%n_pnts
@@ -2792,10 +3047,8 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
        ENDDO
      ENDDO
    ENDDO
+!$ACC END PARALLEL
 #else
-#ifdef __OMPPAR_COPY__
-!$OMP PARALLEL
-#endif
    DO np = 1, npats
 #ifdef __OMPPAR_COPY__
 !$OMP DO PRIVATE(jb,jl,ik)
@@ -2818,6 +3071,11 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
 !$OMP END PARALLEL
 #endif
 #endif
+
+!---------------------------------------------------------
+ ENDIF  ! .NOT. my_process_is_mpi_seq()
+
+!$ACC END DATA
 
    stop_sync_timer(timer_exch_data)
 
@@ -2859,10 +3117,15 @@ SUBROUTINE exchange_data_r2d(p_pat, recv, send, add, send_lbound2, l_recv_exists
      RETURN
    END IF
 
+!$ACC DATA CREATE( tmp_recv ), IF ( i_am_accel_node .AND. acc_on )
    IF (PRESENT(send) .AND. .NOT. PRESENT(l_recv_exists)) THEN
+!$ACC KERNELS PRESENT( tmp_recv ), IF ( i_am_accel_node .AND. acc_on )
      tmp_recv(:,1,:) = 0._wp
+!$ACC END KERNELS
    ELSE
+!$ACC KERNELS PRESENT( recv, tmp_recv ), IF ( i_am_accel_node .AND. acc_on )
      tmp_recv(:,1,:) = recv(:,:)
+!$ACC END KERNELS
    ENDIF
 
    IF (PRESENT(send) .AND. PRESENT(send_lbound2)) THEN
@@ -2894,7 +3157,11 @@ SUBROUTINE exchange_data_r2d(p_pat, recv, send, add, send_lbound2, l_recv_exists
       ENDIF
    ENDIF
 
+!$ACC KERNELS PRESENT( recv, tmp_recv ), IF ( i_am_accel_node .AND. acc_on )
    recv(:,:) = tmp_recv(:,1,:)
+!$ACC END KERNELS
+
+!$ACC END DATA
 
 END SUBROUTINE exchange_data_r2d
 
@@ -2944,18 +3211,24 @@ SUBROUTINE exchange_data_r2d_seq(p_pat, recv, send, add, send_lbound2, l_recv_ex
    ENDIF
 
    IF(PRESENT(add)) THEN
+!$ACC PARALLEL PRESENT( p_pat, send, add, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
      DO i=1,p_pat%n_pnts
        recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
          &  add( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )                +  &
          &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
          &       p_pat%send_src_blk(p_pat%recv_src(i))-lbound2)
      END DO
+!$ACC END PARALLEL
    ELSE
+!$ACC PARALLEL PRESENT( p_pat, send, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
      DO i=1,p_pat%n_pnts
        recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
          &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
          &       p_pat%send_src_blk(p_pat%recv_src(i))-lbound2)
      END DO
+!$ACC END PARALLEL
    END IF
 
  END SUBROUTINE exchange_data_r2d_seq
@@ -2985,10 +3258,16 @@ SUBROUTINE exchange_data_i2d(p_pat, recv, send, add, send_lbound2, l_recv_exists
      RETURN
    END IF
 
+!$ACC DATA CREATE( tmp_recv ), IF ( i_am_accel_node .AND. acc_on )
+
    IF (PRESENT(send) .AND. .NOT. PRESENT(l_recv_exists)) THEN
+!$ACC KERNELS PRESENT( tmp_recv ), IF ( i_am_accel_node .AND. acc_on )
      tmp_recv(:,1,:) = 0
+!$ACC END KERNELS
    ELSE
+!$ACC KERNELS PRESENT( recv, tmp_recv ), IF ( i_am_accel_node .AND. acc_on )
      tmp_recv(:,1,:) = recv(:,:)
+!$ACC END KERNELS
    ENDIF
 
    IF (PRESENT(send) .AND. PRESENT(send_lbound2)) THEN
@@ -3020,7 +3299,11 @@ SUBROUTINE exchange_data_i2d(p_pat, recv, send, add, send_lbound2, l_recv_exists
       ENDIF
    ENDIF
 
+!$ACC KERNELS PRESENT( recv, tmp_recv ), IF ( i_am_accel_node .AND. acc_on )
    recv(:,:) = tmp_recv(:,1,:)
+!$ACC END KERNELS
+
+!$ACC END DATA
 
 END SUBROUTINE exchange_data_i2d
 
@@ -3068,18 +3351,24 @@ SUBROUTINE exchange_data_i2d_seq(p_pat, recv, send, add, send_lbound2)
    ENDIF
 
    IF(PRESENT(add)) THEN
+!$ACC PARALLEL PRESENT( p_pat, send, add, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
      DO i=1,p_pat%n_pnts
        recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
          &  add( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )                +  &
          &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
          &       p_pat%send_src_blk(p_pat%recv_src(i))-lbound2)
      END DO
+!$ACC END PARALLEL
    ELSE
+!$ACC PARALLEL PRESENT( p_pat, send, recv ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
      DO i=1,p_pat%n_pnts
        recv( p_pat%recv_dst_idx(i), p_pat%recv_dst_blk(i) )  =                    &
          &  send(p_pat%send_src_idx(p_pat%recv_src(i)),                                    &
          &       p_pat%send_src_blk(p_pat%recv_src(i))-lbound2)
      END DO
+!$ACC END PARALLEL
    END IF
 
  END SUBROUTINE exchange_data_i2d_seq
@@ -3104,11 +3393,16 @@ SUBROUTINE exchange_data_l2d(p_pat, recv, send, send_lbound2, l_recv_exists)
       CALL finish(routine, "Not yet implemented!")
    END IF
 
+!$ACC DATA CREATE( tmp_recv ), IF ( i_am_accel_node .AND. acc_on )
 
    IF (PRESENT(send) .AND. .NOT. PRESENT(l_recv_exists)) THEN
+!$ACC KERNELS PRESENT( tmp_recv ), IF ( i_am_accel_node .AND. acc_on )
      tmp_recv(:,1,:) = .FALSE.
+!$ACC END KERNELS
    ELSE
+!$ACC KERNELS PRESENT( recv, tmp_recv ), IF ( i_am_accel_node .AND. acc_on )
      tmp_recv(:,1,:) = recv(:,:)
+!$ACC END KERNELS
    ENDIF
 
    IF (PRESENT(send) .AND. PRESENT(send_lbound2)) THEN
@@ -3122,7 +3416,11 @@ SUBROUTINE exchange_data_l2d(p_pat, recv, send, send_lbound2, l_recv_exists)
      CALL exchange_data(p_pat, tmp_recv)
    ENDIF
 
+!$ACC KERNELS PRESENT( recv, tmp_recv ), IF ( i_am_accel_node .AND. acc_on )
    recv(:,:) = tmp_recv(:,1,:)
+!$ACC END KERNELS
+
+!$ACC END DATA
 
 END SUBROUTINE exchange_data_l2d
 
@@ -3162,6 +3460,10 @@ SUBROUTINE gather_r_1d_deblock(in_array, out_array, fill_value, gather_pattern)
   REAL(wp), ALLOCATABLE :: send_buffer(:,:)
   REAL(wp), POINTER :: collector_buffer(:,:)
   INTEGER :: i, num_send_points, idx, blk
+
+!
+! OPENACC:  GPU execution assumes that all information is now on the host
+!
 
   num_send_points = SUM(gather_pattern%collector_send_size(:))
   ALLOCATE(send_buffer(1, num_send_points))
@@ -3209,6 +3511,10 @@ SUBROUTINE gather_i_1d_deblock(in_array, out_array, fill_value, gather_pattern)
   INTEGER, POINTER :: collector_buffer(:,:)
   INTEGER :: i, num_send_points, idx, blk
 
+!
+! OPENACC:  GPU execution assumes that all information is now on the host
+!
+
   num_send_points = SUM(gather_pattern%collector_send_size(:))
   ALLOCATE(send_buffer(1, num_send_points))
 
@@ -3255,6 +3561,10 @@ SUBROUTINE gather_r_2d_deblock(in_array, out_array, fill_value, gather_pattern)
   REAL(wp), ALLOCATABLE :: send_buffer(:,:), recv_buffer(:,:)
   REAL(wp), POINTER :: collector_buffer(:,:)
   INTEGER :: i, num_send_points, nlev, idx, blk
+
+!
+! OPENACC:  GPU execution assumes that all information is now on the host
+!
 
   nlev = SIZE(in_array, 2)
 
@@ -3315,6 +3625,10 @@ SUBROUTINE gather_i_2d_deblock(in_array, out_array, fill_value, gather_pattern)
   INTEGER, ALLOCATABLE :: send_buffer(:,:), recv_buffer(:,:)
   INTEGER, POINTER :: collector_buffer(:,:)
   INTEGER :: i, num_send_points, nlev, idx, blk
+
+!
+! OPENACC:  GPU execution assumes that all information is now on the host
+!
 
   nlev = SIZE(in_array, 2)
 
@@ -3378,6 +3692,10 @@ SUBROUTINE allgather_r_1d_deblock(in_array, out_array, fill_value, &
   INTEGER :: i, num_send_points, idx, blk, n_procs, comm
   INTEGER, ALLOCATABLE :: collector_buffer_sizes(:)
 
+!
+! OPENACC:  GPU execution assumes that all information is now on the host
+!
+
   num_send_points = SUM(allgather_pattern%gather_pattern%collector_send_size(:))
   ALLOCATE(send_buffer(1, num_send_points))
 
@@ -3425,6 +3743,10 @@ SUBROUTINE allgather_i_1d_deblock(in_array, out_array, fill_value, &
   INTEGER, POINTER :: collector_buffer(:,:)
   INTEGER :: i, num_send_points, idx, blk, n_procs, comm
   INTEGER, ALLOCATABLE :: collector_buffer_sizes(:)
+
+!
+! OPENACC:  GPU execution assumes that all information is now on the host
+!
 
   num_send_points = SUM(allgather_pattern%gather_pattern%collector_send_size(:))
   ALLOCATE(send_buffer(1, num_send_points))
@@ -3480,6 +3802,10 @@ SUBROUTINE two_phase_gather_first(send_buffer_r, send_buffer_i, fill_value, &
   INTEGER :: i, collector_idx, collector_buffer_nofill_size, &
     &        collector_buffer_fill_size, num_collectors, num_points_per_coll
   LOGICAL :: use_fill_value
+
+!
+! OPENACC:  GPU execution assumes that all information is now on the host
+!
 
   IF (ANY(gather_pattern%collector_pes == p_pe_work)) THEN
     collector_idx = MINLOC(ABS(gather_pattern%collector_pes - p_pe_work), 1)
@@ -3598,6 +3924,10 @@ SUBROUTINE two_phase_gather_second(recv_buffer_r, recv_buffer_i, fill_value, &
     &        num_points_per_coll
   LOGICAL :: use_fill_value
 
+!
+! OPENACC:  GPU execution assumes that all information is now on the host
+!
+
   IF (ANY(gather_pattern%collector_pes == p_pe_work)) THEN
     collector_idx = MINLOC(ABS(gather_pattern%collector_pes - p_pe_work), 1)
   ELSE
@@ -3659,20 +3989,21 @@ SUBROUTINE two_phase_gather_second(recv_buffer_r, recv_buffer_i, fill_value, &
 END SUBROUTINE two_phase_gather_second
 
     !-------------------------------------------------------------------------------------------------------------------------------
-    !> Factory method for t_scatterPattern. Destroy with deleteScatterPattern().
+    !> Factory method for t_ScatterPattern. Destroy with deleteScatterPattern().
     !-------------------------------------------------------------------------------------------------------------------------------
-    FUNCTION makeScatterPattern(loc_arr_len, glb_index, communicator)
+    FUNCTION makeScatterPattern(jg, loc_arr_len, glb_index, communicator)
         USE mo_scatter_pattern_scatter
         IMPLICIT NONE
-        CLASS(t_scatterPattern), POINTER :: makeScatterPattern
-        INTEGER, INTENT(IN) :: loc_arr_len, glb_index(:), communicator
+        CLASS(t_ScatterPattern), POINTER :: makeScatterPattern
+        INTEGER, VALUE :: jg, loc_arr_len, communicator
+        INTEGER, INTENT(IN) :: glb_index(:)
 
         CHARACTER(*), PARAMETER :: routine = modname//":makeScatterPattern"
         INTEGER :: ierr
 
-        ALLOCATE(t_scatterPatternScatter::makeScatterPattern, stat = ierr)
+        ALLOCATE(t_ScatterPatternScatter::makeScatterPattern, stat = ierr)
         IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
-        CALL makeScatterPattern%construct(loc_arr_len, glb_index, communicator)
+        CALL makeScatterPattern%construct(jg, loc_arr_len, glb_index, communicator)
     END FUNCTION makeScatterPattern
 
 END MODULE mo_communication
