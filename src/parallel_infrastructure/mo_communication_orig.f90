@@ -41,7 +41,8 @@ USE mo_exception,            ONLY: finish, message, message_text
 USE mo_mpi,                  ONLY: p_send, p_recv, p_irecv, p_wait, p_isend,                &
      &                             p_comm_work, my_process_is_mpi_seq, p_pe_work, p_n_work, &
      &                             get_my_mpi_work_communicator, get_my_mpi_work_comm_size, &
-     &                             get_my_mpi_work_id, p_gather, p_gatherv, work_mpi_barrier
+     &                             get_my_mpi_work_id, p_gather, p_gatherv,                 &
+     &                             work_mpi_barrier, p_alltoall
 USE mo_parallel_config,      ONLY: iorder_sendrecv, nproma, itype_exch_barrier
 USE mo_timer,                ONLY: timer_start, timer_stop, timer_exch_data, &
      &                             timer_barrier, &
@@ -354,22 +355,9 @@ CONTAINS
     ! Exchange the number of points we want to receive with the respective senders
     DO np = 0, p_n_work-1 ! loop over PEs where to send the data
       num_rcv(np) = p_pat%recv_limits(np+1) - p_pat%recv_limits(np)
-      ! First send the number of points to be received
-      IF (np /= p_pe_work) CALL p_isend(num_rcv(np), np, 1, comm=p_pat%comm)
     ENDDO
 
-    ! Now, we receive the number of points are needed from us
-    DO nr = 0, p_n_work-1
-
-      IF(nr /= p_pe_work) THEN
-        CALL p_recv(icnt(nr), nr, 1,  comm=p_pat%comm)
-      ELSE
-        icnt(nr) = num_rcv(nr)
-      ENDIF
-
-    ENDDO
-    CALL p_wait
-
+    CALL p_alltoall(num_rcv, icnt, p_pat%comm)
     ! Now send the global index of the points we need from PE np
     DO np = 0, p_n_work-1 ! loop over PEs where to send the data
 
