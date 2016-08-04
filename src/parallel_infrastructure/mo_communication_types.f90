@@ -35,6 +35,12 @@ PRIVATE
 
 PUBLIC :: t_comm_pattern, t_comm_pattern_collection, t_p_comm_pattern
 
+  TYPE xfer_list
+    INTEGER :: rank
+    INTEGER, ALLOCATABLE :: glob_idx(:)
+  END TYPE xfer_list
+  PUBLIC :: xfer_list
+
 !--------------------------------------------------------------------------------------------------
 !
 TYPE, ABSTRACT :: t_comm_pattern
@@ -42,6 +48,7 @@ TYPE, ABSTRACT :: t_comm_pattern
   CONTAINS
 
     PROCEDURE(interface_setup_comm_pattern), DEFERRED :: setup
+    PROCEDURE(interface_setup_comm_pattern2), DEFERRED :: setup2
     PROCEDURE(interface_delete_comm_pattern), DEFERRED :: delete
     PROCEDURE(interface_exchange_data_r3d), DEFERRED :: exchange_data_r3d
     PROCEDURE(interface_exchange_data_s3d), DEFERRED :: exchange_data_s3d
@@ -93,6 +100,21 @@ ABSTRACT INTERFACE
     LOGICAL, OPTIONAL, INTENT(IN) :: inplace
     INTEGER, OPTIONAL, INTENT(IN) :: comm
   END SUBROUTINE interface_setup_comm_pattern
+
+  SUBROUTINE interface_setup_comm_pattern2(p_pat, comm, recv_msg, send_msg, &
+       glb2loc_index_recv, glb2loc_index_send, inplace)
+    IMPORT t_comm_pattern, xfer_list, t_glb2loc_index_lookup
+    CLASS(t_comm_pattern), INTENT(OUT) :: p_pat
+    INTEGER, INTENT(in) :: comm
+    TYPE(xfer_list), &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+         CONTIGUOUS, &
+#endif
+         INTENT(in) :: recv_msg(:), send_msg(:)
+    TYPE(t_glb2loc_index_lookup), INTENT(IN) :: glb2loc_index_recv, &
+         glb2loc_index_send
+    LOGICAL, OPTIONAL, INTENT(in) :: inplace
+  END SUBROUTINE interface_setup_comm_pattern2
 
   SUBROUTINE interface_delete_comm_pattern(p_pat)
     IMPORT t_comm_pattern

@@ -43,7 +43,8 @@ USE mo_mpi,                  ONLY: p_send, p_recv, p_irecv, p_wait, p_isend,    
      &                             get_my_mpi_work_communicator, get_my_mpi_work_comm_size, &
      &                             get_my_mpi_work_id, p_gather, p_gatherv,                 &
      &                             p_alltoall, p_comm_rank, p_comm_size,                    &
-     &                             p_barrier
+     &                             p_barrier,                                               &
+     &                             p_comm_is_intercomm, p_comm_remote_size
 USE mo_parallel_config,      ONLY: iorder_sendrecv, nproma, itype_exch_barrier
 USE mo_timer,                ONLY: timer_start, timer_stop, timer_exch_data, &
      &                             timer_barrier, &
@@ -53,7 +54,7 @@ USE mo_run_config,           ONLY: msg_level, activate_sync_timers
 USE mo_decomposition_tools,  ONLY: t_glb2loc_index_lookup, get_local_index
 USE mo_parallel_config,      ONLY: blk_no, idx_no, idx_1d
 USE mo_communication_types,  ONLY: t_comm_pattern, t_p_comm_pattern, &
-  &                                t_comm_pattern_collection
+  &                                t_comm_pattern_collection, xfer_list
 #ifdef _OPENACC
 USE mo_mpi,                  ONLY: i_am_accel_node
 #endif
@@ -145,6 +146,7 @@ TYPE, EXTENDS(t_comm_pattern) :: t_comm_pattern_orig
   CONTAINS
 
     PROCEDURE :: setup => setup_comm_pattern
+    PROCEDURE :: setup2 => setup_comm_pattern2
     PROCEDURE :: delete => delete_comm_pattern
     PROCEDURE :: exchange_data_r3d => exchange_data_r3d
     PROCEDURE :: exchange_data_s3d => exchange_data_s3d
@@ -484,7 +486,166 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 
-  
+
+  SUBROUTINE setup_comm_pattern2(p_pat, comm, recv_msg, send_msg, &
+       glb2loc_index_recv, glb2loc_index_send, inplace)
+    CLASS(t_comm_pattern_orig), INTENT(out) :: p_pat
+    INTEGER, INTENT(in) :: comm
+    TYPE(xfer_list), INTENT(in) :: recv_msg(:), send_msg(:)
+    TYPE(t_glb2loc_index_lookup), INTENT(IN) :: glb2loc_index_recv, &
+         glb2loc_index_send
+    LOGICAL, OPTIONAL, INTENT(in) :: inplace
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: recv_msg, send_msg
+#endif
+    INTEGER :: np_recv, np_send, n_send, n_recv, i, comm_rank, &
+         n_pnts_recv, n_pnts_send, comm_size
+    LOGICAL :: is_inter
+    CHARACTER(len=*), PARAMETER :: routine &
+         = 'mo_communication::setup_comm_pattern2'
+
+    p_pat%comm = comm
+    comm_rank = p_comm_rank(comm)
+    is_inter = p_comm_is_intercomm(comm)
+    IF (is_inter) THEN
+      comm_size = p_comm_remote_size(comm)
+    ELSE
+      comm_size = p_comm_size(comm)
+    END IF
+    np_send = SIZE(send_msg)
+    p_pat%np_send = np_send
+    np_recv = SIZE(recv_msg)
+    p_pat%np_recv = np_recv
+    ALLOCATE(p_pat%recv_limits(0:comm_size), p_pat%send_limits(0:comm_size), &
+         p_pat%pelist_send(np_send), p_pat%pelist_recv(np_recv), &
+         p_pat%send_startidx(np_send), p_pat%send_count(np_send), &
+         p_pat%recv_startidx(np_recv), p_pat%recv_count(np_recv))
+    CALL count_msg_size(np_recv, recv_msg, n_pnts_recv, n_recv, &
+         is_inter, comm_rank, p_pat%pelist_recv, p_pat%recv_count, &
+         p_pat%recv_startidx)
+    CALL count_msg_size(np_send, send_msg, n_pnts_send, n_send, &
+         is_inter, comm_rank, p_pat%pelist_send, p_pat%send_count, &
+         p_pat%send_startidx)
+    p_pat%n_send = n_send
+    IF (n_pnts_recv /= n_pnts_send) &
+      CALL finish(routine, "inconsistent lists")
+    n_pnts_recv = n_pnts_recv + n_recv
+    p_pat%n_pnts = n_pnts_recv
+    p_pat%n_recv = n_recv
+    ALLOCATE(p_pat%recv_src(n_pnts_recv), &
+      &      p_pat%recv_dst_blk(n_pnts_recv), p_pat%recv_dst_idx(n_pnts_recv), &
+      &      p_pat%send_src_blk(n_send), p_pat%send_src_idx(n_send))
+    CALL list2limits(comm_size, p_pat%recv_limits, recv_msg, is_inter)
+    CALL list2limits(comm_size, p_pat%send_limits, send_msg, is_inter)
+    CALL expand1d2blkidx(recv_msg, p_pat%recv_limits, p_pat%recv_src)
+    CALL expandglb2blkidx(recv_msg, glb2loc_index_recv, p_pat%recv_limits, &
+         p_pat%recv_dst_blk, p_pat%recv_dst_idx)
+    CALL expandglb2blkidx(send_msg, glb2loc_index_send, p_pat%send_limits, &
+         p_pat%send_src_blk, p_pat%send_src_idx)
+  CONTAINS
+    SUBROUTINE count_msg_size(nmsg, msg, nself, nremote, is_inter, comm_rank, &
+         ranks, counts, starts)
+      INTEGER, INTENT(in) :: nmsg, comm_rank
+      TYPE(xfer_list), INTENT(in) :: msg(nmsg)
+      INTEGER, INTENT(out) :: nself, nremote, ranks(nmsg), counts(nmsg), &
+           starts(nmsg)
+      LOGICAL, INTENT(in) :: is_inter
+      INTEGER :: nidx_remote, nidx_local, sz, msg_rank, sz_accum
+      nidx_remote = 0
+      nidx_local = 0
+      sz_accum = 1
+      DO i = 1, nmsg
+        msg_rank = msg(i)%rank
+        starts(i) = sz_accum
+        sz = SIZE(msg(i)%glob_idx)
+        sz_accum = sz_accum + sz
+        ranks(i) = msg_rank
+        counts(i) = sz
+        IF (is_inter .OR. msg_rank /= comm_rank) THEN
+          nidx_remote = nidx_remote + sz
+        ELSE
+          nidx_local = nidx_local + sz
+        END IF
+      END DO
+      nremote = nidx_remote
+      nself = nidx_local
+    END SUBROUTINE count_msg_size
+
+    SUBROUTINE list2limits(comm_size, limits, msg, is_inter)
+      INTEGER, INTENT(in) :: comm_size
+      INTEGER, INTENT(out) :: limits(0:comm_size)
+      TYPE(xfer_list), INTENT(in) :: msg(:)
+      LOGICAL, INTENT(in) :: is_inter
+      INTEGER :: i, msg_rank, nmsg, limits_psum
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      CONTIGUOUS :: msg
+#endif
+      nmsg = SIZE(msg)
+      limits(0:comm_size) = 0
+      DO i = 1, nmsg
+        msg_rank = msg(i)%rank
+        limits(msg_rank+1) = limits(msg_rank+1) + SIZE(msg(i)%glob_idx)
+      END DO
+      limits_psum = 0
+      DO i = 1, comm_size
+        limits_psum = limits_psum + limits(i)
+        limits(i) = limits_psum
+      END DO
+    END SUBROUTINE list2limits
+
+    SUBROUTINE expand1d2blkidx(msg, limits, recv_src)
+      TYPE(xfer_list), INTENT(in) :: msg(:)
+      INTEGER, INTENT(in) :: limits(0:)
+      INTEGER, INTENT(out) :: recv_src(:)
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      CONTIGUOUS :: msg, limits, recv_src
+#endif
+      INTEGER :: nmsg, i, sz, sz_psum, msg_rank, jls, jl, jle
+      nmsg = SIZE(msg)
+      DO i = 1, nmsg
+        msg_rank = msg(i)%rank
+        jle = limits(msg_rank+1)
+        jls = limits(msg_rank)
+        sz = jle - jls
+        DO jl = 1, sz
+          recv_src(jls+jl) = jls + jl
+        END DO
+      END DO
+    END SUBROUTINE expand1d2blkidx
+
+    SUBROUTINE  expandglb2blkidx(msg, glb2loc_index, limits, &
+         a_blk, a_idx)
+      TYPE(xfer_list), INTENT(in) :: msg(:)
+      TYPE(t_glb2loc_index_lookup), INTENT(IN) :: glb2loc_index
+      INTEGER, INTENT(in) :: limits(0:)
+      INTEGER, INTENT(out) :: a_blk(:), a_idx(:)
+      INTEGER :: i, jl, msg_rank, sz, jls, jle, np, nmsg
+      LOGICAL :: any_np_le_0
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      CONTIGUOUS :: limits, msg, a_blk, a_idx
+#endif
+      nmsg = SIZE(msg)
+      any_np_le_0 = .FALSE.
+      DO i = 1, nmsg
+        msg_rank = msg(i)%rank
+        jle = limits(msg_rank+1)
+        jls = limits(msg_rank)
+        sz = jle - jls
+        DO jl = 1, sz
+          np = get_local_index(glb2loc_index, msg(i)%glob_idx(jl))
+          any_np_le_0 = any_np_le_0 .OR. np <= 0
+          a_blk(jls+jl) = blk_no(np)
+          a_idx(jls+jl) = idx_no(np)
+        END DO
+      END DO
+      IF (any_np_le_0) CALL finish('setup_comm_pattern2','Got illegal index')
+    END SUBROUTINE expandglb2blkidx
+  END SUBROUTINE setup_comm_pattern2
+
+
+  !-------------------------------------------------------------------------
+
+
   SUBROUTINE setup_comm_pattern_collection(pattern_collection, patterns)
 
     CLASS(t_comm_pattern_collection_orig), INTENT(OUT) :: pattern_collection

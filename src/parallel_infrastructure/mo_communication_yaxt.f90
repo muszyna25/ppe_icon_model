@@ -33,7 +33,7 @@ USE mo_mpi,                ONLY: p_comm_work, p_pe_work, work_mpi_barrier, &
 USE mo_parallel_config, ONLY: nproma, itype_exch_barrier
 USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
   &                           timer_exch_data, timer_barrier
-USE mo_decomposition_tools, ONLY: t_glb2loc_index_lookup
+USE mo_decomposition_tools, ONLY: t_glb2loc_index_lookup, get_local_index
 USE mo_parallel_config, ONLY: blk_no, idx_no, idx_1d
 USE yaxt, ONLY: xt_initialized, xt_initialize, xt_idxlist, &
   &             xt_int_kind, xt_idxvec_new, &
@@ -45,9 +45,10 @@ USE yaxt, ONLY: xt_initialized, xt_initialize, xt_idxlist, &
   &             xt_xmap_get_source_ranks, xt_com_list, xt_redist_repeat_new
   &             xt_mpi_comm_mark_exclusive
 USE mo_fortran_tools,        ONLY: t_ptr_3d, t_ptr_3d_sp
-USE iso_c_binding, ONLY: c_loc, c_ptr, c_null_ptr
+USE iso_c_binding, ONLY: c_int, c_loc, c_ptr, c_null_ptr
 USE mo_communication_types, ONLY: t_comm_pattern, t_p_comm_pattern, &
-  & t_comm_pattern_collection
+  & t_comm_pattern_collection, xfer_list
+
 
 IMPLICIT NONE
 
@@ -117,6 +118,7 @@ TYPE, EXTENDS(t_comm_pattern) :: t_comm_pattern_yaxt
   CONTAINS
 
     PROCEDURE :: setup => setup_comm_pattern
+    PROCEDURE :: setup2 => setup_comm_pattern2
     PROCEDURE :: delete => delete_comm_pattern
     PROCEDURE :: exchange_data_r3d => exchange_data_r3d
     PROCEDURE :: exchange_data_s3d => exchange_data_s3d
@@ -453,6 +455,105 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
    END IF
 
 END SUBROUTINE setup_comm_pattern
+
+
+  SUBROUTINE setup_comm_pattern2(p_pat, comm, recv_msg, send_msg, &
+       glb2loc_index_recv, glb2loc_index_send, inplace)
+    CLASS(t_comm_pattern_yaxt), INTENT(out) :: p_pat
+    INTEGER, INTENT(in) :: comm
+    TYPE(xfer_list), INTENT(in) :: recv_msg(:), send_msg(:)
+    TYPE(t_glb2loc_index_lookup), INTENT(IN) :: glb2loc_index_recv, &
+         glb2loc_index_send
+    LOGICAL, OPTIONAL, INTENT(in) :: inplace
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: recv_msg, send_msg
+#endif
+    INTEGER :: i, j, np_recv, np_send, nlocal
+    TYPE(xt_com_list), ALLOCATABLE :: src_com(:), dst_com(:)
+    TYPE(xt_idxlist) :: src_idxlist, dst_idxlist
+    CHARACTER(len=*), PARAMETER :: routine &
+         = 'mo_communication_yaxt::setup_comm_pattern2'
+
+    np_send = SIZE(send_msg)
+    np_recv = SIZE(recv_msg)
+    ALLOCATE(src_com(np_send), dst_com(np_recv))
+    nlocal = SIZE(glb2loc_index_send%outer_glb_index) &
+         + SIZE(glb2loc_index_send%inner_glb_index)
+    p_pat%src_n_points = nlocal
+    CALL compose_lists(src_com, src_idxlist, nlocal, glb2loc_index_send, &
+         send_msg)
+    nlocal = SIZE(glb2loc_index_recv%outer_glb_index) &
+         + SIZE(glb2loc_index_recv%inner_glb_index)
+    p_pat%dst_n_points = nlocal
+    CALL compose_lists(dst_com, dst_idxlist, nlocal, glb2loc_index_recv, &
+         recv_msg, p_pat%dst_mask)
+    p_pat%xmap = xt_xmap_intersection_new(src_com, dst_com, src_idxlist, &
+         dst_idxlist, comm)
+    CALL xt_idxlist_delete(dst_idxlist)
+    CALL xt_idxlist_delete(src_idxlist)
+    DO i = 1, np_send
+      CALL xt_idxlist_delete(src_com(i)%list)
+    END DO
+    DO i = 1, np_recv
+      CALL xt_idxlist_delete(dst_com(i)%list)
+    END DO
+    IF (PRESENT(inplace)) THEN
+      p_pat%inplace = inplace
+    ELSE
+      p_pat%inplace = .FALSE.
+    END IF
+  CONTAINS
+    SUBROUTINE compose_lists(com, list, nlocal, glb2loc_index, msg, mask)
+      TYPE(xt_com_list), INTENT(out) :: com(:)
+      TYPE(xt_idxlist), INTENT(out) :: list
+      INTEGER, INTENT(in) :: nlocal
+      TYPE(xfer_list), INTENT(in) :: msg(:)
+      type(t_glb2loc_index_lookup), INTENT(IN) :: glb2loc_index
+      LOGICAL, OPTIONAL, ALLOCATABLE, INTENT(out) :: mask(:)
+      INTEGER(xt_int_kind) :: indices(nlocal)
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+      CONTIGUOUS :: com, msg
+#endif
+      INTEGER :: np, nidx, i, j, jl, glbidx, start_local, end_local
+      indices = -1_xt_int_kind
+      np = SIZE(msg)
+      DO i = 1, np
+        com(i)%rank = INT(msg(i)%rank, c_int)
+        com(i)%list = xt_idxvec_new(msg(i)%glob_idx)
+        nidx = SIZE(msg(i)%glob_idx)
+        DO j = 1, nidx
+          glbidx = msg(i)%glob_idx(j)
+          jl = get_local_index(glb2loc_index, glbidx)
+          indices(jl) = INT(glbidx, xt_int_kind)
+        END DO
+      END DO
+      IF (PRESENT(mask)) THEN
+        ALLOCATE(mask(nlocal))
+        mask = indices >= 0
+        j = 1
+        i = 1
+        DO WHILE (i < nlocal .AND. .NOT. mask(i))
+          i = i + 1
+        END DO
+        IF (.NOT. mask(i)) THEN
+          nidx = 0
+        ELSE
+          DO i = i, nlocal
+            IF (mask(i)) THEN
+              indices(j) = indices(i)
+              j = j + 1
+            END IF
+          END DO
+          nidx = j - 1
+        END IF
+      ELSE
+        nidx = nlocal
+      END IF
+      list = xt_idxvec_new(indices(1:nidx))
+    END SUBROUTINE compose_lists
+
+  END SUBROUTINE setup_comm_pattern2
+
 
 FUNCTION generate_single_field_redist(p_pat, dst_nlev, src_nlev, nshift, &
   &                                   mpi_type, src_is_blocked, dst_is_blocked)
