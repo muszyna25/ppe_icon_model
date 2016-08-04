@@ -304,10 +304,12 @@ CONTAINS
 
     ALLOCATE(p_pat%recv_limits(0:p_n_work))
 
-    p_pat%recv_limits(0) = 0
-    DO np = 0, p_n_work-1
-      p_pat%recv_limits(np+1) = p_pat%recv_limits(np) + icnt(np)
+    i = 0
+    DO np = 0, p_n_work - 1
+      p_pat%recv_limits(np) = i
+      i = i + icnt(np)
     ENDDO
+    p_pat%recv_limits(p_n_work) = i
 
     ! The last entry in recv_limits is the total number of points we receive
 
