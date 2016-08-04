@@ -42,8 +42,9 @@ USE yaxt, ONLY: xt_initialized, xt_initialize, xt_idxlist, xt_idxvec_new, &
   &             xt_redist_collection_new, xt_redist_s_exchange, &
   &             xt_xmap_get_num_sources, xt_xmap_get_num_destinations, &
   &             xt_xmap_get_source_ranks, xt_com_list, xt_redist_repeat_new
+  &             xt_mpi_comm_mark_exclusive
 USE mo_fortran_tools,        ONLY: t_ptr_3d, t_ptr_3d_sp
-USE iso_c_binding, ONLY: c_loc, c_ptr
+USE iso_c_binding, ONLY: c_loc, c_ptr, c_null_ptr
 USE mo_communication_types, ONLY: t_comm_pattern, t_p_comm_pattern, &
   & t_comm_pattern_collection
 
@@ -105,7 +106,7 @@ TYPE, EXTENDS(t_comm_pattern) :: t_comm_pattern_yaxt
 
     ! if anything is changed here, please ensure that the deep copy in
     ! setup_comm_pattern_collection still works correctly
-    INTEGER :: src_n_points, dst_n_points
+    INTEGER :: src_n_points, dst_n_points, comm = mpi_comm_null
     LOGICAL, ALLOCATABLE :: dst_mask(:)
     TYPE(xt_xmap) :: xmap
     TYPE(t_comm_pattern_redists) :: redists
@@ -306,7 +307,7 @@ END FUNCTION MY_IS_CONTIGUOUS_SP_4D
 SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
                               dst_global_index, send_glb2loc_index, &
                               src_n_points, src_owner, src_global_index, &
-                              inplace)
+                              inplace, comm)
 
    CLASS(t_comm_pattern_yaxt), INTENT(OUT) :: p_pat
    INTEGER, INTENT(IN)           :: dst_n_points        ! Total number of points
@@ -321,6 +322,7 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
    INTEGER, INTENT(IN)           :: src_global_index(:) ! Global index of every point
 
    LOGICAL, OPTIONAL, INTENT(IN) :: inplace
+   INTEGER, OPTIONAL, INTENT(in) :: comm
 
    TYPE(xt_idxlist) :: src_idxlist, dst_idxlist
    TYPE(xt_com_list), ALLOCATABLE :: src_com(:), dst_com(:)
@@ -331,11 +333,21 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
    INTEGER, ALLOCATABLE :: receive_indices(:), send_indices(:)
    INTEGER :: dst_indices_displ(0:p_n_work-1), src_indices_displ(0:p_n_work-1)
 
-   INTEGER :: i
-
+   INTEGER :: i, pcomm, ierror
+   CHARACTER(len=*), PARAMETER :: routine = modname//'::setup_comm_pattern'
 !-----------------------------------------------------------------------
 
    IF (.NOT. xt_initialized()) CALL xt_initialize(p_comm_work)
+
+   IF (PRESENT(comm)) THEN
+     pcomm = comm
+   ELSE
+     pcomm = p_comm_work
+   END IF
+   CALL mpi_comm_dup(pcomm, p_pat%comm, ierror)
+   IF (ierror /= mpi_success) &
+        CALL finish(routine, 'failed to duplicate communicator')
+   CALL xt_mpi_comm_mark_exclusive(p_pat%comm)
 
    dst_count_per_rank = 0
 
@@ -344,7 +356,7 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
          dst_count_per_rank(dst_owner(i)) = dst_count_per_rank(dst_owner(i)) + 1
    END DO
 
-   CALL p_alltoall(dst_count_per_rank, src_count_per_rank, p_comm_work)
+   CALL p_alltoall(dst_count_per_rank, src_count_per_rank, p_pat%comm)
 
    dst_count = SUM(dst_count_per_rank)
    src_count = SUM(src_count_per_rank)
@@ -374,7 +386,7 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
 
    CALL p_alltoallv(receive_indices, dst_count_per_rank, dst_indices_displ, &
       &             send_indices, src_count_per_rank, src_indices_displ, &
-      &             p_comm_work)
+      &             p_pat%comm)
 
    ALLOCATE(src_com(COUNT(src_count_per_rank > 0)), &
     &       dst_com(COUNT(dst_count_per_rank > 0)))
@@ -423,7 +435,7 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
 
    p_pat%xmap = xt_xmap_intersection_new(src_com_size, src_com, dst_com_size, &
       &                                  dst_com, src_idxlist, dst_idxlist, &
-      &                                  p_comm_work)
+      &                                  p_pat%comm)
    CALL xt_idxlist_delete(dst_idxlist)
    CALL xt_idxlist_delete(src_idxlist)
    DO i = 1, src_com_size
@@ -622,7 +634,7 @@ FUNCTION comm_pattern_get_redist(p_pat, nfields, nlev, mpi_type, &
     END DO
 
     p_pat%redists%p(n)%redist = &
-      xt_redist_collection_new(redists, nfields, -1, p_comm_work)
+      xt_redist_collection_new(redists, nfields, -1, p_pat%comm)
 
     DO i = 1, nfields
       CALL xt_redist_delete(redists(i))
@@ -737,8 +749,7 @@ FUNCTION comm_pattern_collection_get_redist(p_pat_coll, nfields, dst_nlev, &
   END DO
 
   p_pat_coll%redists%p(n)%redist = &
-    xt_redist_collection_new(redists, nfields * SIZE(p_pat_coll%patterns), &
-      &                      -1, p_comm_work)
+    xt_redist_collection_new(redists, -1, p_pat_coll%patterns(1)%p%comm)
 
   DO i = 1, nfields * SIZE(p_pat_coll%patterns)
     CALL xt_redist_delete(redists(i))
@@ -753,13 +764,15 @@ SUBROUTINE setup_comm_pattern_collection(pattern_collection, patterns)
   CLASS(t_comm_pattern_collection_yaxt), INTENT(OUT) :: pattern_collection
   TYPE(t_p_comm_pattern), INTENT(IN) :: patterns(:)
 
+  CHARACTER(len=*), PARAMETER :: &
+       routine = modname//'::setup_comm_pattern_collection'
   INTEGER :: i
 
   ALLOCATE(pattern_collection%patterns(SIZE(patterns)))
 
   DO i = 1, SIZE(patterns)
     SELECT TYPE (pattern_yaxt => patterns(i)%p)
-      TYPE is (t_comm_pattern_yaxt)
+      TYPE IS (t_comm_pattern_yaxt)
         pattern_collection%patterns(i)%p => pattern_yaxt
       CLASS DEFAULT
         CALL finish("setup_comm_pattern_collection", &
@@ -783,6 +796,7 @@ SUBROUTINE delete_comm_pattern(p_pat)
 
    CLASS(t_comm_pattern_yaxt), INTENT(INOUT) :: p_pat
 
+   CHARACTER(len=*), PARAMETER :: routine = modname//'::delete_comm_pattern'
    INTEGER :: i, n, ierror
 
    ! deallocate arrays
@@ -805,7 +819,11 @@ SUBROUTINE delete_comm_pattern(p_pat)
      DEALLOCATE(p_pat%redists%p)
    END IF
    CALL xt_xmap_delete(p_pat%xmap)
-
+   IF (p_pat%comm /= mpi_comm_null) THEN
+     CALL mpi_comm_free(p_pat%comm, ierror)
+     IF (ierror /= mpi_success) &
+       CALL finish(routine, 'failed to duplicate communicator')
+   END IF
 END SUBROUTINE delete_comm_pattern
 
 !-------------------------------------------------------------------------
@@ -816,12 +834,6 @@ SUBROUTINE delete_comm_pattern_collection(pattern_collection)
 
    INTEGER :: i, n
 
-   DO i = 1, SIZE(pattern_collection%patterns)
-     CALL pattern_collection%patterns(i)%p%delete()
-     DEALLOCATE(pattern_collection%patterns(i)%p)
-   END DO
-   DEALLOCATE(pattern_collection%patterns)
-
    IF (ALLOCATED(pattern_collection%redists%p)) THEN
      n = SIZE(pattern_collection%redists%p)
      DO i = 1, n
@@ -831,6 +843,12 @@ SUBROUTINE delete_comm_pattern_collection(pattern_collection)
      END DO
      DEALLOCATE(pattern_collection%redists%p)
    END IF
+
+   DO i = 1, SIZE(pattern_collection%patterns)
+     CALL pattern_collection%patterns(i)%p%delete()
+     DEALLOCATE(pattern_collection%patterns(i)%p)
+   END DO
+   DEALLOCATE(pattern_collection%patterns)
 
 END SUBROUTINE delete_comm_pattern_collection
 

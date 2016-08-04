@@ -216,8 +216,8 @@ CONTAINS
   !!
   SUBROUTINE setup_comm_pattern(dst_n_points, dst_owner, dst_global_index, &
                                 send_glb2loc_index, src_n_points, src_owner, &
-                                src_global_index, p_pat, inplace, opt_comm_type)
-
+                                src_global_index, p_pat, inplace, comm, &
+                                opt_comm_type)
     INTEGER, INTENT(IN) :: dst_n_points        ! Total number of points
     INTEGER, INTENT(IN) :: dst_owner(:)        ! Owner of every point
     INTEGER, INTENT(IN) :: dst_global_index(:) ! Global index of every point
@@ -234,7 +234,7 @@ CONTAINS
 
     LOGICAL, OPTIONAL, INTENT(IN) :: inplace
 
-    INTEGER, OPTIONAL, INTENT(IN) :: opt_comm_type
+    INTEGER, OPTIONAL, INTENT(IN) :: comm, opt_comm_type
 
     INTEGER :: comm_type
 
@@ -263,7 +263,7 @@ CONTAINS
 
     CALL p_pat%setup(dst_n_points, dst_owner, dst_global_index, &
                      send_glb2loc_index, src_n_points, src_owner, &
-                     src_global_index, inplace)
+                     src_global_index, inplace, comm)
 
   END SUBROUTINE setup_comm_pattern
 
@@ -271,7 +271,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
 
-SUBROUTINE setup_comm_pattern_collection(patterns, pattern_collection)
+  SUBROUTINE setup_comm_pattern_collection(patterns, pattern_collection)
 
     TYPE(t_p_comm_pattern), INTENT(IN) :: patterns(:)
     CLASS(t_comm_pattern_collection), POINTER :: pattern_collection

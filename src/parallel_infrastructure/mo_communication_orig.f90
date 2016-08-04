@@ -85,6 +85,9 @@ TYPE, EXTENDS(t_comm_pattern) :: t_comm_pattern_orig
    INTEGER :: np_recv ! Number of PEs from which data have to be received
    INTEGER :: np_send ! Number of PEs to which data have to be sent
 
+   !> which communicator to apply this pattern to
+   INTEGER :: comm
+
    ! "recv_limits":
    !
    ! All data that is received from PE np is buffered in the receive
@@ -245,7 +248,7 @@ CONTAINS
   SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
                                 dst_global_index, send_glb2loc_index, &
                                 src_n_points, src_owner, src_global_index, &
-                                inplace)
+                                inplace, comm)
 
     CLASS(t_comm_pattern_orig), INTENT(OUT) :: p_pat
 
@@ -261,12 +264,18 @@ CONTAINS
     INTEGER, INTENT(IN) :: src_global_index(:) ! Global index of every point
 
     LOGICAL, OPTIONAL, INTENT(IN) :: inplace
+    INTEGER, OPTIONAL, INTENT(in) :: comm
 
 
     INTEGER, ALLOCATABLE :: icnt(:), flag(:), global_recv_index(:), send_src(:), num_rcv(:)
     INTEGER :: i, n, np, nr, num_recv, irs, ire, num_send, iss, ise, max_glb
 
     !-----------------------------------------------------------------------
+    IF (PRESENT(comm)) THEN
+      p_pat%comm = comm
+    ELSE
+      p_pat%comm = p_comm_work
+    END IF
 
     ALLOCATE(icnt(0:p_n_work-1), num_rcv(0:p_n_work-1))
     max_glb = MAX(MAXVAL(ABS(dst_global_index(1:dst_n_points)), &
@@ -344,14 +353,14 @@ CONTAINS
     DO np = 0, p_n_work-1 ! loop over PEs where to send the data
       num_rcv(np) = p_pat%recv_limits(np+1) - p_pat%recv_limits(np)
       ! First send the number of points to be received
-      IF (np /= p_pe_work) CALL p_isend(num_rcv(np), np, 1, comm=p_comm_work)
+      IF (np /= p_pe_work) CALL p_isend(num_rcv(np), np, 1, comm=p_pat%comm)
     ENDDO
 
     ! Now, we receive the number of points are needed from us
     DO nr = 0, p_n_work-1
 
       IF(nr /= p_pe_work) THEN
-        CALL p_recv(icnt(nr), nr, 1,  comm=p_comm_work)
+        CALL p_recv(icnt(nr), nr, 1,  comm=p_pat%comm)
       ELSE
         icnt(nr) = num_rcv(nr)
       ENDIF
@@ -367,8 +376,8 @@ CONTAINS
       irs = p_pat%recv_limits(np)+1 ! Start index in global_recv_index
       ire = p_pat%recv_limits(np+1) ! End   index in global_recv_index
 
-      IF(num_rcv(np)>0) CALL p_isend(global_recv_index(irs), np, 1, &
-        p_count=ire-irs+1, comm=p_comm_work)
+      IF (num_rcv(np)>0) CALL p_isend(global_recv_index(irs), np, 1, &
+        &                             p_count=ire-irs+1, comm=p_pat%comm)
 
     ENDDO
 
@@ -398,7 +407,7 @@ CONTAINS
       ise = p_pat%send_limits(nr+1) ! End   index in send_src
       IF(nr /= p_pe_work) THEN
         IF(num_send>0) CALL p_recv(send_src(iss), nr, 1, &
-          p_count=ise-iss+1, comm=p_comm_work)
+          p_count=ise-iss+1, comm=p_pat%comm)
       ELSE
         IF(num_send>0) send_src(iss:ise) = global_recv_index(irs:ire)
       ENDIF
@@ -786,7 +795,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2
-        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ENDIF
@@ -843,7 +852,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
@@ -852,7 +861,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
 
@@ -861,7 +870,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2
-        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ELSE IF (iorder_sendrecv == 3) THEN ! use irecv/isend
@@ -870,7 +879,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ENDIF
@@ -1053,7 +1062,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2
-        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ENDIF
@@ -1110,7 +1119,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
@@ -1119,7 +1128,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
 
@@ -1128,7 +1137,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2
-        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ELSE IF (iorder_sendrecv == 3) THEN ! use irecv/isend
@@ -1137,7 +1146,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ENDIF
@@ -1457,7 +1466,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2
-        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ENDIF
@@ -1508,7 +1517,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
@@ -1517,7 +1526,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
 
@@ -1526,7 +1535,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2
-        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ELSE IF (iorder_sendrecv >= 3) THEN ! use irecv/isend
@@ -1535,7 +1544,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ENDIF
@@ -1678,7 +1687,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2tot
-        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ENDIF
@@ -1778,7 +1787,7 @@ CONTAINS
           pid    = p_pat%pelist_send(np) ! ID of sender PE
           iss    = p_pat%send_startidx(np)
           icount = p_pat%send_count(np)*ndim2tot
-          CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+          CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
         ENDDO
       ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
@@ -1787,7 +1796,7 @@ CONTAINS
           pid    = p_pat%pelist_send(np) ! ID of sender PE
           iss    = p_pat%send_startidx(np)
           icount = p_pat%send_count(np)*ndim2tot
-          CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+          CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
         ENDDO
 
@@ -1796,7 +1805,7 @@ CONTAINS
           pid    = p_pat%pelist_recv(np) ! ID of receiver PE
           irs    = p_pat%recv_startidx(np)
           icount = p_pat%recv_count(np)*ndim2tot
-          CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+          CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
         ENDDO
       ELSE IF (iorder_sendrecv == 3) THEN ! use isend/irecv
@@ -1805,7 +1814,7 @@ CONTAINS
           pid    = p_pat%pelist_send(np) ! ID of sender PE
           iss    = p_pat%send_startidx(np)
           icount = p_pat%send_count(np)*ndim2tot
-          CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+          CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
         ENDDO
       ENDIF
@@ -1953,10 +1962,10 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2tot_dp
-        IF (icount>0) CALL p_irecv(recv_buf_dp(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+        IF (icount>0) CALL p_irecv(recv_buf_dp(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
         icount = p_pat%recv_count(np)*ndim2tot_sp
-        IF (icount>0) CALL p_irecv(recv_buf_sp(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+        IF (icount>0) CALL p_irecv(recv_buf_sp(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ENDIF
@@ -2112,9 +2121,9 @@ CONTAINS
           pid    = p_pat%pelist_send(np) ! ID of sender PE
           iss    = p_pat%send_startidx(np)
           icount = p_pat%send_count(np)*ndim2tot_dp
-          IF (icount>0) CALL p_send(send_buf_dp(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+          IF (icount>0) CALL p_send(send_buf_dp(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
           icount = p_pat%send_count(np)*ndim2tot_sp
-          IF (icount>0) CALL p_send(send_buf_sp(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+          IF (icount>0) CALL p_send(send_buf_sp(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
         ENDDO
       ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
@@ -2123,9 +2132,9 @@ CONTAINS
           pid    = p_pat%pelist_send(np) ! ID of sender PE
           iss    = p_pat%send_startidx(np)
           icount = p_pat%send_count(np)*ndim2tot_dp
-          IF (icount>0) CALL p_isend(send_buf_dp(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+          IF (icount>0) CALL p_isend(send_buf_dp(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
           icount = p_pat%send_count(np)*ndim2tot_sp
-          IF (icount>0) CALL p_isend(send_buf_sp(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+          IF (icount>0) CALL p_isend(send_buf_sp(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
         ENDDO
 
@@ -2134,9 +2143,9 @@ CONTAINS
           pid    = p_pat%pelist_recv(np) ! ID of receiver PE
           irs    = p_pat%recv_startidx(np)
           icount = p_pat%recv_count(np)*ndim2tot_dp
-          IF (icount>0) CALL p_recv(recv_buf_dp(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+          IF (icount>0) CALL p_recv(recv_buf_dp(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
           icount = p_pat%recv_count(np)*ndim2tot_sp
-          IF (icount>0) CALL p_recv(recv_buf_sp(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+          IF (icount>0) CALL p_recv(recv_buf_sp(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
         ENDDO
       ELSE IF (iorder_sendrecv == 3) THEN ! use isend/irecv
@@ -2145,9 +2154,9 @@ CONTAINS
           pid    = p_pat%pelist_send(np) ! ID of sender PE
           iss    = p_pat%send_startidx(np)
           icount = p_pat%send_count(np)*ndim2tot_dp
-          IF (icount>0) CALL p_isend(send_buf_dp(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+          IF (icount>0) CALL p_isend(send_buf_dp(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
           icount = p_pat%send_count(np)*ndim2tot_sp
-          IF (icount>0) CALL p_isend(send_buf_sp(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+          IF (icount>0) CALL p_isend(send_buf_sp(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
         ENDDO
       ENDIF
@@ -2313,7 +2322,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2tot
-        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ENDIF
@@ -2362,7 +2371,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2tot
-        CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
@@ -2371,7 +2380,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2tot
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
 
@@ -2380,7 +2389,7 @@ CONTAINS
         pid    = p_pat%pelist_recv(np) ! ID of receiver PE
         irs    = p_pat%recv_startidx(np)
         icount = p_pat%recv_count(np)*ndim2tot
-        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ELSE IF (iorder_sendrecv == 3) THEN ! use isend/irecv
@@ -2389,7 +2398,7 @@ CONTAINS
         pid    = p_pat%pelist_send(np) ! ID of sender PE
         iss    = p_pat%send_startidx(np)
         icount = p_pat%send_count(np)*ndim2tot
-        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+        CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_pat%comm)
 
       ENDDO
     ENDIF
@@ -2633,7 +2642,7 @@ CONTAINS
 
         IF(isum > ioffset) &
           CALL p_irecv(auxr_buf(1,ioffset+1), pid, 1, p_count=(isum-ioffset)*ndim2tot, &
-          comm=p_comm_work)
+          comm=p_pat_coll%patterns(1)%p%comm)
         ioffset = isum
 
       ENDDO
@@ -2823,7 +2832,7 @@ CONTAINS
 #endif
 
           IF(isum > ioffset) CALL p_send(auxs_buf(1,ioffset+1), pid, 1,             &
-            p_count=(isum-ioffset)*ndim2tot, comm=p_comm_work)
+            p_count=(isum-ioffset)*ndim2tot, comm=p_pat_coll%patterns(1)%p%comm)
 
           ioffset = isum
 
@@ -2853,7 +2862,7 @@ CONTAINS
 !$ACC UPDATE HOST( auxs_buf ), IF ( i_am_accel_node .AND. acc_on )
 #endif
           IF(isum > ioffset) CALL p_isend(auxs_buf(1,ioffset+1), pid, 1,            &
-            p_count=(isum-ioffset)*ndim2tot, comm=p_comm_work)
+            p_count=(isum-ioffset)*ndim2tot, comm=p_pat_coll%patterns(1)%p%comm)
 
           ioffset = isum
 
@@ -2872,7 +2881,7 @@ CONTAINS
           ENDDO
 
           IF(isum > ioffset) CALL p_recv(auxr_buf(1,ioffset+1), pid, 1,             &
-            p_count=(isum-ioffset)*ndim2tot, comm=p_comm_work)
+            p_count=(isum-ioffset)*ndim2tot, comm=p_pat_coll%patterns(1)%p%comm)
 #ifndef __USE_G2G
 !$ACC UPDATE DEVICE( auxs_buf ), IF ( i_am_accel_node .AND. acc_on )
 #endif
@@ -2915,7 +2924,7 @@ CONTAINS
 #endif
 !$OMP MASTER
           IF(isum > ioffset) CALL p_isend(auxs_buf(1,ioffset+1), pid, 1,            &
-            p_count=(isum-ioffset)*ndim2tot, comm=p_comm_work)
+            p_count=(isum-ioffset)*ndim2tot, comm=p_pat_coll%patterns(1)%p%comm)
 !$OMP END MASTER
 
           ioffset = isum
@@ -3624,3 +3633,8 @@ CONTAINS
   END SUBROUTINE exchange_data_i1d_2d
 
 END MODULE mo_communication_orig
+!
+! Local Variables:
+! f90-continuation-indent: 2
+! End:
+!
