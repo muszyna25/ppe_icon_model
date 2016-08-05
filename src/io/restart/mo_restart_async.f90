@@ -188,14 +188,27 @@ MODULE mo_restart_async
 ! Fortran pointer to memory window (REAL*8)
   REAL(dp), POINTER :: mem_ptr_dp(:)
 
-  !------------------------------------------------------------------------------------------------
-  ! Broadcast root for intercommunicator broadcasts from compute PEs to restart PEs using
-  ! p_comm_work_2_restart.
-  INTEGER :: bcast_root
-
 #endif
 
 CONTAINS
+
+#ifndef NOMPI
+  ! Broadcast root for intercommunicator broadcasts from compute PEs to restart PEs using p_comm_work_2_restart.
+  INTEGER FUNCTION bcastRoot() RESULT(RESULT)
+    IF(my_process_is_restart()) THEN
+        ! root is proc 0 on the compute PEs
+        RESULT = 0
+    ELSE
+        ! Special root setting for intercommunicators:
+        ! The PE really sending must use MPI_ROOT, the others MPI_PROC_NULL.
+        IF(p_pe_work == 0) THEN
+            RESULT = MPI_ROOT
+        ELSE
+            RESULT = MPI_PROC_NULL
+        END IF
+    END IF
+  END FUNCTION bcastRoot
+#endif
 
   !------------------------------------------------------------------------------------------------
   !
@@ -220,26 +233,12 @@ CONTAINS
 
     IF(.NOT. (my_process_is_work() .OR. my_process_is_restart())) RETURN
 
-    ! set broadcast root for intercommunicator broadcasts
-    IF(my_process_is_restart()) THEN
-      ! root is proc 0 on the compute PEs
-      bcast_root = 0
-    ELSE
-      ! Special root setting for intercommunicators:
-      ! The PE really sending must use MPI_ROOT, the others MPI_PROC_NULL.
-      IF(p_pe_work == 0) THEN
-        bcast_root = MPI_ROOT
-      ELSE
-        bcast_root = MPI_PROC_NULL
-      ENDIF
-    ENDIF
-
     ! transfer restart varlists
     CALL transfer_restart_var_lists
 
     ! transfer restart namelists
 !    CALL RestartNamelist_bcast(0, p_comm_work)
-    CALL RestartNamelist_bcast(bcast_root, p_comm_work_2_restart)
+    CALL RestartNamelist_bcast(bcastRoot(), p_comm_work_2_restart)
 
     ! create and transfer patch data
     me%patch_data = create_and_transfer_patch_data()
@@ -980,7 +979,7 @@ CONTAINS
 
     CALL message%construct()
     IF(.NOT.my_process_is_restart()) CALL restartVarlistPacker(kPackOp, message)
-    CALL message%bcast(bcast_root, p_comm_work_2_restart)
+    CALL message%bcast(bcastRoot(), p_comm_work_2_restart)
     IF(my_process_is_restart()) CALL restartVarlistPacker(kUnpackOp, message)
     CALL message%destruct()
   END SUBROUTINE transfer_restart_var_lists
@@ -1000,7 +999,7 @@ CONTAINS
     END IF
 
     ! transfer data to restart PEs
-    CALL message%bcast(bcast_root, p_comm_work_2_restart)
+    CALL message%bcast(bcastRoot(), p_comm_work_2_restart)
     CALL description%packer(kUnpackOp, message)
 
     ! initialize the fields that we DO NOT communicate from the worker PEs to the restart PEs
@@ -1047,7 +1046,7 @@ CONTAINS
 #endif
 
     ! replicate domain setup
-    CALL p_bcast(n_dom, bcast_root, p_comm_work_2_restart)
+    CALL p_bcast(n_dom, bcastRoot(), p_comm_work_2_restart)
 
     ! allocate patch data structure
     ALLOCATE(RESULT(n_dom), STAT=ierrstat)
@@ -1267,7 +1266,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':transfer_reorder_data'
 
     ! transfer the global number of points, this is not yet known on restart PEs
-    CALL p_bcast(reo%n_glb,  bcast_root, p_comm_work_2_restart)
+    CALL p_bcast(reo%n_glb,  bcastRoot(), p_comm_work_2_restart)
 
     IF(my_process_is_restart()) THEN
 
@@ -1285,9 +1284,9 @@ CONTAINS
       IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
     ENDIF
 
-    CALL p_bcast(reo%pe_own, bcast_root, p_comm_work_2_restart)
-    CALL p_bcast(reo%pe_off, bcast_root, p_comm_work_2_restart)
-    CALL p_bcast(reo%reorder_index, bcast_root, p_comm_work_2_restart)
+    CALL p_bcast(reo%pe_own, bcastRoot(), p_comm_work_2_restart)
+    CALL p_bcast(reo%pe_off, bcastRoot(), p_comm_work_2_restart)
+    CALL p_bcast(reo%reorder_index, bcastRoot(), p_comm_work_2_restart)
 
   END SUBROUTINE transfer_reorder_data
 
@@ -1355,7 +1354,7 @@ CONTAINS
         CALL check_mpi_error(routine, 'MPI_Allgather', mpi_error, .TRUE.)
       ENDIF
 
-      CALL p_bcast(patch_data(i)%commData%mem_win_off, bcast_root, p_comm_work_2_restart)
+      CALL p_bcast(patch_data(i)%commData%mem_win_off, bcastRoot(), p_comm_work_2_restart)
 
     ENDDO
 
