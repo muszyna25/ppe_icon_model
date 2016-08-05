@@ -22,6 +22,7 @@
 MODULE mo_async_restart
   USE mo_async_restart_packer,    ONLY: t_AsyncRestartPacker, restartBcastRoot
   USE mo_async_restart_comm_data, ONLY: t_AsyncRestartCommData
+  USE mo_cdi_constants,           ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
   USE mo_exception,               ONLY: finish
   USE mo_fortran_tools,           ONLY: t_ptr_2d
   USE mo_kind,                    ONLY: wp, i8, dp
@@ -289,9 +290,21 @@ CONTAINS
 
     ! initialize the patch data structures
     DO jg = 1, n_dom
+        ! construct the subobjects
         CALL create_patch_description(me%patch_data(jg)%description, jg)
         CALL me%patch_data(jg)%restart_file%construct(jg)
         CALL me%patch_data(jg)%commData%construct(jg, me%patch_data(jg)%restart_file%var_data)
+
+        ! consistency checks
+        IF(me%patch_data(jg)%description%n_patch_cells_g /= me%patch_data(jg)%commData%cells%n_glb) THEN
+            CALL finish(routine, "assertion failed: mismatch of global cell count")
+        END IF
+        IF(me%patch_data(jg)%description%n_patch_verts_g /= me%patch_data(jg)%commData%verts%n_glb) THEN
+            CALL finish(routine, "assertion failed: mismatch of global vert count")
+        END IF
+        IF(me%patch_data(jg)%description%n_patch_edges_g /= me%patch_data(jg)%commData%edges%n_glb) THEN
+            CALL finish(routine, "assertion failed: mismatch of global edge count")
+        END IF
     END DO
 #endif
   END SUBROUTINE restartDescriptor_construct
@@ -1101,7 +1114,7 @@ CONTAINS
     TYPE(t_AsyncRestartPacker), POINTER   :: p_ri
     TYPE(t_var_data), POINTER       :: p_vars(:)
 
-    INTEGER                         :: iv, nval, ierrstat, nlevs, ilev
+    INTEGER                         :: iv, nval, ierrstat, nlevs, ilev, pointCount
     INTEGER(KIND=MPI_ADDRESS_KIND)  :: ioff(0:num_work_procs-1)
     REAL(dp), ALLOCATABLE           :: buffer(:,:)
     INTEGER                         :: ichunk, nchunks, chunk_start, chunk_end
@@ -1160,7 +1173,9 @@ CONTAINS
       ENDIF
 
       ! get pointer to reorder data
-      p_ri => p_pd%commData%getPacker(p_info%hgrid, routine)
+      IF(p_info%hgrid == GRID_UNSTRUCTURED_CELL) pointCount = p_pd%description%n_patch_cells_g
+      IF(p_info%hgrid == GRID_UNSTRUCTURED_VERT) pointCount = p_pd%description%n_patch_verts_g
+      IF(p_info%hgrid == GRID_UNSTRUCTURED_EDGE) pointCount = p_pd%description%n_patch_edges_g
 
       ! no. of chunks of levels (each of size "restart_chunk_size"):
       nchunks = (nlevs-1)/restart_chunk_size + 1
@@ -1174,15 +1189,14 @@ CONTAINS
         t_write = t_write - p_mpi_wtime()
         DO ilev=chunk_start, chunk_end
           CALL streamWriteVarSlice(p_rf%cdiIds%file, p_info%cdiVarID, (ilev-1), buffer(:, ilev - chunk_start + 1), 0)
-          bytesWrite = bytesWrite + p_ri%n_glb*8
+          bytesWrite = bytesWrite + pointCount*8
         END DO
         t_write = t_write + p_mpi_wtime()
 
       ENDDO LEVELS
 
 #ifdef DEBUG
-      WRITE (nerr,FORMAT_VALS7I)routine,' p_pe=',p_pe,' restart pe writes field=', &
-        &                               TRIM(p_info%name),' data=',p_ri%n_glb*nlevs
+      WRITE(nerr, FORMAT_VALS7I)routine, ' p_pe=', p_pe, ' restart pe writes field=', TRIM(p_info%name), ' data=', pointCount*nlevs
 #endif
     ENDDO VAR_LOOP
 
@@ -1277,7 +1291,6 @@ CONTAINS
     TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
 
     TYPE(t_restart_patch_description), POINTER :: description
-    TYPE(t_AsyncRestartCommData), POINTER :: commData
     TYPE(t_restart_file), POINTER :: p_rf
     TYPE(t_var_list), POINTER     :: p_re_list
     INTEGER                       :: restart_type, i
@@ -1319,15 +1332,15 @@ CONTAINS
 
     p_rf%filename = getRestartFilename(description%base_filename, description%id, restart_args%datetime, p_rf%model_type)
 
-    commData => p_pd%commData
     IF(ALLOCATED(description%opt_pvct)) THEN
-        CALL p_rf%cdiIds%openRestartAndCreateIds(TRIM(p_rf%filename), restart_type, restartAttributes, commData%cells%n_glb, &
-                                                &commData%verts%n_glb, commData%edges%n_glb, description%cell_type, &
-                                                &description%v_grid_defs(1:description%v_grid_count), &
-                                                &description%opt_pvct)
+        CALL p_rf%cdiIds%openRestartAndCreateIds(TRIM(p_rf%filename), restart_type, restartAttributes, &
+                                                &description%n_patch_cells_g, description%n_patch_verts_g, &
+                                                &description%n_patch_edges_g, description%cell_type, &
+                                                &description%v_grid_defs(1:description%v_grid_count), description%opt_pvct)
     ELSE
-        CALL p_rf%cdiIds%openRestartAndCreateIds(TRIM(p_rf%filename), restart_type, restartAttributes, commData%cells%n_glb, &
-                                                &commData%verts%n_glb, commData%edges%n_glb, description%cell_type, &
+        CALL p_rf%cdiIds%openRestartAndCreateIds(TRIM(p_rf%filename), restart_type, restartAttributes, &
+                                                &description%n_patch_cells_g, description%n_patch_verts_g, &
+                                                &description%n_patch_edges_g, description%cell_type, &
                                                 &description%v_grid_defs(1:description%v_grid_count))
     END IF
 
