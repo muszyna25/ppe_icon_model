@@ -20,11 +20,14 @@ MODULE mo_util_restart
     USE mo_cdi_constants, ONLY: ZA_HYBRID, ZA_HYBRID_HALF, ZA_LAKE_BOTTOM, ZA_MIX_LAYER, ZA_LAKE_BOTTOM_HALF, &
                               & ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_COUNT, cdi_zaxis_types, GRID_UNSTRUCTURED_CELL, &
                               & GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_COUNT
+    USE mo_cf_convention, ONLY: cf_global_info
+    USE mo_datetime, ONLY: t_datetime, iso8601extended
     USE mo_impl_constants, ONLY: SUCCESS, MAX_CHAR_LENGTH
     USE mo_io_restart_attributes, ONLY: t_RestartAttributeList
     USE mo_io_restart_namelist, ONLY: RestartNamelist_writeToFile
     USE mo_kind, ONLY: wp
     USE mo_util_cdi, ONLY: cdiGetStringError
+    USE mo_util_string, ONLY: int2string
     USE mo_var_metadata_types, ONLY: t_var_metadata
 
     IMPLICIT NONE
@@ -34,6 +37,9 @@ MODULE mo_util_restart
     PUBLIC :: t_v_grid
     PUBLIC :: t_restart_cdi_ids
 
+    PUBLIC :: setGeneralRestartAttributes
+    PUBLIC :: setDynamicPatchRestartAttributes
+    PUBLIC :: setPhysicsRestartAttributes
     PUBLIC :: openRestartAndCreateIds
     PUBLIC :: defineVariable
     PUBLIC :: closeAndDestroyIds
@@ -60,6 +66,73 @@ MODULE mo_util_restart
     CHARACTER(LEN = *), PARAMETER :: modname = "mo_util_restart"
 
 CONTAINS
+
+    SUBROUTINE setGeneralRestartAttributes(restartAttributes, datetime, n_dom, jstep, opt_output_jfile)
+        TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
+        TYPE(t_datetime), INTENT(IN) :: datetime
+        INTEGER, VALUE :: n_dom, jstep
+        INTEGER, OPTIONAL, INTENT(IN) :: opt_output_jfile(:)
+
+        INTEGER :: i
+
+        ! set CF-Convention required restart attributes
+        CALL restartAttributes%setText('title',       TRIM(cf_global_info%title))
+        CALL restartAttributes%setText('institution', TRIM(cf_global_info%institution))
+        CALL restartAttributes%setText('source',      TRIM(cf_global_info%source))
+        CALL restartAttributes%setText('history',     TRIM(cf_global_info%history))
+        CALL restartAttributes%setText('references',  TRIM(cf_global_info%references))
+        CALL restartAttributes%setText('comment',     TRIM(cf_global_info%comment))
+
+        CALL restartAttributes%setReal( 'current_caltime', datetime%caltime )
+        CALL restartAttributes%setInteger( 'current_calday' , INT(datetime%calday) )   !FIXME: Either it IS a bug that calday IS a 64bit INTEGER, OR it IS a bug that ONLY 32 bit of it are stored IN the restart file. Either way this needs to be fixed.
+        CALL restartAttributes%setReal( 'current_daysec' , datetime%daysec )
+        CALL restartAttributes%setText('tc_startdate', iso8601extended(datetime))   ! in preparation for move to mtime
+
+        ! no. of domains AND simulation step
+        CALL restartAttributes%setInteger( 'n_dom', n_dom)
+        CALL restartAttributes%setInteger( 'jstep', jstep )
+
+        IF (PRESENT(opt_output_jfile)) THEN
+            DO i = 1, SIZE(opt_output_jfile)
+                CALL restartAttributes%setInteger('output_jfile_'//TRIM(int2string(i, '(i2.2)')), opt_output_jfile(i) )
+            END DO
+        END IF
+    END SUBROUTINE setGeneralRestartAttributes
+
+    SUBROUTINE setDynamicPatchRestartAttributes(restartAttributes, jg, nold, nnow, nnew, nnow_rcf, nnew_rcf)
+        TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
+        INTEGER, VALUE :: jg, nold, nnow, nnew, nnow_rcf, nnew_rcf
+
+        CHARACTER(LEN = 2) :: jgString
+
+        jgString = TRIM(int2string(jg, "(i2.2)"))
+
+        CALL restartAttributes%setInteger('nold_DOM'//jgString, nold)
+        CALL restartAttributes%setInteger('nnow_DOM'//jgString, nnow)
+        CALL restartAttributes%setInteger('nnew_DOM'//jgString, nnew)
+        CALL restartAttributes%setInteger('nnow_rcf_DOM'//jgString, nnow_rcf)
+        CALL restartAttributes%setInteger('nnew_rcf_DOM'//jgString, nnew_rcf)
+    END SUBROUTINE setDynamicPatchRestartAttributes
+
+    SUBROUTINE setPhysicsRestartAttributes(restartAttributes, jg, t_elapsed_phy, lcall_phy)
+        TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
+        INTEGER, VALUE :: jg
+        REAL(wp), INTENT(IN) :: t_elapsed_phy(:)
+        LOGICAL, INTENT(IN) :: lcall_phy(:)
+
+        INTEGER :: i
+        CHARACTER(LEN = :), ALLOCATABLE :: prefix
+
+        prefix = 't_elapsed_phy_DOM'//TRIM(int2string(jg, "(i2.2)"))//'_PHY'
+        DO i = 1, SIZE(t_elapsed_phy)
+            CALL restartAttributes%setReal(prefix//TRIM(int2string(i, '(i2.2)')), t_elapsed_phy(i) )
+        END DO
+
+        prefix = 'lcall_phy_DOM'//TRIM(int2string(jg, "(i2.2)"))//'_PHY'
+        DO i = 1, SIZE(lcall_phy)
+            CALL restartAttributes%setLogical(prefix//TRIM(int2string(i, '(i2.2)')), lcall_phy(i) )
+        END DO
+    END SUBROUTINE setPhysicsRestartAttributes
 
     ! Creates a horizontal grid definition from the given parameters, returns the new CDI gridId.
     INTEGER FUNCTION create_cdi_hgrid_def(iCnt, iNVert, cNameX, cLNameX, cUnitsX, &

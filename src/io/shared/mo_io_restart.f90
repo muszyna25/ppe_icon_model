@@ -79,7 +79,8 @@ MODULE mo_io_restart
                                     & GRID_UNSTRUCTURED_COUNT
   USE mo_cf_convention,         ONLY: cf_global_info
   USE mo_util_restart,          ONLY: t_v_grid, t_restart_cdi_ids, closeAndDestroyIds, set_vertical_grid, &
-                                    & openRestartAndCreateIds, defineVariable
+                                    & openRestartAndCreateIds, defineVariable, setGeneralRestartAttributes, &
+                                    & setDynamicPatchRestartAttributes, setPhysicsRestartAttributes
   USE mo_util_string,           ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                 int2string, separator, toCharacter
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink, util_unlink
@@ -87,7 +88,7 @@ MODULE mo_io_restart
   USE mo_util_uuid,             ONLY: t_uuid
   USE mo_io_restart_namelist,   ONLY: read_and_bcast_restart_namelists
   USE mo_io_restart_attributes, ONLY: t_RestartAttributeList, RestartAttributeList_make, setRestartAttributes
-  USE mo_datetime,              ONLY: t_datetime,iso8601,iso8601extended
+  USE mo_datetime,              ONLY: t_datetime, iso8601
   USE mo_run_config,            ONLY: ltimer, restart_filename
   USE mo_timer,                 ONLY: timer_start, timer_stop,                      &
     &                                 timer_write_restart_file
@@ -300,56 +301,20 @@ CONTAINS
     REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time, opt_t_elapsed_phy(:,:)
     LOGICAL , INTENT(IN), OPTIONAL :: opt_lcall_phy(:,:)
 
-    INTEGER :: i, jg
+    INTEGER :: i, jg, effectiveDomainCount
     CHARACTER(LEN = 2) :: jgString
     CHARACTER(LEN = :), ALLOCATABLE :: prefix
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":defineRestartAttributes"
 
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    ! First the attributes that are independent of the domain !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! first the attributes that are independent of the domain
+    effectiveDomainCount = 1
+    IF(PRESENT(opt_ndom)) effectiveDomainCount = opt_ndom
+    CALL setGeneralRestartAttributes(restartAttributes, datetime, effectiveDomainCount, jstep, opt_output_jfile)
 
-    ! set CF-Convention required restart attributes
-    CALL restartAttributes%setText('title',       TRIM(cf_global_info%title))
-    CALL restartAttributes%setText('institution', TRIM(cf_global_info%institution))
-    CALL restartAttributes%setText('source',      TRIM(cf_global_info%source))
-    CALL restartAttributes%setText('history',     TRIM(cf_global_info%history))
-    CALL restartAttributes%setText('references',  TRIM(cf_global_info%references))
-    CALL restartAttributes%setText('comment',     TRIM(cf_global_info%comment))
-
-    CALL restartAttributes%setReal( 'current_caltime', datetime%caltime )
-    CALL restartAttributes%setInteger( 'current_calday' , INT(datetime%calday) )   !FIXME: Either it IS a bug that calday IS a 64bit INTEGER, OR it IS a bug that ONLY 32 bit of it are stored IN the restart file. Either way this needs to be fixed.
-    CALL restartAttributes%setReal( 'current_daysec' , datetime%daysec )
-
-    ! set no. of domains
-    IF (PRESENT(opt_ndom)) THEN
-        CALL restartAttributes%setInteger( 'n_dom', opt_ndom)
-    ELSE
-        CALL restartAttributes%setInteger( 'n_dom', 1)
-    END IF
-
-    ! set simulation step
-    CALL restartAttributes%setInteger( 'jstep', jstep )
-    ! in preparation for move to mtime
-    CALL restartAttributes%setText('tc_startdate', iso8601extended(datetime))
-
-    IF (PRESENT(opt_output_jfile)) THEN
-        DO i = 1, SIZE(opt_output_jfile)
-            CALL restartAttributes%setInteger('output_jfile_'//TRIM(int2string(i, '(i2.2)')), opt_output_jfile(i) )
-        END DO
-    END IF
-
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    ! Now the stuff that depends on the domain !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! now the stuff that depends on the domain
     DO jg = 1, n_dom
         jgString = TRIM(int2string(jg, "(i2.2)"))
-
-        CALL restartAttributes%setInteger( 'nold_DOM'//jgString, nold(jg))
-        CALL restartAttributes%setInteger( 'nnow_DOM'//jgString, nnow(jg))
-        CALL restartAttributes%setInteger( 'nnew_DOM'//jgString, nnew(jg))
-        CALL restartAttributes%setInteger( 'nnow_rcf_DOM'//jgString, nnow_rcf(jg))
-        CALL restartAttributes%setInteger( 'nnew_rcf_DOM'//jgString, nnew_rcf(jg))
+        CALL setDynamicPatchRestartAttributes(restartAttributes, jg, nold(jg), nnow(jg), nnew(jg), nnow_rcf(jg), nnew_rcf(jg))
 
         !----------------
         ! additional restart-output for nonhydrostatic model
@@ -367,15 +332,7 @@ CONTAINS
                                                                                    &opt_jstep_adv_marchuk_order)
 
         IF (PRESENT(opt_t_elapsed_phy) .AND. PRESENT(opt_lcall_phy)) THEN
-            prefix = 't_elapsed_phy_DOM'//jgString//'_PHY'
-            DO i = 1, SIZE(opt_t_elapsed_phy, 2)
-                CALL restartAttributes%setReal(prefix//TRIM(int2string(i, '(i2.2)')), opt_t_elapsed_phy(jg, i) )
-            END DO
-
-            prefix = 'lcall_phy_DOM'//jgString//'_PHY'
-            DO i = 1, SIZE(opt_lcall_phy, 2)
-                CALL restartAttributes%setLogical(prefix//TRIM(int2string(i, '(i2.2)')), opt_lcall_phy(jg, i) )
-            END DO
+            CALL setPhysicsRestartAttributes(restartAttributes, jg, opt_t_elapsed_phy(jg,:), opt_lcall_phy(jg,:))
         ENDIF
     END DO
   END SUBROUTINE defineRestartAttributes
