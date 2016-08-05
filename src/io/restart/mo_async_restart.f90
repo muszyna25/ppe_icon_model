@@ -93,6 +93,9 @@ MODULE mo_async_restart
   ! combine the DATA that describes a patch for restart purposes with the infos required for the asynchronous fetching of the DATA from the compute PEs
   TYPE, EXTENDS(t_RestartPatchData) :: t_AsyncPatchData
     TYPE(t_AsyncRestartCommData) :: commData
+  CONTAINS
+    PROCEDURE :: construct => asyncPatchData_construct  ! override
+    PROCEDURE :: destruct => asyncPatchData_destruct  ! override
   END TYPE t_AsyncPatchData
 
   ! This IS the actual INTERFACE to the restart writing code (apart from the restart_main_proc PROCEDURE). Its USE IS as follows:
@@ -105,13 +108,12 @@ MODULE mo_async_restart
   !
   ! Finally, destruct() must be called to signal the restart PEs to finish their work, AND to wait for them to stop.
   TYPE, EXTENDS(t_RestartDescriptor) :: t_AsyncRestartDescriptor
-    TYPE(t_AsyncPatchData), ALLOCATABLE :: patch_data(:)
     CHARACTER(:), ALLOCATABLE :: modelType
   CONTAINS
-    PROCEDURE :: construct => asyncRestartDescriptor_construct
-    PROCEDURE :: updatePatch => asyncRestartDescriptor_updatePatch
-    PROCEDURE :: writeRestart => asyncRestartDescriptor_writeRestart
-    PROCEDURE :: destruct => asyncRestartDescriptor_destruct
+    PROCEDURE :: construct => asyncRestartDescriptor_construct  ! override
+    PROCEDURE :: updatePatch => asyncRestartDescriptor_updatePatch  ! override
+    PROCEDURE :: writeRestart => asyncRestartDescriptor_writeRestart    ! override
+    PROCEDURE :: destruct => asyncRestartDescriptor_destruct    ! override
 
     ! methods called ONLY by the restart processes
     PROCEDURE, PRIVATE :: restartWriteAsyncRestart => asyncRestartDescriptor_restartWriteAsyncRestart
@@ -119,10 +121,46 @@ MODULE mo_async_restart
 
 CONTAINS
 
-  !------------------------------------------------------------------------------------------------
-  !
-  ! public routines
-  !
+  SUBROUTINE asyncPatchData_construct(me, modelType, domain)
+    CLASS(t_AsyncPatchData), INTENT(INOUT) :: me
+    CHARACTER(*), INTENT(IN) :: modelType
+    INTEGER, INTENT(IN) :: domain
+
+    CHARACTER(*), PARAMETER :: routine = modname//":asyncPatchData_construct"
+
+    CALL create_patch_description(me%description, domain)
+    me%varData => createRestartVarData(domain, modelType, me%restartType)
+    CALL me%commData%construct(domain, me%varData)
+
+    ! consistency checks
+    IF(me%description%n_patch_cells_g /= me%commData%cells%n_glb) THEN
+        CALL finish(routine, "assertion failed: mismatch of global cell count")
+    END IF
+    IF(me%description%n_patch_verts_g /= me%commData%verts%n_glb) THEN
+        CALL finish(routine, "assertion failed: mismatch of global vert count")
+    END IF
+    IF(me%description%n_patch_edges_g /= me%commData%edges%n_glb) THEN
+        CALL finish(routine, "assertion failed: mismatch of global edge count")
+    END IF
+  END SUBROUTINE asyncPatchData_construct
+
+  SUBROUTINE asyncPatchData_destruct(me)
+    CLASS(t_AsyncPatchData), INTENT(INOUT) :: me
+
+    CALL me%commData%destruct()
+  END SUBROUTINE asyncPatchData_destruct
+
+  FUNCTION toAsyncPatchData(patchData) RESULT(RESULT)
+    CLASS(t_RestartPatchData), TARGET :: patchData
+    TYPE(t_AsyncPatchData), POINTER :: RESULT
+
+    RESULT => NULL()
+    SELECT TYPE(patchData)
+        TYPE IS(t_AsyncPatchData)
+            RESULT => patchData
+    END SELECT
+  END FUNCTION toAsyncPatchData
+
   !------------------------------------------------------------------------------------------------
   !
   !> Prepare the asynchronous restart (collective call).
@@ -150,26 +188,12 @@ CONTAINS
     CALL namelists%bcast(restartBcastRoot(), p_comm_work_2_restart)
 
     ! allocate patch data structure
-    ALLOCATE(me%patch_data(n_dom), STAT = error)
+    ALLOCATE(t_AsyncPatchData :: me%patchData(n_dom), STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 
     ! initialize the patch data structures
     DO jg = 1, n_dom
-        ! construct the subobjects
-        CALL create_patch_description(me%patch_data(jg)%description, jg)
-        me%patch_data(jg)%varData => createRestartVarData(jg, me%modelType, me%patch_data(jg)%restartType)
-        CALL me%patch_data(jg)%commData%construct(jg, me%patch_data(jg)%varData)
-
-        ! consistency checks
-        IF(me%patch_data(jg)%description%n_patch_cells_g /= me%patch_data(jg)%commData%cells%n_glb) THEN
-            CALL finish(routine, "assertion failed: mismatch of global cell count")
-        END IF
-        IF(me%patch_data(jg)%description%n_patch_verts_g /= me%patch_data(jg)%commData%verts%n_glb) THEN
-            CALL finish(routine, "assertion failed: mismatch of global vert count")
-        END IF
-        IF(me%patch_data(jg)%description%n_patch_edges_g /= me%patch_data(jg)%commData%edges%n_glb) THEN
-            CALL finish(routine, "assertion failed: mismatch of global edge count")
-        END IF
+        CALL me%patchData(jg)%construct(me%modelType, jg)
     END DO
 #endif
   END SUBROUTINE asyncRestartDescriptor_construct
@@ -193,20 +217,14 @@ CONTAINS
     INTEGER :: jg
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":asyncRestartDescriptor_updatePatch"
 
-#ifdef NOMPI
-    CALL finish(routine, ASYNC_RESTART_REQ_MPI)
-#else
-    IF(my_process_is_work()) THEN
-        jg = patch%id
-        IF(jg < 1 .OR. jg > SIZE(me%patch_data)) CALL finish(routine, "assertion failed: patch id IS OUT of range")
-        IF(me%patch_data(jg)%description%id /= jg) CALL finish(routine, "assertion failed: patch id doesn't match its array index")
-        CALL me%patch_data(jg)%description%update(patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &
-                                                 &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth_lnd, &
-                                                 &opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels, &
-                                                 &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces)
-    END IF
-#endif
-
+    IF(.NOT.my_process_is_work()) CALL finish(routine, "assertion failed")
+    jg = patch%id
+    IF(jg < 1 .OR. jg > SIZE(me%patchData)) CALL finish(routine, "assertion failed: patch id IS OUT of range")
+    IF(me%patchData(jg)%description%id /= jg) CALL finish(routine, "assertion failed: patch id doesn't match its array index")
+    CALL me%patchData(jg)%description%update(patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &
+                                             &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth_lnd, &
+                                             &opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels, &
+                                             &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces)
   END SUBROUTINE asyncRestartDescriptor_updatePatch
 
   !------------------------------------------------------------------------------------------------
@@ -236,55 +254,64 @@ CONTAINS
 
     CALL compute_wait_for_restart()
     CALL restart_args%construct(datetime, jstep, me%modelType, opt_output_jfile)
-    CALL compute_start_restart(restart_args, me%patch_data)
+    CALL compute_start_restart(restart_args, me%patchData)
     CALL restart_args%destruct()
 
     ! do the restart output
-    DO idx = 1, SIZE(me%patch_data)
+    DO idx = 1, SIZE(me%patchData)
       ! collective call to write the restart variables
-      IF(me%patch_data(idx)%description%l_dom_active) CALL compute_write_var_list(me%patch_data(idx))
+      IF(me%patchData(idx)%description%l_dom_active) CALL compute_write_var_list(me%patchData(idx))
     END DO
 #endif
   END SUBROUTINE asyncRestartDescriptor_writeRestart
 
 #ifndef NOMPI
-  SUBROUTINE restart_write_patch(restart_args, patch_data, restartAttributes, modelType)
+  SUBROUTINE restart_write_patch(restart_args, patchData, restartAttributes, modelType)
     TYPE(t_restart_args), INTENT(IN) :: restart_args
-    TYPE(t_AsyncPatchData), INTENT(INOUT) :: patch_data
+    CLASS(t_RestartPatchData), INTENT(INOUT) :: patchData
     TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
     CHARACTER(*), INTENT(IN) :: modelType
 
+    TYPE(t_AsyncPatchData), POINTER :: asyncPatchData
     TYPE(t_RestartFile) :: restartFile
+    CHARACTER(*), PARAMETER :: routine = modname//":restart_write_patch"
 #ifdef DEBUG
     TYPE(t_NamelistArchive), POINTER :: namelists
     namelists => namelistArchive()
 #endif
 
-    ! check if the patch is actice
-    IF(.NOT. patch_data%description%l_dom_active) RETURN
+    ! dynamic downcast of patchData argument
+    asyncPatchData => toAsyncPatchData(patchData)
+    IF(.NOT.ASSOCIATED(asyncPatchData)) CALL finish(routine, "assertion failed: wrong type of patchData")
+
+    ! check if the patch is active
+    IF(.NOT. asyncPatchData%description%l_dom_active) RETURN
 
     ! consider the right restart process
-    IF(p_pe == patch_data%description%restart_proc_id) THEN
+    IF(p_pe == asyncPatchData%description%restart_proc_id) THEN
         ! set global restart attributes/lists
-        CALL patch_data%description%defineVGrids()
+        CALL asyncPatchData%description%defineVGrids()
 
 #ifdef DEBUG
         CALL print_restart_arguments()
         CALL restartAttributes%printAttributes()
         CALL namelists%print()
 #endif
-        IF(ASSOCIATED(patch_data%varData)) THEN ! no restart variables => no restart file
-            CALL restartFile%open(patch_data%description, patch_data%varData, restart_args, restartAttributes, patch_data%restartType)
+        IF(ASSOCIATED(asyncPatchData%varData)) THEN ! no restart variables => no restart file
+            CALL restartFile%open(asyncPatchData%description, asyncPatchData%varData, restart_args, restartAttributes, &
+                                 &asyncPatchData%restartType)
 
             ! collective call to write the restart variables
-            CALL restart_write_var_list(patch_data, restartFile)
-            IF(ALLOCATED(patch_data%description%opt_ndom)) THEN
+            CALL restart_write_var_list(asyncPatchData, restartFile)
+            IF(ALLOCATED(asyncPatchData%description%opt_ndom)) THEN
                 CALL create_restart_file_link(TRIM(restartFile%filename), modelType, &
-                                             &patch_data%description%restart_proc_id - p_restart_pe0, patch_data%description%id, &
-                                             &opt_ndom = patch_data%description%opt_ndom)
+                                             &asyncPatchData%description%restart_proc_id - p_restart_pe0, &
+                                             &asyncPatchData%description%id, &
+                                             &opt_ndom = asyncPatchData%description%opt_ndom)
             ELSE
                 CALL create_restart_file_link(TRIM(restartFile%filename), modelType, &
-                                             &patch_data%description%restart_proc_id - p_restart_pe0, patch_data%description%id)
+                                             &asyncPatchData%description%restart_proc_id - p_restart_pe0, &
+                                             &asyncPatchData%description%id)
             END IF
             CALL restartFile%close()
         END IF
@@ -313,11 +340,11 @@ CONTAINS
     IF(.NOT. my_process_is_restart()) CALL finish(routine, "assertion failed: "//routine//"() called by non-restart process")
 
     restartAttributes => RestartAttributeList_make()
-    CALL set_restart_attributes(restartAttributes, restart_args, me%patch_data)
+    CALL set_restart_attributes(restartAttributes, restart_args, me%patchData)
 
     ! do the restart output
-    DO idx = 1, SIZE(me%patch_data)
-        CALL restart_write_patch(restart_args, me%patch_data(idx), restartAttributes, me%modelType)
+    DO idx = 1, SIZE(me%patchData)
+        CALL restart_write_patch(restart_args, me%patchData(idx), restartAttributes, me%modelType)
     END DO
 
     CALL restartAttributes%destruct()
@@ -348,10 +375,10 @@ CONTAINS
 
     ENDIF
 
-    DO i = 1, SIZE(me%patch_data, 1)
-        CALL me%patch_data(i)%commData%destruct()
+    DO i = 1, SIZE(me%patchData, 1)
+        CALL me%patchData(i)%destruct()
     END DO
-    DEALLOCATE(me%patch_data)
+    DEALLOCATE(me%patchData)
 #endif
 
   END SUBROUTINE asyncRestartDescriptor_destruct
@@ -456,10 +483,10 @@ CONTAINS
 
   END SUBROUTINE restart_send_ready
 
-  SUBROUTINE restartMetadataPacker(operation, restart_args, patch_data, message)
+  SUBROUTINE restartMetadataPacker(operation, restart_args, patchData, message)
     INTEGER, VALUE :: operation
     TYPE(t_restart_args), INTENT(INOUT) :: restart_args
-    TYPE(t_AsyncPatchData), INTENT(INOUT) :: patch_data(:)
+    CLASS(t_RestartPatchData), INTENT(INOUT) :: patchData(:)
     TYPE(t_PackedMessage), INTENT(INOUT) :: message
 
     INTEGER :: i
@@ -469,8 +496,8 @@ CONTAINS
     CALL restart_args%packer(operation, message)
 
     ! (un)pack the patch descriptions
-    DO i = 1, SIZE(patch_data)
-        CALL patch_data(i)%description%packer(operation, message)
+    DO i = 1, SIZE(patchData)
+        CALL patchData(i)%description%packer(operation, message)
     END DO
   END SUBROUTINE restartMetadataPacker
 
@@ -502,7 +529,7 @@ CONTAINS
     CALL message%unpack(iheader)
     SELECT CASE(iheader)
       CASE(MSG_RESTART_START)
-        CALL restartMetadataPacker(kUnpackOp, restart_args, restartDescriptor%patch_data, message)
+        CALL restartMetadataPacker(kUnpackOp, restart_args, restartDescriptor%patchData, message)
         done = .FALSE.
 
       CASE(MSG_RESTART_SHUTDOWN)
@@ -584,9 +611,9 @@ CONTAINS
   !! compute_start_restart: Send a message to restart PEs that they should start restart.
   !! The counterpart on the restart side is restart_wait_for_start.
   !
-  SUBROUTINE compute_start_restart(restart_args, patch_data)
+  SUBROUTINE compute_start_restart(restart_args, patchData)
     TYPE(t_restart_args), INTENT(INOUT) :: restart_args
-    TYPE(t_AsyncPatchData), INTENT(INOUT) :: patch_data(:)
+    CLASS(t_RestartPatchData), INTENT(INOUT) :: patchData(:)
 
     INTEGER :: i, trash
     TYPE(t_PackedMessage) :: message
@@ -602,22 +629,22 @@ CONTAINS
     ! if processor splitting is applied, the time-dependent data need to be transferred
     ! from the subset master PE to PE0, from where they are communicated to the output PE(s)
     CALL message%construct()
-    DO i = 1, SIZE(patch_data)
-      CALL patch_data(i)%description%setTimeLevels() ! copy the global variables (nold, ...) to the patch description
-      CALL sendDescriptionToMaster(patch_data(i)%description)
+    DO i = 1, SIZE(patchData)
+      CALL patchData(i)%description%setTimeLevels() ! copy the global variables (nold, ...) to the patch description
+      CALL sendDescriptionToMaster(patchData(i)%description)
     END DO
 
     CALL message%reset()
     IF(p_pe_work == 0) THEN
       ! send the DATA to the restart master
       CALL message%pack(MSG_RESTART_START)  ! set command id
-      CALL restartMetadataPacker(kPackOp, restart_args, patch_data, message)    ! all the other DATA
+      CALL restartMetadataPacker(kPackOp, restart_args, patchData, message)    ! all the other DATA
       CALL message%send(p_restart_pe0, 0, process_mpi_all_comm)
     ENDIF
     ! broadcast a copy among the compute processes, so that all processes have a consistent view of the restart patch descriptions
     CALL message%bcast(0, p_comm_work)
     CALL message%unpack(trash)  ! ignore the command id
-    CALL restartMetadataPacker(kUnpackOp, restart_args, patch_data, message)
+    CALL restartMetadataPacker(kUnpackOp, restart_args, patchData, message)
 
     CALL message%destruct()
   END SUBROUTINE compute_start_restart
@@ -690,9 +717,9 @@ CONTAINS
   !
   !  Print restart arguments.
   !
-  SUBROUTINE print_restart_arguments(restart_args, patch_data)
+  SUBROUTINE print_restart_arguments(restart_args, patchData)
     TYPE(t_restart_args), INTENT(IN) :: restart_args
-    TYPE(t_AsyncPatchData), INTENT(IN) :: patch_data(:)
+    TYPE(t_AsyncPatchData), INTENT(IN) :: patchData(:)
     CHARACTER(LEN=*), PARAMETER   :: routine = modname//':print_restart_arguments'
 
     WRITE (nerr,FORMAT_VALS3)routine,' is called for p_pe=',p_pe
@@ -700,10 +727,10 @@ CONTAINS
     CALL restart_args%print(routine//": ")
 
     ! patch informations
-    PRINT *,routine, ' size of patches=', SIZE(patch_data)
-    PRINT *,routine, ' SIZE(patch_data(1)%description%opt_pvct) = ', SIZE(patch_data(1)%description%opt_pvct)
-    PRINT *,routine, ' SIZE(patch_data(1)%description%opt_lcall_phy) =', SIZE(patch_data(1)%description%opt_lcall_phy)
-    PRINT *,routine, ' SIZE(patch_data(1)%description%opt_t_elapsed_phy) =', SIZE(patch_data(1)%description%opt_t_elapsed_phy)
+    PRINT *,routine, ' size of patches=', SIZE(patchData)
+    PRINT *,routine, ' SIZE(patchData(1)%description%opt_pvct) = ', SIZE(patchData(1)%description%opt_pvct)
+    PRINT *,routine, ' SIZE(patchData(1)%description%opt_lcall_phy) =', SIZE(patchData(1)%description%opt_lcall_phy)
+    PRINT *,routine, ' SIZE(patchData(1)%description%opt_t_elapsed_phy) =', SIZE(patchData(1)%description%opt_t_elapsed_phy)
   END SUBROUTINE print_restart_arguments
 
   !------------------------------------------------------------------------------------------------
@@ -863,10 +890,10 @@ CONTAINS
   !
   !  Set global restart attributes.
   !
-  SUBROUTINE set_restart_attributes (restartAttributes, restart_args, patch_data)
+  SUBROUTINE set_restart_attributes (restartAttributes, restart_args, patchData)
     TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
     TYPE(t_restart_args), INTENT(IN) :: restart_args
-    TYPE(t_AsyncPatchData), INTENT(IN) :: patch_data(:)
+    CLASS(t_RestartPatchData), INTENT(IN) :: patchData(:)
 
     INTEGER :: i, effectiveDomainCount
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':set_restart_attributes'
@@ -876,7 +903,7 @@ CONTAINS
 #endif
 
     effectiveDomainCount = 1
-    IF(ALLOCATED(patch_data(1)%description%opt_ndom)) effectiveDomainCount = patch_data(1)%description%opt_ndom
+    IF(ALLOCATED(patchData(1)%description%opt_ndom)) effectiveDomainCount = patchData(1)%description%opt_ndom
     IF(ALLOCATED(restart_args%output_jfile)) THEN
         CALL setGeneralRestartAttributes(restartAttributes, restart_args%datetime, effectiveDomainCount, restart_args%jstep, &
                                         &restart_args%output_jfile)
@@ -885,8 +912,8 @@ CONTAINS
     END IF
 
     ! set the domain dependent attributes
-    DO i = 1, SIZE(patch_data)
-        CALL patch_data(i)%description%setRestartAttributes(restartAttributes)
+    DO i = 1, SIZE(patchData)
+        CALL patchData(i)%description%setRestartAttributes(restartAttributes)
     END DO
   END SUBROUTINE set_restart_attributes
 
@@ -1017,9 +1044,10 @@ CONTAINS
   !
   ! Write restart variable lists for a compute PE.
   !
-  SUBROUTINE compute_write_var_list(p_pd)
-    TYPE(t_AsyncPatchData), TARGET, INTENT(INOUT) :: p_pd
+  SUBROUTINE compute_write_var_list(patchData)
+    CLASS(t_RestartPatchData), INTENT(INOUT) :: patchData
 
+    TYPE(t_AsyncPatchData), POINTER :: asyncPatchData
     TYPE(t_RestartVarData), POINTER :: p_vars(:)
     TYPE(t_ptr_2d), ALLOCATABLE     :: dataPointers(:)
     INTEGER                         :: iv
@@ -1033,8 +1061,12 @@ CONTAINS
     ! check process
     IF (.NOT. my_process_is_work()) CALL finish(routine, NO_COMPUTE_PE)
 
+    ! dynamic downcast of patchData argument
+    asyncPatchData => toAsyncPatchData(patchData)
+    IF(.NOT.ASSOCIATED(asyncPatchData)) CALL finish(routine, "assertion failed: wrong type of patchData")
+
     ! check the array of restart variables
-    p_vars => p_pd%varData
+    p_vars => asyncPatchData%varData
     IF (.NOT. ASSOCIATED(p_vars)) RETURN
 
     ! offset in RMA window for async restart
@@ -1043,15 +1075,16 @@ CONTAINS
     ! go over the all restart variables in the associated array
     DO iv = 1, SIZE(p_vars)
 #ifdef DEBUG
-      WRITE (nerr,FORMAT_VALS5I)routine,' p_pe=',p_pe,' compute pe processes field=',TRIM(p_vars(iv)%info%name)
+        WRITE (nerr,FORMAT_VALS5I)routine,' p_pe=',p_pe,' compute pe processes field=',TRIM(p_vars(iv)%info%name)
 #endif
 
-      ! check time level of the field
-      IF (.NOT. has_valid_time_level(p_vars(iv)%info, p_pd%description%id, p_pd%description%nnew, p_pd%description%nnew_rcf)) CYCLE
-
-      CALL getLevelPointers(p_vars(iv)%info, p_vars(iv)%r_ptr, dataPointers)
-      CALL p_pd%commData%postData(p_vars(iv)%info%hgrid, dataPointers, offset)
-      ! no deallocation of dataPointers, so that the next invocation of getLevelPointers() may reuse the last allocation
+        ! check time level of the field
+        IF(has_valid_time_level(p_vars(iv)%info, asyncPatchData%description%id, asyncPatchData%description%nnew, &
+                               &asyncPatchData%description%nnew_rcf)) THEN
+            CALL getLevelPointers(p_vars(iv)%info, p_vars(iv)%r_ptr, dataPointers)
+            CALL asyncPatchData%commData%postData(p_vars(iv)%info%hgrid, dataPointers, offset)
+            ! no deallocation of dataPointers, so that the next invocation of getLevelPointers() may reuse the last allocation
+        END IF
     END DO
   END SUBROUTINE compute_write_var_list
 

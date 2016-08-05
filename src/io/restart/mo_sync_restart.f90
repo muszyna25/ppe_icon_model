@@ -61,15 +61,14 @@ MODULE mo_sync_restart
   USE mo_impl_constants, ONLY: SUCCESS
   USE mo_kind, ONLY: wp
   USE mo_model_domain, ONLY: t_patch, p_patch
-  USE mo_mpi, ONLY: my_process_is_mpi_workroot, my_process_is_mpi_test
+  USE mo_mpi, ONLY: my_process_is_mpi_workroot, my_process_is_mpi_test, my_process_is_work
   USE mo_restart_attributes, ONLY: t_RestartAttributeList, RestartAttributeList_make
   USE mo_restart_descriptor, ONLY: t_RestartDescriptor, t_RestartPatchData
   USE mo_restart_file, ONLY: t_RestartFile
   USE mo_restart_patch_description, ONLY: t_restart_patch_description
   USE mo_restart_util, ONLY: setGeneralRestartAttributes, setDynamicPatchRestartAttributes, setPhysicsRestartAttributes, &
                            & create_restart_file_link, t_restart_args
-  USE mo_restart_var_data, ONLY: getLevelPointers, has_valid_time_level
-  USE mo_restart_var_data, ONLY: t_RestartVarData, createRestartVarData
+  USE mo_restart_var_data, ONLY: getLevelPointers, has_valid_time_level, createRestartVarData
   USE mo_run_config, ONLY: ltimer
   USE mo_timer, ONLY: timer_start, timer_stop, timer_write_restart_file
   USE mo_util_string, ONLY: int2string
@@ -85,12 +84,13 @@ MODULE mo_sync_restart
 
   TYPE, EXTENDS(t_RestartPatchData) :: t_SyncPatchData
   CONTAINS
-    PROCEDURE :: writeFile => patchData_writeFile
+    PROCEDURE :: construct => syncPatchData_construct   ! override
+    PROCEDURE :: destruct => syncPatchData_destruct ! override
 
-    PROCEDURE, PRIVATE :: writeData => patchData_writeData  ! implementation detail of writeFile()
+    PROCEDURE, PRIVATE :: writeData => syncPatchData_writeData  ! implementation detail of writeFile()
   END TYPE t_SyncPatchData
+
   TYPE, EXTENDS(t_RestartDescriptor) :: t_SyncRestartDescriptor
-    TYPE(t_SyncPatchData), ALLOCATABLE :: patchData(:)
     CHARACTER(:), ALLOCATABLE :: modelType
   CONTAINS
     PROCEDURE :: construct => syncRestartDescriptor_construct   ! override
@@ -107,6 +107,20 @@ MODULE mo_sync_restart
   !------------------------------------------------------------------------------------------------
 CONTAINS
 
+  SUBROUTINE syncPatchData_construct(me, modelType, domain)
+    CLASS(t_SyncPatchData), INTENT(INOUT) :: me
+    CHARACTER(*), INTENT(IN) :: modelType
+    INTEGER, INTENT(IN) :: domain
+
+    CALL me%description%init(p_patch(domain))
+    me%varData => createRestartVarData(domain, modelType, me%restartType)
+  END SUBROUTINE syncPatchData_construct
+
+  SUBROUTINE syncPatchData_destruct(me)
+    CLASS(t_SyncPatchData), INTENT(INOUT) :: me
+    ! nothing to do
+  END SUBROUTINE syncPatchData_destruct
+
   SUBROUTINE syncRestartDescriptor_construct(me, modelType)
     CLASS(t_SyncRestartDescriptor), INTENT(INOUT) :: me
     INTEGER :: jg, error
@@ -116,14 +130,12 @@ CONTAINS
     me%modelType = modelType
 
     ! allocate patch data structure
-    ALLOCATE(me%patchData(n_dom), STAT = error)
+    ALLOCATE(t_SyncPatchData :: me%patchData(n_dom), STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
 
     ! initialize the patch data structures
     DO jg = 1, n_dom
-        ! construct the subobjects
-        CALL me%patchData(jg)%description%init(p_patch(jg))
-        me%patchData(jg)%varData => createRestartVarData(jg, modelType, me%patchData(jg)%restartType)
+        CALL me%patchData(jg)%construct(modelType, jg)
     END DO
   END SUBROUTINE syncRestartDescriptor_construct
 
@@ -142,6 +154,7 @@ CONTAINS
     INTEGER :: jg
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartDescriptor_updatePatch"
 
+    IF(.NOT.my_process_is_work()) CALL finish(routine, "assertion failed")
     jg = patch%id
     IF(jg < 1 .OR. jg > SIZE(me%patchData)) CALL finish(routine, "assertion failed: patch id is out of range")
     IF(me%patchData(jg)%description%id /= jg) CALL finish(routine, "assertion failed: patch id doesn't match its array index")
@@ -176,7 +189,8 @@ CONTAINS
 
         !----------------
         ! additional restart-output for nonhydrostatic model
-        IF(ALLOCATED(curDescription%opt_sim_time)) CALL restartAttributes%setReal('sim_time_DOM'//jgString, curDescription%opt_sim_time )
+        IF(ALLOCATED(curDescription%opt_sim_time)) CALL restartAttributes%setReal('sim_time_DOM'//jgString, &
+                                                                                 &curDescription%opt_sim_time )
 
         !-------------------------------------------------------------
         ! DR
@@ -199,18 +213,20 @@ CONTAINS
     END DO
   END SUBROUTINE syncRestartDescriptor_defineRestartAttributes
 
-  SUBROUTINE patchData_writeFile(me, restartAttributes, restartArgs)
-    CLASS(t_SyncPatchData), INTENT(INOUT) :: me
+  !XXX: Not a type bound procedure, because that would require the calling site to know the dynamic type, or the method to be defined within the base class.
+  !     And it is currently not possible for the caller to know the dynamic type, because the compilers act up on a SELECT TYPE() statement on an array member.
+  SUBROUTINE syncPatchData_writeFile(me, restartAttributes, restartArgs)
+    CLASS(t_RestartPatchData), INTENT(INOUT) :: me
     TYPE(t_RestartAttributeList) :: restartAttributes
     TYPE(t_restart_args), INTENT(IN) :: restartArgs
 
     TYPE(t_RestartFile) :: file
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":patchData_writeFile"
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":syncPatchData_writeFile"
 
     IF(ALLOCATED(me%description%opt_ocean_zheight_cellMiddle)) THEN
       IF(.NOT. ALLOCATED(me%description%opt_ocean_Zheight_CellInterfaces) .OR. &
         &.NOT. ALLOCATED(me%description%opt_ocean_Zlevels)) THEN
-          CALL finish('patchData_writeFile','Ocean level parameteres not complete')
+          CALL finish(routine, 'Ocean level parameteres not complete')
       END IF
     END IF
 
@@ -219,7 +235,14 @@ CONTAINS
 
     IF(ASSOCIATED(me%varData)) THEN ! no restart variables => no restart file
         IF(my_process_is_mpi_workroot()) CALL file%open(me%description, me%varData, restartArgs, restartAttributes, me%restartType)
-        CALL me%writeData(file)
+
+        SELECT TYPE(me)
+            TYPE IS(t_SyncPatchData)
+                CALL me%writeData(file)
+            CLASS DEFAULT
+                CALL finish(routine, "assertion failed: me has wrong type")
+        END SELECT
+
         IF(my_process_is_mpi_workroot()) THEN
             IF(ALLOCATED(me%description%opt_ndom)) THEN
                 CALL create_restart_file_link(TRIM(file%filename), TRIM(restartArgs%modelType), 0, me%description%id, &
@@ -230,7 +253,7 @@ CONTAINS
             CALL file%close()
         END IF
     END IF
-  END SUBROUTINE patchData_writeFile
+  END SUBROUTINE syncPatchData_writeFile
 
   SUBROUTINE syncRestartDescriptor_writeRestart(me, datetime, jstep, opt_output_jfile)
     CLASS(t_SyncRestartDescriptor), INTENT(INOUT) :: me
@@ -241,6 +264,7 @@ CONTAINS
     INTEGER :: jg
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
     TYPE(t_restart_args) :: restartArgs
+    CHARACTER(*), PARAMETER :: routine = modname//":syncRestartDescriptor_writeRestart"
 
     IF(ltimer) CALL timer_start(timer_write_restart_file)
 
@@ -249,7 +273,7 @@ CONTAINS
     CALL restartArgs%construct(datetime, jstep, me%modelType, opt_output_jfile)
 
     DO jg = 1, n_dom
-        CALL me%patchData(jg)%writeFile(restartAttributes, restartArgs)
+        CALL syncPatchData_writeFile(me%patchData(jg), restartAttributes, restartArgs)
     END DO
 
     CALL restartArgs%destruct()
@@ -310,7 +334,7 @@ CONTAINS
   END SUBROUTINE defineRestartAttributes
 
   ! loop over all var_lists for restart
-  SUBROUTINE patchData_writeData(me, file)
+  SUBROUTINE syncPatchData_writeData(me, file)
     CLASS(t_SyncPatchData), INTENT(IN) :: me
     TYPE(t_RestartFile) :: file
 
@@ -319,7 +343,7 @@ CONTAINS
     TYPE(t_comm_gather_pattern), POINTER :: gatherPattern
     REAL(wp), ALLOCATABLE :: gatherBuffer(:)
     TYPE(t_ptr_2d), ALLOCATABLE :: levelPointers(:)
-    CHARACTER(*), PARAMETER :: routine = modname//":patchData_writeData"
+    CHARACTER(*), PARAMETER :: routine = modname//":syncPatchData_writeData"
 
     IF(my_process_is_mpi_test()) RETURN
 
@@ -354,6 +378,6 @@ CONTAINS
     END DO
 
     CALL message('','Finished writing restart')
-  END SUBROUTINE patchData_writeData
+  END SUBROUTINE syncPatchData_writeData
 
 END MODULE mo_sync_restart

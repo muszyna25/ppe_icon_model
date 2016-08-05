@@ -11,7 +11,7 @@
 
 MODULE mo_restart_descriptor
     USE mo_datetime, ONLY: t_datetime
-    USE mo_fortran_tools, ONLY: t_destructible
+    USE mo_fortran_tools, ONLY: t_Destructible
     USE mo_kind, ONLY: wp
     USE mo_model_domain, ONLY: t_patch
     USE mo_restart_patch_description, ONLY: t_restart_patch_description
@@ -24,6 +24,15 @@ MODULE mo_restart_descriptor
 
     PRIVATE
 
+    ! this type stores all the information that we need to know about a patch and its variables
+    TYPE, ABSTRACT, EXTENDS(t_Destructible) :: t_RestartPatchData
+        TYPE(t_restart_patch_description) :: description
+        TYPE(t_RestartVarData), POINTER :: varData(:)
+        INTEGER :: restartType
+    CONTAINS
+        PROCEDURE(restartPatchData_construct), DEFERRED :: construct
+    END TYPE t_RestartPatchData
+
     ! This IS the actual INTERFACE to the restart writing code (apart from the restart_main_proc PROCEDURE). Its USE IS as follows:
     !
     ! First, AND ONLY once during a run, a t_RestartDescriptor IS created.
@@ -35,21 +44,17 @@ MODULE mo_restart_descriptor
     !
     ! Finally, destruct() must be called for cleanup. This IS especially important IN the CASE of asynchronous restart writing,
     ! because the destruct() CALL will signal the restart PEs to finish their work, AND wait for them to stop.
-    TYPE, ABSTRACT, EXTENDS(t_destructible) :: t_RestartDescriptor
+    TYPE, ABSTRACT, EXTENDS(t_Destructible) :: t_RestartDescriptor
+        !XXX: Using ALLOCATABLE instead of POINTER here seems to trigger a bug IN the cray compiler that leads to later allocations to fail.
+        CLASS(t_RestartPatchData), POINTER :: patchData(:)   ! must be ALLOCATED IN the subclass constructor
     CONTAINS
         PROCEDURE(restartDescriptor_construct), DEFERRED :: construct
         PROCEDURE(restartDescriptor_updatePatch), DEFERRED :: updatePatch
         PROCEDURE(restartDescriptor_writeRestart), DEFERRED :: writeRestart
     END TYPE t_RestartDescriptor
 
-    ! this type stores all the information that we need to know about a patch and its variables
-    TYPE t_RestartPatchData
-        TYPE(t_restart_patch_description) :: description
-        TYPE(t_RestartVarData), POINTER :: varData(:)
-        INTEGER :: restartType
-    END TYPE t_RestartPatchData
-
     ABSTRACT INTERFACE
+
         ! Constructor. Not called directly from user code, USE the factory FUNCTION createRestartDescriptor() instead, which IS found IN mo_restart.
         SUBROUTINE restartDescriptor_construct(me, modelType)
             IMPORT t_RestartDescriptor
@@ -80,6 +85,14 @@ MODULE mo_restart_descriptor
             INTEGER, INTENT(IN) :: jstep
             INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
         END SUBROUTINE restartDescriptor_writeRestart
+
+        SUBROUTINE restartPatchData_construct(me, modelType, domain)
+            IMPORT t_RestartPatchData
+            CLASS(t_RestartPatchData), INTENT(INOUT) :: me
+            CHARACTER(*), INTENT(IN) :: modelType
+            INTEGER, INTENT(IN) :: domain
+        END SUBROUTINE restartPatchData_construct
+
     END INTERFACE
 
 END MODULE mo_restart_descriptor

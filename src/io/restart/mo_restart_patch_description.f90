@@ -128,14 +128,6 @@ CONTAINS
         me%nnew = nnew(p_patch%id)
         me%nnew_rcf = nnew_rcf(p_patch%id)
         me%nnow_rcf = nnow_rcf(p_patch%id)
-        me%opt_depth_lnd = 0
-        me%opt_nlev_snow = 0
-        me%opt_nice_class = 0
-        me%opt_ndyn_substeps = 0
-        me%opt_jstep_adv_marchuk_order = 0
-        me%opt_ndom = 0
-        me%opt_sim_time = 0.
-        me%opt_ocean_zlevels = 0
         me%cellGatherPattern => p_patch%comm_pat_gather_c
         me%vertGatherPattern => p_patch%comm_pat_gather_v
         me%edgeGatherPattern => p_patch%comm_pat_gather_e
