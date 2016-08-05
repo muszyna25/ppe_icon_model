@@ -238,7 +238,7 @@ CONTAINS
       ! }}}
 
       eventKey = get_event_key(p_onl)
-!DEBUG      if (my_process_is_stdio()) call print_summary('eventKey:'//trim(eventKey))
+!DEBUG     if (my_process_is_stdio()) call print_summary('eventKey:'//trim(eventKey))
       IF ( meanMap%has_key(eventKey) ) THEN
         myBuffer => meanMap%get(eventKey)
         select type (myBuffer)
@@ -272,7 +272,7 @@ CONTAINS
         dest_element => find_list_element(mean_stream_list, trim(dest_element_name))
         IF (.not. ASSOCIATED(dest_element) ) THEN !not found -->> create a new on
           ! find existing source variable
-          src_element => find_element ( TRIM(varlist(i)))
+          src_element => find_element ( TRIM(varlist(i)),opt_hgrid=GRID_UNSTRUCTURED_CELL)
           IF (.not. ASSOCIATED (src_element)) THEN
             ! try to find timelevel variables 
             foundPrognostic = .false.
