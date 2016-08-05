@@ -456,6 +456,130 @@ CONTAINS
     lrestart_initialised = .TRUE.
   END SUBROUTINE init_restart
 
+  INTEGER FUNCTION defineSingleLevelAxis(cdiAxisType, levelValue) RESULT(RESULT)
+    INTEGER, VALUE :: cdiAxisType
+    REAL(KIND = wp), VALUE :: levelValue
+
+    RESULT = zaxisCreate(cdiAxisType, 1)
+    CALL zaxisDefLevels(RESULT, [levelValue])
+  END FUNCTION defineSingleLevelAxis
+
+  SUBROUTINE createVgrids(varList)
+    TYPE(t_var_list), INTENT(INOUT) :: varList
+
+    INTEGER :: i, k, nlevp1
+    REAL(wp), ALLOCATABLE :: levels(:), levels_sp(:)
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":createVgrids"
+
+    DO i = 1, nv_grids
+        SELECT CASE (vgrid_def(i)%type)
+            CASE (ZA_SURFACE)
+                varList%p%cdiSurfZaxisID = defineSingleLevelAxis(ZAXIS_SURFACE, 0._wp)
+
+            CASE (ZA_HYBRID)
+                varList%p%cdiFullZaxisID = zaxisCreate(ZAXIS_HYBRID, vgrid_def(i)%nlevels)
+                CALL zaxisDefLevels(varList%p%cdiFullZaxisID, [(REAL(k, wp), k = 1, vgrid_def(i)%nlevels)])
+                IF (.NOT. lvct_initialised) CYCLE
+                nlevp1 = vgrid_def(i)%nlevels+1
+                CALL zaxisDefVct(varList%p%cdiFullZaxisID, 2*nlevp1, private_vct(1:2*nlevp1))
+
+            CASE (ZA_HYBRID_HALF)
+                varList%p%cdiHalfZaxisID  = zaxisCreate(ZAXIS_HYBRID_HALF, vgrid_def(i)%nlevels)
+                CALL zaxisDefLevels(varList%p%cdiHalfZaxisID, [(REAL(k, wp), k = 1, vgrid_def(i)%nlevels)])
+                IF (.NOT. lvct_initialised) CYCLE
+                nlevp1 = vgrid_def(i)%nlevels
+                CALL zaxisDefVct(varList%p%cdiHalfZaxisID, 2*nlevp1, private_vct(1:2*nlevp1))
+
+            CASE (ZA_DEPTH_BELOW_LAND)
+                IF (.NOT. ldepth_lnd_initialised) CYCLE
+                varList%p%cdiDepthFullZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, vgrid_def(i)%nlevels)
+                CALL zaxisDefLevels(varList%p%cdiDepthFullZaxisID, private_depth_lnd_full)
+
+            CASE (ZA_DEPTH_BELOW_LAND_P1)
+                IF (.NOT. ldepth_lnd_initialised) CYCLE
+                varList%p%cdiDepthHalfZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, vgrid_def(i)%nlevels)
+                CALL zaxisDefLevels(varList%p%cdiDepthHalfZaxisID, private_depth_lnd_half)
+
+            CASE (ZA_DEPTH_RUNOFF_S)
+                varList%p%cdiDepthRunoff_sZaxisID = defineSingleLevelAxis(ZAXIS_DEPTH_BELOW_LAND, 1._wp)
+
+            CASE (ZA_DEPTH_RUNOFF_G)
+                varList%p%cdiDepthRunoff_gZaxisID = defineSingleLevelAxis(ZAXIS_DEPTH_BELOW_LAND, 1._wp)
+
+            CASE (ZA_SNOW)
+                IF (.NOT. lheight_snow_initialised) CYCLE
+                varList%p%cdiSnowGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, vgrid_def(i)%nlevels)
+                CALL zaxisDefLevels(varList%p%cdiSnowGenericZaxisID, private_height_snow_full)
+
+            CASE (ZA_SNOW_HALF)
+                IF (.NOT. lheight_snow_initialised) CYCLE
+                varList%p%cdiSnowHalfGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, vgrid_def(i)%nlevels)
+                CALL zaxisDefLevels(varList%p%cdiSnowHalfGenericZaxisID, private_height_snow_half)
+
+            CASE (ZA_TOA)
+                varList%p%cdiToaZaxisID = defineSingleLevelAxis(ZAXIS_TOA, 1._wp)
+
+            CASE (ZA_HEIGHT_2M)
+                varList%p%cdiH2mZaxisID = defineSingleLevelAxis(ZAXIS_HEIGHT, 2._wp)
+
+            CASE (ZA_HEIGHT_10M)
+                varList%p%cdiH10mZaxisID = defineSingleLevelAxis(ZAXIS_HEIGHT, 10._wp)
+
+            CASE (ZA_LAKE_BOTTOM)
+                varList%p%cdiLakeBottomZaxisID = defineSingleLevelAxis(ZAXIS_LAKE_BOTTOM, 1._wp)
+                CALL zaxisDefLbounds(varList%p%cdiLakeBottomZaxisID, [1._wp]) !necessary for GRIB2
+                CALL zaxisDefUbounds(varList%p%cdiLakeBottomZaxisID, [0._wp]) !necessary for GRIB2
+                CALL zaxisDefUnits  (varList%p%cdiLakeBottomZaxisID, "m")
+
+            CASE (ZA_LAKE_BOTTOM_HALF)
+                varList%p%cdiLakeHalfBottomZaxisID = defineSingleLevelAxis(ZAXIS_LAKE_BOTTOM, 1._wp)
+                CALL zaxisDefUnits(varList%p%cdiLakeHalfBottomZaxisID, "m")
+
+            CASE (ZA_MIX_LAYER)
+                varList%p%cdiLakeMixLayerZaxisID = defineSingleLevelAxis(ZAXIS_MIX_LAYER, 1._wp)
+                CALL zaxisDefLbounds(varList%p%cdiLakeMixLayerZaxisID, [1._wp]) !necessary for GRIB2
+                CALL zaxisDefUbounds(varList%p%cdiLakeMixLayerZaxisID, [0._wp]) !necessary for GRIB2
+                CALL zaxisDefUnits  (varList%p%cdiLakeMixLayerZaxisID, "m")
+
+            CASE (ZA_SEDIMENT_BOTTOM_TW_HALF)
+                varList%p%cdiLakeHalfSedBottomTwZaxisID = defineSingleLevelAxis(ZAXIS_SEDIMENT_BOTTOM_TW, 0._wp)
+                CALL zaxisDefUnits(varList%p%cdiLakeHalfSedBottomTwZaxisID, "m")
+
+
+                ! Ocean
+
+            CASE (ZA_DEPTH_BELOW_SEA)
+                IF (.NOT. use_ocean_levels) CYCLE
+                varList%p%cdiDepthFullZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, vgrid_def(i)%nlevels)
+                CALL zaxisDefLevels(varList%p%cdiDepthFullZaxisID, private_depth_full)
+
+            CASE (ZA_DEPTH_BELOW_SEA_HALF)
+                IF (.NOT. use_ocean_levels) CYCLE
+                varList%p%cdiDepthHalfZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, vgrid_def(i)%nlevels)
+                CALL zaxisDefLevels(varList%p%cdiDepthHalfZaxisID, private_depth_half)
+
+            CASE (ZA_GENERIC_ICE)
+                !!!!!!!!! ATTENTION: !!!!!!!!!!!
+                ! As soon as i_no_ice_thick_class is set to i_no_ice_thick_class>1 this no longer works
+                varList%p%cdiIceGenericZaxisID = defineSingleLevelAxis(ZAXIS_GENERIC, 1._wp)
+
+            CASE (ZA_OCEAN_SEDIMENT)
+                IF(lhamocc)THEN
+                    ! HAMOCC sediment
+                    varList%p%cdiOceanSedGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, vgrid_def(i)%nlevels)
+                    ALLOCATE(levels(ks))
+                    ALLOCATE(levels_sp(ksp))
+                    CALL set_zlev(levels_sp, levels, ks, dzsed*1000._wp)
+                    CALL zaxisDefLevels(varList%p%cdiOceanSedGenericZaxisID, REAL(levels,wp))
+                    DEALLOCATE(levels)
+                    DEALLOCATE(levels_sp)
+                END IF
+            CASE DEFAULT
+                CALL finish(routine, 'Vertical grid description not found.')
+        END SELECT
+    ENDDO
+  END SUBROUTINE createVgrids
+
   ! Loop over all the output streams and open the associated files. Set
   ! unit numbers (file IDs) for all streams associated with a file.
   SUBROUTINE open_writing_restart_files(patch, restart_filename, restartAttributes)
@@ -463,8 +587,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: restart_filename
     TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
 
-    INTEGER :: status, i ,j, jg, k, ia, ihg, ivg, nlevp1
-    REAL(wp), ALLOCATABLE :: levels(:), ubounds(:), lbounds(:), levels_sp(:)
+    INTEGER :: status, i ,j, jg, ia, ihg, ivg
 
     CHARACTER(len=64) :: attribute_name
     CHARACTER(len=256) :: text_attribute
@@ -567,189 +690,7 @@ CONTAINS
 
         ! 4. add vertical grid descriptions
 
-        DO ivg = 1, nv_grids
-
-          SELECT CASE (vgrid_def(ivg)%type)
-
-          CASE (ZA_SURFACE)
-            var_lists(i)%p%cdiSurfZaxisID = zaxisCreate(ZAXIS_SURFACE, vgrid_def(ivg)%nlevels)
-            ALLOCATE(levels(1))
-            levels(1) = 0.0_wp
-            CALL zaxisDefLevels(var_lists(i)%p%cdiSurfZaxisID, levels)
-            DEALLOCATE(levels)
-
-          CASE (ZA_HYBRID)
-            var_lists(i)%p%cdiFullZaxisID = zaxisCreate(ZAXIS_HYBRID, vgrid_def(ivg)%nlevels)
-            ALLOCATE(levels(vgrid_def(ivg)%nlevels))
-            DO k = 1, vgrid_def(ivg)%nlevels
-              levels(k) = REAL(k,wp)
-            END DO
-            CALL zaxisDefLevels(var_lists(i)%p%cdiFullZaxisID, levels)
-            DEALLOCATE(levels)
-            IF (.NOT. lvct_initialised) CYCLE
-            nlevp1 = vgrid_def(ivg)%nlevels+1
-            CALL zaxisDefVct(var_lists(i)%p%cdiFullZaxisID, 2*nlevp1, private_vct(1:2*nlevp1))
-
-          CASE (ZA_HYBRID_HALF)
-            var_lists(i)%p%cdiHalfZaxisID  = zaxisCreate(ZAXIS_HYBRID_HALF, vgrid_def(ivg)%nlevels)
-            ALLOCATE(levels(vgrid_def(ivg)%nlevels))
-            DO k = 1, vgrid_def(ivg)%nlevels
-              levels(k) = REAL(k,wp)
-            END DO
-            CALL zaxisDefLevels(var_lists(i)%p%cdiHalfZaxisID, levels)
-            DEALLOCATE(levels)
-            IF (.NOT. lvct_initialised) CYCLE
-            nlevp1 = vgrid_def(ivg)%nlevels
-            CALL zaxisDefVct(var_lists(i)%p%cdiHalfZaxisID, 2*nlevp1, private_vct(1:2*nlevp1))
-
-          CASE (ZA_DEPTH_BELOW_LAND)
-            IF (.NOT. ldepth_lnd_initialised) CYCLE
-            var_lists(i)%p%cdiDepthFullZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, &
-                 &                                            vgrid_def(ivg)%nlevels)
-            CALL zaxisDefLevels(var_lists(i)%p%cdiDepthFullZaxisID, &
-                 &              private_depth_lnd_full)
-
-          CASE (ZA_DEPTH_BELOW_LAND_P1)
-            IF (.NOT. ldepth_lnd_initialised) CYCLE
-            var_lists(i)%p%cdiDepthHalfZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, &
-                 &                                            vgrid_def(ivg)%nlevels)
-            CALL zaxisDefLevels(var_lists(i)%p%cdiDepthHalfZaxisID, &
-                 &              private_depth_lnd_half)
-
-          CASE (ZA_DEPTH_RUNOFF_S)
-            var_lists(i)%p%cdiDepthRunoff_sZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, vgrid_def(ivg)%nlevels)
-            ALLOCATE(levels(1))
-            levels(1) = 1.0_wp
-            CALL zaxisDefLevels(var_lists(i)%p%cdiDepthRunoff_sZaxisID, levels)
-            DEALLOCATE(levels)
-
-          CASE (ZA_DEPTH_RUNOFF_G)
-            var_lists(i)%p%cdiDepthRunoff_gZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, vgrid_def(ivg)%nlevels)
-            ALLOCATE(levels(1))
-            levels(1) = 1.0_wp
-            CALL zaxisDefLevels(var_lists(i)%p%cdiDepthRunoff_gZaxisID, levels)
-            DEALLOCATE(levels)
-
-          CASE (ZA_SNOW)
-            IF (.NOT. lheight_snow_initialised) CYCLE
-            var_lists(i)%p%cdiSnowGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, &
-              &                                            vgrid_def(ivg)%nlevels)
-            CALL zaxisDefLevels(var_lists(i)%p%cdiSnowGenericZaxisID, &
-              &              private_height_snow_full)
-
-          CASE (ZA_SNOW_HALF)
-            IF (.NOT. lheight_snow_initialised) CYCLE
-            var_lists(i)%p%cdiSnowHalfGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, &
-              &                                            vgrid_def(ivg)%nlevels)
-            CALL zaxisDefLevels(var_lists(i)%p%cdiSnowHalfGenericZaxisID, &
-              &              private_height_snow_half)
-
-          CASE (ZA_TOA)
-            var_lists(i)%p%cdiToaZaxisID = zaxisCreate(ZAXIS_TOA, vgrid_def(ivg)%nlevels)
-            ALLOCATE(levels(1))
-            levels(1) = 1.0_wp
-            CALL zaxisDefLevels(var_lists(i)%p%cdiToaZaxisID, levels)
-            DEALLOCATE(levels)
-
-          CASE (ZA_HEIGHT_2M)
-            var_lists(i)%p%cdiH2mZaxisID = zaxisCreate(ZAXIS_HEIGHT, vgrid_def(ivg)%nlevels)
-            ALLOCATE(levels(1))
-            levels(1) = 2.0_wp
-            CALL zaxisDefLevels(var_lists(i)%p%cdiH2mZaxisID, levels)
-            DEALLOCATE(levels)
-
-          CASE (ZA_HEIGHT_10M)
-            var_lists(i)%p%cdiH10mZaxisID = zaxisCreate(ZAXIS_HEIGHT, vgrid_def(ivg)%nlevels)
-            ALLOCATE(levels(1))
-            levels(1) = 10.0_wp
-            CALL zaxisDefLevels(var_lists(i)%p%cdiH10mZaxisID, levels)
-            DEALLOCATE(levels)
-
-          CASE (ZA_LAKE_BOTTOM)
-            var_lists(i)%p%cdiLakeBottomZaxisID = zaxisCreate(ZAXIS_LAKE_BOTTOM, vgrid_def(ivg)%nlevels)
-            ALLOCATE(lbounds(1), ubounds(1), levels(1))
-            lbounds(1)= 1._wp
-            ubounds(1)= 0._wp
-            levels(1) = 1._wp
-            CALL zaxisDefLbounds(var_lists(i)%p%cdiLakeBottomZaxisID, lbounds) !necessary for GRIB2
-            CALL zaxisDefUbounds(var_lists(i)%p%cdiLakeBottomZaxisID, ubounds) !necessary for GRIB2
-            CALL zaxisDefLevels (var_lists(i)%p%cdiLakeBottomZaxisID, levels)
-            CALL zaxisDefUnits  (var_lists(i)%p%cdiLakeBottomZaxisID, "m")
-            DEALLOCATE(lbounds, ubounds, levels)
-
-          CASE (ZA_LAKE_BOTTOM_HALF)
-            var_lists(i)%p%cdiLakeHalfBottomZaxisID = zaxisCreate(ZAXIS_LAKE_BOTTOM, vgrid_def(ivg)%nlevels)
-            ALLOCATE(levels(1))
-            levels(1) = 1._wp
-            CALL zaxisDefLevels(var_lists(i)%p%cdiLakeHalfBottomZaxisID, levels)
-            CALL zaxisDefUnits(var_lists(i)%p%cdiLakeHalfBottomZaxisID, "m")
-            DEALLOCATE(levels)
-
-          CASE (ZA_MIX_LAYER)
-            var_lists(i)%p%cdiLakeMixLayerZaxisID = zaxisCreate(ZAXIS_MIX_LAYER, vgrid_def(ivg)%nlevels)
-            ALLOCATE(lbounds(1), ubounds(1), levels(1))
-            lbounds(1)= 1._wp
-            ubounds(1)= 0._wp
-            levels(1) = 1._wp
-            CALL zaxisDefLbounds(var_lists(i)%p%cdiLakeMixLayerZaxisID, lbounds) !necessary for GRIB2
-            CALL zaxisDefUbounds(var_lists(i)%p%cdiLakeMixLayerZaxisID, ubounds) !necessary for GRIB2
-            CALL zaxisDefLevels (var_lists(i)%p%cdiLakeMixLayerZaxisID, levels)
-            CALL zaxisDefUnits  (var_lists(i)%p%cdiLakeMixLayerZaxisID, "m")
-            DEALLOCATE(lbounds, ubounds, levels)
-
-          CASE (ZA_SEDIMENT_BOTTOM_TW_HALF)
-            var_lists(i)%p%cdiLakeHalfSedBottomTwZaxisID = zaxisCreate(ZAXIS_SEDIMENT_BOTTOM_TW, &
-              &                                            vgrid_def(ivg)%nlevels)
-            ALLOCATE(levels(1))
-            levels(1) = 0._wp
-            CALL zaxisDefLevels(var_lists(i)%p%cdiLakeHalfSedBottomTwZaxisID, levels)
-            CALL zaxisDefUnits(var_lists(i)%p%cdiLakeHalfSedBottomTwZaxisID, "m")
-            DEALLOCATE(levels)
-
-
-          ! Ocean
-
-          CASE (ZA_DEPTH_BELOW_SEA)
-            IF (.NOT. use_ocean_levels) CYCLE
-            var_lists(i)%p%cdiDepthFullZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, &
-              &                                           vgrid_def(ivg)%nlevels)
-            CALL zaxisDefLevels(var_lists(i)%p%cdiDepthFullZaxisID, &
-              &              private_depth_full)
-
-          CASE (ZA_DEPTH_BELOW_SEA_HALF)
-            IF (.NOT. use_ocean_levels) CYCLE
-            var_lists(i)%p%cdiDepthHalfZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, &
-              &                                           vgrid_def(ivg)%nlevels)
-            CALL zaxisDefLevels(var_lists(i)%p%cdiDepthHalfZaxisID, &
-              &              private_depth_half)
-
-          CASE (ZA_GENERIC_ICE)
-            !!!!!!!!! ATTENTION: !!!!!!!!!!!
-            ! As soon as i_no_ice_thick_class is set to i_no_ice_thick_class>1 this no longer works
-            var_lists(i)%p%cdiIceGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, &
-              &                                           vgrid_def(ivg)%nlevels)
-            ALLOCATE(levels(1))
-            levels(1) = 1.0_wp
-            CALL zaxisDefLevels(var_lists(i)%p%cdiIceGenericZaxisID, levels)
-            DEALLOCATE(levels)
-    
-          CASE (ZA_OCEAN_SEDIMENT)
-           if(lhamocc)then
-           ! HAMOCC sediment
-            var_lists(i)%p%cdiOceanSedGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, &
-              &                                           vgrid_def(ivg)%nlevels)
-           ALLOCATE(levels(ks))
-           ALLOCATE(levels_sp(ksp))
-           CALL set_zlev(levels_sp, levels, ks, dzsed*1000._wp)
-           CALL zaxisDefLevels(var_lists(i)%p%cdiOceanSedGenericZaxisID, REAL(levels,wp))
-           DEALLOCATE(levels)
-           DEALLOCATE(levels_sp)
-          endif  
-          CASE DEFAULT
-            CALL finish('open_writing_restart_files','Vertical grid description not found.')
-          END SELECT
-        ENDDO
-
+        CALL createVgrids(var_lists(i))
 
 
         ! 5. restart does contain absolute time
