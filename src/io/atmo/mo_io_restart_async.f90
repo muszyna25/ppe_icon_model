@@ -76,7 +76,7 @@ MODULE mo_io_restart_async
                                       & p_pack_int, p_pack_bool, p_pack_real, p_unpack_int, p_unpack_bool, p_unpack_real, &
                                       & p_int_byte, get_my_mpi_work_id, p_comm_rank, p_unpack_allocatable_real, &
                                       & p_unpack_allocatable_logical, p_pack_allocatable_real, p_pack_allocatable_logical, &
-                                      & p_pack_allocatable_int, p_unpack_allocatable_int
+                                      & p_pack_allocatable_int, p_unpack_allocatable_int, process_mpi_all_comm
 
 #ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
@@ -909,12 +909,11 @@ CONTAINS
 
     TYPE(t_patch_data),   POINTER  :: p_pd
     CHARACTER, POINTER             :: p_msg(:)
-    INTEGER                        :: i, j, k, position, arraySize, error
+    INTEGER                        :: i, position, messageSize, error
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'compute_start_restart'
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS5)routine,' p_pe=',p_pe, &
-      & ' call p_barrier with communicator=',p_comm_work
+    WRITE (nerr,FORMAT_VALS5)routine,' p_pe=',p_pe, ' call p_barrier with communicator=',p_comm_work
 #endif
 
     ! make sure all are here
@@ -922,60 +921,58 @@ CONTAINS
 
     ! if processor splitting is applied, the time-dependent data need to be transferred
     ! from the subset master PE to PE0, from where they are communicated to the output PE(s)
-    DO j = 2, SIZE(patch_data)
-
-      p_pd => patch_data(j)
-
+    DO i = 2, SIZE(patch_data)
+      p_pd => patch_data(i)
       IF (p_pd%work_pe0_id /= 0) THEN
-
         IF (p_pe_work == 0) THEN
-          CALL p_recv(p_pd%l_dom_active, p_pd%work_pe0_id, 0)
-          CALL p_recv(nnow(p_pd%id),     p_pd%work_pe0_id, 0)
-          CALL p_recv(nnew(p_pd%id),     p_pd%work_pe0_id, 0)
-          CALL p_recv(nnew_rcf(p_pd%id), p_pd%work_pe0_id, 0)
-          CALL p_recv(nnow_rcf(p_pd%id), p_pd%work_pe0_id, 0)
-
-          CALL p_recv(p_pd%opt_ndyn_substeps,           p_pd%work_pe0_id, 0)
-          CALL p_recv(p_pd%opt_jstep_adv_marchuk_order, p_pd%work_pe0_id, 0)
-          CALL p_recv(p_pd%opt_sim_time,                p_pd%work_pe0_id, 0)
-
-          CALL p_recv(arraySize, p_pd%work_pe0_id, 0)
-          IF(ALLOCATED(p_pd%opt_lcall_phy)) DEALLOCATE(p_pd%opt_lcall_phy)
-          ALLOCATE(p_pd%opt_lcall_phy(arraySize), STAT = error)
+          ! recieve the package for this patch
+          CALL p_recv(messageSize, p_pd%work_pe0_id, 0, comm = process_mpi_all_comm)
+          ALLOCATE(p_msg(messageSize), STAT = error)
           IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-          IF(arraySize > 0) CALL p_recv(p_pd%opt_lcall_phy, p_pd%work_pe0_id, 0)
+          CALL p_recv_packed(p_msg, p_pd%work_pe0_id, 0, messageSize, comm = process_mpi_all_comm)
+          position = 0
 
-          CALL p_recv(arraySize, p_pd%work_pe0_id, 0)
-          IF(ALLOCATED(p_pd%opt_t_elapsed_phy)) DEALLOCATE(p_pd%opt_t_elapsed_phy)
-          ALLOCATE(p_pd%opt_t_elapsed_phy(arraySize), STAT = error)
-          IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-          IF(arraySize > 0) CALL p_recv(p_pd%opt_t_elapsed_phy, p_pd%work_pe0_id, 0)
+          CALL p_unpack_bool               (p_msg, position, p_pd%l_dom_active,                process_mpi_all_comm)
+          CALL p_unpack_int                (p_msg, position, nnow(p_pd%id),                    process_mpi_all_comm)
+          CALL p_unpack_int                (p_msg, position, nnew(p_pd%id),                    process_mpi_all_comm)
+          CALL p_unpack_int                (p_msg, position, nnow_rcf(p_pd%id),                process_mpi_all_comm)
+          CALL p_unpack_int                (p_msg, position, nnew_rcf(p_pd%id),                process_mpi_all_comm)
 
+          CALL p_unpack_int                (p_msg, position, p_pd%opt_ndyn_substeps,           process_mpi_all_comm)
+          CALL p_unpack_int                (p_msg, position, p_pd%opt_jstep_adv_marchuk_order, process_mpi_all_comm)
+          CALL p_unpack_real               (p_msg, position, p_pd%opt_sim_time,                process_mpi_all_comm)
+
+          CALL p_unpack_allocatable_logical(p_msg, position, p_pd%opt_lcall_phy,               process_mpi_all_comm)
+          CALL p_unpack_allocatable_real   (p_msg, position, p_pd%opt_t_elapsed_phy,           process_mpi_all_comm)
+
+          DEALLOCATE(p_msg)
         ELSE IF (p_pe_work == p_pd%work_pe0_id) THEN
+          !create package of the DATA that we need to send to process 0
+          p_msg => get_message_array(routine)
+          position     = 0
 
-          CALL p_send(p_pd%l_dom_active, 0, 0)
-          CALL p_send(nnow(p_pd%id),     0, 0)
-          CALL p_send(nnew(p_pd%id),     0, 0)
-          CALL p_send(nnew_rcf(p_pd%id), 0, 0)
-          CALL p_send(nnow_rcf(p_pd%id), 0, 0)
+          CALL p_pack_bool               (p_pd%l_dom_active,                p_msg, position, process_mpi_all_comm)
+          CALL p_pack_int                (nnow(p_pd%id),                    p_msg, position, process_mpi_all_comm)
+          CALL p_pack_int                (nnew(p_pd%id),                    p_msg, position, process_mpi_all_comm)
+          CALL p_pack_int                (nnow_rcf(p_pd%id),                p_msg, position, process_mpi_all_comm)
+          CALL p_pack_int                (nnew_rcf(p_pd%id),                p_msg, position, process_mpi_all_comm)
 
-          CALL p_send(p_pd%opt_ndyn_substeps, 0, 0)
-          CALL p_send(p_pd%opt_jstep_adv_marchuk_order, 0, 0)
-          CALL p_send(p_pd%opt_sim_time,                0, 0)
+          CALL p_pack_int                (p_pd%opt_ndyn_substeps,           p_msg, position, process_mpi_all_comm)
+          CALL p_pack_int                (p_pd%opt_jstep_adv_marchuk_order, p_msg, position, process_mpi_all_comm)
+          CALL p_pack_real               (p_pd%opt_sim_time,                p_msg, position, process_mpi_all_comm)
 
-          arraySize = 0
-          IF(ALLOCATED(p_pd%opt_lcall_phy)) arraySize = SIZE(p_pd%opt_lcall_phy)
-          CALL p_send(arraySize, 0, 0)
-          IF(arraySize > 0) CALL p_send(p_pd%opt_lcall_phy, 0, 0)
+          CALL p_pack_allocatable_logical(p_pd%opt_lcall_phy,               p_msg, position, process_mpi_all_comm)
+          CALL p_pack_allocatable_real   (p_pd%opt_t_elapsed_phy,           p_msg, position, process_mpi_all_comm)
 
-          arraySize = 0
-          IF(ALLOCATED(p_pd%opt_t_elapsed_phy)) arraySize = SIZE(p_pd%opt_t_elapsed_phy)
-          CALL p_send(arraySize, 0, 0)
-          IF (arraySize > 0) CALL p_send(p_pd%opt_t_elapsed_phy, 0, 0)
-        ENDIF
-      ENDIF
+          !send the package
+          CALL p_send(position, 0, 0, comm = process_mpi_all_comm)
+          CALL p_send_packed(p_msg, 0, 0, position, comm = process_mpi_all_comm)
 
-    ENDDO
+          DEALLOCATE(p_msg)
+        END IF
+      END IF
+    END DO
+
 
     IF(p_pe_work == 0) THEN
 
@@ -991,7 +988,7 @@ CONTAINS
 
       CALL p_send_packed(p_msg, p_restart_pe0, 0, position)
 
-      IF (ASSOCIATED(p_msg)) DEALLOCATE(p_msg)
+      DEALLOCATE(p_msg)
     ENDIF
 
   END SUBROUTINE compute_start_restart
