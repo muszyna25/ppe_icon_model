@@ -41,7 +41,7 @@ MODULE mo_atmo_model
   USE mo_impl_constants,          ONLY: SUCCESS,                                              &
     &                                   ihs_atm_temp, ihs_atm_theta, inh_atmosphere,          &
     &                                   ishallow_water, inwp
-  USE mo_restart,                 ONLY: read_restart_header
+  USE mo_read_restart,            ONLY: read_restart_header
   USE mo_restart_attributes,      ONLY: t_RestartAttributeList, getAttributesForRestarting
 
   ! namelist handling; control parameters: run control, dynamics

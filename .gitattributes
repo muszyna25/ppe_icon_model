@@ -1734,6 +1734,7 @@ src/io/atmo/mo_mtgrm_output.f90 -text
 src/io/atmo/mo_post_op.f90 -text
 src/io/atmo/mo_sync_latbc.f90 -text
 src/io/atmo/mo_util_vgrid.f90 -text
+src/io/restart/mo_read_restart.f90 -text
 src/io/restart/mo_restart.f90 -text
 src/io/restart/mo_restart_async.f90 -text
 src/io/restart/mo_restart_attributes.f90 -text
