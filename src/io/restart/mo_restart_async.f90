@@ -36,9 +36,6 @@ MODULE mo_restart_async
                                       & SUCCESS, TLEV_NNOW, TLEV_NNOW_RCF
   USE mo_var_metadata_types,      ONLY: t_var_metadata
   USE mo_restart_namelist,     ONLY: print_restart_name_lists, RestartNamelist_bcast
-#ifdef USE_CRAY_POINTER
-  USE mo_name_list_output_init,   ONLY: set_mem_ptr_dp
-#endif
   USE mo_communication,           ONLY: idx_no, blk_no
   USE mo_parallel_config,         ONLY: restart_chunk_size
   USE mo_grid_config,             ONLY: n_dom
@@ -58,9 +55,7 @@ MODULE mo_restart_async
                                       & p_comm_work_2_restart, p_n_work, p_int, process_mpi_restart_size, p_int_i8, p_real_dp, &
                                       & p_comm_work_restart, p_mpi_wtime, process_mpi_all_comm, p_get_bcast_role
 
-#ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
-#endif
 
 #ifdef __SUNPRO_F95
   INCLUDE "mpif.h"
@@ -196,11 +191,7 @@ MODULE mo_restart_async
   INTEGER mpi_win
 
   ! MPI memory pointer
-#ifdef USE_CRAY_POINTER
-  INTEGER (KIND=MPI_ADDRESS_KIND) :: iptr
-#else
   TYPE(c_ptr) :: c_mem_ptr
-#endif
 ! Fortran pointer to memory window (REAL*8)
   REAL(dp), POINTER :: mem_ptr_dp(:)
 
@@ -1359,10 +1350,6 @@ CONTAINS
 
     INTEGER :: nbytes_real, mpi_error, rma_cache_hint
     INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_bytes
-#ifdef USE_CRAY_POINTER
-    REAL(dp) :: tmp_dp
-    POINTER(tmp_ptr_dp,tmp_dp(*))
-#endif
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':restartDescriptor_initRma'
 
 #ifdef DEBUG
@@ -1387,13 +1374,6 @@ CONTAINS
     ! MPI_Alloc_mem wants a C pointer argument.
     !
     ! see, for example: http://www.lrz.de/services/software/parallel/mpi/onesided/
-#ifdef USE_CRAY_POINTER
-    CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, iptr, mpi_error)
-    CALL check_mpi_error(routine, 'MPI_Alloc_mem', mpi_error, .TRUE.)
-
-    tmp_ptr_dp = iptr
-    CALL set_mem_ptr_dp(tmp_dp, INT(mem_size))
-#else
     ! TYPE(c_ptr) and INTEGER(KIND=MPI_ADDRESS_KIND) do NOT necessarily have the same size!!!
     ! So check if at least c_intptr_t and MPI_ADDRESS_KIND are the same, else we may get
     ! into deep, deep troubles!
@@ -1416,7 +1396,6 @@ CONTAINS
     CALL C_F_POINTER(c_mem_ptr, mem_ptr_dp, (/ INT(mem_size) /) )
 #else
     CALL C_F_POINTER(c_mem_ptr, mem_ptr_dp, (/ mem_size /) )
-#endif
 #endif
 
     rma_cache_hint = MPI_INFO_NULL

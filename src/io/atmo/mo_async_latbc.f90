@@ -39,10 +39,7 @@
 
 MODULE mo_async_latbc
 
-#ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
-#endif
-! USE_CRAY_POINTER
 
 #ifndef NOMPI
     USE mpi
@@ -100,10 +97,6 @@ MODULE mo_async_latbc
     USE mo_io_util,                   ONLY: read_netcdf_int_1d
     USE mo_util_file,                 ONLY: util_filesize
     USE mo_util_cdi,                  ONLY: test_cdi_varID, cdiGetStringError
-
-#ifdef USE_CRAY_POINTER
-    USE mo_name_list_output_init,     ONLY: set_mem_ptr_sp
-#endif
 
     IMPLICIT NONE
 
@@ -1151,63 +1144,12 @@ MODULE mo_async_latbc
       DEALLOCATE(StrLowCasegrp)
 
       ! allocate amount of memory needed with MPI_Alloc_mem
-#ifdef USE_CRAY_POINTER
-      CALL allocate_mem_cray(mem_size)
-#else
       CALL allocate_mem_noncray(mem_size)
-#endif
-      ! USE_CRAY_POINTER
 #endif
 
     END SUBROUTINE init_remote_memory_window
 
 
-#ifdef USE_CRAY_POINTER
-    !------------------------------------------------------------------------------------------------
-    !> allocate amount of memory needed with MPI_Alloc_mem
-    !
-    !  @note Implementation for Cray pointers
-    !
-    SUBROUTINE allocate_mem_cray(mem_size)
-
-#ifdef NOMPI
-      INTEGER, INTENT(IN)    :: mem_size
-#else
-      INTEGER (KIND=MPI_ADDRESS_KIND), INTENT(IN)    :: mem_size
-      ! local variables
-      CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allocate_mem_cray"
-      INTEGER (KIND=MPI_ADDRESS_KIND) :: iptr
-      REAL(wp)                        :: tmp_dp
-      INTEGER                         :: mpierr
-      INTEGER                         :: nbytes_real
-      INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_bytes
-      POINTER(tmp_ptr_sp,tmp_sp(*))
-
-      ! Get the amount of bytes per REAL*4 variable (as used in MPI
-      ! communication)
-      CALL MPI_Type_extent(p_real_sp, nbytes_real, mpierr)
-
-      ! For the IO PEs the amount of memory needed is 0 - allocate at least 1 word there:
-      mem_bytes = MAX(mem_size,1_i8)*INT(nbytes_real,i8)
-
-      CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, iptr, mpierr)
-
-      tmp_ptr_sp = iptr
-      CALL set_mem_ptr_sp(tmp_sp, INT(mem_size))
-
-      ! Create memory window for communication
-      patch_data%mem_win%mem_ptr_sp(:) = 0._sp
-      CALL MPI_Win_create(patch_data%mem_win%mem_ptr_sp, mem_bytes, nbytes_real, MPI_INFO_NULL,&
-           &                 p_comm_work_pref, patch_data%mem_win%mpi_win, mpierr)
-
-      IF (mpierr /= 0) CALL finish(TRIM(routine), "MPI error!")
-#endif
-
-    END SUBROUTINE allocate_mem_cray
-#endif
-    ! USE_CRAY_POINTER
-
-#ifndef USE_CRAY_POINTER
     !------------------------------------------------------------------------------------------------
     !> allocate amount of memory needed with MPI_Alloc_mem
     !
@@ -1267,8 +1209,5 @@ MODULE mo_async_latbc
 #endif
 
     END SUBROUTINE allocate_mem_noncray
-
-#endif
-  !------------------------------------------------------------------------------------------------
 
 END MODULE mo_async_latbc
