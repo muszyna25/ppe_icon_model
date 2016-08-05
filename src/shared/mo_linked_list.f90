@@ -83,8 +83,10 @@ MODULE mo_linked_list
     INTEGER                       :: cdiGenericZaxisID
     INTEGER                       :: cdiHalfZaxisID
     INTEGER                       :: cdiFullZaxisID
-    INTEGER                       :: cdiDepthHalfZaxisID
-    INTEGER                       :: cdiDepthFullZaxisID
+    INTEGER                       :: cdiLandDepthHalfZaxisID
+    INTEGER                       :: cdiLandDepthFullZaxisID
+    INTEGER                       :: cdiSeaDepthHalfZaxisID
+    INTEGER                       :: cdiSeaDepthFullZaxisID
     INTEGER                       :: cdiH2mZaxisID
     INTEGER                       :: cdiH10mZaxisID
     INTEGER                       :: cdiLakeBottomZaxisID
@@ -168,8 +170,10 @@ CONTAINS
     this_list%p%cdiGenericZaxisID   = -1
     this_list%p%cdiHalfZaxisID      = -1
     this_list%p%cdiFullZaxisID      = -1
-    this_list%p%cdiDepthFullZaxisID = -1
-    this_list%p%cdiDepthHalfZaxisID = -1
+    this_list%p%cdiLandDepthFullZaxisID = -1
+    this_list%p%cdiLandDepthHalfZaxisID = -1
+    this_list%p%cdiSeaDepthFullZaxisID = -1
+    this_list%p%cdiSeaDepthHalfZaxisID = -1
     this_list%p%cdiH2mZaxisID       = -1
     this_list%p%cdiH10mZaxisID      = -1
     this_list%p%cdiToaZaxisID       = -1

@@ -37,7 +37,6 @@ MODULE mo_io_restart_async
   USE mo_var_metadata_types,      ONLY: t_var_metadata
   USE mo_io_restart_namelist,     ONLY: RestartNamelist_writeToFile, delete_restart_namelists, set_restart_namelist, &
                                       & get_restart_namelist, print_restart_name_lists, RestartNamelist_bcast
-  USE mo_name_list_output_types,  ONLY: max_z_axes
 #ifdef USE_CRAY_POINTER
   USE mo_name_list_output_init,   ONLY: set_mem_ptr_dp
 #endif
@@ -62,12 +61,12 @@ MODULE mo_io_restart_async
   USE mo_cdi_constants,           ONLY: ZA_SURFACE, ZA_HYBRID, ZA_HYBRID_HALF, ZA_DEPTH_BELOW_LAND, ZA_DEPTH_BELOW_LAND_P1, &
                                       & ZA_SNOW, ZA_SNOW_HALF, ZA_HEIGHT_2M, ZA_HEIGHT_10M, ZA_TOA, ZA_LAKE_BOTTOM, ZA_MIX_LAYER, &
                                       & ZA_LAKE_BOTTOM_HALF, ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_DEPTH_BELOW_SEA, &
-                                      & ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE, ZA_DEPTH_RUNOFF_S, ZA_DEPTH_RUNOFF_G, &
-                                      & GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL
+                                      & ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE, ZA_DEPTH_RUNOFF_S, ZA_DEPTH_RUNOFF_G, ZA_COUNT, &
+                                      & GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL, cdi_zaxis_types
   USE mo_cf_convention
   USE mo_util_string,             ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                   int2string, toCharacter
-  USE mo_util_restart,            ONLY: createHgrids, defineSingleLevelAxis, defineVAxis
+  USE mo_util_restart,            ONLY: createHgrids, defineVAxis, t_v_grid, createVgrids, set_vertical_grid
 
 #ifndef NOMPI
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work,      &
@@ -185,7 +184,7 @@ MODULE mo_io_restart_async
     INTEGER                     :: cdiVertGridID
     INTEGER                     :: cdiEdgeGridID
     INTEGER                     :: cdiTaxisID
-    INTEGER                     :: cdiZaxisIDs(max_z_axes)
+    INTEGER                     :: cdiZaxisIDs(ZA_COUNT)  !indices are the ZA_... constants
     INTEGER                     :: cdiTimeIndex
 
   END TYPE t_restart_file
@@ -211,14 +210,6 @@ MODULE mo_io_restart_async
   END TYPE t_reorder_data
 
   !------------------------------------------------------------------------------------------------
-  ! TYPE t_v_grid contains the data of a vertical grid definition.
-  !
-  TYPE t_v_grid
-    INTEGER :: type
-    INTEGER :: nlevels
-  END type t_v_grid
-
-  !------------------------------------------------------------------------------------------------
   ! TYPE t_patch_data contains the reordering data for cells, edges and verts
   !
   TYPE t_patch_data
@@ -229,6 +220,7 @@ MODULE mo_io_restart_async
 
     ! vertical grid definitions
     TYPE(t_v_grid), POINTER :: v_grid_defs(:)
+    INTEGER :: v_grid_count
 
     ! restart file data
     TYPE(t_restart_file) :: restart_file
@@ -1323,6 +1315,7 @@ CONTAINS
 
         ! release patch arrays
         IF (ASSOCIATED(p_pd%v_grid_defs))      DEALLOCATE(p_pd%v_grid_defs)
+        p_pd%v_grid_count = 0
         IF (ALLOCATED(p_pd%opt_pvct))          DEALLOCATE(p_pd%opt_pvct)
         IF (ALLOCATED(p_pd%opt_lcall_phy))     DEALLOCATE(p_pd%opt_lcall_phy)
         IF (ALLOCATED(p_pd%opt_t_elapsed_phy)) DEALLOCATE(p_pd%opt_t_elapsed_phy)
@@ -1679,6 +1672,7 @@ CONTAINS
 
       ! reset pointer
       p_pd%v_grid_defs => NULL()
+      p_pd%v_grid_count = 0
 
       ! init. optional parameter arrays
       p_pd%n_opt_lcall_phy = 0
@@ -2124,18 +2118,8 @@ CONTAINS
   !
   !  Set vertical grid definition.
   !
-  SUBROUTINE set_vertical_grid_def(vg, ntype, nlevels)
-
-    TYPE(t_v_grid), INTENT(INOUT) :: vg
-    INTEGER, INTENT(IN)           :: ntype, nlevels
-
-    vg%type    = ntype
-    vg%nlevels = nlevels
-
-  END SUBROUTINE set_vertical_grid_def
-
   SUBROUTINE defineVerticalGrids(patchData)
-    TYPE(t_patch_data), INTENT(INOUT) :: patchData
+    TYPE(t_patch_data), TARGET, INTENT(INOUT) :: patchData
 
     INTEGER :: nlev_soil, nlev_snow, nlev_ocean, nice_class, ierrstat
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":defineVerticalGrids"
@@ -2154,27 +2138,32 @@ CONTAINS
 
     ! set vertical grid definitions
     ALLOCATE(patchData%v_grid_defs(MAX_VERTICAL_AXES), STAT=ierrstat)
+    patchData%v_grid_count = 0
     IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 
-    CALL set_vertical_grid_def(patchData%v_grid_defs(1),  ZA_SURFACE                , 1               )
-    CALL set_vertical_grid_def(patchData%v_grid_defs(2),  ZA_HYBRID                 , patchData%nlev  )
-    CALL set_vertical_grid_def(patchData%v_grid_defs(3),  ZA_HYBRID_HALF            , patchData%nlev+1)
-    CALL set_vertical_grid_def(patchData%v_grid_defs(4),  ZA_DEPTH_BELOW_LAND       , nlev_soil       )
-    CALL set_vertical_grid_def(patchData%v_grid_defs(5),  ZA_DEPTH_BELOW_LAND_P1    , nlev_soil+1     )
-    CALL set_vertical_grid_def(patchData%v_grid_defs(6),  ZA_SNOW                   , nlev_snow       )
-    CALL set_vertical_grid_def(patchData%v_grid_defs(7),  ZA_SNOW_HALF              , nlev_snow+1     )
-    CALL set_vertical_grid_def(patchData%v_grid_defs(8),  ZA_HEIGHT_2M              , 1               )
-    CALL set_vertical_grid_def(patchData%v_grid_defs(9),  ZA_HEIGHT_10M             , 1               )
-    CALL set_vertical_grid_def(patchData%v_grid_defs(10), ZA_TOA                    , 1               )
-    CALL set_vertical_grid_def(patchData%v_grid_defs(11), ZA_LAKE_BOTTOM            , 1               )
-    CALL set_vertical_grid_def(patchData%v_grid_defs(12), ZA_MIX_LAYER              , 1               )
-    CALL set_vertical_grid_def(patchData%v_grid_defs(13), ZA_LAKE_BOTTOM_HALF       , 1               )
-    CALL set_vertical_grid_def(patchData%v_grid_defs(14), ZA_SEDIMENT_BOTTOM_TW_HALF, 1               )
-    CALL set_vertical_grid_def(patchData%v_grid_defs(15), ZA_DEPTH_BELOW_SEA        , nlev_ocean      )
-    CALL set_vertical_grid_def(patchData%v_grid_defs(16), ZA_DEPTH_BELOW_SEA_HALF   , nlev_ocean+1    )
-    CALL set_vertical_grid_def(patchData%v_grid_defs(17), ZA_GENERIC_ICE            , nice_class      )
-    CALL set_vertical_grid_def(patchData%v_grid_defs(18), ZA_DEPTH_RUNOFF_S         , 1               )
-    CALL set_vertical_grid_def(patchData%v_grid_defs(19), ZA_DEPTH_RUNOFF_G         , 1               )
+    CALL set_vertical_grid(patchData%v_grid_defs, patchData%v_grid_count, ZA_SURFACE, 0._wp)
+    CALL set_vertical_grid(patchData%v_grid_defs, patchData%v_grid_count, ZA_HYBRID, patchData%nlev)
+    CALL set_vertical_grid(patchData%v_grid_defs, patchData%v_grid_count, ZA_HYBRID_HALF, patchData%nlev+1)
+    CALL set_vertical_grid(patchData%v_grid_defs, patchData%v_grid_count, ZA_HEIGHT_2M, 2._wp)
+    CALL set_vertical_grid(patchData%v_grid_defs, patchData%v_grid_count, ZA_HEIGHT_10M, 10._wp)
+    CALL set_vertical_grid(patchData%v_grid_defs, patchData%v_grid_count, ZA_TOA, 1._wp)
+    CALL set_vertical_grid(patchData%v_grid_defs, patchData%v_grid_count, ZA_LAKE_BOTTOM, 1._wp)
+    CALL set_vertical_grid(patchData%v_grid_defs, patchData%v_grid_count, ZA_MIX_LAYER, 1._wp)
+    CALL set_vertical_grid(patchData%v_grid_defs, patchData%v_grid_count, ZA_LAKE_BOTTOM_HALF, 1._wp)
+    CALL set_vertical_grid(patchData%v_grid_defs, patchData%v_grid_count, ZA_SEDIMENT_BOTTOM_TW_HALF, 0._wp)
+    CALL set_vertical_grid(patchData%v_grid_defs, patchData%v_grid_count, ZA_GENERIC_ICE, 1._wp)
+    CALL set_vertical_grid(patchData%v_grid_defs, patchData%v_grid_count, ZA_DEPTH_RUNOFF_S, 1)
+    CALL set_vertical_grid(patchData%v_grid_defs, patchData%v_grid_count, ZA_DEPTH_RUNOFF_G, 1)
+    IF(patchData%l_opt_depth_lnd) CALL set_vertical_grid(patchData%v_grid_defs, patchData%v_grid_count, ZA_DEPTH_BELOW_LAND, &
+                                                        &nlev_soil)
+    IF(patchData%l_opt_depth_lnd) CALL set_vertical_grid(patchData%v_grid_defs, patchData%v_grid_count, ZA_DEPTH_BELOW_LAND_P1, &
+                                                        &nlev_soil+1)
+    IF(patchData%l_opt_nlev_snow) CALL set_vertical_grid(patchData%v_grid_defs, patchData%v_grid_count, ZA_SNOW, nlev_snow)
+    IF(patchData%l_opt_nlev_snow) CALL set_vertical_grid(patchData%v_grid_defs, patchData%v_grid_count, ZA_SNOW_HALF, nlev_snow+1)
+    IF(patchData%l_opt_depth) CALL set_vertical_grid(patchData%v_grid_defs, patchData%v_grid_count, ZA_DEPTH_BELOW_SEA, &
+                                                        &nlev_ocean)
+    IF(patchData%l_opt_depth) CALL set_vertical_grid(patchData%v_grid_defs, patchData%v_grid_count, ZA_DEPTH_BELOW_SEA_HALF, &
+                                                        &nlev_ocean+1)
   END SUBROUTINE defineVerticalGrids
 
   !------------------------------------------------------------------------------------------------
@@ -2816,9 +2805,8 @@ CONTAINS
     TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
 
     TYPE(t_restart_file), POINTER     :: p_rf
-    TYPE(t_v_grid), POINTER           :: p_vgd
     REAL(wp)                          :: real_attribute(1)
-    INTEGER                           :: i, status, int_attribute(1), nlevp1
+    INTEGER                           :: i, status, int_attribute(1)
     LOGICAL                           :: bool_attribute
     CHARACTER(LEN=MAX_NAME_LENGTH)    :: attribute_name, text_attribute
     CHARACTER(LEN = :), POINTER :: temp_text
@@ -2845,98 +2833,11 @@ CONTAINS
                      &p_pd%edges%n_glb, p_rf%cdiEdgeGridID, p_pd%cell_type)
 
     ! 4. add vertical grid descriptions
-    DO i = 1, SIZE(p_pd%v_grid_defs)
-
-      p_vgd => p_pd%v_grid_defs(i)
-
-      SELECT CASE (p_vgd%type)
-
-        CASE (ZA_SURFACE)
-          p_rf%cdiZaxisIDs(ZA_SURFACE) = defineSingleLevelAxis(ZAXIS_SURFACE, 0.0_wp)
-
-        CASE (ZA_HYBRID)
-          p_rf%cdiZaxisIDs(ZA_HYBRID) = defineVAxis(ZAXIS_HYBRID, p_vgd%nlevels)
-          IF (ALLOCATED(p_pd%opt_pvct)) THEN
-            nlevp1 = p_vgd%nlevels+1
-            CALL zaxisDefVct(p_rf%cdiZaxisIDs(ZA_HYBRID), 2*nlevp1, &
-              &              p_pd%opt_pvct(1:2*nlevp1))
-          ENDIF
-
-        CASE (ZA_HYBRID_HALF)
-          p_rf%cdiZaxisIDs(ZA_HYBRID_HALF) = defineVAxis(ZAXIS_HYBRID_HALF, p_vgd%nlevels)
-          IF (ALLOCATED(p_pd%opt_pvct)) THEN
-            nlevp1 = p_vgd%nlevels
-            CALL zaxisDefVct(p_rf%cdiZaxisIDs(ZA_HYBRID_HALF), 2*nlevp1, &
-              &                               p_pd%opt_pvct(1:2*nlevp1))
-          ENDIF
-
-        CASE (ZA_DEPTH_BELOW_LAND)
-          IF (p_pd%l_opt_depth_lnd) THEN
-            p_rf%cdiZaxisIDs(ZA_DEPTH_BELOW_LAND) = defineVAxis(ZAXIS_DEPTH_BELOW_LAND, p_pd%opt_depth_lnd)
-          ENDIF
-
-        CASE (ZA_DEPTH_BELOW_LAND_P1)
-          IF (p_pd%l_opt_depth_lnd) THEN
-            p_rf%cdiZaxisIDs(ZA_DEPTH_BELOW_LAND_P1) = defineVAxis(ZAXIS_DEPTH_BELOW_LAND, p_pd%opt_depth_lnd+1)
-          ENDIF
-
-        CASE (ZA_DEPTH_RUNOFF_S)
-          p_rf%cdiZaxisIDs(ZA_DEPTH_RUNOFF_S) = defineVAxis(ZAXIS_DEPTH_BELOW_LAND, p_vgd%nlevels)
-
-        CASE (ZA_DEPTH_RUNOFF_G)
-          p_rf%cdiZaxisIDs(ZA_DEPTH_RUNOFF_G) = defineVAxis(ZAXIS_DEPTH_BELOW_LAND, p_vgd%nlevels)
-
-        CASE (ZA_SNOW)
-          IF (p_pd%l_opt_nlev_snow) THEN
-            p_rf%cdiZaxisIDs(ZA_SNOW) = defineVAxis(ZAXIS_GENERIC, p_pd%opt_nlev_snow)
-          ENDIF
-
-        CASE (ZA_SNOW_HALF)
-          IF (p_pd%l_opt_nlev_snow) THEN
-            p_rf%cdiZaxisIDs(ZA_SNOW_HALF) = defineVAxis(ZAXIS_GENERIC, p_pd%opt_nlev_snow+1)
-          ENDIF
-
-        CASE (ZA_TOA)
-          p_rf%cdiZaxisIDs(ZA_TOA) = defineSingleLevelAxis(ZAXIS_TOA, 1.0_wp)
-
-        CASE (ZA_LAKE_BOTTOM)
-          p_rf%cdiZaxisIDs(ZA_LAKE_BOTTOM) = defineSingleLevelAxis(ZAXIS_LAKE_BOTTOM, 1.0_wp)
-
-        CASE (ZA_MIX_LAYER)
-          p_rf%cdiZaxisIDs(ZA_MIX_LAYER) = defineSingleLevelAxis(ZAXIS_MIX_LAYER, 1.0_wp)
-
-        CASE (ZA_LAKE_BOTTOM_HALF)
-          p_rf%cdiZaxisIDs(ZA_LAKE_BOTTOM_HALF) = defineSingleLevelAxis(ZAXIS_LAKE_BOTTOM, 1.0_wp)
-
-        CASE (ZA_SEDIMENT_BOTTOM_TW_HALF)
-          p_rf%cdiZaxisIDs(ZA_SEDIMENT_BOTTOM_TW_HALF) = defineSingleLevelAxis(ZAXIS_SEDIMENT_BOTTOM_TW, 0.0_wp)
-
-        CASE (ZA_HEIGHT_2M)
-          p_rf%cdiZaxisIDs(ZA_HEIGHT_2M) = defineSingleLevelAxis(ZAXIS_HEIGHT, 2.0_wp)
-
-        CASE (ZA_HEIGHT_10M)
-          p_rf%cdiZaxisIDs(ZA_HEIGHT_10M) = defineSingleLevelAxis(ZAXIS_HEIGHT, 10.0_wp)
-
-        CASE (ZA_DEPTH_BELOW_SEA)
-          IF (p_pd%l_opt_depth) THEN
-            p_rf%cdiZaxisIDs(ZA_DEPTH_BELOW_SEA) = defineVAxis(ZAXIS_DEPTH_BELOW_SEA, p_pd%opt_depth)
-          ENDIF
-
-        CASE (ZA_DEPTH_BELOW_SEA_HALF)
-          IF (p_pd%l_opt_depth) THEN
-            p_rf%cdiZaxisIDs(ZA_DEPTH_BELOW_SEA_HALF) = defineVAxis(ZAXIS_DEPTH_BELOW_SEA, p_pd%opt_depth+1)
-          ENDIF
-
-        CASE (ZA_GENERIC_ICE)
-          !!!!!!!!! ATTENTION: !!!!!!!!!!!
-          ! As soon as i_no_ice_thick_class is set to i_no_ice_thick_class>1 this no longer works
-          p_rf%cdiZaxisIDs(ZA_GENERIC_ICE) = defineSingleLevelAxis(ZAXIS_GENERIC, 1.0_wp)
-
-        CASE DEFAULT
-          CALL finish(routine, UNKNOWN_VERT_GRID_DESCR)
-
-        END SELECT
-    ENDDO
+    IF(ALLOCATED(p_pd%opt_pvct)) THEN
+        CALL createVgrids(p_rf%cdiZaxisIDs, p_pd%v_grid_defs(1:p_pd%v_grid_count))
+    ELSE
+        CALL createVgrids(p_rf%cdiZaxisIDs, p_pd%v_grid_defs(1:p_pd%v_grid_count), p_pd%opt_pvct)
+    END IF
 
     ! 5. restart does contain absolute time
     p_rf%cdiTaxisID = taxisCreate(TAXIS_ABSOLUTE)

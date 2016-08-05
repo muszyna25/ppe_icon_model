@@ -15,15 +15,33 @@ MODULE mo_util_restart
     USE mo_exception, ONLY: finish
     USE mo_cdi, ONLY: CDI_UNDEFID, GRID_UNSTRUCTURED, gridCreate, gridDefNvertex, gridDefXname, gridDefXlongname, gridDefXunits, &
                     & gridDefYname, gridDefYlongname, gridDefYunits, zaxisCreate, zaxisDefLevels
+    USE mo_cdi_constants, ONLY: ZA_HYBRID, ZA_HYBRID_HALF, ZA_LAKE_BOTTOM, ZA_MIX_LAYER, ZA_LAKE_BOTTOM_HALF, &
+                              & ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_COUNT, cdi_zaxis_types
+    USE mo_impl_constants, ONLY: SUCCESS
     USE mo_kind, ONLY: wp
 
     IMPLICIT NONE
 
     PRIVATE
 
+    PUBLIC :: t_v_grid
     PUBLIC :: createHgrids
     PUBLIC :: defineVAxis
-    PUBLIC :: defineSingleLevelAxis
+    PUBLIC :: createVgrids
+    PUBLIC :: set_vertical_grid
+
+    ! TYPE t_v_grid contains the data of a vertical grid definition.
+    TYPE t_v_grid
+        INTEGER :: type
+        REAL(wp), ALLOCATABLE :: levels(:)
+    END type t_v_grid
+
+    ! This takes a buffer for grid definitions, to which one entry IS appended by incrementing the count of used elements that's passed as well.
+    INTERFACE set_vertical_grid
+        MODULE PROCEDURE set_vertical_grid_array
+        MODULE PROCEDURE set_vertical_grid_counted
+        MODULE PROCEDURE set_vertical_grid_single
+    END INTERFACE
 
     CHARACTER(LEN = *), PARAMETER :: modname = "mo_util_restart"
 
@@ -72,25 +90,94 @@ CONTAINS
     END SUBROUTINE createHgrids
 
     ! If no opt_levelValues are given, this defaults to numbering the levels from 1 to levelCount.
-    INTEGER FUNCTION defineVAxis(cdiAxisType, levelCount, opt_levelValues) RESULT(RESULT)
-        INTEGER, VALUE :: cdiAxisType, levelCount
-        REAL(KIND = wp), OPTIONAL, INTENT(IN) :: opt_levelValues(:)
+    INTEGER FUNCTION defineVAxis(cdiAxisType, levelValues) RESULT(RESULT)
+        INTEGER, VALUE :: cdiAxisType
+        REAL(KIND = wp), INTENT(IN) :: levelValues(:)
+
+        INTEGER :: levelCount
+
+        levelCount = SIZE(levelValues, 1)
+        RESULT = zaxisCreate(cdiAxisType, levelCount)
+        CALL zaxisDefLevels(RESULT, levelValues)
+    END FUNCTION defineVAxis
+
+    SUBROUTINE createVgrids(axisIds, gridDescriptions, opt_vct)
+        INTEGER, INTENT(INOUT) :: axisIds(ZA_COUNT)
+        TYPE(t_v_grid), INTENT(IN) :: gridDescriptions(:)
+        REAL(wp), OPTIONAL, INTENT(IN) :: opt_vct(:)
+
+        INTEGER :: i, nlevp1, gridId
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":createVgrids"
+
+        axisIds(:) = CDI_UNDEFID
+        DO i = 1, SIZE(gridDescriptions, 1)
+            IF(cdi_zaxis_types(gridDescriptions(i)%TYPE) == CDI_UNDEFID) CALL finish(routine, "no CDI zaxis TYPE defined for vgrid")
+
+            gridId = defineVAxis(cdi_zaxis_types(gridDescriptions(i)%TYPE), gridDescriptions(i)%levels)
+            IF(gridId == CDI_UNDEFID) CALL finish(routine, "defineVAxis() returned an error")
+            axisIds(gridDescriptions(i)%TYPE) = gridId
+
+            SELECT CASE (gridDescriptions(i)%type)
+                CASE (ZA_HYBRID)
+                    IF (.NOT.PRESENT(opt_vct)) CYCLE
+                    nlevp1 = SIZE(gridDescriptions(i)%levels, 1) + 1
+                    CALL zaxisDefVct(gridId, 2*nlevp1, opt_vct(1:2*nlevp1))
+
+                CASE (ZA_HYBRID_HALF)
+                    IF (.NOT.PRESENT(opt_vct)) CYCLE
+                    nlevp1 = SIZE(gridDescriptions(i)%levels, 1)
+                    CALL zaxisDefVct(gridId, 2*nlevp1, opt_vct(1:2*nlevp1))
+
+                CASE (ZA_LAKE_BOTTOM, ZA_MIX_LAYER)
+                    CALL zaxisDefLbounds(gridId, [1._wp]) !necessary for GRIB2
+                    CALL zaxisDefUbounds(gridId, [0._wp]) !necessary for GRIB2
+                    CALL zaxisDefUnits  (gridId, "m")
+
+                CASE (ZA_LAKE_BOTTOM_HALF, ZA_SEDIMENT_BOTTOM_TW_HALF)
+                    CALL zaxisDefUnits(gridId, "m")
+            END SELECT
+        ENDDO
+    END SUBROUTINE createVgrids
+
+    SUBROUTINE set_vertical_grid_array(gridDefinitions, gridCount, type, levels)
+        TYPE(t_v_grid), INTENT(INOUT) :: gridDefinitions(:)
+        INTEGER, INTENT(INOUT) :: gridCount
+        INTEGER, VALUE :: type
+        REAL(wp), INTENT(in) :: levels(:)
+
+        INTEGER :: levelCount, error
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":set_vertical_grid_array"
+
+        gridCount = gridCount+1
+        IF(gridCount > SIZE(gridDefinitions, 1)) CALL finish(routine, "insufficient space in the gridDefinitions array, please &
+                                                                     &increase the size of the array that is passed")
+
+        gridDefinitions(gridCount)%type = type
+
+        levelCount = SIZE(levels, 1)
+        IF(ALLOCATED(gridDefinitions(gridCount)%levels)) DEALLOCATE(gridDefinitions(gridCount)%levels)
+        ALLOCATE(gridDefinitions(gridCount)%levels(levelCount), STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+        gridDefinitions(gridCount)%levels(:) = levels(:)
+    END SUBROUTINE set_vertical_grid_array
+
+    SUBROUTINE set_vertical_grid_counted(gridDefinitions, gridCount, TYPE, levelCount)
+        TYPE(t_v_grid), INTENT(INOUT) :: gridDefinitions(:)
+        INTEGER, INTENT(INOUT) :: gridCount
+        INTEGER, VALUE :: TYPE, levelCount
 
         INTEGER :: i
 
-        RESULT = zaxisCreate(cdiAxisType, levelCount)
-        IF(PRESENT(opt_levelValues)) THEN
-            CALL zaxisDefLevels(RESULT, opt_levelValues)
-        ELSE
-            CALL zaxisDefLevels(RESULT, [(REAL(i, wp), i = 1, levelCount)])
-        END IF
-    END FUNCTION defineVAxis
+        CALL set_vertical_grid(gridDefinitions, gridCount, TYPE, [(REAL(i, wp), i = 1, levelCount)])
+    END SUBROUTINE set_vertical_grid_counted
 
-    INTEGER FUNCTION defineSingleLevelAxis(cdiAxisType, levelValue) RESULT(RESULT)
-        INTEGER, VALUE :: cdiAxisType
-        REAL(KIND = wp), VALUE :: levelValue
+    SUBROUTINE set_vertical_grid_single(gridDefinitions, gridCount, TYPE, levelValue)
+        TYPE(t_v_grid), INTENT(INOUT) :: gridDefinitions(:)
+        INTEGER, INTENT(INOUT) :: gridCount
+        INTEGER, VALUE :: TYPE
+        REAL(wp), VALUE :: levelValue
 
-        RESULT = defineVAxis(cdiAxisType, 1, [levelValue])
-    END FUNCTION defineSingleLevelAxis
+        CALL set_vertical_grid(gridDefinitions, gridCount, TYPE, [levelValue])
+    END SUBROUTINE set_vertical_grid_single
 
 END MODULE mo_util_restart
