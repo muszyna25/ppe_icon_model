@@ -134,13 +134,16 @@ MODULE mo_restart_async
                       ! n_own, gathered for all compute PEs (set on all PEs)
     INTEGER, ALLOCATABLE :: pe_off(:)
                       ! offset of contributions of PEs (set on all PEs)
-    INTEGER, ALLOCATABLE :: reorder_index(:)
-                      ! Index how to reorder the contributions of all compute PEs
-                      ! into the global array (set on all PEs)
+
+    ! Index how to reorder the contributions of all compute PEs into the global array (set on all PEs)
+    INTEGER, ALLOCATABLE :: reorder_index(:)            ! given a global array index, this gives the index within the gathered array
+    INTEGER, ALLOCATABLE :: inverse_reorder_index(:)    ! given a gathered array index, this gives the index within the global array
   CONTAINS
     PROCEDURE, PRIVATE :: construct => reorderData_construct    ! Collective across work AND restart. This IS a two step process utilizing the two methods below.
     PROCEDURE, PRIVATE :: constructCompute => reorderData_constructCompute  ! The reorder DATA IS constructed on the work processes AND THEN transferred to the restart processes.
     PROCEDURE, PRIVATE :: transferToRestart => reorderData_transferToRestart    ! Constructs the reorder DATA on the restart processes.
+
+    PROCEDURE, PRIVATE :: reorderLevelFromPe => reorderData_reorderLevelFromPe  ! sort the DATA of a single level from a single PE into a global array.
   END TYPE t_reorder_data
 
   ! this combines all the DATA that's relevant for transfering the payload DATA from the worker PEs to the restart PEs
@@ -1210,6 +1213,7 @@ CONTAINS
         glbidx_own(n)  = decomp_info%glb_index(i)
       ENDIF
     ENDDO
+    DEALLOCATE(owner_mask_1d)
 
     ! gather the number of own points for every PE into me%pe_own
     ALLOCATE(me%pe_own(0:p_n_work-1), STAT=ierrstat)
@@ -1240,10 +1244,7 @@ CONTAINS
                         glbidx_glb, me%pe_own, me%pe_off, p_int, &
                         p_comm_work, mpi_error)
     CALL check_mpi_error(routine, 'MPI_Allgatherv', mpi_error, .TRUE.)
-
-    ! get reorder_index
-    ALLOCATE(me%reorder_index(me%n_glb), STAT=ierrstat)
-    IF(ierrstat /= SUCCESS) CALL finish(routine, "allocation of me%reorder_index failed")
+    DEALLOCATE(glbidx_own)
 
     ! spans the complete logical domain
     ALLOCATE(reorder_index_log_dom(n_points_g), STAT=ierrstat)
@@ -1255,8 +1256,12 @@ CONTAINS
       ! It is nonzero only at the patch locations
       reorder_index_log_dom(glbidx_glb(i)) = i
     ENDDO
+    DEALLOCATE(glbidx_glb)
 
-    ! gather the reorder index
+    ! remove the zero entries from reorder_index_log_dom to form the reorder_index
+    ALLOCATE(me%reorder_index(me%n_glb), STAT=ierrstat)
+    IF(ierrstat /= SUCCESS) CALL finish(routine, "allocation of me%reorder_index failed")
+
     n = 0
     DO i = 1, n_points_g
       IF(reorder_index_log_dom(i)>0) THEN
@@ -1264,24 +1269,20 @@ CONTAINS
         me%reorder_index(n) = reorder_index_log_dom(i)
       ENDIF
     ENDDO
-
-#ifdef DEBUG
-  WRITE (nerr, '(a,i8,a,i8)') 'Reordering number: n=',n, &
-         & ', me%n_glb=',me%n_glb
-#endif
-
-    ! safety check
-    IF(n/=me%n_glb) THEN
-      WRITE (error_message, '(a,i8,a,i8)') 'Reordering failed: n=',n, &
-                                         & ' /= me%n_glb=',me%n_glb
-      CALL finish(routine,TRIM(error_message))
-    ENDIF
-
-    DEALLOCATE(owner_mask_1d)
-    DEALLOCATE(glbidx_own)
-    DEALLOCATE(glbidx_glb)
     DEALLOCATE(reorder_index_log_dom)
+    IF(n /= me%n_glb) CALL finish(routine, "assertion failed: reorder_index is not surjective")
 
+    ! compute the inverse of the reorder_index
+    ALLOCATE(me%inverse_reorder_index(me%n_glb), STAT=ierrstat)
+    IF(ierrstat /= SUCCESS) CALL finish(routine, "allocation of me%inverse_reorder_index failed")
+
+    me%inverse_reorder_index(:) = 0
+    DO i = 1, me%n_glb
+        IF(me%inverse_reorder_index(me%reorder_index(i)) /= 0) THEN
+            CALL finish(routine, "assertion failed: reorder_index is not injective")
+        END IF
+        me%inverse_reorder_index(me%reorder_index(i)) = i
+    END DO
   END SUBROUTINE reorderData_constructCompute
 
   !------------------------------------------------------------------------------------------------
@@ -1311,11 +1312,15 @@ CONTAINS
 
       ALLOCATE(me%reorder_index(me%n_glb), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
+
+      ALLOCATE(me%inverse_reorder_index(me%n_glb), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
     ENDIF
 
     CALL p_bcast(me%pe_own, bcastRoot(), p_comm_work_2_restart)
     CALL p_bcast(me%pe_off, bcastRoot(), p_comm_work_2_restart)
     CALL p_bcast(me%reorder_index, bcastRoot(), p_comm_work_2_restart)
+    CALL p_bcast(me%inverse_reorder_index, bcastRoot(), p_comm_work_2_restart)
   END SUBROUTINE reorderData_transferToRestart
 
   SUBROUTINE reorderData_construct(me, n_points_g, n_points, decomp_info)
@@ -1329,6 +1334,20 @@ CONTAINS
     END IF
     CALL me%transferToRestart()
   END SUBROUTINE reorderData_construct
+
+  SUBROUTINE reorderData_reorderLevelFromPe(me, level, pe, dataIn, globalArray)
+    CLASS(t_reorder_data), INTENT(IN) :: me
+    INTEGER, VALUE :: level, pe
+    REAL(dp), INTENT(IN) :: dataIn(:)
+    REAL(dp), INTENT(INOUT) :: globalArray(:,:)
+
+    INTEGER :: offset, i
+
+    offset = SUM(me%pe_own(0:pe - 1))
+    DO i = 1, me%pe_own(pe)
+        globalArray(me%inverse_reorder_index(offset + i), level) = dataIn(i)
+    END DO
+  END SUBROUTINE reorderData_reorderLevelFromPe
 
   !------------------------------------------------------------------------------------------------
   !
@@ -1580,9 +1599,9 @@ CONTAINS
     TYPE(t_reorder_data), POINTER   :: p_ri
     TYPE(t_var_data), POINTER       :: p_vars(:)
 
-    INTEGER                         :: iv, nval, ierrstat, nlevs, nv_off, np, mpi_error, i, ilev
+    INTEGER                         :: iv, nval, ierrstat, nlevs, nv_off, np, mpi_error, ilev
     INTEGER(KIND=MPI_ADDRESS_KIND)  :: ioff(0:num_work_procs-1)
-    REAL(dp), ALLOCATABLE           :: var1_dp(:), var2_dp(:,:), var3_dp(:)
+    REAL(dp), ALLOCATABLE           :: var1_dp(:), var2_dp(:,:)
     INTEGER                         :: ichunk, nchunks, chunk_start, chunk_end,     &
       &                                this_chunk_nlevs, ioff2
 
@@ -1640,11 +1659,6 @@ CONTAINS
       ! get pointer to reorder data
       p_ri => get_reorder_ptr(p_pd%commData, p_info, routine)
 
-      ! var1 is stored in the order in which the variable was stored on compute PEs,
-      ! get it back into the global storage order
-      ALLOCATE(var3_dp(p_ri%n_glb), STAT=ierrstat) ! Must be allocated to exact size
-      IF (ierrstat /= SUCCESS) CALL finish (routine, ALLOCATE_FAILED)
-
       ! no. of chunks of levels (each of size "restart_chunk_size"):
       nchunks = (nlevs-1)/restart_chunk_size + 1
       ! loop over all chunks (of levels)
@@ -1678,11 +1692,9 @@ CONTAINS
           ioff(np) = ioff(np) + INT(nval,i8)
 
           ! separate the levels received from PE "np":
-          ioff2 = 0
+          ioff2 = 1
           DO ilev=1,this_chunk_nlevs
-            DO i=1,p_ri%pe_own(np)
-              var2_dp(i+nv_off,ilev) = var1_dp(ioff2 + i)
-            END DO
+            CALL p_ri%reorderLevelFromPe(ilev, np, var1_dp(ioff2:), var2_dp)
             ioff2 = ioff2 + p_ri%pe_own(np)
           END DO
           ! update the offset in var2
@@ -1692,13 +1704,8 @@ CONTAINS
         ! write field content into a file
         t_write = t_write - p_mpi_wtime()
         DO ilev=chunk_start, chunk_end
-!$OMP PARALLEL DO
-          DO i = 1, p_ri%n_glb
-            var3_dp(i) = var2_dp(p_ri%reorder_index(i),(ilev-chunk_start+1))
-          ENDDO
-!$OMP END PARALLEL DO
-          CALL streamWriteVarSlice(p_rf%cdiIds%file, p_info%cdiVarID, (ilev-1), var3_dp(:), 0)
-          mb_wr = mb_wr + REAL(SIZE(var3_dp), wp)
+          CALL streamWriteVarSlice(p_rf%cdiIds%file, p_info%cdiVarID, (ilev-1), var2_dp(1:p_ri%n_glb, ilev - chunk_start + 1), 0)
+          mb_wr = mb_wr + REAL(p_ri%n_glb, wp)
         END DO
         t_write = t_write + p_mpi_wtime()
 
@@ -1708,10 +1715,6 @@ CONTAINS
       WRITE (nerr,FORMAT_VALS7I)routine,' p_pe=',p_pe,' restart pe writes field=', &
         &                               TRIM(p_info%name),' data=',p_ri%n_glb*nlevs
 #endif
-
-      DEALLOCATE(var3_dp, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish (routine, DEALLOCATE_FAILED)
-
     ENDDO VAR_LOOP
 
     DEALLOCATE(var1_dp, var2_dp, STAT=ierrstat)
