@@ -112,8 +112,7 @@ MODULE mo_io_restart
 #endif
 
   USE mo_model_domain,          ONLY: t_patch
-  USE mo_mpi,                   ONLY: my_process_is_mpi_workroot, &
-    & my_process_is_mpi_test
+  USE mo_mpi,                   ONLY: my_process_is_mpi_workroot, my_process_is_mpi_test, p_comm_rank
   USE mo_communication,         ONLY: t_comm_gather_pattern, exchange_data, &
     &                                 t_scatterPattern
 
@@ -205,11 +204,12 @@ CONTAINS
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: rst_filename
     CHARACTER(len=132) :: message_text
     LOGICAL                        :: lsuccess, lexists
-    INTEGER                        :: idom, total_dom, fileID, vlistID, root_pe
+    INTEGER                        :: idom, total_dom, fileID, vlistID, myRank
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
+    INTEGER, PARAMETER :: root_pe = 0
 
     ! rank of broadcast root PE
-    root_pe = 0
+    myRank = p_comm_rank(p_comm_work)
 
     idom = 1
     rst_filename = "restart_"//TRIM(modeltype_str)//"_DOM"//TRIM(int2string(idom, "(i2.2)"))//".nc"
@@ -229,7 +229,7 @@ CONTAINS
     ! Note: We read the namelists AND attributes only once and assume that these
     !       are identical for all domains (which IS guaranteed by the way the restart files are written).
 
-    IF (my_process_is_mpi_workroot()) THEN
+    IF (myRank == root_pe) THEN
         fileID  = streamOpenRead(TRIM(rst_filename))
         ! check if the file could be opened
         IF (fileID < 0) THEN
@@ -241,8 +241,8 @@ CONTAINS
         vlistID = streamInqVlist(fileID)
     END IF
     CALL read_and_bcast_restart_namelists(vlistID, root_pe, p_comm_work)
-    CALL read_and_bcast_attributes(vlistID, my_process_is_mpi_workroot(), root_pe, p_comm_work)
-    IF (my_process_is_mpi_workroot()) CALL streamClose(fileID)
+    CALL read_and_bcast_attributes(vlistID, root_pe, p_comm_work)
+    IF (myRank == root_pe) CALL streamClose(fileID)
 
     CALL message(TRIM(routine), 'read namelists AND attributes from restart file')
 
@@ -251,7 +251,7 @@ CONTAINS
     CALL get_restart_attribute( 'n_dom', total_dom )
 
     ! check whether we have all the restart files we expect
-    IF (my_process_is_mpi_workroot()) THEN
+    IF (myRank == root_pe) THEN
         DO idom = 2, total_dom
             rst_filename = "restart_"//TRIM(modeltype_str)//"_DOM"//TRIM(int2string(idom, "(i2.2)"))//".nc"
             IF (idom > 1) INQUIRE(file=TRIM(rst_filename), exist=lexists)

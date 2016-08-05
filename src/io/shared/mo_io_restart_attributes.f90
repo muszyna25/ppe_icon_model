@@ -10,7 +10,7 @@ MODULE mo_io_restart_attributes
   USE ISO_C_BINDING,            ONLY: C_DOUBLE, C_INT
   USE mo_kind,                  ONLY: wp, i8
   USE mo_exception,             ONLY: finish
-  USE mo_mpi,                   ONLY: p_bcast
+  USE mo_mpi,                   ONLY: p_bcast, p_comm_rank
   USE mo_cdi,                   ONLY: DATATYPE_FLT64, DATATYPE_INT32, DATATYPE_TXT, CDI_GLOBAL, vlistInqNatts, vlistInqAtt, &
       &                               vlistInqAttFlt, vlistInqAttInt, vlistInqAttTxt
 
@@ -318,17 +318,18 @@ CONTAINS
   END SUBROUTINE set_restart_attribute_bool
   !------------------------------------------------------------------------------------------------
 
-  SUBROUTINE read_and_bcast_attributes(vlistID, lread_pe, root_pe, comm)
-    INTEGER, INTENT(IN) :: vlistID      !< CDI vlist ID
-    LOGICAL, INTENT(IN) :: lread_pe     !< .TRUE., if current PE has opened the file for reading
-    INTEGER, INTENT(IN) :: root_pe      !< rank of broadcast root PE
-    INTEGER, INTENT(IN) :: comm         !< MPI communicator
+  SUBROUTINE read_and_bcast_attributes(vlistID, root_pe, comm)
+    INTEGER, VALUE :: vlistID      !< CDI vlist ID
+    INTEGER, VALUE :: root_pe      !< rank of broadcast root PE
+    INTEGER, VALUE :: comm         !< MPI communicator
 
     CHARACTER(len=256) :: att_name
     INTEGER :: natts, att_type, att_len, status, text_len, i
     REAL(KIND = C_DOUBLE) :: oneDouble(1)
     INTEGER(KIND = C_INT) :: oneInt(1)
+    LOGICAL :: lread_pe     !< .TRUE., if current PE has opened the file for reading
 
+    lread_pe = p_comm_rank(comm) == root_pe
     IF (.NOT. ALLOCATED(restart_attributes_text)) THEN
       ALLOCATE(restart_attributes_text(nmax_atts))
       natts_text = 0
