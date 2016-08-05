@@ -98,7 +98,7 @@ MODULE mo_ocean_model
   USE mo_alloc_patches,       ONLY: destruct_patches
   USE mo_ocean_read_namelists, ONLY: read_ocean_namelists
   USE mo_io_restart,          ONLY: read_restart_header, read_restart_files
-  USE mo_io_restart_attributes,ONLY: get_restart_attribute
+  USE mo_io_restart_attributes,ONLY: RestartAttributes_getInteger
   USE mo_ocean_patch_setup,     ONLY: complete_ocean_patch
   USE mo_time_config,         ONLY: time_config
   USE mo_icon_comm_interface, ONLY: construct_icon_communication, destruct_icon_communication
@@ -202,7 +202,7 @@ MODULE mo_ocean_model
       jstep0 = 0
       IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
         ! get start counter for time loop from restart file:
-        CALL get_restart_attribute("jstep", jstep0)
+        jstep0 = RestartAttributes_getInteger("jstep")
       END IF
       sim_step_info%jstep0    = jstep0
       CALL init_mean_stream(ocean_patch_3d%p_patch_2d(1))
@@ -645,7 +645,7 @@ MODULE mo_ocean_model
         jstep0 = 0
         IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
           ! get start counter for time loop from restart file:
-          CALL get_restart_attribute("jstep", jstep0)
+          jstep0 = RestartAttributes_getInteger("jstep")
         END IF
         sim_step_info%jstep0    = jstep0
 !         CALL name_list_io_main_proc(sim_step_info, isample=1)

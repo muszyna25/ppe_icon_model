@@ -25,7 +25,7 @@ MODULE mo_dynamics_config
 
   USE mo_kind,                  ONLY: wp
   USE mo_impl_constants,        ONLY: MAX_DOM
-  USE mo_io_restart_attributes, ONLY: get_restart_attribute
+  USE mo_io_restart_attributes, ONLY: RestartAttributes_getInteger
   USE mo_master_config,         ONLY: isRestart
   USE mo_util_string,           ONLY: int2string
 
@@ -90,11 +90,11 @@ CONTAINS
       ! of multiple domains!!!
 
       DO jdom = 1,ndom
-        CALL get_restart_attribute( 'nold_DOM'//TRIM(int2string(jdom, "(i2.2)"))    ,nold    (jdom) )
-        CALL get_restart_attribute( 'nnow_DOM'//TRIM(int2string(jdom, "(i2.2)"))    ,nnow    (jdom) )
-        CALL get_restart_attribute( 'nnew_DOM'//TRIM(int2string(jdom, "(i2.2)"))    ,nnew    (jdom) )
-        CALL get_restart_attribute( 'nnow_rcf_DOM'//TRIM(int2string(jdom, "(i2.2)")),nnow_rcf(jdom) )
-        CALL get_restart_attribute( 'nnew_rcf_DOM'//TRIM(int2string(jdom, "(i2.2)")),nnew_rcf(jdom) )
+        nold(jdom) = RestartAttributes_getInteger('nold_DOM'//TRIM(int2string(jdom, "(i2.2)")))
+        nnow(jdom) = RestartAttributes_getInteger('nnow_DOM'//TRIM(int2string(jdom, "(i2.2)")))
+        nnew(jdom) = RestartAttributes_getInteger('nnew_DOM'//TRIM(int2string(jdom, "(i2.2)")))
+        nnow_rcf(jdom) = RestartAttributes_getInteger('nnow_rcf_DOM'//TRIM(int2string(jdom, "(i2.2)")))
+        nnew_rcf(jdom) = RestartAttributes_getInteger('nnew_rcf_DOM'//TRIM(int2string(jdom, "(i2.2)")))
       END DO
 
     ELSE ! not isRestart

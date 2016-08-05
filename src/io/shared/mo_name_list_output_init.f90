@@ -70,7 +70,7 @@ MODULE mo_name_list_output_init
     &                                             sort_and_compress_list
   USE mo_datetime,                          ONLY: t_datetime
   USE mo_cf_convention,                     ONLY: t_cf_var, cf_global_info
-  USE mo_io_restart_attributes,             ONLY: get_restart_attribute
+  USE mo_io_restart_attributes,             ONLY: RestartAttributes_getInteger
   USE mo_model_domain,                      ONLY: p_patch, p_phys_patch
   USE mo_mtime_extensions,                  ONLY: get_datetime_string, get_duration_string, &
                                                   get_duration_string_real
@@ -1646,7 +1646,7 @@ CONTAINS
         ! Restart case: Get starting index of ouput from restart file
         !               (if there is such an attribute available).
         WRITE(attname,'(a,i2.2)') 'output_jfile_',i
-        CALL get_restart_attribute(TRIM(attname), fname_metadata%jfile_offset, opt_default=0)
+        fname_metadata%jfile_offset = RestartAttributes_getInteger(TRIM(attname), opt_default=0)
       ELSE
         fname_metadata%jfile_offset             = 0
       END IF

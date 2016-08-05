@@ -42,7 +42,7 @@ MODULE mo_atmo_model
     &                                   ihs_atm_temp, ihs_atm_theta, inh_atmosphere,          &
     &                                   ishallow_water, inwp
   USE mo_io_restart,              ONLY: read_restart_header
-  USE mo_io_restart_attributes,   ONLY: get_restart_attribute
+  USE mo_io_restart_attributes,   ONLY: RestartAttributes_getText, RestartAttributes_getInteger
 
   ! namelist handling; control parameters: run control, dynamics
   USE mo_read_namelists,          ONLY: read_atmo_namelists
@@ -229,7 +229,7 @@ CONTAINS
     IF (isRestart()) THEN
       CALL message('','Read restart file meta data ...')
       CALL read_restart_header("atm")
-      CALL get_restart_attribute('tc_startdate', startDate)
+      startDate = RestartAttributes_getText('tc_startdate')
     ELSE
       call datetimeToString(tc_exp_startdate, startDate)
     ENDIF
@@ -375,7 +375,7 @@ CONTAINS
           jstep0 = 0
           IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
             ! get start counter for time loop from restart file:
-            CALL get_restart_attribute("jstep", jstep0)
+            jstep0 = RestartAttributes_getInteger("jstep")
           END IF
           sim_step_info%jstep0    = jstep0
           CALL name_list_io_main_proc(sim_step_info)

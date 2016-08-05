@@ -28,9 +28,9 @@ MODULE mo_io_restart_async
   USE mo_io_units,                ONLY: nerr, filename_max
   USE mo_var_list,                ONLY: nvar_lists, var_lists, new_var_list, delete_var_lists
   USE mo_linked_list,             ONLY: t_list_element, t_var_list
-  USE mo_io_restart_attributes,   ONLY: set_restart_attribute, delete_attributes, get_restart_attribute, &
-    &                                   restart_attributes_count_int, restart_attributes_count_text, &
-    &                                   restart_attributes_count_real, restart_attributes_count_bool
+  USE mo_io_restart_attributes,   ONLY: RestartAttributes_setText, RestartAttributes_setReal, RestartAttributes_setInteger, &
+                                      & RestartAttributes_setLogical, RestartAttributes_reset, RestartAttributes_writeToFile, &
+                                      & RestartAttributes_printAttributes
   USE mo_dynamics_config,         ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf, iequations
   USE mo_grid_config,             ONLY: l_limited_area
   USE mo_impl_constants,          ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, INH_ATMOSPHERE, &
@@ -617,8 +617,8 @@ CONTAINS
           CALL set_restart_attributes(p_pd)
 
 #ifdef DEBUG
-          CALL print_restart_arguments
-          CALL print_restart_attributes
+          CALL print_restart_arguments()
+          CALL RestartAttributes_printAttributes()
           CALL print_restart_name_lists()
 #endif
           CALL open_restart_file(p_pd)
@@ -1370,7 +1370,7 @@ CONTAINS
   !
   !  Print restart arguments.
   !
-  SUBROUTINE print_restart_arguments
+  SUBROUTINE print_restart_arguments()
 
 #ifdef DEBUG
     CHARACTER(LEN=*), PARAMETER   :: subname = MODUL_NAME//'print_restart_arguments'
@@ -1393,50 +1393,6 @@ CONTAINS
 #endif
 
   END SUBROUTINE print_restart_arguments
-
-  !------------------------------------------------------------------------------------------------
-  !
-  !  Print restart attributes.
-  !
-  SUBROUTINE print_restart_attributes
-
-#ifdef DEBUG
-    CHARACTER(LEN=MAX_NAME_LENGTH)    :: attrib_name
-    CHARACTER(LEN=MAX_ATTRIB_TLENGTH) :: attrib_txt
-
-    INTEGER                           :: attrib_int, i
-    REAL(wp)                          :: attrib_real
-    LOGICAL                           :: attrib_bool
-    CHARACTER(LEN=*), PARAMETER       :: subname = MODUL_NAME//'print_restart_attributes'
-
-    WRITE (nerr,FORMAT_VALS3)subname,' is called for p_pe=',p_pe
-
-    ! check text attributes
-    DO i = 1, restart_attributes_count_text()
-      CALL get_restart_attribute(i, attrib_name, attrib_txt)
-      PRINT *,'restart text attribute: ', TRIM(attrib_name),'=',TRIM(attrib_txt)
-    ENDDO
-
-    ! check integer attributes
-    DO i= 1, restart_attributes_count_int()
-      CALL get_restart_attribute(i, attrib_name, attrib_int)
-      PRINT *,'restart integer attribute: ', TRIM(attrib_name),'=',attrib_int
-    ENDDO
-
-    ! check real attributes
-    DO i = 1, restart_attributes_count_real()
-      CALL get_restart_attribute(i, attrib_name, attrib_real)
-      PRINT *,'restart real attribute: ', TRIM(attrib_name),'=',attrib_real
-    ENDDO
-
-    ! check boolean attributes
-    DO i = 1, restart_attributes_count_bool()
-      CALL get_restart_attribute(i, attrib_name, attrib_bool)
-      PRINT *,'restart booloean attribute: ', TRIM(attrib_name),'=',attrib_bool
-    ENDDO
-#endif
-
-  END SUBROUTINE print_restart_attributes
 
   !------------------------------------------------------------------------------------------------
   !
@@ -2250,47 +2206,47 @@ CONTAINS
 #endif
 
     ! delete old attributes
-    CALL delete_attributes()
+    CALL RestartAttributes_reset()
 
     ! set CF-Convention required restart attributes
     !
-    CALL set_restart_attribute('title',       TRIM(cf_global_info%title))
-    CALL set_restart_attribute('institution', TRIM(cf_global_info%institution))
-    CALL set_restart_attribute('source',      TRIM(cf_global_info%source))
-    CALL set_restart_attribute('history',     TRIM(cf_global_info%history))
-    CALL set_restart_attribute('references',  TRIM(cf_global_info%references))
-    CALL set_restart_attribute('comment',     TRIM(cf_global_info%comment))
+    CALL RestartAttributes_setText('title',       TRIM(cf_global_info%title))
+    CALL RestartAttributes_setText('institution', TRIM(cf_global_info%institution))
+    CALL RestartAttributes_setText('source',      TRIM(cf_global_info%source))
+    CALL RestartAttributes_setText('history',     TRIM(cf_global_info%history))
+    CALL RestartAttributes_setText('references',  TRIM(cf_global_info%references))
+    CALL RestartAttributes_setText('comment',     TRIM(cf_global_info%comment))
 
     ! set restart time
     p_ra => restart_args
-    CALL set_restart_attribute ('current_caltime', p_ra%datetime%caltime)
-    CALL set_restart_attribute ('current_calday' , p_ra%datetime%calday)
-    CALL set_restart_attribute ('current_daysec' , p_ra%datetime%daysec)
+    CALL RestartAttributes_setReal('current_caltime', p_ra%datetime%caltime)
+    CALL RestartAttributes_setInteger('current_calday' , INT(p_ra%datetime%calday))   !FIXME: Either it IS a bug that calday IS a 64bit INTEGER, OR it IS a bug that ONLY 32 bits of it are stored IN the restart file. Either way it needs to be fixed.
+    CALL RestartAttributes_setReal('current_daysec' , p_ra%datetime%daysec)
 
-    CALL set_restart_attribute('tc_startdate', iso8601extended(p_ra%datetime))
+    CALL RestartAttributes_setText('tc_startdate', iso8601extended(p_ra%datetime))
 
     ! set no. of domains
     IF (p_pd%l_opt_ndom) THEN
-      CALL set_restart_attribute( 'n_dom', p_pd%opt_ndom)
+      CALL RestartAttributes_setInteger( 'n_dom', p_pd%opt_ndom)
     ELSE
-      CALL set_restart_attribute( 'n_dom', 1)
+      CALL RestartAttributes_setInteger( 'n_dom', 1)
     END IF
 
     ! set simulation step
-    CALL set_restart_attribute( 'jstep', p_ra%jstep )
+    CALL RestartAttributes_setInteger( 'jstep', p_ra%jstep )
 
     ! set time levels
     jg = p_pd%id
-    CALL set_restart_attribute( 'nold_DOM'//TRIM(int2string(jg, "(i2.2)"))    , p_pd%nold)
-    CALL set_restart_attribute( 'nnow_DOM'//TRIM(int2string(jg, "(i2.2)"))    , p_pd%nnow)
-    CALL set_restart_attribute( 'nnew_DOM'//TRIM(int2string(jg, "(i2.2)"))    , p_pd%nnew)
-    CALL set_restart_attribute( 'nnow_rcf_DOM'//TRIM(int2string(jg, "(i2.2)")), p_pd%nnow_rcf)
-    CALL set_restart_attribute( 'nnew_rcf_DOM'//TRIM(int2string(jg, "(i2.2)")), p_pd%nnew_rcf)
+    CALL RestartAttributes_setInteger( 'nold_DOM'//TRIM(int2string(jg, "(i2.2)"))    , p_pd%nold)
+    CALL RestartAttributes_setInteger( 'nnow_DOM'//TRIM(int2string(jg, "(i2.2)"))    , p_pd%nnow)
+    CALL RestartAttributes_setInteger( 'nnew_DOM'//TRIM(int2string(jg, "(i2.2)"))    , p_pd%nnew)
+    CALL RestartAttributes_setInteger( 'nnow_rcf_DOM'//TRIM(int2string(jg, "(i2.2)")), p_pd%nnow_rcf)
+    CALL RestartAttributes_setInteger( 'nnew_rcf_DOM'//TRIM(int2string(jg, "(i2.2)")), p_pd%nnew_rcf)
 
     ! additional restart-output for nonhydrostatic model
     IF (p_pd%l_opt_sim_time) THEN
       WRITE(attrib_name, attrib_format_int) 'sim_time_DOM', jg
-      CALL set_restart_attribute (TRIM(attrib_name), &
+      CALL RestartAttributes_setReal (TRIM(attrib_name), &
         &                         p_pd%opt_sim_time)
     ENDIF
 
@@ -2302,14 +2258,12 @@ CONTAINS
     !-------------------------------------------------------------
     IF (p_pd%l_opt_ndyn_substeps) THEN
         WRITE(attrib_name, attrib_format_int) 'ndyn_substeps_DOM', jg
-        CALL set_restart_attribute (TRIM(attrib_name), &
-          &                         p_pd%opt_ndyn_substeps)
+        CALL RestartAttributes_setInteger(TRIM(attrib_name), p_pd%opt_ndyn_substeps)
     ENDIF
 
     IF (p_pd%l_opt_jstep_adv_marchuk_order) THEN
         WRITE(attrib_name, attrib_format_int) 'jstep_adv_marchuk_order_DOM', jg
-        CALL set_restart_attribute (TRIM(attrib_name), &
-          &                         p_pd%opt_jstep_adv_marchuk_order)
+        CALL RestartAttributes_setInteger(TRIM(attrib_name), p_pd%opt_jstep_adv_marchuk_order)
     ENDIF
 
     IF (ALLOCATED(p_pd%opt_t_elapsed_phy) .AND. &
@@ -2317,12 +2271,12 @@ CONTAINS
       jp_end = SIZE(p_pd%opt_t_elapsed_phy)
       DO jp = 1, jp_end
         WRITE(attrib_name, attrib_format_int2) 't_elapsed_phy_DOM',jg,'_PHY',jp
-        CALL set_restart_attribute (TRIM(attrib_name), p_pd%opt_t_elapsed_phy(jp))
+        CALL RestartAttributes_setReal(TRIM(attrib_name), p_pd%opt_t_elapsed_phy(jp))
       ENDDO
       jp_end = SIZE(p_pd%opt_lcall_phy)
       DO jp = 1, jp_end
         WRITE(attrib_name, attrib_format_int2) 'lcall_phy_DOM',jg,'_PHY', jp
-        CALL set_restart_attribute (TRIM(attrib_name), p_pd%opt_lcall_phy(jp) )
+        CALL RestartAttributes_setLogical(TRIM(attrib_name), p_pd%opt_lcall_phy(jp) )
       ENDDO
     ENDIF
 
@@ -2381,7 +2335,7 @@ CONTAINS
       DO i=1,p_ra%n_opt_output_file
         current_jfile = p_ra%opt_output_jfile(i)
         WRITE(attname,'(a,i2.2)') 'output_jfile_',i
-        CALL set_restart_attribute( TRIM(attname), current_jfile )
+        CALL RestartAttributes_setInteger( TRIM(attname), current_jfile )
       END DO
     END IF
 
@@ -3035,65 +2989,8 @@ CONTAINS
 #endif
     ENDDO
 
-    ! 2.2. text attributes
-    DO i = 1, restart_attributes_count_text()
-      CALL get_restart_attribute(i, attribute_name, text_attribute)
-      status = vlistDefAttTxt(p_rf%cdiVlistID, CDI_GLOBAL,           &
-           &                  TRIM(attribute_name),                  &
-           &                  LEN_TRIM(text_attribute),              &
-           &                  TRIM(text_attribute))
-#ifdef DEBUG
-      CALL check_netcdf_status(status, 'vlistDefAttTxt='// &
-        &                      TRIM(attribute_name))
-#endif
-    END DO
-
-    ! 2.3. real attributes
-    DO i = 1, restart_attributes_count_real()
-      CALL get_restart_attribute(i, attribute_name, real_attribute(1))
-      status = vlistDefAttFlt(p_rf%cdiVlistID, CDI_GLOBAL,           &
-           &                  TRIM(attribute_name),                  &
-           &                  DATATYPE_FLT64,                        &
-           &                  1,                                     &
-           &                  real_attribute)
-#ifdef DEBUG
-      CALL check_netcdf_status(status, 'vlistDefAttFlt='// &
-        &                      TRIM(attribute_name))
-#endif
-    ENDDO
-
-    ! 2.4. integer attributes
-    DO i = 1, restart_attributes_count_int()
-      CALL get_restart_attribute(i, attribute_name, int_attribute(1))
-      status = vlistDefAttInt(p_rf%cdiVlistID, CDI_GLOBAL,           &
-           &                  TRIM(attribute_name),                  &
-           &                  DATATYPE_INT32,                        &
-           &                  1,                                     &
-           &                  int_attribute)
-#ifdef DEBUG
-      CALL check_netcdf_status(status, 'vlistDefAttInt='// &
-        &                      TRIM(attribute_name))
-#endif
-    ENDDO
-
-    ! 2.5. logical attributes
-    DO i = 1, restart_attributes_count_bool()
-      CALL get_restart_attribute(i, attribute_name, bool_attribute)
-      IF (bool_attribute) THEN
-        int_attribute(1) = 1
-      ELSE
-        int_attribute(1) = 0
-      ENDIF
-      status = vlistDefAttInt(p_rf%cdiVlistID, CDI_GLOBAL,           &
-           &                  TRIM(attribute_name),                  &
-           &                  DATATYPE_INT32,                        &
-           &                  1,                                     &
-           &                  int_attribute)
-#ifdef DEBUG
-      CALL check_netcdf_status(status, 'vlistDefAttInt='// &
-        &                      TRIM(attribute_name))
-#endif
-    ENDDO
+    ! 2.2. restart attributes
+    CALL RestartAttributes_writeToFile(p_rf%cdiVlistID)
 
     ! 3. add horizontal grid descriptions
     ! 3.1. cells

@@ -39,7 +39,7 @@ MODULE mo_atmo_hydrostatic
   USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
 
   USE mo_io_restart,           ONLY: read_restart_files
-  USE mo_io_restart_attributes,ONLY: get_restart_attribute
+  USE mo_io_restart_attributes,ONLY: RestartAttributes_getInteger
   USE mo_name_list_output_init, ONLY: init_name_list_output
   USE mo_name_list_output,     ONLY:  write_name_list_output, &
        &                              close_name_list_output
@@ -170,7 +170,7 @@ CONTAINS
       jstep0 = 0
       IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
         ! get start counter for time loop from restart file:
-        CALL get_restart_attribute("jstep", jstep0)
+        jstep0 = RestartAttributes_getInteger("jstep", jstep0)
       END IF
       sim_step_info%jstep0    = jstep0
       CALL init_name_list_output(sim_step_info)

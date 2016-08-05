@@ -22,7 +22,7 @@ USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
 USE mo_master_config,        ONLY: isRestart
 USE mo_time_config,          ONLY: time_config      ! variable
 USE mo_io_restart,           ONLY: read_restart_files
-USE mo_io_restart_attributes,ONLY: get_restart_attribute
+USE mo_io_restart_attributes,ONLY: RestartAttributes_getReal, RestartAttributes_getInteger
 USE mo_io_config,            ONLY: configure_io
 USE mo_parallel_config,      ONLY: nproma, num_prefetch_proc
 USE mo_nh_pzlev_config,      ONLY: configure_nh_pzlev
@@ -179,7 +179,7 @@ CONTAINS
         ENDIF
       ENDDO
     ELSE
-      CALL get_restart_attribute("sim_time_DOM01", sim_time)
+      sim_time = RestartAttributes_getReal("sim_time_DOM01")
       DO jg=1, n_dom
         IF (jg > 1 .AND. start_time(jg) > sim_time .OR. end_time(jg) <= sim_time) THEN
           p_patch(jg)%ldom_active = .FALSE. ! domain not active at restart time
@@ -454,7 +454,7 @@ CONTAINS
       jstep0 = 0
       IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
         ! get start counter for time loop from restart file:
-        CALL get_restart_attribute("jstep", jstep0)
+        jstep0 = RestartAttributes_getInteger("jstep")
       END IF
       sim_step_info%jstep0    = jstep0
       CALL init_mean_stream(p_patch(1))

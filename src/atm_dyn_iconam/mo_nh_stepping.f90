@@ -117,7 +117,8 @@ MODULE mo_nh_stepping
   USE mo_master_config,            ONLY: isRestart, tc_startdate, tc_stopdate, &
        &                                 tc_exp_refdate, tc_exp_startdate, tc_exp_stopdate, &
        &                                 tc_dt_checkpoint, tc_dt_restart
-  USE mo_io_restart_attributes,    ONLY: get_restart_attribute
+  USE mo_io_restart_attributes,    ONLY: RestartAttributes_getText, RestartAttributes_getReal, RestartAttributes_getInteger, &
+                                       & RestartAttributes_getLogical
   USE mo_meteogram_config,         ONLY: meteogram_output_config
   USE mo_meteogram_output,         ONLY: meteogram_sample_vars, meteogram_is_sample_step
   USE mo_name_list_output,         ONLY: write_name_list_output, istime4name_list_output
@@ -626,7 +627,7 @@ MODULE mo_nh_stepping
   jstep0 = 0
   IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
     ! get start counter for time loop from restart file:
-    CALL get_restart_attribute("jstep", jstep0)
+    jstep0 = RestartAttributes_getInteger("jstep")
   END IF
 
   ! for debug purposes print var lists: for msg_level >= 13 short and for >= 20 long format
@@ -2970,18 +2971,18 @@ MODULE mo_nh_stepping
     ! Get sim_time, t_elapsed_phy and lcall_phy from restart file
     DO jg = 1,n_dom
       WRITE(attname,'(a,i2.2)') 'ndyn_substeps_DOM',jg
-      CALL get_restart_attribute(TRIM(attname), ndyn_substeps_var(jg))
+      ndyn_substeps_var(jg) = RestartAttributes_getInteger(TRIM(attname))
       WRITE(attname,'(a,i2.2)') 'jstep_adv_marchuk_order_DOM',jg
-      CALL get_restart_attribute(TRIM(attname), jstep_adv(jg)%marchuk_order)
+      jstep_adv(jg)%marchuk_order = RestartAttributes_getInteger(TRIM(attname))
       WRITE(attname,'(a,i2.2)') 'sim_time_DOM',jg
-      CALL get_restart_attribute(TRIM(attname), time_config%sim_time(jg))
+      time_config%sim_time(jg) = RestartAttributes_getReal(TRIM(attname))
       DO jp = 1,iphysproc_short
         WRITE(attname,'(a,i2.2,a,i2.2)') 't_elapsed_phy_DOM',jg,'_PHY',jp
-        CALL get_restart_attribute(TRIM(attname), t_elapsed_phy(jg,jp))
+        t_elapsed_phy(jg,jp) = RestartAttributes_getReal(TRIM(attname))
       ENDDO
       DO jp = 1,iphysproc
         WRITE(attname,'(a,i2.2,a,i2.2)') 'lcall_phy_DOM',jg,'_PHY',jp
-        CALL get_restart_attribute(TRIM(attname), lcall_phy(jg,jp))
+        lcall_phy(jg,jp) = RestartAttributes_getLogical(TRIM(attname))
       ENDDO
     ENDDO
     linit_dyn(:)      = .FALSE.

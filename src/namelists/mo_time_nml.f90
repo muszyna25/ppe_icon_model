@@ -24,7 +24,7 @@ MODULE mo_time_nml
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                   ONLY: my_process_is_stdio 
 
-  USE mo_io_restart_attributes, ONLY: get_restart_attribute
+  USE mo_io_restart_attributes, ONLY: RestartAttributes_getInteger, RestartAttributes_getReal
   USE mo_io_restart_namelist,   ONLY: open_and_restore_namelist, close_tmpfile, &
                                     & open_tmpfile, store_and_close_namelist
   USE mo_nml_annotate,          ONLY: temp_defaults, temp_settings
@@ -131,9 +131,9 @@ CONTAINS
 
       ! 2.2 Inquire the date/time at which the previous run stopped
 
-      CALL get_restart_attribute( 'current_caltime', restart_caltime )
-      CALL get_restart_attribute( 'current_calday' , restart_calday  )
-      CALL get_restart_attribute( 'current_daysec' , restart_daysec  )
+      restart_calday = RestartAttributes_getInteger('current_calday')
+      restart_caltime = RestartAttributes_getReal('current_caltime')
+      restart_daysec = RestartAttributes_getReal('current_daysec')
 
     END IF
 
