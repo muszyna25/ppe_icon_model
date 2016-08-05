@@ -888,7 +888,7 @@ CONTAINS
 
     ! get the number of var lists
     nv = nvar_lists
-    CALL message%execute(operation, nv)
+    CALL message%packer(operation, nv)
 
     ! for each var list, get its components
     DO iv = 1, nv
@@ -910,13 +910,13 @@ CONTAINS
                 element => element%next_list_element
             END DO
         END IF
-        CALL message%execute(operation, lrestart)
-        CALL message%execute(operation, var_list_name)
-        CALL message%execute(operation, model_type)
-        CALL message%execute(operation, patch_id)
-        CALL message%execute(operation, restart_type)
-        CALL message%execute(operation, vlevel_type)
-        CALL message%execute(operation, nelems)
+        CALL message%packer(operation, lrestart)
+        CALL message%packer(operation, var_list_name)
+        CALL message%packer(operation, model_type)
+        CALL message%packer(operation, patch_id)
+        CALL message%packer(operation, restart_type)
+        CALL message%packer(operation, vlevel_type)
+        CALL message%packer(operation, nelems)
 
         IF(.NOT. lrestart) CYCLE  ! transfer only a restart var_list
         IF(nelems == 0) CYCLE ! check if there are valid restart fields
@@ -927,7 +927,7 @@ CONTAINS
                 IF(.NOT. ASSOCIATED(element)) EXIT
                 IF(element%field%info%lrestart) THEN
                     info_storage = TRANSFER(element%field%info, (/ 0 /))
-                    CALL message%execute(operation, info_storage)
+                    CALL message%packer(operation, info_storage)
                 END IF
                 element => element%next_list_element
             END DO
@@ -957,7 +957,7 @@ CONTAINS
                 element%field%var_base_size = 0 ! Unknown here
 
                 ! set info structure from binary representation in info_storage
-                CALL message%execute(operation, info_storage)
+                CALL message%packer(operation, info_storage)
                 element%field%info = TRANSFER(info_storage, info)
             END DO
         END IF

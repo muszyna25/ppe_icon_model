@@ -66,19 +66,19 @@ MODULE mo_packed_message
 
         ! routines to facilitate packing AND unpacking with the same code
         ! USE of these routine prohibits ANY errors by mismatches between packing AND unpacking code
-        PROCEDURE :: executeInt => PackedMessage_executeInt
-        PROCEDURE :: executeSingle => PackedMessage_executeSingle
-        PROCEDURE :: executeDouble => PackedMessage_executeDouble
-        PROCEDURE :: executeLogical => PackedMessage_executeLogical
-        PROCEDURE :: executeCharacter => PackedMessage_executeCharacter
+        PROCEDURE :: packerInt => PackedMessage_packerInt
+        PROCEDURE :: packerSingle => PackedMessage_packerSingle
+        PROCEDURE :: packerDouble => PackedMessage_packerDouble
+        PROCEDURE :: packerLogical => PackedMessage_packerLogical
+        PROCEDURE :: packerCharacter => PackedMessage_packerCharacter
 
-        PROCEDURE :: executeIntArray => PackedMessage_executeIntArray
-        PROCEDURE :: executeSingleArray => PackedMessage_executeSingleArray
-        PROCEDURE :: executeDoubleArray => PackedMessage_executeDoubleArray
-        PROCEDURE :: executeLogicalArray => PackedMessage_executeLogicalArray
+        PROCEDURE :: packerIntArray => PackedMessage_packerIntArray
+        PROCEDURE :: packerSingleArray => PackedMessage_packerSingleArray
+        PROCEDURE :: packerDoubleArray => PackedMessage_packerDoubleArray
+        PROCEDURE :: packerLogicalArray => PackedMessage_packerLogicalArray
 
-        GENERIC :: execute => executeInt, executeSingle, executeDouble, executeLogical, executeCharacter, executeIntArray, &
-                            & executeSingleArray, executeDoubleArray, executeLogicalArray
+        GENERIC :: packer => packerInt, packerSingle, packerDouble, packerLogical, packerCharacter, packerIntArray, &
+                            & packerSingleArray, packerDoubleArray, packerLogicalArray
 
         ! communication routines
         ! All of these will flush ANY contents of the reciever(s), replacing it with a copy of the sender's packet.
@@ -411,11 +411,11 @@ CONTAINS
 
     ! wrappers for unified (un)packing !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-    SUBROUTINE PackedMessage_executeInt(me, operation, value)
+    SUBROUTINE PackedMessage_packerInt(me, operation, value)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
         INTEGER, INTENT(INOUT) :: value
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_executeInt"
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_packerInt"
 
         SELECT CASE(operation)
             CASE(kPackOp)
@@ -425,13 +425,13 @@ CONTAINS
             CASE DEFAULT
                 CALL finish(routine, "illegal operation")
         END SELECT
-    END SUBROUTINE PackedMessage_executeInt
+    END SUBROUTINE PackedMessage_packerInt
 
-    SUBROUTINE PackedMessage_executeSingle(me, operation, value)
+    SUBROUTINE PackedMessage_packerSingle(me, operation, value)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
         REAL(sp), INTENT(INOUT) :: value
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_executeSingle"
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_packerSingle"
 
         SELECT CASE(operation)
             CASE(kPackOp)
@@ -441,13 +441,13 @@ CONTAINS
             CASE DEFAULT
                 CALL finish(routine, "illegal operation")
         END SELECT
-    END SUBROUTINE PackedMessage_executeSingle
+    END SUBROUTINE PackedMessage_packerSingle
 
-    SUBROUTINE PackedMessage_executeDouble(me, operation, value)
+    SUBROUTINE PackedMessage_packerDouble(me, operation, value)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
         REAL(dp), INTENT(INOUT) :: value
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_executeDouble"
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_packerDouble"
 
         SELECT CASE(operation)
             CASE(kPackOp)
@@ -457,13 +457,13 @@ CONTAINS
             CASE DEFAULT
                 CALL finish(routine, "illegal operation")
         END SELECT
-    END SUBROUTINE PackedMessage_executeDouble
+    END SUBROUTINE PackedMessage_packerDouble
 
-    SUBROUTINE PackedMessage_executeLogical(me, operation, value)
+    SUBROUTINE PackedMessage_packerLogical(me, operation, value)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
         LOGICAL, INTENT(INOUT) :: value
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_executeLogical"
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_packerLogical"
 
         SELECT CASE(operation)
             CASE(kPackOp)
@@ -473,13 +473,13 @@ CONTAINS
             CASE DEFAULT
                 CALL finish(routine, "illegal operation")
         END SELECT
-    END SUBROUTINE PackedMessage_executeLogical
+    END SUBROUTINE PackedMessage_packerLogical
 
-    SUBROUTINE PackedMessage_executeCharacter(me, operation, value)
+    SUBROUTINE PackedMessage_packerCharacter(me, operation, value)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
         CHARACTER(LEN = *), INTENT(INOUT) :: VALUE
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_executeCharacter"
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_packerCharacter"
 
         SELECT CASE(operation)
             CASE(kPackOp)
@@ -489,13 +489,13 @@ CONTAINS
             CASE DEFAULT
                 CALL finish(routine, "illegal operation")
         END SELECT
-    END SUBROUTINE PackedMessage_executeCharacter
+    END SUBROUTINE PackedMessage_packerCharacter
 
-    SUBROUTINE PackedMessage_executeIntArray(me, operation, value)
+    SUBROUTINE PackedMessage_packerIntArray(me, operation, value)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
         INTEGER, ALLOCATABLE, INTENT(INOUT) :: value(:)
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_executeIntArray"
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_packerIntArray"
 
         SELECT CASE(operation)
             CASE(kPackOp)
@@ -505,13 +505,13 @@ CONTAINS
             CASE DEFAULT
                 CALL finish(routine, "illegal operation")
         END SELECT
-    END SUBROUTINE PackedMessage_executeIntArray
+    END SUBROUTINE PackedMessage_packerIntArray
 
-    SUBROUTINE PackedMessage_executeSingleArray(me, operation, value)
+    SUBROUTINE PackedMessage_packerSingleArray(me, operation, value)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
         REAL(sp), ALLOCATABLE, INTENT(INOUT) :: value(:)
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_executeSingleArray"
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_packerSingleArray"
 
         SELECT CASE(operation)
             CASE(kPackOp)
@@ -521,13 +521,13 @@ CONTAINS
             CASE DEFAULT
                 CALL finish(routine, "illegal operation")
         END SELECT
-    END SUBROUTINE PackedMessage_executeSingleArray
+    END SUBROUTINE PackedMessage_packerSingleArray
 
-    SUBROUTINE PackedMessage_executeDoubleArray(me, operation, value)
+    SUBROUTINE PackedMessage_packerDoubleArray(me, operation, value)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
         REAL(dp), ALLOCATABLE, INTENT(INOUT) :: value(:)
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_executeDoubleArray"
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_packerDoubleArray"
 
         SELECT CASE(operation)
             CASE(kPackOp)
@@ -537,13 +537,13 @@ CONTAINS
             CASE DEFAULT
                 CALL finish(routine, "illegal operation")
         END SELECT
-    END SUBROUTINE PackedMessage_executeDoubleArray
+    END SUBROUTINE PackedMessage_packerDoubleArray
 
-    SUBROUTINE PackedMessage_executeLogicalArray(me, operation, value)
+    SUBROUTINE PackedMessage_packerLogicalArray(me, operation, value)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
         LOGICAL, ALLOCATABLE, INTENT(INOUT) :: value(:)
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_executeLogicalArray"
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_packerLogicalArray"
 
         SELECT CASE(operation)
             CASE(kPackOp)
@@ -553,7 +553,7 @@ CONTAINS
             CASE DEFAULT
                 CALL finish(routine, "illegal operation")
         END SELECT
-    END SUBROUTINE PackedMessage_executeLogicalArray
+    END SUBROUTINE PackedMessage_packerLogicalArray
 
     ! communication routines !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 

@@ -506,19 +506,19 @@ CONTAINS
 
         INTEGER :: calday
 
-        CALL message%execute(operation, me%datetime%year)
-        CALL message%execute(operation, me%datetime%month)
-        CALL message%execute(operation, me%datetime%day)
-        CALL message%execute(operation, me%datetime%hour)
-        CALL message%execute(operation, me%datetime%minute)
-        CALL message%execute(operation, me%datetime%second)
-        CALL message%execute(operation, me%datetime%caltime)
+        CALL message%packer(operation, me%datetime%year)
+        CALL message%packer(operation, me%datetime%month)
+        CALL message%packer(operation, me%datetime%day)
+        CALL message%packer(operation, me%datetime%hour)
+        CALL message%packer(operation, me%datetime%minute)
+        CALL message%packer(operation, me%datetime%second)
+        CALL message%packer(operation, me%datetime%caltime)
         calday = INT(me%datetime%calday)
-        CALL message%execute(operation, calday)
+        CALL message%packer(operation, calday)
         me%datetime%calday = INT(calday,i8)
-        CALL message%execute(operation, me%datetime%daysec)
-        CALL message%execute(operation, me%jstep)
-        CALL message%execute(operation, me%output_jfile)
+        CALL message%packer(operation, me%datetime%daysec)
+        CALL message%packer(operation, me%jstep)
+        CALL message%packer(operation, me%output_jfile)
     END SUBROUTINE restartArgs_packer
 
     SUBROUTINE restartArgs_print(me, prefix)
