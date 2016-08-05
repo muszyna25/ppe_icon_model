@@ -53,7 +53,7 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_math_operators,   ONLY: update_height_depdendent_variables, check_cfl_horizontal, check_cfl_vertical
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_ocean_tracer,             ONLY: advect_ocean_tracers
-  USE mo_io_restart,             ONLY: create_restart_file
+  USE mo_restart,                ONLY: create_restart_file
   USE mo_ocean_bulk,             ONLY: update_surface_flux
   USE mo_ocean_surface,          ONLY: update_ocean_surface
   USE mo_ocean_surface_types,    ONLY: t_ocean_surface
@@ -66,7 +66,7 @@ MODULE mo_hydro_ocean_run
   USE mo_name_list_output,       ONLY: write_name_list_output
   USE mo_ocean_diagnostics,        ONLY: calc_fast_oce_diagnostics, calc_psi
   USE mo_ocean_ab_timestepping_mimetic, ONLY: construct_ho_lhs_fields_mimetic, destruct_ho_lhs_fields_mimetic
-  USE mo_io_restart_attributes,  ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_restart_attributes,     ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_time_config,            ONLY: time_config
   USE mo_master_config,          ONLY: isRestart
 !  USE mo_sea_ice_nml,            ONLY: i_ice_dyn

@@ -5,7 +5,7 @@
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
-MODULE mo_io_restart_namelist
+MODULE mo_restart_namelist
   USE ISO_C_BINDING, ONLY: C_CHAR
 
   USE mo_util_file,   ONLY: util_tmpnam, util_filesize, util_unlink
@@ -26,7 +26,7 @@ MODULE mo_io_restart_namelist
   PUBLIC :: open_and_restore_namelist
   PUBLIC :: close_tmpfile
 
-  ! used ONLY by mo_io_restart AND mo_io_restart_async
+  ! used ONLY by mo_restart AND mo_restart_async
   PUBLIC :: RestartNamelist_bcast
   PUBLIC :: read_and_bcast_restart_namelists
   PUBLIC :: RestartNamelist_writeToFile
@@ -45,7 +45,7 @@ MODULE mo_io_restart_namelist
   TYPE(t_att_namelist), POINTER, SAVE :: restart_namelist(:)
   LOGICAL, SAVE :: l_restart_namelist_initialized = .FALSE.
 
-  CHARACTER(LEN = *), PARAMETER :: modname = "mo_io_restart_namelist"
+  CHARACTER(LEN = *), PARAMETER :: modname = "mo_restart_namelist"
 
 CONTAINS
 
@@ -399,4 +399,4 @@ CONTAINS
     DEALLOCATE(list_text)
   END SUBROUTINE RestartNamelist_bcast
 
-END MODULE mo_io_restart_namelist
+END MODULE mo_restart_namelist

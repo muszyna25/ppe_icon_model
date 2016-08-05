@@ -41,8 +41,8 @@ MODULE mo_atmo_model
   USE mo_impl_constants,          ONLY: SUCCESS,                                              &
     &                                   ihs_atm_temp, ihs_atm_theta, inh_atmosphere,          &
     &                                   ishallow_water, inwp
-  USE mo_io_restart,              ONLY: read_restart_header
-  USE mo_io_restart_attributes,   ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_restart,                 ONLY: read_restart_header
+  USE mo_restart_attributes,      ONLY: t_RestartAttributeList, getAttributesForRestarting
 
   ! namelist handling; control parameters: run control, dynamics
   USE mo_read_namelists,          ONLY: read_atmo_namelists
@@ -108,10 +108,10 @@ MODULE mo_atmo_model
   USE mo_interface_echam_ocean,   ONLY: construct_atmo_coupler, destruct_atmo_coupler
 
   ! I/O
-  USE mo_io_restart_async,        ONLY: restart_main_proc                                       ! main procedure for Restart PEs
+  USE mo_restart_async,           ONLY: restart_main_proc                                       ! main procedure for Restart PEs
   USE mo_name_list_output,        ONLY: name_list_io_main_proc
   USE mo_name_list_output_config, ONLY: use_async_name_list_io
-  USE mo_io_restart_namelist,     ONLY: delete_restart_namelists
+  USE mo_restart_namelist,        ONLY: delete_restart_namelists
   USE mo_time_config,             ONLY: time_config      ! variable
   USE mo_mtime_extensions,        ONLY: get_datetime_string
   USE mo_output_event_types,      ONLY: t_sim_step_info

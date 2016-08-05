@@ -49,7 +49,7 @@ MODULE mo_ha_stepping
   USE mo_ha_prog_util,        ONLY: copy_prog_state
   USE mo_ha_diag_util,        ONLY: update_diag_state, update_dyn_output
   USE mo_expensive_functions, ONLY: convert_t2theta
-  USE mo_io_restart,          ONLY: create_restart_file
+  USE mo_restart,             ONLY: create_restart_file
   USE mo_hierarchy_management,ONLY: process_grid, interpolate_diagnostics
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_impl_constants,      ONLY: LEAPFROG_EXPL, LEAPFROG_SI, &
@@ -61,8 +61,8 @@ MODULE mo_ha_stepping
   USE mo_icon_comm_lib,       ONLY: icon_comm_sync_all
   USE mo_parallel_config,     ONLY: use_icon_comm, use_async_restart_output
   USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output
-  USE mo_io_restart_async,    ONLY: t_restart_descriptor
-  USE mo_io_restart_attributes, ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_restart_async,       ONLY: t_restart_descriptor
+  USE mo_restart_attributes,  ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_time_config,         ONLY: time_config
 
   IMPLICIT NONE

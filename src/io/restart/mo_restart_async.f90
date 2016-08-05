@@ -3,7 +3,7 @@
 !! --------------------------------------------------------
 !!
 !! Note: The synchronous implementation of the restart output can be
-!!       found in the module "mo_io_restart". See module header for
+!!       found in the module "mo_restart". See module header for
 !!       more details on generated files.
 !!
 !! @par Revision History
@@ -19,7 +19,7 @@
 !!
 !!
 
-MODULE mo_io_restart_async
+MODULE mo_restart_async
 
   USE mo_decomposition_tools,     ONLY: t_grid_domain_decomp_info
   USE mo_exception,               ONLY: finish
@@ -29,13 +29,13 @@ MODULE mo_io_restart_async
   USE mo_io_units,                ONLY: nerr, filename_max
   USE mo_var_list,                ONLY: nvar_lists, var_lists, new_var_list, delete_var_lists
   USE mo_linked_list,             ONLY: t_list_element, t_var_list
-  USE mo_io_restart_attributes,   ONLY: t_RestartAttributeList, RestartAttributeList_make
+  USE mo_restart_attributes,   ONLY: t_RestartAttributeList, RestartAttributeList_make
   USE mo_dynamics_config,         ONLY: iequations
   USE mo_grid_config,             ONLY: l_limited_area
   USE mo_impl_constants,          ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, INH_ATMOSPHERE, LEAPFROG_EXPL, LEAPFROG_SI, &
                                       & SUCCESS, TLEV_NNOW, TLEV_NNOW_RCF
   USE mo_var_metadata_types,      ONLY: t_var_metadata
-  USE mo_io_restart_namelist,     ONLY: print_restart_name_lists, RestartNamelist_bcast
+  USE mo_restart_namelist,     ONLY: print_restart_name_lists, RestartNamelist_bcast
 #ifdef USE_CRAY_POINTER
   USE mo_name_list_output_init,   ONLY: set_mem_ptr_dp
 #endif
@@ -90,7 +90,7 @@ MODULE mo_io_restart_async
   INTEGER, PARAMETER :: MAX_ERROR_LENGTH          = 256
 
   ! common constant strings
-  CHARACTER(LEN=*), PARAMETER :: modname                  = 'mo_io_restart_async'
+  CHARACTER(LEN=*), PARAMETER :: modname                  = 'mo_restart_async'
   CHARACTER(LEN=*), PARAMETER :: ALLOCATE_FAILED          = 'ALLOCATE failed!'
   CHARACTER(LEN=*), PARAMETER :: DEALLOCATE_FAILED        = 'DEALLOCATE failed!'
   CHARACTER(LEN=*), PARAMETER :: UNKNOWN_GRID_TYPE        = 'Unknown grid type!'
@@ -1939,6 +1939,6 @@ CONTAINS
 
 #endif
 
-END MODULE mo_io_restart_async
+END MODULE mo_restart_async
 
 

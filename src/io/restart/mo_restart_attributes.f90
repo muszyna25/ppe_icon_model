@@ -5,7 +5,7 @@
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
-MODULE mo_io_restart_attributes
+MODULE mo_restart_attributes
 
   USE ISO_C_BINDING,            ONLY: C_DOUBLE, C_INT, C_INT32_T, C_INT64_T
   USE mo_cdi,                   ONLY: DATATYPE_FLT64, DATATYPE_INT32, DATATYPE_TXT, CDI_GLOBAL, vlistInqNatts, vlistInqAtt, &
@@ -94,7 +94,7 @@ MODULE mo_io_restart_attributes
   TYPE(t_RestartAttributeList), SAVE, POINTER :: gRestartAttributes
   LOGICAL, SAVE :: gRestartAttributes_initialized = .FALSE.
 
-  CHARACTER(LEN = *), PARAMETER :: modname = "mo_io_restart_attributes"
+  CHARACTER(LEN = *), PARAMETER :: modname = "mo_restart_attributes"
 
 CONTAINS
 
@@ -586,4 +586,4 @@ CONTAINS
     DEALLOCATE(me%table)
   END SUBROUTINE RestartAttributeList_destruct
 
-END MODULE mo_io_restart_attributes
+END MODULE mo_restart_attributes

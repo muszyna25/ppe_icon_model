@@ -18,7 +18,7 @@ MODULE mo_restart_patch_description
     USE mo_dynamics_config, ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf
     USE mo_exception, ONLY: finish
     USE mo_fortran_tools, ONLY: assign_if_present, assign_if_present_allocatable
-    USE mo_io_restart_attributes, ONLY: t_RestartAttributeList
+    USE mo_restart_attributes, ONLY: t_RestartAttributeList
     USE mo_io_units, ONLY: filename_max
     USE mo_kind, ONLY: wp
     USE mo_model_domain, ONLY: t_patch

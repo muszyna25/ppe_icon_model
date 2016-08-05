@@ -97,8 +97,8 @@ MODULE mo_ocean_model
 
   USE mo_alloc_patches,       ONLY: destruct_patches
   USE mo_ocean_read_namelists, ONLY: read_ocean_namelists
-  USE mo_io_restart,          ONLY: read_restart_header, read_restart_files
-  USE mo_io_restart_attributes,ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_restart,             ONLY: read_restart_header, read_restart_files
+  USE mo_restart_attributes,   ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_ocean_patch_setup,     ONLY: complete_ocean_patch
   USE mo_time_config,         ONLY: time_config
   USE mo_icon_comm_interface, ONLY: construct_icon_communication, destruct_icon_communication

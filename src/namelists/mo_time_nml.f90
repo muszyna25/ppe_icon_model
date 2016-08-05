@@ -24,8 +24,8 @@ MODULE mo_time_nml
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                   ONLY: my_process_is_stdio 
 
-  USE mo_io_restart_attributes, ONLY: t_RestartAttributeList, getAttributesForRestarting
-  USE mo_io_restart_namelist,   ONLY: open_and_restore_namelist, close_tmpfile, &
+  USE mo_restart_attributes,    ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_restart_namelist,      ONLY: open_and_restore_namelist, close_tmpfile, &
                                     & open_tmpfile, store_and_close_namelist
   USE mo_nml_annotate,          ONLY: temp_defaults, temp_settings
 

@@ -70,7 +70,7 @@ MODULE mo_name_list_output_init
     &                                             sort_and_compress_list
   USE mo_datetime,                          ONLY: t_datetime
   USE mo_cf_convention,                     ONLY: t_cf_var, cf_global_info
-  USE mo_io_restart_attributes,             ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_restart_attributes,                ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_model_domain,                      ONLY: p_patch, p_phys_patch
   USE mo_mtime_extensions,                  ONLY: get_datetime_string, get_duration_string, &
                                                   get_duration_string_real

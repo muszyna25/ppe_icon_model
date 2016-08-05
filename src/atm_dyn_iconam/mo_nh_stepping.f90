@@ -85,7 +85,7 @@ MODULE mo_nh_stepping
                                          prep_outer_bdy_nudging, save_progvars
   USE mo_nh_feedback,              ONLY: feedback, relax_feedback
   USE mo_datetime,                 ONLY: t_datetime, add_time, check_newday, iso8601
-  USE mo_io_restart,               ONLY: create_restart_file
+  USE mo_restart,                  ONLY: create_restart_file
   USE mo_exception,                ONLY: message, message_text, finish
   USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
     &                                    itconv, itccov, itrad, itradheat, itsso, itsatad, itgwd,  &
@@ -117,7 +117,7 @@ MODULE mo_nh_stepping
   USE mo_master_config,            ONLY: isRestart, tc_startdate, tc_stopdate, &
        &                                 tc_exp_refdate, tc_exp_startdate, tc_exp_stopdate, &
        &                                 tc_dt_checkpoint, tc_dt_restart
-  USE mo_io_restart_attributes,    ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_restart_attributes,       ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_meteogram_config,         ONLY: meteogram_output_config
   USE mo_meteogram_output,         ONLY: meteogram_sample_vars, meteogram_is_sample_step
   USE mo_name_list_output,         ONLY: write_name_list_output, istime4name_list_output
@@ -146,7 +146,7 @@ MODULE mo_nh_stepping
     &                                    read_latbc_tlev, last_latbc_tlev, &
     &                                    update_lin_interc
   USE mo_interface_les,            ONLY: les_phy_interface
-  USE mo_io_restart_async,         ONLY: t_restart_descriptor
+  USE mo_restart_async,            ONLY: t_restart_descriptor
   USE mo_nh_prepadv_types,         ONLY: prep_adv, t_prepare_adv, jstep_adv
   USE mo_action,                   ONLY: reset_act
   USE mo_output_event_handler,     ONLY: get_current_jfile

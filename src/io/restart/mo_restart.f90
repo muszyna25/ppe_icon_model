@@ -1,7 +1,7 @@
 !> Module for writing restart files (synchronously) and for reading restart files.
 !!
 !! Note: The asynchronous implementation of the restart output can be
-!!       found in the module "mo_io_restart_async"
+!!       found in the module "mo_restart_async"
 !!
 !! Initial implementation: L. Kornblueh
 !!
@@ -51,7 +51,7 @@
 !! --------------------------------------------------------------------------------
 !!
 !OPTION! -pvctl conflict
-MODULE mo_io_restart
+MODULE mo_restart
 
   USE mo_kind,                  ONLY: wp
   USE mo_mpi,                   ONLY: p_comm_work,p_bcast
@@ -77,8 +77,8 @@ MODULE mo_io_restart
   USE mo_util_string,           ONLY: int2string, separator
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink
   USE mo_util_hash,             ONLY: util_hashword
-  USE mo_io_restart_namelist,   ONLY: read_and_bcast_restart_namelists
-  USE mo_io_restart_attributes, ONLY: t_RestartAttributeList, RestartAttributeList_make, setAttributesForRestarting
+  USE mo_restart_namelist,   ONLY: read_and_bcast_restart_namelists
+  USE mo_restart_attributes, ONLY: t_RestartAttributeList, RestartAttributeList_make, setAttributesForRestarting
   USE mo_datetime,              ONLY: t_datetime, iso8601
   USE mo_run_config,            ONLY: ltimer, restart_filename
   USE mo_timer,                 ONLY: timer_start, timer_stop, timer_write_restart_file
@@ -134,7 +134,7 @@ MODULE mo_io_restart
   INTEGER :: private_ne  = -1
 
   !> module name string
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_io_restart'
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_restart'
 
   !------------------------------------------------------------------------------------------------
 CONTAINS
@@ -1236,4 +1236,4 @@ CONTAINS
 
   END SUBROUTINE read_restart_files
   !-------------------------------------------------------------------------
-END MODULE mo_io_restart
+END MODULE mo_restart

@@ -24,8 +24,8 @@ MODULE mo_util_restart
     USE mo_exception, ONLY: get_filename_noext, finish, message, message_text
     USE mo_fortran_tools, ONLY: assign_if_present, assign_if_present_allocatable, t_ptr_2d
     USE mo_impl_constants, ONLY: SUCCESS, MAX_CHAR_LENGTH
-    USE mo_io_restart_attributes, ONLY: t_RestartAttributeList
-    USE mo_io_restart_namelist, ONLY: RestartNamelist_writeToFile
+    USE mo_restart_attributes, ONLY: t_RestartAttributeList
+    USE mo_restart_namelist, ONLY: RestartNamelist_writeToFile
     USE mo_kind, ONLY: wp, i8
     USE mo_packed_message, ONLY: t_PackedMessage, kPackOp, kUnpackOp
     USE mo_parallel_config, ONLY: nproma
