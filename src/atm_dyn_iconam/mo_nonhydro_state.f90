@@ -51,7 +51,7 @@ MODULE mo_nonhydro_state
   USE mo_nonhydrostatic_config,ONLY: itime_scheme, igradp_method, ndyn_substeps_max
   USE mo_dynamics_config,      ONLY: nsav1, nsav2
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_run_config,           ONLY: iforcing, ntracer, iqm_max,                &
+  USE mo_run_config,           ONLY: iforcing, ntracer, iqm_max, iqt, ico2,     &
     &                                iqv, iqc, iqi, iqr, iqs, iqtvar,           &
     &                                iqni, iqni_nuc, iqg, iqh, iqnr, iqns,      & 
     &                                iqng, iqnh, iqnc, inccn, ininpot, ininact, &
@@ -727,6 +727,26 @@ MODULE mo_nonhydro_state
             &                           "dwd_fg_atm_vars","mode_dwd_fg_in",            &
             &                           "mode_iau_fg_in","mode_iau_old_fg_in","LATBC_PREFETCH_VARS") )
         END IF ! iqs
+
+        !CO2
+        IF ( iqt <= ico2 .AND. ico2 <= ntracer ) THEN
+          CALL add_ref( p_prog_list, 'tracer',                                         &
+            &           TRIM(vname_prefix)//'co2'//suffix, p_prog%tracer_ptr(ico2)%p_3d, &
+            &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+            &           t_cf_var(TRIM(vname_prefix)//'co2',                            &
+            &            'kg kg-1','co2_mass_mixing_ratio', datatype_flt),             &
+            &           grib2_var(0,14,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
+            &           ldims=shape3d_c,                                               &
+            &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
+            &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+            &                       name        = TRIM(vname_prefix)//'co2'//suffix,   &
+            &                       ihadv_tracer=advconf%ihadv_tracer(ico2),           &
+            &                       ivadv_tracer=advconf%ivadv_tracer(ico2)),          & 
+            &           vert_interp=create_vert_interp_metadata(                       &
+            &                       vert_intp_type=vintp_types("P","Z","I"),           &
+            &                       vert_intp_method=VINTP_METHOD_LIN,                 &
+            &                       lower_limit=0.0_wp )                               )
+        END IF ! ico2
 
         !CK>
         IF (ANY(atm_phy_nwp_config(1:n_dom)%inwp_gscp==2)) THEN

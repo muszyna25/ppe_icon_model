@@ -24,7 +24,7 @@ MODULE mo_initicon_utils
 
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma, p_test_run
-  USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs
+  USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, iqt, ntracer
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_metrics, t_nh_diag, t_nh_prog
@@ -606,7 +606,7 @@ MODULE mo_initicon_utils
 
     TYPE(t_nh_state),      INTENT(INOUT) :: p_nh_state(:)
 
-    INTEGER :: jg, jb, jk, jc, je
+    INTEGER :: jg, jb, jk, jc, je, jt
     INTEGER :: nblks_c, npromz_c, nblks_e, npromz_e, nlen, nlev, nlevp1, ntl, ntlr
 
 !$OMP PARALLEL PRIVATE(jg,nblks_c,npromz_c,nblks_e,npromz_e,nlev,nlevp1,ntl,ntlr)
@@ -641,6 +641,32 @@ MODULE mo_initicon_utils
 
       ENDDO
 !$OMP END DO
+
+!$OMP DO PRIVATE(jt,jb,jk,jc,nlen) ICON_OMP_DEFAULT_SCHEDULE
+      ! 3D tracer fields, for which data are not (yet) available from the analysis file,
+      ! are initialized to zero at all levels.
+      ! Currently these are non-water tracers with indices in the range iqt to ntracer.
+      ! iqt is defined in mo_run_config and set in mo_nml_crosscheck depending on the
+      ! configuration of the physics.
+      DO jt = iqt,ntracer
+        DO jb = 1, nblks_c
+
+          IF (jb /= nblks_c) THEN
+            nlen = nproma
+          ELSE
+            nlen = npromz_c
+          ENDIF
+
+          DO jk = 1, nlev
+            DO jc = 1, nlen
+              ! Tracer
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,jt) = 0.0_wp
+            ENDDO
+          ENDDO
+         
+        ENDDO  ! jb
+      ENDDO  ! jt
+!$OMP END DO NOWAIT
 
 !$OMP DO PRIVATE(jb,jk,jc,nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c

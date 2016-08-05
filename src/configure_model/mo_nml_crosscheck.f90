@@ -604,7 +604,9 @@ CONTAINS
       !
       !            Note also that the namelist parameter "ntracer" is reset automatically to the correct
       !            value when NWP physics is used in order to avoid multiple namelist changes when playing
-      !            around with different physics schemes. 
+      !            around with different physics schemes.
+      !
+      ico2      = 0     !> co2, 0: not to be used with NWP physics
       !
       ! Default settings valid for all microphysics options
       !
@@ -791,7 +793,7 @@ CONTAINS
         iqi    = 3     !! ice
         iqr    = 0     !! 0: no rain water
         iqs    = 0     !! 0: no snow
-        ico2   = 5     !! CO2
+        ico2   = 4     !! CO2
         iqm_max= 3     !! end index of water species mixing ratios
         iqt    = 4     !! starting index of non-water species
         nqtendphy = 0  !! number of water species for which convective and turbulent
