@@ -30,13 +30,13 @@ MODULE mo_restart_descriptor
     PRIVATE
 
     ! this type stores all the information that we need to know about a patch and its variables
-    TYPE, ABSTRACT, EXTENDS(t_Destructible) :: t_RestartPatchData
+    TYPE, EXTENDS(t_Destructible) :: t_RestartPatchData
         TYPE(t_restart_patch_description) :: description
         TYPE(t_RestartVarData), POINTER :: varData(:)
         INTEGER :: restartType
     CONTAINS
         PROCEDURE :: construct => restartPatchData_construct
-        PROCEDURE(restartPatchData_writeData), DEFERRED :: writeData
+        PROCEDURE :: writeData => restartPatchData_writeDataDummy    ! >>> Must be overriden by derived class. I would have made this deferred, had it not been for a bug in the NAG compiler that makes calling of an inherited function from an abstract base impossible.
         PROCEDURE :: writeFile => restartPatchData_writeFile
         PROCEDURE :: destruct => restartPatchData_destruct
     END TYPE t_RestartPatchData
@@ -79,14 +79,6 @@ MODULE mo_restart_descriptor
             INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
         END SUBROUTINE restartDescriptor_writeRestart
 
-        ! Write the payload DATA to an opened file.
-        ! Depending on the implementation, this CALL may OR may NOT be collective (it IS collective for sync, AND non-collective for async restart writing).
-        SUBROUTINE restartPatchData_writeData(me, file)
-            IMPORT t_RestartPatchData, t_RestartFile
-            CLASS(t_RestartPatchData), INTENT(INOUT) :: me
-            TYPE(t_RestartFile), INTENT(INOUT) :: file
-        END SUBROUTINE restartPatchData_writeData
-
     END INTERFACE
 
     CHARACTER(*), PARAMETER :: modname = "mo_restart_descriptor"
@@ -127,6 +119,19 @@ CONTAINS
         CALL me%description%init(domain)
         me%varData => createRestartVarData(domain, modelType, me%restartType)
     END SUBROUTINE restartPatchData_construct
+
+    ! Write the payload DATA to an opened file.
+    ! Depending on the implementation, this CALL may OR may NOT be collective (it IS collective for sync, AND non-collective for async restart writing).
+    !
+    ! Pure dummy implementation to avoid making t_RestartPatchData abstract.
+    SUBROUTINE restartPatchData_writeDataDummy(me, file)
+        CLASS(t_RestartPatchData), INTENT(INOUT) :: me
+        TYPE(t_RestartFile), INTENT(INOUT) :: file
+
+        CHARACTER(*), PARAMETER :: routine = modname//":restartPatchData_writeDataDummy"
+
+        CALL finish(routine, "this dummy implementation must not be called")
+    END SUBROUTINE restartPatchData_writeDataDummy
 
     ! Write a restart file if varData IS set. lIsWriteProcess should ONLY be set on one process.
     SUBROUTINE restartPatchData_writeFile(me, restartAttributes, restartArgs, procId, lIsWriteProcess)

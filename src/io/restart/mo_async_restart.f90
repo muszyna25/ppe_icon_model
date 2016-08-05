@@ -889,10 +889,8 @@ CONTAINS
   ! Write restart variable list for a restart PE.
   !
   SUBROUTINE asyncPatchData_writeData(me, file)
-    CLASS(t_AsyncPatchData), TARGET, INTENT(INOUT) :: me
+    CLASS(t_AsyncPatchData), INTENT(INOUT) :: me
     TYPE(t_RestartFile), INTENT(INOUT) :: file
-
-    TYPE(t_var_metadata), POINTER   :: p_info
 
     INTEGER                         :: iv, nval, ierrstat, nlevs, ilev, pointCount
     INTEGER(KIND=MPI_ADDRESS_KIND)  :: ioff(0:num_work_procs-1)
@@ -932,27 +930,24 @@ CONTAINS
     ! go over the all restart variables in the associated array
     VAR_LOOP : DO iv = 1, SIZE(me%varData)
 
-      ! get pointer to metadata
-      p_info => me%varData(iv)%info
-
 #ifdef DEBUG
-      WRITE (nerr,FORMAT_VALS5I)routine,' p_pe=',p_pe,' restart pe processes field=',TRIM(p_info%name)
+      WRITE (nerr,FORMAT_VALS5I)routine,' p_pe=',p_pe,' restart pe processes field=',TRIM(me%varData(iv)%info%name)
 #endif
 
       ! check time level of the field
-      IF (.NOT. has_valid_time_level(p_info, me%description%id, me%description%nnew, me%description%nnew_rcf)) CYCLE
+      IF (.NOT. has_valid_time_level(me%varData(iv)%info, me%description%id, me%description%nnew, me%description%nnew_rcf)) CYCLE
 
       ! get current level
-      IF(p_info%ndims == 2) THEN
+      IF(me%varData(iv)%info%ndims == 2) THEN
         nlevs = 1
       ELSE
-        nlevs = p_info%used_dimensions(2)
+        nlevs = me%varData(iv)%info%used_dimensions(2)
       ENDIF
 
       ! get pointer to reorder data
-      IF(p_info%hgrid == GRID_UNSTRUCTURED_CELL) pointCount = me%description%n_patch_cells_g
-      IF(p_info%hgrid == GRID_UNSTRUCTURED_VERT) pointCount = me%description%n_patch_verts_g
-      IF(p_info%hgrid == GRID_UNSTRUCTURED_EDGE) pointCount = me%description%n_patch_edges_g
+      IF(me%varData(iv)%info%hgrid == GRID_UNSTRUCTURED_CELL) pointCount = me%description%n_patch_cells_g
+      IF(me%varData(iv)%info%hgrid == GRID_UNSTRUCTURED_VERT) pointCount = me%description%n_patch_verts_g
+      IF(me%varData(iv)%info%hgrid == GRID_UNSTRUCTURED_EDGE) pointCount = me%description%n_patch_edges_g
 
       ! no. of chunks of levels (each of size "restart_chunk_size"):
       nchunks = (nlevs-1)/restart_chunk_size + 1
@@ -960,12 +955,12 @@ CONTAINS
       LEVELS : DO ichunk=1,nchunks
         chunk_start = (ichunk-1)*restart_chunk_size + 1
         chunk_end = MIN(chunk_start+restart_chunk_size-1, nlevs)
-        CALL me%commData%collectData(p_info%hgrid, chunk_end - chunk_start + 1, buffer, ioff, t_get, bytesGet)
+        CALL me%commData%collectData(me%varData(iv)%info%hgrid, chunk_end - chunk_start + 1, buffer, ioff, t_get, bytesGet)
 
         ! write field content into a file
         t_write = t_write - p_mpi_wtime()
         DO ilev=chunk_start, chunk_end
-          CALL file%writeLevel(p_info%cdiVarID, (ilev-1), buffer(:, ilev - chunk_start + 1))
+          CALL file%writeLevel(me%varData(iv)%info%cdiVarID, (ilev-1), buffer(:, ilev - chunk_start + 1))
           bytesWrite = bytesWrite + pointCount*8
         END DO
         t_write = t_write + p_mpi_wtime()
@@ -973,7 +968,8 @@ CONTAINS
       ENDDO LEVELS
 
 #ifdef DEBUG
-      WRITE(nerr, FORMAT_VALS7I)routine, ' p_pe=', p_pe, ' restart pe writes field=', TRIM(p_info%name), ' data=', pointCount*nlevs
+      WRITE(nerr, FORMAT_VALS7I) routine, ' p_pe=', p_pe, ' restart pe writes field=', TRIM(me%varData(iv)%info%name), ' data=', &
+                               & pointCount*nlevs
 #endif
     ENDDO VAR_LOOP
 
