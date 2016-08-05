@@ -26,13 +26,14 @@ MODULE mo_util_restart
     USE mo_cf_convention, ONLY: cf_global_info
     USE mo_datetime, ONLY: t_datetime, iso8601extended
     USE mo_dynamics_config, ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf
-    USE mo_fortran_tools, ONLY: assign_if_present
+    USE mo_fortran_tools, ONLY: assign_if_present, assign_if_present_allocatable
     USE mo_impl_constants, ONLY: SUCCESS, MAX_CHAR_LENGTH
     USE mo_io_restart_attributes, ONLY: t_RestartAttributeList
     USE mo_io_restart_namelist, ONLY: RestartNamelist_writeToFile
     USE mo_io_units, ONLY: filename_max
     USE mo_kind, ONLY: wp
     USE mo_model_domain, ONLY: t_patch
+    USE mo_mpi, ONLY: p_pe_work
     USE mo_packed_message, ONLY: t_PackedMessage
     USE mo_util_cdi, ONLY: cdiGetStringError
     USE mo_util_file, ONLY: util_symlink, util_islink, util_unlink
@@ -145,7 +146,8 @@ MODULE mo_util_restart
         LOGICAL, ALLOCATABLE :: opt_lcall_phy(:)
         REAL(wp), ALLOCATABLE :: opt_t_elapsed_phy(:)
     CONTAINS
-        PROCEDURE :: setPatch => restartPatchDescription_setPatch
+        PROCEDURE :: init => restartPatchDescription_init
+        PROCEDURE :: update => restartPatchDescription_update   ! called to set the DATA that may change from restart to restart
         PROCEDURE :: setTimeLevels => restartPatchDescription_setTimeLevels ! set the time level fields (nold, ...) to match the respective global variables
         PROCEDURE :: packer => restartPatchDescription_packer
         PROCEDURE :: defineVGrids => restartPatchDescription_defineVGrids
@@ -508,7 +510,7 @@ CONTAINS
         IF(iret /= SUCCESS) WRITE(0, *) routine//': cannot create symbolic link "'//TRIM(linkname)//'" for "'//filename//'"'
     END SUBROUTINE create_restart_file_link
 
-    SUBROUTINE restartPatchDescription_setPatch(description, p_patch)
+    SUBROUTINE restartPatchDescription_init(description, p_patch)
         CLASS(t_restart_patch_description), INTENT(INOUT) :: description
         TYPE(t_patch), INTENT(IN) :: p_patch
 
@@ -520,7 +522,82 @@ CONTAINS
         description%n_patch_cells_g = p_patch%n_patch_cells_g
         description%n_patch_verts_g = p_patch%n_patch_verts_g
         description%n_patch_edges_g = p_patch%n_patch_edges_g
-    END SUBROUTINE restartPatchDescription_setPatch
+        description%v_grid_defs => NULL()
+        description%v_grid_count = 0
+        description%l_dom_active = .FALSE.
+        description%restart_proc_id = 0
+        description%nold = nold(p_patch%id)
+        description%nnow = nnow(p_patch%id)
+        description%nnew = nnew(p_patch%id)
+        description%nnew_rcf = nnew_rcf(p_patch%id)
+        description%nnow_rcf = nnow_rcf(p_patch%id)
+        description%l_opt_depth = .FALSE.
+        description%opt_depth = 0
+        description%l_opt_depth_lnd = .FALSE.
+        description%opt_depth_lnd = 0
+        description%l_opt_nlev_snow = .FALSE.
+        description%opt_nlev_snow = 0
+        description%l_opt_nice_class = .FALSE.
+        description%opt_nice_class = 0
+        description%l_opt_ndyn_substeps = .FALSE.
+        description%opt_ndyn_substeps = 0
+        description%l_opt_jstep_adv_marchuk_order = .FALSE.
+        description%opt_jstep_adv_marchuk_order = 0
+        description%l_opt_ndom = .FALSE.
+        description%opt_ndom = 0
+        description%l_opt_sim_time = .FALSE.
+        description%opt_sim_time = 0.
+    END SUBROUTINE restartPatchDescription_init
+
+    SUBROUTINE restartPatchDescription_update(description, patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &
+                                             &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth, opt_depth_lnd, &
+                                             &opt_nlev_snow, opt_nice_class, opt_ndom)
+        CLASS(t_restart_patch_description), INTENT(INOUT) :: description
+        TYPE(t_patch), INTENT(IN) :: patch
+        INTEGER, INTENT(IN), OPTIONAL :: opt_depth, opt_depth_lnd, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, &
+                                       & opt_nlev_snow, opt_nice_class, opt_ndom
+        REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time, opt_pvct(:), opt_t_elapsed_phy(:)
+        LOGICAL, INTENT(IN), OPTIONAL :: opt_lcall_phy(:)
+
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartPatchDescription_update"
+
+        IF(description%id /= patch%id) CALL finish(routine, "assertion failed: wrong patch passed to update()")
+
+        ! update activity flag - this needs to be done on all compute PEs, otherwise starting a nest during runtime would lead to incomplete restart files
+        description%l_dom_active = patch%ldom_active
+
+        ! otherwise, only the patch master process needs the dynamic restart arguments, these will be communicated to the other processes anyway
+        IF(p_pe_work == 0 .OR. p_pe_work == description%work_pe0_id) THEN
+            ! Patch-dependent attributes
+            CALL assign_if_present_allocatable(description%opt_pvct, opt_pvct)
+            CALL assign_if_present_allocatable(description%opt_t_elapsed_phy, opt_t_elapsed_phy)
+            CALL assign_if_present_allocatable(description%opt_lcall_phy, opt_lcall_phy)
+
+            CALL assign_if_present(description%opt_ndyn_substeps, opt_ndyn_substeps)
+            description%l_opt_ndyn_substeps = PRESENT(opt_ndyn_substeps)
+
+            CALL assign_if_present(description%opt_jstep_adv_marchuk_order, opt_jstep_adv_marchuk_order)
+            description%l_opt_jstep_adv_marchuk_order = PRESENT(opt_jstep_adv_marchuk_order)
+
+            CALL assign_if_present(description%opt_depth, opt_depth)
+            description%l_opt_depth = PRESENT(opt_depth)
+
+            CALL assign_if_present(description%opt_depth_lnd, opt_depth_lnd)
+            description%l_opt_depth_lnd = PRESENT(opt_depth_lnd)
+
+            CALL assign_if_present(description%opt_nlev_snow, opt_nlev_snow)
+            description%l_opt_nlev_snow = PRESENT(opt_nlev_snow)
+
+            CALL assign_if_present(description%opt_nice_class, opt_nice_class)
+            description%l_opt_nice_class = PRESENT(opt_nice_class)
+
+            CALL assign_if_present(description%opt_sim_time, opt_sim_time)
+            description%l_opt_sim_time = PRESENT(opt_sim_time)
+
+            CALL assign_if_present(description%opt_ndom, opt_ndom)
+            description%l_opt_ndom = PRESENT(opt_ndom)
+        END IF
+    END SUBROUTINE restartPatchDescription_update
 
     SUBROUTINE restartPatchDescription_setTimeLevels(description)
         CLASS(t_restart_patch_description), INTENT(INOUT) :: description

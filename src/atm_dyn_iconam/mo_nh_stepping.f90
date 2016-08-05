@@ -1135,7 +1135,7 @@ MODULE mo_nh_stepping
     IF (lwrite_checkpoint) THEN
       IF (use_async_restart_output) THEN
         DO jg = 1, n_dom
-          CALL set_data_async_restart(p_patch(jg)%id, p_patch(jg)%ldom_active, &
+          CALL set_data_async_restart(p_patch(jg), &
             & opt_t_elapsed_phy          = t_elapsed_phy(jg,:),        &
             & opt_lcall_phy              = lcall_phy(jg,:),            &
             & opt_sim_time               = time_config%sim_time(jg),   &

@@ -381,8 +381,7 @@ CONTAINS
 
       IF (use_async_restart_output) THEN
         DO jg = 1, n_dom
-          CALL set_data_async_restart(p_patch(jg)%id, p_patch(jg)%ldom_active, &
-                                    & opt_pvct = vct)
+          CALL set_data_async_restart(p_patch(jg), opt_pvct = vct)
         ENDDO
 
         ! call asynchronous restart

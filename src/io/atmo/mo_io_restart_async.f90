@@ -23,7 +23,7 @@ MODULE mo_io_restart_async
 
   USE mo_decomposition_tools,     ONLY: t_grid_domain_decomp_info
   USE mo_exception,               ONLY: finish, message, message_text, get_filename_noext
-  USE mo_fortran_tools,           ONLY: assign_if_present, assign_if_present_allocatable
+  USE mo_fortran_tools,           ONLY: assign_if_present_allocatable
   USE mo_kind,                    ONLY: wp, i8, dp
   USE mo_datetime,                ONLY: t_datetime, iso8601, iso8601extended
   USE mo_io_units,                ONLY: nerr, filename_max
@@ -264,88 +264,25 @@ CONTAINS
   !
   !> Set patch-dependent dynamic data for asynchronous restart.
   !
-  SUBROUTINE set_data_async_restart(patch_id, l_dom_active,       &
-                                &   opt_pvct,                     &
-                                &   opt_t_elapsed_phy,            &
-                                &   opt_lcall_phy,                &
-                                &   opt_sim_time,                 &
-                                &   opt_ndyn_substeps,            &
-                                &   opt_jstep_adv_marchuk_order,  &
-                                &   opt_depth,                    &
-                                &   opt_depth_lnd,                &
-                                &   opt_nlev_snow,                &
-                                &   opt_nice_class,               &
-                                &   opt_ndom)
+  SUBROUTINE set_data_async_restart(patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, opt_ndyn_substeps, &
+                                   &opt_jstep_adv_marchuk_order, opt_depth, opt_depth_lnd, opt_nlev_snow, opt_nice_class, opt_ndom)
+    TYPE(t_patch), INTENT(IN) :: patch
+    INTEGER, INTENT(IN), OPTIONAL :: opt_depth, opt_depth_lnd, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, &
+                                   & opt_nlev_snow, opt_nice_class, opt_ndom
+    REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time, opt_pvct(:), opt_t_elapsed_phy(:)
+    LOGICAL, INTENT(IN), OPTIONAL :: opt_lcall_phy(:)
 
-    INTEGER,              INTENT(IN)           :: patch_id
-    LOGICAL,              INTENT(IN)           :: l_dom_active
-                          
-    INTEGER,              INTENT(IN), OPTIONAL :: opt_depth
-    INTEGER,              INTENT(IN), OPTIONAL :: opt_depth_lnd
-    INTEGER,              INTENT(IN), OPTIONAL :: opt_ndyn_substeps
-    INTEGER,              INTENT(IN), OPTIONAL :: opt_jstep_adv_marchuk_order
-    INTEGER,              INTENT(IN), OPTIONAL :: opt_nlev_snow
-    INTEGER,              INTENT(IN), OPTIONAL :: opt_nice_class
-    REAL(wp),             INTENT(IN), OPTIONAL :: opt_sim_time
-    LOGICAL ,             INTENT(IN), OPTIONAL :: opt_lcall_phy(:)
-    REAL(wp),             INTENT(IN), OPTIONAL :: opt_pvct(:)
-    REAL(wp),             INTENT(IN), OPTIONAL :: opt_t_elapsed_phy(:)
-    INTEGER,              INTENT(IN), OPTIONAL :: opt_ndom            !< no. of domains (appended to symlink name)
-
-    TYPE(t_restart_patch_description), POINTER :: p_pd
-    INTEGER                        :: ierrstat, i
-    CHARACTER(LEN=*), PARAMETER    :: routine = modname//'set_data_async_restart'
+    TYPE(t_restart_patch_description), POINTER :: patchDesc
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":set_data_async_restart"
 
 #ifdef NOMPI
     CALL finish(routine, ASYNC_RESTART_REQ_MPI)
 #else
-
-#ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
-#endif
-
-    IF(.NOT. (my_process_is_work())) RETURN
-
-    ! find patch
-    p_pd => find_patch_description(patch_id, routine)
-
-    ! set activity flag - this needs to be done on all compute PEs because the restart
-    ! file may be incomplete otherwise when a nest is started during runtime
-    p_pd%l_dom_active = l_dom_active
-
-    ! otherwise, only the first compute PE needs the dynamic restart arguments
-    ! in the case of processor splitting, the first PE of the split subset needs them as well
-    IF (p_pe_work == 0 .OR. p_pe_work == p_pd%work_pe0_id) THEN
-
-      ! Patch-dependent attributes
-      CALL assign_if_present_allocatable(p_pd%opt_pvct, opt_pvct)
-      CALL assign_if_present_allocatable(p_pd%opt_t_elapsed_phy, opt_t_elapsed_phy)
-      CALL assign_if_present_allocatable(p_pd%opt_lcall_phy, opt_lcall_phy)
-
-      CALL assign_if_present(p_pd%opt_ndyn_substeps, opt_ndyn_substeps)
-      p_pd%l_opt_ndyn_substeps = PRESENT(opt_ndyn_substeps)
-
-      CALL assign_if_present(p_pd%opt_jstep_adv_marchuk_order, opt_jstep_adv_marchuk_order)
-      p_pd%l_opt_jstep_adv_marchuk_order = PRESENT(opt_jstep_adv_marchuk_order)
-
-      CALL assign_if_present(p_pd%opt_depth, opt_depth)
-      p_pd%l_opt_depth = PRESENT(opt_depth)
-
-      CALL assign_if_present(p_pd%opt_depth_lnd, opt_depth_lnd)
-      p_pd%l_opt_depth_lnd = PRESENT(opt_depth_lnd)
-
-      CALL assign_if_present(p_pd%opt_nlev_snow, opt_nlev_snow)
-      p_pd%l_opt_nlev_snow = PRESENT(opt_nlev_snow)
-
-      CALL assign_if_present(p_pd%opt_nice_class, opt_nice_class)
-      p_pd%l_opt_nice_class = PRESENT(opt_nice_class)
-
-      CALL assign_if_present(p_pd%opt_sim_time, opt_sim_time)
-      p_pd%l_opt_sim_time = PRESENT(opt_sim_time)
-
-      CALL assign_if_present(p_pd%opt_ndom, opt_ndom)
-      p_pd%l_opt_ndom = PRESENT(opt_ndom)
-    ENDIF ! (pe_work == 0)
+    IF(my_process_is_work()) THEN
+        patchDesc => find_patch_description(patch%id, routine)
+        CALL patchDesc%update(patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, opt_ndyn_substeps, &
+                             &opt_jstep_adv_marchuk_order, opt_depth, opt_depth_lnd, opt_nlev_snow, opt_nice_class, opt_ndom)
+    END IF
 #endif
 
   END SUBROUTINE set_data_async_restart
@@ -1116,7 +1053,7 @@ CONTAINS
     ! initialize on work PEs
     CALL message%construct()
     IF(my_process_is_work()) THEN
-        CALL description%setPatch(p_patch(domain))
+        CALL description%init(p_patch(domain))
         CALL description%packer(kPackOp, message)
     END IF
 
