@@ -19,17 +19,23 @@ MODULE mo_io_restart_namelist
 
   PRIVATE
 
+  ! used throughout the icon code
   PUBLIC :: open_tmpfile
   PUBLIC :: store_and_close_namelist
   PUBLIC :: open_and_restore_namelist
   PUBLIC :: close_tmpfile
+
+  ! used ONLY by mo_io_restart AND mo_io_restart_async
   PUBLIC :: read_and_bcast_restart_namelists
+  PUBLIC :: set_restart_namelist
   PUBLIC :: get_restart_namelist
   PUBLIC :: print_restart_name_lists
-  PUBLIC :: delete_restart_namelists
-  PUBLIC :: nmls
+  PUBLIC :: delete_restart_namelists    ! also used by mo_atmo_model
+
+  ! variables used by mo_io_restart AND mo_io_restart_async
   PUBLIC :: restart_namelist
-  PUBLIC :: set_restart_namelist
+  PUBLIC :: nmls
+
 
   PUBLIC :: t_att_namelist
 
@@ -45,7 +51,7 @@ MODULE mo_io_restart_namelist
 
   INTEGER, PARAMETER :: nmax_nmls = 64
   INTEGER, SAVE :: nmls = 0
-  TYPE(t_att_namelist), ALLOCATABLE :: restart_namelist(:)
+  TYPE(t_att_namelist), ALLOCATABLE, TARGET :: restart_namelist(:)
 
   INTERFACE get_restart_namelist
     MODULE PROCEDURE get_restart_namelist_by_name
@@ -70,6 +76,31 @@ CONTAINS
     END DO
   END SUBROUTINE init_restart_namelists
 
+  FUNCTION find_namelist(namelist_name) RESULT(RESULT)
+    CHARACTER(len=*), INTENT(in) :: namelist_name
+    TYPE(t_att_namelist), POINTER :: RESULT
+
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":find_namelist"
+    INTEGER :: i, error
+
+    ! first ensure that we actually have a list
+    IF(.NOT. ALLOCATED(restart_namelist)) CALL init_restart_namelists()
+
+    ! check whether we already have an entry of that NAME
+    DO i = 1, nmls
+        IF('nml_'//TRIM(namelist_name) == TRIM(restart_namelist(i)%NAME)) THEN
+            RESULT => restart_namelist(i)
+            RETURN
+        END IF
+    END DO
+
+    ! looks like we have to create an entry IF this point IS reached
+    nmls = nmls + 1
+    IF(nmls > nmax_nmls) CALL finish(routine, "TODO: Remove limitation on maximal number of restart namelists")
+    RESULT => restart_namelist(nmls)
+    RESULT%NAME = 'nml_'//TRIM(namelist_name)
+  END FUNCTION find_namelist
+
   SUBROUTINE delete_restart_namelists()
     INTEGER :: i
 
@@ -85,66 +116,41 @@ CONTAINS
   SUBROUTINE set_restart_namelist(namelist_name, namelist_text)
     CHARACTER(len=*), INTENT(in) :: namelist_name
     CHARACTER(len=*), INTENT(in) :: namelist_text
-    INTEGER :: i
+    TYPE(t_att_namelist), POINTER :: list_entry
 
-    IF (.NOT. ALLOCATED(restart_namelist)) THEN
-      CALL init_restart_namelists()
-    ENDIF
-
-    ! look, if entry has to be overwritten
-
-    DO i = 1, nmls
-      IF ('nml_'//TRIM(namelist_name) == TRIM(restart_namelist(i)%name)) THEN
-        restart_namelist(i)%text => toCharArray(TRIM(namelist_text))
-        RETURN
-      ENDIF
-    ENDDO
-
-    ! ok, we have a new entry
-
-    nmls = nmls+1
-    IF (nmls > nmax_nmls) THEN
-      CALL finish('set_restart_namelist', &
-           &      'too many restart attributes for restart file')
-    ELSE
-      restart_namelist(nmls)%name = 'nml_'//TRIM(namelist_name)
-      restart_namelist(nmls)%text => toCharArray(TRIM(namelist_text))
-    ENDIF
-
+    list_entry => find_namelist(namelist_name)
+    IF(ASSOCIATED(list_entry%text)) DEALLOCATE(list_entry%text)
+    list_entry%text => toCharArray(namelist_text)
   END SUBROUTINE set_restart_namelist
 
   SUBROUTINE get_restart_namelist_by_name(namelist_name, namelist_text)
     CHARACTER(len=*),              INTENT(in)  :: namelist_name
-    CHARACTER(len=*),              INTENT(out) :: namelist_text
-    INTEGER :: i
+    CHARACTER(len=:), ALLOCATABLE, INTENT(out) :: namelist_text
+
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":get_restart_namelist_by_name"
+    TYPE(t_att_namelist), POINTER :: list_entry
     CHARACTER(LEN = :), POINTER :: tempText
+    INTEGER :: textLength, error
 
-    namelist_text = ''
+    list_entry => find_namelist(namelist_name)
+    IF(.NOT.ASSOCIATED(list_entry%text)) CALL finish(routine, 'namelist '//TRIM(namelist_name)//' not available in restart file.')
+    tempText => toCharacter(list_entry%text)
+    textLength = LEN(tempText)
 
-    DO i = 1, nmls
-      IF ('nml_'//TRIM(namelist_name) == TRIM(restart_namelist(i)%name)) THEN
-        tempText => toCharacter(restart_namelist(i)%text)
-        namelist_text = tempText
-        DEALLOCATE(tempText)
-        RETURN
-      ENDIF
-    ENDDO
+    IF(ALLOCATED(namelist_text)) DEALLOCATE(namelist_text)
+    ALLOCATE(CHARACTER(LEN = textLength) :: namelist_text, STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
 
-    CALL finish('','namelist '//TRIM(namelist_name)//' not available in restart file.')
-
+    namelist_text(1:textLength) = tempText(1:textLength)
+    DEALLOCATE(tempText)
   END SUBROUTINE get_restart_namelist_by_name
 
   SUBROUTINE get_restart_namelist_by_index(namelist_index, namelist_name)
     INTEGER,          INTENT(in)  :: namelist_index
     CHARACTER(len=*), INTENT(out) :: namelist_name
 
-    IF (nmls > nmax_nmls) THEN
-      CALL finish('get_restart_namelist','index out of range.')
-    ELSE
-      namelist_name = ''
-      namelist_name = TRIM(restart_namelist(namelist_index)%name(5:))
-    ENDIF
-
+    IF (namelist_index > nmls) CALL finish('get_restart_namelist_by_index','index out of range.')
+    namelist_name = TRIM(restart_namelist(namelist_index)%name(5:))
   END SUBROUTINE get_restart_namelist_by_index
 
   SUBROUTINE print_restart_name_lists()
@@ -226,7 +232,7 @@ CONTAINS
     INTEGER :: flen
     CHARACTER(len=filename_max) :: filename
 
-    CHARACTER(len=nmllen_max) :: nmlbuf
+    CHARACTER(LEN = :), ALLOCATABLE :: nmlbuf
 
     CALL get_restart_namelist(name, nmlbuf)
 
@@ -268,6 +274,8 @@ CONTAINS
 
   END SUBROUTINE close_tmpfile
 
+  ! lread_pe must be .TRUE. on pe root_pe
+  ! TODO: refactor these two arguments into one
   SUBROUTINE read_and_bcast_restart_namelists(vlistID, lread_pe, root_pe, comm)
     INTEGER, INTENT(IN) :: vlistID      !< CDI vlist ID
     LOGICAL, INTENT(IN) :: lread_pe     !< .TRUE., if current PE has opened the file for reading
@@ -275,52 +283,44 @@ CONTAINS
     INTEGER, INTENT(IN) :: comm         !< MPI communicator
 
     ! local variables
-    INTEGER             :: natts, att_type, att_len, nmllen, &
-      &                    i, status
-    CHARACTER(len=64)   :: att_name
-    CHARACTER(len=nmllen_max) :: nmlbuf
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":read_and_bcast_restart_namelists"
+    INTEGER :: natts, att_type, att_len, i, status
+    CHARACTER(len=64) :: att_name
+    CHARACTER(LEN = :), ALLOCATABLE :: tempText
+    TYPE(t_att_namelist), POINTER :: list_entry
 
-    ! Reset the namelists.
-    IF (ALLOCATED(restart_namelist)) THEN
-      CALL delete_restart_namelists()
-    ENDIF
-    CALL init_restart_namelists()
+    ! reset the list
+    CALL delete_restart_namelists()
 
+    ! get the number of attributes so we can loop over them
     IF (lread_pe) THEN
       status = vlistInqNatts(vlistID, CDI_GLOBAL, natts)
+      IF(status /= SUCCESS) CALL finish(routine, "vlistInqNatts() returned an error")
     END IF
     CALL p_bcast(natts, root_pe, comm)
 
     DO i = 0, natts-1
-      att_name = ''
-      att_len  = 0
-      IF (lread_pe) THEN
-        status = vlistInqAtt(vlistID, CDI_GLOBAL, i, att_name, att_type, att_len)
-      END IF
-      CALL p_bcast(att_name, root_pe, comm)
-      IF ( att_name(1:4) /= 'nml_') CYCLE ! skip this, it is not a namelist 
+        ! inquire the attribute NAME AND check whether it IS a namelist attribute
+        att_name = ''
+        att_len  = 0
+        IF (lread_pe) THEN
+            status = vlistInqAtt(vlistID, CDI_GLOBAL, i, att_name, att_type, att_len)
+            IF(status /= SUCCESS) CALL finish(routine, "vlistInqAtt() returned an error")
+        END IF
+        CALL p_bcast(att_name, root_pe, comm)
+        IF ( att_name(1:4) /= 'nml_') CYCLE ! skip this, it is not a namelist 
 
-      CALL p_bcast(att_len, root_pe, comm)
-      nmllen = att_len
-      IF (nmllen > nmllen_max) THEN
-        CALL message('', &
-             &       'The problem could be solved by increasing nmllen_max '// &
-             &       'in mo_io_restart_namelist.f90.')
-        CALL finish('','namelist '//TRIM(att_name)// &
-             &      ' is too long, reload from restart file fails.')
-      ENDIF
-      IF (lread_pe) THEN
-        status = vlistInqAttTxt(vlistID, CDI_GLOBAL, TRIM(att_name), nmllen, nmlbuf)
-      END IF
-      CALL p_bcast(nmlbuf, root_pe, comm)
-
-      nmls = nmls+1
-      IF (nmls > nmax_nmls) THEN
-        CALL finish('set_restart_namelist', &
-             &      'too many restart attributes for restart file')
-      ENDIF
-      restart_namelist(nmls)%name = TRIM(att_name)
-      restart_namelist(nmls)%text => toCharArray(nmlbuf(1:nmllen))
+        ! it IS a namelist attribute, so we add it to the list
+        list_entry => find_namelist(att_name(5:))
+        CALL p_bcast(att_len, root_pe, comm)
+        ALLOCATE(CHARACTER(len=att_len) :: tempText)
+        IF (lread_pe) THEN
+            status = vlistInqAttTxt(vlistID, CDI_GLOBAL, TRIM(att_name), att_len, tempText)
+            IF(status /= SUCCESS) CALL finish(routine, "vlistInqAttTxt() returned an error")
+        END IF
+        CALL p_bcast(tempText, root_pe, comm)
+        list_entry%text => toCharArray(tempText)
+        DEALLOCATE(tempText)
     ENDDO
 
   END SUBROUTINE read_and_bcast_restart_namelists
