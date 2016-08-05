@@ -121,17 +121,11 @@ MODULE mo_restart_async
   !
   TYPE t_reorder_data
     INTEGER :: n_glb  ! Global number of points per logical patch
-    INTEGER :: n_own  ! Number of own points (without halo, only belonging to logical patch)
-                      ! Only set on compute PEs, set to 0 on restart PEs
-    INTEGER, ALLOCATABLE :: own_idx(:), own_blk(:)
-                      ! idx and blk for own points, only set on compute PEs
-    INTEGER, ALLOCATABLE :: pe_own(:)
-                      ! n_own, gathered for all compute PEs (set on all PEs)
-    INTEGER, ALLOCATABLE :: pe_off(:)
-                      ! offset of contributions of PEs (set on all PEs)
+    INTEGER :: n_own  ! Number of own points (without halo, only belonging to logical patch). Only set on compute PEs, set to 0 on restart PEs.
+    INTEGER, ALLOCATABLE :: own_idx(:), own_blk(:)  ! idx and blk for own points, only set on compute PEs
+    INTEGER, ALLOCATABLE :: pe_own(:)   ! n_own, gathered for all compute PEs (set on all PEs)
 
     ! Index how to reorder the contributions of all compute PEs into the global array (set on all PEs)
-    INTEGER, ALLOCATABLE :: reorder_index(:)            ! given a global array index, this gives the index within the gathered array
     INTEGER, ALLOCATABLE :: inverse_reorder_index(:)    ! given a gathered array index, this gives the index within the global array
   CONTAINS
     PROCEDURE, PRIVATE :: construct => reorderData_construct    ! Collective across work AND restart. This IS a two step process utilizing the two methods below.
@@ -990,13 +984,14 @@ CONTAINS
   ! collective across restart AND worker PEs
   ! returns the memory window offset for the next t_restart_comm_data object
   SUBROUTINE restartCommData_construct(me, jg, var_data)
-    CLASS(t_restart_comm_data), INTENT(INOUT) :: me
+    CLASS(t_restart_comm_data), TARGET, INTENT(INOUT) :: me
     INTEGER, VALUE :: jg
     TYPE(t_var_data), POINTER, INTENT(IN) :: var_data(:)
 
     INTEGER :: error, iv, nlevs
     TYPE(t_grid_domain_decomp_info) :: dummyInfo
     INTEGER(KIND = MPI_ADDRESS_KIND) :: memWindowSize
+    TYPE(t_reorder_data), POINTER :: reorderData
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartCommData_construct"
 
     ! initialize the reorder info
@@ -1019,16 +1014,8 @@ CONTAINS
             nlevs = 1
             IF(var_data(iv)%info%ndims /= 2) nlevs = var_data(iv)%info%used_dimensions(2)
 
-            SELECT CASE (var_data(iv)%info%hgrid)
-                CASE (GRID_UNSTRUCTURED_CELL)
-                    memWindowSize = memWindowSize + INT(nlevs*me%cells%n_own,i8)
-                CASE (GRID_UNSTRUCTURED_EDGE)
-                    memWindowSize = memWindowSize + INT(nlevs*me%edges%n_own,i8)
-                CASE (GRID_UNSTRUCTURED_VERT)
-                    memWindowSize = memWindowSize + INT(nlevs*me%verts%n_own,i8)
-                CASE DEFAULT
-                    CALL finish(routine,UNKNOWN_GRID_TYPE)
-            END SELECT
+            reorderData => get_reorder_ptr(me, var_data(iv)%info, routine)
+            memWindowSize = memWindowSize + INT(nlevs*reorderData%n_own, i8)
         END DO
 
         ! actually open the memory window
@@ -1037,7 +1024,7 @@ CONTAINS
   END SUBROUTINE restartCommData_construct
 
   SUBROUTINE restartCommData_postData(me, varInfo, dataPointers, offset)
-    CLASS(t_restart_comm_data), INTENT(INOUT) :: me
+    CLASS(t_restart_comm_data), TARGET, INTENT(INOUT) :: me
     TYPE(t_var_metadata), INTENT(IN) :: varInfo
     TYPE(t_ptr_2d), ALLOCATABLE, INTENT(IN) :: dataPointers(:)
     !TODO[NH]: Replace this by an index within the t_restart_comm_data structure.
@@ -1070,7 +1057,7 @@ CONTAINS
   END SUBROUTINE restartCommData_postData
 
   SUBROUTINE restartCommData_collectData(me, varInfo, levelCount, dest, offsets, elapsedTime, bytesFetched)
-    CLASS(t_restart_comm_data), INTENT(INOUT) :: me
+    CLASS(t_restart_comm_data), TARGET, INTENT(INOUT) :: me
     TYPE(t_var_metadata), POINTER :: varInfo
     INTEGER, VALUE :: levelCount
     REAL(dp), INTENT(INOUT) :: dest(:,:)
@@ -1204,7 +1191,7 @@ CONTAINS
 
     INTEGER :: i, n, il, ib, mpi_error, ierrstat
     LOGICAL, ALLOCATABLE :: owner_mask_1d(:) ! non-blocked owner mask for (logical) patch
-    INTEGER, ALLOCATABLE :: glbidx_own(:), glbidx_glb(:), reorder_index_log_dom(:)
+    INTEGER, ALLOCATABLE :: glbidx_own(:), glbidx_glb(:), reorder_index_log_dom(:), pe_off(:), reorder_index(:)
     CHARACTER (LEN=MAX_ERROR_LENGTH) :: error_message
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':reorderData_constructCompute'
@@ -1252,8 +1239,8 @@ CONTAINS
     ! gather the number of own points for every PE into me%pe_own
     ALLOCATE(me%pe_own(0:p_n_work-1), STAT=ierrstat)
     IF(ierrstat /= SUCCESS) CALL finish(routine, "allocation of me%pe_own failed")
-    ALLOCATE(me%pe_off(0:p_n_work-1), STAT=ierrstat)
-    IF(ierrstat /= SUCCESS) CALL finish(routine, "allocation of me%pe_off failed")
+    ALLOCATE(pe_off(0:p_n_work-1), STAT=ierrstat)
+    IF(ierrstat /= SUCCESS) CALL finish(routine, "allocation of pe_off failed")
 
     CALL MPI_Allgather(me%n_own,  1, p_int, &
                        me%pe_own, 1, p_int, &
@@ -1261,9 +1248,9 @@ CONTAINS
     CALL check_mpi_error(routine, 'MPI_Allgather', mpi_error, .TRUE.)
 
     ! get offset within result array
-    me%pe_off(0) = 0
+    pe_off(0) = 0
     DO i = 1, p_n_work-1
-      me%pe_off(i) = me%pe_off(i-1) + me%pe_own(i-1)
+      pe_off(i) = pe_off(i-1) + me%pe_own(i-1)
     ENDDO
 
     ! get global number of points for current patch
@@ -1275,10 +1262,11 @@ CONTAINS
     IF(ierrstat /= SUCCESS) CALL finish(routine, "allocation of glbidx_glb failed")
 
     CALL MPI_Allgatherv(glbidx_own, me%n_own, p_int, &
-                        glbidx_glb, me%pe_own, me%pe_off, p_int, &
+                        glbidx_glb, me%pe_own, pe_off, p_int, &
                         p_comm_work, mpi_error)
     CALL check_mpi_error(routine, 'MPI_Allgatherv', mpi_error, .TRUE.)
     DEALLOCATE(glbidx_own)
+    DEALLOCATE(pe_off)
 
     ! spans the complete logical domain
     ALLOCATE(reorder_index_log_dom(n_points_g), STAT=ierrstat)
@@ -1293,14 +1281,14 @@ CONTAINS
     DEALLOCATE(glbidx_glb)
 
     ! remove the zero entries from reorder_index_log_dom to form the reorder_index
-    ALLOCATE(me%reorder_index(me%n_glb), STAT=ierrstat)
-    IF(ierrstat /= SUCCESS) CALL finish(routine, "allocation of me%reorder_index failed")
+    ALLOCATE(reorder_index(me%n_glb), STAT=ierrstat)
+    IF(ierrstat /= SUCCESS) CALL finish(routine, "allocation of reorder_index failed")
 
     n = 0
     DO i = 1, n_points_g
       IF(reorder_index_log_dom(i)>0) THEN
         n = n+1
-        me%reorder_index(n) = reorder_index_log_dom(i)
+        reorder_index(n) = reorder_index_log_dom(i)
       ENDIF
     ENDDO
     DEALLOCATE(reorder_index_log_dom)
@@ -1312,11 +1300,12 @@ CONTAINS
 
     me%inverse_reorder_index(:) = 0
     DO i = 1, me%n_glb
-        IF(me%inverse_reorder_index(me%reorder_index(i)) /= 0) THEN
+        IF(me%inverse_reorder_index(reorder_index(i)) /= 0) THEN
             CALL finish(routine, "assertion failed: reorder_index is not injective")
         END IF
-        me%inverse_reorder_index(me%reorder_index(i)) = i
+        me%inverse_reorder_index(reorder_index(i)) = i
     END DO
+    DEALLOCATE(reorder_index)
   END SUBROUTINE reorderData_constructCompute
 
   !------------------------------------------------------------------------------------------------
@@ -1333,18 +1322,10 @@ CONTAINS
     CALL p_bcast(me%n_glb,  bcastRoot(), p_comm_work_2_restart)
 
     IF(my_process_is_restart()) THEN
-
-      ! on restart PEs: n_own = 0, own_idx and own_blk are not allocated
-      me%n_own = 0
+      me%n_own = 0  ! on restart PEs: n_own = 0, own_idx and own_blk are not allocated
 
       ! pe_own must be allocated for num_work_procs, not for p_n_work
       ALLOCATE(me%pe_own(0:num_work_procs-1), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
-
-      ALLOCATE(me%pe_off(0:num_work_procs-1), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
-
-      ALLOCATE(me%reorder_index(me%n_glb), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 
       ALLOCATE(me%inverse_reorder_index(me%n_glb), STAT=ierrstat)
@@ -1352,8 +1333,6 @@ CONTAINS
     ENDIF
 
     CALL p_bcast(me%pe_own, bcastRoot(), p_comm_work_2_restart)
-    CALL p_bcast(me%pe_off, bcastRoot(), p_comm_work_2_restart)
-    CALL p_bcast(me%reorder_index, bcastRoot(), p_comm_work_2_restart)
     CALL p_bcast(me%inverse_reorder_index, bcastRoot(), p_comm_work_2_restart)
   END SUBROUTINE reorderData_transferToRestart
 
@@ -1404,8 +1383,6 @@ CONTAINS
     IF(ALLOCATED(me%own_idx)) DEALLOCATE(me%own_idx)
     IF(ALLOCATED(me%own_blk)) DEALLOCATE(me%own_blk)
     DEALLOCATE(me%pe_own)
-    DEALLOCATE(me%pe_off)
-    DEALLOCATE(me%reorder_index)
     DEALLOCATE(me%inverse_reorder_index)
   END SUBROUTINE reorderData_destruct
 
