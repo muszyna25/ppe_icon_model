@@ -50,13 +50,9 @@ MODULE mo_io_restart_async
                                       & TAXIS_ABSOLUTE, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_GENERIC, ZAXIS_HEIGHT, ZAXIS_HYBRID, &
                                       & ZAXIS_HYBRID_HALF, ZAXIS_LAKE_BOTTOM, ZAXIS_MIX_LAYER, ZAXIS_SEDIMENT_BOTTOM_TW, &
                                       & ZAXIS_SURFACE, ZAXIS_TOA, TIME_VARIABLE, ZAXIS_DEPTH_BELOW_LAND, GRID_UNSTRUCTURED, &
-                                      & vlistDefVar, zaxisCreate, gridCreate, cdiEncodeDate, cdiEncodeTime, &
-                                      & streamDefTimestep, taxisCreate, vlistDefAttTxt, vlistCreate, &
-                                      & streamOpenWrite, taxisDestroy, zaxisDestroy, gridDestroy, vlistDestroy, streamClose, &
-                                      & streamWriteVarSlice, streamDefVlist, vlistDefVarDatatype, &
-                                      & vlistDefVarName, zaxisDefLevels, gridDefNvertex, zaxisDefVct, vlistDefVarLongname, &
-                                      & vlistDefVarUnits, vlistDefVarMissval, gridDefXlongname, gridDefYlongname, vlistDefTaxis, &
-                                      & taxisDefVdate, taxisDefVtime, gridDefXname, gridDefYname, gridDefXunits, gridDefYunits
+                                      & vlistDefVar, cdiEncodeDate, cdiEncodeTime, streamDefTimestep, gridDestroy, streamClose, &
+                                      & streamWriteVarSlice, streamDefVlist, vlistDefVarDatatype, vlistDefVarName, &
+                                      & vlistDefVarLongname, vlistDefVarUnits, vlistDefVarMissval, taxisDefVdate, taxisDefVtime
   USE mo_util_cdi,                ONLY: cdiGetStringError
   USE mo_cdi_constants,           ONLY: ZA_SURFACE, ZA_HYBRID, ZA_HYBRID_HALF, ZA_DEPTH_BELOW_LAND, ZA_DEPTH_BELOW_LAND_P1, &
                                       & ZA_SNOW, ZA_SNOW_HALF, ZA_HEIGHT_2M, ZA_HEIGHT_10M, ZA_TOA, ZA_LAKE_BOTTOM, ZA_MIX_LAYER, &
@@ -67,8 +63,7 @@ MODULE mo_io_restart_async
   USE mo_cf_convention
   USE mo_util_string,             ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                   int2string, toCharacter
-  USE mo_util_restart,            ONLY: t_v_grid, t_restart_cdi_ids, createHgrids, defineVAxis, createVgrids, set_vertical_grid, &
-                                      & closeAndDestroyIds
+  USE mo_util_restart,            ONLY: t_v_grid, t_restart_cdi_ids, set_vertical_grid, closeAndDestroyIds, openRestartAndCreateIds
 
 #ifndef NOMPI
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work,      &
@@ -2759,60 +2754,6 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  ! Initialize the CDI variable list of the given restart file.
-  !
-  SUBROUTINE init_restart_vlist(p_pd, restartAttributes)
-
-    TYPE(t_patch_data), POINTER, INTENT(IN) :: p_pd
-    TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
-
-    TYPE(t_restart_file), POINTER     :: p_rf
-    REAL(wp)                          :: real_attribute(1)
-    INTEGER                           :: i, status, int_attribute(1)
-    LOGICAL                           :: bool_attribute
-    CHARACTER(LEN=MAX_NAME_LENGTH)    :: attribute_name, text_attribute
-    CHARACTER(LEN = :), POINTER :: temp_text
-    CHARACTER(LEN=*), PARAMETER       :: routine = modname//'init_restart_vlist'
-
-    p_rf => p_pd%restart_file
-
-#ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
-#endif
-
-    p_rf%cdiIds%vlist = vlistCreate ()
-
-    ! 2. add global attributes
-    ! 2.1. namelists as text attributes
-    CALL RestartNamelist_writeToFile(p_rf%cdiIds%vlist)
-
-    ! 2.2. restart attributes
-    CALL restartAttributes%writeToFile(p_rf%cdiIds%vlist)
-
-    ! 3. add horizontal grid descriptions
-    p_rf%cdiIds%hgrids = createHgrids(p_pd%cells%n_glb, p_pd%verts%n_glb, p_pd%edges%n_glb, p_pd%cell_type)
-
-    ! 4. add vertical grid descriptions
-    IF(ALLOCATED(p_pd%opt_pvct)) THEN
-        CALL createVgrids(p_rf%cdiIds%vgrids, p_pd%v_grid_defs(1:p_pd%v_grid_count), p_pd%opt_pvct)
-    ELSE
-        CALL createVgrids(p_rf%cdiIds%vgrids, p_pd%v_grid_defs(1:p_pd%v_grid_count))
-    END IF
-
-    ! 5. restart does contain absolute time
-    p_rf%cdiIds%taxis = taxisCreate(TAXIS_ABSOLUTE)
-    CALL vlistDefTaxis(p_rf%cdiIds%vlist, p_rf%cdiIds%taxis)
-
-    ! set cdi internal time index to 0 for writing time slices in netCDF
-    p_rf%cdiTimeIndex = 0
-
-    ! init list of restart variables
-    CALL init_restart_variables (p_rf,p_pd%id)
-
-  END SUBROUTINE init_restart_vlist
-
-  !------------------------------------------------------------------------------------------------
-  !
   ! Opens the restart file from the given parameters.
   !
   SUBROUTINE open_restart_file(p_pd, restartAttributes)
@@ -2825,7 +2766,6 @@ CONTAINS
     INTEGER                       :: restart_type, i
     CHARACTER(LEN=*), PARAMETER   :: routine = modname//'open_restart_file'
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
@@ -2870,22 +2810,24 @@ CONTAINS
     ! replace keywords in file name
     p_rf%filename = TRIM(with_keywords(keywords, TRIM(restart_filename)))
 
-    p_rf%cdiIds%file = streamOpenWrite(TRIM(p_rf%filename), restart_type)
-
-    IF (p_rf%cdiIds%file < 0) THEN
-      CALL cdiGetStringError(p_rf%cdiIds%file, cdiErrorText)
-      WRITE(message_text,'(a)') TRIM(cdiErrorText)
-      CALL message('', message_text, all_print=.TRUE.)
-      CALL finish (routine, 'open failed on '//TRIM(p_rf%filename))
+    IF(ALLOCATED(p_pd%opt_pvct)) THEN
+        CALL openRestartAndCreateIds(p_rf%cdiIds, TRIM(p_rf%filename), restart_type, restartAttributes, p_pd%cells%n_glb, &
+                                    &p_pd%verts%n_glb, p_pd%edges%n_glb, p_pd%cell_type, p_pd%v_grid_defs(1:p_pd%v_grid_count), &
+                                    &p_pd%opt_pvct)
     ELSE
-      CALL message (routine, 'opened '//TRIM(p_rf%filename), all_print=.TRUE.)
+        CALL openRestartAndCreateIds(p_rf%cdiIds, TRIM(p_rf%filename), restart_type, restartAttributes, p_pd%cells%n_glb, &
+                                    &p_pd%verts%n_glb, p_pd%edges%n_glb, p_pd%cell_type, p_pd%v_grid_defs(1:p_pd%v_grid_count))
     END IF
 
 #ifdef DEBUG
     WRITE (nerr, FORMAT_VALS5)routine,' p_pe=',p_pe,' open netCDF file with ID=',p_rf%cdiIds%file
 #endif
 
-    CALL init_restart_vlist(p_pd, restartAttributes)
+    ! set cdi internal time index to 0 for writing time slices in netCDF
+    p_rf%cdiTimeIndex = 0
+
+    ! init list of restart variables
+    CALL init_restart_variables (p_rf,p_pd%id)
 
     CALL streamDefVlist(p_rf%cdiIds%file, p_rf%cdiIds%vlist)
 

@@ -12,14 +12,18 @@
 
 MODULE mo_util_restart
 
-    USE mo_exception, ONLY: finish
+    USE mo_exception, ONLY: finish, message, message_text
     USE mo_cdi, ONLY: CDI_UNDEFID, GRID_UNSTRUCTURED, gridCreate, gridDefNvertex, gridDefXname, gridDefXlongname, gridDefXunits, &
-                    & gridDefYname, gridDefYlongname, gridDefYunits, zaxisCreate, zaxisDefLevels
+                    & gridDefYname, gridDefYlongname, gridDefYunits, zaxisCreate, zaxisDefLevels, streamOpenWrite, &
+                    & vlistCreate, taxisCreate, vlistDefTaxis, TAXIS_ABSOLUTE
     USE mo_cdi_constants, ONLY: ZA_HYBRID, ZA_HYBRID_HALF, ZA_LAKE_BOTTOM, ZA_MIX_LAYER, ZA_LAKE_BOTTOM_HALF, &
                               & ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_COUNT, cdi_zaxis_types, GRID_UNSTRUCTURED_CELL, &
                               & GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_COUNT
-    USE mo_impl_constants, ONLY: SUCCESS
+    USE mo_impl_constants, ONLY: SUCCESS, MAX_CHAR_LENGTH
+    USE mo_io_restart_attributes, ONLY: t_RestartAttributeList
+    USE mo_io_restart_namelist, ONLY: RestartNamelist_writeToFile
     USE mo_kind, ONLY: wp
+    USE mo_util_cdi, ONLY: cdiGetStringError
 
     IMPLICIT NONE
 
@@ -28,9 +32,7 @@ MODULE mo_util_restart
     PUBLIC :: t_v_grid
     PUBLIC :: t_restart_cdi_ids
 
-    PUBLIC :: createHgrids
-    PUBLIC :: defineVAxis
-    PUBLIC :: createVgrids
+    PUBLIC :: openRestartAndCreateIds
     PUBLIC :: closeAndDestroyIds
     PUBLIC :: set_vertical_grid
 
@@ -145,6 +147,48 @@ CONTAINS
             END SELECT
         ENDDO
     END SUBROUTINE createVgrids
+
+    SUBROUTINE openRestartAndCreateIds(cdiIds, filename, restartType, restartAttributes, cellCount, vertCount, edgeCount, &
+                                      &cellType, vgridDefs, opt_vct)
+        TYPE(t_restart_cdi_ids), INTENT(INOUT) :: cdiIds
+        CHARACTER(LEN = *), INTENT(IN) :: filename
+        INTEGER, VALUE :: restartType, cellCount, vertCount, edgeCount, cellType
+        TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
+        TYPE(t_v_grid), INTENT(IN) :: vgridDefs(:)
+        REAL(wp), INTENT(IN), OPTIONAL :: opt_vct(:)
+
+        CHARACTER(LEN = MAX_CHAR_LENGTH) :: cdiErrorText
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":openRestartAndCreateIds"
+
+        ! open the file
+        cdiIds%file = streamOpenWrite(filename, restartType)
+
+        IF(cdiIds%file < 0) THEN
+            CALL cdiGetStringError(cdiIds%file, cdiErrorText)
+            WRITE(message_text,'(a)') TRIM(cdiErrorText)
+            CALL message('',message_text)
+            CALL finish(routine, 'open failed on '//filename)
+        END IF
+
+        ! create the CDI IDs we need
+
+        ! 1. vlist
+        cdiIds%vlist = vlistCreate()
+
+        ! 2. global attributes
+        CALL RestartNamelist_writeToFile(cdiIds%vlist)
+        CALL restartAttributes%writeToFile(cdiIds%vlist)
+
+        ! 3. horizontal grids
+        cdiIds%hgrids = createHgrids(cellCount, vertCount, edgeCount, cellType)
+
+        ! 4. vertical grids
+        CALL createVgrids(cdiIds%vgrids, vgridDefs, opt_vct)
+
+        ! 5. time axis (always absolute time for restart files)
+        cdiIds%taxis = taxisCreate(TAXIS_ABSOLUTE)
+        CALL vlistDefTaxis(cdiIds%vlist, cdiIds%taxis)
+    END SUBROUTINE openRestartAndCreateIds
 
     SUBROUTINE closeAndDestroyIds(cdiIds)
         TYPE(t_restart_cdi_ids), INTENT(INOUT) :: cdiIds
