@@ -21,6 +21,7 @@
 
 MODULE mo_io_restart_async
 
+  USE mo_decomposition_tools,     ONLY: t_grid_domain_decomp_info
   USE mo_exception,               ONLY: finish, message, message_text, get_filename_noext
   USE mo_fortran_tools,           ONLY: assign_if_present, assign_if_present_allocatable
   USE mo_kind,                    ONLY: wp, i8, dp
@@ -45,7 +46,7 @@ MODULE mo_io_restart_async
   USE mo_grid_config,             ONLY: n_dom
   USE mo_run_config,              ONLY: msg_level, restart_filename
   USE mo_ha_dyn_config,           ONLY: ha_dyn_config
-  USE mo_model_domain,            ONLY: p_patch
+  USE mo_model_domain,            ONLY: p_patch, t_patch
   USE mo_cdi,                     ONLY: CDI_UNDEFID, FILETYPE_NC2, FILETYPE_NC4, CDI_GLOBAL, DATATYPE_FLT64, &
                                       & TAXIS_ABSOLUTE, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_GENERIC, ZAXIS_HEIGHT, ZAXIS_HYBRID, &
                                       & ZAXIS_HYBRID_HALF, ZAXIS_LAKE_BOTTOM, ZAXIS_MIX_LAYER, ZAXIS_SEDIMENT_BOTTOM_TW, &
@@ -144,12 +145,6 @@ MODULE mo_io_restart_async
     ! the following data can be set before opening the restart file
     TYPE(t_var_data), POINTER   :: var_data(:)
 
-    !-----------------------------------
-    ! used for remote memory access
-    INTEGER(i8)                 :: my_mem_win_off
-    INTEGER(i8), ALLOCATABLE    :: mem_win_off(:)
-    !-----------------------------------
-
     ! the following members are set during open
     CHARACTER(LEN=filename_max) :: filename
     CHARACTER(LEN=32)           :: model_type
@@ -178,14 +173,23 @@ MODULE mo_io_restart_async
                       ! into the global array (set on all PEs)
   END TYPE t_reorder_data
 
-  !------------------------------------------------------------------------------------------------
-  ! TYPE t_patch_data contains the reordering data for cells, edges and verts
-  !
-  TYPE t_patch_data
+  ! this combines all the DATA that's relevant for transfering the payload DATA from the worker PEs to the restart PEs
+  TYPE t_restart_comm_data
+    ! DATA for remote memory access
+    INTEGER(i8) :: my_mem_win_off
+    INTEGER(i8), ALLOCATABLE :: mem_win_off(:)
+
     ! reorder data
     TYPE(t_reorder_data) :: cells
     TYPE(t_reorder_data) :: edges
     TYPE(t_reorder_data) :: verts
+  END TYPE t_restart_comm_data
+
+  !------------------------------------------------------------------------------------------------
+  ! TYPE t_patch_data contains the reordering data for cells, edges and verts
+  !
+  TYPE t_patch_data
+    TYPE(t_restart_comm_data) :: communication_data
 
     ! vertical grid definitions
     TYPE(t_v_grid), POINTER :: v_grid_defs(:)
@@ -212,9 +216,6 @@ MODULE mo_io_restart_async
     INTEGER :: n_patch_edges_g
     ! total # of vertices, # of vertices per dual cell
     INTEGER :: n_patch_verts_g
-
-    ! global number of blocks
-    INTEGER :: nblks_glb_c, nblks_glb_v, nblks_glb_e
 
     ! process id
     INTEGER :: restart_proc_id
@@ -966,10 +967,7 @@ CONTAINS
   !  Release resources of a restart file.
   !
   SUBROUTINE release_restart_file (rf)
-
     TYPE(t_restart_file), INTENT(INOUT) :: rf
-
-    INTEGER                             :: i
 
     CHARACTER(LEN=*), PARAMETER   :: routine = modname//'release_restart_file'
 
@@ -977,9 +975,7 @@ CONTAINS
     WRITE (nerr,FORMAT_VALS3)routine,' is called for p_pe=',p_pe
 #endif
 
-    IF (ALLOCATED(rf%mem_win_off)) DEALLOCATE(rf%mem_win_off)
     IF (ASSOCIATED(rf%var_data))   DEALLOCATE(rf%var_data)
-
     IF (my_process_is_restart()) rf%cdiTimeIndex = CDI_UNDEFID
   END SUBROUTINE release_restart_file
 
@@ -1011,10 +1007,11 @@ CONTAINS
         IF (ALLOCATED(p_pd%opt_lcall_phy))     DEALLOCATE(p_pd%opt_lcall_phy)
         IF (ALLOCATED(p_pd%opt_t_elapsed_phy)) DEALLOCATE(p_pd%opt_t_elapsed_phy)
 
-        ! release reorder data
-        CALL release_reorder_data(p_pd%cells)
-        CALL release_reorder_data(p_pd%verts)
-        CALL release_reorder_data(p_pd%edges)
+        ! release communication data
+        IF (ALLOCATED(p_pd%communication_data%mem_win_off)) DEALLOCATE(p_pd%communication_data%mem_win_off)
+        CALL release_reorder_data(p_pd%communication_data%cells)
+        CALL release_reorder_data(p_pd%communication_data%verts)
+        CALL release_reorder_data(p_pd%communication_data%edges)
 
         ! release restart file data
         CALL release_restart_file(p_pd%restart_file)
@@ -1258,13 +1255,61 @@ CONTAINS
     CALL message%destruct()
   END SUBROUTINE transfer_restart_var_lists
 
+  ! collective across restart AND worker PEs
+  SUBROUTINE create_patch_data(patchData, p_patch)
+    TYPE(t_patch_data), TARGET, INTENT(INOUT) :: patchData
+    TYPE(t_patch), INTENT(IN) :: p_patch
+
+    TYPE(t_restart_comm_data), POINTER :: commData
+
+    commData => patchData%communication_data
+
+    ! initialize on work PEs
+    IF(my_process_is_work()) THEN
+        patchData%id              = p_patch%id
+        patchData%work_pe0_id     = p_patch%proc0
+        patchData%nlev            = p_patch%nlev
+        patchData%cell_type       = p_patch%geometry_info%cell_type
+        patchData%base_filename   = TRIM(p_patch%grid_filename)
+        patchData%n_patch_cells_g = p_patch%n_patch_cells_g
+        patchData%n_patch_verts_g = p_patch%n_patch_verts_g
+        patchData%n_patch_edges_g = p_patch%n_patch_edges_g
+
+        CALL set_reorder_data(p_patch%n_patch_cells_g, p_patch%n_patch_cells, p_patch%cells%decomp_info, commData%cells)
+        CALL set_reorder_data(p_patch%n_patch_edges_g, p_patch%n_patch_edges, p_patch%edges%decomp_info, commData%edges)
+        CALL set_reorder_data(p_patch%n_patch_verts_g, p_patch%n_patch_verts, p_patch%verts%decomp_info, commData%verts)
+    END IF
+
+    ! transfer data to restart PEs
+    CALL p_bcast(patchData%id,              bcast_root, p_comm_work_2_restart)
+    CALL p_bcast(patchData%work_pe0_id,     bcast_root, p_comm_work_2_restart)
+    CALL p_bcast(patchData%nlev,            bcast_root, p_comm_work_2_restart)
+    CALL p_bcast(patchData%cell_type,       bcast_root, p_comm_work_2_restart)
+    CALL p_bcast(patchData%base_filename,   bcast_root, p_comm_work_2_restart)
+    CALL p_bcast(patchData%n_patch_cells_g, bcast_root, p_comm_work_2_restart)
+    CALL p_bcast(patchData%n_patch_verts_g, bcast_root, p_comm_work_2_restart)
+    CALL p_bcast(patchData%n_patch_edges_g, bcast_root, p_comm_work_2_restart)
+
+    CALL transfer_reorder_data(commData%cells)
+    CALL transfer_reorder_data(commData%edges)
+    CALL transfer_reorder_data(commData%verts)
+
+    ! initialize the fields that we DO NOT communicate from the worker PEs to the restart PEs
+    commData%my_mem_win_off = 0_i8
+    patchData%restart_proc_id = MOD(patchData%id-1, process_mpi_restart_size) + p_restart_pe0
+    patchData%v_grid_defs => NULL()
+    patchData%v_grid_count = 0
+
+    ! finally, set restart file data
+    CALL set_restart_file_data(patchData%restart_file, patchData%id)
+  END SUBROUTINE create_patch_data
+
   !-------------------------------------------------------------------------------------------------
   !
   ! Create patch data and transfers this data from the worker to the restart PEs.
   !
   SUBROUTINE create_and_transfer_patch_data()
-    INTEGER                        :: jg, jl, ierrstat
-    TYPE(t_patch_data), POINTER    :: p_pd
+    INTEGER                        :: jg, ierrstat
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'create_and_transfer_patch_data'
 
 #ifdef DEBUG
@@ -1278,77 +1323,10 @@ CONTAINS
     ALLOCATE(patch_data(n_dom), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 
-    ! set number of global cells/edges/verts and patch ID
+    ! initialize the patch_data structures
     DO jg = 1, n_dom
-
-      p_pd => patch_data(jg)
-      IF (my_process_is_work()) THEN
-        p_pd%id              = p_patch(jg)%id
-        p_pd%work_pe0_id     = p_patch(jg)%proc0
-        p_pd%nlev            = p_patch(jg)%nlev
-        p_pd%cell_type       = p_patch(jg)%geometry_info%cell_type
-        p_pd%nblks_glb_c     = (p_patch(jg)%n_patch_cells-1)/nproma + 1
-        p_pd%nblks_glb_e     = (p_patch(jg)%n_patch_edges-1)/nproma + 1
-        p_pd%nblks_glb_v     = (p_patch(jg)%n_patch_verts-1)/nproma + 1
-        p_pd%base_filename   = TRIM(p_patch(jg)%grid_filename)
-        p_pd%n_patch_cells_g = p_patch(jg)%n_patch_cells_g
-        p_pd%n_patch_verts_g = p_patch(jg)%n_patch_verts_g
-        p_pd%n_patch_edges_g = p_patch(jg)%n_patch_edges_g
-      END IF
-
-      ! transfer data to restart PEs
-      CALL p_bcast(p_pd%id,              bcast_root, p_comm_work_2_restart)
-      CALL p_bcast(p_pd%work_pe0_id,     bcast_root, p_comm_work_2_restart)
-      CALL p_bcast(p_pd%nlev,            bcast_root, p_comm_work_2_restart)
-      CALL p_bcast(p_pd%cell_type,       bcast_root, p_comm_work_2_restart)
-      CALL p_bcast(p_pd%nblks_glb_c,     bcast_root, p_comm_work_2_restart)
-      CALL p_bcast(p_pd%nblks_glb_e,     bcast_root, p_comm_work_2_restart)
-      CALL p_bcast(p_pd%nblks_glb_v,     bcast_root, p_comm_work_2_restart)
-      CALL p_bcast(p_pd%base_filename,   bcast_root, p_comm_work_2_restart)
-      CALL p_bcast(p_pd%n_patch_cells_g, bcast_root, p_comm_work_2_restart)
-      CALL p_bcast(p_pd%n_patch_verts_g, bcast_root, p_comm_work_2_restart)
-      CALL p_bcast(p_pd%n_patch_edges_g, bcast_root, p_comm_work_2_restart)
-
-    ENDDO
-
-    ! set reorder data
-    DO jg = 1, n_dom
-      p_pd => patch_data(jg)
-      jl = p_pd%id
-
-      IF(my_process_is_work()) THEN
-
-        ! set reorder data on work PE
-        CALL set_reorder_data(jg, p_patch(jl)%n_patch_cells_g, p_patch(jl)%n_patch_cells, &
-                              p_patch(jl)%cells%decomp_info%owner_mask,                   &
-                              p_patch(jl)%cells%decomp_info%glb_index, p_pd%cells)
-
-        CALL set_reorder_data(jg, p_patch(jl)%n_patch_edges_g, p_patch(jl)%n_patch_edges, &
-                              p_patch(jl)%edges%decomp_info%owner_mask,                   &
-                              p_patch(jl)%edges%decomp_info%glb_index, p_pd%edges)
-
-        CALL set_reorder_data(jg, p_patch(jl)%n_patch_verts_g, p_patch(jl)%n_patch_verts, &
-                              p_patch(jl)%verts%decomp_info%owner_mask,                   &
-                              p_patch(jl)%verts%decomp_info%glb_index, p_pd%verts)
-      ENDIF
-
-      ! transfer reorder data to restart PEs
-      CALL transfer_reorder_data(p_pd%cells)
-      CALL transfer_reorder_data(p_pd%edges)
-      CALL transfer_reorder_data(p_pd%verts)
-
-      ! set restart process ident
-      p_pd%restart_proc_id = MOD(jg-1, process_mpi_restart_size) + p_restart_pe0
-
-      ! reset pointer
-      p_pd%v_grid_defs => NULL()
-      p_pd%v_grid_count = 0
-
-      ! set restart file data
-      CALL set_restart_file_data(p_pd%restart_file, p_pd%id)
-
-    ENDDO
-
+        CALL create_patch_data(patch_data(jg), p_patch(jg))
+    END DO
   END SUBROUTINE create_and_transfer_patch_data
 
   !------------------------------------------------------------------------------------------------
@@ -1370,7 +1348,6 @@ CONTAINS
 #endif
 
     ! init. main variables
-    rf%my_mem_win_off             = 0_i8
     rf%var_data                   => NULL()
     rf%filename                   = ''
 
@@ -1422,13 +1399,10 @@ CONTAINS
   !
   ! Sets the reorder data for cells/edges/verts.
   !
-  SUBROUTINE set_reorder_data(patch_id, n_points_g, n_points, owner_mask, glb_index, reo)
-
-    INTEGER, INTENT(IN) :: patch_id        ! Logical patch ID
+  SUBROUTINE set_reorder_data(n_points_g, n_points, decomp_info, reo)
     INTEGER, INTENT(IN) :: n_points_g      ! Global number of cells/edges/verts in logical patch
     INTEGER, INTENT(IN) :: n_points        ! Local number of cells/edges/verts in logical patch
-    LOGICAL, INTENT(IN) :: owner_mask(:,:) ! owner_mask for logical patch
-    INTEGER, INTENT(IN) :: glb_index(:)    ! glb_index for logical patch
+    TYPE(t_grid_domain_decomp_info), INTENT(IN) :: decomp_info
 
     TYPE(t_reorder_data), INTENT(INOUT) :: reo ! Result: reorder data
 
@@ -1451,7 +1425,7 @@ CONTAINS
     DO i = 1, n_points
       il = idx_no(i)
       ib = blk_no(i)
-      owner_mask_1d(i) = owner_mask(il,ib)
+      owner_mask_1d(i) = decomp_info%owner_mask(il,ib)
     ENDDO
 
     ! get number of owned cells/edges/verts (without halos)
@@ -1473,7 +1447,7 @@ CONTAINS
         n = n+1
         reo%own_idx(n) = idx_no(i)
         reo%own_blk(n) = blk_no(i)
-        glbidx_own(n)  = glb_index(i)
+        glbidx_own(n)  = decomp_info%glb_index(i)
       ENDIF
     ENDDO
 
@@ -1591,7 +1565,6 @@ CONTAINS
   ! Initializes the remote memory access for asynchronous restart.
   !
   SUBROUTINE init_remote_memory_access
-
     INTEGER :: i, iv, nlevs, ierrstat
     INTEGER :: nbytes_real, mpi_error, rma_cache_hint
     INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size, mem_bytes
@@ -1600,7 +1573,7 @@ CONTAINS
     POINTER(tmp_ptr_dp,tmp_dp(*))
 #endif
     TYPE(t_var_data), POINTER :: p_vars(:)
-
+    TYPE(t_restart_comm_data), POINTER :: commData
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'init_remote_memory_access'
 
 #ifdef DEBUG
@@ -1614,8 +1587,8 @@ CONTAINS
 
     ! go over all patches
     DO i = 1, SIZE(patch_data)
-
-      patch_data(i)%restart_file%my_mem_win_off = mem_size
+      commData => patch_data(i)%communication_data
+      commData%my_mem_win_off = mem_size
 
       ! go over all restart variables for this restart file
       p_vars => patch_data(i)%restart_file%var_data
@@ -1630,11 +1603,11 @@ CONTAINS
 
         SELECT CASE (p_vars(iv)%info%hgrid)
           CASE (GRID_UNSTRUCTURED_CELL)
-            mem_size = mem_size + INT(nlevs*patch_data(i)%cells%n_own,i8)
+            mem_size = mem_size + INT(nlevs*commData%cells%n_own,i8)
           CASE (GRID_UNSTRUCTURED_EDGE)
-            mem_size = mem_size + INT(nlevs*patch_data(i)%edges%n_own,i8)
+            mem_size = mem_size + INT(nlevs*commData%edges%n_own,i8)
           CASE (GRID_UNSTRUCTURED_VERT)
-            mem_size = mem_size + INT(nlevs*patch_data(i)%verts%n_own,i8)
+            mem_size = mem_size + INT(nlevs*commData%verts%n_own,i8)
           CASE DEFAULT
             CALL finish(routine,UNKNOWN_GRID_TYPE)
         END SELECT
@@ -1642,16 +1615,16 @@ CONTAINS
       ENDDO
 
       ! get the offset on all PEs
-      ALLOCATE(patch_data(i)%restart_file%mem_win_off(0:num_work_procs-1), STAT=ierrstat)
+      ALLOCATE(commData%mem_win_off(0:num_work_procs-1), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
       IF(.NOT.my_process_is_restart()) THEN
-        CALL MPI_Allgather(patch_data(i)%restart_file%my_mem_win_off, 1, p_int_i8, &
-                           patch_data(i)%restart_file%mem_win_off, 1, p_int_i8,    &
+        CALL MPI_Allgather(commData%my_mem_win_off, 1, p_int_i8, &
+                           commData%mem_win_off, 1, p_int_i8,    &
                            p_comm_work, mpi_error)
         CALL check_mpi_error(routine, 'MPI_Allgather', mpi_error, .TRUE.)
       ENDIF
 
-      CALL p_bcast(patch_data(i)%restart_file%mem_win_off, bcast_root, p_comm_work_2_restart)
+      CALL p_bcast(commData%mem_win_off, bcast_root, p_comm_work_2_restart)
 
     ENDDO
 
@@ -1964,11 +1937,11 @@ CONTAINS
 
     SELECT CASE (p_info%hgrid)
       CASE (GRID_UNSTRUCTURED_CELL)
-        get_reorder_ptr => p_pd%cells
+        get_reorder_ptr => p_pd%communication_data%cells
       CASE (GRID_UNSTRUCTURED_EDGE)
-        get_reorder_ptr => p_pd%edges
+        get_reorder_ptr => p_pd%communication_data%edges
       CASE (GRID_UNSTRUCTURED_VERT)
-        get_reorder_ptr => p_pd%verts
+        get_reorder_ptr => p_pd%communication_data%verts
       CASE default
         CALL finish(routine, UNKNOWN_GRID_TYPE)
     END SELECT
@@ -2047,13 +2020,13 @@ CONTAINS
     IF (.NOT. ASSOCIATED(p_vars)) RETURN
 
     ! get maximum number of data points in a slice and allocate tmp. variables
-    nval = MAX(p_pd%cells%n_glb, p_pd%edges%n_glb, p_pd%verts%n_glb)
+    nval = MAX(p_pd%communication_data%cells%n_glb, p_pd%communication_data%edges%n_glb, p_pd%communication_data%verts%n_glb)
 
     ! allocate RMA memory
     ALLOCATE(var1_dp(nval*restart_chunk_size), var2_dp(nval,restart_chunk_size), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, ALLOCATE_FAILED)
 
-    ioff(:) = p_rf%mem_win_off(:)
+    ioff(:) = p_pd%communication_data%mem_win_off(:)
 
     ! go over the all restart variables in the associated array
     VAR_LOOP : DO iv = 1, SIZE(p_vars)
@@ -2174,7 +2147,6 @@ CONTAINS
 
     TYPE(t_patch_data), POINTER, INTENT(IN) :: p_pd
 
-    TYPE(t_restart_file), POINTER   :: p_rf
     TYPE(t_var_metadata), POINTER   :: p_info
     TYPE(t_reorder_data), POINTER   :: p_ri
     TYPE(t_var_data), POINTER       :: p_vars(:)
@@ -2196,8 +2168,7 @@ CONTAINS
     IF (.NOT. ASSOCIATED(p_vars)) RETURN
 
     ! offset in RMA window for async restart
-    p_rf => p_pd%restart_file
-    ioff = p_rf%my_mem_win_off
+    ioff = p_pd%communication_data%my_mem_win_off
 
     ! in case of async restart: Lock own window before writing to it
     CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, mpi_win, mpi_error)
@@ -2359,6 +2330,7 @@ CONTAINS
     TYPE(t_restart_args), INTENT(IN) :: restart_args
     TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
 
+    TYPE(t_restart_comm_data), POINTER :: commData
     TYPE(t_restart_file), POINTER :: p_rf
     TYPE(t_var_list), POINTER     :: p_re_list
     CHARACTER(LEN=32)             :: datetime
@@ -2409,13 +2381,15 @@ CONTAINS
     ! replace keywords in file name
     p_rf%filename = TRIM(with_keywords(keywords, TRIM(restart_filename)))
 
+    commData => p_pd%communication_data
     IF(ALLOCATED(p_pd%opt_pvct)) THEN
-        CALL p_rf%cdiIds%openRestartAndCreateIds(TRIM(p_rf%filename), restart_type, restartAttributes, p_pd%cells%n_glb, &
-                                    &p_pd%verts%n_glb, p_pd%edges%n_glb, p_pd%cell_type, p_pd%v_grid_defs(1:p_pd%v_grid_count), &
-                                    &p_pd%opt_pvct)
+        CALL p_rf%cdiIds%openRestartAndCreateIds(TRIM(p_rf%filename), restart_type, restartAttributes, commData%cells%n_glb, &
+                                                &commData%verts%n_glb, commData%edges%n_glb, p_pd%cell_type, &
+                                                &p_pd%v_grid_defs(1:p_pd%v_grid_count), p_pd%opt_pvct)
     ELSE
-        CALL p_rf%cdiIds%openRestartAndCreateIds(TRIM(p_rf%filename), restart_type, restartAttributes, p_pd%cells%n_glb, &
-                                    &p_pd%verts%n_glb, p_pd%edges%n_glb, p_pd%cell_type, p_pd%v_grid_defs(1:p_pd%v_grid_count))
+        CALL p_rf%cdiIds%openRestartAndCreateIds(TRIM(p_rf%filename), restart_type, restartAttributes, commData%cells%n_glb, &
+                                                &commData%verts%n_glb, commData%edges%n_glb, p_pd%cell_type, &
+                                                &p_pd%v_grid_defs(1:p_pd%v_grid_count))
     END IF
 
 #ifdef DEBUG
