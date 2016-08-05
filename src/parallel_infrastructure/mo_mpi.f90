@@ -18,6 +18,38 @@
 !!    4.    restart PEs   : for asynchronous restart writing  (only for parallel_nml::num_restart_procs > 0)
 !!    5.    prefetch PEs  : for prefetching of data           (only for parallel_nml::num_prefetch_proc > 0)
 !!
+!!
+!!  The communicators are split like this:
+!!
+!!          0    p_work_pe0    p_io_pe0    p_restart_pe0    p_pref_pe0   process_mpi_all_size
+!!
+!!          |         |            |             |               |                |
+!!          V         V            V             V               V                V
+!!
+!!          +---------------------------------------------------------------------+
+!!          !                      process_mpi_all_comm                           !
+!!          +---------+------------+-------------+---------------+----------------+
+!!          | test PE | worker PEs |   I/O PEs   |  restart PEs  |  prefetch PEs  |
+!!          +---------+------------+-------------+---------------+----------------+
+!!          |    A    |     B      |     C       |      D        |       E        | p_comm_work
+!!          |    A    |     A      |             |               |                | p_comm_work_test
+!!          |    A    |     B      |     B       |               |                | p_comm_work_io
+!!          |    A    |            |     B       |               |                | p_comm_io (B is worker PE 0 if num_io_procs == 0)
+!!          |         |     A      |             |      A        |                | p_comm_work_restart
+!!          |         |     A      |             |               |       A        | p_comm_work_pref
+!!          +---------+------------+-------------+---------------+----------------+
+!!
+!!  Note that there are actually two different p_comm_work_io communicators:
+!!  One that spans the worker AND I/O PEs as the NAME implies, AND one that IS ONLY defined on the test PE.
+!!  Similarly, there IS another ghost communicator p_comm_io defined on the test PE.
+!!  This has the consequence that `my_process_is_io()` IS NOT equivalent to `p_comm_io /= MPI_COMM_NULL`
+!!
+!!  Process groups with specific main procs, all of these are called from mo_atmo_model:
+!!    * I/O (mo_name_list_output): name_list_io_main_proc()
+!!    * restart (mo_async_restart): restart_main_proc()
+!!    * prefetch (mo_async_latbc): prefetch_main_proc()
+!!
+!!
 !!  List of MPI communicators:
 !!  --------------------------
 !!
