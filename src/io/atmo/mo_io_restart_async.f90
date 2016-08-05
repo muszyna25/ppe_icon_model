@@ -1564,17 +1564,9 @@ CONTAINS
     CHARACTER(LEN = *), INTENT(IN) :: routine
     TYPE(t_restart_patch_description), POINTER :: RESULT
 
-    INTEGER :: i
-
-    ! try to find the patch in the modul array
-    RESULT => NULL()
-    DO i = 1, SIZE(patch_data)
-        IF(patch_data(i)%description%id == id) THEN
-            RESULT => patch_data(i)%description
-            RETURN
-        END IF
-    END DO
-    CALL finish(routine, 'patch data not found for id = '//TRIM(int2string(id)))
+    IF(id < 1 .OR. id > SIZE(patch_data)) CALL finish(routine, "assertion failed: patch id IS OUT of range")
+    RESULT => patch_data(id)%description
+    IF(RESULT%id /= id) CALL finish(routine, "assertion failed: patch id does NOT match its array index")
   END FUNCTION find_patch_description
 
   !------------------------------------------------------------------------------------------------
