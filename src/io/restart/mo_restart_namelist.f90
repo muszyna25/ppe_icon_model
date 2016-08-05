@@ -11,13 +11,14 @@
 !! This module contains utility functions for storing the namelist parameters in the restart files.
 
 MODULE mo_restart_namelist
-    USE mo_util_file, ONLY: util_tmpnam, util_filesize, util_unlink
-    USE mo_util_string, ONLY: tocompact
+    USE mo_cdi, ONLY: CDI_GLOBAL, CDI_UNDEFID, CDI_MAX_NAME, vlistInqNatts, vlistInqAtt, vlistInqAttTxt, vlistDefAttTxt
+    USE mo_exception, ONLY: message, finish
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_io_units, ONLY: nerr, find_next_free_unit, filename_max
-    USE mo_exception, ONLY: message, finish
     USE mo_mpi, ONLY: p_bcast, p_pe, p_comm_rank, p_get_bcast_role
-    USE mo_cdi, ONLY: CDI_GLOBAL, CDI_UNDEFID, CDI_MAX_NAME, vlistInqNatts, vlistInqAtt, vlistInqAttTxt, vlistDefAttTxt
+    USE mo_packed_message, ONLY: t_PackedMessage, kPackOp, kUnpackOp
+    USE mo_util_file, ONLY: util_tmpnam, util_filesize, util_unlink
+    USE mo_util_string, ONLY: tocompact
 
     IMPLICIT NONE
 
@@ -52,6 +53,7 @@ MODULE mo_restart_namelist
         PROCEDURE :: getNamelist => namelistArchive_getNamelist
         PROCEDURE :: print => namelistArchive_print
         PROCEDURE :: writeToFile => namelistArchive_writeToFile ! store the namelists as attributes to the given CDI vlistId
+        PROCEDURE :: packer => namelistArchive_packer
 
         PROCEDURE, PRIVATE :: construct => namelistArchive_construct
         PROCEDURE, PRIVATE :: find => namelistArchive_find  ! returns a new entry IF NONE exists yet
@@ -171,6 +173,30 @@ CONTAINS
             IF(error /= SUCCESS) CALL finish(routine, "error WHILE writing a namelist to a restart file")
         END DO
     END SUBROUTINE namelistArchive_writeToFile
+
+    SUBROUTINE namelistArchive_packer(me, operation, message)
+        CLASS(t_NamelistArchive), INTENT(INOUT) :: me
+        INTEGER, VALUE :: operation
+        TYPE(t_PackedMessage), INTENT(INOUT) :: message
+
+        INTEGER :: allocSize, error, i
+        CHARACTER(*), PARAMETER :: routine = modname//":namelistArchive_packer"
+
+        IF(operation == kUnpackOp) CALL me%destruct()   ! flush the old contents, we'll reconstruct it IN just a second
+        CALL message%packer(operation, me%namelistCount)
+        IF(operation == kUnpackOp) THEN
+            ! reconstruct the object with enough space for the given message
+            allocSize = MAX(8, me%namelistCount)
+            ALLOCATE(me%namelists(allocSize), STAT = error)
+            IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+        END IF
+        IF(me%namelistCount > SIZE(me%namelists)) CALL finish(routine, "assertion failed")
+
+        DO i = 1, me%namelistCount
+            CALL message%packerAllocatable(operation, me%namelists(i)%NAME)
+            CALL message%packerAllocatable(operation, me%namelists(i)%text)
+        END DO
+    END SUBROUTINE namelistArchive_packer
 
     SUBROUTINE namelistArchive_destruct(me)
         CLASS(t_NamelistArchive), INTENT(INOUT) :: me
@@ -380,61 +406,18 @@ CONTAINS
     SUBROUTINE RestartNamelist_bcast(root, communicator)
         INTEGER, VALUE :: root, communicator
 
+        TYPE(t_PackedMessage) :: message
         LOGICAL :: lIsRoot, lIsReceiver
-        INTEGER :: iv, nv, i, maxNameLength, maxAttributeLength, error
-        CHARACTER(LEN = :), ALLOCATABLE :: list_name, list_text
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":RestartNamelist_bcast"
 
-        ! get our role IN the broadcast operation
+        IF(.NOT.ALLOCATED(gArchive)) CALL init_restart_namelists()
+
         CALL p_get_bcast_role(root, communicator, lIsRoot, lIsReceiver)
 
-        ! delete old name lists
-        IF(lIsReceiver) CALL delete_restart_namelists
-
-        ! get the number of name lists
-        IF(lIsRoot) nv = gArchive%namelistCount
-        CALL p_bcast(nv, root, communicator)
-
-        maxNameLength = 1
-        maxAttributeLength = 1
-        IF(lIsRoot) THEN
-            DO iv = 1, nv
-                maxNameLength = MAX(maxNameLength, LEN(gArchive%namelists(iv)%NAME))
-                maxAttributeLength = MAX(maxAttributeLength, LEN(gArchive%namelists(iv)%text))
-            END DO
-        END IF
-        CALL p_bcast(maxNameLength, root, communicator)
-        CALL p_bcast(maxAttributeLength, root, communicator)
-
-        ALLOCATE(CHARACTER(LEN = maxNameLength) :: list_name, STAT = error)
-        IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-        ALLOCATE(CHARACTER(LEN = maxAttributeLength) :: list_text, STAT = error)
-        IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-
-        DO iv = 1, nv
-            ! send name of the name list
-            list_name(1:maxNameLength) = ''
-            IF(lIsRoot) THEN
-                ! The first four characters are skipped because that's the `nml_` which will be added again by set_restart_namelist().
-                list_name(1:LEN(gArchive%namelists(iv)%NAME) - 4) = gArchive%namelists(iv)%NAME(5:)
-            END IF
-            CALL p_bcast(list_name(1:maxNameLength), root, communicator)
-
-            ! send text of the name list
-            list_text(1:maxAttributeLength) = ''
-            IF(lIsRoot) THEN
-                list_text(1:maxAttributeLength) = gArchive%namelists(iv)%text
-            END IF
-            CALL p_bcast(list_text(1:maxAttributeLength), root, communicator)
-
-            ! store name list parameters
-            IF(lIsReceiver) THEN
-                CALL set_restart_namelist(list_name(1:maxNameLength), list_text(1:maxAttributeLength))
-            ENDIF
-        ENDDO
-
-        DEALLOCATE(list_name)
-        DEALLOCATE(list_text)
+        CALL message%construct()
+        IF(lIsRoot) CALL gArchive%packer(kPackOp, message)
+        CALL message%bcast(root, communicator)
+        IF(lIsReceiver) CALL gArchive%packer(kUnpackOp, message)
+        CALL message%destruct()
     END SUBROUTINE RestartNamelist_bcast
 
 END MODULE mo_restart_namelist
