@@ -49,13 +49,15 @@ MODULE mo_restart_descriptor
         ! Update the internal description of the given patch. This should be called once for every patch before every CALL to writeRestart().
         SUBROUTINE restartDescriptor_updatePatch(me, patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &
                                                 &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth, opt_depth_lnd, &
-                                                &opt_nlev_snow, opt_nice_class, opt_ndom)
+                                                &opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels, &
+                                                &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces)
             IMPORT t_RestartDescriptor, t_patch, wp
             CLASS(t_RestartDescriptor), INTENT(INOUT) :: me
             TYPE(t_patch), INTENT(IN) :: patch
             INTEGER, INTENT(IN), OPTIONAL :: opt_depth, opt_depth_lnd, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, &
-                                           & opt_nlev_snow, opt_nice_class, opt_ndom
-            REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time, opt_pvct(:), opt_t_elapsed_phy(:)
+                                           & opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels
+            REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time, opt_pvct(:), opt_t_elapsed_phy(:), opt_ocean_zheight_cellMiddle(:), &
+                                           & opt_ocean_zheight_cellInterfaces(:)
             LOGICAL, INTENT(IN), OPTIONAL :: opt_lcall_phy(:)
         END SUBROUTINE restartDescriptor_updatePatch
 

@@ -105,7 +105,6 @@ MODULE mo_sync_restart
 
   INCLUDE 'netcdf.inc'
 
-  PUBLIC :: create_restart_file
   PUBLIC :: t_SyncRestartDescriptor
 
   ! combine the DATA that describes a patch for restart purposes with the infos required for the asynchronous fetching of the DATA from the compute PEs
@@ -172,12 +171,14 @@ CONTAINS
 
   SUBROUTINE syncRestartDescriptor_updatePatch(me, patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &
                                         &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth, opt_depth_lnd, &
-                                        &opt_nlev_snow, opt_nice_class, opt_ndom)
+                                        &opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels, &
+                                        &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces)
     CLASS(t_SyncRestartDescriptor), INTENT(INOUT) :: me
     TYPE(t_patch), INTENT(IN) :: patch
     INTEGER, INTENT(IN), OPTIONAL :: opt_depth, opt_depth_lnd, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, &
-                                   & opt_nlev_snow, opt_nice_class, opt_ndom
-    REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time, opt_pvct(:), opt_t_elapsed_phy(:)
+                                   & opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels
+    REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time, opt_pvct(:), opt_t_elapsed_phy(:), opt_ocean_zheight_cellMiddle(:), &
+                                    & opt_ocean_zheight_cellInterfaces(:)
     LOGICAL, INTENT(IN), OPTIONAL :: opt_lcall_phy(:)
 
     INTEGER :: jg
@@ -188,7 +189,8 @@ CONTAINS
     IF(me%patchData(jg)%description%id /= jg) CALL finish(routine, "assertion failed: patch id doesn't match its array index")
     CALL me%patchData(jg)%description%update(patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &
                                              &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth, opt_depth_lnd, &
-                                             &opt_nlev_snow, opt_nice_class, opt_ndom)
+                                             &opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels, &
+                                             &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces)
   END SUBROUTINE syncRestartDescriptor_updatePatch
 
   SUBROUTINE syncRestartDescriptor_defineRestartAttributes(me, restartAttributes, datetime, jstep, opt_output_jfile)
@@ -320,7 +322,8 @@ CONTAINS
                      & ndepth,            &! total # of depths below sea
                      & inlev_soil,        &! total # of depths below land (TERRA or JSBACH)
                      & inlev_snow,        &! total # of vertical snow layers (TERRA)
-                     & nice_class)         ! total # of ice classes (sea ice)
+                     & nice_class,        &! total # of ice classes (sea ice)
+                     & ks)                 ! total # of sediment layers (HAMOCC)
     ALLOCATE(cdiIds(nvar_lists), STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
     DO i = 1, SIZE(cdiIds, 1)
@@ -689,175 +692,6 @@ CONTAINS
         IF(has_valid_time_level(element%field%info, jg, nnew(jg), nnew_rcf(jg))) CALL cdiIds%defineVariable(element%field%info)
     END DO
   END SUBROUTINE addVarListToVlist
-
-  !-------------
-  !>
-  !!
-  !! Hui Wan (MPI-M, 2011-05)
-  !!
-  SUBROUTINE create_restart_file( patch, datetime,             &
-                                & jstep,                       &
-                                & model_type,                  &
-                                & opt_pvct,                    &
-                                & opt_t_elapsed_phy,           &
-                                & opt_lcall_phy, opt_sim_time, &
-                                & opt_ndyn_substeps,           &
-                                & opt_jstep_adv_marchuk_order, &
-                                & opt_depth_lnd,               &
-                                & opt_nlev_snow,               &
-                                & opt_nice_class,              &
-                                & opt_ndom,                    &
-                                & opt_output_jfile,            &
-                                & ocean_Zlevels,               &
-                                & ocean_Zheight_CellMiddle,    &
-                                & ocean_Zheight_CellInterfaces)
-
-    TYPE(t_patch),       INTENT(IN) :: patch
-    TYPE(t_datetime),    INTENT(IN) :: datetime
-    INTEGER,             INTENT(IN) :: jstep                ! simulation step
-    CHARACTER(len=*),    INTENT(IN) :: model_type           ! store model type
-
-    REAL(wp), INTENT(IN), OPTIONAL :: opt_pvct(:)
-    INTEGER,  INTENT(IN), OPTIONAL :: opt_depth_lnd               ! vertical levels soil model
-    REAL(wp), INTENT(IN), OPTIONAL :: opt_t_elapsed_phy(:,:)
-    LOGICAL , INTENT(IN), OPTIONAL :: opt_lcall_phy(:,:)
-    REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time
-    INTEGER,  INTENT(IN), OPTIONAL :: opt_ndyn_substeps
-    INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_marchuk_order
-    INTEGER,  INTENT(IN), OPTIONAL :: opt_nlev_snow
-    INTEGER,  INTENT(IN), OPTIONAL :: opt_nice_class
-    INTEGER,  INTENT(IN), OPTIONAL :: opt_ndom                    !< no. of domains (appended to symlink name)
-    INTEGER,  INTENT(IN), OPTIONAL :: opt_output_jfile(:)
-    INTEGER,  INTENT(IN), OPTIONAL :: ocean_Zlevels
-    REAL(wp), INTENT(IN), OPTIONAL :: ocean_Zheight_CellMiddle(:)
-    REAL(wp), INTENT(IN), OPTIONAL :: ocean_Zheight_CellInterfaces(:)
-
-
-    INTEGER :: klev, jg, kcell, kvert, kedge
-    INTEGER :: inlev_soil, inlev_snow, i, nice_class, error
-    INTEGER :: ndepth    ! depth of n
-    REAL(wp), ALLOCATABLE :: zlevels_full(:), zlevels_half(:)
-    CHARACTER(len=MAX_CHAR_LENGTH)  :: string
-    TYPE(t_restart_cdi_ids), ALLOCATABLE :: cdiIds(:)
-
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":create_restart_file"
-
-    IF (ltimer) CALL timer_start(timer_write_restart_file)
-
-    !----------------
-    ! Initialization
-    klev      = patch%nlev
-    jg        = patch%id
-    kcell     = patch%n_patch_cells_g
-    kvert     = patch%n_patch_verts_g
-    kedge     = patch%n_patch_edges_g
-
-    restartAttributes => RestartAttributeList_make()
-    CALL defineRestartAttributes(restartAttributes, datetime, jstep, opt_ndom, opt_ndyn_substeps, &
-                                &opt_jstep_adv_marchuk_order, opt_output_jfile, opt_sim_time, opt_t_elapsed_phy, opt_lcall_phy)
-
-    IF (PRESENT(opt_pvct)) CALL set_restart_vct( opt_pvct )  ! Vertical coordinate (A's and B's)
-    IF (PRESENT(opt_depth_lnd)) THEN            ! geometrical depth for land module
-      !This part is only called if opt_depth_lnd > 0
-      IF (opt_depth_lnd > 0) THEN
-        inlev_soil = opt_depth_lnd
-        ALLOCATE(zlevels_full(inlev_soil))
-        ALLOCATE(zlevels_half(inlev_soil+1))
-        DO i = 1, inlev_soil
-          zlevels_full(i) = REAL(i,wp)
-        END DO
-        DO i = 1, inlev_soil+1
-          zlevels_half(i) = REAL(i,wp)
-        END DO
-        CALL set_restart_depth_lnd(zlevels_half, zlevels_full)
-        DEALLOCATE(zlevels_full)
-        DEALLOCATE(zlevels_half)
-      ELSE
-       inlev_soil = 0
-      END IF
-    ELSE
-      inlev_soil = 0
-    ENDIF
-    IF (PRESENT(opt_nlev_snow)) THEN  ! number of snow levels (multi layer snow model)
-      !This part is only called if opt_nlev_snow > 0
-      IF (opt_nlev_snow > 0) THEN
-        inlev_snow = opt_nlev_snow
-        ALLOCATE(zlevels_full(inlev_snow))
-        ALLOCATE(zlevels_half(inlev_snow+1))
-        DO i = 1, inlev_snow
-          zlevels_full(i) = REAL(i,wp)
-        END DO
-        DO i = 1, inlev_snow+1
-          zlevels_half(i) = REAL(i,wp)
-        END DO
-        CALL set_restart_height_snow(zlevels_half, zlevels_full)
-        DEALLOCATE(zlevels_full)
-        DEALLOCATE(zlevels_half)
-      ELSE
-        inlev_snow = 0
-      ENDIF
-    ELSE
-      inlev_snow = 0
-    ENDIF
-!DR end preliminary fix
-
-    ndepth = 0
-    IF (PRESENT(ocean_Zheight_CellMiddle) ) THEN
-      IF (.not. PRESENT(ocean_Zheight_CellInterfaces) .or. .not. PRESENT(ocean_Zlevels) ) &
-        CALL finish('create_restart_file','Ocean level parameteres not complete')
-      IF (.not. use_ocean_levels) THEN
-        ! initialize the ocean levels
-        IF (ALLOCATED(private_depth_half))  &
-          &  DEALLOCATE(private_depth_half, private_depth_full)
-        ALLOCATE(private_depth_half(ocean_Zlevels+1), private_depth_full(ocean_Zlevels))
-        private_depth_half(:) = ocean_Zheight_CellInterfaces(:)
-        private_depth_full(:) = ocean_Zheight_CellMiddle(:)
-      END IF
-      ndepth = ocean_Zlevels
-      use_ocean_levels = .TRUE.
-     END IF
-
-
-    IF (.NOT.PRESENT(opt_nice_class)) THEN
-      nice_class = 1
-    ELSE
-      nice_class = opt_nice_class
-    END IF
-
-    CALL init_restart( kcell,             &! total # of cells
-                     & kvert,             &! total # of vertices
-                     & kedge,             &! total # of cells
-                     & klev,              &! total # of vertical layers
-                     & ndepth,            &! total # of depths below sea
-                     & inlev_soil,        &! total # of depths below land (TERRA or JSBACH)
-                     & inlev_snow,        &! total # of vertical snow layers (TERRA)
-                     & nice_class,        &! total # of ice classes (sea ice)
-                     & ks)                 ! total # of sediment layers (HAMOCC)
-    ALLOCATE(cdiIds(nvar_lists), STAT = error)
-    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-    DO i = 1, SIZE(cdiIds, 1)
-        CALL cdiIds(i)%init()
-    END DO
-
-    private_restart_time = iso8601(datetime)
-    string = getRestartFilename(patch%grid_filename, jg, datetime, model_type)
-
-    CALL open_writing_restart_files(jg, kcell, kvert, kedge, patch%geometry_info%cell_type, TRIM(string), restartAttributes, &
-                                   &cdiIds, datetime)
-
-    CALL write_restart(jg, cdiIds)
-
-    CALL close_writing_restart_files(jg, cdiIds, opt_ndom)
-    CALL finish_restart()
-
-    CALL restartAttributes%destruct()
-    DEALLOCATE(cdiIds)
-    DEALLOCATE(restartAttributes)
-
-    IF (ltimer) CALL timer_stop(timer_write_restart_file)
-
-  END SUBROUTINE create_restart_file
 
   !------------------------------------------------------------------------------------------------
 
