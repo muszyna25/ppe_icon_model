@@ -565,10 +565,8 @@ CONTAINS
 
         ! 3. add horizontal grid descriptions
 
-        !TODO[NH]: make this take an array for the hgridIds
-        CALL createHgrids(patch%n_patch_cells_g, auxInfos(i)%hgridIds(GRID_UNSTRUCTURED_CELL), &
-                         &patch%n_patch_verts_g, auxInfos(i)%hgridIds(GRID_UNSTRUCTURED_VERT), &
-                         &patch%n_patch_edges_g, auxInfos(i)%hgridIds(GRID_UNSTRUCTURED_EDGE), patch%geometry_info%cell_type)
+        auxInfos(i)%hgridIds = createHgrids(patch%n_patch_cells_g, patch%n_patch_verts_g, patch%n_patch_edges_g, &
+                                           &patch%geometry_info%cell_type)
 
         ! 4. add vertical grid descriptions
 

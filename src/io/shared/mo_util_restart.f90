@@ -16,7 +16,8 @@ MODULE mo_util_restart
     USE mo_cdi, ONLY: CDI_UNDEFID, GRID_UNSTRUCTURED, gridCreate, gridDefNvertex, gridDefXname, gridDefXlongname, gridDefXunits, &
                     & gridDefYname, gridDefYlongname, gridDefYunits, zaxisCreate, zaxisDefLevels
     USE mo_cdi_constants, ONLY: ZA_HYBRID, ZA_HYBRID_HALF, ZA_LAKE_BOTTOM, ZA_MIX_LAYER, ZA_LAKE_BOTTOM_HALF, &
-                              & ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_COUNT, cdi_zaxis_types
+                              & ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_COUNT, cdi_zaxis_types, GRID_UNSTRUCTURED_CELL, &
+                              & GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_COUNT
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_kind, ONLY: wp
 
@@ -69,25 +70,23 @@ CONTAINS
         CALL gridDefYunits(RESULT, TRIM(cUnitsY))
     END FUNCTION create_cdi_hgrid_def
 
-    SUBROUTINE createHgrids(cellCount, outCellGridId, &
-                           &vertexCount, outVertexGridId, &
-                           &edgeCount, outEdgeGridId, cellType)
+    FUNCTION createHgrids(cellCount, vertexCount, edgeCount, cellType) RESULT(RESULT)
         INTEGER, VALUE :: cellCount, vertexCount, edgeCount, cellType
-        INTEGER, INTENT(OUT) :: outCellGridId, outVertexGridId, outEdgeGridId
+        INTEGER :: RESULT(GRID_UNSTRUCTURED_COUNT)
 
-        outCellGridId = create_cdi_hgrid_def(cellCount, cellType, &
-                                            &'clon', 'center longitude', 'radian', &
-                                            &'clat', 'center latitude', 'radian')
+        RESULT(GRID_UNSTRUCTURED_CELL) = create_cdi_hgrid_def(cellCount, cellType, &
+                                                             &'clon', 'center longitude', 'radian', &
+                                                             &'clat', 'center latitude', 'radian')
 
-        outVertexGridId = create_cdi_hgrid_def(vertexCount, 9 - cellType, &
-                                              &'vlon', 'vertex longitude', 'radian', &
-                                              &'vlat', 'vertex latitude', 'radian')
+        RESULT(GRID_UNSTRUCTURED_VERT) = create_cdi_hgrid_def(vertexCount, 9 - cellType, &
+                                                             &'vlon', 'vertex longitude', 'radian', &
+                                                             &'vlat', 'vertex latitude', 'radian')
 
-        outEdgeGridId = create_cdi_hgrid_def(edgeCount, 4, &
-                                            &'elon', 'edge midpoint longitude', 'radian',  &
-                                            &'elat', 'edge midpoint latitude', 'radian')
+        RESULT(GRID_UNSTRUCTURED_EDGE) = create_cdi_hgrid_def(edgeCount, 4, &
+                                                             &'elon', 'edge midpoint longitude', 'radian', &
+                                                             &'elat', 'edge midpoint latitude', 'radian')
 
-    END SUBROUTINE createHgrids
+    END FUNCTION createHgrids
 
     ! If no opt_levelValues are given, this defaults to numbering the levels from 1 to levelCount.
     INTEGER FUNCTION defineVAxis(cdiAxisType, levelValues) RESULT(RESULT)

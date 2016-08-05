@@ -62,7 +62,8 @@ MODULE mo_io_restart_async
                                       & ZA_SNOW, ZA_SNOW_HALF, ZA_HEIGHT_2M, ZA_HEIGHT_10M, ZA_TOA, ZA_LAKE_BOTTOM, ZA_MIX_LAYER, &
                                       & ZA_LAKE_BOTTOM_HALF, ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_DEPTH_BELOW_SEA, &
                                       & ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE, ZA_DEPTH_RUNOFF_S, ZA_DEPTH_RUNOFF_G, ZA_COUNT, &
-                                      & GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL, cdi_zaxis_types
+                                      & GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL, cdi_zaxis_types, &
+                                      & GRID_UNSTRUCTURED_COUNT
   USE mo_cf_convention
   USE mo_util_string,             ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                   int2string, toCharacter
@@ -180,9 +181,7 @@ MODULE mo_io_restart_async
     CHARACTER(len=10)           :: linkprefix
     INTEGER                     :: cdiFileID
     INTEGER                     :: cdiVlistID
-    INTEGER                     :: cdiCellGridID
-    INTEGER                     :: cdiVertGridID
-    INTEGER                     :: cdiEdgeGridID
+    INTEGER                     :: cdiHgridIds(GRID_UNSTRUCTURED_COUNT)
     INTEGER                     :: cdiTaxisID
     INTEGER                     :: cdiZaxisIDs(ZA_COUNT)  !indices are the ZA_... constants
     INTEGER                     :: cdiTimeIndex
@@ -1265,9 +1264,9 @@ CONTAINS
 
       CALL close_restart_file(rf)
 
-      CALL destroy_cdi_grid(rf%cdiCellGridID)
-      CALL destroy_cdi_grid(rf%cdiVertGridID)
-      CALL destroy_cdi_grid(rf%cdiEdgeGridID)
+      CALL destroy_cdi_grid(rf%cdiHgridIds(grid_unstructured_cell))
+      CALL destroy_cdi_grid(rf%cdiHgridIds(grid_unstructured_vert))
+      CALL destroy_cdi_grid(rf%cdiHgridIds(grid_unstructured_cell))
 
       IF (rf%cdiTaxisID /= CDI_UNDEFID) THEN
         CALL taxisDestroy(rf%cdiTaxisID)
@@ -1729,9 +1728,7 @@ CONTAINS
     rf%cdiVlistID                 = CDI_UNDEFID
     rf%cdiTaxisID                 = CDI_UNDEFID
 
-    rf%cdiCellGridID              = CDI_UNDEFID
-    rf%cdiVertGridID              = CDI_UNDEFID
-    rf%cdiEdgeGridID              = CDI_UNDEFID
+    rf%cdiHgridIds(:)             = CDI_UNDEFID
     rf%cdiZaxisIDs(:)             = CDI_UNDEFID
     rf%cdiTimeIndex               = CDI_UNDEFID
 
@@ -2745,16 +2742,7 @@ CONTAINS
       IF (.NOT. has_valid_time_level(p_info,patch_id)) CYCLE
 
       ! set grid ID
-      gridID = CDI_UNDEFID
-      SELECT CASE (p_info%hgrid)
-        CASE(GRID_UNSTRUCTURED_CELL)
-          p_info%cdiGridID = p_rf%cdiCellGridID
-        CASE(GRID_UNSTRUCTURED_VERT)
-          p_info%cdiGridID = p_rf%cdiVertGridID
-        CASE(GRID_UNSTRUCTURED_EDGE)
-          p_info%cdiGridID = p_rf%cdiEdgeGridID
-      END SELECT
-
+      p_info%cdiGridID = p_rf%cdiHgridIds(p_info%hgrid)
       gridID = p_info%cdiGridID
       IF (gridID == CDI_UNDEFID) THEN
         CALL finish(routine, 'Grid type not defined for field '//TRIM(p_info%name))
@@ -2828,9 +2816,7 @@ CONTAINS
     CALL restartAttributes%writeToFile(p_rf%cdiVlistID)
 
     ! 3. add horizontal grid descriptions
-    CALL createHgrids(p_pd%cells%n_glb, p_rf%cdiCellGridID, &
-                     &p_pd%verts%n_glb, p_rf%cdiVertGridID, &
-                     &p_pd%edges%n_glb, p_rf%cdiEdgeGridID, p_pd%cell_type)
+    p_rf%cdiHgridIds = createHgrids(p_pd%cells%n_glb, p_pd%verts%n_glb, p_pd%edges%n_glb, p_pd%cell_type)
 
     ! 4. add vertical grid descriptions
     IF(ALLOCATED(p_pd%opt_pvct)) THEN
