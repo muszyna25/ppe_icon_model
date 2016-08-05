@@ -16,7 +16,7 @@ MODULE mo_util_restart
                     & vlistCreate, taxisCreate, vlistDefTaxis, TAXIS_ABSOLUTE, vlistDefVar, vlistDefVarDatatype, vlistDefVarName, &
                     & vlistDefVarLongname, vlistDefVarUnits, vlistDefVarMissval, TIME_VARIABLE, DATATYPE_FLT64, taxisDefVdate, &
                     & taxisDefVtime, cdiEncodeDate, cdiEncodeTime, streamDefTimestep
-    USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_COUNT, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, &
+    USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, &
                               & ZA_COUNT, ZA_HYBRID, ZA_HYBRID_HALF, ZA_LAKE_BOTTOM, ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, &
                               & ZA_SEDIMENT_BOTTOM_TW_HALF, cdi_zaxis_types
     USE mo_cf_convention, ONLY: cf_global_info
@@ -60,7 +60,7 @@ MODULE mo_util_restart
 
     ! TYPE t_restart_cdi_ids IS just a simple container for all the different CDI IDs connected to a single restart file.
     TYPE t_restart_cdi_ids
-        INTEGER :: file, vlist, taxis, hgrids(GRID_UNSTRUCTURED_COUNT), vgrids(ZA_COUNT)
+        INTEGER :: file, vlist, taxis, hgrids(3), vgrids(ZA_COUNT)
     CONTAINS
         PROCEDURE :: init => restartCdiIds_init
         PROCEDURE :: openRestartAndCreateIds => restartCdiIds_openRestartAndCreateIds
@@ -210,7 +210,7 @@ CONTAINS
 
     FUNCTION createHgrids(cellCount, vertexCount, edgeCount, cellType) RESULT(RESULT)
         INTEGER, VALUE :: cellCount, vertexCount, edgeCount, cellType
-        INTEGER :: RESULT(GRID_UNSTRUCTURED_COUNT)
+        INTEGER :: RESULT(3)
 
         RESULT(GRID_UNSTRUCTURED_CELL) = create_cdi_hgrid_def(cellCount, cellType, &
                                                              &'clon', 'center longitude', 'radian', &
