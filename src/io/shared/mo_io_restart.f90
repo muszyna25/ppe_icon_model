@@ -710,7 +710,11 @@ CONTAINS
 
 
       ! set grid AND z-axis IDs
-      gridID = cdiIds%hgrids(info%hgrid)
+      gridID = info%cdiGridID
+      SELECT CASE (info%hgrid)
+          CASE(GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE)
+              gridID = cdiIds%hgrids(info%hgrid)
+      END SELECT
       zaxisID = info%cdiZaxisID
       if(zaxisID < 0) zaxisID = cdiIds%vgrids(info%vgrid)
 
