@@ -47,6 +47,15 @@ MODULE mo_restart_namelist
     TYPE t_NamelistArchive
         INTEGER :: namelistCount
         TYPE(t_att_namelist), POINTER :: namelists(:)
+    CONTAINS
+        PROCEDURE :: setNamelist => namelistArchive_setNamelist
+        PROCEDURE :: getNamelist => namelistArchive_getNamelist
+        PROCEDURE :: print => namelistArchive_print
+        PROCEDURE :: writeToFile => namelistArchive_writeToFile ! store the namelists as attributes to the given CDI vlistId
+
+        PROCEDURE, PRIVATE :: construct => namelistArchive_construct
+        PROCEDURE, PRIVATE :: find => namelistArchive_find  ! returns a new entry IF NONE exists yet
+        PROCEDURE, PRIVATE :: destruct => namelistArchive_destruct
     END TYPE t_NamelistArchive
 
     TYPE(t_NamelistArchive), ALLOCATABLE, SAVE :: gArchive
@@ -54,6 +63,126 @@ MODULE mo_restart_namelist
     CHARACTER(LEN = *), PARAMETER :: modname = "mo_restart_namelist"
 
 CONTAINS
+
+    SUBROUTINE namelistArchive_construct(me)
+        CLASS(t_NamelistArchive), INTENT(INOUT) :: me
+
+        INTEGER :: error
+        CHARACTER(*), PARAMETER :: routine = modname//":namelistArchive_construct"
+
+        me%namelistCount = 0
+        ALLOCATE(me%namelists(8), STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+    END SUBROUTINE namelistArchive_construct
+
+    FUNCTION namelistArchive_find(me, namelist_name) RESULT(RESULT)
+        CLASS(t_NamelistArchive), INTENT(INOUT) :: me
+        CHARACTER(len=*), INTENT(in) :: namelist_name
+        TYPE(t_att_namelist), POINTER :: RESULT
+
+        INTEGER :: i, error
+        TYPE(t_att_namelist), POINTER :: temp(:)
+        CHARACTER(:), ALLOCATABLE :: fullName
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":namelistArchive_find"
+
+        ! check whether we already have an entry of that NAME
+        fullName = 'nml_'//TRIM(namelist_name)
+        DO i = 1, me%namelistCount
+            IF(fullName == me%namelists(i)%NAME) THEN
+                RESULT => me%namelists(i)
+                DEALLOCATE(fullName)
+                RETURN
+            END IF
+        END DO
+
+        ! looks like we have to create an entry IF this point IS reached
+        ! ensure that we have at least enough space for one more entry
+        IF(me%namelistCount == SIZE(me%namelists, 1)) THEN
+            ALLOCATE(temp(2*me%namelistCount), STAT = error)
+            IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+            DO i = 1, me%namelistCount
+                CALL MOVE_ALLOC(me%namelists(i)%NAME, temp(i)%NAME)
+                CALL MOVE_ALLOC(me%namelists(i)%text, temp(i)%text)
+            END DO
+            DEALLOCATE(me%namelists)
+            me%namelists => temp
+        END IF
+
+        ! add an entry
+        me%namelistCount = me%namelistCount + 1
+        RESULT => me%namelists(me%namelistCount)
+        CALL MOVE_ALLOC(fullName, RESULT%NAME)
+    END FUNCTION namelistArchive_find
+
+    SUBROUTINE namelistArchive_setNamelist(me, namelistName, namelistText)
+        CLASS(t_NamelistArchive), INTENT(INOUT) :: me
+        CHARACTER(*), INTENT(IN) :: namelistName, namelistText
+
+        TYPE(t_att_namelist), POINTER :: list_entry
+        INTEGER :: textLength, error
+        CHARACTER(*), PARAMETER :: routine = modname//":namelistArchive_setNamelist"
+
+        list_entry => me%find(namelistName)
+        textLength = LEN_TRIM(namelistText)
+
+        IF(ALLOCATED(list_entry%text)) DEALLOCATE(list_entry%text)
+        ALLOCATE(CHARACTER(textLength) :: list_entry%text, STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+
+        list_entry%text(1:textLength) = namelistText(1:textLength)
+    END SUBROUTINE namelistArchive_setNamelist
+
+    SUBROUTINE namelistArchive_getNamelist(me, namelistName, namelistText)
+        CLASS(t_NamelistArchive), INTENT(INOUT) :: me
+        CHARACTER(len=*), INTENT(in) :: namelistName
+        CHARACTER(len=:), ALLOCATABLE, INTENT(out) :: namelistText
+
+        TYPE(t_att_namelist), POINTER :: list_entry
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":namelistArchive_getNamelist"
+
+        list_entry => me%find(namelistName)
+        IF(.NOT.ALLOCATED(list_entry%text)) CALL finish(routine, 'namelist '//TRIM(namelistName)//' not available in restart file.')
+        namelistText = list_entry%text
+    END SUBROUTINE namelistArchive_getNamelist
+
+    SUBROUTINE namelistArchive_print(me)
+        CLASS(t_NamelistArchive), INTENT(INOUT) :: me
+
+        INTEGER :: i
+        CHARACTER(LEN=*), PARAMETER :: routine = modname//':namelistArchive_print'
+
+        WRITE(nerr, '(a,a,i3)') routine, ' p_pe=', p_pe
+        PRINT *,'restart name lists count = ',me%namelistCount
+        DO i = 1, me%namelistCount
+            PRINT *, ' restart name list = "'//me%namelists(i)%NAME//'", text = "'//me%namelists(i)%text//'"'
+        ENDDO
+    END SUBROUTINE namelistArchive_print
+
+    SUBROUTINE namelistArchive_writeToFile(me, cdiVlistId)
+        CLASS(t_NamelistArchive), INTENT(INOUT) :: me
+        INTEGER, VALUE :: cdiVlistId
+
+        INTEGER :: i, error
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":namelistArchive_writeToFile"
+
+        DO i = 1, me%namelistCount
+            error = vlistDefAttTxt(cdiVlistId, CDI_GLOBAL, me%namelists(i)%name, LEN(me%namelists(i)%text), &
+                                  &me%namelists(i)%text)
+            IF(error /= SUCCESS) CALL finish(routine, "error WHILE writing a namelist to a restart file")
+        END DO
+    END SUBROUTINE namelistArchive_writeToFile
+
+    SUBROUTINE namelistArchive_destruct(me)
+        CLASS(t_NamelistArchive), INTENT(INOUT) :: me
+
+        INTEGER :: i
+
+        DO i = 1, me%namelistCount
+            IF(ALLOCATED(me%namelists(i)%NAME)) DEALLOCATE(me%namelists(i)%NAME)
+            IF(ALLOCATED(me%namelists(i)%text)) DEALLOCATE(me%namelists(i)%text)
+        END DO
+        DEALLOCATE(me%namelists)
+    END SUBROUTINE namelistArchive_destruct
 
     SUBROUTINE init_restart_namelists()
         INTEGER :: i, error
@@ -63,62 +192,12 @@ CONTAINS
 
         ALLOCATE(gArchive, STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-        gArchive%namelistCount = 0
-
-        ALLOCATE(gArchive%namelists(8), STAT = error)
-        IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+        CALL gArchive%construct()
     END SUBROUTINE init_restart_namelists
 
-    FUNCTION find_namelist(namelist_name) RESULT(RESULT)
-        CHARACTER(len=*), INTENT(in) :: namelist_name
-        TYPE(t_att_namelist), POINTER :: RESULT
-
-        INTEGER :: i, error
-        TYPE(t_att_namelist), POINTER :: temp(:)
-        CHARACTER(:), ALLOCATABLE :: fullName
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":find_namelist"
-
-        ! first ensure that we actually have a list
-        IF(.NOT. ALLOCATED(gArchive)) CALL init_restart_namelists()
-
-        ! check whether we already have an entry of that NAME
-        fullName = 'nml_'//TRIM(namelist_name)
-        DO i = 1, gArchive%namelistCount
-            IF(fullName == gArchive%namelists(i)%NAME) THEN
-                RESULT => gArchive%namelists(i)
-                DEALLOCATE(fullName)
-                RETURN
-            END IF
-        END DO
-
-        ! looks like we have to create an entry IF this point IS reached
-        ! ensure that we have at least enough space for one more entry
-        IF(gArchive%namelistCount == SIZE(gArchive%namelists, 1)) THEN
-            ALLOCATE(temp(2*gArchive%namelistCount), STAT = error)
-            IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-            DO i = 1, gArchive%namelistCount
-                CALL MOVE_ALLOC(gArchive%namelists(i)%NAME, temp(i)%NAME)
-                CALL MOVE_ALLOC(gArchive%namelists(i)%text, temp(i)%text)
-            END DO
-            DEALLOCATE(gArchive%namelists)
-            gArchive%namelists => temp
-        END IF
-
-        ! add an entry
-        gArchive%namelistCount = gArchive%namelistCount + 1
-        RESULT => gArchive%namelists(gArchive%namelistCount)
-        CALL MOVE_ALLOC(fullName, RESULT%NAME)
-    END FUNCTION find_namelist
-
     SUBROUTINE delete_restart_namelists()
-        INTEGER :: i
-
         IF (ALLOCATED(gArchive)) THEN
-            DO i = 1, gArchive%namelistCount
-                IF(ALLOCATED(gArchive%namelists(i)%NAME)) DEALLOCATE(gArchive%namelists(i)%NAME)
-                IF(ALLOCATED(gArchive%namelists(i)%text)) DEALLOCATE(gArchive%namelists(i)%text)
-            END DO
-            DEALLOCATE(gArchive%namelists)
+            CALL gArchive%destruct()
             DEALLOCATE(gArchive)
         ENDIF
     END SUBROUTINE delete_restart_namelists
@@ -126,43 +205,30 @@ CONTAINS
     SUBROUTINE set_restart_namelist(namelist_name, namelist_text)
         CHARACTER(len=*), INTENT(in) :: namelist_name
         CHARACTER(len=*), INTENT(in) :: namelist_text
-        TYPE(t_att_namelist), POINTER :: list_entry
 
-        INTEGER :: textLength, error
-        CHARACTER(*), PARAMETER :: routine = modname//":set_restart_namelist"
-
-        list_entry => find_namelist(namelist_name)
-        textLength = LEN_TRIM(namelist_text)
-
-        IF(ALLOCATED(list_entry%text)) DEALLOCATE(list_entry%text)
-        ALLOCATE(CHARACTER(textLength) :: list_entry%text, STAT = error)
-        IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-
-        list_entry%text(1:textLength) = namelist_text(1:textLength)
+        IF(.NOT. ALLOCATED(gArchive)) CALL init_restart_namelists()
+        CALL gArchive%setNamelist(namelist_name, namelist_text)
     END SUBROUTINE set_restart_namelist
 
     SUBROUTINE get_restart_namelist(namelist_name, namelist_text)
         CHARACTER(len=*), INTENT(in) :: namelist_name
         CHARACTER(len=:), ALLOCATABLE, INTENT(out) :: namelist_text
 
-        TYPE(t_att_namelist), POINTER :: list_entry
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":get_restart_namelist"
-
-        list_entry => find_namelist(namelist_name)
-        IF(.NOT.ALLOCATED(list_entry%text)) CALL finish(routine, 'namelist '//TRIM(namelist_name)//' not available in restart file.')
-        namelist_text = list_entry%text
+        IF(.NOT. ALLOCATED(gArchive)) CALL init_restart_namelists()
+        CALL gArchive%getNamelist(namelist_name, namelist_text)
     END SUBROUTINE get_restart_namelist
 
     SUBROUTINE print_restart_name_lists()
-        INTEGER :: i
-        CHARACTER(LEN=*), PARAMETER :: routine = modname//':print_restart_name_list'
-
-        WRITE(nerr, '(a,a,i3)') routine, ' p_pe=', p_pe
-        PRINT *,'restart name lists count = ',gArchive%namelistCount
-        DO i = 1, gArchive%namelistCount
-            PRINT *, ' restart name list = "'//gArchive%namelists(i)%NAME//'", text = "'//gArchive%namelists(i)%text//'"'
-        ENDDO
+        IF(.NOT.ALLOCATED(gArchive)) CALL init_restart_namelists()
+        CALL gArchive%print()
     END SUBROUTINE print_restart_name_lists
+
+    SUBROUTINE RestartNamelist_writeToFile(cdiVlistId)
+        INTEGER, VALUE :: cdiVlistId
+
+        IF(.NOT.ALLOCATED(gArchive)) CALL init_restart_namelists()
+        CALL gArchive%writeToFile(cdiVlistId)
+    END SUBROUTINE RestartNamelist_writeToFile
 
     FUNCTION open_tmpfile() RESULT(funit)
         INTEGER :: funit
@@ -264,20 +330,6 @@ CONTAINS
         error = util_unlink(TRIM(filename))
         IF(error /= SUCCESS) CALL message(routine, "warning: error while unlinking file '"//TRIM(filename)//"'")
     END SUBROUTINE close_tmpfile
-
-    ! Store the namelists as attributes to the given CDI vlistId
-    SUBROUTINE RestartNamelist_writeToFile(cdiVlistId)
-        INTEGER, VALUE :: cdiVlistId
-
-        INTEGER :: i, error
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":RestartNamelist_writeToFile"
-
-        DO i = 1, gArchive%namelistCount
-            error = vlistDefAttTxt(cdiVlistId, CDI_GLOBAL, gArchive%namelists(i)%name, LEN(gArchive%namelists(i)%text), &
-                                  &gArchive%namelists(i)%text)
-            IF(error /= SUCCESS) CALL finish(routine, "error WHILE writing a namelist to a restart file")
-        ENDDO
-    END SUBROUTINE RestartNamelist_writeToFile
 
     SUBROUTINE read_and_bcast_restart_namelists(vlistID, root_pe, comm)
         INTEGER, INTENT(IN) :: vlistID, root_pe, comm
