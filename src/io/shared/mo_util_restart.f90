@@ -40,9 +40,6 @@ MODULE mo_util_restart
     PUBLIC :: setGeneralRestartAttributes
     PUBLIC :: setDynamicPatchRestartAttributes
     PUBLIC :: setPhysicsRestartAttributes
-    PUBLIC :: openRestartAndCreateIds
-    PUBLIC :: defineVariable
-    PUBLIC :: closeAndDestroyIds
     PUBLIC :: set_vertical_grid
 
     ! TYPE t_v_grid contains the data of a vertical grid definition.
@@ -54,6 +51,11 @@ MODULE mo_util_restart
     ! TYPE t_restart_cdi_ids IS just a simple container for all the different CDI IDs connected to a single restart file.
     TYPE t_restart_cdi_ids
         INTEGER :: file, vlist, taxis, hgrids(GRID_UNSTRUCTURED_COUNT), vgrids(ZA_COUNT)
+    CONTAINS
+        PROCEDURE :: init => restartCdiIds_init
+        PROCEDURE :: openRestartAndCreateIds => restartCdiIds_openRestartAndCreateIds
+        PROCEDURE :: defineVariable => restartCdiIds_defineVariable
+        PROCEDURE :: closeAndDestroyIds => restartCdiIds_closeAndDestroyIds
     END TYPE t_restart_cdi_ids
 
     ! This takes a buffer for grid definitions, to which one entry IS appended by incrementing the count of used elements that's passed as well.
@@ -196,7 +198,7 @@ CONTAINS
 
         axisIds(:) = CDI_UNDEFID
         DO i = 1, SIZE(gridDescriptions, 1)
-            IF(cdi_zaxis_types(gridDescriptions(i)%TYPE) == CDI_UNDEFID) CALL finish(routine, "no CDI zaxis TYPE defined for vgrid")
+            IF(cdi_zaxis_types(gridDescriptions(i)%TYPE) == CDI_UNDEFID) CALL finish(routine,"no CDI zaxis TYPE defined for vgrid")
 
             gridId = defineVAxis(cdi_zaxis_types(gridDescriptions(i)%TYPE), gridDescriptions(i)%levels)
             IF(gridId == CDI_UNDEFID) CALL finish(routine, "defineVAxis() returned an error")
@@ -224,9 +226,19 @@ CONTAINS
         ENDDO
     END SUBROUTINE createVgrids
 
-    SUBROUTINE openRestartAndCreateIds(cdiIds, filename, restartType, restartAttributes, cellCount, vertCount, edgeCount, &
-                                      &cellType, vgridDefs, opt_vct)
-        TYPE(t_restart_cdi_ids), INTENT(INOUT) :: cdiIds
+    SUBROUTINE restartCdiIds_init(me)
+        CLASS(t_restart_cdi_ids), INTENT(INOUT) :: me
+
+        me%file = CDI_UNDEFID
+        me%vlist = CDI_UNDEFID
+        me%taxis = CDI_UNDEFID
+        me%hgrids(:) = CDI_UNDEFID
+        me%vgrids(:) = CDI_UNDEFID
+    END SUBROUTINE restartCdiIds_init
+
+    SUBROUTINE restartCdiIds_openRestartAndCreateIds(me, filename, restartType, restartAttributes, cellCount, vertCount, &
+                                                    &edgeCount, cellType, vgridDefs, opt_vct)
+        CLASS(t_restart_cdi_ids), INTENT(INOUT) :: me
         CHARACTER(LEN = *), INTENT(IN) :: filename
         INTEGER, VALUE :: restartType, cellCount, vertCount, edgeCount, cellType
         TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
@@ -234,13 +246,13 @@ CONTAINS
         REAL(wp), INTENT(IN), OPTIONAL :: opt_vct(:)
 
         CHARACTER(LEN = MAX_CHAR_LENGTH) :: cdiErrorText
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":openRestartAndCreateIds"
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartCdiIds_openRestartAndCreateIds"
 
         ! open the file
-        cdiIds%file = streamOpenWrite(filename, restartType)
+        me%file = streamOpenWrite(filename, restartType)
 
-        IF(cdiIds%file < 0) THEN
-            CALL cdiGetStringError(cdiIds%file, cdiErrorText)
+        IF(me%file < 0) THEN
+            CALL cdiGetStringError(me%file, cdiErrorText)
             WRITE(message_text,'(a)') TRIM(cdiErrorText)
             CALL message('',message_text)
             CALL finish(routine, 'open failed on '//filename)
@@ -249,33 +261,33 @@ CONTAINS
         ! create the CDI IDs we need
 
         ! 1. vlist
-        cdiIds%vlist = vlistCreate()
+        me%vlist = vlistCreate()
 
         ! 2. global attributes
-        CALL RestartNamelist_writeToFile(cdiIds%vlist)
-        CALL restartAttributes%writeToFile(cdiIds%vlist)
+        CALL RestartNamelist_writeToFile(me%vlist)
+        CALL restartAttributes%writeToFile(me%vlist)
 
         ! 3. horizontal grids
-        cdiIds%hgrids = createHgrids(cellCount, vertCount, edgeCount, cellType)
+        me%hgrids = createHgrids(cellCount, vertCount, edgeCount, cellType)
 
         ! 4. vertical grids
-        CALL createVgrids(cdiIds%vgrids, vgridDefs, opt_vct)
+        CALL createVgrids(me%vgrids, vgridDefs, opt_vct)
 
         ! 5. time axis (always absolute time for restart files)
-        cdiIds%taxis = taxisCreate(TAXIS_ABSOLUTE)
-        CALL vlistDefTaxis(cdiIds%vlist, cdiIds%taxis)
-    END SUBROUTINE openRestartAndCreateIds
+        me%taxis = taxisCreate(TAXIS_ABSOLUTE)
+        CALL vlistDefTaxis(me%vlist, me%taxis)
+    END SUBROUTINE restartCdiIds_openRestartAndCreateIds
 
     ! Encapsulates the CDI calls to define a variable.
     ! lIsInteger AND lIsLogical reflect the TYPE of the variable, IF neither IS set, the variable IS assumed to be of TYPE REAL.
-    SUBROUTINE defineVariable(cdiIds, info, lIsInteger, lIsLogical)
-        TYPE(t_restart_cdi_ids), INTENT(IN) :: cdiIds
+    SUBROUTINE restartCdiIds_defineVariable(me, info, lIsInteger, lIsLogical)
+        CLASS(t_restart_cdi_ids), INTENT(IN) :: me
         TYPE(t_var_metadata), INTENT(INOUT) :: info
         LOGICAL, VALUE :: lIsInteger, lIslogical
 
         INTEGER :: varId, gridId, zaxisId
         REAL(wp) :: casted_missval
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":defineVariable"
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartCdiIds_defineVariable"
 
         IF(lIsInteger.AND.lIsLogical) THEN
             CALL finish(routine, "assertion failed: attempt to define a variable both as INTEGER and LOGICAL")
@@ -285,25 +297,25 @@ CONTAINS
         gridId = info%cdiGridID
         SELECT CASE (info%hgrid)
             CASE(GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE)
-                gridId = cdiIds%hgrids(info%hgrid)
+                gridId = me%hgrids(info%hgrid)
         END SELECT
         IF (gridId == CDI_UNDEFID) CALL finish(routine, 'Grid type not defined for field '//TRIM(info%name))
 
         ! get the vertical axis ID
         zaxisId = info%cdiZaxisID
-        if(zaxisId < 0) zaxisId = cdiIds%vgrids(info%vgrid)
+        if(zaxisId < 0) zaxisId = me%vgrids(info%vgrid)
         IF (zaxisId == CDI_UNDEFID) CALL finish(routine, 'Z axis not defined for field '//TRIM(info%name))
 
         ! define the variable with the required info
-        varId = vlistDefVar(cdiIds%vlist, gridId, zaxisId, TIME_VARIABLE)
+        varId = vlistDefVar(me%vlist, gridId, zaxisId, TIME_VARIABLE)
         IF (varID == CDI_UNDEFID) CALL finish(routine, 'error WHILE defining CDI variable "'//TRIM(info%name)//'"')
         info%cdiVarID = varId
-        CALL vlistDefVarDatatype(cdiIds%vlist, varId, DATATYPE_FLT64)
-        CALL vlistDefVarName(cdiIds%vlist, varId, TRIM(info%name))
+        CALL vlistDefVarDatatype(me%vlist, varId, DATATYPE_FLT64)
+        CALL vlistDefVarName(me%vlist, varId, TRIM(info%name))
 
         ! then add the three optional fields
-        IF(info%cf%long_name /= '') CALL vlistDefVarLongname(cdiIds%vlist, varId, TRIM(info%cf%long_name))
-        IF(info%cf%units /= '') CALL vlistDefVarUnits(cdiIds%vlist, varId, TRIM(info%cf%units))
+        IF(info%cf%long_name /= '') CALL vlistDefVarLongname(me%vlist, varId, TRIM(info%cf%long_name))
+        IF(info%cf%units /= '') CALL vlistDefVarUnits(me%vlist, varId, TRIM(info%cf%units))
         IF(info%lmiss) THEN
             casted_missval = info%missval%rval
             IF(lIsInteger) casted_missval = REAL(info%missval%ival, wp)
@@ -311,33 +323,29 @@ CONTAINS
                 casted_missval = 0.0_wp
                 IF(info%missval%lval) casted_missval = 1.0_wp
             ENDIF
-            CALL vlistDefVarMissval(cdiIds%vlist, varId, casted_missval)
+            CALL vlistDefVarMissval(me%vlist, varId, casted_missval)
         ENDIF
-    END SUBROUTINE defineVariable
+    END SUBROUTINE restartCdiIds_defineVariable
 
-    SUBROUTINE closeAndDestroyIds(cdiIds)
-        TYPE(t_restart_cdi_ids), INTENT(INOUT) :: cdiIds
+    SUBROUTINE restartCdiIds_closeAndDestroyIds(me)
+        CLASS(t_restart_cdi_ids), INTENT(INOUT) :: me
 
         INTEGER :: i
 
         ! close/destroy all open CDI IDs
-        IF(cdiIds%file /= CDI_UNDEFID) CALL streamClose(cdiIds%file)
-        IF(cdiIds%vlist /= CDI_UNDEFID) CALL vlistDestroy(cdiIds%vlist)
-        IF(cdiIds%taxis /= CDI_UNDEFID) CALL taxisDestroy(cdiIds%taxis)
-        DO i = 1, SIZE(cdiIds%hgrids, 1)
-            IF(cdiIds%hgrids(i) /= CDI_UNDEFID) CALL gridDestroy(cdiIds%hgrids(i))
+        IF(me%file /= CDI_UNDEFID) CALL streamClose(me%file)
+        IF(me%vlist /= CDI_UNDEFID) CALL vlistDestroy(me%vlist)
+        IF(me%taxis /= CDI_UNDEFID) CALL taxisDestroy(me%taxis)
+        DO i = 1, SIZE(me%hgrids, 1)
+            IF(me%hgrids(i) /= CDI_UNDEFID) CALL gridDestroy(me%hgrids(i))
         END DO
-        DO i = 1, SIZE(cdiIds%vgrids, 1)
-            IF(cdiIds%vgrids(i) /= CDI_UNDEFID) CALL zaxisDestroy(cdiIds%vgrids(i))
+        DO i = 1, SIZE(me%vgrids, 1)
+            IF(me%vgrids(i) /= CDI_UNDEFID) CALL zaxisDestroy(me%vgrids(i))
         END DO
 
         ! reset the IDs
-        cdiIds%file = CDI_UNDEFID
-        cdiIds%vlist = CDI_UNDEFID
-        cdiIds%taxis = CDI_UNDEFID
-        cdiIds%hgrids(:) = CDI_UNDEFID
-        cdiIds%vgrids(:) = CDI_UNDEFID
-    END SUBROUTINE closeAndDestroyIds
+        CALL me%init()
+    END SUBROUTINE restartCdiIds_closeAndDestroyIds
 
     SUBROUTINE set_vertical_grid_array(gridDefinitions, gridCount, type, levels)
         TYPE(t_v_grid), INTENT(INOUT) :: gridDefinitions(:)

@@ -78,8 +78,7 @@ MODULE mo_io_restart
                                     & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE, ZA_OCEAN_SEDIMENT, ZA_COUNT, &
                                     & GRID_UNSTRUCTURED_COUNT
   USE mo_cf_convention,         ONLY: cf_global_info
-  USE mo_util_restart,          ONLY: t_v_grid, t_restart_cdi_ids, closeAndDestroyIds, set_vertical_grid, &
-                                    & openRestartAndCreateIds, defineVariable, setGeneralRestartAttributes, &
+  USE mo_util_restart,          ONLY: t_v_grid, t_restart_cdi_ids, set_vertical_grid, setGeneralRestartAttributes, &
                                     & setDynamicPatchRestartAttributes, setPhysicsRestartAttributes
   USE mo_util_string,           ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                 int2string, separator, toCharacter
@@ -481,11 +480,11 @@ CONTAINS
 
       IF (my_process_is_mpi_workroot()) THEN
         IF(lvct_initialised) THEN
-            CALL openRestartAndCreateIds(cdiIds(i), TRIM(restart_filename), var_lists(i)%p%restart_type, restartAttributes, &
+            CALL cdiIds(i)%openRestartAndCreateIds(TRIM(restart_filename), var_lists(i)%p%restart_type, restartAttributes, &
                                         &patch%n_patch_cells_g, patch%n_patch_verts_g, patch%n_patch_edges_g, &
                                         &patch%geometry_info%cell_type, vgrid_def(1:nv_grids), private_vct)
         ELSE
-            CALL openRestartAndCreateIds(cdiIds(i), TRIM(restart_filename), var_lists(i)%p%restart_type, restartAttributes, &
+            CALL cdiIds(i)%openRestartAndCreateIds(TRIM(restart_filename), var_lists(i)%p%restart_type, restartAttributes, &
                                         &patch%n_patch_cells_g, patch%n_patch_verts_g, patch%n_patch_edges_g, &
                                         &patch%geometry_info%cell_type, vgrid_def(1:nv_grids))
         END IF
@@ -618,7 +617,7 @@ CONTAINS
       END SELECT
 #endif
 
-      CALL defineVariable(cdiIds, info, ASSOCIATED(element%field%i_ptr), ASSOCIATED(element%field%l_ptr))
+      CALL cdiIds%defineVariable(info, ASSOCIATED(element%field%i_ptr), ASSOCIATED(element%field%l_ptr))
     ENDDO for_all_list_elements
 
   END SUBROUTINE addVarListToVlist
@@ -771,11 +770,7 @@ CONTAINS
     ALLOCATE(cdiIds(nvar_lists), STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
     DO i = 1, SIZE(cdiIds, 1)
-        cdiIds(i)%file = CDI_UNDEFID
-        cdiIds(i)%vlist = CDI_UNDEFID
-        cdiIds(i)%taxis = CDI_UNDEFID
-        cdiIds(i)%hgrids(:) = CDI_UNDEFID
-        cdiIds(i)%vgrids(:) = CDI_UNDEFID
+        CALL cdiIds(i)%init()
     END DO
 
     CALL set_restart_time( iso8601(datetime) )  ! Time tag
@@ -839,7 +834,7 @@ CONTAINS
           END DO
 
           ! close the file
-          CALL closeAndDestroyIds(cdiIds(i))
+          CALL cdiIds(i)%closeAndDestroyIds()
           var_lists(i)%p%cdiTimeIndex = CDI_UNDEFID
 
           IF (PRESENT(opt_ndom)) THEN

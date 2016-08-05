@@ -65,8 +65,7 @@ MODULE mo_io_restart_async
   USE mo_packed_message,          ONLY: t_PackedMessage, kPackOp, kUnpackOp
   USE mo_util_string,             ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                   int2string, toCharacter
-  USE mo_util_restart,            ONLY: t_v_grid, t_restart_cdi_ids, set_vertical_grid, closeAndDestroyIds, &
-                                      & openRestartAndCreateIds, defineVariable, setGeneralRestartAttributes, &
+  USE mo_util_restart,            ONLY: t_v_grid, t_restart_cdi_ids, set_vertical_grid, setGeneralRestartAttributes, &
                                       & setDynamicPatchRestartAttributes, setPhysicsRestartAttributes
 
 #ifndef NOMPI
@@ -1378,12 +1377,7 @@ CONTAINS
     rf%linkname                   = ''
     rf%linkprefix                 = ''
 
-    rf%cdiIds%file                  = CDI_UNDEFID
-    rf%cdiIds%vlist                 = CDI_UNDEFID
-    rf%cdiIds%taxis                 = CDI_UNDEFID
-
-    rf%cdiIds%hgrids(:)             = CDI_UNDEFID
-    rf%cdiIds%vgrids(:)             = CDI_UNDEFID
+    CALL rf%cdiIds%init()
     rf%cdiTimeIndex               = CDI_UNDEFID
 
     ! counts number of restart variables for this file (logical patch ident)
@@ -2356,7 +2350,7 @@ CONTAINS
 
       ! define the CDI variable
       !XXX: The code I found here simply assumed that all variables are of TYPE REAL. I have NOT changed this behavior, however, the .FALSE. constants should be replaced by something more sensible IN the future.
-      CALL defineVariable(p_rf%cdiIds, p_info, .FALSE., .FALSE.)
+      CALL p_rf%cdiIds%defineVariable(p_info, .FALSE., .FALSE.)
     ENDDO
   END SUBROUTINE init_restart_variables
 
@@ -2419,11 +2413,11 @@ CONTAINS
     p_rf%filename = TRIM(with_keywords(keywords, TRIM(restart_filename)))
 
     IF(ALLOCATED(p_pd%opt_pvct)) THEN
-        CALL openRestartAndCreateIds(p_rf%cdiIds, TRIM(p_rf%filename), restart_type, restartAttributes, p_pd%cells%n_glb, &
+        CALL p_rf%cdiIds%openRestartAndCreateIds(TRIM(p_rf%filename), restart_type, restartAttributes, p_pd%cells%n_glb, &
                                     &p_pd%verts%n_glb, p_pd%edges%n_glb, p_pd%cell_type, p_pd%v_grid_defs(1:p_pd%v_grid_count), &
                                     &p_pd%opt_pvct)
     ELSE
-        CALL openRestartAndCreateIds(p_rf%cdiIds, TRIM(p_rf%filename), restart_type, restartAttributes, p_pd%cells%n_glb, &
+        CALL p_rf%cdiIds%openRestartAndCreateIds(TRIM(p_rf%filename), restart_type, restartAttributes, p_pd%cells%n_glb, &
                                     &p_pd%verts%n_glb, p_pd%edges%n_glb, p_pd%cell_type, p_pd%v_grid_defs(1:p_pd%v_grid_count))
     END IF
 
@@ -2464,7 +2458,7 @@ CONTAINS
 #endif
     ENDIF
 
-    CALL closeAndDestroyIds(rf%cdiIds)
+    CALL rf%cdiIds%closeAndDestroyIds()
     rf%filename = ''
     rf%linkname = ''
     rf%linkprefix = ''
