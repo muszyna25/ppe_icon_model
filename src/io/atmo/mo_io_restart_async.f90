@@ -23,7 +23,7 @@ MODULE mo_io_restart_async
 
   USE mo_decomposition_tools,     ONLY: t_grid_domain_decomp_info
   USE mo_exception,               ONLY: finish, message
-  USE mo_fortran_tools,           ONLY: assign_if_present_allocatable
+  USE mo_fortran_tools,           ONLY: assign_if_present_allocatable, t_ptr_2d
   USE mo_kind,                    ONLY: wp, i8, dp
   USE mo_datetime,                ONLY: t_datetime
   USE mo_io_units,                ONLY: nerr, filename_max
@@ -41,7 +41,7 @@ MODULE mo_io_restart_async
   USE mo_name_list_output_init,   ONLY: set_mem_ptr_dp
 #endif
   USE mo_communication,           ONLY: idx_no, blk_no
-  USE mo_parallel_config,         ONLY: nproma, restart_chunk_size
+  USE mo_parallel_config,         ONLY: restart_chunk_size
   USE mo_grid_config,             ONLY: n_dom
   USE mo_run_config,              ONLY: msg_level
   USE mo_ha_dyn_config,           ONLY: ha_dyn_config
@@ -53,7 +53,7 @@ MODULE mo_io_restart_async
   USE mo_restart_patch_description, ONLY: t_restart_patch_description
   USE mo_util_restart,            ONLY: t_restart_cdi_ids, setGeneralRestartAttributes, &
                                       & setDynamicPatchRestartAttributes, setPhysicsRestartAttributes, create_restart_file_link, &
-                                      & t_var_data, getRestartFilename, t_restart_args
+                                      & t_var_data, getRestartFilename, t_restart_args, getLevelPointers
 
 #ifndef NOMPI
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work, p_work_pe0, num_work_procs, MPI_SUCCESS, &
@@ -1740,9 +1740,8 @@ CONTAINS
     TYPE(t_var_metadata), POINTER   :: p_info
     TYPE(t_reorder_data), POINTER   :: p_ri
     TYPE(t_var_data), POINTER       :: p_vars(:)
-    REAL(wp), POINTER               :: r_ptr(:,:,:)
-    INTEGER                         :: iv, mpi_error, nindex, ierrstat, nlevs, i, jk, &
-      &                                var_ref_pos
+    TYPE(t_ptr_2d), ALLOCATABLE     :: dataPointers(:)
+    INTEGER                         :: iv, mpi_error, i, jk
     INTEGER(i8)                     :: ioff
     CHARACTER(LEN=*), PARAMETER     :: routine = modname//':compute_write_var_list'
 
@@ -1777,102 +1776,30 @@ CONTAINS
       ! check time level of the field
       IF (.NOT. has_valid_time_level(p_info, p_pd%description)) CYCLE
 
-      ! Check if first dimension of array is nproma.
-      ! Otherwise we got an array which is not suitable for this output scheme.
-      IF (p_info%used_dimensions(1) /= nproma) &
-        CALL finish(routine,'1st dim is not nproma: '//TRIM(p_info%name))
-
-      ! init. data pointer
-      r_ptr => NULL()
-
-      ! get data index
-      IF (p_info%lcontained) THEN
-        nindex = p_info%ncontained
-      ELSE
-        nindex = 1
-      ENDIF
-
-      ! get data pointer
-      SELECT CASE (p_info%ndims)
-        CASE (1)
-          CALL message(routine, p_info%name)
-          CALL finish(routine,'1d arrays not handled yet.')
-        CASE (2)
-          ! make a 3D copy of the array
-          ALLOCATE(r_ptr(p_info%used_dimensions(1),1,p_info%used_dimensions(2)), &
-            &      STAT=ierrstat)
-          IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
-          var_ref_pos = 3
-          IF (p_info%lcontained)  var_ref_pos = p_info%var_ref_pos
-          SELECT CASE(var_ref_pos)
-          CASE (1)
-            r_ptr(:,1,:) = p_vars(iv)%r_ptr(nindex,:,:,1,1)
-          CASE (2)
-            r_ptr(:,1,:) = p_vars(iv)%r_ptr(:,nindex,:,1,1)
-          CASE (3)
-            r_ptr(:,1,:) = p_vars(iv)%r_ptr(:,:,nindex,1,1)
-          CASE default
-            CALL finish(routine, "internal error!")
-          END SELECT
-        CASE (3)
-          ! copy the pointer
-          var_ref_pos = 4
-          IF (p_info%lcontained)  var_ref_pos = p_info%var_ref_pos
-          SELECT CASE(var_ref_pos)
-          CASE (1)
-            r_ptr => p_vars(iv)%r_ptr(nindex,:,:,:,1)
-          CASE (2)
-            r_ptr => p_vars(iv)%r_ptr(:,nindex,:,:,1)
-          CASE (3)
-            r_ptr => p_vars(iv)%r_ptr(:,:,nindex,:,1)
-          CASE (4)
-            r_ptr => p_vars(iv)%r_ptr(:,:,:,nindex,1)
-          CASE default
-            CALL finish(routine, "internal error!")
-          END SELECT
-        CASE (4)
-          CALL message(routine, p_info%name)
-          CALL finish(routine,'4d arrays not handled yet.')
-        CASE (5)
-          CALL message(routine, p_info%name)
-          CALL finish(routine,'5d arrays not handled yet.')
-        CASE DEFAULT
-          CALL message(routine, p_info%name)
-          CALL finish(routine,'dimension not set.')
-      END SELECT
-
-      ! get number of data levels
-      IF(p_info%ndims == 2) THEN
-        nlevs = 1
-      ELSE
-        nlevs = p_info%used_dimensions(2)
-      ENDIF
+      CALL getLevelPointers(p_vars(iv)%info, p_vars(iv)%r_ptr, dataPointers)
 
       ! get pointer to reorder data
       p_ri => get_reorder_ptr(p_pd%commData, p_info, routine)
 
 #ifdef DEBUG
       WRITE (nerr,FORMAT_VALS7I)routine,' p_pe=',p_pe,' compute pe writes field=', &
-        &                               TRIM(p_info%name),' data=',nlevs*p_ri%n_own
+        &                               TRIM(p_info%name),' data=',SIZE(dataPointers)*p_ri%n_own
 #endif
 
       ! just copy the OWN data points to the memory window
-      DO jk = 1, nlevs
+      DO jk = 1, SIZE(dataPointers)
         DO i = 1, p_ri%n_own
-          mem_ptr_dp(ioff+INT(i,i8)) = REAL(r_ptr(p_ri%own_idx(i),jk,p_ri%own_blk(i)),dp)
-        ENDDO
+          mem_ptr_dp(ioff+INT(i,i8)) = REAL(dataPointers(jk)%p(p_ri%own_idx(i),p_ri%own_blk(i)),dp)
+        END DO
         ioff = ioff + INT(p_ri%n_own,i8)
       END DO
 
-      ! deallocate temp. 2D array
-      IF(p_info%ndims == 2) DEALLOCATE(r_ptr)
-
-    ENDDO
+      ! no deallocation of dataPointers, so that the next invocation of getLevelPointers() may reuse the last allocation
+    END DO
 
     ! unlock RMA window
     CALL MPI_Win_unlock(p_pe_work, mpi_win, mpi_error)
     CALL check_mpi_error(routine, 'MPI_Win_unlock', mpi_error, .TRUE.)
-
   END SUBROUTINE compute_write_var_list
 
   !------------------------------------------------------------------------------------------------

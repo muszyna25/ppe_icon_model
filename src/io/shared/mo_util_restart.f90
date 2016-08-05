@@ -11,8 +11,6 @@
 !! headers of the routines.
 
 MODULE mo_util_restart
-
-    USE mo_exception, ONLY: finish, message, message_text
     USE mo_cdi, ONLY: CDI_UNDEFID, GRID_UNSTRUCTURED, gridCreate, gridDefNvertex, gridDefXname, gridDefXlongname, gridDefXunits, &
                     & gridDefYname, gridDefYlongname, gridDefYunits, zaxisCreate, zaxisDefLevels, streamOpenWrite, &
                     & vlistCreate, taxisCreate, vlistDefTaxis, TAXIS_ABSOLUTE, vlistDefVar, vlistDefVarDatatype, vlistDefVarName, &
@@ -21,16 +19,16 @@ MODULE mo_util_restart
     USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_COUNT, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, &
                               & ZA_COUNT, ZA_HYBRID, ZA_HYBRID_HALF, ZA_LAKE_BOTTOM, ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, &
                               & ZA_SEDIMENT_BOTTOM_TW_HALF, cdi_zaxis_types
-
     USE mo_cf_convention, ONLY: cf_global_info
     USE mo_datetime, ONLY: t_datetime, iso8601, iso8601extended
-    USE mo_exception, ONLY: get_filename_noext
-    USE mo_fortran_tools, ONLY: assign_if_present, assign_if_present_allocatable
+    USE mo_exception, ONLY: get_filename_noext, finish, message, message_text
+    USE mo_fortran_tools, ONLY: assign_if_present, assign_if_present_allocatable, t_ptr_2d
     USE mo_impl_constants, ONLY: SUCCESS, MAX_CHAR_LENGTH
     USE mo_io_restart_attributes, ONLY: t_RestartAttributeList
     USE mo_io_restart_namelist, ONLY: RestartNamelist_writeToFile
     USE mo_kind, ONLY: wp, i8
     USE mo_packed_message, ONLY: t_PackedMessage
+    USE mo_parallel_config, ONLY: nproma
     USE mo_run_config, ONLY: restart_filename
     USE mo_util_cdi, ONLY: cdiGetStringError
     USE mo_util_file, ONLY: util_symlink, util_islink, util_unlink
@@ -52,6 +50,7 @@ MODULE mo_util_restart
     PUBLIC :: setPhysicsRestartAttributes
     PUBLIC :: set_vertical_grid
     PUBLIC :: create_restart_file_link
+    PUBLIC :: getLevelPointers
 
     ! TYPE t_v_grid contains the data of a vertical grid definition.
     TYPE t_v_grid
@@ -536,5 +535,75 @@ CONTAINS
 
         IF(ALLOCATED(me%output_jfile)) DEALLOCATE(me%output_jfile)
     END SUBROUTINE restartArgs_destruct
+
+    SUBROUTINE getLevelPointers(varMetadata, varData, levelPointers)
+        TYPE(t_var_metadata), INTENT(IN) :: varMetadata
+        REAL(wp), TARGET :: varData(:,:,:,:,:)
+        TYPE(t_ptr_2d), ALLOCATABLE, INTENT(INOUT) :: levelPointers(:)
+
+        INTEGER :: nindex, nlevs, var_ref_pos, error, jk
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":getLevelPointers"
+
+        ! Check if first dimension of array is nproma.
+        ! Otherwise we got an array which is not suitable for this output scheme.
+        IF (varMetadata%used_dimensions(1) /= nproma) CALL finish(routine,'1st dim is not nproma: '//TRIM(varMetadata%name))
+
+        ! get data index
+        nindex = 1
+        IF(varMetadata%lcontained) nindex = varMetadata%ncontained
+
+        ! get number of data levels
+        nlevs = 1
+        IF(varMetadata%ndims /= 2) nlevs = varMetadata%used_dimensions(2)
+
+        var_ref_pos = varMetadata%ndims + 1
+        IF(varMetadata%lcontained) var_ref_pos = varMetadata%var_ref_pos
+
+        ! ALLOCATE the POINTER array
+        IF(ALLOCATED(levelPointers)) THEN
+            ! can we reuse the old allocation?
+            IF(SIZE(levelPointers) /= nlevs) DEALLOCATE(levelPointers)
+        END IF
+        IF(.NOT.ALLOCATED(levelPointers)) THEN
+            ! no suitable old allocation that can be reused
+            ALLOCATE(levelPointers(nlevs), STAT = error)
+            IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+        END IF
+
+        ! get data pointers
+        SELECT CASE (varMetadata%ndims)
+            CASE (2)
+                ! make a 3D copy of the array
+                SELECT CASE(var_ref_pos)
+                    CASE (1)
+                        levelPointers(1)%p => varData(nindex,:,:,1,1)
+                    CASE (2)
+                        levelPointers(1)%p => varData(:,nindex,:,1,1)
+                    CASE (3)
+                        levelPointers(1)%p => varData(:,:,nindex,1,1)
+                    CASE default
+                        CALL finish(routine, "internal error!")
+                END SELECT
+            CASE (3)
+                ! copy the pointer
+                DO jk = 1, nlevs
+                    SELECT CASE(var_ref_pos)
+                        CASE (1)
+                            levelPointers(jk)%p => varData(nindex,:,jk,:,1)
+                        CASE (2)
+                            levelPointers(jk)%p => varData(:,nindex,jk,:,1)
+                        CASE (3)
+                            levelPointers(jk)%p => varData(:,jk,nindex,:,1)
+                        CASE (4)
+                            levelPointers(jk)%p => varData(:,jk,:,nindex,1)
+                        CASE default
+                            CALL finish(routine, "internal error!")
+                    END SELECT
+                END DO
+            CASE DEFAULT
+              CALL finish(routine, "'"//TRIM(varMetadata%NAME)//"': "//&
+                                 & TRIM(int2string(varMetadata%ndims))//"d arrays not handled yet")
+        END SELECT
+    END SUBROUTINE getLevelPointers
 
 END MODULE mo_util_restart

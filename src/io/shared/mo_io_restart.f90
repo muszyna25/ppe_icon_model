@@ -56,6 +56,7 @@ MODULE mo_io_restart
   USE mo_kind,                  ONLY: wp
   USE mo_mpi,                   ONLY: p_comm_work,p_bcast
   USE mo_exception,             ONLY: finish, message, message_text
+  USE mo_fortran_tools,         ONLY: t_ptr_2d
   USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, TLEV_NNOW, TLEV_NNOW_RCF, SUCCESS
   USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_linked_list,           ONLY: t_var_list, t_list_element
@@ -72,7 +73,7 @@ MODULE mo_io_restart
                                     & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE, ZA_OCEAN_SEDIMENT, ZA_COUNT
   USE mo_util_restart,          ONLY: t_v_grid, t_restart_cdi_ids, set_vertical_grid, setGeneralRestartAttributes, &
                                     & setDynamicPatchRestartAttributes, setPhysicsRestartAttributes, create_restart_file_link, &
-                                    & getRestartFilename
+                                    & getRestartFilename, getLevelPointers
   USE mo_util_string,           ONLY: int2string, separator
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink
   USE mo_util_hash,             ONLY: util_hashword
@@ -877,11 +878,12 @@ CONTAINS
 
     REAL(wp), ALLOCATABLE :: r_out_wp(:) ! field gathered on I/O processor
 
-    INTEGER :: nindex, private_n, lev
+    INTEGER :: private_n, lev
+    TYPE(t_ptr_2d), ALLOCATABLE :: levelPointers(:)
     TYPE(t_comm_gather_pattern), POINTER :: gather_pattern
 
     INTEGER :: time_level
-    INTEGER :: jg, var_ref_pos
+    INTEGER :: jg
     LOGICAL :: lskip_timelev, lskip_extra_timelevs
 
     jg = p_patch%id
@@ -939,8 +941,10 @@ CONTAINS
       END SELECT
 #endif
 
-      nindex = MERGE(info%ncontained, 1, info%lcontained)
+      ! we are committed to writing now
+      IF (my_process_is_mpi_workroot()) write (0,*)' ... write ',info%name
 
+      ! ALLOCATE the global array to gather the DATA on the master process
       SELECT CASE (info%hgrid)
       CASE (GRID_UNSTRUCTURED_CELL)
         private_n = private_nc
@@ -954,77 +958,30 @@ CONTAINS
       CASE default
         CALL finish(routine,'unknown grid type')
       END SELECT
-
       ALLOCATE(r_out_wp(MERGE(private_n, 0, my_process_is_mpi_workroot())))
 
-      IF (info%ndims == 1) THEN
-        CALL finish(routine, '1d arrays not handled yet.')
-      ELSE IF (info%ndims == 2) THEN
-        var_ref_pos = 3
-        IF (info%lcontained)  var_ref_pos = info%var_ref_pos
-        SELECT CASE(var_ref_pos)
-        CASE (1)
-          CALL exchange_data(in_array=element%field%r_ptr(nindex,:,:,1,1), &
-            &                out_array=r_out_wp, gather_pattern=gather_pattern)
-        CASE (2)
-          CALL exchange_data(in_array=element%field%r_ptr(:,nindex,:,1,1), &
-            &                out_array=r_out_wp, gather_pattern=gather_pattern)
-        CASE (3)
-          CALL exchange_data(in_array=element%field%r_ptr(:,:,nindex,1,1), &
-            &                out_array=r_out_wp, gather_pattern=gather_pattern)
-        CASE default
-          CALL finish(routine, "internal error!")
-        END SELECT
+      ! get pointers to the local DATA
+      CALL getLevelPointers(element%field%info, element%field%r_ptr, levelPointers)
 
-        ! write data
-
-        IF (my_process_is_mpi_workroot()) THEN
-          WRITE (0,*)' ... write ',info%name
-          CALL streamWriteVar(fileId, info%cdiVarID, &
-            &                 r_out_wp(:), 0)
+      ! gather the DATA IN the master process AND WRITE it to disk
+      DO lev = 1, SIZE(levelPointers)
+        CALL exchange_data(in_array = levelPointers(lev)%p, out_array = r_out_wp, gather_pattern = gather_pattern)
+        IF(my_process_is_mpi_workroot()) THEN
+            SELECT CASE(info%ndims)
+                CASE(2)
+                    CALL streamWriteVar(fileId, info%cdiVarID, r_out_wp(:), 0)
+                CASE(3)
+                    CALL streamWriteVarSlice(fileId, info%cdiVarID, lev-1, r_out_wp(:), 0)
+                CASE DEFAULT
+                    CALL finish(routine, TRIM(int2string(info%ndims))//"d arrays not handled yet.")
+            END SELECT
         END IF
-      ELSE IF (info%ndims == 3) THEN
-        var_ref_pos = 4
-        IF (info%lcontained)  var_ref_pos = info%var_ref_pos
-
-        IF (my_process_is_mpi_workroot()) &
-          write (0,*)' ... write ',info%name
-        DO lev = 1, info%used_dimensions(2)
-
-          SELECT CASE(var_ref_pos)
-          CASE (1)
-            CALL exchange_data( in_array=element%field%r_ptr(nindex,:,lev,:,1), &
-              &                 out_array=r_out_wp, gather_pattern=gather_pattern)
-          CASE (2)
-            CALL exchange_data( in_array=element%field%r_ptr(:,nindex,lev,:,1), &
-              &                 out_array=r_out_wp, gather_pattern=gather_pattern)
-          CASE (3)
-            CALL exchange_data( in_array=element%field%r_ptr(:,lev,nindex,:,1), &
-              &                 out_array=r_out_wp, gather_pattern=gather_pattern)
-          CASE (4)
-            CALL exchange_data( in_array=element%field%r_ptr(:,lev,:,nindex,1), &
-              &                 out_array=r_out_wp, gather_pattern=gather_pattern)
-          CASE default
-            CALL finish(routine, "internal error!")
-          END SELECT
-
-          IF (my_process_is_mpi_workroot()) &
-            CALL streamWriteVarSlice(fileId, &
-              &                      info%cdiVarID, lev-1, r_out_wp(:), 0)
-        END DO
-      ELSE IF (info%ndims > 3) THEN
-        CALL finish(routine, 'arrays with more then three dimensions not handled yet.')
-      ELSE
-        CALL finish(routine,'dimension not set.')
-      END IF
-
+      END DO
 
       ! deallocate temporary global arrays
-
       DEALLOCATE(r_out_wp)
-
+      ! no deallocation of levelPointers so that the next invocation of getLevelPointers() may reuse the allocation
     END DO for_all_list_elements
-
   END SUBROUTINE write_restart_var_list
 
   !------------------------------------------------------------------------------------------------
