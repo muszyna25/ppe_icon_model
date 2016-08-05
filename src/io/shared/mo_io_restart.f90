@@ -269,7 +269,7 @@ CONTAINS
 
   SUBROUTINE defineRestartAttributes(restartAttributes, datetime, jstep, opt_ndom, opt_ndyn_substeps, &
                                     &opt_jstep_adv_marchuk_order, opt_output_jfile, opt_sim_time, opt_t_elapsed_phy, opt_lcall_phy)
-    TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
+    TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
     TYPE(t_datetime), INTENT(IN) :: datetime
     INTEGER, VALUE :: jstep
     INTEGER, INTENT(IN), OPTIONAL :: opt_ndom, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_output_jfile(:)
@@ -384,7 +384,7 @@ CONTAINS
   SUBROUTINE open_writing_restart_files(patch, restart_filename, restartAttributes, cdiIds)
     TYPE(t_patch), INTENT(IN) :: patch
     CHARACTER(LEN=*), INTENT(IN) :: restart_filename
-    TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
+    TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
     TYPE(t_restart_cdi_ids), INTENT(INOUT) :: cdiIds(:)
 
     INTEGER :: status, i ,j, jg, ia, ihg, ivg
@@ -1141,7 +1141,6 @@ CONTAINS
       &                                 nmiss, nvars, root_pe, var_ref_pos, lev
     CHARACTER(len=8)                 :: model_type
     REAL(wp), POINTER                :: r1d(:), rptr2d(:,:), rptr3d(:,:,:)
-    INTEGER, POINTER                 :: glb_index(:)
     CLASS(t_scatterPattern), POINTER :: scatter_pattern
 
     ! rank of broadcast root PE

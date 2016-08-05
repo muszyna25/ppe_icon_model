@@ -156,7 +156,7 @@ MODULE mo_util_restart
 CONTAINS
 
     SUBROUTINE setGeneralRestartAttributes(restartAttributes, datetime, n_dom, jstep, opt_output_jfile)
-        TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
+        TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
         TYPE(t_datetime), INTENT(IN) :: datetime
         INTEGER, VALUE :: n_dom, jstep
         INTEGER, OPTIONAL, INTENT(IN) :: opt_output_jfile(:)
@@ -188,7 +188,7 @@ CONTAINS
     END SUBROUTINE setGeneralRestartAttributes
 
     SUBROUTINE setDynamicPatchRestartAttributes(restartAttributes, jg, nold, nnow, nnew, nnow_rcf, nnew_rcf)
-        TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
+        TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
         INTEGER, VALUE :: jg, nold, nnow, nnew, nnow_rcf, nnew_rcf
 
         CHARACTER(LEN = 2) :: jgString
@@ -203,7 +203,7 @@ CONTAINS
     END SUBROUTINE setDynamicPatchRestartAttributes
 
     SUBROUTINE setPhysicsRestartAttributes(restartAttributes, jg, t_elapsed_phy, lcall_phy)
-        TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
+        TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
         INTEGER, VALUE :: jg
         REAL(wp), INTENT(IN) :: t_elapsed_phy(:)
         LOGICAL, INTENT(IN) :: lcall_phy(:)
@@ -327,7 +327,7 @@ CONTAINS
         CLASS(t_restart_cdi_ids), INTENT(INOUT) :: me
         CHARACTER(LEN = *), INTENT(IN) :: filename
         INTEGER, VALUE :: restartType, cellCount, vertCount, edgeCount, cellType
-        TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
+        TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
         TYPE(t_v_grid), INTENT(IN) :: vgridDefs(:)
         REAL(wp), INTENT(IN), OPTIONAL :: opt_vct(:)
 

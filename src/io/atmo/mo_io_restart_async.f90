@@ -1574,7 +1574,7 @@ CONTAINS
   !  Set global restart attributes.
   !
   SUBROUTINE set_restart_attributes (restartAttributes, restart_args)
-    TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
+    TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
     TYPE(t_restart_args), INTENT(IN) :: restart_args
 
     TYPE(t_restart_patch_description), POINTER :: p_pd
@@ -1646,7 +1646,7 @@ CONTAINS
   ! Returns true, if the time level of the given field is valid, else false.
   !
   FUNCTION has_valid_time_level(p_info, patchDescription)
-    TYPE(t_var_metadata), POINTER, INTENT(IN) :: p_info
+    TYPE(t_var_metadata), INTENT(IN) :: p_info
     TYPE(t_restart_patch_description), INTENT(IN) :: patchDescription
 
     LOGICAL                       :: has_valid_time_level
@@ -1757,7 +1757,7 @@ CONTAINS
   ! Write restart variable list for a restart PE.
   !
   SUBROUTINE restart_write_var_list(p_pd, restart_args)
-    TYPE(t_patch_data), POINTER, INTENT(IN) :: p_pd
+    TYPE(t_patch_data), TARGET, INTENT(IN) :: p_pd
     TYPE(t_restart_args), INTENT(IN) :: restart_args
 
     TYPE(t_restart_file), POINTER   :: p_rf
@@ -1928,7 +1928,7 @@ CONTAINS
   ! Write restart variable lists for a compute PE.
   !
   SUBROUTINE compute_write_var_list(p_pd)
-    TYPE(t_patch_data), POINTER, INTENT(IN) :: p_pd
+    TYPE(t_patch_data), TARGET, INTENT(IN) :: p_pd
 
     TYPE(t_var_metadata), POINTER   :: p_info
     TYPE(t_reorder_data), POINTER   :: p_ri
@@ -2073,7 +2073,7 @@ CONTAINS
   ! Initialize the variable list of the given restart file.
   !
   SUBROUTINE init_restart_variables(p_rf,patch_id)
-    TYPE(t_restart_file), POINTER, INTENT(IN) :: p_rf
+    TYPE(t_restart_file), TARGET, INTENT(IN) :: p_rf
     INTEGER, INTENT(IN)           :: patch_id
 
     TYPE(t_var_data), POINTER     :: p_vars(:)
@@ -2109,9 +2109,9 @@ CONTAINS
   ! Opens the restart file from the given parameters.
   !
   SUBROUTINE open_restart_file(p_pd, restart_args, restartAttributes)
-    TYPE(t_patch_data), POINTER, INTENT(IN) :: p_pd
+    TYPE(t_patch_data), TARGET, INTENT(INOUT) :: p_pd
     TYPE(t_restart_args), INTENT(IN) :: restart_args
-    TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
+    TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
 
     TYPE(t_restart_patch_description), POINTER :: description
     TYPE(t_restart_comm_data), POINTER :: commData
