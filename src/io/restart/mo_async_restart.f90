@@ -96,10 +96,6 @@ MODULE mo_async_restart
 
   ! TYPE t_restart_file
   TYPE t_restart_file
-    ! the following data can be set before opening the restart file
-    TYPE(t_var_data), POINTER   :: var_data(:)
-
-    ! the following members are set during open
     CHARACTER(LEN=filename_max) :: filename
     CHARACTER(LEN=32)           :: model_type
     TYPE(t_restart_cdi_ids)     :: cdiIds
@@ -110,6 +106,7 @@ MODULE mo_async_restart
   ! combine the DATA that describes a patch for restart purposes with the infos required for the asynchronous fetching of the DATA from the compute PEs
   TYPE t_patch_data
     TYPE(t_restart_patch_description) :: description
+    TYPE(t_var_data), POINTER :: varData(:)
     TYPE(t_AsyncRestartCommData) :: commData
     TYPE(t_restart_file) :: restart_file
   END TYPE t_patch_data
@@ -141,56 +138,52 @@ CONTAINS
   !
   ! Gets the number of  restart variables for the given logical patch ident.
   !
-  SUBROUTINE get_var_list_number(all_fld_cnt, patch_id)
+  INTEGER FUNCTION countRestartVariables(patch_id) RESULT(RESULT)
+    INTEGER, INTENT(IN) :: patch_id
 
-    INTEGER,    INTENT(INOUT)     :: all_fld_cnt
-    INTEGER,    INTENT(IN)        :: patch_id
-
-    INTEGER                       :: i, fld_cnt, list_cnt
+    INTEGER :: i, fld_cnt
     TYPE(t_list_element), POINTER :: element
 
 #ifdef DEBUG
     TYPE(t_list_element), POINTER :: element_list
-    CHARACTER(LEN=*), PARAMETER   :: routine = modname//':get_var_list_number'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':countRestartVariables'
 
-    WRITE (nerr,FORMAT_VALS5)routine,' p_pe=',p_pe,' patch_id=',patch_id
+    WRITE(nerr, FORMAT_VALS5)routine, ' p_pe=', p_pe, ' patch_id=', patch_id
 #endif
 
-    all_fld_cnt = 0
-    list_cnt = 0
+    RESULT = 0
 
     DO i = 1, nvar_lists
         ! skip, if var_list is not required for restart
-        IF (.NOT. var_lists(i)%p%lrestart) CYCLE
+        IF(.NOT. var_lists(i)%p%lrestart) CYCLE
 
         ! check the given logical patch id
-        IF (var_lists(i)%p%patch_id /= patch_id) CYCLE
+        IF(var_lists(i)%p%patch_id /= patch_id) CYCLE
 
         ! check, if the list has valid restart fields
         fld_cnt = 0
         element => var_lists(i)%p%first_list_element
         DO
             IF(.NOT. ASSOCIATED(element)) EXIT
-            IF (element%field%info%lrestart) fld_cnt = fld_cnt + 1
+            IF(element%field%info%lrestart) fld_cnt = fld_cnt + 1
             element => element%next_list_element
         ENDDO
-        all_fld_cnt = all_fld_cnt + fld_cnt
+        RESULT = RESULT + fld_cnt
 
 #ifdef DEBUG
-        IF (my_process_is_restart()) THEN
-            IF (fld_cnt > 0) THEN
-                list_cnt = list_cnt + 1
-                WRITE(nerr,'(i4,3a,i4,2a,i3)') &
-                    & list_cnt,'. restart var_list ',TRIM(var_lists(i)%p%name), &
-                    & '(',fld_cnt,')', &
-                    & ' Patch: ',var_lists(i)%p%patch_id
+        IF(my_process_is_restart()) THEN
+            IF(fld_cnt > 0) THEN
+                WRITE(nerr, '(3a,i4,2a,i3)') &
+                    & '. restart var_list ', TRIM(var_lists(i)%p%name), &
+                    & '(', fld_cnt, ')', &
+                    & ' Patch: ', var_lists(i)%p%patch_id
                 element_list => var_lists(i)%p%first_list_element
                 DO
                     IF(.NOT. ASSOCIATED(element_list)) EXIT
-                    IF (element_list%field%info%lrestart) THEN
-                        WRITE (nerr,'(4a)') &
-                            &     '    ',TRIM(element_list%field%info%name), &
-                            &       '  ',TRIM(element_list%field%info%cf%long_name)
+                    IF(element_list%field%info%lrestart) THEN
+                        WRITE(nerr, '(4a)') &
+                            &     '    ', TRIM(element_list%field%info%name), &
+                            &       '  ', TRIM(element_list%field%info%cf%long_name)
                     ENDIF
                     element_list => element_list%next_list_element
                 ENDDO
@@ -198,66 +191,65 @@ CONTAINS
         ENDIF
 #endif
     ENDDO
-  END SUBROUTINE get_var_list_number
+  END FUNCTION countRestartVariables
 
   !------------------------------------------------------------------------------------------------
   !
   ! Sets the restart file data with the given logical patch ident.
   !
   SUBROUTINE restartFile_construct(me, patch_id)
-    CLASS(t_restart_file), INTENT (INOUT) :: me
+    CLASS(t_restart_file), INTENT(INOUT) :: me
     INTEGER, VALUE :: patch_id
 
-    INTEGER                               :: ierrstat, i, i2, num_vars
-    TYPE (t_list_element), POINTER        :: element
-    CHARACTER(LEN=*), PARAMETER           :: routine = modname//':restartFile_construct'
+    me%filename = ''
+    CALL me%cdiIds%init()
+  END SUBROUTINE restartFile_construct
 
-#ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS5)routine,' is called for p_pe=',p_pe,' patch_id=',patch_id
-#endif
+  SUBROUTINE initVarData(varData, patch_id)
+    TYPE(t_var_data), POINTER :: varData(:)
+    INTEGER, VALUE :: patch_id
+
+    INTEGER :: varCount, varIndex, error, curList
+    TYPE(t_list_element), POINTER :: element
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":initVarData"
 
     ! init. main variables
-    me%var_data => NULL()
-    me%filename = ''
-
-    CALL me%cdiIds%init()
+    varData => NULL()
 
     ! counts number of restart variables for this file (logical patch ident)
-    num_vars = 0
-    CALL get_var_list_number(num_vars, patch_id)
-
+    varCount = countRestartVariables(patch_id)
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)routine,' numvars=',num_vars
+    WRITE(nerr, FORMAT_VALS3) routine, ' numvars=', varCount
 #endif
+    IF(varCount <= 0) RETURN
 
-    IF (num_vars <= 0) RETURN
     ! allocate the array of restart variables
-    ALLOCATE (me%var_data(num_vars), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
+    ALLOCATE(varData(varCount), STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 
     ! fill the array of restart variables
-    i2 = 0
-    DO i = 1, nvar_lists
+    varIndex = 1
+    DO curList = 1, nvar_lists
         ! skip, if var_list is not required for restart
-        IF (.NOT. var_lists(i)%p%lrestart) CYCLE
+        IF(.NOT. var_lists(curList)%p%lrestart) CYCLE
 
         ! check the given logical patch id
-        IF (var_lists(i)%p%patch_id /= patch_id) CYCLE
+        IF(var_lists(curList)%p%patch_id /= patch_id) CYCLE
 
         ! check, if the list has valid restart fields
-        element => var_lists(i)%p%first_list_element
+        element => var_lists(curList)%p%first_list_element
         DO
             IF(.NOT. ASSOCIATED(element)) EXIT
-            IF (element%field%info%lrestart) THEN
-                i2 = i2 + 1
-                me%var_data(i2)%info = element%field%info
-                me%var_data(i2)%r_ptr => element%field%r_ptr
-            ENDIF
+            IF(element%field%info%lrestart) THEN
+                varData(varIndex)%info = element%field%info
+                varData(varIndex)%r_ptr => element%field%r_ptr
+                varIndex = varIndex + 1
+            END IF
             element => element%next_list_element
-        ENDDO
-    ENDDO
-
-  END SUBROUTINE restartFile_construct
+        END DO
+    END DO
+    IF(varIndex /= varCount + 1) CALL finish(routine, "assertion failed: wrong restart variable count")
+  END SUBROUTINE initVarData
 
   !------------------------------------------------------------------------------------------------
   !
@@ -292,8 +284,9 @@ CONTAINS
     DO jg = 1, n_dom
         ! construct the subobjects
         CALL create_patch_description(me%patch_data(jg)%description, jg)
+        CALL initVarData(me%patch_data(jg)%varData, jg)
         CALL me%patch_data(jg)%restart_file%construct(jg)
-        CALL me%patch_data(jg)%commData%construct(jg, me%patch_data(jg)%restart_file%var_data)
+        CALL me%patch_data(jg)%commData%construct(jg, me%patch_data(jg)%varData)
 
         ! consistency checks
         IF(me%patch_data(jg)%description%n_patch_cells_g /= me%patch_data(jg)%commData%cells%n_glb) THEN
@@ -1140,7 +1133,7 @@ CONTAINS
     p_rf => p_pd%restart_file
 
     ! check the contained array of restart variables
-    p_vars => p_rf%var_data
+    p_vars => p_pd%varData
     IF (.NOT. ASSOCIATED(p_vars)) RETURN
 
     ! get maximum number of data points in a slice and allocate tmp. variables
@@ -1232,7 +1225,7 @@ CONTAINS
     IF (.NOT. my_process_is_work()) CALL finish(routine, NO_COMPUTE_PE)
 
     ! check the array of restart variables
-    p_vars => p_pd%restart_file%var_data
+    p_vars => p_pd%varData
     IF (.NOT. ASSOCIATED(p_vars)) RETURN
 
     ! offset in RMA window for async restart
@@ -1257,27 +1250,21 @@ CONTAINS
   !
   ! Initialize the variable list of the given restart file.
   !
-  SUBROUTINE init_restart_variables(p_rf, patchDescription)
-    TYPE(t_restart_file), TARGET, INTENT(IN) :: p_rf
+  SUBROUTINE init_restart_variables(p_rf, varData, patchDescription)
+    TYPE(t_restart_file), INTENT(IN) :: p_rf
+    TYPE(t_var_data) :: varData(:)
     TYPE(t_restart_patch_description), INTENT(IN) :: patchDescription
 
-    TYPE(t_var_data), POINTER     :: p_vars(:)
-    TYPE(t_var_metadata), POINTER :: p_info
-    CHARACTER(LEN=*), PARAMETER   :: routine = modname//':init_restart_variables'
-    INTEGER                       :: iv
+    INTEGER :: iv
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':init_restart_variables'
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
 #endif
 
-    ! check the contained array of restart variables
-    p_vars => p_rf%var_data
-    IF (.NOT. ASSOCIATED(p_vars)) RETURN
-
     ! go over the all restart variables in the associated array AND define those that have a valid time level
-    DO iv = 1, SIZE(p_vars)
-      p_info => p_vars(iv)%info
-      IF(has_valid_time_level(p_info, patchDescription)) CALL p_rf%cdiIds%defineVariable(p_info)
+    DO iv = 1, SIZE(varData)
+      IF(has_valid_time_level(varData(iv)%info, patchDescription)) CALL p_rf%cdiIds%defineVariable(varData(iv)%info)
     ENDDO
   END SUBROUTINE init_restart_variables
 
@@ -1307,7 +1294,7 @@ CONTAINS
     p_rf => p_pd%restart_file
 
     ! check the contained array of restart variables
-    IF (.NOT. ASSOCIATED(p_rf%var_data)) RETURN
+    IF(.NOT. ASSOCIATED(p_pd%varData)) RETURN
 
     ! get the first restart list from the global lists
     p_re_list => NULL()
@@ -1349,7 +1336,7 @@ CONTAINS
 #endif
 
     ! init list of restart variables
-    CALL init_restart_variables(p_rf, p_pd%description)
+    CALL init_restart_variables(p_rf, p_pd%varData, p_pd%description)
 
     CALL p_rf%cdiIds%finalizeVlist(restart_args%datetime)
   END SUBROUTINE open_restart_file
