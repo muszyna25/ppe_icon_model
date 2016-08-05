@@ -132,7 +132,7 @@ MODULE mo_io_restart_async
   INTEGER, PARAMETER :: MAX_VERTICAL_AXES         = 19
 
   ! common constant strings
-  CHARACTER(LEN=*), PARAMETER :: MODUL_NAME               = 'shared/mo_io_restart_async/'
+  CHARACTER(LEN=*), PARAMETER :: modname                  = 'shared/mo_io_restart_async/'
   CHARACTER(LEN=*), PARAMETER :: ALLOCATE_FAILED          = 'ALLOCATE failed!'
   CHARACTER(LEN=*), PARAMETER :: DEALLOCATE_FAILED        = 'DEALLOCATE failed!'
   CHARACTER(LEN=*), PARAMETER :: UNKNOWN_GRID_TYPE        = 'Unknown grid type!'
@@ -344,14 +344,14 @@ CONTAINS
     INTEGER,  INTENT(IN), OPTIONAL :: opt_lcall_phy_size, opt_t_elapsed_phy_size, &
       &                               opt_pvct_size
 
-    CHARACTER(LEN=*), PARAMETER :: subname = MODUL_NAME//'prepare_async_restart'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'prepare_async_restart'
 
 #ifdef NOMPI
-    CALL finish(subname, ASYNC_RESTART_REQ_MPI)
+    CALL finish(routine, ASYNC_RESTART_REQ_MPI)
 #else
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)subname,' p_pe=',p_pe
+    WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
 #endif
 
     IF(.NOT. (my_process_is_work() .OR. my_process_is_restart())) RETURN
@@ -424,20 +424,20 @@ CONTAINS
 
     TYPE(t_patch_data),   POINTER  :: p_pd
     INTEGER                        :: ierrstat, i
-    CHARACTER(LEN=*), PARAMETER    :: subname = MODUL_NAME//'set_data_async_restart'
+    CHARACTER(LEN=*), PARAMETER    :: routine = modname//'set_data_async_restart'
 
 #ifdef NOMPI
-    CALL finish(subname, ASYNC_RESTART_REQ_MPI)
+    CALL finish(routine, ASYNC_RESTART_REQ_MPI)
 #else
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)subname,' p_pe=',p_pe
+    WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
 #endif
 
     IF(.NOT. (my_process_is_work())) RETURN
 
     ! find patch
-    p_pd => find_patch(patch_id, subname)
+    p_pd => find_patch(patch_id, routine)
 
     ! set activity flag - this needs to be done on all compute PEs because the restart
     ! file may be incomplete otherwise when a nest is started during runtime
@@ -457,7 +457,7 @@ CONTAINS
           restart_args%n_opt_output_file = SIZE(opt_output_jfile)
           IF (.NOT. ALLOCATED(restart_args%opt_output_jfile)) THEN
             ALLOCATE(restart_args%opt_output_jfile(restart_args%n_opt_output_file), STAT=ierrstat)
-            IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+            IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
           ENDIF
           restart_args%opt_output_jfile(:) = opt_output_jfile(:)
         ENDIF
@@ -472,33 +472,33 @@ CONTAINS
       ! copy optional array parameter
       IF (PRESENT(opt_pvct)) THEN
         IF (SIZE(opt_pvct) /= p_pd%n_opt_pvct) THEN
-          CALL finish(subname, WRONG_ARRAY_SIZE//'opt_pvct')
+          CALL finish(routine, WRONG_ARRAY_SIZE//'opt_pvct')
         ENDIF
         IF (.NOT. ALLOCATED (p_pd%opt_pvct)) THEN
           ALLOCATE(p_pd%opt_pvct(p_pd%n_opt_pvct), STAT=ierrstat)
-          IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+          IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
         ENDIF
         p_pd%opt_pvct = opt_pvct
       ENDIF
 
       IF (PRESENT(opt_t_elapsed_phy)) THEN
         IF (SIZE(opt_t_elapsed_phy) /= p_pd%n_opt_t_elapsed_phy) THEN
-          CALL finish(subname, WRONG_ARRAY_SIZE//'opt_t_elapsed_phy')
+          CALL finish(routine, WRONG_ARRAY_SIZE//'opt_t_elapsed_phy')
         ENDIF
         IF (.NOT. ALLOCATED(p_pd%opt_t_elapsed_phy)) THEN
           ALLOCATE(p_pd%opt_t_elapsed_phy(p_pd%n_opt_t_elapsed_phy), STAT=ierrstat)
-          IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+          IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
         ENDIF
         p_pd%opt_t_elapsed_phy = opt_t_elapsed_phy
       ENDIF
 
       IF (PRESENT(opt_lcall_phy)) THEN
         IF (SIZE(opt_lcall_phy) /= p_pd%n_opt_lcall_phy) THEN
-          CALL finish(subname, WRONG_ARRAY_SIZE//'opt_lcall_phy')
+          CALL finish(routine, WRONG_ARRAY_SIZE//'opt_lcall_phy')
         ENDIF
         IF (.NOT. ALLOCATED(p_pd%opt_lcall_phy)) THEN
           ALLOCATE(p_pd%opt_lcall_phy(p_pd%n_opt_lcall_phy), STAT=ierrstat)
-          IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+          IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
         ENDIF
         p_pd%opt_lcall_phy = opt_lcall_phy
       ENDIF
@@ -578,14 +578,14 @@ CONTAINS
     INTEGER                         :: idx
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 
-    CHARACTER(LEN=*), PARAMETER :: subname = MODUL_NAME//'write_async_restart'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'write_async_restart'
 
 #ifdef NOMPI
-    CALL finish (subname, ASYNC_RESTART_REQ_MPI)
+    CALL finish (routine, ASYNC_RESTART_REQ_MPI)
 #else
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)subname,' p_pe=',p_pe
+    WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
 #endif
 
     ! check kind of process
@@ -651,9 +651,9 @@ CONTAINS
   SUBROUTINE close_async_restart
 
 #ifdef NOMPI
-    CHARACTER(LEN=*), PARAMETER :: subname = MODUL_NAME//'close_async_restart'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'close_async_restart'
 
-    CALL finish(subname, ASYNC_RESTART_REQ_MPI)
+    CALL finish(routine, ASYNC_RESTART_REQ_MPI)
 #else
     ! check kind of process
     IF (.NOT. my_process_is_work() .AND. .NOT. my_process_is_restart()) RETURN
@@ -678,14 +678,14 @@ CONTAINS
 
     LOGICAL                       :: done
 
-    CHARACTER(LEN=*), PARAMETER :: subname = MODUL_NAME//'restart_main_proc'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'restart_main_proc'
 
 #ifdef NOMPI
-    CALL finish(subname, ASYNC_RESTART_REQ_MPI)
+    CALL finish(routine, ASYNC_RESTART_REQ_MPI)
 #else
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)subname,' p_pe=',p_pe
+    WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
 #endif
 
     ! check kind of process
@@ -750,9 +750,9 @@ CONTAINS
     REAL(wp) :: msg
 
 #ifdef DEBUG
-    CHARACTER(LEN=*), PARAMETER :: subname = MODUL_NAME//'restart_send_ready'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'restart_send_ready'
 
-    WRITE (nerr,FORMAT_VALS5)subname,' p_pe=',p_pe, &
+    WRITE (nerr,FORMAT_VALS5)routine,' p_pe=',p_pe, &
       & ' call p_barrier with communicator=',p_comm_work
 #endif
     ! make sure all are done
@@ -762,7 +762,7 @@ CONTAINS
     IF (p_pe_work == 0) THEN
       msg = REAL(MSG_RESTART_DONE, wp)
 #ifdef DEBUG
-      WRITE (nerr,FORMAT_VALS7)subname,' p_pe=',p_pe, &
+      WRITE (nerr,FORMAT_VALS7)routine,' p_pe=',p_pe, &
         & ' send message=',INT(msg),' to pe=',p_work_pe0
 #endif
       CALL p_send(msg, p_work_pe0, 0)
@@ -783,17 +783,17 @@ CONTAINS
     INTEGER                        :: i, j, k, ierrstat, position, MAX_BUF_SIZE, &
       &                               iheader, this_patch, calday
     CHARACTER, POINTER             :: p_msg(:)
-    CHARACTER(LEN=*), PARAMETER    :: subname = MODUL_NAME//'restart_wait_for_start'
+    CHARACTER(LEN=*), PARAMETER    :: routine = modname//'restart_wait_for_start'
 
     ! set output parameter to default value
     done = .FALSE.
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)subname,' is called, p_pe=',p_pe
+    WRITE (nerr,FORMAT_VALS3)routine,' is called, p_pe=',p_pe
 #endif
 
     ! create message array
-    p_msg => get_message_array(subname)
+    p_msg => get_message_array(routine)
     position     = 0
     MAX_BUF_SIZE = SIZE(p_msg)
 
@@ -803,7 +803,7 @@ CONTAINS
     ENDIF
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS5)subname,' p_pe=',p_pe, &
+    WRITE (nerr,FORMAT_VALS5)routine,' p_pe=',p_pe, &
       & ' call p_bcast with communicator=',p_comm_work
 #endif
     CALL p_bcast_packed(p_msg, 0, MAX_BUF_SIZE, comm=p_comm_work)
@@ -832,7 +832,7 @@ CONTAINS
         IF (restart_args%n_opt_output_file > 0) THEN
           IF (.NOT. ALLOCATED(restart_args%opt_output_jfile)) THEN
             ALLOCATE(restart_args%opt_output_jfile(restart_args%n_opt_output_file), STAT=ierrstat)
-            IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+            IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
           ENDIF
           DO i=1,restart_args%n_opt_output_file
             CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, restart_args%opt_output_jfile(i), p_comm_work)
@@ -844,7 +844,7 @@ CONTAINS
 
           ! find the patch of the current patch id
           CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, this_patch,            p_comm_work)
-          p_pd => find_patch(this_patch, subname)
+          p_pd => find_patch(this_patch, routine)
 
           ! activity flag
           CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_dom_active,     p_comm_work)
@@ -881,7 +881,7 @@ CONTAINS
           IF (p_pd%n_opt_pvct > 0) THEN
             IF (.NOT. ALLOCATED(p_pd%opt_pvct)) THEN
               ALLOCATE(p_pd%opt_pvct(p_pd%n_opt_pvct), STAT=ierrstat)
-              IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+              IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
             ENDIF
             DO k = 1, SIZE(p_pd%opt_pvct)
               CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, p_pd%opt_pvct(k),  p_comm_work)
@@ -891,7 +891,7 @@ CONTAINS
           IF (p_pd%n_opt_lcall_phy > 0) THEN
             IF (.NOT. ALLOCATED(p_pd%opt_lcall_phy)) THEN
               ALLOCATE(p_pd%opt_lcall_phy(p_pd%n_opt_lcall_phy), STAT=ierrstat)
-              IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+              IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
             ENDIF
             DO k = 1, SIZE(p_pd%opt_lcall_phy)
               CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%opt_lcall_phy(k),  p_comm_work)
@@ -901,7 +901,7 @@ CONTAINS
           IF (p_pd%n_opt_t_elapsed_phy > 0) THEN
             IF (.NOT. ALLOCATED(p_pd%opt_t_elapsed_phy)) THEN
               ALLOCATE(p_pd%opt_t_elapsed_phy(p_pd%n_opt_t_elapsed_phy), STAT=ierrstat)
-              IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+              IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
             ENDIF
             DO k = 1, SIZE(p_pd%opt_t_elapsed_phy)
               CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, p_pd%opt_t_elapsed_phy(k),  p_comm_work)
@@ -914,7 +914,7 @@ CONTAINS
 
       CASE DEFAULT
         ! anything else is an error
-        CALL finish(subname,'restart PE: Got illegal restart tag')
+        CALL finish(routine,'restart PE: Got illegal restart tag')
 
     END SELECT
 
@@ -933,27 +933,27 @@ CONTAINS
 
     REAL(wp) :: msg
 
-    CHARACTER(LEN=*), PARAMETER :: subname = MODUL_NAME//'compute_wait_for_restart'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'compute_wait_for_restart'
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)subname,' is called, p_pe=',p_pe
+    WRITE (nerr,FORMAT_VALS3)routine,' is called, p_pe=',p_pe
 #endif
 
     ! first compute PE receives message from restart leader
     IF(p_pe_work == 0) THEN
       CALL p_recv(msg, p_restart_pe0, 0)
 #ifdef DEBUG
-      WRITE (nerr,FORMAT_VALS7)subname,' p_pe=',p_pe, &
+      WRITE (nerr,FORMAT_VALS7)routine,' p_pe=',p_pe, &
         & ' p_recv got msg=',INT(msg),' from pe=',p_restart_pe0
 #endif
       ! just for safety: Check if we got the correct tag
       IF(INT(msg) /= MSG_RESTART_DONE) THEN
-        CALL finish(subname,'Compute PE: Got illegal restart tag')
+        CALL finish(routine,'Compute PE: Got illegal restart tag')
       ENDIF
     ENDIF
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS5)subname,' p_pe=',p_pe, &
+    WRITE (nerr,FORMAT_VALS5)routine,' p_pe=',p_pe, &
       & ' call p_barrier with communicator=',p_comm_work
 #endif
     ! wait in barrier until message is here
@@ -974,10 +974,10 @@ CONTAINS
     TYPE(t_patch_data),   POINTER  :: p_pd
     CHARACTER, POINTER             :: p_msg(:)
     INTEGER                        :: i, j, k, position, MAX_BUF_SIZE
-    CHARACTER(LEN=*), PARAMETER :: subname = MODUL_NAME//'compute_start_restart'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'compute_start_restart'
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS5)subname,' p_pe=',p_pe, &
+    WRITE (nerr,FORMAT_VALS5)routine,' p_pe=',p_pe, &
       & ' call p_barrier with communicator=',p_comm_work
 #endif
 
@@ -1029,7 +1029,7 @@ CONTAINS
     IF(p_pe_work == 0) THEN
 
       ! create message array
-      p_msg => get_message_array(subname)
+      p_msg => get_message_array(routine)
       position     = 0
       MAX_BUF_SIZE = SIZE(p_msg)
 
@@ -1127,11 +1127,11 @@ CONTAINS
   SUBROUTINE compute_shutdown_restart
 
     CHARACTER, POINTER          :: p_msg(:)
-    CHARACTER(LEN=*), PARAMETER :: subname = MODUL_NAME//'compute_shutdown_restart'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'compute_shutdown_restart'
     INTEGER :: position, MAX_BUF_SIZE
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS5)subname,' p_pe=',p_pe, &
+    WRITE (nerr,FORMAT_VALS5)routine,' p_pe=',p_pe, &
       & ' call p_barrier with communicator=',p_comm_work
 #endif
 
@@ -1141,7 +1141,7 @@ CONTAINS
     IF(p_pe_work == 0) THEN
 
       ! create message array
-      p_msg => get_message_array(subname)
+      p_msg => get_message_array(routine)
       position     = 0
       MAX_BUF_SIZE = SIZE(p_msg)
       CALL p_pack_int(MSG_RESTART_SHUTDOWN, p_msg, MAX_BUF_SIZE, position, p_comm_work)
@@ -1158,9 +1158,9 @@ CONTAINS
   !  Get a message array to transfer all dynamical restart arguments
   !  between compute and restart PEs.
   !
-  FUNCTION get_message_array (subname) 
+  FUNCTION get_message_array (routine) 
     CHARACTER, POINTER            :: get_message_array(:)
-    CHARACTER(LEN=*), INTENT(in)  :: subname
+    CHARACTER(LEN=*), INTENT(in)  :: routine
 
     INTEGER                       :: ierrstat, n_msg
     TYPE(t_patch_data), POINTER   :: p_pd
@@ -1178,13 +1178,13 @@ CONTAINS
     n_msg = MIN_DYN_RESTART_ARGS + (SIZE(patch_data) * n_msg)
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS5)subname,' p_pe=',p_pe, &
+    WRITE (nerr,FORMAT_VALS5)routine,' p_pe=',p_pe, &
       & ' calculated message size=',n_msg
 #endif
 
     ! allocate memory (with 2x safety margin ;) )
     ALLOCATE (get_message_array(2*n_msg*p_int_byte), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (subname, ALLOCATE_FAILED)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, ALLOCATE_FAILED)
 
   END FUNCTION get_message_array
 
@@ -1197,9 +1197,9 @@ CONTAINS
   !
   !  A simple helper routine to check the result of the last MPI call.
   !
-  SUBROUTINE check_mpi_error(subname, mpi_call, mpi_error, l_finish)
+  SUBROUTINE check_mpi_error(routine, mpi_call, mpi_error, l_finish)
 
-    CHARACTER(LEN=*), INTENT(IN)    :: subname, mpi_call
+    CHARACTER(LEN=*), INTENT(IN)    :: routine, mpi_call
     INTEGER, INTENT(IN)             :: mpi_error
     LOGICAL, INTENT(IN)             :: l_finish
 
@@ -1209,9 +1209,9 @@ CONTAINS
       IF (l_finish) THEN
         WRITE (error_message, '(2a,i5)')TRIM(mpi_call), &
           &                    ' returned with error=',mpi_error
-        CALL finish(subname, TRIM(error_message))
+        CALL finish(routine, TRIM(error_message))
       ELSE
-        WRITE (error_message, '(4a,i5)')TRIM(subname), ".", TRIM(mpi_call), &
+        WRITE (error_message, '(4a,i5)')TRIM(routine), ".", TRIM(mpi_call), &
           &                    ' returned with error=',mpi_error
         WRITE (nerr, TRIM(error_message))
       ENDIF
@@ -1260,10 +1260,10 @@ CONTAINS
 
     INTEGER                             :: i
 
-    CHARACTER(LEN=*), PARAMETER   :: subname = MODUL_NAME//'release_restart_file'
+    CHARACTER(LEN=*), PARAMETER   :: routine = modname//'release_restart_file'
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)subname,' is called for p_pe=',p_pe
+    WRITE (nerr,FORMAT_VALS3)routine,' is called for p_pe=',p_pe
 #endif
 
     IF (ALLOCATED(rf%mem_win_off)) DEALLOCATE(rf%mem_win_off)
@@ -1309,10 +1309,10 @@ CONTAINS
     TYPE(t_patch_data), POINTER   :: p_pd
     INTEGER                       :: idx, mpi_error
 
-    CHARACTER(LEN=*), PARAMETER   :: subname = MODUL_NAME//'release_resources'
+    CHARACTER(LEN=*), PARAMETER   :: routine = modname//'release_resources'
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)subname,' is called for p_pe=',p_pe
+    WRITE (nerr,FORMAT_VALS3)routine,' is called for p_pe=',p_pe
 #endif
 
     ! release patch data
@@ -1344,15 +1344,15 @@ CONTAINS
     ! release RMA window
     IF (mpi_win /= MPI_WIN_NULL) THEN
       CALL MPI_Win_fence(0, mpi_win, mpi_error)
-      CALL check_mpi_error(subname, 'MPI_Win_fence', mpi_error, .FALSE.)
+      CALL check_mpi_error(routine, 'MPI_Win_fence', mpi_error, .FALSE.)
       CALL MPI_Win_free(mpi_win, mpi_error)
-      CALL check_mpi_error(subname, 'MPI_Win_free', mpi_error, .FALSE.)
+      CALL check_mpi_error(routine, 'MPI_Win_free', mpi_error, .FALSE.)
       mpi_win = MPI_WIN_NULL
     ENDIF
 
     ! release RMA memory
     CALL MPI_Free_mem(mem_ptr_dp, mpi_error)
-    CALL check_mpi_error(subname, 'MPI_Free_mem', mpi_error, .FALSE.)
+    CALL check_mpi_error(routine, 'MPI_Free_mem', mpi_error, .FALSE.)
 
   END SUBROUTINE release_resources
 
@@ -1368,21 +1368,21 @@ CONTAINS
   SUBROUTINE print_restart_arguments()
 
 #ifdef DEBUG
-    CHARACTER(LEN=*), PARAMETER   :: subname = MODUL_NAME//'print_restart_arguments'
+    CHARACTER(LEN=*), PARAMETER   :: routine = modname//'print_restart_arguments'
     TYPE(t_patch_data), POINTER   :: p_pd
 
-    WRITE (nerr,FORMAT_VALS3)subname,' is called for p_pe=',p_pe
+    WRITE (nerr,FORMAT_VALS3)routine,' is called for p_pe=',p_pe
 
-    PRINT *,subname, ' current_caltime=', restart_args%datetime%caltime
-    PRINT *,subname, ' current_calday=',  restart_args%datetime%calday
-    PRINT *,subname, ' current_daysec=',  restart_args%datetime%daysec
+    PRINT *,routine, ' current_caltime=', restart_args%datetime%caltime
+    PRINT *,routine, ' current_calday=',  restart_args%datetime%calday
+    PRINT *,routine, ' current_daysec=',  restart_args%datetime%daysec
 
     ! patch informations
-    PRINT *,subname, ' size of patches=',        SIZE(patch_data)
+    PRINT *,routine, ' size of patches=',        SIZE(patch_data)
     p_pd => patch_data(1)
-    PRINT *,subname, ' pd%n_opt_pvct=',          p_pd%n_opt_pvct
-    PRINT *,subname, ' pd%n_opt_lcall_phy=',     p_pd%n_opt_lcall_phy
-    PRINT *,subname, ' pd%n_opt_t_elapsed_phy=', p_pd%n_opt_t_elapsed_phy
+    PRINT *,routine, ' pd%n_opt_pvct=',          p_pd%n_opt_pvct
+    PRINT *,routine, ' pd%n_opt_lcall_phy=',     p_pd%n_opt_lcall_phy
+    PRINT *,routine, ' pd%n_opt_t_elapsed_phy=', p_pd%n_opt_t_elapsed_phy
 #endif
 
   END SUBROUTINE print_restart_arguments
@@ -1401,9 +1401,9 @@ CONTAINS
 
 #ifdef DEBUG
     TYPE(t_list_element), POINTER :: element_list
-    CHARACTER(LEN=*), PARAMETER   :: subname = MODUL_NAME//'get_var_list_number'
+    CHARACTER(LEN=*), PARAMETER   :: routine = modname//'get_var_list_number'
 
-    WRITE (nerr,FORMAT_VALS5)subname,' p_pe=',p_pe,' patch_id=',patch_id
+    WRITE (nerr,FORMAT_VALS5)routine,' p_pe=',p_pe,' patch_id=',patch_id
 #endif
 
     all_fld_cnt = 0
@@ -1474,7 +1474,7 @@ CONTAINS
     CHARACTER(LEN=32)               :: model_type
     LOGICAL                         :: lrestart
 
-    CHARACTER(LEN=*), PARAMETER :: subname = MODUL_NAME//'transfer_restart_var_lists'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'transfer_restart_var_lists'
 
     ! delete old var lists
     IF (my_process_is_restart()) CALL delete_var_lists
@@ -1536,7 +1536,7 @@ CONTAINS
       ENDIF
 
       ALLOCATE(info_storage(info_size, nelems), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 
       IF(.NOT. my_process_is_restart()) THEN
         element => var_lists(iv)%p%first_list_element
@@ -1562,12 +1562,12 @@ CONTAINS
         DO n = 1, nelems
           IF(.NOT. ASSOCIATED(p_var_list%p%first_list_element)) THEN
             ALLOCATE(p_var_list%p%first_list_element, STAT=ierrstat)
-            IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+            IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 
             element => p_var_list%p%first_list_element
           ELSE
             ALLOCATE(element%next_list_element, STAT=ierrstat)
-            IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+            IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
             element => element%next_list_element
           ENDIF
 
@@ -1643,10 +1643,10 @@ CONTAINS
     INTEGER                        :: jg, jl, ierrstat
     TYPE(t_patch_data), POINTER    :: p_pd
 
-    CHARACTER(LEN=*), PARAMETER :: subname = MODUL_NAME//'create_and_transfer_patch_data'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'create_and_transfer_patch_data'
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)subname,' p_pe=',p_pe
+    WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
 #endif
 
     ! replicate domain setup
@@ -1654,7 +1654,7 @@ CONTAINS
 
     ! allocate patch data structure
     ALLOCATE(patch_data(n_dom), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 
     ! set number of global cells/edges/verts and patch ID
     DO jg = 1, n_dom
@@ -1759,10 +1759,10 @@ CONTAINS
     INTEGER                               :: ierrstat, i, i2, num_vars
     TYPE (t_list_element), POINTER        :: element
 
-    CHARACTER(LEN=*), PARAMETER           :: subname = MODUL_NAME//'set_restart_file_data'
+    CHARACTER(LEN=*), PARAMETER           :: routine = modname//'set_restart_file_data'
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS5)subname,' is called for p_pe=',p_pe,' patch_id=',patch_id
+    WRITE (nerr,FORMAT_VALS5)routine,' is called for p_pe=',p_pe,' patch_id=',patch_id
 #endif
 
     ! init. main variables
@@ -1787,13 +1787,13 @@ CONTAINS
     CALL get_var_list_number(num_vars, patch_id)
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)subname,' numvars=',num_vars
+    WRITE (nerr,FORMAT_VALS3)routine,' numvars=',num_vars
 #endif
 
     IF (num_vars <= 0) RETURN
     ! allocate the array of restart variables
     ALLOCATE (rf%var_data(num_vars), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 
     ! fill the array of restart variables
     i2 = 0
@@ -1842,14 +1842,14 @@ CONTAINS
     INTEGER, ALLOCATABLE :: glbidx_own(:), glbidx_glb(:), reorder_index_log_dom(:)
     CHARACTER (LEN=MAX_ERROR_LENGTH) :: error_message
 
-    CHARACTER(LEN=*), PARAMETER :: subname = MODUL_NAME//'set_reorder_data'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'set_reorder_data'
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)subname,' is called for p_pe=',p_pe
+    WRITE (nerr,FORMAT_VALS3)routine,' is called for p_pe=',p_pe
 #endif
 
     ! just for safety
-    IF(my_process_is_restart()) CALL finish(subname, NO_COMPUTE_PE)
+    IF(my_process_is_restart()) CALL finish(routine, NO_COMPUTE_PE)
 
     ! set the non-blocked patch owner mask
     ALLOCATE(owner_mask_1d(n_points))
@@ -1864,13 +1864,13 @@ CONTAINS
 
     ! set index arrays to own cells/edges/verts
     ALLOCATE(reo%own_idx(reo%n_own), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
     ALLOCATE(reo%own_blk(reo%n_own), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 
     ! global index of my own points
     ALLOCATE(glbidx_own(reo%n_own), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 
     n = 0
     DO i = 1, n_points
@@ -1884,14 +1884,14 @@ CONTAINS
 
     ! gather the number of own points for every PE into reo%pe_own
     ALLOCATE(reo%pe_own(0:p_n_work-1), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
     ALLOCATE(reo%pe_off(0:p_n_work-1), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 
     CALL MPI_Allgather(reo%n_own,  1, p_int, &
                        reo%pe_own, 1, p_int, &
                        p_comm_work, mpi_error)
-    CALL check_mpi_error(subname, 'MPI_Allgather', mpi_error, .TRUE.)
+    CALL check_mpi_error(routine, 'MPI_Allgather', mpi_error, .TRUE.)
 
     ! get offset within result array
     reo%pe_off(0) = 0
@@ -1905,20 +1905,20 @@ CONTAINS
     ! Get the global index numbers of the data when it is gathered on PE 0
     ! exactly in the same order as it is retrieved later during restart.
     ALLOCATE(glbidx_glb(reo%n_glb), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 
     CALL MPI_Allgatherv(glbidx_own, reo%n_own, p_int, &
                         glbidx_glb, reo%pe_own, reo%pe_off, p_int, &
                         p_comm_work, mpi_error)
-    CALL check_mpi_error(subname, 'MPI_Allgatherv', mpi_error, .TRUE.)
+    CALL check_mpi_error(routine, 'MPI_Allgatherv', mpi_error, .TRUE.)
 
     ! get reorder_index
     ALLOCATE(reo%reorder_index(reo%n_glb), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 
     ! spans the complete logical domain
     ALLOCATE(reorder_index_log_dom(n_points_g), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
     reorder_index_log_dom(:) = 0
 
     DO i = 1, reo%n_glb
@@ -1945,7 +1945,7 @@ CONTAINS
     IF(n/=reo%n_glb) THEN
       WRITE (error_message, '(a,i8,a,i8)') 'Reordering failed: n=',n, &
                                          & ' /= reo%n_glb=',reo%n_glb
-      CALL finish(subname,TRIM(error_message))
+      CALL finish(routine,TRIM(error_message))
     ENDIF
 
     DEALLOCATE(owner_mask_1d)
@@ -1964,7 +1964,7 @@ CONTAINS
     TYPE(t_reorder_data), INTENT(INOUT) :: reo
     INTEGER                             :: ierrstat
 
-    CHARACTER(LEN=*), PARAMETER :: subname = MODUL_NAME//'transfer_reorder_data'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'transfer_reorder_data'
 
     ! transfer the global number of points, this is not yet known on restart PEs
     CALL p_bcast(reo%n_glb,  bcast_root, p_comm_work_2_restart)
@@ -1976,13 +1976,13 @@ CONTAINS
 
       ! pe_own must be allocated for num_work_procs, not for p_n_work
       ALLOCATE(reo%pe_own(0:num_work_procs-1), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 
       ALLOCATE(reo%pe_off(0:num_work_procs-1), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 
       ALLOCATE(reo%reorder_index(reo%n_glb), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
     ENDIF
 
     CALL p_bcast(reo%pe_own, bcast_root, p_comm_work_2_restart)
@@ -2006,10 +2006,10 @@ CONTAINS
 #endif
     TYPE(t_var_data), POINTER :: p_vars(:)
 
-    CHARACTER(LEN=*), PARAMETER :: subname = MODUL_NAME//'init_remote_memory_access'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'init_remote_memory_access'
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)subname,' is called for p_pe=',p_pe
+    WRITE (nerr,FORMAT_VALS3)routine,' is called for p_pe=',p_pe
 #endif
 
     mpi_win = MPI_WIN_NULL
@@ -2041,19 +2041,19 @@ CONTAINS
           CASE (GRID_UNSTRUCTURED_VERT)
             mem_size = mem_size + INT(nlevs*patch_data(i)%verts%n_own,i8)
           CASE DEFAULT
-            CALL finish(subname,UNKNOWN_GRID_TYPE)
+            CALL finish(routine,UNKNOWN_GRID_TYPE)
         END SELECT
 
       ENDDO
 
       ! get the offset on all PEs
       ALLOCATE(patch_data(i)%restart_file%mem_win_off(0:num_work_procs-1), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
       IF(.NOT.my_process_is_restart()) THEN
         CALL MPI_Allgather(patch_data(i)%restart_file%my_mem_win_off, 1, p_int_i8, &
                            patch_data(i)%restart_file%mem_win_off, 1, p_int_i8,    &
                            p_comm_work, mpi_error)
-        CALL check_mpi_error(subname, 'MPI_Allgather', mpi_error, .TRUE.)
+        CALL check_mpi_error(routine, 'MPI_Allgather', mpi_error, .TRUE.)
       ENDIF
 
       CALL p_bcast(patch_data(i)%restart_file%mem_win_off, bcast_root, p_comm_work_2_restart)
@@ -2063,7 +2063,7 @@ CONTAINS
     ! mem_size is calculated as number of variables above, get number of bytes
     ! get the amount of bytes per REAL*8 variable (as used in MPI communication)
     CALL MPI_Type_extent(p_real_dp, nbytes_real, mpi_error)
-    CALL check_mpi_error(subname, 'MPI_Type_extent', mpi_error, .TRUE.)
+    CALL check_mpi_error(routine, 'MPI_Type_extent', mpi_error, .TRUE.)
 
     ! for the restart PEs the amount of memory needed is 0 - allocate at least 1 word there:
     mem_bytes = MAX(mem_size,1_i8)*INT(nbytes_real,i8)
@@ -2078,7 +2078,7 @@ CONTAINS
     ! see, for example: http://www.lrz.de/services/software/parallel/mpi/onesided/
 #ifdef USE_CRAY_POINTER
     CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, iptr, mpi_error)
-    CALL check_mpi_error(subname, 'MPI_Alloc_mem', mpi_error, .TRUE.)
+    CALL check_mpi_error(routine, 'MPI_Alloc_mem', mpi_error, .TRUE.)
 
     tmp_ptr_dp = iptr
     CALL set_mem_ptr_dp(tmp_dp, INT(mem_size))
@@ -2092,10 +2092,10 @@ CONTAINS
     ! in such a way!!!
     ! If c_intptr_t<=0, this type is not defined and we can't do this check, of course.
     IF(c_intptr_t > 0 .AND. c_intptr_t /= MPI_ADDRESS_KIND) &
-     & CALL finish(subname,'c_intptr_t /= MPI_ADDRESS_KIND, too dangerous to proceed!')
+     & CALL finish(routine,'c_intptr_t /= MPI_ADDRESS_KIND, too dangerous to proceed!')
 
     CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, c_mem_ptr, mpi_error)
-    CALL check_mpi_error(subname, 'MPI_Alloc_mem', mpi_error, .TRUE.)
+    CALL check_mpi_error(routine, 'MPI_Alloc_mem', mpi_error, .TRUE.)
 
     ! The NEC requires a standard INTEGER array as 3rd argument for c_f_pointer,
     ! although it would make more sense to have it of size MPI_ADDRESS_KIND.
@@ -2112,20 +2112,20 @@ CONTAINS
 #ifdef __xlC__
     ! IBM specific RMA hint, that we don't want window caching
     CALL MPI_Info_create(rma_cache_hint, mpi_error);
-    CALL check_mpi_error(subname, 'MPI_Info_create', mpi_error, .TRUE.)
+    CALL check_mpi_error(routine, 'MPI_Info_create', mpi_error, .TRUE.)
     CALL MPI_Info_set(rma_cache_hint, "IBM_win_cache","0", mpi_error)
-    CALL check_mpi_error(subname, 'MPI_Info_set', mpi_error, .TRUE.)
+    CALL check_mpi_error(routine, 'MPI_Info_set', mpi_error, .TRUE.)
 #endif
 
     ! create memory window for communication
     mem_ptr_dp(:) = 0._dp
     CALL MPI_Win_create(mem_ptr_dp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
       &                 p_comm_work_restart,mpi_win,mpi_error )
-    CALL check_mpi_error(subname, 'MPI_Win_create', mpi_error, .TRUE.)
+    CALL check_mpi_error(routine, 'MPI_Win_create', mpi_error, .TRUE.)
 
 #ifdef __xlC__
     CALL MPI_Info_free(rma_cache_hint, mpi_error);
-    CALL check_mpi_error(subname, 'MPI_Info_free', mpi_error, .TRUE.)
+    CALL check_mpi_error(routine, 'MPI_Info_free', mpi_error, .TRUE.)
 #endif
 
   END SUBROUTINE init_remote_memory_access
@@ -2138,10 +2138,10 @@ CONTAINS
   !
   !  Find the patch of the given id.
   !
-  FUNCTION find_patch(id, subname)
+  FUNCTION find_patch(id, routine)
 
     INTEGER, INTENT(IN)             :: id
-    CHARACTER(LEN=*), INTENT(IN)    :: subname
+    CHARACTER(LEN=*), INTENT(IN)    :: routine
 
     INTEGER                         :: i
     TYPE(t_patch_data), POINTER     :: find_patch
@@ -2157,7 +2157,7 @@ CONTAINS
     ENDDO
     IF (.NOT. ASSOCIATED(find_patch)) THEN
       WRITE (err_message, '(a,i5)') ' patch data not found for id=',id
-      CALL finish(subname, err_message)
+      CALL finish(routine, err_message)
     ENDIF
   END FUNCTION find_patch
 
@@ -2179,7 +2179,7 @@ CONTAINS
     TYPE(t_patch_data), INTENT(INOUT) :: patchData
 
     INTEGER :: nlev_soil, nlev_snow, nlev_ocean, nice_class, ierrstat
-    CHARACTER(LEN = *), PARAMETER :: routine = MODUL_NAME//":defineVerticalGrids"
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":defineVerticalGrids"
 
     ! DEFAULT values for the level counts
     nlev_soil = 0
@@ -2229,14 +2229,14 @@ CONTAINS
     CHARACTER(LEN=MAX_NAME_LENGTH) :: attrib_name
     INTEGER                        :: jp, jp_end, jg, i, current_jfile
 
-    CHARACTER(LEN=*), PARAMETER    :: subname = MODUL_NAME//'set_restart_attributes'
+    CHARACTER(LEN=*), PARAMETER    :: routine = modname//'set_restart_attributes'
     CHARACTER(LEN=*), PARAMETER    :: attrib_format_int  = '(a,i2.2)'
     CHARACTER(LEN=*), PARAMETER    :: attrib_format_int2 = '(a,i2.2,a,i2.2)'
 
     CHARACTER(len=MAX_CHAR_LENGTH) :: attname   ! attribute name
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)subname,' is called for p_pe=',p_pe
+    WRITE (nerr,FORMAT_VALS3)routine,' is called for p_pe=',p_pe
 #endif
 
     ! set CF-Convention required restart attributes
@@ -2339,7 +2339,7 @@ CONTAINS
     LOGICAL                       :: lskip_timelev, lskip_extra_timelevs
 
 #ifdef DEBUG
-    CHARACTER(LEN=*), PARAMETER   :: subname = MODUL_NAME//'has_valid_time_level'
+    CHARACTER(LEN=*), PARAMETER   :: routine = modname//'has_valid_time_level'
 #endif
 
     has_valid_time_level = .TRUE.
@@ -2385,7 +2385,7 @@ CONTAINS
 
 #ifdef DEBUG
     IF (.NOT. has_valid_time_level) THEN
-      WRITE (nerr,'(2a,i3,a,i4,3a)')subname,' p_pe=',p_pe,' time level=',time_level, &
+      WRITE (nerr,'(2a,i3,a,i4,3a)')routine,' p_pe=',p_pe,' time level=',time_level, &
         &                           ' of field=',TRIM(p_info%name),' is invalid'
     ENDIF
 #endif
@@ -2396,11 +2396,11 @@ CONTAINS
   !
   ! Returns the pointer of the reorder data for the given field.
   !
-  FUNCTION get_reorder_ptr (p_pd, p_info,subname)
+  FUNCTION get_reorder_ptr (p_pd, p_info,routine)
 
     TYPE(t_patch_data), POINTER, INTENT(IN)   :: p_pd
     TYPE(t_var_metadata), POINTER, INTENT(IN) :: p_info
-    CHARACTER(LEN=*), INTENT(IN)              :: subname
+    CHARACTER(LEN=*), INTENT(IN)              :: routine
 
     TYPE(t_reorder_data), POINTER             :: get_reorder_ptr
 
@@ -2414,7 +2414,7 @@ CONTAINS
       CASE (GRID_UNSTRUCTURED_VERT)
         get_reorder_ptr => p_pd%verts
       CASE default
-        CALL finish(subname, UNKNOWN_GRID_TYPE)
+        CALL finish(routine, UNKNOWN_GRID_TYPE)
     END SELECT
 
   END FUNCTION get_reorder_ptr
@@ -2423,10 +2423,10 @@ CONTAINS
   !
   ! Check the status of the last netCDF file operation.
   !
-  SUBROUTINE check_netcdf_status(status, subname)
+  SUBROUTINE check_netcdf_status(status, routine)
 
     INTEGER, INTENT(IN)           :: status
-    CHARACTER(LEN=*), INTENT(IN)  :: subname
+    CHARACTER(LEN=*), INTENT(IN)  :: routine
 
     CHARACTER(LEN=128)            :: error_text
 
@@ -2434,7 +2434,7 @@ CONTAINS
     IF (status /= nf_noerr) THEN
       WRITE (error_text, NET_CDF_ERROR_FORMAT)'netCDF error ', status , &
         &                                     ' - ' // nf_strerror(status)
-      CALL finish(subname, error_text)
+      CALL finish(routine, error_text)
     ENDIF
 
   END SUBROUTINE check_netcdf_status
@@ -2460,16 +2460,16 @@ CONTAINS
     INTEGER                         :: ichunk, nchunks, chunk_start, chunk_end,     &
       &                                this_chunk_nlevs, ioff2
 
-    CHARACTER(LEN=*), PARAMETER     :: subname = MODUL_NAME//'restart_write_var_list'
+    CHARACTER(LEN=*), PARAMETER     :: routine = modname//'restart_write_var_list'
     ! For timing
     REAL(dp)                        :: t_get, t_write, t_0, mb_get, mb_wr
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)subname,' p_pe=',p_pe
+    WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
 #endif
 
     ! check process
-    IF (.NOT. my_process_is_restart()) CALL finish(subname, NO_RESTART_PE)
+    IF (.NOT. my_process_is_restart()) CALL finish(routine, NO_RESTART_PE)
 
     t_get   = 0.d0
     t_write = 0.d0
@@ -2497,7 +2497,7 @@ CONTAINS
 
     ! allocate RMA memory
     ALLOCATE(var1_dp(nval*restart_chunk_size), var2_dp(nval,restart_chunk_size), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (subname, ALLOCATE_FAILED)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, ALLOCATE_FAILED)
 
     ioff(:) = p_rf%mem_win_off(:)
 
@@ -2508,7 +2508,7 @@ CONTAINS
       p_info => p_vars(iv)%info
 
 #ifdef DEBUG
-      WRITE (nerr,FORMAT_VALS5I)subname,' p_pe=',p_pe,' restart pe processes field=',TRIM(p_info%name)
+      WRITE (nerr,FORMAT_VALS5I)routine,' p_pe=',p_pe,' restart pe processes field=',TRIM(p_info%name)
 #endif
 
       ! check time level of the field
@@ -2522,12 +2522,12 @@ CONTAINS
       ENDIF
 
       ! get pointer to reorder data
-      p_ri => get_reorder_ptr (p_pd, p_info, subname)
+      p_ri => get_reorder_ptr (p_pd, p_info, routine)
       
       ! var1 is stored in the order in which the variable was stored on compute PEs,
       ! get it back into the global storage order
       ALLOCATE(var3_dp(p_ri%n_glb), STAT=ierrstat) ! Must be allocated to exact size
-      IF (ierrstat /= SUCCESS) CALL finish (subname, ALLOCATE_FAILED)
+      IF (ierrstat /= SUCCESS) CALL finish (routine, ALLOCATE_FAILED)
 
       ! no. of chunks of levels (each of size "restart_chunk_size"):
       nchunks = (nlevs-1)/restart_chunk_size + 1
@@ -2546,14 +2546,14 @@ CONTAINS
           nval = p_ri%pe_own(np) * this_chunk_nlevs
           t_0 = p_mpi_wtime()
           CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, mpi_win, mpi_error)
-   !       CALL check_mpi_error(subname, 'MPI_Win_lock', mpi_error, .TRUE.)
+   !       CALL check_mpi_error(routine, 'MPI_Win_lock', mpi_error, .TRUE.)
           
           CALL MPI_Get(var1_dp(1), nval, p_real_dp, np, ioff(np), &
             &          nval, p_real_dp, mpi_win, mpi_error)
-  !        CALL check_mpi_error(subname, 'MPI_Get', mpi_error, .TRUE.)
+  !        CALL check_mpi_error(routine, 'MPI_Get', mpi_error, .TRUE.)
           
           CALL MPI_Win_unlock(np, mpi_win, mpi_error)
-  !        CALL check_mpi_error(subname, 'MPI_Win_unlock', mpi_error, .TRUE.)
+  !        CALL check_mpi_error(routine, 'MPI_Win_unlock', mpi_error, .TRUE.)
           
           t_get  = t_get  + p_mpi_wtime() - t_0
           mb_get = mb_get + nval
@@ -2589,17 +2589,17 @@ CONTAINS
       ENDDO LEVELS
 
 #ifdef DEBUG
-      WRITE (nerr,FORMAT_VALS7I)subname,' p_pe=',p_pe,' restart pe writes field=', &
+      WRITE (nerr,FORMAT_VALS7I)routine,' p_pe=',p_pe,' restart pe writes field=', &
         &                               TRIM(p_info%name),' data=',p_ri%n_glb*nlevs
 #endif
 
       DEALLOCATE(var3_dp, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish (subname, DEALLOCATE_FAILED)
+      IF (ierrstat /= SUCCESS) CALL finish (routine, DEALLOCATE_FAILED)
 
     ENDDO VAR_LOOP
 
     DEALLOCATE(var1_dp, var2_dp, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (subname, DEALLOCATE_FAILED)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, DEALLOCATE_FAILED)
     mb_get = mb_get*8*1.d-6
     mb_wr  = mb_wr*8*1.d-6
 
@@ -2628,14 +2628,14 @@ CONTAINS
     INTEGER                         :: iv, mpi_error, nindex, ierrstat, nlevs, i, jk, &
       &                                var_ref_pos
     INTEGER(i8)                     :: ioff
-    CHARACTER(LEN=*), PARAMETER     :: subname = MODUL_NAME//'compute_write_var_list'
+    CHARACTER(LEN=*), PARAMETER     :: routine = modname//'compute_write_var_list'
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)subname,' p_pe=',p_pe
+    WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
 #endif
 
     ! check process
-    IF (.NOT. my_process_is_work()) CALL finish(subname, NO_COMPUTE_PE)
+    IF (.NOT. my_process_is_work()) CALL finish(routine, NO_COMPUTE_PE)
 
     ! check the array of restart variables
     p_vars => p_pd%restart_file%var_data
@@ -2647,7 +2647,7 @@ CONTAINS
 
     ! in case of async restart: Lock own window before writing to it
     CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, mpi_win, mpi_error)
-    CALL check_mpi_error(subname, 'MPI_Win_lock', mpi_error, .TRUE.)
+    CALL check_mpi_error(routine, 'MPI_Win_lock', mpi_error, .TRUE.)
 
     ! go over the all restart variables in the associated array
     DO iv = 1, SIZE(p_vars)
@@ -2656,7 +2656,7 @@ CONTAINS
       p_info => p_vars(iv)%info
 
 #ifdef DEBUG
-      WRITE (nerr,FORMAT_VALS5I)subname,' p_pe=',p_pe,' compute pe processes field=',TRIM(p_info%name)
+      WRITE (nerr,FORMAT_VALS5I)routine,' p_pe=',p_pe,' compute pe processes field=',TRIM(p_info%name)
 #endif
 
       ! check time level of the field
@@ -2665,7 +2665,7 @@ CONTAINS
       ! Check if first dimension of array is nproma.
       ! Otherwise we got an array which is not suitable for this output scheme.
       IF (p_info%used_dimensions(1) /= nproma) &
-        CALL finish(subname,'1st dim is not nproma: '//TRIM(p_info%name))
+        CALL finish(routine,'1st dim is not nproma: '//TRIM(p_info%name))
 
       ! init. data pointer
       r_ptr => NULL()
@@ -2680,13 +2680,13 @@ CONTAINS
       ! get data pointer
       SELECT CASE (p_info%ndims)
         CASE (1)
-          CALL message(subname, p_info%name)
-          CALL finish(subname,'1d arrays not handled yet.')
+          CALL message(routine, p_info%name)
+          CALL finish(routine,'1d arrays not handled yet.')
         CASE (2)
           ! make a 3D copy of the array
           ALLOCATE(r_ptr(p_info%used_dimensions(1),1,p_info%used_dimensions(2)), &
             &      STAT=ierrstat)
-          IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+          IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
           var_ref_pos = 3
           IF (p_info%lcontained)  var_ref_pos = p_info%var_ref_pos
           SELECT CASE(var_ref_pos)
@@ -2697,7 +2697,7 @@ CONTAINS
           CASE (3)
             r_ptr(:,1,:) = p_vars(iv)%r_ptr(:,:,nindex,1,1)
           CASE default
-            CALL finish(SUBNAME, "internal error!")
+            CALL finish(routine, "internal error!")
           END SELECT
         CASE (3)
           ! copy the pointer
@@ -2713,17 +2713,17 @@ CONTAINS
           CASE (4)
             r_ptr => p_vars(iv)%r_ptr(:,:,:,nindex,1)
           CASE default
-            CALL finish(SUBNAME, "internal error!")
+            CALL finish(routine, "internal error!")
           END SELECT
         CASE (4)
-          CALL message(subname, p_info%name)
-          CALL finish(subname,'4d arrays not handled yet.')
+          CALL message(routine, p_info%name)
+          CALL finish(routine,'4d arrays not handled yet.')
         CASE (5)
-          CALL message(subname, p_info%name)
-          CALL finish(subname,'5d arrays not handled yet.')
+          CALL message(routine, p_info%name)
+          CALL finish(routine,'5d arrays not handled yet.')
         CASE DEFAULT
-          CALL message(subname, p_info%name)
-          CALL finish(subname,'dimension not set.')
+          CALL message(routine, p_info%name)
+          CALL finish(routine,'dimension not set.')
       END SELECT
 
       ! get number of data levels
@@ -2734,10 +2734,10 @@ CONTAINS
       ENDIF
 
       ! get pointer to reorder data
-      p_ri => get_reorder_ptr(p_pd, p_info, subname)
+      p_ri => get_reorder_ptr(p_pd, p_info, routine)
 
 #ifdef DEBUG
-      WRITE (nerr,FORMAT_VALS7I)subname,' p_pe=',p_pe,' compute pe writes field=', &
+      WRITE (nerr,FORMAT_VALS7I)routine,' p_pe=',p_pe,' compute pe writes field=', &
         &                               TRIM(p_info%name),' data=',nlevs*p_ri%n_own
 #endif
 
@@ -2756,7 +2756,7 @@ CONTAINS
 
     ! unlock RMA window
     CALL MPI_Win_unlock(p_pe_work, mpi_win, mpi_error)
-    CALL check_mpi_error(subname, 'MPI_Win_unlock', mpi_error, .TRUE.)
+    CALL check_mpi_error(routine, 'MPI_Win_unlock', mpi_error, .TRUE.)
 
   END SUBROUTINE compute_write_var_list
 
@@ -2800,7 +2800,7 @@ CONTAINS
 !    REAL(wp), ALLOCATABLE          :: rDefLevelVecH(:)
     INTEGER                        :: ierrstat, i, iUsedDefLevels
 
-    CHARACTER(LEN=*), PARAMETER    :: subname = MODUL_NAME//'create_cdi_zaxis'
+    CHARACTER(LEN=*), PARAMETER    :: routine = modname//'create_cdi_zaxis'
 
     ! create cdi handle
     iID = zaxisCreate(iGridID, iLevels)
@@ -2819,9 +2819,9 @@ CONTAINS
 !        iUsedDefLevels = iUsedDefLevels - 1
 !      ENDIF
 !      ALLOCATE(rDefLevelVec(iUsedDefLevels), STAT=ierrstat)
-!      IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+!      IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 !      ALLOCATE(rDefLevelVecH(iUsedDefLevels+1), STAT=ierrstat)
-!      IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+!      IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 !      CALL set_zlev(rDefLevelVecH, rDefLevelVec)
 !      IF (lOcean) THEN
 !        CALL zaxisDefLevels(iID, rDefLevelVec)
@@ -2832,7 +2832,7 @@ CONTAINS
 !      DEALLOCATE(rDefLevelVecH)
 !    ELSE
       ALLOCATE(rDefLevelVec(iUsedDefLevels), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
       DO i = 1, SIZE(rDefLevelVec)
         IF (PRESENT(rDefLevelVal)) THEN
           rDefLevelVec(i) = rDefLevelVal
@@ -2856,11 +2856,11 @@ CONTAINS
 
     TYPE(t_var_data), POINTER     :: p_vars(:)
     TYPE(t_var_metadata), POINTER :: p_info
-    CHARACTER(LEN=*), PARAMETER   :: subname = MODUL_NAME//'init_restart_variables'
+    CHARACTER(LEN=*), PARAMETER   :: routine = modname//'init_restart_variables'
     INTEGER                       :: gridID, zaxisID, varID, vlistID, iv
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)subname,' p_pe=',p_pe
+    WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
 #endif
 
     ! check the contained array of restart variables
@@ -2891,7 +2891,7 @@ CONTAINS
 
       gridID = p_info%cdiGridID
       IF (gridID == CDI_UNDEFID) THEN
-        CALL finish(subname, 'Grid type not defined for field '//TRIM(p_info%name))
+        CALL finish(routine, 'Grid type not defined for field '//TRIM(p_info%name))
       ENDIF
 
       ! set z axis ID
@@ -2899,7 +2899,7 @@ CONTAINS
       IF (zaxisID /= CDI_UNDEFID) THEN
         p_info%cdiZaxisID = zaxisID
       ELSE
-        CALL finish(subname, 'Z axis not defined for field '//TRIM(p_info%name))
+        CALL finish(routine, 'Z axis not defined for field '//TRIM(p_info%name))
       ENDIF
 
       ! define the CDI variable
@@ -2921,7 +2921,7 @@ CONTAINS
 
 #ifdef DEBUG
       IF (varID == CDI_UNDEFID) THEN
-        CALL finish(subname,'CDI variable could not be defined='//TRIM(p_info%name))
+        CALL finish(routine,'CDI variable could not be defined='//TRIM(p_info%name))
       ENDIF
 #endif
 
@@ -2945,12 +2945,12 @@ CONTAINS
     LOGICAL                           :: bool_attribute
     CHARACTER(LEN=MAX_NAME_LENGTH)    :: attribute_name, text_attribute
     CHARACTER(LEN = :), POINTER :: temp_text
-    CHARACTER(LEN=*), PARAMETER       :: subname = MODUL_NAME//'init_restart_vlist'
+    CHARACTER(LEN=*), PARAMETER       :: routine = modname//'init_restart_vlist'
 
     p_rf => p_pd%restart_file
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)subname,' p_pe=',p_pe
+    WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
 #endif
 
     p_rf%cdiVlistID = vlistCreate ()
@@ -3077,7 +3077,7 @@ CONTAINS
           CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_GENERIC_ICE), ZAXIS_GENERIC, &
             &                   p_vgd%nlevels, 1, 1.0_wp)
         CASE DEFAULT
-          CALL finish(subname, UNKNOWN_VERT_GRID_DESCR)
+          CALL finish(routine, UNKNOWN_VERT_GRID_DESCR)
         END SELECT
     ENDDO
 
@@ -3105,16 +3105,16 @@ CONTAINS
     TYPE(t_var_list), POINTER     :: p_re_list
     CHARACTER(LEN=32)             :: datetime
     INTEGER                       :: restart_type, i
-    CHARACTER(LEN=*), PARAMETER   :: subname = MODUL_NAME//'open_restart_file'
+    CHARACTER(LEN=*), PARAMETER   :: routine = modname//'open_restart_file'
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)subname,' p_pe=',p_pe
+    WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
 #endif
 
     ! just for safety
-    IF(.NOT. my_process_is_restart()) CALL finish(subname, NO_RESTART_PE)
+    IF(.NOT. my_process_is_restart()) CALL finish(routine, NO_RESTART_PE)
 
     p_rf => p_pd%restart_file
 
@@ -3139,7 +3139,7 @@ CONTAINS
       CASE (FILETYPE_NC2, FILETYPE_NC4)
         restart_type = p_re_list%p%restart_type
       CASE default
-        CALL finish(subname, UNKNOWN_FILE_FORMAT)
+        CALL finish(routine, UNKNOWN_FILE_FORMAT)
     END SELECT
 
     datetime = iso8601(restart_args%datetime)
@@ -3158,13 +3158,13 @@ CONTAINS
       CALL cdiGetStringError(p_rf%cdiFileID, cdiErrorText)
       WRITE(message_text,'(a)') TRIM(cdiErrorText)
       CALL message('', message_text, all_print=.TRUE.)
-      CALL finish (subname, 'open failed on '//TRIM(p_rf%filename))
+      CALL finish (routine, 'open failed on '//TRIM(p_rf%filename))
     ELSE
-      CALL message (subname, 'opened '//TRIM(p_rf%filename), all_print=.TRUE.)
+      CALL message (routine, 'opened '//TRIM(p_rf%filename), all_print=.TRUE.)
     END IF
 
 #ifdef DEBUG
-    WRITE (nerr, FORMAT_VALS5)subname,' p_pe=',p_pe,' open netCDF file with ID=',p_rf%cdiFileID
+    WRITE (nerr, FORMAT_VALS5)routine,' p_pe=',p_pe,' open netCDF file with ID=',p_rf%cdiFileID
 #endif
 
     CALL init_restart_vlist(p_pd, restartAttributes)
@@ -3180,24 +3180,24 @@ CONTAINS
   SUBROUTINE close_restart_file(rf)
 
     TYPE (t_restart_file), INTENT(INOUT)  :: rf
-    CHARACTER(LEN=*), PARAMETER           :: subname = MODUL_NAME//'close_restart_file'
+    CHARACTER(LEN=*), PARAMETER           :: routine = modname//'close_restart_file'
 
 #ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)subname,' p_pe=',p_pe
+    WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
 #endif
 
     ! just for safety
-    IF(.NOT. my_process_is_restart()) CALL finish(subname, NO_RESTART_PE)
+    IF(.NOT. my_process_is_restart()) CALL finish(routine, NO_RESTART_PE)
 
     IF (rf%cdiFileID /= CDI_UNDEFID) THEN
 
 #ifdef DEBUG
-      WRITE (nerr,'(3a)')subname,' try to close restart file=',TRIM(rf%filename)
+      WRITE (nerr,'(3a)')routine,' try to close restart file=',TRIM(rf%filename)
 #endif
       CALL streamClose(rf%cdiFileID)
 
 #ifdef DEBUG
-      WRITE (nerr, FORMAT_VALS5)subname,' p_pe=',p_pe,' close netCDF file with ID=',rf%cdiFileID
+      WRITE (nerr, FORMAT_VALS5)routine,' p_pe=',p_pe,' close netCDF file with ID=',rf%cdiFileID
 #endif
 
       rf%cdiFileID  = CDI_UNDEFID
@@ -3223,7 +3223,7 @@ CONTAINS
 
     INTEGER                               :: iret, id
     CHARACTER(LEN=5)                      :: str_id
-    CHARACTER(LEN=*), PARAMETER           :: subname = MODUL_NAME//'create_restart_file_link'
+    CHARACTER(LEN=*), PARAMETER           :: routine = modname//'create_restart_file_link'
 
     ! build link name
     id = proc_id - p_restart_pe0
@@ -3243,14 +3243,14 @@ CONTAINS
     IF (util_islink(TRIM(rf%linkname))) THEN
       iret = util_unlink(TRIM(rf%linkname))
       IF (iret /= SUCCESS) THEN
-          WRITE (nerr,'(3a)')subname,' cannot unlink ',TRIM(rf%linkname)
+          WRITE (nerr,'(3a)')routine,' cannot unlink ',TRIM(rf%linkname)
       ENDIF
     ENDIF
 
     ! create a new symbolic link
     iret = util_symlink(TRIM(rf%filename),TRIM(rf%linkname))
     IF (iret /= SUCCESS) THEN
-      WRITE (nerr,'(5a)')subname,' cannot create symbolic link ', &
+      WRITE (nerr,'(5a)')routine,' cannot create symbolic link ', &
         & TRIM(rf%linkname),' for ', TRIM(rf%filename)
     ENDIF
 
