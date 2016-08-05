@@ -31,6 +31,7 @@ MODULE mo_util_restart
     USE mo_io_restart_namelist, ONLY: RestartNamelist_writeToFile
     USE mo_io_units, ONLY: filename_max
     USE mo_kind, ONLY: wp
+    USE mo_model_domain, ONLY: t_patch
     USE mo_packed_message, ONLY: t_PackedMessage
     USE mo_util_cdi, ONLY: cdiGetStringError
     USE mo_util_file, ONLY: util_symlink, util_islink, util_unlink
@@ -51,8 +52,6 @@ MODULE mo_util_restart
     PUBLIC :: setPhysicsRestartAttributes
     PUBLIC :: set_vertical_grid
     PUBLIC :: create_restart_file_link
-    PUBLIC :: restartPatchDescriptionPacker
-    PUBLIC :: defineVerticalGrids
 
     ! maximumm number of verticale axes
     INTEGER, PARAMETER :: MAX_VERTICAL_AXES = 19
@@ -144,6 +143,10 @@ MODULE mo_util_restart
         REAL(wp), ALLOCATABLE :: opt_pvct(:)
         LOGICAL, ALLOCATABLE :: opt_lcall_phy(:)
         REAL(wp), ALLOCATABLE :: opt_t_elapsed_phy(:)
+    CONTAINS
+        PROCEDURE :: setPatch => restartPatchDescription_setPatch
+        PROCEDURE :: packer => restartPatchDescription_packer
+        PROCEDURE :: defineVGrids => restartPatchDescription_defineVGrids
     END TYPE t_restart_patch_description
 
     CHARACTER(LEN = *), PARAMETER :: modname = "mo_util_restart"
@@ -503,9 +506,23 @@ CONTAINS
         IF(iret /= SUCCESS) WRITE(0, *) routine//': cannot create symbolic link "'//TRIM(linkname)//'" for "'//filename//'"'
     END SUBROUTINE create_restart_file_link
 
-    SUBROUTINE restartPatchDescriptionPacker(operation, description, message)
+    SUBROUTINE restartPatchDescription_setPatch(description, p_patch)
+        CLASS(t_restart_patch_description), INTENT(INOUT) :: description
+        TYPE(t_patch), INTENT(IN) :: p_patch
+
+        description%id = p_patch%id
+        description%work_pe0_id = p_patch%proc0
+        description%nlev = p_patch%nlev
+        description%cell_type = p_patch%geometry_info%cell_type
+        description%base_filename = TRIM(p_patch%grid_filename)
+        description%n_patch_cells_g = p_patch%n_patch_cells_g
+        description%n_patch_verts_g = p_patch%n_patch_verts_g
+        description%n_patch_edges_g = p_patch%n_patch_edges_g
+    END SUBROUTINE restartPatchDescription_setPatch
+
+    SUBROUTINE restartPatchDescription_packer(description, operation, message)
         INTEGER, VALUE :: operation
-        TYPE(t_restart_patch_description), INTENT(INOUT) :: description
+        CLASS(t_restart_patch_description), INTENT(INOUT) :: description
         TYPE(t_PackedMessage), INTENT(INOUT) :: message
 
         ! patch id AND activity flag
@@ -549,14 +566,14 @@ CONTAINS
         CALL message%execute(operation, description%opt_pvct)
         CALL message%execute(operation, description%opt_lcall_phy)
         CALL message%execute(operation, description%opt_t_elapsed_phy)
-    END SUBROUTINE restartPatchDescriptionPacker
+    END SUBROUTINE restartPatchDescription_packer
 
     !  Set vertical grid definition.
-    SUBROUTINE defineVerticalGrids(p_desc)
-        TYPE(t_restart_patch_description), TARGET, INTENT(INOUT) :: p_desc
+    SUBROUTINE restartPatchDescription_defineVGrids(p_desc)
+        CLASS(t_restart_patch_description), TARGET, INTENT(INOUT) :: p_desc
 
         INTEGER :: nlev_soil, nlev_snow, nlev_ocean, nice_class, ierrstat
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":defineVerticalGrids"
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartPatchDescription_defineVGrids"
 
         ! DEFAULT values for the level counts
         nlev_soil = 0
@@ -596,6 +613,6 @@ CONTAINS
         IF(p_desc%l_opt_depth) CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_DEPTH_BELOW_SEA, nlev_ocean)
         IF(p_desc%l_opt_depth) CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_DEPTH_BELOW_SEA_HALF, &
                                                      &nlev_ocean+1)
-    END SUBROUTINE defineVerticalGrids
+    END SUBROUTINE restartPatchDescription_defineVGrids
 
 END MODULE mo_util_restart

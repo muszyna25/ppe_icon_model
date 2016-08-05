@@ -62,7 +62,7 @@ MODULE mo_io_restart_async
     &                                   int2string, toCharacter
   USE mo_util_restart,            ONLY: t_v_grid, t_restart_cdi_ids, setGeneralRestartAttributes, &
                                       & setDynamicPatchRestartAttributes, setPhysicsRestartAttributes, create_restart_file_link, &
-                                      & t_restart_patch_description, restartPatchDescriptionPacker, t_var_data, defineVerticalGrids
+                                      & t_restart_patch_description, t_var_data
 
 #ifndef NOMPI
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work, p_work_pe0, num_work_procs, MPI_SUCCESS, &
@@ -424,7 +424,7 @@ CONTAINS
         ! set global restart attributes/lists
         restartAttributes => RestartAttributeList_make()
         CALL set_restart_attributes(restartAttributes, restart_args)
-        CALL defineVerticalGrids(description)
+        CALL description%defineVGrids()
 
 #ifdef DEBUG
         CALL print_restart_arguments()
@@ -612,7 +612,7 @@ CONTAINS
 
     ! set data of all patches
     DO i = 1, SIZE(patch_data)
-        CALL restartPatchDescriptionPacker(operation, patch_data(i)%description, message)
+        CALL patch_data(i)%description%packer(operation, message)
         CALL timeLevelPacker(operation, i, message)
     END DO
   END SUBROUTINE restartMetadataPacker
@@ -1147,32 +1147,25 @@ CONTAINS
     TYPE(t_restart_patch_description), INTENT(INOUT) :: description
     TYPE(t_patch), INTENT(IN) :: p_patch
 
+    TYPE(t_PackedMessage) :: message
+
     ! initialize on work PEs
+    CALL message%construct()
     IF(my_process_is_work()) THEN
-        description%id              = p_patch%id
-        description%work_pe0_id     = p_patch%proc0
-        description%nlev            = p_patch%nlev
-        description%cell_type       = p_patch%geometry_info%cell_type
-        description%base_filename   = TRIM(p_patch%grid_filename)
-        description%n_patch_cells_g = p_patch%n_patch_cells_g
-        description%n_patch_verts_g = p_patch%n_patch_verts_g
-        description%n_patch_edges_g = p_patch%n_patch_edges_g
+        CALL description%setPatch(p_patch)
+        CALL description%packer(kPackOp, message)
     END IF
 
     ! transfer data to restart PEs
-    CALL p_bcast(description%id,              bcast_root, p_comm_work_2_restart)
-    CALL p_bcast(description%work_pe0_id,     bcast_root, p_comm_work_2_restart)
-    CALL p_bcast(description%nlev,            bcast_root, p_comm_work_2_restart)
-    CALL p_bcast(description%cell_type,       bcast_root, p_comm_work_2_restart)
-    CALL p_bcast(description%base_filename,   bcast_root, p_comm_work_2_restart)
-    CALL p_bcast(description%n_patch_cells_g, bcast_root, p_comm_work_2_restart)
-    CALL p_bcast(description%n_patch_verts_g, bcast_root, p_comm_work_2_restart)
-    CALL p_bcast(description%n_patch_edges_g, bcast_root, p_comm_work_2_restart)
+    CALL message%bcast(bcast_root, p_comm_work_2_restart)
+    CALL description%packer(kUnpackOp, message)
 
     ! initialize the fields that we DO NOT communicate from the worker PEs to the restart PEs
     description%restart_proc_id = MOD(description%id-1, process_mpi_restart_size) + p_restart_pe0
     description%v_grid_defs => NULL()
     description%v_grid_count = 0
+
+    CALL message%destruct() ! cleanup
   END SUBROUTINE create_patch_description
 
   ! collective across restart AND worker PEs
