@@ -179,8 +179,6 @@ MODULE mo_restart_async
     PROCEDURE :: writeRestart => restartDescriptor_writeRestart
     PROCEDURE :: destruct => restartDescriptor_destruct
 
-    PROCEDURE, PRIVATE :: initRma => restartDescriptor_initRma
-
     ! methods called ONLY by the restart processes
     PROCEDURE, PRIVATE :: restartWriteAsyncRestart => restartDescriptor_restartWriteAsyncRestart
   END TYPE t_restart_descriptor
@@ -190,8 +188,6 @@ MODULE mo_restart_async
   ! Currently, we use only 1 MPI window for all output files
   INTEGER mpi_win
 
-  ! MPI memory pointer
-  TYPE(c_ptr) :: c_mem_ptr
 ! Fortran pointer to memory window (REAL*8)
   REAL(dp), POINTER :: mem_ptr_dp(:)
 
@@ -256,7 +252,7 @@ CONTAINS
     END DO
 
     ! init. remote memory access
-    CALL me%initRma(memWindowSize)
+    CALL openMpiWindow(memWindowSize, p_comm_work_restart, mem_ptr_dp, mpi_win)
 
 #endif
 
@@ -1342,15 +1338,18 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  ! Initializes the remote memory access for asynchronous restart.
+  ! Opens an MPI memory window for the given amount of double values, returning both the ALLOCATED buffer AND the MPI window handle.
   !
-  SUBROUTINE restartDescriptor_initRma(me, mem_size)
-    CLASS(t_restart_descriptor), INTENT(INOUT) :: me
-    INTEGER(KIND=MPI_ADDRESS_KIND), VALUE :: mem_size   ! the SIZE of the memory window as computed by restartCommData_construct
+  SUBROUTINE openMpiWindow(doubleCount, communicator, mem_ptr_dp, mpi_win)
+    INTEGER(KIND=MPI_ADDRESS_KIND), VALUE :: doubleCount   ! the requested memory window SIZE IN doubles
+    INTEGER, VALUE :: communicator
+    REAL(dp), POINTER, INTENT(OUT) :: mem_ptr_dp(:) ! this returns a fortran POINTER to the memory buffer
+    INTEGER, INTENT(OUT) :: mpi_win ! this returns the handle to the MPI window
 
     INTEGER :: nbytes_real, mpi_error, rma_cache_hint
     INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_bytes
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':restartDescriptor_initRma'
+    TYPE(c_ptr) :: c_mem_ptr
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':openMpiWindow'
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' is called for p_pe=',p_pe
@@ -1358,13 +1357,13 @@ CONTAINS
 
     mpi_win = MPI_WIN_NULL
 
-    ! mem_size is calculated as number of variables above, get number of bytes
+    ! doubleCount is calculated as number of variables above, get number of bytes
     ! get the amount of bytes per REAL*8 variable (as used in MPI communication)
     CALL MPI_Type_extent(p_real_dp, nbytes_real, mpi_error)
     CALL check_mpi_error(routine, 'MPI_Type_extent', mpi_error, .TRUE.)
 
     ! for the restart PEs the amount of memory needed is 0 - allocate at least 1 word there:
-    mem_bytes = MAX(mem_size,1_i8)*INT(nbytes_real,i8)
+    mem_bytes = MAX(doubleCount, 1_i8)*INT(nbytes_real, i8)
 
     ! allocate amount of memory needed with MPI_Alloc_mem
     ! 
@@ -1391,11 +1390,10 @@ CONTAINS
     ! The NEC requires a standard INTEGER array as 3rd argument for c_f_pointer,
     ! although it would make more sense to have it of size MPI_ADDRESS_KIND.
     NULLIFY(mem_ptr_dp)
-
 #ifdef __SX__
-    CALL C_F_POINTER(c_mem_ptr, mem_ptr_dp, (/ INT(mem_size) /) )
+    CALL C_F_POINTER(c_mem_ptr, mem_ptr_dp, [INT(doubleCount)] )
 #else
-    CALL C_F_POINTER(c_mem_ptr, mem_ptr_dp, (/ mem_size /) )
+    CALL C_F_POINTER(c_mem_ptr, mem_ptr_dp, [doubleCount] )
 #endif
 
     rma_cache_hint = MPI_INFO_NULL
@@ -1409,8 +1407,7 @@ CONTAINS
 
     ! create memory window for communication
     mem_ptr_dp(:) = 0._dp
-    CALL MPI_Win_create(mem_ptr_dp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
-      &                 p_comm_work_restart,mpi_win,mpi_error )
+    CALL MPI_Win_create(mem_ptr_dp, mem_bytes, nbytes_real, MPI_INFO_NULL, communicator, mpi_win, mpi_error)
     CALL check_mpi_error(routine, 'MPI_Win_create', mpi_error, .TRUE.)
 
 #ifdef __xlC__
@@ -1418,7 +1415,7 @@ CONTAINS
     CALL check_mpi_error(routine, 'MPI_Info_free', mpi_error, .TRUE.)
 #endif
 
-  END SUBROUTINE restartDescriptor_initRma
+  END SUBROUTINE openMpiWindow
 
   !------------------------------------------------------------------------------------------------
   !
