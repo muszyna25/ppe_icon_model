@@ -111,8 +111,10 @@ CONTAINS
             ALLOCATE(temp(2*me%namelistCount), STAT = error)
             IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
             DO i = 1, me%namelistCount
-                CALL MOVE_ALLOC(me%namelists(i)%NAME, temp(i)%NAME)
-                CALL MOVE_ALLOC(me%namelists(i)%text, temp(i)%text)
+                temp(i)%name = me%namelists(i)%name
+                IF(temp(i)%name /= me%namelists(i)%name) CALL finish(routine, "assertion failed")
+                temp(i)%text = me%namelists(i)%text
+                IF(temp(i)%text /= me%namelists(i)%text) CALL finish(routine, "assertion failed")
             END DO
             DEALLOCATE(me%namelists)
             me%namelists => temp
@@ -121,7 +123,8 @@ CONTAINS
         ! add an entry
         me%namelistCount = me%namelistCount + 1
         RESULT => me%namelists(me%namelistCount)
-        CALL MOVE_ALLOC(fullName, RESULT%NAME)
+        RESULT%NAME = fullName
+        IF(RESULT%NAME /= fullName) CALL finish(routine, "assertion failed")
     END FUNCTION namelistArchive_find
 
     SUBROUTINE namelistArchive_setNamelist(me, namelistName, namelistText)
@@ -223,13 +226,15 @@ CONTAINS
         INTEGER, VALUE :: operation
         TYPE(t_PackedMessage), INTENT(INOUT) :: message
 
-        INTEGER :: allocSize, error, i
+        INTEGER :: allocSize, error, i, length
         CHARACTER(*), PARAMETER :: routine = modname//":namelistArchive_packer"
 
+        IF(operation == kUnpackOp) CALL me%reset()  ! get rid of the old contents 
+
         CALL message%packer(operation, me%namelistCount)
+
         IF(operation == kUnpackOp) THEN
-            ! get rid of the old contents AND ensure sufficient space for the contents of the message
-            CALL me%reset()
+            ! ensure sufficient space for the contents of the message
             allocSize = MAX(8, me%namelistCount)
             IF(allocSize > SIZE(me%namelists)) THEN
                 DEALLOCATE(me%namelists)
@@ -241,8 +246,25 @@ CONTAINS
 
         ! (un)pack the payload contents
         DO i = 1, me%namelistCount
-            CALL message%packerAllocatable(operation, me%namelists(i)%NAME)
-            CALL message%packerAllocatable(operation, me%namelists(i)%text)
+            length = 0
+            IF(ALLOCATED(me%namelists(i)%NAME)) length = LEN(me%namelists(i)%NAME)
+            CALL message%packer(operation, length)
+            IF(operation == kUnpackOp) THEN
+                IF(ALLOCATED(me%namelists(i)%NAME)) DEALLOCATE(me%namelists(i)%NAME)
+                ALLOCATE(CHARACTER(LEN = length) :: me%namelists(i)%NAME, STAT = error)
+                IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
+            END IF
+            CALL message%packer(operation, me%namelists(i)%NAME)
+
+            length = 0
+            IF(ALLOCATED(me%namelists(i)%text)) length = LEN(me%namelists(i)%text)
+            CALL message%packer(operation, length)
+            IF(operation == kUnpackOp) THEN
+                IF(ALLOCATED(me%namelists(i)%text)) DEALLOCATE(me%namelists(i)%text)
+                ALLOCATE(CHARACTER(LEN = length) :: me%namelists(i)%text, STAT = error)
+                IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
+            END IF
+            CALL message%packer(operation, me%namelists(i)%text)
         END DO
     END SUBROUTINE namelistArchive_packer
 

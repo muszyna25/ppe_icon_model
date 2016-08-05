@@ -77,7 +77,8 @@ MODULE mo_packed_message
         PROCEDURE :: packAllocatableSingle => PackedMessage_packAllocatableSingle
         PROCEDURE :: packAllocatableDouble => PackedMessage_packAllocatableDouble
         PROCEDURE :: packAllocatableLogical => PackedMessage_packAllocatableLogical
-        PROCEDURE :: packAllocatableCharacter => PackedMessage_packAllocatableCharacter
+        !XXX: see PackedMessage_unpackAllocatableCharacter() for an explanation of the deactivation
+        ! PROCEDURE :: packAllocatableCharacter => PackedMessage_packAllocatableCharacter
 
         PROCEDURE :: packIntArray => PackedMessage_packIntArray
         PROCEDURE :: packSingleArray => PackedMessage_packSingleArray
@@ -86,8 +87,7 @@ MODULE mo_packed_message
 
         GENERIC :: pack => packInt, packSingle, packDouble, packLogical, packCharacter, packIntArray, packSingleArray, &
                          & packDoubleArray, packLogicalArray
-        GENERIC :: packAllocatable => packAllocatableInt, packAllocatableSingle, packAllocatableDouble, packAllocatableLogical, &
-                                    & packAllocatableCharacter
+        GENERIC :: packAllocatable => packAllocatableInt, packAllocatableSingle, packAllocatableDouble, packAllocatableLogical
 
         ! unpack routines
         PROCEDURE :: unpackInt => PackedMessage_unpackInt
@@ -100,7 +100,8 @@ MODULE mo_packed_message
         PROCEDURE :: unpackAllocatableSingle => PackedMessage_unpackAllocatableSingle
         PROCEDURE :: unpackAllocatableDouble => PackedMessage_unpackAllocatableDouble
         PROCEDURE :: unpackAllocatableLogical => PackedMessage_unpackAllocatableLogical
-        PROCEDURE :: unpackAllocatableCharacter => PackedMessage_unpackAllocatableCharacter
+        !XXX: see PackedMessage_unpackAllocatableCharacter() for an explanation of the deactivation
+        ! PROCEDURE :: unpackAllocatableCharacter => PackedMessage_unpackAllocatableCharacter
 
         PROCEDURE :: unpackIntArray => PackedMessage_unpackIntArray
         PROCEDURE :: unpackSingleArray => PackedMessage_unpackSingleArray
@@ -110,7 +111,7 @@ MODULE mo_packed_message
         GENERIC :: unpack => unpackInt, unpackSingle, unpackDouble, unpackLogical, unpackCharacter, unpackIntArray, &
                            & unpackSingleArray, unpackDoubleArray, unpackLogicalArray
         GENERIC :: unpackAllocatable => unpackAllocatableInt, unpackAllocatableSingle, unpackAllocatableDouble, &
-                                      & unpackAllocatableLogical, unpackAllocatableCharacter
+                                      & unpackAllocatableLogical
 
         ! routines to facilitate packing AND unpacking with the same code
         ! USE of these routine prohibits ANY errors by mismatches between packing AND unpacking code
@@ -124,7 +125,8 @@ MODULE mo_packed_message
         PROCEDURE :: packerAllocatableSingle => PackedMessage_packerAllocatableSingle
         PROCEDURE :: packerAllocatableDouble => PackedMessage_packerAllocatableDouble
         PROCEDURE :: packerAllocatableLogical => PackedMessage_packerAllocatableLogical
-        PROCEDURE :: packerAllocatableCharacter => PackedMessage_packerAllocatableCharacter
+        !XXX: see PackedMessage_unpackAllocatableCharacter() for an explanation of the deactivation
+        ! PROCEDURE :: packerAllocatableCharacter => PackedMessage_packerAllocatableCharacter
 
         PROCEDURE :: packerIntArray => PackedMessage_packerIntArray
         PROCEDURE :: packerSingleArray => PackedMessage_packerSingleArray
@@ -134,7 +136,7 @@ MODULE mo_packed_message
         GENERIC :: packer => packerInt, packerSingle, packerDouble, packerLogical, packerCharacter, packerIntArray, &
                             & packerSingleArray, packerDoubleArray, packerLogicalArray
         GENERIC :: packerAllocatable => packerAllocatableInt, packerAllocatableSingle, packerAllocatableDouble, &
-                                      & packerAllocatableLogical, packerAllocatableCharacter
+                                      & packerAllocatableLogical
 
         ! communication routines
         ! All of these will flush ANY contents of the reciever(s), replacing it with a copy of the sender's packet.
@@ -331,16 +333,17 @@ CONTAINS
         IF(ALLOCATED(VALUE)) CALL me%pack(VALUE)
     END SUBROUTINE PackedMessage_packAllocatableLogical
 
-    SUBROUTINE PackedMessage_packAllocatableCharacter(me, VALUE)
-        CLASS(t_PackedMessage), INTENT(INOUT) :: me
-        CHARACTER(:), ALLOCATABLE, INTENT(IN) :: VALUE
+!XXX: see PackedMessage_unpackAllocatableCharacter() for an explanation of the deactivation
+!   SUBROUTINE PackedMessage_packAllocatableCharacter(me, VALUE)
+!       CLASS(t_PackedMessage), INTENT(INOUT) :: me
+!       CHARACTER(:), ALLOCATABLE, INTENT(IN) :: VALUE
 
-        CALL me%pack(ALLOCATED(VALUE))
-        IF(ALLOCATED(VALUE)) THEN
-            CALL me%pack(LEN(VALUE))
-            CALL me%pack(VALUE)
-        END IF
-    END SUBROUTINE PackedMessage_packAllocatableCharacter
+!       CALL me%pack(ALLOCATED(VALUE))
+!       IF(ALLOCATED(VALUE)) THEN
+!           CALL me%pack(LEN(VALUE))
+!           CALL me%pack(VALUE)
+!       END IF
+!   END SUBROUTINE PackedMessage_packAllocatableCharacter
 
     ! pack routines for array values !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -519,24 +522,27 @@ CONTAINS
         END IF
     END SUBROUTINE PackedMessage_unpackAllocatableLogical
 
-    SUBROUTINE PackedMessage_unpackAllocatableCharacter(me, VALUE)
-        CLASS(t_PackedMessage), INTENT(INOUT) :: me
-        CHARACTER(:), ALLOCATABLE, INTENT(INOUT) :: VALUE
+!XXX: This is deactivated because it triggers a bug in gfortran that looses the contents of VALUE on return from the routine.
+!     The only known workaround is to implement the functionality right where it is needed.
+!
+!   SUBROUTINE PackedMessage_unpackAllocatableCharacter(me, VALUE)
+!       CLASS(t_PackedMessage), INTENT(INOUT) :: me
+!       CHARACTER(:), ALLOCATABLE, INTENT(INOUT) :: VALUE
 
-        LOGICAL :: isAllocated
-        INTEGER :: error, length
-        CHARACTER(*), PARAMETER :: routine = modname//":PackedMessage_unpackAllocatableCharacter"
+!       LOGICAL :: isAllocated
+!       INTEGER :: error, length
+!       CHARACTER(*), PARAMETER :: routine = modname//":PackedMessage_unpackAllocatableCharacter"
 
-        IF(ALLOCATED(VALUE)) DEALLOCATE(VALUE)  ! get VALUE into a known state (unallocated)
+!       IF(ALLOCATED(VALUE)) DEALLOCATE(VALUE)  ! get VALUE into a known state (unallocated)
 
-        CALL me%unpack(isAllocated)
-        IF(isAllocated) THEN
-            CALL me%unpack(length)
-            ALLOCATE(CHARACTER(length) :: VALUE, STAT = error)
-            IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-            CALL me%unpack(VALUE)
-        END IF
-    END SUBROUTINE PackedMessage_unpackAllocatableCharacter
+!       CALL me%unpack(isAllocated)
+!       IF(isAllocated) THEN
+!           CALL me%unpack(length)
+!           ALLOCATE(CHARACTER(length) :: VALUE, STAT = error)
+!           IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+!           CALL me%unpack(VALUE)
+!       END IF
+!   END SUBROUTINE PackedMessage_unpackAllocatableCharacter
 
     ! unpack routines for array values !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -770,22 +776,23 @@ CONTAINS
         END SELECT
     END SUBROUTINE PackedMessage_packerAllocatableLogical
 
-    SUBROUTINE PackedMessage_packerAllocatableCharacter(me, operation, VALUE)
-        CLASS(t_PackedMessage), INTENT(INOUT) :: me
-        INTEGER, VALUE :: operation
-        CHARACTER(:), ALLOCATABLE, INTENT(INOUT) :: VALUE
+!XXX: see PackedMessage_unpackAllocatableCharacter() for an explanation of the deactivation
+!   SUBROUTINE PackedMessage_packerAllocatableCharacter(me, operation, VALUE)
+!       CLASS(t_PackedMessage), INTENT(INOUT) :: me
+!       INTEGER, VALUE :: operation
+!       CHARACTER(:), ALLOCATABLE, INTENT(INOUT) :: VALUE
 
-        CHARACTER(*), PARAMETER :: routine = modname//":PackedMessage_packerAllocatableCharacter"
+!       CHARACTER(*), PARAMETER :: routine = modname//":PackedMessage_packerAllocatableCharacter"
 
-        SELECT CASE(operation)
-            CASE(kPackOp)
-                CALL me%packAllocatable(VALUE)
-            CASE(kUnpackOp)
-                CALL me%unpackAllocatable(VALUE)
-            CASE DEFAULT
-                CALL finish(routine, "illegal operation")
-        END SELECT
-    END SUBROUTINE PackedMessage_packerAllocatableCharacter
+!       SELECT CASE(operation)
+!           CASE(kPackOp)
+!               CALL me%packAllocatable(VALUE)
+!           CASE(kUnpackOp)
+!               CALL me%unpackAllocatable(VALUE)
+!           CASE DEFAULT
+!               CALL finish(routine, "illegal operation")
+!       END SELECT
+!   END SUBROUTINE PackedMessage_packerAllocatableCharacter
 
     SUBROUTINE PackedMessage_packerIntArray(me, operation, value)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
