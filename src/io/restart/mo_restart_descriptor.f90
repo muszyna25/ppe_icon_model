@@ -60,11 +60,12 @@ MODULE mo_restart_descriptor
         END SUBROUTINE restartDescriptor_updatePatch
 
         ! Actually WRITE a restart.
-        SUBROUTINE restartDescriptor_writeRestart(me, datetime, jstep, opt_output_jfile)
+        SUBROUTINE restartDescriptor_writeRestart(me, datetime, jstep, modelType, opt_output_jfile)
             IMPORT t_RestartDescriptor, t_datetime
             CLASS(t_RestartDescriptor), INTENT(INOUT) :: me
             TYPE(t_datetime), INTENT(IN) :: datetime
             INTEGER, INTENT(IN) :: jstep
+            CHARACTER(LEN = *), INTENT(IN) :: modelType
             INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
         END SUBROUTINE restartDescriptor_writeRestart
     END INTERFACE

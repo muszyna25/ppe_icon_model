@@ -72,6 +72,9 @@ MODULE mo_sync_restart
   USE mo_restart_var_data,      ONLY: getLevelPointers, has_valid_time_level
   USE mo_util_string,           ONLY: int2string, separator
   USE mo_restart_attributes,    ONLY: t_RestartAttributeList, RestartAttributeList_make
+  USE mo_restart_descriptor,    ONLY: t_RestartDescriptor
+  USE mo_restart_patch_description, ONLY: t_restart_patch_description
+  USE mo_restart_var_data,      ONLY: t_RestartVarData, createRestartVarData
   USE mo_datetime,              ONLY: t_datetime, iso8601
   USE mo_run_config,            ONLY: ltimer, restart_filename
   USE mo_timer,                 ONLY: timer_start, timer_stop, timer_write_restart_file
@@ -86,7 +89,7 @@ MODULE mo_sync_restart
   USE mo_ha_dyn_config,         ONLY: ha_dyn_config
 #endif
 
-  USE mo_model_domain,          ONLY: t_patch
+  USE mo_model_domain,          ONLY: t_patch, p_patch
   USE mo_mpi,                   ONLY: my_process_is_mpi_workroot, my_process_is_mpi_test
   USE mo_communication,         ONLY: t_comm_gather_pattern, exchange_data
 
@@ -103,6 +106,26 @@ MODULE mo_sync_restart
   INCLUDE 'netcdf.inc'
 
   PUBLIC :: create_restart_file
+  PUBLIC :: t_SyncRestartDescriptor
+
+  ! combine the DATA that describes a patch for restart purposes with the infos required for the asynchronous fetching of the DATA from the compute PEs
+  TYPE t_PatchData
+    TYPE(t_restart_patch_description) :: description
+    TYPE(t_RestartVarData), POINTER :: varData(:)
+  CONTAINS
+    PROCEDURE :: writeFile => patchData_writeFile
+  END TYPE t_PatchData
+
+  TYPE, EXTENDS(t_RestartDescriptor) :: t_SyncRestartDescriptor
+    TYPE(t_PatchData), ALLOCATABLE :: patchData(:)
+  CONTAINS
+    PROCEDURE :: construct => syncRestartDescriptor_construct   ! override
+    PROCEDURE :: updatePatch => syncRestartDescriptor_updatePatch   ! override
+    PROCEDURE :: writeRestart => syncRestartDescriptor_writeRestart ! override
+    PROCEDURE :: destruct => syncRestartDescriptor_destruct ! override
+
+    PROCEDURE, PRIVATE :: defineRestartAttributes => syncRestartDescriptor_defineRestartAttributes
+  END TYPE t_SyncRestartDescriptor
 
   INTEGER, SAVE :: nv_grids = 0
   TYPE(t_v_grid) :: vgrid_def(ZA_COUNT)
@@ -129,6 +152,231 @@ MODULE mo_sync_restart
 
   !------------------------------------------------------------------------------------------------
 CONTAINS
+
+  SUBROUTINE syncRestartDescriptor_construct(me)
+    CLASS(t_SyncRestartDescriptor), INTENT(INOUT) :: me
+    INTEGER :: jg, error
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':restartDescriptor_construct'
+
+    ! allocate patch data structure
+    ALLOCATE(me%patchData(n_dom), STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+
+    ! initialize the patch data structures
+    DO jg = 1, n_dom
+        ! construct the subobjects
+        CALL me%patchData(jg)%description%init(p_patch(jg))
+        me%patchData(jg)%varData => createRestartVarData(jg)
+    END DO
+  END SUBROUTINE syncRestartDescriptor_construct
+
+  SUBROUTINE syncRestartDescriptor_updatePatch(me, patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &
+                                        &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth, opt_depth_lnd, &
+                                        &opt_nlev_snow, opt_nice_class, opt_ndom)
+    CLASS(t_SyncRestartDescriptor), INTENT(INOUT) :: me
+    TYPE(t_patch), INTENT(IN) :: patch
+    INTEGER, INTENT(IN), OPTIONAL :: opt_depth, opt_depth_lnd, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, &
+                                   & opt_nlev_snow, opt_nice_class, opt_ndom
+    REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time, opt_pvct(:), opt_t_elapsed_phy(:)
+    LOGICAL, INTENT(IN), OPTIONAL :: opt_lcall_phy(:)
+
+    INTEGER :: jg
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartDescriptor_updatePatch"
+
+    jg = patch%id
+    IF(jg < 1 .OR. jg > SIZE(me%patchData)) CALL finish(routine, "assertion failed: patch id is out of range")
+    IF(me%patchData(jg)%description%id /= jg) CALL finish(routine, "assertion failed: patch id doesn't match its array index")
+    CALL me%patchData(jg)%description%update(patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &
+                                             &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth, opt_depth_lnd, &
+                                             &opt_nlev_snow, opt_nice_class, opt_ndom)
+  END SUBROUTINE syncRestartDescriptor_updatePatch
+
+  SUBROUTINE syncRestartDescriptor_defineRestartAttributes(me, restartAttributes, datetime, jstep, opt_output_jfile)
+    CLASS(t_SyncRestartDescriptor), TARGET, INTENT(IN) :: me
+    TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
+    TYPE(t_datetime), INTENT(IN) :: datetime
+    INTEGER, VALUE :: jstep
+    INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
+
+    INTEGER :: i, jg, effectiveDomainCount
+    CHARACTER(LEN = 2) :: jgString
+    CHARACTER(LEN = :), ALLOCATABLE :: prefix
+    TYPE(t_restart_patch_description), POINTER :: curDescription
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":syncRestartDescriptor_defineRestartAttributes"
+
+    ! first the attributes that are independent of the domain
+    effectiveDomainCount = 1
+    IF(me%patchData(1)%description%l_opt_ndom) effectiveDomainCount = me%patchData(1)%description%opt_ndom
+    CALL setGeneralRestartAttributes(restartAttributes, datetime, effectiveDomainCount, jstep, opt_output_jfile)
+
+    ! now the stuff that depends on the domain
+    DO jg = 1, n_dom
+        curDescription => me%patchData(jg)%description
+        jgString = TRIM(int2string(jg, "(i2.2)"))
+        CALL setDynamicPatchRestartAttributes(restartAttributes, jg, nold(jg), nnow(jg), nnew(jg), nnow_rcf(jg), nnew_rcf(jg))
+
+        !----------------
+        ! additional restart-output for nonhydrostatic model
+        IF(curDescription%l_opt_sim_time) CALL restartAttributes%setReal('sim_time_DOM'//jgString, curDescription%opt_sim_time )
+
+        !-------------------------------------------------------------
+        ! DR
+        ! WORKAROUND FOR FIELDS WHICH NEED TO GO INTO THE RESTART FILE,
+        ! BUT SO FAR CANNOT BE HANDELED CORRECTLY BY ADD_VAR OR
+        ! SET_RESTART_ATTRIBUTE
+        !-------------------------------------------------------------
+
+        IF(curDescription%l_opt_ndyn_substeps) THEN
+            CALL restartAttributes%setInteger('ndyn_substeps_DOM'//jgString, curDescription%opt_ndyn_substeps)
+        END IF
+        IF(curDescription%l_opt_jstep_adv_marchuk_order) THEN
+            CALL restartAttributes%setInteger('jstep_adv_marchuk_order_DOM'//jgString, curDescription%opt_jstep_adv_marchuk_order)
+        END IF
+
+        IF(ALLOCATED(curDescription%opt_t_elapsed_phy) .AND. ALLOCATED(curDescription%opt_lcall_phy)) THEN
+            CALL setPhysicsRestartAttributes(restartAttributes, jg, curDescription%opt_t_elapsed_phy(:), &
+                                                                  & curDescription%opt_lcall_phy(:))
+        END IF
+    END DO
+  END SUBROUTINE syncRestartDescriptor_defineRestartAttributes
+
+  SUBROUTINE patchData_writeFile(me, restartAttributes, datetime, jstep, modelType, opt_output_jfile)
+    CLASS(t_PatchData), INTENT(IN) :: me
+    TYPE(t_RestartAttributeList) :: restartAttributes
+    TYPE(t_datetime), INTENT(IN) :: datetime
+    INTEGER, INTENT(IN) :: jstep                ! simulation step
+    CHARACTER(LEN = *), INTENT(IN) :: modelType
+    INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
+
+    INTEGER :: inlev_soil, inlev_snow, i, nice_class, error
+    INTEGER :: ndepth    ! depth of n
+    REAL(wp), ALLOCATABLE :: zlevels_full(:), zlevels_half(:)
+    CHARACTER(len=MAX_CHAR_LENGTH)  :: string
+    TYPE(t_restart_cdi_ids), ALLOCATABLE :: cdiIds(:)
+
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":patchData_writeFile"
+
+    IF(ALLOCATED(me%description%opt_pvct)) CALL set_restart_vct(me%description%opt_pvct)  ! Vertical coordinate (A's and B's)
+    IF(me%description%l_opt_depth_lnd .AND. me%description%opt_depth_lnd > 0) THEN            ! geometrical depth for land module
+        !This part is only called if me%description%opt_depth_lnd > 0
+        inlev_soil = me%description%opt_depth_lnd
+        ALLOCATE(zlevels_full(inlev_soil))
+        ALLOCATE(zlevels_half(inlev_soil+1))
+        DO i = 1, inlev_soil
+          zlevels_full(i) = REAL(i,wp)
+        END DO
+        DO i = 1, inlev_soil+1
+          zlevels_half(i) = REAL(i,wp)
+        END DO
+        CALL set_restart_depth_lnd(zlevels_half, zlevels_full)
+        DEALLOCATE(zlevels_full)
+        DEALLOCATE(zlevels_half)
+    ELSE
+        inlev_soil = 0
+    ENDIF
+    IF(me%description%l_opt_nlev_snow .AND. me%description%opt_nlev_snow > 0) THEN  ! number of snow levels (multi layer snow model)
+        !This part is only called if me%description%opt_nlev_snow > 0
+        inlev_snow = me%description%opt_nlev_snow
+        ALLOCATE(zlevels_full(inlev_snow))
+        ALLOCATE(zlevels_half(inlev_snow+1))
+        DO i = 1, inlev_snow
+          zlevels_full(i) = REAL(i,wp)
+        END DO
+        DO i = 1, inlev_snow+1
+          zlevels_half(i) = REAL(i,wp)
+        END DO
+        CALL set_restart_height_snow(zlevels_half, zlevels_full)
+        DEALLOCATE(zlevels_full)
+        DEALLOCATE(zlevels_half)
+    ELSE
+        inlev_snow = 0
+    ENDIF
+!DR end preliminary fix
+
+    ndepth = 0
+    IF(ALLOCATED(me%description%opt_ocean_zheight_cellMiddle)) THEN
+      IF(.NOT. ALLOCATED(me%description%opt_ocean_Zheight_CellInterfaces) .OR. .NOT. me%description%l_opt_ocean_Zlevels) THEN
+          CALL finish('patchData_writeFile','Ocean level parameteres not complete')
+      END IF
+      IF (.not. use_ocean_levels) THEN
+        ! initialize the ocean levels
+        IF (ALLOCATED(private_depth_half))  &
+          &  DEALLOCATE(private_depth_half, private_depth_full)
+        ALLOCATE(private_depth_half(me%description%opt_ocean_Zlevels+1), private_depth_full(me%description%opt_ocean_Zlevels))
+        private_depth_half(:) = me%description%opt_ocean_Zheight_CellInterfaces(:)
+        private_depth_full(:) = me%description%opt_ocean_Zheight_CellMiddle(:)
+      END IF
+      ndepth = me%description%opt_ocean_Zlevels
+      use_ocean_levels = .TRUE.
+     END IF
+
+    nice_class = 1
+    IF(me%description%l_opt_nice_class) nice_class = me%description%opt_nice_class
+
+    CALL init_restart( me%description%n_patch_cells_g,             &! total # of cells
+                     & me%description%n_patch_verts_g,             &! total # of vertices
+                     & me%description%n_patch_edges_g,             &! total # of cells
+                     & me%description%nlev,              &! total # of vertical layers
+                     & ndepth,            &! total # of depths below sea
+                     & inlev_soil,        &! total # of depths below land (TERRA or JSBACH)
+                     & inlev_snow,        &! total # of vertical snow layers (TERRA)
+                     & nice_class)         ! total # of ice classes (sea ice)
+    ALLOCATE(cdiIds(nvar_lists), STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+    DO i = 1, SIZE(cdiIds, 1)
+        CALL cdiIds(i)%init()
+    END DO
+
+    private_restart_time = iso8601(datetime)
+    string = getRestartFilename(me%description%base_filename, me%description%id, datetime, modelType)
+
+    CALL open_writing_restart_files(me%description%id, me%description%n_patch_cells_g, me%description%n_patch_verts_g, &
+                                   &me%description%n_patch_edges_g, me%description%cell_type, TRIM(string), restartAttributes, &
+                                   &cdiIds, datetime)
+
+    CALL write_restart(me%description%id, cdiIds)
+
+    IF(me%description%l_opt_ndom) THEN
+        CALL close_writing_restart_files(me%description%id, cdiIds, me%description%opt_ndom)
+    ELSE
+        CALL close_writing_restart_files(me%description%id, cdiIds)
+    END IF
+    CALL finish_restart()
+
+    DEALLOCATE(cdiIds)
+  END SUBROUTINE patchData_writeFile
+
+  SUBROUTINE syncRestartDescriptor_writeRestart(me, datetime, jstep, modelType, opt_output_jfile)
+    CLASS(t_SyncRestartDescriptor), INTENT(INOUT) :: me
+    TYPE(t_datetime), INTENT(IN) :: datetime
+    INTEGER, INTENT(IN) :: jstep
+    CHARACTER(LEN = *), INTENT(IN) :: modelType
+    INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
+
+    INTEGER :: jg
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+
+    IF(ltimer) CALL timer_start(timer_write_restart_file)
+
+    restartAttributes => RestartAttributeList_make()
+    CALL me%defineRestartAttributes(restartAttributes, datetime, jstep, opt_output_jfile)
+
+    DO jg = 1, n_dom
+        CALL me%patchData(jg)%writeFile(restartAttributes, datetime, jstep, modelType, opt_output_jfile)
+    END DO
+
+    CALL restartAttributes%destruct()
+    DEALLOCATE(restartAttributes)
+
+    IF(ltimer) CALL timer_stop(timer_write_restart_file)
+  END SUBROUTINE syncRestartDescriptor_writeRestart
+
+  SUBROUTINE syncRestartDescriptor_destruct(me)
+    CLASS(t_SyncRestartDescriptor), INTENT(INOUT) :: me
+
+    DEALLOCATE(me%patchData)
+  END SUBROUTINE syncRestartDescriptor_destruct
+
   !  VCT as in echam (first half of vector contains a and second half b
   SUBROUTINE set_restart_vct(vct)
     REAL(wp), INTENT(in) :: vct(:)
@@ -277,14 +525,15 @@ CONTAINS
 
   ! Loop over all the output streams and open the associated files. Set
   ! unit numbers (file IDs) for all streams associated with a file.
-  SUBROUTINE open_writing_restart_files(patch, restart_filename, restartAttributes, cdiIds, datetime)
-    TYPE(t_patch), INTENT(IN) :: patch
+  SUBROUTINE open_writing_restart_files(domain, cellCount, vertCount, edgeCount, cellType, restart_filename, restartAttributes, &
+                                       &cdiIds, datetime)
+    INTEGER, VALUE :: domain, cellCount, vertCount, edgeCount, cellType  ! TODO[NH]: pass a t_restart_patch_description instead
     CHARACTER(LEN=*), INTENT(IN) :: restart_filename
     TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
     TYPE(t_restart_cdi_ids), INTENT(INOUT) :: cdiIds(:)
     TYPE(t_datetime), INTENT(IN) :: datetime
 
-    INTEGER :: status, i ,j, jg, ia, ihg, ivg
+    INTEGER :: status, i ,j, ia, ihg, ivg
 
     CHARACTER(len=64) :: attribute_name
     CHARACTER(len=256) :: text_attribute
@@ -294,8 +543,6 @@ CONTAINS
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":open_writing_restart_files"
 
     IF (my_process_is_mpi_test()) RETURN
-
-    jg = patch%id
 
     ! first set restart file name
 
@@ -331,7 +578,7 @@ CONTAINS
       IF (.NOT. var_lists(i)%p%lrestart) CYCLE
 
       ! skip, if var_list does not match the current patch ID
-      IF (var_lists(i)%p%patch_id /= jg) CYCLE
+      IF (var_lists(i)%p%patch_id /= domain) CYCLE
 
       ! check restart file type
 
@@ -349,12 +596,10 @@ CONTAINS
       IF (my_process_is_mpi_workroot()) THEN
         IF(lvct_initialised) THEN
             CALL cdiIds(i)%openRestartAndCreateIds(TRIM(restart_filename), var_lists(i)%p%restart_type, restartAttributes, &
-                                        &patch%n_patch_cells_g, patch%n_patch_verts_g, patch%n_patch_edges_g, &
-                                        &patch%geometry_info%cell_type, vgrid_def(1:nv_grids), private_vct)
+                                        &cellCount, vertCount, edgeCount, cellType, vgrid_def(1:nv_grids), private_vct)
         ELSE
             CALL cdiIds(i)%openRestartAndCreateIds(TRIM(restart_filename), var_lists(i)%p%restart_type, restartAttributes, &
-                                        &patch%n_patch_cells_g, patch%n_patch_verts_g, patch%n_patch_edges_g, &
-                                        &patch%geometry_info%cell_type, vgrid_def(1:nv_grids))
+                                        &cellCount, vertCount, edgeCount, cellType, vgrid_def(1:nv_grids))
         END IF
         ! set the related fields IN the var_lists
 
@@ -363,7 +608,7 @@ CONTAINS
 
         ! 6. add variables
 
-        CALL addVarListToVlist(var_lists(i), cdiIds(i), jg)
+        CALL addVarListToVlist(var_lists(i), cdiIds(i), domain)
 
         WRITE(message_text,'(t1,a49,t50,a31,t84,i6,t94,l5)')        &
              restart_filename, var_lists(i)%p%name,             &
@@ -380,7 +625,7 @@ CONTAINS
         IF (i == j)                        CYCLE
         IF (var_lists(j)%p%restart_opened) CYCLE
         IF (.NOT. var_lists(j)%p%lrestart) CYCLE
-        IF (var_lists(j)%p%patch_id /= jg) CYCLE
+        IF (var_lists(j)%p%patch_id /= domain) CYCLE
 
         IF (var_lists(j)%p%restart_type /= var_lists(i)%p%restart_type) THEN
           CALL finish('open_output_streams', 'different file types for the same restart file')
@@ -398,7 +643,7 @@ CONTAINS
 
           IF (my_process_is_mpi_workroot()) THEN
 
-            CALL addVarListToVlist(var_lists(j), cdiIds(i), jg)
+            CALL addVarListToVlist(var_lists(j), cdiIds(i), domain)
 
             WRITE(message_text,'(t1,a49,t50,a31,t84,i6,t94,l5)')        &
                  restart_filename, var_lists(j)%p%name,             &
@@ -598,9 +843,10 @@ CONTAINS
     private_restart_time = iso8601(datetime)
     string = getRestartFilename(patch%grid_filename, jg, datetime, model_type)
 
-    CALL open_writing_restart_files(patch, TRIM(string), restartAttributes, cdiIds, datetime)
+    CALL open_writing_restart_files(jg, kcell, kvert, kedge, patch%geometry_info%cell_type, TRIM(string), restartAttributes, &
+                                   &cdiIds, datetime)
 
-    CALL write_restart(patch, cdiIds)
+    CALL write_restart(jg, cdiIds)
 
     CALL close_writing_restart_files(jg, cdiIds, opt_ndom)
     CALL finish_restart()
@@ -673,8 +919,8 @@ CONTAINS
 
   ! loop over all var_lists for restart
 
-  SUBROUTINE write_restart(p_patch, cdiIds)
-    TYPE(t_patch), INTENT(in) :: p_patch
+  SUBROUTINE write_restart(domain, cdiIds)
+    INTEGER, VALUE :: domain
     TYPE(t_restart_cdi_ids), INTENT(INOUT) :: cdiIds(:)
 
     INTEGER :: i,j
@@ -708,14 +954,14 @@ CONTAINS
         DO j = i, nvar_lists
 
           ! skip var_list if it does not match the current patch ID
-          IF (var_lists(j)%p%patch_id /= p_patch%id) CYCLE
+          IF (var_lists(j)%p%patch_id /= domain) CYCLE
 
           IF (cdiIds(j)%file == cdiIds(i)%file) THEN
 
 
             ! write variables
 
-            CALL write_restart_var_list(var_lists(j), p_patch, cdiIds(i)%file)
+            CALL write_restart_var_list(var_lists(j), domain, cdiIds(i)%file)
 
           ENDIF
         ENDDO
@@ -730,10 +976,9 @@ CONTAINS
 
   ! write variables of a list for restart
 
-  SUBROUTINE write_restart_var_list(this_list, p_patch, fileId)
+  SUBROUTINE write_restart_var_list(this_list, domain, fileId)
     TYPE (t_var_list) ,INTENT(in) :: this_list
-    TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-    INTEGER, VALUE :: fileId
+    INTEGER, VALUE :: domain, fileId
 
     ! variables of derived type used in linked list
 
@@ -749,11 +994,7 @@ CONTAINS
     TYPE(t_comm_gather_pattern), POINTER :: gather_pattern
 
     INTEGER :: time_level
-    INTEGER :: jg
     LOGICAL :: lskip_timelev, lskip_extra_timelevs
-
-    jg = p_patch%id
-
 
     ! Loop over all fields in linked list
 
@@ -783,17 +1024,17 @@ CONTAINS
       lskip_timelev = .FALSE.
       lskip_extra_timelevs = .FALSE.
 #ifndef __NO_ICON_ATMO__
-      IF (iequations == INH_ATMOSPHERE .AND. .NOT. (l_limited_area .AND. jg == 1)) THEN
+      IF (iequations == INH_ATMOSPHERE .AND. .NOT. (l_limited_area .AND. domain == 1)) THEN
         lskip_extra_timelevs = .TRUE.
       ENDIF
 
       ! get information about timelevel to be skipped for current field
       IF (element%field%info%tlev_source == TLEV_NNOW ) THEN
-        IF (time_level == nnew(jg))                    lskip_timelev = .TRUE.
+        IF (time_level == nnew(domain))                    lskip_timelev = .TRUE.
         ! this is needed to skip the extra time levels allocated for nesting
         IF (lskip_extra_timelevs .AND. time_level > 2) lskip_timelev = .TRUE.
       ELSE IF (element%field%info%tlev_source == TLEV_NNOW_RCF) THEN
-        IF (time_level == nnew_rcf(jg))  lskip_timelev = .TRUE.
+        IF (time_level == nnew_rcf(domain))  lskip_timelev = .TRUE.
       ENDIF
 
       SELECT CASE (iequations)
@@ -814,13 +1055,13 @@ CONTAINS
       SELECT CASE (info%hgrid)
       CASE (GRID_UNSTRUCTURED_CELL)
         private_n = private_nc
-        gather_pattern => p_patch%comm_pat_gather_c
+        gather_pattern => p_patch(domain)%comm_pat_gather_c
       CASE (GRID_UNSTRUCTURED_VERT)
         private_n = private_nv
-        gather_pattern => p_patch%comm_pat_gather_v
+        gather_pattern => p_patch(domain)%comm_pat_gather_v
       CASE (GRID_UNSTRUCTURED_EDGE)
         private_n = private_ne
-        gather_pattern => p_patch%comm_pat_gather_e
+        gather_pattern => p_patch(domain)%comm_pat_gather_e
       CASE default
         CALL finish(routine,'unknown grid type')
       END SELECT

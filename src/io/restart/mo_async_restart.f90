@@ -109,13 +109,13 @@ MODULE mo_async_restart
   TYPE, EXTENDS(t_RestartDescriptor) :: t_AsyncRestartDescriptor
     TYPE(t_patch_data), ALLOCATABLE :: patch_data(:)
   CONTAINS
-    PROCEDURE :: construct => restartDescriptor_construct
-    PROCEDURE :: updatePatch => restartDescriptor_updatePatch
-    PROCEDURE :: writeRestart => restartDescriptor_writeRestart
-    PROCEDURE :: destruct => restartDescriptor_destruct
+    PROCEDURE :: construct => asyncRestartDescriptor_construct
+    PROCEDURE :: updatePatch => asyncRestartDescriptor_updatePatch
+    PROCEDURE :: writeRestart => asyncRestartDescriptor_writeRestart
+    PROCEDURE :: destruct => asyncRestartDescriptor_destruct
 
     ! methods called ONLY by the restart processes
-    PROCEDURE, PRIVATE :: restartWriteAsyncRestart => restartDescriptor_restartWriteAsyncRestart
+    PROCEDURE, PRIVATE :: restartWriteAsyncRestart => asyncRestartDescriptor_restartWriteAsyncRestart
   END TYPE t_AsyncRestartDescriptor
 
 CONTAINS
@@ -128,11 +128,11 @@ CONTAINS
   !
   !> Prepare the asynchronous restart (collective call).
   !
-  SUBROUTINE restartDescriptor_construct(me)
+  SUBROUTINE asyncRestartDescriptor_construct(me)
     CLASS(t_AsyncRestartDescriptor), INTENT(INOUT) :: me
 
     INTEGER :: jg, error
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':restartDescriptor_construct'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':asyncRestartDescriptor_construct'
 
 #ifdef NOMPI
     CALL finish(routine, ASYNC_RESTART_REQ_MPI)
@@ -168,13 +168,13 @@ CONTAINS
         END IF
     END DO
 #endif
-  END SUBROUTINE restartDescriptor_construct
+  END SUBROUTINE asyncRestartDescriptor_construct
 
   !------------------------------------------------------------------------------------------------
   !
   !> Set patch-dependent dynamic data for asynchronous restart.
   !
-  SUBROUTINE restartDescriptor_updatePatch(me, patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &
+  SUBROUTINE asyncRestartDescriptor_updatePatch(me, patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &
                                           &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth, opt_depth_lnd, &
                                           &opt_nlev_snow, opt_nice_class, opt_ndom)
     CLASS(t_AsyncRestartDescriptor), INTENT(INOUT) :: me
@@ -185,7 +185,7 @@ CONTAINS
     LOGICAL, INTENT(IN), OPTIONAL :: opt_lcall_phy(:)
 
     INTEGER :: jg
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartDescriptor_updatePatch"
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":asyncRestartDescriptor_updatePatch"
 
 #ifdef NOMPI
     CALL finish(routine, ASYNC_RESTART_REQ_MPI)
@@ -200,21 +200,22 @@ CONTAINS
     END IF
 #endif
 
-  END SUBROUTINE restartDescriptor_updatePatch
+  END SUBROUTINE asyncRestartDescriptor_updatePatch
 
   !------------------------------------------------------------------------------------------------
   !
   !> Writes all restart data into one or more files (one file per patch, collective across work processes).
   !
-  SUBROUTINE restartDescriptor_writeRestart(me, datetime, jstep, opt_output_jfile)
+  SUBROUTINE asyncRestartDescriptor_writeRestart(me, datetime, jstep, modelType, opt_output_jfile)
     CLASS(t_AsyncRestartDescriptor), INTENT(INOUT) :: me
     TYPE(t_datetime), INTENT(IN) :: datetime
     INTEGER, INTENT(IN) :: jstep
+    CHARACTER(LEN = *), INTENT(IN) :: modelType ! TODO[NH]: Pass this on to the getRestartFilename() CALL.
     INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
 
     INTEGER :: idx
     TYPE(t_restart_args) :: restart_args
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':restartDescriptor_writeRestart'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':asyncRestartDescriptor_writeRestart'
 
 #ifdef NOMPI
     CALL finish (routine, ASYNC_RESTART_REQ_MPI)
@@ -238,7 +239,7 @@ CONTAINS
       IF(me%patch_data(idx)%description%l_dom_active) CALL compute_write_var_list(me%patch_data(idx))
     END DO
 #endif
-  END SUBROUTINE restartDescriptor_writeRestart
+  END SUBROUTINE asyncRestartDescriptor_writeRestart
 
 #ifndef NOMPI
   SUBROUTINE restart_write_patch(restart_args, patch_data, restartAttributes)
@@ -281,13 +282,13 @@ CONTAINS
 #endif
 
   !> Writes all restart data into one or more files (one file per patch, collective across restart processes).
-  SUBROUTINE restartDescriptor_restartWriteAsyncRestart(me, restart_args)
+  SUBROUTINE asyncRestartDescriptor_restartWriteAsyncRestart(me, restart_args)
     CLASS(t_AsyncRestartDescriptor), INTENT(INOUT) :: me
     TYPE(t_restart_args), INTENT(IN) :: restart_args
 
     INTEGER :: idx
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':restartDescriptor_restartWriteAsyncRestart'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':asyncRestartDescriptor_restartWriteAsyncRestart'
 
 #ifdef NOMPI
     CALL finish (routine, ASYNC_RESTART_REQ_MPI)
@@ -311,17 +312,17 @@ CONTAINS
     CALL restartAttributes%destruct()
     DEALLOCATE(restartAttributes)
 #endif
-  END SUBROUTINE restartDescriptor_restartWriteAsyncRestart
+  END SUBROUTINE asyncRestartDescriptor_restartWriteAsyncRestart
 
   !------------------------------------------------------------------------------------------------
   !
   !> Closes asynchronous restart (collective call).
   !
-  SUBROUTINE restartDescriptor_destruct(me)
+  SUBROUTINE asyncRestartDescriptor_destruct(me)
     CLASS(t_AsyncRestartDescriptor), INTENT(INOUT) :: me
 
     INTEGER :: i
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':restartDescriptor_destruct'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':asyncRestartDescriptor_destruct'
 
 #ifdef NOMPI
     CALL finish(routine, ASYNC_RESTART_REQ_MPI)
@@ -342,7 +343,7 @@ CONTAINS
     DEALLOCATE(me%patch_data)
 #endif
 
-  END SUBROUTINE restartDescriptor_destruct
+  END SUBROUTINE asyncRestartDescriptor_destruct
 
   !-------------------------------------------------------------------------------------------------
   !>

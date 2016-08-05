@@ -619,9 +619,7 @@ MODULE mo_nh_stepping
 
   datetime_old = datetime_current
 
-  IF (use_async_restart_output) THEN
-    restartDescriptor => createRestartDescriptor()
-  ENDIF
+  restartDescriptor => createRestartDescriptor()
 
   jstep0 = 0
   restartAttributes => getAttributesForRestarting()
@@ -1133,42 +1131,25 @@ MODULE mo_nh_stepping
 #endif
 
     IF (lwrite_checkpoint) THEN
-      IF (use_async_restart_output) THEN
         DO jg = 1, n_dom
-          CALL restartDescriptor%updatePatch(p_patch(jg), &
-            & opt_t_elapsed_phy          = t_elapsed_phy(jg,:),        &
-            & opt_lcall_phy              = lcall_phy(jg,:),            &
-            & opt_sim_time               = time_config%sim_time(jg),   &
-            & opt_ndyn_substeps          = ndyn_substeps_var(jg),      &
-            & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
-            & opt_depth_lnd              = nlev_soil,                  &
-            & opt_nlev_snow              = nlev_snow,                  &
-            & opt_ndom                   = n_dom)
+            CALL restartDescriptor%updatePatch(p_patch(jg), &
+              & opt_t_elapsed_phy          = t_elapsed_phy(jg,:),        &
+              & opt_lcall_phy              = lcall_phy(jg,:),            &
+              & opt_sim_time               = time_config%sim_time(jg),   &
+              & opt_ndyn_substeps          = ndyn_substeps_var(jg),      &
+              & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
+              & opt_depth_lnd              = nlev_soil,                  &
+              & opt_nlev_snow              = nlev_snow,                  &
+              & opt_ndom                   = n_dom)
         ENDDO
-        CALL restartDescriptor%writeRestart(datetime_current, jstep, opt_output_jfile = output_jfile)
-      ELSE
-        DO jg = 1, n_dom
-          IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-          CALL create_restart_file( patch= p_patch(jg),datetime= datetime_current,           &
-                                  & jstep                      = jstep,                      &
-                                  & model_type                 = "atm",                      &
-                                  & opt_t_elapsed_phy          = t_elapsed_phy,              &
-                                  & opt_lcall_phy              = lcall_phy,                  &
-                                  & opt_sim_time               = time_config%sim_time(jg),   &
-                                  & opt_ndyn_substeps          = ndyn_substeps_var(jg),      &
-                                  & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
-                                  & opt_depth_lnd              = nlev_soil,                  &
-                                  & opt_nlev_snow              = nlev_snow,                  &
-                                  & opt_ndom                   = n_dom,                      &
-                                  & opt_output_jfile           = output_jfile )
-        END DO
+        CALL restartDescriptor%writeRestart(datetime_current, jstep, "atm", opt_output_jfile = output_jfile)
 
 #ifdef MESSY
-        CALL messy_channel_write_output(IOMODE_RST)
-!        CALL messy_ncregrid_write_restart
+        IF(.NOT.use_async_restart_output) THEN
+            CALL messy_channel_write_output(IOMODE_RST)
+!           CALL messy_ncregrid_write_restart
+        END IF
 #endif
-      END IF
-
     END IF  ! lwrite_checkpoint
 
 #ifdef MESSYTIMER

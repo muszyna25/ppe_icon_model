@@ -16,6 +16,7 @@ MODULE mo_restart
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_parallel_config, ONLY: use_async_restart_output
     USE mo_restart_descriptor, ONLY: t_RestartDescriptor
+    USE mo_sync_restart, ONLY: t_SyncRestartDescriptor
 
     IMPLICIT NONE
 
@@ -37,11 +38,11 @@ CONTAINS
 
         IF(use_async_restart_output) THEN
             ALLOCATE(t_AsyncRestartDescriptor :: RESULT, STAT = error)
-            IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
-            CALL RESULT%construct()
         ELSE
-            CALL finish(routine, "synchronous restart writing NOT implemented yet")
+            ALLOCATE(t_SyncRestartDescriptor :: RESULT, STAT = error)
         END IF
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
+        CALL RESULT%construct()
     END FUNCTION createRestartDescriptor
 
     ! Convenience FUNCTION for destroying a restart descriptor.

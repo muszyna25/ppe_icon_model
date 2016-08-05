@@ -234,9 +234,7 @@ CONTAINS
 
   IF (ltimer) CALL timer_start(timer_total)
 
-  IF (use_async_restart_output) THEN
-    restartDescriptor => createRestartDescriptor()
-  ENDIF
+  restartDescriptor => createRestartDescriptor()
 
   jstep0 = 0
   restartAttributes => getAttributesForRestarting()
@@ -378,26 +376,15 @@ CONTAINS
     ! Write restart file
     !--------------------------------------------------------------------------
     IF (is_checkpoint_time(jstep,n_chkpt,(nsteps+jstep0))) THEN
-
-      IF (use_async_restart_output) THEN
         DO jg = 1, n_dom
-          CALL restartDescriptor%updatePatch(p_patch(jg), opt_pvct = vct)
+            CALL restartDescriptor%updatePatch(p_patch(jg), opt_pvct = vct)
         ENDDO
-
-        ! call asynchronous restart
-        CALL restartDescriptor%writeRestart(datetime, jstep)
-
-      ELSE
-        DO jg = 1, n_dom
-          CALL create_restart_file( p_patch(jg), datetime,                        &
-                                  & jstep, "atm", vct )
-        END DO
-      END IF
+        CALL restartDescriptor%writeRestart(datetime, jstep, "atm")
     END IF
 
   ENDDO TIME_LOOP
 
-  IF (use_async_restart_output) CALL deleteRestartDescriptor(restartDescriptor)
+  CALL deleteRestartDescriptor(restartDescriptor)
 
   IF (ltimer) CALL timer_stop(timer_total)
 
