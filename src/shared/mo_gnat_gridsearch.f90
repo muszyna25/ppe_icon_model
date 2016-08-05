@@ -76,9 +76,9 @@ MODULE mo_gnat_gridsearch
   USE mo_model_domain,        ONLY: t_grid_cells, t_grid_vertices, t_patch
   USE mo_impl_constants,      ONLY: min_rlcell_int
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
-  USE mo_mpi,                 ONLY: get_my_mpi_work_id,                                   &
-    &                               p_comm_work, my_process_is_mpi_test, p_max,           &
-    &                               p_send, p_recv,                                       &
+  USE mo_mpi,                 ONLY: get_my_mpi_work_id, p_io, p_pe_work, &
+    &                               p_comm_work, my_process_is_mpi_test, &
+    &                               p_bcast, p_max, p_send, p_recv, &
     &                               process_mpi_all_test_id, process_mpi_all_workroot_id
   USE mo_communication,       ONLY: idx_1d
   USE mo_icon_comm_lib,       ONLY: t_mpi_mintype, mpi_reduce_mindistance_pts
@@ -1518,6 +1518,7 @@ CONTAINS
     INTEGER                 :: i_startblk, &
       &                        i_startidx, i_endidx, &
       &                        rl_start, rl_end, i_nchdom
+    LOGICAL :: l_my_process_is_mpi_test
 
     ! set default value ("failure notice")
     min_dist(:,:)  = MAX_RANGE
@@ -1542,13 +1543,20 @@ CONTAINS
       & /grid_sphere_radius, gk)
     ! for MPI-independent behaviour: determine global max. of search radii
     radius = p_max(radius, comm=p_comm_work)
-    IF(l_p_test_run) THEN
-      IF(.NOT. my_process_is_mpi_test()) THEN
-        ! Send to test PE
-        CALL p_send(radius, process_mpi_all_test_id, 1)
-      ELSE
-        ! Receive result from parallel worker PEs
-        CALL p_recv(radius, process_mpi_all_workroot_id, 1)
+    IF (l_p_test_run) THEN
+      l_my_process_is_mpi_test = my_process_is_mpi_test()
+      ! TODO: use intercomm bcast once a test/work intercomm exists
+      IF (p_pe_work == p_io) THEN
+        IF(.NOT. l_my_process_is_mpi_test) THEN
+          ! Send to test PE
+          CALL p_send(radius, process_mpi_all_test_id, 1)
+        ELSE
+          ! Receive result from parallel worker PEs
+          CALL p_recv(radius, process_mpi_all_workroot_id, 1)
+        END IF
+      END IF
+      IF (l_my_process_is_mpi_test) THEN
+        CALL p_bcast(radius, p_io, comm=p_comm_work)
       END IF
     END IF
 
