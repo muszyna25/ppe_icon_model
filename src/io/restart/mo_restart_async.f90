@@ -20,8 +20,8 @@
 !!
 
 MODULE mo_restart_async
-
   USE mo_decomposition_tools,     ONLY: t_grid_domain_decomp_info
+  USE mo_async_restart_packer,    ONLY: t_AsyncRestartPacker, restartBcastRoot
   USE mo_exception,               ONLY: finish
   USE mo_fortran_tools,           ONLY: t_ptr_2d, ensureSize
   USE mo_kind,                    ONLY: wp, i8, dp
@@ -36,7 +36,6 @@ MODULE mo_restart_async
                                       & SUCCESS, TLEV_NNOW, TLEV_NNOW_RCF
   USE mo_var_metadata_types,      ONLY: t_var_metadata
   USE mo_restart_namelist,     ONLY: print_restart_name_lists, RestartNamelist_bcast
-  USE mo_communication,           ONLY: idx_no, blk_no
   USE mo_parallel_config,         ONLY: restart_chunk_size
   USE mo_grid_config,             ONLY: n_dom
   USE mo_run_config,              ONLY: msg_level
@@ -52,16 +51,16 @@ MODULE mo_restart_async
 #ifndef NOMPI
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work, p_work_pe0, num_work_procs, MPI_SUCCESS, &
                                       & stop_mpi, p_send, p_recv, p_barrier, p_bcast, my_process_is_restart, my_process_is_work, &
-                                      & p_comm_work_2_restart, p_n_work, p_int, process_mpi_restart_size, p_int_i8, p_real_dp, &
-                                      & p_comm_work_restart, p_mpi_wtime, process_mpi_all_comm, p_get_bcast_role
+                                      & p_comm_work_2_restart, process_mpi_restart_size, p_real_dp, p_comm_work_restart, &
+                                      & p_mpi_wtime, process_mpi_all_comm, p_get_bcast_role
 
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
 
 #ifdef __SUNPRO_F95
   INCLUDE "mpif.h"
 #else
-  USE mpi,                        ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL, MPI_ROOT, MPI_LOCK_SHARED, MPI_MODE_NOCHECK, &
-                                      & MPI_PROC_NULL, MPI_WIN_NULL, MPI_LOCK_EXCLUSIVE
+  USE mpi,                        ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL, MPI_LOCK_SHARED, MPI_MODE_NOCHECK, &
+                                      & MPI_WIN_NULL, MPI_LOCK_EXCLUSIVE
 #endif
 #endif
 
@@ -114,30 +113,6 @@ MODULE mo_restart_async
     PROCEDURE, PRIVATE :: construct => restartFile_construct
   END TYPE t_restart_file
 
-  !------------------------------------------------------------------------------------------------
-  ! TYPE t_reorder_data describes how local cells/edges/verts
-  ! have to be reordered to get the global array.
-  ! Below, "points" refers to either cells, edges or verts.
-  !
-  TYPE t_reorder_data
-    INTEGER :: n_glb  ! Global number of points per logical patch
-    INTEGER :: n_own  ! Number of own points (without halo, only belonging to logical patch). Only set on compute PEs, set to 0 on restart PEs.
-    INTEGER, ALLOCATABLE :: own_idx(:), own_blk(:)  ! idx and blk for own points, only set on compute PEs
-    INTEGER, ALLOCATABLE :: pe_own(:)   ! n_own, gathered for all compute PEs (set on all PEs)
-
-    ! Index how to reorder the contributions of all compute PEs into the global array (set on all PEs)
-    INTEGER, ALLOCATABLE :: inverse_reorder_index(:)    ! given a gathered array index, this gives the index within the global array
-  CONTAINS
-    PROCEDURE, PRIVATE :: construct => reorderData_construct    ! Collective across work AND restart. This IS a two step process utilizing the two methods below.
-    PROCEDURE, PRIVATE :: constructCompute => reorderData_constructCompute  ! The reorder DATA IS constructed on the work processes AND THEN transferred to the restart processes.
-    PROCEDURE, PRIVATE :: transferToRestart => reorderData_transferToRestart    ! Constructs the reorder DATA on the restart processes.
-
-    PROCEDURE, PRIVATE :: packLevel => reorderData_packLevel    ! pack the contents of a single level/variable into our memory window
-    PROCEDURE, PRIVATE :: reorderLevelFromPe => reorderData_reorderLevelFromPe  ! sort the DATA of a single level from a single PE into a global array.
-
-    PROCEDURE, PRIVATE :: destruct => reorderData_destruct
-  END TYPE t_reorder_data
-
   ! this combines all the DATA that's relevant for transfering the payload DATA from the worker PEs to the restart PEs
   TYPE t_restart_comm_data
     ! DATA for remote memory access
@@ -145,11 +120,12 @@ MODULE mo_restart_async
     REAL(dp), POINTER :: windowPtr(:)
 
     ! reorder data
-    TYPE(t_reorder_data) :: cells
-    TYPE(t_reorder_data) :: edges
-    TYPE(t_reorder_data) :: verts
+    TYPE(t_AsyncRestartPacker) :: cells
+    TYPE(t_AsyncRestartPacker) :: edges
+    TYPE(t_AsyncRestartPacker) :: verts
   CONTAINS
     PROCEDURE, PRIVATE :: construct => restartCommData_construct
+    PROCEDURE, PRIVATE :: maxLevelSize => restartCommData_maxLevelSize  ! called to get the required buffer SIZE on the restart processes
     PROCEDURE, PRIVATE :: postData => restartCommData_postData  ! called by the compute processes to WRITE their DATA to their memory window
     PROCEDURE, PRIVATE :: collectData => restartCommData_collectData    ! called by the restart processes to fetch the DATA from the compute processes
     PROCEDURE, PRIVATE :: destruct => restartCommData_destruct
@@ -185,24 +161,6 @@ MODULE mo_restart_async
 
 CONTAINS
 
-#ifndef NOMPI
-  ! Broadcast root for intercommunicator broadcasts from compute PEs to restart PEs using p_comm_work_2_restart.
-  INTEGER FUNCTION bcastRoot() RESULT(RESULT)
-    IF(my_process_is_restart()) THEN
-        ! root is proc 0 on the compute PEs
-        RESULT = 0
-    ELSE
-        ! Special root setting for intercommunicators:
-        ! The PE really sending must use MPI_ROOT, the others MPI_PROC_NULL.
-        IF(p_pe_work == 0) THEN
-            RESULT = MPI_ROOT
-        ELSE
-            RESULT = MPI_PROC_NULL
-        END IF
-    END IF
-  END FUNCTION bcastRoot
-#endif
-
   !------------------------------------------------------------------------------------------------
   !
   ! public routines
@@ -224,9 +182,9 @@ CONTAINS
     IF(.NOT. (my_process_is_work() .OR. my_process_is_restart())) RETURN
 
     ! TRANSFER some global DATA to the restart processes
-    CALL p_bcast(n_dom, bcastRoot(), p_comm_work_2_restart)
-    CALL bcastRestartVarlists(bcastRoot(), p_comm_work_2_restart)
-    CALL RestartNamelist_bcast(bcastRoot(), p_comm_work_2_restart)
+    CALL p_bcast(n_dom, restartBcastRoot(), p_comm_work_2_restart)
+    CALL bcastRestartVarlists(restartBcastRoot(), p_comm_work_2_restart)
+    CALL RestartNamelist_bcast(restartBcastRoot(), p_comm_work_2_restart)
 
     ! allocate patch data structure
     ALLOCATE(me%patch_data(n_dom), STAT = error)
@@ -971,7 +929,7 @@ CONTAINS
     END IF
 
     ! transfer data to restart PEs
-    CALL message%bcast(bcastRoot(), p_comm_work_2_restart)
+    CALL message%bcast(restartBcastRoot(), p_comm_work_2_restart)
     CALL description%packer(kUnpackOp, message)
 
     ! initialize the fields that we DO NOT communicate from the worker PEs to the restart PEs
@@ -991,7 +949,7 @@ CONTAINS
     INTEGER :: error, iv, nlevs
     TYPE(t_grid_domain_decomp_info) :: dummyInfo
     INTEGER(KIND = MPI_ADDRESS_KIND) :: memWindowSize
-    TYPE(t_reorder_data), POINTER :: reorderData
+    TYPE(t_AsyncRestartPacker), POINTER :: reorderData
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartCommData_construct"
 
     ! initialize the reorder info
@@ -1023,6 +981,12 @@ CONTAINS
     END IF
   END SUBROUTINE restartCommData_construct
 
+  INTEGER FUNCTION restartCommData_maxLevelSize(me) RESULT(RESULT)
+    CLASS(t_restart_comm_data), INTENT(IN) :: me
+
+    RESULT = MAX(me%cells%n_glb, me%edges%n_glb, me%verts%n_glb)
+  END FUNCTION restartCommData_maxLevelSize
+
   SUBROUTINE restartCommData_postData(me, varInfo, dataPointers, offset)
     CLASS(t_restart_comm_data), TARGET, INTENT(INOUT) :: me
     TYPE(t_var_metadata), INTENT(IN) :: varInfo
@@ -1030,7 +994,7 @@ CONTAINS
     !TODO[NH]: Replace this by an index within the t_restart_comm_data structure.
     INTEGER(i8), INTENT(INOUT) :: offset
 
-    TYPE(t_reorder_data), POINTER :: reorderData
+    TYPE(t_AsyncRestartPacker), POINTER :: reorderData
     INTEGER :: mpi_error, i
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartCommData_postData"
 
@@ -1067,7 +1031,7 @@ CONTAINS
     INTEGER(i8), INTENT(INOUT) :: bytesFetched
 
     INTEGER :: sourceProc, doubleCount, reorderOffset, curLevel, mpi_error
-    TYPE(t_reorder_data), POINTER :: reorderData
+    TYPE(t_AsyncRestartPacker), POINTER :: reorderData
     REAL(dp), POINTER, SAVE :: buffer(:) => NULL()
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartCommData_collectData"
 
@@ -1100,7 +1064,7 @@ CONTAINS
         ! separate the levels received from PE "sourceProc":
         reorderOffset = 1
         DO curLevel = 1, levelCount
-            CALL reorderData%reorderLevelFromPe(curLevel, sourceProc, buffer(reorderOffset:), dest)
+            CALL reorderData%unpackLevelFromPe(curLevel, sourceProc, buffer(reorderOffset:), dest)
             reorderOffset = reorderOffset + reorderData%pe_own(sourceProc)
         END DO
     END DO
@@ -1178,213 +1142,6 @@ CONTAINS
     ENDDO
 
   END SUBROUTINE restartFile_construct
-
-  !------------------------------------------------------------------------------------------------
-  !
-  ! Sets the reorder data for cells/edges/verts.
-  !
-  SUBROUTINE reorderData_constructCompute(me, n_points_g, n_points, decomp_info)
-    CLASS(t_reorder_data), INTENT(INOUT) :: me ! Result: reorder data
-    INTEGER, INTENT(IN) :: n_points_g      ! Global number of cells/edges/verts in logical patch
-    INTEGER, INTENT(IN) :: n_points        ! Local number of cells/edges/verts in logical patch
-    TYPE(t_grid_domain_decomp_info), INTENT(IN) :: decomp_info
-
-    INTEGER :: i, n, il, ib, mpi_error, ierrstat
-    LOGICAL, ALLOCATABLE :: owner_mask_1d(:) ! non-blocked owner mask for (logical) patch
-    INTEGER, ALLOCATABLE :: glbidx_own(:), glbidx_glb(:), reorder_index_log_dom(:), pe_off(:), reorder_index(:)
-    CHARACTER (LEN=MAX_ERROR_LENGTH) :: error_message
-
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':reorderData_constructCompute'
-
-#ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)routine,' is called for p_pe=',p_pe
-#endif
-
-    ! just for safety
-    IF(my_process_is_restart()) CALL finish(routine, NO_COMPUTE_PE)
-
-    ! set the non-blocked patch owner mask
-    ALLOCATE(owner_mask_1d(n_points), STAT = ierrstat)
-    IF(ierrstat /= SUCCESS) CALL finish(routine, "allocation of owner_mask_1d failed")
-    DO i = 1, n_points
-      il = idx_no(i)
-      ib = blk_no(i)
-      owner_mask_1d(i) = decomp_info%owner_mask(il,ib)
-    ENDDO
-
-    ! get number of owned cells/edges/verts (without halos)
-    me%n_own = COUNT(owner_mask_1d(:))
-
-    ! set index arrays to own cells/edges/verts
-    ALLOCATE(me%own_idx(me%n_own), STAT=ierrstat)
-    IF(ierrstat /= SUCCESS) CALL finish(routine, "allocation of me%own_idx failed")
-    ALLOCATE(me%own_blk(me%n_own), STAT=ierrstat)
-    IF(ierrstat /= SUCCESS) CALL finish(routine, "allocation of me%own_blk failed")
-
-    ! global index of my own points
-    ALLOCATE(glbidx_own(me%n_own), STAT=ierrstat)
-    IF(ierrstat /= SUCCESS) CALL finish(routine, "allocation of glbidx_own failed")
-
-    n = 0
-    DO i = 1, n_points
-      IF(owner_mask_1d(i)) THEN
-        n = n+1
-        me%own_idx(n) = idx_no(i)
-        me%own_blk(n) = blk_no(i)
-        glbidx_own(n)  = decomp_info%glb_index(i)
-      ENDIF
-    ENDDO
-    DEALLOCATE(owner_mask_1d)
-
-    ! gather the number of own points for every PE into me%pe_own
-    ALLOCATE(me%pe_own(0:p_n_work-1), STAT=ierrstat)
-    IF(ierrstat /= SUCCESS) CALL finish(routine, "allocation of me%pe_own failed")
-    ALLOCATE(pe_off(0:p_n_work-1), STAT=ierrstat)
-    IF(ierrstat /= SUCCESS) CALL finish(routine, "allocation of pe_off failed")
-
-    CALL MPI_Allgather(me%n_own,  1, p_int, &
-                       me%pe_own, 1, p_int, &
-                       p_comm_work, mpi_error)
-    CALL check_mpi_error(routine, 'MPI_Allgather', mpi_error, .TRUE.)
-
-    ! get offset within result array
-    pe_off(0) = 0
-    DO i = 1, p_n_work-1
-      pe_off(i) = pe_off(i-1) + me%pe_own(i-1)
-    ENDDO
-
-    ! get global number of points for current patch
-    me%n_glb = SUM(me%pe_own(:))
-
-    ! Get the global index numbers of the data when it is gathered on PE 0
-    ! exactly in the same order as it is retrieved later during restart.
-    ALLOCATE(glbidx_glb(me%n_glb), STAT=ierrstat)
-    IF(ierrstat /= SUCCESS) CALL finish(routine, "allocation of glbidx_glb failed")
-
-    CALL MPI_Allgatherv(glbidx_own, me%n_own, p_int, &
-                        glbidx_glb, me%pe_own, pe_off, p_int, &
-                        p_comm_work, mpi_error)
-    CALL check_mpi_error(routine, 'MPI_Allgatherv', mpi_error, .TRUE.)
-    DEALLOCATE(glbidx_own)
-    DEALLOCATE(pe_off)
-
-    ! spans the complete logical domain
-    ALLOCATE(reorder_index_log_dom(n_points_g), STAT=ierrstat)
-    IF(ierrstat /= SUCCESS) CALL finish(routine, "allocation of reorder_index_log_dom failed")
-    reorder_index_log_dom(:) = 0
-
-    DO i = 1, me%n_glb
-      ! reorder_index_log_dom stores where a global point in logical domain comes from.
-      ! It is nonzero only at the patch locations
-      reorder_index_log_dom(glbidx_glb(i)) = i
-    ENDDO
-    DEALLOCATE(glbidx_glb)
-
-    ! remove the zero entries from reorder_index_log_dom to form the reorder_index
-    ALLOCATE(reorder_index(me%n_glb), STAT=ierrstat)
-    IF(ierrstat /= SUCCESS) CALL finish(routine, "allocation of reorder_index failed")
-
-    n = 0
-    DO i = 1, n_points_g
-      IF(reorder_index_log_dom(i)>0) THEN
-        n = n+1
-        reorder_index(n) = reorder_index_log_dom(i)
-      ENDIF
-    ENDDO
-    DEALLOCATE(reorder_index_log_dom)
-    IF(n /= me%n_glb) CALL finish(routine, "assertion failed: reorder_index is not surjective")
-
-    ! compute the inverse of the reorder_index
-    ALLOCATE(me%inverse_reorder_index(me%n_glb), STAT=ierrstat)
-    IF(ierrstat /= SUCCESS) CALL finish(routine, "allocation of me%inverse_reorder_index failed")
-
-    me%inverse_reorder_index(:) = 0
-    DO i = 1, me%n_glb
-        IF(me%inverse_reorder_index(reorder_index(i)) /= 0) THEN
-            CALL finish(routine, "assertion failed: reorder_index is not injective")
-        END IF
-        me%inverse_reorder_index(reorder_index(i)) = i
-    END DO
-    DEALLOCATE(reorder_index)
-  END SUBROUTINE reorderData_constructCompute
-
-  !------------------------------------------------------------------------------------------------
-  !
-  ! Transfers reorder data to restart PEs.
-  !
-  SUBROUTINE reorderData_transferToRestart(me)
-    CLASS(t_reorder_data), INTENT(INOUT) :: me
-    INTEGER                             :: ierrstat
-
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':reorderData_transferToRestart'
-
-    ! transfer the global number of points, this is not yet known on restart PEs
-    CALL p_bcast(me%n_glb,  bcastRoot(), p_comm_work_2_restart)
-
-    IF(my_process_is_restart()) THEN
-      me%n_own = 0  ! on restart PEs: n_own = 0, own_idx and own_blk are not allocated
-
-      ! pe_own must be allocated for num_work_procs, not for p_n_work
-      ALLOCATE(me%pe_own(0:num_work_procs-1), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
-
-      ALLOCATE(me%inverse_reorder_index(me%n_glb), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
-    ENDIF
-
-    CALL p_bcast(me%pe_own, bcastRoot(), p_comm_work_2_restart)
-    CALL p_bcast(me%inverse_reorder_index, bcastRoot(), p_comm_work_2_restart)
-  END SUBROUTINE reorderData_transferToRestart
-
-  SUBROUTINE reorderData_construct(me, n_points_g, n_points, decomp_info)
-    CLASS(t_reorder_data), INTENT(INOUT) :: me
-    INTEGER, INTENT(IN) :: n_points_g      ! Global number of cells/edges/verts in logical patch
-    INTEGER, INTENT(IN) :: n_points        ! Local number of cells/edges/verts in logical patch
-    TYPE(t_grid_domain_decomp_info), INTENT(IN) :: decomp_info
-
-    IF(my_process_is_work()) THEN
-        CALL me%constructCompute(n_points_g, n_points, decomp_info)
-    END IF
-    CALL me%transferToRestart()
-  END SUBROUTINE reorderData_construct
-
-  SUBROUTINE reorderData_packLevel(me, source, dest, offset)
-    CLASS(t_reorder_data), INTENT(IN) :: me
-    REAL(wp), INTENT(IN) :: source(:,:)
-    REAL(dp), INTENT(INOUT) :: dest(:)
-    !TODO[NH]: Replace this by an INTENT(IN) level count
-    INTEGER(i8), INTENT(INOUT) :: offset
-
-    INTEGER :: i
-
-    DO i = 1, me%n_own
-        offset = offset + 1
-        dest(offset) = REAL(source(me%own_idx(i), me%own_blk(i)), dp)
-    END DO
-  END SUBROUTINE reorderData_packLevel
-
-  SUBROUTINE reorderData_reorderLevelFromPe(me, level, pe, dataIn, globalArray)
-    CLASS(t_reorder_data), INTENT(IN) :: me
-    INTEGER, VALUE :: level, pe
-    REAL(dp), INTENT(IN) :: dataIn(:)
-    REAL(dp), INTENT(INOUT) :: globalArray(:,:)
-
-    INTEGER :: offset, i
-
-    offset = SUM(me%pe_own(0:pe - 1))
-    DO i = 1, me%pe_own(pe)
-        globalArray(me%inverse_reorder_index(offset + i), level) = dataIn(i)
-    END DO
-  END SUBROUTINE reorderData_reorderLevelFromPe
-
-  SUBROUTINE reorderData_destruct(me)
-    CLASS(t_reorder_data), INTENT(INOUT) :: me
-
-    IF(ALLOCATED(me%own_idx)) DEALLOCATE(me%own_idx)
-    IF(ALLOCATED(me%own_blk)) DEALLOCATE(me%own_blk)
-    DEALLOCATE(me%pe_own)
-    DEALLOCATE(me%inverse_reorder_index)
-  END SUBROUTINE reorderData_destruct
 
   !------------------------------------------------------------------------------------------------
   !
@@ -1602,7 +1359,7 @@ CONTAINS
     TYPE(t_var_metadata), INTENT(IN) :: p_info
     CHARACTER(LEN=*), INTENT(IN) :: routine
 
-    TYPE(t_reorder_data), POINTER :: get_reorder_ptr
+    TYPE(t_AsyncRestartPacker), POINTER :: get_reorder_ptr
 
     get_reorder_ptr => NULL()
 
@@ -1648,7 +1405,7 @@ CONTAINS
 
     TYPE(t_restart_file), POINTER   :: p_rf
     TYPE(t_var_metadata), POINTER   :: p_info
-    TYPE(t_reorder_data), POINTER   :: p_ri
+    TYPE(t_AsyncRestartPacker), POINTER   :: p_ri
     TYPE(t_var_data), POINTER       :: p_vars(:)
 
     INTEGER                         :: iv, nval, ierrstat, nlevs, ilev
@@ -1681,7 +1438,7 @@ CONTAINS
     IF (.NOT. ASSOCIATED(p_vars)) RETURN
 
     ! get maximum number of data points in a slice and allocate tmp. variables
-    nval = MAX(p_pd%commData%cells%n_glb, p_pd%commData%edges%n_glb, p_pd%commData%verts%n_glb)
+    nval = p_pd%commData%maxLevelSize()
 
     ! allocate RMA memory
     ALLOCATE(buffer(nval,restart_chunk_size), STAT=ierrstat)
@@ -1723,7 +1480,7 @@ CONTAINS
         ! write field content into a file
         t_write = t_write - p_mpi_wtime()
         DO ilev=chunk_start, chunk_end
-          CALL streamWriteVarSlice(p_rf%cdiIds%file, p_info%cdiVarID, (ilev-1), buffer(1:p_ri%n_glb, ilev - chunk_start + 1), 0)
+          CALL streamWriteVarSlice(p_rf%cdiIds%file, p_info%cdiVarID, (ilev-1), buffer(:, ilev - chunk_start + 1), 0)
           bytesWrite = bytesWrite + p_ri%n_glb*8
         END DO
         t_write = t_write + p_mpi_wtime()
@@ -1753,7 +1510,7 @@ CONTAINS
   SUBROUTINE compute_write_var_list(p_pd)
     TYPE(t_patch_data), TARGET, INTENT(INOUT) :: p_pd
 
-    TYPE(t_reorder_data), POINTER   :: p_ri
+    TYPE(t_AsyncRestartPacker), POINTER   :: p_ri
     TYPE(t_var_data), POINTER       :: p_vars(:)
     TYPE(t_ptr_2d), ALLOCATABLE     :: dataPointers(:)
     INTEGER                         :: iv
