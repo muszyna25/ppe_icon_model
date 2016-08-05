@@ -613,6 +613,7 @@ CONTAINS
           ! set global restart attributes/lists
           restartAttributes => RestartAttributeList_make()
           CALL set_restart_attributes(p_pd, restartAttributes)
+          CALL defineVerticalGrids(p_pd)
 
 #ifdef DEBUG
           CALL print_restart_arguments()
@@ -2174,19 +2175,59 @@ CONTAINS
 
   END SUBROUTINE set_vertical_grid_def
 
+  SUBROUTINE defineVerticalGrids(patchData)
+    TYPE(t_patch_data), INTENT(INOUT) :: patchData
+
+    INTEGER :: nlev_soil, nlev_snow, nlev_ocean, nice_class, ierrstat
+    CHARACTER(LEN = *), PARAMETER :: routine = MODUL_NAME//":defineVerticalGrids"
+
+    ! DEFAULT values for the level counts
+    nlev_soil = 0
+    nlev_snow = 0
+    nlev_ocean = 0
+    nice_class = 1
+
+    ! replace DEFAULT values by the overrides provided IN the patchData
+    IF (patchData%l_opt_depth_lnd) nlev_soil = patchData%opt_depth_lnd
+    IF (patchData%l_opt_nlev_snow) nlev_snow = patchData%opt_nlev_snow
+    IF (patchData%l_opt_depth) nlev_ocean = patchData%opt_depth
+    IF (patchData%l_opt_nice_class) nice_class = patchData%opt_nice_class
+
+    ! set vertical grid definitions
+    ALLOCATE(patchData%v_grid_defs(MAX_VERTICAL_AXES), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
+
+    CALL set_vertical_grid_def(patchData%v_grid_defs(1),  ZA_SURFACE                , 1               )
+    CALL set_vertical_grid_def(patchData%v_grid_defs(2),  ZA_HYBRID                 , patchData%nlev  )
+    CALL set_vertical_grid_def(patchData%v_grid_defs(3),  ZA_HYBRID_HALF            , patchData%nlev+1)
+    CALL set_vertical_grid_def(patchData%v_grid_defs(4),  ZA_DEPTH_BELOW_LAND       , nlev_soil       )
+    CALL set_vertical_grid_def(patchData%v_grid_defs(5),  ZA_DEPTH_BELOW_LAND_P1    , nlev_soil+1     )
+    CALL set_vertical_grid_def(patchData%v_grid_defs(6),  ZA_SNOW                   , nlev_snow       )
+    CALL set_vertical_grid_def(patchData%v_grid_defs(7),  ZA_SNOW_HALF              , nlev_snow+1     )
+    CALL set_vertical_grid_def(patchData%v_grid_defs(8),  ZA_HEIGHT_2M              , 1               )
+    CALL set_vertical_grid_def(patchData%v_grid_defs(9),  ZA_HEIGHT_10M             , 1               )
+    CALL set_vertical_grid_def(patchData%v_grid_defs(10), ZA_TOA                    , 1               )
+    CALL set_vertical_grid_def(patchData%v_grid_defs(11), ZA_LAKE_BOTTOM            , 1               )
+    CALL set_vertical_grid_def(patchData%v_grid_defs(12), ZA_MIX_LAYER              , 1               )
+    CALL set_vertical_grid_def(patchData%v_grid_defs(13), ZA_LAKE_BOTTOM_HALF       , 1               )
+    CALL set_vertical_grid_def(patchData%v_grid_defs(14), ZA_SEDIMENT_BOTTOM_TW_HALF, 1               )
+    CALL set_vertical_grid_def(patchData%v_grid_defs(15), ZA_DEPTH_BELOW_SEA        , nlev_ocean      )
+    CALL set_vertical_grid_def(patchData%v_grid_defs(16), ZA_DEPTH_BELOW_SEA_HALF   , nlev_ocean+1    )
+    CALL set_vertical_grid_def(patchData%v_grid_defs(17), ZA_GENERIC_ICE            , nice_class      )
+    CALL set_vertical_grid_def(patchData%v_grid_defs(18), ZA_DEPTH_RUNOFF_S         , 1               )
+    CALL set_vertical_grid_def(patchData%v_grid_defs(19), ZA_DEPTH_RUNOFF_G         , 1               )
+  END SUBROUTINE defineVerticalGrids
+
   !------------------------------------------------------------------------------------------------
   !
   !  Set global restart attributes.
   !
   SUBROUTINE set_restart_attributes (p_pd, restartAttributes)
-
-    TYPE(t_patch_data), POINTER, INTENT(INOUT) :: p_pd
+    TYPE(t_patch_data), INTENT(INOUT) :: p_pd
     TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
 
     CHARACTER(LEN=MAX_NAME_LENGTH) :: attrib_name
-    INTEGER                        :: jp, jp_end, jg, nlev_soil, &
-      &                               nlev_snow, nlev_ocean, nice_class, ierrstat, &
-      &                               i,current_jfile
+    INTEGER                        :: jp, jp_end, jg, i, current_jfile
 
     CHARACTER(LEN=*), PARAMETER    :: subname = MODUL_NAME//'set_restart_attributes'
     CHARACTER(LEN=*), PARAMETER    :: attrib_format_int  = '(a,i2.2)'
@@ -2268,57 +2309,6 @@ CONTAINS
         CALL restartAttributes%setLogical(TRIM(attrib_name), p_pd%opt_lcall_phy(jp) )
       ENDDO
     ENDIF
-
-    ! geometrical depth for land module
-    IF (p_pd%l_opt_depth_lnd) THEN
-      nlev_soil = p_pd%opt_depth_lnd
-    ELSE
-      nlev_soil = 0
-    ENDIF
-
-    ! number of snow levels (multi layer snow model)
-    IF (p_pd%l_opt_nlev_snow) THEN
-      nlev_snow = p_pd%opt_nlev_snow
-    ELSE
-      nlev_snow = 0
-    ENDIF
-
-    ! ocean depth
-    IF (p_pd%l_opt_depth) THEN
-      nlev_ocean = p_pd%opt_depth
-    ELSE
-      nlev_ocean = 0
-    END IF
-
-    IF (p_pd%l_opt_nice_class) THEN
-      nice_class = p_pd%opt_nice_class
-    ELSE
-      nice_class = 1
-    END IF
-
-    ! set vertical grid definitions
-    ALLOCATE(p_pd%v_grid_defs(MAX_VERTICAL_AXES), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
-
-    CALL set_vertical_grid_def(p_pd%v_grid_defs(1),  ZA_SURFACE             , 1            )
-    CALL set_vertical_grid_def(p_pd%v_grid_defs(2),  ZA_HYBRID              , p_pd%nlev    )
-    CALL set_vertical_grid_def(p_pd%v_grid_defs(3),  ZA_HYBRID_HALF         , p_pd%nlev+1  )
-    CALL set_vertical_grid_def(p_pd%v_grid_defs(4),  ZA_DEPTH_BELOW_LAND    , nlev_soil    )
-    CALL set_vertical_grid_def(p_pd%v_grid_defs(5),  ZA_DEPTH_BELOW_LAND_P1 , nlev_soil+1  )
-    CALL set_vertical_grid_def(p_pd%v_grid_defs(6),  ZA_SNOW                , nlev_snow    )
-    CALL set_vertical_grid_def(p_pd%v_grid_defs(7),  ZA_SNOW_HALF           , nlev_snow+1  )
-    CALL set_vertical_grid_def(p_pd%v_grid_defs(8),  ZA_HEIGHT_2M           , 1            )
-    CALL set_vertical_grid_def(p_pd%v_grid_defs(9),  ZA_HEIGHT_10M          , 1            )
-    CALL set_vertical_grid_def(p_pd%v_grid_defs(10), ZA_TOA                 , 1            )
-    CALL set_vertical_grid_def(p_pd%v_grid_defs(11), ZA_LAKE_BOTTOM         , 1            )
-    CALL set_vertical_grid_def(p_pd%v_grid_defs(12), ZA_MIX_LAYER           , 1            )
-    CALL set_vertical_grid_def(p_pd%v_grid_defs(13), ZA_LAKE_BOTTOM_HALF    , 1            )
-    CALL set_vertical_grid_def(p_pd%v_grid_defs(14), ZA_SEDIMENT_BOTTOM_TW_HALF, 1         )
-    CALL set_vertical_grid_def(p_pd%v_grid_defs(15), ZA_DEPTH_BELOW_SEA     , nlev_ocean   )
-    CALL set_vertical_grid_def(p_pd%v_grid_defs(16), ZA_DEPTH_BELOW_SEA_HALF, nlev_ocean+1 )
-    CALL set_vertical_grid_def(p_pd%v_grid_defs(17), ZA_GENERIC_ICE         , nice_class   )
-    CALL set_vertical_grid_def(p_pd%v_grid_defs(18), ZA_DEPTH_RUNOFF_S      , 1            )
-    CALL set_vertical_grid_def(p_pd%v_grid_defs(19), ZA_DEPTH_RUNOFF_G      , 1            )
 
     IF (restart_args%n_opt_output_file > 0) THEN
       DO i=1,restart_args%n_opt_output_file
