@@ -394,6 +394,8 @@ CONTAINS
         DEALLOCATE(gatherBuffer)
         ! no deallocation of levelPointers so that the next invocation of getLevelPointers() may reuse the allocation
     END DO
+
+    CALL message('','Finished writing restart')
   END SUBROUTINE patchData_writeData
 
 END MODULE mo_sync_restart
