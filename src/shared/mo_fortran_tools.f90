@@ -30,6 +30,7 @@ MODULE mo_fortran_tools
   PUBLIC :: t_Destructible
   PUBLIC :: assign_if_present
   PUBLIC :: assign_if_present_allocatable
+  PUBLIC :: ensureSize
   PUBLIC :: t_ptr_2d
   PUBLIC :: t_ptr_3d
   PUBLIC :: t_ptr_2d3d
@@ -86,6 +87,13 @@ MODULE mo_fortran_tools
     MODULE PROCEDURE assign_if_present_integer_allocatable_1d
     MODULE PROCEDURE assign_if_present_real_allocatable_1d
   END INTERFACE assign_if_present_allocatable
+
+  ! This handles the recuring CASE of growing a buffer to match possibly increasing needs.
+  ! We USE a POINTER to pass the buffer because that allows us to avoid an extra copy when reallocating the buffer.
+  ! The association status of the POINTER that IS passed IN must be defined.
+  INTERFACE ensureSize
+    MODULE PROCEDURE ensureSize_dp_1d
+  END INTERFACE ensureSize
 
   !> this is meant to make it easier for compilers to circumvent
   !! temporaries as are too often created in a(:, :, :) = b(:, :, :)
@@ -248,6 +256,36 @@ CONTAINS
     END IF
     y(:) = x(:)
   END SUBROUTINE assign_if_present_real_allocatable_1d
+
+  SUBROUTINE ensureSize_dp_1d(buffer, requiredSize)
+    REAL(wp), POINTER, INTENT(INOUT) :: buffer(:)
+    INTEGER, VALUE ::requiredSize
+
+    REAL(wp), POINTER :: newBuffer(:)
+    INTEGER :: oldSize, error
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":ensureSize_dp_1d"
+
+    IF(ASSOCIATED(buffer)) THEN
+        oldSize = SIZE(buffer, 1)
+        IF(oldSize >= requiredSize) RETURN  ! nothing to DO IF it's already big enough
+        requiredSize = MAX(requiredSize, 2*oldSize) ! avoid quadratic complexity
+
+        ALLOCATE(newBuffer(requiredSize), STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+
+        newBuffer(1:oldSize) = buffer(1:oldSize)
+        newBuffer(oldSize + 1:requiredSize) = 0.0
+
+        DEALLOCATE(buffer)
+        buffer => newBuffer
+        newBuffer => NULL()
+    ELSE
+        ALLOCATE(buffer(requiredSize), STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+
+        buffer(1:requiredSize) = 0.0
+    END IF
+  END SUBROUTINE ensureSize_dp_1d
 
 
   !>

@@ -23,7 +23,7 @@ MODULE mo_restart_async
 
   USE mo_decomposition_tools,     ONLY: t_grid_domain_decomp_info
   USE mo_exception,               ONLY: finish
-  USE mo_fortran_tools,           ONLY: t_ptr_2d
+  USE mo_fortran_tools,           ONLY: t_ptr_2d, ensureSize
   USE mo_kind,                    ONLY: wp, i8, dp
   USE mo_datetime,                ONLY: t_datetime
   USE mo_io_units,                ONLY: nerr, filename_max
@@ -155,6 +155,7 @@ MODULE mo_restart_async
     TYPE(t_reorder_data) :: verts
   CONTAINS
     PROCEDURE, PRIVATE :: construct => restartCommData_construct
+    PROCEDURE, PRIVATE :: collectData => restartCommData_collectData
     PROCEDURE, PRIVATE :: destruct => restartCommData_destruct
   END TYPE t_restart_comm_data
 
@@ -1033,6 +1034,55 @@ CONTAINS
     END IF
   END SUBROUTINE restartCommData_construct
 
+  SUBROUTINE restartCommData_collectData(me, varInfo, levelCount, dest, offsets, elapsedTime, bytesFetched)
+    CLASS(t_restart_comm_data), INTENT(INOUT) :: me
+    TYPE(t_var_metadata), POINTER :: varInfo
+    INTEGER, VALUE :: levelCount
+    REAL(dp), INTENT(INOUT) :: dest(:,:)
+    INTEGER(KIND=MPI_ADDRESS_KIND), INTENT(INOUT) :: offsets(0:num_work_procs-1)   ! This remembers the current offsets within all the different processes RMA windows. Pass a zero initialized array to the first collectData() CALL, THEN keep passing the array without external modifications.
+    REAL(dp), INTENT(INOUT) :: elapsedTime
+    INTEGER(i8), INTENT(INOUT) :: bytesFetched
+
+    INTEGER :: sourceProc, doubleCount, reorderOffset, curLevel, mpi_error
+    TYPE(t_reorder_data), POINTER :: reorderData
+    REAL(dp), POINTER, SAVE :: buffer(:) => NULL()
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartCommData_collectData"
+
+    reorderData => get_reorder_ptr(me, varInfo, routine)
+
+    ! retrieve part of variable from every worker PE using MPI_Get
+    DO sourceProc = 0, num_work_procs-1
+        IF(reorderData%pe_own(sourceProc) == 0) CYCLE
+        CALL ensureSize(buffer, reorderData%pe_own(sourceProc))
+
+        ! number of words to transfer
+        doubleCount = reorderData%pe_own(sourceProc) * levelCount
+        elapsedTime = elapsedTime -  p_mpi_wtime()
+        CALL MPI_Win_lock(MPI_LOCK_SHARED, sourceProc, MPI_MODE_NOCHECK, me%mpiWindow, mpi_error)
+        CALL check_mpi_error(routine, 'MPI_Win_lock', mpi_error, .TRUE.)
+
+        CALL MPI_Get(buffer(1), doubleCount, p_real_dp, sourceProc, offsets(sourceProc), &
+                              & doubleCount, p_real_dp, me%mpiWindow, mpi_error)
+        CALL check_mpi_error(routine, 'MPI_Get', mpi_error, .TRUE.)
+
+        CALL MPI_Win_unlock(sourceProc, me%mpiWindow, mpi_error)
+        CALL check_mpi_error(routine, 'MPI_Win_unlock', mpi_error, .TRUE.)
+
+        elapsedTime  = elapsedTime + p_mpi_wtime()
+        bytesFetched = bytesFetched + INT(doubleCount, i8)*8
+
+        ! update the offset in the RMA window on compute PEs
+        offsets(sourceProc) = offsets(sourceProc) + INT(doubleCount, i8)
+
+        ! separate the levels received from PE "sourceProc":
+        reorderOffset = 1
+        DO curLevel = 1, levelCount
+            CALL reorderData%reorderLevelFromPe(curLevel, sourceProc, buffer(reorderOffset:), dest)
+            reorderOffset = reorderOffset + reorderData%pe_own(sourceProc)
+        END DO
+    END DO
+  END SUBROUTINE restartCommData_collectData
+
   SUBROUTINE restartCommData_destruct(me)
     CLASS(t_restart_comm_data), INTENT(INOUT) :: me
 
@@ -1566,22 +1616,23 @@ CONTAINS
   ! Write restart variable list for a restart PE.
   !
   SUBROUTINE restart_write_var_list(p_pd)
-    TYPE(t_patch_data), TARGET, INTENT(IN) :: p_pd
+    TYPE(t_patch_data), TARGET, INTENT(INOUT) :: p_pd
 
     TYPE(t_restart_file), POINTER   :: p_rf
     TYPE(t_var_metadata), POINTER   :: p_info
     TYPE(t_reorder_data), POINTER   :: p_ri
     TYPE(t_var_data), POINTER       :: p_vars(:)
 
-    INTEGER                         :: iv, nval, ierrstat, nlevs, nv_off, np, mpi_error, ilev
+    INTEGER                         :: iv, nval, ierrstat, nlevs, ilev
     INTEGER(KIND=MPI_ADDRESS_KIND)  :: ioff(0:num_work_procs-1)
-    REAL(dp), ALLOCATABLE           :: var1_dp(:), var2_dp(:,:)
-    INTEGER                         :: ichunk, nchunks, chunk_start, chunk_end,     &
-      &                                this_chunk_nlevs, ioff2
+    REAL(dp), ALLOCATABLE           :: buffer(:,:)
+    INTEGER                         :: ichunk, nchunks, chunk_start, chunk_end
+
+    ! For timing
+    REAL(dp) :: t_get, t_write
+    INTEGER(i8) :: bytesGet, bytesWrite
 
     CHARACTER(LEN=*), PARAMETER     :: routine = modname//':restart_write_var_list'
-    ! For timing
-    REAL(dp)                        :: t_get, t_write, mb_get, mb_wr
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
@@ -1592,8 +1643,8 @@ CONTAINS
 
     t_get   = 0.d0
     t_write = 0.d0
-    mb_get  = 0.d0
-    mb_wr   = 0.d0
+    bytesGet = 0_i8
+    bytesWrite = 0_i8
 
     p_rf => p_pd%restart_file
 
@@ -1605,7 +1656,7 @@ CONTAINS
     nval = MAX(p_pd%commData%cells%n_glb, p_pd%commData%edges%n_glb, p_pd%commData%verts%n_glb)
 
     ! allocate RMA memory
-    ALLOCATE(var1_dp(nval*restart_chunk_size), var2_dp(nval,restart_chunk_size), STAT=ierrstat)
+    ALLOCATE(buffer(nval,restart_chunk_size), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, ALLOCATE_FAILED)
 
     ioff(:) = 0
@@ -1637,49 +1688,15 @@ CONTAINS
       nchunks = (nlevs-1)/restart_chunk_size + 1
       ! loop over all chunks (of levels)
       LEVELS : DO ichunk=1,nchunks
-        chunk_start       = (ichunk-1)*restart_chunk_size + 1
-        chunk_end         = MIN(chunk_start+restart_chunk_size-1, nlevs)
-        this_chunk_nlevs  = (chunk_end - chunk_start + 1)
-
-        ! retrieve part of variable from every worker PE using MPI_Get
-        nv_off  = 0
-        DO np = 0, num_work_procs-1
-          IF(p_ri%pe_own(np) == 0) CYCLE
-
-          ! number of words to transfer
-          nval = p_ri%pe_own(np) * this_chunk_nlevs
-          t_get = t_get -  p_mpi_wtime()
-          CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, p_pd%commData%mpiWindow, mpi_error)
-          CALL check_mpi_error(routine, 'MPI_Win_lock', mpi_error, .TRUE.)
-
-          CALL MPI_Get(var1_dp(1), nval, p_real_dp, np, ioff(np), &
-            &                      nval, p_real_dp, p_pd%commData%mpiWindow, mpi_error)
-          CALL check_mpi_error(routine, 'MPI_Get', mpi_error, .TRUE.)
-
-          CALL MPI_Win_unlock(np, p_pd%commData%mpiWindow, mpi_error)
-          CALL check_mpi_error(routine, 'MPI_Win_unlock', mpi_error, .TRUE.)
-
-          t_get  = t_get  + p_mpi_wtime()
-          mb_get = mb_get + nval
-
-          ! update the offset in the RMA window on compute PEs
-          ioff(np) = ioff(np) + INT(nval,i8)
-
-          ! separate the levels received from PE "np":
-          ioff2 = 1
-          DO ilev=1,this_chunk_nlevs
-            CALL p_ri%reorderLevelFromPe(ilev, np, var1_dp(ioff2:), var2_dp)
-            ioff2 = ioff2 + p_ri%pe_own(np)
-          END DO
-          ! update the offset in var2
-          nv_off = nv_off + p_ri%pe_own(np)
-        END DO
+        chunk_start = (ichunk-1)*restart_chunk_size + 1
+        chunk_end = MIN(chunk_start+restart_chunk_size-1, nlevs)
+        CALL p_pd%commData%collectData(p_info, chunk_end - chunk_start + 1, buffer, ioff, t_get, bytesGet)
 
         ! write field content into a file
         t_write = t_write - p_mpi_wtime()
         DO ilev=chunk_start, chunk_end
-          CALL streamWriteVarSlice(p_rf%cdiIds%file, p_info%cdiVarID, (ilev-1), var2_dp(1:p_ri%n_glb, ilev - chunk_start + 1), 0)
-          mb_wr = mb_wr + REAL(p_ri%n_glb, wp)
+          CALL streamWriteVarSlice(p_rf%cdiIds%file, p_info%cdiVarID, (ilev-1), buffer(1:p_ri%n_glb, ilev - chunk_start + 1), 0)
+          bytesWrite = bytesWrite + p_ri%n_glb*8
         END DO
         t_write = t_write + p_mpi_wtime()
 
@@ -1691,18 +1708,14 @@ CONTAINS
 #endif
     ENDDO VAR_LOOP
 
-    DEALLOCATE(var1_dp, var2_dp, STAT=ierrstat)
+    DEALLOCATE(buffer, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, DEALLOCATE_FAILED)
-    mb_get = mb_get*8*1.d-6
-    mb_wr  = mb_wr*8*1.d-6
 
     IF (msg_level >= 12) THEN
-      WRITE (0,'(10(a,f10.3))') &
-           & ' Restart: Got ',mb_get,' MB, time get: ',t_get,' s [',mb_get/MAX(1.e-6_wp,t_get), &
-           & ' MB/s], time write: ',t_write,' s [',mb_wr/MAX(1.e-6_wp,t_write),        &
-           & ' MB/s]'
+      WRITE (0,'(10(a,f10.3))') ' Restart: Got ', REAL(bytesGet, dp)*1.d-6, ' MB, time get: ', t_get, ' s [', &
+           & REAL(bytesGet, dp)*1.d-6/MAX(1.e-6_wp, t_get), ' MB/s], time write: ', t_write, ' s [', &
+           & REAL(bytesWrite, dp)*1.d-6/MAX(1.e-6_wp,t_write), ' MB/s]'
     ENDIF
-
   END SUBROUTINE restart_write_var_list
 
   !------------------------------------------------------------------------------------------------
