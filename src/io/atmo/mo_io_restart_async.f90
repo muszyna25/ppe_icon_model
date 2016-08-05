@@ -660,6 +660,135 @@ CONTAINS
 
   END SUBROUTINE restart_send_ready
 
+  SUBROUTINE packRestartMetadata(datetime, jstep, message, position, communicator)
+    TYPE(t_datetime), INTENT(IN) :: datetime
+    INTEGER, VALUE :: jstep, communicator
+    CHARACTER :: message(:)
+    INTEGER, INTENT(INOUT) :: position
+
+    INTEGER :: i
+    TYPE(t_patch_data), POINTER :: curPatch
+
+    ! set patch independent arguments
+    CALL p_pack_int(                    datetime%year,                          message, position, communicator)
+    CALL p_pack_int(                    datetime%month,                         message, position, communicator)
+    CALL p_pack_int(                    datetime%day,                           message, position, communicator)
+    CALL p_pack_int(                    datetime%hour,                          message, position, communicator)
+    CALL p_pack_int(                    datetime%minute,                        message, position, communicator)
+    CALL p_pack_real(                   datetime%second,                        message, position, communicator)
+    CALL p_pack_real(                   datetime%caltime,                       message, position, communicator)
+    CALL p_pack_int(                    INT(datetime%calday),                   message, position, communicator)
+    CALL p_pack_real(                   datetime%daysec,                        message, position, communicator)
+    CALL p_pack_int(                    jstep,                                  message, position, communicator)
+    CALL p_pack_allocatable_int(        restart_args%opt_output_jfile,          message, position, communicator)
+
+    ! set data of all patches
+    DO i = 1, SIZE(patch_data)
+        curPatch => patch_data(i)
+
+        ! patch id
+        CALL p_pack_int(                curPatch%id,                            message, position, communicator)
+
+        ! activity flag
+        CALL p_pack_bool(               curPatch%l_dom_active,                  message, position, communicator)
+
+        ! time levels
+        CALL p_pack_int(                nold(curPatch%id),                      message, position, communicator)
+        CALL p_pack_int(                nnow(curPatch%id),                      message, position, communicator)
+        CALL p_pack_int(                nnew(curPatch%id),                      message, position, communicator)
+        CALL p_pack_int(                nnew_rcf(curPatch%id),                  message, position, communicator)
+        CALL p_pack_int(                nnow_rcf(curPatch%id),                  message, position, communicator)
+
+        ! optional parameter values
+        CALL p_pack_bool(               curPatch%l_opt_depth,                   message, position, communicator)
+        CALL p_pack_int(                curPatch%opt_depth,                     message, position, communicator)
+        CALL p_pack_bool(               curPatch%l_opt_depth_lnd,               message, position, communicator)
+        CALL p_pack_int(                curPatch%opt_depth_lnd,                 message, position, communicator)
+        CALL p_pack_bool(               curPatch%l_opt_nlev_snow,               message, position, communicator)
+        CALL p_pack_int(                curPatch%opt_nlev_snow,                 message, position, communicator)
+        CALL p_pack_bool(               curPatch%l_opt_nice_class,              message, position, communicator)
+        CALL p_pack_int(                curPatch%opt_nice_class,                message, position, communicator)
+        CALL p_pack_bool(               curPatch%l_opt_ndyn_substeps,           message, position, communicator)
+        CALL p_pack_int(                curPatch%opt_ndyn_substeps,             message, position, communicator)
+        CALL p_pack_bool(               curPatch%l_opt_jstep_adv_marchuk_order, message, position, communicator)
+        CALL p_pack_int(                curPatch%opt_jstep_adv_marchuk_order,   message, position, communicator)
+        CALL p_pack_bool(               curPatch%l_opt_sim_time,                message, position, communicator)
+        CALL p_pack_real(               curPatch%opt_sim_time,                  message, position, communicator)
+        CALL p_pack_bool(               curPatch%l_opt_ndom,                    message, position, communicator)
+        CALL p_pack_int(                curPatch%opt_ndom,                      message, position, communicator)
+
+        ! optional parameter arrays
+        CALL p_pack_allocatable_real(   curPatch%opt_pvct,                      message, position, communicator)
+        CALL p_pack_allocatable_logical(curPatch%opt_lcall_phy,                 message, position, communicator)
+        CALL p_pack_allocatable_real(   curPatch%opt_t_elapsed_phy,             message, position, communicator)
+    END DO
+  END SUBROUTINE packRestartMetadata
+
+  SUBROUTINE unpackRestartMetadata(datetime, jstep, message, position, communicator)
+    TYPE(t_datetime), INTENT(INOUT) :: datetime
+    INTEGER, VALUE :: jstep, communicator
+    CHARACTER :: message(:)
+    INTEGER, INTENT(INOUT) :: position
+
+    INTEGER :: i, calday, this_patch
+    TYPE(t_patch_data), POINTER :: curPatch
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":unpackRestartMetadata"
+
+    ! get patch independent arguments
+    CALL p_unpack_int(                    message, position, datetime%year,                          communicator)
+    CALL p_unpack_int(                    message, position, datetime%month,                         communicator)
+    CALL p_unpack_int(                    message, position, datetime%day,                           communicator)
+    CALL p_unpack_int(                    message, position, datetime%hour,                          communicator)
+    CALL p_unpack_int(                    message, position, datetime%minute,                        communicator)
+    CALL p_unpack_real(                   message, position, datetime%second,                        communicator)
+    CALL p_unpack_real(                   message, position, datetime%caltime,                       communicator)
+    CALL p_unpack_int(                    message, position, calday,                                 communicator)
+    datetime%calday = INT(calday,i8)
+    CALL p_unpack_real(                   message, position, datetime%daysec,                        communicator)
+    CALL p_unpack_int(                    message, position, jstep,                                  communicator)
+    CALL p_unpack_allocatable_int(        message, position, restart_args%opt_output_jfile,          communicator)
+
+    ! get patch dependent arguments
+    DO i = 1, SIZE(patch_data)
+        ! find the patch of the current patch id
+        CALL p_unpack_int(                message, position, this_patch,                             communicator)
+        curPatch => find_patch(this_patch, routine)
+
+        ! activity flag
+        CALL p_unpack_bool(               message, position, curPatch%l_dom_active,                  communicator)
+
+        ! time levels
+        CALL p_unpack_int(                message, position, nold(this_patch),                       communicator)
+        CALL p_unpack_int(                message, position, nnow(this_patch),                       communicator)
+        CALL p_unpack_int(                message, position, nnew(this_patch),                       communicator)
+        CALL p_unpack_int(                message, position, nnew_rcf(this_patch),                   communicator)
+        CALL p_unpack_int(                message, position, nnow_rcf(this_patch),                   communicator)
+
+        ! optional parameter values
+        CALL p_unpack_bool(               message, position, curPatch%l_opt_depth,                   communicator)
+        CALL p_unpack_int(                message, position, curPatch%opt_depth,                     communicator)
+        CALL p_unpack_bool(               message, position, curPatch%l_opt_depth_lnd,               communicator)
+        CALL p_unpack_int(                message, position, curPatch%opt_depth_lnd,                 communicator)
+        CALL p_unpack_bool(               message, position, curPatch%l_opt_nlev_snow,               communicator)
+        CALL p_unpack_int(                message, position, curPatch%opt_nlev_snow,                 communicator)
+        CALL p_unpack_bool(               message, position, curPatch%l_opt_nice_class,              communicator)
+        CALL p_unpack_int(                message, position, curPatch%opt_nice_class,                communicator)
+        CALL p_unpack_bool(               message, position, curPatch%l_opt_ndyn_substeps,           communicator)
+        CALL p_unpack_int(                message, position, curPatch%opt_ndyn_substeps,             communicator)
+        CALL p_unpack_bool(               message, position, curPatch%l_opt_jstep_adv_marchuk_order, communicator)
+        CALL p_unpack_int(                message, position, curPatch%opt_jstep_adv_marchuk_order,   communicator)
+        CALL p_unpack_bool(               message, position, curPatch%l_opt_sim_time,                communicator)
+        CALL p_unpack_real(               message, position, curPatch%opt_sim_time,                  communicator)
+        CALL p_unpack_bool(               message, position, curPatch%l_opt_ndom,                    communicator)
+        CALL p_unpack_int(                message, position, curPatch%opt_ndom,                      communicator)
+
+        ! optional parameter arrays
+        CALL p_unpack_allocatable_real(   message, position, curPatch%opt_pvct,                      communicator)
+        CALL p_unpack_allocatable_logical(message, position, curPatch%opt_lcall_phy,                 communicator)
+        CALL p_unpack_allocatable_real(   message, position, curPatch%opt_t_elapsed_phy,             communicator)
+    END DO
+  END SUBROUTINE unpackRestartMetadata
+
   !-------------------------------------------------------------------------------------------------
   !>
   !! restart_wait_for_start: Wait for a message from compute PEs that we should start restart or finish.
@@ -670,8 +799,8 @@ CONTAINS
     LOGICAL, INTENT(OUT)           :: done ! flag if we should shut down
 
     TYPE(t_patch_data), POINTER    :: p_pd
-    INTEGER                        :: i, j, k, ierrstat, position, &
-      &                               iheader, this_patch, calday
+    INTEGER                        :: i, position, iheader
+    TYPE(t_patch_data), POINTER :: curPatch
     CHARACTER, POINTER             :: p_msg(:)
     CHARACTER(LEN=*), PARAMETER    :: routine = modname//'restart_wait_for_start'
 
@@ -704,63 +833,17 @@ CONTAINS
 
         done = .FALSE.
 
-        ! get patch independent arguments
-        CALL p_unpack_int( p_msg, position, restart_args%datetime%year,    p_comm_work)
-        CALL p_unpack_int( p_msg, position, restart_args%datetime%month,   p_comm_work)
-        CALL p_unpack_int( p_msg, position, restart_args%datetime%day,     p_comm_work)
-        CALL p_unpack_int( p_msg, position, restart_args%datetime%hour,    p_comm_work)
-        CALL p_unpack_int( p_msg, position, restart_args%datetime%minute,  p_comm_work)
-        CALL p_unpack_real(p_msg, position, restart_args%datetime%second,  p_comm_work)
-        CALL p_unpack_real(p_msg, position, restart_args%datetime%caltime, p_comm_work)
-        CALL p_unpack_int( p_msg, position, calday,                p_comm_work)
-        restart_args%datetime%calday = INT(calday,i8)
-        CALL p_unpack_real(p_msg, position, restart_args%datetime%daysec,  p_comm_work)
-        CALL p_unpack_int( p_msg, position, restart_args%jstep,            p_comm_work)
-        CALL p_unpack_allocatable_int(p_msg, position, restart_args%opt_output_jfile, p_comm_work)
+        CALL unpackRestartMetadata(restart_args%datetime, restart_args%jstep, p_msg, position, p_comm_work)
 
-        ! get patch dependent arguments
-        DO j = 1, SIZE(patch_data)
-
-          ! find the patch of the current patch id
-          CALL p_unpack_int( p_msg, position, this_patch,            p_comm_work)
-          p_pd => find_patch(this_patch, routine)
-
-          ! activity flag
-          CALL p_unpack_bool(p_msg, position, p_pd%l_dom_active,     p_comm_work)
-
-          ! time levels
-          CALL p_unpack_int( p_msg, position, p_pd%nold,             p_comm_work)
-          CALL p_unpack_int( p_msg, position, p_pd%nnow,             p_comm_work)
-          CALL p_unpack_int( p_msg, position, p_pd%nnew,             p_comm_work)
-          CALL p_unpack_int( p_msg, position, p_pd%nnew_rcf,         p_comm_work)
-          CALL p_unpack_int( p_msg, position, p_pd%nnow_rcf,         p_comm_work)
-
-          CALL p_unpack_int( p_msg, position, nnew(p_pd%id),         p_comm_work)
-          CALL p_unpack_int( p_msg, position, nnew_rcf(p_pd%id),     p_comm_work)
-
-          ! optional parameter values
-          CALL p_unpack_bool(p_msg, position, p_pd%l_opt_depth,      p_comm_work)
-          CALL p_unpack_int( p_msg, position, p_pd%opt_depth,        p_comm_work)
-          CALL p_unpack_bool(p_msg, position, p_pd%l_opt_depth_lnd,  p_comm_work)
-          CALL p_unpack_int( p_msg, position, p_pd%opt_depth_lnd,    p_comm_work)
-          CALL p_unpack_bool(p_msg, position, p_pd%l_opt_nlev_snow,  p_comm_work)
-          CALL p_unpack_int( p_msg, position, p_pd%opt_nlev_snow,    p_comm_work)
-          CALL p_unpack_bool(p_msg, position, p_pd%l_opt_nice_class, p_comm_work)
-          CALL p_unpack_int( p_msg, position, p_pd%opt_nice_class,   p_comm_work)
-          CALL p_unpack_bool(p_msg, position, p_pd%l_opt_ndyn_substeps, p_comm_work)
-          CALL p_unpack_int( p_msg, position, p_pd%opt_ndyn_substeps,   p_comm_work)
-          CALL p_unpack_bool(p_msg, position, p_pd%l_opt_jstep_adv_marchuk_order, p_comm_work)
-          CALL p_unpack_int( p_msg, position, p_pd%opt_jstep_adv_marchuk_order,   p_comm_work)
-          CALL p_unpack_bool(p_msg, position, p_pd%l_opt_sim_time,   p_comm_work)
-          CALL p_unpack_real(p_msg, position, p_pd%opt_sim_time,     p_comm_work)
-          CALL p_unpack_bool(p_msg, position, p_pd%l_opt_ndom,       p_comm_work)
-          CALL p_unpack_int( p_msg, position, p_pd%opt_ndom,         p_comm_work)
-
-          ! optional parameter arrays
-          CALL p_unpack_allocatable_real(p_msg, position, p_pd%opt_pvct, p_comm_work)
-          CALL p_unpack_allocatable_logical(p_msg, position, p_pd%opt_lcall_phy, p_comm_work)
-          CALL p_unpack_allocatable_real(p_msg, position, p_pd%opt_t_elapsed_phy, p_comm_work)
-        ENDDO
+        ! update the patch_data
+        DO i = 1, SIZE(patch_data)
+            curPatch => patch_data(i)
+            curPatch%nold = nold(curPatch%id)
+            curPatch%nnow = nnow(curPatch%id)
+            curPatch%nnew = nnew(curPatch%id)
+            curPatch%nnow_rcf = nnow_rcf(curPatch%id)
+            curPatch%nnew_rcf = nnew_rcf(curPatch%id)
+        END DO
 
       CASE(MSG_RESTART_SHUTDOWN)
         done = .TRUE.
@@ -901,65 +984,10 @@ CONTAINS
       position     = 0
 
       ! set command id
-      CALL p_pack_int(MSG_RESTART_START,         p_msg, position, p_comm_work)
+      CALL p_pack_int(MSG_RESTART_START, p_msg, position, p_comm_work)
 
-      ! set patch independent arguments
-      CALL p_pack_int( datetime%year,            p_msg, position, p_comm_work)
-      CALL p_pack_int( datetime%month,           p_msg, position, p_comm_work)
-      CALL p_pack_int( datetime%day,             p_msg, position, p_comm_work)
-      CALL p_pack_int( datetime%hour,            p_msg, position, p_comm_work)
-      CALL p_pack_int( datetime%minute,          p_msg, position, p_comm_work)
-      CALL p_pack_real(datetime%second,          p_msg, position, p_comm_work)
-      CALL p_pack_real(datetime%caltime,         p_msg, position, p_comm_work)
-      CALL p_pack_int( INT(datetime%calday),     p_msg, position, p_comm_work)
-      CALL p_pack_real(datetime%daysec,          p_msg, position, p_comm_work)
-      CALL p_pack_int( jstep,                    p_msg, position, p_comm_work)
-      CALL p_pack_allocatable_int(restart_args%opt_output_jfile, p_msg, position, p_comm_work)
-
-      ! set data of all patches
-      DO j = 1, SIZE(patch_data)
-
-        p_pd => patch_data(j)
-
-        ! patch id
-        CALL p_pack_int( p_pd%id,                p_msg, position, p_comm_work)
-
-        ! activity flag
-        CALL p_pack_bool(p_pd%l_dom_active,      p_msg, position, p_comm_work)
-
-        ! time levels
-        CALL p_pack_int( nold(p_pd%id),          p_msg, position, p_comm_work)
-        CALL p_pack_int( nnow(p_pd%id),          p_msg, position, p_comm_work)
-        CALL p_pack_int( nnew(p_pd%id),          p_msg, position, p_comm_work)
-        CALL p_pack_int( nnew_rcf(p_pd%id),      p_msg, position, p_comm_work)
-        CALL p_pack_int( nnow_rcf(p_pd%id),      p_msg, position, p_comm_work)
-
-        CALL p_pack_int( nnew(p_pd%id),          p_msg, position, p_comm_work)
-        CALL p_pack_int( nnew_rcf(p_pd%id),      p_msg, position, p_comm_work)
-
-        ! optional parameter values
-        CALL p_pack_bool(p_pd%l_opt_depth,      p_msg, position, p_comm_work)
-        CALL p_pack_int( p_pd%opt_depth,        p_msg, position, p_comm_work)
-        CALL p_pack_bool(p_pd%l_opt_depth_lnd,  p_msg, position, p_comm_work)
-        CALL p_pack_int( p_pd%opt_depth_lnd,    p_msg, position, p_comm_work)
-        CALL p_pack_bool(p_pd%l_opt_nlev_snow,  p_msg, position, p_comm_work)
-        CALL p_pack_int( p_pd%opt_nlev_snow,    p_msg, position, p_comm_work)
-        CALL p_pack_bool(p_pd%l_opt_nice_class, p_msg, position, p_comm_work)
-        CALL p_pack_int( p_pd%opt_nice_class,   p_msg, position, p_comm_work)
-        CALL p_pack_bool(p_pd%l_opt_ndyn_substeps, p_msg, position, p_comm_work)
-        CALL p_pack_int( p_pd%opt_ndyn_substeps,   p_msg, position, p_comm_work)
-        CALL p_pack_bool(p_pd%l_opt_jstep_adv_marchuk_order, p_msg, position, p_comm_work)
-        CALL p_pack_int( p_pd%opt_jstep_adv_marchuk_order,   p_msg, position, p_comm_work)
-        CALL p_pack_bool(p_pd%l_opt_sim_time,    p_msg, position, p_comm_work)
-        CALL p_pack_real( p_pd%opt_sim_time,     p_msg, position, p_comm_work)
-        CALL p_pack_bool(p_pd%l_opt_ndom,        p_msg, position, p_comm_work)
-        CALL p_pack_int( p_pd%opt_ndom,          p_msg, position, p_comm_work)
-
-        ! optional parameter arrays
-        CALL p_pack_allocatable_real(p_pd%opt_pvct, p_msg, position, p_comm_work)
-        CALL p_pack_allocatable_logical(p_pd%opt_lcall_phy, p_msg, position, p_comm_work)
-        CALL p_pack_allocatable_real(p_pd%opt_t_elapsed_phy, p_msg, position, p_comm_work)
-      ENDDO
+      ! all the other DATA
+      CALL packRestartMetadata(datetime, jstep, p_msg, position, p_comm_work)
 
       CALL p_send_packed(p_msg, p_restart_pe0, 0, position)
 
