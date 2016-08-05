@@ -155,6 +155,7 @@ CONTAINS
     INTEGER  :: jk                   !< level in column index
     INTEGER  :: jb, jbs, jbe         !< row in block index, start and end indices
     INTEGER  :: jcn,jbn              !< jc and jb of neighbor cells sharing an edge je
+    INTEGER  :: jt                   !< tracer index
 
     ! Local variables
 
@@ -218,24 +219,19 @@ CONTAINS
       ! already happened in the dynamical core.)
       !
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = i_startblk,i_endblk
-        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-!!$      DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
-!!$        CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
-        DO jk = 1,nlev
-          DO jc = jcs, jce
-            !
-            ! water vapor
-            pt_prog_new_rcf%tracer(jc,jk,jb,iqv) =   pt_prog_new_rcf%tracer(jc,jk,jb,iqv)             &
-              &                                    + prm_tend(jg)%    q_phy(jc,jk,jb,iqv) * dtadv_loc
-            ! cloud water
-            pt_prog_new_rcf%tracer(jc,jk,jb,iqc) =   pt_prog_new_rcf%tracer(jc,jk,jb,iqc)             &
-              &                                    + prm_tend(jg)%    q_phy(jc,jk,jb,iqc) * dtadv_loc
-            ! cloud ice
-            pt_prog_new_rcf%tracer(jc,jk,jb,iqi) =   pt_prog_new_rcf%tracer(jc,jk,jb,iqi)             &
-              &                                    + prm_tend(jg)%    q_phy(jc,jk,jb,iqi) * dtadv_loc
-            !
+!$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
+      DO jt = 1,ntracer
+        DO jb = i_startblk,i_endblk
+          CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+!!$        DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
+!!$          CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
+          DO jk = 1,nlev
+            DO jc = jcs, jce
+              !
+              pt_prog_new_rcf%tracer(jc,jk,jb,jt) =   pt_prog_new_rcf%tracer(jc,jk,jb,jt)             &
+                &                                   + prm_tend(jg)%    q_phy(jc,jk,jb,jt) * dtadv_loc
+              !
+            END DO
           END DO
         END DO
       END DO
@@ -328,10 +324,6 @@ CONTAINS
           prm_field(jg)% presm_old(jc,jk,jb)     = pt_diag%  pres(jc,jk,jb)
           prm_field(jg)% presm_new(jc,jk,jb)     = pt_diag%  pres(jc,jk,jb)
           !
-          prm_field(jg)%         q(jc,jk,jb,iqv) = pt_prog_new_rcf% tracer(jc,jk,jb,iqv)
-          prm_field(jg)%         q(jc,jk,jb,iqc) = pt_prog_new_rcf% tracer(jc,jk,jb,iqc)
-          prm_field(jg)%         q(jc,jk,jb,iqi) = pt_prog_new_rcf% tracer(jc,jk,jb,iqi)
-          !
           ! cloud water+ice
           prm_field(jg)%         qx(jc,jk,jb)    = pt_prog_new_rcf% tracer(jc,jk,jb,iqc) &
             &                                     +pt_prog_new_rcf% tracer(jc,jk,jb,iqi)
@@ -348,16 +340,6 @@ CONTAINS
           prm_tend(jg)%          v(jc,jk,jb)     = 0.0_wp
           !
           prm_tend(jg)%       temp(jc,jk,jb)     = 0.0_wp
-          !
-          prm_tend(jg)%          q(jc,jk,jb,iqv) = 0.0_wp
-          prm_tend(jg)%          q(jc,jk,jb,iqc) = 0.0_wp
-          prm_tend(jg)%          q(jc,jk,jb,iqi) = 0.0_wp
-          !
-          ! Advective tendencies, already accounted for, but needed
-          ! for diagnostic purposes in the convection scheme
-          prm_tend(jg)%      q_dyn(jc,jk,jb,iqv) = pt_diag% ddt_tracer_adv(jc,jk,jb,iqv)
-          prm_tend(jg)%      q_dyn(jc,jk,jb,iqc) = pt_diag% ddt_tracer_adv(jc,jk,jb,iqc)
-          prm_tend(jg)%      q_dyn(jc,jk,jb,iqi) = pt_diag% ddt_tracer_adv(jc,jk,jb,iqi)
           !
 
         END DO
@@ -377,6 +359,37 @@ CONTAINS
     END DO ! jb
 !$OMP END DO
 !$OMP END PARALLEL
+
+!$OMP PARALLEL
+    !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
+    DO jt = 1,ntracer
+      DO jb = i_startblk,i_endblk
+        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+!!$      DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
+!!$        CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
+        DO jk = 1,nlev
+          DO jc = jcs, jce
+
+            ! Fill the physics state variables, which are used by echam:
+            prm_field(jg)%       q(jc,jk,jb,jt)  = pt_prog_new_rcf% tracer(jc,jk,jb,jt)
+            !
+            ! Tendencies passed to the ECHAM physics for internal upating are set to 0
+            ! because the state passed to physics is already updated with tendencies
+            ! due to dynamics and transport.
+            prm_tend(jg)%        q(jc,jk,jb,jt)  = 0.0_wp
+            !
+            ! Advective tendencies, already accounted for, but needed
+            ! for diagnostic purposes in the convection scheme
+            prm_tend(jg)%    q_dyn(jc,jk,jb,jt)  = pt_diag% ddt_tracer_adv(jc,jk,jb,jt)
+            !
+            
+          END DO
+        END DO
+      END DO
+    END DO
+!$OMP END DO
+!$OMP END PARALLEL
+
     IF (ltimer) CALL timer_stop(timer_d2p_couple)
 
     !
@@ -633,6 +646,28 @@ CONTAINS
 
       ! Loop over cells
 !$OMP PARALLEL
+!$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
+      DO jt =1,ntracer    
+        DO jb = i_startblk,i_endblk
+          CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+!!$        DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
+!!$          CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
+          DO jk = 1,nlev
+            DO jc = jcs, jce
+
+              ! (2) Tracers
+              !
+              pt_prog_new_rcf%tracer(jc,jk,jb,jt)  =   pt_prog_new_rcf%tracer(jc,jk,jb,jt)             &
+                &                                    + prm_tend(jg)%    q_phy(jc,jk,jb,jt) * dtadv_loc
+              !
+            END DO
+          END DO
+        END DO
+      END DO
+!$OMP END DO
+!$OMP END PARALLEL
+
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,jcs,jce,z_qsum,z_exner) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,i_endblk
         CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
@@ -642,15 +677,6 @@ CONTAINS
         DO jk = 1,nlev
           DO jc = jcs, jce
 
-            ! (2) Tracers
-            !
-            pt_prog_new_rcf%tracer(jc,jk,jb,iqv) =   pt_prog_new_rcf%tracer(jc,jk,jb,iqv)             &
-              &                                    + prm_tend(jg)%    q_phy(jc,jk,jb,iqv) * dtadv_loc
-            pt_prog_new_rcf%tracer(jc,jk,jb,iqc) =   pt_prog_new_rcf%tracer(jc,jk,jb,iqc)             &
-              &                                    + prm_tend(jg)%    q_phy(jc,jk,jb,iqc) * dtadv_loc
-            pt_prog_new_rcf%tracer(jc,jk,jb,iqi) =   pt_prog_new_rcf%tracer(jc,jk,jb,iqi)             &
-              &                                    + prm_tend(jg)%    q_phy(jc,jk,jb,iqi) * dtadv_loc
-            !
             ! (3) Exner function and virtual potential temperature
             !
             ! (a) Update T, then compute Temp_v, Exner and Theta_v

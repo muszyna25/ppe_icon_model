@@ -62,6 +62,7 @@ MODULE mo_echam_phy_memory
     &                               ZA_HYBRID, ZA_HYBRID_HALF,         &
     &                               ZA_SURFACE, ZA_GENERIC_ICE
   USE mo_sea_ice_nml,         ONLY: kice
+  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqt, ico2
 
 
   IMPLICIT NONE
@@ -541,11 +542,13 @@ CONTAINS
 
     CALL message(TRIM(thismodule),'Construction of ECHAM physics state started.')
 
-    ! Stop if ntracer/=3 (to be generalized later)
-    IF (ntracer /= 3) CALL finish( TRIM(thismodule)//'construct_echam_phy_state', &
-      &                            'Currently does not work for ntracer /= 3'     )
+    ! Set names for 3 water tracer, which are always used in ECHAM phyiscs
+    ctracer(iqv) = 'hus'
+    ctracer(iqc) = 'clw'
+    ctracer(iqi) = 'cli'
 
-    ctracer(1:3) = (/'hus','clw','cli'/)
+    ! Set names for other tracers with indices between iqt and ntracer
+    IF ( iqt <= ico2 .AND. ico2 <= ntracer ) ctracer(ico2) = 'co2'
 
     CALL cdiDefMissval(cdimissval)
 

@@ -441,6 +441,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP WORKSHARE
+      field% q    (:,:,:,:)   = 0._wp
       field% q    (:,:,:,iqv) = qv(:,:,:)
       field% xvar (:,:,:)     = qv(:,:,:)*0.1_wp
       field% xskew(:,:,:)     = 2._wp
