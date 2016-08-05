@@ -11,9 +11,8 @@
 !! This module contains utility functions for storing the namelist parameters in the restart files.
 
 MODULE mo_restart_namelist
-    USE ISO_C_BINDING, ONLY: C_CHAR
     USE mo_util_file, ONLY: util_tmpnam, util_filesize, util_unlink
-    USE mo_util_string, ONLY: tocompact, toCharacter, toCharArray, charArray_equal
+    USE mo_util_string, ONLY: tocompact
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_io_units, ONLY: nerr, find_next_free_unit, filename_max
     USE mo_exception, ONLY: message, finish
@@ -45,9 +44,12 @@ MODULE mo_restart_namelist
         CHARACTER(:), ALLOCATABLE :: name, text
     END TYPE t_att_namelist
 
-    INTEGER, SAVE :: nmls = 0
-    TYPE(t_att_namelist), POINTER, SAVE :: restart_namelist(:)
-    LOGICAL, SAVE :: l_restart_namelist_initialized = .FALSE.
+    TYPE t_NamelistArchive
+        INTEGER :: namelistCount
+        TYPE(t_att_namelist), POINTER :: namelists(:)
+    END TYPE t_NamelistArchive
+
+    TYPE(t_NamelistArchive), ALLOCATABLE, SAVE :: gArchive
 
     CHARACTER(LEN = *), PARAMETER :: modname = "mo_restart_namelist"
 
@@ -57,12 +59,14 @@ CONTAINS
         INTEGER :: i, error
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":init_restart_namelists"
 
-        IF(l_restart_namelist_initialized) CALL finish(routine, "assertion failed: init_restart_namelists() called several times")
-        IF(nmls /= 0) CALL finish(routine, "assertion failed")
+        IF(ALLOCATED(gArchive)) CALL finish(routine, "assertion failed: init_restart_namelists() called several times")
 
-        ALLOCATE(restart_namelist(8), STAT = error)
+        ALLOCATE(gArchive, STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-        l_restart_namelist_initialized = .TRUE.
+        gArchive%namelistCount = 0
+
+        ALLOCATE(gArchive%namelists(8), STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
     END SUBROUTINE init_restart_namelists
 
     FUNCTION find_namelist(namelist_name) RESULT(RESULT)
@@ -75,13 +79,13 @@ CONTAINS
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":find_namelist"
 
         ! first ensure that we actually have a list
-        IF(.NOT. l_restart_namelist_initialized) CALL init_restart_namelists()
+        IF(.NOT. ALLOCATED(gArchive)) CALL init_restart_namelists()
 
         ! check whether we already have an entry of that NAME
         fullName = 'nml_'//TRIM(namelist_name)
-        DO i = 1, nmls
-            IF(fullName == restart_namelist(i)%NAME) THEN
-                RESULT => restart_namelist(i)
+        DO i = 1, gArchive%namelistCount
+            IF(fullName == gArchive%namelists(i)%NAME) THEN
+                RESULT => gArchive%namelists(i)
                 DEALLOCATE(fullName)
                 RETURN
             END IF
@@ -89,35 +93,34 @@ CONTAINS
 
         ! looks like we have to create an entry IF this point IS reached
         ! ensure that we have at least enough space for one more entry
-        IF(nmls == SIZE(restart_namelist, 1)) THEN
-            ALLOCATE(temp(2*nmls), STAT = error)
+        IF(gArchive%namelistCount == SIZE(gArchive%namelists, 1)) THEN
+            ALLOCATE(temp(2*gArchive%namelistCount), STAT = error)
             IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-            DO i = 1, nmls
-                CALL MOVE_ALLOC(restart_namelist(i)%NAME, temp(i)%NAME)
-                CALL MOVE_ALLOC(restart_namelist(i)%text, temp(i)%text)
+            DO i = 1, gArchive%namelistCount
+                CALL MOVE_ALLOC(gArchive%namelists(i)%NAME, temp(i)%NAME)
+                CALL MOVE_ALLOC(gArchive%namelists(i)%text, temp(i)%text)
             END DO
-            DEALLOCATE(restart_namelist)
-            restart_namelist => temp
+            DEALLOCATE(gArchive%namelists)
+            gArchive%namelists => temp
         END IF
 
         ! add an entry
-        nmls = nmls + 1
-        RESULT => restart_namelist(nmls)
+        gArchive%namelistCount = gArchive%namelistCount + 1
+        RESULT => gArchive%namelists(gArchive%namelistCount)
         CALL MOVE_ALLOC(fullName, RESULT%NAME)
     END FUNCTION find_namelist
 
     SUBROUTINE delete_restart_namelists()
         INTEGER :: i
 
-        IF (l_restart_namelist_initialized) THEN
-            DO i = 1, nmls
-                IF(ALLOCATED(restart_namelist(i)%NAME)) DEALLOCATE(restart_namelist(i)%NAME)
-                IF(ALLOCATED(restart_namelist(i)%text)) DEALLOCATE(restart_namelist(i)%text)
+        IF (ALLOCATED(gArchive)) THEN
+            DO i = 1, gArchive%namelistCount
+                IF(ALLOCATED(gArchive%namelists(i)%NAME)) DEALLOCATE(gArchive%namelists(i)%NAME)
+                IF(ALLOCATED(gArchive%namelists(i)%text)) DEALLOCATE(gArchive%namelists(i)%text)
             END DO
-            DEALLOCATE(restart_namelist)
-            l_restart_namelist_initialized = .FALSE.
+            DEALLOCATE(gArchive%namelists)
+            DEALLOCATE(gArchive)
         ENDIF
-        nmls = 0
     END SUBROUTINE delete_restart_namelists
 
     SUBROUTINE set_restart_namelist(namelist_name, namelist_text)
@@ -155,9 +158,9 @@ CONTAINS
         CHARACTER(LEN=*), PARAMETER :: routine = modname//':print_restart_name_list'
 
         WRITE(nerr, '(a,a,i3)') routine, ' p_pe=', p_pe
-        PRINT *,'restart name lists count = ',nmls
-        DO i = 1, nmls
-            PRINT *, ' restart name list = "'//restart_namelist(i)%NAME//'", text = "'//restart_namelist(i)%text//'"'
+        PRINT *,'restart name lists count = ',gArchive%namelistCount
+        DO i = 1, gArchive%namelistCount
+            PRINT *, ' restart name list = "'//gArchive%namelists(i)%NAME//'", text = "'//gArchive%namelists(i)%text//'"'
         ENDDO
     END SUBROUTINE print_restart_name_lists
 
@@ -269,9 +272,9 @@ CONTAINS
         INTEGER :: i, error
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":RestartNamelist_writeToFile"
 
-        DO i = 1, nmls
-            error = vlistDefAttTxt(cdiVlistId, CDI_GLOBAL, restart_namelist(i)%name, LEN(restart_namelist(i)%text), &
-                                  &restart_namelist(i)%text)
+        DO i = 1, gArchive%namelistCount
+            error = vlistDefAttTxt(cdiVlistId, CDI_GLOBAL, gArchive%namelists(i)%name, LEN(gArchive%namelists(i)%text), &
+                                  &gArchive%namelists(i)%text)
             IF(error /= SUCCESS) CALL finish(routine, "error WHILE writing a namelist to a restart file")
         ENDDO
     END SUBROUTINE RestartNamelist_writeToFile
@@ -337,15 +340,15 @@ CONTAINS
         IF(lIsReceiver) CALL delete_restart_namelists
 
         ! get the number of name lists
-        IF(lIsRoot) nv = nmls
+        IF(lIsRoot) nv = gArchive%namelistCount
         CALL p_bcast(nv, root, communicator)
 
         maxNameLength = 1
         maxAttributeLength = 1
         IF(lIsRoot) THEN
             DO iv = 1, nv
-                maxNameLength = MAX(maxNameLength, LEN(restart_namelist(iv)%NAME))
-                maxAttributeLength = MAX(maxAttributeLength, LEN(restart_namelist(iv)%text))
+                maxNameLength = MAX(maxNameLength, LEN(gArchive%namelists(iv)%NAME))
+                maxAttributeLength = MAX(maxAttributeLength, LEN(gArchive%namelists(iv)%text))
             END DO
         END IF
         CALL p_bcast(maxNameLength, root, communicator)
@@ -361,14 +364,14 @@ CONTAINS
             list_name(1:maxNameLength) = ''
             IF(lIsRoot) THEN
                 ! The first four characters are skipped because that's the `nml_` which will be added again by set_restart_namelist().
-                list_name(1:LEN(restart_namelist(iv)%NAME) - 4) = restart_namelist(iv)%NAME(5:)
+                list_name(1:LEN(gArchive%namelists(iv)%NAME) - 4) = gArchive%namelists(iv)%NAME(5:)
             END IF
             CALL p_bcast(list_name(1:maxNameLength), root, communicator)
 
             ! send text of the name list
             list_text(1:maxAttributeLength) = ''
             IF(lIsRoot) THEN
-                list_text(1:maxAttributeLength) = restart_namelist(iv)%text
+                list_text(1:maxAttributeLength) = gArchive%namelists(iv)%text
             END IF
             CALL p_bcast(list_text(1:maxAttributeLength), root, communicator)
 
