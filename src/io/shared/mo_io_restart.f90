@@ -82,7 +82,8 @@ MODULE mo_io_restart
                                     & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE, ZA_OCEAN_SEDIMENT, ZA_COUNT, &
                                     & GRID_UNSTRUCTURED_COUNT
   USE mo_cf_convention,         ONLY: cf_global_info
-  USE mo_util_restart,          ONLY: t_v_grid, t_restart_cdi_ids, createHgrids, defineVAxis, createVgrids, set_vertical_grid
+  USE mo_util_restart,          ONLY: t_v_grid, t_restart_cdi_ids, createHgrids, defineVAxis, createVgrids, closeAndDestroyIds, &
+                                    & set_vertical_grid
   USE mo_util_string,           ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                 int2string, separator, toCharacter
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink, util_unlink
@@ -971,28 +972,7 @@ CONTAINS
           END DO
 
           ! close the file
-          IF(cdiIds(i)%file /= CDI_UNDEFID) THEN
-            CALL streamClose(cdiIds(i)%file)
-            cdiIds(i)%file = CDI_UNDEFID
-          END IF
-          IF (cdiIds(i)%vlist /= CDI_UNDEFID) THEN
-            CALL vlistDestroy(cdiIds(i)%vlist)
-            cdiIds(i)%vlist = CDI_UNDEFID
-          END IF
-          IF (cdiIds(i)%taxis /= CDI_UNDEFID) THEN
-            CALL taxisDestroy(cdiIds(i)%taxis)
-            cdiIds(i)%taxis = CDI_UNDEFID
-          END IF
-          DO j = 1, SIZE(cdiIds(i)%hgrids, 1)
-            IF(cdiIds(i)%hgrids(j) == CDI_UNDEFID) CYCLE
-            CALL gridDestroy(cdiIds(i)%hgrids(j))
-            cdiIds(i)%hgrids(j) = CDI_UNDEFID
-          END DO
-          DO j = 1, SIZE(cdiIds(i)%vgrids, 1)
-            IF(cdiIds(i)%vgrids(j) == CDI_UNDEFID) CYCLE
-            CALL zaxisDestroy(cdiIds(i)%vgrids(j))
-            cdiIds(i)%vgrids(j) = CDI_UNDEFID
-          END DO
+          CALL closeAndDestroyIds(cdiIds(i))
           var_lists(i)%p%cdiTimeIndex = CDI_UNDEFID
 
           IF (PRESENT(opt_ndom)) THEN

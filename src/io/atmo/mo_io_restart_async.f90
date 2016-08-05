@@ -67,7 +67,8 @@ MODULE mo_io_restart_async
   USE mo_cf_convention
   USE mo_util_string,             ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                   int2string, toCharacter
-  USE mo_util_restart,            ONLY: t_v_grid, t_restart_cdi_ids, createHgrids, defineVAxis, createVgrids, set_vertical_grid
+  USE mo_util_restart,            ONLY: t_v_grid, t_restart_cdi_ids, createHgrids, defineVAxis, createVgrids, set_vertical_grid, &
+                                      & closeAndDestroyIds
 
 #ifndef NOMPI
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work,      &
@@ -1257,32 +1258,9 @@ CONTAINS
     IF (ASSOCIATED(rf%var_data))   DEALLOCATE(rf%var_data)
 
     IF (my_process_is_restart()) THEN
-
-      CALL close_restart_file(rf)
-
-      CALL destroy_cdi_grid(rf%cdiIds%hgrids(grid_unstructured_cell))
-      CALL destroy_cdi_grid(rf%cdiIds%hgrids(grid_unstructured_vert))
-      CALL destroy_cdi_grid(rf%cdiIds%hgrids(grid_unstructured_cell))
-
-      IF (rf%cdiIds%taxis /= CDI_UNDEFID) THEN
-        CALL taxisDestroy(rf%cdiIds%taxis)
-        rf%cdiIds%taxis = CDI_UNDEFID
-      ENDIF
-
-      DO i = 1, SIZE(rf%cdiIds%vgrids)
-        IF (rf%cdiIds%vgrids(i) /= CDI_UNDEFID) THEN
-          CALL zaxisDestroy(rf%cdiIds%vgrids(i))
-          rf%cdiIds%vgrids(i) = CDI_UNDEFID
-        ENDIF
-      ENDDO
-
-      IF (rf%cdiIds%vlist /= CDI_UNDEFID) THEN
-        CALL vlistDestroy(rf%cdiIds%vlist)
-        rf%cdiIds%vlist = CDI_UNDEFID
-      ENDIF
+      CALL closeAndDestroyIds(rf%cdiIds)
 
       rf%cdiTimeIndex = CDI_UNDEFID
-
     ENDIF
 
   END SUBROUTINE release_restart_file

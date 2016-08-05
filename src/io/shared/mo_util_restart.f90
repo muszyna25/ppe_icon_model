@@ -31,6 +31,7 @@ MODULE mo_util_restart
     PUBLIC :: createHgrids
     PUBLIC :: defineVAxis
     PUBLIC :: createVgrids
+    PUBLIC :: closeAndDestroyIds
     PUBLIC :: set_vertical_grid
 
     ! TYPE t_v_grid contains the data of a vertical grid definition.
@@ -144,6 +145,30 @@ CONTAINS
             END SELECT
         ENDDO
     END SUBROUTINE createVgrids
+
+    SUBROUTINE closeAndDestroyIds(cdiIds)
+        TYPE(t_restart_cdi_ids), INTENT(INOUT) :: cdiIds
+
+        INTEGER :: i
+
+        ! close/destroy all open CDI IDs
+        IF(cdiIds%file /= CDI_UNDEFID) CALL streamClose(cdiIds%file)
+        IF(cdiIds%vlist /= CDI_UNDEFID) CALL vlistDestroy(cdiIds%vlist)
+        IF(cdiIds%taxis /= CDI_UNDEFID) CALL taxisDestroy(cdiIds%taxis)
+        DO i = 1, SIZE(cdiIds%hgrids, 1)
+            IF(cdiIds%hgrids(i) /= CDI_UNDEFID) CALL gridDestroy(cdiIds%hgrids(i))
+        END DO
+        DO i = 1, SIZE(cdiIds%vgrids, 1)
+            IF(cdiIds%vgrids(i) /= CDI_UNDEFID) CALL zaxisDestroy(cdiIds%vgrids(i))
+        END DO
+
+        ! reset the IDs
+        cdiIds%file = CDI_UNDEFID
+        cdiIds%vlist = CDI_UNDEFID
+        cdiIds%taxis = CDI_UNDEFID
+        cdiIds%hgrids(:) = CDI_UNDEFID
+        cdiIds%vgrids(:) = CDI_UNDEFID
+    END SUBROUTINE closeAndDestroyIds
 
     SUBROUTINE set_vertical_grid_array(gridDefinitions, gridCount, type, levels)
         TYPE(t_v_grid), INTENT(INOUT) :: gridDefinitions(:)
