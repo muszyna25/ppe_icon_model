@@ -65,25 +65,25 @@ MODULE mo_io_restart_attributes
   TYPE, EXTENDS(t_Destructible) :: t_Text
     CHARACTER(:), ALLOCATABLE :: text
   CONTAINS
-    PROCEDURE :: destruct => Text_destruct  !< override
+    PROCEDURE :: destruct => text_destruct  !< override
   END TYPE t_Text
 
   TYPE, EXTENDS(t_Destructible) :: t_Real
     REAL(wp) :: VALUE
   CONTAINS
-    PROCEDURE :: destruct => Real_destruct  !< override
+    PROCEDURE :: destruct => real_destruct  !< override
   END TYPE t_Real
 
   TYPE, EXTENDS(t_Destructible) :: t_Integer
     INTEGER(KIND = C_INT) :: VALUE
   CONTAINS
-    PROCEDURE :: destruct => Integer_destruct   !< override
+    PROCEDURE :: destruct => integer_destruct   !< override
   END TYPE t_Integer
 
   TYPE, EXTENDS(t_Destructible) :: t_Logical
     LOGICAL :: VALUE
   CONTAINS
-    PROCEDURE :: destruct => Logical_destruct   !< override
+    PROCEDURE :: destruct => logical_destruct   !< override
   END TYPE t_Logical
 
   TYPE(t_HashTable), SAVE, POINTER :: table
@@ -123,13 +123,13 @@ CONTAINS
     END IF
   END FUNCTION getRestartAttributes
 
-  INTEGER(C_INT32_T) FUNCTION Text_hash(me) RESULT(RESULT)
+  INTEGER(C_INT32_T) FUNCTION text_hash(me) RESULT(RESULT)
     CLASS(t_Destructible), POINTER, INTENT(IN) :: me
 
     ! Just some large primes to produce some good pseudorandom bits IN the hashes.
     INTEGER(C_INT64_T), PARAMETER :: prime1 = 729326603, prime2 = 941095657, &
                                    & mask = 2_C_INT64_T**31 - 1_C_INT64_T   ! a bitmask for the 31 low order bits
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":Text_hash"
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":text_hash"
 
     INTEGER :: i
     INTEGER(C_INT64_T) :: temp
@@ -151,12 +151,12 @@ CONTAINS
         CLASS DEFAULT
             CALL finish(routine, "assertion failed: illegal argument TYPE")
     END SELECT
-  END FUNCTION Text_hash
+  END FUNCTION text_hash
 
-  LOGICAL FUNCTION Text_isEqual(me, other) RESULT(RESULT)
+  LOGICAL FUNCTION text_isEqual(me, other) RESULT(RESULT)
     CLASS(t_Destructible), POINTER, INTENT(IN) :: me, other
 
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":Text_isEqual"
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":text_isEqual"
     CLASS(*), POINTER :: meAlias, otherAlias    !just a workaround for a gcc compiler bug
 
     meAlias => me
@@ -175,25 +175,25 @@ CONTAINS
         CLASS DEFAULT
             CALL finish(routine, "assertion failed: illegal argument TYPE")
     END SELECT
-  END FUNCTION Text_isEqual
+  END FUNCTION text_isEqual
 
-  SUBROUTINE Text_destruct(me)
+  SUBROUTINE text_destruct(me)
     CLASS(t_Text), INTENT(INOUT) :: me
 
     DEALLOCATE(me%text)
-  END SUBROUTINE Text_destruct
+  END SUBROUTINE text_destruct
 
-  SUBROUTINE Real_destruct(me)
+  SUBROUTINE real_destruct(me)
     CLASS(t_Real), INTENT(INOUT) :: me
-  END SUBROUTINE Real_destruct
+  END SUBROUTINE real_destruct
 
-  SUBROUTINE Integer_destruct(me)
+  SUBROUTINE integer_destruct(me)
     CLASS(t_Integer), INTENT(INOUT) :: me
-  END SUBROUTINE Integer_destruct
+  END SUBROUTINE integer_destruct
 
-  SUBROUTINE Logical_destruct(me)
+  SUBROUTINE logical_destruct(me)
     CLASS(t_Logical), INTENT(INOUT) :: me
-  END SUBROUTINE Logical_destruct
+  END SUBROUTINE logical_destruct
 
   FUNCTION RestartAttributeList_makeEmpty() RESULT(RESULT)
     TYPE(t_RestartAttributeList), POINTER :: RESULT
@@ -203,7 +203,7 @@ CONTAINS
 
     ALLOCATE(RESULT, STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
-    RESULT%table => hashTable_make(Text_hash, Text_isEqual)
+    RESULT%table => hashTable_make(text_hash, text_isEqual)
   END FUNCTION RestartAttributeList_makeEmpty
 
   FUNCTION RestartAttributeList_makeFromFile(vlistId, root_pe, comm) RESULT(RESULT)
