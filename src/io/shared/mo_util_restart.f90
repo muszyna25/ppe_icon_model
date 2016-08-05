@@ -25,15 +25,16 @@ MODULE mo_util_restart
     USE mo_cf_convention, ONLY: cf_global_info
     USE mo_datetime, ONLY: t_datetime, iso8601, iso8601extended
     USE mo_exception, ONLY: get_filename_noext
-    USE mo_fortran_tools, ONLY: assign_if_present
+    USE mo_fortran_tools, ONLY: assign_if_present, assign_if_present_allocatable
     USE mo_impl_constants, ONLY: SUCCESS, MAX_CHAR_LENGTH
     USE mo_io_restart_attributes, ONLY: t_RestartAttributeList
     USE mo_io_restart_namelist, ONLY: RestartNamelist_writeToFile
-    USE mo_kind, ONLY: wp
+    USE mo_kind, ONLY: wp, i8
+    USE mo_packed_message, ONLY: t_PackedMessage
     USE mo_run_config, ONLY: restart_filename
     USE mo_util_cdi, ONLY: cdiGetStringError
     USE mo_util_file, ONLY: util_symlink, util_islink, util_unlink
-    USE mo_util_string, ONLY: int2string, associate_keyword, with_keywords, t_keyword_list
+    USE mo_util_string, ONLY: int2string, real2string, associate_keyword, with_keywords, t_keyword_list
     USE mo_var_metadata_types, ONLY: t_var_metadata
 
     IMPLICIT NONE
@@ -43,6 +44,7 @@ MODULE mo_util_restart
     PUBLIC :: t_v_grid
     PUBLIC :: t_restart_cdi_ids
     PUBLIC :: t_var_data
+    PUBLIC :: t_restart_args
 
     PUBLIC :: getRestartFilename
     PUBLIC :: setGeneralRestartAttributes
@@ -80,6 +82,18 @@ MODULE mo_util_restart
         REAL(wp), POINTER :: r_ptr(:,:,:,:,:)
         TYPE(t_var_metadata) :: info
     END TYPE t_var_data
+
+    ! patch independent restart arguments
+    TYPE t_restart_args
+        TYPE(t_datetime) :: datetime
+        INTEGER :: jstep
+        INTEGER, ALLOCATABLE :: output_jfile(:)
+    CONTAINS
+        PROCEDURE :: construct => restartArgs_construct
+        PROCEDURE :: packer => restartArgs_packer
+        PROCEDURE :: print => restartArgs_print
+        PROCEDURE :: destruct => restartArgs_destruct
+    END TYPE t_restart_args
 
     CHARACTER(LEN = *), PARAMETER :: modname = "mo_util_restart"
 
@@ -474,5 +488,53 @@ CONTAINS
         iret = util_symlink(filename,TRIM(linkname))
         IF(iret /= SUCCESS) WRITE(0, *) routine//': cannot create symbolic link "'//TRIM(linkname)//'" for "'//filename//'"'
     END SUBROUTINE create_restart_file_link
+
+    SUBROUTINE restartArgs_construct(me, datetime, jstep, opt_output_jfile)
+        CLASS(t_restart_args), INTENT(INOUT) :: me
+        TYPE(t_datetime), INTENT(IN) :: datetime
+        INTEGER, VALUE :: jstep
+        INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
+
+        me%datetime = datetime
+        me%jstep = jstep
+        CALL assign_if_present_allocatable(me%output_jfile, opt_output_jfile)
+    END SUBROUTINE restartArgs_construct
+
+    SUBROUTINE restartArgs_packer(me, operation, message)
+        CLASS(t_restart_args), INTENT(INOUT) :: me
+        INTEGER, VALUE :: operation
+        TYPE(t_PackedMessage), INTENT(INOUT) :: message
+
+        INTEGER :: calday
+
+        CALL message%execute(operation, me%datetime%year)
+        CALL message%execute(operation, me%datetime%month)
+        CALL message%execute(operation, me%datetime%day)
+        CALL message%execute(operation, me%datetime%hour)
+        CALL message%execute(operation, me%datetime%minute)
+        CALL message%execute(operation, me%datetime%second)
+        CALL message%execute(operation, me%datetime%caltime)
+        calday = INT(me%datetime%calday)
+        CALL message%execute(operation, calday)
+        me%datetime%calday = INT(calday,i8)
+        CALL message%execute(operation, me%datetime%daysec)
+        CALL message%execute(operation, me%jstep)
+        CALL message%execute(operation, me%output_jfile)
+    END SUBROUTINE restartArgs_packer
+
+    SUBROUTINE restartArgs_print(me, prefix)
+        CLASS(t_restart_args), INTENT(IN) :: me
+        CHARACTER(LEN = *), INTENT(IN) :: prefix
+
+        PRINT*, prefix//'current_calday='//TRIM(int2string(INT(me%datetime%calday)))
+        PRINT*, prefix//'current_caltime='//TRIM(real2string(me%datetime%caltime))
+        PRINT*, prefix//'current_daysec='//TRIM(real2string(me%datetime%daysec))
+    END SUBROUTINE restartArgs_print
+
+    SUBROUTINE restartArgs_destruct(me)
+        CLASS(t_restart_args), INTENT(INOUT) :: me
+
+        IF(ALLOCATED(me%output_jfile)) DEALLOCATE(me%output_jfile)
+    END SUBROUTINE restartArgs_destruct
 
 END MODULE mo_util_restart

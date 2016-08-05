@@ -53,7 +53,7 @@ MODULE mo_io_restart_async
   USE mo_restart_patch_description, ONLY: t_restart_patch_description
   USE mo_util_restart,            ONLY: t_restart_cdi_ids, setGeneralRestartAttributes, &
                                       & setDynamicPatchRestartAttributes, setPhysicsRestartAttributes, create_restart_file_link, &
-                                      & t_var_data, getRestartFilename
+                                      & t_var_data, getRestartFilename, t_restart_args
 
 #ifndef NOMPI
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work, p_work_pe0, num_work_procs, MPI_SUCCESS, &
@@ -97,7 +97,7 @@ MODULE mo_io_restart_async
   INTEGER, PARAMETER :: MAX_ERROR_LENGTH          = 256
 
   ! common constant strings
-  CHARACTER(LEN=*), PARAMETER :: modname                  = 'shared/mo_io_restart_async/'
+  CHARACTER(LEN=*), PARAMETER :: modname                  = 'mo_io_restart_async'
   CHARACTER(LEN=*), PARAMETER :: ALLOCATE_FAILED          = 'ALLOCATE failed!'
   CHARACTER(LEN=*), PARAMETER :: DEALLOCATE_FAILED        = 'DEALLOCATE failed!'
   CHARACTER(LEN=*), PARAMETER :: UNKNOWN_GRID_TYPE        = 'Unknown grid type!'
@@ -165,15 +165,6 @@ MODULE mo_io_restart_async
 
   TYPE(t_patch_data), ALLOCATABLE, TARGET :: patch_data(:)
 
-  !------------------------------------------------------------------------------------------------
-  ! patch independent arguments
-  !
-  TYPE t_restart_args
-    TYPE(t_datetime)  :: datetime
-    INTEGER           :: jstep
-    INTEGER, ALLOCATABLE  :: output_jfile(:)
-  END TYPE t_restart_args
-
 #ifndef NOMPI
   !------------------------------------------------------------------------------------------------
   ! Currently, we use only 1 MPI window for all output files
@@ -206,7 +197,7 @@ CONTAINS
   !> Prepare the asynchronous restart (collective call).
   !
   SUBROUTINE prepare_async_restart ()
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//'prepare_async_restart'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':prepare_async_restart'
 
 #ifdef NOMPI
     CALL finish(routine, ASYNC_RESTART_REQ_MPI)
@@ -287,7 +278,7 @@ CONTAINS
 
     INTEGER :: idx
     TYPE(t_restart_args) :: restart_args
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//'write_async_restart'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':write_async_restart'
 
 #ifdef NOMPI
     CALL finish (routine, ASYNC_RESTART_REQ_MPI)
@@ -301,11 +292,7 @@ CONTAINS
     IF(.NOT. my_process_is_work()) RETURN
 
     CALL compute_wait_for_restart
-    restart_args%datetime = datetime
-    restart_args%jstep = jstep
-    ! otherwise, only the first compute PE needs the dynamic restart arguments
-    ! in the case of processor splitting, the first PE of the split subset needs them as well
-    CALL assign_if_present_allocatable(restart_args%output_jfile, opt_output_jfile)
+    CALL restart_args%construct(datetime, jstep, opt_output_jfile)
     CALL compute_start_restart(restart_args)
 
     ! do the restart output
@@ -324,7 +311,7 @@ CONTAINS
     TYPE(t_restart_patch_description), POINTER :: description
     INTEGER :: idx
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//'restart_write_async_restart'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':restart_write_async_restart'
 
 #ifdef NOMPI
     CALL finish (routine, ASYNC_RESTART_REQ_MPI)
@@ -363,7 +350,7 @@ CONTAINS
         DEALLOCATE(restartAttributes)
 
         ! collective call to write the restart variables
-        CALL restart_write_var_list(p_pd, restart_args)
+        CALL restart_write_var_list(p_pd)
         IF(description%l_opt_ndom) THEN
             CALL create_restart_file_link(TRIM(p_pd%restart_file%filename), TRIM(p_pd%restart_file%model_type), &
                                          &description%restart_proc_id - p_restart_pe0, description%id, &
@@ -385,7 +372,7 @@ CONTAINS
   SUBROUTINE close_async_restart
 
 #ifdef NOMPI
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//'close_async_restart'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':close_async_restart'
 
     CALL finish(routine, ASYNC_RESTART_REQ_MPI)
 #else
@@ -411,7 +398,7 @@ CONTAINS
   SUBROUTINE restart_main_proc
     LOGICAL :: done
     TYPE(t_restart_args) :: restart_args
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//'restart_main_proc'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':restart_main_proc'
 
 #ifdef NOMPI
     CALL finish(routine, ASYNC_RESTART_REQ_MPI)
@@ -482,7 +469,7 @@ CONTAINS
     REAL(wp) :: msg
 
 #ifdef DEBUG
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//'restart_send_ready'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':restart_send_ready'
 
     WRITE (nerr,FORMAT_VALS5)routine,' p_pe=',p_pe, &
       & ' call p_barrier with communicator=',p_comm_work
@@ -510,22 +497,10 @@ CONTAINS
     INTEGER :: i, calday, patchId
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartMetadataPacker"
 
-    ! set patch independent arguments
-    CALL message%execute(operation, restart_args%datetime%year)
-    CALL message%execute(operation, restart_args%datetime%month)
-    CALL message%execute(operation, restart_args%datetime%day)
-    CALL message%execute(operation, restart_args%datetime%hour)
-    CALL message%execute(operation, restart_args%datetime%minute)
-    CALL message%execute(operation, restart_args%datetime%second)
-    CALL message%execute(operation, restart_args%datetime%caltime)
-    calday = INT(restart_args%datetime%calday)
-    CALL message%execute(operation, calday)
-    restart_args%datetime%calday = INT(calday,i8)
-    CALL message%execute(operation, restart_args%datetime%daysec)
-    CALL message%execute(operation, restart_args%jstep)
-    CALL message%execute(operation, restart_args%output_jfile)
+    ! (un)pack patch independent arguments
+    CALL restart_args%packer(operation, message)
 
-    ! set data of all patches
+    ! (un)pack the patch descriptions
     DO i = 1, SIZE(patch_data)
         CALL patch_data(i)%description%packer(operation, message)
     END DO
@@ -542,7 +517,7 @@ CONTAINS
 
     INTEGER :: iheader
     TYPE(t_PackedMessage) :: message
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//'restart_wait_for_start'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':restart_wait_for_start'
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' is called, p_pe=',p_pe
@@ -584,7 +559,7 @@ CONTAINS
 
     REAL(wp) :: msg
 
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//'compute_wait_for_restart'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':compute_wait_for_restart'
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' is called, p_pe=',p_pe
@@ -623,7 +598,7 @@ CONTAINS
     TYPE(t_restart_patch_description), POINTER :: curPatch
     INTEGER :: i, trash
     TYPE(t_PackedMessage) :: message
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//'compute_start_restart'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':compute_start_restart'
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS5)routine,' p_pe=',p_pe, ' call p_barrier with communicator=',p_comm_work
@@ -676,7 +651,7 @@ CONTAINS
   !
   SUBROUTINE compute_shutdown_restart
     TYPE(t_PackedMessage) :: message
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//'compute_shutdown_restart'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':compute_shutdown_restart'
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS5)routine,' p_pe=',p_pe, &
@@ -737,7 +712,7 @@ CONTAINS
     TYPE(t_patch_data), POINTER   :: p_pd
     INTEGER                       :: idx, mpi_error
 
-    CHARACTER(LEN=*), PARAMETER   :: routine = modname//'release_resources'
+    CHARACTER(LEN=*), PARAMETER   :: routine = modname//':release_resources'
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' is called for p_pe=',p_pe
@@ -774,13 +749,11 @@ CONTAINS
   !
   SUBROUTINE print_restart_arguments(restart_args)
     TYPE(t_restart_args), INTENT(IN) :: restart_args
-    CHARACTER(LEN=*), PARAMETER   :: routine = modname//'print_restart_arguments'
+    CHARACTER(LEN=*), PARAMETER   :: routine = modname//':print_restart_arguments'
 
     WRITE (nerr,FORMAT_VALS3)routine,' is called for p_pe=',p_pe
 
-    PRINT *,routine, ' current_caltime=', restart_args%datetime%caltime
-    PRINT *,routine, ' current_calday=',  restart_args%datetime%calday
-    PRINT *,routine, ' current_daysec=',  restart_args%datetime%daysec
+    CALL restart_args%print(routine//": ")
 
     ! patch informations
     PRINT *,routine, ' size of patches=', SIZE(patch_data)
@@ -803,7 +776,7 @@ CONTAINS
 
 #ifdef DEBUG
     TYPE(t_list_element), POINTER :: element_list
-    CHARACTER(LEN=*), PARAMETER   :: routine = modname//'get_var_list_number'
+    CHARACTER(LEN=*), PARAMETER   :: routine = modname//':get_var_list_number'
 
     WRITE (nerr,FORMAT_VALS5)routine,' p_pe=',p_pe,' patch_id=',patch_id
 #endif
@@ -874,7 +847,7 @@ CONTAINS
     CHARACTER(LEN=32)               :: model_type
     LOGICAL                         :: lrestart
 
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//'restartVarlistPacker'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':restartVarlistPacker'
 
     ! delete old var lists
     IF(operation == kUnpackOp) CALL delete_var_lists
@@ -970,7 +943,7 @@ CONTAINS
   !
   SUBROUTINE transfer_restart_var_lists()
     TYPE(t_PackedMessage) :: message
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//'transfer_restart_var_lists'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':transfer_restart_var_lists'
 
     CALL message%construct()
     IF(.NOT.my_process_is_restart()) CALL restartVarlistPacker(kPackOp, message)
@@ -1033,7 +1006,7 @@ CONTAINS
   !
   SUBROUTINE create_and_transfer_patch_data()
     INTEGER                        :: jg, ierrstat
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//'create_and_transfer_patch_data'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':create_and_transfer_patch_data'
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
@@ -1066,7 +1039,7 @@ CONTAINS
     INTEGER                               :: ierrstat, i, i2, num_vars
     TYPE (t_list_element), POINTER        :: element
 
-    CHARACTER(LEN=*), PARAMETER           :: routine = modname//'set_restart_file_data'
+    CHARACTER(LEN=*), PARAMETER           :: routine = modname//':set_restart_file_data'
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS5)routine,' is called for p_pe=',p_pe,' patch_id=',patch_id
@@ -1135,7 +1108,7 @@ CONTAINS
     INTEGER, ALLOCATABLE :: glbidx_own(:), glbidx_glb(:), reorder_index_log_dom(:)
     CHARACTER (LEN=MAX_ERROR_LENGTH) :: error_message
 
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//'set_reorder_data'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':set_reorder_data'
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' is called for p_pe=',p_pe
@@ -1257,7 +1230,7 @@ CONTAINS
     TYPE(t_reorder_data), INTENT(INOUT) :: reo
     INTEGER                             :: ierrstat
 
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//'transfer_reorder_data'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':transfer_reorder_data'
 
     ! transfer the global number of points, this is not yet known on restart PEs
     CALL p_bcast(reo%n_glb,  bcast_root, p_comm_work_2_restart)
@@ -1298,7 +1271,7 @@ CONTAINS
 #endif
     TYPE(t_var_data), POINTER :: p_vars(:)
     TYPE(t_restart_comm_data), POINTER :: commData
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//'init_remote_memory_access'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':init_remote_memory_access'
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' is called for p_pe=',p_pe
@@ -1452,7 +1425,7 @@ CONTAINS
     CHARACTER(LEN=MAX_NAME_LENGTH) :: attrib_name
     INTEGER                        :: jp, jp_end, jg, i, current_jfile, effectiveDomainCount
 
-    CHARACTER(LEN=*), PARAMETER    :: routine = modname//'set_restart_attributes'
+    CHARACTER(LEN=*), PARAMETER    :: routine = modname//':set_restart_attributes'
     CHARACTER(LEN=*), PARAMETER    :: attrib_format_int  = '(a,i2.2)'
     CHARACTER(LEN=*), PARAMETER    :: attrib_format_int2 = '(a,i2.2,a,i2.2)'
 
@@ -1526,7 +1499,7 @@ CONTAINS
     LOGICAL                       :: lskip_timelev, lskip_extra_timelevs
 
 #ifdef DEBUG
-    CHARACTER(LEN=*), PARAMETER   :: routine = modname//'has_valid_time_level'
+    CHARACTER(LEN=*), PARAMETER   :: routine = modname//':has_valid_time_level'
 #endif
 
     has_valid_time_level = .FALSE.
@@ -1627,9 +1600,8 @@ CONTAINS
   !
   ! Write restart variable list for a restart PE.
   !
-  SUBROUTINE restart_write_var_list(p_pd, restart_args)
+  SUBROUTINE restart_write_var_list(p_pd)
     TYPE(t_patch_data), TARGET, INTENT(IN) :: p_pd
-    TYPE(t_restart_args), INTENT(IN) :: restart_args
 
     TYPE(t_restart_file), POINTER   :: p_rf
     TYPE(t_var_metadata), POINTER   :: p_info
@@ -1642,7 +1614,7 @@ CONTAINS
     INTEGER                         :: ichunk, nchunks, chunk_start, chunk_end,     &
       &                                this_chunk_nlevs, ioff2
 
-    CHARACTER(LEN=*), PARAMETER     :: routine = modname//'restart_write_var_list'
+    CHARACTER(LEN=*), PARAMETER     :: routine = modname//':restart_write_var_list'
     ! For timing
     REAL(dp)                        :: t_get, t_write, t_0, mb_get, mb_wr
 
@@ -1798,7 +1770,7 @@ CONTAINS
     INTEGER                         :: iv, mpi_error, nindex, ierrstat, nlevs, i, jk, &
       &                                var_ref_pos
     INTEGER(i8)                     :: ioff
-    CHARACTER(LEN=*), PARAMETER     :: routine = modname//'compute_write_var_list'
+    CHARACTER(LEN=*), PARAMETER     :: routine = modname//':compute_write_var_list'
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
@@ -1939,7 +1911,7 @@ CONTAINS
 
     TYPE(t_var_data), POINTER     :: p_vars(:)
     TYPE(t_var_metadata), POINTER :: p_info
-    CHARACTER(LEN=*), PARAMETER   :: routine = modname//'init_restart_variables'
+    CHARACTER(LEN=*), PARAMETER   :: routine = modname//':init_restart_variables'
     INTEGER                       :: iv
 
 #ifdef DEBUG
@@ -1979,7 +1951,7 @@ CONTAINS
     TYPE(t_restart_file), POINTER :: p_rf
     TYPE(t_var_list), POINTER     :: p_re_list
     INTEGER                       :: restart_type, i
-    CHARACTER(LEN=*), PARAMETER   :: routine = modname//'open_restart_file'
+    CHARACTER(LEN=*), PARAMETER   :: routine = modname//':open_restart_file'
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
@@ -2046,7 +2018,7 @@ CONTAINS
   SUBROUTINE close_restart_file(rf)
 
     TYPE (t_restart_file), INTENT(INOUT)  :: rf
-    CHARACTER(LEN=*), PARAMETER           :: routine = modname//'close_restart_file'
+    CHARACTER(LEN=*), PARAMETER           :: routine = modname//':close_restart_file'
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
