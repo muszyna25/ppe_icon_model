@@ -77,6 +77,7 @@ MODULE mo_restart_util
     TYPE t_restart_args
         TYPE(t_datetime) :: datetime
         INTEGER :: jstep
+        CHARACTER(LEN = 32) :: modelType
         INTEGER, ALLOCATABLE :: output_jfile(:)
     CONTAINS
         PROCEDURE :: construct => restartArgs_construct
@@ -464,14 +465,16 @@ CONTAINS
         IF(iret /= SUCCESS) WRITE(0, *) routine//': cannot create symbolic link "'//TRIM(linkname)//'" for "'//filename//'"'
     END SUBROUTINE create_restart_file_link
 
-    SUBROUTINE restartArgs_construct(me, datetime, jstep, opt_output_jfile)
+    SUBROUTINE restartArgs_construct(me, datetime, jstep, modelType, opt_output_jfile)
         CLASS(t_restart_args), INTENT(INOUT) :: me
         TYPE(t_datetime), INTENT(IN) :: datetime
         INTEGER, VALUE :: jstep
+        CHARACTER(LEN = *), INTENT(IN) :: modelType
         INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
 
         me%datetime = datetime
         me%jstep = jstep
+        me%modelType = modelType
         CALL assign_if_present_allocatable(me%output_jfile, opt_output_jfile)
     END SUBROUTINE restartArgs_construct
 
@@ -494,6 +497,7 @@ CONTAINS
         IF(operation == kUnpackOp) me%datetime%calday = INT(calday,i8)
         CALL message%packer(operation, me%datetime%daysec)
         CALL message%packer(operation, me%jstep)
+        CALL message%packer(operation, me%modelType)
         CALL message%packer(operation, me%output_jfile)
     END SUBROUTINE restartArgs_packer
 

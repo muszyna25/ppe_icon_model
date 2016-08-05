@@ -29,7 +29,6 @@ MODULE mo_restart_file
 
     TYPE t_RestartFile
         CHARACTER(LEN=filename_max) :: filename
-        CHARACTER(LEN=32) :: model_type
         TYPE(t_restart_cdi_ids) :: cdiIds
     CONTAINS
         PROCEDURE :: open => restartFile_open
@@ -67,8 +66,6 @@ CONTAINS
             p_re_list => var_lists(i)
             EXIT
         ENDDO
-        ! assume all restart variables have the same model name
-        me%model_type = p_re_list%p%model_type
 
         ! assume all restart variables uses the same file format
         SELECT CASE (p_re_list%p%restart_type)
@@ -78,7 +75,8 @@ CONTAINS
                 CALL finish(routine, "file format for restart variables must be NetCDF")
         END SELECT
 
-        me%filename = getRestartFilename(description%base_filename, description%id, restart_args%datetime, me%model_type)
+        me%filename = getRestartFilename(description%base_filename, description%id, restart_args%datetime, &
+                                        &TRIM(restart_args%modelType))
 
         IF(ALLOCATED(description%opt_pvct)) THEN
             CALL me%cdiIds%openRestartAndCreateIds(TRIM(me%filename), restart_type, restartAttributes, &

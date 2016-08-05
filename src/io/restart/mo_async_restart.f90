@@ -213,7 +213,7 @@ CONTAINS
     CLASS(t_AsyncRestartDescriptor), INTENT(INOUT) :: me
     TYPE(t_datetime), INTENT(IN) :: datetime
     INTEGER, INTENT(IN) :: jstep
-    CHARACTER(LEN = *), INTENT(IN) :: modelType ! TODO[NH]: Pass this on to the getRestartFilename() CALL.
+    CHARACTER(LEN = *), INTENT(IN) :: modelType
     INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
 
     INTEGER :: idx
@@ -232,7 +232,7 @@ CONTAINS
     IF(.NOT. my_process_is_work()) RETURN
 
     CALL compute_wait_for_restart()
-    CALL restart_args%construct(datetime, jstep, opt_output_jfile)
+    CALL restart_args%construct(datetime, jstep, modelType, opt_output_jfile)
     CALL compute_start_restart(restart_args, me%patch_data)
     CALL restart_args%destruct()
 
@@ -271,11 +271,11 @@ CONTAINS
             ! collective call to write the restart variables
             CALL restart_write_var_list(patch_data, restartFile)
             IF(patch_data%description%l_opt_ndom) THEN
-                CALL create_restart_file_link(TRIM(restartFile%filename), TRIM(restartFile%model_type), &
+                CALL create_restart_file_link(TRIM(restartFile%filename), TRIM(restart_args%modelType), &
                                              &patch_data%description%restart_proc_id - p_restart_pe0, patch_data%description%id, &
                                              &opt_ndom = patch_data%description%opt_ndom)
             ELSE
-                CALL create_restart_file_link(TRIM(restartFile%filename), TRIM(restartFile%model_type), &
+                CALL create_restart_file_link(TRIM(restartFile%filename), TRIM(restart_args%modelType), &
                                              &patch_data%description%restart_proc_id - p_restart_pe0, patch_data%description%id)
             END IF
             CALL restartFile%close()
