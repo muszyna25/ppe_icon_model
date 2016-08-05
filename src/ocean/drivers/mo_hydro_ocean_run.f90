@@ -221,7 +221,7 @@ CONTAINS
       CALL update_time_g_n(ocean_state(jg))
     ENDIF
 
-    restartDescriptor => createRestartDescriptor()
+    restartDescriptor => createRestartDescriptor("oce")
 
     !------------------------------------------------------------------
     ! call the dynamical core: start the time loop
@@ -469,7 +469,7 @@ CONTAINS
                                             &opt_ocean_zlevels=n_zlev, &
                                             &opt_ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:), &
                                             &opt_ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
-          CALL restartDescriptor%writeRestart(datetime, jstep, "oce")
+          CALL restartDescriptor%writeRestart(datetime, jstep)
       END IF
 
       ! check cfl criterion
@@ -510,7 +510,7 @@ CONTAINS
                                           &opt_ocean_zlevels=n_zlev, &
                                           &opt_ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:), &
                                           &opt_ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
-        CALL restartDescriptor%writeRestart(datetime, jstep, "oce")
+        CALL restartDescriptor%writeRestart(datetime, jstep)
     END IF
 
     CALL deleteRestartDescriptor(restartDescriptor)

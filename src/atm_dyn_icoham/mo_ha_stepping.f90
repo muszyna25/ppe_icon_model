@@ -233,7 +233,7 @@ CONTAINS
 
   IF (ltimer) CALL timer_start(timer_total)
 
-  restartDescriptor => createRestartDescriptor()
+  restartDescriptor => createRestartDescriptor("atm")
 
   jstep0 = 0
   restartAttributes => getAttributesForRestarting()
@@ -378,7 +378,7 @@ CONTAINS
         DO jg = 1, n_dom
             CALL restartDescriptor%updatePatch(p_patch(jg), opt_pvct = vct)
         ENDDO
-        CALL restartDescriptor%writeRestart(datetime, jstep, "atm")
+        CALL restartDescriptor%writeRestart(datetime, jstep)
     END IF
 
   ENDDO TIME_LOOP

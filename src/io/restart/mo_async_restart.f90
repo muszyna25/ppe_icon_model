@@ -48,7 +48,7 @@ MODULE mo_async_restart
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work, p_work_pe0, num_work_procs, MPI_SUCCESS, &
                                       & stop_mpi, p_send, p_recv, p_barrier, p_bcast, my_process_is_restart, my_process_is_work, &
                                       & p_comm_work_2_restart, process_mpi_restart_size, p_mpi_wtime, process_mpi_all_comm, &
-                                      & p_get_bcast_role
+                                      & p_get_bcast_role, p_bcast_achar
 #ifdef __SUNPRO_F95
   INCLUDE "mpif.h"
 #else
@@ -108,6 +108,7 @@ MODULE mo_async_restart
   ! Finally, destruct() must be called to signal the restart PEs to finish their work, AND to wait for them to stop.
   TYPE, EXTENDS(t_RestartDescriptor) :: t_AsyncRestartDescriptor
     TYPE(t_patch_data), ALLOCATABLE :: patch_data(:)
+    CHARACTER(:), ALLOCATABLE :: modelType
   CONTAINS
     PROCEDURE :: construct => asyncRestartDescriptor_construct
     PROCEDURE :: updatePatch => asyncRestartDescriptor_updatePatch
@@ -128,8 +129,9 @@ CONTAINS
   !
   !> Prepare the asynchronous restart (collective call).
   !
-  SUBROUTINE asyncRestartDescriptor_construct(me)
+  SUBROUTINE asyncRestartDescriptor_construct(me, modelType)
     CLASS(t_AsyncRestartDescriptor), INTENT(INOUT) :: me
+    CHARACTER(*), INTENT(IN) :: modelType
 
     INTEGER :: jg, error
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':asyncRestartDescriptor_construct'
@@ -141,6 +143,8 @@ CONTAINS
     IF(.NOT. (my_process_is_work() .OR. my_process_is_restart())) RETURN
 
     ! TRANSFER some global DATA to the restart processes
+    me%modelType = modelType
+    CALL p_bcast_achar(me%modelType, restartBcastRoot(), p_comm_work_2_restart)
     CALL p_bcast(n_dom, restartBcastRoot(), p_comm_work_2_restart)
     CALL bcastRestartVarlists(restartBcastRoot(), p_comm_work_2_restart)
     CALL RestartNamelist_bcast(restartBcastRoot(), p_comm_work_2_restart)
@@ -153,7 +157,7 @@ CONTAINS
     DO jg = 1, n_dom
         ! construct the subobjects
         CALL create_patch_description(me%patch_data(jg)%description, jg)
-        me%patch_data(jg)%varData => createRestartVarData(jg)
+        me%patch_data(jg)%varData => createRestartVarData(jg, me%modelType)
         CALL me%patch_data(jg)%commData%construct(jg, me%patch_data(jg)%varData)
 
         ! consistency checks
@@ -209,11 +213,10 @@ CONTAINS
   !
   !> Writes all restart data into one or more files (one file per patch, collective across work processes).
   !
-  SUBROUTINE asyncRestartDescriptor_writeRestart(me, datetime, jstep, modelType, opt_output_jfile)
+  SUBROUTINE asyncRestartDescriptor_writeRestart(me, datetime, jstep, opt_output_jfile)
     CLASS(t_AsyncRestartDescriptor), INTENT(INOUT) :: me
     TYPE(t_datetime), INTENT(IN) :: datetime
     INTEGER, INTENT(IN) :: jstep
-    CHARACTER(LEN = *), INTENT(IN) :: modelType
     INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
 
     INTEGER :: idx
@@ -232,7 +235,7 @@ CONTAINS
     IF(.NOT. my_process_is_work()) RETURN
 
     CALL compute_wait_for_restart()
-    CALL restart_args%construct(datetime, jstep, modelType, opt_output_jfile)
+    CALL restart_args%construct(datetime, jstep, me%modelType, opt_output_jfile)
     CALL compute_start_restart(restart_args, me%patch_data)
     CALL restart_args%destruct()
 
@@ -245,10 +248,11 @@ CONTAINS
   END SUBROUTINE asyncRestartDescriptor_writeRestart
 
 #ifndef NOMPI
-  SUBROUTINE restart_write_patch(restart_args, patch_data, restartAttributes)
+  SUBROUTINE restart_write_patch(restart_args, patch_data, restartAttributes, modelType)
     TYPE(t_restart_args), INTENT(IN) :: restart_args
     TYPE(t_patch_data), INTENT(INOUT) :: patch_data
     TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
+    CHARACTER(*), INTENT(IN) :: modelType
 
     TYPE(t_RestartFile) :: restartFile
 
@@ -271,11 +275,11 @@ CONTAINS
             ! collective call to write the restart variables
             CALL restart_write_var_list(patch_data, restartFile)
             IF(patch_data%description%l_opt_ndom) THEN
-                CALL create_restart_file_link(TRIM(restartFile%filename), TRIM(restart_args%modelType), &
+                CALL create_restart_file_link(TRIM(restartFile%filename), modelType, &
                                              &patch_data%description%restart_proc_id - p_restart_pe0, patch_data%description%id, &
                                              &opt_ndom = patch_data%description%opt_ndom)
             ELSE
-                CALL create_restart_file_link(TRIM(restartFile%filename), TRIM(restart_args%modelType), &
+                CALL create_restart_file_link(TRIM(restartFile%filename), modelType, &
                                              &patch_data%description%restart_proc_id - p_restart_pe0, patch_data%description%id)
             END IF
             CALL restartFile%close()
@@ -309,7 +313,7 @@ CONTAINS
 
     ! do the restart output
     DO idx = 1, SIZE(me%patch_data)
-        CALL restart_write_patch(restart_args, me%patch_data(idx), restartAttributes)
+        CALL restart_write_patch(restart_args, me%patch_data(idx), restartAttributes, me%modelType)
     END DO
 
     CALL restartAttributes%destruct()
@@ -370,7 +374,7 @@ CONTAINS
     IF (.NOT. my_process_is_restart()) RETURN
 
     ! prepare restart (collective call)
-    CALL restartDescriptor%construct()
+    CALL restartDescriptor%construct('')    ! the model TYPE will be supplied by the work processes
 
     ! tell the compute PEs that we are ready to work
     CALL restart_send_ready

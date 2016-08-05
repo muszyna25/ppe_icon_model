@@ -533,7 +533,7 @@ ENDIF
         CALL write_initial_ocean_timestep(patch_3D,p_os(n_dom),surface_fluxes,p_ice,hamocc_state, operators_coefficients)
       ENDIF
 
-    restartDescriptor => createRestartDescriptor()
+    restartDescriptor => createRestartDescriptor("oce")
 
     ! timeloop
     DO jstep = (jstep0+1), (jstep0+nsteps)
@@ -619,7 +619,7 @@ ENDIF
                                             &opt_ocean_zlevels=n_zlev, &
                                             &opt_ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:), &
                                             &opt_ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
-          CALL restartDescriptor%writeRestart(datetime, jstep, "oce")
+          CALL restartDescriptor%writeRestart(datetime, jstep)
       END IF
     END DO
 

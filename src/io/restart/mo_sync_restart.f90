@@ -107,6 +107,7 @@ MODULE mo_sync_restart
 
   TYPE, EXTENDS(t_RestartDescriptor) :: t_SyncRestartDescriptor
     TYPE(t_PatchData), ALLOCATABLE :: patchData(:)
+    CHARACTER(:), ALLOCATABLE :: modelType
   CONTAINS
     PROCEDURE :: construct => syncRestartDescriptor_construct   ! override
     PROCEDURE :: updatePatch => syncRestartDescriptor_updatePatch   ! override
@@ -122,10 +123,13 @@ MODULE mo_sync_restart
   !------------------------------------------------------------------------------------------------
 CONTAINS
 
-  SUBROUTINE syncRestartDescriptor_construct(me)
+  SUBROUTINE syncRestartDescriptor_construct(me, modelType)
     CLASS(t_SyncRestartDescriptor), INTENT(INOUT) :: me
     INTEGER :: jg, error
+    CHARACTER(LEN = *), INTENT(IN) :: modelType
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':restartDescriptor_construct'
+
+    me%modelType = modelType
 
     ! allocate patch data structure
     ALLOCATE(me%patchData(n_dom), STAT = error)
@@ -135,7 +139,7 @@ CONTAINS
     DO jg = 1, n_dom
         ! construct the subobjects
         CALL me%patchData(jg)%description%init(p_patch(jg))
-        me%patchData(jg)%varData => createRestartVarData(jg)
+        me%patchData(jg)%varData => createRestartVarData(jg, modelType)
     END DO
   END SUBROUTINE syncRestartDescriptor_construct
 
@@ -262,11 +266,10 @@ CONTAINS
     END IF
   END SUBROUTINE patchData_writeFile
 
-  SUBROUTINE syncRestartDescriptor_writeRestart(me, datetime, jstep, modelType, opt_output_jfile)
+  SUBROUTINE syncRestartDescriptor_writeRestart(me, datetime, jstep, opt_output_jfile)
     CLASS(t_SyncRestartDescriptor), INTENT(INOUT) :: me
     TYPE(t_datetime), INTENT(IN) :: datetime
     INTEGER, INTENT(IN) :: jstep
-    CHARACTER(LEN = *), INTENT(IN) :: modelType
     INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
 
     INTEGER :: jg
@@ -278,7 +281,7 @@ CONTAINS
     CALL me%defineRestartAttributes(restartAttributes, datetime, jstep, opt_output_jfile)
 
     DO jg = 1, n_dom
-        CALL me%patchData(jg)%writeFile(restartAttributes, datetime, jstep, modelType, opt_output_jfile)
+        CALL me%patchData(jg)%writeFile(restartAttributes, datetime, jstep, me%modelType, opt_output_jfile)
     END DO
 
     CALL restartAttributes%destruct()

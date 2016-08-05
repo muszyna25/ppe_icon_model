@@ -618,7 +618,7 @@ MODULE mo_nh_stepping
 
   datetime_old = datetime_current
 
-  restartDescriptor => createRestartDescriptor()
+  restartDescriptor => createRestartDescriptor("atm")
 
   jstep0 = 0
   restartAttributes => getAttributesForRestarting()
@@ -1141,7 +1141,7 @@ MODULE mo_nh_stepping
               & opt_nlev_snow              = nlev_snow,                  &
               & opt_ndom                   = n_dom)
         ENDDO
-        CALL restartDescriptor%writeRestart(datetime_current, jstep, "atm", opt_output_jfile = output_jfile)
+        CALL restartDescriptor%writeRestart(datetime_current, jstep, opt_output_jfile = output_jfile)
 
 #ifdef MESSY
         IF(.NOT.use_async_restart_output) THEN

@@ -30,7 +30,8 @@ MODULE mo_restart
 CONTAINS
 
     ! Factory FUNCTION to create the appropriate restart descriptor.
-    FUNCTION createRestartDescriptor() RESULT(RESULT)
+    FUNCTION createRestartDescriptor(modelType) RESULT(RESULT)
+        CHARACTER(*), INTENT(IN) :: modelType
         CLASS(t_RestartDescriptor), POINTER :: RESULT
 
         INTEGER :: error
@@ -42,7 +43,7 @@ CONTAINS
             ALLOCATE(t_SyncRestartDescriptor :: RESULT, STAT = error)
         END IF
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
-        CALL RESULT%construct()
+        CALL RESULT%construct(modelType)
     END FUNCTION createRestartDescriptor
 
     ! Convenience FUNCTION for destroying a restart descriptor.

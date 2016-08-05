@@ -41,9 +41,10 @@ MODULE mo_restart_descriptor
 
     ABSTRACT INTERFACE
         ! Constructor. Not called directly from user code, USE the factory FUNCTION createRestartDescriptor() instead, which IS found IN mo_restart.
-        SUBROUTINE restartDescriptor_construct(me)
+        SUBROUTINE restartDescriptor_construct(me, modelType)
             IMPORT t_RestartDescriptor
             CLASS(t_RestartDescriptor), INTENT(INOUT) :: me
+            CHARACTER(LEN = *), INTENT(IN) :: modelType
         END SUBROUTINE restartDescriptor_construct
 
         ! Update the internal description of the given patch. This should be called once for every patch before every CALL to writeRestart().
@@ -62,12 +63,11 @@ MODULE mo_restart_descriptor
         END SUBROUTINE restartDescriptor_updatePatch
 
         ! Actually WRITE a restart.
-        SUBROUTINE restartDescriptor_writeRestart(me, datetime, jstep, modelType, opt_output_jfile)
+        SUBROUTINE restartDescriptor_writeRestart(me, datetime, jstep, opt_output_jfile)
             IMPORT t_RestartDescriptor, t_datetime
             CLASS(t_RestartDescriptor), INTENT(INOUT) :: me
             TYPE(t_datetime), INTENT(IN) :: datetime
             INTEGER, INTENT(IN) :: jstep
-            CHARACTER(LEN = *), INTENT(IN) :: modelType
             INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
         END SUBROUTINE restartDescriptor_writeRestart
     END INTERFACE

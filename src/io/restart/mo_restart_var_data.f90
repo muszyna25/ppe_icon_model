@@ -20,7 +20,7 @@ MODULE mo_restart_var_data
                                & LEAPFROG_EXPL, LEAPFROG_SI
     USE mo_io_units, ONLY: nerr
     USE mo_kind, ONLY: wp
-    USE mo_linked_list, ONLY: t_list_element
+    USE mo_linked_list, ONLY: t_list_element, t_var_list
     USE mo_parallel_config, ONLY: nproma
     USE mo_util_string, ONLY: int2string
     USE mo_var_list, ONLY: nvar_lists, var_lists, get_var_timelevel
@@ -45,20 +45,29 @@ MODULE mo_restart_var_data
 
 CONTAINS
 
+    LOGICAL FUNCTION wantVarlist(varlist, patch_id, modelType) RESULT(RESULT)
+        TYPE(t_var_list), INTENT(IN) :: varlist
+        INTEGER, VALUE :: patch_id
+        CHARACTER(LEN = *), INTENT(IN) :: modelType
+
+        RESULT = .FALSE.
+        IF(.NOT. varlist%p%lrestart) RETURN
+        IF(varlist%p%patch_id /= patch_id) RETURN
+        IF(varlist%p%model_type /= modelType) RETURN
+        RESULT = .TRUE.
+    END FUNCTION wantVarlist
+
     ! compute the number of  restart variables for the given logical patch.
-    INTEGER FUNCTION countRestartVariables(patch_id) RESULT(RESULT)
-        INTEGER, INTENT(IN) :: patch_id
+    INTEGER FUNCTION countRestartVariables(patch_id, modelType) RESULT(RESULT)
+        INTEGER, VALUE :: patch_id
+        CHARACTER(LEN = *), INTENT(IN) :: modelType
 
         INTEGER :: i, fld_cnt
         TYPE(t_list_element), POINTER :: element
 
         RESULT = 0
         DO i = 1, nvar_lists
-            ! skip, if var_list is not required for restart
-            IF(.NOT. var_lists(i)%p%lrestart) CYCLE
-
-            ! check the given logical patch id
-            IF(var_lists(i)%p%patch_id /= patch_id) CYCLE
+            IF(.NOT.wantVarlist(var_lists(i), patch_id, modelType)) CYCLE
 
             ! check, if the list has valid restart fields
             fld_cnt = 0
@@ -72,9 +81,10 @@ CONTAINS
         ENDDO
     END FUNCTION countRestartVariables
 
-    FUNCTION createRestartVarData(patch_id) RESULT(RESULT)
+    FUNCTION createRestartVarData(patch_id, modelType) RESULT(RESULT)
         TYPE(t_RestartVarData), POINTER :: RESULT(:)
         INTEGER, VALUE :: patch_id
+        CHARACTER(LEN = *), INTENT(IN) :: modelType
 
         INTEGER :: varCount, varIndex, error, curList
         TYPE(t_list_element), POINTER :: element
@@ -84,7 +94,7 @@ CONTAINS
         RESULT => NULL()
 
         ! counts number of restart variables for this file (logical patch ident)
-        varCount = countRestartVariables(patch_id)
+        varCount = countRestartVariables(patch_id, modelType)
 #ifdef DEBUG
         WRITE(nerr, *) routine//' numvars = '//TRIM(int2string(varCount))
 #endif
@@ -97,11 +107,7 @@ CONTAINS
         ! fill the array of restart variables
         varIndex = 1
         DO curList = 1, nvar_lists
-            ! skip, if var_list is not required for restart
-            IF(.NOT. var_lists(curList)%p%lrestart) CYCLE
-
-            ! check the given logical patch id
-            IF(var_lists(curList)%p%patch_id /= patch_id) CYCLE
+            IF(.NOT.wantVarlist(var_lists(curList), patch_id, modelType)) CYCLE
 
             ! check, if the list has valid restart fields
             element => var_lists(curList)%p%first_list_element
