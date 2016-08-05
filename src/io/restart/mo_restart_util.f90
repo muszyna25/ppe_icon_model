@@ -10,7 +10,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 
-MODULE mo_util_restart
+MODULE mo_restart_util
     USE mo_cdi, ONLY: CDI_UNDEFID, GRID_UNSTRUCTURED, gridCreate, gridDefNvertex, gridDefXname, gridDefXlongname, gridDefXunits, &
                     & gridDefYname, gridDefYlongname, gridDefYunits, zaxisCreate, zaxisDefLevels, streamOpenWrite, &
                     & vlistCreate, taxisCreate, vlistDefTaxis, TAXIS_ABSOLUTE, vlistDefVar, vlistDefVarDatatype, vlistDefVarName, &
@@ -94,7 +94,7 @@ MODULE mo_util_restart
         PROCEDURE :: destruct => restartArgs_destruct
     END TYPE t_restart_args
 
-    CHARACTER(LEN = *), PARAMETER :: modname = "mo_util_restart"
+    CHARACTER(LEN = *), PARAMETER :: modname = "mo_restart_util"
 
 CONTAINS
 
@@ -591,4 +591,4 @@ CONTAINS
         END SELECT
     END SUBROUTINE getLevelPointers
 
-END MODULE mo_util_restart
+END MODULE mo_restart_util

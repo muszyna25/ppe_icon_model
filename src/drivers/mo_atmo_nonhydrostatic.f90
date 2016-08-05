@@ -21,7 +21,7 @@ USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
   &                                timer_model_init, timer_init_icon, timer_read_restart
 USE mo_master_config,        ONLY: isRestart
 USE mo_time_config,          ONLY: time_config      ! variable
-USE mo_read_restart,         ONLY: read_restart_files
+USE mo_load_restart,         ONLY: read_restart_files
 USE mo_restart_attributes,   ONLY: t_RestartAttributeList, getAttributesForRestarting
 USE mo_io_config,            ONLY: configure_io
 USE mo_parallel_config,      ONLY: nproma, num_prefetch_proc

@@ -24,7 +24,7 @@ MODULE mo_restart_patch_description
     USE mo_model_domain, ONLY: t_patch
     USE mo_mpi, ONLY: p_pe_work
     USE mo_packed_message, ONLY: t_PackedMessage
-    USE mo_util_restart, ONLY: t_v_grid, set_vertical_grid, setDynamicPatchRestartAttributes, setPhysicsRestartAttributes
+    USE mo_restart_util, ONLY: t_v_grid, set_vertical_grid, setDynamicPatchRestartAttributes, setPhysicsRestartAttributes
     USE mo_util_string, ONLY: int2string
 
     IMPLICIT NONE

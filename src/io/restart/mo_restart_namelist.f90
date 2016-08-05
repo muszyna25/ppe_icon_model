@@ -26,7 +26,7 @@ MODULE mo_restart_namelist
   PUBLIC :: open_and_restore_namelist
   PUBLIC :: close_tmpfile
 
-  ! used ONLY by mo_restart AND mo_restart_async
+  ! used ONLY by mo_sync_restart AND mo_async_restart
   PUBLIC :: RestartNamelist_bcast
   PUBLIC :: read_and_bcast_restart_namelists
   PUBLIC :: RestartNamelist_writeToFile

@@ -85,7 +85,7 @@ MODULE mo_nh_stepping
                                          prep_outer_bdy_nudging, save_progvars
   USE mo_nh_feedback,              ONLY: feedback, relax_feedback
   USE mo_datetime,                 ONLY: t_datetime, add_time, check_newday, iso8601
-  USE mo_restart,                  ONLY: create_restart_file
+  USE mo_sync_restart,             ONLY: create_restart_file
   USE mo_exception,                ONLY: message, message_text, finish
   USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
     &                                    itconv, itccov, itrad, itradheat, itsso, itsatad, itgwd,  &
@@ -146,7 +146,7 @@ MODULE mo_nh_stepping
     &                                    read_latbc_tlev, last_latbc_tlev, &
     &                                    update_lin_interc
   USE mo_interface_les,            ONLY: les_phy_interface
-  USE mo_restart_async,            ONLY: t_restart_descriptor
+  USE mo_async_restart,            ONLY: t_restart_descriptor
   USE mo_nh_prepadv_types,         ONLY: prep_adv, t_prepare_adv, jstep_adv
   USE mo_action,                   ONLY: reset_act
   USE mo_output_event_handler,     ONLY: get_current_jfile

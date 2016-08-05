@@ -53,7 +53,7 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_math_operators,   ONLY: update_height_depdendent_variables, check_cfl_horizontal, check_cfl_vertical
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_ocean_tracer,             ONLY: advect_ocean_tracers
-  USE mo_restart,                ONLY: create_restart_file
+  USE mo_sync_restart,           ONLY: create_restart_file
   USE mo_ocean_bulk,             ONLY: update_surface_flux
   USE mo_ocean_surface,          ONLY: update_ocean_surface
   USE mo_ocean_surface_types,    ONLY: t_ocean_surface

@@ -41,7 +41,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_random_util,            ONLY: add_random_noise_global
   USE mo_ocean_types,            ONLY: t_hydro_ocean_state
   USE mo_hamocc_types,           ONLY: t_hamocc_state
-  USE mo_restart,                ONLY: create_restart_file
+  USE mo_sync_restart,           ONLY: create_restart_file
   USE mo_io_config,              ONLY: n_checkpoints
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
   USE mo_ocean_tracer,           ONLY: advect_ocean_tracers

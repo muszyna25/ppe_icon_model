@@ -1,7 +1,7 @@
 !> Module for reading restart files
 !!
 !! Note: The asynchronous implementation of the restart output can be
-!!       found in the module "mo_restart_async"
+!!       found in the module "mo_async_restart"
 !!
 !! @par Copyright and License
 !!
@@ -11,7 +11,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 
-MODULE mo_read_restart
+MODULE mo_load_restart
     USE mo_cdi, ONLY: streamOpenRead, streamInqVlist, streamClose, streamOpenRead, streamReadVarSlice, vlistInqTaxis, vlistNvars, &
                     & vlistInqVarName, vlistInqVarGrid, vlistInqVarZaxis, taxisInqVdate, taxisInqVtime, zaxisInqType, &
                     & zaxisInqSize, gridInqSize, ZAXIS_SURFACE
@@ -34,7 +34,7 @@ MODULE mo_read_restart
 
     PUBLIC :: read_restart_files, read_restart_header
 
-    CHARACTER(LEN = *), PARAMETER :: modname = "mo_read_restart"
+    CHARACTER(LEN = *), PARAMETER :: modname = "mo_load_restart"
 
 CONTAINS
 
@@ -336,4 +336,4 @@ CONTAINS
     CALL message('','')
 
   END SUBROUTINE read_restart_files
-END MODULE mo_read_restart
+END MODULE mo_load_restart

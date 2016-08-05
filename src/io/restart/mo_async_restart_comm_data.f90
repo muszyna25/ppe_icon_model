@@ -19,7 +19,7 @@ MODULE mo_async_restart_comm_data
     USE mo_kind, ONLY: dp, i8
     USE mo_model_domain, ONLY: p_patch
     USE mo_mpi, ONLY: p_real_dp, p_comm_work_restart, p_pe_work, num_work_procs, p_mpi_wtime, my_process_is_work
-    USE mo_util_restart, ONLY: t_var_data
+    USE mo_restart_util, ONLY: t_var_data
     USE mo_util_string, ONLY: int2string
     USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL, MPI_LOCK_SHARED, MPI_MODE_NOCHECK, MPI_WIN_NULL, MPI_LOCK_EXCLUSIVE, &
                  & MPI_SUCCESS

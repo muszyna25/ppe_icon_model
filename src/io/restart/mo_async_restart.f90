@@ -3,7 +3,7 @@
 !! --------------------------------------------------------
 !!
 !! Note: The synchronous implementation of the restart output can be
-!!       found in the module "mo_restart". See module header for
+!!       found in the module "mo_sync_restart". See module header for
 !!       more details on generated files.
 !!
 !! @par Revision History
@@ -19,8 +19,7 @@
 !!
 !!
 
-MODULE mo_restart_async
-  USE mo_decomposition_tools,     ONLY: t_grid_domain_decomp_info
+MODULE mo_async_restart
   USE mo_async_restart_packer,    ONLY: t_AsyncRestartPacker, restartBcastRoot
   USE mo_async_restart_comm_data, ONLY: t_AsyncRestartCommData
   USE mo_exception,               ONLY: finish
@@ -45,7 +44,7 @@ MODULE mo_restart_async
   USE mo_cdi,                     ONLY: CDI_UNDEFID, FILETYPE_NC2, FILETYPE_NC4, streamWriteVarSlice
   USE mo_packed_message,          ONLY: t_PackedMessage, kPackOp, kUnpackOp
   USE mo_restart_patch_description, ONLY: t_restart_patch_description
-  USE mo_util_restart,            ONLY: t_restart_cdi_ids, setGeneralRestartAttributes, create_restart_file_link, t_var_data, &
+  USE mo_restart_util,            ONLY: t_restart_cdi_ids, setGeneralRestartAttributes, create_restart_file_link, t_var_data, &
                                       & getRestartFilename, t_restart_args, getLevelPointers
 #ifndef NOMPI
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work, p_work_pe0, num_work_procs, MPI_SUCCESS, &
@@ -79,7 +78,7 @@ MODULE mo_restart_async
   INTEGER, PARAMETER :: MAX_ERROR_LENGTH          = 256
 
   ! common constant strings
-  CHARACTER(LEN=*), PARAMETER :: modname                  = 'mo_restart_async'
+  CHARACTER(LEN=*), PARAMETER :: modname                  = 'mo_async_restart'
   CHARACTER(LEN=*), PARAMETER :: ALLOCATE_FAILED          = 'ALLOCATE failed!'
   CHARACTER(LEN=*), PARAMETER :: DEALLOCATE_FAILED        = 'DEALLOCATE failed!'
   CHARACTER(LEN=*), PARAMETER :: UNKNOWN_FILE_FORMAT      = 'Unknown file format for restart file.'
@@ -1380,4 +1379,4 @@ CONTAINS
 
 #endif
 
-END MODULE mo_restart_async
+END MODULE mo_async_restart

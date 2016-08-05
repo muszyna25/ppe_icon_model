@@ -1,7 +1,7 @@
 !> Module for writing restart files (synchronously)
 !!
 !! Note: The asynchronous implementation of the restart output can be
-!!       found in the module "mo_restart_async"
+!!       found in the module "mo_async_restart"
 !!
 !! Initial implementation: L. Kornblueh
 !!
@@ -51,7 +51,7 @@
 !! --------------------------------------------------------------------------------
 !!
 !OPTION! -pvctl conflict
-MODULE mo_restart
+MODULE mo_sync_restart
   USE mo_kind,                  ONLY: wp
   USE mo_exception,             ONLY: finish, message, message_text
   USE mo_fortran_tools,         ONLY: t_ptr_2d
@@ -66,7 +66,7 @@ MODULE mo_restart
                                     & ZA_DEPTH_RUNOFF_G, ZA_SNOW, ZA_SNOW_HALF, ZA_TOA, ZA_HEIGHT_2M, ZA_HEIGHT_10M, &
                                     & ZA_LAKE_BOTTOM, ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, ZA_SEDIMENT_BOTTOM_TW_HALF, &
                                     & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE, ZA_OCEAN_SEDIMENT, ZA_COUNT
-  USE mo_util_restart,          ONLY: t_v_grid, t_restart_cdi_ids, set_vertical_grid, setGeneralRestartAttributes, &
+  USE mo_restart_util,          ONLY: t_v_grid, t_restart_cdi_ids, set_vertical_grid, setGeneralRestartAttributes, &
                                     & setDynamicPatchRestartAttributes, setPhysicsRestartAttributes, create_restart_file_link, &
                                     & getRestartFilename, getLevelPointers
   USE mo_util_string,           ONLY: int2string, separator
@@ -124,7 +124,7 @@ MODULE mo_restart
   INTEGER :: private_ne  = -1
 
   !> module name string
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_restart'
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_sync_restart'
 
   !------------------------------------------------------------------------------------------------
 CONTAINS
@@ -918,4 +918,4 @@ CONTAINS
 
   END SUBROUTINE finish_restart
 
-END MODULE mo_restart
+END MODULE mo_sync_restart
