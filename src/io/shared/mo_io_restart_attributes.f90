@@ -25,7 +25,7 @@ MODULE mo_io_restart_attributes
   PRIVATE
 
   PUBLIC :: t_RestartAttributeList, restartAttributeList_make
-  PUBLIC :: setRestartAttributes, getRestartAttributes
+  PUBLIC :: setAttributesForRestarting, getAttributesForRestarting
 
   ! This IS basically a key/VALUE store that can handle text, REAL, INTEGER, AND LOGICAL values.
   ! The ONLY restart connected part about it IS, that it's also able to dump itself into the global attributes of a NetCDF file,
@@ -147,32 +147,35 @@ CONTAINS
   END FUNCTION logical_create
 
   ! Sets the restart attribute list that IS to be used for restarting. Must NOT be set when we are NOT restarting.
-  SUBROUTINE setRestartAttributes(restartAttributes)
+  SUBROUTINE setAttributesForRestarting(restartAttributes)
     TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":setRestartAttributes"
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":setAttributesForRestarting"
 
-    IF(.NOT.isRestart()) CALL finish(routine, "setRestartAttributes() must only be called in a restarted run")
-    IF(gRestartAttributes_initialized) CALL finish(routine, "setRestartAttributes() called several times")
-    IF(.NOT.ASSOCIATED(restartAttributes)) CALL finish(routine, "argument to setRestartAttributes() must be an associated pointer")
+    IF(.NOT.isRestart()) CALL finish(routine, "setAttributesForRestarting() must only be called in a restarted run")
+    IF(gRestartAttributes_initialized) CALL finish(routine, "setAttributesForRestarting() called several times")
+    IF(.NOT.ASSOCIATED(restartAttributes)) THEN
+        CALL finish(routine, "argument to setAttributesForRestarting() must be an associated pointer")
+    END IF
     gRestartAttributes => restartAttributes
     gRestartAttributes_initialized = .TRUE.
-  END SUBROUTINE setRestartAttributes
+  END SUBROUTINE setAttributesForRestarting
 
   ! Returns the restart attribute list that we are currently using to initialize the model. Returns NULL on non-restart runs.
-  FUNCTION getRestartAttributes() RESULT(RESULT)
+  FUNCTION getAttributesForRestarting() RESULT(RESULT)
     TYPE(t_RestartAttributeList), POINTER :: RESULT
 
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":getRestartAttributes"
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":getAttributesForRestarting"
 
     IF(isRestart()) THEN
         IF(.NOT.gRestartAttributes_initialized) THEN
-            CALL finish(routine, "assertion failed: getRestartAttributes() called before restart attributes were read from file")
+            CALL finish(routine, "assertion failed: getAttributesForRestarting() called before restart attributes were read from &
+                                 &file")
         END IF
         RESULT => gRestartAttributes
     ELSE
         RESULT => NULL()
     END IF
-  END FUNCTION getRestartAttributes
+  END FUNCTION getAttributesForRestarting
 
   INTEGER(C_INT32_T) FUNCTION text_hash(me) RESULT(RESULT)
     CLASS(t_Destructible), POINTER, INTENT(IN) :: me

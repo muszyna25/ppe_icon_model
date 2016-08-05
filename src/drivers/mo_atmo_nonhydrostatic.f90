@@ -22,7 +22,7 @@ USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
 USE mo_master_config,        ONLY: isRestart
 USE mo_time_config,          ONLY: time_config      ! variable
 USE mo_io_restart,           ONLY: read_restart_files
-USE mo_io_restart_attributes,ONLY: t_RestartAttributeList, getRestartAttributes
+USE mo_io_restart_attributes,ONLY: t_RestartAttributeList, getAttributesForRestarting
 USE mo_io_config,            ONLY: configure_io
 USE mo_parallel_config,      ONLY: nproma, num_prefetch_proc
 USE mo_nh_pzlev_config,      ONLY: configure_nh_pzlev
@@ -171,7 +171,7 @@ CONTAINS
     ENDIF
 
     ! initialize ldom_active flag if this is not a restart run
-    restartAttributes => getRestartAttributes()
+    restartAttributes => getAttributesForRestarting()
     IF (.NOT. ASSOCIATED(restartAttributes)) THEN
       DO jg=1, n_dom
         IF (jg > 1 .AND. start_time(jg) - timeshift%dt_shift > 0._wp) THEN

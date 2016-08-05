@@ -117,7 +117,7 @@ MODULE mo_nh_stepping
   USE mo_master_config,            ONLY: isRestart, tc_startdate, tc_stopdate, &
        &                                 tc_exp_refdate, tc_exp_startdate, tc_exp_stopdate, &
        &                                 tc_dt_checkpoint, tc_dt_restart
-  USE mo_io_restart_attributes,    ONLY: t_RestartAttributeList, getRestartAttributes
+  USE mo_io_restart_attributes,    ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_meteogram_config,         ONLY: meteogram_output_config
   USE mo_meteogram_output,         ONLY: meteogram_sample_vars, meteogram_is_sample_step
   USE mo_name_list_output,         ONLY: write_name_list_output, istime4name_list_output
@@ -624,7 +624,7 @@ MODULE mo_nh_stepping
   ENDIF
 
   jstep0 = 0
-  restartAttributes => getRestartAttributes()
+  restartAttributes => getAttributesForRestarting()
   IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
     ! get start counter for time loop from restart file:
     jstep0 = restartAttributes%getInteger("jstep")
@@ -2966,7 +2966,7 @@ MODULE mo_nh_stepping
   ENDIF
   !
   ! initialize
-  restartAttributes => getRestartAttributes()
+  restartAttributes => getAttributesForRestarting()
   IF (ASSOCIATED(restartAttributes)) THEN
     !
     ! Get sim_time, t_elapsed_phy and lcall_phy from restart file

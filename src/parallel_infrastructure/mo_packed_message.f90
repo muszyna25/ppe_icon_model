@@ -17,7 +17,7 @@ MODULE mo_packed_message
     USE mo_util_string, ONLY: int2string
 
 #ifndef NOMPI
-    USE mo_mpi, ONLY: p_int, p_bcast_role, MPI_SUCCESS
+    USE mo_mpi, ONLY: p_int, p_get_bcast_role, MPI_SUCCESS
     USE mpi
 #endif
 
@@ -639,7 +639,7 @@ CONTAINS
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_bcast"
 
         ! reset the message IF this IS a receiving process
-        CALL p_bcast_role(root, communicator, isRoot, isReceiver)
+        CALL p_get_bcast_role(root, communicator, isRoot, isReceiver)
         IF(isReceiver) CALL me%reset()
 
         ! broadcast the message SIZE to ensure enough buffer space IN the receiving processes

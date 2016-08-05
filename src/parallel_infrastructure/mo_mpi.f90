@@ -206,7 +206,7 @@ MODULE mo_mpi
   PUBLIC :: p_comm_size
   PUBLIC :: p_comm_rank
   PUBLIC :: p_send, p_recv, p_sendrecv, p_bcast, p_barrier
-  PUBLIC :: p_bcast_role
+  PUBLIC :: p_get_bcast_role
   PUBLIC :: p_isend, p_irecv, p_wait, p_wait_any,         &
     &       p_irecv_packed, p_send_packed, p_recv_packed, &
     &       p_bcast_packed,                               &
@@ -6432,14 +6432,14 @@ CONTAINS
 
   ! Collective CALL to determine whether this process IS a sender/receiver IN a broadcast operation.
   ! This routine IS robust IN the presence of inter-communicators (which IS its reason d'etre).
-  SUBROUTINE p_bcast_role(root, communicator, lIsSender, lIsReceiver)
+  SUBROUTINE p_get_bcast_role(root, communicator, lIsSender, lIsReceiver)
     INTEGER, VALUE :: root, communicator
     LOGICAL, INTENT(OUT) :: lIsSender, lIsReceiver
 
 #ifndef NOMPI
     INTEGER :: error
     LOGICAL :: lIsInterCommunicator
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":p_bcast_role"
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":p_get_bcast_role"
 
     ! IS this an inter-communicator?
     CALL MPI_Comm_test_inter(communicator, lIsInterCommunicator, error)
@@ -6461,7 +6461,7 @@ CONTAINS
     lIsSender = .TRUE.
     lIsReceiver = .FALSE.
 #endif
-  END SUBROUTINE p_bcast_role
+  END SUBROUTINE p_get_bcast_role
 
 
   ! probe implementation

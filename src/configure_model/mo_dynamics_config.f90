@@ -25,7 +25,7 @@ MODULE mo_dynamics_config
 
   USE mo_kind,                  ONLY: wp
   USE mo_impl_constants,        ONLY: MAX_DOM
-  USE mo_io_restart_attributes, ONLY: t_RestartAttributeList, getRestartAttributes
+  USE mo_io_restart_attributes, ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_master_config,         ONLY: isRestart
   USE mo_util_string,           ONLY: int2string
 
@@ -85,7 +85,7 @@ CONTAINS
     !------------------------
     ! Set time level indices
 
-    restartAttributes => getRestartAttributes()
+    restartAttributes => getAttributesForRestarting()
     IF (ASSOCIATED(restartAttributes)) THEN
       ! Read time level indices from restart file.
       ! NOTE: this part will be modified later for a proper handling

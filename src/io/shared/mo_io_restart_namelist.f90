@@ -13,7 +13,7 @@ MODULE mo_io_restart_namelist
   USE mo_impl_constants, ONLY: SUCCESS
   USE mo_io_units,    ONLY: nerr, find_next_free_unit, filename_max
   USE mo_exception,   ONLY: message, finish
-  USE mo_mpi,         ONLY: p_bcast, p_pe, p_comm_rank, p_bcast_role
+  USE mo_mpi,         ONLY: p_bcast, p_pe, p_comm_rank, p_get_bcast_role
   USE mo_cdi,         ONLY: CDI_GLOBAL, CDI_UNDEFID, CDI_MAX_NAME, vlistInqNatts, vlistInqAtt, vlistInqAttTxt, vlistDefAttTxt
 
   IMPLICIT NONE
@@ -344,7 +344,7 @@ CONTAINS
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":RestartNamelist_bcast"
 
     ! get our role IN the broadcast operation
-    CALL p_bcast_role(root, communicator, lIsRoot, lIsReceiver)
+    CALL p_get_bcast_role(root, communicator, lIsRoot, lIsReceiver)
 
     ! delete old name lists
     IF(lIsReceiver) CALL delete_restart_namelists

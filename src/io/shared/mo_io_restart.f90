@@ -78,7 +78,7 @@ MODULE mo_io_restart
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink
   USE mo_util_hash,             ONLY: util_hashword
   USE mo_io_restart_namelist,   ONLY: read_and_bcast_restart_namelists
-  USE mo_io_restart_attributes, ONLY: t_RestartAttributeList, RestartAttributeList_make, setRestartAttributes
+  USE mo_io_restart_attributes, ONLY: t_RestartAttributeList, RestartAttributeList_make, setAttributesForRestarting
   USE mo_datetime,              ONLY: t_datetime, iso8601
   USE mo_run_config,            ONLY: ltimer, restart_filename
   USE mo_timer,                 ONLY: timer_start, timer_stop,                      &
@@ -195,7 +195,7 @@ CONTAINS
     END IF
     CALL read_and_bcast_restart_namelists(vlistID, root_pe, p_comm_work)
     restartAttributes => RestartAttributeList_make(vlistID, root_pe, p_comm_work)
-    CALL setRestartAttributes(restartAttributes)
+    CALL setAttributesForRestarting(restartAttributes)
     IF (myRank == root_pe) CALL streamClose(fileID)
 
     CALL message(TRIM(routine), 'read namelists AND attributes from restart file')

@@ -42,7 +42,7 @@ MODULE mo_atmo_model
     &                                   ihs_atm_temp, ihs_atm_theta, inh_atmosphere,          &
     &                                   ishallow_water, inwp
   USE mo_io_restart,              ONLY: read_restart_header
-  USE mo_io_restart_attributes,   ONLY: t_RestartAttributeList, getRestartAttributes
+  USE mo_io_restart_attributes,   ONLY: t_RestartAttributeList, getAttributesForRestarting
 
   ! namelist handling; control parameters: run control, dynamics
   USE mo_read_namelists,          ONLY: read_atmo_namelists
@@ -231,7 +231,7 @@ CONTAINS
     IF (isRestart()) THEN
       CALL message('','Read restart file meta data ...')
       CALL read_restart_header("atm")
-      restartAttributes => getRestartAttributes()
+      restartAttributes => getAttributesForRestarting()
       startDate = restartAttributes%getText('tc_startdate')
     ELSE
       call datetimeToString(tc_exp_startdate, startDate)
