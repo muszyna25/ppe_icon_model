@@ -574,7 +574,7 @@ CONTAINS
       END SELECT
 #endif
 
-      CALL cdiIds%defineVariable(info, ASSOCIATED(element%field%i_ptr), ASSOCIATED(element%field%l_ptr))
+      CALL cdiIds%defineVariable(info)
     ENDDO for_all_list_elements
 
   END SUBROUTINE addVarListToVlist

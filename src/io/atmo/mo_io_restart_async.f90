@@ -1832,18 +1832,10 @@ CONTAINS
     p_vars => p_rf%var_data
     IF (.NOT. ASSOCIATED(p_vars)) RETURN
 
-    ! go over the all restart variables in the associated array
+    ! go over the all restart variables in the associated array AND define those that have a valid time level
     DO iv = 1, SIZE(p_vars)
-
-      ! get pointer to metadata
       p_info => p_vars(iv)%info
-
-      ! check time level of the field
-      IF (.NOT. has_valid_time_level(p_info, patchDescription)) CYCLE
-
-      ! define the CDI variable
-      !XXX: The code I found here simply assumed that all variables are of TYPE REAL. I have NOT changed this behavior, however, the .FALSE. constants should be replaced by something more sensible IN the future.
-      CALL p_rf%cdiIds%defineVariable(p_info, .FALSE., .FALSE.)
+      IF(has_valid_time_level(p_info, patchDescription)) CALL p_rf%cdiIds%defineVariable(p_info)
     ENDDO
   END SUBROUTINE init_restart_variables
 

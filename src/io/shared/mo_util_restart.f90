@@ -345,19 +345,12 @@ CONTAINS
     END SUBROUTINE restartCdiIds_finalizeVlist
 
     ! Encapsulates the CDI calls to define a variable.
-    ! lIsInteger AND lIsLogical reflect the TYPE of the variable, IF neither IS set, the variable IS assumed to be of TYPE REAL.
-    SUBROUTINE restartCdiIds_defineVariable(me, info, lIsInteger, lIsLogical)
+    SUBROUTINE restartCdiIds_defineVariable(me, info)
         CLASS(t_restart_cdi_ids), INTENT(IN) :: me
         TYPE(t_var_metadata), INTENT(INOUT) :: info
-        LOGICAL, VALUE :: lIsInteger, lIslogical
 
         INTEGER :: varId, gridId, zaxisId
-        REAL(wp) :: casted_missval
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartCdiIds_defineVariable"
-
-        IF(lIsInteger.AND.lIsLogical) THEN
-            CALL finish(routine, "assertion failed: attempt to define a variable both as INTEGER and LOGICAL")
-        END IF
 
         ! get the horizontal grid ID
         gridId = info%cdiGridID
@@ -382,15 +375,7 @@ CONTAINS
         ! then add the three optional fields
         IF(info%cf%long_name /= '') CALL vlistDefVarLongname(me%vlist, varId, TRIM(info%cf%long_name))
         IF(info%cf%units /= '') CALL vlistDefVarUnits(me%vlist, varId, TRIM(info%cf%units))
-        IF(info%lmiss) THEN
-            casted_missval = info%missval%rval
-            IF(lIsInteger) casted_missval = REAL(info%missval%ival, wp)
-            IF(lIsLogical) THEN
-                casted_missval = 0.0_wp
-                IF(info%missval%lval) casted_missval = 1.0_wp
-            ENDIF
-            CALL vlistDefVarMissval(me%vlist, varId, casted_missval)
-        ENDIF
+        IF(info%lmiss) CALL vlistDefVarMissval(me%vlist, varId, info%missval%rval)
     END SUBROUTINE restartCdiIds_defineVariable
 
     SUBROUTINE restartCdiIds_closeAndDestroyIds(me)
