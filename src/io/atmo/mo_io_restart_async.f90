@@ -316,6 +316,7 @@ CONTAINS
 #endif
   END SUBROUTINE restartDescriptor_writeRestart
 
+#ifndef NOMPI
   SUBROUTINE restart_write_patch(restart_args, patch_data, restartAttributes)
     TYPE(t_restart_args), INTENT(IN) :: restart_args
     TYPE(t_patch_data), INTENT(INOUT) :: patch_data
@@ -349,6 +350,7 @@ CONTAINS
         CALL close_restart_file(patch_data%restart_file)
     ENDIF
   END SUBROUTINE restart_write_patch
+#endif
 
   !> Writes all restart data into one or more files (one file per patch, collective across restart processes).
   SUBROUTINE restart_write_async_restart(restart_args, patch_data)
