@@ -63,8 +63,7 @@ MODULE mo_io_restart
   USE mo_cdi,                   ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, ZAXIS_SURFACE, CDI_UNDEFID, COMPRESS_ZIP, &
                                     & streamOpenRead, streamInqVlist, vlistInqTaxis, taxisInqVdate, taxisInqVtime, vlistNvars, &
                                     & vlistInqVarGrid, gridInqSize, vlistInqVarZaxis, zaxisInqType, zaxisInqSize, &
-                                    & streamDefTimestep, streamClose, streamWriteVarSlice, streamWriteVar, streamDefVlist, &
-                                    & vlistInqVarName, taxisDefVdate, taxisDefVtime
+                                    & streamClose, streamWriteVarSlice, streamWriteVar, vlistInqVarName
   USE mo_util_cdi,              ONLY: cdiGetStringError
   USE mo_cdi_constants,         ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, &
                                     & ZA_HYBRID, ZA_HYBRID_HALF, ZA_DEPTH_BELOW_LAND, ZA_DEPTH_BELOW_LAND_P1, ZA_DEPTH_RUNOFF_S, &
@@ -367,11 +366,12 @@ CONTAINS
 
   ! Loop over all the output streams and open the associated files. Set
   ! unit numbers (file IDs) for all streams associated with a file.
-  SUBROUTINE open_writing_restart_files(patch, restart_filename, restartAttributes, cdiIds)
+  SUBROUTINE open_writing_restart_files(patch, restart_filename, restartAttributes, cdiIds, datetime)
     TYPE(t_patch), INTENT(IN) :: patch
     CHARACTER(LEN=*), INTENT(IN) :: restart_filename
     TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
     TYPE(t_restart_cdi_ids), INTENT(INOUT) :: cdiIds(:)
+    TYPE(t_datetime), INTENT(IN) :: datetime
 
     INTEGER :: status, i ,j, jg, ia, ihg, ivg
 
@@ -449,7 +449,6 @@ CONTAINS
 
         var_lists(i)%p%filename = TRIM(restart_filename)
         var_lists(i)%p%restart_opened = .TRUE.
-        var_lists(i)%p%cdiTimeIndex = 0
 
         ! 6. add variables
 
@@ -500,7 +499,7 @@ CONTAINS
 
 
       IF (my_process_is_mpi_workroot() .AND. var_lists(i)%p%first) THEN
-        CALL streamDefVlist(cdiIds(i)%file, cdiIds(i)%vlist)
+        CALL cdiIds(i)%finalizeVlist(datetime)
       ENDIF
 
     END DO
@@ -732,7 +731,7 @@ CONTAINS
     private_restart_time = iso8601(datetime)
     string = getRestartFilename(patch%grid_filename, jg, datetime, model_type)
 
-    CALL open_writing_restart_files(patch, TRIM(string), restartAttributes, cdiIds)
+    CALL open_writing_restart_files(patch, TRIM(string), restartAttributes, cdiIds, datetime)
 
     CALL write_restart(patch, cdiIds)
 
@@ -783,7 +782,6 @@ CONTAINS
 
           ! close the file
           CALL cdiIds(i)%closeAndDestroyIds()
-          var_lists(i)%p%cdiTimeIndex = CDI_UNDEFID
 
           CALL create_restart_file_link(TRIM(var_lists(i)%p%filename), TRIM(var_lists(i)%p%model_type), 0, jg, opt_ndom = opt_ndom)
         ENDIF
@@ -838,12 +836,6 @@ CONTAINS
         ENDIF
         write_info = .FALSE.
 
-        ! write time information to netCDF file
-
-        IF (my_process_is_mpi_workroot()) THEN
-          CALL write_time_to_restart(var_lists(i), cdiIds(i))
-        ENDIF
-
         ! loop over all streams associated with the file
 
         DO j = i, nvar_lists
@@ -866,41 +858,6 @@ CONTAINS
   CALL message('','Finished Write netCDF2 restart for : '//TRIM(private_restart_time))
 
   END SUBROUTINE write_restart
-
-  !------------------------------------------------------------------------------------------------
-
-  ! set time for restart in cdi format
-
-  SUBROUTINE write_time_to_restart(this_list, cdiIds)
-    TYPE (t_var_list), INTENT(inout) :: this_list
-    TYPE(t_restart_cdi_ids), INTENT(IN) :: cdiIds
-
-    INTEGER :: idate, itime, iret
-
-    CALL get_date_components(private_restart_time, idate, itime)
-
-    CALL taxisDefVdate(cdiIds%taxis, idate)
-    CALL taxisDefVtime(cdiIds%taxis, itime)
-
-    iret = streamDefTimestep(cdiIds%file, this_list%p%cdiTimeIndex)
-    this_list%p%cdiTimeIndex = this_list%p%cdiTimeIndex + 1
-
-  CONTAINS
-
-    SUBROUTINE get_date_components(iso8601, idate, itime)
-      CHARACTER(len=*), INTENT(in)  :: iso8601
-      INTEGER,          INTENT(out) :: idate, itime
-
-      INTEGER :: it, iz
-
-      it = INDEX(iso8601, 'T')
-      iz = INDEX(iso8601, 'Z')
-      READ(iso8601(1:it-1), '(i10)') idate
-      READ(iso8601(it+1:iz-1), '(i10)') itime
-
-    END SUBROUTINE get_date_components
-
-  END SUBROUTINE write_time_to_restart
 
   !------------------------------------------------------------------------------------------------
 

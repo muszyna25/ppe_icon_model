@@ -46,8 +46,7 @@ MODULE mo_io_restart_async
   USE mo_run_config,              ONLY: msg_level
   USE mo_ha_dyn_config,           ONLY: ha_dyn_config
   USE mo_model_domain,            ONLY: p_patch, t_patch
-  USE mo_cdi,                     ONLY: CDI_UNDEFID, FILETYPE_NC2, FILETYPE_NC4, cdiEncodeDate, cdiEncodeTime, streamDefTimestep, &
-                                      & streamWriteVarSlice, streamDefVlist, taxisDefVdate, taxisDefVtime
+  USE mo_cdi,                     ONLY: CDI_UNDEFID, FILETYPE_NC2, FILETYPE_NC4, streamWriteVarSlice
   USE mo_cdi_constants,           ONLY: GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL
   USE mo_cf_convention
   USE mo_packed_message,          ONLY: t_PackedMessage, kPackOp, kUnpackOp
@@ -122,7 +121,6 @@ MODULE mo_io_restart_async
     CHARACTER(LEN=filename_max) :: filename
     CHARACTER(LEN=32)           :: model_type
     TYPE(t_restart_cdi_ids)     :: cdiIds
-    INTEGER                     :: cdiTimeIndex
   END TYPE t_restart_file
 
   !------------------------------------------------------------------------------------------------
@@ -759,7 +757,6 @@ CONTAINS
 #endif
 
     IF (ASSOCIATED(rf%var_data))   DEALLOCATE(rf%var_data)
-    IF (my_process_is_restart()) rf%cdiTimeIndex = CDI_UNDEFID
   END SUBROUTINE release_restart_file
 
   !------------------------------------------------------------------------------------------------
@@ -1132,7 +1129,6 @@ CONTAINS
     rf%filename                   = ''
 
     CALL rf%cdiIds%init()
-    rf%cdiTimeIndex               = CDI_UNDEFID
 
     ! counts number of restart variables for this file (logical patch ident)
     num_vars = 0
@@ -1692,8 +1688,7 @@ CONTAINS
     TYPE(t_reorder_data), POINTER   :: p_ri
     TYPE(t_var_data), POINTER       :: p_vars(:)
 
-    INTEGER                         :: iv, nval, ierrstat, nlevs, nv_off, &
-      &                                np, mpi_error, i, idate, itime, status, ilev
+    INTEGER                         :: iv, nval, ierrstat, nlevs, nv_off, np, mpi_error, i, ilev
     INTEGER(KIND=MPI_ADDRESS_KIND)  :: ioff(0:num_work_procs-1)
     REAL(dp), ALLOCATABLE           :: var1_dp(:), var2_dp(:,:), var3_dp(:)
     INTEGER                         :: ichunk, nchunks, chunk_start, chunk_end,     &
@@ -1715,16 +1710,7 @@ CONTAINS
     mb_get  = 0.d0
     mb_wr   = 0.d0
 
-    ! write restart time
-    idate = cdiEncodeDate(restart_args%datetime%year, restart_args%datetime%month, restart_args%datetime%day)
-    itime = cdiEncodeTime(restart_args%datetime%hour, restart_args%datetime%minute, NINT(restart_args%datetime%second))
-
     p_rf => p_pd%restart_file
-    CALL taxisDefVdate(p_rf%cdiIds%taxis, idate)
-    CALL taxisDefVtime(p_rf%cdiIds%taxis, itime)
-    status = streamDefTimestep(p_rf%cdiIds%file, p_rf%cdiTimeIndex)
-
-    p_rf%cdiTimeIndex = p_rf%cdiTimeIndex + 1
 
     ! check the contained array of restart variables
     p_vars => p_rf%var_data
@@ -2087,7 +2073,8 @@ CONTAINS
     IF(ALLOCATED(description%opt_pvct)) THEN
         CALL p_rf%cdiIds%openRestartAndCreateIds(TRIM(p_rf%filename), restart_type, restartAttributes, commData%cells%n_glb, &
                                                 &commData%verts%n_glb, commData%edges%n_glb, description%cell_type, &
-                                                &description%v_grid_defs(1:description%v_grid_count), description%opt_pvct)
+                                                &description%v_grid_defs(1:description%v_grid_count), &
+                                                &description%opt_pvct)
     ELSE
         CALL p_rf%cdiIds%openRestartAndCreateIds(TRIM(p_rf%filename), restart_type, restartAttributes, commData%cells%n_glb, &
                                                 &commData%verts%n_glb, commData%edges%n_glb, description%cell_type, &
@@ -2098,14 +2085,10 @@ CONTAINS
     WRITE (nerr, FORMAT_VALS5)routine,' p_pe=',p_pe,' open netCDF file with ID=',p_rf%cdiIds%file
 #endif
 
-    ! set cdi internal time index to 0 for writing time slices in netCDF
-    p_rf%cdiTimeIndex = 0
-
     ! init list of restart variables
     CALL init_restart_variables(p_rf, p_pd%description%id)
 
-    CALL streamDefVlist(p_rf%cdiIds%file, p_rf%cdiIds%vlist)
-
+    CALL p_rf%cdiIds%finalizeVlist(restart_args%datetime)
   END SUBROUTINE open_restart_file
 
   !------------------------------------------------------------------------------------------------

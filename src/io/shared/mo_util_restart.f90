@@ -16,7 +16,8 @@ MODULE mo_util_restart
     USE mo_cdi, ONLY: CDI_UNDEFID, GRID_UNSTRUCTURED, gridCreate, gridDefNvertex, gridDefXname, gridDefXlongname, gridDefXunits, &
                     & gridDefYname, gridDefYlongname, gridDefYunits, zaxisCreate, zaxisDefLevels, streamOpenWrite, &
                     & vlistCreate, taxisCreate, vlistDefTaxis, TAXIS_ABSOLUTE, vlistDefVar, vlistDefVarDatatype, vlistDefVarName, &
-                    & vlistDefVarLongname, vlistDefVarUnits, vlistDefVarMissval, TIME_VARIABLE, DATATYPE_FLT64
+                    & vlistDefVarLongname, vlistDefVarUnits, vlistDefVarMissval, TIME_VARIABLE, DATATYPE_FLT64, taxisDefVdate, &
+                    & taxisDefVtime, cdiEncodeDate, cdiEncodeTime, streamDefTimestep
     USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_COUNT, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, &
                               & ZA_COUNT, ZA_DEPTH_BELOW_LAND, ZA_DEPTH_BELOW_LAND_P1, ZA_DEPTH_BELOW_SEA, &
                               & ZA_DEPTH_BELOW_SEA_HALF, ZA_DEPTH_RUNOFF_G, ZA_DEPTH_RUNOFF_S, ZA_GENERIC_ICE, ZA_HEIGHT_10M, &
@@ -73,6 +74,7 @@ MODULE mo_util_restart
     CONTAINS
         PROCEDURE :: init => restartCdiIds_init
         PROCEDURE :: openRestartAndCreateIds => restartCdiIds_openRestartAndCreateIds
+        PROCEDURE :: finalizeVlist => restartCdiIds_finalizeVlist
         PROCEDURE :: defineVariable => restartCdiIds_defineVariable
         PROCEDURE :: closeAndDestroyIds => restartCdiIds_closeAndDestroyIds
     END TYPE t_restart_cdi_ids
@@ -389,6 +391,22 @@ CONTAINS
         me%taxis = taxisCreate(TAXIS_ABSOLUTE)
         CALL vlistDefTaxis(me%vlist, me%taxis)
     END SUBROUTINE restartCdiIds_openRestartAndCreateIds
+
+    ! CDI reqires the vlist of a stream to be set before the timestep can be defined, which IS why we combine these two operations into one SUBROUTINE.
+    SUBROUTINE restartCdiIds_finalizeVlist(me, datetime)
+        CLASS(t_restart_cdi_ids), INTENT(INOUT) :: me
+        TYPE(t_datetime), INTENT(IN) :: datetime
+
+        INTEGER :: trash
+
+        ! define the vlist, so that we are allowed to define the timestep
+        CALL streamDefVlist(me%file, me%vlist)
+
+        ! define the timestep
+        CALL taxisDefVdate(me%taxis, cdiEncodeDate(datetime%year, datetime%month, datetime%day))
+        CALL taxisDefVtime(me%taxis, cdiEncodeTime(datetime%hour, datetime%minute, NINT(datetime%second)))
+        trash = streamDefTimestep(me%file, 0)
+    END SUBROUTINE restartCdiIds_finalizeVlist
 
     ! Encapsulates the CDI calls to define a variable.
     ! lIsInteger AND lIsLogical reflect the TYPE of the variable, IF neither IS set, the variable IS assumed to be of TYPE REAL.

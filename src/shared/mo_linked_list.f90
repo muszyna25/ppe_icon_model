@@ -67,11 +67,6 @@ MODULE mo_linked_list
     CHARACTER(len=8)              :: model_type         ! store model type
     INTEGER                       :: patch_id           ! ID of patch to which list variables belong
     INTEGER                       :: vlevel_type        ! 1: model levels, 2: pressure levels, 3: height levels
-    !--------------------------------------------------------------------------------------------
-    ! Internal used handler for CDI setup of synchronous restart
-    !
-    ! Todo: This metadata should not be placed in this location ?!
-    INTEGER                       :: cdiTimeIndex
     !
     INTEGER                       :: nvars
 
@@ -127,8 +122,6 @@ CONTAINS
     this_list%p%model_type         = 'atm'
     this_list%p%patch_id           = -1
     this_list%p%vlevel_type        =  level_type_ml ! Default is model levels
-    !
-    this_list%p%cdiTimeIndex       = -1
     !
     this_list%p%nvars              = 0
   END SUBROUTINE new_list
