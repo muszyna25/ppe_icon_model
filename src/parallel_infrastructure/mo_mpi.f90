@@ -2242,7 +2242,7 @@ CONTAINS
     CALL MPI_COMM_RANK(communicator, p_comm_rank, ierr)
     IF(ierr /= MPI_SUCCESS) CALL finish(routine, 'Error in MPI_COMM_RANK operation!')
 #else
-    p_comm_rank = 1
+    p_comm_rank = 0
 #endif
   END FUNCTION p_comm_rank
 
