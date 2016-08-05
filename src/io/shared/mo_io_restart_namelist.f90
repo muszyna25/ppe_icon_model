@@ -7,8 +7,10 @@
 !! headers of the routines.
 MODULE mo_io_restart_namelist
   !
+  USE ISO_C_BINDING, ONLY: C_CHAR
   USE mo_util_file,   ONLY: util_tmpnam, util_filesize, util_unlink
-  USE mo_util_string, ONLY: tocompact
+  USE mo_util_string, ONLY: tocompact, toCharacter, toCharArray
+  USE mo_impl_constants, ONLY: SUCCESS
   USE mo_io_units,    ONLY: find_next_free_unit, filename_max
   USE mo_exception,   ONLY: message, finish
   USE mo_mpi,         ONLY: p_bcast
@@ -38,7 +40,7 @@ MODULE mo_io_restart_namelist
   !
   TYPE t_att_namelist
     CHARACTER(len=64) :: name
-    CHARACTER(len=nmllen_max) :: text
+    CHARACTER(KIND = C_CHAR), POINTER :: text(:)
   END TYPE t_att_namelist
   !
   INTEGER, PARAMETER :: nmax_nmls = 64
@@ -50,11 +52,32 @@ MODULE mo_io_restart_namelist
     MODULE PROCEDURE get_restart_namelist_by_index
   END INTERFACE get_restart_namelist
   !
+  CHARACTER(LEN = *), PARAMETER :: modname = "mo_io_restart_namelist"
+
 CONTAINS
   !
-  SUBROUTINE delete_restart_namelists
+  SUBROUTINE init_restart_namelists()
+    INTEGER :: i, error
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":init_restart_namelists"
+
+    IF(ALLOCATED(restart_namelist)) CALL finish(routine, "assertion failed: init_restart_namelists() called several times")
+    IF(nmls /= 0) CALL finish(routine, "assertion failed")
+
+    ALLOCATE(restart_namelist(nmax_nmls), STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+    DO i = 1, SIZE(restart_namelist, 1)
+        restart_namelist(i)%text => NULL()
+    END DO
+  END SUBROUTINE init_restart_namelists
+
+  SUBROUTINE delete_restart_namelists()
+    INTEGER :: i
+
     IF (ALLOCATED(restart_namelist)) THEN
-      DEALLOCATE(restart_namelist)
+        DO i = 1, nmls
+            IF(ASSOCIATED(restart_namelist(i)%text)) DEALLOCATE(restart_namelist(i)%text)
+        END DO
+        DEALLOCATE(restart_namelist)
     ENDIF
     nmls = 0
   END SUBROUTINE delete_restart_namelists
@@ -65,16 +88,14 @@ CONTAINS
     INTEGER :: i
     !
     IF (.NOT. ALLOCATED(restart_namelist)) THEN
-      ALLOCATE(restart_namelist(nmax_nmls))
+      CALL init_restart_namelists()
     ENDIF
     !
     ! look, if entry has to be overwritten
     !
     DO i = 1, nmls
       IF ('nml_'//TRIM(namelist_name) == TRIM(restart_namelist(i)%name)) THEN
-        restart_namelist(i)%text = ''
-        restart_namelist(i)%text = TRIM(namelist_text)
-
+        restart_namelist(i)%text => toCharArray(TRIM(namelist_text))
         RETURN
       ENDIF
     ENDDO
@@ -87,8 +108,7 @@ CONTAINS
            &      'too many restart attributes for restart file')
     ELSE
       restart_namelist(nmls)%name = 'nml_'//TRIM(namelist_name)
-      restart_namelist(nmls)%text = ''
-      restart_namelist(nmls)%text = namelist_text
+      restart_namelist(nmls)%text => toCharArray(TRIM(namelist_text))
     ENDIF
     !
   END SUBROUTINE set_restart_namelist
@@ -97,12 +117,15 @@ CONTAINS
     CHARACTER(len=*),              INTENT(in)  :: namelist_name
     CHARACTER(len=*),              INTENT(out) :: namelist_text
     INTEGER :: i
+    CHARACTER(LEN = :), POINTER :: tempText
     !
     namelist_text = ''
     !
     DO i = 1, nmls
       IF ('nml_'//TRIM(namelist_name) == TRIM(restart_namelist(i)%name)) THEN
-        namelist_text = TRIM(restart_namelist(i)%text)
+        tempText => toCharacter(restart_namelist(i)%text)
+        namelist_text = tempText
+        DEALLOCATE(tempText)
         RETURN
       ENDIF
     ENDDO
@@ -246,10 +269,11 @@ CONTAINS
     CHARACTER(len=64)   :: att_name
     CHARACTER(len=nmllen_max) :: nmlbuf
 
-    IF (.NOT. ALLOCATED(restart_namelist)) THEN
-      ALLOCATE(restart_namelist(nmax_nmls))
+    ! Reset the namelists.
+    IF (ALLOCATED(restart_namelist)) THEN
+      CALL delete_restart_namelists()
     ENDIF
-    nmls = 0
+    CALL init_restart_namelists()
     !
     IF (lread_pe) THEN
       status = vlistInqNatts(vlistID, CDI_GLOBAL, natts)
@@ -285,8 +309,7 @@ CONTAINS
              &      'too many restart attributes for restart file')
       ENDIF
       restart_namelist(nmls)%name = TRIM(att_name)
-      restart_namelist(nmls)%text = ''      
-      restart_namelist(nmls)%text = nmlbuf(1:nmllen)
+      restart_namelist(nmls)%text => toCharArray(nmlbuf(1:nmllen))
     ENDDO
     !
   END SUBROUTINE read_and_bcast_restart_namelists

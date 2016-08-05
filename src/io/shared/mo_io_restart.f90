@@ -82,7 +82,7 @@ MODULE mo_io_restart
                                     & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE, ZA_OCEAN_SEDIMENT
   USE mo_cf_convention
   USE mo_util_string,           ONLY: t_keyword_list, associate_keyword, with_keywords, &
-    &                                 int2string, separator
+    &                                 int2string, separator, toCharacter
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink, util_unlink
   USE mo_util_hash,             ONLY: util_hashword
   USE mo_util_uuid,             ONLY: t_uuid
@@ -472,6 +472,7 @@ CONTAINS
     INTEGER :: int_attribute(1)
     LOGICAL :: bool_attribute
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
+    CHARACTER(LEN = :), POINTER :: tempText
 
     IF (my_process_is_mpi_test()) RETURN
     !
@@ -552,10 +553,11 @@ CONTAINS
         ! 2.1 namelists as text attributes
         !
         DO ia = 1, nmls
+          tempText => toCharacter(restart_namelist(ia)%text)
           status = vlistDefAttTxt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL, &
                &                  TRIM(restart_namelist(ia)%name),       &
-               &                  LEN_TRIM(restart_namelist(ia)%text),   &
-               &                  TRIM(restart_namelist(ia)%text))
+               &                  LEN(tempText), tempText)
+          DEALLOCATE(tempText)
         ENDDO
         !
         ! 2.2 text attributes

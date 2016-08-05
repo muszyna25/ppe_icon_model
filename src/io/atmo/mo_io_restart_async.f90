@@ -69,7 +69,7 @@ MODULE mo_io_restart_async
                                       & GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL
   USE mo_cf_convention
   USE mo_util_string,             ONLY: t_keyword_list, associate_keyword, with_keywords, &
-    &                                   int2string
+    &                                   int2string, toCharacter
 
 #ifndef NOMPI
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work,      &
@@ -1672,6 +1672,7 @@ CONTAINS
     INTEGER                           :: iv, nv
     CHARACTER(LEN=MAX_NAME_LENGTH)    :: list_name
     CHARACTER(LEN=MAX_ATTRIB_TLENGTH) :: list_text
+    CHARACTER(LEN = :), POINTER :: temp_text
 
     ! delete old name lists
     IF (my_process_is_restart()) CALL delete_restart_namelists
@@ -1689,7 +1690,11 @@ CONTAINS
 
       ! send text of the name list
       list_text = ''
-      IF (my_process_is_work() .AND. (get_my_mpi_work_id() == 0)) list_text = TRIM(restart_namelist(iv)%text)
+      IF (my_process_is_work() .AND. (get_my_mpi_work_id() == 0)) THEN
+        temp_text => toCharacter(restart_namelist(iv)%text)
+        list_text = temp_text
+        DEALLOCATE(temp_text)
+      END IF
       CALL p_bcast(list_text, bcast_root, p_comm_work_2_restart)
 
       ! store name list parameters
@@ -3030,6 +3035,7 @@ CONTAINS
     INTEGER                           :: i, status, int_attribute(1), nlevp1
     LOGICAL                           :: bool_attribute
     CHARACTER(LEN=MAX_NAME_LENGTH)    :: attribute_name, text_attribute
+    CHARACTER(LEN = :), POINTER :: temp_text
     CHARACTER(LEN=*), PARAMETER       :: subname = MODUL_NAME//'init_restart_vlist'
 
     p_rf => p_pd%restart_file
@@ -3043,10 +3049,11 @@ CONTAINS
     ! 2. add global attributes
     ! 2.1. namelists as text attributes
     DO i = 1, nmls
+      temp_text => toCharacter(restart_namelist(i)%text)
       status = vlistDefAttTxt(p_rf%cdiVlistID, CDI_GLOBAL,        &
            &                  TRIM(restart_namelist(i)%name),     &
-           &                  LEN_TRIM(restart_namelist(i)%text), &
-           &                  TRIM(restart_namelist(i)%text))
+           &                  LEN(temp_text), temp_text)
+      DEALLOCATE(temp_text)
 #ifdef DEBUG
       CALL check_netcdf_status(status, 'vlistDefAttTxt='// &
         &                      TRIM(attribute_name))
