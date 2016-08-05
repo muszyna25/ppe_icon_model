@@ -25,7 +25,6 @@ MODULE mo_restart_util
     USE mo_fortran_tools, ONLY: assign_if_present, assign_if_present_allocatable
     USE mo_impl_constants, ONLY: SUCCESS, MAX_CHAR_LENGTH
     USE mo_restart_attributes, ONLY: t_RestartAttributeList
-    USE mo_restart_namelist, ONLY: RestartNamelist_writeToFile
     USE mo_kind, ONLY: wp, i8
     USE mo_packed_message, ONLY: t_PackedMessage, kPackOp, kUnpackOp
     USE mo_run_config, ONLY: restart_filename
@@ -278,12 +277,11 @@ CONTAINS
         me%vgrids(:) = CDI_UNDEFID
     END SUBROUTINE restartCdiIds_init
 
-    SUBROUTINE restartCdiIds_openRestartAndCreateIds(me, filename, restartType, restartAttributes, cellCount, vertCount, &
-                                                    &edgeCount, cellType, vgridDefs, opt_vct)
+    SUBROUTINE restartCdiIds_openRestartAndCreateIds(me, filename, restartType, cellCount, vertCount, edgeCount, cellType, &
+                                                    &vgridDefs, opt_vct)
         CLASS(t_restart_cdi_ids), INTENT(INOUT) :: me
         CHARACTER(LEN = *), INTENT(IN) :: filename
         INTEGER, VALUE :: restartType, cellCount, vertCount, edgeCount, cellType
-        TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
         TYPE(t_v_grid), INTENT(IN) :: vgridDefs(:)
         REAL(wp), INTENT(IN), OPTIONAL :: opt_vct(:)
 
@@ -312,10 +310,6 @@ CONTAINS
 
         ! 1. vlist
         me%vlist = vlistCreate()
-
-        ! 2. global attributes
-        CALL RestartNamelist_writeToFile(me%vlist)
-        CALL restartAttributes%writeToFile(me%vlist)
 
         ! 3. horizontal grids
         me%hgrids = createHgrids(cellCount, vertCount, edgeCount, cellType)

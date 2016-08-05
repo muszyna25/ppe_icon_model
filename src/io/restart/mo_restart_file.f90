@@ -17,6 +17,7 @@ MODULE mo_restart_file
     USE mo_kind, ONLY: dp
     USE mo_linked_list, ONLY: t_var_list
     USE mo_restart_attributes, ONLY: t_RestartAttributeList
+    USE mo_restart_namelist, ONLY: RestartNamelist_writeToFile
     USE mo_restart_patch_description, ONLY: t_restart_patch_description
     USE mo_restart_util, ONLY: getRestartFilename, t_restart_cdi_ids, t_restart_args
     USE mo_restart_var_data, ONLY: t_RestartVarData, has_valid_time_level
@@ -85,16 +86,19 @@ CONTAINS
                                         &TRIM(restart_args%modelType))
 
         IF(ALLOCATED(description%opt_pvct)) THEN
-            CALL me%cdiIds%openRestartAndCreateIds(TRIM(me%filename), restart_type, restartAttributes, &
-                                                  &description%n_patch_cells_g, description%n_patch_verts_g, &
-                                                  &description%n_patch_edges_g, description%cell_type, &
-                                                  &description%v_grid_defs(1:description%v_grid_count), description%opt_pvct)
+            CALL me%cdiIds%openRestartAndCreateIds(TRIM(me%filename), restart_type, description%n_patch_cells_g, &
+                                                  &description%n_patch_verts_g, description%n_patch_edges_g, &
+                                                  &description%cell_type, description%v_grid_defs(1:description%v_grid_count), &
+                                                  &description%opt_pvct)
         ELSE
-            CALL me%cdiIds%openRestartAndCreateIds(TRIM(me%filename), restart_type, restartAttributes, &
-                                                  &description%n_patch_cells_g, description%n_patch_verts_g, &
-                                                  &description%n_patch_edges_g, description%cell_type, &
-                                                  &description%v_grid_defs(1:description%v_grid_count))
+            CALL me%cdiIds%openRestartAndCreateIds(TRIM(me%filename), restart_type, description%n_patch_cells_g, &
+                                                  &description%n_patch_verts_g, description%n_patch_edges_g, &
+                                                  &description%cell_type, description%v_grid_defs(1:description%v_grid_count))
         END IF
+
+        ! set global attributes
+        CALL RestartNamelist_writeToFile(me%cdiIds%vlist)
+        CALL restartAttributes%writeToFile(me%cdiIds%vlist)
 
 #ifdef DEBUG
         WRITE (nerr, FORMAT_VALS5)routine,' p_pe=',p_pe,' open netCDF file with ID=',me%cdiIds%file
