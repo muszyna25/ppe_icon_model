@@ -709,16 +709,10 @@ CONTAINS
 #endif
 
 
-      ! set grid AND z-axis IDs (the later only if it is not already set)
-
-      info%cdiGridID = cdiIds%hgrids(info%hgrid)
-      IF (info%cdiZaxisID < 0) THEN
-        info%cdiZaxisID = cdiIds%vgrids(info%vgrid)
-      END IF
-
-      gridID  = info%cdiGridID
+      ! set grid AND z-axis IDs
+      gridID = cdiIds%hgrids(info%hgrid)
       zaxisID = info%cdiZaxisID
-
+      if(zaxisID < 0) zaxisID = cdiIds%vgrids(info%vgrid)
 
       IF ( gridID  == -1 ) THEN
         CALL finish('addStreamToVlist', 'GRID definition missing for '//TRIM(info%name)//', &
@@ -967,14 +961,35 @@ CONTAINS
 
           fileID = cdiIds(i)%file
 
-          IF (fileID /= CDI_UNDEFID) THEN
+          ! reset the copies of this file ID
+          DO j = 1, nvar_lists
+            IF(i /= j .AND. fileID == cdiIds(j)%file) cdiIds(j)%file = CDI_UNDEFID
+          END DO
+
+          ! close the file
+          IF(cdiIds(i)%file /= CDI_UNDEFID) THEN
             CALL streamClose(cdiIds(i)%file)
-            DO j = 1, nvar_lists
-              IF (fileID == cdiIds(j)%file) THEN
-                cdiIds(j)%file = CDI_UNDEFID
-              ENDIF
-            ENDDO
-          ENDIF
+            cdiIds(i)%file = CDI_UNDEFID
+          END IF
+          IF (cdiIds(i)%vlist /= CDI_UNDEFID) THEN
+            CALL vlistDestroy(cdiIds(i)%vlist)
+            cdiIds(i)%vlist = CDI_UNDEFID
+          END IF
+          IF (cdiIds(i)%taxis /= CDI_UNDEFID) THEN
+            CALL taxisDestroy(cdiIds(i)%taxis)
+            cdiIds(i)%taxis = CDI_UNDEFID
+          END IF
+          DO j = 1, SIZE(cdiIds(i)%hgrids, 1)
+            IF(cdiIds(i)%hgrids(j) == CDI_UNDEFID) CYCLE
+            CALL gridDestroy(cdiIds(i)%hgrids(j))
+            cdiIds(i)%hgrids(j) = CDI_UNDEFID
+          END DO
+          DO j = 1, SIZE(cdiIds(i)%vgrids, 1)
+            IF(cdiIds(i)%vgrids(j) == CDI_UNDEFID) CYCLE
+            CALL zaxisDestroy(cdiIds(i)%vgrids(j))
+            cdiIds(i)%vgrids(j) = CDI_UNDEFID
+          END DO
+          var_lists(i)%p%cdiTimeIndex = CDI_UNDEFID
 
           IF (PRESENT(opt_ndom)) THEN
             IF (opt_ndom > 1) THEN
@@ -999,38 +1014,7 @@ CONTAINS
       ENDIF
     ENDDO close_all_lists
 
-    for_all_vlists: DO i = 1, nvar_lists
-      vlistID = cdiIds(i)%vlist
-      IF (vlistID /= CDI_UNDEFID) THEN
-        CALL vlistDestroy(cdiIds(i)%vlist)
-        DO j = 1, nvar_lists
-          IF (vlistID == cdiIds(j)%vlist) THEN
-            cdiIds(j)%vlist = CDI_UNDEFID
-          ENDIF
-        ENDDO
-      ENDIF
-    ENDDO for_all_vlists
     CALL message('','')
-
-    DO i = 1, nvar_lists
-      IF (cdiIds(i)%file >= 0) THEN
-        DO j = 1, SIZE(cdiIds(i)%hgrids, 1)
-            IF(cdiIds(i)%hgrids(j) == CDI_UNDEFID) CYCLE
-            CALL gridDestroy(cdiIds(i)%hgrids(j))
-            cdiIds(i)%hgrids(j) = CDI_UNDEFID
-        END DO
-
-        DO j = 1, SIZE(cdiIds(i)%vgrids, 1)
-            IF(cdiIds(i)%vgrids(j) == CDI_UNDEFID) CYCLE
-            CALL zaxisDestroy(cdiIds(i)%vgrids(j))
-            cdiIds(i)%vgrids(j) = CDI_UNDEFID
-        END DO
-        cdiIds(i)%file = CDI_UNDEFID
-        cdiIds(i)%vlist = CDI_UNDEFID
-        cdiIds(i)%taxis = CDI_UNDEFID
-        var_lists(i)%p%cdiTimeIndex            = CDI_UNDEFID
-      END IF
-    END DO
 
     ! reset all var list properties related to cdi files
 
