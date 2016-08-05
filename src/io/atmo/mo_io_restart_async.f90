@@ -35,8 +35,8 @@ MODULE mo_io_restart_async
     &                                   LEAPFROG_EXPL, LEAPFROG_SI, SUCCESS, MAX_CHAR_LENGTH,        &
     &                                   TLEV_NNOW, TLEV_NNOW_RCF
   USE mo_var_metadata_types,      ONLY: t_var_metadata
-  USE mo_io_restart_namelist,     ONLY: nmls, restart_namelist, delete_restart_namelists, &
-    &                                   set_restart_namelist, get_restart_namelist, print_restart_name_lists
+  USE mo_io_restart_namelist,     ONLY: RestartNamelist_writeToFile, delete_restart_namelists, set_restart_namelist, &
+                                      & get_restart_namelist, print_restart_name_lists, RestartNamelist_bcast
   USE mo_name_list_output_types,  ONLY: max_z_axes
 #ifdef USE_CRAY_POINTER
   USE mo_name_list_output_init,   ONLY: set_mem_ptr_dp
@@ -79,7 +79,7 @@ MODULE mo_io_restart_async
     &                                   p_send_packed, p_recv_packed, p_bcast_packed,     &
     &                                   p_pack_int, p_pack_bool, p_pack_real,             &
     &                                   p_unpack_int, p_unpack_bool, p_unpack_real,       &
-    &                                   p_int_byte, get_my_mpi_work_id
+    &                                   p_int_byte, get_my_mpi_work_id, p_comm_rank
 
 #ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
@@ -372,7 +372,8 @@ CONTAINS
     CALL transfer_restart_var_lists
 
     ! transfer restart namelists
-    CALL transfer_restart_name_lists
+!    CALL RestartNamelist_bcast(0, p_comm_work)
+    CALL RestartNamelist_bcast(bcast_root, p_comm_work_2_restart)
 
     ! create and transfer patch data
     CAll create_and_transfer_patch_data(opt_lcall_phy_size, &
@@ -1585,63 +1586,6 @@ CONTAINS
     ENDDO
 
   END SUBROUTINE transfer_restart_var_lists
-
-  !-------------------------------------------------------------------------------------------------
-  !
-  ! Transfers the restart name lists from the worker to the restart PEs.
-  !
-  SUBROUTINE transfer_restart_name_lists()
-    INTEGER                           :: iv, nv, maxAttributeLength, error
-    CHARACTER(LEN=MAX_NAME_LENGTH)    :: list_name
-    CHARACTER(LEN = :), ALLOCATABLE :: list_text
-    CHARACTER(LEN = :), POINTER :: temp_text
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":transfer_restart_name_lists"
-
-    ! delete old name lists
-    IF (my_process_is_restart()) CALL delete_restart_namelists
-
-    ! get the number of name lists
-    IF(.NOT. my_process_is_restart()) nv = nmls
-    CALL p_bcast(nv, 0, p_comm_work) ! intracommunicator
-    CALL p_bcast(nv, bcast_root, p_comm_work_2_restart)
-
-    maxAttributeLength = 0
-    IF(.NOT. my_process_is_restart()) THEN
-        IF(p_pe == 0) THEN
-            DO iv = 1, nv
-                maxAttributeLength = MAX(maxAttributeLength, SIZE(restart_namelist(iv)%text, 1))
-            END DO
-        END IF
-    END IF
-    CALL p_bcast(maxAttributeLength, 0, p_comm_work)    !intracommunicator
-    CALL p_bcast(maxAttributeLength, bcast_root, p_comm_work_2_restart)
-
-    ALLOCATE(CHARACTER(LEN = maxAttributeLength) :: list_text, STAT = error)
-    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-
-    DO iv = 1, nv
-        ! send name of the name list
-        list_name = ''
-        IF (my_process_is_work() .AND. (get_my_mpi_work_id() == 0)) CALL get_restart_namelist(iv, list_name)
-        CALL p_bcast(list_name, bcast_root, p_comm_work_2_restart)
-
-        ! send text of the name list
-        list_text(1:maxAttributeLength) = ''
-        IF (my_process_is_work() .AND. (get_my_mpi_work_id() == 0)) THEN
-            temp_text => toCharacter(restart_namelist(iv)%text)
-            list_text(1:maxAttributeLength) = temp_text
-            DEALLOCATE(temp_text)
-        END IF
-        CALL p_bcast(list_text(1:maxAttributeLength), bcast_root, p_comm_work_2_restart)
-
-        ! store name list parameters
-        IF (my_process_is_restart()) THEN
-            CALL set_restart_namelist(list_name, list_text(1:maxAttributeLength))
-        ENDIF
-    ENDDO
-
-    DEALLOCATE(list_text)
-  END SUBROUTINE transfer_restart_name_lists
 
   !-------------------------------------------------------------------------------------------------
   !
@@ -2975,17 +2919,7 @@ CONTAINS
 
     ! 2. add global attributes
     ! 2.1. namelists as text attributes
-    DO i = 1, nmls
-      temp_text => toCharacter(restart_namelist(i)%text)
-      status = vlistDefAttTxt(p_rf%cdiVlistID, CDI_GLOBAL,        &
-           &                  TRIM(restart_namelist(i)%name),     &
-           &                  LEN(temp_text), temp_text)
-      DEALLOCATE(temp_text)
-#ifdef DEBUG
-      CALL check_netcdf_status(status, 'vlistDefAttTxt='// &
-        &                      TRIM(attribute_name))
-#endif
-    ENDDO
+    CALL RestartNamelist_writeToFile(p_rf%cdiVlistID)
 
     ! 2.2. restart attributes
     CALL restartAttributes%writeToFile(p_rf%cdiVlistID)

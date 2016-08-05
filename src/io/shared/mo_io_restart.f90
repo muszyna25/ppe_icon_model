@@ -86,8 +86,7 @@ MODULE mo_io_restart
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink, util_unlink
   USE mo_util_hash,             ONLY: util_hashword
   USE mo_util_uuid,             ONLY: t_uuid
-  USE mo_io_restart_namelist,   ONLY: nmls, restart_namelist,                       &
-    &                                 read_and_bcast_restart_namelists
+  USE mo_io_restart_namelist,   ONLY: RestartNamelist_writeToFile, read_and_bcast_restart_namelists
   USE mo_io_restart_attributes, ONLY: t_RestartAttributeList, RestartAttributeList_make, setRestartAttributes
   USE mo_datetime,              ONLY: t_datetime,iso8601,iso8601extended
   USE mo_run_config,            ONLY: ltimer, restart_filename
@@ -532,7 +531,6 @@ CONTAINS
     INTEGER :: int_attribute(1)
     LOGICAL :: bool_attribute
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
-    CHARACTER(LEN = :), POINTER :: tempText
 
     IF (my_process_is_mpi_test()) RETURN
 
@@ -612,13 +610,7 @@ CONTAINS
 
         ! 2.1 namelists as text attributes
 
-        DO ia = 1, nmls
-          tempText => toCharacter(restart_namelist(ia)%text)
-          status = vlistDefAttTxt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL, &
-               &                  TRIM(restart_namelist(ia)%name),       &
-               &                  LEN(tempText), tempText)
-          DEALLOCATE(tempText)
-        ENDDO
+        CALL RestartNamelist_writeToFile(var_lists(i)%p%cdiVlistID)
 
         ! 2.2 restart attributes
 

@@ -7,13 +7,17 @@
 !! headers of the routines.
 MODULE mo_io_restart_namelist
   USE ISO_C_BINDING, ONLY: C_CHAR
+
   USE mo_util_file,   ONLY: util_tmpnam, util_filesize, util_unlink
   USE mo_util_string, ONLY: tocompact, toCharacter, toCharArray
   USE mo_impl_constants, ONLY: SUCCESS
   USE mo_io_units,    ONLY: nerr, find_next_free_unit, filename_max
   USE mo_exception,   ONLY: message, finish
   USE mo_mpi,         ONLY: p_bcast, p_pe, p_comm_rank
-  USE mo_cdi,         ONLY: CDI_GLOBAL, CDI_UNDEFID, vlistInqNatts, vlistInqAtt, vlistInqAttTxt
+  USE mo_cdi,         ONLY: CDI_GLOBAL, CDI_UNDEFID, vlistInqNatts, vlistInqAtt, vlistInqAttTxt, vlistDefAttTxt
+#ifndef NOMPI
+  USE mpi, ONLY: MPI_ROOT
+#endif
 
   IMPLICIT NONE
 
@@ -26,21 +30,17 @@ MODULE mo_io_restart_namelist
   PUBLIC :: close_tmpfile
 
   ! used ONLY by mo_io_restart AND mo_io_restart_async
+  PUBLIC :: RestartNamelist_bcast
   PUBLIC :: read_and_bcast_restart_namelists
+  PUBLIC :: RestartNamelist_writeToFile
   PUBLIC :: set_restart_namelist
   PUBLIC :: get_restart_namelist
   PUBLIC :: print_restart_name_lists
   PUBLIC :: delete_restart_namelists    ! also used by mo_atmo_model
 
-  ! variables used by mo_io_restart AND mo_io_restart_async
-  PUBLIC :: restart_namelist
-  PUBLIC :: nmls
-
-
   PUBLIC :: t_att_namelist
 
-
-  PUBLIC :: nmllen_max
+  !TODO[NH]: Remove this fixed limit!
 !   INTEGER, PARAMETER :: nmllen_max = 4096
   INTEGER, PARAMETER :: nmllen_max = 65536
 
@@ -293,6 +293,22 @@ CONTAINS
 
   END SUBROUTINE close_tmpfile
 
+  ! Store the namelists as attributes to the given CDI vlistId
+  SUBROUTINE RestartNamelist_writeToFile(cdiVlistId)
+    INTEGER, VALUE :: cdiVlistId
+
+    INTEGER :: i, error
+    CHARACTER(LEN = :), POINTER :: tempText
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":RestartNamelist_writeToFile"
+
+    DO i = 1, nmls
+        tempText => toCharacter(restart_namelist(i)%text)
+        error = vlistDefAttTxt(cdiVlistId, CDI_GLOBAL, TRIM(restart_namelist(i)%name), LEN(tempText), tempText)
+        IF(error /= SUCCESS) CALL finish(routine, "error WHILE writing a namelist to a restart file")
+        DEALLOCATE(tempText)
+    ENDDO
+  END SUBROUTINE RestartNamelist_writeToFile
+
   SUBROUTINE read_and_bcast_restart_namelists(vlistID, root_pe, comm)
     INTEGER, INTENT(IN) :: vlistID      !< CDI vlist ID
     INTEGER, INTENT(IN) :: root_pe      !< rank of the PE that reads the vlist AND broadcast the namelist information
@@ -342,5 +358,80 @@ CONTAINS
     ENDDO
 
   END SUBROUTINE read_and_bcast_restart_namelists
+
+  !-------------------------------------------------------------------------------------------------
+  !
+  ! Transfers the restart name lists from the worker to the restart PEs.
+  !
+  ! Designed to work with both intra AND inter communicators.
+  SUBROUTINE RestartNamelist_bcast(root, communicator)
+    INTEGER, VALUE :: root, communicator
+
+    LOGICAL :: lIsInterCommunicator, lIsRoot, lIsReceiver
+    INTEGER :: iv, nv, maxAttributeLength, error
+    CHARACTER(LEN = 128) :: list_name   !TODO[NH]: Remove this fixed limit!
+    CHARACTER(LEN = :), ALLOCATABLE :: list_text
+    CHARACTER(LEN = :), POINTER :: temp_text
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":RestartNamelist_bcast"
+
+#ifndef NOMPI
+    ! test whether we are root OR a reciever (OR neither IN the CASE of an inter communicator)
+    CALL MPI_Comm_test_inter(communicator, lIsInterCommunicator, error)
+    IF(lIsInterCommunicator) THEN
+        lIsRoot = root == MPI_ROOT
+    ELSE
+        lIsRoot = root == p_comm_rank(communicator)
+    END IF
+
+    ! Determining of whether we are a receiver IS NOT as straight-forward as IN the intra communicator CASE, so we just DO a test broadcast to see which processes actually receive something.
+    lIsReceiver = lIsRoot
+    CALL p_bcast(lIsReceiver, root, communicator)
+    IF(lIsRoot) lIsReceiver = .FALSE.
+#else
+    lIsRoot = .TRUE.
+    lIsReceiver = .FALSE.
+#endif
+
+    ! delete old name lists
+    IF(lIsReceiver) CALL delete_restart_namelists
+
+    ! get the number of name lists
+    IF(lIsRoot) nv = nmls
+    CALL p_bcast(nv, root, communicator)
+
+    maxAttributeLength = 1
+    IF(lIsRoot) THEN
+        DO iv = 1, nv
+            maxAttributeLength = MAX(maxAttributeLength, SIZE(restart_namelist(iv)%text, 1))
+        END DO
+    END IF
+    CALL p_bcast(maxAttributeLength, root, communicator)
+
+    ALLOCATE(CHARACTER(LEN = maxAttributeLength) :: list_text, STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+
+    DO iv = 1, nv
+        ! send name of the name list
+        list_name = ''
+        IF(lIsRoot) CALL get_restart_namelist(iv, list_name)
+        CALL p_bcast(list_name, root, communicator)
+
+        ! send text of the name list
+        list_text(1:maxAttributeLength) = ''
+        IF(lIsRoot) THEN
+            temp_text => toCharacter(restart_namelist(iv)%text)
+            list_text(1:maxAttributeLength) = temp_text
+            DEALLOCATE(temp_text)
+        END IF
+        CALL p_bcast(list_text(1:maxAttributeLength), root, communicator)
+
+        ! store name list parameters
+        IF(lIsReceiver) THEN
+            CALL set_restart_namelist(list_name, list_text(1:maxAttributeLength))
+        ENDIF
+    ENDDO
+
+    DEALLOCATE(list_text)
+  END SUBROUTINE RestartNamelist_bcast
 
 END MODULE mo_io_restart_namelist
