@@ -50,7 +50,7 @@ MODULE mo_io_restart_async
                                       & TAXIS_ABSOLUTE, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_GENERIC, ZAXIS_HEIGHT, ZAXIS_HYBRID, &
                                       & ZAXIS_HYBRID_HALF, ZAXIS_LAKE_BOTTOM, ZAXIS_MIX_LAYER, ZAXIS_SEDIMENT_BOTTOM_TW, &
                                       & ZAXIS_SURFACE, ZAXIS_TOA, TIME_VARIABLE, ZAXIS_DEPTH_BELOW_LAND, GRID_UNSTRUCTURED, &
-                                      & vlistDefVar, cdiEncodeDate, cdiEncodeTime, streamDefTimestep, gridDestroy, streamClose, &
+                                      & vlistDefVar, cdiEncodeDate, cdiEncodeTime, streamDefTimestep, gridDestroy, &
                                       & streamWriteVarSlice, streamDefVlist, vlistDefVarDatatype, vlistDefVarName, &
                                       & vlistDefVarLongname, vlistDefVarUnits, vlistDefVarMissval, taxisDefVdate, taxisDefVtime
   USE mo_util_cdi,                ONLY: cdiGetStringError
@@ -1252,12 +1252,7 @@ CONTAINS
     IF (ALLOCATED(rf%mem_win_off)) DEALLOCATE(rf%mem_win_off)
     IF (ASSOCIATED(rf%var_data))   DEALLOCATE(rf%var_data)
 
-    IF (my_process_is_restart()) THEN
-      CALL closeAndDestroyIds(rf%cdiIds)
-
-      rf%cdiTimeIndex = CDI_UNDEFID
-    ENDIF
-
+    IF (my_process_is_restart()) rf%cdiTimeIndex = CDI_UNDEFID
   END SUBROUTINE release_restart_file
 
   !------------------------------------------------------------------------------------------------
@@ -2850,22 +2845,16 @@ CONTAINS
     IF(.NOT. my_process_is_restart()) CALL finish(routine, NO_RESTART_PE)
 
     IF (rf%cdiIds%file /= CDI_UNDEFID) THEN
-
 #ifdef DEBUG
       WRITE (nerr,'(3a)')routine,' try to close restart file=',TRIM(rf%filename)
-#endif
-      CALL streamClose(rf%cdiIds%file)
-
-#ifdef DEBUG
       WRITE (nerr, FORMAT_VALS5)routine,' p_pe=',p_pe,' close netCDF file with ID=',rf%cdiIds%file
 #endif
-
-      rf%cdiIds%file  = CDI_UNDEFID
-      rf%filename   = ''
-      rf%linkname   = ''
-      rf%linkprefix = ''
-
     ENDIF
+
+    CALL closeAndDestroyIds(rf%cdiIds)
+    rf%filename = ''
+    rf%linkname = ''
+    rf%linkprefix = ''
 
   END SUBROUTINE close_restart_file
 
