@@ -67,7 +67,7 @@ MODULE mo_io_restart_async
   USE mo_cf_convention
   USE mo_util_string,             ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                   int2string, toCharacter
-  USE mo_util_restart,            ONLY: createHgrids
+  USE mo_util_restart,            ONLY: createHgrids, defineSingleLevelAxis, defineVAxis
 
 #ifndef NOMPI
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work,      &
@@ -2725,68 +2725,6 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  ! Creates a Z-axis grid definition from the given parameters.
-  !
-  SUBROUTINE create_cdi_zaxis(iID, iGridID, iLevels, iDefLevels, rDefLevelVal, lOcean)
-
-    INTEGER,  INTENT(INOUT)        :: iID
-    INTEGER,  INTENT(IN)           :: iGridID, iLevels
-    INTEGER,  INTENT(IN), OPTIONAL :: iDefLevels
-    REAL(wp), INTENT(IN), OPTIONAL :: rDefLevelVal
-    LOGICAL,  INTENT(IN), OPTIONAL :: lOcean
-
-    REAL(wp), ALLOCATABLE          :: rDefLevelVec(:)
-!    REAL(wp), ALLOCATABLE          :: rDefLevelVecH(:)
-    INTEGER                        :: ierrstat, i, iUsedDefLevels
-
-    CHARACTER(LEN=*), PARAMETER    :: routine = modname//'create_cdi_zaxis'
-
-    ! create cdi handle
-    iID = zaxisCreate(iGridID, iLevels)
-
-    ! create default vector
-    IF (PRESENT(iDefLevels)) THEN
-      iUsedDefLevels = iDefLevels
-    ELSE
-      iUsedDefLevels = iLevels
-    ENDIF
-
-!    ! considerate ocean
-!    IF (PRESENT(lOcean)) THEN
-!      ! check if half
-!      IF (.NOT. lOcean) THEN
-!        iUsedDefLevels = iUsedDefLevels - 1
-!      ENDIF
-!      ALLOCATE(rDefLevelVec(iUsedDefLevels), STAT=ierrstat)
-!      IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
-!      ALLOCATE(rDefLevelVecH(iUsedDefLevels+1), STAT=ierrstat)
-!      IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
-!      CALL set_zlev(rDefLevelVecH, rDefLevelVec)
-!      IF (lOcean) THEN
-!        CALL zaxisDefLevels(iID, rDefLevelVec)
-!      ELSE
-!        CALL zaxisDefLevels(iID, rDefLevelVecH)
-!      ENDIF
-!      DEALLOCATE(rDefLevelVec)
-!      DEALLOCATE(rDefLevelVecH)
-!    ELSE
-      ALLOCATE(rDefLevelVec(iUsedDefLevels), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
-      DO i = 1, SIZE(rDefLevelVec)
-        IF (PRESENT(rDefLevelVal)) THEN
-          rDefLevelVec(i) = rDefLevelVal
-        ELSE
-          rDefLevelVec(i) = REAL(i, wp)
-        ENDIF
-      END DO
-      CALL zaxisDefLevels(iID, rDefLevelVec)
-      DEALLOCATE(rDefLevelVec)
-!    ENDIF
-
-  END SUBROUTINE create_cdi_zaxis
-
-  !------------------------------------------------------------------------------------------------
-  !
   ! Initialize the variable list of the given restart file.
   !
   SUBROUTINE init_restart_variables(p_rf,patch_id)
@@ -2914,87 +2852,89 @@ CONTAINS
       SELECT CASE (p_vgd%type)
 
         CASE (ZA_SURFACE)
-          CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_SURFACE), ZAXIS_SURFACE, &
-            &                   p_vgd%nlevels, 1, 0.0_wp)
+          p_rf%cdiZaxisIDs(ZA_SURFACE) = defineSingleLevelAxis(ZAXIS_SURFACE, 0.0_wp)
+
         CASE (ZA_HYBRID)
-          CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_HYBRID), ZAXIS_HYBRID, p_vgd%nlevels)
+          p_rf%cdiZaxisIDs(ZA_HYBRID) = defineVAxis(ZAXIS_HYBRID, p_vgd%nlevels)
           IF (ALLOCATED(p_pd%opt_pvct)) THEN
             nlevp1 = p_vgd%nlevels+1
             CALL zaxisDefVct(p_rf%cdiZaxisIDs(ZA_HYBRID), 2*nlevp1, &
               &              p_pd%opt_pvct(1:2*nlevp1))
           ENDIF
+
         CASE (ZA_HYBRID_HALF)
-          CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_HYBRID_HALF), ZAXIS_HYBRID_HALF, &
-            &                   p_vgd%nlevels)
+          p_rf%cdiZaxisIDs(ZA_HYBRID_HALF) = defineVAxis(ZAXIS_HYBRID_HALF, p_vgd%nlevels)
           IF (ALLOCATED(p_pd%opt_pvct)) THEN
             nlevp1 = p_vgd%nlevels
             CALL zaxisDefVct(p_rf%cdiZaxisIDs(ZA_HYBRID_HALF), 2*nlevp1, &
               &                               p_pd%opt_pvct(1:2*nlevp1))
           ENDIF
+
         CASE (ZA_DEPTH_BELOW_LAND)
           IF (p_pd%l_opt_depth_lnd) THEN
-            CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_DEPTH_BELOW_LAND), ZAXIS_DEPTH_BELOW_LAND, &
-            &                     p_vgd%nlevels, p_pd%opt_depth_lnd)
+            p_rf%cdiZaxisIDs(ZA_DEPTH_BELOW_LAND) = defineVAxis(ZAXIS_DEPTH_BELOW_LAND, p_pd%opt_depth_lnd)
           ENDIF
+
         CASE (ZA_DEPTH_BELOW_LAND_P1)
           IF (p_pd%l_opt_depth_lnd) THEN
-            CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_DEPTH_BELOW_LAND_P1), ZAXIS_DEPTH_BELOW_LAND, &
-            &                     p_vgd%nlevels, p_pd%opt_depth_lnd+1)
+            p_rf%cdiZaxisIDs(ZA_DEPTH_BELOW_LAND_P1) = defineVAxis(ZAXIS_DEPTH_BELOW_LAND, p_pd%opt_depth_lnd+1)
           ENDIF
+
         CASE (ZA_DEPTH_RUNOFF_S)
-          CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_DEPTH_RUNOFF_S), ZAXIS_DEPTH_BELOW_LAND, &
-            &                   p_vgd%nlevels)
+          p_rf%cdiZaxisIDs(ZA_DEPTH_RUNOFF_S) = defineVAxis(ZAXIS_DEPTH_BELOW_LAND, p_vgd%nlevels)
+
         CASE (ZA_DEPTH_RUNOFF_G)
-          CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_DEPTH_RUNOFF_G), ZAXIS_DEPTH_BELOW_LAND, &
-            &                   p_vgd%nlevels)
+          p_rf%cdiZaxisIDs(ZA_DEPTH_RUNOFF_G) = defineVAxis(ZAXIS_DEPTH_BELOW_LAND, p_vgd%nlevels)
+
         CASE (ZA_SNOW)
           IF (p_pd%l_opt_nlev_snow) THEN
-            CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_SNOW), ZAXIS_GENERIC, &
-            &                     p_vgd%nlevels, p_pd%opt_nlev_snow)
+            p_rf%cdiZaxisIDs(ZA_SNOW) = defineVAxis(ZAXIS_GENERIC, p_pd%opt_nlev_snow)
           ENDIF
+
         CASE (ZA_SNOW_HALF)
           IF (p_pd%l_opt_nlev_snow) THEN
-            CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_SNOW_HALF), ZAXIS_GENERIC, &
-            &                     p_vgd%nlevels, p_pd%opt_nlev_snow+1)
+            p_rf%cdiZaxisIDs(ZA_SNOW_HALF) = defineVAxis(ZAXIS_GENERIC, p_pd%opt_nlev_snow+1)
           ENDIF
+
         CASE (ZA_TOA)
-          CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_TOA), ZAXIS_TOA, &
-            &                   p_vgd%nlevels, 1, 1.0_wp)
+          p_rf%cdiZaxisIDs(ZA_TOA) = defineSingleLevelAxis(ZAXIS_TOA, 1.0_wp)
+
         CASE (ZA_LAKE_BOTTOM)
-          CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_LAKE_BOTTOM), ZAXIS_LAKE_BOTTOM, &
-            &                   p_vgd%nlevels, 1, 1.0_wp)
+          p_rf%cdiZaxisIDs(ZA_LAKE_BOTTOM) = defineSingleLevelAxis(ZAXIS_LAKE_BOTTOM, 1.0_wp)
+
         CASE (ZA_MIX_LAYER)
-          CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_MIX_LAYER), ZAXIS_MIX_LAYER, &
-            &                   p_vgd%nlevels, 1, 1.0_wp)
+          p_rf%cdiZaxisIDs(ZA_MIX_LAYER) = defineSingleLevelAxis(ZAXIS_MIX_LAYER, 1.0_wp)
+
         CASE (ZA_LAKE_BOTTOM_HALF)
-          CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_LAKE_BOTTOM_HALF), ZAXIS_LAKE_BOTTOM, &
-            &                   p_vgd%nlevels, 1, 1.0_wp)
+          p_rf%cdiZaxisIDs(ZA_LAKE_BOTTOM_HALF) = defineSingleLevelAxis(ZAXIS_LAKE_BOTTOM, 1.0_wp)
+
         CASE (ZA_SEDIMENT_BOTTOM_TW_HALF)
-          CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_SEDIMENT_BOTTOM_TW_HALF), ZAXIS_SEDIMENT_BOTTOM_TW, &
-            &                   p_vgd%nlevels, 1, 0.0_wp)
+          p_rf%cdiZaxisIDs(ZA_SEDIMENT_BOTTOM_TW_HALF) = defineSingleLevelAxis(ZAXIS_SEDIMENT_BOTTOM_TW, 0.0_wp)
+
         CASE (ZA_HEIGHT_2M)
-          CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_HEIGHT_2M), ZAXIS_HEIGHT, &
-            &                   p_vgd%nlevels, 1, 2.0_wp)
+          p_rf%cdiZaxisIDs(ZA_HEIGHT_2M) = defineSingleLevelAxis(ZAXIS_HEIGHT, 2.0_wp)
+
         CASE (ZA_HEIGHT_10M)
-          CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_HEIGHT_10M), ZAXIS_HEIGHT, &
-            &                   p_vgd%nlevels, 1, 10.0_wp)
+          p_rf%cdiZaxisIDs(ZA_HEIGHT_10M) = defineSingleLevelAxis(ZAXIS_HEIGHT, 10.0_wp)
+
         CASE (ZA_DEPTH_BELOW_SEA)
           IF (p_pd%l_opt_depth) THEN
-            CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_DEPTH_BELOW_SEA), ZAXIS_DEPTH_BELOW_SEA, &
-            &                     p_vgd%nlevels, p_pd%opt_depth, lOcean=.TRUE.)
+            p_rf%cdiZaxisIDs(ZA_DEPTH_BELOW_SEA) = defineVAxis(ZAXIS_DEPTH_BELOW_SEA, p_pd%opt_depth)
           ENDIF
+
         CASE (ZA_DEPTH_BELOW_SEA_HALF)
           IF (p_pd%l_opt_depth) THEN
-            CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_DEPTH_BELOW_SEA_HALF), ZAXIS_DEPTH_BELOW_SEA, &
-            &                     p_vgd%nlevels, p_pd%opt_depth+1, lOcean=.FALSE.)
+            p_rf%cdiZaxisIDs(ZA_DEPTH_BELOW_SEA_HALF) = defineVAxis(ZAXIS_DEPTH_BELOW_SEA, p_pd%opt_depth+1)
           ENDIF
+
         CASE (ZA_GENERIC_ICE)
           !!!!!!!!! ATTENTION: !!!!!!!!!!!
           ! As soon as i_no_ice_thick_class is set to i_no_ice_thick_class>1 this no longer works
-          CALL create_cdi_zaxis(p_rf%cdiZaxisIDs(ZA_GENERIC_ICE), ZAXIS_GENERIC, &
-            &                   p_vgd%nlevels, 1, 1.0_wp)
+          p_rf%cdiZaxisIDs(ZA_GENERIC_ICE) = defineSingleLevelAxis(ZAXIS_GENERIC, 1.0_wp)
+
         CASE DEFAULT
           CALL finish(routine, UNKNOWN_VERT_GRID_DESCR)
+
         END SELECT
     ENDDO
 

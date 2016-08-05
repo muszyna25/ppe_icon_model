@@ -81,7 +81,7 @@ MODULE mo_io_restart
                                     & ZA_LAKE_BOTTOM, ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, ZA_SEDIMENT_BOTTOM_TW_HALF, &
                                     & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE, ZA_OCEAN_SEDIMENT
   USE mo_cf_convention,         ONLY: cf_global_info
-  USE mo_util_restart,          ONLY: createHgrids
+  USE mo_util_restart,          ONLY: createHgrids, defineVAxis, defineSingleLevelAxis
   USE mo_util_string,           ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                 int2string, separator, toCharacter
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink, util_unlink
@@ -456,14 +456,6 @@ CONTAINS
     lrestart_initialised = .TRUE.
   END SUBROUTINE init_restart
 
-  INTEGER FUNCTION defineSingleLevelAxis(cdiAxisType, levelValue) RESULT(RESULT)
-    INTEGER, VALUE :: cdiAxisType
-    REAL(KIND = wp), VALUE :: levelValue
-
-    RESULT = zaxisCreate(cdiAxisType, 1)
-    CALL zaxisDefLevels(RESULT, [levelValue])
-  END FUNCTION defineSingleLevelAxis
-
   SUBROUTINE createVgrids(varList, gridDescriptions)
     TYPE(t_var_list), INTENT(INOUT) :: varList
     TYPE(t_v_grid), INTENT(IN) :: gridDescriptions(:)
@@ -478,28 +470,26 @@ CONTAINS
                 varList%p%cdiSurfZaxisID = defineSingleLevelAxis(ZAXIS_SURFACE, 0._wp)
 
             CASE (ZA_HYBRID)
-                varList%p%cdiFullZaxisID = zaxisCreate(ZAXIS_HYBRID, gridDescriptions(i)%nlevels)
-                CALL zaxisDefLevels(varList%p%cdiFullZaxisID, [(REAL(k, wp), k = 1, gridDescriptions(i)%nlevels)])
+                varList%p%cdiFullZaxisID = defineVAxis(ZAXIS_HYBRID, gridDescriptions(i)%nlevels)
                 IF (.NOT. lvct_initialised) CYCLE
                 nlevp1 = gridDescriptions(i)%nlevels+1
                 CALL zaxisDefVct(varList%p%cdiFullZaxisID, 2*nlevp1, private_vct(1:2*nlevp1))
 
             CASE (ZA_HYBRID_HALF)
-                varList%p%cdiHalfZaxisID  = zaxisCreate(ZAXIS_HYBRID_HALF, gridDescriptions(i)%nlevels)
-                CALL zaxisDefLevels(varList%p%cdiHalfZaxisID, [(REAL(k, wp), k = 1, gridDescriptions(i)%nlevels)])
+                varList%p%cdiHalfZaxisID = defineVAxis(ZAXIS_HYBRID_HALF, gridDescriptions(i)%nlevels)
                 IF (.NOT. lvct_initialised) CYCLE
                 nlevp1 = gridDescriptions(i)%nlevels
                 CALL zaxisDefVct(varList%p%cdiHalfZaxisID, 2*nlevp1, private_vct(1:2*nlevp1))
 
             CASE (ZA_DEPTH_BELOW_LAND)
                 IF (.NOT. ldepth_lnd_initialised) CYCLE
-                varList%p%cdiDepthFullZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, gridDescriptions(i)%nlevels)
-                CALL zaxisDefLevels(varList%p%cdiDepthFullZaxisID, private_depth_lnd_full)
+                varList%p%cdiDepthFullZaxisID = defineVAxis(ZAXIS_DEPTH_BELOW_LAND, gridDescriptions(i)%nlevels, &
+                                                                &private_depth_lnd_full)
 
             CASE (ZA_DEPTH_BELOW_LAND_P1)
                 IF (.NOT. ldepth_lnd_initialised) CYCLE
-                varList%p%cdiDepthHalfZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, gridDescriptions(i)%nlevels)
-                CALL zaxisDefLevels(varList%p%cdiDepthHalfZaxisID, private_depth_lnd_half)
+                varList%p%cdiDepthHalfZaxisID = defineVAxis(ZAXIS_DEPTH_BELOW_LAND, gridDescriptions(i)%nlevels, &
+                                                                &private_depth_lnd_half)
 
             CASE (ZA_DEPTH_RUNOFF_S)
                 varList%p%cdiDepthRunoff_sZaxisID = defineSingleLevelAxis(ZAXIS_DEPTH_BELOW_LAND, 1._wp)
@@ -509,13 +499,13 @@ CONTAINS
 
             CASE (ZA_SNOW)
                 IF (.NOT. lheight_snow_initialised) CYCLE
-                varList%p%cdiSnowGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, gridDescriptions(i)%nlevels)
-                CALL zaxisDefLevels(varList%p%cdiSnowGenericZaxisID, private_height_snow_full)
+                varList%p%cdiSnowGenericZaxisID = defineVAxis(ZAXIS_GENERIC, gridDescriptions(i)%nlevels, &
+                                                                  &private_height_snow_full)
 
             CASE (ZA_SNOW_HALF)
                 IF (.NOT. lheight_snow_initialised) CYCLE
-                varList%p%cdiSnowHalfGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, gridDescriptions(i)%nlevels)
-                CALL zaxisDefLevels(varList%p%cdiSnowHalfGenericZaxisID, private_height_snow_half)
+                varList%p%cdiSnowHalfGenericZaxisID = defineVAxis(ZAXIS_GENERIC, gridDescriptions(i)%nlevels, &
+                                                                      &private_height_snow_half)
 
             CASE (ZA_TOA)
                 varList%p%cdiToaZaxisID = defineSingleLevelAxis(ZAXIS_TOA, 1._wp)
@@ -551,13 +541,13 @@ CONTAINS
 
             CASE (ZA_DEPTH_BELOW_SEA)
                 IF (.NOT. use_ocean_levels) CYCLE
-                varList%p%cdiDepthFullZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, gridDescriptions(i)%nlevels)
-                CALL zaxisDefLevels(varList%p%cdiDepthFullZaxisID, private_depth_full)
+                varList%p%cdiDepthFullZaxisID = defineVAxis(ZAXIS_DEPTH_BELOW_SEA, gridDescriptions(i)%nlevels, &
+                                                                &private_depth_full)
 
             CASE (ZA_DEPTH_BELOW_SEA_HALF)
                 IF (.NOT. use_ocean_levels) CYCLE
-                varList%p%cdiDepthHalfZaxisID = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, gridDescriptions(i)%nlevels)
-                CALL zaxisDefLevels(varList%p%cdiDepthHalfZaxisID, private_depth_half)
+                varList%p%cdiDepthHalfZaxisID = defineVAxis(ZAXIS_DEPTH_BELOW_SEA, gridDescriptions(i)%nlevels, &
+                                                                &private_depth_half)
 
             CASE (ZA_GENERIC_ICE)
                 !!!!!!!!! ATTENTION: !!!!!!!!!!!
