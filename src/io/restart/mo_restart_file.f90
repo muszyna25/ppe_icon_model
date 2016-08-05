@@ -16,13 +16,11 @@ MODULE mo_restart_file
     USE mo_exception, ONLY: finish
     USE mo_io_units, ONLY: filename_max
     USE mo_kind, ONLY: dp
-    USE mo_linked_list, ONLY: t_var_list
     USE mo_restart_attributes, ONLY: t_RestartAttributeList
     USE mo_restart_namelist, ONLY: RestartNamelist_writeToFile
     USE mo_restart_patch_description, ONLY: t_restart_patch_description
     USE mo_restart_util, ONLY: getRestartFilename, t_restart_args
     USE mo_restart_var_data, ONLY: t_RestartVarData, has_valid_time_level
-    USE mo_var_list, ONLY: nvar_lists, var_lists
 
     IMPLICIT NONE
 
@@ -43,38 +41,26 @@ MODULE mo_restart_file
 
 CONTAINS
 
-    SUBROUTINE restartFile_open(me, description, varData, restart_args, restartAttributes)
+    SUBROUTINE restartFile_open(me, description, varData, restart_args, restartAttributes, restartType)
         CLASS(t_RestartFile), INTENT(INOUT) :: me
         TYPE(t_restart_patch_description), INTENT(IN) :: description
         TYPE(t_RestartVarData), INTENT(INOUT) :: varData(:)
         TYPE(t_restart_args), INTENT(IN) :: restart_args
         TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
+        INTEGER, VALUE :: restartType
 
-        TYPE(t_var_list), POINTER     :: p_re_list
         CHARACTER(:), ALLOCATABLE :: datetimeString
-        INTEGER                       :: restart_type, i
-        CHARACTER(LEN=*), PARAMETER   :: routine = modname//':restartFile_open'
+        INTEGER :: i
+        CHARACTER(LEN=*), PARAMETER :: routine = modname//':restartFile_open'
 
 #ifdef DEBUG
         WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
 #endif
         CALL me%cdiIds%init()
 
-        ! get the first restart list from the global lists
-        p_re_list => NULL()
-        DO i = 1, nvar_lists
-            ! skip, if var_list is not required for restart
-            IF(var_lists(i)%p%lrestart) THEN
-                ! save pointer
-                p_re_list => var_lists(i)
-                EXIT
-            END IF
-        END DO
-
         ! assume all restart variables uses the same file format
         datetimeString = TRIM(iso8601(restart_args%datetime))
-        restart_type = p_re_list%p%restart_type
-        SELECT CASE(restart_type)
+        SELECT CASE(restartType)
             CASE(FILETYPE_NC2)
                 WRITE(0,*) "Write netCDF2 restart for: "//datetimeString
             CASE(FILETYPE_NC4)
@@ -87,12 +73,12 @@ CONTAINS
                                         &TRIM(restart_args%modelType))
 
         IF(ALLOCATED(description%opt_pvct)) THEN
-            CALL me%cdiIds%openRestartAndCreateIds(TRIM(me%filename), restart_type, description%n_patch_cells_g, &
+            CALL me%cdiIds%openRestartAndCreateIds(TRIM(me%filename), restartType, description%n_patch_cells_g, &
                                                   &description%n_patch_verts_g, description%n_patch_edges_g, &
                                                   &description%cell_type, description%v_grid_defs(1:description%v_grid_count), &
                                                   &description%opt_pvct)
         ELSE
-            CALL me%cdiIds%openRestartAndCreateIds(TRIM(me%filename), restart_type, description%n_patch_cells_g, &
+            CALL me%cdiIds%openRestartAndCreateIds(TRIM(me%filename), restartType, description%n_patch_cells_g, &
                                                   &description%n_patch_verts_g, description%n_patch_edges_g, &
                                                   &description%cell_type, description%v_grid_defs(1:description%v_grid_count))
         END IF

@@ -128,7 +128,7 @@ CONTAINS
     DO jg = 1, n_dom
         ! construct the subobjects
         CALL me%patchData(jg)%description%init(p_patch(jg))
-        me%patchData(jg)%varData => createRestartVarData(jg, modelType, opt_out_restartType = me%patchData(jg)%restartType)
+        me%patchData(jg)%varData => createRestartVarData(jg, modelType, me%patchData(jg)%restartType)
     END DO
   END SUBROUTINE syncRestartDescriptor_construct
 
@@ -223,7 +223,7 @@ CONTAINS
     CALL me%description%setTimeLevels() !update the time levels
 
     IF(ASSOCIATED(me%varData)) THEN ! no restart variables => no restart file
-        IF(my_process_is_mpi_workroot()) CALL file%open(me%description, me%varData, restartArgs, restartAttributes)
+        IF(my_process_is_mpi_workroot()) CALL file%open(me%description, me%varData, restartArgs, restartAttributes, me%restartType)
         CALL me%writeData(file)
         IF(my_process_is_mpi_workroot()) THEN
             IF(ALLOCATED(me%description%opt_ndom)) THEN

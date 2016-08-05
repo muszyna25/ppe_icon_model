@@ -84,11 +84,11 @@ CONTAINS
         ENDDO
     END FUNCTION countRestartVariables
 
-    FUNCTION createRestartVarData(patch_id, modelType, opt_out_restartType) RESULT(RESULT)
+    FUNCTION createRestartVarData(patch_id, modelType, out_restartType) RESULT(RESULT)
         TYPE(t_RestartVarData), POINTER :: RESULT(:)
         INTEGER, VALUE :: patch_id
         CHARACTER(LEN = *), INTENT(IN) :: modelType
-        INTEGER, OPTIONAL, INTENT(OUT) :: opt_out_restartType
+        INTEGER, INTENT(OUT) :: out_restartType
 
         INTEGER :: varCount, varIndex, error, curList
         TYPE(t_list_element), POINTER :: element
@@ -96,7 +96,7 @@ CONTAINS
 
         ! init. main variables
         RESULT => NULL()
-        IF(PRESENT(opt_out_restartType)) opt_out_restartType = -1
+        out_restartType = -1
 
         ! counts number of restart variables for this file (logical patch ident)
         varCount = countRestartVariables(patch_id, modelType)
@@ -113,12 +113,10 @@ CONTAINS
         varIndex = 1
         DO curList = 1, nvar_lists
             IF(.NOT.wantVarlist(var_lists(curList), patch_id, modelType)) CYCLE
-            IF(PRESENT(opt_out_restartType)) THEN
-                IF(opt_out_restartType == -1) THEN
-                    opt_out_restartType = var_lists(curList)%p%restart_type
-                ELSE IF(opt_out_restartType /= var_lists(curList)%p%restart_type) THEN
-                    CALL finish(routine, "assertion failed: var_lists contains inconsistent restart_type values")
-                END IF
+            IF(out_restartType == -1) THEN
+                out_restartType = var_lists(curList)%p%restart_type
+            ELSE IF(out_restartType /= var_lists(curList)%p%restart_type) THEN
+                CALL finish(routine, "assertion failed: var_lists contains inconsistent restart_type values")
             END IF
 
             ! check, if the list has valid restart fields

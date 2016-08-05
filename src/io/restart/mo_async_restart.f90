@@ -98,6 +98,7 @@ MODULE mo_async_restart
     TYPE(t_restart_patch_description) :: description
     TYPE(t_RestartVarData), POINTER :: varData(:)
     TYPE(t_AsyncRestartCommData) :: commData
+    INTEGER :: restartType
   END TYPE t_patch_data
 
   ! This IS the actual INTERFACE to the restart writing code (apart from the restart_main_proc PROCEDURE). Its USE IS as follows:
@@ -160,7 +161,7 @@ CONTAINS
     DO jg = 1, n_dom
         ! construct the subobjects
         CALL create_patch_description(me%patch_data(jg)%description, jg)
-        me%patch_data(jg)%varData => createRestartVarData(jg, me%modelType)
+        me%patch_data(jg)%varData => createRestartVarData(jg, me%modelType, me%patch_data(jg)%restartType)
         CALL me%patch_data(jg)%commData%construct(jg, me%patch_data(jg)%varData)
 
         ! consistency checks
@@ -273,7 +274,7 @@ CONTAINS
         CALL print_restart_name_lists()
 #endif
         IF(ASSOCIATED(patch_data%varData)) THEN ! no restart variables => no restart file
-            CALL restartFile%open(patch_data%description, patch_data%varData, restart_args, restartAttributes)
+            CALL restartFile%open(patch_data%description, patch_data%varData, restart_args, restartAttributes, patch_data%restartType)
 
             ! collective call to write the restart variables
             CALL restart_write_var_list(patch_data, restartFile)
