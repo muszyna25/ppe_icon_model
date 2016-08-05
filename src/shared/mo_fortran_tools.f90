@@ -30,6 +30,8 @@ MODULE mo_fortran_tools
   PUBLIC :: t_Destructible
   PUBLIC :: assign_if_present
   PUBLIC :: assign_if_present_allocatable
+  PUBLIC :: t_ptr_2d
+  PUBLIC :: t_ptr_3d
   PUBLIC :: t_ptr_2d3d
   PUBLIC :: t_ptr_i2d3d
   PUBLIC :: t_ptr_tracer
@@ -39,13 +41,20 @@ MODULE mo_fortran_tools
 
   PRIVATE
 
-
   !> Just a small base CLASS for anything that needs a destructor.
   !> XXX: This will become unnecessary once all relevant compilers support the FINAL keyword.
   TYPE, ABSTRACT :: t_Destructible
   CONTAINS
     PROCEDURE(interface_destructor), DEFERRED :: destruct
   END TYPE t_Destructible
+
+  TYPE t_ptr_2d
+    REAL(wp),POINTER :: p(:,:)  ! pointer to 2D (spatial) array
+  END TYPE t_ptr_2d
+
+  TYPE t_ptr_3d
+    REAL(wp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
+  END TYPE t_ptr_3d
 
   TYPE t_ptr_2d3d
     REAL(wp),POINTER :: p_3d(:,:,:)  ! REAL pointer to 3D (spatial) array
