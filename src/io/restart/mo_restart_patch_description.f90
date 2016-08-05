@@ -14,11 +14,14 @@ MODULE mo_restart_patch_description
     USE mo_cdi_constants, ONLY: ZA_SURFACE, ZA_HYBRID, ZA_HYBRID_HALF, ZA_HEIGHT_2M, ZA_HEIGHT_10M, ZA_TOA, ZA_LAKE_BOTTOM, &
                               & ZA_MIX_LAYER, ZA_LAKE_BOTTOM_HALF, ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_GENERIC_ICE, ZA_DEPTH_RUNOFF_S, &
                               & ZA_DEPTH_RUNOFF_G, ZA_DEPTH_BELOW_LAND, ZA_DEPTH_BELOW_LAND_P1, ZA_SNOW, ZA_SNOW_HALF, &
-                              & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_COUNT
+                              & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_OCEAN_SEDIMENT, ZA_COUNT, GRID_UNSTRUCTURED_CELL, &
+                              & GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
+    USE mo_communication, ONLY: t_comm_gather_pattern
     USE mo_dynamics_config, ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf
     USE mo_exception, ONLY: finish
     USE mo_fortran_tools, ONLY: assign_if_present, assign_if_present_allocatable
     USE mo_restart_attributes, ONLY: t_RestartAttributeList
+    USE mo_impl_constants, ONLY: SUCCESS
     USE mo_io_units, ONLY: filename_max
     USE mo_kind, ONLY: wp
     USE mo_model_domain, ONLY: t_patch
@@ -26,6 +29,12 @@ MODULE mo_restart_patch_description
     USE mo_packed_message, ONLY: t_PackedMessage
     USE mo_restart_util, ONLY: t_v_grid, set_vertical_grid, setDynamicPatchRestartAttributes, setPhysicsRestartAttributes
     USE mo_util_string, ONLY: int2string
+
+#ifndef __NO_ICON__OCEAN
+    USE mo_ocean_nml, ONLY: lhamocc
+    USE mo_sedmnt, ONLY: ks, dzsed
+    USE mo_math_utilities, ONLY: set_zlev
+#endif
 
     IMPLICIT NONE
 
@@ -71,8 +80,6 @@ MODULE mo_restart_patch_description
         INTEGER :: nold,nnow,nnew,nnew_rcf,nnow_rcf
 
         ! dynamic patch arguments (optionally)
-        LOGICAL :: l_opt_depth
-        INTEGER :: opt_depth
         LOGICAL :: l_opt_depth_lnd
         INTEGER :: opt_depth_lnd
         LOGICAL :: l_opt_nlev_snow
@@ -95,6 +102,9 @@ MODULE mo_restart_patch_description
         REAL(wp), ALLOCATABLE :: opt_t_elapsed_phy(:)
         REAL(wp), ALLOCATABLE :: opt_ocean_zheight_cellMiddle(:)
         REAL(wp), ALLOCATABLE :: opt_ocean_zheight_cellInterfaces(:)
+
+        ! these are used for synchronous restart writing
+        TYPE(t_comm_gather_pattern), POINTER :: cellGatherPattern, vertGatherPattern, edgeGatherPattern
     CONTAINS
         PROCEDURE :: init => restartPatchDescription_init
         PROCEDURE :: update => restartPatchDescription_update   ! called to set the DATA that may change from restart to restart
@@ -102,6 +112,8 @@ MODULE mo_restart_patch_description
         PROCEDURE :: packer => restartPatchDescription_packer
         PROCEDURE :: defineVGrids => restartPatchDescription_defineVGrids
         PROCEDURE :: setRestartAttributes => restartPatchDescription_setRestartAttributes
+        PROCEDURE :: getGatherPattern => restartPatchDescription_getGatherPattern
+        PROCEDURE :: getGlobalGridSize => restartPatchDescription_getGlobalGridSize
     END TYPE t_restart_patch_description
 
     CHARACTER(LEN = *), PARAMETER :: modname = "mo_restart_patch_description"
@@ -110,7 +122,7 @@ CONTAINS
 
     SUBROUTINE restartPatchDescription_init(me, p_patch)
         CLASS(t_restart_patch_description), INTENT(INOUT) :: me
-        TYPE(t_patch), INTENT(IN) :: p_patch
+        TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
 
         me%id = p_patch%id
         me%work_pe0_id = p_patch%proc0
@@ -128,8 +140,6 @@ CONTAINS
         me%nnew = nnew(p_patch%id)
         me%nnew_rcf = nnew_rcf(p_patch%id)
         me%nnow_rcf = nnow_rcf(p_patch%id)
-        me%l_opt_depth = .FALSE.
-        me%opt_depth = 0
         me%l_opt_depth_lnd = .FALSE.
         me%opt_depth_lnd = 0
         me%l_opt_nlev_snow = .FALSE.
@@ -146,15 +156,18 @@ CONTAINS
         me%opt_sim_time = 0.
         me%l_opt_ocean_zlevels = .FALSE.
         me%opt_ocean_zlevels = 0
+        me%cellGatherPattern => p_patch%comm_pat_gather_c
+        me%vertGatherPattern => p_patch%comm_pat_gather_v
+        me%edgeGatherPattern => p_patch%comm_pat_gather_e
     END SUBROUTINE restartPatchDescription_init
 
     SUBROUTINE restartPatchDescription_update(me, patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &
-                                             &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth, opt_depth_lnd, &
+                                             &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth_lnd, &
                                              &opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels, &
                                              &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces)
         CLASS(t_restart_patch_description), INTENT(INOUT) :: me
         TYPE(t_patch), INTENT(IN) :: patch
-        INTEGER, INTENT(IN), OPTIONAL :: opt_depth, opt_depth_lnd, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, &
+        INTEGER, INTENT(IN), OPTIONAL :: opt_depth_lnd, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, &
                                        & opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels
         REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time, opt_pvct(:), opt_t_elapsed_phy(:), opt_ocean_zheight_cellMiddle(:), &
                                         & opt_ocean_zheight_cellInterfaces(:)
@@ -181,9 +194,6 @@ CONTAINS
 
             CALL assign_if_present(me%opt_jstep_adv_marchuk_order, opt_jstep_adv_marchuk_order)
             me%l_opt_jstep_adv_marchuk_order = PRESENT(opt_jstep_adv_marchuk_order)
-
-            CALL assign_if_present(me%opt_depth, opt_depth)
-            me%l_opt_depth = PRESENT(opt_depth)
 
             CALL assign_if_present(me%opt_depth_lnd, opt_depth_lnd)
             me%l_opt_depth_lnd = PRESENT(opt_depth_lnd)
@@ -240,8 +250,6 @@ CONTAINS
         CALL message%packer(operation, me%nnew_rcf)
 
         ! optional parameter values
-        CALL message%packer(operation, me%l_opt_depth)
-        CALL message%packer(operation, me%opt_depth)
         CALL message%packer(operation, me%l_opt_depth_lnd)
         CALL message%packer(operation, me%opt_depth_lnd)
         CALL message%packer(operation, me%l_opt_nlev_snow)
@@ -256,6 +264,8 @@ CONTAINS
         CALL message%packer(operation, me%opt_sim_time)
         CALL message%packer(operation, me%l_opt_ndom)
         CALL message%packer(operation, me%opt_ndom)
+        CALL message%packer(operation, me%l_opt_ocean_zlevels)
+        CALL message%packer(operation, me%opt_ocean_zlevels)
 
         ! optional parameter arrays
         CALL message%packer(operation, me%opt_pvct)
@@ -268,6 +278,9 @@ CONTAINS
         CLASS(t_restart_patch_description), TARGET, INTENT(INOUT) :: me
 
         INTEGER :: nlev_soil, nlev_snow, nlev_ocean, nice_class, ierrstat
+        INTEGER :: error
+        REAL(wp), ALLOCATABLE :: levels(:), levels_sp(:)
+        CHARACTER(*), PARAMETER :: routine = modname//":restartPatchDescription_defineVGrids"
 
         ! DEFAULT values for the level counts
         nlev_soil = 0
@@ -278,7 +291,7 @@ CONTAINS
         ! replace DEFAULT values by the overrides provided IN the me
         IF(me%l_opt_depth_lnd) nlev_soil = me%opt_depth_lnd
         IF(me%l_opt_nlev_snow) nlev_snow = me%opt_nlev_snow
-        IF(me%l_opt_depth) nlev_ocean = me%opt_depth
+        IF(me%l_opt_ocean_zlevels) nlev_ocean = me%opt_ocean_zlevels
         IF(me%l_opt_nice_class) nice_class = me%opt_nice_class
 
         ! set vertical grid definitions
@@ -299,8 +312,20 @@ CONTAINS
         IF(me%l_opt_depth_lnd) CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_LAND_P1, nlev_soil+1)
         IF(me%l_opt_nlev_snow) CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_SNOW, nlev_snow)
         IF(me%l_opt_nlev_snow) CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_SNOW_HALF, nlev_snow+1)
-        IF(me%l_opt_depth) CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_SEA, nlev_ocean)
-        IF(me%l_opt_depth) CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_SEA_HALF, nlev_ocean+1)
+        IF(me%l_opt_ocean_zlevels) CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_SEA, nlev_ocean)
+        IF(me%l_opt_ocean_zlevels) CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_SEA_HALF, nlev_ocean+1)
+#ifndef __NO_ICON__OCEAN
+        IF(lhamocc) THEN
+            ! HAMOCC sediment
+            ALLOCATE(levels(ks), levels_sp(ks + 1), STAT = error)
+            IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+
+            CALL set_zlev(levels_sp, levels, ks, dzsed*1000._wp)
+            CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_OCEAN_SEDIMENT, REAL(levels,wp))
+
+            DEALLOCATE(levels, levels_sp)
+        END IF
+#endif
     END SUBROUTINE restartPatchDescription_defineVGrids
 
     SUBROUTINE restartPatchDescription_setRestartAttributes(me, restartAttributes)
@@ -331,5 +356,42 @@ CONTAINS
             CALL setPhysicsRestartAttributes(restartAttributes, me%id, me%opt_t_elapsed_phy, me%opt_lcall_phy)
         END IF
     END SUBROUTINE restartPatchDescription_setRestartAttributes
+
+    FUNCTION restartPatchDescription_getGatherPattern(me, gridType) RESULT(RESULT)
+        CLASS(t_restart_patch_description), INTENT(IN) :: me
+        INTEGER, VALUE :: gridType
+        TYPE(t_comm_gather_pattern), POINTER :: RESULT
+
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartPatchDescription_getGatherPattern"
+
+        SELECT CASE(gridType)
+            CASE(GRID_UNSTRUCTURED_CELL)
+                RESULT => me%cellGatherPattern
+            CASE(GRID_UNSTRUCTURED_VERT)
+                RESULT => me%vertGatherPattern
+            CASE(GRID_UNSTRUCTURED_EDGE)
+                RESULT => me%edgeGatherPattern
+            CASE DEFAULT
+                CALL finish(routine, "illegal gridType argument")
+        END SELECT
+    END FUNCTION restartPatchDescription_getGatherPattern
+
+    INTEGER FUNCTION restartPatchDescription_getGlobalGridSize(me, gridType) RESULT(RESULT)
+        CLASS(t_restart_patch_description), INTENT(IN) :: me
+        INTEGER, VALUE :: gridType
+
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartPatchDescription_getGlobalGridSize"
+
+        SELECT CASE(gridType)
+            CASE(GRID_UNSTRUCTURED_CELL)
+                RESULT = me%n_patch_cells_g
+            CASE(GRID_UNSTRUCTURED_VERT)
+                RESULT = me%n_patch_verts_g
+            CASE(GRID_UNSTRUCTURED_EDGE)
+                RESULT = me%n_patch_edges_g
+            CASE DEFAULT
+                CALL finish(routine, "illegal gridType argument")
+        END SELECT
+    END FUNCTION restartPatchDescription_getGlobalGridSize
 
 END MODULE mo_restart_patch_description
