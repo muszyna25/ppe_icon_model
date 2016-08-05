@@ -17,7 +17,9 @@ MODULE mo_async_restart_packer
     USE mo_kind, ONLY: wp, dp, i8
     USE mo_mpi, ONLY: my_process_is_work, my_process_is_restart, p_n_work, p_int, p_comm_work, p_comm_work_2_restart, p_pe_work, &
                     & num_work_procs, p_bcast
+#ifndef NOMPI
     USE mpi, ONLY: MPI_SUCCESS, MPI_ROOT, MPI_PROC_NULL
+#endif
 
     IMPLICIT NONE
 
@@ -40,6 +42,8 @@ MODULE mo_async_restart_packer
         ! Index how to reorder the contributions of all compute PEs into the global array (set on all PEs)
         INTEGER, ALLOCATABLE :: inverse_reorder_index(:)    ! given a gathered array index, this gives the index within the global array
     CONTAINS
+! There is no point in pretending this is a usable class when NOMPI is defined.
+#ifndef NOMPI
         PROCEDURE :: construct => asyncRestartPacker_construct    ! Collective across work AND restart. This IS a two step process utilizing the two methods below.
 
         PROCEDURE :: packLevel => asyncRestartPacker_packLevel    ! pack the contents of a single level/variable into our memory window
@@ -49,15 +53,18 @@ MODULE mo_async_restart_packer
 
         PROCEDURE, PRIVATE :: constructCompute => asyncRestartPacker_constructCompute  ! The part of the constructor that runs ONLY on the compute processes.
         PROCEDURE, PRIVATE :: transferToRestart => asyncRestartPacker_transferToRestart    ! Constructs the reorder DATA on the restart processes.
+#endif
     END TYPE t_asyncRestartPacker
 
     CHARACTER(LEN = *), PARAMETER :: modname = "mo_async_restart_packer"
 
 CONTAINS
 
-#ifndef NOMPI
     ! Broadcast root for intercommunicator broadcasts from compute PEs to restart PEs using p_comm_work_2_restart.
     INTEGER FUNCTION restartBcastRoot() RESULT(RESULT)
+#ifdef NOMPI
+        RESULT = 0
+#else
         IF(my_process_is_restart()) THEN
             ! root is proc 0 on the compute PEs
             RESULT = 0
@@ -70,9 +77,10 @@ CONTAINS
                 RESULT = MPI_PROC_NULL
             END IF
         END IF
-    END FUNCTION restartBcastRoot
 #endif
+    END FUNCTION restartBcastRoot
 
+#ifndef NOMPI
     ! the part of the constructor that runs on the compute processes
     SUBROUTINE asyncRestartPacker_constructCompute(me, n_points_g, n_points, decomp_info)
         CLASS(t_asyncRestartPacker), INTENT(INOUT) :: me ! Result: reorder data
@@ -268,5 +276,7 @@ CONTAINS
         DEALLOCATE(me%pe_own)
         DEALLOCATE(me%inverse_reorder_index)
     END SUBROUTINE asyncRestartPacker_destruct
+
+#endif
 
 END MODULE mo_async_restart_packer

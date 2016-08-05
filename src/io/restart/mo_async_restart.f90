@@ -138,6 +138,128 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
+  ! Gets the number of  restart variables for the given logical patch ident.
+  !
+  SUBROUTINE get_var_list_number(all_fld_cnt, patch_id)
+
+    INTEGER,    INTENT(INOUT)     :: all_fld_cnt
+    INTEGER,    INTENT(IN)        :: patch_id
+
+    INTEGER                       :: i, fld_cnt, list_cnt
+    TYPE(t_list_element), POINTER :: element
+
+#ifdef DEBUG
+    TYPE(t_list_element), POINTER :: element_list
+    CHARACTER(LEN=*), PARAMETER   :: routine = modname//':get_var_list_number'
+
+    WRITE (nerr,FORMAT_VALS5)routine,' p_pe=',p_pe,' patch_id=',patch_id
+#endif
+
+    all_fld_cnt = 0
+    list_cnt = 0
+
+    DO i = 1, nvar_lists
+        ! skip, if var_list is not required for restart
+        IF (.NOT. var_lists(i)%p%lrestart) CYCLE
+
+        ! check the given logical patch id
+        IF (var_lists(i)%p%patch_id /= patch_id) CYCLE
+
+        ! check, if the list has valid restart fields
+        fld_cnt = 0
+        element => var_lists(i)%p%first_list_element
+        DO
+            IF(.NOT. ASSOCIATED(element)) EXIT
+            IF (element%field%info%lrestart) fld_cnt = fld_cnt + 1
+            element => element%next_list_element
+        ENDDO
+        all_fld_cnt = all_fld_cnt + fld_cnt
+
+#ifdef DEBUG
+        IF (my_process_is_restart()) THEN
+            IF (fld_cnt > 0) THEN
+                list_cnt = list_cnt + 1
+                WRITE(nerr,'(i4,3a,i4,2a,i3)') &
+                    & list_cnt,'. restart var_list ',TRIM(var_lists(i)%p%name), &
+                    & '(',fld_cnt,')', &
+                    & ' Patch: ',var_lists(i)%p%patch_id
+                element_list => var_lists(i)%p%first_list_element
+                DO
+                    IF(.NOT. ASSOCIATED(element_list)) EXIT
+                    IF (element_list%field%info%lrestart) THEN
+                        WRITE (nerr,'(4a)') &
+                            &     '    ',TRIM(element_list%field%info%name), &
+                            &       '  ',TRIM(element_list%field%info%cf%long_name)
+                    ENDIF
+                    element_list => element_list%next_list_element
+                ENDDO
+            ENDIF
+        ENDIF
+#endif
+    ENDDO
+  END SUBROUTINE get_var_list_number
+
+  !------------------------------------------------------------------------------------------------
+  !
+  ! Sets the restart file data with the given logical patch ident.
+  !
+  SUBROUTINE restartFile_construct(me, patch_id)
+    CLASS(t_restart_file), INTENT (INOUT) :: me
+    INTEGER, VALUE :: patch_id
+
+    INTEGER                               :: ierrstat, i, i2, num_vars
+    TYPE (t_list_element), POINTER        :: element
+    CHARACTER(LEN=*), PARAMETER           :: routine = modname//':restartFile_construct'
+
+#ifdef DEBUG
+    WRITE (nerr,FORMAT_VALS5)routine,' is called for p_pe=',p_pe,' patch_id=',patch_id
+#endif
+
+    ! init. main variables
+    me%var_data => NULL()
+    me%filename = ''
+
+    CALL me%cdiIds%init()
+
+    ! counts number of restart variables for this file (logical patch ident)
+    num_vars = 0
+    CALL get_var_list_number(num_vars, patch_id)
+
+#ifdef DEBUG
+    WRITE (nerr,FORMAT_VALS3)routine,' numvars=',num_vars
+#endif
+
+    IF (num_vars <= 0) RETURN
+    ! allocate the array of restart variables
+    ALLOCATE (me%var_data(num_vars), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
+
+    ! fill the array of restart variables
+    i2 = 0
+    DO i = 1, nvar_lists
+        ! skip, if var_list is not required for restart
+        IF (.NOT. var_lists(i)%p%lrestart) CYCLE
+
+        ! check the given logical patch id
+        IF (var_lists(i)%p%patch_id /= patch_id) CYCLE
+
+        ! check, if the list has valid restart fields
+        element => var_lists(i)%p%first_list_element
+        DO
+            IF(.NOT. ASSOCIATED(element)) EXIT
+            IF (element%field%info%lrestart) THEN
+                i2 = i2 + 1
+                me%var_data(i2)%info = element%field%info
+                me%var_data(i2)%r_ptr => element%field%r_ptr
+            ENDIF
+            element => element%next_list_element
+        ENDDO
+    ENDDO
+
+  END SUBROUTINE restartFile_construct
+
+  !------------------------------------------------------------------------------------------------
+  !
   ! public routines
   !
   !------------------------------------------------------------------------------------------------
@@ -696,73 +818,6 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  ! Gets the number of  restart variables for the given logical patch ident.
-  !
-  SUBROUTINE get_var_list_number(all_fld_cnt, patch_id)
-
-    INTEGER,    INTENT(INOUT)     :: all_fld_cnt
-    INTEGER,    INTENT(IN)        :: patch_id
-
-    INTEGER                       :: i, fld_cnt, list_cnt
-    TYPE(t_list_element), POINTER :: element
-
-#ifdef DEBUG
-    TYPE(t_list_element), POINTER :: element_list
-    CHARACTER(LEN=*), PARAMETER   :: routine = modname//':get_var_list_number'
-
-    WRITE (nerr,FORMAT_VALS5)routine,' p_pe=',p_pe,' patch_id=',patch_id
-#endif
-
-    all_fld_cnt = 0
-    list_cnt = 0
-
-    DO i = 1, nvar_lists
-      ! skip, if var_list is not required for restart
-      IF (.NOT. var_lists(i)%p%lrestart) CYCLE
-
-      ! check the given logical patch id
-      IF (var_lists(i)%p%patch_id /= patch_id) CYCLE
-
-      ! check, if the list has valid restart fields
-      fld_cnt = 0
-      element => var_lists(i)%p%first_list_element
-      DO
-        IF(.NOT. ASSOCIATED(element)) EXIT
-        IF (element%field%info%lrestart) THEN
-          fld_cnt = fld_cnt + 1
-        ENDIF
-        element => element%next_list_element
-      ENDDO
-      all_fld_cnt = all_fld_cnt + fld_cnt
-
-#ifdef DEBUG
-      IF (my_process_is_restart()) THEN
-        IF (fld_cnt > 0) THEN
-          list_cnt = list_cnt + 1
-          WRITE(nerr,'(i4,3a,i4,2a,i3)') &
-            & list_cnt,'. restart var_list ',TRIM(var_lists(i)%p%name), &
-            & '(',fld_cnt,')', &
-            & ' Patch: ',var_lists(i)%p%patch_id
-          element_list => var_lists(i)%p%first_list_element
-          DO
-            IF(.NOT. ASSOCIATED(element_list)) EXIT
-            IF (element_list%field%info%lrestart) THEN
-              WRITE (nerr,'(4a)') &
-                  &     '    ',TRIM(element_list%field%info%name), &
-                  &       '  ',TRIM(element_list%field%info%cf%long_name)
-            ENDIF
-            element_list => element_list%next_list_element
-          ENDDO
-        ENDIF
-      ENDIF
-#endif
-
-    ENDDO
-
-  END SUBROUTINE get_var_list_number
-
-  !------------------------------------------------------------------------------------------------
-  !
   ! Common helper routines to preparing the restart.
   !
   !-------------------------------------------------------------------------------------------------
@@ -913,69 +968,6 @@ CONTAINS
 
     CALL message%destruct() ! cleanup
   END SUBROUTINE create_patch_description
-
-  !------------------------------------------------------------------------------------------------
-  !
-  ! Sets the restart file data with the given logical patch ident.
-  !
-  SUBROUTINE restartFile_construct(me, patch_id)
-    CLASS(t_restart_file), INTENT (INOUT) :: me
-    INTEGER, VALUE :: patch_id
-
-    INTEGER                               :: ierrstat, i, i2, num_vars
-    TYPE (t_list_element), POINTER        :: element
-    CHARACTER(LEN=*), PARAMETER           :: routine = modname//':restartFile_construct'
-
-#ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS5)routine,' is called for p_pe=',p_pe,' patch_id=',patch_id
-#endif
-
-    ! init. main variables
-    me%var_data => NULL()
-    me%filename = ''
-
-    CALL me%cdiIds%init()
-
-    ! counts number of restart variables for this file (logical patch ident)
-    num_vars = 0
-    CALL get_var_list_number(num_vars, patch_id)
-
-#ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)routine,' numvars=',num_vars
-#endif
-
-    IF (num_vars <= 0) RETURN
-    ! allocate the array of restart variables
-    ALLOCATE (me%var_data(num_vars), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
-
-    ! fill the array of restart variables
-    i2 = 0
-    DO i = 1, nvar_lists
-      ! skip, if var_list is not required for restart
-      IF (.NOT. var_lists(i)%p%lrestart) CYCLE
-
-      ! check the given logical patch id
-      IF (var_lists(i)%p%patch_id /= patch_id) CYCLE
-
-      ! check, if the list has valid restart fields
-      element => var_lists(i)%p%first_list_element
-      DO
-        IF(.NOT. ASSOCIATED(element)) EXIT
-        IF (element%field%info%lrestart) THEN
-          i2 = i2 + 1
-          me%var_data(i2)%info = element%field%info
-          IF (my_process_is_work() .AND. ASSOCIATED(element%field%r_ptr)) THEN
-            me%var_data(i2)%r_ptr => element%field%r_ptr
-          ELSE
-            me%var_data(i2)%r_ptr => NULL()
-          ENDIF
-        ENDIF
-        element => element%next_list_element
-      ENDDO
-    ENDDO
-
-  END SUBROUTINE restartFile_construct
 
   !------------------------------------------------------------------------------------------------
   !

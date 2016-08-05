@@ -21,8 +21,10 @@ MODULE mo_async_restart_comm_data
     USE mo_mpi, ONLY: p_real_dp, p_comm_work_restart, p_pe_work, num_work_procs, p_mpi_wtime, my_process_is_work
     USE mo_restart_util, ONLY: t_var_data
     USE mo_util_string, ONLY: int2string
+#ifndef NOMPI
     USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL, MPI_LOCK_SHARED, MPI_MODE_NOCHECK, MPI_WIN_NULL, MPI_LOCK_EXCLUSIVE, &
                  & MPI_SUCCESS
+#endif
 
     IMPLICIT NONE
 
@@ -43,17 +45,22 @@ MODULE mo_async_restart_comm_data
         TYPE(t_AsyncRestartPacker), PUBLIC :: edges
         TYPE(t_AsyncRestartPacker), PUBLIC :: verts
     CONTAINS
+! There is no point in pretending this is a usable class if NOMPI is defined.
+#ifndef NOMPI
         PROCEDURE :: construct => asyncRestartCommData_construct
         PROCEDURE :: maxLevelSize => asyncRestartCommData_maxLevelSize  ! called to get the required buffer SIZE on the restart processes
         PROCEDURE :: getPacker => asyncRestartCommData_getPacker    ! RETURN the relevant t_AsyncRestartPacker object
         PROCEDURE :: postData => asyncRestartCommData_postData  ! called by the compute processes to WRITE their DATA to their memory window
         PROCEDURE :: collectData => asyncRestartCommData_collectData    ! called by the restart processes to fetch the DATA from the compute processes
         PROCEDURE :: destruct => asyncRestartCommData_destruct
+#endif
     END TYPE t_AsyncRestartCommData
 
     CHARACTER(LEN = *), PARAMETER :: modname = "mo_async_restart_comm_data"
 
 CONTAINS
+
+#ifndef NOMPI
 
     ! Opens an MPI memory window for the given amount of double values, returning both the ALLOCATED buffer AND the MPI window handle.
     SUBROUTINE openMpiWindow(doubleCount, communicator, mem_ptr_dp, mpi_win)
@@ -324,5 +331,7 @@ CONTAINS
         CALL me%verts%destruct()
         CALL me%edges%destruct()
     END SUBROUTINE asyncRestartCommData_destruct
+
+#endif
 
 END MODULE mo_async_restart_comm_data
