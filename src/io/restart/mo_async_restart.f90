@@ -956,7 +956,7 @@ CONTAINS
   ! Write restart variable lists for a compute PE.
   !
   SUBROUTINE compute_write_var_list(patchData)
-    CLASS(t_RestartPatchData), INTENT(INOUT) :: patchData
+    CLASS(t_RestartPatchData), TARGET, INTENT(INOUT) :: patchData
 
     TYPE(t_AsyncPatchData), POINTER :: asyncPatchData
     TYPE(t_RestartVarData), POINTER :: p_vars(:)
