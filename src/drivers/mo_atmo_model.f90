@@ -42,7 +42,7 @@ MODULE mo_atmo_model
     &                                   ihs_atm_temp, ihs_atm_theta, inh_atmosphere,          &
     &                                   ishallow_water, inwp
   USE mo_io_restart,              ONLY: read_restart_header
-  USE mo_io_restart_attributes,   ONLY: RestartAttributes_getText, RestartAttributes_getInteger
+  USE mo_io_restart_attributes,   ONLY: t_RestartAttributeList, getRestartAttributes
 
   ! namelist handling; control parameters: run control, dynamics
   USE mo_read_namelists,          ONLY: read_atmo_namelists
@@ -218,6 +218,7 @@ CONTAINS
 
     TYPE(datetime), POINTER :: calculatedStopDate => NULL()
     CHARACTER(len=max_datetime_str_len) :: startDate = '', dstring
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 
     ! initialize global registry of lon-lat grids
     CALL init_lonlat_grid_list()
@@ -226,10 +227,12 @@ CONTAINS
     ! 0. If this is a resumed or warm-start run...
     !---------------------------------------------------------------------
 
+    restartAttributes => NULL()
     IF (isRestart()) THEN
       CALL message('','Read restart file meta data ...')
       CALL read_restart_header("atm")
-      startDate = RestartAttributes_getText('tc_startdate')
+      restartAttributes => getRestartAttributes()
+      startDate = restartAttributes%getText('tc_startdate')
     ELSE
       call datetimeToString(tc_exp_startdate, startDate)
     ENDIF
@@ -373,9 +376,9 @@ CONTAINS
           CALL get_datetime_string(sim_step_info%run_start, time_config%cur_datetime)
           sim_step_info%dtime      = dtime
           jstep0 = 0
-          IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
+          IF (ASSOCIATED(restartAttributes) .AND. .NOT. time_config%is_relative_time) THEN
             ! get start counter for time loop from restart file:
-            jstep0 = RestartAttributes_getInteger("jstep")
+            jstep0 = restartAttributes%getInteger("jstep")
           END IF
           sim_step_info%jstep0    = jstep0
           CALL name_list_io_main_proc(sim_step_info)

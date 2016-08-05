@@ -24,7 +24,7 @@ MODULE mo_time_nml
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                   ONLY: my_process_is_stdio 
 
-  USE mo_io_restart_attributes, ONLY: RestartAttributes_getInteger, RestartAttributes_getReal
+  USE mo_io_restart_attributes, ONLY: t_RestartAttributeList, getRestartAttributes
   USE mo_io_restart_namelist,   ONLY: open_and_restore_namelist, close_tmpfile, &
                                     & open_tmpfile, store_and_close_namelist
   USE mo_nml_annotate,          ONLY: temp_defaults, temp_settings
@@ -90,6 +90,7 @@ CONTAINS
    REAL(wp)    :: restart_caltime
    REAL(wp)    :: restart_daysec
    INTEGER     :: iunit
+   TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 
 
    !0!CHARACTER(len=*), PARAMETER ::  routine = 'mo_time_nml:read_time_namelist'
@@ -119,7 +120,8 @@ CONTAINS
     is_relative_time = .FALSE.
 
 
-    IF (isRestart()) THEN
+    restartAttributes => getRestartAttributes()
+    IF (ASSOCIATED(restartAttributes)) THEN
  
       ! 2.1 Overwrite the defaults above by values in the restart file
       funit = open_and_restore_namelist('time_nml')
@@ -131,9 +133,9 @@ CONTAINS
 
       ! 2.2 Inquire the date/time at which the previous run stopped
 
-      restart_calday = RestartAttributes_getInteger('current_calday')
-      restart_caltime = RestartAttributes_getReal('current_caltime')
-      restart_daysec = RestartAttributes_getReal('current_daysec')
+      restart_calday = restartAttributes%getInteger('current_calday')
+      restart_caltime = restartAttributes%getReal('current_caltime')
+      restart_daysec = restartAttributes%getReal('current_daysec')
 
     END IF
 

@@ -88,10 +88,7 @@ MODULE mo_io_restart
   USE mo_util_uuid,             ONLY: t_uuid
   USE mo_io_restart_namelist,   ONLY: nmls, restart_namelist,                       &
     &                                 read_and_bcast_restart_namelists
-  USE mo_io_restart_attributes, ONLY: RestartAttributes_setText, RestartAttributes_setReal, RestartAttributes_setInteger, &
-                                    & RestartAttributes_setLogical, RestartAttributes_getInteger, RestartAttributes_reset, &
-                                    & RestartAttributes_writeToFile, RestartAttributes_readFromFile, &
-                                    & RestartAttributes_printAttributes
+  USE mo_io_restart_attributes, ONLY: t_RestartAttributeList, RestartAttributeList_make, setRestartAttributes
   USE mo_datetime,              ONLY: t_datetime,iso8601,iso8601extended
   USE mo_run_config,            ONLY: ltimer, restart_filename
   USE mo_timer,                 ONLY: timer_start, timer_stop,                      &
@@ -204,6 +201,7 @@ CONTAINS
     INTEGER                        :: idom, total_dom, fileID, vlistID, myRank
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
     INTEGER, PARAMETER :: root_pe = 0
+    TYPE(t_RestartAttributeList), SAVE, POINTER :: restartAttributes
 
     ! rank of broadcast root PE
     myRank = p_comm_rank(p_comm_work)
@@ -238,14 +236,15 @@ CONTAINS
         vlistID = streamInqVlist(fileID)
     END IF
     CALL read_and_bcast_restart_namelists(vlistID, root_pe, p_comm_work)
-    CALL RestartAttributes_readFromFile(vlistID, root_pe, p_comm_work)
+    restartAttributes => RestartAttributeList_make(vlistID, root_pe, p_comm_work)
+    CALL setRestartAttributes(restartAttributes)
     IF (myRank == root_pe) CALL streamClose(fileID)
 
     CALL message(TRIM(routine), 'read namelists AND attributes from restart file')
 
     ! since we do not know about the total number of domains yet,
     ! we have to ask the restart file for this information:
-    total_dom = RestartAttributes_getInteger( 'n_dom' )
+    total_dom = restartAttributes%getInteger( 'n_dom' )
 
     ! check whether we have all the restart files we expect
     IF (myRank == root_pe) THEN
@@ -356,7 +355,7 @@ CONTAINS
   SUBROUTINE init_restart(model_name, model_version, &
        &                  nc, ncv, nv, nvv, ne, nev, &
        &                  nlev, ndepth, nlev_soil,   &
-       &                  nlev_snow, nice_class)
+       &                  nlev_snow, nice_class, restartAttributes)
     CHARACTER(len=*), INTENT(in) :: model_name
     CHARACTER(len=*), INTENT(in) :: model_version
     INTEGER,          INTENT(in) :: nc
@@ -370,17 +369,18 @@ CONTAINS
     INTEGER,          INTENT(in) :: nlev_soil
     INTEGER,          INTENT(in) :: nlev_snow
     INTEGER,          INTENT(in) :: nice_class
+    TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
 
     IF (lrestart_initialised) RETURN
 
     ! set CF-Convention required restart attributes
 
-    CALL RestartAttributes_setText('title',       TRIM(cf_global_info%title))
-    CALL RestartAttributes_setText('institution', TRIM(cf_global_info%institution))
-    CALL RestartAttributes_setText('source',      TRIM(cf_global_info%source))
-    CALL RestartAttributes_setText('history',     TRIM(cf_global_info%history))
-    CALL RestartAttributes_setText('references',  TRIM(cf_global_info%references))
-    CALL RestartAttributes_setText('comment',     TRIM(cf_global_info%comment))
+    CALL restartAttributes%setText('title',       TRIM(cf_global_info%title))
+    CALL restartAttributes%setText('institution', TRIM(cf_global_info%institution))
+    CALL restartAttributes%setText('source',      TRIM(cf_global_info%source))
+    CALL restartAttributes%setText('history',     TRIM(cf_global_info%history))
+    CALL restartAttributes%setText('references',  TRIM(cf_global_info%references))
+    CALL restartAttributes%setText('comment',     TRIM(cf_global_info%comment))
 
     ! define horizontal grids
 
@@ -442,9 +442,10 @@ CONTAINS
   ! Loop over all the output streams and open the associated files. Set
   ! unit numbers (file IDs) for all streams associated with a file.
 
-  SUBROUTINE open_writing_restart_files(jg, restart_filename)
+  SUBROUTINE open_writing_restart_files(jg, restart_filename, restartAttributes)
     INTEGER,          INTENT(IN) :: jg                   !< patch ID
     CHARACTER(LEN=*), INTENT(IN) :: restart_filename
+    TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
 
     INTEGER :: status, i ,j, k, ia, ihg, ivg, nlevp1
     REAL(wp), ALLOCATABLE :: levels(:), ubounds(:), lbounds(:), levels_sp(:)
@@ -545,7 +546,7 @@ CONTAINS
 
         ! 2.2 restart attributes
 
-        CALL RestartAttributes_writeToFile(var_lists(i)%p%cdiVlistID)
+        CALL restartAttributes%writeToFile(var_lists(i)%p%cdiVlistID)
 
         ! 3. add horizontal grid descriptions
 
@@ -1093,15 +1094,11 @@ CONTAINS
     INTEGER :: jp, jp_end   ! loop index and array size
 
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 
     IF (ltimer) CALL timer_start(timer_write_restart_file)
 
-    !AD (14 Oct 2014):Necessary to avoid writing of attributes of
-    !multiple domains in the restart file of the parent domain when
-    !started from a restart file.
-    !Funny: This call is already there in async restart but not here!
-    !We should avoid maintaing two pieces of code doing same thing
-    CALL RestartAttributes_reset()
+    restartAttributes => RestartAttributeList_make()
 
     !----------------
     ! Initialization
@@ -1113,31 +1110,31 @@ CONTAINS
     max_cell_connectivity   = patch%cells%max_connectivity
     max_vertex_connectivity = patch%verts%max_connectivity
 
-    CALL RestartAttributes_setReal( 'current_caltime', datetime%caltime )
-    CALL RestartAttributes_setInteger( 'current_calday' , INT(datetime%calday) )   !FIXME: Either it IS a bug that calday IS a 64bit INTEGER, OR it IS a bug that ONLY 32 bit of it are stored IN the restart file. Either way this needs to be fixed.
-    CALL RestartAttributes_setReal( 'current_daysec' , datetime%daysec )
+    CALL restartAttributes%setReal( 'current_caltime', datetime%caltime )
+    CALL restartAttributes%setInteger( 'current_calday' , INT(datetime%calday) )   !FIXME: Either it IS a bug that calday IS a 64bit INTEGER, OR it IS a bug that ONLY 32 bit of it are stored IN the restart file. Either way this needs to be fixed.
+    CALL restartAttributes%setReal( 'current_daysec' , datetime%daysec )
 
-    CALL RestartAttributes_setInteger( 'nold_DOM'//TRIM(int2string(jg, "(i2.2)"))    , nold    (jg))
-    CALL RestartAttributes_setInteger( 'nnow_DOM'//TRIM(int2string(jg, "(i2.2)"))    , nnow    (jg))
-    CALL RestartAttributes_setInteger( 'nnew_DOM'//TRIM(int2string(jg, "(i2.2)"))    , nnew    (jg))
-    CALL RestartAttributes_setInteger( 'nnow_rcf_DOM'//TRIM(int2string(jg, "(i2.2)")), nnow_rcf(jg))
-    CALL RestartAttributes_setInteger( 'nnew_rcf_DOM'//TRIM(int2string(jg, "(i2.2)")), nnew_rcf(jg))
+    CALL restartAttributes%setInteger( 'nold_DOM'//TRIM(int2string(jg, "(i2.2)"))    , nold    (jg))
+    CALL restartAttributes%setInteger( 'nnow_DOM'//TRIM(int2string(jg, "(i2.2)"))    , nnow    (jg))
+    CALL restartAttributes%setInteger( 'nnew_DOM'//TRIM(int2string(jg, "(i2.2)"))    , nnew    (jg))
+    CALL restartAttributes%setInteger( 'nnow_rcf_DOM'//TRIM(int2string(jg, "(i2.2)")), nnow_rcf(jg))
+    CALL restartAttributes%setInteger( 'nnew_rcf_DOM'//TRIM(int2string(jg, "(i2.2)")), nnew_rcf(jg))
 
     ! set no. of domains
     IF (PRESENT(opt_ndom)) THEN
-      CALL RestartAttributes_setInteger( 'n_dom', opt_ndom)
+      CALL restartAttributes%setInteger( 'n_dom', opt_ndom)
     ELSE
-      CALL RestartAttributes_setInteger( 'n_dom', 1)
+      CALL restartAttributes%setInteger( 'n_dom', 1)
     END IF
 
     ! set simulation step
-    CALL RestartAttributes_setInteger( 'jstep', jstep )
+    CALL restartAttributes%setInteger( 'jstep', jstep )
 
     !----------------
     ! additional restart-output for nonhydrostatic model
     IF (PRESENT(opt_sim_time)) THEN
       WRITE(attname,'(a,i2.2)') 'sim_time_DOM',jg
-      CALL RestartAttributes_setReal( TRIM(attname), opt_sim_time )
+      CALL restartAttributes%setReal( TRIM(attname), opt_sim_time )
     ENDIF
 
     !-------------------------------------------------------------
@@ -1149,12 +1146,12 @@ CONTAINS
 
     IF (PRESENT(opt_ndyn_substeps)) THEN
         WRITE(attname,'(a,i2.2)') 'ndyn_substeps_DOM',jg
-        CALL RestartAttributes_setInteger( TRIM(attname), opt_ndyn_substeps )
+        CALL restartAttributes%setInteger( TRIM(attname), opt_ndyn_substeps )
     ENDIF
 
     IF (PRESENT(opt_jstep_adv_marchuk_order)) THEN
         WRITE(attname,'(a,i2.2)') 'jstep_adv_marchuk_order_DOM',jg
-        CALL RestartAttributes_setInteger( TRIM(attname), opt_jstep_adv_marchuk_order )
+        CALL restartAttributes%setInteger( TRIM(attname), opt_jstep_adv_marchuk_order )
     ENDIF
 
     IF (PRESENT(opt_t_elapsed_phy) .AND. PRESENT(opt_lcall_phy)) THEN
@@ -1162,13 +1159,13 @@ CONTAINS
       jp_end = SIZE(opt_t_elapsed_phy,2)
       DO jp = 1, jp_end
         WRITE(attname,'(a,i2.2,a,i2.2)') 't_elapsed_phy_DOM',jg,'_PHY',jp
-        CALL RestartAttributes_setReal( TRIM(attname), opt_t_elapsed_phy(jg,jp) )
+        CALL restartAttributes%setReal( TRIM(attname), opt_t_elapsed_phy(jg,jp) )
       ENDDO
       ! Inquire array size
       jp_end = SIZE(opt_lcall_phy,2)
       DO jp = 1, jp_end
         WRITE(attname,'(a,i2.2,a,i2.2)') 'lcall_phy_DOM',jg,'_PHY',jp
-        CALL RestartAttributes_setLogical( TRIM(attname), opt_lcall_phy(jg,jp) )
+        CALL restartAttributes%setLogical( TRIM(attname), opt_lcall_phy(jg,jp) )
       ENDDO
     ENDIF
 
@@ -1237,7 +1234,7 @@ CONTAINS
     IF (PRESENT(opt_output_jfile)) THEN
       DO i=1,SIZE(opt_output_jfile)
         WRITE(attname,'(a,i2.2)') 'output_jfile_',i
-        CALL RestartAttributes_setInteger( TRIM(attname), opt_output_jfile(i) )
+        CALL restartAttributes%setInteger( TRIM(attname), opt_output_jfile(i) )
       END DO
     END IF
 
@@ -1256,11 +1253,12 @@ CONTAINS
                      & ndepth,            &! total # of depths below sea
                      & inlev_soil,        &! total # of depths below land (TERRA or JSBACH)
                      & inlev_snow,        &! total # of vertical snow layers (TERRA)
-                     & nice_class         )! total # of ice classes (sea ice)
+                     & nice_class,        &! total # of ice classes (sea ice)
+                     & restartAttributes)
 
     CALL set_restart_time( iso8601(datetime) )  ! Time tag
     ! in preparation for move to mtime
-    CALL RestartAttributes_setText('tc_startdate', iso8601extended(datetime))
+    CALL restartAttributes%setText('tc_startdate', iso8601extended(datetime))
 
     ! Open new file, write data, close and then clean-up.
     CALL associate_keyword("<gridfile>",   TRIM(get_filename_noext(patch%grid_filename)),  keywords)
@@ -1270,12 +1268,15 @@ CONTAINS
     ! replace keywords in file name
     string = TRIM(with_keywords(keywords, TRIM(restart_filename)))
 
-    CALL open_writing_restart_files( jg, TRIM(string) )
+    CALL open_writing_restart_files( jg, TRIM(string), restartAttributes)
 
     CALL write_restart( patch )
 
     CALL close_writing_restart_files(jg, opt_ndom)
     CALL finish_restart
+
+    CALL restartAttributes%destruct()
+    DEALLOCATE(restartAttributes)
 
     IF (ltimer) CALL timer_stop(timer_write_restart_file)
 
@@ -1724,8 +1725,6 @@ CONTAINS
     IF (ALLOCATED(private_height_snow_full)) DEALLOCATE(private_height_snow_full)
     IF (ALLOCATED(private_height_snow_half)) DEALLOCATE(private_height_snow_half)
     lheight_snow_initialised = .FALSE.
-
-    CALL RestartAttributes_reset
 
     nh_grids   = 0
     nv_grids   = 0

@@ -63,7 +63,7 @@ MODULE mo_ha_stepping
   USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output
   USE mo_io_restart_async,    ONLY: prepare_async_restart, write_async_restart, &
       &                             close_async_restart, set_data_async_restart
-  USE mo_io_restart_attributes,  ONLY: RestartAttributes_getInteger
+  USE mo_io_restart_attributes, ONLY: t_RestartAttributeList, getRestartAttributes
   USE mo_time_config,         ONLY: time_config
 
   IMPLICIT NONE
@@ -219,6 +219,7 @@ CONTAINS
   LOGICAL                                      :: l_nml_output
   LOGICAL                                      :: l_3tl_init(n_dom)
   INTEGER                                      :: jstep0 ! start counter for time loop
+  TYPE(t_RestartAttributeList), POINTER        :: restartAttributes
 
 #ifdef _OPENMP
   INTEGER  :: jb
@@ -238,9 +239,10 @@ CONTAINS
   ENDIF
 
   jstep0 = 0
-  IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
+  restartAttributes => getRestartAttributes()
+  IF (ASSOCIATED(restartAttributes) .AND. .NOT. time_config%is_relative_time) THEN
     ! get start counter for time loop from restart file:
-    jstep0 = RestartAttributes_getInteger("jstep")
+    jstep0 = restartAttributes%getInteger("jstep")
   END IF
 
   TIME_LOOP: DO jstep = (jstep0+1), (jstep0+nsteps)

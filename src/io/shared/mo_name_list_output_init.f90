@@ -70,7 +70,7 @@ MODULE mo_name_list_output_init
     &                                             sort_and_compress_list
   USE mo_datetime,                          ONLY: t_datetime
   USE mo_cf_convention,                     ONLY: t_cf_var, cf_global_info
-  USE mo_io_restart_attributes,             ONLY: RestartAttributes_getInteger
+  USE mo_io_restart_attributes,             ONLY: t_RestartAttributeList, getRestartAttributes
   USE mo_model_domain,                      ONLY: p_patch, p_phys_patch
   USE mo_mtime_extensions,                  ONLY: get_datetime_string, get_duration_string, &
                                                   get_duration_string_real
@@ -1017,6 +1017,7 @@ CONTAINS
       &                                     additional_days(MAX_TIME_INTERVALS)
     INTEGER(c_int64_t)                   :: total_ms
     LOGICAL                              :: include_last
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
     CHARACTER(LEN=max_char_length)       :: comp_name
 #endif
@@ -1642,11 +1643,12 @@ CONTAINS
         fname_metadata%extn                     = TRIM(p_onl%filename_extn)
       END IF
 
-      IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
+      restartAttributes => getRestartAttributes()
+      IF (ASSOCIATED(restartAttributes) .AND. .NOT. time_config%is_relative_time) THEN
         ! Restart case: Get starting index of ouput from restart file
         !               (if there is such an attribute available).
         WRITE(attname,'(a,i2.2)') 'output_jfile_',i
-        fname_metadata%jfile_offset = RestartAttributes_getInteger(TRIM(attname), opt_default=0)
+        fname_metadata%jfile_offset = restartAttributes%getInteger(TRIM(attname), opt_default=0)
       ELSE
         fname_metadata%jfile_offset             = 0
       END IF

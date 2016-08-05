@@ -25,7 +25,7 @@ MODULE mo_dynamics_config
 
   USE mo_kind,                  ONLY: wp
   USE mo_impl_constants,        ONLY: MAX_DOM
-  USE mo_io_restart_attributes, ONLY: RestartAttributes_getInteger
+  USE mo_io_restart_attributes, ONLY: t_RestartAttributeList, getRestartAttributes
   USE mo_master_config,         ONLY: isRestart
   USE mo_util_string,           ONLY: int2string
 
@@ -79,22 +79,24 @@ CONTAINS
     INTEGER,INTENT(IN) :: ndom
 
     INTEGER :: jdom
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
     CHARACTER(LEN=*),PARAMETER :: routine='mo_dynamics_config:setup_dynamics_config'
 
     !------------------------
     ! Set time level indices
 
-    IF (isRestart()) THEN
+    restartAttributes => getRestartAttributes()
+    IF (ASSOCIATED(restartAttributes)) THEN
       ! Read time level indices from restart file.
       ! NOTE: this part will be modified later for a proper handling
       ! of multiple domains!!!
 
       DO jdom = 1,ndom
-        nold(jdom) = RestartAttributes_getInteger('nold_DOM'//TRIM(int2string(jdom, "(i2.2)")))
-        nnow(jdom) = RestartAttributes_getInteger('nnow_DOM'//TRIM(int2string(jdom, "(i2.2)")))
-        nnew(jdom) = RestartAttributes_getInteger('nnew_DOM'//TRIM(int2string(jdom, "(i2.2)")))
-        nnow_rcf(jdom) = RestartAttributes_getInteger('nnow_rcf_DOM'//TRIM(int2string(jdom, "(i2.2)")))
-        nnew_rcf(jdom) = RestartAttributes_getInteger('nnew_rcf_DOM'//TRIM(int2string(jdom, "(i2.2)")))
+        nold(jdom) = restartAttributes%getInteger('nold_DOM'//TRIM(int2string(jdom, "(i2.2)")))
+        nnow(jdom) = restartAttributes%getInteger('nnow_DOM'//TRIM(int2string(jdom, "(i2.2)")))
+        nnew(jdom) = restartAttributes%getInteger('nnew_DOM'//TRIM(int2string(jdom, "(i2.2)")))
+        nnow_rcf(jdom) = restartAttributes%getInteger('nnow_rcf_DOM'//TRIM(int2string(jdom, "(i2.2)")))
+        nnew_rcf(jdom) = restartAttributes%getInteger('nnew_rcf_DOM'//TRIM(int2string(jdom, "(i2.2)")))
       END DO
 
     ELSE ! not isRestart

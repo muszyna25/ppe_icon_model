@@ -66,7 +66,7 @@ MODULE mo_hydro_ocean_run
   USE mo_name_list_output,       ONLY: write_name_list_output
   USE mo_ocean_diagnostics,        ONLY: calc_fast_oce_diagnostics, calc_psi
   USE mo_ocean_ab_timestepping_mimetic, ONLY: construct_ho_lhs_fields_mimetic, destruct_ho_lhs_fields_mimetic
-  USE mo_io_restart_attributes,  ONLY: RestartAttributes_getInteger
+  USE mo_io_restart_attributes,  ONLY: t_RestartAttributeList, getRestartAttributes
   USE mo_time_config,            ONLY: time_config
   USE mo_master_config,          ONLY: isRestart
 !  USE mo_sea_ice_nml,            ONLY: i_ice_dyn
@@ -188,6 +188,7 @@ CONTAINS
     REAL(wp) :: verticalMeanFlux(n_zlev+1)
     INTEGER :: level
     !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_hydro_ocean_run:perform_ho_stepping'
     !------------------------------------------------------------------
@@ -210,9 +211,10 @@ CONTAINS
 
     !------------------------------------------------------------------
     jstep0 = 0
-    IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
+    restartAttributes => getRestartAttributes()
+    IF (ASSOCIATED(restartAttributes) .AND. .NOT. time_config%is_relative_time) THEN
       ! get start counter for time loop from restart file:
-      jstep0 = RestartAttributes_getInteger("jstep")
+      jstep0 = restartAttributes%getInteger("jstep")
     END IF
     IF (isRestart() .AND. mod(nold(jg),2) /=1 ) THEN
       ! swap the g_n and g_nm1

@@ -16,6 +16,7 @@ MODULE mo_io_restart_attributes
   USE mo_hash_table,            ONLY: t_HashTable, hashTable_make, t_HashIterator
   USE mo_impl_constants,        ONLY: SUCCESS
   USE mo_kind,                  ONLY: wp, i8
+  USE mo_master_config,         ONLY: isRestart
   USE mo_mpi,                   ONLY: p_bcast, p_comm_rank, my_process_is_stdio
   USE mo_util_string,           ONLY: REAL2string, int2string
 
@@ -23,14 +24,41 @@ MODULE mo_io_restart_attributes
 
   PRIVATE
 
-  PUBLIC :: RestartAttributes_setText, RestartAttributes_getText
-  PUBLIC :: RestartAttributes_setReal, RestartAttributes_getReal
-  PUBLIC :: RestartAttributes_setInteger, RestartAttributes_getInteger
-  PUBLIC :: RestartAttributes_setLogical, RestartAttributes_getLogical
+  PUBLIC :: t_RestartAttributeList, restartAttributeList_make
+  PUBLIC :: setRestartAttributes, getRestartAttributes
 
-  PUBLIC :: RestartAttributes_printAttributes, RestartAttributes_writeToFile, RestartAttributes_readFromFile
+  TYPE, EXTENDS(t_Destructible) :: t_RestartAttributeList
+    TYPE(t_HashTable), POINTER :: table
 
-  PUBLIC :: RestartAttributes_reset
+  CONTAINS
+    PROCEDURE :: setText => RestartAttributeList_setText
+    PROCEDURE :: setReal => RestartAttributeList_setReal
+    PROCEDURE :: setInteger => RestartAttributeList_setInteger
+    PROCEDURE :: setLogical => RestartAttributeList_setLogical
+    PROCEDURE :: getText => RestartAttributeList_getText
+    PROCEDURE :: getReal => RestartAttributeList_getReal
+    PROCEDURE :: getInteger => RestartAttributeList_getInteger
+    PROCEDURE :: getLogical => RestartAttributeList_getLogical
+
+    PROCEDURE :: printAttributes => RestartAttributeList_printAttributes
+    PROCEDURE :: writeToFile => RestartAttributeList_writeToFile
+
+    PROCEDURE :: destruct => RestartAttributeList_destruct  ! override
+
+    !-------------------------------------------------------------------------------------------------------------------------------
+
+    PROCEDURE, PRIVATE :: setObject => RestartAttributeList_setObject
+    PROCEDURE, PRIVATE :: set => RestartAttributeList_set
+    PROCEDURE, PRIVATE :: getObject => RestartAttributeList_getObject
+    PROCEDURE, PRIVATE :: get => RestartAttributeList_get
+
+    PROCEDURE, PRIVATE :: readFromFile => RestartAttributeList_readFromFile
+  END TYPE t_RestartAttributeList
+
+  INTERFACE restartAttributeList_make
+    MODULE PROCEDURE restartAttributeList_makeEmpty
+    MODULE PROCEDURE restartAttributeList_makeFromFile
+  END INTERFACE restartAttributeList_make
 
   !------------------------------------------------------------------------------------------------
 
@@ -59,11 +87,41 @@ MODULE mo_io_restart_attributes
   END TYPE t_Logical
 
   TYPE(t_HashTable), SAVE, POINTER :: table
-  LOGICAL, SAVE :: initialized = .FALSE.
+
+  TYPE(t_RestartAttributeList), SAVE, POINTER :: gRestartAttributes
+  LOGICAL, SAVE :: gRestartAttributes_initialized = .FALSE.
 
   CHARACTER(LEN = *), PARAMETER :: modname = "mo_io_restart_attributes"
 
 CONTAINS
+
+  ! Sets the restart attribute list that IS to be used for restarting. Must NOT be set when we are NOT restarting.
+  SUBROUTINE setRestartAttributes(restartAttributes)
+    TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":setRestartAttributes"
+
+    IF(.NOT.isRestart()) CALL finish(routine, "setRestartAttributes() must only be called in a restarted run")
+    IF(gRestartAttributes_initialized) CALL finish(routine, "setRestartAttributes() called several times")
+    IF(.NOT.ASSOCIATED(restartAttributes)) CALL finish(routine, "argument to setRestartAttributes() must be an associated pointer")
+    gRestartAttributes => restartAttributes
+    gRestartAttributes_initialized = .TRUE.
+  END SUBROUTINE setRestartAttributes
+
+  ! Returns the restart attribute list that we are currently using to initialize the model. Returns NULL on non-restart runs.
+  FUNCTION getRestartAttributes() RESULT(RESULT)
+    TYPE(t_RestartAttributeList), POINTER :: RESULT
+
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":getRestartAttributes"
+
+    IF(isRestart()) THEN
+        IF(.NOT.gRestartAttributes_initialized) THEN
+            CALL finish(routine, "assertion failed: getRestartAttributes() called before restart attributes were read from file")
+        END IF
+        RESULT => gRestartAttributes
+    ELSE
+        RESULT => NULL()
+    END IF
+  END FUNCTION getRestartAttributes
 
   INTEGER(C_INT32_T) FUNCTION Text_hash(me) RESULT(RESULT)
     CLASS(t_Destructible), POINTER, INTENT(IN) :: me
@@ -137,21 +195,35 @@ CONTAINS
     CLASS(t_Logical), INTENT(INOUT) :: me
   END SUBROUTINE Logical_destruct
 
+  FUNCTION RestartAttributeList_makeEmpty() RESULT(RESULT)
+    TYPE(t_RestartAttributeList), POINTER :: RESULT
+
+    INTEGER :: error
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//':RestartAttributeList_makeEmpty'
+
+    ALLOCATE(RESULT, STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
+    RESULT%table => hashTable_make(Text_hash, Text_isEqual)
+  END FUNCTION RestartAttributeList_makeEmpty
+
+  FUNCTION RestartAttributeList_makeFromFile(vlistId, root_pe, comm) RESULT(RESULT)
+    INTEGER, VALUE :: vlistId, root_pe, comm
+    TYPE(t_RestartAttributeList), POINTER :: RESULT
+
+    RESULT => RestartAttributeList_makeEmpty()
+    CALL RESULT%readFromFile(vlistId, root_pe, comm)
+  END FUNCTION RestartAttributeList_makeFromFile
+
   ! This takes posession of the VALUE object!
-  SUBROUTINE RestartAttributes_setObject(key, VALUE)
+  SUBROUTINE RestartAttributeList_setObject(me, key, VALUE)
+    CLASS(t_RestartAttributeList), INTENT(INOUT) :: me
     CHARACTER(*), INTENT(IN) :: key
     CLASS(t_Destructible), POINTER, INTENT(INOUT) :: VALUE
 
     INTEGER :: error
     CLASS(t_Destructible), POINTER :: keyObject
     CLASS(*), POINTER :: keyObjectAlias !XXX: workaround for gcc compiler bug
-    CHARACTER(*), PARAMETER :: routine = modname//":RestartAttributes_setObject"
-
-    ! Makes sure that there IS a hash table.
-    IF(.NOT.initialized) THEN
-        table => hashTable_make(Text_hash, Text_isEqual)
-        initialized = .TRUE.
-    END IF
+    CHARACTER(*), PARAMETER :: routine = modname//":RestartAttributeList_setObject"
 
     ! Create a key object AND check whether this attribute has already been set.
     ALLOCATE(t_Text :: keyObject, STAT = error)
@@ -164,21 +236,14 @@ CONTAINS
         CLASS DEFAULT
             CALL finish(routine, "assertion failed")
     END SELECT
-    IF(ASSOCIATED(table%getEntry(keyObject))) CALL finish(routine, "double definition of restart attribute '"//key//"'")
+    IF(ASSOCIATED(me%table%getEntry(keyObject))) CALL finish(routine, "double definition of restart attribute '"//key//"'")
 
     ! Insert the key-VALUE pair into the hash table
-    CALL table%setEntry(keyObject, VALUE)
-  END SUBROUTINE RestartAttributes_setObject
+    CALL me%table%setEntry(keyObject, VALUE)
+  END SUBROUTINE RestartAttributeList_setObject
 
-  SUBROUTINE RestartAttributes_reset()
-    IF(initialized) THEN
-        CALL table%destruct()
-        DEALLOCATE(table)
-        initialized = .FALSE.
-    END IF
-  END SUBROUTINE RestartAttributes_reset
-
-  SUBROUTINE RestartAttributes_set(key, opt_text, opt_real, opt_integer, opt_logical)
+  SUBROUTINE RestartAttributeList_set(me, key, opt_text, opt_real, opt_integer, opt_logical)
+    CLASS(t_RestartAttributeList), INTENT(INOUT) :: me
     CHARACTER(*), INTENT(IN) :: key
     CHARACTER(*), INTENT(IN), OPTIONAL :: opt_text
     REAL(KIND = wp), INTENT(IN), OPTIONAL :: opt_real
@@ -188,7 +253,7 @@ CONTAINS
     INTEGER :: error
     CLASS(t_Destructible), POINTER :: valueObject
     CLASS(*), POINTER :: valueObjectAlias   !XXX: workaround for gcc compiler bug
-    CHARACTER(*), PARAMETER :: routine = modname//":RestartAttributes_set"
+    CHARACTER(*), PARAMETER :: routine = modname//":RestartAttributeList_set"
 
     IF(PRESENT(opt_text)) THEN
         ALLOCATE(t_Text :: valueObject, STAT = error)
@@ -222,20 +287,20 @@ CONTAINS
             valueObject => valueObjectAlias !Noop, but necessary to stop compilers from calling me%setObject() before performing the text assignment
     END SELECT
 
-    CALL RestartAttributes_setObject(key, valueObject)
-  END SUBROUTINE RestartAttributes_set
+    CALL me%setObject(key, valueObject)
+  END SUBROUTINE RestartAttributeList_set
 
-  FUNCTION RestartAttributes_getObject(key) RESULT(RESULT)
+  FUNCTION RestartAttributeList_getObject(me, key) RESULT(RESULT)
+    CLASS(t_RestartAttributeList), INTENT(IN) :: me
     CHARACTER(*), INTENT(IN) :: key
     CLASS(t_Destructible), POINTER :: RESULT
 
     INTEGER :: error
     CLASS(t_Destructible), POINTER :: keyObject
     CLASS(*), POINTER :: keyObjectAlias  !XXX: workaround for gcc compiler bug
-    CHARACTER(*), PARAMETER :: routine = modname//":RestartAttributes_getObject"
+    CHARACTER(*), PARAMETER :: routine = modname//":RestartAttributeList_getObject"
 
     RESULT => NULL()
-    IF(.NOT.initialized) RETURN
 
     ALLOCATE(t_Text :: keyObject, STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
@@ -248,12 +313,13 @@ CONTAINS
         CLASS DEFAULT
             CALL finish(routine, "assertion failed")
     END SELECT
-    RESULT => table%getEntry(keyObject)
+    RESULT => me%table%getEntry(keyObject)
     CALL keyObject%destruct()
     DEALLOCATE(keyObject)
-  END FUNCTION RestartAttributes_getObject
+  END FUNCTION RestartAttributeList_getObject
 
-  LOGICAL FUNCTION RestartAttributes_get(key, opt_text, opt_real, opt_integer, opt_logical) RESULT(RESULT)
+  LOGICAL FUNCTION RestartAttributeList_get(me, key, opt_text, opt_real, opt_integer, opt_logical) RESULT(RESULT)
+    CLASS(t_RestartAttributeList), INTENT(IN) :: me
     CHARACTER(*), INTENT(IN) :: key
     CHARACTER(:), INTENT(OUT), ALLOCATABLE, OPTIONAL :: opt_text
     REAL(KIND = wp), INTENT(OUT), OPTIONAL :: opt_real
@@ -261,10 +327,10 @@ CONTAINS
     LOGICAL, INTENT(OUT), OPTIONAL :: opt_logical
 
     CLASS(*), POINTER :: valueObject
-    CHARACTER(*), PARAMETER :: routine = modname//"RestartAttributes_get"
+    CHARACTER(*), PARAMETER :: routine = modname//"RestartAttributeList_get"
 
     RESULT = .FALSE.
-    valueObject => RestartAttributes_getObject(key)
+    valueObject => me%getObject(key)
     IF(.NOT.ASSOCIATED(valueObject)) RETURN
     RESULT = .TRUE.
 
@@ -288,78 +354,87 @@ CONTAINS
         CLASS DEFAULT
             CALL finish(routine, "assertion failed")
     END SELECT
-  END FUNCTION RestartAttributes_get
+  END FUNCTION RestartAttributeList_get
 
 
 
-  SUBROUTINE RestartAttributes_setText(key, VALUE)
+  SUBROUTINE RestartAttributeList_setText(me, key, VALUE)
+    CLASS(t_RestartAttributeList), INTENT(INOUT) :: me
     CHARACTER(*), INTENT(IN) :: key, VALUE
-    CALL RestartAttributes_set(key, opt_text = VALUE)
-  END SUBROUTINE RestartAttributes_setText
+    CALL me%set(key, opt_text = VALUE)
+  END SUBROUTINE RestartAttributeList_setText
 
-  SUBROUTINE RestartAttributes_setReal(key, VALUE)
+  SUBROUTINE RestartAttributeList_setReal(me, key, VALUE)
+    CLASS(t_RestartAttributeList), INTENT(INOUT) :: me
     CHARACTER(*), INTENT(IN) :: key
     REAL(KIND = wp), VALUE :: VALUE
-    CALL RestartAttributes_set(key, opt_real = VALUE)
-  END SUBROUTINE RestartAttributes_setReal
+    CALL me%set(key, opt_real = VALUE)
+  END SUBROUTINE RestartAttributeList_setReal
 
-  SUBROUTINE RestartAttributes_setInteger(key, VALUE)
+  SUBROUTINE RestartAttributeList_setInteger(me, key, VALUE)
+    CLASS(t_RestartAttributeList), INTENT(INOUT) :: me
     CHARACTER(*), INTENT(IN) :: key
     INTEGER(KIND = C_INT), VALUE :: VALUE
-    CALL RestartAttributes_set(key, opt_integer = VALUE)
-  END SUBROUTINE RestartAttributes_setInteger
+    CALL me%set(key, opt_integer = VALUE)
+  END SUBROUTINE RestartAttributeList_setInteger
 
-  SUBROUTINE RestartAttributes_setLogical(key, VALUE)
+  SUBROUTINE RestartAttributeList_setLogical(me, key, VALUE)
+    CLASS(t_RestartAttributeList), INTENT(INOUT) :: me
     CHARACTER(*), INTENT(IN) :: key
     LOGICAL, VALUE :: VALUE
-    CALL RestartAttributes_set(key, opt_logical = VALUE)
-  END SUBROUTINE RestartAttributes_setLogical
+    CALL me%set(key, opt_logical = VALUE)
+  END SUBROUTINE RestartAttributeList_setLogical
 
 
 
-  FUNCTION RestartAttributes_getText(key) RESULT(RESULT)
+  FUNCTION RestartAttributeList_getText(me, key) RESULT(RESULT)
+    CLASS(t_RestartAttributeList), INTENT(IN) :: me
     CHARACTER(*), INTENT(IN) :: key
     CHARACTER(:), ALLOCATABLE :: RESULT
-    CHARACTER(*), PARAMETER :: routine = ":RestartAttributes_getText"
-    IF(.NOT.RestartAttributes_get(key, opt_text = RESULT)) CALL finish(routine, "restart attribute '"//key//"' not found")
-  END FUNCTION RestartAttributes_getText
+    CHARACTER(*), PARAMETER :: routine = ":RestartAttributeList_getText"
+    IF(.NOT.me%get(key, opt_text = RESULT)) CALL finish(routine, "restart attribute '"//key//"' not found")
+  END FUNCTION RestartAttributeList_getText
 
-  FUNCTION RestartAttributes_getReal(key) RESULT(RESULT)
+  FUNCTION RestartAttributeList_getReal(me, key) RESULT(RESULT)
+    CLASS(t_RestartAttributeList), INTENT(IN) :: me
     CHARACTER(*), INTENT(IN) :: key
     REAL(KIND = wp) :: RESULT
-    CHARACTER(*), PARAMETER :: routine = ":RestartAttributes_getReal"
-    IF(.NOT.RestartAttributes_get(key, opt_real = RESULT)) CALL finish(routine, "restart attribute '"//key//"' not found")
-  END FUNCTION RestartAttributes_getReal
+    CHARACTER(*), PARAMETER :: routine = ":RestartAttributeList_getReal"
+    IF(.NOT.me%get(key, opt_real = RESULT)) CALL finish(routine, "restart attribute '"//key//"' not found")
+  END FUNCTION RestartAttributeList_getReal
 
-  FUNCTION RestartAttributes_getInteger(key, opt_default) RESULT(RESULT)
+  FUNCTION RestartAttributeList_getInteger(me, key, opt_default) RESULT(RESULT)
+    CLASS(t_RestartAttributeList), INTENT(IN) :: me
     CHARACTER(*), INTENT(IN) :: key
     INTEGER, OPTIONAL, INTENT(IN) :: opt_default
     INTEGER(KIND = C_INT) :: RESULT
-    CHARACTER(*), PARAMETER :: routine = ":RestartAttributes_getInteger"
-    IF(.NOT.RestartAttributes_get(key, opt_integer = RESULT)) THEN
+    CHARACTER(*), PARAMETER :: routine = ":RestartAttributeList_getInteger"
+    IF(.NOT.me%get(key, opt_integer = RESULT)) THEN
         IF(.NOT.PRESENT(opt_default)) CALL finish(routine, "restart attribute '"//key//"' not found")
         RESULT = opt_default
     END IF
-  END FUNCTION RestartAttributes_getInteger
+  END FUNCTION RestartAttributeList_getInteger
 
-  FUNCTION RestartAttributes_getLogical(key) RESULT(RESULT)
+  FUNCTION RestartAttributeList_getLogical(me, key) RESULT(RESULT)
+    CLASS(t_RestartAttributeList), INTENT(IN) :: me
     CHARACTER(*), INTENT(IN) :: key
     LOGICAL :: RESULT
-    CHARACTER(*), PARAMETER :: routine = ":RestartAttributes_getLogical"
-    IF(.NOT.RestartAttributes_get(key, opt_logical = RESULT)) CALL finish(routine, "restart attribute '"//key//"' not found")
-  END FUNCTION RestartAttributes_getLogical
+    CHARACTER(*), PARAMETER :: routine = ":RestartAttributeList_getLogical"
+    IF(.NOT.me%get(key, opt_logical = RESULT)) CALL finish(routine, "restart attribute '"//key//"' not found")
+  END FUNCTION RestartAttributeList_getLogical
 
 
 
   ! Noncollective CALL, should ONLY be called by std_io process
-  SUBROUTINE RestartAttributes_printAttributes()
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":RestartAttributes_printAttributes"
+  SUBROUTINE RestartAttributeList_printAttributes(me)
+    CLASS(t_RestartAttributeList), INTENT(INOUT) :: me
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":RestartAttributeList_printAttributes"
     TYPE(t_HashIterator) :: iterator
     CLASS(t_Destructible), POINTER :: curKey, curValue
     CLASS(*), POINTER :: curKeyAlias, curValueAlias   !XXX: workaround for gcc compiler bug
 
     WRITE(0, *) "list of restart attributes:"
-    CALL iterator%init(table)
+    CALL iterator%init(me%table)
     DO
         IF(.NOT.iterator%nextEntry(curKey, curValue)) EXIT
 
@@ -388,20 +463,21 @@ CONTAINS
                 CALL finish(routine, "assertion failed")
         END SELECT
     END DO
-  END SUBROUTINE RestartAttributes_printAttributes
+  END SUBROUTINE RestartAttributeList_printAttributes
 
   ! Noncollective CALL, should ONLY be called by the process that really does the writing.
-  SUBROUTINE RestartAttributes_writeToFile(vlistId)
+  SUBROUTINE RestartAttributeList_writeToFile(me, vlistId)
+    CLASS(t_RestartAttributeList), INTENT(INOUT) :: me
     INTEGER, VALUE :: vlistId
 
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":RestartAttributes_writeToFile"
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":RestartAttributeList_writeToFile"
     INTEGER :: error
     TYPE(t_HashIterator) :: iterator
     CLASS(t_Destructible), POINTER :: curKey, curValue
     CLASS(*), POINTER :: curKeyAlias, curValueAlias   !XXX: workaround for gcc compiler bug
     CHARACTER(LEN = :), POINTER :: textAlias    !XXX: workaround for gcc compiler bug
 
-    CALL iterator%init(table)
+    CALL iterator%init(me%table)
     DO
         IF(.NOT.iterator%nextEntry(curKey, curValue)) EXIT
 
@@ -432,20 +508,20 @@ CONTAINS
                 CALL finish(routine, "assertion failed")
         END SELECT
     END DO
-  END SUBROUTINE RestartAttributes_writeToFile
+  END SUBROUTINE RestartAttributeList_writeToFile
 
   ! Collective CALL: Reads AND broadcasts the restart attributes to all processes.
-  SUBROUTINE RestartAttributes_readFromFile(vlistId, root_pe, comm)
+  ! TODO[NH]: Fuse into makeFromFile() to guarantee that we start with an empty AttributeList.
+  SUBROUTINE RestartAttributeList_readFromFile(me, vlistId, root_pe, comm)
+    CLASS(t_RestartAttributeList), INTENT(INOUT) :: me
     INTEGER, VALUE :: vlistId, root_pe, comm
 
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":RestartAttributes_readFromFile"
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":RestartAttributeList_readFromFile"
     CHARACTER(LEN = 256) :: attributeName, text
     INTEGER :: attributeCount, attributeType, attributeLength, error, i
     REAL(KIND = C_DOUBLE) :: oneDouble(1)
     INTEGER(KIND = C_INT) :: oneInt(1)
     LOGICAL :: lread_pe     !< .TRUE., if current PE has opened the file for reading
-
-    CALL RestartAttributes_reset()
 
     lread_pe = p_comm_rank(comm) == root_pe
     IF (lread_pe) THEN
@@ -470,7 +546,7 @@ CONTAINS
                     IF(error /= SUCCESS) CALL finish(routine, "error while reading restart attribute '"//TRIM(attributeName)//"'")
                 END IF
                 CALL p_bcast(oneDouble(1), root_pe, comm)
-                CALL RestartAttributes_setReal(TRIM(attributeName), oneDouble(1))
+                CALL me%setReal(TRIM(attributeName), oneDouble(1))
             CASE(DATATYPE_INT32)
                 IF (lread_pe) THEN
                     error = vlistInqAttInt(vlistID, CDI_GLOBAL, TRIM(attributeName), 1, oneInt)
@@ -478,9 +554,9 @@ CONTAINS
                 END IF
                 CALL p_bcast(oneInt(1), root_pe, comm)
                 IF (attributeName(1:5) == 'bool_') THEN
-                    CALL RestartAttributes_setLogical(TRIM(attributeName(6:)), oneInt(1) /= 0)
+                    CALL me%setLogical(TRIM(attributeName(6:)), oneInt(1) /= 0)
                 ELSE
-                    CALL RestartAttributes_setInteger(TRIM(attributeName), oneInt(1))
+                    CALL me%setInteger(TRIM(attributeName), oneInt(1))
                 ENDIF
             CASE(DATATYPE_TXT)
                 text = ''   !This is required because vlistInqAttTxt() seems not to output a properly zero terminated string in all cases.
@@ -489,9 +565,16 @@ CONTAINS
                     IF(error /= SUCCESS) CALL finish(routine, "error while reading restart attribute '"//TRIM(attributeName)//"'")
                 END IF
                 CALL p_bcast(text, root_pe, comm)
-                CALL RestartAttributes_setText(TRIM(attributeName), TRIM(text))
+                CALL me%setText(TRIM(attributeName), TRIM(text))
         END SELECT
     ENDDO
-  END SUBROUTINE RestartAttributes_readFromFile
+  END SUBROUTINE RestartAttributeList_readFromFile
+
+  SUBROUTINE RestartAttributeList_destruct(me)
+    CLASS(t_RestartAttributeList), INTENT(INOUT) :: me
+
+    CALL me%table%destruct()
+    DEALLOCATE(me%table)
+  END SUBROUTINE RestartAttributeList_destruct
 
 END MODULE mo_io_restart_attributes
