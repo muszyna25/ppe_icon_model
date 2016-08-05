@@ -27,6 +27,9 @@ MODULE mo_io_restart_attributes
   PUBLIC :: t_RestartAttributeList, restartAttributeList_make
   PUBLIC :: setRestartAttributes, getRestartAttributes
 
+  ! This IS basically a key/VALUE store that can handle text, REAL, INTEGER, AND LOGICAL values.
+  ! The ONLY restart connected part about it IS, that it's also able to dump itself into the global attributes of a NetCDF file,
+  ! AND to recreate a t_RestartAttributeList from that file, ignoring namelist attributes that may also be PRESENT IN the NetCDF file.
   TYPE, EXTENDS(t_Destructible) :: t_RestartAttributeList
     TYPE(t_HashTable), POINTER :: table
 

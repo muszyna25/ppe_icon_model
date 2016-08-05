@@ -27,6 +27,37 @@ MODULE mo_packed_message
     PUBLIC :: t_PackedMessage
     INTEGER, PARAMETER, PUBLIC :: kPackOp = 0, kUnpackOp = 1
 
+    ! A t_PackedMessage IS used to bundle a number of different values together into a single message, that can be communicated via a single CALL.
+    ! It IS possible to have ANY number of communication steps between the packing AND unpacking, including zero (a PE unpacks its own DATA),
+    ! AND two (a PE recieves a packed message AND passes it on, possibly via a different communicator).
+    !
+    ! If NOMPI IS defined, the communication routines are simply noops, the packing/unpacking still works as expected.
+    !
+    ! As an added bonus, this provides packerXXX() routines IN addition to the packXXX() AND unpackXXX() routines, which allow folding the packing AND unpacking
+    ! into the same code. Ie., instead of writing a routine containing
+    !
+    !   message%pack(foo)
+    !   message%pack(bar)
+    !   message%pack(baz)
+    !
+    ! AND a second routine containing
+    !
+    !   message%unpack(foo)
+    !   message%unpack(baz) !Error: messed up sequence!
+    !   message%unpack(bar) !Error: messed up sequence!
+    !
+    ! you can WRITE a single routine containing
+    !
+    !   message%packer(operation, foo)
+    !   message%packer(operation, baz)
+    !   message%packer(operation, bar)
+    !
+    ! knowing that it will be simply impossible to mix up the sequence when setting operation to kUnpackOp to unpack the message.
+    !
+    !
+    !
+    ! XXX: This originated as a wrapper around MPI_Pack() AND friends that IS able to manage the buffer that's used to hold the packed message.
+    ! However, it turned OUT to be more sensible to DO the packing ourselves: We need to be able to pack/unpack even when NOMPI IS defined.
     TYPE :: t_PackedMessage
         INTEGER messageSize, readPosition
         CHARACTER, POINTER :: messageBuffer(:)

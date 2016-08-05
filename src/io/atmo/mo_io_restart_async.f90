@@ -160,6 +160,15 @@ MODULE mo_io_restart_async
     TYPE(t_restart_file) :: restart_file
   END TYPE t_patch_data
 
+  ! This IS the actual INTERFACE to the restart writing code (apart from the restart_main_proc PROCEDURE). Its USE IS as follows:
+  !
+  ! First, AND ONLY once during a run, a t_restart_descriptor IS constructed.
+  !
+  ! Then, for each restart that IS to be written, the updatePatch() method IS used to set the current time dependend information for each patch.
+  ! Once all patches are updated, a single CALL to writeRestart() triggers the actual restart writing.
+  ! The updatePatch() - writeRestart() sequence can be repeated ANY number of times.
+  !
+  ! Finally, destruct() must be called to signal the restart PEs to finish their work, AND to wait for them to stop.
   TYPE t_restart_descriptor
     TYPE(t_patch_data), ALLOCATABLE :: patch_data(:)
   CONTAINS
