@@ -620,8 +620,7 @@ MODULE mo_nh_stepping
   datetime_old = datetime_current
 
   IF (use_async_restart_output) THEN
-    CALL prepare_async_restart(opt_t_elapsed_phy_size = SIZE(t_elapsed_phy, 2), &
-         &                     opt_lcall_phy_size     = SIZE(lcall_phy, 2))
+    CALL prepare_async_restart()
   ENDIF
 
   jstep0 = 0

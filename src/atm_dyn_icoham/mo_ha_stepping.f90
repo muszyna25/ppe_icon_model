@@ -235,7 +235,7 @@ CONTAINS
   IF (ltimer) CALL timer_start(timer_total)
 
   IF (use_async_restart_output) THEN
-    CALL prepare_async_restart(opt_pvct_size = SIZE(vct))
+    CALL prepare_async_restart()
   ENDIF
 
   jstep0 = 0
