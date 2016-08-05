@@ -423,7 +423,6 @@ CONTAINS
     INTEGER,              INTENT(IN), OPTIONAL :: opt_ndom            !< no. of domains (appended to symlink name)
 
     TYPE(t_patch_data),   POINTER  :: p_pd
-    TYPE(t_restart_args), POINTER  :: p_ra
     INTEGER                        :: ierrstat, i
     CHARACTER(LEN=*), PARAMETER    :: subname = MODUL_NAME//'set_data_async_restart'
 
@@ -437,7 +436,6 @@ CONTAINS
 
     IF(.NOT. (my_process_is_work())) RETURN
 
-    p_ra => restart_args
     ! find patch
     p_pd => find_patch(patch_id, subname)
 
@@ -454,14 +452,14 @@ CONTAINS
       ! ----------------------------------------------------------------
 
       IF (patch_id == 1) THEN
-        p_ra%n_opt_output_file = 0
+        restart_args%n_opt_output_file = 0
         IF (PRESENT(opt_output_jfile)) THEN
-          p_ra%n_opt_output_file = SIZE(opt_output_jfile)
-          IF (.NOT. ALLOCATED(p_ra%opt_output_jfile)) THEN
-            ALLOCATE(p_ra%opt_output_jfile(p_ra%n_opt_output_file), STAT=ierrstat)
+          restart_args%n_opt_output_file = SIZE(opt_output_jfile)
+          IF (.NOT. ALLOCATED(restart_args%opt_output_jfile)) THEN
+            ALLOCATE(restart_args%opt_output_jfile(restart_args%n_opt_output_file), STAT=ierrstat)
             IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
           ENDIF
-          p_ra%opt_output_jfile(:) = opt_output_jfile(:)
+          restart_args%opt_output_jfile(:) = opt_output_jfile(:)
         ENDIF
 
       END IF
@@ -677,7 +675,6 @@ CONTAINS
   !! Please note that this routine never returns.
   SUBROUTINE restart_main_proc
 
-    TYPE(t_restart_args), POINTER :: p_ra
     LOGICAL                       :: done
 
     CHARACTER(LEN=*), PARAMETER :: subname = MODUL_NAME//'restart_main_proc'
@@ -701,7 +698,6 @@ CONTAINS
 
     ! enter restart loop
     done = .FALSE.
-    p_ra => restart_args
     DO
       ! wait for a message from the compute PEs to start
       CALL restart_wait_for_start(done)
@@ -709,8 +705,8 @@ CONTAINS
       IF(done) EXIT ! leave loop, we are done
 
       ! read and write restart variable lists (collective call)
-      CALL write_async_restart (p_ra%datetime,    &
-                              & p_ra%jstep)
+      CALL write_async_restart (restart_args%datetime,    &
+                              & restart_args%jstep)
 
       ! inform compute PEs that the restart is done
       CALL restart_send_ready
@@ -783,7 +779,6 @@ CONTAINS
     LOGICAL, INTENT(OUT)           :: done ! flag if we should shut down
 
     TYPE(t_patch_data), POINTER    :: p_pd
-    TYPE(t_restart_args), POINTER  :: p_ra
     INTEGER                        :: i, j, k, ierrstat, position, MAX_BUF_SIZE, &
       &                               iheader, this_patch, calday
     CHARACTER, POINTER             :: p_msg(:)
@@ -820,27 +815,26 @@ CONTAINS
         done = .FALSE.
 
         ! get patch independent arguments
-        p_ra => restart_args
-        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_ra%datetime%year,    p_comm_work)
-        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_ra%datetime%month,   p_comm_work)
-        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_ra%datetime%day,     p_comm_work)
-        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_ra%datetime%hour,    p_comm_work)
-        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_ra%datetime%minute,  p_comm_work)
-        CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, p_ra%datetime%second,  p_comm_work)
-        CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, p_ra%datetime%caltime, p_comm_work)
+        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, restart_args%datetime%year,    p_comm_work)
+        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, restart_args%datetime%month,   p_comm_work)
+        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, restart_args%datetime%day,     p_comm_work)
+        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, restart_args%datetime%hour,    p_comm_work)
+        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, restart_args%datetime%minute,  p_comm_work)
+        CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, restart_args%datetime%second,  p_comm_work)
+        CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, restart_args%datetime%caltime, p_comm_work)
         CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, calday,                p_comm_work)
-        p_ra%datetime%calday = INT(calday,i8)
-        CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, p_ra%datetime%daysec,  p_comm_work)
-        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_ra%jstep,            p_comm_work)
+        restart_args%datetime%calday = INT(calday,i8)
+        CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, restart_args%datetime%daysec,  p_comm_work)
+        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, restart_args%jstep,            p_comm_work)
 
-        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_ra%n_opt_output_file, p_comm_work)
-        IF (p_ra%n_opt_output_file > 0) THEN
-          IF (.NOT. ALLOCATED(p_ra%opt_output_jfile)) THEN
-            ALLOCATE(p_ra%opt_output_jfile(p_ra%n_opt_output_file), STAT=ierrstat)
+        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, restart_args%n_opt_output_file, p_comm_work)
+        IF (restart_args%n_opt_output_file > 0) THEN
+          IF (.NOT. ALLOCATED(restart_args%opt_output_jfile)) THEN
+            ALLOCATE(restart_args%opt_output_jfile(restart_args%n_opt_output_file), STAT=ierrstat)
             IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
           ENDIF
-          DO i=1,p_ra%n_opt_output_file
-            CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_ra%opt_output_jfile(i), p_comm_work)
+          DO i=1,restart_args%n_opt_output_file
+            CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, restart_args%opt_output_jfile(i), p_comm_work)
           END DO
         END IF
 
@@ -977,7 +971,6 @@ CONTAINS
     INTEGER,          INTENT(IN)  :: jstep
 
     TYPE(t_patch_data),   POINTER  :: p_pd
-    TYPE(t_restart_args), POINTER  :: p_ra
     CHARACTER, POINTER             :: p_msg(:)
     INTEGER                        :: i, j, k, position, MAX_BUF_SIZE
     CHARACTER(LEN=*), PARAMETER :: subname = MODUL_NAME//'compute_start_restart'
@@ -989,8 +982,6 @@ CONTAINS
 
     ! make sure all are here
     CALL p_barrier(comm=p_comm_work)
-
-    p_ra => restart_args
 
     ! if processor splitting is applied, the time-dependent data need to be transferred
     ! from the subset master PE to PE0, from where they are communicated to the output PE(s)
@@ -1056,10 +1047,10 @@ CONTAINS
       CALL p_pack_real(datetime%daysec,          p_msg, MAX_BUF_SIZE, position, p_comm_work)
       CALL p_pack_int( jstep,                    p_msg, MAX_BUF_SIZE, position, p_comm_work)
 
-      CALL p_pack_int( p_ra%n_opt_output_file,   p_msg, MAX_BUF_SIZE, position, p_comm_work)
-      IF (p_ra%n_opt_output_file > 0) THEN
-        DO i=1,p_ra%n_opt_output_file
-          CALL p_pack_int( p_ra%opt_output_jfile(i),  p_msg, MAX_BUF_SIZE, position, p_comm_work)
+      CALL p_pack_int( restart_args%n_opt_output_file,   p_msg, MAX_BUF_SIZE, position, p_comm_work)
+      IF (restart_args%n_opt_output_file > 0) THEN
+        DO i=1,restart_args%n_opt_output_file
+          CALL p_pack_int( restart_args%opt_output_jfile(i),  p_msg, MAX_BUF_SIZE, position, p_comm_work)
         END DO
       END IF
 
@@ -1377,15 +1368,13 @@ CONTAINS
 
 #ifdef DEBUG
     CHARACTER(LEN=*), PARAMETER   :: subname = MODUL_NAME//'print_restart_arguments'
-    TYPE(t_restart_args), POINTER :: p_ra
     TYPE(t_patch_data), POINTER   :: p_pd
 
     WRITE (nerr,FORMAT_VALS3)subname,' is called for p_pe=',p_pe
 
-    p_ra => restart_args
-    PRINT *,subname, ' current_caltime=', p_ra%datetime%caltime
-    PRINT *,subname, ' current_calday=',  p_ra%datetime%calday
-    PRINT *,subname, ' current_daysec=',  p_ra%datetime%daysec
+    PRINT *,subname, ' current_caltime=', restart_args%datetime%caltime
+    PRINT *,subname, ' current_calday=',  restart_args%datetime%calday
+    PRINT *,subname, ' current_daysec=',  restart_args%datetime%daysec
 
     ! patch informations
     PRINT *,subname, ' size of patches=',        SIZE(patch_data)
@@ -1602,6 +1591,7 @@ CONTAINS
   !
   ! Transfers the restart name lists from the worker to the restart PEs.
   !
+  !TODO[NH]: remove fixed limit from list_text
   SUBROUTINE transfer_restart_name_lists
     INTEGER                           :: iv, nv
     CHARACTER(LEN=MAX_NAME_LENGTH)    :: list_name
@@ -2193,7 +2183,6 @@ CONTAINS
     TYPE(t_patch_data), POINTER, INTENT(INOUT) :: p_pd
     TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
 
-    TYPE(t_restart_args),  POINTER :: p_ra
     CHARACTER(LEN=MAX_NAME_LENGTH) :: attrib_name
     INTEGER                        :: jp, jp_end, jg, nlev_soil, &
       &                               nlev_snow, nlev_ocean, nice_class, ierrstat, &
@@ -2219,12 +2208,11 @@ CONTAINS
     CALL restartAttributes%setText('comment',     TRIM(cf_global_info%comment))
 
     ! set restart time
-    p_ra => restart_args
-    CALL restartAttributes%setReal('current_caltime', p_ra%datetime%caltime)
-    CALL restartAttributes%setInteger('current_calday' , INT(p_ra%datetime%calday))   !FIXME: Either it IS a bug that calday IS a 64bit INTEGER, OR it IS a bug that ONLY 32 bits of it are stored IN the restart file. Either way it needs to be fixed.
-    CALL restartAttributes%setReal('current_daysec' , p_ra%datetime%daysec)
+    CALL restartAttributes%setReal('current_caltime', restart_args%datetime%caltime)
+    CALL restartAttributes%setInteger('current_calday' , INT(restart_args%datetime%calday))   !FIXME: Either it IS a bug that calday IS a 64bit INTEGER, OR it IS a bug that ONLY 32 bits of it are stored IN the restart file. Either way it needs to be fixed.
+    CALL restartAttributes%setReal('current_daysec' , restart_args%datetime%daysec)
 
-    CALL restartAttributes%setText('tc_startdate', iso8601extended(p_ra%datetime))
+    CALL restartAttributes%setText('tc_startdate', iso8601extended(restart_args%datetime))
 
     ! set no. of domains
     IF (p_pd%l_opt_ndom) THEN
@@ -2234,7 +2222,7 @@ CONTAINS
     END IF
 
     ! set simulation step
-    CALL restartAttributes%setInteger( 'jstep', p_ra%jstep )
+    CALL restartAttributes%setInteger( 'jstep', restart_args%jstep )
 
     ! set time levels
     jg = p_pd%id
@@ -2332,9 +2320,9 @@ CONTAINS
     CALL set_vertical_grid_def(p_pd%v_grid_defs(18), ZA_DEPTH_RUNOFF_S      , 1            )
     CALL set_vertical_grid_def(p_pd%v_grid_defs(19), ZA_DEPTH_RUNOFF_G      , 1            )
 
-    IF (p_ra%n_opt_output_file > 0) THEN
-      DO i=1,p_ra%n_opt_output_file
-        current_jfile = p_ra%opt_output_jfile(i)
+    IF (restart_args%n_opt_output_file > 0) THEN
+      DO i=1,restart_args%n_opt_output_file
+        current_jfile = restart_args%opt_output_jfile(i)
         WRITE(attname,'(a,i2.2)') 'output_jfile_',i
         CALL restartAttributes%setInteger( TRIM(attname), current_jfile )
       END DO
