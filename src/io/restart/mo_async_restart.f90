@@ -113,7 +113,6 @@ MODULE mo_async_restart
     CHARACTER(:), ALLOCATABLE :: modelType
   CONTAINS
     PROCEDURE :: construct => asyncRestartDescriptor_construct  ! override
-    PROCEDURE :: updatePatch => asyncRestartDescriptor_updatePatch  ! override
     PROCEDURE :: writeRestart => asyncRestartDescriptor_writeRestart    ! override
     PROCEDURE :: destruct => asyncRestartDescriptor_destruct    ! override
 
@@ -224,31 +223,6 @@ CONTAINS
   !
   !> Set patch-dependent dynamic data for asynchronous restart.
   !
-  SUBROUTINE asyncRestartDescriptor_updatePatch(me, patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &
-                                          &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth_lnd, &
-                                          &opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels, &
-                                          &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces)
-    CLASS(t_AsyncRestartDescriptor), INTENT(INOUT) :: me
-    TYPE(t_patch), INTENT(IN) :: patch
-    INTEGER, INTENT(IN), OPTIONAL :: opt_depth_lnd, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, &
-                                   & opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels
-    REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time, opt_pvct(:), opt_t_elapsed_phy(:), opt_ocean_zheight_cellMiddle(:), &
-                                    & opt_ocean_zheight_cellInterfaces(:)
-    LOGICAL, INTENT(IN), OPTIONAL :: opt_lcall_phy(:)
-
-    INTEGER :: jg
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":asyncRestartDescriptor_updatePatch"
-
-    IF(.NOT.my_process_is_work()) CALL finish(routine, "assertion failed")
-    jg = patch%id
-    IF(jg < 1 .OR. jg > SIZE(me%patchData)) CALL finish(routine, "assertion failed: patch id IS OUT of range")
-    IF(me%patchData(jg)%description%id /= jg) CALL finish(routine, "assertion failed: patch id doesn't match its array index")
-    CALL me%patchData(jg)%description%update(patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &
-                                             &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth_lnd, &
-                                             &opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels, &
-                                             &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces)
-  END SUBROUTINE asyncRestartDescriptor_updatePatch
-
   !------------------------------------------------------------------------------------------------
   !
   !> Writes all restart data into one or more files (one file per patch, collective across work processes).

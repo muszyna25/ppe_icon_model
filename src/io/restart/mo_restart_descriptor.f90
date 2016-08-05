@@ -11,9 +11,11 @@
 
 MODULE mo_restart_descriptor
     USE mo_datetime, ONLY: t_datetime
+    USE mo_exception, ONLY: finish
     USE mo_fortran_tools, ONLY: t_Destructible
     USE mo_kind, ONLY: wp
     USE mo_model_domain, ONLY: t_patch
+    USE mo_mpi, ONLY: my_process_is_work
     USE mo_restart_patch_description, ONLY: t_restart_patch_description
     USE mo_restart_var_data, ONLY: t_RestartVarData, createRestartVarData
 
@@ -50,7 +52,7 @@ MODULE mo_restart_descriptor
         CLASS(t_RestartPatchData), POINTER :: patchData(:)   ! must be ALLOCATED IN the subclass constructor
     CONTAINS
         PROCEDURE(restartDescriptor_construct), DEFERRED :: construct
-        PROCEDURE(restartDescriptor_updatePatch), DEFERRED :: updatePatch
+        PROCEDURE :: updatePatch => restartDescriptor_updatePatch
         PROCEDURE(restartDescriptor_writeRestart), DEFERRED :: writeRestart
     END TYPE t_RestartDescriptor
 
@@ -63,21 +65,6 @@ MODULE mo_restart_descriptor
             CHARACTER(LEN = *), INTENT(IN) :: modelType
         END SUBROUTINE restartDescriptor_construct
 
-        ! Update the internal description of the given patch. This should be called once for every patch before every CALL to writeRestart().
-        SUBROUTINE restartDescriptor_updatePatch(me, patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &
-                                                &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth_lnd, &
-                                                &opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels, &
-                                                &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces)
-            IMPORT t_RestartDescriptor, t_patch, wp
-            CLASS(t_RestartDescriptor), INTENT(INOUT) :: me
-            TYPE(t_patch), INTENT(IN) :: patch
-            INTEGER, INTENT(IN), OPTIONAL :: opt_depth_lnd, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, &
-                                           & opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels
-            REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time, opt_pvct(:), opt_t_elapsed_phy(:), opt_ocean_zheight_cellMiddle(:), &
-                                           & opt_ocean_zheight_cellInterfaces(:)
-            LOGICAL, INTENT(IN), OPTIONAL :: opt_lcall_phy(:)
-        END SUBROUTINE restartDescriptor_updatePatch
-
         ! Actually WRITE a restart.
         SUBROUTINE restartDescriptor_writeRestart(me, datetime, jstep, opt_output_jfile)
             IMPORT t_RestartDescriptor, t_datetime
@@ -89,7 +76,35 @@ MODULE mo_restart_descriptor
 
     END INTERFACE
 
+    CHARACTER(*), PARAMETER :: modname = "mo_restart_descriptor"
+
 CONTAINS
+
+    ! Update the internal description of the given patch. This should be called once for every patch before every CALL to writeRestart().
+    SUBROUTINE restartDescriptor_updatePatch(me, patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &
+                                            &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth_lnd, &
+                                            &opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels, &
+                                            &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces)
+        CLASS(t_RestartDescriptor), INTENT(INOUT) :: me
+        TYPE(t_patch), INTENT(IN) :: patch
+        INTEGER, INTENT(IN), OPTIONAL :: opt_depth_lnd, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, &
+                                       & opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels
+        REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time, opt_pvct(:), opt_t_elapsed_phy(:), opt_ocean_zheight_cellMiddle(:), &
+                                       & opt_ocean_zheight_cellInterfaces(:)
+        LOGICAL, INTENT(IN), OPTIONAL :: opt_lcall_phy(:)
+
+        INTEGER :: jg
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartDescriptor_updatePatch"
+
+        IF(.NOT.my_process_is_work()) CALL finish(routine, "assertion failed")
+        jg = patch%id
+        IF(jg < 1 .OR. jg > SIZE(me%patchData)) CALL finish(routine, "assertion failed: patch id IS OUT of range")
+        IF(me%patchData(jg)%description%id /= jg) CALL finish(routine, "assertion failed: patch id doesn't match its array index")
+        CALL me%patchData(jg)%description%update(patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &
+                                                 &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth_lnd, &
+                                                 &opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels, &
+                                                 &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces)
+    END SUBROUTINE restartDescriptor_updatePatch
 
     SUBROUTINE restartPatchData_construct(me, modelType, domain)
         CLASS(t_RestartPatchData), INTENT(INOUT) :: me

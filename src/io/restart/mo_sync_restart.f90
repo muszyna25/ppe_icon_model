@@ -91,7 +91,6 @@ MODULE mo_sync_restart
     CHARACTER(:), ALLOCATABLE :: modelType
   CONTAINS
     PROCEDURE :: construct => syncRestartDescriptor_construct   ! override
-    PROCEDURE :: updatePatch => syncRestartDescriptor_updatePatch   ! override
     PROCEDURE :: writeRestart => syncRestartDescriptor_writeRestart ! override
     PROCEDURE :: destruct => syncRestartDescriptor_destruct ! override
 
@@ -121,31 +120,6 @@ CONTAINS
         CALL me%patchData(jg)%construct(modelType, jg)
     END DO
   END SUBROUTINE syncRestartDescriptor_construct
-
-  SUBROUTINE syncRestartDescriptor_updatePatch(me, patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &
-                                        &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth_lnd, &
-                                        &opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels, &
-                                        &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces)
-    CLASS(t_SyncRestartDescriptor), INTENT(INOUT) :: me
-    TYPE(t_patch), INTENT(IN) :: patch
-    INTEGER, INTENT(IN), OPTIONAL :: opt_depth_lnd, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, &
-                                   & opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels
-    REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time, opt_pvct(:), opt_t_elapsed_phy(:), opt_ocean_zheight_cellMiddle(:), &
-                                    & opt_ocean_zheight_cellInterfaces(:)
-    LOGICAL, INTENT(IN), OPTIONAL :: opt_lcall_phy(:)
-
-    INTEGER :: jg
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartDescriptor_updatePatch"
-
-    IF(.NOT.my_process_is_work()) CALL finish(routine, "assertion failed")
-    jg = patch%id
-    IF(jg < 1 .OR. jg > SIZE(me%patchData)) CALL finish(routine, "assertion failed: patch id is out of range")
-    IF(me%patchData(jg)%description%id /= jg) CALL finish(routine, "assertion failed: patch id doesn't match its array index")
-    CALL me%patchData(jg)%description%update(patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &
-                                             &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth_lnd, &
-                                             &opt_nlev_snow, opt_nice_class, opt_ndom, opt_ocean_zlevels, &
-                                             &opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellInterfaces)
-  END SUBROUTINE syncRestartDescriptor_updatePatch
 
   SUBROUTINE syncRestartDescriptor_defineRestartAttributes(me, restartAttributes, datetime, jstep, opt_output_jfile)
     CLASS(t_SyncRestartDescriptor), TARGET, INTENT(IN) :: me
