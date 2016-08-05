@@ -54,37 +54,29 @@
 MODULE mo_io_restart
 
   USE mo_kind,                  ONLY: wp
-  USE mo_mpi,                   ONLY: p_barrier,p_comm_work,p_bcast
-  USE mo_exception,             ONLY: finish, message, message_text, get_filename_noext
+  USE mo_mpi,                   ONLY: p_comm_work,p_bcast
+  USE mo_exception,             ONLY: finish, message, message_text
   USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, TLEV_NNOW, TLEV_NNOW_RCF, SUCCESS
   USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_linked_list,           ONLY: t_var_list, t_list_element
   USE mo_var_list,              ONLY: nvar_lists, var_lists, get_var_timelevel, find_list_element
   USE mo_cdi,                   ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, ZAXIS_SURFACE, CDI_UNDEFID, COMPRESS_ZIP, &
-                                    & DATATYPE_FLT64, TIME_VARIABLE, CDI_GLOBAL, DATATYPE_INT32, GRID_UNSTRUCTURED, &
-                                    & TAXIS_ABSOLUTE, ZAXIS_DEPTH_BELOW_LAND, ZAXIS_GENERIC, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_HEIGHT, &
-                                    & ZAXIS_HYBRID, ZAXIS_HYBRID_HALF, ZAXIS_LAKE_BOTTOM, ZAXIS_MIX_LAYER, &
-                                    & ZAXIS_SEDIMENT_BOTTOM_TW, ZAXIS_TOA, TAXIS_RELATIVE, streamOpenRead, streamInqVlist, &
-                                    & vlistInqTaxis, taxisInqVdate, taxisInqVtime, vlistNvars, vlistInqVarGrid, gridInqSize, &
-                                    & vlistInqVarZaxis, zaxisInqType, zaxisInqSize, streamDefTimestep, vlistDefVar, streamClose, &
-                                    & streamWriteVarSlice, streamWriteVar, streamDefVlist, vlistDefVarDatatype, vlistDefVarName, &
-                                    & vlistInqVarName, vlistDefVarLongname, vlistDefVarUnits, vlistDefVarMissval, taxisDefVdate, &
-                                    & taxisDefVtime
+                                    & streamOpenRead, streamInqVlist, vlistInqTaxis, taxisInqVdate, taxisInqVtime, vlistNvars, &
+                                    & vlistInqVarGrid, gridInqSize, vlistInqVarZaxis, zaxisInqType, zaxisInqSize, &
+                                    & streamDefTimestep, streamClose, streamWriteVarSlice, streamWriteVar, streamDefVlist, &
+                                    & vlistInqVarName, taxisDefVdate, taxisDefVtime
   USE mo_util_cdi,              ONLY: cdiGetStringError
   USE mo_cdi_constants,         ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, &
                                     & ZA_HYBRID, ZA_HYBRID_HALF, ZA_DEPTH_BELOW_LAND, ZA_DEPTH_BELOW_LAND_P1, ZA_DEPTH_RUNOFF_S, &
                                     & ZA_DEPTH_RUNOFF_G, ZA_SNOW, ZA_SNOW_HALF, ZA_TOA, ZA_HEIGHT_2M, ZA_HEIGHT_10M, &
                                     & ZA_LAKE_BOTTOM, ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, ZA_SEDIMENT_BOTTOM_TW_HALF, &
-                                    & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE, ZA_OCEAN_SEDIMENT, ZA_COUNT, &
-                                    & GRID_UNSTRUCTURED_COUNT
-  USE mo_cf_convention,         ONLY: cf_global_info
+                                    & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE, ZA_OCEAN_SEDIMENT, ZA_COUNT
   USE mo_util_restart,          ONLY: t_v_grid, t_restart_cdi_ids, set_vertical_grid, setGeneralRestartAttributes, &
-                                    & setDynamicPatchRestartAttributes, setPhysicsRestartAttributes, create_restart_file_link
-  USE mo_util_string,           ONLY: t_keyword_list, associate_keyword, with_keywords, &
-    &                                 int2string, separator, toCharacter
+                                    & setDynamicPatchRestartAttributes, setPhysicsRestartAttributes, create_restart_file_link, &
+                                    & getRestartFilename
+  USE mo_util_string,           ONLY: int2string, separator
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink
   USE mo_util_hash,             ONLY: util_hashword
-  USE mo_util_uuid,             ONLY: t_uuid
   USE mo_io_restart_namelist,   ONLY: read_and_bcast_restart_namelists
   USE mo_io_restart_attributes, ONLY: t_RestartAttributeList, RestartAttributeList_make, setRestartAttributes
   USE mo_datetime,              ONLY: t_datetime, iso8601
@@ -226,12 +218,6 @@ CONTAINS
     END IF
 
   END SUBROUTINE read_restart_header
-
-  ! YYYYMMDDThhmmssZ (T is a separator and Z means UTC as timezone)
-  SUBROUTINE set_restart_time(iso8601)
-    CHARACTER(len=*), INTENT(in) :: iso8601
-    private_restart_time = iso8601
-  END SUBROUTINE set_restart_time
 
   !  VCT as in echam (first half of vector contains a and second half b
   SUBROUTINE set_restart_vct(vct)
@@ -643,7 +629,6 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH)  :: string
     TYPE(t_restart_cdi_ids), ALLOCATABLE :: cdiIds(:)
 
-    TYPE (t_keyword_list), POINTER :: keywords => NULL()
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":create_restart_file"
 
@@ -744,15 +729,8 @@ CONTAINS
         CALL cdiIds(i)%init()
     END DO
 
-    CALL set_restart_time( iso8601(datetime) )  ! Time tag
-
-    ! Open new file, write data, close and then clean-up.
-    CALL associate_keyword("<gridfile>",   TRIM(get_filename_noext(patch%grid_filename)),  keywords)
-    CALL associate_keyword("<idom>",       TRIM(int2string(jg, "(i2.2)")),                 keywords)
-    CALL associate_keyword("<rsttime>",    TRIM(private_restart_time),                     keywords)
-    CALL associate_keyword("<mtype>",      TRIM(model_type),                               keywords)
-    ! replace keywords in file name
-    string = TRIM(with_keywords(keywords, TRIM(restart_filename)))
+    private_restart_time = iso8601(datetime)
+    string = getRestartFilename(patch%grid_filename, jg, datetime, model_type)
 
     CALL open_writing_restart_files(patch, TRIM(string), restartAttributes, cdiIds)
 

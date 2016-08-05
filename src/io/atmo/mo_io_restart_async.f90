@@ -22,10 +22,10 @@
 MODULE mo_io_restart_async
 
   USE mo_decomposition_tools,     ONLY: t_grid_domain_decomp_info
-  USE mo_exception,               ONLY: finish, message, message_text, get_filename_noext
+  USE mo_exception,               ONLY: finish, message
   USE mo_fortran_tools,           ONLY: assign_if_present_allocatable
   USE mo_kind,                    ONLY: wp, i8, dp
-  USE mo_datetime,                ONLY: t_datetime, iso8601, iso8601extended
+  USE mo_datetime,                ONLY: t_datetime
   USE mo_io_units,                ONLY: nerr, filename_max
   USE mo_var_list,                ONLY: nvar_lists, var_lists, new_var_list, delete_var_lists
   USE mo_linked_list,             ONLY: t_list_element, t_var_list
@@ -36,40 +36,30 @@ MODULE mo_io_restart_async
     &                                   LEAPFROG_EXPL, LEAPFROG_SI, SUCCESS, MAX_CHAR_LENGTH,        &
     &                                   TLEV_NNOW, TLEV_NNOW_RCF
   USE mo_var_metadata_types,      ONLY: t_var_metadata
-  USE mo_io_restart_namelist,     ONLY: RestartNamelist_writeToFile, delete_restart_namelists, set_restart_namelist, &
-                                      & get_restart_namelist, print_restart_name_lists, RestartNamelist_bcast
+  USE mo_io_restart_namelist,     ONLY: print_restart_name_lists, RestartNamelist_bcast
 #ifdef USE_CRAY_POINTER
   USE mo_name_list_output_init,   ONLY: set_mem_ptr_dp
 #endif
   USE mo_communication,           ONLY: idx_no, blk_no
   USE mo_parallel_config,         ONLY: nproma, restart_chunk_size
   USE mo_grid_config,             ONLY: n_dom
-  USE mo_run_config,              ONLY: msg_level, restart_filename
+  USE mo_run_config,              ONLY: msg_level
   USE mo_ha_dyn_config,           ONLY: ha_dyn_config
   USE mo_model_domain,            ONLY: p_patch, t_patch
-  USE mo_cdi,                     ONLY: CDI_UNDEFID, FILETYPE_NC2, FILETYPE_NC4, CDI_GLOBAL, DATATYPE_FLT64, &
-                                      & TAXIS_ABSOLUTE, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_GENERIC, ZAXIS_HEIGHT, ZAXIS_HYBRID, &
-                                      & ZAXIS_HYBRID_HALF, ZAXIS_LAKE_BOTTOM, ZAXIS_MIX_LAYER, ZAXIS_SEDIMENT_BOTTOM_TW, &
-                                      & ZAXIS_SURFACE, ZAXIS_TOA, TIME_VARIABLE, ZAXIS_DEPTH_BELOW_LAND, GRID_UNSTRUCTURED, &
-                                      & vlistDefVar, cdiEncodeDate, cdiEncodeTime, streamDefTimestep, gridDestroy, &
-                                      & streamWriteVarSlice, streamDefVlist, vlistDefVarDatatype, vlistDefVarName, &
-                                      & vlistDefVarLongname, vlistDefVarUnits, vlistDefVarMissval, taxisDefVdate, taxisDefVtime
-  USE mo_util_cdi,                ONLY: cdiGetStringError
+  USE mo_cdi,                     ONLY: CDI_UNDEFID, FILETYPE_NC2, FILETYPE_NC4, cdiEncodeDate, cdiEncodeTime, streamDefTimestep, &
+                                      & streamWriteVarSlice, streamDefVlist, taxisDefVdate, taxisDefVtime
   USE mo_cdi_constants,           ONLY: GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL
   USE mo_cf_convention
   USE mo_packed_message,          ONLY: t_PackedMessage, kPackOp, kUnpackOp
-  USE mo_util_string,             ONLY: t_keyword_list, associate_keyword, with_keywords, &
-    &                                   int2string, toCharacter
-  USE mo_util_restart,            ONLY: t_v_grid, t_restart_cdi_ids, setGeneralRestartAttributes, &
+  USE mo_util_restart,            ONLY: t_restart_cdi_ids, setGeneralRestartAttributes, &
                                       & setDynamicPatchRestartAttributes, setPhysicsRestartAttributes, create_restart_file_link, &
-                                      & t_restart_patch_description, t_var_data
+                                      & t_restart_patch_description, t_var_data, getRestartFilename
 
 #ifndef NOMPI
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work, p_work_pe0, num_work_procs, MPI_SUCCESS, &
                                       & stop_mpi, p_send, p_recv, p_barrier, p_bcast, my_process_is_restart, my_process_is_work, &
                                       & p_comm_work_2_restart, p_n_work, p_int, process_mpi_restart_size, p_int_i8, p_real_dp, &
-                                      & p_comm_work_restart, p_mpi_wtime, p_int_byte, get_my_mpi_work_id, p_comm_rank, &
-                                      & process_mpi_all_comm
+                                      & p_comm_work_restart, p_mpi_wtime, process_mpi_all_comm
 
 #ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
@@ -2054,10 +2044,8 @@ CONTAINS
     TYPE(t_restart_comm_data), POINTER :: commData
     TYPE(t_restart_file), POINTER :: p_rf
     TYPE(t_var_list), POINTER     :: p_re_list
-    CHARACTER(LEN=32)             :: datetime
     INTEGER                       :: restart_type, i
     CHARACTER(LEN=*), PARAMETER   :: routine = modname//'open_restart_file'
-    TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
@@ -2093,15 +2081,7 @@ CONTAINS
         CALL finish(routine, UNKNOWN_FILE_FORMAT)
     END SELECT
 
-    datetime = iso8601(restart_args%datetime)
-
-    ! build the file name
-    CALL associate_keyword("<gridfile>",   TRIM(get_filename_noext(description%base_filename)),   keywords)
-    CALL associate_keyword("<idom>",       TRIM(int2string(description%id, "(i2.2)")),            keywords)
-    CALL associate_keyword("<rsttime>",    TRIM(datetime),                                 keywords)
-    CALL associate_keyword("<mtype>",      TRIM(p_rf%model_type),                          keywords)
-    ! replace keywords in file name
-    p_rf%filename = TRIM(with_keywords(keywords, TRIM(restart_filename)))
+    p_rf%filename = getRestartFilename(description%base_filename, description%id, restart_args%datetime, p_rf%model_type)
 
     commData => p_pd%commData
     IF(ALLOCATED(description%opt_pvct)) THEN

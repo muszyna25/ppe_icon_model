@@ -24,8 +24,9 @@ MODULE mo_util_restart
                               & ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_SNOW, ZA_SNOW_HALF, ZA_SURFACE, ZA_TOA, cdi_zaxis_types
 
     USE mo_cf_convention, ONLY: cf_global_info
-    USE mo_datetime, ONLY: t_datetime, iso8601extended
+    USE mo_datetime, ONLY: t_datetime, iso8601, iso8601extended
     USE mo_dynamics_config, ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf
+    USE mo_exception, ONLY: get_filename_noext
     USE mo_fortran_tools, ONLY: assign_if_present, assign_if_present_allocatable
     USE mo_impl_constants, ONLY: SUCCESS, MAX_CHAR_LENGTH
     USE mo_io_restart_attributes, ONLY: t_RestartAttributeList
@@ -35,9 +36,10 @@ MODULE mo_util_restart
     USE mo_model_domain, ONLY: t_patch
     USE mo_mpi, ONLY: p_pe_work
     USE mo_packed_message, ONLY: t_PackedMessage
+    USE mo_run_config, ONLY: restart_filename
     USE mo_util_cdi, ONLY: cdiGetStringError
     USE mo_util_file, ONLY: util_symlink, util_islink, util_unlink
-    USE mo_util_string, ONLY: int2string
+    USE mo_util_string, ONLY: int2string, associate_keyword, with_keywords, t_keyword_list
     USE mo_var_metadata_types, ONLY: t_var_metadata
 
     IMPLICIT NONE
@@ -49,6 +51,7 @@ MODULE mo_util_restart
     PUBLIC :: t_var_data
     PUBLIC :: t_restart_patch_description
 
+    PUBLIC :: getRestartFilename
     PUBLIC :: setGeneralRestartAttributes
     PUBLIC :: setDynamicPatchRestartAttributes
     PUBLIC :: setPhysicsRestartAttributes
@@ -156,6 +159,27 @@ MODULE mo_util_restart
     CHARACTER(LEN = *), PARAMETER :: modname = "mo_util_restart"
 
 CONTAINS
+
+    FUNCTION getRestartFilename(baseName, domain, datetime, modelTypeName) RESULT(RESULT)
+        CHARACTER(LEN = *), INTENT(IN) :: baseName, modelTypeName
+        INTEGER, VALUE :: domain
+        TYPE(t_datetime), INTENT(IN) :: datetime
+        CHARACTER(LEN = :), ALLOCATABLE :: RESULT
+
+        CHARACTER(LEN=32) :: datetimeString
+        TYPE(t_keyword_list), POINTER :: keywords => NULL()
+
+        datetimeString = iso8601(datetime)
+
+        ! build the keyword list
+        CALL associate_keyword("<gridfile>", TRIM(get_filename_noext(baseName)), keywords)
+        CALL associate_keyword("<idom>", TRIM(int2string(domain, "(i2.2)")), keywords)
+        CALL associate_keyword("<rsttime>", TRIM(datetimeString), keywords)
+        CALL associate_keyword("<mtype>", TRIM(modelTypeName), keywords)
+
+        ! replace keywords in file name
+        RESULT = TRIM(with_keywords(keywords, TRIM(restart_filename)))
+    END FUNCTION getRestartFilename
 
     SUBROUTINE setGeneralRestartAttributes(restartAttributes, datetime, n_dom, jstep, opt_output_jfile)
         TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
