@@ -22,8 +22,8 @@
 MODULE mo_io_restart_async
 
   USE mo_decomposition_tools,     ONLY: t_grid_domain_decomp_info
-  USE mo_exception,               ONLY: finish, message
-  USE mo_fortran_tools,           ONLY: assign_if_present_allocatable, t_ptr_2d
+  USE mo_exception,               ONLY: finish
+  USE mo_fortran_tools,           ONLY: t_ptr_2d
   USE mo_kind,                    ONLY: wp, i8, dp
   USE mo_datetime,                ONLY: t_datetime
   USE mo_io_units,                ONLY: nerr, filename_max
@@ -32,9 +32,8 @@ MODULE mo_io_restart_async
   USE mo_io_restart_attributes,   ONLY: t_RestartAttributeList, RestartAttributeList_make
   USE mo_dynamics_config,         ONLY: iequations
   USE mo_grid_config,             ONLY: l_limited_area
-  USE mo_impl_constants,          ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, INH_ATMOSPHERE, &
-    &                                   LEAPFROG_EXPL, LEAPFROG_SI, SUCCESS, MAX_CHAR_LENGTH,        &
-    &                                   TLEV_NNOW, TLEV_NNOW_RCF
+  USE mo_impl_constants,          ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, INH_ATMOSPHERE, LEAPFROG_EXPL, LEAPFROG_SI, &
+                                      & SUCCESS, TLEV_NNOW, TLEV_NNOW_RCF
   USE mo_var_metadata_types,      ONLY: t_var_metadata
   USE mo_io_restart_namelist,     ONLY: print_restart_name_lists, RestartNamelist_bcast
 #ifdef USE_CRAY_POINTER
@@ -48,12 +47,10 @@ MODULE mo_io_restart_async
   USE mo_model_domain,            ONLY: p_patch, t_patch
   USE mo_cdi,                     ONLY: CDI_UNDEFID, FILETYPE_NC2, FILETYPE_NC4, streamWriteVarSlice
   USE mo_cdi_constants,           ONLY: GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL
-  USE mo_cf_convention
   USE mo_packed_message,          ONLY: t_PackedMessage, kPackOp, kUnpackOp
   USE mo_restart_patch_description, ONLY: t_restart_patch_description
-  USE mo_util_restart,            ONLY: t_restart_cdi_ids, setGeneralRestartAttributes, &
-                                      & setDynamicPatchRestartAttributes, setPhysicsRestartAttributes, create_restart_file_link, &
-                                      & t_var_data, getRestartFilename, t_restart_args, getLevelPointers
+  USE mo_util_restart,            ONLY: t_restart_cdi_ids, setGeneralRestartAttributes, create_restart_file_link, t_var_data, &
+                                      & getRestartFilename, t_restart_args, getLevelPointers
 
 #ifndef NOMPI
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work, p_work_pe0, num_work_procs, MPI_SUCCESS, &
@@ -68,9 +65,8 @@ MODULE mo_io_restart_async
 #ifdef __SUNPRO_F95
   INCLUDE "mpif.h"
 #else
-  USE mpi,                        ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL, MPI_ROOT, &
-    &                                   MPI_LOCK_SHARED, MPI_MODE_NOCHECK, &
-    &                                   MPI_PROC_NULL, MPI_WIN_NULL, MPI_LOCK_EXCLUSIVE
+  USE mpi,                        ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL, MPI_ROOT, MPI_LOCK_SHARED, MPI_MODE_NOCHECK, &
+                                      & MPI_PROC_NULL, MPI_WIN_NULL, MPI_LOCK_EXCLUSIVE
 #endif
 #endif
 

@@ -81,8 +81,7 @@ MODULE mo_io_restart
   USE mo_io_restart_attributes, ONLY: t_RestartAttributeList, RestartAttributeList_make, setAttributesForRestarting
   USE mo_datetime,              ONLY: t_datetime, iso8601
   USE mo_run_config,            ONLY: ltimer, restart_filename
-  USE mo_timer,                 ONLY: timer_start, timer_stop,                      &
-    &                                 timer_write_restart_file
+  USE mo_timer,                 ONLY: timer_start, timer_stop, timer_write_restart_file
 
   USE mo_dynamics_config,       ONLY: iequations, nold, nnow, nnew, nnew_rcf, nnow_rcf
   USE mo_grid_config,           ONLY: l_limited_area, n_dom
@@ -90,15 +89,13 @@ MODULE mo_io_restart
 #ifndef __NO_ICON_ATMO__
 !LK comment: should not be here !!!!!! polution of namespace !!!!!!
 !GZ: but then we need an alternative method of skipping unnecessary time levels!
-  USE mo_impl_constants,        ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, &
-    &                                 LEAPFROG_EXPL, LEAPFROG_SI, INH_ATMOSPHERE
+  USE mo_impl_constants,        ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, LEAPFROG_EXPL, LEAPFROG_SI, INH_ATMOSPHERE
   USE mo_ha_dyn_config,         ONLY: ha_dyn_config
 #endif
 
   USE mo_model_domain,          ONLY: t_patch
   USE mo_mpi,                   ONLY: my_process_is_mpi_workroot, my_process_is_mpi_test, p_comm_rank
-  USE mo_communication,         ONLY: t_comm_gather_pattern, exchange_data, &
-    &                                 t_scatterPattern
+  USE mo_communication,         ONLY: t_comm_gather_pattern, exchange_data, t_scatterPattern
 
 #ifndef __NO_ICON__OCEAN
   USE mo_ocean_nml,                ONLY: lhamocc

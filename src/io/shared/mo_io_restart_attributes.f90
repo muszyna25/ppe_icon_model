@@ -17,8 +17,8 @@ MODULE mo_io_restart_attributes
   USE mo_impl_constants,        ONLY: SUCCESS
   USE mo_kind,                  ONLY: wp, i8
   USE mo_master_config,         ONLY: isRestart
-  USE mo_mpi,                   ONLY: p_bcast, p_comm_rank, my_process_is_stdio
-  USE mo_util_string,           ONLY: REAL2string, int2string
+  USE mo_mpi,                   ONLY: p_bcast, p_comm_rank
+  USE mo_util_string,           ONLY: real2string, int2string
 
   IMPLICIT NONE
 
