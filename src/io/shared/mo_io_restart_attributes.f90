@@ -95,6 +95,54 @@ MODULE mo_io_restart_attributes
 
 CONTAINS
 
+  FUNCTION text_create(VALUE) RESULT(RESULT)
+    CHARACTER(*), INTENT(IN) :: VALUE
+    TYPE(t_Text), POINTER :: RESULT
+
+    integer :: error
+    CHARACTER(*), PARAMETER :: routine = modname//":text_create"
+
+    ALLOCATE(RESULT, STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+    RESULT%text = VALUE
+  END FUNCTION text_create
+
+  FUNCTION real_create(VALUE) RESULT(RESULT)
+    REAL(wp), VALUE :: VALUE
+    TYPE(t_Real), POINTER :: RESULT
+
+    integer :: error
+    CHARACTER(*), PARAMETER :: routine = modname//":real_create"
+
+    ALLOCATE(RESULT, STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+    RESULT%VALUE = VALUE
+  END FUNCTION real_create
+
+  FUNCTION integer_create(VALUE) RESULT(RESULT)
+    INTEGER(KIND = C_INT), VALUE :: VALUE
+    TYPE(t_Integer), POINTER :: RESULT
+
+    integer :: error
+    CHARACTER(*), PARAMETER :: routine = modname//":integer_create"
+
+    ALLOCATE(RESULT, STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+    RESULT%VALUE = VALUE
+  END FUNCTION integer_create
+
+  FUNCTION logical_create(VALUE) RESULT(RESULT)
+    LOGICAL, VALUE :: VALUE
+    TYPE(t_Logical), POINTER :: RESULT
+
+    integer :: error
+    CHARACTER(*), PARAMETER :: routine = modname//":logical_create"
+
+    ALLOCATE(RESULT, STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+    RESULT%VALUE = VALUE
+  END FUNCTION logical_create
+
   ! Sets the restart attribute list that IS to be used for restarting. Must NOT be set when we are NOT restarting.
   SUBROUTINE setRestartAttributes(restartAttributes)
     TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
@@ -220,22 +268,11 @@ CONTAINS
     CHARACTER(*), INTENT(IN) :: key
     CLASS(t_Destructible), POINTER, INTENT(INOUT) :: VALUE
 
-    INTEGER :: error
     CLASS(t_Destructible), POINTER :: keyObject
-    CLASS(*), POINTER :: keyObjectAlias !XXX: workaround for gcc compiler bug
     CHARACTER(*), PARAMETER :: routine = modname//":RestartAttributeList_setObject"
 
     ! Create a key object AND check whether this attribute has already been set.
-    ALLOCATE(t_Text :: keyObject, STAT = error)
-    IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-    keyObjectAlias => keyObject
-    SELECT TYPE(keyObjectAlias)
-        TYPE IS(t_Text)
-            keyObjectAlias%text = key
-            keyObject => keyObjectAlias !Noop, but necessary to stop compilers from calling me%table%getEntry() before performing the text assignment
-        CLASS DEFAULT
-            CALL finish(routine, "assertion failed")
-    END SELECT
+    keyObject => text_create(key)
     IF(ASSOCIATED(me%table%getEntry(keyObject))) CALL finish(routine, "double definition of restart attribute '"//key//"'")
 
     ! Insert the key-VALUE pair into the hash table
@@ -250,43 +287,20 @@ CONTAINS
     INTEGER(KIND = C_INT), INTENT(IN), OPTIONAL :: opt_integer
     LOGICAL, INTENT(IN), OPTIONAL :: opt_logical
 
-    INTEGER :: error
     CLASS(t_Destructible), POINTER :: valueObject
-    CLASS(*), POINTER :: valueObjectAlias   !XXX: workaround for gcc compiler bug
     CHARACTER(*), PARAMETER :: routine = modname//":RestartAttributeList_set"
 
     IF(PRESENT(opt_text)) THEN
-        ALLOCATE(t_Text :: valueObject, STAT = error)
+        valueObject => text_create(opt_text)
     ELSE IF(PRESENT(opt_real)) THEN
-        ALLOCATE(t_Real :: valueObject, STAT = error)
+        valueObject => real_create(opt_real)
     ELSE IF(PRESENT(opt_integer)) THEN
-        ALLOCATE(t_Integer :: valueObject, STAT = error)
+        valueObject => integer_create(opt_integer)
     ELSE IF(PRESENT(opt_logical)) THEN
-        ALLOCATE(t_Logical :: valueObject, STAT = error)
+        valueObject => logical_create(opt_logical)
     ELSE
         CALL finish(routine, "assertion failed: no VALUE passed to "//routine//"()")
     END IF
-    IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-    valueObjectAlias => valueObject
-
-    SELECT TYPE(valueObjectAlias)
-        TYPE IS(t_Text)
-            valueObjectAlias%text = opt_text
-        TYPE IS(t_Real)
-            valueObjectAlias%VALUE = opt_real
-        TYPE IS(t_integer)
-            valueObjectAlias%VALUE = opt_integer
-        TYPE IS(t_logical)
-            valueObjectAlias%VALUE = opt_logical
-        CLASS DEFAULT
-            CALL finish(routine, "assertion failed")
-    END SELECT
-
-    SELECT TYPE(valueObjectAlias)
-        CLASS IS(t_Destructible)
-            valueObject => valueObjectAlias !Noop, but necessary to stop compilers from calling me%setObject() before performing the text assignment
-    END SELECT
-
     CALL me%setObject(key, valueObject)
   END SUBROUTINE RestartAttributeList_set
 
@@ -301,18 +315,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = modname//":RestartAttributeList_getObject"
 
     RESULT => NULL()
-
-    ALLOCATE(t_Text :: keyObject, STAT = error)
-    IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
-    keyObjectAlias => keyObject
-
-    SELECT TYPE(keyObjectAlias)
-        TYPE IS(t_Text)
-            keyObjectAlias%text = key
-            keyObject => keyObjectAlias !Noop, but necessary to stop compilers from calling me%table%getEntry() before performing the text assignment
-        CLASS DEFAULT
-            CALL finish(routine, "assertion failed")
-    END SELECT
+    keyObject => text_create(key)
     RESULT => me%table%getEntry(keyObject)
     CALL keyObject%destruct()
     DEALLOCATE(keyObject)
