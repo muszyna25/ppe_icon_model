@@ -524,7 +524,7 @@ case "$ac_sitename" in
                         mpi_startrun = srun
                         ;;
                     pgi*)
-                        load_modules    = pgi/16.5 intelmpi/5.1.2.150 ${load_modules}
+                        load_modules    = pgi/16.7 intelmpi/5.1.2.150 ${load_modules}
                         config_compiler = pgi
                         CC              = pgcc
 			CFLAGS          = -O0 -g -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBSZ -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2 -DpgiFortran
