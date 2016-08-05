@@ -238,7 +238,7 @@ MODULE mo_mpi
   PUBLIC :: p_comm_size
   PUBLIC :: p_comm_rank
   PUBLIC :: p_send, p_recv, p_sendrecv, p_bcast, p_barrier
-  PUBLIC :: p_bcast_achar
+! PUBLIC :: p_bcast_achar
   PUBLIC :: p_get_bcast_role
   PUBLIC :: p_isend, p_irecv, p_wait, p_wait_any,         &
     &       p_irecv_packed, p_send_packed, p_recv_packed, &
@@ -6465,32 +6465,34 @@ CONTAINS
 
   ! A bcast variant that handles ALLOCATABLE strings. Cannot be overloaded with p_bcast() because that would make the CALL ambigous.
   ! After this CALL, the string will always be ALLOCATED, even IF its length IS zero
-  SUBROUTINE p_bcast_achar(string, source, comm)
-    CHARACTER(:), ALLOCATABLE, INTENT(INOUT) :: string
-    INTEGER, VALUE :: source, comm
-
-    INTEGER :: length, error
-    CHARACTER(*), PARAMETER :: routine = modname//":p_bcast_achar"
-
-#ifndef NOMPI
-    ! inform the receivers about the length of the string
-    length = 0
-    IF(ALLOCATED(string)) length = LEN(string)
-    CALL p_bcast(length, source, comm)
-
-    ! ensure that the string IS ALLOCATED to the correct length
-    IF(ALLOCATED(string)) THEN
-        IF(length /= LEN(string) .OR. length == 0) DEALLOCATE(string)
-    END IF
-    IF(.NOT.ALLOCATED(string)) THEN
-        ALLOCATE(CHARACTER(LEN = length) :: string, STAT = error)
-        IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-    END IF
-
-    ! actually TRANSFER the string
-    CALL p_bcast(string, source, comm)
-#endif
-    END SUBROUTINE p_bcast_achar
+  !
+  !XXX: Deactivated due to a gfortran bug that looses the contents of allocatable strings on return.
+!  SUBROUTINE p_bcast_achar(string, source, comm)
+!    CHARACTER(:), ALLOCATABLE, INTENT(INOUT) :: string
+!    INTEGER, VALUE :: source, comm
+!
+!    INTEGER :: length, error
+!    CHARACTER(*), PARAMETER :: routine = modname//":p_bcast_achar"
+!
+!#ifndef NOMPI
+!    ! inform the receivers about the length of the string
+!    length = 0
+!    IF(ALLOCATED(string)) length = LEN(string)
+!    CALL p_bcast(length, source, comm)
+!
+!    ! ensure that the string IS ALLOCATED to the correct length
+!    IF(ALLOCATED(string)) THEN
+!        IF(length /= LEN(string) .OR. length == 0) DEALLOCATE(string)
+!    END IF
+!    IF(.NOT.ALLOCATED(string)) THEN
+!        ALLOCATE(CHARACTER(LEN = length) :: string, STAT = error)
+!        IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+!    END IF
+!
+!    ! actually TRANSFER the string
+!    CALL p_bcast(string, source, comm)
+!#endif
+!    END SUBROUTINE p_bcast_achar
 
   ! Collective CALL to determine whether this process IS a sender/receiver IN a broadcast operation.
   ! This routine IS robust IN the presence of inter-communicators (which IS its reason d'etre).

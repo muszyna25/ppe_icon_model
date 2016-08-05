@@ -26,6 +26,9 @@ MODULE mo_async_restart_comm_data
     USE mo_util_string, ONLY: int2string
     USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL, MPI_LOCK_SHARED, MPI_MODE_NOCHECK, MPI_WIN_NULL, MPI_LOCK_EXCLUSIVE, &
                  & MPI_SUCCESS
+#ifdef DEBUG
+    USE mo_mpi, ONLY: p_pe
+#endif
 
     IMPLICIT NONE
 
@@ -199,10 +202,10 @@ CONTAINS
                 reorderData => me%getPacker(var_data(iv)%info%hgrid, routine)
                 memWindowSize = memWindowSize + INT(nlevs*reorderData%n_own, i8)
             END DO
-
-            ! actually open the memory window
-            CALL openMpiWindow(memWindowSize, p_comm_work_restart, me%windowPtr, me%mpiWindow)
         END IF
+
+        ! actually open the memory window
+        CALL openMpiWindow(memWindowSize, p_comm_work_restart, me%windowPtr, me%mpiWindow)
     END SUBROUTINE asyncRestartCommData_construct
 
     INTEGER FUNCTION asyncRestartCommData_maxLevelSize(me) RESULT(RESULT)

@@ -50,7 +50,7 @@ MODULE mo_async_restart
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work, p_work_pe0, num_work_procs, MPI_SUCCESS, &
                                       & stop_mpi, p_send, p_recv, p_barrier, p_bcast, my_process_is_restart, my_process_is_work, &
                                       & p_comm_work_2_restart, process_mpi_restart_size, p_mpi_wtime, process_mpi_all_comm, &
-                                      & p_get_bcast_role, p_bcast_achar
+                                      & p_get_bcast_role
 #ifdef __SUNPRO_F95
   INCLUDE "mpif.h"
 #else
@@ -193,14 +193,21 @@ CONTAINS
     CHARACTER(*), INTENT(IN) :: modelType
 
     TYPE(t_NamelistArchive), POINTER :: namelists
-    INTEGER :: jg, error
+    INTEGER :: jg, error, length
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':asyncRestartDescriptor_construct'
 
     IF(.NOT. (my_process_is_work() .OR. my_process_is_restart())) RETURN
 
     ! TRANSFER some global DATA to the restart processes
     me%modelType = modelType
-    CALL p_bcast_achar(me%modelType, restartBcastRoot(), p_comm_work_2_restart)
+    length = LEN(me%modelType)
+    CALL p_bcast(length, restartBcastRoot(), p_comm_work_2_restart)
+    IF(length /= LEN(me%modelType)) THEN
+        DEALLOCATE(me%modelType)
+        ALLOCATE(CHARACTER(LEN = length) :: me%modelType, STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+    END IF
+    CALL p_bcast(me%modelType, restartBcastRoot(), p_comm_work_2_restart)
     CALL p_bcast(n_dom, restartBcastRoot(), p_comm_work_2_restart)
     CALL bcastRestartVarlists(restartBcastRoot(), p_comm_work_2_restart)
     namelists => namelistArchive()
@@ -272,7 +279,7 @@ CONTAINS
     ! consider the right restart process
     IF(p_pe == patchData%description%restart_proc_id) THEN
 #ifdef DEBUG
-        CALL print_restart_arguments()
+        CALL print_restart_arguments(restart_args, patchData)
         CALL restartAttributes%printAttributes()
         CALL namelists%print()
 #endif
@@ -659,7 +666,7 @@ CONTAINS
   !
   SUBROUTINE print_restart_arguments(restart_args, patchData)
     TYPE(t_restart_args), INTENT(IN) :: restart_args
-    TYPE(t_AsyncPatchData), INTENT(IN) :: patchData(:)
+    CLASS(t_RestartPatchData), INTENT(IN) :: patchData
     CHARACTER(LEN=*), PARAMETER   :: routine = modname//':print_restart_arguments'
 
     WRITE (nerr,FORMAT_VALS3)routine,' is called for p_pe=',p_pe
@@ -667,10 +674,9 @@ CONTAINS
     CALL restart_args%print(routine//": ")
 
     ! patch informations
-    PRINT *,routine, ' size of patches=', SIZE(patchData)
-    PRINT *,routine, ' SIZE(patchData(1)%description%opt_pvct) = ', SIZE(patchData(1)%description%opt_pvct)
-    PRINT *,routine, ' SIZE(patchData(1)%description%opt_lcall_phy) =', SIZE(patchData(1)%description%opt_lcall_phy)
-    PRINT *,routine, ' SIZE(patchData(1)%description%opt_t_elapsed_phy) =', SIZE(patchData(1)%description%opt_t_elapsed_phy)
+    PRINT *,routine, ' SIZE(patchData%description%opt_pvct) = ', SIZE(patchData%description%opt_pvct)
+    PRINT *,routine, ' SIZE(patchData%description%opt_lcall_phy) =', SIZE(patchData%description%opt_lcall_phy)
+    PRINT *,routine, ' SIZE(patchData%description%opt_t_elapsed_phy) =', SIZE(patchData%description%opt_t_elapsed_phy)
   END SUBROUTINE print_restart_arguments
 
   !------------------------------------------------------------------------------------------------
