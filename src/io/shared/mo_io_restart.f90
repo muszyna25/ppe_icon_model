@@ -235,8 +235,7 @@ CONTAINS
 
       vlistID = streamInqVlist(fileID)
     END IF
-    CALL read_and_bcast_restart_namelists(vlistID, my_process_is_mpi_workroot(), &
-      &                                   root_pe, p_comm_work)
+    CALL read_and_bcast_restart_namelists(vlistID, root_pe, p_comm_work)
     ! note: we don't close the restart file for domain 1 yet...
     CALL message(TRIM(routine), 'read namelists from restart file')
 

@@ -12,8 +12,8 @@ MODULE mo_io_restart_namelist
   USE mo_impl_constants, ONLY: SUCCESS
   USE mo_io_units,    ONLY: nerr, find_next_free_unit, filename_max
   USE mo_exception,   ONLY: message, finish
-  USE mo_mpi,         ONLY: p_bcast, p_pe, my_process_is_stdio
-  USE mo_cdi,         ONLY: CDI_GLOBAL, vlistInqNatts, vlistInqAtt, vlistInqAttTxt
+  USE mo_mpi,         ONLY: p_bcast, p_pe, p_comm_rank, my_process_is_stdio
+  USE mo_cdi,         ONLY: CDI_GLOBAL, CDI_UNDEFID, vlistInqNatts, vlistInqAtt, vlistInqAttTxt
 
   IMPLICIT NONE
 
@@ -293,17 +293,14 @@ CONTAINS
 
   END SUBROUTINE close_tmpfile
 
-  ! lread_pe must be .TRUE. on pe root_pe
-  ! TODO: refactor these two arguments into one
-  SUBROUTINE read_and_bcast_restart_namelists(vlistID, lread_pe, root_pe, comm)
+  SUBROUTINE read_and_bcast_restart_namelists(vlistID, root_pe, comm)
     INTEGER, INTENT(IN) :: vlistID      !< CDI vlist ID
-    LOGICAL, INTENT(IN) :: lread_pe     !< .TRUE., if current PE has opened the file for reading
-    INTEGER, INTENT(IN) :: root_pe      !< rank of broadcast root PE
+    INTEGER, INTENT(IN) :: root_pe      !< rank of the PE that reads the vlist AND broadcast the namelist information
     INTEGER, INTENT(IN) :: comm         !< MPI communicator
 
     ! local variables
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":read_and_bcast_restart_namelists"
-    INTEGER :: natts, att_type, att_len, i, status
+    INTEGER :: natts, att_type, att_len, i, status, my_rank
     CHARACTER(len=64) :: att_name
     CHARACTER(LEN = :), ALLOCATABLE :: tempText
     TYPE(t_att_namelist), POINTER :: list_entry
@@ -312,7 +309,9 @@ CONTAINS
     CALL delete_restart_namelists()
 
     ! get the number of attributes so we can loop over them
-    IF (lread_pe) THEN
+    my_rank = p_comm_rank(comm)
+    IF (my_rank == root_pe) THEN
+      IF(vlistID == CDI_UNDEFID) CALL finish(routine, "assertion failed: root PE does not have a valid vlistID")
       status = vlistInqNatts(vlistID, CDI_GLOBAL, natts)
       IF(status /= SUCCESS) CALL finish(routine, "vlistInqNatts() returned an error")
     END IF
@@ -322,7 +321,7 @@ CONTAINS
         ! inquire the attribute NAME AND check whether it IS a namelist attribute
         att_name = ''
         att_len  = 0
-        IF (lread_pe) THEN
+        IF (my_rank == root_pe) THEN
             status = vlistInqAtt(vlistID, CDI_GLOBAL, i, att_name, att_type, att_len)
             IF(status /= SUCCESS) CALL finish(routine, "vlistInqAtt() returned an error")
         END IF
@@ -333,7 +332,7 @@ CONTAINS
         list_entry => find_namelist(att_name(5:))
         CALL p_bcast(att_len, root_pe, comm)
         ALLOCATE(CHARACTER(len=att_len) :: tempText)
-        IF (lread_pe) THEN
+        IF (my_rank == root_pe) THEN
             status = vlistInqAttTxt(vlistID, CDI_GLOBAL, TRIM(att_name), att_len, tempText)
             IF(status /= SUCCESS) CALL finish(routine, "vlistInqAttTxt() returned an error")
         END IF
