@@ -71,16 +71,6 @@ MODULE mo_linked_list
     ! Internal used handler for CDI setup of synchronous restart
     !
     ! Todo: This metadata should not be placed in this location ?!
-    INTEGER                       :: cdiFileId_restart  ! cdi file handler for restart
-    INTEGER                       :: cdiVlistId         ! cdi vlist handler
-    !
-    INTEGER                       :: cdiCellGridID
-    INTEGER                       :: cdiSingleGridID
-    INTEGER                       :: cdiVertGridID
-    INTEGER                       :: cdiEdgeGridID
-    !
-    INTEGER                       :: cdiTaxisID
-    !
     INTEGER                       :: cdiTimeIndex
     !
     INTEGER                       :: nvars
@@ -138,13 +128,6 @@ CONTAINS
     this_list%p%patch_id           = -1
     this_list%p%vlevel_type        =  level_type_ml ! Default is model levels
     !
-    this_list%p%cdiFileID_restart  = -1
-    this_list%p%cdiVlistID         = -1
-    this_list%p%cdiCellGridID      = -1
-    this_list%p%cdiVertGridID      = -1
-    this_list%p%cdiEdgeGridID      = -1
-    !
-    this_list%p%cdiTaxisID         = -1
     this_list%p%cdiTimeIndex       = -1
     !
     this_list%p%nvars              = 0
