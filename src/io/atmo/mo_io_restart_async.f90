@@ -764,7 +764,7 @@ CONTAINS
     LOGICAL, INTENT(OUT)           :: done ! flag if we should shut down
 
     TYPE(t_patch_data), POINTER    :: p_pd
-    INTEGER                        :: i, j, k, ierrstat, position, MAX_BUF_SIZE, &
+    INTEGER                        :: i, j, k, ierrstat, position, &
       &                               iheader, this_patch, calday
     CHARACTER, POINTER             :: p_msg(:)
     CHARACTER(LEN=*), PARAMETER    :: routine = modname//'restart_wait_for_start'
@@ -779,20 +779,19 @@ CONTAINS
     ! create message array
     p_msg => get_message_array(routine)
     position     = 0
-    MAX_BUF_SIZE = SIZE(p_msg)
 
     ! receive message that we may start restart (or should finish)
     IF(p_pe_work == 0) THEN
-      CALL p_recv_packed(p_msg, p_work_pe0, 0, MAX_BUF_SIZE)
+      CALL p_recv_packed(p_msg, p_work_pe0, 0, SIZE(p_msg))
     ENDIF
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS5)routine,' p_pe=',p_pe, &
       & ' call p_bcast with communicator=',p_comm_work
 #endif
-    CALL p_bcast_packed(p_msg, 0, MAX_BUF_SIZE, comm=p_comm_work)
+    CALL p_bcast_packed(p_msg, 0, SIZE(p_msg), comm=p_comm_work)
 
-    CALL p_unpack_int(p_msg, MAX_BUF_SIZE, position, iheader, p_comm_work)
+    CALL p_unpack_int(p_msg, position, iheader, p_comm_work)
     SELECT CASE(iheader)
 
       CASE(MSG_RESTART_START)
@@ -800,26 +799,26 @@ CONTAINS
         done = .FALSE.
 
         ! get patch independent arguments
-        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, restart_args%datetime%year,    p_comm_work)
-        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, restart_args%datetime%month,   p_comm_work)
-        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, restart_args%datetime%day,     p_comm_work)
-        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, restart_args%datetime%hour,    p_comm_work)
-        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, restart_args%datetime%minute,  p_comm_work)
-        CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, restart_args%datetime%second,  p_comm_work)
-        CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, restart_args%datetime%caltime, p_comm_work)
-        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, calday,                p_comm_work)
+        CALL p_unpack_int( p_msg, position, restart_args%datetime%year,    p_comm_work)
+        CALL p_unpack_int( p_msg, position, restart_args%datetime%month,   p_comm_work)
+        CALL p_unpack_int( p_msg, position, restart_args%datetime%day,     p_comm_work)
+        CALL p_unpack_int( p_msg, position, restart_args%datetime%hour,    p_comm_work)
+        CALL p_unpack_int( p_msg, position, restart_args%datetime%minute,  p_comm_work)
+        CALL p_unpack_real(p_msg, position, restart_args%datetime%second,  p_comm_work)
+        CALL p_unpack_real(p_msg, position, restart_args%datetime%caltime, p_comm_work)
+        CALL p_unpack_int( p_msg, position, calday,                p_comm_work)
         restart_args%datetime%calday = INT(calday,i8)
-        CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, restart_args%datetime%daysec,  p_comm_work)
-        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, restart_args%jstep,            p_comm_work)
+        CALL p_unpack_real(p_msg, position, restart_args%datetime%daysec,  p_comm_work)
+        CALL p_unpack_int( p_msg, position, restart_args%jstep,            p_comm_work)
 
-        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, restart_args%n_opt_output_file, p_comm_work)
+        CALL p_unpack_int( p_msg, position, restart_args%n_opt_output_file, p_comm_work)
         IF (restart_args%n_opt_output_file > 0) THEN
           IF (.NOT. ALLOCATED(restart_args%opt_output_jfile)) THEN
             ALLOCATE(restart_args%opt_output_jfile(restart_args%n_opt_output_file), STAT=ierrstat)
             IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
           ENDIF
           DO i=1,restart_args%n_opt_output_file
-            CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, restart_args%opt_output_jfile(i), p_comm_work)
+            CALL p_unpack_int( p_msg, position, restart_args%opt_output_jfile(i), p_comm_work)
           END DO
         END IF
 
@@ -827,39 +826,39 @@ CONTAINS
         DO j = 1, SIZE(patch_data)
 
           ! find the patch of the current patch id
-          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, this_patch,            p_comm_work)
+          CALL p_unpack_int( p_msg, position, this_patch,            p_comm_work)
           p_pd => find_patch(this_patch, routine)
 
           ! activity flag
-          CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_dom_active,     p_comm_work)
+          CALL p_unpack_bool(p_msg, position, p_pd%l_dom_active,     p_comm_work)
 
           ! time levels
-          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%nold,             p_comm_work)
-          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%nnow,             p_comm_work)
-          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%nnew,             p_comm_work)
-          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%nnew_rcf,         p_comm_work)
-          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%nnow_rcf,         p_comm_work)
+          CALL p_unpack_int( p_msg, position, p_pd%nold,             p_comm_work)
+          CALL p_unpack_int( p_msg, position, p_pd%nnow,             p_comm_work)
+          CALL p_unpack_int( p_msg, position, p_pd%nnew,             p_comm_work)
+          CALL p_unpack_int( p_msg, position, p_pd%nnew_rcf,         p_comm_work)
+          CALL p_unpack_int( p_msg, position, p_pd%nnow_rcf,         p_comm_work)
 
-          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, nnew(p_pd%id),         p_comm_work)
-          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, nnew_rcf(p_pd%id),     p_comm_work)
+          CALL p_unpack_int( p_msg, position, nnew(p_pd%id),         p_comm_work)
+          CALL p_unpack_int( p_msg, position, nnew_rcf(p_pd%id),     p_comm_work)
 
           ! optional parameter values
-          CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_opt_depth,      p_comm_work)
-          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%opt_depth,        p_comm_work)
-          CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_opt_depth_lnd,  p_comm_work)
-          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%opt_depth_lnd,    p_comm_work)
-          CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_opt_nlev_snow,  p_comm_work)
-          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%opt_nlev_snow,    p_comm_work)
-          CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_opt_nice_class, p_comm_work)
-          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%opt_nice_class,   p_comm_work)
-          CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_opt_ndyn_substeps, p_comm_work)
-          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%opt_ndyn_substeps,   p_comm_work)
-          CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_opt_jstep_adv_marchuk_order, p_comm_work)
-          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%opt_jstep_adv_marchuk_order,   p_comm_work)
-          CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_opt_sim_time,   p_comm_work)
-          CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, p_pd%opt_sim_time,     p_comm_work)
-          CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_opt_ndom,       p_comm_work)
-          CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%opt_ndom,         p_comm_work)
+          CALL p_unpack_bool(p_msg, position, p_pd%l_opt_depth,      p_comm_work)
+          CALL p_unpack_int( p_msg, position, p_pd%opt_depth,        p_comm_work)
+          CALL p_unpack_bool(p_msg, position, p_pd%l_opt_depth_lnd,  p_comm_work)
+          CALL p_unpack_int( p_msg, position, p_pd%opt_depth_lnd,    p_comm_work)
+          CALL p_unpack_bool(p_msg, position, p_pd%l_opt_nlev_snow,  p_comm_work)
+          CALL p_unpack_int( p_msg, position, p_pd%opt_nlev_snow,    p_comm_work)
+          CALL p_unpack_bool(p_msg, position, p_pd%l_opt_nice_class, p_comm_work)
+          CALL p_unpack_int( p_msg, position, p_pd%opt_nice_class,   p_comm_work)
+          CALL p_unpack_bool(p_msg, position, p_pd%l_opt_ndyn_substeps, p_comm_work)
+          CALL p_unpack_int( p_msg, position, p_pd%opt_ndyn_substeps,   p_comm_work)
+          CALL p_unpack_bool(p_msg, position, p_pd%l_opt_jstep_adv_marchuk_order, p_comm_work)
+          CALL p_unpack_int( p_msg, position, p_pd%opt_jstep_adv_marchuk_order,   p_comm_work)
+          CALL p_unpack_bool(p_msg, position, p_pd%l_opt_sim_time,   p_comm_work)
+          CALL p_unpack_real(p_msg, position, p_pd%opt_sim_time,     p_comm_work)
+          CALL p_unpack_bool(p_msg, position, p_pd%l_opt_ndom,       p_comm_work)
+          CALL p_unpack_int( p_msg, position, p_pd%opt_ndom,         p_comm_work)
 
           ! optional parameter arrays
           IF (p_pd%n_opt_pvct > 0) THEN
@@ -868,7 +867,7 @@ CONTAINS
               IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
             ENDIF
             DO k = 1, SIZE(p_pd%opt_pvct)
-              CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, p_pd%opt_pvct(k),  p_comm_work)
+              CALL p_unpack_real(p_msg, position, p_pd%opt_pvct(k),  p_comm_work)
             ENDDO
           ENDIF
 
@@ -878,7 +877,7 @@ CONTAINS
               IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
             ENDIF
             DO k = 1, SIZE(p_pd%opt_lcall_phy)
-              CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%opt_lcall_phy(k),  p_comm_work)
+              CALL p_unpack_bool(p_msg, position, p_pd%opt_lcall_phy(k),  p_comm_work)
             ENDDO
           ENDIF
 
@@ -888,7 +887,7 @@ CONTAINS
               IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
             ENDIF
             DO k = 1, SIZE(p_pd%opt_t_elapsed_phy)
-              CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, p_pd%opt_t_elapsed_phy(k),  p_comm_work)
+              CALL p_unpack_real(p_msg, position, p_pd%opt_t_elapsed_phy(k),  p_comm_work)
             ENDDO
           ENDIF
         ENDDO
@@ -957,7 +956,7 @@ CONTAINS
 
     TYPE(t_patch_data),   POINTER  :: p_pd
     CHARACTER, POINTER             :: p_msg(:)
-    INTEGER                        :: i, j, k, position, MAX_BUF_SIZE
+    INTEGER                        :: i, j, k, position
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'compute_start_restart'
 
 #ifdef DEBUG
@@ -1015,27 +1014,26 @@ CONTAINS
       ! create message array
       p_msg => get_message_array(routine)
       position     = 0
-      MAX_BUF_SIZE = SIZE(p_msg)
 
       ! set command id
-      CALL p_pack_int(MSG_RESTART_START,         p_msg, MAX_BUF_SIZE, position, p_comm_work)
+      CALL p_pack_int(MSG_RESTART_START,         p_msg, position, p_comm_work)
 
       ! set patch independent arguments
-      CALL p_pack_int( datetime%year,            p_msg, MAX_BUF_SIZE, position, p_comm_work)
-      CALL p_pack_int( datetime%month,           p_msg, MAX_BUF_SIZE, position, p_comm_work)
-      CALL p_pack_int( datetime%day,             p_msg, MAX_BUF_SIZE, position, p_comm_work)
-      CALL p_pack_int( datetime%hour,            p_msg, MAX_BUF_SIZE, position, p_comm_work)
-      CALL p_pack_int( datetime%minute,          p_msg, MAX_BUF_SIZE, position, p_comm_work)
-      CALL p_pack_real(datetime%second,          p_msg, MAX_BUF_SIZE, position, p_comm_work)
-      CALL p_pack_real(datetime%caltime,         p_msg, MAX_BUF_SIZE, position, p_comm_work)
-      CALL p_pack_int( INT(datetime%calday),     p_msg, MAX_BUF_SIZE, position, p_comm_work)
-      CALL p_pack_real(datetime%daysec,          p_msg, MAX_BUF_SIZE, position, p_comm_work)
-      CALL p_pack_int( jstep,                    p_msg, MAX_BUF_SIZE, position, p_comm_work)
+      CALL p_pack_int( datetime%year,            p_msg, position, p_comm_work)
+      CALL p_pack_int( datetime%month,           p_msg, position, p_comm_work)
+      CALL p_pack_int( datetime%day,             p_msg, position, p_comm_work)
+      CALL p_pack_int( datetime%hour,            p_msg, position, p_comm_work)
+      CALL p_pack_int( datetime%minute,          p_msg, position, p_comm_work)
+      CALL p_pack_real(datetime%second,          p_msg, position, p_comm_work)
+      CALL p_pack_real(datetime%caltime,         p_msg, position, p_comm_work)
+      CALL p_pack_int( INT(datetime%calday),     p_msg, position, p_comm_work)
+      CALL p_pack_real(datetime%daysec,          p_msg, position, p_comm_work)
+      CALL p_pack_int( jstep,                    p_msg, position, p_comm_work)
 
-      CALL p_pack_int( restart_args%n_opt_output_file,   p_msg, MAX_BUF_SIZE, position, p_comm_work)
+      CALL p_pack_int( restart_args%n_opt_output_file,   p_msg, position, p_comm_work)
       IF (restart_args%n_opt_output_file > 0) THEN
         DO i=1,restart_args%n_opt_output_file
-          CALL p_pack_int( restart_args%opt_output_jfile(i),  p_msg, MAX_BUF_SIZE, position, p_comm_work)
+          CALL p_pack_int( restart_args%opt_output_jfile(i),  p_msg, position, p_comm_work)
         END DO
       END IF
 
@@ -1045,53 +1043,53 @@ CONTAINS
         p_pd => patch_data(j)
 
         ! patch id
-        CALL p_pack_int( p_pd%id,                p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_int( p_pd%id,                p_msg, position, p_comm_work)
 
         ! activity flag
-        CALL p_pack_bool(p_pd%l_dom_active,      p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_bool(p_pd%l_dom_active,      p_msg, position, p_comm_work)
 
         ! time levels
-        CALL p_pack_int( nold(p_pd%id),          p_msg, MAX_BUF_SIZE, position, p_comm_work)
-        CALL p_pack_int( nnow(p_pd%id),          p_msg, MAX_BUF_SIZE, position, p_comm_work)
-        CALL p_pack_int( nnew(p_pd%id),          p_msg, MAX_BUF_SIZE, position, p_comm_work)
-        CALL p_pack_int( nnew_rcf(p_pd%id),      p_msg, MAX_BUF_SIZE, position, p_comm_work)
-        CALL p_pack_int( nnow_rcf(p_pd%id),      p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_int( nold(p_pd%id),          p_msg, position, p_comm_work)
+        CALL p_pack_int( nnow(p_pd%id),          p_msg, position, p_comm_work)
+        CALL p_pack_int( nnew(p_pd%id),          p_msg, position, p_comm_work)
+        CALL p_pack_int( nnew_rcf(p_pd%id),      p_msg, position, p_comm_work)
+        CALL p_pack_int( nnow_rcf(p_pd%id),      p_msg, position, p_comm_work)
 
-        CALL p_pack_int( nnew(p_pd%id),          p_msg, MAX_BUF_SIZE, position, p_comm_work)
-        CALL p_pack_int( nnew_rcf(p_pd%id),      p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_int( nnew(p_pd%id),          p_msg, position, p_comm_work)
+        CALL p_pack_int( nnew_rcf(p_pd%id),      p_msg, position, p_comm_work)
 
         ! optional parameter values
-        CALL p_pack_bool(p_pd%l_opt_depth,      p_msg, MAX_BUF_SIZE, position, p_comm_work)
-        CALL p_pack_int( p_pd%opt_depth,        p_msg, MAX_BUF_SIZE, position, p_comm_work)
-        CALL p_pack_bool(p_pd%l_opt_depth_lnd,  p_msg, MAX_BUF_SIZE, position, p_comm_work)
-        CALL p_pack_int( p_pd%opt_depth_lnd,    p_msg, MAX_BUF_SIZE, position, p_comm_work)
-        CALL p_pack_bool(p_pd%l_opt_nlev_snow,  p_msg, MAX_BUF_SIZE, position, p_comm_work)
-        CALL p_pack_int( p_pd%opt_nlev_snow,    p_msg, MAX_BUF_SIZE, position, p_comm_work)
-        CALL p_pack_bool(p_pd%l_opt_nice_class, p_msg, MAX_BUF_SIZE, position, p_comm_work)
-        CALL p_pack_int( p_pd%opt_nice_class,   p_msg, MAX_BUF_SIZE, position, p_comm_work)
-        CALL p_pack_bool(p_pd%l_opt_ndyn_substeps, p_msg, MAX_BUF_SIZE, position, p_comm_work)
-        CALL p_pack_int( p_pd%opt_ndyn_substeps,   p_msg, MAX_BUF_SIZE, position, p_comm_work)
-        CALL p_pack_bool(p_pd%l_opt_jstep_adv_marchuk_order, p_msg, MAX_BUF_SIZE, position, p_comm_work)
-        CALL p_pack_int( p_pd%opt_jstep_adv_marchuk_order,   p_msg, MAX_BUF_SIZE, position, p_comm_work)
-        CALL p_pack_bool(p_pd%l_opt_sim_time,    p_msg, MAX_BUF_SIZE, position, p_comm_work)
-        CALL p_pack_real( p_pd%opt_sim_time,     p_msg, MAX_BUF_SIZE, position, p_comm_work)
-        CALL p_pack_bool(p_pd%l_opt_ndom,        p_msg, MAX_BUF_SIZE, position, p_comm_work)
-        CALL p_pack_int( p_pd%opt_ndom,          p_msg, MAX_BUF_SIZE, position, p_comm_work)
+        CALL p_pack_bool(p_pd%l_opt_depth,      p_msg, position, p_comm_work)
+        CALL p_pack_int( p_pd%opt_depth,        p_msg, position, p_comm_work)
+        CALL p_pack_bool(p_pd%l_opt_depth_lnd,  p_msg, position, p_comm_work)
+        CALL p_pack_int( p_pd%opt_depth_lnd,    p_msg, position, p_comm_work)
+        CALL p_pack_bool(p_pd%l_opt_nlev_snow,  p_msg, position, p_comm_work)
+        CALL p_pack_int( p_pd%opt_nlev_snow,    p_msg, position, p_comm_work)
+        CALL p_pack_bool(p_pd%l_opt_nice_class, p_msg, position, p_comm_work)
+        CALL p_pack_int( p_pd%opt_nice_class,   p_msg, position, p_comm_work)
+        CALL p_pack_bool(p_pd%l_opt_ndyn_substeps, p_msg, position, p_comm_work)
+        CALL p_pack_int( p_pd%opt_ndyn_substeps,   p_msg, position, p_comm_work)
+        CALL p_pack_bool(p_pd%l_opt_jstep_adv_marchuk_order, p_msg, position, p_comm_work)
+        CALL p_pack_int( p_pd%opt_jstep_adv_marchuk_order,   p_msg, position, p_comm_work)
+        CALL p_pack_bool(p_pd%l_opt_sim_time,    p_msg, position, p_comm_work)
+        CALL p_pack_real( p_pd%opt_sim_time,     p_msg, position, p_comm_work)
+        CALL p_pack_bool(p_pd%l_opt_ndom,        p_msg, position, p_comm_work)
+        CALL p_pack_int( p_pd%opt_ndom,          p_msg, position, p_comm_work)
 
         ! optional parameter arrays
         IF (ALLOCATED(p_pd%opt_pvct)) THEN
           DO k = 1, SIZE(p_pd%opt_pvct)
-            CALL p_pack_real(p_pd%opt_pvct(k),          p_msg, MAX_BUF_SIZE, position, p_comm_work)
+            CALL p_pack_real(p_pd%opt_pvct(k),          p_msg, position, p_comm_work)
           ENDDO
         ENDIF
         IF (ALLOCATED(p_pd%opt_lcall_phy)) THEN
           DO k = 1, SIZE(p_pd%opt_lcall_phy)
-            CALL p_pack_bool(p_pd%opt_lcall_phy(k),     p_msg, MAX_BUF_SIZE, position, p_comm_work)
+            CALL p_pack_bool(p_pd%opt_lcall_phy(k),     p_msg, position, p_comm_work)
           ENDDO
         ENDIF
         IF (ALLOCATED(p_pd%opt_t_elapsed_phy)) THEN
           DO k = 1, SIZE(p_pd%opt_t_elapsed_phy)
-            CALL p_pack_real(p_pd%opt_t_elapsed_phy(k), p_msg, MAX_BUF_SIZE, position, p_comm_work)
+            CALL p_pack_real(p_pd%opt_t_elapsed_phy(k), p_msg, position, p_comm_work)
           ENDDO
         ENDIF
       ENDDO
@@ -1112,7 +1110,7 @@ CONTAINS
 
     CHARACTER, POINTER          :: p_msg(:)
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'compute_shutdown_restart'
-    INTEGER :: position, MAX_BUF_SIZE
+    INTEGER :: position
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS5)routine,' p_pe=',p_pe, &
@@ -1127,8 +1125,7 @@ CONTAINS
       ! create message array
       p_msg => get_message_array(routine)
       position     = 0
-      MAX_BUF_SIZE = SIZE(p_msg)
-      CALL p_pack_int(MSG_RESTART_SHUTDOWN, p_msg, MAX_BUF_SIZE, position, p_comm_work)
+      CALL p_pack_int(MSG_RESTART_SHUTDOWN, p_msg, position, p_comm_work)
 
       CALL p_send_packed(p_msg, p_restart_pe0, 0, position)
 

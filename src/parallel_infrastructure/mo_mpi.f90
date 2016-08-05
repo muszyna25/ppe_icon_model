@@ -4730,15 +4730,14 @@ CONTAINS
 
   END SUBROUTINE p_irecv_bool_4d
 
-  SUBROUTINE p_pack_int (t_var, t_buffer, p_buf_size, p_pos, comm)
+  SUBROUTINE p_pack_int (t_var, t_buffer, p_pos, comm)
 
     INTEGER,   INTENT(IN)    :: t_var
     CHARACTER, INTENT(INOUT) :: t_buffer(:)
-    INTEGER,   INTENT(IN)    :: p_buf_size
     INTEGER,   INTENT(INOUT) :: p_pos
     INTEGER, OPTIONAL, INTENT(IN) :: comm
 #ifndef NOMPI
-    INTEGER :: p_comm, outsize
+    INTEGER :: p_comm
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -4746,23 +4745,21 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    outsize = p_buf_size
-    CALL MPI_PACK(t_var, 1, p_int, t_buffer, outsize, p_pos, p_comm, p_error)
+    CALL MPI_PACK(t_var, 1, p_int, t_buffer, SIZE(t_buffer), p_pos, p_comm, p_error)
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_int", 'MPI call failed')
 #endif
 #endif
   END SUBROUTINE p_pack_int
 
-  SUBROUTINE p_pack_bool (t_var, t_buffer, p_buf_size, p_pos, comm)
+  SUBROUTINE p_pack_bool (t_var, t_buffer, p_pos, comm)
 
     LOGICAL,   INTENT(IN)    :: t_var
     CHARACTER, INTENT(INOUT) :: t_buffer(:)
-    INTEGER,   INTENT(IN)    :: p_buf_size
     INTEGER,   INTENT(INOUT) :: p_pos
     INTEGER, OPTIONAL, INTENT(IN) :: comm
 #ifndef NOMPI
-    INTEGER :: p_comm, outsize
+    INTEGER :: p_comm
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -4770,23 +4767,21 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    outsize = p_buf_size
-    CALL MPI_PACK(t_var, 1, p_bool, t_buffer, outsize, p_pos, p_comm, p_error)
+    CALL MPI_PACK(t_var, 1, p_bool, t_buffer, SIZE(t_buffer), p_pos, p_comm, p_error)
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_int", 'MPI call failed')
 #endif
 #endif
   END SUBROUTINE p_pack_bool
 
-  SUBROUTINE p_pack_real (t_var, t_buffer, p_buf_size, p_pos, comm)
+  SUBROUTINE p_pack_real (t_var, t_buffer, p_pos, comm)
 
     REAL(wp),  INTENT(IN)    :: t_var
     CHARACTER, INTENT(INOUT) :: t_buffer(:)
-    INTEGER,   INTENT(IN)    :: p_buf_size
     INTEGER,   INTENT(INOUT) :: p_pos
     INTEGER, OPTIONAL, INTENT(IN) :: comm
 #ifndef NOMPI
-    INTEGER :: p_comm, outsize
+    INTEGER :: p_comm
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -4794,24 +4789,22 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    outsize = p_buf_size
-    CALL MPI_PACK(t_var, 1, p_real_dp, t_buffer, outsize, p_pos, p_comm, p_error)
+    CALL MPI_PACK(t_var, 1, p_real_dp, t_buffer, SIZE(t_buffer), p_pos, p_comm, p_error)
 #ifdef DEBUG
    IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_real", 'MPI call failed')
 #endif
 #endif
   END SUBROUTINE p_pack_real
 
-  SUBROUTINE p_pack_int_1d (t_var, p_count, t_buffer, p_buf_size, p_pos, comm)
+  SUBROUTINE p_pack_int_1d (t_var, p_count, t_buffer, p_pos, comm)
 
     INTEGER,   INTENT(IN)    :: t_var(:)
     INTEGER,   INTENT(IN)    :: p_count
     CHARACTER, INTENT(INOUT) :: t_buffer(:)
-    INTEGER,   INTENT(IN)    :: p_buf_size
     INTEGER,   INTENT(INOUT) :: p_pos
     INTEGER, OPTIONAL, INTENT(IN) :: comm
 #ifndef NOMPI
-    INTEGER :: p_comm, outsize
+    INTEGER :: p_comm
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -4819,24 +4812,22 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    outsize = p_buf_size
-    CALL MPI_PACK(t_var, p_count, p_int, t_buffer, outsize, p_pos, p_comm, p_error)
+    CALL MPI_PACK(t_var, p_count, p_int, t_buffer, SIZE(t_buffer), p_pos, p_comm, p_error)
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_int_1d", 'MPI call failed')
 #endif
 #endif
   END SUBROUTINE p_pack_int_1d
 
-  SUBROUTINE p_pack_real_1d (t_var, p_count, t_buffer, p_buf_size, p_pos, comm)
+  SUBROUTINE p_pack_real_1d (t_var, p_count, t_buffer, p_pos, comm)
 
     REAL(wp),  INTENT(IN)    :: t_var(:)
     INTEGER,   INTENT(IN)    :: p_count
     CHARACTER, INTENT(INOUT) :: t_buffer(:)
-    INTEGER,   INTENT(IN)    :: p_buf_size
     INTEGER,   INTENT(INOUT) :: p_pos
     INTEGER, OPTIONAL, INTENT(IN) :: comm
 #ifndef NOMPI
-    INTEGER :: p_comm, outsize
+    INTEGER :: p_comm
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -4844,8 +4835,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    outsize = p_buf_size
-    CALL MPI_PACK(t_var, p_count, p_real_dp, t_buffer, outsize, p_pos, p_comm, p_error)
+    CALL MPI_PACK(t_var, p_count, p_real_dp, t_buffer, SIZE(t_buffer), p_pos, p_comm, p_error)
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_real_1d", 'MPI call failed')
 #endif
@@ -4853,15 +4843,14 @@ CONTAINS
   END SUBROUTINE p_pack_real_1d
 
 
-  SUBROUTINE p_pack_string (t_var, t_buffer, p_buf_size, p_pos, comm)
+  SUBROUTINE p_pack_string (t_var, t_buffer, p_pos, comm)
 
     CHARACTER(LEN=*), INTENT(IN) :: t_var
     CHARACTER, INTENT(INOUT) :: t_buffer(:)
-    INTEGER,   INTENT(IN)    :: p_buf_size
     INTEGER,   INTENT(INOUT) :: p_pos
     INTEGER, OPTIONAL, INTENT(IN) :: comm
 #ifndef NOMPI
-    INTEGER :: p_comm, outsize, ilength
+    INTEGER :: p_comm, ilength
     CHARACTER(LEN=128) :: tmp_var
 
     IF (PRESENT(comm)) THEN
@@ -4870,31 +4859,29 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    outsize = p_buf_size
     tmp_var =     TRIM(t_var)
     ilength = LEN_TRIM(t_var)
     ! first pack string length, then the character sequence
-    CALL MPI_PACK(ilength,       1,  p_int, t_buffer, outsize, p_pos, p_comm, p_error)
+    CALL MPI_PACK(ilength,       1,  p_int, t_buffer, SIZE(t_buffer), p_pos, p_comm, p_error)
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_char_1d", 'MPI call failed')
 #endif
-    CALL MPI_PACK(tmp_var, ilength, p_char, t_buffer, outsize, p_pos, p_comm, p_error)
+    CALL MPI_PACK(tmp_var, ilength, p_char, t_buffer, SIZE(t_buffer), p_pos, p_comm, p_error)
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_char_1d", 'MPI call failed')
 #endif
 #endif
   END SUBROUTINE p_pack_string
 
-  SUBROUTINE p_pack_real_2d (t_var, p_count, t_buffer, p_buf_size, p_pos, comm)
+  SUBROUTINE p_pack_real_2d (t_var, p_count, t_buffer, p_pos, comm)
 
     REAL(wp),  INTENT(IN)    :: t_var(:,:)
     INTEGER,   INTENT(IN)    :: p_count
     CHARACTER, INTENT(INOUT) :: t_buffer(:)
-    INTEGER,   INTENT(IN)    :: p_buf_size
     INTEGER,   INTENT(INOUT) :: p_pos
     INTEGER, OPTIONAL, INTENT(IN) :: comm
 #ifndef NOMPI
-    INTEGER :: p_comm, outsize
+    INTEGER :: p_comm
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -4902,18 +4889,16 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    outsize = p_buf_size
-    CALL MPI_PACK(t_var, p_count, p_real_dp, t_buffer, outsize, p_pos, p_comm, p_error)
+    CALL MPI_PACK(t_var, p_count, p_real_dp, t_buffer, SIZE(t_buffer), p_pos, p_comm, p_error)
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) CALL finish ("p_pack_real_2d", 'MPI call failed')
 #endif
 #endif
   END SUBROUTINE p_pack_real_2d
 
-  SUBROUTINE p_unpack_int (t_buffer, p_buf_size, p_pos, t_var, comm)
+  SUBROUTINE p_unpack_int (t_buffer, p_pos, t_var, comm)
 
     CHARACTER, INTENT(IN)    :: t_buffer(:)
-    INTEGER,   INTENT(IN)    :: p_buf_size
     INTEGER,   INTENT(INOUT) :: p_pos
     INTEGER,   INTENT(OUT)   :: t_var
     INTEGER, OPTIONAL, INTENT(IN) :: comm
@@ -4926,17 +4911,16 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    CALL MPI_UNPACK(t_buffer, p_buf_size, p_pos, t_var, 1, p_int, p_comm, p_error)
+    CALL MPI_UNPACK(t_buffer, SIZE(t_buffer), p_pos, t_var, 1, p_int, p_comm, p_error)
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) CALL finish ("p_unpack_int", 'MPI call failed')
 #endif
 #endif
   END SUBROUTINE p_unpack_int
 
-  SUBROUTINE p_unpack_bool (t_buffer, p_buf_size, p_pos, t_var, comm)
+  SUBROUTINE p_unpack_bool (t_buffer, p_pos, t_var, comm)
 
     CHARACTER, INTENT(IN)    :: t_buffer(:)
-    INTEGER,   INTENT(IN)    :: p_buf_size
     INTEGER,   INTENT(INOUT) :: p_pos
     LOGICAL,   INTENT(OUT)   :: t_var
     INTEGER, OPTIONAL, INTENT(IN) :: comm
@@ -4949,17 +4933,16 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    CALL MPI_UNPACK(t_buffer, p_buf_size, p_pos, t_var, 1, p_bool, p_comm, p_error)
+    CALL MPI_UNPACK(t_buffer, SIZE(t_buffer), p_pos, t_var, 1, p_bool, p_comm, p_error)
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) CALL finish ("p_unpack_int", 'MPI call failed')
 #endif
 #endif
   END SUBROUTINE p_unpack_bool
 
-  SUBROUTINE p_unpack_real (t_buffer, p_buf_size, p_pos, t_var, comm)
+  SUBROUTINE p_unpack_real (t_buffer, p_pos, t_var, comm)
 
     CHARACTER, INTENT(IN)    :: t_buffer(:)
-    INTEGER,   INTENT(IN)    :: p_buf_size
     INTEGER,   INTENT(INOUT) :: p_pos
     REAL(wp),  INTENT(OUT)   :: t_var
     INTEGER, OPTIONAL, INTENT(IN) :: comm
@@ -4972,17 +4955,16 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    CALL MPI_UNPACK(t_buffer, p_buf_size, p_pos, t_var, 1, p_real_dp, p_comm, p_error)
+    CALL MPI_UNPACK(t_buffer, SIZE(t_buffer), p_pos, t_var, 1, p_real_dp, p_comm, p_error)
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) CALL finish ("p_unpack_real", 'MPI call failed')
 #endif
 #endif
   END SUBROUTINE p_unpack_real
 
-  SUBROUTINE p_unpack_int_1d (t_buffer, p_buf_size, p_pos, t_var, p_count, comm)
+  SUBROUTINE p_unpack_int_1d (t_buffer, p_pos, t_var, p_count, comm)
 
     CHARACTER, INTENT(IN)    :: t_buffer(:)
-    INTEGER,   INTENT(IN)    :: p_buf_size
     INTEGER,   INTENT(INOUT) :: p_pos
     INTEGER,   INTENT(INOUT) :: t_var(:)
     INTEGER,   INTENT(IN)    :: p_count
@@ -4996,17 +4978,16 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    CALL MPI_UNPACK(t_buffer, p_buf_size, p_pos, t_var, p_count, p_int, p_comm, p_error)
+    CALL MPI_UNPACK(t_buffer, SIZE(t_buffer), p_pos, t_var, p_count, p_int, p_comm, p_error)
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) CALL finish ("p_unpack_int_1d", 'MPI call failed')
 #endif
 #endif
   END SUBROUTINE p_unpack_int_1d
 
-  SUBROUTINE p_unpack_real_1d (t_buffer, p_buf_size, p_pos, t_var, p_count, comm)
+  SUBROUTINE p_unpack_real_1d (t_buffer, p_pos, t_var, p_count, comm)
 
     CHARACTER, INTENT(IN)    :: t_buffer(:)
-    INTEGER,   INTENT(IN)    :: p_buf_size
     INTEGER,   INTENT(INOUT) :: p_pos
     REAL(wp),  INTENT(INOUT) :: t_var(:)
     INTEGER,   INTENT(IN)    :: p_count
@@ -5020,7 +5001,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    CALL MPI_UNPACK(t_buffer, p_buf_size, p_pos, t_var, p_count, p_real_dp, p_comm, p_error)
+    CALL MPI_UNPACK(t_buffer, SIZE(t_buffer), p_pos, t_var, p_count, p_real_dp, p_comm, p_error)
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) CALL finish ("p_unpack_real_1d", 'MPI call failed')
 #endif
@@ -5028,10 +5009,9 @@ CONTAINS
   END SUBROUTINE p_unpack_real_1d
 
 
-  SUBROUTINE p_unpack_string (t_buffer, p_buf_size, p_pos, t_var, comm)
+  SUBROUTINE p_unpack_string (t_buffer, p_pos, t_var, comm)
 
     CHARACTER, INTENT(IN) :: t_buffer(:)
-    INTEGER,   INTENT(IN)    :: p_buf_size
     INTEGER,   INTENT(INOUT) :: p_pos
     CHARACTER(LEN=*), INTENT(INOUT) :: t_var
     INTEGER, OPTIONAL, INTENT(IN) :: comm
@@ -5044,12 +5024,12 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
     ! first unpack string length, then the character sequence
-    CALL MPI_UNPACK(t_buffer, p_buf_size, p_pos, ilength,       1,  p_int, p_comm, p_error)
+    CALL MPI_UNPACK(t_buffer, SIZE(t_buffer), p_pos, ilength,       1,  p_int, p_comm, p_error)
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) CALL finish ("p_unpack_char_1d", 'MPI call failed')
 #endif
     t_var = " "
-    CALL MPI_UNPACK(t_buffer, p_buf_size, p_pos,   t_var, ilength, p_char, p_comm, p_error)
+    CALL MPI_UNPACK(t_buffer, SIZE(t_buffer), p_pos,   t_var, ilength, p_char, p_comm, p_error)
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) CALL finish ("p_unpack_char_1d", 'MPI call failed')
 #endif
@@ -5057,10 +5037,9 @@ CONTAINS
   END SUBROUTINE p_unpack_string
 
 
-  SUBROUTINE p_unpack_real_2d (t_buffer, p_buf_size, p_pos, t_var, p_count, comm)
+  SUBROUTINE p_unpack_real_2d (t_buffer, p_pos, t_var, p_count, comm)
 
     CHARACTER, INTENT(IN)    :: t_buffer(:)
-    INTEGER,   INTENT(IN)    :: p_buf_size
     INTEGER,   INTENT(INOUT) :: p_pos
     REAL(wp),  INTENT(INOUT) :: t_var(:,:)
     INTEGER,   INTENT(IN)    :: p_count
@@ -5074,7 +5053,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    CALL MPI_UNPACK(t_buffer, p_buf_size, p_pos, t_var, p_count, p_real_dp, p_comm, p_error)
+    CALL MPI_UNPACK(t_buffer, SIZE(t_buffer), p_pos, t_var, p_count, p_real_dp, p_comm, p_error)
 #ifdef DEBUG
     IF (p_error /= MPI_SUCCESS) CALL finish ("p_unpack_real_2d", 'MPI call failed')
 #endif
