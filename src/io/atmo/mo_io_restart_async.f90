@@ -21,7 +21,6 @@
 
 MODULE mo_io_restart_async
 
-  USE mo_util_file,               ONLY: util_symlink, util_unlink, util_islink
   USE mo_exception,               ONLY: finish, message, message_text, get_filename_noext
   USE mo_fortran_tools,           ONLY: assign_if_present, assign_if_present_allocatable
   USE mo_kind,                    ONLY: wp, i8, dp
@@ -66,7 +65,7 @@ MODULE mo_io_restart_async
   USE mo_util_string,             ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                   int2string, toCharacter
   USE mo_util_restart,            ONLY: t_v_grid, t_restart_cdi_ids, set_vertical_grid, setGeneralRestartAttributes, &
-                                      & setDynamicPatchRestartAttributes, setPhysicsRestartAttributes
+                                      & setDynamicPatchRestartAttributes, setPhysicsRestartAttributes, create_restart_file_link
 
 #ifndef NOMPI
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work, p_work_pe0, num_work_procs, MPI_SUCCESS, &
@@ -168,8 +167,6 @@ MODULE mo_io_restart_async
     ! the following members are set during open
     CHARACTER(LEN=filename_max) :: filename
     CHARACTER(LEN=32)           :: model_type
-    CHARACTER(len=64)           :: linkname
-    CHARACTER(len=10)           :: linkprefix
     TYPE(t_restart_cdi_ids)     :: cdiIds
     INTEGER                     :: cdiTimeIndex
 
@@ -512,8 +509,13 @@ CONTAINS
 
           ! collective call to write the restart variables
           CALL restart_write_var_list(p_pd)
-          CALL create_restart_file_link(p_pd%restart_file, p_pd%restart_proc_id, p_pd%id, &
-            &                           p_pd%l_opt_ndom, p_pd%opt_ndom )
+          IF(p_pd%l_opt_ndom) THEN
+              CALL create_restart_file_link(TRIM(p_pd%restart_file%filename), TRIM(p_pd%restart_file%model_type), &
+                                           &p_pd%restart_proc_id - p_restart_pe0, p_pd%id, opt_ndom = p_pd%opt_ndom)
+          ELSE
+              CALL create_restart_file_link(TRIM(p_pd%restart_file%filename), TRIM(p_pd%restart_file%model_type), &
+                                           &p_pd%restart_proc_id - p_restart_pe0, p_pd%id)
+          END IF
           CALL close_restart_file(p_pd%restart_file)
 
         ENDIF
@@ -1374,8 +1376,6 @@ CONTAINS
     rf%my_mem_win_off             = 0_i8
     rf%var_data                   => NULL()
     rf%filename                   = ''
-    rf%linkname                   = ''
-    rf%linkprefix                 = ''
 
     CALL rf%cdiIds%init()
     rf%cdiTimeIndex               = CDI_UNDEFID
@@ -2460,57 +2460,8 @@ CONTAINS
 
     CALL rf%cdiIds%closeAndDestroyIds()
     rf%filename = ''
-    rf%linkname = ''
-    rf%linkprefix = ''
 
   END SUBROUTINE close_restart_file
-
-  !------------------------------------------------------------------------------------------------
-  !
-  ! Creates a symbolic link from the given restart file.
-  !
-  SUBROUTINE create_restart_file_link (rf, proc_id, jg, l_opt_ndom, opt_ndom)
-
-    TYPE (t_restart_file), INTENT(INOUT)  :: rf
-    INTEGER,               INTENT(IN)     :: proc_id
-    INTEGER,               INTENT(IN)     :: jg                   !< patch ID
-    LOGICAL                               :: l_opt_ndom
-    INTEGER                               :: opt_ndom
-
-    INTEGER                               :: iret, id
-    CHARACTER(LEN=5)                      :: str_id
-    CHARACTER(LEN=*), PARAMETER           :: routine = modname//'create_restart_file_link'
-
-    ! build link name
-    id = proc_id - p_restart_pe0
-    IF (id == 0) THEN
-      str_id = ' '
-    ELSE
-      WRITE(str_id, '(I5)')id
-    ENDIF
-    rf%linkprefix = 'restart'//TRIM(str_id)
-    IF (l_opt_ndom .AND. (opt_ndom > 1)) THEN
-      rf%linkname = TRIM(rf%linkprefix)//'_'//TRIM(rf%model_type)//"_DOM"//TRIM(int2string(jg, "(i2.2)"))//'.nc'
-    ELSE
-      rf%linkname = TRIM(rf%linkprefix)//'_'//TRIM(rf%model_type)//'_DOM01.nc'
-    END IF
-
-    ! delete old symbolic link, if exists
-    IF (util_islink(TRIM(rf%linkname))) THEN
-      iret = util_unlink(TRIM(rf%linkname))
-      IF (iret /= SUCCESS) THEN
-          WRITE (nerr,'(3a)')routine,' cannot unlink ',TRIM(rf%linkname)
-      ENDIF
-    ENDIF
-
-    ! create a new symbolic link
-    iret = util_symlink(TRIM(rf%filename),TRIM(rf%linkname))
-    IF (iret /= SUCCESS) THEN
-      WRITE (nerr,'(5a)')routine,' cannot create symbolic link ', &
-        & TRIM(rf%linkname),' for ', TRIM(rf%filename)
-    ENDIF
-
-  END SUBROUTINE create_restart_file_link
 
 #endif
 

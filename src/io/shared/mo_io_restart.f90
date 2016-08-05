@@ -79,10 +79,10 @@ MODULE mo_io_restart
                                     & GRID_UNSTRUCTURED_COUNT
   USE mo_cf_convention,         ONLY: cf_global_info
   USE mo_util_restart,          ONLY: t_v_grid, t_restart_cdi_ids, set_vertical_grid, setGeneralRestartAttributes, &
-                                    & setDynamicPatchRestartAttributes, setPhysicsRestartAttributes
+                                    & setDynamicPatchRestartAttributes, setPhysicsRestartAttributes, create_restart_file_link
   USE mo_util_string,           ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                 int2string, separator, toCharacter
-  USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink, util_unlink
+  USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink
   USE mo_util_hash,             ONLY: util_hashword
   USE mo_util_uuid,             ONLY: t_uuid
   USE mo_io_restart_namelist,   ONLY: read_and_bcast_restart_namelists
@@ -837,24 +837,7 @@ CONTAINS
           CALL cdiIds(i)%closeAndDestroyIds()
           var_lists(i)%p%cdiTimeIndex = CDI_UNDEFID
 
-          IF (PRESENT(opt_ndom)) THEN
-            IF (opt_ndom > 1) THEN
-              linkname = 'restart_'//TRIM(var_lists(i)%p%model_type)//"_DOM"//TRIM(int2string(jg, "(i2.2)"))//'.nc'
-            ELSE
-              linkname = 'restart_'//TRIM(var_lists(i)%p%model_type)//'_DOM01.nc'
-            END IF
-          ELSE
-            linkname = 'restart_'//TRIM(var_lists(i)%p%model_type)//'_DOM01.nc'
-          END IF
-          IF (util_islink(TRIM(linkname))) THEN
-            iret = util_unlink(TRIM(linkname))
-          ENDIF
-          iret = util_symlink(TRIM(var_lists(i)%p%filename),TRIM(linkname))
-
-          WRITE(message_text,'(t1,a,t50,a,t84,i6)') &
-               TRIM(var_lists(i)%p%filename), TRIM(linkname), fileID
-          CALL message('',message_text)
-
+          CALL create_restart_file_link(TRIM(var_lists(i)%p%filename), TRIM(var_lists(i)%p%model_type), 0, jg, opt_ndom = opt_ndom)
         ENDIF
         var_lists(i)%p%filename   = ''
       ENDIF

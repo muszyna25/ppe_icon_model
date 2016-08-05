@@ -22,11 +22,13 @@ MODULE mo_util_restart
                               & GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_COUNT
     USE mo_cf_convention, ONLY: cf_global_info
     USE mo_datetime, ONLY: t_datetime, iso8601extended
+    USE mo_fortran_tools, ONLY: assign_if_present
     USE mo_impl_constants, ONLY: SUCCESS, MAX_CHAR_LENGTH
     USE mo_io_restart_attributes, ONLY: t_RestartAttributeList
     USE mo_io_restart_namelist, ONLY: RestartNamelist_writeToFile
     USE mo_kind, ONLY: wp
     USE mo_util_cdi, ONLY: cdiGetStringError
+    USE mo_util_file, ONLY: util_symlink, util_islink, util_unlink
     USE mo_util_string, ONLY: int2string
     USE mo_var_metadata_types, ONLY: t_var_metadata
 
@@ -41,6 +43,7 @@ MODULE mo_util_restart
     PUBLIC :: setDynamicPatchRestartAttributes
     PUBLIC :: setPhysicsRestartAttributes
     PUBLIC :: set_vertical_grid
+    PUBLIC :: create_restart_file_link
 
     ! TYPE t_v_grid contains the data of a vertical grid definition.
     TYPE t_v_grid
@@ -387,5 +390,39 @@ CONTAINS
 
         CALL set_vertical_grid(gridDefinitions, gridCount, TYPE, [levelValue])
     END SUBROUTINE set_vertical_grid_single
+
+    SUBROUTINE create_restart_file_link(filename, modelType, proc_id, jg, opt_ndom)
+        CHARACTER(LEN = *), INTENT(IN) :: filename, modelType
+        INTEGER, VALUE :: proc_id, jg
+        INTEGER, INTENT(IN), OPTIONAL :: opt_ndom
+
+        INTEGER :: iret, ndom
+        CHARACTER(LEN = 12) :: procIdString
+        CHARACTER(LEN = 64) :: linkname
+        CHARACTER(LEN=*), PARAMETER :: routine = modname//':create_restart_file_link'
+
+        ! we need to add a process dependent part to the link NAME IF there are several restart processes
+        procIdString = ''
+        IF(proc_id /= 0) procIdString = TRIM(int2string(proc_id))
+
+        ! IN CASE we have ONLY a single domain / no domain information, USE "_DOM01" IN the link NAME
+        ndom = 1
+        CALL assign_if_present(ndom, opt_ndom)
+        IF(ndom == 1) jg = 1
+
+        ! build link name
+        linkname = 'restart'//TRIM(procIdString)//'_'//modelType//"_DOM"//TRIM(int2string(jg, "(i2.2)"))//'.nc'
+
+        ! delete old symbolic link, if exists
+        ! FIXME[NH]: handle the CASE that we have a file at that location which IS NOT a symlink
+        IF(util_islink(TRIM(linkname))) THEN
+            iret = util_unlink(TRIM(linkname))
+            IF(iret /= SUCCESS) WRITE(0, *) routine//': cannot unlink "'//TRIM(linkname)//'"'
+        ENDIF
+
+        ! create a new symbolic link
+        iret = util_symlink(filename,TRIM(linkname))
+        IF(iret /= SUCCESS) WRITE(0, *) routine//': cannot create symbolic link "'//TRIM(linkname)//'" for "'//filename//'"'
+    END SUBROUTINE create_restart_file_link
 
 END MODULE mo_util_restart
