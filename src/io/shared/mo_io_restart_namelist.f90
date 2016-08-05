@@ -9,7 +9,7 @@ MODULE mo_io_restart_namelist
   USE ISO_C_BINDING, ONLY: C_CHAR
 
   USE mo_util_file,   ONLY: util_tmpnam, util_filesize, util_unlink
-  USE mo_util_string, ONLY: tocompact, toCharacter, toCharArray
+  USE mo_util_string, ONLY: tocompact, toCharacter, toCharArray, charArray_equal
   USE mo_impl_constants, ONLY: SUCCESS
   USE mo_io_units,    ONLY: nerr, find_next_free_unit, filename_max
   USE mo_exception,   ONLY: message, finish
@@ -40,23 +40,13 @@ MODULE mo_io_restart_namelist
 
   PUBLIC :: t_att_namelist
 
-  !TODO[NH]: Remove this fixed limit!
-!   INTEGER, PARAMETER :: nmllen_max = 4096
-  INTEGER, PARAMETER :: nmllen_max = 65536
-
   TYPE t_att_namelist
-    CHARACTER(len=64) :: name
-    CHARACTER(KIND = C_CHAR), POINTER :: text(:)
+    CHARACTER(KIND = C_CHAR), POINTER :: name(:), text(:)
   END TYPE t_att_namelist
 
   INTEGER, SAVE :: nmls = 0
   TYPE(t_att_namelist), POINTER, SAVE :: restart_namelist(:)
   LOGICAL, SAVE :: l_restart_namelist_initialized = .FALSE.
-
-  INTERFACE get_restart_namelist
-    MODULE PROCEDURE get_restart_namelist_by_name
-    MODULE PROCEDURE get_restart_namelist_by_index
-  END INTERFACE get_restart_namelist
 
   CHARACTER(LEN = *), PARAMETER :: modname = "mo_io_restart_namelist"
 
@@ -84,14 +74,17 @@ CONTAINS
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":find_namelist"
     INTEGER :: i, error
     TYPE(t_att_namelist), POINTER :: temp(:)
+    CHARACTER(KIND = C_CHAR), POINTER :: nameCharArray(:)
 
     ! first ensure that we actually have a list
     IF(.NOT. l_restart_namelist_initialized) CALL init_restart_namelists()
 
     ! check whether we already have an entry of that NAME
+    nameCharArray => toCharArray('nml_'//TRIM(namelist_name))
     DO i = 1, nmls
-        IF('nml_'//TRIM(namelist_name) == TRIM(restart_namelist(i)%NAME)) THEN
+        IF(charArray_equal(nameCharArray, restart_namelist(i)%NAME)) THEN
             RESULT => restart_namelist(i)
+            DEALLOCATE(nameCharArray)
             RETURN
         END IF
     END DO
@@ -102,8 +95,9 @@ CONTAINS
         ALLOCATE(temp(2*nmls), STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
         DO i = 1, nmls
-            temp(i)%NAME = restart_namelist(i)%NAME
+            temp(i)%NAME => restart_namelist(i)%NAME
             temp(i)%text => restart_namelist(i)%text
+            restart_namelist(i)%NAME => NULL()
             restart_namelist(i)%text => NULL()
         END DO
         DO i = nmls + 1, SIZE(temp, 1)
@@ -116,7 +110,7 @@ CONTAINS
     ! add an entry
     nmls = nmls + 1
     RESULT => restart_namelist(nmls)
-    RESULT%NAME = 'nml_'//TRIM(namelist_name)
+    RESULT%NAME => nameCharArray
   END FUNCTION find_namelist
 
   SUBROUTINE delete_restart_namelists()
@@ -142,11 +136,11 @@ CONTAINS
     list_entry%text => toCharArray(namelist_text)
   END SUBROUTINE set_restart_namelist
 
-  SUBROUTINE get_restart_namelist_by_name(namelist_name, namelist_text)
+  SUBROUTINE get_restart_namelist(namelist_name, namelist_text)
     CHARACTER(len=*),              INTENT(in)  :: namelist_name
     CHARACTER(len=:), ALLOCATABLE, INTENT(out) :: namelist_text
 
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":get_restart_namelist_by_name"
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":get_restart_namelist"
     TYPE(t_att_namelist), POINTER :: list_entry
     CHARACTER(LEN = :), POINTER :: tempText
     INTEGER :: textLength, error
@@ -162,15 +156,7 @@ CONTAINS
 
     namelist_text(1:textLength) = tempText(1:textLength)
     DEALLOCATE(tempText)
-  END SUBROUTINE get_restart_namelist_by_name
-
-  SUBROUTINE get_restart_namelist_by_index(namelist_index, namelist_name)
-    INTEGER,          INTENT(in)  :: namelist_index
-    CHARACTER(len=*), INTENT(out) :: namelist_name
-
-    IF (namelist_index > nmls) CALL finish('get_restart_namelist_by_index','index out of range.')
-    namelist_name = TRIM(restart_namelist(namelist_index)%name(5:))
-  END SUBROUTINE get_restart_namelist_by_index
+  END SUBROUTINE get_restart_namelist
 
   SUBROUTINE print_restart_name_lists()
     INTEGER                           :: i
@@ -179,7 +165,7 @@ CONTAINS
     WRITE(nerr, '(a,a,i3)') routine, ' p_pe=', p_pe
     PRINT *,'restart name lists count = ',nmls
     DO i = 1, nmls
-        PRINT *, ' restart name list = ', TRIM(restart_namelist(i)%NAME), ' text = "', restart_namelist(i)%text, '"'
+        PRINT *, ' restart name list = "', restart_namelist(i)%NAME, '",  text = "', restart_namelist(i)%text, '"'
     ENDDO
   END SUBROUTINE print_restart_name_lists
 
@@ -203,9 +189,9 @@ CONTAINS
     CHARACTER(len=*), INTENT(in) :: name 
 
     CHARACTER(len=filename_max) :: filename
-    INTEGER :: nmllen
-    CHARACTER(len=nmllen_max) :: nmlbuf
-    INTEGER :: iret
+    INTEGER :: nmllen, error
+    CHARACTER(len = :), ALLOCATABLE :: nmlbuf
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":store_and_close_namelist"
 
     INQUIRE(funit, NAME=filename)
 
@@ -213,14 +199,11 @@ CONTAINS
 
     nmllen = util_filesize(filename)
     IF (nmllen == 0) THEN
-      CALL message('','namelist '//TRIM(name)//' is empty, saving in restart file fails.')
+        CALL message(routine, 'namelist '//TRIM(name)//' is empty, saving in restart file fails.')
     ENDIF
-    IF (nmllen > nmllen_max) THEN
-      CALL message('', &
-           'The problem could be solved by increasing nmllen_max in mo_io_restart_namelist.f90.')
-      CALL finish('','namelist '//TRIM(name)//' is too long, saving in restart file fails.')
-    ENDIF
-    nmlbuf = ''
+    ALLOCATE(CHARACTER(LEN = nmllen) :: nmlbuf, STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+    nmlbuf(1:nmllen) = ''
 
 #ifdef __SX__
     ! requires in runscript (ksh/bash): export F_NORCW=65535
@@ -239,9 +222,7 @@ CONTAINS
     CALL tocompact(nmlbuf)
     CALL set_restart_namelist(TRIM(name), TRIM(nmlbuf))
 
-
-    iret = util_unlink(TRIM(filename))
-
+    error = util_unlink(TRIM(filename))
   END SUBROUTINE store_and_close_namelist
 
   FUNCTION open_and_restore_namelist(name) RESULT(funit)
@@ -298,14 +279,15 @@ CONTAINS
     INTEGER, VALUE :: cdiVlistId
 
     INTEGER :: i, error
-    CHARACTER(LEN = :), POINTER :: tempText
+    CHARACTER(LEN = :), POINTER :: tempName, tempText
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":RestartNamelist_writeToFile"
 
     DO i = 1, nmls
+        tempName => toCharacter(restart_namelist(i)%name)
         tempText => toCharacter(restart_namelist(i)%text)
-        error = vlistDefAttTxt(cdiVlistId, CDI_GLOBAL, TRIM(restart_namelist(i)%name), LEN(tempText), tempText)
+        error = vlistDefAttTxt(cdiVlistId, CDI_GLOBAL, tempName, LEN(tempText), tempText)
         IF(error /= SUCCESS) CALL finish(routine, "error WHILE writing a namelist to a restart file")
-        DEALLOCATE(tempText)
+        DEALLOCATE(tempName, tempText)
     ENDDO
   END SUBROUTINE RestartNamelist_writeToFile
 
@@ -368,9 +350,8 @@ CONTAINS
     INTEGER, VALUE :: root, communicator
 
     LOGICAL :: lIsInterCommunicator, lIsRoot, lIsReceiver
-    INTEGER :: iv, nv, maxAttributeLength, error
-    CHARACTER(LEN = 128) :: list_name   !TODO[NH]: Remove this fixed limit!
-    CHARACTER(LEN = :), ALLOCATABLE :: list_text
+    INTEGER :: iv, nv, i, maxNameLength, maxAttributeLength, error
+    CHARACTER(LEN = :), ALLOCATABLE :: list_name, list_text
     CHARACTER(LEN = :), POINTER :: temp_text
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":RestartNamelist_bcast"
 
@@ -399,22 +380,32 @@ CONTAINS
     IF(lIsRoot) nv = nmls
     CALL p_bcast(nv, root, communicator)
 
+    maxNameLength = 1
     maxAttributeLength = 1
     IF(lIsRoot) THEN
         DO iv = 1, nv
+            maxNameLength = MAX(maxNameLength, SIZE(restart_namelist(iv)%NAME, 1))
             maxAttributeLength = MAX(maxAttributeLength, SIZE(restart_namelist(iv)%text, 1))
         END DO
     END IF
+    CALL p_bcast(maxNameLength, root, communicator)
     CALL p_bcast(maxAttributeLength, root, communicator)
 
+    ALLOCATE(CHARACTER(LEN = maxNameLength) :: list_name, STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
     ALLOCATE(CHARACTER(LEN = maxAttributeLength) :: list_text, STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
 
     DO iv = 1, nv
         ! send name of the name list
-        list_name = ''
-        IF(lIsRoot) CALL get_restart_namelist(iv, list_name)
-        CALL p_bcast(list_name, root, communicator)
+        list_name(1:maxNameLength) = ''
+        IF(lIsRoot) THEN
+            ! The first four characters are skipped because that's the `nml_` which will be added again by set_restart_namelist().
+            DO i = 1, SIZE(restart_namelist(iv)%NAME, 1) - 4
+                list_name(i:i) = restart_namelist(iv)%NAME(i + 4)
+            END DO
+        END IF
+        CALL p_bcast(list_name(1:maxNameLength), root, communicator)
 
         ! send text of the name list
         list_text(1:maxAttributeLength) = ''
@@ -427,10 +418,11 @@ CONTAINS
 
         ! store name list parameters
         IF(lIsReceiver) THEN
-            CALL set_restart_namelist(list_name, list_text(1:maxAttributeLength))
+            CALL set_restart_namelist(list_name(1:maxNameLength), list_text(1:maxAttributeLength))
         ENDIF
     ENDDO
 
+    DEALLOCATE(list_name)
     DEALLOCATE(list_text)
   END SUBROUTINE RestartNamelist_bcast
 
