@@ -11,6 +11,7 @@
 
 MODULE mo_restart_file
     USE mo_cdi, ONLY: CDI_UNDEFID, FILETYPE_NC2, FILETYPE_NC4, streamWriteVarSlice
+    USE mo_cdi_ids, ONLY: t_CdiIds
     USE mo_datetime, ONLY: iso8601
     USE mo_exception, ONLY: finish
     USE mo_io_units, ONLY: filename_max
@@ -19,7 +20,7 @@ MODULE mo_restart_file
     USE mo_restart_attributes, ONLY: t_RestartAttributeList
     USE mo_restart_namelist, ONLY: RestartNamelist_writeToFile
     USE mo_restart_patch_description, ONLY: t_restart_patch_description
-    USE mo_restart_util, ONLY: getRestartFilename, t_restart_cdi_ids, t_restart_args
+    USE mo_restart_util, ONLY: getRestartFilename, t_restart_args
     USE mo_restart_var_data, ONLY: t_RestartVarData, has_valid_time_level
     USE mo_var_list, ONLY: nvar_lists, var_lists
 
@@ -31,7 +32,7 @@ MODULE mo_restart_file
 
     TYPE t_RestartFile
         CHARACTER(LEN=filename_max) :: filename
-        TYPE(t_restart_cdi_ids) :: cdiIds
+        TYPE(t_CdiIds) :: cdiIds
     CONTAINS
         PROCEDURE :: open => restartFile_open
         PROCEDURE :: writeLevel => restartFile_writeLevel

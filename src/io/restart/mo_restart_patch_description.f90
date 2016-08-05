@@ -16,6 +16,7 @@ MODULE mo_restart_patch_description
                               & ZA_DEPTH_RUNOFF_G, ZA_DEPTH_BELOW_LAND, ZA_DEPTH_BELOW_LAND_P1, ZA_SNOW, ZA_SNOW_HALF, &
                               & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_OCEAN_SEDIMENT, ZA_COUNT, GRID_UNSTRUCTURED_CELL, &
                               & GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
+    USE mo_cdi_ids, ONLY: t_CdiIds, set_vertical_grid, t_Vgrid
     USE mo_communication, ONLY: t_comm_gather_pattern
     USE mo_dynamics_config, ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf
     USE mo_exception, ONLY: finish
@@ -27,7 +28,7 @@ MODULE mo_restart_patch_description
     USE mo_model_domain, ONLY: t_patch
     USE mo_mpi, ONLY: p_pe_work
     USE mo_packed_message, ONLY: t_PackedMessage
-    USE mo_restart_util, ONLY: t_v_grid, set_vertical_grid, setDynamicPatchRestartAttributes, setPhysicsRestartAttributes
+    USE mo_restart_util, ONLY: setDynamicPatchRestartAttributes, setPhysicsRestartAttributes
     USE mo_util_string, ONLY: int2string
 
 #ifndef __NO_ICON__OCEAN
@@ -45,7 +46,7 @@ MODULE mo_restart_patch_description
     ! TYPE t_restart_patch_description contains all the DATA that describes a patch for restart purposes
     TYPE t_restart_patch_description
         ! vertical grid definitions
-        TYPE(t_v_grid) :: v_grid_defs(ZA_COUNT)
+        TYPE(t_Vgrid) :: v_grid_defs(ZA_COUNT)
         INTEGER :: v_grid_count
 
         ! logical patch id
