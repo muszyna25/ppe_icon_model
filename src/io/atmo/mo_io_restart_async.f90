@@ -63,7 +63,8 @@ MODULE mo_io_restart_async
   USE mo_cf_convention
   USE mo_util_string,             ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                   int2string, toCharacter
-  USE mo_util_restart,            ONLY: t_v_grid, t_restart_cdi_ids, set_vertical_grid, closeAndDestroyIds, openRestartAndCreateIds
+  USE mo_util_restart,            ONLY: t_v_grid, t_restart_cdi_ids, set_vertical_grid, closeAndDestroyIds, &
+                                      & openRestartAndCreateIds, defineVariable
 
 #ifndef NOMPI
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work,      &
@@ -2684,7 +2685,7 @@ CONTAINS
     TYPE(t_var_data), POINTER     :: p_vars(:)
     TYPE(t_var_metadata), POINTER :: p_info
     CHARACTER(LEN=*), PARAMETER   :: routine = modname//'init_restart_variables'
-    INTEGER                       :: gridID, zaxisID, varID, vlistID, iv
+    INTEGER                       :: iv
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
@@ -2693,8 +2694,6 @@ CONTAINS
     ! check the contained array of restart variables
     p_vars => p_rf%var_data
     IF (.NOT. ASSOCIATED(p_vars)) RETURN
-
-    vlistID = p_rf%cdiIds%vlist
 
     ! go over the all restart variables in the associated array
     DO iv = 1, SIZE(p_vars)
@@ -2705,46 +2704,10 @@ CONTAINS
       ! check time level of the field
       IF (.NOT. has_valid_time_level(p_info,patch_id)) CYCLE
 
-      ! set grid ID
-      p_info%cdiGridID = p_rf%cdiIds%hgrids(p_info%hgrid)
-      gridID = p_info%cdiGridID
-      IF (gridID == CDI_UNDEFID) THEN
-        CALL finish(routine, 'Grid type not defined for field '//TRIM(p_info%name))
-      ENDIF
-
-      ! set z axis ID
-      zaxisID = p_rf%cdiIds%vgrids(p_info%vgrid)
-      IF (zaxisID /= CDI_UNDEFID) THEN
-        p_info%cdiZaxisID = zaxisID
-      ELSE
-        CALL finish(routine, 'Z axis not defined for field '//TRIM(p_info%name))
-      ENDIF
-
       ! define the CDI variable
-      varID = vlistDefVar(vlistID, gridID, zaxisID, TIME_VARIABLE)
-      p_info%cdiVarID = varID
-      CALL vlistDefVarDatatype(vlistID, varID, DATATYPE_FLT64)
-
-      ! set optional parameters
-      CALL vlistDefVarName(vlistID, varID, TRIM(p_info%name))
-      IF (LEN_TRIM(p_info%cf%long_name) > 0) THEN
-        CALL vlistDefVarLongname(vlistID, varID, TRIM(p_info%cf%long_name))
-      ENDIF
-      IF (LEN_TRIM(p_info%cf%units) > 0) THEN
-        CALL vlistDefVarUnits(vlistID, varID, TRIM(p_info%cf%units))
-      ENDIF
-
-      ! currently only real valued variables are allowed, so we can always use info%missval%rval
-      IF (p_info%lmiss) CALL vlistDefVarMissval(vlistID, varID, p_info%missval%rval)
-
-#ifdef DEBUG
-      IF (varID == CDI_UNDEFID) THEN
-        CALL finish(routine,'CDI variable could not be defined='//TRIM(p_info%name))
-      ENDIF
-#endif
-
+      !XXX: The code I found here simply assumed that all variables are of TYPE REAL. I have NOT changed this behavior, however, the .FALSE. constants should be replaced by something more sensible IN the future.
+      CALL defineVariable(p_rf%cdiIds, p_info, .FALSE., .FALSE.)
     ENDDO
-
   END SUBROUTINE init_restart_variables
 
   !------------------------------------------------------------------------------------------------

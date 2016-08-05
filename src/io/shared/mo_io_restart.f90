@@ -78,7 +78,8 @@ MODULE mo_io_restart
                                     & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE, ZA_OCEAN_SEDIMENT, ZA_COUNT, &
                                     & GRID_UNSTRUCTURED_COUNT
   USE mo_cf_convention,         ONLY: cf_global_info
-  USE mo_util_restart,          ONLY: t_v_grid, t_restart_cdi_ids, closeAndDestroyIds, set_vertical_grid, openRestartAndCreateIds
+  USE mo_util_restart,          ONLY: t_v_grid, t_restart_cdi_ids, closeAndDestroyIds, set_vertical_grid, &
+                                    & openRestartAndCreateIds, defineVariable
   USE mo_util_string,           ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                 int2string, separator, toCharacter
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink, util_unlink
@@ -608,10 +609,6 @@ CONTAINS
     TYPE (t_list_element), POINTER :: element
     TYPE (t_list_element), TARGET  :: start_with
 
-    INTEGER :: varID, gridID, zaxisID
-
-    REAL(wp) :: casted_missval
-
     INTEGER :: time_level
     LOGICAL :: lskip_timelev, lskip_extra_timelevs
 
@@ -664,49 +661,7 @@ CONTAINS
       END SELECT
 #endif
 
-
-      ! set grid AND z-axis IDs
-      gridID = info%cdiGridID
-      SELECT CASE (info%hgrid)
-          CASE(GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE)
-              gridID = cdiIds%hgrids(info%hgrid)
-      END SELECT
-      zaxisID = info%cdiZaxisID
-      if(zaxisID < 0) zaxisID = cdiIds%vgrids(info%vgrid)
-
-      IF ( gridID  == -1 ) THEN
-        CALL finish('addStreamToVlist', 'GRID definition missing for '//TRIM(info%name)//', &
-                                        &vgrid = '//TRIM(int2string(info%vgrid)))
-      END IF
-      IF ( zaxisID == -1 ) THEN
-        CALL finish('addStreamToVlist', 'ZAXIS definition missing for '//TRIM(info%name)//', &
-                                        &vgrid = '//TRIM(int2string(info%vgrid)))
-      END IF
-
-      info%cdiVarID = vlistDefVar(cdiIds%vlist, gridID, zaxisID, TIME_VARIABLE)
-      varID = info%cdiVarID
-
-      CALL vlistDefVarDatatype(cdiIds%vlist, varID, DATATYPE_FLT64)
-      CALL vlistDefVarName(cdiIds%vlist, varID, TRIM(info%name))
-
-      IF (info%cf%long_name /= '') CALL vlistDefVarLongname(cdiIds%vlist, varID, TRIM(info%cf%long_name))
-      IF (info%cf%units /= '') CALL vlistDefVarUnits(cdiIds%vlist, varID, TRIM(info%cf%units))
-
-      IF (info%lmiss) THEN
-        IF (ASSOCIATED(element%field%r_ptr)) THEN
-          casted_missval = info%missval%rval
-        ELSE IF (ASSOCIATED(element%field%i_ptr)) THEN
-          casted_missval = REAL(info%missval%ival,wp)
-        ELSE
-          IF (info%missval%lval) THEN
-            casted_missval = 1.0_wp
-          ELSE
-            casted_missval = 0.0_wp
-          ENDIF
-        ENDIF
-        CALL vlistDefVarMissval(cdiIds%vlist, varID, casted_missval)
-      ENDIF
-
+      CALL defineVariable(cdiIds, info, ASSOCIATED(element%field%i_ptr), ASSOCIATED(element%field%l_ptr))
     ENDDO for_all_list_elements
 
   END SUBROUTINE addVarListToVlist

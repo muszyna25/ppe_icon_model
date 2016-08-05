@@ -15,7 +15,8 @@ MODULE mo_util_restart
     USE mo_exception, ONLY: finish, message, message_text
     USE mo_cdi, ONLY: CDI_UNDEFID, GRID_UNSTRUCTURED, gridCreate, gridDefNvertex, gridDefXname, gridDefXlongname, gridDefXunits, &
                     & gridDefYname, gridDefYlongname, gridDefYunits, zaxisCreate, zaxisDefLevels, streamOpenWrite, &
-                    & vlistCreate, taxisCreate, vlistDefTaxis, TAXIS_ABSOLUTE
+                    & vlistCreate, taxisCreate, vlistDefTaxis, TAXIS_ABSOLUTE, vlistDefVar, vlistDefVarDatatype, vlistDefVarName, &
+                    & vlistDefVarLongname, vlistDefVarUnits, vlistDefVarMissval, TIME_VARIABLE, DATATYPE_FLT64
     USE mo_cdi_constants, ONLY: ZA_HYBRID, ZA_HYBRID_HALF, ZA_LAKE_BOTTOM, ZA_MIX_LAYER, ZA_LAKE_BOTTOM_HALF, &
                               & ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_COUNT, cdi_zaxis_types, GRID_UNSTRUCTURED_CELL, &
                               & GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_COUNT
@@ -24,6 +25,7 @@ MODULE mo_util_restart
     USE mo_io_restart_namelist, ONLY: RestartNamelist_writeToFile
     USE mo_kind, ONLY: wp
     USE mo_util_cdi, ONLY: cdiGetStringError
+    USE mo_var_metadata_types, ONLY: t_var_metadata
 
     IMPLICIT NONE
 
@@ -33,6 +35,7 @@ MODULE mo_util_restart
     PUBLIC :: t_restart_cdi_ids
 
     PUBLIC :: openRestartAndCreateIds
+    PUBLIC :: defineVariable
     PUBLIC :: closeAndDestroyIds
     PUBLIC :: set_vertical_grid
 
@@ -189,6 +192,55 @@ CONTAINS
         cdiIds%taxis = taxisCreate(TAXIS_ABSOLUTE)
         CALL vlistDefTaxis(cdiIds%vlist, cdiIds%taxis)
     END SUBROUTINE openRestartAndCreateIds
+
+    ! Encapsulates the CDI calls to define a variable.
+    ! lIsInteger AND lIsLogical reflect the TYPE of the variable, IF neither IS set, the variable IS assumed to be of TYPE REAL.
+    SUBROUTINE defineVariable(cdiIds, info, lIsInteger, lIsLogical)
+        TYPE(t_restart_cdi_ids), INTENT(IN) :: cdiIds
+        TYPE(t_var_metadata), INTENT(INOUT) :: info
+        LOGICAL, VALUE :: lIsInteger, lIslogical
+
+        INTEGER :: varId, gridId, zaxisId
+        REAL(wp) :: casted_missval
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":defineVariable"
+
+        IF(lIsInteger.AND.lIsLogical) THEN
+            CALL finish(routine, "assertion failed: attempt to define a variable both as INTEGER and LOGICAL")
+        END IF
+
+        ! get the horizontal grid ID
+        gridId = info%cdiGridID
+        SELECT CASE (info%hgrid)
+            CASE(GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE)
+                gridId = cdiIds%hgrids(info%hgrid)
+        END SELECT
+        IF (gridId == CDI_UNDEFID) CALL finish(routine, 'Grid type not defined for field '//TRIM(info%name))
+
+        ! get the vertical axis ID
+        zaxisId = info%cdiZaxisID
+        if(zaxisId < 0) zaxisId = cdiIds%vgrids(info%vgrid)
+        IF (zaxisId == CDI_UNDEFID) CALL finish(routine, 'Z axis not defined for field '//TRIM(info%name))
+
+        ! define the variable with the required info
+        varId = vlistDefVar(cdiIds%vlist, gridId, zaxisId, TIME_VARIABLE)
+        IF (varID == CDI_UNDEFID) CALL finish(routine, 'error WHILE defining CDI variable "'//TRIM(info%name)//'"')
+        info%cdiVarID = varId
+        CALL vlistDefVarDatatype(cdiIds%vlist, varId, DATATYPE_FLT64)
+        CALL vlistDefVarName(cdiIds%vlist, varId, TRIM(info%name))
+
+        ! then add the three optional fields
+        IF(info%cf%long_name /= '') CALL vlistDefVarLongname(cdiIds%vlist, varId, TRIM(info%cf%long_name))
+        IF(info%cf%units /= '') CALL vlistDefVarUnits(cdiIds%vlist, varId, TRIM(info%cf%units))
+        IF(info%lmiss) THEN
+            casted_missval = info%missval%rval
+            IF(lIsInteger) casted_missval = REAL(info%missval%ival, wp)
+            IF(lIsLogical) THEN
+                casted_missval = 0.0_wp
+                IF(info%missval%lval) casted_missval = 1.0_wp
+            ENDIF
+            CALL vlistDefVarMissval(cdiIds%vlist, varId, casted_missval)
+        ENDIF
+    END SUBROUTINE defineVariable
 
     SUBROUTINE closeAndDestroyIds(cdiIds)
         TYPE(t_restart_cdi_ids), INTENT(INOUT) :: cdiIds
