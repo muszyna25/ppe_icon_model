@@ -62,6 +62,7 @@ MODULE mo_io_restart_async
                                       & GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL, cdi_zaxis_types, &
                                       & GRID_UNSTRUCTURED_COUNT
   USE mo_cf_convention
+  USE mo_packed_message,          ONLY: t_PackedMessage
   USE mo_util_string,             ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                   int2string, toCharacter
   USE mo_util_restart,            ONLY: t_v_grid, t_restart_cdi_ids, set_vertical_grid, closeAndDestroyIds, &
@@ -140,14 +141,12 @@ MODULE mo_io_restart_async
   CHARACTER(LEN=*), PARAMETER :: WRONG_ARRAY_SIZE         =  &
     & 'No or wrong array size set in prepare_async_restart() for='
 
-#ifdef DEBUG
   CHARACTER(LEN=*), PARAMETER :: FORMAT_VALS3             = '(a,a,i3)'
   CHARACTER(LEN=*), PARAMETER :: FORMAT_VALS5             = '(a,a,i3,a,i3)'
   CHARACTER(LEN=*), PARAMETER :: FORMAT_VALS5I            = '(a,a,i3,a,a)'
   CHARACTER(LEN=*), PARAMETER :: FORMAT_VALS7             = '(a,a,i3,a,i6,a,i3)'
   CHARACTER(LEN=*), PARAMETER :: FORMAT_VALS7I            = '(a,a,i3,a,a,a,i8)'
   CHARACTER(LEN=*), PARAMETER :: FORMAT_VALS9             = '(a,a,i3,a,i6,a,i3,a,i3)'
-#endif
 
   !------------------------------------------------------------------------------------------------
   ! TYPE t_var_data (restart variable)
@@ -660,132 +659,130 @@ CONTAINS
 
   END SUBROUTINE restart_send_ready
 
-  SUBROUTINE packRestartMetadata(datetime, jstep, message, position, communicator)
+  SUBROUTINE packRestartMetadata(datetime, jstep, message)
     TYPE(t_datetime), INTENT(IN) :: datetime
-    INTEGER, VALUE :: jstep, communicator
-    CHARACTER :: message(:)
-    INTEGER, INTENT(INOUT) :: position
+    INTEGER, VALUE :: jstep
+    TYPE(t_PackedMessage), INTENT(INOUT) :: message
 
     INTEGER :: i
     TYPE(t_patch_data), POINTER :: curPatch
 
     ! set patch independent arguments
-    CALL p_pack_int(                    datetime%year,                          message, position, communicator)
-    CALL p_pack_int(                    datetime%month,                         message, position, communicator)
-    CALL p_pack_int(                    datetime%day,                           message, position, communicator)
-    CALL p_pack_int(                    datetime%hour,                          message, position, communicator)
-    CALL p_pack_int(                    datetime%minute,                        message, position, communicator)
-    CALL p_pack_real(                   datetime%second,                        message, position, communicator)
-    CALL p_pack_real(                   datetime%caltime,                       message, position, communicator)
-    CALL p_pack_int(                    INT(datetime%calday),                   message, position, communicator)
-    CALL p_pack_real(                   datetime%daysec,                        message, position, communicator)
-    CALL p_pack_int(                    jstep,                                  message, position, communicator)
-    CALL p_pack_allocatable_int(        restart_args%opt_output_jfile,          message, position, communicator)
+    CALL message%pack(datetime%year)
+    CALL message%pack(datetime%month)
+    CALL message%pack(datetime%day)
+    CALL message%pack(datetime%hour)
+    CALL message%pack(datetime%minute)
+    CALL message%pack(datetime%second)
+    CALL message%pack(datetime%caltime)
+    CALL message%pack(INT(datetime%calday))
+    CALL message%pack(datetime%daysec)
+    CALL message%pack(jstep)
+    CALL message%pack(restart_args%opt_output_jfile)
 
     ! set data of all patches
     DO i = 1, SIZE(patch_data)
         curPatch => patch_data(i)
 
         ! patch id
-        CALL p_pack_int(                curPatch%id,                            message, position, communicator)
+        CALL message%pack(curPatch%id)
 
         ! activity flag
-        CALL p_pack_bool(               curPatch%l_dom_active,                  message, position, communicator)
+        CALL message%pack(curPatch%l_dom_active)
 
         ! time levels
-        CALL p_pack_int(                nold(curPatch%id),                      message, position, communicator)
-        CALL p_pack_int(                nnow(curPatch%id),                      message, position, communicator)
-        CALL p_pack_int(                nnew(curPatch%id),                      message, position, communicator)
-        CALL p_pack_int(                nnew_rcf(curPatch%id),                  message, position, communicator)
-        CALL p_pack_int(                nnow_rcf(curPatch%id),                  message, position, communicator)
+        CALL message%pack(nold(curPatch%id))
+        CALL message%pack(nnow(curPatch%id))
+        CALL message%pack(nnew(curPatch%id))
+        CALL message%pack(nnew_rcf(curPatch%id))
+        CALL message%pack(nnow_rcf(curPatch%id))
 
         ! optional parameter values
-        CALL p_pack_bool(               curPatch%l_opt_depth,                   message, position, communicator)
-        CALL p_pack_int(                curPatch%opt_depth,                     message, position, communicator)
-        CALL p_pack_bool(               curPatch%l_opt_depth_lnd,               message, position, communicator)
-        CALL p_pack_int(                curPatch%opt_depth_lnd,                 message, position, communicator)
-        CALL p_pack_bool(               curPatch%l_opt_nlev_snow,               message, position, communicator)
-        CALL p_pack_int(                curPatch%opt_nlev_snow,                 message, position, communicator)
-        CALL p_pack_bool(               curPatch%l_opt_nice_class,              message, position, communicator)
-        CALL p_pack_int(                curPatch%opt_nice_class,                message, position, communicator)
-        CALL p_pack_bool(               curPatch%l_opt_ndyn_substeps,           message, position, communicator)
-        CALL p_pack_int(                curPatch%opt_ndyn_substeps,             message, position, communicator)
-        CALL p_pack_bool(               curPatch%l_opt_jstep_adv_marchuk_order, message, position, communicator)
-        CALL p_pack_int(                curPatch%opt_jstep_adv_marchuk_order,   message, position, communicator)
-        CALL p_pack_bool(               curPatch%l_opt_sim_time,                message, position, communicator)
-        CALL p_pack_real(               curPatch%opt_sim_time,                  message, position, communicator)
-        CALL p_pack_bool(               curPatch%l_opt_ndom,                    message, position, communicator)
-        CALL p_pack_int(                curPatch%opt_ndom,                      message, position, communicator)
+        CALL message%pack(curPatch%l_opt_depth)
+        CALL message%pack(curPatch%opt_depth)
+        CALL message%pack(curPatch%l_opt_depth_lnd)
+        CALL message%pack(curPatch%opt_depth_lnd)
+        CALL message%pack(curPatch%l_opt_nlev_snow)
+        CALL message%pack(curPatch%opt_nlev_snow)
+        CALL message%pack(curPatch%l_opt_nice_class)
+        CALL message%pack(curPatch%opt_nice_class)
+        CALL message%pack(curPatch%l_opt_ndyn_substeps)
+        CALL message%pack(curPatch%opt_ndyn_substeps)
+        CALL message%pack(curPatch%l_opt_jstep_adv_marchuk_order)
+        CALL message%pack(curPatch%opt_jstep_adv_marchuk_order)
+        CALL message%pack(curPatch%l_opt_sim_time)
+        CALL message%pack(curPatch%opt_sim_time)
+        CALL message%pack(curPatch%l_opt_ndom)
+        CALL message%pack(curPatch%opt_ndom)
 
         ! optional parameter arrays
-        CALL p_pack_allocatable_real(   curPatch%opt_pvct,                      message, position, communicator)
-        CALL p_pack_allocatable_logical(curPatch%opt_lcall_phy,                 message, position, communicator)
-        CALL p_pack_allocatable_real(   curPatch%opt_t_elapsed_phy,             message, position, communicator)
+        CALL message%pack(curPatch%opt_pvct)
+        CALL message%pack(curPatch%opt_lcall_phy)
+        CALL message%pack(curPatch%opt_t_elapsed_phy)
     END DO
   END SUBROUTINE packRestartMetadata
 
-  SUBROUTINE unpackRestartMetadata(datetime, jstep, message, position, communicator)
+  SUBROUTINE unpackRestartMetadata(datetime, jstep, message)
     TYPE(t_datetime), INTENT(INOUT) :: datetime
-    INTEGER, VALUE :: jstep, communicator
-    CHARACTER :: message(:)
-    INTEGER, INTENT(INOUT) :: position
+    INTEGER, VALUE :: jstep
+    TYPE(t_PackedMessage), INTENT(INOUT) :: message
 
     INTEGER :: i, calday, this_patch
     TYPE(t_patch_data), POINTER :: curPatch
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":unpackRestartMetadata"
 
     ! get patch independent arguments
-    CALL p_unpack_int(                    message, position, datetime%year,                          communicator)
-    CALL p_unpack_int(                    message, position, datetime%month,                         communicator)
-    CALL p_unpack_int(                    message, position, datetime%day,                           communicator)
-    CALL p_unpack_int(                    message, position, datetime%hour,                          communicator)
-    CALL p_unpack_int(                    message, position, datetime%minute,                        communicator)
-    CALL p_unpack_real(                   message, position, datetime%second,                        communicator)
-    CALL p_unpack_real(                   message, position, datetime%caltime,                       communicator)
-    CALL p_unpack_int(                    message, position, calday,                                 communicator)
+    CALL message%unpack(datetime%year)
+    CALL message%unpack(datetime%month)
+    CALL message%unpack(datetime%day)
+    CALL message%unpack(datetime%hour)
+    CALL message%unpack(datetime%minute)
+    CALL message%unpack(datetime%second)
+    CALL message%unpack(datetime%caltime)
+    CALL message%unpack(calday)
     datetime%calday = INT(calday,i8)
-    CALL p_unpack_real(                   message, position, datetime%daysec,                        communicator)
-    CALL p_unpack_int(                    message, position, jstep,                                  communicator)
-    CALL p_unpack_allocatable_int(        message, position, restart_args%opt_output_jfile,          communicator)
+    CALL message%unpack(datetime%daysec)
+    CALL message%unpack(jstep)
+    CALL message%unpack(restart_args%opt_output_jfile)
 
     ! get patch dependent arguments
     DO i = 1, SIZE(patch_data)
         ! find the patch of the current patch id
-        CALL p_unpack_int(                message, position, this_patch,                             communicator)
+        CALL message%unpack(this_patch)
         curPatch => find_patch(this_patch, routine)
 
         ! activity flag
-        CALL p_unpack_bool(               message, position, curPatch%l_dom_active,                  communicator)
+        CALL message%unpack(curPatch%l_dom_active)
 
         ! time levels
-        CALL p_unpack_int(                message, position, nold(this_patch),                       communicator)
-        CALL p_unpack_int(                message, position, nnow(this_patch),                       communicator)
-        CALL p_unpack_int(                message, position, nnew(this_patch),                       communicator)
-        CALL p_unpack_int(                message, position, nnew_rcf(this_patch),                   communicator)
-        CALL p_unpack_int(                message, position, nnow_rcf(this_patch),                   communicator)
+        CALL message%unpack(nold(this_patch))
+        CALL message%unpack(nnow(this_patch))
+        CALL message%unpack(nnew(this_patch))
+        CALL message%unpack(nnew_rcf(this_patch))
+        CALL message%unpack(nnow_rcf(this_patch))
 
         ! optional parameter values
-        CALL p_unpack_bool(               message, position, curPatch%l_opt_depth,                   communicator)
-        CALL p_unpack_int(                message, position, curPatch%opt_depth,                     communicator)
-        CALL p_unpack_bool(               message, position, curPatch%l_opt_depth_lnd,               communicator)
-        CALL p_unpack_int(                message, position, curPatch%opt_depth_lnd,                 communicator)
-        CALL p_unpack_bool(               message, position, curPatch%l_opt_nlev_snow,               communicator)
-        CALL p_unpack_int(                message, position, curPatch%opt_nlev_snow,                 communicator)
-        CALL p_unpack_bool(               message, position, curPatch%l_opt_nice_class,              communicator)
-        CALL p_unpack_int(                message, position, curPatch%opt_nice_class,                communicator)
-        CALL p_unpack_bool(               message, position, curPatch%l_opt_ndyn_substeps,           communicator)
-        CALL p_unpack_int(                message, position, curPatch%opt_ndyn_substeps,             communicator)
-        CALL p_unpack_bool(               message, position, curPatch%l_opt_jstep_adv_marchuk_order, communicator)
-        CALL p_unpack_int(                message, position, curPatch%opt_jstep_adv_marchuk_order,   communicator)
-        CALL p_unpack_bool(               message, position, curPatch%l_opt_sim_time,                communicator)
-        CALL p_unpack_real(               message, position, curPatch%opt_sim_time,                  communicator)
-        CALL p_unpack_bool(               message, position, curPatch%l_opt_ndom,                    communicator)
-        CALL p_unpack_int(                message, position, curPatch%opt_ndom,                      communicator)
+        CALL message%unpack(curPatch%l_opt_depth)
+        CALL message%unpack(curPatch%opt_depth)
+        CALL message%unpack(curPatch%l_opt_depth_lnd)
+        CALL message%unpack(curPatch%opt_depth_lnd)
+        CALL message%unpack(curPatch%l_opt_nlev_snow)
+        CALL message%unpack(curPatch%opt_nlev_snow)
+        CALL message%unpack(curPatch%l_opt_nice_class)
+        CALL message%unpack(curPatch%opt_nice_class)
+        CALL message%unpack(curPatch%l_opt_ndyn_substeps)
+        CALL message%unpack(curPatch%opt_ndyn_substeps)
+        CALL message%unpack(curPatch%l_opt_jstep_adv_marchuk_order)
+        CALL message%unpack(curPatch%opt_jstep_adv_marchuk_order)
+        CALL message%unpack(curPatch%l_opt_sim_time)
+        CALL message%unpack(curPatch%opt_sim_time)
+        CALL message%unpack(curPatch%l_opt_ndom)
+        CALL message%unpack(curPatch%opt_ndom)
 
         ! optional parameter arrays
-        CALL p_unpack_allocatable_real(   message, position, curPatch%opt_pvct,                      communicator)
-        CALL p_unpack_allocatable_logical(message, position, curPatch%opt_lcall_phy,                 communicator)
-        CALL p_unpack_allocatable_real(   message, position, curPatch%opt_t_elapsed_phy,             communicator)
+        CALL message%unpack(curPatch%opt_pvct)
+        CALL message%unpack(curPatch%opt_lcall_phy)
+        CALL message%unpack(curPatch%opt_t_elapsed_phy)
     END DO
   END SUBROUTINE unpackRestartMetadata
 
@@ -798,42 +795,29 @@ CONTAINS
 
     LOGICAL, INTENT(OUT)           :: done ! flag if we should shut down
 
-    TYPE(t_patch_data), POINTER    :: p_pd
-    INTEGER                        :: i, position, iheader
+    INTEGER :: i, iheader
     TYPE(t_patch_data), POINTER :: curPatch
-    CHARACTER, POINTER             :: p_msg(:)
-    CHARACTER(LEN=*), PARAMETER    :: routine = modname//'restart_wait_for_start'
-
-    ! set output parameter to default value
-    done = .FALSE.
+    TYPE(t_PackedMessage) :: message
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'restart_wait_for_start'
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' is called, p_pe=',p_pe
 #endif
 
-    ! create message array
-    p_msg => get_message_array(routine)
-    position     = 0
+    CALL message%construct() ! create message array
 
     ! receive message that we may start restart (or should finish)
-    IF(p_pe_work == 0) THEN
-      CALL p_recv_packed(p_msg, p_work_pe0, 0, SIZE(p_msg))
-    ENDIF
+    IF(p_pe_work == 0) CALL message%recv(p_work_pe0, 0, process_mpi_all_comm)
+    CALL message%bcast(0, p_comm_work)
 
-#ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS5)routine,' p_pe=',p_pe, &
-      & ' call p_bcast with communicator=',p_comm_work
-#endif
-    CALL p_bcast_packed(p_msg, 0, SIZE(p_msg), comm=p_comm_work)
+    ! set output parameter to default value
+    done = .FALSE.
 
-    CALL p_unpack_int(p_msg, position, iheader, p_comm_work)
+    ! unpack AND interpret the message
+    CALL message%unpack(iheader)
     SELECT CASE(iheader)
-
       CASE(MSG_RESTART_START)
-
-        done = .FALSE.
-
-        CALL unpackRestartMetadata(restart_args%datetime, restart_args%jstep, p_msg, position, p_comm_work)
+        CALL unpackRestartMetadata(restart_args%datetime, restart_args%jstep, message)
 
         ! update the patch_data
         DO i = 1, SIZE(patch_data)
@@ -854,8 +838,7 @@ CONTAINS
 
     END SELECT
 
-    IF (ASSOCIATED(p_msg)) DEALLOCATE(p_msg)
-
+    CALL message%destruct() ! cleanup
   END SUBROUTINE restart_wait_for_start
 
   !-------------------------------------------------------------------------------------------------
@@ -910,6 +893,7 @@ CONTAINS
     TYPE(t_patch_data),   POINTER  :: p_pd
     CHARACTER, POINTER             :: p_msg(:)
     INTEGER                        :: i, position, messageSize, error
+    TYPE(t_PackedMessage) :: message
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'compute_start_restart'
 
 #ifdef DEBUG
@@ -975,20 +959,14 @@ CONTAINS
 
 
     IF(p_pe_work == 0) THEN
+      CALL message%construct()   ! create message array
 
-      ! create message array
-      p_msg => get_message_array(routine)
-      position     = 0
+      CALL message%pack(MSG_RESTART_START)  ! set command id
+      CALL packRestartMetadata(datetime, jstep, message)    ! all the other DATA
 
-      ! set command id
-      CALL p_pack_int(MSG_RESTART_START, p_msg, position, p_comm_work)
+      CALL message%send(p_restart_pe0, 0, process_mpi_all_comm)
 
-      ! all the other DATA
-      CALL packRestartMetadata(datetime, jstep, p_msg, position, p_comm_work)
-
-      CALL p_send_packed(p_msg, p_restart_pe0, 0, position)
-
-      DEALLOCATE(p_msg)
+      CALL message%destruct()
     ENDIF
 
   END SUBROUTINE compute_start_restart
@@ -999,10 +977,8 @@ CONTAINS
   !! The counterpart on the restart side is restart_wait_for_start.
   !
   SUBROUTINE compute_shutdown_restart
-
-    CHARACTER, POINTER          :: p_msg(:)
+    TYPE(t_PackedMessage) :: message
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'compute_shutdown_restart'
-    INTEGER :: position
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS5)routine,' p_pe=',p_pe, &
@@ -1013,15 +989,13 @@ CONTAINS
     CALL p_barrier(comm=p_comm_work)
 
     IF(p_pe_work == 0) THEN
+      CALL message%construct()  ! create message array
 
-      ! create message array
-      p_msg => get_message_array(routine)
-      position     = 0
-      CALL p_pack_int(MSG_RESTART_SHUTDOWN, p_msg, position, p_comm_work)
+      ! sent the shutdown message
+      CALL message%pack(MSG_RESTART_SHUTDOWN)
+      CALL message%send(p_restart_pe0, 0, process_mpi_all_comm)
 
-      CALL p_send_packed(p_msg, p_restart_pe0, 0, position)
-
-      IF (ASSOCIATED(p_msg)) DEALLOCATE(p_msg)
+      CALL message%destruct()   ! cleanup
     ENDIF
 
   END SUBROUTINE compute_shutdown_restart
@@ -1107,21 +1081,6 @@ CONTAINS
     IF (ALLOCATED(rd%reorder_index)) DEALLOCATE(rd%reorder_index)
 
   END SUBROUTINE release_reorder_data
-
-  !------------------------------------------------------------------------------------------------
-  !
-  !  Destroy the given CDI GRID handle.
-  !
-  SUBROUTINE destroy_cdi_grid (iID)
-
-    INTEGER, INTENT(INOUT) :: iID
-
-    IF (iID /= CDI_UNDEFID) THEN
-      CALL gridDestroy(iID)
-      iID = CDI_UNDEFID
-    ENDIF
-
-  END SUBROUTINE destroy_cdi_grid
 
   !------------------------------------------------------------------------------------------------
   !
@@ -1212,8 +1171,6 @@ CONTAINS
   !  Print restart arguments.
   !
   SUBROUTINE print_restart_arguments()
-
-#ifdef DEBUG
     CHARACTER(LEN=*), PARAMETER   :: routine = modname//'print_restart_arguments'
     TYPE(t_patch_data), POINTER   :: p_pd
 
@@ -1226,11 +1183,9 @@ CONTAINS
     ! patch informations
     PRINT *,routine, ' size of patches=', SIZE(patch_data)
     p_pd => patch_data(1)
-    PRINT *,routine, ' SIZE(pd%opt_pvct) = ', SIZE(pd%opt_pvct)
-    PRINT *,routine, ' SIZE(pd%opt_lcall_phy) =', SIZE(pd%opt_lcall_phy)
+    PRINT *,routine, ' SIZE(p_pd%opt_pvct) = ', SIZE(p_pd%opt_pvct)
+    PRINT *,routine, ' SIZE(p_pd%opt_lcall_phy) =', SIZE(p_pd%opt_lcall_phy)
     PRINT *,routine, ' SIZE(p_pd%opt_t_elapsed_phy) =', SIZE(p_pd%opt_t_elapsed_phy)
-#endif
-
   END SUBROUTINE print_restart_arguments
 
   !------------------------------------------------------------------------------------------------
