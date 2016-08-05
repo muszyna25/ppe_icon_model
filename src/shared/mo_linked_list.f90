@@ -79,28 +79,6 @@ MODULE mo_linked_list
     INTEGER                       :: cdiVertGridID
     INTEGER                       :: cdiEdgeGridID
     !
-    INTEGER                       :: cdiSurfZaxisID
-    INTEGER                       :: cdiGenericZaxisID
-    INTEGER                       :: cdiHalfZaxisID
-    INTEGER                       :: cdiFullZaxisID
-    INTEGER                       :: cdiLandDepthHalfZaxisID
-    INTEGER                       :: cdiLandDepthFullZaxisID
-    INTEGER                       :: cdiSeaDepthHalfZaxisID
-    INTEGER                       :: cdiSeaDepthFullZaxisID
-    INTEGER                       :: cdiH2mZaxisID
-    INTEGER                       :: cdiH10mZaxisID
-    INTEGER                       :: cdiLakeBottomZaxisID
-    INTEGER                       :: cdiLakeHalfBottomZaxisID
-    INTEGER                       :: cdiLakeMixLayerZaxisID
-    INTEGER                       :: cdiLakeHalfSedBottomTwZaxisID
-    INTEGER                       :: cdiSnowGenericZaxisID
-    INTEGER                       :: cdiSnowHalfGenericZaxisID
-    INTEGER                       :: cdiIceGenericZaxisID
-    INTEGER                       :: cdiOceanSedGenericZaxisID
-    INTEGER                       :: cdiToaZaxisID
-    INTEGER                       :: cdiDepthRunoff_sZaxisID
-    INTEGER                       :: cdiDepthRunoff_gZaxisID
-    !
     INTEGER                       :: cdiTaxisID
     !
     INTEGER                       :: cdiTimeIndex
@@ -165,18 +143,6 @@ CONTAINS
     this_list%p%cdiCellGridID      = -1
     this_list%p%cdiVertGridID      = -1
     this_list%p%cdiEdgeGridID      = -1
-    !
-    this_list%p%cdiSurfZaxisID      = -1
-    this_list%p%cdiGenericZaxisID   = -1
-    this_list%p%cdiHalfZaxisID      = -1
-    this_list%p%cdiFullZaxisID      = -1
-    this_list%p%cdiLandDepthFullZaxisID = -1
-    this_list%p%cdiLandDepthHalfZaxisID = -1
-    this_list%p%cdiSeaDepthFullZaxisID = -1
-    this_list%p%cdiSeaDepthHalfZaxisID = -1
-    this_list%p%cdiH2mZaxisID       = -1
-    this_list%p%cdiH10mZaxisID      = -1
-    this_list%p%cdiToaZaxisID       = -1
     !
     this_list%p%cdiTaxisID         = -1
     this_list%p%cdiTimeIndex       = -1

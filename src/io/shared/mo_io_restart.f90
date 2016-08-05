@@ -162,6 +162,10 @@ MODULE mo_io_restart
   INTEGER :: private_nv  = -1
   INTEGER :: private_ne  = -1
 
+  TYPE t_var_list_restart_info
+    INTEGER :: vgridIds(ZA_COUNT)
+  END TYPE t_var_list_restart_info
+
   !> module name string
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_io_restart'
 
@@ -456,10 +460,11 @@ CONTAINS
 
   ! Loop over all the output streams and open the associated files. Set
   ! unit numbers (file IDs) for all streams associated with a file.
-  SUBROUTINE open_writing_restart_files(patch, restart_filename, restartAttributes)
+  SUBROUTINE open_writing_restart_files(patch, restart_filename, restartAttributes, auxInfos)
     TYPE(t_patch), INTENT(IN) :: patch
     CHARACTER(LEN=*), INTENT(IN) :: restart_filename
     TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
+    TYPE(t_var_list_restart_info) :: auxInfos(:)
 
     INTEGER :: status, i ,j, jg, ia, ihg, ivg
 
@@ -566,30 +571,10 @@ CONTAINS
         ! 4. add vertical grid descriptions
 
         IF(lvct_initialised) THEN
-            CALL createVgrids(axisIds, vgrid_def(1:nv_grids), private_vct)
+            CALL createVgrids(auxInfos(i)%vgridIds, vgrid_def(1:nv_grids), private_vct)
         ELSE
-            CALL createVgrids(axisIds, vgrid_def(1:nv_grids))
+            CALL createVgrids(auxInfos(i)%vgridIds, vgrid_def(1:nv_grids))
         END IF
-        var_lists(i)%p%cdiSurfZaxisID = axisIds(ZA_SURFACE)
-        var_lists(i)%p%cdiFullZaxisID = axisIds(ZA_HYBRID)
-        var_lists(i)%p%cdiHalfZaxisID = axisIds(ZA_HYBRID_HALF)
-        var_lists(i)%p%cdiDepthRunoff_sZaxisID = axisIds(ZA_DEPTH_RUNOFF_S)
-        var_lists(i)%p%cdiDepthRunoff_gZaxisID = axisIds(ZA_DEPTH_RUNOFF_G)
-        var_lists(i)%p%cdiSnowGenericZaxisID = axisIds(ZA_SNOW)
-        var_lists(i)%p%cdiSnowHalfGenericZaxisID = axisIds(ZA_SNOW_HALF)
-        var_lists(i)%p%cdiToaZaxisID = axisIds(ZA_TOA)
-        var_lists(i)%p%cdiH2mZaxisID = axisIds(ZA_HEIGHT_2M)
-        var_lists(i)%p%cdiH10mZaxisID = axisIds(ZA_HEIGHT_10M)
-        var_lists(i)%p%cdiLakeBottomZaxisID = axisIds(ZA_LAKE_BOTTOM)
-        var_lists(i)%p%cdiLakeHalfBottomZaxisID = axisIds(ZA_LAKE_BOTTOM_HALF)
-        var_lists(i)%p%cdiLakeMixLayerZaxisID = axisIds(ZA_MIX_LAYER)
-        var_lists(i)%p%cdiLakeHalfSedBottomTwZaxisID = axisIds(ZA_SEDIMENT_BOTTOM_TW_HALF)
-        var_lists(i)%p%cdiIceGenericZaxisID = axisIds(ZA_GENERIC_ICE)
-        var_lists(i)%p%cdiLandDepthFullZaxisID = axisIds(ZA_DEPTH_BELOW_LAND)
-        var_lists(i)%p%cdiLandDepthHalfZaxisID = axisIds(ZA_DEPTH_BELOW_LAND_P1)
-        var_lists(i)%p%cdiSeaDepthFullZaxisID = axisIds(ZA_DEPTH_BELOW_SEA)
-        var_lists(i)%p%cdiSeaDepthHalfZaxisID = axisIds(ZA_DEPTH_BELOW_SEA_HALF)
-
 
         ! 5. restart does contain absolute time
 
@@ -602,7 +587,7 @@ CONTAINS
 
       IF (my_process_is_mpi_workroot()) THEN
 
-        CALL addVarListToVlist(var_lists(i), var_lists(i)%p%cdiVlistID, jg)
+        CALL addVarListToVlist(var_lists(i), auxInfos(i)%vgridIds, var_lists(i)%p%cdiVlistID, jg)
 
         WRITE(message_text,'(t1,a49,t50,a31,t84,i6,t94,l5)')        &
              restart_filename, var_lists(i)%p%name,             &
@@ -636,34 +621,13 @@ CONTAINS
           var_lists(j)%p%cdiCellGridID           = var_lists(i)%p%cdiCellGridID
           var_lists(j)%p%cdiVertGridID           = var_lists(i)%p%cdiVertGridID
           var_lists(j)%p%cdiEdgeGridID           = var_lists(i)%p%cdiEdgeGridID
-          var_lists(j)%p%cdiSurfZaxisID          = var_lists(i)%p%cdiSurfZaxisID
-          var_lists(j)%p%cdiGenericZaxisID       = var_lists(i)%p%cdiGenericZaxisID
-          var_lists(j)%p%cdiFullZaxisID          = var_lists(i)%p%cdiFullZaxisID
-          var_lists(j)%p%cdiHalfZaxisID          = var_lists(i)%p%cdiHalfZaxisID
-          var_lists(j)%p%cdiLandDepthFullZaxisID = var_lists(i)%p%cdiLandDepthFullZaxisID
-          var_lists(j)%p%cdiLandDepthHalfZaxisID = var_lists(i)%p%cdiLandDepthHalfZaxisID
-          var_lists(j)%p%cdiSeaDepthFullZaxisID  = var_lists(i)%p%cdiSeaDepthFullZaxisID
-          var_lists(j)%p%cdiSeaDepthHalfZaxisID  = var_lists(i)%p%cdiSeaDepthHalfZaxisID
-          var_lists(j)%p%cdiDepthRunoff_sZaxisID = var_lists(i)%p%cdiDepthRunoff_sZaxisID
-          var_lists(j)%p%cdiDepthRunoff_gZaxisID = var_lists(i)%p%cdiDepthRunoff_gZaxisID
-          var_lists(j)%p%cdiIceGenericZaxisID    = var_lists(i)%p%cdiIceGenericZaxisID
-          var_lists(j)%p%cdiOceanSedGenericZaxisID    = var_lists(i)%p%cdiOceanSedGenericZaxisID
-          var_lists(j)%p%cdiSnowGenericZaxisID   = var_lists(i)%p%cdiSnowGenericZaxisID
-          var_lists(j)%p%cdiSnowHalfGenericZaxisID = var_lists(i)%p%cdiSnowHalfGenericZaxisID
-          var_lists(j)%p%cdiToaZaxisID           = var_lists(i)%p%cdiToaZaxisID
-          var_lists(j)%p%cdiH2mZaxisID           = var_lists(i)%p%cdiH2mZaxisID
-          var_lists(j)%p%cdiH10mZaxisID          = var_lists(i)%p%cdiH10mZaxisID
-          var_lists(j)%p%cdiLakeBottomZaxisID    = var_lists(i)%p%cdiLakeBottomZaxisID
-          var_lists(j)%p%cdiLakeHalfBottomZaxisID= var_lists(i)%p%cdiLakeHalfBottomZaxisID
-          var_lists(j)%p%cdiLakeMixLayerZaxisID  = var_lists(i)%p%cdiLakeMixLayerZaxisID
-          var_lists(j)%p%cdiLakeHalfSedBottomTwZaxisID  = var_lists(i)%p%cdiLakeHalfSedBottomTwZaxisID
           var_lists(j)%p%cdiTaxisID              = var_lists(i)%p%cdiTaxisID
 
           ! add variables to already existing cdi vlists
 
           IF (my_process_is_mpi_workroot()) THEN
 
-            CALL addVarListToVlist(var_lists(j), var_lists(j)%p%cdiVlistID, jg)
+            CALL addVarListToVlist(var_lists(j), auxInfos(i)%vgridIds, var_lists(j)%p%cdiVlistID, jg)
 
             WRITE(message_text,'(t1,a49,t50,a31,t84,i6,t94,l5)')        &
                  restart_filename, var_lists(j)%p%name,             &
@@ -688,10 +652,11 @@ CONTAINS
 
   ! define variables and attributes
 
-  SUBROUTINE addVarListToVlist(this_list, vlistID, jg)
+  SUBROUTINE addVarListToVlist(this_list, axisIds, vlistID, jg)
     TYPE (t_var_list), INTENT(inout) :: this_list
-    INTEGER,           INTENT(inout) :: vlistID
-    INTEGER,           INTENT(in)    :: jg
+    INTEGER, INTENT(IN) :: axisIds(ZA_COUNT)
+    INTEGER, INTENT(inout) :: vlistID
+    INTEGER, INTENT(IN) :: jg
 
     TYPE (t_var_metadata), POINTER :: info
     TYPE (t_list_element), POINTER :: element
@@ -769,51 +734,7 @@ CONTAINS
       ! set z axis ID (only if cdiZaxisID is not already set)
 
       IF (info%cdiZaxisID < 0) THEN
-        SELECT CASE (info%vgrid)
-        CASE (ZA_SURFACE)
-          info%cdiZaxisID =  this_list%p%cdiSurfZaxisID
-        CASE (ZA_HYBRID)
-          info%cdiZaxisID =  this_list%p%cdiFullZaxisID
-        CASE (ZA_HYBRID_HALF)
-          info%cdiZaxisID =  this_list%p%cdiHalfZaxisID
-        CASE (ZA_DEPTH_BELOW_LAND)
-          info%cdiZaxisID =  this_list%p%cdiLandDepthFullZaxisID
-        CASE (ZA_DEPTH_BELOW_LAND_P1)
-          info%cdiZaxisID =  this_list%p%cdiLandDepthHalfZaxisID
-        CASE (ZA_DEPTH_RUNOFF_S)
-          info%cdiZaxisID =  this_list%p%cdiDepthRunoff_sZaxisID
-        CASE (ZA_DEPTH_RUNOFF_G)
-          info%cdiZaxisID =  this_list%p%cdiDepthRunoff_gZaxisID
-        CASE (ZA_SNOW)
-          info%cdiZaxisID =  this_list%p%cdiSnowGenericZaxisID
-        CASE (ZA_SNOW_HALF)
-          info%cdiZaxisID =  this_list%p%cdiSnowHalfGenericZaxisID
-        CASE (ZA_TOA)
-          info%cdiZaxisID =  this_list%p%cdiToaZaxisID
-        CASE (ZA_HEIGHT_2M)
-          info%cdiZaxisID =  this_list%p%cdiH2mZaxisID
-        CASE (ZA_HEIGHT_10M)
-          info%cdiZaxisID =  this_list%p%cdiH10mZaxisID
-        CASE (ZA_LAKE_BOTTOM)
-          info%cdiZaxisID =  this_list%p%cdiLakeBottomZaxisID
-        CASE (ZA_LAKE_BOTTOM_HALF)
-          info%cdiZaxisID =  this_list%p%cdiLakeHalfBottomZaxisID
-        CASE (ZA_MIX_LAYER)
-          info%cdiZaxisID =  this_list%p%cdiLakeMixLayerZaxisID
-        CASE (ZA_SEDIMENT_BOTTOM_TW_HALF)
-          info%cdiZaxisID =  this_list%p%cdiLakeHalfSedBottomTwZaxisID
-
-        ! ocean
-
-        CASE (ZA_DEPTH_BELOW_SEA)
-          info%cdiZaxisID =  this_list%p%cdiSeaDepthFullZaxisID
-        CASE (ZA_DEPTH_BELOW_SEA_HALF)
-          info%cdiZaxisID =  this_list%p%cdiSeaDepthHalfZaxisID
-        CASE (ZA_GENERIC_ICE)
-          info%cdiZaxisID =  this_list%p%cdiIceGenericZaxisID
-        CASE (ZA_OCEAN_SEDIMENT)
-          info%cdiZaxisID =  this_list%p%cdiOceanSedGenericZaxisID
-        END SELECT
+        info%cdiZaxisID = axisIds(info%vgrid)
       END IF
 
       gridID  = info%cdiGridID
@@ -901,13 +822,15 @@ CONTAINS
 
 
     INTEGER :: klev, jg, kcell, kvert, kedge
-    INTEGER :: inlev_soil, inlev_snow, i, nice_class
+    INTEGER :: inlev_soil, inlev_snow, i, nice_class, error
     INTEGER :: ndepth    ! depth of n
     REAL(wp), ALLOCATABLE :: zlevels_full(:), zlevels_half(:)
     CHARACTER(len=MAX_CHAR_LENGTH)  :: string
+    TYPE(t_var_list_restart_info), ALLOCATABLE :: auxInfos(:)
 
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":create_restart_file"
 
     IF (ltimer) CALL timer_start(timer_write_restart_file)
 
@@ -1000,6 +923,8 @@ CONTAINS
                      & inlev_snow,        &! total # of vertical snow layers (TERRA)
                      & nice_class,        &! total # of ice classes (sea ice)
                      & ks)                 ! total # of sediment layers (HAMOCC)
+    ALLOCATE(auxInfos(nvar_lists), STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
 
     CALL set_restart_time( iso8601(datetime) )  ! Time tag
 
@@ -1011,14 +936,15 @@ CONTAINS
     ! replace keywords in file name
     string = TRIM(with_keywords(keywords, TRIM(restart_filename)))
 
-    CALL open_writing_restart_files(patch, TRIM(string), restartAttributes)
+    CALL open_writing_restart_files(patch, TRIM(string), restartAttributes, auxInfos)
 
-    CALL write_restart( patch )
+    CALL write_restart(patch)
 
     CALL close_writing_restart_files(jg, opt_ndom)
-    CALL finish_restart
+    CALL finish_restart(auxInfos)
 
     CALL restartAttributes%destruct()
+    DEALLOCATE(auxInfos)
     DEALLOCATE(restartAttributes)
 
     IF (ltimer) CALL timer_stop(timer_write_restart_file)
@@ -1379,9 +1305,10 @@ CONTAINS
 
   ! deallocate module variables
 
-  SUBROUTINE finish_restart
+  SUBROUTINE finish_restart(auxInfos)
+    TYPE(t_var_list_restart_info) :: auxInfos(:)
 
-    INTEGER :: i
+    INTEGER :: i, j
 
     IF (my_process_is_mpi_test()) RETURN
 
@@ -1390,76 +1317,19 @@ CONTAINS
         CALL gridDestroy(var_lists(i)%p%cdiCellGridID)
         CALL gridDestroy(var_lists(i)%p%cdiVertGridID)
         CALL gridDestroy(var_lists(i)%p%cdiEdgeGridID)
-        IF (var_lists(i)%p%cdiSurfZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiSurfZaxisID)
-        IF (var_lists(i)%p%cdiGenericZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiGenericZaxisID)
-        IF (var_lists(i)%p%cdiFullZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiFullZaxisID)
-        IF (var_lists(i)%p%cdiHalfZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiHalfZaxisID)
-        IF (var_lists(i)%p%cdiLandDepthFullZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiLandDepthFullZaxisID)
-        IF (var_lists(i)%p%cdiLandDepthHalfZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiLandDepthHalfZaxisID)
-        IF (var_lists(i)%p%cdiSeaDepthFullZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiSeaDepthFullZaxisID)
-        IF (var_lists(i)%p%cdiSeaDepthHalfZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiSeaDepthHalfZaxisID)
-        IF (var_lists(i)%p%cdiDepthRunoff_sZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiDepthRunoff_sZaxisID)
-        IF (var_lists(i)%p%cdiDepthRunoff_gZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiDepthRunoff_gZaxisID)
-        IF (var_lists(i)%p%cdiIceGenericZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiIceGenericZaxisID)
-        IF (var_lists(i)%p%cdiOceanSedGenericZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiOceanSedGenericZaxisID)
-        IF (var_lists(i)%p%cdiH2mZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiH2mZaxisID)
-        IF (var_lists(i)%p%cdiH10mZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiH10mZaxisID)
-        IF (var_lists(i)%p%cdiLakeBottomZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiLakeBottomZaxisID)
-        IF (var_lists(i)%p%cdiLakeHalfBottomZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiLakeHalfBottomZaxisID)
-        IF (var_lists(i)%p%cdiLakeMixLayerZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiLakeMixLayerZaxisID)
-        IF (var_lists(i)%p%cdiLakeHalfSedBottomTwZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiLakeHalfSedBottomTwZaxisID)
-        IF (var_lists(i)%p%cdiSnowGenericZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiSnowGenericZaxisID)
-        IF (var_lists(i)%p%cdiSnowHalfGenericZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiSnowHalfGenericZaxisID)
-        IF (var_lists(i)%p%cdiToaZaxisID /= CDI_UNDEFID) &
-             CALL zaxisDestroy(var_lists(i)%p%cdiToaZaxisID)
+
+        DO j = 1, SIZE(auxInfos(i)%vgridIds, 1)
+            IF(auxInfos(i)%vgridIds(j) == CDI_UNDEFID) CYCLE
+            CALL zaxisDestroy(auxInfos(i)%vgridIds(j))
+            auxInfos(i)%vgridIds(j) = CDI_UNDEFID
+        END DO
         var_lists(i)%p%cdiFileId_restart       = CDI_UNDEFID
         var_lists(i)%p%cdiVlistId              = CDI_UNDEFID
         var_lists(i)%p%cdiCellGridID           = CDI_UNDEFID
         var_lists(i)%p%cdiVertGridID           = CDI_UNDEFID
         var_lists(i)%p%cdiEdgeGridID           = CDI_UNDEFID
-        var_lists(i)%p%cdiSurfZaxisID          = CDI_UNDEFID
-        var_lists(i)%p%cdiGenericZaxisID       = CDI_UNDEFID
-        var_lists(i)%p%cdiHalfZaxisID          = CDI_UNDEFID
-        var_lists(i)%p%cdiFullZaxisID          = CDI_UNDEFID
-        var_lists(i)%p%cdiLandDepthHalfZaxisID     = CDI_UNDEFID
-        var_lists(i)%p%cdiLandDepthFullZaxisID     = CDI_UNDEFID
-        var_lists(i)%p%cdiSeaDepthHalfZaxisID     = CDI_UNDEFID
-        var_lists(i)%p%cdiSeaDepthFullZaxisID     = CDI_UNDEFID
-        var_lists(i)%p%cdiDepthRunoff_sZaxisID = CDI_UNDEFID
-        var_lists(i)%p%cdiDepthRunoff_gZaxisID = CDI_UNDEFID
-        var_lists(i)%p%cdiIceGenericZaxisID    = CDI_UNDEFID
-        var_lists(i)%p%cdiOceanSedGenericZaxisID    = CDI_UNDEFID
-        var_lists(i)%p%cdiH2mZaxisID           = CDI_UNDEFID
-        var_lists(i)%p%cdiH10mZaxisID          = CDI_UNDEFID
-        var_lists(i)%p%cdiLakeBottomZaxisID    = CDI_UNDEFID
-        var_lists(i)%p%cdiLakeHalfBottomZaxisID= CDI_UNDEFID
-        var_lists(i)%p%cdiLakeMixLayerZaxisID  = CDI_UNDEFID
-        var_lists(i)%p%cdiLakeHalfSedBottomTwZaxisID = CDI_UNDEFID
-        var_lists(i)%p%cdiToaZaxisID           = CDI_UNDEFID
         var_lists(i)%p%cdiTaxisID              = CDI_UNDEFID
         var_lists(i)%p%cdiTimeIndex            = CDI_UNDEFID
-        var_lists(i)%p%cdiSnowGenericZaxisID   = CDI_UNDEFID
-        var_lists(i)%p%cdiSnowHalfGenericZaxisID = CDI_UNDEFID
       ENDIF
     ENDDO for_all_var_lists
 
