@@ -62,7 +62,7 @@ MODULE mo_io_restart_async
                                       & GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL, cdi_zaxis_types, &
                                       & GRID_UNSTRUCTURED_COUNT
   USE mo_cf_convention
-  USE mo_packed_message,          ONLY: t_PackedMessage
+  USE mo_packed_message,          ONLY: t_PackedMessage, kPackOp, kUnpackOp
   USE mo_util_string,             ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                   int2string, toCharacter
   USE mo_util_restart,            ONLY: t_v_grid, t_restart_cdi_ids, set_vertical_grid, closeAndDestroyIds, &
@@ -656,132 +656,72 @@ CONTAINS
 
   END SUBROUTINE restart_send_ready
 
-  SUBROUTINE packRestartMetadata(datetime, jstep, message)
-    TYPE(t_datetime), INTENT(IN) :: datetime
-    INTEGER, VALUE :: jstep
+  SUBROUTINE restartMetadataPacker(operation, datetime, jstep, message)
+    INTEGER, VALUE :: operation
+    TYPE(t_datetime), INTENT(INOUT) :: datetime
+    INTEGER, INTENT(INOUT) :: jstep
     TYPE(t_PackedMessage), INTENT(INOUT) :: message
 
-    INTEGER :: i
+    INTEGER :: i, calday, patchId
     TYPE(t_patch_data), POINTER :: curPatch
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartMetadataPacker"
 
     ! set patch independent arguments
-    CALL message%pack(datetime%year)
-    CALL message%pack(datetime%month)
-    CALL message%pack(datetime%day)
-    CALL message%pack(datetime%hour)
-    CALL message%pack(datetime%minute)
-    CALL message%pack(datetime%second)
-    CALL message%pack(datetime%caltime)
-    CALL message%pack(INT(datetime%calday))
-    CALL message%pack(datetime%daysec)
-    CALL message%pack(jstep)
-    CALL message%pack(restart_args%opt_output_jfile)
+    CALL message%execute(operation, datetime%year)
+    CALL message%execute(operation, datetime%month)
+    CALL message%execute(operation, datetime%day)
+    CALL message%execute(operation, datetime%hour)
+    CALL message%execute(operation, datetime%minute)
+    CALL message%execute(operation, datetime%second)
+    CALL message%execute(operation, datetime%caltime)
+    calday = INT(datetime%calday)
+    CALL message%execute(operation, calday)
+    datetime%calday = INT(calday,i8)
+    CALL message%execute(operation, datetime%daysec)
+    CALL message%execute(operation, jstep)
+    CALL message%execute(operation, restart_args%opt_output_jfile)
 
     ! set data of all patches
     DO i = 1, SIZE(patch_data)
-        curPatch => patch_data(i)
-
         ! patch id
-        CALL message%pack(curPatch%id)
+        patchId = patch_data(i)%id
+        CALL message%execute(operation, patchId)
+        curPatch => find_patch(patchId, routine)
 
         ! activity flag
-        CALL message%pack(curPatch%l_dom_active)
+        CALL message%execute(operation, curPatch%l_dom_active)
 
         ! time levels
-        CALL message%pack(nold(curPatch%id))
-        CALL message%pack(nnow(curPatch%id))
-        CALL message%pack(nnew(curPatch%id))
-        CALL message%pack(nnew_rcf(curPatch%id))
-        CALL message%pack(nnow_rcf(curPatch%id))
+        CALL message%execute(operation, nold(curPatch%id))
+        CALL message%execute(operation, nnow(curPatch%id))
+        CALL message%execute(operation, nnew(curPatch%id))
+        CALL message%execute(operation, nnew_rcf(curPatch%id))
+        CALL message%execute(operation, nnow_rcf(curPatch%id))
 
         ! optional parameter values
-        CALL message%pack(curPatch%l_opt_depth)
-        CALL message%pack(curPatch%opt_depth)
-        CALL message%pack(curPatch%l_opt_depth_lnd)
-        CALL message%pack(curPatch%opt_depth_lnd)
-        CALL message%pack(curPatch%l_opt_nlev_snow)
-        CALL message%pack(curPatch%opt_nlev_snow)
-        CALL message%pack(curPatch%l_opt_nice_class)
-        CALL message%pack(curPatch%opt_nice_class)
-        CALL message%pack(curPatch%l_opt_ndyn_substeps)
-        CALL message%pack(curPatch%opt_ndyn_substeps)
-        CALL message%pack(curPatch%l_opt_jstep_adv_marchuk_order)
-        CALL message%pack(curPatch%opt_jstep_adv_marchuk_order)
-        CALL message%pack(curPatch%l_opt_sim_time)
-        CALL message%pack(curPatch%opt_sim_time)
-        CALL message%pack(curPatch%l_opt_ndom)
-        CALL message%pack(curPatch%opt_ndom)
+        CALL message%execute(operation, curPatch%l_opt_depth)
+        CALL message%execute(operation, curPatch%opt_depth)
+        CALL message%execute(operation, curPatch%l_opt_depth_lnd)
+        CALL message%execute(operation, curPatch%opt_depth_lnd)
+        CALL message%execute(operation, curPatch%l_opt_nlev_snow)
+        CALL message%execute(operation, curPatch%opt_nlev_snow)
+        CALL message%execute(operation, curPatch%l_opt_nice_class)
+        CALL message%execute(operation, curPatch%opt_nice_class)
+        CALL message%execute(operation, curPatch%l_opt_ndyn_substeps)
+        CALL message%execute(operation, curPatch%opt_ndyn_substeps)
+        CALL message%execute(operation, curPatch%l_opt_jstep_adv_marchuk_order)
+        CALL message%execute(operation, curPatch%opt_jstep_adv_marchuk_order)
+        CALL message%execute(operation, curPatch%l_opt_sim_time)
+        CALL message%execute(operation, curPatch%opt_sim_time)
+        CALL message%execute(operation, curPatch%l_opt_ndom)
+        CALL message%execute(operation, curPatch%opt_ndom)
 
         ! optional parameter arrays
-        CALL message%pack(curPatch%opt_pvct)
-        CALL message%pack(curPatch%opt_lcall_phy)
-        CALL message%pack(curPatch%opt_t_elapsed_phy)
+        CALL message%execute(operation, curPatch%opt_pvct)
+        CALL message%execute(operation, curPatch%opt_lcall_phy)
+        CALL message%execute(operation, curPatch%opt_t_elapsed_phy)
     END DO
-  END SUBROUTINE packRestartMetadata
-
-  SUBROUTINE unpackRestartMetadata(datetime, jstep, message)
-    TYPE(t_datetime), INTENT(INOUT) :: datetime
-    INTEGER, VALUE :: jstep
-    TYPE(t_PackedMessage), INTENT(INOUT) :: message
-
-    INTEGER :: i, calday, this_patch
-    TYPE(t_patch_data), POINTER :: curPatch
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":unpackRestartMetadata"
-
-    ! get patch independent arguments
-    CALL message%unpack(datetime%year)
-    CALL message%unpack(datetime%month)
-    CALL message%unpack(datetime%day)
-    CALL message%unpack(datetime%hour)
-    CALL message%unpack(datetime%minute)
-    CALL message%unpack(datetime%second)
-    CALL message%unpack(datetime%caltime)
-    CALL message%unpack(calday)
-    datetime%calday = INT(calday,i8)
-    CALL message%unpack(datetime%daysec)
-    CALL message%unpack(jstep)
-    CALL message%unpack(restart_args%opt_output_jfile)
-
-    ! get patch dependent arguments
-    DO i = 1, SIZE(patch_data)
-        ! find the patch of the current patch id
-        CALL message%unpack(this_patch)
-        curPatch => find_patch(this_patch, routine)
-
-        ! activity flag
-        CALL message%unpack(curPatch%l_dom_active)
-
-        ! time levels
-        CALL message%unpack(nold(this_patch))
-        CALL message%unpack(nnow(this_patch))
-        CALL message%unpack(nnew(this_patch))
-        CALL message%unpack(nnew_rcf(this_patch))
-        CALL message%unpack(nnow_rcf(this_patch))
-
-        ! optional parameter values
-        CALL message%unpack(curPatch%l_opt_depth)
-        CALL message%unpack(curPatch%opt_depth)
-        CALL message%unpack(curPatch%l_opt_depth_lnd)
-        CALL message%unpack(curPatch%opt_depth_lnd)
-        CALL message%unpack(curPatch%l_opt_nlev_snow)
-        CALL message%unpack(curPatch%opt_nlev_snow)
-        CALL message%unpack(curPatch%l_opt_nice_class)
-        CALL message%unpack(curPatch%opt_nice_class)
-        CALL message%unpack(curPatch%l_opt_ndyn_substeps)
-        CALL message%unpack(curPatch%opt_ndyn_substeps)
-        CALL message%unpack(curPatch%l_opt_jstep_adv_marchuk_order)
-        CALL message%unpack(curPatch%opt_jstep_adv_marchuk_order)
-        CALL message%unpack(curPatch%l_opt_sim_time)
-        CALL message%unpack(curPatch%opt_sim_time)
-        CALL message%unpack(curPatch%l_opt_ndom)
-        CALL message%unpack(curPatch%opt_ndom)
-
-        ! optional parameter arrays
-        CALL message%unpack(curPatch%opt_pvct)
-        CALL message%unpack(curPatch%opt_lcall_phy)
-        CALL message%unpack(curPatch%opt_t_elapsed_phy)
-    END DO
-  END SUBROUTINE unpackRestartMetadata
+  END SUBROUTINE restartMetadataPacker
 
   !-------------------------------------------------------------------------------------------------
   !>
@@ -814,7 +754,7 @@ CONTAINS
     CALL message%unpack(iheader)
     SELECT CASE(iheader)
       CASE(MSG_RESTART_START)
-        CALL unpackRestartMetadata(restart_args%datetime, restart_args%jstep, message)
+        CALL restartMetadataPacker(kUnpackOp, restart_args%datetime, restart_args%jstep, message)
 
         ! update the patch_data
         DO i = 1, SIZE(patch_data)
@@ -877,15 +817,33 @@ CONTAINS
 
   END SUBROUTINE compute_wait_for_restart
 
+  SUBROUTINE timeDependentDataPacker(message, operation, patchData)
+    TYPE(t_PackedMessage), INTENT(INOUT) :: message
+    INTEGER, VALUE :: operation
+    TYPE(t_patch_data), INTENT(INOUT) :: patchData
+
+    CALL message%execute(operation, patchData%l_dom_active)
+    CALL message%execute(operation, nnow(patchData%id))
+    CALL message%execute(operation, nnew(patchData%id))
+    CALL message%execute(operation, nnow_rcf(patchData%id))
+    CALL message%execute(operation, nnew_rcf(patchData%id))
+
+    CALL message%execute(operation, patchData%opt_ndyn_substeps)
+    CALL message%execute(operation, patchData%opt_jstep_adv_marchuk_order)
+    CALL message%execute(operation, patchData%opt_sim_time)
+
+    CALL message%execute(operation, patchData%opt_lcall_phy)
+    CALL message%execute(operation, patchData%opt_t_elapsed_phy)
+  END SUBROUTINE timeDependentDataPacker
+
   !-------------------------------------------------------------------------------------------------
   !>
   !! compute_start_restart: Send a message to restart PEs that they should start restart.
   !! The counterpart on the restart side is restart_wait_for_start.
   !
   SUBROUTINE compute_start_restart(datetime, jstep)
-
-    TYPE(t_datetime), INTENT(IN)  :: datetime
-    INTEGER,          INTENT(IN)  :: jstep
+    TYPE(t_datetime), VALUE :: datetime
+    INTEGER, VALUE :: jstep
 
     TYPE(t_patch_data),   POINTER  :: p_pd
     CHARACTER, POINTER             :: p_msg(:)
@@ -908,53 +866,27 @@ CONTAINS
       CALL message%reset()
       IF (p_pd%work_pe0_id /= 0) THEN
         IF (p_pe_work == 0) THEN
-          CALL message%recv(p_pd%work_pe0_id, 0, process_mpi_all_comm)  ! recieve the package for this patch
-
-          CALL message%unpack(p_pd%l_dom_active)
-          CALL message%unpack(nnow(p_pd%id))
-          CALL message%unpack(nnew(p_pd%id))
-          CALL message%unpack(nnow_rcf(p_pd%id))
-          CALL message%unpack(nnew_rcf(p_pd%id))
-
-          CALL message%unpack(p_pd%opt_ndyn_substeps)
-          CALL message%unpack(p_pd%opt_jstep_adv_marchuk_order)
-          CALL message%unpack(p_pd%opt_sim_time)
-
-          CALL message%unpack(p_pd%opt_lcall_phy)
-          CALL message%unpack(p_pd%opt_t_elapsed_phy)
+          ! recieve the package for this patch
+          CALL message%recv(p_pd%work_pe0_id, 0, process_mpi_all_comm)
+          CALL timeDependentDataPacker(message, kUnpackOp, p_pd)
         ELSE IF (p_pe_work == p_pd%work_pe0_id) THEN
-
-          CALL message%pack(p_pd%l_dom_active)
-          CALL message%pack(nnow(p_pd%id))
-          CALL message%pack(nnew(p_pd%id))
-          CALL message%pack(nnow_rcf(p_pd%id))
-          CALL message%pack(nnew_rcf(p_pd%id))
-
-          CALL message%pack(p_pd%opt_ndyn_substeps)
-          CALL message%pack(p_pd%opt_jstep_adv_marchuk_order)
-          CALL message%pack(p_pd%opt_sim_time)
-
-          CALL message%pack(p_pd%opt_lcall_phy)
-          CALL message%pack(p_pd%opt_t_elapsed_phy)
-
-          CALL message%send(0, 0, process_mpi_all_comm) !send the package
+          ! send the time dependent DATA to process 0
+          CALL timeDependentDataPacker(message, kPackOp, p_pd)
+          CALL message%send(0, 0, process_mpi_all_comm)
         END IF
       END IF
     END DO
-    CALL message%destruct()
-
 
     IF(p_pe_work == 0) THEN
-      CALL message%construct()   ! create message array
+      CALL message%reset()   ! create message array
 
       CALL message%pack(MSG_RESTART_START)  ! set command id
-      CALL packRestartMetadata(datetime, jstep, message)    ! all the other DATA
+      CALL restartMetadataPacker(kPackOp, datetime, jstep, message)    ! all the other DATA
 
       CALL message%send(p_restart_pe0, 0, process_mpi_all_comm)
-
-      CALL message%destruct()
     ENDIF
 
+    CALL message%destruct()
   END SUBROUTINE compute_start_restart
 
   !-------------------------------------------------------------------------------------------------

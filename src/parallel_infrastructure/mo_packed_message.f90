@@ -26,6 +26,7 @@ MODULE mo_packed_message
     PRIVATE
 
     PUBLIC :: t_PackedMessage
+    INTEGER, PARAMETER, PUBLIC :: kPackOp = 0, kUnpackOp = 1
 
     TYPE :: t_PackedMessage
         INTEGER messageSize, readPosition
@@ -61,6 +62,21 @@ MODULE mo_packed_message
 
         GENERIC :: unpack => unpackInt, unpackSingle, unpackDouble, unpackLogical, unpackIntArray, unpackSingleArray, &
                            & unpackDoubleArray, unpackLogicalArray
+
+        ! routines to facilitate packing AND unpacking with the same code
+        ! USE of these routine prohibits ANY errors by mismatches between packing AND unpacking code
+        PROCEDURE :: executeInt => PackedMessage_executeInt
+        PROCEDURE :: executeSingle => PackedMessage_executeSingle
+        PROCEDURE :: executeDouble => PackedMessage_executeDouble
+        PROCEDURE :: executeLogical => PackedMessage_executeLogical
+
+        PROCEDURE :: executeIntArray => PackedMessage_executeIntArray
+        PROCEDURE :: executeSingleArray => PackedMessage_executeSingleArray
+        PROCEDURE :: executeDoubleArray => PackedMessage_executeDoubleArray
+        PROCEDURE :: executeLogicalArray => PackedMessage_executeLogicalArray
+
+        GENERIC :: execute => executeInt, executeSingle, executeDouble, executeLogical, executeIntArray, executeSingleArray, &
+                            & executeDoubleArray, executeLogicalArray
 
         ! communication routines
         ! All of these will flush ANY contents of the reciever(s), replacing it with a copy of the sender's packet.
@@ -377,6 +393,136 @@ CONTAINS
         END DO
     END SUBROUTINE PackedMessage_unpackLogicalArray
 
+    ! wrappers for unified (un)packing !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    SUBROUTINE PackedMessage_executeInt(me, operation, value)
+        CLASS(t_PackedMessage), INTENT(INOUT) :: me
+        INTEGER, VALUE :: operation
+        INTEGER, INTENT(INOUT) :: value
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_executeInt"
+
+        SELECT CASE(operation)
+            CASE(kPackOp)
+                CALL me%pack(value)
+            CASE(kUnpackOp)
+                CALL me%unpack(value)
+            CASE DEFAULT
+                CALL finish(routine, "illegal operation")
+        END SELECT
+    END SUBROUTINE PackedMessage_executeInt
+
+    SUBROUTINE PackedMessage_executeSingle(me, operation, value)
+        CLASS(t_PackedMessage), INTENT(INOUT) :: me
+        INTEGER, VALUE :: operation
+        REAL(sp), INTENT(INOUT) :: value
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_executeSingle"
+
+        SELECT CASE(operation)
+            CASE(kPackOp)
+                CALL me%pack(value)
+            CASE(kUnpackOp)
+                CALL me%unpack(value)
+            CASE DEFAULT
+                CALL finish(routine, "illegal operation")
+        END SELECT
+    END SUBROUTINE PackedMessage_executeSingle
+
+    SUBROUTINE PackedMessage_executeDouble(me, operation, value)
+        CLASS(t_PackedMessage), INTENT(INOUT) :: me
+        INTEGER, VALUE :: operation
+        REAL(dp), INTENT(INOUT) :: value
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_executeDouble"
+
+        SELECT CASE(operation)
+            CASE(kPackOp)
+                CALL me%pack(value)
+            CASE(kUnpackOp)
+                CALL me%unpack(value)
+            CASE DEFAULT
+                CALL finish(routine, "illegal operation")
+        END SELECT
+    END SUBROUTINE PackedMessage_executeDouble
+
+    SUBROUTINE PackedMessage_executeLogical(me, operation, value)
+        CLASS(t_PackedMessage), INTENT(INOUT) :: me
+        INTEGER, VALUE :: operation
+        LOGICAL, INTENT(INOUT) :: value
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_executeLogical"
+
+        SELECT CASE(operation)
+            CASE(kPackOp)
+                CALL me%pack(value)
+            CASE(kUnpackOp)
+                CALL me%unpack(value)
+            CASE DEFAULT
+                CALL finish(routine, "illegal operation")
+        END SELECT
+    END SUBROUTINE PackedMessage_executeLogical
+
+    SUBROUTINE PackedMessage_executeIntArray(me, operation, value)
+        CLASS(t_PackedMessage), INTENT(INOUT) :: me
+        INTEGER, VALUE :: operation
+        INTEGER, ALLOCATABLE, INTENT(INOUT) :: value(:)
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_executeIntArray"
+
+        SELECT CASE(operation)
+            CASE(kPackOp)
+                CALL me%pack(value)
+            CASE(kUnpackOp)
+                CALL me%unpack(value)
+            CASE DEFAULT
+                CALL finish(routine, "illegal operation")
+        END SELECT
+    END SUBROUTINE PackedMessage_executeIntArray
+
+    SUBROUTINE PackedMessage_executeSingleArray(me, operation, value)
+        CLASS(t_PackedMessage), INTENT(INOUT) :: me
+        INTEGER, VALUE :: operation
+        REAL(sp), ALLOCATABLE, INTENT(INOUT) :: value(:)
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_executeSingleArray"
+
+        SELECT CASE(operation)
+            CASE(kPackOp)
+                CALL me%pack(value)
+            CASE(kUnpackOp)
+                CALL me%unpack(value)
+            CASE DEFAULT
+                CALL finish(routine, "illegal operation")
+        END SELECT
+    END SUBROUTINE PackedMessage_executeSingleArray
+
+    SUBROUTINE PackedMessage_executeDoubleArray(me, operation, value)
+        CLASS(t_PackedMessage), INTENT(INOUT) :: me
+        INTEGER, VALUE :: operation
+        REAL(dp), ALLOCATABLE, INTENT(INOUT) :: value(:)
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_executeDoubleArray"
+
+        SELECT CASE(operation)
+            CASE(kPackOp)
+                CALL me%pack(value)
+            CASE(kUnpackOp)
+                CALL me%unpack(value)
+            CASE DEFAULT
+                CALL finish(routine, "illegal operation")
+        END SELECT
+    END SUBROUTINE PackedMessage_executeDoubleArray
+
+    SUBROUTINE PackedMessage_executeLogicalArray(me, operation, value)
+        CLASS(t_PackedMessage), INTENT(INOUT) :: me
+        INTEGER, VALUE :: operation
+        LOGICAL, ALLOCATABLE, INTENT(INOUT) :: value(:)
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_executeLogicalArray"
+
+        SELECT CASE(operation)
+            CASE(kPackOp)
+                CALL me%pack(value)
+            CASE(kUnpackOp)
+                CALL me%unpack(value)
+            CASE DEFAULT
+                CALL finish(routine, "illegal operation")
+        END SELECT
+    END SUBROUTINE PackedMessage_executeLogicalArray
+
     ! communication routines !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     ! These always send/receive two MPI messages: one with the SIZE of the packed message, AND one with the actual message.
@@ -394,17 +540,10 @@ CONTAINS
         INTEGER :: error
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_send"
 
-WRITE(0,*) "Checkpoint 0: messageSize = "//TRIM(int2string(me%messageSize))//", destination = "//TRIM(int2string(destination))//&
-&", tag = "//TRIM(int2string(tag))//", communicator = "//TRIM(int2string(communicator))//", rank = "//&
-&TRIM(int2string(p_comm_rank(communicator)))
         CALL MPI_Send(me%messageSize, 1, p_int, destination, tag, communicator, error)
-WRITE(0,*) "Checkpoint 0.1"
         handleMpiError(error, routine)
-WRITE(0,*) "Checkpoint 0.2"
         CALL MPI_Send(me%messageBuffer, INT(me%messageSize), MPI_BYTE, destination, tag, communicator, error)
-WRITE(0,*) "Checkpoint 0.3"
         handleMpiError(error, routine)
-WRITE(0,*) "Checkpoint 0.4"
 #endif
     END SUBROUTINE PackedMessage_send
 
@@ -418,19 +557,11 @@ WRITE(0,*) "Checkpoint 0.4"
 
         me%messageSize = 0
         me%readPosition = 0
-WRITE(0,*) "Checkpoint 1: incomingSize = "//TRIM(int2string(incomingSize))//", source = "//TRIM(int2string(source))//", tag&
-&= "//TRIM(int2string(tag))//", communicator = "//TRIM(int2string(communicator))//", rank = "//&
-&TRIM(int2string(p_comm_rank(communicator)))
         CALL MPI_Recv(incomingSize, 1, p_int, source, tag, communicator, status, error)
-WRITE(0,*) "Checkpoint 1.1"
         handleMpiError(error, routine)
-WRITE(0,*) "Checkpoint 1.2"
         CALL me%ensureSpace(incomingSize)
-WRITE(0,*) "Checkpoint 1.3"
         CALL MPI_Recv(me%messageBuffer, incomingSize, MPI_PACKED, source, tag, communicator, status, error)
-WRITE(0,*) "Checkpoint 1.4"
         handleMpiError(error, routine)
-WRITE(0,*) "Checkpoint 1.5"
         me%messageSize = incomingSize
 #endif
     END SUBROUTINE PackedMessage_recv
