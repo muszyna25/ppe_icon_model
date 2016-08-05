@@ -95,7 +95,7 @@ MODULE mo_io_restart
     &                                 timer_write_restart_file
 
   USE mo_dynamics_config,       ONLY: iequations, nold, nnow, nnew, nnew_rcf, nnow_rcf
-  USE mo_grid_config,           ONLY: l_limited_area
+  USE mo_grid_config,           ONLY: l_limited_area, n_dom
 
 #ifndef __NO_ICON_ATMO__
 !LK comment: should not be here !!!!!! polution of namespace !!!!!!
@@ -352,24 +352,25 @@ CONTAINS
   END SUBROUTINE set_time_axis
   !------------------------------------------------------------------------------------------------
 
-  SUBROUTINE defineRestartAttributes(restartAttributes, datetime, jstep, jg, opt_ndom, opt_ndyn_substeps, &
+  SUBROUTINE defineRestartAttributes(restartAttributes, datetime, jstep, opt_ndom, opt_ndyn_substeps, &
                                     &opt_jstep_adv_marchuk_order, opt_output_jfile, opt_sim_time, opt_t_elapsed_phy, opt_lcall_phy)
     TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
     TYPE(t_datetime), INTENT(IN) :: datetime
-    INTEGER, VALUE :: jstep, jg
+    INTEGER, VALUE :: jstep
     INTEGER, INTENT(IN), OPTIONAL :: opt_ndom, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_output_jfile(:)
     REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time, opt_t_elapsed_phy(:,:)
     LOGICAL , INTENT(IN), OPTIONAL :: opt_lcall_phy(:,:)
 
-    INTEGER :: i
+    INTEGER :: i, jg
     CHARACTER(LEN = 2) :: jgString
     CHARACTER(LEN = :), ALLOCATABLE :: prefix
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":defineRestartAttributes"
 
-    jgString = TRIM(int2string(jg, "(i2.2)"))
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! First the attributes that are independent of the domain !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     ! set CF-Convention required restart attributes
-
     CALL restartAttributes%setText('title',       TRIM(cf_global_info%title))
     CALL restartAttributes%setText('institution', TRIM(cf_global_info%institution))
     CALL restartAttributes%setText('source',      TRIM(cf_global_info%source))
@@ -381,57 +382,63 @@ CONTAINS
     CALL restartAttributes%setInteger( 'current_calday' , INT(datetime%calday) )   !FIXME: Either it IS a bug that calday IS a 64bit INTEGER, OR it IS a bug that ONLY 32 bit of it are stored IN the restart file. Either way this needs to be fixed.
     CALL restartAttributes%setReal( 'current_daysec' , datetime%daysec )
 
-    CALL restartAttributes%setInteger( 'nold_DOM'//jgString, nold(jg))
-    CALL restartAttributes%setInteger( 'nnow_DOM'//jgString, nnow(jg))
-    CALL restartAttributes%setInteger( 'nnew_DOM'//jgString, nnew(jg))
-    CALL restartAttributes%setInteger( 'nnow_rcf_DOM'//jgString, nnow_rcf(jg))
-    CALL restartAttributes%setInteger( 'nnew_rcf_DOM'//jgString, nnew_rcf(jg))
-
     ! set no. of domains
     IF (PRESENT(opt_ndom)) THEN
-      CALL restartAttributes%setInteger( 'n_dom', opt_ndom)
+        CALL restartAttributes%setInteger( 'n_dom', opt_ndom)
     ELSE
-      CALL restartAttributes%setInteger( 'n_dom', 1)
+        CALL restartAttributes%setInteger( 'n_dom', 1)
     END IF
 
     ! set simulation step
     CALL restartAttributes%setInteger( 'jstep', jstep )
-
-    !----------------
-    ! additional restart-output for nonhydrostatic model
-    IF (PRESENT(opt_sim_time)) CALL restartAttributes%setReal('sim_time_DOM'//jgString, opt_sim_time )
-
-    !-------------------------------------------------------------
-    ! DR
-    ! WORKAROUND FOR FIELDS WHICH NEED TO GO INTO THE RESTART FILE,
-    ! BUT SO FAR CANNOT BE HANDELED CORRECTLY BY ADD_VAR OR
-    ! SET_RESTART_ATTRIBUTE
-    !-------------------------------------------------------------
-
-    IF (PRESENT(opt_ndyn_substeps)) CALL restartAttributes%setInteger('ndyn_substeps_DOM'//jgString, opt_ndyn_substeps)
-    IF (PRESENT(opt_jstep_adv_marchuk_order)) CALL restartAttributes%setInteger('jstep_adv_marchuk_order_DOM'//jgString, &
-                                                                               &opt_jstep_adv_marchuk_order)
-
-    IF (PRESENT(opt_t_elapsed_phy) .AND. PRESENT(opt_lcall_phy)) THEN
-      prefix = 't_elapsed_phy_DOM'//jgString//'_PHY'
-      DO i = 1, SIZE(opt_t_elapsed_phy, 2)
-        CALL restartAttributes%setReal(prefix//TRIM(int2string(i, '(i2.2)')), opt_t_elapsed_phy(jg, i) )
-      ENDDO
-
-      prefix = 'lcall_phy_DOM'//jgString//'_PHY'
-      DO i = 1, SIZE(opt_lcall_phy, 2)
-        CALL restartAttributes%setLogical(prefix//TRIM(int2string(i, '(i2.2)')), opt_lcall_phy(jg, i) )
-      ENDDO
-    ENDIF
-
-    IF (PRESENT(opt_output_jfile)) THEN
-      DO i = 1, SIZE(opt_output_jfile)
-        CALL restartAttributes%setInteger('output_jfile_'//TRIM(int2string(i, '(i2.2)')), opt_output_jfile(i) )
-      END DO
-    END IF
-
     ! in preparation for move to mtime
     CALL restartAttributes%setText('tc_startdate', iso8601extended(datetime))
+
+    IF (PRESENT(opt_output_jfile)) THEN
+        DO i = 1, SIZE(opt_output_jfile)
+            CALL restartAttributes%setInteger('output_jfile_'//TRIM(int2string(i, '(i2.2)')), opt_output_jfile(i) )
+        END DO
+    END IF
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! Now the stuff that depends on the domain !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    DO jg = 1, n_dom
+        jgString = TRIM(int2string(jg, "(i2.2)"))
+
+        CALL restartAttributes%setInteger( 'nold_DOM'//jgString, nold(jg))
+        CALL restartAttributes%setInteger( 'nnow_DOM'//jgString, nnow(jg))
+        CALL restartAttributes%setInteger( 'nnew_DOM'//jgString, nnew(jg))
+        CALL restartAttributes%setInteger( 'nnow_rcf_DOM'//jgString, nnow_rcf(jg))
+        CALL restartAttributes%setInteger( 'nnew_rcf_DOM'//jgString, nnew_rcf(jg))
+
+        !----------------
+        ! additional restart-output for nonhydrostatic model
+        IF (PRESENT(opt_sim_time)) CALL restartAttributes%setReal('sim_time_DOM'//jgString, opt_sim_time )
+
+        !-------------------------------------------------------------
+        ! DR
+        ! WORKAROUND FOR FIELDS WHICH NEED TO GO INTO THE RESTART FILE,
+        ! BUT SO FAR CANNOT BE HANDELED CORRECTLY BY ADD_VAR OR
+        ! SET_RESTART_ATTRIBUTE
+        !-------------------------------------------------------------
+
+        IF (PRESENT(opt_ndyn_substeps)) CALL restartAttributes%setInteger('ndyn_substeps_DOM'//jgString, opt_ndyn_substeps)
+        IF (PRESENT(opt_jstep_adv_marchuk_order)) CALL restartAttributes%setInteger('jstep_adv_marchuk_order_DOM'//jgString, &
+                                                                                   &opt_jstep_adv_marchuk_order)
+
+        IF (PRESENT(opt_t_elapsed_phy) .AND. PRESENT(opt_lcall_phy)) THEN
+            prefix = 't_elapsed_phy_DOM'//jgString//'_PHY'
+            DO i = 1, SIZE(opt_t_elapsed_phy, 2)
+                CALL restartAttributes%setReal(prefix//TRIM(int2string(i, '(i2.2)')), opt_t_elapsed_phy(jg, i) )
+            END DO
+
+            prefix = 'lcall_phy_DOM'//jgString//'_PHY'
+            DO i = 1, SIZE(opt_lcall_phy, 2)
+                CALL restartAttributes%setLogical(prefix//TRIM(int2string(i, '(i2.2)')), opt_lcall_phy(jg, i) )
+            END DO
+        ENDIF
+    END DO
   END SUBROUTINE defineRestartAttributes
 
   SUBROUTINE init_restart(nc, ncv, nv, nvv, ne, nev, &
@@ -1175,7 +1182,7 @@ CONTAINS
     max_vertex_connectivity = patch%verts%max_connectivity
 
     restartAttributes => RestartAttributeList_make()
-    CALL defineRestartAttributes(restartAttributes, datetime, jstep, jg, opt_ndom, opt_ndyn_substeps, &
+    CALL defineRestartAttributes(restartAttributes, datetime, jstep, opt_ndom, opt_ndyn_substeps, &
                                 &opt_jstep_adv_marchuk_order, opt_output_jfile, opt_sim_time, opt_t_elapsed_phy, opt_lcall_phy)
 
     IF (PRESENT(opt_pvct)) CALL set_restart_vct( opt_pvct )  ! Vertical coordinate (A's and B's)
