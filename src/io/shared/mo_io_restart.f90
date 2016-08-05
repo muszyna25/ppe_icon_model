@@ -124,24 +124,8 @@ MODULE mo_io_restart
   PUBLIC :: read_restart_files
   PUBLIC :: read_restart_header
 
-  TYPE t_restart_files
-    CHARACTER(len=64) :: functionality
-    CHARACTER(len=64) :: filename
-    CHARACTER(len=64) :: linkname
-  END type t_restart_files
-  INTEGER, PARAMETER :: max_restart_files = 257
-  INTEGER, SAVE :: nrestart_files = 0
-  TYPE(t_restart_files), ALLOCATABLE :: restart_files(:)
-
   INTEGER, SAVE :: nv_grids = 0
   TYPE(t_v_grid) :: vgrid_def(ZA_COUNT)
-
-  TYPE t_t_axis
-    INTEGER :: type
-  END type t_t_axis
-
-  INTEGER, SAVE :: nt_axis = 0
-  TYPE(t_t_axis) :: taxis_def(2)
 
   CHARACTER(len=32) :: private_restart_time = ''
   REAL(wp), ALLOCATABLE :: private_vct(:)
@@ -283,14 +267,6 @@ CONTAINS
     lheight_snow_initialised = .TRUE.
   END SUBROUTINE set_restart_height_snow
 
-  SUBROUTINE set_time_axis(type)
-    INTEGER, INTENT(in) :: type
-
-    nt_axis = nt_axis+1
-
-    taxis_def(nt_axis)%type = type
-  END SUBROUTINE set_time_axis
-
   SUBROUTINE defineRestartAttributes(restartAttributes, datetime, jstep, opt_ndom, opt_ndyn_substeps, &
                                     &opt_jstep_adv_marchuk_order, opt_output_jfile, opt_sim_time, opt_t_elapsed_phy, opt_lcall_phy)
     TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
@@ -386,11 +362,6 @@ CONTAINS
 
         DEALLOCATE(levels, levels_sp)
     END IF
-
-    ! define time axis
-
-    CALL set_time_axis(TAXIS_ABSOLUTE)
-    CALL set_time_axis(TAXIS_RELATIVE)
 
     private_nc  = nc
     private_nv  = nv
@@ -808,7 +779,6 @@ CONTAINS
     ! Loop over all the output streams and close the associated files, set
     ! opened to false
 
-    CHARACTER(len=80) :: linkname
     INTEGER :: i, j, iret, fileID, vlistID
 
     IF (my_process_is_mpi_test()) RETURN
@@ -1143,7 +1113,6 @@ CONTAINS
     lheight_snow_initialised = .FALSE.
 
     nv_grids   = 0
-    nt_axis    = 0
     lrestart_initialised = .FALSE.
 
   END SUBROUTINE finish_restart

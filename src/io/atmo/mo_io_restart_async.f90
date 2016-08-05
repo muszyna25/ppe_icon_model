@@ -109,16 +109,6 @@ MODULE mo_io_restart_async
   INTEGER, PARAMETER :: MAX_NAME_LENGTH           = 128
   INTEGER, PARAMETER :: MAX_ERROR_LENGTH          = 256
 
-  ! maximum no. of output_nml output files
-  INTEGER, parameter :: MAX_NML_OUTPUT_FILES      = 100
-
-  ! minimum number of dynamic restart arguments
-  INTEGER, PARAMETER :: MIN_DYN_RESTART_ARGS      = 16 + MAX_NML_OUTPUT_FILES
-
-  ! minimum number of dynamic restart patch data
-  ! id, l_dom_active, time levels and optional attributes
-  INTEGER, PARAMETER :: MIN_DYN_RESTART_PDATA     = 23
-
   ! maximumm number of verticale axes
   INTEGER, PARAMETER :: MAX_VERTICAL_AXES         = 19
 
@@ -128,20 +118,16 @@ MODULE mo_io_restart_async
   CHARACTER(LEN=*), PARAMETER :: DEALLOCATE_FAILED        = 'DEALLOCATE failed!'
   CHARACTER(LEN=*), PARAMETER :: UNKNOWN_GRID_TYPE        = 'Unknown grid type!'
   CHARACTER(LEN=*), PARAMETER :: UNKNOWN_FILE_FORMAT      = 'Unknown file format for restart file.'
-  CHARACTER(LEN=*), PARAMETER :: UNKNOWN_VERT_GRID_DESCR  = 'Vertical grid description not found.'
   CHARACTER(LEN=*), PARAMETER :: ASYNC_RESTART_REQ_MPI    = 'asynchronous restart can only run with MPI!'
   CHARACTER(LEN=*), PARAMETER :: NO_COMPUTE_PE            = 'Must be called on a compute PE!'
   CHARACTER(LEN=*), PARAMETER :: NO_RESTART_PE            = 'Must be called on a restart PE!'
   CHARACTER(LEN=*), PARAMETER :: NET_CDF_ERROR_FORMAT     = '(a,i5,a)'
-  CHARACTER(LEN=*), PARAMETER :: WRONG_ARRAY_SIZE         =  &
-    & 'No or wrong array size set in prepare_async_restart() for='
 
   CHARACTER(LEN=*), PARAMETER :: FORMAT_VALS3             = '(a,a,i3)'
   CHARACTER(LEN=*), PARAMETER :: FORMAT_VALS5             = '(a,a,i3,a,i3)'
   CHARACTER(LEN=*), PARAMETER :: FORMAT_VALS5I            = '(a,a,i3,a,a)'
   CHARACTER(LEN=*), PARAMETER :: FORMAT_VALS7             = '(a,a,i3,a,i6,a,i3)'
   CHARACTER(LEN=*), PARAMETER :: FORMAT_VALS7I            = '(a,a,i3,a,a,a,i8)'
-  CHARACTER(LEN=*), PARAMETER :: FORMAT_VALS9             = '(a,a,i3,a,i6,a,i3,a,i3)'
 
   !------------------------------------------------------------------------------------------------
   ! TYPE t_var_data (restart variable)
@@ -259,7 +245,7 @@ MODULE mo_io_restart_async
     REAL(wp)              :: opt_sim_time
     LOGICAL               :: l_opt_ndom
     INTEGER               :: opt_ndom
-    !
+
     REAL(wp), ALLOCATABLE :: opt_pvct(:)
     LOGICAL, ALLOCATABLE  :: opt_lcall_phy(:)
     REAL(wp), ALLOCATABLE :: opt_t_elapsed_phy(:)
@@ -452,14 +438,12 @@ CONTAINS
   !> Writes all restart data into one or more files (one file per patch, collective call).
   !
   SUBROUTINE write_async_restart (datetime, jstep)
-
     TYPE(t_datetime), INTENT(IN)    :: datetime
     INTEGER,          INTENT(IN)    :: jstep
 
     TYPE(t_patch_data), POINTER     :: p_pd
     INTEGER                         :: idx
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
-
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'write_async_restart'
 
 #ifdef NOMPI
