@@ -37,9 +37,6 @@
   !!
   !!
 
-#if ! (defined (__GNUC__) || defined(__SX__) || defined(__SUNPRO_F95) || defined(__INTEL_COMPILER) || defined (__PGI))
-#define HAVE_F2003
-#endif
 MODULE mo_async_latbc
 
 #ifndef USE_CRAY_POINTER

@@ -19,9 +19,6 @@
 !!
 !!
 
-#if ! (defined (__GNUC__) || defined(__SUNPRO_F95) || defined(__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR))
-#define HAVE_F2003
-#endif
 MODULE mo_io_restart_async
 
   USE mo_util_file,               ONLY: util_symlink, util_unlink, util_islink
@@ -46,9 +43,7 @@ MODULE mo_io_restart_async
 #ifdef USE_CRAY_POINTER
   USE mo_name_list_output_init,   ONLY: set_mem_ptr_dp
 #endif
-#ifndef HAVE_F2003
   USE mo_io_restart_namelist,     ONLY: nmllen_max
-#endif
   USE mo_communication,           ONLY: idx_no, blk_no
   USE mo_parallel_config,         ONLY: nproma, restart_chunk_size
   USE mo_grid_config,             ONLY: n_dom
@@ -123,9 +118,7 @@ MODULE mo_io_restart_async
   ! maximum text lengths in this module
   INTEGER, PARAMETER :: MAX_NAME_LENGTH           = 128
   INTEGER, PARAMETER :: MAX_ERROR_LENGTH          = 256
-#ifndef HAVE_F2003
   INTEGER, PARAMETER :: MAX_ATTRIB_TLENGTH        = nmllen_max
-#endif
 
   ! maximum no. of output_nml output files
   INTEGER, parameter :: MAX_NML_OUTPUT_FILES      = 100
@@ -310,9 +303,6 @@ MODULE mo_io_restart_async
   TYPE t_restart_args
     TYPE(t_datetime)  :: datetime
     INTEGER           :: jstep
-#ifdef HAVE_F2003
-    INTEGER           :: n_max_attrib_tlen
-#endif
 
     INTEGER               :: n_opt_output_file
     INTEGER, ALLOCATABLE  :: opt_output_jfile(:)
@@ -1385,11 +1375,7 @@ CONTAINS
 #ifdef DEBUG
     INTEGER                           :: iv
     CHARACTER(LEN=MAX_NAME_LENGTH)    :: list_name
-#ifdef HAVE_F2003
-    CHARACTER(LEN=:), ALLOCATABLE     :: list_text
-#else
     CHARACTER(LEN=MAX_ATTRIB_TLENGTH) :: list_text
-#endif
     CHARACTER(LEN=*), PARAMETER       :: subname = MODUL_NAME//'print_restart_name_list'
 
     WRITE (nerr,FORMAT_VALS3)subname,' p_pe=',p_pe
@@ -1400,9 +1386,6 @@ CONTAINS
       CALL get_restart_namelist(list_name, list_text)
 
       PRINT *,' restart name list=',TRIM(list_name),' text=',TRIM(list_text)
-#ifdef HAVE_F2003
-      IF (ALLOCATED(list_text)) DEALLOCATE(list_text)
-#endif
     ENDDO
 #endif
 
@@ -1426,10 +1409,6 @@ CONTAINS
     PRINT *,subname, ' current_calday=',  p_ra%datetime%calday
     PRINT *,subname, ' current_daysec=',  p_ra%datetime%daysec
 
-#ifdef HAVE_F2003
-    PRINT *,subname, ' max. attr. text length=', p_ra%n_max_attrib_tlen
-#endif
-
     ! patch informations
     PRINT *,subname, ' size of patches=',        SIZE(patch_data)
     p_pd => patch_data(1)
@@ -1448,13 +1427,7 @@ CONTAINS
 
 #ifdef DEBUG
     CHARACTER(LEN=MAX_NAME_LENGTH)    :: attrib_name
-#ifdef HAVE_F2003
-    TYPE(t_restart_args), POINTER     :: p_ra
-    INTEGER                           :: ierrstat
-    CHARACTER(LEN=:), ALLOCATABLE     :: attrib_txt
-#else
     CHARACTER(LEN=MAX_ATTRIB_TLENGTH) :: attrib_txt
-#endif
 
     INTEGER                           :: attrib_int, i
     REAL(wp)                          :: attrib_real
@@ -1463,21 +1436,11 @@ CONTAINS
 
     WRITE (nerr,FORMAT_VALS3)subname,' is called for p_pe=',p_pe
 
-#ifdef HAVE_F2003
-    p_ra => restart_args
-    ALLOCATE(CHARACTER(LEN=p_ra%n_max_attrib_tlen) :: attrib_txt, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
-#endif
-
     ! check text attributes
     DO i = 1, restart_attributes_count_text()
       CALL get_restart_attribute(i, attrib_name, attrib_txt)
       PRINT *,'restart text attribute: ', TRIM(attrib_name),'=',TRIM(attrib_txt)
     ENDDO
-
-#ifdef HAVE_F2003
-    DEALLOCATE(attrib_txt)
-#endif
 
     ! check integer attributes
     DO i= 1, restart_attributes_count_int()
@@ -1708,18 +1671,7 @@ CONTAINS
   SUBROUTINE transfer_restart_name_lists
     INTEGER                           :: iv, nv
     CHARACTER(LEN=MAX_NAME_LENGTH)    :: list_name
-#ifndef HAVE_F2003
     CHARACTER(LEN=MAX_ATTRIB_TLENGTH) :: list_text
-#else
-    TYPE(t_restart_args),             POINTER :: p_ra
-    INTEGER                           :: ierrstat
-    CHARACTER(LEN=:), ALLOCATABLE     :: list_text
-    CHARACTER(LEN=*), PARAMETER       :: subname = MODUL_NAME//'transfer_restart_name_lists'
-
-#ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)subname,' p_pe=',p_pe
-#endif
-#endif
 
     ! delete old name lists
     IF (my_process_is_restart()) CALL delete_restart_namelists
@@ -1728,27 +1680,6 @@ CONTAINS
     IF(.NOT. my_process_is_restart()) nv = nmls
     CALL p_bcast(nv, 0, p_comm_work) ! intracommunicator
     CALL p_bcast(nv, bcast_root, p_comm_work_2_restart)
-
-#ifdef HAVE_F2003
-    ! get the maximum text length
-    p_ra => restart_args
-    p_ra%n_max_attrib_tlen = 0
-    IF (my_process_is_work()) THEN
-      DO iv = 1, nv
-        p_ra%n_max_attrib_tlen = MAX(p_ra%n_max_attrib_tlen, &
-          &                          LEN_TRIM(restart_namelist(iv)%text))
-      ENDDO
-
-#ifdef DEBUG
-      PRINT *,subname,' maximum attribute text length=',p_ra%n_max_attrib_tlen
-#endif
-    ENDIF
-
-    ! allocate text buffer
-    CALL p_bcast(p_ra%n_max_attrib_tlen, bcast_root, p_comm_work_2_restart)
-    ALLOCATE(CHARACTER(LEN=p_ra%n_max_attrib_tlen) :: list_text, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
-#endif
 
     DO iv = 1, nv
       ! send name of the name list
@@ -1766,11 +1697,6 @@ CONTAINS
         CALL set_restart_namelist(list_name, list_text)
       ENDIF
     ENDDO
-
-#ifdef HAVE_F2003
-    DEALLOCATE(list_text)
-#endif
-
   END SUBROUTINE transfer_restart_name_lists
 
   !-------------------------------------------------------------------------------------------------
