@@ -146,8 +146,7 @@ MODULE mo_nh_stepping
     &                                    read_latbc_tlev, last_latbc_tlev, &
     &                                    update_lin_interc
   USE mo_interface_les,            ONLY: les_phy_interface
-  USE mo_io_restart_async,         ONLY: prepare_async_restart, write_async_restart, &
-    &                                    close_async_restart, set_data_async_restart
+  USE mo_io_restart_async,         ONLY: t_restart_descriptor
   USE mo_nh_prepadv_types,         ONLY: prep_adv, t_prepare_adv, jstep_adv
   USE mo_action,                   ONLY: reset_act
   USE mo_output_event_handler,     ONLY: get_current_jfile
@@ -588,6 +587,7 @@ MODULE mo_nh_stepping
   INTEGER                              :: checkpointEvents
   LOGICAL                              :: lret
   TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+  TYPE(t_restart_descriptor)           :: restartDescriptor
 
 !!$  INTEGER omp_get_num_threads
 !-----------------------------------------------------------------------
@@ -620,7 +620,7 @@ MODULE mo_nh_stepping
   datetime_old = datetime_current
 
   IF (use_async_restart_output) THEN
-    CALL prepare_async_restart()
+    CALL restartDescriptor%construct()
   ENDIF
 
   jstep0 = 0
@@ -1135,7 +1135,7 @@ MODULE mo_nh_stepping
     IF (lwrite_checkpoint) THEN
       IF (use_async_restart_output) THEN
         DO jg = 1, n_dom
-          CALL set_data_async_restart(p_patch(jg), &
+          CALL restartDescriptor%updatePatch(p_patch(jg), &
             & opt_t_elapsed_phy          = t_elapsed_phy(jg,:),        &
             & opt_lcall_phy              = lcall_phy(jg,:),            &
             & opt_sim_time               = time_config%sim_time(jg),   &
@@ -1145,7 +1145,7 @@ MODULE mo_nh_stepping
             & opt_nlev_snow              = nlev_snow,                  &
             & opt_ndom                   = n_dom)
         ENDDO
-        CALL write_async_restart(datetime_current, jstep, opt_output_jfile = output_jfile)
+        CALL restartDescriptor%writeRestart(datetime_current, jstep, opt_output_jfile = output_jfile)
       ELSE
         DO jg = 1, n_dom
           IF (.NOT. p_patch(jg)%ldom_active) CYCLE
@@ -1205,7 +1205,7 @@ MODULE mo_nh_stepping
   ! clean-up routine for mo_nh_supervise module (eg. closing of files)
   CALL finalize_supervise_nh()
 
-  IF (use_async_restart_output) CALL close_async_restart
+  IF (use_async_restart_output) CALL restartDescriptor%destruct()
 
   IF (ltimer) CALL timer_stop(timer_total)
 

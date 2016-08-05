@@ -61,8 +61,7 @@ MODULE mo_ha_stepping
   USE mo_icon_comm_lib,       ONLY: icon_comm_sync_all
   USE mo_parallel_config,     ONLY: use_icon_comm, use_async_restart_output
   USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output
-  USE mo_io_restart_async,    ONLY: prepare_async_restart, write_async_restart, &
-      &                             close_async_restart, set_data_async_restart
+  USE mo_io_restart_async,    ONLY: t_restart_descriptor
   USE mo_io_restart_attributes, ONLY: t_RestartAttributeList, getRestartAttributes
   USE mo_time_config,         ONLY: time_config
 
@@ -220,6 +219,7 @@ CONTAINS
   LOGICAL                                      :: l_3tl_init(n_dom)
   INTEGER                                      :: jstep0 ! start counter for time loop
   TYPE(t_RestartAttributeList), POINTER        :: restartAttributes
+  TYPE(t_restart_descriptor)                   :: restartDescriptor
 
 #ifdef _OPENMP
   INTEGER  :: jb
@@ -235,7 +235,7 @@ CONTAINS
   IF (ltimer) CALL timer_start(timer_total)
 
   IF (use_async_restart_output) THEN
-    CALL prepare_async_restart()
+    CALL restartDescriptor%construct()
   ENDIF
 
   jstep0 = 0
@@ -381,11 +381,11 @@ CONTAINS
 
       IF (use_async_restart_output) THEN
         DO jg = 1, n_dom
-          CALL set_data_async_restart(p_patch(jg), opt_pvct = vct)
+          CALL restartDescriptor%updatePatch(p_patch(jg), opt_pvct = vct)
         ENDDO
 
         ! call asynchronous restart
-        CALL write_async_restart (datetime, jstep)
+        CALL restartDescriptor%writeRestart(datetime, jstep)
 
       ELSE
         DO jg = 1, n_dom
@@ -397,7 +397,7 @@ CONTAINS
 
   ENDDO TIME_LOOP
 
-  IF (use_async_restart_output) CALL close_async_restart
+  IF (use_async_restart_output) CALL restartDescriptor%destruct()
 
   IF (ltimer) CALL timer_stop(timer_total)
 

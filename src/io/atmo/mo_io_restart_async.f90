@@ -79,10 +79,7 @@ MODULE mo_io_restart_async
   INCLUDE 'netcdf.inc'
 
   ! public routines
-  PUBLIC :: set_data_async_restart
-  PUBLIC :: prepare_async_restart
-  PUBLIC :: write_async_restart
-  PUBLIC :: close_async_restart
+  PUBLIC :: t_restart_descriptor
   PUBLIC :: restart_main_proc
 
   PRIVATE
@@ -163,7 +160,14 @@ MODULE mo_io_restart_async
     TYPE(t_restart_file) :: restart_file
   END TYPE t_patch_data
 
-  TYPE(t_patch_data), ALLOCATABLE, TARGET :: patch_data(:)
+  TYPE t_restart_descriptor
+    TYPE(t_patch_data), ALLOCATABLE :: patch_data(:)
+  CONTAINS
+    PROCEDURE :: construct => restartDescriptor_construct
+    PROCEDURE :: updatePatch => restartDescriptor_updatePatch
+    PROCEDURE :: writeRestart => restartDescriptor_writeRestart
+    PROCEDURE :: destruct => restartDescriptor_destruct
+  END TYPE t_restart_descriptor
 
 #ifndef NOMPI
   !------------------------------------------------------------------------------------------------
@@ -196,8 +200,10 @@ CONTAINS
   !
   !> Prepare the asynchronous restart (collective call).
   !
-  SUBROUTINE prepare_async_restart ()
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':prepare_async_restart'
+  SUBROUTINE restartDescriptor_construct(me)
+    CLASS(t_restart_descriptor), INTENT(INOUT) :: me
+
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':restartDescriptor_construct'
 
 #ifdef NOMPI
     CALL finish(routine, ASYNC_RESTART_REQ_MPI)
@@ -231,54 +237,60 @@ CONTAINS
     CALL RestartNamelist_bcast(bcast_root, p_comm_work_2_restart)
 
     ! create and transfer patch data
-    CAll create_and_transfer_patch_data()
+    me%patch_data = create_and_transfer_patch_data()
 
     ! init. remote memory access
-    CALL init_remote_memory_access
+    CALL init_remote_memory_access(me%patch_data)
 
 #endif
 
-  END SUBROUTINE prepare_async_restart
+  END SUBROUTINE restartDescriptor_construct
 
   !------------------------------------------------------------------------------------------------
   !
   !> Set patch-dependent dynamic data for asynchronous restart.
   !
-  SUBROUTINE set_data_async_restart(patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, opt_ndyn_substeps, &
-                                   &opt_jstep_adv_marchuk_order, opt_depth, opt_depth_lnd, opt_nlev_snow, opt_nice_class, opt_ndom)
+  SUBROUTINE restartDescriptor_updatePatch(me, patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &
+                                          &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth, opt_depth_lnd, &
+                                          &opt_nlev_snow, opt_nice_class, opt_ndom)
+    CLASS(t_restart_descriptor), INTENT(INOUT) :: me
     TYPE(t_patch), INTENT(IN) :: patch
     INTEGER, INTENT(IN), OPTIONAL :: opt_depth, opt_depth_lnd, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, &
                                    & opt_nlev_snow, opt_nice_class, opt_ndom
     REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time, opt_pvct(:), opt_t_elapsed_phy(:)
     LOGICAL, INTENT(IN), OPTIONAL :: opt_lcall_phy(:)
 
-    TYPE(t_restart_patch_description), POINTER :: patchDesc
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":set_data_async_restart"
+    INTEGER :: jg
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartDescriptor_updatePatch"
 
 #ifdef NOMPI
     CALL finish(routine, ASYNC_RESTART_REQ_MPI)
 #else
     IF(my_process_is_work()) THEN
-        patchDesc => find_patch_description(patch%id, routine)
-        CALL patchDesc%update(patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, opt_ndyn_substeps, &
-                             &opt_jstep_adv_marchuk_order, opt_depth, opt_depth_lnd, opt_nlev_snow, opt_nice_class, opt_ndom)
+        jg = patch%id
+        IF(jg < 1 .OR. jg > SIZE(me%patch_data)) CALL finish(routine, "assertion failed: patch id IS OUT of range")
+        IF(me%patch_data(jg)%description%id /= jg) CALL finish(routine, "assertion failed: patch id doesn't match its array index")
+        CALL me%patch_data(jg)%description%update(patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &
+                                                 &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth, opt_depth_lnd, &
+                                                 &opt_nlev_snow, opt_nice_class, opt_ndom)
     END IF
 #endif
 
-  END SUBROUTINE set_data_async_restart
+  END SUBROUTINE restartDescriptor_updatePatch
 
   !------------------------------------------------------------------------------------------------
   !
   !> Writes all restart data into one or more files (one file per patch, collective across work processes).
   !
-  SUBROUTINE write_async_restart(datetime, jstep, opt_output_jfile)
+  SUBROUTINE restartDescriptor_writeRestart(me, datetime, jstep, opt_output_jfile)
+    CLASS(t_restart_descriptor), INTENT(INOUT) :: me
     TYPE(t_datetime), INTENT(IN) :: datetime
     INTEGER, INTENT(IN) :: jstep
     INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
 
     INTEGER :: idx
     TYPE(t_restart_args) :: restart_args
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':write_async_restart'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':restartDescriptor_writeRestart'
 
 #ifdef NOMPI
     CALL finish (routine, ASYNC_RESTART_REQ_MPI)
@@ -293,23 +305,56 @@ CONTAINS
 
     CALL compute_wait_for_restart
     CALL restart_args%construct(datetime, jstep, opt_output_jfile)
-    CALL compute_start_restart(restart_args)
+    CALL compute_start_restart(restart_args, me%patch_data)
     CALL restart_args%destruct()
 
     ! do the restart output
-    DO idx = 1, SIZE(patch_data)
+    DO idx = 1, SIZE(me%patch_data)
       ! collective call to write the restart variables
-      IF(patch_data(idx)%description%l_dom_active) CALL compute_write_var_list(patch_data(idx))
+      IF(me%patch_data(idx)%description%l_dom_active) CALL compute_write_var_list(me%patch_data(idx))
     END DO
 #endif
-  END SUBROUTINE write_async_restart
+  END SUBROUTINE restartDescriptor_writeRestart
+
+  SUBROUTINE restart_write_patch(restart_args, patch_data, restartAttributes)
+    TYPE(t_restart_args), INTENT(IN) :: restart_args
+    TYPE(t_patch_data), INTENT(INOUT) :: patch_data
+    TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
+
+    ! check if the patch is actice
+    IF(.NOT. patch_data%description%l_dom_active) RETURN
+
+    ! consider the right restart process
+    IF(p_pe == patch_data%description%restart_proc_id) THEN
+        ! set global restart attributes/lists
+        CALL patch_data%description%defineVGrids()
+
+#ifdef DEBUG
+        CALL print_restart_arguments()
+        CALL restartAttributes%printAttributes()
+        CALL print_restart_name_lists()
+#endif
+        CALL open_restart_file(patch_data, restart_args, restartAttributes)
+
+        ! collective call to write the restart variables
+        CALL restart_write_var_list(patch_data)
+        IF(patch_data%description%l_opt_ndom) THEN
+            CALL create_restart_file_link(TRIM(patch_data%restart_file%filename), TRIM(patch_data%restart_file%model_type), &
+                                         &patch_data%description%restart_proc_id - p_restart_pe0, patch_data%description%id, &
+                                         &opt_ndom = patch_data%description%opt_ndom)
+        ELSE
+            CALL create_restart_file_link(TRIM(patch_data%restart_file%filename), TRIM(patch_data%restart_file%model_type), &
+                                         &patch_data%description%restart_proc_id - p_restart_pe0, patch_data%description%id)
+        END IF
+        CALL close_restart_file(patch_data%restart_file)
+    ENDIF
+  END SUBROUTINE restart_write_patch
 
   !> Writes all restart data into one or more files (one file per patch, collective across restart processes).
-  SUBROUTINE restart_write_async_restart(restart_args)
+  SUBROUTINE restart_write_async_restart(restart_args, patch_data)
     TYPE(t_restart_args), INTENT(IN) :: restart_args
+    TYPE(t_patch_data), INTENT(INOUT) :: patch_data(:)
 
-    TYPE(t_patch_data), POINTER :: p_pd
-    TYPE(t_restart_patch_description), POINTER :: description
     INTEGER :: idx
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':restart_write_async_restart'
@@ -325,44 +370,16 @@ CONTAINS
     ! check kind of process
     IF(.NOT. my_process_is_restart()) RETURN
 
+    restartAttributes => RestartAttributeList_make()
+    CALL set_restart_attributes(restartAttributes, restart_args, patch_data)
+
     ! do the restart output
     DO idx = 1, SIZE(patch_data)
-      p_pd => patch_data(idx)
-      description => p_pd%description
+        CALL restart_write_patch(restart_args, patch_data(idx), restartAttributes)
+    END DO
 
-      ! check if the patch is actice
-      IF (.NOT. description%l_dom_active) CYCLE
-
-      ! consider the right restart process
-      IF (p_pe == description%restart_proc_id) THEN
-        ! set global restart attributes/lists
-        restartAttributes => RestartAttributeList_make()
-        CALL set_restart_attributes(restartAttributes, restart_args)
-        CALL description%defineVGrids()
-
-#ifdef DEBUG
-        CALL print_restart_arguments()
-        CALL restartAttributes%printAttributes()
-        CALL print_restart_name_lists()
-#endif
-        CALL open_restart_file(p_pd, restart_args, restartAttributes)
-
-        CALL restartAttributes%destruct()
-        DEALLOCATE(restartAttributes)
-
-        ! collective call to write the restart variables
-        CALL restart_write_var_list(p_pd)
-        IF(description%l_opt_ndom) THEN
-            CALL create_restart_file_link(TRIM(p_pd%restart_file%filename), TRIM(p_pd%restart_file%model_type), &
-                                         &description%restart_proc_id - p_restart_pe0, description%id, &
-                                         &opt_ndom = description%opt_ndom)
-        ELSE
-            CALL create_restart_file_link(TRIM(p_pd%restart_file%filename), TRIM(p_pd%restart_file%model_type), &
-                                         &description%restart_proc_id - p_restart_pe0, description%id)
-        END IF
-        CALL close_restart_file(p_pd%restart_file)
-      ENDIF
-    ENDDO
+    CALL restartAttributes%destruct()
+    DEALLOCATE(restartAttributes)
 #endif
   END SUBROUTINE restart_write_async_restart
 
@@ -370,10 +387,11 @@ CONTAINS
   !
   !> Closes asynchronous restart (collective call).
   !
-  SUBROUTINE close_async_restart
+  SUBROUTINE restartDescriptor_destruct(me)
+    CLASS(t_restart_descriptor), INTENT(INOUT) :: me
 
 #ifdef NOMPI
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':close_async_restart'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':restartDescriptor_destruct'
 
     CALL finish(routine, ASYNC_RESTART_REQ_MPI)
 #else
@@ -390,7 +408,7 @@ CONTAINS
     CALL release_resources
 #endif
 
-  END SUBROUTINE close_async_restart
+  END SUBROUTINE restartDescriptor_destruct
 
   !-------------------------------------------------------------------------------------------------
   !>
@@ -398,6 +416,7 @@ CONTAINS
   !! Please note that this routine never returns.
   SUBROUTINE restart_main_proc
     LOGICAL :: done
+    TYPE(t_restart_descriptor) :: restartDescriptor
     TYPE(t_restart_args) :: restart_args
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':restart_main_proc'
 
@@ -413,7 +432,7 @@ CONTAINS
     IF (.NOT. my_process_is_restart()) RETURN
 
     ! prepare restart (collective call)
-    CALL prepare_async_restart()
+    CALL restartDescriptor%construct()
 
     ! tell the compute PEs that we are ready to work
     CALL restart_send_ready
@@ -422,12 +441,12 @@ CONTAINS
     done = .FALSE.
     DO
       ! wait for a message from the compute PEs to start
-      CALL restart_wait_for_start(restart_args, done)   ! this constructs the restart_args
+      CALL restart_wait_for_start(restart_args, restartDescriptor, done)   ! this constructs the restart_args
 
       IF(done) EXIT ! leave loop, we are done
 
       ! read and write restart variable lists (collective call)
-      CALL restart_write_async_restart(restart_args)
+      CALL restart_write_async_restart(restart_args, restartDescriptor%patch_data)
       CALL restart_args%destruct()
 
       ! inform compute PEs that the restart is done
@@ -435,7 +454,7 @@ CONTAINS
     ENDDO
 
     ! finalization sequence (collective call)
-    CALL close_async_restart
+    CALL restartDescriptor%destruct()
 
     ! shut down MPI
     CALL stop_mpi
@@ -491,9 +510,10 @@ CONTAINS
 
   END SUBROUTINE restart_send_ready
 
-  SUBROUTINE restartMetadataPacker(operation, restart_args, message)
+  SUBROUTINE restartMetadataPacker(operation, restart_args, patch_data, message)
     INTEGER, VALUE :: operation
     TYPE(t_restart_args), INTENT(INOUT) :: restart_args
+    TYPE(t_patch_data), INTENT(INOUT) :: patch_data(:)
     TYPE(t_PackedMessage), INTENT(INOUT) :: message
 
     INTEGER :: i, calday, patchId
@@ -513,8 +533,9 @@ CONTAINS
   !! restart_wait_for_start: Wait for a message from compute PEs that we should start restart or finish.
   !! The counterpart on the compute side is compute_start_restart/compute_shutdown_restart.
   !
-  SUBROUTINE restart_wait_for_start(restart_args, done)
+  SUBROUTINE restart_wait_for_start(restart_args, restartDescriptor, done)
     TYPE(t_restart_args), INTENT(INOUT) :: restart_args
+    CLASS(t_restart_descriptor), INTENT(INOUT) :: restartDescriptor
     LOGICAL, INTENT(OUT)           :: done ! flag if we should shut down
 
     INTEGER :: iheader
@@ -535,7 +556,7 @@ CONTAINS
     CALL message%unpack(iheader)
     SELECT CASE(iheader)
       CASE(MSG_RESTART_START)
-        CALL restartMetadataPacker(kUnpackOp, restart_args, message)
+        CALL restartMetadataPacker(kUnpackOp, restart_args, restartDescriptor%patch_data, message)
         done = .FALSE.
 
       CASE(MSG_RESTART_SHUTDOWN)
@@ -589,15 +610,38 @@ CONTAINS
 
   END SUBROUTINE compute_wait_for_restart
 
+  ! the patch's master process sends its patch description to the work master
+  ! for all other processes, this IS a noop
+  SUBROUTINE sendDescriptionToMaster(patchDescription)
+    TYPE(t_restart_patch_description), INTENT(INOUT) :: patchDescription
+
+    TYPE(t_PackedMessage) :: message
+
+    IF(patchDescription%work_pe0_id == 0) RETURN   ! nothing to communicate IF PE0 IS already the subset master
+
+    CALL message%construct()
+
+    IF (p_pe_work == 0) THEN
+        ! recieve the package for this patch
+        CALL message%recv(patchDescription%work_pe0_id, 0, process_mpi_all_comm)
+        CALL patchDescription%packer(kUnpackOp, message)
+    ELSE IF (p_pe_work == patchDescription%work_pe0_id) THEN
+        ! send the time dependent DATA to process 0
+        CALL patchDescription%packer(kPackOp, message)
+        CALL message%send(0, 0, process_mpi_all_comm)
+    END IF
+
+    CALL message%destruct()
+  END SUBROUTINE sendDescriptionToMaster
   !-------------------------------------------------------------------------------------------------
   !>
   !! compute_start_restart: Send a message to restart PEs that they should start restart.
   !! The counterpart on the restart side is restart_wait_for_start.
   !
-  SUBROUTINE compute_start_restart(restart_args)
+  SUBROUTINE compute_start_restart(restart_args, patch_data)
     TYPE(t_restart_args), INTENT(INOUT) :: restart_args
+    TYPE(t_patch_data), INTENT(INOUT) :: patch_data(:)
 
-    TYPE(t_restart_patch_description), POINTER :: curPatch
     INTEGER :: i, trash
     TYPE(t_PackedMessage) :: message
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':compute_start_restart'
@@ -613,35 +657,21 @@ CONTAINS
     ! from the subset master PE to PE0, from where they are communicated to the output PE(s)
     CALL message%construct()
     DO i = 1, SIZE(patch_data)
-      curPatch => patch_data(i)%description
-      CALL message%reset()
-
-      CALL curPatch%setTimeLevels() ! copy the global variables (nold, ...) to the patch description
-
-      IF (curPatch%work_pe0_id /= 0) THEN   ! nothing to communicate IF PE0 IS already the subset master
-        IF (p_pe_work == 0) THEN
-          ! recieve the package for this patch
-          CALL message%recv(curPatch%work_pe0_id, 0, process_mpi_all_comm)
-          CALL curPatch%packer(kUnpackOp, message)
-        ELSE IF (p_pe_work == curPatch%work_pe0_id) THEN
-          ! send the time dependent DATA to process 0
-          CALL curPatch%packer(kPackOp, message)
-          CALL message%send(0, 0, process_mpi_all_comm)
-        END IF
-      END IF
+      CALL patch_data(i)%description%setTimeLevels() ! copy the global variables (nold, ...) to the patch description
+      CALL sendDescriptionToMaster(patch_data(i)%description)
     END DO
 
     CALL message%reset()
     IF(p_pe_work == 0) THEN
       ! send the DATA to the restart master
       CALL message%pack(MSG_RESTART_START)  ! set command id
-      CALL restartMetadataPacker(kPackOp, restart_args, message)    ! all the other DATA
+      CALL restartMetadataPacker(kPackOp, restart_args, patch_data, message)    ! all the other DATA
       CALL message%send(p_restart_pe0, 0, process_mpi_all_comm)
     ENDIF
     ! broadcast a copy among the compute processes, so that all processes have a consistent view of the restart patch descriptions
     CALL message%bcast(0, p_comm_work)
     CALL message%unpack(trash)  ! ignore the command id
-    CALL restartMetadataPacker(kUnpackOp, restart_args, message)
+    CALL restartMetadataPacker(kUnpackOp, restart_args, patch_data, message)
 
     CALL message%destruct()
   END SUBROUTINE compute_start_restart
@@ -710,20 +740,13 @@ CONTAINS
   !  Release all resource of the restart process.
   !
   SUBROUTINE release_resources
-
-    TYPE(t_patch_data), POINTER   :: p_pd
-    INTEGER                       :: idx, mpi_error
+    INTEGER :: mpi_error
 
     CHARACTER(LEN=*), PARAMETER   :: routine = modname//':release_resources'
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' is called for p_pe=',p_pe
 #endif
-
-    ! release patch data
-    IF (ALLOCATED(patch_data)) THEN
-      DEALLOCATE(patch_data)    ! we rely on the automatic deallocation of ALLOCATABLE members
-    END IF
 
     ! release RMA window
     IF (mpi_win /= MPI_WIN_NULL) THEN
@@ -749,8 +772,9 @@ CONTAINS
   !
   !  Print restart arguments.
   !
-  SUBROUTINE print_restart_arguments(restart_args)
+  SUBROUTINE print_restart_arguments(restart_args, patch_data)
     TYPE(t_restart_args), INTENT(IN) :: restart_args
+    TYPE(t_patch_data), INTENT(IN) :: patch_data(:)
     CHARACTER(LEN=*), PARAMETER   :: routine = modname//':print_restart_arguments'
 
     WRITE (nerr,FORMAT_VALS3)routine,' is called for p_pe=',p_pe
@@ -1006,8 +1030,9 @@ CONTAINS
   !
   ! Create patch data and transfers this data from the worker to the restart PEs.
   !
-  SUBROUTINE create_and_transfer_patch_data()
-    INTEGER                        :: jg, ierrstat
+  FUNCTION create_and_transfer_patch_data() RESULT(RESULT)
+    TYPE(t_patch_data), ALLOCATABLE :: RESULT(:)
+    INTEGER :: jg, ierrstat
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':create_and_transfer_patch_data'
 
 #ifdef DEBUG
@@ -1018,16 +1043,16 @@ CONTAINS
     CALL p_bcast(n_dom, bcast_root, p_comm_work_2_restart)
 
     ! allocate patch data structure
-    ALLOCATE(patch_data(n_dom), STAT=ierrstat)
+    ALLOCATE(RESULT(n_dom), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 
-    ! initialize the patch_data structures
+    ! initialize the patch data structures
     DO jg = 1, n_dom
-        CALL create_patch_description(patch_data(jg)%description, jg)
-        CALL createCommData(patch_data(jg)%commData, jg)
-        CALL set_restart_file_data(patch_data(jg)%restart_file, jg)
+        CALL create_patch_description(RESULT(jg)%description, jg)
+        CALL createCommData(RESULT(jg)%commData, jg)
+        CALL set_restart_file_data(RESULT(jg)%restart_file, jg)
     END DO
-  END SUBROUTINE create_and_transfer_patch_data
+  END FUNCTION create_and_transfer_patch_data
 
   !------------------------------------------------------------------------------------------------
   !
@@ -1263,7 +1288,9 @@ CONTAINS
   !
   ! Initializes the remote memory access for asynchronous restart.
   !
-  SUBROUTINE init_remote_memory_access
+  SUBROUTINE init_remote_memory_access(patch_data)
+    TYPE(t_patch_data), INTENT(INOUT) :: patch_data(:)
+
     INTEGER :: i, iv, nlevs, ierrstat
     INTEGER :: nbytes_real, mpi_error, rma_cache_hint
     INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size, mem_bytes
@@ -1272,7 +1299,6 @@ CONTAINS
     POINTER(tmp_ptr_dp,tmp_dp(*))
 #endif
     TYPE(t_var_data), POINTER :: p_vars(:)
-    TYPE(t_restart_comm_data), POINTER :: commData
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':init_remote_memory_access'
 
 #ifdef DEBUG
@@ -1286,8 +1312,7 @@ CONTAINS
 
     ! go over all patches
     DO i = 1, SIZE(patch_data)
-      commData => patch_data(i)%commData
-      commData%my_mem_win_off = mem_size
+      patch_data(i)%commData%my_mem_win_off = mem_size
 
       ! go over all restart variables for this restart file
       p_vars => patch_data(i)%restart_file%var_data
@@ -1302,11 +1327,11 @@ CONTAINS
 
         SELECT CASE (p_vars(iv)%info%hgrid)
           CASE (GRID_UNSTRUCTURED_CELL)
-            mem_size = mem_size + INT(nlevs*commData%cells%n_own,i8)
+            mem_size = mem_size + INT(nlevs*patch_data(i)%commData%cells%n_own,i8)
           CASE (GRID_UNSTRUCTURED_EDGE)
-            mem_size = mem_size + INT(nlevs*commData%edges%n_own,i8)
+            mem_size = mem_size + INT(nlevs*patch_data(i)%commData%edges%n_own,i8)
           CASE (GRID_UNSTRUCTURED_VERT)
-            mem_size = mem_size + INT(nlevs*commData%verts%n_own,i8)
+            mem_size = mem_size + INT(nlevs*patch_data(i)%commData%verts%n_own,i8)
           CASE DEFAULT
             CALL finish(routine,UNKNOWN_GRID_TYPE)
         END SELECT
@@ -1314,16 +1339,16 @@ CONTAINS
       ENDDO
 
       ! get the offset on all PEs
-      ALLOCATE(commData%mem_win_off(0:num_work_procs-1), STAT=ierrstat)
+      ALLOCATE(patch_data(i)%commData%mem_win_off(0:num_work_procs-1), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
       IF(.NOT.my_process_is_restart()) THEN
-        CALL MPI_Allgather(commData%my_mem_win_off, 1, p_int_i8, &
-                           commData%mem_win_off, 1, p_int_i8,    &
+        CALL MPI_Allgather(patch_data(i)%commData%my_mem_win_off, 1, p_int_i8, &
+                           patch_data(i)%commData%mem_win_off, 1, p_int_i8,    &
                            p_comm_work, mpi_error)
         CALL check_mpi_error(routine, 'MPI_Allgather', mpi_error, .TRUE.)
       ENDIF
 
-      CALL p_bcast(commData%mem_win_off, bcast_root, p_comm_work_2_restart)
+      CALL p_bcast(patch_data(i)%commData%mem_win_off, bcast_root, p_comm_work_2_restart)
 
     ENDDO
 
@@ -1399,29 +1424,12 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  ! Common helper routines to init. the restart.
-  !
-  !------------------------------------------------------------------------------------------------
-  !
-  !  Find the patch of the given id.
-  !
-  FUNCTION find_patch_description(id, routine) RESULT(RESULT)
-    INTEGER, INTENT(IN) :: id
-    CHARACTER(LEN = *), INTENT(IN) :: routine
-    TYPE(t_restart_patch_description), POINTER :: RESULT
-
-    IF(id < 1 .OR. id > SIZE(patch_data)) CALL finish(routine, "assertion failed: patch id IS OUT of range")
-    RESULT => patch_data(id)%description
-    IF(RESULT%id /= id) CALL finish(routine, "assertion failed: patch id does NOT match its array index")
-  END FUNCTION find_patch_description
-
-  !------------------------------------------------------------------------------------------------
-  !
   !  Set global restart attributes.
   !
-  SUBROUTINE set_restart_attributes (restartAttributes, restart_args)
+  SUBROUTINE set_restart_attributes (restartAttributes, restart_args, patch_data)
     TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
     TYPE(t_restart_args), INTENT(IN) :: restart_args
+    TYPE(t_patch_data), INTENT(IN) :: patch_data(:)
 
     INTEGER :: i, effectiveDomainCount
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':set_restart_attributes'
@@ -1869,9 +1877,9 @@ CONTAINS
   !
   ! Initialize the variable list of the given restart file.
   !
-  SUBROUTINE init_restart_variables(p_rf,patch_id)
+  SUBROUTINE init_restart_variables(p_rf, patchDescription)
     TYPE(t_restart_file), TARGET, INTENT(IN) :: p_rf
-    INTEGER, INTENT(IN)           :: patch_id
+    TYPE(t_restart_patch_description), INTENT(IN) :: patchDescription
 
     TYPE(t_var_data), POINTER     :: p_vars(:)
     TYPE(t_var_metadata), POINTER :: p_info
@@ -1893,7 +1901,7 @@ CONTAINS
       p_info => p_vars(iv)%info
 
       ! check time level of the field
-      IF (.NOT. has_valid_time_level(p_info, find_patch_description(patch_id, routine))) CYCLE
+      IF (.NOT. has_valid_time_level(p_info, patchDescription)) CYCLE
 
       ! define the CDI variable
       !XXX: The code I found here simply assumed that all variables are of TYPE REAL. I have NOT changed this behavior, however, the .FALSE. constants should be replaced by something more sensible IN the future.
@@ -1970,7 +1978,7 @@ CONTAINS
 #endif
 
     ! init list of restart variables
-    CALL init_restart_variables(p_rf, p_pd%description%id)
+    CALL init_restart_variables(p_rf, p_pd%description)
 
     CALL p_rf%cdiIds%finalizeVlist(restart_args%datetime)
   END SUBROUTINE open_restart_file
