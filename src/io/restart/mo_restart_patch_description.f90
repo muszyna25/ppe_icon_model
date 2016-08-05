@@ -19,7 +19,7 @@ MODULE mo_restart_patch_description
     USE mo_communication, ONLY: t_comm_gather_pattern
     USE mo_dynamics_config, ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf
     USE mo_exception, ONLY: finish
-    USE mo_fortran_tools, ONLY: assign_if_present, assign_if_present_allocatable
+    USE mo_fortran_tools, ONLY: assign_if_present_allocatable
     USE mo_restart_attributes, ONLY: t_RestartAttributeList
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_io_units, ONLY: filename_max
@@ -80,22 +80,9 @@ MODULE mo_restart_patch_description
         INTEGER :: nold,nnow,nnew,nnew_rcf,nnow_rcf
 
         ! dynamic patch arguments (optionally)
-        LOGICAL :: l_opt_depth_lnd
-        INTEGER :: opt_depth_lnd
-        LOGICAL :: l_opt_nlev_snow
-        INTEGER :: opt_nlev_snow
-        LOGICAL :: l_opt_nice_class
-        INTEGER :: opt_nice_class
-        LOGICAL :: l_opt_ndyn_substeps
-        INTEGER :: opt_ndyn_substeps
-        LOGICAL :: l_opt_jstep_adv_marchuk_order
-        INTEGER :: opt_jstep_adv_marchuk_order
-        LOGICAL :: l_opt_sim_time
-        REAL(wp) :: opt_sim_time
-        LOGICAL :: l_opt_ndom
-        INTEGER :: opt_ndom
-        LOGICAL :: l_opt_ocean_zlevels
-        INTEGER :: opt_ocean_zlevels
+        INTEGER, ALLOCATABLE :: opt_depth_lnd, opt_nlev_snow, opt_nice_class, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, &
+                              & opt_ndom, opt_ocean_zlevels
+        REAL(wp), ALLOCATABLE :: opt_sim_time
 
         REAL(wp), ALLOCATABLE :: opt_pvct(:)
         LOGICAL, ALLOCATABLE :: opt_lcall_phy(:)
@@ -140,21 +127,13 @@ CONTAINS
         me%nnew = nnew(p_patch%id)
         me%nnew_rcf = nnew_rcf(p_patch%id)
         me%nnow_rcf = nnow_rcf(p_patch%id)
-        me%l_opt_depth_lnd = .FALSE.
         me%opt_depth_lnd = 0
-        me%l_opt_nlev_snow = .FALSE.
         me%opt_nlev_snow = 0
-        me%l_opt_nice_class = .FALSE.
         me%opt_nice_class = 0
-        me%l_opt_ndyn_substeps = .FALSE.
         me%opt_ndyn_substeps = 0
-        me%l_opt_jstep_adv_marchuk_order = .FALSE.
         me%opt_jstep_adv_marchuk_order = 0
-        me%l_opt_ndom = .FALSE.
         me%opt_ndom = 0
-        me%l_opt_sim_time = .FALSE.
         me%opt_sim_time = 0.
-        me%l_opt_ocean_zlevels = .FALSE.
         me%opt_ocean_zlevels = 0
         me%cellGatherPattern => p_patch%comm_pat_gather_c
         me%vertGatherPattern => p_patch%comm_pat_gather_v
@@ -188,30 +167,14 @@ CONTAINS
             CALL assign_if_present_allocatable(me%opt_lcall_phy, opt_lcall_phy)
             CALL assign_if_present_allocatable(me%opt_ocean_zheight_cellMiddle, opt_ocean_zheight_cellMiddle)
             CALL assign_if_present_allocatable(me%opt_ocean_zheight_cellInterfaces, opt_ocean_zheight_cellInterfaces)
-
-            CALL assign_if_present(me%opt_ndyn_substeps, opt_ndyn_substeps)
-            me%l_opt_ndyn_substeps = PRESENT(opt_ndyn_substeps)
-
-            CALL assign_if_present(me%opt_jstep_adv_marchuk_order, opt_jstep_adv_marchuk_order)
-            me%l_opt_jstep_adv_marchuk_order = PRESENT(opt_jstep_adv_marchuk_order)
-
-            CALL assign_if_present(me%opt_depth_lnd, opt_depth_lnd)
-            me%l_opt_depth_lnd = PRESENT(opt_depth_lnd)
-
-            CALL assign_if_present(me%opt_nlev_snow, opt_nlev_snow)
-            me%l_opt_nlev_snow = PRESENT(opt_nlev_snow)
-
-            CALL assign_if_present(me%opt_nice_class, opt_nice_class)
-            me%l_opt_nice_class = PRESENT(opt_nice_class)
-
-            CALL assign_if_present(me%opt_sim_time, opt_sim_time)
-            me%l_opt_sim_time = PRESENT(opt_sim_time)
-
-            CALL assign_if_present(me%opt_ndom, opt_ndom)
-            me%l_opt_ndom = PRESENT(opt_ndom)
-
-            CALL assign_if_present(me%opt_ocean_zlevels, opt_ocean_zlevels)
-            me%l_opt_ocean_zlevels = PRESENT(opt_ocean_zlevels)
+            CALL assign_if_present_allocatable(me%opt_ndyn_substeps, opt_ndyn_substeps)
+            CALL assign_if_present_allocatable(me%opt_jstep_adv_marchuk_order, opt_jstep_adv_marchuk_order)
+            CALL assign_if_present_allocatable(me%opt_depth_lnd, opt_depth_lnd)
+            CALL assign_if_present_allocatable(me%opt_nlev_snow, opt_nlev_snow)
+            CALL assign_if_present_allocatable(me%opt_nice_class, opt_nice_class)
+            CALL assign_if_present_allocatable(me%opt_sim_time, opt_sim_time)
+            CALL assign_if_present_allocatable(me%opt_ndom, opt_ndom)
+            CALL assign_if_present_allocatable(me%opt_ocean_zlevels, opt_ocean_zlevels)
         END IF
     END SUBROUTINE restartPatchDescription_update
 
@@ -250,22 +213,14 @@ CONTAINS
         CALL message%packer(operation, me%nnew_rcf)
 
         ! optional parameter values
-        CALL message%packer(operation, me%l_opt_depth_lnd)
-        CALL message%packer(operation, me%opt_depth_lnd)
-        CALL message%packer(operation, me%l_opt_nlev_snow)
-        CALL message%packer(operation, me%opt_nlev_snow)
-        CALL message%packer(operation, me%l_opt_nice_class)
-        CALL message%packer(operation, me%opt_nice_class)
-        CALL message%packer(operation, me%l_opt_ndyn_substeps)
-        CALL message%packer(operation, me%opt_ndyn_substeps)
-        CALL message%packer(operation, me%l_opt_jstep_adv_marchuk_order)
-        CALL message%packer(operation, me%opt_jstep_adv_marchuk_order)
-        CALL message%packer(operation, me%l_opt_sim_time)
-        CALL message%packer(operation, me%opt_sim_time)
-        CALL message%packer(operation, me%l_opt_ndom)
-        CALL message%packer(operation, me%opt_ndom)
-        CALL message%packer(operation, me%l_opt_ocean_zlevels)
-        CALL message%packer(operation, me%opt_ocean_zlevels)
+        CALL message%packerAllocatable(operation, me%opt_depth_lnd)
+        CALL message%packerAllocatable(operation, me%opt_nlev_snow)
+        CALL message%packerAllocatable(operation, me%opt_nice_class)
+        CALL message%packerAllocatable(operation, me%opt_ndyn_substeps)
+        CALL message%packerAllocatable(operation, me%opt_jstep_adv_marchuk_order)
+        CALL message%packerAllocatable(operation, me%opt_sim_time)
+        CALL message%packerAllocatable(operation, me%opt_ndom)
+        CALL message%packerAllocatable(operation, me%opt_ocean_zlevels)
 
         ! optional parameter arrays
         CALL message%packer(operation, me%opt_pvct)
@@ -289,10 +244,10 @@ CONTAINS
         nice_class = 1
 
         ! replace DEFAULT values by the overrides provided IN the me
-        IF(me%l_opt_depth_lnd) nlev_soil = me%opt_depth_lnd
-        IF(me%l_opt_nlev_snow) nlev_snow = me%opt_nlev_snow
-        IF(me%l_opt_ocean_zlevels) nlev_ocean = me%opt_ocean_zlevels
-        IF(me%l_opt_nice_class) nice_class = me%opt_nice_class
+        IF(ALLOCATED(me%opt_depth_lnd)) nlev_soil = me%opt_depth_lnd
+        IF(ALLOCATED(me%opt_nlev_snow)) nlev_snow = me%opt_nlev_snow
+        IF(ALLOCATED(me%opt_ocean_zlevels)) nlev_ocean = me%opt_ocean_zlevels
+        IF(ALLOCATED(me%opt_nice_class)) nice_class = me%opt_nice_class
 
         ! set vertical grid definitions
         CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_SURFACE, 0._wp)
@@ -308,12 +263,18 @@ CONTAINS
         CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_GENERIC_ICE, nice_class)
         CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_RUNOFF_S, 1)
         CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_RUNOFF_G, 1)
-        IF(me%l_opt_depth_lnd) CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_LAND, nlev_soil)
-        IF(me%l_opt_depth_lnd) CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_LAND_P1, nlev_soil+1)
-        IF(me%l_opt_nlev_snow) CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_SNOW, nlev_snow)
-        IF(me%l_opt_nlev_snow) CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_SNOW_HALF, nlev_snow+1)
-        IF(me%l_opt_ocean_zlevels) CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_SEA, nlev_ocean)
-        IF(me%l_opt_ocean_zlevels) CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_SEA_HALF, nlev_ocean+1)
+        IF(ALLOCATED(me%opt_depth_lnd)) THEN
+            CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_LAND, nlev_soil)
+            CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_LAND_P1, nlev_soil+1)
+        END IF
+        IF(ALLOCATED(me%opt_nlev_snow)) THEN
+            CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_SNOW, nlev_snow)
+            CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_SNOW_HALF, nlev_snow+1)
+        END IF
+        IF(ALLOCATED(me%opt_ocean_zlevels)) THEN
+            CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_SEA, nlev_ocean)
+            CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_SEA_HALF, nlev_ocean+1)
+        END IF
 #ifndef __NO_ICON__OCEAN
         IF(lhamocc) THEN
             ! HAMOCC sediment
@@ -340,7 +301,7 @@ CONTAINS
         CALL setDynamicPatchRestartAttributes(restartAttributes, me%id, me%nold, me%nnow, me%nnew, me%nnow_rcf, me%nnew_rcf)
 
         ! additional restart-output for nonhydrostatic model
-        IF (me%l_opt_sim_time) CALL restartAttributes%setReal ('sim_time_DOM'//domainString, me%opt_sim_time)
+        IF(ALLOCATED(me%opt_sim_time)) CALL restartAttributes%setReal ('sim_time_DOM'//domainString, me%opt_sim_time)
 
         !-------------------------------------------------------------
         ! DR
@@ -348,9 +309,12 @@ CONTAINS
         ! BUT SO FAR CANNOT BE HANDELED CORRECTLY BY ADD_VAR OR
         ! SET_RESTART_ATTRIBUTE
         !-------------------------------------------------------------
-        IF (me%l_opt_ndyn_substeps) CALL restartAttributes%setInteger('ndyn_substeps_DOM'//domainString, me%opt_ndyn_substeps)
-        IF (me%l_opt_jstep_adv_marchuk_order) CALL restartAttributes%setInteger('jstep_adv_marchuk_order_DOM'//domainString, &
-                                                                               &me%opt_jstep_adv_marchuk_order)
+        IF(ALLOCATED(me%opt_ndyn_substeps)) THEN
+            CALL restartAttributes%setInteger('ndyn_substeps_DOM'//domainString, me%opt_ndyn_substeps)
+        END IF
+        IF(ALLOCATED(me%opt_jstep_adv_marchuk_order)) THEN
+            CALL restartAttributes%setInteger('jstep_adv_marchuk_order_DOM'//domainString, me%opt_jstep_adv_marchuk_order)
+        END IF
 
         IF (ALLOCATED(me%opt_t_elapsed_phy) .AND. ALLOCATED(me%opt_lcall_phy)) THEN
             CALL setPhysicsRestartAttributes(restartAttributes, me%id, me%opt_t_elapsed_phy, me%opt_lcall_phy)

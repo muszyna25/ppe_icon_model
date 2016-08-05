@@ -170,7 +170,7 @@ CONTAINS
 
     ! first the attributes that are independent of the domain
     effectiveDomainCount = 1
-    IF(me%patchData(1)%description%l_opt_ndom) effectiveDomainCount = me%patchData(1)%description%opt_ndom
+    IF(ALLOCATED(me%patchData(1)%description%opt_ndom)) effectiveDomainCount = me%patchData(1)%description%opt_ndom
     CALL setGeneralRestartAttributes(restartAttributes, datetime, effectiveDomainCount, jstep, opt_output_jfile)
 
     ! now the stuff that depends on the domain
@@ -181,7 +181,7 @@ CONTAINS
 
         !----------------
         ! additional restart-output for nonhydrostatic model
-        IF(curDescription%l_opt_sim_time) CALL restartAttributes%setReal('sim_time_DOM'//jgString, curDescription%opt_sim_time )
+        IF(ALLOCATED(curDescription%opt_sim_time)) CALL restartAttributes%setReal('sim_time_DOM'//jgString, curDescription%opt_sim_time )
 
         !-------------------------------------------------------------
         ! DR
@@ -190,10 +190,10 @@ CONTAINS
         ! SET_RESTART_ATTRIBUTE
         !-------------------------------------------------------------
 
-        IF(curDescription%l_opt_ndyn_substeps) THEN
+        IF(ALLOCATED(curDescription%opt_ndyn_substeps)) THEN
             CALL restartAttributes%setInteger('ndyn_substeps_DOM'//jgString, curDescription%opt_ndyn_substeps)
         END IF
-        IF(curDescription%l_opt_jstep_adv_marchuk_order) THEN
+        IF(ALLOCATED(curDescription%opt_jstep_adv_marchuk_order)) THEN
             CALL restartAttributes%setInteger('jstep_adv_marchuk_order_DOM'//jgString, curDescription%opt_jstep_adv_marchuk_order)
         END IF
 
@@ -213,7 +213,8 @@ CONTAINS
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":patchData_writeFile"
 
     IF(ALLOCATED(me%description%opt_ocean_zheight_cellMiddle)) THEN
-      IF(.NOT. ALLOCATED(me%description%opt_ocean_Zheight_CellInterfaces) .OR. .NOT. me%description%l_opt_ocean_Zlevels) THEN
+      IF(.NOT. ALLOCATED(me%description%opt_ocean_Zheight_CellInterfaces) .OR. &
+        &.NOT. ALLOCATED(me%description%opt_ocean_Zlevels)) THEN
           CALL finish('patchData_writeFile','Ocean level parameteres not complete')
       END IF
     END IF
@@ -225,7 +226,7 @@ CONTAINS
         IF(my_process_is_mpi_workroot()) CALL file%open(me%description, me%varData, restartArgs, restartAttributes)
         CALL me%writeData(file)
         IF(my_process_is_mpi_workroot()) THEN
-            IF(me%description%l_opt_ndom) THEN
+            IF(ALLOCATED(me%description%opt_ndom)) THEN
                 CALL create_restart_file_link(TRIM(file%filename), TRIM(restartArgs%modelType), 0, me%description%id, &
                                              &opt_ndom = me%description%opt_ndom)
             ELSE

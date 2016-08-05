@@ -84,7 +84,9 @@ MODULE mo_fortran_tools
 
   INTERFACE assign_if_present_allocatable
     MODULE PROCEDURE assign_if_present_logical_allocatable_1d
+    MODULE PROCEDURE assign_if_present_integer_allocatable
     MODULE PROCEDURE assign_if_present_integer_allocatable_1d
+    MODULE PROCEDURE assign_if_present_real_allocatable
     MODULE PROCEDURE assign_if_present_real_allocatable_1d
   END INTERFACE assign_if_present_allocatable
 
@@ -221,6 +223,21 @@ CONTAINS
     y(:) = x(:)
   END SUBROUTINE assign_if_present_logical_allocatable_1d
 
+  SUBROUTINE assign_if_present_integer_allocatable(y, x)
+    INTEGER, ALLOCATABLE, INTENT(INOUT) :: y
+    INTEGER, OPTIONAL, INTENT(IN) :: x
+
+    INTEGER :: error
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":assign_if_present_integer_allocatable"
+
+    IF(.NOT.PRESENT(x)) RETURN
+    IF(.NOT.ALLOCATED(y)) THEN
+        ALLOCATE(y, STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+    END IF
+    y = x
+  END SUBROUTINE assign_if_present_integer_allocatable
+
   SUBROUTINE assign_if_present_integer_allocatable_1d(y, x)
     INTEGER, ALLOCATABLE, INTENT(INOUT) :: y(:)
     INTEGER, OPTIONAL, INTENT(IN) :: x(:)
@@ -238,6 +255,21 @@ CONTAINS
     END IF
     y(:) = x(:)
   END SUBROUTINE assign_if_present_integer_allocatable_1d
+
+  SUBROUTINE assign_if_present_real_allocatable(y, x)
+    REAL(wp), ALLOCATABLE, INTENT(INOUT) :: y
+    REAL(wp), OPTIONAL, INTENT(IN) :: x
+
+    INTEGER :: error
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":assign_if_present_real_allocatable"
+
+    IF(.NOT.PRESENT(x)) RETURN
+    IF(.NOT.ALLOCATED(y)) THEN
+        ALLOCATE(y, STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+    END IF
+    y = x
+  END SUBROUTINE assign_if_present_real_allocatable
 
   SUBROUTINE assign_if_present_real_allocatable_1d(y, x)
     REAL(wp), ALLOCATABLE, INTENT(INOUT) :: y(:)

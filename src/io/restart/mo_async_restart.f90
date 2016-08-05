@@ -277,7 +277,7 @@ CONTAINS
 
             ! collective call to write the restart variables
             CALL restart_write_var_list(patch_data, restartFile)
-            IF(patch_data%description%l_opt_ndom) THEN
+            IF(ALLOCATED(patch_data%description%opt_ndom)) THEN
                 CALL create_restart_file_link(TRIM(restartFile%filename), modelType, &
                                              &patch_data%description%restart_proc_id - p_restart_pe0, patch_data%description%id, &
                                              &opt_ndom = patch_data%description%opt_ndom)
@@ -875,7 +875,7 @@ CONTAINS
 #endif
 
     effectiveDomainCount = 1
-    IF(patch_data(1)%description%l_opt_ndom) effectiveDomainCount = patch_data(1)%description%opt_ndom
+    IF(ALLOCATED(patch_data(1)%description%opt_ndom)) effectiveDomainCount = patch_data(1)%description%opt_ndom
     IF(ALLOCATED(restart_args%output_jfile)) THEN
         CALL setGeneralRestartAttributes(restartAttributes, restart_args%datetime, effectiveDomainCount, restart_args%jstep, &
                                         &restart_args%output_jfile)
