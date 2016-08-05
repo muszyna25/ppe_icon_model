@@ -610,7 +610,7 @@ CONTAINS
 
           ! set global restart attributes/lists
           restartAttributes => RestartAttributeList_make()
-          CALL set_restart_attributes(p_pd, restartAttributes)
+          CALL set_restart_attributes(restartAttributes)
           CALL defineVerticalGrids(p_pd)
 
 #ifdef DEBUG
@@ -2236,10 +2236,10 @@ CONTAINS
   !
   !  Set global restart attributes.
   !
-  SUBROUTINE set_restart_attributes (p_pd, restartAttributes)
-    TYPE(t_patch_data), INTENT(INOUT) :: p_pd
+  SUBROUTINE set_restart_attributes (restartAttributes)
     TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
 
+    TYPE(t_patch_data), POINTER :: p_pd
     CHARACTER(LEN=MAX_NAME_LENGTH) :: attrib_name
     INTEGER                        :: jp, jp_end, jg, i, current_jfile
 
@@ -2270,67 +2270,71 @@ CONTAINS
     CALL restartAttributes%setText('tc_startdate', iso8601extended(restart_args%datetime))
 
     ! set no. of domains
-    IF (p_pd%l_opt_ndom) THEN
-      CALL restartAttributes%setInteger( 'n_dom', p_pd%opt_ndom)
+    IF (patch_data(1)%l_opt_ndom) THEN
+        CALL restartAttributes%setInteger( 'n_dom', patch_data(1)%opt_ndom)
     ELSE
-      CALL restartAttributes%setInteger( 'n_dom', 1)
+        CALL restartAttributes%setInteger( 'n_dom', 1)
     END IF
 
     ! set simulation step
     CALL restartAttributes%setInteger( 'jstep', restart_args%jstep )
 
-    ! set time levels
-    jg = p_pd%id
-    CALL restartAttributes%setInteger( 'nold_DOM'//TRIM(int2string(jg, "(i2.2)"))    , p_pd%nold)
-    CALL restartAttributes%setInteger( 'nnow_DOM'//TRIM(int2string(jg, "(i2.2)"))    , p_pd%nnow)
-    CALL restartAttributes%setInteger( 'nnew_DOM'//TRIM(int2string(jg, "(i2.2)"))    , p_pd%nnew)
-    CALL restartAttributes%setInteger( 'nnow_rcf_DOM'//TRIM(int2string(jg, "(i2.2)")), p_pd%nnow_rcf)
-    CALL restartAttributes%setInteger( 'nnew_rcf_DOM'//TRIM(int2string(jg, "(i2.2)")), p_pd%nnew_rcf)
-
-    ! additional restart-output for nonhydrostatic model
-    IF (p_pd%l_opt_sim_time) THEN
-      WRITE(attrib_name, attrib_format_int) 'sim_time_DOM', jg
-      CALL restartAttributes%setReal (TRIM(attrib_name), &
-        &                         p_pd%opt_sim_time)
-    ENDIF
-
-    !-------------------------------------------------------------
-    ! DR
-    ! WORKAROUND FOR FIELDS WHICH NEED TO GO INTO THE RESTART FILE,
-    ! BUT SO FAR CANNOT BE HANDELED CORRECTLY BY ADD_VAR OR
-    ! SET_RESTART_ATTRIBUTE
-    !-------------------------------------------------------------
-    IF (p_pd%l_opt_ndyn_substeps) THEN
-        WRITE(attrib_name, attrib_format_int) 'ndyn_substeps_DOM', jg
-        CALL restartAttributes%setInteger(TRIM(attrib_name), p_pd%opt_ndyn_substeps)
-    ENDIF
-
-    IF (p_pd%l_opt_jstep_adv_marchuk_order) THEN
-        WRITE(attrib_name, attrib_format_int) 'jstep_adv_marchuk_order_DOM', jg
-        CALL restartAttributes%setInteger(TRIM(attrib_name), p_pd%opt_jstep_adv_marchuk_order)
-    ENDIF
-
-    IF (ALLOCATED(p_pd%opt_t_elapsed_phy) .AND. &
-      & ALLOCATED(p_pd%opt_lcall_phy)) THEN
-      jp_end = SIZE(p_pd%opt_t_elapsed_phy)
-      DO jp = 1, jp_end
-        WRITE(attrib_name, attrib_format_int2) 't_elapsed_phy_DOM',jg,'_PHY',jp
-        CALL restartAttributes%setReal(TRIM(attrib_name), p_pd%opt_t_elapsed_phy(jp))
-      ENDDO
-      jp_end = SIZE(p_pd%opt_lcall_phy)
-      DO jp = 1, jp_end
-        WRITE(attrib_name, attrib_format_int2) 'lcall_phy_DOM',jg,'_PHY', jp
-        CALL restartAttributes%setLogical(TRIM(attrib_name), p_pd%opt_lcall_phy(jp) )
-      ENDDO
-    ENDIF
-
     IF (restart_args%n_opt_output_file > 0) THEN
-      DO i=1,restart_args%n_opt_output_file
-        current_jfile = restart_args%opt_output_jfile(i)
-        WRITE(attname,'(a,i2.2)') 'output_jfile_',i
-        CALL restartAttributes%setInteger( TRIM(attname), current_jfile )
-      END DO
+        DO i=1,restart_args%n_opt_output_file
+            current_jfile = restart_args%opt_output_jfile(i)
+            WRITE(attname,'(a,i2.2)') 'output_jfile_',i
+            CALL restartAttributes%setInteger( TRIM(attname), current_jfile )
+        END DO
     END IF
+
+    ! set the domain dependent attributes
+    DO i = 1, SIZE(patch_data)
+        p_pd => patch_data(i)
+
+        ! set time levels
+        jg = p_pd%id
+        CALL restartAttributes%setInteger( 'nold_DOM'//TRIM(int2string(jg, "(i2.2)")), p_pd%nold)
+        CALL restartAttributes%setInteger( 'nnow_DOM'//TRIM(int2string(jg, "(i2.2)")), p_pd%nnow)
+        CALL restartAttributes%setInteger( 'nnew_DOM'//TRIM(int2string(jg, "(i2.2)")), p_pd%nnew)
+        CALL restartAttributes%setInteger( 'nnow_rcf_DOM'//TRIM(int2string(jg, "(i2.2)")), p_pd%nnow_rcf)
+        CALL restartAttributes%setInteger( 'nnew_rcf_DOM'//TRIM(int2string(jg, "(i2.2)")), p_pd%nnew_rcf)
+
+        ! additional restart-output for nonhydrostatic model
+        IF (p_pd%l_opt_sim_time) THEN
+            WRITE(attrib_name, attrib_format_int) 'sim_time_DOM', jg
+            CALL restartAttributes%setReal (TRIM(attrib_name), p_pd%opt_sim_time)
+        END IF
+
+        !-------------------------------------------------------------
+        ! DR
+        ! WORKAROUND FOR FIELDS WHICH NEED TO GO INTO THE RESTART FILE,
+        ! BUT SO FAR CANNOT BE HANDELED CORRECTLY BY ADD_VAR OR
+        ! SET_RESTART_ATTRIBUTE
+        !-------------------------------------------------------------
+        IF (p_pd%l_opt_ndyn_substeps) THEN
+            WRITE(attrib_name, attrib_format_int) 'ndyn_substeps_DOM', jg
+            CALL restartAttributes%setInteger(TRIM(attrib_name), p_pd%opt_ndyn_substeps)
+        END IF
+
+        IF (p_pd%l_opt_jstep_adv_marchuk_order) THEN
+            WRITE(attrib_name, attrib_format_int) 'jstep_adv_marchuk_order_DOM', jg
+            CALL restartAttributes%setInteger(TRIM(attrib_name), p_pd%opt_jstep_adv_marchuk_order)
+        END IF
+
+        IF (ALLOCATED(p_pd%opt_t_elapsed_phy) .AND. &
+            & ALLOCATED(p_pd%opt_lcall_phy)) THEN
+            jp_end = SIZE(p_pd%opt_t_elapsed_phy)
+            DO jp = 1, jp_end
+                WRITE(attrib_name, attrib_format_int2) 't_elapsed_phy_DOM',jg,'_PHY',jp
+                CALL restartAttributes%setReal(TRIM(attrib_name), p_pd%opt_t_elapsed_phy(jp))
+            END DO
+            jp_end = SIZE(p_pd%opt_lcall_phy)
+            DO jp = 1, jp_end
+                WRITE(attrib_name, attrib_format_int2) 'lcall_phy_DOM',jg,'_PHY', jp
+                CALL restartAttributes%setLogical(TRIM(attrib_name), p_pd%opt_lcall_phy(jp) )
+            END DO
+        END IF
+    END DO
 
   END SUBROUTINE set_restart_attributes
 
