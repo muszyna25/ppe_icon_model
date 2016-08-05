@@ -7,8 +7,11 @@
 !! headers of the routines.
 MODULE mo_cdi_constants
 
-  USE mo_cdi, ONLY: ZAXIS_SURFACE, ZAXIS_HYBRID, ZAXIS_HYBRID_HALF, ZAXIS_DEPTH_BELOW_LAND, ZAXIS_GENERIC, ZAXIS_HEIGHT, &
-                  & ZAXIS_TOA, ZAXIS_LAKE_BOTTOM, ZAXIS_MIX_LAYER, ZAXIS_SEDIMENT_BOTTOM_TW, ZAXIS_DEPTH_BELOW_SEA, CDI_UNDEFID
+  USE mo_cdi, ONLY: ZAXIS_ALTITUDE, ZAXIS_ATMOSPHERE, ZAXIS_CLOUD_BASE, ZAXIS_CLOUD_TOP, ZAXIS_DEPTH_BELOW_LAND, &
+                  & ZAXIS_DEPTH_BELOW_SEA, ZAXIS_GENERIC, ZAXIS_HEIGHT, ZAXIS_HYBRID, ZAXIS_HYBRID_HALF, ZAXIS_ISENTROPIC, &
+                  & ZAXIS_ISOTHERM_ZERO, ZAXIS_LAKE_BOTTOM, ZAXIS_MEANSEA, ZAXIS_MIX_LAYER, ZAXIS_PRESSURE, ZAXIS_REFERENCE, &
+                  & ZAXIS_SEDIMENT_BOTTOM_TW, ZAXIS_SURFACE, ZAXIS_TOA
+
 
   IMPLICIT NONE
 
@@ -87,30 +90,30 @@ MODULE mo_cdi_constants
 
   ! Array mapping our internal ZA_... constants to the respective CDI zaxis types
   INTEGER, PARAMETER, PUBLIC :: cdi_zaxis_types(ZA_COUNT) = [ ZAXIS_SURFACE, &              ! ZA_SURFACE
-                                                            & CDI_UNDEFID, &                ! ZA_CLOUD_BASE
-                                                            & CDI_UNDEFID, &                ! ZA_CLOUD_TOP
-                                                            & CDI_UNDEFID, &                ! ZA_ISOTHERM_ZERO
-                                                            & CDI_UNDEFID, &                ! ZA_REFERENCE
-                                                            & CDI_UNDEFID, &                ! ZA_REFERENCE_HALF
-                                                            & CDI_UNDEFID, &                ! ZA_REFERENCE_HALF_HHL
+                                                            & ZAXIS_CLOUD_BASE, &           ! ZA_CLOUD_BASE
+                                                            & ZAXIS_CLOUD_TOP, &            ! ZA_CLOUD_TOP
+                                                            & ZAXIS_ISOTHERM_ZERO, &        ! ZA_ISOTHERM_ZERO
+                                                            & ZAXIS_REFERENCE, &            ! ZA_REFERENCE
+                                                            & ZAXIS_REFERENCE, &            ! ZA_REFERENCE_HALF
+                                                            & ZAXIS_REFERENCE, &            ! ZA_REFERENCE_HALF_HHL
                                                             & ZAXIS_HYBRID, &               ! ZA_HYBRID
                                                             & ZAXIS_HYBRID_HALF, &          ! ZA_HYBRID_HALF
-                                                            & CDI_UNDEFID, &                ! ZA_HYBRID_HALF_HHL
+                                                            & ZAXIS_HYBRID_HALF, &          ! ZA_HYBRID_HALF_HHL
                                                             & ZAXIS_DEPTH_BELOW_LAND, &     ! ZA_DEPTH_BELOW_LAND
                                                             & ZAXIS_DEPTH_BELOW_LAND, &     ! ZA_DEPTH_BELOW_LAND_P1
                                                             & ZAXIS_GENERIC, &              ! ZA_SNOW
                                                             & ZAXIS_GENERIC, &              ! ZA_SNOW_HALF
-                                                            & CDI_UNDEFID, &                ! ZA_PRESSURE
-                                                            & CDI_UNDEFID, &                ! ZA_HEIGHT
+                                                            & ZAXIS_PRESSURE, &             ! ZA_PRESSURE
+                                                            & ZAXIS_HEIGHT, &               ! ZA_HEIGHT
                                                             & ZAXIS_HEIGHT, &               ! ZA_HEIGHT_2M
                                                             & ZAXIS_HEIGHT, &               ! ZA_HEIGHT_10M
-                                                            & CDI_UNDEFID, &                ! ZA_ALTITUDE
-                                                            & CDI_UNDEFID, &                ! ZA_MEANSEA
-                                                            & CDI_UNDEFID, &                ! ZA_ISENTROPIC
+                                                            & ZAXIS_ALTITUDE, &             ! ZA_ALTITUDE
+                                                            & ZAXIS_MEANSEA, &              ! ZA_MEANSEA
+                                                            & ZAXIS_ISENTROPIC, &           ! ZA_ISENTROPIC
                                                             & ZAXIS_TOA, &                  ! ZA_TOA
-                                                            & CDI_UNDEFID, &                ! ZA_PRESSURE_800
-                                                            & CDI_UNDEFID, &                ! ZA_PRESSURE_400
-                                                            & CDI_UNDEFID, &                ! ZA_PRESSURE_0
+                                                            & ZAXIS_PRESSURE, &             ! ZA_PRESSURE_800
+                                                            & ZAXIS_PRESSURE, &             ! ZA_PRESSURE_400
+                                                            & ZAXIS_PRESSURE, &             ! ZA_PRESSURE_0
                                                             & ZAXIS_DEPTH_BELOW_LAND, &     ! ZA_DEPTH_RUNOFF_S
                                                             & ZAXIS_DEPTH_BELOW_LAND, &     ! ZA_DEPTH_RUNOFF_G
                                                             & ZAXIS_LAKE_BOTTOM, &          ! ZA_LAKE_BOTTOM
@@ -121,14 +124,14 @@ MODULE mo_cdi_constants
                                                             & ZAXIS_DEPTH_BELOW_SEA, &      ! ZA_DEPTH_BELOW_SEA_HALF
                                                             & ZAXIS_GENERIC, &              ! ZA_GENERIC_ICE
                                                             & ZAXIS_GENERIC, &              ! ZA_OCEAN_SEDIMENT
-                                                            & CDI_UNDEFID, &                ! ZA_PRES_FL_SFC_200
-                                                            & CDI_UNDEFID, &                ! ZA_PRES_FL_200_350
-                                                            & CDI_UNDEFID, &                ! ZA_PRES_FL_350_550
-                                                            & CDI_UNDEFID, &                ! ZA_PRES_FL_SFC_100
-                                                            & CDI_UNDEFID, &                ! ZA_PRES_FL_100_245
-                                                            & CDI_UNDEFID, &                ! ZA_PRES_FL_245_390
-                                                            & CDI_UNDEFID, &                ! ZA_PRES_FL_390_530
-                                                            & CDI_UNDEFID ]                 ! ZA_ATMOSPHERE
+                                                            & ZAXIS_PRESSURE, &             ! ZA_PRES_FL_SFC_200
+                                                            & ZAXIS_PRESSURE, &             ! ZA_PRES_FL_200_350
+                                                            & ZAXIS_PRESSURE, &             ! ZA_PRES_FL_350_550
+                                                            & ZAXIS_PRESSURE, &             ! ZA_PRES_FL_SFC_100
+                                                            & ZAXIS_PRESSURE, &             ! ZA_PRES_FL_100_245
+                                                            & ZAXIS_PRESSURE, &             ! ZA_PRES_FL_245_390
+                                                            & ZAXIS_PRESSURE, &             ! ZA_PRES_FL_390_530
+                                                            & ZAXIS_ATMOSPHERE ]            ! ZA_ATMOSPHERE
 
 CONTAINS
 

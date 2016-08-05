@@ -30,7 +30,7 @@ MODULE mo_util_cdi
   USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_dictionary,         ONLY: t_dictionary, dict_get, dict_init, dict_copy, dict_finalize, DICT_MAX_STRLEN
   USE mo_cdi,                ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, streamInqVlist, vlistNvars, vlistInqVarDatatype, &
-                                 & vlistInqVarIntKey, vlistInqVarZaxis, zaxisInqType, ZAXIS_REFERENCE, zaxisInqNlevRef, &
+                                 & vlistInqVarIntKey, vlistInqVarZaxis, zaxisInqType, zaxisInqNlevRef, &
                                  & vlistInqVarGrid, gridInqSize, zaxisInqSize, DATATYPE_FLT64, DATATYPE_INT32, streamInqTimestep, &
                                  & vlistInqVarTsteptype, TSTEP_CONSTANT, TSTEP_INSTANT, TSTEP_MAX, TSTEP_MIN, vlistInqTaxis, &
                                  & taxisInqTunit, TUNIT_SECOND, TUNIT_MINUTE, TUNIT_HOUR, vlistDefVarIntKey, &
