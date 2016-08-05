@@ -81,6 +81,7 @@ MODULE mo_io_restart
                                     & ZA_LAKE_BOTTOM, ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, ZA_SEDIMENT_BOTTOM_TW_HALF, &
                                     & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE, ZA_OCEAN_SEDIMENT
   USE mo_cf_convention,         ONLY: cf_global_info
+  USE mo_util_restart,          ONLY: create_cdi_hgrid_def
   USE mo_util_string,           ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                 int2string, separator, toCharacter
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink, util_unlink
@@ -260,18 +261,13 @@ CONTAINS
 
   END SUBROUTINE read_restart_header
 
-  !------------------------------------------------------------------------------------------------
-
   ! YYYYMMDDThhmmssZ (T is a separator and Z means UTC as timezone)
-
   SUBROUTINE set_restart_time(iso8601)
     CHARACTER(len=*), INTENT(in) :: iso8601
     private_restart_time = iso8601
   END SUBROUTINE set_restart_time
-  !------------------------------------------------------------------------------------------------
 
   !  VCT as in echam (first half of vector contains a and second half b
-
   SUBROUTINE set_restart_vct(vct)
     REAL(wp), INTENT(in) :: vct(:)
     IF (lvct_initialised) RETURN
@@ -280,9 +276,7 @@ CONTAINS
     private_vct(:) = vct(:)
     lvct_initialised = .TRUE.
   END SUBROUTINE set_restart_vct
-  !------------------------------------------------------------------------------------------------
 
-  !------------------------------------------------------------------------------------------------
   !  depth based vertical coordinates
   SUBROUTINE set_restart_depth_lnd(zh, zf)
     REAL(wp), INTENT(in) :: zh(:), zf(:)
@@ -294,10 +288,8 @@ CONTAINS
     private_depth_lnd_full(:) = zf(:)
     ldepth_lnd_initialised = .TRUE.
   END SUBROUTINE set_restart_depth_lnd
-  !------------------------------------------------------------------------------------------------
 
   !  height based vertical coordinates for multi layer snow model (TERRA)
-
   SUBROUTINE set_restart_height_snow(zh, zf)
     REAL(wp), INTENT(in) :: zh(:), zf(:)
     IF (lheight_snow_initialised) RETURN
@@ -308,7 +300,6 @@ CONTAINS
     private_height_snow_full(:) = zf(:)
     lheight_snow_initialised = .TRUE.
   END SUBROUTINE set_restart_height_snow
-  !------------------------------------------------------------------------------------------------
 
   SUBROUTINE set_horizontal_grid(grid_type, nelements, nvertices, grid_uuid)
     INTEGER,      INTENT(in)           :: grid_type
@@ -325,9 +316,7 @@ CONTAINS
     IF (PRESENT(grid_uuid)) THEN
       hgrid_def(nh_grids)%uuid = grid_uuid
     ENDIF
-
   END SUBROUTINE set_horizontal_grid
-  !------------------------------------------------------------------------------------------------
 
   SUBROUTINE set_vertical_grid(type, nlevels)
     INTEGER, INTENT(in) :: type
@@ -337,9 +326,7 @@ CONTAINS
 
     vgrid_def(nv_grids)%type    = type
     vgrid_def(nv_grids)%nlevels = nlevels
-
   END SUBROUTINE set_vertical_grid
-  !------------------------------------------------------------------------------------------------
 
   SUBROUTINE set_time_axis(type)
     INTEGER, INTENT(in) :: type
@@ -347,9 +334,7 @@ CONTAINS
     nt_axis = nt_axis+1
 
     taxis_def(nt_axis)%type = type
-
   END SUBROUTINE set_time_axis
-  !------------------------------------------------------------------------------------------------
 
   SUBROUTINE defineRestartAttributes(restartAttributes, datetime, jstep, opt_ndom, opt_ndyn_substeps, &
                                     &opt_jstep_adv_marchuk_order, opt_output_jfile, opt_sim_time, opt_t_elapsed_phy, opt_lcall_phy)
@@ -495,7 +480,6 @@ CONTAINS
     private_nv  = nv
     private_ne  = ne
 
-
 !AD(9July-2013): The following condition seemed unnecessary. So after
 !  discussing with DR we decided to get rid of it for time being
 
@@ -505,18 +489,11 @@ CONTAINS
 !      ! more consistency checks need to follow
 !    ENDIF
 
-
     lrestart_initialised = .TRUE.
-
   END SUBROUTINE init_restart
-  !------------------------------------------------------------------------------------------------
-
-
-  !------------------------------------------------------------------------------------------------
 
   ! Loop over all the output streams and open the associated files. Set
   ! unit numbers (file IDs) for all streams associated with a file.
-
   SUBROUTINE open_writing_restart_files(jg, restart_filename, restartAttributes)
     INTEGER,          INTENT(IN) :: jg                   !< patch ID
     CHARACTER(LEN=*), INTENT(IN) :: restart_filename
@@ -621,41 +598,17 @@ CONTAINS
         DO ihg = 1, nh_grids
           SELECT CASE (hgrid_def(ihg)%type)
           CASE (GRID_UNSTRUCTURED_CELL)
-            var_lists(i)%p%cdiCellGridID = gridCreate(GRID_UNSTRUCTURED, hgrid_def(ihg)%nelements)
-            CALL gridDefNvertex(var_lists(i)%p%cdiCellGridID, hgrid_def(ihg)%nvertices)
-
-            CALL gridDefXname(var_lists(i)%p%cdiCellGridID, 'clon')
-            CALL gridDefXlongname(var_lists(i)%p%cdiCellGridID, 'center longitude')
-            CALL gridDefXunits(var_lists(i)%p%cdiCellGridID, 'radians')
-
-            CALL gridDefYname(var_lists(i)%p%cdiCellGridID, 'clat')
-            CALL gridDefYlongname(var_lists(i)%p%cdiCellGridID, 'center latitude')
-            CALL gridDefYunits(var_lists(i)%p%cdiCellGridID, 'radians')
-
+            var_lists(i)%p%cdiCellGridID = create_cdi_hgrid_def(hgrid_def(ihg)%nelements, hgrid_def(ihg)%nvertices, &
+                                                               & 'clon', 'center longitude', 'radians', &
+                                                               & 'clat', 'center latitude', 'radians')
           CASE (GRID_UNSTRUCTURED_VERT)
-            var_lists(i)%p%cdiVertGridID = gridCreate(GRID_UNSTRUCTURED, hgrid_def(ihg)%nelements)
-            CALL gridDefNvertex(var_lists(i)%p%cdiVertGridID, hgrid_def(ihg)%nvertices)
-
-            CALL gridDefXname(var_lists(i)%p%cdiVertGridID, 'vlon')
-            CALL gridDefXlongname(var_lists(i)%p%cdiVertGridID, 'vertex longitude')
-            CALL gridDefXunits(var_lists(i)%p%cdiVertGridID, 'radians')
-
-            CALL gridDefYname(var_lists(i)%p%cdiVertGridID, 'vlat')
-            CALL gridDefYlongname(var_lists(i)%p%cdiVertGridID, 'vertex latitude')
-            CALL gridDefYunits(var_lists(i)%p%cdiVertGridID, 'radians')
-
+            var_lists(i)%p%cdiVertGridID = create_cdi_hgrid_def(hgrid_def(ihg)%nelements, hgrid_def(ihg)%nvertices, &
+                                                               & 'vlon', 'vertex longitude', 'radians', &
+                                                               & 'vlat', 'vertex latitude', 'radians')
           CASE (GRID_UNSTRUCTURED_EDGE)
-            var_lists(i)%p%cdiEdgeGridID = gridCreate(GRID_UNSTRUCTURED, hgrid_def(ihg)%nelements)
-            CALL gridDefNvertex(var_lists(i)%p%cdiEdgeGridID, hgrid_def(ihg)%nvertices)
-
-            CALL gridDefXname(var_lists(i)%p%cdiEdgeGridID, 'elon')
-            CALL gridDefXlongname(var_lists(i)%p%cdiEdgeGridID, 'edge midpoint longitude')
-            CALL gridDefXunits(var_lists(i)%p%cdiEdgeGridID, 'radians')
-
-            CALL gridDefYname(var_lists(i)%p%cdiEdgeGridID, 'elat')
-            CALL gridDefYlongname(var_lists(i)%p%cdiEdgeGridID, 'edge midpoint latitude')
-            CALL gridDefYunits(var_lists(i)%p%cdiEdgeGridID, 'radians')
-
+            var_lists(i)%p%cdiEdgeGridID = create_cdi_hgrid_def(hgrid_def(ihg)%nelements, hgrid_def(ihg)%nvertices, &
+                                                               & 'elon', 'edge midpoint longitude', 'radians', &
+                                                               & 'elat', 'edge midpoint latitude', 'radians')
           END SELECT
         ENDDO
 

@@ -67,6 +67,7 @@ MODULE mo_io_restart_async
   USE mo_cf_convention
   USE mo_util_string,             ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                   int2string, toCharacter
+  USE mo_util_restart,            ONLY: create_cdi_hgrid_def
 
 #ifndef NOMPI
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work,      &
@@ -2724,30 +2725,6 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  ! Creates a horizontal grid definition from the given parameters.
-  !
-  SUBROUTINE create_cdi_hgrid_def(iID, iCnt, iNVert, cNameX, cLNameX, cUnitsX, &
-    &                                                cNameY, cLNameY, cUnitsY)
-
-    INTEGER, INTENT(INOUT)        :: iID
-    INTEGER, INTENT(IN)           :: iCnt, iNVert
-    CHARACTER(LEN=*), INTENT(IN)  :: cNameX, cLNameX, cUnitsX, cNameY, cLNameY, cUnitsY
-
-    iID = gridCreate      (GRID_UNSTRUCTURED, iCnt)
-    CALL gridDefNvertex   (iID, iNVert)
-
-    CALL gridDefXname     (iID, TRIM(cNameX))
-    CALL gridDefXlongname (iID, TRIM(cLNameX))
-    CALL gridDefXunits    (iID, TRIM(cUnitsX))
-
-    CALL gridDefYname     (iID, TRIM(cNameY))
-    CALL gridDefYlongname (iID, TRIM(cLNameY))
-    CALL gridDefYunits    (iID, TRIM(cUnitsY))
-
-  END SUBROUTINE create_cdi_hgrid_def
-
-  !------------------------------------------------------------------------------------------------
-  !
   ! Creates a Z-axis grid definition from the given parameters.
   !
   SUBROUTINE create_cdi_zaxis(iID, iGridID, iLevels, iDefLevels, rDefLevelVal, lOcean)
@@ -2926,18 +2903,18 @@ CONTAINS
 
     ! 3. add horizontal grid descriptions
     ! 3.1. cells
-    CALL create_cdi_hgrid_def(p_rf%cdiCellGridID, p_pd%cells%n_glb, p_pd%cell_type,  &
+    p_rf%cdiCellGridID = create_cdi_hgrid_def(p_pd%cells%n_glb, p_pd%cell_type,  &
       &                      'clon', 'center longitude', 'radian',                   &
       &                      'clat', 'center latitude',  'radian')
 
     ! 3.2. certs
-    CALL create_cdi_hgrid_def(p_rf%cdiVertGridID, p_pd%verts%n_glb, 9-p_pd%cell_type,  &
+    p_rf%cdiVertGridID = create_cdi_hgrid_def(p_pd%verts%n_glb, 9-p_pd%cell_type,  &
       &                      'vlon', 'vertex longitude', 'radian',                     &
       &                      'vlat', 'vertex latitude',  'radian')
 
 
     ! 3.3. edges
-    CALL create_cdi_hgrid_def(p_rf%cdiEdgeGridID, p_pd%edges%n_glb, 4,     &
+    p_rf%cdiEdgeGridID = create_cdi_hgrid_def(p_pd%edges%n_glb, 4,     &
       &                      'elon', 'edge midpoint longitude', 'radian',  &
       &                      'elat', 'edge midpoint latitude',  'radian')
 

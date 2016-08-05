@@ -1766,6 +1766,7 @@ src/io/shared/mo_util_bool_table.f90 -text
 src/io/shared/mo_util_cdi.f90 -text
 src/io/shared/mo_util_file.f90 -text
 src/io/shared/mo_util_nml.f90 -text
+src/io/shared/mo_util_restart.f90 -text
 src/io/shared/mo_util_vgrid_types.f90 -text
 src/io/shared/mo_write_netcdf.f90 -text
 src/lnd_phy_nwp/mo_nwp_lnd_state.f90 -text
