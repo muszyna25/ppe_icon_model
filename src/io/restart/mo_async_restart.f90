@@ -40,7 +40,7 @@ MODULE mo_async_restart
   USE mo_run_config,              ONLY: msg_level
   USE mo_model_domain,            ONLY: p_patch, t_patch
   USE mo_packed_message,          ONLY: t_PackedMessage, kPackOp, kUnpackOp
-  USE mo_restart_descriptor,      ONLY: t_RestartDescriptor
+  USE mo_restart_descriptor,      ONLY: t_RestartDescriptor, t_RestartPatchData
   USE mo_restart_patch_description, ONLY: t_restart_patch_description
   USE mo_restart_util,            ONLY: setGeneralRestartAttributes, create_restart_file_link, t_restart_args
   USE mo_restart_var_data,        ONLY: t_RestartVarData, createRestartVarData, getLevelPointers, has_valid_time_level
@@ -94,12 +94,9 @@ MODULE mo_async_restart
   CHARACTER(LEN=*), PARAMETER :: FORMAT_VALS7I            = '(a,a,i3,a,a,a,i8)'
 
   ! combine the DATA that describes a patch for restart purposes with the infos required for the asynchronous fetching of the DATA from the compute PEs
-  TYPE t_patch_data
-    TYPE(t_restart_patch_description) :: description
-    TYPE(t_RestartVarData), POINTER :: varData(:)
+  TYPE, EXTENDS(t_RestartPatchData) :: t_AsyncPatchData
     TYPE(t_AsyncRestartCommData) :: commData
-    INTEGER :: restartType
-  END TYPE t_patch_data
+  END TYPE t_AsyncPatchData
 
   ! This IS the actual INTERFACE to the restart writing code (apart from the restart_main_proc PROCEDURE). Its USE IS as follows:
   !
@@ -111,7 +108,7 @@ MODULE mo_async_restart
   !
   ! Finally, destruct() must be called to signal the restart PEs to finish their work, AND to wait for them to stop.
   TYPE, EXTENDS(t_RestartDescriptor) :: t_AsyncRestartDescriptor
-    TYPE(t_patch_data), ALLOCATABLE :: patch_data(:)
+    TYPE(t_AsyncPatchData), ALLOCATABLE :: patch_data(:)
     CHARACTER(:), ALLOCATABLE :: modelType
   CONTAINS
     PROCEDURE :: construct => asyncRestartDescriptor_construct
@@ -254,7 +251,7 @@ CONTAINS
 #ifndef NOMPI
   SUBROUTINE restart_write_patch(restart_args, patch_data, restartAttributes, modelType)
     TYPE(t_restart_args), INTENT(IN) :: restart_args
-    TYPE(t_patch_data), INTENT(INOUT) :: patch_data
+    TYPE(t_AsyncPatchData), INTENT(INOUT) :: patch_data
     TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
     CHARACTER(*), INTENT(IN) :: modelType
 
@@ -459,7 +456,7 @@ CONTAINS
   SUBROUTINE restartMetadataPacker(operation, restart_args, patch_data, message)
     INTEGER, VALUE :: operation
     TYPE(t_restart_args), INTENT(INOUT) :: restart_args
-    TYPE(t_patch_data), INTENT(INOUT) :: patch_data(:)
+    TYPE(t_AsyncPatchData), INTENT(INOUT) :: patch_data(:)
     TYPE(t_PackedMessage), INTENT(INOUT) :: message
 
     INTEGER :: i
@@ -586,7 +583,7 @@ CONTAINS
   !
   SUBROUTINE compute_start_restart(restart_args, patch_data)
     TYPE(t_restart_args), INTENT(INOUT) :: restart_args
-    TYPE(t_patch_data), INTENT(INOUT) :: patch_data(:)
+    TYPE(t_AsyncPatchData), INTENT(INOUT) :: patch_data(:)
 
     INTEGER :: i, trash
     TYPE(t_PackedMessage) :: message
@@ -692,7 +689,7 @@ CONTAINS
   !
   SUBROUTINE print_restart_arguments(restart_args, patch_data)
     TYPE(t_restart_args), INTENT(IN) :: restart_args
-    TYPE(t_patch_data), INTENT(IN) :: patch_data(:)
+    TYPE(t_AsyncPatchData), INTENT(IN) :: patch_data(:)
     CHARACTER(LEN=*), PARAMETER   :: routine = modname//':print_restart_arguments'
 
     WRITE (nerr,FORMAT_VALS3)routine,' is called for p_pe=',p_pe
@@ -866,7 +863,7 @@ CONTAINS
   SUBROUTINE set_restart_attributes (restartAttributes, restart_args, patch_data)
     TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
     TYPE(t_restart_args), INTENT(IN) :: restart_args
-    TYPE(t_patch_data), INTENT(IN) :: patch_data(:)
+    TYPE(t_AsyncPatchData), INTENT(IN) :: patch_data(:)
 
     INTEGER :: i, effectiveDomainCount
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':set_restart_attributes'
@@ -915,7 +912,7 @@ CONTAINS
   ! Write restart variable list for a restart PE.
   !
   SUBROUTINE restart_write_var_list(p_pd, restartFile)
-    TYPE(t_patch_data), TARGET, INTENT(INOUT) :: p_pd
+    TYPE(t_AsyncPatchData), TARGET, INTENT(INOUT) :: p_pd
     TYPE(t_RestartFile) :: restartFile
 
     TYPE(t_var_metadata), POINTER   :: p_info
@@ -1018,7 +1015,7 @@ CONTAINS
   ! Write restart variable lists for a compute PE.
   !
   SUBROUTINE compute_write_var_list(p_pd)
-    TYPE(t_patch_data), TARGET, INTENT(INOUT) :: p_pd
+    TYPE(t_AsyncPatchData), TARGET, INTENT(INOUT) :: p_pd
 
     TYPE(t_RestartVarData), POINTER :: p_vars(:)
     TYPE(t_ptr_2d), ALLOCATABLE     :: dataPointers(:)

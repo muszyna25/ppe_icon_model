@@ -14,10 +14,13 @@ MODULE mo_restart_descriptor
     USE mo_fortran_tools, ONLY: t_destructible
     USE mo_kind, ONLY: wp
     USE mo_model_domain, ONLY: t_patch
+    USE mo_restart_patch_description, ONLY: t_restart_patch_description
+    USE mo_restart_var_data, ONLY: t_RestartVarData
 
     IMPLICIT NONE
 
     PUBLIC :: t_RestartDescriptor
+    PUBLIC :: t_RestartPatchData
 
     PRIVATE
 
@@ -38,6 +41,13 @@ MODULE mo_restart_descriptor
         PROCEDURE(restartDescriptor_updatePatch), DEFERRED :: updatePatch
         PROCEDURE(restartDescriptor_writeRestart), DEFERRED :: writeRestart
     END TYPE t_RestartDescriptor
+
+    ! this type stores all the information that we need to know about a patch and its variables
+    TYPE t_RestartPatchData
+        TYPE(t_restart_patch_description) :: description
+        TYPE(t_RestartVarData), POINTER :: varData(:)
+        INTEGER :: restartType
+    END TYPE t_RestartPatchData
 
     ABSTRACT INTERFACE
         ! Constructor. Not called directly from user code, USE the factory FUNCTION createRestartDescriptor() instead, which IS found IN mo_restart.

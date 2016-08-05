@@ -63,7 +63,7 @@ MODULE mo_sync_restart
   USE mo_model_domain, ONLY: t_patch, p_patch
   USE mo_mpi, ONLY: my_process_is_mpi_workroot, my_process_is_mpi_test
   USE mo_restart_attributes, ONLY: t_RestartAttributeList, RestartAttributeList_make
-  USE mo_restart_descriptor, ONLY: t_RestartDescriptor
+  USE mo_restart_descriptor, ONLY: t_RestartDescriptor, t_RestartPatchData
   USE mo_restart_file, ONLY: t_RestartFile
   USE mo_restart_patch_description, ONLY: t_restart_patch_description
   USE mo_restart_util, ONLY: setGeneralRestartAttributes, setDynamicPatchRestartAttributes, setPhysicsRestartAttributes, &
@@ -83,19 +83,14 @@ MODULE mo_sync_restart
 
   PUBLIC :: t_SyncRestartDescriptor
 
-  ! this type stores all the information that we need to know about a patch and its variables
-  TYPE t_PatchData
-    TYPE(t_restart_patch_description) :: description
-    TYPE(t_RestartVarData), POINTER :: varData(:)
-    INTEGER :: restartType
+  TYPE, EXTENDS(t_RestartPatchData) :: t_SyncPatchData
   CONTAINS
     PROCEDURE :: writeFile => patchData_writeFile
 
     PROCEDURE, PRIVATE :: writeData => patchData_writeData  ! implementation detail of writeFile()
-  END TYPE t_PatchData
-
+  END TYPE t_SyncPatchData
   TYPE, EXTENDS(t_RestartDescriptor) :: t_SyncRestartDescriptor
-    TYPE(t_PatchData), ALLOCATABLE :: patchData(:)
+    TYPE(t_SyncPatchData), ALLOCATABLE :: patchData(:)
     CHARACTER(:), ALLOCATABLE :: modelType
   CONTAINS
     PROCEDURE :: construct => syncRestartDescriptor_construct   ! override
@@ -205,7 +200,7 @@ CONTAINS
   END SUBROUTINE syncRestartDescriptor_defineRestartAttributes
 
   SUBROUTINE patchData_writeFile(me, restartAttributes, restartArgs)
-    CLASS(t_PatchData), INTENT(INOUT) :: me
+    CLASS(t_SyncPatchData), INTENT(INOUT) :: me
     TYPE(t_RestartAttributeList) :: restartAttributes
     TYPE(t_restart_args), INTENT(IN) :: restartArgs
 
@@ -316,7 +311,7 @@ CONTAINS
 
   ! loop over all var_lists for restart
   SUBROUTINE patchData_writeData(me, file)
-    CLASS(t_PatchData), INTENT(IN) :: me
+    CLASS(t_SyncPatchData), INTENT(IN) :: me
     TYPE(t_RestartFile) :: file
 
     INTEGER :: domain, i, gridSize, error, level
