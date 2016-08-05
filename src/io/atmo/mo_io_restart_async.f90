@@ -2794,9 +2794,9 @@ CONTAINS
 
     ! 4. add vertical grid descriptions
     IF(ALLOCATED(p_pd%opt_pvct)) THEN
-        CALL createVgrids(p_rf%cdiIds%vgrids, p_pd%v_grid_defs(1:p_pd%v_grid_count))
-    ELSE
         CALL createVgrids(p_rf%cdiIds%vgrids, p_pd%v_grid_defs(1:p_pd%v_grid_count), p_pd%opt_pvct)
+    ELSE
+        CALL createVgrids(p_rf%cdiIds%vgrids, p_pd%v_grid_defs(1:p_pd%v_grid_count))
     END IF
 
     ! 5. restart does contain absolute time
