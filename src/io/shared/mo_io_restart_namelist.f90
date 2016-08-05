@@ -8,11 +8,11 @@
 MODULE mo_io_restart_namelist
   USE ISO_C_BINDING, ONLY: C_CHAR
   USE mo_util_file,   ONLY: util_tmpnam, util_filesize, util_unlink
-  USE mo_util_string, ONLY: tocompact, toCharacter, toCharArray
+  USE mo_util_string, ONLY: tocompact, toCharacter, toCharArray, int2string
   USE mo_impl_constants, ONLY: SUCCESS
   USE mo_io_units,    ONLY: nerr, find_next_free_unit, filename_max
   USE mo_exception,   ONLY: message, finish
-  USE mo_mpi,         ONLY: p_bcast, p_pe
+  USE mo_mpi,         ONLY: p_bcast, p_pe, my_process_is_stdio
   USE mo_cdi,         ONLY: CDI_GLOBAL, vlistInqNatts, vlistInqAtt, vlistInqAttTxt
 
   IMPLICIT NONE
@@ -49,9 +49,9 @@ MODULE mo_io_restart_namelist
     CHARACTER(KIND = C_CHAR), POINTER :: text(:)
   END TYPE t_att_namelist
 
-  INTEGER, PARAMETER :: nmax_nmls = 64
   INTEGER, SAVE :: nmls = 0
-  TYPE(t_att_namelist), ALLOCATABLE, TARGET :: restart_namelist(:)
+  TYPE(t_att_namelist), POINTER, SAVE :: restart_namelist(:)
+  LOGICAL, SAVE :: l_restart_namelist_initialized = .FALSE.
 
   INTERFACE get_restart_namelist
     MODULE PROCEDURE get_restart_namelist_by_name
@@ -66,14 +66,15 @@ CONTAINS
     INTEGER :: i, error
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":init_restart_namelists"
 
-    IF(ALLOCATED(restart_namelist)) CALL finish(routine, "assertion failed: init_restart_namelists() called several times")
+    IF(l_restart_namelist_initialized) CALL finish(routine, "assertion failed: init_restart_namelists() called several times")
     IF(nmls /= 0) CALL finish(routine, "assertion failed")
 
-    ALLOCATE(restart_namelist(nmax_nmls), STAT = error)
+    ALLOCATE(restart_namelist(8), STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
     DO i = 1, SIZE(restart_namelist, 1)
         restart_namelist(i)%text => NULL()
     END DO
+    l_restart_namelist_initialized = .TRUE.
   END SUBROUTINE init_restart_namelists
 
   FUNCTION find_namelist(namelist_name) RESULT(RESULT)
@@ -82,9 +83,10 @@ CONTAINS
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":find_namelist"
     INTEGER :: i, error
+    TYPE(t_att_namelist), POINTER :: temp(:)
 
     ! first ensure that we actually have a list
-    IF(.NOT. ALLOCATED(restart_namelist)) CALL init_restart_namelists()
+    IF(.NOT. l_restart_namelist_initialized) CALL init_restart_namelists()
 
     ! check whether we already have an entry of that NAME
     DO i = 1, nmls
@@ -95,8 +97,24 @@ CONTAINS
     END DO
 
     ! looks like we have to create an entry IF this point IS reached
+    ! ensure that we have at least enough space for one more entry
+    IF(nmls == SIZE(restart_namelist, 1)) THEN
+        ALLOCATE(temp(2*nmls), STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+        DO i = 1, nmls
+            temp(i)%NAME = restart_namelist(i)%NAME
+            temp(i)%text => restart_namelist(i)%text
+            restart_namelist(i)%text => NULL()
+        END DO
+        DO i = nmls + 1, SIZE(temp, 1)
+            temp(i)%text => NULL()
+        END DO
+        DEALLOCATE(restart_namelist)
+        restart_namelist => temp
+    END IF
+
+    ! add an entry
     nmls = nmls + 1
-    IF(nmls > nmax_nmls) CALL finish(routine, "TODO: Remove limitation on maximal number of restart namelists")
     RESULT => restart_namelist(nmls)
     RESULT%NAME = 'nml_'//TRIM(namelist_name)
   END FUNCTION find_namelist
@@ -104,11 +122,12 @@ CONTAINS
   SUBROUTINE delete_restart_namelists()
     INTEGER :: i
 
-    IF (ALLOCATED(restart_namelist)) THEN
+    IF (l_restart_namelist_initialized) THEN
         DO i = 1, nmls
             IF(ASSOCIATED(restart_namelist(i)%text)) DEALLOCATE(restart_namelist(i)%text)
         END DO
         DEALLOCATE(restart_namelist)
+        l_restart_namelist_initialized = .FALSE.
     ENDIF
     nmls = 0
   END SUBROUTINE delete_restart_namelists
