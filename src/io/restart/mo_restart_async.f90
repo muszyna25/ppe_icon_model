@@ -56,7 +56,7 @@ MODULE mo_restart_async
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work, p_work_pe0, num_work_procs, MPI_SUCCESS, &
                                       & stop_mpi, p_send, p_recv, p_barrier, p_bcast, my_process_is_restart, my_process_is_work, &
                                       & p_comm_work_2_restart, p_n_work, p_int, process_mpi_restart_size, p_int_i8, p_real_dp, &
-                                      & p_comm_work_restart, p_mpi_wtime, process_mpi_all_comm
+                                      & p_comm_work_restart, p_mpi_wtime, process_mpi_all_comm, p_get_bcast_role
 
 #ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
@@ -147,6 +147,8 @@ MODULE mo_restart_async
     TYPE(t_reorder_data) :: cells
     TYPE(t_reorder_data) :: edges
     TYPE(t_reorder_data) :: verts
+  CONTAINS
+    PROCEDURE :: construct => restartCommData_construct
   END TYPE t_restart_comm_data
 
   ! combine the DATA that describes a patch for restart purposes with the infos required for the asynchronous fetching of the DATA from the compute PEs
@@ -172,6 +174,8 @@ MODULE mo_restart_async
     PROCEDURE :: updatePatch => restartDescriptor_updatePatch
     PROCEDURE :: writeRestart => restartDescriptor_writeRestart
     PROCEDURE :: destruct => restartDescriptor_destruct
+
+    PROCEDURE, PRIVATE :: initRma => restartDescriptor_initRma
   END TYPE t_restart_descriptor
 
 #ifndef NOMPI
@@ -221,30 +225,35 @@ CONTAINS
   SUBROUTINE restartDescriptor_construct(me)
     CLASS(t_restart_descriptor), INTENT(INOUT) :: me
 
+    INTEGER :: jg, error
+    INTEGER(KIND = MPI_ADDRESS_KIND) :: memWindowSize
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':restartDescriptor_construct'
 
 #ifdef NOMPI
     CALL finish(routine, ASYNC_RESTART_REQ_MPI)
 #else
 
-#ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
-#endif
-
     IF(.NOT. (my_process_is_work() .OR. my_process_is_restart())) RETURN
 
-    ! transfer restart varlists
-    CALL transfer_restart_var_lists
-
-    ! transfer restart namelists
-!    CALL RestartNamelist_bcast(0, p_comm_work)
+    ! TRANSFER some global DATA to the restart processes
+    CALL p_bcast(n_dom, bcastRoot(), p_comm_work_2_restart)
+    CALL bcastRestartVarlists(bcastRoot(), p_comm_work_2_restart)
     CALL RestartNamelist_bcast(bcastRoot(), p_comm_work_2_restart)
 
-    ! create and transfer patch data
-    me%patch_data = create_and_transfer_patch_data()
+    ! allocate patch data structure
+    ALLOCATE(me%patch_data(n_dom), STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
+
+    ! initialize the patch data structures
+    memWindowSize = 0
+    DO jg = 1, n_dom
+        CALL create_patch_description(me%patch_data(jg)%description, jg)
+        CALL set_restart_file_data(me%patch_data(jg)%restart_file, jg)
+        memWindowSize = me%patch_data(jg)%commData%construct(jg, me%patch_data(jg)%restart_file%var_data, memWindowSize)
+    END DO
 
     ! init. remote memory access
-    CALL init_remote_memory_access(me%patch_data)
+    CALL me%initRma(memWindowSize)
 
 #endif
 
@@ -307,7 +316,7 @@ CONTAINS
     ! check kind of process
     IF(.NOT. my_process_is_work()) RETURN
 
-    CALL compute_wait_for_restart
+    CALL compute_wait_for_restart()
     CALL restart_args%construct(datetime, jstep, opt_output_jfile)
     CALL compute_start_restart(restart_args, me%patch_data)
     CALL restart_args%destruct()
@@ -406,7 +415,7 @@ CONTAINS
 
     IF (my_process_is_work()) THEN
 
-      CALL compute_wait_for_restart
+      CALL compute_wait_for_restart()
       CALL compute_shutdown_restart
 
     ENDIF
@@ -973,16 +982,21 @@ CONTAINS
   !
   ! Transfers the restart var lists from the worker to the restart PEs.
   !
-  SUBROUTINE transfer_restart_var_lists()
+  SUBROUTINE bcastRestartVarlists(root, communicator)
+    INTEGER, VALUE :: root, communicator
+
     TYPE(t_PackedMessage) :: message
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':transfer_restart_var_lists'
+    LOGICAL :: lIsSender, lIsReceiver
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':bcastRestartVarlists'
+
+    CALL p_get_bcast_role(root, communicator, lIsSender, lIsReceiver)
 
     CALL message%construct()
-    IF(.NOT.my_process_is_restart()) CALL restartVarlistPacker(kPackOp, message)
-    CALL message%bcast(bcastRoot(), p_comm_work_2_restart)
-    IF(my_process_is_restart()) CALL restartVarlistPacker(kUnpackOp, message)
+    IF(lIsSender) CALL restartVarlistPacker(kPackOp, message)
+    CALL message%bcast(root, communicator)
+    IF(lIsReceiver) CALL restartVarlistPacker(kUnpackOp, message)
     CALL message%destruct()
-  END SUBROUTINE transfer_restart_var_lists
+  END SUBROUTINE bcastRestartVarlists
 
   ! collective across restart AND worker PEs
   SUBROUTINE create_patch_description(description, domain)
@@ -1010,55 +1024,63 @@ CONTAINS
   END SUBROUTINE create_patch_description
 
   ! collective across restart AND worker PEs
-  SUBROUTINE createCommData(commData, domain)
-    TYPE(t_restart_comm_data), INTENT(INOUT) :: commData
-    INTEGER, VALUE :: domain
+  ! returns the memory window offset for the next t_restart_comm_data object
+  FUNCTION restartCommData_construct(me, jg, var_data, memWindowOffset) RESULT(RESULT)
+    CLASS(t_restart_comm_data), INTENT(INOUT) :: me
+    INTEGER, VALUE :: jg
+    TYPE(t_var_data), POINTER, INTENT(IN) :: var_data(:)
+    INTEGER(KIND = MPI_ADDRESS_KIND), VALUE :: memWindowOffset
+    INTEGER(KIND = MPI_ADDRESS_KIND) :: RESULT
+
+    INTEGER :: error, iv, nlevs
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartCommData_construct"
 
     ! initialize on work PEs
     IF(my_process_is_work()) THEN
-        CALL set_reorder_data(p_patch(domain)%n_patch_cells_g, p_patch(domain)%n_patch_cells, p_patch(domain)%cells%decomp_info, &
-                             &commData%cells)
-        CALL set_reorder_data(p_patch(domain)%n_patch_edges_g, p_patch(domain)%n_patch_edges, p_patch(domain)%edges%decomp_info, &
-                             &commData%edges)
-        CALL set_reorder_data(p_patch(domain)%n_patch_verts_g, p_patch(domain)%n_patch_verts, p_patch(domain)%verts%decomp_info, &
-                             &commData%verts)
+        CALL set_reorder_data(p_patch(jg)%n_patch_cells_g, p_patch(jg)%n_patch_cells, p_patch(jg)%cells%decomp_info, me%cells)
+        CALL set_reorder_data(p_patch(jg)%n_patch_edges_g, p_patch(jg)%n_patch_edges, p_patch(jg)%edges%decomp_info, me%edges)
+        CALL set_reorder_data(p_patch(jg)%n_patch_verts_g, p_patch(jg)%n_patch_verts, p_patch(jg)%verts%decomp_info, me%verts)
     END IF
 
     ! transfer data to restart PEs
-    CALL transfer_reorder_data(commData%cells)
-    CALL transfer_reorder_data(commData%edges)
-    CALL transfer_reorder_data(commData%verts)
+    CALL transfer_reorder_data(me%cells)
+    CALL transfer_reorder_data(me%edges)
+    CALL transfer_reorder_data(me%verts)
 
-    commData%my_mem_win_off = 0_i8
-  END SUBROUTINE createCommData
+    ! initialize the memory window offsets
+    me%my_mem_win_off = memWindowOffset
+    IF(ASSOCIATED(var_data)) THEN
+        ! inform all other processes about our local memory window offset
+        ALLOCATE(me%mem_win_off(0:num_work_procs-1), STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
+        IF(.NOT.my_process_is_restart()) THEN
+            CALL MPI_Allgather(me%my_mem_win_off, 1, p_int_i8, &
+                               me%mem_win_off, 1, p_int_i8,    &
+                               p_comm_work, error)
+            CALL check_mpi_error(routine, 'MPI_Allgather', error, .TRUE.)
+        ENDIF
+        CALL p_bcast(me%mem_win_off, bcastRoot(), p_comm_work_2_restart)
 
-  !-------------------------------------------------------------------------------------------------
-  !
-  ! Create patch data and transfers this data from the worker to the restart PEs.
-  !
-  FUNCTION create_and_transfer_patch_data() RESULT(RESULT)
-    TYPE(t_patch_data), ALLOCATABLE :: RESULT(:)
-    INTEGER :: jg, ierrstat
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':create_and_transfer_patch_data'
+        ! compute the offset for the next t_restart_comm_data object
+        DO iv = 1, SIZE(var_data)
+            nlevs = 1
+            IF(var_data(iv)%info%ndims /= 2) nlevs = var_data(iv)%info%used_dimensions(2)
 
-#ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
-#endif
+            SELECT CASE (var_data(iv)%info%hgrid)
+                CASE (GRID_UNSTRUCTURED_CELL)
+                    memWindowOffset = memWindowOffset + INT(nlevs*me%cells%n_own,i8)
+                CASE (GRID_UNSTRUCTURED_EDGE)
+                    memWindowOffset = memWindowOffset + INT(nlevs*me%edges%n_own,i8)
+                CASE (GRID_UNSTRUCTURED_VERT)
+                    memWindowOffset = memWindowOffset + INT(nlevs*me%verts%n_own,i8)
+                CASE DEFAULT
+                    CALL finish(routine,UNKNOWN_GRID_TYPE)
+            END SELECT
+        END DO
+    END IF
 
-    ! replicate domain setup
-    CALL p_bcast(n_dom, bcastRoot(), p_comm_work_2_restart)
-
-    ! allocate patch data structure
-    ALLOCATE(RESULT(n_dom), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
-
-    ! initialize the patch data structures
-    DO jg = 1, n_dom
-        CALL create_patch_description(RESULT(jg)%description, jg)
-        CALL createCommData(RESULT(jg)%commData, jg)
-        CALL set_restart_file_data(RESULT(jg)%restart_file, jg)
-    END DO
-  END FUNCTION create_and_transfer_patch_data
+    RESULT = memWindowOffset
+  END FUNCTION restartCommData_construct
 
   !------------------------------------------------------------------------------------------------
   !
@@ -1294,69 +1316,23 @@ CONTAINS
   !
   ! Initializes the remote memory access for asynchronous restart.
   !
-  SUBROUTINE init_remote_memory_access(patch_data)
-    TYPE(t_patch_data), INTENT(INOUT) :: patch_data(:)
+  SUBROUTINE restartDescriptor_initRma(me, mem_size)
+    CLASS(t_restart_descriptor), INTENT(INOUT) :: me
+    INTEGER(KIND=MPI_ADDRESS_KIND), VALUE :: mem_size   ! the SIZE of the memory window as computed by restartCommData_construct
 
-    INTEGER :: i, iv, nlevs, ierrstat
     INTEGER :: nbytes_real, mpi_error, rma_cache_hint
-    INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size, mem_bytes
+    INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_bytes
 #ifdef USE_CRAY_POINTER
     REAL(dp) :: tmp_dp
     POINTER(tmp_ptr_dp,tmp_dp(*))
 #endif
-    TYPE(t_var_data), POINTER :: p_vars(:)
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':init_remote_memory_access'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':restartDescriptor_initRma'
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' is called for p_pe=',p_pe
 #endif
 
     mpi_win = MPI_WIN_NULL
-
-    ! get size and offset of the data for every restart file
-    mem_size = 0_i8
-
-    ! go over all patches
-    DO i = 1, SIZE(patch_data)
-      patch_data(i)%commData%my_mem_win_off = mem_size
-
-      ! go over all restart variables for this restart file
-      p_vars => patch_data(i)%restart_file%var_data
-      IF (.NOT. ASSOCIATED(p_vars)) CYCLE
-      DO iv = 1, SIZE(p_vars)
-
-        IF (p_vars(iv)%info%ndims == 2) THEN
-          nlevs = 1
-        ELSE
-          nlevs = p_vars(iv)%info%used_dimensions(2)
-        ENDIF
-
-        SELECT CASE (p_vars(iv)%info%hgrid)
-          CASE (GRID_UNSTRUCTURED_CELL)
-            mem_size = mem_size + INT(nlevs*patch_data(i)%commData%cells%n_own,i8)
-          CASE (GRID_UNSTRUCTURED_EDGE)
-            mem_size = mem_size + INT(nlevs*patch_data(i)%commData%edges%n_own,i8)
-          CASE (GRID_UNSTRUCTURED_VERT)
-            mem_size = mem_size + INT(nlevs*patch_data(i)%commData%verts%n_own,i8)
-          CASE DEFAULT
-            CALL finish(routine,UNKNOWN_GRID_TYPE)
-        END SELECT
-
-      ENDDO
-
-      ! get the offset on all PEs
-      ALLOCATE(patch_data(i)%commData%mem_win_off(0:num_work_procs-1), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
-      IF(.NOT.my_process_is_restart()) THEN
-        CALL MPI_Allgather(patch_data(i)%commData%my_mem_win_off, 1, p_int_i8, &
-                           patch_data(i)%commData%mem_win_off, 1, p_int_i8,    &
-                           p_comm_work, mpi_error)
-        CALL check_mpi_error(routine, 'MPI_Allgather', mpi_error, .TRUE.)
-      ENDIF
-
-      CALL p_bcast(patch_data(i)%commData%mem_win_off, bcastRoot(), p_comm_work_2_restart)
-
-    ENDDO
 
     ! mem_size is calculated as number of variables above, get number of bytes
     ! get the amount of bytes per REAL*8 variable (as used in MPI communication)
@@ -1426,7 +1402,7 @@ CONTAINS
     CALL check_mpi_error(routine, 'MPI_Info_free', mpi_error, .TRUE.)
 #endif
 
-  END SUBROUTINE init_remote_memory_access
+  END SUBROUTINE restartDescriptor_initRma
 
   !------------------------------------------------------------------------------------------------
   !
