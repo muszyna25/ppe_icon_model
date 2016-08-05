@@ -14,7 +14,7 @@ MODULE mo_io_restart_namelist
   USE mo_io_units,    ONLY: nerr, find_next_free_unit, filename_max
   USE mo_exception,   ONLY: message, finish
   USE mo_mpi,         ONLY: p_bcast, p_pe, p_comm_rank
-  USE mo_cdi,         ONLY: CDI_GLOBAL, CDI_UNDEFID, vlistInqNatts, vlistInqAtt, vlistInqAttTxt, vlistDefAttTxt
+  USE mo_cdi,         ONLY: CDI_GLOBAL, CDI_UNDEFID, CDI_MAX_NAME, vlistInqNatts, vlistInqAtt, vlistInqAttTxt, vlistDefAttTxt
 #ifndef NOMPI
   USE mpi, ONLY: MPI_ROOT
 #endif
@@ -292,53 +292,44 @@ CONTAINS
   END SUBROUTINE RestartNamelist_writeToFile
 
   SUBROUTINE read_and_bcast_restart_namelists(vlistID, root_pe, comm)
-    INTEGER, INTENT(IN) :: vlistID      !< CDI vlist ID
-    INTEGER, INTENT(IN) :: root_pe      !< rank of the PE that reads the vlist AND broadcast the namelist information
-    INTEGER, INTENT(IN) :: comm         !< MPI communicator
+    INTEGER, INTENT(IN) :: vlistID, root_pe, comm
 
-    ! local variables
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":read_and_bcast_restart_namelists"
-    INTEGER :: natts, att_type, att_len, i, status, my_rank
-    CHARACTER(len=64) :: att_name
+    INTEGER :: natts, att_type, att_len, i, status
+    CHARACTER(LEN = CDI_MAX_NAME) :: att_name
     CHARACTER(LEN = :), ALLOCATABLE :: tempText
-    TYPE(t_att_namelist), POINTER :: list_entry
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":read_and_bcast_restart_namelists"
 
     ! reset the list
     CALL delete_restart_namelists()
 
-    ! get the number of attributes so we can loop over them
-    my_rank = p_comm_rank(comm)
-    IF (my_rank == root_pe) THEN
-      IF(vlistID == CDI_UNDEFID) CALL finish(routine, "assertion failed: root PE does not have a valid vlistID")
-      status = vlistInqNatts(vlistID, CDI_GLOBAL, natts)
-      IF(status /= SUCCESS) CALL finish(routine, "vlistInqNatts() returned an error")
-    END IF
-    CALL p_bcast(natts, root_pe, comm)
+    ! the root pe reads the namelists from the file
+    IF (p_comm_rank(comm) == root_pe) THEN
+        IF(vlistID == CDI_UNDEFID) CALL finish(routine, "assertion failed: root PE does not have a valid vlistID")
 
-    DO i = 0, natts-1
-        ! inquire the attribute NAME AND check whether it IS a namelist attribute
-        att_name = ''
-        att_len  = 0
-        IF (my_rank == root_pe) THEN
+        ! get the number of attributes so we can loop over them
+        status = vlistInqNatts(vlistID, CDI_GLOBAL, natts)
+        IF(status /= SUCCESS) CALL finish(routine, "vlistInqNatts() returned an error")
+
+        DO i = 0, natts-1
+            ! inquire the attribute NAME AND check whether it IS a namelist attribute
+            att_name = ''
+            att_len  = 0
             status = vlistInqAtt(vlistID, CDI_GLOBAL, i, att_name, att_type, att_len)
             IF(status /= SUCCESS) CALL finish(routine, "vlistInqAtt() returned an error")
-        END IF
-        CALL p_bcast(att_name, root_pe, comm)
-        IF ( att_name(1:4) /= 'nml_') CYCLE ! skip this, it is not a namelist 
 
-        ! it IS a namelist attribute, so we add it to the list
-        list_entry => find_namelist(att_name(5:))
-        CALL p_bcast(att_len, root_pe, comm)
-        ALLOCATE(CHARACTER(len=att_len) :: tempText)
-        IF (my_rank == root_pe) THEN
+            IF(att_name(1:4) /= 'nml_') CYCLE ! skip this, it is not a namelist 
+
+            ! it IS a namelist attribute, so we add it to the list
+            ALLOCATE(CHARACTER(len=att_len) :: tempText)
             status = vlistInqAttTxt(vlistID, CDI_GLOBAL, TRIM(att_name), att_len, tempText)
             IF(status /= SUCCESS) CALL finish(routine, "vlistInqAttTxt() returned an error")
-        END IF
-        CALL p_bcast(tempText, root_pe, comm)
-        list_entry%text => toCharArray(tempText)
-        DEALLOCATE(tempText)
-    ENDDO
+            CALL set_restart_namelist(att_name(5:), tempText)
+            DEALLOCATE(tempText)
+        ENDDO
+    END IF
 
+    ! then we broadcast the RESULT
+    CALL RestartNamelist_bcast(root_pe, comm)
   END SUBROUTINE read_and_bcast_restart_namelists
 
   !-------------------------------------------------------------------------------------------------
