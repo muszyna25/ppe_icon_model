@@ -38,7 +38,7 @@ MODULE mo_io_restart_async
     &                                   TLEV_NNOW, TLEV_NNOW_RCF
   USE mo_var_metadata_types,      ONLY: t_var_metadata
   USE mo_io_restart_namelist,     ONLY: nmls, restart_namelist, delete_restart_namelists, &
-    &                                   set_restart_namelist, get_restart_namelist
+    &                                   set_restart_namelist, get_restart_namelist, print_restart_name_lists
   USE mo_name_list_output_types,  ONLY: max_z_axes
 #ifdef USE_CRAY_POINTER
   USE mo_name_list_output_init,   ONLY: set_mem_ptr_dp
@@ -619,7 +619,7 @@ CONTAINS
 #ifdef DEBUG
           CALL print_restart_arguments
           CALL print_restart_attributes
-          CALL print_restart_name_lists
+          CALL print_restart_name_lists()
 #endif
           CALL open_restart_file(p_pd)
 
@@ -1365,31 +1365,6 @@ CONTAINS
   !
   ! Common helper routines to processing lists.
   !
-
-  !------------------------------------------------------------------------------------------------
-  !
-  ! Prints the restart name lists.
-  !
-  SUBROUTINE print_restart_name_lists
-
-#ifdef DEBUG
-    INTEGER                           :: iv
-    CHARACTER(LEN=MAX_NAME_LENGTH)    :: list_name
-    CHARACTER(LEN=MAX_ATTRIB_TLENGTH) :: list_text
-    CHARACTER(LEN=*), PARAMETER       :: subname = MODUL_NAME//'print_restart_name_list'
-
-    WRITE (nerr,FORMAT_VALS3)subname,' p_pe=',p_pe
-
-    PRINT *,'restart name lists count=',nmls
-    DO iv = 1, nmls
-      CALL get_restart_namelist(iv, list_name)
-      CALL get_restart_namelist(list_name, list_text)
-
-      PRINT *,' restart name list=',TRIM(list_name),' text=',TRIM(list_text)
-    ENDDO
-#endif
-
-    END SUBROUTINE print_restart_name_lists
 
   !------------------------------------------------------------------------------------------------
   !

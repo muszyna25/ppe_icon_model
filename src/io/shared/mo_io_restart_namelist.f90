@@ -6,14 +6,13 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 MODULE mo_io_restart_namelist
-
   USE ISO_C_BINDING, ONLY: C_CHAR
   USE mo_util_file,   ONLY: util_tmpnam, util_filesize, util_unlink
   USE mo_util_string, ONLY: tocompact, toCharacter, toCharArray
   USE mo_impl_constants, ONLY: SUCCESS
-  USE mo_io_units,    ONLY: find_next_free_unit, filename_max
+  USE mo_io_units,    ONLY: nerr, find_next_free_unit, filename_max
   USE mo_exception,   ONLY: message, finish
-  USE mo_mpi,         ONLY: p_bcast
+  USE mo_mpi,         ONLY: p_bcast, p_pe
   USE mo_cdi,         ONLY: CDI_GLOBAL, vlistInqNatts, vlistInqAtt, vlistInqAttTxt
 
   IMPLICIT NONE
@@ -26,6 +25,7 @@ MODULE mo_io_restart_namelist
   PUBLIC :: close_tmpfile
   PUBLIC :: read_and_bcast_restart_namelists
   PUBLIC :: get_restart_namelist
+  PUBLIC :: print_restart_name_lists
   PUBLIC :: delete_restart_namelists
   PUBLIC :: nmls
   PUBLIC :: restart_namelist
@@ -146,6 +146,17 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE get_restart_namelist_by_index
+
+  SUBROUTINE print_restart_name_lists()
+    INTEGER                           :: i
+    CHARACTER(LEN=*), PARAMETER       :: routine = modname//':print_restart_name_list'
+
+    WRITE(nerr, '(a,a,i3)') routine, ' p_pe=', p_pe
+    PRINT *,'restart name lists count = ',nmls
+    DO i = 1, nmls
+        PRINT *, ' restart name list = ', TRIM(restart_namelist(i)%NAME), ' text = "', restart_namelist(i)%text, '"'
+    ENDDO
+  END SUBROUTINE print_restart_name_lists
 
   FUNCTION open_tmpfile() RESULT(funit)
     INTEGER :: funit
