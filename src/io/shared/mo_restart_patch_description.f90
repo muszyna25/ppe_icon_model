@@ -18,12 +18,14 @@ MODULE mo_restart_patch_description
     USE mo_dynamics_config, ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf
     USE mo_exception, ONLY: finish
     USE mo_fortran_tools, ONLY: assign_if_present, assign_if_present_allocatable
+    USE mo_io_restart_attributes, ONLY: t_RestartAttributeList
     USE mo_io_units, ONLY: filename_max
     USE mo_kind, ONLY: wp
     USE mo_model_domain, ONLY: t_patch
     USE mo_mpi, ONLY: p_pe_work
     USE mo_packed_message, ONLY: t_PackedMessage
-    USE mo_util_restart, ONLY: t_v_grid, set_vertical_grid
+    USE mo_util_restart, ONLY: t_v_grid, set_vertical_grid, setDynamicPatchRestartAttributes, setPhysicsRestartAttributes
+    USE mo_util_string, ONLY: int2string
 
     IMPLICIT NONE
 
@@ -95,6 +97,7 @@ MODULE mo_restart_patch_description
         PROCEDURE :: setTimeLevels => restartPatchDescription_setTimeLevels ! set the time level fields (nold, ...) to match the respective global variables
         PROCEDURE :: packer => restartPatchDescription_packer
         PROCEDURE :: defineVGrids => restartPatchDescription_defineVGrids
+        PROCEDURE :: setRestartAttributes => restartPatchDescription_setRestartAttributes
     END TYPE t_restart_patch_description
 
     CHARACTER(LEN = *), PARAMETER :: modname = "mo_restart_patch_description"
@@ -286,5 +289,34 @@ CONTAINS
         IF(me%l_opt_depth) CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_SEA, nlev_ocean)
         IF(me%l_opt_depth) CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_SEA_HALF, nlev_ocean+1)
     END SUBROUTINE restartPatchDescription_defineVGrids
+
+    SUBROUTINE restartPatchDescription_setRestartAttributes(me, restartAttributes)
+        CLASS(t_restart_patch_description), INTENT(IN) :: me
+        TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
+
+        CHARACTER(LEN = 2) :: domainString
+
+        domainString = TRIM(int2string(me%id, '(i2.2)'))
+
+        ! set time levels
+        CALL setDynamicPatchRestartAttributes(restartAttributes, me%id, me%nold, me%nnow, me%nnew, me%nnow_rcf, me%nnew_rcf)
+
+        ! additional restart-output for nonhydrostatic model
+        IF (me%l_opt_sim_time) CALL restartAttributes%setReal ('sim_time_DOM'//domainString, me%opt_sim_time)
+
+        !-------------------------------------------------------------
+        ! DR
+        ! WORKAROUND FOR FIELDS WHICH NEED TO GO INTO THE RESTART FILE,
+        ! BUT SO FAR CANNOT BE HANDELED CORRECTLY BY ADD_VAR OR
+        ! SET_RESTART_ATTRIBUTE
+        !-------------------------------------------------------------
+        IF (me%l_opt_ndyn_substeps) CALL restartAttributes%setInteger('ndyn_substeps_DOM'//domainString, me%opt_ndyn_substeps)
+        IF (me%l_opt_jstep_adv_marchuk_order) CALL restartAttributes%setInteger('jstep_adv_marchuk_order_DOM'//domainString, &
+                                                                               &me%opt_jstep_adv_marchuk_order)
+
+        IF (ALLOCATED(me%opt_t_elapsed_phy) .AND. ALLOCATED(me%opt_lcall_phy)) THEN
+            CALL setPhysicsRestartAttributes(restartAttributes, me%id, me%opt_t_elapsed_phy, me%opt_lcall_phy)
+        END IF
+    END SUBROUTINE restartPatchDescription_setRestartAttributes
 
 END MODULE mo_restart_patch_description

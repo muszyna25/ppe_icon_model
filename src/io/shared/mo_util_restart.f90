@@ -90,7 +90,7 @@ MODULE mo_util_restart
         INTEGER, ALLOCATABLE :: output_jfile(:)
     CONTAINS
         PROCEDURE :: construct => restartArgs_construct
-        PROCEDURE :: packer => restartArgs_packer
+        PROCEDURE :: packer => restartArgs_packer   ! unpacking IS considered construction
         PROCEDURE :: print => restartArgs_print
         PROCEDURE :: destruct => restartArgs_destruct
     END TYPE t_restart_args

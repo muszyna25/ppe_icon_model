@@ -294,6 +294,7 @@ CONTAINS
     CALL compute_wait_for_restart
     CALL restart_args%construct(datetime, jstep, opt_output_jfile)
     CALL compute_start_restart(restart_args)
+    CALL restart_args%destruct()
 
     ! do the restart output
     DO idx = 1, SIZE(patch_data)
@@ -421,12 +422,13 @@ CONTAINS
     done = .FALSE.
     DO
       ! wait for a message from the compute PEs to start
-      CALL restart_wait_for_start(restart_args, done)
+      CALL restart_wait_for_start(restart_args, done)   ! this constructs the restart_args
 
       IF(done) EXIT ! leave loop, we are done
 
       ! read and write restart variable lists (collective call)
       CALL restart_write_async_restart(restart_args)
+      CALL restart_args%destruct()
 
       ! inform compute PEs that the restart is done
       CALL restart_send_ready
@@ -1421,15 +1423,8 @@ CONTAINS
     TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
     TYPE(t_restart_args), INTENT(IN) :: restart_args
 
-    TYPE(t_restart_patch_description), POINTER :: p_pd
-    CHARACTER(LEN=MAX_NAME_LENGTH) :: attrib_name
-    INTEGER                        :: jp, jp_end, jg, i, current_jfile, effectiveDomainCount
-
-    CHARACTER(LEN=*), PARAMETER    :: routine = modname//':set_restart_attributes'
-    CHARACTER(LEN=*), PARAMETER    :: attrib_format_int  = '(a,i2.2)'
-    CHARACTER(LEN=*), PARAMETER    :: attrib_format_int2 = '(a,i2.2,a,i2.2)'
-
-    CHARACTER(len=MAX_CHAR_LENGTH) :: attname   ! attribute name
+    INTEGER :: i, effectiveDomainCount
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':set_restart_attributes'
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' is called for p_pe=',p_pe
@@ -1446,39 +1441,8 @@ CONTAINS
 
     ! set the domain dependent attributes
     DO i = 1, SIZE(patch_data)
-        p_pd => patch_data(i)%description
-
-        ! set time levels
-        jg = p_pd%id
-        CALL setDynamicPatchRestartAttributes(restartAttributes, jg, p_pd%nold, p_pd%nnow, p_pd%nnew, p_pd%nnow_rcf, p_pd%nnew_rcf)
-
-        ! additional restart-output for nonhydrostatic model
-        IF (p_pd%l_opt_sim_time) THEN
-            WRITE(attrib_name, attrib_format_int) 'sim_time_DOM', jg
-            CALL restartAttributes%setReal (TRIM(attrib_name), p_pd%opt_sim_time)
-        END IF
-
-        !-------------------------------------------------------------
-        ! DR
-        ! WORKAROUND FOR FIELDS WHICH NEED TO GO INTO THE RESTART FILE,
-        ! BUT SO FAR CANNOT BE HANDELED CORRECTLY BY ADD_VAR OR
-        ! SET_RESTART_ATTRIBUTE
-        !-------------------------------------------------------------
-        IF (p_pd%l_opt_ndyn_substeps) THEN
-            WRITE(attrib_name, attrib_format_int) 'ndyn_substeps_DOM', jg
-            CALL restartAttributes%setInteger(TRIM(attrib_name), p_pd%opt_ndyn_substeps)
-        END IF
-
-        IF (p_pd%l_opt_jstep_adv_marchuk_order) THEN
-            WRITE(attrib_name, attrib_format_int) 'jstep_adv_marchuk_order_DOM', jg
-            CALL restartAttributes%setInteger(TRIM(attrib_name), p_pd%opt_jstep_adv_marchuk_order)
-        END IF
-
-        IF (ALLOCATED(p_pd%opt_t_elapsed_phy) .AND. ALLOCATED(p_pd%opt_lcall_phy)) THEN
-            CALL setPhysicsRestartAttributes(restartAttributes, jg, p_pd%opt_t_elapsed_phy, p_pd%opt_lcall_phy)
-        END IF
+        CALL patch_data(i)%description%setRestartAttributes(restartAttributes)
     END DO
-
   END SUBROUTINE set_restart_attributes
 
   !------------------------------------------------------------------------------------------------
