@@ -11,7 +11,9 @@
 !! headers of the routines.
 
 MODULE mo_restart
+#ifndef NOMPI
     USE mo_async_restart, ONLY: t_AsyncRestartDescriptor
+#endif
     USE mo_exception, ONLY: finish
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_parallel_config, ONLY: use_async_restart_output
@@ -38,7 +40,11 @@ CONTAINS
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":createRestartDescriptor"
 
         IF(use_async_restart_output) THEN
+#ifndef NOMPI
             ALLOCATE(t_AsyncRestartDescriptor :: RESULT, STAT = error)
+#else
+            CALL finish(routine, "this executable was compiled without MPI support, hence async restart writing is not available")
+#endif
         ELSE
             ALLOCATE(t_SyncRestartDescriptor :: RESULT, STAT = error)
         END IF

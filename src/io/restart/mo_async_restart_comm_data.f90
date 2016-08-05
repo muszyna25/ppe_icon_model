@@ -10,6 +10,9 @@
 !! headers of the routines.
 
 MODULE mo_async_restart_comm_data
+! There is no point in pretending this module is usable if NOMPI is defined.
+#ifndef NOMPI
+
     USE ISO_C_BINDING, ONLY: C_PTR, C_INTPTR_T, C_F_POINTER
     USE mo_async_restart_packer, ONLY: t_AsyncRestartPacker
     USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL
@@ -21,10 +24,8 @@ MODULE mo_async_restart_comm_data
     USE mo_mpi, ONLY: p_real_dp, p_comm_work_restart, p_pe_work, num_work_procs, p_mpi_wtime, my_process_is_work
     USE mo_restart_var_data, ONLY: t_RestartVarData
     USE mo_util_string, ONLY: int2string
-#ifndef NOMPI
     USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL, MPI_LOCK_SHARED, MPI_MODE_NOCHECK, MPI_WIN_NULL, MPI_LOCK_EXCLUSIVE, &
                  & MPI_SUCCESS
-#endif
 
     IMPLICIT NONE
 
@@ -45,22 +46,17 @@ MODULE mo_async_restart_comm_data
         TYPE(t_AsyncRestartPacker), PUBLIC :: edges
         TYPE(t_AsyncRestartPacker), PUBLIC :: verts
     CONTAINS
-! There is no point in pretending this is a usable class if NOMPI is defined.
-#ifndef NOMPI
         PROCEDURE :: construct => asyncRestartCommData_construct
         PROCEDURE :: maxLevelSize => asyncRestartCommData_maxLevelSize  ! called to get the required buffer SIZE on the restart processes
         PROCEDURE :: getPacker => asyncRestartCommData_getPacker    ! RETURN the relevant t_AsyncRestartPacker object
         PROCEDURE :: postData => asyncRestartCommData_postData  ! called by the compute processes to WRITE their DATA to their memory window
         PROCEDURE :: collectData => asyncRestartCommData_collectData    ! called by the restart processes to fetch the DATA from the compute processes
         PROCEDURE :: destruct => asyncRestartCommData_destruct
-#endif
     END TYPE t_AsyncRestartCommData
 
     CHARACTER(LEN = *), PARAMETER :: modname = "mo_async_restart_comm_data"
 
 CONTAINS
-
-#ifndef NOMPI
 
     ! Opens an MPI memory window for the given amount of double values, returning both the ALLOCATED buffer AND the MPI window handle.
     SUBROUTINE openMpiWindow(doubleCount, communicator, mem_ptr_dp, mpi_win)
@@ -145,9 +141,6 @@ CONTAINS
         INTEGER :: mpi_error
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":closeMpiWindow"
 
-#ifdef NOMPI
-        CALL finish(routine, "assertion failed: "//routine//"() must NOT be called without MPI")
-#else
         ! release RMA window
         CALL MPI_Win_fence(0, mpiWindow, mpi_error)
         CALL warnMpiError('MPI_Win_fence')
@@ -168,7 +161,6 @@ CONTAINS
             IF(mpi_error /= MPI_SUCCESS) CALL message(routine, mpiCall//"() returned error "//TRIM(int2string(mpi_error)), &
                                                      &level = em_warn, all_print = .TRUE.)
         END SUBROUTINE warnMpiError
-#endif
     END SUBROUTINE closeMpiWindow
 
     ! collective across restart AND worker PEs
@@ -330,5 +322,4 @@ CONTAINS
     END SUBROUTINE asyncRestartCommData_destruct
 
 #endif
-
 END MODULE mo_async_restart_comm_data

@@ -108,7 +108,9 @@ MODULE mo_atmo_model
   USE mo_interface_echam_ocean,   ONLY: construct_atmo_coupler, destruct_atmo_coupler
 
   ! I/O
+#ifndef NOMPI
   USE mo_async_restart,           ONLY: restart_main_proc                                       ! main procedure for Restart PEs
+#endif
   USE mo_name_list_output,        ONLY: name_list_io_main_proc
   USE mo_name_list_output_config, ONLY: use_async_name_list_io
   USE mo_time_config,             ONLY: time_config      ! variable
@@ -331,11 +333,15 @@ CONTAINS
     ! If we belong to the Restart PEs just call restart_main_proc before reading patches.
     ! This routine will never return
     IF (process_mpi_restart_size > 0) THEN
+#ifndef NOMPI
       use_async_restart_output = .TRUE.
       CALL message('','asynchronous restart output is enabled.')
       IF (my_process_is_restart()) THEN
         CALL restart_main_proc
       ENDIF
+#else
+      CALL finish('', 'this executable was compiled without MPI support, hence asynchronous restart output is not available')
+#endif
     ENDIF
 
     ! If we belong to the prefetching PEs just call prefetch_main_proc before reading patches.

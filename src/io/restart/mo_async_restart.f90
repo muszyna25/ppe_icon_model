@@ -20,6 +20,9 @@
 !!
 
 MODULE mo_async_restart
+! There is no point in pretending this module is usable if NOMPI is defined.
+#ifndef NOMPI
+
   USE mo_async_restart_packer,    ONLY: restartBcastRoot
   USE mo_async_restart_comm_data, ONLY: t_AsyncRestartCommData
   USE mo_cdi_constants,           ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
@@ -44,7 +47,6 @@ MODULE mo_async_restart
   USE mo_restart_patch_description, ONLY: t_restart_patch_description
   USE mo_restart_util,            ONLY: setGeneralRestartAttributes, create_restart_file_link, t_restart_args
   USE mo_restart_var_data,        ONLY: t_RestartVarData, createRestartVarData, getLevelPointers, has_valid_time_level
-#ifndef NOMPI
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work, p_work_pe0, num_work_procs, MPI_SUCCESS, &
                                       & stop_mpi, p_send, p_recv, p_barrier, p_bcast, my_process_is_restart, my_process_is_work, &
                                       & p_comm_work_2_restart, process_mpi_restart_size, p_mpi_wtime, process_mpi_all_comm, &
@@ -53,7 +55,6 @@ MODULE mo_async_restart
   INCLUDE "mpif.h"
 #else
   USE mpi,                        ONLY: MPI_ADDRESS_KIND
-#endif
 #endif
 
   IMPLICIT NONE
@@ -195,10 +196,6 @@ CONTAINS
     INTEGER :: jg, error
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':asyncRestartDescriptor_construct'
 
-#ifdef NOMPI
-    CALL finish(routine, ASYNC_RESTART_REQ_MPI)
-#else
-
     IF(.NOT. (my_process_is_work() .OR. my_process_is_restart())) RETURN
 
     ! TRANSFER some global DATA to the restart processes
@@ -217,7 +214,6 @@ CONTAINS
     DO jg = 1, n_dom
         CALL me%patchData(jg)%construct(me%modelType, jg)
     END DO
-#endif
   END SUBROUTINE asyncRestartDescriptor_construct
 
   !------------------------------------------------------------------------------------------------
@@ -238,10 +234,6 @@ CONTAINS
     TYPE(t_restart_args) :: restart_args
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':asyncRestartDescriptor_writeRestart'
 
-#ifdef NOMPI
-    CALL finish (routine, ASYNC_RESTART_REQ_MPI)
-#else
-
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
 #endif
@@ -259,10 +251,8 @@ CONTAINS
       ! collective call to write the restart variables
       IF(me%patchData(idx)%description%l_dom_active) CALL compute_write_var_list(me%patchData(idx))
     END DO
-#endif
   END SUBROUTINE asyncRestartDescriptor_writeRestart
 
-#ifndef NOMPI
   SUBROUTINE restart_write_patch(restart_args, patchData, restartAttributes, modelType)
     TYPE(t_restart_args), INTENT(IN) :: restart_args
     CLASS(t_RestartPatchData), INTENT(INOUT) :: patchData
@@ -289,7 +279,6 @@ CONTAINS
         CALL patchData%writeFile(restartAttributes, restart_args, patchData%description%restart_proc_id - p_restart_pe0, .TRUE.)
     END IF
   END SUBROUTINE restart_write_patch
-#endif
 
   !> Writes all restart data into one or more files (one file per patch, collective across restart processes).
   SUBROUTINE asyncRestartDescriptor_restartWriteAsyncRestart(me, restart_args)
@@ -299,10 +288,6 @@ CONTAINS
     INTEGER :: idx
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':asyncRestartDescriptor_restartWriteAsyncRestart'
-
-#ifdef NOMPI
-    CALL finish (routine, ASYNC_RESTART_REQ_MPI)
-#else
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
@@ -321,7 +306,6 @@ CONTAINS
 
     CALL restartAttributes%destruct()
     DEALLOCATE(restartAttributes)
-#endif
   END SUBROUTINE asyncRestartDescriptor_restartWriteAsyncRestart
 
   !------------------------------------------------------------------------------------------------
@@ -334,9 +318,6 @@ CONTAINS
     INTEGER :: i
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':asyncRestartDescriptor_destruct'
 
-#ifdef NOMPI
-    CALL finish(routine, ASYNC_RESTART_REQ_MPI)
-#else
     ! check kind of process
     IF (.NOT. my_process_is_work() .AND. .NOT. my_process_is_restart()) RETURN
 
@@ -351,8 +332,6 @@ CONTAINS
         CALL me%patchData(i)%destruct()
     END DO
     DEALLOCATE(me%patchData)
-#endif
-
   END SUBROUTINE asyncRestartDescriptor_destruct
 
   !-------------------------------------------------------------------------------------------------
@@ -364,10 +343,6 @@ CONTAINS
     TYPE(t_AsyncRestartDescriptor) :: restartDescriptor
     TYPE(t_restart_args) :: restart_args
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':restart_main_proc'
-
-#ifdef NOMPI
-    CALL finish(routine, ASYNC_RESTART_REQ_MPI)
-#else
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
@@ -406,15 +381,8 @@ CONTAINS
 
     STOP
 
-#endif
-
   END SUBROUTINE restart_main_proc
 
-!---------------------------------------------------------------------------------------------------
-!
-! All other routines are needed for MPI compilation.
-!
-#ifndef NOMPI
   !-------------------------------------------------------------------------------------------------
   !-------------------------------------------------------------------------------------------------
   !-------------------------------------------------------------------------------------------------
@@ -1031,10 +999,5 @@ CONTAINS
     END DO
   END SUBROUTINE compute_write_var_list
 
-  !------------------------------------------------------------------------------------------------
-  !
-  ! Opens the restart file from the given parameters.
-  !
 #endif
-
 END MODULE mo_async_restart
