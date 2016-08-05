@@ -206,6 +206,7 @@ MODULE mo_mpi
   PUBLIC :: p_comm_size
   PUBLIC :: p_comm_rank
   PUBLIC :: p_send, p_recv, p_sendrecv, p_bcast, p_barrier
+  PUBLIC :: p_bcast_role
   PUBLIC :: p_isend, p_irecv, p_wait, p_wait_any,         &
     &       p_irecv_packed, p_send_packed, p_recv_packed, &
     &       p_bcast_packed,                               &
@@ -6428,6 +6429,39 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_bcast_cchar
+
+  ! Collective CALL to determine whether this process IS a sender/receiver IN a broadcast operation.
+  ! This routine IS robust IN the presence of inter-communicators (which IS its reason d'etre).
+  SUBROUTINE p_bcast_role(root, communicator, lIsSender, lIsReceiver)
+    INTEGER, VALUE :: root, communicator
+    LOGICAL, INTENT(OUT) :: lIsSender, lIsReceiver
+
+#ifndef NOMPI
+    INTEGER :: error
+    LOGICAL :: lIsInterCommunicator
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":p_bcast_role"
+
+    ! IS this an inter-communicator?
+    CALL MPI_Comm_test_inter(communicator, lIsInterCommunicator, error)
+    IF(error /= MPI_SUCCESS) CALL finish(routine, "MPI_Comm_test_inter() returned an error")
+    IF(lIsInterCommunicator) THEN
+        ! inter-communicator, we have to check for the special values MPI_ROOT AND MPI_PROC_NULL IN the root variable
+        lIsSender = .FALSE.
+        IF(root == MPI_ROOT) lIsSender = .TRUE.
+
+        lIsReceiver = .FALSE.
+        IF(root /= MPI_ROOT .AND. root /= MPI_PROC_NULL) lIsReceiver = .TRUE.
+    ELSE
+        ! intra-communicator, we have to compare the root variable against our own rank
+        lIsSender = root == p_comm_rank(communicator)
+        lIsReceiver = .NOT.lIsSender
+    END IF
+#else
+    ! same behavior as IF there IS ONLY a single MPI process, which consequently must be the root of the bcast() operation
+    lIsSender = .TRUE.
+    lIsReceiver = .FALSE.
+#endif
+  END SUBROUTINE p_bcast_role
 
 
   ! probe implementation

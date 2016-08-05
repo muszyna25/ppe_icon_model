@@ -13,11 +13,8 @@ MODULE mo_io_restart_namelist
   USE mo_impl_constants, ONLY: SUCCESS
   USE mo_io_units,    ONLY: nerr, find_next_free_unit, filename_max
   USE mo_exception,   ONLY: message, finish
-  USE mo_mpi,         ONLY: p_bcast, p_pe, p_comm_rank
+  USE mo_mpi,         ONLY: p_bcast, p_pe, p_comm_rank, p_bcast_role
   USE mo_cdi,         ONLY: CDI_GLOBAL, CDI_UNDEFID, CDI_MAX_NAME, vlistInqNatts, vlistInqAtt, vlistInqAttTxt, vlistDefAttTxt
-#ifndef NOMPI
-  USE mpi, ONLY: MPI_ROOT
-#endif
 
   IMPLICIT NONE
 
@@ -340,29 +337,14 @@ CONTAINS
   SUBROUTINE RestartNamelist_bcast(root, communicator)
     INTEGER, VALUE :: root, communicator
 
-    LOGICAL :: lIsInterCommunicator, lIsRoot, lIsReceiver
+    LOGICAL :: lIsRoot, lIsReceiver
     INTEGER :: iv, nv, i, maxNameLength, maxAttributeLength, error
     CHARACTER(LEN = :), ALLOCATABLE :: list_name, list_text
     CHARACTER(LEN = :), POINTER :: temp_text
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":RestartNamelist_bcast"
 
-#ifndef NOMPI
-    ! test whether we are root OR a reciever (OR neither IN the CASE of an inter communicator)
-    CALL MPI_Comm_test_inter(communicator, lIsInterCommunicator, error)
-    IF(lIsInterCommunicator) THEN
-        lIsRoot = root == MPI_ROOT
-    ELSE
-        lIsRoot = root == p_comm_rank(communicator)
-    END IF
-
-    ! Determining of whether we are a receiver IS NOT as straight-forward as IN the intra communicator CASE, so we just DO a test broadcast to see which processes actually receive something.
-    lIsReceiver = lIsRoot
-    CALL p_bcast(lIsReceiver, root, communicator)
-    IF(lIsRoot) lIsReceiver = .FALSE.
-#else
-    lIsRoot = .TRUE.
-    lIsReceiver = .FALSE.
-#endif
+    ! get our role IN the broadcast operation
+    CALL p_bcast_role(root, communicator, lIsRoot, lIsReceiver)
 
     ! delete old name lists
     IF(lIsReceiver) CALL delete_restart_namelists
