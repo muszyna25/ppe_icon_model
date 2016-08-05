@@ -111,7 +111,7 @@ MODULE mo_restart_async
     CHARACTER(LEN=32)           :: model_type
     TYPE(t_restart_cdi_ids)     :: cdiIds
   CONTAINS
-    PROCEDURE :: construct => restartFile_construct
+    PROCEDURE, PRIVATE :: construct => restartFile_construct
   END TYPE t_restart_file
 
   !------------------------------------------------------------------------------------------------
@@ -139,20 +139,23 @@ MODULE mo_restart_async
     PROCEDURE, PRIVATE :: transferToRestart => reorderData_transferToRestart    ! Constructs the reorder DATA on the restart processes.
 
     PROCEDURE, PRIVATE :: reorderLevelFromPe => reorderData_reorderLevelFromPe  ! sort the DATA of a single level from a single PE into a global array.
+
+    PROCEDURE, PRIVATE :: destruct => reorderData_destruct
   END TYPE t_reorder_data
 
   ! this combines all the DATA that's relevant for transfering the payload DATA from the worker PEs to the restart PEs
   TYPE t_restart_comm_data
     ! DATA for remote memory access
-    INTEGER(i8) :: my_mem_win_off
-    INTEGER(i8), ALLOCATABLE :: mem_win_off(:)
+    INTEGER :: mpiWindow
+    REAL(dp), POINTER :: windowPtr(:)
 
     ! reorder data
     TYPE(t_reorder_data) :: cells
     TYPE(t_reorder_data) :: edges
     TYPE(t_reorder_data) :: verts
   CONTAINS
-    PROCEDURE :: construct => restartCommData_construct
+    PROCEDURE, PRIVATE :: construct => restartCommData_construct
+    PROCEDURE, PRIVATE :: destruct => restartCommData_destruct
   END TYPE t_restart_comm_data
 
   ! combine the DATA that describes a patch for restart purposes with the infos required for the asynchronous fetching of the DATA from the compute PEs
@@ -182,16 +185,6 @@ MODULE mo_restart_async
     ! methods called ONLY by the restart processes
     PROCEDURE, PRIVATE :: restartWriteAsyncRestart => restartDescriptor_restartWriteAsyncRestart
   END TYPE t_restart_descriptor
-
-#ifndef NOMPI
-  !------------------------------------------------------------------------------------------------
-  ! Currently, we use only 1 MPI window for all output files
-  INTEGER mpi_win
-
-! Fortran pointer to memory window (REAL*8)
-  REAL(dp), POINTER :: mem_ptr_dp(:)
-
-#endif
 
 CONTAINS
 
@@ -225,7 +218,6 @@ CONTAINS
     CLASS(t_restart_descriptor), INTENT(INOUT) :: me
 
     INTEGER :: jg, error
-    INTEGER(KIND = MPI_ADDRESS_KIND) :: memWindowSize
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':restartDescriptor_construct'
 
 #ifdef NOMPI
@@ -244,18 +236,12 @@ CONTAINS
     IF(error /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 
     ! initialize the patch data structures
-    memWindowSize = 0
     DO jg = 1, n_dom
         CALL create_patch_description(me%patch_data(jg)%description, jg)
         CALL me%patch_data(jg)%restart_file%construct(jg)
-        memWindowSize = me%patch_data(jg)%commData%construct(jg, me%patch_data(jg)%restart_file%var_data, memWindowSize)
+        CALL me%patch_data(jg)%commData%construct(jg, me%patch_data(jg)%restart_file%var_data)
     END DO
-
-    ! init. remote memory access
-    CALL openMpiWindow(memWindowSize, p_comm_work_restart, mem_ptr_dp, mpi_win)
-
 #endif
-
   END SUBROUTINE restartDescriptor_construct
 
   !------------------------------------------------------------------------------------------------
@@ -404,9 +390,10 @@ CONTAINS
   SUBROUTINE restartDescriptor_destruct(me)
     CLASS(t_restart_descriptor), INTENT(INOUT) :: me
 
-#ifdef NOMPI
+    INTEGER :: i
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':restartDescriptor_destruct'
 
+#ifdef NOMPI
     CALL finish(routine, ASYNC_RESTART_REQ_MPI)
 #else
     ! check kind of process
@@ -419,7 +406,10 @@ CONTAINS
 
     ENDIF
 
-    CALL release_resources
+    DO i = 1, SIZE(me%patch_data, 1)
+        CALL me%patch_data(i)%commData%destruct()
+    END DO
+    DEALLOCATE(me%patch_data)
 #endif
 
   END SUBROUTINE restartDescriptor_destruct
@@ -751,34 +741,6 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  !  Release all resource of the restart process.
-  !
-  SUBROUTINE release_resources
-    INTEGER :: mpi_error
-
-    CHARACTER(LEN=*), PARAMETER   :: routine = modname//':release_resources'
-
-#ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)routine,' is called for p_pe=',p_pe
-#endif
-
-    ! release RMA window
-    IF (mpi_win /= MPI_WIN_NULL) THEN
-      CALL MPI_Win_fence(0, mpi_win, mpi_error)
-      CALL check_mpi_error(routine, 'MPI_Win_fence', mpi_error, .FALSE.)
-      CALL MPI_Win_free(mpi_win, mpi_error)
-      CALL check_mpi_error(routine, 'MPI_Win_free', mpi_error, .FALSE.)
-      mpi_win = MPI_WIN_NULL
-    END IF
-
-    ! release RMA memory
-    CALL MPI_Free_mem(mem_ptr_dp, mpi_error)
-    CALL check_mpi_error(routine, 'MPI_Free_mem', mpi_error, .FALSE.)
-
-  END SUBROUTINE release_resources
-
-  !------------------------------------------------------------------------------------------------
-  !
   ! Common helper routines to processing lists.
   !
 
@@ -1024,15 +986,14 @@ CONTAINS
 
   ! collective across restart AND worker PEs
   ! returns the memory window offset for the next t_restart_comm_data object
-  FUNCTION restartCommData_construct(me, jg, var_data, memWindowOffset) RESULT(RESULT)
+  SUBROUTINE restartCommData_construct(me, jg, var_data)
     CLASS(t_restart_comm_data), INTENT(INOUT) :: me
     INTEGER, VALUE :: jg
     TYPE(t_var_data), POINTER, INTENT(IN) :: var_data(:)
-    INTEGER(KIND = MPI_ADDRESS_KIND), VALUE :: memWindowOffset
-    INTEGER(KIND = MPI_ADDRESS_KIND) :: RESULT
 
     INTEGER :: error, iv, nlevs
     TYPE(t_grid_domain_decomp_info) :: dummyInfo
+    INTEGER(KIND = MPI_ADDRESS_KIND) :: memWindowSize
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartCommData_construct"
 
     ! initialize the reorder info
@@ -1048,39 +1009,39 @@ CONTAINS
     END IF
 
     ! initialize the memory window offsets
-    me%my_mem_win_off = memWindowOffset
+    memWindowSize = 0
     IF(ASSOCIATED(var_data)) THEN
-        ! inform all other processes about our local memory window offset
-        ALLOCATE(me%mem_win_off(0:num_work_procs-1), STAT = error)
-        IF(error /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
-        IF(.NOT.my_process_is_restart()) THEN
-            CALL MPI_Allgather(me%my_mem_win_off, 1, p_int_i8, &
-                               me%mem_win_off, 1, p_int_i8,    &
-                               p_comm_work, error)
-            CALL check_mpi_error(routine, 'MPI_Allgather', error, .TRUE.)
-        ENDIF
-        CALL p_bcast(me%mem_win_off, bcastRoot(), p_comm_work_2_restart)
-
-        ! compute the offset for the next t_restart_comm_data object
+        ! compute the SIZE of the memory window
         DO iv = 1, SIZE(var_data)
             nlevs = 1
             IF(var_data(iv)%info%ndims /= 2) nlevs = var_data(iv)%info%used_dimensions(2)
 
             SELECT CASE (var_data(iv)%info%hgrid)
                 CASE (GRID_UNSTRUCTURED_CELL)
-                    memWindowOffset = memWindowOffset + INT(nlevs*me%cells%n_own,i8)
+                    memWindowSize = memWindowSize + INT(nlevs*me%cells%n_own,i8)
                 CASE (GRID_UNSTRUCTURED_EDGE)
-                    memWindowOffset = memWindowOffset + INT(nlevs*me%edges%n_own,i8)
+                    memWindowSize = memWindowSize + INT(nlevs*me%edges%n_own,i8)
                 CASE (GRID_UNSTRUCTURED_VERT)
-                    memWindowOffset = memWindowOffset + INT(nlevs*me%verts%n_own,i8)
+                    memWindowSize = memWindowSize + INT(nlevs*me%verts%n_own,i8)
                 CASE DEFAULT
                     CALL finish(routine,UNKNOWN_GRID_TYPE)
             END SELECT
         END DO
-    END IF
 
-    RESULT = memWindowOffset
-  END FUNCTION restartCommData_construct
+        ! actually open the memory window
+        CALL openMpiWindow(memWindowSize, p_comm_work_restart, me%windowPtr, me%mpiWindow)
+    END IF
+  END SUBROUTINE restartCommData_construct
+
+  SUBROUTINE restartCommData_destruct(me)
+    CLASS(t_restart_comm_data), INTENT(INOUT) :: me
+
+    CALL closeMpiWindow(me%windowPtr, me%mpiWindow)
+
+    CALL me%cells%destruct()
+    CALL me%verts%destruct()
+    CALL me%edges%destruct()
+  END SUBROUTINE restartCommData_destruct
 
   !------------------------------------------------------------------------------------------------
   !
@@ -1336,6 +1297,17 @@ CONTAINS
     END DO
   END SUBROUTINE reorderData_reorderLevelFromPe
 
+  SUBROUTINE reorderData_destruct(me)
+    CLASS(t_reorder_data), INTENT(INOUT) :: me
+
+    IF(ALLOCATED(me%own_idx)) DEALLOCATE(me%own_idx)
+    IF(ALLOCATED(me%own_blk)) DEALLOCATE(me%own_blk)
+    DEALLOCATE(me%pe_own)
+    DEALLOCATE(me%pe_off)
+    DEALLOCATE(me%reorder_index)
+    DEALLOCATE(me%inverse_reorder_index)
+  END SUBROUTINE reorderData_destruct
+
   !------------------------------------------------------------------------------------------------
   !
   ! Opens an MPI memory window for the given amount of double values, returning both the ALLOCATED buffer AND the MPI window handle.
@@ -1416,6 +1388,32 @@ CONTAINS
 #endif
 
   END SUBROUTINE openMpiWindow
+
+  SUBROUTINE closeMpiWindow(windowPtr, mpiWindow)
+    REAL(dp), POINTER, INTENT(INOUT) :: windowPtr(:)
+    INTEGER, INTENT(INOUT) :: mpiWindow
+
+    INTEGER :: mpi_error
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":closeMpiWindow"
+
+#ifdef NOMPI
+    CALL finish(routine, "assertion failed: "//routine//"() must NOT be called without MPI")
+#else
+    ! release RMA window
+    CALL MPI_Win_fence(0, mpiWindow, mpi_error)
+    CALL check_mpi_error(routine, 'MPI_Win_fence', mpi_error, .FALSE.)
+    CALL MPI_Win_free(mpiWindow, mpi_error)
+    CALL check_mpi_error(routine, 'MPI_Win_free', mpi_error, .FALSE.)
+
+    ! release RMA memory
+    CALL MPI_Free_mem(windowPtr, mpi_error)
+    CALL check_mpi_error(routine, 'MPI_Free_mem', mpi_error, .FALSE.)
+
+    ! safety
+    mpiWindow = MPI_WIN_NULL
+    windowPtr => NULL()
+#endif
+  END SUBROUTINE closeMpiWindow
 
   !------------------------------------------------------------------------------------------------
   !
@@ -1610,7 +1608,7 @@ CONTAINS
     ALLOCATE(var1_dp(nval*restart_chunk_size), var2_dp(nval,restart_chunk_size), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, ALLOCATE_FAILED)
 
-    ioff(:) = p_pd%commData%mem_win_off(:)
+    ioff(:) = 0
 
     ! go over the all restart variables in the associated array
     VAR_LOOP : DO iv = 1, SIZE(p_vars)
@@ -1651,14 +1649,14 @@ CONTAINS
           ! number of words to transfer
           nval = p_ri%pe_own(np) * this_chunk_nlevs
           t_get = t_get -  p_mpi_wtime()
-          CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, mpi_win, mpi_error)
+          CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, p_pd%commData%mpiWindow, mpi_error)
           CALL check_mpi_error(routine, 'MPI_Win_lock', mpi_error, .TRUE.)
 
           CALL MPI_Get(var1_dp(1), nval, p_real_dp, np, ioff(np), &
-            &          nval, p_real_dp, mpi_win, mpi_error)
+            &                      nval, p_real_dp, p_pd%commData%mpiWindow, mpi_error)
           CALL check_mpi_error(routine, 'MPI_Get', mpi_error, .TRUE.)
 
-          CALL MPI_Win_unlock(np, mpi_win, mpi_error)
+          CALL MPI_Win_unlock(np, p_pd%commData%mpiWindow, mpi_error)
           CALL check_mpi_error(routine, 'MPI_Win_unlock', mpi_error, .TRUE.)
 
           t_get  = t_get  + p_mpi_wtime()
@@ -1712,7 +1710,7 @@ CONTAINS
   ! Write restart variable lists for a compute PE.
   !
   SUBROUTINE compute_write_var_list(p_pd)
-    TYPE(t_patch_data), TARGET, INTENT(IN) :: p_pd
+    TYPE(t_patch_data), TARGET, INTENT(INOUT) :: p_pd
 
     TYPE(t_var_metadata), POINTER   :: p_info
     TYPE(t_reorder_data), POINTER   :: p_ri
@@ -1734,10 +1732,10 @@ CONTAINS
     IF (.NOT. ASSOCIATED(p_vars)) RETURN
 
     ! offset in RMA window for async restart
-    ioff = p_pd%commData%my_mem_win_off
+    ioff = 0
 
     ! in case of async restart: Lock own window before writing to it
-    CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, mpi_win, mpi_error)
+    CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, p_pd%commData%mpiWindow, mpi_error)
     CALL check_mpi_error(routine, 'MPI_Win_lock', mpi_error, .TRUE.)
 
     ! go over the all restart variables in the associated array
@@ -1766,7 +1764,7 @@ CONTAINS
       ! just copy the OWN data points to the memory window
       DO jk = 1, SIZE(dataPointers)
         DO i = 1, p_ri%n_own
-          mem_ptr_dp(ioff+INT(i,i8)) = REAL(dataPointers(jk)%p(p_ri%own_idx(i),p_ri%own_blk(i)),dp)
+          p_pd%commData%windowPtr(ioff+INT(i,i8)) = REAL(dataPointers(jk)%p(p_ri%own_idx(i),p_ri%own_blk(i)),dp)
         END DO
         ioff = ioff + INT(p_ri%n_own,i8)
       END DO
@@ -1775,7 +1773,7 @@ CONTAINS
     END DO
 
     ! unlock RMA window
-    CALL MPI_Win_unlock(p_pe_work, mpi_win, mpi_error)
+    CALL MPI_Win_unlock(p_pe_work, p_pd%commData%mpiWindow, mpi_error)
     CALL check_mpi_error(routine, 'MPI_Win_unlock', mpi_error, .TRUE.)
   END SUBROUTINE compute_write_var_list
 
