@@ -547,8 +547,7 @@ CONTAINS
     DO jb=1,iv_nblks
 
       ! set end index in current block:
-      end_idx = iv_nproma
-      if (jb == iv_nblks) end_idx = iv_npromz
+      end_idx = MERGE(iv_nproma, iv_npromz, jb /= iv_nblks)
 
       ! loop over indices
       DO jc=1,end_idx
