@@ -27,7 +27,7 @@ MODULE mo_util_restart
     USE mo_io_restart_attributes, ONLY: t_RestartAttributeList
     USE mo_io_restart_namelist, ONLY: RestartNamelist_writeToFile
     USE mo_kind, ONLY: wp, i8
-    USE mo_packed_message, ONLY: t_PackedMessage
+    USE mo_packed_message, ONLY: t_PackedMessage, kPackOp, kUnpackOp
     USE mo_parallel_config, ONLY: nproma
     USE mo_run_config, ONLY: restart_filename
     USE mo_util_cdi, ONLY: cdiGetStringError
@@ -513,9 +513,9 @@ CONTAINS
         CALL message%packer(operation, me%datetime%minute)
         CALL message%packer(operation, me%datetime%second)
         CALL message%packer(operation, me%datetime%caltime)
-        calday = INT(me%datetime%calday)
+        IF(operation == kPackOp) calday = INT(me%datetime%calday)   !The IF IS needed to avoid overflow when me%datetime%calday IS uninitialized.
         CALL message%packer(operation, calday)
-        me%datetime%calday = INT(calday,i8)
+        IF(operation == kUnpackOp) me%datetime%calday = INT(calday,i8)
         CALL message%packer(operation, me%datetime%daysec)
         CALL message%packer(operation, me%jstep)
         CALL message%packer(operation, me%output_jfile)
