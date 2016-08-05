@@ -1142,133 +1142,122 @@ CONTAINS
   ! Common helper routines to preparing the restart.
   !
   !-------------------------------------------------------------------------------------------------
-  !
-  ! Transfers the restart var lists from the worker to the restart PEs.
-  !
-  SUBROUTINE transfer_restart_var_lists
+  SUBROUTINE restartVarlistPacker(operation, message)
+    INTEGER, VALUE :: operation
+    TYPE(t_PackedMessage), INTENT(INOUT) :: message
 
-    INTEGER :: info_size, iv, nv, nelems, n, list_info(4), ierrstat
-
-    INTEGER, ALLOCATABLE            :: info_storage(:,:)
-    TYPE(t_list_element), POINTER   :: element
+    INTEGER :: info_size, iv, nv, nelems, patch_id, restart_type, vlevel_type, n, ierrstat
+    INTEGER, ALLOCATABLE            :: info_storage(:)
+    TYPE(t_list_element), POINTER   :: element, newElement
     TYPE(t_var_metadata)            :: info
     TYPE(t_var_list)                :: p_var_list
     CHARACTER(LEN=MAX_NAME_LENGTH)  :: var_list_name
     CHARACTER(LEN=32)               :: model_type
     LOGICAL                         :: lrestart
 
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//'transfer_restart_var_lists'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'restartVarlistPacker'
 
     ! delete old var lists
-    IF (my_process_is_restart()) CALL delete_var_lists
+    IF(operation == kUnpackOp) CALL delete_var_lists
 
     ! get the size - in default INTEGER words - which is needed to
     ! hold the contents of TYPE(t_var_metadata)
     info_size = SIZE(TRANSFER(info, (/ 0 /)))
+    ALLOCATE(info_storage(info_size), STAT=ierrstat)
+    IF(ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 
     ! get the number of var lists
-    IF(.NOT. my_process_is_restart()) nv = nvar_lists
-    CALL p_bcast(nv, bcast_root, p_comm_work_2_restart)
+    nv = nvar_lists
+    CALL message%execute(operation, nv)
 
     ! for each var list, get its components
     DO iv = 1, nv
-      ! transfer only a restart var_list
-      IF (.NOT. my_process_is_restart()) lrestart = var_lists(iv)%p%lrestart
-      CALL p_bcast(lrestart, bcast_root, p_comm_work_2_restart)
-      IF (.NOT. lrestart) CYCLE
+        IF(operation == kPackOp) THEN
+            ! copy the values needed for the new_var_list() CALL to local variables
+            lrestart = var_lists(iv)%p%lrestart
+            var_list_name = var_lists(iv)%p%name
+            model_type = var_lists(iv)%p%model_type
+            patch_id = var_lists(iv)%p%patch_id
+            restart_type = var_lists(iv)%p%restart_type
+            vlevel_type = var_lists(iv)%p%vlevel_type
 
-      ! send name of the var list
-      var_list_name = ' '
-      IF (.NOT. my_process_is_restart()) var_list_name = var_lists(iv)%p%name
-      CALL p_bcast(var_list_name, bcast_root, p_comm_work_2_restart)
+            ! count the number of variable restart entries
+            element => var_lists(iv)%p%first_list_element
+            nelems = 0
+            DO
+                IF(.NOT.ASSOCIATED(element)) EXIT
+                IF(element%field%info%lrestart) nelems = nelems+1
+                element => element%next_list_element
+            END DO
+        END IF
+        CALL message%execute(operation, lrestart)
+        CALL message%execute(operation, var_list_name)
+        CALL message%execute(operation, model_type)
+        CALL message%execute(operation, patch_id)
+        CALL message%execute(operation, restart_type)
+        CALL message%execute(operation, vlevel_type)
+        CALL message%execute(operation, nelems)
 
-      ! send model type
-      model_type = ' '
-      IF (.NOT. my_process_is_restart()) model_type = var_lists(iv)%p%model_type
-      CALL p_bcast(model_type, bcast_root, p_comm_work_2_restart)
+        IF(.NOT. lrestart) CYCLE  ! transfer only a restart var_list
+        IF(nelems == 0) CYCLE ! check if there are valid restart fields
 
-      IF (.NOT. my_process_is_restart()) THEN
-        ! count the number of variable restart entries
-        element => var_lists(iv)%p%first_list_element
-        nelems = 0
-        DO
-          IF(.NOT.ASSOCIATED(element)) EXIT
-          IF (element%field%info%lrestart) nelems = nelems+1
-          element => element%next_list_element
-        ENDDO
+        IF(operation == kPackOp) THEN
+            element => var_lists(iv)%p%first_list_element
+            DO
+                IF(.NOT. ASSOCIATED(element)) EXIT
+                IF(element%field%info%lrestart) THEN
+                    info_storage = TRANSFER(element%field%info, (/ 0 /))
+                    CALL message%execute(operation, info_storage)
+                END IF
+                element => element%next_list_element
+            END DO
+        END IF
 
-        ! gather the components needed for name list restart and send them.
-        list_info(1) = nelems
-        list_info(2) = var_lists(iv)%p%patch_id
-        list_info(3) = var_lists(iv)%p%restart_type
-        list_info(4) = var_lists(iv)%p%vlevel_type
-      ENDIF
+        IF(operation == kUnpackOp) THEN
+            ! create var list
+            CALL new_var_list(p_var_list, var_list_name, patch_id=patch_id, restart_type=restart_type, vlevel_type=vlevel_type, &
+                             &lrestart=.TRUE.)
+            p_var_list%p%model_type = TRIM(model_type)
 
-      ! send basic info
-      CALL p_bcast(list_info, bcast_root, p_comm_work_2_restart)
-      ! sheck if there are valid restart fields
-      IF (list_info(1) == 0) CYCLE
+            ! insert elements into var list
+            DO n = 1, nelems
+                ! ALLOCATE a new element
+                ALLOCATE(newElement, STAT=ierrstat)
+                IF(ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
+                IF(n == 1) THEN   ! the first element pointer needs to be stored IN a different variable than the later pointers (there are no double pointers IN FORTRAN...)
+                    p_var_list%p%first_list_element => newElement
+                ELSE
+                    element%next_list_element => newElement
+                END IF
+                element => newElement
+                element%next_list_element => NULL()
 
-      IF(my_process_is_restart()) THEN
-        nelems = list_info(1)
-        ! create var list
-        CALL new_var_list( p_var_list, var_list_name, patch_id=list_info(2), &
-          &                restart_type=list_info(3), vlevel_type=list_info(4), &
-          &                lrestart=.TRUE.)
-        p_var_list%p%model_type = TRIM(model_type)
-      ENDIF
+                ! these pointers don't make sense on the restart PEs, NULLIFY them
+                NULLIFY(element%field%r_ptr, element%field%i_ptr, element%field%l_ptr)
+                element%field%var_base_size = 0 ! Unknown here
 
-      ALLOCATE(info_storage(info_size, nelems), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
+                ! set info structure from binary representation in info_storage
+                CALL message%execute(operation, info_storage)
+                element%field%info = TRANSFER(info_storage, info)
+            END DO
+        END IF
 
-      IF(.NOT. my_process_is_restart()) THEN
-        element => var_lists(iv)%p%first_list_element
-        nelems = 0
-        DO
-          IF(.NOT. ASSOCIATED(element)) EXIT
-          IF (element%field%info%lrestart) THEN
-            nelems = nelems+1
-            info_storage(:,nelems) = TRANSFER(element%field%info, (/ 0 /))
-          ENDIF
-          element => element%next_list_element
-        ENDDO
-      ENDIF
+        DEALLOCATE(info_storage)
+    END DO
+  END SUBROUTINE restartVarlistPacker
 
-      ! send binary representation of all info members
-      CALL p_bcast(info_storage, bcast_root, p_comm_work_2_restart)
+  !
+  ! Transfers the restart var lists from the worker to the restart PEs.
+  !
+  SUBROUTINE transfer_restart_var_lists()
+    TYPE(t_PackedMessage) :: message
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'transfer_restart_var_lists'
 
-      IF(my_process_is_restart()) THEN
-        ! insert elements into var list
-        p_var_list%p%first_list_element => NULL()
-        element => NULL()
-
-        DO n = 1, nelems
-          IF(.NOT. ASSOCIATED(p_var_list%p%first_list_element)) THEN
-            ALLOCATE(p_var_list%p%first_list_element, STAT=ierrstat)
-            IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
-
-            element => p_var_list%p%first_list_element
-          ELSE
-            ALLOCATE(element%next_list_element, STAT=ierrstat)
-            IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
-            element => element%next_list_element
-          ENDIF
-
-          element%next_list_element => NULL()
-
-          ! nullify all pointers in element%field, they don't make sense on the restart PEs
-          element%field%r_ptr => NULL()
-          element%field%i_ptr => NULL()
-          element%field%l_ptr => NULL()
-          element%field%var_base_size = 0 ! Unknown here
-
-          ! set info structure from binary representation in info_storage
-          element%field%info = TRANSFER(info_storage(:, n), info)
-        ENDDO
-      ENDIF
-      DEALLOCATE(info_storage)
-    ENDDO
-
+    CALL message%construct()
+    IF(.NOT.my_process_is_restart()) CALL restartVarlistPacker(kPackOp, message)
+    CALL message%bcast(bcast_root, p_comm_work_2_restart)
+    IF(my_process_is_restart()) CALL restartVarlistPacker(kUnpackOp, message)
+    CALL message%destruct()
   END SUBROUTINE transfer_restart_var_lists
 
   !-------------------------------------------------------------------------------------------------

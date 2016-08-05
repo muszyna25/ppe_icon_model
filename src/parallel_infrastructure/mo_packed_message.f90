@@ -14,11 +14,10 @@ MODULE mo_packed_message
     USE mo_exception, ONLY: finish
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_kind, ONLY: sp, dp
-    USE mo_mpi, ONLY: p_int, p_comm_rank
     USE mo_util_string, ONLY: int2string
 
 #ifndef NOMPI
-    USE mo_mpi, ONLY: MPI_SUCCESS
+    USE mo_mpi, ONLY: p_int, p_bcast_role, MPI_SUCCESS
     USE mpi
 #endif
 
@@ -40,28 +39,30 @@ MODULE mo_packed_message
         PROCEDURE :: packSingle => PackedMessage_packSingle
         PROCEDURE :: packDouble => PackedMessage_packDouble
         PROCEDURE :: packLogical => PackedMessage_packLogical
+        PROCEDURE :: packCharacter => PackedMessage_packCharacter
 
         PROCEDURE :: packIntArray => PackedMessage_packIntArray
         PROCEDURE :: packSingleArray => PackedMessage_packSingleArray
         PROCEDURE :: packDoubleArray => PackedMessage_packDoubleArray
         PROCEDURE :: packLogicalArray => PackedMessage_packLogicalArray
 
-        GENERIC :: pack => packInt, packSingle, packDouble, packLogical, packIntArray, packSingleArray, packDoubleArray, &
-                         & packLogicalArray
+        GENERIC :: pack => packInt, packSingle, packDouble, packLogical, packCharacter, packIntArray, packSingleArray, &
+                         & packDoubleArray, packLogicalArray
 
         ! unpack routines
         PROCEDURE :: unpackInt => PackedMessage_unpackInt
         PROCEDURE :: unpackSingle => PackedMessage_unpackSingle
         PROCEDURE :: unpackDouble => PackedMessage_unpackDouble
         PROCEDURE :: unpackLogical => PackedMessage_unpackLogical
+        PROCEDURE :: unpackCharacter => PackedMessage_unpackCharacter
 
         PROCEDURE :: unpackIntArray => PackedMessage_unpackIntArray
         PROCEDURE :: unpackSingleArray => PackedMessage_unpackSingleArray
         PROCEDURE :: unpackDoubleArray => PackedMessage_unpackDoubleArray
         PROCEDURE :: unpackLogicalArray => PackedMessage_unpackLogicalArray
 
-        GENERIC :: unpack => unpackInt, unpackSingle, unpackDouble, unpackLogical, unpackIntArray, unpackSingleArray, &
-                           & unpackDoubleArray, unpackLogicalArray
+        GENERIC :: unpack => unpackInt, unpackSingle, unpackDouble, unpackLogical, unpackCharacter, unpackIntArray, &
+                           & unpackSingleArray, unpackDoubleArray, unpackLogicalArray
 
         ! routines to facilitate packing AND unpacking with the same code
         ! USE of these routine prohibits ANY errors by mismatches between packing AND unpacking code
@@ -69,14 +70,15 @@ MODULE mo_packed_message
         PROCEDURE :: executeSingle => PackedMessage_executeSingle
         PROCEDURE :: executeDouble => PackedMessage_executeDouble
         PROCEDURE :: executeLogical => PackedMessage_executeLogical
+        PROCEDURE :: executeCharacter => PackedMessage_executeCharacter
 
         PROCEDURE :: executeIntArray => PackedMessage_executeIntArray
         PROCEDURE :: executeSingleArray => PackedMessage_executeSingleArray
         PROCEDURE :: executeDoubleArray => PackedMessage_executeDoubleArray
         PROCEDURE :: executeLogicalArray => PackedMessage_executeLogicalArray
 
-        GENERIC :: execute => executeInt, executeSingle, executeDouble, executeLogical, executeIntArray, executeSingleArray, &
-                            & executeDoubleArray, executeLogicalArray
+        GENERIC :: execute => executeInt, executeSingle, executeDouble, executeLogical, executeCharacter, executeIntArray, &
+                            & executeSingleArray, executeDoubleArray, executeLogicalArray
 
         ! communication routines
         ! All of these will flush ANY contents of the reciever(s), replacing it with a copy of the sender's packet.
@@ -193,7 +195,7 @@ CONTAINS
 
     !XXX: We are using MPI_Pack*() with MPI_COMM_WORLD here, because we need to be able to forward a recieved packet via a different communicator.
     !     The correct way of implementing this would be to USE MPI_Pack*_external(), but there seems to be a bug IN the MPI implementation on the cray,
-    !     which renders the MPI_Pack*_external() routines unusable.
+    !     which renders the MPI_Pack*_external() routines unusable. An alternative, correct way, would be to implement our own packing scheme.
 
     SUBROUTINE PackedMessage_packInt(me, VALUE)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
@@ -222,6 +224,13 @@ CONTAINS
 
         doPacking(me, VALUE)
     END SUBROUTINE PackedMessage_packLogical
+
+    SUBROUTINE PackedMessage_packCharacter(me, VALUE)
+        CLASS(t_PackedMessage), INTENT(INOUT) :: me
+        CHARACTER(LEN = *), INTENT(IN) :: VALUE
+
+        doPacking(me, VALUE)
+    END SUBROUTINE PackedMessage_packCharacter
 
     ! pack routines for array values !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -310,6 +319,13 @@ CONTAINS
 
         doUnpacking(me, VALUE)
     END SUBROUTINE PackedMessage_unpackLogical
+
+    SUBROUTINE PackedMessage_unpackCharacter(me, VALUE)
+        CLASS(t_PackedMessage), INTENT(INOUT) :: me
+        CHARACTER(LEN = *), INTENT(INOUT) :: VALUE
+
+        doUnpacking(me, VALUE)
+    END SUBROUTINE PackedMessage_unpackCharacter
 
     ! unpack routines for array values !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -459,6 +475,22 @@ CONTAINS
         END SELECT
     END SUBROUTINE PackedMessage_executeLogical
 
+    SUBROUTINE PackedMessage_executeCharacter(me, operation, value)
+        CLASS(t_PackedMessage), INTENT(INOUT) :: me
+        INTEGER, VALUE :: operation
+        CHARACTER(LEN = *), INTENT(INOUT) :: VALUE
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_executeCharacter"
+
+        SELECT CASE(operation)
+            CASE(kPackOp)
+                CALL me%pack(value)
+            CASE(kUnpackOp)
+                CALL me%unpack(value)
+            CASE DEFAULT
+                CALL finish(routine, "illegal operation")
+        END SELECT
+    END SUBROUTINE PackedMessage_executeCharacter
+
     SUBROUTINE PackedMessage_executeIntArray(me, operation, value)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
@@ -572,22 +604,23 @@ CONTAINS
 
 #ifndef NOMPI
         INTEGER :: error, incomingSize
-        LOGICAL :: isRoot
+        LOGICAL :: isRoot, isReceiver
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_bcast"
 
-        isRoot = root == p_comm_rank(communicator)
-        IF(isRoot) THEN
-            incomingSize = me%messageSize
-        ELSE
-            me%messageSize = 0
-            me%readPosition = 0
-        END IF
+        ! reset the message IF this IS a receiving process
+        CALL p_bcast_role(root, communicator, isRoot, isReceiver)
+        IF(isReceiver) CALL me%reset()
+
+        ! broadcast the message SIZE to ensure enough buffer space IN the receiving processes
+        incomingSize = me%messageSize
         CALL MPI_Bcast(incomingSize, 1, p_int, root, communicator, error)
         handleMpiError(error, routine)
-        IF(.NOT.isRoot) CALL me%ensureSpace(incomingSize)
+        IF(isReceiver) CALL me%ensureSpace(incomingSize)
+
+        ! broadcast the message itself
         CALL MPI_Bcast(me%messageBuffer, incomingSize, MPI_PACKED, root, communicator, error)
         handleMpiError(error, routine)
-        me%messageSize = incomingSize
+        IF(isReceiver) me%messageSize = incomingSize
 #endif
     END SUBROUTINE PackedMessage_bcast
 
