@@ -21,9 +21,13 @@ MODULE mo_restart_util
                               & ZA_SEDIMENT_BOTTOM_TW_HALF, cdi_zaxis_types
     USE mo_cf_convention, ONLY: cf_global_info
     USE mo_datetime, ONLY: t_datetime, iso8601, iso8601extended
+    USE mo_dynamics_config, ONLY: iequations
     USE mo_exception, ONLY: get_filename_noext, finish, message, message_text
+    USE mo_grid_config, ONLY: l_limited_area
+    USE mo_ha_dyn_config, ONLY: ha_dyn_config
     USE mo_fortran_tools, ONLY: assign_if_present, assign_if_present_allocatable, t_ptr_2d
-    USE mo_impl_constants, ONLY: SUCCESS, MAX_CHAR_LENGTH
+    USE mo_impl_constants, ONLY: SUCCESS, MAX_CHAR_LENGTH, INH_ATMOSPHERE, TLEV_NNOW, TLEV_NNOW_RCF, IHS_ATM_TEMP, IHS_ATM_THETA, &
+                               & ISHALLOW_WATER, LEAPFROG_EXPL, LEAPFROG_SI
     USE mo_restart_attributes, ONLY: t_RestartAttributeList
     USE mo_restart_namelist, ONLY: RestartNamelist_writeToFile
     USE mo_kind, ONLY: wp, i8
@@ -33,6 +37,7 @@ MODULE mo_restart_util
     USE mo_util_cdi, ONLY: cdiGetStringError
     USE mo_util_file, ONLY: util_symlink, util_islink, util_unlink
     USE mo_util_string, ONLY: int2string, real2string, associate_keyword, with_keywords, t_keyword_list
+    USE mo_var_list, ONLY: get_var_timelevel
     USE mo_var_metadata_types, ONLY: t_var_metadata
 
     IMPLICIT NONE
@@ -51,6 +56,7 @@ MODULE mo_restart_util
     PUBLIC :: set_vertical_grid
     PUBLIC :: create_restart_file_link
     PUBLIC :: getLevelPointers
+    PUBLIC :: has_valid_time_level
 
     ! TYPE t_v_grid contains the data of a vertical grid definition.
     TYPE t_v_grid
@@ -590,5 +596,50 @@ CONTAINS
                                  & TRIM(int2string(varMetadata%ndims))//"d arrays not handled yet")
         END SELECT
     END SUBROUTINE getLevelPointers
+
+    ! Returns true, if the time level of the given field is valid, else false.
+    LOGICAL FUNCTION has_valid_time_level(p_info, domain, nnew, nnew_rcf) RESULT(RESULT)
+        TYPE(t_var_metadata), INTENT(IN) :: p_info
+        INTEGER, VALUE :: domain, nnew, nnew_rcf
+
+        INTEGER :: idx, time_level
+        LOGICAL :: lskip_timelev, lskip_extra_timelevs
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//':has_valid_time_level'
+
+        RESULT = .FALSE.
+        IF (.NOT. p_info%lrestart) RETURN
+
+#ifndef __NO_ICON_ATMO__
+        lskip_timelev = .FALSE.
+        lskip_extra_timelevs = iequations == INH_ATMOSPHERE .AND. .NOT. (l_limited_area .AND. domain == 1)
+
+        ! get time index of the given field
+        time_level = get_var_timelevel(p_info)
+
+        !TODO[NH]: I found the `time_level >= 0` condition IN the async restart code ONLY. Check whether it should be removed OR NOT.
+        IF(time_level >= 0) THEN
+            ! get information about time level to be skipped for current field
+            IF (p_info%tlev_source == TLEV_NNOW) THEN
+                IF (time_level == nnew) lskip_timelev = .TRUE.
+                ! this is needed to skip the extra time levels allocated for nesting
+                IF (lskip_extra_timelevs .AND. time_level > 2) lskip_timelev = .TRUE.
+            ELSE IF (p_info%tlev_source == TLEV_NNOW_RCF) THEN
+                IF (time_level == nnew_rcf) lskip_timelev = .TRUE.
+            ENDIF
+        ENDIF
+
+        SELECT CASE (iequations)
+            CASE(IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER)
+
+                IF ( lskip_timelev                        &
+                    & .AND. ha_dyn_config%itime_scheme/=LEAPFROG_EXPL &
+                    & .AND. ha_dyn_config%itime_scheme/=LEAPFROG_SI   ) &
+                    & RETURN
+            CASE default
+                IF ( lskip_timelev ) RETURN
+        END SELECT
+        RESULT = .TRUE.
+#endif
+    END FUNCTION has_valid_time_level
 
 END MODULE mo_restart_util

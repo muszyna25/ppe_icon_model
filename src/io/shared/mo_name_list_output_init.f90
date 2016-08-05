@@ -1890,7 +1890,7 @@ CONTAINS
           IF(element%field%info%lcontainer) CYCLE
 
           ! get time level
-          tl = get_var_timelevel(element%field)
+          tl = get_var_timelevel(element%field%info)
 
           ! Check for matching name
           IF(tolower(varlist(ivar)) /= tolower(get_var_name(element%field))) CYCLE

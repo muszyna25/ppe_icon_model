@@ -27,26 +27,22 @@ MODULE mo_async_restart
   USE mo_fortran_tools,           ONLY: t_ptr_2d
   USE mo_kind,                    ONLY: wp, i8, dp
   USE mo_datetime,                ONLY: t_datetime
-  USE mo_io_units,                ONLY: nerr, filename_max
+  USE mo_io_units,                ONLY: nerr
   USE mo_var_list,                ONLY: nvar_lists, var_lists, new_var_list, delete_var_lists
   USE mo_linked_list,             ONLY: t_list_element, t_var_list
   USE mo_restart_attributes,   ONLY: t_RestartAttributeList, RestartAttributeList_make
-  USE mo_dynamics_config,         ONLY: iequations
-  USE mo_grid_config,             ONLY: l_limited_area
-  USE mo_impl_constants,          ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, INH_ATMOSPHERE, LEAPFROG_EXPL, LEAPFROG_SI, &
-                                      & SUCCESS, TLEV_NNOW, TLEV_NNOW_RCF
+  USE mo_impl_constants,          ONLY: SUCCESS
   USE mo_var_metadata_types,      ONLY: t_var_metadata
+  USE mo_restart_file,            ONLY: t_RestartFile
   USE mo_restart_namelist,     ONLY: print_restart_name_lists, RestartNamelist_bcast
   USE mo_parallel_config,         ONLY: restart_chunk_size
   USE mo_grid_config,             ONLY: n_dom
   USE mo_run_config,              ONLY: msg_level
-  USE mo_ha_dyn_config,           ONLY: ha_dyn_config
   USE mo_model_domain,            ONLY: p_patch, t_patch
-  USE mo_cdi,                     ONLY: CDI_UNDEFID, FILETYPE_NC2, FILETYPE_NC4, streamWriteVarSlice
   USE mo_packed_message,          ONLY: t_PackedMessage, kPackOp, kUnpackOp
   USE mo_restart_patch_description, ONLY: t_restart_patch_description
-  USE mo_restart_util,            ONLY: t_restart_cdi_ids, setGeneralRestartAttributes, create_restart_file_link, t_var_data, &
-                                      & getRestartFilename, t_restart_args, getLevelPointers
+  USE mo_restart_util,            ONLY: setGeneralRestartAttributes, create_restart_file_link, t_var_data, t_restart_args, &
+                                      & getLevelPointers, has_valid_time_level
 #ifndef NOMPI
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work, p_work_pe0, num_work_procs, MPI_SUCCESS, &
                                       & stop_mpi, p_send, p_recv, p_barrier, p_bcast, my_process_is_restart, my_process_is_work, &
@@ -93,17 +89,6 @@ MODULE mo_async_restart
   CHARACTER(LEN=*), PARAMETER :: FORMAT_VALS5I            = '(a,a,i3,a,a)'
   CHARACTER(LEN=*), PARAMETER :: FORMAT_VALS7             = '(a,a,i3,a,i6,a,i3)'
   CHARACTER(LEN=*), PARAMETER :: FORMAT_VALS7I            = '(a,a,i3,a,a,a,i8)'
-
-  ! TYPE t_restart_file
-  TYPE t_restart_file
-    CHARACTER(LEN=filename_max) :: filename
-    CHARACTER(LEN=32)           :: model_type
-    TYPE(t_restart_cdi_ids)     :: cdiIds
-  CONTAINS
-    PROCEDURE, PRIVATE :: open => restartFile_open
-    PROCEDURE, PRIVATE :: writeLevel => restartFile_writeLevel
-    PROCEDURE, PRIVATE :: close => restartFile_close
-  END TYPE t_restart_file
 
   ! combine the DATA that describes a patch for restart purposes with the infos required for the asynchronous fetching of the DATA from the compute PEs
   TYPE t_patch_data
@@ -366,7 +351,7 @@ CONTAINS
     TYPE(t_patch_data), INTENT(INOUT) :: patch_data
     TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
 
-    TYPE(t_restart_file) :: restartFile
+    TYPE(t_RestartFile) :: restartFile
 
     ! check if the patch is actice
     IF(.NOT. patch_data%description%l_dom_active) RETURN
@@ -381,19 +366,21 @@ CONTAINS
         CALL restartAttributes%printAttributes()
         CALL print_restart_name_lists()
 #endif
-        CALL restartFile%open(patch_data, restart_args, restartAttributes)
+        IF(ASSOCIATED(patch_data%varData)) THEN ! no restart variables => no restart file
+            CALL restartFile%open(patch_data%description, patch_data%varData, restart_args, restartAttributes)
 
-        ! collective call to write the restart variables
-        CALL restart_write_var_list(patch_data, restartFile)
-        IF(patch_data%description%l_opt_ndom) THEN
-            CALL create_restart_file_link(TRIM(restartFile%filename), TRIM(restartFile%model_type), &
-                                         &patch_data%description%restart_proc_id - p_restart_pe0, patch_data%description%id, &
-                                         &opt_ndom = patch_data%description%opt_ndom)
-        ELSE
-            CALL create_restart_file_link(TRIM(restartFile%filename), TRIM(restartFile%model_type), &
-                                         &patch_data%description%restart_proc_id - p_restart_pe0, patch_data%description%id)
+            ! collective call to write the restart variables
+            CALL restart_write_var_list(patch_data, restartFile)
+            IF(patch_data%description%l_opt_ndom) THEN
+                CALL create_restart_file_link(TRIM(restartFile%filename), TRIM(restartFile%model_type), &
+                                             &patch_data%description%restart_proc_id - p_restart_pe0, patch_data%description%id, &
+                                             &opt_ndom = patch_data%description%opt_ndom)
+            ELSE
+                CALL create_restart_file_link(TRIM(restartFile%filename), TRIM(restartFile%model_type), &
+                                             &patch_data%description%restart_proc_id - p_restart_pe0, patch_data%description%id)
+            END IF
+            CALL restartFile%close()
         END IF
-        CALL restartFile%close()
     ENDIF
   END SUBROUTINE restart_write_patch
 #endif
@@ -998,75 +985,6 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  ! Common helper routines to write a restart file.
-  !
-  !------------------------------------------------------------------------------------------------
-  !
-  ! Returns true, if the time level of the given field is valid, else false.
-  !
-  FUNCTION has_valid_time_level(p_info, patchDescription)
-    TYPE(t_var_metadata), INTENT(IN) :: p_info
-    TYPE(t_restart_patch_description), INTENT(IN) :: patchDescription
-
-    LOGICAL                       :: has_valid_time_level
-
-    INTEGER                       :: idx, time_level
-    LOGICAL                       :: lskip_timelev, lskip_extra_timelevs
-
-#ifdef DEBUG
-    CHARACTER(LEN=*), PARAMETER   :: routine = modname//':has_valid_time_level'
-#endif
-
-    has_valid_time_level = .FALSE.
-    IF (.NOT. p_info%lrestart) RETURN
-    has_valid_time_level = .TRUE.
-
-    lskip_timelev = .FALSE.
-    IF (iequations == INH_ATMOSPHERE .AND. .NOT. (l_limited_area .AND. patchDescription%id == 1)) THEN
-      lskip_extra_timelevs = .TRUE.
-    ELSE
-      lskip_extra_timelevs = .FALSE.
-    ENDIF
-
-    ! get time index of the given field
-    idx = INDEX(p_info%name,'.TL')
-    IF (idx == 0) THEN
-      time_level = -1
-    ELSE
-      time_level = ICHAR(p_info%name(idx+3:idx+3)) - ICHAR('0')
-
-      ! get information about time level to be skipped for current field
-      IF (p_info%tlev_source == TLEV_NNOW) THEN
-        IF (time_level == patchDescription%nnew) lskip_timelev = .TRUE.
-        ! this is needed to skip the extra time levels allocated for nesting
-        IF (lskip_extra_timelevs .AND. time_level > 2) lskip_timelev = .TRUE.
-      ELSE IF (p_info%tlev_source == TLEV_NNOW_RCF) THEN
-        IF (time_level == patchDescription%nnew_rcf) lskip_timelev = .TRUE.
-      ENDIF
-    ENDIF
-
-    SELECT CASE (iequations)
-      CASE(IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER)
-
-        IF ( lskip_timelev                        &
-          & .AND. ha_dyn_config%itime_scheme/=LEAPFROG_EXPL &
-          & .AND. ha_dyn_config%itime_scheme/=LEAPFROG_SI   ) &
-          & has_valid_time_level = .FALSE.
-      CASE default
-        IF ( lskip_timelev ) has_valid_time_level = .FALSE.
-    END SELECT
-
-#ifdef DEBUG
-    IF (.NOT. has_valid_time_level) THEN
-      WRITE (nerr,'(2a,i3,a,i4,3a)')routine,' p_pe=',p_pe,' time level=',time_level, &
-        &                           ' of field=',TRIM(p_info%name),' is invalid'
-    ENDIF
-#endif
-
-  END FUNCTION has_valid_time_level
-
-  !------------------------------------------------------------------------------------------------
-  !
   ! Check the status of the last netCDF file operation.
   !
   SUBROUTINE check_netcdf_status(status, routine)
@@ -1091,7 +1009,7 @@ CONTAINS
   !
   SUBROUTINE restart_write_var_list(p_pd, restartFile)
     TYPE(t_patch_data), TARGET, INTENT(INOUT) :: p_pd
-    TYPE(t_restart_file) :: restartFile
+    TYPE(t_RestartFile) :: restartFile
 
     TYPE(t_var_metadata), POINTER   :: p_info
     TYPE(t_AsyncRestartPacker), POINTER   :: p_ri
@@ -1144,7 +1062,7 @@ CONTAINS
 #endif
 
       ! check time level of the field
-      IF (.NOT. has_valid_time_level(p_info, p_pd%description)) CYCLE
+      IF (.NOT. has_valid_time_level(p_info, p_pd%description%id, p_pd%description%nnew, p_pd%description%nnew_rcf)) CYCLE
 
       ! get current level
       IF(p_info%ndims == 2) THEN
@@ -1226,7 +1144,7 @@ CONTAINS
 #endif
 
       ! check time level of the field
-      IF (.NOT. has_valid_time_level(p_vars(iv)%info, p_pd%description)) CYCLE
+      IF (.NOT. has_valid_time_level(p_vars(iv)%info, p_pd%description%id, p_pd%description%nnew, p_pd%description%nnew_rcf)) CYCLE
 
       CALL getLevelPointers(p_vars(iv)%info, p_vars(iv)%r_ptr, dataPointers)
       CALL p_pd%commData%postData(p_vars(iv)%info%hgrid, dataPointers, offset)
@@ -1238,110 +1156,6 @@ CONTAINS
   !
   ! Opens the restart file from the given parameters.
   !
-  SUBROUTINE restartFile_open(me, p_pd, restart_args, restartAttributes)
-    CLASS(t_restart_file) :: me
-    TYPE(t_patch_data), TARGET, INTENT(INOUT) :: p_pd
-    TYPE(t_restart_args), INTENT(IN) :: restart_args
-    TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
-
-    TYPE(t_restart_patch_description), POINTER :: description
-    TYPE(t_var_list), POINTER     :: p_re_list
-    INTEGER                       :: restart_type, i
-    CHARACTER(LEN=*), PARAMETER   :: routine = modname//':restartFile_open'
-
-#ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
-#endif
-
-    IF(.NOT. my_process_is_restart()) CALL finish(routine, NO_RESTART_PE)   ! just for safety
-
-    ! DEFAULT initialization IN CASE we RETURN early
-    CALL me%cdiIds%init()
-    me%filename = ''
-    me%model_type = ''
-
-    IF(.NOT. ASSOCIATED(p_pd%varData)) RETURN   ! no variables => no restart file
-
-    description => p_pd%description
-
-    ! get the first restart list from the global lists
-    p_re_list => NULL()
-    DO i = 1, nvar_lists
-      ! skip, if var_list is not required for restart
-      IF (.NOT. var_lists(i)%p%lrestart) CYCLE
-
-      ! save pointer
-      p_re_list => var_lists(i)
-      EXIT
-    ENDDO
-    ! assume all restart variables have the same model name
-    me%model_type = p_re_list%p%model_type
-
-    ! assume all restart variables uses the same file format
-    SELECT CASE (p_re_list%p%restart_type)
-      CASE (FILETYPE_NC2, FILETYPE_NC4)
-        restart_type = p_re_list%p%restart_type
-      CASE default
-        CALL finish(routine, UNKNOWN_FILE_FORMAT)
-    END SELECT
-
-    me%filename = getRestartFilename(description%base_filename, description%id, restart_args%datetime, me%model_type)
-
-    IF(ALLOCATED(description%opt_pvct)) THEN
-        CALL me%cdiIds%openRestartAndCreateIds(TRIM(me%filename), restart_type, restartAttributes, description%n_patch_cells_g, &
-                                              &description%n_patch_verts_g, description%n_patch_edges_g, description%cell_type, &
-                                              &description%v_grid_defs(1:description%v_grid_count), description%opt_pvct)
-    ELSE
-        CALL me%cdiIds%openRestartAndCreateIds(TRIM(me%filename), restart_type, restartAttributes, description%n_patch_cells_g, &
-                                              &description%n_patch_verts_g, description%n_patch_edges_g, description%cell_type, &
-                                              &description%v_grid_defs(1:description%v_grid_count))
-    END IF
-
-#ifdef DEBUG
-    WRITE (nerr, FORMAT_VALS5)routine,' p_pe=',p_pe,' open netCDF file with ID=',me%cdiIds%file
-#endif
-
-    ! go over the all restart variables in the associated array AND define those that have a valid time level
-    DO i = 1, SIZE(p_pd%varData)
-        IF(has_valid_time_level(p_pd%varData(i)%info, description)) CALL me%cdiIds%defineVariable(p_pd%varData(i)%info)
-    ENDDO
-
-    CALL me%cdiIds%finalizeVlist(restart_args%datetime)
-  END SUBROUTINE restartFile_open
-
-  SUBROUTINE restartFile_writeLevel(me, varId, levelId, DATA)
-    CLASS(t_restart_file), INTENT(IN) :: me
-    INTEGER, VALUE :: varId, levelId
-    REAL(dp), INTENT(IN) :: DATA(:)
-
-    CALL streamWriteVarSlice(me%cdiIds%file, varId, levelId, DATA, 0)
-  END SUBROUTINE restartFile_writeLevel
-
-  !------------------------------------------------------------------------------------------------
-  !
-  ! Closes the given restart file.
-  !
-  SUBROUTINE restartFile_close(me)
-    CLASS(t_restart_file), INTENT(INOUT) :: me
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//':restartFile_close'
-
-#ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
-#endif
-
-    ! just for safety
-    IF(.NOT. my_process_is_restart()) CALL finish(routine, NO_RESTART_PE)
-
-    IF (me%cdiIds%file /= CDI_UNDEFID) THEN
-#ifdef DEBUG
-      WRITE (nerr,'(3a)')routine,' try to close restart file=',TRIM(me%filename)
-      WRITE (nerr, FORMAT_VALS5)routine,' p_pe=',p_pe,' close netCDF file with ID=',me%cdiIds%file
-#endif
-    ENDIF
-
-    CALL me%cdiIds%closeAndDestroyIds()
-  END SUBROUTINE restartFile_close
-
 #endif
 
 END MODULE mo_async_restart

@@ -433,23 +433,23 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !> @return time level (extracted from time level suffix ".TL") or "-1"
   !
-  FUNCTION get_var_timelevel(var)
+  FUNCTION get_var_timelevel(info)
     INTEGER :: get_var_timelevel
-    TYPE(t_var_list_element)   :: var
+    TYPE(t_var_metadata), INTENT(IN) :: info
     ! local variable
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_var_list:get_var_timelevel'
     INTEGER :: idx
 
-    idx = INDEX(var%info%name,'.TL')
+    idx = INDEX(info%name,'.TL')
     IF (idx == 0) THEN
       get_var_timelevel = -1
       RETURN
     END IF
 
     ! Get time level
-    get_var_timelevel = ICHAR(var%info%name(idx+3:idx+3)) - ICHAR('0')
+    get_var_timelevel = ICHAR(info%name(idx+3:idx+3)) - ICHAR('0')
     IF(get_var_timelevel<=0 .OR. get_var_timelevel>max_time_levels) &
-      CALL finish(routine, 'Illegal time level in '//TRIM(var%info%name))
+      CALL finish(routine, 'Illegal time level in '//TRIM(info%name))
   END FUNCTION get_var_timelevel
 
 

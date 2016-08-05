@@ -68,7 +68,7 @@ MODULE mo_sync_restart
                                     & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE, ZA_OCEAN_SEDIMENT, ZA_COUNT
   USE mo_restart_util,          ONLY: t_v_grid, t_restart_cdi_ids, set_vertical_grid, setGeneralRestartAttributes, &
                                     & setDynamicPatchRestartAttributes, setPhysicsRestartAttributes, create_restart_file_link, &
-                                    & getRestartFilename, getLevelPointers
+                                    & getRestartFilename, getLevelPointers, has_valid_time_level
   USE mo_util_string,           ONLY: int2string, separator
   USE mo_restart_attributes,    ONLY: t_RestartAttributeList, RestartAttributeList_make
   USE mo_datetime,              ONLY: t_datetime, iso8601
@@ -427,7 +427,6 @@ CONTAINS
     TYPE(t_restart_cdi_ids), INTENT(INOUT) :: cdiIds
     INTEGER, VALUE :: jg
 
-    TYPE (t_var_metadata), POINTER :: info
     TYPE (t_list_element), POINTER :: element
     TYPE (t_list_element), TARGET  :: start_with
 
@@ -437,55 +436,12 @@ CONTAINS
     element => start_with
     element%next_list_element => this_list%p%first_list_element
 
-    for_all_list_elements: DO
+    DO
+        element => element%next_list_element
+        IF(.NOT.ASSOCIATED(element)) EXIT
 
-      element => element%next_list_element
-      IF (.NOT.ASSOCIATED(element)) EXIT
-
-      ! retrieve information from actual linked list element
-
-      info => element%field%info
-
-      ! skip this field ?
-
-      IF (.NOT. info%lrestart) CYCLE
-
-      ! skip this field because of wrong time index ?
-
-      ! get time index of current field
-      time_level = get_var_timelevel(element%field)
-
-      lskip_timelev = .FALSE.
-      lskip_extra_timelevs = .FALSE.
-#ifndef __NO_ICON_ATMO__
-      IF (iequations == INH_ATMOSPHERE .AND. .NOT. (l_limited_area .AND. jg == 1)) THEN
-        lskip_extra_timelevs = .TRUE.
-      ENDIF
-
-      ! get information about timelevel to be skipped for current field
-      IF (element%field%info%tlev_source == TLEV_NNOW ) THEN
-        IF (time_level == nnew(jg))                    lskip_timelev = .TRUE.
-        ! this is needed to skip the extra time levels allocated for nesting
-        IF (lskip_extra_timelevs .AND. time_level > 2) lskip_timelev = .TRUE.
-      ELSE IF (element%field%info%tlev_source == TLEV_NNOW_RCF) THEN
-        IF (time_level == nnew_rcf(jg))  lskip_timelev = .TRUE.
-      ENDIF
-
-
-      SELECT CASE (iequations)
-      CASE(IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER)
-
-        IF ( lskip_timelev                                  &
-          & .AND. ha_dyn_config%itime_scheme/=LEAPFROG_EXPL &
-          & .AND. ha_dyn_config%itime_scheme/=LEAPFROG_SI   ) CYCLE   ! skip field
-      CASE default
-        IF ( lskip_timelev ) CYCLE   ! skip field
-      END SELECT
-#endif
-
-      CALL cdiIds%defineVariable(info)
-    ENDDO for_all_list_elements
-
+        IF(has_valid_time_level(element%field%info, jg, nnew(jg), nnew_rcf(jg))) CALL cdiIds%defineVariable(element%field%info)
+    END DO
   END SUBROUTINE addVarListToVlist
 
   !-------------
@@ -821,7 +777,7 @@ CONTAINS
       ! skip this field because of wrong time index ?
 
       ! get time index of current field
-      time_level = get_var_timelevel(element%field)
+      time_level = get_var_timelevel(element%field%info)
 
       lskip_timelev = .FALSE.
       lskip_extra_timelevs = .FALSE.
