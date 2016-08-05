@@ -43,7 +43,7 @@ MODULE mo_restart_namelist
   PUBLIC :: t_att_namelist
 
   TYPE t_att_namelist
-    CHARACTER(KIND = C_CHAR), POINTER :: name(:), text(:)
+    CHARACTER(:), ALLOCATABLE :: name, text
   END TYPE t_att_namelist
 
   INTEGER, SAVE :: nmls = 0
@@ -63,9 +63,6 @@ CONTAINS
 
     ALLOCATE(restart_namelist(8), STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-    DO i = 1, SIZE(restart_namelist, 1)
-        restart_namelist(i)%text => NULL()
-    END DO
     l_restart_namelist_initialized = .TRUE.
   END SUBROUTINE init_restart_namelists
 
@@ -76,17 +73,17 @@ CONTAINS
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":find_namelist"
     INTEGER :: i, error
     TYPE(t_att_namelist), POINTER :: temp(:)
-    CHARACTER(KIND = C_CHAR), POINTER :: nameCharArray(:)
+    CHARACTER(:), ALLOCATABLE :: fullName
 
     ! first ensure that we actually have a list
     IF(.NOT. l_restart_namelist_initialized) CALL init_restart_namelists()
 
     ! check whether we already have an entry of that NAME
-    nameCharArray => toCharArray('nml_'//TRIM(namelist_name))
+    fullName = 'nml_'//TRIM(namelist_name)
     DO i = 1, nmls
-        IF(charArray_equal(nameCharArray, restart_namelist(i)%NAME)) THEN
+        IF(fullName == restart_namelist(i)%NAME) THEN
             RESULT => restart_namelist(i)
-            DEALLOCATE(nameCharArray)
+            DEALLOCATE(fullName)
             RETURN
         END IF
     END DO
@@ -97,13 +94,8 @@ CONTAINS
         ALLOCATE(temp(2*nmls), STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
         DO i = 1, nmls
-            temp(i)%NAME => restart_namelist(i)%NAME
-            temp(i)%text => restart_namelist(i)%text
-            restart_namelist(i)%NAME => NULL()
-            restart_namelist(i)%text => NULL()
-        END DO
-        DO i = nmls + 1, SIZE(temp, 1)
-            temp(i)%text => NULL()
+            CALL MOVE_ALLOC(restart_namelist(i)%NAME, temp(i)%NAME)
+            CALL MOVE_ALLOC(restart_namelist(i)%text, temp(i)%text)
         END DO
         DEALLOCATE(restart_namelist)
         restart_namelist => temp
@@ -112,7 +104,7 @@ CONTAINS
     ! add an entry
     nmls = nmls + 1
     RESULT => restart_namelist(nmls)
-    RESULT%NAME => nameCharArray
+    CALL MOVE_ALLOC(fullName, RESULT%NAME)
   END FUNCTION find_namelist
 
   SUBROUTINE delete_restart_namelists()
@@ -120,7 +112,8 @@ CONTAINS
 
     IF (l_restart_namelist_initialized) THEN
         DO i = 1, nmls
-            IF(ASSOCIATED(restart_namelist(i)%text)) DEALLOCATE(restart_namelist(i)%text)
+            IF(ALLOCATED(restart_namelist(i)%NAME)) DEALLOCATE(restart_namelist(i)%NAME)
+            IF(ALLOCATED(restart_namelist(i)%text)) DEALLOCATE(restart_namelist(i)%text)
         END DO
         DEALLOCATE(restart_namelist)
         l_restart_namelist_initialized = .FALSE.
@@ -133,9 +126,17 @@ CONTAINS
     CHARACTER(len=*), INTENT(in) :: namelist_text
     TYPE(t_att_namelist), POINTER :: list_entry
 
+    INTEGER :: textLength, error
+    CHARACTER(*), PARAMETER :: routine = modname//":set_restart_namelist"
+
     list_entry => find_namelist(namelist_name)
-    IF(ASSOCIATED(list_entry%text)) DEALLOCATE(list_entry%text)
-    list_entry%text => toCharArray(namelist_text)
+    textLength = LEN_TRIM(namelist_text)
+
+    IF(ALLOCATED(list_entry%text)) DEALLOCATE(list_entry%text)
+    ALLOCATE(CHARACTER(textLength) :: list_entry%text, STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+
+    list_entry%text(1:textLength) = namelist_text(1:textLength)
   END SUBROUTINE set_restart_namelist
 
   SUBROUTINE get_restart_namelist(namelist_name, namelist_text)
@@ -144,20 +145,10 @@ CONTAINS
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":get_restart_namelist"
     TYPE(t_att_namelist), POINTER :: list_entry
-    CHARACTER(LEN = :), POINTER :: tempText
-    INTEGER :: textLength, error
 
     list_entry => find_namelist(namelist_name)
-    IF(.NOT.ASSOCIATED(list_entry%text)) CALL finish(routine, 'namelist '//TRIM(namelist_name)//' not available in restart file.')
-    tempText => toCharacter(list_entry%text)
-    textLength = LEN(tempText)
-
-    IF(ALLOCATED(namelist_text)) DEALLOCATE(namelist_text)
-    ALLOCATE(CHARACTER(LEN = textLength) :: namelist_text, STAT = error)
-    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-
-    namelist_text(1:textLength) = tempText(1:textLength)
-    DEALLOCATE(tempText)
+    IF(.NOT.ALLOCATED(list_entry%text)) CALL finish(routine, 'namelist '//TRIM(namelist_name)//' not available in restart file.')
+    namelist_text = list_entry%text
   END SUBROUTINE get_restart_namelist
 
   SUBROUTINE print_restart_name_lists()
@@ -167,7 +158,7 @@ CONTAINS
     WRITE(nerr, '(a,a,i3)') routine, ' p_pe=', p_pe
     PRINT *,'restart name lists count = ',nmls
     DO i = 1, nmls
-        PRINT *, ' restart name list = "', restart_namelist(i)%NAME, '",  text = "', restart_namelist(i)%text, '"'
+        PRINT *, ' restart name list = "'//restart_namelist(i)%NAME//'",  text = "'//restart_namelist(i)%text//'"'
     ENDDO
   END SUBROUTINE print_restart_name_lists
 
@@ -281,15 +272,12 @@ CONTAINS
     INTEGER, VALUE :: cdiVlistId
 
     INTEGER :: i, error
-    CHARACTER(LEN = :), POINTER :: tempName, tempText
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":RestartNamelist_writeToFile"
 
     DO i = 1, nmls
-        tempName => toCharacter(restart_namelist(i)%name)
-        tempText => toCharacter(restart_namelist(i)%text)
-        error = vlistDefAttTxt(cdiVlistId, CDI_GLOBAL, tempName, LEN(tempText), tempText)
+        error = vlistDefAttTxt(cdiVlistId, CDI_GLOBAL, restart_namelist(i)%name, LEN(restart_namelist(i)%text), &
+                              &restart_namelist(i)%text)
         IF(error /= SUCCESS) CALL finish(routine, "error WHILE writing a namelist to a restart file")
-        DEALLOCATE(tempName, tempText)
     ENDDO
   END SUBROUTINE RestartNamelist_writeToFile
 
@@ -345,7 +333,6 @@ CONTAINS
     LOGICAL :: lIsRoot, lIsReceiver
     INTEGER :: iv, nv, i, maxNameLength, maxAttributeLength, error
     CHARACTER(LEN = :), ALLOCATABLE :: list_name, list_text
-    CHARACTER(LEN = :), POINTER :: temp_text
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":RestartNamelist_bcast"
 
     ! get our role IN the broadcast operation
@@ -362,8 +349,8 @@ CONTAINS
     maxAttributeLength = 1
     IF(lIsRoot) THEN
         DO iv = 1, nv
-            maxNameLength = MAX(maxNameLength, SIZE(restart_namelist(iv)%NAME, 1))
-            maxAttributeLength = MAX(maxAttributeLength, SIZE(restart_namelist(iv)%text, 1))
+            maxNameLength = MAX(maxNameLength, LEN(restart_namelist(iv)%NAME))
+            maxAttributeLength = MAX(maxAttributeLength, LEN(restart_namelist(iv)%text))
         END DO
     END IF
     CALL p_bcast(maxNameLength, root, communicator)
@@ -379,18 +366,14 @@ CONTAINS
         list_name(1:maxNameLength) = ''
         IF(lIsRoot) THEN
             ! The first four characters are skipped because that's the `nml_` which will be added again by set_restart_namelist().
-            DO i = 1, SIZE(restart_namelist(iv)%NAME, 1) - 4
-                list_name(i:i) = restart_namelist(iv)%NAME(i + 4)
-            END DO
+            list_name(1:LEN(restart_namelist(iv)%NAME) - 4) = restart_namelist(iv)%NAME(5:)
         END IF
         CALL p_bcast(list_name(1:maxNameLength), root, communicator)
 
         ! send text of the name list
         list_text(1:maxAttributeLength) = ''
         IF(lIsRoot) THEN
-            temp_text => toCharacter(restart_namelist(iv)%text)
-            list_text(1:maxAttributeLength) = temp_text
-            DEALLOCATE(temp_text)
+            list_text(1:maxAttributeLength) = restart_namelist(iv)%text
         END IF
         CALL p_bcast(list_text(1:maxAttributeLength), root, communicator)
 
