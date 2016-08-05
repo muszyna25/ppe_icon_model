@@ -15,7 +15,7 @@ MODULE mo_restart_util
                     & gridDefYname, gridDefYlongname, gridDefYunits, zaxisCreate, zaxisDefLevels, streamOpenWrite, &
                     & vlistCreate, taxisCreate, vlistDefTaxis, TAXIS_ABSOLUTE, vlistDefVar, vlistDefVarDatatype, vlistDefVarName, &
                     & vlistDefVarLongname, vlistDefVarUnits, vlistDefVarMissval, TIME_VARIABLE, DATATYPE_FLT64, taxisDefVdate, &
-                    & taxisDefVtime, cdiEncodeDate, cdiEncodeTime, streamDefTimestep
+                    & taxisDefVtime, cdiEncodeDate, cdiEncodeTime, streamDefTimestep, FILETYPE_NC2, FILETYPE_NC4
     USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, &
                               & ZA_COUNT, ZA_HYBRID, ZA_HYBRID_HALF, ZA_LAKE_BOTTOM, ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, &
                               & ZA_SEDIMENT_BOTTOM_TW_HALF, cdi_zaxis_types
@@ -289,6 +289,14 @@ CONTAINS
 
         CHARACTER(LEN = MAX_CHAR_LENGTH) :: cdiErrorText
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartCdiIds_openRestartAndCreateIds"
+
+        ! check whether the given filetype IS OK
+        SELECT CASE(restartType)
+            CASE(FILETYPE_NC2, FILETYPE_NC4)
+                ! These are ok, both formats allow for files larger than 2GiB.
+            CASE DEFAULT
+                CALL finish(routine, "unsupported restart file type")
+        END SELECT
 
         ! open the file
         me%file = streamOpenWrite(filename, restartType)

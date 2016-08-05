@@ -59,7 +59,7 @@ MODULE mo_sync_restart
   USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_linked_list,           ONLY: t_var_list, t_list_element
   USE mo_var_list,              ONLY: nvar_lists, var_lists, get_var_timelevel
-  USE mo_cdi,                   ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, CDI_UNDEFID, COMPRESS_ZIP, &
+  USE mo_cdi,                   ONLY: FILETYPE_NC2, FILETYPE_NC4, CDI_UNDEFID, COMPRESS_ZIP, &
                                     & streamWriteVarSlice, streamWriteVar
   USE mo_cdi_constants,         ONLY: ZA_COUNT
   USE mo_restart_util,          ONLY: t_restart_cdi_ids, setGeneralRestartAttributes, &
@@ -222,8 +222,7 @@ CONTAINS
 
     INTEGER :: inlev_soil, inlev_snow, i, nice_class, error
     INTEGER :: ndepth    ! depth of n
-    CHARACTER(len=MAX_CHAR_LENGTH)  :: string
-    TYPE(t_restart_cdi_ids), ALLOCATABLE :: cdiIds(:)
+    TYPE(t_restart_cdi_ids) :: cdiIds
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":patchData_writeFile"
 
@@ -252,23 +251,15 @@ CONTAINS
     IF(me%description%l_opt_nice_class) nice_class = me%description%opt_nice_class
 
     CALL me%description%defineVGrids()
-    ALLOCATE(cdiIds(nvar_lists), STAT = error)
-    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-    DO i = 1, SIZE(cdiIds, 1)
-        CALL cdiIds(i)%init()
-    END DO
+    CALL cdiIds%init()
 
-    string = getRestartFilename(me%description%base_filename, me%description%id, datetime, modelType)
-
-    CALL open_writing_restart_files(me%description, TRIM(string), restartAttributes, cdiIds, datetime)
-    CALL write_restart(me%description, cdiIds, datetime)
+    CALL open_writing_restart_file(me%description, modelType, restartAttributes, cdiIds, datetime)
+    CALL write_restart(me%description, cdiIds%file, datetime)
     IF(me%description%l_opt_ndom) THEN
-        CALL close_writing_restart_files(me%description%id, cdiIds, me%description%opt_ndom)
+        CALL close_writing_restart_file(me%description%id, cdiIds, me%description%opt_ndom)
     ELSE
-        CALL close_writing_restart_files(me%description%id, cdiIds)
+        CALL close_writing_restart_file(me%description%id, cdiIds)
     END IF
-
-    DEALLOCATE(cdiIds)
   END SUBROUTINE patchData_writeFile
 
   SUBROUTINE syncRestartDescriptor_writeRestart(me, datetime, jstep, modelType, opt_output_jfile)
@@ -347,23 +338,31 @@ CONTAINS
     END DO
   END SUBROUTINE defineRestartAttributes
 
+  LOGICAL FUNCTION isMatchingRestartVarlist(varlist, domain, modelType) RESULT(RESULT)
+    TYPE(t_var_list), INTENT(IN) ::varlist
+    INTEGER, VALUE :: domain
+    CHARACTER(LEN = *), INTENT(IN) :: modelType
+
+    RESULT = .FALSE.
+    IF(varlist%p%restart_opened) RETURN ! each varlist should ONLY be opened once
+    IF(.NOT. varlist%p%lrestart) RETURN ! we are ONLY interested IN restart varlists
+    IF(varlist%p%patch_id /= domain) RETURN
+    IF(varlist%p%model_type /= modelType) RETURN
+    RESULT = .TRUE.
+  END FUNCTION isMatchingRestartVarlist
+
   ! Loop over all the output streams and open the associated files. Set
   ! unit numbers (file IDs) for all streams associated with a file.
-  SUBROUTINE open_writing_restart_files(description, restart_filename, restartAttributes, cdiIds, datetime)
+  SUBROUTINE open_writing_restart_file(description, modelType, restartAttributes, cdiIds, datetime)
     CLASS(t_restart_patch_description), INTENT(IN) :: description
-    CHARACTER(LEN=*), INTENT(IN) :: restart_filename
+    CHARACTER(LEN = *), INTENT(IN) :: modelType
     TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
-    TYPE(t_restart_cdi_ids), INTENT(INOUT) :: cdiIds(:)
+    TYPE(t_restart_cdi_ids), INTENT(INOUT) :: cdiIds
     TYPE(t_datetime), INTENT(IN) :: datetime
 
-    INTEGER :: status, i ,j, ia, ihg, ivg
-
-    CHARACTER(len=64) :: attribute_name
-    CHARACTER(len=256) :: text_attribute
-    REAL(wp) :: real_attribute(1)
-    INTEGER :: int_attribute(1), axisIds(ZA_COUNT)
-    LOGICAL :: bool_attribute
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":open_writing_restart_files"
+    INTEGER :: i, restartType
+    CHARACTER(LEN = :), ALLOCATABLE :: restartFilename
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":open_writing_restart_file"
 
     IF (my_process_is_mpi_test()) RETURN
 
@@ -377,113 +376,59 @@ CONTAINS
     CALL message('',message_text)
     CALL message('','')
 
-    ! Loop over all var_lists and open the associated files. Set
-    ! file IDs if necessary.
+    restartFilename = TRIM(getRestartFilename(description%base_filename, description%id, datetime, modelType))
 
+    ! search for the first matching varlist AND open a restart file for it
     DO i = 1, nvar_lists
-      var_lists(i)%p%first = .FALSE.
-    ENDDO
-
-    DO i = 1, nvar_lists
-
-      ! skip, if file is already opened
-
-      IF (var_lists(i)%p%restart_opened) CYCLE
-
-      ! skip, if var_list is not required for restarting
-
-      IF (.NOT. var_lists(i)%p%lrestart) CYCLE
-
-      ! skip, if var_list does not match the current patch ID
-      IF (var_lists(i)%p%patch_id /= description%id) CYCLE
-
-      ! check restart file type
-
-      SELECT CASE (var_lists(i)%p%restart_type)
-      CASE (FILETYPE_NC)
-        CALL finish('open_restart_files','netCDF classic not supported')
-      CASE (FILETYPE_NC2, FILETYPE_NC4)
-        ! this is ok, both formats can write more than 2GB files
-      CASE default
-        CALL finish('open_restart_files','unknown restart_type')
-      END SELECT
-
-      var_lists(i)%p%first = .TRUE.
-
-      IF (my_process_is_mpi_workroot()) THEN
-        IF(ALLOCATED(description%opt_pvct)) THEN
-            CALL cdiIds(i)%openRestartAndCreateIds(TRIM(restart_filename), var_lists(i)%p%restart_type, restartAttributes, &
-                                                  &description%n_patch_cells_g, description%n_patch_verts_g, &
-                                                  &description%n_patch_edges_g, description%cell_type, &
-                                                  &description%v_grid_defs(1:description%v_grid_count), description%opt_pvct)
-        ELSE
-            CALL cdiIds(i)%openRestartAndCreateIds(TRIM(restart_filename), var_lists(i)%p%restart_type, restartAttributes, &
-                                                  &description%n_patch_cells_g, description%n_patch_verts_g, &
-                                                  &description%n_patch_edges_g, description%cell_type, &
-                                                  &description%v_grid_defs(1:description%v_grid_count))
+        IF(var_lists(i)%p%first) CALL finish(routine, "assertion failed: something else is using the first field")
+        IF(isMatchingRestartVarlist(var_lists(i), description%id, modelType)) THEN
+            restartType = var_lists(i)%p%restart_type
+            ! open the file
+            IF (my_process_is_mpi_workroot()) THEN
+                IF(ALLOCATED(description%opt_pvct)) THEN
+                    CALL cdiIds%openRestartAndCreateIds(restartFilename, restartType, restartAttributes, &
+                                                       &description%n_patch_cells_g, description%n_patch_verts_g, &
+                                                       &description%n_patch_edges_g, description%cell_type, &
+                                                       &description%v_grid_defs(1:description%v_grid_count), description%opt_pvct)
+                ELSE
+                    CALL cdiIds%openRestartAndCreateIds(restartFilename, restartType, restartAttributes, &
+                                                       &description%n_patch_cells_g, description%n_patch_verts_g, &
+                                                       &description%n_patch_edges_g, description%cell_type, &
+                                                       &description%v_grid_defs(1:description%v_grid_count))
+                END IF
+            END IF
+            var_lists(i)%p%first = .TRUE. ! mark this list as the one that has been used to actually open the file
+            EXIT
         END IF
-        ! set the related fields IN the var_lists
+    END DO
 
-        var_lists(i)%p%filename = TRIM(restart_filename)
+    ! find all varlists corresponding to the opened file AND add their variable definitions
+    DO i = i, nvar_lists
+        IF(.NOT.isMatchingRestartVarlist(var_lists(i), description%id, modelType)) CYCLE
+
+        IF(var_lists(i)%p%restart_type /= restartType) THEN
+            CALL finish('open_output_streams', 'different file types for the same restart file')
+        END IF
+
         var_lists(i)%p%restart_opened = .TRUE.
+        var_lists(i)%p%filename = restartFilename
 
-        ! 6. add variables
-
-        CALL addVarListToVlist(var_lists(i), cdiIds(i), description%id)
-
-        WRITE(message_text,'(t1,a49,t50,a31,t84,i6,t94,l5)')        &
-             restart_filename, var_lists(i)%p%name,             &
-             cdiIds(i)%file, var_lists(i)%p%lrestart
-        CALL message('',message_text)
-      ENDIF
-
-
-
-      ! loop over all other output var_lists eventually corresponding to the same file
-
-      DO j = 1, nvar_lists
-
-        IF (i == j)                        CYCLE
-        IF (var_lists(j)%p%restart_opened) CYCLE
-        IF (.NOT. var_lists(j)%p%lrestart) CYCLE
-        IF (var_lists(j)%p%patch_id /= description%id) CYCLE
-
-        IF (var_lists(j)%p%restart_type /= var_lists(i)%p%restart_type) THEN
-          CALL finish('open_output_streams', 'different file types for the same restart file')
-        ENDIF
-
-        IF (var_lists(i)%p%model_type == var_lists(j)%p%model_type) THEN
-          var_lists(j)%p%restart_opened = .TRUE.
-          var_lists(j)%p%filename = var_lists(i)%p%filename
-
-          ! set file IDs of all associated restart files
-
-          cdiIds(j)%file = cdiIds(i)%file   ! IN write_restart() we USE this field to identify the var_lists that USE the same file, which IS why we need to copy this over.
-
-          ! add variables to already existing cdi vlists
-
-          IF (my_process_is_mpi_workroot()) THEN
-
-            CALL addVarListToVlist(var_lists(j), cdiIds(i), description%id)
+        ! add variables to already existing cdi vlists
+        IF (my_process_is_mpi_workroot()) THEN
+            CALL addVarListToVlist(var_lists(i), cdiIds, description%id)
 
             WRITE(message_text,'(t1,a49,t50,a31,t84,i6,t94,l5)')        &
-                 restart_filename, var_lists(j)%p%name,             &
-                 cdiIds(j)%file, var_lists(j)%p%lrestart
+                      restartFilename, var_lists(i)%p%name,             &
+                      cdiIds%file, var_lists(i)%p%lrestart
             CALL message('',message_text)
-          ENDIF
-        ENDIF
-      ENDDO
-
-
-      IF (my_process_is_mpi_workroot() .AND. var_lists(i)%p%first) THEN
-        CALL cdiIds(i)%finalizeVlist(datetime)
-      ENDIF
-
+        END IF
     END DO
+
+    IF(my_process_is_mpi_workroot()) CALL cdiIds%finalizeVlist(datetime)
 
     CALL message('','')
 
-  END SUBROUTINE open_writing_restart_files
+  END SUBROUTINE open_writing_restart_file
 
   !------------------------------------------------------------------------------------------------
 
@@ -496,9 +441,6 @@ CONTAINS
 
     TYPE (t_list_element), POINTER :: element
     TYPE (t_list_element), TARGET  :: start_with
-
-    INTEGER :: time_level
-    LOGICAL :: lskip_timelev, lskip_extra_timelevs
 
     element => start_with
     element%next_list_element => this_list%p%first_list_element
@@ -513,15 +455,12 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
 
-  SUBROUTINE close_writing_restart_files(jg, cdiIds, opt_ndom)
+  SUBROUTINE close_writing_restart_file(jg, cdiIds, opt_ndom)
     INTEGER,  INTENT(IN)           :: jg           !< patch ID
-    TYPE(t_restart_cdi_ids), INTENT(INOUT) :: cdiIds(:)
+    TYPE(t_restart_cdi_ids), INTENT(INOUT) :: cdiIds
     INTEGER,  INTENT(IN), OPTIONAL :: opt_ndom     !< no. of domains (appended to symlink name)
 
-    ! Loop over all the output streams and close the associated files, set
-    ! opened to false
-
-    INTEGER :: i, j, iret, fileID, vlistID
+    INTEGER :: i
 
     IF (my_process_is_mpi_test()) RETURN
 
@@ -533,95 +472,65 @@ CONTAINS
     CALL message('',message_text)
     CALL message('','')
 
-    close_all_lists: DO i = 1, nvar_lists
+    IF(my_process_is_mpi_workroot()) CALL cdiIds%closeAndDestroyIds()   ! close the file
 
+    ! search for the corresponding var_list AND create the symbolic link
+    DO i = 1, nvar_lists
       IF (var_lists(i)%p%restart_opened) THEN
         IF (my_process_is_mpi_workroot() .AND. var_lists(i)%p%first) THEN
-
-          fileID = cdiIds(i)%file
-
-          ! reset the copies of this file ID
-          DO j = 1, nvar_lists
-            IF(i /= j .AND. fileID == cdiIds(j)%file) cdiIds(j)%file = CDI_UNDEFID
-          END DO
-
-          ! close the file
-          CALL cdiIds(i)%closeAndDestroyIds()
-
           CALL create_restart_file_link(TRIM(var_lists(i)%p%filename), TRIM(var_lists(i)%p%model_type), 0, jg, opt_ndom = opt_ndom)
-        ENDIF
-        var_lists(i)%p%filename   = ''
-      ENDIF
-    ENDDO close_all_lists
+        END IF
+        var_lists(i)%p%filename = ''
+      END IF
+    END DO
 
     CALL message('','')
 
     ! reset all var list properties related to cdi files
 
-    reset_all_lists: DO i = 1, nvar_lists
+    DO i = 1, nvar_lists
       var_lists(i)%p%restart_opened = .FALSE.
       var_lists(i)%p%first          = .FALSE.
-    ENDDO reset_all_lists
-  END SUBROUTINE close_writing_restart_files
+    END DO
+  END SUBROUTINE close_writing_restart_file
 
   !------------------------------------------------------------------------------------------------
 
   ! loop over all var_lists for restart
 
-  SUBROUTINE write_restart(description, cdiIds, datetime)
+  SUBROUTINE write_restart(description, fileId, datetime)
     TYPE(t_restart_patch_description), INTENT(IN) :: description
-    TYPE(t_restart_cdi_ids), INTENT(INOUT) :: cdiIds(:)
+    INTEGER, VALUE :: fileId
     TYPE(t_datetime), INTENT(IN) :: datetime
 
-    INTEGER :: i,j
-    LOGICAL :: write_info
+    INTEGER :: i
     CHARACTER(len = :), ALLOCATABLE :: datetimeString
 
     IF (my_process_is_mpi_test()) RETURN
 
-    datetimeString = iso8601(datetime)
-    write_info   = .TRUE.
+    datetimeString = TRIM(iso8601(datetime))
 
     ! pick up first stream associated with each file
-
     DO i = 1, nvar_lists
-      IF (var_lists(i)%p%first) THEN
-        IF (write_info) THEN
-          SELECT CASE (var_lists(i)%p%restart_type)
-          CASE (FILETYPE_NC2)
-            CALL message('','Write netCDF2 restart for : '//TRIM(datetimeString))
-          CASE (FILETYPE_NC4)
-            IF (var_lists(i)%p%compression_type == COMPRESS_ZIP) THEN
-              CALL message('', &
-                   'Write compressed netCDF4 restart for : '//TRIM(datetimeString))
-            ELSE
-              CALL message('','Write netCDF4 restart for : '//TRIM(datetimeString))
-            END IF
-          END SELECT
-        ENDIF
-        write_info = .FALSE.
+        ! for the first varlist, output a message containing the restart file TYPE
+        IF(var_lists(i)%p%first) THEN
+            SELECT CASE(var_lists(i)%p%restart_type)
+                CASE(FILETYPE_NC2)
+                    CALL message('','Write netCDF2 restart for: '//datetimeString)
+                CASE(FILETYPE_NC4)
+                    IF(var_lists(i)%p%compression_type == COMPRESS_ZIP) THEN
+                        CALL message('', 'Write compressed netCDF4 restart for: '//datetimeString)
+                    ELSE
+                        CALL message('','Write netCDF4 restart for: '//datetimeString)
+                    END IF
+            END SELECT
+        END IF
 
-        ! loop over all streams associated with the file
+        ! DO the actual writing
+        IF(var_lists(i)%p%restart_opened) CALL write_restart_var_list(var_lists(i), description, fileId)
+    END DO
 
-        DO j = i, nvar_lists
-
-          ! skip var_list if it does not match the current patch ID
-          IF (var_lists(j)%p%patch_id /= description%id) CYCLE
-
-          IF (cdiIds(j)%file == cdiIds(i)%file) THEN
-
-
-            ! write variables
-
-            CALL write_restart_var_list(var_lists(j), description, cdiIds(i)%file)
-
-          ENDIF
-        ENDDO
-      ENDIF
-    ENDDO
-!PR
-  CALL message('','Finished Write netCDF2 restart for : '//TRIM(datetimeString))
-
+    CALL message('','Finished Write netCDF2 restart for: '//datetimeString)
   END SUBROUTINE write_restart
 
   !------------------------------------------------------------------------------------------------
@@ -667,6 +576,7 @@ CONTAINS
       ! skip this field ?
 
       IF (.NOT. info%lrestart) CYCLE
+      IF(.NOT. this_list%p%lrestart) CALL finish(routine, "assertion failed: restart variable found within a non-restart list")
 
 
       ! skip this field because of wrong time index ?
