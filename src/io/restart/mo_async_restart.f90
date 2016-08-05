@@ -100,7 +100,9 @@ MODULE mo_async_restart
     CHARACTER(LEN=32)           :: model_type
     TYPE(t_restart_cdi_ids)     :: cdiIds
   CONTAINS
-    PROCEDURE, PRIVATE :: construct => restartFile_construct
+    PROCEDURE, PRIVATE :: open => restartFile_open
+    PROCEDURE, PRIVATE :: writeLevel => restartFile_writeLevel
+    PROCEDURE, PRIVATE :: close => restartFile_close
   END TYPE t_restart_file
 
   ! combine the DATA that describes a patch for restart purposes with the infos required for the asynchronous fetching of the DATA from the compute PEs
@@ -108,7 +110,6 @@ MODULE mo_async_restart
     TYPE(t_restart_patch_description) :: description
     TYPE(t_var_data), POINTER :: varData(:)
     TYPE(t_AsyncRestartCommData) :: commData
-    TYPE(t_restart_file) :: restart_file
   END TYPE t_patch_data
 
   ! This IS the actual INTERFACE to the restart writing code (apart from the restart_main_proc PROCEDURE). Its USE IS as follows:
@@ -193,18 +194,6 @@ CONTAINS
     ENDDO
   END FUNCTION countRestartVariables
 
-  !------------------------------------------------------------------------------------------------
-  !
-  ! Sets the restart file data with the given logical patch ident.
-  !
-  SUBROUTINE restartFile_construct(me, patch_id)
-    CLASS(t_restart_file), INTENT(INOUT) :: me
-    INTEGER, VALUE :: patch_id
-
-    me%filename = ''
-    CALL me%cdiIds%init()
-  END SUBROUTINE restartFile_construct
-
   SUBROUTINE initVarData(varData, patch_id)
     TYPE(t_var_data), POINTER :: varData(:)
     INTEGER, VALUE :: patch_id
@@ -285,7 +274,6 @@ CONTAINS
         ! construct the subobjects
         CALL create_patch_description(me%patch_data(jg)%description, jg)
         CALL initVarData(me%patch_data(jg)%varData, jg)
-        CALL me%patch_data(jg)%restart_file%construct(jg)
         CALL me%patch_data(jg)%commData%construct(jg, me%patch_data(jg)%varData)
 
         ! consistency checks
@@ -378,6 +366,8 @@ CONTAINS
     TYPE(t_patch_data), INTENT(INOUT) :: patch_data
     TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
 
+    TYPE(t_restart_file) :: restartFile
+
     ! check if the patch is actice
     IF(.NOT. patch_data%description%l_dom_active) RETURN
 
@@ -391,19 +381,19 @@ CONTAINS
         CALL restartAttributes%printAttributes()
         CALL print_restart_name_lists()
 #endif
-        CALL open_restart_file(patch_data, restart_args, restartAttributes)
+        CALL restartFile%open(patch_data, restart_args, restartAttributes)
 
         ! collective call to write the restart variables
-        CALL restart_write_var_list(patch_data)
+        CALL restart_write_var_list(patch_data, restartFile)
         IF(patch_data%description%l_opt_ndom) THEN
-            CALL create_restart_file_link(TRIM(patch_data%restart_file%filename), TRIM(patch_data%restart_file%model_type), &
+            CALL create_restart_file_link(TRIM(restartFile%filename), TRIM(restartFile%model_type), &
                                          &patch_data%description%restart_proc_id - p_restart_pe0, patch_data%description%id, &
                                          &opt_ndom = patch_data%description%opt_ndom)
         ELSE
-            CALL create_restart_file_link(TRIM(patch_data%restart_file%filename), TRIM(patch_data%restart_file%model_type), &
+            CALL create_restart_file_link(TRIM(restartFile%filename), TRIM(restartFile%model_type), &
                                          &patch_data%description%restart_proc_id - p_restart_pe0, patch_data%description%id)
         END IF
-        CALL close_restart_file(patch_data%restart_file)
+        CALL restartFile%close()
     ENDIF
   END SUBROUTINE restart_write_patch
 #endif
@@ -1099,10 +1089,10 @@ CONTAINS
   !
   ! Write restart variable list for a restart PE.
   !
-  SUBROUTINE restart_write_var_list(p_pd)
+  SUBROUTINE restart_write_var_list(p_pd, restartFile)
     TYPE(t_patch_data), TARGET, INTENT(INOUT) :: p_pd
+    TYPE(t_restart_file) :: restartFile
 
-    TYPE(t_restart_file), POINTER   :: p_rf
     TYPE(t_var_metadata), POINTER   :: p_info
     TYPE(t_AsyncRestartPacker), POINTER   :: p_ri
     TYPE(t_var_data), POINTER       :: p_vars(:)
@@ -1129,8 +1119,6 @@ CONTAINS
     t_write = 0.d0
     bytesGet = 0_i8
     bytesWrite = 0_i8
-
-    p_rf => p_pd%restart_file
 
     ! check the contained array of restart variables
     p_vars => p_pd%varData
@@ -1181,7 +1169,7 @@ CONTAINS
         ! write field content into a file
         t_write = t_write - p_mpi_wtime()
         DO ilev=chunk_start, chunk_end
-          CALL streamWriteVarSlice(p_rf%cdiIds%file, p_info%cdiVarID, (ilev-1), buffer(:, ilev - chunk_start + 1), 0)
+          CALL restartFile%writeLevel(p_info%cdiVarID, (ilev-1), buffer(:, ilev - chunk_start + 1))
           bytesWrite = bytesWrite + pointCount*8
         END DO
         t_write = t_write + p_mpi_wtime()
@@ -1248,53 +1236,33 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  ! Initialize the variable list of the given restart file.
-  !
-  SUBROUTINE init_restart_variables(p_rf, varData, patchDescription)
-    TYPE(t_restart_file), INTENT(IN) :: p_rf
-    TYPE(t_var_data) :: varData(:)
-    TYPE(t_restart_patch_description), INTENT(IN) :: patchDescription
-
-    INTEGER :: iv
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':init_restart_variables'
-
-#ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
-#endif
-
-    ! go over the all restart variables in the associated array AND define those that have a valid time level
-    DO iv = 1, SIZE(varData)
-      IF(has_valid_time_level(varData(iv)%info, patchDescription)) CALL p_rf%cdiIds%defineVariable(varData(iv)%info)
-    ENDDO
-  END SUBROUTINE init_restart_variables
-
-  !------------------------------------------------------------------------------------------------
-  !
   ! Opens the restart file from the given parameters.
   !
-  SUBROUTINE open_restart_file(p_pd, restart_args, restartAttributes)
+  SUBROUTINE restartFile_open(me, p_pd, restart_args, restartAttributes)
+    CLASS(t_restart_file) :: me
     TYPE(t_patch_data), TARGET, INTENT(INOUT) :: p_pd
     TYPE(t_restart_args), INTENT(IN) :: restart_args
     TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
 
     TYPE(t_restart_patch_description), POINTER :: description
-    TYPE(t_restart_file), POINTER :: p_rf
     TYPE(t_var_list), POINTER     :: p_re_list
     INTEGER                       :: restart_type, i
-    CHARACTER(LEN=*), PARAMETER   :: routine = modname//':open_restart_file'
+    CHARACTER(LEN=*), PARAMETER   :: routine = modname//':restartFile_open'
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
 #endif
 
-    ! just for safety
-    IF(.NOT. my_process_is_restart()) CALL finish(routine, NO_RESTART_PE)
+    IF(.NOT. my_process_is_restart()) CALL finish(routine, NO_RESTART_PE)   ! just for safety
+
+    ! DEFAULT initialization IN CASE we RETURN early
+    CALL me%cdiIds%init()
+    me%filename = ''
+    me%model_type = ''
+
+    IF(.NOT. ASSOCIATED(p_pd%varData)) RETURN   ! no variables => no restart file
 
     description => p_pd%description
-    p_rf => p_pd%restart_file
-
-    ! check the contained array of restart variables
-    IF(.NOT. ASSOCIATED(p_pd%varData)) RETURN
 
     ! get the first restart list from the global lists
     p_re_list => NULL()
@@ -1307,7 +1275,7 @@ CONTAINS
       EXIT
     ENDDO
     ! assume all restart variables have the same model name
-    p_rf%model_type = p_re_list%p%model_type
+    me%model_type = p_re_list%p%model_type
 
     ! assume all restart variables uses the same file format
     SELECT CASE (p_re_list%p%restart_type)
@@ -1317,38 +1285,45 @@ CONTAINS
         CALL finish(routine, UNKNOWN_FILE_FORMAT)
     END SELECT
 
-    p_rf%filename = getRestartFilename(description%base_filename, description%id, restart_args%datetime, p_rf%model_type)
+    me%filename = getRestartFilename(description%base_filename, description%id, restart_args%datetime, me%model_type)
 
     IF(ALLOCATED(description%opt_pvct)) THEN
-        CALL p_rf%cdiIds%openRestartAndCreateIds(TRIM(p_rf%filename), restart_type, restartAttributes, &
-                                                &description%n_patch_cells_g, description%n_patch_verts_g, &
-                                                &description%n_patch_edges_g, description%cell_type, &
-                                                &description%v_grid_defs(1:description%v_grid_count), description%opt_pvct)
+        CALL me%cdiIds%openRestartAndCreateIds(TRIM(me%filename), restart_type, restartAttributes, description%n_patch_cells_g, &
+                                              &description%n_patch_verts_g, description%n_patch_edges_g, description%cell_type, &
+                                              &description%v_grid_defs(1:description%v_grid_count), description%opt_pvct)
     ELSE
-        CALL p_rf%cdiIds%openRestartAndCreateIds(TRIM(p_rf%filename), restart_type, restartAttributes, &
-                                                &description%n_patch_cells_g, description%n_patch_verts_g, &
-                                                &description%n_patch_edges_g, description%cell_type, &
-                                                &description%v_grid_defs(1:description%v_grid_count))
+        CALL me%cdiIds%openRestartAndCreateIds(TRIM(me%filename), restart_type, restartAttributes, description%n_patch_cells_g, &
+                                              &description%n_patch_verts_g, description%n_patch_edges_g, description%cell_type, &
+                                              &description%v_grid_defs(1:description%v_grid_count))
     END IF
 
 #ifdef DEBUG
-    WRITE (nerr, FORMAT_VALS5)routine,' p_pe=',p_pe,' open netCDF file with ID=',p_rf%cdiIds%file
+    WRITE (nerr, FORMAT_VALS5)routine,' p_pe=',p_pe,' open netCDF file with ID=',me%cdiIds%file
 #endif
 
-    ! init list of restart variables
-    CALL init_restart_variables(p_rf, p_pd%varData, p_pd%description)
+    ! go over the all restart variables in the associated array AND define those that have a valid time level
+    DO i = 1, SIZE(p_pd%varData)
+        IF(has_valid_time_level(p_pd%varData(i)%info, description)) CALL me%cdiIds%defineVariable(p_pd%varData(i)%info)
+    ENDDO
 
-    CALL p_rf%cdiIds%finalizeVlist(restart_args%datetime)
-  END SUBROUTINE open_restart_file
+    CALL me%cdiIds%finalizeVlist(restart_args%datetime)
+  END SUBROUTINE restartFile_open
+
+  SUBROUTINE restartFile_writeLevel(me, varId, levelId, DATA)
+    CLASS(t_restart_file), INTENT(IN) :: me
+    INTEGER, VALUE :: varId, levelId
+    REAL(dp), INTENT(IN) :: DATA(:)
+
+    CALL streamWriteVarSlice(me%cdiIds%file, varId, levelId, DATA, 0)
+  END SUBROUTINE restartFile_writeLevel
 
   !------------------------------------------------------------------------------------------------
   !
   ! Closes the given restart file.
   !
-  SUBROUTINE close_restart_file(rf)
-
-    TYPE (t_restart_file), INTENT(INOUT)  :: rf
-    CHARACTER(LEN=*), PARAMETER           :: routine = modname//':close_restart_file'
+  SUBROUTINE restartFile_close(me)
+    CLASS(t_restart_file), INTENT(INOUT) :: me
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//':restartFile_close'
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
@@ -1357,17 +1332,15 @@ CONTAINS
     ! just for safety
     IF(.NOT. my_process_is_restart()) CALL finish(routine, NO_RESTART_PE)
 
-    IF (rf%cdiIds%file /= CDI_UNDEFID) THEN
+    IF (me%cdiIds%file /= CDI_UNDEFID) THEN
 #ifdef DEBUG
-      WRITE (nerr,'(3a)')routine,' try to close restart file=',TRIM(rf%filename)
-      WRITE (nerr, FORMAT_VALS5)routine,' p_pe=',p_pe,' close netCDF file with ID=',rf%cdiIds%file
+      WRITE (nerr,'(3a)')routine,' try to close restart file=',TRIM(me%filename)
+      WRITE (nerr, FORMAT_VALS5)routine,' p_pe=',p_pe,' close netCDF file with ID=',me%cdiIds%file
 #endif
     ENDIF
 
-    CALL rf%cdiIds%closeAndDestroyIds()
-    rf%filename = ''
-
-  END SUBROUTINE close_restart_file
+    CALL me%cdiIds%closeAndDestroyIds()
+  END SUBROUTINE restartFile_close
 
 #endif
 
