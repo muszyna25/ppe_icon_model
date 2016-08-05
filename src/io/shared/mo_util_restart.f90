@@ -17,16 +17,21 @@ MODULE mo_util_restart
                     & gridDefYname, gridDefYlongname, gridDefYunits, zaxisCreate, zaxisDefLevels, streamOpenWrite, &
                     & vlistCreate, taxisCreate, vlistDefTaxis, TAXIS_ABSOLUTE, vlistDefVar, vlistDefVarDatatype, vlistDefVarName, &
                     & vlistDefVarLongname, vlistDefVarUnits, vlistDefVarMissval, TIME_VARIABLE, DATATYPE_FLT64
-    USE mo_cdi_constants, ONLY: ZA_HYBRID, ZA_HYBRID_HALF, ZA_LAKE_BOTTOM, ZA_MIX_LAYER, ZA_LAKE_BOTTOM_HALF, &
-                              & ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_COUNT, cdi_zaxis_types, GRID_UNSTRUCTURED_CELL, &
-                              & GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_COUNT
+    USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_COUNT, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, &
+                              & ZA_COUNT, ZA_DEPTH_BELOW_LAND, ZA_DEPTH_BELOW_LAND_P1, ZA_DEPTH_BELOW_SEA, &
+                              & ZA_DEPTH_BELOW_SEA_HALF, ZA_DEPTH_RUNOFF_G, ZA_DEPTH_RUNOFF_S, ZA_GENERIC_ICE, ZA_HEIGHT_10M, &
+                              & ZA_HEIGHT_2M, ZA_HYBRID, ZA_HYBRID_HALF, ZA_LAKE_BOTTOM, ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, &
+                              & ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_SNOW, ZA_SNOW_HALF, ZA_SURFACE, ZA_TOA, cdi_zaxis_types
+
     USE mo_cf_convention, ONLY: cf_global_info
     USE mo_datetime, ONLY: t_datetime, iso8601extended
     USE mo_fortran_tools, ONLY: assign_if_present
     USE mo_impl_constants, ONLY: SUCCESS, MAX_CHAR_LENGTH
     USE mo_io_restart_attributes, ONLY: t_RestartAttributeList
     USE mo_io_restart_namelist, ONLY: RestartNamelist_writeToFile
+    USE mo_io_units, ONLY: filename_max
     USE mo_kind, ONLY: wp
+    USE mo_packed_message, ONLY: t_PackedMessage
     USE mo_util_cdi, ONLY: cdiGetStringError
     USE mo_util_file, ONLY: util_symlink, util_islink, util_unlink
     USE mo_util_string, ONLY: int2string
@@ -38,12 +43,19 @@ MODULE mo_util_restart
 
     PUBLIC :: t_v_grid
     PUBLIC :: t_restart_cdi_ids
+    PUBLIC :: t_var_data
+    PUBLIC :: t_restart_patch_description
 
     PUBLIC :: setGeneralRestartAttributes
     PUBLIC :: setDynamicPatchRestartAttributes
     PUBLIC :: setPhysicsRestartAttributes
     PUBLIC :: set_vertical_grid
     PUBLIC :: create_restart_file_link
+    PUBLIC :: restartPatchDescriptionPacker
+    PUBLIC :: defineVerticalGrids
+
+    ! maximumm number of verticale axes
+    INTEGER, PARAMETER :: MAX_VERTICAL_AXES = 19
 
     ! TYPE t_v_grid contains the data of a vertical grid definition.
     TYPE t_v_grid
@@ -67,6 +79,72 @@ MODULE mo_util_restart
         MODULE PROCEDURE set_vertical_grid_counted
         MODULE PROCEDURE set_vertical_grid_single
     END INTERFACE
+
+    ! TYPE t_var_data (restart variable)
+    TYPE t_var_data
+        REAL(wp), POINTER :: r_ptr(:,:,:,:,:)
+        TYPE(t_var_metadata) :: info
+    END TYPE t_var_data
+
+    ! TYPE t_restart_patch_description contains all the DATA that describes a patch for restart purposes
+    TYPE t_restart_patch_description
+        ! vertical grid definitions
+        TYPE(t_v_grid), POINTER :: v_grid_defs(:)
+        INTEGER :: v_grid_count
+
+        ! logical patch id
+        INTEGER :: id
+
+        ! current model domain activity flag
+        LOGICAL :: l_dom_active
+
+        ! number of full levels
+        INTEGER :: nlev
+
+        ! cell type
+        INTEGER :: cell_type
+
+        ! total # of cells, # of vertices per cell
+        INTEGER :: n_patch_cells_g
+        ! total # of cells, shape of control volume for edge
+        INTEGER :: n_patch_edges_g
+        ! total # of vertices, # of vertices per dual cell
+        INTEGER :: n_patch_verts_g
+
+        ! process id
+        INTEGER :: restart_proc_id
+
+        ! id of PE0 of working group (/= 0 in case of processor splitting)
+        INTEGER :: work_pe0_id
+
+        ! base file name contains already logical patch ident
+        CHARACTER(LEN = filename_max) :: base_filename
+
+        ! dynamic patch arguments (mandatory)
+        INTEGER :: nold,nnow,nnew,nnew_rcf,nnow_rcf
+
+        ! dynamic patch arguments (optionally)
+        LOGICAL :: l_opt_depth
+        INTEGER :: opt_depth
+        LOGICAL :: l_opt_depth_lnd
+        INTEGER :: opt_depth_lnd
+        LOGICAL :: l_opt_nlev_snow
+        INTEGER :: opt_nlev_snow
+        LOGICAL :: l_opt_nice_class
+        INTEGER :: opt_nice_class
+        LOGICAL :: l_opt_ndyn_substeps
+        INTEGER :: opt_ndyn_substeps
+        LOGICAL :: l_opt_jstep_adv_marchuk_order
+        INTEGER :: opt_jstep_adv_marchuk_order
+        LOGICAL :: l_opt_sim_time
+        REAL(wp) :: opt_sim_time
+        LOGICAL :: l_opt_ndom
+        INTEGER :: opt_ndom
+
+        REAL(wp), ALLOCATABLE :: opt_pvct(:)
+        LOGICAL, ALLOCATABLE :: opt_lcall_phy(:)
+        REAL(wp), ALLOCATABLE :: opt_t_elapsed_phy(:)
+    END TYPE t_restart_patch_description
 
     CHARACTER(LEN = *), PARAMETER :: modname = "mo_util_restart"
 
@@ -97,7 +175,7 @@ CONTAINS
         CALL restartAttributes%setInteger( 'n_dom', n_dom)
         CALL restartAttributes%setInteger( 'jstep', jstep )
 
-        IF (PRESENT(opt_output_jfile)) THEN
+        IF(PRESENT(opt_output_jfile)) THEN
             DO i = 1, SIZE(opt_output_jfile)
                 CALL restartAttributes%setInteger('output_jfile_'//TRIM(int2string(i, '(i2.2)')), opt_output_jfile(i) )
             END DO
@@ -209,12 +287,12 @@ CONTAINS
 
             SELECT CASE (gridDescriptions(i)%type)
                 CASE (ZA_HYBRID)
-                    IF (.NOT.PRESENT(opt_vct)) CYCLE
+                    IF(.NOT.PRESENT(opt_vct)) CYCLE
                     nlevp1 = SIZE(gridDescriptions(i)%levels, 1) + 1
                     CALL zaxisDefVct(gridId, 2*nlevp1, opt_vct(1:2*nlevp1))
 
                 CASE (ZA_HYBRID_HALF)
-                    IF (.NOT.PRESENT(opt_vct)) CYCLE
+                    IF(.NOT.PRESENT(opt_vct)) CYCLE
                     nlevp1 = SIZE(gridDescriptions(i)%levels, 1)
                     CALL zaxisDefVct(gridId, 2*nlevp1, opt_vct(1:2*nlevp1))
 
@@ -302,16 +380,16 @@ CONTAINS
             CASE(GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE)
                 gridId = me%hgrids(info%hgrid)
         END SELECT
-        IF (gridId == CDI_UNDEFID) CALL finish(routine, 'Grid type not defined for field '//TRIM(info%name))
+        IF(gridId == CDI_UNDEFID) CALL finish(routine, 'Grid type not defined for field '//TRIM(info%name))
 
         ! get the vertical axis ID
         zaxisId = info%cdiZaxisID
         if(zaxisId < 0) zaxisId = me%vgrids(info%vgrid)
-        IF (zaxisId == CDI_UNDEFID) CALL finish(routine, 'Z axis not defined for field '//TRIM(info%name))
+        IF(zaxisId == CDI_UNDEFID) CALL finish(routine, 'Z axis not defined for field '//TRIM(info%name))
 
         ! define the variable with the required info
         varId = vlistDefVar(me%vlist, gridId, zaxisId, TIME_VARIABLE)
-        IF (varID == CDI_UNDEFID) CALL finish(routine, 'error WHILE defining CDI variable "'//TRIM(info%name)//'"')
+        IF(varID == CDI_UNDEFID) CALL finish(routine, 'error WHILE defining CDI variable "'//TRIM(info%name)//'"')
         info%cdiVarID = varId
         CALL vlistDefVarDatatype(me%vlist, varId, DATATYPE_FLT64)
         CALL vlistDefVarName(me%vlist, varId, TRIM(info%name))
@@ -424,5 +502,100 @@ CONTAINS
         iret = util_symlink(filename,TRIM(linkname))
         IF(iret /= SUCCESS) WRITE(0, *) routine//': cannot create symbolic link "'//TRIM(linkname)//'" for "'//filename//'"'
     END SUBROUTINE create_restart_file_link
+
+    SUBROUTINE restartPatchDescriptionPacker(operation, description, message)
+        INTEGER, VALUE :: operation
+        TYPE(t_restart_patch_description), INTENT(INOUT) :: description
+        TYPE(t_PackedMessage), INTENT(INOUT) :: message
+
+        ! patch id AND activity flag
+        CALL message%execute(operation, description%id)
+        CALL message%execute(operation, description%l_dom_active)
+        CALL message%execute(operation, description%nlev)
+        CALL message%execute(operation, description%cell_type)
+        CALL message%execute(operation, description%n_patch_cells_g)
+        CALL message%execute(operation, description%n_patch_edges_g)
+        CALL message%execute(operation, description%n_patch_verts_g)
+        CALL message%execute(operation, description%restart_proc_id)
+        CALL message%execute(operation, description%work_pe0_id)
+        CALL message%execute(operation, description%base_filename)
+
+        ! time levels
+        CALL message%execute(operation, description%nold)
+        CALL message%execute(operation, description%nnow)
+        CALL message%execute(operation, description%nnow_rcf)
+        CALL message%execute(operation, description%nnew)
+        CALL message%execute(operation, description%nnew_rcf)
+
+        ! optional parameter values
+        CALL message%execute(operation, description%l_opt_depth)
+        CALL message%execute(operation, description%opt_depth)
+        CALL message%execute(operation, description%l_opt_depth_lnd)
+        CALL message%execute(operation, description%opt_depth_lnd)
+        CALL message%execute(operation, description%l_opt_nlev_snow)
+        CALL message%execute(operation, description%opt_nlev_snow)
+        CALL message%execute(operation, description%l_opt_nice_class)
+        CALL message%execute(operation, description%opt_nice_class)
+        CALL message%execute(operation, description%l_opt_ndyn_substeps)
+        CALL message%execute(operation, description%opt_ndyn_substeps)
+        CALL message%execute(operation, description%l_opt_jstep_adv_marchuk_order)
+        CALL message%execute(operation, description%opt_jstep_adv_marchuk_order)
+        CALL message%execute(operation, description%l_opt_sim_time)
+        CALL message%execute(operation, description%opt_sim_time)
+        CALL message%execute(operation, description%l_opt_ndom)
+        CALL message%execute(operation, description%opt_ndom)
+
+        ! optional parameter arrays
+        CALL message%execute(operation, description%opt_pvct)
+        CALL message%execute(operation, description%opt_lcall_phy)
+        CALL message%execute(operation, description%opt_t_elapsed_phy)
+    END SUBROUTINE restartPatchDescriptionPacker
+
+    !  Set vertical grid definition.
+    SUBROUTINE defineVerticalGrids(p_desc)
+        TYPE(t_restart_patch_description), TARGET, INTENT(INOUT) :: p_desc
+
+        INTEGER :: nlev_soil, nlev_snow, nlev_ocean, nice_class, ierrstat
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":defineVerticalGrids"
+
+        ! DEFAULT values for the level counts
+        nlev_soil = 0
+        nlev_snow = 0
+        nlev_ocean = 0
+        nice_class = 1
+
+        ! replace DEFAULT values by the overrides provided IN the p_desc
+        IF(p_desc%l_opt_depth_lnd) nlev_soil = p_desc%opt_depth_lnd
+        IF(p_desc%l_opt_nlev_snow) nlev_snow = p_desc%opt_nlev_snow
+        IF(p_desc%l_opt_depth) nlev_ocean = p_desc%opt_depth
+        IF(p_desc%l_opt_nice_class) nice_class = p_desc%opt_nice_class
+
+        ! set vertical grid definitions
+        ALLOCATE(p_desc%v_grid_defs(MAX_VERTICAL_AXES), STAT=ierrstat)
+        p_desc%v_grid_count = 0
+        IF(ierrstat /= SUCCESS) CALL finish(routine, "memory allocation failed")
+
+        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_SURFACE, 0._wp)
+        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_HYBRID, p_desc%nlev)
+        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_HYBRID_HALF, p_desc%nlev+1)
+        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_HEIGHT_2M, 2._wp)
+        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_HEIGHT_10M, 10._wp)
+        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_TOA, 1._wp)
+        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_LAKE_BOTTOM, 1._wp)
+        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_MIX_LAYER, 1._wp)
+        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_LAKE_BOTTOM_HALF, 1._wp)
+        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_SEDIMENT_BOTTOM_TW_HALF, 0._wp)
+        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_GENERIC_ICE, 1._wp)
+        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_DEPTH_RUNOFF_S, 1)
+        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_DEPTH_RUNOFF_G, 1)
+        IF(p_desc%l_opt_depth_lnd) CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_DEPTH_BELOW_LAND, nlev_soil)
+        IF(p_desc%l_opt_depth_lnd) CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_DEPTH_BELOW_LAND_P1, &
+                                                         &nlev_soil+1)
+        IF(p_desc%l_opt_nlev_snow) CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_SNOW, nlev_snow)
+        IF(p_desc%l_opt_nlev_snow) CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_SNOW_HALF, nlev_snow+1)
+        IF(p_desc%l_opt_depth) CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_DEPTH_BELOW_SEA, nlev_ocean)
+        IF(p_desc%l_opt_depth) CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_DEPTH_BELOW_SEA_HALF, &
+                                                     &nlev_ocean+1)
+    END SUBROUTINE defineVerticalGrids
 
 END MODULE mo_util_restart
