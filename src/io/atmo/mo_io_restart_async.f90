@@ -1143,16 +1143,16 @@ CONTAINS
   END SUBROUTINE transfer_restart_var_lists
 
   ! collective across restart AND worker PEs
-  SUBROUTINE create_patch_description(description, p_patch)
+  SUBROUTINE create_patch_description(description, domain)
     TYPE(t_restart_patch_description), INTENT(INOUT) :: description
-    TYPE(t_patch), INTENT(IN) :: p_patch
+    INTEGER, VALUE :: domain
 
     TYPE(t_PackedMessage) :: message
 
     ! initialize on work PEs
     CALL message%construct()
     IF(my_process_is_work()) THEN
-        CALL description%setPatch(p_patch)
+        CALL description%setPatch(p_patch(domain))
         CALL description%packer(kPackOp, message)
     END IF
 
@@ -1169,15 +1169,18 @@ CONTAINS
   END SUBROUTINE create_patch_description
 
   ! collective across restart AND worker PEs
-  SUBROUTINE createCommData(commData, p_patch)
+  SUBROUTINE createCommData(commData, domain)
     TYPE(t_restart_comm_data), INTENT(INOUT) :: commData
-    TYPE(t_patch), INTENT(IN) :: p_patch
+    INTEGER, VALUE :: domain
 
     ! initialize on work PEs
     IF(my_process_is_work()) THEN
-        CALL set_reorder_data(p_patch%n_patch_cells_g, p_patch%n_patch_cells, p_patch%cells%decomp_info, commData%cells)
-        CALL set_reorder_data(p_patch%n_patch_edges_g, p_patch%n_patch_edges, p_patch%edges%decomp_info, commData%edges)
-        CALL set_reorder_data(p_patch%n_patch_verts_g, p_patch%n_patch_verts, p_patch%verts%decomp_info, commData%verts)
+        CALL set_reorder_data(p_patch(domain)%n_patch_cells_g, p_patch(domain)%n_patch_cells, p_patch(domain)%cells%decomp_info, &
+                             &commData%cells)
+        CALL set_reorder_data(p_patch(domain)%n_patch_edges_g, p_patch(domain)%n_patch_edges, p_patch(domain)%edges%decomp_info, &
+                             &commData%edges)
+        CALL set_reorder_data(p_patch(domain)%n_patch_verts_g, p_patch(domain)%n_patch_verts, p_patch(domain)%verts%decomp_info, &
+                             &commData%verts)
     END IF
 
     ! transfer data to restart PEs
@@ -1209,8 +1212,8 @@ CONTAINS
 
     ! initialize the patch_data structures
     DO jg = 1, n_dom
-        CALL create_patch_description(patch_data(jg)%description, p_patch(jg))
-        CALL createCommData(patch_data(jg)%commData, p_patch(jg))
+        CALL create_patch_description(patch_data(jg)%description, jg)
+        CALL createCommData(patch_data(jg)%commData, jg)
         CALL set_restart_file_data(patch_data(jg)%restart_file, jg)
     END DO
   END SUBROUTINE create_and_transfer_patch_data
