@@ -26,6 +26,8 @@ MODULE mo_util_restart
     PRIVATE
 
     PUBLIC :: t_v_grid
+    PUBLIC :: t_restart_cdi_ids
+
     PUBLIC :: createHgrids
     PUBLIC :: defineVAxis
     PUBLIC :: createVgrids
@@ -36,6 +38,11 @@ MODULE mo_util_restart
         INTEGER :: type
         REAL(wp), ALLOCATABLE :: levels(:)
     END type t_v_grid
+
+    ! TYPE t_restart_cdi_ids IS just a simple container for all the different CDI IDs connected to a single restart file.
+    TYPE t_restart_cdi_ids
+        INTEGER :: file, vlist, taxis, hgrids(GRID_UNSTRUCTURED_COUNT), vgrids(ZA_COUNT)
+    END TYPE t_restart_cdi_ids
 
     ! This takes a buffer for grid definitions, to which one entry IS appended by incrementing the count of used elements that's passed as well.
     INTERFACE set_vertical_grid

@@ -82,7 +82,7 @@ MODULE mo_io_restart
                                     & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE, ZA_OCEAN_SEDIMENT, ZA_COUNT, &
                                     & GRID_UNSTRUCTURED_COUNT
   USE mo_cf_convention,         ONLY: cf_global_info
-  USE mo_util_restart,          ONLY: t_v_grid, createHgrids, defineVAxis, createVgrids, set_vertical_grid
+  USE mo_util_restart,          ONLY: t_v_grid, t_restart_cdi_ids, createHgrids, defineVAxis, createVgrids, set_vertical_grid
   USE mo_util_string,           ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                 int2string, separator, toCharacter
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink, util_unlink
@@ -162,10 +162,6 @@ MODULE mo_io_restart
   INTEGER :: private_nc  = -1
   INTEGER :: private_nv  = -1
   INTEGER :: private_ne  = -1
-
-  TYPE t_var_list_restart_info
-    INTEGER :: fileId, vlistId, taxisId, hgridIds(GRID_UNSTRUCTURED_COUNT), vgridIds(ZA_COUNT)
-  END TYPE t_var_list_restart_info
 
   !> module name string
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_io_restart'
@@ -461,11 +457,11 @@ CONTAINS
 
   ! Loop over all the output streams and open the associated files. Set
   ! unit numbers (file IDs) for all streams associated with a file.
-  SUBROUTINE open_writing_restart_files(patch, restart_filename, restartAttributes, auxInfos)
+  SUBROUTINE open_writing_restart_files(patch, restart_filename, restartAttributes, cdiIds)
     TYPE(t_patch), INTENT(IN) :: patch
     CHARACTER(LEN=*), INTENT(IN) :: restart_filename
     TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
-    TYPE(t_var_list_restart_info), INTENT(INOUT) :: auxInfos(:)
+    TYPE(t_restart_cdi_ids), INTENT(INOUT) :: cdiIds(:)
 
     INTEGER :: status, i ,j, jg, ia, ihg, ivg
 
@@ -531,11 +527,11 @@ CONTAINS
       var_lists(i)%p%first = .TRUE.
 
       IF (my_process_is_mpi_workroot()) THEN
-        auxInfos(i)%fileId = streamOpenWrite(TRIM(restart_filename), var_lists(i)%p%restart_type)
+        cdiIds(i)%file = streamOpenWrite(TRIM(restart_filename), var_lists(i)%p%restart_type)
         var_lists(i)%p%filename          = TRIM(restart_filename)
 
-        IF (auxInfos(i)%fileId < 0) THEN
-          CALL cdiGetStringError(auxInfos(i)%fileId, cdiErrorText)
+        IF (cdiIds(i)%file < 0) THEN
+          CALL cdiGetStringError(cdiIds(i)%file, cdiErrorText)
           WRITE(message_text,'(a)') TRIM(cdiErrorText)
           CALL message('',message_text)
           CALL finish ('open_restart_files', 'open failed on '//TRIM(restart_filename))
@@ -547,7 +543,7 @@ CONTAINS
 
         ! 1. create cdi vlist
 
-        auxInfos(i)%vlistId = vlistCreate()
+        cdiIds(i)%vlist = vlistCreate()
 
         !    set cdi internal time index to 0 for writing time slices in netCDF
 
@@ -557,29 +553,29 @@ CONTAINS
 
         ! 2.1 namelists as text attributes
 
-        CALL RestartNamelist_writeToFile(auxInfos(i)%vlistId)
+        CALL RestartNamelist_writeToFile(cdiIds(i)%vlist)
 
         ! 2.2 restart attributes
 
-        CALL restartAttributes%writeToFile(auxInfos(i)%vlistId)
+        CALL restartAttributes%writeToFile(cdiIds(i)%vlist)
 
         ! 3. add horizontal grid descriptions
 
-        auxInfos(i)%hgridIds = createHgrids(patch%n_patch_cells_g, patch%n_patch_verts_g, patch%n_patch_edges_g, &
+        cdiIds(i)%hgrids = createHgrids(patch%n_patch_cells_g, patch%n_patch_verts_g, patch%n_patch_edges_g, &
                                            &patch%geometry_info%cell_type)
 
         ! 4. add vertical grid descriptions
 
         IF(lvct_initialised) THEN
-            CALL createVgrids(auxInfos(i)%vgridIds, vgrid_def(1:nv_grids), private_vct)
+            CALL createVgrids(cdiIds(i)%vgrids, vgrid_def(1:nv_grids), private_vct)
         ELSE
-            CALL createVgrids(auxInfos(i)%vgridIds, vgrid_def(1:nv_grids))
+            CALL createVgrids(cdiIds(i)%vgrids, vgrid_def(1:nv_grids))
         END IF
 
         ! 5. restart does contain absolute time
 
-        auxInfos(i)%taxisId = taxisCreate(TAXIS_ABSOLUTE)
-        CALL vlistDefTaxis(auxInfos(i)%vlistId, auxInfos(i)%taxisId)
+        cdiIds(i)%taxis = taxisCreate(TAXIS_ABSOLUTE)
+        CALL vlistDefTaxis(cdiIds(i)%vlist, cdiIds(i)%taxis)
       ENDIF
 
 
@@ -587,11 +583,11 @@ CONTAINS
 
       IF (my_process_is_mpi_workroot()) THEN
 
-        CALL addVarListToVlist(var_lists(i), auxInfos(i), jg)
+        CALL addVarListToVlist(var_lists(i), cdiIds(i), jg)
 
         WRITE(message_text,'(t1,a49,t50,a31,t84,i6,t94,l5)')        &
              restart_filename, var_lists(i)%p%name,             &
-             auxInfos(i)%fileId, var_lists(i)%p%lrestart
+             cdiIds(i)%file, var_lists(i)%p%lrestart
         CALL message('',message_text)
       ENDIF
 
@@ -616,17 +612,17 @@ CONTAINS
 
           ! set file IDs of all associated restart files
 
-          auxInfos(j)%fileId = auxInfos(i)%fileId   ! IN write_restart() we USE this field to identify the var_lists that USE the same file, which IS why we need to copy this over.
+          cdiIds(j)%file = cdiIds(i)%file   ! IN write_restart() we USE this field to identify the var_lists that USE the same file, which IS why we need to copy this over.
 
           ! add variables to already existing cdi vlists
 
           IF (my_process_is_mpi_workroot()) THEN
 
-            CALL addVarListToVlist(var_lists(j), auxInfos(i), jg)
+            CALL addVarListToVlist(var_lists(j), cdiIds(i), jg)
 
             WRITE(message_text,'(t1,a49,t50,a31,t84,i6,t94,l5)')        &
                  restart_filename, var_lists(j)%p%name,             &
-                 auxInfos(j)%fileId, var_lists(j)%p%lrestart
+                 cdiIds(j)%file, var_lists(j)%p%lrestart
             CALL message('',message_text)
           ENDIF
         ENDIF
@@ -634,7 +630,7 @@ CONTAINS
 
 
       IF (my_process_is_mpi_workroot() .AND. var_lists(i)%p%first) THEN
-        CALL streamDefVlist(auxInfos(i)%fileId, auxInfos(i)%vlistId)
+        CALL streamDefVlist(cdiIds(i)%file, cdiIds(i)%vlist)
       ENDIF
 
     END DO
@@ -647,9 +643,9 @@ CONTAINS
 
   ! define variables and attributes
 
-  SUBROUTINE addVarListToVlist(this_list, auxInfos, jg)
+  SUBROUTINE addVarListToVlist(this_list, cdiIds, jg)
     TYPE (t_var_list), INTENT(inout) :: this_list
-    TYPE(t_var_list_restart_info), INTENT(INOUT) :: auxInfos
+    TYPE(t_restart_cdi_ids), INTENT(INOUT) :: cdiIds
     INTEGER, VALUE :: jg
 
     TYPE (t_var_metadata), POINTER :: info
@@ -715,9 +711,9 @@ CONTAINS
 
       ! set grid AND z-axis IDs (the later only if it is not already set)
 
-      info%cdiGridID = auxInfos%hgridIds(info%hgrid)
+      info%cdiGridID = cdiIds%hgrids(info%hgrid)
       IF (info%cdiZaxisID < 0) THEN
-        info%cdiZaxisID = auxInfos%vgridIds(info%vgrid)
+        info%cdiZaxisID = cdiIds%vgrids(info%vgrid)
       END IF
 
       gridID  = info%cdiGridID
@@ -733,14 +729,14 @@ CONTAINS
                                         &vgrid = '//TRIM(int2string(info%vgrid)))
       END IF
 
-      info%cdiVarID = vlistDefVar(auxInfos%vlistID, gridID, zaxisID, TIME_VARIABLE)
+      info%cdiVarID = vlistDefVar(cdiIds%vlist, gridID, zaxisID, TIME_VARIABLE)
       varID = info%cdiVarID
 
-      CALL vlistDefVarDatatype(auxInfos%vlistID, varID, DATATYPE_FLT64)
-      CALL vlistDefVarName(auxInfos%vlistID, varID, TRIM(info%name))
+      CALL vlistDefVarDatatype(cdiIds%vlist, varID, DATATYPE_FLT64)
+      CALL vlistDefVarName(cdiIds%vlist, varID, TRIM(info%name))
 
-      IF (info%cf%long_name /= '') CALL vlistDefVarLongname(auxInfos%vlistID, varID, TRIM(info%cf%long_name))
-      IF (info%cf%units /= '') CALL vlistDefVarUnits(auxInfos%vlistID, varID, TRIM(info%cf%units))
+      IF (info%cf%long_name /= '') CALL vlistDefVarLongname(cdiIds%vlist, varID, TRIM(info%cf%long_name))
+      IF (info%cf%units /= '') CALL vlistDefVarUnits(cdiIds%vlist, varID, TRIM(info%cf%units))
 
       IF (info%lmiss) THEN
         IF (ASSOCIATED(element%field%r_ptr)) THEN
@@ -754,7 +750,7 @@ CONTAINS
             casted_missval = 0.0_wp
           ENDIF
         ENDIF
-        CALL vlistDefVarMissval(auxInfos%vlistID, varID, casted_missval)
+        CALL vlistDefVarMissval(cdiIds%vlist, varID, casted_missval)
       ENDIF
 
     ENDDO for_all_list_elements
@@ -809,7 +805,7 @@ CONTAINS
     INTEGER :: ndepth    ! depth of n
     REAL(wp), ALLOCATABLE :: zlevels_full(:), zlevels_half(:)
     CHARACTER(len=MAX_CHAR_LENGTH)  :: string
-    TYPE(t_var_list_restart_info), ALLOCATABLE :: auxInfos(:)
+    TYPE(t_restart_cdi_ids), ALLOCATABLE :: cdiIds(:)
 
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
@@ -906,14 +902,14 @@ CONTAINS
                      & inlev_snow,        &! total # of vertical snow layers (TERRA)
                      & nice_class,        &! total # of ice classes (sea ice)
                      & ks)                 ! total # of sediment layers (HAMOCC)
-    ALLOCATE(auxInfos(nvar_lists), STAT = error)
+    ALLOCATE(cdiIds(nvar_lists), STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-    DO i = 1, SIZE(auxInfos, 1)
-        auxInfos(i)%fileId = CDI_UNDEFID
-        auxInfos(i)%vlistId = CDI_UNDEFID
-        auxInfos(i)%taxisId = CDI_UNDEFID
-        auxInfos(i)%hgridIds(:) = CDI_UNDEFID
-        auxInfos(i)%vgridIds(:) = CDI_UNDEFID
+    DO i = 1, SIZE(cdiIds, 1)
+        cdiIds(i)%file = CDI_UNDEFID
+        cdiIds(i)%vlist = CDI_UNDEFID
+        cdiIds(i)%taxis = CDI_UNDEFID
+        cdiIds(i)%hgrids(:) = CDI_UNDEFID
+        cdiIds(i)%vgrids(:) = CDI_UNDEFID
     END DO
 
     CALL set_restart_time( iso8601(datetime) )  ! Time tag
@@ -926,15 +922,15 @@ CONTAINS
     ! replace keywords in file name
     string = TRIM(with_keywords(keywords, TRIM(restart_filename)))
 
-    CALL open_writing_restart_files(patch, TRIM(string), restartAttributes, auxInfos)
+    CALL open_writing_restart_files(patch, TRIM(string), restartAttributes, cdiIds)
 
-    CALL write_restart(patch, auxInfos)
+    CALL write_restart(patch, cdiIds)
 
-    CALL close_writing_restart_files(jg, auxInfos, opt_ndom)
+    CALL close_writing_restart_files(jg, cdiIds, opt_ndom)
     CALL finish_restart()
 
     CALL restartAttributes%destruct()
-    DEALLOCATE(auxInfos)
+    DEALLOCATE(cdiIds)
     DEALLOCATE(restartAttributes)
 
     IF (ltimer) CALL timer_stop(timer_write_restart_file)
@@ -943,9 +939,9 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
 
-  SUBROUTINE close_writing_restart_files(jg, auxInfos, opt_ndom)
+  SUBROUTINE close_writing_restart_files(jg, cdiIds, opt_ndom)
     INTEGER,  INTENT(IN)           :: jg           !< patch ID
-    TYPE(t_var_list_restart_info), INTENT(INOUT) :: auxInfos(:)
+    TYPE(t_restart_cdi_ids), INTENT(INOUT) :: cdiIds(:)
     INTEGER,  INTENT(IN), OPTIONAL :: opt_ndom     !< no. of domains (appended to symlink name)
 
     ! Loop over all the output streams and close the associated files, set
@@ -969,13 +965,13 @@ CONTAINS
       IF (var_lists(i)%p%restart_opened) THEN
         IF (my_process_is_mpi_workroot() .AND. var_lists(i)%p%first) THEN
 
-          fileID = auxInfos(i)%fileId
+          fileID = cdiIds(i)%file
 
           IF (fileID /= CDI_UNDEFID) THEN
-            CALL streamClose(auxInfos(i)%fileId)
+            CALL streamClose(cdiIds(i)%file)
             DO j = 1, nvar_lists
-              IF (fileID == auxInfos(j)%fileId) THEN
-                auxInfos(j)%fileId = CDI_UNDEFID
+              IF (fileID == cdiIds(j)%file) THEN
+                cdiIds(j)%file = CDI_UNDEFID
               ENDIF
             ENDDO
           ENDIF
@@ -1004,12 +1000,12 @@ CONTAINS
     ENDDO close_all_lists
 
     for_all_vlists: DO i = 1, nvar_lists
-      vlistID = auxInfos(i)%vlistId
+      vlistID = cdiIds(i)%vlist
       IF (vlistID /= CDI_UNDEFID) THEN
-        CALL vlistDestroy(auxInfos(i)%vlistId)
+        CALL vlistDestroy(cdiIds(i)%vlist)
         DO j = 1, nvar_lists
-          IF (vlistID == auxInfos(j)%vlistId) THEN
-            auxInfos(j)%vlistId = CDI_UNDEFID
+          IF (vlistID == cdiIds(j)%vlist) THEN
+            cdiIds(j)%vlist = CDI_UNDEFID
           ENDIF
         ENDDO
       ENDIF
@@ -1017,21 +1013,21 @@ CONTAINS
     CALL message('','')
 
     DO i = 1, nvar_lists
-      IF (auxInfos(i)%fileId >= 0) THEN
-        DO j = 1, SIZE(auxInfos(i)%hgridIds, 1)
-            IF(auxInfos(i)%hgridIds(j) == CDI_UNDEFID) CYCLE
-            CALL gridDestroy(auxInfos(i)%hgridIds(j))
-            auxInfos(i)%hgridIds(j) = CDI_UNDEFID
+      IF (cdiIds(i)%file >= 0) THEN
+        DO j = 1, SIZE(cdiIds(i)%hgrids, 1)
+            IF(cdiIds(i)%hgrids(j) == CDI_UNDEFID) CYCLE
+            CALL gridDestroy(cdiIds(i)%hgrids(j))
+            cdiIds(i)%hgrids(j) = CDI_UNDEFID
         END DO
 
-        DO j = 1, SIZE(auxInfos(i)%vgridIds, 1)
-            IF(auxInfos(i)%vgridIds(j) == CDI_UNDEFID) CYCLE
-            CALL zaxisDestroy(auxInfos(i)%vgridIds(j))
-            auxInfos(i)%vgridIds(j) = CDI_UNDEFID
+        DO j = 1, SIZE(cdiIds(i)%vgrids, 1)
+            IF(cdiIds(i)%vgrids(j) == CDI_UNDEFID) CYCLE
+            CALL zaxisDestroy(cdiIds(i)%vgrids(j))
+            cdiIds(i)%vgrids(j) = CDI_UNDEFID
         END DO
-        auxInfos(i)%fileId = CDI_UNDEFID
-        auxInfos(i)%vlistId = CDI_UNDEFID
-        auxInfos(i)%taxisId = CDI_UNDEFID
+        cdiIds(i)%file = CDI_UNDEFID
+        cdiIds(i)%vlist = CDI_UNDEFID
+        cdiIds(i)%taxis = CDI_UNDEFID
         var_lists(i)%p%cdiTimeIndex            = CDI_UNDEFID
       END IF
     END DO
@@ -1051,9 +1047,9 @@ CONTAINS
 
   ! loop over all var_lists for restart
 
-  SUBROUTINE write_restart(p_patch, auxInfos)
+  SUBROUTINE write_restart(p_patch, cdiIds)
     TYPE(t_patch), INTENT(in) :: p_patch
-    TYPE(t_var_list_restart_info), INTENT(INOUT) :: auxInfos(:)
+    TYPE(t_restart_cdi_ids), INTENT(INOUT) :: cdiIds(:)
 
     INTEGER :: i,j
     LOGICAL :: write_info
@@ -1084,7 +1080,7 @@ CONTAINS
         ! write time information to netCDF file
 
         IF (my_process_is_mpi_workroot()) THEN
-          CALL write_time_to_restart(var_lists(i), auxInfos(i))
+          CALL write_time_to_restart(var_lists(i), cdiIds(i))
         ENDIF
 
         ! loop over all streams associated with the file
@@ -1094,12 +1090,12 @@ CONTAINS
           ! skip var_list if it does not match the current patch ID
           IF (var_lists(j)%p%patch_id /= p_patch%id) CYCLE
 
-          IF (auxInfos(j)%fileId == auxInfos(i)%fileId) THEN
+          IF (cdiIds(j)%file == cdiIds(i)%file) THEN
 
 
             ! write variables
 
-            CALL write_restart_var_list(var_lists(j), p_patch, auxInfos(i)%fileId)
+            CALL write_restart_var_list(var_lists(j), p_patch, cdiIds(i)%file)
 
           ENDIF
         ENDDO
@@ -1114,18 +1110,18 @@ CONTAINS
 
   ! set time for restart in cdi format
 
-  SUBROUTINE write_time_to_restart(this_list, auxInfos)
+  SUBROUTINE write_time_to_restart(this_list, cdiIds)
     TYPE (t_var_list), INTENT(inout) :: this_list
-    TYPE(t_var_list_restart_info), INTENT(IN) :: auxInfos
+    TYPE(t_restart_cdi_ids), INTENT(IN) :: cdiIds
 
     INTEGER :: idate, itime, iret
 
     CALL get_date_components(private_restart_time, idate, itime)
 
-    CALL taxisDefVdate(auxInfos%taxisId, idate)
-    CALL taxisDefVtime(auxInfos%taxisId, itime)
+    CALL taxisDefVdate(cdiIds%taxis, idate)
+    CALL taxisDefVtime(cdiIds%taxis, itime)
 
-    iret = streamDefTimestep(auxInfos%fileID, this_list%p%cdiTimeIndex)
+    iret = streamDefTimestep(cdiIds%file, this_list%p%cdiTimeIndex)
     this_list%p%cdiTimeIndex = this_list%p%cdiTimeIndex + 1
 
   CONTAINS

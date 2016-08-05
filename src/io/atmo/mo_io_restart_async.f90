@@ -67,7 +67,7 @@ MODULE mo_io_restart_async
   USE mo_cf_convention
   USE mo_util_string,             ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                   int2string, toCharacter
-  USE mo_util_restart,            ONLY: createHgrids, defineVAxis, t_v_grid, createVgrids, set_vertical_grid
+  USE mo_util_restart,            ONLY: t_v_grid, t_restart_cdi_ids, createHgrids, defineVAxis, createVgrids, set_vertical_grid
 
 #ifndef NOMPI
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work,      &
@@ -179,11 +179,7 @@ MODULE mo_io_restart_async
     CHARACTER(LEN=32)           :: model_type
     CHARACTER(len=64)           :: linkname
     CHARACTER(len=10)           :: linkprefix
-    INTEGER                     :: cdiFileID
-    INTEGER                     :: cdiVlistID
-    INTEGER                     :: cdiHgridIds(GRID_UNSTRUCTURED_COUNT)
-    INTEGER                     :: cdiTaxisID
-    INTEGER                     :: cdiZaxisIDs(ZA_COUNT)  !indices are the ZA_... constants
+    TYPE(t_restart_cdi_ids)     :: cdiIds
     INTEGER                     :: cdiTimeIndex
 
   END TYPE t_restart_file
@@ -1264,25 +1260,25 @@ CONTAINS
 
       CALL close_restart_file(rf)
 
-      CALL destroy_cdi_grid(rf%cdiHgridIds(grid_unstructured_cell))
-      CALL destroy_cdi_grid(rf%cdiHgridIds(grid_unstructured_vert))
-      CALL destroy_cdi_grid(rf%cdiHgridIds(grid_unstructured_cell))
+      CALL destroy_cdi_grid(rf%cdiIds%hgrids(grid_unstructured_cell))
+      CALL destroy_cdi_grid(rf%cdiIds%hgrids(grid_unstructured_vert))
+      CALL destroy_cdi_grid(rf%cdiIds%hgrids(grid_unstructured_cell))
 
-      IF (rf%cdiTaxisID /= CDI_UNDEFID) THEN
-        CALL taxisDestroy(rf%cdiTaxisID)
-        rf%cdiTaxisID = CDI_UNDEFID
+      IF (rf%cdiIds%taxis /= CDI_UNDEFID) THEN
+        CALL taxisDestroy(rf%cdiIds%taxis)
+        rf%cdiIds%taxis = CDI_UNDEFID
       ENDIF
 
-      DO i = 1, SIZE(rf%cdiZaxisIDs)
-        IF (rf%cdiZaxisIDs(i) /= CDI_UNDEFID) THEN
-          CALL zaxisDestroy(rf%cdiZaxisIDs(i))
-          rf%cdiZaxisIDs(i) = CDI_UNDEFID
+      DO i = 1, SIZE(rf%cdiIds%vgrids)
+        IF (rf%cdiIds%vgrids(i) /= CDI_UNDEFID) THEN
+          CALL zaxisDestroy(rf%cdiIds%vgrids(i))
+          rf%cdiIds%vgrids(i) = CDI_UNDEFID
         ENDIF
       ENDDO
 
-      IF (rf%cdiVlistID /= CDI_UNDEFID) THEN
-        CALL vlistDestroy(rf%cdiVlistID)
-        rf%cdiVlistID = CDI_UNDEFID
+      IF (rf%cdiIds%vlist /= CDI_UNDEFID) THEN
+        CALL vlistDestroy(rf%cdiIds%vlist)
+        rf%cdiIds%vlist = CDI_UNDEFID
       ENDIF
 
       rf%cdiTimeIndex = CDI_UNDEFID
@@ -1724,12 +1720,12 @@ CONTAINS
     rf%linkname                   = ''
     rf%linkprefix                 = ''
 
-    rf%cdiFileID                  = CDI_UNDEFID
-    rf%cdiVlistID                 = CDI_UNDEFID
-    rf%cdiTaxisID                 = CDI_UNDEFID
+    rf%cdiIds%file                  = CDI_UNDEFID
+    rf%cdiIds%vlist                 = CDI_UNDEFID
+    rf%cdiIds%taxis                 = CDI_UNDEFID
 
-    rf%cdiHgridIds(:)             = CDI_UNDEFID
-    rf%cdiZaxisIDs(:)             = CDI_UNDEFID
+    rf%cdiIds%hgrids(:)             = CDI_UNDEFID
+    rf%cdiIds%vgrids(:)             = CDI_UNDEFID
     rf%cdiTimeIndex               = CDI_UNDEFID
 
     ! counts number of restart variables for this file (logical patch ident)
@@ -2431,9 +2427,9 @@ CONTAINS
     itime = cdiEncodeTime(dt%hour, dt%minute, NINT(dt%second))
 
     p_rf => p_pd%restart_file
-    CALL taxisDefVdate(p_rf%cdiTaxisID, idate)
-    CALL taxisDefVtime(p_rf%cdiTaxisID, itime)
-    status = streamDefTimestep(p_rf%cdiFileID, p_rf%cdiTimeIndex)
+    CALL taxisDefVdate(p_rf%cdiIds%taxis, idate)
+    CALL taxisDefVtime(p_rf%cdiIds%taxis, itime)
+    status = streamDefTimestep(p_rf%cdiIds%file, p_rf%cdiTimeIndex)
 
     p_rf%cdiTimeIndex = p_rf%cdiTimeIndex + 1
 
@@ -2530,7 +2526,7 @@ CONTAINS
             var3_dp(i) = var2_dp(p_ri%reorder_index(i),(ilev-chunk_start+1))
           ENDDO
 !$OMP END PARALLEL DO
-          CALL streamWriteVarSlice(p_rf%cdiFileID, p_info%cdiVarID, (ilev-1), var3_dp(:), 0)
+          CALL streamWriteVarSlice(p_rf%cdiIds%file, p_info%cdiVarID, (ilev-1), var3_dp(:), 0)
           mb_wr = mb_wr + REAL(SIZE(var3_dp), wp)
         END DO
         t_write = t_write + p_mpi_wtime() - t_0
@@ -2730,7 +2726,7 @@ CONTAINS
     p_vars => p_rf%var_data
     IF (.NOT. ASSOCIATED(p_vars)) RETURN
 
-    vlistID = p_rf%cdiVlistID
+    vlistID = p_rf%cdiIds%vlist
 
     ! go over the all restart variables in the associated array
     DO iv = 1, SIZE(p_vars)
@@ -2742,14 +2738,14 @@ CONTAINS
       IF (.NOT. has_valid_time_level(p_info,patch_id)) CYCLE
 
       ! set grid ID
-      p_info%cdiGridID = p_rf%cdiHgridIds(p_info%hgrid)
+      p_info%cdiGridID = p_rf%cdiIds%hgrids(p_info%hgrid)
       gridID = p_info%cdiGridID
       IF (gridID == CDI_UNDEFID) THEN
         CALL finish(routine, 'Grid type not defined for field '//TRIM(p_info%name))
       ENDIF
 
       ! set z axis ID
-      zaxisID = p_rf%cdiZaxisIDs(p_info%vgrid)
+      zaxisID = p_rf%cdiIds%vgrids(p_info%vgrid)
       IF (zaxisID /= CDI_UNDEFID) THEN
         p_info%cdiZaxisID = zaxisID
       ELSE
@@ -2806,28 +2802,28 @@ CONTAINS
     WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
 #endif
 
-    p_rf%cdiVlistID = vlistCreate ()
+    p_rf%cdiIds%vlist = vlistCreate ()
 
     ! 2. add global attributes
     ! 2.1. namelists as text attributes
-    CALL RestartNamelist_writeToFile(p_rf%cdiVlistID)
+    CALL RestartNamelist_writeToFile(p_rf%cdiIds%vlist)
 
     ! 2.2. restart attributes
-    CALL restartAttributes%writeToFile(p_rf%cdiVlistID)
+    CALL restartAttributes%writeToFile(p_rf%cdiIds%vlist)
 
     ! 3. add horizontal grid descriptions
-    p_rf%cdiHgridIds = createHgrids(p_pd%cells%n_glb, p_pd%verts%n_glb, p_pd%edges%n_glb, p_pd%cell_type)
+    p_rf%cdiIds%hgrids = createHgrids(p_pd%cells%n_glb, p_pd%verts%n_glb, p_pd%edges%n_glb, p_pd%cell_type)
 
     ! 4. add vertical grid descriptions
     IF(ALLOCATED(p_pd%opt_pvct)) THEN
-        CALL createVgrids(p_rf%cdiZaxisIDs, p_pd%v_grid_defs(1:p_pd%v_grid_count))
+        CALL createVgrids(p_rf%cdiIds%vgrids, p_pd%v_grid_defs(1:p_pd%v_grid_count))
     ELSE
-        CALL createVgrids(p_rf%cdiZaxisIDs, p_pd%v_grid_defs(1:p_pd%v_grid_count), p_pd%opt_pvct)
+        CALL createVgrids(p_rf%cdiIds%vgrids, p_pd%v_grid_defs(1:p_pd%v_grid_count), p_pd%opt_pvct)
     END IF
 
     ! 5. restart does contain absolute time
-    p_rf%cdiTaxisID = taxisCreate(TAXIS_ABSOLUTE)
-    CALL vlistDefTaxis(p_rf%cdiVlistID, p_rf%cdiTaxisID)
+    p_rf%cdiIds%taxis = taxisCreate(TAXIS_ABSOLUTE)
+    CALL vlistDefTaxis(p_rf%cdiIds%vlist, p_rf%cdiIds%taxis)
 
     ! set cdi internal time index to 0 for writing time slices in netCDF
     p_rf%cdiTimeIndex = 0
@@ -2896,10 +2892,10 @@ CONTAINS
     ! replace keywords in file name
     p_rf%filename = TRIM(with_keywords(keywords, TRIM(restart_filename)))
 
-    p_rf%cdiFileID = streamOpenWrite(TRIM(p_rf%filename), restart_type)
+    p_rf%cdiIds%file = streamOpenWrite(TRIM(p_rf%filename), restart_type)
 
-    IF (p_rf%cdiFileID < 0) THEN
-      CALL cdiGetStringError(p_rf%cdiFileID, cdiErrorText)
+    IF (p_rf%cdiIds%file < 0) THEN
+      CALL cdiGetStringError(p_rf%cdiIds%file, cdiErrorText)
       WRITE(message_text,'(a)') TRIM(cdiErrorText)
       CALL message('', message_text, all_print=.TRUE.)
       CALL finish (routine, 'open failed on '//TRIM(p_rf%filename))
@@ -2908,12 +2904,12 @@ CONTAINS
     END IF
 
 #ifdef DEBUG
-    WRITE (nerr, FORMAT_VALS5)routine,' p_pe=',p_pe,' open netCDF file with ID=',p_rf%cdiFileID
+    WRITE (nerr, FORMAT_VALS5)routine,' p_pe=',p_pe,' open netCDF file with ID=',p_rf%cdiIds%file
 #endif
 
     CALL init_restart_vlist(p_pd, restartAttributes)
 
-    CALL streamDefVlist(p_rf%cdiFileID, p_rf%cdiVlistID)
+    CALL streamDefVlist(p_rf%cdiIds%file, p_rf%cdiIds%vlist)
 
   END SUBROUTINE open_restart_file
 
@@ -2933,18 +2929,18 @@ CONTAINS
     ! just for safety
     IF(.NOT. my_process_is_restart()) CALL finish(routine, NO_RESTART_PE)
 
-    IF (rf%cdiFileID /= CDI_UNDEFID) THEN
+    IF (rf%cdiIds%file /= CDI_UNDEFID) THEN
 
 #ifdef DEBUG
       WRITE (nerr,'(3a)')routine,' try to close restart file=',TRIM(rf%filename)
 #endif
-      CALL streamClose(rf%cdiFileID)
+      CALL streamClose(rf%cdiIds%file)
 
 #ifdef DEBUG
-      WRITE (nerr, FORMAT_VALS5)routine,' p_pe=',p_pe,' close netCDF file with ID=',rf%cdiFileID
+      WRITE (nerr, FORMAT_VALS5)routine,' p_pe=',p_pe,' close netCDF file with ID=',rf%cdiIds%file
 #endif
 
-      rf%cdiFileID  = CDI_UNDEFID
+      rf%cdiIds%file  = CDI_UNDEFID
       rf%filename   = ''
       rf%linkname   = ''
       rf%linkprefix = ''
