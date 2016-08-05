@@ -25,6 +25,7 @@ MODULE mo_util_restart
 
     USE mo_cf_convention, ONLY: cf_global_info
     USE mo_datetime, ONLY: t_datetime, iso8601extended
+    USE mo_dynamics_config, ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf
     USE mo_fortran_tools, ONLY: assign_if_present
     USE mo_impl_constants, ONLY: SUCCESS, MAX_CHAR_LENGTH
     USE mo_io_restart_attributes, ONLY: t_RestartAttributeList
@@ -145,6 +146,7 @@ MODULE mo_util_restart
         REAL(wp), ALLOCATABLE :: opt_t_elapsed_phy(:)
     CONTAINS
         PROCEDURE :: setPatch => restartPatchDescription_setPatch
+        PROCEDURE :: setTimeLevels => restartPatchDescription_setTimeLevels ! set the time level fields (nold, ...) to match the respective global variables
         PROCEDURE :: packer => restartPatchDescription_packer
         PROCEDURE :: defineVGrids => restartPatchDescription_defineVGrids
     END TYPE t_restart_patch_description
@@ -519,6 +521,16 @@ CONTAINS
         description%n_patch_verts_g = p_patch%n_patch_verts_g
         description%n_patch_edges_g = p_patch%n_patch_edges_g
     END SUBROUTINE restartPatchDescription_setPatch
+
+    SUBROUTINE restartPatchDescription_setTimeLevels(description)
+        CLASS(t_restart_patch_description), INTENT(INOUT) :: description
+
+        description%nold = nold(description%id)
+        description%nnow = nnow(description%id)
+        description%nnow_rcf = nnow_rcf(description%id)
+        description%nnew = nnew(description%id)
+        description%nnew_rcf = nnew_rcf(description%id)
+    END SUBROUTINE restartPatchDescription_setTimeLevels
 
     SUBROUTINE restartPatchDescription_packer(description, operation, message)
         INTEGER, VALUE :: operation

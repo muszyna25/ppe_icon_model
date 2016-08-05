@@ -30,7 +30,7 @@ MODULE mo_io_restart_async
   USE mo_var_list,                ONLY: nvar_lists, var_lists, new_var_list, delete_var_lists
   USE mo_linked_list,             ONLY: t_list_element, t_var_list
   USE mo_io_restart_attributes,   ONLY: t_RestartAttributeList, RestartAttributeList_make
-  USE mo_dynamics_config,         ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf, iequations
+  USE mo_dynamics_config,         ONLY: iequations
   USE mo_grid_config,             ONLY: l_limited_area
   USE mo_impl_constants,          ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, INH_ATMOSPHERE, &
     &                                   LEAPFROG_EXPL, LEAPFROG_SI, SUCCESS, MAX_CHAR_LENGTH,        &
@@ -576,17 +576,6 @@ CONTAINS
 
   END SUBROUTINE restart_send_ready
 
-  SUBROUTINE timeLevelPacker(operation, patchId, message)
-    INTEGER, VALUE :: operation, patchId
-    TYPE(t_PackedMessage), INTENT(INOUT) :: message
-
-    CALL message%execute(operation, nold(patchId))
-    CALL message%execute(operation, nnow(patchId))
-    CALL message%execute(operation, nnew(patchId))
-    CALL message%execute(operation, nnew_rcf(patchId))
-    CALL message%execute(operation, nnow_rcf(patchId))
-  END SUBROUTINE timeLevelPacker
-
   SUBROUTINE restartMetadataPacker(operation, restart_args, message)
     INTEGER, VALUE :: operation
     TYPE(t_restart_args), INTENT(INOUT) :: restart_args
@@ -613,7 +602,6 @@ CONTAINS
     ! set data of all patches
     DO i = 1, SIZE(patch_data)
         CALL patch_data(i)%description%packer(operation, message)
-        CALL timeLevelPacker(operation, i, message)
     END DO
   END SUBROUTINE restartMetadataPacker
 
@@ -626,8 +614,7 @@ CONTAINS
     TYPE(t_restart_args), INTENT(INOUT) :: restart_args
     LOGICAL, INTENT(OUT)           :: done ! flag if we should shut down
 
-    INTEGER :: i, iheader
-    TYPE(t_restart_patch_description), POINTER :: curPatch
+    INTEGER :: iheader
     TYPE(t_PackedMessage) :: message
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'restart_wait_for_start'
 
@@ -641,24 +628,12 @@ CONTAINS
     IF(p_pe_work == 0) CALL message%recv(p_work_pe0, 0, process_mpi_all_comm)
     CALL message%bcast(0, p_comm_work)
 
-    ! set output parameter to default value
-    done = .FALSE.
-
     ! unpack AND interpret the message
     CALL message%unpack(iheader)
     SELECT CASE(iheader)
       CASE(MSG_RESTART_START)
         CALL restartMetadataPacker(kUnpackOp, restart_args, message)
-
-        ! update the patch_data
-        DO i = 1, SIZE(patch_data)
-            curPatch => patch_data(i)%description
-            curPatch%nold = nold(curPatch%id)
-            curPatch%nnow = nnow(curPatch%id)
-            curPatch%nnew = nnew(curPatch%id)
-            curPatch%nnow_rcf = nnow_rcf(curPatch%id)
-            curPatch%nnew_rcf = nnew_rcf(curPatch%id)
-        END DO
+        done = .FALSE.
 
       CASE(MSG_RESTART_SHUTDOWN)
         done = .TRUE.
@@ -711,22 +686,6 @@ CONTAINS
 
   END SUBROUTINE compute_wait_for_restart
 
-  SUBROUTINE timeDependentDataPacker(message, operation, patchData)
-    TYPE(t_PackedMessage), INTENT(INOUT) :: message
-    INTEGER, VALUE :: operation
-    TYPE(t_restart_patch_description), INTENT(INOUT) :: patchData
-
-    CALL message%execute(operation, patchData%l_dom_active)
-
-    CALL message%execute(operation, patchData%opt_ndyn_substeps)
-    CALL message%execute(operation, patchData%opt_jstep_adv_marchuk_order)
-    CALL message%execute(operation, patchData%opt_sim_time)
-    CALL message%execute(operation, patchData%opt_lcall_phy)
-    CALL message%execute(operation, patchData%opt_t_elapsed_phy)
-
-    CALL timeLevelPacker(operation, patchData%id, message)
-  END SUBROUTINE timeDependentDataPacker
-
   !-------------------------------------------------------------------------------------------------
   !>
   !! compute_start_restart: Send a message to restart PEs that they should start restart.
@@ -736,8 +695,7 @@ CONTAINS
     TYPE(t_restart_args), INTENT(INOUT) :: restart_args
 
     TYPE(t_restart_patch_description), POINTER :: curPatch
-    CHARACTER, POINTER             :: p_msg(:)
-    INTEGER                        :: i, position, messageSize, error
+    INTEGER :: i, trash
     TYPE(t_PackedMessage) :: message
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'compute_start_restart'
 
@@ -751,30 +709,36 @@ CONTAINS
     ! if processor splitting is applied, the time-dependent data need to be transferred
     ! from the subset master PE to PE0, from where they are communicated to the output PE(s)
     CALL message%construct()
-    DO i = 2, SIZE(patch_data)
+    DO i = 1, SIZE(patch_data)
       curPatch => patch_data(i)%description
       CALL message%reset()
-      IF (curPatch%work_pe0_id /= 0) THEN
+
+      CALL curPatch%setTimeLevels() ! copy the global variables (nold, ...) to the patch description
+
+      IF (curPatch%work_pe0_id /= 0) THEN   ! nothing to communicate IF PE0 IS already the subset master
         IF (p_pe_work == 0) THEN
           ! recieve the package for this patch
           CALL message%recv(curPatch%work_pe0_id, 0, process_mpi_all_comm)
-          CALL timeDependentDataPacker(message, kUnpackOp, curPatch)
+          CALL curPatch%packer(kUnpackOp, message)
         ELSE IF (p_pe_work == curPatch%work_pe0_id) THEN
           ! send the time dependent DATA to process 0
-          CALL timeDependentDataPacker(message, kPackOp, curPatch)
+          CALL curPatch%packer(kPackOp, message)
           CALL message%send(0, 0, process_mpi_all_comm)
         END IF
       END IF
     END DO
 
+    CALL message%reset()
     IF(p_pe_work == 0) THEN
-      CALL message%reset()   ! create message array
-
+      ! send the DATA to the restart master
       CALL message%pack(MSG_RESTART_START)  ! set command id
       CALL restartMetadataPacker(kPackOp, restart_args, message)    ! all the other DATA
-
       CALL message%send(p_restart_pe0, 0, process_mpi_all_comm)
     ENDIF
+    ! broadcast a copy among the compute processes, so that all processes have a consistent view of the restart patch descriptions
+    CALL message%bcast(0, p_comm_work)
+    CALL message%unpack(trash)  ! ignore the command id
+    CALL restartMetadataPacker(kUnpackOp, restart_args, message)
 
     CALL message%destruct()
   END SUBROUTINE compute_start_restart
@@ -1689,10 +1653,9 @@ CONTAINS
   !
   ! Returns true, if the time level of the given field is valid, else false.
   !
-  FUNCTION has_valid_time_level (p_info,id)
-
+  FUNCTION has_valid_time_level(p_info, patchDescription)
     TYPE(t_var_metadata), POINTER, INTENT(IN) :: p_info
-    INTEGER, INTENT(IN)           :: id
+    TYPE(t_restart_patch_description), INTENT(IN) :: patchDescription
 
     LOGICAL                       :: has_valid_time_level
 
@@ -1703,14 +1666,12 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER   :: routine = modname//'has_valid_time_level'
 #endif
 
+    has_valid_time_level = .FALSE.
+    IF (.NOT. p_info%lrestart) RETURN
     has_valid_time_level = .TRUE.
-    IF (.NOT. p_info%lrestart) THEN
-      has_valid_time_level = .FALSE.
-      RETURN
-    ENDIF
 
     lskip_timelev = .FALSE.
-    IF (iequations == INH_ATMOSPHERE .AND. .NOT. (l_limited_area .AND. id == 1)) THEN
+    IF (iequations == INH_ATMOSPHERE .AND. .NOT. (l_limited_area .AND. patchDescription%id == 1)) THEN
       lskip_extra_timelevs = .TRUE.
     ELSE
       lskip_extra_timelevs = .FALSE.
@@ -1725,11 +1686,11 @@ CONTAINS
 
       ! get information about time level to be skipped for current field
       IF (p_info%tlev_source == TLEV_NNOW) THEN
-        IF (time_level == nnew(id))                    lskip_timelev = .TRUE.
+        IF (time_level == patchDescription%nnew) lskip_timelev = .TRUE.
         ! this is needed to skip the extra time levels allocated for nesting
         IF (lskip_extra_timelevs .AND. time_level > 2) lskip_timelev = .TRUE.
       ELSE IF (p_info%tlev_source == TLEV_NNOW_RCF) THEN
-        IF (time_level == nnew_rcf(id)) lskip_timelev = .TRUE.
+        IF (time_level == patchDescription%nnew_rcf) lskip_timelev = .TRUE.
       ENDIF
     ENDIF
 
@@ -1870,7 +1831,7 @@ CONTAINS
 #endif
 
       ! check time level of the field
-      IF (.NOT. has_valid_time_level(p_info,p_pd%description%id)) CYCLE
+      IF (.NOT. has_valid_time_level(p_info, p_pd%description)) CYCLE
 
       ! get current level
       IF(p_info%ndims == 2) THEN
@@ -2015,7 +1976,7 @@ CONTAINS
 #endif
 
       ! check time level of the field
-      IF (.NOT. has_valid_time_level(p_info,p_pd%description%id)) CYCLE
+      IF (.NOT. has_valid_time_level(p_info, p_pd%description)) CYCLE
 
       ! Check if first dimension of array is nproma.
       ! Otherwise we got an array which is not suitable for this output scheme.
@@ -2143,7 +2104,7 @@ CONTAINS
       p_info => p_vars(iv)%info
 
       ! check time level of the field
-      IF (.NOT. has_valid_time_level(p_info,patch_id)) CYCLE
+      IF (.NOT. has_valid_time_level(p_info, find_patch_description(patch_id, routine))) CYCLE
 
       ! define the CDI variable
       !XXX: The code I found here simply assumed that all variables are of TYPE REAL. I have NOT changed this behavior, however, the .FALSE. constants should be replaced by something more sensible IN the future.
