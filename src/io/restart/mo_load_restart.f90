@@ -24,7 +24,7 @@ MODULE mo_load_restart
     USE mo_model_domain, ONLY: t_patch
     USE mo_mpi, ONLY: p_comm_work, p_comm_rank, p_bcast, my_process_is_mpi_workroot
     USE mo_restart_attributes, ONLY: t_RestartAttributeList, RestartAttributeList_make, setAttributesForRestarting
-    USE mo_restart_namelist, ONLY: read_and_bcast_restart_namelists
+    USE mo_restart_namelist, ONLY: t_NamelistArchive, namelistArchive
     USE mo_util_cdi, ONLY: cdiGetStringError
     USE mo_util_hash, ONLY: util_hashword
     USE mo_util_string, ONLY: int2string, separator
@@ -47,15 +47,16 @@ CONTAINS
   !>      just like the original code ignored the namelists IN all but the first file.
   !>      However, it might be a good idea to add some consistency checking on the attributes/namelists of the other files.
   SUBROUTINE read_restart_header(modeltype_str)
-    CHARACTER(LEN=*), INTENT(IN)  :: modeltype_str
-    ! local variables
-    CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::read_restart_header"
+    CHARACTER(LEN=*), INTENT(IN) :: modeltype_str
+
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: rst_filename
-    LOGICAL                        :: lexists
-    INTEGER                        :: idom, total_dom, fileID, vlistID, myRank
+    LOGICAL :: lexists
+    INTEGER :: idom, total_dom, fileID, vlistID, myRank
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
     INTEGER, PARAMETER :: root_pe = 0
     TYPE(t_RestartAttributeList), SAVE, POINTER :: restartAttributes
+    TYPE(t_NamelistArchive), POINTER :: namelists
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//":read_restart_header"
 
     ! rank of broadcast root PE
     myRank = p_comm_rank(p_comm_work)
@@ -78,6 +79,7 @@ CONTAINS
     ! Note: We read the namelists AND attributes only once and assume that these
     !       are identical for all domains (which IS guaranteed by the way the restart files are written).
 
+    namelists => namelistArchive()
     IF (myRank == root_pe) THEN
         fileID  = streamOpenRead(TRIM(rst_filename))
         ! check if the file could be opened
@@ -87,8 +89,9 @@ CONTAINS
         ENDIF
 
         vlistID = streamInqVlist(fileID)
+        CALL namelists%readFromFile(vlistId)
     END IF
-    CALL read_and_bcast_restart_namelists(vlistID, root_pe, p_comm_work)
+    CALL namelists%bcast(root_pe, p_comm_work)
     restartAttributes => RestartAttributeList_make(vlistID, root_pe, p_comm_work)
     CALL setAttributesForRestarting(restartAttributes)
     IF (myRank == root_pe) CALL streamClose(fileID)

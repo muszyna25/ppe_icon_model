@@ -111,7 +111,6 @@ MODULE mo_atmo_model
   USE mo_async_restart,           ONLY: restart_main_proc                                       ! main procedure for Restart PEs
   USE mo_name_list_output,        ONLY: name_list_io_main_proc
   USE mo_name_list_output_config, ONLY: use_async_name_list_io
-  USE mo_restart_namelist,        ONLY: delete_restart_namelists
   USE mo_time_config,             ONLY: time_config      ! variable
   USE mo_mtime_extensions,        ONLY: get_datetime_string
   USE mo_output_event_types,      ONLY: t_sim_step_info
@@ -626,10 +625,6 @@ CONTAINS
     IF (error_status/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocate for patch array failed')
     ENDIF
-
-    ! clear restart namelist buffer
-    CALL delete_restart_namelists()
-    IF (msg_level > 5) CALL message(TRIM(routine),'delete_restart_namelists is done')
 
     CALL destruct_rrtm_model_repart()
 !    IF (use_icon_comm) THEN

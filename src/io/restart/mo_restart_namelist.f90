@@ -31,40 +31,48 @@ MODULE mo_restart_namelist
     PUBLIC :: close_tmpfile
 
     ! used ONLY by mo_sync_restart AND mo_async_restart
-    PUBLIC :: RestartNamelist_bcast
-    PUBLIC :: read_and_bcast_restart_namelists
-    PUBLIC :: RestartNamelist_writeToFile
-    PUBLIC :: set_restart_namelist
-    PUBLIC :: get_restart_namelist
-    PUBLIC :: print_restart_name_lists
-    PUBLIC :: delete_restart_namelists ! also used by mo_atmo_model
+    PUBLIC :: t_NamelistArchive
+    PUBLIC :: namelistArchive
 
-    PUBLIC :: t_att_namelist
-
-    TYPE t_att_namelist
+    TYPE t_Namelist
         CHARACTER(:), ALLOCATABLE :: name, text
-    END TYPE t_att_namelist
+    END TYPE t_Namelist
 
     TYPE t_NamelistArchive
         INTEGER :: namelistCount
-        TYPE(t_att_namelist), POINTER :: namelists(:)
+        TYPE(t_Namelist), POINTER :: namelists(:)
     CONTAINS
         PROCEDURE :: setNamelist => namelistArchive_setNamelist
         PROCEDURE :: getNamelist => namelistArchive_getNamelist
         PROCEDURE :: print => namelistArchive_print
-        PROCEDURE :: writeToFile => namelistArchive_writeToFile ! store the namelists as attributes to the given CDI vlistId
+        PROCEDURE :: writeToFile => namelistArchive_writeToFile ! store the namelists as attributes to the given CDI vlistId, noncollective!
+        PROCEDURE :: readFromFile => namelistArchive_readFromFile   ! noncollective!
         PROCEDURE :: packer => namelistArchive_packer
+        PROCEDURE :: bcast => namelistArchive_bcast
+        PROCEDURE :: reset => namelistArchive_reset
 
-        PROCEDURE, PRIVATE :: construct => namelistArchive_construct
+        PROCEDURE, PRIVATE :: construct => namelistArchive_construct    ! singleton: namelistArchive() IS the ONLY point where a t_NamelistArchive IS constructed
         PROCEDURE, PRIVATE :: find => namelistArchive_find  ! returns a new entry IF NONE exists yet
-        PROCEDURE, PRIVATE :: destruct => namelistArchive_destruct
+        ! no destructor since this IS a singleton that lives until the very END of the program run
     END TYPE t_NamelistArchive
-
-    TYPE(t_NamelistArchive), ALLOCATABLE, SAVE :: gArchive
 
     CHARACTER(LEN = *), PARAMETER :: modname = "mo_restart_namelist"
 
 CONTAINS
+    FUNCTION namelistArchive() RESULT(RESULT)
+        TYPE(t_NamelistArchive), POINTER :: RESULT
+
+        TYPE(t_NamelistArchive), ALLOCATABLE, TARGET, SAVE :: archive
+        INTEGER :: error
+        CHARACTER(*), PARAMETER :: routine = modname//":namelistArchive"
+
+        IF(.NOT.ALLOCATED(archive)) THEN
+            ALLOCATE(archive, STAT = error)
+            IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+            CALL archive%construct()
+        END IF
+        RESULT => archive
+    END FUNCTION namelistArchive
 
     SUBROUTINE namelistArchive_construct(me)
         CLASS(t_NamelistArchive), INTENT(INOUT) :: me
@@ -80,10 +88,10 @@ CONTAINS
     FUNCTION namelistArchive_find(me, namelist_name) RESULT(RESULT)
         CLASS(t_NamelistArchive), INTENT(INOUT) :: me
         CHARACTER(len=*), INTENT(in) :: namelist_name
-        TYPE(t_att_namelist), POINTER :: RESULT
+        TYPE(t_Namelist), POINTER :: RESULT
 
         INTEGER :: i, error
-        TYPE(t_att_namelist), POINTER :: temp(:)
+        TYPE(t_Namelist), POINTER :: temp(:)
         CHARACTER(:), ALLOCATABLE :: fullName
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":namelistArchive_find"
 
@@ -120,7 +128,7 @@ CONTAINS
         CLASS(t_NamelistArchive), INTENT(INOUT) :: me
         CHARACTER(*), INTENT(IN) :: namelistName, namelistText
 
-        TYPE(t_att_namelist), POINTER :: list_entry
+        TYPE(t_Namelist), POINTER :: list_entry
         INTEGER :: textLength, error
         CHARACTER(*), PARAMETER :: routine = modname//":namelistArchive_setNamelist"
 
@@ -139,7 +147,7 @@ CONTAINS
         CHARACTER(len=*), INTENT(in) :: namelistName
         CHARACTER(len=:), ALLOCATABLE, INTENT(out) :: namelistText
 
-        TYPE(t_att_namelist), POINTER :: list_entry
+        TYPE(t_Namelist), POINTER :: list_entry
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":namelistArchive_getNamelist"
 
         list_entry => me%find(namelistName)
@@ -174,6 +182,42 @@ CONTAINS
         END DO
     END SUBROUTINE namelistArchive_writeToFile
 
+    SUBROUTINE namelistArchive_readFromFile(me, vlistID)
+        CLASS(t_NamelistArchive), INTENT(INOUT) :: me
+        INTEGER, VALUE :: vlistID
+
+        INTEGER :: natts, att_type, att_len, i, status
+        CHARACTER(LEN = CDI_MAX_NAME) :: att_name
+        CHARACTER(LEN = :), ALLOCATABLE :: tempText
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":namelistArchive_readFromFile"
+
+        IF(vlistID == CDI_UNDEFID) CALL finish(routine, "assertion failed: invalid vlistId passed to "//routine//"()")
+
+        ! reset the list
+        CALL me%reset()
+
+        ! get the number of attributes so we can loop over them
+        status = vlistInqNatts(vlistID, CDI_GLOBAL, natts)
+        IF(status /= SUCCESS) CALL finish(routine, "vlistInqNatts() returned an error")
+
+        DO i = 0, natts-1
+            ! inquire the attribute NAME AND check whether it IS a namelist attribute
+            att_name = ''
+            att_len = 0
+            status = vlistInqAtt(vlistID, CDI_GLOBAL, i, att_name, att_type, att_len)
+            IF(status /= SUCCESS) CALL finish(routine, "vlistInqAtt() returned an error")
+
+            IF(att_name(1:4) /= 'nml_') CYCLE ! skip this, it is not a namelist
+
+            ! it IS a namelist attribute, so we add it to the list
+            ALLOCATE(CHARACTER(len=att_len) :: tempText)
+            status = vlistInqAttTxt(vlistID, CDI_GLOBAL, TRIM(att_name), att_len, tempText)
+            IF(status /= SUCCESS) CALL finish(routine, "vlistInqAttTxt() returned an error")
+            CALL me%setNamelist(att_name(5:), tempText)
+            DEALLOCATE(tempText)
+        END DO
+    END SUBROUTINE namelistArchive_readFromFile
+
     SUBROUTINE namelistArchive_packer(me, operation, message)
         CLASS(t_NamelistArchive), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
@@ -182,23 +226,43 @@ CONTAINS
         INTEGER :: allocSize, error, i
         CHARACTER(*), PARAMETER :: routine = modname//":namelistArchive_packer"
 
-        IF(operation == kUnpackOp) CALL me%destruct()   ! flush the old contents, we'll reconstruct it IN just a second
         CALL message%packer(operation, me%namelistCount)
         IF(operation == kUnpackOp) THEN
-            ! reconstruct the object with enough space for the given message
+            ! get rid of the old contents AND ensure sufficient space for the contents of the message
+            CALL me%reset()
             allocSize = MAX(8, me%namelistCount)
-            ALLOCATE(me%namelists(allocSize), STAT = error)
-            IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+            IF(allocSize > SIZE(me%namelists)) THEN
+                DEALLOCATE(me%namelists)
+                ALLOCATE(me%namelists(allocSize), STAT = error)
+                IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+            END IF
         END IF
         IF(me%namelistCount > SIZE(me%namelists)) CALL finish(routine, "assertion failed")
 
+        ! (un)pack the payload contents
         DO i = 1, me%namelistCount
             CALL message%packerAllocatable(operation, me%namelists(i)%NAME)
             CALL message%packerAllocatable(operation, me%namelists(i)%text)
         END DO
     END SUBROUTINE namelistArchive_packer
 
-    SUBROUTINE namelistArchive_destruct(me)
+    SUBROUTINE namelistArchive_bcast(me, root, communicator)
+        CLASS(t_NamelistArchive), INTENT(INOUT) :: me
+        INTEGER, VALUE :: root, communicator
+
+        TYPE(t_PackedMessage) :: message
+        LOGICAL :: lIsRoot, lIsReceiver
+
+        CALL p_get_bcast_role(root, communicator, lIsRoot, lIsReceiver)
+
+        CALL message%construct()
+        IF(lIsRoot) CALL me%packer(kPackOp, message)
+        CALL message%bcast(root, communicator)
+        IF(lIsReceiver) CALL me%packer(kUnpackOp, message)
+        CALL message%destruct()
+    END SUBROUTINE namelistArchive_bcast
+
+    SUBROUTINE namelistArchive_reset(me)
         CLASS(t_NamelistArchive), INTENT(INOUT) :: me
 
         INTEGER :: i
@@ -207,54 +271,7 @@ CONTAINS
             IF(ALLOCATED(me%namelists(i)%NAME)) DEALLOCATE(me%namelists(i)%NAME)
             IF(ALLOCATED(me%namelists(i)%text)) DEALLOCATE(me%namelists(i)%text)
         END DO
-        DEALLOCATE(me%namelists)
-    END SUBROUTINE namelistArchive_destruct
-
-    SUBROUTINE init_restart_namelists()
-        INTEGER :: i, error
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":init_restart_namelists"
-
-        IF(ALLOCATED(gArchive)) CALL finish(routine, "assertion failed: init_restart_namelists() called several times")
-
-        ALLOCATE(gArchive, STAT = error)
-        IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-        CALL gArchive%construct()
-    END SUBROUTINE init_restart_namelists
-
-    SUBROUTINE delete_restart_namelists()
-        IF (ALLOCATED(gArchive)) THEN
-            CALL gArchive%destruct()
-            DEALLOCATE(gArchive)
-        ENDIF
-    END SUBROUTINE delete_restart_namelists
-
-    SUBROUTINE set_restart_namelist(namelist_name, namelist_text)
-        CHARACTER(len=*), INTENT(in) :: namelist_name
-        CHARACTER(len=*), INTENT(in) :: namelist_text
-
-        IF(.NOT. ALLOCATED(gArchive)) CALL init_restart_namelists()
-        CALL gArchive%setNamelist(namelist_name, namelist_text)
-    END SUBROUTINE set_restart_namelist
-
-    SUBROUTINE get_restart_namelist(namelist_name, namelist_text)
-        CHARACTER(len=*), INTENT(in) :: namelist_name
-        CHARACTER(len=:), ALLOCATABLE, INTENT(out) :: namelist_text
-
-        IF(.NOT. ALLOCATED(gArchive)) CALL init_restart_namelists()
-        CALL gArchive%getNamelist(namelist_name, namelist_text)
-    END SUBROUTINE get_restart_namelist
-
-    SUBROUTINE print_restart_name_lists()
-        IF(.NOT.ALLOCATED(gArchive)) CALL init_restart_namelists()
-        CALL gArchive%print()
-    END SUBROUTINE print_restart_name_lists
-
-    SUBROUTINE RestartNamelist_writeToFile(cdiVlistId)
-        INTEGER, VALUE :: cdiVlistId
-
-        IF(.NOT.ALLOCATED(gArchive)) CALL init_restart_namelists()
-        CALL gArchive%writeToFile(cdiVlistId)
-    END SUBROUTINE RestartNamelist_writeToFile
+    END SUBROUTINE namelistArchive_reset
 
     FUNCTION open_tmpfile() RESULT(funit)
         INTEGER :: funit
@@ -277,6 +294,7 @@ CONTAINS
         CHARACTER(len=filename_max) :: filename
         INTEGER :: nmllen, error
         CHARACTER(len = :), ALLOCATABLE :: nmlbuf
+        TYPE(t_NamelistArchive), POINTER :: archive
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":store_and_close_namelist"
 
         INQUIRE(funit, NAME=filename)
@@ -306,7 +324,8 @@ CONTAINS
 #endif
 
         CALL tocompact(nmlbuf)
-        CALL set_restart_namelist(TRIM(name), TRIM(nmlbuf))
+        archive => namelistArchive()
+        CALL archive%setNamelist(TRIM(name), TRIM(nmlbuf))
 
         error = util_unlink(TRIM(filename))
     END SUBROUTINE store_and_close_namelist
@@ -315,11 +334,13 @@ CONTAINS
         INTEGER :: funit
         CHARACTER(len=*), INTENT(in) :: name
 
+        TYPE(t_NamelistArchive), POINTER :: archive
         INTEGER :: flen
         CHARACTER(len=filename_max) :: filename
         CHARACTER(LEN = :), ALLOCATABLE :: nmlbuf
 
-        CALL get_restart_namelist(name, nmlbuf)
+        archive => namelistArchive()
+        CALL archive%getNamelist(name, nmlbuf)
 
         funit = find_next_free_unit(10,100)
         flen = util_tmpnam(filename, filename_max)
@@ -356,68 +377,5 @@ CONTAINS
         error = util_unlink(TRIM(filename))
         IF(error /= SUCCESS) CALL message(routine, "warning: error while unlinking file '"//TRIM(filename)//"'")
     END SUBROUTINE close_tmpfile
-
-    SUBROUTINE read_and_bcast_restart_namelists(vlistID, root_pe, comm)
-        INTEGER, INTENT(IN) :: vlistID, root_pe, comm
-
-        INTEGER :: natts, att_type, att_len, i, status
-        CHARACTER(LEN = CDI_MAX_NAME) :: att_name
-        CHARACTER(LEN = :), ALLOCATABLE :: tempText
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":read_and_bcast_restart_namelists"
-
-        ! reset the list
-        CALL delete_restart_namelists()
-
-        ! the root pe reads the namelists from the file
-        IF (p_comm_rank(comm) == root_pe) THEN
-            IF(vlistID == CDI_UNDEFID) CALL finish(routine, "assertion failed: root PE does not have a valid vlistID")
-
-            ! get the number of attributes so we can loop over them
-            status = vlistInqNatts(vlistID, CDI_GLOBAL, natts)
-            IF(status /= SUCCESS) CALL finish(routine, "vlistInqNatts() returned an error")
-
-            DO i = 0, natts-1
-                ! inquire the attribute NAME AND check whether it IS a namelist attribute
-                att_name = ''
-                att_len = 0
-                status = vlistInqAtt(vlistID, CDI_GLOBAL, i, att_name, att_type, att_len)
-                IF(status /= SUCCESS) CALL finish(routine, "vlistInqAtt() returned an error")
-
-                IF(att_name(1:4) /= 'nml_') CYCLE ! skip this, it is not a namelist
-
-                ! it IS a namelist attribute, so we add it to the list
-                ALLOCATE(CHARACTER(len=att_len) :: tempText)
-                status = vlistInqAttTxt(vlistID, CDI_GLOBAL, TRIM(att_name), att_len, tempText)
-                IF(status /= SUCCESS) CALL finish(routine, "vlistInqAttTxt() returned an error")
-                CALL set_restart_namelist(att_name(5:), tempText)
-                DEALLOCATE(tempText)
-            ENDDO
-        END IF
-
-        ! then we broadcast the RESULT
-        CALL RestartNamelist_bcast(root_pe, comm)
-    END SUBROUTINE read_and_bcast_restart_namelists
-
-    !-------------------------------------------------------------------------------------------------
-    !
-    ! Transfers the restart name lists from the worker to the restart PEs.
-    !
-    ! Designed to work with both intra AND inter communicators.
-    SUBROUTINE RestartNamelist_bcast(root, communicator)
-        INTEGER, VALUE :: root, communicator
-
-        TYPE(t_PackedMessage) :: message
-        LOGICAL :: lIsRoot, lIsReceiver
-
-        IF(.NOT.ALLOCATED(gArchive)) CALL init_restart_namelists()
-
-        CALL p_get_bcast_role(root, communicator, lIsRoot, lIsReceiver)
-
-        CALL message%construct()
-        IF(lIsRoot) CALL gArchive%packer(kPackOp, message)
-        CALL message%bcast(root, communicator)
-        IF(lIsReceiver) CALL gArchive%packer(kUnpackOp, message)
-        CALL message%destruct()
-    END SUBROUTINE RestartNamelist_bcast
 
 END MODULE mo_restart_namelist

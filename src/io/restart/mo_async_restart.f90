@@ -34,7 +34,7 @@ MODULE mo_async_restart
   USE mo_impl_constants,          ONLY: SUCCESS
   USE mo_var_metadata_types,      ONLY: t_var_metadata
   USE mo_restart_file,            ONLY: t_RestartFile
-  USE mo_restart_namelist,        ONLY: RestartNamelist_bcast
+  USE mo_restart_namelist,        ONLY: t_NamelistArchive, namelistArchive
   USE mo_parallel_config,         ONLY: restart_chunk_size
   USE mo_grid_config,             ONLY: n_dom
   USE mo_run_config,              ONLY: msg_level
@@ -54,9 +54,6 @@ MODULE mo_async_restart
 #else
   USE mpi,                        ONLY: MPI_ADDRESS_KIND
 #endif
-#endif
-#ifdef DEBUG
-  USE mo_restart_namelist,     ONLY: print_restart_name_lists
 #endif
 
   IMPLICIT NONE
@@ -134,6 +131,7 @@ CONTAINS
     CLASS(t_AsyncRestartDescriptor), INTENT(INOUT) :: me
     CHARACTER(*), INTENT(IN) :: modelType
 
+    TYPE(t_NamelistArchive), POINTER :: namelists
     INTEGER :: jg, error
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':asyncRestartDescriptor_construct'
 
@@ -148,7 +146,8 @@ CONTAINS
     CALL p_bcast_achar(me%modelType, restartBcastRoot(), p_comm_work_2_restart)
     CALL p_bcast(n_dom, restartBcastRoot(), p_comm_work_2_restart)
     CALL bcastRestartVarlists(restartBcastRoot(), p_comm_work_2_restart)
-    CALL RestartNamelist_bcast(restartBcastRoot(), p_comm_work_2_restart)
+    namelists => namelistArchive()
+    CALL namelists%bcast(restartBcastRoot(), p_comm_work_2_restart)
 
     ! allocate patch data structure
     ALLOCATE(me%patch_data(n_dom), STAT = error)
@@ -256,6 +255,10 @@ CONTAINS
     CHARACTER(*), INTENT(IN) :: modelType
 
     TYPE(t_RestartFile) :: restartFile
+#ifdef DEBUG
+    TYPE(t_NamelistArchive), POINTER :: namelists
+    namelists => namelistArchive()
+#endif
 
     ! check if the patch is actice
     IF(.NOT. patch_data%description%l_dom_active) RETURN
@@ -268,7 +271,7 @@ CONTAINS
 #ifdef DEBUG
         CALL print_restart_arguments()
         CALL restartAttributes%printAttributes()
-        CALL print_restart_name_lists()
+        CALL namelists%print()
 #endif
         IF(ASSOCIATED(patch_data%varData)) THEN ! no restart variables => no restart file
             CALL restartFile%open(patch_data%description, patch_data%varData, restart_args, restartAttributes, patch_data%restartType)

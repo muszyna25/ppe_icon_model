@@ -17,7 +17,7 @@ MODULE mo_restart_file
     USE mo_io_units, ONLY: filename_max
     USE mo_kind, ONLY: dp
     USE mo_restart_attributes, ONLY: t_RestartAttributeList
-    USE mo_restart_namelist, ONLY: RestartNamelist_writeToFile
+    USE mo_restart_namelist, ONLY: t_NamelistArchive, namelistArchive
     USE mo_restart_patch_description, ONLY: t_restart_patch_description
     USE mo_restart_util, ONLY: getRestartFilename, t_restart_args
     USE mo_restart_var_data, ONLY: t_RestartVarData, has_valid_time_level
@@ -51,6 +51,7 @@ CONTAINS
 
         CHARACTER(:), ALLOCATABLE :: datetimeString
         INTEGER :: i
+        TYPE(t_NamelistArchive), POINTER :: namelists
         CHARACTER(LEN=*), PARAMETER :: routine = modname//':restartFile_open'
 
 #ifdef DEBUG
@@ -84,7 +85,8 @@ CONTAINS
         END IF
 
         ! set global attributes
-        CALL RestartNamelist_writeToFile(me%cdiIds%vlist)
+        namelists => namelistArchive()
+        CALL namelists%writeToFile(me%cdiIds%vlist)
         CALL restartAttributes%writeToFile(me%cdiIds%vlist)
 
 #ifdef DEBUG
