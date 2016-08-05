@@ -1072,20 +1072,13 @@ CONTAINS
       ELSE
         restart_filename = 'restart_'//TRIM(model_type)//'_DOM01.nc'
       END IF
-
-      IF (.NOT. util_islink(TRIM(restart_filename))) THEN
-        iret = util_rename(TRIM(restart_filename), TRIM(restart_filename)//'.bak')
-        WRITE(0,*) "util_rename returned:", iret
-        iret = util_symlink(TRIM(restart_filename)//'.bak', TRIM(restart_filename))
-        WRITE(0,*) "util_symlink:", iret
-      ENDIF
-
-      name          = TRIM(restart_filename)//CHAR(0)
+      name = TRIM(restart_filename)//CHAR(0)
 
       IF (my_process_is_mpi_workroot()) THEN
         WRITE(0,*) "streamOpenRead ", TRIM(restart_filename)
 
         fileID  = streamOpenRead(TRIM(name))
+        IF(fileID < 0) CALL finish(routine, "could not open file '"//TRIM(NAME)//"'")
         vlistID = streamInqVlist(fileID)
         taxisID = vlistInqTaxis(vlistID)
 
