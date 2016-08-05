@@ -21,23 +21,17 @@ MODULE mo_restart_util
                               & ZA_SEDIMENT_BOTTOM_TW_HALF, cdi_zaxis_types
     USE mo_cf_convention, ONLY: cf_global_info
     USE mo_datetime, ONLY: t_datetime, iso8601, iso8601extended
-    USE mo_dynamics_config, ONLY: iequations
     USE mo_exception, ONLY: get_filename_noext, finish, message, message_text
-    USE mo_grid_config, ONLY: l_limited_area
-    USE mo_ha_dyn_config, ONLY: ha_dyn_config
-    USE mo_fortran_tools, ONLY: assign_if_present, assign_if_present_allocatable, t_ptr_2d
-    USE mo_impl_constants, ONLY: SUCCESS, MAX_CHAR_LENGTH, INH_ATMOSPHERE, TLEV_NNOW, TLEV_NNOW_RCF, IHS_ATM_TEMP, IHS_ATM_THETA, &
-                               & ISHALLOW_WATER, LEAPFROG_EXPL, LEAPFROG_SI
+    USE mo_fortran_tools, ONLY: assign_if_present, assign_if_present_allocatable
+    USE mo_impl_constants, ONLY: SUCCESS, MAX_CHAR_LENGTH
     USE mo_restart_attributes, ONLY: t_RestartAttributeList
     USE mo_restart_namelist, ONLY: RestartNamelist_writeToFile
     USE mo_kind, ONLY: wp, i8
     USE mo_packed_message, ONLY: t_PackedMessage, kPackOp, kUnpackOp
-    USE mo_parallel_config, ONLY: nproma
     USE mo_run_config, ONLY: restart_filename
     USE mo_util_cdi, ONLY: cdiGetStringError
     USE mo_util_file, ONLY: util_symlink, util_islink, util_unlink
     USE mo_util_string, ONLY: int2string, real2string, associate_keyword, with_keywords, t_keyword_list
-    USE mo_var_list, ONLY: get_var_timelevel
     USE mo_var_metadata_types, ONLY: t_var_metadata
 
     IMPLICIT NONE
@@ -46,7 +40,6 @@ MODULE mo_restart_util
 
     PUBLIC :: t_v_grid
     PUBLIC :: t_restart_cdi_ids
-    PUBLIC :: t_var_data
     PUBLIC :: t_restart_args
 
     PUBLIC :: getRestartFilename
@@ -55,8 +48,6 @@ MODULE mo_restart_util
     PUBLIC :: setPhysicsRestartAttributes
     PUBLIC :: set_vertical_grid
     PUBLIC :: create_restart_file_link
-    PUBLIC :: getLevelPointers
-    PUBLIC :: has_valid_time_level
 
     ! TYPE t_v_grid contains the data of a vertical grid definition.
     TYPE t_v_grid
@@ -81,12 +72,6 @@ MODULE mo_restart_util
         MODULE PROCEDURE set_vertical_grid_counted
         MODULE PROCEDURE set_vertical_grid_single
     END INTERFACE
-
-    ! TYPE t_var_data (restart variable)
-    TYPE t_var_data
-        REAL(wp), POINTER :: r_ptr(:,:,:,:,:)
-        TYPE(t_var_metadata) :: info
-    END TYPE t_var_data
 
     ! patch independent restart arguments
     TYPE t_restart_args
@@ -526,120 +511,5 @@ CONTAINS
 
         IF(ALLOCATED(me%output_jfile)) DEALLOCATE(me%output_jfile)
     END SUBROUTINE restartArgs_destruct
-
-    SUBROUTINE getLevelPointers(varMetadata, varData, levelPointers)
-        TYPE(t_var_metadata), INTENT(IN) :: varMetadata
-        REAL(wp), TARGET :: varData(:,:,:,:,:)
-        TYPE(t_ptr_2d), ALLOCATABLE, INTENT(INOUT) :: levelPointers(:)
-
-        INTEGER :: nindex, nlevs, var_ref_pos, error, jk
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":getLevelPointers"
-
-        ! Check if first dimension of array is nproma.
-        ! Otherwise we got an array which is not suitable for this output scheme.
-        IF (varMetadata%used_dimensions(1) /= nproma) CALL finish(routine,'1st dim is not nproma: '//TRIM(varMetadata%name))
-
-        ! get data index
-        nindex = 1
-        IF(varMetadata%lcontained) nindex = varMetadata%ncontained
-
-        ! get number of data levels
-        nlevs = 1
-        IF(varMetadata%ndims /= 2) nlevs = varMetadata%used_dimensions(2)
-
-        var_ref_pos = varMetadata%ndims + 1
-        IF(varMetadata%lcontained) var_ref_pos = varMetadata%var_ref_pos
-
-        ! ALLOCATE the POINTER array
-        IF(ALLOCATED(levelPointers)) THEN
-            ! can we reuse the old allocation?
-            IF(SIZE(levelPointers) /= nlevs) DEALLOCATE(levelPointers)
-        END IF
-        IF(.NOT.ALLOCATED(levelPointers)) THEN
-            ! no suitable old allocation that can be reused
-            ALLOCATE(levelPointers(nlevs), STAT = error)
-            IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-        END IF
-
-        ! get data pointers
-        SELECT CASE (varMetadata%ndims)
-            CASE (2)
-                ! make a 3D copy of the array
-                SELECT CASE(var_ref_pos)
-                    CASE (1)
-                        levelPointers(1)%p => varData(nindex,:,:,1,1)
-                    CASE (2)
-                        levelPointers(1)%p => varData(:,nindex,:,1,1)
-                    CASE (3)
-                        levelPointers(1)%p => varData(:,:,nindex,1,1)
-                    CASE default
-                        CALL finish(routine, "internal error!")
-                END SELECT
-            CASE (3)
-                ! copy the pointer
-                DO jk = 1, nlevs
-                    SELECT CASE(var_ref_pos)
-                        CASE (1)
-                            levelPointers(jk)%p => varData(nindex,:,jk,:,1)
-                        CASE (2)
-                            levelPointers(jk)%p => varData(:,nindex,jk,:,1)
-                        CASE (3)
-                            levelPointers(jk)%p => varData(:,jk,nindex,:,1)
-                        CASE (4)
-                            levelPointers(jk)%p => varData(:,jk,:,nindex,1)
-                        CASE default
-                            CALL finish(routine, "internal error!")
-                    END SELECT
-                END DO
-            CASE DEFAULT
-              CALL finish(routine, "'"//TRIM(varMetadata%NAME)//"': "//&
-                                 & TRIM(int2string(varMetadata%ndims))//"d arrays not handled yet")
-        END SELECT
-    END SUBROUTINE getLevelPointers
-
-    ! Returns true, if the time level of the given field is valid, else false.
-    LOGICAL FUNCTION has_valid_time_level(p_info, domain, nnew, nnew_rcf) RESULT(RESULT)
-        TYPE(t_var_metadata), INTENT(IN) :: p_info
-        INTEGER, VALUE :: domain, nnew, nnew_rcf
-
-        INTEGER :: idx, time_level
-        LOGICAL :: lskip_timelev, lskip_extra_timelevs
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//':has_valid_time_level'
-
-        RESULT = .FALSE.
-        IF (.NOT. p_info%lrestart) RETURN
-
-#ifndef __NO_ICON_ATMO__
-        lskip_timelev = .FALSE.
-        lskip_extra_timelevs = iequations == INH_ATMOSPHERE .AND. .NOT. (l_limited_area .AND. domain == 1)
-
-        ! get time index of the given field
-        time_level = get_var_timelevel(p_info)
-
-        !TODO[NH]: I found the `time_level >= 0` condition IN the async restart code ONLY. Check whether it should be removed OR NOT.
-        IF(time_level >= 0) THEN
-            ! get information about time level to be skipped for current field
-            IF (p_info%tlev_source == TLEV_NNOW) THEN
-                IF (time_level == nnew) lskip_timelev = .TRUE.
-                ! this is needed to skip the extra time levels allocated for nesting
-                IF (lskip_extra_timelevs .AND. time_level > 2) lskip_timelev = .TRUE.
-            ELSE IF (p_info%tlev_source == TLEV_NNOW_RCF) THEN
-                IF (time_level == nnew_rcf) lskip_timelev = .TRUE.
-            ENDIF
-        ENDIF
-
-        SELECT CASE (iequations)
-            CASE(IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER)
-
-                IF ( lskip_timelev                        &
-                    & .AND. ha_dyn_config%itime_scheme/=LEAPFROG_EXPL &
-                    & .AND. ha_dyn_config%itime_scheme/=LEAPFROG_SI   ) &
-                    & RETURN
-            CASE default
-                IF ( lskip_timelev ) RETURN
-        END SELECT
-        RESULT = .TRUE.
-#endif
-    END FUNCTION has_valid_time_level
 
 END MODULE mo_restart_util

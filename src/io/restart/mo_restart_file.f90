@@ -17,7 +17,8 @@ MODULE mo_restart_file
     USE mo_linked_list, ONLY: t_var_list
     USE mo_restart_attributes, ONLY: t_RestartAttributeList
     USE mo_restart_patch_description, ONLY: t_restart_patch_description
-    USE mo_restart_util, ONLY: getRestartFilename, t_restart_cdi_ids, t_var_data, t_restart_args, has_valid_time_level
+    USE mo_restart_util, ONLY: getRestartFilename, t_restart_cdi_ids, t_restart_args
+    USE mo_restart_var_data, ONLY: t_RestartVarData, has_valid_time_level
     USE mo_var_list, ONLY: nvar_lists, var_lists
 
     IMPLICIT NONE
@@ -43,7 +44,7 @@ CONTAINS
     SUBROUTINE restartFile_open(me, description, varData, restart_args, restartAttributes)
         CLASS(t_RestartFile), INTENT(INOUT) :: me
         TYPE(t_restart_patch_description), INTENT(IN) :: description
-        TYPE(t_var_data), INTENT(INOUT) :: varData(:)
+        TYPE(t_RestartVarData), INTENT(INOUT) :: varData(:)
         TYPE(t_restart_args), INTENT(IN) :: restart_args
         TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
 

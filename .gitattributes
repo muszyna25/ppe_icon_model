@@ -1743,6 +1743,7 @@ src/io/restart/mo_restart_file.f90 -text
 src/io/restart/mo_restart_namelist.f90 -text
 src/io/restart/mo_restart_patch_description.f90 -text
 src/io/restart/mo_restart_util.f90 -text
+src/io/restart/mo_restart_var_data.f90 -text
 src/io/restart/mo_sync_restart.f90 -text
 src/io/shared/mo_cf_convention.f90 -text
 src/io/shared/mo_grib1.f90 -text

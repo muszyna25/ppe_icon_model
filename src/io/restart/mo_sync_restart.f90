@@ -68,7 +68,8 @@ MODULE mo_sync_restart
                                     & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE, ZA_OCEAN_SEDIMENT, ZA_COUNT
   USE mo_restart_util,          ONLY: t_v_grid, t_restart_cdi_ids, set_vertical_grid, setGeneralRestartAttributes, &
                                     & setDynamicPatchRestartAttributes, setPhysicsRestartAttributes, create_restart_file_link, &
-                                    & getRestartFilename, getLevelPointers, has_valid_time_level
+                                    & getRestartFilename
+  USE mo_restart_var_data,      ONLY: getLevelPointers, has_valid_time_level
   USE mo_util_string,           ONLY: int2string, separator
   USE mo_restart_attributes,    ONLY: t_RestartAttributeList, RestartAttributeList_make
   USE mo_datetime,              ONLY: t_datetime, iso8601

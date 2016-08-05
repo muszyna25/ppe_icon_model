@@ -41,8 +41,8 @@ MODULE mo_async_restart
   USE mo_model_domain,            ONLY: p_patch, t_patch
   USE mo_packed_message,          ONLY: t_PackedMessage, kPackOp, kUnpackOp
   USE mo_restart_patch_description, ONLY: t_restart_patch_description
-  USE mo_restart_util,            ONLY: setGeneralRestartAttributes, create_restart_file_link, t_var_data, t_restart_args, &
-                                      & getLevelPointers, has_valid_time_level
+  USE mo_restart_util,            ONLY: setGeneralRestartAttributes, create_restart_file_link, t_restart_args
+  USE mo_restart_var_data,        ONLY: t_RestartVarData, createRestartVarData, getLevelPointers, has_valid_time_level
 #ifndef NOMPI
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work, p_work_pe0, num_work_procs, MPI_SUCCESS, &
                                       & stop_mpi, p_send, p_recv, p_barrier, p_bcast, my_process_is_restart, my_process_is_work, &
@@ -78,7 +78,6 @@ MODULE mo_async_restart
   CHARACTER(LEN=*), PARAMETER :: modname                  = 'mo_async_restart'
   CHARACTER(LEN=*), PARAMETER :: ALLOCATE_FAILED          = 'ALLOCATE failed!'
   CHARACTER(LEN=*), PARAMETER :: DEALLOCATE_FAILED        = 'DEALLOCATE failed!'
-  CHARACTER(LEN=*), PARAMETER :: UNKNOWN_FILE_FORMAT      = 'Unknown file format for restart file.'
   CHARACTER(LEN=*), PARAMETER :: ASYNC_RESTART_REQ_MPI    = 'asynchronous restart can only run with MPI!'
   CHARACTER(LEN=*), PARAMETER :: NO_COMPUTE_PE            = 'Must be called on a compute PE!'
   CHARACTER(LEN=*), PARAMETER :: NO_RESTART_PE            = 'Must be called on a restart PE!'
@@ -93,7 +92,7 @@ MODULE mo_async_restart
   ! combine the DATA that describes a patch for restart purposes with the infos required for the asynchronous fetching of the DATA from the compute PEs
   TYPE t_patch_data
     TYPE(t_restart_patch_description) :: description
-    TYPE(t_var_data), POINTER :: varData(:)
+    TYPE(t_RestartVarData), POINTER :: varData(:)
     TYPE(t_AsyncRestartCommData) :: commData
   END TYPE t_patch_data
 
@@ -119,111 +118,6 @@ MODULE mo_async_restart
   END TYPE t_restart_descriptor
 
 CONTAINS
-
-  !------------------------------------------------------------------------------------------------
-  !
-  ! Gets the number of  restart variables for the given logical patch ident.
-  !
-  INTEGER FUNCTION countRestartVariables(patch_id) RESULT(RESULT)
-    INTEGER, INTENT(IN) :: patch_id
-
-    INTEGER :: i, fld_cnt
-    TYPE(t_list_element), POINTER :: element
-
-#ifdef DEBUG
-    TYPE(t_list_element), POINTER :: element_list
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':countRestartVariables'
-
-    WRITE(nerr, FORMAT_VALS5)routine, ' p_pe=', p_pe, ' patch_id=', patch_id
-#endif
-
-    RESULT = 0
-
-    DO i = 1, nvar_lists
-        ! skip, if var_list is not required for restart
-        IF(.NOT. var_lists(i)%p%lrestart) CYCLE
-
-        ! check the given logical patch id
-        IF(var_lists(i)%p%patch_id /= patch_id) CYCLE
-
-        ! check, if the list has valid restart fields
-        fld_cnt = 0
-        element => var_lists(i)%p%first_list_element
-        DO
-            IF(.NOT. ASSOCIATED(element)) EXIT
-            IF(element%field%info%lrestart) fld_cnt = fld_cnt + 1
-            element => element%next_list_element
-        ENDDO
-        RESULT = RESULT + fld_cnt
-
-#ifdef DEBUG
-        IF(my_process_is_restart()) THEN
-            IF(fld_cnt > 0) THEN
-                WRITE(nerr, '(3a,i4,2a,i3)') &
-                    & '. restart var_list ', TRIM(var_lists(i)%p%name), &
-                    & '(', fld_cnt, ')', &
-                    & ' Patch: ', var_lists(i)%p%patch_id
-                element_list => var_lists(i)%p%first_list_element
-                DO
-                    IF(.NOT. ASSOCIATED(element_list)) EXIT
-                    IF(element_list%field%info%lrestart) THEN
-                        WRITE(nerr, '(4a)') &
-                            &     '    ', TRIM(element_list%field%info%name), &
-                            &       '  ', TRIM(element_list%field%info%cf%long_name)
-                    ENDIF
-                    element_list => element_list%next_list_element
-                ENDDO
-            ENDIF
-        ENDIF
-#endif
-    ENDDO
-  END FUNCTION countRestartVariables
-
-  SUBROUTINE initVarData(varData, patch_id)
-    TYPE(t_var_data), POINTER :: varData(:)
-    INTEGER, VALUE :: patch_id
-
-    INTEGER :: varCount, varIndex, error, curList
-    TYPE(t_list_element), POINTER :: element
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":initVarData"
-
-    ! init. main variables
-    varData => NULL()
-
-    ! counts number of restart variables for this file (logical patch ident)
-    varCount = countRestartVariables(patch_id)
-#ifdef DEBUG
-    WRITE(nerr, FORMAT_VALS3) routine, ' numvars=', varCount
-#endif
-    IF(varCount <= 0) RETURN
-
-    ! allocate the array of restart variables
-    ALLOCATE(varData(varCount), STAT = error)
-    IF(error /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
-
-    ! fill the array of restart variables
-    varIndex = 1
-    DO curList = 1, nvar_lists
-        ! skip, if var_list is not required for restart
-        IF(.NOT. var_lists(curList)%p%lrestart) CYCLE
-
-        ! check the given logical patch id
-        IF(var_lists(curList)%p%patch_id /= patch_id) CYCLE
-
-        ! check, if the list has valid restart fields
-        element => var_lists(curList)%p%first_list_element
-        DO
-            IF(.NOT. ASSOCIATED(element)) EXIT
-            IF(element%field%info%lrestart) THEN
-                varData(varIndex)%info = element%field%info
-                varData(varIndex)%r_ptr => element%field%r_ptr
-                varIndex = varIndex + 1
-            END IF
-            element => element%next_list_element
-        END DO
-    END DO
-    IF(varIndex /= varCount + 1) CALL finish(routine, "assertion failed: wrong restart variable count")
-  END SUBROUTINE initVarData
 
   !------------------------------------------------------------------------------------------------
   !
@@ -258,7 +152,7 @@ CONTAINS
     DO jg = 1, n_dom
         ! construct the subobjects
         CALL create_patch_description(me%patch_data(jg)%description, jg)
-        CALL initVarData(me%patch_data(jg)%varData, jg)
+        me%patch_data(jg)%varData => createRestartVarData(jg)
         CALL me%patch_data(jg)%commData%construct(jg, me%patch_data(jg)%varData)
 
         ! consistency checks
@@ -1013,7 +907,6 @@ CONTAINS
 
     TYPE(t_var_metadata), POINTER   :: p_info
     TYPE(t_AsyncRestartPacker), POINTER   :: p_ri
-    TYPE(t_var_data), POINTER       :: p_vars(:)
 
     INTEGER                         :: iv, nval, ierrstat, nlevs, ilev, pointCount
     INTEGER(KIND=MPI_ADDRESS_KIND)  :: ioff(0:num_work_procs-1)
@@ -1039,8 +932,7 @@ CONTAINS
     bytesWrite = 0_i8
 
     ! check the contained array of restart variables
-    p_vars => p_pd%varData
-    IF (.NOT. ASSOCIATED(p_vars)) RETURN
+    IF (.NOT. ASSOCIATED(p_pd%varData)) RETURN
 
     ! get maximum number of data points in a slice and allocate tmp. variables
     nval = p_pd%commData%maxLevelSize()
@@ -1052,10 +944,10 @@ CONTAINS
     ioff(:) = 0
 
     ! go over the all restart variables in the associated array
-    VAR_LOOP : DO iv = 1, SIZE(p_vars)
+    VAR_LOOP : DO iv = 1, SIZE(p_pd%varData)
 
       ! get pointer to metadata
-      p_info => p_vars(iv)%info
+      p_info => p_pd%varData(iv)%info
 
 #ifdef DEBUG
       WRITE (nerr,FORMAT_VALS5I)routine,' p_pe=',p_pe,' restart pe processes field=',TRIM(p_info%name)
@@ -1117,7 +1009,7 @@ CONTAINS
     TYPE(t_patch_data), TARGET, INTENT(INOUT) :: p_pd
 
     TYPE(t_AsyncRestartPacker), POINTER   :: p_ri
-    TYPE(t_var_data), POINTER       :: p_vars(:)
+    TYPE(t_RestartVarData), POINTER :: p_vars(:)
     TYPE(t_ptr_2d), ALLOCATABLE     :: dataPointers(:)
     INTEGER                         :: iv
     INTEGER(i8)                     :: offset

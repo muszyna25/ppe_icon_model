@@ -19,7 +19,7 @@ MODULE mo_async_restart_comm_data
     USE mo_kind, ONLY: dp, i8
     USE mo_model_domain, ONLY: p_patch
     USE mo_mpi, ONLY: p_real_dp, p_comm_work_restart, p_pe_work, num_work_procs, p_mpi_wtime, my_process_is_work
-    USE mo_restart_util, ONLY: t_var_data
+    USE mo_restart_var_data, ONLY: t_RestartVarData
     USE mo_util_string, ONLY: int2string
 #ifndef NOMPI
     USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL, MPI_LOCK_SHARED, MPI_MODE_NOCHECK, MPI_WIN_NULL, MPI_LOCK_EXCLUSIVE, &
@@ -179,7 +179,7 @@ CONTAINS
     SUBROUTINE asyncRestartCommData_construct(me, jg, var_data)
         CLASS(t_AsyncRestartCommData), TARGET, INTENT(INOUT) :: me
         INTEGER, VALUE :: jg
-        TYPE(t_var_data), POINTER, INTENT(IN) :: var_data(:)
+        TYPE(t_RestartVarData), POINTER, INTENT(IN) :: var_data(:)
 
         INTEGER :: error, iv, nlevs
         TYPE(t_grid_domain_decomp_info) :: dummyInfo
