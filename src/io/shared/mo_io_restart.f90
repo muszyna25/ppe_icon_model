@@ -192,6 +192,12 @@ MODULE mo_io_restart
 CONTAINS
   !------------------------------------------------------------------------------------------------
   !> Reads attributes and namelists for all available domains from restart file.
+  !>
+  !> XXX: The code that I found READ the restart attributes from all the files,
+  !>      *appending* them to the list of attributes. Since all restart files contain the same attributes,
+  !>      this ONLY served to duplicate them. The current code just ignores the attributes IN all but the first file,
+  !>      just like the original code ignored the namelists IN all but the first file.
+  !>      However, it might be a good idea to add some consistency checking on the attributes/namelists of the other files.
   SUBROUTINE read_restart_header(modeltype_str)
     CHARACTER(LEN=*), INTENT(IN)  :: modeltype_str
     ! local variables
@@ -212,7 +218,7 @@ CONTAINS
     INQUIRE(file=TRIM(rst_filename), exist=lexists)
     ! otherwise, give a warning and resort to the old naming scheme:
     IF (.NOT. lexists) THEN
-      CALL finish(routine, "Restart file not found! Expected name: restart_<model_type>_DOM<2 digit domain number>.nc")
+        CALL finish(routine, "Restart file not found! Expected name: restart_<model_type>_DOM<2 digit domain number>.nc")
     END IF
 
     ! Read all namelists used in the previous run
@@ -220,61 +226,42 @@ CONTAINS
     ! model default, and will later be overwritten if the user has
     ! specified something different for this integration.
 
-    ! Note: We read the namelists only once and assume that these
-    !       are identical for all domains.
+    ! Note: We read the namelists AND attributes only once and assume that these
+    !       are identical for all domains (which IS guaranteed by the way the restart files are written).
 
     IF (my_process_is_mpi_workroot()) THEN
-      fileID  = streamOpenRead(TRIM(rst_filename))
-      ! check if the file could be opened
-      IF (fileID < 0) THEN
-        CALL cdiGetStringError(fileID, cdiErrorText)
-        WRITE(message_text,'(4a)') 'File ', TRIM(rst_filename), &
-             ' cannot be opened: ', TRIM(cdiErrorText)
-        CALL finish(routine, TRIM(message_text))
-      ENDIF
+        fileID  = streamOpenRead(TRIM(rst_filename))
+        ! check if the file could be opened
+        IF (fileID < 0) THEN
+            CALL cdiGetStringError(fileID, cdiErrorText)
+            WRITE(message_text,'(4a)') 'File ', TRIM(rst_filename), ' cannot be opened: ', TRIM(cdiErrorText)
+            CALL finish(routine, TRIM(message_text))
+        ENDIF
 
-      vlistID = streamInqVlist(fileID)
+        vlistID = streamInqVlist(fileID)
     END IF
     CALL read_and_bcast_restart_namelists(vlistID, root_pe, p_comm_work)
-    ! note: we don't close the restart file for domain 1 yet...
-    CALL message(TRIM(routine), 'read namelists from restart file')
+    CALL read_and_bcast_attributes(vlistID, my_process_is_mpi_workroot(), root_pe, p_comm_work)
+    IF (my_process_is_mpi_workroot()) CALL streamClose(fileID)
 
-    total_dom = 1
-    DO
-      IF (idom > total_dom) EXIT
+    CALL message(TRIM(routine), 'read namelists AND attributes from restart file')
 
-      ! Read all global attributs in the restart file and store them in a buffer.
+    ! since we do not know about the total number of domains yet,
+    ! we have to ask the restart file for this information:
+    CALL get_restart_attribute( 'n_dom', total_dom )
 
-      IF (idom > 1) INQUIRE(file=TRIM(rst_filename), exist=lexists)
-      IF (my_process_is_mpi_workroot()) THEN
-        WRITE(0,*) "streamOpenRead ", TRIM(rst_filename)
-        ! note: we have opened the file for domain 1 already
-        IF (idom > 1) THEN
-          IF (lexists) THEN
-            fileID  = streamOpenRead(TRIM(rst_filename))
-            vlistID = streamInqVlist(fileID)
-          ENDIF
-        END IF
-      END IF
-      IF (lexists) THEN
-        CALL read_and_bcast_attributes(vlistID, my_process_is_mpi_workroot(), root_pe, p_comm_work)
-        IF (my_process_is_mpi_workroot()) THEN
-          CALL streamClose(fileID)
-        END IF
-
-        CALL message(TRIM(routine), 'read global attributes from restart file')
-      ELSE
-        CALL message(TRIM(routine), 'Warning: domain not active at restart time')
-      ENDIF
-
-      ! since we do not know about the total number of domains yet,
-      ! we have to ask the current restart file for this
-      ! information:
-      CALL get_restart_attribute( 'n_dom', total_dom )
-
-      idom = idom + 1
-      rst_filename = "restart_"//TRIM(modeltype_str)//"_DOM"//TRIM(int2string(idom, "(i2.2)"))//".nc"
-    END DO
+    ! check whether we have all the restart files we expect
+    IF (my_process_is_mpi_workroot()) THEN
+        DO idom = 2, total_dom
+            rst_filename = "restart_"//TRIM(modeltype_str)//"_DOM"//TRIM(int2string(idom, "(i2.2)"))//".nc"
+            IF (idom > 1) INQUIRE(file=TRIM(rst_filename), exist=lexists)
+            IF (lexists) THEN
+                CALL message(TRIM(routine), 'read global attributes from restart file')
+            ELSE
+                CALL message(TRIM(routine), 'Warning: domain not active at restart time')
+            ENDIF
+        END DO
+    END IF
 
   END SUBROUTINE read_restart_header
 
@@ -1892,9 +1879,6 @@ CONTAINS
         nvars = vlistNvars(vlistID)
       END IF
       CALL p_bcast(nvars, root_pe, comm=p_comm_work)
-
-      !AD: This call is already made in read_restart_header. Why do it twice?
-      CALL read_and_bcast_attributes(vlistID, my_process_is_mpi_workroot(), root_pe, p_comm_work)
 
       for_all_vars: DO varID = 0, (nvars-1)
 
