@@ -115,6 +115,8 @@ MODULE mo_restart_async
     CHARACTER(LEN=filename_max) :: filename
     CHARACTER(LEN=32)           :: model_type
     TYPE(t_restart_cdi_ids)     :: cdiIds
+  CONTAINS
+    PROCEDURE :: construct => restartFile_construct
   END TYPE t_restart_file
 
   !------------------------------------------------------------------------------------------------
@@ -176,6 +178,9 @@ MODULE mo_restart_async
     PROCEDURE :: destruct => restartDescriptor_destruct
 
     PROCEDURE, PRIVATE :: initRma => restartDescriptor_initRma
+
+    ! methods called ONLY by the restart processes
+    PROCEDURE, PRIVATE :: restartWriteAsyncRestart => restartDescriptor_restartWriteAsyncRestart
   END TYPE t_restart_descriptor
 
 #ifndef NOMPI
@@ -248,7 +253,7 @@ CONTAINS
     memWindowSize = 0
     DO jg = 1, n_dom
         CALL create_patch_description(me%patch_data(jg)%description, jg)
-        CALL set_restart_file_data(me%patch_data(jg)%restart_file, jg)
+        CALL me%patch_data(jg)%restart_file%construct(jg)
         memWindowSize = me%patch_data(jg)%commData%construct(jg, me%patch_data(jg)%restart_file%var_data, memWindowSize)
     END DO
 
@@ -366,13 +371,13 @@ CONTAINS
 #endif
 
   !> Writes all restart data into one or more files (one file per patch, collective across restart processes).
-  SUBROUTINE restart_write_async_restart(restart_args, patch_data)
+  SUBROUTINE restartDescriptor_restartWriteAsyncRestart(me, restart_args)
+    CLASS(t_restart_descriptor), INTENT(INOUT) :: me
     TYPE(t_restart_args), INTENT(IN) :: restart_args
-    TYPE(t_patch_data), INTENT(INOUT) :: patch_data(:)
 
     INTEGER :: idx
     TYPE(t_RestartAttributeList), POINTER :: restartAttributes
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//':restart_write_async_restart'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':restartDescriptor_restartWriteAsyncRestart'
 
 #ifdef NOMPI
     CALL finish (routine, ASYNC_RESTART_REQ_MPI)
@@ -383,20 +388,20 @@ CONTAINS
 #endif
 
     ! check kind of process
-    IF(.NOT. my_process_is_restart()) RETURN
+    IF(.NOT. my_process_is_restart()) CALL finish(routine, "assertion failed: "//routine//"() called by non-restart process")
 
     restartAttributes => RestartAttributeList_make()
-    CALL set_restart_attributes(restartAttributes, restart_args, patch_data)
+    CALL set_restart_attributes(restartAttributes, restart_args, me%patch_data)
 
     ! do the restart output
-    DO idx = 1, SIZE(patch_data)
-        CALL restart_write_patch(restart_args, patch_data(idx), restartAttributes)
+    DO idx = 1, SIZE(me%patch_data)
+        CALL restart_write_patch(restart_args, me%patch_data(idx), restartAttributes)
     END DO
 
     CALL restartAttributes%destruct()
     DEALLOCATE(restartAttributes)
 #endif
-  END SUBROUTINE restart_write_async_restart
+  END SUBROUTINE restartDescriptor_restartWriteAsyncRestart
 
   !------------------------------------------------------------------------------------------------
   !
@@ -461,7 +466,7 @@ CONTAINS
       IF(done) EXIT ! leave loop, we are done
 
       ! read and write restart variable lists (collective call)
-      CALL restart_write_async_restart(restart_args, restartDescriptor%patch_data)
+      CALL restartDescriptor%restartWriteAsyncRestart(restart_args)
       CALL restart_args%destruct()
 
       ! inform compute PEs that the restart is done
@@ -1086,25 +1091,23 @@ CONTAINS
   !
   ! Sets the restart file data with the given logical patch ident.
   !
-  SUBROUTINE set_restart_file_data (rf, patch_id)
-
-    TYPE (t_restart_file),  INTENT (INOUT) :: rf
-    INTEGER,               INTENT (IN)    :: patch_id
+  SUBROUTINE restartFile_construct(me, patch_id)
+    CLASS(t_restart_file), INTENT (INOUT) :: me
+    INTEGER, VALUE :: patch_id
 
     INTEGER                               :: ierrstat, i, i2, num_vars
     TYPE (t_list_element), POINTER        :: element
-
-    CHARACTER(LEN=*), PARAMETER           :: routine = modname//':set_restart_file_data'
+    CHARACTER(LEN=*), PARAMETER           :: routine = modname//':restartFile_construct'
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS5)routine,' is called for p_pe=',p_pe,' patch_id=',patch_id
 #endif
 
     ! init. main variables
-    rf%var_data                   => NULL()
-    rf%filename                   = ''
+    me%var_data => NULL()
+    me%filename = ''
 
-    CALL rf%cdiIds%init()
+    CALL me%cdiIds%init()
 
     ! counts number of restart variables for this file (logical patch ident)
     num_vars = 0
@@ -1116,7 +1119,7 @@ CONTAINS
 
     IF (num_vars <= 0) RETURN
     ! allocate the array of restart variables
-    ALLOCATE (rf%var_data(num_vars), STAT=ierrstat)
+    ALLOCATE (me%var_data(num_vars), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
 
     ! fill the array of restart variables
@@ -1134,18 +1137,18 @@ CONTAINS
         IF(.NOT. ASSOCIATED(element)) EXIT
         IF (element%field%info%lrestart) THEN
           i2 = i2 + 1
-          rf%var_data(i2)%info = element%field%info
+          me%var_data(i2)%info = element%field%info
           IF (my_process_is_work() .AND. ASSOCIATED(element%field%r_ptr)) THEN
-            rf%var_data(i2)%r_ptr => element%field%r_ptr
+            me%var_data(i2)%r_ptr => element%field%r_ptr
           ELSE
-            rf%var_data(i2)%r_ptr => NULL()
+            me%var_data(i2)%r_ptr => NULL()
           ENDIF
         ENDIF
         element => element%next_list_element
       ENDDO
     ENDDO
 
-  END SUBROUTINE set_restart_file_data
+  END SUBROUTINE restartFile_construct
 
   !------------------------------------------------------------------------------------------------
   !
@@ -1570,7 +1573,7 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER     :: routine = modname//':restart_write_var_list'
     ! For timing
-    REAL(dp)                        :: t_get, t_write, t_0, mb_get, mb_wr
+    REAL(dp)                        :: t_get, t_write, mb_get, mb_wr
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
@@ -1621,7 +1624,7 @@ CONTAINS
 
       ! get pointer to reorder data
       p_ri => get_reorder_ptr(p_pd%commData, p_info, routine)
-      
+
       ! var1 is stored in the order in which the variable was stored on compute PEs,
       ! get it back into the global storage order
       ALLOCATE(var3_dp(p_ri%n_glb), STAT=ierrstat) ! Must be allocated to exact size
@@ -1639,21 +1642,21 @@ CONTAINS
         nv_off  = 0
         DO np = 0, num_work_procs-1
           IF(p_ri%pe_own(np) == 0) CYCLE
-          
+
           ! number of words to transfer
           nval = p_ri%pe_own(np) * this_chunk_nlevs
-          t_0 = p_mpi_wtime()
+          t_get = t_get -  p_mpi_wtime()
           CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, mpi_win, mpi_error)
-   !       CALL check_mpi_error(routine, 'MPI_Win_lock', mpi_error, .TRUE.)
-          
+          CALL check_mpi_error(routine, 'MPI_Win_lock', mpi_error, .TRUE.)
+
           CALL MPI_Get(var1_dp(1), nval, p_real_dp, np, ioff(np), &
             &          nval, p_real_dp, mpi_win, mpi_error)
-  !        CALL check_mpi_error(routine, 'MPI_Get', mpi_error, .TRUE.)
-          
+          CALL check_mpi_error(routine, 'MPI_Get', mpi_error, .TRUE.)
+
           CALL MPI_Win_unlock(np, mpi_win, mpi_error)
-  !        CALL check_mpi_error(routine, 'MPI_Win_unlock', mpi_error, .TRUE.)
-          
-          t_get  = t_get  + p_mpi_wtime() - t_0
+          CALL check_mpi_error(routine, 'MPI_Win_unlock', mpi_error, .TRUE.)
+
+          t_get  = t_get  + p_mpi_wtime()
           mb_get = mb_get + nval
 
           ! update the offset in the RMA window on compute PEs
@@ -1670,9 +1673,9 @@ CONTAINS
           ! update the offset in var2
           nv_off = nv_off + p_ri%pe_own(np)
         END DO
-        t_0 = p_mpi_wtime()
 
         ! write field content into a file
+        t_write = t_write - p_mpi_wtime()
         DO ilev=chunk_start, chunk_end
 !$OMP PARALLEL DO
           DO i = 1, p_ri%n_glb
@@ -1682,7 +1685,7 @@ CONTAINS
           CALL streamWriteVarSlice(p_rf%cdiIds%file, p_info%cdiVarID, (ilev-1), var3_dp(:), 0)
           mb_wr = mb_wr + REAL(SIZE(var3_dp), wp)
         END DO
-        t_write = t_write + p_mpi_wtime() - t_0
+        t_write = t_write + p_mpi_wtime()
 
       ENDDO LEVELS
 
