@@ -20,14 +20,16 @@
 !!
 MODULE mo_fortran_tools
 
-  USE mo_kind,                    ONLY: wp, sp, dp, ik4 => i4
   USE mo_exception,               ONLY: finish
+  USE mo_impl_constants,          ONLY: SUCCESS
+  USE mo_kind,                    ONLY: wp, sp, dp, ik4 => i4
   USE mo_impl_constants,          ONLY: VARNAME_LEN
 
   IMPLICIT NONE
 
   PUBLIC :: t_Destructible
   PUBLIC :: assign_if_present
+  PUBLIC :: assign_if_present_allocatable
   PUBLIC :: t_ptr_2d3d
   PUBLIC :: t_ptr_i2d3d
   PUBLIC :: t_ptr_tracer
@@ -69,6 +71,12 @@ MODULE mo_fortran_tools
     MODULE PROCEDURE assign_if_present_integers
     MODULE PROCEDURE assign_if_present_real
   END INTERFACE assign_if_present
+
+  INTERFACE assign_if_present_allocatable
+    MODULE PROCEDURE assign_if_present_logical_allocatable_1d
+    MODULE PROCEDURE assign_if_present_integer_allocatable_1d
+    MODULE PROCEDURE assign_if_present_real_allocatable_1d
+  END INTERFACE assign_if_present_allocatable
 
   !> this is meant to make it easier for compilers to circumvent
   !! temporaries as are too often created in a(:, :, :) = b(:, :, :)
@@ -121,9 +129,11 @@ MODULE mo_fortran_tools
     END SUBROUTINE interface_destructor
   END INTERFACE
 
+  CHARACTER(LEN = *), PARAMETER :: modname = "mo_fortran_tools"
+
 CONTAINS
 
-  ! private routines to assign values if actual parameters are present
+  ! routines to assign values if actual parameters are present
   !
   SUBROUTINE assign_if_present_character (y,x)
     CHARACTER(len=*), INTENT(inout)        :: y
@@ -133,13 +143,11 @@ CONTAINS
     y = x
   END SUBROUTINE assign_if_present_character
 
-
   SUBROUTINE assign_if_present_logical (y,x)
     LOGICAL, INTENT(inout)        :: y
     LOGICAL, INTENT(in) ,OPTIONAL :: x
     IF (PRESENT(x)) y = x
   END SUBROUTINE assign_if_present_logical
-
 
   SUBROUTINE assign_if_present_logicals (y,x)
     LOGICAL, INTENT(inout)        :: y(:)
@@ -151,7 +159,6 @@ CONTAINS
     ENDIF
   END SUBROUTINE assign_if_present_logicals
 
-
   SUBROUTINE assign_if_present_integer (y,x)
     INTEGER, INTENT(inout)        :: y
     INTEGER, INTENT(in) ,OPTIONAL :: x
@@ -159,7 +166,6 @@ CONTAINS
     IF ( x == -HUGE(x)  ) RETURN
     y = x
   END SUBROUTINE assign_if_present_integer
-
 
   SUBROUTINE assign_if_present_integers (y,x)
     INTEGER, INTENT(inout)        :: y (:)
@@ -171,7 +177,6 @@ CONTAINS
     ENDIF
   END SUBROUTINE assign_if_present_integers
 
-
   SUBROUTINE assign_if_present_real (y,x)
     REAL(wp), INTENT(inout)        :: y
     REAL(wp), INTENT(in) ,OPTIONAL :: x
@@ -179,6 +184,61 @@ CONTAINS
     IF ( x == -HUGE(x) ) RETURN
     y = x
   END SUBROUTINE assign_if_present_real
+
+
+  SUBROUTINE assign_if_present_logical_allocatable_1d(y, x)
+    LOGICAL, ALLOCATABLE, INTENT(INOUT) :: y(:)
+    LOGICAL, OPTIONAL, INTENT(IN) :: x(:)
+
+    INTEGER :: error
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":assign_if_present_logical_allocatable_1d"
+
+    IF(.NOT.PRESENT(x)) RETURN
+    IF(ALLOCATED(y)) THEN
+        IF(SIZE(y) /= SIZE(x)) DEALLOCATE(y)
+    END IF
+    IF(.NOT.ALLOCATED(y)) THEN
+        ALLOCATE(y(SIZE(x)), STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+    END IF
+    y(:) = x(:)
+  END SUBROUTINE assign_if_present_logical_allocatable_1d
+
+  SUBROUTINE assign_if_present_integer_allocatable_1d(y, x)
+    INTEGER, ALLOCATABLE, INTENT(INOUT) :: y(:)
+    INTEGER, OPTIONAL, INTENT(IN) :: x(:)
+
+    INTEGER :: error
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":assign_if_present_integer_allocatable_1d"
+
+    IF(.NOT.PRESENT(x)) RETURN
+    IF(ALLOCATED(y)) THEN
+        IF(SIZE(y) /= SIZE(x)) DEALLOCATE(y)
+    END IF
+    IF(.NOT.ALLOCATED(y)) THEN
+        ALLOCATE(y(SIZE(x)), STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+    END IF
+    y(:) = x(:)
+  END SUBROUTINE assign_if_present_integer_allocatable_1d
+
+  SUBROUTINE assign_if_present_real_allocatable_1d(y, x)
+    REAL(wp), ALLOCATABLE, INTENT(INOUT) :: y(:)
+    REAL(wp), OPTIONAL, INTENT(IN) :: x(:)
+
+    INTEGER :: error
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":assign_if_present_real_allocatable_1d"
+
+    IF(.NOT.PRESENT(x)) RETURN
+    IF(ALLOCATED(y)) THEN
+        IF(SIZE(y) /= SIZE(x)) DEALLOCATE(y)
+    END IF
+    IF(.NOT.ALLOCATED(y)) THEN
+        ALLOCATE(y(SIZE(x)), STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+    END IF
+    y(:) = x(:)
+  END SUBROUTINE assign_if_present_real_allocatable_1d
 
 
   !>

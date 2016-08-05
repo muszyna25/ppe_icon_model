@@ -23,6 +23,7 @@ MODULE mo_io_restart_async
 
   USE mo_util_file,               ONLY: util_symlink, util_unlink, util_islink
   USE mo_exception,               ONLY: finish, message, message_text, get_filename_noext
+  USE mo_fortran_tools,           ONLY: assign_if_present, assign_if_present_allocatable
   USE mo_kind,                    ONLY: wp, i8, dp
   USE mo_datetime,                ONLY: t_datetime, iso8601, iso8601extended
   USE mo_io_units,                ONLY: nerr, filename_max
@@ -421,108 +422,37 @@ CONTAINS
     ! in the case of processor splitting, the first PE of the split subset needs them as well
     IF (p_pe_work == 0 .OR. p_pe_work == p_pd%work_pe0_id) THEN
 
-      ! ----------------------------------------------------------------
       ! Patch-independent attributes (only communicated through patch 1)
-      ! ----------------------------------------------------------------
+      IF (patch_id == 1) CALL assign_if_present_allocatable(restart_args%opt_output_jfile, opt_output_jfile)
 
-      IF (patch_id == 1) THEN
-        IF (ALLOCATED(restart_args%opt_output_jfile)) DEALLOCATE(restart_args%opt_output_jfile)
-        IF (PRESENT(opt_output_jfile)) THEN
-          arraySize = SIZE(opt_output_jfile)
-          ALLOCATE(restart_args%opt_output_jfile(arraySize), STAT=ierrstat)
-          IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
-          restart_args%opt_output_jfile = opt_output_jfile
-        ENDIF
-
-      END IF
-
-      ! --------------------------
       ! Patch-dependent attributes
-      ! --------------------------
+      CALL assign_if_present_allocatable(p_pd%opt_pvct, opt_pvct)
+      CALL assign_if_present_allocatable(p_pd%opt_t_elapsed_phy, opt_t_elapsed_phy)
+      CALL assign_if_present_allocatable(p_pd%opt_lcall_phy, opt_lcall_phy)
 
+      CALL assign_if_present(p_pd%opt_ndyn_substeps, opt_ndyn_substeps)
+      p_pd%l_opt_ndyn_substeps = PRESENT(opt_ndyn_substeps)
 
-      ! copy optional array parameter
-      IF (PRESENT(opt_pvct)) THEN
-        arraySize = SIZE(opt_pvct)
-        IF (ALLOCATED(p_pd%opt_pvct)) DEALLOCATE(p_pd%opt_pvct)
-        ALLOCATE(p_pd%opt_pvct(arraySize), STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
-        p_pd%opt_pvct = opt_pvct
-      ENDIF
+      CALL assign_if_present(p_pd%opt_jstep_adv_marchuk_order, opt_jstep_adv_marchuk_order)
+      p_pd%l_opt_jstep_adv_marchuk_order = PRESENT(opt_jstep_adv_marchuk_order)
 
-      IF (PRESENT(opt_t_elapsed_phy)) THEN
-        arraySize = SIZE(opt_t_elapsed_phy)
-        IF (ALLOCATED(p_pd%opt_t_elapsed_phy)) DEALLOCATE(p_pd%opt_t_elapsed_phy)
-        ALLOCATE(p_pd%opt_t_elapsed_phy(arraySize), STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
-        p_pd%opt_t_elapsed_phy = opt_t_elapsed_phy
-      ENDIF
+      CALL assign_if_present(p_pd%opt_depth, opt_depth)
+      p_pd%l_opt_depth = PRESENT(opt_depth)
 
-      IF (PRESENT(opt_lcall_phy)) THEN
-        arraySize = SIZE(opt_lcall_phy)
-        IF (ALLOCATED(p_pd%opt_lcall_phy)) DEALLOCATE(p_pd%opt_lcall_phy)
-        ALLOCATE(p_pd%opt_lcall_phy(arraySize), STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
-        p_pd%opt_lcall_phy = opt_lcall_phy
-      ENDIF
+      CALL assign_if_present(p_pd%opt_depth_lnd, opt_depth_lnd)
+      p_pd%l_opt_depth_lnd = PRESENT(opt_depth_lnd)
 
-      ! copy optional value parameter
+      CALL assign_if_present(p_pd%opt_nlev_snow, opt_nlev_snow)
+      p_pd%l_opt_nlev_snow = PRESENT(opt_nlev_snow)
 
-      IF (PRESENT(opt_ndyn_substeps)) THEN
-        p_pd%opt_ndyn_substeps = opt_ndyn_substeps
-        p_pd%l_opt_ndyn_substeps = .TRUE.
-      ELSE
-        p_pd%l_opt_ndyn_substeps = .FALSE.
-      ENDIF
+      CALL assign_if_present(p_pd%opt_nice_class, opt_nice_class)
+      p_pd%l_opt_nice_class = PRESENT(opt_nice_class)
 
-      IF (PRESENT(opt_jstep_adv_marchuk_order)) THEN
-        p_pd%opt_jstep_adv_marchuk_order = opt_jstep_adv_marchuk_order
-        p_pd%l_opt_jstep_adv_marchuk_order = .TRUE.
-      ELSE
-        p_pd%l_opt_jstep_adv_marchuk_order = .FALSE.
-      ENDIF
+      CALL assign_if_present(p_pd%opt_sim_time, opt_sim_time)
+      p_pd%l_opt_sim_time = PRESENT(opt_sim_time)
 
-      IF (PRESENT(opt_depth)) THEN
-        p_pd%opt_depth = opt_depth
-        p_pd%l_opt_depth = .TRUE.
-      ELSE
-        p_pd%l_opt_depth = .FALSE.
-      ENDIF
-
-      IF (PRESENT(opt_depth_lnd)) THEN
-        p_pd%opt_depth_lnd = opt_depth_lnd
-        p_pd%l_opt_depth_lnd = .TRUE.
-      ELSE
-        p_pd%l_opt_depth_lnd = .FALSE.
-      ENDIF
-
-      IF (PRESENT(opt_nlev_snow)) THEN
-        p_pd%opt_nlev_snow = opt_nlev_snow
-        p_pd%l_opt_nlev_snow = .TRUE.
-      ELSE
-        p_pd%l_opt_nlev_snow = .FALSE.
-      ENDIF
-
-      IF (PRESENT(opt_nice_class)) THEN
-        p_pd%opt_nice_class = opt_nice_class
-        p_pd%l_opt_nice_class = .TRUE.
-      ELSE
-        p_pd%l_opt_nice_class = .FALSE.
-      ENDIF
-
-      IF (PRESENT(opt_sim_time)) THEN
-        p_pd%opt_sim_time = opt_sim_time
-        p_pd%l_opt_sim_time = .TRUE.
-      ELSE
-        p_pd%l_opt_sim_time = .FALSE.
-      ENDIF
-
-      IF (PRESENT(opt_ndom)) THEN
-        p_pd%opt_ndom = opt_ndom
-        p_pd%l_opt_ndom = .TRUE.
-      ELSE
-        p_pd%l_opt_ndom = .FALSE.
-      ENDIF
+      CALL assign_if_present(p_pd%opt_ndom, opt_ndom)
+      p_pd%l_opt_ndom = PRESENT(opt_ndom)
     ENDIF ! (pe_work == 0)
 #endif
 
