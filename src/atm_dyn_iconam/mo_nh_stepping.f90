@@ -146,7 +146,7 @@ MODULE mo_nh_stepping
     &                                    read_latbc_tlev, last_latbc_tlev, &
     &                                    update_lin_interc
   USE mo_interface_les,            ONLY: les_phy_interface
-  USE mo_async_restart,            ONLY: t_restart_descriptor
+  USE mo_restart,                  ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
   USE mo_nh_prepadv_types,         ONLY: prep_adv, t_prepare_adv, jstep_adv
   USE mo_action,                   ONLY: reset_act
   USE mo_output_event_handler,     ONLY: get_current_jfile
@@ -587,7 +587,7 @@ MODULE mo_nh_stepping
   INTEGER                              :: checkpointEvents
   LOGICAL                              :: lret
   TYPE(t_RestartAttributeList), POINTER :: restartAttributes
-  TYPE(t_restart_descriptor)           :: restartDescriptor
+  CLASS(t_RestartDescriptor), POINTER  :: restartDescriptor
 
 !!$  INTEGER omp_get_num_threads
 !-----------------------------------------------------------------------
@@ -620,7 +620,7 @@ MODULE mo_nh_stepping
   datetime_old = datetime_current
 
   IF (use_async_restart_output) THEN
-    CALL restartDescriptor%construct()
+    restartDescriptor => createRestartDescriptor()
   ENDIF
 
   jstep0 = 0
@@ -1205,7 +1205,7 @@ MODULE mo_nh_stepping
   ! clean-up routine for mo_nh_supervise module (eg. closing of files)
   CALL finalize_supervise_nh()
 
-  IF (use_async_restart_output) CALL restartDescriptor%destruct()
+  IF (use_async_restart_output) CALL deleteRestartDescriptor(restartDescriptor)
 
   IF (ltimer) CALL timer_stop(timer_total)
 

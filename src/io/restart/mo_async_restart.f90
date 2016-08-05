@@ -40,6 +40,7 @@ MODULE mo_async_restart
   USE mo_run_config,              ONLY: msg_level
   USE mo_model_domain,            ONLY: p_patch, t_patch
   USE mo_packed_message,          ONLY: t_PackedMessage, kPackOp, kUnpackOp
+  USE mo_restart_descriptor,      ONLY: t_RestartDescriptor
   USE mo_restart_patch_description, ONLY: t_restart_patch_description
   USE mo_restart_util,            ONLY: setGeneralRestartAttributes, create_restart_file_link, t_restart_args
   USE mo_restart_var_data,        ONLY: t_RestartVarData, createRestartVarData, getLevelPointers, has_valid_time_level
@@ -60,7 +61,7 @@ MODULE mo_async_restart
   INCLUDE 'netcdf.inc'
 
   ! public routines
-  PUBLIC :: t_restart_descriptor
+  PUBLIC :: t_AsyncRestartDescriptor
   PUBLIC :: restart_main_proc
 
   PRIVATE
@@ -98,14 +99,14 @@ MODULE mo_async_restart
 
   ! This IS the actual INTERFACE to the restart writing code (apart from the restart_main_proc PROCEDURE). Its USE IS as follows:
   !
-  ! First, AND ONLY once during a run, a t_restart_descriptor IS constructed.
+  ! First, AND ONLY once during a run, a t_AsyncRestartDescriptor IS constructed.
   !
   ! Then, for each restart that IS to be written, the updatePatch() method IS used to set the current time dependend information for each patch.
   ! Once all patches are updated, a single CALL to writeRestart() triggers the actual restart writing.
   ! The updatePatch() - writeRestart() sequence can be repeated ANY number of times.
   !
   ! Finally, destruct() must be called to signal the restart PEs to finish their work, AND to wait for them to stop.
-  TYPE t_restart_descriptor
+  TYPE, EXTENDS(t_RestartDescriptor) :: t_AsyncRestartDescriptor
     TYPE(t_patch_data), ALLOCATABLE :: patch_data(:)
   CONTAINS
     PROCEDURE :: construct => restartDescriptor_construct
@@ -115,7 +116,7 @@ MODULE mo_async_restart
 
     ! methods called ONLY by the restart processes
     PROCEDURE, PRIVATE :: restartWriteAsyncRestart => restartDescriptor_restartWriteAsyncRestart
-  END TYPE t_restart_descriptor
+  END TYPE t_AsyncRestartDescriptor
 
 CONTAINS
 
@@ -128,7 +129,7 @@ CONTAINS
   !> Prepare the asynchronous restart (collective call).
   !
   SUBROUTINE restartDescriptor_construct(me)
-    CLASS(t_restart_descriptor), INTENT(INOUT) :: me
+    CLASS(t_AsyncRestartDescriptor), INTENT(INOUT) :: me
 
     INTEGER :: jg, error
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':restartDescriptor_construct'
@@ -176,7 +177,7 @@ CONTAINS
   SUBROUTINE restartDescriptor_updatePatch(me, patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &
                                           &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth, opt_depth_lnd, &
                                           &opt_nlev_snow, opt_nice_class, opt_ndom)
-    CLASS(t_restart_descriptor), INTENT(INOUT) :: me
+    CLASS(t_AsyncRestartDescriptor), INTENT(INOUT) :: me
     TYPE(t_patch), INTENT(IN) :: patch
     INTEGER, INTENT(IN), OPTIONAL :: opt_depth, opt_depth_lnd, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, &
                                    & opt_nlev_snow, opt_nice_class, opt_ndom
@@ -206,7 +207,7 @@ CONTAINS
   !> Writes all restart data into one or more files (one file per patch, collective across work processes).
   !
   SUBROUTINE restartDescriptor_writeRestart(me, datetime, jstep, opt_output_jfile)
-    CLASS(t_restart_descriptor), INTENT(INOUT) :: me
+    CLASS(t_AsyncRestartDescriptor), INTENT(INOUT) :: me
     TYPE(t_datetime), INTENT(IN) :: datetime
     INTEGER, INTENT(IN) :: jstep
     INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
@@ -281,7 +282,7 @@ CONTAINS
 
   !> Writes all restart data into one or more files (one file per patch, collective across restart processes).
   SUBROUTINE restartDescriptor_restartWriteAsyncRestart(me, restart_args)
-    CLASS(t_restart_descriptor), INTENT(INOUT) :: me
+    CLASS(t_AsyncRestartDescriptor), INTENT(INOUT) :: me
     TYPE(t_restart_args), INTENT(IN) :: restart_args
 
     INTEGER :: idx
@@ -317,7 +318,7 @@ CONTAINS
   !> Closes asynchronous restart (collective call).
   !
   SUBROUTINE restartDescriptor_destruct(me)
-    CLASS(t_restart_descriptor), INTENT(INOUT) :: me
+    CLASS(t_AsyncRestartDescriptor), INTENT(INOUT) :: me
 
     INTEGER :: i
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':restartDescriptor_destruct'
@@ -349,7 +350,7 @@ CONTAINS
   !! Please note that this routine never returns.
   SUBROUTINE restart_main_proc
     LOGICAL :: done
-    TYPE(t_restart_descriptor) :: restartDescriptor
+    TYPE(t_AsyncRestartDescriptor) :: restartDescriptor
     TYPE(t_restart_args) :: restart_args
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':restart_main_proc'
 
@@ -468,7 +469,7 @@ CONTAINS
   !
   SUBROUTINE restart_wait_for_start(restart_args, restartDescriptor, done)
     TYPE(t_restart_args), INTENT(INOUT) :: restart_args
-    CLASS(t_restart_descriptor), INTENT(INOUT) :: restartDescriptor
+    CLASS(t_AsyncRestartDescriptor), INTENT(INOUT) :: restartDescriptor
     LOGICAL, INTENT(OUT)           :: done ! flag if we should shut down
 
     INTEGER :: iheader

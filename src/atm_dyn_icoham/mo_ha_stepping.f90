@@ -61,7 +61,7 @@ MODULE mo_ha_stepping
   USE mo_icon_comm_lib,       ONLY: icon_comm_sync_all
   USE mo_parallel_config,     ONLY: use_icon_comm, use_async_restart_output
   USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output
-  USE mo_async_restart,       ONLY: t_restart_descriptor
+  USE mo_restart,             ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
   USE mo_restart_attributes,  ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_time_config,         ONLY: time_config
 
@@ -219,7 +219,7 @@ CONTAINS
   LOGICAL                                      :: l_3tl_init(n_dom)
   INTEGER                                      :: jstep0 ! start counter for time loop
   TYPE(t_RestartAttributeList), POINTER        :: restartAttributes
-  TYPE(t_restart_descriptor)                   :: restartDescriptor
+  CLASS(t_RestartDescriptor), POINTER          :: restartDescriptor
 
 #ifdef _OPENMP
   INTEGER  :: jb
@@ -235,7 +235,7 @@ CONTAINS
   IF (ltimer) CALL timer_start(timer_total)
 
   IF (use_async_restart_output) THEN
-    CALL restartDescriptor%construct()
+    restartDescriptor => createRestartDescriptor()
   ENDIF
 
   jstep0 = 0
@@ -397,7 +397,7 @@ CONTAINS
 
   ENDDO TIME_LOOP
 
-  IF (use_async_restart_output) CALL restartDescriptor%destruct()
+  IF (use_async_restart_output) CALL deleteRestartDescriptor(restartDescriptor)
 
   IF (ltimer) CALL timer_stop(timer_total)
 
