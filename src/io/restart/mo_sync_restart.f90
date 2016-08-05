@@ -83,7 +83,7 @@ MODULE mo_sync_restart
 
   PUBLIC :: t_SyncRestartDescriptor
 
-  ! combine the DATA that describes a patch for restart purposes with the infos required for the asynchronous fetching of the DATA from the compute PEs
+  ! this type stores all the information that we need to know about a patch and its variables
   TYPE t_PatchData
     TYPE(t_restart_patch_description) :: description
     TYPE(t_RestartVarData), POINTER :: varData(:)

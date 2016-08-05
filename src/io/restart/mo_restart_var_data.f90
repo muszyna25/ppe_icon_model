@@ -1,7 +1,3 @@
-!>
-!! Contains common helper routines for(a)synchronous restart
-!! ----------------------------------------------------------
-!!
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
@@ -9,6 +5,11 @@
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
+!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!
+!! The glue layer between the restart writing code and the variables:
+!! The restart writing code only ever sees the bunch of 2D pointers returned by getLevelPointers().
 
 MODULE mo_restart_var_data
     USE mo_dynamics_config, ONLY: iequations
@@ -37,7 +38,7 @@ MODULE mo_restart_var_data
 
     PRIVATE
 
-    ! TYPE t_RestartVarData (restart variable)
+    ! All the info that's required about a variable for restart purposes.
     TYPE t_RestartVarData
         REAL(wp), POINTER :: r_ptr(:,:,:,:,:)
         TYPE(t_var_metadata) :: info
