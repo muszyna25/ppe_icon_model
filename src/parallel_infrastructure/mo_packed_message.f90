@@ -12,6 +12,7 @@
 
 MODULE mo_packed_message
     USE mo_exception, ONLY: finish
+    USE mo_fortran_tools, ONLY: t_Destructible
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_kind, ONLY: sp, dp
     USE mo_util_string, ONLY: int2string
@@ -58,7 +59,7 @@ MODULE mo_packed_message
     !
     ! XXX: This originated as a wrapper around MPI_Pack() AND friends that IS able to manage the buffer that's used to hold the packed message.
     ! However, it turned OUT to be more sensible to DO the packing ourselves: We need to be able to pack/unpack even when NOMPI IS defined.
-    TYPE :: t_PackedMessage
+    TYPE, EXTENDS(t_Destructible) :: t_PackedMessage
         INTEGER messageSize, readPosition
         CHARACTER, POINTER :: messageBuffer(:)
     CONTAINS
