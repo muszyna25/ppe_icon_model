@@ -8,11 +8,11 @@
 MODULE mo_io_restart_namelist
   USE ISO_C_BINDING, ONLY: C_CHAR
   USE mo_util_file,   ONLY: util_tmpnam, util_filesize, util_unlink
-  USE mo_util_string, ONLY: tocompact, toCharacter, toCharArray, int2string
+  USE mo_util_string, ONLY: tocompact, toCharacter, toCharArray
   USE mo_impl_constants, ONLY: SUCCESS
   USE mo_io_units,    ONLY: nerr, find_next_free_unit, filename_max
   USE mo_exception,   ONLY: message, finish
-  USE mo_mpi,         ONLY: p_bcast, p_pe, p_comm_rank, my_process_is_stdio
+  USE mo_mpi,         ONLY: p_bcast, p_pe, p_comm_rank
   USE mo_cdi,         ONLY: CDI_GLOBAL, CDI_UNDEFID, vlistInqNatts, vlistInqAtt, vlistInqAttTxt
 
   IMPLICIT NONE

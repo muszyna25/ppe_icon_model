@@ -41,19 +41,18 @@ MODULE mo_io_restart_async
 #ifdef USE_CRAY_POINTER
   USE mo_name_list_output_init,   ONLY: set_mem_ptr_dp
 #endif
-  USE mo_io_restart_namelist,     ONLY: nmllen_max
   USE mo_communication,           ONLY: idx_no, blk_no
   USE mo_parallel_config,         ONLY: nproma, restart_chunk_size
   USE mo_grid_config,             ONLY: n_dom
   USE mo_run_config,              ONLY: msg_level, restart_filename
   USE mo_ha_dyn_config,           ONLY: ha_dyn_config
   USE mo_model_domain,            ONLY: p_patch
-  USE mo_cdi,                     ONLY: CDI_UNDEFID, FILETYPE_NC2, FILETYPE_NC4, CDI_GLOBAL, DATATYPE_FLT64, DATATYPE_INT32, &
+  USE mo_cdi,                     ONLY: CDI_UNDEFID, FILETYPE_NC2, FILETYPE_NC4, CDI_GLOBAL, DATATYPE_FLT64, &
                                       & TAXIS_ABSOLUTE, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_GENERIC, ZAXIS_HEIGHT, ZAXIS_HYBRID, &
                                       & ZAXIS_HYBRID_HALF, ZAXIS_LAKE_BOTTOM, ZAXIS_MIX_LAYER, ZAXIS_SEDIMENT_BOTTOM_TW, &
                                       & ZAXIS_SURFACE, ZAXIS_TOA, TIME_VARIABLE, ZAXIS_DEPTH_BELOW_LAND, GRID_UNSTRUCTURED, &
-                                      & vlistDefAttInt, vlistDefVar, zaxisCreate, gridCreate, cdiEncodeDate, cdiEncodeTime, &
-                                      & streamDefTimestep, taxisCreate, vlistDefAttFlt, vlistDefAttTxt, vlistCreate, &
+                                      & vlistDefVar, zaxisCreate, gridCreate, cdiEncodeDate, cdiEncodeTime, &
+                                      & streamDefTimestep, taxisCreate, vlistDefAttTxt, vlistCreate, &
                                       & streamOpenWrite, taxisDestroy, zaxisDestroy, gridDestroy, vlistDestroy, streamClose, &
                                       & streamWriteVarSlice, streamDefVlist, vlistDefVarDatatype, &
                                       & vlistDefVarName, zaxisDefLevels, gridDefNvertex, zaxisDefVct, vlistDefVarLongname, &
@@ -116,7 +115,6 @@ MODULE mo_io_restart_async
   ! maximum text lengths in this module
   INTEGER, PARAMETER :: MAX_NAME_LENGTH           = 128
   INTEGER, PARAMETER :: MAX_ERROR_LENGTH          = 256
-  INTEGER, PARAMETER :: MAX_ATTRIB_TLENGTH        = nmllen_max
 
   ! maximum no. of output_nml output files
   INTEGER, parameter :: MAX_NML_OUTPUT_FILES      = 100
@@ -1592,12 +1590,12 @@ CONTAINS
   !
   ! Transfers the restart name lists from the worker to the restart PEs.
   !
-  !TODO[NH]: remove fixed limit from list_text
-  SUBROUTINE transfer_restart_name_lists
-    INTEGER                           :: iv, nv
+  SUBROUTINE transfer_restart_name_lists()
+    INTEGER                           :: iv, nv, maxAttributeLength, error
     CHARACTER(LEN=MAX_NAME_LENGTH)    :: list_name
-    CHARACTER(LEN=MAX_ATTRIB_TLENGTH) :: list_text
+    CHARACTER(LEN = :), ALLOCATABLE :: list_text
     CHARACTER(LEN = :), POINTER :: temp_text
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":transfer_restart_name_lists"
 
     ! delete old name lists
     IF (my_process_is_restart()) CALL delete_restart_namelists
@@ -1607,26 +1605,42 @@ CONTAINS
     CALL p_bcast(nv, 0, p_comm_work) ! intracommunicator
     CALL p_bcast(nv, bcast_root, p_comm_work_2_restart)
 
+    maxAttributeLength = 0
+    IF(.NOT. my_process_is_restart()) THEN
+        IF(p_pe == 0) THEN
+            DO iv = 1, nv
+                maxAttributeLength = MAX(maxAttributeLength, SIZE(restart_namelist(iv)%text, 1))
+            END DO
+        END IF
+    END IF
+    CALL p_bcast(maxAttributeLength, 0, p_comm_work)    !intracommunicator
+    CALL p_bcast(maxAttributeLength, bcast_root, p_comm_work_2_restart)
+
+    ALLOCATE(CHARACTER(LEN = maxAttributeLength) :: list_text, STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+
     DO iv = 1, nv
-      ! send name of the name list
-      list_name = ''
-      IF (my_process_is_work() .AND. (get_my_mpi_work_id() == 0)) CALL get_restart_namelist(iv, list_name)
-      CALL p_bcast(list_name, bcast_root, p_comm_work_2_restart)
+        ! send name of the name list
+        list_name = ''
+        IF (my_process_is_work() .AND. (get_my_mpi_work_id() == 0)) CALL get_restart_namelist(iv, list_name)
+        CALL p_bcast(list_name, bcast_root, p_comm_work_2_restart)
 
-      ! send text of the name list
-      list_text = ''
-      IF (my_process_is_work() .AND. (get_my_mpi_work_id() == 0)) THEN
-        temp_text => toCharacter(restart_namelist(iv)%text)
-        list_text = temp_text
-        DEALLOCATE(temp_text)
-      END IF
-      CALL p_bcast(list_text, bcast_root, p_comm_work_2_restart)
+        ! send text of the name list
+        list_text(1:maxAttributeLength) = ''
+        IF (my_process_is_work() .AND. (get_my_mpi_work_id() == 0)) THEN
+            temp_text => toCharacter(restart_namelist(iv)%text)
+            list_text(1:maxAttributeLength) = temp_text
+            DEALLOCATE(temp_text)
+        END IF
+        CALL p_bcast(list_text(1:maxAttributeLength), bcast_root, p_comm_work_2_restart)
 
-      ! store name list parameters
-      IF (my_process_is_restart()) THEN
-        CALL set_restart_namelist(list_name, list_text)
-      ENDIF
+        ! store name list parameters
+        IF (my_process_is_restart()) THEN
+            CALL set_restart_namelist(list_name, list_text(1:maxAttributeLength))
+        ENDIF
     ENDDO
+
+    DEALLOCATE(list_text)
   END SUBROUTINE transfer_restart_name_lists
 
   !-------------------------------------------------------------------------------------------------
