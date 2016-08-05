@@ -81,7 +81,7 @@ MODULE mo_io_restart
                                     & ZA_LAKE_BOTTOM, ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, ZA_SEDIMENT_BOTTOM_TW_HALF, &
                                     & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE, ZA_OCEAN_SEDIMENT
   USE mo_cf_convention,         ONLY: cf_global_info
-  USE mo_util_restart,          ONLY: create_cdi_hgrid_def
+  USE mo_util_restart,          ONLY: createHgrids
   USE mo_util_string,           ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                 int2string, separator, toCharacter
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink, util_unlink
@@ -135,16 +135,6 @@ MODULE mo_io_restart
   INTEGER, PARAMETER :: max_vertical_axes = 20
   INTEGER, SAVE :: nrestart_files = 0
   TYPE(t_restart_files), ALLOCATABLE :: restart_files(:)
-
-  TYPE t_h_grid
-    INTEGER :: type
-    INTEGER :: nelements
-    INTEGER :: nvertices
-    TYPE(t_uuid) :: uuid
-  END type t_h_grid
-
-  INTEGER, SAVE :: nh_grids = 0
-  TYPE(t_h_grid) :: hgrid_def(3)
 
   TYPE t_v_grid
     INTEGER :: type
@@ -301,23 +291,6 @@ CONTAINS
     lheight_snow_initialised = .TRUE.
   END SUBROUTINE set_restart_height_snow
 
-  SUBROUTINE set_horizontal_grid(grid_type, nelements, nvertices, grid_uuid)
-    INTEGER,      INTENT(in)           :: grid_type
-    INTEGER,      INTENT(in)           :: nelements
-    INTEGER,      INTENT(in)           :: nvertices
-    TYPE(t_uuid), INTENT(in), OPTIONAL :: grid_uuid
-
-    nh_grids = nh_grids+1
-
-    hgrid_def(nh_grids)%type      = grid_type
-    hgrid_def(nh_grids)%nelements = nelements
-    hgrid_def(nh_grids)%nvertices = nvertices
-
-    IF (PRESENT(grid_uuid)) THEN
-      hgrid_def(nh_grids)%uuid = grid_uuid
-    ENDIF
-  END SUBROUTINE set_horizontal_grid
-
   SUBROUTINE set_vertical_grid(type, nlevels)
     INTEGER, INTENT(in) :: type
     INTEGER, INTENT(in) :: nlevels
@@ -425,15 +398,12 @@ CONTAINS
     END DO
   END SUBROUTINE defineRestartAttributes
 
-  SUBROUTINE init_restart(nc, ncv, nv, nvv, ne, nev, &
+  SUBROUTINE init_restart(nc, nv, ne, &
        &                  nlev, ndepth, nlev_soil,   &
        &                  nlev_snow, nice_class)
     INTEGER,          INTENT(in) :: nc
-    INTEGER,          INTENT(in) :: ncv
     INTEGER,          INTENT(in) :: nv
-    INTEGER,          INTENT(in) :: nvv
     INTEGER,          INTENT(in) :: ne
-    INTEGER,          INTENT(in) :: nev
     INTEGER,          INTENT(in) :: nlev
     INTEGER,          INTENT(in) :: ndepth
     INTEGER,          INTENT(in) :: nlev_soil
@@ -441,12 +411,6 @@ CONTAINS
     INTEGER,          INTENT(in) :: nice_class
 
     IF (lrestart_initialised) RETURN
-
-    ! define horizontal grids
-
-    CALL set_horizontal_grid(GRID_UNSTRUCTURED_CELL, nc, ncv)
-    CALL set_horizontal_grid(GRID_UNSTRUCTURED_VERT, nv, nvv)
-    CALL set_horizontal_grid(GRID_UNSTRUCTURED_EDGE, ne, nev)
 
     ! define vertical grids
 
@@ -494,12 +458,12 @@ CONTAINS
 
   ! Loop over all the output streams and open the associated files. Set
   ! unit numbers (file IDs) for all streams associated with a file.
-  SUBROUTINE open_writing_restart_files(jg, restart_filename, restartAttributes)
-    INTEGER,          INTENT(IN) :: jg                   !< patch ID
+  SUBROUTINE open_writing_restart_files(patch, restart_filename, restartAttributes)
+    TYPE(t_patch), INTENT(IN) :: patch
     CHARACTER(LEN=*), INTENT(IN) :: restart_filename
     TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
 
-    INTEGER :: status, i ,j, k, ia, ihg, ivg, nlevp1
+    INTEGER :: status, i ,j, jg, k, ia, ihg, ivg, nlevp1
     REAL(wp), ALLOCATABLE :: levels(:), ubounds(:), lbounds(:), levels_sp(:)
 
     CHARACTER(len=64) :: attribute_name
@@ -510,6 +474,8 @@ CONTAINS
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
     IF (my_process_is_mpi_test()) RETURN
+
+    jg = patch%id
 
     ! first set restart file name
 
@@ -595,23 +561,9 @@ CONTAINS
 
         ! 3. add horizontal grid descriptions
 
-        DO ihg = 1, nh_grids
-          SELECT CASE (hgrid_def(ihg)%type)
-          CASE (GRID_UNSTRUCTURED_CELL)
-            var_lists(i)%p%cdiCellGridID = create_cdi_hgrid_def(hgrid_def(ihg)%nelements, hgrid_def(ihg)%nvertices, &
-                                                               & 'clon', 'center longitude', 'radians', &
-                                                               & 'clat', 'center latitude', 'radians')
-          CASE (GRID_UNSTRUCTURED_VERT)
-            var_lists(i)%p%cdiVertGridID = create_cdi_hgrid_def(hgrid_def(ihg)%nelements, hgrid_def(ihg)%nvertices, &
-                                                               & 'vlon', 'vertex longitude', 'radians', &
-                                                               & 'vlat', 'vertex latitude', 'radians')
-          CASE (GRID_UNSTRUCTURED_EDGE)
-            var_lists(i)%p%cdiEdgeGridID = create_cdi_hgrid_def(hgrid_def(ihg)%nelements, hgrid_def(ihg)%nvertices, &
-                                                               & 'elon', 'edge midpoint longitude', 'radians', &
-                                                               & 'elat', 'edge midpoint latitude', 'radians')
-          END SELECT
-        ENDDO
-
+        CALL createHgrids(patch%n_patch_cells_g, var_lists(i)%p%cdiCellGridID, &
+                         &patch%n_patch_verts_g, var_lists(i)%p%cdiVertGridID, &
+                         &patch%n_patch_edges_g, var_lists(i)%p%cdiEdgeGridID, patch%geometry_info%cell_type)
 
         ! 4. add vertical grid descriptions
 
@@ -1105,7 +1057,7 @@ CONTAINS
     REAL(wp), INTENT(IN), OPTIONAL :: ocean_Zheight_CellInterfaces(:)
 
 
-    INTEGER :: klev, jg, kcell, kvert, kedge, max_cell_connectivity, max_vertex_connectivity
+    INTEGER :: klev, jg, kcell, kvert, kedge
     INTEGER :: inlev_soil, inlev_snow, i, nice_class
     INTEGER :: ndepth    ! depth of n
     REAL(wp), ALLOCATABLE :: zlevels_full(:), zlevels_half(:)
@@ -1123,8 +1075,6 @@ CONTAINS
     kcell     = patch%n_patch_cells_g
     kvert     = patch%n_patch_verts_g
     kedge     = patch%n_patch_edges_g
-    max_cell_connectivity   = patch%cells%max_connectivity
-    max_vertex_connectivity = patch%verts%max_connectivity
 
     restartAttributes => RestartAttributeList_make()
     CALL defineRestartAttributes(restartAttributes, datetime, jstep, opt_ndom, opt_ndyn_substeps, &
@@ -1198,9 +1148,9 @@ CONTAINS
       nice_class = opt_nice_class
     END IF
 
-    CALL init_restart( kcell, max_cell_connectivity,  &! total # of cells, # of vertices per cell
-                     & kvert, max_vertex_connectivity,&! total # of vertices, # of vertices per dual cell
-                     & kedge, 4,          &! total # of cells, shape of control volume for edge
+    CALL init_restart( kcell,             &! total # of cells
+                     & kvert,             &! total # of vertices
+                     & kedge,             &! total # of cells
                      & klev,              &! total # of vertical layers
                      & ndepth,            &! total # of depths below sea
                      & inlev_soil,        &! total # of depths below land (TERRA or JSBACH)
@@ -1217,7 +1167,7 @@ CONTAINS
     ! replace keywords in file name
     string = TRIM(with_keywords(keywords, TRIM(restart_filename)))
 
-    CALL open_writing_restart_files( jg, TRIM(string), restartAttributes)
+    CALL open_writing_restart_files(patch, TRIM(string), restartAttributes)
 
     CALL write_restart( patch )
 
@@ -1675,7 +1625,6 @@ CONTAINS
     IF (ALLOCATED(private_height_snow_half)) DEALLOCATE(private_height_snow_half)
     lheight_snow_initialised = .FALSE.
 
-    nh_grids   = 0
     nv_grids   = 0
     nt_axis    = 0
     lrestart_initialised = .FALSE.

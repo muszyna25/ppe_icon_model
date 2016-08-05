@@ -67,7 +67,7 @@ MODULE mo_io_restart_async
   USE mo_cf_convention
   USE mo_util_string,             ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                   int2string, toCharacter
-  USE mo_util_restart,            ONLY: create_cdi_hgrid_def
+  USE mo_util_restart,            ONLY: createHgrids
 
 #ifndef NOMPI
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work,      &
@@ -2902,21 +2902,9 @@ CONTAINS
     CALL restartAttributes%writeToFile(p_rf%cdiVlistID)
 
     ! 3. add horizontal grid descriptions
-    ! 3.1. cells
-    p_rf%cdiCellGridID = create_cdi_hgrid_def(p_pd%cells%n_glb, p_pd%cell_type,  &
-      &                      'clon', 'center longitude', 'radian',                   &
-      &                      'clat', 'center latitude',  'radian')
-
-    ! 3.2. certs
-    p_rf%cdiVertGridID = create_cdi_hgrid_def(p_pd%verts%n_glb, 9-p_pd%cell_type,  &
-      &                      'vlon', 'vertex longitude', 'radian',                     &
-      &                      'vlat', 'vertex latitude',  'radian')
-
-
-    ! 3.3. edges
-    p_rf%cdiEdgeGridID = create_cdi_hgrid_def(p_pd%edges%n_glb, 4,     &
-      &                      'elon', 'edge midpoint longitude', 'radian',  &
-      &                      'elat', 'edge midpoint latitude',  'radian')
+    CALL createHgrids(p_pd%cells%n_glb, p_rf%cdiCellGridID, &
+                     &p_pd%verts%n_glb, p_rf%cdiVertGridID, &
+                     &p_pd%edges%n_glb, p_rf%cdiEdgeGridID, p_pd%cell_type)
 
     ! 4. add vertical grid descriptions
     DO i = 1, SIZE(p_pd%v_grid_defs)

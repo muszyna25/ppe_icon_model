@@ -16,7 +16,11 @@ MODULE mo_util_restart
     USE mo_cdi, ONLY: CDI_UNDEFID, GRID_UNSTRUCTURED, gridCreate, gridDefNvertex, gridDefXname, gridDefXlongname, gridDefXunits, &
                     & gridDefYname, gridDefYlongname, gridDefYunits
 
-    public :: create_cdi_hgrid_def
+    IMPLICIT NONE
+
+    PRIVATE
+
+    PUBLIC :: createHgrids
 
     CHARACTER(LEN = *), PARAMETER :: modname = "mo_util_restart"
 
@@ -43,5 +47,25 @@ CONTAINS
         CALL gridDefYlongname(RESULT, TRIM(cLNameY))
         CALL gridDefYunits(RESULT, TRIM(cUnitsY))
     END FUNCTION create_cdi_hgrid_def
+
+    SUBROUTINE createHgrids(cellCount, outCellGridId, &
+                           &vertexCount, outVertexGridId, &
+                           &edgeCount, outEdgeGridId, cellType)
+        INTEGER, VALUE :: cellCount, vertexCount, edgeCount, cellType
+        INTEGER, INTENT(OUT) :: outCellGridId, outVertexGridId, outEdgeGridId
+
+        outCellGridId = create_cdi_hgrid_def(cellCount, cellType, &
+                                            &'clon', 'center longitude', 'radian', &
+                                            &'clat', 'center latitude', 'radian')
+
+        outVertexGridId = create_cdi_hgrid_def(vertexCount, 9 - cellType, &
+                                              &'vlon', 'vertex longitude', 'radian', &
+                                              &'vlat', 'vertex latitude', 'radian')
+
+        outEdgeGridId = create_cdi_hgrid_def(edgeCount, 4, &
+                                            &'elon', 'edge midpoint longitude', 'radian',  &
+                                            &'elat', 'edge midpoint latitude', 'radian')
+
+    END SUBROUTINE createHgrids
 
 END MODULE mo_util_restart
