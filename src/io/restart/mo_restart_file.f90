@@ -11,6 +11,7 @@
 
 MODULE mo_restart_file
     USE mo_cdi, ONLY: CDI_UNDEFID, FILETYPE_NC2, FILETYPE_NC4, streamWriteVarSlice
+    USE mo_datetime, ONLY: iso8601
     USE mo_exception, ONLY: finish
     USE mo_io_units, ONLY: filename_max
     USE mo_kind, ONLY: dp
@@ -48,6 +49,7 @@ CONTAINS
         TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
 
         TYPE(t_var_list), POINTER     :: p_re_list
+        CHARACTER(:), ALLOCATABLE :: datetimeString
         INTEGER                       :: restart_type, i
         CHARACTER(LEN=*), PARAMETER   :: routine = modname//':restartFile_open'
 
@@ -68,9 +70,13 @@ CONTAINS
         ENDDO
 
         ! assume all restart variables uses the same file format
-        SELECT CASE (p_re_list%p%restart_type)
-            CASE (FILETYPE_NC2, FILETYPE_NC4)
-                restart_type = p_re_list%p%restart_type
+        datetimeString = TRIM(iso8601(restart_args%datetime))
+        restart_type = p_re_list%p%restart_type
+        SELECT CASE(restart_type)
+            CASE(FILETYPE_NC2)
+                WRITE(0,*) "Write netCDF2 restart for: "//datetimeString
+            CASE(FILETYPE_NC4)
+                WRITE(0,*) "Write netCDF4 restart for: "//datetimeString
             CASE default
                 CALL finish(routine, "file format for restart variables must be NetCDF")
         END SELECT
