@@ -1143,10 +1143,9 @@ MODULE mo_nh_stepping
             & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
             & opt_depth_lnd              = nlev_soil,                  &
             & opt_nlev_snow              = nlev_snow,                  &
-            & opt_ndom                   = n_dom,                      &
-            & opt_output_jfile           = output_jfile )
+            & opt_ndom                   = n_dom)
         ENDDO
-        CALL write_async_restart(datetime_current, jstep)
+        CALL write_async_restart(datetime_current, jstep, opt_output_jfile = output_jfile)
       ELSE
         DO jg = 1, n_dom
           IF (.NOT. p_patch(jg)%ldom_active) CYCLE

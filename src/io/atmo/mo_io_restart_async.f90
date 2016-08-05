@@ -258,10 +258,8 @@ MODULE mo_io_restart_async
   TYPE t_restart_args
     TYPE(t_datetime)  :: datetime
     INTEGER           :: jstep
-
-    INTEGER, ALLOCATABLE  :: opt_output_jfile(:)
+    INTEGER, ALLOCATABLE  :: output_jfile(:)
   END TYPE t_restart_args
-  TYPE(t_restart_args), TARGET :: restart_args
 
 #ifndef NOMPI
   !------------------------------------------------------------------------------------------------
@@ -340,7 +338,7 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  !> Set dynamically data for asynchronous restart.
+  !> Set patch-dependent dynamic data for asynchronous restart.
   !
   SUBROUTINE set_data_async_restart(patch_id, l_dom_active,       &
                                 &   opt_pvct,                     &
@@ -353,8 +351,7 @@ CONTAINS
                                 &   opt_depth_lnd,                &
                                 &   opt_nlev_snow,                &
                                 &   opt_nice_class,               &
-                                &   opt_ndom,                     &
-                                &   opt_output_jfile )
+                                &   opt_ndom)
 
     INTEGER,              INTENT(IN)           :: patch_id
     LOGICAL,              INTENT(IN)           :: l_dom_active
@@ -369,7 +366,6 @@ CONTAINS
     LOGICAL ,             INTENT(IN), OPTIONAL :: opt_lcall_phy(:)
     REAL(wp),             INTENT(IN), OPTIONAL :: opt_pvct(:)
     REAL(wp),             INTENT(IN), OPTIONAL :: opt_t_elapsed_phy(:)
-    INTEGER,              INTENT(IN), OPTIONAL :: opt_output_jfile(:)
     INTEGER,              INTENT(IN), OPTIONAL :: opt_ndom            !< no. of domains (appended to symlink name)
 
     TYPE(t_patch_data),   POINTER  :: p_pd
@@ -396,9 +392,6 @@ CONTAINS
     ! otherwise, only the first compute PE needs the dynamic restart arguments
     ! in the case of processor splitting, the first PE of the split subset needs them as well
     IF (p_pe_work == 0 .OR. p_pe_work == p_pd%work_pe0_id) THEN
-
-      ! Patch-independent attributes (only communicated through patch 1)
-      IF (patch_id == 1) CALL assign_if_present_allocatable(restart_args%opt_output_jfile, opt_output_jfile)
 
       ! Patch-dependent attributes
       CALL assign_if_present_allocatable(p_pd%opt_pvct, opt_pvct)
@@ -435,15 +428,16 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  !> Writes all restart data into one or more files (one file per patch, collective call).
+  !> Writes all restart data into one or more files (one file per patch, collective across work processes).
   !
-  SUBROUTINE write_async_restart (datetime, jstep)
-    TYPE(t_datetime), INTENT(IN)    :: datetime
-    INTEGER,          INTENT(IN)    :: jstep
+  SUBROUTINE write_async_restart(datetime, jstep, opt_output_jfile)
+    TYPE(t_datetime), INTENT(IN) :: datetime
+    INTEGER, INTENT(IN) :: jstep
+    INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
 
-    TYPE(t_patch_data), POINTER     :: p_pd
-    INTEGER                         :: idx
-    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    TYPE(t_patch_data), POINTER :: p_pd
+    INTEGER :: idx
+    TYPE(t_restart_args) :: restart_args
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'write_async_restart'
 
 #ifdef NOMPI
@@ -455,65 +449,87 @@ CONTAINS
 #endif
 
     ! check kind of process
-    IF (.NOT. my_process_is_work() .AND. .NOT. my_process_is_restart()) RETURN
+    IF(.NOT. my_process_is_work()) RETURN
 
-    IF (my_process_is_work()) THEN
-      CALL compute_wait_for_restart
-      CALL compute_start_restart (datetime, jstep)
-    END IF
+    CALL compute_wait_for_restart
+    restart_args%datetime = datetime
+    restart_args%jstep = jstep
+    ! otherwise, only the first compute PE needs the dynamic restart arguments
+    ! in the case of processor splitting, the first PE of the split subset needs them as well
+    CALL assign_if_present_allocatable(restart_args%output_jfile, opt_output_jfile)
+    CALL compute_start_restart(restart_args)
 
     ! do the restart output
     DO idx = 1, SIZE(patch_data)
-
       p_pd => patch_data(idx)
 
       ! check if the patch is actice
       IF (.NOT. p_pd%l_dom_active) CYCLE
 
-      ! write the variable restart lists
-      IF (my_process_is_restart()) THEN
+      ! collective call to write the restart variables
+      CALL compute_write_var_list(p_pd)
+    ENDDO
+#endif
+  END SUBROUTINE write_async_restart
 
-        ! consider the right restart process
-        IF (p_pe == p_pd%restart_proc_id) THEN
+  !> Writes all restart data into one or more files (one file per patch, collective across restart processes).
+  SUBROUTINE restart_write_async_restart(restart_args)
+    TYPE(t_restart_args), INTENT(IN) :: restart_args
 
-          ! set global restart attributes/lists
-          restartAttributes => RestartAttributeList_make()
-          CALL set_restart_attributes(restartAttributes)
-          CALL defineVerticalGrids(p_pd)
+    TYPE(t_patch_data), POINTER :: p_pd
+    INTEGER :: idx
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//'restart_write_async_restart'
+
+#ifdef NOMPI
+    CALL finish (routine, ASYNC_RESTART_REQ_MPI)
+#else
 
 #ifdef DEBUG
-          CALL print_restart_arguments()
-          CALL restartAttributes%printAttributes()
-          CALL print_restart_name_lists()
+    WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
 #endif
-          CALL open_restart_file(p_pd, restartAttributes)
 
-          CALL restartAttributes%destruct()
-          DEALLOCATE(restartAttributes)
+    ! check kind of process
+    IF(.NOT. my_process_is_restart()) RETURN
 
-          ! collective call to write the restart variables
-          CALL restart_write_var_list(p_pd)
-          IF(p_pd%l_opt_ndom) THEN
-              CALL create_restart_file_link(TRIM(p_pd%restart_file%filename), TRIM(p_pd%restart_file%model_type), &
-                                           &p_pd%restart_proc_id - p_restart_pe0, p_pd%id, opt_ndom = p_pd%opt_ndom)
-          ELSE
-              CALL create_restart_file_link(TRIM(p_pd%restart_file%filename), TRIM(p_pd%restart_file%model_type), &
-                                           &p_pd%restart_proc_id - p_restart_pe0, p_pd%id)
-          END IF
-          CALL close_restart_file(p_pd%restart_file)
+    ! do the restart output
+    DO idx = 1, SIZE(patch_data)
+      p_pd => patch_data(idx)
 
-        ENDIF
+      ! check if the patch is actice
+      IF (.NOT. p_pd%l_dom_active) CYCLE
 
-      ELSE
+      ! consider the right restart process
+      IF (p_pe == p_pd%restart_proc_id) THEN
+        ! set global restart attributes/lists
+        restartAttributes => RestartAttributeList_make()
+        CALL set_restart_attributes(restartAttributes, restart_args)
+        CALL defineVerticalGrids(p_pd)
+
+#ifdef DEBUG
+        CALL print_restart_arguments()
+        CALL restartAttributes%printAttributes()
+        CALL print_restart_name_lists()
+#endif
+        CALL open_restart_file(p_pd, restart_args, restartAttributes)
+
+        CALL restartAttributes%destruct()
+        DEALLOCATE(restartAttributes)
+
         ! collective call to write the restart variables
-        CALL compute_write_var_list(p_pd)
+        CALL restart_write_var_list(p_pd, restart_args)
+        IF(p_pd%l_opt_ndom) THEN
+            CALL create_restart_file_link(TRIM(p_pd%restart_file%filename), TRIM(p_pd%restart_file%model_type), &
+                                         &p_pd%restart_proc_id - p_restart_pe0, p_pd%id, opt_ndom = p_pd%opt_ndom)
+        ELSE
+            CALL create_restart_file_link(TRIM(p_pd%restart_file%filename), TRIM(p_pd%restart_file%model_type), &
+                                         &p_pd%restart_proc_id - p_restart_pe0, p_pd%id)
+        END IF
+        CALL close_restart_file(p_pd%restart_file)
       ENDIF
-
     ENDDO
-
 #endif
-
-  END SUBROUTINE write_async_restart
+  END SUBROUTINE restart_write_async_restart
 
   !------------------------------------------------------------------------------------------------
   !
@@ -546,9 +562,8 @@ CONTAINS
   !! Main routine for restart PEs.
   !! Please note that this routine never returns.
   SUBROUTINE restart_main_proc
-
-    LOGICAL                       :: done
-
+    LOGICAL :: done
+    TYPE(t_restart_args) :: restart_args
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'restart_main_proc'
 
 #ifdef NOMPI
@@ -572,13 +587,12 @@ CONTAINS
     done = .FALSE.
     DO
       ! wait for a message from the compute PEs to start
-      CALL restart_wait_for_start(done)
+      CALL restart_wait_for_start(restart_args, done)
 
       IF(done) EXIT ! leave loop, we are done
 
       ! read and write restart variable lists (collective call)
-      CALL write_async_restart (restart_args%datetime,    &
-                              & restart_args%jstep)
+      CALL restart_write_async_restart(restart_args)
 
       ! inform compute PEs that the restart is done
       CALL restart_send_ready
@@ -641,10 +655,9 @@ CONTAINS
 
   END SUBROUTINE restart_send_ready
 
-  SUBROUTINE restartMetadataPacker(operation, datetime, jstep, message)
+  SUBROUTINE restartMetadataPacker(operation, restart_args, message)
     INTEGER, VALUE :: operation
-    TYPE(t_datetime), INTENT(INOUT) :: datetime
-    INTEGER, INTENT(INOUT) :: jstep
+    TYPE(t_restart_args), INTENT(INOUT) :: restart_args
     TYPE(t_PackedMessage), INTENT(INOUT) :: message
 
     INTEGER :: i, calday, patchId
@@ -652,19 +665,19 @@ CONTAINS
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartMetadataPacker"
 
     ! set patch independent arguments
-    CALL message%execute(operation, datetime%year)
-    CALL message%execute(operation, datetime%month)
-    CALL message%execute(operation, datetime%day)
-    CALL message%execute(operation, datetime%hour)
-    CALL message%execute(operation, datetime%minute)
-    CALL message%execute(operation, datetime%second)
-    CALL message%execute(operation, datetime%caltime)
-    calday = INT(datetime%calday)
+    CALL message%execute(operation, restart_args%datetime%year)
+    CALL message%execute(operation, restart_args%datetime%month)
+    CALL message%execute(operation, restart_args%datetime%day)
+    CALL message%execute(operation, restart_args%datetime%hour)
+    CALL message%execute(operation, restart_args%datetime%minute)
+    CALL message%execute(operation, restart_args%datetime%second)
+    CALL message%execute(operation, restart_args%datetime%caltime)
+    calday = INT(restart_args%datetime%calday)
     CALL message%execute(operation, calday)
-    datetime%calday = INT(calday,i8)
-    CALL message%execute(operation, datetime%daysec)
-    CALL message%execute(operation, jstep)
-    CALL message%execute(operation, restart_args%opt_output_jfile)
+    restart_args%datetime%calday = INT(calday,i8)
+    CALL message%execute(operation, restart_args%datetime%daysec)
+    CALL message%execute(operation, restart_args%jstep)
+    CALL message%execute(operation, restart_args%output_jfile)
 
     ! set data of all patches
     DO i = 1, SIZE(patch_data)
@@ -713,8 +726,8 @@ CONTAINS
   !! restart_wait_for_start: Wait for a message from compute PEs that we should start restart or finish.
   !! The counterpart on the compute side is compute_start_restart/compute_shutdown_restart.
   !
-  SUBROUTINE restart_wait_for_start(done)
-
+  SUBROUTINE restart_wait_for_start(restart_args, done)
+    TYPE(t_restart_args), INTENT(INOUT) :: restart_args
     LOGICAL, INTENT(OUT)           :: done ! flag if we should shut down
 
     INTEGER :: i, iheader
@@ -739,7 +752,7 @@ CONTAINS
     CALL message%unpack(iheader)
     SELECT CASE(iheader)
       CASE(MSG_RESTART_START)
-        CALL restartMetadataPacker(kUnpackOp, restart_args%datetime, restart_args%jstep, message)
+        CALL restartMetadataPacker(kUnpackOp, restart_args, message)
 
         ! update the patch_data
         DO i = 1, SIZE(patch_data)
@@ -826,9 +839,8 @@ CONTAINS
   !! compute_start_restart: Send a message to restart PEs that they should start restart.
   !! The counterpart on the restart side is restart_wait_for_start.
   !
-  SUBROUTINE compute_start_restart(datetime, jstep)
-    TYPE(t_datetime), VALUE :: datetime
-    INTEGER, VALUE :: jstep
+  SUBROUTINE compute_start_restart(restart_args)
+    TYPE(t_restart_args), INTENT(INOUT) :: restart_args
 
     TYPE(t_patch_data),   POINTER  :: p_pd
     CHARACTER, POINTER             :: p_msg(:)
@@ -866,7 +878,7 @@ CONTAINS
       CALL message%reset()   ! create message array
 
       CALL message%pack(MSG_RESTART_START)  ! set command id
-      CALL restartMetadataPacker(kPackOp, datetime, jstep, message)    ! all the other DATA
+      CALL restartMetadataPacker(kPackOp, restart_args, message)    ! all the other DATA
 
       CALL message%send(p_restart_pe0, 0, process_mpi_all_comm)
     ENDIF
@@ -1037,7 +1049,8 @@ CONTAINS
   !
   !  Print restart arguments.
   !
-  SUBROUTINE print_restart_arguments()
+  SUBROUTINE print_restart_arguments(restart_args)
+    TYPE(t_restart_args), INTENT(IN) :: restart_args
     CHARACTER(LEN=*), PARAMETER   :: routine = modname//'print_restart_arguments'
     TYPE(t_patch_data), POINTER   :: p_pd
 
@@ -1799,8 +1812,9 @@ CONTAINS
   !
   !  Set global restart attributes.
   !
-  SUBROUTINE set_restart_attributes (restartAttributes)
+  SUBROUTINE set_restart_attributes (restartAttributes, restart_args)
     TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
+    TYPE(t_restart_args), INTENT(IN) :: restart_args
 
     TYPE(t_patch_data), POINTER :: p_pd
     CHARACTER(LEN=MAX_NAME_LENGTH) :: attrib_name
@@ -1818,9 +1832,9 @@ CONTAINS
 
     effectiveDomainCount = 1
     IF(patch_data(1)%l_opt_ndom) effectiveDomainCount = patch_data(1)%opt_ndom
-    IF(ALLOCATED(restart_args%opt_output_jfile)) THEN
+    IF(ALLOCATED(restart_args%output_jfile)) THEN
         CALL setGeneralRestartAttributes(restartAttributes, restart_args%datetime, effectiveDomainCount, restart_args%jstep, &
-                                        &restart_args%opt_output_jfile)
+                                        &restart_args%output_jfile)
     ELSE
         CALL setGeneralRestartAttributes(restartAttributes, restart_args%datetime, effectiveDomainCount, restart_args%jstep)
     END IF
@@ -1985,14 +1999,13 @@ CONTAINS
   !
   ! Write restart variable list for a restart PE.
   !
-  SUBROUTINE restart_write_var_list(p_pd)
-
+  SUBROUTINE restart_write_var_list(p_pd, restart_args)
     TYPE(t_patch_data), POINTER, INTENT(IN) :: p_pd
+    TYPE(t_restart_args), INTENT(IN) :: restart_args
 
     TYPE(t_restart_file), POINTER   :: p_rf
     TYPE(t_var_metadata), POINTER   :: p_info
     TYPE(t_reorder_data), POINTER   :: p_ri
-    TYPE(t_datetime), POINTER       :: dt
     TYPE(t_var_data), POINTER       :: p_vars(:)
 
     INTEGER                         :: iv, nval, ierrstat, nlevs, nv_off, &
@@ -2019,9 +2032,8 @@ CONTAINS
     mb_wr   = 0.d0
 
     ! write restart time
-    dt => restart_args%datetime
-    idate = cdiEncodeDate(dt%year, dt%month, dt%day)
-    itime = cdiEncodeTime(dt%hour, dt%minute, NINT(dt%second))
+    idate = cdiEncodeDate(restart_args%datetime%year, restart_args%datetime%month, restart_args%datetime%day)
+    itime = cdiEncodeTime(restart_args%datetime%hour, restart_args%datetime%minute, NINT(restart_args%datetime%second))
 
     p_rf => p_pd%restart_file
     CALL taxisDefVdate(p_rf%cdiIds%taxis, idate)
@@ -2342,8 +2354,9 @@ CONTAINS
   !
   ! Opens the restart file from the given parameters.
   !
-  SUBROUTINE open_restart_file(p_pd, restartAttributes)
+  SUBROUTINE open_restart_file(p_pd, restart_args, restartAttributes)
     TYPE(t_patch_data), POINTER, INTENT(IN) :: p_pd
+    TYPE(t_restart_args), INTENT(IN) :: restart_args
     TYPE(t_RestartAttributeList), POINTER, INTENT(INOUT) :: restartAttributes
 
     TYPE(t_restart_file), POINTER :: p_rf
