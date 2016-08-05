@@ -50,9 +50,10 @@ MODULE mo_io_restart_async
   USE mo_cdi_constants,           ONLY: GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL
   USE mo_cf_convention
   USE mo_packed_message,          ONLY: t_PackedMessage, kPackOp, kUnpackOp
+  USE mo_restart_patch_description, ONLY: t_restart_patch_description
   USE mo_util_restart,            ONLY: t_restart_cdi_ids, setGeneralRestartAttributes, &
                                       & setDynamicPatchRestartAttributes, setPhysicsRestartAttributes, create_restart_file_link, &
-                                      & t_restart_patch_description, t_var_data, getRestartFilename
+                                      & t_var_data, getRestartFilename
 
 #ifndef NOMPI
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work, p_work_pe0, num_work_procs, MPI_SUCCESS, &
@@ -729,38 +730,6 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  !  Release dynamically created memory of reorder data.
-  !
-  SUBROUTINE release_reorder_data (rd)
-
-    TYPE(t_reorder_data), INTENT(INOUT) :: rd
-
-    IF (ALLOCATED(rd%own_idx))       DEALLOCATE(rd%own_idx)
-    IF (ALLOCATED(rd%own_blk))       DEALLOCATE(rd%own_blk)
-    IF (ALLOCATED(rd%pe_own))        DEALLOCATE(rd%pe_own)
-    IF (ALLOCATED(rd%pe_off))        DEALLOCATE(rd%pe_off)
-    IF (ALLOCATED(rd%reorder_index)) DEALLOCATE(rd%reorder_index)
-
-  END SUBROUTINE release_reorder_data
-
-  !------------------------------------------------------------------------------------------------
-  !
-  !  Release resources of a restart file.
-  !
-  SUBROUTINE release_restart_file (rf)
-    TYPE(t_restart_file), INTENT(INOUT) :: rf
-
-    CHARACTER(LEN=*), PARAMETER   :: routine = modname//'release_restart_file'
-
-#ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS3)routine,' is called for p_pe=',p_pe
-#endif
-
-    IF (ASSOCIATED(rf%var_data))   DEALLOCATE(rf%var_data)
-  END SUBROUTINE release_restart_file
-
-  !------------------------------------------------------------------------------------------------
-  !
   !  Release all resource of the restart process.
   !
   SUBROUTINE release_resources
@@ -776,27 +745,7 @@ CONTAINS
 
     ! release patch data
     IF (ALLOCATED(patch_data)) THEN
-      DO idx = 1, SIZE(patch_data)
-        p_pd => patch_data(idx)
-
-        ! release patch arrays
-        IF (ASSOCIATED(p_pd%description%v_grid_defs))      DEALLOCATE(p_pd%description%v_grid_defs)
-        p_pd%description%v_grid_count = 0
-        IF (ALLOCATED(p_pd%description%opt_pvct))          DEALLOCATE(p_pd%description%opt_pvct)
-        IF (ALLOCATED(p_pd%description%opt_lcall_phy))     DEALLOCATE(p_pd%description%opt_lcall_phy)
-        IF (ALLOCATED(p_pd%description%opt_t_elapsed_phy)) DEALLOCATE(p_pd%description%opt_t_elapsed_phy)
-
-        ! release restart file data
-        CALL release_restart_file(p_pd%restart_file)
-
-        ! release communication data
-        IF (ALLOCATED(p_pd%commData%mem_win_off)) DEALLOCATE(p_pd%commData%mem_win_off)
-        CALL release_reorder_data(p_pd%commData%cells)
-        CALL release_reorder_data(p_pd%commData%verts)
-        CALL release_reorder_data(p_pd%commData%edges)
-      END DO
-
-      DEALLOCATE(patch_data)
+      DEALLOCATE(patch_data)    ! we rely on the automatic deallocation of ALLOCATABLE members
     END IF
 
     ! release RMA window
@@ -1050,7 +999,6 @@ CONTAINS
 
     ! initialize the fields that we DO NOT communicate from the worker PEs to the restart PEs
     description%restart_proc_id = MOD(description%id-1, process_mpi_restart_size) + p_restart_pe0
-    description%v_grid_defs => NULL()
     description%v_grid_count = 0
 
     CALL message%destruct() ! cleanup

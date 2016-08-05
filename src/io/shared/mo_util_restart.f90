@@ -19,24 +19,17 @@ MODULE mo_util_restart
                     & vlistDefVarLongname, vlistDefVarUnits, vlistDefVarMissval, TIME_VARIABLE, DATATYPE_FLT64, taxisDefVdate, &
                     & taxisDefVtime, cdiEncodeDate, cdiEncodeTime, streamDefTimestep
     USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_COUNT, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, &
-                              & ZA_COUNT, ZA_DEPTH_BELOW_LAND, ZA_DEPTH_BELOW_LAND_P1, ZA_DEPTH_BELOW_SEA, &
-                              & ZA_DEPTH_BELOW_SEA_HALF, ZA_DEPTH_RUNOFF_G, ZA_DEPTH_RUNOFF_S, ZA_GENERIC_ICE, ZA_HEIGHT_10M, &
-                              & ZA_HEIGHT_2M, ZA_HYBRID, ZA_HYBRID_HALF, ZA_LAKE_BOTTOM, ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, &
-                              & ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_SNOW, ZA_SNOW_HALF, ZA_SURFACE, ZA_TOA, cdi_zaxis_types
+                              & ZA_COUNT, ZA_HYBRID, ZA_HYBRID_HALF, ZA_LAKE_BOTTOM, ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, &
+                              & ZA_SEDIMENT_BOTTOM_TW_HALF, cdi_zaxis_types
 
     USE mo_cf_convention, ONLY: cf_global_info
     USE mo_datetime, ONLY: t_datetime, iso8601, iso8601extended
-    USE mo_dynamics_config, ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf
     USE mo_exception, ONLY: get_filename_noext
-    USE mo_fortran_tools, ONLY: assign_if_present, assign_if_present_allocatable
+    USE mo_fortran_tools, ONLY: assign_if_present
     USE mo_impl_constants, ONLY: SUCCESS, MAX_CHAR_LENGTH
     USE mo_io_restart_attributes, ONLY: t_RestartAttributeList
     USE mo_io_restart_namelist, ONLY: RestartNamelist_writeToFile
-    USE mo_io_units, ONLY: filename_max
     USE mo_kind, ONLY: wp
-    USE mo_model_domain, ONLY: t_patch
-    USE mo_mpi, ONLY: p_pe_work
-    USE mo_packed_message, ONLY: t_PackedMessage
     USE mo_run_config, ONLY: restart_filename
     USE mo_util_cdi, ONLY: cdiGetStringError
     USE mo_util_file, ONLY: util_symlink, util_islink, util_unlink
@@ -50,7 +43,6 @@ MODULE mo_util_restart
     PUBLIC :: t_v_grid
     PUBLIC :: t_restart_cdi_ids
     PUBLIC :: t_var_data
-    PUBLIC :: t_restart_patch_description
 
     PUBLIC :: getRestartFilename
     PUBLIC :: setGeneralRestartAttributes
@@ -58,9 +50,6 @@ MODULE mo_util_restart
     PUBLIC :: setPhysicsRestartAttributes
     PUBLIC :: set_vertical_grid
     PUBLIC :: create_restart_file_link
-
-    ! maximumm number of verticale axes
-    INTEGER, PARAMETER :: MAX_VERTICAL_AXES = 19
 
     ! TYPE t_v_grid contains the data of a vertical grid definition.
     TYPE t_v_grid
@@ -91,72 +80,6 @@ MODULE mo_util_restart
         REAL(wp), POINTER :: r_ptr(:,:,:,:,:)
         TYPE(t_var_metadata) :: info
     END TYPE t_var_data
-
-    ! TYPE t_restart_patch_description contains all the DATA that describes a patch for restart purposes
-    TYPE t_restart_patch_description
-        ! vertical grid definitions
-        TYPE(t_v_grid), POINTER :: v_grid_defs(:)
-        INTEGER :: v_grid_count
-
-        ! logical patch id
-        INTEGER :: id
-
-        ! current model domain activity flag
-        LOGICAL :: l_dom_active
-
-        ! number of full levels
-        INTEGER :: nlev
-
-        ! cell type
-        INTEGER :: cell_type
-
-        ! total # of cells, # of vertices per cell
-        INTEGER :: n_patch_cells_g
-        ! total # of cells, shape of control volume for edge
-        INTEGER :: n_patch_edges_g
-        ! total # of vertices, # of vertices per dual cell
-        INTEGER :: n_patch_verts_g
-
-        ! process id
-        INTEGER :: restart_proc_id
-
-        ! id of PE0 of working group (/= 0 in case of processor splitting)
-        INTEGER :: work_pe0_id
-
-        ! base file name contains already logical patch ident
-        CHARACTER(LEN = filename_max) :: base_filename
-
-        ! dynamic patch arguments (mandatory)
-        INTEGER :: nold,nnow,nnew,nnew_rcf,nnow_rcf
-
-        ! dynamic patch arguments (optionally)
-        LOGICAL :: l_opt_depth
-        INTEGER :: opt_depth
-        LOGICAL :: l_opt_depth_lnd
-        INTEGER :: opt_depth_lnd
-        LOGICAL :: l_opt_nlev_snow
-        INTEGER :: opt_nlev_snow
-        LOGICAL :: l_opt_nice_class
-        INTEGER :: opt_nice_class
-        LOGICAL :: l_opt_ndyn_substeps
-        INTEGER :: opt_ndyn_substeps
-        LOGICAL :: l_opt_jstep_adv_marchuk_order
-        INTEGER :: opt_jstep_adv_marchuk_order
-        LOGICAL :: l_opt_sim_time
-        REAL(wp) :: opt_sim_time
-        LOGICAL :: l_opt_ndom
-        INTEGER :: opt_ndom
-
-        REAL(wp), ALLOCATABLE :: opt_pvct(:)
-        LOGICAL, ALLOCATABLE :: opt_lcall_phy(:)
-        REAL(wp), ALLOCATABLE :: opt_t_elapsed_phy(:)
-    CONTAINS
-        PROCEDURE :: init => restartPatchDescription_init
-        PROCEDURE :: update => restartPatchDescription_update   ! called to set the DATA that may change from restart to restart
-        PROCEDURE :: setTimeLevels => restartPatchDescription_setTimeLevels ! set the time level fields (nold, ...) to match the respective global variables
-        PROCEDURE :: packer => restartPatchDescription_packer
-        PROCEDURE :: defineVGrids => restartPatchDescription_defineVGrids
-    END TYPE t_restart_patch_description
 
     CHARACTER(LEN = *), PARAMETER :: modname = "mo_util_restart"
 
@@ -551,199 +474,5 @@ CONTAINS
         iret = util_symlink(filename,TRIM(linkname))
         IF(iret /= SUCCESS) WRITE(0, *) routine//': cannot create symbolic link "'//TRIM(linkname)//'" for "'//filename//'"'
     END SUBROUTINE create_restart_file_link
-
-    SUBROUTINE restartPatchDescription_init(description, p_patch)
-        CLASS(t_restart_patch_description), INTENT(INOUT) :: description
-        TYPE(t_patch), INTENT(IN) :: p_patch
-
-        description%id = p_patch%id
-        description%work_pe0_id = p_patch%proc0
-        description%nlev = p_patch%nlev
-        description%cell_type = p_patch%geometry_info%cell_type
-        description%base_filename = TRIM(p_patch%grid_filename)
-        description%n_patch_cells_g = p_patch%n_patch_cells_g
-        description%n_patch_verts_g = p_patch%n_patch_verts_g
-        description%n_patch_edges_g = p_patch%n_patch_edges_g
-        description%v_grid_defs => NULL()
-        description%v_grid_count = 0
-        description%l_dom_active = .FALSE.
-        description%restart_proc_id = 0
-        description%nold = nold(p_patch%id)
-        description%nnow = nnow(p_patch%id)
-        description%nnew = nnew(p_patch%id)
-        description%nnew_rcf = nnew_rcf(p_patch%id)
-        description%nnow_rcf = nnow_rcf(p_patch%id)
-        description%l_opt_depth = .FALSE.
-        description%opt_depth = 0
-        description%l_opt_depth_lnd = .FALSE.
-        description%opt_depth_lnd = 0
-        description%l_opt_nlev_snow = .FALSE.
-        description%opt_nlev_snow = 0
-        description%l_opt_nice_class = .FALSE.
-        description%opt_nice_class = 0
-        description%l_opt_ndyn_substeps = .FALSE.
-        description%opt_ndyn_substeps = 0
-        description%l_opt_jstep_adv_marchuk_order = .FALSE.
-        description%opt_jstep_adv_marchuk_order = 0
-        description%l_opt_ndom = .FALSE.
-        description%opt_ndom = 0
-        description%l_opt_sim_time = .FALSE.
-        description%opt_sim_time = 0.
-    END SUBROUTINE restartPatchDescription_init
-
-    SUBROUTINE restartPatchDescription_update(description, patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &
-                                             &opt_ndyn_substeps, opt_jstep_adv_marchuk_order, opt_depth, opt_depth_lnd, &
-                                             &opt_nlev_snow, opt_nice_class, opt_ndom)
-        CLASS(t_restart_patch_description), INTENT(INOUT) :: description
-        TYPE(t_patch), INTENT(IN) :: patch
-        INTEGER, INTENT(IN), OPTIONAL :: opt_depth, opt_depth_lnd, opt_ndyn_substeps, opt_jstep_adv_marchuk_order, &
-                                       & opt_nlev_snow, opt_nice_class, opt_ndom
-        REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time, opt_pvct(:), opt_t_elapsed_phy(:)
-        LOGICAL, INTENT(IN), OPTIONAL :: opt_lcall_phy(:)
-
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartPatchDescription_update"
-
-        IF(description%id /= patch%id) CALL finish(routine, "assertion failed: wrong patch passed to update()")
-
-        ! update activity flag - this needs to be done on all compute PEs, otherwise starting a nest during runtime would lead to incomplete restart files
-        description%l_dom_active = patch%ldom_active
-
-        ! otherwise, only the patch master process needs the dynamic restart arguments, these will be communicated to the other processes anyway
-        IF(p_pe_work == 0 .OR. p_pe_work == description%work_pe0_id) THEN
-            ! Patch-dependent attributes
-            CALL assign_if_present_allocatable(description%opt_pvct, opt_pvct)
-            CALL assign_if_present_allocatable(description%opt_t_elapsed_phy, opt_t_elapsed_phy)
-            CALL assign_if_present_allocatable(description%opt_lcall_phy, opt_lcall_phy)
-
-            CALL assign_if_present(description%opt_ndyn_substeps, opt_ndyn_substeps)
-            description%l_opt_ndyn_substeps = PRESENT(opt_ndyn_substeps)
-
-            CALL assign_if_present(description%opt_jstep_adv_marchuk_order, opt_jstep_adv_marchuk_order)
-            description%l_opt_jstep_adv_marchuk_order = PRESENT(opt_jstep_adv_marchuk_order)
-
-            CALL assign_if_present(description%opt_depth, opt_depth)
-            description%l_opt_depth = PRESENT(opt_depth)
-
-            CALL assign_if_present(description%opt_depth_lnd, opt_depth_lnd)
-            description%l_opt_depth_lnd = PRESENT(opt_depth_lnd)
-
-            CALL assign_if_present(description%opt_nlev_snow, opt_nlev_snow)
-            description%l_opt_nlev_snow = PRESENT(opt_nlev_snow)
-
-            CALL assign_if_present(description%opt_nice_class, opt_nice_class)
-            description%l_opt_nice_class = PRESENT(opt_nice_class)
-
-            CALL assign_if_present(description%opt_sim_time, opt_sim_time)
-            description%l_opt_sim_time = PRESENT(opt_sim_time)
-
-            CALL assign_if_present(description%opt_ndom, opt_ndom)
-            description%l_opt_ndom = PRESENT(opt_ndom)
-        END IF
-    END SUBROUTINE restartPatchDescription_update
-
-    SUBROUTINE restartPatchDescription_setTimeLevels(description)
-        CLASS(t_restart_patch_description), INTENT(INOUT) :: description
-
-        description%nold = nold(description%id)
-        description%nnow = nnow(description%id)
-        description%nnow_rcf = nnow_rcf(description%id)
-        description%nnew = nnew(description%id)
-        description%nnew_rcf = nnew_rcf(description%id)
-    END SUBROUTINE restartPatchDescription_setTimeLevels
-
-    SUBROUTINE restartPatchDescription_packer(description, operation, message)
-        INTEGER, VALUE :: operation
-        CLASS(t_restart_patch_description), INTENT(INOUT) :: description
-        TYPE(t_PackedMessage), INTENT(INOUT) :: message
-
-        ! patch id AND activity flag
-        CALL message%execute(operation, description%id)
-        CALL message%execute(operation, description%l_dom_active)
-        CALL message%execute(operation, description%nlev)
-        CALL message%execute(operation, description%cell_type)
-        CALL message%execute(operation, description%n_patch_cells_g)
-        CALL message%execute(operation, description%n_patch_edges_g)
-        CALL message%execute(operation, description%n_patch_verts_g)
-        CALL message%execute(operation, description%restart_proc_id)
-        CALL message%execute(operation, description%work_pe0_id)
-        CALL message%execute(operation, description%base_filename)
-
-        ! time levels
-        CALL message%execute(operation, description%nold)
-        CALL message%execute(operation, description%nnow)
-        CALL message%execute(operation, description%nnow_rcf)
-        CALL message%execute(operation, description%nnew)
-        CALL message%execute(operation, description%nnew_rcf)
-
-        ! optional parameter values
-        CALL message%execute(operation, description%l_opt_depth)
-        CALL message%execute(operation, description%opt_depth)
-        CALL message%execute(operation, description%l_opt_depth_lnd)
-        CALL message%execute(operation, description%opt_depth_lnd)
-        CALL message%execute(operation, description%l_opt_nlev_snow)
-        CALL message%execute(operation, description%opt_nlev_snow)
-        CALL message%execute(operation, description%l_opt_nice_class)
-        CALL message%execute(operation, description%opt_nice_class)
-        CALL message%execute(operation, description%l_opt_ndyn_substeps)
-        CALL message%execute(operation, description%opt_ndyn_substeps)
-        CALL message%execute(operation, description%l_opt_jstep_adv_marchuk_order)
-        CALL message%execute(operation, description%opt_jstep_adv_marchuk_order)
-        CALL message%execute(operation, description%l_opt_sim_time)
-        CALL message%execute(operation, description%opt_sim_time)
-        CALL message%execute(operation, description%l_opt_ndom)
-        CALL message%execute(operation, description%opt_ndom)
-
-        ! optional parameter arrays
-        CALL message%execute(operation, description%opt_pvct)
-        CALL message%execute(operation, description%opt_lcall_phy)
-        CALL message%execute(operation, description%opt_t_elapsed_phy)
-    END SUBROUTINE restartPatchDescription_packer
-
-    !  Set vertical grid definition.
-    SUBROUTINE restartPatchDescription_defineVGrids(p_desc)
-        CLASS(t_restart_patch_description), TARGET, INTENT(INOUT) :: p_desc
-
-        INTEGER :: nlev_soil, nlev_snow, nlev_ocean, nice_class, ierrstat
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartPatchDescription_defineVGrids"
-
-        ! DEFAULT values for the level counts
-        nlev_soil = 0
-        nlev_snow = 0
-        nlev_ocean = 0
-        nice_class = 1
-
-        ! replace DEFAULT values by the overrides provided IN the p_desc
-        IF(p_desc%l_opt_depth_lnd) nlev_soil = p_desc%opt_depth_lnd
-        IF(p_desc%l_opt_nlev_snow) nlev_snow = p_desc%opt_nlev_snow
-        IF(p_desc%l_opt_depth) nlev_ocean = p_desc%opt_depth
-        IF(p_desc%l_opt_nice_class) nice_class = p_desc%opt_nice_class
-
-        ! set vertical grid definitions
-        ALLOCATE(p_desc%v_grid_defs(MAX_VERTICAL_AXES), STAT=ierrstat)
-        p_desc%v_grid_count = 0
-        IF(ierrstat /= SUCCESS) CALL finish(routine, "memory allocation failed")
-
-        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_SURFACE, 0._wp)
-        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_HYBRID, p_desc%nlev)
-        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_HYBRID_HALF, p_desc%nlev+1)
-        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_HEIGHT_2M, 2._wp)
-        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_HEIGHT_10M, 10._wp)
-        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_TOA, 1._wp)
-        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_LAKE_BOTTOM, 1._wp)
-        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_MIX_LAYER, 1._wp)
-        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_LAKE_BOTTOM_HALF, 1._wp)
-        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_SEDIMENT_BOTTOM_TW_HALF, 0._wp)
-        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_GENERIC_ICE, 1._wp)
-        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_DEPTH_RUNOFF_S, 1)
-        CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_DEPTH_RUNOFF_G, 1)
-        IF(p_desc%l_opt_depth_lnd) CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_DEPTH_BELOW_LAND, nlev_soil)
-        IF(p_desc%l_opt_depth_lnd) CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_DEPTH_BELOW_LAND_P1, &
-                                                         &nlev_soil+1)
-        IF(p_desc%l_opt_nlev_snow) CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_SNOW, nlev_snow)
-        IF(p_desc%l_opt_nlev_snow) CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_SNOW_HALF, nlev_snow+1)
-        IF(p_desc%l_opt_depth) CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_DEPTH_BELOW_SEA, nlev_ocean)
-        IF(p_desc%l_opt_depth) CALL set_vertical_grid(p_desc%v_grid_defs, p_desc%v_grid_count, ZA_DEPTH_BELOW_SEA_HALF, &
-                                                     &nlev_ocean+1)
-    END SUBROUTINE restartPatchDescription_defineVGrids
 
 END MODULE mo_util_restart
