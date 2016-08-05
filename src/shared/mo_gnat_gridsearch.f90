@@ -526,13 +526,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = modname//"::gnat_query_nnb"
 
     INTEGER                 :: min_node_idx(3,iv_nproma, iv_nblks)  ! corresponding GNAT nodes
-    INTEGER                 :: jb, jc, j, k, i_nb, &
-      &                        end_idx, i_end,     &
-      &                        tmp_idx(2),         &   ! (idx,blk)
-      &                        nb_idx(0:(5*3),2)       ! (idx,blk)
-    INTEGER                 :: tri_vertex_idx(3,2)   ! (idx,blk)
-    REAL(gk)                :: tri_v(2,3), p(2)
-    LOGICAL                 :: l_inside
+    INTEGER                 :: jb, jc, end_idx
 
     ! set default value ("failure notice")
     min_dist(:,:)  = MAX_RANGE
@@ -549,8 +543,7 @@ CONTAINS
     END WHERE
 
     ! loop over blocks
-!$OMP PARALLEL DO private(jb, end_idx, jc, nb_idx, tri_vertex_idx, &
-!$OMP                     i_nb, tmp_idx, i_end, tri_v, k, j, p, l_inside)
+!$OMP PARALLEL DO private(jb, end_idx, jc)
     DO jb=1,iv_nblks
 
       ! set end index in current block:
