@@ -215,6 +215,8 @@ MODULE mo_mpi
     &       p_unpack_int, p_unpack_bool, p_unpack_real,   &
     &       p_unpack_int_1d, p_unpack_real_1d,            &
     &       p_unpack_string, p_unpack_real_2d, p_test
+  PUBLIC :: p_pack_allocatable_real, p_pack_allocatable_logical, p_pack_allocatable_int
+  PUBLIC :: p_unpack_allocatable_real, p_unpack_allocatable_logical, p_unpack_allocatable_int
   PUBLIC :: p_scatter, p_gather, p_max, p_min, p_sum, p_global_sum, p_field_sum
   PUBLIC :: p_probe
   PUBLIC :: p_gatherv, p_allgather, p_allgatherv
@@ -5182,6 +5184,147 @@ CONTAINS
 #endif
   END SUBROUTINE p_bcast_packed
 
+  !---------------------------------------------------------------------------------------------------------------------------------
+  ! some wrappers to communicate ALLOCATABLE arrays of unknown SIZE via a packed message
+  !
+  ! It IS perfectly legal for the array to NOT be ALLOCATED, even for the allocation status to NOT match between sender AND receiver.
+  ! After the CALL the recievers array will be ALLOCATED IF the senders array was NOT empty. IF an empty OR deallocated array IS sent,
+  ! the recievers array will be deallocated IF it was ALLOCATED.
+  !---------------------------------------------------------------------------------------------------------------------------------
+
+  SUBROUTINE p_pack_allocatable_real(array, message, position, communicator)
+    REAL(wp), ALLOCATABLE, INTENT(IN) :: array(:)
+    CHARACTER, INTENT(INOUT) :: message(:)
+    INTEGER, INTENT(INOUT) :: position
+    INTEGER, VALUE :: communicator
+
+    INTEGER :: arraySize, i
+
+    arraySize = 0
+    IF(ALLOCATED(array)) arraySize = SIZE(array)
+    CALL p_pack_int(arraySize, message, position, communicator) !first send the SIZE of the array, so that the receiver knows how much to READ
+    DO i = 1, arraySize
+        CALL p_pack_real(array(i), message, position, communicator) !send the contents of the array
+    END DO
+  END SUBROUTINE p_pack_allocatable_real
+
+  SUBROUTINE p_unpack_allocatable_real(message, position, array, communicator)
+    CHARACTER, INTENT(IN) :: message(:)
+    INTEGER, INTENT(INOUT) :: position
+    REAL(wp), ALLOCATABLE, INTENT(INOUT) :: array(:)
+    INTEGER, VALUE :: communicator
+
+    INTEGER :: arraySize, i, error
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":p_unpack_allocatable_real"
+
+    !get the SIZE of the array
+    CALL p_unpack_int(message, position, arraySize, communicator)
+
+    !ensure that our array IS ALLOCATED AND has the right size
+    IF(ALLOCATED(array)) THEN
+        IF(SIZE(array) /= arraySize .OR. arraySize == 0) DEALLOCATE(array)
+    END IF
+    IF(arraySize == 0) RETURN
+    IF(.NOT.ALLOCATED(array)) THEN
+        ALLOCATE(array(arraySize), STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+    END IF
+
+    !get the array contents
+    DO i = 1, arraySize
+        CALL p_unpack_real(message, position, array(i),  communicator)
+    ENDDO
+  END SUBROUTINE p_unpack_allocatable_real
+
+
+  SUBROUTINE p_pack_allocatable_logical(array, message, position, communicator)
+    LOGICAL, ALLOCATABLE, INTENT(IN) :: array(:)
+    CHARACTER, INTENT(INOUT) :: message(:)
+    INTEGER, INTENT(INOUT) :: position
+    INTEGER, VALUE :: communicator
+
+    INTEGER :: arraySize, i
+
+    arraySize = 0
+    IF(ALLOCATED(array)) arraySize = SIZE(array)
+    CALL p_pack_int(arraySize, message, position, communicator) !first send the SIZE of the array, so that the receiver knows how much to READ
+    DO i = 1, arraySize
+        CALL p_pack_bool(array(i), message, position, communicator) !send the contents of the array
+    END DO
+  END SUBROUTINE p_pack_allocatable_logical
+
+  SUBROUTINE p_unpack_allocatable_logical(message, position, array, communicator)
+    CHARACTER, INTENT(IN) :: message(:)
+    INTEGER, INTENT(INOUT) :: position
+    LOGICAL, ALLOCATABLE, INTENT(INOUT) :: array(:)
+    INTEGER, VALUE :: communicator
+
+    INTEGER :: arraySize, i, error
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":p_unpack_allocatable_logical"
+
+    !get the SIZE of the array
+    CALL p_unpack_int(message, position, arraySize, communicator)
+
+    !ensure that our array IS ALLOCATED AND has the right size
+    IF(ALLOCATED(array)) THEN
+        IF(SIZE(array) /= arraySize .OR. arraySize == 0) DEALLOCATE(array)
+    END IF
+    IF(arraySize == 0) RETURN
+    IF(.NOT.ALLOCATED(array)) THEN
+        ALLOCATE(array(arraySize), STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+    END IF
+
+    !get the array contents
+    DO i = 1, arraySize
+        CALL p_unpack_bool(message, position, array(i),  communicator)
+    ENDDO
+  END SUBROUTINE p_unpack_allocatable_logical
+
+
+  SUBROUTINE p_pack_allocatable_int(array, message, position, communicator)
+    INTEGER, ALLOCATABLE, INTENT(IN) :: array(:)
+    CHARACTER, INTENT(INOUT) :: message(:)
+    INTEGER, INTENT(INOUT) :: position
+    INTEGER, VALUE :: communicator
+
+    INTEGER :: arraySize, i
+
+    arraySize = 0
+    IF(ALLOCATED(array)) arraySize = SIZE(array)
+    CALL p_pack_int(arraySize, message, position, communicator) !first send the SIZE of the array, so that the receiver knows how much to READ
+    DO i = 1, arraySize
+        CALL p_pack_int(array(i), message, position, communicator) !send the contents of the array
+    END DO
+  END SUBROUTINE p_pack_allocatable_int
+
+  SUBROUTINE p_unpack_allocatable_int(message, position, array, communicator)
+    CHARACTER, INTENT(IN) :: message(:)
+    INTEGER, INTENT(INOUT) :: position
+    INTEGER, ALLOCATABLE, INTENT(INOUT) :: array(:)
+    INTEGER, VALUE :: communicator
+
+    INTEGER :: arraySize, i, error
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":p_unpack_allocatable_int"
+
+    !get the SIZE of the array
+    CALL p_unpack_int(message, position, arraySize, communicator)
+
+    !ensure that our array IS ALLOCATED AND has the right size
+    IF(ALLOCATED(array)) THEN
+        IF(SIZE(array) /= arraySize .OR. arraySize == 0) DEALLOCATE(array)
+    END IF
+    IF(arraySize == 0) RETURN
+    IF(.NOT.ALLOCATED(array)) THEN
+        ALLOCATE(array(arraySize), STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+    END IF
+
+    !get the array contents
+    DO i = 1, arraySize
+        CALL p_unpack_int(message, position, array(i),  communicator)
+    ENDDO
+  END SUBROUTINE p_unpack_allocatable_int
 
   !
   !================================================================================================

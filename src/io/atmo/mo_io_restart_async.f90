@@ -69,17 +69,14 @@ MODULE mo_io_restart_async
                                       & setDynamicPatchRestartAttributes, setPhysicsRestartAttributes
 
 #ifndef NOMPI
-  USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work,      &
-    &                                   p_work_pe0, num_work_procs, MPI_SUCCESS,          &
-    &                                   stop_mpi, p_send, p_recv, p_barrier, p_bcast,     &
-    &                                   my_process_is_restart, my_process_is_work,        &
-    &                                   p_comm_work_2_restart, p_n_work, p_int,           &
-    &                                   process_mpi_restart_size, p_int_i8, p_real_dp,    &
-    &                                   p_comm_work_restart, p_mpi_wtime,                 &
-    &                                   p_send_packed, p_recv_packed, p_bcast_packed,     &
-    &                                   p_pack_int, p_pack_bool, p_pack_real,             &
-    &                                   p_unpack_int, p_unpack_bool, p_unpack_real,       &
-    &                                   p_int_byte, get_my_mpi_work_id, p_comm_rank
+  USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work, p_work_pe0, num_work_procs, MPI_SUCCESS, &
+                                      & stop_mpi, p_send, p_recv, p_barrier, p_bcast, my_process_is_restart, my_process_is_work, &
+                                      & p_comm_work_2_restart, p_n_work, p_int, process_mpi_restart_size, p_int_i8, p_real_dp, &
+                                      & p_comm_work_restart, p_mpi_wtime, p_send_packed, p_recv_packed, p_bcast_packed, &
+                                      & p_pack_int, p_pack_bool, p_pack_real, p_unpack_int, p_unpack_bool, p_unpack_real, &
+                                      & p_int_byte, get_my_mpi_work_id, p_comm_rank, p_unpack_allocatable_real, &
+                                      & p_unpack_allocatable_logical, p_pack_allocatable_real, p_pack_allocatable_logical, &
+                                      & p_pack_allocatable_int, p_unpack_allocatable_int
 
 #ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
@@ -398,7 +395,7 @@ CONTAINS
     INTEGER,              INTENT(IN), OPTIONAL :: opt_ndom            !< no. of domains (appended to symlink name)
 
     TYPE(t_patch_data),   POINTER  :: p_pd
-    INTEGER                        :: ierrstat, i, arraySize
+    INTEGER                        :: ierrstat, i
     CHARACTER(LEN=*), PARAMETER    :: routine = modname//'set_data_async_restart'
 
 #ifdef NOMPI
@@ -674,7 +671,7 @@ CONTAINS
 
     TYPE(t_patch_data), POINTER    :: p_pd
     INTEGER                        :: i, j, k, ierrstat, position, &
-      &                               iheader, this_patch, calday, arraySize
+      &                               iheader, this_patch, calday
     CHARACTER, POINTER             :: p_msg(:)
     CHARACTER(LEN=*), PARAMETER    :: routine = modname//'restart_wait_for_start'
 
@@ -719,16 +716,7 @@ CONTAINS
         restart_args%datetime%calday = INT(calday,i8)
         CALL p_unpack_real(p_msg, position, restart_args%datetime%daysec,  p_comm_work)
         CALL p_unpack_int( p_msg, position, restart_args%jstep,            p_comm_work)
-
-        CALL p_unpack_int( p_msg, position, arraySize, p_comm_work)
-        IF (ALLOCATED(restart_args%opt_output_jfile)) DEALLOCATE(restart_args%opt_output_jfile)
-        IF (arraySize > 0) THEN
-          ALLOCATE(restart_args%opt_output_jfile(arraySize), STAT=ierrstat)
-          IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
-          DO i=1, arraySize
-            CALL p_unpack_int( p_msg, position, restart_args%opt_output_jfile(i), p_comm_work)
-          END DO
-        END IF
+        CALL p_unpack_allocatable_int(p_msg, position, restart_args%opt_output_jfile, p_comm_work)
 
         ! get patch dependent arguments
         DO j = 1, SIZE(patch_data)
@@ -769,35 +757,9 @@ CONTAINS
           CALL p_unpack_int( p_msg, position, p_pd%opt_ndom,         p_comm_work)
 
           ! optional parameter arrays
-          CALL p_unpack_int(p_msg, position, arraySize, p_comm_work)
-          IF (ALLOCATED(p_pd%opt_pvct)) DEALLOCATE(p_pd%opt_pvct)
-          IF (arraySize > 0) THEN
-            ALLOCATE(p_pd%opt_pvct(arraySize), STAT=ierrstat)
-            IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
-            DO k = 1, arraySize
-              CALL p_unpack_real(p_msg, position, p_pd%opt_pvct(k),  p_comm_work)
-            ENDDO
-          ENDIF
-
-          CALL p_unpack_int(p_msg, position, arraySize, p_comm_work)
-          IF (ALLOCATED(p_pd%opt_lcall_phy)) DEALLOCATE(p_pd%opt_lcall_phy)
-          IF (arraySize > 0) THEN
-            ALLOCATE(p_pd%opt_lcall_phy(arraySize), STAT=ierrstat)
-            IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
-            DO k = 1, arraySize
-              CALL p_unpack_bool(p_msg, position, p_pd%opt_lcall_phy(k),  p_comm_work)
-            ENDDO
-          ENDIF
-
-          CALL p_unpack_int(p_msg, position, arraySize, p_comm_work)
-          IF (ALLOCATED(p_pd%opt_t_elapsed_phy)) DEALLOCATE(p_pd%opt_t_elapsed_phy)
-          IF (arraySize > 0) THEN
-            ALLOCATE(p_pd%opt_t_elapsed_phy(arraySize), STAT=ierrstat)
-            IF (ierrstat /= SUCCESS) CALL finish(routine, ALLOCATE_FAILED)
-            DO k = 1, arraySize
-              CALL p_unpack_real(p_msg, position, p_pd%opt_t_elapsed_phy(k),  p_comm_work)
-            ENDDO
-          ENDIF
+          CALL p_unpack_allocatable_real(p_msg, position, p_pd%opt_pvct, p_comm_work)
+          CALL p_unpack_allocatable_logical(p_msg, position, p_pd%opt_lcall_phy, p_comm_work)
+          CALL p_unpack_allocatable_real(p_msg, position, p_pd%opt_t_elapsed_phy, p_comm_work)
         ENDDO
 
       CASE(MSG_RESTART_SHUTDOWN)
@@ -952,13 +914,7 @@ CONTAINS
       CALL p_pack_int( INT(datetime%calday),     p_msg, position, p_comm_work)
       CALL p_pack_real(datetime%daysec,          p_msg, position, p_comm_work)
       CALL p_pack_int( jstep,                    p_msg, position, p_comm_work)
-
-      arraySize = 0
-      IF(ALLOCATED(restart_args%opt_output_jfile)) arraySize = SIZE(restart_args%opt_output_jfile)
-      CALL p_pack_int(arraySize, p_msg, position, p_comm_work)
-      DO i=1, arraySize
-          CALL p_pack_int(restart_args%opt_output_jfile(i), p_msg, position, p_comm_work)
-      END DO
+      CALL p_pack_allocatable_int(restart_args%opt_output_jfile, p_msg, position, p_comm_work)
 
       ! set data of all patches
       DO j = 1, SIZE(patch_data)
@@ -1000,26 +956,9 @@ CONTAINS
         CALL p_pack_int( p_pd%opt_ndom,          p_msg, position, p_comm_work)
 
         ! optional parameter arrays
-        arraySize = 0
-        IF (ALLOCATED(p_pd%opt_pvct)) arraySize = SIZE(p_pd%opt_pvct)
-        CALL p_pack_int(arraySize, p_msg, position, p_comm_work)
-        DO k = 1, arraySize
-            CALL p_pack_real(p_pd%opt_pvct(k), p_msg, position, p_comm_work)
-        END DO
-
-        arraySize = 0
-        IF (ALLOCATED(p_pd%opt_lcall_phy)) arraySize = SIZE(p_pd%opt_lcall_phy)
-        CALL p_pack_int(arraySize, p_msg, position, p_comm_work)
-        DO k = 1, arraySize
-            CALL p_pack_bool(p_pd%opt_lcall_phy(k), p_msg, position, p_comm_work)
-        END DO
-
-        arraySize = 0
-        IF (ALLOCATED(p_pd%opt_t_elapsed_phy)) arraySize = SIZE(p_pd%opt_t_elapsed_phy)
-        CALL p_pack_int(arraySize, p_msg, position, p_comm_work)
-        DO k = 1, arraySize
-            CALL p_pack_real(p_pd%opt_t_elapsed_phy(k), p_msg, position, p_comm_work)
-        END DO
+        CALL p_pack_allocatable_real(p_pd%opt_pvct, p_msg, position, p_comm_work)
+        CALL p_pack_allocatable_logical(p_pd%opt_lcall_phy, p_msg, position, p_comm_work)
+        CALL p_pack_allocatable_real(p_pd%opt_t_elapsed_phy, p_msg, position, p_comm_work)
       ENDDO
 
       CALL p_send_packed(p_msg, p_restart_pe0, 0, position)
