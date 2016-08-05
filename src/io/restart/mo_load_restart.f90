@@ -51,7 +51,6 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::read_restart_header"
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: rst_filename
-    CHARACTER(len=132) :: message_text
     LOGICAL                        :: lsuccess, lexists
     INTEGER                        :: idom, total_dom, fileID, vlistID, myRank
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
@@ -84,8 +83,7 @@ CONTAINS
         ! check if the file could be opened
         IF (fileID < 0) THEN
             CALL cdiGetStringError(fileID, cdiErrorText)
-            WRITE(message_text,'(4a)') 'File ', TRIM(rst_filename), ' cannot be opened: ', TRIM(cdiErrorText)
-            CALL finish(routine, TRIM(message_text))
+            CALL finish(routine, 'File '//TRIM(rst_filename)//' cannot be opened: '//TRIM(cdiErrorText))
         ENDIF
 
         vlistID = streamInqVlist(fileID)
@@ -131,7 +129,7 @@ CONTAINS
 
     TYPE (t_list_element), POINTER   :: element
     TYPE (t_var_metadata), POINTER   :: info
-    CHARACTER(len=80)                :: restart_filename, name, message_text
+    CHARACTER(len=80)                :: restart_filename, name
     INTEGER                          :: fileID, vlistID, gridID, zaxisID, taxisID,    &
       &                                 varID, idate, itime, ic, il, n, nfiles, i,   &
       &                                 iret, istat, key, vgrid, gdims(5), nindex,   &
@@ -192,12 +190,9 @@ CONTAINS
 
         idate   = taxisInqVdate(taxisID)
         itime   = taxisInqVtime(taxisID)
-
-        WRITE(message_text,'(a,i8.8,a,i6.6,a,a)') &
-          'Read restart for : ', idate, 'T', itime, 'Z from ',TRIM(restart_filename)
       END IF
-
-      CALL message('read_restart_files',message_text)
+      CALL message('read_restart_files', 'Read restart for: '//TRIM(int2string(idate))//'T'//TRIM(int2string(itime))//'Z '//&
+                                       & 'from '//TRIM(restart_filename))
 
       IF (my_process_is_mpi_workroot()) THEN
         nvars = vlistNvars(vlistID)
