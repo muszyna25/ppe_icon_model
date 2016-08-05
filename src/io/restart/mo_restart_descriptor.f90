@@ -16,7 +16,10 @@ MODULE mo_restart_descriptor
     USE mo_kind, ONLY: wp
     USE mo_model_domain, ONLY: t_patch
     USE mo_mpi, ONLY: my_process_is_work
+    USE mo_restart_attributes, ONLY: t_RestartAttributeList
+    USE mo_restart_file, ONLY: t_RestartFile
     USE mo_restart_patch_description, ONLY: t_restart_patch_description
+    USE mo_restart_util, ONLY: t_restart_args, create_restart_file_link
     USE mo_restart_var_data, ONLY: t_RestartVarData, createRestartVarData
 
     IMPLICIT NONE
@@ -33,6 +36,8 @@ MODULE mo_restart_descriptor
         INTEGER :: restartType
     CONTAINS
         PROCEDURE :: construct => restartPatchData_construct
+        PROCEDURE(restartPatchData_writeData), DEFERRED :: writeData
+        PROCEDURE :: writeFile => restartPatchData_writeFile
         PROCEDURE :: destruct => restartPatchData_destruct
     END TYPE t_RestartPatchData
 
@@ -74,6 +79,14 @@ MODULE mo_restart_descriptor
             INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
         END SUBROUTINE restartDescriptor_writeRestart
 
+        ! Write the payload DATA to an opened file.
+        ! Depending on the implementation, this CALL may OR may NOT be collective (it IS collective for sync, AND non-collective for async restart writing).
+        SUBROUTINE restartPatchData_writeData(me, file)
+            IMPORT t_RestartPatchData, t_RestartFile
+            CLASS(t_RestartPatchData), INTENT(INOUT) :: me
+            TYPE(t_RestartFile), INTENT(INOUT) :: file
+        END SUBROUTINE restartPatchData_writeData
+
     END INTERFACE
 
     CHARACTER(*), PARAMETER :: modname = "mo_restart_descriptor"
@@ -114,6 +127,35 @@ CONTAINS
         CALL me%description%init(domain)
         me%varData => createRestartVarData(domain, modelType, me%restartType)
     END SUBROUTINE restartPatchData_construct
+
+    ! Write a restart file if varData IS set. lIsWriteProcess should ONLY be set on one process.
+    SUBROUTINE restartPatchData_writeFile(me, restartAttributes, restartArgs, procId, lIsWriteProcess)
+        CLASS(t_RestartPatchData), INTENT(INOUT) :: me
+        TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
+        TYPE(t_restart_args), INTENT(IN) :: restartArgs
+        INTEGER, VALUE :: procId
+        LOGICAL, VALUE :: lIsWriteProcess
+
+        TYPE(t_RestartFile) :: file
+
+        IF(ASSOCIATED(me%varData)) THEN ! no restart variables => no restart file
+            CALL me%description%defineVGrids()
+
+            IF(lIsWriteProcess) CALL file%open(me%description, me%varData, restartArgs, restartAttributes, me%restartType)
+
+            CALL me%writeData(file)
+
+            IF(lIsWriteProcess) THEN
+                IF(ALLOCATED(me%description%opt_ndom)) THEN
+                    CALL create_restart_file_link(TRIM(file%filename), TRIM(restartArgs%modelType), procId, me%description%id, &
+                                                 &opt_ndom = me%description%opt_ndom)
+                ELSE
+                    CALL create_restart_file_link(TRIM(file%filename), TRIM(restartArgs%modelType), procId, me%description%id)
+                END IF
+                CALL file%close()
+            END IF
+        END IF
+    END SUBROUTINE restartPatchData_writeFile
 
     SUBROUTINE restartPatchData_destruct(me)
         CLASS(t_RestartPatchData), INTENT(INOUT) :: me

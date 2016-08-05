@@ -95,6 +95,7 @@ MODULE mo_async_restart
     TYPE(t_AsyncRestartCommData) :: commData
   CONTAINS
     PROCEDURE :: construct => asyncPatchData_construct  ! override
+    PROCEDURE :: writeData => asyncPatchData_writeData  ! override
     PROCEDURE :: destruct => asyncPatchData_destruct  ! override
 
     PROCEDURE, PRIVATE :: transferToRestart => asyncPatchData_transferToRestart
@@ -268,7 +269,6 @@ CONTAINS
     TYPE(t_RestartAttributeList), INTENT(INOUT) :: restartAttributes
     CHARACTER(*), INTENT(IN) :: modelType
 
-    TYPE(t_AsyncPatchData), POINTER :: asyncPatchData
     TYPE(t_RestartFile) :: restartFile
     CHARACTER(*), PARAMETER :: routine = modname//":restart_write_patch"
 #ifdef DEBUG
@@ -276,42 +276,18 @@ CONTAINS
     namelists => namelistArchive()
 #endif
 
-    ! dynamic downcast of patchData argument
-    asyncPatchData => toAsyncPatchData(patchData)
-    IF(.NOT.ASSOCIATED(asyncPatchData)) CALL finish(routine, "assertion failed: wrong type of patchData")
-
     ! check if the patch is active
-    IF(.NOT. asyncPatchData%description%l_dom_active) RETURN
+    IF(.NOT. patchData%description%l_dom_active) RETURN
 
     ! consider the right restart process
-    IF(p_pe == asyncPatchData%description%restart_proc_id) THEN
-        ! set global restart attributes/lists
-        CALL asyncPatchData%description%defineVGrids()
-
+    IF(p_pe == patchData%description%restart_proc_id) THEN
 #ifdef DEBUG
         CALL print_restart_arguments()
         CALL restartAttributes%printAttributes()
         CALL namelists%print()
 #endif
-        IF(ASSOCIATED(asyncPatchData%varData)) THEN ! no restart variables => no restart file
-            CALL restartFile%open(asyncPatchData%description, asyncPatchData%varData, restart_args, restartAttributes, &
-                                 &asyncPatchData%restartType)
-
-            ! collective call to write the restart variables
-            CALL restart_write_var_list(asyncPatchData, restartFile)
-            IF(ALLOCATED(asyncPatchData%description%opt_ndom)) THEN
-                CALL create_restart_file_link(TRIM(restartFile%filename), modelType, &
-                                             &asyncPatchData%description%restart_proc_id - p_restart_pe0, &
-                                             &asyncPatchData%description%id, &
-                                             &opt_ndom = asyncPatchData%description%opt_ndom)
-            ELSE
-                CALL create_restart_file_link(TRIM(restartFile%filename), modelType, &
-                                             &asyncPatchData%description%restart_proc_id - p_restart_pe0, &
-                                             &asyncPatchData%description%id)
-            END IF
-            CALL restartFile%close()
-        END IF
-    ENDIF
+        CALL patchData%writeFile(restartAttributes, restart_args, patchData%description%restart_proc_id - p_restart_pe0, .TRUE.)
+    END IF
   END SUBROUTINE restart_write_patch
 #endif
 
@@ -912,9 +888,9 @@ CONTAINS
   !
   ! Write restart variable list for a restart PE.
   !
-  SUBROUTINE restart_write_var_list(p_pd, restartFile)
-    TYPE(t_AsyncPatchData), TARGET, INTENT(INOUT) :: p_pd
-    TYPE(t_RestartFile) :: restartFile
+  SUBROUTINE asyncPatchData_writeData(me, file)
+    CLASS(t_AsyncPatchData), TARGET, INTENT(INOUT) :: me
+    TYPE(t_RestartFile), INTENT(INOUT) :: file
 
     TYPE(t_var_metadata), POINTER   :: p_info
 
@@ -927,7 +903,7 @@ CONTAINS
     REAL(dp) :: t_get, t_write
     INTEGER(i8) :: bytesGet, bytesWrite
 
-    CHARACTER(LEN=*), PARAMETER     :: routine = modname//':restart_write_var_list'
+    CHARACTER(LEN=*), PARAMETER     :: routine = modname//':asyncPatchData_writeData'
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
@@ -942,10 +918,10 @@ CONTAINS
     bytesWrite = 0_i8
 
     ! check the contained array of restart variables
-    IF (.NOT. ASSOCIATED(p_pd%varData)) RETURN
+    IF (.NOT. ASSOCIATED(me%varData)) RETURN
 
     ! get maximum number of data points in a slice and allocate tmp. variables
-    nval = p_pd%commData%maxLevelSize()
+    nval = me%commData%maxLevelSize()
 
     ! allocate RMA memory
     ALLOCATE(buffer(nval,restart_chunk_size), STAT=ierrstat)
@@ -954,17 +930,17 @@ CONTAINS
     ioff(:) = 0
 
     ! go over the all restart variables in the associated array
-    VAR_LOOP : DO iv = 1, SIZE(p_pd%varData)
+    VAR_LOOP : DO iv = 1, SIZE(me%varData)
 
       ! get pointer to metadata
-      p_info => p_pd%varData(iv)%info
+      p_info => me%varData(iv)%info
 
 #ifdef DEBUG
       WRITE (nerr,FORMAT_VALS5I)routine,' p_pe=',p_pe,' restart pe processes field=',TRIM(p_info%name)
 #endif
 
       ! check time level of the field
-      IF (.NOT. has_valid_time_level(p_info, p_pd%description%id, p_pd%description%nnew, p_pd%description%nnew_rcf)) CYCLE
+      IF (.NOT. has_valid_time_level(p_info, me%description%id, me%description%nnew, me%description%nnew_rcf)) CYCLE
 
       ! get current level
       IF(p_info%ndims == 2) THEN
@@ -974,9 +950,9 @@ CONTAINS
       ENDIF
 
       ! get pointer to reorder data
-      IF(p_info%hgrid == GRID_UNSTRUCTURED_CELL) pointCount = p_pd%description%n_patch_cells_g
-      IF(p_info%hgrid == GRID_UNSTRUCTURED_VERT) pointCount = p_pd%description%n_patch_verts_g
-      IF(p_info%hgrid == GRID_UNSTRUCTURED_EDGE) pointCount = p_pd%description%n_patch_edges_g
+      IF(p_info%hgrid == GRID_UNSTRUCTURED_CELL) pointCount = me%description%n_patch_cells_g
+      IF(p_info%hgrid == GRID_UNSTRUCTURED_VERT) pointCount = me%description%n_patch_verts_g
+      IF(p_info%hgrid == GRID_UNSTRUCTURED_EDGE) pointCount = me%description%n_patch_edges_g
 
       ! no. of chunks of levels (each of size "restart_chunk_size"):
       nchunks = (nlevs-1)/restart_chunk_size + 1
@@ -984,12 +960,12 @@ CONTAINS
       LEVELS : DO ichunk=1,nchunks
         chunk_start = (ichunk-1)*restart_chunk_size + 1
         chunk_end = MIN(chunk_start+restart_chunk_size-1, nlevs)
-        CALL p_pd%commData%collectData(p_info%hgrid, chunk_end - chunk_start + 1, buffer, ioff, t_get, bytesGet)
+        CALL me%commData%collectData(p_info%hgrid, chunk_end - chunk_start + 1, buffer, ioff, t_get, bytesGet)
 
         ! write field content into a file
         t_write = t_write - p_mpi_wtime()
         DO ilev=chunk_start, chunk_end
-          CALL restartFile%writeLevel(p_info%cdiVarID, (ilev-1), buffer(:, ilev - chunk_start + 1))
+          CALL file%writeLevel(p_info%cdiVarID, (ilev-1), buffer(:, ilev - chunk_start + 1))
           bytesWrite = bytesWrite + pointCount*8
         END DO
         t_write = t_write + p_mpi_wtime()
@@ -1009,7 +985,7 @@ CONTAINS
            & REAL(bytesGet, dp)*1.d-6/MAX(1.e-6_wp, t_get), ' MB/s], time write: ', t_write, ' s [', &
            & REAL(bytesWrite, dp)*1.d-6/MAX(1.e-6_wp,t_write), ' MB/s]'
     ENDIF
-  END SUBROUTINE restart_write_var_list
+  END SUBROUTINE asyncPatchData_writeData
 
   !------------------------------------------------------------------------------------------------
   !

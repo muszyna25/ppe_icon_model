@@ -183,6 +183,13 @@ CONTAINS
             CALL assign_if_present_allocatable(me%opt_sim_time, opt_sim_time)
             CALL assign_if_present_allocatable(me%opt_ndom, opt_ndom)
             CALL assign_if_present_allocatable(me%opt_ocean_zlevels, opt_ocean_zlevels)
+
+            ! consistency check for OPTIONAL ocean variables
+            IF(ALLOCATED(me%opt_ocean_zheight_cellMiddle)) THEN
+                IF(.NOT. ALLOCATED(me%opt_ocean_Zheight_CellInterfaces) .OR. .NOT. ALLOCATED(me%opt_ocean_Zlevels)) THEN
+                    CALL finish(routine, 'Ocean level parameteres not complete')
+                END IF
+            END IF
         END IF
     END SUBROUTINE restartPatchDescription_update
 

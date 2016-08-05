@@ -84,7 +84,7 @@ MODULE mo_sync_restart
 
   TYPE, EXTENDS(t_RestartPatchData) :: t_SyncPatchData
   CONTAINS
-    PROCEDURE, PRIVATE :: writeData => syncPatchData_writeData  ! implementation detail of writeFile()
+    PROCEDURE :: writeData => syncPatchData_writeData  ! override
   END TYPE t_SyncPatchData
 
   TYPE, EXTENDS(t_RestartDescriptor) :: t_SyncRestartDescriptor
@@ -170,48 +170,6 @@ CONTAINS
     END DO
   END SUBROUTINE syncRestartDescriptor_defineRestartAttributes
 
-  !XXX: Not a type bound procedure, because that would require the calling site to know the dynamic type, or the method to be defined within the base class.
-  !     And it is currently not possible for the caller to know the dynamic type, because the compilers act up on a SELECT TYPE() statement on an array member.
-  SUBROUTINE syncPatchData_writeFile(me, restartAttributes, restartArgs)
-    CLASS(t_RestartPatchData), INTENT(INOUT) :: me
-    TYPE(t_RestartAttributeList) :: restartAttributes
-    TYPE(t_restart_args), INTENT(IN) :: restartArgs
-
-    TYPE(t_RestartFile) :: file
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":syncPatchData_writeFile"
-
-    IF(ALLOCATED(me%description%opt_ocean_zheight_cellMiddle)) THEN
-      IF(.NOT. ALLOCATED(me%description%opt_ocean_Zheight_CellInterfaces) .OR. &
-        &.NOT. ALLOCATED(me%description%opt_ocean_Zlevels)) THEN
-          CALL finish(routine, 'Ocean level parameteres not complete')
-      END IF
-    END IF
-
-    CALL me%description%defineVGrids()
-    CALL me%description%setTimeLevels() !update the time levels
-
-    IF(ASSOCIATED(me%varData)) THEN ! no restart variables => no restart file
-        IF(my_process_is_mpi_workroot()) CALL file%open(me%description, me%varData, restartArgs, restartAttributes, me%restartType)
-
-        SELECT TYPE(me)
-            TYPE IS(t_SyncPatchData)
-                CALL me%writeData(file)
-            CLASS DEFAULT
-                CALL finish(routine, "assertion failed: me has wrong type")
-        END SELECT
-
-        IF(my_process_is_mpi_workroot()) THEN
-            IF(ALLOCATED(me%description%opt_ndom)) THEN
-                CALL create_restart_file_link(TRIM(file%filename), TRIM(restartArgs%modelType), 0, me%description%id, &
-                                             &opt_ndom = me%description%opt_ndom)
-            ELSE
-                CALL create_restart_file_link(TRIM(file%filename), TRIM(restartArgs%modelType), 0, me%description%id)
-            END IF
-            CALL file%close()
-        END IF
-    END IF
-  END SUBROUTINE syncPatchData_writeFile
-
   SUBROUTINE syncRestartDescriptor_writeRestart(me, datetime, jstep, opt_output_jfile)
     CLASS(t_SyncRestartDescriptor), INTENT(INOUT) :: me
     TYPE(t_datetime), INTENT(IN) :: datetime
@@ -230,7 +188,8 @@ CONTAINS
     CALL restartArgs%construct(datetime, jstep, me%modelType, opt_output_jfile)
 
     DO jg = 1, n_dom
-        CALL syncPatchData_writeFile(me%patchData(jg), restartAttributes, restartArgs)
+        CALL me%patchData(jg)%description%setTimeLevels() !update the time levels
+        CALL me%patchData(jg)%writeFile(restartAttributes, restartArgs, 0, my_process_is_mpi_workroot())
     END DO
 
     CALL restartArgs%destruct()
@@ -292,8 +251,8 @@ CONTAINS
 
   ! loop over all var_lists for restart
   SUBROUTINE syncPatchData_writeData(me, file)
-    CLASS(t_SyncPatchData), INTENT(IN) :: me
-    TYPE(t_RestartFile) :: file
+    CLASS(t_SyncPatchData), INTENT(INOUT) :: me
+    TYPE(t_RestartFile), INTENT(INOUT) :: file
 
     INTEGER :: domain, i, gridSize, error, level
     TYPE(t_var_metadata), POINTER :: info
