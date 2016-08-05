@@ -28,10 +28,11 @@ MODULE mo_packed_message
     PUBLIC :: t_PackedMessage
 
     TYPE :: t_PackedMessage
-        INTEGER communicator, messageSize, readPosition
+        INTEGER messageSize, readPosition
         CHARACTER, POINTER :: messageBuffer(:)
     CONTAINS
         PROCEDURE :: construct => PackedMessage_construct
+        PROCEDURE :: reset => PackedMessage_reset   ! functionally equivalent to `CALL message%destruct(); CALL message%construct()`, but more efficient (buffer IS reused)
 
         ! pack routines
         PROCEDURE :: packInt => PackedMessage_packInt
@@ -101,6 +102,13 @@ CONTAINS
         ALLOCATE(me%messageBuffer(256), STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
     END SUBROUTINE PackedMessage_construct
+
+    SUBROUTINE PackedMessage_reset(me)
+        CLASS(t_PackedMessage), INTENT(INOUT) :: me
+
+        me%messageSize = 0
+        me%readPosition = 0
+    END SUBROUTINE PackedMessage_reset
 
     SUBROUTINE PackedMessage_ensureSpace(me, requiredSpace)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me

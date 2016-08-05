@@ -73,11 +73,8 @@ MODULE mo_io_restart_async
   USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work, p_work_pe0, num_work_procs, MPI_SUCCESS, &
                                       & stop_mpi, p_send, p_recv, p_barrier, p_bcast, my_process_is_restart, my_process_is_work, &
                                       & p_comm_work_2_restart, p_n_work, p_int, process_mpi_restart_size, p_int_i8, p_real_dp, &
-                                      & p_comm_work_restart, p_mpi_wtime, p_send_packed, p_recv_packed, p_bcast_packed, &
-                                      & p_pack_int, p_pack_bool, p_pack_real, p_unpack_int, p_unpack_bool, p_unpack_real, &
-                                      & p_int_byte, get_my_mpi_work_id, p_comm_rank, p_unpack_allocatable_real, &
-                                      & p_unpack_allocatable_logical, p_pack_allocatable_real, p_pack_allocatable_logical, &
-                                      & p_pack_allocatable_int, p_unpack_allocatable_int, process_mpi_all_comm
+                                      & p_comm_work_restart, p_mpi_wtime, p_int_byte, get_my_mpi_work_id, p_comm_rank, &
+                                      & process_mpi_all_comm
 
 #ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
@@ -905,57 +902,46 @@ CONTAINS
 
     ! if processor splitting is applied, the time-dependent data need to be transferred
     ! from the subset master PE to PE0, from where they are communicated to the output PE(s)
+    CALL message%construct()
     DO i = 2, SIZE(patch_data)
       p_pd => patch_data(i)
+      CALL message%reset()
       IF (p_pd%work_pe0_id /= 0) THEN
         IF (p_pe_work == 0) THEN
-          ! recieve the package for this patch
-          CALL p_recv(messageSize, p_pd%work_pe0_id, 0, comm = process_mpi_all_comm)
-          ALLOCATE(p_msg(messageSize), STAT = error)
-          IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-          CALL p_recv_packed(p_msg, p_pd%work_pe0_id, 0, messageSize, comm = process_mpi_all_comm)
-          position = 0
+          CALL message%recv(p_pd%work_pe0_id, 0, process_mpi_all_comm)  ! recieve the package for this patch
 
-          CALL p_unpack_bool               (p_msg, position, p_pd%l_dom_active,                process_mpi_all_comm)
-          CALL p_unpack_int                (p_msg, position, nnow(p_pd%id),                    process_mpi_all_comm)
-          CALL p_unpack_int                (p_msg, position, nnew(p_pd%id),                    process_mpi_all_comm)
-          CALL p_unpack_int                (p_msg, position, nnow_rcf(p_pd%id),                process_mpi_all_comm)
-          CALL p_unpack_int                (p_msg, position, nnew_rcf(p_pd%id),                process_mpi_all_comm)
+          CALL message%unpack(p_pd%l_dom_active)
+          CALL message%unpack(nnow(p_pd%id))
+          CALL message%unpack(nnew(p_pd%id))
+          CALL message%unpack(nnow_rcf(p_pd%id))
+          CALL message%unpack(nnew_rcf(p_pd%id))
 
-          CALL p_unpack_int                (p_msg, position, p_pd%opt_ndyn_substeps,           process_mpi_all_comm)
-          CALL p_unpack_int                (p_msg, position, p_pd%opt_jstep_adv_marchuk_order, process_mpi_all_comm)
-          CALL p_unpack_real               (p_msg, position, p_pd%opt_sim_time,                process_mpi_all_comm)
+          CALL message%unpack(p_pd%opt_ndyn_substeps)
+          CALL message%unpack(p_pd%opt_jstep_adv_marchuk_order)
+          CALL message%unpack(p_pd%opt_sim_time)
 
-          CALL p_unpack_allocatable_logical(p_msg, position, p_pd%opt_lcall_phy,               process_mpi_all_comm)
-          CALL p_unpack_allocatable_real   (p_msg, position, p_pd%opt_t_elapsed_phy,           process_mpi_all_comm)
-
-          DEALLOCATE(p_msg)
+          CALL message%unpack(p_pd%opt_lcall_phy)
+          CALL message%unpack(p_pd%opt_t_elapsed_phy)
         ELSE IF (p_pe_work == p_pd%work_pe0_id) THEN
-          !create package of the DATA that we need to send to process 0
-          p_msg => get_message_array(routine)
-          position     = 0
 
-          CALL p_pack_bool               (p_pd%l_dom_active,                p_msg, position, process_mpi_all_comm)
-          CALL p_pack_int                (nnow(p_pd%id),                    p_msg, position, process_mpi_all_comm)
-          CALL p_pack_int                (nnew(p_pd%id),                    p_msg, position, process_mpi_all_comm)
-          CALL p_pack_int                (nnow_rcf(p_pd%id),                p_msg, position, process_mpi_all_comm)
-          CALL p_pack_int                (nnew_rcf(p_pd%id),                p_msg, position, process_mpi_all_comm)
+          CALL message%pack(p_pd%l_dom_active)
+          CALL message%pack(nnow(p_pd%id))
+          CALL message%pack(nnew(p_pd%id))
+          CALL message%pack(nnow_rcf(p_pd%id))
+          CALL message%pack(nnew_rcf(p_pd%id))
 
-          CALL p_pack_int                (p_pd%opt_ndyn_substeps,           p_msg, position, process_mpi_all_comm)
-          CALL p_pack_int                (p_pd%opt_jstep_adv_marchuk_order, p_msg, position, process_mpi_all_comm)
-          CALL p_pack_real               (p_pd%opt_sim_time,                p_msg, position, process_mpi_all_comm)
+          CALL message%pack(p_pd%opt_ndyn_substeps)
+          CALL message%pack(p_pd%opt_jstep_adv_marchuk_order)
+          CALL message%pack(p_pd%opt_sim_time)
 
-          CALL p_pack_allocatable_logical(p_pd%opt_lcall_phy,               p_msg, position, process_mpi_all_comm)
-          CALL p_pack_allocatable_real   (p_pd%opt_t_elapsed_phy,           p_msg, position, process_mpi_all_comm)
+          CALL message%pack(p_pd%opt_lcall_phy)
+          CALL message%pack(p_pd%opt_t_elapsed_phy)
 
-          !send the package
-          CALL p_send(position, 0, 0, comm = process_mpi_all_comm)
-          CALL p_send_packed(p_msg, 0, 0, position, comm = process_mpi_all_comm)
-
-          DEALLOCATE(p_msg)
+          CALL message%send(0, 0, process_mpi_all_comm) !send the package
         END IF
       END IF
     END DO
+    CALL message%destruct()
 
 
     IF(p_pe_work == 0) THEN
@@ -999,42 +985,6 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE compute_shutdown_restart
-
-  !------------------------------------------------------------------------------------------------
-  !
-  !  Get a message array to transfer all dynamical restart arguments
-  !  between compute and restart PEs.
-  !
-  FUNCTION get_message_array (routine) 
-    CHARACTER, POINTER            :: get_message_array(:)
-    CHARACTER(LEN=*), INTENT(in)  :: routine
-
-    INTEGER                       :: ierrstat, n_msg
-    TYPE(t_patch_data), POINTER   :: p_pd
-
-    ! set minimum size to transfer patch data
-    n_msg = MIN_DYN_RESTART_PDATA
-
-    ! considerate dynamic attributes
-    p_pd => patch_data(1)
-    n_msg = n_msg + SIZE(p_pd%opt_pvct)
-    n_msg = n_msg + SIZE(p_pd%opt_lcall_phy)
-    n_msg = n_msg + SIZE(p_pd%opt_t_elapsed_phy)
-
-    ! calculate summary of all data
-    n_msg = MIN_DYN_RESTART_ARGS + (SIZE(patch_data) * n_msg)
-
-#ifdef DEBUG
-    WRITE (nerr,FORMAT_VALS5)routine,' p_pe=',p_pe, &
-      & ' calculated message size=',n_msg
-#endif
-
-    ! allocate memory (with 2x safety margin ;) )
-    ALLOCATE (get_message_array(2*n_msg*p_int_byte), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, ALLOCATE_FAILED)
-
-  END FUNCTION get_message_array
-
 
   !------------------------------------------------------------------------------------------------
   !
