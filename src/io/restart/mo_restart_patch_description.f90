@@ -25,8 +25,8 @@ MODULE mo_restart_patch_description
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_io_units, ONLY: filename_max
     USE mo_kind, ONLY: wp
-    USE mo_model_domain, ONLY: t_patch
-    USE mo_mpi, ONLY: p_pe_work
+    USE mo_model_domain, ONLY: p_patch, t_patch
+    USE mo_mpi, ONLY: p_pe_work, my_process_is_work
     USE mo_packed_message, ONLY: t_PackedMessage
     USE mo_restart_util, ONLY: setDynamicPatchRestartAttributes, setPhysicsRestartAttributes
     USE mo_util_string, ONLY: int2string
@@ -108,29 +108,44 @@ MODULE mo_restart_patch_description
 
 CONTAINS
 
-    SUBROUTINE restartPatchDescription_init(me, p_patch)
+    SUBROUTINE restartPatchDescription_init(me, domain)
         CLASS(t_restart_patch_description), INTENT(INOUT) :: me
-        TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
+        INTEGER, VALUE :: domain
 
-        me%id = p_patch%id
-        me%work_pe0_id = p_patch%proc0
-        me%nlev = p_patch%nlev
-        me%cell_type = p_patch%geometry_info%cell_type
-        me%base_filename = TRIM(p_patch%grid_filename)
-        me%n_patch_cells_g = p_patch%n_patch_cells_g
-        me%n_patch_verts_g = p_patch%n_patch_verts_g
-        me%n_patch_edges_g = p_patch%n_patch_edges_g
+        ! DEFAULT initialization of all variables
+        me%id = domain
+        me%work_pe0_id = -1
+        me%nlev = -1
+        me%cell_type = -1
+        me%base_filename = ''
+        me%n_patch_cells_g = -1
+        me%n_patch_verts_g = -1
+        me%n_patch_edges_g = -1
         me%v_grid_count = 0
         me%l_dom_active = .FALSE.
         me%restart_proc_id = 0
-        me%nold = nold(p_patch%id)
-        me%nnow = nnow(p_patch%id)
-        me%nnew = nnew(p_patch%id)
-        me%nnew_rcf = nnew_rcf(p_patch%id)
-        me%nnow_rcf = nnow_rcf(p_patch%id)
-        me%cellGatherPattern => p_patch%comm_pat_gather_c
-        me%vertGatherPattern => p_patch%comm_pat_gather_v
-        me%edgeGatherPattern => p_patch%comm_pat_gather_e
+        me%nold = nold(domain)
+        me%nnow = nnow(domain)
+        me%nnew = nnew(domain)
+        me%nnew_rcf = nnew_rcf(domain)
+        me%nnow_rcf = nnow_rcf(domain)
+        me%cellGatherPattern => NULL()
+        me%vertGatherPattern => NULL()
+        me%edgeGatherPattern => NULL()
+
+        ! patch dependent info, p_patch IS NOT available on restart PEs
+        IF(my_process_is_work()) THEN
+            me%work_pe0_id = p_patch(domain)%proc0
+            me%nlev = p_patch(domain)%nlev
+            me%cell_type = p_patch(domain)%geometry_info%cell_type
+            me%base_filename = TRIM(p_patch(domain)%grid_filename)
+            me%n_patch_cells_g = p_patch(domain)%n_patch_cells_g
+            me%n_patch_verts_g = p_patch(domain)%n_patch_verts_g
+            me%n_patch_edges_g = p_patch(domain)%n_patch_edges_g
+            me%cellGatherPattern => p_patch(domain)%comm_pat_gather_c
+            me%vertGatherPattern => p_patch(domain)%comm_pat_gather_v
+            me%edgeGatherPattern => p_patch(domain)%comm_pat_gather_e
+        END IF
     END SUBROUTINE restartPatchDescription_init
 
     SUBROUTINE restartPatchDescription_update(me, patch, opt_pvct, opt_t_elapsed_phy, opt_lcall_phy, opt_sim_time, &

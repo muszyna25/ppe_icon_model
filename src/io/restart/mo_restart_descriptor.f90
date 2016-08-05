@@ -15,7 +15,7 @@ MODULE mo_restart_descriptor
     USE mo_kind, ONLY: wp
     USE mo_model_domain, ONLY: t_patch
     USE mo_restart_patch_description, ONLY: t_restart_patch_description
-    USE mo_restart_var_data, ONLY: t_RestartVarData
+    USE mo_restart_var_data, ONLY: t_RestartVarData, createRestartVarData
 
     IMPLICIT NONE
 
@@ -30,7 +30,8 @@ MODULE mo_restart_descriptor
         TYPE(t_RestartVarData), POINTER :: varData(:)
         INTEGER :: restartType
     CONTAINS
-        PROCEDURE(restartPatchData_construct), DEFERRED :: construct
+        PROCEDURE :: construct => restartPatchData_construct
+        PROCEDURE :: destruct => restartPatchData_destruct
     END TYPE t_RestartPatchData
 
     ! This IS the actual INTERFACE to the restart writing code (apart from the restart_main_proc PROCEDURE). Its USE IS as follows:
@@ -86,13 +87,23 @@ MODULE mo_restart_descriptor
             INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
         END SUBROUTINE restartDescriptor_writeRestart
 
-        SUBROUTINE restartPatchData_construct(me, modelType, domain)
-            IMPORT t_RestartPatchData
-            CLASS(t_RestartPatchData), INTENT(INOUT) :: me
-            CHARACTER(*), INTENT(IN) :: modelType
-            INTEGER, INTENT(IN) :: domain
-        END SUBROUTINE restartPatchData_construct
-
     END INTERFACE
+
+CONTAINS
+
+    SUBROUTINE restartPatchData_construct(me, modelType, domain)
+        CLASS(t_RestartPatchData), INTENT(INOUT) :: me
+        CHARACTER(*), INTENT(IN) :: modelType
+        INTEGER, INTENT(IN) :: domain
+
+        CALL me%description%init(domain)
+        me%varData => createRestartVarData(domain, modelType, me%restartType)
+    END SUBROUTINE restartPatchData_construct
+
+    SUBROUTINE restartPatchData_destruct(me)
+        CLASS(t_RestartPatchData), INTENT(INOUT) :: me
+
+        IF(ASSOCIATED(me%varData)) DEALLOCATE(me%varData)
+    END SUBROUTINE restartPatchData_destruct
 
 END MODULE mo_restart_descriptor

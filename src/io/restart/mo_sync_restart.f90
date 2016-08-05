@@ -84,9 +84,6 @@ MODULE mo_sync_restart
 
   TYPE, EXTENDS(t_RestartPatchData) :: t_SyncPatchData
   CONTAINS
-    PROCEDURE :: construct => syncPatchData_construct   ! override
-    PROCEDURE :: destruct => syncPatchData_destruct ! override
-
     PROCEDURE, PRIVATE :: writeData => syncPatchData_writeData  ! implementation detail of writeFile()
   END TYPE t_SyncPatchData
 
@@ -106,20 +103,6 @@ MODULE mo_sync_restart
 
   !------------------------------------------------------------------------------------------------
 CONTAINS
-
-  SUBROUTINE syncPatchData_construct(me, modelType, domain)
-    CLASS(t_SyncPatchData), INTENT(INOUT) :: me
-    CHARACTER(*), INTENT(IN) :: modelType
-    INTEGER, INTENT(IN) :: domain
-
-    CALL me%description%init(p_patch(domain))
-    me%varData => createRestartVarData(domain, modelType, me%restartType)
-  END SUBROUTINE syncPatchData_construct
-
-  SUBROUTINE syncPatchData_destruct(me)
-    CLASS(t_SyncPatchData), INTENT(INOUT) :: me
-    ! nothing to do
-  END SUBROUTINE syncPatchData_destruct
 
   SUBROUTINE syncRestartDescriptor_construct(me, modelType)
     CLASS(t_SyncRestartDescriptor), INTENT(INOUT) :: me

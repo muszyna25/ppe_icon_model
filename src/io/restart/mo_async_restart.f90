@@ -96,6 +96,8 @@ MODULE mo_async_restart
   CONTAINS
     PROCEDURE :: construct => asyncPatchData_construct  ! override
     PROCEDURE :: destruct => asyncPatchData_destruct  ! override
+
+    PROCEDURE, PRIVATE :: transferToRestart => asyncPatchData_transferToRestart
   END TYPE t_AsyncPatchData
 
   ! This IS the actual INTERFACE to the restart writing code (apart from the restart_main_proc PROCEDURE). Its USE IS as follows:
@@ -121,6 +123,7 @@ MODULE mo_async_restart
 
 CONTAINS
 
+  ! collective across restart AND worker PEs
   SUBROUTINE asyncPatchData_construct(me, modelType, domain)
     CLASS(t_AsyncPatchData), INTENT(INOUT) :: me
     CHARACTER(*), INTENT(IN) :: modelType
@@ -128,9 +131,10 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: routine = modname//":asyncPatchData_construct"
 
-    CALL create_patch_description(me%description, domain)
-    me%varData => createRestartVarData(domain, modelType, me%restartType)
+    CALL me%t_RestartPatchData%construct(modelType, domain)
     CALL me%commData%construct(domain, me%varData)
+
+    CALL me%transferToRestart()
 
     ! consistency checks
     IF(me%description%n_patch_cells_g /= me%commData%cells%n_glb) THEN
@@ -144,10 +148,28 @@ CONTAINS
     END IF
   END SUBROUTINE asyncPatchData_construct
 
+  ! collective across restart AND worker PEs
+  SUBROUTINE asyncPatchData_transferToRestart(me)
+    CLASS(t_AsyncPatchData), INTENT(INOUT) :: me
+
+    TYPE(t_PackedMessage) :: message
+
+    CALL message%construct()    ! initialize on work PEs
+    IF(my_process_is_work()) CALL me%description%packer(kPackOp, message)
+    CALL message%bcast(restartBcastRoot(), p_comm_work_2_restart)   ! transfer data to restart PEs
+    CALL me%description%packer(kUnpackOp, message)
+    CALL message%destruct() ! cleanup
+
+    ! initialize the fields that we DO NOT communicate from the worker PEs to the restart PEs
+    me%description%restart_proc_id = MOD(me%description%id-1, process_mpi_restart_size) + p_restart_pe0
+    me%description%v_grid_count = 0
+  END SUBROUTINE asyncPatchData_transferToRestart
+
   SUBROUTINE asyncPatchData_destruct(me)
     CLASS(t_AsyncPatchData), INTENT(INOUT) :: me
 
     CALL me%commData%destruct()
+    CALL me%t_RestartPatchData%destruct()
   END SUBROUTINE asyncPatchData_destruct
 
   FUNCTION toAsyncPatchData(patchData) RESULT(RESULT)
@@ -860,31 +882,6 @@ CONTAINS
     IF(lIsReceiver) CALL restartVarlistPacker(kUnpackOp, message)
     CALL message%destruct()
   END SUBROUTINE bcastRestartVarlists
-
-  ! collective across restart AND worker PEs
-  SUBROUTINE create_patch_description(description, domain)
-    TYPE(t_restart_patch_description), INTENT(INOUT) :: description
-    INTEGER, VALUE :: domain
-
-    TYPE(t_PackedMessage) :: message
-
-    ! initialize on work PEs
-    CALL message%construct()
-    IF(my_process_is_work()) THEN
-        CALL description%init(p_patch(domain))
-        CALL description%packer(kPackOp, message)
-    END IF
-
-    ! transfer data to restart PEs
-    CALL message%bcast(restartBcastRoot(), p_comm_work_2_restart)
-    CALL description%packer(kUnpackOp, message)
-
-    ! initialize the fields that we DO NOT communicate from the worker PEs to the restart PEs
-    description%restart_proc_id = MOD(description%id-1, process_mpi_restart_size) + p_restart_pe0
-    description%v_grid_count = 0
-
-    CALL message%destruct() ! cleanup
-  END SUBROUTINE create_patch_description
 
   !------------------------------------------------------------------------------------------------
   !
