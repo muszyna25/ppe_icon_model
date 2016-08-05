@@ -138,6 +138,7 @@ MODULE mo_restart_async
     PROCEDURE, PRIVATE :: constructCompute => reorderData_constructCompute  ! The reorder DATA IS constructed on the work processes AND THEN transferred to the restart processes.
     PROCEDURE, PRIVATE :: transferToRestart => reorderData_transferToRestart    ! Constructs the reorder DATA on the restart processes.
 
+    PROCEDURE, PRIVATE :: packLevel => reorderData_packLevel    ! pack the contents of a single level/variable into our memory window
     PROCEDURE, PRIVATE :: reorderLevelFromPe => reorderData_reorderLevelFromPe  ! sort the DATA of a single level from a single PE into a global array.
 
     PROCEDURE, PRIVATE :: destruct => reorderData_destruct
@@ -155,7 +156,8 @@ MODULE mo_restart_async
     TYPE(t_reorder_data) :: verts
   CONTAINS
     PROCEDURE, PRIVATE :: construct => restartCommData_construct
-    PROCEDURE, PRIVATE :: collectData => restartCommData_collectData
+    PROCEDURE, PRIVATE :: postData => restartCommData_postData  ! called by the compute processes to WRITE their DATA to their memory window
+    PROCEDURE, PRIVATE :: collectData => restartCommData_collectData    ! called by the restart processes to fetch the DATA from the compute processes
     PROCEDURE, PRIVATE :: destruct => restartCommData_destruct
   END TYPE t_restart_comm_data
 
@@ -1034,11 +1036,45 @@ CONTAINS
     END IF
   END SUBROUTINE restartCommData_construct
 
+  SUBROUTINE restartCommData_postData(me, varInfo, dataPointers, offset)
+    CLASS(t_restart_comm_data), INTENT(INOUT) :: me
+    TYPE(t_var_metadata), INTENT(IN) :: varInfo
+    TYPE(t_ptr_2d), ALLOCATABLE, INTENT(IN) :: dataPointers(:)
+    !TODO[NH]: Replace this by an index within the t_restart_comm_data structure.
+    INTEGER(i8), INTENT(INOUT) :: offset
+
+    TYPE(t_reorder_data), POINTER :: reorderData
+    INTEGER :: mpi_error, i
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartCommData_postData"
+
+    ! get pointer to reorder data
+    reorderData => get_reorder_ptr(me, varInfo, routine)
+
+#ifdef DEBUG
+    WRITE(nerr,FORMAT_VALS7I) routine,' p_pe=',p_pe,' compute pe writes field=', TRIM(varInfo%name),' data=', &
+                            & SIZE(dataPointers)*reorderData%n_own
+#endif
+
+    ! lock own window before writing to it
+    CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, me%mpiWindow, mpi_error)
+    CALL check_mpi_error(routine, 'MPI_Win_lock', mpi_error, .TRUE.)
+
+    ! just copy the OWN data points to the memory window
+    DO i = 1, SIZE(dataPointers)
+        CALL reorderData%packLevel(dataPointers(i)%p, me%windowPtr, offset)
+    END DO
+
+    ! unlock RMA window
+    CALL MPI_Win_unlock(p_pe_work, me%mpiWindow, mpi_error)
+    CALL check_mpi_error(routine, 'MPI_Win_unlock', mpi_error, .TRUE.)
+  END SUBROUTINE restartCommData_postData
+
   SUBROUTINE restartCommData_collectData(me, varInfo, levelCount, dest, offsets, elapsedTime, bytesFetched)
     CLASS(t_restart_comm_data), INTENT(INOUT) :: me
     TYPE(t_var_metadata), POINTER :: varInfo
     INTEGER, VALUE :: levelCount
     REAL(dp), INTENT(INOUT) :: dest(:,:)
+    !TODO[NH]: Replace this by an index within the t_restart_comm_data structure.
     INTEGER(KIND=MPI_ADDRESS_KIND), INTENT(INOUT) :: offsets(0:num_work_procs-1)   ! This remembers the current offsets within all the different processes RMA windows. Pass a zero initialized array to the first collectData() CALL, THEN keep passing the array without external modifications.
     REAL(dp), INTENT(INOUT) :: elapsedTime
     INTEGER(i8), INTENT(INOUT) :: bytesFetched
@@ -1332,6 +1368,21 @@ CONTAINS
     END IF
     CALL me%transferToRestart()
   END SUBROUTINE reorderData_construct
+
+  SUBROUTINE reorderData_packLevel(me, source, dest, offset)
+    CLASS(t_reorder_data), INTENT(IN) :: me
+    REAL(wp), INTENT(IN) :: source(:,:)
+    REAL(dp), INTENT(INOUT) :: dest(:)
+    !TODO[NH]: Replace this by an INTENT(IN) level count
+    INTEGER(i8), INTENT(INOUT) :: offset
+
+    INTEGER :: i
+
+    DO i = 1, me%n_own
+        offset = offset + 1
+        dest(offset) = REAL(source(me%own_idx(i), me%own_blk(i)), dp)
+    END DO
+  END SUBROUTINE reorderData_packLevel
 
   SUBROUTINE reorderData_reorderLevelFromPe(me, level, pe, dataIn, globalArray)
     CLASS(t_reorder_data), INTENT(IN) :: me
@@ -1725,12 +1776,11 @@ CONTAINS
   SUBROUTINE compute_write_var_list(p_pd)
     TYPE(t_patch_data), TARGET, INTENT(INOUT) :: p_pd
 
-    TYPE(t_var_metadata), POINTER   :: p_info
     TYPE(t_reorder_data), POINTER   :: p_ri
     TYPE(t_var_data), POINTER       :: p_vars(:)
     TYPE(t_ptr_2d), ALLOCATABLE     :: dataPointers(:)
-    INTEGER                         :: iv, mpi_error, i, jk
-    INTEGER(i8)                     :: ioff
+    INTEGER                         :: iv
+    INTEGER(i8)                     :: offset
     CHARACTER(LEN=*), PARAMETER     :: routine = modname//':compute_write_var_list'
 
 #ifdef DEBUG
@@ -1745,49 +1795,21 @@ CONTAINS
     IF (.NOT. ASSOCIATED(p_vars)) RETURN
 
     ! offset in RMA window for async restart
-    ioff = 0
-
-    ! in case of async restart: Lock own window before writing to it
-    CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, p_pd%commData%mpiWindow, mpi_error)
-    CALL check_mpi_error(routine, 'MPI_Win_lock', mpi_error, .TRUE.)
+    offset = 0
 
     ! go over the all restart variables in the associated array
     DO iv = 1, SIZE(p_vars)
-
-      ! get pointer to metadata
-      p_info => p_vars(iv)%info
-
 #ifdef DEBUG
-      WRITE (nerr,FORMAT_VALS5I)routine,' p_pe=',p_pe,' compute pe processes field=',TRIM(p_info%name)
+      WRITE (nerr,FORMAT_VALS5I)routine,' p_pe=',p_pe,' compute pe processes field=',TRIM(p_vars(iv)%info%name)
 #endif
 
       ! check time level of the field
-      IF (.NOT. has_valid_time_level(p_info, p_pd%description)) CYCLE
+      IF (.NOT. has_valid_time_level(p_vars(iv)%info, p_pd%description)) CYCLE
 
       CALL getLevelPointers(p_vars(iv)%info, p_vars(iv)%r_ptr, dataPointers)
-
-      ! get pointer to reorder data
-      p_ri => get_reorder_ptr(p_pd%commData, p_info, routine)
-
-#ifdef DEBUG
-      WRITE (nerr,FORMAT_VALS7I)routine,' p_pe=',p_pe,' compute pe writes field=', &
-        &                               TRIM(p_info%name),' data=',SIZE(dataPointers)*p_ri%n_own
-#endif
-
-      ! just copy the OWN data points to the memory window
-      DO jk = 1, SIZE(dataPointers)
-        DO i = 1, p_ri%n_own
-          p_pd%commData%windowPtr(ioff+INT(i,i8)) = REAL(dataPointers(jk)%p(p_ri%own_idx(i),p_ri%own_blk(i)),dp)
-        END DO
-        ioff = ioff + INT(p_ri%n_own,i8)
-      END DO
-
+      CALL p_pd%commData%postData(p_vars(iv)%info, dataPointers, offset)
       ! no deallocation of dataPointers, so that the next invocation of getLevelPointers() may reuse the last allocation
     END DO
-
-    ! unlock RMA window
-    CALL MPI_Win_unlock(p_pe_work, p_pd%commData%mpiWindow, mpi_error)
-    CALL check_mpi_error(routine, 'MPI_Win_unlock', mpi_error, .TRUE.)
   END SUBROUTINE compute_write_var_list
 
   !------------------------------------------------------------------------------------------------
