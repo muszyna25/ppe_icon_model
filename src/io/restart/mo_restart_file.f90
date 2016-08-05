@@ -62,12 +62,12 @@ CONTAINS
         p_re_list => NULL()
         DO i = 1, nvar_lists
             ! skip, if var_list is not required for restart
-            IF (.NOT. var_lists(i)%p%lrestart) CYCLE
-
-            ! save pointer
-            p_re_list => var_lists(i)
-            EXIT
-        ENDDO
+            IF(var_lists(i)%p%lrestart) THEN
+                ! save pointer
+                p_re_list => var_lists(i)
+                EXIT
+            END IF
+        END DO
 
         ! assume all restart variables uses the same file format
         datetimeString = TRIM(iso8601(restart_args%datetime))

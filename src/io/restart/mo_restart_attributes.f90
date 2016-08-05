@@ -15,7 +15,7 @@ MODULE mo_restart_attributes
   USE mo_fortran_tools,         ONLY: t_Destructible
   USE mo_hash_table,            ONLY: t_HashTable, hashTable_make, t_HashIterator
   USE mo_impl_constants,        ONLY: SUCCESS
-  USE mo_kind,                  ONLY: wp, i8
+  USE mo_kind,                  ONLY: wp
   USE mo_master_config,         ONLY: isRestart
   USE mo_mpi,                   ONLY: p_bcast, p_comm_rank
   USE mo_util_string,           ONLY: real2string, int2string
@@ -88,8 +88,6 @@ MODULE mo_restart_attributes
   CONTAINS
     PROCEDURE :: destruct => logical_destruct   !< override
   END TYPE t_Logical
-
-  TYPE(t_HashTable), SAVE, POINTER :: table
 
   TYPE(t_RestartAttributeList), SAVE, POINTER :: gRestartAttributes
   LOGICAL, SAVE :: gRestartAttributes_initialized = .FALSE.
@@ -315,9 +313,7 @@ CONTAINS
     CHARACTER(*), INTENT(IN) :: key
     CLASS(t_Destructible), POINTER :: RESULT
 
-    INTEGER :: error
     CLASS(t_Destructible), POINTER :: keyObject
-    CLASS(*), POINTER :: keyObjectAlias  !XXX: workaround for gcc compiler bug
     CHARACTER(*), PARAMETER :: routine = modname//":RestartAttributeList_getObject"
 
     RESULT => NULL()

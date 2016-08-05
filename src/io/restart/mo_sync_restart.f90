@@ -52,43 +52,28 @@
 !!
 !OPTION! -pvctl conflict
 MODULE mo_sync_restart
-  USE mo_kind,                  ONLY: wp
-  USE mo_exception,             ONLY: finish, message, message_text
-  USE mo_fortran_tools,         ONLY: t_ptr_2d
-  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, TLEV_NNOW, TLEV_NNOW_RCF, SUCCESS
-  USE mo_var_metadata_types,    ONLY: t_var_metadata
-  USE mo_linked_list,           ONLY: t_var_list, t_list_element
-  USE mo_var_list,              ONLY: nvar_lists, var_lists, get_var_timelevel
-  USE mo_cdi,                   ONLY: FILETYPE_NC2, FILETYPE_NC4, CDI_UNDEFID, COMPRESS_ZIP, &
-                                    & streamWriteVarSlice, streamWriteVar
-  USE mo_cdi_constants,         ONLY: ZA_COUNT
-  USE mo_restart_util,          ONLY: t_restart_cdi_ids, setGeneralRestartAttributes, &
-                                    & setDynamicPatchRestartAttributes, setPhysicsRestartAttributes, create_restart_file_link, &
-                                    & getRestartFilename, t_restart_args
-  USE mo_restart_var_data,      ONLY: getLevelPointers, has_valid_time_level
-  USE mo_util_string,           ONLY: int2string, separator
-  USE mo_restart_attributes,    ONLY: t_RestartAttributeList, RestartAttributeList_make
-  USE mo_restart_descriptor,    ONLY: t_RestartDescriptor
-  USE mo_restart_file,          ONLY: t_RestartFile
+  USE mo_communication, ONLY: t_comm_gather_pattern, exchange_data
+  USE mo_datetime, ONLY: t_datetime
+  USE mo_dynamics_config, ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf
+  USE mo_exception, ONLY: finish, message
+  USE mo_fortran_tools, ONLY: t_ptr_2d
+  USE mo_grid_config, ONLY: n_dom
+  USE mo_impl_constants, ONLY: SUCCESS
+  USE mo_kind, ONLY: wp
+  USE mo_model_domain, ONLY: t_patch, p_patch
+  USE mo_mpi, ONLY: my_process_is_mpi_workroot, my_process_is_mpi_test
+  USE mo_restart_attributes, ONLY: t_RestartAttributeList, RestartAttributeList_make
+  USE mo_restart_descriptor, ONLY: t_RestartDescriptor
+  USE mo_restart_file, ONLY: t_RestartFile
   USE mo_restart_patch_description, ONLY: t_restart_patch_description
-  USE mo_restart_var_data,      ONLY: t_RestartVarData, createRestartVarData
-  USE mo_datetime,              ONLY: t_datetime, iso8601
-  USE mo_run_config,            ONLY: ltimer, restart_filename
-  USE mo_timer,                 ONLY: timer_start, timer_stop, timer_write_restart_file
-
-  USE mo_dynamics_config,       ONLY: iequations, nold, nnow, nnew, nnew_rcf, nnow_rcf
-  USE mo_grid_config,           ONLY: l_limited_area, n_dom
-
-#ifndef __NO_ICON_ATMO__
-!LK comment: should not be here !!!!!! polution of namespace !!!!!!
-!GZ: but then we need an alternative method of skipping unnecessary time levels!
-  USE mo_impl_constants,        ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, LEAPFROG_EXPL, LEAPFROG_SI, INH_ATMOSPHERE
-  USE mo_ha_dyn_config,         ONLY: ha_dyn_config
-#endif
-
-  USE mo_model_domain,          ONLY: t_patch, p_patch
-  USE mo_mpi,                   ONLY: my_process_is_mpi_workroot, my_process_is_mpi_test
-  USE mo_communication,         ONLY: t_comm_gather_pattern, exchange_data
+  USE mo_restart_util, ONLY: setGeneralRestartAttributes, setDynamicPatchRestartAttributes, setPhysicsRestartAttributes, &
+                           & create_restart_file_link, t_restart_args
+  USE mo_restart_var_data, ONLY: getLevelPointers, has_valid_time_level
+  USE mo_restart_var_data, ONLY: t_RestartVarData, createRestartVarData
+  USE mo_run_config, ONLY: ltimer
+  USE mo_timer, ONLY: timer_start, timer_stop, timer_write_restart_file
+  USE mo_util_string, ONLY: int2string
+  USE mo_var_metadata_types, ONLY: t_var_metadata
 
   IMPLICIT NONE
 
@@ -178,9 +163,8 @@ CONTAINS
     INTEGER, VALUE :: jstep
     INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
 
-    INTEGER :: i, jg, effectiveDomainCount
+    INTEGER :: jg, effectiveDomainCount
     CHARACTER(LEN = 2) :: jgString
-    CHARACTER(LEN = :), ALLOCATABLE :: prefix
     TYPE(t_restart_patch_description), POINTER :: curDescription
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":syncRestartDescriptor_defineRestartAttributes"
 
@@ -225,37 +209,16 @@ CONTAINS
     TYPE(t_RestartAttributeList) :: restartAttributes
     TYPE(t_restart_args), INTENT(IN) :: restartArgs
 
-    INTEGER :: inlev_soil, inlev_snow, i, nice_class, error
-    INTEGER :: ndepth    ! depth of n
     TYPE(t_RestartFile) :: file
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":patchData_writeFile"
 
-    inlev_soil = 0
-    IF(me%description%l_opt_depth_lnd .AND. me%description%opt_depth_lnd > 0) THEN            ! geometrical depth for land module
-        !This part is only called if me%description%opt_depth_lnd > 0
-        inlev_soil = me%description%opt_depth_lnd
-    ENDIF
-
-    inlev_snow = 0
-    IF(me%description%l_opt_nlev_snow .AND. me%description%opt_nlev_snow > 0) THEN  ! number of snow levels (multi layer snow model)
-        !This part is only called if me%description%opt_nlev_snow > 0
-        inlev_snow = me%description%opt_nlev_snow
-    ENDIF
-!DR end preliminary fix
-
-    ndepth = 0
     IF(ALLOCATED(me%description%opt_ocean_zheight_cellMiddle)) THEN
       IF(.NOT. ALLOCATED(me%description%opt_ocean_Zheight_CellInterfaces) .OR. .NOT. me%description%l_opt_ocean_Zlevels) THEN
           CALL finish('patchData_writeFile','Ocean level parameteres not complete')
       END IF
-      ndepth = me%description%opt_ocean_Zlevels
     END IF
 
-    nice_class = 1
-    IF(me%description%l_opt_nice_class) nice_class = me%description%opt_nice_class
-
     CALL me%description%defineVGrids()
-
     CALL me%description%setTimeLevels() !update the time levels
 
     IF(ASSOCIATED(me%varData)) THEN ! no restart variables => no restart file
@@ -315,9 +278,8 @@ CONTAINS
     REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time, opt_t_elapsed_phy(:,:)
     LOGICAL , INTENT(IN), OPTIONAL :: opt_lcall_phy(:,:)
 
-    INTEGER :: i, jg, effectiveDomainCount
+    INTEGER :: jg, effectiveDomainCount
     CHARACTER(LEN = 2) :: jgString
-    CHARACTER(LEN = :), ALLOCATABLE :: prefix
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":defineRestartAttributes"
 
     ! first the attributes that are independent of the domain

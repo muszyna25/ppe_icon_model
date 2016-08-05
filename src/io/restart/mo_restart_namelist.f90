@@ -260,15 +260,15 @@ CONTAINS
 
   SUBROUTINE close_tmpfile(funit)
     INTEGER, INTENT(in) :: funit
+
     CHARACTER(len=filename_max) :: filename
-    INTEGER :: iret
+    INTEGER :: error
+    CHARACTER(*), PARAMETER :: routine = modname//":close_tmpfile"
 
     INQUIRE(funit,NAME=filename)
-
     CLOSE(funit)
-
-    iret = util_unlink(TRIM(filename))
-
+    error = util_unlink(TRIM(filename))
+    IF(error /= SUCCESS) CALL message(routine, "warning: error while unlinking file '"//TRIM(filename)//"'")
   END SUBROUTINE close_tmpfile
 
   ! Store the namelists as attributes to the given CDI vlistId

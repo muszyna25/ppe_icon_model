@@ -18,7 +18,9 @@ MODULE mo_restart_var_data
     USE mo_ha_dyn_config, ONLY: ha_dyn_config
     USE mo_impl_constants, ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, INH_ATMOSPHERE, TLEV_NNOW, TLEV_NNOW_RCF, SUCCESS, &
                                & LEAPFROG_EXPL, LEAPFROG_SI
+#ifdef DEBUG
     USE mo_io_units, ONLY: nerr
+#endif
     USE mo_kind, ONLY: wp
     USE mo_linked_list, ONLY: t_list_element, t_var_list
     USE mo_parallel_config, ONLY: nproma
@@ -208,7 +210,7 @@ CONTAINS
         TYPE(t_var_metadata), INTENT(IN) :: p_info
         INTEGER, VALUE :: domain, nnew, nnew_rcf
 
-        INTEGER :: idx, time_level
+        INTEGER :: time_level
         LOGICAL :: lskip_timelev, lskip_extra_timelevs
         CHARACTER(LEN = *), PARAMETER :: routine = modname//':has_valid_time_level'
 

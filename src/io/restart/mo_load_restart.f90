@@ -51,7 +51,7 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::read_restart_header"
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: rst_filename
-    LOGICAL                        :: lsuccess, lexists
+    LOGICAL                        :: lexists
     INTEGER                        :: idom, total_dom, fileID, vlistID, myRank
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
     INTEGER, PARAMETER :: root_pe = 0
@@ -115,7 +115,6 @@ CONTAINS
   END SUBROUTINE read_restart_header
 
   SUBROUTINE read_restart_files(p_patch, opt_ndom)
-
     TYPE(t_patch), INTENT(in) :: p_patch
     INTEGER,       OPTIONAL, INTENT(in) :: opt_ndom
     ! local variables
@@ -130,10 +129,8 @@ CONTAINS
     TYPE (t_list_element), POINTER   :: element
     TYPE (t_var_metadata), POINTER   :: info
     CHARACTER(len=80)                :: restart_filename, name
-    INTEGER                          :: fileID, vlistID, gridID, zaxisID, taxisID,    &
-      &                                 varID, idate, itime, ic, il, n, nfiles, i,   &
-      &                                 iret, istat, key, vgrid, gdims(5), nindex,   &
-      &                                 nmiss, nvars, root_pe, var_ref_pos, lev
+    INTEGER                          :: fileID, vlistID, gridID, zaxisID, taxisID, varID, idate, itime, ic, il, n, nfiles, i, &
+                                      & istat, key, vgrid, nindex, nmiss, nvars, root_pe, var_ref_pos, lev
     CHARACTER(len=8)                 :: model_type
     REAL(wp), POINTER                :: r1d(:), rptr2d(:,:), rptr3d(:,:,:)
     CLASS(t_scatterPattern), POINTER :: scatter_pattern

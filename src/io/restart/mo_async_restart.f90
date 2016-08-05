@@ -20,7 +20,7 @@
 !!
 
 MODULE mo_async_restart
-  USE mo_async_restart_packer,    ONLY: t_AsyncRestartPacker, restartBcastRoot
+  USE mo_async_restart_packer,    ONLY: restartBcastRoot
   USE mo_async_restart_comm_data, ONLY: t_AsyncRestartCommData
   USE mo_cdi_constants,           ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
   USE mo_exception,               ONLY: finish
@@ -34,7 +34,7 @@ MODULE mo_async_restart
   USE mo_impl_constants,          ONLY: SUCCESS
   USE mo_var_metadata_types,      ONLY: t_var_metadata
   USE mo_restart_file,            ONLY: t_RestartFile
-  USE mo_restart_namelist,     ONLY: print_restart_name_lists, RestartNamelist_bcast
+  USE mo_restart_namelist,        ONLY: RestartNamelist_bcast
   USE mo_parallel_config,         ONLY: restart_chunk_size
   USE mo_grid_config,             ONLY: n_dom
   USE mo_run_config,              ONLY: msg_level
@@ -54,6 +54,9 @@ MODULE mo_async_restart
 #else
   USE mpi,                        ONLY: MPI_ADDRESS_KIND
 #endif
+#endif
+#ifdef DEBUG
+  USE mo_restart_namelist,     ONLY: print_restart_name_lists
 #endif
 
   IMPLICIT NONE
@@ -458,7 +461,7 @@ CONTAINS
     TYPE(t_patch_data), INTENT(INOUT) :: patch_data(:)
     TYPE(t_PackedMessage), INTENT(INOUT) :: message
 
-    INTEGER :: i, calday, patchId
+    INTEGER :: i
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartMetadataPacker"
 
     ! (un)pack patch independent arguments
@@ -915,7 +918,6 @@ CONTAINS
     TYPE(t_RestartFile) :: restartFile
 
     TYPE(t_var_metadata), POINTER   :: p_info
-    TYPE(t_AsyncRestartPacker), POINTER   :: p_ri
 
     INTEGER                         :: iv, nval, ierrstat, nlevs, ilev, pointCount
     INTEGER(KIND=MPI_ADDRESS_KIND)  :: ioff(0:num_work_procs-1)
@@ -1017,7 +1019,6 @@ CONTAINS
   SUBROUTINE compute_write_var_list(p_pd)
     TYPE(t_patch_data), TARGET, INTENT(INOUT) :: p_pd
 
-    TYPE(t_AsyncRestartPacker), POINTER   :: p_ri
     TYPE(t_RestartVarData), POINTER :: p_vars(:)
     TYPE(t_ptr_2d), ALLOCATABLE     :: dataPointers(:)
     INTEGER                         :: iv

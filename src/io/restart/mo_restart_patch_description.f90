@@ -277,7 +277,7 @@ CONTAINS
     SUBROUTINE restartPatchDescription_defineVGrids(me)
         CLASS(t_restart_patch_description), TARGET, INTENT(INOUT) :: me
 
-        INTEGER :: nlev_soil, nlev_snow, nlev_ocean, nice_class, ierrstat
+        INTEGER :: nlev_soil, nlev_snow, nlev_ocean, nice_class
         INTEGER :: error
         REAL(wp), ALLOCATABLE :: levels(:), levels_sp(:)
         CHARACTER(*), PARAMETER :: routine = modname//":restartPatchDescription_defineVGrids"
@@ -305,7 +305,7 @@ CONTAINS
         CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_MIX_LAYER, 1._wp)
         CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_LAKE_BOTTOM_HALF, 1._wp)
         CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_SEDIMENT_BOTTOM_TW_HALF, 0._wp)
-        CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_GENERIC_ICE, 1._wp)
+        CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_GENERIC_ICE, nice_class)
         CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_RUNOFF_S, 1)
         CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_RUNOFF_G, 1)
         IF(me%l_opt_depth_lnd) CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_LAND, nlev_soil)

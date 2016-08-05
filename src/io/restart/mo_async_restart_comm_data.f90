@@ -69,7 +69,10 @@ CONTAINS
         REAL(dp), POINTER, INTENT(OUT) :: mem_ptr_dp(:) ! this returns a fortran POINTER to the memory buffer
         INTEGER, INTENT(OUT) :: mpi_win ! this returns the handle to the MPI window
 
-        INTEGER :: nbytes_real, mpi_error, rma_cache_hint
+#ifdef __xlC__
+        INTEGER :: rma_cache_hint
+#endif
+        INTEGER :: nbytes_real, mpi_error
         INTEGER(KIND=MPI_ADDRESS_KIND) :: mem_bytes
         TYPE(C_PTR) :: c_mem_ptr
         CHARACTER(LEN=*), PARAMETER :: routine = modname//':openMpiWindow'
@@ -111,18 +114,12 @@ CONTAINS
         CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, c_mem_ptr, mpi_error)
         IF(mpi_error /= MPI_SUCCESS) CALL finish(routine, 'MPI_Alloc_mem returned error '//TRIM(int2string(mpi_error)))
 
-        ! The NEC requires a standard INTEGER array as 3rd argument for c_f_pointer,
-        ! although it would make more sense to have it of size MPI_ADDRESS_KIND.
         NULLIFY(mem_ptr_dp)
-#ifdef __SX__
-        CALL C_F_POINTER(c_mem_ptr, mem_ptr_dp, [INT(doubleCount)] )
-#else
         CALL C_F_POINTER(c_mem_ptr, mem_ptr_dp, [doubleCount] )
-#endif
 
-        rma_cache_hint = MPI_INFO_NULL
 #ifdef __xlC__
         ! IBM specific RMA hint, that we don't want window caching
+        rma_cache_hint = MPI_INFO_NULL
         CALL MPI_Info_create(rma_cache_hint, mpi_error);
         IF(mpi_error /= MPI_SUCCESS) CALL finish(routine, 'MPI_Info_create returned error '//TRIM(int2string(mpi_error)))
         CALL MPI_Info_set(rma_cache_hint, "IBM_win_cache", "0", mpi_error)
@@ -168,7 +165,7 @@ CONTAINS
     CONTAINS
         SUBROUTINE warnMpiError(mpiCall)
             CHARACTER(LEN = *), INTENT(IN) :: mpiCall
-            IF(mpi_error /= MPI_SUCCESS) CALL message(routine, "MPI_Win_fence() returned error "//TRIM(int2string(mpi_error)), &
+            IF(mpi_error /= MPI_SUCCESS) CALL message(routine, mpiCall//"() returned error "//TRIM(int2string(mpi_error)), &
                                                      &level = em_warn, all_print = .TRUE.)
         END SUBROUTINE warnMpiError
 #endif
@@ -181,7 +178,7 @@ CONTAINS
         INTEGER, VALUE :: jg
         TYPE(t_RestartVarData), POINTER, INTENT(IN) :: var_data(:)
 
-        INTEGER :: error, iv, nlevs
+        INTEGER :: iv, nlevs
         TYPE(t_grid_domain_decomp_info) :: dummyInfo
         INTEGER(KIND = MPI_ADDRESS_KIND) :: memWindowSize
         TYPE(t_AsyncRestartPacker), POINTER :: reorderData
