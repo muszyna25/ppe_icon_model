@@ -171,6 +171,14 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
                  & prm_diag,                          &
                  & p_tracer_now)
 
+          CALL art_loss_gasphase(ext_data,         &                                                    
+                  & p_patch,                           &                                                     
+                  & p_dtime,                           &                                                     
+                  & p_prog_list,                       &                                                     
+                  & p_diag,                            &                                                     
+                  & p_metrics,                         &                                                     
+                  & p_tracer_now)
+
         CASE DEFAULT
           CALL finish('mo_art_reaction_interface:art_reaction_interface', &
                &      'ART: Unknown iart_chem_mechanism')
