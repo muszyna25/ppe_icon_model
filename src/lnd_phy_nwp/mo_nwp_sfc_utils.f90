@@ -2032,7 +2032,7 @@ CONTAINS
 
           ! reset sea-ice temperature and depth at old time level in order to prevent
           ! other schemes from using them incorrectly
-          tice_old     = tmelt
+          tice_old(jc) = tmelt
           hice_old(jc) = 0._wp
 
         ENDIF

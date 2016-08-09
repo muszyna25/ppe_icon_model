@@ -1058,7 +1058,7 @@ MODULE mo_nh_stepping
     ! sample meteogram output
     DO jg = 1, n_dom
       IF (.NOT. output_mode%l_none .AND. &    ! meteogram output is not initialized for output=none
-        & p_patch(jg)%ldom_active  .AND. &
+        & p_patch(jg)%ldom_active  .AND. .NOT. (jstep == 0 .AND. iau_iter == 2) .AND. &
         & meteogram_is_sample_step(meteogram_output_config(jg), jstep)) THEN
         CALL meteogram_sample_vars(jg, jstep, datetime_current, ierr)
         IF (ierr /= SUCCESS) THEN

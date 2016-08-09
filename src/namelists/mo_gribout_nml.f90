@@ -63,6 +63,7 @@ MODULE mo_gribout_nml
   ! value, an error message is thrown.
   CHARACTER(LEN=32) :: preset
 
+  INTEGER :: tablesVersion              ! Main switch for table version
 
   INTEGER :: &                          ! Table 1.2
     & significanceOfReferenceTime       ! 0: Analysis
@@ -138,7 +139,7 @@ MODULE mo_gribout_nml
 
 
   NAMELIST/gribout_nml/  &
-    &                    preset,                          &
+    &                    preset, tablesVersion,           &
     &                    significanceOfReferenceTime,     &
     &                    productionStatusOfProcessedData, &
     &                    typeOfProcessedData,             &
@@ -194,6 +195,7 @@ CONTAINS
     !-----------------------
     preset                               = "deterministic"
 
+    tablesVersion                        = 15
     significanceOfReferenceTime          = 1   ! 1: Start of forecast
     productionStatusOfProcessedData      = 1   ! 1: Oper. test products
     backgroundProcess                    = 0   ! 0: main run
@@ -251,6 +253,8 @@ CONTAINS
     !----------------------------------------------------
 
     DO jg= 1,max_dom
+      gribout_config(jg)%tablesVersion                     = &
+        &                tablesVersion
       gribout_config(jg)%significanceOfReferenceTime       = &
         &                significanceOfReferenceTime
       gribout_config(jg)%productionStatusOfProcessedData   = &

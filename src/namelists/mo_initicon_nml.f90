@@ -55,8 +55,9 @@ MODULE mo_initicon_nml
     & config_timeshift           => timeshift,           &
     & config_type_iau_wgt        => type_iau_wgt,        &
     & config_rho_incr_filter_wgt => rho_incr_filter_wgt, &
-    & config_ana_varnames_map_file => ana_varnames_map_file, &
-    & config_latbc_varnames_map_file => latbc_varnames_map_file
+    & config_niter_divdamp       => niter_divdamp,       &
+    & config_niter_diffu         => niter_diffu,         &
+    & config_ana_varnames_map_file => ana_varnames_map_file
 
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
 
@@ -114,6 +115,9 @@ MODULE mo_initicon_nml
   REAL(wp) :: rho_incr_filter_wgt  ! Vertical filtering weight for density increments 
                                    ! Only applicable for init_mode=MODE_IAU, MODE_IAU_OLD
 
+  INTEGER  :: niter_divdamp ! number of divergence damping iterations on wind increment from DA
+  INTEGER  :: niter_diffu   ! number of diffusion iterations on wind increment from DA
+
   CHARACTER(LEN=vname_len) :: ana_varlist(max_var_ml) ! list of mandatory analysis fields. 
                                                       ! This list can include a subset or the 
                                                       ! entire set of default analysis fields.
@@ -136,11 +140,7 @@ MODULE mo_initicon_nml
 
   ! analysis file: dictionary which maps internal variable names onto
   ! GRIB2 shortnames or NetCDF var names.
-  CHARACTER(LEN=filename_max) :: ana_varnames_map_file      
-
-  ! analysis file: dictionary which maps internal variable names onto
-  ! GRIB2 shortnames or NetCDF var names used for lateral boundary nudging.
-  CHARACTER(LEN=filename_max) :: latbc_varnames_map_file  
+  CHARACTER(LEN=filename_max) :: ana_varnames_map_file
 
   NAMELIST /initicon_nml/ init_mode, zpbl1, zpbl2, l_coarse2fine_mode,      &
                           nlevsoil_in, l_sst_in, lread_ana,                 &
@@ -149,10 +149,11 @@ MODULE mo_initicon_nml
                           dwdana_filename, filetype, dt_iau, dt_shift,      &
                           type_iau_wgt, ana_varlist, ana_varlist_n2,        &
                           ana_varnames_map_file, lp2cintp_incr,             &
-                          lp2cintp_sfcana, latbc_varnames_map_file,         &
+                          lp2cintp_sfcana,                                  &
                           start_time_avg_fg, end_time_avg_fg,               &
                           interval_avg_fg, ltile_coldstart, ltile_init,     &
-                          lvert_remap_fg, iterate_iau
+                          lvert_remap_fg, iterate_iau, niter_divdamp,       &
+                          niter_diffu
                           
 CONTAINS
 
@@ -196,6 +197,8 @@ CONTAINS
   iterate_iau = .FALSE.        ! no iteration of IAU
   dt_shift    = 0._wp          ! do not shift actual simulation start backward
   rho_incr_filter_wgt = 0._wp  ! density increment filtering turned off
+  niter_diffu = 10             ! number of diffusion iterations on wind increment from DA
+  niter_divdamp = 25           ! number of divergence damping iterations on wind increment from DA
   type_iau_wgt= 1              ! Top-hat weighting function
   ana_varlist = ''             ! list of mandatory analysis fields. This list can include a subset 
                                ! or the entire set of default analysis fields. If any of these fields
@@ -205,7 +208,7 @@ CONTAINS
                                ! taken from the first guess.
   ana_varlist_n2 = ''          ! Same for patch nr. 2 (nest 1) 
   ana_varnames_map_file = " "
-  latbc_varnames_map_file = " "
+
   ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
   dwdfg_filename    = "<path>dwdFG_R<nroot>B<jlev>_DOM<idom>.nc"
   dwdana_filename   = "<path>dwdana_R<nroot>B<jlev>_DOM<idom>.nc"
@@ -341,7 +344,8 @@ CONTAINS
   config_type_iau_wgt        = type_iau_wgt
   config_ana_varnames_map_file = ana_varnames_map_file
   config_rho_incr_filter_wgt   = rho_incr_filter_wgt
-  config_latbc_varnames_map_file = latbc_varnames_map_file
+  config_niter_divdamp       = niter_divdamp
+  config_niter_diffu         = niter_diffu
 
   initicon_config(1)%ana_varlist = ana_varlist
   initicon_config(2)%ana_varlist = ana_varlist_n2
