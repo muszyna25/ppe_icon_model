@@ -93,7 +93,7 @@ MODULE mo_art_nml
    &                lart_conv, lart_turb, iart_ntracer, iart_init_aero, iart_init_gas, &
    &                lart_diag_out, cart_emiss_table_path, cart_emiss_table_file,       &
    &                cart_vortex_init_date , cart_mozartfile,  cart_chemistry_xml,      &
-   &                cart_aerosol_xml, cart_passive_xml
+   &                cart_aerosol_xml, cart_passive_xml, cart_io_suffix
 
 CONTAINS
   !-------------------------------------------------------------------------
