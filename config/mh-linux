@@ -536,8 +536,23 @@ case "$ac_sitename" in
         esac
         ;;
 #===============================================
-    kfa-juelich.de)
+    kfa-juelich.de|*jureca*)
         case "$(hostname)" in
+            jrl*)
+                NETCDFROOT    = $EBROOTNETCDF
+                NETCDFLIBPATH = $NETCDFROOT/lib64
+                NETCDFFROOT   = $EBROOTNETCDFMINFORTRAN
+                HDF5ROOT      = $EBROOTHDF5
+                SZIPROOT      = $EBROOTSZIP
+                ZLIBROOT      = $EBROOTZLIB
+                MPIROOT       = $EBROOTPSMPI
+                MPI_LIB       = -L$MPIROOT/lib -lmpi -lmpifort
+                load_modules  = Intel ParaStationMPI netCDF-Fortran ${load_modules}
+                config_target = jureca
+                make_command  = make -j8
+                submit        = sbatch
+                mpi_startrun  = srun
+                ;;
             juqueen*)
                 #NETCDFROOT  = /bgsys/local/netcdf
                 NETCDFROOT = /homeb/slmet/slmet016/netcdf_xlc

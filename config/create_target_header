@@ -1182,6 +1182,34 @@ EOF
 }
 
 #=============================================================================
+set_run_target_jureca()
+{
+  set_default use_nproma 16
+  set_default use_cpu_time 01:30:00
+
+  set_default use_nodes 8
+  set_default use_mpi_procs_pernode 48
+  set_default use_openmp_threads 1
+
+  set_default job_log_name LOG.${job_name}.%j
+
+  icon_data_poolFolder=${icon_data_poolFolder:=/work/paj1613/paj16130/pool}
+
+  start_header
+
+  cat >> $output_script << EOF
+# ==========================
+#SBATCH --nodes=$use_nodes
+#SBATCH --ntasks-per-node=$use_mpi_procs_pernode
+#SBATCH --time=$use_cpu_time
+#SBATCH --output=$job_log_name.o
+#SBATCH --error=$job_log_name.o
+#SBATCH --partition=batch
+# ==========================
+EOF
+}
+
+#=============================================================================
 set_run_target_juqueen()
 {
   set_default use_nproma 8
