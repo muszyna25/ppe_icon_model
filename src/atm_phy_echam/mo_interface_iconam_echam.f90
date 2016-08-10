@@ -71,7 +71,7 @@ MODULE mo_interface_iconam_echam
 
   USE mo_coupling_config       ,ONLY: is_coupled_run
   USE mo_parallel_config       ,ONLY: nproma
-  USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi
+  USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi, iqt, ico2
   USE mo_nonhydrostatic_config ,ONLY: lhdiff_rcf
   USE mo_diffusion_config      ,ONLY: diffusion_config
   USE mo_echam_phy_config      ,ONLY: echam_phy_config
@@ -100,7 +100,7 @@ MODULE mo_interface_iconam_echam
     &                                 timer_dyn2phy, timer_d2p_prep, timer_d2p_sync, timer_d2p_couple, &
     &                                 timer_echam_bcs, timer_echam_phy, timer_coupling,                &
     &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
-
+  USE mo_bc_greenhouse_gases   ,ONLY: ghg_co2mmr
   IMPLICIT NONE
 
   PRIVATE
@@ -409,6 +409,23 @@ CONTAINS
       &                        dtadv_loc    ,&! in
       &                        ltrig_rad    ,&! out
       &                        datetime_radtran) ! out
+
+    ! For provisional testing of the CO2 tracer copy ghg_co2mmr to the CO2 tracer field
+    IF ( iqt <= ico2 .AND. ico2 <= ntracer ) THEN
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = i_startblk,i_endblk
+        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+        DO jk = 1,nlev
+          DO jc = jcs, jce
+            pt_prog_new_rcf% tracer(jc,jk,jb,ico2) = ghg_co2mmr
+            prm_field(jg)%        q(jc,jk,jb,ico2) = ghg_co2mmr
+          END DO
+        END DO
+      END DO
+!$OMP END DO
+!$OMP END PARALLEL
+    END IF
 
     IF (ltimer) CALL timer_stop(timer_echam_bcs)
     !

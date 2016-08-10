@@ -33,7 +33,7 @@ MODULE mo_echam_phy_init
 
   ! model configuration
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_run_config,           ONLY: nlev, iqv, iqt, ntracer, ltestcase
+  USE mo_run_config,           ONLY: nlev, iqv, iqt, ico2, ntracer, ltestcase
   USE mo_vertical_coord_table, ONLY: vct
   USE mo_dynamics_config,      ONLY: iequations
   USE mo_impl_constants,       ONLY: inh_atmosphere, max_char_length
@@ -95,7 +95,7 @@ MODULE mo_echam_phy_init
   USE mo_time_interpolation_weights ,ONLY: wi_limm
   USE mo_bc_sst_sic,           ONLY: read_bc_sst_sic, bc_sst_sic_time_interpolation
   USE mo_bc_greenhouse_gases,  ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
-    &                                bc_greenhouse_gases_file_read
+    &                                bc_greenhouse_gases_file_read, ghg_co2mmr
   ! for aeorosols in simple plumes
   USE mo_bc_aeropt_splumes,    ONLY: setup_bc_aeropt_splumes
 
@@ -332,6 +332,15 @@ CONTAINS
       ! the mid points of the current and preceding or following year, if the
       ! current date is in the 1st or 2nd half of the year, respectively.
       CALL bc_greenhouse_gases_time_interpolation(current_date)
+      !
+      ! IF a CO2 tracer exists, then copy the time interpolated scalar ghg_co2mmr
+      ! to the 3-dimensional tracer field.
+      IF ( iqt <= ico2 .AND. ico2 <= ntracer ) THEN
+        DO jg = 1,ndomain
+          prm_field(jg)%q(:,:,:,ico2) = ghg_co2mmr
+        END DO
+      END IF
+      !
     ENDIF
 
     ! interpolation weights for linear interpolation
