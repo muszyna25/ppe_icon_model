@@ -540,7 +540,6 @@ CONTAINS
         & kbdim      = nbdim      ,&!< in  dimension of block over cells
         & klev       = nlev       ,&!< in  number of full levels = number of layers
         & klevp1     = nlevp1     ,&!< in  number of half levels = number of layer interfaces
-        & ktrac      = ntrac      ,&!< in  number of non-water tracers
         & ktype      = itype(:)   ,&!< in  type of convection
         & loland     = lland      ,&!< in  land-sea mask. (logical)
         & loglac     = lglac      ,&!< in  glacier mask (logical)
@@ -557,12 +556,9 @@ CONTAINS
         & pp_hl  =field%presi_old(:,:,jb)      ,&!< in  pressure at half levels at t-dt [Pa]
         & pp_fl  =field%presm_old(:,:,jb)      ,&!< in  pressure at full levels at t-dt [Pa]
         & tk_fl  =field%temp(:,:,jb)          ,&!< in  tk_fl  = temperature at full level at t-dt
-        & qm_vap =field%q(:,:,jb,iqv)    ,&!< in  qm_vap = water vapor mass mixing ratio at t-dt
-        & qm_liq =field%q(:,:,jb,iqc)    ,&!< in  qm_liq = cloud water mass mixing ratio at t-dt
-        & qm_ice =field%q(:,:,jb,iqi)    ,&!< in  qm_ice = cloud ice mass mixing ratio at t-dt
+        & xm_trc =field%q(:,:,jb,:)      ,&!< in  tracer mass mixing ratio
         & cdnc   =field% acdnc(:,:,jb)   ,&!< in     cloud droplet number conc
         & cld_frc=field% aclc(:,:,jb)    ,&!< in     cld_frac = cloud fraction [m2/m2]
-!!$        & pxtm1  =field% q(:,:,jb,iqt:)  ,&!< in     xtm1
         & cld_cvr=field%aclcov(:,jb)     ,&!< out  total cloud cover
         & vis_frc_sfc=field%visfrcsfc(:,jb),&!< out  visible (250-680nm) fraction of net surface radiation
         & par_dn_sfc=field%partrmdnsfc(:,jb),&!< out  downward photosynthetically active radiation (par) at surface
