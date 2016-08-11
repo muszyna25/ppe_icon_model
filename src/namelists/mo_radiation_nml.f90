@@ -52,13 +52,15 @@ MODULE mo_radiation_nml
                                  & config_mmr_co2    => mmr_co2,     &
                                  & config_mmr_ch4    => mmr_ch4,     &
                                  & config_mmr_n2o    => mmr_n2o,     &
-                                 & config_mmr_o2     => mmr_o2
+                                 & config_mmr_o2     => mmr_o2,      &
+                                 & config_mmr_cfc11  => mmr_cfc11,   &
+                                 & config_mmr_cfc12  => mmr_cfc12
 
   USE mo_kind,               ONLY: wp
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_io_units,           ONLY: nnml, nnml_output
-  USE mo_physical_constants, ONLY: amd, amco2, amch4, amn2o, amo2
+  USE mo_physical_constants, ONLY: amd, amco2, amch4, amn2o, amo2, amc11, amc12
   USE mo_master_config,      ONLY: isRestart
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist, &
                                  & open_and_restore_namelist, close_tmpfile
@@ -301,10 +303,12 @@ CONTAINS
     config_vmr_o2     = vmr_o2
     config_vmr_cfc11  = vmr_cfc11
     config_vmr_cfc12  = vmr_cfc12
-    config_mmr_co2    = vmr_co2 * amco2/amd
-    config_mmr_ch4    = vmr_ch4 * amch4/amd
-    config_mmr_n2o    = vmr_n2o * amn2o/amd
-    config_mmr_o2     = vmr_o2  * amo2 /amd
+    config_mmr_co2    = vmr_co2   * amco2/amd
+    config_mmr_ch4    = vmr_ch4   * amch4/amd
+    config_mmr_n2o    = vmr_n2o   * amn2o/amd
+    config_mmr_o2     = vmr_o2    * amo2 /amd
+    config_mmr_cfc11  = vmr_cfc11 * amc11/amd
+    config_mmr_cfc12  = vmr_cfc12 * amc12/amd
     config_izenith    = izenith
 
     !-----------------------------------------------------
