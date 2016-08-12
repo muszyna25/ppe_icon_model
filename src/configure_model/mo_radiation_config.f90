@@ -122,6 +122,15 @@ MODULE mo_radiation_config
     REAL(wp) :: vmr_cfc12, mmr_cfc12 !< CFC 12
 #endif
     !
+    ! --- Scaling factor for mixing ratios
+    !
+    REAL(wp) :: fh2o
+    REAL(wp) :: fco2
+    REAL(wp) :: fn2o
+    REAL(wp) :: fo3
+    REAL(wp) :: fo2
+    REAL(wp) :: fch4
+    REAL(wp) :: fcfc
     !
     ! --- Different specifications of the zenith angle
     INTEGER  :: izenith     ! circular orbit, no seasonal cycle but with diurnal cycle 

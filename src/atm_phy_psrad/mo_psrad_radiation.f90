@@ -57,7 +57,7 @@ MODULE mo_psrad_radiation
   USE mo_kind,            ONLY: wp
   USE mo_model_domain,    ONLY: t_patch
   USE mo_physical_constants,       ONLY: rae
-  USE mo_exception,       ONLY: finish, message, message_text
+  USE mo_exception,       ONLY: finish, message, message_text, print_value
   USE mo_mpi,             ONLY: my_process_is_stdio
   USE mo_namelist,        ONLY: open_nml, position_nml, close_nml, POSITIONED
   USE mo_io_units,        ONLY: nnml, nnml_output
@@ -103,6 +103,9 @@ MODULE mo_psrad_radiation
                                            vmr_o2,  mmr_o2,    &
                                            vmr_cfc11,          &
                                            vmr_cfc12,          &
+                                           fh2o, fco2, fch4,   &
+                                           fn2o, fo3, fo2,     &
+                                           fcfc,               &
                                            ch4_v=>vpp_ch4,     &
                                            n2o_v=>vpp_n2o,     &
                                            vmr_o2,             &
@@ -124,7 +127,6 @@ MODULE mo_psrad_radiation
                                      lw_gpts_ts,               &
                                      sw_gpts_ts,               &
                                      rad_perm,                 &
-                                     fco2,                     &
                                      cemiss,                   &
                                      solc,                     &
                                      psct,                     &
@@ -150,14 +152,6 @@ MODULE mo_psrad_radiation
   
   PRIVATE
 
-!!$    LOGICAL            :: lradforcing(2)=(/.FALSE.,.FALSE./)
-!!$    INTEGER            :: lw_gpts_ts=1,  &
-!!$                        & lw_spec_samp=1,&
-!!$                        & rad_perm=0,    &
-!!$                        & sw_gpts_ts=1,  &
-!!$                        & sw_spec_samp=1
-
-  
   PUBLIC :: pre_psrad_radiation, setup_psrad_radiation, psrad_radiation
 
   CONTAINS
@@ -369,9 +363,8 @@ MODULE mo_psrad_radiation
                        & lw_spec_samp,      &
                        & rad_perm,          &
                        & sw_gpts_ts,        &
-                       & sw_spec_samp,      &
-                       & fco2                  ! factor to multiply a CO2 
-                                               ! scenario (default: 1.)       
+                       & sw_spec_samp
+
     ! 0.9 Read psrad_orbit namelist
     CALL read_psrad_orbit_namelist(file_name)
     !
@@ -400,6 +393,15 @@ MODULE mo_psrad_radiation
     ! --------------------------------
     IF (phy_config%lrad) THEN
 
+      CALL message('','')
+      CALL message('','PSrad setup')
+      CALL message('','===========')
+      CALL message('','- New (V4) LRTM Model')
+      CALL message('','- AER RRTM Shortwave Model')
+      CALL message('','')
+      CALL print_value('radiation time step in [s]',phy_config%dt_rad)
+      CALL message('','')
+      !
       CALL setup_psrad
       nb_sw = nbndsw
       !
@@ -407,23 +409,25 @@ MODULE mo_psrad_radiation
       !
       lw_strat = set_spec_sampling_lw(lw_spec_samp, num_gpts_ts=lw_gpts_ts) 
       sw_strat = set_spec_sampling_sw(sw_spec_samp, num_gpts_ts=sw_gpts_ts) 
-      WRITE (message_text, '("LW sampling strategy: ", i2, " using ", i3, " g-points per time step")') &
+      WRITE (message_text, '("LW sampling strategy", i2, ", using ", i3, " g-points per rad. time step")') &
                  lw_spec_samp, get_num_gpoints(lw_strat)
       CALL message('',message_text)
-      WRITE (message_text, '("SW sampling strategy: ", i2, " using ", i3, " g-points per time step")') &
+      WRITE (message_text, '("SW sampling strategy", i2, ", using ", i3, " g-points per rad. time step")') &
                  sw_spec_samp, get_num_gpoints(sw_strat)
       CALL message('',message_text)
 
-      !
-      CALL message('','lrad = .TRUE.  --> Doing radiation')
+
+      CALL message('','')
+      CALL message('','Sources of volume/mass mixing ratios used in radiation')
+      CALL message('','------------------------------------------------------')
       !
       ! --- Check  H2O
       !
       SELECT CASE (irad_h2o)
       CASE(0)
-        CALL message('','irad_h2o   = 0 --> no H2O(gas,liquid,ice) in radiation')
+        CALL message('','irad_h2o   = 0 --> no H2O(gas,liq,ice) in radiation')
       CASE(1)
-        CALL message('','irad_h2o   = 1 --> H2O   (gas,liquid,ice) mass mixing ratios from tracer fields')
+        CALL message('','irad_h2o   = 1 --> H2O   (gas,liq,ice) mass mixing ratios from tracer fields')
       CASE default
         WRITE (message_text, '(a,i2,a)') &
              'irad_h2o   =', irad_h2o, ' in radiation_nml namelist is not supported'
@@ -446,21 +450,9 @@ MODULE mo_psrad_radiation
       CASE(2)
         WRITE (message_text, '(a,e16.8)') &
              'irad_co2   = 2 --> CO2   volume mixing ratio from radiation_nml namelist =', vmr_co2
-        IF (ABS(fco2-1._wp) > EPSILON(1._wp)) THEN
-           WRITE (message_text, '(a,e16.8,a)') &
-                'fco2 = ', fco2, ' --> Factor for CO2 concentration'
-           CALL message('',message_text)
-           mmr_co2 = mmr_co2*fco2
-        END IF
         CALL message('',message_text)
       CASE(4)
         CALL message('','irad_co2   = 4 --> CO2   volume mixing ratio from ghg scenario file')
-        IF (ABS(fco2-1._wp) > EPSILON(1._wp)) THEN
-           WRITE (message_text, '(a,e16.8,a)') &
-                'fco2 = ', fco2, ' --> Factor for CO2 scenario'
-           CALL message('',message_text)
-           mmr_co2 = mmr_co2*fco2
-        END IF
       CASE default
         WRITE (message_text, '(a,i2,a)') &
              'irad_co2   = ', irad_co2, ' in radiation_nml namelist is not supported'
@@ -614,6 +606,21 @@ MODULE mo_psrad_radiation
 !!$        CALL message('',message_text)
 !!$        CALL finish('setup_psrad_radiation','Run terminated irad_aero')
 !!$      END SELECT
+!
+      !
+      ! --- Check scaling factors
+      !
+      CALL message('','')
+      CALL message('','Multiplication factors applied in radiation to vol./mass mixing ratio sources')
+      CALL message('','-----------------------------------------------------------------------------')
+      CALL print_value('H2O(gas,liq,ice): fh2o =',fh2o)
+      CALL print_value('CO2             : fco2 =',fco2)
+      CALL print_value('CH4             : fch4 =',fch4)
+      CALL print_value('N2O             : fn2o =',fn2o)
+      CALL print_value('O3              : fo3  =',fo3 )
+      CALL print_value('O2              : fo2  =',fo2 )
+      CALL print_value('CFC11 and CFC12 : fcfc =',fcfc)
+      CALL message('','')
       !
       ! --- Check annual cycle
       ! 
@@ -630,14 +637,6 @@ MODULE mo_psrad_radiation
         CALL message('',message_text)
         CALL finish('setup_psrad_radiation','Run terminated nmonth')
       END SELECT
-      !
-      ! --- Check Shortwave Model
-      ! 
-      CALL message('','  --> USE AER RRTM Shortwave Model')
-      !
-      ! --- Check Longwave Model
-      ! 
-      CALL message('','  --> USE New (V4) LRTM Model')
       !
       ! --- Check solar constant
       !
@@ -709,8 +708,6 @@ MODULE mo_psrad_radiation
 !!$      ! 
 !!$      IF (irad_o3==3) CALL read_o3clim_3
 !!$      !
-    ELSE
-      CALL message('','phy_config%lrad = .FALSE. --> no radiation')
     ENDIF
   END SUBROUTINE setup_psrad_radiation
 
@@ -872,15 +869,18 @@ MODULE mo_psrad_radiation
     !
     !     vapor
     xm_vap(1:kproma,:) = gas_profile(kproma, klev, irad_h2o,                 &
-         &                           gas_val      = xm_trc(1:kproma,:,iqv))
+         &                           gas_val      = xm_trc(1:kproma,:,iqv),  &
+         &                           gas_factor   = fh2o)
     !     cloud water
     xm_liq(1:kproma,:) = gas_profile(kproma, klev, irad_h2o,                 &
          &                           gas_val      = xm_trc(1:kproma,:,iqc),  &
-         &                           gas_epsilon  = 0.0_wp)
+         &                           gas_epsilon  = 0.0_wp,                  &
+         &                           gas_factor   = fh2o)
     !     cloud ice
     xm_ice(1:kproma,:) = gas_profile(kproma, klev, irad_h2o,                 &
          &                           gas_val      = xm_trc(1:kproma,:,iqi),  &
-         &                           gas_epsilon  = 0.0_wp)
+         &                           gas_epsilon  = 0.0_wp,                  &
+         &                           gas_factor   = fh2o)
     !
     ! --- cloud cover
     ! 
@@ -902,33 +902,40 @@ MODULE mo_psrad_radiation
       xm_co2(1:kproma,:) = gas_profile(kproma, klev, irad_co2,                 &
            &                           gas_mmr      = mmr_co2,                 &
            &                           gas_scenario = ghg_co2mmr,              &
-           &                           gas_val      = xm_trc(1:kproma,:,ico2))
+           &                           gas_val      = xm_trc(1:kproma,:,ico2), &
+           &                           gas_factor   = fco2)
     ELSE
       xm_co2(1:kproma,:) = gas_profile(kproma, klev, irad_co2,       &
            &                           gas_mmr      = mmr_co2,       &
-           &                           gas_scenario = ghg_co2mmr)
+           &                           gas_scenario = ghg_co2mmr,    &
+           &                           gas_factor   = fco2)
     END IF
 
     xm_ch4(1:kproma,:)   = gas_profile(kproma, klev, irad_ch4,       &
          &                             gas_mmr      = mmr_ch4,       &
          &                             gas_scenario = ghg_ch4mmr,    &
-         &                             pressure = pp_fl, xp = ch4_v)
+         &                             pressure = pp_fl, xp = ch4_v, &
+         &                             gas_factor   = fch4)
 
     xm_n2o(1:kproma,:)   = gas_profile(kproma, klev, irad_n2o,       &
          &                             gas_mmr      = mmr_n2o,       &
          &                             gas_scenario = ghg_n2ommr,    &
-         &                             pressure = pp_fl, xp = n2o_v)
+         &                             pressure = pp_fl, xp = n2o_v, &
+         &                             gas_factor   = fn2o)
 
     xm_cfc(1:kproma,:,1) = gas_profile(kproma, klev, irad_cfc11,     &
          &                             gas_mmr      = vmr_cfc11,     &
-         &                             gas_scenario = ghg_cfcvmr(1))
+         &                             gas_scenario = ghg_cfcvmr(1), &
+         &                             gas_factor   = fcfc)
 
     xm_cfc(1:kproma,:,2) = gas_profile(kproma, klev, irad_cfc12,     &
          &                             gas_mmr      = vmr_cfc12,     &
-         &                             gas_scenario = ghg_cfcvmr(2))
+         &                             gas_scenario = ghg_cfcvmr(2), &
+         &                             gas_factor   = fcfc)
 
     xm_o2(1:kproma,:)    = gas_profile(kproma, klev, irad_o2,        &
-         &                             gas_mmr      = mmr_o2)
+         &                             gas_mmr      = mmr_o2,        &
+         &                             gas_factor   = fo2)
 
 !!$    ozon: SELECT CASE (irad_o3)
 !!$    CASE (0)
@@ -1020,7 +1027,8 @@ MODULE mo_psrad_radiation
   !! given a vertical profile is calculated as in (3).
   !
   FUNCTION gas_profile (kproma, klev, igas, gas_mmr, gas_scenario, gas_mmr_v, &
-       &                gas_scenario_v, gas_val, xp, pressure, gas_epsilon)
+       &                gas_scenario_v, gas_val, xp, pressure,                &
+       &                gas_epsilon, gas_factor)
 
     INTEGER, INTENT (IN) :: kproma, klev, igas
     REAL (wp), OPTIONAL, INTENT (IN) :: gas_mmr              ! for igas = 2 and 3
@@ -1030,41 +1038,55 @@ MODULE mo_psrad_radiation
     REAL (wp), OPTIONAL, INTENT (IN) :: gas_scenario_v(:,:)  ! for igas = 4
     REAL (wp), OPTIONAL, INTENT (IN) :: gas_val(:,:)         ! for igas = 1
     REAL (wp), OPTIONAL, INTENT (IN) :: gas_epsilon
+    REAL (wp), OPTIONAL, INTENT (IN) :: gas_factor
 
-    REAL (wp) :: gas_profile(kproma,klev), zx_d, zx_m, eps
+    REAL (wp) :: gas_profile(kproma,klev), zx_d, zx_m, eps, fgas
     LOGICAL :: gas_initialized
 
     gas_initialized = .FALSE.
+
     IF (PRESENT(gas_epsilon)) THEN
        eps = gas_epsilon
     ELSE
        eps = EPSILON(1.0_wp)
     END IF
+
+    IF (PRESENT(gas_factor)) THEN
+       fgas = gas_factor
+    ELSE
+       fgas = 1.0_wp
+    END IF
+
     SELECT CASE (igas)
+
     CASE (0)
       gas_profile(1:kproma,:) = eps
       gas_initialized = .TRUE.
+
     CASE (1)
       IF (PRESENT(gas_val)) THEN
-        gas_profile(1:kproma,:) = MAX(gas_val(1:kproma,:), eps)
+        gas_profile(1:kproma,:) = MAX(gas_val(1:kproma,:)*fgas, eps)
         gas_initialized = .TRUE.
       END IF
+
     CASE (2)
       IF (PRESENT(gas_mmr)) THEN
-        gas_profile(1:kproma,:) = gas_mmr
+        gas_profile(1:kproma,:) = MAX(gas_mmr*fgas, eps)
         gas_initialized = .TRUE.
       ELSE IF (PRESENT(gas_mmr_v)) THEN
-        gas_profile(1:kproma,:) = gas_mmr_v(1:kproma,:)
+        gas_profile(1:kproma,:) = MAX(gas_mmr_v(1:kproma,:)*fgas, eps)
         gas_initialized = .TRUE.
       END IF
+
     CASE (3)
       IF (PRESENT(gas_mmr) .AND. PRESENT(xp) .AND. PRESENT(pressure)) THEN
         zx_m = (gas_mmr+xp(1)*gas_mmr)*0.5_wp
         zx_d = (gas_mmr-xp(1)*gas_mmr)*0.5_wp
-        gas_profile(1:kproma,:)=(1-(zx_d/zx_m)*TANH(LOG(pressure(1:kproma,:)   &
-             &                  /xp(2)) /xp(3))) * zx_m
+        gas_profile(1:kproma,:)=MAX((1-(zx_d/zx_m)*TANH(LOG(pressure(1:kproma,:)   &
+             &                      /xp(2)) /xp(3))) * zx_m * fgas, eps)
         gas_initialized = .TRUE.
       END IF
+
     CASE (4)
       IF (PRESENT(gas_scenario)) THEN
         IF (PRESENT(xp) .AND. PRESENT(pressure)) THEN
@@ -1077,17 +1099,19 @@ MODULE mo_psrad_radiation
           ! complete handling of radiation switches (including ighg), later.
           zx_m = (gas_scenario+xp(1)*gas_scenario)*0.5_wp
           zx_d = (gas_scenario-xp(1)*gas_scenario)*0.5_wp
-          gas_profile(1:kproma,:)=(1-(zx_d/zx_m)*TANH(LOG(pressure(1:kproma,:)   &
-             &                  /xp(2)) /xp(3))) * zx_m
+          gas_profile(1:kproma,:)=MAX((1-(zx_d/zx_m)*TANH(LOG(pressure(1:kproma,:)   &
+             &                        /xp(2)) /xp(3))) * zx_m * fgas, eps)
         ELSE
-          gas_profile(1:kproma,:) = gas_scenario
+          gas_profile(1:kproma,:)=MAX(gas_scenario*fgas, eps)
         ENDIF
         gas_initialized = .TRUE.
       ELSE IF (PRESENT(gas_scenario_v)) THEN
-        gas_profile(1:kproma,:) = gas_scenario_v(1:kproma,:)
+        gas_profile(1:kproma,:) = MAX(gas_scenario_v(1:kproma,:)*fgas, eps)
         gas_initialized = .TRUE.
       END IF
+
     END SELECT
+
     IF (.NOT. gas_initialized) &
          CALL finish('radiation','gas_profile options not supported')
 
