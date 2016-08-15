@@ -30,14 +30,11 @@ MODULE mo_echam_phy_main
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: grav, cpd, cpv, cvd, cvv
-  USE mo_impl_constants,      ONLY: inh_atmosphere, io3_clim, io3_ape, io3_amip
+  USE mo_impl_constants,      ONLY: inh_atmosphere
   USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
     &                               iqv, iqc, iqi, iqt
   USE mo_dynamics_config,     ONLY: iequations
-  USE mo_ext_data_state,      ONLY: ext_data, nlev_o3
-  USE mo_ext_data_types,      ONLY: t_external_atmos_td
-  USE mo_bc_ozone,            ONLY: o3_plev, nplev_o3, plev_full_o3, plev_half_o3
-  USE mo_o3_util,             ONLY: o3_pl2ml, o3_timeint
+  USE mo_ext_data_state,      ONLY: ext_data
   USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
   USE mo_echam_conv_config,   ONLY: echam_conv_config
   USE mo_echam_cloud_config,  ONLY: echam_cloud_config
@@ -98,7 +95,6 @@ CONTAINS
 
     TYPE(t_echam_phy_field),   POINTER :: field
     TYPE(t_echam_phy_tend) ,   POINTER :: tend
-    TYPE(t_external_atmos_td) ,POINTER :: atm_td
 
     REAL(wp) :: zlat_deg(nbdim)           !< latitude in deg N
 
@@ -154,7 +150,6 @@ CONTAINS
     INTEGER  :: jc
     INTEGER  :: ntrac !< # of tracers excluding water vapour and hydrometeors
                       !< (handled by sub-models, e.g., chemical species)
-    INTEGER  :: selmon !< selected month for ozone data (temporary var!)
 
     ! Coefficient matrices and right-hand-side vectors for the turbulence solver
     ! _btm refers to the lowest model level (i.e., full level "klev", not the surface)
@@ -202,8 +197,6 @@ CONTAINS
     REAL(wp) :: zdeclination_sun
     REAL(wp) :: ztime_dateline
 
-    REAL(wp) :: zo3_timint(nbdim,nplev_o3) !< intermediate value of ozon
-
     
     ! Temporary variables used for cloud droplet number concentration
 
@@ -224,7 +217,6 @@ CONTAINS
 
     field  => prm_field(jg)
     tend   => prm_tend (jg)
-    atm_td => ext_data(jg)%atm_td
 
     ! provisionally copy the incoming tedencies
 
@@ -496,41 +488,6 @@ CONTAINS
 
           END SELECT
 
-          SELECT CASE(irad_o3)
-            CASE default
-              CALL finish('radiation','o3: this "irad_o3" is not supported')
-            CASE(0)
-              field% o3(:,:,jb)= 0._wp
-            CASE(io3_clim, io3_ape)
-
-              IF(irad_o3 == io3_ape) THEN
-                selmon=1
-              ELSE
-                selmon=9
-              ENDIF
-
-              CALL o3_pl2ml ( kproma=jce, kbdim=nbdim,                &
-                             & nlev_pres = nlev_o3,klev= nlev ,       &
-                             & pfoz = atm_td%pfoz(:),                 &
-                             & phoz = atm_td%phoz(:),                 &! in o3-levs
-                             & ppf = field% presm_new (:,:,jb),       &! in  app1
-                             & pph = field% presi_new (:,:,jb),       &! in  aphp1
-                             & o3_time_int = atm_td%o3(:,:,jb,selmon),&! in
-                             & o3_clim     = field% o3(:,:,jb)        )! OUT
-
-            CASE(io3_amip)
-              CALL o3_timeint(kproma=jce,               kbdim=nbdim,                 &
-                              nlev_pres=nplev_o3,                                    &
-                              ext_o3=o3_plev(:,:,jb,:), o3_time_int=zo3_timint       )
-              CALL o3_pl2ml(kproma=jce,                 kbdim=nbdim,          &
-                          & nlev_pres=nplev_o3,         klev=nlev,            &
-                          & pfoz=plev_full_o3,          phoz=plev_half_o3,    &
-                          & ppf=field%presm_new(:,:,jb),                      &
-                          & pph=field%presi_new(:,:,jb),                      &
-                          & o3_time_int=zo3_timint,                           &
-                          & o3_clim=field%o3(:,:,jb)                          )
-            END SELECT
-
         IF (ltimer) CALL timer_start(timer_radiation)
 
         CALL psrad_radiation(      &
@@ -557,6 +514,7 @@ CONTAINS
         & pp_fl  =field%presm_old(:,:,jb)      ,&!< in  pressure at full levels at t-dt [Pa]
         & tk_fl  =field%temp(:,:,jb)          ,&!< in  tk_fl  = temperature at full level at t-dt
         & xm_trc =field%q(:,:,jb,:)      ,&!< in  tracer mass mixing ratio
+        & xm_ozn =field%o3(:,:,jb)       ,&!< inout  Avoid leaving kproma+1:kbdim undefined Ozone 
         & cdnc   =field% acdnc(:,:,jb)   ,&!< in     cloud droplet number conc
         & cld_frc=field% aclc(:,:,jb)    ,&!< in     cld_frac = cloud fraction [m2/m2]
         & cld_cvr=field%aclcov(:,jb)     ,&!< out  total cloud cover
@@ -571,8 +529,7 @@ CONTAINS
         & lw_net_clr=field%lwflxclr(:,:,jb),&!< out  Clear-sky net longwave  at all levels
         & sw_net_clr=field%swtrmclr(:,:,jb),&!< out  Clear-sky net shortwave at all levels
         & lw_net=field%lwflxall(:,:,jb),&!< out  All-sky net longwave  at all levels
-        & sw_net=field%swtrmall(:,:,jb),&!< out  All-sky net shortwave at all levels
-        & xm_o3=field%o3(:,:,jb)        &!< inout  Avoid leaving kproma+1:kbdim undefined Ozone 
+        & sw_net=field%swtrmall(:,:,jb) &!< out  All-sky net shortwave at all levels
         &                           )
         field%lwflxclr(jcs:jce,1,jb)=zlw_net_clr_bnd(jcs:jce,1)
         field%lwflxclr(jcs:jce,nlevp1,jb)=zlw_net_clr_bnd(jcs:jce,2)
