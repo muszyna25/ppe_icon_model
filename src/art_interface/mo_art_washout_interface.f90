@@ -133,7 +133,7 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
                 &                     istart, iend, nlev, jb, tracer(:,:,jb,:))
               !Washout rate
               IF (.FALSE.) THEN ! Check if qnr is present
-                CALL art_aerosol_washout(pt_diag%temp(:,:,jb), pt_diag%pres(:,:,jb),                         &
+                CALL art_aerosol_washout(pt_diag%temp(:,:,jb),                                               &
                    &                tracer(:,:,jb,fields%info%i_number_conc), fields%density(:,:,jb),        &
                    &                fields%diameter(:,:,jb),fields%info%sg_ini, tracer(:,:,jb,iqr),          &
                    &                rho(:,:,jb), p_art_data(jg)%air_prop%art_dyn_visc(:,:,jb),               &
@@ -141,7 +141,7 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
                    &                .TRUE., wash_rate_m0(:,:), wash_rate_m3(:,:),                            &
                    &                rrconv_3d=prm_diag%rain_con_rate_3d(:,:,jb), qnr=tracer(:,:,jb,iqnr))
               ELSE
-                CALL art_aerosol_washout(pt_diag%temp(:,:,jb), pt_diag%pres(:,:,jb),                         &
+                CALL art_aerosol_washout(pt_diag%temp(:,:,jb),                                               &
                    &                tracer(:,:,jb,fields%info%i_number_conc), fields%density(:,:,jb),        &
                    &                fields%diameter(:,:,jb),fields%info%sg_ini, tracer(:,:,jb,iqr),          &
                    &                rho(:,:,jb), p_art_data(jg)%air_prop%art_dyn_visc(:,:,jb),               &
