@@ -83,6 +83,7 @@ MODULE mo_ocean_initialization
     & ocean_default_list, &
     & v_base, &
     & oce_config
+  USE mo_util_dbg_prnt,       ONLY: dbg_print, debug_print_MaxMinMean
   
   USE mo_ocean_check_tools, ONLY: ocean_check_level_sea_land_mask, check_ocean_subsets
   
@@ -1760,6 +1761,10 @@ CONTAINS
     CALL complete_ocean_subsets(patch_3d)
     
     CALL ocean_check_level_sea_land_mask(patch_3d)
+
+   CALL dbg_print('init_patch_3d:thick_e',patch_3D%p_patch_1d(1)%prism_thick_e,&
+      & "",4, in_subset=edges_in_domain)
+    
 
   END SUBROUTINE init_patch_3d
   !------------------------------------------------------------------------------------

@@ -1993,9 +1993,6 @@ CONTAINS
         
     !---------Debug Diagnostics-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
-    CALL dbg_print('heightRelQuant: h_e'    ,ocean_state%p_diag%h_e        ,str_module,idt_src, &
-      & in_subset=patch_2D%edges%owned)
-    idt_src=3
     CALL dbg_print('heightRelQuant: h_c'    ,ocean_state%p_prog(nold(1))%h ,str_module,idt_src, &
       & in_subset=patch_2D%cells%owned)
     CALL dbg_print('heightRelQuant: thick_c',ocean_state%p_diag%thick_c    ,str_module,idt_src, &
@@ -2008,6 +2005,8 @@ CONTAINS
     CALL dbg_print('depth_CellInterface', &
       & patch_3D%p_patch_1d(1)%depth_cellinterface   ,str_module,idt_src, &
       & in_subset=patch_2D%cells%owned)
+    CALL dbg_print('calculate_thickness: edge_thickness',edge_thickness    ,str_module,idt_src, &
+      & in_subset=patch_2D%edges%owned)
     !---------------------------------------------------------------------
   END SUBROUTINE calculate_thickness
   !-------------------------------------------------------------------------
@@ -2061,7 +2060,7 @@ CONTAINS
     all_cells           => patch_2D%cells%ALL
     all_edges           => patch_2D%edges%ALL
     edges_in_domain     => patch_2D%edges%in_domain
-	
+
     cell_thickness     => patch_3D%p_patch_1d(1)%prism_thick_c
     edge_thickness     => patch_3D%p_patch_1d(1)%prism_thick_e
     
@@ -2072,8 +2071,8 @@ CONTAINS
     top_coeffs        => operators_coefficients%edge2edge_viacell_coeff_top
     integrated_coeffs => operators_coefficients%edge2edge_viacell_coeff_integrated
     sum_to_2D_coeffs  => operators_coefficients%edge2edge_viacell_coeff_all
-	
-	
+
+
     IF ( patch_2d%cells%max_connectivity == 3 ) THEN
     ! This only works on triangles  
 !ICON_OMP_DO PRIVATE(edge_StartIndex, edge_EndIndex, je, cell_1_index, cell_1_block,  &

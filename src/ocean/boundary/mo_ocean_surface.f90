@@ -829,16 +829,22 @@ CONTAINS
       
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     CALL dbg_print('UpdSfc: oce_sfc%HFTot ', p_oce_sfc%HeatFlux_Total,       str_module, 2, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: oce_sfc%VolTot', p_oce_sfc%FrshFlux_VolumeTotal, str_module, 3, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfc: oce_sfc%TotIce', p_oce_sfc%FrshFlux_TotalIce,    str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: zUnderIceIni',   zUnderIceIni,                   str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: zUnderIceArt',   zUnderIceArt,                   str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: zUnderIceOld',   zUnderIceOld,                   str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: zUnderIce   ',   p_ice%zUnderIce,                str_module, 2, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: oce_sfc%TotIce',   p_oce_sfc%FrshFlux_TotalIce,  str_module, 2, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfc: sss_inter   ',   sss_inter,                      str_module, 3, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfcEND: oce_sfc%SST ',p_oce_sfc%SST,                  str_module, 2, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfcEND: oce_sfc%SSS ',p_oce_sfc%SSS,                  str_module, 2, in_subset=p_patch%cells%owned)
-    CALL dbg_print('UpdSfcEnd: h-old+fwfVol',p_os%p_prog(nold(1))%h,         str_module, 2, in_subset=p_patch%cells%owned)
+
+    CALL dbg_print('UpdSfc: FrshFlux_Runoff', atmos_fluxes%FrshFlux_Runoff, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: FrshFlux_VolumeIce', atmos_fluxes%FrshFlux_VolumeIce, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: FrshFlux_TotalOcean', atmos_fluxes%FrshFlux_TotalOcean, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: FrshFlux_Relax', atmos_fluxes%FrshFlux_Relax, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: oce_sfc%VolTot', p_oce_sfc%FrshFlux_VolumeTotal, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfc: totalsnowfall   ', p_ice%totalsnowfall ,         str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('UpdSfcEnd: h-old+fwfVol',  p_os%p_prog(nold(1))%h,       str_module, 2, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
     ! copy fluxes to bulk-type variables for output and average statistic purposes only:
@@ -1233,9 +1239,10 @@ CONTAINS
       END DO
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('UpdSfcRlx:FrshFlxRelax[m/s]',atmos_fluxes%FrshFlux_Relax     ,str_module,2, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfcRlx:s_top ',s_top  ,str_module,4, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfcRlx:FrshFlxRelax[m/s]',atmos_fluxes%FrshFlux_Relax     ,str_module,4, in_subset=p_patch%cells%owned)
       CALL dbg_print('UpdSfcRlx: S* to relax to'  ,atmos_fluxes%data_surfRelax_Salt,str_module,4, in_subset=p_patch%cells%owned)
-      CALL dbg_print('UpdSfcRlx: 1/tau*(S*-S)'    ,atmos_fluxes%SaltFlux_Relax     ,str_module,3, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfcRlx: 1/tau*(S*-S)'    ,atmos_fluxes%SaltFlux_Relax     ,str_module,4, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
 
     END IF  ! tracer_no

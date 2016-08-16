@@ -357,6 +357,7 @@ CONTAINS
       END DO
 
 
+    ! **3
     CASE(6)
       DO jb = all_edges%start_block, all_edges%end_block
         CALL get_index_range(all_edges, jb, start_index, end_index)
@@ -788,7 +789,7 @@ CONTAINS
 !    CALL sync_patch_array(sync_e, patch_2D, param%HarmonicViscosity_coeff)
 
 !    !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=2  ! output print level (1-5, fix)
+    idt_src=1  ! output print level (1-5, fix)
     CALL dbg_print('LeithClosure: viscosity',param%HarmonicViscosity_coeff,&
       & str_module,idt_src, in_subset=edges_in_domain)
     IF (TracerDiffusion_LeithWeight > 0.0_wp) THEN
@@ -1006,7 +1007,7 @@ CONTAINS
 !    CALL sync_patch_array(sync_e, patch_2D, param%HarmonicViscosity_coeff)
 
 !    !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=2  ! output print level (1-5, fix)
+    idt_src=1  ! output print level (1-5, fix)
     CALL dbg_print('LeithClosure: viscosity',param%HarmonicViscosity_coeff,&
       & str_module,idt_src, in_subset=edges_in_domain)
 !     CALL dbg_print('LeithClosure: grad_vort_abs',param%TracerDiffusion_coeff(:,:,:,1),&
@@ -1067,6 +1068,7 @@ CONTAINS
     cells_in_domain => patch_2D%cells%in_domain
     edges_in_domain => patch_2D%edges%in_domain
 
+    idt_src=1  ! output print level (1-5, fix)
     start_level = 1
 
 !     div_e        (1:nproma, 1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_e)=0.0_wp
@@ -1108,12 +1110,20 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
 
 !     CALL sync_patch_array(sync_c, patch_2D, vort_c)
+!     CALL dbg_print('LeithBiharm:vort_c',vort_c,&
+!       & str_module,idt_src, in_subset=cells_in_domain)
 
     !2) calculate laplacian of vertical velocity
     CALL tracer_diffusion_horz_local(patch_3D, vort_c, ocean_state, vort_e)!,subset_range = edges_in_domain)
     CALL sync_patch_array(sync_e, patch_2D, vort_e)
+
+!     CALL dbg_print('LeithBiharm:vort_e', vort_e,&
+!       & str_module,idt_src, in_subset=edges_in_domain)
+
     CALL div_oce_3d( vort_e, patch_3D, operators_coeff%div_coeff, laplacian_vort)
     CALL sync_patch_array(sync_c, patch_2D, laplacian_vort)
+!     CALL dbg_print('LeithBiharm:laplacian_vort',laplacian_vort,&
+!       & str_module,idt_src, in_subset=cells_in_domain)
 
 
    !3a) In case of pure Leith, we have all to calculate the coefficient
@@ -1157,12 +1167,18 @@ CONTAINS
 
       CALL div_oce_3d(ocean_state%p_diag%vn_time_weighted, patch_3D, operators_coeff%div_coeff, div_c)
       CALL sync_patch_array(sync_c, patch_2D, div_c)
+!       CALL dbg_print('LeithBiharm:div_c',div_c,&
+!         & str_module,idt_src, in_subset=cells_in_domain)
       !CALL div_oce_3d( ocean_state%p_diag%ptp_vn, patch_3D, operators_coeff%div_coeff, div_c)
       !  The next two calls calculate the laplacian of the divergence without any diffusion parameter
       CALL tracer_diffusion_horz_local(patch_3D, div_c, ocean_state, div_e)!,subset_range = edges_in_domain)
       CALL sync_patch_array(sync_e, patch_2D, div_e)
+!       CALL dbg_print('LeithBiharm:div_e',div_e,&
+!         & str_module,idt_src, in_subset=edges_in_domain)
       CALL div_oce_3d( div_e, patch_3D, operators_coeff%div_coeff, laplacian_div)
       CALL sync_patch_array(sync_c, patch_2D, laplacian_div)
+!       CALL dbg_print('LeithBiharm:laplacian_div',laplacian_div,&
+!         & str_module,idt_src, in_subset=cells_in_domain)
 
      !Now aggregate the final parameter
 !ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index, je, level, cell1_idx, &
@@ -1387,90 +1403,101 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !Subroutine computes the horizontal diffusive flux of an arbitrary tracer.
-   SUBROUTINE tracer_diffusion_horz_local(patch_3D, trac_in, p_os, diff_flx, k_t, subset_range)
+  SUBROUTINE tracer_diffusion_horz_local(patch_3D, trac_in, p_os, diff_flx, k_t, subset_range)
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
     REAL(wp), INTENT(in)              :: trac_in(nproma,n_zlev,patch_3D%p_patch_2d(1)%alloc_cell_blocks)
     TYPE(t_hydro_ocean_state), TARGET :: p_os
     REAL(wp), INTENT(inout)           :: diff_flx(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
-    REAL(wp), OPTIONAL                :: k_t(:,:,:) !mixing coefficient for tracer    
+    REAL(wp), OPTIONAL                :: k_t(:,:,:) !mixing coefficient for tracer
     TYPE(t_subset_range), TARGET, INTENT(in), OPTIONAL :: subset_range
     !
     !Local variables
     INTEGER :: level, blockNo, edge_index
     INTEGER :: il_c1, ib_c1, il_c2, ib_c2
     INTEGER :: start_edge_index, end_edge_index
-    TYPE(t_subset_range), POINTER :: edges_in_domain
+    TYPE(t_subset_range), POINTER :: edges_in_domain, cells_in_domain
     TYPE(t_patch), POINTER :: patch_2D
     ! CHARACTER(len=max_char_length), PARAMETER :: &
     !        & routine = ('mo_ocediffusion:tracer_diffusion_horz')
     !-------------------------------------------------------------------------------
     patch_2D        => patch_3D%p_patch_2d(1)
     edges_in_domain => patch_2D%edges%in_domain
+    cells_in_domain => patch_2D%cells%in_domain
     !-------------------------------------------------------------------------------
 
-  IF(PRESENT(k_t))THEN
+    IF(PRESENT(k_t))THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index, edge_index, level, &
 !ICON_OMP il_c1, ib_c1, il_c2, ib_c2) ICON_OMP_DEFAULT_SCHEDULE
-    DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
-      CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
-      diff_flx(:,:,blockNo) = 0.0_wp
-      DO edge_index = start_edge_index, end_edge_index
-        !Get indices of two adjacent triangles
-        il_c1 = patch_2D%edges%cell_idx(edge_index,blockNo,1)
-        ib_c1 = patch_2D%edges%cell_blk(edge_index,blockNo,1)
-        il_c2 = patch_2D%edges%cell_idx(edge_index,blockNo,2)
-        ib_c2 = patch_2D%edges%cell_blk(edge_index,blockNo,2)
+      DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+        CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
+        diff_flx(:,:,blockNo) = 0.0_wp
+        DO edge_index = start_edge_index, end_edge_index
+          !Get indices of two adjacent triangles
+          il_c1 = patch_2D%edges%cell_idx(edge_index,blockNo,1)
+          ib_c1 = patch_2D%edges%cell_blk(edge_index,blockNo,1)
+          il_c2 = patch_2D%edges%cell_idx(edge_index,blockNo,2)
+          ib_c2 = patch_2D%edges%cell_blk(edge_index,blockNo,2)
 
-        DO level=1,  patch_3D%p_patch_1d(1)%dolic_e(edge_index,blockNo)
+          DO level=1,  patch_3D%p_patch_1d(1)%dolic_e(edge_index,blockNo)
 
-          diff_flx(edge_index,level,blockNo) = &
-            &   k_t(edge_index,level,blockNo) &
-            & * patch_3D%p_patch_1d(1)%prism_thick_e(edge_index,level,blockNo)  &
-            & * (trac_in(il_c2,level,ib_c2) - trac_in(il_c1,level,ib_c1))       &
-            & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo)
+            diff_flx(edge_index,level,blockNo) = &
+              &   k_t(edge_index,level,blockNo) &
+              & * patch_3D%p_patch_1d(1)%prism_thick_e(edge_index,level,blockNo)  &
+              & * (trac_in(il_c2,level,ib_c2) - trac_in(il_c1,level,ib_c1))       &
+              & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo)
+
+          ENDDO
 
         ENDDO
-
       ENDDO
-    ENDDO
 !ICON_OMP_END_PARALLEL_DO
 
     IF (PRESENT(subset_range)) THEN
       IF (.NOT. subset_range%is_in_domain) &
         & CALL sync_patch_array(sync_e, patch_2D, diff_flx)
-    ENDIF    
+    ENDIF
 
-  ELSEIF(.NOT.PRESENT(k_t))THEN  
+    ELSEIF(.NOT.PRESENT(k_t))THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index, edge_index, level, &
 !ICON_OMP il_c1, ib_c1, il_c2, ib_c2) ICON_OMP_DEFAULT_SCHEDULE
-    DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
-      CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
-      diff_flx(:,:,blockNo) = 0.0_wp
-      DO edge_index = start_edge_index, end_edge_index
-        !Get indices of two adjacent triangles
-        il_c1 = patch_2D%edges%cell_idx(edge_index,blockNo,1)
-        ib_c1 = patch_2D%edges%cell_blk(edge_index,blockNo,1)
-        il_c2 = patch_2D%edges%cell_idx(edge_index,blockNo,2)
-        ib_c2 = patch_2D%edges%cell_blk(edge_index,blockNo,2)
+      DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+        CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
+        diff_flx(:,:,blockNo) = 0.0_wp
+        DO edge_index = start_edge_index, end_edge_index
+          !Get indices of two adjacent triangles
+          il_c1 = patch_2D%edges%cell_idx(edge_index,blockNo,1)
+          ib_c1 = patch_2D%edges%cell_blk(edge_index,blockNo,1)
+          il_c2 = patch_2D%edges%cell_idx(edge_index,blockNo,2)
+          ib_c2 = patch_2D%edges%cell_blk(edge_index,blockNo,2)
 
-        DO level=1,  patch_3D%p_patch_1d(1)%dolic_e(edge_index,blockNo)
+          DO level=1,  patch_3D%p_patch_1d(1)%dolic_e(edge_index,blockNo)
 
-          diff_flx(edge_index,level,blockNo) = &
-            & patch_3D%p_patch_1d(1)%prism_thick_e(edge_index,level,blockNo)  &
-            & * (trac_in(il_c2,level,ib_c2) - trac_in(il_c1,level,ib_c1))       &
-            & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo)
+            diff_flx(edge_index,level,blockNo) = &
+              & patch_3D%p_patch_1d(1)%prism_thick_e(edge_index,level,blockNo)  &
+              & * (trac_in(il_c2,level,ib_c2) - trac_in(il_c1,level,ib_c1))       &
+              & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo)
+
+          ENDDO
 
         ENDDO
-
       ENDDO
-    ENDDO
 !ICON_OMP_END_PARALLEL_DO
 
-    IF (PRESENT(subset_range)) THEN
-      IF (.NOT. subset_range%is_in_domain) &
-        & CALL sync_patch_array(sync_e, patch_2D, diff_flx)
-    ENDIF 
-  ENDIF  
+      IF (PRESENT(subset_range)) THEN
+        IF (.NOT. subset_range%is_in_domain) &
+          & CALL sync_patch_array(sync_e, patch_2D, diff_flx)
+      ENDIF
+
+    ENDIF
+
+!     CALL dbg_print('LeithDiff:trac_in',trac_in,&
+!       & str_module,1, in_subset=cells_in_domain)
+!     CALL dbg_print('LeithDiff:diff_flx',diff_flx,&
+!       & str_module,1, in_subset=edges_in_domain)
+!     CALL dbg_print('LeithDiff:thick_e',patch_3D%p_patch_1d(1)%prism_thick_e,&
+!       & str_module,1, in_subset=edges_in_domain)
+!     CALL dbg_print('LeithDiff:dual_edge_length',patch_2D%edges%inv_dual_edge_length,&
+!       & str_module,1, in_subset=edges_in_domain)
 
   END SUBROUTINE tracer_diffusion_horz_local
   !-------------------------------------------------------------------------
