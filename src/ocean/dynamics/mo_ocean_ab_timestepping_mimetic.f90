@@ -101,7 +101,8 @@ MODULE mo_ocean_ab_timestepping_mimetic
   PUBLIC :: construct_ho_lhs_fields_mimetic, destruct_ho_lhs_fields_mimetic
   PUBLIC :: invert_mass_matrix
   !
-  
+  PUBLIC :: lhs_surface_height_ab_mim
+
   INTEGER, PARAMETER :: topLevel=1
   CHARACTER(LEN=12)  :: str_module = 'oceSTEPmimet'  ! Output of module for 1 line debug
   INTEGER :: idt_src    = 1               ! Level of detail for 1 line debug
@@ -1313,10 +1314,10 @@ CONTAINS
         ENDIF
       END DO
       
-	   END DO
+    END DO
 !ICON_OMP_END_PARALLEL_DO    
-	ENDIF!patch_2d%cells%max_connectivity
-	
+  ENDIF!patch_2d%cells%max_connectivity
+
     
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
@@ -1368,7 +1369,7 @@ CONTAINS
       & stat = return_status)
     IF (return_status > 0) &
       & CALL finish("mo_ocean_ab_timestepping_mimetic:init_ho_lhs_fields", "sp Allocation failed")
-    
+
     ! these are arrays used by the lhs routine
     lhs_result(:,:)   = 0.0_wp
     lhs_z_grad_h(:,:) = 0.0_wp
@@ -1425,12 +1426,12 @@ CONTAINS
   !!
   !-------------------------------------------------------------------------
 !<Optimize:inUse>
-  FUNCTION lhs_surface_height_ab_mim( x, h_old, patch_3d, thickness_e,&
+  FUNCTION lhs_surface_height_ab_mim( x, patch_3d, thickness_e,&
     & thickness_c,op_coeffs) result(lhs)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp),    INTENT(inout)           :: x(:,:)    ! inout for sync, dimension: (nproma,patch%alloc_cell_blocks)
-    REAL(wp),    INTENT(in)              :: h_old(:,:)
+!     REAL(wp),    INTENT(in)              :: h_old(:,:)
     ! REAL(wp),    INTENT(in)              :: coeff
     TYPE(t_operator_coeff),INTENT(in)    :: op_coeffs
     REAL(wp),    INTENT(in)              :: thickness_e(:,:)
@@ -1965,7 +1966,7 @@ CONTAINS
         END DO ! blockNo
 !ICON_OMP_END_PARALLEL_DO
   
-      ENDIF	!patch_2d%cells%max_connectivity  
+      ENDIF !patch_2d%cells%max_connectivity
 
     ENDIF  !  (l_EDGE_BASED)
     

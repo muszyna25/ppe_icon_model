@@ -40,8 +40,9 @@ MODULE mo_ocean_testbed
   USE mo_testbed_ocean_performance, ONLY: ocean_test_performance
   USE mo_ocean_testbed_operators,   ONLY: ocean_test_operators
   USE mo_ocean_testbed_read,        ONLY: ocean_test_read
-  USE mo_ocean_testbed_quads,       ONLY: ocean_test_quads
   USE mo_ocean_testbed_EOS,         ONLY: ocean_test_EOS
+  USE mo_ocean_testbed_quads,       ONLY: ocean_test_quads
+  USE mo_ocean_testbed_solverMatrix,ONLY: createSolverMatrix
   USE mo_ocean_math_operators,      ONLY: update_height_depdendent_variables
 
 !-------------------------------------------------------------------------
@@ -80,7 +81,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER ::  method_name = "ocean_testbed"
 
     CALL update_height_depdendent_variables( patch_3D, ocean_state(1), external_data(1), operators_coefficients, solverCoeff_sp)
-	
+
     SELECT CASE (test_mode)
       CASE (1 : 99)  !  1 - 99 test ocean modules
         CALL ocean_test_modules( patch_3d, ocean_state,  &
@@ -110,6 +111,9 @@ CONTAINS
 
       CASE (1103)
         CALL ocean_test_EOS()
+
+      CASE (1104)
+        CALL createSolverMatrix( patch_3d, ocean_state, operators_coefficients)
 
       CASE DEFAULT
         CALL finish(method_name, "Unknown test_mode")

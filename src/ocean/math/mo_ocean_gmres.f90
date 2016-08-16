@@ -129,12 +129,12 @@ CONTAINS
     REAL(wp), INTENT(inout) :: res(:) ! (m)
     
     INTERFACE   ! left-hand-side: A*x
-      FUNCTION lhs(x,old_h, patch_3D, h_e, thickness_c, p_op_coeff) result(ax)
+      FUNCTION lhs(x, patch_3D, h_e, thickness_c, p_op_coeff) result(ax)
         USE mo_kind, ONLY: wp
         USE mo_model_domain, ONLY: t_patch, t_patch_3d
         USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
         REAL(wp),    INTENT(inout) :: x(:,:)  ! inout for sync
-        REAL(wp), INTENT(in) :: old_h(:,:)
+!         REAL(wp), INTENT(in) :: old_h(:,:)
         !TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
         TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
         ! REAL(wp),    INTENT(in) :: coeff
@@ -223,7 +223,7 @@ CONTAINS
     IF (PRESENT(preconditioner)) CALL preconditioner(b(:,:),patch_3D,p_op_coeff,h_e)
     
     
-    w(:, :) = lhs(x(:,:),old_h, patch_3D, h_e, thickness_c, p_op_coeff)
+    w(:, :) = lhs(x(:,:), patch_3D, h_e, thickness_c, p_op_coeff)
 
     ! w(pad_nproma:nproma, no_of_blocks) = 0.0_wp
     x(pad_nproma:nproma, no_of_blocks) = 0.0_wp
@@ -311,7 +311,7 @@ CONTAINS
       !      sum_v = SUM(v(:,:,i))
       !       write(0,*) i, " gmres v before lhs:", sum_v, sum_w
       ! write(*,*)  get_my_global_mpi_id(), 'before lhs v(pad):', pad_nproma, nproma, k, 'v=', v(pad_nproma:nproma, no_of_blocks, k)
-      w(:,:) = lhs( v(:,:,i), old_h, patch_3D, h_e, thickness_c, p_op_coeff )
+      w(:,:) = lhs( v(:,:,i), patch_3D, h_e, thickness_c, p_op_coeff )
       ! w(pad_nproma:nproma, no_of_blocks)   = 0.0_wp
       v(pad_nproma:nproma, no_of_blocks,i) = 0.0_wp
       
@@ -1253,12 +1253,12 @@ CONTAINS
     REAL(wp), INTENT(inout) :: res(:) ! (m)
     
     INTERFACE   ! left-hand-side: A*x
-      FUNCTION lhs(x,old_h, patch_3D, h_e, thickness_c, p_op_coeff) result(ax)
+      FUNCTION lhs(x, patch_3D, h_e, thickness_c, p_op_coeff) result(ax)
         USE mo_kind, ONLY: wp
         USE mo_model_domain, ONLY: t_patch, t_patch_3d
         USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
         REAL(wp),    INTENT(inout) :: x(:,:)  ! inout for sync
-        REAL(wp), INTENT(in) :: old_h(:,:)
+!         REAL(wp), INTENT(in) :: old_h(:,:)
         !TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
         TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
 !        REAL(wp),    INTENT(in) :: coeff
@@ -1333,7 +1333,7 @@ CONTAINS
     ! 1) compute the preconditioned residual
     IF (PRESENT(preconditioner)) CALL preconditioner(x(:,:),patch_3D,p_op_coeff,h_e)
     IF (PRESENT(preconditioner)) CALL preconditioner(b(:,:),patch_3D,p_op_coeff,h_e)
-    w(:,:) = lhs(x(:,:),old_h, patch_3D, h_e, thickness_c, p_op_coeff)
+    w(:,:) = lhs(x(:,:), patch_3D, h_e, thickness_c, p_op_coeff)
     
     IF (ltimer) CALL timer_start(timer_gmres)
     
@@ -1407,7 +1407,7 @@ CONTAINS
     ! 4) Arnoldi loop
     arnoldi: DO i = 1, m-1
       ! 4.1) compute the next (i.e. i+1) Krylov vector
-      w(:, :) = lhs( v(:,:,i),old_h,patch_3D,h_e, thickness_c, p_op_coeff )
+      w(:, :) = lhs( v(:,:,i),patch_3D,h_e, thickness_c, p_op_coeff )
       
       ! 4.2) Gram-Schmidt orthogonalization
       
