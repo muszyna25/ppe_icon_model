@@ -186,7 +186,7 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
                 CALL fields%modal_param(p_art_data(jg)%air_prop%art_free_path(:,:,jb),                &
                   &                     istart, iend, nlev, jb, tracer(:,:,jb,:))
                 ! Calculate sedimentation velocities for 0th and 3rd moment
-                CALL art_calc_v_sed(rho(:,:,jb),dz(:,:,jb),                                           &
+                CALL art_calc_v_sed(dz(:,:,jb),                                                       &
                   &     p_art_data(jg)%air_prop%art_dyn_visc(:,:,jb), fields%density(:,:,jb),         &
                   &     fields%diameter(:,:,jb), fields%info%exp_aero, fields%knudsen_nr(:,:,jb),     &
                   &     istart, iend, nlev, vsed0(:,:), vsed3(:,:))

@@ -15,6 +15,7 @@
 MODULE mo_echam_phy_cleanup
 
   USE mo_echam_phy_memory,   ONLY: destruct_echam_phy_state
+  USE mo_psrad_memory,       ONLY: destruct_psrad_forcing_list
   USE mo_echam_phy_config,   ONLY: phy_config => echam_phy_config
   USE mo_echam_conv_config,  ONLY: cleanup_echam_convection
   USE mo_vdiff_solver,       ONLY: cleanup_vdiff_solver
@@ -41,6 +42,8 @@ CONTAINS
     END IF
 
     CALL destruct_echam_phy_state
+
+    CALL destruct_psrad_forcing_list
 
   END SUBROUTINE cleanup_echam_phy
   !-------------
