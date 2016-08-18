@@ -817,7 +817,7 @@ CONTAINS
       CALL add_ref( field_list, prefix//'tracer_phy',                          &
                   & prefix//TRIM(ctracer(jtrc))//'_phy', field%q_ptr(jtrc)%p,  &
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                         &
-                  & t_cf_var(TRIM(ctracer(jtrc)), 'kg kg-1',                   &
+                  & t_cf_var(TRIM(ctracer(jtrc))//'_phy', 'kg kg-1',           &
                   &          'mass mixing ratio of tracer '//                  &
                   &          TRIM(ctracer(jtrc))//' in physics',               &
                   &          datatype_flt),                                    &
@@ -835,7 +835,7 @@ CONTAINS
     cf_desc    = t_cf_var('condensated_water', 'kg kg-1', 'cloud water + cloud ice', &
          &                datatype_flt)
     grib2_desc = grib2_var(0,1,21, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'qx', field%qx,                               &
+    CALL add_var( field_list, prefix//'clx_phy', field%qx,                          &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                          &
                 &             vert_intp_type=vintp_types("P","Z","I"),              & 
