@@ -291,7 +291,7 @@ MODULE mo_ocean_nml
   INTEGER :: HorizonatlVelocity_VerticalAdvection_form = VerticalAdvection_MimeticRotationalForm
 
   LOGICAL  :: use_smooth_ocean_boundary  = .TRUE.
-
+  LOGICAL  :: createSolverMatrix  = .FALSE.
 
   NAMELIST/ocean_dynamics_nml/&
     &                 ab_beta                      , &
@@ -338,7 +338,8 @@ MODULE mo_ocean_nml
     &                 KineticEnergy_type           , &
     &                 HorizonatlVelocity_VerticalAdvection_form, &
     &                 solver_FirstGuess            , &
-    &                 use_smooth_ocean_boundary
+    &                 use_smooth_ocean_boundary,     &
+    &                 createSolverMatrix
 
 
   NAMELIST/ocean_tracer_transport_nml/&

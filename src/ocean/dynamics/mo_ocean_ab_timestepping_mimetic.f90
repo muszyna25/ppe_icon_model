@@ -51,7 +51,7 @@ MODULE mo_ocean_ab_timestepping_mimetic
     & PPscheme_type,                                      &
     & PPscheme_ICON_Edge_vnPredict_type,                  &
     & solver_FirstGuess, MassMatrix_solver_tolerance,     &
-    & OceanReferenceDensity_inv
+    & OceanReferenceDensity_inv, createSolverMatrix
     
   USE mo_run_config,                ONLY: dtime, ltimer, debug_check_level
   USE mo_timer  
@@ -89,8 +89,9 @@ MODULE mo_ocean_ab_timestepping_mimetic
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
   USE mo_grid_config,               ONLY: n_dom
   USE mo_parallel_config,           ONLY: p_test_run
-  USE mo_mpi,                       ONLY: my_process_is_stdio, get_my_global_mpi_id, work_mpi_barrier ! my_process_is_mpi_parallel
+  USE mo_mpi,                       ONLY: my_process_is_stdio, get_my_global_mpi_id, work_mpi_barrier, num_work_procs ! my_process_is_mpi_parallel
   USE mo_statistics,                ONLY: global_minmaxmean, print_value_location
+
   IMPLICIT NONE
   
   PRIVATE  
@@ -261,7 +262,13 @@ CONTAINS
       CALL dbg_print('bef ocean_gmres: h-old',ocean_state%p_prog(nold(1))%h(:,:) ,str_module,idt_src,in_subset=owned_cells)
 !       CALL dbg_print('p_rhs_sfc_eq',ocean_state%p_aux%p_rhs_sfc_eq, str_module,1, in_subset=owned_cells)
 
-      
+      !-----------------------------------------------------------------------------------------
+      IF (createSolverMatrix) &
+        CALL createSolverMatrix_onTheFly( patch_3d, ocean_state%p_diag%thick_e, ocean_state%p_diag%thick_c, &
+                                        & op_coeffs, ocean_state%p_aux%p_rhs_sfc_eq, timestep)
+      !-----------------------------------------------------------------------------------------
+
+
       SELECT CASE (select_solver)
 
       !-----------------------------------------------------------------------------------------
@@ -2352,5 +2359,69 @@ CONTAINS
     WRITE(*,*)'residual after',MAXVAL(p_jp),MINVAL(p_jp)!,maxvalp_jp),minval(p_jp)
   END SUBROUTINE jacobi_precon
   !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  SUBROUTINE createSolverMatrix_onTheFly( patch_3d, column_thick_e, column_thick_c, operators_coefficients, rhs, timestep)
+
+    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    REAL(wp) :: column_thick_e(:,:), column_thick_c(:,:)
+    TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
+    REAL(wp) :: rhs(:,:)
+    INTEGER :: timestep
+
+    REAL(wp) :: x(1:nproma,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) :: lhs(1:nproma,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+
+    INTEGER :: column,row
+
+    TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain
+    TYPE(t_patch), POINTER :: patch_2D
+
+    INTEGER, PARAMETER :: fileNo = 501
+    CHARACTER(len=64) :: fileName
+
+    CHARACTER(len=*), PARAMETER :: method_name = 'createSolverMatrix_onTheFly'
+
+
+    IF (nproma /= 1) &
+      CALL finish(method_name, "nproma should be = 1")
+
+    IF (num_work_procs /= 1) &
+      CALL finish(method_name, "mpi processes should be = 1")
+
+    patch_2D           => patch_3d%p_patch_2d(1)
+    cells_in_domain    => patch_2D%cells%in_domain
+
+    ! the matrix
+    write(fileName, "(A,I4,A)") "ocean_matrix_", timestep, ".txt"
+    open (fileNo, FILE=fileName, STATUS='new')
+    DO column = cells_in_domain%start_block, cells_in_domain%end_block
+      x   = 0.0_wp
+      lhs = 0.0_wp
+      x(1,column) = 1.0_wp
+
+      lhs = lhs_surface_height_ab_mim( x, patch_3d, column_thick_e,&
+        & column_thick_c, operators_coefficients)
+
+      DO row = cells_in_domain%start_block, cells_in_domain%end_block
+        IF (lhs(1, row) /= 0.0_wp) &
+          write(fileNo, *) "(", row, ",", column, ")", lhs(1, row)
+      ENDDO
+
+    ENDDO
+
+    CLOSE(fileNo)
+
+    ! the rhs
+    write(fileName, "(A,I4,A)") "ocean_rhs_", timestep, ".txt"
+    open (fileNo, FILE=fileName, STATUS='new')
+    DO row = cells_in_domain%start_block, cells_in_domain%end_block
+      write(fileNo, *) rhs(1, row)
+    ENDDO
+    CLOSE(fileNo)
+
+  END SUBROUTINE createSolverMatrix_onTheFly
+  !-------------------------------------------------------------------------
+
 
 END MODULE mo_ocean_ab_timestepping_mimetic

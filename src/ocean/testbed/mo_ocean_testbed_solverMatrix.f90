@@ -41,7 +41,7 @@ MODULE mo_ocean_testbed_solverMatrix
   PRIVATE
 
   PUBLIC :: createSolverMatrix
-  
+
   !-------------------------------------------------------------------------
 CONTAINS
 
