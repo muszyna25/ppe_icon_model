@@ -83,7 +83,6 @@ USE mo_intp_lonlat,         ONLY: compute_lonlat_area_weights
 ! LGS - for the implementation of ECHAM physics in iconam
 USE mo_echam_phy_init,      ONLY: init_echam_phy, initcond_echam_phy
 USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
-USE mo_bc_greenhouse_gases, ONLY: ghg_co2mmr
 
 USE mo_vertical_coord_table,ONLY: vct_a, vct_b
 USE mo_nh_testcases_nml,    ONLY: nh_test_name
@@ -363,7 +362,7 @@ CONTAINS
            IF (.NOT. p_patch(jg)%ldom_active) CYCLE
            ! CO2 tracer
            IF ( iqt <= ico2 .AND. ico2 <= ntracer ) THEN
-             CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,ico2),ghg_co2mmr)
+             CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,ico2),400.e-6_wp)
            END IF
         END DO
 

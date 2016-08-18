@@ -731,15 +731,15 @@ MODULE mo_nonhydro_state
         !CO2
         IF ( iqt <= ico2 .AND. ico2 <= ntracer ) THEN
           CALL add_ref( p_prog_list, 'tracer',                                         &
-            &           TRIM(vname_prefix)//'co2'//suffix, p_prog%tracer_ptr(ico2)%p_3d, &
+            &           TRIM(vname_prefix)//'qco2'//suffix, p_prog%tracer_ptr(ico2)%p_3d, &
             &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
-            &           t_cf_var(TRIM(vname_prefix)//'co2',                            &
+            &           t_cf_var(TRIM(vname_prefix)//'qco2',                           &
             &            'kg kg-1','co2_mass_mixing_ratio', datatype_flt),             &
             &           grib2_var(0,14,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
             &           ldims=shape3d_c,                                               &
             &           tlev_source=TLEV_NNOW_RCF,                                     & ! output from nnow_rcf slice
             &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
-            &                       name        = TRIM(vname_prefix)//'co2'//suffix,   &
+            &                       name        = TRIM(vname_prefix)//'qco2'//suffix,  &
             &                       ihadv_tracer=advconf%ihadv_tracer(ico2),           &
             &                       ivadv_tracer=advconf%ivadv_tracer(ico2)),          & 
             &           vert_interp=create_vert_interp_metadata(                       &
@@ -1169,7 +1169,10 @@ MODULE mo_nonhydro_state
             & grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL),          &
             & ldims=shape3d_c,                                                  &
             & tlev_source=TLEV_NNOW_RCF,                                        &              ! output from nnow_rcf slice
-            & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.),            &
+            & tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,             &
+            &                       name        = TRIM(name)//suffix,           &
+            &                       ihadv_tracer=advconf%ihadv_tracer(jt),      &
+            &                       ivadv_tracer=advconf%ivadv_tracer(jt)),     &
             & vert_interp=create_vert_interp_metadata(                          &
             &             vert_intp_type=vintp_types("P","Z","I"),              & 
             &             vert_intp_method=VINTP_METHOD_LIN,                    &
