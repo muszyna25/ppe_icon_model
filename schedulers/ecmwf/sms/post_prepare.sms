@@ -28,9 +28,6 @@ module load cdo/1.7.0
 module swap grib_api grib_api/1.13.0
 
 dwd_grib_api=/home/ms/de/dwd/grib_api
-#dwd_grib_api=/home/ms/de/dei4
-#export GRIB_DEFINITION_PATH="/usr/local/lib/metaps/lib/grib_api/1.11.0/share/definitions:${dwd_grib_api}/definitions.edzw-1.11.0"
-#export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.11.0:/usr/local/apps/grib_api/1.11.0/CRAY/82/share/grib_api/definitions"
 export GRIB_DEFINITION_PATH="/usr/local/apps/grib_api/1.13.0/CRAY/82/share/grib_api/definitions:${dwd_grib_api}/definitions.edzw-1.13.0-4"
 
 lsplitdata=1
@@ -46,7 +43,8 @@ case %SIMMODE% in
   1)              ;;  # pre-operations (use defaults)   
   2) lcpdata=0        # monthly mean 10day forecasts
      ldeldata=0  
-     lcatdata=1   ;;
+     lcatdata=1
+     levtypes="ML PL" ;;
   3) lsplitdata=0 ;;  # climate
   4) lsplitdata=0     # B-matrix 
      lcpdata=0        
@@ -55,8 +53,9 @@ case %SIMMODE% in
 esac
 
 ###
-#lcpdata=1
 #lsplitdata=0
+#lcatdata=0
+#lcpdata=1
 ###
 
 
@@ -136,9 +135,9 @@ if [[ $lmeteo = 1 ]] ; then
   else
     ecp $ecfsdir/$outfile_mtg2 .
   fi
-####  if [[ $lcpdata = 1 ]] ; then
+  if [[ $lcpdata = 1 ]] ; then
     scp $outfile_mtg2 ecgb:${gatedir}
-####  fi
+  fi
   smsevent meteogram_data
 fi
 
@@ -194,22 +193,27 @@ if [[ $lsplitdata = 1 ]] ; then
 
   mkdir -p grb_data
 
-  grib_copy   ${basename}_DOM01_ML_0001.grb  \
-     grb_data/${basename}_DOM01_0001_[shortName]_[typeOfFirstFixedSurface].grb
+  for levtype1 in ${levtypes} ; do
+
+      if [[ ${levtype1} = 'HL' ]] ; then
+        grib_copy  ${basename}_DOM01_HL_0001.grb  \
+          grb_data/${basename}_DOM01_0001_[shortName]_zl.grb
+      else
+        grib_copy  ${basename}_DOM01_${levtype1}_0001.grb  \
+          grb_data/${basename}_DOM01_0001_[shortName]_[typeOfFirstFixedSurface].grb
+      fi
+
 # HCC, MCC, LCC:
-  grib_copy grb_data/${basename}_DOM01_0001_unknown_pl.grb \
-            grb_data/${basename}_DOM01_0001_cc.[topLevel]_sfc.grb
-  \rm -f    grb_data/${basename}_DOM01_0001_unknown_pl.grb
-
-  grib_copy   ${basename}_DOM01_PL_0001.grb  \
-     grb_data/${basename}_DOM01_0001_[shortName]_[typeOfFirstFixedSurface].grb
-
-  grib_copy   ${basename}_DOM01_HL_0001.grb  \
-     grb_data/${basename}_DOM01_0001_[shortName]_zl.grb
-
+      if [[ ${levtype1} = 'ML' ]] ; then
+        grib_copy grb_data/${basename}_DOM01_0001_unknown_pl.grb \
+                  grb_data/${basename}_DOM01_0001_cc.[topLevel]_sfc.grb
+        \rm -f    grb_data/${basename}_DOM01_0001_unknown_pl.grb
 # change 150 to ml:
-  for ml_file in grb_data/${basename}_DOM01_0001_*_150.grb ; do
-    mv ${ml_file} `echo ${ml_file} | sed 's/150.grb/ml.grb/'`
+        for ml_file in grb_data/${basename}_DOM01_0001_*_150.grb ; do
+          mv ${ml_file} `echo ${ml_file} | sed 's/150.grb/ml.grb/'`
+        done
+      fi
+
   done
 
 # fixes
@@ -220,12 +224,6 @@ if [[ $lsplitdata = 1 ]] ; then
       \rm -rf   grb_data/${basename}_DOM01_0001_${bad}_${levtype2}.grb
     done
   done
-
-# fix table from 5 to 4 to work with metview (ML type need to be present in GRIB file!!)
-#  for ml_file in grb_data/${basename}_DOM01_0001_*_ml.grb  grb_data/${basename}_DOM01_0001_*_pl.grb ; do
-#    cdo -P 2 copy ${ml_file}      ${ml_file}_temp
-#    mv            ${ml_file}_temp ${ml_file}
-#  done
 
   ls -l grb_data
 
