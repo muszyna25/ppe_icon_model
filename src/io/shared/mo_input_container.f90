@@ -16,11 +16,12 @@ MODULE mo_input_container
     USE mo_hash_table, ONLY: t_HashTable, hashTable_make
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_kind, ONLY: wp, dp
+    USE mo_math_types, ONLY: t_Statistics
     USE mo_mpi, ONLY: p_bcast, p_comm_work, my_process_is_stdio
     USE mo_parallel_config, ONLY: blk_no, nproma
     USE mo_scatter_pattern_base, ONLY: lookupScatterPattern
     USE mo_util_cdi, ONLY: trivial_tileId
-    USE mo_util_string, ONLY: int2string, REAL2string
+    USE mo_util_string, ONLY: int2string, real2string
 
     IMPLICIT NONE
 
@@ -429,11 +430,13 @@ CONTAINS
         CALL me%levels%destruct()
     END SUBROUTINE InputContainer_destruct
 
-    SUBROUTINE InputContainer_readField(me, level, tile, jg, iterator)
+    SUBROUTINE InputContainer_readField(me, variableName, level, tile, jg, iterator, statistics)
         CLASS(t_InputContainer), INTENT(INOUT) :: me
+        CHARACTER(LEN = *), INTENT(IN) :: variableName
         REAL(dp), VALUE :: level
         INTEGER, VALUE :: tile, jg
         TYPE(t_CdiIterator), VALUE :: iterator
+        TYPE(t_Statistics), INTENT(INOUT) :: statistics ! This gets the statistics of the READ field added, but ONLY on the master process.
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputContainer_readField"
         CLASS(t_Destructible), POINTER :: key, VALUE
@@ -452,7 +455,9 @@ CONTAINS
             CLASS DEFAULT
                 CALL finish(routine, "assertion failed")
         END SELECT
-        IF(ASSOCIATED(me%fields%getEntry(key))) CALL finish(routine, "double definition of a field in an input file")
+        IF(ASSOCIATED(me%fields%getEntry(key))) THEN
+            CALL finish(routine, "double definition of variable '"//variableName//"' in an input file")
+        END IF
 
         !Inquire buffer SIZE information AND broadcast it.
         IF(C_ASSOCIATED(iterator%ptr)) THEN
@@ -488,7 +493,10 @@ CONTAINS
                         IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
 
                         !READ the DATA
-                        IF(C_ASSOCIATED(iterator%ptr)) CALL cdiIterator_readField(iterator, bufferD)
+                        IF(C_ASSOCIATED(iterator%ptr)) THEN
+                            CALL cdiIterator_readField(iterator, bufferD)
+                            CALL statistics%add(bufferD)
+                        END IF
                         CALL distribution%distribute(bufferD, VALUE%ptr(:, :), .FALSE.)
 
                         DEALLOCATE(bufferD)
@@ -503,7 +511,10 @@ CONTAINS
                         IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
 
                         !READ the DATA
-                        IF(C_ASSOCIATED(iterator%ptr)) CALL cdiIterator_readFieldF(iterator, bufferS)
+                        IF(C_ASSOCIATED(iterator%ptr)) THEN
+                            CALL cdiIterator_readFieldF(iterator, bufferS)
+                            CALL statistics%add(bufferS)
+                        END IF
                         CALL distribution%distribute(bufferS, VALUE%ptr(:, :), .FALSE.)
 
                         DEALLOCATE(bufferS)

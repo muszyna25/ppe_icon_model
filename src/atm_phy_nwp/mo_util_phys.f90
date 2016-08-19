@@ -996,6 +996,19 @@ CONTAINS
       ENDDO
     ENDDO
 
+    ! add convective detrainment tendencies for rain and snow if activated
+    IF (atm_phy_nwp_config(jg)%ldetrain_conv_prec) THEN
+      DO jk = kstart_moist(jg), nlev
+!DIR$ IVDEP
+        DO jc = i_startidx, i_endidx
+          pt_prog_rcf%tracer(jc,jk,jb,iqr) = pt_prog_rcf%tracer(jc,jk,jb,iqr) + &
+            pdtime*prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqr)
+          pt_prog_rcf%tracer(jc,jk,jb,iqs) = pt_prog_rcf%tracer(jc,jk,jb,iqs) + &
+            pdtime*prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqs)
+        ENDDO
+      ENDDO
+    ENDIF
+
     IF(lart .AND. art_config(jg)%lart_conv) THEN
       ! add convective tendency and fix to positive values
       DO jt=1,art_config(jg)%nconv_tracer  ! ASH
