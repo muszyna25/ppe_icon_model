@@ -36,7 +36,7 @@ USE mo_run_config,           ONLY: dtime,                & !    namelist paramet
   &                                output_mode,          &
   &                                lvert_nest, ntracer,  &
   &                                nlev,                 &
-  &                                iqv, iqc, iqt, ico2,  &
+  &                                iqv, iqc, iqt,        &
   &                                number_of_grid_used
 USE mo_dynamics_config,      ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf, idiv_method
 ! Horizontal grid
@@ -357,13 +357,15 @@ CONTAINS
           &             p_nh_state(1:)  ,&
           &             ext_data(1:)    )
 
-        ! initialize fields not available in the analysis file
+        ! initialize tracers fields jt=iqt to jt=ntracer, which are not available
+        ! in the analysis file, to a non-zero value
         DO jg = 1,n_dom
            IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-           ! CO2 tracer
-           IF ( iqt <= ico2 .AND. ico2 <= ntracer ) THEN
-             CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,ico2),400.e-6_wp)
-           END IF
+           DO jt = iqt,ntracer
+!$OMP PARALLEL
+             CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,jt),100.e-6_wp)
+!$OMP END PARALLEL
+          END DO
         END DO
 
         IF (timers_level > 5) CALL timer_stop(timer_init_icon)

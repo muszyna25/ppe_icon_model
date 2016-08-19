@@ -51,7 +51,8 @@ MODULE mo_nml_crosscheck
   USE mo_run_config,         ONLY: nsteps, dtime, iforcing,                   &
     &                              ltransport, ntracer, nlev, ltestcase,      &
     &                              nqtendphy, iqtke, iqv, iqc, iqi,           &
-    &                              iqs, iqr, iqt, iqtvar, ico2, ltimer,       &
+    &                              iqs, iqr, iqt, iqtvar, ltimer,             &
+    &                              ico2, ich4, in2o, io3,                     &
     &                              iqni, iqni_nuc, iqg, iqm_max,              &
     &                              iqh, iqnr, iqns, iqng, iqnh, iqnc,         & 
     &                              inccn, ininact, ininpot,                   &
@@ -574,14 +575,18 @@ CONTAINS
 
       IF (ntracer < 3) CALL finish(TRIM(method_name),'ECHAM physics needs at least 3 tracers')
 
+      ! 0 indicates that this tracer is not (yet) used by ECHAM  physics
       iqv    = 1     !> water vapour
       iqc    = 2     !! cloud water
       iqi    = 3     !! ice
-      iqr    = 0     !! 0: no rain water
-      iqs    = 0     !! 0: no snow
-      ico2   = 4     !! CO2
+      iqr    = 0     !! rain water
+      iqs    = 0     !! snow
       iqm_max= 3     !! end index of water species mixing ratios
       iqt    = 4     !! starting index of non-water species
+      ico2   = 4     !! CO2
+      ich4   = 0     !! CH4
+      in2o   = 0     !! N2O
+      io3    = 0     !! O3
       nqtendphy = 0  !! number of water species for which convective and turbulent
                      !! tendencies are stored
 

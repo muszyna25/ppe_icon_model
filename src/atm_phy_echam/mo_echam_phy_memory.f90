@@ -62,7 +62,7 @@ MODULE mo_echam_phy_memory
     &                               ZA_HYBRID, ZA_HYBRID_HALF,         &
     &                               ZA_SURFACE, ZA_GENERIC_ICE
   USE mo_sea_ice_nml,         ONLY: kice
-  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqt, ico2
+  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqt, ico2, ich4, in2o, io3
 
 
   IMPLICIT NONE
@@ -549,6 +549,9 @@ CONTAINS
 
     ! Set names for other tracers with indices between iqt and ntracer
     IF ( iqt <= ico2 .AND. ico2 <= ntracer ) ctracer(ico2) = 'co2'
+    IF ( iqt <= ich4 .AND. ich4 <= ntracer ) ctracer(ich4) = 'ch4'
+    IF ( iqt <= in2o .AND. in2o <= ntracer ) ctracer(in2o) = 'n2o'
+    IF ( iqt <= io3  .AND. io3  <= ntracer ) ctracer(io3 ) = 'o3'
 
     CALL cdiDefMissval(cdimissval)
 
