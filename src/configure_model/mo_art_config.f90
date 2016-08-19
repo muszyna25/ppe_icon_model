@@ -54,6 +54,8 @@ MODULE mo_art_config
   PUBLIC :: iTR_med,iTR_naf,iTR_saf,iTR_mdg,iTR_aus,iTR_nam              !artificial tracer
   PUBLIC :: iTR_sam,iTR_tpo,iTR_tao,iTR_tio,iTR_bgn,iTR_bgs              !artificial tracer
   PUBLIC :: iTR_art                                                      !artificial tracer
+
+  PUBLIC :: MAX_PATH_LENGTH
   
   !!--------------------------------------------------------------------------
   !! Tracer indices of ICON-ART species
@@ -88,6 +90,7 @@ MODULE mo_art_config
 
   INTEGER             :: nart_tendphy  = 0  !Maximum number of tracers that are effected by deep convective transport 
   
+  INTEGER , PARAMETER            :: MAX_PATH_LENGTH = 500 ! Maximum character length for input paths, mostly used for XML read in
   
   TYPE t_art_config ! Namelist variables for ART
     
@@ -107,13 +110,13 @@ MODULE mo_art_config
     LOGICAL :: lart_chem               !< Main switch to enable chemistry
     LOGICAL :: lart_passive            !< Main switch to enable chemistry
     INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
-    CHARACTER(LEN=120) :: cart_emiss_table_path  !< path of tex-files with meta data of emissions. ! MiW
-    CHARACTER(LEN=120) :: cart_emiss_table_file  !< file names of tex-files with meta data of emissions without "_DOM??.tex" at the end. ! MiW
-    CHARACTER(LEN=120) :: cart_vortex_init_date
-    CHARACTER(LEN=120) :: cart_mozartfile
-    CHARACTER(LEN=120) :: cart_chemistry_xml     !< Path to XML file for chemical tracers
-    CHARACTER(LEN=120) :: cart_aerosol_xml       !< Path to XML file for aerosol tracers
-    CHARACTER(LEN=120) :: cart_passive_xml       !< Path to XML file for passive tracers
+    CHARACTER(LEN=120)             :: cart_emiss_table_path  !< path of tex-files with meta data of emissions. ! MiW
+    CHARACTER(LEN=120)             :: cart_emiss_table_file  !< file names of tex-files with meta data of emissions without "_DOM??.tex" at the end. ! MiW
+    CHARACTER(LEN=120)             :: cart_vortex_init_date
+    CHARACTER(LEN=120)             :: cart_mozartfile
+    CHARACTER(LEN=MAX_PATH_LENGTH) :: cart_chemistry_xml     !< Path to XML file for chemical tracers
+    CHARACTER(LEN=120)             :: cart_aerosol_xml       !< Path to XML file for aerosol tracers
+    CHARACTER(LEN=MAX_PATH_LENGTH) :: cart_passive_xml       !< Path to XML file for passive tracers
 
     ! Atmospheric Aerosol (Details: cf. Tab. 2.4 ICON-ART User Guide)
     LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
