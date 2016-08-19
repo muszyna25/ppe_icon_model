@@ -32,11 +32,8 @@ echo "Arguments: inidate="${inidate}" initime="${initime}" verdate="${verdate}" 
 scriptdir="./"
 cd ${scriptdir}
 
-#metview=metview4
-#metview=metview4_old
-#metview=metview4_new
-metview=metview4_dev
-#metview=/usr/local/apps/Metview/metview4_expt
+metview=metview
+#metview=/usr/local/apps/Metview/metview4_dev
 
 met_job=met.job.all.$nstart
 \rm -rf $met_job
