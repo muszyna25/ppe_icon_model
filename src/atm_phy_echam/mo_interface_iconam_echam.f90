@@ -454,8 +454,8 @@ CONTAINS
         CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
         DO jk = 1,nlev
           DO jc = jcs, jce
-            pt_prog_new_rcf% tracer(jc,jk,jb,ico2) = ghg_co2mmr
-            prm_field(jg)%        q(jc,jk,jb,ico2) = ghg_co2mmr
+!!$            z_q(jc,jk,jb,ico2) = ghg_co2mmr
+            z_q(jc,jk,jb,ico2) = 100.e-6 ! simple value of 100 ppmm for testing
           END DO
         END DO
       END DO
