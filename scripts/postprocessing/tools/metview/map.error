@@ -232,7 +232,7 @@ case varname of
  'DZH_SNOW_M':varfile = '0.1.11'      end  # levtype =114
  'RHO_SNOW_M':varfile = '0.1.61'      end  # levtype =114
  'T_SNOW_M'  :varfile = '0.0.18'      end  # levtype =114
- 'SST'     :  varfile = 'wtmp'        end
+ 'SST'     :  varfile = 'sst'         end
  'FR_SEAICE': varfile = 'icec'        end
  'H_SEAICE':  varfile = 'icetk'       end
  'T_SEAICE':  varfile = 'ist'         end

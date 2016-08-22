@@ -29,11 +29,14 @@ module swap grib_api grib_api/1.14.5
 dwd_grib_api=/home/ms/de/dwd/grib_api
 export GRIB_DEFINITION_PATH="/usr/local/apps/grib_api/1.14.5/CRAY/82/share/grib_api/definitions:${dwd_grib_api}/definitions.edzw-1.14.5"
 
+levtypes="ML PL HL"
+
 case %SIMMODE% in
   1) lgetdata=1        # 0: get no data, 1: get from ecfs
      lsplitdata=1  ;;  # pre-operations
   2) lgetdata=0        # monthly mean 10day forecasts
-     lsplitdata=0  ;;
+     lsplitdata=0
+     levtypes="ML PL" ;;
 esac
 lcatdata=1
 lcpdata=1
@@ -62,8 +65,7 @@ fi
 #-----------------------------------------------------------------------------
 # loop over level type
 
-for levtype1 in ML PL HL ; do
-#for levtype1 in ML      ; do
+for levtype1 in ${levtypes} ; do
 
 
 #-----------------------------------------------------------------------------

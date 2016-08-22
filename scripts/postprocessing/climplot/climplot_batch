@@ -100,20 +100,31 @@ fi
 
 # --- metview troubleshooting
 
-#metview=metview4_old
-#metview=metview4_dev
-metview=metview4_new
-#metview=/usr/local/apps/Metview/4.5.0/bin/metview     # 4.4.8-4.4.10 not working with zonal shades
+#metview=metview_old
+#metview=metview_dev
+#metview=/usr/local/apps/Metview/metview4_new
+metview=/usr/local/apps/Metview/4.7.0/bin/metview
+
+
+case $TASK in
+  "plot_2d")    # plot_2d  works with 4.6.0 nto 4.5.0 and not 4.7.0
+    metview=/usr/local/apps/Metview/4.6.0/bin/metview
+     ;;
+  "plot_zon")   # plot_zon works with 4.5.0 not 4.6.0 and not 4.7.0
+    metview=/usr/local/apps/Metview/4.5.0/bin/metview
+     ;;
+esac
 
 #deia_grib_api=/home/ms/de/deia/grib_api # inlcudes fix add back in the MARS definitions for level reading
 #                                        # this will be fixed in 1.12.3 by Gramalla
-dwd_grib_api=/home/ms/de/dwd/grib_api
-
-if [[ $TASK = "plot_2d" || $TASK = "plot_zon" || $TASK = "plot_obs_1" || $TASK = "plot_obs_3" || $TASK = "plot_obs_4" || $TASK = "plot_obs_5" ||  $TASK = "plot_obs_7" ||  $TASK = "plot_obs_10" ]] ; then
-  export METVIEW_EXTRA_GRIB_DEFINITION_PATH=${dwd_grib_api}/definitions.edzw-1.13.0-4:/usr/local/apps/grib_api/1.13.0/share/grib_api/definitions
-else
-  export METVIEW_EXTRA_GRIB_DEFINITION_PATH=/usr/local/apps/grib_api/1.15.0/share/grib_api/definitions
-fi
+#dwd_grib_api=/home/ms/de/dwd/grib_api
+#if [[ $TASK = "plot_2d" || $TASK = "plot_zon" || $TASK = "plot_obs_1" || $TASK = "plot_obs_3" || $TASK = "plot_obs_4" || $TASK = "plot_obs_5" ||  $TASK = "plot_obs_7" ||  $TASK = "plot_obs_10" ]] ; then
+#  export METVIEW_EXTRA_GRIB_DEFINITION_PATH=${dwd_grib_api}/definitions.edzw-1.13.0-4:/usr/local/apps/grib_api/1.13.0/share/grib_api/definitions
+#  export METVIEW_EXTRA_GRIB_DEFINITION_PATH=/usr/local/apps/grib_api/1.16.0/share/grib_api/definitions
+#  ls
+#else
+#  export METVIEW_EXTRA_GRIB_DEFINITION_PATH=/usr/local/apps/grib_api/1.15.0/share/grib_api/definitions
+#fi
 
 #pgi_path="/usr/local/apps/nag/22/LP64"
 #NAGLIB="-libnag.a"
@@ -124,6 +135,7 @@ fi
 #use 32bit version of NAGLIB for metview3
 #NAGPATH="/usr/local/apps/nag/21/ILP32/lib"
 #export MACRO_EXTRA_F90_FLAGS="-L$NAGPATH -lnag_nag -rpath $NAGPATH" 
+
 export MACRO_EXTRA_LIBS="-L/usr/local/apps/nag/22/LP64/lib -lnag"
 
 #for interpolation of precipitation fields within metview - small values unit [m/s] not [mm/day]
@@ -131,10 +143,12 @@ export PRECIPITATION_THRESHOLD=0
 
 # needed for some data files that have non-standard GRIB headers
 export GRIBEX_CHECK='OFF'    # (climate_obs.met)
+
 # read observational data from 'disc' on Linux cluster or 'ecfs'; default=disc
 freadobs=disc                # (climate_obs.met)
-obsdir=/vol/pascratch/data/
-#obsdir=/vol/pascratch/date/  ##!!!
+obsdir=/scratch/ms/de/dei2/climplot.obs/
+#obsdir=/perm/rd/pae/CLIMDATA/
+
 if [ ! -d $obsdir ]; then
   print harddisk not available obsdata retrieval will be from ecfs
   freadobs=ecfs
@@ -148,24 +162,6 @@ dayl=24
 # small planet scaling
 rplradi=1.0
 rcorioi=1.0
-#if [[ -f $SMSINCLUDE/config.fc.h && $FSFAMILY = /gfc ]] ; then
-#   pfr=$(grep PPFRQ= $SMSINCLUDE/config.fc.h | sed 's/PPFRQ=//')
-#   if [[ $pfr > 0 ]]; then
-#      ppfrq=$pfr
-#   fi
-#fi
-#if [[ -f $SMSINCLUDE/ifsnam.fc.h && $FSFAMILY = /gfc ]] ; then
-#   rsp=$(grep RPLRADI= $SMSINCLUDE/ifsnam.fc.h | sed 's/RPLRADI=//' |sed 's/.$//')
-#   rco=$(grep RCORIOI= $SMSINCLUDE/ifsnam.fc.h | sed 's/RCORIOI=//' |sed 's/.$//')
-#   if [[ $rsp > 0 ]]; then
-#      rplradi=$rsp
-#   fi
-#   if [[ $rco > 0 ]]; then
-#      rcorioi=$rco
-#   fi
-#fi
-#steps=$((steps * rcorioi))
-#dayl=$((dayl * rcorioi))
 
 if [[ $steps -lt $ppfrq ]]; then
       steps=$ppfrq
@@ -285,8 +281,8 @@ if [[ $TASK = "getmeans" ]] ; then
     ${ECFS_SYS_PATH}/ecp.p -o ${ECDIR_SEAS}/${MNFILE} ${PLOTDATA}
     if [[ $DOPLOTDIFF = 1 ]] ; then                                 # *=sfc pl ml
       echo " -- "
-      ${ECFS_SYS_PATH}/ecp.p -o ec:/RDX/prepIFS/${EXPVER2}/${ECSUBDIR}${MNFILE2} ${PLOTDATA}
-   #  ${ECFS_SYS_PATH}/ecp.p -o ${ECDIR_SEAS}/${MNFILE2} ${PLOTDATA}
+   #  ${ECFS_SYS_PATH}/ecp.p -o ec:/RDX/prepIFS/${EXPVER2}/${ECSUBDIR}${MNFILE2} ${PLOTDATA}
+      ${ECFS_SYS_PATH}/ecp.p -o ${ECDIR2_SEAS}/${MNFILE2} ${PLOTDATA}
     fi
     i=i+1
   done
@@ -518,7 +514,7 @@ if [[ $TASK = "plot_2d" ]] ; then
   if [[ ${FCRANGE} = -99 ]] ; then
 
     interval=24                  # output interval [h] (also modify compvar_ens.met!)
-    #interval=12                  # output interval [h] (also modify compvar_ens.met!)
+    #interval=12                 # output interval [h] (also modify compvar_ens.met!)
 
     EXPVER3=${EXPVER2}           # experiment ID3 - to compare for extra variables
 
@@ -533,12 +529,12 @@ if [[ $TASK = "plot_2d" ]] ; then
 
 # missing: BLH, TSRC, TTRC, optional: z500, sp
 
-    set -A VARS    TCC LCC MCC HCC TP  CP  LSP SSHF SLHF SSR STR TSR TTR 2T  2D  SD 10SI 10U 10V SST  SKT TCW TCWV Z   T   T   T   T   T   T   T   T   T  TCLW TCIW CAPE
-    set -A TYPE    ins ins ins ins ins ins ins ins  ins  ins ins ins ins ins ins ins ins ins ins ins  ins ins ins ins ins ins ins ins ins ins ins ins ins ins  ins  ins 
-    set -A NEXP     2   2   2   2   2   2   2   2    2    2   2   2   2   2   2   2   2   2   2   2    2   2   2   2   2   2   2   2   2   2   2   2   2   2    2    2  
-    set -A LEV      0   0   0   0   0   0   0   0    0    0   0   0   0   0   0   0   0   0   0   0    0   0   0  500 925 850 700 500 400 300 200 100 50   0    0    0  
-    set -A LEVTYPE sfc sfc sfc sfc sfc sfc sfc sfc  sfc  sfc sfc sfc sfc sfc sfc sfc sfc sfc sfc sfc  sfc sfc sfc pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  sfc  sfc  sfc 
-    set -A STAT    avg avg avg avg avg avg avg avg  avg  avg avg avg avg avg avg avg avg avg avg avg  avg avg avg avg avg avg avg avg avg avg avg avg avg avg  avg  avg 
+    set -A VARS    TCC LCC MCC HCC TP  CP  LSP SSHF SLHF SSR STR TSR TTR 2T  2D  SD 10SI 10U 10V SST SKT TCW TCWV Z   T   T   T   T   T   T   T   T   T  TCLW TCIW CAPE
+    set -A TYPE    ins ins ins ins ins ins ins ins  ins  ins ins ins ins ins ins ins ins ins ins ins ins ins ins ins ins ins ins ins ins ins ins ins ins ins  ins  ins 
+    set -A NEXP     2   2   2   2   2   2   2   2    2    2   2   2   2   2   2   2   2   2   2   2   2   2   2   2   2   2   2   2   2   2   2   2   2   2    2    2  
+    set -A LEV      0   0   0   0   0   0   0   0    0    0   0   0   0   0   0   0   0   0   0   0   0   0   0  500 925 850 700 500 400 300 200 100 50   0    0    0  
+    set -A LEVTYPE sfc sfc sfc sfc sfc sfc sfc sfc  sfc  sfc sfc sfc sfc sfc sfc sfc sfc sfc sfc sfc sfc sfc sfc pl  pl  pl  pl  pl  pl  pl  pl  pl  pl  sfc  sfc  sfc 
+    set -A STAT    avg avg avg avg avg avg avg avg  avg  avg avg avg avg avg avg avg avg avg avg avg avg avg avg avg avg avg avg avg avg avg avg avg avg avg  avg  avg 
 
 # --- loop over variables
 
@@ -842,10 +838,6 @@ if [[ $TASK_A = "plot_obs" ]] ; then
        ${mm_len[${iperiod}]} ${FCRANGE} 1 $plot 1  ${res} ERA40 ${freadobs} ${obsdir} \
        $LSIGT $LCOL $LARTIC $plotml 24 $model
     fi
-#                                                              ^
-#   change this "1" to $NLEV if you                            |
-#   run for old ops or exp where TCLW not archived ------------/
-#
 fi
 
 

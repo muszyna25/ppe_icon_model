@@ -19,9 +19,9 @@
 
 #==========================================================================
 
-#metview=metview4_old
-#metview=metview4_new
-metview=metview4_dev
+#metview=metview_old
+#metview=metview_new
+metview=metview
 
 module swap grib_api grib_api/1.14.5
 
@@ -39,6 +39,7 @@ mkdir -p ${EXPDIR}
 export TMPDIR=${EXPDIR}
 export PLOTDATA=${EXPDIR}
 export ECDIR_SEAS="ec:icon/experiments/%SUITE%/%EXPNUM%/seasonal"
+export ECDIR2_SEAS="ec:icon/experiments/%SUITE%/%EXPNUM2%/seasonal"
 cd ${EXPDIR}
 
 
