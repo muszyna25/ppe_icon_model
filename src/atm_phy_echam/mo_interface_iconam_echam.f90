@@ -776,8 +776,9 @@ CONTAINS
             END DO
           END DO
           DO jc = jcs, jce
-            prm_tend(jg)% q_vi_phy(jc,jb,jt) = prm_field(jg)%    q_vi(jc,jb,jt) & !  tracer path after  physics
-              &                               -prm_tend(jg)% q_vi_phy(jc,jb,jt)   ! -tracer path before physics
+            prm_tend(jg)% q_vi_phy(jc,jb,jt) = ( prm_field(jg)%    q_vi(jc,jb,jt)  & ! ( tracer path after  physics
+              &                                 -prm_tend(jg)% q_vi_phy(jc,jb,jt)) & !  -tracer path before physics)
+              &                                /dtadv_loc                            ! /dtime
           END DO
         END DO
       END DO
