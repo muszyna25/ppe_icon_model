@@ -33,6 +33,8 @@
 !! Modification by Daniel Reinert (2010-04-22)
 !! - added field p_w_contra_traj which is necessary, when running the
 !!   NH-core.
+!! Modification by Will Sawyer, CSCS (2016-07-15)
+!! - added OpenACC support
 !!
 !!
 !! @par Copyright and License
@@ -67,15 +69,25 @@ MODULE mo_advection_stepping
   USE mo_advection_utils,     ONLY: ptr_delp_mc_now, ptr_delp_mc_new
   USE mo_grid_config,         ONLY: l_limited_area
   USE mo_fortran_tools,       ONLY: negative2zero
+#ifdef _OPENACC
+  USE mo_mpi,                 ONLY: i_am_accel_node, my_process_is_work
+  USE mo_sync,                ONLY: SYNC_E, SYNC_C, check_patch_array
+#endif
 
   IMPLICIT NONE
 
   PRIVATE
 
-
-
   PUBLIC :: step_advection
 
+#if defined( _OPENACC )
+#define ACC_DEBUG $ACC
+#if defined(__ADVECTION_STEPPING_NOACC)
+  LOGICAL, PARAMETER ::  acc_on = .FALSE.
+#else
+  LOGICAL, PARAMETER ::  acc_on = .TRUE.
+#endif
+#endif
 
 CONTAINS
 
@@ -116,9 +128,9 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2011-02-15)
   !! - new field providing the upper margin tracer flux (optional)
   !! Modification by Daniel Reinert, DWD (2013-05-06)
-  !! - simplification of step_advection and vert_upwind_flux interfaces
+  !! - simplification of step_advection and vert_upwind_flux interfaces 
   !!   after removal of the MUSCL vertical advection scheme
-  !!
+  !! 
   !!
   SUBROUTINE step_advection( p_patch, p_int_state, p_dtime, k_step, p_tracer_now, &
     &                        p_mflx_contra_h, p_vn_contra_traj, p_mflx_contra_v,  &
@@ -129,10 +141,10 @@ CONTAINS
   !
     TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation
       &  p_patch                             !< is performed
-
+                                             
 
     TYPE(t_int_state), TARGET, INTENT(IN) :: & !< interpolation state
-      &  p_int_state
+      &  p_int_state                         
 
     REAL(wp), TARGET, INTENT(IN) ::  &  !< tracer mixing ratios (specific concentrations)
       &  p_tracer_now(:,:,:,:)          !< at current time level n (before transport)
@@ -146,7 +158,7 @@ CONTAINS
 
     REAL(wp), INTENT(IN)  ::         &  !< horizontal velocity component at n+1/2
       &  p_vn_contra_traj(:,:,:)        !< for calculation of backward trajectories
-                                        !< [m/s]
+                                        !< [m/s] 
                                         !< dim: (nproma,nlev,nblks_e)
 
     REAL(wp), INTENT(INOUT)  ::      &  !< vertical mass flux (contravariant)
@@ -161,20 +173,20 @@ CONTAINS
                                         !< dim: (nproma,nlevp1,nblks_c)
 
     REAL(wp), INTENT(IN) ::          &  !< cell height defined at full levels for
-      &  p_cellhgt_mc_now(:,:,:)        !< time step n
+      &  p_cellhgt_mc_now(:,:,:)        !< time step n 
                                         !< NH: \Delta z       [m]
                                         !< HA: \Delta p       [Pa]
                                         !< dim: (nproma,nlev,nblks_c)
 
-    REAL(wp), TARGET, INTENT(IN) ::  &  !< NH: density weighted cell height at full levels
+    REAL(wp), TARGET, INTENT(IN) ::  &  !< NH: density weighted cell height at full levels 
       &  p_delp_mc_new(:,:,:)           !< at n+1 [kg/m**2]
-                                        !< HA: pressure thickness for full levels
+                                        !< HA: pressure thickness for full levels 
                                         !< at n+1 [Pa]
                                         !< dim: (nproma,nlev,nblks_c)
 
     REAL(wp), TARGET, INTENT(IN) ::  &  !< NH: density weighted cell height at full levels
       &  p_delp_mc_now(:,:,:)           !< at time step n [kg/m**2]
-                                        !< HA: pressure thickness for full levels
+                                        !< HA: pressure thickness for full levels 
                                         !< at time step n [Pa]
                                         !< dim: (nproma,nlev,nblks_c)
 
@@ -185,7 +197,7 @@ CONTAINS
 
     REAL(wp), TARGET, INTENT(INOUT) ::  &  !< tracer mixing ratios (specific concentrations)
       &  p_tracer_new(:,:,:,:)             !< at time level n+1 (after transport)
-                                           !< [kg/kg]
+                                           !< [kg/kg]  
                                            !< dim: (nproma,nlev,nblks_c,ntracer)
 
     REAL(wp), INTENT(INOUT)  ::  &   !< horizontal tracer mass flux at full level edges
@@ -198,12 +210,12 @@ CONTAINS
                                      !< HA: [Pa/s]
                                      !< dim: (nproma,nlevp1,nblks_c,ntracer)
 
-    REAL(wp), INTENT(IN), OPTIONAL:: &  !< vertical tracer flux at upper boundary
+    REAL(wp), INTENT(IN), OPTIONAL:: &  !< vertical tracer flux at upper boundary 
       &  opt_topflx_tra(:,:,:)          !< NH: [kg/m**2/s]
                                         !< HA: [Pa/s]
                                         !< dim: (nproma,nblks_c,ntracer)
 
-    REAL(wp), INTENT(OUT), OPTIONAL :: & !< tracer value at upper boundary of child nest
+    REAL(wp), INTENT(OUT), OPTIONAL :: & !< tracer value at upper boundary of child nest 
       &  opt_q_int(:,:,:)               !< NH: [kg/kg]
                                         !< HA: [kg/kg]
                                         !< dim: (nproma,nblks_c,ntracer)
@@ -213,27 +225,27 @@ CONTAINS
 
 
     REAL(wp), INTENT(IN) :: &           !< advective time step [s]
-      &  p_dtime
+      &  p_dtime  
 
     INTEGER,  INTENT(INOUT) :: &        !< time step counter [1]
       &  k_step                         !< necessary for Marchuk Splitting
 
     REAL(wp), TARGET ::  &              !< NH: density weighted cell height at full levels
-      & z_delp_mc1(nproma,p_patch%nlev,p_patch%nblks_c)
+      & z_delp_mc1(nproma,p_patch%nlev,p_patch%nblks_c) 
                                         !< at first intermediate time step [kg/m**2]
-                                        !< HA: pressure thickness for full levels
+                                        !< HA: pressure thickness for full levels 
                                         !< at first intermediate time step [Pa]
-                                        !< dim: (nproma,nlev,nblks_c)
+                                        !< dim: (nproma,nlev,nblks_c) 
 
     REAL(wp), TARGET ::  &              !< NH: density weighted cell height at full levels
-      & z_delp_mc2(nproma,p_patch%nlev,p_patch%nblks_c)
+      & z_delp_mc2(nproma,p_patch%nlev,p_patch%nblks_c) 
                                         !< at second intermediate time step [kg/m**2]
-                                        !< HA: pressure thickness for full levels
+                                        !< HA: pressure thickness for full levels 
                                         !< at first intermediate time step [Pa]
-                                        !< dim: (nproma,nlev,nblks_c)
+                                        !< dim: (nproma,nlev,nblks_c) 
 
     REAL(vp) ::  &                      !< flux divergence at cell center
-      &  z_fluxdiv_c(nproma,p_patch%nlev)
+      &  z_fluxdiv_c(nproma,p_patch%nlev) 
 
     REAL(wp), POINTER   &
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
@@ -254,6 +266,8 @@ CONTAINS
 
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
       &  iidx, iblk                          !< of edges
+
+    LOGICAL  :: is_present_opt_topflx_tra, is_present_opt_q_int, is_present_opt_ddt_tracer_adv
 
 
    !-----------------------------------------------------------------------
@@ -279,6 +293,10 @@ CONTAINS
       l_parallel = .TRUE.
     ENDIF
 
+    is_present_opt_topflx_tra     = PRESENT( opt_topflx_tra )
+    is_present_opt_q_int          = PRESENT( opt_q_int )
+    is_present_opt_ddt_tracer_adv = PRESENT( opt_ddt_tracer_adv )
+
     ! line and block indices of edges as seen from cells
     iidx => p_patch%cells%edge_idx
     iblk => p_patch%cells%edge_blk
@@ -293,12 +311,26 @@ CONTAINS
     ! Godunov-type advection with two-time level scheme
     !
 
-
-
     ptr_current_tracer => p_tracer_now
     ptr_delp_mc_now    => p_delp_mc_now
 
+#ifdef _OPENACC
+    i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
 
+#ifdef _OPENACC
+!$ACC DATA  PCOPYIN( p_patch, p_int_state, advection_config,            &
+!$ACC                p_tracer_now, p_mflx_contra_h, p_mflx_contra_v,    &
+!$ACC                p_vn_contra_traj, p_w_contra_traj,                 &
+!$ACC                p_cellhgt_mc_now, p_delp_mc_now, p_delp_mc_new),   &
+!$ACC       PCOPYOUT( p_tracer_new, p_mflx_tracer_h, p_mflx_tracer_v ), &
+!$ACC       CREATE( z_delp_mc1, z_delp_mc2, z_fluxdiv_c ),              &
+!$ACC       IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( p_tracer_now, p_mflx_contra_h, p_mflx_contra_v,     & 
+!ACC_DEBUG                p_vn_contra_traj, p_w_contra_traj,                  &
+!ACC_DEBUG                p_cellhgt_mc_now, p_delp_mc_now, p_delp_mc_new),    &
+!ACC_DEBUG        IF( i_am_accel_node .AND. acc_on )
+#endif
 
     !*********************************!
     ! Vertical advection              !
@@ -310,7 +342,7 @@ CONTAINS
     IF ( advection_config(jg)%lvadv_tracer ) THEN
 
       IF ( MOD( k_step, 2 ) == 0 .OR. advection_config(jg)%lstrang ) THEN
-
+ 
         ! vertical transport and subsequent calculations include all halo points in order
         ! to avoid an additional synchronization step
         ! nest boundary points are needed as well because the subsequent horizontal transport
@@ -331,8 +363,16 @@ CONTAINS
         ! since it is required for FCT (to be implemented).
         ! This is independent of the tracer and thus must be
         ! computed only once.
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( p_patch, ptr_delp_mc_now, p_mflx_contra_v, ptr_delp_mc_new ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+#endif
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,      &
@@ -345,8 +385,13 @@ CONTAINS
             &              * ( p_mflx_contra_v(i_startidx:i_endidx,2:nlevp1,jb) &
             &              - p_mflx_contra_v(i_startidx:i_endidx,1:nlev,jb) )
         ENDDO  ! jb
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( ptr_delp_mc_new ), IF( i_am_accel_node .AND. acc_on )
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
         ! compute vertical tracer flux
         CALL vert_upwind_flux( p_patch, ptr_current_tracer,          &! in
@@ -367,11 +412,19 @@ CONTAINS
           &              opt_rlend=i_rlend                           )! in
 
 
-
         ! compute vertical flux divergence for each tracer
         !
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( p_patch, advection_config, ptr_delp_mc_now, p_mflx_contra_v, ptr_current_tracer, &
+!$ACC          ptr_delp_mc_new, p_tracer_new  ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jt,jc,ikp1,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+#endif
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,      &
@@ -399,9 +452,13 @@ CONTAINS
             END DO
           END DO  ! Tracer loop
         END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( p_tracer_new ), IF( i_am_accel_node .AND. acc_on )
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-
+#endif
 
         ptr_current_tracer => p_tracer_new
         ptr_delp_mc_now    => z_delp_mc1
@@ -419,29 +476,43 @@ CONTAINS
           ! direction. This is independent of the tracer and thus must be
           ! computed only once.
 
-          ! Note that intermediate densities are needed by the horizontal
-          ! limiter as well. That is, why we have to extend the following
+          ! Note that intermediate densities are needed by the horizontal 
+          ! limiter as well. That is, why we have to extend the following 
           ! computation to halo points.
           i_rlstart  = 1
           i_rlend    = min_rlcell
           i_startblk = p_patch%cells%start_blk(i_rlstart,1)
           i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( p_patch, p_delp_mc_new, p_mflx_contra_v, ptr_delp_mc_new  ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+#endif
           DO jb = i_startblk, i_endblk
 
             CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
               &                 i_startidx, i_endidx, i_rlstart, i_rlend )
 
+! TODO: consider replacing array syntax with explicit loops 
             ptr_delp_mc_new(i_startidx:i_endidx,1:nlev,jb) =                   &
               &          p_delp_mc_new(i_startidx:i_endidx,1:nlev,jb)          &
               &          + pdtime_mod                                          &
               &          * ( p_mflx_contra_v(i_startidx:i_endidx,2:nlevp1,jb)  &
               &          - p_mflx_contra_v(i_startidx:i_endidx,1:nlev,jb) )
           ENDDO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( ptr_delp_mc_new ), IF( i_am_accel_node .AND. acc_on )
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
         ELSE !(no lstrang, but (lvadv_tracer .AND. ( MOD( k_step, 2 ) == 0))
 
@@ -471,15 +542,25 @@ CONTAINS
         i_startblk = p_patch%cells%start_blk(i_rlstart,1)
         i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( p_patch, p_delp_mc_new, p_mflx_contra_v, ptr_delp_mc_new  ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+#endif
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
             &                 i_startidx, i_endidx, i_rlstart, i_rlend )
-
+ 
           ! The intermediate cell mass is limited to 10% of the original value in order
           ! to prevent instabilities in extreme breaking gravity waves
+
+! TODO: consider replacing array syntax with explicit loops 
           ptr_delp_mc_new(i_startidx:i_endidx,1:nlev,jb) =                        &
             &       MAX(0.1_wp*p_delp_mc_new(i_startidx:i_endidx,1:nlev,jb),      &
             &                  p_delp_mc_new(i_startidx:i_endidx,1:nlev,jb)       &
@@ -487,8 +568,13 @@ CONTAINS
             &                * ( p_mflx_contra_v(i_startidx:i_endidx,2:nlevp1,jb) &
             &                - p_mflx_contra_v(i_startidx:i_endidx,1:nlev,jb) )   )
         ENDDO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( ptr_delp_mc_new ), IF( i_am_accel_node .AND. acc_on )
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
       END IF
 
     ELSE  ! if lvadv_tracer=.FALSE.
@@ -496,7 +582,6 @@ CONTAINS
       ptr_delp_mc_new  => p_delp_mc_new
 
     ENDIF
-
 
 
     !*************************************!
@@ -513,13 +598,16 @@ CONTAINS
       &                  p_mflx_contra_h, p_vn_contra_traj, p_dtime, p_patch,&! in
       &                  p_int_state, advection_config(jg)%ihadv_tracer,     &! in
       &                  advection_config(jg)%igrad_c_miura,                 &! in
-      &                  advection_config(jg)%itype_hlimit,                  &! in
+      &                  advection_config(jg)%itype_hlimit,                &! in
       &                  advection_config(jg)%iadv_slev(:),                  &! in
       &                  advection_config(jg)%iord_backtraj,                 &! in
       &                  p_mflx_tracer_h, opt_rlend=i_rlend                  )! inout,in
 
 
+#ifndef _OPENACC
 !$OMP PARALLEL PRIVATE(i_rlstart,i_rlend,i_startblk,i_endblk)
+#endif
+
     !
     ! update tracer array
     !
@@ -528,19 +616,31 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(i_rlstart,1)
     i_endblk   = p_patch%cells%end_blk  (i_rlend,i_nchdom)
 
-
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( p_patch, p_int_state, advection_config, iidx, iblk ),   &
+!$ACC PRESENT( p_mflx_tracer_h, ptr_current_tracer, ptr_delp_mc_now ), &
+!$ACC PRESENT( ptr_delp_mc_new, p_tracer_now, p_grf_tend_tracer ),     &
+!$ACC PRESENT( p_tracer_new, opt_ddt_tracer_adv ),                     &
+!$ACC PRIVATE( z_fluxdiv_c ),                                          &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
+#else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jt,jc,z_fluxdiv_c) ICON_OMP_DEFAULT_SCHEDULE
+#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                     i_startidx, i_endidx, i_rlstart, i_rlend)
 
+!$ACC LOOP WORKER
       DO jt = 1, ntracer ! Tracer loop
 
 
         IF ( advection_config(jg)%ihadv_tracer(jt) /= 0 ) THEN
 
 !  compute divergence of the upwind fluxes for tracers
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
           DO jc = i_startidx, i_endidx
             DO jk = advection_config(jg)%iadv_slev(jt), nlev
@@ -550,6 +650,7 @@ CONTAINS
             DO jc = i_startidx, i_endidx
 #endif
 
+! TODO: possible GPU optimization: add p_tracer_new calculation here
               z_fluxdiv_c(jc,jk) =  &
                 & p_mflx_tracer_h(iidx(jc,jb,1),jk,iblk(jc,jb,1),jt)*p_int_state%geofac_div(jc,1,jb) + &
                 & p_mflx_tracer_h(iidx(jc,jb,2),jk,iblk(jc,jb,2),jt)*p_int_state%geofac_div(jc,2,jb) + &
@@ -561,6 +662,7 @@ CONTAINS
         ELSE  ! horizontal advection switched off
 
 !  compute divergence of the upwind fluxes for tracers
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
           DO jc = i_startidx, i_endidx
             DO jk = advection_config(jg)%iadv_slev(jt), nlev
@@ -570,6 +672,7 @@ CONTAINS
             DO jc = i_startidx, i_endidx
 #endif
 
+! TODO: possible GPU optimization: add p_tracer_new calculation here
               z_fluxdiv_c(jc,jk) =  ptr_current_tracer(jc,jk,jb,jt) * ( &
                 & p_mflx_contra_h(iidx(jc,jb,1),jk,iblk(jc,jb,1))*p_int_state%geofac_div(jc,1,jb) + &
                 & p_mflx_contra_h(iidx(jc,jb,2),jk,iblk(jc,jb,2))*p_int_state%geofac_div(jc,2,jb) + &
@@ -582,6 +685,7 @@ CONTAINS
 
 
 
+!$ACC LOOP VECTOR COLLAPSE(2)
         DO jk = advection_config(jg)%iadv_slev(jt), nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
@@ -594,6 +698,7 @@ CONTAINS
         ENDDO
 
         ! set tracer(nnew) to tracer(nnow) where advection is turned off
+!$ACC LOOP VECTOR COLLAPSE(2)
         DO jk = 1, advection_config(jg)%iadv_slev(jt)-1
           DO jc = i_startidx, i_endidx
             p_tracer_new(jc,jk,jb,jt) = p_tracer_now(jc,jk,jb,jt)
@@ -601,24 +706,26 @@ CONTAINS
         END DO
 
 
-        ! Store qv advection tendency for convection scheme.
+        ! Store qv advection tendency for convection scheme. 
         ! Store TKE tendency, if TKE advection is turned on
         !
-        IF ( PRESENT(opt_ddt_tracer_adv) .AND. (MOD( k_step, 2 ) == 0) &
+        IF ( is_present_opt_ddt_tracer_adv .AND. (MOD( k_step, 2 ) == 0) &
           &  .AND. iforcing == inwp ) THEN
           IF ( jt == iqv ) THEN
+!$ACC LOOP VECTOR COLLAPSE(2)
             DO jk = advection_config(jg)%iadv_slev(jt), nlev
               DO jc = i_startidx, i_endidx
                 opt_ddt_tracer_adv(jc,jk,jb,jt) =                               &
-                  & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime
+                  & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
               ENDDO
             ENDDO
           ENDIF  ! jt == iqv
           IF ( advection_config(jg)%iadv_tke > 0 .AND. jt == iqtke ) THEN
+!$ACC LOOP VECTOR COLLAPSE(2)
             DO jk = advection_config(jg)%iadv_slev(jt), nlev
               DO jc = i_startidx, i_endidx
                 opt_ddt_tracer_adv(jc,jk,jb,jt) =                               &
-                  & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime
+                  & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
               ENDDO
             ENDDO
           ENDIF  ! jt == iqtke
@@ -627,8 +734,11 @@ CONTAINS
       ENDDO  ! Tracer loop
 
     ENDDO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+#else
 !$OMP END DO
-
+#endif
 
     ! Update lateral boundaries of nested domains with interpolated time tendencies
     IF (l_limited_area .OR. p_patch%id > 1) THEN
@@ -638,16 +748,25 @@ CONTAINS
       i_startblk = p_patch%cells%start_blk(i_rlstart,1)
       i_endblk   = p_patch%cells%end_blk(i_rlend,1)
 
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( p_patch, p_tracer_now, p_grf_tend_tracer, p_tracer_new ),   &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
+#else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jt,jc) ICON_OMP_DEFAULT_SCHEDULE
+#endif
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, i_rlstart, i_rlend)
 
+!$ACC LOOP WORKER
         DO jk = 1, nlev
           ! Tracer values are clipped here to avoid generation of negative values
           ! For mass conservation, a correction has to be applied in the
           ! feedback routine anyway
+!$ACC LOOP VECTOR COLLAPSE(2)
           DO jt = 1, ntracer ! Tracer loop
             DO jc = i_startidx, i_endidx
               p_tracer_new(jc,jk,jb,jt) =                            &
@@ -657,9 +776,19 @@ CONTAINS
           ENDDO  ! Tracer loop
         ENDDO
       ENDDO
+
+#ifdef _OPENACC
+!$ACC END PARALLEL
+#else
 !$OMP END DO NOWAIT
+#endif
     ENDIF
+
+#ifdef _OPENACC
+!ACC_DEBUG UPDATE HOST( p_tracer_new ), IF( i_am_accel_node .AND. acc_on )
+#else
 !$OMP END PARALLEL
+#endif
 
 
     !*********************************!
@@ -709,22 +838,32 @@ CONTAINS
       !
       ! update tracer array
       !
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( p_patch, advection_config, ptr_current_tracer) ,       &
+!$ACC PRESENT( ptr_delp_mc_now, ptr_delp_mc_new, p_mflx_tracer_v ),   & 
+!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
+#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,ikp1) ICON_OMP_DEFAULT_SCHEDULE
+#endif
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
                        i_startidx, i_endidx, i_rlstart, i_rlend)
 
+!$ACC LOOP WORKER
         DO jt = 1, ntracer ! Tracer loop
 
+!$ACC LOOP VECTOR, COLLAPSE(2)
           DO jk = advection_config(jg)%iadv_slev(jt), nlev
-
-            ! index of top half level
-            ikp1 = jk + 1
 
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
+              ! index of top half level
+              ikp1 = jk + 1   ! WS: put in here to ensure loops can be collapsed
+
 
               p_tracer_new(jc,jk,jb,jt) =                                         &
                 &  ( ptr_current_tracer(jc,jk,jb,jt) * ptr_delp_mc_now(jc,jk,jb)  &
@@ -735,24 +874,25 @@ CONTAINS
             END DO
           END DO
 
-
-          ! Store qv advection tendency for convection scheme.
+          ! Store qv advection tendency for convection scheme. 
           ! Store TKE tendency, if TKE advection is turned on
           !
-          IF ( PRESENT(opt_ddt_tracer_adv) .AND. (iforcing == inwp) ) THEN
+          IF ( is_present_opt_ddt_tracer_adv .AND. (iforcing == inwp) ) THEN
             IF ( jt == iqv ) THEN
+!$ACC LOOP VECTOR, COLLAPSE(2)
               DO jk = advection_config(jg)%iadv_slev(jt), nlev
                 DO jc = i_startidx, i_endidx
                   opt_ddt_tracer_adv(jc,jk,jb,jt) =                               &
-                    & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime
+                    & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
                 ENDDO
               ENDDO
             ENDIF  ! jt == iqv
             IF ( advection_config(jg)%iadv_tke > 0 .AND. jt == iqtke ) THEN
+!$ACC LOOP VECTOR, COLLAPSE(2)
               DO jk = advection_config(jg)%iadv_slev(jt), nlev
                 DO jc = i_startidx, i_endidx
                   opt_ddt_tracer_adv(jc,jk,jb,jt) =                               &
-                    & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime
+                    & (p_tracer_new(jc,jk,jb,jt)-p_tracer_now(jc,jk,jb,jt))/p_dtime           
                 ENDDO
               ENDDO
             ENDIF  ! jt == iqtke
@@ -760,13 +900,22 @@ CONTAINS
 
         END DO  ! Tracer loop
       END DO
+
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( p_tracer_new ), IF( i_am_accel_node .AND. acc_on )
+      IF ( is_present_opt_ddt_tracer_adv .AND. (MOD( k_step, 2 ) == 0) ) THEN
+!ACC_DEBUG UPDATE HOST( opt_ddt_tracer_adv ), IF( i_am_accel_node .AND. acc_on )
+      ENDIF
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
     END IF
 
-    ! Synchronize tracer array after update. This is only necessary, if
-    ! NWP physics has NOT been selected. Otherwise, the SYNC-operation will
+    ! Synchronize tracer array after update. This is only necessary, if 
+    ! NWP physics has NOT been selected. Otherwise, the SYNC-operation will 
     ! follow AFTER the call of NWP physics.
     ! For efficiency, the synchronization is applied for all tracers at once
 
@@ -777,15 +926,25 @@ CONTAINS
     !
     ! compute advective tracer tendency
     !
+#ifndef _OPENACC
 !$OMP PARALLEL PRIVATE(i_rlstart,i_rlend,i_startblk,i_endblk)
-    IF (PRESENT(opt_ddt_tracer_adv) .AND. iforcing /= inwp) THEN
+#endif
+    IF (is_present_opt_ddt_tracer_adv .AND. iforcing /= inwp) THEN
 
       i_rlstart = grf_bdywidth_c+1
       i_rlend   = min_rlcell_int
       i_startblk = p_patch%cells%start_blk(i_rlstart,1)
       i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( p_patch, advection_config, p_tracer_now, p_tracer_new ), & 
+!$ACC PRESENT( opt_ddt_tracer_adv ),                                   & 
+!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
+#else
 !$OMP DO PRIVATE(jb,jk,jt,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+#endif
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,     &
@@ -802,7 +961,12 @@ CONTAINS
           ENDDO
         ENDDO
       ENDDO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( opt_ddt_tracer_adv ), IF( i_am_accel_node .AND. acc_on )
+#else
 !$OMP END DO
+#endif
 
     ENDIF
 
@@ -812,15 +976,23 @@ CONTAINS
     !
     IF ( advection_config(jg)%lclip_tracer ) THEN
       CALL negative2zero(p_tracer_new(:,:,:,:))
+#ifndef _OPENACC
 !$OMP BARRIER
+#endif
     END IF
+#ifndef _OPENACC
 !$OMP END PARALLEL
+#endif
 
-    IF (PRESENT(opt_ddt_tracer_adv) .AND. iforcing /= inwp) THEN
+    IF (is_present_opt_ddt_tracer_adv .AND. iforcing /= inwp) THEN
       CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer,  &
                                  & f4din=opt_ddt_tracer_adv )
     ENDIF
 
+#ifdef _OPENACC
+!$ACC END DATA
+    i_am_accel_node = .FALSE.    ! Deactivate GPUs
+#endif
 
   IF (ltimer) CALL timer_stop(timer_transport)
 
@@ -828,5 +1000,3 @@ CONTAINS
 
 
 END MODULE mo_advection_stepping
-
-
