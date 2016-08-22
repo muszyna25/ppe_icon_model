@@ -163,6 +163,9 @@ CONTAINS
     REAL(wp) :: z_qsum               !< summand of virtual increment
     REAL(wp) :: z_ddt_qsum           !< summand of virtual increment tendency
 
+    REAL(wp), POINTER :: z_q(:,:,:,:)      !< tracer mass mixing ratio with respect to dry air
+    REAL(wp), POINTER :: z_drymoist(:,:,:) !< conversion factor from moist to dry mass mixing ratio
+
     REAL(wp) :: zvn1, zvn2
     REAL(wp), POINTER :: zdudt(:,:,:), zdvdt(:,:,:)
 
@@ -300,6 +303,17 @@ CONTAINS
 
     ! Loop over cells
     IF (ltimer) CALL timer_start(timer_d2p_couple)
+
+    ALLOCATE(z_q(nproma,nlev,i_startblk:i_endblk,ntracer),stat=return_status)
+    IF (return_status > 0) THEN
+      CALL finish (method_name, 'ALLOCATE(z_q)')
+    END IF
+
+    ALLOCATE(z_drymoist(nproma,nlev,i_startblk:i_endblk),stat=return_status)
+    IF (return_status > 0) THEN
+      CALL finish (method_name, 'ALLOCATE(z_drymoist)')
+    END IF
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,i_endblk
@@ -324,9 +338,17 @@ CONTAINS
           prm_field(jg)% presm_old(jc,jk,jb)     = pt_diag%  pres(jc,jk,jb)
           prm_field(jg)% presm_new(jc,jk,jb)     = pt_diag%  pres(jc,jk,jb)
           !
+          ! Conversion factor from moist to moistdry air mass mixing ratio
+          !
+!!$          z_drymoist(jc,jk,jb) = 1.0_wp / (1.0_wp - ( pt_prog_new_rcf% tracer(jc,jk,jb,iqv)   &
+!!$            &                                        +pt_prog_new_rcf% tracer(jc,jk,jb,iqc)   &
+!!$            &                                        +pt_prog_new_rcf% tracer(jc,jk,jb,iqi) ))
+          z_drymoist(jc,jk,jb) = 1.0_wp
+          
           ! cloud water+ice
-          prm_field(jg)%         qx(jc,jk,jb)    = pt_prog_new_rcf% tracer(jc,jk,jb,iqc) &
-            &                                     +pt_prog_new_rcf% tracer(jc,jk,jb,iqi)
+          prm_field(jg)%         qx(jc,jk,jb)    = ( pt_prog_new_rcf% tracer(jc,jk,jb,iqc)  &
+            &                                       +pt_prog_new_rcf% tracer(jc,jk,jb,iqi)) &
+            &                                      *z_drymoist(jc,jk,jb)
           !
           ! vertical velocity in p-system
           prm_field(jg)%      omega(jc,jk,jb)    = -0.5_wp                                               &
@@ -367,11 +389,25 @@ CONTAINS
         CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 !!$      DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
 !!$        CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
+        DO jc = jcs, jce
+          prm_tend(jg)% q_vi_phy(jc,jb,jt) = 0.0_wp ! initialize tracer path before physics
+        END DO
         DO jk = 1,nlev
           DO jc = jcs, jce
 
+            ! Compute tracer path before physics, which is used later to diagnose the
+            ! tracer path tendency related to physics. Use the prm_tend(jg)% q_vi_phy
+            ! variable for the storage of the tracer paths before physics.
+            prm_tend(jg)% q_vi_phy(jc,   jb,jt)  = prm_tend(jg)%  q_vi_phy(jc,   jb,jt) &
+               &                                  +pt_prog_new_rcf% tracer(jc,jk,jb,jt) &
+               &                                  *pt_prog_new%        rho(jc,jk,jb)    &
+               &                                  *p_metrics%  ddqz_z_full(jc,jk,jb)
+            !
             ! Fill the physics state variables, which are used by echam:
-            prm_field(jg)%       q(jc,jk,jb,jt)  = pt_prog_new_rcf% tracer(jc,jk,jb,jt)
+            prm_field(jg)%       q(jc,jk,jb,jt)  = pt_prog_new_rcf% tracer(jc,jk,jb,jt) * z_drymoist(jc,jk,jb)
+            !
+            ! Keep a copy that cannot be changed inadvertently by the physics
+            z_q(jc,jk,jb,jt)                     = prm_field(jg)%        q(jc,jk,jb,jt)
             !
             ! Tendencies passed to the ECHAM physics for internal upating are set to 0
             ! because the state passed to physics is already updated with tendencies
@@ -380,7 +416,7 @@ CONTAINS
             !
             ! Advective tendencies, already accounted for, but needed
             ! for diagnostic purposes in the convection scheme
-            prm_tend(jg)%    q_dyn(jc,jk,jb,jt)  = pt_diag% ddt_tracer_adv(jc,jk,jb,jt)
+            prm_tend(jg)%    q_dyn(jc,jk,jb,jt)  = pt_diag% ddt_tracer_adv(jc,jk,jb,jt) * z_drymoist(jc,jk,jb)
             !
             
           END DO
@@ -672,10 +708,15 @@ CONTAINS
           DO jk = 1,nlev
             DO jc = jcs, jce
 
-              ! (2) Tracers
+              ! (2.1) Tracer mixing ratio with respect to dry air
               !
-              pt_prog_new_rcf%tracer(jc,jk,jb,jt)  =   pt_prog_new_rcf%tracer(jc,jk,jb,jt)             &
-                &                                    + prm_tend(jg)%    q_phy(jc,jk,jb,jt) * dtadv_loc
+              ! For provisional testing of the CO2 tracer, set tendency to 0
+              IF ( iqt <= ico2 .AND. ico2 <= ntracer .AND. jt == ico2 ) THEN
+                prm_tend(jg)% q_phy(jc,jk,jb,jt) = 0.0_wp
+              END IF
+              !
+              ! new mass fraction of tracer with respect to dry air
+              z_q(jc,jk,jb,jt)  = z_q(jc,jk,jb,jt) + prm_tend(jg)% q_phy(jc,jk,jb,jt) * dtadv_loc
               !
             END DO
           END DO
@@ -683,6 +724,68 @@ CONTAINS
       END DO
 !$OMP END DO
 !$OMP END PARALLEL
+
+      ! Loop over cells
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = i_startblk,i_endblk
+        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+!!$      DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
+!!$        CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
+        DO jk = 1,nlev
+          DO jc = jcs, jce
+
+            ! (2.2) Conversion factor from dry to moist air mass mixing ratio
+            !
+!!$            z_drymoist(jc,jk,jb)  = 1.0_wp / (1.0_wp + ( z_q(jc,jk,jb,iqv)   &
+!!$              &                                         +z_q(jc,jk,jb,iqc)   &
+!!$              &                                         +z_q(jc,jk,jb,iqi) ))
+            z_drymoist(jc,jk,jb)  = 1.0_wp
+            !
+          END DO
+        END DO
+      END DO
+!$OMP END DO
+!$OMP END PARALLEL
+
+      ! Loop over cells
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
+      DO jt =1,ntracer    
+        DO jb = i_startblk,i_endblk
+          CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+!!$        DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
+!!$          CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
+          DO jc = jcs, jce
+            prm_field(jg)% q_vi(jc,jb,jt) = 0.0_wp ! initialize tracer path after physics
+          END DO
+          DO jk = 1,nlev
+            DO jc = jcs, jce
+
+              ! (2) Tracers
+              !
+              ! new mass fraction of tracer with respect to moist air
+              pt_prog_new_rcf% tracer(jc,jk,jb,jt)  = z_q(jc,jk,jb,jt) * z_drymoist(jc,jk,jb)
+              !
+              ! new tracer path with respect to moist air
+              prm_field(jg)%     q_vi(jc,   jb,jt)  = prm_field(jg)%     q_vi(jc,   jb,jt) &
+                &                                    +pt_prog_new_rcf% tracer(jc,jk,jb,jt) &
+                &                                    *pt_prog_new%        rho(jc,jk,jb)    &
+                &                                    *p_metrics%  ddqz_z_full(jc,jk,jb)
+              !
+            END DO
+          END DO
+          DO jc = jcs, jce
+            prm_tend(jg)% q_vi_phy(jc,jb,jt) = prm_field(jg)%    q_vi(jc,jb,jt) & !  tracer path after  physics
+              &                               -prm_tend(jg)% q_vi_phy(jc,jb,jt)   ! -tracer path before physics
+          END DO
+        END DO
+      END DO
+!$OMP END DO
+!$OMP END PARALLEL
+
+      DEALLOCATE(z_drymoist)
+      DEALLOCATE(z_q)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,jcs,jce,z_qsum,z_exner) ICON_OMP_DEFAULT_SCHEDULE
