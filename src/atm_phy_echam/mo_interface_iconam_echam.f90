@@ -86,7 +86,7 @@ MODULE mo_interface_iconam_echam
 
   USE mo_nonhydro_types        ,ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nh_diagnose_pres_temp ,ONLY: diagnose_pres_temp
-  USE mo_physical_constants    ,ONLY: rd, p0ref, rd_o_cpd, vtmpc1, grav
+  USE mo_physical_constants    ,ONLY: rd, p0ref, rd_o_cpd, vtmpc1, grav, amco2, amd
 
   USE mo_datetime              ,ONLY: t_datetime
   USE mo_echam_phy_memory      ,ONLY: prm_field, prm_tend
@@ -321,6 +321,10 @@ CONTAINS
 !!$    DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
 !!$      CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
 
+      DO jc = jcs, jce
+        prm_tend(jg)% airvi_phy(jc,jb) = 0.0_wp ! initialize air path before physics
+     END DO
+     
       DO jk = 1,nlev
         DO jc = jcs, jce
 
@@ -345,13 +349,20 @@ CONTAINS
 !!$            &                                        +pt_prog_new_rcf% tracer(jc,jk,jb,iqi) ))
           z_drymoist(jc,jk,jb) = 1.0_wp
           
+          ! Compute air path before physics, which is used later to diagnose the
+          ! air path tendency related to physics. Use the prm_tend(jg)% airvi_phy
+          ! variable for the storage of the air paths before physics.
+          prm_tend(jg)% airvi_phy (jc,   jb)     = prm_tend(jg)%   airvi_phy(jc,   jb) &
+             &                                    +pt_prog_new %         rho(jc,jk,jb) &
+             &                                    *p_metrics   % ddqz_z_full(jc,jk,jb)
+          !
           ! cloud water+ice
-          prm_field(jg)%         qx(jc,jk,jb)    = ( pt_prog_new_rcf% tracer(jc,jk,jb,iqc)  &
+          prm_field(jg)%        qx(jc,jk,jb)     = ( pt_prog_new_rcf% tracer(jc,jk,jb,iqc)  &
             &                                       +pt_prog_new_rcf% tracer(jc,jk,jb,iqi)) &
             &                                      *z_drymoist(jc,jk,jb)
           !
           ! vertical velocity in p-system
-          prm_field(jg)%      omega(jc,jk,jb)    = -0.5_wp                                               &
+          prm_field(jg)%     omega(jc,jk,jb)     = -0.5_wp                                               &
             &                                      * (pt_prog_new%w(jc,jk,jb)+pt_prog_new%w(jc,jk+1,jb)) &
             &                                      * pt_prog_new%rho(jc,jk,jb) * grav
           !
@@ -455,7 +466,7 @@ CONTAINS
         DO jk = 1,nlev
           DO jc = jcs, jce
 !!$            z_q(jc,jk,jb,ico2) = ghg_co2mmr
-            z_q(jc,jk,jb,ico2) = 100.e-6 ! simple value of 100 ppmm for testing
+            z_q(jc,jk,jb,ico2) = 100.e-6*amco2/amd ! simple value of 100 ppmv for testing
           END DO
         END DO
       END DO
@@ -732,6 +743,9 @@ CONTAINS
         CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 !!$      DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
 !!$        CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
+        DO jc = jcs, jce
+          prm_field(jg)% airvi(jc,jb) = 0.0_wp ! initialize air path after physics
+        END DO
         DO jk = 1,nlev
           DO jc = jcs, jce
 
@@ -742,7 +756,18 @@ CONTAINS
 !!$              &                                         +z_q(jc,jk,jb,iqi) ))
             z_drymoist(jc,jk,jb)  = 1.0_wp
             !
+            !
+            ! new air path
+            prm_field(jg)% airvi(jc,jb) = prm_field(jg)%        airvi(jc,  jb) &
+                &                        +pt_prog_new  %         rho(jc,jk,jb) &
+                &                        *p_metrics    % ddqz_z_full(jc,jk,jb)
+            !
           END DO
+        END DO
+        DO jc = jcs, jce
+          prm_tend(jg)% airvi_phy(jc,jb) = ( prm_field(jg)% airvi    (jc,jb)  & ! ( air path after  physics
+            &                               -prm_tend (jg)% airvi_phy(jc,jb)) & !  -air path before physics)
+            &                              /dtadv_loc                           ! /dtime
         END DO
       END DO
 !$OMP END DO
@@ -767,7 +792,7 @@ CONTAINS
               ! new mass fraction of tracer with respect to moist air
               pt_prog_new_rcf% tracer(jc,jk,jb,jt)  = z_q(jc,jk,jb,jt) * z_drymoist(jc,jk,jb)
               !
-              ! new tracer path with respect to moist air
+              ! new tracer path
               prm_field(jg)%     q_vi(jc,   jb,jt)  = prm_field(jg)%     q_vi(jc,   jb,jt) &
                 &                                    +pt_prog_new_rcf% tracer(jc,jk,jb,jt) &
                 &                                    *pt_prog_new%        rho(jc,jk,jb)    &
@@ -776,9 +801,9 @@ CONTAINS
             END DO
           END DO
           DO jc = jcs, jce
-            prm_tend(jg)% q_vi_phy(jc,jb,jt) = ( prm_field(jg)%    q_vi(jc,jb,jt)  & ! ( tracer path after  physics
-              &                                 -prm_tend(jg)% q_vi_phy(jc,jb,jt)) & !  -tracer path before physics)
-              &                                /dtadv_loc                            ! /dtime
+            prm_tend(jg)% q_vi_phy(jc,jb,jt) = ( prm_field(jg)% q_vi    (jc,jb,jt)  & ! ( tracer path after  physics
+              &                                 -prm_tend (jg)% q_vi_phy(jc,jb,jt)) & !  -tracer path before physics)
+              &                                /dtadv_loc                             ! /dtime
           END DO
         END DO
       END DO
@@ -787,6 +812,38 @@ CONTAINS
 
       DEALLOCATE(z_drymoist)
       DEALLOCATE(z_q)
+
+      ! Loop over cells
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = i_startblk,i_endblk
+        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+!!$      DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
+!!$        CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
+        DO jc = jcs, jce
+
+          ! h2o path
+          !
+          prm_field(jg)% h2ovi    (jc,jb)  = prm_field(jg)% q_vi     (jc,jb,iqv) &
+             &                              +prm_field(jg)% q_vi     (jc,jb,iqc) &
+             &                              +prm_field(jg)% q_vi     (jc,jb,iqi)
+          !
+          prm_tend (jg)% h2ovi_phy(jc,jb)  = prm_tend (jg)% q_vi_phy (jc,jb,iqv) &
+             &                              +prm_tend (jg)% q_vi_phy (jc,jb,iqc) &
+             &                              +prm_tend (jg)% q_vi_phy (jc,jb,iqi)
+          !
+          ! dry air path
+          !
+          prm_field(jg)% dryvi    (jc,jb)  = prm_field(jg)% airvi    (jc,jb) &
+            &                               -prm_field(jg)% h2ovi    (jc,jb)
+          !
+          prm_tend (jg)% dryvi_phy(jc,jb)  = prm_tend (jg)% airvi_phy(jc,jb) &
+            &                               -prm_tend (jg)% h2ovi_phy(jc,jb)
+          !
+        END DO
+      END DO
+!$OMP END DO
+!$OMP END PARALLEL
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,jcs,jce,z_qsum,z_exner) ICON_OMP_DEFAULT_SCHEDULE

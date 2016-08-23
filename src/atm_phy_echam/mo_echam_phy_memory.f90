@@ -139,6 +139,9 @@ MODULE mo_echam_phy_memory
       & tv        (:,:,:),  &!< [K]     virtual temperature  (tvm1 of memory_g1a in ECHAM)
       & q         (:,:,:,:),&!< [kg/kg] tracer concentration (qm1, xlm1, xim1 of memory_g1a in ECHAM)
       & q_vi      (:,:,:),  &!< [kg/m2] tracer content, vertically integrated through the atmospheric column
+      & h2ovi     (:,:),    &!< [kg/m2] h2o content, vertically integrated through the atmospheric column
+      & airvi     (:,:),    &!< [kg/m2] air content, vertically integrated through the atmospheric column
+      & dryvi     (:,:),    &!< [kg/m2] dry air content, vertically integrated through the atmospheric column
       & qx        (:,:,:),  &!< [kg/kg] total concentration of hydrometeors
       & omega     (:,:,:),  &!< [Pa/s]  vertical velocity in pressure coord. ("vervel" in ECHAM)
       & geoi      (:,:,:),  &!< [m2/s2] geopotential at half levels (vertical interfaces)
@@ -458,6 +461,9 @@ MODULE mo_echam_phy_memory
       & temp_phy (:,:,:)  , & !< temperature tendency due to parameterized processes
       &    q_phy (:,:,:,:), & !< tracer tendency due to parameterized processes
       & q_vi_phy (:,:,  :), & !< vertically integrated tracer tendency due to parameterized processes
+      & h2ovi_phy(:,:)    , & !< [kg/m2/s] h2o content, vertically integrated through the atmospheric column
+      & airvi_phy(:,:)    , & !< [kg/m2/s] air content, vertically integrated through the atmospheric column
+      & dryvi_phy(:,:)    , & !< [kg/m2/s] dry air content, vertically integrated through the atmospheric column
       !
       ! cloud microphysics
       !
@@ -858,6 +864,39 @@ CONTAINS
                   & grib2_var(0,20,2, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
                   & ldims=(/kproma,kblks/)                                     )
     END DO                                                                                
+
+    ! &       field% h2ovi     (nproma,nblks),          &
+    cf_desc    = t_cf_var('atmosphere_h2o_content', 'kg m-2', 'h2o (vap+liq+ice) path (physics)', &
+         &                datatype_flt)
+    grib2_desc = grib2_var(0,1,64, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'h2ovi_phy', field%h2ovi,   &
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=shape2d,                                 &
+         &        lrestart = .FALSE.,                            &
+         &        isteptype=TSTEP_INSTANT )
+
+    ! &       field% airvi     (nproma,nblks),          &
+    cf_desc    = t_cf_var('atmosphere_air_content', 'kg m-2', 'air path (physics)', &
+         &                datatype_flt)
+    grib2_desc = grib2_var(0,1,64, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'airvi_phy', field%airvi,  &
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=shape2d,                                 &
+         &        lrestart = .FALSE.,                            &
+         &        isteptype=TSTEP_INSTANT )
+
+    ! &       field% dryvi     (nproma,nblks),          &
+    cf_desc    = t_cf_var('atmosphere_dry_air_content', 'kg m-2', 'dry air path (physics)', &
+         &                datatype_flt)
+    grib2_desc = grib2_var(0,1,64, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'dryvi_phy', field%dryvi,  &
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=shape2d,                                 &
+         &        lrestart = .FALSE.,                            &
+         &        isteptype=TSTEP_INSTANT )
 
     ! &       field% qx        (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('condensated_water', 'kg kg-1', 'cloud water + cloud ice', &
@@ -2926,6 +2965,43 @@ CONTAINS
                   & ldims=(/kproma,kblks/)                                                )
 
     END DO
+
+    ! &       tend% h2ovi_phy     (nproma,nblks),          &
+    cf_desc    = t_cf_var('tendency_of_atmosphere_h2o_content', 'kg m-2', &
+         &                'tendency of h2o (vap+liq+ice) path (physics)', &
+         &                datatype_flt)
+    grib2_desc = grib2_var(0,1,64, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( tend_list, prefix//'h2ovi_phy', tend%h2ovi_phy,&
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=(/kproma,kblks/),                        &
+         &        lrestart = .FALSE.,                            &
+         &        isteptype=TSTEP_INSTANT )
+
+    ! &       tend% airvi_phy     (nproma,nblks),          &
+    cf_desc    = t_cf_var('tendency_of_atmosphere_air_content', 'kg m-2', &
+         &                'tendency of air path (physics)',               &
+         &                datatype_flt)
+    grib2_desc = grib2_var(0,1,64, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( tend_list, prefix//'airvi_phy', tend%airvi_phy,&
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=(/kproma,kblks/),                        &
+         &        lrestart = .FALSE.,                            &
+         &        isteptype=TSTEP_INSTANT )
+
+    ! &       tend% dryvi_phy     (nproma,nblks),          &
+    cf_desc    = t_cf_var('tendency_of_atmosphere_dry_air_content', 'kg m-2', &
+         &                'tendency of dry air path (physics)',               &
+         &                datatype_flt)
+    grib2_desc = grib2_var(0,1,64, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( tend_list, prefix//'dryvi_phy', tend%dryvi_phy,&
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
+         &        cf_desc, grib2_desc,                           &
+         &        ldims=(/kproma,kblks/),                        &
+         &        lrestart = .FALSE.,                            &
+         &        isteptype=TSTEP_INSTANT )
+
 
   END SUBROUTINE new_echam_phy_tend_list
   !-------------

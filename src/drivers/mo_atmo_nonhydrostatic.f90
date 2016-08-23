@@ -99,6 +99,8 @@ USE mo_async_latbc,         ONLY: init_prefetch, close_prefetch
 USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
 USE mo_synsat_config,       ONLY: lsynsat
 USE mo_derived_variable_handling, ONLY: init_mean_stream, finish_mean_stream
+USE mo_physical_constants,  ONLY: amco2, amd
+
 !-------------------------------------------------------------------------
 
 IMPLICIT NONE
@@ -363,7 +365,7 @@ CONTAINS
            IF (.NOT. p_patch(jg)%ldom_active) CYCLE
            DO jt = iqt,ntracer
 !$OMP PARALLEL
-             CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,jt),100.e-6_wp)
+             CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,jt),100.e-6_wp*amco2/amd)
 !$OMP END PARALLEL
           END DO
         END DO
