@@ -513,7 +513,8 @@ CONTAINS
             CALL message(TRIM(method_name),'radiation is used without ozone')
           CASE (2,4,6,7,8,9) ! ok
             CALL message(TRIM(method_name),'radiation is used with ozone')
-          CASE (10) ! ok                                                                                                                                                                                            CALL message(TRIM(method_name),'radiation is used with ozone calculated from ART')
+          CASE (10) ! ok
+            CALL message(TRIM(method_name),'radiation is used with ozone calculated from ART')
             IF ( .NOT. lart ) THEN
               CALL finish(TRIM(method_name),'irad_o3 currently is 10 but lart is false.')
             ENDIF
@@ -1111,6 +1112,27 @@ CONTAINS
         CALL finish(TRIM(method_name),'iart_ari > 0 requires irad_aero=9')
       ENDIF
     ENDDO
+    
+    ! XML specification checks
+    
+    DO jg= 1,n_dom
+      IF(art_config(jg)%lart_aerosol) THEN
+        IF(TRIM(art_config(jg)%cart_aerosol_xml)=='') THEN
+          CALL finish(TRIM(method_name),'lart_aerosol=.TRUE. but no cart_aerosol_xml specified')
+        ENDIF
+      ENDIF
+      IF(art_config(jg)%lart_chem) THEN
+        IF(TRIM(art_config(jg)%cart_chemistry_xml)=='') THEN
+          CALL finish(TRIM(method_name),'lart_chem=.TRUE. but no cart_chemistry_xml specified')
+        ENDIF
+      ENDIF
+      IF(art_config(jg)%lart_passive) THEN
+        IF(TRIM(art_config(jg)%cart_passive_xml)=='') THEN
+          CALL finish(TRIM(method_name),'lart_passive=.TRUE. but no cart_passive_xml specified')
+        ENDIF
+      ENDIF
+    ENDDO
+    
 #endif
   END SUBROUTINE art_crosscheck
   !---------------------------------------------------------------------------------------
