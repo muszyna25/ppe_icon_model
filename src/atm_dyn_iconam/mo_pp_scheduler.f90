@@ -655,7 +655,7 @@ CONTAINS
 
           ! Check for matching name (take care of suffix of
           ! time-dependent variables):
-          IF (TRIM(tolower(vname)) /= TRIM(tolower(get_var_name(element%field)))) CYCLE VAR_LOOP
+          IF (TRIM(vname) /= TRIM(tolower(get_var_name(element%field)))) CYCLE VAR_LOOP
 
           IF (info%hgrid /= GRID_UNSTRUCTURED_CELL)  CYCLE VAR_LOOP
 
@@ -1357,7 +1357,7 @@ CONTAINS
 
               ! Check for matching name (take care of suffix of
               ! time-dependent variables):
-              IF (TRIM(tolower(varlist(ivar))) /= TRIM(tolower(get_var_name(element%field)))) CYCLE
+              IF (TRIM(varlist(ivar)) /= TRIM(tolower(get_var_name(element%field)))) CYCLE
 
               ! throw error message, if this variable is not a REAL field:
               IF (.NOT. ASSOCIATED(element%field%r_ptr)) THEN
