@@ -29,7 +29,7 @@ MODULE mo_art_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
-  USE mo_art_config,          ONLY: art_config
+  USE mo_art_config,          ONLY: art_config, IART_PATH_LEN
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
   
@@ -43,7 +43,8 @@ MODULE mo_art_nml
   !----------------------------------!
   
   ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
-  CHARACTER(LEN=120) :: cart_folder  !< Absolute Path to ART source code
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_folder                   !< Absolute Path to ART source code
   INTEGER :: iart_ntracer            !< number transported ART tracers
   INTEGER :: iart_init_aero          !< Initialization of aerosol species
   INTEGER :: iart_init_gas           !< Initialization of gaseous species
@@ -57,13 +58,20 @@ MODULE mo_art_nml
   LOGICAL :: lart_chem               !< Main switch to enable chemistry
   LOGICAL :: lart_passive            !< Main switch to enable passive tracers
   INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
-  CHARACTER(LEN=120) :: cart_emiss_table_path 
-  CHARACTER(LEN=120) :: cart_emiss_table_file(0:max_dom)
-  CHARACTER(LEN=120) :: cart_vortex_init_date
-  CHARACTER(LEN=120) :: cart_mozartfile 
-  CHARACTER(LEN=120) :: cart_chemistry_xml     !< Path to XML file for chemical tracers
-  CHARACTER(LEN=120) :: cart_aerosol_xml       !< Path to XML file for aerosol tracers
-  CHARACTER(LEN=120) :: cart_passive_xml       !< Path to XML file for passive tracers
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_emiss_table_path         !< path of tex-files with meta data of emissions.
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_emiss_table_file(0:max_dom) !< file names of tex-files with meta data of emissions without "_DOM??.tex"
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_vortex_init_date         !< Date of vortex initialization
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_mozartfile               !< Path to mozart initialization file
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_chemistry_xml            !< Path to XML file for chemical tracers
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_aerosol_xml              !< Path to XML file for aerosol tracers
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_passive_xml              !< Path to XML file for passive tracers
   ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
   LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
   INTEGER :: iart_seasalt            !< Treatment of sea salt aerosol
@@ -71,9 +79,11 @@ MODULE mo_art_nml
   INTEGER :: iart_anthro             !< Treatment of anthropogenic aerosol
   INTEGER :: iart_fire               !< Treatment of wildfire aerosol
   INTEGER :: iart_volcano            !< Treatment of volcanic ash aerosol
-  CHARACTER(LEN=120) :: cart_volcano_file  !< Absolute path + filename of input file for volcanoes
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_volcano_file             !< Absolute path + filename of input file for volcanoes
   INTEGER :: iart_radioact           !< Treatment of radioactive particles
-  CHARACTER(LEN=120) :: cart_radioact_file !< Absolute path + filename of input file for radioactive emissions
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_radioact_file            !< Absolute path + filename of input file for radioactive emissions
   INTEGER :: iart_pollen             !< Treatment of pollen
     
   ! Feedback processes (Details: cf. Tab. 2.4 ICON-ART User Guide)
