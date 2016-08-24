@@ -2977,7 +2977,96 @@ CONTAINS
       &        ref_out_array_i_1d, ref_out_array_i_2d)
     CALL delete_comm_gather_pattern(gather_pattern)
     DEALLOCATE(owner_local, glb_index)
+    !---------------------------------------------------------------------------
+    ! test in which only even numbered global indices are owned by processes
+    !---------------------------------------------------------------------------
+    ! generate gather pattern
+    local_size = 10 * nproma
+    global_size = p_n_work * local_size
+    ALLOCATE(owner_local(local_size), glb_index(local_size))
+    DO i = 2, local_size, 2
+      owner_local(i) = p_pe_work
+    END DO
+    DO i = 1, local_size, 2
+      owner_local(i) = -1
+    END DO
+    DO i = 1, local_size
+      glb_index(i) = local_size * p_pe_work + i
+    END DO
+    disable_consistency_check = .TRUE.
 
+    CALL setup_comm_gather_pattern(global_size, owner_local, glb_index, &
+      &                            gather_pattern, disable_consistency_check)
+
+    ! initialise in- and reference out data
+    nlev = 5
+    fill_value = -1
+    ALLOCATE(in_array_r_1d(nproma, local_size / nproma), &
+      &      in_array_r_2d(nproma, nlev, local_size / nproma), &
+      &      in_array_i_1d(nproma, local_size / nproma), &
+      &      in_array_i_2d(nproma, nlev, local_size / nproma))
+    DO i = 0, local_size-1
+      in_array_r_1d(MOD(i,nproma)+1, i/nproma+1) = p_pe_work * local_size + i
+      in_array_i_1d(MOD(i,nproma)+1, i/nproma+1) = p_pe_work * local_size + i
+      DO j = 1, nlev
+        in_array_r_2d(MOD(i,nproma)+1, j, i/nproma+1) = (j - 1) * global_size + &
+          &                                             p_pe_work * local_size + i
+        in_array_i_2d(MOD(i,nproma)+1, j, i/nproma+1) = (j - 1) * global_size + &
+          &                                             p_pe_work * local_size + i
+      END DO
+    END DO
+    IF (p_pe_work == 0) THEN
+      ALLOCATE(out_array_r_1d(global_size), &
+        &      out_array_r_2d(global_size, nlev), &
+        &      out_array_i_1d(global_size), &
+        &      out_array_i_2d(global_size, nlev), &
+        &      ref_out_array_r_1d(global_size), &
+        &      ref_out_array_r_2d(global_size, nlev), &
+        &      ref_out_array_i_1d(global_size), &
+        &      ref_out_array_i_2d(global_size, nlev))
+      DO i = 1, global_size - 1, 2
+        ref_out_array_r_1d(i+1) = i
+        ref_out_array_i_1d(i+1) = i
+        DO j = 1, nlev
+          ref_out_array_r_2d(i+1, j) = (j - 1) * global_size + i
+          ref_out_array_i_2d(i+1, j) = (j - 1) * global_size + i
+        END DO
+      END DO
+      DO i = 0, global_size - 1, 2
+        ref_out_array_r_1d(i+1) = fill_value
+        ref_out_array_i_1d(i+1) = fill_value
+        DO j = 1, nlev
+          ref_out_array_r_2d(i+1, j) = fill_value
+          ref_out_array_i_2d(i+1, j) = fill_value
+        END DO
+      END DO
+    ELSE
+      ALLOCATE(out_array_r_1d(0), &
+        &      out_array_r_2d(0, 0), &
+        &      out_array_i_1d(0), &
+        &      out_array_i_2d(0, 0), &
+        &      ref_out_array_r_1d(0), &
+        &      ref_out_array_r_2d(0, 0), &
+        &      ref_out_array_i_1d(0), &
+        &      ref_out_array_i_2d(0, 0))
+    END IF
+
+    ! check gather pattern
+    CALL check_exchange_gather(in_array_r_1d, in_array_r_2d, &
+      &                        in_array_i_1d, in_array_i_2d, &
+      &                        out_array_r_1d, out_array_r_2d, &
+      &                        ref_out_array_r_1d, ref_out_array_r_2d, &
+      &                        out_array_i_1d, out_array_i_2d, &
+      &                        ref_out_array_i_1d, ref_out_array_i_2d, &
+      &                        gather_pattern, __LINE__, fill_value)
+
+    ! delete gather pattern and other arrays
+    DEALLOCATE(in_array_r_1d, in_array_r_2d, in_array_i_1d, in_array_i_2d)
+    DEALLOCATE(out_array_r_1d, out_array_r_2d, out_array_i_1d, out_array_i_2d, &
+      &        ref_out_array_r_1d, ref_out_array_r_2d, &
+      &        ref_out_array_i_1d, ref_out_array_i_2d)
+    CALL delete_comm_gather_pattern(gather_pattern)
+    DEALLOCATE(owner_local, glb_index)
     !---------------------------------------------------------------------------
     ! simple test in which each process has its own local contiguous part of the
     ! global array plus some overlap with neighbouring processes
