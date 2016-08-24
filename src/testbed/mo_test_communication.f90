@@ -2688,7 +2688,7 @@ CONTAINS
 
     INTEGER :: local_size, p_n_intercomm_remote, global_size
     INTEGER, ALLOCATABLE :: owner_local(:), glb_index(:)
-    TYPE(t_comm_gather_pattern) :: gather_pattern
+    TYPE(t_comm_gather_pattern), TARGET :: gather_pattern
     TYPE(t_comm_allgather_pattern) :: allgather_pattern
     LOGICAL :: disable_consistency_check
 
