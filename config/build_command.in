@@ -1,0 +1,76 @@
+#! /bin/sh
+#
+# Warning: if you change the script's shell adapt the shell_in_use
+#          variable as well (for dash keep sh as shell in use)
+
+shell_in_use=sh
+
+#________________________________________________________________
+#
+
+set -eu
+
+load_modules="@load_modules@"
+config_compiler=@config_compiler@
+config_target=@config_target@
+
+moduleshome_in_use=${MODULESHOME-}
+load_modules_in_use=${load_modules-}
+
+#________________________________________________________________
+#
+
+if [ ! -z $moduleshome_in_use ]
+then
+    . $moduleshome_in_use/init/$shell_in_use
+else
+    if [ x"$load_modules_in_use" != x"" ]
+    then
+        printf "ERROR: modules required, but not available\n"
+        exit 1
+    fi
+fi
+
+if [ x"$load_modules_in_use" != x"" ]
+then
+    module_list=$(echo $load_modules_in_use | awk '{split($0,a," "); for(i=1;i<=length(a);i++){print a[i];}}')
+    current_prgenv=$(module -t list 2>&1 | awk '/PrgEnv/{print}')
+
+    if [ ! -z $current_prgenv ]
+    then
+        # module update on Cray
+
+        for mod in $module_list
+        do
+            if [ "${mod%%-*}" = "PrgEnv" ]
+            then
+                module -v swap $current_prgenv $mod
+            fi
+        done
+        module -v unload $mod
+        module -v load $mod        
+    else
+        # module update on other systems, non-Cray
+
+        for mod in $module_list
+        do
+            module -v swap ${mod%%/*} $mod
+        done                
+    fi
+
+    module list
+fi
+
+if  [ "x${config_target}" = "xbullx" ] && [ "x${config_compiler}" = "xpgi" ]
+then
+    export TMPDIR=/scratch/${USER:0:1}/$USER/
+fi
+
+if [ "x${config_target}" = "xblizzard" ]
+then
+    export LDR_CNTRL=MAXDATA=0xD0000000@DSA
+fi
+
+@make_command@
+
+exit $?

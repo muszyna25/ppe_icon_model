@@ -1300,7 +1300,7 @@ if test "x$mpi_startrun" = "x" ; then
 fi
 
 sync_submit=${sync_submit:=$submit}
-dnl
+
 AC_CONFIG_COMMANDS([Makefiles],[
 config/createMakefiles.pl --target="$build_host" \
   --srcdirs="${my_srcdirs}" \
@@ -1314,79 +1314,27 @@ enable_ocean="${enable_ocean}"
 enable_atmo="${enable_atmo}"
 enable_jsbach="${enable_jsbach}"
 enable_testbed="${enable_testbed}"])
-dnl
-dnl
-AC_CONFIG_COMMANDS([config/set-up.info],[
-echo Creating set-up.info... >&2
-cat > config/set-up.info << EOF
-#############################
-# set-up.info created by configure
-# do not modify this file
-#############################
-use_site='${use_site}'
-use_target='${use_target}'
-use_compiler='${use_compiler}'
-use_mpi='${use_mpi}'
-use_openmp='${use_openmp}'
-use_builddir='${use_builddir}'
-use_mpi_root='${use_mpi_root}'
-use_mpi_procs_pernode='${use_mpi_procs_pernode}'
-use_mpi_startrun='${use_mpi_startrun}'
-use_load_modules='${use_load_modules}'
-use_load_profile='${use_load_profile}'
-use_netcdflibpath='${use_netcdflibpath}'
-use_cdilibpath='${use_cdilibpath}'
-use_make_command='${use_make_command}'
-use_submit='${use_submit}'
-use_sync_submit='${use_sync_submit}'
-use_shell='${use_shell}'
-use_flags_group='${use_flags_group}'
-#############################
-EOF
-],[use_site="${ac_sitename}"
-use_target="${config_target}"
-use_compiler="${config_compiler}"
-use_mpi="${use_mpi}"
-use_openmp="${use_openmp}"
-use_builddir="build/${build_host}"
-use_mpi_root="${MPIROOT}"
-use_mpi_procs_pernode="${use_mpi_procs_pernode}"
-use_mpi_startrun="${mpi_startrun}"
-use_load_modules="$load_modules"
-use_load_profile="$load_profile"
-use_netcdflibpath="$NETCDFLIBPATH"
-use_cdilibpath="$CDILIBPATH"
-use_make_command="$make_command"
-use_submit="$submit"
-use_sync_submit="$sync_submit"
-use_shell="$use_shell"
-use_flags_group="$use_flags_group"])
 
-AC_CONFIG_COMMANDS([build_command],[
-echo Creating the build_command... >&2
-exec 8>build_command
-echo "@%:@! ${SHELL}" >&8
-echo "$load_profile" >&8
-if test "x$load_modules" != x; then
-   echo module purge >&8
-   echo module load "$load_modules" >&8
-   echo module list >&8
-fi
-if test "x${config_compiler}" = "xpgi" ; then
-   echo "export TMPDIR=/scratch/${USER:0:1}/$USER/" >&8
-fi
-if test "x${config_target}" = "xblizzard" ; then
-   echo "export LDR_CNTRL=MAXDATA=0xD0000000@DSA"  >&8
-fi
-echo "$make_command" >&8
-echo "exit \$?" >&8
-exec 8>-
-chmod +x build_command
-],[load_profile="$load_profile"
-load_modules="$load_modules"
-make_command="$make_command"
-config_target="$config_target"
-])
+AC_SUBST(config_target,$config_target)
+AC_SUBST(config_compiler,$config_compiler)
+AC_SUBST(load_modules,$load_modules)
+AC_SUBST(make_command,$make_command)
+
+AC_CONFIG_FILES([build_command:config/build_command.in],[chmod +x build_command])
+
+AC_SUBST(ac_sitename,$ac_sitename)      
+AC_SUBST(use_mpi,$use_mpi)                  
+AC_SUBST(use_openmp,$use_openmp)               
+AC_SUBST(build_host,$build_host)               
+AC_SUBST(use_mpi_procs_pernode,$use_mpi_procs_pernode)    
+AC_SUBST(mpi_startrun,$mpi_startrun)             
+AC_SUBST(load_profile,$load_profile)             
+AC_SUBST(submit,$submit)                   
+AC_SUBST(sync_submit,$sync_submit)              
+AC_SUBST(use_shell,$use_shell)                
+AC_SUBST(use_flags_group,$use_flags_group)          
+
+AC_CONFIG_FILES([config/set-up.info])
 
 #echo Creating the run scripts...
 #if test -f ./make_runscripts ; then
@@ -1394,11 +1342,9 @@ config_target="$config_target"
 #fi
 AC_OUTPUT
 
-#############################
 echo ""
 cat config/set-up.info
 echo ""
-#############################
 
 echo ""
 echo "Configuration done. Run GNU make to build ICON."

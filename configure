@@ -626,6 +626,21 @@ ac_includes_default="\
 
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+use_flags_group
+use_shell
+sync_submit
+submit
+load_profile
+mpi_startrun
+use_mpi_procs_pernode
+build_host
+use_openmp
+use_mpi
+ac_sitename
+make_command
+load_modules
+config_compiler
+config_target
 OBJDIRS
 SRCDIRS
 MODDIR
@@ -6771,12 +6786,46 @@ if test "x$mpi_startrun" = "x" ; then
 fi
 
 sync_submit=${sync_submit:=$submit}
+
 ac_config_commands="$ac_config_commands Makefiles"
 
-ac_config_commands="$ac_config_commands config/set-up.info"
+
+config_target=$config_target
+
+config_compiler=$config_compiler
+
+load_modules=$load_modules
+
+make_command=$make_command
 
 
-ac_config_commands="$ac_config_commands build_command"
+ac_config_files="$ac_config_files build_command:config/build_command.in"
+
+
+ac_sitename=$ac_sitename
+
+use_mpi=$use_mpi
+
+use_openmp=$use_openmp
+
+build_host=$build_host
+
+use_mpi_procs_pernode=$use_mpi_procs_pernode
+
+mpi_startrun=$mpi_startrun
+
+load_profile=$load_profile
+
+submit=$submit
+
+sync_submit=$sync_submit
+
+use_shell=$use_shell
+
+use_flags_group=$use_flags_group
+
+
+ac_config_files="$ac_config_files config/set-up.info"
 
 
 #echo Creating the run scripts...
@@ -7479,29 +7528,6 @@ enable_ocean="${enable_ocean}"
 enable_atmo="${enable_atmo}"
 enable_jsbach="${enable_jsbach}"
 enable_testbed="${enable_testbed}"
-use_site="${ac_sitename}"
-use_target="${config_target}"
-use_compiler="${config_compiler}"
-use_mpi="${use_mpi}"
-use_openmp="${use_openmp}"
-use_builddir="build/${build_host}"
-use_mpi_root="${MPIROOT}"
-use_mpi_procs_pernode="${use_mpi_procs_pernode}"
-use_mpi_startrun="${mpi_startrun}"
-use_load_modules="$load_modules"
-use_load_profile="$load_profile"
-use_netcdflibpath="$NETCDFLIBPATH"
-use_cdilibpath="$CDILIBPATH"
-use_make_command="$make_command"
-use_submit="$submit"
-use_sync_submit="$sync_submit"
-use_shell="$use_shell"
-use_flags_group="$use_flags_group"
-load_profile="$load_profile"
-load_modules="$load_modules"
-make_command="$make_command"
-config_target="$config_target"
-
 
 _ACEOF
 
@@ -7514,8 +7540,8 @@ do
     "config/config.h") CONFIG_HEADERS="$CONFIG_HEADERS config/config.h" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "Makefiles") CONFIG_COMMANDS="$CONFIG_COMMANDS Makefiles" ;;
-    "config/set-up.info") CONFIG_COMMANDS="$CONFIG_COMMANDS config/set-up.info" ;;
-    "build_command") CONFIG_COMMANDS="$CONFIG_COMMANDS build_command" ;;
+    "build_command") CONFIG_FILES="$CONFIG_FILES build_command:config/build_command.in" ;;
+    "config/set-up.info") CONFIG_FILES="$CONFIG_FILES config/set-up.info" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac
@@ -8074,55 +8100,7 @@ config/createMakefiles.pl --target="$build_host" \
   --enable_jsbach="${enable_jsbach}" \
   --enable_testbed="${enable_testbed}"
  ;;
-    "config/set-up.info":C)
-echo Creating set-up.info... >&2
-cat > config/set-up.info << EOF
-#############################
-# set-up.info created by configure
-# do not modify this file
-#############################
-use_site='${use_site}'
-use_target='${use_target}'
-use_compiler='${use_compiler}'
-use_mpi='${use_mpi}'
-use_openmp='${use_openmp}'
-use_builddir='${use_builddir}'
-use_mpi_root='${use_mpi_root}'
-use_mpi_procs_pernode='${use_mpi_procs_pernode}'
-use_mpi_startrun='${use_mpi_startrun}'
-use_load_modules='${use_load_modules}'
-use_load_profile='${use_load_profile}'
-use_netcdflibpath='${use_netcdflibpath}'
-use_cdilibpath='${use_cdilibpath}'
-use_make_command='${use_make_command}'
-use_submit='${use_submit}'
-use_sync_submit='${use_sync_submit}'
-use_shell='${use_shell}'
-use_flags_group='${use_flags_group}'
-#############################
-EOF
- ;;
-    "build_command":C)
-echo Creating the build_command... >&2
-exec 8>build_command
-echo "#! ${SHELL}" >&8
-echo "$load_profile" >&8
-if test "x$load_modules" != x; then
-   echo module purge >&8
-   echo module load "$load_modules" >&8
-   echo module list >&8
-fi
-if test "x${config_compiler}" = "xpgi" ; then
-   echo "export TMPDIR=/scratch/${USER:0:1}/$USER/" >&8
-fi
-if test "x${config_target}" = "xblizzard" ; then
-   echo "export LDR_CNTRL=MAXDATA=0xD0000000@DSA"  >&8
-fi
-echo "$make_command" >&8
-echo "exit \$?" >&8
-exec 8>-
-chmod +x build_command
- ;;
+    "build_command":F) chmod +x build_command ;;
 
   esac
 done # for ac_tag
@@ -8162,11 +8140,9 @@ $as_echo "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
 fi
 
 
-#############################
 echo ""
 cat config/set-up.info
 echo ""
-#############################
 
 echo ""
 echo "Configuration done. Run GNU make to build ICON."
