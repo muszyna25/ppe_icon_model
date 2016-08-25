@@ -1,9 +1,9 @@
-#! /bin/sh
+#! /bin/ksh
 #
 # Warning: if you change the script's shell adapt the shell_in_use
 #          variable as well (for dash keep sh as shell in use)
 
-shell_in_use=sh
+shell_in_use=ksh
 
 #________________________________________________________________
 #
@@ -32,7 +32,6 @@ load_modules="@load_modules@"
 config_compiler=@config_compiler@
 config_target=@config_target@
 
-
 moduleshome_in_use=${MODULESHOME-}
 load_modules_in_use=${load_modules-}
 
@@ -41,6 +40,7 @@ load_modules_in_use=${load_modules-}
 
 if [ ! -z $moduleshome_in_use ]
 then
+    grep TCLSH $moduleshome_in_use/init/$shell_in_use > /dev/null && { export TCLSH=$(which tclsh); } 
     . $moduleshome_in_use/init/$shell_in_use
 else
     if [ x"$load_modules_in_use" != x"" ]
