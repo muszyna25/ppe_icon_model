@@ -10,9 +10,28 @@ shell_in_use=sh
 
 set -eu
 
+#________________________________________________________________
+#
+
+is_module_loaded() {
+    mod_base="^${1%%/*}"
+    module_load_status=$(module -t list 2>&1 | awk -v p="$mod_base" '$0 ~ p { print $0}')
+
+    if [ -z $module_load_status ]
+    then
+        return 1
+    else
+        return 0
+    fi
+}
+
+#________________________________________________________________
+#
+
 load_modules="@load_modules@"
 config_compiler=@config_compiler@
 config_target=@config_target@
+
 
 moduleshome_in_use=${MODULESHOME-}
 load_modules_in_use=${load_modules-}
@@ -44,17 +63,26 @@ then
         do
             if [ "${mod%%-*}" = "PrgEnv" ]
             then
-                module -v swap $current_prgenv $mod
+                module swap $current_prgenv $mod
             fi
         done
-        module -v unload $mod
-        module -v load $mod        
+        module unload $mod
+        module load $mod        
     else
         # module update on other systems, non-Cray
 
         for mod in $module_list
         do
-            module -v swap ${mod%%/*} $mod
+            is_module_loaded $mod || {
+                module load $mod
+                false
+            } && {
+                mod_loaded=$(module -t list 2>&1 | awk -v p="$mod" '$0 ~ p { print $0}')
+                if [ "$mod_loaded" != "$mod" ]
+                then
+                    module swap "$mod_loaded" "$mod"
+                fi
+            }
         done                
     fi
 
