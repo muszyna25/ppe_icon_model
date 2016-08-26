@@ -6779,9 +6779,9 @@ fi
 # general command for running a progmam
 if test "x$mpi_startrun" = "x" ; then
   if  test "x$MPIROOT" = "x" ; then
-    mpi_startrun="mpiexec -n \\\$mpi_total_procs"
+    mpi_startrun="mpiexec -n \$mpi_total_procs"
   else
-    mpi_startrun="$MPIROOT/bin/mpiexec -n \\\$mpi_total_procs"
+    mpi_startrun="$MPIROOT/bin/mpiexec -n \$mpi_total_procs"
   fi
 fi
 
