@@ -24,9 +24,11 @@
 !! headers of the routines.
 !!
 MODULE mo_art_config
+
   USE mo_kind,                 ONLY: wp
   USE mo_impl_constants,       ONLY: max_dom
   USE mo_math_utilities,       ONLY: t_geographical_coordinates  
+
   IMPLICIT NONE
   
   PRIVATE
@@ -36,18 +38,23 @@ MODULE mo_art_config
   PUBLIC :: t_art_config
   PUBLIC :: art_config
   PUBLIC :: configure_art
-  ! Tracer indices
-  PUBLIC :: iash1,iash2,iash3,iash4,iash5,iash6                          !Running index for Volcanic Ash in ICON-ART 
-  PUBLIC :: iasha, iashb, iashc, iasha0, iashb0, iashc0                  !Running index for Volcanic Ash in ICON-ART
-  PUBLIC :: iCS137,iI131,iTE132,iZR95,iXE133,iI131g,iI131o,iBA140,iRU103 !Running index for radioactive nuclides  in ICON-ART
-  PUBLIC :: iseasa,iseasb,iseasc,iseasa0,iseasb0,iseasc0                 !Running index for sea salt in ICON-ART
-  PUBLIC :: idusta,idustb,idustc,idusta0,idustb0,idustc0                 !Running index for mineral dust in ICON-ART
-  PUBLIC :: iTRCHBR3,iTRCH2BR2,iTRBRy                                    !Running index for chemical tracer in ICON-ART - VSLS-BRy
-  PUBLIC :: iTRCH4,iTRCO2,iTRCO,iTRH2O,iTRO3                             !Running index for chemical tracer in ICON-ART - CH4-CO-CO2-H2O-O3
-  PUBLIC :: iTRCH3COCH3,iTRC5H8,iTRC2H6,iTRSF6,iTRN2O                    !Running index for chemical tracer in ICON-ART - CH3COCH3,C5H8,C2H6,SF6,N2O
-  PUBLIC :: iTR1,iTR2,iTR3,iTR4,iTR5                                     !Running index for chemical tracer in ICON-ART - artificial tracer
-  
-  
+  PUBLIC :: IART_PATH_LEN
+  ! Running tracer indices in ICON-ART
+  PUBLIC :: iash1,iash2,iash3,iash4,iash5,iash6                          !Volcanic Ash 
+  PUBLIC :: iasha, iashb, iashc, iasha0, iashb0, iashc0                  !Volcanic Ash
+  PUBLIC :: iCS137,iI131,iTE132,iZR95,iXE133,iI131g,iI131o,iBA140,iRU103 !radioactive nuclides
+  PUBLIC :: iseasa,iseasb,iseasc,iseasa0,iseasb0,iseasc0                 !sea salt 
+  PUBLIC :: idusta,idustb,idustc,idusta0,idustb0,idustc0                 !mineral dust
+  PUBLIC :: iTRCHBR3,iTRCH2BR2                                           !chemical tracer - VSLS
+  PUBLIC :: iTRCH4,iTRC2H6,iTRC3H8,iTRC5H8,iTRCH3COCH3,iTRCO,iTRCO2      !chemical tracer - CH4-C2H6-C3H5-C5H8-CH3COCH3-CO-CO2
+  PUBLIC :: iTRH2O,iTRO3,iTRN2O,iTRNH3,iTRSO2,iTRH2SO4,iTRHNO3,iTRAGE    !chemical tracer - others
+  PUBLIC :: iTR_vortex,iTR_stn,iTR_stt,iTR_sts                           !artificial tracer
+  PUBLIC :: iTR_trn,iTR_trt,iTR_trs,iTR_ttln,iTR_ttls                    !artificial tracer
+  PUBLIC :: iTR_nh,iTR_sh                                                !artificial tracer
+  PUBLIC :: iTR_nin,iTR_sin,iTR_ech,iTR_sea,iTR_sib,iTR_eur              !artificial tracer 
+  PUBLIC :: iTR_med,iTR_naf,iTR_saf,iTR_mdg,iTR_aus,iTR_nam              !artificial tracer
+  PUBLIC :: iTR_sam,iTR_tpo,iTR_tao,iTR_tio,iTR_bgn,iTR_bgs              !artificial tracer
+  PUBLIC :: iTR_art                                                      !artificial tracer
   
   !!--------------------------------------------------------------------------
   !! Tracer indices of ICON-ART species
@@ -64,17 +71,22 @@ MODULE mo_art_config
   INTEGER :: & !< mineral dust aerosol tracer indicies (modal scheme)
     &  idusta, idustb, idustc, idusta0, idustb0, idustc0
   INTEGER :: & !< Chemical tracers
-    &  iTRCHBR3, iTRCH2BR2, iTRBRy, &
-    &  iTRCH4, iTRCO2, iTRCO,       &
-    &  iTRCH3COCH3, iTRC5H8,        &
-    &  iTRC2H6, iTRH2O,             &
-    &  iTRO3, iTRSF6, iTRN2O,       &
-    &  iTR1, iTR2, iTR3, iTR4, iTR5
+    &  iTRCHBR3,iTRCH2BR2,                                        &
+    &  iTRCH4,iTRC2H6,iTRC3H8,iTRC5H8,iTRCH3COCH3,iTRCO,iTRCO2,   &
+    &  iTRH2O,iTRO3,iTRN2O,iTRNH3,iTRSO2,iTRH2SO4,iTRHNO3,iTRAGE, &
+    &  iTR_vortex,iTR_stn,iTR_stt,iTR_sts,                        &
+    &  iTR_trn,iTR_trt,iTR_trs,iTR_ttln,iTR_ttls,                 &
+    &  iTR_nh,iTR_sh,                                             &
+    &  iTR_nin,iTR_sin,iTR_ech,iTR_sea,iTR_sib,iTR_eur,           &
+    &  iTR_med,iTR_naf,iTR_saf,iTR_mdg,iTR_aus,iTR_nam,           &
+    &  iTR_sam,iTR_tpo,iTR_tao,iTR_tio,iTR_bgn,iTR_bgs,           &
+    &  iTR_art
   
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for ICON-ART
   !!--------------------------------------------------------------------------
-  INTEGER, PARAMETER  :: npreslay      = 7  !Number of pressure layers for diagnostic output of maximum concentration
+  INTEGER, PARAMETER  :: npreslay      = 7   !Number of pressure layers for diagnostic output of maximum concentration
+  INTEGER, PARAMETER  :: IART_PATH_LEN = 120 !Maximum length of file- and pathnames
 
   INTEGER             :: nart_tendphy  = 0  !Maximum number of tracers that are effected by deep convective transport 
   
@@ -84,18 +96,35 @@ MODULE mo_art_config
     ! Namelist variables
     
     ! General control variables (Details: cf. Tab. 2.2 ICON-ART User Guide)
-    CHARACTER(LEN=120) :: cart_folder  !< Absolute Path to ART source code
-    INTEGER :: iart_ntracer            !< number of transported ART tracers
-    INTEGER :: iart_init_aero          !< Initialization of aerosol species
-    INTEGER :: iart_init_gas           !< Initialization of gaseous species
-    LOGICAL :: lart_diag_out           !< Enable output of diagnostic fields
+    CHARACTER(LEN=IART_PATH_LEN) :: &
+      &  cart_folder                     !< Absolute Path to ART source code
+    INTEGER :: iart_ntracer              !< number of transported ART tracers
+    INTEGER :: iart_init_aero            !< Initialization of aerosol species
+    INTEGER :: iart_init_gas             !< Initialization of gaseous species
+    LOGICAL :: lart_diag_out             !< Enable output of diagnostic fields
+    CHARACTER(LEN=20) :: cart_io_suffix  !< user given suffix instead of automatically generated grid number 
+                                         !  in ICON-ART input filename convention: 
+                                         !  ART_iconR<n>B<kk>-grid-<yyyy-mm-dd-hh>_<grid_suffix>.nc
     
     ! Atmospheric Chemistry (Details: cf. Tab. 2.3 ICON-ART User Guide)
     LOGICAL :: lart_chem               !< Main switch to enable chemistry
+    LOGICAL :: lart_passive            !< Main switch to enable chemistry
     INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
-    CHARACTER(LEN=120) :: cart_emiss_table_path  !< path of tex-files with meta data of emissions. ! MiW
-    CHARACTER(LEN=120) :: cart_emiss_table_file  !< file names of tex-files with meta data of emissions without "_DOM??.tex" at the end. ! MiW
- 
+    CHARACTER(LEN=IART_PATH_LEN) :: &
+      &  cart_emiss_table_path        !< path of tex-files with meta data of emissions.
+    CHARACTER(LEN=IART_PATH_LEN) :: &
+      &  cart_emiss_table_file        !< file names of tex-files with meta data of emissions without "_DOM??.tex"
+    CHARACTER(LEN=IART_PATH_LEN) :: &
+      &  cart_vortex_init_date        !< Date of vortex initialization
+    CHARACTER(LEN=IART_PATH_LEN) :: &
+      &  cart_mozartfile              !< Path to mozart initialization file
+    CHARACTER(LEN=IART_PATH_LEN) :: &
+      &  cart_chemistry_xml           !< Path to XML file for chemical tracers
+    CHARACTER(LEN=IART_PATH_LEN) :: &
+      &  cart_aerosol_xml             !< Path to XML file for aerosol tracers
+    CHARACTER(LEN=IART_PATH_LEN) :: &
+      &  cart_passive_xml             !< Path to XML file for passive tracers
+
     ! Atmospheric Aerosol (Details: cf. Tab. 2.4 ICON-ART User Guide)
     LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
     INTEGER :: iart_seasalt            !< Treatment of sea salt aerosol
@@ -103,9 +132,11 @@ MODULE mo_art_config
     INTEGER :: iart_anthro             !< Treatment of anthropogenic aerosol
     INTEGER :: iart_fire               !< Treatment of wildfire aerosol
     INTEGER :: iart_volcano            !< Treatment of volcanic ash aerosol
-    CHARACTER(LEN=120) :: cart_volcano_file  !< Absolute path + filename of input file for volcanoes
+    CHARACTER(LEN=IART_PATH_LEN) :: &
+      &  cart_volcano_file             !< Absolute path + filename of input file for volcanoes
     INTEGER :: iart_radioact           !< Treatment of radioactive particles
-    CHARACTER(LEN=120) :: cart_radioact_file !< Absolute path + filename of input file for radioactive emissions
+    CHARACTER(LEN=IART_PATH_LEN) :: &
+      &  cart_radioact_file            !< Absolute path + filename of input file for radioactive emissions
     INTEGER :: iart_pollen             !< Treatment of pollen
     
     ! Feedback processes (Details: cf. Tab. 2.5 ICON-ART User Guide)

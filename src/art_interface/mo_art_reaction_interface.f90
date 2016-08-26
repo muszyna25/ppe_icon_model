@@ -37,7 +37,7 @@ MODULE mo_art_reaction_interface
   USE mo_nonhydro_types,                ONLY: t_nh_metrics, t_nh_prog, t_nh_diag
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
 #ifdef __ICON_ART
-  USE mo_art_radioactive,               ONLY: art_decay_radioact
+  USE mo_art_decay_radioact,            ONLY: art_decay_radioact
   USE mo_art_chemtracer,                ONLY: art_loss_chemtracer
   USE mo_art_gasphase,                  ONLY: art_loss_gasphase
   USE mo_art_photolysis,                ONLY: art_photolysis
