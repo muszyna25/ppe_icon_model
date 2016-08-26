@@ -615,7 +615,7 @@ case "$ac_sitename" in
                 # load_profile=. /client/etc/profile.zmaw
                 use_shell=/bin/bash
                 load_profile=source /sw/share/Modules/init/bash
-                load_modules=ncl/6.0.0-gccsys cdo/default jdk ${load_modules}
+                load_modules=ncl/6.0.0-gccsys cdo/default jdk/1.8.0_92 ${load_modules}
                 make_command=make -j8
                 submit=sbatch
                 sync_submit=srunjob --account=mpi
