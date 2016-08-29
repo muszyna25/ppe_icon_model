@@ -154,7 +154,7 @@ CONTAINS
       &        ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(ocean_default_list, 'oceWind_Speed_10m', p_oce_sfc%Wind_Speed_10m, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &        t_cf_var('Wind_Speed_10m', 'Pa', 'Wind Speed at 10m height', datatype_flt),&
+      &        t_cf_var('Wind_Speed_10m', 'm/s', 'Wind Speed at 10m height', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
       &        ldims=(/nproma,alloc_cell_blocks/))
 
@@ -189,7 +189,7 @@ CONTAINS
 
     CALL add_var(ocean_default_list, 'SSS', p_oce_sfc%SSS, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &        t_cf_var('SSS', 'C', 'Sea Surface Salinity', datatype_flt),&
+      &        t_cf_var('SSS', 'psu', 'Sea Surface Salinity', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
       &        ldims=(/nproma,alloc_cell_blocks/))
 
@@ -392,6 +392,10 @@ CONTAINS
       !  nothing to be done, atmospheric fluxes are provided at the end of time stepping
       !  atmospheric fluxes drive the ocean; fluxes are calculated by atmospheric model
       !  use atmospheric fluxes directly, i.e. no bulk formula as for OMIP is applied
+       
+       ! HAMOCC uses p_as to get SW radiation and wind, so we need to copy
+       ! the SW radiation onto it in the coupled case 
+       if(lhamocc) p_as%fswr(:,:) = atmos_fluxes%HeatFlux_ShortWave(:,:)
       CONTINUE
 
     CASE DEFAULT
@@ -400,6 +404,9 @@ CONTAINS
       CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION DOES NOT EXIST - TERMINATE')
 
     END SELECT
+
+    ! copy atmospheric wind speed from p_as%fu10 into new forcing variable for output purpose - not accumulated yet
+    p_oce_sfc%Wind_Speed_10m(:,:) = p_as%fu10(:,:)
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
@@ -516,7 +523,7 @@ CONTAINS
       atmos_fluxes%sensw  (:,:)   = atmos_fluxes%HeatFlux_Sensible (:,:)
       atmos_fluxes%latw   (:,:)   = atmos_fluxes%HeatFlux_Latent   (:,:)
      
-      WHERE ( p_ice%concSum(:,:) > 0._wp) !  corresponding to 1-concSum in TotalOcean
+      WHERE ( p_ice%concSum(:,:) > 0._wp) !  corresponding to (1-concSum)*Precip in TotalOcean
    !  WHERE ( ALL( p_ice%hi   (:,:,:) > 0._wp, 2 ) )  !  corresponding to hi>0 in ice_growth_zero
    !  WHERE ( ALL( p_ice%Tsurf(:,:,:) < 0._wp, 2 ) )  !  Tsurf is -1.8 over open water, incorrect specification
         ! SnowFall and liquid rain over ice-covered part of ocean are taken from the atmosphere model
@@ -531,9 +538,12 @@ CONTAINS
       ! copy flux for use in TotalOcean, since analytical/omip use p_as:
       !p_as%FrshFlux_Precipitation      = atmos_fluxes%FrshFlux_Precipitation
 
-      ! total water flux (runoff added elsewhere) on ice-free ocean water, snowfall is included as water
-      atmos_fluxes%FrshFlux_TotalOcean(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) * &
-        &  (atmos_fluxes%FrshFlux_Precipitation(:,:) + atmos_fluxes%FrshFlux_Evaporation(:,:))
+      ! total water flux over ice-free ocean water: P*(1-C)+E
+      !  - whole evaporation over grid-box enters open ocean, this includes evaporation over sea ice covered part
+      !  - snowfall is included as (melted) water equivalent
+      !  - runoff is added to VolumeTotal below
+      atmos_fluxes%FrshFlux_TotalOcean(:,:) = p_patch_3d%wet_c(:,1,:)* &
+        &  (( 1.0_wp-p_ice%concSum(:,:) ) * atmos_fluxes%FrshFlux_Precipitation(:,:) + atmos_fluxes%FrshFlux_Evaporation(:,:))
 
     ENDIF  ! iforc_oce
 

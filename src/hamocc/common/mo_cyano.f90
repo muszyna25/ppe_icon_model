@@ -92,7 +92,7 @@ END SUBROUTINE cyano
 
 
 
-SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho)
+SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_jerlov_pi)
 !! @brief prognostic N2 fixation, cyanobacteria
 
       USE mo_biomod, ONLY         : cycdec, pi_alpha_cya,cya_growth_max,          &
@@ -101,10 +101,10 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho)
        &                            doccya_fac, rnit, riron, rcar, rn2, &
        &                            strahl,bkcya_fe,   wcya, rnoi
 
-      USE mo_carbch, ONLY         : bgctra, bgctend, swr_frac, satoxy
+      USE mo_carbch, ONLY         : bgctra, bgctend, swr_frac, meanswr, satoxy
       USE mo_param1_bgc, ONLY     : iano3, iphosph, igasnit, &
            &                        ioxygen, ialkali, icya,  &
-           &                        isco212, idoccya, kaou, &
+           &                        isco212, idoc, kaou, &
            &                        idet, iiron, knfix, &
            &                        kpho_cya, kcyaloss, kn2b, &
            &                        kcTlim, kcLlim, kcPlim, kcFlim
@@ -118,7 +118,10 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho)
   
       REAL(wp), INTENT(in) :: pddpo(bgc_nproma, bgc_zlevs) !< size of scalar grid cell (3rd dimension) [m].
       REAL(wp), INTENT(in) :: ptho(bgc_nproma, bgc_zlevs)  !< potential temperature [deg C]
-      REAL(wp), INTENT(in) :: za(bgc_nproma)  !< potential temperature [deg C]
+      REAL(wp), INTENT(in) :: za(bgc_nproma)               !< potential temperature [deg C]
+      REAL(wp), INTENT(in) :: ptiestu(bgc_nproma,bgc_zlevs) !< depth of scalar grid cell [m]
+
+      LOGICAL, INTENT(in) :: l_jerlov_pi
 
       !! Local variables
    
@@ -131,6 +134,7 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho)
       REAL(wp) :: T_min_Topt,sgnT
       REAL(wp) :: xa_P, xa_fe, avnit,l_P,l_fe
       REAL(wp) :: xn_p,xn_fe
+      REAL(wp) :: jer_pi_alpha_cya
    
 !HAMOCC_OMP_PARALLEL 
 !HAMOCC_OMP_DO PRIVATE(j,kpke,k,avcyabac,avanut,avanfe,avnit,l_fe,l_I,T_min_Topt,&
@@ -152,9 +156,18 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho)
               avnit = MAX(0._wp,bgctra(j,k,iano3)/rnit)                 !available nitrate
                         
  
-              l_I = (pi_alpha_cya*fPAR*strahl(j))*swr_frac(j,k) &     ! light limitation
-                /SQRT(cya_growth_max**2 + (pi_alpha_cya**2)*(fPAR*strahl(j)*swr_frac(j,k))**2) 
+              if (l_jerlov_pi)then
+                 
+                   jer_pi_alpha_cya = pi_alpha_cya + 0.05_wp* ptiestu(j,k)/(ptiestu(j,k) + 90._wp) ! jerlov pi_alpha  
+                   
+                   l_I = (jer_pi_alpha_cya*fPAR*strahl(j))*meanswr(j,k) &     ! light limitation
+                        /SQRT(cya_growth_max**2 + (jer_pi_alpha_cya**2)*(fPAR*strahl(j)*meanswr(j,k))**2) 
+
+              else
+                   l_I = (pi_alpha_cya*fPAR*strahl(j))*swr_frac(j,k) &     ! light limitation
+                        /SQRT(cya_growth_max**2 + (pi_alpha_cya**2)*(fPAR*strahl(j)*swr_frac(j,k))**2) 
          
+              endif
               bgctend(j,k,kcLlim) = l_I 
  
               T_min_Topt = ptho(j,k)-Topt_cya                          
@@ -230,7 +243,7 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho)
               bgctend(j,k,kcyaloss) =  cyaloss/dtbgc   
 
               ! --------- decaying cyanobacteria are distributed to DOCCYA and detritus  
-              bgctra(j,k,idoccya) = bgctra(j,k,idoccya) + doccya_fac*cyaloss     
+              bgctra(j,k,idoc) = bgctra(j,k,idoc) + doccya_fac*cyaloss     
               bgctra(j,k,idet) = bgctra(j,k,idet) + (1.0_wp - doccya_fac)*cyaloss        
 
 

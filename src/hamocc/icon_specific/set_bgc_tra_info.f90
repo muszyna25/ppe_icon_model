@@ -133,15 +133,6 @@
        bgc_tracer_codes(itrac)     = last_oce_code+itrac
       
        itrac=itrac+1
-       bgc_tracer_names(itrac)     = 'doccya'
-       IF (PRESENT(suffix)) THEN
-        bgc_tracer_names(itrac) = 'doccya_'//TRIM(suffix)
-       END IF
-       bgc_tracer_longnames(itrac) = 'dissolved_organic_carbon of cyanos'
-       bgc_tracer_units(itrac)     = 'kmol P m-3'
-       bgc_tracer_codes(itrac)     = last_oce_code+itrac
-
-       itrac=itrac+1
        bgc_tracer_names(itrac)     = 'iron'
        IF (PRESENT(suffix)) THEN
         bgc_tracer_names(itrac) = 'iron_'//TRIM(suffix)

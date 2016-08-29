@@ -446,9 +446,11 @@ CONTAINS
         &                hamocc_state,            &
         &                jstep, jstep0)
       
-      ! receive coupling fluxes for ocean at the end of time stepping loop
+      ! send and receive coupling fluxes for ocean at the end of time stepping loop
       IF (iforc_oce == Coupled_FluxFromAtmo) &  !  14
-        &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, datetime)
+        &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, p_as, datetime)
+!       &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, p_as%fu10, datetime)
+!       &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, datetime)
 
   
       start_detail_timer(timer_extra21,5)

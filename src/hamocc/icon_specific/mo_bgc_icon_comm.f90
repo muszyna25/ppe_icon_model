@@ -209,7 +209,7 @@
     
     USE mo_param1_bgc, ONLY: isco212, ialkali, iphosph,iano3, igasnit, &
 &                            iphy, izoo, icya, ioxygen, isilica, idoc, &
-&                            ian2o, idet, idoccya, iiron, icalc, iopal,&
+&                            ian2o, idet, iiron, icalc, iopal,&
 &                            idust, idms
 
     INTEGER, INTENT(in) :: timelevel
@@ -233,7 +233,6 @@
     p_diag%doc(:,:,:)        =  p_prog%tracer(:,:,:,idoc+no_tracer)
     p_diag%n2o(:,:,:)        =  p_prog%tracer(:,:,:,ian2o+no_tracer)
     p_diag%det(:,:,:)        =  p_prog%tracer(:,:,:,idet+no_tracer)
-    p_diag%doccya(:,:,:)     =  p_prog%tracer(:,:,:,idoccya+no_tracer)
     p_diag%iron(:,:,:)       =  p_prog%tracer(:,:,:,iiron+no_tracer)
     p_diag%dms(:,:,:)        =  p_prog%tracer(:,:,:,idms+no_tracer)
     p_diag%calc(:,:,:)       =  p_prog%tracer(:,:,:,icalc+no_tracer)
@@ -261,7 +260,7 @@
  &                             ipowaox, ipown2, ipowno3,  &
  &                             ipowasi, ipowafe, kpho_cya, &
  &                             kcyaloss, kn2b, kh2ob, kprodus, &
-&                              kbacfra, kdelsil, kdelcar, kbacfrac, &
+&                              kbacfra, kdelsil, kdelcar,  &
 &                              kdmsflux, kdmsprod, kdmsbac, kdmsuv, &
 &                              keuexp, kplim, kflim, knlim,kcalex90,&
 &                              kopex90, kgraton, kexudp, kexudz, &
@@ -325,7 +324,6 @@
              p_tend%phoc(jc,jk,jb) = bgctend(jc,jk,kpho_cya)
              p_tend%cyloss(jc,jk,jb) = bgctend(jc,jk,kcyaloss)
              p_tend%bacfra(jc,jk,jb) = bgctend(jc,jk,kbacfra)
-             p_tend%bacfrac(jc,jk,jb) = bgctend(jc,jk,kbacfrac)
              p_tend%remina(jc,jk,jb) = bgctend(jc,jk,kremin)
              p_tend%remins(jc,jk,jb) = bgctend(jc,jk,ksred)
              p_tend%reminn(jc,jk,jb) = bgctend(jc,jk,kdenit)

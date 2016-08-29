@@ -1615,6 +1615,13 @@ CONTAINS
       & t_cf_var('rhopot_acc','kg/m^3','potential density', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"))
+
+ !   CALL add_var(ocean_default_list, 'slopes_squared_acc', ocean_state_acc%slopes_squared, grid_unstructured_cell, &
+ !     & za_depth_below_sea, &
+ !     & t_cf_var('slopes_squared','1','slopes_squared', datatype_flt),&
+ !     & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+ !     & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"))
+
     CALL add_var(ocean_default_list, 'rho_acc', ocean_state_acc%rho, grid_unstructured_cell, &
       & za_depth_below_sea, &
       & t_cf_var('rho_acc','kg/m^3','insitu density', datatype_flt),&

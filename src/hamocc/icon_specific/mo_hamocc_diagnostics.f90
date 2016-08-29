@@ -23,7 +23,7 @@ MODULE mo_hamocc_diagnostics
    USE mo_bgc_icon_comm, ONLY: to_bgcout
    USE mo_param1_bgc, ONLY: isco212, ialkali, iphosph,iano3, igasnit, &
 &                           iphy, izoo, icya, ioxygen, isilica, idoc, &
-&                           ian2o, idet, idoccya, iiron, icalc, iopal,&
+&                           ian2o, idet, iiron, icalc, iopal,&
 &                           idust, idms
 
 
@@ -72,8 +72,6 @@ else
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%nfixd(:,:), i_time_stat,&
 & hamocc_state%p_tend%monitor%n2fix(1), 1, ocean_state)
 endif
-CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%bacfrac(:,:,:), &
-&i_time_stat, hamocc_state%p_tend%monitor%bacfrac(1))
 CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%reminn(:,:,:), &
 & i_time_stat, hamocc_state%p_tend%monitor%wcdenit(1))
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%cflux(:,:), i_time_stat,&
@@ -122,7 +120,6 @@ hamocc_state%p_tend%monitor%zoomor(1) = hamocc_state%p_tend%monitor%zoomor(1) * 
 hamocc_state%p_tend%monitor%phymor(1) = hamocc_state%p_tend%monitor%phymor(1) * p2gtc
 hamocc_state%p_tend%monitor%graton(1) = hamocc_state%p_tend%monitor%graton(1) * p2gtc
 hamocc_state%p_tend%monitor%bacfra(1) = hamocc_state%p_tend%monitor%bacfra(1) * p2gtc
-hamocc_state%p_tend%monitor%bacfrac(1) = hamocc_state%p_tend%monitor%bacfrac(1) * p2gtc
 hamocc_state%p_tend%monitor%net_co2_flux(1) = hamocc_state%p_tend%monitor%net_co2_flux(1) * c2gtc
 hamocc_state%p_tend%monitor%delcar(1) = hamocc_state%p_tend%monitor%delcar(1) * c2gtc
 hamocc_state%p_tend%monitor%wcdenit(1) = hamocc_state%p_tend%monitor%wcdenit(1) * nitdem* n2tgn
@@ -163,7 +160,7 @@ REAL(wp) :: glob_n2o,glob_n2fl,glob_n2ofl, glob_orginp
 REAL(wp) :: glob_calinp, glob_silinp, glob_alk, glob_calc
 REAL(wp) :: glob_sil, glob_opal, glob_sedsi, glob_pwsi
 REAL(wp) :: glob_bsil, glob_silpro, glob_n2b, glob_h2ob
-REAL(wp) :: glob_prorca,  glob_cya, glob_doccya,glob_produs
+REAL(wp) :: glob_prorca,  glob_cya, glob_produs
 REAL(wp) :: glob_pwn2, glob_pwno3, glob_prcaca, glob_ofl
 REAL(wp) :: glob_pwic, glob_pwal, glob_pwph, glob_cfl
 REAL(wp) :: glob_dic, glob_o2, glob_fe, glob_co3, glob_hi
@@ -215,11 +212,8 @@ CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%t
 IF(l_cyadyn)THEN
  CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,icya+no_tracer),&
 &                      i_time_stat, glob_cya)
- CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,idoccya+no_tracer),&
-&                      i_time_stat, glob_doccya)
 else
  glob_cya=0._wp
- glob_doccya=0._wp
 ENDIF
 CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_diag%co3(:,:,:), i_time_stat, glob_co3)
 CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_diag%hi(:,:,:), i_time_stat, glob_hi)
@@ -292,7 +286,6 @@ CALL to_bgcout('Iron',glob_fe)
 CALL to_bgcout('Detritus',glob_det)
 IF(l_cyadyn)THEN
  CALL to_bgcout('Cyanobacteria',glob_cya)
- CALL to_bgcout('DOC cya',glob_doccya)
 ENDIF
 CALL to_bgcout('Calc',glob_calc)
 CALL to_bgcout('Opal',glob_opal)
@@ -383,7 +376,7 @@ CALL message(' ', ' ', io_stdo_bgc)
 ! and the fluxes are zeros after powach, the output in bgcflux however is not equal zero
 !-------- Phosphate
 watersum = glob_det + glob_doc + glob_phy + glob_zoo + glob_phos  &
-     &     + rcyano*(glob_cya + glob_doccya)
+     &     + rcyano*glob_cya 
      
 sedsum =  glob_sedo12 + glob_bo12 +  glob_orginp + glob_pwph 
 
@@ -398,7 +391,7 @@ CALL message(' ', ' ', io_stdo_bgc)
 
 !-------- Nitrate
 watersum = rnit * (glob_det + glob_doc + glob_phy + glob_zoo  &
-     &     + rcyano*(glob_cya + glob_doccya) ) + glob_nit     &
+     &     + rcyano*glob_cya ) + glob_nit     &
      &     + rn2 * (glob_gnit + glob_n2o + glob_n2fl + glob_n2ofl)&
      &     + glob_pwn2 + glob_pwno3  
      
@@ -427,7 +420,7 @@ CALL message(' ', ' ', io_stdo_bgc)
 ! Alkalinity
 
 watersum = glob_alk - rnit* (glob_det + glob_doc + glob_phy + glob_zoo &
-  &        + rcyano*(glob_doccya + glob_cya)) - glob_n2b          &
+  &        + rcyano* glob_cya) - glob_n2b          &
   &        + 2._wp * glob_calc + rnit * glob_orginp - 2._wp * glob_calinp
 
 sedsum =  glob_sedc12 + glob_bc12  
@@ -442,7 +435,7 @@ CALL message(' ', ' ', io_stdo_bgc)
 ! Oxygen
 
 watersum = (glob_det + glob_doc + glob_phy + glob_zoo +         &
-  &         rcyano*glob_cya + rcyano * glob_doccya)*(-ro2bal) + &
+  &         rcyano*glob_cya )*(-ro2bal) + &
   &         glob_o2 + glob_phos*2._wp + glob_dic + glob_calc +  &
   &         glob_nit * 1.5_wp + glob_n2o* 0.5_wp + glob_pwno3* 1.5 + &
   &         glob_pwic + glob_pwox + glob_pwph*2._wp + glob_ofl + &
@@ -462,7 +455,7 @@ CALL message(' ', ' ', io_stdo_bgc)
 ! Carbon
 
 watersum = (glob_det + glob_doc + glob_phy + glob_zoo   &
-     &     + rcyano*(glob_cya + glob_doccya)) *rcar + &
+     &     + rcyano*glob_cya ) *rcar + &
      &     glob_dic + glob_calc - glob_calinp - rcar * glob_orginp + &
      &     glob_cfl
      

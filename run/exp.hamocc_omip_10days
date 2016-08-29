@@ -159,7 +159,7 @@ cat >> ${ocean_namelist} << EOF1
   include_last     = .TRUE.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'BACFRA','degr_bac_cya','SRED','REMIN','DENIT','delsil','delcar','aou'
+  ml_varlist       =  'BACFRA','SRED','REMIN','DENIT','delsil','delcar','aou'
 /
 &output_nml
   filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2

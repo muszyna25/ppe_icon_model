@@ -84,6 +84,7 @@ CONTAINS
     CALL add_fields(ocean_state%p_acc%u     , ocean_state%p_diag%u         , cells)
     CALL add_fields(ocean_state%p_acc%v     , ocean_state%p_diag%v         , cells)
     CALL add_fields(ocean_state%p_acc%rhopot, ocean_state%p_diag%rhopot    , cells)
+!    CALL add_fields(ocean_state%p_acc%slopes_squared, ocean_state%p_aux%slopes_squared    , cells)
     DO jtrc=1,no_tracer
       CALL add_fields(ocean_state%p_acc%tracer(:,:,:,jtrc),ocean_state%p_prog(nnew(1))%tracer(:,:,:,jtrc),cells)
     END DO
@@ -179,6 +180,7 @@ CONTAINS
     p_acc%u                         = p_acc%u                        /REAL(nsteps_since_last_output,wp)
     p_acc%v                         = p_acc%v                        /REAL(nsteps_since_last_output,wp)
     p_acc%rhopot                    = p_acc%rhopot                   /REAL(nsteps_since_last_output,wp)
+!    p_acc%slopes_squared            = p_acc%slopes_squared           /REAL(nsteps_since_last_output,wp)
     p_acc%u_vint                    = p_acc%u_vint                   /REAL(nsteps_since_last_output,wp)
     p_acc%v_vint                    = p_acc%v_vint                   /REAL(nsteps_since_last_output,wp)
     p_acc%edgeFlux_total                   = p_acc%edgeFlux_total                  /REAL(nsteps_since_last_output,wp)
@@ -256,6 +258,7 @@ CONTAINS
     p_acc%u                         = 0.0_wp
     p_acc%v                         = 0.0_wp
     p_acc%rhopot                    = 0.0_wp
+ !   p_acc%slopes_squarred           = 0.0_wp
     p_acc%u_vint                    = 0.0_wp
     p_acc%v_vint                    = 0.0_wp
     p_acc%edgeFlux_total                   = 0.0_wp
