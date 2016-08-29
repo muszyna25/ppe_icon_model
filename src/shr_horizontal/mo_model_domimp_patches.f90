@@ -1688,7 +1688,12 @@ CONTAINS
         CALL read_2D_int(stream_id_grf, on_cells, 'phys_cell_id', n_lp+1, &
           &              multivar_2d_data_int(:))
       ELSE
-        p_p%cells%phys_id(:,:) = ig
+
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(patch, id_lp, ip)
+          p_p%cells%phys_id(:,:) = ig
+        END DO
+
       END IF
     END IF
 
@@ -1726,7 +1731,11 @@ CONTAINS
         CALL read_2D_int(stream_id_grf, on_edges, 'phys_edge_id', n_lp+1, &
           &              multivar_2d_data_int(:))
       ELSE
-        p_p%edges%phys_id(:,:) = ig
+
+        DO ip = 0, n_lp
+          p_p => get_patch_ptr(patch, id_lp, ip)
+          p_p%edges%phys_id(:,:) = ig
+        ENDDO
       END IF
     END IF
 
