@@ -71,7 +71,7 @@ MODULE mo_interface_iconam_echam
 
   USE mo_coupling_config       ,ONLY: is_coupled_run
   USE mo_parallel_config       ,ONLY: nproma
-  USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi, iqt, ico2, ich4, in2o, io3
+  USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi
   USE mo_nonhydrostatic_config ,ONLY: lhdiff_rcf
   USE mo_diffusion_config      ,ONLY: diffusion_config
   USE mo_echam_phy_config      ,ONLY: echam_phy_config
@@ -702,36 +702,6 @@ CONTAINS
             DO jc = jcs, jce
 
               ! (2.1) Tracer mixing ratio with respect to dry air
-              !
-              ! PROVISIONALLY set physics tendencies for pseudo tracers CO2, CH4 and O3
-              !
-              IF (jt == ico2) THEN ! 0ppmv/s
-                 prm_tend(jg)% qtrc_phy(jc,jk,jb,jt) = 0.0_wp
-              END IF
-              !
-              IF (jt == ich4) THEN ! 100ppmm/3years in surface layer
-                 IF ( jk == nlev ) THEN
-                    prm_tend(jg)% qtrc_phy(jc,jk,jb,jt) = 100.0e-6_wp/(3._wp*365.25_wp*86400._wp)
-                 ELSE
-                    prm_tend(jg)% qtrc_phy(jc,jk,jb,jt) = 0.0_wp
-                 END IF
-              END IF
-              !
-              IF (jt == in2o) THEN ! 100ppmm/3years in top layer
-                 IF ( jk == 1 ) THEN
-                    prm_tend(jg)% qtrc_phy(jc,jk,jb,jt) = 100.0e-6_wp/(3._wp*365.25_wp*86400._wp)
-                 ELSE
-                    prm_tend(jg)% qtrc_phy(jc,jk,jb,jt) = 0.0_wp
-                 END IF
-              END IF
-              !
-              IF (jt == io3)  THEN ! 100ppmm/3years in layer at 30km / 10 hPa
-                 IF ( jk == 16 ) THEN
-                    prm_tend(jg)% qtrc_phy(jc,jk,jb,jt) = 100.0e-6_wp/(3._wp*365.25_wp*86400._wp)
-                 ELSE
-                    prm_tend(jg)% qtrc_phy(jc,jk,jb,jt) = 0.0_wp
-                 END IF
-              END IF
               !
               ! new mass fraction of tracer with respect to dry air
               z_qtrc(jc,jk,jb,jt)  = z_qtrc(jc,jk,jb,jt) + prm_tend(jg)% qtrc_phy(jc,jk,jb,jt) * dtadv_loc
