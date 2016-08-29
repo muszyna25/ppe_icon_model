@@ -1469,12 +1469,14 @@ CONTAINS
     ! nesting/lateral boundary indexes
     IF (max_cell_connectivity == 3) THEN ! triangular grid
       ! patch_pre%cells%parent
-      CALL nf(nf_inq_varid(ncid_grf, 'parent_cell_index', varid))
-      CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_parent, local_ptr)
-      CALL nf(nf_get_vara_int(ncid_grf, varid, &
-        &                     (/patch_pre%cells%local_chunk(1,1)%first/), &
-        &                     (/patch_pre%cells%local_chunk(1,1)%size/), &
-        &                     local_ptr))
+      IF (ig > 0) THEN
+        CALL nf(nf_inq_varid(ncid_grf, 'parent_cell_index', varid))
+        CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_parent, local_ptr)
+        CALL nf(nf_get_vara_int(ncid_grf, varid, &
+          &                     (/patch_pre%cells%local_chunk(1,1)%first/), &
+          &                     (/patch_pre%cells%local_chunk(1,1)%size/), &
+          &                     local_ptr))
+      ENDIF
     ELSE
       CALL message ('read_patch',&
         & 'nesting incompatible with non-triangular grid')
@@ -1495,13 +1497,14 @@ CONTAINS
 
     ! patch_pre%edges%parent
 !     write(0,*) "parent_edge_index..."
-    CALL nf(nf_inq_varid(ncid_grf, 'parent_edge_index', varid))
-    CALL dist_mult_array_local_ptr(patch_pre%edges%dist, e_parent, local_ptr)
-    CALL nf(nf_get_vara_int(ncid_grf, varid, &
-      &                     (/patch_pre%edges%local_chunk(1,1)%first/), &
-      &                     (/patch_pre%edges%local_chunk(1,1)%size/), &
-      &                     local_ptr))
-
+    IF (ig > 0) THEN
+      CALL nf(nf_inq_varid(ncid_grf, 'parent_edge_index', varid))
+      CALL dist_mult_array_local_ptr(patch_pre%edges%dist, e_parent, local_ptr)
+      CALL nf(nf_get_vara_int(ncid_grf, varid, &
+        &                     (/patch_pre%edges%local_chunk(1,1)%first/), &
+        &                     (/patch_pre%edges%local_chunk(1,1)%size/), &
+        &                     local_ptr))
+    ENDIF
     ! patch_pre%edges%refin_ctrl
 !     write(0,*) "refin_e_ctrl..."
     CALL nf(nf_inq_varid(ncid_grf, 'refin_e_ctrl', varid))
