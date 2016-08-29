@@ -163,7 +163,7 @@ CONTAINS
     REAL(wp) :: z_qsum               !< summand of virtual increment
     REAL(wp) :: z_ddt_qsum           !< summand of virtual increment tendency
 
-    REAL(wp), POINTER :: z_q(:,:,:,:)      !< tracer mass mixing ratio with respect to dry air
+    REAL(wp), POINTER :: z_qtrc(:,:,:,:)   !< tracer mass mixing ratio with respect to dry air
 !!$    REAL(wp), POINTER :: z_drymoist(:,:,:) !< conversion factor from moist to dry mass mixing ratio
 
     REAL(wp) :: zvn1, zvn2
@@ -232,7 +232,7 @@ CONTAINS
             DO jc = jcs, jce
               !
               pt_prog_new_rcf%tracer(jc,jk,jb,jt) =   pt_prog_new_rcf%tracer(jc,jk,jb,jt)             &
-                &                                   + prm_tend(jg)%    q_phy(jc,jk,jb,jt) * dtadv_loc
+                &                                   + prm_tend(jg)% qtrc_phy(jc,jk,jb,jt) * dtadv_loc
               !
             END DO
           END DO
@@ -304,9 +304,9 @@ CONTAINS
     ! Loop over cells
     IF (ltimer) CALL timer_start(timer_d2p_couple)
 
-    ALLOCATE(z_q(nproma,nlev,i_startblk:i_endblk,ntracer),stat=return_status)
+    ALLOCATE(z_qtrc(nproma,nlev,i_startblk:i_endblk,ntracer),stat=return_status)
     IF (return_status > 0) THEN
-      CALL finish (method_name, 'ALLOCATE(z_q)')
+      CALL finish (method_name, 'ALLOCATE(z_qtrc)')
     END IF
 
 !!$    ALLOCATE(z_drymoist(nproma,nlev,i_startblk:i_endblk),stat=return_status)
@@ -322,7 +322,7 @@ CONTAINS
 !!$      CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
 
       DO jc = jcs, jce
-        prm_tend(jg)% airvi_phy(jc,jb) = 0.0_wp ! initialize air path before physics
+        prm_tend(jg)% mairvi_phy(jc,jb) = 0.0_wp ! initialize air path before physics
      END DO
      
       DO jk = 1,nlev
@@ -349,9 +349,9 @@ CONTAINS
 !!$            &                                        +pt_prog_new_rcf% tracer(jc,jk,jb,iqi) ))
           
           ! Compute air path before physics, which is used later to diagnose the
-          ! air path tendency related to physics. Use the prm_tend(jg)% airvi_phy
+          ! air path tendency related to physics. Use the prm_tend(jg)% mairvi_phy
           ! variable for the storage of the air paths before physics.
-          prm_tend(jg)% airvi_phy (jc,   jb)     = prm_tend(jg)%   airvi_phy(jc,   jb) &
+          prm_tend(jg)% mairvi_phy (jc,   jb)     = prm_tend(jg)%   mairvi_phy(jc,   jb) &
              &                                    +pt_prog_new %         rho(jc,jk,jb) &
              &                                    *p_metrics   % ddqz_z_full(jc,jk,jb)
           !
@@ -400,33 +400,33 @@ CONTAINS
 !!$      DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
 !!$        CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
         DO jc = jcs, jce
-          prm_tend(jg)% q_vi_phy(jc,jb,jt) = 0.0_wp ! initialize tracer path before physics
+          prm_tend(jg)% mtrcvi_phy(jc,jb,jt) = 0.0_wp ! initialize tracer path before physics
         END DO
         DO jk = 1,nlev
           DO jc = jcs, jce
 
             ! Compute tracer path before physics, which is used later to diagnose the
-            ! tracer path tendency related to physics. Use the prm_tend(jg)% q_vi_phy
+            ! tracer path tendency related to physics. Use the prm_tend(jg)% mtrcvi_phy
             ! variable for the storage of the tracer paths before physics.
-            prm_tend(jg)% q_vi_phy(jc,   jb,jt)  = prm_tend(jg)%  q_vi_phy(jc,   jb,jt) &
-               &                                  +pt_prog_new_rcf% tracer(jc,jk,jb,jt) &
-               &                                  *pt_prog_new%        rho(jc,jk,jb)    &
-               &                                  *p_metrics%  ddqz_z_full(jc,jk,jb)
+            prm_tend(jg)% mtrcvi_phy(jc,   jb,jt)  = prm_tend(jg)% mtrcvi_phy(jc,   jb,jt) &
+               &                                    +pt_prog_new_rcf%  tracer(jc,jk,jb,jt) &
+               &                                    *pt_prog_new%         rho(jc,jk,jb)    &
+               &                                    *p_metrics%   ddqz_z_full(jc,jk,jb)
             !
             ! Fill the physics state variables, which are used by echam:
-            prm_field(jg)%       q(jc,jk,jb,jt)  = pt_prog_new_rcf% tracer(jc,jk,jb,jt) !!$* z_drymoist(jc,jk,jb)
+            prm_field(jg)%      qtrc(jc,jk,jb,jt)  = pt_prog_new_rcf% tracer(jc,jk,jb,jt) !!$* z_drymoist(jc,jk,jb)
             !
             ! Keep a copy that cannot be changed inadvertently by the physics
-            z_q(jc,jk,jb,jt)                     = prm_field(jg)%        q(jc,jk,jb,jt)
+            z_qtrc(jc,jk,jb,jt)                    = prm_field(jg)%        qtrc(jc,jk,jb,jt)
             !
             ! Tendencies passed to the ECHAM physics for internal upating are set to 0
             ! because the state passed to physics is already updated with tendencies
             ! due to dynamics and transport.
-            prm_tend(jg)%        q(jc,jk,jb,jt)  = 0.0_wp
+            prm_tend(jg)%       qtrc(jc,jk,jb,jt)  = 0.0_wp
             !
             ! Advective tendencies, already accounted for, but needed
             ! for diagnostic purposes in the convection scheme
-            prm_tend(jg)%    q_dyn(jc,jk,jb,jt)  = pt_diag% ddt_tracer_adv(jc,jk,jb,jt) !!$* z_drymoist(jc,jk,jb)
+            prm_tend(jg)%   qtrc_dyn(jc,jk,jb,jt)  = pt_diag% ddt_tracer_adv(jc,jk,jb,jt) !!$* z_drymoist(jc,jk,jb)
             !
             
           END DO
@@ -553,14 +553,14 @@ CONTAINS
         DO jc = jcs, jce
 
           z_qsum     = pt_prog_new_rcf%tracer(jc,jk,jb,iqc) + pt_prog_new_rcf%tracer(jc,jk,jb,iqi)
-          z_ddt_qsum = prm_tend(jg)%q_phy(jc,jk,jb,iqc)     + prm_tend(jg)%q_phy(jc,jk,jb,iqi)
+          z_ddt_qsum = prm_tend(jg)% qtrc_phy(jc,jk,jb,iqc) + prm_tend(jg)% qtrc_phy(jc,jk,jb,iqi)
           !
           pt_diag%ddt_exner_phy(jc,jk,jb) =                                               &
             &  rd_o_cpd / pt_prog_new%theta_v(jc,jk,jb)                                   &
             &  * (  prm_tend(jg)%temp_phy(jc,jk,jb)                                       &
             &     * (1._wp + vtmpc1*pt_prog_new_rcf%tracer(jc,jk,jb,iqv) - z_qsum )       &
             &     + pt_diag%temp(jc,jk,jb)                                                &
-            &     * (        vtmpc1*prm_tend(jg)%q_phy(jc,jk,jb,iqv)     - z_ddt_qsum ) )
+            &     * (        vtmpc1*prm_tend(jg)% qtrc_phy(jc,jk,jb,iqv) - z_ddt_qsum ) )
           !
           ! Additionally use this loop also to set the dynamical exner increment to zero.
           ! (It is accumulated over one advective time step in solve_nh)
@@ -706,35 +706,35 @@ CONTAINS
               ! PROVISIONALLY set physics tendencies for pseudo tracers CO2, CH4 and O3
               !
               IF (jt == ico2) THEN ! 0ppmv/s
-                 prm_tend(jg)% q_phy(jc,jk,jb,jt) = 0.0_wp
+                 prm_tend(jg)% qtrc_phy(jc,jk,jb,jt) = 0.0_wp
               END IF
               !
               IF (jt == ich4) THEN ! 100ppmm/3years in surface layer
                  IF ( jk == nlev ) THEN
-                    prm_tend(jg)% q_phy(jc,jk,jb,jt) = 100.0e-6_wp/(3._wp*365.25_wp*86400._wp)
+                    prm_tend(jg)% qtrc_phy(jc,jk,jb,jt) = 100.0e-6_wp/(3._wp*365.25_wp*86400._wp)
                  ELSE
-                    prm_tend(jg)% q_phy(jc,jk,jb,jt) = 0.0_wp
+                    prm_tend(jg)% qtrc_phy(jc,jk,jb,jt) = 0.0_wp
                  END IF
               END IF
               !
               IF (jt == in2o) THEN ! 100ppmm/3years in top layer
                  IF ( jk == 1 ) THEN
-                    prm_tend(jg)% q_phy(jc,jk,jb,jt) = 100.0e-6_wp/(3._wp*365.25_wp*86400._wp)
+                    prm_tend(jg)% qtrc_phy(jc,jk,jb,jt) = 100.0e-6_wp/(3._wp*365.25_wp*86400._wp)
                  ELSE
-                    prm_tend(jg)% q_phy(jc,jk,jb,jt) = 0.0_wp
+                    prm_tend(jg)% qtrc_phy(jc,jk,jb,jt) = 0.0_wp
                  END IF
               END IF
               !
               IF (jt == io3)  THEN ! 100ppmm/3years in layer at 30km / 10 hPa
                  IF ( jk == 16 ) THEN
-                    prm_tend(jg)% q_phy(jc,jk,jb,jt) = 100.0e-6_wp/(3._wp*365.25_wp*86400._wp)
+                    prm_tend(jg)% qtrc_phy(jc,jk,jb,jt) = 100.0e-6_wp/(3._wp*365.25_wp*86400._wp)
                  ELSE
-                    prm_tend(jg)% q_phy(jc,jk,jb,jt) = 0.0_wp
+                    prm_tend(jg)% qtrc_phy(jc,jk,jb,jt) = 0.0_wp
                  END IF
               END IF
               !
               ! new mass fraction of tracer with respect to dry air
-              z_q(jc,jk,jb,jt)  = z_q(jc,jk,jb,jt) + prm_tend(jg)% q_phy(jc,jk,jb,jt) * dtadv_loc
+              z_qtrc(jc,jk,jb,jt)  = z_qtrc(jc,jk,jb,jt) + prm_tend(jg)% qtrc_phy(jc,jk,jb,jt) * dtadv_loc
               !
             END DO
           END DO
@@ -751,29 +751,29 @@ CONTAINS
 !!$      DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
 !!$        CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
         DO jc = jcs, jce
-          prm_field(jg)% airvi(jc,jb) = 0.0_wp ! initialize air path after physics
+          prm_field(jg)% mairvi(jc,jb) = 0.0_wp ! initialize air path after physics
         END DO
         DO jk = 1,nlev
           DO jc = jcs, jce
 
 !!$            ! (2.2) Conversion factor from dry to moist air mass mixing ratio
 !!$            !
-!!$            z_drymoist(jc,jk,jb)  = 1.0_wp / (1.0_wp + ( z_q(jc,jk,jb,iqv)   &
-!!$              &                                         +z_q(jc,jk,jb,iqc)   &
-!!$              &                                         +z_q(jc,jk,jb,iqi) ))
+!!$            z_drymoist(jc,jk,jb)  = 1.0_wp / (1.0_wp + ( z_qtrc(jc,jk,jb,iqv)   &
+!!$              &                                         +z_qtrc(jc,jk,jb,iqc)   &
+!!$              &                                         +z_qtrc(jc,jk,jb,iqi) ))
             !
             !
             ! new air path
-            prm_field(jg)% airvi(jc,jb) = prm_field(jg)%        airvi(jc,  jb) &
-                &                        +pt_prog_new  %         rho(jc,jk,jb) &
-                &                        *p_metrics    % ddqz_z_full(jc,jk,jb)
+            prm_field(jg)% mairvi(jc,jb) = prm_field(jg)%      mairvi(jc,   jb) &
+                &                         +pt_prog_new  %         rho(jc,jk,jb) &
+                &                         *p_metrics    % ddqz_z_full(jc,jk,jb)
             !
           END DO
         END DO
         DO jc = jcs, jce
-          prm_tend(jg)% airvi_phy(jc,jb) = ( prm_field(jg)% airvi    (jc,jb)  & ! ( air path after  physics
-            &                               -prm_tend (jg)% airvi_phy(jc,jb)) & !  -air path before physics)
-            &                              /dtadv_loc                           ! /dtime
+          prm_tend(jg)% mairvi_phy(jc,jb) = ( prm_field(jg)% mairvi    (jc,jb)  & ! ( air path after  physics
+            &                                -prm_tend (jg)% mairvi_phy(jc,jb)) & !  -air path before physics)
+            &                               /dtadv_loc                            ! /dtime
         END DO
       END DO
 !$OMP END DO
@@ -788,7 +788,7 @@ CONTAINS
 !!$        DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
 !!$          CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
           DO jc = jcs, jce
-            prm_field(jg)% q_vi(jc,jb,jt) = 0.0_wp ! initialize tracer path after physics
+            prm_field(jg)% mtrcvi(jc,jb,jt) = 0.0_wp ! initialize tracer path after physics
           END DO
           DO jk = 1,nlev
             DO jc = jcs, jce
@@ -796,10 +796,10 @@ CONTAINS
               ! (2) Tracers
               !
               ! new mass fraction of tracer with respect to moist air
-              pt_prog_new_rcf% tracer(jc,jk,jb,jt)  = z_q(jc,jk,jb,jt) !!$* z_drymoist(jc,jk,jb)
+              pt_prog_new_rcf% tracer(jc,jk,jb,jt)  = z_qtrc(jc,jk,jb,jt) !!$* z_drymoist(jc,jk,jb)
               !
               ! new tracer path
-              prm_field(jg)%     q_vi(jc,   jb,jt)  = prm_field(jg)%     q_vi(jc,   jb,jt) &
+              prm_field(jg)%   mtrcvi(jc,   jb,jt)  = prm_field(jg)%   mtrcvi(jc,   jb,jt) &
                 &                                    +pt_prog_new_rcf% tracer(jc,jk,jb,jt) &
                 &                                    *pt_prog_new%        rho(jc,jk,jb)    &
                 &                                    *p_metrics%  ddqz_z_full(jc,jk,jb)
@@ -807,9 +807,9 @@ CONTAINS
             END DO
           END DO
           DO jc = jcs, jce
-            prm_tend(jg)% q_vi_phy(jc,jb,jt) = ( prm_field(jg)% q_vi    (jc,jb,jt)  & ! ( tracer path after  physics
-              &                                 -prm_tend (jg)% q_vi_phy(jc,jb,jt)) & !  -tracer path before physics)
-              &                                /dtadv_loc                             ! /dtime
+            prm_tend(jg)% mtrcvi_phy(jc,jb,jt) = ( prm_field(jg)% mtrcvi    (jc,jb,jt)  & ! ( tracer path after  physics
+              &                                   -prm_tend (jg)% mtrcvi_phy(jc,jb,jt)) & !  -tracer path before physics)
+              &                                  /dtadv_loc                               ! /dtime
           END DO
         END DO
       END DO
@@ -817,7 +817,7 @@ CONTAINS
 !$OMP END PARALLEL
 
 !!$      DEALLOCATE(z_drymoist)
-      DEALLOCATE(z_q)
+      DEALLOCATE(z_qtrc)
 
       ! Loop over cells
 !$OMP PARALLEL
@@ -830,21 +830,21 @@ CONTAINS
 
           ! h2o path
           !
-          prm_field(jg)% h2ovi    (jc,jb)  = prm_field(jg)% q_vi     (jc,jb,iqv) &
-             &                              +prm_field(jg)% q_vi     (jc,jb,iqc) &
-             &                              +prm_field(jg)% q_vi     (jc,jb,iqi)
+          prm_field(jg)% mh2ovi    (jc,jb) = prm_field(jg)% mtrcvi     (jc,jb,iqv) &
+             &                              +prm_field(jg)% mtrcvi     (jc,jb,iqc) &
+             &                              +prm_field(jg)% mtrcvi     (jc,jb,iqi)
           !
-          prm_tend (jg)% h2ovi_phy(jc,jb)  = prm_tend (jg)% q_vi_phy (jc,jb,iqv) &
-             &                              +prm_tend (jg)% q_vi_phy (jc,jb,iqc) &
-             &                              +prm_tend (jg)% q_vi_phy (jc,jb,iqi)
+          prm_tend (jg)% mh2ovi_phy(jc,jb) = prm_tend (jg)% mtrcvi_phy (jc,jb,iqv) &
+             &                              +prm_tend (jg)% mtrcvi_phy (jc,jb,iqc) &
+             &                              +prm_tend (jg)% mtrcvi_phy (jc,jb,iqi)
           !
           ! dry air path
           !
-          prm_field(jg)% dryvi    (jc,jb)  = prm_field(jg)% airvi    (jc,jb) &
-            &                               -prm_field(jg)% h2ovi    (jc,jb)
+          prm_field(jg)% mdryvi    (jc,jb) = prm_field(jg)% mairvi     (jc,jb) &
+            &                               -prm_field(jg)% mh2ovi     (jc,jb)
           !
-          prm_tend (jg)% dryvi_phy(jc,jb)  = prm_tend (jg)% airvi_phy(jc,jb) &
-            &                               -prm_tend (jg)% h2ovi_phy(jc,jb)
+          prm_tend (jg)% mdryvi_phy(jc,jb) = prm_tend (jg)% mairvi_phy (jc,jb) &
+            &                               -prm_tend (jg)% mh2ovi_phy (jc,jb)
           !
         END DO
       END DO

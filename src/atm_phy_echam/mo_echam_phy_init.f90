@@ -337,7 +337,7 @@ CONTAINS
       ! to the 3-dimensional tracer field.
       IF ( iqt <= ico2 .AND. ico2 <= ntracer ) THEN
         DO jg = 1,ndomain
-          prm_field(jg)%q(:,:,:,ico2) = ghg_co2mmr
+          prm_field(jg)%qtrc(:,:,:,ico2) = ghg_co2mmr
         END DO
       END IF
       !
@@ -450,8 +450,8 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP WORKSHARE
-      field% q    (:,:,:,:)   = 0._wp
-      field% q    (:,:,:,iqv) = qv(:,:,:)
+      field% qtrc (:,:,:,:)   = 0._wp
+      field% qtrc (:,:,:,iqv) = qv(:,:,:)
       field% xvar (:,:,:)     = qv(:,:,:)*0.1_wp
       field% xskew(:,:,:)     = 2._wp
 
@@ -528,25 +528,25 @@ CONTAINS
       tend% temp_rlw(:,:,:)   = 0._wp
       tend%temp_rlw_impl(:,:) = 0._wp
       tend% temp_cld(:,:,:)   = 0._wp
-      tend%    q_cld(:,:,:,:) = 0._wp
+      tend% qtrc_cld(:,:,:,:) = 0._wp
 
       tend% temp_dyn(:,:,:)   = 0._wp
-      tend%    q_dyn(:,:,:,:) = 0._wp
+      tend% qtrc_dyn(:,:,:,:) = 0._wp
       tend%    u_dyn(:,:,:)   = 0._wp
       tend%    v_dyn(:,:,:)   = 0._wp
 
       tend% temp_phy(:,:,:)   = 0._wp
-      tend%    q_phy(:,:,:,:) = 0._wp
+      tend% qtrc_phy(:,:,:,:) = 0._wp
       tend%    u_phy(:,:,:)   = 0._wp
       tend%    v_phy(:,:,:)   = 0._wp
 
       tend% temp_cnv(:,:,:)   = 0._wp
-      tend%    q_cnv(:,:,:,:) = 0._wp
+      tend% qtrc_cnv(:,:,:,:) = 0._wp
       tend%    u_cnv(:,:,:)   = 0._wp
       tend%    v_cnv(:,:,:)   = 0._wp
 
       tend% temp_vdf(:,:,:)   = 0._wp
-      tend%    q_vdf(:,:,:,:) = 0._wp
+      tend% qtrc_vdf(:,:,:,:) = 0._wp
       tend%    u_vdf(:,:,:)   = 0._wp
       tend%    v_vdf(:,:,:)   = 0._wp
 
