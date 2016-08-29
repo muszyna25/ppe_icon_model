@@ -40,14 +40,15 @@ MODULE mo_art_sedi_interface
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
   USE mo_art_modes,                     ONLY: t_fields_2mom,t_fields_radio, &
                                           &   t_fields_volc
-  USE mo_art_data,                      ONLY: p_art_data, UNDEF_INT_ART
+  USE mo_art_data,                      ONLY: p_art_data
+  USE mo_art_impl_constants,            ONLY: UNDEF_INT_ART
   USE mo_art_clipping,                  ONLY: art_clip_lt
   USE mo_art_config,                    ONLY: art_config
 ! sedimentation and deposition routines
   USE mo_art_sedi_volc,                 ONLY: art_sedi_volc
   USE mo_art_sedi_2mom,                 ONLY: art_calc_v_sed, art_calc_sed_flx
   USE mo_art_depo_2mom,                 ONLY: art_calc_v_dep, art_store_v_dep
-  USE mo_art_radioactive,               ONLY: art_drydepo_radioact
+  USE mo_art_drydepo_radioact,          ONLY: art_drydepo_radioact
 #endif
 
   IMPLICIT NONE
@@ -185,7 +186,7 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
                 CALL fields%modal_param(p_art_data(jg)%air_prop%art_free_path(:,:,jb),                &
                   &                     istart, iend, nlev, jb, tracer(:,:,jb,:))
                 ! Calculate sedimentation velocities for 0th and 3rd moment
-                CALL art_calc_v_sed(rho(:,:,jb),dz(:,:,jb),                                           &
+                CALL art_calc_v_sed(dz(:,:,jb),                                                       &
                   &     p_art_data(jg)%air_prop%art_dyn_visc(:,:,jb), fields%density(:,:,jb),         &
                   &     fields%diameter(:,:,jb), fields%info%exp_aero, fields%knudsen_nr(:,:,jb),     &
                   &     istart, iend, nlev, vsed0(:,:), vsed3(:,:))
