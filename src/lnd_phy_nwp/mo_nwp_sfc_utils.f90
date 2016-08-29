@@ -1497,6 +1497,9 @@ CONTAINS
     DO jb = i_startblk, i_endblk
 
 
+      ! This (re)initialization is needed for correct functionality of the IAU iteration
+      ext_data%atm%spw_count(jb) = 0
+      ext_data%atm%spi_count(jb) = 0
 
       ! Init sub-index lists for sea points. We distinguish between open-water
       ! (i.e. ice free) points and sea-ice points. diag_lnd%fr_seaice is used
