@@ -895,6 +895,18 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
       ! edges of the neighbor cells of the parent cell that have (approximately)
       ! the same orientation as the child edge
 
+      ! Skip outer boundary points for limited-area radiation grids. They cannot be
+      ! computed correctly but are not needed anyway
+      IF (jg == 0 .AND. ptr_ep%refin_ctrl(je,jb) >= -3) THEN
+        ptr_grf%grf_vec_stencil_2a(je,jb) = 0
+        ptr_grf%grf_vec_stencil_2b(je,jb) = 0
+        ptr_grf%grf_vec_ind_2a(je,1:5,jb) = je
+        ptr_grf%grf_vec_blk_2a(je,1:5,jb) = jb
+        ptr_grf%grf_vec_ind_2b(je,1:5,jb) = je
+        ptr_grf%grf_vec_blk_2b(je,1:5,jb) = jb
+        CYCLE
+      ENDIF
+
       ierror = 0
 
       DO je = i_startidx, i_endidx

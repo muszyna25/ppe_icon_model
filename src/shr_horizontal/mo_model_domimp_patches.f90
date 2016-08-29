@@ -2687,7 +2687,7 @@ CONTAINS
     ! local variables
     INTEGER,          PARAMETER :: UNDEFINED_VALUE = 99
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':set_parent_refin_ev_ctrl'
-    INTEGER              :: jc_c, jb_c, jc_v, jb_v, j, i, jc_e, jb_e,              &
+    INTEGER              :: jc_c, jb_c, jc_v, jb_v, j, i, jc_e, jb_e, jc_n, jb_n,  &
       &                     communicator, refin_e, iidx, j_v
     INTEGER, ALLOCATABLE :: in_data(:), dst_idx(:), out_data(:,:), out_count(:,:), &
       &                     refin_v_ctrl(:,:)
@@ -2744,13 +2744,32 @@ CONTAINS
       IF (out_count(1,j) == 0)  CYCLE
             
       IF (out_count(2,j) == 0) THEN
-        ! (the "+2" takes care of the "-1"-shift above:)
+        ! (the "+2" takes care of the "-1"-shift above)
         refin_e = 2*out_data(1,j) + 2
       ELSE
         refin_e = out_data(1,j) + out_data(2,j) + 2
       END IF
 
       p_p%edges%refin_ctrl(jc_e,jb_e) = refin_e 
+    END DO
+
+    ! Reset edges%refin_ctrl at outer boundary of a limited-area grid
+    DO j = 1,p_p%n_patch_cells
+      jc_c = idx_no(j) ;  jb_c = blk_no(j)
+
+      IF (p_p%cells%decomp_info%decomp_domain(jc_c,jb_c) > 1)  CYCLE
+
+      IF (p_p%cells%refin_ctrl(jc_c,jb_c) == -1)  THEN
+        DO i=1,3
+          jc_e = p_p%cells%edge_idx(jc_c,jb_c,i)
+          jb_e = p_p%cells%edge_blk(jc_c,jb_c,i)
+
+          jc_n = p_p%cells%neighbor_idx(jc_c,jb_c,i)
+          jb_n = p_p%cells%neighbor_blk(jc_c,jb_c,i)
+
+          IF (jc_n <= 0 .OR. jb_n <= 0)  p_p%edges%refin_ctrl(jc_e,jb_e) = -1
+        END DO
+      ENDIF
     END DO
 
     DEALLOCATE(in_data, dst_idx, out_data, out_count)
