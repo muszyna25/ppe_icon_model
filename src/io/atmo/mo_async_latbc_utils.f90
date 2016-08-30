@@ -111,8 +111,8 @@
     PUBLIC :: compute_shutdown_async_pref
 
     PUBLIC ::  prepare_pref_latbc_data, pref_latbc_data, &
-         &     latbc_data, latbc_fileID, new_latbc_tlev, prev_latbc_tlev,  &
-         &     update_lin_interpolation, deallocate_pref_latbc_data, mtime_read
+         &     latbc_data, new_latbc_tlev, prev_latbc_tlev,  &
+         &     update_lin_interpolation, deallocate_pref_latbc_data
 
 
 
