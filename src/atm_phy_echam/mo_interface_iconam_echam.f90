@@ -553,41 +553,8 @@ CONTAINS
     !
     ! (6) Convert physics tendencies to dynamics tendencies
     !
-    !     (a) (dT/dt|phy, dqv/dt|phy, dqc/dt|phy, dqi/dt|phy) --> dexner/dt|phy
-
-    ! Loop over cells
     IF (ltimer) CALL timer_start(timer_p2d_prep)
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jcs,jce,z_qsum,z_ddt_qsum) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk,i_endblk
-      CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-!!$      DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
-!!$        CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
-
-      DO jk = 1,nlev
-        DO jc = jcs, jce
-
-          z_qsum     = pt_prog_new_rcf%tracer(jc,jk,jb,iqc) + pt_prog_new_rcf%tracer(jc,jk,jb,iqi)
-          z_ddt_qsum = prm_tend(jg)% qtrc_phy(jc,jk,jb,iqc) + prm_tend(jg)% qtrc_phy(jc,jk,jb,iqi)
-          !
-          pt_diag%ddt_exner_phy(jc,jk,jb) =                                               &
-            &  rd_o_cpd / pt_prog_new%theta_v(jc,jk,jb)                                   &
-            &  * (  prm_tend(jg)%temp_phy(jc,jk,jb)                                       &
-            &     * (1._wp + vtmpc1*pt_prog_new_rcf%tracer(jc,jk,jb,iqv) - z_qsum )       &
-            &     + pt_diag%temp(jc,jk,jb)                                                &
-            &     * (        vtmpc1*prm_tend(jg)% qtrc_phy(jc,jk,jb,iqv) - z_ddt_qsum ) )
-          !
-          ! Additionally use this loop also to set the dynamical exner increment to zero.
-          ! (It is accumulated over one advective time step in solve_nh)
-          pt_diag%exner_dyn_incr(jc,jk,jb) = 0._wp
-
-        END DO
-      END DO
-
-    END DO !jb
-!$OMP END DO
-!$OMP END PARALLEL
-
+    !
     !     (b) (du/dt|phy, dv/dt|phy) --> dvn/dt|phy
     !
     ALLOCATE(zdudt(nproma,nlev,patch%nblks_c), &
@@ -883,6 +850,10 @@ CONTAINS
             !
             ! Set physics forcing to zero so that it is not re-applied in the dynamical core
             pt_diag%ddt_exner_phy(jc,jk,jb) = 0._wp
+            !
+            ! Additionally use this loop also to set the dynamical exner increment to zero.
+            ! (It is accumulated over one advective time step in solve_nh)
+            pt_diag%exner_dyn_incr(jc,jk,jb) = 0._wp
             !
         END DO
       END DO
