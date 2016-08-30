@@ -40,8 +40,7 @@ MODULE mo_time_management
     &                                    mtime_year_of_360_days => year_of_360_days,       &
     &                                    getTotalMilliSecondsTimeDelta
   USE mo_mtime_extensions,         ONLY: datetime_str_equal,                               &
-    &                                    get_timedelta_divide_by_seconds,                  &
-    &                                    getTimedeltaFromMS, timedelta_str_equal
+    &                                    timedelta_str_equal
   USE mo_time_config,              ONLY: dt_restart,                                       &
     &                                    ini_datetime_string, is_relative_time,            &
     &                                    time_nml_icalendar => icalendar,                  &
@@ -405,11 +404,13 @@ CONTAINS
       &                                       exp_stop_datetime_string,      & !< experiment stop date
       &                                       exp_ref_datetime_string,       & !< experiment reference date
       &                                       cur_datetime_string
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  ::  td_string
     TYPE(datetime),  POINTER              ::  mtime_start, mtime_stop,       &
       &                                       mtime_exp_stop,                &
       &                                       mtime_restart_stop,            &
       &                                       mtime_nsteps_stop
-    TYPE(timedelta), POINTER              ::  mtime_dt_restart, mtime_dtime
+    TYPE(timedelta), POINTER              ::  mtime_dt_restart, mtime_dtime, &
+      &                                       mtime_td
     INTEGER                               ::  mtime_calendar, dtime_calendar,&
       &                                       errno
     CHARACTER(len=MAX_CALENDAR_STR_LEN)   ::  calendar1, calendar2, calendar
@@ -620,7 +621,8 @@ CONTAINS
     NULLIFY(mtime_restart_stop)
     NULLIFY(mtime_nsteps_stop)
 
-    mtime_dtime        => getTimedeltaFromMS(INT(dtime,i8)*1000)
+    CALL getPTStringFromMS(INT(dtime,i8)*1000, td_string)
+    mtime_dtime => newTimeDelta(td_string)
     IF (.NOT. ASSOCIATED(mtime_dtime))  CALL finish(routine, "Error in conversion of dtime to mtime!")
     mtime_start        => newDatetime(start_datetime_string, errno)
     IF (errno /= 0)  CALL finish(routine, "Error in conversion of start date: "//start_datetime_string)
@@ -746,6 +748,19 @@ CONTAINS
       nsteps = get_timedelta_divide_by_seconds(start_datetime_string, &
         &                                      stop_datetime_string,  &
         &                                      dtime)
+
+      mtime_start => newDatetime(start_datetime_string)
+      mtime_stop  => newDatetime(stop_datetime_string)
+      mtime_td    => newTimedelta("PT0S")
+      mtime_td    =  mtime_stop - mtime_start
+      CALL getPTStringFromMS(INT(dtime*1000._wp,i8), td_string)
+      mtime_dtime => newTimedelta(td_string)
+      CALL divideTimeDeltaInSeconds(mtime_td, mtime_dtime, mtime_quotient)
+      nsteps = INT(mtime_quotient%quotient)
+      CALL deallocateTimedelta(mtime_td)
+      CALL deallocateTimedelta(mtime_dtime)
+      CALL deallocateDatetime(mtime_start)
+      CALL deallocateDatetime(mtime_stop)
     END IF
 
     ! --------------------------------------------------------------
