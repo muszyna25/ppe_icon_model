@@ -78,18 +78,20 @@
          &                            isCurrentEventActive, deallocateDatetime,    &
          &                            MAX_DATETIME_STR_LEN, MAX_EVENTNAME_STR_LEN, &
          &                            MAX_TIMEDELTA_STR_LEN, getPTStringFromMS,    &
-         &                            OPERATOR(>=), OPERATOR(-), OPERATOR(>)
+         &                            OPERATOR(>=), OPERATOR(-), OPERATOR(>),      &
+         &                            OPERATOR(/=), datetimeToString
     USE mo_mtime_extensions,    ONLY: get_datetime_string, get_duration_string_real
     USE mo_datetime,            ONLY: t_datetime
     USE mo_time_config,         ONLY: time_config
     USE mo_limarea_config,      ONLY: latbc_config, generate_filename_mtime
     USE mo_ext_data_types,      ONLY: t_external_data
-    USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, dtime, nsteps
+    USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, dtime, nsteps, msg_level
     USE mo_initicon_config,     ONLY: init_mode
     USE mtime_events,           ONLY: deallocateEvent
     USE mtime_timedelta,        ONLY: timedelta, newTimedelta, deallocateTimedelta, &
          &                            operator(+)
-    USE mo_cdi,                 ONLY: streamOpenRead, streamClose
+    USE mo_cdi,                 ONLY: streamOpenRead, streamClose, streamInqVlist, vlistInqTaxis, &
+      &                               taxisInqVDate, taxisInqVTime
     USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
     USE mo_util_cdi,            ONLY: cdiGetStringError
     USE mo_master_config,       ONLY: isRestart
@@ -126,7 +128,6 @@
     INTEGER, PARAMETER :: msg_pref_done     = 26884
     INTEGER, PARAMETER :: msg_pref_shutdown = 48965
     INTEGER, PARAMETER :: msg_latbc_done    = 20883
-    CHARACTER(len=*), PARAMETER :: version = '$Id$'
     CHARACTER(LEN=*), PARAMETER :: modname = 'mo_async_latbc_utils'
 
 
@@ -134,20 +135,16 @@
     ! VARIABLES
     !------------------------------------------------------------------------------------------------
 
-    INTEGER                :: latbc_fileID, &
+    INTEGER                  :: latbc_fileID, &
          new_latbc_tlev, &  ! time level indices for  latbc_data. can be 1 or 2.
          prev_latbc_tlev    ! new_latbc_tlev is the time level index carrying the most recent data
-    TYPE(t_initicon_state) :: latbc_data(2)     ! storage for two time-level boundary data
-    INTEGER                :: nlev_in             ! number of vertical levels in the boundary data
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: sim_start, sim_end, sim_cur, sim_cur_read
-    CHARACTER(LEN=MAX_EVENTNAME_STR_LEN) :: event_name
+    TYPE(t_initicon_state)   :: latbc_data(2)     ! storage for two time-level boundary data
     TYPE(timedelta), pointer :: my_duration_slack
-    TYPE(datetime), pointer :: mtime_date
-    TYPE(datetime), pointer :: mtime_read
-    TYPE(datetime), pointer :: mtime_end
-    TYPE(event), pointer :: prefetchEvent
+    TYPE(datetime),  pointer :: mtime_date
+    TYPE(datetime),  pointer :: mtime_read
+    TYPE(datetime),  pointer :: mtime_end
+    TYPE(event),     pointer :: prefetchEvent
     TYPE(timedelta), pointer :: delta_dtime
-    LOGICAL :: isactive
 
 
   CONTAINS
@@ -168,17 +165,16 @@
 
 #ifndef NOMPI
       ! local variables
+      CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = modname//"::allocate_pref_latbc_data"
       INTEGER       :: tlev, nlev, nlevp1, nblks_c, nblks_e
       INTEGER       :: ioper_mode
+      INTEGER       :: nlev_in             ! number of vertical levels in the boundary data
 
-      CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
-           "mo_async_latbc_utils::allocate_pref_latbc_data"
-
-      !  CALL message(TRIM(routine),'start')
+      !  CALL message(routine,'start')
 
       nlev_in = latbc_config%nlev_in
       IF(nlev_in == 0) THEN
-         CALL finish(TRIM(routine), "Number of input levels <nlev_in> not yet initialized.")
+         CALL finish(routine, "Number of input levels <nlev_in> not yet initialized.")
       END IF
 
       ! Select operation mode determining the set of input fields to be allocated and read
@@ -290,11 +286,12 @@
       INTEGER       :: i, add_delta, end_delta, finish_delta
       REAL(wp)      :: tdiff, seconds
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: tdiff_string
-      CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
-           "mo_async_latbc_utils::prepare_pref_latbc_data"
-      CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: td_string
+      CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = modname//"::prepare_pref_latbc_data"
+      CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: td_string
+      CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: sim_start, sim_end, sim_cur_read
+      CHARACTER(LEN=MAX_EVENTNAME_STR_LEN)  :: event_name
 
-      !   CALL message(TRIM(routine),'start')
+      !   CALL message(routine,'start')
 
       IF( my_process_is_work() ) THEN
          ! allocate input data for lateral boundary nudging
@@ -389,7 +386,7 @@
          CALL async_pref_send_handshake()
       END IF
 
-      CALL message(TRIM(routine),'done')
+      CALL message(routine,'done')
 #endif
     END SUBROUTINE prepare_pref_latbc_data
 
@@ -417,9 +414,11 @@
 
 #ifndef NOMPI
       ! local variables
+      CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = modname//"::pref_latbc_data"
       LOGICAL                               :: lcheck_read
       LOGICAL                               :: ltime_incr
-      CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_async_latbc_utils::pref_latbc_data"
+      LOGICAL                               :: isactive
+      CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: sim_cur
 
       IF( my_process_is_work()) THEN
          ! compute current datetime in a format appropriate for mtime
@@ -515,11 +514,12 @@
 
 #ifndef NOMPI
       ! local variables
+      CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = modname//"::compute_latbc_icon_data"
       INTEGER(i8)                         :: eoff
       TYPE(t_reorder_data), POINTER       :: p_ri
       REAL(wp)                            :: temp_v(nproma,p_patch%nlev,p_patch%nblks_c)
       INTEGER                             :: jc, jk, jb, jm, tlev, j, jl, jv
-      CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_async_latbc_utils::compute_latbc_icon_data"
+      INTEGER                             :: nlev_in         ! number of vertical levels in the boundary data
       !-------------------------------------------------------------------------
 
       nlev_in   = latbc_config%nlev_in
@@ -725,13 +725,16 @@
 
 #ifndef NOMPI
       ! local variables
-      INTEGER(KIND=MPI_ADDRESS_KIND)      :: ioff(0:num_work_procs-1)
-      INTEGER                             :: jm, latbc_fileID
-      LOGICAL                             :: l_exist
-      CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_async_latbc_utils::pref_latbc_intp_data"
+      CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = modname//"::pref_latbc_intp_data"
+      INTEGER(KIND=MPI_ADDRESS_KIND)        :: ioff(0:num_work_procs-1)
+      INTEGER                               :: jm, latbc_fileID, vlistID, taxisID, errno,  &
+        &                                      idate, iyear, imonth, iday, itime, ihour, iminute, isecond
+      LOGICAL                               :: l_exist
       CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
-      CHARACTER(LEN=132)             :: message_text
-      CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
+      CHARACTER(LEN=132)                    :: message_text
+      CHARACTER(LEN=MAX_CHAR_LENGTH)        :: cdiErrorText
+      CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: dstringA, dstringB
+      TYPE(datetime), POINTER               :: mtime_vdate
 
       ! return if mtime_read is at least one full boundary data interval beyond the simulation end,
       ! implying that no further data are required for correct results
@@ -742,7 +745,7 @@
       INQUIRE (FILE=TRIM(ADJUSTL(latbc_full_filename)), EXIST=l_exist)
       IF (.NOT. l_exist) THEN
          WRITE (message_text,'(a,a)') 'file not found:', TRIM(latbc_filename)
-         CALL finish(TRIM(routine), message_text)
+         CALL finish(routine, message_text)
       ENDIF
 
       ! opening and reading file
@@ -754,6 +757,27 @@
               ' cannot be opened: ', TRIM(cdiErrorText)
          CALL finish(routine, TRIM(message_text))
       ENDIF
+
+      ! consistency check: Make sure that the requested date is
+      ! actually contained in the file.
+      
+      vlistID = streamInqVlist(latbc_fileID)
+      taxisID = vlistInqTaxis(vlistID)
+      idate   = taxisInqVDate(taxisID)
+      itime   = taxisInqVTime(taxisID)
+      CALL cdiDecodeDate(idate, iyear, imonth, iday)
+      CALL cdiDecodeTime(itime, ihour, iminute, isecond)
+      mtime_vdate => newDatetime(iyear, imonth, iday, ihour, iminute, isecond, 0, errno)
+      IF (mtime_vdate /= mtime_read) THEN
+        CALL finish(routine, "requested date does not match file '"//TRIM(latbc_full_filename))
+      END IF
+      IF (msg_level >= 10) THEN
+        CALL datetimeToString(mtime_read, dstringA)
+        CALL datetimeToString(mtime_vdate, dstringB)
+        WRITE (0,*) "  read date: ", TRIM(dstringA)
+        WRITE (0,*) "  file date: ", TRIM(dstringB)
+      END IF
+      CALL deallocateDatetime(mtime_vdate)
 
       ! initializing the displacement array for each compute processor
       ioff(:) = 0_MPI_ADDRESS_KIND
@@ -823,13 +847,14 @@
 
 #ifndef NOMPI
       ! local variables
+      CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = modname//"::compute_latbc_intp_data"
       INTEGER(i8)                         :: eoff
       TYPE(t_reorder_data), POINTER       :: p_ri
       LOGICAL                             :: lconvert_omega2w
       INTEGER                             :: jc, jk, jb, jm, tlev, j, jl, jv
       INTEGER                             :: ioper_mode
       REAL(wp)                            :: log_exner, tempv
-      CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_async_latbc_utils::compute_latbc_intp_data"
+      INTEGER                             :: nlev_in         ! number of vertical levels in the boundary data
 
       nlev_in   = latbc_config%nlev_in
       tlev      = new_latbc_tlev
@@ -841,7 +866,7 @@
       CASE (MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU_OLD, MODE_IAU)
         ioper_mode = 3
         IF (.NOT. latbc_buffer%lthd_progvars) &
-          CALL finish(TRIM(routine),'Limited area mode with ICON initial data requires prognostic&
+          CALL finish(routine,'Limited area mode with ICON initial data requires prognostic&
             & thermodynamic variables in lateral boundary data')
       CASE DEFAULT
         ioper_mode = 1
@@ -857,7 +882,7 @@
       ENDDO
 
       IF (latbc_buffer%lthd_progvars .AND. ioper_mode /= 3) &
-        CALL finish(TRIM(routine), 'Lateral boundary variables not consistent with init_mode')
+        CALL finish(routine, 'Lateral boundary variables not consistent with init_mode')
 
       ! Reading the next time step
       IF((.NOT. my_process_is_io() .AND. &
@@ -1155,11 +1180,10 @@
 #ifndef NOMPI
       ! local variables
       INTEGER             :: tlev
-      CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
-           "mo_async_latbc_utils::deallocate_latbc_data"
+      CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = modname//"::deallocate_latbc_data"
 
       WRITE(message_text,'(a,a)') 'deallocating latbc data'
-      CALL message(TRIM(routine), message_text)
+      CALL message(routine, message_text)
 
       IF(my_process_is_work()) THEN
          !
@@ -1498,8 +1522,7 @@
       TYPE(datetime), pointer :: mtime_step
       TYPE(timedelta), pointer :: delta_tstep
       CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: sim_step
-      CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
-           "mo_async_latbc_utils::update_lin_interpolation"
+      CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = modname//"::update_lin_interpolation"
 
       ! compute current datetime in a format appropriate for mtime
       CALL get_datetime_string(sim_step, step_datetime)
@@ -1509,7 +1532,7 @@
       delta_tstep = mtime_read - mtime_step
 
       IF(delta_tstep%month /= 0) &
-           CALL finish(TRIM(routine), "time difference for reading boundary data cannot be more than a month.")
+           CALL finish(routine, "time difference for reading boundary data cannot be more than a month.")
 
       ! compute the number of "dtime_latbc" intervals fitting into the time difference "delta_tstep":
 
