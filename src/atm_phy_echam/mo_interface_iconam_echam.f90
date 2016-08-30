@@ -348,12 +348,25 @@ CONTAINS
 !!$            &                                        +pt_prog_new_rcf% tracer(jc,jk,jb,iqc)   &
 !!$            &                                        +pt_prog_new_rcf% tracer(jc,jk,jb,iqi) ))
           
+          ! Air mass
+          prm_field(jg)%       mair(jc,jk,jb)    = pt_prog_new %         rho(jc,jk,jb) &
+            &                                     *p_metrics   % ddqz_z_full(jc,jk,jb)
+          !
           ! Compute air path before physics, which is used later to diagnose the
           ! air path tendency related to physics. Use the prm_tend(jg)% mairvi_phy
           ! variable for the storage of the air paths before physics.
-          prm_tend(jg)% mairvi_phy (jc,   jb)     = prm_tend(jg)%   mairvi_phy(jc,   jb) &
-             &                                    +pt_prog_new %         rho(jc,jk,jb) &
-             &                                    *p_metrics   % ddqz_z_full(jc,jk,jb)
+          prm_tend(jg)% mairvi_phy(jc,   jb)     = prm_tend(jg)%  mairvi_phy(jc,   jb) &
+            &                                     +prm_field(jg)%       mair(jc,jk,jb)
+          !
+          ! H2O mass (vap+liq+ice)
+          prm_field(jg)%      mh2o(jc,jk,jb)     = ( pt_prog_new_rcf% tracer(jc,jk,jb,iqv)  &
+            &                                       +pt_prog_new_rcf% tracer(jc,jk,jb,iqc)  &
+            &                                       +pt_prog_new_rcf% tracer(jc,jk,jb,iqi)) &
+            &                                      *prm_field(jg)%      mair(jc,jk,jb)
+          !
+          ! Dry air mass
+          prm_field(jg)%      mdry(jc,jk,jb)     = prm_field(jg)%       mair(jc,jk,jb) &
+            &                                     -prm_field(jg)%       mh2o(jc,jk,jb)
           !
           ! cloud water+ice
           prm_field(jg)%        qx(jc,jk,jb)     = ( pt_prog_new_rcf% tracer(jc,jk,jb,iqc)  &
@@ -405,15 +418,17 @@ CONTAINS
         DO jk = 1,nlev
           DO jc = jcs, jce
 
+            ! Tracer mass
+            prm_field(jg)%      mtrc(jc,jk,jb,jt)  = pt_prog_new_rcf%  tracer(jc,jk,jb,jt) &
+               &                                    *prm_field(jg)%      mair(jc,jk,jb)
+            !
             ! Compute tracer path before physics, which is used later to diagnose the
             ! tracer path tendency related to physics. Use the prm_tend(jg)% mtrcvi_phy
             ! variable for the storage of the tracer paths before physics.
             prm_tend(jg)% mtrcvi_phy(jc,   jb,jt)  = prm_tend(jg)% mtrcvi_phy(jc,   jb,jt) &
-               &                                    +pt_prog_new_rcf%  tracer(jc,jk,jb,jt) &
-               &                                    *pt_prog_new%         rho(jc,jk,jb)    &
-               &                                    *p_metrics%   ddqz_z_full(jc,jk,jb)
+               &                                    +prm_field(jg)%      mtrc(jc,jk,jb,jt)
             !
-            ! Fill the physics state variables, which are used by echam:
+            ! Tracer mass fraction
             prm_field(jg)%      qtrc(jc,jk,jb,jt)  = pt_prog_new_rcf% tracer(jc,jk,jb,jt) !!$* z_drymoist(jc,jk,jb)
             !
             ! Keep a copy that cannot be changed inadvertently by the physics
@@ -735,8 +750,7 @@ CONTAINS
             !
             ! new air path
             prm_field(jg)% mairvi(jc,jb) = prm_field(jg)%      mairvi(jc,   jb) &
-                &                         +pt_prog_new  %         rho(jc,jk,jb) &
-                &                         *p_metrics    % ddqz_z_full(jc,jk,jb)
+                &                         +prm_field(jg)%      mair  (jc,jk,jb)
             !
           END DO
         END DO
@@ -771,8 +785,7 @@ CONTAINS
               ! new tracer path
               prm_field(jg)%   mtrcvi(jc,   jb,jt)  = prm_field(jg)%   mtrcvi(jc,   jb,jt) &
                 &                                    +pt_prog_new_rcf% tracer(jc,jk,jb,jt) &
-                &                                    *pt_prog_new%        rho(jc,jk,jb)    &
-                &                                    *p_metrics%  ddqz_z_full(jc,jk,jb)
+                &                                    *prm_field(jg)%     mair(jc,jk,jb)
               !
             END DO
           END DO

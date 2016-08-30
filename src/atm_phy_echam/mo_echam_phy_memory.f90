@@ -140,6 +140,9 @@ MODULE mo_echam_phy_memory
       & qtrc      (:,:,:,:),&!< [kg/kg] tracer concentration (qm1, xlm1, xim1 of memory_g1a in ECHAM)
       & mtrc      (:,:,:,:),&!< [kg/m2] tracer content
       & mtrcvi    (:,:,:),  &!< [kg/m2] tracer content, vertically integrated through the atmospheric column
+      & mh2o      (:,:,:),  &!< [kg/m2] h2o content (vap+liq+ice)
+      & mair      (:,:,:),  &!< [kg/m2] air content
+      & mdry      (:,:,:),  &!< [kg/m2] dry air content
       & mh2ovi    (:,:),    &!< [kg/m2] h2o content, vertically integrated through the atmospheric column
       & mairvi    (:,:),    &!< [kg/m2] air content, vertically integrated through the atmospheric column
       & mdryvi    (:,:),    &!< [kg/m2] dry air content, vertically integrated through the atmospheric column
@@ -900,37 +903,79 @@ CONTAINS
                   & ldims=(/kproma,kblks/)                                     )
     END DO                                                                                
 
+    ! &       field% mh2o        (nproma,nlev  ,nblks),          &
+    cf_desc    = t_cf_var('h2o_mass', 'kg m-2', 'h2o (vap+liq+ice) mass in layer', &
+         &                datatype_flt)
+    grib2_desc = grib2_var(0,1,21, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'mh2o_phy', field%mh2o,                  &
+         &        GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
+         &        ldims=shape3d, lrestart = .FALSE.,                           &
+         &        vert_interp=create_vert_interp_metadata(                     &
+         &                    vert_intp_type=vintp_types("P","Z","I"),         & 
+         &                    vert_intp_method=VINTP_METHOD_LIN,               &
+         &                    l_loglin=.FALSE.,                                &
+         &                    l_extrapol=.TRUE., l_pd_limit=.FALSE.,           &
+         &                    lower_limit=0._wp  ) )
+
     ! &       field% mh2ovi     (nproma,nblks),          &
     cf_desc    = t_cf_var('atmosphere_h2o_content', 'kg m-2', 'h2o (vap+liq+ice) path (physics)', &
          &                datatype_flt)
     grib2_desc = grib2_var(0,1,64, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'mh2ovi_phy', field%mh2ovi,&
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
+    CALL add_var( field_list, prefix//'mh2ovi_phy', field%mh2ovi,              &
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
+         &        cf_desc, grib2_desc,                                         &
+         &        ldims=shape2d,                                               &
+         &        lrestart = .FALSE.,                                          &
          &        isteptype=TSTEP_INSTANT )
+
+    ! &       field% mair        (nproma,nlev  ,nblks),          &
+    cf_desc    = t_cf_var('air_mass', 'kg m-2', 'air mass in layer', &
+         &                datatype_flt)
+    grib2_desc = grib2_var(0,1,21, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'mair_phy', field%mair,                  &
+         &        GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
+         &        ldims=shape3d, lrestart = .FALSE.,                           &
+         &        vert_interp=create_vert_interp_metadata(                     &
+         &                    vert_intp_type=vintp_types("P","Z","I"),         & 
+         &                    vert_intp_method=VINTP_METHOD_LIN,               &
+         &                    l_loglin=.FALSE.,                                &
+         &                    l_extrapol=.TRUE., l_pd_limit=.FALSE.,           &
+         &                    lower_limit=0._wp  ) )
 
     ! &       field% mairvi     (nproma,nblks),          &
     cf_desc    = t_cf_var('atmosphere_air_content', 'kg m-2', 'air path (physics)', &
          &                datatype_flt)
     grib2_desc = grib2_var(0,1,64, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'mairvi_phy', field%mairvi,&
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
+    CALL add_var( field_list, prefix//'mairvi_phy', field%mairvi,              &
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
+         &        cf_desc, grib2_desc,                                         &
+         &        ldims=shape2d,                                               &
+         &        lrestart = .FALSE.,                                          &
          &        isteptype=TSTEP_INSTANT )
+
+    ! &       field% mdry        (nproma,nlev  ,nblks),          &
+    cf_desc    = t_cf_var('dry_air_mass', 'kg m-2', 'dry air mass in layer', &
+         &                datatype_flt)
+    grib2_desc = grib2_var(0,1,21, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'mdry_phy', field%mdry,                  &
+         &        GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
+         &        ldims=shape3d, lrestart = .FALSE.,                           &
+         &        vert_interp=create_vert_interp_metadata(                     &
+         &                    vert_intp_type=vintp_types("P","Z","I"),         & 
+         &                    vert_intp_method=VINTP_METHOD_LIN,               &
+         &                    l_loglin=.FALSE.,                                &
+         &                    l_extrapol=.TRUE., l_pd_limit=.FALSE.,           &
+         &                    lower_limit=0._wp  ) )
 
     ! &       field% mdryvi     (nproma,nblks),          &
     cf_desc    = t_cf_var('atmosphere_dry_air_content', 'kg m-2', 'dry air path (physics)', &
          &                datatype_flt)
     grib2_desc = grib2_var(0,1,64, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'mdryvi_phy', field%mdryvi,&
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
+    CALL add_var( field_list, prefix//'mdryvi_phy', field%mdryvi,              &
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
+         &        cf_desc, grib2_desc,                                         &
+         &        ldims=shape2d,                                               &
+         &        lrestart = .FALSE.,                                          &
          &        isteptype=TSTEP_INSTANT )
 
     ! &       field% qx        (nproma,nlev  ,nblks),          &
