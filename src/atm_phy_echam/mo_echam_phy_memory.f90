@@ -445,30 +445,28 @@ MODULE mo_echam_phy_memory
 
     REAL(wp), POINTER ::   &
       !
-      ! all processes
+      ! tendency due to all processes
       !
-      &    u     (:,:,:)  , & !< u-wind tendency
-      &    v     (:,:,:)  , & !< v-wind tendency
-      & temp     (:,:,:)  , & !< temperature tendency
-      & qtrc     (:,:,:,:), & !< tracer concentration tendency
+      &    u     (:,:,:)  , & !< [m/s2]    u-wind
+      &    v     (:,:,:)  , & !< [m/s2]    v-wind
+      & temp     (:,:,:)  , & !< [K/s]     temperature
+      & qtrc     (:,:,:,:), & !< [kg/kg/s] tracer mass mixing ratio
       !
-      ! resolved dynamics
+      ! tendency due to resolved dynamics
       !
-      &    u_dyn (:,:,:)  , & !< u-wind tendency due to resolved dynamics
-      &    v_dyn (:,:,:)  , & !< v-wind tendency due to resolved dynamics
-      & temp_dyn (:,:,:)  , & !< temperature tendency due to resolved dynamics
-      & qtrc_dyn (:,:,:,:), & !< tracer tendency due to resolved dynamics
+      &    u_dyn (:,:,:)  , & !< [m/s2]    u-wind
+      &    v_dyn (:,:,:)  , & !< [m/s2]    v-wind
+      & temp_dyn (:,:,:)  , & !< [K/s]     temperature
+      & qtrc_dyn (:,:,:,:), & !< [kg/kg/s] tracer mass mixing ratio
       !
-      ! all parameterized processes
+      ! tendency due to parameterized processes
       !
-      &    u_phy (:,:,:)  , & !< u-wind tendency due to parameterized processes
-      &    v_phy (:,:,:)  , & !< v-wind tendency due to parameterized processes
-      & temp_phy (:,:,:)  , & !< temperature tendency due to parameterized processes
-      & qtrc_phy (:,:,:,:), & !< tracer tendency due to parameterized processes
-      & mtrcvi_phy(:,:,  :),& !< vertically integrated tracer tendency due to parameterized processes
-      & mh2ovi_phy(:,:)   , & !< [kg/m2/s] h2o content, vertically integrated through the atmospheric column
-      & mairvi_phy(:,:)   , & !< [kg/m2/s] air content, vertically integrated through the atmospheric column
-      & mdryvi_phy(:,:)   , & !< [kg/m2/s] dry air content, vertically integrated through the atmospheric column
+      &    u_phy (:,:,:)  , & !< [m/s2]    u-wind
+      &    v_phy (:,:,:)  , & !< [m/s2]    v-wind
+      & temp_phy (:,:,:)  , & !< [K/s]     temperature
+      & qtrc_phy (:,:,:,:), & !< [kg/kg/s] tracer mass mixing ratio
+      & mtrc_phy (:,:,:,:), & !< [kg/m2/s] tracer mass
+      & mtrcvi_phy(:,:,  :),& !< [kg/m2/s] tracer content, vertically integrated through the atmospheric column
       !
       ! cloud microphysics
       !
@@ -516,6 +514,7 @@ MODULE mo_echam_phy_memory
     TYPE(t_ptr3d),ALLOCATABLE :: qtrc_cnv_ptr(:)
     TYPE(t_ptr3d),ALLOCATABLE :: qtrc_vdf_ptr(:)
     
+    TYPE(t_ptr3d),ALLOCATABLE :: mtrc_phy_ptr(:)
     TYPE(t_ptr2d),ALLOCATABLE :: mtrcvi_phy_ptr(:)
 
   END TYPE t_echam_phy_tend
@@ -2871,7 +2870,7 @@ CONTAINS
 
     CALL add_var( tend_list, prefix//'qtrc', tend%qtrc,                        &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                           &
-                & t_cf_var('tend_tracer', 'kg kg-1 s-1',                       &
+                & t_cf_var('tend_qtrc', 'kg kg-1 s-1',                         &
                 &          'tendency of mass mixing ratio of tracers',         &
                 &          datatype_flt),                                      &
                 & grib2_var(0,20,2, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
@@ -2880,7 +2879,7 @@ CONTAINS
 
     CALL add_var( tend_list, prefix//'qtrc_dyn', tend%qtrc_dyn,                &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                           &
-                & t_cf_var('tend_tracer_dyn', 'kg kg-1 s-1',                   &
+                & t_cf_var('tend_qtrc_dyn', 'kg kg-1 s-1',                     &
                 &          'tendency of mass mixing ratio of tracers '//       &
                 &          'due to resolved dynamics',                         &
                 &          datatype_flt),                                      &
@@ -2890,7 +2889,7 @@ CONTAINS
 
     CALL add_var( tend_list, prefix//'qtrc_phy', tend%qtrc_phy,                &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                           &
-                & t_cf_var('tend_tracer_phy', 'kg kg-1 s-1',                   &
+                & t_cf_var('tend_qtrc_phy', 'kg kg-1 s-1',                     &
                 &          'tendency of mass mixing ratio of tracers '//       &
                 &          'due to parameterized processes',                   &
                 &          datatype_flt),                                      &
@@ -2900,7 +2899,7 @@ CONTAINS
 
     CALL add_var( tend_list, prefix//'qtrc_cld', tend%qtrc_cld,                &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                           &
-                & t_cf_var('tend_tracer_cld', 'kg kg-1 s-1',                   &
+                & t_cf_var('tend_qtrc_cld', 'kg kg-1 s-1',                     &
                 &          'tendency of mass mixing ratio of tracers '//       &
                 &          'due to large scale cloud processes',               &
                 &          datatype_flt),                                      &           
@@ -2910,7 +2909,7 @@ CONTAINS
 
     CALL add_var( tend_list, prefix//'qtrc_cnv', tend%qtrc_cnv,                &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                           &
-                & t_cf_var('tend_tracer_cnv', 'kg kg-1 s-1',                   &
+                & t_cf_var('tend_qtrc_cnv', 'kg kg-1 s-1',                     &
                 &          'tendency of mass mixing ratio of tracers '//       &
                 &          'due to convective cloud processes',                &
                 &          datatype_flt),                                      &           
@@ -2920,7 +2919,7 @@ CONTAINS
 
     CALL add_var( tend_list, prefix//'qtrc_vdf', tend%qtrc_vdf,                &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                           &
-                & t_cf_var('tend_tracer_vdf', 'kg kg-1 s-1',                   &
+                & t_cf_var('tend_qtrc_vdf', 'kg kg-1 s-1',                     &
                 &          'tendency of mass mixing ratio of tracers '//       &
                 &          'due to vertical diffusion',                        &
                 &          datatype_flt),                                      &           
@@ -2928,9 +2927,19 @@ CONTAINS
                 & ldims = shape_trc,                                           &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
 
+    CALL add_var( tend_list, prefix//'mtrc_phy', tend%mtrc_phy,                &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                           &
+                & t_cf_var('tend_mtrc_phy', 'kg m-2 s-1',                      &
+                &          'tendency of tracer mass '//       &
+                &          'due to parameterized processes',                   &
+                &          datatype_flt),                                      &
+                & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED,GRID_CELL),&
+                & ldims = shape_trc,                                           &
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
+
     CALL add_var( tend_list, prefix//'mtrcvi_phy', tend%mtrcvi_phy,            &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
-                & t_cf_var('tend_tracer_vi_phy', 'kg m-2 s-1',                 &
+                & t_cf_var('tend_mtrcvi_phy', 'kg m-2 s-1',                    &
                 &          'tendency of path of tracers '//                    &
                 &          'due to parameterized processes',                   &
                 &          datatype_flt),                                      &
@@ -2947,6 +2956,7 @@ CONTAINS
     ALLOCATE(tend% qtrc_cnv_ptr(ktracer))
     ALLOCATE(tend% qtrc_vdf_ptr(ktracer))
 
+    ALLOCATE(tend% mtrc_phy_ptr(ktracer))
     ALLOCATE(tend% mtrcvi_phy_ptr(ktracer))
     
     DO jtrc = 1,ktracer
@@ -3034,54 +3044,30 @@ CONTAINS
                   &             vert_intp_type=vintp_types("P","Z","I"),                  &
                   &             vert_intp_method=VINTP_METHOD_LIN )                       )
 
+      CALL add_ref( tend_list, prefix//'mtrc_phy',                                        &
+                  & prefix//'m'//TRIM(ctracer(jtrc))//'_phy', tend%mtrc_phy_ptr(jtrc)%p,  &
+                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                                    &
+                  & t_cf_var('tend_m'//TRIM(ctracer(jtrc))//'_phy', 'kg m-2 s-1',         &
+                  &          'tendency of '//TRIM(ctracer(jtrc))//                        &
+                  &          ' mass due to parameterized processes',                      &
+                  &          datatype_flt),                                               &
+                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                  & ldims=(/kproma,klev,kblks/),                                          &
+                  & vert_interp=create_vert_interp_metadata(                              &
+                  &             vert_intp_type=vintp_types("P","Z","I"),                  &
+                  &             vert_intp_method=VINTP_METHOD_LIN )                       )
+
       CALL add_ref( tend_list, prefix//'mtrcvi_phy',                                      &
                   & prefix//'m'//TRIM(ctracer(jtrc))//'vi_phy', tend%mtrcvi_phy_ptr(jtrc)%p, &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                   &
                   & t_cf_var('tend_m'//TRIM(ctracer(jtrc))//'vi_phy', 'kg m-2 s-1',       &
-                  &          'tendency of path of '//TRIM(ctracer(jtrc))//                &
-                  &          ' due to parameterized processes',                           &
+                  &          'tendency of '//TRIM(ctracer(jtrc))//                        &
+                  &          ' path due to parameterized processes',                      &
                   &          datatype_flt),                                               &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
                   & ldims=(/kproma,kblks/)                                                )
 
     END DO
-
-    ! &       tend% mh2ovi_phy     (nproma,nblks),          &
-    cf_desc    = t_cf_var('tendency_of_atmosphere_h2o_content', 'kg m-2',     &
-         &                'tendency of h2o (vap+liq+ice) path (physics)',     &
-         &                datatype_flt)
-    grib2_desc = grib2_var(0,1,64, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'mh2ovi_phy', tend%mh2ovi_phy,           &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                         &
-         &        cf_desc, grib2_desc,                                        &
-         &        ldims=(/kproma,kblks/),                                     &
-         &        lrestart = .FALSE.,                                         &
-         &        isteptype=TSTEP_INSTANT )
-
-    ! &       tend% mairvi_phy     (nproma,nblks),          &
-    cf_desc    = t_cf_var('tendency_of_atmosphere_air_content', 'kg m-2',     &
-         &                'tendency of air path (physics)',                   &
-         &                datatype_flt)
-    grib2_desc = grib2_var(0,1,64, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'mairvi_phy', tend%mairvi_phy,           &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                         &
-         &        cf_desc, grib2_desc,                                        &
-         &        ldims=(/kproma,kblks/),                                     &
-         &        lrestart = .FALSE.,                                         &
-         &        isteptype=TSTEP_INSTANT )
-
-    ! &       tend% mdryvi_phy     (nproma,nblks),          &
-    cf_desc    = t_cf_var('tendency_of_atmosphere_dry_air_content', 'kg m-2', &
-         &                'tendency of dry air path (physics)',               &
-         &                datatype_flt)
-    grib2_desc = grib2_var(0,1,64, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'mdryvi_phy', tend%mdryvi_phy,           &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                         &
-         &        cf_desc, grib2_desc,                                        &
-         &        ldims=(/kproma,kblks/),                                     &
-         &        lrestart = .FALSE.,                                         &
-         &        isteptype=TSTEP_INSTANT )
-
 
   END SUBROUTINE new_echam_phy_tend_list
   !-------------
