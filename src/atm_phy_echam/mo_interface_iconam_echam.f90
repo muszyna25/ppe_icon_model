@@ -760,24 +760,18 @@ CONTAINS
 !!$          CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
           DO jk = 1,nlev
             DO jc = jcs, jce
-
-              ! new tracer mass fraction with respect to dry air
-              prm_field(jg)%   qtrc   (jc,jk,jb,jt)  = prm_field(jg)% qtrc    (jc,jk,jb,jt) &
-                &                                     +prm_tend(jg)%  qtrc_phy(jc,jk,jb,jt) &
-                &                                     *dtadv_loc
               !
-              ! new tracer mass fraction with respect to moist air
+              ! new tracer mass fraction with respect to dry air
               IF (echam_phy_config%ldrymoist) THEN
-                pt_prog_new_rcf% tracer (jc,jk,jb,jt)  = pt_prog_new_rcf% tracer(jc,jk,jb,jt) &
-                  &                                     +prm_tend(jg)%  qtrc_phy(jc,jk,jb,jt) &
-                  &                                     *prm_field(jg)% mdry    (jc,jk,jb)    &
-                  &                                     /prm_field(jg)% mair    (jc,jk,jb)    &
-                  &                                     *dtadv_loc
+                prm_field(jg)%   qtrc   (jc,jk,jb,jt)  = prm_field(jg)%  mtrc(jc,jk,jb,jt) &
+                  &                                     /prm_field(jg)%  mdry(jc,jk,jb)
               ELSE
-                pt_prog_new_rcf% tracer (jc,jk,jb,jt)  = pt_prog_new_rcf% tracer(jc,jk,jb,jt) &
-                  &                                     +prm_tend(jg)%  qtrc_phy(jc,jk,jb,jt) &
-                  &                                     *dtadv_loc
+                prm_field(jg)%   qtrc   (jc,jk,jb,jt)  = prm_field(jg)%  mtrc(jc,jk,jb,jt) &
+                  &                                     /prm_field(jg)%  mair(jc,jk,jb)
               END IF
+              !
+              pt_prog_new_rcf% tracer (jc,jk,jb,jt)  = prm_field(jg)%  mtrc(jc,jk,jb,jt) &
+                &                                     /prm_field(jg)%  mair(jc,jk,jb)
               !
             END DO
           END DO
