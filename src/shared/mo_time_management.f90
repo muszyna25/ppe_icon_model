@@ -28,13 +28,14 @@ MODULE mo_time_management
   USE mtime,                       ONLY: MAX_DATETIME_STR_LEN, datetime,                   &
     &                                    MAX_CALENDAR_STR_LEN,                             &
     &                                    MAX_TIMEDELTA_STR_LEN,                            &
-    &                                    OPERATOR(>),OPERATOR(/=), newDatetime,            &
-    &                                    deallocateDatetime, timedelta,                    &
+    &                                    OPERATOR(>),OPERATOR(/=), OPERATOR(-),            &
+    &                                    newDatetime, deallocateDatetime, timedelta,       &
     &                                    getPTStringFromMS, newTimedelta, min,             &
     &                                    deallocateTimedelta, OPERATOR(+), OPERATOR(==),   &
     &                                    timedeltatostring, datetimetostring,              &
     &                                    OPERATOR(*), OPERATOR(<), OPERATOR(<=),           &
-    &                                    calendarToString,                                 &
+    &                                    calendarToString, divideTimeDeltaInSeconds,       &
+    &                                    divisionquotienttimespan,                         &
     &                                    mtime_proleptic_gregorian => proleptic_gregorian, &
     &                                    mtime_year_of_365_days => year_of_365_days,       &
     &                                    mtime_year_of_360_days => year_of_360_days,       &
@@ -411,6 +412,7 @@ CONTAINS
       &                                       mtime_nsteps_stop
     TYPE(timedelta), POINTER              ::  mtime_dt_restart, mtime_dtime, &
       &                                       mtime_td
+    TYPE(divisionquotienttimespan)        ::  mtime_quotient
     INTEGER                               ::  mtime_calendar, dtime_calendar,&
       &                                       errno
     CHARACTER(len=MAX_CALENDAR_STR_LEN)   ::  calendar1, calendar2, calendar
@@ -745,10 +747,6 @@ CONTAINS
     IF (nsteps < 0) THEN   
       ! User did not specified a value, we need to compute "nsteps" as
       ! (stop date - start date)/dtime:
-      nsteps = get_timedelta_divide_by_seconds(start_datetime_string, &
-        &                                      stop_datetime_string,  &
-        &                                      dtime)
-
       mtime_start => newDatetime(start_datetime_string)
       mtime_stop  => newDatetime(stop_datetime_string)
       mtime_td    => newTimedelta("PT0S")
