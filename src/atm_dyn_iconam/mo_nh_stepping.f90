@@ -1077,25 +1077,27 @@ MODULE mo_nh_stepping
     ENDIF
 
     CALL message('','')
+    !
     ! trigger creation of a restart file ...
     !
-    IF ( &
-      !   ... CASE A: if normal checkpoint cycle has been reached ...
-      &  (isCurrentEventActive(checkpointEvent, mtime_current)                 &
-      !          or restart cycle has been reached, i.e. checkpoint+model stop
-      &       .OR.  isCurrentEventActive(restartEvent, mtime_current)          &
-      !          and the current date differs from simulation start date
-      &       .AND. (time_config%tc_startdate /= mtime_current))                           &
-      &  .OR.                                                                  &
-      !   ... CASE B: if end of experiment has been reached
-      &  ((time_config%tc_exp_stopdate == mtime_current)                                   &
-      &       .AND. lrestart_write_last)                                       &
-      !   ... make sure (for both cases A and B) that model output is enabled
-      &     .AND. .NOT. output_mode%l_none ) THEN
-      lwrite_checkpoint = .TRUE.
-    ELSE
-      lwrite_checkpoint = .FALSE.
+    ! default is to assume we do not write a checkpoint/restart file
+    lwrite_checkpoint = .FALSE.
+    ! in case model output is expected
+    IF (.NOT. output_mode%l_none ) THEN
+      ! if a normal checkpoint cycle has been reached, we do
+      IF ( isCurrentEventActive(checkpointEvent, mtime_current) ) lwrite_checkpoint = .TRUE.
+      ! if restart is requested we do too; if checkpoint interval falls on restart interval, the restart setting overrules
+      IF ( isCurrentEventActive(restartEvent, mtime_current) .AND. time_config%tc_write_restart ) THEN
+        lwrite_checkpoint = .TRUE.
+      ELSE
+        lwrite_checkpoint = .FALSE.
+      ENDIF
+      ! and the current date differs from the simulation start date
+      lwrite_checkpoint = lwrite_checkpoint .AND. (time_config%tc_startdate /= mtime_current)
+      ! or if end of experiment has been reached
+      IF ( (time_config%tc_exp_stopdate == mtime_current) .AND. lrestart_write_last) lwrite_checkpoint = .TRUE.                
     ENDIF
+
     CALL message('','')
 
     IF (lwrite_checkpoint) THEN

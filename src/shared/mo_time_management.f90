@@ -70,8 +70,9 @@ MODULE mo_time_management
     &                                    master_nml_calendar => calendar_str
   USE mo_time_config,              ONLY: setExpRefdate, setExpStartdate,                   &
     &                                    setExpStopdate, setStartdate, setStopdate,        &
-    &                                    setrestarttimeinterval, setcheckpointtimeinterval,&
-    &                                    setCurrentdate, end_datetime_string
+    &                                    setRestartTimeInterval, setCheckpointTimeInterval,&
+    &                                    setCurrentdate, setWriteRestart,                  &
+    &                                    end_datetime_string
   USE mo_io_restart_attributes,    ONLY: get_restart_attribute
   USE mo_io_restart,               ONLY: read_restart_header
 
@@ -257,6 +258,8 @@ CONTAINS
               &TRIM(restart_intvl_string)//"/"//TRIM(restart_intvl2))
         END IF
       END IF
+    ELSE IF (dt_restart == 0._wp) THEN
+      CALL setWriteRestart(.FALSE.)
     END IF
     ! if "restart_intvl_string" still unspecified: set default
     IF (TRIM(restart_intvl_string) == "") THEN

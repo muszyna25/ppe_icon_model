@@ -47,7 +47,8 @@ MODULE mo_time_config
   PUBLIC :: setIsRelativeTime
   PUBLIC :: setTimeConfigCalendar
   PUBLIC :: setModelTimeStep
-
+  PUBLIC :: setWriteRestart
+  
   !> namelist parameters (as raw character strings):
   !
   ! these are the namelist settings originating from the restart file:
@@ -105,6 +106,13 @@ MODULE mo_time_config
     TYPE(timedelta), POINTER :: tc_dt_checkpoint => NULL()
     TYPE(timedelta), POINTER :: tc_dt_restart    => NULL()
 
+    ! in case no restart time interval is given, no restart
+    ! should be written - assumption is that this is the default
+
+    LOGICAL :: tc_write_restart = .TRUE.
+
+    ! well, the model's timestep
+    
     TYPE(timedelta), POINTER :: tc_dt_model      => NULL()
  
   END TYPE t_time_config
@@ -118,7 +126,7 @@ MODULE mo_time_config
 
 CONTAINS
 
-    !> Convert the calendar setting (which is an integer value for this
+  !> Convert the calendar setting (which is an integer value for this
   !  namelist) into a string. The naming scheme is then compatible
   !  with concurrent namelist settings of the calendar (mtime).
   !
@@ -219,6 +227,11 @@ CONTAINS
     CHARACTER(len=*), INTENT(in) :: modelTimeStep
     time_config%tc_dt_model => newTimedelta(modelTimeStep)
   END SUBROUTINE setModelTimeStep
- 
+
+  SUBROUTINE setWriteRestart(writeRestart)
+    LOGICAL, INTENT(in) :: writeRestart
+    time_config%tc_write_restart = writeRestart
+  END SUBROUTINE setWriteRestart
+  
 END MODULE mo_time_config
 
