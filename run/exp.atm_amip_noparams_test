@@ -45,8 +45,7 @@ restart_interval="PT16M"
 (( dt_restart    = 16 * minute))    # !! MUST BE EQUAL TO "restart_interval"     !!
 
 # output intervals
-output_interval_3d="PT4M"
-output_interval_2d="PT4M"
+output_interval="PT4M"
 file_interval="PT4M"
 
 # namelist files
@@ -316,7 +315,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval_3d}"
+ output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
@@ -338,7 +337,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval_2d}"
+ output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
@@ -385,7 +384,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval_3d}"
+ output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
@@ -398,8 +397,8 @@ if [[ "$output_phy_3d" == "yes" ]]; then
                     'tend_va'      , 'tend_va_dyn'  , 'tend_va_phy'  ,
                     'tend_va_vdf'  , 'tend_va_gwh'  , 'tend_va_sso'  ,
                     'tend_va_cnv'  ,
-                    'tend_hus'     , 'tend_hus_dyn' , 'tend_hus_phy' ,
-                    'tend_hus_cld' , 'tend_hus_cnv' , 'tend_hus_vdf' ,
+                    'tend_qhus'    , 'tend_qhus_dyn', 'tend_qhus_phy',
+                    'tend_qhus_cld', 'tend_qhus_cnv', 'tend_qhus_vdf',
                     'pfull','ps'
 /
 EOF

@@ -45,7 +45,7 @@ restart_interval="PT16M"
 (( dt_restart    = 16 * minute))    # !! MUST BE EQUAL TO "restart_interval"     !!
 
 # output intervals
-output_interval_3d="PT4M"
+output_interval="PT4M"
 file_interval="PT4M"
 
 # namelist files
@@ -169,7 +169,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval_3d}"
+ output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'ta','ua','va','wap','hus','clw','cli','rho',
@@ -190,7 +190,7 @@ if [[ "$output_trc_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval_3d}"
+ output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'q4',
