@@ -36,15 +36,15 @@ arch=x86_64-unknown-linux-gnu
 
 export CRAY_ADD_RPATH=yes 
 
-module swap cce cce/8.4.1
+module swap cce cce/8.4.5                     # cce/8.4.1  
     
 module load subversion
-module swap grib_api grib_api/1.12.3
-#module load hdf5/1.8.13
-#module load cray-hdf5/1.8.12
-module load netcdf4/4.3.2
+module swap grib_api grib_api/1.15.0          # grib_api/1.12.3
+module load cray-netcdf/4.4.0                 # netcdf4/4.3.2
+module load cray-hdf5/1.8.16                  # cray-hdf5/1.8.12, hdf5/1.8.13
 
-module load cray-hdf5/1.8.12  # ??
+module load craype-hugepages2M                # better memory speed on broadwell CPU
+
 
 
 # --- configure -----------------------------------------------------------
