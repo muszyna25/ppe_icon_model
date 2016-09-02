@@ -30,11 +30,11 @@ PROGRAM icon
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_io_units,            ONLY: filename_max
   USE mo_mpi,                 ONLY: start_mpi , stop_mpi, my_process_is_global_root
-  USE mtime,                  ONLY: OPERATOR(>)
   USE mo_master_control,      ONLY: init_master_control,                                &
     &                               get_my_namelist_filename, get_my_process_type,      &
     &                               atmo_process, ocean_process, testbed_process
   USE mo_time_config,         ONLY: time_config
+  USE mtime,                  ONLY: OPERATOR(>)
   USE mo_util_signal
   USE mo_util_sysinfo,        ONLY: util_user_name, util_os_system, util_node_name
   USE mo_util_vcs,            ONLY: util_repository_url,                                &
@@ -55,15 +55,6 @@ PROGRAM icon
 
   USE mo_cdi,                 ONLY: gribapiLibraryVersion
   USE mo_cf_convention          ! We need all ?
-#ifdef _MTIME_DEBUG
-  USE mo_kind, ONLY: wp
-  USE mtime,   ONLY: timedelta, newTimedelta, deallocateTimedelta,  &
-    &                timedeltaToString, ASSIGNMENT(=), OPERATOR(*), &
-    &                MAX_TIMEDELTA_STR_LEN, datetime,               &
-    &                datetimetostring, newDatetime, OPERATOR(+),    &
-    &                deallocateDatetime, MAX_DATETIME_STR_LEN,      &
-    &                setCalendar, resetCalendar, PROLEPTIC_GREGORIAN
-#endif
   
   IMPLICIT NONE
 
@@ -97,13 +88,6 @@ PROGRAM icon
   INTEGER                     :: core_dump_flag
   INTEGER                     :: signals(1)
   INTEGER                     :: iret
-#endif
-
-#ifdef _MTIME_DEBUG
-  TYPE(timedelta),  POINTER             :: mtime_td
-  TYPE(datetime),   POINTER             :: mtime_date
-  CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: td_string
-  CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: dstring
 #endif
 
 !--------------------------------------------------------------------
@@ -243,82 +227,6 @@ PROGRAM icon
 
     CALL message('','')
   END IF
-
-#ifdef _MTIME_DEBUG
-  WRITE(message_text,'(a,a)') 'executable running with MTIME_DEBUG enabled.'
-  CALL message('',message_text)
-
-  !-------------------------------------------------------------------
-  ! a small test of mtime functionality
-  !-------------------------------------------------------------------
-  IF (my_process_is_global_root()) THEN
-    CALL setCalendar(PROLEPTIC_GREGORIAN)
-    
-    mtime_td => newTimedelta("PT1H1M1S")
-    mtime_td = mtime_td * 0.3_wp
-    CALL timedeltatostring(mtime_td, td_string)
-    WRITE (0,*) "PT1H1M1S * 0.3 = ", TRIM(td_string)
-    CALL deallocateTimedelta(mtime_td)
-
-    mtime_td => newTimedelta("PT1H1M1S")
-    mtime_td = mtime_td * 0.5_wp
-    CALL timedeltatostring(mtime_td, td_string)
-    WRITE (0,*) "PT1H1M1S * 0.5 = ", TRIM(td_string)
-    CALL deallocateTimedelta(mtime_td)
-
-    mtime_td => newTimedelta("PT1H1M1S")
-    mtime_td = mtime_td * 1.5_wp
-    CALL timedeltatostring(mtime_td, td_string)
-    WRITE (0,*) "PT1H1M1S * 1.5 = ", TRIM(td_string)
-    CALL deallocateTimedelta(mtime_td)
-
-    mtime_td => newTimedelta("PT1H1M1S")
-    mtime_td = mtime_td * 2.0_wp
-    CALL timedeltatostring(mtime_td, td_string)
-    WRITE (0,*) "PT1H1M1S * 2.0 = ", TRIM(td_string)
-    CALL deallocateTimedelta(mtime_td)
-
-    mtime_td => newTimedelta("PT98765S")
-    CALL timedeltatostring(mtime_td, td_string)
-    WRITE (0,*) "PT98765S = ", TRIM(td_string)
-    CALL deallocateTimedelta(mtime_td)
-
-    mtime_td => newTimedelta("PT987654321S")
-    CALL timedeltatostring(mtime_td, td_string)
-    WRITE (0,*) "PT987654321S = ", TRIM(td_string)
-
-    mtime_td => newTimedelta("PT7536.3S")
-    CALL timedeltatostring(mtime_td, td_string)
-    WRITE (0,*) "PT7536.3S = ", TRIM(td_string)
-
-    mtime_td => newTimedelta("PT7536.0003S")
-    CALL timedeltatostring(mtime_td, td_string)
-    WRITE (0,*) "PT7536.0003S = ", TRIM(td_string)
-
-    mtime_date => newDatetime("1970-01-01T00:00:00")
-    CALL datetimetostring(mtime_date, dstring)
-    WRITE (0,*) "1970-01-01T00:00:00 = ", TRIM(dstring)
-    mtime_date = mtime_date + mtime_td
-    CALL datetimetostring(mtime_date, dstring)
-    WRITE (0,*) "1970-01-01T00:00:00 + PT987654321S = ", TRIM(dstring)
-    CALL deallocateDatetime(mtime_date)
-    CALL deallocateTimedelta(mtime_td)
-
-    mtime_td => newTimedelta("PT10000000S")
-    CALL timedeltatostring(mtime_td, td_string)
-    WRITE (0,*) "PT10000000S = ", TRIM(td_string)
-
-    mtime_date => newDatetime("2014-06-01T00:00:00")
-    CALL datetimetostring(mtime_date, dstring)
-    WRITE (0,*) "2014-06-01T00:00:00 = ", TRIM(dstring)
-    mtime_date = mtime_date + mtime_td
-    CALL datetimetostring(mtime_date, dstring)
-    WRITE (0,*) "2014-06-01T00:00:00 + PT10000000S = ", TRIM(dstring)
-    CALL deallocateDatetime(mtime_date)
-    CALL deallocateTimedelta(mtime_td)
-  END IF
-  CALL resetCalendar()
-#endif
 
   !-------------------------------------------------------------------
   ! Initialize the master control
