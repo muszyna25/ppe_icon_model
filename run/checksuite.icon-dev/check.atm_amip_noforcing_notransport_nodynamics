@@ -30,12 +30,6 @@ export DATES='19790101T000000Z 19790101T000400Z 19790101T000800Z 19790101T001200
 # 
 export RESTART_DATE='19790101T000800Z'
 
-# REFERENCE model directory and reference experiment for update test
-# (abs. path or relative paths w.r.t. <model dir>/run, e.g. .../icon-dev/run)
-#
-export OVERWRITE=yes
-export REFERENCE=../../icon-aes-mag_ref
-
 #--------------------------------------------------------------------------------
 # 
 # 2. Define the checksuite mode
@@ -48,7 +42,7 @@ export REFERENCE=../../icon-aes-mag_ref
 #
 # default: MD='rnmo'
 #
-export MD='u'
+export MD='rnmo'
 
 #--------------------------------------------------------------------------------
 # 
