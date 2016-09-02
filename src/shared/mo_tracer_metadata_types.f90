@@ -37,7 +37,6 @@ MODULE mo_tracer_metadata_types
     !
     LOGICAL :: lis_tracer         ! this is a tracer field (TRUE/FALSE)
     CHARACTER(LEN=VARNAME_LEN) :: name         ! Name of tracer
-    CHARACTER(len=VARNAME_LEN) :: tracer_class ! Type of tracer
     ! Advection
     INTEGER :: ihadv_tracer       ! Method for horizontal transport
     INTEGER :: ivadv_tracer       ! Method for vertical transport
@@ -74,6 +73,9 @@ MODULE mo_tracer_metadata_types
     !
     REAL(wp)    ::  lifetime_tracer ! Lifetime of tracer [s]
     REAL(wp)    ::  mol_weight      ! Molar mass [g mol-1]
+    INTEGER     :: init_mode        ! Chemical tracer initialization mode
+    INTEGER     :: init_number      ! Chemical tracer initialization number
+    INTEGER     :: number           ! Index of species in KPP-generated routines
     !
   END TYPE
 
