@@ -51,7 +51,8 @@ MODULE mo_nml_crosscheck
   USE mo_run_config,         ONLY: nsteps, dtime, iforcing,                   &
     &                              ltransport, ntracer, nlev, ltestcase,      &
     &                              nqtendphy, iqtke, iqv, iqc, iqi,           &
-    &                              iqs, iqr, iqt, iqtvar, ico2, ltimer,       &
+    &                              iqs, iqr, iqt, iqtvar, ltimer,             &
+    &                              ico2, ich4, in2o, io3,                     &
     &                              iqni, iqni_nuc, iqg, iqm_max,              &
     &                              iqh, iqnr, iqns, iqng, iqnh, iqnc,         & 
     &                              inccn, ininact, ininpot,                   &
@@ -575,14 +576,18 @@ CONTAINS
 
       IF (ntracer < 3) CALL finish(TRIM(method_name),'ECHAM physics needs at least 3 tracers')
 
+      ! 0 indicates that this tracer is not (yet) used by ECHAM  physics
       iqv    = 1     !> water vapour
       iqc    = 2     !! cloud water
       iqi    = 3     !! ice
-      iqr    = 0     !! 0: no rain water
-      iqs    = 0     !! 0: no snow
-      ico2   = 4     !! CO2
+      iqr    = 0     !! rain water
+      iqs    = 0     !! snow
       iqm_max= 3     !! end index of water species mixing ratios
       iqt    = 4     !! starting index of non-water species
+      ico2   = 4     !! CO2
+      ich4   = 5     !! CH4
+      in2o   = 6     !! N2O
+      io3    = 7     !! O3
       nqtendphy = 0  !! number of water species for which convective and turbulent
                      !! tendencies are stored
 
@@ -605,7 +610,9 @@ CONTAINS
       !
       !            Note also that the namelist parameter "ntracer" is reset automatically to the correct
       !            value when NWP physics is used in order to avoid multiple namelist changes when playing
-      !            around with different physics schemes. 
+      !            around with different physics schemes.
+      !
+      ico2      = 0     !> co2, 0: not to be used with NWP physics
       !
       ! Default settings valid for all microphysics options
       !
@@ -792,7 +799,7 @@ CONTAINS
         iqi    = 3     !! ice
         iqr    = 0     !! 0: no rain water
         iqs    = 0     !! 0: no snow
-        ico2   = 5     !! CO2
+        ico2   = 4     !! CO2
         iqm_max= 3     !! end index of water species mixing ratios
         iqt    = 4     !! starting index of non-water species
         nqtendphy = 0  !! number of water species for which convective and turbulent

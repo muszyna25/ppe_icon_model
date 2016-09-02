@@ -835,12 +835,10 @@ run/checksuite.xce.dwd.de/run_ICON_R02B06N07_ifsinit_ref -text
 run/checksuite.xce.dwd.de/run_ICON_R02B06N07_ifsinit_restarttest -text
 run/component.xsd -text
 run/coupling.xsd -text
-run/dict.echam.mpim_mean -text
 run/dict.extpar -text
 run/dict.icoham.mpim -text
 run/dict.icon.hdcp2 -text
-run/dict.iconam.mpim_inst -text
-run/dict.iconam.mpim_mean -text
+run/dict.iconam.mpim -text
 run/dict.latbc -text
 run/dict.output.dwd -text
 run/exec.iconrun -text

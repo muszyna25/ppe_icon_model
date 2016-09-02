@@ -2304,7 +2304,7 @@ MODULE mo_nh_stepping
           ! the physics forcing in the dynamical core is zero
           p_nh_state(jg)%diag%ddt_exner_phy(:,:,:)   = 0._wp
           p_nh_state(jg)%diag%ddt_vn_phy(:,:,:)      = 0._wp
-          prm_tend  (jg)%q(:,:,:,:)                  = 0._wp
+          prm_tend  (jg)%qtrc(:,:,:,:)               = 0._wp
 
         CASE (2) ! idcphycpl
 
