@@ -38,6 +38,7 @@ USE mo_grf_nudgintp,        ONLY: interpol_scal_nudging
 USE mo_parallel_config,     ONLY: nproma, p_test_run
 USE mo_dynamics_config,     ONLY: nnow_rcf
 USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi
+USE mo_grid_config,         ONLY: l_limited_area
 USE mo_nwp_phy_state,       ONLY: prm_diag
 USE mo_nonhydro_state,      ONLY: p_nh_state
 USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int, nexlevs_rrg_vnest, dzsoil
@@ -199,7 +200,7 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
   p_fbkwgt => p_grf%fbk_wgt_bln
 
   ! Allocation of local storage fields at local parent level in MPI-case
-  IF (jgp == 0) THEN
+  IF (jgp == 0 .AND. .NOT. l_limited_area) THEN
     nblks_c_lp = p_gcp%end_blk(min_rlcell,i_chidx)
 
     ALLOCATE(z_fr_land(nproma,nblks_c_lp), z_fr_glac(nproma,nblks_c_lp),                &
@@ -387,7 +388,7 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
 
     ENDDO
 
-    IF (jgp == 0) THEN ! combine 2D fields in a 3D field to speed up MPI communication
+    IF (jgp == 0 .AND. .NOT. l_limited_area) THEN ! combine 2D fields in a 3D field to speed up MPI communication
       DO jc = i_startidx, i_endidx
         z_aux3d(jc, 1,jb) = p_cosmu0(jc,jb)
         z_aux3d(jc, 2,jb) = p_albvisdir(jc,jb)
@@ -567,7 +568,7 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-  IF (jgp == 0) THEN
+  IF (jgp == 0 .AND. .NOT. l_limited_area) THEN
     CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, 6, 5*nlev_rg+12, &
                             RECV1=rg_pres_ifc, SEND1=z_pres_ifc,             &
                             RECV2=rg_pres,     SEND2=z_pres,                 &
@@ -751,7 +752,7 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
   pscal = 1._wp/4000._wp ! pressure scale for longwave downscaling correction
 
   ! Allocation of local storage fields at local parent level in MPI-case
-  IF (jgp == 0) THEN
+  IF (jgp == 0 .AND. .NOT. l_limited_area) THEN
 
     ALLOCATE( z_lwflxall(nproma,nlevp1_rg,nblks_c_lp),        z_trsolall(nproma,nlevp1_rg,nblks_c_lp),          &
               zpg_aux3d(nproma,n2dvars,p_patch(jgp)%nblks_c),                                                   &
@@ -1114,7 +1115,7 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
 
 !$OMP END PARALLEL
 
-  IF (jgp == 0) THEN
+  IF (jgp == 0 .AND. .NOT. l_limited_area) THEN
     DEALLOCATE(z_lwflxall, z_trsolall, zpg_aux3d)
   ENDIF
 

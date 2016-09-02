@@ -185,7 +185,7 @@ CONTAINS
         CLASS(t_Destructible), POINTER, INTENT(IN) :: key, value
 
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":hashTable_setEntry"
-        TYPE(t_HashEntry), POINTER :: newEntry, oldEntry
+        TYPE(t_HashEntry), POINTER :: newEntry
         TYPE(t_HashEntryPtr), POINTER :: bin
         INTEGER :: error
 

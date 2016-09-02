@@ -52,7 +52,7 @@
 !!    of the module "mo_util_string_parse" and converted into a
 !!    "t_level_selection" object.
 !!
-!! b) Definition of namelist paramters "p_levels", "h_levels", "i_levels"
+!! b) Definition of namelist parameters "p_levels", "h_levels", "i_levels"
 !!
 !!    Each output namelist "output_nml" may specify its own range of
 !!    pressure levels for output (or for height, isentropic levels as
@@ -448,7 +448,7 @@ CONTAINS
     REAL(dp), ALLOCATABLE           :: levels(:)
     REAL(wp), ALLOCATABLE           :: levels_i(:), levels_m(:)
     REAL(wp), ALLOCATABLE           :: levels_s(:), levels_sp(:)
-    INTEGER                         :: nzlevp1,iz
+    INTEGER                         :: nzlevp1
 
 #ifndef __NO_ICON_OCEAN__
     of%cdiZaxisID(:) = CDI_UNDEFID ! not all are set
