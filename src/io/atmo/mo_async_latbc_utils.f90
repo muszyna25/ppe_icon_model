@@ -1524,6 +1524,7 @@
       CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: sim_step
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = modname//"::update_lin_interpolation"
 
+#ifndef NOMPI
       ! compute current datetime in a format appropriate for mtime
       CALL get_datetime_string(sim_step, step_datetime)
       mtime_step  => newDatetime(TRIM(sim_step))
@@ -1543,6 +1544,7 @@
       ! deallocating mtime and deltatime
       CALL deallocateTimedelta(delta_tstep)
       CALL deallocateDatetime(mtime_step)
+#endif
 
     END SUBROUTINE update_lin_interpolation
 
