@@ -48,8 +48,8 @@ MODULE mo_input_request_list
                             & charArray_dup, one_of
     USE mo_util_table, ONLY: t_table, initialize_table, add_table_column, set_table_entry, print_table, finalize_table
     USE mo_util_uuid, ONLY: t_uuid, uuid_string_length, uuid_unparse, OPERATOR(==)
-    USE mtime, ONLY: datetime, timedelta, newDatetime, datetimeToString, newTimedelta, timedeltaToString, deallocateDatetime, deallocateTimedelta, &
-                   & max_timedelta_str_len, max_datetime_str_len, OPERATOR(-), OPERATOR(+), OPERATOR(==)
+    USE mtime, ONLY: datetime, timedelta, newDatetime, datetimeToString, newTimedelta, timedeltaToString, deallocateDatetime, &
+                   & deallocateTimedelta, max_timedelta_str_len, max_datetime_str_len, OPERATOR(-), OPERATOR(+), OPERATOR(==)
 
     IMPLICIT NONE
 
