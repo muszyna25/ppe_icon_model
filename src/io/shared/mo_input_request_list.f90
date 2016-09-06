@@ -48,8 +48,8 @@ MODULE mo_input_request_list
                             & charArray_dup, one_of
     USE mo_util_table, ONLY: t_table, initialize_table, add_table_column, set_table_entry, print_table, finalize_table
     USE mo_util_uuid, ONLY: t_uuid, uuid_string_length, uuid_unparse, OPERATOR(==)
-    USE mtime, ONLY: datetime, timedelta, newDatetime, newTimedelta, timedeltaToString, deallocateDatetime, deallocateTimedelta, &
-                   & max_timedelta_str_len, OPERATOR(-), OPERATOR(+), OPERATOR(==)
+    USE mtime, ONLY: datetime, timedelta, newDatetime, datetimeToString, newTimedelta, timedeltaToString, deallocateDatetime, deallocateTimedelta, &
+                   & max_timedelta_str_len, max_datetime_str_len, OPERATOR(-), OPERATOR(+), OPERATOR(==)
 
     IMPLICIT NONE
 
@@ -351,10 +351,10 @@ CONTAINS
         TYPE(t_ListEntry), POINTER :: listEntry
         TYPE(t_DomainData), POINTER :: domainData
         TYPE(t_CdiGribIterator) :: gribIterator
-        TYPE(datetime) :: iniTime, startTime
-        TYPE(datetime), POINTER :: tempTime
+        TYPE(datetime), POINTER :: tempTime, iniTime, startTime
         INTEGER(KIND = C_SIGNED_CHAR) :: gridUuid(CDI_UUID_SIZE)
         CHARACTER(:), POINTER :: vtimeString
+        CHARACTER(max_datetime_str_len) :: debugDatetimeString
         CHARACTER(*), PARAMETER :: routine = modname//":InputRequestList_isRecordValid"
 
         result = .TRUE.
@@ -373,16 +373,30 @@ CONTAINS
         IF(lconsistency_checks) THEN
             vtimeString => toCharacter(metadata%vtime)
             tempTime => newDatetime(vtimeString)
-            DEALLOCATE(vtimeString)
+
+            ALLOCATE(iniTime, STAT = error)
+            IF(error /= SUCCESS) CALL fail("memory allocation failure")
+            iniTime = getIniTime()
             IF(lIsFg) THEN
-                iniTime = getIniTime()
                 ! add timeshift to INI-datetime to get true starting time
+                ALLOCATE(startTime, STAT = error)
+                IF(error /= SUCCESS) CALL fail("memory allocation failure")
                 startTime = iniTime + timeshift%mtime_shift
-                IF(.NOT.(tempTime == startTime)) CALL fail("vtime of first-guess field does not match model start time")
+                IF(.NOT.(tempTime == startTime)) THEN
+                    CALL datetimeToString(startTime, debugDatetimeString)
+                    CALL fail("vtime of first-guess field ("//vtimeString//") does not match model start time (" &
+                             &//TRIM(debugDatetimeString)//")")
+                END IF
+                DEALLOCATE(startTime)
             ELSE
-                iniTime = getIniTime()
-                IF(.NOT.(tempTime == iniTime)) CALL fail("vtime of analysis field does not match model initialization time")
+                IF(.NOT.(tempTime == iniTime)) THEN
+                    CALL datetimeToString(iniTime, debugDatetimeString)
+                    CALL fail("vtime of analysis field ("//vtimeString//") does not match model initialization time (" &
+                             &//TRIM(debugDatetimeString)//")")
+                END IF
             END IF
+            DEALLOCATE(iniTime)
+            DEALLOCATE(vtimeString)
             CALL deallocateDatetime(tempTime)
         END IF
 
