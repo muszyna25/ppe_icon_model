@@ -73,7 +73,7 @@ cat > ${ocean_namelist} << EOF
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'group:oce_default','group:oce_diag','group:ice_default', 'topBoundCond_windStress_u', 'A_tracer_v_T'
+  ml_varlist       =  'group:oce_default','group:ice_default', 'topBoundCond_windStress_u', 'A_tracer_v_T'
 /
 &output_nml
  output_start     = "${start_date}"
@@ -151,11 +151,11 @@ cat > ${ocean_namelist} << EOF
   richardson_tracer               =   2.0E-3  ! factor for vertical diffusion coefficient in PP scheme
   richardson_veloc                =   2.0E-3  ! factor for vertical viscosity coefficient in PP scheme
   bottom_drag_coeff               =   1.0E-3  ! default=2.5E-3; active for i_bc_veloc_bot=1
-  physics_parameters_type         =   2       ! type of pp-scheme: 1=ICON-optimized; 2=MPIOM-type
-  use_wind_mixing                 = .TRUE.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
+  physics_parameters_type         =   1       ! type of pp-scheme: 1=ICON-optimized; 2=MPIOM-type
+  use_wind_mixing                 = .FALSE.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
 /                                           
 &ocean_GentMcWilliamsRedi_nml
- GMRedi_configuration            =   1        ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
+ GMRedi_configuration            =   0        ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
  tapering_scheme=1
  S_max=0.01                                   !Dann vielleicht auf 0.1 hochgehen  
  S_critical=0.0025
