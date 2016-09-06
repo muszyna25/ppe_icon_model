@@ -31,7 +31,7 @@ MODULE mo_restart_patch_description
     USE mo_restart_util, ONLY: setDynamicPatchRestartAttributes, setPhysicsRestartAttributes
     USE mo_util_string, ONLY: int2string
 
-#ifndef __NO_ICON__OCEAN
+#ifndef __NO_ICON_OCEAN__
     USE mo_ocean_nml, ONLY: lhamocc
     USE mo_sedmnt, ONLY: ks, dzsed
     USE mo_math_utilities, ONLY: set_zlev
@@ -290,7 +290,7 @@ CONTAINS
             CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_SEA, nlev_ocean)
             CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_DEPTH_BELOW_SEA_HALF, nlev_ocean+1)
         END IF
-#ifndef __NO_ICON__OCEAN
+#ifndef __NO_ICON_OCEAN__
         IF(lhamocc) THEN
             ! HAMOCC sediment
             ALLOCATE(levels(ks), levels_sp(ks + 1), STAT = error)
