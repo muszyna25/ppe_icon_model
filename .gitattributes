@@ -747,7 +747,9 @@ run/checksuite.infrastructure/meanStream/exp.atm_amip_noforcing_notransport_nody
 run/checksuite.infrastructure/meanStream/exp.atmo_amip -text
 run/checksuite.infrastructure/meanStream/exp.atmo_meanStream -text
 run/checksuite.infrastructure/meanStream/exp.ocean_meanStream -text
+run/checksuite.nwp/run_ICON_R02B06N07_gribinit -text
 run/checksuite.nwp/run_ICON_R02B06N07_ifsinit -text
+run/checksuite.nwp/run_ICON_R03B07N08_gribinit -text
 run/checksuite.ocean_internal/eddies/exp.Channel_10km -text
 run/checksuite.ocean_internal/eddies/exp.SDACC_box_fplane65S -text
 run/checksuite.ocean_internal/eddies/exp.ShearFlow_20km -text
@@ -1895,6 +1897,7 @@ src/parallel_infrastructure/mo_icon_comm_lib.f90 -text
 src/parallel_infrastructure/mo_mpi.f90 -text
 src/parallel_infrastructure/mo_ompthreads.f90 -text
 src/parallel_infrastructure/mo_packed_message.f90 -text
+src/parallel_infrastructure/mo_reshuffle.f90 -text
 src/parallel_infrastructure/mo_scatter.f90 svneol=native#text/plain
 src/parallel_infrastructure/mo_scatter_pattern_base.f90 -text
 src/parallel_infrastructure/mo_scatter_pattern_scatter.f90 -text

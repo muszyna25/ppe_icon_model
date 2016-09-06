@@ -1392,6 +1392,8 @@ CONTAINS
       CALL init (p_nh(jg)%diag%exner_dyn_incr)
       CALL init (prm_diag(jg)%rain_gsp_rate)
       CALL init (prm_diag(jg)%snow_gsp_rate)
+      CALL init (prm_diag(jg)%shfl_s_t)
+      CALL init (prm_diag(jg)%qhfl_s_t)
       CALL init (lnd_diag%runoff_s_t)
       CALL init (lnd_diag%runoff_g_t)
 
