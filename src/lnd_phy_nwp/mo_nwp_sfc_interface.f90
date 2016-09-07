@@ -1163,7 +1163,7 @@ CONTAINS
 
 !$OMP SINGLE
     IF (msg_level >= 15) THEN
-      CALL message('mo_nwp_sfc_interface: ', 'call nwp_seaice scheme')
+      CALL message(routine, 'call nwp_seaice scheme')
     ENDIF
 !$OMP END SINGLE NOWAIT
 
@@ -1341,7 +1341,7 @@ CONTAINS
 
 !$OMP SINGLE
     IF (msg_level >= 15) THEN
-      CALL message('mo_nwp_sfc_interface: ', 'call nwp_lake scheme')
+      CALL message(routine, 'call nwp_lake scheme')
     ENDIF
 !$OMP END SINGLE NOWAIT
 
