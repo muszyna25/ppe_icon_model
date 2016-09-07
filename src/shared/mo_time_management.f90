@@ -46,8 +46,8 @@ MODULE mo_time_management
     &                                    ini_datetime_string, is_relative_time,            &
     &                                    time_nml_icalendar => icalendar,                  &
     &                                    restart_calendar, restart_ini_datetime_string,    &
-    &                                    setTimeConfigCalendar, setIsRelativeTime,         &
-    &                                    setModelTimeStep, calendar_index2string
+    &                                    set_calendar, set_is_relative_time,               &
+    &                                    set_tc_dt_model, calendar_index2string
   USE mo_run_config,               ONLY: dtime, mtime_modelTimeStep => modelTimeStep
   USE mo_master_control,           ONLY: atmo_process, get_my_process_type
   USE mo_impl_constants,           ONLY: max_dom, IHS_ATM_TEMP, IHS_ATM_THETA,             &
@@ -68,10 +68,11 @@ MODULE mo_time_management
     &                                    checkpointTimeIntval, restartTimeIntval,          &
     &                                    experimentStopDate, isRestart,                    &
     &                                    master_nml_calendar => calendar_str
-  USE mo_time_config,              ONLY: setExpRefdate, setExpStartdate,                   &
-    &                                    setExpStopdate, setStartdate, setStopdate,        &
-    &                                    setRestartTimeInterval, setCheckpointTimeInterval,&
-    &                                    setCurrentdate, setWriteRestart,                  &
+  USE mo_time_config,              ONLY: set_tc_exp_refdate, set_tc_exp_startdate,         &
+    &                                    set_tc_exp_stopdate, set_tc_startdate,            &
+    &                                    set_tc_stopdate,                                  &
+    &                                    set_tc_dt_restart, set_tc_dt_checkpoint,          &
+    &                                    set_tc_current_date, set_tc_write_restart,        &
     &                                    end_datetime_string
   USE mo_io_restart_attributes,    ONLY: get_restart_attribute
   USE mo_io_restart,               ONLY: read_restart_header
@@ -178,7 +179,7 @@ CONTAINS
     ! PART II: Convert ISO8601 string into "mtime" and old REAL
     ! --------------------------------------------------------------
 
-    CALL setModelTimeStep(dtime_string)
+    CALL set_tc_dt_model(dtime_string)
     IF (dtime_real > 0._wp) THEN
       ! In case that we came from the REAL-valued namelist setting of
       ! the time step we try to avoid rounding errors in floating
@@ -259,7 +260,7 @@ CONTAINS
         END IF
       END IF
     ELSE IF (dt_restart == 0._wp) THEN
-      CALL setWriteRestart(.FALSE.)
+      CALL set_tc_write_restart(.FALSE.)
     END IF
     ! if "restart_intvl_string" still unspecified: set default
     IF (TRIM(restart_intvl_string) == "") THEN
@@ -349,8 +350,8 @@ CONTAINS
     ! PART II: Convert ISO8601 string into "mtime" and old REAL
     ! --------------------------------------------------------------
 
-    CALL setRestartTimeInterval   ( restart_intvl_string )
-    CALL setCheckpointTimeInterval( checkpt_intvl_string )
+    CALL set_tc_dt_restart     ( restart_intvl_string )
+    CALL set_tc_dt_checkpoint  ( checkpt_intvl_string )
 
     ! For conversion to (milli-)seconds, we need an anchor date:
     !
@@ -770,17 +771,17 @@ CONTAINS
 
     ! --- Second, create date-time objects from the mtime library
 
-    CALL setStartdate   ( start_datetime_string     )
-    CALL setStopdate    ( stop_datetime_string      )
-    CALL setExpStartdate( exp_start_datetime_string )
-    CALL setExpStopdate ( exp_stop_datetime_string  )
-    CALL setExpRefdate  ( exp_ref_datetime_string   )
-    CALL setCurrentdate ( cur_datetime_string       )
+    CALL set_tc_startdate    ( start_datetime_string     )
+    CALL set_tc_exp_stopdate ( stop_datetime_string      )
+    CALL set_tc_exp_startdate( exp_start_datetime_string )
+    CALL set_tc_exp_stopdate ( exp_stop_datetime_string  )
+    CALL set_tc_exp_refdate  ( exp_ref_datetime_string   )
+    CALL set_tc_current_date ( cur_datetime_string       )
 
     ! --- Finally, store the same information in a "t_datetime" data
     !     structure
-    CALL setTimeConfigCalendar(dtime_calendar)
-    CALL setIsRelativeTime(is_relative_time)
+    CALL set_calendar        (dtime_calendar)
+    CALL set_is_relative_time(is_relative_time)
 
     ! --------------------------------------------------------------
     ! PART III: Print all date and time components

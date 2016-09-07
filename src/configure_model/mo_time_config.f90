@@ -38,16 +38,16 @@ MODULE mo_time_config
   PUBLIC :: restart_ini_datetime_string, restart_end_datetime_string, restart_calendar
   PUBLIC :: dt_restart, is_relative_time
   PUBLIC :: t_time_config, time_config
-  PUBLIC :: setExpRefdate
-  PUBLIC :: setExpStartdate, setExpStopdate
-  PUBLIC :: setStartdate, setStopdate
-  PUBLIC :: setCheckpointTimeInterval
-  PUBLIC :: setRestartTimeInterval
-  PUBLIC :: setCurrentdate
-  PUBLIC :: setIsRelativeTime
-  PUBLIC :: setTimeConfigCalendar
-  PUBLIC :: setModelTimeStep
-  PUBLIC :: setWriteRestart
+  PUBLIC :: set_tc_exp_refdate
+  PUBLIC :: set_tc_exp_startdate, set_tc_exp_stopdate
+  PUBLIC :: set_tc_startdate, set_tc_stopdate
+  PUBLIC :: set_tc_dt_checkpoint
+  PUBLIC :: set_tc_dt_restart
+  PUBLIC :: set_tc_current_date
+  PUBLIC :: set_is_relative_time
+  PUBLIC :: set_calendar
+  PUBLIC :: set_tc_dt_model
+  PUBLIC :: set_tc_write_restart
   
   !> namelist parameters (as raw character strings):
   !
@@ -170,68 +170,68 @@ CONTAINS
 
 
 
-  SUBROUTINE setExpRefdate(experimentReferenceDate)   
+  SUBROUTINE set_tc_exp_refdate(experimentReferenceDate)   
     CHARACTER(len=*), INTENT(in) :: experimentReferenceDate   
     time_config%tc_exp_refdate => newDatetime(experimentReferenceDate)
-  END SUBROUTINE setExpRefdate
+  END SUBROUTINE set_tc_exp_refdate
 
-  SUBROUTINE setExpStartdate(experimentStartDate)   
+  SUBROUTINE set_tc_exp_startdate(experimentStartDate)   
     CHARACTER(len=*), INTENT(in) :: experimentStartDate   
     time_config%tc_exp_startdate => newDatetime(experimentStartDate)   
-  END SUBROUTINE setExpStartdate
+  END SUBROUTINE set_tc_exp_startdate
 
-  SUBROUTINE setExpStopdate(experimentStopDate)
+  SUBROUTINE set_tc_exp_stopdate(experimentStopDate)
     CHARACTER(len=*), INTENT(in) :: experimentStopDate
     time_config%tc_exp_stopdate => newDatetime(experimentStopDate)
-  END SUBROUTINE setExpStopdate
+  END SUBROUTINE set_tc_exp_stopdate
 
-  SUBROUTINE setStartdate(startdate)
+  SUBROUTINE set_tc_startdate(startdate)
     CHARACTER(len=*), INTENT(in) :: startdate
     time_config%tc_startdate => newDatetime(startdate)
-  END SUBROUTINE setStartdate
+  END SUBROUTINE set_tc_startdate
 
-  SUBROUTINE setStopdate(stopdate)
+  SUBROUTINE set_tc_stopdate(stopdate)
     CHARACTER(len=*), INTENT(in) :: stopdate
     time_config%tc_stopdate => newDatetime(stopdate)
-  END SUBROUTINE setStopdate
+  END SUBROUTINE set_tc_stopdate
 
-  SUBROUTINE setCheckpointTimeInterval(checkpointTimeIntval)
+  SUBROUTINE set_tc_dt_checkpoint(checkpointTimeIntval)
     CHARACTER(len=*), INTENT(in) :: checkpointTimeIntval
     time_config%tc_dt_checkpoint => newTimedelta(checkpointTimeIntval)
-  END SUBROUTINE setCheckpointTimeInterval
+  END SUBROUTINE set_tc_dt_checkpoint
   
-  SUBROUTINE setRestartTimeInterval(restartTimeIntval)
+  SUBROUTINE set_tc_dt_restart(restartTimeIntval)
     CHARACTER(len=*), INTENT(in) :: restartTimeIntval   
     time_config%tc_dt_restart => newTimedelta(restartTimeIntval)
-  END SUBROUTINE setRestartTimeInterval
+  END SUBROUTINE set_tc_dt_restart
 
-  SUBROUTINE setCurrentdate(current_date)
+  SUBROUTINE set_tc_current_date(current_date)
     CHARACTER(len=*), INTENT(in) :: current_date
     IF (ASSOCIATED(time_config%tc_current_date)) THEN
       CALL deallocateDatetime(time_config%tc_current_date)
     END IF
     time_config%tc_current_date => newDatetime(current_date)
-  END SUBROUTINE setCurrentdate
+  END SUBROUTINE set_tc_current_date
 
-  SUBROUTINE setTimeConfigCalendar(icalendar)
+  SUBROUTINE set_calendar(icalendar)
     INTEGER, INTENT(IN) :: icalendar
     time_config%calendar = icalendar
-  END SUBROUTINE setTimeConfigCalendar
+  END SUBROUTINE set_calendar
 
-  SUBROUTINE setIsRelativeTime(lvalue)
+  SUBROUTINE set_is_relative_time(lvalue)
     LOGICAL, INTENT(IN) :: lvalue
     time_config%is_relative_time = lvalue
-  END SUBROUTINE setIsRelativeTime
+  END SUBROUTINE set_is_relative_time
 
-  SUBROUTINE setModelTimeStep(modelTimeStep)
+  SUBROUTINE set_tc_dt_model(modelTimeStep)
     CHARACTER(len=*), INTENT(in) :: modelTimeStep
     time_config%tc_dt_model => newTimedelta(modelTimeStep)
-  END SUBROUTINE setModelTimeStep
+  END SUBROUTINE set_tc_dt_model
 
-  SUBROUTINE setWriteRestart(writeRestart)
+  SUBROUTINE set_tc_write_restart(writeRestart)
     LOGICAL, INTENT(in) :: writeRestart
     time_config%tc_write_restart = writeRestart
-  END SUBROUTINE setWriteRestart
+  END SUBROUTINE set_tc_write_restart
   
 END MODULE mo_time_config
 

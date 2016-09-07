@@ -36,7 +36,7 @@ MODULE mo_ocean_coupling
 
   USE mo_ocean_types
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes,t_atmos_for_ocean
-  USE mo_time_config,         ONLY: setCurrentDate
+  USE mo_time_config,         ONLY: set_tc_current_date
   USE mtime,                  ONLY: datetime, datetimeToString, &
     &                               MAX_DATETIME_STR_LEN
 
@@ -455,7 +455,7 @@ CONTAINS
     patch_horz   => patch_3D%p_patch_2D(1)
 
     CALL datetimeToString(this_datetime, datestring)
-    CALL setCurrentdate(TRIM(datestring))
+    CALL set_tc_current_date(TRIM(datestring))
 
     nbr_hor_cells = patch_horz%n_patch_cells
 
