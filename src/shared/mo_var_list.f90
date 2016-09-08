@@ -2916,11 +2916,6 @@ CONTAINS
         IF (this_list_element%field%info_dyn%tracer%lis_tracer) THEN
           CALL message('', 'Tracer field                                : yes.')
 
-          WRITE (message_text,'(a,a)') &
-             'Tracer class                                : ', &
-             this_list_element%field%info_dyn%tracer%tracer_class
-          CALL message('', message_text)
-
           WRITE (message_text,'(a,3i3)') &
              'Horizontal transport method                 : ', &
              this_list_element%field%info_dyn%tracer%ihadv_tracer

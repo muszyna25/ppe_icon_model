@@ -293,10 +293,10 @@ CONTAINS
       DO BLOCK = 1, patch_horz%nblks_c
         DO idx = 1, nproma
           IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) < 0 ) THEN
-            ! water (-2, -1)
+            ! water/coast is valid (-2, -1)
             ibuffer((BLOCK-1)*nproma+idx) = 0
           ELSE
-            ! land or boundary
+            ! land is undef (1, 2)
             ibuffer((BLOCK-1)*nproma+idx) = 1
           ENDIF
         ENDDO
@@ -352,10 +352,10 @@ CONTAINS
       DO BLOCK = 1, patch_horz%nblks_c
         DO idx = 1, nproma
           IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) == -1 ) THEN
-            ! water (-2, -1)
+            ! coast (-1) is valid
             ibuffer((BLOCK-1)*nproma+idx) = 0
           ELSE
-            ! land or boundary
+            ! elsewhere (land or open ocean 1, 2, -2) is undef
             ibuffer((BLOCK-1)*nproma+idx) = 1
           ENDIF
         ENDDO

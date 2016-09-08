@@ -316,10 +316,10 @@ CONTAINS
        DO BLOCK = 1, patch_horz%nblks_c
           DO idx = 1, nproma
              IF ( ext_data(1)%atm%lsm_ctr_c(idx, BLOCK) < 0 ) THEN
-               ! Ocean point (lsm_ctr_c = -1 or -2)
+               ! Ocean point (lsm_ctr_c = -1 or -2) is valid
                ibuffer((BLOCK-1)*nproma+idx) = 0
              ELSE
-               ! Land point (lsm_ctr_c = 1 or 2)
+               ! Land point (lsm_ctr_c = 1 or 2) is undef
                ibuffer((BLOCK-1)*nproma+idx) = 1
              ENDIF
           ENDDO
@@ -367,10 +367,10 @@ CONTAINS
        DO BLOCK = 1, patch_horz%nblks_c
           DO idx = 1, nproma
              IF ( ext_data(1)%atm%lsm_ctr_c(idx, BLOCK) == -1 ) THEN
-                ! Ocean point at coast
+                ! Ocean point at coast is valid
                 ibuffer((BLOCK-1)*nproma+idx) = 0
              ELSE
-                ! Land point or ocean point without coast
+                ! Land point or ocean point without coast is undef
                 ibuffer((BLOCK-1)*nproma+idx) = 1
              ENDIF
           ENDDO

@@ -35,7 +35,6 @@ MODULE mo_bc_greenhouse_gases
        &                           nf_read, nf_noerr, nf_strerror
   USE mo_radiation_config,   ONLY: vmr_co2, vmr_ch4, vmr_n2o, vmr_cfc11, vmr_cfc12, &
        &                           mmr_co2, mmr_ch4, mmr_n2o
-  USE mo_psrad_radiation_parameters, ONLY: fco2
 
   IMPLICIT NONE
 
@@ -164,8 +163,6 @@ CONTAINS
       zn2oint   = 1.0e-09_wp * ( zw1*ghg_n2o(iyear)   + zw2*ghg_n2o(iyearp)   )
       zcfc(:)   = 1.0e-12_wp * ( zw1*ghg_cfc(iyear,:) + zw2*ghg_cfc(iyearp,:) )
     END IF
-
-    IF (ABS(fco2-1.0_wp) > EPSILON(1.0_wp)) zco2int = fco2 * zco2int
 
     ! convert CO2, CH4 and N2O from volume to mass mixing ratio
 
