@@ -86,8 +86,8 @@ CONTAINS
 
         ! set global attributes
         namelists => namelistArchive()
-        CALL namelists%writeToFile(me%cdiIds%vlist)
-        CALL restartAttributes%writeToFile(me%cdiIds%vlist)
+        CALL namelists%writeToCdiVlist(me%cdiIds%vlist)
+        CALL restartAttributes%writeToCdiVlist(me%cdiIds%vlist)
 
 #ifdef DEBUG
         WRITE (nerr, FORMAT_VALS5)routine,' p_pe=',p_pe,' open netCDF file with ID=',me%cdiIds%file

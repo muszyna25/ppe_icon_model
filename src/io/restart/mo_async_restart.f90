@@ -59,8 +59,6 @@ MODULE mo_async_restart
 
   IMPLICIT NONE
 
-  INCLUDE 'netcdf.inc'
-
   ! public routines
   PUBLIC :: t_AsyncRestartDescriptor
   PUBLIC :: restart_main_proc
@@ -837,26 +835,6 @@ CONTAINS
         CALL patchData(i)%description%setRestartAttributes(restartAttributes)
     END DO
   END SUBROUTINE set_restart_attributes
-
-  !------------------------------------------------------------------------------------------------
-  !
-  ! Check the status of the last netCDF file operation.
-  !
-  SUBROUTINE check_netcdf_status(status, routine)
-
-    INTEGER, INTENT(IN)           :: status
-    CHARACTER(LEN=*), INTENT(IN)  :: routine
-
-    CHARACTER(LEN=128)            :: error_text
-
-
-    IF (status /= nf_noerr) THEN
-      WRITE (error_text, NET_CDF_ERROR_FORMAT)'netCDF error ', status , &
-        &                                     ' - ' // nf_strerror(status)
-      CALL finish(routine, error_text)
-    ENDIF
-
-  END SUBROUTINE check_netcdf_status
 
   !------------------------------------------------------------------------------------------------
   !

@@ -44,7 +44,7 @@ MODULE mo_restart_attributes
     PROCEDURE :: getLogical => RestartAttributeList_getLogical
 
     PROCEDURE :: printAttributes => RestartAttributeList_printAttributes
-    PROCEDURE :: writeToFile => RestartAttributeList_writeToFile
+    PROCEDURE :: writeToCdiVlist => RestartAttributeList_writeToCdiVlist
 
     PROCEDURE :: destruct => RestartAttributeList_destruct  ! override
 
@@ -471,11 +471,11 @@ CONTAINS
   END SUBROUTINE RestartAttributeList_printAttributes
 
   ! Noncollective CALL, should ONLY be called by the process that really does the writing.
-  SUBROUTINE RestartAttributeList_writeToFile(me, vlistId)
+  SUBROUTINE RestartAttributeList_writeToCdiVlist(me, vlistId)
     CLASS(t_RestartAttributeList), INTENT(INOUT) :: me
     INTEGER, VALUE :: vlistId
 
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//":RestartAttributeList_writeToFile"
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":RestartAttributeList_writeToCdiVlist"
     INTEGER :: error
     TYPE(t_HashIterator) :: iterator
     CLASS(t_Destructible), POINTER :: curKey, curValue
@@ -513,7 +513,7 @@ CONTAINS
                 CALL finish(routine, "assertion failed")
         END SELECT
     END DO
-  END SUBROUTINE RestartAttributeList_writeToFile
+  END SUBROUTINE RestartAttributeList_writeToCdiVlist
 
   ! Collective CALL: Reads AND broadcasts the restart attributes to all processes.
   ! TODO[NH]: Fuse into makeFromFile() to guarantee that we start with an empty AttributeList.

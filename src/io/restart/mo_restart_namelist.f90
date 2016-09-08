@@ -45,7 +45,7 @@ MODULE mo_restart_namelist
         PROCEDURE :: setNamelist => namelistArchive_setNamelist
         PROCEDURE :: getNamelist => namelistArchive_getNamelist
         PROCEDURE :: print => namelistArchive_print
-        PROCEDURE :: writeToFile => namelistArchive_writeToFile ! store the namelists as attributes to the given CDI vlistId, noncollective!
+        PROCEDURE :: writeToCdiVlist => namelistArchive_writeToCdiVlist ! store the namelists as attributes to the given CDI vlistId, noncollective!
         PROCEDURE :: readFromFile => namelistArchive_readFromFile   ! noncollective!
         PROCEDURE :: packer => namelistArchive_packer
         PROCEDURE :: bcast => namelistArchive_bcast
@@ -171,19 +171,19 @@ CONTAINS
         ENDDO
     END SUBROUTINE namelistArchive_print
 
-    SUBROUTINE namelistArchive_writeToFile(me, cdiVlistId)
+    SUBROUTINE namelistArchive_writeToCdiVlist(me, cdiVlistId)
         CLASS(t_NamelistArchive), INTENT(INOUT) :: me
         INTEGER, VALUE :: cdiVlistId
 
         INTEGER :: i, error
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":namelistArchive_writeToFile"
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":namelistArchive_writeToCdiVlist"
 
         DO i = 1, me%namelistCount
             error = vlistDefAttTxt(cdiVlistId, CDI_GLOBAL, me%namelists(i)%name, LEN(me%namelists(i)%text), &
                                   &me%namelists(i)%text)
             IF(error /= SUCCESS) CALL finish(routine, "error WHILE writing a namelist to a restart file")
         END DO
-    END SUBROUTINE namelistArchive_writeToFile
+    END SUBROUTINE namelistArchive_writeToCdiVlist
 
     SUBROUTINE namelistArchive_readFromFile(me, vlistID)
         CLASS(t_NamelistArchive), INTENT(INOUT) :: me
