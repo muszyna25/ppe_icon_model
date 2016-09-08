@@ -1,3 +1,4 @@
+#ifndef __NO_ICON_OCEAN__
 
 !--------------------------------------
 #include "hamocc_omp_definitions.inc"
@@ -606,3 +607,5 @@ ENDIF
 END SUBROUTINE 
 
 END MODULE mo_hamocc_diagnostics
+
+#endif

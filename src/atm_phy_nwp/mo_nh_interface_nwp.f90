@@ -369,6 +369,7 @@ CONTAINS
         CALL nh_update_tracer_phy(pt_patch          ,& !in
            &                  dt_phy_jg(itfastphy)  ,& !in
            &                  pt_diag               ,& !in
+           &                  p_metrics             ,& !in
            &                  prm_nwp_tend          ,& !in
            &                  prm_diag              ,& !inout phyfields
            &                  pt_prog_rcf           ,& !inout tracer
