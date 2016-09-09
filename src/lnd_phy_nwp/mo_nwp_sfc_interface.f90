@@ -987,7 +987,8 @@ CONTAINS
       ENDIF !inwp_sfc
 
     ENDDO    
-!$OMP END DO NOWAIT
+!$OMP END DO
+!$OMP END PARALLEL
 
 
 
@@ -1015,6 +1016,7 @@ CONTAINS
     ! Loop over all points (land AND water points)       !!
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,isubs,i_startidx,i_endidx,t_g_s,area_frac)
     DO jb = i_startblk, i_endblk
 
@@ -1161,12 +1163,11 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP SINGLE
     IF (msg_level >= 15) THEN
       CALL message(routine, 'call nwp_seaice scheme')
     ENDIF
-!$OMP END SINGLE NOWAIT
 
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_count,ic,jc,shfl_s,lhfl_s,lwflxsfc,swflxsfc,tice_now, &
 !$OMP            hice_now,tsnow_now,hsnow_now,tice_new,hice_new,tsnow_new,  &
 !$OMP            hsnow_new) ICON_OMP_GUIDED_SCHEDULE
@@ -1256,7 +1257,8 @@ CONTAINS
 
 
     ENDDO  ! jb
-!$OMP END DO NOWAIT
+!$OMP END DO
+!$OMP END PARALLEL
 
   END SUBROUTINE nwp_seaice
 
@@ -1339,12 +1341,11 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP SINGLE
     IF (msg_level >= 15) THEN
       CALL message(routine, 'call nwp_lake scheme')
     ENDIF
-!$OMP END SINGLE NOWAIT
 
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,ic,jc,icount_flk,f_c,depth_lk,fetch_lk,dp_bs_lk,t_bs_lk,  &
 !$OMP            gamso_lk,qmom,shfl_s,lhfl_s,swflxsfc,lwflxsfc,t_snow_lk_now, &
 !$OMP            h_snow_lk_now,t_ice_now,h_ice_now,t_mnw_lk_now,              &
@@ -1481,6 +1482,7 @@ CONTAINS
 
     ENDDO  !jb
 !$OMP END DO
+!$OMP END PARALLEL
 
   END SUBROUTINE nwp_lake
 
