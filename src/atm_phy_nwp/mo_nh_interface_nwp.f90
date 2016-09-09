@@ -1594,25 +1594,37 @@ CONTAINS
 
 
     ! Diagnosis of ABS(dpsdt) if msg_level >= 11
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_startblk = pt_patch%cells%start_blk(rl_start,1)
+    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+
     IF (msg_level >= 11) THEN
-
-      rl_start = grf_bdywidth_c+1
-      rl_end   = min_rlcell_int
-
-      i_startblk = pt_patch%cells%start_blk(rl_start,1)
-      i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
 
         DO jc = i_startidx, i_endidx
-          ! Note: division by time step follows below
-          dps_blk(jb) = dps_blk(jb) + &
-            ABS(pt_diag%pres_sfc(jc,jb)-pt_diag%pres_sfc_old(jc,jb))
+          pt_diag%ddt_pres_sfc(jc,jb) = (pt_diag%pres_sfc(jc,jb)-pt_diag%pres_sfc_old(jc,jb))/dt_loc
+          pt_diag%pres_sfc_old(jc,jb) = pt_diag%pres_sfc(jc,jb)
+
+          dps_blk(jb) = dps_blk(jb) + ABS(pt_diag%ddt_pres_sfc(jc,jb))
           npoints_blk(jb) = npoints_blk(jb) + 1
+        ENDDO
+      ENDDO
+!$OMP END DO NOWAIT
+    ELSE IF (atm_phy_nwp_config(jg)%lcalc_dpsdt) THEN ! compute dpsdt field for output
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
+
+        DO jc = i_startidx, i_endidx
+          pt_diag%ddt_pres_sfc(jc,jb) = (pt_diag%pres_sfc(jc,jb)-pt_diag%pres_sfc_old(jc,jb))/dt_loc
           pt_diag%pres_sfc_old(jc,jb) = pt_diag%pres_sfc(jc,jb)
         ENDDO
       ENDDO
@@ -1637,7 +1649,7 @@ CONTAINS
       dpsdt_avg = global_sum_array(dpsdt_avg, opt_iroot=process_mpi_stdio_id)
       npoints   = global_sum_array(npoints  , opt_iroot=process_mpi_stdio_id)
       IF (my_process_is_stdio()) THEN
-        dpsdt_avg = dpsdt_avg/(REAL(npoints,wp)*dt_loc)
+        dpsdt_avg = dpsdt_avg/(REAL(npoints,wp))
         ! Exclude initial time step where pres_sfc_old is zero
         IF (dpsdt_avg < 10000._wp/dt_loc) THEN
           WRITE(message_text,'(a,f12.6,a,i3)') 'average |dPS/dt| =',dpsdt_avg,' Pa/s in domain',jg

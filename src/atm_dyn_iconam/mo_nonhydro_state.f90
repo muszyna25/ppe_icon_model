@@ -55,7 +55,7 @@ MODULE mo_nonhydro_state
     &                                iqv, iqc, iqi, iqr, iqs, iqtvar,           &
     &                                iqni, iqni_nuc, iqg, iqh, iqnr, iqns,      & 
     &                                iqng, iqnh, iqnc, inccn, ininpot, ininact, &
-    &                                iqtke, nqtendphy, ltestcase, lart 
+    &                                iqtke, nqtendphy, ltestcase, lart, msg_level
   USE mo_io_config,            ONLY: inextra_2d, inextra_3d, lnetcdf_flt64_output
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
   USE mo_turbdiff_config,      ONLY: turbdiff_config
@@ -1292,7 +1292,7 @@ MODULE mo_nonhydro_state
 
     INTEGER :: datatype_flt  !< floating point accuracy in NetCDF output
 
-    INTEGER :: jt
+    INTEGER :: jt, jg
 
     LOGICAL :: lrestart
 
@@ -1308,6 +1308,8 @@ MODULE mo_nonhydro_state
     ! number of vertical levels
     nlev   = p_patch%nlev
     nlevp1 = p_patch%nlevp1
+
+    jg = p_patch%id
 
     IF (itime_scheme >= 2) THEN
      n_timlevs = 2
@@ -1374,6 +1376,7 @@ MODULE mo_nonhydro_state
     &       p_diag%pres_ifc, &
     &       p_diag%pres_sfc, &
     &       p_diag%pres_sfc_old, &
+    &       p_diag%ddt_pres_sfc, &
     &       p_diag%pres_msl, &
     &       p_diag%dpres_mc, &
     &       p_diag%omega, &
@@ -1548,13 +1551,23 @@ MODULE mo_nonhydro_state
                 & ldims=shape2d_c, lrestart=.FALSE.,                            &
                 & in_group=groups("dwd_fg_atm_vars", "LATBC_PREFETCH_VARS" ) )
 
-    ! pres_sfc_old     p_diag%pres_sfc_old(nproma,nblks_c)
-    !
-    cf_desc    = t_cf_var('surface_pressure', 'Pa', 'surface pressure', datatype_flt)
-    grib2_desc = grib2_var(0, 3, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( p_diag_list, 'pres_sfc_old', p_diag%pres_sfc_old,             &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,      &
-                & ldims=shape2d_c, lrestart=.FALSE. )
+    IF (msg_level >= 11 .OR. atm_phy_nwp_config(jg)%lcalc_dpsdt) THEN
+     ! pres_sfc_old     p_diag%pres_sfc_old(nproma,nblks_c)
+      !
+      cf_desc    = t_cf_var('surface_pressure', 'Pa', 'surface pressure', datatype_flt)
+      grib2_desc = grib2_var(0, 3, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'pres_sfc_old', p_diag%pres_sfc_old,             &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,      &
+                  & ldims=shape2d_c, lrestart=.FALSE., loutput=.FALSE. )
+
+      ! ddt_pres_sfc     p_diag%ddt_pres_sfc(nproma,nblks_c)
+      !
+      cf_desc    = t_cf_var('surface_pressure tendency', 'Pa/s', 'surface pressure tendency', datatype_flt)
+      grib2_desc = grib2_var(0, 3, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_diag_list, 'ddt_pres_sfc', p_diag%ddt_pres_sfc,             &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,      &
+                  & ldims=shape2d_c, lrestart=.FALSE. )
+    ENDIF
 
     ! pres_msl           p_diag%pres_msl(nproma,nblks_c)
     !
