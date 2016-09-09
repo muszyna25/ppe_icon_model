@@ -143,7 +143,7 @@ CONTAINS
   !!
   SUBROUTINE init_ext_data (p_patch, p_int_state, ext_data)
 
-    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
+    TYPE(t_patch), INTENT(INOUT)         :: p_patch(:)
     TYPE(t_int_state), INTENT(IN)        :: p_int_state(:)
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
 

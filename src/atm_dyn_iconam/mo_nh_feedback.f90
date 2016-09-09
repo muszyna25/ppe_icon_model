@@ -954,7 +954,7 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_feedback:relax_feedback'
 
-    TYPE(t_patch),       TARGET, INTENT(IN)    ::  p_patch(n_dom_start:n_dom)
+    TYPE(t_patch),       TARGET, INTENT(INOUT) ::  p_patch(n_dom_start:n_dom)
     TYPE(t_nh_state), TARGET, INTENT(INOUT)    ::  p_nh_state(n_dom)
     TYPE(t_int_state),   TARGET, INTENT(IN)    ::  p_int_state(n_dom_start:n_dom)
     TYPE(t_gridref_state), TARGET, INTENT(IN)  ::  p_grf_state(n_dom_start:n_dom)

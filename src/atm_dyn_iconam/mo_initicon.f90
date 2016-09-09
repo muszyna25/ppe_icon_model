@@ -290,7 +290,7 @@ MODULE mo_initicon
 
   ! Do postprocessing of data from first-guess file.
   SUBROUTINE process_dwdfg(p_patch, inputInstructions, p_nh_state, p_int_state, p_grf_state, ext_data, p_lnd_state, prm_diag)
-    TYPE(t_patch), INTENT(IN) :: p_patch(:)
+    TYPE(t_patch), INTENT(INOUT) :: p_patch(:)
     TYPE(t_readInstructionListPtr) :: inputInstructions(n_dom)
     TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_int_state), INTENT(IN) :: p_int_state(:)
@@ -446,7 +446,7 @@ MODULE mo_initicon
 
   ! Do postprocessing of data from analysis files.
   SUBROUTINE process_dwdana(p_patch, inputInstructions, p_nh_state, p_int_state, p_grf_state, ext_data, p_lnd_state)
-    TYPE(t_patch), INTENT(IN) :: p_patch(:)
+    TYPE(t_patch), INTENT(INOUT) :: p_patch(:)
     TYPE(t_readInstructionListPtr) :: inputInstructions(n_dom)
     TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_int_state), INTENT(IN) :: p_int_state(:)
@@ -620,7 +620,7 @@ MODULE mo_initicon
   !!
   SUBROUTINE create_dwdana_atm (p_patch, p_nh_state, p_int_state)
 
-    TYPE(t_patch),    TARGET, INTENT(IN)    :: p_patch(:)
+    TYPE(t_patch),    TARGET, INTENT(INOUT) :: p_patch(:)
     TYPE(t_nh_state), TARGET, INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_int_state),        INTENT(IN)    :: p_int_state(:)
 
@@ -991,7 +991,7 @@ MODULE mo_initicon
   !!
   SUBROUTINE create_dwdanainc_atm (p_patch, p_nh_state, p_int_state)
 
-    TYPE(t_patch),    TARGET, INTENT(IN)    :: p_patch(:)
+    TYPE(t_patch),    TARGET, INTENT(INOUT) :: p_patch(:)
     TYPE(t_nh_state), TARGET, INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_int_state),        INTENT(IN)    :: p_int_state(:)
 
@@ -1777,7 +1777,7 @@ MODULE mo_initicon
   !-------------------------------------------------------------------------
   SUBROUTINE create_dwdana_sfc (p_patch, p_lnd_state, ext_data, inputInstructions)
 
-    TYPE(t_patch),    TARGET ,INTENT(IN)    :: p_patch(:)
+    TYPE(t_patch),    TARGET ,INTENT(INOUT) :: p_patch(:)
     TYPE(t_lnd_state)        ,INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data)    ,INTENT(INOUT) :: ext_data(:)
     TYPE(t_readInstructionListPtr) :: inputInstructions(n_dom)

@@ -55,7 +55,7 @@ CONTAINS
 
     INTEGER, INTENT(IN) :: jg      !< grid level
 
-    TYPE(t_patch),    TARGET,INTENT(IN)    :: patch  !< grid info
+    TYPE(t_patch),    TARGET,INTENT(INOUT) :: patch  !< grid info
     TYPE(t_int_state),TARGET,INTENT(IN)    :: pint   !< interpolation coeff.
     TYPE(t_hydro_atm_diag),  INTENT(IN)    :: diag   !< diagnostic variables
     TYPE(t_hydro_atm_prog),  INTENT(INOUT) :: prog   !< prognostic variables

@@ -93,7 +93,7 @@
     !> Setup of lon-lat interpolation
     !
     SUBROUTINE compute_lonlat_intp_coeffs(p_patch, p_int_state)
-      TYPE(t_patch),        INTENT(IN)    :: p_patch(:)
+      TYPE(t_patch),        INTENT(INOUT) :: p_patch(:)
       TYPE(t_int_state),    INTENT(INOUT) :: p_int_state(:)
       ! local variables
       CHARACTER(*), PARAMETER :: routine = modname//"::compute_lonlat_intp_coeffs"
@@ -285,7 +285,7 @@
     SUBROUTINE rbf_c2l_index( ptr_patch, tri_idx, ptr_int, ptr_int_lonlat )
 
       ! patch on which computation is performed
-      TYPE(t_patch),        INTENT(in)     :: ptr_patch
+      TYPE(t_patch),        INTENT(INOUT)  :: ptr_patch
       INTEGER,              INTENT(IN)     :: tri_idx(:,:,:) ! 2, nproma, nblks_lonlat
       TYPE (t_int_state),   INTENT(IN)     :: ptr_int
       TYPE(t_lon_lat_intp), INTENT(inout)  :: ptr_int_lonlat
@@ -1101,7 +1101,7 @@
       TYPE (t_lon_lat_grid), INTENT(INOUT)         :: grid
       TYPE (t_gnat_tree),    INTENT(INOUT)         :: gnat
       ! data structure containing grid info:
-      TYPE(t_patch),         INTENT(IN)            :: ptr_patch
+      TYPE(t_patch),         INTENT(INOUT)         :: ptr_patch
       INTEGER,               INTENT(INOUT)         :: tri_idx(:,:,:) ! 2, nproma, nblks_lonlat
       ! Indices of source points and interpolation coefficients
       TYPE (t_lon_lat_intp), INTENT(INOUT)         :: ptr_int_lonlat
@@ -1345,7 +1345,7 @@
     !
     SUBROUTINE rbf_setup_interpol_lonlat_grid(ptr_patch, ptr_int_lonlat, tri_idx, ptr_int)
 
-      TYPE(t_patch),         INTENT(IN)    :: ptr_patch       !< data structure containing grid info
+      TYPE(t_patch),         INTENT(INOUT) :: ptr_patch       !< data structure containing grid info
       TYPE (t_lon_lat_intp), INTENT(INOUT) :: ptr_int_lonlat  !< Indices of source points and interpolation coefficients
       INTEGER,               INTENT(IN)    :: tri_idx(:,:,:)  !< 2, nproma, nblks_lonlat
       TYPE (t_int_state),    INTENT(IN)    :: ptr_int

@@ -395,7 +395,7 @@ CONTAINS
     USE mo_ice_fem_icon_init, ONLY: c2v_wgt
     USE mo_ice_fem_types,     ONLY: m_ice, m_snow, a_ice, elevation
 
-    TYPE(t_patch), TARGET,  INTENT(IN)  :: p_patch
+    TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch
     TYPE(t_sea_ice),        INTENT(IN)  :: p_ice
     REAL(wp),DIMENSION(nproma,p_patch%alloc_cell_blocks), INTENT(IN) :: ssh
 
@@ -443,7 +443,7 @@ CONTAINS
     USE mo_ice_fem_icon_init, ONLY: v2c_wgt
     USE mo_ice_fem_types,          ONLY: m_ice, m_snow, a_ice
 
-    TYPE(t_patch), TARGET,  INTENT(IN)      :: p_patch
+    TYPE(t_patch), TARGET,  INTENT(INOUT)   :: p_patch
     TYPE(t_sea_ice),        INTENT(INOUT)   :: p_ice
 
     ! Local variables

@@ -79,7 +79,7 @@ MODULE mo_ha_2tl_si
   LOGICAL, INTENT(IN) :: ltheta_dyn
   REAL(wp),INTENT(IN) :: p_dtime
 
-  TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
+  TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch
   TYPE(t_int_state),     INTENT(IN)    :: p_int_state
   TYPE(t_hydro_atm_prog),INTENT(IN)    :: p_now
   TYPE(t_external_data), INTENT(INOUT) :: p_ext_data   !< external data
@@ -281,7 +281,7 @@ MODULE mo_ha_2tl_si
   INTEGER ,INTENT(IN) :: si_expl_scheme 
   REAL(wp),INTENT(IN) :: p_dtime
 
-  TYPE(t_patch),TARGET,     INTENT(IN) :: pt_patch
+  TYPE(t_patch), TARGET, INTENT(INOUT) :: pt_patch
   TYPE(t_int_state),TARGET, INTENT(IN) :: pt_int_state
 
   TYPE(t_hydro_atm_prog),INTENT(IN)    :: pt_now        !< prognostic variables
@@ -528,7 +528,7 @@ MODULE mo_ha_2tl_si
   SUBROUTINE conteq_vn (p_vn,p_delp_e,p_temp,p_rdelp_c,p_rdlnpr,p_rdalpha, &
                         p_patch, p_int_state, p_dtemp, p_dps)
 
-  TYPE(t_patch),    INTENT(IN) :: p_patch
+  TYPE(t_patch),    INTENT(INOUT) :: p_patch
   TYPE(t_int_state),INTENT(IN) :: p_int_state
 
   REAL(wp),INTENT(IN)  :: p_vn      (nproma,nlev,p_patch%nblks_e)
@@ -707,7 +707,7 @@ MODULE mo_ha_2tl_si
   REAL(wp),INTENT(IN) :: p_cgradps(:,:,:)
   REAL(wp),INTENT(IN) :: p_coeff
 
-  TYPE(t_patch), INTENT(IN)     :: p_patch
+  TYPE(t_patch), INTENT(INOUT)  :: p_patch
   TYPE(t_int_state), INTENT(IN) :: p_int_state
 
   !! Result

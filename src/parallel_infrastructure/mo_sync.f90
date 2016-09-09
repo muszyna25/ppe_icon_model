@@ -186,7 +186,7 @@ END SUBROUTINE disable_sync_checks
 !
 SUBROUTINE sync_patch_array_r3(typ, p_patch, arr, opt_varname)
    INTEGER,       INTENT(IN)    :: typ
-   TYPE(t_patch), INTENT(IN)    :: p_patch
+   TYPE(t_patch), INTENT(INOUT) :: p_patch
    REAL(wp),      INTENT(INOUT) :: arr(:,:,:)
    CHARACTER*(*), INTENT(IN), OPTIONAL :: opt_varname
 
@@ -266,7 +266,7 @@ END SUBROUTINE sync_patch_array_s3
 !
 SUBROUTINE sync_patch_array_i3(typ, p_patch, arr)
    INTEGER,       INTENT(IN)    :: typ
-   TYPE(t_patch), INTENT(IN)    :: p_patch
+   TYPE(t_patch), INTENT(INOUT) :: p_patch
    INTEGER,       INTENT(INOUT) :: arr(:,:,:)
 
    ! Boundary exchange for work PEs
@@ -294,7 +294,7 @@ END SUBROUTINE sync_patch_array_i3
 !
 SUBROUTINE sync_patch_array_r2(typ, p_patch, arr, opt_varname)
    INTEGER,       INTENT(IN)    :: typ
-   TYPE(t_patch), INTENT(IN)    :: p_patch
+   TYPE(t_patch), INTENT(INOUT) :: p_patch
    REAL(wp),      INTENT(INOUT) :: arr(:,:)
    CHARACTER*(*), INTENT(IN), OPTIONAL :: opt_varname
    ! local variable
@@ -319,7 +319,7 @@ END SUBROUTINE sync_patch_array_r2
 !
 SUBROUTINE sync_patch_array_i2(typ, p_patch, arr)
    INTEGER,       INTENT(IN)    :: typ
-   TYPE(t_patch), INTENT(IN)    :: p_patch
+   TYPE(t_patch), INTENT(INOUT) :: p_patch
    INTEGER,       INTENT(INOUT) :: arr(:,:)
    ! local variable
    INTEGER, ALLOCATABLE :: arr3(:,:,:)
@@ -935,7 +935,7 @@ END SUBROUTINE check_patch_array_4
 SUBROUTINE sync_idx(type_arr, type_idx, p_patch, idx, blk, opt_remap)
 
   INTEGER, INTENT(IN) :: type_arr, type_idx
-  TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
+  TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch
   INTEGER, INTENT(INOUT) :: idx(:,:), blk(:,:)
   LOGICAL, INTENT(IN), OPTIONAL :: opt_remap
 

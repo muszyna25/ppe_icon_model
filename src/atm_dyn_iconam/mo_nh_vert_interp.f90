@@ -98,7 +98,7 @@ CONTAINS
   !!
   SUBROUTINE vert_interp_atm(p_patch, p_nh_state, p_int, p_grf, initicon)
 
-    TYPE(t_patch),          INTENT(IN)       :: p_patch(:)
+    TYPE(t_patch),          INTENT(INOUT)    :: p_patch(:)
     TYPE(t_nh_state),       INTENT(IN)       :: p_nh_state(:)
     TYPE(t_int_state),      INTENT(IN)       :: p_int(:)
     TYPE(t_gridref_state),  INTENT(IN)       :: p_grf(:)
@@ -208,7 +208,7 @@ CONTAINS
   !!
   SUBROUTINE vert_interp(p_patch, p_int, p_metrics, initicon, opt_use_vn, opt_lmask_c, opt_lmask_e, opt_latbcmode)
 
-    TYPE(t_patch),          INTENT(IN)       :: p_patch
+    TYPE(t_patch),          INTENT(INOUT)    :: p_patch
     TYPE(t_int_state),      INTENT(IN)       :: p_int
     TYPE(t_nh_metrics),     INTENT(IN)       :: p_metrics
 
@@ -1650,7 +1650,7 @@ CONTAINS
   !!
   SUBROUTINE compute_slope(p_patch, p_int, topo_c, slope_c)
 
-    TYPE(t_patch),          INTENT(IN)       :: p_patch
+    TYPE(t_patch),          INTENT(INOUT)    :: p_patch
     TYPE(t_int_state),      INTENT(IN)       :: p_int
 
     ! Topography data

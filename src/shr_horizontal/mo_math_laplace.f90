@@ -168,7 +168,7 @@ SUBROUTINE nabla2_vec_atmos( vec_e, ptr_patch, ptr_int, nabla2_vec_e, &
 !
 !  patch on which computation is performed
 !
-TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
 
 ! Interpolation state
 TYPE(t_int_state), INTENT(in)     :: ptr_int
@@ -442,7 +442,7 @@ SUBROUTINE nabla4_vec( vec_e, ptr_patch, ptr_int, nabla4_vec_e, &
 !
 !  patch on which computation is performed
 !
-TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
 
 ! Interpolation state
 TYPE(t_int_state), INTENT(in)     :: ptr_int
@@ -583,7 +583,7 @@ SUBROUTINE nabla6_vec( vec_e, ptr_patch, ptr_int, nabla6_vec_e, &
 !
 !  patch on which computation is performed
 !
-TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
 
 ! Interpolation state
 TYPE(t_int_state), INTENT(in)     :: ptr_int
@@ -1255,7 +1255,7 @@ SUBROUTINE nabla4_scalar( psi_c, ptr_patch, ptr_int, nabla4_psi_c, &
 !
 !  patch on which computation is performed
 !
-TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
 
 ! Interpolation state
 TYPE(t_int_state), INTENT(in)     :: ptr_int
@@ -1385,7 +1385,7 @@ END SUBROUTINE nabla4_scalar
   SUBROUTINE directional_laplace (p_vn, p_scalar, pt_patch, pt_int, p_upstr_beta, &
     &                             p_lapl_e, opt_slev, opt_elev)
 
-    TYPE(t_patch), TARGET, INTENT(in) :: pt_patch           !< patch
+    TYPE(t_patch), TARGET, INTENT(inout) :: pt_patch           !< patch
     TYPE(t_int_state), TARGET,INTENT(in) :: pt_int !< interpolation state
     REAL(wp), INTENT(in)    :: p_vn(:,:,:)  &
     & ; !< normal velocity field, needed for determination of upstream direction

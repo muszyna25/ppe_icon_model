@@ -102,7 +102,7 @@ SUBROUTINE kin_vel_rot (p_vn, pt_patch, pt_int, pt_diag)
 !
 
 REAL(wp), INTENT(IN)         :: p_vn(:,:,:)! normal velocity component at edges
-TYPE(t_patch),TARGET,INTENT(IN):: pt_patch   ! actual patch
+TYPE(t_patch), TARGET, INTENT(INOUT) :: pt_patch   ! actual patch
 TYPE(t_int_state), TARGET,INTENT(IN):: pt_int! interpolation coeffs etc.
 
 TYPE(t_hydro_atm_diag), INTENT(INOUT) :: pt_diag       ! diagnostic state
@@ -291,7 +291,7 @@ SUBROUTINE lamb_rot (pt_patch, pt_int, pt_diag, &
 !
 IMPLICIT NONE
 
-TYPE(t_patch), TARGET, INTENT(IN)   :: pt_patch       ! patch
+TYPE(t_patch), TARGET, INTENT(INOUT) :: pt_patch       ! patch
 TYPE(t_int_state),TARGET, INTENT(IN):: pt_int         ! interpolation state
 TYPE(t_hydro_atm_diag),INTENT(INOUT)    :: pt_diag        ! diag state
 

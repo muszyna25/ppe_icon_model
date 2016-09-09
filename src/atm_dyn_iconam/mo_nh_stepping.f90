@@ -2124,7 +2124,7 @@ MODULE mo_nh_stepping
   SUBROUTINE perform_dyn_substepping (p_patch, p_nh_state, p_int_state, prep_adv, &
     &                                 jstep, iau_iter, dt_phy, mtime_current)
 
-    TYPE(t_patch)       ,INTENT(IN)    :: p_patch
+    TYPE(t_patch)       ,INTENT(INOUT) :: p_patch
 
     TYPE(t_nh_state)    ,INTENT(INOUT) :: p_nh_state
 

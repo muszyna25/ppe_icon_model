@@ -750,7 +750,7 @@ CONTAINS
   !!
   SUBROUTINE compute_smooth_topo(p_patch, p_int, topo_c, topo_smt_c)
 
-    TYPE(t_patch),TARGET,INTENT(IN) :: p_patch
+    TYPE(t_patch),TARGET,INTENT(INOUT) :: p_patch
     TYPE(t_int_state), INTENT(IN) :: p_int
 
     ! Input fields: topography on cells

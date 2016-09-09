@@ -138,7 +138,7 @@ CONTAINS
     &                        p_mflx_tracer_h, p_mflx_tracer_v, opt_topflx_tra,    &
     &                        opt_q_int, opt_ddt_tracer_adv )
   !
-    TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation
+    TYPE(t_patch), TARGET, INTENT(INOUT) ::  &  !< patch on which computation
       &  p_patch                             !< is performed
                                              
 

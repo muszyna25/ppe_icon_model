@@ -1175,7 +1175,8 @@ MODULE mo_nh_init_nest_utils
                topo_cp, topo_cc)
 
     ! patch at parent and child level
-    TYPE(t_patch),                TARGET, INTENT(IN) :: p_pp, p_pc
+    TYPE(t_patch),                TARGET, INTENT(IN) :: p_pp
+    TYPE(t_patch),                TARGET, INTENT(INOUT) :: p_pc
     ! grf state is needed at parent level only
     TYPE(t_gridref_single_state), TARGET, INTENT(IN) :: p_grf
 
@@ -1320,7 +1321,7 @@ MODULE mo_nh_init_nest_utils
   SUBROUTINE topography_feedback(p_pp, i_chidx, topo_cp, topo_cc)
 
     ! patch at parent level
-    TYPE(t_patch),                TARGET, INTENT(IN) :: p_pp
+    TYPE(t_patch),                TARGET, INTENT(INOUT) :: p_pp
 
     ! child domain index
     INTEGER, INTENT(IN) :: i_chidx

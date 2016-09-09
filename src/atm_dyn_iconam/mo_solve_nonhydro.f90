@@ -120,7 +120,7 @@ MODULE mo_solve_nonhydro
 
     TYPE(t_nh_state),  TARGET, INTENT(INOUT) :: p_nh
     TYPE(t_int_state), TARGET, INTENT(IN)    :: p_int
-    TYPE(t_patch),     TARGET, INTENT(IN)    :: p_patch
+    TYPE(t_patch),     TARGET, INTENT(INOUT) :: p_patch
     TYPE(t_prepare_adv),       INTENT(INOUT) :: prep_adv
 
     ! Initialization switch that has to be .TRUE. at the initial time step only (not for restart)

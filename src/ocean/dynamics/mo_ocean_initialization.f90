@@ -893,8 +893,8 @@ CONTAINS
   !!  no-mpi parallelized
 !<Optimize:inUse>
   SUBROUTINE init_ho_basins( patch_2d, v_base )
-    
-    TYPE(t_patch), TARGET, INTENT(in)          :: patch_2d
+
+    TYPE(t_patch), TARGET, INTENT(inout)       :: patch_2d
     TYPE(t_hydro_ocean_base), INTENT(inout)    :: v_base
     
     REAL(wp) :: z_sync_c(nproma,patch_2d%alloc_cell_blocks)

@@ -70,7 +70,7 @@ CONTAINS
 SUBROUTINE interpol_vec_grf (p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
   !
   TYPE(t_patch), TARGET, INTENT(in) :: p_pp
-  TYPE(t_patch), TARGET, INTENT(in) :: p_pc
+  TYPE(t_patch), TARGET, INTENT(inout) :: p_pc
 
   ! input normal components of vectors at edge midpoints
   REAL(wp), INTENT(IN) :: p_vn_in(:,:,:) ! dim: (nproma,nlev,nblks_e)
@@ -213,7 +213,7 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
                               
 
   TYPE(t_patch), TARGET, INTENT(in) :: p_pp
-  TYPE(t_patch), TARGET, INTENT(in) :: p_pc
+  TYPE(t_patch), TARGET, INTENT(inout) :: p_pc
 
   ! input normal components of vectors at edge midpoints; dim: (nproma,nlev,nblks_e)
   REAL(wp), INTENT(IN), DIMENSION(:,:,:), OPTIONAL, TARGET :: f3din1, f3din2, f3din3, f3din4
@@ -456,7 +456,7 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
                               llimit_nneg, lnoshift )
   !
   TYPE(t_patch), TARGET, INTENT(in) :: p_pp
-  TYPE(t_patch), TARGET, INTENT(in) :: p_pc
+  TYPE(t_patch), TARGET, INTENT(inout) :: p_pc
 
 
   ! Indices of source points and interpolation coefficients

@@ -85,7 +85,7 @@ MODULE mo_nh_diffusion
   !!
   SUBROUTINE  diffusion(p_nh_prog,p_nh_diag,p_nh_metrics,p_patch,p_int,dtime,linit)
 
-    TYPE(t_patch), TARGET, INTENT(in) :: p_patch    !< single patch
+    TYPE(t_patch), TARGET, INTENT(inout) :: p_patch    !< single patch
     TYPE(t_int_state),INTENT(in),TARGET :: p_int      !< single interpolation state
     TYPE(t_nh_prog), INTENT(inout)    :: p_nh_prog  !< single nh prognostic state
     TYPE(t_nh_diag), INTENT(inout)    :: p_nh_diag  !< single nh diagnostic state

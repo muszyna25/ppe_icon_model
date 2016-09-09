@@ -186,7 +186,7 @@ MODULE mo_sync_latbc
   !! Initial version by S. Brdar, DWD (2013-06-13)
   !!
   SUBROUTINE prepare_latbc_data(p_patch, p_int_state, p_nh_state, ext_data)
-    TYPE(t_patch),          INTENT(IN)   :: p_patch
+    TYPE(t_patch),          INTENT(INOUT):: p_patch
     TYPE(t_int_state),      INTENT(IN)   :: p_int_state
     TYPE(t_nh_state),       INTENT(INOUT):: p_nh_state  !< nonhydrostatic state on the global domain
     TYPE(t_external_data),  INTENT(IN)   :: ext_data    !< external data on the global domain
@@ -244,7 +244,7 @@ MODULE mo_sync_latbc
   !!
   SUBROUTINE read_latbc_data( p_patch, p_nh_state, ext_data, p_int, mtime_date, &
     &                         lopt_check_read, lopt_time_incr )
-    TYPE(t_patch),          INTENT(IN)    :: p_patch
+    TYPE(t_patch),          INTENT(INOUT) :: p_patch
     TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state  !< nonhydrostatic state on the global domain
     TYPE(t_external_data),  INTENT(IN)    :: ext_data    !< external data on the global domain
     TYPE(t_int_state),      INTENT(IN)    :: p_int
@@ -314,7 +314,7 @@ MODULE mo_sync_latbc
   !!
   SUBROUTINE read_latbc_icon_data(p_patch, p_nh_state, ext_data, p_int)
     USE mo_initicon_io, ONLY: height_or_lev
-    TYPE(t_patch), TARGET,  INTENT(IN)  :: p_patch
+    TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch
     TYPE(t_nh_state),       INTENT(IN)  :: p_nh_state  !< nonhydrostatic state on the global domain
     TYPE(t_external_data),  INTENT(IN)  :: ext_data    !< external data on the global domain
     TYPE(t_int_state),      INTENT(IN)  :: p_int
@@ -477,7 +477,7 @@ MODULE mo_sync_latbc
   !!
   SUBROUTINE read_latbc_ifs_data(p_patch, p_nh_state, ext_data, p_int)
     USE mo_initicon_io, ONLY: height_or_lev
-    TYPE(t_patch),          INTENT(IN)  :: p_patch
+    TYPE(t_patch),       INTENT(INOUT) :: p_patch
     TYPE(t_nh_state),       INTENT(IN)  :: p_nh_state  !< nonhydrostatic state on the global domain
     TYPE(t_external_data),  INTENT(IN)  :: ext_data    !< external data on the global domain
     TYPE(t_int_state),      INTENT(IN)  :: p_int
