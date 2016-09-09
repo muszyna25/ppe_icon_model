@@ -7,7 +7,7 @@
 !! headers of the routines.
 MODULE mo_var_metadata_types
 
-  USE mo_kind,                  ONLY: dp, wp
+  USE mo_kind,                  ONLY: dp, wp, sp
   USE mo_impl_constants,        ONLY: VARNAME_LEN
   USE mo_grib2,                 ONLY: t_grib2_var
   USE mo_action_types,          ONLY: t_var_action
@@ -140,6 +140,7 @@ MODULE mo_var_metadata_types
 
   TYPE t_union_vals
     REAL(dp) :: rval
+    REAL(sp) :: sval
     INTEGER  :: ival
     LOGICAL  :: lval
   END type t_union_vals

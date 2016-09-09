@@ -20,7 +20,7 @@
 !!
 MODULE mo_fortran_tools
 
-  USE mo_kind,                    ONLY: wp, sp, dp, ik4 => i4
+  USE mo_kind,                    ONLY: wp, sp, vp, dp, ik4 => i4
   USE mo_exception,               ONLY: finish
   USE mo_impl_constants,          ONLY: VARNAME_LEN
 
@@ -28,7 +28,7 @@ MODULE mo_fortran_tools
 
   PUBLIC :: t_Destructible
   PUBLIC :: assign_if_present
-  PUBLIC :: t_ptr_2d3d
+  PUBLIC :: t_ptr_2d3d, t_ptr_2d3d_vp
   PUBLIC :: t_ptr_i2d3d
   PUBLIC :: t_ptr_tracer
   PUBLIC :: copy, init, swap, var_scale, negative2zero
@@ -50,6 +50,12 @@ MODULE mo_fortran_tools
     REAL(wp),POINTER :: p_2d(:,:)    ! REAL pointer to 2D (spatial) array
   END TYPE t_ptr_2d3d
 
+  TYPE t_ptr_2d3d_vp
+    REAL(vp),POINTER :: p_3d(:,:,:)  ! REAL pointer to 3D (spatial) array
+    REAL(vp),POINTER :: p_2d(:,:)    ! REAL pointer to 2D (spatial) array
+  END TYPE t_ptr_2d3d_vp
+
+
   TYPE t_ptr_i2d3d
     INTEGER,POINTER :: p_3d(:,:,:)  ! INTEGER pointer to 3D (spatial) array
     INTEGER,POINTER :: p_2d(:,:)    ! INTEGER pointer to 2D (spatial) array
@@ -68,6 +74,7 @@ MODULE mo_fortran_tools
     MODULE PROCEDURE assign_if_present_integer
     MODULE PROCEDURE assign_if_present_integers
     MODULE PROCEDURE assign_if_present_real
+    MODULE PROCEDURE assign_if_present_real_sp
   END INTERFACE assign_if_present
 
   !> this is meant to make it easier for compilers to circumvent
@@ -179,6 +186,15 @@ CONTAINS
     IF ( x == -HUGE(x) ) RETURN
     y = x
   END SUBROUTINE assign_if_present_real
+
+
+  SUBROUTINE assign_if_present_real_sp (y,x)
+    REAL(sp), INTENT(inout)        :: y
+    REAL(sp), INTENT(in) ,OPTIONAL :: x
+    IF (.NOT.PRESENT(x)) RETURN
+    IF ( x == -HUGE(x) ) RETURN
+    y = x
+  END SUBROUTINE assign_if_present_real_sp
 
 
   !>
