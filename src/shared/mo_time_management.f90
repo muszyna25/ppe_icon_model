@@ -40,8 +40,6 @@ MODULE mo_time_management
     &                                    mtime_year_of_365_days => year_of_365_days,       &
     &                                    mtime_year_of_360_days => year_of_360_days,       &
     &                                    getTotalMilliSecondsTimeDelta
-  USE mo_mtime_extensions,         ONLY: datetime_str_equal,                               &
-    &                                    timedelta_str_equal
   USE mo_time_config,              ONLY: dt_restart,                                       &
     &                                    ini_datetime_string, is_relative_time,            &
     &                                    time_nml_icalendar => icalendar,                  &
@@ -222,7 +220,8 @@ CONTAINS
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: restart_intvl_string, checkpt_intvl_string, &
       &                                     checkpt_intvl2, restart_intvl2, dtime_string
     TYPE(timedelta), POINTER             :: mtime_2_5h, mtime_dt_checkpoint,            &
-      &                                     mtime_dt_restart, mtime_dom_start
+      &                                     mtime_dt_restart, mtime_dom_start,          &
+      &                                     tmp_td1, tmp_td2
     TYPE(datetime), POINTER              :: reference_dt
     INTEGER                              :: jg
 
@@ -252,12 +251,16 @@ CONTAINS
       IF (TRIM(restart_intvl_string) == "") THEN
         restart_intvl_string = TRIM(restart_intvl2)
       ELSE
-        IF (timedelta_str_equal(restart_intvl_string, restart_intvl2)) THEN
+        tmp_td1 => newTimedelta(restart_intvl_string)
+        tmp_td2 => newTimedelta(restart_intvl2)        
+        IF (.NOT. (tmp_td1 < tmp_td2) .AND. .NOT. (tmp_td2 < tmp_td1)) THEN
           restart_intvl_string = TRIM(restart_intvl2)
         ELSE
-          CALL finish(routine, "Inconsistent setting of restart interval: "//&
-              &TRIM(restart_intvl_string)//"/"//TRIM(restart_intvl2))
+          CALL finish(routine, "Inconsistent setting of restart interval: " &
+               &               //TRIM(restart_intvl_string)//"/"//TRIM(restart_intvl2))
         END IF
+        CALL deallocateTimedelta(tmp_td1)
+        CALL deallocateTimedelta(tmp_td2)
       END IF
     ELSE IF (dt_restart == 0._wp) THEN
       CALL set_tc_write_restart(.FALSE.)
@@ -289,12 +292,16 @@ CONTAINS
       IF (TRIM(checkpt_intvl_string) == "") THEN
         checkpt_intvl_string = TRIM(checkpt_intvl2)
       ELSE
-        IF (timedelta_str_equal(checkpt_intvl_string, checkpt_intvl2)) THEN
+        tmp_td1 => newTimedelta(checkpt_intvl_string)
+        tmp_td2 => newTimedelta(checkpt_intvl2)        
+        IF (.NOT. (tmp_td1 < tmp_td2) .AND. .NOT. (tmp_td2 < tmp_td1)) THEN
           checkpt_intvl_string = TRIM(checkpt_intvl2)
         ELSE
-          CALL finish(routine, "Inconsistent setting of checkpoint interval: "//&
-            &TRIM(checkpt_intvl_string)//"/"//TRIM(checkpt_intvl2))
+          CALL finish(routine, "Inconsistent setting of checkpoint interval: " &
+               &               //TRIM(checkpt_intvl_string)//"/"//TRIM(checkpt_intvl2))
         END IF
+        CALL deallocateTimedelta(tmp_td1)
+        CALL deallocateTimedelta(tmp_td2)
       END IF
     END IF
     ! if "checkpt_intvl_string" still unspecified: set default
@@ -413,7 +420,8 @@ CONTAINS
     TYPE(datetime),  POINTER              ::  mtime_start, mtime_stop,       &
       &                                       mtime_exp_stop,                &
       &                                       mtime_restart_stop,            &
-      &                                       mtime_nsteps_stop
+      &                                       mtime_nsteps_stop,             &
+      &                                       tmp_dt1, tmp_dt2 
     TYPE(timedelta), POINTER              ::  mtime_dt_restart, mtime_dtime, &
       &                                       mtime_td
     TYPE(divisionquotienttimespan)        ::  mtime_quotient
@@ -504,9 +512,14 @@ CONTAINS
     IF (TRIM(ini_datetime2) /= "")  exp_start_datetime_string = ini_datetime2
     IF ((TRIM(ini_datetime1) /= "") .AND. (LEN_TRIM(ini_datetime2) > 0)) THEN
       ! both settings were used; we need to test for equality
-      IF (.NOT. datetime_str_equal(ini_datetime1, ini_datetime2))  &
-        &  CALL finish(routine, "Inconsistent setting of experiment start date: "//&
-        &                       TRIM(ini_datetime1)//"/"//TRIM(ini_datetime2))
+      tmp_dt1 => newDatetime(ini_datetime1)
+      tmp_dt2 => newDatetime(ini_datetime2)      
+      IF (.NOT. (tmp_dt1 == tmp_dt2)) THEN
+        CALL finish(routine, "Inconsistent setting of experiment start date: " &
+             &               //TRIM(ini_datetime1)//"/"//TRIM(ini_datetime2))
+      END IF
+      CALL deallocateDatetime(tmp_dt1)
+      CALL deallocateDatetime(tmp_dt2)      
     END IF
     IF ( (TRIM(ini_datetime1) == "")        .AND.  &
       &  (TRIM(ini_datetime2) == "")        .AND.  &
@@ -538,9 +551,14 @@ CONTAINS
     IF (TRIM(end_datetime2) /= "")  exp_stop_datetime_string = end_datetime2
     IF ((TRIM(end_datetime1) /= "") .AND. (TRIM(end_datetime2) /= "")) THEN
       ! both settings were used; we need to test for equality
-      IF (.NOT. datetime_str_equal(end_datetime1, end_datetime2))  &
-        &  CALL finish(routine, "Inconsistent setting of experiment stop date: "//&
-        &                       TRIM(end_datetime1)//"/"//TRIM(end_datetime2))
+      tmp_dt1 => newDatetime(end_datetime1)
+      tmp_dt2 => newDatetime(end_datetime2)      
+      IF (.NOT. (tmp_dt1 == tmp_dt2)) THEN
+        CALL finish(routine, "Inconsistent setting of experiment stop date: " &
+             &               //TRIM(end_datetime1)//"/"//TRIM(end_datetime2))
+      END IF
+      CALL deallocateDatetime(tmp_dt1)
+      CALL deallocateDatetime(tmp_dt2)      
     END IF
     ! throw an error, if no start date has been specified at all
     !
