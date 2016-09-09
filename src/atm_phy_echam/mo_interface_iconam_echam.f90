@@ -718,7 +718,7 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_p2d_sync)
 
-    CALL sync_patch_array_mult( SYNC_E, patch, 2, pt_prog_new%vn, pt_diag%ddt_vn_phy )
+    CALL sync_patch_array( SYNC_E, patch, pt_prog_new%vn)
 
     IF      (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w) THEN
       CALL sync_patch_array_mult( SYNC_C                       ,&

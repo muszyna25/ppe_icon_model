@@ -25,7 +25,7 @@
 MODULE mo_nonhydro_types
 
   USE mo_kind,                 ONLY: wp, vp
-  USE mo_fortran_tools,        ONLY: t_ptr_2d3d,t_ptr_tracer
+  USE mo_fortran_tools,        ONLY: t_ptr_2d3d, t_ptr_2d3d_vp, t_ptr_tracer
   USE mo_linked_list,          ONLY: t_var_list
 
 
@@ -82,16 +82,11 @@ MODULE mo_nonhydro_types
                               ! (nproma,nlev,nblks_v)                          [1/s]
     &  vor(:,:,:),          & ! relative vertical vorticity interpolated to cells
                               ! (nproma,nlev,nblks_c)                          [1/s]
-    &  ddt_vn_phy(:,:,:),   & ! normal wind tendency from forcing
-                              ! (nproma,nlev,nblks_e)                          [m/s^2]
-    &  ddt_exner_phy(:,:,:),& ! exner pressure tendency from physical forcing 
-                              ! (nproma,nlev,nblks_c)                     [1/s]
     &  ddt_temp_dyn(:,:,:), & ! rediagnosed temperature tendency from dynamics [K/s]
     &  ddt_tracer_adv(:,:,:,:), &! advective tendency of tracers          [kg/kg/s]
     &  tracer_vi(:,:,:),    & ! vertically integrated tracers( mass related ones only) [kg/m**2]
     &  tracer_vi_avg(:,:,:),& ! average since last output of tracer_vi [kg/m**2]
     &  exner_old(:,:,:),    & ! exner pres from previous step (nproma,nlev,nblks_c)
-    &  exner_dyn_incr(:,:,:), & ! exner pres dynamics increment (nproma,nlev,nblks_c)
     &  temp(:,:,:),         & ! temperature (nproma,nlev,nblks_c)                 [K]
     &  tempv(:,:,:),        & ! virtual temperature (nproma,nlev,nblks_c)         [K]
     &  temp_ifc(:,:,:),     & ! temperature at half levels (nproma,nlevp1,nblks_c)[K]
@@ -112,15 +107,8 @@ MODULE mo_nonhydro_types
     &  dwdx(:,:,:),         & ! zonal gradient of vertical wind speed (nproma,nlevp1,nblks_c)     [1/s]
     &  dwdy(:,:,:),         & ! meridional gradient of vertical wind speed (nproma,nlevp1,nblks_c)     [1/s]
     &  mass_fl_e(:,:,:),    & ! horizontal mass flux at edges (nproma,nlev,nblks_e) [kg/m/s]
-    &  mass_fl_e_sv(:,:,:), & ! storage field for horizontal mass flux at edges (nproma,nlev,nblks_e) [kg/m/s]
     &  rho_ic(:,:,:),       & ! density at half levels (nproma,nlevp1,nblks_c)     [kg/m^3]
     &  theta_v_ic(:,:,:),   & ! theta_v at half levels (nproma,nlevp1,nblks_c)         [K]
-    &  w_concorr_c(:,:,:),  & ! contravariant vert correction (nproma,nlevp1,nblks_c)[m/s]
-    &  vn_ie(:,:,:),        & ! normal wind at half levels (nproma,nlevp1,nblks_e)   [m/s]
-    &  ddt_vn_adv(:,:,:,:), & ! normal wind tendency from advection
-                              ! (nproma,nlev,nblks_e,1:3)                    [m/s^2]
-    &  ddt_w_adv(:,:,:,:),  & ! vert. wind tendency from advection
-                              ! (nproma,nlevp1,nblks_c,1:3)                  [m/s^2]
     &  airmass_now(:,:,:),  & ! mass of air in layer at physics time step now [kg/m^2]
     &  airmass_new(:,:,:),  & ! mass of air in layer at physics time step new [kg/m^2]
 
@@ -163,6 +151,27 @@ MODULE mo_nonhydro_types
     &  temp_avg   (:,:,:),  & ! moist density average            [kg/m^3]
     &  qv_avg    (:,:,:)      ! specific humidity average        [kg/kg]
 
+
+    ! d) variables that are in single precision when "__MIXED_PRECISION" is defined
+    REAL(vp), POINTER       &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    , CONTIGUOUS            &
+#endif
+    &  ::                   &
+    &  ddt_exner_phy(:,:,:),& ! exner pressure tendency from physical forcing 
+                              ! (nproma,nlev,nblks_c)                     [1/s]
+    &  ddt_vn_phy(:,:,:),   & ! normal wind tendency from forcing
+                              ! (nproma,nlev,nblks_e)                          [m/s^2]
+    &  exner_dyn_incr(:,:,:), & ! exner pres dynamics increment (nproma,nlev,nblks_c)
+    &  vn_ie(:,:,:),        & ! normal wind at half levels (nproma,nlevp1,nblks_e)   [m/s]
+    &  w_concorr_c(:,:,:),  & ! contravariant vert correction (nproma,nlevp1,nblks_c)[m/s]
+    &  mass_fl_e_sv(:,:,:), & ! storage field for horizontal mass flux at edges (nproma,nlev,nblks_e) [kg/m/s]
+    &  ddt_vn_adv(:,:,:,:), & ! normal wind tendency from advection
+                              ! (nproma,nlev,nblks_e,1:3)                    [m/s^2]
+    &  ddt_w_adv(:,:,:,:)     ! vert. wind tendency from advection
+                              ! (nproma,nlevp1,nblks_c,1:3)                  [m/s^2]
+
+
     INTEGER, POINTER ::     &
     &  nsteps_avg(:)          ! number of time steps summed up for averaging
 
@@ -177,14 +186,16 @@ MODULE mo_nonhydro_types
       &  hfl_trc_ptr    (:),   &  !< pointer array: one pointer for each tracer
       &  vfl_trc_ptr    (:),   &  !< pointer array: one pointer for each tracer
       &  ddt_trc_adv_ptr(:),   &  !< pointer array: one pointer for each tracer
-      &  ddt_vn_adv_ptr (:),   &  !< pointer array: one pointer for each tracer
-      &  ddt_w_adv_ptr  (:),   &  !< pointer array: one pointer for each tracer
       &  q_int_ptr      (:),   &  
       &  q_ubc_ptr      (:),   &
       &  tracer_vi_ptr  (:),   &  !< pointer array: one pointer for each tracer
       &  tracer_vi_avg_ptr(:), &  !< pointer array: one pointer for each tracer
       &  extra_2d_ptr   (:),   &
       &  extra_3d_ptr   (:)
+
+    TYPE(t_ptr_2d3d_vp),ALLOCATABLE ::   &
+      &  ddt_vn_adv_ptr (:),   &  !< pointer array: one pointer for each tracer
+      &  ddt_w_adv_ptr  (:)       !< pointer array: one pointer for each tracer
 
   END TYPE t_nh_diag
 
