@@ -664,6 +664,7 @@ CONTAINS
     INTEGER,          PARAMETER                 :: iUNKNOWN = 0
     INTEGER,          PARAMETER                 :: iINTEGER = 1
     INTEGER,          PARAMETER                 :: iREAL    = 2
+    INTEGER,          PARAMETER                 :: iREAL_sp = 3
 
     INTEGER                                     :: tl, i_dom, i_log_dom, i, iv, jk, n_points, &
       &                                            nlevs, nindex, mpierr, lonlat_id,          &
@@ -672,6 +673,7 @@ CONTAINS
     TYPE (t_var_metadata), POINTER              :: info
     TYPE(t_reorder_info),  POINTER              :: p_ri
     REAL(wp),          ALLOCATABLE              :: r_ptr(:,:,:)
+    REAL(wp),          ALLOCATABLE              :: s_ptr(:,:,:)
     INTEGER,           ALLOCATABLE              :: i_ptr(:,:,:)
     REAL(wp),          ALLOCATABLE              :: r_out_recv(:)
     REAL(wp),              POINTER              :: r_out_wp(:)
@@ -782,7 +784,7 @@ CONTAINS
         ! be a valid array subscript):
       tl = 1
 #ifndef __NO_ICON_ATMO__
-      IF (.NOT. ASSOCIATED(of%var_desc(iv)%r_ptr)  .AND.    &
+      IF (.NOT. ASSOCIATED(of%var_desc(iv)%r_ptr)  .AND. .NOT. ASSOCIATED(of%var_desc(iv)%s_ptr) .AND. &
         & .NOT. ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
         tl = metainfo_get_timelevel(info,i_log_dom)
         IF(tl<=0 .OR. tl>max_time_levels) &
@@ -805,6 +807,9 @@ CONTAINS
       IF (ASSOCIATED(of%var_desc(iv)%r_ptr) .OR.  &
         & ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)) THEN
         idata_type = iREAL
+      ELSE IF (ASSOCIATED(of%var_desc(iv)%s_ptr) .OR.  &
+        & ASSOCIATED(of%var_desc(iv)%tlev_sptr(tl)%p)) THEN
+        idata_type = iREAL_sp
       ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr) .OR.  &
         & ASSOCIATED(of%var_desc(iv)%tlev_iptr(tl)%p)) THEN
         idata_type = iINTEGER
@@ -813,12 +818,15 @@ CONTAINS
       SELECT CASE (info%ndims)
       CASE (1)
         IF (idata_type == iREAL)    ALLOCATE(r_ptr(info%used_dimensions(1),1,1))
+        IF (idata_type == iREAL_sp) ALLOCATE(s_ptr(info%used_dimensions(1),1,1))
         IF (idata_type == iINTEGER) ALLOCATE(i_ptr(info%used_dimensions(1),1,1))
 
         IF (info%lcontained .AND. (info%var_ref_pos /= -1))  &
           & CALL finish(routine, "internal error")
         IF (ASSOCIATED(of%var_desc(iv)%r_ptr)) THEN
           r_ptr(:,1,1) = of%var_desc(iv)%r_ptr(:,1,1,1,1)
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%s_ptr)) THEN
+          s_ptr(:,1,1) = of%var_desc(iv)%s_ptr(:,1,1,1,1)
         ELSE IF (ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
           i_ptr(:,1,1) = of%var_desc(iv)%i_ptr(:,1,1,1,1)
         ELSE
@@ -828,6 +836,7 @@ CONTAINS
       CASE (2)
         ! 2D fields: Make a 3D copy of the array
         IF (idata_type == iREAL)    ALLOCATE(r_ptr(info%used_dimensions(1),1,info%used_dimensions(2)))
+        IF (idata_type == iREAL_sp) ALLOCATE(s_ptr(info%used_dimensions(1),1,info%used_dimensions(2)))
         IF (idata_type == iINTEGER) ALLOCATE(i_ptr(info%used_dimensions(1),1,info%used_dimensions(2)))
 
         var_ref_pos = 3
@@ -841,6 +850,17 @@ CONTAINS
             r_ptr(:,1,:) = of%var_desc(iv)%r_ptr(:,nindex,:,1,1)
           CASE (3)
             r_ptr(:,1,:) = of%var_desc(iv)%r_ptr(:,:,nindex,1,1)
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%s_ptr)) THEN
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            s_ptr(:,1,:) = of%var_desc(iv)%s_ptr(nindex,:,:,1,1)
+          CASE (2)
+            s_ptr(:,1,:) = of%var_desc(iv)%s_ptr(:,nindex,:,1,1)
+          CASE (3)
+            s_ptr(:,1,:) = of%var_desc(iv)%s_ptr(:,:,nindex,1,1)
           CASE default
             CALL finish(routine, "internal error!")
           END SELECT
@@ -863,6 +883,17 @@ CONTAINS
             r_ptr(:,1,:) = of%var_desc(iv)%tlev_rptr(tl)%p(:,nindex,:,1,1)
           CASE (3)
             r_ptr(:,1,:) = of%var_desc(iv)%tlev_rptr(tl)%p(:,:,nindex,1,1)
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_sptr(tl)%p)) THEN
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            s_ptr(:,1,:) = of%var_desc(iv)%tlev_sptr(tl)%p(nindex,:,:,1,1)
+          CASE (2)
+            s_ptr(:,1,:) = of%var_desc(iv)%tlev_sptr(tl)%p(:,nindex,:,1,1)
+          CASE (3)
+            s_ptr(:,1,:) = of%var_desc(iv)%tlev_sptr(tl)%p(:,:,nindex,1,1)
           CASE default
             CALL finish(routine, "internal error!")
           END SELECT
@@ -890,6 +921,9 @@ CONTAINS
         IF (idata_type == iREAL)    ALLOCATE(r_ptr(info%used_dimensions(1), &
           &                                        info%used_dimensions(2), &
           &                                        info%used_dimensions(3)))
+        IF (idata_type == iREAL)    ALLOCATE(s_ptr(info%used_dimensions(1), &
+          &                                        info%used_dimensions(2), &
+          &                                        info%used_dimensions(3)))
         IF (idata_type == iINTEGER) ALLOCATE(i_ptr(info%used_dimensions(1), &
           &                                        info%used_dimensions(2), &
           &                                        info%used_dimensions(3)))
@@ -904,6 +938,19 @@ CONTAINS
             r_ptr = of%var_desc(iv)%r_ptr(:,:,nindex,:,1)
           CASE (4)
             r_ptr = of%var_desc(iv)%r_ptr(:,:,:,nindex,1)
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%s_ptr)) THEN
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            s_ptr = of%var_desc(iv)%s_ptr(nindex,:,:,:,1)
+          CASE (2)
+            s_ptr = of%var_desc(iv)%s_ptr(:,nindex,:,:,1)
+          CASE (3)
+            s_ptr = of%var_desc(iv)%s_ptr(:,:,nindex,:,1)
+          CASE (4)
+            s_ptr = of%var_desc(iv)%s_ptr(:,:,:,nindex,1)
           CASE default
             CALL finish(routine, "internal error!")
           END SELECT
@@ -930,6 +977,19 @@ CONTAINS
             r_ptr = of%var_desc(iv)%tlev_rptr(tl)%p(:,:,nindex,:,1)
           CASE (4)
             r_ptr = of%var_desc(iv)%tlev_rptr(tl)%p(:,:,:,nindex,1)
+          CASE default
+            CALL finish(routine, "internal error!")
+          END SELECT
+        ELSE IF (ASSOCIATED(of%var_desc(iv)%tlev_rptr(tl)%p)) THEN
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            s_ptr = of%var_desc(iv)%tlev_sptr(tl)%p(nindex,:,:,:,1)
+          CASE (2)
+            s_ptr = of%var_desc(iv)%tlev_sptr(tl)%p(:,nindex,:,:,1)
+          CASE (3)
+            s_ptr = of%var_desc(iv)%tlev_sptr(tl)%p(:,:,nindex,:,1)
+          CASE (4)
+            s_ptr = of%var_desc(iv)%tlev_sptr(tl)%p(:,:,:,nindex,1)
           CASE default
             CALL finish(routine, "internal error!")
           END SELECT
@@ -1301,6 +1361,12 @@ CONTAINS
                   & REAL(r_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),sp)
               ENDDO
             END IF
+            IF (idata_type == iREAL_sp) THEN
+              DO i = 1, p_ri%n_own
+                of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = &
+                  & s_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i))
+              ENDDO
+            END IF
             IF (idata_type == iINTEGER) THEN
               DO i = 1, p_ri%n_own
                 of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = &
@@ -1346,6 +1412,7 @@ CONTAINS
 
       ! clean up
       IF (ALLOCATED(r_ptr)) DEALLOCATE(r_ptr)
+      IF (ALLOCATED(s_ptr)) DEALLOCATE(s_ptr)
       IF (ALLOCATED(i_ptr)) DEALLOCATE(i_ptr)
 
     ENDDO
