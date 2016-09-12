@@ -62,6 +62,8 @@ MODULE mo_tracer_metadata_types
   ! Aerosol-specific metadata
   TYPE, extends(t_tracer_meta) :: t_aero_meta
     !
+    CHARACTER(LEN=VARNAME_LEN) :: &
+      &         mode              ! name of mode the tracer is contained in
     REAL(wp) :: solubility        ! Solubility, between 0 (insoluble) and 1 (soluble)
     REAL(wp) :: rho               ! Density [kg m-3]
     REAL(wp) :: mol_weight        ! Molar mass [g mol-1]

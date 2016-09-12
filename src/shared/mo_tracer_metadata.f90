@@ -71,21 +71,23 @@ CONTAINS
   TYPE(t_aero_meta) FUNCTION create_tracer_metadata_aero(lis_tracer, name, ihadv_tracer, ivadv_tracer,          &
                       &                                  lturb_tracer, lconv_tracer, ised_tracer, ldep_tracer,  &
                       &                                  iwash_tracer,                                          &
-                      &                                  solubility, rho, mol_weight)
+                      &                                  mode, solubility, rho, mol_weight)
     ! Base type (t_tracer_meta) content
-    LOGICAL, INTENT(IN), OPTIONAL  :: lis_tracer       ! this is a tracer field (TRUE/FALSE)
+    LOGICAL, INTENT(IN), OPTIONAL  :: lis_tracer      ! this is a tracer field (TRUE/FALSE)
     CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: name      ! Name of tracer
-    INTEGER, INTENT(IN), OPTIONAL  :: ihadv_tracer     ! Method for horizontal transport
-    INTEGER, INTENT(IN), OPTIONAL  :: ivadv_tracer     ! Method for vertical transport
-    LOGICAL, INTENT(IN), OPTIONAL  :: lturb_tracer     ! Switch for turbulent transport
-    LOGICAL, INTENT(IN), OPTIONAL  :: lconv_tracer     ! Switch for convection
-    INTEGER, INTENT(IN), OPTIONAL  :: ised_tracer      ! Method for sedimentation
-    LOGICAL, INTENT(IN), OPTIONAL  :: ldep_tracer      ! Switch for dry deposition
-    INTEGER, INTENT(IN), OPTIONAL  :: iwash_tracer     ! Method for washout
+    INTEGER, INTENT(IN), OPTIONAL  :: ihadv_tracer    ! Method for horizontal transport
+    INTEGER, INTENT(IN), OPTIONAL  :: ivadv_tracer    ! Method for vertical transport
+    LOGICAL, INTENT(IN), OPTIONAL  :: lturb_tracer    ! Switch for turbulent transport
+    LOGICAL, INTENT(IN), OPTIONAL  :: lconv_tracer    ! Switch for convection
+    INTEGER, INTENT(IN), OPTIONAL  :: ised_tracer     ! Method for sedimentation
+    LOGICAL, INTENT(IN), OPTIONAL  :: ldep_tracer     ! Switch for dry deposition
+    INTEGER, INTENT(IN), OPTIONAL  :: iwash_tracer    ! Method for washout
     ! Extended type (t_aero_meta) content
-    REAL(wp), INTENT(IN), OPTIONAL :: solubility        ! Solubility, between 0 (insoluble) and 1 (soluble)
-    REAL(wp), INTENT(IN), OPTIONAL :: rho               ! Density [kg m-3]
-    REAL(wp), INTENT(IN), OPTIONAL :: mol_weight        ! Molar mass [g mol-1]
+    CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: &
+      &                               mode             ! Name of mode the tracer is contained in
+    REAL(wp), INTENT(IN), OPTIONAL :: solubility       ! Solubility, between 0 (insoluble) and 1 (soluble)
+    REAL(wp), INTENT(IN), OPTIONAL :: rho              ! Density [kg m-3]
+    REAL(wp), INTENT(IN), OPTIONAL :: mol_weight       ! Molar mass [g mol-1]
 
     ! Fill the metadata of the base type
     CALL create_tracer_metadata_aero%construct_base(lis_tracer, name, ihadv_tracer, ivadv_tracer,  &
@@ -93,6 +95,13 @@ CONTAINS
       &                                             ldep_tracer, iwash_tracer)
 
     ! Fill the meta of the extended type (t_aero_meta)
+    IF(PRESENT(mode)) THEN
+      create_tracer_metadata_aero%mode = TRIM(mode)
+    ELSE
+      create_tracer_metadata_aero%mode = 'no_mode'
+    ENDIF
+
+    
     IF(PRESENT(solubility)) THEN
       create_tracer_metadata_aero%solubility = solubility
     ELSE
