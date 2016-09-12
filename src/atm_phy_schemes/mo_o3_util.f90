@@ -28,8 +28,8 @@
 
 MODULE mo_o3_util
 
+  USE mo_kind,                 ONLY: i8
   USE mo_exception,            ONLY: finish
-  USE mo_get_utc_date_tr,      ONLY: get_utc_date_tr
   USE mo_parallel_config,      ONLY: nproma
   USE mo_impl_constants,       ONLY: min_rlcell_int, max_dom
   USE mo_kind,                 ONLY: wp
@@ -45,7 +45,12 @@ MODULE mo_o3_util
   USE mo_radiation_config,     ONLY: irad_o3
   USE mo_physical_constants,   ONLY: amd,amo3,rd,grav
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, ltuning_ozone, icpl_o3_tp
-  USE mtime,                     ONLY: datetime
+  USE mo_time_config,          ONLY: time_config
+  USE mtime,                   ONLY: datetime, newDatetime, timedelta, newTimedelta, &
+       &                             getPTStringFromSeconds, OPERATOR(+),            &
+       &                             NO_OF_SEC_IN_A_MINUTE, NO_OF_SEC_IN_A_HOUR,     &
+       &                             getDayOfYearFromDatetime, MAX_TIMEDELTA_STR_LEN,&
+       &                             deallocateTimedelta, deallocateDatetime
   USE mo_bcs_time_interpolation, ONLY: tiw => current_time_interpolation_weights
   
   IMPLICIT NONE
@@ -314,7 +319,7 @@ CONTAINS
 
     REAL(wp) ::                     &
       & z_sim_time_rad,  &
-      & zstunde,                   & ! output from routine get_utc_date_tr
+      & zstunde,                   &
       & ztwo  , ztho
 
     ! output from o3_par_t5:
@@ -341,23 +346,31 @@ CONTAINS
 !!$    INTEGER :: jk
     
     INTEGER :: &
-      & jj, itaja, jb !& ! output from routine get_utc_date_tr
+      & jj, itaja, jb
 
     INTEGER , SAVE :: itaja_o3_previous(max_dom) = 0
     
     INTEGER :: jmm,mmm,mnc,mns,jnn,jc
 
+    TYPE(datetime), POINTER :: current => NULL()
+    TYPE(timedelta), POINTER :: td => NULL()
+    CHARACTER(len=MAX_TIMEDELTA_STR_LEN) :: td_string 
+    
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     
     z_sim_time_rad = z_sim_time + 0.5_wp*p_inc_rad
 
-    CALL get_utc_date_tr (                 &
-      &   p_sim_time     = z_sim_time_rad, &
-      &   itype_calendar = 0,              &
-      &   iyear          = jj,             &
-      &   nactday        = itaja,          &
-      &   acthour        = zstunde )
-
+    current => newDatetime(time_config%tc_exp_startdate)
+    CALL getPTStringFromSeconds(INT(z_sim_time_rad,i8), td_string)
+    td => newTimedelta(td_string)
+    current = time_config%tc_exp_startdate + td
+    jj = INT(current%date%year)
+    itaja = getDayOfYearFromDateTime(current)
+    zstunde = current%time%hour &
+         & +(current%time%minute*NO_OF_SEC_IN_A_MINUTE+current%time%second+1.0d-3*current%time%ms)/NO_OF_SEC_IN_A_HOUR
+    CALL deallocateDatetime(current)
+    CALL deallocateTimedelta(td)
+    
     !decide whether new ozone calculation is necessary
     IF ( itaja == itaja_o3_previous(jg) ) RETURN
     itaja_o3_previous(jg) = itaja

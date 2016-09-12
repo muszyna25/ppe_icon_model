@@ -263,6 +263,7 @@ CONTAINS
         CALL deallocateTimedelta(tmp_td2)
       END IF
     ELSE IF (dt_restart == 0._wp) THEN
+      restart_intvl_string = 'PT0.000S'
       CALL set_tc_write_restart(.FALSE.)
     END IF
     ! if "restart_intvl_string" still unspecified: set default
@@ -463,7 +464,7 @@ CONTAINS
     CASE ('365 day year')  
       dtime_calendar  = -1
       mtime_calendar  = mtime_year_of_365_days
-      CALL finish(routine, "Year-of-365-days calendar unsupported by datetime module!")
+      !      CALL finish(routine, "Year-of-365-days calendar unsupported by datetime module!")
     CASE ('360 day year')  
       dtime_calendar  = dtime_cly360
       mtime_calendar  = mtime_year_of_360_days
@@ -790,7 +791,7 @@ CONTAINS
     ! --- Second, create date-time objects from the mtime library
 
     CALL set_tc_startdate    ( start_datetime_string     )
-    CALL set_tc_exp_stopdate ( stop_datetime_string      )
+    CALL set_tc_stopdate     ( stop_datetime_string      )
     CALL set_tc_exp_startdate( exp_start_datetime_string )
     CALL set_tc_exp_stopdate ( exp_stop_datetime_string  )
     CALL set_tc_exp_refdate  ( exp_ref_datetime_string   )

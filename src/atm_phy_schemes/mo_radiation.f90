@@ -43,7 +43,7 @@
 MODULE mo_radiation
 
   USE mo_aerosol_util,         ONLY: zaea_rrtm,zaes_rrtm,zaeg_rrtm
-  USE mo_kind,                 ONLY: wp
+  USE mo_kind,                 ONLY: wp, i8
   USE mo_exception,            ONLY: finish
 
   USE mo_model_domain,         ONLY: t_patch
@@ -52,7 +52,7 @@ MODULE mo_radiation
   USE mo_physical_constants,   ONLY: grav,  rd,    avo,   amd,  amw,  &
     &                                amco2, amch4, amn2o, amo3, amo2, &
     &                                stbo
-
+  USE mo_time_config,          ONLY: time_config
   USE mo_radiation_config,     ONLY: tsi_radt,   ssi_radt,            &
     &                                irad_co2,   mmr_co2,             &
     &                                irad_ch4,   mmr_ch4,   vpp_ch4,  &
@@ -78,7 +78,6 @@ MODULE mo_radiation
   USE mo_psrad_spec_sampling,  ONLY: get_num_gpoints
   USE mo_psrad_interface,      ONLY: lw_strat, sw_strat
   USE mo_psrad_radiation_parameters, ONLY: psctm
-  USE mo_get_utc_date_tr,      ONLY: get_utc_date_tr
   USE mo_timer,                ONLY: ltimer, timer_start, timer_stop,  &
     &                                timer_radiation,                  &
     &                                timer_rrtm_prep, timer_rrtm_post, &
@@ -88,7 +87,12 @@ MODULE mo_radiation
   USE mo_rad_diag,             ONLY: rad_aero_diag
   USE mo_art_radiation_interface, ONLY: art_rad_aero_interface
   USE mo_psrad_radiation_forcing, ONLY: calculate_psrad_radiation_forcing
-  USE mtime,                   ONLY: no_of_sec_in_a_day
+  USE mtime,                   ONLY: datetime, newDatetime, timedelta, newTimedelta, &
+       &                             getPTStringFromSeconds, OPERATOR(+),            &
+       &                             NO_OF_SEC_IN_A_MINUTE, NO_OF_SEC_IN_A_HOUR,     &
+       &                             getDayOfYearFromDatetime, MAX_TIMEDELTA_STR_LEN,&
+       &                             deallocateTimedelta, deallocateDatetime,        &
+       &                             NO_OF_SEC_IN_A_DAY
   
   IMPLICIT NONE
 
@@ -122,7 +126,7 @@ CONTAINS
 
     REAL(wp) ::                    &
       & p_sim_time_rad,            &
-      & zstunde,                   & ! output from routine get_utc_date_tr
+      & zstunde,                   &
       & ztwo, ztho  ,              &
       & zdek,                      &
       & zsocof, zeit0,             &
@@ -139,7 +143,7 @@ CONTAINS
       & zeitrad(kbdim,pt_patch%nblks_c) ,&
       & z_cosmu0(kbdim,pt_patch%nblks_c)
 
-    INTEGER :: jj, itaja   ! output from routine get_utc_date_tr
+    INTEGER :: jj, itaja
 
     INTEGER :: ie,jb,jc,jmu0,n_zsct,nsteps
 
@@ -147,6 +151,10 @@ CONTAINS
 
     INTEGER , SAVE :: itaja_zsct_previous = 0
 
+    TYPE(datetime), POINTER :: current => NULL()
+    TYPE(timedelta), POINTER :: td => NULL()
+    CHARACTER(len=MAX_TIMEDELTA_STR_LEN) :: td_string 
+        
     IF (izenith == 0) THEN
     ! local insolation = constant = global mean insolation (ca. 340 W/m2)
     ! zenith angle = 0,
@@ -188,15 +196,19 @@ CONTAINS
       nsteps = NINT(p_inc_rad/p_inc_radheat)
 
       DO jmu0=1,nsteps
-
+        
         p_sim_time_rad = p_sim_time + (REAL(jmu0,wp)-0.5_wp)*p_inc_radheat
-
-        CALL get_utc_date_tr (                 &
-          &   p_sim_time     = p_sim_time_rad, &
-          &   itype_calendar = 0,              &
-          &   iyear          = jj,             &
-          &   nactday        = itaja,          &
-          &   acthour        = zstunde )
+        
+        current => newDatetime(time_config%tc_exp_startdate)
+        CALL getPTStringFromSeconds(INT(p_sim_time_rad,i8), td_string)
+        td => newTimedelta(td_string)
+        current = time_config%tc_exp_startdate + td
+        jj = INT(current%date%year)
+        itaja = getDayOfYearFromDateTime(current)
+        zstunde = current%time%hour &
+             & +(current%time%minute*NO_OF_SEC_IN_A_MINUTE+current%time%second+1.0d-3*current%time%ms)/NO_OF_SEC_IN_A_HOUR
+        CALL deallocateDatetime(current)
+        CALL deallocateTimedelta(td)
 
         DO jb = 1, pt_patch%nblks_c
           ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
@@ -248,12 +260,16 @@ CONTAINS
 
         p_sim_time_rad = p_sim_time + (REAL(jmu0,wp)-0.5_wp)*p_inc_radheat
 
-        CALL get_utc_date_tr (                 &
-          &   p_sim_time     = p_sim_time_rad, &
-          &   itype_calendar = 0,              &
-          &   iyear          = jj,             &
-          &   nactday        = itaja,          &
-          &   acthour        = zstunde )
+        current => newDatetime(time_config%tc_exp_startdate)
+        CALL getPTStringFromSeconds(INT(p_sim_time_rad,i8), td_string)
+        td => newTimedelta(td_string)
+        current = time_config%tc_exp_startdate + td
+        jj = INT(current%date%year)
+        itaja = getDayOfYearFromDateTime(current)
+        zstunde = current%time%hour &
+             & +(current%time%minute*NO_OF_SEC_IN_A_MINUTE+current%time%second+1.0d-3*current%time%ms)/NO_OF_SEC_IN_A_HOUR
+        CALL deallocateDatetime(current)
+        CALL deallocateTimedelta(td)
 
         IF ( itaja /= itaja_zsct_previous ) THEN
           itaja_zsct_previous = itaja
@@ -366,11 +382,11 @@ CONTAINS
 
     REAL(wp) ::                     &
       & p_sim_time_rad,  &
-      & zstunde,                   & ! output from routine get_utc_date_tr
-      & ztwo  , ztho  ,            & !
-      & zdtzgl, zdek  ,            & !
-      & zsocof, zeit0 ,            & !
-      & zdeksin,zdekcos!,           & !
+      & zstunde,                   &
+      & ztwo  , ztho  ,            &
+      & zdtzgl, zdek  ,            &
+      & zsocof, zeit0 ,            &
+      & zdeksin,zdekcos
 
     REAL(wp) ::                     &
       & zsinphi(kbdim,pt_patch%nblks_c) ,&
@@ -378,10 +394,14 @@ CONTAINS
       & zeitrad(kbdim,pt_patch%nblks_c)! ,&
 
     INTEGER :: &
-      & jj, itaja, jb, ie !& ! output from routine get_utc_date_tr
+      & jj, itaja, jb, ie
 
     INTEGER , SAVE :: itaja_zsct_previous = 0
     REAL(wp), SAVE :: zsct_save
+
+    TYPE(datetime), POINTER :: current => NULL()
+    TYPE(timedelta), POINTER :: td => NULL()
+    CHARACTER(len=MAX_TIMEDELTA_STR_LEN) :: td_string 
 
     !First: cases izenith==0 to izenith==2 (no date and time needed)
     IF (izenith == 0) THEN
@@ -415,14 +435,18 @@ CONTAINS
     ENDIF
 
     p_sim_time_rad = p_sim_time + 0.5_wp*p_inc_rad
-
-    CALL get_utc_date_tr (                 &
-      &   p_sim_time     = p_sim_time_rad, &
-      &   itype_calendar = 0,              &
-      &   iyear          = jj,             &
-      &   nactday        = itaja,          &
-      &   acthour        = zstunde )
-
+    
+    current => newDatetime(time_config%tc_exp_startdate)
+    CALL getPTStringFromSeconds(INT(p_sim_time_rad,i8), td_string)
+    td => newTimedelta(td_string)
+    current = time_config%tc_exp_startdate + td
+    jj = INT(current%date%year)
+    itaja = getDayOfYearFromDateTime(current)
+    zstunde = current%time%hour &
+         & +(current%time%minute*NO_OF_SEC_IN_A_MINUTE+current%time%second+1.0d-3*current%time%ms)/NO_OF_SEC_IN_A_HOUR
+    CALL deallocateDatetime(current)
+    CALL deallocateTimedelta(td)
+    
     !Second case izenith==3 (time (but no date) needed)
     IF (izenith == 3) THEN
 
