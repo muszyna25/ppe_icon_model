@@ -163,8 +163,8 @@ CONTAINS
    ! set the output variable pointer to the correct timelevel
     CALL set_output_pointers(nnew(1), ocean_state(jg)%p_diag, ocean_state(jg)%p_prog(nnew(1)))
     IF(lhamocc)CALL set_bgc_output_pointers(nnew(1), hamocc%p_diag, ocean_state(jg)%p_prog(nnew(1)))
-  
-    CALL write_name_list_output(out_step)
+ 
+    IF (output_mode%l_nml) CALL write_name_list_output(out_step)
 
     fmtstr = '%Y-%m-%d %H:%M:%S'
     call datetimeToPosixString(this_datetime, datestring, fmtstr)

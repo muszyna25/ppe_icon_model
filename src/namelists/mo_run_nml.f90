@@ -162,7 +162,7 @@ CONTAINS
 
     ! Note: The default needs to be empty, since there exist
     ! concurrent namelist parameters to specify these values:
-    modelTimeStep = "" 
+    modelTimeStep = ''
     dtime         = 0._wp
     
     ltimer               = .TRUE.

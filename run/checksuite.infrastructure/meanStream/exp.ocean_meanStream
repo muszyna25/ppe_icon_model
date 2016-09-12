@@ -6,7 +6,7 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-01T04:00:00Z"
+  end_date="2001-01-01T05:00:00Z"
 #
 #-----------------------------------------------------------------------------
 # model timing
@@ -73,11 +73,10 @@ cat > ${ocean_namelist} << EOF
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${output_interval}"
   steps_per_file   = ${steps_per_file}                ! error with ""
-  mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .true.
   output_grid      = .TRUE.
   ml_varlist       =  'u','v','h'
-! ml_varlist       =  'u','v','h','group:ocean_monitor','volume_Global'
 /
 &output_nml
   output_filename  = "${EXPNAME}_mean_1h"
@@ -86,7 +85,7 @@ cat > ${ocean_namelist} << EOF
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${output_interval}"
   steps_per_file   = ${steps_per_file}                ! error with ""
-  mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   operation        = "mean"
   include_last     = .true.
   output_grid      = .TRUE.
@@ -117,7 +116,6 @@ cat > ${ocean_namelist} << EOF
   operation        = "mean"
   output_grid      = .TRUE.
   ml_varlist       =  'u','v','h'
-! ml_varlist       =  'u','v','h','volume_Global','group:ocean_monitor'
 /
 &dbg_index_nml
   idbg_mxmn=0                     ! initialize MIN/MAX  debug output
