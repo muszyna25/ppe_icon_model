@@ -866,8 +866,9 @@ CONTAINS
     IF      (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w) THEN
       CALL sync_patch_array_mult( SYNC_C                       ,&
         &                         patch                        ,&
-        &                         ntracer+4                    ,&
+        &                         ntracer+5                    ,&
         &                         pt_prog_new%w                ,&
+        &                         pt_prog_new%rho              ,&
         &                         pt_diag%exner_old            ,&
         &                         pt_prog_new%exner            ,&
         &                         pt_prog_new%theta_v          ,&
@@ -875,7 +876,8 @@ CONTAINS
     ELSE IF (lhdiff_rcf) THEN
       CALL sync_patch_array_mult( SYNC_C                       ,&
         &                         patch                        ,&
-        &                         ntracer+3                    ,&
+        &                         ntracer+4                    ,&
+        &                         pt_prog_new%rho              ,&
         &                         pt_diag%exner_old            ,&
         &                         pt_prog_new%exner            ,&
         &                         pt_prog_new%theta_v          ,&
@@ -883,7 +885,8 @@ CONTAINS
     ELSE
       CALL sync_patch_array_mult( SYNC_C                       ,&
         &                         patch                        ,&
-        &                         ntracer+2                    ,&
+        &                         ntracer+3                    ,&
+        &                         pt_prog_new%rho              ,&
         &                         pt_prog_new%exner            ,&
         &                         pt_prog_new%theta_v          ,&
         &                         f4din=pt_prog_new_rcf%tracer )
