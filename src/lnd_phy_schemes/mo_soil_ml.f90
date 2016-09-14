@@ -749,8 +749,8 @@ END SUBROUTINE message
     zepsi  = 1.0E-6_ireals , & ! security constant
     zalfa  = 1.0_ireals    , & ! degree of impliciteness (1: full implicit,
                                !    (0.5: Cranck-Nicholson)
-    T_ref_ice = 0.1_ireals , & !°C Soil ice parameterization
-    T_star_ice= 0.01_ireals, & !°C according to K. Schaefer and Jafarov, E.,2016, doi:10.5194/bg-13-1991-2016
+    T_ref_ice = 0.1_ireals , & !degC Soil ice parameterization
+    T_star_ice= 0.01_ireals, & !degC according to K. Schaefer and Jafarov, E.,2016, doi:10.5194/bg-13-1991-2016
     b_clay= -0.3_ireals , & 
     b_silt= -0.5_ireals , &
     b_sand= -0.9_ireals , &
@@ -4079,7 +4079,7 @@ ENDIF
                    zw_m_org(i) = ((T_ref_ice-(t_so_new(i,kso)-t0_melt))/T_star_ice)**b_org
 
 ! J. Helmert: Scale soil ice content with organic soil horizon.
-!             should decrease the toot zone liquid water content of frozen soil for low temperatures significantly!
+!             should decrease the root zone liquid water content of frozen soil for low temperatures significantly!
         IF(zmls(kso) < rootdp(i)) THEN
           zzz = plcov(i)*(rootdp(i)-zmls(kso))/rootdp(i)
           zw_m(i) = zporv(i,kso)*zdzhs(kso)*(zzz*zw_m_org(i) + (1._ireals-zzz)* zw_m_soil(i))
