@@ -86,7 +86,7 @@ MODULE mo_interface_iconam_echam
 
   USE mo_nonhydro_types        ,ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nh_diagnose_pres_temp ,ONLY: diagnose_pres_temp
-  USE mo_physical_constants    ,ONLY: rd, p0ref, rd_o_cpd, vtmpc1, grav, amco2, amd
+  USE mo_physical_constants    ,ONLY: rd, p0ref, rd_o_cpd, vtmpc1, grav
 
   USE mo_datetime              ,ONLY: t_datetime
   USE mo_echam_phy_memory      ,ONLY: prm_field, prm_tend
@@ -100,7 +100,7 @@ MODULE mo_interface_iconam_echam
     &                                 timer_dyn2phy, timer_d2p_prep, timer_d2p_sync, timer_d2p_couple, &
     &                                 timer_echam_bcs, timer_echam_phy, timer_coupling,                &
     &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
-  USE mo_bc_greenhouse_gases   ,ONLY: ghg_co2mmr
+
   IMPLICIT NONE
 
   PRIVATE
@@ -161,7 +161,6 @@ CONTAINS
 
     REAL(wp) :: z_exner              !< to save provisional new exner
     REAL(wp) :: z_qsum               !< summand of virtual increment
-    REAL(wp) :: z_ddt_qsum           !< summand of virtual increment tendency
 
     REAL(wp) :: zvn1, zvn2
     REAL(wp), POINTER :: zdudt(:,:,:), zdvdt(:,:,:)
