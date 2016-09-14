@@ -174,7 +174,10 @@ CONTAINS
   !! Delete internal mean value fields
   !!
   SUBROUTINE finish_mean_stream()
-!DEBUG  IF (my_process_is_stdio()) CALL print_summary('destruct mean stream variables')
+
+#ifdef DEBUG
+    IF (my_process_is_stdio()) CALL print_summary('destruct mean stream variables')
+#endif
 
     CALL delete_var_list(mean_stream_list)
   END SUBROUTINE finish_mean_stream
@@ -483,8 +486,9 @@ call print_summary("COPY variable:"//TRIM(name))
     TYPE(divisionquotienttimespan) :: quot
 
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::perform_accumulation"
+
 #ifdef DEBUG
-if (my_process_is_stdio()) call print_routine(routine,'start')
+    if (my_process_is_stdio()) call print_routine(routine,'start')
 #endif
 
     meanMapIterator   = meanMap%iter()
@@ -494,9 +498,11 @@ if (my_process_is_stdio()) call print_routine(routine,'start')
     ! this is necessary because of mtime internals
     isactive = .false.
     mtime_date  => newDatetime(time_config%tc_current_date)
+
 #ifdef DEBUG
-if (my_process_is_stdio()) call print_summary('Current mtime timestamp:'//trim(mtime_cur_datetime))
+    if (my_process_is_stdio()) call print_summary('Current mtime timestamp:'//trim(mtime_cur_datetime))
 #endif
+
     ! Save results for (not so much) later
     do while (meanEventIterator%next(myItem))
       select type (myItem)
@@ -510,8 +516,9 @@ if (my_process_is_stdio()) call print_summary('Current mtime timestamp:'//trim(m
         call meanEventsActivity%add(meanEventKey,isactive)
       end select
     end do
+
 #ifdef DEBUG
-if (my_process_is_stdio()) call print_error(meanEventsActivity%to_string())
+    if (my_process_is_stdio()) call print_error(meanEventsActivity%to_string())
 #endif
     ! }}}
 
@@ -524,14 +531,16 @@ if (my_process_is_stdio()) call print_error(meanEventsActivity%to_string())
         varListForMeanEvent => myItem%value
 
 #ifdef DEBUG
-if (my_process_is_stdio()) call print_summary(object_pointer_string(meanEventKey)//"PERFORM ACCU") !TODO
+        if (my_process_is_stdio()) call print_summary(object_pointer_string(meanEventKey)//"PERFORM ACCU") !TODO
 #endif
+
         select type(varListForMeanEvent)
         class is (vector_ref)
       !IF ( my_process_is_stdio() ) write(0,*)'type: vector' !TODO
           do element_counter=1,varListForMeanEvent%length(),2
+
 #ifdef DEBUG
-if (my_process_is_stdio()) call print_routine("perform_accumulation",object_string(element_counter))
+          if (my_process_is_stdio()) call print_routine("perform_accumulation",object_string(element_counter))
 #endif
 
             sourceVariable      => varListForMeanEvent%at(element_counter)
@@ -550,40 +559,38 @@ if (my_process_is_stdio()) call print_routine("perform_accumulation",object_stri
                     ! accumulation, too
 
 #ifdef DEBUG
-if (my_process_is_stdio()) call print_error("show meanPrognostic:"//TRIM(destinationVariable%field%info%name))
+                    if (my_process_is_stdio()) &
+                      & call print_error("show meanPrognostic:"//TRIM(destinationVariable%field%info%name))
 #endif
-                   !SELECT CASE (destinationVariable%field%info%tlev_source)
-                   !CASE(TLEV_NNOW);     timelevel = timelevelIndex
-                   !CASE(TLEV_NNEW);     timelevel = timelevelIndex
-                   !CASE(TLEV_NNOW_RCF); timelevel = timelevelIndex_rcf
-                   !CASE(TLEV_NNEW_RCF); timelevel = timelevelIndex_rcf
-                   !CASE DEFAULT;        timelevel = timelevelIndex
-                   !END SELECT
-                    timelevel = metainfo_get_timelevel(destinationVariable%field%info, 1)
-                    source         => get_prognostics_source_pointer (destinationVariable, timelevel)
+
+                    timelevel =  metainfo_get_timelevel(destinationVariable%field%info, 1)
+                    source    => get_prognostics_source_pointer (destinationVariable, timelevel)
                     
                   else
                   ! }}}
-                  source      => sourceVariable
+                    source    => sourceVariable
                   end if
                   destination => destinationVariable
                   counter     => meanVarCounter%get(destination%field%info%name)
                   select type (counter)
                   type is (integer)
+
 #ifdef DEBUG
-IF ( my_process_is_stdio() ) call print_summary('sourceName : '//trim(source%field%info%name))
-IF ( my_process_is_stdio() ) call print_summary('destName   : '//trim(destination%field%info%name))
-IF ( my_process_is_stdio() ) call print_summary('destNameOut: '//trim(destination%field%info%cf%short_name))
-IF ( my_process_is_stdio() )  write (0,*)'counter: ',counter
+                    IF ( my_process_is_stdio() ) call print_summary('sourceName : '//trim(source%field%info%name))
+                    IF ( my_process_is_stdio() ) call print_summary('destName   : '//trim(destination%field%info%name))
+                    IF ( my_process_is_stdio() ) call print_summary('destNameOut: '//trim(destination%field%info%cf%short_name))
+                    IF ( my_process_is_stdio() ) write (0,*)'old counter: ',counter
 #endif
-                    ! ACCUMULATION {{
+
+                    ! FIELD ACCUMULATION {{
                     varcounter = counter !TODO work around for integer pointer, ugly
                     CALL accumulation_add(source, destination, varcounter)
                     counter = varcounter
                     ! }}}
 #ifdef DEBUG
-IF ( my_process_is_stdio() )  write (0,*)'counter: ',counter
+                    IF ( my_process_is_stdio() )  write (0,*)'new counter: ',counter
 #endif
+
                   end select
 
                   ! MEAN VALUE COMPUTAION {{{
@@ -593,8 +600,9 @@ IF ( my_process_is_stdio() )  write (0,*)'counter: ',counter
                   type is (logical)
                     isactive = eventActive
                     if ( isactive ) then
+
 #ifdef DEBUG
-if (my_process_is_stdio()) CALL print_summary(" --------------->>>>  PERFORM MEAN VALUE COMP!!!!")
+                    if (my_process_is_stdio()) CALL print_summary(" --> PERFORM MEAN VALUE COMP!!!!")
 #endif
 
                       counter => meanVarCounter%get(destination%field%info%name)
@@ -618,9 +626,11 @@ if (my_process_is_stdio()) CALL print_summary(" --------------->>>>  PERFORM MEA
         end select 
       end select 
     end do
+
 #ifdef DEBUG
 if (my_process_is_stdio()) call print_routine(routine,'finish')
 #endif
+
   END SUBROUTINE perform_accumulation
 
   !>
