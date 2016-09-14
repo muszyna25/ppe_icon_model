@@ -315,6 +315,7 @@ case "$ac_sitename" in
                 NETCDFROOT  =${NETCDF_DIR}
                 CC          = cc
                 FC          = ftn
+		F77         = ftn 
                 make_command=make -j 8
                 case "$fortran_compiler" in
                     intel*)
