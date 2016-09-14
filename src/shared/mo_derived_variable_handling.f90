@@ -660,57 +660,66 @@ if (my_process_is_stdio()) call print_error("started event loop")
           do element_counter=1,varListForMeanEvent%length(),2 !start at 2 because the event is at index 1
 
             destinationVariable => varListForMeanEvent%at(element_counter+1)
+
 #ifdef DEBUG
-if (my_process_is_stdio()) call print_error("got destinationVariable")
+            if (my_process_is_stdio()) call print_error("got destinationVariable")
 #endif
+
             if (associated(destinationVariable)) then
+
 #ifdef DEBUG
-if (my_process_is_stdio()) call print_error("    destinationVariable is associated")
+            if (my_process_is_stdio()) call print_error("    destinationVariable is associated")
 #endif
+
               select type (destinationVariable)
               type is (t_list_element)
                   destination => destinationVariable
+
 #ifdef DEBUG
-if (my_process_is_stdio()) call print_error("    destinationVariable is t_list_element")
+                  if (my_process_is_stdio()) call print_error("    destinationVariable is t_list_element")
 #endif
+
                   eventActive => meanEventsActivity%get(meanEventKey)
+
 #ifdef DEBUG
-if (my_process_is_stdio()) call print_error("       eventActive got       ")
-#endif
                   if (.not.associated(eventActive)) then
-#ifdef DEBUG
-if (my_process_is_stdio()) call print_error("       eventActive not associated")
-#endif
+                    if (my_process_is_stdio()) call print_error("       eventActive not associated")
                   end if
+#endif
+
                   select type (eventActive)
                   type is (logical)
+
 #ifdef DEBUG
-if (my_process_is_stdio()) call print_error("       eventActive is logical")
+                    if (my_process_is_stdio()) call print_error("       eventActive is logical")
 #endif
+
                     if ( LOGICAL(eventActive) ) then
+
 #ifdef DEBUG
-if (my_process_is_stdio()) call print_error("       eventActive is true")
-if (my_process_is_stdio()) call print_error(object_string(meanEventKey)//' : ------------ >>>> PERFORM RESET')
+                      if (my_process_is_stdio()) call print_error("       eventActive is true")
+                      if (my_process_is_stdio()) call print_error(object_string(meanEventKey)//' : --> PERFORM RESET')
 #endif
+
                       destination%field%r_ptr = 0.0_wp
                     else
-if (my_process_is_stdio()) call print_error("       eventActive is false")
+                      if (my_process_is_stdio()) call print_error("       eventActive is false")
                     end if
                   class default
-if (my_process_is_stdio()) call print_error("       eventActive has wrong type")
+                      if (my_process_is_stdio()) call print_error("       eventActive has wrong type")
                   end select
               class default
-if (my_process_is_stdio()) call print_error("     destinationVariable is not t_list_element")
+                  if (my_process_is_stdio()) call print_error("     destinationVariable is not t_list_element")
               end select
             else
-if (my_process_is_stdio()) call print_error(routine//TRIM(": cannot find destination variable!"))
+              if (my_process_is_stdio()) call print_error(routine//TRIM(": cannot find destination variable!"))
             end if
           end do
         end select 
       end select 
     end do
 #ifdef DEBUG
-call print_routine(routine,'finish')
+if (my_process_is_stdio()) call print_routine(routine,'finish')
 #endif
   END SUBROUTINE reset_accumulation
 
