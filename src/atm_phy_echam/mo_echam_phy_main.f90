@@ -120,7 +120,6 @@ CONTAINS
 
     REAL(wp) :: ztsi                      !< total solar irradiation at 1 AU   [W/m2]
     REAL(wp) :: zi0    (nbdim)            !< solar incoming radiation at TOA   [W/m2]
-    REAL(wp) :: zmair  (nbdim,nlev)       !< mass of air                       [kg/m2]
     REAL(wp) :: zcd                       !< specific heat of dry air          [J/K/kg]
     REAL(wp) :: zcv                       !< specific heat of water vapor      [J/K/kg]
     REAL(wp) :: zcair  (nbdim,nlev)       !< specific heat of moist air        [J/K/kg]
@@ -249,15 +248,14 @@ CONTAINS
     DO jk = 1,nlev
       DO jc = jcs,jce
         !
-        ! 3.2 Thickness of model layer in pressure coordinate; mass of air
+        ! 3.2 Thickness of model layer in pressure coordinate
         !
         zdelp   (jc,jk) = field% presi_old (jc,jk+1,jb) - field% presi_old (jc,jk,jb)
-        zmair   (jc,jk) = zdelp(jc,jk)/grav
         !
         ! 3.2b Specific heat of moist air
         !
         zcair   (jc,jk) = zcd+(zcv-zcd)*field%qtrc(jc,jk,jb,iqv)
-        zconv   (jc,jk) = 1._wp/(zmair(jc,jk)*zcair(jc,jk))
+        zconv   (jc,jk) = 1._wp/(field%mair(jc,jk,jb)*zcair(jc,jk))
         !
         zcpair  (jc,jk) = cpd+(cpv-cpd)*field%qtrc(jc,jk,jb,iqv)
         zcvair  (jc,jk) = cvd+(cvv-cvd)*field%qtrc(jc,jk,jb,iqv)
@@ -578,7 +576,7 @@ CONTAINS
         & klevp1     = nlevp1,                         &! in    vertical dimension size
         & ntiles     = 1,                              &! in    number of tiles of sfc flux fields
         & ntiles_wtr =0,                               &! in    number of extra tiles for ocean and lakes
-        & pmair      = zmair                  (:,:)   ,&! in    layer air mass            [kg/m2]
+        & pmair      = field%mair             (:,:,jb),&! in    layer air mass            [kg/m2]
         & pqv        = field%qtrc             (:,:,jb,iqv),&!in specific moisture         [kg/kg]
         & pcd        = zcd                            ,&! in    specific heat of dry air  [J/kg/K]
         & pcv        = zcv                            ,&! in    specific heat of vapor    [J/kg/K]
@@ -1017,7 +1015,7 @@ CONTAINS
       IF (ltimer) call timer_stop(timer_gw_hines)
 
       ! heating
-      zq_gwh(jcs:jce,:) = zdis_gwh(jcs:jce,:) * zmair(jcs:jce,:)
+      zq_gwh(jcs:jce,:) = zdis_gwh(jcs:jce,:) * field%mair(jcs:jce,:,jb)
 
       ! heating accumulated
       zq_phy(jcs:jce,:) = zq_phy(jcs:jce,:) + zq_gwh(jcs:jce,:)
@@ -1078,7 +1076,7 @@ CONTAINS
       IF (ltimer) call timer_stop(timer_ssodrag)
 
       ! heating
-      zq_sso(jcs:jce,:) = zdis_sso(jcs:jce,:) * zmair(jcs:jce,:)
+      zq_sso(jcs:jce,:) = zdis_sso(jcs:jce,:) * field%mair(jcs:jce,:,jb)
 
       ! heating accumulated
       zq_phy(jcs:jce,:) = zq_phy(jcs:jce,:) + zq_sso(jcs:jce,:)
