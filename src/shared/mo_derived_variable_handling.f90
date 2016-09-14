@@ -512,8 +512,8 @@ call print_summary("COPY variable:"//TRIM(name))
 
     ! Check events first {{{
     ! this is necessary because of mtime internals
-    isactive = .false.
-    mtime_date  => newDatetime(time_config%tc_current_date)
+    isactive   = .false.
+    mtime_date => newDatetime(time_config%tc_current_date)
 
 #ifdef DEBUG
     if (my_process_is_stdio()) call print_summary('Current mtime timestamp:'//trim(mtime_cur_datetime))
@@ -644,7 +644,7 @@ call print_summary("COPY variable:"//TRIM(name))
     end do
 
 #ifdef DEBUG
-if (my_process_is_stdio()) call print_routine(routine,'finish')
+    if (my_process_is_stdio()) call print_routine(routine,'finish')
 #endif
 
   END SUBROUTINE perform_accumulation
@@ -664,7 +664,7 @@ if (my_process_is_stdio()) call print_routine(routine,'finish')
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::reset_accumulation"
 
 #ifdef DEBUG
-call print_routine(routine,'start')
+    if (my_process_is_stdio()) call print_routine(routine,'start')
 #endif
 
     meanMapIterator   = meanMap%iter()
@@ -672,7 +672,7 @@ call print_routine(routine,'start')
     do while (meanMapIterator%next(myItem))
 
 #ifdef DEBUG
-if (my_process_is_stdio()) call print_error("started event loop")
+      if (my_process_is_stdio()) call print_error("started event loop")
 #endif
       select type (myItem)
       type is (map_item)
@@ -744,9 +744,11 @@ if (my_process_is_stdio()) call print_error("started event loop")
         end select 
       end select 
     end do
+
 #ifdef DEBUG
-if (my_process_is_stdio()) call print_routine(routine,'finish')
+    if (my_process_is_stdio()) call print_routine(routine,'finish')
 #endif
+
   END SUBROUTINE reset_accumulation
 
   !>
