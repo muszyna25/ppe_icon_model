@@ -196,10 +196,10 @@ CONTAINS
   !! Go through the output namelists and create events and accumulation fields if needed
   !!
   SUBROUTINE process_mean_stream(p_onl,i_typ, sim_step_info, patch_2d)
-    TYPE (t_output_name_list), target :: p_onl
-    INTEGER :: i_typ
+    TYPE (t_output_name_list), target  :: p_onl
+    INTEGER                            :: i_typ
     TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
-    TYPE(t_patch), INTENT(IN) :: patch_2d
+    TYPE(t_patch), INTENT(IN)          :: patch_2d
 
     CHARACTER(LEN=vname_len), POINTER :: in_varlist(:)
     INTEGER :: ntotal_vars, output_variables,i,ierrstat, dataType
@@ -213,6 +213,10 @@ CONTAINS
     CHARACTER(LEN=VARNAME_LEN) :: dest_element_name
     LOGICAL :: foundPrognostic
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::process_mean_stream"
+
+#ifdef DEBUG
+    if (my_process_is_stdio()) call print_routine(routine,'start')
+#endif
 
     IF ("mean" .EQ. TRIM(p_onl%operation)) THEN
 
@@ -240,9 +244,11 @@ CONTAINS
       ! }}}
 
       eventKey = get_event_key(p_onl)
+
 #ifdef DEBUG
-if (my_process_is_stdio()) call print_summary('eventKey:'//trim(eventKey))
+      if (my_process_is_stdio()) call print_summary('eventKey:'//trim(eventKey))
 #endif
+
       IF ( meanMap%has_key(eventKey) ) THEN
         myBuffer => meanMap%get(eventKey)
         select type (myBuffer)
@@ -272,9 +278,11 @@ if (my_process_is_stdio()) call print_summary('eventKey:'//trim(eventKey))
  
         ! check for already create meanStream variable (maybe from another output_nml with the same output_interval)
         dest_element_name = get_accumulation_varname(varlist(i),p_onl)
+
 #ifdef DEBUG
-call print_summary('CHECK NAME:'//TRIM(dest_element_name))
+        if (my_process_is_stdio()) call print_summary('destination variable NAME:'//TRIM(dest_element_name))
 #endif
+
         dest_element => find_list_element(mean_stream_list, trim(dest_element_name))
         IF (.not. ASSOCIATED(dest_element) ) THEN !not found -->> create a new on
           ! find existing source variable
@@ -284,8 +292,9 @@ call print_summary('CHECK NAME:'//TRIM(dest_element_name))
             foundPrognostic = .false.
             timelevels = (/nold(1),nnow(1),nnew(1)/)
             do timelevel=1,3
+
 #ifdef DEBUG
-call print_error(get_varname_with_timelevel(varlist(i),timelevels(timelevel)))
+              if (my_process_is_stdio()) call print_error(get_varname_with_timelevel(varlist(i),timelevels(timelevel)))
 #endif
               src_element => find_element(get_varname_with_timelevel(varlist(i),timelevels(timelevel)))
               if ( ASSOCIATED(src_element) ) then
@@ -300,18 +309,23 @@ call print_error(get_varname_with_timelevel(varlist(i),timelevels(timelevel)))
           IF (.not. ASSOCIATED (src_element)) THEN
             call finish(routine,'Could not find source variable:'//TRIM(varlist(i)))
           END IF
+
 #ifdef DEBUG
-if ( my_process_is_stdio())CALL print_summary('src(name)     :|'//trim(src_element%field%info%name)//'|')
-if ( my_process_is_stdio())CALL print_summary('varlist(name) :|'//trim(in_varlist(i))//'|')
-if ( my_process_is_stdio())CALL print_summary('new name      :|'//trim(dest_element_name)//'|')
+          if (my_process_is_stdio()) CALL print_summary('src(name)     :|'//trim(src_element%field%info%name)//'|')
+          if (my_process_is_stdio()) CALL print_summary('varlist(name) :|'//trim(in_varlist(i))//'|')
+          if (my_process_is_stdio()) CALL print_summary('new name      :|'//trim(dest_element_name)//'|')
 #endif
+
           ! add new variable, copy the meta-data from the existing variable
           ! 1. copy the source variable to destination pointer
           dest_element => copy_var_to_list(mean_stream_list,dest_element_name,src_element, patch_2d)
 
           ! set output to double precission if necessary
           dest_element%field%info%cf%datatype = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
-if ( my_process_is_stdio()) print *,'copy_var to list CALLED'
+
+#ifdef DEBUG
+          if ( my_process_is_stdio()) print *,'copy_varr_to_list successfully CALLED'
+#endif
           ! 2. update the nc-shortname to internal name of the source variable
           dest_element%field%info%cf%short_name = get_var_name(src_element%field)
 
@@ -322,20 +336,22 @@ if ( my_process_is_stdio()) print *,'copy_var to list CALLED'
 
         ! replace existince varname in output_nml with the meanStream Variable
 #ifdef DEBUG
-if ( my_process_is_stdio())CALL print_summary('dst(name)     :|'//trim(dest_element%field%info%name)//'|')
-if ( my_process_is_stdio())CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_name)//'|')
+          if ( my_process_is_stdio()) CALL print_summary('dst(name)     :|'//trim(dest_element%field%info%name)//'|')
+          if ( my_process_is_stdio()) CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_name)//'|')
 #endif
         END IF
         in_varlist(i) = trim(dest_element%field%info%name)
       END DO
-print *,'meanVariables num:',meanVariables%length()
+
       call meanMap%add(eventKey,meanVariables)
     ELSE
       RETURN
     END IF
+
 #ifdef DEBUG
-if (my_process_is_stdio())  CALL print_error(meanVarCounter%to_string())
+    if (my_process_is_stdio()) call print_routine(routine,'end')
 #endif
+
   END SUBROUTINE process_mean_stream
 
   !>
