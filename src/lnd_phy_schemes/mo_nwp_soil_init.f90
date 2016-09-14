@@ -79,6 +79,7 @@ CONTAINS
                   czmls            , & ! processing soil level structure 
                   soiltyp_subs     , & ! type of the soil (keys 0-9)                     --
                   rootdp           , & ! depth of the roots                            ( m  )
+                  plcov            , & ! fraction of surface covered by plants         ( -  )
                   t_snow_now       , & ! temperature of the snow-surface               (  K  )
                   t_snow_mult_now  , & ! temperature of the snow-surface               (  K  )
                   t_s_now          , & ! temperature of the ground surface             (  K  )
@@ -123,7 +124,8 @@ CONTAINS
                   soiltyp_subs      ! type of the soil (keys 0-9)                     --
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: & 
                   rootdp           ! depth of the roots                            ( m  )
-
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: & 
+                  plcov           ! plant coverage                            ( -  )
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
                   t_snow_now              ! temperature of the snow-surface (K)
   REAL    (KIND = ireals), DIMENSION(ie,0:ke_snow), INTENT(INOUT) :: &
@@ -171,6 +173,14 @@ CONTAINS
   REAL    (KIND=ireals   ), PARAMETER ::  &
     zepsi  = 1.0E-6_ireals ! security constant
 
+  REAL    (KIND=ireals   ), PARAMETER ::  &
+    T_ref_ice = 0.1_ireals , & !degC Soil ice parameterization
+    T_star_ice= 0.01_ireals, & !degC according to K. Schaefer and Jafarov, E.,2016, doi:10.5194/bg-13-1991-2016
+    b_clay= -0.3_ireals , & 
+    b_silt= -0.5_ireals , &
+    b_sand= -0.9_ireals , &
+    b_org = -1.0_ireals 
+
 ! Local scalars:
 ! -------------
 
@@ -195,7 +205,7 @@ CONTAINS
 
 
   REAL    (KIND=ireals   ) ::  &
-    zaa, zh_snow                ! utility variable
+    zaa, zh_snow,zzz        ! utility variable
 
   REAL    (KIND = ireals) :: &
 !
@@ -210,8 +220,11 @@ CONTAINS
     zbwt     (ie)      , & ! root depth (with artificial minimum value)
     zsandf   (ie)      , & ! mean fraction of sand (weight percent)
     zclayf   (ie)      , & ! mean fraction of clay (weight percent)
+    zsiltf   (ie)      , & ! mean fraction of silt (weight percent)
     zb_por   (ie)      , & ! pore size distribution index
     zpsis    (ie)      , & ! air entry potential (m)
+    zw_m_org (ie)      , &  ! maximum of frac liquid water content (-)  organic
+    zw_m_soil(ie)      , &  ! maximum of frac liquid water content (-)  mineral soil
     zw_m     (ie)          ! maximum of liquid water content  (m)
 
   INTEGER  (KIND=iintegers ) ::  &
@@ -310,6 +323,7 @@ CONTAINS
     ! Arrays for soil water freezing/melting
     zsandf(i)   = csandf(mstyp)
     zclayf(i)   = cclayf(mstyp)
+    zsiltf(i)   = 100._ireals -csandf(mstyp)-cclayf(mstyp) ! Residuum of sand and clay
     zpsis(i)    = -zpsi0 * 10._ireals**(1.88_ireals-0.013_ireals*zsandf(i))
     zb_por(i)   = 2.91_ireals + .159_ireals*zclayf(i)
     zedb(i)     = 1._ireals/zb_por(i)
@@ -551,8 +565,27 @@ CONTAINS
           IF (t_so_now(i,kso) < (t0_melt-zepsi)) THEN 
             zaa    = g*zpsis(i)/lh_f
             zw_m(i)     = zporv(i)*zdzhs(kso)
-            zw_m(i)   = zw_m(i)*                                          &
-               ((t_so_now(i,kso) - t0_melt)/(t_so_now(i,kso)*zaa))**(-zedb(i))
+!            zw_m(i)   = zw_m(i)*                                          &
+!               ((t_so_now(i,kso) - t0_melt)/(t_so_now(i,kso)*zaa))**(-zedb(i))
+
+! J. Helmert: Soil ice parameterization according to K. Schaefer and Jafarov, E.,2016, doi:10.5194/bg-13-1991-2016
+
+            zw_m_soil(i) =  zsandf(i)/100._ireals*((T_ref_ice-(t_so_new(i,kso)-t0_melt))/T_star_ice)**b_sand + &
+                            zclayf(i)/100._ireals*((T_ref_ice-(t_so_new(i,kso)-t0_melt))/T_star_ice)**b_clay + &
+                            zsiltf(i)/100._ireals*((T_ref_ice-(t_so_new(i,kso)-t0_melt))/T_star_ice)**b_silt 
+            zw_m_org(i) = ((T_ref_ice-(t_so_new(i,kso)-t0_melt))/T_star_ice)**b_org
+
+! J. Helmert: Scale soil ice content with organic soil horizon.
+!             should decrease the root zone liquid water content of frozen soil for low temperatures significantly!
+        IF(zmls(kso) < rootdp(i)) THEN
+          zzz = plcov(i)*(rootdp(i)-zmls(kso))/rootdp(i)
+          zw_m(i) = zporv(i)*zdzhs(kso)*(zzz*zw_m_org(i) + (1._ireals-zzz)* zw_m_soil(i))
+        ELSE
+          zzz = 0._ireals
+          zw_m(i) = zporv(i)*zdzhs(kso)*zw_m_soil(i)
+        END IF
+
+
             w_so_ice_now(i,kso) = MAX (0.0_ireals,w_so_now(i,kso) - zw_m(i))
             w_so_ice_new(i,kso) = MAX (0.0_ireals,w_so_now(i,kso) - zw_m(i))
           ELSE ! ensure that w_so_ice is zero
