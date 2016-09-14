@@ -92,9 +92,11 @@ MODULE mo_interface_iconam_echam
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs_global
   USE mo_echam_phy_main        ,ONLY: echam_phy_main
   USE mo_interface_echam_ocean ,ONLY: interface_echam_ocean
+  
 #ifndef __NO_JSBACH__
   USE mo_jsb_interface         ,ONLY: jsbach_start_timestep, jsbach_finish_timestep
 #endif
+  
   USE mo_timer                 ,ONLY: ltimer, timer_start, timer_stop,           &
     &                                 timer_dyn2phy, timer_d2p_prep, timer_d2p_sync, timer_d2p_couple, &
     &                                 timer_echam_bcs, timer_echam_phy, timer_coupling,                &
@@ -106,10 +108,7 @@ MODULE mo_interface_iconam_echam
 
   PUBLIC :: interface_iconam_echam
 
-  REAL(wp), PARAMETER :: rd_o_p0ref = rd / p0ref
-
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-  CHARACTER(len=*), PARAMETER :: thismodule = 'mo_interface_iconam_echam'
+  CHARACTER(len=*), PARAMETER :: module_name = 'mo_interface_iconam_echam'
 
 CONTAINS
   !
@@ -160,6 +159,7 @@ CONTAINS
 
     REAL(wp) :: z_exner              !< to save provisional new exner
     REAL(wp) :: z_qsum               !< summand of virtual increment
+!!$    REAL(wp) :: z_ddt_qsum           !< summand of virtual increment
 
     REAL(wp) :: zvn1, zvn2
     REAL(wp), POINTER :: zdudt(:,:,:), zdvdt(:,:,:)
@@ -210,11 +210,11 @@ CONTAINS
       ! In this case all ECHAM physics is treated as "slow" physics.
       ! The provisional "new" tracer state, resulting from the advection
       ! step, still needs to be updated with the physics tracer tendencies
-      ! computed at the end of the last physics call for the then final
-      ! "new" state that was used as "now" state for the dynamics and
-      ! advection of this time step.
-      ! (The corresponding update for the dynamics variables has
-      ! already happened in the dynamical core.)
+      ! computed by the physics called at the end of the previous time step
+      ! for the then final "new" state that is used in this time step as
+      ! the "now" state for the dynamics and advection.
+      ! (The physics tendencies for the other variables have been used
+      ! already in the dynamical core.)
       !
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
@@ -521,13 +521,41 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_p2d_prep)
     !
+!!$    !     (a) (dT/dt|phy, dqv/dt|phy, dqc/dt|phy, dqi/dt|phy) --> dexner/dt|phy
+!!$    !
+!!$    ! Loop over cells
+!!$!$OMP PARALLEL
+!!$!$OMP DO PRIVATE(jb,jk,jc,jcs,jce,z_qsum,z_ddt_qsum) ICON_OMP_DEFAULT_SCHEDULE
+!!$    DO jb = i_startblk,i_endblk
+!!$      CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+!!$      DO jk = 1,nlev
+!!$        DO jc = jcs, jce
+!!$          z_qsum     = pt_prog_new_rcf%tracer(jc,jk,jb,iqc) + pt_prog_new_rcf%tracer(jc,jk,jb,iqi)
+!!$          z_ddt_qsum = prm_tend(jg)% qtrc_phy(jc,jk,jb,iqc) + prm_tend(jg)% qtrc_phy(jc,jk,jb,iqi)
+!!$          !
+!!$          pt_diag%ddt_exner_phy(jc,jk,jb) =                                               &
+!!$            &  rd_o_cpd / pt_prog_new%theta_v(jc,jk,jb)                                   &
+!!$            &  * (  prm_tend(jg)%temp_phy(jc,jk,jb)                                       &
+!!$            &     * (1._wp + vtmpc1*pt_prog_new_rcf%tracer(jc,jk,jb,iqv) - z_qsum )       &
+!!$            &     + pt_diag%temp(jc,jk,jb)                                                &
+!!$            &     * (        vtmpc1*prm_tend(jg)% qtrc_phy(jc,jk,jb,iqv) - z_ddt_qsum ) )
+!!$          !
+!!$          ! Additionally use this loop also to set the dynamical exner increment to zero.
+!!$          ! (It is accumulated over one advective time step in solve_nh)
+!!$          pt_diag%exner_dyn_incr(jc,jk,jb) = 0._wp
+!!$        END DO
+!!$      END DO
+!!$    END DO !jb
+!!$!$OMP END DO
+!!$!$OMP END PARALLEL
+
     !     (b) (du/dt|phy, dv/dt|phy) --> dvn/dt|phy
     !
     ALLOCATE(zdudt(nproma,nlev,patch%nblks_c), &
       &      zdvdt(nproma,nlev,patch%nblks_c), &
       &      stat=return_status)
     IF (return_status > 0) THEN
-      CALL finish (method_name, 'ALLOCATE(zdudt,zdvdt)')
+      CALL finish (module_name//method_name, 'ALLOCATE(zdudt,zdvdt)')
     END IF
     zdudt(:,:,:) = 0.0_wp
     zdvdt(:,:,:) = 0.0_wp
@@ -783,8 +811,7 @@ CONTAINS
             z_exner = pt_prog_new%exner(jc,jk,jb)
             !
             ! Compute final new exner
-            pt_prog_new%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd_o_p0ref                         &
-              &                       * pt_prog_new%rho(jc,jk,jb) * pt_diag%tempv(jc,jk,jb)))
+            pt_prog_new%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd/p0ref * pt_prog_new%rho(jc,jk,jb) * pt_diag%tempv(jc,jk,jb)))
             !
             ! Add exner change from fast phyiscs to exner_old (why?)
             pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb) + pt_prog_new%exner(jc,jk,jb) - z_exner
@@ -796,8 +823,8 @@ CONTAINS
 !!$            pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb)                 &
 !!$              &                         + pt_diag%ddt_exner_phy(jc,jk,jb) * dtadv_loc
 !!$            !
-!!$            pt_diag%tempv(jc,jk,jb) = EXP(LOG(pt_prog_new%exner(jc,jk,jb)/rd_o_cpd) &
-!!$              &                     / (pt_prog_new%rho(jc,jk,jb)*rd_o_p0ref)
+!!$            pt_diag%tempv(jc,jk,jb) = EXP(LOG(pt_prog_new%exner(jc,jk,jb)/rd_o_cpd)) &
+!!$              &                     / (pt_prog_new%rho(jc,jk,jb)*rd/p0ref)
 !!$            !
             !
             ! (a) and (b) Compute Theta_v
