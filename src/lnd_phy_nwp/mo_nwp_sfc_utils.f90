@@ -137,6 +137,7 @@ CONTAINS
 
     INTEGER  :: soiltyp_t (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: rootdp_t  (nproma, p_patch%nblks_c, ntiles_total)
+    REAL(wp) :: plcov_t  (nproma, p_patch%nblks_c, ntiles_total)
     REAL(wp) :: tai_t     (nproma, p_patch%nblks_c, ntiles_total)
 
     REAL(wp) :: freshsnow_t(nproma, p_patch%nblks_c, ntiles_total)
@@ -291,6 +292,7 @@ CONTAINS
 
           soiltyp_t(ic,jb,isubs)             =  ext_data%atm%soiltyp_t(jc,jb,isubs)
           rootdp_t(ic,jb,isubs)              =  ext_data%atm%rootdp_t(jc,jb,isubs)
+          plcov_t(ic,jb,isubs)              =  ext_data%atm%plcov_t(jc,jb,isubs)
           tai_t(ic,jb,isubs)                 =  ext_data%atm%tai_t(jc,jb,isubs)
         ENDDO
 
@@ -408,6 +410,7 @@ CONTAINS
         &  czmls             = zml_soil                         , & ! processing soil level structure
         &  soiltyp_subs      = soiltyp_t(:,jb,isubs)            , & ! type of the soil (keys 0-9)  --
         &  rootdp            = rootdp_t(:,jb,isubs)             , & ! depth of the roots                ( m  )
+        &  plcov             = plcov_t(:,jb,isubs)             , & ! surface fraction covered by plants ( -  )
         &  t_snow_now        = t_snow_now_t(:,jb,isubs)         , & ! temperature of the snow-surface   (  K  )
         &  t_snow_mult_now   = t_snow_mult_now_t(:,:,jb,isubs)  , & ! temperature of the snow-surface   (  K  )
         &  t_s_now           = t_s_now_t(:,jb,isubs)            , & ! temperature of the ground surface (  K  )
