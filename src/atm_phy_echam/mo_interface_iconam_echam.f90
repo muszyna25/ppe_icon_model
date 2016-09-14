@@ -65,7 +65,7 @@
 MODULE mo_interface_iconam_echam
 
   USE mo_kind                  ,ONLY: wp
-  USE mo_exception             ,ONLY: finish !, message, message_text, print_value
+  USE mo_exception             ,ONLY: finish
 
   USE mo_impl_constants        ,ONLY: min_rlcell_int, grf_bdywidth_c, grf_bdywidth_e
 
@@ -81,7 +81,6 @@ MODULE mo_interface_iconam_echam
   USE mo_intp_rbf              ,ONLY: rbf_vec_interpol_cell
 
   USE mo_loopindices           ,ONLY: get_indices_c, get_indices_e
-!!$  USE mo_grid_subset           ,ONLY: get_index_range
   USE mo_sync                  ,ONLY: sync_c, sync_e, sync_patch_array, sync_patch_array_mult
 
   USE mo_nonhydro_types        ,ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
@@ -222,8 +221,6 @@ CONTAINS
       DO jt = 1,ntracer
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-!!$        DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
-!!$          CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
           DO jk = 1,nlev
             DO jc = jcs, jce
               !
@@ -304,8 +301,6 @@ CONTAINS
 !$OMP DO PRIVATE(jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,i_endblk
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-!!$    DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
-!!$      CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
       DO jk = 1,nlev
         DO jc = jcs, jce
 
@@ -385,8 +380,6 @@ CONTAINS
     DO jt = 1,ntracer
       DO jb = i_startblk,i_endblk
         CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-!!$      DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
-!!$        CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
         DO jk = 1,nlev
           DO jc = jcs, jce
 
@@ -470,8 +463,6 @@ CONTAINS
 
     DO jb = i_startblk,i_endblk
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-!!$    DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
-!!$      CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
 
       ! Like in ECHAM, the subroutine *echam_phy_main* has direct access to the memory
       ! buffers prm_field and prm_tend. In addition it can also directly access
@@ -545,8 +536,6 @@ CONTAINS
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,i_endblk
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-!!$    DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
-!!$      CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
       zdudt(jcs:jce,:,jb) = prm_tend(jg)% u_phy(jcs:jce,:,jb)
       zdvdt(jcs:jce,:,jb) = prm_tend(jg)% v_phy(jcs:jce,:,jb)
     END DO
@@ -570,7 +559,6 @@ CONTAINS
 !$OMP DO PRIVATE(jb,jk,je,jes,jee,jcn,jbn,zvn1,zvn2) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,jbe
       CALL get_indices_e(patch, jb,jbs,jbe, jes,jee, grf_bdywidth_e+1)
-!!$      CALL get_index_range( patch%edges%in_domain, jb, jes, jee )
 
       DO jk = 1,nlev
         DO je = jes,jee
@@ -625,8 +613,6 @@ CONTAINS
 !$OMP DO PRIVATE(jb,jk,je,jes,jee) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = jbs,jbe
         CALL get_indices_e(patch, jb,jbs,jbe, jes,jee, grf_bdywidth_e+1)
-!!$      DO jb = patch%edges%in_domain%start_block, patch%edges%in_domain%end_block
-!!$        CALL get_index_range( patch%edges%in_domain, jb, jes, jee )
 
         DO jk = 1, nlev
           DO je = jes, jee
@@ -653,8 +639,6 @@ CONTAINS
       DO jt =1,ntracer    
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-!!$        DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
-!!$          CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
           DO jc = jcs, jce
             prm_field(jg)% mtrcvi    (jc,jb,jt) = 0.0_wp
             prm_tend (jg)% mtrcvi_phy(jc,jb,jt) = 0.0_wp
@@ -698,8 +682,6 @@ CONTAINS
 !$OMP DO PRIVATE(jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,i_endblk
         CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-!!$      DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
-!!$        CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
         DO jc = jcs, jce
           prm_field(jg)% mh2ovi(jc,jb) = 0.0_wp ! initialize air path after physics
           prm_field(jg)% mairvi(jc,jb) = 0.0_wp ! initialize air path after physics
@@ -755,8 +737,6 @@ CONTAINS
       DO jt =1,ntracer    
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-!!$        DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
-!!$          CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
           DO jk = 1,nlev
             DO jc = jcs, jce
               !
@@ -783,8 +763,6 @@ CONTAINS
 !$OMP DO PRIVATE(jb,jk,jc,jcs,jce,z_qsum,z_exner) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,i_endblk
         CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-!!$      DO jb = patch%cells%in_domain%start_block, patch%cells%in_domain%end_block
-!!$        CALL get_index_range( patch%cells%in_domain, jb, jcs, jce )
 
         DO jk = 1,nlev
           DO jc = jcs, jce
