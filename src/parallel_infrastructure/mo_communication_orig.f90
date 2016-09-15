@@ -136,7 +136,7 @@ TYPE, EXTENDS(t_comm_pattern) :: t_comm_pattern_orig
 
    ! "recv_startidx", "recv_count":
    !
-   ! The local PE recvs recv_count(i) data items to PE pelist_recv(i),
+   ! The local PE recvs recv_count(i) data items from PE pelist_recv(i),
    ! starting at recv_startidx(i) in the receiver buffer.
    INTEGER, ALLOCATABLE :: recv_startidx(:)
    INTEGER, ALLOCATABLE :: recv_count(:)
