@@ -100,9 +100,9 @@ CONTAINS
 !!$       & krow            ,ktrac           ,ktype           ,nb_sw           ,&
        & krow                             ,ktype           ,nb_sw           ,&
        & laland          ,laglac          ,cemiss          ,datetime        ,&
-       & pmu0            ,geoi            ,geom            ,oromea          ,&
+       & pmu0                                                               ,&
        & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
-       & zf              ,dz              ,mdry                             ,&
+       & zf              ,zh              ,dz              ,mdry            ,&
        & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
        & tk_hl           ,tk_sfc          ,xm_vap          ,xm_liq          ,&
        & xm_ice          ,cdnc            ,cld_frc         ,xm_o3           ,&
@@ -134,14 +134,12 @@ CONTAINS
     REAL(WP),INTENT(IN)  ::            &
          cemiss,                       & !< surface emissivity
          pmu0(kbdim),                  & !< mu0 for solar zenith angle
-         geoi(kbdim,klev+1),           & !< geopotential wrt surface at layer interfaces
-         geom(kbdim,klev),             & !< geopotential wrt surface at layer centres
-         oromea(kbdim),                & !< orography in m
          alb_vis_dir(kbdim),           & !< surface albedo for vis range and dir light
          alb_nir_dir(kbdim),           & !< surface albedo for NIR range and dir light
          alb_vis_dif(kbdim),           & !< surface albedo for vis range and dif light
          alb_nir_dif(kbdim),           & !< surface albedo for NIR range and dif light
          zf(kbdim,klev),               & !< geometric height at full level in m
+         zh(kbdim,klev+1),             & !< geometric height at half level in m
          dz(kbdim,klev),               & !< geometric height thickness in m
          mdry(kbdim,klev),             & !< dry air mass in layer in kg/m2
          pp_fl(kbdim,klev),            & !< full level pressure in Pa
@@ -391,7 +389,7 @@ CONTAINS
      CALL add_bc_aeropt_splumes(jg                                     ,&
            & kproma           ,kbdim                 ,klev             ,&
            & krow             ,nb_sw                 ,datetime         ,&
-           & geoi             ,geom                  ,oromea           ,&
+           & zf               ,dz                    ,zh(:,klev+1)     ,&
            & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
            & x_cdnc                                                     )
    END IF

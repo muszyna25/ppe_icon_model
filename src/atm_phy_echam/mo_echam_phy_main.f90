@@ -132,11 +132,11 @@ CONTAINS
     REAL(wp) :: zq_rsw (nbdim,nlev)       !< heating by short wave radiation   [W/m2]
     REAL(wp) :: zq_rlw (nbdim,nlev)       !< heating by long  wave radiation   [W/m2]
     REAL(wp) :: zq_rlw_impl (nbdim)       !< additional heating by LW rad. due to impl. coupling in surface energy balance [W/m2]
-    REAL(wp) :: zq_vdf (nbdim,nlev)       !< heating by vertical diffusion     [W/m2]
+!!$    REAL(wp) :: zq_vdf (nbdim,nlev)       !< heating by vertical diffusion     [W/m2]
     REAL(wp) :: zq_sso (nbdim,nlev)       !< heating by subgrid scale orogr.   [W/m2]
     REAL(wp) :: zq_gwh (nbdim,nlev)       !< heating by atm. gravity waves     [W/m2]
-    REAL(wp) :: zq_cnv (nbdim,nlev)       !< heating by convection             [W/m2]
-    REAL(wp) :: zq_cld (nbdim,nlev)       !< heating by stratiform clouds      [W/m2]
+!!$    REAL(wp) :: zq_cnv (nbdim,nlev)       !< heating by convection             [W/m2]
+!!$    REAL(wp) :: zq_cld (nbdim,nlev)       !< heating by stratiform clouds      [W/m2]
     REAL(wp) :: zlw_net_clr_bnd(nbdim,2)!< Clear-sky net longwave  at TOA (:,1) and surface (:,2)
     REAL(wp) :: zsw_net_clr_bnd(nbdim,2)!< Clear-sky net shortwave at TOA (:,1) and surface (:,2)
 
@@ -500,15 +500,13 @@ CONTAINS
         & loglac     = lglac      ,&!< in  glacier mask (logical)
         & datetime   = datetime   ,&!< in  actual time step
         & pcos_mu0   = field%cosmu0_rad(:,jb)  ,&!< in  solar zenith angle
-        & geoi       = field%geoi(:,:,jb)      ,&!< geopotential wrt surface at layer interfaces
-        & geom       = field%geom(:,:,jb)      ,&!< geopotential wrt surface at layer centres
-        & oromea     = field%oromea(:,jb)      ,&!< mean orography in m
         & alb_vis_dir= field%albvisdir(:,jb)   ,&!< in  surface albedo for visible range, direct
         & alb_nir_dir= field%albnirdir(:,jb)   ,&!< in  surface albedo for near IR range, direct
         & alb_vis_dif= field%albvisdif(:,jb)   ,&!< in  surface albedo for visible range, diffuse
         & alb_nir_dif= field%albnirdif(:,jb)   ,&!< in  surface albedo for near IR range, diffuse
         & tk_sfc     = field%tsfc_radt(:,jb)   ,&!< in  grid box mean surface temperature
         & zf     =field%zf(:,:,jb)             ,&!< in  geometric height at full level      [m]
+        & zh     =field%zh(:,:,jb)             ,&!< in  geometric height at half level      [m]
         & dz     =field%dz(:,:,jb)             ,&!< in  geometric height thickness of layer [m]
         & mdry   =field%mdry(:,:,jb)           ,&!< in  dry air mass in layer [kg/m2]
         & mtrc   =field%mtrc(:,:,jb,:)         ,&!< in  tracer mass in layer  [kg/m2]

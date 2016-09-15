@@ -725,15 +725,13 @@ MODULE mo_psrad_radiation
     & loglac     ,&!< in  fraction of land covered by glaciers
     & datetime   ,&!< in  actual time step
     & pcos_mu0   ,&!< in  cosine of solar zenith angle
-    & geoi       ,&!< in  geopotential wrt surface at layer interfaces
-    & geom       ,&!< in  geopotential wrt surface at layer centres
-    & oromea     ,&!< in  orography in m
     & alb_vis_dir,&!< in  surface albedo for visible range, direct
     & alb_nir_dir,&!< in  surface albedo for near IR range, direct
     & alb_vis_dif,&!< in  surface albedo for visible range, diffuse
     & alb_nir_dif,&!< in  surface albedo for near IR range, diffuse
     & tk_sfc     ,&!< in  grid box mean surface temperature
     & zf         ,&!< in  geometric height at full level      [m]
+    & zh         ,&!< in  geometric height at half level      [m]
     & dz         ,&!< in  geometric height thickness of layer [m]
     & mdry       ,&!< in  dry air mass in layer [kg/m2]
     & mtrc       ,&!< in  tracer mass in layer  [kg/m2]
@@ -775,15 +773,13 @@ MODULE mo_psrad_radiation
 
     REAL(wp), INTENT(IN) :: &
     & pcos_mu0(kbdim),   & !< cosine of solar zenith angle
-    & geoi(kbdim,klevp1),& !< geopotential wrt surface at layer interfaces
-    & geom(kbdim,klev),  & !< geopotential wrt surface at layer centres
-    & oromea(kbdim),     & !< orography in m
     & alb_vis_dir(kbdim),& !< surface albedo for visible range and direct light
     & alb_nir_dir(kbdim),& !< surface albedo for NIR range and direct light
     & alb_vis_dif(kbdim),& !< surface albedo for visible range and diffuse light
     & alb_nir_dif(kbdim),& !< surface albedo for NIR range and diffuse light
     & tk_sfc(kbdim),     & !< Surface temperature
     & zf(kbdim,klev),    & !< geometric height at full level      [m]
+    & zh(kbdim,klev+1),  & !< geometric height at half level      [m]
     & dz(kbdim,klev),    & !< geometric height thickness of layer [m]
     & mdry(kbdim,klev),  & !< dry air mass in layer [kg/m2]
     & mtrc(kbdim,klev,ntracer), & !< tracer mass in layer [kg/m2]
@@ -810,7 +806,7 @@ MODULE mo_psrad_radiation
     & lw_net(kbdim,klevp1),    & !< All-sky net longwave  at all levels
     & sw_net(kbdim,klevp1)       !< All-sky net shortwave at all levels
 
-    INTEGER              :: jk, jl, idx(kbdim), iaero_call, number_rad_call, i_rad_call
+    INTEGER              :: jk, jl, iaero_call, number_rad_call, i_rad_call
     INTEGER              :: knwtrc  !< number of non-water tracers
     INTEGER              :: selmon  !< index to select a calendar month
 
@@ -820,8 +816,6 @@ MODULE mo_psrad_radiation
 !!$    & ppd_hl(kbdim,klev),           &
     & tk_hl(kbdim,klevp1),          &
     & xm_vap(kbdim,klev),           &
-    & za(kbdim),                    & !< Spline interpolation arrays for qsat
-    & ua(kbdim),                    &
     & xm_liq(kbdim,klev),           & !< cloud water
     & xm_ice(kbdim,klev),           & !< cloud ice
     & xc_frc(kbdim,klev),           & !< cloud fraction
@@ -1009,9 +1003,9 @@ MODULE mo_psrad_radiation
 !!$           & jb              ,knwtrc          ,ktype           ,nb_sw           ,&
            & jb                               ,ktype           ,nb_sw           ,&
            & loland          ,loglac          ,cemiss          ,datetime        ,&
-           & cos_mu0         ,geoi            ,geom            ,oromea          ,&
+           & cos_mu0                                                            ,&
            & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
-           & zf              ,dz              ,mdry                             ,&
+           & zf              ,zh              ,dz              ,mdry            ,&
            & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
            & tk_hl           ,tk_sfc          ,xm_vap          ,xm_liq          ,&
            & xm_ice          ,cdnc            ,xc_frc          ,xm_o3           ,&
