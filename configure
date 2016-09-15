@@ -2612,6 +2612,9 @@ case $ac_hostname in #(
   mlogin*|btc*) :
     ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename ;; #(
+  daint*|dora*|santis*) :
+    ac_sitename=cscs.ch
+         fqdn=$ac_hostname.$ac_sitename ;; #(
   ic2*) :
     ac_sitename=kit.edu;
          fqdn=$ac_hostname.$ac_sitename ;; #(
@@ -4284,7 +4287,7 @@ if test -n "$NETCDFROOT" ; then
   elif test -r "$NETCDFLIBPATH/libnetcdf.so" ; then
      NETCDF_LIB='-L$(NETCDFLIBPATH) -lnetcdf'
   else
-     echo "cannot read $NETCDFROOT/lib/libnetcdf.a"
+     echo "cannot read $NETCDFLIBPATH/libnetcdf.a"
      exit 1
   fi
   if test x$gcc_lib != x ; then
@@ -4314,8 +4317,8 @@ if test -n "$NETCDFROOT" ; then
   else
      if test -r "$NETCDFFROOT/include/netcdf.inc" ; then
        NETCDF_INCLUDE="-I$NETCDFROOT/include -I$NETCDFFROOT/include"
-       if test -r "$NETCDFFROOT/lib/libnetcdff.a" -a -r "$NETCDFROOT/lib/libnetcdf.a" ; then
-         NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
+       if test -r "$NETCDFFROOT/lib/libnetcdff.a" -a -r "$NETCDFLIBPATH/libnetcdf.a" ; then
+         NETCDF_LIB='-L$(NETCDFLIBPATH) -lnetcdf'
          NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff'
          case $ac_hostname in
          mlogin*|btc*)
@@ -4335,7 +4338,7 @@ if test -n "$NETCDFROOT" ; then
          esac
          NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"
        else
-         echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFROOT/lib/libnetcdf.a"
+         echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFLIBPATH/libnetcdf.a"
          exit 1
        fi
      fi

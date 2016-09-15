@@ -191,7 +191,7 @@ CONTAINS
     !
     prm_field(jg)% presm_old(:,:,:)   = dyn_diag_old%    pres_mc(:,:,:)
     !
-    prm_field(jg)%         q(:,:,:,:) = dyn_prog_old%     tracer(:,:,:,:)
+    prm_field(jg)%      qtrc(:,:,:,:) = dyn_prog_old%     tracer(:,:,:,:)
     !
     ! cloud water+ice
     prm_field(jg)%        qx(:,:,:)   = dyn_diag_old%         qx(:,:,:)
@@ -242,9 +242,9 @@ CONTAINS
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,i_endblk
       CALL get_indices_c( patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-      prm_tend(jg)% temp(jcs:jce,:,jb)   = dyn_tend%   temp(jcs:jce,:,jb)
-      prm_tend(jg)%    q(jcs:jce,:,jb,:) = dyn_tend% tracer(jcs:jce,:,jb,:)
-      prm_tend(jg)%q_dyn(jcs:jce,:,jb,:) = dyn_tend% tracer(jcs:jce,:,jb,:)
+      prm_tend(jg)%    temp(jcs:jce,:,jb)   = dyn_tend%   temp(jcs:jce,:,jb)
+      prm_tend(jg)%    qtrc(jcs:jce,:,jb,:) = dyn_tend% tracer(jcs:jce,:,jb,:)
+      prm_tend(jg)%qtrc_dyn(jcs:jce,:,jb,:) = dyn_tend% tracer(jcs:jce,:,jb,:)
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -340,7 +340,7 @@ CONTAINS
     DO jb = i_startblk,i_endblk
       CALL get_indices_c( patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
       dyn_tend%   temp(jcs:jce,:,jb)   = prm_tend(jg)% temp(jcs:jce,:,jb)
-      dyn_tend% tracer(jcs:jce,:,jb,:) = prm_tend(jg)%    q(jcs:jce,:,jb,:)
+      dyn_tend% tracer(jcs:jce,:,jb,:) = prm_tend(jg)% qtrc(jcs:jce,:,jb,:)
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL

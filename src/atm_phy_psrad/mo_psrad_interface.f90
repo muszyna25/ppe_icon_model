@@ -97,7 +97,8 @@ CONTAINS
 
   SUBROUTINE psrad_interface( jg,          &
        & iaero           ,kproma          ,kbdim           ,klev            ,&
-       & krow            ,ktrac           ,ktype           ,nb_sw           ,&
+!!$       & krow            ,ktrac           ,ktype           ,nb_sw           ,&
+       & krow                             ,ktype           ,nb_sw           ,&
        & laland          ,laglac          ,cemiss          ,this_datetime   ,&
        & pmu0            ,geoi            ,geom            ,oromea          ,&
        & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
@@ -105,7 +106,8 @@ CONTAINS
        & tk_hl           ,tk_sfc          ,xm_vap          ,xm_liq          ,&
        & xm_ice          ,cdnc            ,cld_frc         ,xm_o3           ,&
        & xm_co2          ,xm_ch4          ,xm_n2o          ,xm_cfc          ,&
-       & xm_o2           ,&!!$pxtm1           ,&
+!!$       & xm_o2           ,xm_trc                                            ,&
+       & xm_o2                                                              ,&
        & flx_uplw        ,flx_uplw_clr    ,flx_dnlw        ,flx_dnlw_clr    ,&
        & flx_upsw        ,flx_upsw_clr    ,flx_dnsw        ,flx_dnsw_clr    ,&
        & vis_frc_sfc     ,par_dn_sfc      ,nir_dff_frc     ,vis_dff_frc     ,&
@@ -118,7 +120,7 @@ CONTAINS
          kbdim,                        & !< first dimension of 2-d arrays
          krow,                         & !< first dimension of 2-d arrays
          klev,                         & !< number of levels
-         ktrac,                        & !< number of tracers
+!!$         ktrac,                        & !< number of tracers
          ktype(kbdim),                 & !< type of convection
          nb_sw                           !< number of shortwave bands
 
@@ -155,7 +157,7 @@ CONTAINS
          xm_n2o(kbdim,klev),           & !< n2o mass mixing ratio
          xm_cfc(kbdim,klev,2),         & !< cfc volume mixing ratio
          xm_o2(kbdim,klev)!!$,            & !< o2  mass mixing ratio
-!!$         pxtm1(kbdim,klev,ktrac)         !< tracer mass mixing ratios
+!!$         xm_trc(kbdim,klev,ktrac)        !< tracer mass mixing ratios
 
     REAL (wp), INTENT (OUT) ::         &
          flx_uplw    (kbdim,klev+1),   & !<   upward LW flux profile, all sky
@@ -451,7 +453,7 @@ CONTAINS
 !!$         kproma           ,kbdim            ,klev         ,krow  ,&
 !!$         ktrac            ,iaero            ,nbndlw       ,nb_sw ,&
 !!$         aer_tau_sw_vr    ,aer_piz_sw_vr    ,aer_cg_sw_vr        ,&
-!!$         aer_tau_lw_vr    , ppd_hl           ,pxtm1               )
+!!$         aer_tau_lw_vr    ,ppd_hl           ,xm_trc               )
     !
     ! 4.0 Radiative Transfer Routines
     ! --------------------------------
@@ -501,7 +503,7 @@ CONTAINS
 !!$    !
 !!$    ! 6.0 Interface for submodel diagnosics after radiation calculation:
 !!$    ! ------------------------------------------------------------------
-!!$    IF (lanysubmodel)  CALL radiation_subm_2(kproma, kbdim, krow, klev, ktrac, iaero, pxtm1)
+!!$    IF (lanysubmodel)  CALL radiation_subm_2(kproma, kbdim, krow, klev, ktrac, iaero, xm_trc)
 !!$
   END SUBROUTINE psrad_interface
 END MODULE mo_psrad_interface

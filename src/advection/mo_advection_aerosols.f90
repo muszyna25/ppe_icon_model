@@ -14,13 +14,11 @@
 MODULE mo_advection_aerosols
 
   USE mo_kind,                ONLY: wp, vp
-  USE mo_timer,               ONLY: timer_start, timer_stop, timer_extra1
   USE mo_model_domain,        ONLY: t_patch
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: ntracer, ltimer
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
-  USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, min_rlcell, nclass_aero
+  USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, nclass_aero
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_advection_config,    ONLY: advection_config
   ! USE mo_advection_limiter,   ONLY: hflx_limiter_sm
@@ -146,7 +144,6 @@ CONTAINS
     REAL(vp) ::  fluxdiv_c(nproma,nclass_aero), dz(nproma)
     REAL(wp) ::  dthalf
 
-    INTEGER  :: nlev, nlevp1
     INTEGER  :: jb, jk, jt, jc, je, jg, ilc, ibc, kst, kend
     INTEGER  :: i_startblk, i_startidx, i_endblk, i_endidx
     INTEGER  :: i_rlstart, i_rlend
@@ -158,10 +155,6 @@ CONTAINS
     INTEGER, DIMENSION(:,:,:), POINTER :: iidx, iblk
 
    !-----------------------------------------------------------------------
-
-    ! number of vertical levels
-    nlev   = p_patch%nlev
-    nlevp1 = p_patch%nlevp1
 
     jg  = p_patch%id
 

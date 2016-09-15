@@ -33,7 +33,7 @@ MODULE mo_run_config
   PUBLIC :: lart
   PUBLIC :: lvert_nest, num_lev, nshift, nsteps, dtime
   PUBLIC :: ltimer, timers_level, activate_sync_timers, msg_level
-  PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqtvar, nqtendphy, iqt, ico2
+  PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqtvar, nqtendphy, iqt, ico2, ich4, in2o, io3
   PUBLIC :: iqni, iqni_nuc, iqg, iqm_max
   PUBLIC :: iqh, iqnh, iqnr, iqns, iqng, iqnc, inccn, ininpot, ininact
   PUBLIC :: iqtke
@@ -127,8 +127,11 @@ MODULE mo_run_config
     INTEGER :: iqtke      !< turbulent kinetic energy
 
     ! Tracer indices of other species
-    INTEGER :: ico2       !< CO2
     INTEGER :: iqt        !< start index of other tracers than hydrometeors
+    INTEGER :: ico2       !< CO2
+    INTEGER :: ich4       !< CH4
+    INTEGER :: in2o       !< N2O
+    INTEGER :: io3        !< O3
 
 
     INTEGER :: nlev               !< number of full levels for each domain

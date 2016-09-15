@@ -301,8 +301,7 @@ add_required_file ${basedir}/run/${lnd_namelist}                        ./
 # ------------------------------------------------
 
 dict_file="dict.${EXPNAME}"
-cat dict.iconam.mpim_inst  > ${dict_file}
-cat dict.echam.mpim_mean  >> ${dict_file}
+cat dict.iconam.mpim  > ${dict_file}
 add_required_file ${basedir}/run/${dict_file}                           ./
 
 # II.2.4 Initial conditions
@@ -442,6 +441,7 @@ if [[ "$output_atm_min" == "yes" ]]; then
  output_filename  = "${EXPNAME}_atm_min"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
+ operation        = 'mean'
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
@@ -485,6 +485,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_filename  = "${EXPNAME}_atm_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
+ operation        = 'mean'
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
@@ -499,42 +500,31 @@ fi
 
 
 if [[ "$output_atm_2d" == "yes" ]]; then
+# minimum list for table and quickplots
   cat >> ${atm_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_atm_2d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
+ operation        = 'mean'
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${atm_output_interval_2d}"
  file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
-                    'cosmu0'  , 'daylght_frc', 'rsdt'    ,
-                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
-                    'rsns_wtr', 'rsns_ice', 'rsns_lnd',
-                    'rlns_wtr', 'rlns_ice', 'rlns_lnd', 'tend_ta_rlw_impl',
-                    'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts'      , 'ts_rad'  ,
-                    'sic'     , 'sit'     ,
-                    'visdffsfc','nirdffsfc','vissfc'  , 'nirsfc'  ,
-                    'albedo'  , 'albedo_wtr', 'albedo_ice', 'albedo_lnd',
-                    'albvisdir','albvisdif' , 'albnirdir' , 'albnirdif',
-                    'albvisdir_ice', 'albvisdir_wtr', 'albvisdir_lnd',
-                    'clt'     ,
+ ml_varlist       = 'ps'      , 'psl' ,
+                    'daylght_frc',
                     'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
-                    'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
+                    'sic'     , 'sit'     ,
                     'hfls'    , 'hfss'    , 'evspsbl' ,
-                    'hfls_wtr', 'hfls_ice', 'hfls_lnd',
-                    'hfss_wtr', 'hfss_ice', 'hfss_lnd',
-                    'tauu'    , 'tauv'    ,
-                    'tauu_wtr', 'tauu_ice', 'tauu_lnd',
-                    'tauv_wtr', 'tauv_ice', 'tauv_lnd',
+                    'tauv'    , 'albedo'  ,
+                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
+                    'rsdt'    ,
                     'tauu_sso', 'tauv_sso', 'diss_sso', 
-                    'sh_vdiff', 'qv_vdiff',
-                    'ch_concloud',
-                    'con_dtrl', 'con_dtri', 'con_iteqv',
-                    'cld_dtrl', 'cld_dtri', 'cld_iteq'
+                    'clt'     , 'tas'     , 'ts'      ,
+                    'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
+                    'tauu'
 /
 EOF
 fi
@@ -546,6 +536,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  output_filename  = "${EXPNAME}_phy_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
+ operation        = 'mean'
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
@@ -576,6 +567,7 @@ if [[ "$output_aer_3d" == "yes" ]]; then
  output_filename  = "${EXPNAME}_aer_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
+ operation        = 'mean'
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"

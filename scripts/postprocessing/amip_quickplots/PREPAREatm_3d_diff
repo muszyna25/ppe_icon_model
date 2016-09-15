@@ -42,6 +42,7 @@ which cdo
 #---interpolate r2b4 to t63 and modellevel to presure level
 #
 cdo -setpartabn,partab -ap2pl,${LEVELS}   $AinDat Uatm_dyn_plA
+REMAP_AREA_MIN=0.5 
 cdo -r remapycon,t63grid   Uatm_dyn_plA Uatm_dyn_t63A
 cdo sinfon   $AinDat
 cdo sinfon  Uatm_dyn_plA

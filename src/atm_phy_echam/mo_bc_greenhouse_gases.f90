@@ -38,7 +38,6 @@ MODULE mo_bc_greenhouse_gases
        &                           getNoOfDaysInYearDateTime, &
        &                           getdayofyearfromdatetime,  &
        &                           getnoofsecondselapsedindaydatetime
-  USE mo_psrad_radiation_parameters, ONLY: fco2
 
   IMPLICIT NONE
 
@@ -188,8 +187,6 @@ CONTAINS
    !   &   ' CO2 = ', zco2int, ' CH4 = ', zch4int,' N2O = ', zn2oint,          &
    !   &   TRIM(ccfc) 
    ! CALL message('', TRIM(message_text))
-    IF (ABS(fco2-1.0_wp) > EPSILON(1.0_wp)) zco2int = fco2 * zco2int
-
     ! convert CO2, CH4 and N2O from volume to mass mixing ratio
 
     ghg_co2mmr    = zco2int*amco2/amd 

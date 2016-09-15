@@ -18,6 +18,7 @@
 &parameter  name=ts_ice  code=102   /
 &parameter  name=ts_lnd  code=139   /
 &parameter  name=ts  code=169   /
+&parameter  name=tas  code=167   /
 &parameter  name=sic  code=97   /
 &parameter  name=sit  code=211   /
 &parameter  name=clt  code=164   /

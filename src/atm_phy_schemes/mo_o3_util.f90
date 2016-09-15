@@ -46,6 +46,7 @@ MODULE mo_o3_util
   USE mo_physical_constants,   ONLY: amd,amo3,rd,grav
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, ltuning_ozone, icpl_o3_tp
   USE mo_time_config,          ONLY: time_config
+  USE mo_impl_constants,       ONLY: io3_art
   USE mtime,                   ONLY: datetime, newDatetime, timedelta, newTimedelta, &
        &                             getPTStringFromSeconds, OPERATOR(+),            &
        &                             NO_OF_SEC_IN_A_MINUTE, NO_OF_SEC_IN_A_HOUR,     &
@@ -81,6 +82,7 @@ CONTAINS
 
     o3_time_int(1:kproma,:)=tiw%weight1*ext_o3(1:kproma,:,tiw%month1)+ &
                             tiw%weight2*ext_o3(1:kproma,:,tiw%month2)
+
   END SUBROUTINE o3_timeint
 
   SUBROUTINE o3_pl2ml ( kproma,kbdim,nlev_pres,klev,&
@@ -1018,6 +1020,15 @@ CONTAINS
         DO jl=1,ilat
           zozn(JL,JK) = amo3/amd * (RGHG7_MACC(JL,JK,IM2)&
             & +ZTIMI*(RGHG7_MACC(JL,JK,IM1)-RGHG7_MACC(JL,JK,IM2)))
+          zozn(JL,JK) = zozn(JL,JK) * (ZPRESH(JK)-ZPRESH(JK-1))
+        ENDDO
+      ENDDO
+
+    CASE (io3_art)
+      DO jk=1,nlev_gems
+        DO jl=1,ilat
+          zozn(JL,JK) = amo3/amd * (RGHG7(JL,JK,IM2)&
+            & +ZTIMI*(RGHG7(JL,JK,IM1)-RGHG7(JL,JK,IM2)))
           zozn(JL,JK) = zozn(JL,JK) * (ZPRESH(JK)-ZPRESH(JK-1))
         ENDDO
       ENDDO

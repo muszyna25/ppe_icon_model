@@ -66,7 +66,7 @@ MODULE mo_art_emission_interface
   USE mo_art_emission_volc_1mom,        ONLY: art_organize_emission_volc
   USE mo_art_emission_volc_2mom,        ONLY: art_prepare_emission_volc,    &
                                           &   art_calculate_emission_volc
-  USE mo_art_radioactive,               ONLY: art_emiss_radioact
+  USE mo_art_emission_radioact,         ONLY: art_emiss_radioact
   USE mo_art_emission_seas,             ONLY: art_seas_emiss_martensson,    &
                                           &   art_seas_emiss_monahan,       &
                                           &   art_seas_emiss_smith
@@ -297,24 +297,33 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
             ! Nothing to do here
           CLASS is (t_fields_radio)
             SELECT CASE(TRIM(fields%info%name))
-              CASE ('CS137')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iCS137),373)
-              CASE ('I131')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iI131),340)
-              CASE ('TE132')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iTE132),325)
-              CASE ('ZR95')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iZR95),184)
-              CASE ('XE133')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iXE133),355)
-              CASE ('I131g')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iI131g),870)
-              CASE ('I131o')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iI131o),880)
-              CASE ('BA140')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iBA140),384)
-              CASE ('RU103')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iRU103),220)
+              CASE ('Cs-137')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iCS137),373, & 
+                  &                     p_art_data(jg)%radioact_data)
+              CASE ('I-131')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iI131),340, & 
+                  &                     p_art_data(jg)%radioact_data)
+              CASE ('Te-132')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iTE132),325, & 
+                  &                     p_art_data(jg)%radioact_data)
+              CASE ('Zr-95')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iZR95),184, & 
+                  &                     p_art_data(jg)%radioact_data)
+              CASE ('Xe-133')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iXE133),355, & 
+                  &                     p_art_data(jg)%radioact_data)
+              CASE ('I-131g')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iI131g),870, & 
+                  &                     p_art_data(jg)%radioact_data)
+              CASE ('I-131o')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iI131o),880, & 
+                  &                     p_art_data(jg)%radioact_data)
+              CASE ('Ba-140')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iBA140),384, & 
+                  &                     p_art_data(jg)%radioact_data)
+              CASE ('Ru-103')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iRU103),220, & 
+                  &                     p_art_data(jg)%radioact_data)
               ! And Default...
               CASE default
                 CALL finish('mo_art_emission_interface:art_emission_interface', &

@@ -15,7 +15,7 @@ MODULE mo_atmo_nonhydrostatic
 
 USE mo_kind,                 ONLY: wp
 USE mo_exception,            ONLY: message, finish
-USE mo_fortran_tools,        ONLY: copy
+USE mo_fortran_tools,        ONLY: copy, init
 USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham
 USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
   &                                timer_model_init, timer_init_icon, timer_read_restart
@@ -83,6 +83,7 @@ USE mo_intp_lonlat,         ONLY: compute_lonlat_area_weights
 ! LGS - for the implementation of ECHAM physics in iconam
 USE mo_echam_phy_init,      ONLY: init_echam_phy, initcond_echam_phy
 USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
+
 USE mo_vertical_coord_table,ONLY: vct_a, vct_b
 USE mo_nh_testcases_nml,    ONLY: nh_test_name
 
@@ -98,6 +99,7 @@ USE mo_async_latbc,         ONLY: init_prefetch, close_prefetch
 USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
 USE mo_synsat_config,       ONLY: lsynsat
 USE mo_derived_variable_handling, ONLY: init_mean_stream, finish_mean_stream
+
 !-------------------------------------------------------------------------
 
 IMPLICIT NONE
@@ -354,11 +356,25 @@ CONTAINS
         ! Initialize the atmosphere only
 
         IF (timers_level > 5) CALL timer_start(timer_init_icon)
+
+        ! initialize standard meteorological variables from an analysis file
         CALL init_icon (p_patch(1:)     ,&
           &             p_int_state(1:) ,&
           &             p_grf_state(1:) ,&
           &             p_nh_state(1:)  ,&
           &             ext_data(1:)    )
+
+        ! initialize tracers fields jt=iqt to jt=ntracer, which are not available
+        ! in the analysis file, to a non-zero value
+        DO jg = 1,n_dom
+           IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+           DO jt = iqt,ntracer
+!$OMP PARALLEL
+             CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,jt),100.e-6_wp)
+!$OMP END PARALLEL
+          END DO
+        END DO
+
         IF (timers_level > 5) CALL timer_stop(timer_init_icon)
 
       END IF

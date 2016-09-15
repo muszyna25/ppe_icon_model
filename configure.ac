@@ -150,6 +150,9 @@ AS_CASE([$ac_hostname],
         [mlogin*|btc*],
         [ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename],
+        [daint*|dora*|santis*],
+        [ac_sitename=cscs.ch
+         fqdn=$ac_hostname.$ac_sitename],
         [ic2*],      
         [ac_sitename=kit.edu;
          fqdn=$ac_hostname.$ac_sitename],         

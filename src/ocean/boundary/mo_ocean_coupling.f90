@@ -63,8 +63,6 @@ MODULE mo_ocean_coupling
   PUBLIC :: construct_ocean_coupling, destruct_ocean_coupling
   PUBLIC :: couple_ocean_toatmo_fluxes
 
-! CHARACTER(LEN=12)     :: module_name    = 'ocean_coupli'
-
   INTEGER, PARAMETER    :: no_of_fields = 11
   INTEGER               :: field_id(no_of_fields)
 
@@ -490,6 +488,7 @@ CONTAINS
     !  Send SST
     !   field_id(6) represents "sea_surface_temperature" - SST
     !
+    buffer(:,:) = 0.0_wp  ! temporarily
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO i_blk = 1, patch_horz%nblks_c
       nn = (i_blk-1)*nproma
@@ -544,6 +543,7 @@ CONTAINS
     !  Send meridional velocity
     !   field_id(8) represents "northward_sea_water_velocity" - meridional velocity, v component of ocean surface current
     !
+    buffer(:,:) = 0.0_wp  ! temporarily
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO i_blk = 1, patch_horz%nblks_c
       nn = (i_blk-1)*nproma
@@ -571,6 +571,7 @@ CONTAINS
     !  Send sea ice bundle
     !   field_id(9) represents "ocean_sea_ice_bundle" - ice thickness, snow thickness, ice concentration
     !
+    buffer(:,:) = 0.0_wp  ! temporarily
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO i_blk = 1, patch_horz%nblks_c
       nn = (i_blk-1)*nproma
@@ -614,6 +615,7 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_1stget)
 
+    buffer(:,:) = 0.0_wp  ! temporarily
     no_arr = 2
     CALL yac_fget ( field_id(1), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart - id=1, u-stress')
@@ -654,6 +656,7 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
+    buffer(:,:) = 0.0_wp  ! temporarily
     no_arr = 2
     CALL yac_fget ( field_id(2), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
@@ -697,6 +700,7 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
+    buffer(:,:) = 0.0_wp  ! temporarily
     no_arr = 3
     CALL yac_fget ( field_id(3), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
@@ -748,6 +752,7 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
+    buffer(:,:) = 0.0_wp  ! temporarily
     no_arr = 4
     CALL yac_fget ( field_id(4), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
@@ -814,6 +819,7 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
+    buffer(:,:) = 0.0_wp  ! temporarily
     no_arr = 2
     CALL yac_fget ( field_id(5), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
@@ -854,6 +860,7 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
+    buffer(:,:) = 0.0_wp  ! temporarily
     no_arr = 1
     CALL yac_fget ( field_id(10), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', &
@@ -877,11 +884,13 @@ CONTAINS
             atmos_forcing%fu10(n,i_blk) = dummy
           ELSE
             atmos_forcing%fu10(n,i_blk) = buffer(nn+n,1)
+            IF ( atmos_forcing%fu10(n,i_blk) < 0.0_wp ) atmos_forcing%fu10(n,i_blk) = 0.0_wp
           ENDIF
         ENDDO
       ENDDO
 !!ICON_OMP_END_PARALLEL_DO
       !
+      !atmos_forcing%fu10(:,:) = MAX(atmos_forcing%fu10(:,:),0.0_wp) 
       CALL sync_patch_array(sync_c, patch_horz, atmos_forcing%fu10(:,:))
     END IF
 
@@ -894,6 +903,7 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
+    buffer(:,:) = 0.0_wp  ! temporarily
     CALL yac_fget ( field_id(11), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
     IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart - id=11, runoff')
     IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run - id=10, runoff')

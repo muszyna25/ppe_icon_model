@@ -6,9 +6,16 @@ set -e
 # Please adjust the following variables in the script
 # explanation see below
 #
+# The following modules are loaded :
+# - cdo/1.7.2-gcc48 (mistral and other maschine)
+# - ncl/6.2.1-gccsys (mistral)
+# - ncl/6.2.0-precompiled (other maschine)
+# maybe you must change it; check it with:
+# "module avail cdo" and "module avail ncl"
+#
 
 ATM_3d=1
-ATM_2d=1
+ATM_2d=0
 
 
 SINGLE=1
@@ -16,17 +23,17 @@ PAGE=1
 
 TYP=ANN
 
-#--AEXP-BEXP
+#---   (AEXP-BEXP)  ---#
 
-AEXP=mbe0915
+AEXP=mbe0765
 AYY1=1979
-AYY2=2008
+AYY2=1988
 ANAME=ml_${AEXP}_${AYY1}-${AYY2}_${TYP}
 
 
-BEXP=mag0097
+BEXP=mag0142
 BYY1=1979
-BYY2=2008
+BYY2=1988
 BNAME=ml_${BEXP}_${BYY1}-${BYY2}_${TYP}
 
 
@@ -35,10 +42,10 @@ atm_RES=r2b4
 
 COMMENT='amip 160 km '
 
-WORKDIR=/mnt/lustre01/work/mh0081/m214091/mbe0915_ANN/
-
+WORKDIR=/mnt/lustre01/work/mh0081/m214091/test
 
 MODELDIR=/pool/data/ICON/post/
+
 #######################################################
 #
 # cell=filled triangles cont=filled contour 
@@ -90,8 +97,8 @@ MODULES=
 
     case `hostname` in
     mlogin*|mistral*)
-        CDO_MODULE=cdo/1.7.0-gcc48;;
-    *)  CDO_MODULE=cdo/1.7.0;;
+        CDO_MODULE=cdo/1.7.2-gcc48;;
+    *)  CDO_MODULE=cdo/1.7.2-gcc48;;
     esac
     MODULES="$MODULES $CDO_MODULE"
 
@@ -184,7 +191,6 @@ then
   nclsh  ${QUELLE}/atm_3d_linp_diff_single.ncl 
   nclsh  ${QUELLE}/atm_3d_map_diff_single.ncl -default=${default} -cell=${cell}
 fi
-ls
 
 rm -f Ubusy_*.nc  Uatm_dyn_pl_log Uatm_dyn_pl var.txt Uatm_dyn_t63*
 
@@ -250,7 +256,7 @@ exit
 #          0 no plot of surface data
 #
 #       the plot program expects the following two files:
-#                 atm_phy_XXX (surface data, containing at least:
+#                 atm_2d_XXX (surface data, containing at least:
 #                           variable: 
 #                                     clwvi Liquid water + ice content
 #                                     clt   total cloud cover     

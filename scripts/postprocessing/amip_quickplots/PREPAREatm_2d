@@ -83,7 +83,28 @@ fi
 Cvar=tas
 if cdo -s showvar -selvar,${Cvar} $ERAinDat > /dev/null 
 then
-  cdo -subc,273.15 -selvar,${Cvar}  $ERAinDat Ubusy_${Cvar}_erain.nc
+  cdo -subc,273.15 -selvar,${Cvar}  $ERAinDat Ubusy_${Cvar}_ERAin.nc
+fi
+#
+#
+#----code167---2m Temperature---CMOR: tas-
+#
+Cvar=tas
+if cdo -s showvar -selvar,${Cvar} $inDat > /dev/null 
+then
+  cdo -subc,273.15 -selvar,${Cvar}  $inDat Ubusy_${Cvar}.nc
+fi
+#
+#
+#----code167---2m Temperature---ERAin-CMOR: tas-(model-ERAin)
+#
+Cvar=tas
+if cdo -s showvar -selvar,${Cvar} $inDat > /dev/null 
+then
+  if cdo -s showvar -selvar,${Cvar} $ERAinDat > /dev/null 
+  then
+   cdo sub  -selvar,${Cvar} $inDat  -selvar,${Cvar}  $ERAinDat Ubusy_${Cvar}_erain.nc
+fi
 fi
 #
 #
@@ -170,26 +191,7 @@ if cdo -s showvar -selvar,${Cvar} $inDat > /dev/null
 then
   cdo -subc,273.15  -selvar,${Cvar}   $inDat Ubusy_${Cvar}.nc
 fi
-#
-#----ERAin---Skin temperature---
-#
-Cvar=skt
-if cdo -s showvar -selvar,${Cvar} $ERAinDat > /dev/null 
-then
-  cdo -subc,273.15  -selvar,${Cvar}   $ERAinDat  Ubusy_${Cvar}.nc
-fi
-#
-#----(surface temperatur - Skin temperature)---
-#
-CvarERA=skt
-Cvar=ts
-if cdo -s showvar -selvar,${Cvar} $inDat > /dev/null 
-then
-  if cdo -s showvar -selvar,${CvarERA} $ERAinDat  > /dev/null 
-  then
-     cdo sub -selvar,${Cvar} $inDat -selvar,${CvarERA} $ERAinDat  Ubusy_d${Cvar}.nc
-fi
-fi
+
 
 exit
 

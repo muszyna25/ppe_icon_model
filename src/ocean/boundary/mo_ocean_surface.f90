@@ -158,7 +158,7 @@ CONTAINS
       &        ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(ocean_default_list, 'oceWind_Speed_10m', p_oce_sfc%Wind_Speed_10m, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &        t_cf_var('Wind_Speed_10m', 'Pa', 'Wind Speed at 10m height', datatype_flt),&
+      &        t_cf_var('Wind_Speed_10m', 'm/s', 'Wind Speed at 10m height', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
       &        ldims=(/nproma,alloc_cell_blocks/))
 
@@ -193,7 +193,7 @@ CONTAINS
 
     CALL add_var(ocean_default_list, 'SSS', p_oce_sfc%SSS, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &        t_cf_var('SSS', 'C', 'Sea Surface Salinity', datatype_flt),&
+      &        t_cf_var('SSS', 'psu', 'Sea Surface Salinity', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
       &        ldims=(/nproma,alloc_cell_blocks/))
 
