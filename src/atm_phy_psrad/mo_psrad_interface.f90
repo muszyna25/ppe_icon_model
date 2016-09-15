@@ -102,6 +102,7 @@ CONTAINS
        & laland          ,laglac          ,cemiss          ,datetime        ,&
        & pmu0            ,geoi            ,geom            ,oromea          ,&
        & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
+       & dz              ,mdry                                              ,&
        & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
        & tk_hl           ,tk_sfc          ,xm_vap          ,xm_liq          ,&
        & xm_ice          ,cdnc            ,cld_frc         ,xm_o3           ,&
@@ -140,6 +141,8 @@ CONTAINS
          alb_nir_dir(kbdim),           & !< surface albedo for NIR range and dir light
          alb_vis_dif(kbdim),           & !< surface albedo for vis range and dif light
          alb_nir_dif(kbdim),           & !< surface albedo for NIR range and dif light
+         dz(kbdim,klev),               & !< geometric height thickness in m
+         mdry(kbdim,klev),             & !< dry air mass in layer in kg/m2
          pp_fl(kbdim,klev),            & !< full level pressure in Pa
          pp_hl(kbdim,klev+1),          & !< half level pressure in Pa
          pp_sfc(kbdim),                & !< surface pressure in Pa
@@ -181,9 +184,7 @@ CONTAINS
     REAL(wp) ::                           &
          zsemiss     (kbdim,nbndlw),      & !< LW surface emissivity by band
          ppd_hl      (kbdim,klev),        & !< pressure thickness in Pa
-         pm_sfc      (kbdim),             & !< surface pressure in mb
-         delta,                           & !< pressure thickness 
-         zscratch                           !< scratch array
+         pm_sfc      (kbdim)                !< surface pressure in mb
     !
     ! --- vertically reversed _vr variables
     !
@@ -273,16 +274,13 @@ CONTAINS
         !
         ! --- cloud properties
         !
-        zscratch      = pp_fl(jl,jkb)/(tk_fl(jl,jkb) * rd)
-        delta         = pp_hl(jl,jkb+1)-pp_hl(jl,jkb)
-        ziwc_vr(jl,jk) = ziwgkg_vr(jl,jk)*zscratch
-        ziwp_vr(jl,jk) = ziwgkg_vr(jl,jk)*delta/grav
-        zlwc_vr(jl,jk) = zlwgkg_vr(jl,jk)*zscratch
-        zlwp_vr(jl,jk) = zlwgkg_vr(jl,jk)*delta/grav
+        ziwp_vr(jl,jk) = ziwgkg_vr(jl,jk)*mdry(jl,jkb)
+        ziwc_vr(jl,jk) = ziwp_vr(jl,jk)/dz(jl,jkb)
+        zlwp_vr(jl,jk) = zlwgkg_vr(jl,jk)*mdry(jl,jkb)
+        zlwc_vr(jl,jk) = zlwp_vr(jl,jk)/dz(jl,jkb)
         cdnc_vr(jl,jk) = cdnc(jl,jkb)*1.e-6_wp
-        ! In ECHAM, pressure is related to mass of N2, O2, and Ar only. 
         ! Now col_dry is the number of particles (atoms, molecules) of dry air per cm^2
-        col_dry_vr(jl,jk) = 0.1_wp*delta*avo/(grav*amd) 
+        col_dry_vr(jl,jk) = 0.1_wp*mdry(jl,jkb)*avo/amd
       END DO
     END DO
 
@@ -291,13 +289,10 @@ CONTAINS
       jkb = klev+1-jk
       DO jl = 1, kproma
         !
-        ! --- radiatively active gases
+        ! --- radiatively active gases: convert mass mixing ratio in dry air to volume mixing ratio
         !
         wkl_vr(jl,:,jk)   = 0.0_wp
-        ! Water vapor arrives as specific humidity (mass of water/mass of moist air) 
-        !   Note that this equation fails if the atmosphere is water only
-        wkl_vr(jl,1,jk)   = xm_vap(jl,jkb)/(1._wp - xm_vap(jl,jkb)) * amd/amw 
-        ! Other quantities arrive as mass mixing ratios (mass of substance/mass of dry air) 
+        wkl_vr(jl,1,jk)   = xm_vap(jl,jkb)*amd/amw
         wkl_vr(jl,2,jk)   = xm_co2(jl,jkb)*amd/amco2
         wkl_vr(jl,3,jk)   = xm_o3 (jl,jkb)*amd/amo3
         wkl_vr(jl,4,jk)   = xm_n2o(jl,jkb)*amd/amn2o

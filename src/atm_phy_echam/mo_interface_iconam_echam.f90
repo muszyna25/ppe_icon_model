@@ -306,7 +306,9 @@ CONTAINS
 
           ! Fill the physics state variables, which are used by echam:
           !
-          prm_field(jg)%      geom(jc,jk,jb)     = p_metrics% geopot_agl(jc,jk,jb)
+          prm_field(jg)%        zf(jc,jk,jb)     = p_metrics%        z_mc(jc,jk,jb)
+          prm_field(jg)%        dz(jc,jk,jb)     = p_metrics% ddqz_z_full(jc,jk,jb)
+          prm_field(jg)%      geom(jc,jk,jb)     = p_metrics%  geopot_agl(jc,jk,jb)
           !
           prm_field(jg)%         u(jc,jk,jb)     = pt_diag%    u(jc,jk,jb)
           prm_field(jg)%         v(jc,jk,jb)     = pt_diag%    v(jc,jk,jb)
@@ -320,7 +322,7 @@ CONTAINS
           !
           ! Air mass
           prm_field(jg)%       mair(jc,jk,jb)    = pt_prog_new %         rho(jc,jk,jb) &
-            &                                     *p_metrics   % ddqz_z_full(jc,jk,jb)
+            &                                     *prm_field(jg)%         dz(jc,jk,jb)
           !
           ! H2O mass (vap+liq+ice)
           prm_field(jg)%      mh2o(jc,jk,jb)     = ( pt_prog_new_rcf% tracer(jc,jk,jb,iqv)  &
@@ -363,6 +365,7 @@ CONTAINS
       DO jk = 1,nlev+1
         DO jc = jcs, jce
 
+          prm_field(jg)%            zh(jc,jk,jb) = p_metrics%          z_ifc(jc,jk,jb)
           prm_field(jg)%          geoi(jc,jk,jb) = p_metrics% geopot_agl_ifc(jc,jk,jb)
           !
           prm_field(jg)%     presi_old(jc,jk,jb) = pt_diag% pres_ifc(jc,jk,jb)
@@ -735,7 +738,7 @@ CONTAINS
               !
               ! new density
               pt_prog_new %     rho(jc,jk,jb) = prm_field(jg)%      mair  (jc,jk,jb) &
-                &                              /p_metrics%     ddqz_z_full(jc,jk,jb)
+                &                              /prm_field(jg)%      dz    (jc,jk,jb)
               !
             ELSE
               !

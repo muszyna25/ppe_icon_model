@@ -508,18 +508,12 @@ CONTAINS
         & alb_vis_dif= field%albvisdif(:,jb)   ,&!< in  surface albedo for visible range, diffuse
         & alb_nir_dif= field%albnirdif(:,jb)   ,&!< in  surface albedo for near IR range, diffuse
         & tk_sfc     = field%tsfc_radt(:,jb)   ,&!< in  grid box mean surface temperature
+        & dz     =field%dz(:,:,jb)             ,&!< in  geometric height thickness of layer [m]
+        & mdry   =field%mdry(:,:,jb)           ,&!< in  dry air mass in layer [kg/m2]
+        & mtrc   =field%mtrc(:,:,jb,:)         ,&!< in  tracer mass in layer  [kg/m2]
         & pp_hl  =field%presi_old(:,:,jb)      ,&!< in  pressure at half levels at t-dt [Pa]
         & pp_fl  =field%presm_old(:,:,jb)      ,&!< in  pressure at full levels at t-dt [Pa]
         & tk_fl  =field%temp(:,:,jb)          ,&!< in  tk_fl  = temperature at full level at t-dt
-        !
-        ! Tracers: Note that the "psrad_interface" code currently assumes the following:
-        !          - water vapor  : qtrc(:,:,jb,iqv) is specific humidity, i.e. the mass mixing ratio with respect to moist air,
-        !          - CO2, CH4, N2O: qtrc(:,:,jb,ico2/ich4/in2o) is the mass mixing ratios with respect to dry air,
-        !          - O3           : o3(:,:,jb) is the mass mixing ratios with respect to dry air
-        !          - CFC11, CFC12 : are specified in volume mixing ration with respect to dry air
-        !          psrad_interface then converts the input tracer concentrations first to volume mixing ratio with respect to dry air,
-        !          and then to number of molecules per cm2 in the layer.
-        !
         & xm_trc =field%qtrc(:,:,jb,:)   ,&!< in  tracer mass mixing ratio
         & xm_ozn =field%o3(:,:,jb)       ,&!< inout  Avoid leaving kproma+1:kbdim undefined Ozone 
         & cdnc   =field% acdnc(:,:,jb)   ,&!< in     cloud droplet number conc

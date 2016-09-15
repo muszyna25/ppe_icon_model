@@ -57,7 +57,7 @@ MODULE mo_echam_phy_memory
     &                               DATATYPE_FLT32,  DATATYPE_FLT64,   &
     &                               GRID_UNSTRUCTURED,                 &
     &                               TSTEP_INSTANT, TSTEP_AVG,          &
-    &                               cdiDefMissval
+    &                               TSTEP_CONSTANT, cdiDefMissval
   USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL, &
     &                               ZA_HYBRID, ZA_HYBRID_HALF,         &
     &                               ZA_SURFACE, ZA_GENERIC_ICE
@@ -130,6 +130,12 @@ MODULE mo_echam_phy_memory
 
   TYPE t_echam_phy_field
 
+    ! Metrics
+    REAL(wp),POINTER ::     &
+      & zh        (:,:,:),  &!< [m]     geometric height at half levels
+      & zf        (:,:,:),  &!< [m]     geometric height at full levels
+      & dz        (:,:,:)    !< [m]     geometric height thickness of layer
+      
     ! Meteorology and tracers
     REAL(wp),POINTER ::     &
       & u         (:,:,:),  &!< [m/s]   zonal wind
@@ -695,6 +701,47 @@ CONTAINS
     CALL new_var_list( field_list, TRIM(listname), patch_id=k_jg )
     CALL default_var_list_settings( field_list,                &
                                   & lrestart=.TRUE.  )
+
+    !------------------------------
+    ! Metrics
+    !------------------------------
+
+    cf_desc    = t_cf_var('geometric_height_at_half_level', 'm',                &
+                &         'Geometric height at half level in physics',          &
+                &         datatype_flt)
+    grib2_desc = grib2_var(0, 3, 6, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'zh_phy', field%zh,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
+                & ldims=shape3d_layer_interfaces,                               &
+                & vert_interp=create_vert_interp_metadata(                      &
+                &   vert_intp_type=vintp_types("P","Z","I"),                    &
+                &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),                 &
+                & isteptype=TSTEP_CONSTANT  )
+
+    cf_desc    = t_cf_var('geometric_height_at_full_level', 'm',                &
+                &         'Geometric height at full level in physics',          &
+                &         datatype_flt)
+    grib2_desc = grib2_var(0, 3, 6, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'zf_phy', field%zf,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
+                & ldims=shape3d,                                                &
+                & vert_interp=create_vert_interp_metadata(                      &
+                &   vert_intp_type=vintp_types("P","Z","I"),                    &
+                &   vert_intp_method=VINTP_METHOD_LIN ),                        &
+                & isteptype=TSTEP_CONSTANT  )
+
+    cf_desc    = t_cf_var('geometric_height_thickness', 'm',                    &
+                &         'Geometric height thickness in physics',              &
+                &         datatype_flt)
+    grib2_desc = grib2_var(0, 3, 6, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'dz_phy', field%dz,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
+                & ldims=shape3d,                                                &
+                & vert_interp=create_vert_interp_metadata(                      &
+                &   vert_intp_type=vintp_types("P","Z","I"),                    &
+                &   vert_intp_method=VINTP_METHOD_LIN ),                        &
+                & isteptype=TSTEP_CONSTANT  )
+
 
     !------------------------------
     ! Meteorological quantities
