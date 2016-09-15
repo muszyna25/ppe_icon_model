@@ -90,7 +90,9 @@ MODULE mo_model_domain
   USE mo_math_utilities,          ONLY: t_geographical_coordinates, t_cartesian_coordinates
   USE mo_impl_constants,          ONLY: max_dom, max_phys_dom
   USE mo_communication,           ONLY: t_comm_pattern, t_comm_gather_pattern, &
-    &                                   t_scatterPattern, t_comm_pattern_collection
+    &                                   t_scatterPattern, &
+    &                                   t_comm_pattern_collection, &
+    &                                   t_p_comm_pattern
   USE mo_io_units,                ONLY: filename_max
   USE mo_util_uuid_types,         ONLY: t_uuid
   USE mo_grid_geometry_info,      ONLY: t_grid_geometry_info
@@ -924,6 +926,12 @@ MODULE mo_model_domain
     CLASS(t_scatterPattern), POINTER :: comm_pat_scatter_c => NULL()
     CLASS(t_scatterPattern), POINTER :: comm_pat_scatter_e => NULL()
     CLASS(t_scatterPattern), POINTER :: comm_pat_scatter_v => NULL()
+
+    !> if p_test_run, points to array containing
+    !! comm_pat_work2test(1) pattern to send cell data to test processes
+    !! comm_pat_work2test(2) pattern to send vertex data to test processes
+    !! comm_pat_work2test(3) pattern to send edge data to test processes
+    TYPE(t_p_comm_pattern) :: comm_pat_work2test(3)
 
     ! Communication between local parent and its global counterpart,
     ! defined only on local parents.
