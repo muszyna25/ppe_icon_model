@@ -96,6 +96,7 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
     &  wash_rate_m0(:,:),    & !< Washout rates [# m-3 s-1]
     &  wash_rate_m3(:,:)       !< Washout rates [UNIT m-3 s-1], UNIT might be mug, kg
 #ifdef __ICON_ART
+#if 0
   TYPE(t_mode), POINTER   :: this_mode
   !-----------------------------------------------------------------------
     
@@ -191,6 +192,7 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
       DEALLOCATE(wash_rate_m3)
     ENDIF !lart_aerosol
   ENDIF !lart
+#endif
 #endif
 
 END SUBROUTINE art_washout_interface

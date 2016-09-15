@@ -123,6 +123,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     &  emiss_rate(:,:),      & !< Emission rates [UNIT m-3 s-1], UNIT might be mug, kg or just a number
     &  dz(:,:)                 !< Height of model layer
 #ifdef __ICON_ART
+#if 0
   TYPE(t_mode), POINTER   :: &
     &  this_mode               !< pointer to current aerosol mode
   
@@ -413,7 +414,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
   ENDIF !lart
        
 #endif
-
+#endif
 END SUBROUTINE art_emission_interface
 !!
 !!-------------------------------------------------------------------------

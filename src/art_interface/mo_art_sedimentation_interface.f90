@@ -122,6 +122,7 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
     &  lcompute_gt,               & !< compute geometrical terms
     &  lcleanup_gt                  !< clean up geometrical terms.
 #ifdef __ICON_ART
+#if 0
   TYPE(t_mode), POINTER   :: this_mode
   
   lcompute_gt=.TRUE. ! compute geometrical terms
@@ -301,6 +302,7 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
     ENDIF !lart_aerosol
   ENDIF !lart
   
+#endif
 #endif
 
 END SUBROUTINE art_sedi_interface
