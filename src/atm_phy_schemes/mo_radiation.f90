@@ -1461,10 +1461,11 @@ CONTAINS
       aer_cg_sw_vr(:,:,:)  = 0.0_wp
       CALL add_bc_aeropt_stenchikov( jg,                             &
         & jce              ,kbdim                 ,klev             ,&
-        & jb               ,jpband                ,jpsw             ,&
-        & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
-        & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
-        & tk_fl                                                      )
+        & jb               ,jpsw                  ,jpband           ,&
+        & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
+        & pp_fl                                                     ,&
+        & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
+        & aer_tau_lw_vr                                              )
     CASE (15)
       CALL set_bc_aeropt_kinne(                                      &
         & jce              ,kbdim                 ,klev             ,&
@@ -1475,10 +1476,11 @@ CONTAINS
         & aer_tau_lw_vr                                              )
       CALL add_bc_aeropt_stenchikov( jg,                             &
         & jce              ,kbdim                 ,klev             ,&
-        & jb               ,jpband                ,jpsw             ,&
-        & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
-        & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
-        & tk_fl                                                      )
+        & jb               ,jpsw                  ,jpband           ,&
+        & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
+        & pp_fl                                                     ,&
+        & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
+        & aer_tau_lw_vr                                              )
     CASE DEFAULT
       WRITE (c_irad_aero,'(i3)') irad_aero
       CALL finish ('rrtm_interface of mo_radition','irad_aero= '// &

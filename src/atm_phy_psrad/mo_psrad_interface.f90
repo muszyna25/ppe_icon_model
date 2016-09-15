@@ -366,10 +366,10 @@ CONTAINS
 !           aerosols (of natural origin, 1850) 
       CALL add_bc_aeropt_stenchikov( jg                                ,&
            & kproma           ,kbdim                 ,klev             ,&
-           & krow             ,nbndlw                ,nb_sw            ,&
-           & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
-           & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
-           & tk_fl                                                      )
+           & krow             ,nb_sw                 ,nbndlw           ,&
+           & dz               ,pp_fl                                   ,&
+           & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
+           & aer_tau_lw_vr                                              )
    END IF
 !!$    IF (iaero==16) THEN
 !!$      CALL add_aop_volc_ham( &
