@@ -935,6 +935,7 @@ CONTAINS
     INTEGER :: ie                      !< index list loop counter
     INTEGER :: i_startblk, i_endblk
     INTEGER :: i_rlstart, i_rlend, i_nchdom
+    INTEGER :: slev, elev              !< vertical start and end level
 
     LOGICAL :: lintersect_line1, lintersect_line2
     LOGICAL :: lintersect_e2_line1, lintersect_e1_line2
@@ -949,7 +950,8 @@ CONTAINS
       &  ielist_c2m(falist%npoints), &
       &  ielist_c3m(falist%npoints), &
       &  ielist_rem(falist%npoints), &
-      &  ielist_vn0(falist%npoints)
+      &  ielist_vn0(falist%npoints), &
+      &  ielist_err(falist%npoints)
 
     INTEGER ::           &         !< je index list
       &  idxlist_c1 (falist%npoints), &
@@ -958,6 +960,7 @@ CONTAINS
       &  idxlist_c2m(falist%npoints), &
       &  idxlist_c3m(falist%npoints), &
       &  idxlist_rem(falist%npoints), &
+      &  idxlist_vn0(falist%npoints), &
       &  idxlist_err(falist%npoints)
 
 
@@ -968,12 +971,27 @@ CONTAINS
       &  levlist_c2m(falist%npoints), &
       &  levlist_c3m(falist%npoints), &
       &  levlist_rem(falist%npoints), &
+      &  levlist_vn0(falist%npoints), &
       &  levlist_err(falist%npoints)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_traj: divide_flux_area'
 
   !-------------------------------------------------------------------------
+
+
+    ! Check for optional arguments
+    IF ( PRESENT(opt_slev) ) THEN
+      slev = opt_slev
+    ELSE
+      slev = 1
+    END IF
+
+    IF ( PRESENT(opt_elev) ) THEN
+      elev = opt_elev
+    ELSE
+      elev = p_patch%nlev
+    END IF
 
     IF ( PRESENT(opt_rlstart) ) THEN
       i_rlstart = opt_rlstart
@@ -1013,9 +1031,9 @@ CONTAINS
 !$OMP            idxlist_c1,levlist_c1,idxlist_c2p,levlist_c2p,             &
 !$OMP            idxlist_c3p,levlist_c3p,idxlist_c2m,levlist_c2m,           &
 !$OMP            idxlist_c3m,levlist_c3m,idxlist_rem,levlist_rem,           &
-!$OMP            idxlist_err,levlist_err,                                   &
+!$OMP            idxlist_vn0,levlist_vn0,idxlist_err,levlist_err,           &
 !$OMP            ielist_c1,ielist_c2p,ielist_c3p,ielist_c2m,                &
-!$OMP            ielist_c3m,ielist_rem,ielist_vn0), SCHEDULE(guided)
+!$OMP            ielist_c3m,ielist_rem,ielist_vn0,ielist_err), SCHEDULE(guided)
 
     DO jb = i_startblk, i_endblk
 
@@ -1188,11 +1206,14 @@ CONTAINS
           ! special case of very small normal velocity
           icnt_vn0 = icnt_vn0 + 1
           ielist_vn0(icnt_vn0)  = ie
+          idxlist_vn0(icnt_vn0) = je
+          levlist_vn0(icnt_vn0) = jk
 
         ELSE     ! error index list
 
           ! ERROR
           icnt_err = icnt_err + 1
+          ielist_err(icnt_err)  = ie
           idxlist_err(icnt_err) = je
           levlist_err(icnt_err) = jk
 
@@ -1200,6 +1221,8 @@ CONTAINS
           ! reproducible (though bad) results in cases of too high wind speed
           icnt_vn0 = icnt_vn0 + 1
           ielist_vn0(icnt_vn0)  = ie
+          idxlist_vn0(icnt_vn0) = je
+          levlist_vn0(icnt_vn0) = jk
         ENDIF
 
       ENDDO  !jl

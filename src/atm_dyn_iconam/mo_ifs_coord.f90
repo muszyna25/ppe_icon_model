@@ -39,6 +39,7 @@ MODULE mo_ifs_coord
   INTEGER :: nplev          ! *number of pressure levels.
   INTEGER :: nplvp1         ! *nplev+1.*
   INTEGER :: nplvp2         ! *nplev+2.*
+  INTEGER :: nplvpa         ! *nplvp1,* or 2 if *nplev=0.*
   INTEGER :: nlmsgl         ! *nlev* - (number of sigma levels).
   INTEGER :: nlmslp         ! *nlmsgl+1.*
   INTEGER :: nlmsla         ! *nlmslp,* or 2 if *nlmslp=1.*
@@ -47,8 +48,13 @@ MODULE mo_ifs_coord
   !                         !  hybrid vertical levels.
   REAL(wp) :: t0icao        ! *surface temperatur of reference atmosphere
   REAL(wp) :: tsticao       ! *stratospheric temperature of reference atmosphere
+  REAL(wp) :: rdtstic       ! *rd*tsticao
   REAL(wp) :: rdlnp0i       ! *rd*ln(surface pressure) of reference atmosphere
   REAL(wp) :: alrrdic       ! *lapse-rate parameter of reference atmosphere
+  REAL(wp) :: rdt0ral       ! *rd*t0icao/alphaic
+  REAL(wp) :: ptricao       ! *tropopause pressure of reference atmosphere
+  REAL(wp) :: rdlnpti       ! *rd*ln(ptricao)
+  REAL(wp) :: gsticao       ! *constant used in geopotential calculation
 
   REAL(wp), ALLOCATABLE :: ralpha(:) ! rd*alpha at pressure and sigma levels.
   REAL(wp), ALLOCATABLE :: rlnpr(:)  ! rd*ln(p(k+.5)/p(k-.5))
@@ -181,7 +187,7 @@ CONTAINS
 
     !  Local scalars:
     REAL(wp) :: za, zb, zetam, zetap, zp, zp0icao, zpp, zrd, zs, zsm
-    INTEGER  :: ilev, ilevp1, iplev, iplvp1, is, ism, ist, &
+    INTEGER  :: ilev, nlevp1, ilevp1, iplev, iplvp1, is, ism, ist, &
       &         jk, jlev, nvclev
 
     !  Intrinsic functions
@@ -201,6 +207,7 @@ CONTAINS
     rlnpr(1)  = 2._wp*ralpha(1)
     ilev      = nlev
     ilevp1    = ilev + 1
+    nlevp1    = ilevp1
     nlevm1    = ilev - 1
     iplev     = 0
     iplvp1    = 1
@@ -213,7 +220,12 @@ CONTAINS
     tsticao = 216.5_wp
     zp0icao = 101320._wp
     rdlnp0i = rd*LOG(zp0icao)
+    rdtstic = rd*tsticao
     alrrdic = 0.0065_wp/grav
+    rdt0ral = t0icao/alrrdic
+    rdlnpti = rdlnp0i + (LOG(tsticao/t0icao))/alrrdic
+    ptricao = EXP(rdlnpti/rd)
+    gsticao = tsticao*(rdlnpti-1._wp/alrrdic)
 
     zb      = vct(nvclev+iplvp1+1)
 
@@ -247,6 +259,11 @@ CONTAINS
       nplev  = iplev
       nplvp1 = iplvp1
       nplvp2 = iplvp1 + 1
+      IF (iplev==0) THEN
+        nplvpa = 2
+      ELSE
+        nplvpa = iplvp1
+      END IF
 
       !-- 3. Calculate sigma-level values
 

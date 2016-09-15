@@ -39,7 +39,7 @@ USE mo_netcdf_parallel, ONLY:                     &
 
   PRIVATE
 
-  PUBLIC :: init_grid_configuration
+  PUBLIC :: init_grid_configuration, get_grid_rescale_factor
   PUBLIC :: max_rad_dom
   PUBLIC :: nroot, start_lev, n_dom, lfeedback,      &
     &       lplane, is_plane_torus, corio_lat, l_limited_area, patch_weight, &
@@ -240,6 +240,16 @@ CONTAINS
   END SUBROUTINE get_gridfile_sphere_radius
   !-------------------------------------------------------------------------
   
+  !-------------------------------------------------------------------------
+  FUNCTION get_grid_rescale_factor( ) result(rescale_factor)
+    REAL(wp) ::  rescale_factor
+
+    IF (no_of_dynamics_grids < 1) &
+      CALL finish( "get_grid_rescale_factor", 'no dynamics grid is defined')
+    rescale_factor = grid_rescale_factor
+
+  END FUNCTION get_grid_rescale_factor
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   INTEGER FUNCTION get_grid_root( patch_file )

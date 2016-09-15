@@ -48,9 +48,7 @@ MODULE mo_echam_phy_bcs
   USE mo_bc_aeropt_stenchikov       ,ONLY: read_bc_aeropt_stenchikov
 
   USE mo_echam_phy_memory           ,ONLY: prm_field
-
-!  USE mo_exception, ONLY: message
-  
+ 
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: echam_phy_bcs_global

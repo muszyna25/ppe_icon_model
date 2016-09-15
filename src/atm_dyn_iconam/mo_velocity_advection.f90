@@ -124,7 +124,7 @@ MODULE mo_velocity_advection
     REAL(vp) :: cfl_w_limit, vcfl, vcflmax(p_patch%nblks_c)
     REAL(wp) :: w_con_e, scalfac_exdiff, difcoef
                 
-    INTEGER  :: ic, nrdmax_jg, nflatlev_jg
+    INTEGER  :: ic, ie, nrdmax_jg, nflatlev_jg
     LOGICAL  :: levmask(p_patch%nblks_c,p_patch%nlev),levelmask(p_patch%nlev)
     LOGICAL  :: cfl_clipping(nproma,p_patch%nlevp1)   ! CFL > 0.85
 
@@ -511,7 +511,7 @@ MODULE mo_velocity_advection
     i_startblk = p_patch%edges%start_block(rl_start)
     i_endblk   = p_patch%edges%end_block(rl_end)
 
-!$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx, w_con_e, difcoef) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, jk, je, i_startidx, i_endidx, ie, w_con_e, difcoef) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -552,6 +552,7 @@ MODULE mo_velocity_advection
       IF (lextra_diffu) THEN
         ! Search for grid points for which w_con is close to or above the CFL stability limit
         ! At these points, additional diffusion is applied in order to prevent numerical instability
+        ie = 0
 
         DO jk = MAX(3,nrdmax_jg-2), nlev-4
           IF (levelmask(jk) .OR. levelmask(jk+1)) THEN

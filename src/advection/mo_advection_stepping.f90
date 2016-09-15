@@ -262,6 +262,8 @@ CONTAINS
     INTEGER  :: i_startblk, i_startidx, i_endblk, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
 
+    LOGICAL  :: l_parallel
+
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
       &  iidx, iblk                          !< of edges
 
@@ -284,6 +286,12 @@ CONTAINS
     ! vertical z- or p-system)
     pdtime_mod = advection_config(jg)%cSTR * advection_config(jg)%coeff_grid &
       &        * p_dtime
+
+    IF (my_process_is_mpi_seq()) THEN
+      l_parallel = .FALSE.
+    ELSE
+      l_parallel = .TRUE.
+    ENDIF
 
     is_present_opt_topflx_tra     = PRESENT( opt_topflx_tra )
     is_present_opt_q_int          = PRESENT( opt_q_int )

@@ -489,6 +489,12 @@ MODULE mo_nh_stepping
       prm_diag(1)%turb_diag_1dvar = 0._wp
     END IF
 
+
+#ifdef MESSY
+    ! MESSy initial output
+!    CALL messy_write_output
+#endif
+
   END IF ! not isRestart()
 
   IF (timers_level > 3) CALL timer_stop(timer_model_init)
