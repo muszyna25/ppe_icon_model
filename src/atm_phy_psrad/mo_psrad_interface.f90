@@ -102,7 +102,7 @@ CONTAINS
        & laland          ,laglac          ,cemiss          ,datetime        ,&
        & pmu0            ,geoi            ,geom            ,oromea          ,&
        & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
-       & dz              ,mdry                                              ,&
+       & zf              ,dz              ,mdry                             ,&
        & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
        & tk_hl           ,tk_sfc          ,xm_vap          ,xm_liq          ,&
        & xm_ice          ,cdnc            ,cld_frc         ,xm_o3           ,&
@@ -141,6 +141,7 @@ CONTAINS
          alb_nir_dir(kbdim),           & !< surface albedo for NIR range and dir light
          alb_vis_dif(kbdim),           & !< surface albedo for vis range and dif light
          alb_nir_dif(kbdim),           & !< surface albedo for NIR range and dif light
+         zf(kbdim,klev),               & !< geometric height at full level in m
          dz(kbdim,klev),               & !< geometric height thickness in m
          mdry(kbdim,klev),             & !< dry air mass in layer in kg/m2
          pp_fl(kbdim,klev),            & !< full level pressure in Pa
@@ -351,12 +352,12 @@ CONTAINS
 ! iaero=13: only Kinne aerosols are used
 ! iaero=15: Kinne aerosols plus Stenchikov's volcanic aerosols are used
 ! iaero=18: Kinne background aerosols (of natural origin, 1850) are set
-      CALL set_bc_aeropt_kinne( jg                                     ,&
+      CALL set_bc_aeropt_kinne(                                         &
            & kproma           ,kbdim                 ,klev             ,&
-           & krow             ,nbndlw                ,nb_sw            ,&
-           & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
-           & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
-           & tk_fl                                                      )
+           & krow             ,nb_sw                 ,nbndlw           ,&
+           & zf               ,dz                                      ,&
+           & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
+           & aer_tau_lw_vr                                              )
     END IF
     IF (iaero==14 .OR. iaero==15 .OR. iaero==18) THEN
 ! iaero=14: only Stechnikov's volcanic aerosols are used (added to zero)

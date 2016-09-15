@@ -508,6 +508,7 @@ CONTAINS
         & alb_vis_dif= field%albvisdif(:,jb)   ,&!< in  surface albedo for visible range, diffuse
         & alb_nir_dif= field%albnirdif(:,jb)   ,&!< in  surface albedo for near IR range, diffuse
         & tk_sfc     = field%tsfc_radt(:,jb)   ,&!< in  grid box mean surface temperature
+        & zf     =field%zf(:,:,jb)             ,&!< in  geometric height at full level      [m]
         & dz     =field%dz(:,:,jb)             ,&!< in  geometric height thickness of layer [m]
         & mdry   =field%mdry(:,:,jb)           ,&!< in  dry air mass in layer [kg/m2]
         & mtrc   =field%mtrc(:,:,jb,:)         ,&!< in  tracer mass in layer  [kg/m2]

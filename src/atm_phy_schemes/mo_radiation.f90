@@ -47,6 +47,7 @@ MODULE mo_radiation
   USE mo_exception,            ONLY: finish
 
   USE mo_model_domain,         ONLY: t_patch
+  USE mo_nonhydro_state,       ONLY: p_nh_state
 
   USE mo_math_constants,       ONLY: pi, rpi
   USE mo_physical_constants,   ONLY: grav,  rd,    avo,   amd,  amw,  &
@@ -1445,12 +1446,13 @@ CONTAINS
         &                         aer_piz_sw_vr,                 &
         &                         aer_cg_sw_vr)
     CASE (13)
-      CALL set_bc_aeropt_kinne( jg,                                  &
+      CALL set_bc_aeropt_kinne(                                      &
         & jce              ,kbdim                 ,klev             ,&
-        & jb               ,jpband                ,jpsw             ,&
-        & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
-        & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
-        & tk_fl                                                      )
+        & jb               ,jpsw                  ,jpband           ,&
+        & p_nh_state(jg)% metrics% z_mc(:,:,jb)                     ,&
+        & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
+        & aer_tau_sw_vr    ,aer_piz_sw_vr         , aer_cg_sw_vr    ,&
+        & aer_tau_lw_vr                                              )
     CASE (14)
       ! set zero aerosol before adding Stenchikov aerosols
       aer_tau_lw_vr(:,:,:) = 0.0_wp
@@ -1464,12 +1466,13 @@ CONTAINS
         & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
         & tk_fl                                                      )
     CASE (15)
-      CALL set_bc_aeropt_kinne( jg,                                  &
+      CALL set_bc_aeropt_kinne(                                      &
         & jce              ,kbdim                 ,klev             ,&
-        & jb               ,jpband                ,jpsw             ,&
-        & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
-        & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
-        & tk_fl                                                      )
+        & jb               ,jpsw                  ,jpband           ,&
+        & p_nh_state(jg)% metrics% z_mc(:,:,jb)                     ,&
+        & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
+        & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
+        & aer_tau_lw_vr                                              )
       CALL add_bc_aeropt_stenchikov( jg,                             &
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpband                ,jpsw             ,&

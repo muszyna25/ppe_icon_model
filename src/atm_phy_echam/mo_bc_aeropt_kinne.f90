@@ -27,8 +27,6 @@ MODULE mo_bc_aeropt_kinne
   USE mo_read_interface,       ONLY: openInputFile, closeFile, on_cells, &
     &                                t_stream_id, read_0D_real, read_3D_time
   USE mo_time_interpolation_weights, ONLY: wi=>wi_limm
-  USE mo_physical_constants,   ONLY: grav, rgrav, rd
-  USE mo_echam_phy_memory,     ONLY: prm_field
   USE mo_echam_phy_config,     ONLY: echam_phy_config
 
   IMPLICIT NONE
@@ -150,40 +148,36 @@ END SUBROUTINE read_bc_aeropt_kinne
 !! !REVISION HISTORY:
 !! original source by J.S. Rast (2009-11-03) for echam6
 !! adapted to icon by J.S. Rast (2013-08-28)
-SUBROUTINE set_bc_aeropt_kinne ( jg,                                      &
+SUBROUTINE set_bc_aeropt_kinne (                                          &
           & kproma,                 kbdim,              klev,             &
-          & krow,                   nb_lw,              nb_sw,            &
-          & paer_tau_lw_vr,         paer_tau_sw_vr,     paer_piz_sw_vr,   &
-          & paer_cg_sw_vr,          ppd_hl,             pp_fl,            &
-          & tk_fl                                                         )
+          & krow,                   nb_sw,              nb_lw,            &
+          & zf,                     dz,                                   &
+          & paer_tau_sw_vr,         paer_piz_sw_vr,     paer_cg_sw_vr,    &
+          & paer_tau_lw_vr                                                )
 
 ! !INPUT PARAMETERS
-  INTEGER,INTENT(in)  :: jg,     &! domain index
-                         kproma, &! actual block length
+  INTEGER,INTENT(in)  :: kproma, &! actual block length
                          kbdim,  &! maximum block length
-                         krow,   &! block index
                          klev,   &! number of vertical levels
-                         nb_lw,  &! number of wave length bands (far IR)
-                         nb_sw    ! number of wave length bands (solar)
-  REAL(wp),INTENT(in) :: ppd_hl(kbdim,klev)  ,& ! layer pressure thickness 
-                         pp_fl(kbdim,klev)   ,& ! pressure at "full levels"
-                         tk_fl(kbdim,klev)      ! temperature at "full lev."
+                         krow,   &! block index
+                         nb_sw,  &! number of wave length bands (solar)
+                         nb_lw    ! number of wave length bands (far IR)
+  REAL(wp),INTENT(in) :: zf(kbdim,klev)  ,& ! geometric height at full level [m]
+                         dz(kbdim,klev)     ! geometric height thickness     [m]
 ! !OUTPUT PARAMETERS
-  REAL(wp),INTENT(out),DIMENSION(kbdim,klev,nb_lw):: &
-   paer_tau_lw_vr      !aerosol optical depth (far IR)
   REAL(wp),INTENT(out),DIMENSION(kbdim,klev,nb_sw):: &
    paer_tau_sw_vr,   & !aerosol optical depth (solar), sum_i(tau_i)
    paer_piz_sw_vr,   & !weighted sum of single scattering albedos, 
                        !sum_i(tau_i*omega_i)
    paer_cg_sw_vr       !weighted sum of asymmetry factors, 
                        !sum_i(tau_i*omega_i*g_i)
+  REAL(wp),INTENT(out),DIMENSION(kbdim,klev,nb_lw):: &
+   paer_tau_lw_vr      !aerosol optical depth (far IR)
 
 ! !LOCAL VARIABLES
   
   INTEGER                     :: jl,jk,jwl
-  REAL(wp), DIMENSION(kbdim,klev)   :: zh, &    ! altitude above surface
-                                       zdeltag, & ! layer thickness
-                                       zh_vr, &
+  REAL(wp), DIMENSION(kbdim,klev)   :: zh_vr, &
                                        zdeltag_vr
   REAL(wp), DIMENSION(kbdim)        :: zq_int ! integral height profile
   REAL(wp), DIMENSION(kbdim,nb_lw)  :: zs_i
@@ -198,19 +192,12 @@ SUBROUTINE set_bc_aeropt_kinne ( jg,                                      &
   REAL(wp), DIMENSION(kbdim,klev)   :: zq_aod_c, zq_aod_f ! altitude profile
                                        ! on echam grid (coarse and fine mode)
   INTEGER, DIMENSION(kbdim)         :: kindex ! index field
-  REAL(wp), PARAMETER               :: rdog=rd/grav
 
 ! (i) calculate altitude above NN and layer thickness in 
 !     echam for altitude profiles
-     zdeltag(1:kproma,1:klev)= &
-          & ppd_hl(1:kproma,1:klev)* &
-          & tk_fl(1:kproma,1:klev)/pp_fl(1:kproma,1:klev)*rdog
      DO jk=1,klev
-        zh(1:kproma,jk)=(prm_field(jg)%geom(1:kproma,jk,krow)+prm_field(jg)%geoi(1:kproma,klev+1,krow))*rgrav
-     END DO
-     DO jk=1,klev
-        zdeltag_vr(1:kproma,jk)=zdeltag(1:kproma,klev-jk+1)
-        zh_vr(1:kproma,jk)=zh(1:kproma,klev-jk+1)
+        zdeltag_vr(1:kproma,jk)=dz(1:kproma,klev-jk+1)
+        zh_vr(1:kproma,jk)=zf(1:kproma,klev-jk+1)
      END DO
 ! (ii) calculate height profiles on echam grid for coarse and fine mode
      zq_aod_f(1:kproma,1:klev)=0._wp

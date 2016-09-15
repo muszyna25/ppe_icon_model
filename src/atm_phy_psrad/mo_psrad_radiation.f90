@@ -733,6 +733,7 @@ MODULE mo_psrad_radiation
     & alb_vis_dif,&!< in  surface albedo for visible range, diffuse
     & alb_nir_dif,&!< in  surface albedo for near IR range, diffuse
     & tk_sfc     ,&!< in  grid box mean surface temperature
+    & zf         ,&!< in  geometric height at full level      [m]
     & dz         ,&!< in  geometric height thickness of layer [m]
     & mdry       ,&!< in  dry air mass in layer [kg/m2]
     & mtrc       ,&!< in  tracer mass in layer  [kg/m2]
@@ -782,6 +783,7 @@ MODULE mo_psrad_radiation
     & alb_vis_dif(kbdim),& !< surface albedo for visible range and diffuse light
     & alb_nir_dif(kbdim),& !< surface albedo for NIR range and diffuse light
     & tk_sfc(kbdim),     & !< Surface temperature
+    & zf(kbdim,klev),    & !< geometric height at full level      [m]
     & dz(kbdim,klev),    & !< geometric height thickness of layer [m]
     & mdry(kbdim,klev),  & !< dry air mass in layer [kg/m2]
     & mtrc(kbdim,klev,ntracer), & !< tracer mass in layer [kg/m2]
@@ -1009,7 +1011,7 @@ MODULE mo_psrad_radiation
            & loland          ,loglac          ,cemiss          ,datetime        ,&
            & cos_mu0         ,geoi            ,geom            ,oromea          ,&
            & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
-           & dz              ,mdry                                              ,&
+           & zf              ,dz              ,mdry                             ,&
            & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
            & tk_hl           ,tk_sfc          ,xm_vap          ,xm_liq          ,&
            & xm_ice          ,cdnc            ,xc_frc          ,xm_o3           ,&
