@@ -273,7 +273,7 @@ CONTAINS
 
     INTEGER, ALLOCATABLE :: icnt(:), flag(:), global_recv_index(:), send_src(:), num_rcv(:)
     INTEGER :: i, n, np, nr, num_recv, irs, ire, num_send, iss, ise, max_glb, &
-      comm_size, comm_rank
+      comm_size, comm_rank, recv_idx, abs_dst_idx
 
     !-----------------------------------------------------------------------
     IF (PRESENT(comm)) THEN
@@ -339,21 +339,20 @@ CONTAINS
     DO i = 1, dst_n_points
       IF(dst_owner(i)>=0) THEN
         n = n+1
-        IF(flag(ABS(dst_global_index(i)))==0) THEN
-          icnt(dst_owner(i)) = icnt(dst_owner(i)) + 1 ! Current index in recv array
-          global_recv_index(icnt(dst_owner(i))) = &
-            ABS(dst_global_index(i))                  ! Global index of points in receive array
-          p_pat%recv_src(n) = icnt(dst_owner(i))      ! From where in the receive array we get
-                                                      ! the local point
-          p_pat%recv_dst_blk(n) = blk_no(i)           ! Where to put the local point
-          p_pat%recv_dst_idx(n) = idx_no(i)           ! Where to put the local point
-          flag(ABS(dst_global_index(i))) = &
-            icnt(dst_owner(i))                        ! Store from where to get duplicates
-        ELSE
-          p_pat%recv_src(n) = flag(ABS(dst_global_index(i)))
-          p_pat%recv_dst_blk(n) = blk_no(i)
-          p_pat%recv_dst_idx(n) = idx_no(i)
+        abs_dst_idx = ABS(dst_global_index(i))
+        recv_idx = flag(abs_dst_idx)
+        IF (recv_idx == 0) THEN
+          recv_idx = icnt(dst_owner(i)) + 1
+          icnt(dst_owner(i)) = recv_idx   ! Current index in recv array
+          ! Global index of points in receive array
+          global_recv_index(recv_idx) = abs_dst_idx
+          flag(abs_dst_idx) = recv_idx    ! Store from where to get duplicates
         ENDIF
+        p_pat%recv_src(n) = recv_idx      ! From where in the receive array
+                                          ! this process receives the local
+                                          ! point
+        p_pat%recv_dst_blk(n) = blk_no(i) ! Where to put the local point
+        p_pat%recv_dst_idx(n) = idx_no(i) ! Where to put the local point
       ENDIF
     ENDDO
 
