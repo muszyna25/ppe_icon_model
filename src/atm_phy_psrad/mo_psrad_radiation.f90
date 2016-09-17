@@ -54,13 +54,13 @@
 !
 MODULE mo_psrad_radiation
 
-  USE mo_kind,            ONLY: wp
-  USE mo_model_domain,    ONLY: t_patch
-  USE mo_physical_constants,       ONLY: rae
-  USE mo_exception,       ONLY: finish, message, message_text, print_value
-  USE mo_mpi,             ONLY: my_process_is_stdio
-  USE mo_namelist,        ONLY: open_nml, position_nml, close_nml, POSITIONED
-  USE mo_io_units,        ONLY: nnml, nnml_output
+  USE mo_kind,                ONLY: wp
+  USE mo_model_domain,        ONLY: t_patch
+  USE mo_physical_constants,  ONLY: rae, amo3, amd
+  USE mo_exception,           ONLY: finish, message, message_text, print_value
+  USE mo_mpi,                 ONLY: my_process_is_stdio
+  USE mo_namelist,            ONLY: open_nml, position_nml, close_nml, POSITIONED
+  USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist
   USE mo_impl_constants,      ONLY: io3_clim, io3_ape, io3_amip
   USE mo_ext_data_types,      ONLY: t_external_atmos_td
@@ -68,61 +68,61 @@ MODULE mo_psrad_radiation
   USE mo_bc_ozone,            ONLY: o3_plev, nplev_o3, plev_full_o3, plev_half_o3
   USE mo_o3_util,             ONLY: o3_pl2ml, o3_timeint
   USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
-!  USE mo_time_control,    ONLY: l_orbvsop87, get_orbit_times,                 &
-!       &                        p_bcast_event, current_date, next_date,       &
-!       &                        previous_date, radiation_date,                &
-!       &                        prev_radiation_date,get_date_components,      &
-!       &                        lresume, lstart, get_month_len
-  USE mo_datetime,        ONLY: t_datetime
-  USE mo_psrad_orbit,     ONLY: orbit_kepler, orbit_vsop87, &
-                              & get_orbit_times
-  USE mo_psrad_orbit_nml, ONLY: read_psrad_orbit_namelist
+!  USE mo_time_control,        ONLY: l_orbvsop87, get_orbit_times,                 &
+!       &                            p_bcast_event, current_date, next_date,       &
+!       &                            previous_date, radiation_date,                &
+!       &                            prev_radiation_date,get_date_components,      &
+!       &                            lresume, lstart, get_month_len
+  USE mo_datetime,            ONLY: t_datetime
+  USE mo_psrad_orbit,         ONLY: orbit_kepler, orbit_vsop87, &
+                                  & get_orbit_times
+  USE mo_psrad_orbit_nml,     ONLY: read_psrad_orbit_namelist
   USE mo_psrad_radiation_parameters, ONLY: solar_parameters, &
-                              & l_interp_rad_in_time,        &
-                              & zepzen
+                                  & l_interp_rad_in_time,        &
+                                  & zepzen
 ! the present mo_bc_solar_irradiance is "old" and not the one used in echam-6.3.
-!  USE mo_solar_irradiance,ONLY: get_solar_irradiance, set_solar_irradiance, &
-!                                get_solar_irradiance_m, set_solar_irradiance_m
+!  USE mo_solar_irradiance,    ONLY: get_solar_irradiance, set_solar_irradiance, &
+!                                    get_solar_irradiance_m, set_solar_irradiance_m
 ! cloud optics does not exist in icon
-  USE mo_psrad_cloud_optics,    ONLY: setup_cloud_optics  
-  USE mo_bc_greenhouse_gases,   ONLY: ghg_co2mmr, ghg_ch4mmr, ghg_n2ommr, ghg_cfcvmr
-  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqt, ico2, ntracer
+  USE mo_psrad_cloud_optics,  ONLY: setup_cloud_optics  
+  USE mo_bc_greenhouse_gases, ONLY: ghg_co2mmr, ghg_ch4mmr, ghg_n2ommr, ghg_cfcmmr
+  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqt, ico2, ntracer
 ! ozone: read by mo_bc_ozone in icon, does not contain full functionality like here.
-!  USE mo_o3clim,          ONLY: pre_o3clim_4, pre_o3clim_3, o3clim,            &
-!       &                        read_o3clim_3
-!  USE mo_o3_lwb,          ONLY: o3_lwb
+!  USE mo_o3clim,              ONLY: pre_o3clim_4, pre_o3clim_3, o3clim,            &
+!       &                            read_o3clim_3
+!  USE mo_o3_lwb,              ONLY: o3_lwb
 ! used for interactive CO2, can be switched off for the moment.
-  USE mo_radiation_config,           ONLY: irad_h2o,           &
-                                           irad_co2,           &
-                                           irad_ch4,           &
-                                           irad_o3,            &
-                                           irad_o2,            &
-                                           irad_n2o,           &
-                                           irad_cfc11,         &
-                                           irad_cfc12,         &
-                                           irad_aero,          &
-                                           ighg,               &
-                                           vmr_co2, mmr_co2,   &
-                                           vmr_ch4, mmr_ch4,   &
-                                           vmr_n2o, mmr_n2o,   &
-                                           vmr_o2,  mmr_o2,    &
-                                           vmr_cfc11,          &
-                                           vmr_cfc12,          &
-                                           fh2o, fco2, fch4,   &
-                                           fn2o, fo3, fo2,     &
-                                           fcfc,               &
-                                           ch4_v=>vpp_ch4,     &
-                                           n2o_v=>vpp_n2o,     &
-                                           vmr_o2,             &
-                                           nmonth,             &
-                                           isolrad,            &
-                                           ldiur,              &
-                                           lyr_perp,           &
-                                           yr_perp,            &
-                                           lradforcing,        &
-                                           tsi,                &
-                                           tsi_radt,           &
-                                           ssi_radt
+  USE mo_radiation_config,    ONLY: irad_h2o,             &
+                                    irad_co2,             &
+                                    irad_ch4,             &
+                                    irad_o3,              &
+                                    irad_o2,              &
+                                    irad_n2o,             &
+                                    irad_cfc11,           &
+                                    irad_cfc12,           &
+                                    irad_aero,            &
+                                    ighg,                 &
+                                    vmr_co2,   mmr_co2,   &
+                                    vmr_ch4,   mmr_ch4,   &
+                                    vmr_n2o,   mmr_n2o,   &
+                                    vmr_o2,    mmr_o2,    &
+                                    vmr_cfc11, mmr_cfc11, &
+                                    vmr_cfc12, mmr_cfc12, &
+                                    fh2o, fco2, fch4,     &
+                                    fn2o, fo3, fo2,       &
+                                    fcfc,                 &
+                                    ch4_v=>vpp_ch4,       &
+                                    n2o_v=>vpp_n2o,       &
+                                    vmr_o2,               &
+                                    nmonth,               &
+                                    isolrad,              &
+                                    ldiur,                &
+                                    lyr_perp,             &
+                                    yr_perp,              &
+                                    lradforcing,          &
+                                    tsi,                  &
+                                    tsi_radt,             &
+                                    ssi_radt
   USE mo_psrad_radiation_parameters, ONLY: nb_sw,              & 
                                      irad_aero_forcing,        &
                                      l_interp_rad_in_time,     &
@@ -875,16 +875,16 @@ MODULE mo_psrad_radiation
     ! --- phases of water substance
     !
     !     vapor
-    xm_vap(1:kproma,:) = gas_profile(kproma, klev, irad_h2o,                 &
+    xm_vap(1:kproma,:) = gas_profile(kproma, klev, irad_h2o, mdry,           &
          &                           gas_val      = xm_trc(1:kproma,:,iqv),  &
          &                           gas_factor   = fh2o)
     !     cloud water
-    xm_liq(1:kproma,:) = gas_profile(kproma, klev, irad_h2o,                 &
+    xm_liq(1:kproma,:) = gas_profile(kproma, klev, irad_h2o, mdry,           &
          &                           gas_val      = xm_trc(1:kproma,:,iqc),  &
          &                           gas_epsilon  = 0.0_wp,                  &
          &                           gas_factor   = fh2o)
     !     cloud ice
-    xm_ice(1:kproma,:) = gas_profile(kproma, klev, irad_h2o,                 &
+    xm_ice(1:kproma,:) = gas_profile(kproma, klev, irad_h2o, mdry,           &
          &                           gas_val      = xm_trc(1:kproma,:,iqi),  &
          &                           gas_epsilon  = 0.0_wp,                  &
          &                           gas_factor   = fh2o)
@@ -906,38 +906,38 @@ MODULE mo_psrad_radiation
     !
     ! CO2: use CO2 tracer only if the CO2 index is in the correct range
     IF ( iqt <= ico2 .AND. ico2 <= ntracer ) THEN
-      xm_co2(1:kproma,:) = gas_profile(kproma, klev, irad_co2,                 &
+      xm_co2(1:kproma,:) = gas_profile(kproma, klev, irad_co2, mdry,           &
            &                           gas_mmr      = mmr_co2,                 &
            &                           gas_scenario = ghg_co2mmr,              &
            &                           gas_val      = xm_trc(1:kproma,:,ico2), &
            &                           gas_factor   = fco2)
     ELSE
-      xm_co2(1:kproma,:) = gas_profile(kproma, klev, irad_co2,       &
-           &                           gas_mmr      = mmr_co2,       &
-           &                           gas_scenario = ghg_co2mmr,    &
+      xm_co2(1:kproma,:) = gas_profile(kproma, klev, irad_co2, mdry,   &
+           &                           gas_mmr      = mmr_co2,         &
+           &                           gas_scenario = ghg_co2mmr,      &
            &                           gas_factor   = fco2)
     END IF
 
-    xm_ch4(1:kproma,:)   = gas_profile(kproma, klev, irad_ch4,       &
-         &                             gas_mmr      = mmr_ch4,       &
-         &                             gas_scenario = ghg_ch4mmr,    &
-         &                             pressure = pp_fl, xp = ch4_v, &
+    xm_ch4(1:kproma,:)   = gas_profile(kproma, klev, irad_ch4, mdry,   &
+         &                             gas_mmr      = mmr_ch4,         &
+         &                             gas_scenario = ghg_ch4mmr,      &
+         &                             pressure = pp_fl, xp = ch4_v,   &
          &                             gas_factor   = fch4)
 
-    xm_n2o(1:kproma,:)   = gas_profile(kproma, klev, irad_n2o,       &
-         &                             gas_mmr      = mmr_n2o,       &
-         &                             gas_scenario = ghg_n2ommr,    &
-         &                             pressure = pp_fl, xp = n2o_v, &
+    xm_n2o(1:kproma,:)   = gas_profile(kproma, klev, irad_n2o, mdry,   &
+         &                             gas_mmr      = mmr_n2o,         &
+         &                             gas_scenario = ghg_n2ommr,      &
+         &                             pressure = pp_fl, xp = n2o_v,   &
          &                             gas_factor   = fn2o)
 
-    xm_cfc(1:kproma,:,1) = gas_profile(kproma, klev, irad_cfc11,     &
-         &                             gas_mmr      = vmr_cfc11,     &
-         &                             gas_scenario = ghg_cfcvmr(1), &
+    xm_cfc(1:kproma,:,1) = gas_profile(kproma, klev, irad_cfc11, mdry, &
+         &                             gas_mmr      = mmr_cfc11,       &
+         &                             gas_scenario = ghg_cfcmmr(1),   &
          &                             gas_factor   = fcfc)
 
-    xm_cfc(1:kproma,:,2) = gas_profile(kproma, klev, irad_cfc12,     &
-         &                             gas_mmr      = vmr_cfc12,     &
-         &                             gas_scenario = ghg_cfcvmr(2), &
+    xm_cfc(1:kproma,:,2) = gas_profile(kproma, klev, irad_cfc12, mdry, &
+         &                             gas_mmr      = mmr_cfc12,       &
+         &                             gas_scenario = ghg_cfcmmr(2),   &
          &                             gas_factor   = fcfc)
 
     ! O3: provisionally construct here the ozone profiles
@@ -978,11 +978,14 @@ MODULE mo_psrad_radiation
            &          o3_clim     = xm_ozn(:,:)              )
     END SELECT
 
-    xm_o3(1:kproma,:)    = gas_profile(kproma, klev, irad_o3,             &
+    ! convert volume mixing ratio to mass mixing ratio
+    xm_ozn(1:kproma,:) = xm_ozn(1:kproma,:) * amo3/amd
+
+    xm_o3(1:kproma,:)    = gas_profile(kproma, klev, irad_o3, mdry,         &
          &                             gas_scenario_v = xm_ozn(1:kproma,:), &
          &                             gas_factor     = fo3)
 
-    xm_o2(1:kproma,:)    = gas_profile(kproma, klev, irad_o2,        &
+    xm_o2(1:kproma,:)    = gas_profile(kproma, klev, irad_o2, mdry,  &
          &                             gas_mmr      = mmr_o2,        &
          &                             gas_factor   = fo2)
 
@@ -1006,7 +1009,7 @@ MODULE mo_psrad_radiation
            & cos_mu0                                                            ,&
            & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
            & zf              ,zh              ,dz              ,mdry            ,&
-           & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
+           & pp_fl           ,pp_sfc          ,tk_fl                            ,&
            & tk_hl           ,tk_sfc          ,xm_vap          ,xm_liq          ,&
            & xm_ice          ,cdnc            ,xc_frc          ,xm_o3           ,&
            & xm_co2          ,xm_ch4          ,xm_n2o          ,xm_cfc          ,&
@@ -1052,10 +1055,14 @@ MODULE mo_psrad_radiation
   !---------------------------------------------------------------------------
   !>
   !! GAS_PROFILE:  Determines Gas distributions based on case specification
+  !!
+  !!               Input  units: mass mixing ratio with respect to dry air [kg/kg]
+  !!               Output units: mass content in layer [kg/m2]
   !! 
   !! @par Revsision History 
-  !! B. Stevens (2009-08). 
-  !! H. Schmidt (2010-08): profile calculation added for scenario case.
+  !! B. Stevens   (2009-08). 
+  !! H. Schmidt   (2010-08): profile calculation added for scenario case.
+  !! M. Giorgetta (2016-09): change output units from kg/kg to kg/m2
   !!
   !! Description: This routine calculates the gas distributions for one of
   !! five cases:  (0) no gas present; (1) prognostic gas; (2) specified 
@@ -1063,11 +1070,13 @@ MODULE mo_psrad_radiation
   !! (4) scenario run with different mixing ratio, if profile parameters are
   !! given a vertical profile is calculated as in (3).
   !
-  FUNCTION gas_profile (kproma, klev, igas, gas_mmr, gas_scenario, gas_mmr_v, &
-       &                gas_scenario_v, gas_val, xp, pressure,                &
+  FUNCTION gas_profile (kproma, klev, igas, mdry,               &
+       &                gas_mmr, gas_scenario, gas_mmr_v,       &
+       &                gas_scenario_v, gas_val, xp, pressure,  &
        &                gas_epsilon, gas_factor)
 
     INTEGER, INTENT (IN) :: kproma, klev, igas
+    REAL (wp),           INTENT (IN) :: mdry(:,:)            ! dry air content [kg/m2]
     REAL (wp), OPTIONAL, INTENT (IN) :: gas_mmr              ! for igas = 2 and 3
     REAL (wp), OPTIONAL, INTENT (IN) :: gas_scenario         ! for igas = 4
     REAL (wp), OPTIONAL, INTENT (IN) :: pressure(:,:), xp(3) ! for igas = 3 and 4
@@ -1097,21 +1106,21 @@ MODULE mo_psrad_radiation
     SELECT CASE (igas)
 
     CASE (0)                             ! 0: set concentration to zero
-      gas_profile(1:kproma,:) = eps
+      gas_profile(1:kproma,:) = 0.0_wp
       gas_initialized = .TRUE.
 
     CASE (1)                             ! 1: horizontally and vertically variable
       IF (PRESENT(gas_val)) THEN
-        gas_profile(1:kproma,:) = MAX(gas_val(1:kproma,:)*fgas, eps)
+        gas_profile(1:kproma,:) = gas_val(1:kproma,:)
         gas_initialized = .TRUE.
       END IF
 
     CASE (2)
       IF (PRESENT(gas_mmr)) THEN         ! 2a: horizontally and vertically constant
-        gas_profile(1:kproma,:) = MAX(gas_mmr*fgas, eps)
+        gas_profile(1:kproma,:) = gas_mmr
         gas_initialized = .TRUE.
       ELSE IF (PRESENT(gas_mmr_v)) THEN  ! 2b: = (1)
-        gas_profile(1:kproma,:) = MAX(gas_mmr_v(1:kproma,:)*fgas, eps)
+        gas_profile(1:kproma,:) = gas_mmr_v(1:kproma,:)
         gas_initialized = .TRUE.
       END IF
 
@@ -1119,8 +1128,8 @@ MODULE mo_psrad_radiation
       IF (PRESENT(gas_mmr) .AND. PRESENT(xp) .AND. PRESENT(pressure)) THEN
         zx_m = (gas_mmr+xp(1)*gas_mmr)*0.5_wp
         zx_d = (gas_mmr-xp(1)*gas_mmr)*0.5_wp
-        gas_profile(1:kproma,:)=MAX((1-(zx_d/zx_m)*TANH(LOG(pressure(1:kproma,:)   &
-             &                      /xp(2)) /xp(3))) * zx_m * fgas, eps)
+        gas_profile(1:kproma,:)=(1-(zx_d/zx_m)*TANH(LOG(pressure(1:kproma,:)   &
+             &                  /xp(2)) /xp(3))) * zx_m
         gas_initialized = .TRUE.
       END IF
 
@@ -1136,14 +1145,14 @@ MODULE mo_psrad_radiation
           ! complete handling of radiation switches (including ighg), later.
           zx_m = (gas_scenario+xp(1)*gas_scenario)*0.5_wp
           zx_d = (gas_scenario-xp(1)*gas_scenario)*0.5_wp
-          gas_profile(1:kproma,:)=MAX((1-(zx_d/zx_m)*TANH(LOG(pressure(1:kproma,:)   &
-             &                        /xp(2)) /xp(3))) * zx_m * fgas, eps)
+          gas_profile(1:kproma,:)=(1-(zx_d/zx_m)*TANH(LOG(pressure(1:kproma,:)   &
+             &                    /xp(2)) /xp(3))) * zx_m
         ELSE                                          ! 4b: = (2a)
-          gas_profile(1:kproma,:)=MAX(gas_scenario*fgas, eps)
+          gas_profile(1:kproma,:)=gas_scenario
         ENDIF
         gas_initialized = .TRUE.
       ELSE IF (PRESENT(gas_scenario_v)) THEN          ! 4c: = (1)
-        gas_profile(1:kproma,:) = MAX(gas_scenario_v(1:kproma,:)*fgas, eps)
+        gas_profile(1:kproma,:) = gas_scenario_v(1:kproma,:)
         gas_initialized = .TRUE.
       END IF
 
@@ -1152,6 +1161,8 @@ MODULE mo_psrad_radiation
     IF (.NOT. gas_initialized) &
          CALL finish('radiation','gas_profile options not supported')
 
+    gas_profile(1:kproma,:) = MAX(fgas * gas_profile(1:kproma,:) * mdry(1:kproma,:),eps)
+    
   END FUNCTION gas_profile
   !---------------------------------------------------------------------------
 

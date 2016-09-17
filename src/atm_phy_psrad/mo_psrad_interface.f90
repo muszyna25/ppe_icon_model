@@ -6,35 +6,34 @@
 !! Where software is supplied by third parties, it is indicated in the headers of the routines.
 !!
 MODULE mo_psrad_interface
-  USE mo_kind,            ONLY: wp
-  USE mo_physical_constants, ONLY: grav, rd, avo,                               &
-       &                        amco2, amch4, amn2o, amo3, amo2, amd, amw
-  USE mo_exception,       ONLY: finish
+  USE mo_kind,                       ONLY: wp
+  USE mo_physical_constants,         ONLY: grav, rd, avo,                               &
+       &                                   amd, amw, amco2, amch4, amn2o, amo3, amo2,   &
+       &                                   amc11, amc12
+  USE mo_exception,                  ONLY: finish
   USE mo_psrad_radiation_parameters, ONLY: rad_perm, psctm, ssi_factor
-  USE mo_rrtm_params,     ONLY: maxxsec, maxinpx, nbndsw, nbndlw
-  USE mo_psrad_cloud_optics,    ONLY: cloud_optics
-  USE mo_bc_aeropt_kinne,       ONLY: set_bc_aeropt_kinne  
-  USE mo_bc_aeropt_stenchikov,  ONLY: add_bc_aeropt_stenchikov 
-  USE mo_bc_aeropt_splumes,     ONLY: add_bc_aeropt_splumes
-!!$  USE mo_aero_volc,       ONLY: add_aop_volc
-!!$  USE mo_aero_volc_tab,   ONLY: add_aop_volc_ham, add_aop_volc_crow
-!!$  USE mo_lrtm_setup,      ONLY: lrtm_setup
+  USE mo_rrtm_params,                ONLY: maxxsec, maxinpx, nbndsw, nbndlw
+  USE mo_psrad_cloud_optics,         ONLY: cloud_optics
+  USE mo_bc_aeropt_kinne,            ONLY: set_bc_aeropt_kinne  
+  USE mo_bc_aeropt_stenchikov,       ONLY: add_bc_aeropt_stenchikov 
+  USE mo_bc_aeropt_splumes,          ONLY: add_bc_aeropt_splumes
+!!$  USE mo_aero_volc,                  ONLY: add_aop_volc
+!!$  USE mo_aero_volc_tab,              ONLY: add_aop_volc_ham, add_aop_volc_crow
+!!$  USE mo_lrtm_setup,                 ONLY: lrtm_setup
   USE mo_psrad_lrtm_setup,ONLY: setup_lrtm
-  USE mo_psrad_srtm_setup,ONLY: setup_srtm ! here, the new name is chosen to 
-                             ! distinguish it from lrtm_setup in the "old"
-                             ! version
-  USE mo_psrad_lrtm_driver,     ONLY: lrtm
-  USE mo_psrad_srtm_driver,     ONLY: srtm
-!!$  USE mo_submodel,        ONLY: lanysubmodel
-!!$  USE mo_submodel_interface, &
-!!$       ONLY: radiation_subm_1, radiation_subm_2  
-!!$  USE mo_cosp_simulator,  ONLY: cosp_reffl, cosp_reffi,      &
-!!$                                locosp, cosp_f3d, Lisccp_sim,&
-!!$                                cisccp_cldtau3d, cisccp_cldemi3d
-  USE mo_psrad_spec_sampling,   ONLY: spec_sampling_strategy, get_num_gpoints
-  USE mo_random_numbers,        ONLY: seed_size_random
-  USE mo_rad_diag,              ONLY: rad_aero_diag
-  USE mo_datetime,              ONLY: t_datetime
+  USE mo_psrad_srtm_setup,ONLY: setup_srtm ! here, the new name is chosen to distinguish
+                                           ! it from lrtm_setup in the "old" version
+  USE mo_psrad_lrtm_driver,          ONLY: lrtm
+  USE mo_psrad_srtm_driver,          ONLY: srtm
+!!$  USE mo_submodel,                   ONLY: lanysubmodel
+!!$  USE mo_submodel_interface,         ONLY: radiation_subm_1, radiation_subm_2  
+!!$  USE mo_cosp_simulator,             ONLY: cosp_reffl, cosp_reffi,      &
+!!$                                           locosp, cosp_f3d, Lisccp_sim,&
+!!$                                           cisccp_cldtau3d, cisccp_cldemi3d
+  USE mo_psrad_spec_sampling,        ONLY: spec_sampling_strategy, get_num_gpoints
+  USE mo_random_numbers,             ONLY: seed_size_random
+  USE mo_rad_diag,                   ONLY: rad_aero_diag
+  USE mo_datetime,                   ONLY: t_datetime
 
   IMPLICIT NONE
 
@@ -103,7 +102,7 @@ CONTAINS
        & pmu0                                                               ,&
        & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
        & zf              ,zh              ,dz              ,mdry            ,&
-       & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
+       & pp_fl           ,pp_sfc          ,tk_fl                            ,&
        & tk_hl           ,tk_sfc          ,xm_vap          ,xm_liq          ,&
        & xm_ice          ,cdnc            ,cld_frc         ,xm_o3           ,&
        & xm_co2          ,xm_ch4          ,xm_n2o          ,xm_cfc          ,&
@@ -143,7 +142,6 @@ CONTAINS
          dz(kbdim,klev),               & !< geometric height thickness in m
          mdry(kbdim,klev),             & !< dry air mass in layer in kg/m2
          pp_fl(kbdim,klev),            & !< full level pressure in Pa
-         pp_hl(kbdim,klev+1),          & !< half level pressure in Pa
          pp_sfc(kbdim),                & !< surface pressure in Pa
          tk_fl(kbdim,klev),            & !< full level temperature in K
          tk_hl(kbdim,klev+1),          & !< half level temperature in K
@@ -182,7 +180,6 @@ CONTAINS
 
     REAL(wp) ::                           &
          zsemiss     (kbdim,nbndlw),      & !< LW surface emissivity by band
-         ppd_hl      (kbdim,klev),        & !< pressure thickness in Pa
          pm_sfc      (kbdim)                !< surface pressure in mb
     !
     ! --- vertically reversed _vr variables
@@ -236,6 +233,9 @@ CONTAINS
     DO jk = 1, klev
       jkb = klev+1-jk
       DO jl = 1, kproma
+        !
+        ! --- Cloud liquid and ice mass mixing ratio: [kg/kg in cell] --> [g/kg in cloud]
+        !
         cld_frc_vr(jl,jk) = MAX(EPSILON(1.0_wp),cld_frc(jl,jkb))
         ziwgkg_vr(jl,jk)  = xm_ice(jl,jkb)*1000.0_wp/cld_frc_vr(jl,jk)
         zlwgkg_vr(jl,jk)  = xm_liq(jl,jkb)*1000.0_wp/cld_frc_vr(jl,jk)
@@ -252,7 +252,7 @@ CONTAINS
       zlwgkg_vr(1:kproma,:) = 0.0_wp
     END WHERE
     !
-    ! --- main constituent reordering
+    ! --- main constituent vertical reordering and unit conversion
     !
 !IBM* ASSERT(NODEPS)
     DO jl = 1, kproma
@@ -267,66 +267,41 @@ CONTAINS
         !
         ! --- thermodynamic arrays
         !
-        pm_fl_vr(jl,jk) = 0.01_wp*pp_fl(jl,jkb)
-        tk_hl_vr(jl,jk) = tk_hl(jl,jkb+1)
-        tk_fl_vr(jl,jk) = tk_fl(jl,jkb)
+        pm_fl_vr(jl,jk)   = 0.01_wp*pp_fl(jl,jkb)
+        tk_hl_vr(jl,jk)   = tk_hl(jl,jkb+1)
+        tk_fl_vr(jl,jk)   = tk_fl(jl,jkb)
         !
         ! --- cloud properties
         !
-        ziwp_vr(jl,jk) = ziwgkg_vr(jl,jk)*mdry(jl,jkb)
-        ziwc_vr(jl,jk) = ziwp_vr(jl,jk)/dz(jl,jkb)
-        zlwp_vr(jl,jk) = zlwgkg_vr(jl,jk)*mdry(jl,jkb)
-        zlwc_vr(jl,jk) = zlwp_vr(jl,jk)/dz(jl,jkb)
-        cdnc_vr(jl,jk) = cdnc(jl,jkb)*1.e-6_wp
-        ! Now col_dry is the number of particles (atoms, molecules) of dry air per cm^2
-        col_dry_vr(jl,jk) = 0.1_wp*mdry(jl,jkb)*avo/amd
-      END DO
-    END DO
-
-!IBM* ASSERT(NODEPS)
-    DO jk = 1, klev
-      jkb = klev+1-jk
-      DO jl = 1, kproma
+        ziwp_vr(jl,jk)    = ziwgkg_vr(jl,jk)
+        ziwc_vr(jl,jk)    = ziwp_vr(jl,jk)/dz(jl,jkb)
+        zlwp_vr(jl,jk)    = zlwgkg_vr(jl,jk)
+        zlwc_vr(jl,jk)    = zlwp_vr(jl,jk)/dz(jl,jkb)
+        cdnc_vr(jl,jk)    = cdnc(jl,jkb)*1.e-6_wp
         !
-        ! --- radiatively active gases: convert mass mixing ratio in dry air to volume mixing ratio
+        ! --- dry air: [kg/m2] --> [molecules/cm2]
+        !
+        col_dry_vr(jl,jk) = 0.1_wp * avo * mdry(jl,jkb)/amd
+        !
+        ! --- H2O, CO2, O3, N2O, CH4, O2: [kg/m2] --> [molecules/cm2]
         !
         wkl_vr(jl,:,jk)   = 0.0_wp
-        wkl_vr(jl,1,jk)   = xm_vap(jl,jkb)*amd/amw
-        wkl_vr(jl,2,jk)   = xm_co2(jl,jkb)*amd/amco2
-        wkl_vr(jl,3,jk)   = xm_o3 (jl,jkb)*amd/amo3
-        wkl_vr(jl,4,jk)   = xm_n2o(jl,jkb)*amd/amn2o
-        wkl_vr(jl,6,jk)   = xm_ch4(jl,jkb)*amd/amch4
-        wkl_vr(jl,7,jk)   = xm_o2 (jl,jkb)*amd/amo2
-      END DO
-    END DO
-!!$!baustelle+
-!!$write(0,*) 'xm_o2(1,klev)=',xm_o2(1,klev)
-!!$write(0,*) 'xm_o3(1,klev)=',xm_o3(1,klev)
-!!$write(0,*) 'xm_n2o(1,klev)=',xm_n2o(1,klev)
-!!$write(0,*) 'xm_ch4(1,klev)=',xm_ch4(1,klev)
-!!$write(0,*) 'xm_co2(1,klev)=',xm_co2(1,klev)
-!!$write(0,*) 'xm_cfc(1,klev,1),xm_cfc(1,klev,2)=',xm_cfc(1,klev,1),xm_cfc(1,klev,2)
-!!$!baustelle-
-    !
-    ! --- CFCs are in volume mixing ratio 
-    ! 
-    wx_vr(:,:,:) = 0._wp
-!IBM* ASSERT(NODEPS)
-    DO jk = 1, klev
-      jkb = klev+1-jk
-      DO jl = 1, kproma
-        wx_vr(jl,2,jk) = xm_cfc(jl,jkb,1)
-        wx_vr(jl,3,jk) = xm_cfc(jl,jkb,2)
+        wkl_vr(jl,1,jk)   = 0.1_wp * avo * xm_vap(jl,jkb)/amw
+        wkl_vr(jl,2,jk)   = 0.1_wp * avo * xm_co2(jl,jkb)/amco2
+        wkl_vr(jl,3,jk)   = 0.1_wp * avo * xm_o3 (jl,jkb)/amo3
+        wkl_vr(jl,4,jk)   = 0.1_wp * avo * xm_n2o(jl,jkb)/amn2o
+        wkl_vr(jl,6,jk)   = 0.1_wp * avo * xm_ch4(jl,jkb)/amch4
+        wkl_vr(jl,7,jk)   = 0.1_wp * avo * xm_o2 (jl,jkb)/amo2
+        !
+        ! --- CFC11, CFC12: [kg/m2] --> [molecules/cm2]
+        !
+        wx_vr(jl,:,jk)    = 0._wp
+        wx_vr(jl,2,jk)    = 0.1_wp * avo * xm_cfc(jl,jkb,1)/amc11
+        wx_vr(jl,3,jk)    = 0.1_wp * avo * xm_cfc(jl,jkb,2)/amc12
+        !
       END DO
     END DO
 
-    !
-    ! -- Convert to molecules/cm^2
-    !
-    wkl_vr(1:kproma,1:7,1:klev) = wkl_vr(1:kproma,1:7,1:klev) * &
-         SPREAD(col_dry_vr(1:kproma,1:klev), NCOPIES=7, DIM=2) 
-    wx_vr (1:kproma,2:3,1:klev) = wx_vr (1:kproma,2:3,1:klev) * &
-         SPREAD(col_dry_vr(1:kproma,1:klev), NCOPIES=2, DIM=2)
     !
     ! 2.0 Surface Properties
     ! --------------------------------
@@ -334,7 +309,6 @@ CONTAINS
     !
     ! 3.0 Particulate Optical Properties
     ! --------------------------------
-    ppd_hl(1:kproma,:) = pp_hl(1:kproma,2:klev+1)-pp_hl(1:kproma,1:klev)
 
 ! IF (aero == ...) THEN
 ! iaero=0: No aerosol
@@ -447,7 +421,7 @@ CONTAINS
 !!$         kproma           ,kbdim            ,klev         ,krow  ,&
 !!$         ktrac            ,iaero            ,nbndlw       ,nb_sw ,&
 !!$         aer_tau_sw_vr    ,aer_piz_sw_vr    ,aer_cg_sw_vr        ,&
-!!$         aer_tau_lw_vr    ,ppd_hl           ,xm_trc               )
+!!$         aer_tau_lw_vr    ,......           ,xm_trc               )
     !
     ! 4.0 Radiative Transfer Routines
     ! --------------------------------

@@ -28,7 +28,7 @@ MODULE mo_bc_greenhouse_gases
 
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: finish, message, message_text
-  USE mo_physical_constants, ONLY: amd, amco2, amch4, amn2o
+  USE mo_physical_constants, ONLY: amd, amco2, amch4, amn2o, amc11, amc12
   USE mo_datetime,           ONLY: t_datetime, idaylen
   USE mo_netcdf_parallel,    ONLY: p_nf_open, p_nf_inq_dimid, p_nf_inq_dimlen, &
        &                           p_nf_inq_varid, p_nf_get_var_double, p_nf_close, &
@@ -47,7 +47,7 @@ MODULE mo_bc_greenhouse_gases
   PUBLIC :: ghg_no_cfc
 
   PUBLIC :: bc_greenhouse_gases_file_read
-  PUBLIC :: ghg_co2mmr, ghg_ch4mmr, ghg_n2ommr, ghg_cfcvmr
+  PUBLIC :: ghg_co2mmr, ghg_ch4mmr, ghg_n2ommr, ghg_cfcmmr
 
   INTEGER, PARAMETER :: ghg_no_cfc = 2
   CHARACTER(len=*), PARAMETER :: ghg_cfc_names(ghg_no_cfc) = (/ "CFC_11", "CFC_12" /)
@@ -63,7 +63,7 @@ MODULE mo_bc_greenhouse_gases
   REAL(wp), ALLOCATABLE :: ghg_cfc(:,:)
 
   REAL(wp) :: ghg_co2mmr, ghg_ch4mmr, ghg_n2ommr
-  REAL(wp) :: ghg_cfcvmr(ghg_no_cfc)
+  REAL(wp) :: ghg_cfcmmr(ghg_no_cfc)
 
   LOGICAL, SAVE :: bc_greenhouse_gases_file_read = .FALSE.
 
@@ -164,15 +164,14 @@ CONTAINS
       zcfc(:)   = 1.0e-12_wp * ( zw1*ghg_cfc(iyear,:) + zw2*ghg_cfc(iyearp,:) )
     END IF
 
-    ! convert CO2, CH4 and N2O from volume to mass mixing ratio
+    ! convert from volume to mass mixing ratio
 
     ghg_co2mmr    = zco2int*amco2/amd 
     ghg_ch4mmr    = zch4int*amch4/amd
     ghg_n2ommr    = zn2oint*amn2o/amd
 
-    ! Scale CFCs only, keep the volume mixing ratio 
-
-    ghg_cfcvmr(:) = zcfc(:)
+    ghg_cfcmmr(1) = zcfc(1)*amc11/amd
+    ghg_cfcmmr(2) = zcfc(2)*amc12/amd
 
   END SUBROUTINE bc_greenhouse_gases_time_interpolation
 
