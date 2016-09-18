@@ -343,9 +343,9 @@ CONTAINS
       CALL cover( jce, nbdim, jks,          &! in
         &         nlev, nlevp1,             &! in
         &         itype,  zfrw, zfri,       &! in
+        &         field% zf(:,:,jb),        &! in
         &         field% presi_old(:,:,jb), &! in
         &         field% presm_old(:,:,jb), &! in
-        &         field%  geom(:,:,jb),     &! in
         &         field%  temp(:,:,jb),     &! in    tm1
         &         field%  qtrc(:,:,jb,iqv), &! in    qm1
         &         field%  qtrc(:,:,jb,iqi), &! in    xim1
