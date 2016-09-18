@@ -298,8 +298,7 @@ CONTAINS
         &                  datetime     ,&! in
         &                  pdtime       ,&! in
         &                  psteplen     ,&! in
-        &                  ltrig_rad    ,&! in
-        &                  datetime_radtran ) ! in
+        &                  ltrig_rad     )
 
     END DO
 !$OMP END DO NOWAIT

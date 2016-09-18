@@ -94,20 +94,21 @@ CONTAINS
   !!    index = 7 => O2
   !
 
-  SUBROUTINE psrad_interface( jg,          &
+  SUBROUTINE psrad_interface(              jg              ,krow            ,&
        & iaero           ,kproma          ,kbdim           ,klev            ,&
-!!$       & krow            ,ktrac           ,ktype           ,nb_sw           ,&
-       & krow                             ,ktype           ,nb_sw           ,&
-       & laland          ,laglac          ,cemiss          ,datetime        ,&
-       & pmu0                                                               ,&
+!!$       & ktrac           ,ktype           ,nb_sw                         ,&
+       &                  ktype           ,nb_sw                            ,&
+       & laland          ,laglac          ,datetime        ,pmu0            ,&
+       & cemiss                                                             ,&
        & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
-       & zf              ,zh              ,dz              ,mdry            ,&
-       & pp_fl           ,pp_sfc          ,tk_fl                            ,&
-       & tk_hl           ,tk_sfc          ,xm_vap          ,xm_liq          ,&
-       & xm_ice          ,cdnc            ,cld_frc         ,xm_o3           ,&
+       & zf              ,zh              ,dz                               ,&
+       & pp_sfc          ,pp_fl                                             ,&
+       & tk_sfc          ,tk_fl           ,tk_hl                            ,&
+       & xm_dry          ,xm_vap          ,xm_liq          ,xm_ice          ,&
+       & cdnc            ,cld_frc                                           ,&
        & xm_co2          ,xm_ch4          ,xm_n2o          ,xm_cfc          ,&
-!!$       & xm_o2           ,xm_trc                                            ,&
-       & xm_o2                                                              ,&
+       & xm_o3           ,xm_o2                                             ,&
+!!$       & xm_trc                                                             ,&
        & flx_uplw        ,flx_uplw_clr    ,flx_dnlw        ,flx_dnlw_clr    ,&
        & flx_upsw        ,flx_upsw_clr    ,flx_dnsw        ,flx_dnsw_clr    ,&
        & vis_frc_sfc     ,par_dn_sfc      ,nir_dff_frc     ,vis_dff_frc     ,&
@@ -115,10 +116,10 @@ CONTAINS
 
     INTEGER,INTENT(IN)  ::             &
          jg,                           & !< domain index
+         krow,                         & !< first dimension of 2-d arrays
          iaero,                        & !< aerosol control
          kproma,                       & !< number of longitudes
          kbdim,                        & !< first dimension of 2-d arrays
-         krow,                         & !< first dimension of 2-d arrays
          klev,                         & !< number of levels
 !!$         ktrac,                        & !< number of tracers
          ktype(kbdim),                 & !< type of convection
@@ -131,8 +132,8 @@ CONTAINS
     TYPE(t_datetime), INTENT(IN) ::    datetime !< actual time step
 
     REAL(WP),INTENT(IN)  ::            &
-         cemiss,                       & !< surface emissivity
          pmu0(kbdim),                  & !< mu0 for solar zenith angle
+         cemiss,                       & !< surface emissivity
          alb_vis_dir(kbdim),           & !< surface albedo for vis range and dir light
          alb_nir_dir(kbdim),           & !< surface albedo for NIR range and dir light
          alb_vis_dif(kbdim),           & !< surface albedo for vis range and dif light
@@ -140,23 +141,23 @@ CONTAINS
          zf(kbdim,klev),               & !< geometric height at full level in m
          zh(kbdim,klev+1),             & !< geometric height at half level in m
          dz(kbdim,klev),               & !< geometric height thickness in m
-         mdry(kbdim,klev),             & !< dry air mass in layer in kg/m2
-         pp_fl(kbdim,klev),            & !< full level pressure in Pa
          pp_sfc(kbdim),                & !< surface pressure in Pa
+         pp_fl(kbdim,klev),            & !< full level pressure in Pa
+         tk_sfc(kbdim),                & !< surface temperature in K
          tk_fl(kbdim,klev),            & !< full level temperature in K
          tk_hl(kbdim,klev+1),          & !< half level temperature in K
-         tk_sfc(kbdim),                & !< surface temperature in K
-         xm_vap(kbdim,klev),           & !< specific humidity in g/g
-         xm_liq(kbdim,klev),           & !< specific liquid water content
-         xm_ice(kbdim,klev),           & !< specific ice content in g/g
+         xm_dry(kbdim,klev),           & !< dry air     mass in kg/m2
+         xm_vap(kbdim,klev),           & !< water vapor mass in kg/m2
+         xm_liq(kbdim,klev),           & !< cloud water mass in kg/m2
+         xm_ice(kbdim,klev),           & !< cloud ice   mass in kg/m2
          cdnc(kbdim,klev),             & !< cloud nuclei concentration
          cld_frc(kbdim,klev),          & !< fractional cloud cover
-         xm_o3(kbdim,klev),            & !< o3  mass mixing ratio
-         xm_co2(kbdim,klev),           & !< co2 mass mixing ratio
-         xm_ch4(kbdim,klev),           & !< ch4 mass mixing ratio
-         xm_n2o(kbdim,klev),           & !< n2o mass mixing ratio
-         xm_cfc(kbdim,klev,2),         & !< cfc volume mixing ratio
-         xm_o2(kbdim,klev)!!$,            & !< o2  mass mixing ratio
+         xm_co2(kbdim,klev),           & !< co2 mass in kg/m2
+         xm_ch4(kbdim,klev),           & !< ch4 mass in kg/m2
+         xm_n2o(kbdim,klev),           & !< n2o mass in kg/m2
+         xm_cfc(kbdim,klev,2),         & !< cfc mass in kg/m2
+         xm_o3(kbdim,klev),            & !< o3  mass in kg/m2
+         xm_o2(kbdim,klev)               !< o2  mass in kg/m2
 !!$         xm_trc(kbdim,klev,ktrac)        !< tracer mass mixing ratios
 
     REAL (wp), INTENT (OUT) ::         &
@@ -191,12 +192,10 @@ CONTAINS
          tk_hl_vr  (kbdim,klev+1),         & !< half level temperature [K]
          cdnc_vr   (kbdim,klev),           & !< cloud nuclei concentration
          cld_frc_vr(kbdim,klev),           & !< secure cloud fraction
-         ziwgkg_vr (kbdim,klev),           & !< specific ice water content
-         ziwc_vr   (kbdim,klev),           & !< ice water content per volume
-         ziwp_vr   (kbdim,klev),           & !< ice water path in g/m2  
-         zlwgkg_vr (kbdim,klev),           & !< specific liquid water content
-         zlwp_vr   (kbdim,klev),           & !< liquid water path in g/m2  
-         zlwc_vr   (kbdim,klev),           & !< liquid water content per
+         ziwp_vr   (kbdim,klev),           & !< in cloud ice    water content        [g/m2]
+         ziwc_vr   (kbdim,klev),           & !< in cloud ice    water concentration  [g/m3]
+         zlwp_vr   (kbdim,klev),           & !< in cloud liquid water content        [g/m2]
+         zlwc_vr   (kbdim,klev),           & !< in cloud liquid water concentration  [g/m3]
          re_drop   (kbdim,klev),           & !< effective radius of liquid
          re_cryst  (kbdim,klev),           & !< effective radius of ice
          wkl_vr       (kbdim,maxinpx,klev),& !< number of molecules/cm2 of
@@ -234,11 +233,11 @@ CONTAINS
       jkb = klev+1-jk
       DO jl = 1, kproma
         !
-        ! --- Cloud liquid and ice mass mixing ratio: [kg/kg in cell] --> [g/kg in cloud]
+        ! --- Cloud liquid and ice mass: [kg/m2 in cell] --> [g/m2 in cloud]
         !
         cld_frc_vr(jl,jk) = MAX(EPSILON(1.0_wp),cld_frc(jl,jkb))
-        ziwgkg_vr(jl,jk)  = xm_ice(jl,jkb)*1000.0_wp/cld_frc_vr(jl,jk)
-        zlwgkg_vr(jl,jk)  = xm_liq(jl,jkb)*1000.0_wp/cld_frc_vr(jl,jk)
+        ziwp_vr(jl,jk)    = xm_ice(jl,jkb)*1000.0_wp/cld_frc_vr(jl,jk)
+        zlwp_vr(jl,jk)    = xm_liq(jl,jkb)*1000.0_wp/cld_frc_vr(jl,jk)
       END DO
     END DO
     !
@@ -247,9 +246,9 @@ CONTAINS
     WHERE (cld_frc_vr(1:kproma,:) > 2.0_wp*EPSILON(1.0_wp))
       icldlyr(1:kproma,:) = 1
     ELSEWHERE
-      icldlyr(1:kproma,:)  = 0
-      ziwgkg_vr(1:kproma,:) = 0.0_wp
-      zlwgkg_vr(1:kproma,:) = 0.0_wp
+      icldlyr(1:kproma,:) = 0
+      ziwp_vr(1:kproma,:) = 0.0_wp
+      zlwp_vr(1:kproma,:) = 0.0_wp
     END WHERE
     !
     ! --- main constituent vertical reordering and unit conversion
@@ -271,17 +270,18 @@ CONTAINS
         tk_hl_vr(jl,jk)   = tk_hl(jl,jkb+1)
         tk_fl_vr(jl,jk)   = tk_fl(jl,jkb)
         !
-        ! --- cloud properties
+        ! --- cloud water and ice concentrations [kg/m3]
         !
-        ziwp_vr(jl,jk)    = ziwgkg_vr(jl,jk)
         ziwc_vr(jl,jk)    = ziwp_vr(jl,jk)/dz(jl,jkb)
-        zlwp_vr(jl,jk)    = zlwgkg_vr(jl,jk)
         zlwc_vr(jl,jk)    = zlwp_vr(jl,jk)/dz(jl,jkb)
+        !
+        ! --- cloud droplet number concentration  [1/m3] --> [1/cm3] ?
+        !
         cdnc_vr(jl,jk)    = cdnc(jl,jkb)*1.e-6_wp
         !
         ! --- dry air: [kg/m2] --> [molecules/cm2]
         !
-        col_dry_vr(jl,jk) = 0.1_wp * avo * mdry(jl,jkb)/amd
+        col_dry_vr(jl,jk) = 0.1_wp * avo * xm_dry(jl,jkb)/amd
         !
         ! --- H2O, CO2, O3, N2O, CH4, O2: [kg/m2] --> [molecules/cm2]
         !
@@ -295,7 +295,7 @@ CONTAINS
         !
         ! --- CFC11, CFC12: [kg/m2] --> [molecules/cm2]
         !
-        wx_vr(jl,:,jk)    = 0._wp
+        wx_vr(jl,:,jk)    = 0.0_wp
         wx_vr(jl,2,jk)    = 0.1_wp * avo * xm_cfc(jl,jkb,1)/amc11
         wx_vr(jl,3,jk)    = 0.1_wp * avo * xm_cfc(jl,jkb,2)/amc12
         !

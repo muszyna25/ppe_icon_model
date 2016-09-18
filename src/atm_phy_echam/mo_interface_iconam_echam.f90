@@ -485,8 +485,7 @@ CONTAINS
         &                  datetime     ,&! in
         &                  dtadv_loc    ,&! in
         &                  dtadv_loc    ,&! in
-        &                  ltrig_rad    ,&! in
-        &                  datetime_radtran) ! in
+        &                  ltrig_rad     )
 
     END DO
 !$OMP END DO NOWAIT

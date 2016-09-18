@@ -76,8 +76,7 @@ CONTAINS
   !!
   SUBROUTINE echam_phy_main( jg,jb,jcs,jce,nbdim,      &
     &                        datetime,pdtime,psteplen, &
-    &                        ltrig_rad,                &
-    &                        datetime_radtran          )
+    &                        ltrig_rad                 )
 
     INTEGER         ,INTENT(IN) :: jg             !< grid level/domain index
     INTEGER         ,INTENT(IN) :: jb             !< block index
@@ -89,7 +88,6 @@ CONTAINS
     REAL(wp)        ,INTENT(IN) :: psteplen       !< 2*pdtime in case of leapfrog
 
     LOGICAL         ,INTENT(IN) :: ltrig_rad      !< perform radiative transfer computation
-    TYPE(t_datetime),INTENT(IN) :: datetime_radtran !< date and time for radiative transfer calculation
 
     ! Local variables
 
@@ -505,32 +503,32 @@ CONTAINS
         & alb_vis_dif= field%albvisdif(:,jb)   ,&!< in  surface albedo for visible range, diffuse
         & alb_nir_dif= field%albnirdif(:,jb)   ,&!< in  surface albedo for near IR range, diffuse
         & tk_sfc     = field%tsfc_radt(:,jb)   ,&!< in  grid box mean surface temperature
-        & zf     =field%zf(:,:,jb)             ,&!< in  geometric height at full level      [m]
-        & zh     =field%zh(:,:,jb)             ,&!< in  geometric height at half level      [m]
-        & dz     =field%dz(:,:,jb)             ,&!< in  geometric height thickness of layer [m]
-        & mdry   =field%mdry(:,:,jb)           ,&!< in  dry air mass in layer [kg/m2]
-        & mtrc   =field%mtrc(:,:,jb,:)         ,&!< in  tracer mass in layer  [kg/m2]
-        & pp_hl  =field%presi_old(:,:,jb)      ,&!< in  pressure at half levels at t-dt [Pa]
-        & pp_fl  =field%presm_old(:,:,jb)      ,&!< in  pressure at full levels at t-dt [Pa]
-        & tk_fl  =field%temp(:,:,jb)          ,&!< in  tk_fl  = temperature at full level at t-dt
-        & xm_trc =field%qtrc(:,:,jb,:)   ,&!< in  tracer mass mixing ratio
-        & xm_ozn =field%o3(:,:,jb)       ,&!< inout  Avoid leaving kproma+1:kbdim undefined Ozone 
-        & cdnc   =field% acdnc(:,:,jb)   ,&!< in     cloud droplet number conc
-        & cld_frc=field% aclc(:,:,jb)    ,&!< in     cld_frac = cloud fraction [m2/m2]
-        & cld_cvr=field%aclcov(:,jb)     ,&!< out  total cloud cover
-        & vis_frc_sfc=field%visfrcsfc(:,jb),&!< out  visible (250-680nm) fraction of net surface radiation
-        & par_dn_sfc=field%partrmdnsfc(:,jb),&!< out  downward photosynthetically active radiation (par) at surface
-        & nir_dff_frc=field%nirdffsfc(:,jb),&!< out  diffuse fraction of downward surface near-infrared radiation
-        & vis_dff_frc=field%visdffsfc(:,jb),&!< out  diffuse fraction of downward surface visible radiation
-        & par_dff_frc=field%pardffsfc(:,jb),&!< out  diffuse fraction of downward surface par
-        & lw_flx_up_sfc=field%lwflxupsfc(:,jb),&!< out  longwave upward surface radiation
-        & lw_net_clr_bnd=zlw_net_clr_bnd   ,&!<out  Clear-sky net longwave  at TOA (:,1) and surface (:,2)
-        & sw_net_clr_bnd=zsw_net_clr_bnd   ,&!< out  Clear-sky net shortwave at TOA (:,1) and surface (:,2) 
-        & lw_net_clr=field%lwflxclr(:,:,jb),&!< out  Clear-sky net longwave  at all levels
-        & sw_net_clr=field%swtrmclr(:,:,jb),&!< out  Clear-sky net shortwave at all levels
-        & lw_net=field%lwflxall(:,:,jb),&!< out  All-sky net longwave  at all levels
-        & sw_net=field%swtrmall(:,:,jb) &!< out  All-sky net shortwave at all levels
+        & zf         = field%zf(:,:,jb)        ,&!< in  geometric height at full level      [m]
+        & zh         = field%zh(:,:,jb)        ,&!< in  geometric height at half level      [m]
+        & dz         = field%dz(:,:,jb)        ,&!< in  geometric height thickness of layer [m]
+        & pp_hl      = field%presi_old(:,:,jb) ,&!< in  pressure at half levels at t-dt [Pa]
+        & pp_fl      = field%presm_old(:,:,jb) ,&!< in  pressure at full levels at t-dt [Pa]
+        & tk_fl      = field%temp(:,:,jb)      ,&!< in  tk_fl  = temperature at full level at t-dt
+        & xm_dry     = field%mdry(:,:,jb)      ,&!< in  dry air mass in layer [kg/m2]
+        & xm_trc     = field%mtrc(:,:,jb,:)    ,&!< in  tracer  mass in layer [kg/m2]
+        & xm_ozn     = field%o3(:,:,jb)        ,&!< inout  ozone  mass mixing ratio [kg/kg]
+        & cdnc       = field% acdnc(:,:,jb)    ,&!< in   cloud droplet number conc
+        & cld_frc    = field% aclc(:,:,jb)     ,&!< in   cloud fraction [m2/m2]
+        & cld_cvr    = field%aclcov(:,jb)      ,&!< out  total cloud cover
+        & vis_frc_sfc= field%visfrcsfc(:,jb)   ,&!< out  visible (250-680nm) fraction of net surface radiation
+        & par_dn_sfc = field%partrmdnsfc(:,jb) ,&!< out  downward photosynthetically active radiation (par) at surface
+        & nir_dff_frc= field%nirdffsfc(:,jb)   ,&!< out  diffuse fraction of downward surface near-infrared radiation
+        & vis_dff_frc= field%visdffsfc(:,jb)   ,&!< out  diffuse fraction of downward surface visible radiation
+        & par_dff_frc= field%pardffsfc(:,jb)   ,&!< out  diffuse fraction of downward surface par
+        & lw_flx_up_sfc = field%lwflxupsfc(:,jb),&!<out  longwave upward surface radiation
+        & lw_net_clr_bnd= zlw_net_clr_bnd      ,&!< out  Clear-sky net longwave  at TOA (:,1) and surface (:,2)
+        & sw_net_clr_bnd= zsw_net_clr_bnd      ,&!< out  Clear-sky net shortwave at TOA (:,1) and surface (:,2) 
+        & lw_net_clr = field%lwflxclr(:,:,jb)  ,&!< out  Clear-sky net longwave  at all levels
+        & sw_net_clr = field%swtrmclr(:,:,jb)  ,&!< out  Clear-sky net shortwave at all levels
+        & lw_net     = field%lwflxall(:,:,jb)  ,&!< out  All-sky net longwave  at all levels
+        & sw_net     = field%swtrmall(:,:,jb)   &!< out  All-sky net shortwave at all levels
         &                           )
+        
         field%lwflxclr(jcs:jce,1,jb)=zlw_net_clr_bnd(jcs:jce,1)
         field%lwflxclr(jcs:jce,nlevp1,jb)=zlw_net_clr_bnd(jcs:jce,2)
         field%swtrmclr(jcs:jce,1,jb)=zsw_net_clr_bnd(jcs:jce,1)
