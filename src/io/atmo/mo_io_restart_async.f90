@@ -28,7 +28,7 @@ MODULE mo_io_restart_async
   USE mo_exception,               ONLY: finish, message, message_text, get_filename_noext
   USE mo_kind,                    ONLY: wp, i8, dp
   USE mtime,                      ONLY: datetime, MAX_DATETIME_STR_LEN, &
-    &                                   datetimeToString, newDatetime
+    &                                   datetimeToString, datetimeToPOSIXString, newDatetime
   USE mo_io_units,                ONLY: nerr, filename_max
   USE mo_var_list,                ONLY: nvar_lists, var_lists, new_var_list, delete_var_lists
   USE mo_linked_list,             ONLY: t_list_element, t_var_list
@@ -3281,6 +3281,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER             :: subname = MODUL_NAME//'open_restart_file'
     TYPE (t_keyword_list), POINTER          :: keywords => NULL()
     CHARACTER(LEN=MAX_CHAR_LENGTH)          :: cdiErrorText
+    CHARACTER(len=32)                       :: fmtstring
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)subname,' p_pe=',p_pe
@@ -3315,7 +3316,8 @@ CONTAINS
         CALL finish(subname, UNKNOWN_FILE_FORMAT)
     END SELECT
 
-    CALL datetimeToString(restart_args%this_datetime, datetime_str)
+    fmtstring = '%Y%m%dT%H%M%SZ'
+    CALL datetimeToPosixString(restart_args%this_datetime, datetime_str, fmtstring)
 
     ! build the file name
     CALL associate_keyword("<gridfile>",   TRIM(get_filename_noext(p_pd%base_filename)),   keywords)

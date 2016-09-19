@@ -22,15 +22,16 @@ MODULE mo_time_management
 
   USE, INTRINSIC :: iso_c_binding, ONLY: c_int32_t
   USE mo_kind,                     ONLY: wp, i8
+  USE mo_master_config,            ONLY: lrestart_write_last
   USE mo_parallel_config,          ONLY: num_restart_procs
   USE mo_util_string,              ONLY: tolower, int2string
   USE mo_nonhydrostatic_config,    ONLY: divdamp_order
-  USE mtime,                       ONLY: MAX_DATETIME_STR_LEN, datetime,                   &
+  USE mtime,                       ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,      &
     &                                    MAX_CALENDAR_STR_LEN,                             &
-    &                                    MAX_TIMEDELTA_STR_LEN,                            &
     &                                    OPERATOR(>),OPERATOR(/=), OPERATOR(-),            &
-    &                                    newDatetime, deallocateDatetime, timedelta,       &
-    &                                    getPTStringFromMS, newTimedelta, min,             &
+    &                                    datetime, newDatetime, deallocateDatetime,        &
+    &                                    timedelta, newTimedelta, deallocateTimedelta,     &
+    &                                    getPTStringFromMS, getPTStringFromSeconds, min,   &
     &                                    deallocateTimedelta, OPERATOR(+), OPERATOR(==),   &
     &                                    timedeltatostring, datetimetostring,              &
     &                                    OPERATOR(*), OPERATOR(<), OPERATOR(<=),           &
@@ -40,7 +41,7 @@ MODULE mo_time_management
     &                                    mtime_year_of_365_days => year_of_365_days,       &
     &                                    mtime_year_of_360_days => year_of_360_days,       &
     &                                    getTotalMilliSecondsTimeDelta
-  USE mo_time_config,              ONLY: dt_restart,                                       &
+  USE mo_time_config,              ONLY: dt_restart, time_config,                          &
     &                                    ini_datetime_string, is_relative_time,            &
     &                                    time_nml_icalendar => icalendar,                  &
     &                                    restart_calendar, restart_ini_datetime_string,    &
@@ -49,7 +50,6 @@ MODULE mo_time_management
   USE mo_run_config,               ONLY: dtime, mtime_modelTimeStep => modelTimeStep
   USE mo_master_control,           ONLY: atmo_process, get_my_process_type
   USE mo_impl_constants,           ONLY: max_dom, IHS_ATM_TEMP, IHS_ATM_THETA,             &
-    &                                    DEFAULT_RESTART_INTVL, DEFAULT_CHECKPT_INTVL,     &
     &                                    inh_atmosphere,                                   &
     &                                    dtime_proleptic_gregorian => proleptic_gregorian, &
     &                                    dtime_cly360              => cly360,              &
@@ -217,13 +217,15 @@ CONTAINS
   SUBROUTINE compute_restart_settings()
     ! local variables:
     CHARACTER(len=*), PARAMETER ::  routine = modname//'::compute_restart_settings'
-    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: restart_intvl_string, checkpt_intvl_string, &
-      &                                     checkpt_intvl2, restart_intvl2, dtime_string
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: checkpt_intvl_string, checkpt_intvl2,       &
+                                            restart_intvl_string, dtime_string
     TYPE(timedelta), POINTER             :: mtime_2_5h, mtime_dt_checkpoint,            &
       &                                     mtime_dt_restart, mtime_dom_start,          &
       &                                     tmp_td1, tmp_td2
     TYPE(datetime), POINTER              :: reference_dt
     INTEGER                              :: jg
+
+    
 
 
     ! --------------------------------------------------------------
@@ -244,35 +246,46 @@ CONTAINS
     !         TODO: The restart interval needs to be multiple of the model
     !               time steps.
     !
-    restart_intvl_string = ""
-    IF (TRIM(restartTimeIntval) /= "")  restart_intvl_string = TRIM(restartTimeIntval)
-    IF (dt_restart > 0._wp) THEN
-      restart_intvl2 = "PT"//TRIM(int2string(INT(dt_restart), '(i0)'))//"S"
-      IF (TRIM(restart_intvl_string) == "") THEN
-        restart_intvl_string = TRIM(restart_intvl2)
-      ELSE
-        tmp_td1 => newTimedelta(restart_intvl_string)
-        tmp_td2 => newTimedelta(restart_intvl2)        
-        IF (.NOT. (tmp_td1 < tmp_td2) .AND. .NOT. (tmp_td2 < tmp_td1)) THEN
-          restart_intvl_string = TRIM(restart_intvl2)
+    CALL set_tc_write_restart(.TRUE.)          
+    IF (.NOT. lrestart_write_last) THEN
+      restartTimeIntval = 'PT0.000S'
+      dt_restart = 0.0_wp
+      CALL set_tc_write_restart(.FALSE.)      
+      restart_intvl_string = TRIM(restartTimeIntval)
+    ELSE
+      IF (TRIM(restartTimeIntval) /= "") THEN
+        IF (dt_restart >= 0.0_wp) THEN
+          ! Comparison of intervals cannot be done with strings as there are multiple options
+          ! for expressing an interval
+          tmp_td1 => newTimedelta(restartTimeIntval)
+          CALL getPTStringFromSeconds(dt_restart, restart_intvl_string)
+          tmp_td2 => newTimedelta(restart_intvl_string)
+          IF (tmp_td1 == tmp_td2) THEN
+            restart_intvl_string = TRIM(restartTimeIntval)
+          ELSE
+            ! if both are set but inconsistent, finish with error message
+            CALL finish(routine, "Inconsistent setting of restart interval: " &
+                 &               //TRIM(restart_intvl_string)//"/"//TRIM(restartTimeIntval))
+          ENDIF
+          CALL deallocateTimedelta(tmp_td1)
+          CALL deallocateTimedelta(tmp_td2)
         ELSE
-          CALL finish(routine, "Inconsistent setting of restart interval: " &
-               &               //TRIM(restart_intvl_string)//"/"//TRIM(restart_intvl2))
+          ! use restartTimeIntval
+          restart_intvl_string = TRIM(restartTimeIntval)
         END IF
-        CALL deallocateTimedelta(tmp_td1)
-        CALL deallocateTimedelta(tmp_td2)
+      ELSE
+        IF (dt_restart > 0.0_wp) THEN
+          ! use dt_restart
+          CALL getPTStringFromSeconds(dt_restart, restart_intvl_string)
+        ELSE
+          restart_intvl_string = 'PT0.000S'
+          CALL set_tc_write_restart(.FALSE.)
+        END IF
       END IF
-    ELSE IF (dt_restart == 0._wp) THEN
-      restart_intvl_string = 'PT0.000S'
-      CALL set_tc_write_restart(.FALSE.)
-    END IF
-    ! if "restart_intvl_string" still unspecified: set default
-    IF (TRIM(restart_intvl_string) == "") THEN
-      restart_intvl_string = DEFAULT_RESTART_INTVL
     END IF
 
-
-
+    mtime_dt_restart    => newTimedelta(restart_intvl_string)
+    
     ! --- --- CHECKPOINT INTERVAL:
     !
     !         This time interval specifies when the run is supposed to
@@ -305,15 +318,40 @@ CONTAINS
         CALL deallocateTimedelta(tmp_td2)
       END IF
     END IF
-    ! if "checkpt_intvl_string" still unspecified: set default
+    ! if "checkpt_intvl_string" still unspecified: set default to no checkpoint
     IF (TRIM(checkpt_intvl_string) == "") THEN
-      checkpt_intvl_string = DEFAULT_CHECKPT_INTVL
+      checkpt_intvl_string = 'PT0.000S'
     END IF
 
-    mtime_dt_restart    => newTimedelta(restart_intvl_string)
     mtime_dt_checkpoint => newTimedelta(checkpt_intvl_string)
 
-    ! consistency checks:
+    ! --------------------------------------------------------------
+    ! PART II: Convert ISO8601 string into "mtime" and old REAL
+    ! --------------------------------------------------------------
+
+    CALL set_tc_dt_restart     ( restart_intvl_string )
+    CALL set_tc_dt_checkpoint  ( checkpt_intvl_string )
+
+    ! For conversion to (milli-)seconds, we need an anchor date:
+    !
+    reference_dt => newDatetime("1980-06-01T00:00:00.000")
+    dt_restart    = REAL(getTotalMilliSecondsTimeDelta(mtime_dt_restart,    reference_dt),wp)/1000._wp
+    dt_checkpoint = REAL(getTotalMilliSecondsTimeDelta(mtime_dt_checkpoint, reference_dt),wp)/1000._wp
+    CALL deallocateDatetime(reference_dt)
+
+    ! --------------------------------------------------------------
+    ! PART III: Print restart and checkpoint intervals
+    ! --------------------------------------------------------------
+
+    WRITE(message_text,'(a,a)') 'Checkpoint interval      : ', TRIM(checkpt_intvl_string)
+    CALL message('',message_text)
+    WRITE(message_text,'(a,a)') 'Restart interval         : ', TRIM(restart_intvl_string)
+    CALL message('',message_text)
+    CALL message('','')
+
+    ! --------------------------------------------------------------
+    ! PART IV:  Consistency checks 
+    ! --------------------------------------------------------------
     !
     ! When increased sound-wave and gravity-wave damping is chosen
     ! during the spinup phase (i.e. divdamp_order = 24),
@@ -345,40 +383,8 @@ CONTAINS
       CALL deallocateTimedelta(mtime_dom_start)
     END DO
 
-
-    ! If undefined, the restart interval is set to the checkpoint
-    ! interval. On the other hand, the checkpoint interval is set to
-    ! the restart interval, if the first is not specified:
-    !
-    IF (TRIM(restart_intvl_string) == "")  restart_intvl_string = checkpt_intvl_string
-    IF (TRIM(checkpt_intvl_string) == "")  checkpt_intvl_string = restart_intvl_string
-
-
-    ! --------------------------------------------------------------
-    ! PART II: Convert ISO8601 string into "mtime" and old REAL
-    ! --------------------------------------------------------------
-
-    CALL set_tc_dt_restart     ( restart_intvl_string )
-    CALL set_tc_dt_checkpoint  ( checkpt_intvl_string )
-
-    ! For conversion to (milli-)seconds, we need an anchor date:
-    !
-    reference_dt => newDatetime("1980-06-01T00:00:00.000")
-    dt_restart    = REAL(getTotalMilliSecondsTimeDelta(mtime_dt_restart,    reference_dt),wp)/1000._wp
-    dt_checkpoint = REAL(getTotalMilliSecondsTimeDelta(mtime_dt_checkpoint, reference_dt),wp)/1000._wp
     CALL deallocateTimedelta(mtime_dt_checkpoint)
     CALL deallocateTimedelta(mtime_dt_restart)
-    CALL deallocateDatetime(reference_dt)
-
-    ! --------------------------------------------------------------
-    ! PART III: Print restart and checkpoint intervals
-    ! --------------------------------------------------------------
-
-    WRITE(message_text,'(a,a)') 'Checkpoint interval      : ', TRIM(checkpt_intvl_string)
-    CALL message('',message_text)
-    WRITE(message_text,'(a,a)') 'Restart interval         : ', TRIM(restart_intvl_string)
-    CALL message('',message_text)
-    CALL message('','')
 
   END SUBROUTINE compute_restart_settings
 

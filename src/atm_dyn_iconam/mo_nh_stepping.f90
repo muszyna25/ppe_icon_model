@@ -112,7 +112,7 @@ MODULE mo_nh_stepping
   USE mo_vertical_grid,            ONLY: set_nh_metrics
   USE mo_nh_diagnose_pres_temp,    ONLY: diagnose_pres_temp
   USE mo_nh_held_suarez_interface, ONLY: held_suarez_nh_interface
-  USE mo_master_config,            ONLY: isRestart, lrestart_write_last
+  USE mo_master_config,            ONLY: isRestart
   USE mo_io_restart_attributes,    ONLY: get_restart_attribute
   USE mo_meteogram_config,         ONLY: meteogram_output_config
   USE mo_meteogram_output,         ONLY: meteogram_sample_vars, meteogram_is_sample_step
@@ -158,17 +158,15 @@ MODULE mo_nh_stepping
   USE mo_nonhydro_types,           ONLY: t_nh_state
   USE mo_interface_les,            ONLY: init_les_phy_interface
   USE mo_fortran_tools,            ONLY: swap, copy, init
-  USE mtime,                       ONLY: datetime, newDatetime, deallocateDatetime, datetimeToString, &
-       &                                 PROLEPTIC_GREGORIAN, setCalendar,  timedeltaToString,        &
-       &                                 timedelta, newTimedelta, deallocateTimedelta,                &
-       &                                 MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN, newDatetime,    &
-       &                                 MAX_MTIME_ERROR_STR_LEN, no_error, mtime_strerror,           &
-       &                                 OPERATOR(-), OPERATOR(+), OPERATOR(>), OPERATOR(*),          &
-       &                                 ASSIGNMENT(=), OPERATOR(==), OPERATOR(>=), OPERATOR(/=),     &
-       &                                 event, eventGroup, newEvent,                                 &
-       &                                 addEventToEventGroup, isCurrentEventActive,                  &
-       &                                 getTotalMillisecondsTimedelta, getTimedeltaFromDatetime,     &
-       &                                 timedeltaToString
+  USE mtime,                       ONLY: datetime, newDatetime, deallocateDatetime, datetimeToString,     &
+       &                                 timedelta, newTimedelta, deallocateTimedelta, timedeltaToString, &
+       &                                 MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN, newDatetime,        &
+       &                                 MAX_MTIME_ERROR_STR_LEN, no_error, mtime_strerror,               &
+       &                                 OPERATOR(-), OPERATOR(+), OPERATOR(>), OPERATOR(*),              &
+       &                                 ASSIGNMENT(=), OPERATOR(==), OPERATOR(>=), OPERATOR(/=),         &
+       &                                 event, eventGroup, newEvent,                                     &
+       &                                 addEventToEventGroup, isCurrentEventActive,                      &
+       &                                 getTotalMillisecondsTimedelta, getTimedeltaFromDatetime
   USE mo_event_manager,            ONLY: initEventManager, addEventGroup, getEventGroup, printEventGroup
   USE mo_derived_variable_handling, ONLY: perform_accumulation, reset_accumulation
 #ifdef MESSY
@@ -778,20 +776,20 @@ MODULE mo_nh_stepping
     IF (lprint_timestep) THEN
       ! compute current forecast time (delta):
       forecast_delta => newTimedelta("P01D")
-      forecast_delta = mtime_current - time_config%tc_startdate
+      forecast_delta = mtime_current - time_config%tc_exp_startdate
       ! we append the forecast time delta as an ISO 8601 conforming
       ! string (where, for convenience, the 'T' token has been
       ! replaced by a blank character)
       IF (forecast_delta%ms /= 0) THEN
-        WRITE (forecast_delta_str,'(4(i2.2,a),i3.3,a)') &
-             &                                   forecast_delta%day, ' D ',  &
+        WRITE (forecast_delta_str,'(i0,a,3(i2.2,a),i3.3,a)') &
+             &                                   forecast_delta%day, 'D ',   &
              &                                   forecast_delta%hour, 'H',   &
              &                                   forecast_delta%minute, 'M', &
              &                                   forecast_delta%second, '.', &
              &                                   forecast_delta%ms, 'S'
       ELSE
-        WRITE (forecast_delta_str,'(4(i2.2,a))') &
-             &                                   forecast_delta%day, ' D ',  &
+        WRITE (forecast_delta_str,'(i0,a,3(i2.2,a))') &
+             &                                   forecast_delta%day, 'D ',   &
              &                                   forecast_delta%hour, 'H',   &
              &                                   forecast_delta%minute, 'M', &
              &                                   forecast_delta%second, 'S'
@@ -1106,20 +1104,19 @@ MODULE mo_nh_stepping
     !
     ! default is to assume we do not write a checkpoint/restart file
     lwrite_checkpoint = .FALSE.
-    
     IF ( &
-         !   ... CASE A: if normal checkpoint cycle has been reached ...
-         &  (isCurrentEventActive(checkpointEvent, mtime_current)                 &
-         !          or restart cycle has been reached, i.e. checkpoint+model stop
-         &       .OR.  isCurrentEventActive(restartEvent, mtime_current)          &
-         !          and the current date differs from simulation start date
-         &       .AND. (time_config%tc_startdate /= mtime_current))               &
-         &  .OR.                                                                  &
-         !   ... CASE B: if end of experiment has been reached
-         &  ((time_config%tc_stopdate == mtime_current)                           &
-         &       .AND. lrestart_write_last)                                       &
-         !   ... make sure (for both cases A and B) that model output is enabled
-         &     .AND. .NOT. output_mode%l_none ) THEN
+         !  if normal checkpoint cycle has been reached ...
+         &  (    (isCurrentEventActive(checkpointEvent, mtime_current)            &
+         !  or restart cycle has been reached, i.e. checkpoint+model stop
+         &  .OR.  isCurrentEventActive(restartEvent, mtime_current))              &
+         !  and the current date differs from simulation start date
+         &  .AND. .NOT. (time_config%tc_startdate == mtime_current))              &
+         !  and end of run has not been reached
+         &  .AND. .NOT. (time_config%tc_stopdate == mtime_current)                &
+         !  or restart writing has been disabled
+         &  .OR. time_config%tc_write_restart                                     &
+         !  make sure (for both cases A and B) that model output is enabled
+         &  .AND. .NOT. output_mode%l_none ) THEN
       lwrite_checkpoint = .TRUE.
     ENDIF
 

@@ -261,8 +261,7 @@ PROGRAM icon
   ! write the control.status file
   IF (my_process_is_global_root()) THEN
     OPEN (500, FILE="finish.status")
-    IF (time_config%tc_exp_stopdate > time_config%tc_stopdate) THEN
-      ! restart experiment
+    IF ((time_config%tc_exp_stopdate > time_config%tc_stopdate) .AND. time_config%tc_write_restart) THEN
       WRITE(500,*) "RESTART"
     ELSE
       WRITE(500,*) "OK"

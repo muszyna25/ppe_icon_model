@@ -595,19 +595,13 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: RTTOV_RAD_CS = 4
 
   !------------------------!
-  !  DEFAULT DATE SETTINGS !
-  !------------------------!
-
-  CHARACTER(len=MAX_TIMEDELTA_STR_LEN) :: DEFAULT_RESTART_INTVL = "P30D"
-  CHARACTER(len=MAX_TIMEDELTA_STR_LEN) :: DEFAULT_CHECKPT_INTVL = "P30D"
-
-  !------------------------!
   !  CALENDAR TYPES        !
   !------------------------!
 
   INTEGER,  PARAMETER :: julian_gregorian    = 0 !< historic Julian / Gregorian
   INTEGER,  PARAMETER :: proleptic_gregorian = 1 !< proleptic Gregorian
   INTEGER,  PARAMETER :: cly360              = 2 !< constant 30 dy/mo and 360 dy/yr
+
   !------------------------------------------------!
   !  MISSING VALUE FOR BOUNDARY INTERPOLATION ZONE !
   !------------------------------------------------!
