@@ -71,7 +71,7 @@ CONTAINS
   TYPE(t_aero_meta) FUNCTION create_tracer_metadata_aero(lis_tracer, name, ihadv_tracer, ivadv_tracer,          &
                       &                                  lturb_tracer, lconv_tracer, ised_tracer, ldep_tracer,  &
                       &                                  iwash_tracer,                                          &
-                      &                                  mode, solubility, rho, mol_weight)
+                      &                                  moment, mode, solubility, rho, mol_weight)
     ! Base type (t_tracer_meta) content
     LOGICAL, INTENT(IN), OPTIONAL  :: lis_tracer      ! this is a tracer field (TRUE/FALSE)
     CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: name      ! Name of tracer
@@ -83,6 +83,7 @@ CONTAINS
     LOGICAL, INTENT(IN), OPTIONAL  :: ldep_tracer     ! Switch for dry deposition
     INTEGER, INTENT(IN), OPTIONAL  :: iwash_tracer    ! Method for washout
     ! Extended type (t_aero_meta) content
+    INTEGER, INTENT(IN), OPTIONAL  :: moment          ! moment of distribution (e.g. 0=number, 3=proportional to mass)
     CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: &
       &                               mode             ! Name of mode the tracer is contained in
     REAL(wp), INTENT(IN), OPTIONAL :: solubility       ! Solubility, between 0 (insoluble) and 1 (soluble)
@@ -93,6 +94,13 @@ CONTAINS
     CALL create_tracer_metadata_aero%construct_base(lis_tracer, name, ihadv_tracer, ivadv_tracer,  &
       &                                             lturb_tracer, lconv_tracer, ised_tracer,       &
       &                                             ldep_tracer, iwash_tracer)
+
+    ! Fill the meta of the extended type (t_aero_meta)
+    IF(PRESENT(moment)) THEN
+      create_tracer_metadata_aero%moment = moment
+    ELSE
+      create_tracer_metadata_aero%moment = -1
+    ENDIF
 
     ! Fill the meta of the extended type (t_aero_meta)
     IF(PRESENT(mode)) THEN
