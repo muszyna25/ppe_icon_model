@@ -270,10 +270,11 @@ CONTAINS
     LOGICAL, OPTIONAL, INTENT(IN) :: inplace
     INTEGER, OPTIONAL, INTENT(in) :: comm
 
-
+    CHARACTER(len=*), PARAMETER :: routine = modname//"::setup_comm_pattern"
     INTEGER, ALLOCATABLE :: icnt(:), flag(:), global_recv_index(:), send_src(:), num_rcv(:)
     INTEGER :: i, n, np, nr, num_recv, irs, ire, num_send, iss, ise, max_glb, &
       comm_size, comm_rank, recv_idx, abs_dst_idx
+    LOGICAL :: any_np_le_0
 
     !-----------------------------------------------------------------------
     IF (PRESENT(comm)) THEN
@@ -416,14 +417,15 @@ CONTAINS
 
     ! The indices in p_pat%send_src are global, convert to local
 
+    any_np_le_0 = .FALSE.
     DO i = 1, p_pat%n_send
 
       np = get_local_index(send_glb2loc_index, send_src(i))
-      IF(np <= 0) CALL finish('setup_comm_pattern','Got illegal index')
+      any_np_le_0 = any_np_le_0 .OR. np <= 0
       p_pat%send_src_blk(i) = blk_no(np)
       p_pat%send_src_idx(i) = idx_no(np)
     ENDDO
-
+    IF (any_np_le_0) CALL finish(routine, 'Got illegal index')
     ! Finally, compute lists of processors for send and receive operations
 
     num_send = 0
