@@ -1460,7 +1460,9 @@ CONTAINS
 
               ENDDO
 
-              !CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch( patch_info(1)%log_patch_id ) ) ! works for amip and test_nat_rce
+              IF ( 1 == patch_info(1)%log_patch_id ) THEN
+                CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch( patch_info(1)%log_patch_id ) ) ! works for amip and test_nat_rce
+              ENDIF
               !CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch( 0 )) ! this is how it works for _nwp_R02B04N06multi2
               !CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch( 1 )) ! initial setup
 
