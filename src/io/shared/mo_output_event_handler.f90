@@ -484,13 +484,13 @@ CONTAINS
     END IF
 
     ! do not print, if the table is excessively long
+    dst = 0
     IF (event%output_event%n_event_steps > MAX_PRINTOUT) THEN
       WRITE (dst,*) "detailed print-out of output steps has been omitted, cf. 'output_schedule.txt'."
       RETURN
     END IF
 
     ! open ASCII output file (if necessary):
-    dst = 0
     IF (PRESENT(opt_dstfile)) THEN
       dst = opt_dstfile
     ELSE
