@@ -113,9 +113,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
         ! Select type of mode
         select type (fields=>this_mode%fields)
           type is (t_fields_radio)
-#if 0
-            CALL  art_decay_radioact(p_patch,p_dtime,p_tracer_now(:,:,:,fields%itracer),fields%halflife) 
-#endif
+            CALL  art_decay_radioact(p_patch,p_dtime,fields%ptr%p3d(:,:,:),fields%halflife) 
         end select                  
         this_mode => this_mode%next_mode
       END DO
