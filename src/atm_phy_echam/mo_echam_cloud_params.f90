@@ -62,12 +62,12 @@ MODULE mo_echam_cloud_params
   LOGICAL,     PARAMETER :: lonacc  = .TRUE.
 
   REAL(wp),    PARAMETER :: ccsacl  = 0.10_wp
-  REAL(wp),    PARAMETER :: ccracl  = 6.0_wp
-  REAL(wp),    PARAMETER :: ccraut  = 15.0_wp
+  REAL(wp),    PARAMETER :: ccracl  = 12.0_wp
+  REAL(wp),    PARAMETER :: ccraut  = 20.0_wp
   REAL(wp),    PARAMETER :: ceffmin = 10.0_wp    ! min eff.radius for ice cloud
   REAL(wp),    PARAMETER :: ccwmin  = 1.e-7_wp   ! cloud water limit for cover>0
   REAL(wp),    PARAMETER :: cinv    = 0.25_wp    ! fraction of dry adiabatic lapse rate
-  REAL(wp),    PARAMETER :: cauloc  = 0.0_wp
+  REAL(wp),    PARAMETER :: cauloc  = 10.0_wp
   REAL(wp),    PARAMETER :: cqtmin = 1.e-12_wp   ! total water minimum
   !-----------------------------------------------------------------------------------
   ! Define parameters depending on resolution set in subroutine sucloud of this module

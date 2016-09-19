@@ -36,7 +36,6 @@ MODULE mo_run_nml
                          & config_restart_filename  => restart_filename, &
                          & config_profiling_output => profiling_output, &
                          & config_check_uuid_gracefully => check_uuid_gracefully, &
-                         & config_irad_type         => irad_type, &
                          & setModelTimeStep, tc_dt_model
   USE mo_kind,           ONLY: wp, i8
   USE mo_exception,      ONLY: finish, message, message_text, &
@@ -109,8 +108,6 @@ MODULE mo_run_nml
 
   LOGICAL :: check_uuid_gracefully !< Flag. If .TRUE. then we give only warnings for non-matching UUIDs
 
-  INTEGER :: irad_type ! determines type of radiation (1=rrtm, 2=psrad)
-
   !> file name for restart/checkpoint files (containg keyword
   !> substition patterns)
   CHARACTER(len=MAX_CHAR_LENGTH) :: restart_filename
@@ -132,7 +129,6 @@ MODULE mo_run_nml
                      restart_filename,              &
                      profiling_output,              &
                      check_uuid_gracefully,         &
-                     irad_type,                     &
                      modelTimeStep
 
 CONTAINS
@@ -182,8 +178,6 @@ CONTAINS
     restart_filename = "<gridfile>_restart_<mtype>_<rsttime>.nc"
     profiling_output = config_profiling_output
     check_uuid_gracefully = .FALSE.
-
-    irad_type = 1
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
@@ -239,7 +233,6 @@ CONTAINS
 
     IF (nsteps < 0 .AND. nsteps /= -999) CALL finish(TRIM(routine),'"nsteps" must not be negative')
     IF (dtime <= 0._wp) CALL finish(TRIM(routine),'"dtime" must be positive')
-    IF (irad_type > 2 .OR. irad_type < 1 ) CALL finish(TRIM(routine),'"irad_type" must be 1 or 2')
 
     IF (modelTimeStep == '') THEN
       CALL getPTStringFromMS(NINT(1000*dtime, i8), modelTimeStep)
@@ -290,8 +283,6 @@ CONTAINS
     config_profiling_output = profiling_output
 
     config_check_uuid_gracefully = check_uuid_gracefully
-
-    config_irad_type        = irad_type
 
     IF (TRIM(output(1)) /= "default") THEN
       config_output(:) = output(:)

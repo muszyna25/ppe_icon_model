@@ -117,7 +117,7 @@ CONTAINS
     lheatcal      = .FALSE.
 
     emiss_lev     = 10         ! is correct for L31 and L47
-    rmscon        = 1.0_wp     ! default value used in ECHAM5
+    rmscon        = 0.87_wp    ! default value used in ECHAM5
     kstar         = 5.0e-5_wp  ! = 2*pi/(126000 m)
     m_min         = 0.0_wp
 

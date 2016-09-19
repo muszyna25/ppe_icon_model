@@ -32,7 +32,7 @@ MODULE mo_echam_phy_main
   USE mo_physical_constants,  ONLY: grav, cpd, cpv, cvd, cvv
   USE mo_impl_constants,      ONLY: inh_atmosphere, io3_clim, io3_ape, io3_amip
   USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
-    &                               iqv, iqc, iqi, iqt, irad_type
+    &                               iqv, iqc, iqi, iqt
   USE mo_dynamics_config,     ONLY: iequations
   USE mo_ext_data_state,      ONLY: ext_data, nlev_o3
   USE mo_ext_data_types,      ONLY: t_external_atmos_td
@@ -53,6 +53,7 @@ MODULE mo_echam_phy_main
   USE mo_ham_aerosol_params,  ONLY: ncdnc, nicnc
   USE mo_echam_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_surface,             ONLY: update_surface
+  USE mo_surface_diag,        ONLY: nsurf_diag
   USE mo_cloud,               ONLY: cloud
   USE mo_cover,               ONLY: cover
   USE mo_radiation,           ONLY: radheat
@@ -107,13 +108,13 @@ CONTAINS
                                           !< due to turbulence. Computed in "vdiff",
                                           !< used by "cloud"
     INTEGER  :: itype(nbdim)              !< type of convection
-    INTEGER  :: invb (nbdim)
     INTEGER  :: ictop (nbdim)             !< from massflux
 
     REAL(wp) :: zfrl (nbdim)              !< fraction of land in the grid box
     REAL(wp) :: zfrw (nbdim)              !< fraction of water (without ice) in the grid point
     REAL(wp) :: zfri (nbdim)              !< fraction of ice in the grid box
     REAL(wp) :: zfrc (nbdim,nsfc_type)    !< zfrl, zfrw, zfrc combined
+    REAL(wp) :: zri_tile(nbdim,nsfc_type) !< Richardson number
 
     INTEGER  :: ilab   (nbdim,nlev)
 !    REAL(wp) :: zcvcbot(nbdim)
@@ -173,7 +174,15 @@ CONTAINS
     REAL(wp) :: zqshear  (nbdim,nlev) !<
     REAL(wp) :: zthvvar  (nbdim,nlev) !< intermediate value of thvvar
     REAL(wp) :: ztkevn   (nbdim,nlev) !< intermediate value of tke
-    REAL(wp) :: zch_tile (nbdim,nsfc_type)
+    REAL(wp) :: zch_tile (nbdim,nsfc_type)   !<  for "nsurf_diag"
+!    REAL(wp) :: zchn_tile(nbdim,nsfc_type)   !<  for "nsurf_diag"
+!    REAL(wp) :: zcdn_tile(nbdim,nsfc_type)   !<  for "nsurf_diag"
+!    REAL(wp) :: zcfnc_tile(nbdim,nsfc_type)  !<  for "nsurf_diag"
+    REAL(wp) :: zbn_tile (nbdim,nsfc_type)   !<  for "nsurf_diag"
+    REAL(wp) :: zbhn_tile(nbdim,nsfc_type)   !<  for "nsurf_diag"
+    REAL(wp) :: zbm_tile (nbdim,nsfc_type)   !<  for "nsurf_diag"
+    REAL(wp) :: zbh_tile (nbdim,nsfc_type)   !<  for "nsurf_diag"
+
     REAL(wp) :: ztte_corr(nbdim)      !< tte correction for snow melt over land (JSBACH)
 
     ! Temporary array used by GW_HINES
@@ -353,7 +362,6 @@ CONTAINS
         &         field%     q(:,:,jb,iqv), &! in    qm1
         &         field%     q(:,:,jb,iqi), &! in    xim1
         &         field%  aclc(:,:,jb),     &! out   (for "radiation" and "vdiff_down")
-        &         invb,                     &! out   (for "cloud")
         &         field% rintop(:,  jb)    ) ! out   (for output)
 
       IF (ltimer) CALL timer_stop(timer_cover)
@@ -416,7 +424,6 @@ CONTAINS
           ! to do (for implementing seasonal cycle):
           ! - compute orbit position at datetime_radtran
 
-        IF(irad_type==1 .OR. irad_type==2) THEN
           SELECT CASE(izenith)
 
           CASE(0)
@@ -488,7 +495,6 @@ CONTAINS
 !!$            field%cosmu0(jcs:jce,jb) = 0.7854_wp ! Popke: zenith = 38
 
           END SELECT
-        END IF
 
           SELECT CASE(irad_o3)
             CASE default
@@ -538,7 +544,11 @@ CONTAINS
         & ktype      = itype(:)   ,&!< in  type of convection
         & loland     = lland      ,&!< in  land-sea mask. (logical)
         & loglac     = lglac      ,&!< in  glacier mask (logical)
+        & datetime   = datetime   ,&!< in  actual time step
         & pcos_mu0   = field%cosmu0_rad(:,jb)  ,&!< in  solar zenith angle
+        & geoi       = field%geoi(:,:,jb)      ,&!< geopotential wrt surface at layer interfaces
+        & geom       = field%geom(:,:,jb)      ,&!< geopotential wrt surface at layer centres
+        & oromea     = field%oromea(:,jb)      ,&!< mean orography in m
         & alb_vis_dir= field%albvisdir(:,jb)   ,&!< in  surface albedo for visible range, direct
         & alb_nir_dir= field%albnirdir(:,jb)   ,&!< in  surface albedo for near IR range, direct
         & alb_vis_dif= field%albvisdif(:,jb)   ,&!< in  surface albedo for visible range, diffuse
@@ -614,9 +624,13 @@ CONTAINS
         & pemiss     = ext_data(jg)%atm%emis_rad(:,jb),&! in    lw sfc emissivity
         & ptsfc      = field%tsfc_rad (:,jb)          ,&! in    rad. surface temperature now         [K]
         & ptsfctrad  = field%tsfc_radt(:,jb)          ,&! in    rad. surface temp. at last rad. step [K]
-        & ptrmsw     = field%swtrmall         (:,:,jb),&! in    shortwave net tranmissivity at last rad. step []
+        & jg         = jg                             ,&! in    domain index
+        & krow       = jb                             ,&! in    block index
+        & ptrmsw     = field%swtrmall         (:,:,jb),&! in    shortwave net transmissivity at last rad. step []
         & pflxlw     = field%lwflxall         (:,:,jb),&! in    longwave net flux at last rad. step [W/m2]
         & lwflx_up_sfc_rs = field%lwflxupsfc  (:,  jb),&! in    surface longwave upward flux at last rad. step [W/m2]
+        & ptrmswclr  = field%swtrmclr         (:,:,jb),&! in    shortwave net transmissivity at last rad. step clear sky []
+        & pflxlwclr  = field%lwflxclr         (:,:,jb),&! in    longwave net flux at last rad. step clear sky [W/m2]
         !
         ! output
         ! ------
@@ -683,6 +697,7 @@ CONTAINS
     IF (phy_config%lvdiff) THEN
       IF (ltimer) CALL timer_start(timer_vdiff_down)
 
+
       CALL vdiff_down( vdiff_config%lsfc_mom_flux,      &! in
                      & vdiff_config%lsfc_heat_flux,     &! in
                      & jce, nbdim, nlev, nlevm1, nlevp1,&! in
@@ -707,6 +722,7 @@ CONTAINS
                      & field% presm_old(:,:,jb),        &! in, apm1
                      & zdelp(:,:),                      &! in, layer thickness [Pa]
                      & field% geom(:,:,jb),             &! in, pgeom1 = geopotential above ground
+                     & field% geoi(:,:,jb),             &! in, pgeohm1 = half-level geopotential
                      & field%   tv(:,:,jb),             &! in, virtual temperaturea
                      & field% aclc(:,:,jb),             &! in, cloud fraction
                      & zxt_emis,                        &! in, zxtems
@@ -715,10 +731,13 @@ CONTAINS
                      & field% z0m_tile(:,jb,:),         &! in
                      & field%  tkem1(:,:,jb),           &! in, TKE at step t-dt
                      & field%  ustar(:,  jb),           &! inout
+                     & field%  wstar(:,  jb),           &! out, convective velocity scale
+                     & field%  wstar_tile(:,jb,:),      &! inout, convective velocity scale (each sfc type)
                      & field% qs_sfc_tile(:,jb,:),      &! out, sfc specific humidity at saturation
                      & ihpbl(:),                        &! out, for "vdiff_up"
                      & field%    ghpbl(:,jb),           &! out, for output
                      & field%      ri (:,:,jb),         &! out, for output
+                     & zri_tile (:,:),                  &! out, for nsurf_diag
                      & field%  mixlen (:,:,jb),         &! out, for output
                      & field% cfm     (:,:,jb),         &! out, for output
                      & field% cfm_tile(:,jb,:),         &! out, for output and "vdiff_up"
@@ -733,8 +752,16 @@ CONTAINS
                      & zcptgz(:,:), zrhoh(:,:),         &! out, for "vdiff_up"
                      & zqshear(:,:),                    &! out, for "vdiff_up"
                      & zthvvar(:,:),                    &! out, for "vdiff_up"
+                     & field%   thvsig(:,  jb),         &! out, for "cucall"
                      & ztkevn (:,:),                    &! out, for "vdiff_up"
-                     & pch_tile = zch_tile(:,:),        &! out, optional, for JSBACH
+                     & zch_tile(:,:),                   &! out, for "nsurf_diag"
+!                     & zchn_tile(:,:),                  &! out, for "nsurf_diag"
+!                     & zcdn_tile(:,:),                  &! out, for "nsurf_diag"
+!                     & zcfnc_tile(:,:),                 &! out, for "nsurf_diag"
+                     & zbn_tile(:,:),                   &! out, for "nsurf_diag"
+                     & zbhn_tile(:,:),                  &! out, for "nsurf_diag"
+                     & zbm_tile(:,:),                   &! out, for "nsurf_diag"
+                     & zbh_tile(:,:),                   &! out, for "nsurf_diag"
                      & pcsat = field% csat(:,jb),       &! in, optional, area fraction with wet land surface
                      & pcair = field% cair(:,jb),       &! in, optional, area fraction with wet land surface (air)
                      & paz0lh = field% z0h_lnd(:,jb))     ! in, optional, roughness length for heat over land
@@ -922,6 +949,42 @@ CONTAINS
         ! 2-tl-scheme
         field% tkem1(jcs:jce,:,jb) = field% tke  (jcs:jce,:,jb)
       ENDIF
+
+    ! 5.6 Turbulent mixing, part III:
+    !     - Further diagnostics.
+
+    CALL nsurf_diag( jce, nbdim, nsfc_type,           &! in
+                   & ilnd,                            &! in
+                   & zfrc(:,:),                       &! in
+                   & field%     q(:,nlev,jb,iqv),     &! in humidity qm1
+                   & field%  temp(:,nlev,jb),         &! in tm1
+                   & field% presm_old(:,nlev,jb),     &! in, apm1
+                   & field% presi_old(:,nlevp1,jb),   &! in, aphm1
+                   & field%   qx(:,nlev,jb),          &! in, xlm1 + xim1
+                   & field%    u(:,nlev,jb),          &! in, um1
+                   & field%    v(:,nlev,jb),          &! in, vm1
+                   & field% ocu (:,jb),               &! in, ocean sfc velocity, u-component
+                   & field% ocv (:,jb),               &! in, ocean sfc velocity, v-component
+                   & field%  geom(:,nlev,jb),         &! in geopotential above surface
+                   & zcptgz(:,nlev),                  &! in dry static energy
+                   & zcpt_sfc_tile(:,:),              &! in dry static energy
+                   & zbn_tile(:,:),                   &! in for diagnostic
+                   & zbhn_tile(:,:),                  &! in for diagnostic
+                   & zbh_tile(:,:),                   &! in for diagnostic
+                   & zbm_tile(:,:),                   &! in for diagnostic
+                   & zri_tile(:,:),                   &! in 
+                   & field%sfcWind(:,  jb),           &! out 10m windspeed
+                   & field%    tas(:,  jb),           &! out temperature in 2m
+                   & field%   dew2(:,  jb),           &! out dew point temperature in 2m
+                   & field%    uas(:,  jb),           &! out zonal wind in 10m
+                   & field%    vas(:,  jb),           &! out meridional wind in 10m
+                   & field%tasmax (:,  jb),           &! out max 2m temperature
+                   & field%tasmin (:,  jb),           &! out min 2m temperature
+                   & field%sfcWind_tile(:,jb,:),      &! out 10m windspeed on tiles
+                   & field%    tas_tile(:,jb,:),      &! out temperature in 2m on tiles
+                   & field%   dew2_tile(:,jb,:),      &! out dew point temperature in 2m on tiles
+                   & field%    uas_tile(:,jb,:),      &! out zonal wind in 10m on tiles
+                   & field%    vas_tile(:,jb,:)       )! out meridional wind in 10m on tiles
 
     ELSE
       zvmixtau   (jcs:jce,:) = 0._wp
@@ -1189,7 +1252,6 @@ CONTAINS
 
         CALL cloud(jce, nbdim, jks, nlev, nlevp1, &! in
           &        psteplen,                  &! in
-          &        invb,                      &! in (from "cover")
           &        ictop,                     &! in (from "cucall")
           &        field% presi_old(:,:,jb),  &! in
           &        field% omega(:,:,jb),      &! in. vervel

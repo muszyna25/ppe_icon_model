@@ -315,7 +315,7 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial release by Achim Randelhoff
-  !! Update and rewrite by Stephan Loreny, MPI-M (2015-01).
+  !! Update and rewrite by Stephan Lorenz, MPI-M (2015-01).
   !!
  
  SUBROUTINE ice_growth_zero_slo(p_patch, p_os, ice, rpreci)

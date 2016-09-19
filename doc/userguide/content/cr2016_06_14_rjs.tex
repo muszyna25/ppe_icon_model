@@ -1,0 +1,182 @@
+\subsection[cr2016\_06\_14\_rjs: RCE in ICON using ECHAM physics]{cr2016\_02\_16\_rjs:
+  Radiative--Convective equilibrium in ICON using ECHAM physics}\label{cr20160614rjs}
+
+The radiative--convective equilibrium (RCE) offers a possibility
+to improve our fundamental understanding of processes in the
+atmosphere and their impact on climate change
+(e.g.~\cite{man641}). The idea behind this simplified modeling
+of the atmosphere 
+is that the basic 
+atmospheric structure, especially in the tropics, is determined by the
+balance between cooling of the atmosphere through radiative processes
+and a commensurate heating through convection, mainly by the net
+release of latent heat through precipitation. 
+
+The RCE has been investigated in models of different complexity,
+ranging from simple energy balance, 1--dimensional column models to
+high resolution LES simulations. The RCE is also implemented into the 
+general circulation model ICON by creating a model configuration,
+where the resulting climate is given merely through the balance of
+radiative processes and convection. Columns can interact with each
+other and thus create a mean three--dimensional circulation which
+develops interactively, although it is very different from the general
+circulation we know from the real Earth. E.g., the RCE results in slowly moving
+convective clusters of sometimes continental extension (\cite{pop131}).  
+
+To inhibit net energy transport from the tropics to the poles,
+homogeneous boundary conditions are specified, where every gridpoint
+of the sphere receives the same incoming solar radiation
+(e.g.~about $340\,{\rm W/m^2}$). A diurnal
+cycle may be switched on, but is kept exactly the same for each column
+representing a pulsating light source shining from all directions
+equally. The Earth's rotation velocity is set to zero. In the standard
+RCE configuration, land--sea contrasts are removed by specifiying an
+underlying mixed--layer ocean with a constant ocean albedo, but can
+easily be included in idealized form for land--sea contrast
+studies~(\cite{bec14x}). 
+This model version has not been tested
+for possible equilibria dependence on the initial boundary conditions
+yet, nor for complete isotropy of variables expected from the
+homogeneous boundary conditions. 
+
+\subsubsection{Setting initial and boundary conditions and parameters
+  for the RCE}
+
+We describe the settings in the standard example script 
+{\tt exp.atm\_rce\_test} here. In that case, the mixed layer ocean is
+switched on by
+
+\begin{lstlisting}[caption=Mixed layer ocean switch in {\tt
+    exp.atm\_rce\_test}, label=cr20160614_lmlonml]
+&echam_phy_nml
+...
+lmlo = .TRUE.
+...
+/
+\end{lstlisting}
+
+For the initialization of the RCE configuration, we use the {\tt
+  nh\_testcase\_nml} namelist. 
+
+\begin{lstlisting}[caption=Testcase namelist for RCE in {\tt
+    exp.atm\_ape\_test}, label=cr20160614_testcasenml]
+&nh_testcase_nml
+ nh_test_name     = 'RCE_glb'
+ ape_sst_case     = 'sst_const'
+ ape_sst_val      = 25.
+ tpe_temp         = 298.15
+ tpe_psfc         = 1013.25e2
+/
+\end{lstlisting}
+
+In namelist {\tt nh\_testcase\_nml} (Listing~\ref{cr20160614_testcasenml}), 
+the variable {\tt nh\_test\_name} set to {\tt
+  'RCE\_glb'} has the effect to initialize a global model with all
+values not depending on the geographical position. The primary initialization
+is done in {\tt init\_nh\_state\_rce\_glb} of module {\tt
+  mo\_nh\_rce\_exp.f90}. After this primary inizialization, a random
+noise is added to the variables. The variable {\tt ape\_sst\_case} is used to
+initialize the ocean surface temperature by a constant throughout the
+globe whereas {\tt ape\_sst\_val} gives the value of the sea surface
+temperature in degrees centigrade. The variable {\tt tpe\_temp} determines
+the temperature of the atmosphere in Kelvin that is independent of altitude at
+the beginning. The variable {\tt tpe\_psfc} gives the surface pressure
+in Pascal.
+
+The
+RCE model can be run in a configuration with the MPI/ECHAM physics only, since 
+the use of the PSRAD radiation is essential for the special radiation
+settings of the RCE. 
+A uniform irradiation of the globe that may undergo a daily cycle is
+switched on by setting
+{\tt l\_sph\_symm\_irr} to {\tt .TRUE.} in namelist {\tt
+  psrad\_orbit\_nml} (see
+Listing~\ref{cr20160614_psrad_orbit_nml}). However, a Kepler orbit
+with 
+no eccentricity has to be used to warrant a sun--earth distance that
+is constant in time. This is assured by the three first variables in
+the namelist {\tt psrad\_orbit\_nml} as shown in
+Listing~\ref{cr20160614_psrad_orbit_nml}. The obliquity is set to zero
+for convenience.
+
+\begin{lstlisting}[caption=Orbit namelist {\tt psrad\_orbit\_nml} for
+  RCE in {\tt exp.atm\_rce\_test}, label=cr20160614_psrad_orbit_nml]
+&psrad_orbit_nml
+cecc        = 0.0
+cobld       = 0.0
+l_orbvsop87 = .FALSE.
+l_sph_symm_irr = .TRUE.
+/
+\end{lstlisting} 
+
+The angular velocity of the earth is set to zero in order to exclude
+any quantity that depends on latitude as the Coriolis force. To this
+end, {\tt grid\_angular\_velocity} is set to zero in namelist {\tt
+  grid\_nml} (see Listing~\ref{cr20160614_grid_nml}).
+
+\begin{lstlisting}[caption=Grid namelist {\tt grid\_nml} for RCE in {\tt
+    exp.atm\_rce\_test}, label=cr20160614_grid_nml]
+&grid_nml
+ grid_angular_velocity = 0.
+/
+\end{lstlisting}
+
+The diurnal cycle can be switched on and off with the variable {\tt
+  ldiurn} of namelist {\tt radiation\_nml} (see
+Listing~\ref{cr20160614_radiation_nml}).
+
+If a circular orbit with no obliquity is used, a year with months of a
+different number of 
+days does not make sense. Instead, a 360 day year should be used.
+The calendar must be set by two variables at the beginning of the {\tt
+  exp.atm\_ape\_test} script (Listing~\ref{cr20160216_calendar}).
+
+\begin{lstlisting}[caption=Calendar for APE ({\tt
+    exp.atm\_ape\_test}), label=cr20160216_calendar]
+  calendar="'360 day year'"
+  calendar_type=2
+\end{lstlisting}
+
+The solar irradiation has to be set to an average value that
+corresponds to the actual energy flux into the atmosphere of the real
+earth. If spherically symmetric irradiation without diurnal cycle is
+chosen, {\tt isolrad} has to be set to 5, if the diurnal cycle is
+switched on, {\tt isolrad} has to be set to 4, respectively (see
+Listing~\ref{cr20160614_radiation_nml}). These settings result in a global mean
+insolation of $340.3\,{\rm W/m}^2$. However, the sum of the 14 solar
+wavelength bands is higher ($433.3371\,{\rm W/m}^2$ and
+$1069.315\,{\rm W/m}^2$ for ${\tt isolrad}=5,4$, respectively), due to
+the applied solar zenith angles and the eventual diurnal cycle. 
+
+The
+composition of the 
+atmosphere used in the RCE model is described by the corresponding
+switches in namelist {\tt radiation\_nml} (see
+Listing~\ref{cr20160614_radiation_nml}). The O$_3$ concentration
+is read from a special file {\tt r2b4\_ozone\_rce.nc} that is
+distributed with the program code in the directory {\tt
+  data/external/ape\_ozone} of the ICON main directory. Prognostic
+water vapour and prognostic liquid and ice cloud water is used
+together with constant CO$_2$ in space and time, and no
+aerosols. All 
+other greenhouse gases are set to zero
+(see Listing~\ref{cr20160614_radiation_nml}). 
+
+\begin{lstlisting}[caption=Radiation namelist {\tt radiation\_nml} for
+  RCE in {\tt exp.atm\_rce\_test}, label=cr20160614_radiation_nml]
+&radiation_nml
+ irad_h2o   = 1 ! prognostic vapor, liquid and ice
+ irad_co2   = 2 ! constant co2
+ irad_ch4   = 0 ! no ch4
+ irad_n2o   = 0 ! no n2o
+ irad_o3    = 4 ! perpetual january of ozone file linked
+ irad_o2    = 0 ! no o2
+ irad_cfc11 = 0 ! no cfc11
+ irad_cfc12 = 0 ! no cfc12
+ irad_aero  = 0 ! no aerosol
+ isolrad     = 5       ! 4 if a diurnal cycle is switched on
+ ldiur       = .FALSE. ! no diurnal cycle, .TRUE. for diurnal cycle
+/
+\end{lstlisting}
+
+

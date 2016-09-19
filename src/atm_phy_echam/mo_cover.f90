@@ -86,7 +86,7 @@ CONTAINS
     &                      , paphm1,   papm1,    pgeo                              & !in
     &                      , ptm1,     pqm1,     pxim1                             & !in
     &                      , paclc                                                 & !inout
-    &                      , knvb,     printop                                     & !out
+    &                      , printop                                               & !out
     &              )
     !---------------------------------------------------------------------------------
     !
@@ -105,8 +105,6 @@ CONTAINS
       & pxim1(kbdim,klev)     !< cloud ice                                 (n-1)
     REAL(wp),INTENT(INOUT) ::  &
       & paclc(kbdim,klev)     !< cloud cover
-    INTEGER, INTENT(OUT)   ::  &
-      & knvb(kbdim)
     REAL(wp),INTENT(OUT)   ::  &
       & printop(kbdim)
 
@@ -136,7 +134,7 @@ CONTAINS
 
     REAL(wp) :: zknvb(kbdim),            zphase(kbdim)
 
-    INTEGER :: loidx(kproma*klev)
+    INTEGER :: knvb(kbdim), loidx(kproma*klev)
 
 #ifdef __ICON__
     ! to simplify access to components of echam_cloud_config

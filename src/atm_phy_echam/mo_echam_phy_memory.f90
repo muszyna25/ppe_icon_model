@@ -302,6 +302,8 @@ MODULE mo_echam_phy_memory
       & z0m   (:,:),        &!< aerodynamic roughness length (grid box mean)
       & z0h_lnd(:,:),       &!< roughness length for heat (over land)
       & ustar (:,:),        &!<
+      & wstar (:,:),        &!< convective velocity scale
+      & wstar_tile(:,:,:),  &!< convective velocity scale (over each surface type)
       & kedisp(:,:),        &!< time-mean (or integrated?) vertically integrated dissipation of kinetic energy
       & ocu   (:,:),        &!< eastward  velocity of ocean surface current
       & ocv   (:,:)          !< northward velocity of ocean surface current
@@ -322,6 +324,7 @@ MODULE mo_echam_phy_memory
     TYPE(t_ptr_2d),ALLOCATABLE :: lwflxsfc_tile_ptr(:)
 
     TYPE(t_ptr_2d),ALLOCATABLE :: z0m_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: wstar_tile_ptr(:)
 
     ! need only for vdiff ----
 
@@ -380,6 +383,28 @@ MODULE mo_echam_phy_memory
 
     TYPE(t_ptr_2d),ALLOCATABLE :: u_stress_tile_ptr(:)
     TYPE(t_ptr_2d),ALLOCATABLE :: v_stress_tile_ptr(:)
+
+    ! Near surface diagnostics (2m temp; 2m dew point temp; 10m wind)
+    !
+    REAL(wp),POINTER ::        &
+      & sfcWind     (:,  :),   &!< grid box mean 10 m wind
+      & uas         (:,  :),   &!< grid box mean 10m u-velocity
+      & vas         (:,  :),   &!< grid box mean 10m v-velocity
+      & tas         (:,  :),   &!< grid box mean 2m temperature
+      & dew2        (:,  :),   &!< grid box mean 2m dew point temperature
+      & tasmax      (:,  :),   &!< grid box mean maximum 2m temperature
+      & tasmin      (:,  :),   &!< grid box mean minimum 2m temperature
+      & sfcWind_tile(:,:,:),   &!< 10 m wind on tiles
+      & uas_tile    (:,:,:),   &!< 10m u-velocity on tiles
+      & vas_tile    (:,:,:),   &!< 10m v-velocity on tiles
+      & tas_tile    (:,:,:),   &!< 2m temperature on tiles
+      & dew2_tile   (:,:,:)     !< 2m dew point temperature on tiles
+
+    TYPE(t_ptr_2d),ALLOCATABLE :: sfcWind_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: uas_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: vas_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: tas_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: dew2_tile_ptr(:)
 
   END TYPE t_echam_phy_field
 
@@ -1643,6 +1668,9 @@ CONTAINS
                     & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
       END DO
 
+   
+
+
       ! &        field% z0h_lnd(nproma, nblks), &
       cf_desc    = t_cf_var('z0h_lnd', '', 'roughness length heat, land', &
         &                datatype_flt)
@@ -1658,6 +1686,31 @@ CONTAINS
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( field_list, prefix//'ustar', field%ustar,                   &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+      ! &       field% wstar  (nproma,nblks),                &
+      cf_desc    = t_cf_var('conv_velocity_scale', 'm s-1', 'convective velocity scale', datatype_flt)
+      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( field_list, prefix//'wstar', field%wstar,                   &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+      ! &       field% wstar_tile(nproma,nblks,nsfc_type), &
+      CALL add_var( field_list, prefix//'wstar_tile', field%wstar_tile,              &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
+                  & t_cf_var('wstar_tile', '', 'convective velocity scale', datatype_flt),&
+                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED,GRID_CELL),&
+                  & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,            &
+                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
+
+      ALLOCATE(field%wstar_tile_ptr(ksfc_type))
+      DO jsfc = 1,ksfc_type
+        CALL add_ref( field_list, prefix//'wstar_tile',                              &
+                    & prefix//'wstar_'//csfc(jsfc), field%wstar_tile_ptr(jsfc)%p,      &
+                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
+                    & t_cf_var('z0m_'//csfc(jsfc), '','', datatype_flt),           &
+                    & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED,GRID_CELL),&
+                    & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
+      END DO
+
 
       ! &       field% kedisp (nproma,nblks),                &
       cf_desc    = t_cf_var('KE dissipation rate', '', '', datatype_flt)
@@ -2099,6 +2152,176 @@ CONTAINS
                   &          'v-momentum flux at the surface on tile '//csfc(jsfc), &
                   &          datatype_flt),                                         &
                   & grib2_var(0,2,18, ibits, GRID_UNSTRUCTURED, GRID_CELL),         &
+                  & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
+    END DO
+
+    !-----------------------------------------
+    ! near surface diagnostics, grid box mean
+    !-----------------------------------------
+
+    CALL add_var( field_list, prefix//'sfcWind', field%sfcWind,                 &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+                & t_cf_var('sfcWind','m s-1','10m windspeed',                   &
+                &          datatype_flt),                                       &
+                & grib2_var(0,2,1, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape2d,                                                &
+                & lrestart = .FALSE.,                                           &
+                & isteptype=TSTEP_INSTANT                                       )
+
+    CALL add_var( field_list, prefix//'uas', field%uas,                         &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+                & t_cf_var('uas','m s-1','zonal wind in 10m',                   &
+                &          datatype_flt),                                       &
+                & grib2_var(0,2,2, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape2d,                                                &
+                & lrestart = .FALSE.,                                           &
+                & isteptype=TSTEP_INSTANT                                       )
+
+    CALL add_var( field_list, prefix//'vas', field%vas,                         &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+                & t_cf_var('vas','m s-1','meridional wind in 10m',              &
+                &          datatype_flt),                                       &
+                & grib2_var(0,2,3, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape2d,                                                &
+                & lrestart = .FALSE.,                                           &
+                & isteptype=TSTEP_INSTANT                                       )
+
+    CALL add_var( field_list, prefix//'tas', field%tas,                         &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+                & t_cf_var('tas','K','temperature in 2m',                       &
+                &          datatype_flt),                                       &
+                & grib2_var(0,0,0, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape2d,                                                &
+                & lrestart = .FALSE.,                                           &
+                & isteptype=TSTEP_INSTANT                                       )
+
+    CALL add_var( field_list, prefix//'dew2', field%dew2,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+                & t_cf_var('dew2','K','dew point temperature in 2m',            &
+                &          datatype_flt),                                       &
+                & grib2_var(0,0,6, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape2d,                                                &
+                & lrestart = .FALSE.,                                           &
+                & isteptype=TSTEP_INSTANT                                       )
+
+    CALL add_var( field_list, prefix//'tasmax', field%tasmax,                   &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+                & t_cf_var('tasmax','K','maximum 2m temperature',               &
+                &          datatype_flt),                                       &
+                & grib2_var(0,0,4, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape2d,                                                &
+                & lrestart = .FALSE.,                                           &
+                & isteptype=TSTEP_INSTANT                                       )
+
+    CALL add_var( field_list, prefix//'tasmin', field%tasmin,                   &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+                & t_cf_var('tasmin','K','minimum 2m temperature',               &
+                &          datatype_flt),                                       &
+                & grib2_var(0,0,5, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shape2d,                                                &
+                & lrestart = .FALSE.,                                           &
+                & isteptype=TSTEP_INSTANT                                       )
+
+    !--------------------------------------
+    ! near surface diagnostics, tile values
+    !--------------------------------------
+
+    CALL add_var( field_list, prefix//'sfcWind_tile', field%sfcWind_tile,       &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+                & t_cf_var('sfcWind_tile','m s-1','10m windspeed on tiles',     &
+                &          datatype_flt),                                       &
+                & grib2_var(0,2,1, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,             &
+                & lcontainer=.TRUE., lrestart=.FALSE.,                          &
+                & isteptype=TSTEP_INSTANT                                       )
+
+    CALL add_var( field_list, prefix//'uas_tile', field%uas_tile,               &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+                & t_cf_var('uas_tile','m s-1','zonal wind in 10m on tiles',     &
+                &          datatype_flt),                                       &
+                & grib2_var(0,2,2, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,             &
+                & lcontainer=.TRUE., lrestart=.FALSE.,                          &
+                & isteptype=TSTEP_INSTANT                                       )
+
+    CALL add_var( field_list, prefix//'vas_tile', field%vas_tile,               &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+                & t_cf_var('vas_tile','m s-1','meridional wind in 10m on tiles',&
+                &          datatype_flt),                                       &
+                & grib2_var(0,2,3, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,             &
+                & lcontainer=.TRUE., lrestart=.FALSE.,                          &
+                & isteptype=TSTEP_INSTANT                                       )
+
+    CALL add_var( field_list, prefix//'tas_tile', field%tas_tile,               &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+                & t_cf_var('tas_tile','K','temperature in 2m on tiles',         &
+                &          datatype_flt),                                       &
+                & grib2_var(0,0,0, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,             &
+                & lcontainer=.TRUE., lrestart=.FALSE.,                          &
+                & isteptype=TSTEP_INSTANT                                       )
+
+    CALL add_var( field_list, prefix//'dew2_tile', field%dew2_tile,             &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
+                & t_cf_var('dew2_tile','K','dew point temperature in 2m on tiles',&
+                &          datatype_flt),                                       &
+                & grib2_var(0,0,6, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,             &
+                & lcontainer=.TRUE., lrestart=.FALSE.,                          &
+                & isteptype=TSTEP_INSTANT                                       )
+
+    ALLOCATE(field%sfcWind_tile_ptr(ksfc_type))
+    ALLOCATE(field%uas_tile_ptr(ksfc_type))
+    ALLOCATE(field%vas_tile_ptr(ksfc_type))
+    ALLOCATE(field%tas_tile_ptr(ksfc_type))
+    ALLOCATE(field%dew2_tile_ptr(ksfc_type))
+
+    DO jsfc = 1,ksfc_type
+
+      CALL add_ref( field_list, prefix//'sfcWind_tile',                             &
+                  & prefix//'sfcWind_'//csfc(jsfc), field%sfcWind_tile_ptr(jsfc)%p, &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
+                  & t_cf_var('sfcWind_'//csfc(jsfc), 'm s-1',                       &
+                  &          '10m windspeed on tile '//csfc(jsfc),                  &
+                  &          datatype_flt),                                         &
+                  & grib2_var(0,2,1, ibits, GRID_UNSTRUCTURED, GRID_CELL),          &
+                  & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
+
+      CALL add_ref( field_list, prefix//'uas_tile',                                 &
+                  & prefix//'uas_'//csfc(jsfc), field%uas_tile_ptr(jsfc)%p,         &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
+                  & t_cf_var('uas_'//csfc(jsfc), 'm s-1',                           &
+                  &          'zonal wind in 10m on tile '//csfc(jsfc),              &
+                  &          datatype_flt),                                         &
+                  & grib2_var(0,2,2, ibits, GRID_UNSTRUCTURED, GRID_CELL),          &
+                  & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
+
+      CALL add_ref( field_list, prefix//'vas_tile',                                 &
+                  & prefix//'vas_'//csfc(jsfc), field%vas_tile_ptr(jsfc)%p,         &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
+                  & t_cf_var('vas_'//csfc(jsfc), 'm s-1',                           &
+                  &          'meridional wind in 10m on tile '//csfc(jsfc),         &
+                  &          datatype_flt),                                         &
+                  & grib2_var(0,2,3, ibits, GRID_UNSTRUCTURED, GRID_CELL),          &
+                  & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
+
+      CALL add_ref( field_list, prefix//'tas_tile',                                 &
+                  & prefix//'tas_'//csfc(jsfc), field%tas_tile_ptr(jsfc)%p,         &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
+                  & t_cf_var('tas_'//csfc(jsfc), 'K',                               &
+                  &          'temperature in 2m on tile '//csfc(jsfc),              &
+                  &          datatype_flt),                                         &
+                  & grib2_var(0,0,0, ibits, GRID_UNSTRUCTURED, GRID_CELL),          &
+                  & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
+
+      CALL add_ref( field_list, prefix//'dew2_tile',                                &
+                  & prefix//'dew2_'//csfc(jsfc), field%dew2_tile_ptr(jsfc)%p,       &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
+                  & t_cf_var('dew2_'//csfc(jsfc), 'K',                              &
+                  &          'dew point temperature in 2m on tile '//csfc(jsfc),    &
+                  &          datatype_flt),                                         &
+                  & grib2_var(0,0,6, ibits, GRID_UNSTRUCTURED, GRID_CELL),          &
                   & ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
     END DO
 

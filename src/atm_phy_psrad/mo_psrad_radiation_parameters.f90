@@ -38,7 +38,7 @@ IMPLICIT NONE
 
   PRIVATE
 
-  PUBLIC :: ldiur, lradforcing
+  PUBLIC :: irad_aero_forcing
   PUBLIC :: lyr_perp, yr_perp, nmonth, isolrad, nb_sw
   PUBLIC :: lw_spec_samp, sw_spec_samp, lw_gpts_ts, sw_gpts_ts, rad_perm
   PUBLIC :: i_overlap, l_do_sep_clear_sky
@@ -52,10 +52,8 @@ IMPLICIT NONE
   
   ! 1.0 NAMELIST global variables and parameters
   ! --------------------------------
-  LOGICAL :: ldiur       = .TRUE.  !< diurnal cycle
-  LOGICAL :: lradforcing(2) = (/.FALSE.,.FALSE./) !< &! switch on/off diagnostic 
-             !of instantaneous aerosol solar (lradforcing(1)) and 
-             !thermal (lradforcing(2)) radiation forcing
+  INTEGER :: irad_aero_forcing = 0 !< reference aerosols for instantaneous 
+                                   !< radiative forcing
   LOGICAL :: lyr_perp    = .FALSE. !< switch to specify perpetual vsop87 year
   INTEGER :: yr_perp     = -99999  !< year if (lyr_perp == .TRUE.)
   INTEGER :: nmonth      =  0      !< 0=annual cycle; 1-12 for perpetual month
@@ -142,15 +140,19 @@ contains
   !! is set to 1 or 0 depending on whether the zenith angle is greater or 
   !! less than 1. 
   !
-  SUBROUTINE solar_parameters(decl_sun, dist_sun, time_of_day                  &
+  SUBROUTINE solar_parameters(decl_sun, dist_sun,        time_of_day,         &
+       &                      ldiur,    l_sph_symm_irr,  p_patch,             &
 !!$   &                     ,sinlon, sinlat, coslon, coslat                   &
-       &                     ,p_patch                                          &
-       &                     ,flx_ratio, cos_mu0, daylght_frc)
+       &                      flx_ratio,cos_mu0,         daylght_frc          )   
 
     REAL(wp), INTENT(in)  :: &
          decl_sun,           & !< delination of the sun
          dist_sun,           & !< distance from the sun in astronomical units
          time_of_day           !< time_of_day (in radians)
+    LOGICAL               :: &
+         ldiur,              & !< diurnal cycle ON (ldiur=.TRUE.) or OFF (ldiur=.FALSE.)
+         l_sph_symm_irr        !< spherical symmetric irradiation ON (l_sph_symm_irr=.TRUE.)
+                               !< or OFF (l_sph_symm_irr=.FALSE.)
     TYPE(t_patch), INTENT(in) ::      p_patch
 !!$         sinlon(:,:),        & !< sines of longitudes
 !!$         sinlat(:,:),        & !< and latitudes
@@ -206,37 +208,37 @@ contains
     coslon(1:npromz,nblks)=COS(p_patch%cells%center(1:npromz,nblks)%lon)
     coslat(1:npromz,nblks)=COS(p_patch%cells%center(1:npromz,nblks)%lat)
 
-!!$    IF (lrce) THEN        ! radiation calculation in RCE configuration (same equatorial zenith
-!!$                          ! angle for all gridpoints)
-!!$       IF (ldiur) THEN                  ! all grid points have diurnal cycle of equator
-!!$          cos_mu0(:,:)     = -zen2
-!!$          daylght_frc(:,:) = 1.0_wp
-!!$          WHERE (cos_mu0(:,:) < 0.0_wp)
-!!$             cos_mu0(:,:)     = 0.0_wp
-!!$             daylght_frc(:,:) = 0.0_wp
-!!$          END WHERE
-!!$       ELSE
-!!$          DO j = 1, SIZE(cos_mu0,2)
-!!$             DO i = 1, SIZE(cos_mu0,1)
-!!$
-!!$                xsmpl(:) = 0.7854_wp    ! solar weighted zenith angle of equator
-!!$                xnmbr(:) = 1.0_wp
-!!$                WHERE (xsmpl(:) < EPSILON(1.0_wp))
-!!$                   xsmpl(:) = 0.0_wp
-!!$                   xnmbr(:) = 0.0_wp
-!!$                END WHERE
-!!$
-!!$                cos_mu0(i,j)     = SUM(xsmpl(:))
-!!$                daylght_frc(i,j) = SUM(xnmbr(:))
-!!$             END DO
-!!$          END DO
-!!$
-!!$          WHERE (daylght_frc(:,:) > EPSILON(1.0_wp))
-!!$             cos_mu0(:,:)     = cos_mu0(:,:)/daylght_frc(:,:)
-!!$             daylght_frc(:,:) = daylght_frc(:,:)/nds
-!!$          END WHERE
-!!$       END IF
-!!$     ELSE           ! normal radiation calculation
+    IF (l_sph_symm_irr) THEN        ! spherically symmetric irradiation (for RCE)
+       IF (ldiur) THEN              ! all grid points have diurnal cycle as if they
+                                    ! were on the equator of a Kepler orbit
+          cos_mu0(:,:)     = -zen2
+          daylght_frc(:,:) = 1.0_wp
+          WHERE (cos_mu0(:,:) < 0.0_wp)
+             cos_mu0(:,:)     = 0.0_wp
+             daylght_frc(:,:) = 0.0_wp
+          END WHERE
+       ELSE
+          DO j = 1, SIZE(cos_mu0,2)
+             DO i = 1, SIZE(cos_mu0,1)
+
+                xsmpl(:) = 0.7854_wp    ! solar weighted zenith angle of equator
+                xnmbr(:) = 1.0_wp
+                WHERE (xsmpl(:) < EPSILON(1.0_wp))
+                   xsmpl(:) = 0.0_wp
+                   xnmbr(:) = 0.0_wp
+                END WHERE
+
+                cos_mu0(i,j)     = SUM(xsmpl(:))
+                daylght_frc(i,j) = SUM(xnmbr(:))
+             END DO
+          END DO
+
+          WHERE (daylght_frc(:,:) > EPSILON(1.0_wp))
+             cos_mu0(:,:)     = cos_mu0(:,:)/daylght_frc(:,:)
+             daylght_frc(:,:) = daylght_frc(:,:)/nds
+          END WHERE
+       END IF
+     ELSE           ! normal radiation calculation
      IF (ldiur) THEN
        cos_mu0(:,:)     =  zen1*sinlat(:,:)                &
             &             -zen2*coslat(:,:)*coslon(:,:)    &
@@ -271,7 +273,7 @@ contains
          daylght_frc(:,:) = daylght_frc(:,:)/nds
        END WHERE
      END IF
-!!$   END IF
+   END IF
 
   END SUBROUTINE solar_parameters
 
