@@ -25,7 +25,7 @@ MODULE mo_hash_table
 
     IMPLICIT NONE
 
-    PUBLIC :: t_HashTable, hashTable_make
+    PUBLIC :: t_HashTable, hashTable_make, t_HashIterator
     PRIVATE
 
     ABSTRACT INTERFACE
@@ -56,6 +56,18 @@ MODULE mo_hash_table
         PROCEDURE, PRIVATE :: findBin => hashTable_findBin
         PROCEDURE, PRIVATE :: growTable => hashTable_growTable
         PROCEDURE, PRIVATE :: removeFromList => hashTable_removeFromList
+    END TYPE
+
+    ! provides sequential access to all entries of a hash table
+    ! <<< WARNING >>>: iterators are invalidated by setEntry(), removeEntry(), AND destruct() calls on the corresponding hash table
+    TYPE :: t_HashIterator
+        PRIVATE
+        TYPE(t_HashTable), POINTER :: table
+        INTEGER :: curBin
+        TYPE(t_HashEntry), POINTER :: curEntry
+    CONTAINS
+        PROCEDURE :: init => hashIterator_init
+        PROCEDURE :: nextEntry => hashIterator_nextEntry    ! returns .TRUE. IF the operation was successfull
     END TYPE
 
     TYPE :: t_HashEntryPtr
@@ -266,5 +278,44 @@ CONTAINS
         END DO
         DEALLOCATE(me%table)
     END SUBROUTINE hashTable_destruct
+
+    SUBROUTINE hashIterator_init(me, table)
+        CLASS(t_HashIterator), INTENT(INOUT) :: me
+        TYPE(t_HashTable), POINTER, INTENT(INOUT) :: table
+
+        me%table => table
+        me%curBin = 0   !will be incremented IN the first nextEntry() CALL
+        me%curEntry => NULL()
+    END SUBROUTINE hashIterator_init
+
+    LOGICAL FUNCTION hashIterator_nextEntry(me, key, VALUE) RESULT(RESULT)
+        CLASS(t_HashIterator), INTENT(INOUT) :: me
+        CLASS(t_Destructible), POINTER, INTENT(INOUT) :: key, VALUE
+
+        key => NULL()
+        VALUE => NULL()
+        RESULT = .FALSE.
+
+        ! try to ADVANCE within the current bin
+        IF(ASSOCIATED(me%curEntry)) me%curEntry => me%curEntry%next%ptr
+
+        ! search for the next entry
+        DO
+            ! check whether we have found the next entry
+            IF(ASSOCIATED(me%curEntry)) THEN
+                key => me%curEntry%key
+                VALUE => me%curEntry%VALUE
+                RESULT = .TRUE.
+                RETURN
+            END IF
+
+            ! check whether we can ADVANCE ANY further
+            IF(me%curBin >= SIZE(me%table%table, 1)) RETURN
+
+            ! ADVANCE to the next bin
+            me%curBin = me%curBin + 1
+            me%curEntry => me%table%table(me%curBin)%ptr
+        END DO
+    END FUNCTION hashIterator_nextEntry
 
 END MODULE mo_hash_table
