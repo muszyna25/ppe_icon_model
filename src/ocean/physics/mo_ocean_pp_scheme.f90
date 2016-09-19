@@ -196,6 +196,8 @@ CONTAINS
           & salinity(2:levels), pressure(2:levels), levels-1)
 
         DO jk = 2, levels
+          ocean_state%p_diag%rho_GM(jc,jk,blockNo)=0.5_wp*(z_rho_up(jk)+z_rho_down(jk))
+        
           z_shear_cell = dbl_eps + &
             & SUM((ocean_state%p_diag%p_vn(jc,jk-1,blockNo)%x - ocean_state%p_diag%p_vn(jc,jk,blockNo)%x)**2)
           z_vert_density_grad_c(jc,jk,blockNo) = (z_rho_down(jk) - z_rho_up(jk-1)) *  &
@@ -377,6 +379,8 @@ CONTAINS
           & salinity(2:levels), pressure(2:levels), levels-1)
 
         DO jk = 2, levels
+          ocean_state%p_diag%rho_GM(jc,jk,blockNo)=0.5_wp*(z_rho_up(jk)+z_rho_down(jk))
+          
           z_shear_cell = dbl_eps + &
             & SUM((ocean_state%p_diag%p_vn(jc,jk-1,blockNo)%x - ocean_state%p_diag%p_vn(jc,jk,blockNo)%x)**2)
           z_vert_density_grad_c(jc,jk,blockNo) = (z_rho_down(jk) - z_rho_up(jk-1)) *  &
@@ -721,6 +725,9 @@ CONTAINS
           & salinity(2:levels), pressure(2:levels), levels-1)
 
         DO jk = 2, levels
+        
+          ocean_state%p_diag%rho_GM(jc,jk,blockNo)=0.5_wp*(z_rho_up(jk)+z_rho_down(jk))
+        
           z_shear_cell = dbl_eps + &
             & SUM((ocean_state%p_diag%p_vn(jc,jk-1,blockNo)%x - ocean_state%p_diag%p_vn(jc,jk,blockNo)%x)**2)
           z_vert_density_grad_c(jc,jk,blockNo) = (z_rho_down(jk) - z_rho_up(jk-1)) *  &
@@ -926,6 +933,9 @@ CONTAINS
           & salinity(2:levels), pressure(2:levels), levels-1)
 
         DO jk = 2, levels
+        
+          ocean_state%p_diag%rho_GM(jc,jk,blockNo)=0.5_wp*(rho_up(jk)+rho_down(jk))
+        
           ! division by dz**2 is omitted in this calculation of velocity shear: shear = (d_vn)**2
           vert_velocity_shear = loc_eps + &
             & SUM((ocean_state%p_diag%p_vn(jc,jk-1,blockNo)%x - ocean_state%p_diag%p_vn(jc,jk,blockNo)%x)**2)
