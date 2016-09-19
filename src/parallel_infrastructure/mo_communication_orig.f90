@@ -395,17 +395,18 @@ CONTAINS
     ! Allocate and set up the send_src array
 
     ALLOCATE(send_src(p_pat%n_send))
-
     DO nr = 0, comm_size-1
-      num_send = p_pat%send_limits(nr+1) - p_pat%send_limits(nr)
-      iss = p_pat%send_limits(nr)+1 ! Start index in send_src
+      iss = p_pat%send_limits(nr)   ! Start index in send_src
       ise = p_pat%send_limits(nr+1) ! End   index in send_src
-      IF (nr /= comm_rank) THEN
-        IF (num_send>0) CALL p_recv(send_src(iss), nr, 1, &
-          &                         p_count=ise-iss+1, comm=p_pat%comm)
-      ELSE
-        IF(num_send>0) send_src(iss:ise) = global_recv_index(irs:ire)
-      ENDIF
+      num_send = ise - iss
+      iss = iss + 1
+      IF (num_send > 0) THEN
+        IF (nr /= comm_rank) THEN
+          CALL p_recv(send_src(iss), nr, 1, p_count=ise-iss+1, comm=p_pat%comm)
+        ELSE
+          send_src(iss:ise) = global_recv_index(irs:ire)
+        ENDIF
+      END IF
     ENDDO
 
     CALL p_wait
