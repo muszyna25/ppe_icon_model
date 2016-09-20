@@ -224,10 +224,10 @@ CONTAINS
         me%messageSize = me%messageSize + SIZE(bytes)
     END SUBROUTINE PackedMessage_packBytes
 
-    FUNCTION PackedMessage_unpackBytes(me, byteArrayMold) RESULT(RESULT)
+    FUNCTION PackedMessage_unpackBytes(me, byteArrayMold) RESULT(resultVar)
         CLASS(t_PackedMessage), INTENT(INOUT) :: me
         CHARACTER, INTENT(IN) :: byteArrayMold(:)
-        CHARACTER, POINTER :: RESULT(:)
+        CHARACTER, POINTER :: resultVar(:)
 
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":PackedMessage_unpackBytes"
 
@@ -237,7 +237,7 @@ CONTAINS
                                  &read size = "//TRIM(int2string(SIZE(byteArrayMold)))//", &
                                  &message size = "//TRIM(int2string(SIZE(me%messageBuffer)))//")")
         END IF
-        RESULT => me%messageBuffer(me%readPosition + 1 : me%readPosition + SIZE(byteArrayMold))
+        resultVar => me%messageBuffer(me%readPosition + 1 : me%readPosition + SIZE(byteArrayMold))
         me%readPosition = me%readPosition + SIZE(byteArrayMold)
     END FUNCTION PackedMessage_unpackBytes
 

@@ -208,29 +208,29 @@ CONTAINS
         CALL openMpiWindow(memWindowSize, p_comm_work_restart, me%windowPtr, me%mpiWindow)
     END SUBROUTINE asyncRestartCommData_construct
 
-    INTEGER FUNCTION asyncRestartCommData_maxLevelSize(me) RESULT(RESULT)
+    INTEGER FUNCTION asyncRestartCommData_maxLevelSize(me) RESULT(resultVar)
         CLASS(t_AsyncRestartCommData), INTENT(IN) :: me
 
-        RESULT = MAX(me%cells%n_glb, me%edges%n_glb, me%verts%n_glb)
+        resultVar = MAX(me%cells%n_glb, me%edges%n_glb, me%verts%n_glb)
     END FUNCTION asyncRestartCommData_maxLevelSize
 
     ! Returns the pointer of the reorder data for the given field.
-    FUNCTION asyncRestartCommData_getPacker(me, hgridType, routine) RESULT(RESULT)
+    FUNCTION asyncRestartCommData_getPacker(me, hgridType, routine) RESULT(resultVar)
         CLASS(t_AsyncRestartCommData), TARGET, INTENT(IN) :: me
         INTEGER, VALUE :: hgridType
         CHARACTER(LEN=*), INTENT(IN) :: routine
 
-        TYPE(t_AsyncRestartPacker), POINTER :: RESULT
+        TYPE(t_AsyncRestartPacker), POINTER :: resultVar
 
-        RESULT => NULL()
+        resultVar => NULL()
 
         SELECT CASE(hgridType)
             CASE(GRID_UNSTRUCTURED_CELL)
-                RESULT => me%cells
+                resultVar => me%cells
             CASE(GRID_UNSTRUCTURED_EDGE)
-                RESULT => me%edges
+                resultVar => me%edges
             CASE(GRID_UNSTRUCTURED_VERT)
-                RESULT => me%verts
+                resultVar => me%verts
             CASE default
                 CALL finish(routine, "assertion failed: unexpected grid type")
         END SELECT

@@ -48,27 +48,27 @@ MODULE mo_restart_var_data
 
 CONTAINS
 
-    LOGICAL FUNCTION wantVarlist(varlist, patch_id, modelType) RESULT(RESULT)
+    LOGICAL FUNCTION wantVarlist(varlist, patch_id, modelType) RESULT(resultVar)
         TYPE(t_var_list), INTENT(IN) :: varlist
         INTEGER, VALUE :: patch_id
         CHARACTER(LEN = *), INTENT(IN) :: modelType
 
-        RESULT = .FALSE.
+        resultVar = .FALSE.
         IF(.NOT. varlist%p%lrestart) RETURN
         IF(varlist%p%patch_id /= patch_id) RETURN
         IF(varlist%p%model_type /= modelType) RETURN
-        RESULT = .TRUE.
+        resultVar = .TRUE.
     END FUNCTION wantVarlist
 
     ! compute the number of  restart variables for the given logical patch.
-    INTEGER FUNCTION countRestartVariables(patch_id, modelType) RESULT(RESULT)
+    INTEGER FUNCTION countRestartVariables(patch_id, modelType) RESULT(resultVar)
         INTEGER, VALUE :: patch_id
         CHARACTER(LEN = *), INTENT(IN) :: modelType
 
         INTEGER :: i, fld_cnt
         TYPE(t_list_element), POINTER :: element
 
-        RESULT = 0
+        resultVar = 0
         DO i = 1, nvar_lists
             IF(.NOT.wantVarlist(var_lists(i), patch_id, modelType)) CYCLE
 
@@ -80,12 +80,12 @@ CONTAINS
                 IF(element%field%info%lrestart) fld_cnt = fld_cnt + 1
                 element => element%next_list_element
             ENDDO
-            RESULT = RESULT + fld_cnt
+            resultVar = resultVar + fld_cnt
         ENDDO
     END FUNCTION countRestartVariables
 
-    FUNCTION createRestartVarData(patch_id, modelType, out_restartType) RESULT(RESULT)
-        TYPE(t_RestartVarData), POINTER :: RESULT(:)
+    FUNCTION createRestartVarData(patch_id, modelType, out_restartType) RESULT(resultVar)
+        TYPE(t_RestartVarData), POINTER :: resultVar(:)
         INTEGER, VALUE :: patch_id
         CHARACTER(LEN = *), INTENT(IN) :: modelType
         INTEGER, INTENT(OUT) :: out_restartType
@@ -95,7 +95,7 @@ CONTAINS
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":createRestartVarData"
 
         ! init. main variables
-        RESULT => NULL()
+        resultVar => NULL()
         out_restartType = -1
 
         ! counts number of restart variables for this file (logical patch ident)
@@ -106,7 +106,7 @@ CONTAINS
         IF(varCount <= 0) RETURN
 
         ! allocate the array of restart variables
-        ALLOCATE(RESULT(varCount), STAT = error)
+        ALLOCATE(resultVar(varCount), STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
 
         ! fill the array of restart variables
@@ -124,8 +124,8 @@ CONTAINS
             DO
                 IF(.NOT. ASSOCIATED(element)) EXIT
                 IF(element%field%info%lrestart) THEN
-                    RESULT(varIndex)%info = element%field%info
-                    RESULT(varIndex)%r_ptr => element%field%r_ptr
+                    resultVar(varIndex)%info = element%field%info
+                    resultVar(varIndex)%r_ptr => element%field%r_ptr
                     varIndex = varIndex + 1
                 END IF
                 element => element%next_list_element
@@ -205,7 +205,7 @@ CONTAINS
     END SUBROUTINE getLevelPointers
 
     ! Returns true, if the time level of the given field is valid, else false.
-    LOGICAL FUNCTION has_valid_time_level(p_info, domain, nnew, nnew_rcf) RESULT(RESULT)
+    LOGICAL FUNCTION has_valid_time_level(p_info, domain, nnew, nnew_rcf) RESULT(resultVar)
         TYPE(t_var_metadata), INTENT(IN) :: p_info
         INTEGER, VALUE :: domain, nnew, nnew_rcf
 
@@ -213,7 +213,7 @@ CONTAINS
         LOGICAL :: lskip_timelev, lskip_extra_timelevs
         CHARACTER(LEN = *), PARAMETER :: routine = modname//':has_valid_time_level'
 
-        RESULT = .FALSE.
+        resultVar = .FALSE.
         IF (.NOT. p_info%lrestart) RETURN
 
 #ifndef __NO_ICON_ATMO__
@@ -245,7 +245,7 @@ CONTAINS
             CASE default
                 IF ( lskip_timelev ) RETURN
         END SELECT
-        RESULT = .TRUE.
+        resultVar = .TRUE.
 #endif
     END FUNCTION has_valid_time_level
 

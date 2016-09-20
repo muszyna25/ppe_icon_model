@@ -171,14 +171,14 @@ CONTAINS
     CALL me%t_RestartPatchData%destruct()
   END SUBROUTINE asyncPatchData_destruct
 
-  FUNCTION toAsyncPatchData(patchData) RESULT(RESULT)
+  FUNCTION toAsyncPatchData(patchData) RESULT(resultVar)
     CLASS(t_RestartPatchData), TARGET :: patchData
-    TYPE(t_AsyncPatchData), POINTER :: RESULT
+    TYPE(t_AsyncPatchData), POINTER :: resultVar
 
-    RESULT => NULL()
+    resultVar => NULL()
     SELECT TYPE(patchData)
         TYPE IS(t_AsyncPatchData)
-            RESULT => patchData
+            resultVar => patchData
     END SELECT
   END FUNCTION toAsyncPatchData
 

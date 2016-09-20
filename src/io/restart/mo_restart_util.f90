@@ -53,11 +53,11 @@ MODULE mo_restart_util
 
 CONTAINS
 
-    FUNCTION getRestartFilename(baseName, domain, datetime, modelTypeName) RESULT(RESULT)
+    FUNCTION getRestartFilename(baseName, domain, datetime, modelTypeName) RESULT(resultVar)
         CHARACTER(LEN = *), INTENT(IN) :: baseName, modelTypeName
         INTEGER, VALUE :: domain
         TYPE(t_datetime), INTENT(IN) :: datetime
-        CHARACTER(LEN = :), ALLOCATABLE :: RESULT
+        CHARACTER(LEN = :), ALLOCATABLE :: resultVar
 
         CHARACTER(LEN=32) :: datetimeString
         TYPE(t_keyword_list), POINTER :: keywords => NULL()
@@ -71,7 +71,7 @@ CONTAINS
         CALL associate_keyword("<mtype>", TRIM(modelTypeName), keywords)
 
         ! replace keywords in file name
-        RESULT = TRIM(with_keywords(keywords, TRIM(restart_filename)))
+        resultVar = TRIM(with_keywords(keywords, TRIM(restart_filename)))
     END FUNCTION getRestartFilename
 
     SUBROUTINE setGeneralRestartAttributes(restartAttributes, datetime, n_dom, jstep, opt_output_jfile)

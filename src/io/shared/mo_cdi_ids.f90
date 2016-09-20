@@ -67,15 +67,15 @@ MODULE mo_cdi_ids
 CONTAINS
 
     ! If no opt_levelValues are given, this defaults to numbering the levels from 1 to levelCount.
-    INTEGER FUNCTION defineVAxis(cdiAxisType, levelValues) RESULT(RESULT)
+    INTEGER FUNCTION defineVAxis(cdiAxisType, levelValues) RESULT(resultVar)
         INTEGER, VALUE :: cdiAxisType
         REAL(KIND = wp), INTENT(IN) :: levelValues(:)
 
         INTEGER :: levelCount
 
         levelCount = SIZE(levelValues, 1)
-        RESULT = zaxisCreate(cdiAxisType, levelCount)
-        CALL zaxisDefLevels(RESULT, levelValues)
+        resultVar = zaxisCreate(cdiAxisType, levelCount)
+        CALL zaxisDefLevels(resultVar, levelValues)
     END FUNCTION defineVAxis
 
     SUBROUTINE createVgrids(axisIds, gridDescriptions, opt_vct)
@@ -128,39 +128,39 @@ CONTAINS
 
     ! Creates a horizontal grid definition from the given parameters, returns the new CDI gridId.
     INTEGER FUNCTION create_cdi_hgrid_def(iCnt, iNVert, cNameX, cLNameX, cUnitsX, &
-        &                                               cNameY, cLNameY, cUnitsY) RESULT(RESULT)
+        &                                               cNameY, cLNameY, cUnitsY) RESULT(resultVar)
 
         INTEGER, VALUE :: iCnt, iNVert
         CHARACTER(LEN = *), INTENT(IN) :: cNameX, cLNameX, cUnitsX
         CHARACTER(LEN = *), INTENT(IN) :: cNameY, cLNameY, cUnitsY
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":create_cdi_hgrid_def"
 
-        RESULT = gridCreate(GRID_UNSTRUCTURED, iCnt)
-        IF(RESULT == CDI_UNDEFID) CALL finish(routine, "error creating CDI grid")
-        CALL gridDefNvertex(RESULT, iNVert)
+        resultVar = gridCreate(GRID_UNSTRUCTURED, iCnt)
+        IF(resultVar == CDI_UNDEFID) CALL finish(routine, "error creating CDI grid")
+        CALL gridDefNvertex(resultVar, iNVert)
 
-        CALL gridDefXname(RESULT, TRIM(cNameX))
-        CALL gridDefXlongname(RESULT, TRIM(cLNameX))
-        CALL gridDefXunits(RESULT, TRIM(cUnitsX))
+        CALL gridDefXname(resultVar, TRIM(cNameX))
+        CALL gridDefXlongname(resultVar, TRIM(cLNameX))
+        CALL gridDefXunits(resultVar, TRIM(cUnitsX))
 
-        CALL gridDefYname(RESULT, TRIM(cNameY))
-        CALL gridDefYlongname(RESULT, TRIM(cLNameY))
-        CALL gridDefYunits(RESULT, TRIM(cUnitsY))
+        CALL gridDefYname(resultVar, TRIM(cNameY))
+        CALL gridDefYlongname(resultVar, TRIM(cLNameY))
+        CALL gridDefYunits(resultVar, TRIM(cUnitsY))
     END FUNCTION create_cdi_hgrid_def
 
-    FUNCTION createHgrids(cellCount, vertexCount, edgeCount, cellType) RESULT(RESULT)
+    FUNCTION createHgrids(cellCount, vertexCount, edgeCount, cellType) RESULT(resultVar)
         INTEGER, VALUE :: cellCount, vertexCount, edgeCount, cellType
-        INTEGER :: RESULT(3)
+        INTEGER :: resultVar(3)
 
-        RESULT(GRID_UNSTRUCTURED_CELL) = create_cdi_hgrid_def(cellCount, cellType, &
+        resultVar(GRID_UNSTRUCTURED_CELL) = create_cdi_hgrid_def(cellCount, cellType, &
                                                              &'clon', 'center longitude', 'radian', &
                                                              &'clat', 'center latitude', 'radian')
 
-        RESULT(GRID_UNSTRUCTURED_VERT) = create_cdi_hgrid_def(vertexCount, 9 - cellType, &
+        resultVar(GRID_UNSTRUCTURED_VERT) = create_cdi_hgrid_def(vertexCount, 9 - cellType, &
                                                              &'vlon', 'vertex longitude', 'radian', &
                                                              &'vlat', 'vertex latitude', 'radian')
 
-        RESULT(GRID_UNSTRUCTURED_EDGE) = create_cdi_hgrid_def(edgeCount, 4, &
+        resultVar(GRID_UNSTRUCTURED_EDGE) = create_cdi_hgrid_def(edgeCount, 4, &
                                                              &'elon', 'edge midpoint longitude', 'radian', &
                                                              &'elat', 'edge midpoint latitude', 'radian')
 

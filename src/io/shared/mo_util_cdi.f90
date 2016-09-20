@@ -272,14 +272,14 @@ CONTAINS
   END FUNCTION makeInputParameters
 
   ! This function is only a workaround for a compiler bug on the blizzard. May be reintegrated into inputParametersFindVarId() once we are not concerned about xlf anymore.
-  LOGICAL FUNCTION compareTiledVars(name1, idx1, att1, name2, idx2, att2) RESULT(RESULT)
+  LOGICAL FUNCTION compareTiledVars(name1, idx1, att1, name2, idx2, att2) RESULT(resultVar)
     CHARACTER(LEN = *), INTENT(IN) :: name1, name2
     INTEGER, VALUE :: idx1, att1, idx2, att2
 
-    RESULT = .TRUE.
-    IF(TRIM(tolower(name1)) /= TRIM(tolower(name2))) RESULT = .FALSE.
-    IF(idx1 /= idx2) RESULT = .FALSE.
-    IF(att1 /= att2) RESULT = .FALSE.
+    resultVar = .TRUE.
+    IF(TRIM(tolower(name1)) /= TRIM(tolower(name2))) resultVar = .FALSE.
+    IF(idx1 /= idx2) resultVar = .FALSE.
+    IF(att1 /= att2) resultVar = .FALSE.
   END FUNCTION compareTiledVars
 
   !---------------------------------------------------------------------------------------------------------------------------------
@@ -342,18 +342,18 @@ CONTAINS
   !---------------------------------------------------------------------------------------------------------------------------------
   !> Lookup the datatype of a variable given its cdi varId
   !---------------------------------------------------------------------------------------------------------------------------------
-  INTEGER FUNCTION inputParametersLookupDatatype(me, varId) RESULT(result)
+  INTEGER FUNCTION inputParametersLookupDatatype(me, varId) RESULT(resultVar)
     IMPLICIT NONE
     CLASS(t_inputParameters), INTENT(IN) :: me
     INTEGER, INTENT(IN) :: varId
 
-    result = me%variableDatatype(varId+1)
+    resultVar = me%variableDatatype(varId+1)
   END FUNCTION inputParametersLookupDatatype
 
   !---------------------------------------------------------------------------------------------------------------------------------
   !> Find a variable and determine its datatype
   !---------------------------------------------------------------------------------------------------------------------------------
-  INTEGER FUNCTION inputParametersFindVarDatatype(me, name, tileinfo) RESULT(result)
+  INTEGER FUNCTION inputParametersFindVarDatatype(me, name, tileinfo) RESULT(resultVar)
     IMPLICIT NONE
     CLASS(t_inputParameters), INTENT(IN) :: me
     CHARACTER(len=*),         INTENT(IN) :: name
@@ -361,7 +361,7 @@ CONTAINS
     ! local variables
     INTEGER :: varID, tile_index
     CALL me%findVarId(name, tileinfo, varID, tile_index)
-    result = me%lookupDatatype(varID)
+    resultVar = me%lookupDatatype(varID)
   END FUNCTION inputParametersFindVarDatatype
 
 

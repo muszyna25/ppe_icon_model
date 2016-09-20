@@ -59,8 +59,8 @@ MODULE mo_restart_namelist
     CHARACTER(LEN = *), PARAMETER :: modname = "mo_restart_namelist"
 
 CONTAINS
-    FUNCTION namelistArchive() RESULT(RESULT)
-        TYPE(t_NamelistArchive), POINTER :: RESULT
+    FUNCTION namelistArchive() RESULT(resultVar)
+        TYPE(t_NamelistArchive), POINTER :: resultVar
 
         TYPE(t_NamelistArchive), ALLOCATABLE, TARGET, SAVE :: archive
         INTEGER :: error
@@ -71,7 +71,7 @@ CONTAINS
             IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
             CALL archive%construct()
         END IF
-        RESULT => archive
+        resultVar => archive
     END FUNCTION namelistArchive
 
     SUBROUTINE namelistArchive_construct(me)
@@ -85,10 +85,10 @@ CONTAINS
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
     END SUBROUTINE namelistArchive_construct
 
-    FUNCTION namelistArchive_find(me, namelist_name) RESULT(RESULT)
+    FUNCTION namelistArchive_find(me, namelist_name) RESULT(resultVar)
         CLASS(t_NamelistArchive), INTENT(INOUT) :: me
         CHARACTER(len=*), INTENT(in) :: namelist_name
-        TYPE(t_Namelist), POINTER :: RESULT
+        TYPE(t_Namelist), POINTER :: resultVar
 
         INTEGER :: i, error
         TYPE(t_Namelist), POINTER :: temp(:)
@@ -99,7 +99,7 @@ CONTAINS
         fullName = 'nml_'//TRIM(namelist_name)
         DO i = 1, me%namelistCount
             IF(fullName == me%namelists(i)%NAME) THEN
-                RESULT => me%namelists(i)
+                resultVar => me%namelists(i)
                 DEALLOCATE(fullName)
                 RETURN
             END IF
@@ -122,9 +122,9 @@ CONTAINS
 
         ! add an entry
         me%namelistCount = me%namelistCount + 1
-        RESULT => me%namelists(me%namelistCount)
-        RESULT%NAME = fullName
-        IF(RESULT%NAME /= fullName) CALL finish(routine, "assertion failed")
+        resultVar => me%namelists(me%namelistCount)
+        resultVar%NAME = fullName
+        IF(resultVar%NAME /= fullName) CALL finish(routine, "assertion failed")
     END FUNCTION namelistArchive_find
 
     SUBROUTINE namelistArchive_setNamelist(me, namelistName, namelistText)

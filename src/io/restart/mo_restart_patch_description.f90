@@ -336,26 +336,26 @@ CONTAINS
         END IF
     END SUBROUTINE restartPatchDescription_setRestartAttributes
 
-    FUNCTION restartPatchDescription_getGatherPattern(me, gridType) RESULT(RESULT)
+    FUNCTION restartPatchDescription_getGatherPattern(me, gridType) RESULT(resultVar)
         CLASS(t_restart_patch_description), INTENT(IN) :: me
         INTEGER, VALUE :: gridType
-        TYPE(t_comm_gather_pattern), POINTER :: RESULT
+        TYPE(t_comm_gather_pattern), POINTER :: resultVar
 
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartPatchDescription_getGatherPattern"
 
         SELECT CASE(gridType)
             CASE(GRID_UNSTRUCTURED_CELL)
-                RESULT => me%cellGatherPattern
+                resultVar => me%cellGatherPattern
             CASE(GRID_UNSTRUCTURED_VERT)
-                RESULT => me%vertGatherPattern
+                resultVar => me%vertGatherPattern
             CASE(GRID_UNSTRUCTURED_EDGE)
-                RESULT => me%edgeGatherPattern
+                resultVar => me%edgeGatherPattern
             CASE DEFAULT
                 CALL finish(routine, "illegal gridType argument")
         END SELECT
     END FUNCTION restartPatchDescription_getGatherPattern
 
-    INTEGER FUNCTION restartPatchDescription_getGlobalGridSize(me, gridType) RESULT(RESULT)
+    INTEGER FUNCTION restartPatchDescription_getGlobalGridSize(me, gridType) RESULT(resultVar)
         CLASS(t_restart_patch_description), INTENT(IN) :: me
         INTEGER, VALUE :: gridType
 
@@ -363,11 +363,11 @@ CONTAINS
 
         SELECT CASE(gridType)
             CASE(GRID_UNSTRUCTURED_CELL)
-                RESULT = me%n_patch_cells_g
+                resultVar = me%n_patch_cells_g
             CASE(GRID_UNSTRUCTURED_VERT)
-                RESULT = me%n_patch_verts_g
+                resultVar = me%n_patch_verts_g
             CASE(GRID_UNSTRUCTURED_EDGE)
-                RESULT = me%n_patch_edges_g
+                resultVar = me%n_patch_edges_g
             CASE DEFAULT
                 CALL finish(routine, "illegal gridType argument")
         END SELECT

@@ -96,52 +96,52 @@ MODULE mo_restart_attributes
 
 CONTAINS
 
-  FUNCTION text_create(VALUE) RESULT(RESULT)
+  FUNCTION text_create(VALUE) RESULT(resultVar)
     CHARACTER(*), INTENT(IN) :: VALUE
-    TYPE(t_Text), POINTER :: RESULT
+    TYPE(t_Text), POINTER :: resultVar
 
     integer :: error
     CHARACTER(*), PARAMETER :: routine = modname//":text_create"
 
-    ALLOCATE(RESULT, STAT = error)
+    ALLOCATE(resultVar, STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-    RESULT%text = VALUE
+    resultVar%text = VALUE
   END FUNCTION text_create
 
-  FUNCTION real_create(VALUE) RESULT(RESULT)
+  FUNCTION real_create(VALUE) RESULT(resultVar)
     REAL(wp), VALUE :: VALUE
-    TYPE(t_Real), POINTER :: RESULT
+    TYPE(t_Real), POINTER :: resultVar
 
     integer :: error
     CHARACTER(*), PARAMETER :: routine = modname//":real_create"
 
-    ALLOCATE(RESULT, STAT = error)
+    ALLOCATE(resultVar, STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-    RESULT%VALUE = VALUE
+    resultVar%VALUE = VALUE
   END FUNCTION real_create
 
-  FUNCTION integer_create(VALUE) RESULT(RESULT)
+  FUNCTION integer_create(VALUE) RESULT(resultVar)
     INTEGER(KIND = C_INT), VALUE :: VALUE
-    TYPE(t_Integer), POINTER :: RESULT
+    TYPE(t_Integer), POINTER :: resultVar
 
     integer :: error
     CHARACTER(*), PARAMETER :: routine = modname//":integer_create"
 
-    ALLOCATE(RESULT, STAT = error)
+    ALLOCATE(resultVar, STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-    RESULT%VALUE = VALUE
+    resultVar%VALUE = VALUE
   END FUNCTION integer_create
 
-  FUNCTION logical_create(VALUE) RESULT(RESULT)
+  FUNCTION logical_create(VALUE) RESULT(resultVar)
     LOGICAL, VALUE :: VALUE
-    TYPE(t_Logical), POINTER :: RESULT
+    TYPE(t_Logical), POINTER :: resultVar
 
     integer :: error
     CHARACTER(*), PARAMETER :: routine = modname//":logical_create"
 
-    ALLOCATE(RESULT, STAT = error)
+    ALLOCATE(resultVar, STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
-    RESULT%VALUE = VALUE
+    resultVar%VALUE = VALUE
   END FUNCTION logical_create
 
   ! Sets the restart attribute list that IS to be used for restarting. Must NOT be set when we are NOT restarting.
@@ -159,8 +159,8 @@ CONTAINS
   END SUBROUTINE setAttributesForRestarting
 
   ! Returns the restart attribute list that we are currently using to initialize the model. Returns NULL on non-restart runs.
-  FUNCTION getAttributesForRestarting() RESULT(RESULT)
-    TYPE(t_RestartAttributeList), POINTER :: RESULT
+  FUNCTION getAttributesForRestarting() RESULT(resultVar)
+    TYPE(t_RestartAttributeList), POINTER :: resultVar
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":getAttributesForRestarting"
 
@@ -169,13 +169,13 @@ CONTAINS
             CALL finish(routine, "assertion failed: getAttributesForRestarting() called before restart attributes were read from &
                                  &file")
         END IF
-        RESULT => gRestartAttributes
+        resultVar => gRestartAttributes
     ELSE
-        RESULT => NULL()
+        resultVar => NULL()
     END IF
   END FUNCTION getAttributesForRestarting
 
-  INTEGER(C_INT32_T) FUNCTION text_hash(me) RESULT(RESULT)
+  INTEGER(C_INT32_T) FUNCTION text_hash(me) RESULT(resultVar)
     CLASS(t_Destructible), POINTER, INTENT(IN) :: me
 
     ! Just some large primes to produce some good pseudorandom bits IN the hashes.
@@ -194,18 +194,18 @@ CONTAINS
         TYPE IS(t_Text)
             IF(.NOT.ALLOCATED(meAlias%text)) CALL finish(routine, "assertion failed: text object NOT initialized")
             textAlias => meAlias%text
-            RESULT = 0
+            resultVar = 0
             DO i = 1, LEN(textAlias)
                 temp = INT(IACHAR(textAlias(i:i)), C_INT64_T) * prime1 + i
-                temp = IAND(temp, mask) * prime2 + INT(RESULT, C_INT64_T)
-                RESULT = INT(IAND(temp, mask), C_INT32_T)
+                temp = IAND(temp, mask) * prime2 + INT(resultVar, C_INT64_T)
+                resultVar = INT(IAND(temp, mask), C_INT32_T)
             END DO
         CLASS DEFAULT
             CALL finish(routine, "assertion failed: illegal argument TYPE")
     END SELECT
   END FUNCTION text_hash
 
-  LOGICAL FUNCTION text_isEqual(me, other) RESULT(RESULT)
+  LOGICAL FUNCTION text_isEqual(me, other) RESULT(resultVar)
     CLASS(t_Destructible), POINTER, INTENT(IN) :: me, other
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":text_isEqual"
@@ -220,7 +220,7 @@ CONTAINS
                 TYPE IS(t_Text)
                     IF(.NOT.ALLOCATED(meAlias%text)) CALL finish(routine, "assertion failed: text object NOT initialized")
                     IF(.NOT.ALLOCATED(otherAlias%text)) CALL finish(routine, "assertion failed: text object NOT initialized")
-                    RESULT = meAlias%text == otherAlias%text
+                    resultVar = meAlias%text == otherAlias%text
                 CLASS DEFAULT
                     CALL finish(routine, "assertion failed: illegal argument TYPE")
             END SELECT
@@ -247,23 +247,23 @@ CONTAINS
     CLASS(t_Logical), INTENT(INOUT) :: me
   END SUBROUTINE logical_destruct
 
-  FUNCTION RestartAttributeList_makeEmpty() RESULT(RESULT)
-    TYPE(t_RestartAttributeList), POINTER :: RESULT
+  FUNCTION RestartAttributeList_makeEmpty() RESULT(resultVar)
+    TYPE(t_RestartAttributeList), POINTER :: resultVar
 
     INTEGER :: error
     CHARACTER(LEN = *), PARAMETER :: routine = modname//':RestartAttributeList_makeEmpty'
 
-    ALLOCATE(RESULT, STAT = error)
+    ALLOCATE(resultVar, STAT = error)
     IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
-    RESULT%table => hashTable_make(text_hash, text_isEqual)
+    resultVar%table => hashTable_make(text_hash, text_isEqual)
   END FUNCTION RestartAttributeList_makeEmpty
 
-  FUNCTION RestartAttributeList_makeFromFile(vlistId, root_pe, comm) RESULT(RESULT)
+  FUNCTION RestartAttributeList_makeFromFile(vlistId, root_pe, comm) RESULT(resultVar)
     INTEGER, VALUE :: vlistId, root_pe, comm
-    TYPE(t_RestartAttributeList), POINTER :: RESULT
+    TYPE(t_RestartAttributeList), POINTER :: resultVar
 
-    RESULT => RestartAttributeList_makeEmpty()
-    CALL RESULT%readFromFile(vlistId, root_pe, comm)
+    resultVar => RestartAttributeList_makeEmpty()
+    CALL resultVar%readFromFile(vlistId, root_pe, comm)
   END FUNCTION RestartAttributeList_makeFromFile
 
   ! This takes posession of the VALUE object!
@@ -308,22 +308,22 @@ CONTAINS
     CALL me%setObject(key, valueObject)
   END SUBROUTINE RestartAttributeList_set
 
-  FUNCTION RestartAttributeList_getObject(me, key) RESULT(RESULT)
+  FUNCTION RestartAttributeList_getObject(me, key) RESULT(resultVar)
     CLASS(t_RestartAttributeList), INTENT(IN) :: me
     CHARACTER(*), INTENT(IN) :: key
-    CLASS(t_Destructible), POINTER :: RESULT
+    CLASS(t_Destructible), POINTER :: resultVar
 
     CLASS(t_Destructible), POINTER :: keyObject
     CHARACTER(*), PARAMETER :: routine = modname//":RestartAttributeList_getObject"
 
-    RESULT => NULL()
+    resultVar => NULL()
     keyObject => text_create(key)
-    RESULT => me%table%getEntry(keyObject)
+    resultVar => me%table%getEntry(keyObject)
     CALL keyObject%destruct()
     DEALLOCATE(keyObject)
   END FUNCTION RestartAttributeList_getObject
 
-  LOGICAL FUNCTION RestartAttributeList_get(me, key, opt_text, opt_real, opt_integer, opt_logical) RESULT(RESULT)
+  LOGICAL FUNCTION RestartAttributeList_get(me, key, opt_text, opt_real, opt_integer, opt_logical) RESULT(resultVar)
     CLASS(t_RestartAttributeList), INTENT(IN) :: me
     CHARACTER(*), INTENT(IN) :: key
     CHARACTER(:), INTENT(OUT), ALLOCATABLE, OPTIONAL :: opt_text
@@ -334,10 +334,10 @@ CONTAINS
     CLASS(*), POINTER :: valueObject
     CHARACTER(*), PARAMETER :: routine = modname//"RestartAttributeList_get"
 
-    RESULT = .FALSE.
+    resultVar = .FALSE.
     valueObject => me%getObject(key)
     IF(.NOT.ASSOCIATED(valueObject)) RETURN
-    RESULT = .TRUE.
+    resultVar = .TRUE.
 
     SELECT TYPE(valueObject)
         TYPE IS(t_Text)
@@ -392,40 +392,40 @@ CONTAINS
 
 
 
-  FUNCTION RestartAttributeList_getText(me, key) RESULT(RESULT)
+  FUNCTION RestartAttributeList_getText(me, key) RESULT(resultVar)
     CLASS(t_RestartAttributeList), INTENT(IN) :: me
     CHARACTER(*), INTENT(IN) :: key
-    CHARACTER(:), ALLOCATABLE :: RESULT
+    CHARACTER(:), ALLOCATABLE :: resultVar
     CHARACTER(*), PARAMETER :: routine = ":RestartAttributeList_getText"
-    IF(.NOT.me%get(key, opt_text = RESULT)) CALL finish(routine, "restart attribute '"//key//"' not found")
+    IF(.NOT.me%get(key, opt_text = resultVar)) CALL finish(routine, "restart attribute '"//key//"' not found")
   END FUNCTION RestartAttributeList_getText
 
-  FUNCTION RestartAttributeList_getReal(me, key) RESULT(RESULT)
+  FUNCTION RestartAttributeList_getReal(me, key) RESULT(resultVar)
     CLASS(t_RestartAttributeList), INTENT(IN) :: me
     CHARACTER(*), INTENT(IN) :: key
-    REAL(KIND = wp) :: RESULT
+    REAL(KIND = wp) :: resultVar
     CHARACTER(*), PARAMETER :: routine = ":RestartAttributeList_getReal"
-    IF(.NOT.me%get(key, opt_real = RESULT)) CALL finish(routine, "restart attribute '"//key//"' not found")
+    IF(.NOT.me%get(key, opt_real = resultVar)) CALL finish(routine, "restart attribute '"//key//"' not found")
   END FUNCTION RestartAttributeList_getReal
 
-  FUNCTION RestartAttributeList_getInteger(me, key, opt_default) RESULT(RESULT)
+  FUNCTION RestartAttributeList_getInteger(me, key, opt_default) RESULT(resultVar)
     CLASS(t_RestartAttributeList), INTENT(IN) :: me
     CHARACTER(*), INTENT(IN) :: key
     INTEGER, OPTIONAL, INTENT(IN) :: opt_default
-    INTEGER(KIND = C_INT) :: RESULT
+    INTEGER(KIND = C_INT) :: resultVar
     CHARACTER(*), PARAMETER :: routine = ":RestartAttributeList_getInteger"
-    IF(.NOT.me%get(key, opt_integer = RESULT)) THEN
+    IF(.NOT.me%get(key, opt_integer = resultVar)) THEN
         IF(.NOT.PRESENT(opt_default)) CALL finish(routine, "restart attribute '"//key//"' not found")
-        RESULT = opt_default
+        resultVar = opt_default
     END IF
   END FUNCTION RestartAttributeList_getInteger
 
-  FUNCTION RestartAttributeList_getLogical(me, key) RESULT(RESULT)
+  FUNCTION RestartAttributeList_getLogical(me, key) RESULT(resultVar)
     CLASS(t_RestartAttributeList), INTENT(IN) :: me
     CHARACTER(*), INTENT(IN) :: key
-    LOGICAL :: RESULT
+    LOGICAL :: resultVar
     CHARACTER(*), PARAMETER :: routine = ":RestartAttributeList_getLogical"
-    IF(.NOT.me%get(key, opt_logical = RESULT)) CALL finish(routine, "restart attribute '"//key//"' not found")
+    IF(.NOT.me%get(key, opt_logical = resultVar)) CALL finish(routine, "restart attribute '"//key//"' not found")
   END FUNCTION RestartAttributeList_getLogical
 
 
