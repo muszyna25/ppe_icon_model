@@ -131,8 +131,6 @@ MODULE mo_ocean_model
     TYPE(t_operator_coeff)                          :: operators_coefficients
     TYPE(t_solverCoeff_singlePrecision)             :: solverCoefficients_sp
     TYPE(t_hydro_ocean_state), ALLOCATABLE, TARGET  :: ocean_state(:)
-!LK    TYPE(t_datetime)                                :: start_datetime
-    TYPE(datetime), POINTER                         :: start_datetime
     
   !  TYPE(t_oce_timeseries), POINTER :: oce_ts
 
@@ -227,27 +225,27 @@ MODULE mo_ocean_model
     SELECT CASE (test_mode)
       CASE (0)  !  ocean model
         CALL perform_ho_stepping( ocean_patch_3d, ocean_state, &
-          & ext_data, start_datetime,                     &
-          & v_sfc_flx, v_oce_sfc,                         &
+          & ext_data, time_config%tc_current_date,             &
+          & v_sfc_flx, v_oce_sfc,                              &
           & v_params, p_as, atmos_fluxes,v_sea_ice,            &
-          & hamocc_state,            &
-          & operators_coefficients,                       &
+          & hamocc_state,                                      &
+          & operators_coefficients,                            &
           & solverCoefficients_sp)
 
       CASE (1 : 1999) !
-        CALL ocean_testbed( oce_namelist_filename,shr_namelist_filename, &
-          & ocean_patch_3d, ocean_state,                    &
-          & ext_data, start_datetime,                       &
-          & v_sfc_flx, v_oce_sfc, v_params, p_as, atmos_fluxes, v_sea_ice,  &
-          & operators_coefficients,                         &
+        CALL ocean_testbed( oce_namelist_filename,shr_namelist_filename,   &
+          & ocean_patch_3d, ocean_state,                                   &
+          & ext_data, time_config%tc_current_date,                         &
+          & v_sfc_flx, v_oce_sfc, v_params, p_as, atmos_fluxes, v_sea_ice, &
+          & operators_coefficients,                                        &
           & solverCoefficients_sp)
 
       CASE (2000 : 3999) !
         CALL ocean_postprocess( oce_namelist_filename,shr_namelist_filename, &
-          & ocean_patch_3d, ocean_state,                    &
-          & ext_data, start_datetime,                       &
-          & v_sfc_flx,  v_params, p_as, atmos_fluxes,v_sea_ice,  &
-          & operators_coefficients,                         &
+          & ocean_patch_3d, ocean_state,                                     &
+          & ext_data, time_config%tc_current_date,                           &
+          & v_sfc_flx,  v_params, p_as, atmos_fluxes,v_sea_ice,              &
+          & operators_coefficients,                                          &
           & solverCoefficients_sp)
 
       CASE DEFAULT
@@ -255,27 +253,7 @@ MODULE mo_ocean_model
 
     END SELECT
 
-!    IF (test_mode == 0) THEN
-!
-!      CALL perform_ho_stepping( ocean_patch_3d, ocean_state, &
-!        & ext_data, start_datetime,                     &
-!        & (nsteps == INT(time_config%dt_restart/dtime)),&
-!        & v_sfc_flx,                                    &
-!        & v_params, p_as, atmos_fluxes,v_sea_ice,            &
-!        & operators_coefficients,                       &
-!        & solverCoefficients_sp)
-!
-!    ELSEIF
-!
-!      CALL ocean_testbed( oce_namelist_filename,shr_namelist_filename, &
-!        & ocean_patch_3d, ocean_state,                    &
-!        & ext_data, start_datetime,                       &
-!        & v_sfc_flx,  v_params, p_as, atmos_fluxes,v_sea_ice,  &
-!        & operators_coefficients,                         &
-!        & solverCoefficients_sp)
-!
-!    ENDIF
-!    !------------------------------------------------------------------
+    !------------------------------------------------------------------
 
     CALL print_timer()
 
@@ -405,20 +383,6 @@ MODULE mo_ocean_model
     CALL init_timer
 
     IF (ltimer) CALL timer_start(timer_model_init)
-
-    !-------------------------------------------------------------------
-    ! Initialize date and time
-    !-------------------------------------------------------------------
-
-    !---------------------------------------------------------------
-    ! conversion of mtime data type to old "t_datetime" data structure
-    !
-    ! TODO: remove this after transition to mtime library!!!
-
-!LK    CALL datetimeToString(time_config%tc_current_date, datetime_string    )
-!LK    CALL string_to_datetime( datetime_string,  start_datetime )
-    !---------------------------------------------------------------
-    start_datetime => time_config%tc_current_date
 
     !-------------------------------------------------------------------
     ! 4. Setup IO procs
@@ -601,7 +565,7 @@ MODULE mo_ocean_model
     CALL construct_ocean_coupling(ocean_patch_3d)
 
     !------------------------------------------------------------------
-    CALL datetimeToString(start_datetime, datestring)
+    CALL datetimeToString(time_config%tc_current_date, datestring)
     CALL construct_oce_diagnostics( ocean_patch_3d, ocean_state(1), datestring)
 
     !------------------------------------------------------------------

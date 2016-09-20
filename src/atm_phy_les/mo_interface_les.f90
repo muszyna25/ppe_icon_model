@@ -217,7 +217,7 @@ CONTAINS
     ! calculate elapsed simulation time in seconds (local time for
     ! this domain!)
     time_diff  => newTimedelta("PT0S")
-    time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_startdate)
+    time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_exp_startdate)
     p_sim_time =  getTotalMillisecondsTimedelta(time_diff, mtime_current)*1.e-3_wp
     CALL deallocateTimedelta(time_diff)
 

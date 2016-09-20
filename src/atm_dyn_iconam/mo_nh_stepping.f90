@@ -738,6 +738,7 @@ MODULE mo_nh_stepping
 
   jstep = jstep0+jstep_shift+1
   TIME_LOOP: DO
+    
     ! Check if a nested domain needs to be turned off
     DO jg=2, n_dom
       IF (p_patch(jg)%ldom_active .AND. (sim_time >= end_time(jg))) THEN

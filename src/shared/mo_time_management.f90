@@ -254,7 +254,7 @@ CONTAINS
       restart_intvl_string = TRIM(restartTimeIntval)
     ELSE
       IF (TRIM(restartTimeIntval) /= "") THEN
-        IF (dt_restart >= 0.0_wp) THEN
+        IF (dt_restart > 0.0_wp) THEN
           ! Comparison of intervals cannot be done with strings as there are multiple options
           ! for expressing an interval
           tmp_td1 => newTimedelta(restartTimeIntval)

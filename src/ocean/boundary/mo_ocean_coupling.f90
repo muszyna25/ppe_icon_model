@@ -452,8 +452,8 @@ CONTAINS
 
     patch_horz   => patch_3D%p_patch_2D(1)
 
-    CALL datetimeToString(this_datetime, datestring)
-    CALL set_tc_current_date(TRIM(datestring))
+!    CALL datetimeToString(this_datetime, datestring)
+!    CALL set_tc_current_date(TRIM(datestring))
 
     nbr_hor_cells = patch_horz%n_patch_cells
 
