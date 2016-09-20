@@ -62,7 +62,7 @@ MODULE mo_master_config
 
   !> Flag: True, if model run should create restart at experiment end.
   !  This is independent from the settings of the restart interval.
-  LOGICAL, PROTECTED ::  lrestart_write_last = .FALSE.
+  LOGICAL, PROTECTED ::  lrestart_write_last = .TRUE.
 
   CHARACTER(len=filename_max), PROTECTED :: model_base_dir = ''
 

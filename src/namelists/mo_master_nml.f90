@@ -63,7 +63,7 @@ CONTAINS
     LOGICAL :: lRestart             = .FALSE.
     !> Flag: True, if model run should create restart at experiment end.
     !  This is independent from the settings of the restart interval.
-    LOGICAL :: lrestart_write_last  = .FALSE.
+    LOGICAL :: lrestart_write_last  = .TRUE.
 
     CHARACTER(len=filename_max) :: model_base_dir          = ''
     CHARACTER(len=132)          :: model_name              = ''
