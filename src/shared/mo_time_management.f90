@@ -780,12 +780,17 @@ CONTAINS
       mtime_stop  => newDatetime(stop_datetime_string)
       mtime_td    => newTimedelta("PT0S")
       mtime_td    =  mtime_stop - mtime_start
-      CALL getPTStringFromMS(INT(dtime*1000._wp,i8), td_string)
-      mtime_dtime => newTimedelta(td_string)
-      CALL divideTimeDeltaInSeconds(mtime_td, mtime_dtime, mtime_quotient)
-      nsteps = INT(mtime_quotient%quotient)
+      IF (mtime_td%year == 0 .AND. mtime_td%month == 0) THEN
+        CALL getPTStringFromMS(INT(dtime*1000._wp,i8), td_string)
+        mtime_dtime => newTimedelta(td_string)
+        CALL divideTimeDeltaInSeconds(mtime_td, mtime_dtime, mtime_quotient)
+        nsteps = INT(mtime_quotient%quotient)
+        CALL deallocateTimedelta(mtime_dtime)
+      ELSE
+        CALL message(routine, "Warning - cannto calculate nsteps unambiguous, set 0!")
+        nsteps = 0
+      END IF
       CALL deallocateTimedelta(mtime_td)
-      CALL deallocateTimedelta(mtime_dtime)
       CALL deallocateDatetime(mtime_start)
       CALL deallocateDatetime(mtime_stop)
     END IF
