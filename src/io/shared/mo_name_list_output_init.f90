@@ -107,7 +107,8 @@ MODULE mo_name_list_output_init
     &                                             my_process_is_mpi_ioroot,                       &
     &                                             process_mpi_stdio_id, process_work_io0,         &
     &                                             process_mpi_io_size, num_work_procs, p_n_work,  &
-    &                                             p_pe_work, p_io_pe0, p_pe
+    &                                             p_pe_work, p_io_pe0, p_pe, my_process_is_restart, &
+    &                                             my_process_is_work
   USE mo_communication,                     ONLY: idx_no, blk_no
   ! namelist handling
   USE mo_namelist,                          ONLY: position_nml, positioned, open_nml, close_nml
@@ -1460,11 +1461,11 @@ CONTAINS
 
               ENDDO
 
-              IF ( 1 == patch_info(1)%log_patch_id ) THEN
-                CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch( patch_info(1)%log_patch_id ) ) ! works for amip and test_nat_rce
+              IF ( my_process_is_work() ) THEN ! avoid addidional io or restart processes
+                IF ( 1 == i ) THEN             ! use global domain, only
+                  CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch(i))
+                ENDIF
               ENDIF
-              !CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch( 0 )) ! this is how it works for _nwp_R02B04N06multi2
-              !CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch( 1 )) ! initial setup
 
               SELECT CASE(i_typ)
               CASE(level_type_ml)
