@@ -129,7 +129,7 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
                 &                istart, iend, i_rlstart, i_rlend)
               ! Before washout, the modal parameters have to be calculated
               CALL fields%modal_param(p_art_data(jg)%air_prop%art_free_path(:,:,jb),                &
-                &                     istart, iend, nlev, jb)
+                &                     istart, iend, nlev, jb, tracer(:,:,jb,:))
               !Washout rate
               IF (.FALSE.) THEN ! Check if qnr is present
                 CALL art_aerosol_washout(pt_diag%temp(:,:,jb),                                               &
