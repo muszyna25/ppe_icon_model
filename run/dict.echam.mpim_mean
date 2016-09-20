@@ -56,6 +56,11 @@
 #
   albedo             albedo_m
 #
+  sfcWind            sfcWind_m
+  uas                uas_m
+  vas                vas_m
+  tas                tas_m
+  dew2               dew2_m
 #
 # tendencies from the ECHAM6 physics with prefix 'tend'
 # ---------------------------------------------------

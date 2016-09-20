@@ -196,16 +196,16 @@ CONTAINS
   ! returns integer n as a string (often needed in printing messages)
   !
   FUNCTION int2string(n, opt_fmt)
-    CHARACTER(len=10) :: int2string ! result
+    CHARACTER(len=11) :: int2string ! result
     INTEGER, INTENT(in) :: n
     CHARACTER(len=*), INTENT(in), OPTIONAL :: opt_fmt
     !
-    CHARACTER(len=10) :: fmt
+    CHARACTER(len=11) :: fmt
 
     IF (PRESENT(opt_fmt)) THEN
       fmt = opt_fmt
     ELSE
-      fmt = '(I10)'
+      fmt = '(I11)'
     END IF
     WRITE(int2string,fmt) n
     int2string = ADJUSTL(int2string)

@@ -85,7 +85,6 @@ MODULE mo_nh_stepping
                                          prep_outer_bdy_nudging, save_progvars
   USE mo_nh_feedback,              ONLY: feedback, relax_feedback
   USE mo_datetime,                 ONLY: t_datetime, add_time, check_newday, iso8601
-  USE mo_io_restart,               ONLY: create_restart_file
   USE mo_exception,                ONLY: message, message_text, finish
   USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
     &                                    itconv, itccov, itrad, itradheat, itsso, itsatad, itgwd,  &
@@ -118,7 +117,7 @@ MODULE mo_nh_stepping
   USE mo_master_config,            ONLY: isRestart, tc_startdate, tc_stopdate, &
        &                                 tc_exp_refdate, tc_exp_startdate, tc_exp_stopdate, &
        &                                 tc_dt_checkpoint, tc_dt_restart
-  USE mo_io_restart_attributes,    ONLY: get_restart_attribute
+  USE mo_restart_attributes,       ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_meteogram_config,         ONLY: meteogram_output_config
   USE mo_meteogram_output,         ONLY: meteogram_sample_vars, meteogram_is_sample_step
   USE mo_name_list_output,         ONLY: write_name_list_output, istime4name_list_output
@@ -147,8 +146,7 @@ MODULE mo_nh_stepping
     &                                    read_latbc_tlev, last_latbc_tlev, &
     &                                    update_lin_interc
   USE mo_interface_les,            ONLY: les_phy_interface
-  USE mo_io_restart_async,         ONLY: prepare_async_restart, write_async_restart, &
-    &                                    close_async_restart, set_data_async_restart
+  USE mo_restart,                  ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
   USE mo_nh_prepadv_types,         ONLY: prep_adv, t_prepare_adv, jstep_adv
   USE mo_action,                   ONLY: reset_act
   USE mo_output_event_handler,     ONLY: get_current_jfile
@@ -185,6 +183,11 @@ MODULE mo_nh_stepping
   USE messy_main_timer_bi,         ONLY: messy_timer_reset_time
 
 #endif
+#endif
+
+#if defined( _OPENACC )
+  USE mo_nonhydro_gpu_types,       ONLY: save_convenience_pointers, refresh_convenience_pointers
+  USE mo_mpi,                      ONLY: i_am_accel_node, my_process_is_work
 #endif
 
   IMPLICIT NONE
@@ -252,7 +255,7 @@ MODULE mo_nh_stepping
   IF (ltestcase) THEN
 
     CALL init_nh_testcase(p_patch(1:), p_nh_state, p_int_state(1:), p_lnd_state(1:), &
-      & ext_data, ntl)
+                        & ext_data, ntl)
 
     IF(is_ls_forcing) &
        CALL init_ls_forcing(p_nh_state(1)%metrics)
@@ -588,6 +591,8 @@ MODULE mo_nh_stepping
 
   INTEGER                              :: checkpointEvents
   LOGICAL                              :: lret
+  TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+  CLASS(t_RestartDescriptor), POINTER  :: restartDescriptor
 
 !!$  INTEGER omp_get_num_threads
 !-----------------------------------------------------------------------
@@ -619,15 +624,13 @@ MODULE mo_nh_stepping
 
   datetime_old = datetime_current
 
-  IF (use_async_restart_output) THEN
-    CALL prepare_async_restart(opt_t_elapsed_phy_size = SIZE(t_elapsed_phy, 2), &
-         &                     opt_lcall_phy_size     = SIZE(lcall_phy, 2))
-  ENDIF
+  restartDescriptor => createRestartDescriptor("atm")
 
   jstep0 = 0
+  restartAttributes => getAttributesForRestarting()
   IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
     ! get start counter for time loop from restart file:
-    CALL get_restart_attribute("jstep", jstep0)
+    jstep0 = restartAttributes%getInteger("jstep")
   END IF
 
   ! for debug purposes print var lists: for msg_level >= 13 short and for >= 20 long format
@@ -724,6 +727,19 @@ MODULE mo_nh_stepping
 #endif
 
   jstep = jstep0+jstep_shift+1
+
+#if defined( _OPENACC )
+!
+  i_am_accel_node = my_process_is_work()    ! Activate GPUs
+
+  CALL save_convenience_pointers( )
+
+!$ACC DATA COPYIN( p_int_state, p_patch, p_nh_state, prep_adv, advection_config ), IF ( i_am_accel_node )
+
+  CALL refresh_convenience_pointers( )
+  i_am_accel_node = .FALSE.                 ! Deactivate GPUs
+
+#endif
 
 #ifdef USE_MTIME_LOOP
   TIME_LOOP: DO
@@ -1135,43 +1151,25 @@ MODULE mo_nh_stepping
 #endif
 
     IF (lwrite_checkpoint) THEN
-      IF (use_async_restart_output) THEN
         DO jg = 1, n_dom
-          CALL set_data_async_restart(p_patch(jg)%id, p_patch(jg)%ldom_active, &
-            & opt_t_elapsed_phy          = t_elapsed_phy(jg,:),        &
-            & opt_lcall_phy              = lcall_phy(jg,:),            &
-            & opt_sim_time               = time_config%sim_time(jg),   &
-            & opt_ndyn_substeps          = ndyn_substeps_var(jg),      &
-            & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
-            & opt_depth_lnd              = nlev_soil,                  &
-            & opt_nlev_snow              = nlev_snow,                  &
-            & opt_ndom                   = n_dom,                      &
-            & opt_output_jfile           = output_jfile )
+            CALL restartDescriptor%updatePatch(p_patch(jg), &
+              & opt_t_elapsed_phy          = t_elapsed_phy(jg,:),        &
+              & opt_lcall_phy              = lcall_phy(jg,:),            &
+              & opt_sim_time               = time_config%sim_time(jg),   &
+              & opt_ndyn_substeps          = ndyn_substeps_var(jg),      &
+              & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
+              & opt_depth_lnd              = nlev_soil,                  &
+              & opt_nlev_snow              = nlev_snow,                  &
+              & opt_ndom                   = n_dom)
         ENDDO
-        CALL write_async_restart(datetime_current, jstep)
-      ELSE
-        DO jg = 1, n_dom
-          IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-          CALL create_restart_file( patch= p_patch(jg),datetime= datetime_current,           &
-                                  & jstep                      = jstep,                      &
-                                  & model_type                 = "atm",                      &
-                                  & opt_t_elapsed_phy          = t_elapsed_phy,              &
-                                  & opt_lcall_phy              = lcall_phy,                  &
-                                  & opt_sim_time               = time_config%sim_time(jg),   &
-                                  & opt_ndyn_substeps          = ndyn_substeps_var(jg),      &
-                                  & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
-                                  & opt_depth_lnd              = nlev_soil,                  &
-                                  & opt_nlev_snow              = nlev_snow,                  &
-                                  & opt_ndom                   = n_dom,                      &
-                                  & opt_output_jfile           = output_jfile )
-        END DO
+        CALL restartDescriptor%writeRestart(datetime_current, jstep, opt_output_jfile = output_jfile)
 
 #ifdef MESSY
-        CALL messy_channel_write_output(IOMODE_RST)
-!        CALL messy_ncregrid_write_restart
+        IF(.NOT.use_async_restart_output) THEN
+            CALL messy_channel_write_output(IOMODE_RST)
+!           CALL messy_ncregrid_write_restart
+        END IF
 #endif
-      END IF
-
     END IF  ! lwrite_checkpoint
 
 #ifdef MESSYTIMER
@@ -1205,10 +1203,18 @@ MODULE mo_nh_stepping
 
   ENDDO TIME_LOOP
 
+#if defined( _OPENACC )
+  i_am_accel_node = my_process_is_work()    ! Activate GPUs
+  CALL save_convenience_pointers( )
+!$ACC END DATA
+  CALL refresh_convenience_pointers( )
+  i_am_accel_node = .FALSE.                 ! Deactivate GPUs
+#endif
+
   ! clean-up routine for mo_nh_supervise module (eg. closing of files)
   CALL finalize_supervise_nh()
 
-  IF (use_async_restart_output) CALL close_async_restart
+  IF (use_async_restart_output) CALL deleteRestartDescriptor(restartDescriptor)
 
   IF (ltimer) CALL timer_stop(timer_total)
 
@@ -2939,6 +2945,7 @@ MODULE mo_nh_stepping
   INTEGER                              :: jg, jp !, nlen
   INTEGER                              :: ist
   CHARACTER(len=MAX_CHAR_LENGTH)       :: attname   ! attribute name
+  TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 
 !-----------------------------------------------------------------------
 
@@ -2968,23 +2975,24 @@ MODULE mo_nh_stepping
   ENDIF
   !
   ! initialize
-  IF (isRestart()) THEN
+  restartAttributes => getAttributesForRestarting()
+  IF (ASSOCIATED(restartAttributes)) THEN
     !
     ! Get sim_time, t_elapsed_phy and lcall_phy from restart file
     DO jg = 1,n_dom
       WRITE(attname,'(a,i2.2)') 'ndyn_substeps_DOM',jg
-      CALL get_restart_attribute(TRIM(attname), ndyn_substeps_var(jg))
+      ndyn_substeps_var(jg) = restartAttributes%getInteger(TRIM(attname))
       WRITE(attname,'(a,i2.2)') 'jstep_adv_marchuk_order_DOM',jg
-      CALL get_restart_attribute(TRIM(attname), jstep_adv(jg)%marchuk_order)
+      jstep_adv(jg)%marchuk_order = restartAttributes%getInteger(TRIM(attname))
       WRITE(attname,'(a,i2.2)') 'sim_time_DOM',jg
-      CALL get_restart_attribute(TRIM(attname), time_config%sim_time(jg))
+      time_config%sim_time(jg) = restartAttributes%getReal(TRIM(attname))
       DO jp = 1,iphysproc_short
         WRITE(attname,'(a,i2.2,a,i2.2)') 't_elapsed_phy_DOM',jg,'_PHY',jp
-        CALL get_restart_attribute(TRIM(attname), t_elapsed_phy(jg,jp))
+        t_elapsed_phy(jg,jp) = restartAttributes%getReal(TRIM(attname))
       ENDDO
       DO jp = 1,iphysproc
         WRITE(attname,'(a,i2.2,a,i2.2)') 'lcall_phy_DOM',jg,'_PHY',jp
-        CALL get_restart_attribute(TRIM(attname), lcall_phy(jg,jp))
+        lcall_phy(jg,jp) = restartAttributes%getLogical(TRIM(attname))
       ENDDO
     ENDDO
     linit_dyn(:)      = .FALSE.

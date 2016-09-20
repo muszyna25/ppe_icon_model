@@ -56,7 +56,7 @@
 \voffset-1.0cm
 \hoffset-1.0cm
 %
-\setlength{\textwidth}{15.4cm}
+\setlength{\textwidth}{16.4cm}
 \setlength{\topmargin}{0.8cm}
 \setlength{\headheight}{0.5cm}
 \setlength{\headsep}{0.6cm}
@@ -93,3 +93,15 @@
 \pagenumbering{gobble}
 \newcommand{\contrib}[1]{\textit{Authors of the original document:\\ {#1}}}
 \newcommand{\prt}{\partial}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% for code listings:
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\RequirePackage{listings}
+\definecolor{dgray}{gray}{0.9}
+\lstset{basicstyle=\normalsize\ttfamily,
+%         frame=lines,
+        backgroundcolor=\color{dgray},
+        breaklines=true,
+        language=fortran,
+        escapechar=?
+        } 

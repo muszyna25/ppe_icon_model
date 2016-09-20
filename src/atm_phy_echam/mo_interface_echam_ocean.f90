@@ -28,7 +28,7 @@ MODULE mo_interface_echam_ocean
                                 
   USE mo_parallel_config     ,ONLY: nproma
   
-  USE mo_run_config          ,ONLY: ltimer
+  USE mo_run_config          ,ONLY: ltimer !, nlev
   USE mo_timer,               ONLY: timer_start, timer_stop,                &
        &                            timer_coupling_put, timer_coupling_get, &
        &                            timer_coupling_1stget, timer_coupling_init
@@ -67,6 +67,8 @@ MODULE mo_interface_echam_ocean
     &                               yac_fdef_mask, yac_fdef_field, yac_fsearch,  &
     &                               yac_ffinalize
 
+  USE mo_util_dbg_prnt       ,ONLY: dbg_print
+
   IMPLICIT NONE
 
   PRIVATE
@@ -76,11 +78,14 @@ MODULE mo_interface_echam_ocean
 
   CHARACTER(len=*), PARAMETER :: thismodule = 'mo_interface_echam_ocean'
 
-  INTEGER, PARAMETER    :: no_of_fields = 9
+  INTEGER, PARAMETER    :: no_of_fields = 10
   INTEGER               :: field_id(no_of_fields)
 
   REAL(wp), ALLOCATABLE :: buffer(:,:)
   INTEGER, SAVE         :: nbr_inner_cells
+
+  CHARACTER(len=12)     :: str_module    = 'InterFaceOce'  ! Output of module for 1 line debug
+  INTEGER               :: idt_src       = 1               ! Level of detail for 1 line debug
 
 CONTAINS
 
@@ -121,7 +126,7 @@ CONTAINS
     INTEGER :: comp_id
     INTEGER :: comp_ids(1)
     INTEGER :: cell_point_ids(1)
-    INTEGER :: cell_mask_ids(1)
+    INTEGER :: cell_mask_ids(2)
     INTEGER :: domain_id
     INTEGER :: subdomain_id
     INTEGER :: subdomain_ids(nbr_subdomain_ids)
@@ -311,10 +316,10 @@ CONTAINS
        DO BLOCK = 1, patch_horz%nblks_c
           DO idx = 1, nproma
              IF ( ext_data(1)%atm%lsm_ctr_c(idx, BLOCK) < 0 ) THEN
-               ! Ocean point
+               ! Ocean point (lsm_ctr_c = -1 or -2)
                ibuffer((BLOCK-1)*nproma+idx) = 0
              ELSE
-               ! Land point
+               ! Land point (lsm_ctr_c = 1 or 2)
                ibuffer((BLOCK-1)*nproma+idx) = 1
              ENDIF
           ENDDO
@@ -334,17 +339,16 @@ CONTAINS
       & cell_point_ids(1),         &
       & cell_mask_ids(1) )
 
-    DEALLOCATE (ibuffer)
-
     field_name(1) = "surface_downward_eastward_stress"   ! bundled field containing two components
     field_name(2) = "surface_downward_northward_stress"  ! bundled field containing two components
     field_name(3) = "surface_fresh_water_flux"           ! bundled field containing three components
     field_name(4) = "total_heat_flux"                    ! bundled field containing four components
-    field_name(5) = "atmosphere_sea_ice_bundle"          ! bundled field containing four components
+    field_name(5) = "atmosphere_sea_ice_bundle"          ! bundled field containing two components
     field_name(6) = "sea_surface_temperature"
     field_name(7) = "eastward_sea_water_velocity"
     field_name(8) = "northward_sea_water_velocity"
-    field_name(9) = "ocean_sea_ice_bundle"               ! bundled field containing five components
+    field_name(9) = "ocean_sea_ice_bundle"               ! bundled field containing three components
+    field_name(10) = "10m_wind_speed"
 
     DO idx = 1, no_of_fields
       CALL yac_fdef_field (      &
@@ -352,15 +356,42 @@ CONTAINS
         & comp_id,               &
         & domain_id,             &
         & cell_point_ids,        &
-        & cell_mask_ids,         &
+        & cell_mask_ids(1),      &
         & 1,                     &
         & field_id(idx) )
     ENDDO
 
 #ifndef __NO_JSBACH__
+    IF ( mask_checksum > 0 ) THEN
+!ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_RUNTIME_SCHEDULE
+       DO BLOCK = 1, patch_horz%nblks_c
+          DO idx = 1, nproma
+             IF ( ext_data(1)%atm%lsm_ctr_c(idx, BLOCK) == -1 ) THEN
+                ! Ocean point at coast
+                ibuffer((BLOCK-1)*nproma+idx) = 0
+             ELSE
+                ! Land point or ocean point without coast
+                ibuffer((BLOCK-1)*nproma+idx) = 1
+             ENDIF
+          ENDDO
+       ENDDO
+!ICON_OMP_END_PARALLEL_DO
+
+       CALL yac_fdef_mask (           &
+         & patch_horz%n_patch_cells,  &
+         & ibuffer,                   &
+         & cell_point_ids(1),         &
+         & cell_mask_ids(2) )
+
+    ENDIF
+
     ! Define additional coupling field(s) for JSBACH/HD
-    CALL jsb_fdef_hd_fields(comp_id, domain_id, cell_point_ids, cell_mask_ids)
+    !  - still uses (1) for nearest neighbor interpolation
+    !  - change to (2) for spmapping
+    CALL jsb_fdef_hd_fields(comp_id, domain_id, cell_point_ids, cell_mask_ids(1:1))
 #endif
+
+    DEALLOCATE (ibuffer)
 
     ! End definition of coupling fields and search
     CALL yac_fget_nbr_fields(no_of_fields_total)
@@ -424,8 +455,10 @@ CONTAINS
     INTEGER               :: i_blk          ! block loop count
     INTEGER               :: nlen           ! nproma/npromz
     INTEGER               :: info, ierror   !< return values from cpl_put/get calls
+    INTEGER               :: no_arr         !  no of arrays in bundle for put/get calls
 
     REAL(wp), PARAMETER   :: dummy = 0.0_wp
+    REAL(wp)              :: scr(nproma,p_patch%alloc_cell_blocks)
 
     IF ( .NOT. is_coupled_run() ) RETURN
 
@@ -439,7 +472,8 @@ CONTAINS
     ! 1. prm_field(jg)% u_stress_tile(:,:,iwtr)  and 
     !    prm_field(jg)% v_stress_tile(:,:,iwtr)  which are the wind stress components;
     !
-    ! 2. prm_field(jg)% evap_tile(:,:,iwtr) evaporation rate
+    ! 2. prm_field(jg)% evap(:,:)  evaporation rate over whole grid-cell,
+    !    which is ice-covered, open ocean, no land;
     !
     ! 3. prm_field(jg)%rsfl + prm_field(jg)%rsfc + prm_field(jg)%ssfl + prm_field(jg)%ssfc
     !    which gives the precipitation rate;
@@ -460,27 +494,33 @@ CONTAINS
     nbr_hor_cells = p_patch%n_patch_cells
 
     !
-    !  see drivers/mo_atmo_model.f90:
+    !  Send fields to ocean:
+    !   field_id(1) represents "surface_downward_eastward_stress" bundle  - zonal wind stress component over ice and water
+    !   field_id(2) represents "surface_downward_northward_stress" bundle - meridional wind stress component over ice and water
+    !   field_id(3) represents "surface_fresh_water_flux" bundle          - liquid rain, snowfall, evaporation
+    !   field_id(4) represents "total heat flux" bundle                   - short wave, long wave, sensible, latent heat flux
+    !   field_id(5) represents "atmosphere_sea_ice_bundle"                - sea ice surface and bottom melt potentials
+    !   field_id(10) represents "10m_wind_speed"                          - atmospheric wind speed
     !
-    !   field_id(1) represents "TAUX"   wind stress component
-    !   field_id(2) represents "TAUY"   wind stress component
-    !   field_id(3) represents "SFWFLX" surface fresh water flux
-    !   field_id(4) represents "THFLX"  total heat flux
-    !   field_id(5) represents "ICEATM" ice temperatures and melt potential
+    !  Receive fields from ocean:
+    !   field_id(6) represents "sea_surface_temperature"                  - SST
+    !   field_id(7) represents "eastward_sea_water_velocity"              - zonal velocity, u component of ocean surface current
+    !   field_id(8) represents "northward_sea_water_velocity"             - meridional velocity, v component of ocean surface current
+    !   field_id(9) represents "ocean_sea_ice_bundle"                     - ice thickness, snow thickness, ice concentration
     !
-    !   field_id(6) represents "SST"    sea surface temperature
-    !   field_id(7) represents "OCEANU" u component of ocean surface current
-    !   field_id(8) represents "OCEANV" v component of ocean surface current
-    !   field_id(9) represents "ICEOCE" ice thickness, concentration and temperatures
-    !
-    !
-    ! Send fields away
-    ! ----------------
+
+    !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
+    !  Send fields from atmosphere to ocean
+    !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
     !
     write_coupler_restart = .FALSE.
+
     !
-    ! TAUX
+    ! ------------------------------
+    !  Send zonal wind stress bundle
+    !   field_id(1) represents "surface_downward_eastward_stress" bundle - zonal wind stress component over ice and water
     !
+    buffer(:,:) = 0.0_wp  ! temporarily
 !ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
@@ -500,15 +540,19 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 
-    CALL yac_fput ( field_id(1), nbr_hor_cells, 2, 1, 1, buffer(1:nbr_hor_cells,1:2), info, ierror )
+    no_arr = 2
+    CALL yac_fput ( field_id(1), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
-    IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run')
+    IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run - id=1, u-stress')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
+
     !
+    ! ------------------------------
+    !  Send meridional wind stress bundle
+    !   field_id(2) represents "surface_downward_northward_stress" bundle - meridional wind stress component over ice and water
     !
-    ! TAUY
-    !
+    buffer(:,:) = 0.0_wp  ! temporarily
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
       nn = (i_blk-1)*nproma
@@ -526,15 +570,23 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 
-    CALL yac_fput ( field_id(2), nbr_hor_cells, 2, 1, 1, buffer(1:nbr_hor_cells,1:2), info, ierror )
+    no_arr = 2
+    CALL yac_fput ( field_id(2), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
     IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
+
     !
+    ! ------------------------------
+    !  Send surface fresh water flux bundle
+    !   field_id(3) represents "surface_fresh_water_flux" bundle - liquid rain, snowfall, evaporation
     !
-    ! SFWFLX Note: the evap_tile should be properly updated and added
+    !   Note: the evap_tile should be properly updated and added;
+    !         as long as the tiles are not passed correctly, the evaporation over the
+    !         whole grid-cell is passed to the ocean
     !
+    buffer(:,:) = 0.0_wp  ! temporarily
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
       nn = (i_blk-1)*nproma
@@ -546,21 +598,26 @@ CONTAINS
       DO n = 1, nlen
         buffer(nn+n,1) = prm_field(jg)%rsfl(n,i_blk) + prm_field(jg)%rsfc(n,i_blk) ! total rain
         buffer(nn+n,2) = prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk) ! total snow
-        buffer(nn+n,3) = prm_field(jg)%evap_tile(n,i_blk,iwtr)
+        buffer(nn+n,3) = prm_field(jg)%evap(n,i_blk)                               ! total evaporation
       ENDDO
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 
-    CALL yac_fput ( field_id(3), nbr_hor_cells, 3, 1, 1, buffer(1:nbr_hor_cells,1:3), info, ierror )
+    no_arr = 3
+    CALL yac_fput ( field_id(3), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
     IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
+
     !
-    ! THFLX, total heat flux
+    ! ------------------------------
+    !  Send total heat flux bundle
+    !   field_id(4) represents "total heat flux" bundle - short wave, long wave, sensible, latent heat flux
     !
+    buffer(:,:) = 0.0_wp  ! temporarily
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
       nn = (i_blk-1)*nproma
@@ -580,15 +637,19 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 
-    CALL yac_fput ( field_id(4), nbr_hor_cells, 4, 1, 1, buffer(1:nbr_hor_cells,1:4), info, ierror )
+    no_arr = 4
+    CALL yac_fput ( field_id(4), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
     IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
+
     !
+    ! ------------------------------
+    !  Send sea ice flux bundle
+    !   field_id(5) represents "atmosphere_sea_ice_bundle" - sea ice surface and bottom melt potentials Qtop, Qbot
     !
-    ! ICEATM, Ice state determined by atmosphere
-    !
+    buffer(:,:) = 0.0_wp  ! temporarily
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
       nn = (i_blk-1)*nproma
@@ -600,33 +661,78 @@ CONTAINS
       DO n = 1, nlen
         buffer(nn+n,1) = prm_field(jg)%Qtop(n,1,i_blk)
         buffer(nn+n,2) = prm_field(jg)%Qbot(n,1,i_blk)
-        buffer(nn+n,3) = prm_field(jg)%T1  (n,1,i_blk)
-        buffer(nn+n,4) = prm_field(jg)%T2  (n,1,i_blk)
       ENDDO
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
 
-    CALL yac_fput ( field_id(5), nbr_hor_cells, 4, 1, 1, buffer(1:nbr_hor_cells,1:4), info, ierror )
+    no_arr = 2
+    CALL yac_fput ( field_id(5), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
     IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run')
 
     IF (ltimer) CALL timer_stop(timer_coupling_put)
     !
     IF ( write_coupler_restart ) THEN
-       CALL warning('interface_echam_ocean', 'YAC says it is put for restart')
+       CALL warning('interface_echam_ocean', 'YAC says it is put for restart - id=5, atmos sea ice bundle')
     ENDIF
 
     !
-    ! Receive fields, only assign values if something was received ( info > 0 )
-    ! -------------------------------------------------------------------------
+    ! ------------------------------
+    !  Send 10m wind speed
+    !   field_id(10) represents "10m_wind_speed" - atmospheric wind speed
     !
+    buffer(:,:) = 0.0_wp
+!!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
+    DO i_blk = 1, p_patch%nblks_c
+      nn = (i_blk-1)*nproma
+      IF (i_blk /= p_patch%nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = p_patch%npromz_c
+      END IF
+      DO n = 1, nlen
+        ! as far as no 10m wind speed is available, the lowest level (nlev) wind field is used for wind speed;
+        !buffer(nn+n,1) = SQRT(prm_field(jg)%u(n,nlev,i_blk)**2+prm_field(jg)%v(n,nlev,i_blk)**2)
+        ! as far as no tiles (pre04) are correctly implemented, use the grid-point mean of 10m wind for coupling
+        buffer(nn+n,1) = prm_field(jg)%sfcWind(n,i_blk)
+      ENDDO
+    ENDDO
+!!ICON_OMP_END_PARALLEL_DO
     !
-    ! SST
+    IF (ltimer) CALL timer_start(timer_coupling_put)
+
+    no_arr = 1
+    CALL yac_fput ( field_id(10), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
+    IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
+    IF ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fput called after end of run - id=10, wind speed')
+
+    IF (ltimer) CALL timer_stop(timer_coupling_put)
+    !
+    IF ( write_coupler_restart ) THEN
+       CALL warning('interface_echam_ocean', 'YAC says it is put for restart - id=10, wind speed')
+    ENDIF
+
+    !
+
+    !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
+    !  Receive fields from ocean to atmosphere
+    !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
+    !
+    !  Receive fields, only assign values if something was received ( info > 0 )
+    !   - ocean fields have undefined values on land, which are not sent to the atmosphere,
+    !     therefore buffer is set to zero to avoid unintended usage of ocean values over land
+    !
+
+    !
+    ! ------------------------------
+    !  Receive SST
+    !   field_id(6) represents "sea_surface_temperature" - SST
     !
     IF (ltimer) CALL timer_start(timer_coupling_1stget)
 
+    buffer(:,:) = 0.0_wp
     CALL yac_fget ( field_id(6), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
     if ( info > 1 .AND. info < 7 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
     if ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fget called after end of run')
@@ -656,11 +762,13 @@ CONTAINS
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%tsfc_tile(:,:,iwtr))
     END IF
     !
-    !
-    ! OCEANU
+    ! ------------------------------
+    !  Receive zonal velocity
+    !   field_id(7) represents "eastward_sea_water_velocity" - zonal velocity, u component of ocean surface current
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
+    buffer(:,:) = 0.0_wp
     CALL yac_fget ( field_id(7), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
     if ( info > 1 .AND. info < 7 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
     if ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fget called after end of run')
@@ -691,10 +799,13 @@ CONTAINS
     END IF
     !
     !
-    ! OCEANV
+    ! ------------------------------
+    !  Receive meridional velocity
+    !   field_id(8) represents "northward_sea_water_velocity" - meridional velocity, v component of ocean surface current
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
+    buffer(:,:) = 0.0_wp
     CALL yac_fget ( field_id(8), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
     if ( info > 1 .AND. info < 7 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
     if ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fget called after end of run')
@@ -724,12 +835,15 @@ CONTAINS
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%ocv(:,:))
     END IF
     !
-    !
-    ! ICEOCE
+    ! ------------------------------
+    !  Receive sea ice bundle
+    !   field_id(9) represents "ocean_sea_ice_bundle" - ice thickness, snow thickness, ice concentration
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
-    CALL yac_fget ( field_id(9), nbr_hor_cells, 5, 1, 1, buffer(1:nbr_hor_cells,1:5), info, ierror )
+    buffer(:,:) = 0.0_wp
+    no_arr = 3
+    CALL yac_fget ( field_id(9), nbr_hor_cells, no_arr, 1, 1, buffer(1:nbr_hor_cells,1:no_arr), info, ierror )
     if ( info > 1 .AND. info < 7 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
     if ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fget called after end of run')
 
@@ -750,14 +864,10 @@ CONTAINS
             prm_field(jg)%hi  (n,1,i_blk) = dummy
             prm_field(jg)%hs  (n,1,i_blk) = dummy
             prm_field(jg)%conc(n,1,i_blk) = dummy
-            prm_field(jg)%T1  (n,1,i_blk) = dummy
-            prm_field(jg)%T2  (n,1,i_blk) = dummy
           ELSE
             prm_field(jg)%hi  (n,1,i_blk) = buffer(nn+n,1)
             prm_field(jg)%hs  (n,1,i_blk) = buffer(nn+n,2)
             prm_field(jg)%conc(n,1,i_blk) = buffer(nn+n,3)
-            prm_field(jg)%T1  (n,1,i_blk) = buffer(nn+n,4)
-            prm_field(jg)%T2  (n,1,i_blk) = buffer(nn+n,5)
           ENDIF
         ENDDO
       ENDDO
@@ -766,8 +876,6 @@ CONTAINS
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%hi  (:,1,:))
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%hs  (:,1,:))
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%conc(:,1,:))
-      CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%T1  (:,1,:))
-      CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%T2  (:,1,:))
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nlen) ICON_OMP_RUNTIME_SCHEDULE
       DO i_blk = 1, p_patch%nblks_c
         IF (i_blk /= p_patch%nblks_c) THEN
@@ -778,12 +886,62 @@ CONTAINS
         DO n = 1, nlen
           prm_field(jg)%seaice(n,i_blk) = prm_field(jg)%conc(n,1,i_blk)
           prm_field(jg)%siced(n,i_blk)  = prm_field(jg)%hi(n,1,i_blk)
+!  snow thickness not yet connected
 !!$          prm_field(jg)%...(n,i_blk)    = prm_field(jg)%hs(n,1,i_blk)
         ENDDO
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
       
     END IF
+
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+
+    ! u/v-stress on ice and water sent
+    scr(:,:) = prm_field(jg)%u_stress_tile(:,:,iwtr)
+    CALL dbg_print('EchOce: u_stress.wtr',scr,str_module,3,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%u_stress_tile(:,:,iice)
+    CALL dbg_print('EchOce: u_stress.ice',scr,str_module,3,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%v_stress_tile(:,:,iwtr)
+    CALL dbg_print('EchOce: v_stress.wtr',scr,str_module,4,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%v_stress_tile(:,:,iice)
+    CALL dbg_print('EchOce: v_stress.ice',scr,str_module,4,in_subset=p_patch%cells%owned)
+
+    ! rain, snow, evaporation
+    scr(:,:) = prm_field(jg)%rsfl(:,:) + prm_field(jg)%rsfc(:,:)
+    CALL dbg_print('EchOce: total rain  ',scr,str_module,3,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%ssfl(:,:) + prm_field(jg)%ssfc(:,:)
+    CALL dbg_print('EchOce: total snow  ',scr,str_module,4,in_subset=p_patch%cells%owned)
+    CALL dbg_print('EchOce: evaporation ',prm_field(jg)%evap   ,str_module,4,in_subset=p_patch%cells%owned)
+
+    ! short wave, long wave, sensible, latent heat flux sent
+    scr(:,:) = prm_field(jg)%swflxsfc_tile(:,:,iwtr)
+    CALL dbg_print('EchOce: swflxsfc.wtr',scr,str_module,3,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%lwflxsfc_tile(:,:,iwtr)
+    CALL dbg_print('EchOce: lwflxsfc.wtr',scr,str_module,3,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%shflx_tile(:,:,iwtr)
+    CALL dbg_print('EchOce: shflx.wtr   ',scr,str_module,3,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%lhflx_tile(:,:,iwtr)
+    CALL dbg_print('EchOce: lhflx.wtr   ',scr,str_module,3,in_subset=p_patch%cells%owned)
+
+    ! Qtop and Qbot, windspeed sent
+    !scr(:,:) = prm_field(jg)%Qtop(:,1,:)
+    !CALL dbg_print('EchOce: u_stress.wtr',scr,str_module,3,in_subset=p_patch%cells%owned)
+    CALL dbg_print('EchOce: ice-Qtop    ',prm_field(jg)%Qtop   ,str_module,4,in_subset=p_patch%cells%owned)
+    CALL dbg_print('EchOce: ice-Qbot    ',prm_field(jg)%Qbot   ,str_module,3,in_subset=p_patch%cells%owned)
+    CALL dbg_print('EchOce: sfcWind     ',prm_field(jg)%sfcWind,str_module,3,in_subset=p_patch%cells%owned)
+
+    ! SST, sea ice, ocean velocity received
+    scr(:,:) = prm_field(jg)%tsfc_tile(:,:,iwtr)
+    CALL dbg_print('EchOce: tsfc_til.wtr',scr                  ,str_module,2,in_subset=p_patch%cells%owned)
+    CALL dbg_print('EchOce: siced       ',prm_field(jg)%siced  ,str_module,3,in_subset=p_patch%cells%owned)
+    CALL dbg_print('EchOce: seaice      ',prm_field(jg)%seaice ,str_module,4,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%ocu(:,:)
+    CALL dbg_print('EchOce: ocu         ',prm_field(jg)%ocu    ,str_module,4,in_subset=p_patch%cells%owned)
+    CALL dbg_print('EchOce: ocv         ',prm_field(jg)%ocv    ,str_module,4,in_subset=p_patch%cells%owned)
+
+    !---------------------------------------------------------------------
+
 
   END SUBROUTINE interface_echam_ocean
 

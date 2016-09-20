@@ -82,8 +82,7 @@ MODULE mo_interface_les
                                      is_sampling_time, is_writing_time
   USE mo_les_utilities,       ONLY: init_vertical_grid_for_les
   USE mo_fortran_tools,       ONLY: copy
-  USE mo_util_dbg_prnt,       ONLY: dbg_print
-
+  USE mo_util_dbg_prnt,      ONLY: dbg_print
   IMPLICIT NONE
 
   PRIVATE

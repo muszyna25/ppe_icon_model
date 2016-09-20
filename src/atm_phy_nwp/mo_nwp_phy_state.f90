@@ -46,7 +46,7 @@ MODULE mo_nwp_phy_state
 
 ! !USES:
 
-USE mo_kind,                ONLY: wp
+USE mo_kind,                ONLY: wp, i8
 USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend
 USE mo_impl_constants,      ONLY: success, max_char_length,           &
   &                               VINTP_METHOD_LIN,VINTP_METHOD_QV,   &
@@ -100,7 +100,8 @@ USE mo_art_config,           ONLY: nart_tendphy
 USE mo_art_tracer_interface, ONLY: art_tracer_interface
 USE mo_action,               ONLY: ACTION_RESET
 USE mo_les_nml,              ONLY: turb_profile_list, turb_tseries_list
-USE mo_io_config,            ONLY: lnetcdf_flt64_output
+USE mo_io_config,            ONLY: lnetcdf_flt64_output, gust_interval
+USE mtime,                   ONLY: max_timedelta_str_len, getPTStringFromMS
 
 IMPLICIT NONE
 PRIVATE
@@ -289,6 +290,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       &        wave_no, wave_no_scalfac, iimage, isens, k
     CHARACTER(LEN=VARNAME_LEN) :: shortname
     CHARACTER(LEN=128)         :: longname, unit
+    CHARACTER(len=max_timedelta_str_len) :: gust_int
     !
     INTEGER :: constituentType                        ! for variable of class 'chem'
 
@@ -663,6 +665,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_NNB) )
 
     ! &      diag%gust10(nproma,nblks_c)
+    CALL getPTStringFromMS(NINT(1000*gust_interval(k_jg), i8), gust_int)
     cf_desc    = t_cf_var('gust10', 'm s-1 ', 'gust at 10 m', datatype_flt)
     grib2_desc = grib2_var( 0, 2, 22, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'gust10', diag%gust10,                            &
@@ -670,7 +673,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & ldims=shape2d, lrestart=.TRUE., in_group=groups("pbl_vars"), &
                 & isteptype=TSTEP_MAX,                                         &
                 & initval=0._wp, resetval=0._wp,                               &
-                & action_list=actions(new_action(ACTION_RESET,"PT01H")) )
+                & action_list=actions(new_action(ACTION_RESET,gust_int)) )
 
     ! &      diag%dyn_gust(nproma,nblks_c)
     cf_desc    = t_cf_var('dyn_gust', 'm s-1 ', 'dynamical gust', datatype_flt)
