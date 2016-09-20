@@ -264,7 +264,7 @@ CONTAINS
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
       &  iidx, iblk                          !< of edges
 
-    LOGICAL  :: is_present_opt_topflx_tra, is_present_opt_q_int, is_present_opt_ddt_tracer_adv
+    LOGICAL  :: is_present_opt_ddt_tracer_adv
 
 
    !-----------------------------------------------------------------------
@@ -284,8 +284,6 @@ CONTAINS
     pdtime_mod = advection_config(jg)%cSTR * advection_config(jg)%coeff_grid &
       &        * p_dtime
 
-    is_present_opt_topflx_tra     = PRESENT( opt_topflx_tra )
-    is_present_opt_q_int          = PRESENT( opt_q_int )
     is_present_opt_ddt_tracer_adv = PRESENT( opt_ddt_tracer_adv )
 
     ! line and block indices of edges as seen from cells
