@@ -116,7 +116,7 @@ CONTAINS
     ! The time step is determined either by the "dtime" parameter or
     ! by the "modelTimeStep" parameter from the namelist "run_nml".
     !
-    dtime_string = ""
+    dtime_string = ''
     IF (TRIM(mtime_modelTimeStep) /= "")   dtime_string = TRIM(mtime_modelTimeStep)
     
     dtime_real = dtime
