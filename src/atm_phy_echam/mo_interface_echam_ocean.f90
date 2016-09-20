@@ -587,6 +587,8 @@ CONTAINS
     !   Note: the evap_tile should be properly updated and added;
     !         as long as the tiles are not passed correctly, the evaporation over the
     !         whole grid-cell is passed to the ocean
+    !         for pre04 a preliminary solution for evaporation in ocean model is:
+    !         evap.oce = evap.wtr*frac.wtr + evap.ice*frac.ice
     !
     buffer(:,:) = 0.0_wp  ! temporarily
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
@@ -601,6 +603,13 @@ CONTAINS
         buffer(nn+n,1) = prm_field(jg)%rsfl(n,i_blk) + prm_field(jg)%rsfc(n,i_blk) ! total rain
         buffer(nn+n,2) = prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk) ! total snow
         buffer(nn+n,3) = prm_field(jg)%evap(n,i_blk)                               ! total evaporation
+        !  calculation of total evaporation over water and ice,
+        !  calculation of land, water, ice fractions
+        !zfrl = prm_field(jg)%lsmask(n,i_blk)
+        !zfrw = (1._wp-zfrl)*(1._wp-prm_field(jg)%seaice(n,i_blk)
+        !zfri = 1._wp-zfrl-zfrw
+        !buffer(nn+n,3) = prm_field(jg)%evap_tile(n,i_blk,iwtr) * zfrw +
+        ! &               prm_field(jg)%evap_tile(n,i_blk,iice) * zfri
       ENDDO
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
@@ -734,7 +743,10 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_coupling_1stget)
 
-    buffer(:,:) = 0.0_wp
+    !buffer(:,:) = 0.0_wp
+    ! buffer for tsfc in Kelvin
+    buffer(:,:) = 199.99_wp
+
     CALL yac_fget ( field_id(6), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
     if ( info > 1 .AND. info < 7 ) CALL warning('interface_echam_ocean', 'YAC says it is get for restart')
     if ( info == 7 ) CALL warning('interface_echam_ocean', 'YAC says fget called after end of run')
