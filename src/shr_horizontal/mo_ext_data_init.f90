@@ -2022,7 +2022,7 @@ CONTAINS
 
 
     INTEGER :: jc, jb               !< loop index
-    INTEGER :: i_startblk, i_endblk, i_nchdom
+    INTEGER :: i_startblk, i_endblk
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startidx, i_endidx
     INTEGER :: mo1, mo2             !< nearest months
@@ -2039,16 +2039,15 @@ CONTAINS
 
     zw1 = 1._wp - zw2
 
-    ! Get interpolated field
-    i_nchdom  = MAX(1,p_patch%n_childdom)
-
     ! exclude the boundary interpolation zone of nested domains
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_blk(rl_start)
+    i_endblk   = p_patch%cells%end_blk(rl_end)
 
+    ! Get interpolated field
+    !
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
     DO jb=i_startblk, i_endblk

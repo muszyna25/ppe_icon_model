@@ -46,7 +46,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_seaice_nwp,          ONLY: seaice_init_nwp, hice_min, frsi_min, hice_ini_min, hice_ini_max
   USE mo_phyparam_soil,       ONLY: cadp, cf_snow     ! soil and vegetation parameters for TILES
   USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi
-  USE mo_sync,                ONLY: global_sum_array
+  USE mo_sync,                ONLY: global_sum_array, global_max, global_min
   USE mo_nonhydro_types,      ONLY: t_nh_diag, t_nh_state
   USE mo_grid_config,         ONLY: n_dom
   USE mo_dynamics_config,     ONLY: nnow_rcf, nnew_rcf
@@ -2143,6 +2143,8 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: sst_cl_cur_day(:,:)
     ! climatological SST increment
     REAL(wp) :: sst_cl_inc
+    REAL(wp) :: max_inc, min_inc    ! max/min SST increment on given PE
+    REAL(wp), ALLOCATABLE :: sst_inc(:,:)
 
     INTEGER :: ierr
 
@@ -2168,11 +2170,12 @@ CONTAINS
         n_now = nnow_rcf(jg)
         n_new = nnew_rcf(jg)
 !DR Test
-!DRp_nh_state(jg)%diag%extra_2d(:,:,:) = 0._wp
+!DR        p_nh_state(jg)%diag%extra_2d(:,:,:) = 0._wp
 !DR End Test
 
         ALLOCATE(sst_cl_ini_day(nproma,p_patch(jg)%nblks_c), &
-          &      sst_cl_cur_day(nproma,p_patch(jg)%nblks_c), STAT=ierr)
+          &      sst_cl_cur_day(nproma,p_patch(jg)%nblks_c), &
+          &      sst_inc(nproma,p_patch(jg)%nblks_c), STAT=ierr)
         IF (ierr /= SUCCESS)  CALL finish (routine, 'Allocation of sst_cl_ini_day, sst_cl_cur_day  failed!')
 
         ! get climatological sst for initial and current day
@@ -2225,7 +2228,29 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-        DEALLOCATE(sst_cl_ini_day, sst_cl_cur_day)
+        ! aggregate updated t_g_t and qv_s_t
+        CALL aggregate_tg_qvs( p_patch(jg), ext_data(jg), p_lnd_state(jg)%prog_lnd(n_now) , &
+             &                           p_lnd_state(jg)%diag_lnd )
+
+        ! debug output
+        IF (msg_level >= 12) THEN
+          sst_inc(:,:) = 0._wp
+          DO jb=i_startblk, i_endblk
+            ! loop over all open water points and add climatological increments
+            DO ic = 1, ext_data(jg)%atm%spw_count(jb)
+              jc = ext_data(jg)%atm%idx_lst_spw(ic,jb)
+              sst_inc(jc,jb) =  sst_cl_cur_day(jc,jb) - sst_cl_ini_day(jc,jb)
+            ENDDO
+          ENDDO
+          max_inc = MAXVAL(sst_inc(:,:))
+          min_inc = MINVAL(sst_inc(:,:))
+          !
+          WRITE(message_text,'(2(a,i2,a,e12.5))') 'max increment DOM', jg, ': ', global_max(max_inc), &
+            &                                     ', min increment DOM', jg, ': ', global_min(min_inc)
+          CALL message('', TRIM(message_text))
+        ENDIF
+
+        DEALLOCATE(sst_cl_ini_day, sst_cl_cur_day, sst_inc)
 
       ENDDO  ! jg
 
