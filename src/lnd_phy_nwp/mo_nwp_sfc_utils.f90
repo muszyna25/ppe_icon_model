@@ -2218,6 +2218,8 @@ CONTAINS
 !DR            p_nh_state(jg)%diag%extra_2d(jc,jb,2) = sst_cl_ini_day(jc,jb)
 !DR            p_nh_state(jg)%diag%extra_2d(jc,jb,3) = sst_cl_cur_day(jc,jb)
 !DR End Test
+!
+!DR aggregation of t_g and qv_s necessary?
           ENDDO  ! ic
         ENDDO  ! jb
 !$OMP END DO
