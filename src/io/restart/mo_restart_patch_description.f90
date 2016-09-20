@@ -203,44 +203,44 @@ CONTAINS
         me%nnew_rcf = nnew_rcf(me%id)
     END SUBROUTINE restartPatchDescription_setTimeLevels
 
-    SUBROUTINE restartPatchDescription_packer(me, operation, message)
+    SUBROUTINE restartPatchDescription_packer(me, operation, packedMessage)
         INTEGER, VALUE :: operation
         CLASS(t_restart_patch_description), INTENT(INOUT) :: me
-        TYPE(t_PackedMessage), INTENT(INOUT) :: message
+        TYPE(t_PackedMessage), INTENT(INOUT) :: packedMessage
 
         ! patch id AND activity flag
-        CALL message%packer(operation, me%id)
-        CALL message%packer(operation, me%l_dom_active)
-        CALL message%packer(operation, me%nlev)
-        CALL message%packer(operation, me%cell_type)
-        CALL message%packer(operation, me%n_patch_cells_g)
-        CALL message%packer(operation, me%n_patch_edges_g)
-        CALL message%packer(operation, me%n_patch_verts_g)
-        CALL message%packer(operation, me%restart_proc_id)
-        CALL message%packer(operation, me%work_pe0_id)
-        CALL message%packer(operation, me%base_filename)
+        CALL packedMessage%packer(operation, me%id)
+        CALL packedMessage%packer(operation, me%l_dom_active)
+        CALL packedMessage%packer(operation, me%nlev)
+        CALL packedMessage%packer(operation, me%cell_type)
+        CALL packedMessage%packer(operation, me%n_patch_cells_g)
+        CALL packedMessage%packer(operation, me%n_patch_edges_g)
+        CALL packedMessage%packer(operation, me%n_patch_verts_g)
+        CALL packedMessage%packer(operation, me%restart_proc_id)
+        CALL packedMessage%packer(operation, me%work_pe0_id)
+        CALL packedMessage%packer(operation, me%base_filename)
 
         ! time levels
-        CALL message%packer(operation, me%nold)
-        CALL message%packer(operation, me%nnow)
-        CALL message%packer(operation, me%nnow_rcf)
-        CALL message%packer(operation, me%nnew)
-        CALL message%packer(operation, me%nnew_rcf)
+        CALL packedMessage%packer(operation, me%nold)
+        CALL packedMessage%packer(operation, me%nnow)
+        CALL packedMessage%packer(operation, me%nnow_rcf)
+        CALL packedMessage%packer(operation, me%nnew)
+        CALL packedMessage%packer(operation, me%nnew_rcf)
 
         ! optional parameter values
-        CALL message%packerAllocatable(operation, me%opt_depth_lnd)
-        CALL message%packerAllocatable(operation, me%opt_nlev_snow)
-        CALL message%packerAllocatable(operation, me%opt_nice_class)
-        CALL message%packerAllocatable(operation, me%opt_ndyn_substeps)
-        CALL message%packerAllocatable(operation, me%opt_jstep_adv_marchuk_order)
-        CALL message%packerAllocatable(operation, me%opt_sim_time)
-        CALL message%packerAllocatable(operation, me%opt_ndom)
-        CALL message%packerAllocatable(operation, me%opt_ocean_zlevels)
+        CALL packedMessage%packerAllocatable(operation, me%opt_depth_lnd)
+        CALL packedMessage%packerAllocatable(operation, me%opt_nlev_snow)
+        CALL packedMessage%packerAllocatable(operation, me%opt_nice_class)
+        CALL packedMessage%packerAllocatable(operation, me%opt_ndyn_substeps)
+        CALL packedMessage%packerAllocatable(operation, me%opt_jstep_adv_marchuk_order)
+        CALL packedMessage%packerAllocatable(operation, me%opt_sim_time)
+        CALL packedMessage%packerAllocatable(operation, me%opt_ndom)
+        CALL packedMessage%packerAllocatable(operation, me%opt_ocean_zlevels)
 
         ! optional parameter arrays
-        CALL message%packer(operation, me%opt_pvct)
-        CALL message%packer(operation, me%opt_lcall_phy)
-        CALL message%packer(operation, me%opt_t_elapsed_phy)
+        CALL packedMessage%packer(operation, me%opt_pvct)
+        CALL packedMessage%packer(operation, me%opt_lcall_phy)
+        CALL packedMessage%packer(operation, me%opt_t_elapsed_phy)
     END SUBROUTINE restartPatchDescription_packer
 
     !  Set vertical grid definition.

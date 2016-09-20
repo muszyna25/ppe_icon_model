@@ -188,27 +188,27 @@ CONTAINS
         CALL assign_if_present_allocatable(me%output_jfile, opt_output_jfile)
     END SUBROUTINE restartArgs_construct
 
-    SUBROUTINE restartArgs_packer(me, operation, message)
+    SUBROUTINE restartArgs_packer(me, operation, packedMessage)
         CLASS(t_restart_args), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
-        TYPE(t_PackedMessage), INTENT(INOUT) :: message
+        TYPE(t_PackedMessage), INTENT(INOUT) :: packedMessage
 
         INTEGER :: calday
 
-        CALL message%packer(operation, me%datetime%year)
-        CALL message%packer(operation, me%datetime%month)
-        CALL message%packer(operation, me%datetime%day)
-        CALL message%packer(operation, me%datetime%hour)
-        CALL message%packer(operation, me%datetime%minute)
-        CALL message%packer(operation, me%datetime%second)
-        CALL message%packer(operation, me%datetime%caltime)
+        CALL packedMessage%packer(operation, me%datetime%year)
+        CALL packedMessage%packer(operation, me%datetime%month)
+        CALL packedMessage%packer(operation, me%datetime%day)
+        CALL packedMessage%packer(operation, me%datetime%hour)
+        CALL packedMessage%packer(operation, me%datetime%minute)
+        CALL packedMessage%packer(operation, me%datetime%second)
+        CALL packedMessage%packer(operation, me%datetime%caltime)
         IF(operation == kPackOp) calday = INT(me%datetime%calday)   !The IF IS needed to avoid overflow when me%datetime%calday IS uninitialized.
-        CALL message%packer(operation, calday)
+        CALL packedMessage%packer(operation, calday)
         IF(operation == kUnpackOp) me%datetime%calday = INT(calday,i8)
-        CALL message%packer(operation, me%datetime%daysec)
-        CALL message%packer(operation, me%jstep)
-        CALL message%packer(operation, me%modelType)
-        CALL message%packer(operation, me%output_jfile)
+        CALL packedMessage%packer(operation, me%datetime%daysec)
+        CALL packedMessage%packer(operation, me%jstep)
+        CALL packedMessage%packer(operation, me%modelType)
+        CALL packedMessage%packer(operation, me%output_jfile)
     END SUBROUTINE restartArgs_packer
 
     SUBROUTINE restartArgs_print(me, prefix)

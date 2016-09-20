@@ -221,17 +221,17 @@ CONTAINS
         END DO
     END SUBROUTINE namelistArchive_readFromFile
 
-    SUBROUTINE namelistArchive_packer(me, operation, message)
+    SUBROUTINE namelistArchive_packer(me, operation, packedMessage)
         CLASS(t_NamelistArchive), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
-        TYPE(t_PackedMessage), INTENT(INOUT) :: message
+        TYPE(t_PackedMessage), INTENT(INOUT) :: packedMessage
 
         INTEGER :: allocSize, error, i, length
         CHARACTER(*), PARAMETER :: routine = modname//":namelistArchive_packer"
 
         IF(operation == kUnpackOp) CALL me%reset()  ! get rid of the old contents 
 
-        CALL message%packer(operation, me%namelistCount)
+        CALL packedMessage%packer(operation, me%namelistCount)
 
         IF(operation == kUnpackOp) THEN
             ! ensure sufficient space for the contents of the message
@@ -248,23 +248,23 @@ CONTAINS
         DO i = 1, me%namelistCount
             length = 0
             IF(ALLOCATED(me%namelists(i)%NAME)) length = LEN(me%namelists(i)%NAME)
-            CALL message%packer(operation, length)
+            CALL packedMessage%packer(operation, length)
             IF(operation == kUnpackOp) THEN
                 IF(ALLOCATED(me%namelists(i)%NAME)) DEALLOCATE(me%namelists(i)%NAME)
                 ALLOCATE(CHARACTER(LEN = length) :: me%namelists(i)%NAME, STAT = error)
                 IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
             END IF
-            CALL message%packer(operation, me%namelists(i)%NAME)
+            CALL packedMessage%packer(operation, me%namelists(i)%NAME)
 
             length = 0
             IF(ALLOCATED(me%namelists(i)%text)) length = LEN(me%namelists(i)%text)
-            CALL message%packer(operation, length)
+            CALL packedMessage%packer(operation, length)
             IF(operation == kUnpackOp) THEN
                 IF(ALLOCATED(me%namelists(i)%text)) DEALLOCATE(me%namelists(i)%text)
                 ALLOCATE(CHARACTER(LEN = length) :: me%namelists(i)%text, STAT = error)
                 IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
             END IF
-            CALL message%packer(operation, me%namelists(i)%text)
+            CALL packedMessage%packer(operation, me%namelists(i)%text)
         END DO
     END SUBROUTINE namelistArchive_packer
 
@@ -272,16 +272,16 @@ CONTAINS
         CLASS(t_NamelistArchive), INTENT(INOUT) :: me
         INTEGER, VALUE :: root, communicator
 
-        TYPE(t_PackedMessage) :: message
+        TYPE(t_PackedMessage) :: packedMessage
         LOGICAL :: lIsRoot, lIsReceiver
 
         CALL p_get_bcast_role(root, communicator, lIsRoot, lIsReceiver)
 
-        CALL message%construct()
-        IF(lIsRoot) CALL me%packer(kPackOp, message)
-        CALL message%bcast(root, communicator)
-        IF(lIsReceiver) CALL me%packer(kUnpackOp, message)
-        CALL message%destruct()
+        CALL packedMessage%construct()
+        IF(lIsRoot) CALL me%packer(kPackOp, packedMessage)
+        CALL packedMessage%bcast(root, communicator)
+        IF(lIsReceiver) CALL me%packer(kUnpackOp, packedMessage)
+        CALL packedMessage%destruct()
     END SUBROUTINE namelistArchive_bcast
 
     SUBROUTINE namelistArchive_reset(me)
