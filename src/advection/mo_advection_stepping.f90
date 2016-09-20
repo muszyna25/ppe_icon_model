@@ -63,7 +63,6 @@ MODULE mo_advection_stepping
   USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, min_rlcell, &
     &                               inwp
   USE mo_loopindices,         ONLY: get_indices_c
-  USE mo_mpi,                 ONLY: my_process_is_mpi_seq
   USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult
   USE mo_advection_config,    ONLY: advection_config
   USE mo_advection_utils,     ONLY: ptr_delp_mc_now, ptr_delp_mc_new
@@ -262,8 +261,6 @@ CONTAINS
     INTEGER  :: i_startblk, i_startidx, i_endblk, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
 
-    LOGICAL  :: l_parallel
-
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
       &  iidx, iblk                          !< of edges
 
@@ -286,12 +283,6 @@ CONTAINS
     ! vertical z- or p-system)
     pdtime_mod = advection_config(jg)%cSTR * advection_config(jg)%coeff_grid &
       &        * p_dtime
-
-    IF (my_process_is_mpi_seq()) THEN
-      l_parallel = .FALSE.
-    ELSE
-      l_parallel = .TRUE.
-    ENDIF
 
     is_present_opt_topflx_tra     = PRESENT( opt_topflx_tra )
     is_present_opt_q_int          = PRESENT( opt_q_int )
