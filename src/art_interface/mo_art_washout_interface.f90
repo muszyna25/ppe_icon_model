@@ -133,7 +133,7 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
               !Washout rate
               IF (.FALSE.) THEN ! Check if qnr is present
                 CALL art_aerosol_washout(pt_diag%temp(:,:,jb),                                               &
-                   &                fields%ptr0%p3d(:,:,jb), fields%density(:,:,jb),                         &
+                   &                tracer(:,:,jb,fields%itr0), fields%density(:,:,jb),                      &
                    &                fields%diameter(:,:,jb),fields%info%sg_ini, tracer(:,:,jb,iqr),          &
                    &                rho(:,:,jb), p_art_data(jg)%air_prop%art_dyn_visc(:,:,jb),               &
                    &                p_art_data(jg)%air_prop%art_free_path(:,:,jb), istart, iend, 15, nlev,   &
@@ -141,7 +141,7 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
                    &                rrconv_3d=prm_diag%rain_con_rate_3d(:,:,jb), qnr=tracer(:,:,jb,iqnr))
               ELSE
                 CALL art_aerosol_washout(pt_diag%temp(:,:,jb),                                               &
-                   &                fields%ptr0%p3d(:,:,jb), fields%density(:,:,jb),                         &
+                   &                tracer(:,:,jb,fields%itr0), fields%density(:,:,jb),                      &
                    &                fields%diameter(:,:,jb),fields%info%sg_ini, tracer(:,:,jb,iqr),          &
                    &                rho(:,:,jb), p_art_data(jg)%air_prop%art_dyn_visc(:,:,jb),               &
                    &                p_art_data(jg)%air_prop%art_free_path(:,:,jb), istart, iend, 15, nlev,   &
@@ -149,12 +149,12 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
                    &                rrconv_3d=prm_diag%rain_con_rate_3d(:,:,jb))
               ENDIF
               ! Update mass mixing ratios
-              DO ijsp = 1, fields%nspecies-1
-                CALL art_integrate_explicit(fields%ptr3(ijsp)%p3d(:,:,jb),  wash_rate_m3(:,:), dtime,          &
+              DO ijsp = 1, fields%ntr-1
+                CALL art_integrate_explicit(tracer(:,:,jb,fields%itr3(ijsp)),  wash_rate_m3(:,:), dtime,     &
                   &                         istart,iend, nlev, opt_rho = rho(:,:,jb), opt_fac=(1._wp/fields%info%mode_fac))
               ENDDO
               ! Update mass-specific number
-              CALL art_integrate_explicit(fields%ptr0%p3d(:,:,jb), wash_rate_m0(:,:), dtime,                   &
+              CALL art_integrate_explicit(tracer(:,:,jb,fields%itr0), wash_rate_m0(:,:), dtime,              &
                 &                         istart,iend, nlev, opt_rho = rho(:,:,jb))
             ENDDO
 !$omp end parallel do
@@ -165,7 +165,7 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
                 &                istart, iend, i_rlstart, i_rlend)
               CALL art_washout_volc(dtime,istart, iend, nlev, tracer(:,:,jb,iqr), prm_diag%rain_gsp_rate(:,jb), &
                 &                   prm_diag%rain_con_rate(:,jb), prm_diag%rain_con_rate_3d(:,:,jb),            &
-                &                   fields%ptr%p3d(:,:,jb))
+                &                   tracer(:,:,jb,fields%itr))
             ENDDO
           CLASS IS (t_fields_radio)
             CALL art_washout_radioact(fields,p_patch,dtime,prm_diag,  &

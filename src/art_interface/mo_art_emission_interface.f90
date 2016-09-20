@@ -265,12 +265,12 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                 END SELECT
                 
                 ! Update mass mixing ratios
-                DO ijsp = 1, fields%nspecies-1
-                  CALL art_integrate_explicit(fields%ptr3(ijsp)%p3d(:,:,jb),  emiss_rate(:,:), dtime,  &
+                DO ijsp = 1, fields%ntr-1
+                  CALL art_integrate_explicit(tracer(:,:,jb,fields%itr3(jsp)),  emiss_rate(:,:), dtime,&
                     &                         istart, iend, nlev, opt_rho = rho(:,:,jb))
                 ENDDO
                 ! Update mass-specific number
-                CALL art_integrate_explicit(fields%ptr0%p3d(:,:,jb), emiss_rate(:,:), dtime,           &
+                CALL art_integrate_explicit(tracer(:,:,jb,fields%itr0), emiss_rate(:,:), dtime,        &
                   &                         istart, iend, nlev, opt_rho = rho(:,:,jb),                 &
                   &                         opt_fac=(fields%info%mode_fac * fields%info%factnum))
               ENDDO !jb

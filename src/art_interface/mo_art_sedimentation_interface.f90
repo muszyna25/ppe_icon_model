@@ -180,7 +180,7 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
                   &                istart, iend, i_rlstart, i_rlend)
                 ! Before sedimentation/deposition velocity calculation, the modal parameters have to be calculated
                 CALL fields%modal_param(p_art_data(jg)%air_prop%art_free_path(:,:,jb),                &
-                  &                     istart, iend, nlev, jb)
+                  &                     istart, iend, nlev, jb, tracer(:,:,jb,:))
                 ! Calculate sedimentation velocities for 0th and 3rd moment
                 CALL art_calc_v_sed(dz(:,:,jb),                                                       &
                   &     p_art_data(jg)%air_prop%art_dyn_visc(:,:,jb), fields%density(:,:,jb),         &
@@ -202,23 +202,23 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
                     &     fields%info%exp_aero,fields%knudsen_nr(:,nlev,jb), vsed0(:,nlev),             &
                     &     vsed3(:,nlev), istart, iend, nlev, vdep0(:), vdep3(:))
                   ! Store deposition velocities for the use in turbulence scheme
-                  ALLOCATE(jsp_ar(fields%nspecies-1))
-                  DO i =1, fields%nspecies-1
-                    jsp_ar(i) = fields%ptr3(i)%idx
+                  ALLOCATE(jsp_ar(fields%ntr-1))
+                  DO i =1, fields%ntr-1
+                    jsp_ar(i) = fields%itr3(i)
                   ENDDO
-                  CALL art_store_v_dep(vdep0(:), vdep3(:), (fields%nspecies-1), jsp_ar,                &
-                    &     fields%ptr0%idx, art_config(jg)%nturb_tracer,                                &
+                  CALL art_store_v_dep(vdep0(:), vdep3(:), (fields%ntr-1), jsp_ar,                     &
+                    &     fields%itr0, art_config(jg)%nturb_tracer,                                    &
                     &     p_prog%turb_tracer(jb,:),istart,iend,p_art_data(jg)%turb_fields%vdep(:,jb,:))
                   DEALLOCATE(jsp_ar)
                 ENDIF
               ENDDO !jb
               
-              DO i=1, fields%nspecies            !< loop through the tracer contained in the mode
-                IF (i .NE. fields%nspecies) THEN
-                  jsp = fields%ptr3(i)%idx
+              DO i=1, fields%ntr            !< loop through the tracer contained in the mode
+                IF (i .NE. fields%ntr) THEN
+                  jsp = fields%itr3(i)
                   flx_contra_vsed => fields%flx_contra_vsed3
                 ELSE
-                  jsp = fields%ptr0%idx
+                  jsp = fields%itr0
                   flx_contra_vsed => fields%flx_contra_vsed0
                 ENDIF
                 
@@ -258,9 +258,9 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
                 &                 rho, p_diag,                 & 
                 &                 fields%diam,fields%rho,      &
                 &                 fields%flx_contra_vsed3,     &
-                &                 fields%ptr%idx)
+                &                 fields%itr)
               flx_contra_vsed => fields%flx_contra_vsed3
-              jsp = fields%ptr%idx
+              jsp = fields%itr
               
               ! upwind_vflux_ppm_cfl is internally OpenMP parallelized
               CALL upwind_vflux_ppm_cfl(p_patch, tracer(:,:,:,jsp),             &
