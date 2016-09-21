@@ -175,6 +175,7 @@ CONTAINS
   INTEGER :: i_status
   INTEGER :: z_go_init(7)   ! for consistency check
   INTEGER :: iunit
+  INTEGER :: jg
 
   CHARACTER(len=*), PARAMETER ::  &
     &  routine = 'mo_initicon_nml: read_initicon_namelist'
@@ -347,8 +348,12 @@ CONTAINS
   config_niter_divdamp       = niter_divdamp
   config_niter_diffu         = niter_diffu
 
-  initicon_config(1)%ana_varlist = ana_varlist
-  initicon_config(2)%ana_varlist = ana_varlist_n2
+  initicon_config(1)%ana_varlist  = ana_varlist
+  initicon_config(2)%ana_varlist  = ana_varlist_n2
+  ! Well defined state for all other domains
+  DO jg=3,max_dom
+    initicon_config(jg)%ana_varlist = ' '
+  ENDDO
 
   ! write the contents of the namelist to an ASCII file
 
