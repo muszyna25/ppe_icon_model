@@ -37,15 +37,9 @@
   !!
   !!
 
-#if ! (defined (__GNUC__) || defined(__SX__) || defined(__SUNPRO_F95) || defined(__INTEL_COMPILER) || defined (__PGI))
-#define HAVE_F2003
-#endif
 MODULE mo_async_latbc
 
-#ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
-#endif
-! USE_CRAY_POINTER
 
 #ifndef NOMPI
     USE mpi
@@ -53,7 +47,6 @@ MODULE mo_async_latbc
 
     ! basic modules
     USE mo_kind,                      ONLY: i8, sp
-    USE mo_io_units,                  ONLY: nerr
     USE mo_exception,                 ONLY: finish, message
     USE mo_mpi,                       ONLY: stop_mpi, my_process_is_io,  my_process_is_pref, &
          &                                  my_process_is_mpi_test, p_int, p_real_sp
@@ -89,34 +82,31 @@ MODULE mo_async_latbc
     USE mo_var_metadata_types,        ONLY: t_var_metadata, VARNAME_LEN
     USE mo_var_list,                  ONLY: nvar_lists, var_lists, new_var_list, &
          &                                  collect_group
-    USE mo_limarea_config,            ONLY: latbc_config, generate_filename
+    USE mo_limarea_config,            ONLY: latbc_config, generate_filename, t_glb_indices
     USE mo_dictionary,                ONLY: t_dictionary, dict_get, dict_init, dict_loadfile, &
          &                                  dict_finalize
     USE mo_util_string,               ONLY: add_to_list, tolower
-    USE mo_initicon_config,           ONLY: latbc_varnames_map_file, init_mode
+    USE mo_initicon_config,           ONLY: init_mode
     USE mo_time_config,               ONLY: time_config
     USE mo_cdi,                       ONLY: vlistInqVarZaxis , streamOpenRead, streamInqVlist, &
          &                                  vlistNvars, zaxisInqSize, vlistInqVarName,         &
          &                                  vlistInqVarGrid, streamClose, streamInqFiletype,   &
          &                                  FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2
     USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
-    USE mo_io_units,                  ONLY: filename_max
+    USE mo_io_units,                  ONLY: filename_max, nerr
+    USE mo_io_util,                   ONLY: read_netcdf_int_1d
     USE mo_util_file,                 ONLY: util_filesize
     USE mo_util_cdi,                  ONLY: test_cdi_varID, cdiGetStringError
-
-#ifdef USE_CRAY_POINTER
-    USE mo_name_list_output_init,     ONLY: set_mem_ptr_sp
-#endif
 
     IMPLICIT NONE
 
     PRIVATE
 
     ! subroutines
-    PUBLIC :: init_prefetch
     PUBLIC :: latbc_buffer
     PUBLIC :: prefetch_input
     PUBLIC :: prefetch_main_proc
+    PUBLIC :: init_prefetch
     PUBLIC :: close_prefetch
 
     !------------------------------------------------------------------------------------------------
@@ -164,27 +154,17 @@ MODULE mo_async_latbc
       END IF
 
       ! deallocating patch data
-      DEALLOCATE(patch_data%var_data)
-      DEALLOCATE(patch_data%cells%reorder_index)
-    !  DEALLOCATE(patch_data%cells%own_idx)
-    !  DEALLOCATE(patch_data%cells%own_blk)
-      DEALLOCATE(patch_data%cells%pe_own)
-      DEALLOCATE(patch_data%cells%pe_off)
-      DEALLOCATE(patch_data%edges%reorder_index)
-    !  DEALLOCATE(patch_data%edges%own_idx)
-    !  DEALLOCATE(patch_data%edges%own_blk)
-      DEALLOCATE(patch_data%edges%pe_own)
-      DEALLOCATE(patch_data%edges%pe_off)
-   !   DEALLOCATE(patch_data%mem_win%mem_ptr_sp)
+      DEALLOCATE(patch_data%var_data, patch_data%cells%reorder_index, patch_data%cells%pe_own,     &
+        &        patch_data%cells%pe_off, patch_data%edges%reorder_index, patch_data%edges%pe_own, &
+        &        patch_data%edges%pe_off)
 
       ! deallocating intermediate storage latbc_buffer
-      DEALLOCATE(latbc_buffer%grp_vars)
-      DEALLOCATE(latbc_buffer%hgrid)
-      DEALLOCATE(latbc_buffer%vars)
-      DEALLOCATE(latbc_buffer%mapped_name)
-      DEALLOCATE(latbc_buffer%internal_name)
-      DEALLOCATE(latbc_buffer%varID)
-      DEALLOCATE(latbc_buffer%nlev)
+      DEALLOCATE(latbc_buffer%grp_vars, latbc_buffer%hgrid, latbc_buffer%vars,                     &
+        &        latbc_buffer%mapped_name, latbc_buffer%internal_name, latbc_buffer%varID,         &
+        &        latbc_buffer%nlev)
+
+      ! clean up global indices data structure.
+      CALL latbc_config%global_index%finalize()
 
 #endif
       ! NOMPI
@@ -388,6 +368,28 @@ MODULE mo_async_latbc
       ! initialize the memory window for communication
       CALL init_remote_memory_window
 
+      ! --- "sparse latbc mode": read only data for boundary rows
+      !
+      !     this requires index information obtained from an additional
+      !     grid file:
+      IF (my_process_is_pref() .AND. latbc_config%lsparse_latbc) THEN
+        CALL read_netcdf_int_1d(latbc_config%latbc_boundary_grid,                          &
+          &                     varname1     = "global_cell_index",                        &
+          &                     var1         = latbc_config%global_index%cells,            &
+          &                     opt_varname2 = "global_edge_index",                        &
+          &                     opt_var2     = latbc_config%global_index%edges,            &
+          &                     opt_attname  = "nglobal",                                  &
+          &                     opt_attvar1  = latbc_config%global_index%n_patch_cells_g,  &
+          &                     opt_attvar2  = latbc_config%global_index%n_patch_edges_g)
+        ! consistency checks:
+        IF (latbc_config%global_index%n_patch_cells_g /= patch_data%n_patch_cells_g) THEN
+          CALL finish(routine, "LatBC boundary cell list does not match in size!")
+        END IF
+        IF (latbc_config%global_index%n_patch_edges_g /= patch_data%n_patch_edges_g) THEN
+          CALL finish(routine, "LatBC boundary edge list does not match in size!")
+        END IF
+      END IF
+
       IF( my_process_is_work()) THEN
          ! allocate input data for lateral boundary nudging
          CALL prepare_pref_latbc_data(patch_data, p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
@@ -464,8 +466,8 @@ MODULE mo_async_latbc
       ! read the map file into dictionary data structure
       CALL dict_init(latbc_varnames_dict, lcase_sensitive=.FALSE.)
 
-      IF(latbc_varnames_map_file /= ' ') THEN
-         CALL dict_loadfile(latbc_varnames_dict, TRIM(latbc_varnames_map_file))
+      IF(LEN_TRIM(latbc_config%latbc_varnames_map_file) > 0) THEN
+         CALL dict_loadfile(latbc_varnames_dict, TRIM(latbc_config%latbc_varnames_map_file))
       END IF
 
       ! allocate the number of vertical levels with the
@@ -1142,63 +1144,12 @@ MODULE mo_async_latbc
       DEALLOCATE(StrLowCasegrp)
 
       ! allocate amount of memory needed with MPI_Alloc_mem
-#ifdef USE_CRAY_POINTER
-      CALL allocate_mem_cray(mem_size)
-#else
       CALL allocate_mem_noncray(mem_size)
-#endif
-      ! USE_CRAY_POINTER
 #endif
 
     END SUBROUTINE init_remote_memory_window
 
 
-#ifdef USE_CRAY_POINTER
-    !------------------------------------------------------------------------------------------------
-    !> allocate amount of memory needed with MPI_Alloc_mem
-    !
-    !  @note Implementation for Cray pointers
-    !
-    SUBROUTINE allocate_mem_cray(mem_size)
-
-#ifdef NOMPI
-      INTEGER, INTENT(IN)    :: mem_size
-#else
-      INTEGER (KIND=MPI_ADDRESS_KIND), INTENT(IN)    :: mem_size
-      ! local variables
-      CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allocate_mem_cray"
-      INTEGER (KIND=MPI_ADDRESS_KIND) :: iptr
-      REAL(wp)                        :: tmp_dp
-      INTEGER                         :: mpierr
-      INTEGER                         :: nbytes_real
-      INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_bytes
-      POINTER(tmp_ptr_sp,tmp_sp(*))
-
-      ! Get the amount of bytes per REAL*4 variable (as used in MPI
-      ! communication)
-      CALL MPI_Type_extent(p_real_sp, nbytes_real, mpierr)
-
-      ! For the IO PEs the amount of memory needed is 0 - allocate at least 1 word there:
-      mem_bytes = MAX(mem_size,1_i8)*INT(nbytes_real,i8)
-
-      CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, iptr, mpierr)
-
-      tmp_ptr_sp = iptr
-      CALL set_mem_ptr_sp(tmp_sp, INT(mem_size))
-
-      ! Create memory window for communication
-      patch_data%mem_win%mem_ptr_sp(:) = 0._sp
-      CALL MPI_Win_create(patch_data%mem_win%mem_ptr_sp, mem_bytes, nbytes_real, MPI_INFO_NULL,&
-           &                 p_comm_work_pref, patch_data%mem_win%mpi_win, mpierr)
-
-      IF (mpierr /= 0) CALL finish(TRIM(routine), "MPI error!")
-#endif
-
-    END SUBROUTINE allocate_mem_cray
-#endif
-    ! USE_CRAY_POINTER
-
-#ifndef USE_CRAY_POINTER
     !------------------------------------------------------------------------------------------------
     !> allocate amount of memory needed with MPI_Alloc_mem
     !
@@ -1258,8 +1209,5 @@ MODULE mo_async_latbc
 #endif
 
     END SUBROUTINE allocate_mem_noncray
-
-#endif
-  !------------------------------------------------------------------------------------------------
 
 END MODULE mo_async_latbc
