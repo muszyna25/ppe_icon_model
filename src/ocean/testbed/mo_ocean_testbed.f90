@@ -79,12 +79,13 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER ::  method_name = "ocean_testbed"
 
     CALL update_height_depdendent_variables( patch_3D, ocean_state(1), external_data(1), operators_coefficients, solverCoeff_sp)
-	
+
     SELECT CASE (test_mode)
       CASE (1 : 99)  !  1 - 99 test ocean modules
-        CALL ocean_test_modules( patch_3d, ocean_state,  &
+        CALL ocean_test_modules( patch_3d, ocean_state, external_data,  &
           & this_datetime, surface_fluxes, ocean_surface, physics_parameters,             &
-          & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients)
+          & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients, &
+          & solverCoeff_sp)
 
       CASE (100 : 999) ! 100 - 999 test ocean operators
         CALL ocean_test_operators( namelist_filename, shr_namelist_filename, &

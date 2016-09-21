@@ -102,6 +102,7 @@ MODULE mo_hydro_ocean_run
   PUBLIC  :: perform_ho_stepping
   PUBLIC  :: prepare_ho_stepping, end_ho_stepping
   PUBLIC  :: write_initial_ocean_timestep
+  PUBLIC  :: update_time_g_n, update_time_indices
   
   CHARACTER(LEN=12)  :: str_module = 'HYDRO-ocerun'  ! Output of module for 1 line debug
   INTEGER            :: idt_src    = 1               ! Level of detail for 1 line debug

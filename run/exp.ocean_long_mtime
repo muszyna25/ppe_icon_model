@@ -58,6 +58,7 @@ cat > ${ocean_namelist} << EOF
  timers_level         = 10
  debug_check_level    = 1
  restart_filename     = "${EXPNAME}_restart_oce_<rsttime>.nc"
+ test_mode     = 12
 /
 &output_nml
   filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
@@ -66,7 +67,7 @@ cat > ${ocean_namelist} << EOF
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "${monthly}"
-file_interval="P1Y"
+  file_interval="P1Y"
   mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .false.
   output_grid      = .TRUE.
