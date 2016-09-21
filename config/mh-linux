@@ -114,7 +114,7 @@ case "$fortran_compiler" in
         FC          = nagfor
         FDEBUG      =  -gline -g -C=all -mtrace=all
         FDEBUG      =  -gline -g -C=all
-        GEN_FLAGS   = -colour -fpp -Wc=$(which gcc) -Dlib_free=free_c
+        GEN_FLAGS   = -colour -fpp -Wc=$(which gcc) -Dlib_free=free_c -Wc,-pipe
         eq="="
         if gcc --help${eq}params | grep max-vartrack-size >/dev/null ; then
           GEN_FLAGS = $GEN_FLAGS -Wc,--param,max-vartrack-size=200000000
