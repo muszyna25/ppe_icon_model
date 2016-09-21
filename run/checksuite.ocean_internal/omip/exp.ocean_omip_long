@@ -10,15 +10,17 @@ start_date="2001-01-01T00:00:00Z"
 # restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
-restart_interval="P10Y"
-checkpoint_interval="P5Y"
+(( years_checkpoint  = 50 ))    # write restart file interval [days]
+(( years_restart     = 50 ))    # stop model for restart [days]
+(( days_data         = 30 ))    # ocean model output interval [days] - for test runs
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $days_data
-output_interval="P1M"                  # ocean model output interval in days
-daily="P1D"
-monthly="P1M"
-file_interval="P1Y"
+output_interval="P${days_data}D"                  # ocean model output interval in days
+(( dt_data        = days_data         * day  ))   # used for output_bounds and buildbot
+(( dt_checkpoint  = years_checkpoint  * year ))
+(( dt_restart     = years_restart     * year ))
+(( steps_per_file = dt_restart / dt_data+10  ))   # calculated output intervals per file interval
 autoPostProcessing="true"                         # submit postprocessing job
 #steps_per_file=610                               # assigned output intervals per file interval
 #-----------------------------------------------------------------------------
@@ -49,23 +51,23 @@ cat > ${ocean_namelist} << EOF
  iequations           = -1           ! -1: hydrost. ocean model
 /
 &run_nml
- modelTimeStep        = "PT1H"       ! model timestep in seconds
+ dtime                = 3600         ! model timestep in seconds
  output               = 'nml'        ! namelist controlled output scheme
  activate_sync_timers = .TRUE.
  profiling_output     = 2
  msg_timestamp        = .FALSE.
  timers_level         = 10
  debug_check_level    = 1
- restart_filename     = "${EXPNAME}_restart_oce_<rsttime>.nc"
 /
 &output_nml
-  filetype         =  4 ! output format: 2=GRIB2, 4=NETCDFv2
+  filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
   output_filename  = "${EXPNAME}"
   filename_format  = "<output_filename>_<datetime2>"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
-  output_interval  = "${monthly}"
-  mode             =  1                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  output_interval  = "${output_interval}"
+  steps_per_file   = ${steps_per_file}                ! error with ""
+  mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
@@ -76,8 +78,9 @@ cat > ${ocean_namelist} << EOF
 &output_nml
   output_start     = "${start_date}"
   output_end       = "${end_date}"
-  output_interval  = "${monthly}"
-  output_grid      = .true.
+  output_interval  = "${output_interval}"
+  steps_per_file   = 999999
+  output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_oceanMonitor"
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'group:ocean_monitor'
@@ -203,6 +206,10 @@ cat > ${ocean_namelist} << EOF
    agulhas(1:10)                = 8024,8022
    agulhas_long(1:10)           = 8024,8022,6036
    agulhas_longer(1:10)         = 8024,8022,6036,6025
+/
+&io_nml
+  dt_checkpoint = ${dt_checkpoint}
+  lkeep_in_sync = .true.          ! sync after each timestep
 /
 EOF
 #-----------------------------------------------------------------------------
