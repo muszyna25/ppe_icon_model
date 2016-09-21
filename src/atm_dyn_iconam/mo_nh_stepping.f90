@@ -313,6 +313,7 @@ MODULE mo_nh_stepping
       mtime_current = mtime_current + timeshift%mtime_shift
     ENDIF
   ENDIF
+
   ! diagnose airmass from \rho(now) for both restart and non-restart runs
   ! airmass_new required by initial physics call (init_slowphysics)
   ! airmass_now not needed, since ddt_temp_dyn is not computed during the
@@ -427,7 +428,7 @@ MODULE mo_nh_stepping
   !------------------------------------------------------------------
   !  get and write out some of the initial values
   !------------------------------------------------------------------
-  IF (.NOT.isRestart() .AND. (mtime_current >= time_config%tc_startdate)) THEN
+  IF (.NOT.isRestart() .AND. (mtime_current >= time_config%tc_exp_startdate)) THEN
 
     !--------------------------------------------------------------------------
     ! loop over the list of internal post-processing tasks, e.g.
@@ -597,7 +598,7 @@ MODULE mo_nh_stepping
   
   ! calculate elapsed simulation time in seconds
   time_diff  => newTimedelta("PT0S")
-  time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_startdate)
+  time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_exp_startdate)
   sim_time   =  getTotalMillisecondsTimedelta(time_diff, mtime_current)*1.e-3_wp
   CALL deallocateTimedelta(time_diff)
 
@@ -738,7 +739,7 @@ MODULE mo_nh_stepping
 
   jstep = jstep0+jstep_shift+1
   TIME_LOOP: DO
-    
+
     ! Check if a nested domain needs to be turned off
     DO jg=2, n_dom
       IF (p_patch(jg)%ldom_active .AND. (sim_time >= end_time(jg))) THEN
@@ -913,7 +914,6 @@ MODULE mo_nh_stepping
     !
     ! dynamics stepping
     !
-    datetime_current(1)%ptr = mtime_current
     CALL integrate_nh(datetime_current, 1, jstep-jstep_shift, dtime, model_time_step, 1)
 
 
@@ -1260,15 +1260,15 @@ MODULE mo_nh_stepping
     INTEGER, PARAMETER :: nsteps_nest=2 ! number of time steps executed in nested domain
 
     TYPE(timeDelta), POINTER             :: time_diff
-    REAL(wp)                             :: sim_time     !< elapsed simulation time on this grid level
+    REAL(wp)                             :: sim_time !< elapsed simulation time on this grid level
 
     ! calculate elapsed simulation time in seconds (local time for
     ! this domain!)
     time_diff  => newTimedelta("PT0S")
-    time_diff  =  getTimeDeltaFromDateTime(datetime_local(jg)%ptr, time_config%tc_startdate)
-    sim_time   =  getTotalMillisecondsTimedelta(time_diff, datetime_local(jg)%ptr)*1.e-3_wp
+    time_diff  =  getTimeDeltaFromDateTime(datetime_local(jg)%ptr, time_config%tc_exp_startdate)
+    sim_time =  getTotalMillisecondsTimedelta(time_diff, datetime_local(jg)%ptr)*1.e-3_wp
     CALL deallocateTimedelta(time_diff)
-
+    
     !--------------------------------------------------------------------------
     ! This timer must not be called in nested domain because the model crashes otherwise
     IF (jg == 1 .AND. ltimer) CALL timer_start(timer_integrate_nh)
@@ -1379,8 +1379,13 @@ MODULE mo_nh_stepping
       ! Update model date (for local patch!) - Note that for the
       ! top-level patch, this is omitted, since the update has already
       ! happened in the calling subroutine.
-      IF (jg > 1)   datetime_local(jg)%ptr = datetime_local(jg)%ptr + mtime_dt_loc
+      datetime_local(jg)%ptr = datetime_local(jg)%ptr + mtime_dt_loc
+      time_diff  => newTimedelta("PT0S")
+      time_diff  =  getTimeDeltaFromDateTime(datetime_local(jg)%ptr, time_config%tc_exp_startdate)
+      sim_time =  getTotalMillisecondsTimedelta(time_diff, datetime_local(jg)%ptr)*1.e-3_wp
+      CALL deallocateTimedelta(time_diff)
 
+      
       IF (itime_scheme == 1) THEN
         !------------------
         ! Pure advection
@@ -1404,7 +1409,6 @@ MODULE mo_nh_stepping
 #ifdef MESSY
         CALL main_tracer_beforeadv
 #endif
-
 
         SELECT CASE ( TRIM(nh_test_name) )
 
@@ -1956,6 +1960,7 @@ MODULE mo_nh_stepping
             p_patch(jgc)%ldom_active = .TRUE.
 
             jstep_adv(jgc)%marchuk_order = 0
+            datetime_local(jgc)%ptr      = datetime_local(jg)%ptr
             t_elapsed_phy(jgc,:)         = 0._wp
             linit_dyn(jgc)               = .TRUE.
             dt_sub                       = dt_loc/2._wp
@@ -2153,7 +2158,7 @@ MODULE mo_nh_stepping
       IF ( ANY((/MODE_IAU,MODE_IAU_OLD/)==init_mode) ) THEN ! incremental analysis mode
 
         time_diff  => newTimedelta("PT0S")
-        time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_startdate)
+        time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_exp_startdate)
         cur_time =  getTotalMillisecondsTimedelta(time_diff, mtime_current)*1.e-3_wp &
           & + (REAL(nstep-ndyn_substeps_var(jg),wp)-0.5_wp)*dt_dyn
         CALL deallocateTimedelta(time_diff)
