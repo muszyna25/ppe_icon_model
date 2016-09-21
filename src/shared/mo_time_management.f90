@@ -299,7 +299,7 @@ CONTAINS
     !         TODO: The checkpoint interval needs to be multiple of the
     !               model time steps.
     !
-    checkpt_intvl_string = ""
+    checkpt_intvl_string = ''
     IF (TRIM(checkpointTimeIntval) /= "")  checkpt_intvl_string = TRIM(checkpointTimeIntval)
     IF (dt_checkpoint > 0._wp) THEN
       checkpt_intvl2 = "PT"//TRIM(int2string(INT(dt_checkpoint), '(i0)'))//"S"
@@ -512,7 +512,7 @@ CONTAINS
     !         "experimentReferenceDate" (see also below) is set, then
     !         set the experiment start date to the latter.
     !
-    exp_start_datetime_string = ""
+    exp_start_datetime_string = ''
     ini_datetime1 = TRIM(experimentStartDate)
     ini_datetime2 = TRIM(ini_datetime_string)
     IF (TRIM(ini_datetime1) /= "")  exp_start_datetime_string = ini_datetime1
@@ -551,7 +551,7 @@ CONTAINS
     !         "master_time_control_nml") - the new way -, and
     !         "end_datetime_string" (in "time_nml") - the old way.
     !
-    exp_stop_datetime_string = ""
+    exp_stop_datetime_string = ''
     end_datetime1 = TRIM(experimentStopDate)
     end_datetime2 = TRIM(end_datetime_string)
     IF (TRIM(end_datetime1) /= "")  exp_stop_datetime_string = end_datetime1
@@ -627,6 +627,7 @@ CONTAINS
       END IF
 
     ELSE
+      CALL message('compute_date_settings','this is not a RESTART run',all_print=.true.)
       start_datetime_string = exp_start_datetime_string
     ENDIF
 
@@ -655,25 +656,22 @@ CONTAINS
     CALL getPTStringFromMS(INT(dtime,i8)*1000, td_string)
     mtime_dtime => newTimeDelta(td_string)
     IF (.NOT. ASSOCIATED(mtime_dtime))  CALL finish(routine, "Error in conversion of dtime to mtime!")
+
     mtime_start        => newDatetime(start_datetime_string, errno)
     IF (errno /= 0)  CALL finish(routine, "Error in conversion of start date: "//start_datetime_string)
+
     IF (TRIM(exp_stop_datetime_string) /= "") THEN
       mtime_exp_stop     => newDatetime(exp_stop_datetime_string, errno)
       IF (errno /= 0)  CALL finish(routine, "Error in conversion of exp stop date: "//exp_stop_datetime_string)
     END IF
 
-    IF (INT(dt_restart) > 0) THEN
-      mtime_dt_restart   => newTimedelta("PT"//TRIM(int2string(INT(dt_restart),'(i0)'))//"S", errno)
-      IF (errno /= 0)  CALL finish(routine, "Error in conversion of dt_restart!")
-      mtime_restart_stop => newDatetime(mtime_start, errno)
-      IF (errno /= 0)  CALL finish(routine, "Error in initialization of restart date")
-      mtime_restart_stop =  mtime_restart_stop + mtime_dt_restart
-    ELSE
-      IF (TRIM(exp_stop_datetime_string) /= "") THEN
-        mtime_restart_stop => newDatetime(exp_stop_datetime_string, errno)
-        IF (errno /= 0)  CALL finish(routine, "Error in initialization of restart date")
-      END IF
-    END IF
+    mtime_dt_restart   => newTimedelta(time_config%tc_dt_restart,errno)
+    IF (errno /= 0)  CALL finish(routine, "Error in conversion of dt_restart!")
+
+    mtime_restart_stop => newDatetime(mtime_start, errno)
+    IF (errno /= 0)  CALL finish(routine, "Error in initialization of restart date")
+    mtime_restart_stop =  mtime_restart_stop + mtime_dt_restart
+
     IF (nsteps >= 0) THEN   
 
       ! Special treatment for the hydro atm model
@@ -730,6 +728,11 @@ CONTAINS
       mtime_stop => newDatetime(MIN(mtime_restart_stop, mtime_nsteps_stop))
     END IF
 
+
+    CALL datetimeToString(mtime_restart_stop, stop_datetime_string)
+    call message('compute_date_settings','mtime_restart_stop:'//trim(stop_datetime_string),all_print=.true.)
+    CALL datetimeToString(mtime_nsteps_stop, stop_datetime_string)
+    call message('compute_date_settings','mtime_nsteps_stop:'//trim(stop_datetime_string),all_print=.true.)
     CALL datetimeToString(mtime_stop, stop_datetime_string)
 
     ! if it has not been specified by the user, set experiment stop
