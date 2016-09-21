@@ -201,9 +201,9 @@ CONTAINS
     CALL message('','')
     WRITE(message_text,'(a,a)') 'Model time step          : ', TRIM(dtime_string)
     CALL message('',message_text)
-
+    CALL message('','')
+    
   END SUBROUTINE compute_timestep_settings
-
 
   !---------------------------------------------------------------------------------------
   !> Set restart and checkpoint interval for this run.
@@ -224,10 +224,7 @@ CONTAINS
       &                                     tmp_td1, tmp_td2
     TYPE(datetime), POINTER              :: reference_dt
     INTEGER                              :: jg
-
     
-
-
     ! --------------------------------------------------------------
     ! PART I: Collect the restart and checkpoint intervals 
     !         as ISO8601 strings
@@ -343,6 +340,7 @@ CONTAINS
     ! PART III: Print restart and checkpoint intervals
     ! --------------------------------------------------------------
 
+    CALL message('','')    
     WRITE(message_text,'(a,a)') 'Checkpoint interval      : ', TRIM(checkpt_intvl_string)
     CALL message('',message_text)
     WRITE(message_text,'(a,a)') 'Restart interval         : ', TRIM(restart_intvl_string)
@@ -627,7 +625,7 @@ CONTAINS
       END IF
 
     ELSE
-      CALL message('compute_date_settings','this is not a RESTART run',all_print=.true.)
+      CALL message('','This is not a RESTART run ...')
       start_datetime_string = exp_start_datetime_string
     ENDIF
 
@@ -728,11 +726,6 @@ CONTAINS
       mtime_stop => newDatetime(MIN(mtime_restart_stop, mtime_nsteps_stop))
     END IF
 
-
-    CALL datetimeToString(mtime_restart_stop, stop_datetime_string)
-    call message('compute_date_settings','mtime_restart_stop:'//trim(stop_datetime_string),all_print=.true.)
-    CALL datetimeToString(mtime_nsteps_stop, stop_datetime_string)
-    call message('compute_date_settings','mtime_nsteps_stop:'//trim(stop_datetime_string),all_print=.true.)
     CALL datetimeToString(mtime_stop, stop_datetime_string)
 
     ! if it has not been specified by the user, set experiment stop
@@ -748,6 +741,11 @@ CONTAINS
       CALL finish(routine, 'The end date and time must not be '// &
         &                  'before the current date and time')
     END IF
+
+    CALL deallocateDatetime(mtime_start)
+    CALL deallocateDatetime(mtime_stop)    
+    CALL deallocateTimedelta(mtime_dtime)
+    
     ! If a restart event occurs, check for unsupported combinations of
     ! namelist settings:
     IF (.NOT. (mtime_nsteps_stop < mtime_restart_stop)) THEN
@@ -756,13 +754,11 @@ CONTAINS
         CALL finish(routine, "Processor splitting cannot be combined with synchronous restart!")
       END IF
     END IF
-    CALL deallocateDatetime(mtime_start)
+
     IF (ASSOCIATED(mtime_restart_stop))  CALL deallocateDatetime(mtime_exp_stop)
     IF (ASSOCIATED(mtime_restart_stop))  CALL deallocateDatetime(mtime_restart_stop)
     IF (ASSOCIATED(mtime_restart_stop))  CALL deallocateDatetime(mtime_nsteps_stop)
-    CALL deallocateDatetime(mtime_stop)
     IF (INT(dt_restart) > 0)  CALL deallocateTimedelta(mtime_dt_restart)
-    CALL deallocateTimedelta(mtime_dtime)
 
     ! --- --- NSTEPS
     !
@@ -790,7 +786,7 @@ CONTAINS
         nsteps = INT(mtime_quotient%quotient)
         CALL deallocateTimedelta(mtime_dtime)
       ELSE
-        CALL message(routine, "Warning - cannto calculate nsteps unambiguous, set 0!")
+        CALL message('', 'Warning - cannot calculate nsteps unambiguous, set 0!')
         nsteps = 0
       END IF
       CALL deallocateTimedelta(mtime_td)
@@ -820,9 +816,10 @@ CONTAINS
     ! PART III: Print all date and time components
     ! --------------------------------------------------------------
 
+    CALL message('','')
     CALL calendarToString(dstring)
     CALL message('','Calendar: '//TRIM(dstring))
-    call message('','')
+    CALL message('','')
 
     WRITE(message_text,'(a,a)') 'Experiment reference date: ', TRIM(exp_ref_datetime_string)
     CALL message('',message_text)
@@ -830,10 +827,7 @@ CONTAINS
     CALL message('',message_text)
     WRITE(message_text,'(a,a)') 'Experiment stop date     : ', TRIM(exp_stop_datetime_string)
     CALL message('',message_text)
-    CALL message(' ',' ')
-
-    CALL message(routine,'Initial date and time')
-    CALL message('','---------------------')
+    CALL message('','')
 
     CALL message('',message_text)
     IF (isRestart()) THEN
@@ -842,13 +836,9 @@ CONTAINS
       WRITE(message_text,'(a,a)') 'Start date    : ', TRIM(start_datetime_string)
     END IF
     CALL message('',message_text)
-
-    CALL message(' ',' ')
-    CALL message(routine,'End date and time')
-    CALL message('','-----------------')
     WRITE(message_text,'(a,a)') 'Stop date     : ', TRIM(stop_datetime_string)
     CALL message('',message_text)
-    CALL message(' ',' ')
+    CALL message('','')
     
   END SUBROUTINE compute_date_settings
  

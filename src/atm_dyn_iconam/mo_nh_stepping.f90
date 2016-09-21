@@ -98,7 +98,7 @@ MODULE mo_nh_stepping
   USE mo_integrate_density_pa,     ONLY: integrate_density_pa
   USE mo_nh_dtp_interface,         ONLY: prepare_tracer, compute_airmass
   USE mo_nh_diffusion,             ONLY: diffusion
-  USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, p_bcast, p_comm_work
+  USE mo_mpi,                      ONLY: proc_split, push_glob_comm, pop_glob_comm, p_bcast, p_comm_work, my_process_is_stdio
 
 #ifdef NOMPI
   USE mo_mpi,                      ONLY: my_process_is_mpi_all_seq
@@ -1093,34 +1093,28 @@ MODULE mo_nh_stepping
     ! Write restart file
     !--------------------------------------------------------------------------
     ! check whether time has come for writing restart file
-    IF (is_checkpoint_time(jstep,n_chkpt) .AND. jstep > 0 .AND. .NOT. output_mode%l_none) THEN
-      lwrite_checkpoint = .TRUE.
-    ELSE
-      lwrite_checkpoint = .FALSE.
-    ENDIF
 
     CALL message('','')
     !
-    ! trigger creation of a restart file ...
-    !
     ! default is to assume we do not write a checkpoint/restart file
     lwrite_checkpoint = .FALSE.
-    IF ( &
-         !  if normal checkpoint cycle has been reached ...
-         &  (    (isCurrentEventActive(checkpointEvent, mtime_current)            &
-         !  or restart cycle has been reached, i.e. checkpoint+model stop
-         &  .OR.  isCurrentEventActive(restartEvent, mtime_current))              &
-         !  and the current date differs from simulation start date
-         &  .AND. .NOT. (time_config%tc_startdate == mtime_current))              &
-         !  and end of run has not been reached
-         &  .AND. .NOT. (time_config%tc_stopdate == mtime_current)                &
-         !  or restart writing has been disabled
-         &  .OR. time_config%tc_write_restart                                     &
-         !  make sure (for both cases A and B) that model output is enabled
-         &  .AND. .NOT. output_mode%l_none ) THEN
-      lwrite_checkpoint = .TRUE.
-    ENDIF
-
+    IF (.NOT. output_mode%l_none ) THEN
+      IF ( &
+           !  if normal checkpoint cycle has been reached ...
+           &  ((isCurrentEventActive(checkpointEvent, mtime_current)                                      &
+           !  or restart cycle has been reached, i.e. checkpoint+model stop
+           &  .OR.  isCurrentEventActive(restartEvent, mtime_current))                                    &
+           !  and the current date differs from simulation start date
+           &  .AND. .NOT. (time_config%tc_startdate == mtime_current))                                    &
+           !  and end of run has not been reached
+           &  .AND. .NOT. (time_config%tc_stopdate == mtime_current)                                      &
+           !  or restart writing has been disabled
+           &  .OR. (time_config%tc_write_restart .AND. isCurrentEventActive(restartEvent, mtime_current)) &
+           ) THEN
+        lwrite_checkpoint = .TRUE.
+      END IF
+    END IF
+    
     CALL message('','')
 
     IF (lwrite_checkpoint) THEN
@@ -1385,7 +1379,6 @@ MODULE mo_nh_stepping
       sim_time =  getTotalMillisecondsTimedelta(time_diff, datetime_local(jg)%ptr)*1.e-3_wp
       CALL deallocateTimedelta(time_diff)
 
-      
       IF (itime_scheme == 1) THEN
         !------------------
         ! Pure advection
@@ -1518,7 +1511,6 @@ MODULE mo_nh_stepping
                                          p_int_state(jg),p_nh_state(jg)%metrics,  &
                                          p_nh_state(jg)%diag)
         ENDIF
-
 
         ! For real-data runs, perform an extra diffusion call before the first time
         ! step because no other filtering of the interpolated velocity field is done
@@ -2113,7 +2105,7 @@ MODULE mo_nh_stepping
     ! perform dynamics substepping
     !
     SUBSTEPS: DO nstep = 1, ndyn_substeps_var(jg)
-
+      
       ! Print control output for maximum horizontal and vertical wind speed
       !
       ! 3 Cases:
@@ -2135,7 +2127,6 @@ MODULE mo_nh_stepping
             p_nh_state%prog(nnow(jg))%w)
         ENDIF
       ENDIF
-
 
       ! total number of dynamics substeps since last boundary update
       ! applicable to refined domains only
