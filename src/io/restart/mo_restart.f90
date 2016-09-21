@@ -32,24 +32,24 @@ MODULE mo_restart
 CONTAINS
 
     ! Factory FUNCTION to create the appropriate restart descriptor.
-    FUNCTION createRestartDescriptor(modelType) RESULT(RESULT)
+    FUNCTION createRestartDescriptor(modelType) RESULT(resultVar)
         CHARACTER(*), INTENT(IN) :: modelType
-        CLASS(t_RestartDescriptor), POINTER :: RESULT
+        CLASS(t_RestartDescriptor), POINTER :: resultVar
 
         INTEGER :: error
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":createRestartDescriptor"
 
         IF(use_async_restart_output) THEN
 #ifndef NOMPI
-            ALLOCATE(t_AsyncRestartDescriptor :: RESULT, STAT = error)
+            ALLOCATE(t_AsyncRestartDescriptor :: resultVar, STAT = error)
 #else
             CALL finish(routine, "this executable was compiled without MPI support, hence async restart writing is not available")
 #endif
         ELSE
-            ALLOCATE(t_SyncRestartDescriptor :: RESULT, STAT = error)
+            ALLOCATE(t_SyncRestartDescriptor :: resultVar, STAT = error)
         END IF
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
-        CALL RESULT%construct(modelType)
+        CALL resultVar%construct(modelType)
     END FUNCTION createRestartDescriptor
 
     ! Convenience FUNCTION for destroying a restart descriptor.

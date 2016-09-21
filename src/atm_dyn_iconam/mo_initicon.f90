@@ -214,11 +214,11 @@ MODULE mo_initicon
     END SELECT
   END SUBROUTINE print_init_mode
 
-  FUNCTION gridUuids(p_patch) RESULT(RESULT)
+  FUNCTION gridUuids(p_patch) RESULT(resultVar)
     TYPE(t_patch), INTENT(IN) :: p_patch(:)
-    TYPE(t_uuid), DIMENSION(n_dom) :: RESULT
+    TYPE(t_uuid), DIMENSION(n_dom) :: resultVar
 
-    RESULT(:) = p_patch(:)%grid_uuid
+    resultVar(:) = p_patch(:)%grid_uuid
   END FUNCTION gridUuids
 
   ! Read the data from the first-guess file.

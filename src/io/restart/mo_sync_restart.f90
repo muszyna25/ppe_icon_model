@@ -269,7 +269,7 @@ CONTAINS
         IF(.NOT.has_valid_time_level(info, domain, nnew(domain), nnew_rcf(domain))) CYCLE
 
         ! we are committed to writing now
-        IF(my_process_is_mpi_workroot()) write (0,*)' ... write ',info%name
+        IF(my_process_is_mpi_workroot()) write (0,*)' ... write '//TRIM(info%name)
 
         ! ALLOCATE the global array to gather the DATA on the master process
         gridSize = me%description%getGlobalGridSize(info%hgrid)

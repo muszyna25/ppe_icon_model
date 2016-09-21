@@ -151,13 +151,13 @@ CONTAINS
   SUBROUTINE asyncPatchData_transferToRestart(me)
     CLASS(t_AsyncPatchData), INTENT(INOUT) :: me
 
-    TYPE(t_PackedMessage) :: message
+    TYPE(t_PackedMessage) :: packedMessage
 
-    CALL message%construct()    ! initialize on work PEs
-    IF(my_process_is_work()) CALL me%description%packer(kPackOp, message)
-    CALL message%bcast(restartBcastRoot(), p_comm_work_2_restart)   ! transfer data to restart PEs
-    CALL me%description%packer(kUnpackOp, message)
-    CALL message%destruct() ! cleanup
+    CALL packedMessage%construct()    ! initialize on work PEs
+    IF(my_process_is_work()) CALL me%description%packer(kPackOp, packedMessage)
+    CALL packedMessage%bcast(restartBcastRoot(), p_comm_work_2_restart)   ! transfer data to restart PEs
+    CALL me%description%packer(kUnpackOp, packedMessage)
+    CALL packedMessage%destruct() ! cleanup
 
     ! initialize the fields that we DO NOT communicate from the worker PEs to the restart PEs
     me%description%restart_proc_id = MOD(me%description%id-1, process_mpi_restart_size) + p_restart_pe0
@@ -171,14 +171,14 @@ CONTAINS
     CALL me%t_RestartPatchData%destruct()
   END SUBROUTINE asyncPatchData_destruct
 
-  FUNCTION toAsyncPatchData(patchData) RESULT(RESULT)
+  FUNCTION toAsyncPatchData(patchData) RESULT(resultVar)
     CLASS(t_RestartPatchData), TARGET :: patchData
-    TYPE(t_AsyncPatchData), POINTER :: RESULT
+    TYPE(t_AsyncPatchData), POINTER :: resultVar
 
-    RESULT => NULL()
+    resultVar => NULL()
     SELECT TYPE(patchData)
         TYPE IS(t_AsyncPatchData)
-            RESULT => patchData
+            resultVar => patchData
     END SELECT
   END FUNCTION toAsyncPatchData
 
@@ -428,21 +428,21 @@ CONTAINS
 
   END SUBROUTINE restart_send_ready
 
-  SUBROUTINE restartMetadataPacker(operation, restart_args, patchData, message)
+  SUBROUTINE restartMetadataPacker(operation, restart_args, patchData, packedMessage)
     INTEGER, VALUE :: operation
     TYPE(t_restart_args), INTENT(INOUT) :: restart_args
     CLASS(t_RestartPatchData), INTENT(INOUT) :: patchData(:)
-    TYPE(t_PackedMessage), INTENT(INOUT) :: message
+    TYPE(t_PackedMessage), INTENT(INOUT) :: packedMessage
 
     INTEGER :: i
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":restartMetadataPacker"
 
     ! (un)pack patch independent arguments
-    CALL restart_args%packer(operation, message)
+    CALL restart_args%packer(operation, packedMessage)
 
     ! (un)pack the patch descriptions
     DO i = 1, SIZE(patchData)
-        CALL patchData(i)%description%packer(operation, message)
+        CALL patchData(i)%description%packer(operation, packedMessage)
     END DO
   END SUBROUTINE restartMetadataPacker
 
@@ -457,24 +457,24 @@ CONTAINS
     LOGICAL, INTENT(OUT)           :: done ! flag if we should shut down
 
     INTEGER :: iheader
-    TYPE(t_PackedMessage) :: message
+    TYPE(t_PackedMessage) :: packedMessage
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':restart_wait_for_start'
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' is called, p_pe=',p_pe
 #endif
 
-    CALL message%construct() ! create message array
+    CALL packedMessage%construct()
 
     ! receive message that we may start restart (or should finish)
-    IF(p_pe_work == 0) CALL message%recv(p_work_pe0, 0, process_mpi_all_comm)
-    CALL message%bcast(0, p_comm_work)
+    IF(p_pe_work == 0) CALL packedMessage%recv(p_work_pe0, 0, process_mpi_all_comm)
+    CALL packedMessage%bcast(0, p_comm_work)
 
     ! unpack AND interpret the message
-    CALL message%unpack(iheader)
+    CALL packedMessage%unpack(iheader)
     SELECT CASE(iheader)
       CASE(MSG_RESTART_START)
-        CALL restartMetadataPacker(kUnpackOp, restart_args, restartDescriptor%patchData, message)
+        CALL restartMetadataPacker(kUnpackOp, restart_args, restartDescriptor%patchData, packedMessage)
         done = .FALSE.
 
       CASE(MSG_RESTART_SHUTDOWN)
@@ -486,7 +486,7 @@ CONTAINS
 
     END SELECT
 
-    CALL message%destruct() ! cleanup
+    CALL packedMessage%destruct() ! cleanup
   END SUBROUTINE restart_wait_for_start
 
   !-------------------------------------------------------------------------------------------------
@@ -533,23 +533,23 @@ CONTAINS
   SUBROUTINE sendDescriptionToMaster(patchDescription)
     TYPE(t_restart_patch_description), INTENT(INOUT) :: patchDescription
 
-    TYPE(t_PackedMessage) :: message
+    TYPE(t_PackedMessage) :: packedMessage
 
     IF(patchDescription%work_pe0_id == 0) RETURN   ! nothing to communicate IF PE0 IS already the subset master
 
-    CALL message%construct()
+    CALL packedMessage%construct()
 
     IF (p_pe_work == 0) THEN
         ! recieve the package for this patch
-        CALL message%recv(patchDescription%work_pe0_id, 0, process_mpi_all_comm)
-        CALL patchDescription%packer(kUnpackOp, message)
+        CALL packedMessage%recv(patchDescription%work_pe0_id, 0, process_mpi_all_comm)
+        CALL patchDescription%packer(kUnpackOp, packedMessage)
     ELSE IF (p_pe_work == patchDescription%work_pe0_id) THEN
         ! send the time dependent DATA to process 0
-        CALL patchDescription%packer(kPackOp, message)
-        CALL message%send(0, 0, process_mpi_all_comm)
+        CALL patchDescription%packer(kPackOp, packedMessage)
+        CALL packedMessage%send(0, 0, process_mpi_all_comm)
     END IF
 
-    CALL message%destruct()
+    CALL packedMessage%destruct()
   END SUBROUTINE sendDescriptionToMaster
   !-------------------------------------------------------------------------------------------------
   !>
@@ -561,7 +561,7 @@ CONTAINS
     CLASS(t_RestartPatchData), INTENT(INOUT) :: patchData(:)
 
     INTEGER :: i, trash
-    TYPE(t_PackedMessage) :: message
+    TYPE(t_PackedMessage) :: packedMessage
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':compute_start_restart'
 
 #ifdef DEBUG
@@ -573,25 +573,25 @@ CONTAINS
 
     ! if processor splitting is applied, the time-dependent data need to be transferred
     ! from the subset master PE to PE0, from where they are communicated to the output PE(s)
-    CALL message%construct()
+    CALL packedMessage%construct()
     DO i = 1, SIZE(patchData)
       CALL patchData(i)%description%setTimeLevels() ! copy the global variables (nold, ...) to the patch description
       CALL sendDescriptionToMaster(patchData(i)%description)
     END DO
 
-    CALL message%reset()
+    CALL packedMessage%reset()
     IF(p_pe_work == 0) THEN
       ! send the DATA to the restart master
-      CALL message%pack(MSG_RESTART_START)  ! set command id
-      CALL restartMetadataPacker(kPackOp, restart_args, patchData, message)    ! all the other DATA
-      CALL message%send(p_restart_pe0, 0, process_mpi_all_comm)
+      CALL packedMessage%pack(MSG_RESTART_START)  ! set command id
+      CALL restartMetadataPacker(kPackOp, restart_args, patchData, packedMessage)    ! all the other DATA
+      CALL packedMessage%send(p_restart_pe0, 0, process_mpi_all_comm)
     ENDIF
     ! broadcast a copy among the compute processes, so that all processes have a consistent view of the restart patch descriptions
-    CALL message%bcast(0, p_comm_work)
-    CALL message%unpack(trash)  ! ignore the command id
-    CALL restartMetadataPacker(kUnpackOp, restart_args, patchData, message)
+    CALL packedMessage%bcast(0, p_comm_work)
+    CALL packedMessage%unpack(trash)  ! ignore the command id
+    CALL restartMetadataPacker(kUnpackOp, restart_args, patchData, packedMessage)
 
-    CALL message%destruct()
+    CALL packedMessage%destruct()
   END SUBROUTINE compute_start_restart
 
   !-------------------------------------------------------------------------------------------------
@@ -600,7 +600,7 @@ CONTAINS
   !! The counterpart on the restart side is restart_wait_for_start.
   !
   SUBROUTINE compute_shutdown_restart
-    TYPE(t_PackedMessage) :: message
+    TYPE(t_PackedMessage) :: packedMessage
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':compute_shutdown_restart'
 
 #ifdef DEBUG
@@ -612,13 +612,13 @@ CONTAINS
     CALL p_barrier(comm=p_comm_work)
 
     IF(p_pe_work == 0) THEN
-      CALL message%construct()  ! create message array
+      CALL packedMessage%construct()  ! create message array
 
       ! sent the shutdown message
-      CALL message%pack(MSG_RESTART_SHUTDOWN)
-      CALL message%send(p_restart_pe0, 0, process_mpi_all_comm)
+      CALL packedMessage%pack(MSG_RESTART_SHUTDOWN)
+      CALL packedMessage%send(p_restart_pe0, 0, process_mpi_all_comm)
 
-      CALL message%destruct()   ! cleanup
+      CALL packedMessage%destruct()   ! cleanup
     ENDIF
 
   END SUBROUTINE compute_shutdown_restart
@@ -682,9 +682,9 @@ CONTAINS
   ! Common helper routines to preparing the restart.
   !
   !-------------------------------------------------------------------------------------------------
-  SUBROUTINE restartVarlistPacker(operation, message)
+  SUBROUTINE restartVarlistPacker(operation, packedMessage)
     INTEGER, VALUE :: operation
-    TYPE(t_PackedMessage), INTENT(INOUT) :: message
+    TYPE(t_PackedMessage), INTENT(INOUT) :: packedMessage
 
     INTEGER :: info_size, iv, nv, nelems, patch_id, restart_type, vlevel_type, n, ierrstat
     INTEGER, ALLOCATABLE            :: info_storage(:)
@@ -708,7 +708,7 @@ CONTAINS
 
     ! get the number of var lists
     nv = nvar_lists
-    CALL message%packer(operation, nv)
+    CALL packedMessage%packer(operation, nv)
 
     ! for each var list, get its components
     DO iv = 1, nv
@@ -730,13 +730,13 @@ CONTAINS
                 element => element%next_list_element
             END DO
         END IF
-        CALL message%packer(operation, lrestart)
-        CALL message%packer(operation, var_list_name)
-        CALL message%packer(operation, model_type)
-        CALL message%packer(operation, patch_id)
-        CALL message%packer(operation, restart_type)
-        CALL message%packer(operation, vlevel_type)
-        CALL message%packer(operation, nelems)
+        CALL packedMessage%packer(operation, lrestart)
+        CALL packedMessage%packer(operation, var_list_name)
+        CALL packedMessage%packer(operation, model_type)
+        CALL packedMessage%packer(operation, patch_id)
+        CALL packedMessage%packer(operation, restart_type)
+        CALL packedMessage%packer(operation, vlevel_type)
+        CALL packedMessage%packer(operation, nelems)
 
         IF(.NOT. lrestart) CYCLE  ! transfer only a restart var_list
         IF(nelems == 0) CYCLE ! check if there are valid restart fields
@@ -747,7 +747,7 @@ CONTAINS
                 IF(.NOT. ASSOCIATED(element)) EXIT
                 IF(element%field%info%lrestart) THEN
                     info_storage = TRANSFER(element%field%info, (/ 0 /))
-                    CALL message%packer(operation, info_storage)
+                    CALL packedMessage%packer(operation, info_storage)
                 END IF
                 element => element%next_list_element
             END DO
@@ -777,7 +777,7 @@ CONTAINS
                 element%field%var_base_size = 0 ! Unknown here
 
                 ! set info structure from binary representation in info_storage
-                CALL message%packer(operation, info_storage)
+                CALL packedMessage%packer(operation, info_storage)
                 element%field%info = TRANSFER(info_storage, info)
             END DO
         END IF
@@ -792,17 +792,17 @@ CONTAINS
   SUBROUTINE bcastRestartVarlists(root, communicator)
     INTEGER, VALUE :: root, communicator
 
-    TYPE(t_PackedMessage) :: message
+    TYPE(t_PackedMessage) :: packedMessage
     LOGICAL :: lIsSender, lIsReceiver
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':bcastRestartVarlists'
 
     CALL p_get_bcast_role(root, communicator, lIsSender, lIsReceiver)
 
-    CALL message%construct()
-    IF(lIsSender) CALL restartVarlistPacker(kPackOp, message)
-    CALL message%bcast(root, communicator)
-    IF(lIsReceiver) CALL restartVarlistPacker(kUnpackOp, message)
-    CALL message%destruct()
+    CALL packedMessage%construct()
+    IF(lIsSender) CALL restartVarlistPacker(kPackOp, packedMessage)
+    CALL packedMessage%bcast(root, communicator)
+    IF(lIsReceiver) CALL restartVarlistPacker(kUnpackOp, packedMessage)
+    CALL packedMessage%destruct()
   END SUBROUTINE bcastRestartVarlists
 
   !------------------------------------------------------------------------------------------------

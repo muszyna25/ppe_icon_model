@@ -9492,7 +9492,7 @@ CONTAINS
   END FUNCTION p_comm_remote_size
 
 
-  LOGICAL FUNCTION p_isEqual_int(value, comm) RESULT(RESULT)
+  LOGICAL FUNCTION p_isEqual_int(value, comm) RESULT(resultVar)
     INTEGER, VALUE :: value
     INTEGER, OPTIONAL, INTENT(IN) :: comm
 
@@ -9505,13 +9505,13 @@ CONTAINS
     sendBuffer(1) = VALUE
     sendBuffer(2) = -VALUE
     minmax = p_min(sendBuffer, comm = comm)
-    RESULT = minmax(1) == -minmax(2)
+    resultVar = minmax(1) == -minmax(2)
 #else
-    RESULT = .TRUE.
+    resultVar = .TRUE.
 #endif
   END FUNCTION p_isEqual_int
 
-  LOGICAL FUNCTION p_isEqual_charArray(charArray, comm) RESULT(RESULT)
+  LOGICAL FUNCTION p_isEqual_charArray(charArray, comm) RESULT(resultVar)
     CHARACTER(KIND = C_CHAR), INTENT(IN) :: charArray(:)
     INTEGER, OPTIONAL, INTENT(IN) :: comm
 
@@ -9527,8 +9527,8 @@ CONTAINS
     ENDIF
 
     !Check whether all processes have the same string SIZE.
-    RESULT = p_isEqual(SIZE(charArray, 1), comm = p_comm)
-    IF(.NOT. RESULT) RETURN
+    resultVar = p_isEqual(SIZE(charArray, 1), comm = p_comm)
+    IF(.NOT. resultVar) RETURN
 
     !Get the neighbor ranks for a cyclic DATA exchange.
     myProc = p_comm_rank(p_comm)
@@ -9545,9 +9545,9 @@ CONTAINS
         IF(charArray(i) /= prevArray(i)) stringsEqual = .FALSE.
     END DO
 
-    CALL MPI_Allreduce(stringsEqual, RESULT, 1, MPI_LOGICAL, MPI_LAND, p_comm, error)
+    CALL MPI_Allreduce(stringsEqual, resultVar, 1, MPI_LOGICAL, MPI_LAND, p_comm, error)
 #else
-    RESULT = .TRUE.
+    resultVar = .TRUE.
 #endif
   END FUNCTION p_isEqual_charArray
 

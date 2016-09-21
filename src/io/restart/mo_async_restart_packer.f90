@@ -61,20 +61,20 @@ MODULE mo_async_restart_packer
 CONTAINS
 
     ! Broadcast root for intercommunicator broadcasts from compute PEs to restart PEs using p_comm_work_2_restart.
-    INTEGER FUNCTION restartBcastRoot() RESULT(RESULT)
+    INTEGER FUNCTION restartBcastRoot() RESULT(resultVar)
 #ifdef NOMPI
-        RESULT = 0
+        resultVar = 0
 #else
         IF(my_process_is_restart()) THEN
             ! root is proc 0 on the compute PEs
-            RESULT = 0
+            resultVar = 0
         ELSE
             ! Special root setting for intercommunicators:
             ! The PE really sending must use MPI_ROOT, the others MPI_PROC_NULL.
             IF(p_pe_work == 0) THEN
-                RESULT = MPI_ROOT
+                resultVar = MPI_ROOT
             ELSE
-                RESULT = MPI_PROC_NULL
+                resultVar = MPI_PROC_NULL
             END IF
         END IF
 #endif
