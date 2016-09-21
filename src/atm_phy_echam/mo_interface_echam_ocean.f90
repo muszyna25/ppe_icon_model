@@ -287,19 +287,19 @@ CONTAINS
       & domain_id )
 
     !
-    ! The land-sea mask for the ocean is available in patch_3D%surface_cell_sea_land_mask(:,:)
-    !
+    ! The logical land-sea mask:
     !          -2: inner ocean
     !          -1: boundary ocean
     !           1: boundary land
     !           2: inner land
     !
-    ! The mask which is used in the ECHAM physics is prm_field(1)%lsmask(:,:).
-    ! This locial mask is set to .TRUE. for land points.
-    ! We can get access to via "USE mo_echam_phy_memory,ONLY: prm_field"
+    ! This logical mask for the atmosphere is available in ext_data(1)%atm%lsm_ctr_c(:,:).
+    ! The (fractional) mask which is used in the ECHAM physics is prm_field(1)%lsmask(:,:).
     !
-    ! Here we use a mask which is hopefully identical to the one used by the
-    ! ocean, and which works independent of the physics chosen. 
+    ! The logical mask must be generated from the fractional mask by setting only those gridpoints
+    !  to land that have no ocean part at all (lsf<1 is ocean).
+    ! The logical mask is then set to .FALSE. for land points to exclude them from mapping by yac,
+    !  these points are not touched by yac.
     !
 
     mask_checksum = 0
@@ -311,6 +311,10 @@ CONTAINS
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
 
+    !
+    ! Define cell_mask_ids(1): all ocean and coastal points are valid
+    !   This is the standard for the coupling fields listed below
+    !
     IF ( mask_checksum > 0 ) THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_RUNTIME_SCHEDULE
        DO BLOCK = 1, patch_horz%nblks_c
@@ -362,6 +366,11 @@ CONTAINS
     ENDDO
 
 #ifndef __NO_JSBACH__
+    !
+    ! Define cell_mask_ids(2) for runoff: ocean coastal points only are valid.
+    ! The logical mask for the atmosphere is currently ext_data(1)%atm%lsm_ctr_c(:,:).
+    !  TBD: it must be changed to the mask used by HD-model for pre04.
+    !
     IF ( mask_checksum > 0 ) THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_RUNTIME_SCHEDULE
        DO BLOCK = 1, patch_horz%nblks_c
@@ -390,7 +399,7 @@ CONTAINS
     ! Utilize mask field for runoff
     !  - cell_mask_ids(1:1) is whole ocean for nearest neighbor interpolation
     !  - cell_mask_ids(2:2) is ocean coast points only for source point mapping (source_to_target_map)
-    CALL jsb_fdef_hd_fields(comp_id, domain_id, cell_point_ids, cell_mask_ids(1:1))
+    CALL jsb_fdef_hd_fields(comp_id, domain_id, cell_point_ids, cell_mask_ids(2:2))
 #endif
 
     DEALLOCATE (ibuffer)
