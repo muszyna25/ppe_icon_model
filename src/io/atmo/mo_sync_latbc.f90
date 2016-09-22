@@ -185,8 +185,8 @@ MODULE mo_sync_latbc
 !$OMP END PARALLEL
 
     END DO
-
-    last_latbc_mtime    => newDatetime(time_config%tc_startdate, errno)
+    
+    last_latbc_mtime    => newDatetime(time_config%tc_exp_startdate, errno)
     IF (errno /= 0)  CALL finish(routine, "Error in initialization of last_latbc_mtime.")
 
     ! last reading-in time is the current time
@@ -195,8 +195,10 @@ MODULE mo_sync_latbc
     td => newTimedelta(latbc_config%dtime_latbc_mtime, errno)
     IF (errno /= 0)  CALL finish(routine, "Error in initialization of dtime_latbc time delta.")
     !   last_latbc_datetime := tc_startdate + dtime_latbc * FLOOR( (tc_current_date - tc_startdate)/dtime_latbc )
-    CALL divideDatetimeDifferenceInSeconds(time_config%tc_current_date, time_config%tc_startdate, &
+
+    CALL divideDatetimeDifferenceInSeconds(time_config%tc_current_date, time_config%tc_exp_startdate, &
       &                                    latbc_config%dtime_latbc_mtime, tq)
+
     step = INT(tq%quotient)
     td   = td * step
     last_latbc_mtime = last_latbc_mtime + td
@@ -882,7 +884,7 @@ MODULE mo_sync_latbc
     TYPE(divisionquotienttimespan)       :: tq     
     REAL(wp)                             :: dtime_latbc_in_ms
 #ifdef _MTIME_DEBUG
-    REAL(wp)                       :: d1
+    REAL(wp)                             :: d1
 #endif
 
     ! calendar calculation: mtime data structure
@@ -897,6 +899,7 @@ MODULE mo_sync_latbc
     CALL divideDatetimeDifferenceInSeconds(last_latbc_mtime, mtime_date, latbc_config%dtime_latbc_mtime, tq)
     latbc_config%lc1 = REAL(tq%remainder_in_ms,wp)/dtime_latbc_in_ms
     latbc_config%lc2 = 1._wp - latbc_config%lc1
+
   END SUBROUTINE update_lin_interc
   !-------------------------------------------------------------------------
 
