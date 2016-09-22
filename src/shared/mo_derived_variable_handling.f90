@@ -728,8 +728,10 @@ call print_summary("COPY variable:"//TRIM(name))
 #endif
 
                       destination%field%r_ptr = 0.0_wp
+#ifdef DEBUG
                     else
                       if (my_process_is_stdio()) call print_error("       eventActive is false")
+#endif
                     end if
                   class default
                       if (my_process_is_stdio()) call print_error("       eventActive has wrong type")
