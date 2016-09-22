@@ -87,6 +87,8 @@ MODULE mo_time_management
   !> module name
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_time_management'
 
+  LOGICAL :: ldebug = .FALSE.
+  
 CONTAINS 
 
   !---------------------------------------------------------------------------------------
@@ -647,10 +649,12 @@ CONTAINS
     !         b) start date + dt_restart
     !         c) start date + nsteps*dtime
     !
+    NULLIFY(mtime_stop)
     NULLIFY(mtime_exp_stop)
     NULLIFY(mtime_restart_stop)
     NULLIFY(mtime_nsteps_stop)
-
+    
+    ! dtime is always available, maybe the default only
     CALL getPTStringFromMS(INT(dtime,i8)*1000, td_string)
     mtime_dtime => newTimeDelta(td_string)
     IF (.NOT. ASSOCIATED(mtime_dtime))  CALL finish(routine, "Error in conversion of dtime to mtime!")
@@ -701,29 +705,35 @@ CONTAINS
       END IF
     END IF
 
-    ! now, we could simply set
-    !
-    !   mtime_stop => newDatetime(MIN(MIN(mtime_exp_stop, mtime_restart_stop), mtime_nsteps_stop))
-    !
-    ! but we need to check cases where one or two of these dates have
-    ! not been specified by the user...
-    IF (.NOT. ASSOCIATED(mtime_exp_stop)     .AND. &
-      & .NOT. ASSOCIATED(mtime_restart_stop) .AND. &
-      & .NOT. ASSOCIATED(mtime_nsteps_stop)) THEN
-      CALL finish(routine, "Error in initialization of stop date")
-    ELSE IF (ASSOCIATED(mtime_exp_stop)      .AND. &
-      & ASSOCIATED(mtime_restart_stop)       .AND. &
-      & ASSOCIATED(mtime_nsteps_stop)) THEN
-      mtime_stop => newDatetime(MIN(MIN(mtime_exp_stop, mtime_restart_stop), mtime_nsteps_stop))
-    ELSE IF (ASSOCIATED(mtime_exp_stop)      .AND. &
-      & ASSOCIATED(mtime_restart_stop)) THEN
-      mtime_stop => newDatetime(MIN(mtime_exp_stop, mtime_restart_stop))
-    ELSE IF (ASSOCIATED(mtime_exp_stop)      .AND. &
-      & ASSOCIATED(mtime_nsteps_stop)) THEN
-      mtime_stop => newDatetime(MIN(mtime_exp_stop, mtime_nsteps_stop))
-    ELSE IF (ASSOCIATED(mtime_restart_stop)  .AND. &
-      & ASSOCIATED(mtime_nsteps_stop)) THEN
-      mtime_stop => newDatetime(MIN(mtime_restart_stop, mtime_nsteps_stop))
+
+    IF (TRIM(end_datetime_string) /= "") THEN
+      mtime_stop => newDatetime(end_datetime_string)
+    ELSE
+    
+      !  in case stop date not given, we could simply set      !
+      !   mtime_stop => newDatetime(MIN(MIN(mtime_exp_stop, mtime_restart_stop), mtime_nsteps_stop))
+      !
+      ! but we need to check cases where one or two of these dates have
+      ! not been specified by the user...
+
+      IF (.NOT. ASSOCIATED(mtime_exp_stop)     .AND. &
+           & .NOT. ASSOCIATED(mtime_restart_stop) .AND. &
+           & .NOT. ASSOCIATED(mtime_nsteps_stop)) THEN
+        CALL finish(routine, "Error in initialization of stop date")
+      ELSE IF (ASSOCIATED(mtime_exp_stop)      .AND. &
+           & ASSOCIATED(mtime_restart_stop)       .AND. &
+           & ASSOCIATED(mtime_nsteps_stop)) THEN
+        mtime_stop => newDatetime(MIN(MIN(mtime_exp_stop, mtime_restart_stop), mtime_nsteps_stop))
+      ELSE IF (ASSOCIATED(mtime_exp_stop)      .AND. &
+           & ASSOCIATED(mtime_restart_stop)) THEN
+        mtime_stop => newDatetime(MIN(mtime_exp_stop, mtime_restart_stop))
+      ELSE IF (ASSOCIATED(mtime_exp_stop)      .AND. &
+           & ASSOCIATED(mtime_nsteps_stop)) THEN
+        mtime_stop => newDatetime(MIN(mtime_exp_stop, mtime_nsteps_stop))
+      ELSE IF (ASSOCIATED(mtime_restart_stop)  .AND. &
+           & ASSOCIATED(mtime_nsteps_stop)) THEN
+        mtime_stop => newDatetime(MIN(mtime_restart_stop, mtime_nsteps_stop))
+      END IF
     END IF
 
     CALL datetimeToString(mtime_stop, stop_datetime_string)
@@ -733,7 +743,6 @@ CONTAINS
     IF (.NOT. ASSOCIATED(mtime_exp_stop)) THEN
       mtime_exp_stop => newDatetime(stop_datetime_string)
     END IF
-
 
     ! consistency checks:
     !
@@ -816,16 +825,58 @@ CONTAINS
     ! PART III: Print all date and time components
     ! --------------------------------------------------------------
 
+    IF (ldebug) THEN
+
+      CALL message('DEBUG','')
+      CALL message('DEBUG','Calendar: '//TRIM(master_nml_calendar))      
+      CALL message('DEBUG','Calendar: '//TRIM(calendar_index2string(time_nml_icalendar))//' (deprecated interface)')
+      CALL message('DEBUG','')
+
+      WRITE(message_text,'(a,a)') 'Model time step         : ', TRIM(mtime_modelTimeStep)
+      CALL message('DEBUG',message_text)
+      WRITE(message_text,'(a,g0,a)') 'Model time step         : ', dtime, ' (deprecated interface)' 
+      CALL message('DEBUG',message_text)
+      WRITE(message_text,'(a,a)') 'Checkpoint time interval: ', TRIM(checkpointTimeIntval)
+      CALL message('DEBUG',message_text)
+      WRITE(message_text,'(a,g0,a)') 'Checkpoint time interval: ', dt_checkpoint, ' (deprecated interface)' 
+      CALL message('DEBUG',message_text)
+      WRITE(message_text,'(a,a)') 'Restart time interval   : ', TRIM(restartTimeIntval)
+      CALL message('DEBUG',message_text)
+      WRITE(message_text,'(a,g0,a)') 'Restart time interval   : ', dt_restart, ' (deprecated interface)' 
+      CALL message('DEBUG',message_text)
+      CALL message('DEBUG','')
+      WRITE(message_text,'(a,a)') 'Experiment reference date: ', TRIM(experimentReferenceDate)
+      CALL message('DEBUG',message_text)
+      WRITE(message_text,'(a,a)') 'Experiment start date    : ', TRIM(experimentStartDate)
+      CALL message('DEBUG',message_text)
+      WRITE(message_text,'(a,a)') 'Experiment stop date     : ', TRIM(experimentStopDate)
+      CALL message('DEBUG',message_text)
+      CALL message('DEBUG','')
+      
+      CALL message('',message_text)
+      IF (isRestart()) THEN
+        WRITE(message_text,'(a,a,a)') 'Start date      : ', TRIM(start_datetime_string), ' (deduced, restart run)'
+      ELSE
+        WRITE(message_text,'(a,a,a)') 'Start date      : ', TRIM(start_datetime_string), ' (deduced)'
+      END IF
+      CALL message('DEBUG',message_text)
+      WRITE(message_text,'(a,a)')     'Stop date       : ', TRIM(end_datetime_string)
+      CALL message('DEBUG',message_text)
+      WRITE(message_text,'(a,i0,a)')  'Stop date, steps: ', nsteps, ' (deprecated interface)'  
+      CALL message('DEBUG',message_text)
+      CALL message('DEBUG','')
+    END IF
+    
     CALL message('','')
     CALL calendarToString(dstring)
     CALL message('','Calendar: '//TRIM(dstring))
     CALL message('','')
 
-    WRITE(message_text,'(a,a)') 'Experiment reference date: ', TRIM(exp_ref_datetime_string)
+    WRITE(message_text,'(a,a)')     'Experiment reference date: ', TRIM(exp_ref_datetime_string)
     CALL message('',message_text)
-    WRITE(message_text,'(a,a)') 'Experiment start date    : ', TRIM(exp_start_datetime_string)
+    WRITE(message_text,'(a,a)')     'Experiment start date    : ', TRIM(exp_start_datetime_string)
     CALL message('',message_text)
-    WRITE(message_text,'(a,a)') 'Experiment stop date     : ', TRIM(exp_stop_datetime_string)
+    WRITE(message_text,'(a,a)')     'Experiment stop date     : ', TRIM(exp_stop_datetime_string)
     CALL message('',message_text)
     CALL message('','')
 
@@ -833,10 +884,10 @@ CONTAINS
     IF (isRestart()) THEN
       WRITE(message_text,'(a,a,a)') 'Start date    : ', TRIM(start_datetime_string), ' (restart run)'
     ELSE
-      WRITE(message_text,'(a,a)') 'Start date    : ', TRIM(start_datetime_string)
+      WRITE(message_text,'(a,a)')   'Start date    : ', TRIM(start_datetime_string)
     END IF
     CALL message('',message_text)
-    WRITE(message_text,'(a,a)') 'Stop date     : ', TRIM(stop_datetime_string)
+    WRITE(message_text,'(a,a)')     'Stop date     : ', TRIM(stop_datetime_string)
     CALL message('',message_text)
     CALL message('','')
     
