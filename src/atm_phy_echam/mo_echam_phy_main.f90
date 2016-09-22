@@ -109,7 +109,6 @@ CONTAINS
     REAL(wp) :: zfrl (nbdim)              !< fraction of land in the grid box
     REAL(wp) :: zfrw (nbdim)              !< fraction of water (without ice) in the grid point
     REAL(wp) :: zfri (nbdim)              !< fraction of ice in the grid box
-    REAL(wp) :: zfrc (nbdim,nsfc_type)    !< zfrl, zfrw, zfrc combined
     REAL(wp) :: zri_tile(nbdim,nsfc_type) !< Richardson number
 
     INTEGER  :: ilab   (nbdim,nlev)
@@ -286,9 +285,9 @@ CONTAINS
     END DO
 
     ! 3.4 Merge three pieces of information into one array for vdiff
-    IF (ilnd.LE.nsfc_type) zfrc(jcs:jce,ilnd) = zfrl(jcs:jce)
-    IF (iwtr.LE.nsfc_type) zfrc(jcs:jce,iwtr) = zfrw(jcs:jce)
-    IF (iice.LE.nsfc_type) zfrc(jcs:jce,iice) = zfri(jcs:jce)
+    IF (ilnd.LE.nsfc_type) field%frac_tile(jcs:jce,jb,ilnd) = zfrl(jcs:jce)
+    IF (iwtr.LE.nsfc_type) field%frac_tile(jcs:jce,jb,iwtr) = zfrw(jcs:jce)
+    IF (iice.LE.nsfc_type) field%frac_tile(jcs:jce,jb,iice) = zfri(jcs:jce)
 
     !---------------------------------------------------------------------
     ! 3.9 DETERMINE TROPOPAUSE HEIGHT AND MASS BUDGETS
@@ -667,7 +666,7 @@ CONTAINS
                      & iwtr, iice, ilnd,                &! in, indices of different surface types
                      & psteplen,                        &! in, time step (2*dt if leapfrog)
                      & field%coriol(:,jb),              &! in, Coriolis parameter
-                     & zfrc(:,:),                       &! in, area fraction of each sfc type
+                     & field%frac_tile(:,jb,:),         &! in, area fraction of each sfc type
                      & field% tsfc_tile(:,jb,:),        &! in, surface temperature
                      & field% ocu (:,jb),               &! in, ocean sfc velocity, u-component
                      & field% ocv (:,jb),               &! in, ocean sfc velocity, v-component
@@ -745,7 +744,7 @@ CONTAINS
           & jg, jce, nbdim, field%kice,   &! in
           & nlev, nsfc_type,              &! in
           & iwtr, iice, ilnd,             &! in, indices of surface types
-          & zfrc(:,:),                    &! in, area fraction
+          & field%frac_tile(:,jb,:),      &! in, area fraction
           & field% cfh_tile(:,jb,:),      &! in, from "vdiff_down"
           & field% cfm_tile(:,jb,:),      &! in, from "vdiff_down"
           & zfactor_sfc(:),               &! in, from "vdiff_down"
@@ -835,7 +834,7 @@ CONTAINS
                    & ntrac, nsfc_type,                &! in
                    & iwtr,                            &! in, indices of different sfc types
                    & pdtime, psteplen,                &! in, time steps
-                   & zfrc(:,:),                       &! in, area fraction of each sfc type
+                   & field%frac_tile(:,jb,:),         &! in, area fraction of each sfc type
                    & field% cfm_tile(:,jb,:),         &! in
                    & zaa,                             &! in, from "vdiff_down"
                    &   ihpbl(:),                      &! in, from "vdiff_down"
@@ -917,7 +916,7 @@ CONTAINS
 
     CALL nsurf_diag( jce, nbdim, nsfc_type,           &! in
                    & ilnd,                            &! in
-                   & zfrc(:,:),                       &! in
+                   & field%frac_tile(:,jb,:),         &! in
                    & field%  qtrc(:,nlev,jb,iqv),     &! in humidity qm1
                    & field%  temp(:,nlev,jb),         &! in tm1
                    & field% presm_old(:,nlev,jb),     &! in, apm1

@@ -392,11 +392,13 @@ MODULE mo_echam_phy_memory
       & lhflx_tile(:,:,:),    &!< latent   heat flux at surface on tiles
       & shflx_tile(:,:,:),    &!< sensible heat flux at surface on tiles
       & evap_tile(:,:,:),     &!< evaporation at surface on tiles
+      & frac_tile(:,:,:),     &!< surface fraction of tiles
       & dshflx_dT_tile(:,:,:)  !< temp tendency of SHF at surface on tiles
 
     TYPE(t_ptr2d),ALLOCATABLE :: lhflx_tile_ptr(:)
     TYPE(t_ptr2d),ALLOCATABLE :: shflx_tile_ptr(:)
     TYPE(t_ptr2d),ALLOCATABLE :: evap_tile_ptr(:)
+    TYPE(t_ptr2d),ALLOCATABLE :: frac_tile_ptr(:)
     TYPE(t_ptr2d),ALLOCATABLE :: dshflx_dT_tile_ptr(:)
 
     REAL(wp),POINTER :: &
@@ -2140,6 +2142,14 @@ CONTAINS
     !---------------------------------
     ! values on tiles
 
+    CALL add_var( field_list, prefix//'frac_tile', field%frac_tile,       &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
+                & t_cf_var('frac_tile', '%',                              &
+                &          'surface fraction of tiles', datatype_flt),    &
+                & grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
+                & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,       &
+                & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.    )
+
     CALL add_var( field_list, prefix//'rsns_tile',field%swflxsfc_tile,    &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
                 & t_cf_var('rsns_tile', 'W m-2',                          &
@@ -2190,7 +2200,7 @@ CONTAINS
                 & ldims=shapesfc,                                         &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.    )
 
-
+    ALLOCATE(field%frac_tile_ptr(ksfc_type))
     ALLOCATE(field%swflxsfc_tile_ptr(ksfc_type))
     ALLOCATE(field%lwflxsfc_tile_ptr(ksfc_type))
     ALLOCATE(field%evap_tile_ptr(ksfc_type))
@@ -2199,6 +2209,15 @@ CONTAINS
     ALLOCATE(field%dshflx_dT_tile_ptr(ksfc_type))
 
     DO jsfc = 1,ksfc_type
+
+      CALL add_ref( field_list, prefix//'frac_tile',                                   &
+                  & prefix//'frac_'//csfc(jsfc), field%frac_tile_ptr(jsfc)%p,          &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                &
+                  & t_cf_var('frac_'//csfc(jsfc), '%',                                 &
+                  &          'surface fraction of tile '//csfc(jsfc),                  &
+                  &          datatype_flt),                                            &
+                  & grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
+                  &  ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
 
       CALL add_ref( field_list, prefix//'rsns_tile',                                   &
                   & prefix//'rsns_'//csfc(jsfc), field%swflxsfc_tile_ptr(jsfc)%p,      &
