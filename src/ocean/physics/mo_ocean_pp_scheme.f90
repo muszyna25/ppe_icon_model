@@ -206,7 +206,8 @@ CONTAINS
             & (z_rho_down(jk) - z_rho_up(jk-1)) / z_shear_cell, 0.0_wp) ! do not use z_vert_density_grad_c,
                                                                      ! this is canceled out in this formula
         END DO ! levels
-
+        ocean_state%p_diag%rho_GM(jc,1,blockNo)=ocean_state%p_diag%rho_GM(jc,2,blockNo)
+ 
       END DO ! index
 
       DO tracer_index = 1, no_tracer
@@ -389,7 +390,7 @@ CONTAINS
             & (z_rho_down(jk) - z_rho_up(jk-1)) / z_shear_cell, 0.0_wp) ! do not use z_vert_density_grad_c,
                                                                      ! this is canceled out in this formula
         END DO ! levels
-
+        ocean_state%p_diag%rho_GM(jc,1,blockNo)=ocean_state%p_diag%rho_GM(jc,2,blockNo)
       END DO ! index
       !-----------------------------------------------------------
       tracer_windMixing(:,:) = 0.0_wp
@@ -736,7 +737,7 @@ CONTAINS
             & (z_rho_down(jk) - z_rho_up(jk-1)) / z_shear_cell, 0.0_wp) ! do not use z_vert_density_grad_c,
                                                                         ! this is canceled out in this formula
         END DO ! levels
-
+        ocean_state%p_diag%rho_GM(jc,1,blockNo)=ocean_state%p_diag%rho_GM(jc,2,blockNo)
       END DO ! index
       !-----------------------------------------------------------
       wind_mixing(:,:) = 0.0_wp
@@ -946,7 +947,8 @@ CONTAINS
           richardson_no(jc,jk,blockNo) = MAX(patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,jk,blockNo) * grav_rho * &
             &                           (rho_down(jk) - rho_up(jk-1)) / vert_velocity_shear, 0.0_wp)
         END DO ! levels
-
+        ocean_state%p_diag%rho_GM(jc,1,blockNo)=ocean_state%p_diag%rho_GM(jc,2,blockNo)
+        
         IF (use_wind_mixing) THEN
 
           ! wind-mixing at surface, eq. (15) of Marsland et al., 2003

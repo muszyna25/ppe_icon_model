@@ -519,7 +519,7 @@ CONTAINS
     idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('calc_slopes: grad_T_horz',grad_T_horz,&
       & str_module,idt_src, in_subset=edges_in_domain)
-    IF(no_tracer>=2)THEN  
+    IF(no_tracer>=2.AND.SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN  
     CALL dbg_print('calc_slopes: grad_S_horz',grad_S_horz,&
       & str_module,idt_src, in_subset=edges_in_domain)
     ENDIF
@@ -530,7 +530,7 @@ CONTAINS
     idt_src=4  ! output print level (1-5, fix)
     CALL dbg_print('neutral_slopes: grad_T_vert',grad_T_vert,&
       & str_module,idt_src, in_subset=cells_in_domain)
-    IF(no_tracer>=2)THEN        
+    IF(no_tracer>=2.AND.SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN        
     CALL dbg_print('neutral_slopes: grad_S_vert',grad_S_vert,&
       & str_module,idt_src, in_subset=cells_in_domain) 
     ENDIF       
@@ -573,121 +573,226 @@ CONTAINS
           & grad_S_vert_center)
           
     ENDIF
-
-    ! CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_aux%DerivTemperature_vert_center)
-!     IF(no_tracer>=2)   CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_aux%DerivSalinity_vert_center)
     !------------------------------------------------------------------------------
-    
+
     !------------------------------------------------------------------------------
 !ICON_OMP_PARALLEL PRIVATE(salinityColumn)                             
     salinityColumn(1:n_zlev) = sal_ref  ! in case of absent salinty tracer
+    
+    SELECT CASE (no_tracer)
+
+      CASE(2)!Two tracer
+        IF(SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,neutral_coeff, &
 !ICON_OMP  level) ICON_OMP_DEFAULT_SCHEDULE
-    DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
-!     DO blockNo = all_cells%start_block, all_cells%end_block    
-!       CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
+          DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+            CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
 
-      DO cell_index = start_cell_index, end_cell_index
-        end_level = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
-        IF(end_level <= min_dolic) CYCLE
+            DO cell_index = start_cell_index, end_cell_index
+              end_level = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+              IF(end_level <= min_dolic) CYCLE
+                salinityColumn(1:end_level) = salinity(cell_index,1:end_level,blockNo)
 
-
-        
-        !4) calculate slope as cell centered vector
-        IF (no_tracer==2) THEN
-        
-          IF(SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN
-            salinityColumn(1:end_level) = salinity(cell_index,1:end_level,blockNo)
-
-            !4.1) calculate slope coefficients as thermal expansion and saline contraction coefficients
-            !
-            !Nonlinear EOS, slope coefficients are calculated via the McDougall-method
-            IF(EOS_TYPE/=1)THEN
+                !4.1) calculate slope coefficients as thermal expansion and saline contraction coefficients
+                !
+                !Nonlinear EOS, slope coefficients are calculated via the McDougall-method
+                IF(EOS_TYPE/=1)THEN
           
-              neutral_coeff = calc_neutralslope_coeff_func_onColumn(         &
-              & pot_temp(cell_index,1:end_level,blockNo), salinityColumn(1:end_level),  &
-              & depth_cellinterface(cell_index,2:end_level+1,blockNo), end_level)
-            !Linear EOS: slope coefficients are equal to EOS-coefficients
-            ELSEIF(EOS_TYPE==1)THEN
-          
-              neutral_coeff(:,1) = LinearThermoExpansionCoefficient 
-              neutral_coeff(:,2) = LinearHalineContractionCoefficient
-            
-            ENDIF
+                  neutral_coeff = calc_neutralslope_coeff_func_onColumn(         &
+                  & pot_temp(cell_index,1:end_level,blockNo), salinityColumn(1:end_level),  &
+                  & depth_cellinterface(cell_index,2:end_level+1,blockNo), end_level)
+                !Linear EOS: slope coefficients are equal to EOS-coefficients
+                ELSEIF(EOS_TYPE==1)THEN          
+                  neutral_coeff(:,1) = LinearThermoExpansionCoefficient 
+                  neutral_coeff(:,2) = LinearHalineContractionCoefficient
+                ENDIF
         
-            DO level = start_level+1, end_level-1
-
-! hier die neutral_coeff abgreifen (alpha=neutral_coeff(level,1),beta=neutral_coeff(level,2))
+                DO level = start_level+1, end_level-1
               
-              ocean_state%p_aux%slopes(cell_index,level,blockNo)%x &
-                & = -(-neutral_coeff(level,1) * grad_T_vec(cell_index,level,blockNo)%x + &
-                &      neutral_coeff(level,2) * grad_S_vec(cell_index,level,blockNo)%x)  &           
-                &   /(-neutral_coeff(level,1) * grad_T_vert_center(cell_index,level,blockNo)+ &
-                &      neutral_coeff(level,2) * grad_S_vert_center(cell_index,level,blockNo)-dbl_eps)
+                  ocean_state%p_aux%slopes(cell_index,level,blockNo)%x &
+                    & = -(-neutral_coeff(level,1) * grad_T_vec(cell_index,level,blockNo)%x + &
+                    &      neutral_coeff(level,2) * grad_S_vec(cell_index,level,blockNo)%x)  &           
+                    &   /(-neutral_coeff(level,1) * grad_T_vert_center(cell_index,level,blockNo)+ &
+                    &      neutral_coeff(level,2) * grad_S_vert_center(cell_index,level,blockNo)-dbl_eps)
 
-              ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)=&
+                  ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)=&
+                    & DOT_PRODUCT(ocean_state%p_aux%slopes(cell_index,level,blockNo)%x,&
+                                 &ocean_state%p_aux%slopes(cell_index,level,blockNo)%x)
+                END DO
+         !Perform nearest neighbor interpolation at level where slopes are not well-defined
+!           ocean_state%p_aux%slopes(cell_index,start_level,blockNo)%x &
+!           &= ocean_state%p_aux%slopes(cell_index,start_level+1,blockNo)%x   
+!           ocean_state%p_aux%slopes(cell_index,end_level,blockNo)%x &
+!           &= ocean_state%p_aux%slopes(cell_index,end_level-1,blockNo)%x        
+            END DO ! cell_index = start_cell_index, end_cell_index
+          END DO  ! blockNo = all_cells%start_block, all_cells%end_block
+!ICON_OMP_END_DO_NOWAIT
+!ICON_OMP_END_PARALLEL
+    
+        ELSEIF(.NOT.SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,neutral_coeff, &
+!ICON_OMP  level) ICON_OMP_DEFAULT_SCHEDULE
+          DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+            CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+
+            DO cell_index = start_cell_index, end_cell_index
+              end_level = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+              IF(end_level <= min_dolic) CYCLE
+              !salinityColumn(1:end_level) = salinity(cell_index,1:end_level,blockNo)
+                
+              DO level = start_level+1, end_level-1
+
+                ocean_state%p_aux%slopes(cell_index,level,blockNo)%x                      &
+                & = - grad_T_vec(cell_index,level,blockNo)%x  &
+                &    /(grad_T_vert_center(cell_index,level,blockNo)-dbl_eps)
+ 
+                ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)=&
                 & DOT_PRODUCT(ocean_state%p_aux%slopes(cell_index,level,blockNo)%x,&
                              &ocean_state%p_aux%slopes(cell_index,level,blockNo)%x)
-            END DO
-          !
+              END DO                         
+!Perform nearest neighbor interpolation at level where slopes are not well-defined
+!           ocean_state%p_aux%slopes(cell_index,start_level,blockNo)%x &
+!           &= ocean_state%p_aux%slopes(cell_index,start_level+1,blockNo)%x   
+!           ocean_state%p_aux%slopes(cell_index,end_level,blockNo)%x &
+!           &= ocean_state%p_aux%slopes(cell_index,end_level-1,blockNo)%x                    
+            END DO ! cell_index = start_cell_index, end_cell_index
+          END DO  ! blockNo = all_cells%start_block, all_cells%end_block
+!ICON_OMP_END_DO_NOWAIT
+!ICON_OMP_END_PARALLEL
+    
+        ENDIF
+        
+    CASE(1)!Case of single tracer
+
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,neutral_coeff, &
+!ICON_OMP  level) ICON_OMP_DEFAULT_SCHEDULE
+      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+
+        DO cell_index = start_cell_index, end_cell_index
+          end_level = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+          IF(end_level <= min_dolic) CYCLE
+
+          DO level = start_level+1, end_level-1
+          
+            !ocean_state%p_aux%slopes(cell_index,level,blockNo)%x                      &
+            ! & = - (neutral_coeff(level,1) * grad_T_vec(cell_index,level,blockNo)%x)  &
+            ! &    /(neutral_coeff(level,1) * grad_T_vert_center(cell_index,level,blockNo)-dbl_eps)
+ 
+            ocean_state%p_aux%slopes(cell_index,level,blockNo)%x                      &
+             & = - grad_T_vec(cell_index,level,blockNo)%x  &
+             &    /(grad_T_vert_center(cell_index,level,blockNo)-dbl_eps)
+            
+            ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)=&
+            & DOT_PRODUCT(ocean_state%p_aux%slopes(cell_index,level,blockNo)%x,&
+                         &ocean_state%p_aux%slopes(cell_index,level,blockNo)%x)
+          END DO
           !Perform nearest neighbor interpolation at level where slopes are not well-defined
+!           ocean_state%p_aux%slopes(cell_index,start_level,blockNo)%x &
+!           &= ocean_state%p_aux%slopes(cell_index,start_level+1,blockNo)%x   
+!           ocean_state%p_aux%slopes(cell_index,end_level,blockNo)%x &
+!           &= ocean_state%p_aux%slopes(cell_index,end_level-1,blockNo)%x    
+        END DO ! cell_index = start_cell_index, end_cell_index
+      END DO  ! blockNo = all_cells%start_block, all_cells%end_block
+!ICON_OMP_END_DO_NOWAIT
+!ICON_OMP_END_PARALLEL
+  
+    END SELECT
+! ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,neutral_coeff, &
+!ICON_OMP  level) ICON_OMP_DEFAULT_SCHEDULE
+!   DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+!     CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+!     DO blockNo = all_cells%start_block, all_cells%end_block    
+!       CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
+!     DO cell_index = start_cell_index, end_cell_index
+!       end_level = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+!       IF(end_level <= min_dolic) CYCLE
+!       
+!       !4) calculate slope as cell centered vector
+!       IF (no_tracer==2) THEN
+!       
+!         IF(SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN
+!           salinityColumn(1:end_level) = salinity(cell_index,1:end_level,blockNo)
+!           !4.1) calculate slope coefficients as thermal expansion and saline contraction coefficients
+!           !
+!           !Nonlinear EOS, slope coefficients are calculated via the McDougall-method
+!           IF(EOS_TYPE/=1)THEN
+!         
+!             neutral_coeff = calc_neutralslope_coeff_func_onColumn(         &
+!             & pot_temp(cell_index,1:end_level,blockNo), salinityColumn(1:end_level),  &
+!             & depth_cellinterface(cell_index,2:end_level+1,blockNo), end_level)
+!           !Linear EOS: slope coefficients are equal to EOS-coefficients
+!           ELSEIF(EOS_TYPE==1)THEN
+!         
+!             neutral_coeff(:,1) = LinearThermoExpansionCoefficient 
+!             neutral_coeff(:,2) = LinearHalineContractionCoefficient
+!           
+!           ENDIF
+!       
+!           DO level = start_level+1, end_level-1
+! hier die neutral_coeff abgreifen (alpha=neutral_coeff(level,1),beta=neutral_coeff(level,2))
+!             
+!             ocean_state%p_aux%slopes(cell_index,level,blockNo)%x &
+!               & = -(-neutral_coeff(level,1) * grad_T_vec(cell_index,level,blockNo)%x + &
+!               &      neutral_coeff(level,2) * grad_S_vec(cell_index,level,blockNo)%x)  &           
+!               &   /(-neutral_coeff(level,1) * grad_T_vert_center(cell_index,level,blockNo)+ &
+!               &      neutral_coeff(level,2) * grad_S_vert_center(cell_index,level,blockNo)-dbl_eps)
+!             ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)=&
+!               & DOT_PRODUCT(ocean_state%p_aux%slopes(cell_index,level,blockNo)%x,&
+!                            &ocean_state%p_aux%slopes(cell_index,level,blockNo)%x)
+!           END DO
+!         !
+!         !Perform nearest neighbor interpolation at level where slopes are not well-defined
 !           ocean_state%p_aux%slopes(cell_index,start_level,blockNo)%x &
 !           &= ocean_state%p_aux%slopes(cell_index,start_level+1,blockNo)%x   
 !             
 !           ocean_state%p_aux%slopes(cell_index,end_level,blockNo)%x &
 !           &= ocean_state%p_aux%slopes(cell_index,end_level-1,blockNo)%x
-          ELSEIF(.NOT.SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN
-        
-            ocean_state%p_aux%slopes(cell_index,level,blockNo)%x                      &
-            & = - grad_T_vec(cell_index,level,blockNo)%x  &
-            &    /(grad_T_vert_center(cell_index,level,blockNo)-dbl_eps)
- 
-            
-            ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)=&
-            & DOT_PRODUCT(ocean_state%p_aux%slopes(cell_index,level,blockNo)%x,&
-                         &ocean_state%p_aux%slopes(cell_index,level,blockNo)%x)
-        
-          ENDIF    
-            
-        ELSEIF(no_tracer==1)THEN
-    
-          DO level = start_level+1, end_level-1
-          
-              !ocean_state%p_aux%slopes(cell_index,level,blockNo)%x                      &
-              ! & = - (neutral_coeff(level,1) * grad_T_vec(cell_index,level,blockNo)%x)  &
-              ! &    /(neutral_coeff(level,1) * grad_T_vert_center(cell_index,level,blockNo)-dbl_eps)
- 
-              ocean_state%p_aux%slopes(cell_index,level,blockNo)%x                      &
-               & = - grad_T_vec(cell_index,level,blockNo)%x  &
-               &    /(grad_T_vert_center(cell_index,level,blockNo)-dbl_eps)
- 
-            
-              ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)=&
-               & DOT_PRODUCT(ocean_state%p_aux%slopes(cell_index,level,blockNo)%x,&
-                         &ocean_state%p_aux%slopes(cell_index,level,blockNo)%x)
-          END DO
-          !
-          !Perform nearest neighbor interpolation at level where slopes are not well-defined
+!         ELSEIF(.NOT.SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN
+!          DO level = start_level+1, end_level-1
+!           ocean_state%p_aux%slopes(cell_index,level,blockNo)%x                      &
+!           & = - grad_T_vec(cell_index,level,blockNo)%x  &
+!           &    /(grad_T_vert_center(cell_index,level,blockNo)-dbl_eps)
+!
+!           ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)=&
+!           & DOT_PRODUCT(ocean_state%p_aux%slopes(cell_index,level,blockNo)%x,&
+!                        &ocean_state%p_aux%slopes(cell_index,level,blockNo)%x)
+!           END DO               
+!       
+!         ENDIF    
+!           
+!       ELSEIF(no_tracer==1)THEN
+!   
+!         DO level = start_level+1, end_level-1
+!         
+!             !ocean_state%p_aux%slopes(cell_index,level,blockNo)%x                      &
+!             ! & = - (neutral_coeff(level,1) * grad_T_vec(cell_index,level,blockNo)%x)  &
+!             ! &    /(neutral_coeff(level,1) * grad_T_vert_center(cell_index,level,blockNo)-dbl_eps)
+!
+!             ocean_state%p_aux%slopes(cell_index,level,blockNo)%x                      &
+!              & = - grad_T_vec(cell_index,level,blockNo)%x  &
+!              &    /(grad_T_vert_center(cell_index,level,blockNo)-dbl_eps)
+!
+!           
+!             ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)=&
+!              & DOT_PRODUCT(ocean_state%p_aux%slopes(cell_index,level,blockNo)%x,&
+!                        &ocean_state%p_aux%slopes(cell_index,level,blockNo)%x)
+!         END DO
+!         !
+!         !Perform nearest neighbor interpolation at level where slopes are not well-defined
 !           ocean_state%p_aux%slopes(cell_index,start_level,blockNo)%x &
 !           &= ocean_state%p_aux%slopes(cell_index,start_level+1,blockNo)%x   
 !             
 !           ocean_state%p_aux%slopes(cell_index,end_level,blockNo)%x &
 !           &= ocean_state%p_aux%slopes(cell_index,end_level-1,blockNo)%x    
-          
-        ENDIF
-          
-      END DO ! cell_index = start_cell_index, end_cell_index
-    END DO  ! blockNo = all_cells%start_block, all_cells%end_block
+!         
+!       ENDIF
+!         
+!     END DO ! cell_index = start_cell_index, end_cell_index
+!   END DO  ! blockNo = all_cells%start_block, all_cells%end_block
 !ICON_OMP_END_DO_NOWAIT
 !ICON_OMP_END_PARALLEL
-    
-!write(123,*)'--------------------------------------------------------------'
-!     CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_aux%slopes(:,:,:)%x(1))
-!     CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_aux%slopes(:,:,:)%x(2))
-!     CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_aux%slopes(:,:,:)%x(3))
-!     CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_aux%slopes_squared)
-
+!   
 
  !---------DEBUG DIAGNOSTICS-------------------------------------------
 !     idt_src=3  ! output print level (1-5, fix)
@@ -697,8 +802,8 @@ CONTAINS
 !       &  str_module,idt_src, in_subset=cells_in_domain)      
 !     CALL dbg_print('calc_slopes: sizegradT3',grad_T_vec(:,:,:)%x(3), &
 !       &  str_module,idt_src, in_subset=cells_in_domain)      
-      
-      
+!      
+!      
 !    IF(no_tracer>=2)  &
 !      & CALL dbg_print('calc:slopes: sizegradS',size_grad_S_horz_vec,&
 !      &                str_module,idt_src, in_subset=cells_in_domain)
@@ -707,21 +812,21 @@ CONTAINS
   !---------------------------------------------------------------------
   !---------DEBUG DIAGNOSTICS-------------------------------------------
   idt_src=1  ! output print level (1-5, fix)
- ! CALL dbg_print('calc_slopes: squared',(ocean_state%p_aux%slopes_squared(:,:,:)),&
- !   & str_module,idt_src, in_subset=cells_in_domain)
-   DO level=1,n_zlev
-     CALL dbg_print('calc_slopes: slobe abs',sqrt(ocean_state%p_aux%slopes_squared(:,level,:)),&
-       & str_module,idt_src, in_subset=cells_in_domain)
-   END DO
+  CALL dbg_print('calc_slopes: squared',(ocean_state%p_aux%slopes_squared(:,:,:)),&
+    & str_module,idt_src, in_subset=cells_in_domain)
+!   DO level=1,n_zlev
+!     CALL dbg_print('calc_slopes: slobe abs',sqrt(ocean_state%p_aux%slopes_squared(:,level,:)),&
+!       & str_module,idt_src, in_subset=cells_in_domain)
+!  END DO
 
   !---------------------------------------------------------------------
 
-!   DO level= 1, n_zlev  
-!   write(0,*)'max-min vert deriv',level,maxval(grad_T_vert_center(:,level,:)),&
-!   & minval(grad_T_vert_center(:,level,:)),maxval(grad_S_vert_center(:,level,:)),&
-!   & minval(grad_S_vert_center(:,level,:))
-!   END DO
-
+ !  DO level= 1, n_zlev  
+ !  write(0,*)'max-min vert deriv',level,maxval(grad_T_vert_center(:,level,:)),&
+ !  & minval(grad_T_vert_center(:,level,:))!,maxval(grad_S_vert_center(:,level,:)),&
+ !  !& minval(grad_S_vert_center(:,level,:))
+ !  END DO
+ 
   END SUBROUTINE calc_neutral_slopes
   !-------------------------------------------------------------------------
 
