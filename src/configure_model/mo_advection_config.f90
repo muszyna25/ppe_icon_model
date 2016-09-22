@@ -119,9 +119,6 @@ MODULE mo_advection_config
                                     !< 2: monotonous slope limiter               
                                     !< 3: monotonous flux limiter                
 
-    INTEGER :: niter_fct            !< number of iterations for monotone
-                                    !< flux correction procedure
-
     REAL(wp):: beta_fct             !< factor of allowed over-/undershooting in monotonous limiter
 
     INTEGER :: iord_backtraj        !< parameter to select the spacial order     
