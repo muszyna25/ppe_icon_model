@@ -1,23 +1,21 @@
 !>
-!! mo_art_diagnostics_interface
 !! This module provides and interface to routines calculating diagnostic
 !! properties of aerosols and trace gases
 !!
-!! Author: Daniel Rieger, KIT
-!! Initial Release: 2014-08-04
 !!
-!! Copyright and License
-!! This code is subject to the KIT-Software-License-Agreement in
+!! @author Daniel Rieger, KIT
+!!
+!! @par Revision History
+!! Initial revision by Daniel Rieger, KIT (2014-08-04)
+!!
+!! @par Copyright and License
+!!
+!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
 !! its most recent form.
+!! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
-!! This software is provided for non-commercial use only.
 !!
-!! See the LICENSE conditions:
-!! http://icon-art.imk-tro.kit.edu/
-!! Institute of Meteorology and Climate Research, KIT, Karlsruhe
-!>
-
 MODULE mo_art_diagnostics_interface
 
 ! ICON

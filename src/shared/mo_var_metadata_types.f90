@@ -99,7 +99,7 @@ MODULE mo_var_metadata_types
     &  "ART_AERO_DUST         ",  &  ! ICON-ART fields for mineral dust aerosol
     &  "ART_AERO_SEAS         ",  &  ! ICON-ART fields for sea salt aerosol
     &  "ART_CHEMTRACER        ",  &  ! ICON-ART fields for lifetime based chemical tracer
-    &  "ART_PASSIVE           ",  &  ! ICON-ART fields for lifetime based chemical tracer
+    &  "ART_PASSIVE           ",  &  ! ICON-ART fields for passive tracer
     &  "RTTOV                 " /)
 
   ! maximum number of variable groups supported by info state
