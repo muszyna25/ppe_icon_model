@@ -345,8 +345,8 @@ CONTAINS
   ! according to the lat, lon and cell_number fields
 
   ! returns the local index for a given global index
-  ! in case the global index is not available locally -1 is returned
-  ! in case the global index is no valid 0 is returned
+  ! in case the global index is not available locally, -1 is returned
+  ! in case the global index is invalid, 0 is returned
   ELEMENTAL FUNCTION get_local_index(glb2loc_index, glb_index)
 
     TYPE(t_glb2loc_index_lookup), INTENT(in) :: glb2loc_index
