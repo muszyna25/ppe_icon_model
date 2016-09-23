@@ -1144,6 +1144,14 @@ cat > ${cpl_xmlctrfn} << EOF
 </coupling>
 EOF
 
+# Mapping parameter:
+#  <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
+#  <interpolation allow_extrapolation="true" extend_source_patch="1" gauss_order="7" method="patch_recovery" polynomial_order="1"/>
+#  <interpolation method="source_to_target_map"/>
+#  <interpolation method="fixed_value" user_value="99.0"/>
+#  <interpolation method="user_file" filename="runoff_a2o.weights.nc"/>
+#  <enforce_write_weight_file filename="wind_a2o_lndcoast2ocecoast.nc">true</enforce_write_weight_file>
+
 # IV.4 xsd and xml files for yac
 # ------------------------------
 

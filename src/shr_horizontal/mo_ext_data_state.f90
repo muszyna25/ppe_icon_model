@@ -1010,6 +1010,15 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
 
+      ! HDmodel land-sea-mask at surface on cell centers
+      ! lsm_hd_c   p_ext_atm%lsm_hd_c(nproma,nblks_c)
+      cf_desc    = t_cf_var('HD model land-sea-mask at cell center', '-2/-1/1/2', &
+        &                   'HD model land-sea-mask', datatype_flt)
+      grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'lsm_hd_c', p_ext_atm%lsm_hd_c,          &
+        &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,             &
+        grib2_desc, ldims=shape2d_c )
+
     END IF
 
   END SUBROUTINE new_ext_data_atm_list

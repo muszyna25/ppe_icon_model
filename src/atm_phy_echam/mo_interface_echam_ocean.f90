@@ -43,6 +43,7 @@ MODULE mo_interface_echam_ocean
 
 #ifndef __NO_JSBACH__
   USE mo_interface_hd_ocean  ,ONLY: jsb_fdef_hd_fields
+! USE mo_srf_init            ,ONLY: ocean_coast
 #endif
 
   USE mo_master_control      ,ONLY: get_my_process_name
@@ -287,19 +288,19 @@ CONTAINS
       & domain_id )
 
     !
-    ! The logical land-sea mask:
+    ! The integer land-sea mask:
     !          -2: inner ocean
     !          -1: boundary ocean
     !           1: boundary land
     !           2: inner land
     !
-    ! This logical mask for the atmosphere is available in ext_data(1)%atm%lsm_ctr_c(:,:).
+    ! This integer mask for the atmosphere is available in ext_data(1)%atm%lsm_ctr_c(:,:).
     ! The (fractional) mask which is used in the ECHAM physics is prm_field(1)%lsmask(:,:).
     !
-    ! The logical mask must be generated from the fractional mask by setting only those gridpoints
-    !  to land that have no ocean part at all (lsf<1 is ocean).
-    ! The logical mask is then set to .FALSE. for land points to exclude them from mapping by yac,
-    !  these points are not touched by yac.
+    ! The logical mask for the coupler must be generated from the fractional mask by setting
+    !   only those gridpoints to land that have no ocean part at all (lsf<1 is ocean).
+    ! The logical mask is then set to .FALSE. for land points to exclude them from mapping by yac.
+    ! These points are not touched by yac.
     !
 
     mask_checksum = 0
@@ -367,15 +368,21 @@ CONTAINS
 
 #ifndef __NO_JSBACH__
     !
-    ! Define cell_mask_ids(2) for runoff: ocean coastal points only are valid.
-    ! The logical mask for the atmosphere is currently ext_data(1)%atm%lsm_ctr_c(:,:).
-    !  TBD: it must be changed to the mask used by HD-model for pre04.
+    ! Define cell_mask_ids(2) for runoff:
+    !   Ocean coastal points with respect to HDmodel mask only are valid.
+    !   The integer mask for the HDmodel is ext_data(1)%atm%lsm_hd_c(:,:).
+    !   Caution: jg=1 is only valid for coupling to ocean
     !
     IF ( mask_checksum > 0 ) THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_RUNTIME_SCHEDULE
        DO BLOCK = 1, patch_horz%nblks_c
           DO idx = 1, nproma
-             IF ( ext_data(1)%atm%lsm_ctr_c(idx, BLOCK) == -1 ) THEN
+             IF ( ext_data(1)%atm%lsm_hd_c(idx, BLOCK) == -1 ) THEN
+!            IF ( ext_data(1)%atm%lsm_ctr_c(idx, BLOCK) == -1 ) THEN
+!            write(0,'(a,3i10)') 'BLOCK,IDX,SLM:', block,idx,ocean_coast(idx,block)
+!            ibuffer((BLOCK-1)*nproma+idx) = ocean_coast(idx,BLOCK)
+!            IF ( prm_field(1)%hdmask(idx, BLOCK) < -0.9_wp .AND. &
+!              &  prm_field(1)%hdmask(idx, BLOCK) > -1.1_wp) THEN
                 ! Ocean point at coast is valid
                 ibuffer((BLOCK-1)*nproma+idx) = 0
              ELSE

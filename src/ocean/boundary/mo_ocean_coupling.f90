@@ -270,15 +270,15 @@ CONTAINS
     ! e.g. to mask out halo points. We do we get the info about what is local and what
     ! is remote.
     !
-    ! The logical land-sea mask:
+    ! The integer land-sea mask:
     !          -2: inner ocean
     !          -1: boundary ocean
     !           1: boundary land
     !           2: inner land
     !
-    ! This logical mask for the ocean is available in patch_3D%surface_cell_sea_land_mask(:,:)
-    ! The logical mask is set to .FALSE. for land points to exclude them from mapping by yac,
-    !  these points are not touched by yac.
+    ! This integer mask for the ocean is available in patch_3D%surface_cell_sea_land_mask(:,:)
+    ! The logical mask for the coupler is set to .FALSE. for land points to exclude them from mapping by yac.
+    ! These points are not touched by yac.
 
     mask_checksum = 0
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK,idx) REDUCTION(+:mask_checksum) ICON_OMP_DEFAULT_SCHEDULE

@@ -68,8 +68,11 @@ MODULE mo_ext_data_types
       &  llake_c(:,:)          ! .TRUE. if lake point
                                ! index1=1,nproma, index2=1,nblks_c
 
-    INTEGER, POINTER  ::   &   !< land-sea-mask for cell centers          [ ]
+    INTEGER, POINTER  ::   &   !< atmosphere land-sea-mask on cell centers [ ]
       &  lsm_ctr_c(:,:)        !  index1=1,nproma, index2=1,nblks_c
+
+    INTEGER, POINTER  ::   &   !< land-sea-mask for HDmodel on cell centers [ ]
+      &  lsm_hd_c(:,:)         !  index1=1,nproma, index2=1,nblks_c
 
     REAL(wp), POINTER  ::   &  !< elevation at cell centers               [m]
       &  elevation_c(:,:)
