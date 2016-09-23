@@ -188,16 +188,18 @@ SUBROUTINE sync_patch_array_r3(typ, p_patch, arr, opt_varname)
    INTEGER,       INTENT(IN)    :: typ
    TYPE(t_patch), INTENT(INOUT) :: p_patch
    REAL(wp),      INTENT(INOUT) :: arr(:,:,:)
-   CHARACTER*(*), INTENT(IN), OPTIONAL :: opt_varname
+   CHARACTER(len=*), TARGET, INTENT(IN), OPTIONAL :: opt_varname
+   CHARACTER(len=:), POINTER :: varname
+   CHARACTER(len=4), SAVE, TARGET :: default_name = 'sync'
 
+   IF (PRESENT(opt_varname)) THEN
+     varname => opt_varname
+   ELSE
+     varname => default_name
+   END IF
    ! If this is a verification run, check consistency before doing boundary exchange
-   IF (p_test_run .AND. do_sync_checks) THEN
-     IF(PRESENT(opt_varname)) THEN
-       CALL check_patch_array_3(typ, p_patch, arr, opt_varname)
-     ELSE
-       CALL check_patch_array_3(typ, p_patch, arr, 'sync')
-     ENDIF
-   ENDIF
+   IF (p_test_run .AND. do_sync_checks) &
+     CALL check_patch_array_3(typ, p_patch, arr, varname)
 
    ! Boundary exchange for work PEs
    IF(my_process_is_mpi_parallel()) THEN
