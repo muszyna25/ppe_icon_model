@@ -175,8 +175,6 @@ doc/science/physics/lmclouds2010.pdf -text
 doc/science/physics/microphysics.tex -text
 doc/science/physics/surface_albedo.pdf -text svneol=unset#unset
 doc/science/physics/surface_albedo.tex -text
-doc/science/physics/wind_gust.pdf -text
-doc/science/physics/wind_gust.tex -text
 doc/science/references-icon-science.bib -text
 doc/science/transport/transport_main.pdf -text
 doc/science/wileyqj.bst -text
