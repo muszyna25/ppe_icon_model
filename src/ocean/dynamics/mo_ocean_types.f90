@@ -308,6 +308,8 @@ MODULE mo_ocean_types
 
     onCells :: &
       & slopes_squared,   &
+      & slopes_drdz,   &
+      & slopes_drdx,   & 
       & taper_function_1, &
       & taper_function_2, &
       & diagnose_Redi_flux_vert

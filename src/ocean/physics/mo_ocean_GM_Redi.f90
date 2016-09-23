@@ -452,6 +452,11 @@ CONTAINS
     
     ENDIF
     
+!    grad_T_vec(:,:,:)%x(1)=0.0_wp
+!    grad_T_vec(:,:,:)%x(2)=0.0_wp
+!    grad_T_vec(:,:,:)%x(3)=0.0_wp
+!    grad_T_vert_center(:,:,:)=0.0_wp
+
     start_level = 1
     
     !-------------------------------------------------------------------------------
@@ -576,13 +581,14 @@ CONTAINS
     !------------------------------------------------------------------------------
 
     !------------------------------------------------------------------------------
-!ICON_OMP_PARALLEL PRIVATE(salinityColumn)                             
-    salinityColumn(1:n_zlev) = sal_ref  ! in case of absent salinty tracer
+
     
     SELECT CASE (no_tracer)
 
       CASE(2)!Two tracer
         IF(SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN
+!ICON_OMP_PARALLEL PRIVATE(salinityColumn)                             
+    salinityColumn(1:n_zlev) = sal_ref  ! in case of absent salinty tracer!
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,neutral_coeff, &
 !ICON_OMP  level) ICON_OMP_DEFAULT_SCHEDULE
           DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
@@ -608,6 +614,20 @@ CONTAINS
                 ENDIF
         
                 DO level = start_level+1, end_level-1
+
+           ocean_state%p_aux%slopes(cell_index,level,blockNo)%x &
+              & = -neutral_coeff(level,1) * grad_T_vec(cell_index,level,blockNo)%x + &
+              &      neutral_coeff(level,2) * grad_S_vec(cell_index,level,blockNo)%x
+
+           ocean_state%p_aux%slopes_drdx(cell_index,level,blockNo)=&
+             & DOT_PRODUCT(ocean_state%p_aux%slopes(cell_index,level,blockNo)%x,&
+                           &ocean_state%p_aux%slopes(cell_index,level,blockNo)%x)
+           ocean_state%p_aux%slopes_drdx(cell_index,level,blockNo)=&
+             & sqrt(ocean_state%p_aux%slopes_drdx(cell_index,level,blockNo))
+
+           ocean_state%p_aux%slopes_drdz(cell_index,level,blockNo)=&
+                 & (-neutral_coeff(level,1) * grad_T_vert_center(cell_index,level,blockNo)+ &
+                 &      neutral_coeff(level,2) * grad_S_vert_center(cell_index,level,blockNo))
               
                   ocean_state%p_aux%slopes(cell_index,level,blockNo)%x &
                     & = -(-neutral_coeff(level,1) * grad_T_vec(cell_index,level,blockNo)%x + &
@@ -630,6 +650,7 @@ CONTAINS
 !ICON_OMP_END_PARALLEL
     
         ELSEIF(.NOT.SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN
+!ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,neutral_coeff, &
 !ICON_OMP  level) ICON_OMP_DEFAULT_SCHEDULE
           DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
@@ -649,6 +670,17 @@ CONTAINS
                 ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)=&
                 & DOT_PRODUCT(ocean_state%p_aux%slopes(cell_index,level,blockNo)%x,&
                              &ocean_state%p_aux%slopes(cell_index,level,blockNo)%x)
+
+                ocean_state%p_aux%slopes_drdx(cell_index,level,blockNo)=&
+               & DOT_PRODUCT(grad_T_vec(cell_index,level,blockNo)%x,&
+               & grad_T_vec(cell_index,level,blockNo)%x)
+
+               ocean_state%p_aux%slopes_drdx(cell_index,level,blockNo)=&
+               & sqrt(ocean_state%p_aux%slopes_drdx(cell_index,level,blockNo))
+
+               ocean_state%p_aux%slopes_drdz(cell_index,level,blockNo)=&
+               &         grad_T_vert_center(cell_index,level,blockNo)            
+
               END DO                         
 !Perform nearest neighbor interpolation at level where slopes are not well-defined
 !           ocean_state%p_aux%slopes(cell_index,start_level,blockNo)%x &
@@ -663,7 +695,7 @@ CONTAINS
         ENDIF
         
     CASE(1)!Case of single tracer
-
+!ICON_OMP_PARALLEL
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,neutral_coeff, &
 !ICON_OMP  level) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
@@ -695,11 +727,11 @@ CONTAINS
         END DO ! cell_index = start_cell_index, end_cell_index
       END DO  ! blockNo = all_cells%start_block, all_cells%end_block
 !ICON_OMP_END_DO_NOWAIT
-!ICON_OMP_END_PARALLEL
-  
+!ICON_OMP_END_PARALLEL  
     END SELECT
-! ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,neutral_coeff, &
-!ICON_OMP  level) ICON_OMP_DEFAULT_SCHEDULE
+
+!!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,neutral_coeff, &
+!!ICON_OMP  level) ICON_OMP_DEFAULT_SCHEDULE
 !   DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
 !     CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
 !     DO blockNo = all_cells%start_block, all_cells%end_block    
@@ -790,8 +822,8 @@ CONTAINS
 !         
 !     END DO ! cell_index = start_cell_index, end_cell_index
 !   END DO  ! blockNo = all_cells%start_block, all_cells%end_block
-!ICON_OMP_END_DO_NOWAIT
-!ICON_OMP_END_PARALLEL
+!!ICON_OMP_END_DO_NOWAIT
+!!ICON_OMP_END_PARALLEL
 !   
 
  !---------DEBUG DIAGNOSTICS-------------------------------------------
