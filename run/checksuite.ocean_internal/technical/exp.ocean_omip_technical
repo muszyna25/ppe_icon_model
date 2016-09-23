@@ -8,23 +8,10 @@ start_date="2001-01-01T00:00:00Z"
   end_date="2001-01-03T00:00:00Z"
 checkpoint_interval="P01D"
 restart_interval="P25Y"
-output_interval="P01D"
+output_interval="PT06H"
+file_interval=${output_interval}
 # restart=".true."
 #-----------------------------------------------------------------------------
-# model timing
-(( hours_checkp      = 24 ))    # write restart file interval [days]
-(( years_restart     = 25 ))    # stop model for restart [days]
-(( days_data         =  1 ))    # ocean model output interval hours [hours] - for test runs
-#
-#-----------------------------------------------------------------------------
-# calculate model timesteps using $days_data
-(( dt_data        = days_data         * day  ))   # used for output_bounds and buildbot
-(( dt_checkpoint  = hours_checkp      * hour ))
-(( dt_restart     = years_restart     * year ))
-(( steps_per_file = dt_restart / dt_data+10  ))   # calculated output intervals per file interval
-(( dt_checkpoint  = 0 ))
-(( dt_restart     = 0 ))
-#steps_per_file=610                               # assigned output intervals per file interval
 #-----------------------------------------------------------------------------
 # global resolution
 iforc=12
@@ -61,13 +48,14 @@ cat > ${ocean_namelist} << EOF
  profiling_output = 3
  msg_timestamp        = .FALSE.
  debug_check_level    = 10
+ test_mode = 12
  restart_filename = "${EXPNAME}_restart_oce_<rsttime>.nc"
 /
 &output_nml
   output_start     = "${start_date}"
   output_end       = "${end_date}"
-  output_interval  = "PT06H"
-  steps_per_file   = 1
+  output_interval  = "${output_interval}"
+  file_interval    = "${file_interval}"
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_oceDefault"
   filename_format  = "<output_filename>_<datetime2>"
@@ -77,21 +65,11 @@ cat > ${ocean_namelist} << EOF
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'group:oce_default','group:ice_default', 'topBoundCond_windStress_u', 'A_tracer_v_T'
 /
-!&output_nml
-!  output_start     = "${start_date}"
-!  output_end       = "${end_date}"
-!  output_interval  = "PT06H"
-!  steps_per_file   = 1
-!  output_grid      = .TRUE.
-!  output_filename  = "${EXPNAME}_oceDiag"
-!  filename_format  = "<output_filename>_<datetime2>"
-!  ml_varlist       =  'group:oce_diag','group:ice_diag',
-!/
 &output_nml
   output_start     = "${start_date}"
   output_end       = "${end_date}"
-  output_interval  = "PT06H"
-  steps_per_file   = 1
+  output_interval  = "${output_interval}"
+  file_interval    = "${file_interval}"
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_oceMonitor"
   filename_format  = "<output_filename>_<datetime2>"
@@ -174,7 +152,7 @@ cat > ${ocean_namelist} << EOF
   i_ice_dyn                       =   1       ! 1/0=switch on/off AWI ice dynamics
 /
 &ocean_forcing_nml
-  iforc_oce                       =  12       ! ocean forcing
+  iforc_oce                       =  ${iforc}
   forcing_windstress_u_type       =   1
   forcing_windstress_v_type       =   1
   forcing_fluxes_type             =   1

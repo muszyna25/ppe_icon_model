@@ -197,17 +197,18 @@ CONTAINS
 
     TYPE(t_output_file), INTENT(INOUT) :: of
     ! local variables:
-    CHARACTER(LEN=*), PARAMETER       :: routine = modname//"::open_output_file"
-    CHARACTER(LEN=filename_max)       :: filename, filename_for_append
-    CHARACTER(LEN=MAX_CHAR_LENGTH)    :: cdiErrorText
-    INTEGER :: tsID
-    LOGICAL :: lexist, lappend
+    CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::open_output_file"
+    CHARACTER(LEN=filename_max)    :: filename, filename_for_append
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
+    INTEGER                        :: tsID
+    LOGICAL                        :: lexist, lappend
  
     ! open/append file: as this is a preliminary solution only, I do not try to
     ! streamline the conditionals
-    filename = TRIM(get_current_filename(of%out_event))
+    filename            = TRIM(get_current_filename(of%out_event))
     filename_for_append = ''
-    lappend = .FALSE.
+    lappend             = .FALSE.
+
     ! check and reset filename, if data should be appended
     IF (split_output_filename(filename, filename_for_append, '_part_') > 0) THEN
       ! does the file to append to exist
@@ -216,37 +217,41 @@ CONTAINS
         ! store the orginal allocated vlist (the handlers different) for later use with new files
         of%cdiVlistID_orig = of%cdiVlistID
         of%cdiTaxisID_orig = of%cdiTaxisID
+
         ! open for append
-        of%cdiFileID = streamOpenAppend(TRIM(filename_for_append))
+        of%cdiFileID       = streamOpenAppend(TRIM(filename_for_append))
+
         ! inquire the opened file for its associated vlist
-        of%cdiVlistID = streamInqVlist(of%cdiFileID)
+        of%cdiVlistID      = streamInqVlist(of%cdiFileID)
+
         ! and time axis, the only components different to the previous model prepared vlist
-        of%cdiTaxisID = vlistInqTaxis(of%cdiVlistID)
+        of%cdiTaxisID      = vlistInqTaxis(of%cdiVlistID)
+
         ! get the already stored number of time steps
-        of%cdiTimeIndex = vlistNtsteps(of%cdiVlistID)
-        lappend = .TRUE.
-        of%appending = .TRUE.
+        of%cdiTimeIndex    = vlistNtsteps(of%cdiVlistID)
+        lappend            = .TRUE.
+        of%appending       = .TRUE.
       ELSE
         IF (of%appending) THEN
           ! restore model internal vlist and time axis handler association
-          of%cdiVlistID = of%cdiVlistID_orig
+          of%cdiVlistID      = of%cdiVlistID_orig
           of%cdiVlistID_orig = CDI_UNDEFID
-          of%cdiTaxisID = of%cdiTaxisID_orig
+          of%cdiTaxisID      = of%cdiTaxisID_orig
           of%cdiTaxisID_orig = CDI_UNDEFID
         ENDIF
-        of%cdiFileID = streamOpenWrite(TRIM(filename), of%output_type)
-        of%appending = .FALSE.
+        of%cdiFileID       = streamOpenWrite(TRIM(filename), of%output_type)
+        of%appending       = .FALSE.
       ENDIF
     ELSE
-      if (of%appending) THEN
+      IF (of%appending) THEN
         ! restore model internal vlist and time axis handler association
-        of%cdiVlistID = of%cdiVlistID_orig
+        of%cdiVlistID      = of%cdiVlistID_orig
         of%cdiVlistID_orig = CDI_UNDEFID
-        of%cdiTaxisID = of%cdiTaxisID_orig
+        of%cdiTaxisID      = of%cdiTaxisID_orig
         of%cdiTaxisID_orig = CDI_UNDEFID
       ENDIF
-      of%cdiFileID = streamOpenWrite(TRIM(filename), of%output_type)
-      of%appending = .FALSE.
+        of%cdiFileID       = streamOpenWrite(TRIM(filename), of%output_type)
+        of%appending       = .FALSE.
     ENDIF
 
     IF (of%cdiFileID < 0) THEN
