@@ -462,7 +462,7 @@ CONTAINS
       field% tke   (:,:,:) = 1.e-4_wp
 
       field% cosmu0    (:,  :) = 0._wp
-      field% flxdwswtoa(:,  :) = 0._wp
+      field% swdnflxtoa(:,  :) = 0._wp
       field% vissfc    (:,  :) = 0._wp
       field% nirsfc    (:,  :) = 0._wp
       field% parsfcdn  (:,  :) = 0._wp
@@ -476,7 +476,6 @@ CONTAINS
       field% swflxsfc_tile(:,:,:) = 0._wp
       field% lwflxsfc_tile(:,:,:) = 0._wp
       field% lwupflxsfc  (:,:) = 0._wp
-      field% dlwflxsfc_dT(:,:) = 0._wp
       field% swflxtoa    (:,:) = 0._wp
       field% lwflxtoa    (:,:) = 0._wp
       field% aclc  (:,:,:) = 0._wp
