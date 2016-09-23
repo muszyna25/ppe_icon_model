@@ -44,7 +44,7 @@ USE mo_mpi,                ONLY: p_pe, p_bcast, p_sum, p_max, p_min, p_send, p_r
   &                              get_my_mpi_all_id, process_mpi_all_test_id,                       &
   &                              my_process_is_mpi_parallel, p_work_pe0,p_pe_work,                 &
   &                              comm_lev, glob_comm, comm_proc0,   &
-  &                              p_gather, p_gatherv
+  &                              p_gather, p_gatherv, num_test_procs
 #ifdef _OPENACC
 USE mo_mpi,                ONLY: i_am_accel_node
 #endif
@@ -603,10 +603,12 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
    REAL(wp), INTENT(IN) :: arr(:,:,:)
 
    REAL(wp), ALLOCATABLE:: arr_g(:,:,:)
-   INTEGER :: j, jb, jl, jb_g, jl_g, n, ndim2, ndim3, nblks_g, flag
+   INTEGER :: j, jb, jl, jb_g, jl_g, n, ndim2, ndim3, nblks_g, flag, jk
    INTEGER :: ityp, ndim, ndim_g
-   INTEGER :: nerr(0:n_ghost_rows)
+   INTEGER :: nerr(0:n_ghost_rows), shape_recv(3)
    INTEGER, POINTER :: p_glb_index(:), p_decomp_domain(:,:)
+   CLASS(t_comm_pattern), POINTER :: p_pat_work2test
+   LOGICAL :: l_my_process_is_mpi_test
 
    CHARACTER(len=256) :: varname, cfmt
    INTEGER :: varname_tlen
@@ -618,6 +620,7 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
    ityp   = -1
    ndim   = -1
    ndim_g = -1
+   sync_error = .FALSE.
 
    NULLIFY(p_glb_index, p_decomp_domain)
 !-----------------------------------------------------------------------
@@ -650,18 +653,21 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
       p_glb_index => p_patch%cells%decomp_info%glb_index
       p_decomp_domain => p_patch%cells%decomp_info%decomp_domain
       ityp = typ
+      p_pat_work2test => p_patch%comm_pat_work2test(1)%p
    ELSE IF(typ == SYNC_E) THEN
       ndim   = p_patch%n_patch_edges
       ndim_g = p_patch%n_patch_edges_g
       p_glb_index => p_patch%edges%decomp_info%glb_index
       p_decomp_domain => p_patch%edges%decomp_info%decomp_domain
       ityp = typ
+      p_pat_work2test => p_patch%comm_pat_work2test(3)%p
    ELSE IF(typ == SYNC_V) THEN
       ndim   = p_patch%n_patch_verts
       ndim_g = p_patch%n_patch_verts_g
       p_glb_index => p_patch%verts%decomp_info%glb_index
       p_decomp_domain => p_patch%verts%decomp_info%decomp_domain
       ityp = typ
+      p_pat_work2test => p_patch%comm_pat_work2test(2)%p
    ELSE IF(typ == 0) THEN
       ! typ == 0 may be set for quick checks without knowing the type of the array.
       ! It may only be used if the array is correctly dimensioned.
@@ -672,18 +678,21 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
          p_glb_index => p_patch%cells%decomp_info%glb_index
          p_decomp_domain => p_patch%cells%decomp_info%decomp_domain
          ityp = SYNC_C
+         p_pat_work2test => p_patch%comm_pat_work2test(1)%p
       ELSE IF(ndim3 == p_patch%nblks_e) THEN
          ndim   = p_patch%n_patch_edges
          ndim_g = p_patch%n_patch_edges_g
          p_glb_index => p_patch%edges%decomp_info%glb_index
          p_decomp_domain => p_patch%edges%decomp_info%decomp_domain
          ityp = SYNC_E
+         p_pat_work2test => p_patch%comm_pat_work2test(3)%p
       ELSE IF(ndim3 == p_patch%nblks_v) THEN
          ndim   = p_patch%n_patch_verts
          ndim_g = p_patch%n_patch_verts_g
          p_glb_index => p_patch%verts%decomp_info%glb_index
          p_decomp_domain => p_patch%verts%decomp_info%decomp_domain
          ityp = SYNC_V
+         p_pat_work2test => p_patch%comm_pat_work2test(2)%p
       ELSE
          CALL finish('check_patch_array','typ==0 but unknown blocksize of array')
       ENDIF
@@ -696,7 +705,23 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
 
    nblks_g = (ndim_g-1)/nproma+1
 
-   IF(get_my_mpi_all_id() == process_mpi_all_test_id) THEN
+   l_my_process_is_mpi_test = my_process_is_mpi_test()
+   IF (num_test_procs > 1) THEN
+     shape_recv = SHAPE(arr)
+     ALLOCATE(arr_g(shape_recv(1),shape_recv(2),shape_recv(3)))
+     CALL exchange_data(p_pat_work2test, arr_g, arr)
+     IF(l_my_process_is_mpi_test) THEN
+       DO jb = 1, ndim3
+         DO jk = 1, ndim2
+           DO jl = 1, nproma
+             sync_error = sync_error &
+               &          .OR. (p_decomp_domain(jl,jb) == 0 &
+               &                .AND. arr(jl, jk, jb) /= arr_g(jl, jk, jb))
+           END DO
+         END DO
+       END DO
+     END IF
+   ELSE IF(l_my_process_is_mpi_test) THEN
 
      ! the test PE may also have reordered global indices. create a
      ! temporary array in the correct order:
@@ -733,7 +758,6 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
       nerr(:) = 0
       absmax = 0.0_wp
       relmax = 0.0_wp
-      sync_error = .FALSE.
 
       DO j = 1, ndim
 
@@ -805,25 +829,23 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
       ENDIF
 
       ! Terminate the programm if the array is out of sync
-
-      IF(sync_error) THEN
-#if defined( __ROUNDOFF_CHECK )
-        PRINT *, TRIM(varname), ' synch error detected '
-        IF(l_log_checks) THEN
-          WRITE(log_file,'(''log'',i4.4,''.txt'')') p_pe
-          OPEN(log_unit, FILE=log_file, STATUS="OLD", POSITION="APPEND", ACTION="WRITE")   ! Reopen file for subsequent output
-          PRINT *, 'OPEN_ACC version: ', TRIM(varname), ' max abs error ', absmax, ' rel error ', relmax
-        ENDIF
-#else
-        IF(l_log_checks) THEN
-          CLOSE (log_unit)
-        ENDIF
-        CALL finish('sync_patch_array','Out of sync detected!')
-#endif
-      ENDIF
-
       DEALLOCATE(arr_g)
 
+   ENDIF
+   IF (sync_error) THEN
+#if defined( __ROUNDOFF_CHECK )
+     PRINT *, TRIM(varname), ' synch error detected '
+     IF(l_log_checks) THEN
+       WRITE(log_file,'(''log'',i4.4,''.txt'')') p_pe
+       OPEN(log_unit, FILE=log_file, STATUS="OLD", POSITION="APPEND", ACTION="WRITE")   ! Reopen file for subsequent output
+       PRINT *, 'OPEN_ACC version: ', TRIM(varname), ' max abs error ', absmax, ' rel error ', relmax
+     ENDIF
+#else
+     IF(l_log_checks) THEN
+       CLOSE (log_unit)
+     ENDIF
+     CALL finish('sync_patch_array','Out of sync detected!')
+#endif
    ENDIF
 
 !$ACC END DATA
