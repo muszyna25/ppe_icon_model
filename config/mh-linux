@@ -119,6 +119,9 @@ case "$fortran_compiler" in
         if gcc --help${eq}params | grep max-vartrack-size >/dev/null ; then
           GEN_FLAGS = $GEN_FLAGS -Wc,--param,max-vartrack-size=200000000
         fi
+        if gcc --help${eq}target | grep '^ *-mfma ' >/dev/null ; then
+          GEN_FLAGS = $GEN_FLAGS -Wc,-mno-fma
+        fi
         DEBUG_FLAGS = -O0 -Wc,-g -float-store -nan $FDEBUG
         STD_FLAGS   = $DEBUG_FLAGS
         HIOPT_FLAGS = -Wc,-O3 -Wc,-march=native
@@ -768,7 +771,7 @@ case "$ac_sitename" in
                         mpi_startrun = srun
                         ;;
                     nag*)
-                        load_modules    = gcc/4.8.2 nag/6.0.1064 mvapich2/1.9b-static-nag60 ${load_modules}
+                        load_modules    = gcc/4.9.2 nag/6.0.1064 mvapich2/1.9b-static-nag60 ${load_modules}
                         config_compiler = nag
                         c_compiler_version = $(gcc --version | awk 'NR==1{split($NF,v,"."); printf("gcc%1d%1d", v[1], v[2])}')
                         CC     = gcc
