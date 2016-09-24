@@ -589,6 +589,7 @@ MODULE mo_nh_stepping
   
   REAL(wp)                             :: sim_time     !< elapsed simulation time
 
+  LOGICAL :: l_isStartdate, l_isExpStopdate, l_isRestart, l_isCheckpoint, l_doWriteRestart
   
 !!$  INTEGER omp_get_num_threads
 
@@ -1098,19 +1099,26 @@ MODULE mo_nh_stepping
     !
     ! default is to assume we do not write a checkpoint/restart file
     lwrite_checkpoint = .FALSE.
+    ! if thwe model is not supposed to write output, do not write checkpoints
     IF (.NOT. output_mode%l_none ) THEN
+      ! to clarify the decision tree we use shorter and more expressive names:
+
+      l_isStartdate    = (time_config%tc_startdate == mtime_current)
+      l_isExpStopdate  = (time_config%tc_exp_stopdate == mtime_current)
+      l_isRestart      = isCurrentEventActive(restartEvent, mtime_current)
+      l_isCheckpoint   = isCurrentEventActive(checkpointEvent, mtime_current)
+      l_doWriteRestart = time_config%tc_write_restart
+
       IF ( &
-           !  if normal checkpoint cycle has been reached ...
-           &  ((isCurrentEventActive(checkpointEvent, mtime_current)                                      &
-           !  or restart cycle has been reached, i.e. checkpoint+model stop
-           &  .OR.  isCurrentEventActive(restartEvent, mtime_current))                                    &
-           !  and the current date differs from simulation start date
-           &  .AND. .NOT. (time_config%tc_startdate == mtime_current))                                    &
-           !  and end of run has not been reached
-           &  .AND. .NOT. (time_config%tc_stopdate == mtime_current)                                      &
-           !  or restart writing has been disabled
-           &  .OR. (time_config%tc_write_restart .AND. isCurrentEventActive(restartEvent, mtime_current)) &
-           ) THEN
+           !  if normal checkpoint or restart cycle has been reached, i.e. checkpoint+model stop
+           &         (l_isRestart .OR. l_isCheckpoint)                     &
+           &  .AND.                                                        &
+           !  and the current date differs from the start date
+           &        .NOT. l_isStartdate                                    &
+           &  .AND.                                                        &
+           !  and end of run has not been reached or restart writing has been disabled
+           &        (.NOT. l_isExpStopdate .OR. l_doWriteRestart)          &
+           & ) THEN
         lwrite_checkpoint = .TRUE.
       END IF
     END IF
