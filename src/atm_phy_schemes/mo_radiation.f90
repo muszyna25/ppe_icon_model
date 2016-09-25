@@ -88,11 +88,11 @@ MODULE mo_radiation
   USE mo_art_radiation_interface, ONLY: art_rad_aero_interface
   USE mo_psrad_radiation_forcing, ONLY: calculate_psrad_radiation_forcing
   USE mtime,                   ONLY: datetime, newDatetime, timedelta, newTimedelta, &
-       &                             getPTStringFromSeconds, OPERATOR(+),            &
-       &                             NO_OF_SEC_IN_A_MINUTE, NO_OF_SEC_IN_A_HOUR,     &
+       &                             getPTStringFromMS, OPERATOR(+),                 &
+       &                             NO_OF_MS_IN_A_MINUTE, NO_OF_MS_IN_A_HOUR,       &
        &                             getDayOfYearFromDatetime, MAX_TIMEDELTA_STR_LEN,&
        &                             deallocateTimedelta, deallocateDatetime,        &
-       &                             NO_OF_SEC_IN_A_DAY
+       &                             NO_OF_MS_IN_A_SECOND, NO_OF_SEC_IN_A_DAY
   
   IMPLICIT NONE
 
@@ -200,13 +200,15 @@ CONTAINS
         p_sim_time_rad = p_sim_time + (REAL(jmu0,wp)-0.5_wp)*p_inc_radheat
         
         current => newDatetime(time_config%tc_exp_startdate)
-        CALL getPTStringFromSeconds(INT(p_sim_time_rad,i8), td_string)
+        CALL getPTStringFromMS(INT(1000.0_wp*p_sim_time_rad,i8), td_string)
         td => newTimedelta(td_string)
         current = time_config%tc_exp_startdate + td
         jj = INT(current%date%year)
         itaja = getDayOfYearFromDateTime(current)
-        zstunde = current%time%hour &
-             & +(current%time%minute*NO_OF_SEC_IN_A_MINUTE+current%time%second+1.0d-3*current%time%ms)/NO_OF_SEC_IN_A_HOUR
+        zstunde = current%time%hour+( &
+             &    REAL(current%time%minute*NO_OF_MS_IN_A_MINUTE &
+             &        +current%time%second*NO_OF_MS_IN_A_SECOND &
+             &        +current%time%ms,wp)/REAL(NO_OF_MS_IN_A_HOUR,wp))
         CALL deallocateDatetime(current)
         CALL deallocateTimedelta(td)
 
@@ -261,13 +263,15 @@ CONTAINS
         p_sim_time_rad = p_sim_time + (REAL(jmu0,wp)-0.5_wp)*p_inc_radheat
 
         current => newDatetime(time_config%tc_exp_startdate)
-        CALL getPTStringFromSeconds(INT(p_sim_time_rad,i8), td_string)
+        CALL getPTStringFromMS(INT(1000.0_wp*p_sim_time_rad,i8), td_string)
         td => newTimedelta(td_string)
         current = time_config%tc_exp_startdate + td
         jj = INT(current%date%year)
         itaja = getDayOfYearFromDateTime(current)
-        zstunde = current%time%hour &
-             & +(current%time%minute*NO_OF_SEC_IN_A_MINUTE+current%time%second+1.0d-3*current%time%ms)/NO_OF_SEC_IN_A_HOUR
+        zstunde = current%time%hour+( &
+             &    REAL(current%time%minute*NO_OF_MS_IN_A_MINUTE &
+             &        +current%time%second*NO_OF_MS_IN_A_SECOND &
+             &        +current%time%ms,wp)/REAL(NO_OF_MS_IN_A_HOUR,wp))
         CALL deallocateDatetime(current)
         CALL deallocateTimedelta(td)
 
@@ -437,16 +441,18 @@ CONTAINS
     p_sim_time_rad = p_sim_time + 0.5_wp*p_inc_rad
     
     current => newDatetime(time_config%tc_exp_startdate)
-    CALL getPTStringFromSeconds(INT(p_sim_time_rad,i8), td_string)
+    CALL getPTStringFromMS(INT(1000.0_wp*p_sim_time_rad,i8), td_string)
     td => newTimedelta(td_string)
     current = time_config%tc_exp_startdate + td
     jj = INT(current%date%year)
     itaja = getDayOfYearFromDateTime(current)
-    zstunde = current%time%hour &
-         & +(current%time%minute*NO_OF_SEC_IN_A_MINUTE+current%time%second+1.0d-3*current%time%ms)/NO_OF_SEC_IN_A_HOUR
+    zstunde = current%time%hour+( &
+         &    REAL(current%time%minute*NO_OF_MS_IN_A_MINUTE &
+         &        +current%time%second*NO_OF_MS_IN_A_SECOND &
+         &        +current%time%ms,wp)/REAL(NO_OF_MS_IN_A_HOUR,wp))
     CALL deallocateDatetime(current)
     CALL deallocateTimedelta(td)
-    
+
     !Second case izenith==3 (time (but no date) needed)
     IF (izenith == 3) THEN
 
