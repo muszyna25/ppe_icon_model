@@ -603,7 +603,7 @@ CONTAINS
     !   Note: the evap_tile should be properly updated and added;
     !         as long as the tiles are not passed correctly, the evaporation over the
     !         whole grid-cell is passed to the ocean
-    !         for pre04 a preliminary solution for evaporation in ocean model is:
+    !         for pre04 a preliminary solution for evaporation in ocean model is to exclude the land fraction
     !         evap.oce = evap.wtr*frac.wtr + evap.ice*frac.ice
     !
     buffer(:,:) = 0.0_wp  ! temporarily
@@ -618,14 +618,10 @@ CONTAINS
       DO n = 1, nlen
         buffer(nn+n,1) = prm_field(jg)%rsfl(n,i_blk) + prm_field(jg)%rsfc(n,i_blk) ! total rain
         buffer(nn+n,2) = prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk) ! total snow
-        buffer(nn+n,3) = prm_field(jg)%evap(n,i_blk)                               ! total evaporation
-        !  calculation of total evaporation over water and ice,
-        !  calculation of land, water, ice fractions
-        !zfrl = prm_field(jg)%lsmask(n,i_blk)
-        !zfrw = (1._wp-zfrl)*(1._wp-prm_field(jg)%seaice(n,i_blk)
-        !zfri = 1._wp-zfrl-zfrw
-        !buffer(nn+n,3) = prm_field(jg)%evap_tile(n,i_blk,iwtr) * zfrw +
-        ! &               prm_field(jg)%evap_tile(n,i_blk,iice) * zfri
+        !buffer(nn+n,3) = prm_field(jg)%evap(n,i_blk)                               ! global evaporation
+        ! evaporation over ice-free and ice-covered water fraction
+        buffer(nn+n,3) = prm_field(jg)%evap_tile(n,i_blk,iwtr) * prm_field(jg)%frac_tile(n,i_blk,iwtr) + &
+         &               prm_field(jg)%evap_tile(n,i_blk,iice) * prm_field(jg)%frac_tile(n,i_blk,iice)
       ENDDO
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
