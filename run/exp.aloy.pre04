@@ -40,9 +40,6 @@ author_list="Marco Giorgetta, Rene Redler, Reiner Schnur, Stephan Lorenz"
 # modelname_list[0]="atmo"  : needs to correspond with yac_fdef_comp and xml cmomponent name
 # modelname_list[1]="ocean" : needs to correspond with yac_fdef_comp and xml cmomponent name
 #
-# Variables atmo_dyn_grids and ocean_grids are used elsewhere in the scripting mechanim. Thus
-# the names of these variables must not be changed. 
-#
 #--------------------------------------------------------------------------------------------------
 
 # I.2 Set variables needed by the scripting mechanism
@@ -64,11 +61,10 @@ fi
 # horizontal grid(s)
 # ------------------
 
+# Variables atmo_dyn_grids and ocean_grids are used in namelist and linked to model directory
 grids_folder=${icon_data_poolFolder}/coupled_input_temp/aloy_pre04
-atmo_dyn_grids='OCEANGridNoLake_pre04_slo_0158km_bathy.amip2012.nc'
+atmo_dyn_grids='ATMOOceGridWithCoast_158km.nc'
 ocean_grids='OCEANGridNoLake_pre04_slo_0039km_bathy.edit2016.nc'
-#atmo_dyn_grids='r2b4_amip.nc'
-#ocean_grids='Earth_Icos_0039km_from160km-amip-cor.nc'
 
 # start and end date+time
 # -----------------------
@@ -94,12 +90,19 @@ dtime_cpl=$dtime_oce
 # NEEDED TO KEEP THIS EXPERIMENT WORKING WITHOUT "--enable-mtime-loop" CONFIGURATION.
 # TO BE DELETED AFTER THE "mtime time loop" IS COMPLETELY IMPLEMENTED.
 
-# high frequency output and restart test intervals
+# high frequency output and restart intervals
 (( dt_restart    =   1 * day))
 (( dt_checkpoint =   1 * day))
 atm_output_interval="PT6H"
 lnd_output_interval="PT6H"
 oce_output_interval="PT6H"
+
+# mid-frequency output and restart intervals
+#(( dt_restart    =   180 * day))
+#(( dt_checkpoint =   180 * day))
+#atm_output_interval="P5D"
+#lnd_output_interval="P5D"
+#oce_output_interval="P30D"
 
 ## long-term low frequency output and restart intervals - must be multiple of atm/oce output_interval
 #(( dt_restart    = 1440 * day))  #  4y
@@ -294,6 +297,12 @@ EOF
 # II.2 Define the input
 # ---------------------
 
+# II.2.0 Grid files
+# ------------------
+# slo.2016/09 atmospere and ocean base masks, no longer copied from HGRIDDIR - not yet tested
+#add_link_file $grids_folder/$atmo_dyn_grids                             ./$atmo_dyn_grids                
+#add_link_file $grids_folder/$ocean_grids                                ./$ocean_grids                
+
 # II.2.1 Model files
 # ------------------
 
@@ -384,6 +393,8 @@ add_link_file $datadir/hd_para_pre04_vs1_4_ncrename.nc                  ./bc_lan
 
 # slo.2016/09 read -2to2 cell_sea_land_mask, name hardcoded as r2b4_amip.nc - use same as for HD-model (lsf>0:=land)
 add_link_file $datadir/slm-2to2_forHDmodel_158km.nc                     ./r2b4_amip.nc
+add_link_file $datadir/slm-2to2_forHDmodel_158km.nc                     ./hd_mask.nc
+add_link_file $datadir/runoff_a2o.r110.2.HD.nc                          ./runoff_a2o.weights.nc
 #
 # slo.2016/09 - noch alter Name
 #datadir=$INDATA/r2b4_amip/lnd
@@ -425,11 +436,10 @@ if [[ "$output_atm_min" == "yes" ]]; then
  output_interval  = "${atm_output_interval}"
  file_interval    = "${atm_file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'orog'    , 'ps'      ,
-                    'sic'     , 'sit'     ,
+ ml_varlist       = 'orog'    , 'ps'      , 'frac_wtr', 'frac_ice', 'frac_lnd',
+                    'land'    , 'lsm_hd_c', 'sic'     , 'sit'     ,
                     'hfls'    , 'hfss'    , 'evspsbl' ,
-                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
-                    'rsdt'    ,
+                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    , 'rsdt'    ,
                     'clt'     , 'psl'     , 'tas'     , 'ts'      ,
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
                     'tauu'    , 'tauv'    , 'albedo'  ,
@@ -527,6 +537,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  output_filename  = "${EXPNAME}_phy_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
+ operation        = 'mean'
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
@@ -557,6 +568,7 @@ if [[ "$output_aer_3d" == "yes" ]]; then
  output_filename  = "${EXPNAME}_aer_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
+ operation        = 'mean'
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
@@ -793,7 +805,10 @@ if [[ "$output_oce_min" == "yes" ]]; then
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'wet_c','basin_c','regio_c','mld','condep','h_acc','u_vint_acc','hi_acc','hs_acc','conc_acc',
                       't_acc','s_acc','u_acc','topBoundCond_windStress_u_acc',
-                      'HeatFlux_Total_acc','FrshFlux_Runoff_acc','FrshFlux_Precipitation_acc',
+                      'HeatFlux_Total_acc','atmos_fluxes_HeatFlux_ShortWave','atmos_fluxes_HeatFlux_LongWave',
+                      'HeatFlux_ShortWave_acc',
+                      'atmos_fluxes_HeatFlux_Latent','atmos_fluxes_HeatFlux_Sensible'
+                      'FrshFlux_Runoff_acc','FrshFlux_Precipitation_acc','FrshFlux_Evaporation_acc','FrshFlux_SnowFall_acc',
                       'FrshFlux_TotalOcean_acc', 'oceWind_Speed_10m'
 /
 EOF
@@ -1113,8 +1128,8 @@ cat > ${cpl_xmlctrfn} << EOF
                <target_timelag>1</target_timelag>
             </timestep>
             <interpolation_requirements use_source_mask="true" use_target_mask="true">
-               <interpolation method="n-nearest_neighbor" n="1" weighted="ARITHMETIC_AVERAGE"/>
-               <interpolation method="fixed_value" user_value="-999.0"/>
+               <interpolation method="user_file" filename="runoff_a2o.weights.nc"/>
+               <interpolation method="fixed_value" user_value="0.0"/>
             </interpolation_requirements>
             <debug_mode at_source_after_interpolation="false" at_source_before_interpolation="false" at_target="false"/>
             <enforce_write_restart>false</enforce_write_restart>
@@ -1158,5 +1173,9 @@ EOF
 add_required_file ${basedir}/run/${cpl_xmlctrfn}  ./coupling.xml
 add_required_file ${basedir}/run/coupling.xsd  ./
 add_required_file ${basedir}/run/component.xsd ./
+
+# set grid filenames to undefined to avoid copy mechanism by exec.iconrun (not tested, change later):
+#atmo_dyn_grids=""
+#ocean_grids=""
 
 #--------------------------------------------------------------------------------------------------
