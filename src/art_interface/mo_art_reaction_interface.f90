@@ -177,7 +177,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
                   & p_prog_list,                      &
                   & p_diag,                           &
                   & p_metrics,                        &
-                  & p_tracer_now)
+                  & tracer)
 
         CASE DEFAULT
           CALL finish('mo_art_reaction_interface:art_reaction_interface', &
