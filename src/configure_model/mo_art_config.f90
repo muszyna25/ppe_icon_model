@@ -119,6 +119,8 @@ MODULE mo_art_config
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_mozartfile              !< Path to mozart initialization file
     CHARACTER(LEN=IART_PATH_LEN) :: &
+      &  cart_mozartcoord             !< Path to mozart coordinate file
+    CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_chemistry_xml           !< Path to XML file for chemical tracers
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_aerosol_xml             !< Path to XML file for aerosol tracers
