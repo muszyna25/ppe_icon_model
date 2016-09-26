@@ -441,6 +441,7 @@ CONTAINS
         pot_temp          => ocean_state%p_diag%rho_GM   
         grad_T_vec        => ocean_state%p_aux%PgradTemperature_horz_center
         grad_T_vert_center=> ocean_state%p_aux%DerivTemperature_vert_center
+        
       
       ENDIF
     !Note that in case of 1-component fluid we use the density for the slope calculation,
@@ -452,13 +453,15 @@ CONTAINS
     
     ENDIF
     
-!    grad_T_vec(:,:,:)%x(1)=0.0_wp
-!    grad_T_vec(:,:,:)%x(2)=0.0_wp
-!    grad_T_vec(:,:,:)%x(3)=0.0_wp
-!    grad_T_vert_center(:,:,:)=0.0_wp
+    !grad_T_vec(:,:,:)%x(1)=0.0_wp
+    !grad_T_vec(:,:,:)%x(2)=0.0_wp
+    !grad_T_vec(:,:,:)%x(3)=0.0_wp
+    !grad_T_vert_center(:,:,:)=0.0_wp
 
     start_level = 1
-    
+    !grad_T_horz(:,:,:)=0.0_wp
+    !pot_temp(:,:,:)=0.0_wp
+
     !-------------------------------------------------------------------------------
     !1) calculation of horizontal and vertical gradient for potential temperature and salinity
 !ICON_OMP_PARALLEL
@@ -494,8 +497,10 @@ CONTAINS
 
     !---------------------------------------------------------------------
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index) ICON_OMP_DEFAULT_SCHEDULE
+ 
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+
       grad_T_vert(:,:,blockNo) = 0.0_wp ! this is only for the top level
       !1c) calculation of vertical derivative for temperature and salinity
       CALL verticalDeriv_scalar_onHalfLevels_on_block( patch_3d,                &
@@ -505,7 +510,6 @@ CONTAINS
                                                   & blockNo,                 &
                                                   & start_cell_index,        &
                                                   & end_cell_index)
-
       IF((no_tracer>=2).AND.SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN
         grad_S_vert(:,:,blockNo) = 0.0_wp! this is only for the top level
         CALL verticalDeriv_scalar_onHalfLevels_on_block( patch_3d,                &
@@ -638,6 +642,9 @@ CONTAINS
                   ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)=&
                     & DOT_PRODUCT(ocean_state%p_aux%slopes(cell_index,level,blockNo)%x,&
                                  &ocean_state%p_aux%slopes(cell_index,level,blockNo)%x)
+!write(123,*)'slope squared',level,ocean_state%p_aux%slopes_squared(cell_index,level,blockNo),&
+!&sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo))
+                                  
                 END DO
          !Perform nearest neighbor interpolation at level where slopes are not well-defined
 !           ocean_state%p_aux%slopes(cell_index,start_level,blockNo)%x &
@@ -846,10 +853,10 @@ CONTAINS
   idt_src=1  ! output print level (1-5, fix)
   CALL dbg_print('calc_slopes: squared',(ocean_state%p_aux%slopes_squared(:,:,:)),&
     & str_module,idt_src, in_subset=cells_in_domain)
-!   DO level=1,n_zlev
-!     CALL dbg_print('calc_slopes: slobe abs',sqrt(ocean_state%p_aux%slopes_squared(:,level,:)),&
-!       & str_module,idt_src, in_subset=cells_in_domain)
-!  END DO
+   DO level=1,n_zlev
+     CALL dbg_print('calc_slopes: slobe abs',sqrt(ocean_state%p_aux%slopes_squared(:,level,:)),&
+       & str_module,idt_src, in_subset=cells_in_domain)
+  END DO
 
   !---------------------------------------------------------------------
 

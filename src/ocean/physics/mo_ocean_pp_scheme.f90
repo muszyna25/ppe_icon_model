@@ -168,6 +168,10 @@ CONTAINS
     z_av0 = richardson_veloc
     z_grav_rho                   = grav/OceanReferenceDensity
     z_inv_OceanReferenceDensity                = 1.0_wp/OceanReferenceDensity
+    
+    !ocean_state%p_diag%rho_GM(:,:,:)=0.0_wp
+    z_rho_up(:)=0.0_wp
+    z_rho_down(:)=0.0_wp
     !-------------------------------------------------------------------------
 !     IF (ltimer) CALL timer_start(timer_extra10)
 
@@ -195,8 +199,9 @@ CONTAINS
         z_rho_down(2:levels)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,2:levels,blockNo,1), &
           & salinity(2:levels), pressure(2:levels), levels-1)
 
+
         DO jk = 2, levels
-          ocean_state%p_diag%rho_GM(jc,jk,blockNo)=0.5_wp*(z_rho_up(jk)+z_rho_down(jk))
+        ocean_state%p_diag%rho_GM(jc,jk,blockNo)=0.5_wp*(z_rho_up(jk)+z_rho_down(jk))
         
           z_shear_cell = dbl_eps + &
             & SUM((ocean_state%p_diag%p_vn(jc,jk-1,blockNo)%x - ocean_state%p_diag%p_vn(jc,jk,blockNo)%x)**2)
@@ -350,8 +355,12 @@ CONTAINS
     levels = n_zlev
 
     !-------------------------------------------------------------------------
-    z_grav_rho                   = grav/OceanReferenceDensity
-    z_inv_OceanReferenceDensity                = 1.0_wp/OceanReferenceDensity
+    z_grav_rho                      = grav/OceanReferenceDensity
+    z_inv_OceanReferenceDensity     = 1.0_wp/OceanReferenceDensity
+    !ocean_state%p_diag%rho_GM(:,:,:)=0.0_wp
+    z_rho_up(:)=0.0_wp
+    z_rho_down(:)=0.0_wp
+    
     !-------------------------------------------------------------------------
 !     IF (ltimer) CALL timer_start(timer_extra10)
 
@@ -379,9 +388,10 @@ CONTAINS
         z_rho_down(2:levels)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,2:levels,blockNo,1), &
           & salinity(2:levels), pressure(2:levels), levels-1)
 
+
         DO jk = 2, levels
           ocean_state%p_diag%rho_GM(jc,jk,blockNo)=0.5_wp*(z_rho_up(jk)+z_rho_down(jk))
-          
+                    
           z_shear_cell = dbl_eps + &
             & SUM((ocean_state%p_diag%p_vn(jc,jk-1,blockNo)%x - ocean_state%p_diag%p_vn(jc,jk,blockNo)%x)**2)
           z_vert_density_grad_c(jc,jk,blockNo) = (z_rho_down(jk) - z_rho_up(jk-1)) *  &
@@ -696,8 +706,12 @@ CONTAINS
     levels = n_zlev
 
     !-------------------------------------------------------------------------
-    z_grav_rho                   = grav/OceanReferenceDensity
-    z_inv_OceanReferenceDensity                = 1.0_wp/OceanReferenceDensity
+    z_grav_rho                          = grav/OceanReferenceDensity
+    z_inv_OceanReferenceDensity         = 1.0_wp/OceanReferenceDensity
+    !ocean_state%p_diag%rho_GM(:,:,:)    =0.0_wp
+    z_rho_up(:)=0.0_wp
+    z_rho_down(:)=0.0_wp
+    
     !-------------------------------------------------------------------------
 !     IF (ltimer) CALL timer_start(timer_extra10)
 
@@ -725,8 +739,8 @@ CONTAINS
         z_rho_down(2:levels)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,2:levels,blockNo,1), &
           & salinity(2:levels), pressure(2:levels), levels-1)
 
+
         DO jk = 2, levels
-        
           ocean_state%p_diag%rho_GM(jc,jk,blockNo)=0.5_wp*(z_rho_up(jk)+z_rho_down(jk))
         
           z_shear_cell = dbl_eps + &
@@ -872,7 +886,6 @@ CONTAINS
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: edges_in_domain, all_cells!, cells_in_domain
     TYPE(t_patch), POINTER :: p_patch
-
     !-------------------------------------------------------------------------
     p_patch         => patch_3d%p_patch_2d(1)
     edges_in_domain => p_patch%edges%in_domain
@@ -902,6 +915,9 @@ CONTAINS
     av_wind(:,1:levels,:) = 0.0_wp
 
     loc_eps = dbl_eps
+    rho_up(:)=0.0_wp    
+    rho_down(:)=0.0_wp
+    !ocean_state%p_diag%rho_GM(:,:,:)=0.0_wp
 
 !ICON_OMP_PARALLEL PRIVATE(salinity)
     salinity(1:levels) = sal_ref
@@ -933,6 +949,7 @@ CONTAINS
         rho_down(2:levels)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,2:levels,blockNo,1), &
           & salinity(2:levels), pressure(2:levels), levels-1)
 
+
         DO jk = 2, levels
         
           ocean_state%p_diag%rho_GM(jc,jk,blockNo)=0.5_wp*(rho_up(jk)+rho_down(jk))
@@ -948,6 +965,7 @@ CONTAINS
             &                           (rho_down(jk) - rho_up(jk-1)) / vert_velocity_shear, 0.0_wp)
         END DO ! levels
         ocean_state%p_diag%rho_GM(jc,1,blockNo)=ocean_state%p_diag%rho_GM(jc,2,blockNo)
+        ocean_state%p_diag%rho_GM(jc,levels+1:n_zlev,blockNo)=ocean_state%p_diag%rho_GM(jc,levels,blockNo)
         
         IF (use_wind_mixing) THEN
 
