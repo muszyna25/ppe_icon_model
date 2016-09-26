@@ -903,7 +903,7 @@ CONTAINS
     !  Receive river runoff
     !   field_id(11) represents "river_runoff" - river discharge into the ocean
     !
-    ! Note: freshwater fluxes are received in kg/m^2/s and are converted to m/s by division by rhoh2o below.
+    ! Note: river runoff fluxes are received in m^3/s and are converted to m/s by division by whole grid area
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 
@@ -928,7 +928,10 @@ CONTAINS
           IF ( nn+n > nbr_inner_cells ) THEN
             atmos_fluxes%FrshFlux_Runoff(n,i_blk) = dummy
           ELSE
-            atmos_fluxes%FrshFlux_Runoff(n,i_blk) = buffer(nn+n,1) / rhoh2o
+    ! !!! Note: freshwater fluxes are received in kg/m^2/s and are converted to m/s by division by rhoh2o below.
+    ! !!!   atmos_fluxes%FrshFlux_Runoff(n,i_blk) = buffer(nn+n,1) / rhoh2o
+    ! discharge_ocean is in m3/s
+            atmos_fluxes%FrshFlux_Runoff(n,i_blk) = buffer(nn+n,1) / patch_horz%cells%area(n,i_blk)
           ENDIF
         ENDDO
       ENDDO
