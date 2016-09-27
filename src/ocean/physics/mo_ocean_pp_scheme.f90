@@ -167,17 +167,17 @@ CONTAINS
     !-------------------------------------------------------------------------
     z_av0 = richardson_veloc
     z_grav_rho                   = grav/OceanReferenceDensity
-    z_inv_OceanReferenceDensity                = 1.0_wp/OceanReferenceDensity
-    
-    !ocean_state%p_diag%rho_GM(:,:,:)=0.0_wp
-    z_rho_up(:)=0.0_wp
-    z_rho_down(:)=0.0_wp
+    z_inv_OceanReferenceDensity  = 1.0_wp/OceanReferenceDensity    
     !-------------------------------------------------------------------------
 !     IF (ltimer) CALL timer_start(timer_extra10)
 
-!ICON_OMP_PARALLEL PRIVATE(salinity)
+!ICON_OMP_PARALLEL PRIVATE(salinity,z_rho_up, z_rho_down)
     salinity(1:levels) = sal_ref
-!ICON_OMP_DO PRIVATE(start_index, end_index, jc, levels, jk, pressure, z_rho_up, z_rho_down, &
+
+    z_rho_up(:)=0.0_wp
+    z_rho_down(:)=0.0_wp
+
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, levels, jk, pressure, &
 !ICON_OMP z_shear_cell, tracer_index, diffusion_weight) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, blockNo, start_index, end_index)
@@ -356,17 +356,16 @@ CONTAINS
 
     !-------------------------------------------------------------------------
     z_grav_rho                      = grav/OceanReferenceDensity
-    z_inv_OceanReferenceDensity     = 1.0_wp/OceanReferenceDensity
-    !ocean_state%p_diag%rho_GM(:,:,:)=0.0_wp
-    z_rho_up(:)=0.0_wp
-    z_rho_down(:)=0.0_wp
-    
+    z_inv_OceanReferenceDensity     = 1.0_wp/OceanReferenceDensity    
     !-------------------------------------------------------------------------
 !     IF (ltimer) CALL timer_start(timer_extra10)
 
-!ICON_OMP_PARALLEL PRIVATE(salinity)
+!ICON_OMP_PARALLEL PRIVATE(salinity, z_rho_up, z_rho_down)
     salinity(1:levels) = sal_ref
-!ICON_OMP_DO PRIVATE(start_index, end_index, jc, levels, jk, pressure, z_rho_up, z_rho_down, &
+    z_rho_up(:)=0.0_wp
+    z_rho_down(:)=0.0_wp
+    
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, levels, jk, pressure, &
 !ICON_OMP z_shear_cell, z_ri_cell, tracer_index, diffusion_weight, instabilitySign, tracer_windMixing) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, blockNo, start_index, end_index)
@@ -707,17 +706,16 @@ CONTAINS
 
     !-------------------------------------------------------------------------
     z_grav_rho                          = grav/OceanReferenceDensity
-    z_inv_OceanReferenceDensity         = 1.0_wp/OceanReferenceDensity
-    !ocean_state%p_diag%rho_GM(:,:,:)    =0.0_wp
-    z_rho_up(:)=0.0_wp
-    z_rho_down(:)=0.0_wp
-    
+    z_inv_OceanReferenceDensity         = 1.0_wp/OceanReferenceDensity   
     !-------------------------------------------------------------------------
 !     IF (ltimer) CALL timer_start(timer_extra10)
 
-!ICON_OMP_PARALLEL PRIVATE(salinity)
+!ICON_OMP_PARALLEL PRIVATE(salinity, z_rho_up, z_rho_down)
     salinity(1:levels) = sal_ref
-!ICON_OMP_DO PRIVATE(start_index, end_index, jc, levels, jk, pressure, z_rho_up, z_rho_down, &
+    z_rho_up(:)  =0.0_wp
+    z_rho_down(:)=0.0_wp
+     
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, levels, jk, pressure, &
 !ICON_OMP z_shear_cell, z_ri_cell, tracer_index, diffusion_weight, wind_mixing) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, blockNo, start_index, end_index)
@@ -915,12 +913,12 @@ CONTAINS
     av_wind(:,1:levels,:) = 0.0_wp
 
     loc_eps = dbl_eps
+
+!ICON_OMP_PARALLEL PRIVATE(salinity, rho_up, rho_down)
+    salinity(1:levels) = sal_ref
     rho_up(:)=0.0_wp    
     rho_down(:)=0.0_wp
-    !ocean_state%p_diag%rho_GM(:,:,:)=0.0_wp
-
-!ICON_OMP_PARALLEL PRIVATE(salinity)
-    salinity(1:levels) = sal_ref
+    
 !ICON_OMP_DO PRIVATE(start_index, end_index, jc, levels, jk, pressure, rho_up, rho_down, &
 !ICON_OMP vert_velocity_shear, tracer_index, diffusion_weight, decay_wind_depth, wind_param, &
 !ICON_OMP jk_max, vdgfac_bot, vdensgrad_inter, dv_old, dv_back) ICON_OMP_DEFAULT_SCHEDULE

@@ -542,7 +542,8 @@ CONTAINS
     IF(no_tracer>=2.AND.SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN        
     CALL dbg_print('neutral_slopes: grad_S_vert',grad_S_vert,&
       & str_module,idt_src, in_subset=cells_in_domain) 
-    ENDIF       
+    ENDIF  
+       
   !---------------------------------------------------------------------   
    
     !2) map horizontal and vertial derivative to cell centered vector
@@ -658,7 +659,7 @@ CONTAINS
     
         ELSEIF(.NOT.SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN
 !ICON_OMP_PARALLEL
-!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,neutral_coeff, &
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level, &
 !ICON_OMP  level) ICON_OMP_DEFAULT_SCHEDULE
           DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
             CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
@@ -703,7 +704,7 @@ CONTAINS
         
     CASE(1)!Case of single tracer
 !ICON_OMP_PARALLEL
-!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,neutral_coeff, &
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level, &
 !ICON_OMP  level) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
