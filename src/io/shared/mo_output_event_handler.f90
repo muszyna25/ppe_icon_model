@@ -1399,8 +1399,7 @@ CONTAINS
         ! matches the event name
         NULLIFY(last_node)
         par_event => union_of_all_events
-        DO
-          IF (.NOT. ASSOCIATED(par_event)) EXIT
+        DO WHILE (ASSOCIATED(par_event))
           IF (TRIM(par_event%output_event%event_data%name) == TRIM(ev2%event_data%name)) EXIT
           last_node => par_event
           par_event => par_event%next
