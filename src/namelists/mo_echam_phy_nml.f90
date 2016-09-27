@@ -82,7 +82,7 @@ CONTAINS
     ! 1. Set default values
     !------------------------------------------------------------------
     idcphycpl = 1         ! 1: dynamics and physics update sequentially
-    ldrymoist = .FALSE.   ! physics assumes dry air dynamics
+    ldrymoist = .TRUE.    ! TRUE.: dry air mass conservation; .FALSE.: moist air mass cons.
     lrad      = .TRUE.
     dt_rad    = 3600.0_wp ! [s]
     lvdiff    = .TRUE.
