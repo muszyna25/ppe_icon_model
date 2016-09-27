@@ -864,15 +864,15 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_p2d_sync)
 
-    CALL sync_patch_array_mult( SYNC_E, patch, 2, pt_prog_new%vn, pt_diag%ddt_vn_phy )
+    CALL sync_patch_array_mult( SYNC_E, patch, 1, pt_prog_new%vn )
 
     IF      (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w) THEN
       CALL sync_patch_array_mult( SYNC_C                       ,&
         &                         patch                        ,&
         &                         ntracer+5                    ,&
         &                         pt_prog_new%w                ,&
+        &                         pt_prog_new%rho              ,&
         &                         pt_diag%exner_old            ,&
-        &                         pt_diag%tempv                ,&
         &                         pt_prog_new%exner            ,&
         &                         pt_prog_new%theta_v          ,&
         &                         f4din=pt_prog_new_rcf%tracer )
@@ -880,8 +880,8 @@ CONTAINS
       CALL sync_patch_array_mult( SYNC_C                       ,&
         &                         patch                        ,&
         &                         ntracer+4                    ,&
+        &                         pt_prog_new%rho              ,&
         &                         pt_diag%exner_old            ,&
-        &                         pt_diag%tempv                ,&
         &                         pt_prog_new%exner            ,&
         &                         pt_prog_new%theta_v          ,&
         &                         f4din=pt_prog_new_rcf%tracer )
@@ -889,7 +889,7 @@ CONTAINS
       CALL sync_patch_array_mult( SYNC_C                       ,&
         &                         patch                        ,&
         &                         ntracer+3                    ,&
-        &                         pt_diag%tempv                ,&
+        &                         pt_prog_new%rho              ,&
         &                         pt_prog_new%exner            ,&
         &                         pt_prog_new%theta_v          ,&
         &                         f4din=pt_prog_new_rcf%tracer )
