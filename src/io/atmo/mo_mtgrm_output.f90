@@ -811,9 +811,13 @@ CONTAINS
     TYPE(t_gnat_tree)                  :: gnat
     INTEGER                            :: max_time_stamps
     INTEGER                            :: io_collector_rank
-    LOGICAL                            :: l_my_process_is_mpi_workroot
+    LOGICAL                            :: is_io, is_mpi_workroot, is_mpi_test
+    INTEGER                            :: world_rank
 
-    l_my_process_is_mpi_workroot = my_process_is_mpi_workroot()
+    is_io = my_process_is_io()
+    is_mpi_workroot = my_process_is_mpi_workroot()
+    is_mpi_test = my_process_is_mpi_test()
+    world_rank = get_my_mpi_all_id()
     !-- define the different roles in the MPI communication inside
     !-- this module
 
@@ -821,19 +825,18 @@ CONTAINS
     ! (only relevant if pure I/O PEs exist)
     mtgrm(jg)%l_is_varlist_sender = (process_mpi_io_size > 0)    .AND.  &
       &                   my_process_is_work() .AND. &
-      &                   l_my_process_is_mpi_workroot
+      &                   is_mpi_workroot
 
     ! Flag. True, if this PE is a pure I/O PE without own patch data:
-    mtgrm(jg)%l_pure_io_pe        = (process_mpi_io_size > 0) .AND.  &
-      &                   my_process_is_io()
+    mtgrm(jg)%l_pure_io_pe        = (process_mpi_io_size > 0) .AND. is_io
 
     io_collector_rank = -1
     IF (process_mpi_io_size > 0) THEN
 
       ! determine rank of last I/O PE
-      IF (my_process_is_io()) THEN
+      IF (is_io) THEN
         IF (p_comm_rank(p_comm_io) == p_comm_size(p_comm_io) - 1) THEN
-          io_collector_rank = get_my_mpi_all_id()
+          io_collector_rank = world_rank
         END IF
       END IF
 
@@ -843,12 +846,14 @@ CONTAINS
     meteogram_output_config%io_proc_id = io_collector_rank
 
     ! Flag. True, if this PE collects data from (other) working PEs
-    mtgrm(jg)%l_is_collecting_pe  = (.NOT. meteogram_output_config%ldistributed)   &
-      &            .AND.  ( ((process_mpi_io_size == 0)  .AND.           &
-      &                      l_my_process_is_mpi_workroot .AND.          &
-      &                      (p_n_work > 1) )                            &
-      &               .OR.  (mtgrm(jg)%l_pure_io_pe .AND.                &
-      &                     (get_my_mpi_all_id() == io_collector_rank)) )
+    mtgrm(jg)%l_is_collecting_pe                                             &
+      &    =       (.NOT. meteogram_output_config%ldistributed)              &
+      &      .AND. (.NOT. is_mpi_test)                          &
+      &      .AND. (     ((process_mpi_io_size == 0)                         &
+      &                   .AND. is_mpi_workroot                              &
+      &                   .AND. (p_n_work > 1) )                             &
+      &             .OR. (mtgrm(jg)%l_pure_io_pe                             &
+      &                   .AND. (world_rank == io_collector_rank)))
 
     IF (.NOT. meteogram_output_config%ldistributed) THEN
       IF (process_mpi_io_size == 0) THEN
@@ -965,7 +970,7 @@ CONTAINS
 
         DO jc=i_startidx,i_endidx
           istation = istation + 1
-          mtgrm(jg)%meteogram_local_data%pstation( mtgrm(jg)%global_idx(istation) ) = get_my_mpi_all_id()
+          mtgrm(jg)%meteogram_local_data%pstation( mtgrm(jg)%global_idx(istation) ) = world_rank
         END DO
       END DO
 
@@ -1063,7 +1068,7 @@ CONTAINS
         CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 3)')
       ENDIF
 
-      my_id = get_my_mpi_all_id()
+      my_id = world_rank
       istation = 0
       DO jb=1,nblks
         i_startidx = 1
@@ -1252,14 +1257,15 @@ CONTAINS
     ! ------------------------------------------------------------
 
     ! Flag. True, if this PE sends data to a collector via MPI
-    mtgrm(jg)%l_is_sender   = (.NOT. meteogram_output_config%ldistributed) .AND.  &
-      &              .NOT. mtgrm(jg)%l_is_collecting_pe                    .AND.  &
-      &              .NOT. my_process_is_mpi_test()
+    mtgrm(jg)%l_is_sender   = .NOT. meteogram_output_config%ldistributed &
+      &                 .AND. .NOT. mtgrm(jg)%l_is_collecting_pe         &
+      &                 .AND. .NOT. is_mpi_test
 
     ! Flag. True, if this PE writes data to file
-    mtgrm(jg)%l_is_writer         = (meteogram_output_config%ldistributed .AND.       &
-      &                    (mtgrm(jg)%meteogram_local_data%nstations > 0))  .OR.  &
-      &                   mtgrm(jg)%l_is_collecting_pe
+    mtgrm(jg)%l_is_writer &
+      & =      (      meteogram_output_config%ldistributed &
+      &         .AND. mtgrm(jg)%meteogram_local_data%nstations > 0) &
+      &   .OR. mtgrm(jg)%l_is_collecting_pe
 
     IF (.NOT. meteogram_output_config%ldistributed) THEN
       ! compute maximum buffer size for MPI messages:
@@ -1593,6 +1599,7 @@ CONTAINS
     CHARACTER(LEN=MAX_DATE_LEN) :: zdate_sndrcv
     TYPE(t_meteogram_data),    POINTER :: meteogram_data
     TYPE(t_meteogram_station), POINTER :: p_station
+    INTEGER :: world_rank
 
     IF (dbg_level > 5)  WRITE (*,*) routine, " Enter (collecting PE=", mtgrm(jg)%l_is_collecting_pe, ")"
 
@@ -1602,12 +1609,13 @@ CONTAINS
     ! Note: We assume that this value is identical for all PEs
     icurrent = meteogram_data%icurrent
 
+    world_rank = get_my_mpi_all_id()
     ! -- RECEIVER CODE --
     RECEIVER : IF (mtgrm(jg)%l_is_collecting_pe) THEN
       ! launch MPI message requests for station data on foreign PEs
       DO istation=1,mtgrm(jg)%meteogram_global_data%nstations
         iowner = mtgrm(jg)%meteogram_global_data%pstation(istation)
-        IF ((iowner /= get_my_mpi_all_id()) .AND. (iowner > 0)) THEN
+        IF ((iowner /= world_rank) .AND. (iowner > 0)) THEN
           CALL p_irecv_packed(mtgrm(jg)%msg_buffer(:,istation), MPI_ANY_SOURCE, &
             &                 TAG_MTGRM_MSG + (jg-1)*TAG_DOMAIN_SHIFT + istation, mtgrm(jg)%max_buf_size)
         END IF
@@ -1632,7 +1640,7 @@ CONTAINS
           CYCLE
         END IF
 
-        IF ((iowner /= get_my_mpi_all_id()) .OR. mtgrm(jg)%l_pure_io_pe) THEN
+        IF ((iowner /= world_rank) .OR. mtgrm(jg)%l_pure_io_pe) THEN
           position = 0
 
           !-- unpack global time stamp index
