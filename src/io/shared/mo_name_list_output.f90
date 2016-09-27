@@ -127,7 +127,7 @@ MODULE mo_name_list_output
     &                                     p_mpi_wtime, p_irecv, p_wait, p_test, p_isend,            &
     &                                     p_comm_work, p_real_dp, p_real_sp, p_int,                 &
     &                                     my_process_is_stdio, my_process_is_mpi_test,              &
-    &                                     my_process_is_mpi_workroot,                               &
+    &                                     my_process_is_mpi_workroot, my_process_is_work,           &
     &                                     my_process_is_io, my_process_is_mpi_ioroot,               &
     &                                     process_mpi_all_test_id, process_mpi_all_workroot_id,     &
     &                                     num_work_procs, p_pe, p_pe_work, p_work_pe0, p_io_pe0,    &
@@ -316,15 +316,13 @@ CONTAINS
 
 #ifndef NOMPI
 #ifndef __NO_ICON_ATMO__
-    IF (use_async_name_list_io    .AND.  &
-      & .NOT. my_process_is_io()  .AND.  &
-      & .NOT. my_process_is_mpi_test()) THEN
+    IF (use_async_name_list_io .AND. my_process_is_work()) THEN
       !-- compute PEs (senders):
-
       CALL compute_wait_for_async_io(jstep=WAIT_UNTIL_FINISHED)
       CALL compute_shutdown_async_io()
 
-    ELSE
+    ELSE IF (.NOT. my_process_is_mpi_test()) THEN
+
 #endif
 #endif
       !-- asynchronous I/O PEs (receiver):
