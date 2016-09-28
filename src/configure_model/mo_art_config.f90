@@ -98,9 +98,12 @@ MODULE mo_art_config
     ! General control variables (Details: cf. Tab. 2.2 ICON-ART User Guide)
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_folder                     !< Absolute Path to ART source code
+    CHARACTER(LEN=IART_PATH_LEN) :: &
+      &  cart_io_folder                  !< Absolute Path to ART input files 
     INTEGER :: iart_ntracer              !< number of transported ART tracers
     INTEGER :: iart_init_aero            !< Initialization of aerosol species
     INTEGER :: iart_init_gas             !< Initialization of gaseous species
+    INTEGER :: iart_init_passive         !< Initialization of passive species
     LOGICAL :: lart_diag_out             !< Enable output of diagnostic fields
     CHARACTER(LEN=20) :: cart_io_suffix  !< user given suffix instead of automatically generated grid number 
                                          !  in ICON-ART input filename convention: 
