@@ -58,7 +58,6 @@ cat > ${ocean_namelist} << EOF
  msg_timestamp        = .FALSE.
  timers_level         = 10
  debug_check_level    = 1
- test_mode = 12
  restart_filename     = "${EXPNAME}_restart_oce_<rsttime>.nc"
 /
 &output_nml
