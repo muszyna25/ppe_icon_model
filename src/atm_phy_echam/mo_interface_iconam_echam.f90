@@ -100,6 +100,19 @@ MODULE mo_interface_iconam_echam
     &                                 timer_dyn2phy, timer_d2p_prep, timer_d2p_sync, timer_d2p_couple, &
     &                                 timer_echam_bcs, timer_echam_phy, timer_coupling,                &
     &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
+  USE mo_linked_list,             ONLY: t_var_list
+  USE mo_ext_data_state,          ONLY: ext_data
+   USE mo_ext_data_types,          ONLY: t_external_data
+
+
+#ifdef __ICON_ART
+  USE mo_art_reaction_interface,   ONLY: art_reaction_interface
+  USE mo_run_config,              ONLY: lart
+#endif
+
+
+
+
 
   IMPLICIT NONE
 
@@ -128,7 +141,10 @@ CONTAINS
     &                                p_metrics        ,& !in
     &                                pt_prog_new      ,& !inout
     &                                pt_prog_new_rcf  ,& !inout
-    &                                pt_diag          )  !inout
+    &                                pt_diag          ,& !inout
+    &                                dt_phy_jg,        & !in
+    &                                p_prog_list,      &
+    &                                ext_data)          !inout     
 
     !
     !> Arguments:
@@ -143,6 +159,13 @@ CONTAINS
     TYPE(t_nh_diag)       , INTENT(inout), TARGET :: pt_diag         !< diagnostic variables
     TYPE(t_nh_prog)       , INTENT(inout), TARGET :: pt_prog_new     !< progn. vars after dynamics  for wind, temp. rho, ...
     TYPE(t_nh_prog)       , INTENT(inout), TARGET :: pt_prog_new_rcf !< progn. vars after advection for tracers
+
+
+!ICON_ART
+    REAL(wp), OPTIONAL, INTENT(in)                           :: dt_phy_jg(:)    !< time interval for all physics    
+    TYPE(t_var_list), OPTIONAL,  INTENT(in)                  :: p_prog_list     !current prognostic state list
+    TYPE(t_external_data),  OPTIONAL,      INTENT(inout)    :: ext_data
+
 
     ! Local array bounds
 
@@ -173,6 +196,11 @@ CONTAINS
     ! Local parameters
 
     CHARACTER(*), PARAMETER :: method_name = "interface_iconam_echam"
+
+#ifdef __ICON_ART
+        !ICON_ART
+    TYPE(t_var_list),   POINTER :: field_list
+#endif
 
     !-------------------------------------------------------------------------------------
 
@@ -762,8 +790,22 @@ CONTAINS
     ! The latter is zero if echam_phy_config%idcphycpl=1.
     !
     !=====================================================================================
+#ifdef __ICON_ART
 
+  IF (lart) THEN
 
+      CALL art_reaction_interface(ext_data,                    & !> in
+                &          patch,                              & !> in
+                &          datetime,                           & !> in
+                &          dtadv_loc,                          & !> in
+                &          p_prog_list,                        & !> in
+                &          pt_prog_new,                        &
+                &          p_metrics,                          & !> in
+                &          pt_diag,                            & !> inout
+                &          pt_prog_new_rcf%tracer)
+  ENDIF
+#endif
+    
   END SUBROUTINE interface_iconam_echam
   !----------------------------------------------------------------------------
 

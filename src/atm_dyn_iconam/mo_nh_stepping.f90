@@ -1702,6 +1702,22 @@ MODULE mo_nh_stepping
 
               ! echam physics
               IF (ltimer) CALL timer_start(timer_iconam_echam)
+          IF (lart) THEN
+            
+              CALL interface_iconam_echam( dt_loc                         ,& !in
+                &                          datetime_current               ,& !in
+                &                          p_patch(jg)                    ,& !in
+                &                          p_int_state(jg)                ,& !in
+                &                          p_nh_state(jg)%metrics         ,& !in
+                &                          p_nh_state(jg)%prog(nnew(jg))  ,& !inout
+                &                          p_nh_state(jg)%prog(n_new_rcf) ,& !inout
+                &                          p_nh_state(jg)%diag,            &            
+                &                          t_elapsed_phy(jg,:)                , &
+                &                          p_nh_state_lists(jg)%prog_list(n_new_rcf), &
+                &                          ext_data(jg)                )
+            
+           ELSE
+
               CALL interface_iconam_echam( dt_loc                         ,& !in
                 &                          datetime_current               ,& !in
                 &                          p_patch(jg)                    ,& !in
@@ -1710,6 +1726,8 @@ MODULE mo_nh_stepping
                 &                          p_nh_state(jg)%prog(nnew(jg))  ,& !inout
                 &                          p_nh_state(jg)%prog(n_new_rcf) ,& !inout
                 &                          p_nh_state(jg)%diag            )  !inout
+
+            ENDIF
               IF (ltimer) CALL timer_stop(timer_iconam_echam)
 
             END SELECT ! iforcing
@@ -2310,6 +2328,10 @@ MODULE mo_nh_stepping
 
           ! echam physics, slow physics coupling
           IF (ltimer) CALL timer_start(timer_iconam_echam)
+
+          IF (lart) THEN
+
+
           CALL interface_iconam_echam( dt_loc                         ,& !in
             &                          datetime_current               ,& !in
             &                          p_patch(jg)                    ,& !in
@@ -2317,7 +2339,24 @@ MODULE mo_nh_stepping
             &                          p_nh_state(jg)%metrics         ,& !in
             &                          p_nh_state(jg)%prog(nnow(jg))  ,& !inout
             &                          p_nh_state(jg)%prog(n_now_rcf) ,& !inout
-            &                          p_nh_state(jg)%diag            )  !inout
+            &                          p_nh_state(jg)%diag            ,&
+            &                          t_elapsed_phy(jg,:)                , &
+            &                          p_nh_state_lists(jg)%prog_list(n_now_rcf),&
+            &                          ext_data(jg)                            )  !inout
+
+          ELSE
+          CALL interface_iconam_echam( dt_loc                         ,& !in
+            &                          datetime_current               ,& !in
+            &                          p_patch(jg)                    ,& !in
+            &                          p_int_state(jg)                ,& !in
+            &                          p_nh_state(jg)%metrics         ,& !in
+            &                          p_nh_state(jg)%prog(nnow(jg))  ,& !inout
+            &                          p_nh_state(jg)%prog(n_now_rcf) ,& !inout
+            &                          p_nh_state(jg)%diag            )
+
+        ENDIF
+
+
           IF (ltimer) CALL timer_stop(timer_iconam_echam)
 
         CASE DEFAULT ! idcphycpl

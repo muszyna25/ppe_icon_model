@@ -76,8 +76,7 @@ MODULE mo_art_emission_interface
   USE mo_art_emission_gasphase,         ONLY: art_emiss_gasphase
   USE omp_lib 
   USE mo_sync,                          ONLY: sync_patch_array_mult, sync_patch_array, SYNC_C, global_max
-  USE mo_timer,                         ONLY: ltimer, timers_level, timer_start, timer_stop,   &
-	  										timer_extra2 
+
 #endif
 
   IMPLICIT NONE
@@ -372,6 +371,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               &                       p_nh_state%diag%temp,           &
               &                       p_nh_state%metrics,             &
               &                       ext_data%atm%llsm_atm_c,        &
+              &                       ext_data%atm%fr_land,           &
               &                       p_patch,                        &
               &                       jb,istart,iend,nlev,nproma,     &
               &                       prm_diag%swflx_par_sfc)
@@ -388,6 +388,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               &                       p_nh_state%diag%temp,           &
               &                       p_nh_state%metrics,             &
               &                       ext_data%atm%llsm_atm_c,        &
+              &                       ext_data%atm%fr_land,           &
               &                       p_patch,                        &
               &                       jb,istart,iend,nlev,nproma,     &
               &                       prm_diag%swflx_par_sfc)
@@ -413,11 +414,11 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                &      'ART: Unknown iart_chem_mechanism')
       END SELECT !iart_chem_mechanism
     ENDIF !lart_chem
-    IF (timers_level > 3) CALL timer_start(timer_extra2)
-            CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer,  f4din=tracer(:,:,:,:))
+    
+    
+    CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer,  f4din=tracer(:,:,:,:))
 
 
-    IF (timers_level > 3) CALL timer_stop(timer_extra2)
   
 
   ENDIF !lart
