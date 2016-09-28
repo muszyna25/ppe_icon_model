@@ -42,9 +42,14 @@ MODULE mo_time_interpolation
     REAL(wp)                     :: zevent_tim !time in month
     REAL(wp)                     :: zcmlen2, znmlen2 !half of current/nearest month length
     TYPE(t_datetime)             :: znevent_date
-    
-    
+
+    INTEGER :: seconds_in_month, seconds_in_middle_of_month
+    INTEGER :: seconds_in_middle_of_next_month, seconds_in_middle_of_previous_month
+
     IF (wi%time == event_date) RETURN
+
+    seconds_in_middle_of_month = 43200*event_date%monlen
+    seconds_in_month = (event_date%day*86400+event_date%hour*3600+event_date%minute*60+event_date%second)
 
     wi%time=event_date !save event_date in wi
     zcmonfrc=event_date%monfrc
@@ -62,6 +67,7 @@ MODULE mo_time_interpolation
       END IF
       CALL aux_datetime(znevent_date)
       znmlen2=znevent_date%monlen*0.5_wp
+      seconds_in_middle_of_previous_month = 43200*znevent_date%monlen 
       wi%wgt1=(zcmlen2-zevent_tim)/(zcmlen2+znmlen2)
       wi%wgt2=1._wp-wi%wgt1
     ELSE
@@ -75,9 +81,20 @@ MODULE mo_time_interpolation
       END IF
       CALL aux_datetime(znevent_date)
       znmlen2=znevent_date%monlen*0.5_wp
+      seconds_in_middle_of_next_month = 43200*znevent_date%monlen       
       wi%wgt2=(zevent_tim-zcmlen2)/(zcmlen2+znmlen2)
       wi%wgt1=1._wp-wi%wgt2
     END IF
+    write(0,*) 'LK old: wi%inm1,wi%inm2,wi%wgt1,wi%wgt2= ',wi%inm1, wi%inm2, wi%wgt1, wi%wgt2    
+    IF (zcmonfrc<=0.5_wp) THEN
+      wi%wgt1 = REAL(seconds_in_middle_of_month - seconds_in_month,wp) &
+           &   /REAL(seconds_in_middle_of_month + seconds_in_middle_of_previous_month,wp)
+        
+    ELSE
+      wi%wgt2 = REAL(seconds_in_month - seconds_in_middle_of_month,wp) &
+           &   /REAL(seconds_in_middle_of_month + seconds_in_middle_of_next_month,wp)
+    ENDIF
+    write(0,*) 'LK new: wi%inm1,wi%inm2,wi%wgt1,wi%wgt2= ',wi%inm1, wi%inm2, wi%wgt1, wi%wgt2        
 !!$  WRITE(0,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 !!$  CALL print_datetime_all(event_date)
 !!$  WRITE(0,*) 'wi%inm1,wi%inm2,wi%wgt1,wi%wgt2= ',wi%inm1, wi%inm2, wi%wgt1, wi%wgt2
