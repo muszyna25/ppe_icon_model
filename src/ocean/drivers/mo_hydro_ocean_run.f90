@@ -252,6 +252,13 @@ CONTAINS
     eventStartDate => time_config%tc_exp_startdate
     eventEndDate   => time_config%tc_exp_stopdate
 
+    ! use start/end setup from the restart
+    IF (isRestart() .AND. time_config%is_relative_time) THEN
+      eventRefDate   => time_config%tc_startdate
+      eventStartDate => time_config%tc_startdate
+      eventEndDate   => time_config%tc_stopdate
+    ENDIF
+
     ! create an event manager, ie. a collection of different events
     CALL initEventManager(time_config%tc_exp_refdate)
 
