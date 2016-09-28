@@ -751,6 +751,14 @@ ENDIF
     eventStartDate => time_config%tc_exp_startdate
     eventEndDate   => time_config%tc_exp_stopdate
 
+    ! use start/end setup from the restart
+    IF (isRestart() .AND. time_config%is_relative_time) THEN
+      eventRefDate   => time_config%tc_startdate
+      eventStartDate => time_config%tc_startdate
+      eventEndDate   => time_config%tc_stopdate
+    ENDIF
+
+
     ! create an event manager, ie. a collection of different events
     CALL initEventManager(time_config%tc_exp_refdate)
 
@@ -920,7 +928,7 @@ ENDIF
            & .OR.  isCurrentEventActive(restartEvent, mtime_current)) THEN
         lwrite_checkpoint = .TRUE.
       ENDIF
-      
+
       ! if this is the first timestep (it cannot occur), or output is disabled, do not write the restart
       IF ( (time_config%tc_startdate == mtime_current) .OR. output_mode%l_none ) THEN
         lwrite_checkpoint = .FALSE.
