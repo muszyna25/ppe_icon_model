@@ -47,7 +47,7 @@ MODULE mo_art_emission_interface
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
   USE mo_ext_data_types,                ONLY: t_external_data
   USE mo_nwp_lnd_types,                 ONLY: t_lnd_diag
-  USE mo_run_config,                    ONLY: lart
+  USE mo_run_config,                    ONLY: lart,ntracer
   USE mo_datetime,                      ONLY: t_datetime
 #ifdef __ICON_ART
 ! Infrastructure Routines
@@ -75,6 +75,8 @@ MODULE mo_art_emission_interface
   USE mo_art_emission_chemtracer,       ONLY: art_emiss_chemtracer
   USE mo_art_emission_gasphase,         ONLY: art_emiss_gasphase
   USE omp_lib 
+  USE mo_sync,                          ONLY: sync_patch_array_mult, sync_patch_array, SYNC_C, global_max
+  
 #endif
 
   IMPLICIT NONE
@@ -410,8 +412,14 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                &      'ART: Unknown iart_chem_mechanism')
       END SELECT !iart_chem_mechanism
     ENDIF !lart_chem
+
+  
+CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer,  f4din=tracer(:,:,:,:))
+
   ENDIF !lart
        
+
+
 #endif
 
 END SUBROUTINE art_emission_interface
