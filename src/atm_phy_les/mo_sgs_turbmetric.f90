@@ -80,8 +80,6 @@ MODULE mo_sgs_turbmetric
   REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: D_11, D_12, D_13, D_23, D_33
 
   CHARACTER(len=*), PARAMETER :: inmodule = 'mo_sgs_turbmetric:'
-  CHARACTER(len=12)  :: str_module = 'sgs_turb'  ! Output of module for 1 line debug
-  INTEGER            :: idt_src    = 4           ! Determines level of detail for 1 line debug
 
   CONTAINS
 
