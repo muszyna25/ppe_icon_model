@@ -122,7 +122,7 @@ MODULE mo_sgs_turbmetric
     !CALL debug_messages_on
 
     IF (msg_level >= 15) &
-         CALL message(TRIM(inmodule), 'drive_subgrid_diffusion_m')
+         CALL message(inmodule, 'drive_subgrid_diffusion_m')
 
     jg = p_patch%id
 
@@ -300,7 +300,7 @@ MODULE mo_sgs_turbmetric
     !--------------------------------------------------------------------------
 
     IF (msg_level >= 18) &
-         CALL message(TRIM(inmodule), 'smagorinsky_model')
+         CALL message(inmodule, 'smagorinsky_model')
 
     jg = p_patch%id
 
@@ -756,7 +756,7 @@ MODULE mo_sgs_turbmetric
     INTEGER :: nlev, jg, nlevp1
 
     IF (msg_level >= 18) &
-         CALL message(TRIM(inmodule), 'diffuse_hori_velocity')
+         CALL message(inmodule, 'diffuse_hori_velocity')
 
     !patch id
     jg = p_patch%id
@@ -1576,7 +1576,7 @@ MODULE mo_sgs_turbmetric
     INTEGER  :: nlev
 
     IF (msg_level >= 18) &
-         CALL message(TRIM(inmodule), 'diffuse_vert_velocity')
+         CALL message(inmodule, 'diffuse_vert_velocity')
 
     !patch id
     jg = p_patch%id
@@ -2060,7 +2060,7 @@ MODULE mo_sgs_turbmetric
       metric_tend   (nproma, p_patch%nlev,   p_patch%nblks_c)
 
     IF (msg_level >= 18) &
-         CALL message(TRIM(inmodule), 'diffuse_scalar')
+         CALL message(inmodule, 'diffuse_scalar')
 
     !patch id
     jg = p_patch%id
