@@ -1118,7 +1118,7 @@ MODULE mo_sgs_turbmetric
          vert_metr = 0.5_wp*p_nh_metrics%ddxt_z_full(je,jk,jb) * p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb) * &
                    ( p_nh_metrics%inv_ddqz_z_half_e(je,jk,jb)*&
                      visc_smag_ie(je,jk,jb) * p_nh_metrics%ddxn_z_half_e(je,jk,jb) * &
-                     (vt_ie(je,MAX(1,jk-1),jb)-vt_ie(je,jk+1,jb)) - &
+                     (vt_ie(je,jk-1,jb)-vt_ie(je,jk+1,jb)) - &
                      p_nh_metrics%inv_ddqz_z_half_e(je,jk+1,jb)*&
                      visc_smag_ie(je,jk+1,jb) * p_nh_metrics%ddxn_z_half_e(je,jk+1,jb) * &
                      (vt_ie(je,jk,jb)-vt_ie(je,MIN(nlev+1,jk+2),jb)) &
