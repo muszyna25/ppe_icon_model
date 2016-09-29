@@ -1567,7 +1567,7 @@ MODULE mo_sgs_turbmetric
     !interface level variables but only nlev quantities are needed
     REAL(wp) :: hor_tend(nproma,p_patch%nlev,p_patch%nblks_e)
     REAL(wp), POINTER :: tot_tend(:,:,:)
-    REAL(wp) :: inv_rho_ic(nproma,p_patch%nlev,p_patch%nblks_c)!not necessary to allocate for nlev+1
+    REAL(wp) :: inv_rho_ic(nproma,2:p_patch%nlev,p_patch%nblks_c)!not necessary to allocate for nlev+1
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: ividx, ivblk, iecidx, iecblk, ieidx, ieblk
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
