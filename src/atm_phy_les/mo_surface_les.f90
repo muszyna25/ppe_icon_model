@@ -226,7 +226,7 @@ MODULE mo_surface_les
 
          END DO  
       END DO
-!$OMP END DO 
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     !Prescribed buoyancy flux and transfer coefficient at surface to get a uniform SST (Stevens 2007 JAS)

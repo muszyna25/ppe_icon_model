@@ -644,7 +644,7 @@ MODULE mo_sgs_turbmetric
           diff_smag_ic(jc,nlevp1,jb) = diff_smag_ic(jc,nlev,jb)
        END DO
     END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     CALL sync_patch_array(SYNC_C, p_patch, diff_smag_ic)
@@ -841,7 +841,7 @@ MODULE mo_sgs_turbmetric
                                + p_nh_metrics%wgtfacq_e(je,3,jb)*D_13(je,nlev-2,jb)
       END DO
     END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -1063,7 +1063,7 @@ MODULE mo_sgs_turbmetric
        END DO
       END DO
     END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     !
@@ -1238,7 +1238,7 @@ MODULE mo_sgs_turbmetric
        END DO
 
     END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -1380,7 +1380,7 @@ MODULE mo_sgs_turbmetric
          END DO
 
       END DO!block loop
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     END SELECT !vert_scheme
@@ -1407,7 +1407,7 @@ MODULE mo_sgs_turbmetric
        END DO
       END DO
     END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -1438,7 +1438,7 @@ MODULE mo_sgs_turbmetric
        END DO
       END DO
     END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 !    CALL sync_patch_array(SYNC_E, p_patch, tot_tend)
@@ -1503,7 +1503,7 @@ MODULE mo_sgs_turbmetric
                                   stress_c2n * p_int%c_lin_e(je,2,jb)
          END DO
       END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
       !Get sgs flux at cell center
@@ -1633,7 +1633,7 @@ MODULE mo_sgs_turbmetric
          END DO
        END DO
     END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -1796,7 +1796,7 @@ MODULE mo_sgs_turbmetric
        END DO
       END DO
     END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     !CALL sync_patch_array(SYNC_E, p_patch, p_nh_metrics%inv_ddqz_z_half_e, 'inv_ddqz_z_half_e')
@@ -1832,7 +1832,7 @@ MODULE mo_sgs_turbmetric
          END DO
        END DO
     END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -1879,7 +1879,7 @@ MODULE mo_sgs_turbmetric
        END DO
       END DO
     END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -1970,7 +1970,7 @@ MODULE mo_sgs_turbmetric
          END DO
 
       END DO !block
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     END SELECT !vert_scheme
@@ -2138,7 +2138,7 @@ MODULE mo_sgs_turbmetric
             p_nh_metrics%wgtfacq1_e(je,3,jb)*exner_me(je,3,jb)
         END DO
       END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
 
       rl_start = grf_bdywidth_c+1
@@ -2577,7 +2577,7 @@ MODULE mo_sgs_turbmetric
          END DO
 
          END DO!block
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
     END SELECT !vert_scheme
