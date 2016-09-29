@@ -237,7 +237,7 @@ CONTAINS
     DO jg= 1,max_dom !< Do not take into account reduced radiation grid
       ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
       art_config(jg)%cart_folder         = TRIM(cart_folder)
-      art_config(jg)%cart_io_folder      = TRIM(cart_io_folder)
+      art_config(jg)%cart_input_folder   = TRIM(cart_input_folder)
       art_config(jg)%iart_ntracer        = iart_ntracer
       art_config(jg)%iart_init_aero      = iart_init_aero
       art_config(jg)%iart_init_gas       = iart_init_gas
