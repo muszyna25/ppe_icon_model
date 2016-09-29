@@ -125,6 +125,7 @@ MODULE mo_les_utilities
       CALL finish(TRIM(routine),'allocation of ddx_arg, ddx for ddxn_z_full_c failed')
     ddx(:,:,:) = 0._wp
     ddx_arg(:,:,:) = p_metrics%ddxn_z_full_c(:,:,:)
+    IF (p_test_run) ddx = 0.0_wp
     CALL cells2verts_scalar(ddx_arg, p_patch, p_int%cells_aw_verts, ddx)
     CALL sync_patch_array(SYNC_V, p_patch, ddx)
     p_metrics%ddxn_z_full_v(:,:,:) = ddx(:,:,:)
@@ -147,6 +148,7 @@ MODULE mo_les_utilities
       CALL finish(TRIM(routine),'allocation of ddx_arg, ddx for ddxt_z_half_c failed')
     ddx(:,:,:) = 0._wp
     ddx_arg(:,:,:) = p_metrics%ddxt_z_half_c(:,:,:)
+    IF (p_test_run) ddx = 0.0_wp
     CALL cells2verts_scalar(ddx_arg, p_patch, p_int%cells_aw_verts, ddx)
     CALL sync_patch_array(SYNC_V, p_patch, ddx)
     p_metrics%ddxt_z_half_v(:,:,:) = ddx(:,:,:)
