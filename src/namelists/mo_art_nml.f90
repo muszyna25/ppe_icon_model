@@ -46,7 +46,7 @@ MODULE mo_art_nml
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_folder                   !< Absolute Path to ART source code
   CHARACTER(LEN=IART_PATH_LEN)  :: &
-    &  cart_io_folder                   !< Absolute Path to ART source code
+    &  cart_input_folder                   !< Absolute Path to ART source code
   INTEGER :: iart_ntracer            !< number transported ART tracers
   INTEGER :: iart_init_aero          !< Initialization of aerosol species
   INTEGER :: iart_init_passive       !< Initialization of passive species
@@ -100,7 +100,7 @@ MODULE mo_art_nml
   LOGICAL :: lart_conv               !< Convection of aerosol (TRUE/FALSE)
   LOGICAL :: lart_turb               !< Turbulent diffusion of aerosol (TRUE/FALSE)
 
-  NAMELIST/art_nml/ cart_folder, cart_io_folder, lart_chem, lart_passive,              &
+  NAMELIST/art_nml/ cart_folder, cart_input_folder, lart_chem, lart_passive,              &
    &                iart_chem_mechanism, cart_io_suffix,                              &
    &                lart_aerosol, iart_seasalt, iart_dust, iart_anthro, iart_fire,     &
    &                iart_volcano, cart_volcano_file, iart_radioact,                    &
@@ -144,7 +144,7 @@ CONTAINS
       
     ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
     cart_folder                = ''
-    cart_io_folder             = ''
+    cart_input_folder             = ''
     iart_ntracer               = 0
     iart_init_aero             = 0
     iart_init_passive          = 0
