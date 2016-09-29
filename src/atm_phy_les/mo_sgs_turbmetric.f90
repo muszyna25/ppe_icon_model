@@ -77,7 +77,6 @@ MODULE mo_sgs_turbmetric
                                              w_ie, w_vert, u_iv, v_iv, vn_ie, vt_ie
 
   !Store variables for metric-terms implementation
-  REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: D_11, D_12, D_13, D_23, D_33
 
   CHARACTER(len=*), PARAMETER :: inmodule = 'mo_sgs_turbmetric:'
 
@@ -112,6 +111,8 @@ MODULE mo_sgs_turbmetric
     REAL(wp),          INTENT(in)        :: dt
 
     REAL(wp), ALLOCATABLE :: theta(:,:,:), theta_v(:,:,:)
+    REAL(wp), DIMENSION(nproma,p_patch%nlevp1,p_patch%nblks_e) :: &
+         D_11_ie, D_12_ie, D_13_ie
 
     INTEGER :: nlev, nlevp1
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
@@ -146,15 +147,6 @@ MODULE mo_sgs_turbmetric
     ALLOCATE(          theta_v(nproma,nlev,p_patch%nblks_c)          )
     ALLOCATE(          DIV_c(nproma,nlev,p_patch%nblks_c)            )
     ALLOCATE(          rho_ic(nproma,nlevp1,p_patch%nblks_c)                      )
-
-    IF(.NOT.ALLOCATED(D_11)) THEN
-      ALLOCATE( D_11(nproma, nlev, p_patch%nblks_e), &
-                D_12(nproma, nlev, p_patch%nblks_e), &
-                D_13(nproma, nlev, p_patch%nblks_e), &
-                D_23(nproma, nlev, p_patch%nblks_e), &
-                D_33(nproma, nlev, p_patch%nblks_e)  &
-              )
-    ENDIF
 
     !Initialize
 
@@ -210,10 +202,13 @@ MODULE mo_sgs_turbmetric
     CALL brunt_vaisala_freq(p_patch, p_nh_metrics, theta_v, prm_diag%bruvais)
 
     CALL smagorinsky_model(p_nh_prog, p_nh_metrics, p_patch, p_int, &
-         prm_diag%tkvh, prm_diag%mech_prod, prm_diag%tkvm, prm_diag%bruvais)
+         prm_diag%tkvh, prm_diag%mech_prod, prm_diag%tkvm, prm_diag%bruvais, &
+         d_11_ie, d_12_ie, d_13_ie)
 
     CALL diffuse_hori_velocity(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, prm_diag, &
-                               prm_nwp_tend%ddt_u_turb, prm_nwp_tend%ddt_v_turb, dt)
+                               prm_nwp_tend%ddt_u_turb, &
+                               prm_nwp_tend%ddt_v_turb, &
+                               d_11_ie, d_12_ie, d_13_ie, dt)
 
     !Vertical velocity is updated here
     CALL diffuse_vert_velocity(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, &
@@ -245,8 +240,6 @@ MODULE mo_sgs_turbmetric
     DEALLOCATE(u_vert, v_vert, w_vert, vn_ie, vt_ie, w_ie, visc_smag_iv, visc_smag_ie,  &
                theta, visc_smag_c, rho_ic, DIV_c, u_iv, v_iv)
 
-    DEALLOCATE(D_11, D_12, D_13, D_23, D_33)
-
   END SUBROUTINE drive_subgrid_diffusion_m
   !-------------------------------------------------------------------------------------
 
@@ -275,7 +268,8 @@ MODULE mo_sgs_turbmetric
   !! Modified by Slavko Brdar, DWD (2014-08-01)
   !!   - include turbulent metric terms
   SUBROUTINE smagorinsky_model(p_nh_prog, p_nh_metrics, p_patch, p_int, &
-                               tkvh, mech_prod, tkvm, bruvais)
+                               tkvh, mech_prod, tkvm, bruvais, &
+                               D_11_ie, D_12_ie, D_13_ie)
 
     TYPE(t_patch),  INTENT(inout),TARGET :: p_patch    !< single patch
     TYPE(t_int_state), INTENT(in),TARGET :: p_int      !< single interpolation state
@@ -283,13 +277,15 @@ MODULE mo_sgs_turbmetric
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics  !< single nh metric state
     REAL(wp), DIMENSION(nproma,p_patch%nlev+1,p_patch%nblks_c), INTENT(inout) :: &
          tkvh, mech_prod, tkvm, bruvais      !< atm phys vars
+    REAL(wp), DIMENSION(nproma,p_patch%nlevp1,p_patch%nblks_e), INTENT(out) :: &
+         D_11_ie, D_12_ie, D_13_ie
 
     ! local variables
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: mech_prod_e, div_of_stress
     REAL(wp) :: vn_vert1, vn_vert2, vn_vert3, vn_vert4, vt_vert1, vt_vert2, vt_vert3, &
                 vt_vert4, w_full_c1
     REAL(wp) :: w_full_c2, w_full_v1, w_full_v2
-    REAL(wp) :: D_22
+    REAL(wp) :: D_11, D_12, D_13, D_22, D_23, D_33
 
     INTEGER  :: nlev, nlevp1             !< number of full levels
     INTEGER,  DIMENSION(:,:,:), POINTER :: ividx, ivblk, iecidx, iecblk, ieidx, ieblk
@@ -317,11 +313,6 @@ MODULE mo_sgs_turbmetric
     IF(p_test_run)THEN
 !$OMP PARALLEL
       CALL init(tkvh)
-      CALL init(d_11)
-      CALL init(d_12)
-      CALL init(d_13)
-      CALL init(d_23)
-      CALL init(d_33)
       CALL init(mech_prod_e)
       CALL init(div_of_stress)
       CALL init(div_c)
@@ -420,135 +411,102 @@ MODULE mo_sgs_turbmetric
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,vn_vert1,vn_vert2,vn_vert3,vn_vert4,  &
 !$OMP            vt_vert1,vt_vert2,vt_vert3,vt_vert4,w_full_c1,w_full_c2,w_full_v1,  &
-!$OMP            w_full_v2,D_22,jkp1)
+!$OMP            w_full_v2,D_11, D_12, D_13, D_22, D_23, D_33)
     DO jb = i_startblk,i_endblk
 
        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                           i_startidx, i_endidx, rl_start, rl_end)
+
+       DO je = i_startidx, i_endidx
+         D_11_ie(je,1,jb) = 0.0_wp
+         D_11_ie(je,nlev+1,jb) = 0.0_wp
+         D_12_ie(je,1,jb) = 0.0_wp
+         D_12_ie(je,nlev+1,jb) = 0.0_wp
+         D_13_ie(je,1,jb) = 0.0_wp
+         D_13_ie(je,nlev+1,jb) = 0.0_wp
+       END DO
+       ! top layer approximation
 #ifdef __LOOP_EXCHANGE
        DO je = i_startidx, i_endidx
-         DO jk = 1, nlev
+         DO jk = 1, 3
 #else
-       DO jk = 1, nlev
+       DO jk = 1, 3
          DO je = i_startidx, i_endidx
 #endif
-            jkp1 = jk + 1
+#           include "smagorinsky_strain_rate.inc"
+            D_11_ie(je,1,jb) = D_11_ie(je,1,jb) &
+                 + p_nh_metrics%wgtfacq1_e(je,jk,jb) * D_11
+            D_12_ie(je,1,jb) = D_12_ie(je,1,jb) &
+              + p_nh_metrics%wgtfacq1_e(je,jk,jb) * D_12
+            D_13_ie(je,1,jb) = D_13_ie(je,1,jb) &
+                 + p_nh_metrics%wgtfacq1_e(je,jk,jb) * D_13
+            D_11_ie(je,jk+1,jb) = &
+                 p_nh_metrics%wgtfac_e(je,jk+1,jb) * D_11
+            D_12_ie(je,jk+1,jb) = &
+                 p_nh_metrics%wgtfac_e(je,jk+1,jb) * D_12
+            D_13_ie(je,jk+1,jb) = &
+                 p_nh_metrics%wgtfac_e(je,jk+1,jb) * D_13
+            IF (jk >= 2) THEN
+              D_11_ie(je,jk,jb) = D_11_ie(je,jk,jb) &
+                + (1._wp - p_nh_metrics%wgtfac_e(je,jk,jb)) * D_11
+              D_12_ie(je,jk,jb) = D_12_ie(je,jk,jb) &
+                + (1._wp - p_nh_metrics%wgtfac_e(je,jk,jb)) * D_12
+              D_13_ie(je,jk,jb) = D_13_ie(je,jk,jb) &
+                + (1._wp - p_nh_metrics%wgtfac_e(je,jk,jb)) * D_13
+            END IF
+         END DO
+       END DO
 
-            vn_vert1 = u_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
-                       p_patch%edges%primal_normal_vert(je,jb,1)%v1 + &
-                       v_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
-                       p_patch%edges%primal_normal_vert(je,jb,1)%v2
-
-            vn_vert2 = u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
-                       p_patch%edges%primal_normal_vert(je,jb,2)%v1 + &
-                       v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
-                       p_patch%edges%primal_normal_vert(je,jb,2)%v2
-
-            vt_vert2 = u_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
-                       p_patch%edges%dual_normal_vert(je,jb,2)%v1 + &
-                       v_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) * &
-                       p_patch%edges%dual_normal_vert(je,jb,2)%v2
-
-            vt_vert1 = u_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
-                       p_patch%edges%dual_normal_vert(je,jb,1)%v1 + &
-                       v_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
-                       p_patch%edges%dual_normal_vert(je,jb,1)%v2
-
-            vn_vert3 = u_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
-                       p_patch%edges%primal_normal_vert(je,jb,3)%v1 + &
-                       v_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
-                       p_patch%edges%primal_normal_vert(je,jb,3)%v2
-
-            vn_vert4 = u_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
-                       p_patch%edges%primal_normal_vert(je,jb,4)%v1 + &
-                       v_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
-                       p_patch%edges%primal_normal_vert(je,jb,4)%v2
-
-            vt_vert4 = u_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
-                       p_patch%edges%dual_normal_vert(je,jb,4)%v1 + &
-                       v_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
-                       p_patch%edges%dual_normal_vert(je,jb,4)%v2
-
-            vt_vert3 = u_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
-                       p_patch%edges%dual_normal_vert(je,jb,3)%v1 + &
-                       v_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
-                       p_patch%edges%dual_normal_vert(je,jb,3)%v2
-
-            !W at full levels
-            w_full_c1  = 0.5_wp * (                                        &
-                         p_nh_prog%w(iecidx(je,jb,1),jk,iecblk(je,jb,1)) + &
-                         p_nh_prog%w(iecidx(je,jb,1),jkp1,iecblk(je,jb,1)) )
-
-            w_full_c2  = 0.5_wp * (                                        &
-                         p_nh_prog%w(iecidx(je,jb,2),jk,iecblk(je,jb,2)) + &
-                         p_nh_prog%w(iecidx(je,jb,2),jkp1,iecblk(je,jb,2)) )
-
-            !W at full levels vertices from w at vertices at interface levels
-            w_full_v1  = 0.5_wp * (                                    &
-                         w_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) +    &
-                         w_vert(ividx(je,jb,1),jkp1,ivblk(je,jb,1)) )
-
-            w_full_v2  = 0.5_wp * (                                    &
-                         w_vert(ividx(je,jb,2),jk,ivblk(je,jb,2)) +    &
-                         w_vert(ividx(je,jb,2),jkp1,ivblk(je,jb,2)) )
-
-            !Strain rates at edge center
-            D_11(je,jk,jb) =  2._wp*(vn_vert4-vn_vert3) * &
-                              p_patch%edges%inv_vert_vert_length(je,jb) &
-                              - 2._wp*(vn_ie(je,jk,jb)-vn_ie(je,jkp1,jb))*     &
-                              p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb) * &
-                              p_nh_metrics%ddxn_z_full(je,jk,jb)
-
-            D_12(je,jk,jb) =     p_patch%edges%tangent_orientation(je,jb) *  &
-                            (vn_vert2-vn_vert1) *                       &
-                             p_patch%edges%inv_primal_edge_length(je,jb)&
-                             + (vt_vert4-vt_vert3)*                     &
-                             p_patch%edges%inv_vert_vert_length(je,jb)  &
-                             - (vt_ie(je,jk,jb) - vt_ie(je,jkp1,jb)) *  &
-                             p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb) * &
-                             p_nh_metrics%ddxn_z_full(je,jk,jb)         &
-                             - (vn_ie(je,jk,jb)-vn_ie(je,jkp1,jb))*     &
-                             p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb) * &
-                             p_nh_metrics%ddxt_z_full(je,jk,jb)
-
-            ! todo: vertical metric term multiplicator is missing
-            D_13(je,jk,jb) =     (vn_ie(je,jk,jb)-vn_ie(je,jkp1,jb))* &
-                              p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb) + &
-                             (w_full_c2 - w_full_c1) *                      &
-                              p_patch%edges%inv_dual_edge_length(je,jb)     &
-                             - (w_ie(je,jk,jb) - w_ie(je,jkp1,jb)) *         &
-                             p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb) * &
-                             p_nh_metrics%ddxn_z_full(je,jk,jb)
-
-            D_22       =     2._wp*(vt_vert2-vt_vert1)*p_patch%edges%tangent_orientation(je,jb) * &
-                             p_patch%edges%inv_primal_edge_length(je,jb)    &
-                             + 2._wp*(vt_ie(je,jk,jb) - vt_ie(je,jkp1,jb)) *      &
-                             p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb) * &
-                             p_nh_metrics%ddxt_z_full(je,jk,jb)
-
-            ! todo: vertical metric term multiplicator is missing
-            D_23(je,jk,jb) =    (vt_ie(je,jk,jb) - vt_ie(je,jkp1,jb)) *          &
-                             p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb) +        &
-                             p_patch%edges%tangent_orientation(je,jb) *       &
-                            (w_full_v2 - w_full_v1) *                        &
-                             p_patch%edges%inv_primal_edge_length(je,jb)    &
-                             + (w_ie(je,jk,jb) - w_ie(je,jkp1,jb)) *      &
-                             p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb) * &
-                             p_nh_metrics%ddxt_z_full(je,jk,jb)
-
-            ! todo: vertical metric term multiplicator is missing
-            D_33(je,jk,jb)  =     2._wp * (w_ie(je,jk,jb) - w_ie(je,jkp1,jb)) *   &
-                             p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb)
-
-            !Mechanical prod is half of this value divided by km
-            mech_prod_e(je,jk,jb) = D_11(je,jk,jb)**2 + D_22**2 + D_33(je,jk,jb)**2 + &
-                                     2._wp * ( D_12(je,jk,jb)**2 + D_13(je,jk,jb)**2 + &
-                                     D_23(je,jk,jb)**2 )
-
-            !calculate divergence to get the deviatoric part of stress tensor in
-            !diffusion: D_11-1/3*(D_11+D_22+D_33)
-            div_of_stress(je,jk,jb)  = 0.5_wp * ( D_11(je,jk,jb) + D_22 + D_33(je,jk,jb) )
-
+#ifdef __LOOP_EXCHANGE
+       DO je = i_startidx, i_endidx
+         DO jk = 4, nlev-3
+#else
+       DO jk = 4, nlev-3
+         DO je = i_startidx, i_endidx
+#endif
+#           include "smagorinsky_strain_rate.inc"
+            D_11_ie(je,jk+1,jb) = &
+              p_nh_metrics%wgtfac_e(je,jk+1,jb) * D_11
+            D_12_ie(je,jk+1,jb) = &
+              p_nh_metrics%wgtfac_e(je,jk+1,jb) * D_12
+            D_13_ie(je,jk+1,jb) = &
+              p_nh_metrics%wgtfac_e(je,jk+1,jb) * D_13
+            D_11_ie(je,jk,jb) = D_11_ie(je,jk,jb) &
+              + (1._wp - p_nh_metrics%wgtfac_e(je,jk,jb)) * D_11
+            D_12_ie(je,jk,jb) = D_12_ie(je,jk,jb) &
+              + (1._wp - p_nh_metrics%wgtfac_e(je,jk,jb)) * D_12
+            D_13_ie(je,jk,jb) = D_13_ie(je,jk,jb) &
+              + (1._wp - p_nh_metrics%wgtfac_e(je,jk,jb)) * D_13
+         ENDDO
+       ENDDO
+#ifdef __LOOP_EXCHANGE
+       DO je = i_startidx, i_endidx
+         DO jk = nlev-2, nlev
+#else
+       DO jk = nlev-2, nlev
+         DO je = i_startidx, i_endidx
+#endif
+#          include "smagorinsky_strain_rate.inc"
+           IF (jk <= nlev-1) THEN
+             D_11_ie(je,jk+1,jb) = &
+               p_nh_metrics%wgtfac_e(je,jk+1,jb) * D_11
+             D_12_ie(je,jk+1,jb) = &
+               p_nh_metrics%wgtfac_e(je,jk+1,jb) * D_12
+             D_13_ie(je,jk+1,jb) = &
+               p_nh_metrics%wgtfac_e(je,jk+1,jb) * D_13
+           END IF
+           D_11_ie(je,jk,jb) = D_11_ie(je,jk,jb) &
+              + (1._wp - p_nh_metrics%wgtfac_e(je,jk,jb)) * D_11
+           D_12_ie(je,jk,jb) = D_12_ie(je,jk,jb) &
+              + (1._wp - p_nh_metrics%wgtfac_e(je,jk,jb)) * D_12
+           D_13_ie(je,jk,jb) = D_13_ie(je,jk,jb) &
+              + (1._wp - p_nh_metrics%wgtfac_e(je,jk,jb)) * D_13
+           D_11_ie(je,nlev+1,jb) = D_11_ie(je,nlev+1,jb) &
+              + p_nh_metrics%wgtfacq_e(je,nlev-jk+1,jb) * D_11
+           D_12_ie(je,nlev+1,jb) = D_12_ie(je,nlev+1,jb) &
+              + p_nh_metrics%wgtfacq_e(je,nlev-jk+1,jb) * D_12
+           D_13_ie(je,nlev+1,jb) = D_13_ie(je,nlev+1,jb) &
+              + p_nh_metrics%wgtfacq_e(je,nlev-jk+1,jb) * D_13
          ENDDO
        ENDDO
     ENDDO
@@ -740,7 +698,8 @@ MODULE mo_sgs_turbmetric
   !! Modified by Slavko Brdar, DWD (2014-08-01)
   !!   - include turbulent metric terms
   SUBROUTINE diffuse_hori_velocity(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, &
-                                   prm_diag, ddt_u, ddt_v, dt)
+                                   prm_diag, ddt_u, ddt_v, &
+                                   d_11_ie, d_12_ie, d_13_ie, dt)
 
     TYPE(t_nh_prog),   INTENT(in)        :: p_nh_prog    !< single nh prognostic state
     TYPE(t_nh_diag),   INTENT(in)        :: p_nh_diag    !< single nh diagnostic state
@@ -750,6 +709,8 @@ MODULE mo_sgs_turbmetric
     TYPE(t_nwp_phy_diag),INTENT(inout)   :: prm_diag     !< atm phys vars
     REAL(wp),   TARGET, INTENT(inout)    :: ddt_u(:,:,:) !< u tendency
     REAL(wp),   TARGET, INTENT(inout)    :: ddt_v(:,:,:) !< v tendency
+    REAL(wp), DIMENSION(nproma,p_patch%nlevp1,p_patch%nblks_e), INTENT(in) :: &
+         D_11_ie, D_12_ie, D_13_ie
     REAL(wp),           INTENT(in)       :: dt           !< dt turb
 
     REAL(wp) :: flux_up_e, flux_dn_e, flux_up_v, flux_dn_v, flux_up_c, &
@@ -769,7 +730,6 @@ MODULE mo_sgs_turbmetric
 
     REAL(wp), DIMENSION(nproma,p_patch%nlev) :: a, b, c, rhs
     REAL(wp), DIMENSION(p_patch%nlev) :: var_new, outvar
-    REAL(wp), DIMENSION(nproma,p_patch%nlevp1,p_patch%nblks_e) :: D_11_ie, D_12_ie, D_13_ie
     REAL(wp) :: stress_c1t, stress_c2t
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: ividx, ivblk, iecidx, iecblk
@@ -802,9 +762,6 @@ MODULE mo_sgs_turbmetric
     CALL init(tot_tend)
     CALL copy(p_nh_prog%vn, vn_new)
     IF (p_test_run) THEN
-      CALL init(d_11_ie)
-      CALL init(d_12_ie)
-      CALL init(d_13_ie)
       CALL init(inv_rhoe)
     END IF
 !$OMP END PARALLEL
@@ -829,47 +786,14 @@ MODULE mo_sgs_turbmetric
                          i_startidx, i_endidx, rl_start, rl_end)
 #ifdef __LOOP_EXCHANGE
        DO je = i_startidx, i_endidx
-         DO jk = 2 , nlev
+         DO jk = 1, nlev
 #else
-      DO jk = 2 , nlev
-       DO je = i_startidx, i_endidx
+       DO jk = 1, nlev
+         DO je = i_startidx, i_endidx
 #endif
-         inv_rhoe(je,jk,jb) = 1._wp / inv_rhoe(je,jk,jb)
-         D_11_ie(je,jk,jb) = p_nh_metrics%wgtfac_e(je,jk,jb)*D_11(je,jk-1,jb) &
-                    + (1._wp - p_nh_metrics%wgtfac_e(je,jk,jb))*D_11(je,jk,jb)
-         D_12_ie(je,jk,jb) = p_nh_metrics%wgtfac_e(je,jk,jb)*D_12(je,jk-1,jb) &
-                    + (1._wp - p_nh_metrics%wgtfac_e(je,jk,jb))*D_12(je,jk,jb)
-         D_13_ie(je,jk,jb) = p_nh_metrics%wgtfac_e(je,jk,jb)*D_13(je,jk-1,jb) &
-                    + (1._wp - p_nh_metrics%wgtfac_e(je,jk,jb))*D_13(je,jk,jb)
+           inv_rhoe(je,jk,jb) = 1._wp / inv_rhoe(je,jk,jb)
+         END DO
        END DO
-      END DO
-
-      ! top layer approximation
-      DO je = i_startidx, i_endidx
-        inv_rhoe(je,1,jb) = 1._wp / inv_rhoe(je,1,jb)
-        D_11_ie(je,1,jb) =    p_nh_metrics%wgtfacq1_e(je,1,jb)*D_11(je,1,jb) &
-                           + p_nh_metrics%wgtfacq1_e(je,2,jb)*D_11(je,2,jb) &
-                           + p_nh_metrics%wgtfacq1_e(je,3,jb)*D_11(je,3,jb)
-        D_12_ie(je,1,jb) =    p_nh_metrics%wgtfacq1_e(je,1,jb)*D_12(je,1,jb) &
-                           + p_nh_metrics%wgtfacq1_e(je,2,jb)*D_12(je,2,jb) &
-                           + p_nh_metrics%wgtfacq1_e(je,3,jb)*D_12(je,3,jb)
-        D_13_ie(je,1,jb) =    p_nh_metrics%wgtfacq1_e(je,1,jb)*D_13(je,1,jb) &
-                           + p_nh_metrics%wgtfacq1_e(je,2,jb)*D_13(je,2,jb) &
-                           + p_nh_metrics%wgtfacq1_e(je,3,jb)*D_13(je,3,jb)
-      END DO
-
-      ! surface layer approximation
-      DO je = i_startidx, i_endidx
-        D_11_ie(je,nlev+1,jb) =   p_nh_metrics%wgtfacq_e(je,1,jb)*D_11(je,nlev,jb)  &
-                               + p_nh_metrics%wgtfacq_e(je,2,jb)*D_11(je,nlev-1,jb)    &
-                               + p_nh_metrics%wgtfacq_e(je,3,jb)*D_11(je,nlev-2,jb)
-        D_12_ie(je,nlev+1,jb) =   p_nh_metrics%wgtfacq_e(je,1,jb)*D_12(je,nlev,jb)  &
-                               + p_nh_metrics%wgtfacq_e(je,2,jb)*D_12(je,nlev-1,jb)    &
-                               + p_nh_metrics%wgtfacq_e(je,3,jb)*D_12(je,nlev-2,jb)
-        D_13_ie(je,nlev+1,jb) =   p_nh_metrics%wgtfacq_e(je,1,jb)*D_13(je,nlev,jb)  &
-                               + p_nh_metrics%wgtfacq_e(je,2,jb)*D_13(je,nlev-1,jb)    &
-                               + p_nh_metrics%wgtfacq_e(je,3,jb)*D_13(je,nlev-2,jb)
-      END DO
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
