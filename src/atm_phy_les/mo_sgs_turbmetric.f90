@@ -689,7 +689,23 @@ MODULE mo_sgs_turbmetric
     !4c) Now calculate visc_smag at half levels at edge
     CALL cells2edges_scalar(diff_smag_ic, p_patch, p_int%c_lin_e, visc_smag_ie, &
                             opt_rlstart=grf_bdywidth_e, opt_rlend=min_rledge_int-1)
-    visc_smag_ie = MAX( les_config(jg)%km_min, visc_smag_ie * les_config(jg)%turb_prandtl )
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
+    DO jb = 1,p_patch%nblks_e
+#ifdef __LOOP_EXCHANGE
+       DO jc = 1, nproma
+         DO jk = 1, nlev+1
+#else
+       DO jk = 1 , nlev+1
+         DO jc = 1, nproma
+#endif
+           visc_smag_ie(jc,jk,jb) = MAX( les_config(jg)%km_min, &
+             &     visc_smag_ie(jc,jk,jb) * les_config(jg)%turb_prandtl )
+         END DO
+       END DO
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
 
     !4d)Get visc_smag_ic
     prm_diag%tkvm = MAX( les_config(jg)%km_min, prm_diag%tkvh * les_config(jg)%turb_prandtl )
