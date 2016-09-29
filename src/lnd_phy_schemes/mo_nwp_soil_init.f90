@@ -36,7 +36,7 @@ MODULE mo_nwp_soil_init
     &                              g     => grav      ! acceleration due to gravity
 
   USE mo_lnd_nwp_config,     ONLY: lmulti_snow, lana_rho_snow, &
-    &                              lmelt, lmelt_var,           &
+    &                              lmelt, lmelt_var, soil_ice_limit, &
     &                              max_toplaydepth, l2lay_rho_snow
   USE mo_phyparam_soil,      ONLY: cdw0, cdw1, ckw0, ckw1, cik2, &
     &                              cporv, cpwp, cadp, cfcap,     & 
@@ -333,7 +333,7 @@ CONTAINS
   ENDDO
  
   ! Tolerances for the allowed deviation of w_so_ice from its equilibrium value
-  wso_ice_tolerance  = 1.05_ireals ! 5% deviation allowed
+  wso_ice_tolerance  = soil_ice_limit !1.05_ireals ! 5% deviation allowed
   rwso_ice_tolerance = 1._ireals/wso_ice_tolerance
 
 

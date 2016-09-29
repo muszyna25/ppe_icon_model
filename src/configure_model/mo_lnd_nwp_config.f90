@@ -55,7 +55,7 @@ MODULE mo_lnd_nwp_config
   PUBLIC :: lseaice,  llake, lmelt, lmelt_var, lmulti_snow, lsnowtile, max_toplaydepth
   PUBLIC :: itype_trvg, itype_evsl, itype_lndtbl, l2lay_rho_snow
   PUBLIC :: itype_root, itype_heatcond, itype_interception, &
-             itype_hydbound, idiag_snowfrac, cwimax_ml
+             itype_hydbound, idiag_snowfrac, cwimax_ml, soil_ice_limit
   PUBLIC :: lstomata, l2tls, lana_rho_snow 
   PUBLIC :: isub_water, isub_lake, isub_seaice
   PUBLIC :: sstice_mode, sst_td_filename, ci_td_filename
@@ -83,6 +83,7 @@ MODULE mo_lnd_nwp_config
   INTEGER ::  itype_heatcond     !< type of soil heat conductivity
   INTEGER ::  itype_interception !< type of plant interception
   REAL(wp)::  cwimax_ml          !< scaling parameter for maximum interception storage
+  REAL(wp)::  soil_ice_limit     !< scaling parameter for the allowed deviation of w_so_ice from its equilibrium value
   INTEGER ::  itype_hydbound     !< type of hydraulic lower boundary condition
   INTEGER ::  idiag_snowfrac     !< method for diagnosis of snow-cover fraction
 
