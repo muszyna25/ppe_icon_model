@@ -50,7 +50,7 @@ USE mo_vertical_coord_table,ONLY: vct_a
 USE mo_communication,       ONLY: exchange_data, exchange_data_mult
 USE mo_sync,                ONLY: SYNC_C, sync_patch_array, sync_patch_array_mult
 USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, lmulti_snow, lseaice, llake, &
-                                  frlake_thrhld, frsea_thrhld, isub_lake
+                                  frlake_thrhld, frsea_thrhld, isub_lake, ntiles_total
 USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 USE mo_phyparam_soil,       ONLY: cadp
 USE mo_mpi,                 ONLY: my_process_is_mpi_seq
@@ -1913,7 +1913,7 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
   INTEGER, PARAMETER  :: nfields_p2=18   ! Number of remaining 2D physics fields for which boundary interpolation is needed
   INTEGER, PARAMETER  :: nfields_l2=18   ! Number of 2D land state fields
 
-  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, jb, jc, jk, nlev_c, ic, i_count, indlist(nproma)
+  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, jb, jc, jk, jt, nlev_c, ic, i_count, indlist(nproma)
   INTEGER :: styp                        ! soiltype at child level
 
   LOGICAL :: lsfc_interp
@@ -2161,7 +2161,7 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,styp,ic,i_count,indlist) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt,styp,ic,i_count,indlist) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_pc, jb, i_startblk, i_endblk,        &
@@ -2356,6 +2356,18 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
           ENDIF
           !
           ptr_ldiagc%w_so_ice(jc,jk,jb) = z_aux3dso_c(jc,3*(jk-1)+3,jb)
+        ENDDO
+      ENDDO
+
+      ! Copy interpolated values to tile-based variables; this is actually needed in order
+      ! to avoid loss of grib encoding accuracy for t_so_t
+      DO jt = 1, ntiles_total
+        DO jk = 1, nlev_soil
+          DO jc = i_startidx, i_endidx
+            ptr_lprogc%t_so_t(jc,jk,jb,jt)     = ptr_ldiagc%t_so(jc,jk,jb)
+            ptr_lprogc%w_so_t(jc,jk,jb,jt)     = ptr_ldiagc%w_so(jc,jk,jb)
+            ptr_lprogc%w_so_ice_t(jc,jk,jb,jt) = ptr_ldiagc%w_so_ice(jc,jk,jb)
+          ENDDO
         ENDDO
       ENDDO
 

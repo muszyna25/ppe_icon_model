@@ -49,6 +49,9 @@
 !! - removed optional slope limiter
 !! Modification by Daniel Reinert, DWD (2013-09-30)
 !! - new option: FFSL + Miura-type advection with subcycling
+!! Modification by Will Sawyer, CSCS (2016-02-26)
+!! - added OpenACC support
+!! - added temp variables of type t_lsq to circumvent OpenACC compiler bug
 !!
 !!
 !! @par Copyright and License
@@ -83,7 +86,7 @@ MODULE mo_advection_hflux
     &                               recon_lsq_cell_c_svd, recon_lsq_cell_l_consv_svd
   USE mo_interpol_config,     ONLY: llsq_lin_consv, llsq_high_consv, lsq_high_ord, &
     &                               lsq_high_set
-  USE mo_intp_data_strc,      ONLY: t_int_state
+  USE mo_intp_data_strc,      ONLY: t_int_state, t_lsq
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_edge
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ntracer, timers_level
@@ -106,6 +109,11 @@ MODULE mo_advection_hflux
   USE mo_timer,               ONLY: timer_adv_horz, timer_start, timer_stop
   USE mo_vertical_coord_table,ONLY: vct_a
   USE mo_fortran_tools,       ONLY: init, copy
+#ifdef _OPENACC
+  USE mo_mpi,                 ONLY: i_am_accel_node
+  USE mo_sync,                ONLY: SYNC_E, SYNC_C, check_patch_array
+#endif
+
 
   IMPLICIT NONE
 
@@ -117,6 +125,16 @@ MODULE mo_advection_hflux
   PUBLIC :: upwind_hflux_up
   PUBLIC :: upwind_hflux_miura
   PUBLIC :: upwind_hflux_miura3
+
+#if defined( _OPENACC )
+#define ACC_DEBUG $ACC
+#if defined(__ADVECTION_HFLUX_NOACC)
+  LOGICAL, PARAMETER ::  acc_on = .FALSE.
+#else
+  LOGICAL, PARAMETER ::  acc_on = .TRUE.
+#endif
+#endif
+
 
 
   !-------------------------------------------------------------------------
@@ -606,14 +624,24 @@ CONTAINS
     iibc => p_patch%edges%cell_blk
 
     ! loop through all patch edges (and blocks)
+#ifdef _OPENACC
+!$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e ), PCOPYOUT( p_upflux ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( p_cc, p_mass_flx_e ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( p_patch, iilc, iibc, p_cc, p_mass_flx_e, p_upflux ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk,   &
         &                i_startidx, i_endidx, i_rlstart, i_rlend)
 
-
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
         DO jk = slev, elev
@@ -638,8 +666,14 @@ CONTAINS
       END DO  ! end loop over levels
 
     END DO  ! end loop over blocks
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( p_upflux ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
   END SUBROUTINE upwind_hflux_up
 
@@ -781,8 +815,18 @@ CONTAINS
     INTEGER  :: i_rlstart, i_rlend, i_nchdom, i_rlend_c, i_rlend_tr, i_rlend_vt
     LOGICAL  :: l_consv            !< true if conservative lsq reconstruction is used
     LOGICAL  :: use_zlsq           !< true if z_lsq_coeff is used to store the gradients
+#ifdef __OPENACC_BUG_TYPES_1
+    TYPE(t_lsq) :: lsq_lin           !< Instance of p_int_state%lsq_lin
+    lsq_lin = p_int%lsq_lin
+#else
+    TYPE(t_lsq), POINTER :: lsq_lin  !< pointer to p_int_state%lsq_lin
+    lsq_lin => p_int%lsq_lin
+#endif
 
    !-------------------------------------------------------------------------
+
+!$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e, p_vn, p_vt ), PCOPY( p_out_e ), CREATE( z_grad, z_lsq_coeff ), IF( i_am_accel_node .AND. acc_on)
+!ACC_DEBUG UPDATE DEVICE( p_cc, p_mass_flx_e, p_vn, p_vt, p_out_e ), IF( i_am_accel_node .AND. acc_on )
 
     ! number of vertical levels
     nlev = p_patch%nlev
@@ -855,7 +899,9 @@ CONTAINS
     i_nchdom = MAX(1,p_patch%n_childdom)
 
     IF (p_test_run) THEN
+!$ACC KERNELS IF (i_am_accel_node .AND. acc_on)
       z_grad(:,:,:,:) = 0._wp
+!$ACC END KERNELS
     ENDIF
 
     !
@@ -889,6 +935,7 @@ CONTAINS
           &  'failed' )
       ENDIF
 
+!$ACC ENTER DATA CREATE( z_distv_bary, z_cell_idx, z_cell_blk ), IF (i_am_accel_node .AND. acc_on)
 
       ! one half of current time step
       z_dthalf = 0.5_wp * p_dtime
@@ -923,18 +970,18 @@ CONTAINS
     IF (p_igrad_c_miura == 1) THEN
       ! least squares method
       IF (advection_config(pid)%llsq_svd .AND. l_consv) THEN
-      CALL recon_lsq_cell_l_consv_svd( p_cc, p_patch, p_int%lsq_lin, z_lsq_coeff,         &
+        CALL recon_lsq_cell_l_consv_svd( p_cc, p_patch, lsq_lin, z_lsq_coeff,         &
         &                              opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                              opt_lconsv=l_consv)
-      use_zlsq = .TRUE.
+        use_zlsq = .TRUE.
       ELSE IF (advection_config(pid)%llsq_svd) THEN
-      CALL recon_lsq_cell_l_svd( p_cc, p_patch, p_int%lsq_lin, z_grad,           &
+        CALL recon_lsq_cell_l_svd( p_cc, p_patch, lsq_lin, z_grad,           &
         &                        opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c)
       ELSE
-      CALL recon_lsq_cell_l( p_cc, p_patch, p_int%lsq_lin, z_lsq_coeff,         &
+        CALL recon_lsq_cell_l( p_cc, p_patch, lsq_lin, z_lsq_coeff,         &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_lconsv=l_consv)
-      use_zlsq = .TRUE.
+        use_zlsq = .TRUE.
       ENDIF
 
     ELSE IF (p_igrad_c_miura == 2) THEN
@@ -962,7 +1009,9 @@ CONTAINS
     !    linear approximation). Only the reconstruction for the local cell
     !    is taken into account.
 
+#ifndef _OPENACC
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+#endif
 
     ! Before starting, preset halo edges that are not processed with zero's in order
     ! to avoid access of uninitialized array elements in subsequent routines
@@ -973,7 +1022,9 @@ CONTAINS
       i_endblk   = p_patch%edges%end_blk(min_rledge_int-3,i_nchdom)
 
       CALL init(p_out_e(:,:,i_startblk:i_endblk))
+#ifndef _OPENACC
 !$OMP BARRIER
+#endif
     ENDIF
 
     i_startblk = p_patch%edges%start_blk(i_rlstart,1)
@@ -982,10 +1033,21 @@ CONTAINS
     ! initialize also nest boundary points with zero
     IF ( l_out_edgeval .AND. (p_patch%id > 1 .OR. l_limited_area)) THEN
       CALL init(p_out_e(:,:,1:i_startblk))
+#ifndef _OPENACC
 !$OMP BARRIER
+#endif
     ENDIF
 
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( p_patch, p_cc, p_mass_flx_e, z_cell_idx, z_cell_blk, z_grad, z_distv_bary ), &
+!$ACC PRESENT( p_out_e ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0), ICON_OMP_RUNTIME_SCHEDULE
+#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -993,6 +1055,7 @@ CONTAINS
 
       IF ( l_out_edgeval ) THEN   ! Calculate 'edge value' of advected quantity
 
+!$ACC LOOP VECTOR COLLAPSE(2)
 !CDIR UNROLL=5
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
@@ -1012,6 +1075,7 @@ CONTAINS
 
       ELSE IF (use_zlsq) THEN
 
+!$ACC LOOP VECTOR COLLAPSE(2)
 !CDIR UNROLL=5
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
@@ -1032,6 +1096,7 @@ CONTAINS
 
       ELSE
 
+!$ACC LOOP VECTOR COLLAPSE(2)
 !CDIR UNROLL=5
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
@@ -1053,9 +1118,16 @@ CONTAINS
       ENDIF
 
     ENDDO    ! loop over blocks
+#ifdef _OPENACC
+!$ACC END PARALLEL
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
+! 2015_09_22 WS: This line might be needed because debugging is on in hflx_limiter_mo
+
+!!! !ACC_DEBUG UPDATE HOST( p_out_e ), IF( i_am_accel_node .AND. acc_on )
 
     !
     ! 4. If desired, apply a (semi-)monotone flux limiter to limit computed fluxes.
@@ -1073,6 +1145,7 @@ CONTAINS
 
     IF ( ld_cleanup ) THEN
       ! deallocate temporary arrays for velocity, Gauss-points and barycenters
+!$ACC EXIT DATA DELETE( z_distv_bary, z_cell_idx, z_cell_blk ), IF (i_am_accel_node .AND. acc_on)
       DEALLOCATE( z_distv_bary, z_cell_idx, z_cell_blk, STAT=ist )
 
       IF (ist /= SUCCESS) THEN
@@ -1081,6 +1154,9 @@ CONTAINS
           &  'failed' )
       ENDIF
     END IF
+
+!ACC_DEBUG UPDATE HOST( p_out_e ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
 
   END SUBROUTINE upwind_hflux_miura
 
@@ -1245,6 +1321,13 @@ CONTAINS
 
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
       &  iidx, iblk                          !< of edges
+#ifdef __OPENACC_BUG_TYPES_1
+    TYPE(t_lsq) :: lsq_lin                   !< Instance of p_int_state%lsq_lin
+    lsq_lin  = p_int%lsq_lin
+#else
+    TYPE(t_lsq), POINTER :: lsq_lin          !< Pointer to p_int_state%lsq_lin
+    lsq_lin => p_int%lsq_lin
+#endif
 
    !-------------------------------------------------------------------------
 
@@ -1405,19 +1488,19 @@ CONTAINS
       IF (p_igrad_c_miura == 1) THEN
         ! least squares method
         IF (advection_config(pid)%llsq_svd .AND. l_consv) THEN
-        CALL recon_lsq_cell_l_consv_svd( z_tracer(:,:,:,nnow), p_patch, p_int%lsq_lin, &
+          CALL recon_lsq_cell_l_consv_svd( z_tracer(:,:,:,nnow), p_patch, lsq_lin, &
           &                              z_lsq_coeff, opt_slev=slev, opt_elev=elev,        &
           &                              opt_rlend=i_rlend_c, opt_lconsv=l_consv)
-        use_zlsq = .TRUE.
+          use_zlsq = .TRUE.
         ELSE IF (advection_config(pid)%llsq_svd) THEN
-        CALL recon_lsq_cell_l_svd( z_tracer(:,:,:,nnow), p_patch, p_int%lsq_lin, &
+          CALL recon_lsq_cell_l_svd( z_tracer(:,:,:,nnow), p_patch, lsq_lin,       &
           &                    z_grad, opt_slev=slev, opt_elev=elev,             &
           &                    opt_rlend=i_rlend_c)
         ELSE
-        CALL recon_lsq_cell_l( z_tracer(:,:,:,nnow), p_patch, p_int%lsq_lin,     &
+          CALL recon_lsq_cell_l( z_tracer(:,:,:,nnow), p_patch, lsq_lin,           &
           &                    z_lsq_coeff, opt_slev=slev, opt_elev=elev,        &
           &                    opt_rlend=i_rlend_c, opt_lconsv=l_consv)
-        use_zlsq = .TRUE.
+          use_zlsq = .TRUE.
         ENDIF
 
       ELSE IF (p_igrad_c_miura == 2) THEN
@@ -1806,6 +1889,14 @@ CONTAINS
     INTEGER  :: i_rlstart, i_rlend, i_rlend_c, i_nchdom
     INTEGER  :: pid                !< patch ID
 
+#ifdef __OPENACC_BUG_TYPES_1
+    TYPE(t_lsq) :: lsq_high          !< Instance of p_int_state%lsq_high
+    lsq_high = p_int%lsq_high
+#else
+    TYPE(t_lsq), POINTER :: lsq_high !< Pointer to p_int_state%lsq_high
+    lsq_high => p_int%lsq_high
+#endif
+
    !-------------------------------------------------------------------------
 
     ! number of vertical levels
@@ -1952,11 +2043,11 @@ CONTAINS
       ! quadratic reconstruction
       ! (computation of 6 coefficients -> z_lsq_coeff )
       IF (advection_config(pid)%llsq_svd) THEN
-      CALL recon_lsq_cell_q_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
+        CALL recon_lsq_cell_q_svd( p_cc, p_patch, lsq_high, z_lsq_coeff,    &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_rlstart=2 )
       ELSE
-      CALL recon_lsq_cell_q( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,        &
+        CALL recon_lsq_cell_q( p_cc, p_patch, lsq_high, z_lsq_coeff,        &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_rlstart=2 )
       ENDIF
@@ -1964,11 +2055,11 @@ CONTAINS
       ! cubic reconstruction without cross derivatives
       ! (computation of 8 coefficients -> z_lsq_coeff )
       IF (advection_config(pid)%llsq_svd) THEN
-      CALL recon_lsq_cell_cpoor_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,&
+      CALL recon_lsq_cell_cpoor_svd( p_cc, p_patch, lsq_high, z_lsq_coeff,&
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_rlstart=2 )
       ELSE
-      CALL recon_lsq_cell_cpoor( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
+      CALL recon_lsq_cell_cpoor( p_cc, p_patch, lsq_high, z_lsq_coeff,    &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_rlstart=2 )
       ENDIF
@@ -1976,11 +2067,11 @@ CONTAINS
       ! cubic reconstruction with cross derivatives
       ! (computation of 10 coefficients -> z_lsq_coeff )
       IF (advection_config(pid)%llsq_svd) THEN
-      CALL recon_lsq_cell_c_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
+      CALL recon_lsq_cell_c_svd( p_cc, p_patch, lsq_high, z_lsq_coeff,    &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_rlstart=2 )
       ELSE
-      CALL recon_lsq_cell_c( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,        &
+      CALL recon_lsq_cell_c( p_cc, p_patch, lsq_high, z_lsq_coeff,        &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_rlstart=2 )
       ENDIF
@@ -2160,7 +2251,6 @@ CONTAINS
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
       CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc, p_mass_flx_e, & !in
         &           p_out_e, slev, elev, opt_rlend=i_rlend,              & !inout,in
-        &           opt_niter=advection_config(pid)%niter_fct,           & !in
         &           opt_beta_fct=advection_config(pid)%beta_fct          ) !in
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
       !
@@ -2316,6 +2406,13 @@ CONTAINS
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_rlend_c, i_nchdom
     INTEGER  :: pid                !< patch ID
+#ifdef __OPENACC_BUG_TYPES_1
+    TYPE(t_lsq) :: lsq_high          !< Instance of p_int_state%lsq_high
+    lsq_high = p_int%lsq_high
+#else
+    TYPE(t_lsq), POINTER :: lsq_high !< Pointer to p_int_state%lsq_high
+    lsq_high => p_int%lsq_high
+#endif
 
    !-------------------------------------------------------------------------
 
@@ -2535,11 +2632,11 @@ CONTAINS
       ! linear reconstruction
       ! (computation of 3 coefficients -> z_lsq_coeff )
       IF (advection_config(pid)%llsq_svd) THEN
-        CALL recon_lsq_cell_l_consv_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
+        CALL recon_lsq_cell_l_consv_svd( p_cc, p_patch, lsq_high, z_lsq_coeff,    &
           &                              opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
           &                              opt_rlstart=2, opt_lconsv=l_consv )
       ELSE
-        CALL recon_lsq_cell_l( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,        &
+        CALL recon_lsq_cell_l( p_cc, p_patch, lsq_high, z_lsq_coeff,        &
           &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
           &                    opt_rlstart=2, opt_lconsv=l_consv )
       ENDIF
@@ -2547,11 +2644,11 @@ CONTAINS
       ! quadratic reconstruction
       ! (computation of 6 coefficients -> z_lsq_coeff )
       IF (advection_config(pid)%llsq_svd) THEN
-      CALL recon_lsq_cell_q_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
+      CALL recon_lsq_cell_q_svd( p_cc, p_patch, lsq_high, z_lsq_coeff,    &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_rlstart=2 )
       ELSE
-      CALL recon_lsq_cell_q( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,        &
+      CALL recon_lsq_cell_q( p_cc, p_patch, lsq_high, z_lsq_coeff,        &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_rlstart=2 )
       ENDIF
@@ -2559,11 +2656,11 @@ CONTAINS
       ! cubic reconstruction without cross derivatives
       ! (computation of 8 coefficients -> z_lsq_coeff )
       IF (advection_config(pid)%llsq_svd) THEN
-      CALL recon_lsq_cell_cpoor_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,&
+      CALL recon_lsq_cell_cpoor_svd( p_cc, p_patch, lsq_high, z_lsq_coeff,&
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_rlstart=2 )
       ELSE
-      CALL recon_lsq_cell_cpoor( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
+      CALL recon_lsq_cell_cpoor( p_cc, p_patch, lsq_high, z_lsq_coeff,    &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_rlstart=2 )
       ENDIF
@@ -2571,11 +2668,11 @@ CONTAINS
       ! cubic reconstruction with cross derivatives
       ! (computation of 10 coefficients -> z_lsq_coeff )
       IF (advection_config(pid)%llsq_svd) THEN
-      CALL recon_lsq_cell_c_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
+      CALL recon_lsq_cell_c_svd( p_cc, p_patch, lsq_high, z_lsq_coeff,    &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_rlstart=2 )
       ELSE
-      CALL recon_lsq_cell_c( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,        &
+      CALL recon_lsq_cell_c( p_cc, p_patch, lsq_high, z_lsq_coeff,        &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_rlstart=2 )
       ENDIF
@@ -2718,7 +2815,6 @@ CONTAINS
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
       CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc, p_mass_flx_e, & !in
         &           p_out_e, slev, elev, opt_rlend=i_rlend,              & !inout,in
-        &           opt_niter=advection_config(pid)%niter_fct,           & !in
         &           opt_beta_fct=advection_config(pid)%beta_fct          ) !in
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
       !
@@ -2881,6 +2977,14 @@ CONTAINS
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_rlend_c, i_nchdom
     INTEGER  :: pid                !< patch ID
+
+#ifdef __OPENACC_BUG_TYPES_1
+    TYPE(t_lsq) :: lsq_high          !< Instance of p_int_state%lsq_high
+    lsq_high = p_int%lsq_high
+#else
+    TYPE(t_lsq), POINTER :: lsq_high !< Pointer to p_int_state%lsq_high
+    lsq_high => p_int%lsq_high
+#endif
 
    !-------------------------------------------------------------------------
 
@@ -3097,11 +3201,11 @@ CONTAINS
       ! linear reconstruction
       ! (computation of 3 coefficients -> z_lsq_coeff )
       IF (advection_config(pid)%llsq_svd) THEN
-        CALL recon_lsq_cell_l_consv_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
+        CALL recon_lsq_cell_l_consv_svd( p_cc, p_patch, lsq_high, z_lsq_coeff,    &
           &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
           &                    opt_rlstart=2 )
       ELSE
-        CALL recon_lsq_cell_l( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,        &
+        CALL recon_lsq_cell_l( p_cc, p_patch, lsq_high, z_lsq_coeff,        &
           &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
           &                    opt_rlstart=2 )
       ENDIF
@@ -3109,11 +3213,11 @@ CONTAINS
       ! quadratic reconstruction
       ! (computation of 6 coefficients -> z_lsq_coeff )
       IF (advection_config(pid)%llsq_svd) THEN
-      CALL recon_lsq_cell_q_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
+      CALL recon_lsq_cell_q_svd( p_cc, p_patch, lsq_high, z_lsq_coeff,    &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_rlstart=2 )
       ELSE
-      CALL recon_lsq_cell_q( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,        &
+      CALL recon_lsq_cell_q( p_cc, p_patch, lsq_high, z_lsq_coeff,        &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_rlstart=2 )
       ENDIF
@@ -3121,11 +3225,11 @@ CONTAINS
       ! cubic reconstruction with cross derivatives
       ! (computation of 10 coefficients -> z_lsq_coeff )
       IF (advection_config(pid)%llsq_svd) THEN
-      CALL recon_lsq_cell_c_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
+      CALL recon_lsq_cell_c_svd( p_cc, p_patch, lsq_high, z_lsq_coeff,    &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_rlstart=2 )
       ELSE
-      CALL recon_lsq_cell_c( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,        &
+      CALL recon_lsq_cell_c( p_cc, p_patch, lsq_high, z_lsq_coeff,        &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_rlstart=2 )
       ENDIF
@@ -3270,7 +3374,6 @@ CONTAINS
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
       CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc, p_mass_flx_e, & !in
         &           p_out_e, slev, elev, opt_rlend=i_rlend,              & !inout,in
-        &           opt_niter=advection_config(pid)%niter_fct,           & !in
         &           opt_beta_fct=advection_config(pid)%beta_fct          ) !in
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
       !

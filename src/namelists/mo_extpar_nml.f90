@@ -21,7 +21,7 @@ MODULE mo_extpar_nml
   USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_impl_constants,      ONLY: max_dom
 
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist         , &
+  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist         , &
                                   & open_and_restore_namelist, close_tmpfile
 
   USE mo_extpar_config,       ONLY: config_itopo                    => itopo             ,           &

@@ -325,8 +325,10 @@ CONTAINS
         & q_bcoef          = zfn_qv(1:kproma, idx_lnd),                                 & ! in
         & pch              = MERGE(pch_tile(1:kproma,idx_lnd),1._wp,lsm(1:kproma)>0.5_wp),  & ! in
         & cos_zenith_angle = pcosmu0(1:kproma),                                         & ! in
-        & t_srf            = ztsfc_lnd(1:kproma),                                       & ! out (T_s^(n+1)) surface temp (filtered, if Asselin)
-        & t_eff_srf        = ztsfc_lnd_eff(1:kproma),                                   & ! out (T_s^eff) surface temp (effective, for longwave rad)
+        & t_srf            = ztsfc_lnd(1:kproma),                                       & ! out (T_s^(n+1)) surface temp 
+                                                                                          ! (filtered, if Asselin)
+        & t_eff_srf        = ztsfc_lnd_eff(1:kproma),                                   & ! out (T_s^eff) surface temp 
+                                                                                          ! (effective, for longwave rad)
         & qsat_srf         = sat_surface_specific_humidity(1:kproma),                   & ! out
         & s_srf            = dry_static_energy(1:kproma),                               & ! out (s_s^star, for vertical diffusion scheme)
         & fact_q_air       = pcair(1:kproma),                                           & ! out
@@ -584,7 +586,7 @@ CONTAINS
    !-------------------------------------------------------------------
 
    CALL surface_fluxes( lsfc_heat_flux, psteplen,             &! in
-                      & kproma, kbdim, klev, ksfc_type,       &! in
+                      & kproma, kbdim, ksfc_type,             &! in
                       & idx_wtr, idx_ice, idx_lnd, ih, iqv,   &! in
                       & pfrc, pcfh_tile, pfac_sfc,            &! in
                       & pcpt_tile, pqsat_tile,                &! in
@@ -704,6 +706,9 @@ CONTAINS
       END IF
     END DO
 
+  !---------------------------------------------------------------------------
+  !
+  !---------------------------------------------------------------------------
 
     END SUBROUTINE update_surface
   !-------------

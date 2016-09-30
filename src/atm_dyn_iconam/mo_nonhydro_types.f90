@@ -94,6 +94,7 @@ MODULE mo_nonhydro_types
     &  pres_ifc(:,:,:),     & ! pressure at interfaces (nproma,nlevp1,nblks_c)  [Pa]
     &  pres_sfc(:,:),       & ! diagnosed surface pressure (nproma,nblks_c)     [Pa]
     &  pres_sfc_old(:,:),   & ! diagnosed surface pressure at previous timestep (nproma,nblks_c) [Pa]
+    &  ddt_pres_sfc(:,:),   & ! current time tendency of diagnosed surface pressure (nproma,nblks_c) [Pa/s]
     &  pres_msl(:,:),       & ! diagnosed mean sea level pressure (nproma,nblks_c)  [Pa]
     &  dpres_mc(:,:,:),     & ! pressure thickness at masspoints(nproma,nlevp,nblks_c)  [Pa]
     &  omega(:,:,:),        & ! vertical velocity ( omega=dp/dt )           [Pa/s]

@@ -53,7 +53,7 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_math_operators,   ONLY: update_height_depdendent_variables, check_cfl_horizontal, check_cfl_vertical
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_ocean_tracer,             ONLY: advect_ocean_tracers
-  USE mo_io_restart,             ONLY: create_restart_file
+  USE mo_restart,                ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
   USE mo_ocean_bulk,             ONLY: update_surface_flux
   USE mo_ocean_surface,          ONLY: update_ocean_surface
   USE mo_ocean_surface_types,    ONLY: t_ocean_surface
@@ -66,7 +66,7 @@ MODULE mo_hydro_ocean_run
   USE mo_name_list_output,       ONLY: write_name_list_output
   USE mo_ocean_diagnostics,        ONLY: calc_fast_oce_diagnostics, calc_psi
   USE mo_ocean_ab_timestepping_mimetic, ONLY: construct_ho_lhs_fields_mimetic, destruct_ho_lhs_fields_mimetic
-  USE mo_io_restart_attributes,  ONLY: get_restart_attribute
+  USE mo_restart_attributes,     ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_time_config,            ONLY: time_config
   USE mo_master_config,          ONLY: isRestart
 !  USE mo_sea_ice_nml,            ONLY: i_ice_dyn
@@ -188,8 +188,9 @@ CONTAINS
     REAL(wp) :: verticalMeanFlux(n_zlev+1)
     INTEGER :: level
     !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
-    CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = 'mo_hydro_ocean_run:perform_ho_stepping'
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    CLASS(t_RestartDescriptor), POINTER :: restartDescriptor
+    CHARACTER(LEN = *), PARAMETER :: routine = 'mo_hydro_ocean_run:perform_ho_stepping'
     !------------------------------------------------------------------
 
     patch_2d      => patch_3d%p_patch_2d(1)
@@ -210,15 +211,17 @@ CONTAINS
 
     !------------------------------------------------------------------
     jstep0 = 0
-    IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
+    restartAttributes => getAttributesForRestarting()
+    IF (ASSOCIATED(restartAttributes) .AND. .NOT. time_config%is_relative_time) THEN
       ! get start counter for time loop from restart file:
-      CALL get_restart_attribute("jstep", jstep0)
+      jstep0 = restartAttributes%getInteger("jstep")
     END IF
     IF (isRestart() .AND. mod(nold(jg),2) /=1 ) THEN
       ! swap the g_n and g_nm1
       CALL update_time_g_n(ocean_state(jg))
     ENDIF
 
+    restartDescriptor => createRestartDescriptor("oce")
 
     !------------------------------------------------------------------
     ! call the dynamical core: start the time loop
@@ -445,9 +448,11 @@ CONTAINS
         &                hamocc_state,            &
         &                jstep, jstep0)
       
-      ! receive coupling fluxes for ocean at the end of time stepping loop
+      ! send and receive coupling fluxes for ocean at the end of time stepping loop
       IF (iforc_oce == Coupled_FluxFromAtmo) &  !  14
-        &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, datetime)
+        &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, p_as, datetime)
+!       &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, p_as%fu10, datetime)
+!       &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, datetime)
 
   
       start_detail_timer(timer_extra21,5)
@@ -460,15 +465,13 @@ CONTAINS
 
       ! write a restart or checkpoint file
       IF (MOD(jstep,n_checkpoints())==0) THEN
-        CALL create_restart_file( patch = patch_2d,       &
-          & datetime=datetime,      &
-          & jstep=jstep,            &
-          & model_type="oce",       &
-          & opt_sim_time=time_config%sim_time(1),&
-          & opt_nice_class=1,       &
-          & ocean_zlevels=n_zlev,                                         &
-          & ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:),  &
-          & ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
+          CALL restartDescriptor%updatePatch(patch_2d, &
+                                            &opt_sim_time=time_config%sim_time(1), &
+                                            &opt_nice_class=1, &
+                                            &opt_ocean_zlevels=n_zlev, &
+                                            &opt_ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:), &
+                                            &opt_ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
+          CALL restartDescriptor%writeRestart(datetime, jstep)
       END IF
 
       ! check cfl criterion
@@ -502,17 +505,18 @@ CONTAINS
      if(ltimer)CALL timer_stop(timer_bgc_inv)
     ENDIF
 
-    IF (write_last_restart) &
-      & CALL create_restart_file( patch = patch_2d,       &
-        & datetime=datetime,      &
-        & jstep=jstep,            &
-        & model_type="oce",       &
-        & opt_sim_time=time_config%sim_time(1),&
-        & opt_nice_class=1,       &
-        & ocean_zlevels=n_zlev,                                         &
-        & ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:),  &
-        & ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
-       
+    IF (write_last_restart) THEN
+        CALL restartDescriptor%updatePatch(patch_2d, &
+                                          &opt_sim_time=time_config%sim_time(1), &
+                                          &opt_nice_class=1, &
+                                          &opt_ocean_zlevels=n_zlev, &
+                                          &opt_ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:), &
+                                          &opt_ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
+        CALL restartDescriptor%writeRestart(datetime, jstep)
+    END IF
+
+    CALL deleteRestartDescriptor(restartDescriptor)
+
     CALL timer_stop(timer_total)
 
   END SUBROUTINE perform_ho_stepping

@@ -67,41 +67,6 @@ MODULE mo_linked_list
     CHARACTER(len=8)              :: model_type         ! store model type
     INTEGER                       :: patch_id           ! ID of patch to which list variables belong
     INTEGER                       :: vlevel_type        ! 1: model levels, 2: pressure levels, 3: height levels
-    !--------------------------------------------------------------------------------------------
-    ! Internal used handler for CDI setup of synchronous restart
-    !
-    ! Todo: This metadata should not be placed in this location ?!
-    INTEGER                       :: cdiFileId_restart  ! cdi file handler for restart
-    INTEGER                       :: cdiVlistId         ! cdi vlist handler
-    !
-    INTEGER                       :: cdiCellGridID
-    INTEGER                       :: cdiSingleGridID
-    INTEGER                       :: cdiVertGridID
-    INTEGER                       :: cdiEdgeGridID
-    !
-    INTEGER                       :: cdiSurfZaxisID
-    INTEGER                       :: cdiGenericZaxisID
-    INTEGER                       :: cdiHalfZaxisID
-    INTEGER                       :: cdiFullZaxisID
-    INTEGER                       :: cdiDepthHalfZaxisID
-    INTEGER                       :: cdiDepthFullZaxisID
-    INTEGER                       :: cdiH2mZaxisID
-    INTEGER                       :: cdiH10mZaxisID
-    INTEGER                       :: cdiLakeBottomZaxisID
-    INTEGER                       :: cdiLakeHalfBottomZaxisID
-    INTEGER                       :: cdiLakeMixLayerZaxisID
-    INTEGER                       :: cdiLakeHalfSedBottomTwZaxisID
-    INTEGER                       :: cdiSnowGenericZaxisID
-    INTEGER                       :: cdiSnowHalfGenericZaxisID
-    INTEGER                       :: cdiIceGenericZaxisID
-    INTEGER                       :: cdiOceanSedGenericZaxisID
-    INTEGER                       :: cdiToaZaxisID
-    INTEGER                       :: cdiDepthRunoff_sZaxisID
-    INTEGER                       :: cdiDepthRunoff_gZaxisID
-    !
-    INTEGER                       :: cdiTaxisID
-    !
-    INTEGER                       :: cdiTimeIndex
     !
     INTEGER                       :: nvars
 
@@ -157,25 +122,6 @@ CONTAINS
     this_list%p%model_type         = 'atm'
     this_list%p%patch_id           = -1
     this_list%p%vlevel_type        =  level_type_ml ! Default is model levels
-    !
-    this_list%p%cdiFileID_restart  = -1
-    this_list%p%cdiVlistID         = -1
-    this_list%p%cdiCellGridID      = -1
-    this_list%p%cdiVertGridID      = -1
-    this_list%p%cdiEdgeGridID      = -1
-    !
-    this_list%p%cdiSurfZaxisID      = -1
-    this_list%p%cdiGenericZaxisID   = -1
-    this_list%p%cdiHalfZaxisID      = -1
-    this_list%p%cdiFullZaxisID      = -1
-    this_list%p%cdiDepthFullZaxisID = -1
-    this_list%p%cdiDepthHalfZaxisID = -1
-    this_list%p%cdiH2mZaxisID       = -1
-    this_list%p%cdiH10mZaxisID      = -1
-    this_list%p%cdiToaZaxisID       = -1
-    !
-    this_list%p%cdiTaxisID         = -1
-    this_list%p%cdiTimeIndex       = -1
     !
     this_list%p%nvars              = 0
   END SUBROUTINE new_list

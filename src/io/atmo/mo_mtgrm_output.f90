@@ -1004,7 +1004,7 @@ CONTAINS
       CALL meteogram_setup_variables(meteogram_output_config, ext_data, p_nh_state, prm_diag, p_lnd_state, jg)
 
       IF (mtgrm(jg)%l_is_varlist_sender) THEN
-        CALL p_pack_int(FLAG_VARLIST_END, mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)
+        CALL p_pack_int(FLAG_VARLIST_END, mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%vbuf_pos)
         CALL p_send_packed(mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%process_mpi_all_collector_id, &
           &                TAG_VARLIST, mtgrm(jg)%vbuf_pos)
       END IF
@@ -1608,7 +1608,7 @@ CONTAINS
           position = 0
 
           !-- unpack global time stamp index
-          CALL p_unpack_int(mtgrm(jg)%msg_buffer(:,istation),mtgrm(jg)%max_buf_size, position, icurrent_recv)
+          CALL p_unpack_int(mtgrm(jg)%msg_buffer(:,istation), position, icurrent_recv)
           ! consistency check
           ! Note: We only check the number of received time stamps, not the
           !       exact sample dates themselves
@@ -1622,46 +1622,37 @@ CONTAINS
             WRITE (*,*) "Receiving ", icurrent, " time slices from station ", istation, "/", &
             &           mtgrm(jg)%meteogram_global_data%nstations
           ! unpack time stamp info
-          CALL p_unpack_int_1d(mtgrm(jg)%msg_buffer(:,istation),mtgrm(jg)%max_buf_size, position, &
-            &                  istep_sndrcv(:), icurrent)
+          CALL p_unpack_int_1d(mtgrm(jg)%msg_buffer(:,istation), position, istep_sndrcv(:), icurrent)
           mtgrm(jg)%meteogram_global_data%time_stamp(1:icurrent)%istep = istep_sndrcv(1:icurrent)
           DO itime=1,icurrent
-            CALL p_unpack_string(mtgrm(jg)%msg_buffer(:,istation),mtgrm(jg)%max_buf_size, position, &
-              &                  zdate_sndrcv)
+            CALL p_unpack_string(mtgrm(jg)%msg_buffer(:,istation), position, zdate_sndrcv)
             mtgrm(jg)%meteogram_global_data%time_stamp(itime)%zdate = zdate_sndrcv
           END DO
 
           !-- unpack station header information
-          CALL p_unpack_int_1d(mtgrm(jg)%msg_buffer(:,istation),mtgrm(jg)%max_buf_size, position, station_idx(:),2)
+          CALL p_unpack_int_1d(mtgrm(jg)%msg_buffer(:,istation), position, station_idx(:),2)
           p_station => mtgrm(jg)%meteogram_global_data%station(station_idx(1), station_idx(2))
           p_station%station_idx(1:2) = station_idx(1:2)
-          CALL p_unpack_int_1d(mtgrm(jg)%msg_buffer(:,istation),mtgrm(jg)%max_buf_size, position, &
-            &                  p_station%tri_idx(:),2)
-          CALL p_unpack_int_1d(mtgrm(jg)%msg_buffer(:,istation),mtgrm(jg)%max_buf_size, position, &
-            &                  p_station%tri_idx_local(:),2)
-          CALL p_unpack_int(mtgrm(jg)%msg_buffer(:,istation),mtgrm(jg)%max_buf_size, position, p_station%owner)
-          CALL p_unpack_real(mtgrm(jg)%msg_buffer(:,istation),mtgrm(jg)%max_buf_size, position, p_station%hsurf)
-          CALL p_unpack_real(mtgrm(jg)%msg_buffer(:,istation),mtgrm(jg)%max_buf_size, position, p_station%frland)
-          CALL p_unpack_real(mtgrm(jg)%msg_buffer(:,istation),mtgrm(jg)%max_buf_size, position, p_station%fc)
-          CALL p_unpack_int(mtgrm(jg)%msg_buffer(:,istation),mtgrm(jg)%max_buf_size, position, p_station%soiltype)
+          CALL p_unpack_int_1d(mtgrm(jg)%msg_buffer(:,istation), position, p_station%tri_idx(:),2)
+          CALL p_unpack_int_1d(mtgrm(jg)%msg_buffer(:,istation), position, p_station%tri_idx_local(:),2)
+          CALL p_unpack_int(mtgrm(jg)%msg_buffer(:,istation), position, p_station%owner)
+          CALL p_unpack_real(mtgrm(jg)%msg_buffer(:,istation), position, p_station%hsurf)
+          CALL p_unpack_real(mtgrm(jg)%msg_buffer(:,istation), position, p_station%frland)
+          CALL p_unpack_real(mtgrm(jg)%msg_buffer(:,istation), position, p_station%fc)
+          CALL p_unpack_int(mtgrm(jg)%msg_buffer(:,istation), position, p_station%soiltype)
 
-          CALL p_unpack_real_1d(mtgrm(jg)%msg_buffer(:,istation),mtgrm(jg)%max_buf_size, position, &
-            &                   p_station%tile_frac(:), ntiles_mtgrm)
-          CALL p_unpack_int_1d (mtgrm(jg)%msg_buffer(:,istation),mtgrm(jg)%max_buf_size, position, &
-            &                   p_station%tile_luclass(:), ntiles_mtgrm)
+          CALL p_unpack_real_1d(mtgrm(jg)%msg_buffer(:,istation), position, p_station%tile_frac(:), ntiles_mtgrm)
+          CALL p_unpack_int_1d (mtgrm(jg)%msg_buffer(:,istation), position, p_station%tile_luclass(:), ntiles_mtgrm)
 
 
           !-- unpack heights and meteogram data:
           DO ivar=1,meteogram_data%nvars
             nlevs = meteogram_data%var_info(ivar)%nlevs
-            CALL p_unpack_real_1d(mtgrm(jg)%msg_buffer(:,istation),mtgrm(jg)%max_buf_size, position, &
-              &                   p_station%var(ivar)%heights(:), nlevs)
-            CALL p_unpack_real_2d(mtgrm(jg)%msg_buffer(:,istation),mtgrm(jg)%max_buf_size, position, &
-              &                   p_station%var(ivar)%values(:,:), nlevs*icurrent)
+            CALL p_unpack_real_1d(mtgrm(jg)%msg_buffer(:,istation), position, p_station%var(ivar)%heights(:), nlevs)
+            CALL p_unpack_real_2d(mtgrm(jg)%msg_buffer(:,istation), position, p_station%var(ivar)%values(:,:), nlevs*icurrent)
           END DO
           DO ivar=1,meteogram_data%nsfcvars
-            CALL p_unpack_real_1d(mtgrm(jg)%msg_buffer(:,istation),mtgrm(jg)%max_buf_size, position, &
-              &                   p_station%sfc_var(ivar)%values(:), icurrent)
+            CALL p_unpack_real_1d(mtgrm(jg)%msg_buffer(:,istation), position, p_station%sfc_var(ivar)%values(:), icurrent)
           END DO
         ELSE
           ! this PE is both sender and receiver - direct copy:
@@ -1718,44 +1709,37 @@ CONTAINS
           position = 0
 
           !-- pack global time stamp index
-          CALL p_pack_int (icurrent, mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%max_buf_size, position)
+          CALL p_pack_int (icurrent, mtgrm(jg)%msg_buffer(:,1), position)
           ! pack time stamp info
           istep_sndrcv(1:icurrent) = meteogram_data%time_stamp(1:icurrent)%istep
-          CALL p_pack_int_1d(istep_sndrcv(:), icurrent, mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%max_buf_size, position)
+          CALL p_pack_int_1d(istep_sndrcv(:), icurrent, mtgrm(jg)%msg_buffer(:,1), position)
           DO itime=1,icurrent
             zdate_sndrcv = meteogram_data%time_stamp(itime)%zdate
-            CALL p_pack_string(zdate_sndrcv(:), mtgrm(jg)%msg_buffer(:,1), &
-              &                mtgrm(jg)%max_buf_size, position)
+            CALL p_pack_string(zdate_sndrcv(:), mtgrm(jg)%msg_buffer(:,1), position)
           END DO
 
           !-- pack meteogram header (information on location, ...)
-          CALL p_pack_int_1d(p_station%station_idx(:), 2, mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%max_buf_size, position)
-          CALL p_pack_int_1d(p_station%tri_idx(:), 2, mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%max_buf_size, position)
-          CALL p_pack_int_1d(p_station%tri_idx_local(:), 2, mtgrm(jg)%msg_buffer(:,1), &
-            &                mtgrm(jg)%max_buf_size, position)
-          CALL p_pack_int (p_station%owner, mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%max_buf_size, position)
-          CALL p_pack_real(p_station%hsurf, mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%max_buf_size, position)
-          CALL p_pack_real(p_station%frland, mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%max_buf_size, position)
-          CALL p_pack_real(p_station%fc, mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%max_buf_size, position)
-          CALL p_pack_int (p_station%soiltype, mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%max_buf_size, position)
+          CALL p_pack_int_1d(p_station%station_idx(:), 2, mtgrm(jg)%msg_buffer(:,1), position)
+          CALL p_pack_int_1d(p_station%tri_idx(:), 2, mtgrm(jg)%msg_buffer(:,1), position)
+          CALL p_pack_int_1d(p_station%tri_idx_local(:), 2, mtgrm(jg)%msg_buffer(:,1), position)
+          CALL p_pack_int (p_station%owner, mtgrm(jg)%msg_buffer(:,1), position)
+          CALL p_pack_real(p_station%hsurf, mtgrm(jg)%msg_buffer(:,1), position)
+          CALL p_pack_real(p_station%frland, mtgrm(jg)%msg_buffer(:,1), position)
+          CALL p_pack_real(p_station%fc, mtgrm(jg)%msg_buffer(:,1), position)
+          CALL p_pack_int (p_station%soiltype, mtgrm(jg)%msg_buffer(:,1), position)
 
-          CALL p_pack_real_1d(p_station%tile_frac(:), ntiles_mtgrm,      &
-              &                 mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%max_buf_size, position)
-          CALL p_pack_int_1d (p_station%tile_luclass(:), ntiles_mtgrm,   &
-              &                 mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%max_buf_size, position)
+          CALL p_pack_real_1d(p_station%tile_frac(:), ntiles_mtgrm, mtgrm(jg)%msg_buffer(:,1), position)
+          CALL p_pack_int_1d (p_station%tile_luclass(:), ntiles_mtgrm, mtgrm(jg)%msg_buffer(:,1), position)
 
 
           !-- pack heights and meteogram data:
           DO ivar=1,meteogram_data%nvars
             nlevs = meteogram_data%var_info(ivar)%nlevs
-            CALL p_pack_real_1d(p_station%var(ivar)%heights(:), nlevs,     &
-              &                 mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%max_buf_size, position)
-            CALL p_pack_real_2d(p_station%var(ivar)%values(:,:), nlevs*icurrent, &
-              &                 mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%max_buf_size, position)
+            CALL p_pack_real_1d(p_station%var(ivar)%heights(:), nlevs, mtgrm(jg)%msg_buffer(:,1), position)
+            CALL p_pack_real_2d(p_station%var(ivar)%values(:,:), nlevs*icurrent, mtgrm(jg)%msg_buffer(:,1), position)
           END DO
           DO ivar=1,meteogram_data%nsfcvars
-            CALL p_pack_real_1d(p_station%sfc_var(ivar)%values(:), icurrent,     &
-              &                 mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%max_buf_size, position)
+            CALL p_pack_real_1d(p_station%sfc_var(ivar)%values(:), icurrent, mtgrm(jg)%msg_buffer(:,1), position)
           END DO
 
           ! (blocking) send of packed station data to IO PE:
@@ -2327,18 +2311,12 @@ CONTAINS
       IF (dbg_level > 0) &
         CALL message(routine, "collect variable info for pure I/O PEs")
 
-      CALL p_pack_int   (FLAG_VARLIST_ATMO,                              mtgrm(jg)%msg_varlist_buffer(:), &
-        &                mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)
-      CALL p_pack_string(meteogram_data%var_info(ivar)%cf%standard_name, mtgrm(jg)%msg_varlist_buffer(:), &
-        &                mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)
-      CALL p_pack_string(meteogram_data%var_info(ivar)%cf%long_name,     mtgrm(jg)%msg_varlist_buffer(:), &
-        &                mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)
-      CALL p_pack_string(meteogram_data%var_info(ivar)%cf%units,         mtgrm(jg)%msg_varlist_buffer(:), &
-        &                mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)
-      CALL p_pack_int   (igroup_id,                                      mtgrm(jg)%msg_varlist_buffer(:), &
-        &                mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)
-      CALL p_pack_int   (nlev,                                           mtgrm(jg)%msg_varlist_buffer(:), &
-        &                mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)
+      CALL p_pack_int   (FLAG_VARLIST_ATMO,                              mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%vbuf_pos)
+      CALL p_pack_string(meteogram_data%var_info(ivar)%cf%standard_name, mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%vbuf_pos)
+      CALL p_pack_string(meteogram_data%var_info(ivar)%cf%long_name,     mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%vbuf_pos)
+      CALL p_pack_string(meteogram_data%var_info(ivar)%cf%units,         mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%vbuf_pos)
+      CALL p_pack_int   (igroup_id,                                      mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%vbuf_pos)
+      CALL p_pack_int   (nlev,                                           mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%vbuf_pos)
     END IF
 #endif
   END SUBROUTINE add_atmo_var_3d
@@ -2412,16 +2390,11 @@ CONTAINS
       IF (dbg_level > 0) &
         CALL message(routine, "collect surface variable info for pure I/O PEs")
 
-      CALL p_pack_int   (FLAG_VARLIST_SFC,                                   &
-        &                mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)
-      CALL p_pack_string(meteogram_data%sfc_var_info(ivar)%cf%standard_name, &
-        &                mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)
-      CALL p_pack_string(meteogram_data%sfc_var_info(ivar)%cf%long_name,     &
-        &                mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)
-      CALL p_pack_string(meteogram_data%sfc_var_info(ivar)%cf%units,         &
-        &                mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)
-      CALL p_pack_int   (igroup_id,                                          &
-        &                mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)
+      CALL p_pack_int   (FLAG_VARLIST_SFC,                                   mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%vbuf_pos)
+      CALL p_pack_string(meteogram_data%sfc_var_info(ivar)%cf%standard_name, mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%vbuf_pos)
+      CALL p_pack_string(meteogram_data%sfc_var_info(ivar)%cf%long_name,     mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%vbuf_pos)
+      CALL p_pack_string(meteogram_data%sfc_var_info(ivar)%cf%units,         mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%vbuf_pos)
+      CALL p_pack_int   (igroup_id,                                          mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%vbuf_pos)
     END IF
 #endif
   END SUBROUTINE add_sfc_var_2d
@@ -2476,7 +2449,7 @@ CONTAINS
     ! from the received message, unpack the atmosphere/surface
     ! variables one by one:
     RCV_LOOP : DO
-      CALL p_unpack_int(mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos, id)
+      CALL p_unpack_int(mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%vbuf_pos, id)
       SELECT CASE(id)
       CASE(FLAG_VARLIST_END)
         EXIT RCV_LOOP
@@ -2495,12 +2468,12 @@ CONTAINS
         CALL finish(routine, "Unknown message flag!")
       END SELECT
 
-      CALL p_unpack_string(mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos, cf%standard_name)
-      CALL p_unpack_string(mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos, cf%long_name)
-      CALL p_unpack_string(mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos, cf%units)
-      CALL p_unpack_int   (mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos, igroup_id)
+      CALL p_unpack_string(mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%vbuf_pos, cf%standard_name)
+      CALL p_unpack_string(mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%vbuf_pos, cf%long_name)
+      CALL p_unpack_string(mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%vbuf_pos, cf%units)
+      CALL p_unpack_int   (mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%vbuf_pos, igroup_id)
       IF (id == FLAG_VARLIST_ATMO) THEN
-        CALL p_unpack_int   (mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos, &
+        CALL p_unpack_int   (mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%vbuf_pos, &
           &                  meteogram_data%var_info(ivar)%nlevs)
         meteogram_data%var_info(ivar)%p_source     => NULL()
       ELSE

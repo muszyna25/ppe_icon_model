@@ -176,37 +176,37 @@ MODULE mo_initicon_io
 
   CONTAINS
 
-  FUNCTION fgFilename(p_patch) RESULT(RESULT)
-    CHARACTER(LEN = filename_max) :: RESULT
+  FUNCTION fgFilename(p_patch) RESULT(resultVar)
+    CHARACTER(LEN = filename_max) :: resultVar
     TYPE(t_patch), INTENT(IN) :: p_patch
 
-    RESULT = generate_filename(dwdfg_filename, getModelBaseDir(), nroot, p_patch%level, p_patch%id)
+    resultVar = generate_filename(dwdfg_filename, getModelBaseDir(), nroot, p_patch%level, p_patch%id)
   END FUNCTION fgFilename
 
-  FUNCTION anaFilename(p_patch) RESULT(RESULT)
-    CHARACTER(LEN = filename_max) :: RESULT
+  FUNCTION anaFilename(p_patch) RESULT(resultVar)
+    CHARACTER(LEN = filename_max) :: resultVar
     TYPE(t_patch), INTENT(IN) :: p_patch
 
-    RESULT = generate_filename(dwdana_filename, getModelBaseDir(), nroot, p_patch%level, p_patch%id)
+    resultVar = generate_filename(dwdana_filename, getModelBaseDir(), nroot, p_patch%level, p_patch%id)
   END FUNCTION anaFilename
 
-  INTEGER FUNCTION fgFiletype() RESULT(RESULT)
+  INTEGER FUNCTION fgFiletype() RESULT(resultVar)
     IF(nml_filetype == -1) THEN
         ! get_filetype() ONLY uses the suffix, which IS already a part of the template IN dwdfg_filename.
         ! This IS why it suffices to USE the dwdfg_filename directly here without expanding it first via generate_filename().
-        RESULT = get_filetype(TRIM(dwdfg_filename))
+        resultVar = get_filetype(TRIM(dwdfg_filename))
     ELSE
-        RESULT = nml_filetype
+        resultVar = nml_filetype
     END IF
   END FUNCTION fgFiletype
 
-  INTEGER FUNCTION anaFiletype() RESULT(RESULT)
+  INTEGER FUNCTION anaFiletype() RESULT(resultVar)
     IF(nml_filetype == -1) THEN
         ! get_filetype() ONLY uses the suffix, which IS already a part of the template IN dwdana_filename.
         ! This IS why it suffices to USE the dwdana_filename directly here without expanding it first via generate_filename().
-        RESULT = get_filetype(TRIM(dwdana_filename))
+        resultVar = get_filetype(TRIM(dwdana_filename))
     ELSE
-        RESULT = nml_filetype
+        resultVar = nml_filetype
     END IF
   END FUNCTION anaFiletype
 
@@ -838,16 +838,16 @@ MODULE mo_initicon_io
     END IF
   END SUBROUTINE fetch3d
 
-  FUNCTION fetchSurfaceOptional(params, varName, jg, field) RESULT(RESULT)
+  FUNCTION fetchSurfaceOptional(params, varName, jg, field) RESULT(resultVar)
     TYPE(t_fetchParams), INTENT(INOUT) :: params
     CHARACTER(LEN = *), INTENT(IN) :: varName
     INTEGER, VALUE :: jg
     REAL(wp), INTENT(INOUT) :: field(:,:)
-    LOGICAL :: RESULT
+    LOGICAL :: resultVar
 
     IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
-        RESULT = params%requestList%fetchSurface(varName, trivial_tileId, jg, field)
-        CALL params%inputInstructions(jg)%ptr%optionalReadResult(RESULT, varName, params%routine, params%isFg)
+        resultVar = params%requestList%fetchSurface(varName, trivial_tileId, jg, field)
+        CALL params%inputInstructions(jg)%ptr%optionalReadResult(resultVar, varName, params%routine, params%isFg)
     END IF
   END FUNCTION fetchSurfaceOptional
 
