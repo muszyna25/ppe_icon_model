@@ -105,10 +105,6 @@ MODULE mo_interface_iconam_echam
   USE mo_art_reaction_interface,  ONLY: art_reaction_interface
   USE mo_run_config,              ONLY: lart
 
-
-
-
-
   IMPLICIT NONE
 
   PRIVATE
@@ -153,10 +149,8 @@ CONTAINS
     TYPE(t_nh_prog)       , INTENT(inout), TARGET :: pt_prog_new     !< progn. vars after dynamics  for wind, temp. rho, ...
     TYPE(t_nh_prog)       , INTENT(inout), TARGET :: pt_prog_new_rcf !< progn. vars after advection for tracers
 
-
 !ICON_ART
-    TYPE(t_var_list), OPTIONAL,  INTENT(in)                  :: p_prog_list     !current prognostic state list
-
+    TYPE(t_var_list), OPTIONAL, INTENT(in)        :: p_prog_list     !< current prognostic state list
 
     ! Local array bounds
 
@@ -778,7 +772,6 @@ CONTAINS
     !=====================================================================================
 
   IF (lart) THEN
-
       CALL art_reaction_interface(ext_data(jg),                    & !> in
                 &          patch,                              & !> in
                 &          datetime,                           & !> in
@@ -789,7 +782,7 @@ CONTAINS
                 &          pt_diag,                            & !> inout
                 &          pt_prog_new_rcf%tracer)
   ENDIF
-    
+
   END SUBROUTINE interface_iconam_echam
   !----------------------------------------------------------------------------
 

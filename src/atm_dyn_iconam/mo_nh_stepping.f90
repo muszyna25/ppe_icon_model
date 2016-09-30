@@ -1702,7 +1702,6 @@ MODULE mo_nh_stepping
 
               ! echam physics
               IF (ltimer) CALL timer_start(timer_iconam_echam)
-            
               CALL interface_iconam_echam( dt_loc                         ,& !in
                 &                          datetime_current               ,& !in
                 &                          p_patch(jg)                    ,& !in
@@ -2313,9 +2312,6 @@ MODULE mo_nh_stepping
 
           ! echam physics, slow physics coupling
           IF (ltimer) CALL timer_start(timer_iconam_echam)
-
-
-
           CALL interface_iconam_echam( dt_loc                         ,& !in
             &                          datetime_current               ,& !in
             &                          p_patch(jg)                    ,& !in
@@ -2325,8 +2321,6 @@ MODULE mo_nh_stepping
             &                          p_nh_state(jg)%prog(n_now_rcf) ,& !inout
             &                          p_nh_state(jg)%diag            ,&
             &                          p_nh_state_lists(jg)%prog_list(n_now_rcf))
-
-
           IF (ltimer) CALL timer_stop(timer_iconam_echam)
 
         CASE DEFAULT ! idcphycpl

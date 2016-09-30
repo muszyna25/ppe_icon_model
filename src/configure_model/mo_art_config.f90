@@ -99,7 +99,7 @@ MODULE mo_art_config
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_folder                     !< Absolute Path to ART source code
     CHARACTER(LEN=IART_PATH_LEN) :: &
-      &  cart_input_folder                  !< Absolute Path to ART input files 
+      &  cart_input_folder               !< Absolute Path to ART input files 
     INTEGER :: iart_ntracer              !< number of transported ART tracers
     INTEGER :: iart_init_aero            !< Initialization of aerosol species
     INTEGER :: iart_init_gas             !< Initialization of gaseous species
