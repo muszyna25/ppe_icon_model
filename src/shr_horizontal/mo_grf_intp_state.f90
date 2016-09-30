@@ -51,7 +51,8 @@ USE mo_parallel_config,     ONLY: nproma
 USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
   &                               setup_comm_pattern, delete_comm_pattern, &
   &                               exchange_data, t_comm_pattern_collection, &
-  &                               setup_comm_pattern_collection
+  &                               setup_comm_pattern_collection, &
+  &                               delete_comm_pattern_collection
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_intp_data_strc,      ONLY: t_int_state
 USE mo_decomposition_tools, ONLY: t_glb2loc_index_lookup, get_valid_local_index, &
@@ -72,7 +73,7 @@ PRIVATE
 PUBLIC :: construct_2d_gridref_state, destruct_2d_gridref_state
 PUBLIC :: allocate_grf_state, deallocate_grf_state
 PUBLIC :: transfer_grf_state
-PUBLIC :: create_grf_index_lists
+PUBLIC :: create_grf_index_lists, destruct_interpol_patterns
 
 TYPE(t_comm_pattern) :: comm_pat_loc_to_glb_c, comm_pat_loc_to_glb_e
 
@@ -1811,6 +1812,40 @@ CONTAINS
   END SUBROUTINE generate_interpol_pattern
 
 END SUBROUTINE create_grf_index_lists
+
+SUBROUTINE destruct_interpol_patterns(p_patch_all)
+  !
+  TYPE(t_patch), TARGET, INTENT(INOUT)         :: p_patch_all(n_dom_start:)
+
+  TYPE(t_patch), POINTER :: p_patch
+  INTEGER :: jg, jcd, i_nchdom, icid
+
+!-----------------------------------------------------------------------
+
+  DO jg = 1, n_dom
+
+    p_patch => p_patch_all(jg)
+    ! number of child domains
+    i_nchdom = p_patch%n_childdom
+    IF (i_nchdom == 0) CYCLE
+    ! Loop over child domains
+    DO jcd = 1, i_nchdom
+
+      icid    =  p_patch%child_id(jcd)
+      CALL delete_comm_pattern_collection( &
+        p_patch_all(icid)%comm_pat_coll_interpol_scal_grf)
+      CALL delete_comm_pattern_collection( &
+        p_patch_all(icid)%comm_pat_coll_interpol_scal_ubc)
+      CALL delete_comm_pattern_collection( &
+        p_patch_all(icid)%comm_pat_coll_interpol_vec_grf)
+      CALL delete_comm_pattern_collection( &
+        p_patch_all(icid)%comm_pat_coll_interpol_vec_ubc)
+
+    ENDDO ! child domains
+
+  ENDDO ! domain ID
+
+END SUBROUTINE destruct_interpol_patterns
 
 !-------------------------------------------------------------------------
 !

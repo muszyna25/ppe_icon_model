@@ -101,7 +101,7 @@ MODULE mo_atmo_model
     &                                   destruct_2d_interpol_state, transfer_interpol_state
   USE mo_grf_intp_state,          ONLY: construct_2d_gridref_state,                           &
     &                                   destruct_2d_gridref_state, transfer_grf_state,        &
-    &                                   create_grf_index_lists
+    &                                   create_grf_index_lists, destruct_interpol_patterns
   USE mo_intp_data_strc,          ONLY: p_int_state, p_int_state_local_parent
   USE mo_intp_lonlat_types,       ONLY: lonlat_grids
   USE mo_grf_intp_data_strc,      ONLY: p_grf_state, p_grf_state_local_parent
@@ -556,6 +556,11 @@ CONTAINS
     IF (error_status/=success) THEN
       CALL finish(TRIM(routine), 'deallocation of ext_data')
     ENDIF
+
+    ! destruct interpolation patterns generate in create_grf_index_lists
+    IF (n_dom_start==0 .OR. n_dom > 1) THEN
+      CALL destruct_interpol_patterns(p_patch)
+    END IF
 
     ! Deconstruct grid refinement state
 
