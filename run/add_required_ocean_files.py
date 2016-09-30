@@ -13,6 +13,7 @@ DEFAULTS_TARGETS = {
         'INIT'    : 'initial_state.nc',
         'REALX'   : 'ocean-relax.nc',
         'DUST'    : 'dust.nc',
+        'NITRO'   : 'nitrogen.nc',
         }
 
 parser = optparse.OptionParser()
@@ -64,4 +65,5 @@ action(options.action, sourceDir, destDir, options.initialization_filename, DEFA
 action(options.action, sourceDir, destDir, options.forcing_filename       , DEFAULTS_TARGETS['FORCING'], options.dryrun, options.verbose)
 action(options.action, sourceDir, destDir, options.relaxation_filename    , DEFAULTS_TARGETS['REALX']  , options.dryrun, options.verbose)
 action(options.action, sourceDir, destDir, options.dust_filename          , DEFAULTS_TARGETS['DUST']   , options.dryrun, options.verbose)
+action(options.action, sourceDir, destDir, options.nitro_filename         , DEFAULTS_TARGETS['NITRO']   , options.dryrun, options.verbose)
 # # }}} =======================================================================

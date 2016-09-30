@@ -25,7 +25,7 @@ MODULE mo_bgc_constants
    REAL(wp), PARAMETER :: g = 9.81_wp
   !>  OCEAN REFERENCE DENSITY [kg m-3]
   REAL(wp), PARAMETER :: rhoref_water = 1025.0_wp
-
+  REAL(wp), PARAMETER:: rmnit=14._wp
    REAL(wp), PARAMETER:: cmh2ms = 9.3611e-07_wp ! cm/hr to m/sec
 
   !     -----------------------------------------------------------------

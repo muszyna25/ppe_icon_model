@@ -38,6 +38,7 @@
   ocean_init_folder=${ocean_init_folder:=${ocean_data_InputFolder}}
   ocean_relax_folder=${ocean_relax_folder:=${ocean_data_InputFolder}}
   ocean_dust_folder=${ocean_dust_folder:=${ocean_data_InputFolder}}
+  ocean_nitro_folder=${ocean_nitro_folder:=${ocean_data_InputFolder}}
   
   #=======================================================
   # input file names  
@@ -46,6 +47,7 @@
   init_DataType=${init_DataType:="omipInitialState-AnnualAverage"}  # needs to be changed to phc3.0 30 year climatology
   relax_DataType=${relax_DataType:="omipRelaxSurface"}  
   dust_DataType=${dust_DataType:="MAHOWALDDUST"}  
+  nitro_DataType=${nitro_DataType:="ndepo_CMIP_NCAR_CCMI-1-0_gr_185001-185012-clim"}  
   forcing_DataType=${forcing_DataType:="omipForcing-mpiom"}
   if [[ "x$forcing_timescale" = "x1" ]] ; then
     forcing_FileFrequence=${forcing_FileFrequence:="Annual"}
@@ -67,12 +69,15 @@
   ocean_dust_filename=${ocean_dust_filename:=${dust_DataType}_${grid_name}.nc}
   ocean_dust_InputFilename=${ocean_dust_folder}/${ocean_dust_filename}
 
+  ocean_nitro_filename=${ocean_nitro_filename:=${grid_name}_${nitro_DataType}.nc}
+  ocean_nitro_InputFilename=${ocean_nitro_folder}/${ocean_nitro_filename}
   #=======================================================
   # re-naming of the input files when copying to the experiment folder
   ocean_forcing_modelFilename="ocean-flux.nc"
   ocean_initialState_modelFilename="initial_state.nc"
   ocean_relax_modelFilename="ocean-relax.nc"
   ocean_dust_modelFilename="dust.nc"
+  ocean_nitro_modelFilename="nitrogen.nc"
    
   #=======================================================
   # add required files if this is not post processing
@@ -108,6 +113,12 @@
        ls -l $ocean_dust_InputFilename
        if [ $? -eq 0 ]; then
          $get_file ${ocean_dust_InputFilename}          $ocean_dust_modelFilename
+       else
+         echo "WARNING: $ocean_initialState_InputFilename does not exist - proceed from local disk"
+       fi
+       ls -l $ocean_nitro_InputFilename
+       if [ $? -eq 0 ]; then
+         $get_file ${ocean_nitro_InputFilename}          $ocean_nitro_modelFilename
        else
          echo "WARNING: $ocean_initialState_InputFilename does not exist - proceed from local disk"
        fi
