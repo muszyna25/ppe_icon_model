@@ -45,8 +45,11 @@ MODULE mo_art_nml
   ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_folder                   !< Absolute Path to ART source code
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_input_folder             !< Absolute Path to ART source code
   INTEGER :: iart_ntracer            !< number transported ART tracers
   INTEGER :: iart_init_aero          !< Initialization of aerosol species
+  INTEGER :: iart_init_passive       !< Initialization of passive species
   INTEGER :: iart_init_gas           !< Initialization of gaseous species
   LOGICAL :: lart_diag_out           !< Enable output of diagnostic fields
   CHARACTER(LEN=20) :: & 
@@ -97,15 +100,16 @@ MODULE mo_art_nml
   LOGICAL :: lart_conv               !< Convection of aerosol (TRUE/FALSE)
   LOGICAL :: lart_turb               !< Turbulent diffusion of aerosol (TRUE/FALSE)
 
-  NAMELIST/art_nml/ cart_folder, lart_chem, lart_passive, iart_chem_mechanism,         &
+  NAMELIST/art_nml/ cart_folder, cart_input_folder, lart_chem, lart_passive,           &
+   &                iart_chem_mechanism, cart_io_suffix,                               &
    &                lart_aerosol, iart_seasalt, iart_dust, iart_anthro, iart_fire,     &
    &                iart_volcano, cart_volcano_file, iart_radioact,                    &
    &                cart_radioact_file, iart_pollen,                                   &
    &                iart_aci_warm, iart_aci_cold, iart_ari,                            &
    &                lart_conv, lart_turb, iart_ntracer, iart_init_aero, iart_init_gas, &
    &                lart_diag_out, cart_emiss_table_path, cart_emiss_table_file,       &
-   &                cart_vortex_init_date , cart_mozartfile, cart_mozartcoord,          &
-   &                cart_chemistry_xml, cart_aerosol_xml, cart_passive_xml, cart_io_suffix
+   &                cart_vortex_init_date , cart_mozartfile, cart_mozartcoord,         &
+   &                cart_chemistry_xml, cart_aerosol_xml, cart_passive_xml, iart_init_passive
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -140,8 +144,10 @@ CONTAINS
       
     ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
     cart_folder                = ''
+    cart_input_folder          = ''
     iart_ntracer               = 0
     iart_init_aero             = 0
+    iart_init_passive          = 0
     iart_init_gas              = 0
     lart_diag_out              = .FALSE.
     cart_io_suffix(1:max_dom)  = 'grid-number'
@@ -231,9 +237,11 @@ CONTAINS
     DO jg= 1,max_dom !< Do not take into account reduced radiation grid
       ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
       art_config(jg)%cart_folder         = TRIM(cart_folder)
+      art_config(jg)%cart_input_folder   = TRIM(cart_input_folder)
       art_config(jg)%iart_ntracer        = iart_ntracer
       art_config(jg)%iart_init_aero      = iart_init_aero
       art_config(jg)%iart_init_gas       = iart_init_gas
+      art_config(jg)%iart_init_passive   = iart_init_passive
       art_config(jg)%lart_diag_out       = lart_diag_out
       art_config(jg)%cart_io_suffix      = TRIM(cart_io_suffix(jg))
       

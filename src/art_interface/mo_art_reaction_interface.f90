@@ -36,6 +36,8 @@ MODULE mo_art_reaction_interface
   USE mo_datetime,                      ONLY: t_datetime
   USE mo_nonhydro_types,                ONLY: t_nh_metrics, t_nh_prog, t_nh_diag
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
+  USE mo_run_config,                    ONLY: iforcing
+  USE mo_impl_constants,                ONLY: iecham, inwp
 #ifdef __ICON_ART
   USE mo_art_decay_radioact,            ONLY: art_decay_radioact
   USE mo_art_chemtracer,                ONLY: art_loss_chemtracer
@@ -57,7 +59,7 @@ CONTAINS
 !!-------------------------------------------------------------------------
 !!
 SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list,p_prog, &
-  &                               p_metrics,prm_diag,p_diag,p_tracer_now)
+  &                               p_metrics,p_diag,p_tracer_now, prm_diag)
   !>
   !! Interface for ART-routines treating reactions of any kind (chemistry, radioactive decay)
   !!
@@ -77,8 +79,6 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
     &  datetime                          !< Actual time and date
   REAL(wp), INTENT(IN)              :: &
     &  p_dtime                           !< time step
-  TYPE(t_nwp_phy_diag), INTENT(IN)  :: &
-    &  prm_diag                          !< NH metrics state
   TYPE(t_nh_diag), INTENT(IN)       :: &
     &  p_diag                            !< list of diagnostic fields
   TYPE(t_var_list), INTENT(IN)      :: &
@@ -90,6 +90,8 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
   REAL(wp), INTENT(INOUT)           :: &
     &  p_tracer_now(:,:,:,:)             !< tracer mixing ratios (specific concentrations)
 ! Local variables
+  TYPE(t_nwp_phy_diag),OPTIONAL, INTENT(IN)  :: &
+    &  prm_diag                          !< NH metrics state
   REAL(wp), POINTER                 :: &
     &  p_rho(:,:,:)                      !< density of air [kg/m3]
   INTEGER  :: jg                         !< domain index
@@ -139,6 +141,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
                  & p_metrics,                         &
                  & p_tracer_now)
         CASE(1)
+            IF (iforcing == inwp) THEN
           CALL art_photolysis(ext_data,               &
                  & p_patch,                           &
                  & datetime,                          &
@@ -148,8 +151,20 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
                  & p_diag,                            &
                  & p_rho,                             &
                  & p_metrics,                         &
-                 & prm_diag,                          &
-                 & p_tracer_now)
+                 & p_tracer_now,                      &
+                 & prm_diag = prm_diag                )
+         ELSEIF (iforcing == iecham) THEN
+          CALL art_photolysis(ext_data,               &
+                 & p_patch,                           &
+                 & datetime,                          &
+                 & p_dtime,                           &
+                 & p_prog_list,                       &
+                 & p_prog,                            &
+                 & p_diag,                            &
+                 & p_rho,                             &
+                 & p_metrics,                         &
+                 & p_tracer_now                       )
+          ENDIF
           CALL art_loss_chemtracer(ext_data, p_patch, &
                  & datetime,                          &
                  & p_dtime,                           &
@@ -159,25 +174,45 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
                  & p_metrics,                         &
                  & p_tracer_now)
         CASE(2)
-          CALL art_photolysis(ext_data,               &
-                 & p_patch,                           &
-                 & datetime,                          &
-                 & p_dtime,                           &
-                 & p_prog_list,                       &
-                 & p_prog,                            &
-                 & p_diag,                            &
-                 & p_rho,                             &
-                 & p_metrics,                         &
-                 & prm_diag,                          &
-                 & p_tracer_now)
+          IF (iforcing == inwp) THEN
+            CALL art_photolysis(ext_data,               &
+                   & p_patch,                           &
+                   & datetime,                          &
+                   & p_dtime,                           &
+                   & p_prog_list,                       &
+                   & p_prog,                            &
+                   & p_diag,                            &
+                   & p_rho,                             &
+                   & p_metrics,                         &
+                   & p_tracer_now,                      &
+                   & prm_diag = prm_diag)
+            CALL art_loss_gasphase(ext_data,            &
+                   & p_patch,                           &
+                   & p_dtime,                           &
+                   & p_prog_list,                       &
+                   & p_diag,                            &
+                   & p_metrics,                         &
+                   & p_tracer_now)
+          ELSEIF (iforcing == iecham) THEN
+            CALL art_photolysis(ext_data,               &
+                   & p_patch,                           &
+                   & datetime,                          &
+                   & p_dtime,                           &
+                   & p_prog_list,                       &
+                   & p_prog,                            &
+                   & p_diag,                            &
+                   & p_rho,                             &
+                   & p_metrics,                         &
+                   & p_tracer_now                       )
 
-          CALL art_loss_gasphase(ext_data,            &
-                  & p_patch,                          &
-                  & p_dtime,                          &
-                  & p_prog_list,                      &
-                  & p_diag,                           &
-                  & p_metrics,                        &
-                  & p_tracer_now)
+            CALL art_loss_gasphase(ext_data,            &
+                   & p_patch,                           &
+                   & p_dtime,                           &
+                   & p_prog_list,                       &
+                   & p_diag,                            &
+                   & p_metrics,                         &
+                   & p_tracer_now)
+          ENDIF
 
         CASE DEFAULT
           CALL finish('mo_art_reaction_interface:art_reaction_interface', &

@@ -168,7 +168,7 @@ case "$fortran_compiler" in
         FCLIBS      = -v
         GEN_FLAGS   =
         FDEBUG      = -g -R abc
-        ART_FFLAGS  = -D__ICON_ART
+        ART_FFLAGS  = -D__ICON_ART -D__ART_TMP_IFDEF
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I

@@ -1709,7 +1709,9 @@ MODULE mo_nh_stepping
                 &                          p_nh_state(jg)%metrics         ,& !in
                 &                          p_nh_state(jg)%prog(nnew(jg))  ,& !inout
                 &                          p_nh_state(jg)%prog(n_new_rcf) ,& !inout
-                &                          p_nh_state(jg)%diag            )  !inout
+                &                          p_nh_state(jg)%diag,            &            
+                &                          p_nh_state_lists(jg)%prog_list(n_new_rcf))
+            
               IF (ltimer) CALL timer_stop(timer_iconam_echam)
 
             END SELECT ! iforcing
@@ -2317,7 +2319,8 @@ MODULE mo_nh_stepping
             &                          p_nh_state(jg)%metrics         ,& !in
             &                          p_nh_state(jg)%prog(nnow(jg))  ,& !inout
             &                          p_nh_state(jg)%prog(n_now_rcf) ,& !inout
-            &                          p_nh_state(jg)%diag            )  !inout
+            &                          p_nh_state(jg)%diag            ,&
+            &                          p_nh_state_lists(jg)%prog_list(n_now_rcf))
           IF (ltimer) CALL timer_stop(timer_iconam_echam)
 
         CASE DEFAULT ! idcphycpl
