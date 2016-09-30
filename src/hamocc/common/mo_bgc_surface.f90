@@ -10,7 +10,7 @@ MODULE mo_bgc_surface
 
   PRIVATE
 
-  PUBLIC :: gasex, update_weathering, dust_deposition
+  PUBLIC :: gasex, update_weathering, dust_deposition, nitrogen_deposition
 
 
 contains
@@ -52,6 +52,43 @@ SUBROUTINE update_weathering ( start_idx,end_idx, pddpo, za)
 
 END SUBROUTINE
 
+SUBROUTINE nitrogen_deposition ( start_idx,end_idx, pddpo,za,nitinp)
+
+  USE mo_carbch, ONLY         : bgctra
+  USE mo_param1_bgc, ONLY     : iano3
+  USE mo_control_bgc, ONLY    : dtb
+  USE mo_bgc_constants, ONLY : rmnit
+
+
+  !Arguments
+
+  INTEGER, INTENT(in)            :: start_idx              !< start index for j loop (ICON cells, MPIOM lat dir)  
+  INTEGER, INTENT(in)            :: end_idx                !< end index  for j loop  (ICON cells, MPIOM lat dir) 
+
+  REAL(wp),INTENT(in) :: nitinp(bgc_nproma )                         !< nitrogen input
+  REAL(wp), INTENT(in), TARGET   :: pddpo(bgc_nproma,bgc_zlevs)      !< size of scalar grid cell (3rd dimension) [m]
+  REAL(wp), INTENT(in), TARGET   :: za(bgc_nproma)                   !< surface height
+  
+  ! Local variables
+
+  INTEGER :: jc
+  REAL(wp) :: ninp 
+
+  DO jc = start_idx, end_idx
+
+  if(pddpo(jc,1) > 0.5_wp) then
+
+      ! ndepo : CCMI wet+dry dep of NHx and NOy in kg (N) m-2 s-1
+       ninp = nitinp(jc) / rmnit* dtbgc/(pddpo(jc,1)+za(jc)) ! kmol N m-3 time_step-1
+
+       bgctra(jc,1,iano3) = bgctra(jc,1,iano3) + ninp
+
+  endif
+
+  ENDDO
+
+
+END SUBROUTINE
 SUBROUTINE dust_deposition ( start_idx,end_idx, pddpo,za,dustinp)
 
   USE mo_carbch, ONLY         : bgctra

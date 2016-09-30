@@ -36,7 +36,7 @@ SUBROUTINE BGC_ICON(p_patch_3D, p_os, p_as, p_ice)
        &                        ndtrunbgc, ldtrunbgc, bgc_zlevs,bgc_nproma
 
   USE mo_cyano,               ONLY: cyano, cyadyn
-  USE mo_bgc_surface,         ONLY: gasex, update_weathering, dust_deposition
+  USE mo_bgc_surface,         ONLY: gasex, update_weathering, dust_deposition, nitrogen_deposition
   USE mo_bgc_bcond,           ONLY: ext_data_bgc
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_hamocc_diagnostics,  ONLY: get_monitoring, get_inventories
@@ -129,10 +129,15 @@ ENDIF
 
         start_detail_timer(timer_bgc_depo,5)
       ! Dust deposition
-        CALL dust_deposition(start_index, end_index,  & ! index range, levels, salinity
+        CALL dust_deposition(start_index, end_index,  & ! index range, levels,
    &                 p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb), &! cell thickness (check for z0)
    &                 p_os%p_prog(nold(1))%h(:,jb),& ! surface_height
    &                 ext_data_bgc%dusty(:,jb))       ! dust input
+      ! Nitrogen deposition
+        CALL nitrogen_deposition(start_index, end_index,  & ! index range, levels
+   &                 p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb), &! cell thickness (check for z0)
+   &                 p_os%p_prog(nold(1))%h(:,jb),& ! surface_height
+   &                 ext_data_bgc%nitro(:,jb))      ! nitrogen input
 
         stop_detail_timer(timer_bgc_depo,5)
        !----------------------------------------------------------------------
