@@ -10,7 +10,7 @@ MODULE mo_bgc_surface
 
   PRIVATE
 
-  PUBLIC :: gasex, update_weathering, dust_deposition
+  PUBLIC :: gasex, update_weathering, dust_deposition, nitrogen_deposition
 
 
 contains
@@ -57,6 +57,7 @@ SUBROUTINE nitrogen_deposition ( start_idx,end_idx, pddpo,za,nitinp)
   USE mo_carbch, ONLY         : bgctra
   USE mo_param1_bgc, ONLY     : iano3
   USE mo_control_bgc, ONLY    : dtb
+  USE mo_bgc_constants, ONLY : rmnit
 
 
   !Arguments
@@ -69,6 +70,9 @@ SUBROUTINE nitrogen_deposition ( start_idx,end_idx, pddpo,za,nitinp)
   REAL(wp), INTENT(in), TARGET   :: za(bgc_nproma)                   !< surface height
   
   ! Local variables
+
+  INTEGER :: jc
+  REAL(wp) :: ninp 
 
   DO jc = start_idx, end_idx
 
