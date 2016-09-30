@@ -73,7 +73,7 @@ MODULE mo_atmo_model
 
   USE mo_nh_testcases,            ONLY: init_nh_testtopo
 
-  USE mo_alloc_patches,           ONLY: destruct_patches
+  USE mo_alloc_patches,           ONLY: destruct_patches, destruct_comm_patterns
 
   ! horizontal grid, domain decomposition, memory
   USE mo_grid_config,             ONLY: n_dom, n_dom_start,                 &
@@ -586,6 +586,9 @@ CONTAINS
 
     ! Deallocate global registry for lon-lat grids
     CALL lonlat_grids%finalize()
+
+    ! Destruct communication patterns
+    CALL destruct_comm_patterns( p_patch, p_patch_local_parent )
 
     ! Deallocate grid patches
     CALL destruct_patches( p_patch )

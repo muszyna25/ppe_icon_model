@@ -99,7 +99,7 @@ MODULE mo_ocean_model
   USE mo_ocean_forcing,       ONLY: init_ocean_forcing
   USE mo_impl_constants,      ONLY: success
 
-  USE mo_alloc_patches,        ONLY: destruct_patches
+  USE mo_alloc_patches,        ONLY: destruct_patches, destruct_comm_patterns
   USE mo_ocean_read_namelists, ONLY: read_ocean_namelists
   USE mo_load_restart,         ONLY: read_restart_header, read_restart_files
   USE mo_restart_attributes,   ONLY: t_RestartAttributeList, getAttributesForRestarting
@@ -279,6 +279,10 @@ MODULE mo_ocean_model
     IF (error_status/=success) THEN
       CALL finish(TRIM(method_name), 'deallocation of ext_data')
     ENDIF
+
+
+    ! Destruct communication patterns
+    CALL destruct_comm_patterns( ocean_patch_3d%p_patch_2d, p_patch_local_parent )
 
     !The 3D-ocean version of previous calls
     CALL destruct_patches( ocean_patch_3d%p_patch_2d )
