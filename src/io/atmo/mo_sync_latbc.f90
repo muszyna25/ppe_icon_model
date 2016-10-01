@@ -187,6 +187,7 @@ MODULE mo_sync_latbc
 
     ! last reading-in time is the current time
     last_latbc_datetime = time_config%ini_datetime
+
     CALL date_to_time(time_config%cur_datetime)
     CALL date_to_time(time_config%ini_datetime)
     tdiff = (time_config%cur_datetime%calday - time_config%ini_datetime%calday + &
@@ -878,15 +879,43 @@ MODULE mo_sync_latbc
   !! @par Revision History
   !! Initial version by S. Brdar, DWD (2013-08-02)
   !!
-  SUBROUTINE update_lin_interc( datetime )
-    TYPE(t_datetime),   INTENT(INOUT) :: datetime
+  SUBROUTINE update_lin_interc( datetime_orig )
 
-    CALL date_to_time(datetime)
+    USE mtime ! no only, because it will be removed with update to mtime branch
+
+    TYPE(t_datetime),   INTENT(INOUT) :: datetime_orig
+
+    type(datetime), pointer :: current => null(), next => null()
+    type(timedelta), pointer :: ldtime => null()
+    type(divisionquotienttimespan) :: tq 
+    real(wp) :: dtime_latbc_in_ms
+    character(len=max_timedelta_str_len) ::  dtime_str
+    
+    CALL date_to_time(datetime_orig)
     CALL date_to_time(last_latbc_datetime)
-    latbc_config%lc1 = (last_latbc_datetime%calday - datetime%calday + &
-      last_latbc_datetime%caltime - datetime%caltime) * rdaylen / latbc_config%dtime_latbc
+    
+    ! latbc_config%lc1 = (last_latbc_datetime%calday - datetime_orig%calday + &
+    !      last_latbc_datetime%caltime - datetime_orig%caltime) * rdaylen / latbc_config%dtime_latbc
+    ! latbc_config%lc2 = 1._wp - latbc_config%lc1
+
+    current => newdatetime(datetime_orig%year, datetime_orig%month, datetime_orig%day, &
+         &                 datetime_orig%hour, datetime_orig%minute, nint(datetime_orig%second), 0)    
+
+    next => newdatetime(last_latbc_datetime%year, last_latbc_datetime%month, last_latbc_datetime%day, &
+         &              last_latbc_datetime%hour, last_latbc_datetime%minute, nint(last_latbc_datetime%second), 0)    
+
+    call getptstringfromseconds(latbc_config%dtime_latbc, dtime_str)
+    ldtime => newtimedelta(dtime_str)
+    dtime_latbc_in_ms = gettotalmillisecondstimedelta(ldtime, current)
+    call dividedatetimedifferenceinseconds(next, current, ldtime, tq)
+
+    latbc_config%lc1 = real(tq%remainder_in_ms,wp)/dtime_latbc_in_ms
     latbc_config%lc2 = 1._wp - latbc_config%lc1
 
+    CALL deallocateTimedelta(ldtime)
+    CALL deallocateDatetime(next)
+    CALL deallocateDatetime(current)
+    
   END SUBROUTINE update_lin_interc
   !-------------------------------------------------------------------------
 
