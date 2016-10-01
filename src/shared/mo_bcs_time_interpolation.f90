@@ -1,6 +1,6 @@
 MODULE mo_bcs_time_interpolation
 
-  USE mo_kind, ONLY: wp
+  USE mo_kind, ONLY: wp, i8
   USE mtime,   ONLY: datetime,  newDatetime, deallocateDatetime,   &
        &             timedelta, newTimedelta, deallocateTimedelta, &
        &             getNoOfDaysInMonthDateTime,                   &
@@ -13,32 +13,31 @@ MODULE mo_bcs_time_interpolation
 
   PUBLIC :: t_time_interpolation_weights
   PUBLIC :: calculate_time_interpolation_weights
-  PUBLIC :: store_time_interpolation_weight
-  PUBLIC :: current_time_interpolation_weights
+  ! PUBLIC :: store_time_interpolation_weight
+  ! PUBLIC :: current_time_interpolation_weights
   
-  TYPE t_time_interpolation_weights
+  TYPE t_time_interpolation_weights 
     TYPE(datetime) :: reference_date
     REAL(wp)       :: weight1, weight2
     ! DWD style 1-12 for month indexing (with associated year indexing)
     INTEGER        :: month1, month2
-    INTEGER        :: year1, year2
+    INTEGER(i8)    :: year1, year2
     ! MPIM style 0-13 for month indexing
     INTEGER        :: month1_index, month2_index
     LOGICAL        :: initialized = .FALSE.
   END TYPE t_time_interpolation_weights
 
-  TYPE(t_time_interpolation_weights), SAVE, PROTECTED :: current_time_interpolation_weights
+  ! TYPE(t_time_interpolation_weights), SAVE, PROTECTED :: current_time_interpolation_weights
   
 CONTAINS
 
-  SUBROUTINE store_time_interpolation_weight(time_interpolation_weight)
-    TYPE(t_time_interpolation_weights), INTENT(in) :: time_interpolation_weight
-    current_time_interpolation_weights = time_interpolation_weight
-  END SUBROUTINE store_time_interpolation_weight
+  ! SUBROUTINE store_time_interpolation_weight(time_interpolation_weight)
+  !   TYPE(t_time_interpolation_weights), INTENT(in) :: time_interpolation_weight
+  !   current_time_interpolation_weights = time_interpolation_weight
+  ! END SUBROUTINE store_time_interpolation_weight
 
   FUNCTION calculate_time_interpolation_weights(current_date) RESULT(time_interpolation_weight)
     TYPE(t_time_interpolation_weights) :: time_interpolation_weight
-    LOGICAL :: lrange 
     TYPE(datetime), POINTER, INTENT(in) :: current_date
 
     TYPE(datetime), POINTER :: next_month => NULL()
@@ -54,7 +53,7 @@ CONTAINS
     days_in_month = getNoOfDaysInMonthDateTime(current_date) 
     seconds_in_middle_of_month = 43200 * days_in_month          ! = 86400 * my_month_len / 2
     
-    seconds_in_month = getNoOfSecondsElapsedInMonthDateTime(current_date)
+    seconds_in_month = INT(getNoOfSecondsElapsedInMonthDateTime(current_date))
 
     IF (seconds_in_month <= seconds_in_middle_of_month) THEN
 

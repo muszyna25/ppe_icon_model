@@ -161,12 +161,12 @@ MODULE mo_nwp_rad_interface
 
         SELECT CASE(parallel_radiation_mode(jg))
         CASE(1) 
-          CALL nwp_rrtm_radiation_repartition ( pt_patch, ext_data, &
+          CALL nwp_rrtm_radiation_repartition ( mtime_datetime, pt_patch, ext_data, &
             & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                    &
             & pt_diag, prm_diag, lnd_prog )
           
         CASE default
-          CALL nwp_rrtm_radiation ( pt_patch, ext_data, &
+          CALL nwp_rrtm_radiation ( mtime_datetime, pt_patch, ext_data, &
             & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,        &
             & pt_diag, prm_diag, lnd_prog, irad )
 
@@ -174,7 +174,7 @@ MODULE mo_nwp_rad_interface
        
       ELSE 
 
-        CALL nwp_rrtm_radiation_reduced ( pt_patch,pt_par_patch, ext_data, &
+        CALL nwp_rrtm_radiation_reduced ( mtime_datetime, pt_patch,pt_par_patch, ext_data, &
           & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                             &
           & pt_diag, prm_diag, lnd_prog, irad )
           

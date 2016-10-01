@@ -34,9 +34,11 @@ MODULE mo_echam_phy_bcs
 
   USE mo_impl_constants             ,ONLY: io3_amip
 
+!  USE mo_bcs_time_interpolation,     ONLY: t_time_interpolation_weights,         &
+!       &                                   calculate_time_interpolation_weights, &
+!       &                                   store_time_interpolation_weight
   USE mo_bcs_time_interpolation,     ONLY: t_time_interpolation_weights,         &
-       &                                   calculate_time_interpolation_weights, &
-       &                                   store_time_interpolation_weight
+       &                                   calculate_time_interpolation_weights
   
   USE mo_bc_greenhouse_gases        ,ONLY: bc_greenhouse_gases_time_interpolation
   USE mo_bc_sst_sic                 ,ONLY: get_current_bc_sst_sic_year, read_bc_sst_sic, &
@@ -128,8 +130,8 @@ CONTAINS
 
     ! interpolation weights for linear interpolation
     ! of monthly means onto the actual integration time step
-    current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_current)
-    CALL store_time_interpolation_weight(current_time_interpolation_weights)
+!    current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_current)
+!    CALL store_time_interpolation_weight(current_time_interpolation_weights)
 
     ! Read and interpolate in time monthly mean SST for AMIP simulations
     ! SST is needed for turbulent vertical fluxes and for radiation.
@@ -197,21 +199,21 @@ CONTAINS
       ! stratospheric aerosol optical properties
 
       IF (irad_aero == 14) THEN
-        CALL read_bc_aeropt_stenchikov(mtime_current%date%year)
+        CALL read_bc_aeropt_stenchikov(mtime_current, mtime_current%date%year)
       END IF
       !
       ! tropospheric and stratospheric aerosol optical properties
 
       IF (irad_aero == 15) THEN
         CALL read_bc_aeropt_kinne     (mtime_current%date%year, patch)
-        CALL read_bc_aeropt_stenchikov(mtime_current%date%year)
+        CALL read_bc_aeropt_stenchikov(mtime_current, mtime_current%date%year)
       END IF
       ! tropospheric background aerosols (Kinne) and stratospheric
       ! aerosols (Stenchikov) + simple plumes (analytical, nothing to be read
       ! here, initialization see init_echam_phy (mo_echam_phy_init)) 
       IF (irad_aero == 18) THEN
         CALL read_bc_aeropt_kinne     (1850_i8, patch)
-        CALL read_bc_aeropt_stenchikov(mtime_current%date%year)
+        CALL read_bc_aeropt_stenchikov(mtime_current, mtime_current%date%year)
       END IF
       !
     END IF ! ltrig_rad

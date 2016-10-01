@@ -1923,7 +1923,6 @@ src/shared/mo_add_tracer_ref.f90 -text
 src/shared/mo_bcs_time_interpolation.f90 -text
 src/shared/mo_cdi_constants.f90 -text
 src/shared/mo_checksum.f90 -text
-src/shared/mo_datetime.f90 -text
 src/shared/mo_derived_variable_handling.f90 -text
 src/shared/mo_dictionary.f90 -text
 src/shared/mo_event_manager.f90 -text
@@ -1954,8 +1953,6 @@ src/shared/mo_random_util.f90 -text
 src/shared/mo_real_timer.f90 -text
 src/shared/mo_statistics.f90 -text
 src/shared/mo_time_base.f90 -text
-src/shared/mo_time_interpolation.f90 -text
-src/shared/mo_time_interpolation_weights.f90 -text
 src/shared/mo_time_management.f90 -text
 src/shared/mo_timer.f90 -text
 src/shared/mo_tracer_metadata.f90 -text

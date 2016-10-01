@@ -422,12 +422,14 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_rrtm_radiation ( pt_patch, ext_data,                       &
+  SUBROUTINE nwp_rrtm_radiation ( current_date, pt_patch, ext_data,                      &
     &  zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, pt_diag, prm_diag, lnd_prog, irad )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
       &  routine = modname//'::nwp_rrtm_radiation'
 
+    TYPE(datetime), POINTER, INTENT(in) :: current_date
+    
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
     TYPE(t_external_data),INTENT(in):: ext_data
 
@@ -515,6 +517,7 @@ CONTAINS
                               ! input
                               ! -----
                               !
+        & current_date                     ,&!< in current date
                               ! indices and dimensions
         & jg         =jg                   ,&!< in domain index
         & jb         =jb                   ,&!< in block index
@@ -582,13 +585,14 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_rrtm_radiation_reduced ( pt_patch, pt_par_patch, ext_data, &
+  SUBROUTINE nwp_rrtm_radiation_reduced ( current_date, pt_patch, pt_par_patch, ext_data, &
     &                                     zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,    &
     &                                     pt_diag,prm_diag,lnd_prog,irad    )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
       &  routine = modname//'::nwp_rrtm_radiation_reduced'
 
+    TYPE(datetime), POINTER, INTENT(in) :: current_date
 
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_par_patch !<grid/patch info (parent grid)
@@ -997,6 +1001,7 @@ CONTAINS
                                 ! input
                                 ! -----
                                 !
+          & current_date                     ,&!< in current date
                                 ! indices and dimensions
           & jg          =jg                  ,&!< in domain index
           & jb          =jb                  ,&!< in block index
@@ -1122,12 +1127,13 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_rrtm_radiation_repartition ( pt_patch, ext_data, &
+  SUBROUTINE nwp_rrtm_radiation_repartition (current_date, pt_patch, ext_data, &
     &  zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, pt_diag, prm_diag, lnd_prog )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
       &  routine = modname//'::nwp_rrtm_radiation_repartition'
 
+    TYPE(datetime), POINTER, INTENT(in) :: current_date
 
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
     TYPE(t_external_data),INTENT(in)        :: ext_data
@@ -1222,6 +1228,7 @@ CONTAINS
                                 ! input
                                 ! -----
                                 !
+          & current_date                     ,&!< in current date
                                 ! indices and dimensions
           & jg         =jg                   ,&!< in domain index
           & jb         =jb                   ,&!< in block index
@@ -1346,7 +1353,8 @@ CONTAINS
                               ! input
                               ! -----
                               !
-                              ! indices and dimensions
+        & current_date                       ,&!< in current date
+                              ! indices and dimensions 
         & jg         =jg                     ,&!< in domain index
         & jb         =jb                     ,&!< in block index
         & jce        = i_endidx              ,&!< in  end   index for loop over block

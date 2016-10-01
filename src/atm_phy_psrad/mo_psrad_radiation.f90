@@ -717,6 +717,7 @@ MODULE mo_psrad_radiation
   END SUBROUTINE setup_psrad_radiation
 
   SUBROUTINE psrad_radiation ( &
+    & current_date, &!< in current date
     & jg         ,&!< in  domain index
     & jb         ,&!< in  block index
     & kproma     ,&!< in  end index for loop over block
@@ -757,6 +758,9 @@ MODULE mo_psrad_radiation
     & lw_net     ,&!< all-sky net longwave  at all levels
     & sw_net      &!< all-sky net shortwave at all levels
     &              )
+
+    TYPE(datetime), POINTER, INTENT(in) :: current_date
+    
     INTEGER, INTENT(in)  :: &
     & jg,             & !< domain index
     & jb,             & !< block index
@@ -968,7 +972,9 @@ MODULE mo_psrad_radiation
     CASE(io3_amip)
       CALL o3_timeint(kproma = kproma, kbdim = kbdim,        &
            &          nlev_pres=nplev_o3,                    &
-           &          ext_o3=o3_plev(:,:,jb,:), o3_time_int=zo3_timint       )
+           &          ext_o3=o3_plev(:,:,jb,:),              &
+           &          current_date=current_date,             &
+           &          o3_time_int=zo3_timint                 )
       CALL o3_pl2ml ( kproma = kproma, kbdim = kbdim,         &
            &          nlev_pres = nplev_o3, klev = klev,      &
            &          pfoz = plev_full_o3,                   &
@@ -999,7 +1005,7 @@ MODULE mo_psrad_radiation
       iaero_call = irad_aero
       IF (i_rad_call < number_rad_call) iaero_call = irad_aero_forcing
 
-      CALL psrad_interface( jg,       &
+      CALL psrad_interface(   current_date    ,jg                               ,&
            & iaero_call      ,kproma          ,kbdim           ,klev            ,& 
 !!$           & jb              ,knwtrc          ,ktype           ,nb_sw           ,&
            & jb                               ,ktype           ,nb_sw           ,&

@@ -500,6 +500,7 @@ CONTAINS
         IF (ltimer) CALL timer_start(timer_radiation)
 
         CALL psrad_radiation(      &
+        & this_datetime           ,&!< in  current date 
         & jg                      ,&!< in  domain index
         & jb                      ,&!< in  block index
         & kproma     = jce        ,&!< in  end index for loop over block

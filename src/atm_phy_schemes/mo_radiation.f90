@@ -528,7 +528,8 @@ CONTAINS
   !
   SUBROUTINE radiation(                                                    &
     ! input
-    &  jg, jb                                                              &
+    & current_date                                                         &
+    & ,jg, jb                                                              &
     & ,jce               ,kbdim           ,klev             ,klevp1        &
     & ,ktype             ,zland           ,zglac            ,cos_mu0       &
     & ,alb_vis_dir       ,alb_nir_dir     ,alb_vis_dif      ,alb_nir_dif   &
@@ -550,6 +551,7 @@ CONTAINS
     ! input
     ! -----
     !
+    TYPE(datetime), POINTER, INTENT(in) :: current_date !< current date
     INTEGER, INTENT(in)   :: &
       &  jg,                 & !< domain index
       &  jb,                 & !< block index
@@ -760,7 +762,8 @@ CONTAINS
     ! --------------------------------------
     !
     CALL rrtm_interface(                                                    &
-                                ! input
+      ! input
+      & current_date                                                       ,&
       & jg              ,jb              ,1                                ,&
       & jce             ,kbdim           ,klev                             ,&
       & ktype           ,zland           ,zglac                            ,&
@@ -819,7 +822,8 @@ CONTAINS
   !
   SUBROUTINE radiation_nwp(                                                &
     ! input
-    &  jg, jb, irad                                                        &
+    &  current_date                                                        &
+    & ,jg, jb, irad                                                        &
     & ,jce               ,kbdim           ,klev             ,klevp1        &
     & ,ktype             ,zland           ,zglac            ,cos_mu0       &
     & ,alb_vis_dir       ,alb_nir_dir     ,alb_vis_dif      ,alb_nir_dif   &
@@ -836,6 +840,7 @@ CONTAINS
     ! input
     ! -----
     !
+    TYPE(datetime), POINTER, INTENT(in) :: current_date !< current date
     INTEGER, INTENT(in)   :: &
       &  jg,                 & !< domain index
       &  jb,                 & !< block index
@@ -1006,6 +1011,7 @@ CONTAINS
     !
     CALL rrtm_interface(                                                    &
       ! input
+      & current_date                                                       ,&
       & jg              ,jb              ,irad                             ,&
       & jce             ,kbdim           ,klev                             ,&
       & ktype           ,zland           ,zglac                            ,&
@@ -1153,6 +1159,7 @@ CONTAINS
 
   SUBROUTINE rrtm_interface(                                              &
     ! input
+    & current_date                                                       ,&
     & jg              ,jb              ,irad                             ,&
     & jce             ,kbdim           ,klev                             ,&
     & ktype           ,zland           ,zglac                            ,&
@@ -1174,6 +1181,8 @@ CONTAINS
     & flx_dnsw_diff_sfc, flx_upsw_toa  ,flx_dnpar_sfc                    ,&
     & vis_frc_sfc     ,nir_dff_frc_sfc ,vis_dff_frc_sfc ,par_dff_frc_sfc  )
 
+    TYPE(datetime), POINTER, INTENT(in) :: current_date
+    
     INTEGER,INTENT(in)  ::                &
       &  jg,                              & !< domain index
       &  jb,                              & !< block index
@@ -1474,7 +1483,7 @@ CONTAINS
         &                         aer_piz_sw_vr,                 &
         &                         aer_cg_sw_vr)
     CASE (13)
-      CALL set_bc_aeropt_kinne( jg,                                  &
+      CALL set_bc_aeropt_kinne( current_date      ,jg               ,&
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpband                ,jpsw             ,&
         & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
@@ -1486,20 +1495,20 @@ CONTAINS
       aer_tau_sw_vr(:,:,:) = 0.0_wp
       aer_piz_sw_vr(:,:,:) = 1.0_wp
       aer_cg_sw_vr(:,:,:)  = 0.0_wp
-      CALL add_bc_aeropt_stenchikov( jg,                             &
+      CALL add_bc_aeropt_stenchikov( current_date ,jg               ,&
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpband                ,jpsw             ,&
         & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
         & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
         & tk_fl                                                      )
     CASE (15)
-      CALL set_bc_aeropt_kinne( jg,                                  &
+      CALL set_bc_aeropt_kinne( current_date      ,jg               ,&
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpband                ,jpsw             ,&
         & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
         & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
         & tk_fl                                                      )
-      CALL add_bc_aeropt_stenchikov( jg,                             &
+      CALL add_bc_aeropt_stenchikov( current_date ,jg               ,&      
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpband                ,jpsw             ,&
         & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&

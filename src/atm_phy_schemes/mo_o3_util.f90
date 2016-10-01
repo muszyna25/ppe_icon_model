@@ -53,7 +53,8 @@ MODULE mo_o3_util
        &                             NO_OF_MS_IN_A_SECOND,                           &       
        &                             getDayOfYearFromDatetime, MAX_TIMEDELTA_STR_LEN,&
        &                             deallocateTimedelta, deallocateDatetime
-  USE mo_bcs_time_interpolation, ONLY: tiw => current_time_interpolation_weights
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
+       &                               calculate_time_interpolation_weights
   
   IMPLICIT NONE
 
@@ -67,7 +68,7 @@ CONTAINS
   !=======================================================================
 
   SUBROUTINE o3_timeint( kproma,kbdim,nlev_pres,         & ! IN
-                       & ext_o3 ,                        & ! IN kproma,nlev_p,jb,nmonth
+                       & ext_o3, current_date,           & ! IN kproma,nlev_p,jb,nmonth
                        & o3_time_int                      )! OUT kproma,nlev_p
 
  ! In prior version, just a certain month was selected. This is not used anymore
@@ -78,11 +79,15 @@ CONTAINS
     INTEGER, INTENT(in)         :: kproma ! 
     INTEGER, INTENT(in)         :: kbdim  ! 
     INTEGER, INTENT(in)         :: nlev_pres   ! number of o3 data levels
+    TYPE(datetime), POINTER, INTENT(in) :: current_date
     REAL(wp), INTENT(in) , DIMENSION(kbdim,nlev_pres,0:13) :: ext_o3
     REAL(wp), INTENT(out), DIMENSION(kbdim,nlev_pres)      :: o3_time_int
-
-    o3_time_int(1:kproma,:)=tiw%weight1*ext_o3(1:kproma,:,tiw%month1)+ &
-                            tiw%weight2*ext_o3(1:kproma,:,tiw%month2)
+    TYPE(t_time_interpolation_weights) :: tiw
+    
+    tiw = calculate_time_interpolation_weights(current_date)
+    
+    o3_time_int(1:kproma,:)=tiw%weight1*ext_o3(1:kproma,:,tiw%month1_index)+ &
+                            tiw%weight2*ext_o3(1:kproma,:,tiw%month2_index)
 
   END SUBROUTINE o3_timeint
 

@@ -95,7 +95,7 @@ CONTAINS
   !!    index = 7 => O2
   !
 
-  SUBROUTINE psrad_interface( jg,          &
+  SUBROUTINE psrad_interface(              current_date    ,jg              ,&
        & iaero           ,kproma          ,kbdim           ,klev            ,&
 !!$       & krow            ,ktrac           ,ktype           ,nb_sw           ,&
        & krow                             ,ktype           ,nb_sw           ,&
@@ -113,6 +113,7 @@ CONTAINS
        & vis_frc_sfc     ,par_dn_sfc      ,nir_dff_frc     ,vis_dff_frc     ,&
        & par_dff_frc                                                         )
 
+    TYPE(datetime), POINTER, INTENT(in) :: current_date 
     INTEGER,INTENT(IN)  ::             &
          jg,                           & !< domain index
          iaero,                        & !< aerosol control
@@ -356,7 +357,7 @@ CONTAINS
 ! iaero=13: only Kinne aerosols are used
 ! iaero=15: Kinne aerosols plus Stenchikov's volcanic aerosols are used
 ! iaero=18: Kinne background aerosols (of natural origin, 1850) are set
-      CALL set_bc_aeropt_kinne( jg                                     ,&
+      CALL set_bc_aeropt_kinne( current_date         ,jg               ,&
            & kproma           ,kbdim                 ,klev             ,&
            & krow             ,nbndlw                ,nb_sw            ,&
            & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
@@ -368,7 +369,7 @@ CONTAINS
 ! iaero=15: Stenchikov's volcanic aerosols are added to Kinne aerosols
 ! iaero=18: Stenchikov's volcanic aerosols are added to Kinne background
 !           aerosols (of natural origin, 1850) 
-      CALL add_bc_aeropt_stenchikov( jg                                ,&
+      CALL add_bc_aeropt_stenchikov( current_date    ,jg               ,&
            & kproma           ,kbdim                 ,klev             ,&
            & krow             ,nbndlw                ,nb_sw            ,&
            & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&

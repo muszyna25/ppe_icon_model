@@ -29,7 +29,10 @@ MODULE mo_bc_aeropt_stenchikov
   USE mo_physical_constants,     ONLY: rgrav, rd
   USE mo_math_constants,         ONLY: deg2rad, pi_2
   USE mo_echam_phy_config,       ONLY: echam_phy_config
-  USE mo_bcs_time_interpolation, ONLY: tiw => current_time_interpolation_weights  
+  USE mtime,                     ONLY: datetime 
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
+       &                               calculate_time_interpolation_weights
+
 
   IMPLICIT NONE
 
@@ -102,17 +105,22 @@ END SUBROUTINE shift_months_bc_aeropt_stenchikov
   !> SUBROUTINE read_bc_aeropt_stenchikov -- read the aerosol optical properties 
   !! of the volcanic (Stratospheric) Stenchikov aerosols
 
-SUBROUTINE read_bc_aeropt_stenchikov(kyear)
+SUBROUTINE read_bc_aeropt_stenchikov(current_date, kyear)
+  TYPE(datetime), POINTER, INTENT(in) :: current_date
   INTEGER(i8), INTENT(in)       :: kyear
 
   !LOCAL VARIABLES
   INTEGER(i8) :: iyear(2)
   INTEGER :: imonth(2), nmonths, imonths
 
-  IF (tiw%month2 == inm2_time_interpolation) RETURN
+  TYPE(t_time_interpolation_weights) :: tiw
+
+  tiw = calculate_time_interpolation_weights(current_date)  
+  
+  IF (tiw%month2_index == inm2_time_interpolation) RETURN
   IF (ALLOCATED(aod_v_s)) THEN
     CALL shift_months_bc_aeropt_stenchikov
-    imonth(1)=tiw%month2
+    imonth(1)=tiw%month2_index
     iyear(1)=kyear
     IF (imonth(1) == 13 ) THEN
       imonth(1)=1
@@ -123,8 +131,8 @@ SUBROUTINE read_bc_aeropt_stenchikov(kyear)
     nmonths=1
   ELSE
     CALL su_bc_aeropt_stenchikov
-    imonth(1)=tiw%month1
-    imonth(2)=tiw%month2
+    imonth(1)=tiw%month1_index
+    imonth(2)=tiw%month2_index
     iyear(1)=kyear
     iyear(2)=kyear
     IF (imonth(1) == 0) THEN
@@ -137,7 +145,7 @@ SUBROUTINE read_bc_aeropt_stenchikov(kyear)
     END IF
     nmonths=2
   ENDIF
-  inm2_time_interpolation=tiw%month2
+  inm2_time_interpolation=tiw%month2_index
   DO imonths=1,nmonths
   CALL read_months_bc_aeropt_stenchikov (                             &
                      'longitude',       'latitude',         'levels', &
@@ -154,7 +162,7 @@ END SUBROUTINE read_bc_aeropt_stenchikov
 !! !REVISION HISTORY:
 !! original source by J.S. Rast (2010-02-19)
 !! adapted to icon by J.S. Rast (2013-09-18)
-SUBROUTINE add_bc_aeropt_stenchikov(jg,                                   &
+SUBROUTINE add_bc_aeropt_stenchikov(current_date,       jg,               &
           & kproma,                 kbdim,              klev,             &
           & krow,                   nb_lw,              nb_sw,            &
           & paer_tau_lw_vr,         paer_tau_sw_vr,     paer_piz_sw_vr,   &
@@ -162,6 +170,7 @@ SUBROUTINE add_bc_aeropt_stenchikov(jg,                                   &
           & tk_fl                                                         )
 
   ! !INPUT PARAMETERS
+  TYPE(datetime), POINTER, INTENT(in) :: current_date
   INTEGER,INTENT(in)  :: jg,     &! domain index
                          kproma, &! actual block length
                          kbdim,  &! maximum block length
@@ -201,6 +210,10 @@ SUBROUTINE add_bc_aeropt_stenchikov(jg,                                   &
   REAL(wp)                              :: p_lat_shift, p_rdeltalat
   INTEGER                               :: jc
 
+  TYPE(t_time_interpolation_weights) :: tiw
+
+  tiw = calculate_time_interpolation_weights(current_date)
+  
 ! It is assumed that the pressure levels of the climatology do not change with time but
 ! are unequally spaced. Since the pressure of each icon level may change with time,
 ! each specific icon level may have its centre in a different level of the climatology at
