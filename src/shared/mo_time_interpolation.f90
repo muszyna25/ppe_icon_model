@@ -59,6 +59,8 @@ MODULE mo_time_interpolation
       IF (wi%inm1 == 0) THEN
         znevent_date%month=12
         znevent_date%year=event_date%year-1
+      ELSE
+        znevent_date%month=znevent_date%month-1        
       END IF
       CALL aux_datetime(znevent_date)
       znmlen2=znevent_date%monlen*0.5_wp
@@ -72,6 +74,8 @@ MODULE mo_time_interpolation
       IF (wi%inm2 == 13) THEN
         znevent_date%month=1
         znevent_date%year=znevent_date%year+1
+      ELSE
+        znevent_date%month=znevent_date%month+1
       END IF
       CALL aux_datetime(znevent_date)
       znmlen2=znevent_date%monlen*0.5_wp
