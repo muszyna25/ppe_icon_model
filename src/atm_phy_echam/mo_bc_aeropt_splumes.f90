@@ -201,11 +201,9 @@ MODULE mo_bc_aeropt_splumes
          year_fr           !< Fractional Year (1850.0 - 2100.99)
 
     INTEGER          ::  &
-         idate(8)       ,& !< integer array of system clock date yyyy, mm, dd
          iyear          ,& !< Integer year values between 1 and 156 (1850-2100) 
          iweek          ,& !< Integer index (between 1 and ntimes); for ntimes=52 this corresponds to weeks (roughly)
          iplume            ! plume number
-    CHARACTER(LEN=1024) :: message
     !
     ! ---------- 
     !
@@ -457,8 +455,8 @@ MODULE mo_bc_aeropt_splumes
          sp_xcdnc(kproma)               !< drop number scale factor
 
     year_fr = REAL(this_datetime%date%year,wp) &
-         +(REAL(getDayOfYearFromDateTime(this_datetime),wp) &
-         +REAL(getNoOfSecondsElapsedInDayDateTime(this_datetime),wp)/86400.0_wp &
+         +((REAL(getDayOfYearFromDateTime(this_datetime),wp) &
+         +REAL(getNoOfSecondsElapsedInDayDateTime(this_datetime),wp)/86400.0_wp) &
          /REAL(getNoOfDaysInYearDateTime(this_datetime),wp))
     IF (this_datetime%date%year > 1850) THEN
       ! 
