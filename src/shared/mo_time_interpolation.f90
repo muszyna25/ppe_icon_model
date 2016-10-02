@@ -43,7 +43,9 @@ MODULE mo_time_interpolation
     REAL(wp)                     :: zcmlen2, znmlen2 !half of current/nearest month length
     TYPE(t_datetime)             :: znevent_date
     
-    
+    INTEGER :: seconds_in_month, seconds_in_middle_of_month
+    INTEGER :: seconds_in_middle_of_next_month, seconds_in_middle_of_previous_month
+
     IF (wi%time == event_date) RETURN
 
     wi%time=event_date !save event_date in wi
@@ -63,6 +65,7 @@ MODULE mo_time_interpolation
         znevent_date%month=znevent_date%month-1        
       END IF
       CALL aux_datetime(znevent_date)
+      seconds_in_middle_of_previous_month = 43200*znevent_date%monlen
       znmlen2=znevent_date%monlen*0.5_wp
       wi%wgt1=(zcmlen2-zevent_tim)/(zcmlen2+znmlen2)
       wi%wgt2=1._wp-wi%wgt1
@@ -78,10 +81,25 @@ MODULE mo_time_interpolation
         znevent_date%month=znevent_date%month+1
       END IF
       CALL aux_datetime(znevent_date)
+      seconds_in_middle_of_next_month = 43200*znevent_date%monlen
       znmlen2=znevent_date%monlen*0.5_wp
       wi%wgt2=(zevent_tim-zcmlen2)/(zcmlen2+znmlen2)
       wi%wgt1=1._wp-wi%wgt2
     END IF
+
+    seconds_in_middle_of_month = 43200*event_date%monlen
+    seconds_in_month = ((event_date%day-1)*86400+event_date%hour*3600+event_date%minute*60+event_date%second)
+
+    IF (zcmonfrc<=0.5_wp) THEN
+      wi%wgt1 = REAL(seconds_in_middle_of_month - seconds_in_month,wp) &
+           &   /REAL(seconds_in_middle_of_month + seconds_in_middle_of_previous_month,wp)
+      wi%wgt2 = 1.0_wp - wi%wgt1
+    ELSE
+      wi%wgt2 = REAL(seconds_in_month - seconds_in_middle_of_month,wp) &
+           &   /REAL(seconds_in_middle_of_month + seconds_in_middle_of_next_month,wp)
+      wi%wgt1 = 1.0_wp - wi%wgt2
+    ENDIF
+    
 !!$  WRITE(0,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 !!$  CALL print_datetime_all(event_date)
 !!$  WRITE(0,*) 'wi%inm1,wi%inm2,wi%wgt1,wi%wgt2= ',wi%inm1, wi%inm2, wi%wgt1, wi%wgt2
