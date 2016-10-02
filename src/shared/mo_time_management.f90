@@ -674,6 +674,10 @@ CONTAINS
     IF (errno /= 0)  CALL finish(routine, "Error in initialization of restart date")
     mtime_restart_stop =  mtime_restart_stop + mtime_dt_restart
 
+    ! in case the restart is not given, mtime_restart_stop is deallocated
+
+    IF (mtime_restart_stop == mtime_start) CALL deallocateDatetime(mtime_restart_stop)
+    
     IF (nsteps >= 0) THEN   
 
       ! Special treatment for the hydro atm model
@@ -704,7 +708,6 @@ CONTAINS
         IF (errno /= 0)  CALL finish(routine, "Error in initialization of nsteps  stop date")
       END IF
     END IF
-
 
     IF (TRIM(end_datetime_string) /= "") THEN
       mtime_stop => newDatetime(end_datetime_string)
@@ -757,16 +760,18 @@ CONTAINS
     
     ! If a restart event occurs, check for unsupported combinations of
     ! namelist settings:
-    IF (.NOT. (mtime_nsteps_stop < mtime_restart_stop)) THEN
-      ! processor splitting cannot be combined with synchronous restart:
-      IF ((num_restart_procs == 0) .AND. ANY(patch_weight(1:) > 0._wp)) THEN
-        CALL finish(routine, "Processor splitting cannot be combined with synchronous restart!")
+    IF (ASSOCIATED(mtime_nsteps_stop) .AND. ASSOCIATED(mtime_restart_stop)) THEN
+      IF (.NOT. (mtime_nsteps_stop < mtime_restart_stop)) THEN
+        ! processor splitting cannot be combined with synchronous restart:
+        IF ((num_restart_procs == 0) .AND. ANY(patch_weight(1:) > 0._wp)) THEN
+          CALL finish(routine, "Processor splitting cannot be combined with synchronous restart!")
+        END IF
       END IF
     END IF
 
-    IF (ASSOCIATED(mtime_restart_stop))  CALL deallocateDatetime(mtime_exp_stop)
+    IF (ASSOCIATED(mtime_exp_stop))  CALL deallocateDatetime(mtime_exp_stop)
     IF (ASSOCIATED(mtime_restart_stop))  CALL deallocateDatetime(mtime_restart_stop)
-    IF (ASSOCIATED(mtime_restart_stop))  CALL deallocateDatetime(mtime_nsteps_stop)
+    IF (ASSOCIATED(mtime_nsteps_stop))  CALL deallocateDatetime(mtime_nsteps_stop)
     IF (INT(dt_restart) > 0)  CALL deallocateTimedelta(mtime_dt_restart)
 
     ! --- --- NSTEPS
