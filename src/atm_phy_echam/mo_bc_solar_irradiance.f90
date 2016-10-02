@@ -142,7 +142,7 @@ CONTAINS
         CALL message ('ssi_time_interplation of mo_bc_solar_irradiance', &
                      'Interpolation of ssi not necessary')
       END IF
-      tsi    = tiw%weight1 * tsi_m(tiw%month1) + tiw%weight2 * tsi_m(tiw%month2)
+      tsi    = tiw%weight1 * tsi_m(tiw%month1_index) + tiw%weight2 * tsi_m(tiw%month2_index)
     END IF
        
   END SUBROUTINE ssi_time_interpolation
