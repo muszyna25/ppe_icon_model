@@ -131,8 +131,8 @@ CONTAINS
         CALL finish ('ssi_time_interplation of mo_bc_solar_irradiance', &
                      'Interpolation to radiation time step needs ssi',exit_no=1)
       ELSE
-        tsi    = tiw%weight1 * tsi_radt_m(tiw%month1) + tiw%weight2 * tsi_radt_m(tiw%month2)
-        ssi(:) = tiw%weight1*ssi_radt_m(:,tiw%month1) + tiw%weight2*ssi_radt_m(:,tiw%month2)
+        tsi    = tiw%weight1 * tsi_radt_m(tiw%month1_index) + tiw%weight2 * tsi_radt_m(tiw%month2_index)
+        ssi(:) = tiw%weight1*ssi_radt_m(:,tiw%month1_index) + tiw%weight2*ssi_radt_m(:,tiw%month2_index)
         WRITE(ctsi,'(F14.8)') tsi
         CALL message('','Interpolated total solar irradiance and spectral ' &
           &          //'bands for radiation transfer, tsi= '//ctsi)

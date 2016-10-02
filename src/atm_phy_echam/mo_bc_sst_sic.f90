@@ -185,8 +185,8 @@ CONTAINS
     REAL(dp) :: zts(SIZE(tsw,1),SIZE(tsw,2))
     REAL(dp) :: zic(SIZE(tsw,1),SIZE(tsw,2))
 
-    zts(:,:) = tiw%weight1 * sst(:,:,tiw%month1) + tiw%weight2 * sst(:,:,tiw%month2)
-    zic(:,:) = tiw%weight1 * sic(:,:,tiw%month1) + tiw%weight2 * sic(:,:,tiw%month2)
+    zts(:,:) = tiw%weight1 * sst(:,:,tiw%month1_index) + tiw%weight2 * sst(:,:,tiw%month2_index)
+    zic(:,:) = tiw%weight1 * sic(:,:,tiw%month1_index) + tiw%weight2 * sic(:,:,tiw%month2_index)
 
     !TODO: missing siced needs to be added
 
