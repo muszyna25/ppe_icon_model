@@ -130,7 +130,7 @@ CONTAINS
 
     ! interpolation weights for linear interpolation
     ! of monthly means onto the actual integration time step
-!    current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_current)
+    current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_current)
 !    CALL store_time_interpolation_weight(current_time_interpolation_weights)
 
     ! Read and interpolate in time monthly mean SST for AMIP simulations
