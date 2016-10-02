@@ -49,7 +49,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_timer,                ONLY: timer_start, timer_stop, timers_level,    &
     &                                timer_radiaton_recv, timer_radiaton_comp, &
     &                                timer_radiaton_send, timer_preradiaton
-  USE mtime,                     ONLY: datetime
+  USE mtime,                     ONLY: datetime, newDatetime, deallocateDatetime
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
     &                                  calculate_time_interpolation_weights
 
@@ -145,6 +145,7 @@ CONTAINS
 
     REAL(wp) :: wfac, ncn_bg
     
+    TYPE(datetime), POINTER :: current_midnight
     TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
     
     i_nchdom  = MAX(1,pt_patch%n_childdom)
@@ -184,10 +185,16 @@ CONTAINS
     END SELECT
 
     IF ( irad_aero == 6  .OR. irad_aero == 9) THEN
-      current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_datetime)
+      current_midnight => newDatetime(mtime_datetime)
+      current_midnight%time%hour = 0
+      current_midnight%time%minute = 0
+      current_midnight%time%second = 0
+      current_midnight%time%ms = 0      
+      current_time_interpolation_weights = calculate_time_interpolation_weights(current_midnight)
       imo1 = current_time_interpolation_weights%month1
       imo2 = current_time_interpolation_weights%month2
       zw = current_time_interpolation_weights%weight2
+      CALL deallocateDatetime(current_midnight)
     ENDIF
 
     rl_start = 1

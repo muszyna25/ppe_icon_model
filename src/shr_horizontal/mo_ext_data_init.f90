@@ -285,8 +285,12 @@ CONTAINS
         ELSE
           this_datetime => newDatetime(time_config%tc_current_date)
         END IF  ! isRestart
-        !
-        this_datetime%time%hour= 0   ! always assume midnight
+        
+        ! always assume midnight
+        this_datetime%time%hour= 0   
+        this_datetime%time%minute= 0
+        this_datetime%time%second= 0
+        this_datetime%time%ms= 0
 
         DO jg = 1, n_dom
           CALL interpol_monthly_mean(p_patch(jg), this_datetime,         &! in
@@ -2023,6 +2027,7 @@ CONTAINS
     !---------------------------------------------------------------
     ! Find the 2 nearest months mo1, mo2 and the weights zw1, zw2
     ! to the actual date and time
+
     current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_date)
     
     mo1 = current_time_interpolation_weights%month1
