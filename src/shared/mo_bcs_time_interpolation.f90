@@ -40,9 +40,9 @@ CONTAINS
     TYPE(t_time_interpolation_weights) :: time_interpolation_weight
     TYPE(datetime), POINTER, INTENT(in) :: current_date
 
-    TYPE(datetime), POINTER :: next_month => NULL()
-    TYPE(datetime), POINTER :: previous_month => NULL()
-    TYPE(timedelta), POINTER :: one_month => NULL()
+    TYPE(datetime), POINTER :: next_month
+    TYPE(datetime), POINTER :: previous_month
+    TYPE(timedelta), POINTER :: one_month
 
     INTEGER :: seconds_in_month
     INTEGER :: seconds_in_middle_of_previous_month, seconds_in_middle_of_month, seconds_in_middle_of_next_month
@@ -70,13 +70,17 @@ CONTAINS
       time_interpolation_weight%weight1 = REAL(seconds_in_middle_of_month - seconds_in_month,wp) &
            &                             /REAL(seconds_in_middle_of_month + seconds_in_middle_of_previous_month,wp)
       time_interpolation_weight%weight2 = 1.0_wp - time_interpolation_weight%weight1
-      time_interpolation_weight%month1_index = current_date%date%month - 1 ! does indexing only, so do not use previous_month%date%month
+      ! does indexing only, so do not use previous_month%date%month
+      time_interpolation_weight%month1_index = current_date%date%month - 1 
       time_interpolation_weight%month2_index = current_date%date%month
       time_interpolation_weight%month1 = previous_month%date%month
       time_interpolation_weight%month2 = current_date%date%month
       time_interpolation_weight%year1 = previous_month%date%year
       time_interpolation_weight%year2 = current_date%date%year
 
+      CALL deallocateDatetime(previous_month)
+      CALL deallocateTimedelta(one_month)
+      
     ELSE
       
       ! second half of month
@@ -92,18 +96,18 @@ CONTAINS
       time_interpolation_weight%weight2 = REAL(seconds_in_month - seconds_in_middle_of_month,wp) &
            &                             /REAL(seconds_in_middle_of_month + seconds_in_middle_of_next_month,wp)
       time_interpolation_weight%weight1 = 1.0_wp - time_interpolation_weight%weight2
+      ! does indexing only, so do not use next_month%date%month
       time_interpolation_weight%month1_index = current_date%date%month
-      time_interpolation_weight%month2_index = current_date%date%month + 1 ! does indexing only, so do not use next_month%date%month
+      time_interpolation_weight%month2_index = current_date%date%month + 1 
       time_interpolation_weight%month1 = current_date%date%month
       time_interpolation_weight%month2 = next_month%date%month
       time_interpolation_weight%year1 = current_date%date%year
       time_interpolation_weight%year2 = next_month%date%year
 
+      CALL deallocateDatetime(next_month)
+      CALL deallocateTimedelta(one_month)
+      
     ENDIF
-
-    CALL deallocateTimedelta(one_month)
-    IF (ASSOCIATED(previous_month)) CALL deallocateDatetime(previous_month)
-    IF (ASSOCIATED(next_month)) CALL deallocateDatetime(next_month)
 
     time_interpolation_weight%initialized = .TRUE.
     
