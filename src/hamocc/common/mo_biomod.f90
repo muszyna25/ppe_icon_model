@@ -47,6 +47,7 @@ MODULE mo_biomod
   REAL(wp) :: remido_cya, dremdoc_cya
   REAL(wp) :: thresh_aerob ! O2 threshold for aerob POC remineralization
   REAL(wp) :: thresh_sred ! O2 threshold for sulfate reduction
+  REAL(wp) :: thresh_o2, prodn2o 
 
   REAL(wp) :: mc_fac, mc_eu_speed, mc_depth
   REAL(wp) :: n2_fixation

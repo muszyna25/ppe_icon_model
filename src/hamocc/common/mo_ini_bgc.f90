@@ -20,12 +20,12 @@ MODULE mo_ini_bgc
        &                     rnoi, nitdem, n2prod, rcalc, ropal, calmax,   &
        &                     gutc, perc_diron, riron, fesoly, relaxfe,     &
        &                     denitrification, kbo, bolay, rn2,             &
-       &                     dustd1, dustd2, dustsink, wdust,              &
+       &                     dustd1, dustd2, dustsink, wdust, thresh_o2,   &
        &                     cycdec, pi_alpha_cya,cya_growth_max,          &
        &                     Topt_cya,T1_cya,T2_cya,bkcya_N, bkcya_P, bkcya_fe, &
        &                     remido_cya, dremdoc_cya, buoyancyspeed_cya, &
        &                     doccya_fac, thresh_aerob, thresh_sred, &
-       &                     wopal, wcal, wcya, p2gtc, ro2bal, dmsp
+       &                     wopal, wcal, wcya, p2gtc, ro2bal, dmsp, prodn2o
 
   USE mo_sedmnt, ONLY      : powtra, sedlay, sedhpl,disso_op,disso_cal,&
        &                     o2ut, rno3, claydens, sred_sed, ks, silsat, &
@@ -126,7 +126,9 @@ CONTAINS
     pi_alpha = 0.02_wp           ! initial slope of production vs irradiance
     fPAR     = 0.4_wp            ! fraction of Photosynthetic Active Radiation
     thresh_aerob = 5.e-8_wp      ! kmol m-3,  O2 threshold for aerob remineralization
+    thresh_o2 = 10.e-6_wp      ! kmol m-3,  O2 threshold for aerob remineralization
     thresh_sred = 3.e-6_wp      ! kmol m-3,  O2 threshold for sulfate reduction
+    prodn2o = 1.e-4_wp
 
     calmax = 0.15_wp ! maximum fraction (of "export") for calc production
 
