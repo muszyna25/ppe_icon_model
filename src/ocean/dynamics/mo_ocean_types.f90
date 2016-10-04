@@ -188,7 +188,8 @@ MODULE mo_ocean_types
       & div_of_GMRedi_flux_vertical,  &
       & div_of_GM_flux,               &
       & div_of_Redi_flux,             &
-      & vertical_mixing_coeff_GMRedi_implicit
+      & vertical_mixing_coeff_GMRedi_implicit,&
+      & w_bolus
 
     onCells_2D :: &
       & thick_c          ,& ! individual fluid column thickness at cells. Unit [m].
@@ -236,8 +237,8 @@ MODULE mo_ocean_types
       & grad           ,& ! gradient of kinetic energy. Unit [m/s]
       & press_grad     ,& ! hydrostatic pressure gradient term. Unit [m/s]
       & cfl_horz       ,& ! horizontal cfl values
-      & zlim         !,& ! zalesak limiter factor
-      ! & vn  
+      & zlim           ,& ! zalesak limiter factor
+      & vn_bolus  
       
     onEdges_HalfLevels :: &
       & w_e            ! vertical velocity at edges. Unit [m/s]

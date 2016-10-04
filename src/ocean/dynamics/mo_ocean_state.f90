@@ -896,6 +896,14 @@ CONTAINS
        & t_cf_var('w prism center','m/s','vertical velocity at prism center', DATATYPE_FLT32),&
        & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)     
+
+
+      CALL add_var(ocean_restart_list, 'w_bolus', ocean_state_diag%w_bolus, grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('w bolus','m/s','vertical bolus velocity at prism center', DATATYPE_FLT32),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)     
+
       
 !   CALL add_var(ocean_restart_list, 'w_e', ocean_state_diag%w_e, grid_unstructured_cell, &
 !     & za_depth_below_sea_half, &
@@ -956,12 +964,20 @@ CONTAINS
       & datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
       & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
+
     CALL add_var(ocean_default_list, 'vn_pred_ptp', ocean_state_diag%vn_pred_ptp, &
       & grid_unstructured_edge, za_depth_below_sea, &
       & t_cf_var('vn_pred_ptp','m/s','transformed predicted vn normal velocity component', &
       & datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
       & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)      
+
+    CALL add_var(ocean_restart_list, 'vn_bolus', ocean_state_diag%vn_bolus, &
+      & grid_unstructured_edge, za_depth_below_sea, &
+      & t_cf_var('vn_bolus','m/s',' bolus vn normal velocity component', &
+      & datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
+      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.TRUE.)
       
     ! predicted vn normal velocity component
 !    CALL add_var(ocean_restart_list, 'vn_impl_vert_diff', ocean_state_diag%vn_impl_vert_diff,&
