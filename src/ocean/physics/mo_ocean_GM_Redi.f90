@@ -1107,30 +1107,29 @@ CONTAINS
 
             DO level = start_level, end_level
 
-              cell_max_slope      = S_max  &
+              cell_critical_slope      = S_critical  &
                 & * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo) &
                 & * inv_cell_characteristic_length
               !cell_max_slope      = S_max*SQRT(patch_2D%cells%area(cell_index,blockNo))&
               !& / patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo)
-
 !              cell_critical_slope = S_critical &
 !                & * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo) &
 !                & * inv_cell_characteristic_length
 
-              cell_critical_slope = S_critical &
+              cell_max_slope = S_max &
                 & * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo) &
                 & * cell_characteristic_length&
                 &/(2.0_wp*param%k_tracer_isoneutral(cell_index,level,blockNo)*dtime)
                 
-                                
-              slope_abs = sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo))
+              slope_abs    = sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo))           
 
-              !IF(slope_abs <= cell_max_slope)THEN
+
+              IF(slope_abs <= cell_max_slope)THEN
                 ocean_state%p_aux%taper_function_1(cell_index,level,blockNo) &
                   &= 0.5_wp*(1.0_wp + tanh((cell_critical_slope - slope_abs)*inv_S_d))
-              !ELSE
-              !  ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)=0.0_wp
-              !ENDIF
+              ELSE
+                ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)=0.0_wp
+              ENDIF
 
             END DO
           ENDIF
