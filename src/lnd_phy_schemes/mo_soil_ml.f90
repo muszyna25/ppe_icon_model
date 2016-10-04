@@ -1096,9 +1096,8 @@ END SUBROUTINE message
 !
 !   Freezing/melting of soil water/ice:
 !
-    zenergy        , & ! available melting/freezing energy per time step
     zdelwice       , & ! amount of melted soil ice/frozen soil water
-    zdwi_max       , & ! maximum amount of freezing/melting soil water
+    zdwi_scal      , & ! time scale parameter for freezing/melting soil water
     ztx                ! water content dependent freezing/melting temperature
 
 ! Local (automatic) arrays:
@@ -1135,7 +1134,6 @@ END SUBROUTINE message
     zsiltf   (ie,ke_soil+1)      , & ! mean fraction of clay (weight percent)
     zb_por   (ie,ke_soil+1)      , & ! pore size distribution index
     zpsis    (ie,ke_soil+1)      , & ! air entry potential (m)
-    zw_m_org  (ie)        , &  ! maximum of frac liquid water content (-)  organic
     zw_m_soil (ie)        , &  ! maximum of frac liquid water content (-)  mineral soil
     zw_m     (ie)              ! maximum of liquid water content  (m)
 
@@ -1363,6 +1361,8 @@ END SUBROUTINE message
 
   zrhwddt = rho_w/zdt     ! density of liquid water/timestep
   zdtdrhw = zdt/rho_w     ! timestep/density of liquid water
+
+  zdwi_scal = zdt/1800._ireals ! time scale parameter for freezing/melting soil water
 
 ! time constant for infiltration of water from interception store
   ctau_i        = MAX(ctau_i,zdt)
@@ -4059,6 +4059,7 @@ ENDIF
   END IF
 
 
+
 !  IF(lmelt) THEN ! + lmelt_var
       DO kso = 1,ke_soil
 !CDIR NODEP,VOVERTAKE,VOB
@@ -4072,56 +4073,43 @@ ENDIF
 !                  zw_m(i) = zw_m(i)*EXP(-zedb(i,kso)*LOG((t_so_new(i,kso) - t0_melt)/(t_so_new(i,kso)*zaa)) )
 !
 ! J. Helmert: Soil ice parameterization according to K. Schaefer and Jafarov, E.,2016, doi:10.5194/bg-13-1991-2016
-
-                   zw_m_soil(i) =  zsandf(i,kso)/100._ireals*((T_ref_ice-(t_so_new(i,kso)-t0_melt))/T_star_ice)**b_sand + &
-                              zclayf(i,kso)/100._ireals*((T_ref_ice-(t_so_new(i,kso)-t0_melt))/T_star_ice)**b_clay + &
-                              zsiltf(i,kso)/100._ireals*((T_ref_ice-(t_so_new(i,kso)-t0_melt))/T_star_ice)**b_silt 
-                   zw_m_org(i) = ((T_ref_ice-(t_so_new(i,kso)-t0_melt))/T_star_ice)**b_org
+                  zd = LOG((T_ref_ice-(t_so_new(i,kso)-t0_melt))/T_star_ice)
+                  zw_m_soil(i) = 0.01_ireals*(zsandf(i,kso)*EXP(b_sand*zd) +                &
+                                 zclayf(i,kso)*EXP(b_clay*zd) + zsiltf(i,kso)*EXP(b_silt*zd))
 
 ! J. Helmert: Scale soil ice content with organic soil horizon.
 !             should decrease the root zone liquid water content of frozen soil for low temperatures significantly!
-        IF(zmls(kso) < rootdp(i)) THEN
-          zzz = plcov(i)*(rootdp(i)-zmls(kso))/rootdp(i)
-          zw_m(i) = zporv(i,kso)*zdzhs(kso)*(zzz*zw_m_org(i) + (1._ireals-zzz)* zw_m_soil(i))
-        ELSE
-          zzz = 0._ireals
-          zw_m(i) = zporv(i,kso)*zdzhs(kso)*zw_m_soil(i)
-        END IF
+                  IF(zmls(kso) < rootdp(i)) THEN
+                    zzz = plcov(i)*(rootdp(i)-zmls(kso))/rootdp(i)
+                    zw_m(i) = zporv(i,kso)*zdzhs(kso)*(zzz*EXP(b_org*zd) + (1._ireals-zzz)*zw_m_soil(i))
+                  ELSE
+                    zw_m(i) = zporv(i,kso)*zdzhs(kso)*zw_m_soil(i)
+                  END IF
 !       
-           zliquid= MAX(zepsi,w_so_now(i,kso) -  w_so_ice_now(i,kso))
-           znen   = 1._ireals-zaa*EXP(zb_por(i,kso)*LOG(zporv(i,kso)*zdzhs(kso)/zliquid))
-           ztx    = t0_melt/znen
-                  ENDIF
+                  zliquid= MAX(zepsi,w_so_now(i,kso) -  w_so_ice_now(i,kso))
+                  znen   = 1._ireals-zaa*EXP(zb_por(i,kso)*LOG(zporv(i,kso)*zdzhs(kso)/zliquid))
+                  ztx    = t0_melt/znen
+                ENDIF
                 ztx      = MIN(t0_melt,ztx)
-                zenergy  = zroc(i,kso)*zdzhs(kso)*(t_so_new(i,kso)-ztx)
-                zdwi_max = - zenergy/(lh_f*rho_w)
-                zdelwice = zdwi_max
+                zfak     = zroc(i,kso)*zdzhs(kso)/(lh_f*rho_w)
+                zdelwice = - zfak*(t_so_new(i,kso)-ztx)
                 zwso_new  = w_so_now(i,kso) + zdt*zdwgdt(i,kso)/rho_w
                 zargu = zwso_new - zw_m(i) - w_so_ice_now(i,kso)
-                IF (zdelwice.LT.0.0_ireals) zdelwice =                           &
-                        - MIN( - zdelwice,MIN(-zargu,w_so_ice_now(i,kso)))
-                IF (zdelwice.GT.0.0_ireals) zdelwice =                           &
-                          MIN(   zdelwice,MAX( zargu,0.0_ireals))
-                w_so_ice_new(i,kso) = w_so_ice_now(i,kso) + zdelwice
-  !             At this point we have 0.0 LE w_so_ice(i,kso,nnew) LE zwso_new
-  !             If we have 0.0 LT w_so_ice(i,kso,nnew) LT zwso_new
-  !             the resulting new temperature has to be equal to ztx.
-  !             If not all energy available can be used to melt/freeze soil water,
-  !             the following line corrects the temperature. It also applies
-  !             to cases without any freezing/melting, in these cases the
-  !             original temperature is reproduced.
-
-                t_so_new(i,kso) = ztx + (zdelwice - zdwi_max)*       &
-                                     (lh_f*rho_w)/(zroc(i,kso)*zdzhs(kso))
-                ! Fix for numerical instabilites across melting point (G. Zaengl)
-                ! When the latent heat release due to ice formation is so large that the
-                ! temperature rises from below freezing to above freezing, then the
-                ! temperature is set to the freezing point and the ice amount is reset to zero
-                IF (t_so_new(i,kso) > t0_melt+zepsi .AND. t_so_now(i,kso) < t0_melt-zepsi &
-                  .AND. w_so_ice_new(i,kso) > zepsi) THEN
-                  t_so_new(i,kso) = t0_melt
-                  w_so_ice_new(i,kso) = 0._ireals
+                IF (t_so_new(i,kso) > t0_melt .AND. w_so_ice_now(i,kso) > 0._ireals) THEN
+                  ! melting point adjustment (time scale 30 min)
+                  zdelwice = - MIN(w_so_ice_now(i,kso), zdwi_scal*(t_so_new(i,kso)-t0_melt)*zfak)
+                ELSE IF (zdelwice < 0.0_ireals) THEN
+                  zdelwice = - MIN( - zdelwice,MIN(-zargu,w_so_ice_now(i,kso)))
+                  ! limit latent heat consumption due to melting to half the temperature increase since last time step
+                  ! or 2.5 K within 30 min
+                  zdelwice = - MIN( - zdelwice,MAX(2.5_ireals*zdwi_scal,0.5_ireals*(t_so_new(i,kso)-t_so_now(i,kso)))*zfak)
+                ELSE
+                  zdelwice = MIN(zdelwice,MAX(zargu,0.0_ireals))
+                  ! limit latent heat release due to freezing to half the differene from the melting point
+                  zdelwice = MIN(zdelwice,0.5_ireals*(t0_melt-t_so_new(i,kso))*zfak)
                 ENDIF
+                w_so_ice_new(i,kso) = w_so_ice_now(i,kso) + zdelwice
+                t_so_new(i,kso) = t_so_new(i,kso) + zdelwice/zfak
           END DO
       ENDDO
 !  END IF ! lmelt
@@ -4767,32 +4755,46 @@ ENDIF
                 zw_m(i)     = zporv(i,kso)*zdzhs(kso)
                 IF(t_so_new(i,kso).LT.(t0_melt-zepsi)) THEN
                   zaa    = g*zpsis(i,kso)/lh_f
-                  zw_m(i) = zw_m(i)*EXP(-zedb(i,kso)*LOG((t_so_new(i,kso) - t0_melt)/(t_so_new(i,kso)*zaa)) )
+!                  zw_m(i) = zw_m(i)*EXP(-zedb(i,kso)*LOG((t_so_new(i,kso) - t0_melt)/(t_so_new(i,kso)*zaa)) )
+!
+! J. Helmert: Soil ice parameterization according to K. Schaefer and Jafarov, E.,2016, doi:10.5194/bg-13-1991-2016
+                  zd = LOG((T_ref_ice-(t_so_new(i,kso)-t0_melt))/T_star_ice)
+                  zw_m_soil(i) = 0.01_ireals*(zsandf(i,kso)*EXP(b_sand*zd) +                &
+                                 zclayf(i,kso)*EXP(b_clay*zd) + zsiltf(i,kso)*EXP(b_silt*zd))
+
+! J. Helmert: Scale soil ice content with organic soil horizon.
+!             should decrease the root zone liquid water content of frozen soil for low temperatures significantly!
+                  IF(zmls(kso) < rootdp(i)) THEN
+                    zzz = plcov(i)*(rootdp(i)-zmls(kso))/rootdp(i)
+                    zw_m(i) = zporv(i,kso)*zdzhs(kso)*(zzz*EXP(b_org*zd) + (1._ireals-zzz)*zw_m_soil(i))
+                  ELSE
+                    zw_m(i) = zporv(i,kso)*zdzhs(kso)*zw_m_soil(i)
+                  END IF
+
                   zliquid= MAX(zepsi,w_so_now(i,kso) -  w_so_ice_now(i,kso))
                   znen   = 1._ireals-zaa*EXP(zb_por(i,kso)*LOG(zporv(i,kso)*zdzhs(kso)/zliquid))
                   ztx    = t0_melt/znen
                 ENDIF
                 ztx      = MIN(t0_melt,ztx)
-                zenergy  = zroc(i,kso)*zdzhs(kso)*(t_so_new(i,kso)-ztx)
-                zdwi_max = - zenergy/(lh_f*rho_w)
-                zdelwice = zdwi_max
-                zwso_new  = w_so_new(i,kso) + zdt*zdwgdt(i,kso)/rho_w
-                zargu = zwso_new - zw_m(i) - w_so_ice_new(i,kso)
-                IF (zdelwice.LT.0.0_ireals) zdelwice =                           &
-                        - MIN( - zdelwice,MIN(-zargu,w_so_ice_new(i,kso)))
-                IF (zdelwice.GT.0.0_ireals) zdelwice =                           &
-                          MIN(   zdelwice,MAX( zargu,0.0_ireals))
-                w_so_ice_new(i,kso) = w_so_ice_new(i,kso) + zdelwice
-  !             At this point we have 0.0 LE w_so_ice(i,kso,nnew) LE zwso_new
-  !             If we have 0.0 LT w_so_ice(i,kso,nnew) LT zwso_new
-  !             the resulting new temperature has to be equal to ztx.
-  !             If not all energy available can be used to melt/freeze soil water,
-  !             the following line corrects the temperature. It also applies
-  !             to cases without any freezing/melting, in these cases the
-  !             original temperature is reproduced.
-
-                t_so_new(i,kso) = ztx + (zdelwice - zdwi_max)*       &
-                                     (lh_f*rho_w)/(zroc(i,kso)*zdzhs(kso))
+                zfak     = zroc(i,kso)*zdzhs(kso)/(lh_f*rho_w)
+                zdelwice = - zfak*(t_so_new(i,kso)-ztx)
+                zwso_new  = w_so_now(i,kso) + zdt*zdwgdt(i,kso)/rho_w
+                zargu = zwso_new - zw_m(i) - w_so_ice_now(i,kso)
+                IF (t_so_new(i,kso) > t0_melt .AND. w_so_ice_now(i,kso) > 0._ireals) THEN
+                  ! melting point adjustment (time scale 30 min)
+                  zdelwice = - MIN(w_so_ice_now(i,kso), zdwi_scal*(t_so_new(i,kso)-t0_melt)*zfak)
+                ELSE IF (zdelwice < 0.0_ireals) THEN
+                  zdelwice = - MIN( - zdelwice,MIN(-zargu,w_so_ice_now(i,kso)))
+                  ! limit latent heat consumption due to melting to half the temperature increase since last time step
+                  ! or 2.5 K within 30 min
+                  zdelwice = - MIN( - zdelwice,MAX(2.5_ireals*zdwi_scal,0.5_ireals*(t_so_new(i,kso)-t_so_now(i,kso)))*zfak)
+                ELSE
+                  zdelwice = MIN(zdelwice,MAX(zargu,0.0_ireals))
+                  ! limit latent heat release due to freezing to half the differene from the melting point
+                  zdelwice = MIN(zdelwice,0.5_ireals*(t0_melt-t_so_new(i,kso))*zfak)
+                ENDIF
+                w_so_ice_new(i,kso) = w_so_ice_now(i,kso) + zdelwice
+                t_so_new(i,kso) = t_so_new(i,kso) + zdelwice/zfak
 
              END IF                   ! m_stpy > 2
 !            END IF                    ! land-points only

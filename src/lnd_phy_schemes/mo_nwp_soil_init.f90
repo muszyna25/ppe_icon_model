@@ -205,7 +205,7 @@ CONTAINS
 
 
   REAL    (KIND=ireals   ) ::  &
-    zaa, zh_snow,zzz        ! utility variable
+    zaa, zh_snow,zzz,zd        ! utility variable
 
   REAL    (KIND = ireals) :: &
 !
@@ -569,22 +569,20 @@ CONTAINS
 !               ((t_so_now(i,kso) - t0_melt)/(t_so_now(i,kso)*zaa))**(-zedb(i))
 
 ! J. Helmert: Soil ice parameterization according to K. Schaefer and Jafarov, E.,2016, doi:10.5194/bg-13-1991-2016
-
-            zw_m_soil(i) =  zsandf(i)/100._ireals*((T_ref_ice-(t_so_new(i,kso)-t0_melt))/T_star_ice)**b_sand + &
-                            zclayf(i)/100._ireals*((T_ref_ice-(t_so_new(i,kso)-t0_melt))/T_star_ice)**b_clay + &
-                            zsiltf(i)/100._ireals*((T_ref_ice-(t_so_new(i,kso)-t0_melt))/T_star_ice)**b_silt 
-            zw_m_org(i) = ((T_ref_ice-(t_so_new(i,kso)-t0_melt))/T_star_ice)**b_org
+            zd = LOG((T_ref_ice-(t_so_new(i,kso)-t0_melt))/T_star_ice)
+            zw_m_soil(i) = 0.01_ireals*(zsandf(i)*EXP(b_sand*zd) +            &
+                           zclayf(i)*EXP(b_clay*zd) + zsiltf(i)*EXP(b_silt*zd))
+            zw_m_org(i)  = EXP(b_org*zd)
 
 ! J. Helmert: Scale soil ice content with organic soil horizon.
 !             should decrease the root zone liquid water content of frozen soil for low temperatures significantly!
-        IF(zmls(kso) < rootdp(i)) THEN
-          zzz = plcov(i)*(rootdp(i)-zmls(kso))/rootdp(i)
-          zw_m(i) = zporv(i)*zdzhs(kso)*(zzz*zw_m_org(i) + (1._ireals-zzz)* zw_m_soil(i))
-        ELSE
-          zzz = 0._ireals
-          zw_m(i) = zporv(i)*zdzhs(kso)*zw_m_soil(i)
-        END IF
-
+            IF(zmls(kso) < rootdp(i)) THEN
+              zzz = plcov(i)*(rootdp(i)-zmls(kso))/rootdp(i)
+              zw_m(i) = zporv(i)*zdzhs(kso)*(zzz*zw_m_org(i) + (1._ireals-zzz)*zw_m_soil(i))
+            ELSE
+              zzz = 0._ireals
+              zw_m(i) = zporv(i)*zdzhs(kso)*zw_m_soil(i)
+            END IF
 
             w_so_ice_now(i,kso) = MAX (0.0_ireals,w_so_now(i,kso) - zw_m(i))
             w_so_ice_new(i,kso) = MAX (0.0_ireals,w_so_now(i,kso) - zw_m(i))
@@ -675,7 +673,7 @@ CONTAINS
 
     ! Ensure that w_so_ice stays within 5% of its equilibrium value
     ! In addition, it must not exceed w_so
-    IF(lmelt .AND. lmelt_var.AND.(soil_ice_limit > 0._wp)) THEN ! soil_ice_limit = -1. switch off this test
+    IF(lmelt .AND. lmelt_var.AND.(soil_ice_limit > 0._ireals)) THEN ! soil_ice_limit = -1. switch off this test
       DO kso   = 1,ke_soil+1
         DO i = istarts, iends
           IF (t_so_now(i,kso) < (t0_melt-zepsi)) THEN 
@@ -683,21 +681,20 @@ CONTAINS
             zw_m(i) = zporv(i)*zdzhs(kso)
 !            zw_m(i) = zw_m(i) * ((t_so_now(i,kso)-t0_melt)/(t_so_now(i,kso)*zaa))**(-zedb(i))
 ! J. Helmert: Soil ice parameterization according to K. Schaefer and Jafarov, E.,2016, doi:10.5194/bg-13-1991-2016
-
-            zw_m_soil(i) =  zsandf(i)/100._ireals*((T_ref_ice-(t_so_new(i,kso)-t0_melt))/T_star_ice)**b_sand + &
-                            zclayf(i)/100._ireals*((T_ref_ice-(t_so_new(i,kso)-t0_melt))/T_star_ice)**b_clay + &
-                            zsiltf(i)/100._ireals*((T_ref_ice-(t_so_new(i,kso)-t0_melt))/T_star_ice)**b_silt 
-            zw_m_org(i) = ((T_ref_ice-(t_so_new(i,kso)-t0_melt))/T_star_ice)**b_org
+            zd = LOG((T_ref_ice-(t_so_new(i,kso)-t0_melt))/T_star_ice)
+            zw_m_soil(i) = 0.01_ireals*(zsandf(i)*EXP(b_sand*zd) +            &
+                           zclayf(i)*EXP(b_clay*zd) + zsiltf(i)*EXP(b_silt*zd))
+            zw_m_org(i)  = EXP(b_org*zd)
 
 ! J. Helmert: Scale soil ice content with organic soil horizon.
 !             should decrease the root zone liquid water content of frozen soil for low temperatures significantly!
-        IF(zmls(kso) < rootdp(i)) THEN
-          zzz = plcov(i)*(rootdp(i)-zmls(kso))/rootdp(i)
-          zw_m(i) = zporv(i)*zdzhs(kso)*(zzz*zw_m_org(i) + (1._ireals-zzz)* zw_m_soil(i))
-        ELSE
-          zzz = 0._ireals
-          zw_m(i) = zporv(i)*zdzhs(kso)*zw_m_soil(i)
-       END IF
+            IF(zmls(kso) < rootdp(i)) THEN
+              zzz = plcov(i)*(rootdp(i)-zmls(kso))/rootdp(i)
+              zw_m(i) = zporv(i)*zdzhs(kso)*(zzz*zw_m_org(i) + (1._ireals-zzz)*zw_m_soil(i))
+            ELSE
+              zzz = 0._ireals
+              zw_m(i) = zporv(i)*zdzhs(kso)*zw_m_soil(i)
+            END IF
 
             wso_ice_equil = MAX (0.0_ireals,w_so_now(i,kso) - zw_m(i))
             w_so_ice_now(i,kso) = MIN(w_so_ice_now(i,kso),  wso_ice_tolerance*wso_ice_equil, w_so_now(i,kso))
