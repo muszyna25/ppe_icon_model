@@ -51,7 +51,8 @@ MODULE mo_var_list
   USE mo_util_string,      ONLY: remove_duplicates, toupper
   USE mo_impl_constants,   ONLY: max_var_lists, vname_len,          &
     &                            STR_HINTP_TYPE, MAX_TIME_LEVELS,   &
-    &                            TLEV_NNOW
+    &                            TLEV_NNOW, REAL_T, SINGLE_T,       &
+    &                            BOOL_T, INT_T
   USE mo_fortran_tools,    ONLY: assign_if_present
   USE mo_action_types,     ONLY: t_var_action
   USE mo_io_config,        ONLY: restart_file_type
@@ -169,11 +170,6 @@ MODULE mo_var_list
     MODULE PROCEDURE assign_if_present_action_list
   END INTERFACE struct_assign_if_present
 
-  ! named constants for specifying data types
-  ENUM, BIND(C)
-    ENUMERATOR :: REAL_T, SINGLE_T, BOOL_T, INT_T
-  END ENUM
-  PUBLIC  :: REAL_T, SINGLE_T, BOOL_T, INT_T
   
   INTEGER,                  SAVE :: nvar_lists     =   0      ! var_lists allocated so far
   !
@@ -692,7 +688,7 @@ CONTAINS
          &                     tlev_source, vert_interp,                       &
          &                     hor_interp, in_group, verbose,                  &
          &                     l_pp_scheduler_task, post_op, action_list,      &
-         &                     var_class)
+         &                     var_class, data_type)
     !
     TYPE(t_var_metadata),    INTENT(inout)        :: info          ! memory info struct.
     CHARACTER(len=*),        INTENT(in), OPTIONAL :: name          ! variable name
@@ -719,6 +715,7 @@ CONTAINS
     TYPE(t_post_op_meta),    INTENT(in), OPTIONAL :: post_op       !< "post-op" (small arithmetic operations) for this variable
     TYPE(t_var_action),      INTENT(in), OPTIONAL :: action_list   !< regularly triggered events
     INTEGER,                 INTENT(in), OPTIONAL :: var_class     ! variable class/species
+    INTEGER,                 INTENT(IN), OPTIONAL :: data_type     ! variable data type
     !
     LOGICAL :: lverbose
     !
@@ -726,6 +723,9 @@ CONTAINS
     !
     lverbose = .FALSE.
     CALL assign_if_present (lverbose, verbose)
+    !
+    ! set components describing the 'Content of the field'
+    CALL assign_if_present(info%data_type, data_type)
     !
     ! set components describing the 'Content of the field'
     !
@@ -944,19 +944,24 @@ CONTAINS
     ! local variables
     TYPE(t_union_vals) :: missval, initval, resetval
     INTEGER :: idims(5), istat
-    LOGICAL :: referenced
+    LOGICAL :: referenced, is_restart_var
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":add_var_list_element_5d"
 
     ! consistency check for restart and output
+
+    is_restart_var = this_list%p%lrestart
+    CALL assign_if_present(is_restart_var, lrestart)
 
     IF (PRESENT(lrestart)) THEN
       IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
         CALL finish(routine, 'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
                            & 'but restart of '//TRIM(name)//' requested.')
       ENDIF
-      IF(lrestart .AND. data_type /= REAL_T) CALL finish(routine, 'unsupported data_type for "'//TRIM(NAME)//'": '// &
-                                                                & 'data_type of restart variables must be REAL_T')
     ENDIF
+    IF (is_restart_var .AND. (data_type /= REAL_T) .AND. (data_type /= SINGLE_T)) THEN
+      CALL finish(routine, 'unsupported data_type for "'//TRIM(NAME)//'": '// &
+        & 'data_type of restart variables must be floating-point type.')
+    END IF
 
     ! add list entry
 
@@ -1001,7 +1006,8 @@ CONTAINS
          missval=missval, tlev_source=tlev_source,                           &
          vert_interp=vert_interp, hor_interp=hor_interp, in_group=in_group,  &
          verbose=verbose, l_pp_scheduler_task=l_pp_scheduler_task,           &
-         post_op=post_op, action_list=action_list, var_class=var_class )
+         post_op=post_op, action_list=action_list, var_class=var_class,      &
+         data_type=data_type )
     ! set dynamic metadata, i.e. polymorphic tracer metadata
     CALL set_var_metadata_dyn (new_list_element%field%info_dyn,              &
                                tracer_info=tracer_info)
@@ -2616,7 +2622,8 @@ CONTAINS
          vert_interp=vert_interp, hor_interp=hor_interp,                     &
          in_group=in_group, verbose=verbose,                                 &
          l_pp_scheduler_task=l_pp_scheduler_task,                            &
-         post_op=post_op, action_list=action_list, var_class=var_class)
+         post_op=post_op, action_list=action_list, var_class=var_class,      &
+         data_type=REAL_T )
     ! set dynamic metadata, i.e. polymorphic tracer metadata
     CALL set_var_metadata_dyn (new_list_element%field%info_dyn,              &
                                tracer_info=tracer_info)
@@ -2819,7 +2826,8 @@ CONTAINS
          vert_interp=vert_interp, hor_interp=hor_interp,                     &
          in_group=in_group, verbose=verbose,                                 &
          l_pp_scheduler_task=l_pp_scheduler_task,                            &
-         post_op=post_op, action_list=action_list, var_class=var_class)
+         post_op=post_op, action_list=action_list, var_class=var_class,      &
+         data_type=REAL_T )
     ! set dynamic metadata, i.e. polymorphic tracer metadata
     CALL set_var_metadata_dyn (new_list_element%field%info_dyn,              &
                                tracer_info=tracer_info)
@@ -3016,7 +3024,8 @@ CONTAINS
          vert_interp=vert_interp, hor_interp=hor_interp,                     &
          in_group=in_group, verbose=verbose,                                 &
          l_pp_scheduler_task=l_pp_scheduler_task,                            &
-         post_op=post_op, action_list=action_list, var_class=var_class)
+         post_op=post_op, action_list=action_list, var_class=var_class,      &
+         data_type=SINGLE_T )
     ! set dynamic metadata, i.e. polymorphic tracer metadata
     CALL set_var_metadata_dyn (new_list_element%field%info_dyn,              &
                                tracer_info=tracer_info)
@@ -3219,7 +3228,8 @@ CONTAINS
          vert_interp=vert_interp, hor_interp=hor_interp,                     &
          in_group=in_group, verbose=verbose,                                 &
          l_pp_scheduler_task=l_pp_scheduler_task,                            &
-         post_op=post_op, action_list=action_list, var_class=var_class)
+         post_op=post_op, action_list=action_list, var_class=var_class,      &
+         data_type=SINGLE_T )
     ! set dynamic metadata, i.e. polymorphic tracer metadata
     CALL set_var_metadata_dyn (new_list_element%field%info_dyn,              &
                                tracer_info=tracer_info)
@@ -3421,7 +3431,8 @@ CONTAINS
          vert_interp=vert_interp, hor_interp=hor_interp,                     &
          in_group=in_group, verbose=verbose,                                 &
          l_pp_scheduler_task=l_pp_scheduler_task,                            &
-         post_op=post_op, action_list=action_list, var_class=var_class)
+         post_op=post_op, action_list=action_list, var_class=var_class,      &
+         data_type=INT_T )
     ! set dynamic metadata, i.e. polymorphic tracer metadata
     CALL set_var_metadata_dyn (new_list_element%field%info_dyn,              &
                                tracer_info=tracer_info)

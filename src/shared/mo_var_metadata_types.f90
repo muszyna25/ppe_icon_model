@@ -195,6 +195,7 @@ MODULE mo_var_metadata_types
     CHARACTER(len=VARNAME_LEN) :: name                  ! variable name
     INTEGER                    :: var_class             ! variable type
     !                                                   ! 0: CLASS_DEFAULT, 1: CLASS_TILE, ... 
+    INTEGER                    :: data_type             ! variable data type: REAL_T, SINGLE_T, INT_T, BOOL_T
     !
     TYPE(t_cf_var)             :: cf                    ! CF convention information 
     TYPE(t_grib2_var)          :: grib2                 ! GRIB2 related information

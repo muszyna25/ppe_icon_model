@@ -35,8 +35,8 @@ MODULE mo_fortran_tools
   PUBLIC :: t_ptr_2d3d, t_ptr_2d3d_vp
   PUBLIC :: assign_if_present_allocatable
   PUBLIC :: ensureSize
-  PUBLIC :: t_ptr_2d
-  PUBLIC :: t_ptr_3d
+  PUBLIC :: t_ptr_2d, t_ptr_2d_sp
+  PUBLIC :: t_ptr_3d, t_ptr_3d_sp
   PUBLIC :: t_ptr_i2d3d
   PUBLIC :: t_ptr_tracer
   PUBLIC :: copy, init, swap, var_scale, negative2zero
@@ -53,12 +53,20 @@ MODULE mo_fortran_tools
   END TYPE t_Destructible
 
   TYPE t_ptr_2d
-    REAL(wp),POINTER :: p(:,:)  ! pointer to 2D (spatial) array
+    REAL(dp),POINTER :: p(:,:)  ! pointer to 2D (spatial) array
   END TYPE t_ptr_2d
 
+  TYPE t_ptr_2d_sp
+    REAL(sp),POINTER :: p(:,:)  ! pointer to 2D (spatial) array
+  END TYPE t_ptr_2d_sp
+
   TYPE t_ptr_3d
-    REAL(wp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
+    REAL(dp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
   END TYPE t_ptr_3d
+
+  TYPE t_ptr_3d_sp
+    REAL(sp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
+  END TYPE t_ptr_3d_sp
 
   TYPE t_ptr_2d3d
     REAL(wp),POINTER :: p_3d(:,:,:)  ! REAL pointer to 3D (spatial) array

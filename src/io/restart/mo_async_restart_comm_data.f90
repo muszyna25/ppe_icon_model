@@ -13,21 +13,22 @@ MODULE mo_async_restart_comm_data
 ! There is no point in pretending this module is usable if NOMPI is defined.
 #ifndef NOMPI
 
-    USE ISO_C_BINDING, ONLY: C_PTR, C_INTPTR_T, C_F_POINTER
+    USE ISO_C_BINDING,           ONLY: C_PTR, C_INTPTR_T, C_F_POINTER
     USE mo_async_restart_packer, ONLY: t_AsyncRestartPacker
-    USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL
-    USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info
-    USE mo_exception, ONLY: finish, message, em_warn
-    USE mo_fortran_tools, ONLY: t_ptr_2d, ensureSize
-    USE mo_kind, ONLY: dp, i8
-    USE mo_model_domain, ONLY: p_patch
-    USE mo_mpi, ONLY: p_real_dp, p_comm_work_restart, p_pe_work, num_work_procs, p_mpi_wtime, my_process_is_work
-    USE mo_restart_var_data, ONLY: t_RestartVarData
-    USE mo_util_string, ONLY: int2string
-    USE mpi, ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL, MPI_LOCK_SHARED, MPI_MODE_NOCHECK, MPI_WIN_NULL, MPI_LOCK_EXCLUSIVE, &
-                 & MPI_SUCCESS
+    USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL
+    USE mo_decomposition_tools,  ONLY: t_grid_domain_decomp_info
+    USE mo_exception,            ONLY: finish, message, em_warn
+    USE mo_fortran_tools,        ONLY: t_ptr_2d, t_ptr_2d_sp, ensureSize
+    USE mo_kind,                 ONLY: dp, i8, sp
+    USE mo_model_domain,         ONLY: p_patch
+    USE mo_mpi,                  ONLY: p_real_dp, p_comm_work_restart, p_pe_work, num_work_procs, &
+      &                                p_mpi_wtime, my_process_is_work
+    USE mo_restart_var_data,     ONLY: t_RestartVarData
+    USE mo_util_string,          ONLY: int2string
+    USE mpi,                     ONLY: MPI_ADDRESS_KIND, MPI_INFO_NULL, MPI_LOCK_SHARED, MPI_MODE_NOCHECK, &
+      &                                MPI_WIN_NULL, MPI_LOCK_EXCLUSIVE, MPI_SUCCESS
 #ifdef DEBUG
-    USE mo_mpi, ONLY: p_pe
+    USE mo_mpi,                  ONLY: p_pe
 #endif
 
     IMPLICIT NONE
@@ -49,12 +50,22 @@ MODULE mo_async_restart_comm_data
         TYPE(t_AsyncRestartPacker), PUBLIC :: edges
         TYPE(t_AsyncRestartPacker), PUBLIC :: verts
     CONTAINS
-        PROCEDURE :: construct => asyncRestartCommData_construct
-        PROCEDURE :: maxLevelSize => asyncRestartCommData_maxLevelSize  ! called to get the required buffer SIZE on the restart processes
-        PROCEDURE :: getPacker => asyncRestartCommData_getPacker    ! RETURN the relevant t_AsyncRestartPacker object
-        PROCEDURE :: postData => asyncRestartCommData_postData  ! called by the compute processes to WRITE their DATA to their memory window
-        PROCEDURE :: collectData => asyncRestartCommData_collectData    ! called by the restart processes to fetch the DATA from the compute processes
-        PROCEDURE :: destruct => asyncRestartCommData_destruct
+        PROCEDURE :: construct    => asyncRestartCommData_construct
+        PROCEDURE :: maxLevelSize => asyncRestartCommData_maxLevelSize ! called to get the required buffer SIZE on the restart processes
+        PROCEDURE :: getPacker    => asyncRestartCommData_getPacker    ! RETURN the relevant t_AsyncRestartPacker object
+
+        ! called by the compute processes to write their data to their memory window:
+        PROCEDURE :: postData_dp  => asyncRestartCommData_postData_dp  
+        PROCEDURE :: postData_sp  => asyncRestartCommData_postData_sp  
+        GENERIC, PUBLIC :: postData => postData_dp, postData_sp
+
+        ! called by the restart processes to fetch the DATA from the
+        ! compute processes:
+        PROCEDURE :: collectData_dp  => asyncRestartCommData_collectData_dp 
+        PROCEDURE :: collectData_sp  => asyncRestartCommData_collectData_sp 
+        GENERIC, PUBLIC :: collectData => collectData_dp, collectData_sp
+
+        PROCEDURE :: destruct     => asyncRestartCommData_destruct
     END TYPE t_AsyncRestartCommData
 
     CHARACTER(LEN = *), PARAMETER :: modname = "mo_async_restart_comm_data"
@@ -237,7 +248,7 @@ CONTAINS
 
     END FUNCTION asyncRestartCommData_getPacker
 
-    SUBROUTINE asyncRestartCommData_postData(me, hgridType, dataPointers, offset)
+    SUBROUTINE asyncRestartCommData_postData_dp(me, hgridType, dataPointers, offset)
         CLASS(t_AsyncRestartCommData), TARGET, INTENT(INOUT) :: me
         INTEGER, VALUE :: hgridType
         TYPE(t_ptr_2d), ALLOCATABLE, INTENT(IN) :: dataPointers(:)
@@ -246,7 +257,7 @@ CONTAINS
 
         TYPE(t_AsyncRestartPacker), POINTER :: reorderData
         INTEGER :: mpi_error, i
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":asyncRestartCommData_postData"
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":asyncRestartCommData_postData_dp"
 
         ! get pointer to reorder data
         reorderData => me%getPacker(hgridType, routine)
@@ -263,9 +274,38 @@ CONTAINS
         ! unlock RMA window
         CALL MPI_Win_unlock(p_pe_work, me%mpiWindow, mpi_error)
         IF(mpi_error /= MPI_SUCCESS) CALL finish(routine, 'MPI_Win_unlock returned error '//TRIM(int2string(mpi_error)))
-    END SUBROUTINE asyncRestartCommData_postData
+    END SUBROUTINE asyncRestartCommData_postData_dp
 
-    SUBROUTINE asyncRestartCommData_collectData(me, hgridType, levelCount, dest, offsets, elapsedTime, bytesFetched)
+    SUBROUTINE asyncRestartCommData_postData_sp(me, hgridType, dataPointers, offset)
+        CLASS(t_AsyncRestartCommData), TARGET, INTENT(INOUT) :: me
+        INTEGER, VALUE :: hgridType
+        TYPE(t_ptr_2d_sp), ALLOCATABLE, INTENT(IN) :: dataPointers(:)
+        !TODO[NH]: Replace this by an index within the t_AsyncRestartCommData structure.
+        INTEGER(i8), INTENT(INOUT) :: offset
+
+        TYPE(t_AsyncRestartPacker), POINTER :: reorderData
+        INTEGER :: mpi_error, i
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":asyncRestartCommData_postData_sp"
+
+        ! get pointer to reorder data
+        reorderData => me%getPacker(hgridType, routine)
+
+        ! lock own window before writing to it
+        CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, me%mpiWindow, mpi_error)
+        IF(mpi_error /= MPI_SUCCESS) CALL finish(routine, 'MPI_Win_lock returned error '//TRIM(int2string(mpi_error)))
+
+        ! just copy the OWN data points to the memory window
+        DO i = 1, SIZE(dataPointers)
+            CALL reorderData%packLevel(dataPointers(i)%p, me%windowPtr, offset)
+        END DO
+
+        ! unlock RMA window
+        CALL MPI_Win_unlock(p_pe_work, me%mpiWindow, mpi_error)
+        IF(mpi_error /= MPI_SUCCESS) CALL finish(routine, 'MPI_Win_unlock returned error '//TRIM(int2string(mpi_error)))
+      END SUBROUTINE asyncRestartCommData_postData_sp
+
+    SUBROUTINE asyncRestartCommData_collectData_dp(me, hgridType, levelCount, dest, offsets, &
+      &                                            elapsedTime, bytesFetched)
         CLASS(t_AsyncRestartCommData), TARGET, INTENT(INOUT) :: me
         INTEGER, VALUE :: hgridType, levelCount
         REAL(dp), INTENT(INOUT) :: dest(:,:)
@@ -277,7 +317,7 @@ CONTAINS
         INTEGER :: sourceProc, doubleCount, reorderOffset, curLevel, mpi_error
         TYPE(t_AsyncRestartPacker), POINTER :: reorderData
         REAL(dp), POINTER, SAVE :: buffer(:) => NULL()
-        CHARACTER(LEN = *), PARAMETER :: routine = modname//":asyncRestartCommData_collectData"
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":asyncRestartCommData_collectData_dp"
 
         reorderData => me%getPacker(hgridType, routine)
 
@@ -312,7 +352,57 @@ CONTAINS
                 reorderOffset = reorderOffset + reorderData%pe_own(sourceProc)
             END DO
         END DO
-    END SUBROUTINE asyncRestartCommData_collectData
+    END SUBROUTINE asyncRestartCommData_collectData_dp
+
+    SUBROUTINE asyncRestartCommData_collectData_sp(me, hgridType, levelCount, dest, offsets, &
+      &                                            elapsedTime, bytesFetched)
+        CLASS(t_AsyncRestartCommData), TARGET, INTENT(INOUT) :: me
+        INTEGER, VALUE :: hgridType, levelCount
+        REAL(sp), INTENT(INOUT) :: dest(:,:)
+        !TODO[NH]: Replace this by an index within the t_AsyncRestartCommData structure.
+        INTEGER(KIND=MPI_ADDRESS_KIND), INTENT(INOUT) :: offsets(0:num_work_procs-1)   ! This remembers the current offsets within all the different processes RMA windows. Pass a zero initialized array to the first collectData() CALL, THEN keep passing the array without external modifications.
+        REAL(dp), INTENT(INOUT) :: elapsedTime
+        INTEGER(i8), INTENT(INOUT) :: bytesFetched
+
+        INTEGER :: sourceProc, doubleCount, reorderOffset, curLevel, mpi_error
+        TYPE(t_AsyncRestartPacker), POINTER :: reorderData
+        REAL(dp), POINTER, SAVE :: buffer(:) => NULL()
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":asyncRestartCommData_collectData_sp"
+
+        reorderData => me%getPacker(hgridType, routine)
+
+        ! retrieve part of variable from every worker PE using MPI_Get
+        DO sourceProc = 0, num_work_procs-1
+            IF(reorderData%pe_own(sourceProc) == 0) CYCLE
+            CALL ensureSize(buffer, reorderData%pe_own(sourceProc))
+
+            ! number of words to transfer
+            doubleCount = reorderData%pe_own(sourceProc) * levelCount
+            elapsedTime = elapsedTime -  p_mpi_wtime()
+            CALL MPI_Win_lock(MPI_LOCK_SHARED, sourceProc, MPI_MODE_NOCHECK, me%mpiWindow, mpi_error)
+            IF(mpi_error /= MPI_SUCCESS) CALL finish(routine, 'MPI_Win_lock returned error '//TRIM(int2string(mpi_error)))
+
+            CALL MPI_Get(buffer(1), doubleCount, p_real_dp, sourceProc, offsets(sourceProc), &
+                                  & doubleCount, p_real_dp, me%mpiWindow, mpi_error)
+            IF(mpi_error /= MPI_SUCCESS) CALL finish(routine, 'MPI_Get returned error '//TRIM(int2string(mpi_error)))
+
+            CALL MPI_Win_unlock(sourceProc, me%mpiWindow, mpi_error)
+            IF(mpi_error /= MPI_SUCCESS) CALL finish(routine, 'MPI_Win_unlock returned error '//TRIM(int2string(mpi_error)))
+
+            elapsedTime  = elapsedTime + p_mpi_wtime()
+            bytesFetched = bytesFetched + INT(doubleCount, i8)*8
+
+            ! update the offset in the RMA window on compute PEs
+            offsets(sourceProc) = offsets(sourceProc) + INT(doubleCount, i8)
+
+            ! separate the levels received from PE "sourceProc":
+            reorderOffset = 1
+            DO curLevel = 1, levelCount
+                CALL reorderData%unpackLevelFromPe(curLevel, sourceProc, buffer(reorderOffset:), dest)
+                reorderOffset = reorderOffset + reorderData%pe_own(sourceProc)
+            END DO
+        END DO
+    END SUBROUTINE asyncRestartCommData_collectData_sp
 
     SUBROUTINE asyncRestartCommData_destruct(me)
         CLASS(t_AsyncRestartCommData), INTENT(INOUT) :: me

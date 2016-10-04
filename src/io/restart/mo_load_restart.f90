@@ -19,7 +19,7 @@ MODULE mo_load_restart
     USE mo_communication, ONLY: t_ScatterPattern
     USE mo_exception, ONLY: message, finish
     USE mo_impl_constants, ONLY: MAX_CHAR_LENGTH
-    USE mo_kind, ONLY: wp
+    USE mo_kind, ONLY: dp, sp
     USE mo_linked_list, ONLY: t_list_element
     USE mo_model_domain, ONLY: t_patch
     USE mo_mpi, ONLY: p_comm_work, p_comm_rank, p_bcast, my_process_is_mpi_workroot
@@ -135,8 +135,10 @@ CONTAINS
     INTEGER                          :: fileID, vlistID, gridID, zaxisID, taxisID, varID, idate, itime, ic, il, n, nfiles, i, &
                                       & istat, key, vgrid, nindex, nmiss, nvars, root_pe, var_ref_pos, lev
     CHARACTER(len=8)                 :: model_type
-    REAL(wp), POINTER                :: r1d(:), rptr2d(:,:), rptr3d(:,:,:)
+    REAL(dp), POINTER                :: r1d_d(:), rptr2d_d(:,:), rptr3d_d(:,:,:)
+    REAL(sp), POINTER                :: r1d_s(:), rptr2d_s(:,:), rptr3d_s(:,:,:)
     CLASS(t_scatterPattern), POINTER :: scatter_pattern
+    LOGICAL                          :: flag_dp
 
     ! rank of broadcast root PE
     root_pe = 0
@@ -160,9 +162,9 @@ CONTAINS
       ENDIF
     ENDDO for_all_model_types
 
-    ALLOCATE(r1d(1),STAT=istat)
+    ALLOCATE(r1d_d(1),STAT=istat)
     IF (istat /= 0) THEN
-      CALL finish('','allocation of r1d failed ...')
+      CALL finish('','allocation of r1d_d failed ...')
     ENDIF
 
     nfiles = n-1
@@ -220,21 +222,41 @@ CONTAINS
               ! allocate temporary global array on output processor
               ! and gather field from other processors
 
-              NULLIFY(rptr2d)
-              NULLIFY(rptr3d)
+              NULLIFY(rptr2d_d)
+              NULLIFY(rptr3d_d)
+              NULLIFY(rptr2d_s)
+              NULLIFY(rptr3d_s)
+
+              ! set a flag which indicates if the current variable has
+              ! double precision:
+              IF (ASSOCIATED(element%field%r_ptr)) THEN
+                flag_dp = .TRUE.
+              ELSE IF (ASSOCIATED(element%field%s_ptr)) THEN
+                flag_dp = .FALSE.
+              ELSE
+                CALL finish(routine, "internal error!")
+              END IF
 
               IF (my_process_is_mpi_workroot()) THEN
                 gridID  = vlistInqVarGrid(vlistID, varID)
                 zaxisID = vlistInqVarZaxis(vlistID, varID)
                 vgrid   = zaxisInqType(zaxisID)
-                ic = gridInqSize(gridID)
-                IF (SIZE(r1d, 1) /= ic) THEN
-                  DEALLOCATE(r1d)
-                  ALLOCATE(r1d(ic),STAT=istat)
-                  IF (istat /= 0) THEN
-                    CALL finish('','allocation of r1d failed ...')
-                  ENDIF
+                ic      = gridInqSize(gridID)
+
+                IF (flag_dp) THEN
+                  IF (SIZE(r1d_d, 1) /= ic) THEN
+                    IF (ASSOCIATED(r1d_d))  DEALLOCATE(r1d_d)
+                    ALLOCATE(r1d_d(ic),STAT=istat)
+                    IF (istat /= 0)  CALL finish('','allocation of r1d_d failed ...')
+                  END IF
+                ELSE
+                  IF (SIZE(r1d_s, 1) /= ic) THEN
+                    IF (ASSOCIATED(r1d_s))  DEALLOCATE(r1d_s)
+                    ALLOCATE(r1d_s(ic),STAT=istat)
+                    IF (istat /= 0)  CALL finish('','allocation of r1d_s failed ...')
+                  END IF
                 END IF
+
                 IF (vgrid == ZAXIS_SURFACE) THEN
                   il = 1
                 ELSE
@@ -250,40 +272,57 @@ CONTAINS
                 nindex = 1
               ENDIF
 
-
               SELECT CASE(info%ndims)
               CASE (2)
                 var_ref_pos = 3
                 IF (info%lcontained)  var_ref_pos = info%var_ref_pos
                 SELECT CASE(var_ref_pos)
                 CASE (1)
-                  rptr2d => element%field%r_ptr(nindex,:,:,1,1)
+                  rptr2d_d => element%field%r_ptr(nindex,:,:,1,1)
+                  rptr2d_s => element%field%s_ptr(nindex,:,:,1,1)
                 CASE (2)
-                  rptr2d => element%field%r_ptr(:,nindex,:,1,1)
+                  rptr2d_d => element%field%r_ptr(:,nindex,:,1,1)
+                  rptr2d_s => element%field%s_ptr(:,nindex,:,1,1)
                 CASE (3)
-                  rptr2d => element%field%r_ptr(:,:,nindex,1,1)
+                  rptr2d_d => element%field%r_ptr(:,:,nindex,1,1)
+                  rptr2d_s => element%field%s_ptr(:,:,nindex,1,1)
                 CASE default
                   CALL finish(routine, "internal error!")
                 END SELECT
               CASE (3)
                 var_ref_pos = 4
                 IF (info%lcontained)  var_ref_pos = info%var_ref_pos
-                SELECT CASE(var_ref_pos)
-                CASE (1)
-                  rptr3d => element%field%r_ptr(nindex,:,:,:,1)
-                CASE (2)
-                  rptr3d => element%field%r_ptr(:,nindex,:,:,1)
-                CASE (3)
-                  rptr3d => element%field%r_ptr(:,:,nindex,:,1)
-                CASE (4)
-                  rptr3d => element%field%r_ptr(:,:,:,nindex,1)
-                CASE default
-                  CALL finish(routine, "internal error!")
-                END SELECT
+                IF (flag_dp) THEN
+                  SELECT CASE(var_ref_pos)
+                  CASE (1)
+                    rptr3d_d => element%field%r_ptr(nindex,:,:,:,1)
+                  CASE (2)
+                    rptr3d_d => element%field%r_ptr(:,nindex,:,:,1)
+                  CASE (3)
+                    rptr3d_d => element%field%r_ptr(:,:,nindex,:,1)
+                  CASE (4)
+                    rptr3d_d => element%field%r_ptr(:,:,:,nindex,1)
+                  CASE default
+                    CALL finish(routine, "internal error!")
+                  END SELECT
+                ELSE
+                  SELECT CASE(var_ref_pos)
+                  CASE (1)
+                    rptr3d_s => element%field%s_ptr(nindex,:,:,:,1)
+                  CASE (2)
+                    rptr3d_s => element%field%s_ptr(:,nindex,:,:,1)
+                  CASE (3)
+                    rptr3d_s => element%field%s_ptr(:,:,nindex,:,1)
+                  CASE (4)
+                    rptr3d_s => element%field%s_ptr(:,:,:,nindex,1)
+                  CASE default
+                    CALL finish(routine, "internal error!")
+                  END SELECT
+                END IF
               CASE DEFAULT
                 CALL finish(routine, "internal error!")
               END SELECT
-
+              
               SELECT CASE (info%hgrid)
               CASE (GRID_UNSTRUCTURED_CELL)
                 scatter_pattern => p_patch%comm_pat_scatter_c
@@ -297,19 +336,30 @@ CONTAINS
 
               DO lev = 1, il
                 IF (my_process_is_mpi_workroot()) THEN
-                  CALL streamReadVarSlice(fileID, varID, lev-1, r1d, nmiss)
+                  IF (flag_dp) THEN
+                    CALL streamReadVarSlice(fileID, varID, lev-1, r1d_d, nmiss)
+                  ELSE
+                    CALL streamReadVarSliceF(fileID, varID, lev-1, r1d_s, nmiss)
+                  END IF
                 ENDIF
                 IF (info%ndims == 2) THEN
-                  CALL scatter_pattern%distribute(r1d, rptr2d, .FALSE.)
+                  IF (ASSOCIATED(rptr2d_d)) THEN
+                    CALL scatter_pattern%distribute(r1d_d, rptr2d_d, .FALSE.)
+                  END IF
+                  IF (ASSOCIATED(rptr2d_s)) THEN
+                    CALL scatter_pattern%distribute(r1d_s, rptr2d_s, .FALSE.)
+                  END IF
                 ELSE
-                  CALL scatter_pattern%distribute(r1d, rptr3d(:,lev,:), .FALSE.)
+                  IF (ASSOCIATED(rptr3d_d)) THEN
+                    CALL scatter_pattern%distribute(r1d_d, rptr3d_d(:,lev,:), .FALSE.)
+                  END IF
+                  IF (ASSOCIATED(rptr3d_s)) THEN
+                    CALL scatter_pattern%distribute(r1d_s, rptr3d_s(:,lev,:), .FALSE.)
+                  END IF
                 ENDIF
               END DO
 
-
               ! deallocate temporary global arrays
-
-
               IF (my_process_is_mpi_workroot()) THEN
                 WRITE (0,*) ' ... read ',TRIM(element%field%info%name)
               ENDIF
@@ -324,7 +374,8 @@ CONTAINS
 
     ENDDO for_all_files
 
-    DEALLOCATE (r1d)
+    IF (ASSOCIATED(r1d_d))  DEALLOCATE (r1d_d)
+    IF (ASSOCIATED(r1d_s))  DEALLOCATE (r1d_s)
 
     CALL message('','')
     CALL message('',separator)

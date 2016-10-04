@@ -499,6 +499,14 @@ MODULE mo_impl_constants
   !----- MPI parallelization -----
   INTEGER, PARAMETER :: MAX_NUM_IO_PROCS = 100      !< max. number of output ranks
 
+  !----------------------!
+  !  VARIABLE DATA TYPES !
+  !----------------------!
+
+  INTEGER, PARAMETER :: REAL_T   = 1
+  INTEGER, PARAMETER :: SINGLE_T = 2
+  INTEGER, PARAMETER :: BOOL_T   = 3
+  INTEGER, PARAMETER :: INT_T    = 4
 
   !----------------!
   !  MODEL OUTPUT  !

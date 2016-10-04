@@ -31,7 +31,7 @@ MODULE mo_initicon_config
     &                              MAX_DATETIME_STR_LEN, OPERATOR(<=), OPERATOR(>=), &
     &                              getPTStringFromSeconds
   USE mo_mtime_extensions,   ONLY: get_datetime_string
-  USE mo_exception,          ONLY: finish, message_text, message
+  USE mo_exception,          ONLY: message_text, message
 
   IMPLICIT NONE
 
