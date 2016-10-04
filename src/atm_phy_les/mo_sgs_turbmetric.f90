@@ -209,7 +209,8 @@ MODULE mo_sgs_turbmetric
     !Calculate Brunt Vaisala Frequency
     CALL brunt_vaisala_freq(p_patch, p_nh_metrics, theta_v, prm_diag%bruvais)
 
-    CALL smagorinsky_model(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, prm_diag)
+    CALL smagorinsky_model(p_nh_prog, p_nh_metrics, p_patch, p_int, &
+         prm_diag%tkvh, prm_diag%mech_prod, prm_diag%tkvm, prm_diag%bruvais)
 
     CALL diffuse_hori_velocity(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, prm_diag, &
                                prm_nwp_tend%ddt_u_turb, prm_nwp_tend%ddt_v_turb, dt)
@@ -273,15 +274,15 @@ MODULE mo_sgs_turbmetric
   !! Initial release by Anurag Dipankar, MPI-M (2013-02-20)
   !! Modified by Slavko Brdar, DWD (2014-08-01)
   !!   - include turbulent metric terms
-  SUBROUTINE smagorinsky_model(p_nh_prog, p_nh_diag, p_nh_metrics, p_patch, p_int, &
-                               prm_diag)
+  SUBROUTINE smagorinsky_model(p_nh_prog, p_nh_metrics, p_patch, p_int, &
+                               tkvh, mech_prod, tkvm, bruvais)
 
     TYPE(t_patch),  INTENT(inout),TARGET :: p_patch    !< single patch
     TYPE(t_int_state), INTENT(in),TARGET :: p_int      !< single interpolation state
     TYPE(t_nh_prog),   INTENT(inout)     :: p_nh_prog  !< single nh prognostic state
-    TYPE(t_nh_diag),   INTENT(in)        :: p_nh_diag  !< single nh diagnostic state
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics  !< single nh metric state
-    TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag      !< atm phys vars
+    REAL(wp), DIMENSION(nproma,p_patch%nlev+1,p_patch%nblks_c), INTENT(inout) :: &
+         tkvh, mech_prod, tkvm, bruvais      !< atm phys vars
 
     ! local variables
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: mech_prod_e, div_of_stress
@@ -289,7 +290,6 @@ MODULE mo_sgs_turbmetric
                 vt_vert4, w_full_c1
     REAL(wp) :: w_full_c2, w_full_v1, w_full_v2
     REAL(wp) :: D_22
-    REAL(wp), POINTER :: diff_smag_ic(:,:,:)
 
     INTEGER  :: nlev, nlevp1             !< number of full levels
     INTEGER,  DIMENSION(:,:,:), POINTER :: ividx, ivblk, iecidx, iecblk, ieidx, ieblk
@@ -313,11 +313,9 @@ MODULE mo_sgs_turbmetric
     ALLOCATE( mech_prod_e(nproma,nlev,p_patch%nblks_e),     &
               div_of_stress(nproma,nlev,p_patch%nblks_e) )
 
-    diff_smag_ic => prm_diag%tkvh
-
     !Initialize
     IF(p_test_run)THEN
-      diff_smag_ic(:,:,:) = 0._wp
+      tkvh(:,:,:) = 0._wp
     END IF
 
 
@@ -565,7 +563,7 @@ MODULE mo_sgs_turbmetric
          DO jc = i_startidx, i_endidx
 #endif
             jkm1  = jk - 1
-            prm_diag%mech_prod(jc,jk,jb) = p_nh_metrics%wgtfac_c(jc,jk,jb) * (          &
+            mech_prod(jc,jk,jb) = p_nh_metrics%wgtfac_c(jc,jk,jb) * (          &
               mech_prod_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1))*p_int%e_bln_c_s(jc,1,jb)  + &
               mech_prod_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))*p_int%e_bln_c_s(jc,2,jb)  + &
               mech_prod_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))*p_int%e_bln_c_s(jc,3,jb) )+ &
@@ -632,22 +630,22 @@ MODULE mo_sgs_turbmetric
        DO jk = 2 , nlev
          DO jc = i_startidx, i_endidx
 #endif
-           diff_smag_ic(jc,jk,jb) = rho_ic(jc,jk,jb) * les_config(jg)%rturb_prandtl *  &
+           tkvh(jc,jk,jb) = rho_ic(jc,jk,jb) * les_config(jg)%rturb_prandtl *  &
                      p_nh_metrics%mixing_length_sq(jc,jk,jb)                 * &
-                     SQRT(MAX(0._wp, prm_diag%mech_prod(jc,jk,jb)*0.5_wp     - &
-                     les_config(jg)%rturb_prandtl*prm_diag%bruvais(jc,jk,jb)))  
+                     SQRT(MAX(0._wp, mech_prod(jc,jk,jb)*0.5_wp     - &
+                     les_config(jg)%rturb_prandtl*bruvais(jc,jk,jb)))
 
          END DO
        END DO
        DO jc = i_startidx, i_endidx
-          diff_smag_ic(jc,1,jb)      = diff_smag_ic(jc,2,jb)
-          diff_smag_ic(jc,nlevp1,jb) = diff_smag_ic(jc,nlev,jb)
+          tkvh(jc,1,jb)      = tkvh(jc,2,jb)
+          tkvh(jc,nlevp1,jb) = tkvh(jc,nlev,jb)
        END DO
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-    CALL sync_patch_array(SYNC_C, p_patch, diff_smag_ic)
+    CALL sync_patch_array(SYNC_C, p_patch, tkvh)
 
     !--------------------------------------------------------------------------
     !4) Interpolate difusivity (viscosity) to different locations: calculate them for
@@ -673,7 +671,7 @@ MODULE mo_sgs_turbmetric
          DO jc = i_startidx, i_endidx
 #endif
            visc_smag_c(jc,jk,jb) = MAX( les_config(jg)%km_min, &
-                                  (diff_smag_ic(jc,jk,jb)+diff_smag_ic(jc,jk+1,jb)) * &
+                                  (tkvh(jc,jk,jb)+tkvh(jc,jk+1,jb)) * &
                                    0.5_wp * les_config(jg)%turb_prandtl )
          END DO
        END DO
@@ -682,12 +680,12 @@ MODULE mo_sgs_turbmetric
 !$OMP END PARALLEL
 
     !4b) visc at vertices
-    CALL cells2verts_scalar(diff_smag_ic, p_patch, p_int%cells_aw_verts, visc_smag_iv, &
+    CALL cells2verts_scalar(tkvh, p_patch, p_int%cells_aw_verts, visc_smag_iv, &
                             opt_rlstart=5, opt_rlend=min_rlvert_int-1)
     visc_smag_iv = MAX( les_config(jg)%km_min, visc_smag_iv * les_config(jg)%turb_prandtl )
 
     !4c) Now calculate visc_smag at half levels at edge
-    CALL cells2edges_scalar(diff_smag_ic, p_patch, p_int%c_lin_e, visc_smag_ie, &
+    CALL cells2edges_scalar(tkvh, p_patch, p_int%c_lin_e, visc_smag_ie, &
                             opt_rlstart=grf_bdywidth_e, opt_rlend=min_rledge_int-1)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
@@ -708,7 +706,7 @@ MODULE mo_sgs_turbmetric
 !$OMP END PARALLEL
 
     !4d)Get visc_smag_ic
-    prm_diag%tkvm = MAX( les_config(jg)%km_min, prm_diag%tkvh * les_config(jg)%turb_prandtl )
+    tkvm = MAX( les_config(jg)%km_min, tkvh * les_config(jg)%turb_prandtl )
 
     !DEALLOCATE variables
     DEALLOCATE( mech_prod_e, div_of_stress )
