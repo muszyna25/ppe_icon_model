@@ -257,7 +257,6 @@ CONTAINS
           ENDDO
         ENDDO
       ENDDO
-
 !ICON_OMP_DO_PARALLEL PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block        
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)      
@@ -320,12 +319,13 @@ CONTAINS
         &                              op_coeff,                &
         &                              ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit)        
       !  &                              mapped_vertical_diagonal_impl)!param%a_tracer_v(:,:,:, tracer_index))
-      !
+      IF(tracer_index==1)THEN
       Do level=1,n_zlev
       !CALL dbg_print('Old vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
       CALL dbg_print('Old vert coeff: A_v', ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit,&
       & this_mod_name, 4, patch_2D%cells%in_domain)
       End do
+      ENDIF
       !
       !2.) Here we combine the vertical GMRedicoefficient that is treated implicitely (mapped_vertical_diagonal_impl, this
       !term involves the slopes-squared times the isopycnal mixing coefficient and is potentially large, therefore
@@ -345,13 +345,14 @@ CONTAINS
         END DO                
       END DO
 !ICON_OMP_END_DO_PARALLEL
+     IF(tracer_index==1)THEN
      Do level=1,n_zlev
       CALL dbg_print('New vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
       !CALL dbg_print('New vert coeff: A_v', &
       !&ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit(:,level,:),&
       !& this_mod_name, 4, patch_2D%cells%in_domain)
      END DO 
-        
+     ENDIF   
     !Map the explicit horizontal tracer flux from cell centers to edges (where the horizontal divergence is calculated)
     !
     ! use a vector communicator
@@ -412,19 +413,25 @@ CONTAINS
     REAL(wp) :: grad_S_horz(nproma, n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
     REAL(wp) :: grad_T_vert(nproma, n_zlev+1,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: grad_S_vert(nproma, n_zlev+1,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: grad_rho_GM_horz(nproma, n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
+    REAL(wp) :: grad_rho_GM_vert(nproma, n_zlev+1,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+
+
     
     TYPE(t_cartesian_coordinates),POINTER :: grad_T_vec(:,:,:)    
     TYPE(t_cartesian_coordinates),POINTER :: grad_S_vec(:,:,:)        
+    TYPE(t_cartesian_coordinates),POINTER :: grad_rho_GM_vec(:,:,:)            
     REAL(wp),POINTER :: grad_T_vert_center(:,:,:)
     REAL(wp),POINTER :: grad_S_vert_center(:,:,:)
-   
+    REAL(wp),POINTER :: grad_rho_GM_vert_center(:,:,:)
+       
     INTEGER :: level, blockNo, je, start_level, end_level
     INTEGER :: start_cell_index, end_cell_index, cell_index
     INTEGER :: start_edge_index, end_edge_index
     REAL(wp) :: alpha, beta
     TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain, all_cells
     TYPE(t_patch), POINTER :: patch_2D
-    REAL(wp), POINTER :: pot_temp(:,:,:), salinity(:,:,:)
+    REAL(wp), POINTER :: pot_temp(:,:,:), salinity(:,:,:),rho_GM(:,:,:)
 !     REAL(wp):: size_grad_T_horz_vec(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
 !     REAL(wp):: size_grad_S_horz_vec(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
 
@@ -449,10 +456,17 @@ CONTAINS
         grad_S_vert_center=> ocean_state%p_aux%DerivSalinity_vert_center
       
       ELSE
-        pot_temp          => ocean_state%p_diag%rho_GM   
+        rho_GM                 => ocean_state%p_diag%rho_GM   
+        grad_rho_GM_vec        => ocean_state%p_aux%PgradDensity_horz_center
+        grad_rho_GM_vert_center=> ocean_state%p_aux%DerivDensity_vert_center
+
+        pot_temp          => ocean_state%p_prog(nold(1))%ocean_tracers(1)%concentration
         grad_T_vec        => ocean_state%p_aux%PgradTemperature_horz_center
         grad_T_vert_center=> ocean_state%p_aux%DerivTemperature_vert_center
         
+        salinity          => ocean_state%p_prog(nold(1))%ocean_tracers(2)%concentration
+        grad_S_vec        => ocean_state%p_aux%PgradSalinity_horz_center
+        grad_S_vert_center=> ocean_state%p_aux%DerivSalinity_vert_center
       
       ENDIF
     !Note that in case of 1-component fluid we use the density for the slope calculation,
@@ -490,7 +504,7 @@ CONTAINS
         & start_edge_index, end_edge_index, blockNo)
 
      !1b)calculate horizontal  gradient of salinity
-      IF((no_tracer>=2).AND.SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN
+      IF(no_tracer>=2)THEN
         grad_S_horz(:,:,blockNo) = 0.0_wp
         CALL grad_fd_norm_oce_3d_onBlock ( &
           & salinity, &
@@ -499,12 +513,21 @@ CONTAINS
           & grad_S_horz(:,:,blockNo),           &
           & start_edge_index, end_edge_index, blockNo)
      ENDIF
+     IF(.NOT.SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN
+        grad_rho_GM_horz(:,:,blockNo) = 0.0_wp
+        CALL grad_fd_norm_oce_3d_onBlock ( &
+          & rho_GM, &
+          & patch_3D,                    &
+          & op_coeff%grad_coeff(:,:,blockNo), &
+          & grad_rho_GM_horz(:,:,blockNo),           &
+          & start_edge_index, end_edge_index, blockNo)
+     
+     ENDIF
     END DO ! blocks
 !ICON_OMP_END_DO
 
 !     CALL sync_patch_array(sync_e, patch_2D, grad_T_horz)
 !     IF(no_tracer>=2)   CALL sync_patch_array(sync_e, patch_2D, grad_S_horz)
-
 
     !---------------------------------------------------------------------
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index) ICON_OMP_DEFAULT_SCHEDULE
@@ -521,7 +544,7 @@ CONTAINS
                                                   & blockNo,                 &
                                                   & start_cell_index,        &
                                                   & end_cell_index)
-      IF((no_tracer>=2).AND.SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN
+      IF((no_tracer>=2))THEN
         grad_S_vert(:,:,blockNo) = 0.0_wp! this is only for the top level
         CALL verticalDeriv_scalar_onHalfLevels_on_block( patch_3d,                &
                                                     & salinity(:,:,blockNo),   &
@@ -531,6 +554,17 @@ CONTAINS
                                                     & start_cell_index,        &
                                                     & end_cell_index)
       ENDIF
+    IF(.NOT.SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN
+        grad_rho_GM_vert(:,:,blockNo) = 0.0_wp! this is only for the top level
+        CALL verticalDeriv_scalar_onHalfLevels_on_block( patch_3d,                &
+                                                    & rho_GM(:,:,blockNo),   &
+                                                    & grad_rho_GM_vert(:,:,blockNo),&
+                                                    & start_level+1,             &
+                                                    & blockNo,                 &
+                                                    & start_cell_index,        &
+                                                    & end_cell_index)
+    
+    ENDIF
     END DO ! blocks
 !ICON_OMP_END_DO_NOWAIT
 !ICON_OMP_END_PARALLEL
@@ -539,10 +573,15 @@ CONTAINS
     idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('calc_slopes: grad_T_horz',grad_T_horz,&
       & str_module,idt_src, in_subset=edges_in_domain)
-    IF(no_tracer>=2.AND.SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN  
+    IF(no_tracer==2)THEN  
     CALL dbg_print('calc_slopes: grad_S_horz',grad_S_horz,&
       & str_module,idt_src, in_subset=edges_in_domain)
     ENDIF
+    IF(.NOT.SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN
+    CALL dbg_print('calc_slopes: grad_rho_GM_horz',grad_rho_GM_horz,&
+      & str_module,idt_src, in_subset=edges_in_domain)
+        
+    ENDIF    
 !    CALL sync_patch_array(sync_c, patch_2D, grad_T_vert)       
 !    IF(no_tracer>=2)   CALL sync_patch_array(sync_c, patch_2D, grad_S_vert)   
 
@@ -550,11 +589,15 @@ CONTAINS
     idt_src=4  ! output print level (1-5, fix)
     CALL dbg_print('neutral_slopes: grad_T_vert',grad_T_vert,&
       & str_module,idt_src, in_subset=cells_in_domain)
-    IF(no_tracer>=2.AND.SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN        
+    IF(no_tracer==2)THEN        
     CALL dbg_print('neutral_slopes: grad_S_vert',grad_S_vert,&
       & str_module,idt_src, in_subset=cells_in_domain) 
-    ENDIF  
-       
+    ENDIF
+    IF(.NOT.SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN  
+    CALL dbg_print('neutral_slopes: grad_rho_GM_vert',grad_rho_GM_vert,&
+      & str_module,idt_src, in_subset=cells_in_domain) 
+    
+    ENDIF   
   !---------------------------------------------------------------------   
    
     !2) map horizontal and vertial derivative to cell centered vector
@@ -578,7 +621,7 @@ CONTAINS
 !     CALL sync_patch_array(sync_c, patch_2D, grad_T_vec(:,:,:)%x(2))
 !     CALL sync_patch_array(sync_c, patch_2D, grad_T_vec(:,:,:)%x(3))
        
-    IF((no_tracer>=2).AND.SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN        
+    IF((no_tracer>=2))THEN        
 !       CALL sync_patch_array(sync_c, patch_2D, grad_S_vec(:,:,:)%x(1))
 !       CALL sync_patch_array(sync_c, patch_2D, grad_S_vec(:,:,:)%x(2))
 !       CALL sync_patch_array(sync_c, patch_2D, grad_S_vec(:,:,:)%x(3))
@@ -596,6 +639,19 @@ CONTAINS
           & grad_S_vert_center)
           
     ENDIF
+    IF(.NOT.SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN
+      CALL map_edges2cell_3d(patch_3D,  &      
+          & grad_rho_GM_horz,           &
+          & op_coeff,                   &
+          & grad_rho_GM_vec,            &
+          & subset_range=cells_in_domain)
+          
+      CALL map_scalar_prismtop2center(patch_3d,&
+          & grad_rho_GM_vert,                  &
+          & op_coeff,                          &
+          & grad_rho_GM_vert_center)
+    
+    ENDIF    
     !------------------------------------------------------------------------------
 
     !------------------------------------------------------------------------------
@@ -685,22 +741,22 @@ CONTAINS
               DO level = start_level+1, end_level-1
 
                 ocean_state%p_aux%slopes(cell_index,level,blockNo)%x                      &
-                & = - grad_T_vec(cell_index,level,blockNo)%x  &
-                &    /(grad_T_vert_center(cell_index,level,blockNo)-dbl_eps)
+                & = - grad_rho_GM_vec(cell_index,level,blockNo)%x  &
+                &    /(grad_rho_GM_vert_center(cell_index,level,blockNo)-dbl_eps)
  
                 ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)=&
                 & DOT_PRODUCT(ocean_state%p_aux%slopes(cell_index,level,blockNo)%x,&
                              &ocean_state%p_aux%slopes(cell_index,level,blockNo)%x)
 
                 ocean_state%p_aux%slopes_drdx(cell_index,level,blockNo)=&
-               & DOT_PRODUCT(grad_T_vec(cell_index,level,blockNo)%x,&
-               & grad_T_vec(cell_index,level,blockNo)%x)
+               & DOT_PRODUCT(grad_rho_GM_vec(cell_index,level,blockNo)%x,&
+               & grad_rho_GM_vec(cell_index,level,blockNo)%x)
 
                ocean_state%p_aux%slopes_drdx(cell_index,level,blockNo)=&
                & sqrt(ocean_state%p_aux%slopes_drdx(cell_index,level,blockNo))
 
                ocean_state%p_aux%slopes_drdz(cell_index,level,blockNo)=&
-               &         grad_T_vert_center(cell_index,level,blockNo)            
+               &         grad_rho_GM_vert_center(cell_index,level,blockNo)            
 !write(123,*)'slope squared',level,ocean_state%p_aux%slopes_squared(cell_index,level,blockNo),&
 !&sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo))
 
@@ -2078,7 +2134,6 @@ END DO
       pot_temp          => ocean_state%p_diag%rho
     ENDIF
     
- write(0,*)'Call to diag-Redi', tracer_index,no_tracer  
     start_level=1
 
     CALL calc_tapering(patch_3d, ocean_state, param, &

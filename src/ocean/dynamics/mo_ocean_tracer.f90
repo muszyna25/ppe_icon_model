@@ -66,8 +66,9 @@ MODULE mo_ocean_tracer
   CHARACTER(LEN=12)           :: str_module = 'oceTracer   '  ! Output of module for 1 line debug
   INTEGER :: idt_src    = 1               ! Level of detail for 1 line debug
 
-  PUBLIC :: advect_ocean_tracers
-  PUBLIC :: advect_diffuse_tracer
+  PUBLIC  :: advect_ocean_tracers
+  PUBLIC  :: advect_diffuse_tracer
+  PRIVATE :: advect_diffuse_individual_tracer
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -488,7 +489,7 @@ CONTAINS
                    &   p_op_coeff%div_coeff, &
                    &   div_diff_flux_horz )
                                      
-      !vertical div of GMRedi-flux
+      !vertical div of explicit part of vertical GMRedi-flux
       CALL verticalDiv_scalar_onFullLevels( patch_3d, &
         & p_os%p_diag%GMRedi_flux_vert(:,:,:,tracer_index), &
         & div_diff_flx_vert)
@@ -520,8 +521,8 @@ CONTAINS
     END DO
 !ICON_OMP_END_PARALLEL_DO
        
-      CALL dbg_print('AftGMRedi: divofGMRediflux1',p_os%p_diag%div_of_GMRedi_flux(:,:,:),&
-      & str_module, idt_src, in_subset=cells_in_domain)      
+      !CALL dbg_print('AftGMRedi: divofGMRediflux1',div_diff_flux_horz(:,:,:),&
+      !& str_module, idt_src, in_subset=cells_in_domain)      
        
        ENDIF            
       !---------DEBUG DIAGNOSTICS-------------------------------------------
