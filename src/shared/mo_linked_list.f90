@@ -206,6 +206,7 @@ CONTAINS
     !
     current_list_element%next_list_element => NULL()
     current_list_element%field%r_ptr       => NULL()
+    current_list_element%field%s_ptr       => NULL()
     current_list_element%field%i_ptr       => NULL()
     current_list_element%field%l_ptr       => NULL()
     !
