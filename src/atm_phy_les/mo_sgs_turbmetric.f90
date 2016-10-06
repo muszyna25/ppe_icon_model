@@ -1251,7 +1251,7 @@ MODULE mo_sgs_turbmetric
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jkp1,je,i_startidx,i_endidx,a,b,c,rhs,var_new,&
-!$OMP    flux_dn_e,stress_c1t,stress_c2t,stress_c1n,stress_c2n,dwdn)
+!$OMP    flux_dn_e,stress_c1t,stress_c2t,stress_c1n,stress_c2n,dwdn,aje,cje)
       DO jb = i_startblk,i_endblk
         CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
