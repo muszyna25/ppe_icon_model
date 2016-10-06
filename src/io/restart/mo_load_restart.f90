@@ -12,23 +12,27 @@
 !! headers of the routines.
 
 MODULE mo_load_restart
-    USE mo_cdi, ONLY: streamOpenRead, streamInqVlist, streamClose, streamOpenRead, streamReadVarSlice, vlistInqTaxis, vlistNvars, &
-                    & vlistInqVarName, vlistInqVarGrid, vlistInqVarZaxis, taxisInqVdate, taxisInqVtime, zaxisInqType, &
-                    & zaxisInqSize, gridInqSize, ZAXIS_SURFACE
-    USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
-    USE mo_communication, ONLY: t_ScatterPattern
-    USE mo_exception, ONLY: message, finish
-    USE mo_impl_constants, ONLY: MAX_CHAR_LENGTH
-    USE mo_kind, ONLY: dp, sp
-    USE mo_linked_list, ONLY: t_list_element
-    USE mo_model_domain, ONLY: t_patch
-    USE mo_mpi, ONLY: p_comm_work, p_comm_rank, p_bcast, my_process_is_mpi_workroot
-    USE mo_restart_attributes, ONLY: t_RestartAttributeList, RestartAttributeList_make, setAttributesForRestarting
-    USE mo_restart_namelist, ONLY: t_NamelistArchive, namelistArchive
-    USE mo_util_cdi, ONLY: cdiGetStringError
-    USE mo_util_hash, ONLY: util_hashword
-    USE mo_util_string, ONLY: int2string, separator
-    USE mo_var_list, ONLY: nvar_lists, var_lists, find_list_element
+    USE mo_cdi,                ONLY: streamOpenRead, streamInqVlist, streamClose, streamOpenRead, &
+      &                              streamReadVarSlice, vlistInqTaxis, vlistNvars,               &
+      &                              vlistInqVarName, vlistInqVarGrid, vlistInqVarZaxis,          &
+      &                              taxisInqVdate, taxisInqVtime, zaxisInqType, zaxisInqSize,    &
+      &                              gridInqSize, ZAXIS_SURFACE
+    USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT,              &
+      &                              GRID_UNSTRUCTURED_EDGE
+    USE mo_communication,      ONLY: t_ScatterPattern
+    USE mo_exception,          ONLY: message, finish
+    USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
+    USE mo_kind,               ONLY: dp, sp
+    USE mo_linked_list,        ONLY: t_list_element
+    USE mo_model_domain,       ONLY: t_patch
+    USE mo_mpi,                ONLY: p_comm_work, p_comm_rank, p_bcast, my_process_is_mpi_workroot
+    USE mo_restart_attributes, ONLY: t_RestartAttributeList, RestartAttributeList_make,           &
+      &                              setAttributesForRestarting
+    USE mo_restart_namelist,   ONLY: t_NamelistArchive, namelistArchive
+    USE mo_util_cdi,           ONLY: cdiGetStringError
+    USE mo_util_hash,          ONLY: util_hashword
+    USE mo_util_string,        ONLY: int2string, separator
+    USE mo_var_list,           ONLY: nvar_lists, var_lists, find_list_element
     USE mo_var_metadata_types, ONLY: t_var_metadata
     IMPLICIT NONE
 
@@ -276,19 +280,29 @@ CONTAINS
               CASE (2)
                 var_ref_pos = 3
                 IF (info%lcontained)  var_ref_pos = info%var_ref_pos
-                SELECT CASE(var_ref_pos)
-                CASE (1)
-                  rptr2d_d => element%field%r_ptr(nindex,:,:,1,1)
-                  rptr2d_s => element%field%s_ptr(nindex,:,:,1,1)
-                CASE (2)
-                  rptr2d_d => element%field%r_ptr(:,nindex,:,1,1)
-                  rptr2d_s => element%field%s_ptr(:,nindex,:,1,1)
-                CASE (3)
-                  rptr2d_d => element%field%r_ptr(:,:,nindex,1,1)
-                  rptr2d_s => element%field%s_ptr(:,:,nindex,1,1)
-                CASE default
-                  CALL finish(routine, "internal error!")
-                END SELECT
+                IF (flag_dp) THEN
+                  SELECT CASE(var_ref_pos)
+                  CASE (1)
+                    rptr2d_d => element%field%r_ptr(nindex,:,:,1,1)
+                  CASE (2)
+                    rptr2d_d => element%field%r_ptr(:,nindex,:,1,1)
+                  CASE (3)
+                    rptr2d_d => element%field%r_ptr(:,:,nindex,1,1)
+                  CASE default
+                    CALL finish(routine, "internal error!")
+                  END SELECT
+                ELSE
+                  SELECT CASE(var_ref_pos)
+                  CASE (1)
+                    rptr2d_s => element%field%s_ptr(nindex,:,:,1,1)
+                  CASE (2)
+                    rptr2d_s => element%field%s_ptr(:,nindex,:,1,1)
+                  CASE (3)
+                    rptr2d_s => element%field%s_ptr(:,:,nindex,1,1)
+                  CASE default
+                    CALL finish(routine, "internal error!")
+                  END SELECT
+                END IF
               CASE (3)
                 var_ref_pos = 4
                 IF (info%lcontained)  var_ref_pos = info%var_ref_pos
