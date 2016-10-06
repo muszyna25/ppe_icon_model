@@ -144,6 +144,9 @@ CONTAINS
     CLASS(t_scatterPattern), POINTER :: scatter_pattern
     LOGICAL                          :: flag_dp
 
+    NULLIFY(r1d_d)
+    NULLIFY(r1d_s)
+
     ! rank of broadcast root PE
     root_pe = 0
 
