@@ -706,13 +706,14 @@ MODULE mo_initicon_io
 
 
         ! Check, if sea surface temperature field is provided as input
-        ! IF SST is missing, set l_sst_in=.FALSE.
-        IF (nf_inq_varid(ncid, 'SST', varid) /= nf_noerr) THEN
+        IF (nf_inq_varid(ncid, 'SST', varid) == nf_noerr) THEN
+          l_sst_in = .TRUE.
+        ELSE
           WRITE (message_text,'(a,a)')                            &
             &  'sea surface temperature not available. ', &
             &  'initialize with skin temperature, instead.'
           CALL message(TRIM(routine),TRIM(message_text))
-          l_sst_in = .FALSE.     !it has to be set to FALSE
+          l_sst_in = .FALSE.
         ENDIF
 
       ENDIF  ! p_io

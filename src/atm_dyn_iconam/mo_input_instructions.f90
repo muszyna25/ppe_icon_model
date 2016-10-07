@@ -17,8 +17,7 @@ MODULE mo_input_instructions
     USE mo_dictionary, ONLY: dict_get
     USE mo_exception, ONLY: message, finish
     USE mo_impl_constants, ONLY: SUCCESS, MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU, MODE_IAU_OLD, MODE_COMBINED, MODE_COSMODE
-    USE mo_initicon_config, ONLY: initicon_config, lread_ana, ltile_coldstart, lp2cintp_incr, lp2cintp_sfcana, &
-      &                           l_sst_in
+    USE mo_initicon_config, ONLY: initicon_config, lread_ana, ltile_coldstart, lp2cintp_incr, lp2cintp_sfcana
     USE mo_initicon_types, ONLY: ana_varnames_dict
     USE mo_input_request_list, ONLY: t_InputRequestList
     USE mo_lnd_nwp_config, ONLY: lsnowtile
