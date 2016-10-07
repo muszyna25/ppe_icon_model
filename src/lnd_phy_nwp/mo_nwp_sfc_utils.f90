@@ -2169,9 +2169,6 @@ CONTAINS
 
         n_now = nnow_rcf(jg)
         n_new = nnew_rcf(jg)
-!DR Test
-!DR        p_nh_state(jg)%diag%extra_2d(:,:,:) = 0._wp
-!DR End Test
 
         ALLOCATE(sst_cl_ini_day(nproma,p_patch(jg)%nblks_c), &
           &      sst_cl_cur_day(nproma,p_patch(jg)%nblks_c), &
@@ -2212,17 +2209,11 @@ CONTAINS
             p_lnd_state(jg)%prog_lnd(n_new)%t_s_t(jc,jb,isub_water)=   &
                                p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) + sst_cl_inc
 
-            p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water)    =                                   &
+            ! includes reduction of saturation pressure due to salt content
+            p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water) = 0.981_wp *                           & 
               &   spec_humi( sat_pres_water(p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water)),&
               &                                  p_nh_state(jg)%diag%pres_sfc(jc,jb) )
 
-!DR Test
-!DR            p_nh_state(jg)%diag%extra_2d(jc,jb,1) = sst_cl_inc
-!DR            p_nh_state(jg)%diag%extra_2d(jc,jb,2) = sst_cl_ini_day(jc,jb)
-!DR            p_nh_state(jg)%diag%extra_2d(jc,jb,3) = sst_cl_cur_day(jc,jb)
-!DR End Test
-!
-!DR aggregation of t_g and qv_s necessary?
           ENDDO  ! ic
         ENDDO  ! jb
 !$OMP END DO
@@ -2285,9 +2276,9 @@ CONTAINS
 
           ! generate sea-ice and open-water index list
           !
-          !$OMP PARALLEL
-          !$OMP DO PRIVATE(jb,ic,jc,count_sea,count_ice,count_water, &
-          !$OMP            fracwater_old,fracice_old, t_water), SCHEDULE(guided)
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,ic,jc,count_sea,count_ice,count_water, &
+!$OMP            fracwater_old,fracice_old, t_water), SCHEDULE(guided)
           DO jb = i_startblk, i_endblk
 
             ! Init sub-index lists for sea points. We distinguish between open-water
@@ -2309,7 +2300,7 @@ CONTAINS
               ! ice-free or completely ice-covered
               !
 
-              !CDIR NODEP,VOVERTAKE,VOB
+!CDIR NODEP,VOVERTAKE,VOB
               DO ic = 1, count_sea
 
                 jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
@@ -2389,12 +2380,6 @@ CONTAINS
                   fracice_old = ext_data(jg)%atm%frac_t(jc,jb,isub_seaice)              &
                        & / ext_data(jg)%atm%lc_frac_t(jc,jb,isub_seaice)
                   IF (fracice_old <frsi_min  ) THEN
-                    ! before was not ice
-                    !WRITE(0,'(a,5g12.5)') 'before was no ice',ext_data(jg)%atm%frac_t(jc,jb,isub_seaice) , &
-                    !  &   ext_data(jg)%atm%lc_frac_t(jc,jb,isub_seaice), fracice_old, &
-                    !  & p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_seaice), p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_seaice)
-
-                    !CALL message('', TRIM(message_text))
                     p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_seaice)= tf_salt
                     p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_seaice)= tf_salt
 
@@ -2405,15 +2390,6 @@ CONTAINS
                     p_lnd_state(jg)%prog_wtr(n_now)%h_ice(jc,jb) = hice_ini_min +           &
                          p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) * (hice_ini_max-hice_ini_min)
 
-                  ELSE
-
-                    !WRITE(0,'(a,2i, 5g12.5)') 'before was also ice',jc, jb, &
-                    !  &   ext_data(jg)%atm%frac_t(jc,jb,isub_seaice) , &
-                    !  &   ext_data(jg)%atm%lc_frac_t(jc,jb,isub_seaice), fracice_old, &
-                    !  &   p_lnd_state(jg)%prog_wtr(n_now)%t_ice(jc,jb), p_lnd_state(jg)%prog_wtr(n_now)%h_ice(jc,jb)
-                    
-                    !CALL message('', TRIM(message_text))
-                    
                   END IF
                   ! set sai_t
                   ext_data(jg)%atm%sai_t    (jc,jb,isub_seaice)  = c_sea
@@ -2444,25 +2420,7 @@ CONTAINS
 
                   fracwater_old = ext_data(jg)%atm%frac_t(jc,jb,isub_water)              &
                        & / ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water)
-                  IF (fracwater_old < frsi_min  ) THEN  !before was ice, no water tile
-!!$      WRITE(0,'(a,2i,6g12.5)') 'before was only ice ',jc, jb, &
-!!$        & ext_data(jg)%atm%frac_t(jc,jb,isub_water) , &
-!!$        &   ext_data(jg)%atm%lc_frac_t(jc,jb,isub_water), fracwater_old, &
-!!$        & p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water), &
-!!$        & p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water), &
-!!$        &   sat_pres_water(p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) ) !,&
-!!$        !& p_nh_state(jg)%diag%pres_sfc(jc,jb)
-                    !CALL message('', TRIM(message_text))
-                  ELSE
-!!$      WRITE(0,'(a,2i,6g12.5)') 'before was also water tile',jc, jb, &
-!!$        & ext_data(jg)%atm%frac_t(jc,jb,isub_water) , &
-!!$        &   ext_data(jg)%atm%lc_frac_t(jc,jb,isub_seaice), fracwater_old, &
-!!$        & p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water), &
-!!$        & p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water), &
-!!$        &   sat_pres_water(p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) ) !,&
-!!$        !& p_nh_state(jg)%diag%pres_sfc(jc,jb)
 
-                  END IF
                   ! set sai_t
                   ext_data(jg)%atm%sai_t    (jc,jb,isub_water)  = c_sea
                   ! Update frac_t for water tile
@@ -2477,15 +2435,6 @@ CONTAINS
 
             ENDIF   ! IF (ntiles_total == 1)
 
-!!$      WRITE(message_text,'(a,i3,a,i10)') 'Number of sea-ice points in block',jb, &
-!!$        &  ':', ext_data(jg)%atm%spi_count(jb)
-!!$      CALL message('', TRIM(message_text))
-!!$      WRITE(message_text,'(a,i3,a,i10)') 'Number of water points in block',jb, &
-!!$        &  ':', ext_data(jg)%atm%spw_count(jb)
-!!$      CALL message('', TRIM(message_text))
-!!$      WRITE(message_text,'(a,i3,a,i10)') 'Number of sea  points in block',jb, &
-!!$        &  ':', ext_data(jg)%atm%sp_count(jb)
-!!$      CALL message('', TRIM(message_text))
           ENDDO  ! jb
 
 !$OMP END DO
