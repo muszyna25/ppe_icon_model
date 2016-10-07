@@ -2043,8 +2043,8 @@ CONTAINS
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
-    i_startblk = p_patch%cells%start_blk(rl_start)
-    i_endblk   = p_patch%cells%end_blk(rl_end)
+    i_startblk = p_patch%cells%start_block(rl_start)
+    i_endblk   = p_patch%cells%end_block(rl_end)
 
     ! Get interpolated field
     !
