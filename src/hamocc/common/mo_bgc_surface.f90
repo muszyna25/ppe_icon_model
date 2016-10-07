@@ -168,8 +168,8 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
   INTEGER :: j, k
 
   REAL(wp) :: fluxd,fluxu
-  REAL(wp) :: kwco2,kwo2, kwdms
-  REAL(wp) :: scco2,sco2, scdms
+  REAL(wp) :: kwco2,kwo2, kwdms, kwn2o
+  REAL(wp) :: scco2,sco2, scdms, scn2o
   REAL(wp) :: oxflux,niflux,nlaughflux, dmsflux
   REAL(wp) :: ato2, atn2, atco2,pco2
   REAL(wp) :: thickness
@@ -191,22 +191,20 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
            !
            !  Compute the Schmidt number of CO2 in seawater and the transfer
            !  (piston) velocity using the formulation presented in
-           !  Groeger&Mikolajewicz, Ocean Modeling,39,2011.yy
-           !  Input is temperature in deg C.
-           !  O2 Schmidt number after Keeling et al. (1998, Global Biogeochem.
-           !                                                Cycles, 12, 141-163)
-           !
-           !  DMS Schmidt number after Saltzmann et al. (1993, J. Geophys. Res. 98,
-           !                                                      16,481-16,486)
-
+           !   Wanninkhof 2014 
            !*********************************************************************
 
-           scco2 = 142.653_wp + 1955.9_wp *  EXP(-0.0663147_wp*ptho(j,1))
+           scco2 = 2116.8_wp - 136.25_wp*ptho(j,1) + 4.7353_wp*ptho(j,1)**2 &
+                &   - 0.092307_wp*ptho(j,1)**3 + 0.0007555_wp*ptho(j,1)**4
 
-           sco2  = 1638.0_wp - 81.83_wp*ptho(j,1) + 1.483_wp*ptho(j,1)**2    &
-                &       - 0.008004_wp*ptho(j,1)**3
+           sco2 =  1920.4_wp - 135.6_wp*ptho(j,1)  + 5.2122_wp*ptho(j,1)**2 &
+               & - 0.10939_wp*ptho(j,1)**3 + 0.00093777_wp*ptho(j,1)**4
 
-           scdms = 186.560_wp + 2506.78_wp * EXP(-0.0618603_wp*ptho(j,1))
+           scn2o =  2356.2_wp - 166.38_wp*ptho(j,1)  + 6.3952_wp*ptho(j,1)**2 &
+               & - 0.13422_wp*ptho(j,1)**3 + 0.0011506_wp*ptho(j,1)**4
+
+           scdms =  2855.7_wp - 177.63_wp*ptho(j,1)  + 6.0438_wp*ptho(j,1)**2 &
+               & - 0.11645_wp*ptho(j,1)**3 + 0.00094743_wp*ptho(j,1)**4
      
            !
            !  Compute the transfer (piston) velocity in m/s
@@ -221,6 +219,10 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
 
            kwdms = (1._wp - psicomo(j)) * cmh2ms * pfu10( j)**2        &
                 &           * (660._wp / scdms)**0.5_wp
+
+       
+           kwn2o = (1._wp - psicomo(j)) * cmh2ms * pfu10( j)**2        &
+                &           * (660._wp / scn2o)**0.5_wp
 
            atco2 = atm_co2
            ato2  = atm_o2
