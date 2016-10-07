@@ -96,6 +96,10 @@ MODULE mo_echam_phy_init
   USE mo_bc_sst_sic,           ONLY: read_bc_sst_sic, bc_sst_sic_time_interpolation
   USE mo_bc_greenhouse_gases,  ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
     &                                bc_greenhouse_gases_file_read, ghg_co2mmr
+!++jsr
+  USE mo_bc_cariolle_read,     ONLY: read_bcast_real_3d_wrap, read_bcast_real_1d_wrap, &
+                                   & closeFile_wrap, openInputFile_wrap
+!--jsr
   ! for aeorosols in simple plumes
   USE mo_bc_aeropt_splumes,    ONLY: setup_bc_aeropt_splumes
 
@@ -342,6 +346,11 @@ CONTAINS
       END IF
       !
     ENDIF
+
+!++jsr
+    CALL cariolle_init( openInputFile_wrap,       closeFile_wrap,             &
+                      & read_bcast_real_3d_wrap,  read_bcast_real_1d_wrap     )
+!--jsr
 
     ! interpolation weights for linear interpolation
     ! of monthly means onto the actual integration time step

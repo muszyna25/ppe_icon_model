@@ -274,6 +274,8 @@ do
   add_link_file $datadir/bc_ozone_cmip5_${year}.nc                      ./bc_ozone_${year}.nc
   (( year = year+1 ))
 done
+# interactive Cariolle ozone:
+add_link_file /scratch/local1/m218036/m218036_scratch_local2/cariolle/COEF_91_v2.9.nc ./cariolle_coeff.nc
 #
 # - tropospheric aerosol
 datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
