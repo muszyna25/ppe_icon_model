@@ -83,33 +83,33 @@ MODULE mo_hash_table
 
 CONTAINS
 
-    FUNCTION hashTable_make(hashFunction, compareFunction) RESULT(result)
+    FUNCTION hashTable_make(hashFunction, compareFunction) RESULT(resultVar)
         PROCEDURE(f_hashFunction) :: hashFunction
         PROCEDURE(f_equalKeysFunction) :: compareFunction
-        TYPE(t_HashTable), POINTER :: result
+        TYPE(t_HashTable), POINTER :: resultVar
 
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":hashTable_make"
         INTEGER :: error, i
 
-        ALLOCATE(result, STAT = error)
+        ALLOCATE(resultVar, STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
 
-        result%getHash => hashFunction
-        result%equalKeys => compareFunction
-        result%entryCount = 0
-        result%hashBits = 5
+        resultVar%getHash => hashFunction
+        resultVar%equalKeys => compareFunction
+        resultVar%entryCount = 0
+        resultVar%hashBits = 5
 
-        ALLOCATE(result%table(2**result%hashBits), STAT = error)
+        ALLOCATE(resultVar%table(2**resultVar%hashBits), STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
-        DO i = 1, 2**result%hashBits
-            result%table(i)%ptr => NULL()
+        DO i = 1, 2**resultVar%hashBits
+            resultVar%table(i)%ptr => NULL()
         END DO
     END FUNCTION hashTable_make
 
-    FUNCTION hashTable_findBin(me, hash) RESULT(result)
+    FUNCTION hashTable_findBin(me, hash) RESULT(resultVar)
         CLASS(t_HashTable), INTENT(IN) :: me
         INTEGER(C_INT32_T), VALUE :: hash
-        TYPE(t_HashEntryPtr), POINTER :: result
+        TYPE(t_HashEntryPtr), POINTER :: resultVar
 
         INTEGER(C_INT32_T) :: reducedHash, i
 
@@ -120,7 +120,7 @@ CONTAINS
             hash = ISHFT(hash, -me%hashBits)
         END DO
         reducedHash = IAND(reducedHash, 2**me%hashBits - 1) + 1
-        result => me%table(reducedHash)
+        resultVar => me%table(reducedHash)
     END FUNCTION hashTable_findBin
 
     SUBROUTINE hashTable_growTable(me)
@@ -234,23 +234,23 @@ CONTAINS
         CALL me%removeFromList(bin, key, hash)
     END SUBROUTINE hashTable_removeEntry
 
-    FUNCTION hashTable_getEntry(me, key) RESULT(result)
+    FUNCTION hashTable_getEntry(me, key) RESULT(resultVar)
         CLASS(t_HashTable), INTENT(IN) :: me
         CLASS(t_Destructible), POINTER, INTENT(IN) :: key
-        CLASS(t_Destructible), POINTER :: result
+        CLASS(t_Destructible), POINTER :: resultVar
 
         INTEGER(C_INT32_T) :: hash
         TYPE(t_HashEntryPtr), POINTER :: bin
         TYPE(t_HashEntry), POINTER :: curEntry
 
-        result => NULL()
+        resultVar => NULL()
         hash = me%getHash(key)
         bin => me%findBin(hash)
         curEntry => bin%ptr
         DO WHILE(ASSOCIATED(curEntry))
             IF(curEntry%hash == hash) THEN
                 IF(me%equalKeys(curEntry%key, key)) THEN
-                    result => curEntry%value
+                    resultVar => curEntry%value
                     RETURN
                 END IF
             END IF
@@ -288,13 +288,13 @@ CONTAINS
         me%curEntry => NULL()
     END SUBROUTINE hashIterator_init
 
-    LOGICAL FUNCTION hashIterator_nextEntry(me, key, VALUE) RESULT(RESULT)
+    LOGICAL FUNCTION hashIterator_nextEntry(me, key, VALUE) RESULT(resultVar)
         CLASS(t_HashIterator), INTENT(INOUT) :: me
         CLASS(t_Destructible), POINTER, INTENT(INOUT) :: key, VALUE
 
         key => NULL()
         VALUE => NULL()
-        RESULT = .FALSE.
+        resultVar = .FALSE.
 
         ! try to ADVANCE within the current bin
         IF(ASSOCIATED(me%curEntry)) me%curEntry => me%curEntry%next%ptr
@@ -305,7 +305,7 @@ CONTAINS
             IF(ASSOCIATED(me%curEntry)) THEN
                 key => me%curEntry%key
                 VALUE => me%curEntry%VALUE
-                RESULT = .TRUE.
+                resultVar = .TRUE.
                 RETURN
             END IF
 

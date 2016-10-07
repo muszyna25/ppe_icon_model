@@ -2251,7 +2251,6 @@ CONTAINS
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
       CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc, p_mass_flx_e, & !in
         &           p_out_e, slev, elev, opt_rlend=i_rlend,              & !inout,in
-        &           opt_niter=advection_config(pid)%niter_fct,           & !in
         &           opt_beta_fct=advection_config(pid)%beta_fct          ) !in
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
       !
@@ -2816,7 +2815,6 @@ CONTAINS
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
       CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc, p_mass_flx_e, & !in
         &           p_out_e, slev, elev, opt_rlend=i_rlend,              & !inout,in
-        &           opt_niter=advection_config(pid)%niter_fct,           & !in
         &           opt_beta_fct=advection_config(pid)%beta_fct          ) !in
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
       !
@@ -3376,7 +3374,6 @@ CONTAINS
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
       CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc, p_mass_flx_e, & !in
         &           p_out_e, slev, elev, opt_rlend=i_rlend,              & !inout,in
-        &           opt_niter=advection_config(pid)%niter_fct,           & !in
         &           opt_beta_fct=advection_config(pid)%beta_fct          ) !in
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
       !

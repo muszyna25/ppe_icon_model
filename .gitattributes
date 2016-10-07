@@ -151,20 +151,9 @@ doc/science/dynamics/vortex_bracket_ICONAM.tex -text
 doc/science/physics/ICON_COSMO_micro_scheme_changes.tex -text
 doc/science/physics/IFS_gw_param.pdf -text
 doc/science/physics/Microphys.tar -text
-doc/science/physics/albnirdif_20120601_tuned-untuned.png -text svneol=unset#image/png
-doc/science/physics/albnirdif_20120601_tuned.png -text svneol=unset#image/png
-doc/science/physics/albnirdif_20120601_untuned.png -text svneol=unset#image/png
-doc/science/physics/albnirdir_20120601_blacksky_ritter.png -text svneol=unset#image/png
-doc/science/physics/albvisdif_20120601_tuned-untuned.png -text svneol=unset#image/png
-doc/science/physics/albvisdif_20120601_tuned.png -text svneol=unset#image/png
-doc/science/physics/albvisdif_20120601_untuned.png -text svneol=unset#image/png
-doc/science/physics/albvisdir_20120601_blacksky_ritter.png -text svneol=unset#image/png
 doc/science/physics/cloud_cover_docu.tex -text
 doc/science/physics/detrainment_anvil.pdf -text
 doc/science/physics/detrainment_anvil.ppt -text
-doc/science/physics/direct_albedo_Briegleb.png -text svneol=unset#image/png
-doc/science/physics/direct_albedo_Ritter.png -text svneol=unset#image/png
-doc/science/physics/direct_albedo_Zaengl.png -text svneol=unset#image/png
 doc/science/physics/graupelscheme.eps -text
 doc/science/physics/icon-docu-cloud.pdf -text
 doc/science/physics/icon-docu-cloud.tex -text
@@ -173,10 +162,6 @@ doc/science/physics/liquidPDF.pdf -text
 doc/science/physics/liquidPDF.pptx -text
 doc/science/physics/lmclouds2010.pdf -text
 doc/science/physics/microphysics.tex -text
-doc/science/physics/surface_albedo.pdf -text svneol=unset#unset
-doc/science/physics/surface_albedo.tex -text
-doc/science/physics/wind_gust.pdf -text
-doc/science/physics/wind_gust.tex -text
 doc/science/references-icon-science.bib -text
 doc/science/transport/transport_main.pdf -text
 doc/science/wileyqj.bst -text
