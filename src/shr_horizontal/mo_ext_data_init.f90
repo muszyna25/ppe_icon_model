@@ -94,6 +94,7 @@ MODULE mo_ext_data_init
     &                              streamClose, cdiStringError
   USE mo_math_gradients,     ONLY: grad_fe_cell
   USE mo_fortran_tools,      ONLY: var_scale
+  USE mo_coupling_config,    ONLY: is_coupled_run
 
   IMPLICIT NONE
 
@@ -889,19 +890,22 @@ CONTAINS
         !
         ext_data(jg)%atm%emis_rad(:,:)= zemiss_def
 
-        ! Open/Read slm for HDmodel used in yac-coupler (and for HD river discharge)
-        stream_id = openInputFile('hd_mask.nc', p_patch(jg), default_read_method)
-
-        ! get land-sea-mask on cells, integer marks are:
-        ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
-        ! boundary land (1, cells and vertices), inner land (2)
-        CALL read_2D_int(stream_id, on_cells, 'cell_sea_land_mask', &
-          &              ext_data(jg)%atm%lsm_hd_c)
-
-        CALL closeFile(stream_id)
 
       END DO
 
+    END IF
+
+    ! Open/Read slm for HDmodel used in yac-coupler (and for HD river discharge)
+    IF ( is_coupled_run() ) THEN
+      stream_id = openInputFile('hd_mask.nc', p_patch(jg), default_read_method)
+
+      ! get land-sea-mask on cells, integer marks are:
+      ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
+      ! boundary land (1, cells and vertices), inner land (2)
+      CALL read_2D_int(stream_id, on_cells, 'cell_sea_land_mask', &
+        &              ext_data(jg)%atm%lsm_hd_c)
+
+      CALL closeFile(stream_id)
     END IF
 
     !------------------------------------------------!
