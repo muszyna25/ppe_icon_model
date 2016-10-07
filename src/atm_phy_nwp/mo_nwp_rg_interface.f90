@@ -18,7 +18,7 @@
 MODULE mo_nwp_rg_interface
 
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_datetime,             ONLY: t_datetime,  month2hour
+  USE mo_datetime,             ONLY: t_datetime
   USE mo_exception,            ONLY: message,  finish !message_tex
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma, p_test_run

@@ -90,7 +90,8 @@ MODULE mo_nh_stepping
     &                                    itconv, itccov, itrad, itradheat, itsso, itsatad, itgwd,  &
     &                                    inoforcing, iheldsuarez, inwp, iecham,                    &
     &                                    itturb, itgscp, itsfc,                                    &
-    &                                    MODE_IAU, MODE_IAU_OLD, MODIS
+    &                                    MODE_IAU, MODE_IAU_OLD, MODIS, SSTICE_ANA_CLINC,          &
+    &                                    SSTICE_CLIM, SSTICE_AVG_MONTHLY, SSTICE_AVG_DAILY
   USE mo_math_divrot,              ONLY: rot_vertex, div_avg !, div
   USE mo_solve_nonhydro,           ONLY: solve_nh
   USE mo_update_dyn,               ONLY: add_slowphys
@@ -328,7 +329,7 @@ MODULE mo_nh_stepping
   ENDDO
 
 
-  IF (sstice_mode > 1 .AND. iforcing == inwp) THEN
+  IF (ANY((/SSTICE_CLIM,SSTICE_AVG_MONTHLY,SSTICE_AVG_DAILY/) == sstice_mode) .AND. iforcing == inwp) THEN
     ! t_seasfc and fr_seaice have to be set again from the ext_td_data files;
     ! the values from the analysis have to be overwritten.
     ! In the case of a restart, the call is required to open the file and read the data
@@ -859,14 +860,16 @@ MODULE mo_nh_stepping
         CALL update_ndvi(p_patch(1:), ext_data)
       END IF
 
-      !Check if the SST and Sea ice fraction have to be updated (sstice_mode 2,3,4)
-      IF (sstice_mode > 1 .AND. iforcing == inwp  ) THEN
+      ! Check if the SST and Sea ice fraction have to be updated (sstice_mode 3,4,5)
+      IF ( ANY((/SSTICE_ANA_CLINC, SSTICE_CLIM,SSTICE_AVG_MONTHLY,SSTICE_AVG_DAILY/) == sstice_mode) &
+        &   .AND. iforcing == inwp  ) THEN
 
         CALL set_actual_td_ext_data (.FALSE., datetime_current,datetime_old,sstice_mode,  &
                                   &  p_patch(1:), ext_data, p_lnd_state)
 
-        CALL update_sstice( p_patch(1:),           &
-                        & ext_data, p_lnd_state, p_nh_state )
+        CALL update_sstice( p_patch(1:), ext_data, p_lnd_state,                &
+          &                 p_nh_state, sstice_mode, time_config%ini_datetime, &
+          &                 time_config%cur_datetime )
 
       END IF  !sstice_mode>1
 

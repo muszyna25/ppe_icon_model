@@ -39,9 +39,10 @@ MODULE mo_ext_data_init
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape,                     &
     &                              ihs_atm_temp, ihs_atm_theta, inh_atmosphere,                     &
     &                              max_char_length, min_rlcell_int, min_rlcell,                     &
-    &                              MODIS, GLOBCOVER2009, GLC2000, SUCCESS
+    &                              MODIS, GLOBCOVER2009, GLC2000, SUCCESS, SSTICE_ANA_CLINC,        &
+    &                              SSTICE_CLIM
   USE mo_math_constants,     ONLY: dbl_eps, rad2deg
-  USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
+  USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def, tmelt
   USE mo_run_config,         ONLY: msg_level, iforcing, check_uuid_gracefully
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
@@ -93,7 +94,7 @@ MODULE mo_ext_data_init
     &                              vlistInqVarIntKey, CDI_GLOBAL, gridInqUUID, &
     &                              streamClose, cdiStringError
   USE mo_math_gradients,     ONLY: grad_fe_cell
-  USE mo_fortran_tools,      ONLY: var_scale
+  USE mo_fortran_tools,      ONLY: var_scale, var_add
 
   IMPLICIT NONE
 
@@ -227,7 +228,7 @@ CONTAINS
       ! call read_ext_data_atm to read O3
       ! topography is used from analytical functions, except for ljsbach=.TRUE. in which case
       ! elevation of cell centers is read in and the topography is "grown" gradually to this elevation
-      IF ( irad_o3 == io3_clim .OR. irad_o3 == io3_ape .OR. sstice_mode == 2 .OR. &
+      IF ( irad_o3 == io3_clim .OR. irad_o3 == io3_ape .OR. sstice_mode == SSTICE_CLIM .OR. &
          & echam_phy_config%ljsbach) THEN
         IF ( echam_phy_config%ljsbach .AND. (iequations /= inh_atmosphere) ) THEN
           CALL message( TRIM(routine),'topography is grown to elevation' )
@@ -487,7 +488,12 @@ CONTAINS
         ENDIF
       ENDIF
 
-
+      ! Check whether external parameter file contains SST climatology
+      IF ( sstice_mode == SSTICE_ANA_CLINC ) THEN
+        IF ( test_cdi_varID(cdi_extpar_id, 'SST_CL')  == -1 ) THEN
+          CALL finish(routine,'SST climatology SST_CL missing in '//TRIM(extpar_filename))
+        ENDIF
+      ENDIF
 
       ! Search for glacier fraction in Extpar file
       !
@@ -1047,6 +1053,14 @@ CONTAINS
 
           CALL read_cdi_2d(parameters, nmonths_ext(jg), 'NDVI_MRAT', ext_data(jg)%atm_td%ndvi_mrat)
 
+          IF (sstice_mode == SSTICE_ANA_CLINC) THEN
+            CALL read_cdi_2d(parameters, nmonths_ext(jg), 'SST_CL', ext_data(jg)%atm_td%sst_m)
+            ! transform from C to K
+!$OMP PARALLEL
+            CALL var_add(ext_data(jg)%atm_td%sst_m(:,:,:), tmelt)
+!$OMP END PARALLEL
+          ENDIF
+
           !--------------------------------
           ! If MODIS albedo is used
           !--------------------------------
@@ -1253,7 +1267,7 @@ CONTAINS
     !------------------------------------------
     ! Read time dependent SST and ICE Fraction
     !------------------------------------------
-    IF (sstice_mode == 2 .AND. iforcing == inwp) THEN
+    IF (sstice_mode == SSTICE_CLIM .AND. iforcing == inwp) THEN
 
       DO jg = 1,n_dom
        !Read the climatological values for SST and ice cover
@@ -2008,7 +2022,7 @@ CONTAINS
 
 
     INTEGER :: jc, jb               !< loop index
-    INTEGER :: i_startblk, i_endblk, i_nchdom
+    INTEGER :: i_startblk, i_endblk
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startidx, i_endidx
     INTEGER :: mo1, mo2             !< nearest months
@@ -2025,16 +2039,15 @@ CONTAINS
 
     zw1 = 1._wp - zw2
 
-    ! Get interpolated field
-    i_nchdom  = MAX(1,p_patch%n_childdom)
-
     ! exclude the boundary interpolation zone of nested domains
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = p_patch%cells%start_blk(rl_start)
+    i_endblk   = p_patch%cells%end_blk(rl_end)
 
+    ! Get interpolated field
+    !
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
     DO jb=i_startblk, i_endblk

@@ -2719,13 +2719,14 @@ sstice\_mode &
 I&
 1&
 &
-1: SST and sea ice fraction are read from the analysis and kept constant. The
-sea ice fraction can be modified by the seaice model.\\
-2: SST and sea ice fraction are updated daily, based on climatological monthly
+1: SST and sea ice fraction are read from the analysis. The SST is kept constant 
+whereas the sea ice fraction can be modified by the seaice model.\\
+2: SST and sea ice fraction are read from the analysis. The SST is updated by climatological 
+increments on a daily basis. The sea ice fraction can be modified by the seaice model.\\
+3: SST and sea ice fraction are updated daily, based on climatological monthly
 means\\
-3: SST and sea ice fraction are updated daily, based on actual monthly means\\
-4: SST and sea ice fraction are updated daily, based on actual daily means,
-\textcolor{red}{not yet implemented}&
+4: SST and sea ice fraction are updated daily, based on actual monthly means\\
+5: SST and sea ice fraction are updated daily, based on actual daily means (\textcolor{red}{not yet implemented})&
 iequations=3\\
 iforcing=3
 \tabularnewline
