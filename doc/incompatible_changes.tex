@@ -319,4 +319,13 @@
   \end{itemize}
 \end{changeitem}
 
+\begin{changeitem}{initicon\_nml}{2016-10-07}{29484}
+  \begin{itemize}
+   \item Namelist parameter \texttt{l\_sst\_in} has been removed. In case of init\_mode=2 (IFSINIT), 
+   sea points are now initialized with SST, if provided in the input file. Otherwise sea points are initialized 
+   with the skin temperature. The possibility to use the skin temperature despite having the SST available 
+   has been dropped.
+  \end{itemize}
+\end{changeitem}
+
 % --------------------------------------------------------------------------------------------
