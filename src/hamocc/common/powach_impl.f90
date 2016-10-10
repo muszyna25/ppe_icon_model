@@ -54,7 +54,7 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
   REAL(wp) :: undsa, posol 
   REAL(wp) :: umfa, bt, alk, c
   REAL(wp) :: ak1, ak2, akb, akw
-  REAL(wp) :: h, t1, t2, a, dadh, dddhhh, satlev
+  REAL(wp) :: h, t1, t2, a, satlev
   REAL(wp) :: AKSI,AKF,AKS,AK1P,AK2P,AK3P
    REAL(wp) :: sti,ft,sit,pt,ah1       ! Chr. Heinze [H+]
    REAL(wp) :: hso4,hf,hsi,hpo4
@@ -79,9 +79,11 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
 
 !!HAMOCC_OMP_PARALLEL
 !!HAMOCC_OMP_DO PRIVATE(j,bolven,undsa,sedb1,solrat,posol,umfa,&
-!!HAMOCC_OMP           aerob,anaerob,seddenit,ansulf,iter,k,bt,&
-!!HAMMOC_OMP           alk,c,ak1,ak2,akb,akw,h,t1,t2,a,dadh,dddhhh,&
-!!HAMOCC_OMP           satlev) HAMOCC_OMP_DEFAULT_SCHEDULE
+!!HAMOCC_OMP           aerob,anaerob,seddenit,ansulf,k,bt,&
+!!HAMMOC_OMP           alk,c,ak1,ak2,akb,akw,h,t1,t2,a,&
+!!HAMOCC_OMP           satlev,sti,ft,sit,&
+!!HAMOCC_OMP            pt,ah1,aks,akf,ak1p,ak2p,ak3p,aksi,iter, jit,&
+!!HAMOCC_OMP            hso4,hf,hpo4,ab,aw,ac,ah2o,ah2,erel) HAMOCC_OMP_DEFAULT_SCHEDULE
 
   DO j = start_idx, end_idx
      ! calculate bottom ventilation rate for scaling of sediment-water exchange
