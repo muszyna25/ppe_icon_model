@@ -92,7 +92,7 @@ END SUBROUTINE cyano
 
 
 
-SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_jerlov_pi)
+SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_dynamic_pi)
 !! @brief prognostic N2 fixation, cyanobacteria
 
       USE mo_biomod, ONLY         : cycdec, pi_alpha_cya,cya_growth_max,          &
@@ -121,7 +121,7 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_jerlov_pi)
       REAL(wp), INTENT(in) :: za(bgc_nproma)               !< potential temperature [deg C]
       REAL(wp), INTENT(in) :: ptiestu(bgc_nproma,bgc_zlevs) !< depth of scalar grid cell [m]
 
-      LOGICAL, INTENT(in) :: l_jerlov_pi
+      LOGICAL, INTENT(in) :: l_dynamic_pi
 
       !! Local variables
    
@@ -134,12 +134,12 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_jerlov_pi)
       REAL(wp) :: T_min_Topt,sgnT
       REAL(wp) :: xa_P, xa_fe, avnit,l_P,l_fe
       REAL(wp) :: xn_p,xn_fe
-      REAL(wp) :: jer_pi_alpha_cya
+      REAL(wp) :: dyn_pi_alpha_cya
    
 !HAMOCC_OMP_PARALLEL 
 !HAMOCC_OMP_DO PRIVATE(j,kpke,k,avcyabac,avanut,avanfe,avnit,l_fe,l_I,T_min_Topt,&
 !HAMOCC_OMP            sgnT,l_T,xa_p,l_P,xa_fe,pho_fe,pho_p,xn_p,xn_fe,pho,&
-!HAMOCC_OMP            cyapro,oldigasnit,xn,cyaloss) HAMOCC_OMP_DEFAULT_SCHEDULE
+!HAMOCC_OMP            cyapro,oldigasnit,xn,cyaloss,dyn_pi_alpha_cya) HAMOCC_OMP_DEFAULT_SCHEDULE
 
   DO j = start_idx, end_idx
   
@@ -156,12 +156,12 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho, ptiestu,l_jerlov_pi)
               avnit = MAX(0._wp,bgctra(j,k,iano3)/rnit)                 !available nitrate
                         
  
-              if (l_jerlov_pi)then
+              if (l_dynamic_pi)then
                  
-                   jer_pi_alpha_cya = pi_alpha_cya + 0.05_wp* ptiestu(j,k)/(ptiestu(j,k) + 90._wp) ! jerlov pi_alpha  
+                   dyn_pi_alpha_cya = pi_alpha_cya + 0.05_wp* ptiestu(j,k)/(ptiestu(j,k) + 90._wp) ! pi_alpha  
                    
-                   l_I = (jer_pi_alpha_cya*fPAR*strahl(j))*meanswr(j,k) &     ! light limitation
-                        /SQRT(cya_growth_max**2 + (jer_pi_alpha_cya**2)*(fPAR*strahl(j)*meanswr(j,k))**2) 
+                   l_I = (dyn_pi_alpha_cya*fPAR*strahl(j))*meanswr(j,k) &     ! light limitation
+                        /SQRT(cya_growth_max**2 + (dyn_pi_alpha_cya**2)*(fPAR*strahl(j)*meanswr(j,k))**2) 
 
               else
                    l_I = (pi_alpha_cya*fPAR*strahl(j))*swr_frac(j,k) &     ! light limitation

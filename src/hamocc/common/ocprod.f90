@@ -3,7 +3,7 @@
   !!
 #include "hamocc_omp_definitions.inc"
 
-  SUBROUTINE ocprod (klev,start_idx,end_idx, ptho,pddpo, za)
+  SUBROUTINE ocprod (klev,start_idx,end_idx, ptho,pddpo, za,ptiestu, l_dynamic_pi)
     
    USE mo_kind, ONLY           : wp
    
@@ -17,7 +17,7 @@
        &                        thresh_aerob, thresh_o2, prodn2o, & 
        &                        thresh_sred, dmsp, calmax
  
-   USE mo_carbch, ONLY         : satoxy, &
+   USE mo_carbch, ONLY         : satoxy, meanswr,&
        &                         bgctra, swr_frac, bgctend
 
 
@@ -45,6 +45,9 @@
     REAL(wp), INTENT(in), TARGET   :: pddpo(bgc_nproma,bgc_zlevs)      !< size of scalar grid cell (3rd dimension) [m]
 
     REAL(wp), INTENT(in), TARGET   :: za(bgc_nproma)      !< surface height
+    REAL(wp), INTENT(in) :: ptiestu(bgc_nproma,bgc_zlevs) !< depth of scalar grid cell [m]
+
+    LOGICAL, INTENT(in) :: l_dynamic_pi
 
    !  Local variables
 
@@ -105,13 +108,20 @@
 
 
        ! phytoplankton growth
-       phofa = pi_alpha*fPAR*strahl(j)*swr_frac(j,k)
+      if(l_dynamic_pi)then
+         phofa=(pi_alpha + 0.05_wp*ptiestu(j,k)/(ptiestu(j,k)+90._wp)) &
+     &            *fPAR*strahl(j)*meanswr(j,k)
+   
+      else
+       phofa = pi_alpha*fPAR*strahl(j)*meanswr(j,k)
+      endif
        temfa = 0.6_wp * 1.066_wp**ptho(j,k)
        pho   = dtb*phofa*temfa/SQRT(phofa**2 + temfa**2)
 
        xa    = avanfe
        xn    = xa / (1._wp + pho*avphy / (xa+bkphy) )                ! bkphy = half saturation constant
        phosy = MAX(0._wp, xa-xn)                                     ! photosynthesis
+       if(pho < 0.000001_wp)phosy=0._wp 
 
        ! zooplankton growth, phy grazing
        ya    = avphy + phosy                                         ! new phytoplankton concentration before grazing
