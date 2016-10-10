@@ -571,12 +571,14 @@ MODULE mo_nh_stepping
 
   TYPE(timedelta), POINTER             :: model_time_step => NULL()
 
-  TYPE(datetime), POINTER              :: eventRefDate    => NULL(), &
-    &                                     eventStartDate  => NULL(), &
-    &                                     eventEndDate    => NULL()
-  TYPE(timedelta), POINTER             :: eventInterval   => NULL()
-  TYPE(event), POINTER                 :: checkpointEvent => NULL()
-  TYPE(event), POINTER                 :: restartEvent    => NULL()
+  TYPE(datetime), POINTER              :: eventRefDate      => NULL(), &
+       &                                  eventStartDate    => NULL(), &
+       &                                  eventEndDate      => NULL()
+  TYPE(datetime), POINTER              :: checkpointRefDate => NULL(), &
+       &                                  restartRefDate    => NULL()
+  TYPE(timedelta), POINTER             :: eventInterval     => NULL()
+  TYPE(event), POINTER                 :: checkpointEvent   => NULL()
+  TYPE(event), POINTER                 :: restartEvent      => NULL()
 
   INTEGER                              :: checkpointEvents
   LOGICAL                              :: lret
@@ -668,6 +670,18 @@ MODULE mo_nh_stepping
   eventStartDate => time_config%tc_exp_startdate
   eventEndDate   => time_config%tc_exp_stopdate
 
+  ! for debugging purposes the referenece (anchor) date for checkpoint
+  ! and restart may be switched to be relative to current jobs start
+  ! date instead of the experiments start date.
+
+  IF (time_config%is_relative_time) THEN
+    checkpointRefDate => time_config%tc_startdate
+    restartRefDate    => time_config%tc_startdate
+  ELSE
+    checkpointRefDate => time_config%tc_exp_startdate
+    restartRefDate    => time_config%tc_exp_startdate
+  ENDIF
+
   ! create an event manager, ie. a collection of different events
   CALL initEventManager(time_config%tc_exp_refdate)
 
@@ -677,17 +691,17 @@ MODULE mo_nh_stepping
 
   ! --- --- create checkpointing event
   eventInterval  => time_config%tc_dt_checkpoint
-  checkpointEvent => newEvent('checkpoint', eventRefDate, eventStartDate, eventEndDate, eventInterval, errno=ierr)
+  checkpointEvent => newEvent('checkpoint', checkpointRefDate, eventStartDate, eventEndDate, eventInterval, errno=ierr)
   IF (ierr /= no_Error) THEN
     ! give an elaborate error message:
-    CALL datetimeToString(eventRefDate,   dt_string)
-    WRITE (0,*) "event reference date: ", dt_string
-    CALL datetimeToString(eventStartDate, dt_string)
-    WRITE (0,*) "event start date    : ", dt_string
-    CALL datetimeToString(eventEndDate,   dt_string)
-    WRITE (0,*) "event end date      : ", dt_string
-    CALL timedeltaToString(eventInterval, td_string)
-    WRITE (0,*) "event interval      : ", td_string
+    CALL datetimeToString(checkpointRefDate, dt_string)
+    WRITE (0,*) "event reference date: ",    dt_string
+    CALL datetimeToString(eventStartDate,    dt_string)
+    WRITE (0,*) "event start date    : ",    dt_string
+    CALL datetimeToString(eventEndDate,      dt_string)
+    WRITE (0,*) "event end date      : ",    dt_string
+    CALL timedeltaToString(eventInterval,    td_string)
+    WRITE (0,*) "event interval      : ",    td_string
     CALL mtime_strerror(ierr, errstring)
     CALL finish('perform_nh_timeloop', "event 'checkpoint': "//errstring)
   ENDIF
@@ -695,10 +709,10 @@ MODULE mo_nh_stepping
 
   ! --- --- create restart event, ie. checkpoint + model stop
   eventInterval  => time_config%tc_dt_restart
-  restartEvent => newEvent('restart', eventRefDate, eventStartDate, eventEndDate, eventInterval, errno=ierr)
+  restartEvent => newEvent('restart', restartRefDate, eventStartDate, eventEndDate, eventInterval, errno=ierr)
   IF (ierr /= no_Error) THEN
     ! give an elaborate error message:
-    CALL datetimeToString(eventRefDate,   dt_string)
+    CALL datetimeToString(restartRefDate, dt_string)
     WRITE (0,*) "event reference date: ", dt_string
     CALL datetimeToString(eventStartDate, dt_string)
     WRITE (0,*) "event start date    : ", dt_string
@@ -1173,13 +1187,13 @@ MODULE mo_nh_stepping
        CALL prefetch_input( mtime_current, p_patch(1), p_int_state(1), p_nh_state(1))
     ENDIF
 
-    IF (mtime_current >= time_config%tc_stopdate) then
+    IF (mtime_current >= time_config%tc_stopdate) THEN
 #ifdef _MTIME_DEBUG       
        ! consistency check: compare step counter to expected end step
-       if (jstep /= (jstep0+nsteps)) then
-          call finish(routine, 'Step counter does not match expected end step: '//int2string(jstep,'(i0)')&
+       IF (jstep /= (jstep0+nsteps)) THEN
+          CALL finish(routine, 'Step counter does not match expected end step: '//int2string(jstep,'(i0)')&
                &//' /= '//int2string((jstep0+nsteps),'(i0)'))
-       end if
+       END IF
 #endif
        ! leave time loop
        EXIT TIME_LOOP
@@ -1776,7 +1790,7 @@ MODULE mo_nh_stepping
         ENDIF !iforcing
 
 #ifdef MESSY
-        call messy_physc(jg)
+        CALL messy_physc(jg)
 #endif
 
       ENDIF  ! itime_scheme

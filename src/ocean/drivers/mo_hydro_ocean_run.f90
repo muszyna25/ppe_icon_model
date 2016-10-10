@@ -204,9 +204,16 @@ CONTAINS
       & routine = 'mo_hydro_ocean_run:perform_ho_stepping'
 
     TYPE(eventGroup), POINTER           :: checkpointEventGroup => NULL()
+
     TYPE(timedelta), POINTER            :: model_time_step => NULL()
-    TYPE(datetime), POINTER             :: mtime_current   => NULL()
-    TYPE(datetime), POINTER             :: eventRefDate    => NULL(), eventStartDate  => NULL(), eventEndDate    => NULL()
+
+    TYPE(datetime), POINTER             :: mtime_current     => NULL()
+    TYPE(datetime), POINTER             :: eventRefDate      => NULL(), &
+         &                                 eventStartDate    => NULL(), &
+         &                                 eventEndDate      => NULL()
+    TYPE(datetime), POINTER             :: checkpointRefDate => NULL(), &
+         &                                 restartRefDate    => NULL()
+
     TYPE(timedelta), POINTER            :: eventInterval   => NULL()
     TYPE(event), POINTER                :: checkpointEvent => NULL()
     TYPE(event), POINTER                :: restartEvent    => NULL()
@@ -252,13 +259,18 @@ CONTAINS
     eventStartDate => time_config%tc_exp_startdate
     eventEndDate   => time_config%tc_exp_stopdate
 
-    ! use start/end setup from the restart
-    IF (isRestart() .AND. time_config%is_relative_time) THEN
-      eventRefDate   => time_config%tc_startdate
-      eventStartDate => time_config%tc_startdate
-      eventEndDate   => time_config%tc_stopdate
+    ! for debugging purposes the referenece (anchor) date for checkpoint
+    ! and restart may be switched to be relative to current jobs start
+    ! date instead of the experiments start date.
+    
+    IF (time_config%is_relative_time) THEN
+      checkpointRefDate => time_config%tc_startdate
+      restartRefDate    => time_config%tc_startdate
+    ELSE
+      checkpointRefDate => time_config%tc_exp_startdate
+      restartRefDate    => time_config%tc_exp_startdate
     ENDIF
-
+    
     ! create an event manager, ie. a collection of different events
     CALL initEventManager(time_config%tc_exp_refdate)
 
@@ -268,7 +280,7 @@ CONTAINS
     
     ! --- --- create checkpointing event
     eventInterval  => time_config%tc_dt_checkpoint
-    checkpointEvent => newEvent('checkpoint', eventRefDate, eventStartDate, eventEndDate, eventInterval, errno=ierr)
+    checkpointEvent => newEvent('checkpoint', checkpointRefDate, eventStartDate, eventEndDate, eventInterval, errno=ierr)
     IF (ierr /= no_Error) THEN
        CALL mtime_strerror(ierr, errstring)
        CALL finish('perform_ho_timeloop', errstring)
@@ -277,7 +289,7 @@ CONTAINS
 
     ! --- --- create restart event, ie. checkpoint + model stop
     eventInterval  => time_config%tc_dt_restart
-    restartEvent => newEvent('restart', eventRefDate, eventStartDate, eventEndDate, eventInterval, errno=ierr)
+    restartEvent => newEvent('restart', restartRefDate, eventStartDate, eventEndDate, eventInterval, errno=ierr)
     IF (ierr /= no_Error) THEN
        CALL mtime_strerror(ierr, errstring)
        CALL finish('perform_ho_timeloop', errstring)
