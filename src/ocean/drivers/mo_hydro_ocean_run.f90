@@ -224,6 +224,8 @@ CONTAINS
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)    :: dstring
     CHARACTER(len=MAX_MTIME_ERROR_STR_LEN) :: errstring
 
+    LOGICAL :: l_isStartdate, l_isExpStopdate, l_isRestart, l_isCheckpoint, l_doWriteRestart
+    
     !------------------------------------------------------------------
 
     patch_2d      => patch_3d%p_patch_2d(1)
@@ -556,26 +558,33 @@ CONTAINS
       ! update intermediate timestepping variables for the tracers
       CALL update_time_g_n(ocean_state(jg))
 
-!       CALL message('','')
-      ! trigger creation of a restart file ...
-      lwrite_checkpoint = .FALSE.      
-      IF ( &
-           !   ... CASE A: if normal checkpoint cycle has been reached ...
-           &       isCurrentEventActive(checkpointEvent, mtime_current)               &
-           !          or restart cycle has been reached, i.e. checkpoint+model stop
-           & .OR.  isCurrentEventActive(restartEvent, mtime_current)) THEN
-        lwrite_checkpoint = .TRUE.
-      ENDIF
-      
-      ! if this is the first timestep (it cannot occur), or output is disabled, do not write the restart
-      IF ( (time_config%tc_startdate == mtime_current) .OR. output_mode%l_none ) THEN
-        lwrite_checkpoint = .FALSE.
-      ENDIF
-
-!       CALL message('','')
-      
-      ! write a restart or checkpoint file
-!      IF (MOD(jstep,n_checkpoints())==0) THEN
+      ! check whether time has come for writing restart file
+      ! default is to assume we do not write a checkpoint/restart file
+      lwrite_checkpoint = .FALSE.
+      ! if thwe model is not supposed to write output, do not write checkpoints
+      IF (.NOT. output_mode%l_none ) THEN
+        ! to clarify the decision tree we use shorter and more expressive names:
+        
+        l_isStartdate    = (time_config%tc_startdate == mtime_current)
+        l_isExpStopdate  = (time_config%tc_exp_stopdate == mtime_current)
+        l_isRestart      = isCurrentEventActive(restartEvent, mtime_current)
+        l_isCheckpoint   = isCurrentEventActive(checkpointEvent, mtime_current)
+        l_doWriteRestart = time_config%tc_write_restart
+        
+        IF ( &
+             !  if normal checkpoint or restart cycle has been reached, i.e. checkpoint+model stop
+             &         (l_isRestart .OR. l_isCheckpoint)                     &
+             &  .AND.                                                        &
+             !  and the current date differs from the start date
+             &        .NOT. l_isStartdate                                    &
+             &  .AND.                                                        &
+             !  and end of run has not been reached or restart writing has been disabled
+             &        (.NOT. l_isExpStopdate .OR. l_doWriteRestart)          &
+             & ) THEN
+          lwrite_checkpoint = .TRUE.
+        END IF
+      END IF
+    
       IF (lwrite_checkpoint) THEN
         CALL create_restart_file( patch = patch_2d,       &
              & current_date=mtime_current, &
