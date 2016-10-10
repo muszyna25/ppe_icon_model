@@ -10,11 +10,12 @@
 ! 
    USE mo_kind, ONLY        : wp
 
-   USE mo_carbch, ONLY      : ak13, ak23, akb3, akw3, aksp
+   USE mo_carbch, ONLY      : ak13, ak23, akb3, akw3, aksp,               &
+        &                     aks3,akf3,ak1p3,ak2p3,ak3p3,aksi3          
    USE mo_sedmnt, ONLY      : sedlay, sedhpl, seddw, silpro,              &
         &                     powtra, prcaca, prorca, produs,             &
         &                     pown2bud, powh2obud, sred_sed,              &
-        &                     porsol, pors2w, calcon,               &
+        &                     porsol, pors2w, calcon,                     &
         &                     disso_op, disso_cal,  ks, o2thresh,         &
         &                     sedtend, isremins, isremino, isreminn,      &
         &                     silsat
@@ -51,11 +52,15 @@
    REAL(wp) :: powcar(ks)
 
    REAL(wp) :: o2lim          ! o2-limitation of processes in suboxic water
-
-      REAL(wp) :: undsa, posol, pomax
-      REAL(wp) :: umfa,denit,bt,alk,c
-      REAL(wp) :: ak1,ak2,akb,akw
-      REAL(wp) :: h,t1,t2,a,dadh,dddhhh,satlev
+   REAL(wp) :: undsa, posol, pomax
+   REAL(wp) :: umfa,denit,bt,alk,c
+   REAL(wp) :: ak1,ak2,akb,akw
+   REAL(wp) :: h,a,satlev
+   REAL(wp) :: AKSI,AKF,AKS,AK1P,AK2P,AK3P
+   REAL(wp) :: sti,ft,sit,pt,ah1       ! Chr. Heinze [H+]
+   REAL(wp) :: hso4,hf,hsi,hpo4
+   REAL(wp) :: ab,aw,ac,ah2o,ah2,erel,pco2_ch
+   INTEGER  :: jit
 
 
 
@@ -63,8 +68,12 @@
 !          
 !HAMOCC_OMP_PARALLEL
 !HAMOCC_OMP_DO PRIVATE(j,k,o2lim,pomax,posol,orgsed,sssnew,&
-!HAMOCC_OMP           undsa,iter,bt,alk,c,ak1,ak2,akb,akw,h,t1,&
-!HAMOCC_OMP           t2,a,dadh,dddhhh,satlev,powcar) HAMOCC_OMP_DEFAULT_SCHEDULE
+!HAMOCC_OMP           undsa,iter,bt,alk,c,ak1,ak2,akb,akw,h,&
+!HAMOCC_OMP           a,satlev,powcar,sti,ft,sit,&
+!HAMOCC_OMP           pt,ah1,aks,akf,ak1p,ak2p,ak3p,aksi,iter, jit,&
+!HAMOCC_OMP           hso4,hf,hpo4,ab,aw,ac,ah2o,ah2,erel,ah2) HAMOCC_OMP_DEFAULT_SCHEDULE
+
+
     Do j = start_idx, end_idx
 
          IF(bolay(j) > 0._wp) THEN
@@ -221,30 +230,67 @@
          ENDIF
 
 
-  ! as we have sedhpl ( code number 50) in the restart file one iteration is enough
-      DO ITER=1,1
-      DO  k=1,ks
+      DO k = 1, ks
+
          IF((bolay(j).GT.0._wp).and.(pddpo(j,1)>0.5_wp)) THEN
-            bt=rrrcl*psao(j,kbo(j))
-            alk=powtra(j,k,ipowaal)
-            c=powtra(j,k,ipowaic)
-            ak1=ak13(j,kbo(j))
-            ak2=ak23(j,kbo(j))
-            akb=akb3(j,kbo(j))
-            akw=akw3(j,kbo(j))
-            h=sedhpl(j,k)
-            t1=h/ak1
-            t2=h/ak2
-            a=c*(2._wp+t2)/(1._wp+t2+t2*t1)  +akw/h-h+bt/(1._wp + h/akb)-alk
-            dadh=c*( 1._wp/(ak2*(1._wp+t2+t2*t1))-(2._wp+t2)*(1._wp/ak2+2._wp*t1/ak2)/  &
-     &          (1._wp+t2+t2*t1)**2)                                        &
-     &          -akw/h**2-1._wp-(bt/akb)/(1._wp+h/akb)**2
-            dddhhh=a/dadh
-            sedhpl(j,k) = MAX(h - dddhhh, 1.e-11_wp)
-            powcar(k) = c / (1._wp + t2 * (1._wp + t1))
-         ENDIF
-      ENDDO
-      ENDDO
+
+               bt = rrrcl*psao(j,kbo(j))
+             ! sulfate Morris & Riley (1966)
+               sti   = 0.14_wp *  psao(j,kbo(j))*1.025_wp/1.80655_wp  / 96.062_wp
+             ! fluoride Riley (1965)
+               ft    = 0.000067_wp * psao(j,kbo(j))*1.025_wp/1.80655_wp / 18.9984_wp
+
+               sit   = powtra(j,k,ipowasi) 
+               pt    = powtra(j,k,ipowaph)
+
+               alk  = powtra(j,k,ipowaal) 
+               c    = powtra(j,k,ipowaic) 
+
+               ak1  = ak13(j,kbo(j))
+               ak2  = ak23(j,kbo(j))
+               akb  = akb3(j,kbo(j))
+               akw  = akw3(j,kbo(j))
+               ah1  = sedhpl(j,k)
+               aks  = aks3(j,kbo(j))
+               akf  = akf3(j,kbo(j))
+               ak1p = ak1p3(j,kbo(j))
+               ak2p = ak2p3(j,kbo(j))
+               ak3p = ak3p3(j,kbo(j))
+               aksi = aksi3(j,kbo(j)) 
+
+               iter  = 0
+               DO jit = 1,20
+
+                    hso4 = sti / ( 1._wp + aks / ( ah1 / ( 1._wp + sti / aks ) ))
+                    hf   = 1._wp / ( 1._wp + akf / ah1 )
+                    hsi  = 1._wp/ ( 1._wp + ah1 / aksi )
+                    hpo4 = ( ak1p * ak2p * ( ah1 + 2._wp * ak3p ) - ah1**3 ) /& 
+               &        ( ah1**3 + ak1p * ah1**2 + ak1p * ak2p * ah1 + ak1p *ak2p *ak3p )
+                    ab   = bt / ( 1._wp + ah1 / akb )
+                    aw   = akw / ah1 - ah1 / ( 1._wp + sti / aks )
+                    ac   = alk + hso4 - sit * hsi - ab - aw + ft * hf - pt *hpo4
+                    ah2o = SQRT( ( c - ac )**2 + 4._wp * ( ac * ak2 / ak1 ) * (2._wp *c - ac ) )
+                    ah2  = 0.5_wp * ak1 / ac *( ( c - ac ) + ah2o )
+                    erel = ( ah2 - ah1 ) / ah2
+
+                    if (abs( erel ).ge.5.e-5_wp) then
+                      ah1 = ah2
+                      iter = iter + 1
+                    else
+                      ah1 = ah2
+                     exit
+                    endif
+               ENDDO
+
+               if(ah1.gt.0._wp) then 
+                 sedhpl(j,k)=max(1.e-20_wp,ah1)
+               endif
+
+                 powcar(k)  = c / (1._wp + sedhpl(j,k)/ak1 * (1._wp + sedhpl(j,k)/ak2))
+              ENDIF
+          END DO
+      
+
 
 ! Evaluate boundary conditions for sediment-water column exchange.
 ! Current undersaturation of bottom water: sedb(i,0) and

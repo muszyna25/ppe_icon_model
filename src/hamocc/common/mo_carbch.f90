@@ -43,6 +43,12 @@ MODULE mo_carbch
   REAL(wp), ALLOCATABLE :: akb3(:,:)
   REAL(wp), ALLOCATABLE :: ak13(:,:)
   REAL(wp), ALLOCATABLE :: ak23(:,:)
+  REAL(wp), ALLOCATABLE :: aks3(:,:)
+  REAL(wp), ALLOCATABLE :: akf3(:,:)
+  REAL(wp), ALLOCATABLE :: ak1p3(:,:)
+  REAL(wp), ALLOCATABLE :: ak2p3(:,:)
+  REAL(wp), ALLOCATABLE :: ak3p3(:,:)
+  REAL(wp), ALLOCATABLE :: aksi3(:,:)
   REAL(wp), ALLOCATABLE :: satoxy(:,:)
   REAL(wp), ALLOCATABLE :: satn2(:)
   REAL(wp), ALLOCATABLE :: satn2o(:)
@@ -124,6 +130,24 @@ CONTAINS
     ALLOCATE (aksp(bgc_nproma,bgc_zlevs))
     aksp(:,:) = rmasko
 
+    ALLOCATE (aks3(bgc_nproma,bgc_zlevs))
+    aks3(:,:) = rmasko
+
+    ALLOCATE (akf3(bgc_nproma,bgc_zlevs))
+    akf3(:,:) = rmasko
+
+    ALLOCATE (ak1p3(bgc_nproma,bgc_zlevs))
+    ak1p3(:,:) = rmasko
+
+    ALLOCATE (ak2p3(bgc_nproma,bgc_zlevs))
+    ak2p3(:,:) = rmasko
+
+    ALLOCATE (ak3p3(bgc_nproma,bgc_zlevs))
+    ak3p3(:,:) = rmasko
+
+    ALLOCATE (aksi3(bgc_nproma,bgc_zlevs))
+    aksi3(:,:) = rmasko
+
     ALLOCATE (ak23(bgc_nproma,bgc_zlevs))
 
     ALLOCATE (ak13(bgc_nproma,bgc_zlevs))
@@ -135,7 +159,7 @@ CONTAINS
     swr_frac=1._wp
     ALLOCATE (meanswr(bgc_nproma,bgc_zlevs))
     meanswr=0._wp
-    ALLOCATE (aksurf(bgc_nproma,4))
+    ALLOCATE (aksurf(bgc_nproma,10))
      aksurf(:,:) = rmasko
     ALLOCATE (atm(bgc_nproma,natm))
     ALLOCATE (atdifv(bgc_nproma))

@@ -11,7 +11,9 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
   USE mo_kind, ONLY        : wp
 
   USE mo_carbch, ONLY      : bgctra, bgctend, satoxy,                     &
-       &                     ak13, ak23, akb3, akw3, aksp, co3
+       &                     ak13, ak23, akb3, akw3, aksp, co3,           &
+       &                     aks3,akf3,ak1p3,ak2p3,ak3p3,aksi3
+
 
   USE mo_sedmnt, ONLY      : sedlay, sedhpl, seddw, silpro, produs,      &
        &                     powtra, prcaca, prorca,              &
@@ -53,6 +55,11 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
   REAL(wp) :: umfa, bt, alk, c
   REAL(wp) :: ak1, ak2, akb, akw
   REAL(wp) :: h, t1, t2, a, dadh, dddhhh, satlev
+  REAL(wp) :: AKSI,AKF,AKS,AK1P,AK2P,AK3P
+   REAL(wp) :: sti,ft,sit,pt,ah1       ! Chr. Heinze [H+]
+   REAL(wp) :: hso4,hf,hsi,hpo4
+   REAL(wp) :: ab,aw,ac,ah2o,ah2,erel,pco2_ch
+   INTEGER  :: jit
 
   !
   REAL(wp) :: bolven
@@ -277,36 +284,70 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
      !
      ! COMPUTE NEW POWCAR=CARBONATE ION CONCENTRATION IN THE SEDIMENT
      ! FROM CHANGED ALKALINITY (NITRATE PRODUCTION DURING REMINERALISATION)
-     ! AND DIC GAIN. ITERATE 5 TIMES. THIS CHANGES PH (SEDHPL) OF SEDIMENT.
-
-     DO iter = 1, 5
+     ! AND DIC GAIN. THIS CHANGES PH (SEDHPL) OF SEDIMENT.
 
         DO k = 1, ks
 
-              IF (bolay(j) > 0._wp) THEN
-                 bt = rrrcl*psao(j,kbo(j))
-                 !alkalinity is increased during denitrification due to consumption of H+ via NO3 (see Wolf-Gladrow etal,2007)
-                 alk  = powtra(j,k,ipowaal) -( -ansulf(k)  +aerob(k))*rnit + nitdem*anaerob(k)
-                 c    = powtra(j,k,ipowaic) +(anaerob(k) +aerob(k) + ansulf(k))*rcar
-                 ak1  = ak13(j,kbo(j))
-                 ak2  = ak23(j,kbo(j))
-                 akb  = akb3(j,kbo(j))
-                 akw  = akw3(j,kbo(j))
-                 h    = sedhpl(j,k)
-                 t1   = h/ak1
-                 t2   = h/ak2
-                 a    = c*(2._wp+t2)/(1._wp+t2+t2*t1) + akw/h-h + bt/(1._wp + h/akb) - alk
-                 dadh = c*( 1._wp/(ak2*(1._wp+t2+t2*t1))-(2._wp+t2)*(1._wp/ak2+2._wp*t1/ak2)/  &
-                      &          (1._wp+t2+t2*t1)**2)                                        &
-                      &          -akw/h**2-1._wp-(bt/akb)/(1._wp+h/akb)**2
-                 dddhhh = a/dadh
-                 sedhpl(j,k) = MAX(h - dddhhh, 1.e-11_wp)
-                 powcar(k)  = c / (1._wp + t2 * (1._wp + t1))
+         IF((bolay(j).GT.0._wp)) THEN
+
+               bt = rrrcl*psao(j,kbo(j))
+             ! sulfate Morris & Riley (1966)
+               sti   = 0.14_wp *  psao(j,kbo(j))*1.025_wp/1.80655_wp  / 96.062_wp
+             ! fluoride Riley (1965)
+               ft    = 0.000067_wp * psao(j,kbo(j))*1.025_wp/1.80655_wp / 18.9984_wp
+
+               sit   = powtra(j,k,ipowasi) 
+               pt    = powtra(j,k,ipowaph)
+
+               alk  = powtra(j,k,ipowaal) -( -ansulf(k)  +aerob(k))*rnit + nitdem*anaerob(k)
+               c    = powtra(j,k,ipowaic) +(anaerob(k) +aerob(k) + ansulf(k))*rcar
+
+               ak1  = ak13(j,kbo(j))
+               ak2  = ak23(j,kbo(j))
+               akb  = akb3(j,kbo(j))
+               akw  = akw3(j,kbo(j))
+               ah1  = sedhpl(j,k)
+               aks  = aks3(j,kbo(j))
+               akf  = akf3(j,kbo(j))
+               ak1p = ak1p3(j,kbo(j))
+               ak2p = ak2p3(j,kbo(j))
+               ak3p = ak3p3(j,kbo(j))
+               aksi = aksi3(j,kbo(j)) 
+
+               iter  = 0
+               DO jit = 1,20
+
+                    hso4 = sti / ( 1._wp + aks / ( ah1 / ( 1._wp + sti / aks ) ))
+                    hf   = 1._wp / ( 1._wp + akf / ah1 )
+                    hsi  = 1._wp/ ( 1._wp + ah1 / aksi )
+                    hpo4 = ( ak1p * ak2p * ( ah1 + 2._wp * ak3p ) - ah1**3 ) /& 
+               &        ( ah1**3 + ak1p * ah1**2 + ak1p * ak2p * ah1 + ak1p *ak2p *ak3p )
+                    ab   = bt / ( 1._wp + ah1 / akb )
+                    aw   = akw / ah1 - ah1 / ( 1._wp + sti / aks )
+                    ac   = alk + hso4 - sit * hsi - ab - aw + ft * hf - pt *hpo4
+                    ah2o = SQRT( ( c - ac )**2 + 4._wp * ( ac * ak2 / ak1 ) * (2._wp *c - ac ) )
+                    ah2  = 0.5_wp * ak1 / ac *( ( c - ac ) + ah2o )
+                    erel = ( ah2 - ah1 ) / ah2
+
+                    if (abs( erel ).ge.5.e-5_wp) then
+                      ah1 = ah2
+                      iter = iter + 1
+                    else
+                      ah1 = ah2
+                     exit
+                    endif
+               ENDDO
+
+               if(ah1.gt.0._wp) then 
+                 sedhpl(j,k)=max(1.e-20_wp,ah1)
+               endif
+
+                 powcar(k)  = c / (1._wp + sedhpl(j,k)/ak1 * (1._wp + sedhpl(j,k)/ak2))
               ENDIF
+          END DO
 
-           END DO
 
-     END DO
+     
 
      ! Evaluate boundary conditions for sediment-water column exchange.
      ! Current undersaturation of bottom water: sedb(i,0) and
