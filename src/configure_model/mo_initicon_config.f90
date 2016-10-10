@@ -24,13 +24,10 @@ MODULE mo_initicon_config
     &                              MODE_IAU, MODE_IAU_OLD, MODE_ICONVREMAP
   USE mo_grid_config,        ONLY: l_limited_area
   USE mo_time_config,        ONLY: time_config
-  USE mo_datetime,           ONLY: t_datetime
   USE mtime,                 ONLY: timedelta, newTimedelta, deallocateTimedelta,     &
-    &                              max_timedelta_str_len, datetime, newDatetime,     &
-    &                              deallocateDatetime, OPERATOR(+),                  &
+    &                              max_timedelta_str_len, datetime, OPERATOR(+),     &
     &                              MAX_DATETIME_STR_LEN, OPERATOR(<=), OPERATOR(>=), &
     &                              getPTStringFromSeconds
-  USE mo_mtime_extensions,   ONLY: get_datetime_string
   USE mo_parallel_config,    ONLY: num_prefetch_proc
   USE mo_exception,          ONLY: finish, message_text, message
 
@@ -214,8 +211,6 @@ CONTAINS
     TYPE(timedelta), POINTER             :: mtime_shift_local, td_start_time_avg_fg, td_end_time_avg_fg
     CHARACTER(len=max_timedelta_str_len) :: str_start_time_avg_fg, str_end_time_avg_fg
     !
-    TYPE(datetime), POINTER              :: inidatetime          ! in mtime format
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: iso8601_ini_datetime ! ISO_8601
 
     REAL(wp)                             :: zdt_shift            ! rounded dt_shift
     !
@@ -285,22 +280,16 @@ CONTAINS
     !
     ! transform end_time_avg_fg, start_time_avg_fg to mtime format
     !
-    ! create model ini_datetime in ISO_8601 format
-    CALL get_datetime_string(iso8601_ini_datetime, time_config%ini_datetime)
-    !
-    ! convert model ini datetime from ISO_8601 format to type datetime
-    inidatetime => newDatetime(TRIM(iso8601_ini_datetime))
-    !
     ! get start and end datetime in mtime-format
     CALL getPTStringFromSeconds(start_time_avg_fg, str_start_time_avg_fg)
     td_start_time_avg_fg => newTimedelta(str_start_time_avg_fg)
     CALL getPTStringFromSeconds(end_time_avg_fg, str_end_time_avg_fg)
     td_end_time_avg_fg   => newTimedelta(str_end_time_avg_fg)
     !
-    startdatetime_avgFG = inidatetime + td_start_time_avg_fg
-    enddatetime_avgFG   = inidatetime + td_end_time_avg_fg
+    startdatetime_avgFG = time_config%tc_startdate + td_start_time_avg_fg
+    enddatetime_avgFG   = time_config%tc_startdate + td_end_time_avg_fg
     !
-    ! get start and end datetime in ISO_8601 format relative to inidatetime
+    ! get start and end datetime in ISO_8601 format relative to "tc_startdate"
     ! start time
     CALL getPTStringFromSeconds(start_time_avg_fg, iso8601_start_timedelta_avg_fg)
     ! end time
@@ -325,9 +314,6 @@ CONTAINS
     ! transform averaging interval to ISO_8601 format
     !
     CALL getPTStringFromSeconds(interval_avg_fg, iso8601_interval_avg_fg)
-
-    ! cleanup
-    CALL deallocateDatetime(inidatetime)
 
   END SUBROUTINE configure_initicon
 
@@ -366,30 +352,13 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2014-12-17)
   !!
-  FUNCTION is_avgFG_time(cur_datetime)
-    TYPE(t_datetime), INTENT(INOUT)  :: cur_datetime
-
-    ! local variables
-    TYPE(datetime), POINTER :: curdatetime     ! current datetime in mtime format
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: iso8601_cur_datetime ! ISO_8601
-
-    LOGICAL :: is_avgFG_time
-    !---------------------------------------------------------------------
-
-    ! create model cur_datetime in ISO_8601 format
-    CALL get_datetime_string(iso8601_cur_datetime, cur_datetime)
-
-    !
-    ! convert model cur_datetime from ISO_8601 format to type datetime
-    curdatetime  => newDatetime(TRIM(iso8601_cur_datetime))
+  LOGICAL FUNCTION is_avgFG_time(curdatetime)
+    TYPE(datetime), POINTER :: curdatetime     !< current datetime in mtime format
 
     ! check whether startdatetime_avgFG <= curdatetime <= enddatetime_avgFG
     !
     is_avgFG_time = (curdatetime >= startdatetime_avgFG) .AND.              &
                     (curdatetime <= enddatetime_avgFG    .AND. lcalc_avg_fg )
-
-    ! cleanup
-    CALL deallocateDatetime(curdatetime)
 
   END FUNCTION is_avgFG_time
 

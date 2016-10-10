@@ -54,7 +54,7 @@
 !
 MODULE mo_psrad_radiation
 
-  USE mo_kind,            ONLY: wp
+  USE mo_kind,            ONLY: wp, i8
   USE mo_model_domain,    ONLY: t_patch
   USE mo_physical_constants,       ONLY: rae
   USE mo_exception,       ONLY: finish, message, message_text, print_value
@@ -73,7 +73,6 @@ MODULE mo_psrad_radiation
 !       &                        previous_date, radiation_date,                &
 !       &                        prev_radiation_date,get_date_components,      &
 !       &                        lresume, lstart, get_month_len
-  USE mo_datetime,        ONLY: t_datetime
   USE mo_psrad_orbit,     ONLY: orbit_kepler, orbit_vsop87, &
                               & get_orbit_times
   USE mo_psrad_orbit_nml, ONLY: read_psrad_orbit_namelist
@@ -153,6 +152,8 @@ MODULE mo_psrad_radiation
   USE mo_psrad_spec_sampling, ONLY : set_spec_sampling_lw, set_spec_sampling_sw, get_num_gpoints
   USE mo_psrad_orbit_config,  ONLY : psrad_orbit_config
 
+  USE mtime, ONLY: datetime
+  
   IMPLICIT NONE
   
   PRIVATE
@@ -161,24 +162,25 @@ MODULE mo_psrad_radiation
 
   CONTAINS
 
-  SUBROUTINE pre_psrad_radiation( p_patch,         datetime_radiation,        &
-                                & datetime,        ltrig_rad,                 &
-                                & amu0_x,          rdayl_x,                   &
-                                & amu0m_x,         rdaylm_x                   )
+  SUBROUTINE pre_psrad_radiation( p_patch,          datetime_radiation, &
+                                & current_datetime, ltrig_rad,          &
+                                & amu0_x,           rdayl_x,            &
+                                & amu0m_x,          rdaylm_x            )
   !-----------------------------------------------------------------------------
   !>
   !! @brief Prepares information for radiation call
   !
 
-    TYPE(t_patch), INTENT(IN)        :: p_patch
-    TYPE(t_datetime), INTENT(IN)     :: datetime_radiation, & !< date and time of radiative transfer calculation
-                                      & datetime !< current time step
-    LOGICAL         , INTENT(IN)     :: ltrig_rad !< .true. if radiative transfer calculation has to be done at current time step
-    REAL(wp), INTENT(OUT)            :: amu0_x(:,:), rdayl_x(:,:), &
-                                        amu0m_x(:,:), rdaylm_x(:,:)
+    TYPE(t_patch),           INTENT(in) :: p_patch
+    TYPE(datetime), POINTER, INTENT(in) :: datetime_radiation, & !< date and time of radiative transfer calculation
+         &                                 current_datetime       !< current time step
+    LOGICAL,                 INTENT(in) :: ltrig_rad !< .true. if radiative transfer calculation has to be done at current time step
+    REAL(wp),                INTENT(out) :: amu0_x(:,:), rdayl_x(:,:), &
+         &                                  amu0m_x(:,:), rdaylm_x(:,:)
 
     LOGICAL  :: l_write_solar
-    INTEGER  :: icurrentyear, icurrentmonth, i
+    INTEGER(i8) :: icurrentyear
+    INTEGER  :: icurrentmonth, i
     INTEGER, SAVE :: iprevmonth=-9999
     REAL(wp) :: rasc_sun, decl_sun, dist_sun, time_of_day, zrae
     REAL(wp) :: orbit_date
@@ -191,14 +193,14 @@ MODULE mo_psrad_radiation
     !
     ! 1.0 Compute orbital parameters for current time step
     ! --------------------------------
-    CALL get_orbit_times(datetime, time_of_day, &
-         &               orbit_date)
+    CALL get_orbit_times(current_datetime, time_of_day, orbit_date)
 
     IF (l_orbvsop87) THEN 
       CALL orbit_vsop87 (orbit_date, rasc_sun, decl_sun, dist_sun)
     ELSE
       CALL orbit_kepler (orbit_date, rasc_sun, decl_sun, dist_sun)
     END IF
+
 !!$    decl_sun_cur = decl_sun       ! save for aerosol and chemistry submodels
     CALL solar_parameters(decl_sun,       dist_sun,         time_of_day,       &
          &                ldiur,          l_sph_symm_irr,   p_patch,           &
@@ -235,8 +237,8 @@ MODULE mo_psrad_radiation
     ! 2.0 Prepare time dependent quantities for rad (on radiation timestep)
     ! --------------------------------
     IF (phy_config%lrad .AND. ltrig_rad) THEN
-      CALL get_orbit_times(datetime_radiation, time_of_day , &
-           &               orbit_date)
+
+      CALL get_orbit_times(datetime_radiation, time_of_day, orbit_date)
 
       IF ( l_orbvsop87 ) THEN 
         CALL orbit_vsop87 (orbit_date, rasc_sun, decl_sun, dist_sun)
@@ -321,10 +323,11 @@ MODULE mo_psrad_radiation
 !!$      CALL get_date_components(current_date, month=icurrentmonth, &
 !!$           year=icurrentyear)
 !!$      CALL get_date_components(previous_date, month=iprevmonth)
-      icurrentmonth=datetime_radiation%month
-      icurrentyear=datetime_radiation%year
+
+      icurrentmonth = datetime_radiation%date%month
+      icurrentyear = datetime_radiation%date%year
       l_write_solar = icurrentmonth/=iprevmonth
-      iprevmonth=icurrentmonth
+      iprevmonth = icurrentmonth
       IF (l_write_solar) THEN
         CALL message('','')
         WRITE (message_text,'(a,i0,a,i2.2,a,f6.1)') &
@@ -714,6 +717,7 @@ MODULE mo_psrad_radiation
   END SUBROUTINE setup_psrad_radiation
 
   SUBROUTINE psrad_radiation ( &
+    & current_date, &!< in current date
     & jg         ,&!< in  domain index
     & jb         ,&!< in  block index
     & kproma     ,&!< in  end index for loop over block
@@ -723,7 +727,7 @@ MODULE mo_psrad_radiation
     & ktype      ,&!< in  type of convection
     & loland     ,&!< in  land-sea mask. (1. = land, 0. = sea/lakes)
     & loglac     ,&!< in  fraction of land covered by glaciers
-    & datetime   ,&!< in  actual time step
+    & this_datetime,&!< in  actual time step
     & pcos_mu0   ,&!< in  cosine of solar zenith angle
     & geoi       ,&!< in  geopotential wrt surface at layer interfaces
     & geom       ,&!< in  geopotential wrt surface at layer centres
@@ -754,6 +758,9 @@ MODULE mo_psrad_radiation
     & lw_net     ,&!< all-sky net longwave  at all levels
     & sw_net      &!< all-sky net shortwave at all levels
     &              )
+
+    TYPE(datetime), POINTER, INTENT(in) :: current_date
+    
     INTEGER, INTENT(in)  :: &
     & jg,             & !< domain index
     & jb,             & !< block index
@@ -767,7 +774,7 @@ MODULE mo_psrad_radiation
     & loland(kbdim),     & !< land mask
     & loglac(kbdim)        !< glacier mask
 
-    TYPE(t_datetime), INTENT(in) :: datetime !< actual time step
+    TYPE(datetime), POINTER :: this_datetime !< actual time step
 
     REAL(wp), INTENT(IN) :: &
     & pcos_mu0(kbdim),   & !< cosine of solar zenith angle
@@ -965,7 +972,9 @@ MODULE mo_psrad_radiation
     CASE(io3_amip)
       CALL o3_timeint(kproma = kproma, kbdim = kbdim,        &
            &          nlev_pres=nplev_o3,                    &
-           &          ext_o3=o3_plev(:,:,jb,:), o3_time_int=zo3_timint       )
+           &          ext_o3=o3_plev(:,:,jb,:),              &
+           &          current_date=current_date,             &
+           &          o3_time_int=zo3_timint                 )
       CALL o3_pl2ml ( kproma = kproma, kbdim = kbdim,         &
            &          nlev_pres = nplev_o3, klev = klev,      &
            &          pfoz = plev_full_o3,                   &
@@ -996,11 +1005,11 @@ MODULE mo_psrad_radiation
       iaero_call = irad_aero
       IF (i_rad_call < number_rad_call) iaero_call = irad_aero_forcing
 
-      CALL psrad_interface( jg,       &
+      CALL psrad_interface(   current_date    ,jg                               ,&
            & iaero_call      ,kproma          ,kbdim           ,klev            ,& 
 !!$           & jb              ,knwtrc          ,ktype           ,nb_sw           ,&
            & jb                               ,ktype           ,nb_sw           ,&
-           & loland          ,loglac          ,cemiss          ,datetime        ,&
+           & loland          ,loglac          ,cemiss          ,this_datetime   ,&
            & cos_mu0         ,geoi            ,geom            ,oromea          ,&
            & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
            & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&

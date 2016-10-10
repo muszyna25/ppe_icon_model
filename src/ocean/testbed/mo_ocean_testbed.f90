@@ -27,7 +27,6 @@ MODULE mo_ocean_testbed
   USE mo_exception,           ONLY: finish
   USE mo_model_domain,        ONLY: t_patch_3d
   USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_datetime,            ONLY: t_datetime
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state, t_solverCoeff_singlePrecision, t_operator_coeff
   USE mo_ocean_physics,       ONLY: t_ho_params
   USE mo_sea_ice_types,       ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, t_sea_ice
@@ -42,7 +41,8 @@ MODULE mo_ocean_testbed
   USE mo_ocean_testbed_read,        ONLY: ocean_test_read
   USE mo_ocean_testbed_quads,       ONLY: ocean_test_quads
   USE mo_ocean_math_operators,      ONLY: update_height_depdendent_variables
-
+  USE mtime,                        ONLY: datetime
+  
 !-------------------------------------------------------------------------
 IMPLICIT NONE
 PRIVATE
@@ -56,7 +56,7 @@ CONTAINS
   !>
   SUBROUTINE ocean_testbed( namelist_filename, shr_namelist_filename, &
     & patch_3d, ocean_state, external_data,          &
-    & datetime, surface_fluxes, ocean_surface, physics_parameters,             &
+    & this_datetime, surface_fluxes, ocean_surface, physics_parameters,             &
     & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients, &
     & solverCoeff_sp)
 
@@ -66,7 +66,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
     TYPE(t_external_data), TARGET, INTENT(in)        :: external_data(n_dom)
-    TYPE(t_datetime), INTENT(inout)                  :: datetime
+    TYPE(datetime), POINTER                          :: this_datetime
     TYPE(t_sfc_flx)                                  :: surface_fluxes
     TYPE (t_ocean_surface)                           :: ocean_surface
     TYPE (t_ho_params)                               :: physics_parameters
@@ -79,12 +79,13 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER ::  method_name = "ocean_testbed"
 
     CALL update_height_depdendent_variables( patch_3D, ocean_state(1), external_data(1), operators_coefficients, solverCoeff_sp)
-	
+
     SELECT CASE (test_mode)
       CASE (1 : 99)  !  1 - 99 test ocean modules
-        CALL ocean_test_modules( patch_3d, ocean_state,  &
-          & datetime, surface_fluxes, ocean_surface, physics_parameters,             &
-          & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients)
+        CALL ocean_test_modules( patch_3d, ocean_state, external_data,  &
+          & this_datetime, surface_fluxes, ocean_surface, physics_parameters,             &
+          & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients, &
+          & solverCoeff_sp)
 
       CASE (100 : 999) ! 100 - 999 test ocean operators
         CALL ocean_test_operators( namelist_filename, shr_namelist_filename, &

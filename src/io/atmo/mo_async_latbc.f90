@@ -73,7 +73,6 @@ MODULE mo_async_latbc
     ! Processor numbers
     USE mo_mpi,                       ONLY: p_pe_work, p_work_pe0, p_comm_work_pref_compute_pe0
     USE mo_time_config,               ONLY: time_config
-    USE mo_datetime,                  ONLY: t_datetime
     USE mo_async_latbc_types,         ONLY: t_patch_data, t_reorder_data, latbc_buffer
     USE mo_grid_config,               ONLY: nroot
     USE mo_async_latbc_utils,         ONLY: pref_latbc_data, prepare_pref_latbc_data, &
@@ -103,7 +102,8 @@ MODULE mo_async_latbc
     USE mo_io_units,                  ONLY: filename_max
     USE mo_util_file,                 ONLY: util_filesize
     USE mo_util_cdi,                  ONLY: test_cdi_varID, cdiGetStringError
-
+    USE mtime,                        ONLY: datetime
+    
 #ifdef USE_CRAY_POINTER
     USE mo_name_list_output_init,     ONLY: set_mem_ptr_sp
 #endif
@@ -196,8 +196,8 @@ MODULE mo_async_latbc
     !  This routine also cares about opening the output files the first time
     !  and reopening the files after a certain number of steps.
     !
-    SUBROUTINE prefetch_input( datetime, p_patch, p_int_state, p_nh_state)
-      TYPE(t_datetime), OPTIONAL, INTENT(INOUT) :: datetime
+    SUBROUTINE prefetch_input( this_datetime, p_patch, p_int_state, p_nh_state)
+      TYPE(datetime),         OPTIONAL, POINTER      :: this_datetime
       TYPE(t_patch),          OPTIONAL, INTENT(IN)   :: p_patch
       TYPE(t_int_state),      OPTIONAL, INTENT(IN)   :: p_int_state
       TYPE(t_nh_state),       OPTIONAL, INTENT(INOUT):: p_nh_state  !< nonhydrostatic state on the global domain
@@ -206,7 +206,7 @@ MODULE mo_async_latbc
 #ifndef NOMPI
       ! Set input prefetch attributes
       IF( my_process_is_work()) THEN
-         CALL pref_latbc_data(patch_data, p_patch, p_nh_state, p_int_state, datetime=datetime)
+         CALL pref_latbc_data(patch_data, p_patch, p_nh_state, p_int_state, current_datetime=this_datetime)
       ELSE IF( my_process_is_pref()) THEN
          CALL pref_latbc_data(patch_data)
       END IF
@@ -481,7 +481,7 @@ MODULE mo_async_latbc
       IF(my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN !!!!!!!use prefetch processor here
          jlev = patch_data%level
          ! generate file name
-         latbc_filename = generate_filename(nroot, jlev, time_config%ini_datetime)
+         latbc_filename = generate_filename(nroot, jlev, time_config%tc_startdate)
          latbc_file = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
          INQUIRE (FILE=latbc_file, EXIST=l_exist)
          IF (.NOT.l_exist) THEN
@@ -620,7 +620,7 @@ MODULE mo_async_latbc
       IF( my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN !!!!!!!use prefetch processor here
          jlev = patch_data%level
          ! generate file name
-         latbc_filename = generate_filename(nroot, jlev, time_config%ini_datetime)
+         latbc_filename = generate_filename(nroot, jlev, time_config%tc_startdate)
          latbc_file = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
          INQUIRE (FILE=latbc_file, EXIST=l_exist)
          IF (.NOT.l_exist) THEN

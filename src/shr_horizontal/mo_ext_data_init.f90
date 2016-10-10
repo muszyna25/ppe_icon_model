@@ -52,7 +52,6 @@ MODULE mo_ext_data_init
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename, &
     &                              generate_td_filename, extpar_varnames_map_file, &
     &                              i_lctype, nclass_lu, nmonths_ext
-  USE mo_time_config,        ONLY: time_config
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero, albedo_type
   USE mo_echam_phy_config,   ONLY: echam_phy_config
@@ -70,12 +69,12 @@ MODULE mo_ext_data_init
   USE mo_ext_data_state,     ONLY: construct_ext_data, levelname, cellname, o3name, o3unit, &
     &                              nlev_o3, nmonths
   USE mo_master_config,      ONLY: getModelBaseDir
+  USE mo_time_config,        ONLY: time_config
   USE mo_io_config,          ONLY: default_read_method
   USE mo_read_interface,     ONLY: nf, openInputFile, closeFile, on_cells, &
     &                              t_stream_id, read_2D, read_2D_int, &
     &                              read_3D_extdim
   USE mo_phyparam_soil,      ONLY: c_lnd, c_soil, c_sea
-  USE mo_datetime,           ONLY: t_datetime, month2hour, add_time
   USE mo_util_cdi,           ONLY: get_cdi_varID, test_cdi_varID, read_cdi_2d,     &
     &                              read_cdi_3d, t_inputParameters,                 &
     &                              makeInputParameters, deleteInputParameters,     &
@@ -94,6 +93,11 @@ MODULE mo_ext_data_init
     &                              streamClose, cdiStringError
   USE mo_math_gradients,     ONLY: grad_fe_cell
   USE mo_fortran_tools,      ONLY: var_scale
+  USE mtime,                 ONLY: datetime, newDatetime, deallocateDatetime,        &
+    &                              MAX_DATETIME_STR_LEN, datetimetostring,           &
+    &                              OPERATOR(+)
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
+    &                                  calculate_time_interpolation_weights
 
   IMPLICIT NONE
 
@@ -148,7 +152,7 @@ CONTAINS
     ! GRIB2 shortnames or NetCDF var names.
     TYPE (t_dictionary) :: extpar_varnames_dict
 
-    TYPE(t_datetime) :: datetime
+    TYPE(datetime), POINTER :: this_datetime
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = modname//':init_ext_data'
 
@@ -274,35 +278,44 @@ CONTAINS
         ! midnight.
         !
         IF (.NOT. isRestart()) THEN
-          datetime     = time_config%ini_datetime
-          IF (timeshift%dt_shift < 0._wp) CALL add_time(timeshift%dt_shift,0,0,0,datetime)
+          this_datetime => newDatetime(time_config%tc_startdate)
+          IF (timeshift%dt_shift < 0._wp) THEN
+            this_datetime = this_datetime + timeshift%mtime_shift
+          END IF
         ELSE
-          datetime     = time_config%cur_datetime
+          this_datetime => newDatetime(time_config%tc_current_date)
         END IF  ! isRestart
-        !
-        datetime%hour= 0   ! always assume midnight
+        
+        ! always assume midnight
+        this_datetime%time%hour= 0   
+        this_datetime%time%minute= 0
+        this_datetime%time%second= 0
+        this_datetime%time%ms= 0
 
         DO jg = 1, n_dom
-          CALL interpol_monthly_mean(p_patch(jg), datetime,              &! in
+          CALL interpol_monthly_mean(p_patch(jg), this_datetime,         &! in
             &                        ext_data(jg)%atm_td%ndvi_mrat,      &! in
             &                        ext_data(jg)%atm%ndviratio          )! out
         ENDDO
 
         IF ( albedo_type == MODIS) THEN
           DO jg = 1, n_dom
-            CALL interpol_monthly_mean(p_patch(jg), datetime,            &! in
+            CALL interpol_monthly_mean(p_patch(jg), this_datetime,       &! in
               &                        ext_data(jg)%atm_td%alb_dif,      &! in
               &                        ext_data(jg)%atm%alb_dif          )! out
 
-            CALL interpol_monthly_mean(p_patch(jg), datetime,            &! in
+            CALL interpol_monthly_mean(p_patch(jg), this_datetime,       &! in
               &                        ext_data(jg)%atm_td%albuv_dif,    &! in
               &                        ext_data(jg)%atm%albuv_dif        )! out
 
-            CALL interpol_monthly_mean(p_patch(jg), datetime,            &! in
+            CALL interpol_monthly_mean(p_patch(jg), this_datetime,       &! in
               &                        ext_data(jg)%atm_td%albni_dif,    &! in
               &                        ext_data(jg)%atm%albni_dif        )! out
           ENDDO
         ENDIF  ! albedo_type
+
+        ! clean up
+        CALL deallocateDatetime(this_datetime)
 
       END IF
 
@@ -324,8 +337,6 @@ CONTAINS
     CALL dict_finalize(extpar_varnames_dict)
 
   END SUBROUTINE init_ext_data
-
-
 
 
   !-------------------------------------------------------------------------
@@ -1994,31 +2005,45 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2013-05-03)
   !! Generalization to arbitrary monthly mean climatologies
   !!
-  SUBROUTINE interpol_monthly_mean(p_patch, datetime, monthly_means, out_field)
+  SUBROUTINE interpol_monthly_mean(p_patch, mtime_date, monthly_means, out_field)
 
+    TYPE(datetime),   POINTER      :: mtime_date
     TYPE(t_patch),     INTENT(IN)  :: p_patch
-    TYPE(t_datetime),  INTENT(IN)  :: datetime              ! actual date
     REAL(wp),          INTENT(IN)  :: monthly_means(:,:,:)  ! monthly mean climatology
     REAL(wp),          INTENT(OUT) :: out_field(:,:)        ! interpolated output field
 
-
-    INTEGER :: jc, jb               !< loop index
-    INTEGER :: i_startblk, i_endblk, i_nchdom
-    INTEGER :: rl_start, rl_end
-    INTEGER :: i_startidx, i_endidx
-    INTEGER :: mo1, mo2             !< nearest months
-    REAL(wp):: zw1, zw2
-
-!!$    CHARACTER(len=max_char_length), PARAMETER :: &
-!!$      routine = modname//': interpol_monthly_mean'
+    INTEGER                             :: jc, jb               !< loop index
+    INTEGER                             :: i_startblk, i_endblk, i_nchdom
+    INTEGER                             :: rl_start, rl_end
+    INTEGER                             :: i_startidx, i_endidx
+    INTEGER                             :: mo1, mo2             !< nearest months
+    REAL(wp)                            :: zw1, zw2
+    TYPE(t_time_interpolation_weights)  :: current_time_interpolation_weights
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string
+    
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      routine = modname//': interpol_monthly_mean'
 
     !---------------------------------------------------------------
-
     ! Find the 2 nearest months mo1, mo2 and the weights zw1, zw2
     ! to the actual date and time
-    CALL month2hour( datetime, mo1, mo2, zw2 )
 
-    zw1 = 1._wp - zw2
+    current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_date)
+    
+    mo1 = current_time_interpolation_weights%month1
+    mo2 = current_time_interpolation_weights%month2
+    zw1 = current_time_interpolation_weights%weight1
+    zw2 = current_time_interpolation_weights%weight2
+
+    ! consistency check
+    IF ((MIN(mo1,mo2) < 1) .OR. (MAX(mo1,mo2) > SIZE(monthly_means,3))) THEN
+      WRITE (0,*) "Result of call to calculate_time_interpolation_weights:"
+      CALL datetimeToString(mtime_date, dtime_string)
+      WRITE (0,*) "   mtime_date = ", dtime_string
+      WRITE (0,*) "   mo1        = ", mo1
+      WRITE (0,*) "   mo2        = ", mo2
+      CALL finish(routine, "Error!")
+    END IF
 
     ! Get interpolated field
     i_nchdom  = MAX(1,p_patch%n_childdom)
@@ -2045,9 +2070,7 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-
   END SUBROUTINE interpol_monthly_mean
-
 
 END MODULE mo_ext_data_init
 
