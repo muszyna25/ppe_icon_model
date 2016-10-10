@@ -349,7 +349,8 @@ CONTAINS
 
 !++jsr
     CALL cariolle_init( openInputFile_wrap,       closeFile_wrap,             &
-                      & read_bcast_real_3d_wrap,  read_bcast_real_1d_wrap     )
+                      & read_bcast_real_3d_wrap,  read_bcast_real_1d_wrap,    &
+                      & nproma,                   nlev                        )
 !--jsr
 
     ! interpolation weights for linear interpolation

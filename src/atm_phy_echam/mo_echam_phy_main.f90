@@ -30,6 +30,9 @@ MODULE mo_echam_phy_main
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: grav, cpd, cpv, cvd, cvv
+!++jsr
+  USE mo_physical_constants,  ONLY: amd  
+!--jsr
   USE mo_impl_constants,      ONLY: inh_atmosphere
   USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
     &                               iqv, iqc, iqi, iqt
@@ -66,6 +69,9 @@ MODULE mo_echam_phy_main
   ! provisional to get coordinates
   USE mo_model_domain,        ONLY: p_patch
   USE mo_util_dbg_prnt,      ONLY: dbg_print
+!++jsr
+  USE mo_cariolle_types,      ONLY: avi
+!--jsr
 
   IMPLICIT NONE
   PRIVATE
@@ -180,6 +186,11 @@ CONTAINS
 
     REAL(wp) :: ztte_corr(nbdim)      !< tte correction for snow melt over land (JSBACH)
 
+!++jsr
+    ! Temporary variables for Cariolle scheme (ozone)
+    REAL(wp)    :: do3dt(nbdim,nlev)
+!--jsr
+ 
     ! Temporary array used by GW_HINES
 
     REAL(wp) :: zdis_gwh(nbdim,nlev)  !<  out, energy dissipation rate [J/s/kg]
@@ -984,6 +995,15 @@ CONTAINS
       tend%temp_rlw_impl(jcs:jce,jb) = 0._wp
 
     END IF
+
+!++jsr
+    avi%tmprt(:,:)=field%temp(:,:,jb)
+    avi%vmr2molm2(jcs:jce,:)=zmair(jcs:jce,:)/amd
+    avi%o3_vmr(:,:)=0.0001_wp
+    avi%cell_center_lat(:)=p_patch(jg)%cells%center(:,jb)%lat
+    avi%ldown=.TRUE.
+    CALL cariolle_do3dt(jcs,jce,nbdim,nlev,avi,do3dt)
+!--jsr
 
     !-------------------------------------------------------------------
     ! 6. ATMOSPHERIC GRAVITY WAVES
