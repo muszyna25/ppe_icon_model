@@ -1030,6 +1030,9 @@ MODULE mo_initicon_io
             END IF
 
             IF (lvert_remap_fg) THEN
+                ! the number of input and output levels must be the same for this mode
+                nlevatm_in(jg) = p_patch(jg)%nlev
+
                 CALL allocate_extana_atm(jg, p_patch(jg)%nblks_c, p_patch(jg)%nblks_e, initicon)
                 CALL fetchRequired3d(params, 'z_ifc', jg, initicon(jg)%atm_in%z3d_ifc)
             END IF
