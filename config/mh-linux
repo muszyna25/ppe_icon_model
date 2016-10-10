@@ -417,7 +417,7 @@ case "$ac_sitename" in
                             load_modules = intel/17.0.0 ${load_modules}
                             ;;
                           intel16|intel*)
-                            load_modules = intel/16.0.3 ${load_modules}
+                            load_modules = intel/16.0 ${load_modules}
                             ;;
                         esac
                         config_compiler = intel
