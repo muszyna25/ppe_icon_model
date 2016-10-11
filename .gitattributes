@@ -911,7 +911,6 @@ run/exp.nh_rico_edmf -text
 run/exp.nh_weisman_klemp -text
 run/exp.nwp_R02B04N06multi2 -text
 run/exp.nwptest_R02B06N07.run -text
-run/exp.ocean_omip_checkParts -text
 run/exp.ocean_omip_long -text
 run/exp.ocean_omip_technical -text
 run/exp.ozon -text
