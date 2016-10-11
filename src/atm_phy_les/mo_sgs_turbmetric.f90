@@ -910,6 +910,36 @@ MODULE mo_sgs_turbmetric
                     v_iv(ividx(je,jb,2),jk+1,ivblk(je,jb,2)) * &
                     p_patch%edges%primal_normal_vert(je,jb,2)%v2
 
+         vn_vert3 = u_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
+                    p_patch%edges%primal_normal_vert(je,jb,3)%v1 + &
+                    v_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
+                    p_patch%edges%primal_normal_vert(je,jb,3)%v2
+
+         vn_vert3i = u_iv(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
+                    p_patch%edges%primal_normal_vert(je,jb,3)%v1 + &
+                    v_iv(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
+                    p_patch%edges%primal_normal_vert(je,jb,3)%v2
+
+         vn_vert3i_p1 = u_iv(ividx(je,jb,3),jk+1,ivblk(je,jb,3)) * &
+                    p_patch%edges%primal_normal_vert(je,jb,3)%v1 + &
+                    v_iv(ividx(je,jb,3),jk+1,ivblk(je,jb,3)) * &
+                    p_patch%edges%primal_normal_vert(je,jb,3)%v2
+
+         vn_vert4 = u_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
+                    p_patch%edges%primal_normal_vert(je,jb,4)%v1 + &
+                    v_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
+                    p_patch%edges%primal_normal_vert(je,jb,4)%v2
+
+         vn_vert4i = u_iv(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
+                    p_patch%edges%primal_normal_vert(je,jb,4)%v1 + &
+                    v_iv(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
+                    p_patch%edges%primal_normal_vert(je,jb,4)%v2
+
+         vn_vert4i_p1 = u_iv(ividx(je,jb,4),jk+1,ivblk(je,jb,4)) * &
+                    p_patch%edges%primal_normal_vert(je,jb,4)%v1 + &
+                    v_iv(ividx(je,jb,4),jk+1,ivblk(je,jb,4)) * &
+                    p_patch%edges%primal_normal_vert(je,jb,4)%v2
+
          vt_vert1i = u_iv(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
                     p_patch%edges%dual_normal_vert(je,jb,1)%v1 + &
                     v_iv(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
@@ -930,21 +960,6 @@ MODULE mo_sgs_turbmetric
                     v_iv(ividx(je,jb,2),jk+1,ivblk(je,jb,2)) * &
                     p_patch%edges%dual_normal_vert(je,jb,2)%v2
 
-         vn_vert3 = u_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
-                    p_patch%edges%primal_normal_vert(je,jb,3)%v1 + &
-                    v_vert(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
-                    p_patch%edges%primal_normal_vert(je,jb,3)%v2
-
-         vn_vert3i_p1 = u_iv(ividx(je,jb,3),jk+1,ivblk(je,jb,3)) * &
-                    p_patch%edges%primal_normal_vert(je,jb,3)%v1 + &
-                    v_iv(ividx(je,jb,3),jk+1,ivblk(je,jb,3)) * &
-                    p_patch%edges%primal_normal_vert(je,jb,3)%v2
-
-         vn_vert3i = u_iv(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
-                    p_patch%edges%primal_normal_vert(je,jb,3)%v1 + &
-                    v_iv(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
-                    p_patch%edges%primal_normal_vert(je,jb,3)%v2
-
          vt_vert3i = u_iv(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
                     p_patch%edges%dual_normal_vert(je,jb,3)%v1 + &
                     v_iv(ividx(je,jb,3),jk,ivblk(je,jb,3)) * &
@@ -954,21 +969,6 @@ MODULE mo_sgs_turbmetric
                     p_patch%edges%dual_normal_vert(je,jb,3)%v1 + &
                     v_iv(ividx(je,jb,3),jk+1,ivblk(je,jb,3)) * &
                     p_patch%edges%dual_normal_vert(je,jb,3)%v2
-
-         vn_vert4 = u_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
-                    p_patch%edges%primal_normal_vert(je,jb,4)%v1 + &
-                    v_vert(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
-                    p_patch%edges%primal_normal_vert(je,jb,4)%v2
-
-         vn_vert4i = u_iv(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
-                    p_patch%edges%primal_normal_vert(je,jb,4)%v1 + &
-                    v_iv(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
-                    p_patch%edges%primal_normal_vert(je,jb,4)%v2
-
-         vn_vert4i_p1 = u_iv(ividx(je,jb,4),jk+1,ivblk(je,jb,4)) * &
-                    p_patch%edges%primal_normal_vert(je,jb,4)%v1 + &
-                    v_iv(ividx(je,jb,4),jk+1,ivblk(je,jb,4)) * &
-                    p_patch%edges%primal_normal_vert(je,jb,4)%v2
 
          vt_vert4i = u_iv(ividx(je,jb,4),jk,ivblk(je,jb,4)) * &
                     p_patch%edges%dual_normal_vert(je,jb,4)%v1 + &
@@ -1002,7 +1002,7 @@ MODULE mo_sgs_turbmetric
                      vn_vert4i_p1-2._wp*vn_ie(je,jk+1,jb)) *  &
                      p_nh_metrics%inv_ddqz_z_full(jcn,jk,jbn) *  &
                      p_nh_metrics%ddxn_z_full_c(jcn,jk,jbn) - &
-                     z_1by3*DIV_c(jcn,jk,jbn) )
+                     z_1by3*div_c(jcn,jk,jbn) )
 
          jcn     = iecidx(je,jb,1)
          jbn     = iecblk(je,jb,1)
@@ -1013,7 +1013,7 @@ MODULE mo_sgs_turbmetric
                      vn_vert3i_p1-2._wp*vn_ie(je,jk+1,jb)) *  &
                      p_nh_metrics%inv_ddqz_z_full(jcn,jk,jbn) * &
                      p_nh_metrics%ddxn_z_full_c(jcn,jk,jbn) - &
-                     z_1by3*DIV_c(jcn,jk,jbn) )
+                     z_1by3*div_c(jcn,jk,jbn) )
 
          !tendency in tangential direction
 
