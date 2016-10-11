@@ -541,7 +541,7 @@ MODULE mo_sgs_turbmetric
          END DO
        END DO
     END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
     !div_of_stress from edge to cell-scalar interpolation
     rl_start = grf_bdywidth_c+1
