@@ -69,6 +69,11 @@ MODULE mo_sgs_turbmetric
   INTEGER, PARAMETER :: iexplicit = 1
   INTEGER, PARAMETER :: iimplicit = 2
 
+  ! parameter to distinguish different tracers
+  INTEGER, PARAMETER :: tracer_theta = 1
+  INTEGER, PARAMETER :: tracer_qv = 2
+  INTEGER, PARAMETER :: tracer_qc = 3
+
   PUBLIC :: drive_subgrid_diffusion_m
 
   !Variables for the module
@@ -216,17 +221,17 @@ MODULE mo_sgs_turbmetric
 
     CALL diffuse_scalar(theta, p_nh_metrics, p_patch, p_int, p_nh_diag,  &
                         prm_nwp_tend%ddt_temp_turb, p_nh_prog%exner,     &
-                        prm_diag, p_nh_prog%rho, dt, 'theta')
+                        prm_diag, p_nh_prog%rho, dt, tracer_theta)
 
     !For qv and qc: implement for qr as well
     IF(.NOT.les_config(jg)%is_dry_cbl)THEN
       CALL diffuse_scalar(p_nh_prog%tracer(:,:,:,iqv), p_nh_metrics, p_patch, p_int, &
                           p_nh_diag, prm_nwp_tend%ddt_tracer_turb(:,:,:,iqv),        &
-                          p_nh_prog%exner, prm_diag, p_nh_prog%rho, dt, 'qv')
+                          p_nh_prog%exner, prm_diag, p_nh_prog%rho, dt, tracer_qv)
 
       CALL diffuse_scalar(p_nh_prog%tracer(:,:,:,iqc), p_nh_metrics, p_patch, p_int, &
                           p_nh_diag, prm_nwp_tend%ddt_tracer_turb(:,:,:,iqc),        &
-                          p_nh_prog%exner, prm_diag, p_nh_prog%rho, dt, 'qc')
+                          p_nh_prog%exner, prm_diag, p_nh_prog%rho, dt, tracer_qc)
     ELSE
 !$OMP PARALLEL
       CALL init(prm_nwp_tend%ddt_tracer_turb(:,:,:,iqv))
@@ -1968,7 +1973,7 @@ MODULE mo_sgs_turbmetric
     REAL(wp),          INTENT(in)        :: rho(:,:,:)     !density at cell center
     TYPE(t_nwp_phy_diag),  INTENT(inout) :: prm_diag       !< atm phys vars
     REAL(wp),          INTENT(in)        :: dt
-    CHARACTER(*), INTENT(in)             :: scalar_name
+    INTEGER, INTENT(in)             :: scalar_name
 
     !Local variables
     REAL(wp) :: flux_up, flux_dn, inv_dt, norm_metr, tang_metr
@@ -2037,13 +2042,13 @@ MODULE mo_sgs_turbmetric
 
     !2) Calculate exner at edge for horizontal diffusion
 
-    IF(TRIM(scalar_name)=='theta') &
+    IF (scalar_name == tracer_theta) &
       CALL cells2edges_scalar(exner, p_patch, p_int%c_lin_e, exner_me, opt_rlend=min_rledge_int-2)
 
     !3) Calculate exner at interface for vertical diffusion
 
 !$OMP PARALLEL PRIVATE(rl_start, rl_end, i_startblk, i_endblk)
-    IF(TRIM(scalar_name)=='theta')THEN
+    IF(scalar_name == tracer_theta) THEN
 
       rl_start = grf_bdywidth_e
       rl_end   = min_rledge_int-1
@@ -2167,7 +2172,7 @@ MODULE mo_sgs_turbmetric
 
     !Special boundary treatment for different scalars
 
-    IF(TRIM(scalar_name)=='theta')THEN
+    IF (scalar_name ==tracer_theta) THEN
 !$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -2187,7 +2192,7 @@ MODULE mo_sgs_turbmetric
           END DO
         END DO
 !$OMP END DO
-    ELSEIF(TRIM(scalar_name)=='qv')THEN
+    ELSEIF (scalar_name == tracer_qv) THEN
 !$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -2207,7 +2212,7 @@ MODULE mo_sgs_turbmetric
           END DO
         END DO
 !$OMP END DO
-    ELSEIF(TRIM(scalar_name)=='qc')THEN
+    ELSEIF (scalar_name == tracer_qc) THEN
 !$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -2551,7 +2556,7 @@ MODULE mo_sgs_turbmetric
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-      IF(TRIM(scalar_name)=='theta')THEN
+      IF (scalar_name == tracer_theta) THEN
 
         CALL levels_horizontal_mean(sgs_flux, p_patch%cells%area, p_patch%cells%owned, &
                                     outvar)
@@ -2560,7 +2565,7 @@ MODULE mo_sgs_turbmetric
         prm_diag%turb_diag_1dvar(1:nlevp1,idx_sgs_th_flx) =  &
                prm_diag%turb_diag_1dvar(1:nlevp1,idx_sgs_th_flx)+outvar(1:nlevp1)
 
-      ELSEIF(TRIM(scalar_name)=='qv')THEN
+      ELSEIF (scalar_name == tracer_qv) THEN
 
         CALL levels_horizontal_mean(sgs_flux, p_patch%cells%area, p_patch%cells%owned, &
                                      outvar)
@@ -2569,7 +2574,7 @@ MODULE mo_sgs_turbmetric
         prm_diag%turb_diag_1dvar(1:nlevp1,idx_sgs_qv_flx) =  &
                prm_diag%turb_diag_1dvar(1:nlevp1,idx_sgs_qv_flx)+outvar(1:nlevp1)
 
-      ELSEIF(TRIM(scalar_name)=='qc')THEN
+      ELSEIF (scalar_name == tracer_qc) THEN
 
         CALL levels_horizontal_mean(sgs_flux, p_patch%cells%area, p_patch%cells%owned, &
                                     outvar)
