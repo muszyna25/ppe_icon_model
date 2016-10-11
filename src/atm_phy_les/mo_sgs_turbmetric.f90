@@ -877,8 +877,8 @@ MODULE mo_sgs_turbmetric
        DO je = i_startidx, i_endidx
          DO jk = 1 , nlev
 #else
-      DO jk = 1 , nlev
-       DO je = i_startidx, i_endidx
+       DO jk = 1 , nlev
+         DO je = i_startidx, i_endidx
 #endif
          vn_vert1 = u_vert(ividx(je,jb,1),jk,ivblk(je,jb,1)) * &
                     p_patch%edges%primal_normal_vert(je,jb,1)%v1 + &
