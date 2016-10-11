@@ -735,7 +735,7 @@ MODULE mo_sgs_turbmetric
 
     TYPE(t_nh_prog),   INTENT(in)        :: p_nh_prog    !< single nh prognostic state
     TYPE(t_nh_diag),   INTENT(in)        :: p_nh_diag    !< single nh diagnostic state
-    TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics !< single nh metric state
+    TYPE(t_nh_metrics),INTENT(in)        :: p_nh_metrics !< single nh metric state
     TYPE(t_patch), TARGET, INTENT(inout) :: p_patch      !< single patch
     TYPE(t_int_state), INTENT(in),TARGET :: p_int        !< single interpolation state
     TYPE(t_nwp_phy_diag),INTENT(inout)   :: prm_diag     !< atm phys vars
