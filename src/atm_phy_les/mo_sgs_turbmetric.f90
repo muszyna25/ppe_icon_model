@@ -315,7 +315,17 @@ MODULE mo_sgs_turbmetric
 
     !Initialize
     IF(p_test_run)THEN
-      tkvh(:,:,:) = 0._wp
+!$OMP PARALLEL
+      CALL init(tkvh)
+      CALL init(d_11)
+      CALL init(d_12)
+      CALL init(d_13)
+      CALL init(d_23)
+      CALL init(d_33)
+      CALL init(mech_prod_e)
+      CALL init(div_of_stress)
+      CALL init(div_c)
+!$OMP END PARALLEL
     END IF
 
 
@@ -647,6 +657,7 @@ MODULE mo_sgs_turbmetric
 
     CALL sync_patch_array(SYNC_C, p_patch, tkvh)
 
+!$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk)
     !--------------------------------------------------------------------------
     !4) Interpolate difusivity (viscosity) to different locations: calculate them for
     !   halos also because they will be used later in diffusion
@@ -658,7 +669,6 @@ MODULE mo_sgs_turbmetric
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx)
     DO jb = i_startblk,i_endblk
        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -683,7 +693,6 @@ MODULE mo_sgs_turbmetric
     CALL cells2verts_scalar(tkvh, p_patch, p_int%cells_aw_verts, visc_smag_iv, &
                             opt_rlstart=5, opt_rlend=min_rlvert_int-1)
     visc_smag_iv = MAX( les_config(jg)%km_min, visc_smag_iv * les_config(jg)%turb_prandtl )
-
     !4c) Now calculate visc_smag at half levels at edge
     CALL cells2edges_scalar(tkvh, p_patch, p_int%c_lin_e, visc_smag_ie, &
                             opt_rlstart=grf_bdywidth_e, opt_rlend=min_rledge_int-1)
@@ -789,9 +798,15 @@ MODULE mo_sgs_turbmetric
     iecblk => p_patch%edges%cell_blk
 
 !$OMP PARALLEL
-    CALL init(a(:,:)); CALL init(c(:,:))
-    CALL init(tot_tend(:,:,:))
-    CALL copy(p_nh_prog%vn(:,:,:), vn_new(:,:,:))
+    CALL init(a); CALL init(c)
+    CALL init(tot_tend)
+    CALL copy(p_nh_prog%vn, vn_new)
+    IF (p_test_run) THEN
+      CALL init(d_11_ie)
+      CALL init(d_12_ie)
+      CALL init(d_13_ie)
+      CALL init(inv_rhoe)
+    END IF
 !$OMP END PARALLEL
 
     rl_start = grf_bdywidth_e+1
@@ -858,8 +873,6 @@ MODULE mo_sgs_turbmetric
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-
-
 
     ! 1) First get the horizontal tendencies
 
