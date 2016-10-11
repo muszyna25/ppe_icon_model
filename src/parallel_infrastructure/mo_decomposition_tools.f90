@@ -99,7 +99,7 @@ MODULE mo_decomposition_tools
     ! 0=owned, 1=shared edge with owned, 2=shared vertex with owned
     ! index1=nproma, index2=1,nblks_c
     ! For edges:
-    ! 0=owned, 1=on owned cell=in domain, 2=exaclty one shared vertex with owned cells
+    ! 0=owned, 1=on owned cell=in domain, 2=exactly one shared vertex with owned cells
     ! index1=nproma, index2=1,nblks_e
     ! For verts:
     ! 0=owned, 1=on owned cell=in domain, 2=on level 1 cells
