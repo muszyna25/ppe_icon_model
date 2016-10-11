@@ -794,12 +794,13 @@ MODULE mo_sgs_turbmetric
     CALL copy(p_nh_prog%vn(:,:,:), vn_new(:,:,:))
 !$OMP END PARALLEL
 
-    !density at edge
-    CALL cells2edges_scalar(p_nh_prog%rho, p_patch, p_int%c_lin_e, inv_rhoe, &
-                            opt_rlstart=grf_bdywidth_e+1, opt_rlend=min_rledge_int)
-
     rl_start = grf_bdywidth_e+1
     rl_end   = min_rledge_int
+
+    !density at edge
+    CALL cells2edges_scalar(p_nh_prog%rho, p_patch, p_int%c_lin_e, inv_rhoe, &
+                            opt_rlstart=rl_start, opt_rlend=rl_end)
+
 
     i_startblk = p_patch%edges%start_blk(rl_start,1)
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
