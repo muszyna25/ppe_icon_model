@@ -1616,12 +1616,12 @@ MODULE mo_sgs_turbmetric
     !Some initializations
 !$OMP PARALLEL
     CALL init(a(:,:)); CALL init(c(:,:))
+    IF(p_test_run)THEN
+      CALL init(tot_tend)
+      CALL init(hor_tend)
+    END IF
 !$OMP END PARALLEL
 
-    IF(p_test_run)THEN
-      tot_tend(:,:,:) = 0._wp
-      hor_tend(:,:,:) = 0._wp
-    END IF
 
     CALL rbf_vec_interpol_edge(p_nh_prog%vn, p_patch, p_int, vt_e, opt_rlend=min_rledge_int-1)
 
