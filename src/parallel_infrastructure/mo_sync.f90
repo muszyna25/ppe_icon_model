@@ -346,10 +346,8 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
 
    REAL(wp), OPTIONAL, INTENT(INOUT) ::  f3din1(:,:,:), f3din2(:,:,:), f3din3(:,:,:), &
       &                                  f3din4(:,:,:), f3din5(:,:,:), f4din(:,:,:,:)
-
    TYPE(t_ptr_3d), OPTIONAL, INTENT(INOUT) :: f3din_arr(:)
 
-   REAL(wp), ALLOCATABLE :: arr3(:,:,:)
    CLASS(t_comm_pattern), POINTER :: p_pat
    INTEGER :: i
    INTEGER :: ndim2tot ! Sum of second dimensions over all input fields
@@ -369,16 +367,9 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
    ! If this is a verification run, check consistency before doing boundary exchange
    IF (p_test_run .AND. do_sync_checks) THEN
      IF (PRESENT(f4din)) THEN
-       ALLOCATE(arr3(UBOUND(f4din,1), UBOUND(f4din,2), UBOUND(f4din,3)))
-!$ACC DATA CREATE( arr3 ), IF ( i_am_accel_node .AND. acc_on )
        DO i = 1, SIZE(f4din,4)
-!$ACC KERNELS PRESENT( f4din, arr3 ), IF ( i_am_accel_node .AND. acc_on )
-         arr3(:,:,:) = f4din(:,:,:,i)
-!$ACC END KERNELS
-         CALL check_patch_array_3(typ, p_patch, arr3, 'sync')
+         CALL check_patch_array_3(typ, p_patch, f4din(:,:,:,i), 'sync')
        ENDDO
-!$ACC END DATA
-       DEALLOCATE(arr3)
      ENDIF
 
      IF (PRESENT(f3din_arr)) THEN
@@ -537,7 +528,6 @@ SUBROUTINE sync_patch_array_4de1(typ, p_patch, nfields, f4din)
 
    REAL(wp), INTENT(INOUT) :: f4din(:,:,:,:)
 
-   REAL(wp), ALLOCATABLE :: arr3(:,:,:)
    CLASS(t_comm_pattern), POINTER :: p_pat
    INTEGER :: i, ndim2tot
 
@@ -555,16 +545,9 @@ SUBROUTINE sync_patch_array_4de1(typ, p_patch, nfields, f4din)
 
    ! If this is a verification run, check consistency before doing boundary exchange
    IF (p_test_run .AND. do_sync_checks) THEN
-     ALLOCATE(arr3(UBOUND(f4din,2), UBOUND(f4din,3), UBOUND(f4din,4)))
-!$ACC DATA CREATE( arr3 ), IF ( i_am_accel_node .AND. acc_on )
      DO i = 1, nfields
-!$ACC KERNELS PRESENT( f4din, arr3 ), IF ( i_am_accel_node .AND. acc_on )
-       arr3(:,:,:) = f4din(i,:,:,:)
-!$ACC END KERNELS
-       CALL check_patch_array_3(typ, p_patch, arr3, 'sync')
+       CALL check_patch_array_3(typ, p_patch, f4din(i,:,:,:), 'sync')
      ENDDO
-!$ACC END DATA
-     DEALLOCATE(arr3)
    ENDIF
 
    ! Boundary exchange for work PEs
