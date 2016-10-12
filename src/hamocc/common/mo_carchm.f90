@@ -8,7 +8,9 @@ MODULE mo_carchm
 !!
 #include "hamocc_omp_definitions.inc"
 
-USE mo_carbch, ONLY         : hi, aksp, akb3, akw3, ak13, ak23, co3, bgctra, bgctend
+USE mo_carbch, ONLY         : hi, aksp, akb3, akw3, ak13, ak23, co3, bgctra, bgctend,&
+       &                      aks3,akf3,ak1p3,ak2p3,ak3p3,aksi3
+
 USE mo_kind, ONLY           : wp
 USE mo_biomod, ONLY         : rrrcl, dremcalc
 USE mo_control_bgc, ONLY    : dtbgc, bgc_nproma, bgc_zlevs
@@ -25,7 +27,7 @@ SUBROUTINE calc_dissol ( start_idx, end_idx, klevs, pddpo, psao)
 
 !! Computes calcium carbonate dissolution
 
-  USE mo_param1_bgc, ONLY     : icalc, ialkali, isco212
+  USE mo_param1_bgc, ONLY     : icalc, ialkali, isco212, isilica, iphosph
   
   IMPLICIT NONE
 
@@ -62,7 +64,9 @@ SUBROUTINE calc_dissol ( start_idx, end_idx, klevs, pddpo, psao)
 
        
               hi(j,k) = update_hi(hi(j,k), bgctra(j,k,isco212), ak13(j,k) , &
-          &          ak23(j,k), akw3(j,k),psao(j,k) , akb3(j,k), bgctra(j,k,ialkali) )
+          &          ak23(j,k), akw3(j,k),aks3(j,k),akf3(j,k), aksi3(j,k),&
+          &          ak1p3(j,k),ak2p3(j,k),ak3p3(j,k),psao(j,k) , akb3(j,k), &
+          &          bgctra(j,k,isilica),bgctra(j,k,iphosph),bgctra(j,k,ialkali) )
 
               co3(j,k) = bgctra(j,k,isco212)/(1._wp+hi(j,k)*(1._wp+hi(j,k)/ak13(j,k))/ak23(j,k))
 
@@ -83,34 +87,52 @@ SUBROUTINE calc_dissol ( start_idx, end_idx, klevs, pddpo, psao)
 !HAMOCC_OMP_END_PARALLEL
 END SUBROUTINE
 
-FUNCTION update_hi(hi,c,ak1,ak2,akw,s,akb,alk) RESULT (h)
+
+
+
+FUNCTION update_hi(hi,c,ak1,ak2,akw,aks,akf,aksi,ak1p,ak2p,ak3p,s,akb,sit,pt,alk) RESULT (h)
   
- REAL(wp) :: h
- REAL(wp), INTENT(in):: hi,c,ak1,ak2,akw,s,akb,alk
+ REAL(wp) :: ah1, hi
+ REAL(wp), INTENT(in):: ak1,ak2,akw,akb,aks,akf,aksi,c,ak1p,ak2p,&
+&                       ak3p,sit,pt,alk 
  
  ! LOCAL
- REAL(wp) :: bt, a, t2,t1, dadh, dddhhh
- INTEGER:: iter, niter
+ REAL(wp) :: bt, sti,ft, hso4,hf,hsi,hpo4,ab,aw,ac,ah2o,ah2,erel,h,s
+ INTEGER:: iter,jit
 
- niter=3
 
- h=hi
+ ah1=hi
  bt  = rrrcl*s
- DO iter=1,niter
+! sulfate Morris & Riley (1966)
+ sti   = 0.14_wp *  s*1.025_wp/1.80655_wp  / 96.062_wp
+! fluoride Riley (1965)
+ ft    = 0.000067_wp * s*1.025_wp/1.80655_wp / 18.9984_wp
 
-    t1  = h/ak1
-    t2  = h/ak2
-    ! Determine hydrogen ion HI so that ALK(DIC,BT,HI) matches given alk by Newton iteration
-    ! Actual mismatch
-    a = c * (2._wp + t2) / (1._wp+t2+t2*t1)+akw/h-h+bt/(1._wp+h/akb)-alk
-    ! Derivative
-    dadh = c * (1._wp / (ak2 * (1._wp + t2 + t2 * t1)) &
-  &   - (2._wp + t2) * (1._wp / ak2 + 2._wp * t1 / ak2)/ &
-  &          (1._wp + t2 + t2 * t1)**2)                          &
-  &          - akw / h**2 - 1._wp - (bt / akb) / (1._wp + h / akb)**2
-    dddhhh=a/dadh
-    h = MAX(h - dddhhh, 1.e-10_wp) ! Prevent overshooting to negative values at start of iteration
+ iter  = 0
+
+ DO jit = 1,20
+
+     hso4 = sti / ( 1._wp + aks / ( ah1 / ( 1._wp + sti / aks ) ) )
+     hf   = 1._wp / ( 1._wp + akf / ah1 )
+     hsi  = 1._wp/ ( 1._wp + ah1 / aksi )
+     hpo4 = ( ak1p * ak2p * ( ah1 + 2._wp * ak3p ) - ah1**3 ) /    & 
+           &        ( ah1**3 + ak1p * ah1**2 + ak1p * ak2p * ah1 + ak1p * ak2p*ak3p )
+     ab   = bt / ( 1._wp + ah1 / akb )
+     aw   = akw / ah1 - ah1 / ( 1._wp + sti / aks )
+     ac   = alk + hso4 - sit * hsi - ab - aw + ft * hf - pt * hpo4
+     ah2o = SQRT( ( c - ac )**2 + 4._wp * ( ac * ak2 / ak1 ) * ( 2._wp*c - ac ) )
+     ah2  = 0.5_wp * ak1 / ac *( ( c - ac ) + ah2o )
+     erel = ( ah2 - ah1 ) / ah2
+
+     if (abs( erel ).ge.5.e-5_wp) then
+         ah1 = ah2
+         iter = iter + 1
+       else
+         ah1 = ah2
+         exit
+      endif
  ENDDO
+ if(ah1.gt.0._wp)h=max(1.e-20_wp,ah1)
 
 END FUNCTION
 

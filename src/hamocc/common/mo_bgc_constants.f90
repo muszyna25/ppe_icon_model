@@ -77,25 +77,6 @@ MODULE mo_bgc_constants
   REAL(wp), PARAMETER :: aracal = arafra * 1.45_wp + calfra   ! simplification instead of calculating
                                        ! solubility product for aragonit
   !
-  !     -----------------------------------------------------------------
-  !*         8. SET COEFFICIENTS FOR SEAWATER PRESSURE CORRECTION OF
-  !             (AFTER ZEEBE and WOLF-GLADROW (2001)
-  !             ------- -------- --- ---------- ----- --- -------- -
-  !             in general the pressure dependency for dissoziation contants is given by
-  !             ln (K_p / K_0) = - delta V/RT *P + 0.5 delta kappa/RT *P**2
-  !             with delta V corresponds to molal volume  := delta V = dev + devt* TC + devt2*TC**2
-  !              and delta kappa to compressibility; here neglected
-  !             Thus  K_p = K_0 * exp (-(dekv + devkt*TC + devkt2*TC**2)*CP)
-  !             with CP = P/RT
-  !             K_p = K_0 * exp( -devk - devkt*TC - devkt2*TC**2)*CP
-  !             Note that in table A.11.1 all orginal devk (1. column) are negative; herefore, the sign
-  !             already is included in the definition of the constant
-  !             devt2 for carbon, calcite and aragonit is equal 0.0
-  !
-  REAL(wp), PARAMETER :: devk1  = 25.50_wp, devk1t = 0.1271_wp, devk2  = 15.82_wp, &
-       devk2t = -0.0219_wp, devkb  = 29.48_wp, devkbt = 0.1622_wp,                 &
-       devkbt2= 2.6080_wp*1.E-3_wp,  devkw  = 25.60_wp,  devkwt = 0.2324_wp,       &
-       devkwt2= -3.6246_wp*1.E-3_wp
   !
   !     -----------------------------------------------------------------
   !*         9. SET COEFFICIENTS FOR PRESSURE CORRECTION OF SOLUBILITY
@@ -135,26 +116,93 @@ MODULE mo_bgc_constants
   !
   !     -----------------------------------------------------------------
   !*        15. SET COEFF. FOR 1. DISSOC. OF CARBONIC ACID
-  !             DOE (1994)
+  !             Dickson, 2010
   !             ------------------------------------------
   !
-  REAL(wp), PARAMETER ::  c10 = 2.83655_wp, c11 = -2307.1266_wp, &
-       c12 = -1.5529413_wp, c13 = 0.207608410_wp, c14 = 4.0484_wp, &
-       c15 = 0.0846834_wp, c16 = -0.00654208_wp, c17 = 0.001005_wp
+  REAL(wp), PARAMETER ::  c10 = -3633.86_wp, c11 = 61.2172_wp,&
+    c12 = -9.67770_wp,  c13 = 0.011555_wp,   c14 = -0.0001152_wp
+
 
   !     -----------------------------------------------------------------
   !*        16. SET COEFF. FOR 2. DISSOC. OF CARBONIC ACID
-  !             DOE (1994)
+  !             Dickson, 2010
   !             ------------------------------------------
   !
-  REAL(wp), PARAMETER :: c20 = -9.226508_wp,  c21 = -3351.6106_wp,    &
-       c22 = -0.2005743_wp, c23 = 0.106901773_wp,   c24 = 23.9722_wp, &
-       c25 = 0.1130822_wp, c26 = -0.00846934_wp,  c27 = 0.001005_wp
+  REAL(wp), PARAMETER :: c20 = -471.78_wp, c21 = -25.9290_wp,&
+     c22 = 3.16967_wp,c23 = 0.0178_wp,c24 =-0.0001122_wp
 
-  !
-  !     -----------------------------------------------------------------
+
+   !      Set coefficients for pressure correction of
+
+  !      aks, akf, ak1p, ak2p, ak3p, ksi, k1, k2, kb, kw, aksp 
+
+  REAL(wp), PARAMETER,DIMENSION(11):: pa0= (/ -18.03_wp, -9.78_wp,  -14.51_wp, -23.12_wp, -26.57_wp, &
+&          -29.48_wp, -25.5_wp, -15.82_wp, -29.48_wp, -20.02_wp, -45.96_wp/)
+
+  REAL(wp), PARAMETER,DIMENSION(11):: pa1= (/ 0.0466_wp, -0.0090_wp, 0.1211_wp, 0.1758_wp, 0.2020_wp, &
+&          0.1622_wp,  0.1271_wp, -0.0219_wp, 0.1622_wp, 0.1119_wp, 0.5304_wp/)
+
+  REAL(wp), PARAMETER, DIMENSION(11)::pa2 =(/ 0.316e-3_wp, -0.942e-3_wp, -0.321e-3_wp, -2.647e-3_wp, &
+&         -3.042e-3_wp, -2.6080e-3_wp,  0.0_wp,  0.0_wp, -2.608e-3_wp,-1.409e-3_wp, 0.0_wp /)
+
+  REAL(wp), PARAMETER, DIMENSION(11)::pb0 = (/ -4.53e-3_wp,  -3.91e-3_wp,  -2.67e-3_wp, -5.15e-3_wp,-4.08e-3_wp, &
+&           -2.84e-3_wp,  -3.08e-3_wp,   1.13e-3_wp, -2.84e-3_wp, -5.13e-3_wp,-11.76e-3_wp  /)
+
+  REAL(wp), PARAMETER, DIMENSION(11)::pb1 = (/ 0.09e-3_wp,  0.054e-3_wp,  0.0427e-3_wp,  0.09e-3_wp, 0.0714e-3_wp,&
+&           0.0_wp,     0.0877e-3_wp, -0.1475e-3_wp, 0.0_wp, 0.0794e-3_wp,-0.3692e-3_wp/)
+
+
+  REAL(wp), PARAMETER,DIMENSION(11):: pb2 = 0.0_wp
+
+ !        Set coeff. for silicic acid dissociation
+ !        Millero p.671 (1995) using data from Yao and Millero (1995)
+
+  REAL(wp), PARAMETER:: cksi1 =-8904.2_wp,  cksi2 = 117.385_wp, &
+     cksi3  = -19.334_wp , cksi4  =   -458.79_wp,  cksi5  =    3.5913_wp,&
+     cksi6  =    188.74_wp, cksi7  =  - 1.5998_wp, cksi8  =  -12.1652_wp,& 
+     cksi9  =   0.07871_wp,cksi10 =  0.001005_wp
+
+  
+ !      Set coeff. for hydrogen sulfate dissociation
+ !      Dickson (1990, J. chem. Thermodynamics 22, 113)
+
+ REAL(wp),PARAMETER:: cks1  =   -4276.1_wp, cks2  =   141.328_wp,& 
+   cks3  =  - 23.093_wp, cks4  =   -13856._wp,  cks5  =    324.57_wp, &
+   cks6  =  - 47.986_wp, cks7  =    35474._wp,  cks8  =  - 771.54_wp,&
+   cks9  =   114.723_wp, cks10 =   - 2698._wp,  cks11 =     1776._wp,&
+   cks12 = -0.001005_wp  
+
+
+  
+  !      Set coeff. for hydrogen fluoride dissociation
+  !      Dickson and Riley (1979) 
+
+  REAL(wp), PARAMETER:: ckf1 = 874._wp, ckf2 = -9.68_wp,  ckf3 = 0.111_wp
+
+
+  !      Set coeff. for phosphoric acid dissociation
+
+  !      ak1p
+  REAL(wp), PARAMETER:: ck1p1 = -4576.752_wp, ck1p2 =   115.525_wp, &
+      ck1p3 =  - 18.453_wp, ck1p4 =  -106.736_wp, ck1p5 =   0.69171_wp ,& 
+      ck1p6 =  -0.65643_wp,   ck1p7 =  -0.01844_wp 
+
+  !      ak2p
+  REAL(wp), PARAMETER:: ck2p1 = -8814.715_wp , ck2p2 =  172.0883_wp, &
+   ck2p3 =  - 27.927_wp, ck2p4 =  -160.340_wp,  ck2p5 =    1.3566_wp, & 
+   ck2p6 =   0.37335_wp,  ck2p7 = - 0.05778_wp 
+
+  !      ak3p
+  REAL(wp), PARAMETER:: ck3p1 =  -3070.75_wp, ck3p2 =  - 18.141_wp, &
+   ck3p3 =  17.27039_wp, ck3p4 =   2.81197_wp, ck3p5 = -44.99486_wp, &
+   ck3p6 = - 0.09984_wp
+
+
+
+
+
   !*        17. SET COEFF. FOR 1. DISSOC. OF BORIC ACID
-  !             DOE (1994) (based on by Dickson 1990)
+  !         DOE (1994) (based on by Dickson 1990)
   !             ---------------------------------------
   !
   REAL(wp), PARAMETER :: cb0 = -8966.90_wp,  cb1 = -2890.53_wp,  cb2 = -77.942_wp, &
@@ -167,7 +215,7 @@ MODULE mo_bgc_constants
   !             DOE (1994)
   !             ---------------------------------------
   !
-  REAL(wp), PARAMETER ::  cw0 = 148.96502_wp, cw1 = -13847.26_wp, &
+  REAL(wp), PARAMETER ::  cw0 = 148.9802_wp, cw1 = -13847.26_wp, &
        cw2 = -23.6521_wp, cw3 = 118.67_wp, cw4 = -5.977_wp,       &
        cw5 = 1.0495_wp, cw6 = -0.01615_wp
 
@@ -203,15 +251,26 @@ MODULE mo_bgc_constants
   !      (WEISS, 1974, MARINE CHEMISTRY)
   !      --------------------------------------
   !
-  REAL(wp), PARAMETER ::  a1 = -62.7062_wp, a2 = 97.3066_wp, a3 = 24.1406_wp, &
-       b1 = -0.058420_wp, b2 = 0.033193_wp, b3 = -0.0051313_wp
+  REAL, PARAMETER:: a1 = -165.8806_wp, a2 =  222.8743_wp, a3 = 92.0792_wp,&
+      a4 = -1.48425_wp,  b1 = -0.056235_wp,  b2 = 0.031619_wp, b3 = -0.0048472_wp
 
   REAL(wp), PARAMETER :: atn2o = 3.e-7_wp
 
   REAL(wp), PARAMETER :: ten   = 10._wp
-  ! INVERS OF NORMAL MOLAL VOLUME OF AN IDEAL GAS [CM**3]
-  REAL(wp), PARAMETER :: oxyco = 1._wp/22414.4_wp
+  !  ml/L to kmol/m3
+  REAL(wp), PARAMETER :: oxyco = 1._wp/22391.6_wp
   !
   REAL(wp), PARAMETER :: invlog10 = 1.0_wp/log(10.0_wp)
+
+
+ ! Parameters for oxygen saturation concentration req. in OMIP
+ ! following Garcia& Gordon 1992, coefficients from
+ ! Tab1, col2 Benson & Krause
+
+  REAL(wp), PARAMETER :: oxya0=2.00907_wp, oxya1=3.22014_wp, oxya2=4.05010_wp,  &
+  &     oxya3=4.94457_wp, oxya4=-2.56847E-1_wp, oxya5=3.88767_wp, &
+  &     oxyb0=-6.24523E-3_wp, oxyb1=-7.37614E-3_wp, oxyb2=-1.03410E-2_wp, oxyb3=-8.17083E-3_wp, &
+  &     oxyc0=-4.88682E-7_wp
+
 
 END MODULE 

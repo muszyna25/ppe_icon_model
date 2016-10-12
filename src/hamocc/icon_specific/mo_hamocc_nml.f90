@@ -63,7 +63,7 @@ MODULE mo_hamocc_nml
   LOGICAL, PUBLIC :: l_bgc_check      = .FALSE.   ! MASS check at every time step?
   LOGICAL, PUBLIC :: l_up_sedshi      = .FALSE.   ! Upward sediment shifting
   LOGICAL, PUBLIC :: l_implsed        = .FALSE.   ! Implicit sediment formulation
-  LOGICAL, PUBLIC :: l_jerlov_pi      = .FALSE.    ! Depth dependent pi_alpha 
+  LOGICAL, PUBLIC :: l_dynamic_pi      = .FALSE.    ! Depth dependent pi_alpha 
   LOGICAL, PUBLIC :: l_PDM_settling   = .FALSE.   ! PDM scheme for particle settling
 
   REAL(wp), PUBLIC :: denit_sed, disso_po
@@ -93,7 +93,7 @@ MODULE mo_hamocc_nml
     &  l_bgc_check, &
     &  l_up_sedshi, &
     &  l_implsed,  &
-    &  l_jerlov_pi, &
+    &  l_dynamic_pi, &
     &  l_PDM_settling
 
 CONTAINS

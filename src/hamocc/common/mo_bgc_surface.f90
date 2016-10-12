@@ -133,8 +133,8 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
 !!
 
 
-  USE mo_param1_bgc, ONLY     : igasnit, ian2o,  iatmco2,          &
-       &                        ioxygen, isco212,         &
+  USE mo_param1_bgc, ONLY     : igasnit, ian2o,  iatmco2, iphosph,         &
+       &                        ioxygen, isco212, isilica,       &
        &                        ialkali, kcflux, koflux, knflux,          &
        &                        kn2oflux, idms, kdmsflux 
 
@@ -290,7 +290,9 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
          ! Update hi
 
            hi(j,k) = update_hi(hi(j,k), bgctra(j,k,isco212), aksurf(j,1) , &
-    &          aksurf(j,2),  aksurf(j,4),psao(j,k) , aksurf(j,3), bgctra(j,k,ialkali) )
+    &          aksurf(j,2),  aksurf(j,4), aksurf(j,7), aksurf(j,6), aksurf(j,5),&
+    &          aksurf(j,8), aksurf(j,9),aksurf(j,10), psao(j,k) , aksurf(j,3), &
+    &          bgctra(j,k,isilica), bgctra(j,k,iphosph),bgctra(j,k,ialkali) )
 
 
          !
