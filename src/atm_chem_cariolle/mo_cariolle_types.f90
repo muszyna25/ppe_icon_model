@@ -3,7 +3,7 @@ USE mo_cariolle_kind, ONLY: wp,wi
 IMPLICIT NONE
 PRIVATE
 PUBLIC :: t_avi, t_pvi, nlatx, nlevx, nmonthx, pvi, avi
-INTEGER(wi), PARAMETER          :: nlatx=64, nlevx=91, nmonthx=12
+INTEGER(wi), PARAMETER          :: nlatx=65, nlevx=91, nmonthx=12
 TYPE t_avi
 REAL(wp), POINTER :: tmprt(:,:)
 REAL(wp), POINTER :: vmr2molm2(:,:) 
@@ -13,12 +13,13 @@ LOGICAL           :: ldown
 END type t_avi
 TYPE(t_avi)       :: avi
 TYPE t_pvi
-REAL(wp), DIMENSION(nlatx,nlevx,nmonthx) :: a1, a2, a3, &
+REAL(wp), DIMENSION(0:nlatx+1,nlevx,nmonthx) :: a1, a2, a3, &
                                           & a4, a5, a6, &
                                           & a7, a8
 REAL(wp)                                 :: plev(nlevx),   &
-                                          & rlat(nlatx)
-REAL(wp)          :: lat_shift, delta_lat, nlat, l_lat_sn
+                                          & rlat(0:nlatx+1)
+REAL(wp)          :: delta_lat
+LOGICAL           :: l_lat_sn
 END type t_pvi
 TYPE(t_pvi)       :: pvi
 TYPE t_lat_interpolation
