@@ -1675,21 +1675,6 @@ CONTAINS
       END IF
       local_i = local_i + 1
 
-      ! special treatment of ocean model: model_date/run_start is the time at
-      ! the beginning of the timestep. Output is written at the end of the
-      ! timestep
-      IF (isRestart() .AND. my_process_is_ocean()) THEN
-        IF (TRIM(p_onl%output_start(2)) /= '') &
-          CALL finish(routine, "Not implemented for ocean model with restart!")
-
-        mtime_date => newDatetime(time_config%tc_startdate)
-        mtime_td   => newTimedelta(p_onl%output_interval(1))
-        mtime_date = mtime_date + mtime_td
-        CALL datetimeToString(mtime_date, p_onl%output_start(1))
-        CALL deallocateDatetime(mtime_date)
-        CALL deallocateTimedelta(mtime_td)
-      ENDIF
-
       include_last    = p_onl%include_last
       output_interval = p_onl%output_interval
       output_start    = p_onl%output_start
