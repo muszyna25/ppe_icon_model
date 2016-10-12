@@ -58,7 +58,7 @@ MODULE mo_ocean_tracer
   USE mo_ocean_GM_Redi,             ONLY: calc_ocean_physics, prepare_ocean_physics
   USE mo_ocean_math_operators,      ONLY: div_oce_3d, verticalDiv_scalar_onFullLevels! !verticalDiv_scalar_midlevel
   USE mo_scalar_product,            ONLY: map_edges2edges_viacell_3d_const_z
-!  USE mo_physical_constants,        ONLY: clw, rho_ref
+  USE mo_physical_constants,        ONLY: clw, rho_ref
   IMPLICIT NONE
 
   PRIVATE
@@ -505,14 +505,14 @@ CONTAINS
         DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
         if (tracer_index == 1) then
         p_os%p_diag%opottempGMRedi(jc,level,jb)&
-        &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))
-!        & * patch_3D%p_patch_1d(1)%prism_thick_c(jc,level,jb)
-!        & * clw *rho_ref
+        &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))&
+        & * patch_3D%p_patch_1d(1)%prism_thick_c(jc,level,jb)&
+        & * clw *rho_ref
         endif
 	    if (tracer_index == 2) then
         p_os%p_diag%osaltGMRedi(jc,level,jb)&
-        &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))
-!!        & * patch_3D%p_patch_1d(1)%prism_thick_c(jc,level,jb)
+        &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))&
+        & * patch_3D%p_patch_1d(1)%prism_thick_c(jc,level,jb)
         endif
 
 

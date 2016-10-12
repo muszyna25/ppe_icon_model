@@ -1683,13 +1683,13 @@ CONTAINS
       & grid_unstructured_cell, za_depth_below_sea, &
       & t_cf_var('opottempGMRedi_acc', 'K s-1', 'opottempGMRedi_acc', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"),loutput=.FALSE.)
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"),loutput=.true.)
 
     CALL add_var(ocean_default_list,'osaltGMRedi_acc',ocean_state_acc%osaltGMRedi, &
       & grid_unstructured_cell, za_depth_below_sea, &
       & t_cf_var('osaltGMRedi_acc', 'kg m-3 s-1', 'osaltGMRedi_acc', datatype_flt),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"),loutput=.FALSE.)
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"),loutput=.true.)
 
     CALL add_var(ocean_default_list, 'w_acc', ocean_state_acc%w, grid_unstructured_cell, &
       & za_depth_below_sea_half, &
