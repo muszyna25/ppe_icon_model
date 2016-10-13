@@ -36,7 +36,7 @@ MODULE mo_run_nml
                          & config_restart_filename  => restart_filename, &
                          & config_profiling_output => profiling_output, &
                          & config_check_uuid_gracefully => check_uuid_gracefully, &
-                         & setModelTimeStep, tc_dt_model
+                         & cfg_modelTimeStep => modelTimeStep
   USE mo_kind,           ONLY: wp, i8
   USE mo_exception,      ONLY: finish, message, message_text, &
     &                      config_msg_timestamp   => msg_timestamp
@@ -52,8 +52,7 @@ MODULE mo_run_nml
 
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,   &
        &                            open_and_restore_namelist, close_tmpfile
-  USE mtime,                  ONLY: max_timedelta_str_len, timedeltaToString, &
-       &                            getPTStringFromMS
+  USE mtime,                  ONLY: max_timedelta_str_len
   
   IMPLICIT NONE
   PRIVATE
@@ -98,7 +97,6 @@ MODULE mo_run_nml
   INTEGER :: debug_check_level
 
   CHARACTER(len=max_timedelta_str_len) :: modelTimeStep
-  CHARACTER(len=max_timedelta_str_len) :: dstring
   
   !> output mode (logicals)
   !  one or multiple of "none", "nml", "totint"
@@ -161,16 +159,19 @@ CONTAINS
                          ! will not work properly.
 
     nsteps = -999
-    dtime  = 600._wp     ! [s] for R2B04 + semi-implicit time steppping
+
+    ! Note: The default needs to be empty, since there exist
+    ! concurrent namelist parameters to specify these values:
     modelTimeStep = ''
+    dtime         = 0._wp
     
     ltimer               = .TRUE.
     timers_level         = 1
     activate_sync_timers = .FALSE.
     msg_level            = 10
     msg_timestamp        = .FALSE.
-    test_mode         = 0
-    debug_check_level = 0
+    test_mode            = 0
+    debug_check_level    = 0
 
     output(:) = " "
     output(1) = "default"
@@ -232,21 +233,6 @@ CONTAINS
     IF (ANY(nshift  < 0)) CALL finish(TRIM(routine),'"nshift" must be positive')
 
     IF (nsteps < 0 .AND. nsteps /= -999) CALL finish(TRIM(routine),'"nsteps" must not be negative')
-    IF (dtime <= 0._wp) CALL finish(TRIM(routine),'"dtime" must be positive')
-
-    IF (modelTimeStep == '') THEN
-      CALL getPTStringFromMS(NINT(1000*dtime, i8), modelTimeStep)
-    ENDIF
-    
-    CALL setModelTimeStep(modelTimeStep)
-
-    IF (ASSOCIATED(tc_dt_model)) THEN
-      CALL timedeltaToString(tc_dt_model, dstring)
-      WRITE(message_text,'(a,a)') 'Model time step          : ', dstring
-      CALL message('',message_text)
-      CALL message('','')
-    ENDIF
-    
 
     IF (.NOT. ltimer) timers_level = 0
 
@@ -283,6 +269,8 @@ CONTAINS
     config_profiling_output = profiling_output
 
     config_check_uuid_gracefully = check_uuid_gracefully
+
+    cfg_modelTimeStep       = modelTimeStep
 
     IF (TRIM(output(1)) /= "default") THEN
       config_output(:) = output(:)

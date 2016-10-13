@@ -25,8 +25,6 @@ MODULE mo_ocean_coupling
   USE mo_impl_constants,      ONLY: max_char_length
   USE mo_physical_constants,  ONLY: tmelt, rhoh2o
   USE mo_mpi,                 ONLY: p_pe_work
-  USE mo_datetime,            ONLY: t_datetime
-  USE mo_time_config,         ONLY: time_config
   USE mo_run_config,          ONLY: ltimer
   USE mo_dynamics_config,     ONLY: nold
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_coupling, &
@@ -37,7 +35,10 @@ MODULE mo_ocean_coupling
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
 
   USE mo_ocean_types
-  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes, t_atmos_for_ocean
+  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes,t_atmos_for_ocean
+  USE mo_time_config,         ONLY: set_tc_current_date
+  USE mtime,                  ONLY: datetime, datetimeToString, &
+    &                               MAX_DATETIME_STR_LEN
 
   !-------------------------------------------------------------
   ! For the coupling
@@ -51,8 +52,7 @@ MODULE mo_ocean_coupling
     &                               yac_fdef_mask, yac_fdef_field, yac_fsearch,  &
     &                               yac_ffinalize, yac_fput, yac_fget
   USE mo_coupling_config,     ONLY: is_coupled_run
-  USE mo_mtime_extensions,    ONLY: get_datetime_string
-  USE mo_output_event_types,  ONLY: t_sim_step_info
+  USE mo_time_config,         ONLY: time_config 
 
   !-------------------------------------------------------------
 
@@ -120,7 +120,8 @@ CONTAINS
     INTEGER, ALLOCATABLE  :: buffer_c(:,:)
     INTEGER, ALLOCATABLE  :: ibuffer(:)
 
-    TYPE(t_sim_step_info) :: sim_step_info
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: startdatestring
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: stopdatestring
 
     IF (.NOT. is_coupled_run()) RETURN
 
@@ -141,12 +142,11 @@ CONTAINS
     comp_ids(1) = comp_id
 
     ! Overwrite job start and end date with component data
-    CALL get_datetime_string(sim_step_info%run_start,    time_config%cur_datetime)
-    CALL get_datetime_string(sim_step_info%restart_time, time_config%cur_datetime, &
-      & INT(time_config%dt_restart))
+    CALL datetimeToString(time_config%tc_startdate, startdatestring)
+    CALL datetimeToString(time_config%tc_stopdate, stopdatestring)
 
-    CALL yac_fdef_datetime ( start_datetime = TRIM(sim_step_info%run_start), &
-      &                      end_datetime   = TRIM(sim_step_info%restart_time)   )
+    CALL yac_fdef_datetime ( start_datetime = TRIM(startdatestring), &
+         &                   end_datetime   = TRIM(stopdatestring)   )
 
     ! Announce one subdomain (patch) to the coupler
     grid_name = "grid1"
@@ -425,14 +425,14 @@ CONTAINS
 
   !--------------------------------------------------------------------------
 
-  SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, atmos_forcing, datetime)
+  SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, atmos_forcing, this_datetime)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in)        :: patch_3d
     TYPE(t_hydro_ocean_state)                   :: ocean_state
     TYPE(t_sea_ice)                             :: ice
     TYPE(t_atmos_fluxes)                        :: atmos_fluxes
     TYPE(t_atmos_for_ocean)                     :: atmos_forcing
-    TYPE(t_datetime), INTENT(inout)             :: datetime
+    TYPE(datetime), POINTER                     :: this_datetime
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = 'couple_ocean_toatmo_fluxes'
@@ -447,17 +447,19 @@ CONTAINS
     INTEGER :: no_arr         !  no of arrays in bundle for put/get calls
     TYPE(t_patch), POINTER:: patch_horz
 
-    INTEGER :: info, ierror   !< return values from cpl_put/get calls
-
+    INTEGER                             :: info, ierror   !< return values from cpl_put/get calls
+    REAL(wp), PARAMETER                 :: dummy = 0.0_wp
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datestring
     REAL(wp) :: total_rain
-    REAL(wp), PARAMETER :: dummy = 0.0_wp
 
     IF (.NOT. is_coupled_run() ) RETURN
 
     IF (ltimer) CALL timer_start(timer_coupling)
 
     patch_horz   => patch_3D%p_patch_2D(1)
-    time_config%cur_datetime = datetime
+
+!    CALL datetimeToString(this_datetime, datestring)
+!    CALL set_tc_current_date(TRIM(datestring))
 
     nbr_hor_cells = patch_horz%n_patch_cells
 
@@ -971,9 +973,9 @@ MODULE mo_ocean_coupling
   USE mo_model_domain,        ONLY: t_patch_3d
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes, t_atmos_for_ocean
-  USE mo_datetime,            ONLY: t_datetime
   USE mo_coupling_config,     ONLY: is_coupled_run
   USE mo_exception,           ONLY: finish
+  USE mtime,                  ONLY: datetime
 
   PUBLIC :: construct_ocean_coupling, destruct_ocean_coupling
   PUBLIC :: couple_ocean_toatmo_fluxes
@@ -992,14 +994,14 @@ CONTAINS
 
   END SUBROUTINE construct_ocean_coupling
 
-  SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, atmos_forcing, datetime)
+  SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, atmos_forcing, this_datetime)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in)        :: patch_3d
     TYPE(t_hydro_ocean_state)                   :: ocean_state
     TYPE(t_sea_ice)                             :: ice
     TYPE(t_atmos_fluxes)                        :: atmos_fluxes
     TYPE(t_atmos_for_ocean)                     :: atmos_forcing
-    TYPE(t_datetime), INTENT(inout)             :: datetime
+    TYPE(datetime), POINTER                     :: this_datetime
 
     IF ( is_coupled_run() ) THEN
        CALL finish('couple_ocean_toatmo_fluxes: unintentionally called. Check your source code and configure.')

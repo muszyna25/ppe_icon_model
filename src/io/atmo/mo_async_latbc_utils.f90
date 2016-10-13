@@ -74,21 +74,20 @@
     USE mo_sync,                ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E, SYNC_C
     USE mo_initicon_types,      ONLY: t_initicon_state
     USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
-    USE mtime,                  ONLY: event, newEvent, datetime, newDatetime,      &
-         &                            isCurrentEventActive, deallocateDatetime,    &
-         &                            MAX_DATETIME_STR_LEN, MAX_EVENTNAME_STR_LEN, &
-         &                            MAX_TIMEDELTA_STR_LEN, getPTStringFromMS,    &
-         &                            OPERATOR(>=), OPERATOR(-), OPERATOR(>)
-    USE mo_mtime_extensions,    ONLY: get_datetime_string, get_duration_string_real
-    USE mo_datetime,            ONLY: t_datetime
+    USE mtime,                  ONLY: timedelta, newTimedelta, deallocateTimedelta, &
+         &                            event, newEvent, deallocateEvent,             &
+         &                            isCurrentEventActive,                         &
+         &                            datetime, newDatetime, deallocateDatetime,    &
+         &                            datetimeToString,                             &
+         &                            MAX_DATETIME_STR_LEN, MAX_EVENTNAME_STR_LEN,  &
+         &                            MAX_TIMEDELTA_STR_LEN, getPTStringFromMS,     &
+         &                            OPERATOR(>=), OPERATOR(>),                    &
+         &                            OPERATOR(-), OPERATOR(+)
     USE mo_time_config,         ONLY: time_config
     USE mo_limarea_config,      ONLY: latbc_config, generate_filename_mtime
     USE mo_ext_data_types,      ONLY: t_external_data
     USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, dtime, nsteps
     USE mo_initicon_config,     ONLY: init_mode
-    USE mtime_events,           ONLY: deallocateEvent
-    USE mtime_timedelta,        ONLY: timedelta, newTimedelta, deallocateTimedelta, &
-         &                            operator(+)
     USE mo_cdi,                 ONLY: streamOpenRead, streamClose
     USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
     USE mo_util_cdi,            ONLY: cdiGetStringError
@@ -294,9 +293,9 @@
       ENDIF
 
       ! compute sim_start, sim_end in a formate appropriate for mtime
-      CALL get_datetime_string(sim_start, time_config%ini_datetime)
-      CALL get_datetime_string(sim_end, time_config%end_datetime)
-      CALL get_datetime_string(sim_cur_read, time_config%cur_datetime)
+      CALL datetimeToString(time_config%tc_startdate, sim_start)
+      CALL datetimeToString(time_config%tc_stopdate,sim_end)
+      CALL datetimeToString(time_config%tc_current_date,sim_cur_read)
 
       event_name = 'Prefetch input'
 
@@ -312,8 +311,8 @@
       prefetchEvent => newEvent(TRIM(event_name), TRIM(sim_start), &
            TRIM(sim_cur_read), TRIM(sim_end), td_string)
 
-      tdiff = (0.5_wp*dtime)
-      CALL get_duration_string_real(tdiff, tdiff_string)
+      tdiff = 500*dtime
+      CALL getPTStringFromMS(NINT(tdiff,i8), tdiff_string)
       my_duration_slack => newTimedelta(tdiff_string)
 
       delta_dtime => newTimedelta(td_string)
@@ -396,9 +395,9 @@
       ! read first two time steps
       IF( my_process_is_work()) THEN  ! IF (PRESENT(p_patch)) THEN
          CALL pref_latbc_data( patch_data, p_patch, p_nh_state, p_int_state, &
-              &                   time_config%cur_datetime, lopt_check_read=.FALSE., lopt_time_incr=.FALSE.)
+              &                   current_datetime=time_config%tc_current_date, lopt_check_read=.FALSE., lopt_time_incr=.FALSE.)
       ELSE IF( my_process_is_pref()) THEN
-         CALL pref_latbc_data( patch_data, datetime=time_config%cur_datetime, &
+         CALL pref_latbc_data( patch_data, current_datetime=time_config%tc_current_date, &
               &                   lopt_check_read=.FALSE., lopt_time_incr=.FALSE. )
          ! Inform compute PEs that we are done
          CALL async_pref_send_handshake()
@@ -408,9 +407,9 @@
 
       IF( my_process_is_work()) THEN  !IF (PRESENT(p_patch)) THEN
          CALL pref_latbc_data( patch_data, p_patch, p_nh_state, p_int_state, &
-              &                   time_config%cur_datetime, lopt_check_read=.FALSE., lopt_time_incr=.TRUE.)
+              &                   current_datetime=time_config%tc_current_date, lopt_check_read=.FALSE., lopt_time_incr=.TRUE.)
       ELSE IF( my_process_is_pref()) THEN
-         CALL pref_latbc_data( patch_data,datetime=time_config%cur_datetime, &
+         CALL pref_latbc_data( patch_data,current_datetime=time_config%tc_current_date, &
               &                   lopt_check_read=.FALSE., lopt_time_incr=.TRUE.)
          ! Inform compute PEs that we are done
          CALL async_pref_send_handshake()
@@ -432,13 +431,13 @@
     !! Modified version by M. Pondkule, DWD (2014-02-11)
     !!
 
-    SUBROUTINE pref_latbc_data( patch_data, p_patch, p_nh_state, p_int, datetime,&
+    SUBROUTINE pref_latbc_data( patch_data, p_patch, p_nh_state, p_int, current_datetime,&
          &                   lopt_check_read, lopt_time_incr)
       TYPE(t_patch_data),     INTENT(IN), TARGET     :: patch_data
       TYPE(t_patch),          OPTIONAL,INTENT(IN)    :: p_patch
       TYPE(t_nh_state),       OPTIONAL,INTENT(INOUT) :: p_nh_state  !< nonhydrostatic state on the global domain
       TYPE(t_int_state),      OPTIONAL,INTENT(IN)    :: p_int
-      TYPE(t_datetime),       OPTIONAL,INTENT(INOUT) :: datetime       !< current time
+      TYPE(datetime),         OPTIONAL,POINTER       :: current_datetime       !< current time
       LOGICAL,      INTENT(IN), OPTIONAL    :: lopt_check_read
       LOGICAL,      INTENT(IN), OPTIONAL    :: lopt_time_incr  !< increment latbc_datetime
 
@@ -450,7 +449,7 @@
 
       IF( my_process_is_work()) THEN
          ! compute current datetime in a format appropriate for mtime
-         CALL get_datetime_string(sim_cur, datetime) ! time_config%cur_datetime)
+         CALL datetimeToString(current_datetime, sim_cur) ! time_config%tc_current_date)
          mtime_date  => newDatetime(TRIM(sim_cur))
 
          ! check for event been active
@@ -1626,16 +1625,16 @@
     !! Initial version by M. Pondkule, DWD (2014-08-15)
     !!
     SUBROUTINE update_lin_interpolation( step_datetime )
-      TYPE(t_datetime), INTENT(INOUT) :: step_datetime
-      TYPE(datetime), pointer :: mtime_step
+      TYPE(datetime), pointer  :: step_datetime
+      TYPE(datetime), pointer  :: mtime_step
       TYPE(timedelta), pointer :: delta_tstep
       CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: sim_step
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
            "mo_async_latbc_utils::update_lin_interpolation"
 
       ! compute current datetime in a format appropriate for mtime
-      CALL get_datetime_string(sim_step, step_datetime)
-      mtime_step  => newDatetime(TRIM(sim_step))
+      CALL datetimeToString(step_datetime,sim_step)
+      mtime_step  => newDatetime(sim_step)
 
       delta_tstep => newTimedelta("PT0S")
       delta_tstep = mtime_read - mtime_step

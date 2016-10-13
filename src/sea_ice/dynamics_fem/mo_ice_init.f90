@@ -25,7 +25,9 @@
 !==============================================================================
 module mo_ice_init
 
-  USE mo_kind,    ONLY: wp
+  USE mo_kind,         ONLY: wp
+  USE mo_run_config,   ONLY: dtime
+  USE mo_sea_ice_nml,  ONLY: Tevp_inv
   USE mo_ice_elements
   USE mo_ice
   USE mo_ice_mesh
@@ -81,7 +83,7 @@ subroutine ice_init_fem
   !
 
   ! ================ DO not change
-!  Tevp_inv=3.0_wp/dtime
+  Tevp_inv=3.0_wp/dtime
 !  Clim_evp=Clim_evp*(evp_rheol_steps/dt)**2/Tevp_inv  ! This is combination
                                                        ! it always enters
   ! ================

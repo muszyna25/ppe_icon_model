@@ -88,7 +88,7 @@ MODULE mo_interface_iconam_echam
   USE mo_nh_diagnose_pres_temp ,ONLY: diagnose_pres_temp
   USE mo_physical_constants    ,ONLY: rd, p0ref, rd_o_cpd, vtmpc1, grav, amco2, amd
 
-  USE mo_datetime              ,ONLY: t_datetime
+  USE mtime                    ,ONLY: datetime, deallocateDatetime
   USE mo_echam_phy_memory      ,ONLY: prm_field, prm_tend
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs_global
   USE mo_echam_phy_main        ,ONLY: echam_phy_main
@@ -122,7 +122,7 @@ CONTAINS
   !  Marco Giorgetta, MPI-M, 2014
   !
   SUBROUTINE interface_iconam_echam( dtadv_loc        ,& !in
-    &                                datetime         ,& !in
+    &                                mtime_current    ,& !in
     &                                patch            ,& !in
     &                                pt_int_state     ,& !in
     &                                p_metrics        ,& !in
@@ -134,7 +134,7 @@ CONTAINS
     !> Arguments:
     !
     REAL(wp)              , INTENT(in)            :: dtadv_loc       !< advective time step
-    TYPE(t_datetime)      , INTENT(in)            :: datetime
+    TYPE(datetime),          POINTER              :: mtime_current
 
     TYPE(t_patch)         , INTENT(in)   , TARGET :: patch           !< grid/patch info
     TYPE(t_int_state)     , INTENT(in)   , TARGET :: pt_int_state    !< interpolation state
@@ -167,13 +167,14 @@ CONTAINS
     REAL(wp), POINTER :: zdudt(:,:,:), zdvdt(:,:,:)
 
     LOGICAL  :: ltrig_rad
-    TYPE(t_datetime)   :: datetime_radtran !< date and time for radiative transfer calculation
 
     INTEGER  :: return_status
 
     ! Local parameters
 
     CHARACTER(*), PARAMETER :: method_name = "interface_iconam_echam"
+
+    TYPE(datetime), POINTER             :: mtime_radtran
 
     !-------------------------------------------------------------------------------------
 
@@ -440,12 +441,12 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_echam_bcs)
 
-    CALL echam_phy_bcs_global( datetime     ,&! in
+    CALL echam_phy_bcs_global( mtime_current,&! in   
       &                        jg           ,&! in
       &                        patch        ,&! in
       &                        dtadv_loc    ,&! in
       &                        ltrig_rad    ,&! out
-      &                        datetime_radtran) ! out
+      &                        mtime_radtran) ! out
 
     IF (ltimer) CALL timer_stop(timer_echam_bcs)
     !
@@ -489,15 +490,17 @@ CONTAINS
         &                  jcs          ,&! in
         &                  jce          ,&! in
         &                  nproma       ,&! in
-        &                  datetime     ,&! in
+        &                  mtime_current,&! in
         &                  dtadv_loc    ,&! in
         &                  dtadv_loc    ,&! in
         &                  ltrig_rad    ,&! in
-        &                  datetime_radtran) ! in
+        &                  mtime_radtran) ! in
 
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+    CALL deallocateDatetime(mtime_radtran)
 
     IF (ltimer) CALL timer_stop(timer_echam_phy)
     !
