@@ -41,22 +41,4 @@ DO ic=jcb,jce
     ilev_low=ii
   END DO
 END DO
-write(*,*) '---------------------------------------------------'
-write(*,*) 'plev_clim=',plev_clim
-write(*,*) '---------------------------------------------------'
-write(*,*) 'plev(1,1)=',plev(1,1)
-write(*,*) 'inmw1_p(1,1)=',inmw1_p(1,1),'inmw2_p(1,1)=',inmw2_p(1,1)
-write(*,*) 'plev_clim(inmw1_p(1,1))=',plev_clim(inmw1_p(1,1)),&
-          &'plev_clim(inmw2_p(1,1))',plev_clim(inmw2_p(1,1))
-write(*,*) 'wgt1_p(1,1)=',wgt1_p(1,1),'wgt2(1,1)=',wgt2_p(1,1)
-write(*,*) 'plev(1,5)=',plev(1,5)
-write(*,*) 'inmw1_p(1,5)=',inmw1_p(1,5),'inmw2_p(1,5)=',inmw2_p(1,5)
-write(*,*) 'plev_clim(inmw1_p(1,5))=',plev_clim(inmw1_p(1,5)),&
-          &'plev_clim(inmw2_p(1,5))',plev_clim(inmw2_p(1,5))
-write(*,*) 'wgt1_p(1,5)=',wgt1_p(1,5),'wgt2(1,5)=',wgt2_p(1,5)
-write(*,*) 'plev(1,nlev)=',plev(1,nlev)
-write(*,*) 'inmw1_p(1,nlev)=',inmw1_p(1,nlev),'inmw2_p(1,nlev)=',inmw2_p(1,nlev)
-write(*,*) 'plev_clim(inmw1_p(1,nlev))=',plev_clim(inmw1_p(1,nlev)),&
-          &'plev_clim(inmw2_p(1,nlev))',plev_clim(inmw2_p(1,nlev))
-write(*,*) 'wgt1_p(1,nlev)=',wgt1_p(1,nlev),'wgt2(1,nlev)=',wgt2_p(1,nlev)
 END SUBROUTINE pressure_weight_li

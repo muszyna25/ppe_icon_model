@@ -14,8 +14,10 @@ REAL(wp)               :: wgt1_lat(NCX),wgt2_lat(NCX), &
                         & wgt1_p(NCX,nlev),wgt2_p(NCX,nlev)
 INTEGER(wi)            :: inmw1_lat(NCX),inmw2_lat(NCX), &
                         & iw1_p(NCX,nlev),iw2_p(NCX,nlev)
-REAL(wp)               :: wgt1,wgt2
-INTEGER(wi)            :: iw1,iw2
+REAL(wp)               :: wgt1,wgt2,wp1,wp2
+INTEGER(wi)            :: iw1,iw2,ip1,ip2
+REAL(wp)               :: a1_p1,a1_p2,a2_p1,a2_p2,a3_p1,a3_p2,a4_p1,a4_p2, &
+                        & a5_p1,a5_p2,a6_p1,a6_p2,a7_p1,a7_p2,a8_p1,a8_p2
 REAL(wp)               :: al1(NCX,nlev), al2(NCX,nlev), &
                         & al3(NCX,nlev), al4(NCX,nlev), &
                         & al5(NCX,nlev), al6(NCX,nlev), &
@@ -27,7 +29,10 @@ CALL lat_weight_linear( jcb,                 jce,                   NCX,        
                       & avi%cell_center_lat, nlatx,                 pvi%rlat,          &
                       & pvi%delta_lat,       pvi%l_lat_sn,          wgt1_lat,          &
                       & wgt2_lat,            inmw1_lat,             inmw2_lat          )
-CALL pres_weight_linear(jcb,jce,NCX,nlev,avi%pres,nlevx,pvi%plev,wgt1_p,wgt2_p,iw1_p,iw2_p)
+CALL pres_weight_linear(jcb,                 jce,                   NCX,               &
+                      & nlev,                avi%pres,              nlevx,             &
+                      & pvi%plev,            wgt1_p,                wgt2_p,            &
+                      & iw1_p,               iw2_p                                     )
 lev_temp=10
 it_temp=1
 DO ilev=1,nlev
@@ -36,22 +41,53 @@ DO ilev=1,nlev
     wgt2=wgt2_lat(ic)
     iw1 =inmw1_lat(ic)
     iw2 =inmw2_lat(ic)
-    al1(ic,ilev) = wgt1*pvi%a1(iw1,lev_temp,it_temp) + &
-                 & wgt2*pvi%a1(iw2,lev_temp,it_temp)
-    al2(ic,ilev) = wgt1*pvi%a2(iw1,lev_temp,it_temp) + &
-                 & wgt2*pvi%a2(iw2,lev_temp,it_temp)
-    al3(ic,ilev) = wgt1*pvi%a3(iw1,lev_temp,it_temp) + &
-                 & wgt2*pvi%a3(iw2,lev_temp,it_temp)
-    al4(ic,ilev) = wgt1*pvi%a4(iw1,lev_temp,it_temp) + &
-                 & wgt2*pvi%a4(iw2,lev_temp,it_temp)
-    al5(ic,ilev) = wgt1*pvi%a5(iw1,lev_temp,it_temp) + &
-                 & wgt2*pvi%a5(iw2,lev_temp,it_temp)
-    al6(ic,ilev) = wgt1*pvi%a6(iw1,lev_temp,it_temp) + &
-                 & wgt2*pvi%a6(iw2,lev_temp,it_temp)
-    al7(ic,ilev) = wgt1*pvi%a7(iw1,lev_temp,it_temp) + &
-                 & wgt2*pvi%a7(iw2,lev_temp,it_temp)
-    al8(ic,ilev) = wgt1*pvi%a8(iw1,lev_temp,it_temp) + &
-                 & wgt2*pvi%a8(iw2,lev_temp,it_temp)
+    wp1 =wgt1_p(ic,ilev)
+    wp2 =wgt2_p(ic,ilev)
+    ip1 =iw1_p(ic,ilev)
+    ip2 =iw2_p(ic,ilev)
+! latitude interpolation for pressure level 1 (iw1_p)
+    a1_p1 = wgt1*pvi%a1(iw1,ip1,it_temp) + &
+          & wgt2*pvi%a1(iw2,ip1,it_temp)
+    a2_p1 = wgt1*pvi%a2(iw1,ip1,it_temp) + &
+          & wgt2*pvi%a2(iw2,ip1,it_temp)
+    a3_p1 = wgt1*pvi%a3(iw1,ip1,it_temp) + &
+          & wgt2*pvi%a3(iw2,ip1,it_temp)
+    a4_p1 = wgt1*pvi%a4(iw1,ip1,it_temp) + &
+          & wgt2*pvi%a4(iw2,ip1,it_temp)
+    a5_p1 = wgt1*pvi%a5(iw1,ip1,it_temp) + &
+          & wgt2*pvi%a5(iw2,ip1,it_temp)
+    a6_p1 = wgt1*pvi%a6(iw1,ip1,it_temp) + &
+          & wgt2*pvi%a6(iw2,ip1,it_temp)
+    a7_p1 = wgt1*pvi%a7(iw1,ip1,it_temp) + &
+          & wgt2*pvi%a7(iw2,ip1,it_temp)
+    a8_p1 = wgt1*pvi%a8(iw1,ip1,it_temp) + &
+          & wgt2*pvi%a8(iw2,ip1,it_temp)
+! latitude interpolation for pressure level 2 (iw2_p)
+    a1_p2 = wgt1*pvi%a1(iw1,ip2,it_temp) + &
+          & wgt2*pvi%a1(iw2,ip2,it_temp)
+    a2_p2 = wgt1*pvi%a2(iw1,ip2,it_temp) + &
+          & wgt2*pvi%a2(iw2,ip2,it_temp)
+    a3_p2 = wgt1*pvi%a3(iw1,ip2,it_temp) + &
+          & wgt2*pvi%a3(iw2,ip2,it_temp)
+    a4_p2 = wgt1*pvi%a4(iw1,ip2,it_temp) + &
+          & wgt2*pvi%a4(iw2,ip2,it_temp)
+    a5_p2 = wgt1*pvi%a5(iw1,ip2,it_temp) + &
+          & wgt2*pvi%a5(iw2,ip2,it_temp)
+    a6_p2 = wgt1*pvi%a6(iw1,ip2,it_temp) + &
+          & wgt2*pvi%a6(iw2,ip2,it_temp)
+    a7_p2 = wgt1*pvi%a7(iw1,ip2,it_temp) + &
+          & wgt2*pvi%a7(iw2,ip2,it_temp)
+    a8_p2 = wgt1*pvi%a8(iw1,ip2,it_temp) + &
+          & wgt2*pvi%a8(iw2,ip2,it_temp)
+! pressure level interpolation
+    al1(ic,ilev)=wp1*a1_p1+wp2*a1_p2
+    al2(ic,ilev)=wp1*a2_p1+wp2*a2_p2
+    al3(ic,ilev)=wp1*a3_p1+wp2*a3_p2
+    al4(ic,ilev)=wp1*a4_p1+wp2*a4_p2
+    al5(ic,ilev)=wp1*a5_p1+wp2*a5_p2
+    al6(ic,ilev)=wp1*a6_p1+wp2*a6_p2
+    al7(ic,ilev)=wp1*a7_p1+wp2*a7_p2
+    al8(ic,ilev)=wp1*a8_p1+wp2*a8_p2
   END DO
 END DO
 
