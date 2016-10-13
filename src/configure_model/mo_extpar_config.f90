@@ -53,6 +53,8 @@ MODULE mo_extpar_config
   PUBLIC :: generate_filename
   PUBLIC :: generate_td_filename
 
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_extpar_config'
+
 
   !>
   !!----------------------------------------------------------------------------
@@ -123,7 +125,7 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH)  :: syear,smonth, result_str
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-    &  routine = 'mo_td_ext_data:generate_td_filename:'
+    &  routine = modname//':generate_td_filename:'
 
     IF (PRESENT (year)) THEN
      WRITE(syear, '(i4.4)') year

@@ -237,7 +237,7 @@ CONTAINS
     REAL(wp), INTENT(IN) :: p_sim_time  !< simulation time in seconds
                                         !< since start
 
-    INTEGER  :: nblks_e, npromz_e
+    INTEGER  :: nblks_e
     INTEGER  :: nlev                !< number of full levels
     INTEGER  :: i_startblk, i_startidx, i_endidx, i_rcstartlev
     INTEGER  :: jb,je,jk            !< loop indices
@@ -253,7 +253,6 @@ CONTAINS
 
     ! values for the blocking
     nblks_e  = ptr_patch%nblks_e
-    npromz_e = ptr_patch%npromz_e
 
    ! number of vertical levels
     nlev = ptr_patch%nlev
@@ -498,7 +497,7 @@ CONTAINS
       &  p_cc(:,:,:)    
 
     INTEGER  :: jb,jc,jk            !> loop indices
-    INTEGER  :: nblks_c, npromz_c
+    INTEGER  :: nblks_c
     INTEGER  :: nlev                !< number of full levels
     INTEGER  :: i_startblk, i_startidx, i_endidx, i_rcstartlev
     REAL(wp) :: z_alpha             !< Earths rotation axis pitch angle in rad
@@ -517,7 +516,6 @@ CONTAINS
 
     ! values for the blocking
     nblks_c  = ptr_patch%nblks_c
-    npromz_c = ptr_patch%npromz_c
 
     ! number of vertical levels
     nlev = ptr_patch%nlev
@@ -928,7 +926,7 @@ CONTAINS
     REAL(wp), INTENT(IN) :: p_sim_time  !< simulation time in seconds
                                         !< since start
 
-    INTEGER  :: nblks_e, npromz_e
+    INTEGER  :: nblks_e
     INTEGER  :: nlev                !< number of full levels
     INTEGER  :: i_startblk, i_startidx, i_endidx, i_rcstartlev
     INTEGER  :: jb,je,jk            !< loop indices
@@ -950,7 +948,6 @@ CONTAINS
 
     ! values for the blocking
     nblks_e  = ptr_patch%nblks_e
-    npromz_e = ptr_patch%npromz_e
 
     ! number of vertical levels
     nlev = ptr_patch%nlev
@@ -1305,7 +1302,7 @@ CONTAINS
     REAL(wp), INTENT(INOUT) :: p_cc(:,:,:)   !< tracer array
 
     INTEGER  :: jb,jc,jk                     !< loop indices
-    INTEGER  :: nblks_c, npromz_c
+    INTEGER  :: nblks_c
     INTEGER  :: nlev                         !< number of full levels
     INTEGER  :: i_startblk, i_startidx, i_endidx, i_rcstartlev
 
@@ -1316,7 +1313,6 @@ CONTAINS
 
     ! values for the blocking
     nblks_c  = ptr_patch%nblks_c
-    npromz_c = ptr_patch%npromz_c
 
     ! number of vertical levels
     nlev = ptr_patch%nlev

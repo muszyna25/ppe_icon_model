@@ -34,7 +34,10 @@
 
 MODULE mo_nh_interface_nwp
 
-  USE mo_datetime,                ONLY: t_datetime
+  USE mtime,                      ONLY: datetime, timeDelta, newTimedelta,             &
+    &                                   deallocateTimedelta, getTimedeltaFromDatetime, &
+    &                                   getTotalMillisecondsTimedelta
+  USE mo_time_config,             ONLY: time_config
   USE mo_kind,                    ONLY: wp
 
   USE mo_timer
@@ -109,7 +112,7 @@ CONTAINS
   !
   SUBROUTINE nwp_nh_interface(lcall_phy_jg, linit, lredgrid,       & !input
                             & dt_loc, dt_phy_jg,                   & !input
-                            & p_sim_time, datetime,                & !input
+                            & mtime_datetime,                      & !input
                             & pt_patch, pt_int_state, p_metrics,   & !input
                             & pt_par_patch,                        & !input
                             & ext_data,                            & !input
@@ -132,9 +135,7 @@ CONTAINS
     REAL(wp),INTENT(in)          :: dt_loc          !< (advective) time step applicable to local grid level
     REAL(wp),INTENT(in)          :: dt_phy_jg(:)    !< time interval for all physics
                                                     !< packages on domain jg
-    REAL(wp),INTENT(in)          :: p_sim_time
-
-    TYPE(t_datetime),            INTENT(in):: datetime
+    TYPE(datetime), POINTER                :: mtime_datetime !< date/time information (in)
     TYPE(t_patch),        TARGET,INTENT(in):: pt_patch     !<grid/patch info.
     TYPE(t_patch),        TARGET,INTENT(in):: pt_par_patch !<grid/patch info (parent grid)
 
@@ -211,7 +212,15 @@ CONTAINS
     ! Required for computing the water loading term 
     INTEGER, POINTER :: condensate_list(:)
 
+    TYPE(timeDelta), POINTER            :: time_diff
+    REAL(wp)                            :: p_sim_time     !< elapsed simulation time on this grid level
 
+    ! calculate elapsed simulation time in seconds (local time for
+    ! this domain!)
+    time_diff  => newTimedelta("PT0S")
+    time_diff  =  getTimeDeltaFromDateTime(mtime_datetime, time_config%tc_exp_startdate)
+    p_sim_time =  getTotalMillisecondsTimedelta(time_diff, mtime_datetime)*1.e-3_wp
+    CALL deallocateTimedelta(time_diff)
 
     IF (ltimer) CALL timer_start(timer_physics)
 
@@ -565,19 +574,19 @@ CONTAINS
     ENDIF
 
     IF (lart) THEN
-      CALL calc_o3_gems(pt_patch,datetime,pt_diag,prm_diag,ext_data)
+      CALL calc_o3_gems(pt_patch,mtime_datetime,pt_diag,prm_diag,ext_data)
 
       IF (.NOT. linit) THEN
-        CALL art_reaction_interface(ext_data,              & !> in
-                &                   pt_patch,              & !> in
-                &                   datetime,              & !> in
-                &                   dt_phy_jg(itfastphy),  & !> in
-                &                   p_prog_list,           & !> in
-                &                   pt_prog,               & !> in
-                &                   p_metrics,             & !> in
-                &                   prm_diag,              & !> in
-                &                   pt_diag,               & !> inout
-                &                   pt_prog_rcf%tracer)
+        CALL art_reaction_interface(ext_data,                    & !> in
+          &          pt_patch,                           & !> in
+          &          mtime_datetime,                     & !> in
+          &          dt_phy_jg(itfastphy),               & !> in
+          &          p_prog_list,                        & !> in
+          &          pt_prog,                            & !> in
+          &          p_metrics,                          & !> in
+          &          prm_diag,                           & !> in
+          &          pt_diag,                            & !> inout
+          &          pt_prog_rcf%tracer)
       END IF
 
       CALL art_washout_interface(pt_prog,pt_diag,              & !>in
@@ -868,7 +877,7 @@ CONTAINS
       IF (ltimer) CALL timer_start(timer_nwp_radiation)
       CALL nwp_radiation (lredgrid,              & ! in
            &              p_sim_time,            & ! in
-           &              datetime,              & ! in
+           &              mtime_datetime,        & ! in
            &              pt_patch,              & ! in
            &              pt_par_patch,          & ! in
            &              ext_data,              & ! in
