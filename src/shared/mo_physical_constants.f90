@@ -240,5 +240,9 @@ MODULE mo_physical_constants
     &  tf_salt      = 271.45_wp     !< salt-water freezing point [K]
                                     !< (note that it differs from Tf) 
 
+  ! Length of day in seconds, as integer and real
+  !
+  INTEGER,  PARAMETER :: idaylen=86400     ! [s]
+  REAL(wp), PARAMETER :: rdaylen=86400._wp ! [s]
 
 END MODULE mo_physical_constants

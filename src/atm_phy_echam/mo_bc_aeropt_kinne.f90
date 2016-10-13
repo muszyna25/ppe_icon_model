@@ -17,7 +17,7 @@
 
 MODULE mo_bc_aeropt_kinne
 
-  USE mo_kind,                 ONLY: wp
+  USE mo_kind,                 ONLY: wp, i8
   USE mo_model_domain,         ONLY: t_patch
   USE mo_parallel_config,      ONLY: nproma
   USE mo_lrtm_par,             ONLY: nbndlw
@@ -26,11 +26,13 @@ MODULE mo_bc_aeropt_kinne
   USE mo_io_config,            ONLY: default_read_method
   USE mo_read_interface,       ONLY: openInputFile, closeFile, on_cells, &
     &                                t_stream_id, read_0D_real, read_3D_time
-  USE mo_time_interpolation_weights, ONLY: wi=>wi_limm
   USE mo_physical_constants,   ONLY: grav, rgrav, rd
   USE mo_echam_phy_memory,     ONLY: prm_field
   USE mo_echam_phy_config,     ONLY: echam_phy_config
-
+  USE mtime,                     ONLY: datetime 
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
+       &                               calculate_time_interpolation_weights
+  
   IMPLICIT NONE
 
   PRIVATE
@@ -44,7 +46,7 @@ MODULE mo_bc_aeropt_kinne
                                       asy_c_f(:,:,:,:),                   &
                                       z_km_aer_c_mo(:,:,:,:), &
                                       z_km_aer_f_mo(:,:,:,:)
-  INTEGER, SAVE                    :: pre_year=-999999
+  INTEGER(i8), SAVE                :: pre_year=-999999
   INTEGER, PARAMETER               :: lev_clim=40, nmonths=12
   REAL(wp)                         :: dz_clim
   REAL(wp)                         :: rdz_clim
@@ -109,7 +111,7 @@ END SUBROUTINE shift_months_bc_aeropt_kinne
 
 SUBROUTINE read_bc_aeropt_kinne(year, p_patch)
   
-  INTEGER, INTENT(in)           :: year
+  INTEGER(i8), INTENT(in)       :: year
   TYPE(t_patch), INTENT(in)     :: p_patch
 
   !LOCAL VARIABLES
@@ -150,14 +152,16 @@ END SUBROUTINE read_bc_aeropt_kinne
 !! !REVISION HISTORY:
 !! original source by J.S. Rast (2009-11-03) for echam6
 !! adapted to icon by J.S. Rast (2013-08-28)
-SUBROUTINE set_bc_aeropt_kinne ( jg,                                      &
+SUBROUTINE set_bc_aeropt_kinne (    current_date,       jg,               &
           & kproma,                 kbdim,              klev,             &
           & krow,                   nb_lw,              nb_sw,            &
           & paer_tau_lw_vr,         paer_tau_sw_vr,     paer_piz_sw_vr,   &
           & paer_cg_sw_vr,          ppd_hl,             pp_fl,            &
           & tk_fl                                                         )
 
-! !INPUT PARAMETERS
+  ! !INPUT PARAMETERS
+
+  TYPE(datetime), POINTER, INTENT(in) :: current_date
   INTEGER,INTENT(in)  :: jg,     &! domain index
                          kproma, &! actual block length
                          kbdim,  &! maximum block length
@@ -200,6 +204,10 @@ SUBROUTINE set_bc_aeropt_kinne ( jg,                                      &
   INTEGER, DIMENSION(kbdim)         :: kindex ! index field
   REAL(wp), PARAMETER               :: rdog=rd/grav
 
+  TYPE(t_time_interpolation_weights) :: tiw
+
+  tiw = calculate_time_interpolation_weights(current_date)
+  
 ! (i) calculate altitude above NN and layer thickness in 
 !     echam for altitude profiles
      zdeltag(1:kproma,1:klev)= &
@@ -220,11 +228,11 @@ SUBROUTINE set_bc_aeropt_kinne ( jg,                                      &
         DO jl=1,kproma
            IF (kindex(jl) > 0 .and. kindex(jl) <= lev_clim ) THEN
               zq_aod_c(jl,jk)= &
-                & z_km_aer_c_mo(jl,kindex(jl),krow,wi%inm1)*wi%wgt1+ &
-                & z_km_aer_c_mo(jl,kindex(jl),krow,wi%inm2)*wi%wgt2
+                & z_km_aer_c_mo(jl,kindex(jl),krow,tiw%month1_index)*tiw%weight1+ &
+                & z_km_aer_c_mo(jl,kindex(jl),krow,tiw%month2_index)*tiw%weight2
               zq_aod_f(jl,jk)= &
-               & z_km_aer_f_mo(jl,kindex(jl),krow,wi%inm1)*wi%wgt1+ &
-               & z_km_aer_f_mo(jl,kindex(jl),krow,wi%inm2)*wi%wgt2
+               & z_km_aer_f_mo(jl,kindex(jl),krow,tiw%month1_index)*tiw%weight1+ &
+               & z_km_aer_f_mo(jl,kindex(jl),krow,tiw%month2_index)*tiw%weight2
            END IF
         END DO
      END DO
@@ -256,34 +264,34 @@ SUBROUTINE set_bc_aeropt_kinne ( jg,                                      &
      END DO
 
 ! (iii) far infrared
-     zs_i(1:kproma,1:nb_lw)=1._wp-(wi%wgt1*ssa_c_f(1:kproma,1:nb_lw,krow,wi%inm1)+ &
-                                   wi%wgt2*ssa_c_f(1:kproma,1:nb_lw,krow,wi%inm2))
+     zs_i(1:kproma,1:nb_lw)=1._wp-(tiw%weight1*ssa_c_f(1:kproma,1:nb_lw,krow,tiw%month1_index)+ &
+                                   tiw%weight2*ssa_c_f(1:kproma,1:nb_lw,krow,tiw%month2_index))
      DO jk=1,klev
         DO jwl=1,nb_lw
            paer_tau_lw_vr(1:kproma,jk,jwl)=zq_aod_c(1:kproma,jk) * &
                 zs_i(1:kproma,jwl) * &
-                (wi%wgt1*aod_c_f(1:kproma,jwl,krow,wi%inm1) + &
-                 wi%wgt2*aod_c_f(1:kproma,jwl,krow,wi%inm2)) 
+                (tiw%weight1*aod_c_f(1:kproma,jwl,krow,tiw%month1_index) + &
+                 tiw%weight2*aod_c_f(1:kproma,jwl,krow,tiw%month2_index)) 
         END DO
      END DO
 ! (iii) solar radiation
 ! time interpolated single scattering albedo (omega_f, omega_c)
-     zs_c(1:kproma,1:nb_sw) = ssa_c_s(1:kproma,1:nb_sw,krow,wi%inm1)*wi%wgt1 + &
-                              ssa_c_s(1:kproma,1:nb_sw,krow,wi%inm2)*wi%wgt2
-     zs_f(1:kproma,1:nb_sw) = ssa_f_s(1:kproma,1:nb_sw,krow,wi%inm1)*wi%wgt1 + &
-                              ssa_f_s(1:kproma,1:nb_sw,krow,wi%inm2)*wi%wgt2
+     zs_c(1:kproma,1:nb_sw) = ssa_c_s(1:kproma,1:nb_sw,krow,tiw%month1_index)*tiw%weight1 + &
+                              ssa_c_s(1:kproma,1:nb_sw,krow,tiw%month2_index)*tiw%weight2
+     zs_f(1:kproma,1:nb_sw) = ssa_f_s(1:kproma,1:nb_sw,krow,tiw%month1_index)*tiw%weight1 + &
+                              ssa_f_s(1:kproma,1:nb_sw,krow,tiw%month2_index)*tiw%weight2
 ! time interpolated asymmetry factor x ssa (omega_c*g_c, omega_{n,a}*g_{n,a})
      zg_c(1:kproma,1:nb_sw) = zs_c(1:kproma,1:nb_sw) * &
-                              (asy_c_s(1:kproma,1:nb_sw,krow,wi%inm1)*wi%wgt1 + &
-                               asy_c_s(1:kproma,1:nb_sw,krow,wi%inm2)*wi%wgt2)
+                              (asy_c_s(1:kproma,1:nb_sw,krow,tiw%month1_index)*tiw%weight1 + &
+                               asy_c_s(1:kproma,1:nb_sw,krow,tiw%month2_index)*tiw%weight2)
      zg_f(1:kproma,1:nb_sw) = zs_f(1:kproma,1:nb_sw) * &
-                              (asy_f_s(1:kproma,1:nb_sw,krow,wi%inm1)*wi%wgt1 + &
-                               asy_f_s(1:kproma,1:nb_sw,krow,wi%inm2)*wi%wgt2)
+                              (asy_f_s(1:kproma,1:nb_sw,krow,tiw%month1_index)*tiw%weight1 + &
+                               asy_f_s(1:kproma,1:nb_sw,krow,tiw%month2_index)*tiw%weight2)
 ! time interpolated aerosol optical depths
-     zt_c(1:kproma,1:nb_sw)=wi%wgt1*aod_c_s(1:kproma,1:nb_sw,krow,wi%inm1) + &
-                          & wi%wgt2*aod_c_s(1:kproma,1:nb_sw,krow,wi%inm2)
-     zt_f(1:kproma,1:nb_sw)=wi%wgt1*aod_f_s(1:kproma,1:nb_sw,krow,wi%inm1) + &
-                          & wi%wgt2*aod_f_s(1:kproma,1:nb_sw,krow,wi%inm2)
+     zt_c(1:kproma,1:nb_sw)=tiw%weight1*aod_c_s(1:kproma,1:nb_sw,krow,tiw%month1_index) + &
+                          & tiw%weight2*aod_c_s(1:kproma,1:nb_sw,krow,tiw%month2_index)
+     zt_f(1:kproma,1:nb_sw)=tiw%weight1*aod_f_s(1:kproma,1:nb_sw,krow,tiw%month1_index) + &
+                          & tiw%weight2*aod_f_s(1:kproma,1:nb_sw,krow,tiw%month2_index)
 ! height interpolation
 ! calculate optical properties
   DO jk=1,klev
@@ -338,7 +346,7 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
                                     cwldim,  &! name of wavelength dimension
                                     clevdim   ! name of level dimension in climatology
   INTEGER, INTENT(in)            :: imnthb, imnthe !begin and end month to be read
-  INTEGER, INTENT(in)            :: iyear ! base year. if month=0, month 12 of previous year is read, if month=13, month 1
+  INTEGER(i8), INTENT(in)        :: iyear ! base year. if month=0, month 12 of previous year is read, if month=13, month 1
                                           ! of subsequent year is read
   CHARACTER(len=*), INTENT(in)   :: cfname   ! file name containing variables
   TYPE(t_patch), TARGET, INTENT(in) :: p_patch

@@ -46,7 +46,7 @@ MPI_LIB     = -lmpifort -lmpi -lpmpi
 
 ZLIBROOT    = /opt/local
 SZIPROOT    = /opt/local
-HDF5ROOT    = /opt/local
+HDF5ROOT    = /opt/local/lib/hdf5-18
 NETCDFROOT  = /opt/local
 XML2ROOT    = /opt/local
 LAPACKROOT  =

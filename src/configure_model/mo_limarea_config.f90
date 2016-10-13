@@ -25,14 +25,13 @@ MODULE mo_limarea_config
                                    associate_keyword, with_keywords, &
                                    int2string
   USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_datetime,           ONLY: t_datetime
-  USE mtime,                 ONLY: MAX_DATETIME_STR_LEN, datetime
+  USE mtime,                 ONLY: MAX_TIMEDELTA_STR_LEN, datetime,  &
+    &                              timedelta
 
   IMPLICIT NONE
 
   PUBLIC :: t_latbc_config, latbc_config, configure_latbc, generate_filename, &
     &       generate_filename_mtime 
-
   !>
   !!----------------------------------------------------------------------------
   !! Derived type containing control variables specific to the nonhydrostatic 
@@ -42,13 +41,15 @@ MODULE mo_limarea_config
   TYPE t_latbc_config
 
     ! variables from namelist
-    INTEGER                         :: itype_latbc      ! type of limited area boundary nudging
-    REAL(wp)                        :: dtime_latbc      ! dt between two consequtive external latbc files
-    INTEGER                         :: nlev_in
-    CHARACTER(LEN=filename_max)     :: latbc_filename   ! prefix of latbc files
-    CHARACTER(LEN=MAX_CHAR_LENGTH)  :: latbc_path       ! directory containing external latbc files
-    REAL(wp)                        :: lc1, lc2         ! linear interpolation coefficients
-
+    INTEGER                              :: itype_latbc       ! type of limited area boundary nudging
+    INTEGER                              :: nlev_in           
+    CHARACTER(LEN=filename_max)          :: latbc_filename    ! prefix of latbc files
+    CHARACTER(LEN=MAX_CHAR_LENGTH)       :: latbc_path        ! directory containing external latbc files
+    REAL(wp)                             :: lc1, lc2          ! linear interpolation coefficients
+                                                             
+    REAL(wp)                             :: dtime_latbc       ! dt between two consequtive external latbc files
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: dt_latbc          ! ISO string (dt_latbc)
+    TYPE(timedelta), POINTER             :: dtime_latbc_mtime ! dt between two consequtive external latbc files
   END TYPE t_latbc_config
   !------------------------------------------------------------------------
 
@@ -96,28 +97,28 @@ CONTAINS
 
 
   !--------------------------------------------------------------------------------------
-  FUNCTION generate_filename(nroot, jlev, latbc_datetime) RESULT(result_str)
+  FUNCTION generate_filename(nroot, jlev, latbc_mtime) RESULT(result_str)
     INTEGER,          INTENT(IN)                :: nroot, jlev
-    TYPE(t_datetime), INTENT(IN)                :: latbc_datetime
+    TYPE(datetime),   INTENT(IN)                :: latbc_mtime
     CHARACTER(MAX_CHAR_LENGTH )                 :: result_str
 
     ! Local variables
     TYPE (t_keyword_list), POINTER              :: keywords => NULL()
     CHARACTER(MAX_CHAR_LENGTH)                  :: str
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER       :: &
-      &  routine = 'mo_limarea_config::generate_filename:'
+      &  routine = 'mo_limarea_config::generate_filename_mtime:'
     
-    WRITE(str,'(i4)')   latbc_datetime%year
+    WRITE(str,'(i4)')   latbc_mtime%date%year
     CALL associate_keyword("<y>",         TRIM(str),                        keywords)
-    WRITE(str,'(i2.2)') latbc_datetime%month
+    WRITE(str,'(i2.2)') latbc_mtime%date%month
     CALL associate_keyword("<m>",         TRIM(str),                        keywords)
-    WRITE(str,'(i2.2)') latbc_datetime%day
+    WRITE(str,'(i2.2)') latbc_mtime%date%day
     CALL associate_keyword("<d>",         TRIM(str),                        keywords)
-    WRITE(str,'(i2.2)') latbc_datetime%hour
+    WRITE(str,'(i2.2)') latbc_mtime%time%hour
     CALL associate_keyword("<h>",         TRIM(str),                        keywords)
-    WRITE(str,'(i2.2)') latbc_datetime%minute
+    WRITE(str,'(i2.2)') latbc_mtime%time%minute
     CALL associate_keyword("<min>",       TRIM(str),                        keywords)
-    WRITE(str,'(i2.2)') FLOOR(latbc_datetime%second)
+    WRITE(str,'(i2.2)') latbc_mtime%time%second !FLOOR(latbc_mtime%time%second)
     CALL associate_keyword("<sec>",       TRIM(str),                        keywords)
       
     CALL associate_keyword("<nroot>",     TRIM(int2string(nroot,'(i1)')),   keywords)
@@ -128,7 +129,6 @@ CONTAINS
     ! replace keywords in latbc_filename
     result_str = TRIM(with_keywords(keywords, TRIM(latbc_config%latbc_filename)))
   END FUNCTION generate_filename
-
   !--------------------------------------------------------------------------------------
   FUNCTION generate_filename_mtime(nroot, jlev, latbc_mtime) RESULT(result_str)
     INTEGER,          INTENT(IN)                :: nroot, jlev

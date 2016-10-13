@@ -32,7 +32,7 @@ MODULE mo_nwp_sfc_interp
   USE mo_physical_constants,  ONLY: grav, dtdz_standardatm
   USE mo_phyparam_soil,       ONLY: cporv, cadp, cfcap, cpwp
   USE mo_ext_data_state,      ONLY: ext_data
-  USE mo_exception,           ONLY: message, message_text, finish
+  USE mo_exception,           ONLY: finish
 
   IMPLICIT NONE
   PRIVATE
