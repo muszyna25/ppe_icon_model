@@ -805,7 +805,7 @@
 
               ! compute dot product of normal vectors and distance between edge midpoints
               z_nxprod = DOT_PRODUCT(z_nx1(jc,:),z_nx2(jc,:))
-              z_dist   = arc_length_v(cc_e1,cc_e2,ptr_patch%geometry_info)
+              z_dist   = arc_length_v(cc_e1,cc_e2)
 
               ! set up interpolation matrix
               IF      (rbf_vec_kern_ll == 1) THEN
@@ -837,7 +837,7 @@
           ! convert coordinates to cartesian vector
           !
           grid_point = ptr_int_lonlat%ll_coord(jc,jb)
-          cc_center = gc2cc(grid_point,ptr_patch%geometry_info)
+          cc_center = gc2cc(grid_point)
           cc_c(jc,1:3) = cc_center%x(1:3)
 
           z_lon = grid_point%lon
@@ -845,14 +845,14 @@
 
           ! Zonal wind component
           CALL gvec2cvec(1._wp,0._wp, z_lon,z_lat, &
-            &            z_nx1(jc,1),z_nx1(jc,2),z_nx1(jc,3),ptr_patch%geometry_info)
+            &            z_nx1(jc,1),z_nx1(jc,2),z_nx1(jc,3))
 
           z_norm = SQRT( DOT_PRODUCT(z_nx1(jc,:),z_nx1(jc,:)) )
           z_nx1(jc,:)  = 1._wp/z_norm * z_nx1(jc,:)
 
           ! Meridional wind component
           CALL gvec2cvec(0._wp,1._wp, z_lon,z_lat, &
-            &            z_nx2(jc,1),z_nx2(jc,2),z_nx2(jc,3),ptr_patch%geometry_info)
+            &            z_nx2(jc,1),z_nx2(jc,2),z_nx2(jc,3))
 
           z_norm = SQRT( DOT_PRODUCT(z_nx2(jc,:),z_nx2(jc,:)) )
           z_nx2(jc,:)  = 1._wp/z_norm * z_nx2(jc,:)
@@ -874,7 +874,7 @@
 
             cc_e2(:)  = ptr_patch%edges%cartesian_center(ile2,ibe2)%x(:)
 
-            z_dist = arc_length_v(cc_c(jc,:), cc_e2,ptr_patch%geometry_info)
+            z_dist = arc_length_v(cc_c(jc,:), cc_e2)
 
             ! get Cartesian orientation vector
             z_nx3(jc,:) = ptr_patch%edges%primal_cart_normal(ile2,ibe2)%x(:)
@@ -1033,10 +1033,10 @@
               ibc2 = ptr_int_lonlat%rbf_c2l_blk(je2,jc_cell,jb_cell)
 
               ! get Cartesian coordinates and orientation vectors
-              cc_1 = gc2cc(ptr_patch%cells%center(ilc1,ibc1),ptr_patch%geometry_info)
-              cc_2 = gc2cc(ptr_patch%cells%center(ilc2,ibc2),ptr_patch%geometry_info)
+              cc_1 = gc2cc(ptr_patch%cells%center(ilc1,ibc1))
+              cc_2 = gc2cc(ptr_patch%cells%center(ilc2,ibc2))
               ! compute distance between cell centers
-              z_dist = arc_length_v(cc_1%x(:),cc_2%x(:),ptr_patch%geometry_info)
+              z_dist = arc_length_v(cc_1%x(:),cc_2%x(:))
 
               ! set up interpolation matrix
               IF      (rbf_vec_kern_ll == 1) THEN
@@ -1065,7 +1065,7 @@
 
           grid_point = ptr_int_lonlat%ll_coord(jc,jb)
           ! convert coordinates to cartesian vector
-          cc_center = gc2cc(grid_point,ptr_patch%geometry_info)
+          cc_center = gc2cc(grid_point)
           cc_c(jc,1:3) = cc_center%x(1:3)
 
         END DO
@@ -1085,9 +1085,9 @@
             ! distance to lon-lat point:
             ilc2   = ptr_int_lonlat%rbf_c2l_idx(je2,jc_cell,jb_cell)
             ibc2   = ptr_int_lonlat%rbf_c2l_blk(je2,jc_cell,jb_cell)
-            cc_1 = gc2cc(ptr_patch%cells%center(ilc2,ibc2),ptr_patch%geometry_info)
+            cc_1 = gc2cc(ptr_patch%cells%center(ilc2,ibc2))
 
-            z_dist = arc_length_v(cc_c(jc,:), cc_1%x(:),ptr_patch%geometry_info)
+            z_dist = arc_length_v(cc_c(jc,:), cc_1%x(:))
 
             IF (rbf_vec_kern_ll == 1) THEN
               z_rbfval(jc,je2) = gaussi(z_dist,rbf_shape_param)

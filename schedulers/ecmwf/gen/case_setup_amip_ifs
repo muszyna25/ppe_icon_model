@@ -100,7 +100,7 @@ model_equations=3      #  3=non-hydrost. atm.,
 
 cat > icon_master.namelist << EOF
 &master_nml
- lrestart                     = .FALSE.
+ lrestart                     = .TRUE.
 /
 &time_nml
  ini_datetime_string          = "$start_date"
@@ -387,7 +387,7 @@ cat > ${atmo_namelist} << EOF
  lsq_high_ord                 = 3
  l_intp_c2l                   = .TRUE.
  l_mono_c2l                   = .TRUE.
-!support_baryctr_intp         = .true.
+ support_baryctr_intp         = .true.
  rbf_scale_mode_ll            = 1       ! workaround for RBF lat lon interpolation problems at R2B5 
 /
 &extpar_nml

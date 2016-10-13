@@ -324,14 +324,14 @@
 
     #          ICON parameter          IFS or ERA40 parameter
     case param[iparam] of
-      "T"       : para_icon = "130.128" ; para_ifs = "130.128"  ;  end   # "500014"
+      "T"       : para_icon = "500014"  ; para_ifs = "130.128"  ;  end
       "Q"       : para_icon = "503055"  ; para_ifs = "133.128"  ;  end
       "CLWC"    : para_icon = "503056"  ; para_ifs = "246.128"  ;  end
       "CIWC"    : para_icon = "503057"  ; para_ifs = "247.128"  ;  end
       "CC"      : para_icon = "500098"  ; para_ifs = "248.128"  ;  end
-      "R"       : para_icon = "157.128" ; para_ifs = "157.128"  ;  end   # "500037"
-      "U"       : para_icon = "131.128" ; para_ifs = "131.128"  ;  end   # "500028"
-      "V"       : para_icon = "132.128" ; para_ifs = "132.128"  ;  end   # "500030"
+      "R"       : para_icon = "500037"  ; para_ifs = "157.128"  ;  end
+      "U"       : para_icon = "500028"  ; para_ifs = "131.128"  ;  end
+      "V"       : para_icon = "500030"  ; para_ifs = "132.128"  ;  end
       otherwise : stop("ERROR: Set ICON and IFS parameters!!!") ;  end
     end case
 
@@ -384,8 +384,6 @@
     if search(exid[1],'_') > 0  and  param[iparam] = "CC" then   # test for ICON run
       control = control / 100.0
     end if
-    print("Read control from file: ", control_filename) 
-    print("Read variable: ", parameter, " levels: ", levels, " resol:  ", grid, "deg # flds: ", control)
 
 # --- read data headers (GRIB); dimensions are needed
 
@@ -416,14 +414,14 @@
 
 # --- read data and determine average for forecast
 
-    if search(exid[2],'_') > 0 then
+    if search(exid[2],'_') > 0 then 
       parameter = para_icon
     else
       parameter = para_ifs
     end if
     forecast=read(
       source   :  forecast_filename,
-     #levtype  :  lev_type,
+      levtype  :  lev_type,
       levelist :  levels,
       parameter:  parameter,
       grid     :  grid
@@ -431,8 +429,6 @@
     if search(exid[2],'_') > 0  and  param[iparam] = "CC" then    # test for ICON run
       forecast = forecast / 100.0
     end if
-    print("Read model from file: ", forecast_filename) 
-    print("Read variable: ", parameter, " levels: ", levels, " resol:  ", grid, "deg # flds: ", forecast)
 
 # --- read data headers (GRIB); dimensions are needed
 
@@ -527,11 +523,10 @@
        DATA  		    : avg_con
       )
     when 
-         plot_modus = 'Average Difference': 
-         diff_data = xs_average(  
-           DIRECTION          : "EW", 
-           DATA               : diff )
-
+       plot_modus = 'Average Difference': 
+       diff_data = xs_average(  
+         DIRECTION          : "EW", 
+         DATA  		    : diff )
          if background = 1 then
            case cont_modus of
              'Contour Shading':

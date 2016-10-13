@@ -49,6 +49,7 @@ MODULE mo_ha_stepping
   USE mo_ha_prog_util,        ONLY: copy_prog_state
   USE mo_ha_diag_util,        ONLY: update_diag_state, update_dyn_output
   USE mo_expensive_functions, ONLY: convert_t2theta
+  USE mo_io_restart,          ONLY: create_restart_file
   USE mo_hierarchy_management,ONLY: process_grid, interpolate_diagnostics
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_impl_constants,      ONLY: LEAPFROG_EXPL, LEAPFROG_SI, &
@@ -60,8 +61,9 @@ MODULE mo_ha_stepping
   USE mo_icon_comm_lib,       ONLY: icon_comm_sync_all
   USE mo_parallel_config,     ONLY: use_icon_comm, use_async_restart_output
   USE mo_name_list_output,    ONLY: write_name_list_output, istime4name_list_output
-  USE mo_restart,             ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
-  USE mo_restart_attributes,  ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_io_restart_async,    ONLY: prepare_async_restart, write_async_restart, &
+      &                             close_async_restart, set_data_async_restart
+  USE mo_io_restart_attributes,  ONLY: get_restart_attribute
   USE mo_time_config,         ONLY: time_config
 
   IMPLICIT NONE
@@ -217,8 +219,6 @@ CONTAINS
   LOGICAL                                      :: l_nml_output
   LOGICAL                                      :: l_3tl_init(n_dom)
   INTEGER                                      :: jstep0 ! start counter for time loop
-  TYPE(t_RestartAttributeList), POINTER        :: restartAttributes
-  CLASS(t_RestartDescriptor), POINTER          :: restartDescriptor
 
 #ifdef _OPENMP
   INTEGER  :: jb
@@ -233,13 +233,14 @@ CONTAINS
 
   IF (ltimer) CALL timer_start(timer_total)
 
-  restartDescriptor => createRestartDescriptor("atm")
+  IF (use_async_restart_output) THEN
+    CALL prepare_async_restart(opt_pvct_size = SIZE(vct))
+  ENDIF
 
   jstep0 = 0
-  restartAttributes => getAttributesForRestarting()
-  IF (ASSOCIATED(restartAttributes) .AND. .NOT. time_config%is_relative_time) THEN
+  IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
     ! get start counter for time loop from restart file:
-    jstep0 = restartAttributes%getInteger("jstep")
+    CALL get_restart_attribute("jstep", jstep0)
   END IF
 
   TIME_LOOP: DO jstep = (jstep0+1), (jstep0+nsteps)
@@ -375,15 +376,27 @@ CONTAINS
     ! Write restart file
     !--------------------------------------------------------------------------
     IF (is_checkpoint_time(jstep,n_chkpt,(nsteps+jstep0))) THEN
+
+      IF (use_async_restart_output) THEN
         DO jg = 1, n_dom
-            CALL restartDescriptor%updatePatch(p_patch(jg), opt_pvct = vct)
+          CALL set_data_async_restart(p_patch(jg)%id, p_patch(jg)%ldom_active, &
+                                    & opt_pvct = vct)
         ENDDO
-        CALL restartDescriptor%writeRestart(datetime, jstep)
+
+        ! call asynchronous restart
+        CALL write_async_restart (datetime, jstep)
+
+      ELSE
+        DO jg = 1, n_dom
+          CALL create_restart_file( p_patch(jg), datetime,                        &
+                                  & jstep, "atm", vct )
+        END DO
+      END IF
     END IF
 
   ENDDO TIME_LOOP
 
-  CALL deleteRestartDescriptor(restartDescriptor)
+  IF (use_async_restart_output) CALL close_async_restart
 
   IF (ltimer) CALL timer_stop(timer_total)
 

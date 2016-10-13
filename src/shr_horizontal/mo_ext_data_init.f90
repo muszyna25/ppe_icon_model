@@ -51,12 +51,12 @@ MODULE mo_ext_data_init
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename, &
     &                              generate_td_filename, extpar_varnames_map_file, &
-    &                              n_iter_smooth_topo, i_lctype, nclass_lu, nmonths_ext
+    &                              i_lctype, nclass_lu, nmonths_ext
   USE mo_time_config,        ONLY: time_config
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero, albedo_type
   USE mo_echam_phy_config,   ONLY: echam_phy_config
-  USE mo_smooth_topo,        ONLY: smooth_topo_real_data
+  USE mo_smooth_topo,        ONLY: smooth_topography
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_grid_config,        ONLY: n_dom
@@ -250,15 +250,10 @@ CONTAINS
       IF ( iforcing == inwp ) THEN
 
         DO jg = 1, n_dom
-         ! topography smoothing
-         IF (n_iter_smooth_topo(jg) > 0) THEN
-            CALL smooth_topo_real_data ( p_patch(jg)                   ,&
-              &                          p_int_state(jg)               ,&
-              &                          ext_data(jg)%atm%fr_land      ,&
-              &                          ext_data(jg)%atm%fr_lake      ,&
-              &                          ext_data(jg)%atm%topography_c ,&
-              &                          ext_data(jg)%atm%sso_stdh     )
-          ENDIF
+          CALL smooth_topography ( p_patch(jg)                   ,&
+            &                      p_int_state(jg)               ,&
+            &                      ext_data(jg)%atm%topography_c ,&
+            &                      ext_data(jg)%atm%sso_stdh     )
 
           ! calculate gradient of orography for resolved surface drag
           !

@@ -196,16 +196,16 @@ CONTAINS
   ! returns integer n as a string (often needed in printing messages)
   !
   FUNCTION int2string(n, opt_fmt)
-    CHARACTER(len=11) :: int2string ! result
+    CHARACTER(len=10) :: int2string ! result
     INTEGER, INTENT(in) :: n
     CHARACTER(len=*), INTENT(in), OPTIONAL :: opt_fmt
     !
-    CHARACTER(len=11) :: fmt
+    CHARACTER(len=10) :: fmt
 
     IF (PRESENT(opt_fmt)) THEN
       fmt = opt_fmt
     ELSE
-      fmt = '(I11)'
+      fmt = '(I10)'
     END IF
     WRITE(int2string,fmt) n
     int2string = ADJUSTL(int2string)
@@ -713,9 +713,9 @@ CONTAINS
     END DO
   END SUBROUTINE sort_and_compress_list
 
-  FUNCTION tohex_internal(inData) RESULT(resultVar)
+  FUNCTION tohex_internal(inData) RESULT(RESULT)
     INTEGER(KIND = C_INT8_T), INTENT(IN) :: inData(:)
-    CHARACTER(LEN = 3*SIZE(inData, 1) - 1) :: resultVar
+    CHARACTER(LEN = 3*SIZE(inData, 1) - 1) :: RESULT
 
     CHARACTER(LEN = 16), PARAMETER :: nibbles = "0123456789abcdef"
     INTEGER :: inputIndex, outputIndex, curChar, nibble1, nibble2
@@ -723,90 +723,90 @@ CONTAINS
     outputIndex = 1
     DO inputIndex = 1, SIZE(inData, 1)
         IF(inputIndex /= 1) THEN
-            resultVar(outputIndex:outputIndex) = " "
+            RESULT(outputIndex:outputIndex) = " "
             outputIndex = outputIndex + 1
         END IF
         curChar = inData(inputIndex)
         IF(curChar < 0) curChar = curChar + 256
         nibble1 = ISHFT(curChar, -4) + 1
         nibble2 = IAND(curChar, 15) + 1
-        resultVar(outputIndex:outputIndex) = nibbles(nibble1:nibble1)
-        resultVar(outputIndex+1:outputIndex+1) = nibbles(nibble2:nibble2)
+        RESULT(outputIndex:outputIndex) = nibbles(nibble1:nibble1)
+        RESULT(outputIndex+1:outputIndex+1) = nibbles(nibble2:nibble2)
         outputIndex = outputIndex + 2
     END DO
   END FUNCTION tohex_internal
 
-  FUNCTION tohex(string) RESULT(resultVar)
+  FUNCTION tohex(string) RESULT(RESULT)
     CHARACTER(LEN = *), INTENT(IN) :: string
-    CHARACTER(LEN = 3*LEN(string) - 1) :: resultVar
+    CHARACTER(LEN = 3*LEN(string) - 1) :: RESULT
 
     INTEGER(KIND = C_INT8_T) :: mold(1)
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":tohex"
 
-    IF(LEN(resultVar) /= LEN(tohex_internal(TRANSFER(string, mold)))) THEN
+    IF(LEN(RESULT) /= LEN(tohex_internal(TRANSFER(string, mold)))) THEN
         ! throw error if the returned SIZE is wrong
         ! note: we don't call "finish" to avoid circular dep
         WRITE(0,*) "fatal error: "//modname//":tohex_internal() returned string of unexpected length"
-        resultVar = "fatal error: "//modname//":tohex_internal() returned string of unexpected length"
+        RESULT = "fatal error: "//modname//":tohex_internal() returned string of unexpected length"
     ELSE
-        resultVar = tohex_internal(TRANSFER(string, mold))
+        RESULT = tohex_internal(TRANSFER(string, mold))
     END IF
   END FUNCTION tohex
 
-  FUNCTION toCharArray(string) RESULT(resultVar)
+  FUNCTION toCharArray(string) RESULT(result)
     CHARACTER(LEN = *), INTENT(IN) :: string
-    CHARACTER(KIND = C_CHAR), POINTER :: resultVar(:)
+    CHARACTER(KIND = C_CHAR), POINTER :: result(:)
     INTEGER :: i, error
 
     CHARACTER(LEN = *), PARAMETER :: routine = modName//":toCharArray"
 
-    ALLOCATE(resultVar(LEN(string)), STAT = error)
+    ALLOCATE(result(LEN(string)), STAT = error)
     ! note: we don't call "finish" to avoid circular dependency
     IF(error /= 0) WRITE(0,*) "memory allocation error"
     DO i = 1, LEN(string)
-        resultVar(i) = string(i:i)
+        result(i) = string(i:i)
     END DO
   END FUNCTION toCharArray
 
-  FUNCTION toCharacter(charArray) RESULT(resultVar)
+  FUNCTION toCharacter(charArray) RESULT(result)
     CHARACTER(KIND = C_CHAR), INTENT(IN) :: charArray(:)
-    CHARACTER(LEN = :), POINTER :: resultVar
+    CHARACTER(LEN = :), POINTER :: result
     INTEGER :: i, error, stringSize
 
     CHARACTER(LEN = *), PARAMETER :: routine = modName//":toCharacter"
 
     stringSize = SIZE(charArray, 1) !XXX: This may not be merged into the next line, because that triggers a bug in gfortran
-    ALLOCATE(CHARACTER(LEN = stringSize) :: resultVar, STAT = error)
+    ALLOCATE(CHARACTER(LEN = stringSize) :: result, STAT = error)
     ! note: we don't call "finish" to avoid circular dependency
     IF(error /= 0) WRITE(0,*) "memory allocation error"
     DO i = 1, SIZE(charArray, 1)
-        resultVar(i:i) = charArray(i)
+        result(i:i) = charArray(i)
     END DO
   END FUNCTION toCharacter
 
-  FUNCTION charArray_dup(charArray) RESULT(resultVar)
+  FUNCTION charArray_dup(charArray) RESULT(result)
     CHARACTER(KIND = C_CHAR), INTENT(IN) :: charArray(:)
-    CHARACTER(KIND = C_CHAR), POINTER :: resultVar(:)
+    CHARACTER(KIND = C_CHAR), POINTER :: result(:)
     INTEGER :: i, error
 
     CHARACTER(LEN = *), PARAMETER :: routine = modName//":charArray_dup"
 
-    ALLOCATE(resultVar(SIZE(charArray, 1)), STAT = error)
+    ALLOCATE(result(SIZE(charArray, 1)), STAT = error)
     ! note: we don't call "finish" to avoid circular dependency
     IF(error /= 0) WRITE(0,*) "memory allocation error"
-    resultVar(:) = charArray(:)
+    result(:) = charArray(:)
   END FUNCTION charArray_dup
 
-  LOGICAL FUNCTION charArray_equal(stringA, stringB) RESULT(resultVar)
+  LOGICAL FUNCTION charArray_equal(stringA, stringB) RESULT(result)
     CHARACTER(KIND = C_CHAR), INTENT(IN) :: stringA(:), stringB(:)
     INTEGER :: i
 
-    resultVar = .FALSE.
+    result = .FALSE.
     IF(SIZE(stringA, 1) /= SIZE(stringB, 1)) RETURN
     DO i = 1, SIZE(stringA, 1)
         IF(stringA(i) /= stringB(i)) RETURN
     END DO
-    resultVar = .TRUE.
+    result = .TRUE.
   END FUNCTION charArray_equal
 
   SUBROUTINE charArray_toLower(string)

@@ -41,7 +41,6 @@ MODULE mo_initicon_types
   PUBLIC :: t_pi_atm
   PUBLIC :: t_pi_sfc
   PUBLIC :: t_sfc_inc
-  PUBLIC :: t_saveinit_state ! state for saving initial state for double IAU runs
   PUBLIC :: geop_ml_var, alb_snow_var
   PUBLIC :: ana_varnames_dict
 
@@ -128,26 +127,7 @@ MODULE mo_initicon_types
     TYPE (t_sfc_inc)       :: sfc_inc
 
   END TYPE t_initicon_state
-
-  ! state for saving initial state
-  TYPE :: t_saveinit_state
-
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:) :: fr_seaice, t_ice, h_ice, gz0,                                 &
-                                             t_mnw_lk, t_wml_lk, h_ml_lk, t_bot_lk, c_t_lk, t_b1_lk, h_b1_lk
-
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: theta_v, rho, exner, w, tke, vn,                                  &
-                                               t_g_t, qv_s_t, freshsnow_t, snowfrac_t, snowfrac_lc_t, w_snow_t,  &
-                                               w_i_t, h_snow_t, t_snow_t, rho_snow_t, aerosol, frac_t
-
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:,:) :: tracer,                                                            &
-                                                 w_so_t, w_so_ice_t, t_so_t,                                        &
-                                                 t_snow_mult_t, rho_snow_mult_t, wtot_snow_t, wliq_snow_t, dzh_snow_t
-
-    INTEGER, ALLOCATABLE, DIMENSION(:,:,:) :: snowtile_flag_t, idx_lst_t
-    INTEGER, ALLOCATABLE, DIMENSION(:,:)   :: gp_count_t
-
-  END TYPE t_saveinit_state
-
+ 
 
   CHARACTER(LEN=VARNAME_LEN) :: geop_ml_var  ! model level surface geopotential
   CHARACTER(LEN=VARNAME_LEN) :: alb_snow_var ! snow albedo

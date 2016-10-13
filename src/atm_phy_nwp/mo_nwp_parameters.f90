@@ -42,8 +42,6 @@ MODULE mo_nwp_parameters
     REAL(wp) :: entrorg
     ! switches for activation of shallow, midlevel and deep convection
     LOGICAL :: lmfscv, lmfmid, lmfpen
-    ! switch for detrainment of rain and snow to gridscale scheme
-    LOGICAL :: lmfdsnow
     !
     ! Parameters which are only computed if Gravity wave drag scheme is switched on
     !

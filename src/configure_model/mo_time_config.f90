@@ -70,8 +70,8 @@ MODULE mo_time_config
 
 CONTAINS
 
-    FUNCTION getIniTime() RESULT(resultVar)
-        TYPE(datetime) :: resultVar
+    FUNCTION getIniTime() RESULT(RESULT)
+        TYPE(datetime) :: RESULT
 
         TYPE(datetime), POINTER :: tempTime
 
@@ -83,7 +83,7 @@ CONTAINS
           &                     time_config%ini_datetime%minute,     &
           &                     INT(time_config%ini_datetime%second),&
           &                     ms=0)
-        resultVar = tempTime
+        RESULT = tempTime
         CALL deallocateDatetime(tempTime)
     END FUNCTION getIniTime
 

@@ -29,10 +29,10 @@ stage=run
 echo "MODEL.SMS" 
 set -x
 module load python
-module swap grib_api grib_api/1.15.0          # grib_api/1.12.3
+module swap grib_api grib_api/1.12.3
 
 dwd_grib_api=/home/ms/de/dwd/grib_api
-export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.15.0:/usr/local/apps/grib_api/1.15.0/CRAY/82/share/grib_api/definitions"
+export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.12.3:/usr/local/apps/grib_api/1.12.3/CRAY/82/share/grib_api/definitions"
 
 
 ## -------------------------------------------------
@@ -111,15 +111,11 @@ export NC_BLOCKSIZE=128mb
 
 export F_PROGINF=DETAIL
 
-#export HDF5_DISABLE_VERSION_CHECK=1   # 1: turn of HDF5 version check
-
 module unload netcdf
-module load cray-netcdf/4.4.0          # netcdf4/4.3.2, netcdf4/4.1.2
-module load cray-hdf5/1.8.16           # cray-hdf5/1.8.12, hdf5/1.8.13
-
-module load craype-hugepages2M         # better memory speed on broadwell CPU
-
-module list
+#module load netcdf4/4.1.2
+module load netcdf4/4.3.2
+#module load hdf5/1.8.13
+#export HDF5_DISABLE_VERSION_CHECK=1   # 1: turn of HDF5 version check
 
 
 # -------------------------------------------------

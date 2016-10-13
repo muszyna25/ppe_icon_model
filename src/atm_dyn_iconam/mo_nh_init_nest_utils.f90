@@ -71,8 +71,8 @@ MODULE mo_nh_init_nest_utils
 
   REAL(wp), PARAMETER :: rd_o_cvd = 1._wp / cvd_o_rd
 
-  PUBLIC :: initialize_nest, topo_blending_and_fbk, interpolate_scal_increments, &
-            interpolate_vn_increments, interpolate_sfcana
+  PUBLIC :: initialize_nest, topo_blending_and_fbk, interpolate_increments, &
+            interpolate_sfcana
 
   CONTAINS
   !-------------
@@ -720,18 +720,16 @@ MODULE mo_nh_init_nest_utils
 
   !-------------
   !>
-  !! SUBROUTINEs interpolate_scal|vn_increments
+  !! SUBROUTINE interpolate_increments
   !!
-  !! Driver routines for interpolating data assimilation increments from a parent domain to a child domain
-  !! Scalars and wind increments are processed separately because wind increments are filtered in
-  !! SR create_dwdanainc_atm, and the parent-to-child interpolation is executed after filtering
+  !! Driver routine for interpolating data assimilation increments from a parent domain to a child domain
   !!
   !!
   !! @par Revision History
   !! Initial version by Guenther Zaengl, DWD(2014-07-16)
   !!
   !!
-  SUBROUTINE interpolate_scal_increments(initicon, jg, jgc)
+  SUBROUTINE interpolate_increments(initicon, jg, jgc)
 
     TYPE(t_initicon_state), TARGET, INTENT(INOUT) :: initicon(:)
 
@@ -745,9 +743,13 @@ MODULE mo_nh_init_nest_utils
     TYPE(t_int_state),     POINTER  :: p_int
 
     ! Local arrays for variables living on the local parent grid in the MPI case.
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:)   :: temp_lp, pres_lp, qv_lp
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:)   :: vn_lp, temp_lp, pres_lp, qv_lp
 
-    INTEGER :: nlev_p, nshift, i_chidx
+    INTEGER :: i_chidx, rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER :: jb, jk, je
+    INTEGER :: nlev_p, nshift
+
+    INTEGER, POINTER :: iidx(:,:,:), iblk(:,:,:)
 
     LOGICAL :: l_parallel
 
@@ -764,6 +766,9 @@ MODULE mo_nh_init_nest_utils
     p_grf          => p_grf_state_local_parent(jgc)
     p_int          => p_int_state_local_parent(jgc)
 
+    iidx           => p_patch(jg)%edges%cell_idx
+    iblk           => p_patch(jg)%edges%cell_blk
+
     i_chidx  = p_pc%parent_child_index
 
     ! number of full levels of parent domain
@@ -773,19 +778,57 @@ MODULE mo_nh_init_nest_utils
     nshift = p_pc%nshift
 
     IF (msg_level >= 7) THEN
-      WRITE(message_text,'(a,i2,a,i2)') 'Interpolation of DA increments for scalar fields, domain ',jg,' =>',jgc
+      WRITE(message_text,'(a,i2,a,i2)') 'Interpolation of DA increments, domain ',jg,' =>',jgc
       CALL message('interpolate_increments',message_text)
     ENDIF
 
-    ALLOCATE(temp_lp (nproma, nlev_p, p_pp%nblks_c),  &
+    ALLOCATE(vn_lp   (nproma, nlev_p, p_pp%nblks_e),  &
+             temp_lp (nproma, nlev_p, p_pp%nblks_c),  &
              pres_lp (nproma, nlev_p, p_pp%nblks_c),  &
              qv_lp   (nproma, nlev_p, p_pp%nblks_c)   )
 
+
+    ! Preparation: interpolate u and v increments to vn
+    !
+    rl_start = 2
+    rl_end   = min_rledge_int - 2
+    i_startblk = p_patch(jg)%edges%start_block(rl_start)
+    i_endblk   = p_patch(jg)%edges%end_block(rl_end)
+
+!$OMP PARALLEL DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, rl_start, rl_end)
+
+      DO jk = 1, nlev_p
+        DO je = i_startidx, i_endidx
+
+          initicon(jg)%atm_inc%vn(je,jk,jb) = p_int_state(jg)%c_lin_e(je,1,jb)       &
+            &               *(initicon(jg)%atm_inc%u(iidx(je,jb,1),jk,iblk(je,jb,1)) &
+            &               * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v1       &
+            &               + initicon(jg)%atm_inc%v(iidx(je,jb,1),jk,iblk(je,jb,1)) &
+            &               * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v2)      &
+            &               + p_int_state(jg)%c_lin_e(je,2,jb)                       &
+            &               *(initicon(jg)%atm_inc%u(iidx(je,jb,2),jk,iblk(je,jb,2)) &
+            &               * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v1       &
+            &               + initicon(jg)%atm_inc%v(iidx(je,jb,2),jk,iblk(je,jb,2)) &
+            &               * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v2  )
+
+        ENDDO  ! je
+      ENDDO  ! jk
+
+    ENDDO  ! jb
+!$OMP END PARALLEL DO
+
+    CALL sync_patch_array(SYNC_E,p_patch(jg),initicon(jg)%atm_inc%vn)
 
     ! Parent-to-child interpolation of atmospheric increments
     !
     ! Step 1: boundary interpolation
     !
+    CALL interpol2_vec_grf (p_patch(jg), p_pc, p_grf_state(jg)%p_dom(i_chidx), 1, &
+      initicon(jg)%atm_inc%vn,        initicon(jgc)%atm_inc%vn                    )
 
     CALL interpol_scal_grf (p_patch(jg), p_pc, p_grf_state(jg)%p_dom(i_chidx), 3, &
       initicon(jg)%atm_inc%temp,      initicon(jgc)%atm_inc%temp,                 &
@@ -797,6 +840,7 @@ MODULE mo_nh_init_nest_utils
     ! Step 2a: Copy prognostic variables from parent grid to fields on local parent grid
     ! (trivial without MPI parallelization, but communication call needed for MPI)
 
+    CALL exchange_data(p_pp%comm_pat_glb_to_loc_e, RECV=vn_lp, SEND=initicon(jg)%atm_inc%vn)
 
     CALL exchange_data_mult(p_pp%comm_pat_glb_to_loc_c, 3, 3*nlev_p,         &
       &                     RECV1=temp_lp, SEND1=initicon(jg)%atm_inc%temp,  &
@@ -805,11 +849,15 @@ MODULE mo_nh_init_nest_utils
 
     ! Step 2b: Synchronize variables on local parent grids. Note that the sync routines cannot be used in this case
     IF (l_parallel) THEN
+      CALL exchange_data(p_pp%comm_pat_e, vn_lp)
       CALL exchange_data_mult(p_pp%comm_pat_c, 3, 3*nlev_p,            &
                               recv1=temp_lp, recv2=pres_lp, recv3=qv_lp)
     ENDIF
 
     ! Step 2c: Perform interpolation from local parent to child grid
+    CALL interpol_vec_nudging (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), p_grf_state(jgc), &
+                               i_chidx, nshift, 1, vn_lp, initicon(jgc)%atm_inc%vn       )
+    CALL sync_patch_array(SYNC_E,p_pc,initicon(jgc)%atm_inc%vn)
 
     CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, nshift, 3, 1, &
                                 f3din1=temp_lp, f3dout1=initicon(jgc)%atm_inc%temp,       &
@@ -818,87 +866,9 @@ MODULE mo_nh_init_nest_utils
     CALL sync_patch_array_mult(SYNC_C,p_pc,3,initicon(jgc)%atm_inc%temp,initicon(jgc)%atm_inc%pres,  &
                                initicon(jgc)%atm_inc%qv)
 
-    DEALLOCATE(temp_lp, pres_lp, qv_lp)
+    DEALLOCATE(vn_lp, temp_lp, pres_lp, qv_lp)
 
-  END SUBROUTINE interpolate_scal_increments
-
-  SUBROUTINE interpolate_vn_increments(initicon, jg, jgc)
-
-    TYPE(t_initicon_state), TARGET, INTENT(INOUT) :: initicon(:)
-
-    INTEGER, INTENT(IN) :: jg   ! parent (source) domain ID
-    INTEGER, INTENT(IN) :: jgc  ! child  (target) domain ID
-
-    ! local pointers
-
-    TYPE(t_patch),         POINTER  :: p_pp, p_pc
-    TYPE(t_gridref_state), POINTER  :: p_grf
-    TYPE(t_int_state),     POINTER  :: p_int
-
-    ! Local arrays for variables living on the local parent grid in the MPI case.
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:)   :: vn_lp
-
-    INTEGER :: nlev_p, nshift, i_chidx
-
-    LOGICAL :: l_parallel
-
-
-    IF (.NOT. my_process_is_mpi_parallel()) THEN
-      l_parallel = .FALSE.
-    ELSE
-      l_parallel = .TRUE.
-    ENDIF
-
-
-    p_pp           => p_patch_local_parent(jgc)
-    p_pc           => p_patch(jgc)
-    p_grf          => p_grf_state_local_parent(jgc)
-    p_int          => p_int_state_local_parent(jgc)
-
-    i_chidx  = p_pc%parent_child_index
-
-    ! number of full levels of parent domain
-    nlev_p   = p_patch(jg)%nlev
-
-    ! shift between upper model boundaries
-    nshift = p_pc%nshift
-
-    IF (msg_level >= 7) THEN
-      WRITE(message_text,'(a,i2,a,i2)') 'Interpolation of DA increments for wind, domain ',jg,' =>',jgc
-      CALL message('interpolate_increments',message_text)
-    ENDIF
-
-    ALLOCATE(vn_lp(nproma, nlev_p, p_pp%nblks_e))
-
-
-    ! Parent-to-child interpolation of atmospheric increments
-    !
-    ! Step 1: boundary interpolation
-    !
-    CALL interpol2_vec_grf (p_patch(jg), p_pc, p_grf_state(jg)%p_dom(i_chidx), 1, &
-      initicon(jg)%atm_inc%vn,        initicon(jgc)%atm_inc%vn                    )
-
-    ! Step 2: Interpolation of fields in the model interior
-
-    ! Step 2a: Copy prognostic variables from parent grid to fields on local parent grid
-    ! (trivial without MPI parallelization, but communication call needed for MPI)
-
-    CALL exchange_data(p_pp%comm_pat_glb_to_loc_e, RECV=vn_lp, SEND=initicon(jg)%atm_inc%vn)
-
-
-    ! Step 2b: Synchronize variables on local parent grids. Note that the sync routines cannot be used in this case
-    IF (l_parallel) THEN
-      CALL exchange_data(p_pp%comm_pat_e, vn_lp)
-    ENDIF
-
-    ! Step 2c: Perform interpolation from local parent to child grid
-    CALL interpol_vec_nudging (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), p_grf_state(jgc), &
-                               i_chidx, nshift, 1, vn_lp, initicon(jgc)%atm_inc%vn       )
-    CALL sync_patch_array(SYNC_E,p_pc,initicon(jgc)%atm_inc%vn)
-
-    DEALLOCATE(vn_lp)
-
-  END SUBROUTINE interpolate_vn_increments
+  END SUBROUTINE interpolate_increments
 
   !-------------
   !>

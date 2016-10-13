@@ -37,8 +37,7 @@
 #   Helmut Frank    201309  Rewrite with several options
 #   Helmut Frank    201501  Corrections retrieving IFS forecast data
 #   Helmut Frank    20150505  Introduce MARS_EXPVER to be able to set expver!=1.
-#   Helmut Frank    20160517  Automatically set n_st=1 for old operational data
-# ------------------------------------------------------------------------------
+# -------------------------------------------------------
 
 # --- argument list ---
 
@@ -109,9 +108,7 @@ do
 		                    Default:     ${res}
 		                    ERA-40:      resolution <= 159,
 		                    ERA-Interim: resolution <= 255.
-                                 See http://www.ecmwf.int/en/forecasts/documentation-and-support/data-spatial-coordinate-systems
-		                    (http://www.ecmwf.int/products/data/technical/gaussian/spatial_representations.html)
-
+		                 See http://www.ecmwf.int/products/data/technical/gaussian/spatial_representations.html
 		  -s step        forecast step [hours]. Default: ${step}
 		  -S stream      MARS stream. Default: ${stream_mars}
 		                 Use -S eda:N  for EDA member N.
@@ -185,27 +182,22 @@ typeset    soiltype='/slt'
 case ${class_mars} in
     e4|era40)   class_mars='e4'
                 levs=${levs:-60}
+                n_st=1
                 soiltype=''
                 rainsnow=''
                 ;;
     ei|*inter*) class_mars='ei'
                 levs=${levs:-60}
+                n_st=1
                 soiltype=''
                 rainsnow=''
                 ;;
            od*) class_mars='od'
-                if [[ ${cymdg} -lt 2007110612 ]]; then
-#                   old soil model of IFS with only one soil type.
-                    soiltype=''
-                fi
                 ;;
              *) print -- "${name} error! Unknown MARS class ${class_mars}!" >&2
                 exit 4
                 ;;
 esac
-if [[ -z "${soiltype}" ]]; then
-    n_st=1
-fi
 typeset stream_name       #  used for the default name of the GRIB file
 case ${stream_mars} in
     enda*|eda*) # EDA analysis

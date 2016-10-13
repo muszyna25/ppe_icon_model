@@ -93,7 +93,6 @@ MODULE mo_geometry
      ! = 2 : equal area subdivision
      ! = 3 : c-grid small circle constraint
      ! = 4 : spring dynamics
-     ! = 5 : spring dynamics with convergence acceleration
     & l_c_grid, &
      ! = T : last subdivision step uses
      !       C-grid small circle constraint
@@ -162,7 +161,6 @@ CONTAINS
 
     INTEGER :: ji, j, jl
     INTEGER :: i_nots, i_c_grid
-    LOGICAL :: lopt
 
     !-------------------------------------------------------------------------
     !BOC
@@ -308,7 +306,7 @@ CONTAINS
           !
         ENDDO
 
-        CASE (4, 5)
+        CASE (4)
           !
           ! Spring dynamics
           !
@@ -324,11 +322,6 @@ CONTAINS
             ENDDO
           ENDDO
 
-          IF (itype_optimize == 5) THEN
-            lopt = .TRUE.  ! use convergence acceleration
-          ELSE
-            lopt = .FALSE.
-          ENDIF
           !
           ! 2) Call spring dynamics
           !
@@ -349,7 +342,7 @@ CONTAINS
             ! 2. perform the optimization on that level
             !
             IF (jl <= maxlev_optim) THEN
-              CALL spring_dynamics(spheres_on_levels(jl),beta_spring,lopt)
+              CALL spring_dynamics(spheres_on_levels(jl),beta_spring)
             ENDIF
 
           ENDDO
@@ -376,7 +369,7 @@ CONTAINS
           ! Prepare values needed for c-grid subdivision,
           ! if they are not yet available
           !
-          IF (itype_optimize <=1 .or. itype_optimize>=4) THEN
+          IF (itype_optimize <=1 .or. itype_optimize==4) THEN
             CALL scc_prepare(ptr_tl)
           ENDIF
           !
@@ -1062,7 +1055,7 @@ CONTAINS
       noeds= ptr_tl%no_edges
       novs = ptr_tl%no_vertices
 
-      IF ((itype_optimize <=1 .or. itype_optimize >=4).and. &
+      IF ((itype_optimize <=1 .or. itype_optimize ==4).and. &
         & (.not. (l_c_grid .and. klev==number_of_levels))) THEN
 
         !

@@ -25,7 +25,7 @@ MODULE mo_hash_table
 
     IMPLICIT NONE
 
-    PUBLIC :: t_HashTable, hashTable_make, t_HashIterator
+    PUBLIC :: t_HashTable, hashTable_make
     PRIVATE
 
     ABSTRACT INTERFACE
@@ -58,18 +58,6 @@ MODULE mo_hash_table
         PROCEDURE, PRIVATE :: removeFromList => hashTable_removeFromList
     END TYPE
 
-    ! provides sequential access to all entries of a hash table
-    ! <<< WARNING >>>: iterators are invalidated by setEntry(), removeEntry(), AND destruct() calls on the corresponding hash table
-    TYPE :: t_HashIterator
-        PRIVATE
-        TYPE(t_HashTable), POINTER :: table
-        INTEGER :: curBin
-        TYPE(t_HashEntry), POINTER :: curEntry
-    CONTAINS
-        PROCEDURE :: init => hashIterator_init
-        PROCEDURE :: nextEntry => hashIterator_nextEntry    ! returns .TRUE. IF the operation was successfull
-    END TYPE
-
     TYPE :: t_HashEntryPtr
         TYPE(t_HashEntry), POINTER :: ptr
     END TYPE
@@ -83,33 +71,33 @@ MODULE mo_hash_table
 
 CONTAINS
 
-    FUNCTION hashTable_make(hashFunction, compareFunction) RESULT(resultVar)
+    FUNCTION hashTable_make(hashFunction, compareFunction) RESULT(result)
         PROCEDURE(f_hashFunction) :: hashFunction
         PROCEDURE(f_equalKeysFunction) :: compareFunction
-        TYPE(t_HashTable), POINTER :: resultVar
+        TYPE(t_HashTable), POINTER :: result
 
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":hashTable_make"
         INTEGER :: error, i
 
-        ALLOCATE(resultVar, STAT = error)
+        ALLOCATE(result, STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
 
-        resultVar%getHash => hashFunction
-        resultVar%equalKeys => compareFunction
-        resultVar%entryCount = 0
-        resultVar%hashBits = 5
+        result%getHash => hashFunction
+        result%equalKeys => compareFunction
+        result%entryCount = 0
+        result%hashBits = 5
 
-        ALLOCATE(resultVar%table(2**resultVar%hashBits), STAT = error)
+        ALLOCATE(result%table(2**result%hashBits), STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure")
-        DO i = 1, 2**resultVar%hashBits
-            resultVar%table(i)%ptr => NULL()
+        DO i = 1, 2**result%hashBits
+            result%table(i)%ptr => NULL()
         END DO
     END FUNCTION hashTable_make
 
-    FUNCTION hashTable_findBin(me, hash) RESULT(resultVar)
+    FUNCTION hashTable_findBin(me, hash) RESULT(result)
         CLASS(t_HashTable), INTENT(IN) :: me
         INTEGER(C_INT32_T), VALUE :: hash
-        TYPE(t_HashEntryPtr), POINTER :: resultVar
+        TYPE(t_HashEntryPtr), POINTER :: result
 
         INTEGER(C_INT32_T) :: reducedHash, i
 
@@ -120,7 +108,7 @@ CONTAINS
             hash = ISHFT(hash, -me%hashBits)
         END DO
         reducedHash = IAND(reducedHash, 2**me%hashBits - 1) + 1
-        resultVar => me%table(reducedHash)
+        result => me%table(reducedHash)
     END FUNCTION hashTable_findBin
 
     SUBROUTINE hashTable_growTable(me)
@@ -197,7 +185,7 @@ CONTAINS
         CLASS(t_Destructible), POINTER, INTENT(IN) :: key, value
 
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":hashTable_setEntry"
-        TYPE(t_HashEntry), POINTER :: newEntry
+        TYPE(t_HashEntry), POINTER :: newEntry, oldEntry
         TYPE(t_HashEntryPtr), POINTER :: bin
         INTEGER :: error
 
@@ -234,23 +222,23 @@ CONTAINS
         CALL me%removeFromList(bin, key, hash)
     END SUBROUTINE hashTable_removeEntry
 
-    FUNCTION hashTable_getEntry(me, key) RESULT(resultVar)
+    FUNCTION hashTable_getEntry(me, key) RESULT(result)
         CLASS(t_HashTable), INTENT(IN) :: me
         CLASS(t_Destructible), POINTER, INTENT(IN) :: key
-        CLASS(t_Destructible), POINTER :: resultVar
+        CLASS(t_Destructible), POINTER :: result
 
         INTEGER(C_INT32_T) :: hash
         TYPE(t_HashEntryPtr), POINTER :: bin
         TYPE(t_HashEntry), POINTER :: curEntry
 
-        resultVar => NULL()
+        result => NULL()
         hash = me%getHash(key)
         bin => me%findBin(hash)
         curEntry => bin%ptr
         DO WHILE(ASSOCIATED(curEntry))
             IF(curEntry%hash == hash) THEN
                 IF(me%equalKeys(curEntry%key, key)) THEN
-                    resultVar => curEntry%value
+                    result => curEntry%value
                     RETURN
                 END IF
             END IF
@@ -278,44 +266,5 @@ CONTAINS
         END DO
         DEALLOCATE(me%table)
     END SUBROUTINE hashTable_destruct
-
-    SUBROUTINE hashIterator_init(me, table)
-        CLASS(t_HashIterator), INTENT(INOUT) :: me
-        TYPE(t_HashTable), POINTER, INTENT(INOUT) :: table
-
-        me%table => table
-        me%curBin = 0   !will be incremented IN the first nextEntry() CALL
-        me%curEntry => NULL()
-    END SUBROUTINE hashIterator_init
-
-    LOGICAL FUNCTION hashIterator_nextEntry(me, key, VALUE) RESULT(resultVar)
-        CLASS(t_HashIterator), INTENT(INOUT) :: me
-        CLASS(t_Destructible), POINTER, INTENT(INOUT) :: key, VALUE
-
-        key => NULL()
-        VALUE => NULL()
-        resultVar = .FALSE.
-
-        ! try to ADVANCE within the current bin
-        IF(ASSOCIATED(me%curEntry)) me%curEntry => me%curEntry%next%ptr
-
-        ! search for the next entry
-        DO
-            ! check whether we have found the next entry
-            IF(ASSOCIATED(me%curEntry)) THEN
-                key => me%curEntry%key
-                VALUE => me%curEntry%VALUE
-                resultVar = .TRUE.
-                RETURN
-            END IF
-
-            ! check whether we can ADVANCE ANY further
-            IF(me%curBin >= SIZE(me%table%table, 1)) RETURN
-
-            ! ADVANCE to the next bin
-            me%curBin = me%curBin + 1
-            me%curEntry => me%table%table(me%curBin)%ptr
-        END DO
-    END FUNCTION hashIterator_nextEntry
 
 END MODULE mo_hash_table

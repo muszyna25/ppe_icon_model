@@ -191,30 +191,8 @@ MODULE mo_model_domain
     REAL(wp) :: v2
   END TYPE t_tangent_vectors
 
-  ! -----------------------------------------------------------------------------
-  ! grid_cell class - corresponds to triangles
-  ! -----------------------------------------------------------------------------
-  !
-  ! This data type holds the topological and geometrical information on
-  ! the grid cells, read from the NetCDF grid file.
-  !
-  ! * Note on parent-child relation "child_idx/child_blk":
-  !
-  !          *---------------o--------------*
-  !           \__   4     _/  \_    2    __/
-  !              \_     _/   3  \_    __/
-  !                \__ /__________\ _/
-  !                   o            o  
-  !                     \__  1  __/
-  !                        \_ _/
-  !                          *
-  !
-  !   The ICON model makes an important implicit assumption on the
-  !   child ordering:
-  !
-  !   - cell child #3 is the "interior" child (containing the parent
-  !     cell's mass point)
-  !   
+  ! !grid_cell class - corresponds to triangles
+
   TYPE t_grid_cells
 
     INTEGER :: max_connectivity

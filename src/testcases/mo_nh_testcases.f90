@@ -59,7 +59,6 @@ MODULE mo_nh_testcases
                                    & init_nh_prog_mwbr_const, mount_half_width                     
   USE mo_nh_wk_exp,            ONLY: init_nh_topo_wk, init_nh_env_wk,             &
                                    & init_nh_buble_wk                       
-  USE mo_nh_bb13_exp,          ONLY: init_nh_env_bb13, init_nh_bubble_bb13                       
   USE mo_nh_dcmip_gw,          ONLY: init_nh_dcmip_gw, init_nh_gw_analyt
   USE mo_nh_dcmip_hadley,      ONLY: init_nh_dcmip_hadley         
   USE mo_nh_dcmip_schaer,      ONLY: init_nh_prog_dcmip_schaer,                   &
@@ -67,8 +66,6 @@ MODULE mo_nh_testcases
   USE mo_nh_dcmip_rest_atm,   ONLY : init_nh_topo_dcmip_rest_atm,                 &
                                    & init_nh_prog_dcmip_rest_atm  
   USE mo_nh_dcmip_tc,          ONLY: init_nh_dcmip_tc
-  USE mo_nh_dcmip_bw,          ONLY: init_nh_dcmip_bw
-  USE mo_nh_dcmip_terminator,  ONLY: init_nh_dcmip_terminator
   USE mo_nh_lim_area_testcases,ONLY: init_nh_atmo_ana_nconstlayers,               &
                                    & init_nh_anaprof_uv, init_nh_topo_ana,        &
                                    & itype_atmo_ana, init_nh_atmo_ana_poly
@@ -222,10 +219,6 @@ MODULE mo_nh_testcases
                           & opt_m_height = mount_height, opt_m_half_width = mount_half_width )
     END DO
 
-  CASE ('dcmip_bw_11')
-    ! itopo == 0 --> The topography is initialized to 0 at the beginning of this subroutine
-    CALL message(TRIM(routine),'running DCMIP2016 baroclinic wave test case 1-1')
-
   CASE ('mrw_nh', 'mrw2_nh' , 'mwbr_const')
 
    CALL message(TRIM(routine),'running mrw, setting topography')
@@ -252,28 +245,6 @@ MODULE mo_nh_testcases
 
      CALL init_nh_topo_wk ( p_patch(jg),ext_data(jg)%atm%topography_c, nblks_c, npromz_c)
     END DO
-
-  CASE ('bb13')
-
-    ! Testcase Baldauf, Brdar (2013) QJRMS (linear gravity/sound wave expansion in a channel)
-
-    CALL message(TRIM(routine), "no orography for testcase bb13")
-
-    ! no orography:
-    DO jg = 1, n_dom
-      DO jb = 1, p_patch(jg)%nblks_c
-
-        IF (jb /=  p_patch(jg)%nblks_c) THEN
-          nlen = nproma
-        ELSE
-          nlen =  p_patch(jg)%npromz_c
-        ENDIF
-
-        DO jc = 1, nlen
-          ext_data(jg)%atm%topography_c(jc,jb) = 0.0_wp
-        ENDDO
-      ENDDO 
-    ENDDO 
 
   CASE ('PA')
    ! The topography ist initialized in "init_nh_state_prog_patest"
@@ -533,18 +504,6 @@ MODULE mo_nh_testcases
   ENDDO !jg
 
   CALL message(TRIM(routine),'End setup Jablonowski test')
-
-
-  CASE ('dcmip_bw_11')
-
-    DO jg = 1, n_dom
-      CALL init_nh_dcmip_bw (p_patch(jg),                   &
-        &                    p_nh_state(jg)%prog(nnow(jg)), &
-        &                    p_nh_state(jg)%diag,           &
-        &                    p_int(jg),                     &
-        &                    p_nh_state(jg)%metrics         )
-    END DO  ! jg
-    CALL message(TRIM(routine),'End setup baroclinic wave (dcmip_bw_11) test')
 
 
   CASE ('mrw_nh', 'mrw2_nh')
@@ -845,6 +804,19 @@ MODULE mo_nh_testcases
 
     DO jg = 1, n_dom
     
+!!$      CALL   init_nh_state_prog_jabw ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+!!$                                     & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
+!!$                                     & p_int(jg),                                   &
+!!$                                     & p_sfc_jabw,jw_up )
+!!$
+!!$      CALL init_nh_inwp_tracers ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+!!$                                & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
+!!$                                & rh_at_1000hpa, qv_max, l_rediag=.TRUE.,  &
+!!$                                & opt_global_moist=global_moist)
+!!$          p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv+1:) = 0._wp
+!!$
+!!$      ext_data(jg)%atm%topography_c = 0._wp
+
       CALL init_nh_state_prog_TPE(p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag, &
                                   ext_data(jg), p_nh_state(jg)%metrics,                            &
                                   rh_at_1000hpa, qv_max, tpe_moist, tpe_psfc, tpe_temp)
@@ -869,7 +841,7 @@ MODULE mo_nh_testcases
     CALL   init_nh_env_wk ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
                                      & p_nh_state(jg)%diag,                 &
                                      & p_nh_state(jg)%metrics,              &
-                                     & p_int(jg), l_hydro_adjust )
+                                     & p_int(jg),l_hydro_adjust  )
          ! add perturbation to theta and recalculate theta_v and rho 
     CALL init_nh_buble_wk ( p_patch(jg),p_nh_state(jg)%metrics,            &
                                      & p_nh_state(jg)%prog(nnow(jg)),      &
@@ -881,32 +853,6 @@ MODULE mo_nh_testcases
    ENDDO !jg
 
    CALL message(TRIM(routine),'End setup wk82 test')
-
-  
-  CASE ('bb13')
-
-    CALL message(TRIM(routine), 'Baldauf, Brdar (2013) QJRMS test (linear gravity/sound waves in a channel)')
-  
-    l_hydro_adjust = .TRUE.
-
-    DO jg = 1, n_dom
-
-         ! initialize environment atmosphere
-      CALL init_nh_env_bb13   ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
-                                     & p_nh_state(jg)%diag,                 &
-                                     & p_nh_state(jg)%metrics,              &
-                                     & p_int(jg), l_hydro_adjust  )
-         ! add perturbation to theta and recalculate theta_v and rho 
-      CALL init_nh_bubble_bb13 ( p_patch(jg), p_nh_state(jg)%metrics,       &
-                                     & p_nh_state(jg)%prog(nnow(jg)),       &
-                                     & p_nh_state(jg)%diag )
-         
-
-      CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
-
-    ENDDO !jg
-
-    CALL message(TRIM(routine),'End setup Baldauf, Brdar (2013) test')
 
   
   CASE ('g_lim_area')
@@ -1201,18 +1147,6 @@ MODULE mo_nh_testcases
       END DO !jg
     ENDIF
   END IF
-
-  ! Terminator toy chemistry
-  ! possible add on for various test cases
-  IF (is_toy_chem) THEN
-    DO jg = 1, n_dom 
-      CALL init_nh_dcmip_terminator (p_patch(jg),              &
-        &                            p_nh_state(jg)%metrics,   &
-        &                            p_nh_state(jg)%prog(:),   &
-        &                            p_nh_state(jg)%diag       )
-    ENDDO
-    CALL message(TRIM(routine),'End setup terminator chemistry')
-  ENDIF
 
  END SUBROUTINE init_nh_testcase
 

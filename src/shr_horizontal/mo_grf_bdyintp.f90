@@ -56,7 +56,7 @@ CONTAINS
 !
 !
 !>
-!! Performs interpolation from parent edges to child edges.
+!! Performs interpolation from parent edges to child edges using inverse.
 !!
 !! Performs interpolation from parent edges to child edges using inverse
 !! distance weighting (IDW) or RBF. The output field (p_vn_out) contains
@@ -89,10 +89,15 @@ SUBROUTINE interpol_vec_grf (p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
   REAL(wp) :: vn_aux(p_pc%nlev,p_grf%npoints_bdyintp_e,4)
 
   ! Pointers to index fields/lists
+  INTEGER,  DIMENSION(:,:,:), POINTER :: icheidx, icheblk
   INTEGER,  DIMENSION(:,:),   POINTER :: iidx, iblk
 
   INTEGER :: nlev_c       !< number of vertical full levels (child domain)
   !-----------------------------------------------------------------------
+
+  ! Set pointers to child edge indices (needed for non-MPI case only)
+  icheidx => p_pp%edges%child_idx
+  icheblk => p_pp%edges%child_blk
 
   ! Set pointers to index lists
   iidx    => p_grf%idxlist_bdyintp_e
@@ -242,6 +247,7 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
   REAL(wp), DIMENSION(p_pc%nlev,p_grf%npoints_bdyintp_v,nfields) :: u_vert,v_vert
 
   ! Pointers to index fields/lists
+  INTEGER,  DIMENSION(:,:,:), POINTER :: icheidx, icheblk
   INTEGER,  DIMENSION(:,:),   POINTER :: iidx, iblk, ividx, ivblk, ievidx
 
 
@@ -271,6 +277,10 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
     p_in(4)%fld  => f3din4
     p_out(4)%fld => f3dout4
   ENDIF
+
+  ! Set pointers to child edge indices (needed for non-MPI case only)
+  icheidx => p_pp%edges%child_idx
+  icheblk => p_pp%edges%child_blk
 
   ! Set pointers to index lists
   iidx    => p_grf%idxlist_bdyintp_e

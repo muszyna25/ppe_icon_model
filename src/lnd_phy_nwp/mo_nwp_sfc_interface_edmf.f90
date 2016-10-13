@@ -1246,7 +1246,6 @@ endif
         &   fr_seaice     = fr_seaice(:),                            &!inout
         &   hice_old      = h_ice_ex(:),                             &!inout
         &   tice_old      = t_ice_ex(:),                             &!inout
-        &   t_g_t_now     = t_g_ex(:,isub_water),                    &!inout  !DR quick hack
         &   t_g_t_new     = t_g_ex(:,isub_water),                    &!inout
         &   t_s_t_now     = t_s_ex(:,isub_water),                    &!inout  !DR quick hack
         &   t_s_t_new     = t_s_ex(:,isub_water),                    &!inout

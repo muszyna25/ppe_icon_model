@@ -44,7 +44,6 @@ for month in ${MONTHS[*]} ; do
   iii=`expr ${iii} + 1`
 done
 
-
 ## ------------------------------------------------
 # setup
 
@@ -120,7 +119,7 @@ else
              ${IFSDATADIR}/icon2icon_%RES%_DOM01.grb ;;
    201508) ecp -o ec:/dei2/icon/icon_input/icon_ana/926/icon_ini_%YMD%%INIHOUR%_926.grb \
              ${IFSDATADIR}/icon2icon_%RES%_DOM01.grb ;;
-   *)      ecp -o ec:/dei2/icon/icon_input/icon_ana/icon_ini_%YMD%%INIHOUR%_oper_%RES%.grb \
+   *)      ecp -o ec:/dei2/icon/icon_input/icon_ana/icon_ini_%YMD%%INIHOUR%_.grb \
              ${IFSDATADIR}/icon2icon_%RES%_DOM01.grb ;;
   esac
 

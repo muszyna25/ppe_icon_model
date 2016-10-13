@@ -24,31 +24,17 @@ re_groups  = re.compile(r'^\s*\\groups')
 re_column1 = re.compile(r'(^\s*\\onlyglb\s*{)?(^\s*\\onlyloc\s*{)?(\s*\\groups\[)([^\]]*)(\]\[)([^\]]*)(\])')
 re_tri_ll  = re.compile(r'(^\s*\\onlyglb\s*{)?(^\s*\\onlyloc\s*{)?(\s*tri|ll\s*)(\})?')
 re_i2l     = re.compile(r'\si2l\s*$')
-re_pl      = re.compile(r'\spl\s*$')
-re_comment = re.compile(r'^\s*%')
 
 print "> Open '" + args.file.strip() + "' and scan for output field short names..."
 with open(args.file) as f:
     for line in f.readlines():
-        reg = re.search(re_comment, line)
-        if ( reg != None ):
-            continue
         reg = re.search(re_column1, line)
         columns = line.split('&')
 #       if len(columns)>3:
         if ( reg != None and len(columns)>3):
-
-            # ignore comment lines
-
             # short name: replace LaTeX "\_" and remove trailing LaTeX commands
             # like "\footnotemark..."
             shortname = columns[1].replace('\_','_').split('\\')[0].strip()
-
-            # test pl marker. Exclude data on pressure levels in the lists
-            regexpl = re.search(re_pl, columns[-1])
-            if ( regexpl != None):
-                continue
-
             # regular expression for the first table column
 #           re_column1 = re.compile(r'(^\s*\\onlyglb\s*{)?(^\s*\\onlyloc\s*{)?(\s*\\groups\[)([^\]]*)(\]\[)([^\]]*)(\])')
             regexp = re.search(re_column1, columns[0])

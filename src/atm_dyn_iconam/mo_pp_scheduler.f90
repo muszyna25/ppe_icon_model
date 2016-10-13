@@ -400,7 +400,7 @@ CONTAINS
         IF (vn_name /= TRIM(tolower(get_var_name(element%field)))) CYCLE
 
         ! get time level
-        tl = get_var_timelevel(element%field%info)
+        tl = get_var_timelevel(element%field)
         suffix = ""
         IF (tl /= -1)  WRITE (suffix,'(".TL",i1)') tl
 
@@ -456,7 +456,7 @@ CONTAINS
         task%job_type                       =  TASK_INTP_HOR_LONLAT
         task%activity                       =  new_activity_status(l_output_step=.TRUE.)
         task%activity%check_dom_active      =  .TRUE.
-        task%activity%i_timelevel           =  get_var_timelevel(element%field%info)
+        task%activity%i_timelevel           =  get_var_timelevel(element%field)
         task%data_input%var                 => element%field       ! set input variable
         task%data_output%var                => new_element%field   ! set output variable "u"
         task%data_output%var_2              => new_element_2%field ! set output variable "v"
@@ -762,7 +762,7 @@ CONTAINS
           task%job_type                   =  TASK_INTP_HOR_LONLAT
           task%activity                   =  new_activity_status(l_output_step=.TRUE.)
           task%activity%check_dom_active  =  .TRUE.
-          task%activity%i_timelevel       =  get_var_timelevel(element%field%info)
+          task%activity%i_timelevel       =  get_var_timelevel(element%field)
           task%data_input%var             => element%field       ! set input variable
           task%data_output%var            => new_element%field   ! set output variable
           
@@ -969,7 +969,7 @@ CONTAINS
         IF (TRIM(vn_name) /= TRIM(tolower(get_var_name(element%field)))) CYCLE
 
         ! get time level
-        tl = get_var_timelevel(element%field%info)
+        tl = get_var_timelevel(element%field)
         suffix = ""
         IF (tl /= -1)  WRITE (suffix,'(".TL",i1)') tl
 
@@ -989,7 +989,7 @@ CONTAINS
         task%job_type                    =  job_type
         task%activity                    =  new_activity_status(l_output_step=.TRUE.)
         task%activity%check_dom_active   =  .TRUE.
-        task%activity%i_timelevel        =  get_var_timelevel(element%field%info)
+        task%activity%i_timelevel        =  get_var_timelevel(element%field)
         task%data_input%jg               =  jg 
         task%data_input%p_patch          => p_patch(jg)          
         task%data_input%p_int_state      => p_int_state(jg)
@@ -1042,7 +1042,7 @@ CONTAINS
         task%job_type                   =  TASK_INTP_EDGE2CELL
         task%activity                   =  new_activity_status(l_output_step=.TRUE.)
         task%activity%check_dom_active  =  .TRUE.
-        task%activity%i_timelevel       =  get_var_timelevel(element%field%info)
+        task%activity%i_timelevel       =  get_var_timelevel(element%field)
         task%data_input%var             => vn_element%field    ! set input variable
         task%data_output%var            => new_element%field   ! set output variable
         task%data_output%var_2          => new_element_2%field ! set Y-component
@@ -1395,7 +1395,7 @@ CONTAINS
               task%job_type                    =  job_type
               task%activity                    =  new_activity_status(l_output_step=.TRUE.)
               task%activity%check_dom_active   =  .TRUE.
-              task%activity%i_timelevel        =  get_var_timelevel(element%field%info)
+              task%activity%i_timelevel        =  get_var_timelevel(element%field)
               task%data_input%jg               =  jg 
               task%data_input%p_patch          => p_patch(jg)          
               task%data_input%p_int_state      => p_int_state(jg)

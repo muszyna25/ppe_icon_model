@@ -40,7 +40,7 @@ MODULE mo_initicon_io
     &                               nml_filetype => filetype, lread_vn,      &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart,    &
     &                               lvert_remap_fg, aerosol_fg_present
-  USE mo_nh_init_nest_utils,  ONLY: interpolate_scal_increments, interpolate_sfcana
+  USE mo_nh_init_nest_utils,  ONLY: interpolate_increments, interpolate_sfcana
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom,                           &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED, &
     &                               MODE_COSMODE, iss, iorg, ibc, iso4, idu, SUCCESS
@@ -176,37 +176,37 @@ MODULE mo_initicon_io
 
   CONTAINS
 
-  FUNCTION fgFilename(p_patch) RESULT(resultVar)
-    CHARACTER(LEN = filename_max) :: resultVar
+  FUNCTION fgFilename(p_patch) RESULT(RESULT)
+    CHARACTER(LEN = filename_max) :: RESULT
     TYPE(t_patch), INTENT(IN) :: p_patch
 
-    resultVar = generate_filename(dwdfg_filename, getModelBaseDir(), nroot, p_patch%level, p_patch%id)
+    RESULT = generate_filename(dwdfg_filename, getModelBaseDir(), nroot, p_patch%level, p_patch%id)
   END FUNCTION fgFilename
 
-  FUNCTION anaFilename(p_patch) RESULT(resultVar)
-    CHARACTER(LEN = filename_max) :: resultVar
+  FUNCTION anaFilename(p_patch) RESULT(RESULT)
+    CHARACTER(LEN = filename_max) :: RESULT
     TYPE(t_patch), INTENT(IN) :: p_patch
 
-    resultVar = generate_filename(dwdana_filename, getModelBaseDir(), nroot, p_patch%level, p_patch%id)
+    RESULT = generate_filename(dwdana_filename, getModelBaseDir(), nroot, p_patch%level, p_patch%id)
   END FUNCTION anaFilename
 
-  INTEGER FUNCTION fgFiletype() RESULT(resultVar)
+  INTEGER FUNCTION fgFiletype() RESULT(RESULT)
     IF(nml_filetype == -1) THEN
         ! get_filetype() ONLY uses the suffix, which IS already a part of the template IN dwdfg_filename.
         ! This IS why it suffices to USE the dwdfg_filename directly here without expanding it first via generate_filename().
-        resultVar = get_filetype(TRIM(dwdfg_filename))
+        RESULT = get_filetype(TRIM(dwdfg_filename))
     ELSE
-        resultVar = nml_filetype
+        RESULT = nml_filetype
     END IF
   END FUNCTION fgFiletype
 
-  INTEGER FUNCTION anaFiletype() RESULT(resultVar)
+  INTEGER FUNCTION anaFiletype() RESULT(RESULT)
     IF(nml_filetype == -1) THEN
         ! get_filetype() ONLY uses the suffix, which IS already a part of the template IN dwdana_filename.
         ! This IS why it suffices to USE the dwdana_filename directly here without expanding it first via generate_filename().
-        resultVar = get_filetype(TRIM(dwdana_filename))
+        RESULT = get_filetype(TRIM(dwdana_filename))
     ELSE
-        resultVar = nml_filetype
+        RESULT = nml_filetype
     END IF
   END FUNCTION anaFiletype
 
@@ -230,13 +230,10 @@ MODULE mo_initicon_io
     INTEGER :: jg, jlev, jc, jk, jb, i_endidx
     LOGICAL :: l_exist
 
-    INTEGER :: no_cells, no_levels, nlev_in, nhyi
+    INTEGER :: no_cells, no_levels, nlev_in
     INTEGER :: ncid, dimid, varid, mpi_comm
     TYPE(t_stream_id) :: stream_id
     INTEGER :: psvar_ndims, geopvar_ndims
-    REAL(wp), ALLOCATABLE :: lev_ifs(:)
-    INTEGER,  ALLOCATABLE :: lev_hyi(:)
-    REAL(wp), ALLOCATABLE :: hyab(:)
 
     CHARACTER(LEN=10) :: psvar
 
@@ -293,14 +290,6 @@ MODULE mo_initicon_io
         !
         CALL nf(nf_inq_dimid(ncid, 'lev', dimid), routine)
         CALL nf(nf_inq_dimlen(ncid, dimid, no_levels), routine)
-
-        IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) THEN
-        !
-        ! get number of hybrid coefficients
-        !
-          CALL nf(nf_inq_dimid(ncid, 'nhyi', dimid), routine)
-          CALL nf(nf_inq_dimlen(ncid, dimid, nhyi), routine)
-        ENDIF
 
         !
         ! check the number of cells
@@ -405,7 +394,6 @@ MODULE mo_initicon_io
       CALL p_bcast(lread_vn,      p_io, mpi_comm)
       CALL p_bcast(psvar_ndims,   p_io, mpi_comm)
       CALL p_bcast(geopvar_ndims, p_io, mpi_comm)
-      IF (init_mode == MODE_IFSANA .OR. init_mode == MODE_COMBINED) CALL p_bcast( nhyi, p_io, mpi_comm)
 
       nlevatm_in(:) = nlev_in
 
@@ -491,26 +479,14 @@ MODULE mo_initicon_io
 
         IF (jg == 1) THEN
 
-          ALLOCATE( lev_ifs(nlev_in), lev_hyi(nlev_in+1), hyab(nhyi) )
-          ALLOCATE( vct_a(nlev_in+1), vct_b(nlev_in+1), vct(2*(nlev_in+1)))
+          ALLOCATE(vct_a(nlev_in+1), vct_b(nlev_in+1), vct(2*(nlev_in+1)))
 
           IF(lread_process) THEN
-            CALL nf(nf_inq_varid(ncid, 'lev', varid), routine)
-            CALL nf(nf_get_var_double(ncid, varid, lev_ifs), routine)
-            lev_hyi(1:nlev_in) = NINT( lev_ifs(:) )
-            lev_hyi(nlev_in+1) = lev_hyi(nlev_in) + 1
-            IF ( nlev_in+1 /= nhyi) THEN
-              WRITE(message_text,*) 'Reading only IFS levels ', lev_hyi(1:nlev_in)
-              CALL message(TRIM(routine), TRIM(message_text))
-            END IF
-
             CALL nf(nf_inq_varid(ncid, 'hyai', varid), routine)
-            CALL nf(nf_get_var_double(ncid, varid, hyab), routine)
-            vct_a(:) = hyab( lev_hyi(:))
+            CALL nf(nf_get_var_double(ncid, varid, vct_a), routine)
 
             CALL nf(nf_inq_varid(ncid, 'hybi', varid), routine)
-            CALL nf(nf_get_var_double(ncid, varid, hyab), routine)
-            vct_b(:) = hyab( lev_hyi(:))
+            CALL nf(nf_get_var_double(ncid, varid, vct_b), routine)
           ENDIF
 
           IF(p_test_run) THEN
@@ -838,16 +814,18 @@ MODULE mo_initicon_io
     END IF
   END SUBROUTINE fetch3d
 
-  FUNCTION fetchSurfaceOptional(params, varName, jg, field) RESULT(resultVar)
+  FUNCTION fetchSurfaceOptional(params, varName, jg, field) RESULT(RESULT)
     TYPE(t_fetchParams), INTENT(INOUT) :: params
     CHARACTER(LEN = *), INTENT(IN) :: varName
     INTEGER, VALUE :: jg
     REAL(wp), INTENT(INOUT) :: field(:,:)
-    LOGICAL :: resultVar
+    LOGICAL :: RESULT
+
+    INTEGER :: jt
 
     IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
-        resultVar = params%requestList%fetchSurface(varName, trivial_tileId, jg, field)
-        CALL params%inputInstructions(jg)%ptr%optionalReadResult(resultVar, varName, params%routine, params%isFg)
+        RESULT = params%requestList%fetchSurface(varName, trivial_tileId, jg, field)
+        CALL params%inputInstructions(jg)%ptr%optionalReadResult(RESULT, varName, params%routine, params%isFg)
     END IF
   END FUNCTION fetchSurfaceOptional
 
@@ -857,6 +835,7 @@ MODULE mo_initicon_io
     INTEGER, VALUE :: jg
     REAL(wp), INTENT(INOUT) :: field(:,:)
 
+    INTEGER :: jt
     LOGICAL :: fetchResult
 
     IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
@@ -1250,7 +1229,7 @@ MODULE mo_initicon_io
         IF (ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode)) THEN
           IF (lp2cintp_incr(jg)) THEN
             ! Perform parent-to-child interpolation of atmospheric DA increments
-            CALL interpolate_scal_increments(initicon, p_patch(jg)%parent_id, jg)
+            CALL interpolate_increments(initicon, p_patch(jg)%parent_id, jg)
           END IF
         END IF
       END IF

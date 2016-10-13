@@ -1,4 +1,3 @@
-#ifndef __NO_ICON_OCEAN__
 #include "hamocc_omp_definitions.inc"      
    MODULE mo_bgc_icon_comm
 
@@ -669,4 +668,3 @@ END SUBROUTINE
 
 
  END MODULE
-#endif

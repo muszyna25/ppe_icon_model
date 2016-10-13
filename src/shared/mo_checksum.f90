@@ -103,7 +103,7 @@ CONTAINS
 ! real functionality !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-    CHARACTER(LEN = 8) FUNCTION checksumString(VALUE) RESULT(resultVar)
+    CHARACTER(LEN = 8) FUNCTION checksumString(VALUE) RESULT(RESULT)
         INTEGER(KIND = C_INT64_T), VALUE :: VALUE   !ONLY 32 bits are used, but there IS no unsigned IN fortran
 
         INTEGER :: i
@@ -111,7 +111,7 @@ CONTAINS
 
         IF(VALUE < 0 .OR. VALUE >= 2_C_INT64_T**32) CALL finish(routine, "VALUE range error")
         DO i = 1, 8
-            resultVar(9-i:9-i) = kNibbles(IAND(15_C_INT64_T, VALUE) + 1_C_INT64_T)
+            RESULT(9-i:9-i) = kNibbles(IAND(15_C_INT64_T, VALUE) + 1_C_INT64_T)
             VALUE = ISHFT(VALUE, -4)
         END DO
     END FUNCTION checksumString
@@ -121,7 +121,7 @@ CONTAINS
     ! While this algorithm IS NOT a cryptographical hash, it should be reasonably robust:
     ! It IS guaranteed to catch any single bitflip, AND it IS sensitive to the order of the values,
     ! i. e. printChecksum((/ 0, 1 /)) AND printChecksum((/ 1, 0 /)) produce two different results.
-    INTEGER(KIND = C_INT64_T) FUNCTION checksum32(array, prime) RESULT(resultVar)
+    INTEGER(KIND = C_INT64_T) FUNCTION checksum32(array, prime) RESULT(RESULT)
         INTEGER(KIND = C_INT32_T), INTENT(IN) :: array(:)
         INTEGER(KIND = C_INT64_T), INTENT(IN) :: prime
 
@@ -129,11 +129,11 @@ CONTAINS
         INTEGER(KIND = C_INT64_T) :: pseudoRandomBits
         CHARACTER(LEN = *), PARAMETER :: routine = moduleName//":checksum32"
 
-        resultVar = 0
+        RESULT = 0
         pseudoRandomBits = 0
         DO i = 1, SIZE(array, 1)
-            resultVar = resultVar + IEOR(pseudoRandomBits, INT(array(i), C_INT64_T))  !every entry IS xor'ed with a different bit pattern
-            resultVar = IAND(mask, resultVar + ISHFT(resultVar, -32))   !reduce back to 32 bits
+            RESULT = RESULT + IEOR(pseudoRandomBits, INT(array(i), C_INT64_T))  !every entry IS xor'ed with a different bit pattern
+            RESULT = IAND(mask, RESULT + ISHFT(RESULT, -32))   !reduce back to 32 bits
             pseudoRandomBits = IAND(mask, pseudoRandomBits + prime)
         END DO
     END FUNCTION checksum32
@@ -252,11 +252,11 @@ CONTAINS
 
     ! Callthrough to checksum32().
 
-    INTEGER(KIND = C_INT64_T) FUNCTION checksum64(array, prime) RESULT(resultVar)
+    INTEGER(KIND = C_INT64_T) FUNCTION checksum64(array, prime) RESULT(RESULT)
         INTEGER(KIND = C_INT64_T), INTENT(IN) :: array(:)
         INTEGER(KIND = C_INT64_T), VALUE :: prime
 
-        resultVar = checksum(deleteType(array), prime)
+        RESULT = checksum(deleteType(array), prime)
     END FUNCTION checksum64
 
 

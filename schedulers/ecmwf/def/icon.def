@@ -24,12 +24,12 @@
 # ---USER SETUP------------------------------------
 
 # global definitions:
-set EXPNUM        "269"                #---experiment number---
-set EXPNUM2       "268"                #---experiment number used for score comparison---
+set EXPNUM        "243"                #---experiment number---
+set EXPNUM2       "242"                #---experiment number used for score comparison---
 set SUITE2        "dei2"               #---suite             used for score comparison---
 set FIRST_DATE    20120101
-set LAST_DATE     20160229
-set MONTHS        201201_201207_201508_201602 #---months to be run e.g. 201201_201207
+set LAST_DATE     20150831
+set MONTHS        201201_201207_201301_201508 #---months to be run e.g. 201201_201207
 set MON_IFS_ICON  ifs_ifs_icon_icon
 set INIHOUR       00
 set ICON_HOME     /home/ms/de/deia 
@@ -425,34 +425,20 @@ suite $USER
             complete (testday==complete) and (not (testday:time_eom) or not (testday:time_domonth))
             on_ecgate_submit
 
-        family eom_prepare_all 
+        task eom_prepare  
             trigger   testday==complete
             complete (testday==complete) and (not (testday:time_eom) or not (testday:time_domonth))
-            edit SCWALLCLOCKLIMIT 02:00:00
-            task eom_prepare_1
-               on_hpc_serial
-               meter ecget     0 31 31
-               meter splitdata 0 31 31
-               meter deldata   0 31 31
-               event get_pl_data
-               event get_hl_data
-               event get_ml_data
-            for set 1 5 ; do
-               set tsk `printf p%2.2i $set`
-               family $tsk
-                 trigger (eom_prepare_1 == complete) 
-                 task eom_prepare_2
-                   on_hpc_serial
-                   meter catvariables 0 100 100
-                   event catdata
-                   edit prepnum $set
-               endfamily
-            endfor  
-            task eom_prepare_3
-               trigger (p01 == complete) and (p02 == complete) and (p03 == complete) and (p04 == complete) and (p05 == complete)
-               on_hpc_serial
-               event cpdata
-        endfamily
+            on_hpc_serial
+            edit SCWALLCLOCKLIMIT 24:00:00
+            meter ecget     0 31 31
+            meter splitdata 0 31 31
+            meter deldata   0 31 31
+            event get_pl_data
+            event get_hl_data
+            event get_ml_data
+            meter catvariables 0 100 100
+            event catdata
+            event cpdata
 
         task eom_getmars
             trigger   testday==complete
@@ -460,7 +446,7 @@ suite $USER
             on_ecgate_submit
 
         family eom_metview_all 
-            trigger (eom_prepare_all == complete) and (eom_getmars == complete)
+            trigger (eom_prepare == complete) and (eom_getmars == complete)
             complete (testday==complete) and (not (testday:time_eom) or not (testday:time_domonth))
             for set 1 5 ; do
                set tsk `printf %3.3i $set`

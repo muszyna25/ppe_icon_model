@@ -504,9 +504,6 @@ MODULE mo_impl_constants
   !  MODEL OUTPUT  !
   !----------------!
 
-  ! maximum string length for variable names
-  INTEGER, PARAMETER :: VARNAME_LEN = 256 
-
   INTEGER, PARAMETER :: &
     max_var_lists  = 256, & ! max number of output var_lists
     MAX_NVARS      = 999, & ! maximum number of output variables (total)
@@ -514,7 +511,7 @@ MODULE mo_impl_constants
     max_var_pl     = 150, & ! maximum number of pressure-level variables
     max_var_hl     = 150, & ! maximum number of height-level variables
     max_var_il     = 150, & ! maximum number of variables on isentropes
-    vname_len      = VARNAME_LEN ! variable name length in I/O namelists
+    vname_len      = 256    ! variable name length in I/O namelists
 
   INTEGER, PARAMETER :: &
     MAX_TIME_INTERVALS = 10 ! maximum number of time intervals specified in "output_nml"
@@ -524,10 +521,8 @@ MODULE mo_impl_constants
     PRES_MSL_METHOD_GME = 1,  &   ! GME-type extrapolation
     PRES_MSL_METHOD_SAI = 2,  &   ! stepwise analytical integration 
     PRES_MSL_METHOD_IFS = 3,  &   ! current IFS method
-    PRES_MSL_METHOD_IFS_CORR = 4,&! modified IFS method that is consistent with 
+    PRES_MSL_METHOD_IFS_CORR = 4  ! modified IFS method that is consistent with 
                                   ! geopotential computation 
-    PRES_MSL_METHOD_DWD = 5       ! mixture between GME and IFS method (elevation-dependent departure 
-                                  ! level for downward extraplation)
 
   ! Method for computation of relative humidity:
   INTEGER, PARAMETER :: &
@@ -604,11 +599,6 @@ MODULE mo_impl_constants
 
   REAL(WP), PARAMETER, PUBLIC :: BOUNDARY_MISSVAL = -999.e-10
 
-  ! The lon-lat parameterization of the torus is 
-  !    (lon,lat) = [0, 2*pi] x [-max_lat, max_lat]
-  ! where max_lat := pi/180 = 10 degrees 
-  ! (hard-coded in the torus grid generator)
-  REAL(wp), PARAMETER :: TORUS_MAX_LAT = 4._wp / 18._wp * ATAN(1._wp)
 
 !--------------------------------------------------------------------
 END MODULE mo_impl_constants

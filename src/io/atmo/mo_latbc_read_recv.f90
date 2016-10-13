@@ -54,7 +54,6 @@ MODULE mo_latbc_read_recv
   USE mo_cdi,                ONLY: streamInqVlist, vlistInqVarZaxis, vlistInqVarGrid, gridInqSize, zaxisInqSize, &
                                  & streamReadVarSliceF
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
-  USE mo_limarea_config,     ONLY: latbc_config
   
   IMPLICIT NONE
 
@@ -64,6 +63,8 @@ MODULE mo_latbc_read_recv
   PUBLIC  :: prefetch_cdi_3d
   PUBLIC  :: compute_data_receive
 
+  CHARACTER(len=*), PARAMETER :: version = &
+    &    '$Id: mo_cdi_prefetch.f90 16829 2014-04-30 14:27:20Z mukund.pondkule $'
   CHARACTER(LEN=*), PARAMETER :: modname = '::mo_latbc_read_recv'
 
 CONTAINS
@@ -82,59 +83,33 @@ CONTAINS
 #else
     INTEGER, INTENT(INOUT)                        :: ioff(0:)
 #endif
-    INTEGER,                 INTENT(IN) :: streamID     !< ID of CDI file stream
-    CHARACTER(len=*),        INTENT(IN) :: varname      !< Var name of field to be read
-    TYPE(t_patch_data),      INTENT(IN) :: patch_data   !< patch data containing information for prefetch 
-    INTEGER,                 INTENT(IN) :: nlevs        !< vertical levels of netcdf file
-    INTEGER,                 INTENT(IN) :: hgrid        !< stored variable location indication
+    INTEGER,             INTENT(IN)    :: streamID       !< ID of CDI file stream
+    CHARACTER(len=*),    INTENT(IN)    :: varname        !< Var name of field to be read
+    TYPE(t_patch_data),  INTENT(IN)    :: patch_data     !< patch data containing information for prefetch 
+    INTEGER,             INTENT(IN)    :: nlevs          !< vertical levels of netcdf file
+    INTEGER,             INTENT(IN)    :: hgrid          !< stored variable location indication
     
     ! local constants:
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = modname//':prefetch_cdi_3d'
     ! local variables:
     INTEGER                         :: vlistID, varID, zaxisID, gridID,   &
-      &                                jk, ierrstat, dimlen(2), nmiss
-    REAL(sp), ALLOCATABLE, TARGET   :: tmp_buf(:)  ! temporary local array (including interior)
-
-    INTEGER                         :: nread
-    REAL(sp), POINTER               :: read_buf(:) ! temporary local array for reading
+      &                                jk, ierrstat, dimlen(3), nmiss
+    REAL(sp), ALLOCATABLE           :: tmp_buf(:) ! temporary local array
     
 #ifndef NOMPI
     ! allocate a buffer for one vertical level
     IF (hgrid == GRID_UNSTRUCTURED_CELL) THEN
-
       ALLOCATE(tmp_buf(patch_data%n_patch_cells_g), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-      
-      IF (latbc_config%lsparse_latbc) THEN
-        nread = SIZE(latbc_config%global_index%cells)
-      ELSE
-        nread = patch_data%n_patch_cells_g
-      END IF
-
     ELSE IF (hgrid == GRID_UNSTRUCTURED_EDGE) THEN
-
       ALLOCATE(tmp_buf(patch_data%n_patch_edges_g), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-
-      IF (latbc_config%lsparse_latbc) THEN
-        nread = SIZE(latbc_config%global_index%edges)
-      ELSE
-        nread = patch_data%n_patch_edges_g
-      END IF
-
     ELSE
       CALL finish(routine, "invalid grid type")
     ENDIF
-    
-    ! allocate read buffer (which might be smaller than "tmp_buf", if
-    ! only boudary rows are read from file.
-    IF (latbc_config%lsparse_latbc) THEN
-      ALLOCATE(read_buf(nread), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-    ELSE
-      read_buf => tmp_buf
-    END IF
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+
+    ! initialize temporary buffers
+    tmp_buf(:) = 0._sp
 
     ! get var ID
     vlistID   = streamInqVlist(streamID)
@@ -142,53 +117,29 @@ CONTAINS
     zaxisID   = vlistInqVarZaxis(vlistID, varID)
     gridID    = vlistInqVarGrid(vlistID, varID)
     dimlen(1) = gridInqSize(gridID)
-    IF (nlevs > 1) THEN
-      dimlen(2) = zaxisInqSize(zaxisID)
-    END IF
+    dimlen(2) = zaxisInqSize(zaxisID)
 
     ! Check variable dimensions:
-    IF (dimlen(1) /= SIZE(read_buf)) THEN
+    IF ((dimlen(1) /= SIZE(tmp_buf)) .OR.  &
+         & (dimlen(2) /= nlevs)) THEN
        WRITE(message_text,'(a,2i4)') "Horizontal cells: ", dimlen(1), SIZE(tmp_buf), &
          &                           "nlev: ", dimlen(2), nlevs
        CALL message(TRIM(routine), message_text)
        CALL finish(routine, "Incompatible dimensions!")
     END IF
-    IF (nlevs > 1) THEN
-      IF (dimlen(2) /= nlevs) THEN
-        WRITE(message_text,'(a,2i4)') "Horizontal cells: ", dimlen(1), SIZE(tmp_buf), &
-          &                           "nlev: ", dimlen(2), nlevs
-        CALL message(TRIM(routine), message_text)
-        CALL finish(routine, "Incompatible dimensions!")
-      END IF
-    END IF
-
+   
     DO jk=1, nlevs
-
-      ! read record as 1D field
-      CALL streamReadVarSliceF(streamID, varID, jk-1, read_buf(:), nmiss)
-      
-      ! --- "sparse latbc mode": read only data for boundary rows
-      ! the non-zero initialization of tmp_buf is needed because the subsequent vertical interpolation crashes otherwise
-      IF (latbc_config%lsparse_latbc) THEN
-        IF (hgrid == GRID_UNSTRUCTURED_CELL) THEN
-          tmp_buf(:) = read_buf(1)
-          tmp_buf(latbc_config%global_index%cells(:)) = read_buf(:)
-        ELSE IF (hgrid == GRID_UNSTRUCTURED_EDGE) THEN
-          tmp_buf(:) = read_buf(1)
-          tmp_buf(latbc_config%global_index%edges(:)) = read_buf(:)
-        END IF
-      END IF
-      
-      ! send 2d buffer using MPI_PUT
-      CALL prefetch_proc_send(patch_data, tmp_buf(:), 1, hgrid, ioff)
+       ! read record as 1D field
+       CALL streamReadVarSliceF(streamID, varID, jk-1, tmp_buf(:), nmiss)
+       ! send 2d buffer using MPI_PUT
+       CALL prefetch_proc_send(patch_data, tmp_buf(:), 1, hgrid, ioff)
+       tmp_buf(:) = 0._sp 
     ENDDO ! jk=1,nlevs 
     !  ENDIF
   
     ! clean up
-    IF (latbc_config%lsparse_latbc) THEN
-      DEALLOCATE(tmp_buf, read_buf, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
-    END IF
+    DEALLOCATE(tmp_buf, STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
 #endif
   
   END SUBROUTINE prefetch_cdi_3d
@@ -205,12 +156,40 @@ CONTAINS
 #else
     INTEGER, INTENT(INOUT)                        :: ioff(0:)
 #endif
-    INTEGER,                 INTENT(IN) :: streamID     !< ID of CDI file stream
-    CHARACTER(len=*),        INTENT(IN) :: varname      !< Varname of field to be read
-    TYPE(t_patch_data),      INTENT(IN) :: patch_data   !< patch data containing information for prefetch 
-    INTEGER,                 INTENT(IN) :: hgrid        !< stored variable location indication
+    INTEGER,          INTENT(IN)    :: streamID       !< ID of CDI file stream
+    CHARACTER(len=*), INTENT(IN)    :: varname        !< Varname of field to be read
+    TYPE(t_patch_data), INTENT(IN)  :: patch_data  !< patch data containing information for prefetch 
+    INTEGER,          INTENT(IN)    :: hgrid          !< stored variable location indication
+    
+    ! local variables:
+    CHARACTER(len=max_char_length), PARAMETER :: &
+         routine = modname//':prefetch_cdi_2d_real_id'
+    INTEGER       :: varID, nmiss, gridID, vlistID, dimlen(1)
+    REAL(sp), ALLOCATABLE :: z_dummy_array(:)       !< local dummy array
+  
+#ifndef NOMPI
+    ! get var ID
+    vlistID   = streamInqVlist(streamID) 
+    varID     = get_cdi_varID(streamID, name=TRIM(varname))
+    gridID    = vlistInqVarGrid(vlistID, varID)
+    dimlen(1) = gridInqSize(gridID)
+    ALLOCATE(z_dummy_array(patch_data%n_patch_cells_g))
 
-    CALL prefetch_cdi_3d(streamID, varname, patch_data, 1, hgrid, ioff)
+    ! Check variable dimensions:
+    IF (dimlen(1) /= patch_data%n_patch_cells_g) THEN
+       WRITE(message_text,'(s,2i4)') "Horizontal cells: ", dimlen(1), patch_data%n_patch_cells_g
+       CALL message(TRIM(routine), message_text)
+       CALL finish(routine, "Incompatible dimensions!")
+    END IF
+    
+    ! prefetch PE reads and puts data in memory window
+    ! read record as 1D field
+    CALL streamReadVarSliceF(streamID, varID, 0, z_dummy_array(:), nmiss)
+    CALL prefetch_proc_send(patch_data, z_dummy_array(:), 1, hgrid, ioff)
+
+    DEALLOCATE(z_dummy_array)
+#endif
+
   END SUBROUTINE prefetch_cdi_2d
 
   !-------------------------------------------------------------------------

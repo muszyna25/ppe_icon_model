@@ -53,7 +53,7 @@ cd ${IFSDATADIR}
 # export the DWD GRIB short names:
 dwd_grib_api=/home/ms/de/dwd/grib_api
 #dwd_grib_api=/home/ms/de/dei4
-export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.14.5:/usr/local/apps/grib_api/1.14.5/CRAY/82/share/grib_api/definitions"
+export GRIB_DEFINITION_PATH="${dwd_grib_api}/definitions.edzw-1.12.3:/usr/local/apps/grib_api/1.12.3/CRAY/82/share/grib_api/definitions"
 # =============================================
 
 IFS_FILENAME_GRB="ifs_oper_*_%YMD%%INIHOUR%.grb"

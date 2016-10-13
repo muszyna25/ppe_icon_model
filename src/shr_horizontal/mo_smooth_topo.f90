@@ -34,50 +34,41 @@ MODULE mo_smooth_topo
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_sync,               ONLY: SYNC_C, sync_patch_array
   USE mo_intp_data_strc,     ONLY: t_int_state
-  USE mo_extpar_config,      ONLY: fac_smooth_topo, n_iter_smooth_topo,           &
-    &                              heightdiff_threshold, hgtdiff_max_smooth_topo, &
-    &                              lrevert_sea_height
+  USE mo_extpar_config,      ONLY: fac_smooth_topo, n_iter_smooth_topo,        &
+    &                              heightdiff_threshold, hgtdiff_max_smooth_topo
   USE mo_math_laplace,       ONLY: nabla2_scalar, nabla4_scalar
 
   IMPLICIT NONE
 
   PRIVATE
 
-  PUBLIC :: smooth_topo 
-  PUBLIC :: smooth_topo_real_data
+  PUBLIC :: smooth_topography 
+
 
 CONTAINS
 
   !-------------------------------------------------------------------------
 
-  !-----------------------------------------------------------------------
-  !>
-  !! Topography smoothing
-  !!
-  !! Topography smoothing by selectively applying nabla2 and nabla4 
-  !! operators.
-  !!
-  !! @par Revision History
-  !! Developed by G. Zaengl
-  !!
-  SUBROUTINE smooth_topo (p_patch, p_int, topography_c)
+   SUBROUTINE smooth_topography (p_patch, p_int, topography_c, sso_stdh)
 
     TYPE(t_patch)      , INTENT(IN)    :: p_patch
     TYPE(t_int_state)  , INTENT(IN)    :: p_int
-    REAL(wp)           , INTENT(INOUT) :: topography_c(:,:) ! original topography on input
-                                                            ! smoothed one on output
+    REAL(wp)           , INTENT(INOUT) :: topography_c(:,:)
+    REAL(wp), OPTIONAL , INTENT(INOUT) :: sso_stdh(:,:)
 
     ! local variables
     INTEGER  :: jg, jb, jc, iter, il, npts, niter
     INTEGER  :: i_startblk, nblks_c, i_startidx, i_endidx
     REAL(wp) :: z_topo(nproma,1,p_patch%nblks_c),z_nabla4_topo(nproma,1,p_patch%nblks_c),    &
       &         z_topo_old(nproma,1,p_patch%nblks_c),z_nabla2_topo(nproma,1,p_patch%nblks_c),&
-      &         z_hdiffmax(nproma,p_patch%nblks_c)
-    REAL(wp) :: zmaxtop,zmintop,z_topo_new,zdcoeff,z_heightdiff_threshold,rms_hdiff,smooth_fac
+      &         z_topo_c_sv(nproma,p_patch%nblks_c),z_hdiffmax(nproma,p_patch%nblks_c)
+    REAL(wp) :: zmaxtop,zmintop,z_topo_new,zdcoeff,z_heightdiff_threshold,zhdiff,rms_hdiff,smooth_fac
     LOGICAL  :: lnabla2_mask(nproma,p_patch%nblks_c)
 
 
     jg = p_patch%id
+
+    z_topo_c_sv(:,:) = topography_c(:,:)
 
     z_nabla4_topo(:,1,:) = 0._wp
     z_nabla2_topo(:,1,:) = 0._wp
@@ -300,94 +291,25 @@ CONTAINS
 
     ENDDO !iter
 
-   END SUBROUTINE smooth_topo
-
-
-
-  !-----------------------------------------------------------------------
-  !>
-  !! Topography smoothing for real-case runs
-  !!
-  !! Topography smoothing for real-case runs. Apart from smoothing the 
-  !! topography field, 
-  !! - the height of sea-points is reset to that of the raw topography 
-  !!   data set
-  !! - the SSO standard deviation field is updated based on the smoothed 
-  !!   topography
-  !!
-  !! @par Revision History
-  !! Developed by G. Zaengl  (2004).
-  !! Modification by Daniel Reinert, DWD (2016-07-06)
-  !! - bring sea points back to zero height after smoothing
-  !!
-  SUBROUTINE smooth_topo_real_data (p_patch, p_int, fr_land, fr_lake, topography_c, sso_stdh)
-
-    TYPE(t_patch)      , INTENT(IN)    :: p_patch
-    TYPE(t_int_state)  , INTENT(IN)    :: p_int
-    REAL(wp)           , INTENT(IN)    :: fr_land(:,:)
-    REAL(wp)           , INTENT(IN)    :: fr_lake(:,:)
-    REAL(wp)           , INTENT(INOUT) :: topography_c(:,:)
-    REAL(wp)           , INTENT(INOUT) :: sso_stdh(:,:)
-
-    ! local variables
-    INTEGER  :: jb, jc
-    INTEGER  :: i_startblk, nblks_c, i_startidx, i_endidx
-    REAL(wp) :: z_topo_c_sv(nproma,p_patch%nblks_c)
-    REAL(wp) :: zhdiff
-
-
-    nblks_c    = p_patch%nblks_c
-
-    i_startblk = p_patch%cells%start_blk(3,1)
-
-    ! save original raw topography
-    z_topo_c_sv(:,:) = topography_c(:,:)
-
-
-    ! topography smoothing
-    !
-    CALL smooth_topo(p_patch, p_int, topography_c)
-
-
-    ! bring sea-points back to zero height (i.e. to original extpar values)
-    !
-    IF (lrevert_sea_height) THEN
+    ! Apply correction to SSO standard deviation
+    IF (PRESENT(sso_stdh)) THEN
 
       DO jb = i_startblk,nblks_c
 
         CALL get_indices_c(p_patch, jb, i_startblk, nblks_c, &
                            i_startidx, i_endidx, 3)
 
-        DO jc=i_startidx, i_endidx
-          !
-          ! bring grid cell back to zero height, if it is entirely covered by sea. 
-          IF ( (fr_land(jc,jb) + fr_lake(jc,jb)) == 0._wp ) THEN
-            topography_c(jc,jb) = z_topo_c_sv(jc,jb)
-          ENDIF
-        ENDDO  !jc
+        DO jc = i_startidx, i_endidx
 
-      ENDDO  !jb
+          zhdiff = topography_c(jc,jb) - z_topo_c_sv(jc,jb)
+          sso_stdh(jc,jb) = SQRT(sso_stdh(jc,jb)**2 + zhdiff**2)
+
+        ENDDO
+      ENDDO
+
     ENDIF
 
-
-    ! re-compute SSO_STDH based on smoothed topography
-    !
-    DO jb = i_startblk,nblks_c
-
-      CALL get_indices_c(p_patch, jb, i_startblk, nblks_c, &
-                         i_startidx, i_endidx, 3)
-
-      DO jc = i_startidx, i_endidx
-
-        zhdiff = topography_c(jc,jb) - z_topo_c_sv(jc,jb)
-        sso_stdh(jc,jb) = SQRT(sso_stdh(jc,jb)**2 + zhdiff**2)
-
-      ENDDO
-    ENDDO
-
-
-  END SUBROUTINE smooth_topo_real_data
-
+  END SUBROUTINE smooth_topography
 
 
 END MODULE mo_smooth_topo

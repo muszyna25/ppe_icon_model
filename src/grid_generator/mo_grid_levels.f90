@@ -112,8 +112,7 @@ MODULE mo_grid_levels
   ! = 2 : equal area subdivision
   ! = 3 : c-grid small circle constraint
   ! = 4 : spring dynamics
-  ! = 5 : spring dynamics with convergence acceleration
-  INTEGER :: maxlev_optim    ! For itype_optimize=1,4,5: highest level for which
+  INTEGER :: maxlev_optim    ! For itype_optimize=1,4: highest level for which
   ! optimization is executed
   REAL(wp):: tria_arc_km     ! grid distance (km) for the planar grid option
   ! on the finest chosen level
@@ -798,7 +797,7 @@ CONTAINS
       CASE (3)
         ! c-grid small circle constraint
         optfix = 'scc'
-      CASE (4, 5)
+      CASE (4)
         ! spring dynamics
         IF (l_c_grid) THEN
           optfix = 'spc'
@@ -1609,7 +1608,7 @@ CONTAINS
     CASE (3)
       ! c-grid small circle constraint
       optfix = 'scc'
-    CASE (4, 5)
+    CASE (4)
       ! spring dynamics
       IF (l_c_grid) THEN
         optfix = 'spc'

@@ -31,7 +31,7 @@ MODULE mo_pp_tasks
     & TASK_COMPUTE_RH, TASK_COMPUTE_PV, TASK_INTP_VER_ZLEV,           &
     & TASK_INTP_VER_ILEV,                                             &
     & PRES_MSL_METHOD_SAI, PRES_MSL_METHOD_GME, max_dom,              &
-    & ALL_TIMELEVELS, PRES_MSL_METHOD_IFS, PRES_MSL_METHOD_DWD,       &
+    & ALL_TIMELEVELS, PRES_MSL_METHOD_IFS,                            &
     & PRES_MSL_METHOD_IFS_CORR, RH_METHOD_WMO, RH_METHOD_IFS,         &
     & RH_METHOD_IFS_CLIP, TASK_COMPUTE_OMEGA, HINTP_TYPE_LONLAT_BCTR, &
     & TLEV_NNOW, TLEV_NNOW_RCF
@@ -1042,27 +1042,20 @@ CONTAINS
         &                    pmsl_aux(:,1,:),                           &  ! out
         &                    nblks_c, npromz_c, p_patch%nlev )             ! in
 
-    CASE (PRES_MSL_METHOD_IFS,PRES_MSL_METHOD_IFS_CORR,PRES_MSL_METHOD_DWD) ! IFS or new DWD extrapolation method
+    CASE (PRES_MSL_METHOD_IFS,PRES_MSL_METHOD_IFS_CORR) ! IFS extrapolation method
 
-      IF (dbg_level >= 10)  THEN
-        IF (itype_pres_msl == PRES_MSL_METHOD_DWD) THEN
-          CALL message(routine, "PRES_MSL_METHOD_DWD")
-        ELSE
-          CALL message(routine, "PRES_MSL_METHOD_IFS")
-        ENDIF
-      ENDIF
+      IF (dbg_level >= 10)  CALL message(routine, "PRES_MSL_METHOD_IFS")
       CALL vcoeff_allocate(nblks_c, nblks_e, NZLEV, vcoeff)
       ! compute extrapolation coefficients:
       CALL prepare_extrap_ifspp(p_metrics%z_ifc, p_metrics%z_mc,              & !in
         &                 nblks_c, npromz_c, nlev,                            & !in
-        &                 vcoeff%lin_cell%kpbl1, vcoeff%lin_cell%zextrap,     & !out
-        &                 vcoeff%lin_cell%wfacpbl1)                             !out
+        &                 vcoeff%lin_cell%kpbl1, vcoeff%lin_cell%wfacpbl1)      !out
       ! Interpolate pressure on z-level "0":
       CALL diagnose_pmsl_ifs(p_diag%pres_sfc, p_diag%temp, p_metrics%z_ifc,   & ! in
         &                    pmsl_aux(:,1,:),                                 & ! out
         &                    nblks_c, npromz_c, p_patch%nlev,                 & ! in
         &                    vcoeff%lin_cell%wfacpbl1, vcoeff%lin_cell%kpbl1, & ! in
-        &                    vcoeff%lin_cell%zextrap, itype_pres_msl          ) ! in
+        &                    itype_pres_msl                                   ) ! in
       CALL vcoeff_deallocate(vcoeff)
 
     CASE DEFAULT

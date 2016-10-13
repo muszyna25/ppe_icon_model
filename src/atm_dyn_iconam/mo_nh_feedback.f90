@@ -1375,12 +1375,12 @@ CONTAINS
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
     i_startblk = p_patch(jgp)%verts%start_blk(1,1)
-    i_endblk   = p_patch(jgp)%verts%end_blk(min_rlvert_int-1,i_nchdom_p)
+    i_endblk   = p_patch(jgp)%verts%end_blk(min_rlvert_int,i_nchdom_p)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
-      CALL get_indices_v(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, min_rlvert_int-1)
+      CALL get_indices_v(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, min_rlvert_int)
 
 #ifdef __LOOP_EXCHANGE
       DO jv = i_startidx, i_endidx

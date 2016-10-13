@@ -22,7 +22,7 @@
 
 MODULE mo_initicon
 
-  USE mo_kind,                ONLY: wp, vp
+  USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, iqm_max, iforcing, check_uuid_gracefully
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
@@ -36,8 +36,7 @@ MODULE mo_initicon
   USE mo_initicon_types,      ONLY: t_initicon_state, ana_varnames_dict
   USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlevatm_in, lvert_remap_fg, &
     &                               rho_incr_filter_wgt, lread_ana, ltile_init, &
-    &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart, lconsistency_checks, &
-    &                               niter_divdamp, niter_diffu
+    &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart, lconsistency_checks
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_DWDANA,   &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA,              &
@@ -48,12 +47,10 @@ MODULE mo_initicon
   USE mo_exception,           ONLY: message, finish
   USE mo_grid_config,         ONLY: n_dom, l_limited_area
   USE mo_nh_init_utils,       ONLY: convert_thdvars, init_w
-  USE mo_nh_init_nest_utils,  ONLY: interpolate_vn_increments
   USE mo_util_phys,           ONLY: virtual_temp
   USE mo_satad,               ONLY: sat_pres_ice, spec_humi
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, ntiles_lnd, llake, &
     &                               isub_lake, isub_water, lsnowtile, frlnd_thrhld, frlake_thrhld
-  USE mo_seaice_nwp,          ONLY: frsi_min
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
   USE mo_phyparam_soil,       ONLY: cporv, cadp, crhosmaxf, crhosmin_ml, crhosmax_ml
   USE mo_nwp_soil_init,       ONLY: get_wsnow
@@ -62,7 +59,7 @@ MODULE mo_initicon
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
-  USE mo_math_laplace,        ONLY: nabla2_vec, nabla4_vec
+  USE mo_math_laplace,        ONLY: nabla4_vec
   USE mo_cdi,                 ONLY: cdiDefAdditionalKey, cdiInqMissval, FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2
   USE mo_flake,               ONLY: flake_coldinit
   USE mo_initicon_utils,      ONLY: fill_tile_points, init_snowtiles,             &
@@ -214,11 +211,11 @@ MODULE mo_initicon
     END SELECT
   END SUBROUTINE print_init_mode
 
-  FUNCTION gridUuids(p_patch) RESULT(resultVar)
+  FUNCTION gridUuids(p_patch) RESULT(RESULT)
     TYPE(t_patch), INTENT(IN) :: p_patch(:)
-    TYPE(t_uuid), DIMENSION(n_dom) :: resultVar
+    TYPE(t_uuid), DIMENSION(n_dom) :: RESULT
 
-    resultVar(:) = p_patch(:)%grid_uuid
+    RESULT(:) = p_patch(:)%grid_uuid
   END FUNCTION gridUuids
 
   ! Read the data from the first-guess file.
@@ -968,16 +965,15 @@ MODULE mo_initicon
     TYPE(t_nh_prog), POINTER :: p_prog_now, p_prog_now_rcf
     TYPE(t_nh_diag), POINTER :: p_diag
     TYPE(t_nh_metrics), POINTER :: p_metrics
-    INTEGER,         POINTER :: iidx(:,:,:), iblk(:,:,:), iqidx(:,:,:), iqblk(:,:,:)
+    INTEGER,         POINTER :: iidx(:,:,:), iblk(:,:,:)
 
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: tempv_incr, nabla2_vn_incr, w_incr
-    REAL(vp), ALLOCATABLE, DIMENSION(:,:,:) :: zvn_incr
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: tempv_incr, nabla4_vn_incr, w_incr
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = modname//':create_dwdanainc_atm'
 
     ! nondimensional diffusion coefficient for interpolated velocity increment
-    REAL(wp), PARAMETER :: ddfac=0.1_wp, smtfac=0.075_wp
+    REAL(wp), PARAMETER :: smtfac=0.015_wp
 
     ! to sum up the water loading term
     REAL(wp), ALLOCATABLE, DIMENSION(:,:) :: z_qsum
@@ -985,7 +981,6 @@ MODULE mo_initicon
     ! For vertical filtering of mass increments
     REAL(wp), ALLOCATABLE :: rho_incr_smt(:,:), exner_ifc_incr(:,:), mass_incr_smt(:,:), mass_incr(:,:)
     REAL(wp) :: mass_incr_int(nproma), mass_incr_smt_int(nproma)
-    INTEGER :: iter
 
     !-------------------------------------------------------------------------
 
@@ -1002,15 +997,15 @@ MODULE mo_initicon
       i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
 
       ! allocate temporary arrays for DA increments and a filtering term for vn
-      ALLOCATE(tempv_incr(nproma,nlev,nblks_c), nabla2_vn_incr(nproma,nlev,nblks_e),   &
+      ALLOCATE(tempv_incr(nproma,nlev,nblks_c), nabla4_vn_incr(nproma,nlev,nblks_e),   &
                rho_incr_smt(nproma,nlev), exner_ifc_incr(nproma,nlevp1),               &
                mass_incr_smt(nproma,nlev), mass_incr(nproma,nlev), z_qsum(nproma,nlev),&
-               zvn_incr(nlev,nproma,nblks_e),STAT=ist)
-
+               STAT=ist)
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'allocation of auxiliary arrays failed')
       ENDIF
 
+      nabla4_vn_incr(:,:,:) = 0._wp
 
       ! define some pointers
       p_prog_now     => p_nh_state(jg)%prog(nnow(jg))
@@ -1019,8 +1014,6 @@ MODULE mo_initicon
       p_metrics      => p_nh_state(jg)%metrics
       iidx           => p_patch(jg)%edges%cell_idx
       iblk           => p_patch(jg)%edges%cell_blk
-      iqidx          => p_patch(jg)%edges%quad_idx
-      iqblk          => p_patch(jg)%edges%quad_blk
 
 
       ! 1) Compute analysis increments in terms of the NH prognostic set of variables.
@@ -1170,8 +1163,8 @@ MODULE mo_initicon
 
       ! 2) compute vn increments (w increment neglected)
       !
-      IF (.NOT. lp2cintp_incr(jg)) THEN ! If increments are interpolated from the parent domain (see below),
-                                        ! they are already provided as vn increments
+      IF (.NOT. lp2cintp_incr(jg)) THEN ! If increments were interpolated from the parent domain,
+                                        ! they have already been converted into vn increments
 
         ! include boundary interpolation zone of nested domains and the halo edges as far as possible
         rl_start = 2
@@ -1210,128 +1203,46 @@ MODULE mo_initicon
       ENDIF
 !$OMP END PARALLEL
 
-      IF (lp2cintp_incr(jg)) THEN
-        ! Interpolate wind increments from parent domain (includes synchronization)
-        CALL interpolate_vn_increments(initicon, p_patch(jg)%parent_id, jg)
-      ELSE ! apply synchronization
-        CALL sync_patch_array(SYNC_E,p_patch(jg),initicon(jg)%atm_inc%vn)
-      END IF
-
-      p_diag%vn_incr(:,:,:) = initicon(jg)%atm_inc%vn(:,:,:)
-
-      ! Apply diffusion on wind increment
-      DO iter = 1, niter_diffu
-        CALL nabla2_vec(p_diag%vn_incr, p_patch(jg), p_int_state(jg), nabla2_vn_incr, opt_rlstart=3)
-
-!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
-
-        ! include boundary interpolation zone of nested domains but no halo points (sync follows below)
-        rl_start = 3
-        rl_end   = min_rledge_int
-
-        i_startblk = p_patch(jg)%edges%start_blk(rl_start,1)
-        i_endblk   = p_patch(jg)%edges%end_blk(rl_end,i_nchdom)
-
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
-        DO jb = i_startblk, i_endblk
-
-          CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
-                             i_startidx, i_endidx, rl_start, rl_end)
-
-          DO jk = 1, nlev
-            DO je = i_startidx, i_endidx
-              ! computed filtered velocity increment
-              p_diag%vn_incr(je,jk,jb) = p_diag%vn_incr(je,jk,jb) + smtfac * &
-                nabla2_vn_incr(je,jk,jb)*p_patch(jg)%edges%area_edge(je,jb)
-
-            ENDDO  ! je
-          ENDDO  ! jk
-
-        ENDDO  ! jb
-!$OMP ENDDO
-!$OMP END PARALLEL
-        CALL sync_patch_array(SYNC_E,p_patch(jg),p_diag%vn_incr)
-      ENDDO
-
-      ! Apply divergence damping on wind increment
-      ! This is done for the global domain only because the interpolation to the nested domain(s)
-      ! comes after the filtering
+      ! required to avoid crash in nabla4_vec (in case of interpolation from the parent domain,
+      !                                        the sync has already been done)
       IF (.NOT. lp2cintp_incr(jg)) THEN
-        DO iter = 1, niter_divdamp
-
-!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
-
-          rl_start = 2
-          rl_end   = min_rledge_int-2
-
-          i_startblk = p_patch(jg)%edges%start_blk(rl_start,1)
-          i_endblk   = p_patch(jg)%edges%end_blk(rl_end,i_nchdom)
-
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
-          DO jb = i_startblk, i_endblk
-
-            CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
-                               i_startidx, i_endidx, rl_start, rl_end)
-
-            DO je = i_startidx, i_endidx
-!DIR$ IVDEP
-              DO jk = 1, nlev
-                ! computed filtered velocity increment
-                zvn_incr(jk,je,jb) = p_diag%vn_incr(je,jk,jb) + ddfac*p_patch(jg)%edges%area_edge(je,jb) * &
-                  ( p_int_state(jg)%geofac_grdiv(je,1,jb)*p_diag%vn_incr(je,jk,jb)                         &
-                  + p_int_state(jg)%geofac_grdiv(je,2,jb)*p_diag%vn_incr(iqidx(je,jb,1),jk,iqblk(je,jb,1)) &
-                  + p_int_state(jg)%geofac_grdiv(je,3,jb)*p_diag%vn_incr(iqidx(je,jb,2),jk,iqblk(je,jb,2)) &
-                  + p_int_state(jg)%geofac_grdiv(je,4,jb)*p_diag%vn_incr(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
-                  + p_int_state(jg)%geofac_grdiv(je,5,jb)*p_diag%vn_incr(iqidx(je,jb,4),jk,iqblk(je,jb,4)) )
-
-              ENDDO  ! je
-            ENDDO  ! jk
-
-          ENDDO  ! jb
-!$OMP ENDDO
-
-          rl_start = 3
-          rl_end   = min_rledge_int
-
-          i_startblk = p_patch(jg)%edges%start_blk(rl_start,1)
-          i_endblk   = p_patch(jg)%edges%end_blk(rl_end,i_nchdom)
-
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
-          DO jb = i_startblk, i_endblk
-
-            CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
-                               i_startidx, i_endidx, rl_start, rl_end)
-
-            DO je = i_startidx, i_endidx
-!DIR$ IVDEP
-              DO jk = 1, nlev
-                ! computed filtered velocity increment
-                p_diag%vn_incr(je,jk,jb) = zvn_incr(jk,je,jb) + ddfac*p_patch(jg)%edges%area_edge(je,jb) * &
-                  ( p_int_state(jg)%geofac_grdiv(je,1,jb)*zvn_incr(jk,je,jb)                         &
-                  + p_int_state(jg)%geofac_grdiv(je,2,jb)*zvn_incr(jk,iqidx(je,jb,1),iqblk(je,jb,1)) &
-                  + p_int_state(jg)%geofac_grdiv(je,3,jb)*zvn_incr(jk,iqidx(je,jb,2),iqblk(je,jb,2)) &
-                  + p_int_state(jg)%geofac_grdiv(je,4,jb)*zvn_incr(jk,iqidx(je,jb,3),iqblk(je,jb,3)) &
-                  + p_int_state(jg)%geofac_grdiv(je,5,jb)*zvn_incr(jk,iqidx(je,jb,4),iqblk(je,jb,4)) )
-
-              ENDDO  ! je
-            ENDDO  ! jk
-
-          ENDDO  ! jb
-!$OMP ENDDO
-!$OMP END PARALLEL
-
-          CALL sync_patch_array(SYNC_E,p_patch(jg),p_diag%vn_incr)
-
-        ENDDO
+        CALL sync_patch_array(SYNC_E,p_patch(jg),initicon(jg)%atm_inc%vn)
       ENDIF
 
-      ! Copy filtered increment back to initicon state (this is needed to pass the filtered
-      ! field to the parent-to-child interpolation for the nested domains)
-      initicon(jg)%atm_inc%vn(:,:,:) = p_diag%vn_incr(:,:,:)
+      ! Compute diffusion term
+      CALL nabla4_vec(initicon(jg)%atm_inc%vn, p_patch(jg), p_int_state(jg), nabla4_vn_incr, opt_rlstart=5)
+
+!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+
+      ! include boundary interpolation zone of nested domains but no halo points (sync follows below)
+      rl_start = 2
+      rl_end   = min_rledge_int
+
+      i_startblk = p_patch(jg)%edges%start_blk(rl_start,1)
+      i_endblk   = p_patch(jg)%edges%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_e(p_patch(jg), jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
+
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
+            ! computed filtered velocity increment
+            p_diag%vn_incr(je,jk,jb) = initicon(jg)%atm_inc%vn(je,jk,jb) &
+              &               - smtfac*nabla4_vn_incr(je,jk,jb)*p_patch(jg)%edges%area_edge(je,jb)**2
+
+          ENDDO  ! je
+        ENDDO  ! jk
+
+      ENDDO  ! jb
+!$OMP ENDDO
+!$OMP END PARALLEL
 
       ! deallocate temporary arrays
-      DEALLOCATE( tempv_incr, nabla2_vn_incr, exner_ifc_incr, rho_incr_smt, mass_incr_smt, &
-                  mass_incr, z_qsum, zvn_incr, STAT=ist )
+      DEALLOCATE( tempv_incr, nabla4_vn_incr, exner_ifc_incr, rho_incr_smt, mass_incr_smt, &
+                  mass_incr, z_qsum, STAT=ist )
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine), 'deallocation of auxiliary arrays failed' )
       ENDIF
@@ -1779,13 +1690,11 @@ MODULE mo_initicon
           !
           ! get SST from first guess T_G
           !
+!CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, ext_data(jg)%atm%sp_count(jb)
             jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
             p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =  &
               & MAX(tf_salt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_water))
-            ! Ensure that t_seasfc is filled with tf_salt on completely frozen ocean points;
-            IF (p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) >= 1._wp-frsi_min) &
-              p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = tf_salt
           END DO
 
         ENDIF  ! lanaread_t_so .OR. lanaread_tseasfc
@@ -1963,9 +1872,6 @@ MODULE mo_initicon
             IF (ext_data(jg)%atm%fr_land(jc,jb) <= 1-frlnd_thrhld) THEN ! grid points with non-zero water fraction
               IF (lanaread_tso .OR. lanaread_tseasfc) THEN
                 p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tmelt,initicon(jg)%sfc%sst(jc,jb))
-                IF (ext_data(jg)%atm%fr_lake(jc,jb) < frlake_thrhld) THEN
-                  p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_water) = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
-                ENDIF
               ELSE IF (ext_data(jg)%atm%fr_lake(jc,jb) >= frlake_thrhld) THEN
                 p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tmelt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_lake))
               ELSE

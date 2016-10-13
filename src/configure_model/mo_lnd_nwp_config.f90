@@ -468,18 +468,18 @@ CONTAINS
   !!
   !! Returns zero on failure to find the given tile.
   !!
-  FUNCTION find_tile_id(tileIndex, tileAttribute) RESULT(resultVar)
+  FUNCTION find_tile_id(tileIndex, tileAttribute) RESULT(RESULT)
     INTEGER, VALUE :: tileIndex, tileAttribute  !GRIB2 tile index AND attribute values
-    INTEGER :: resultVar
+    INTEGER :: RESULT
 
-    DO resultVar = 1, SIZE(tiles, 1)
-        IF(tiles(resultVar)%GRIB2_tile%tileIndex == tileIndex) THEN
-            IF(tiles(resultVar)%GRIB2_att%tileAttribute == tileAttribute) THEN
+    DO RESULT = 1, SIZE(tiles, 1)
+        IF(tiles(RESULT)%GRIB2_tile%tileIndex == tileIndex) THEN
+            IF(tiles(RESULT)%GRIB2_att%tileAttribute == tileAttribute) THEN
                 RETURN
             END IF
         END IF
     END DO
-    resultVar = -1
+    RESULT = -1
   END FUNCTION find_tile_id
 
 

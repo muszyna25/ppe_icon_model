@@ -25,20 +25,17 @@ MODULE mo_nh_init_utils
 
   USE mo_kind,                  ONLY: wp
   USE mo_model_domain,          ONLY: t_patch
-  USE mo_nonhydro_types,        ONLY: t_nh_metrics, t_nh_state
-  USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend
-  USE mo_nwp_lnd_types,         ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
-  USE mo_ext_data_types,        ONLY: t_external_data
+  USE mo_nonhydro_types,        ONLY: t_nh_metrics
   USE mo_parallel_config,       ONLY: nproma
-  USE mo_run_config,            ONLY: msg_level, ntracer
-  USE mo_grid_config,           ONLY: l_limited_area, n_dom
-  USE mo_dynamics_config,       ONLY: iequations, nnow, nnow_rcf
+  USE mo_run_config,            ONLY: msg_level
+  USE mo_grid_config,           ONLY: l_limited_area
+  USE mo_dynamics_config,       ONLY: iequations
   USE mo_physical_constants,    ONLY: grav, cpd, rd, cvd_o_rd, p0ref
   USE mo_vertical_coord_table,  ONLY: vct_a, vct_b, read_vct
   USE mo_nonhydrostatic_config, ONLY: ivctype
   USE mo_sleve_config,          ONLY: min_lay_thckn, max_lay_thckn, htop_thcknlimit, top_height, &
                                       decay_scale_1, decay_scale_2, decay_exp, flat_height, stretch_fac
-  USE mo_impl_constants,        ONLY: max_dom, MAX_CHAR_LENGTH, nclass_aero
+  USE mo_impl_constants,        ONLY: max_dom, MAX_CHAR_LENGTH
   USE mo_math_constants,        ONLY: pi
   USE mo_exception,             ONLY: message, message_text, finish
   USE mo_sync,                  ONLY: sync_patch_array, SYNC_C
@@ -47,15 +44,11 @@ MODULE mo_nh_init_utils
   USE mo_math_laplace,          ONLY: nabla2_scalar
   USE mo_math_gradients,        ONLY: grad_fd_norm
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e
-  USE mo_initicon_types,        ONLY: t_saveinit_state
-  USE mo_initicon_config,       ONLY: type_iau_wgt, is_iau_active, &
-    &                                 iau_wgt_dyn, iau_wgt_adv, ltile_coldstart
-  USE mo_atm_phy_nwp_config,    ONLY: iprog_aero
-  USE mo_lnd_nwp_config,        ONLY: ntiles_total, l2lay_rho_snow, ntiles_water, lmulti_snow, &
-                                      nlev_soil, nlev_snow, lsnowtile
+  USE mo_initicon_config,       ONLY: dt_iau, type_iau_wgt, is_iau_active, &
+    &                                 iau_wgt_dyn, iau_wgt_adv
 !!$  USE mo_util_uuid,             ONLY: t_uuid,  uuid_generate, uuid_parse, &
 !!$       &                              uuid_unparse, uuid_string_length
-  USE mo_fortran_tools,         ONLY: init, copy
+  USE mo_fortran_tools,         ONLY: init
 
   IMPLICIT NONE
 
@@ -67,14 +60,12 @@ MODULE mo_nh_init_utils
   REAL(wp) :: layer_thickness        ! (m)
   INTEGER  :: n_flat_level
 
-  TYPE(t_saveinit_state), ALLOCATABLE  :: saveinit(:)
-
   PUBLIC :: nflat, nflatlev, n_flat_level, layer_thickness
 
   PUBLIC :: hydro_adjust, init_hybrid_coord, init_sleve_coord, compute_smooth_topo, &
     &       init_vert_coord, interp_uv_2_vn, init_w, adjust_w, convert_thdvars,     &
     &       convert_omega2w, hydro_adjust_downward, prepare_hybrid_coord,           &
-    &       prepare_sleve_coord, save_initial_state, restore_initial_state
+    &       prepare_sleve_coord
   PUBLIC :: compute_iau_wgt
 
 CONTAINS
@@ -1144,288 +1135,6 @@ CONTAINS
 
   END SUBROUTINE init_vert_coord
 
-  !----------------------------------------------------------------------------
-  !>
-  !! Saves the initial state of NWP applications for the IAU iteration mode.
-  !!
-  !! @par Revision History
-  !! Initial release by Guenther Zaengl, DWD, (2016-06-17)
-  !!
-  SUBROUTINE save_initial_state(p_patch, p_nh, prm_diag, p_lnd, ext_data)
-
-    TYPE(t_patch),             INTENT(IN) :: p_patch(:)
-    TYPE(t_nh_state),          INTENT(IN) :: p_nh(:)
-    TYPE(t_nwp_phy_diag),      INTENT(IN) :: prm_diag(:)
-    TYPE(t_lnd_state), TARGET, INTENT(IN) :: p_lnd(:)
-    TYPE(t_external_data),     INTENT(IN) :: ext_data(:)
-
-    INTEGER :: jg, ntl, ntw, nlev, nlevp1, nblks_c, nblks_e
-
-    TYPE(t_lnd_prog), POINTER :: lnd_prog
-    TYPE(t_lnd_diag), POINTER :: lnd_diag
-    TYPE(t_wtr_prog), POINTER :: wtr_prog
-
-    ntl = ntiles_total
-    ntw = ntiles_total+ntiles_water
-
-    ALLOCATE(saveinit(n_dom))
-
-    DO jg = 1, n_dom
-
-      IF(.NOT. p_patch(jg)%ldom_active) CYCLE
-
-      nlev    = p_patch(jg)%nlev
-      nlevp1  = p_patch(jg)%nlevp1
-      nblks_c = p_patch(jg)%nblks_c
-      nblks_e = p_patch(jg)%nblks_e
-
-      lnd_prog => p_lnd(jg)%prog_lnd(nnow_rcf(jg))
-      lnd_diag => p_lnd(jg)%diag_lnd
-      wtr_prog => p_lnd(jg)%prog_wtr(nnow_rcf(jg))
-
-      ALLOCATE (saveinit(jg)%fr_seaice(nproma,nblks_c), saveinit(jg)%t_ice(nproma,nblks_c),    &
-                saveinit(jg)%h_ice(nproma,nblks_c),     saveinit(jg)%gz0(nproma,nblks_c),      &
-                saveinit(jg)%t_mnw_lk(nproma,nblks_c),  saveinit(jg)%t_wml_lk(nproma,nblks_c), &
-                saveinit(jg)%h_ml_lk(nproma,nblks_c),   saveinit(jg)%t_bot_lk(nproma,nblks_c), &
-                saveinit(jg)%c_t_lk(nproma,nblks_c),    saveinit(jg)%t_b1_lk(nproma,nblks_c),  &
-                saveinit(jg)%h_b1_lk(nproma,nblks_c) )
-
-      ALLOCATE (saveinit(jg)%theta_v(nproma,nlev,nblks_c), &
-                saveinit(jg)%rho(nproma,nlev,nblks_c),     &
-                saveinit(jg)%exner(nproma,nlev,nblks_c),   &
-                saveinit(jg)%w(nproma,nlevp1,nblks_c),     &
-                saveinit(jg)%tke(nproma,nlevp1,nblks_c),   &
-                saveinit(jg)%vn(nproma,nlev,nblks_e),      &
-                saveinit(jg)%t_g_t(nproma,nblks_c,ntw),    &
-                saveinit(jg)%qv_s_t(nproma,nblks_c,ntw),   &
-                saveinit(jg)%freshsnow_t(nproma,nblks_c,ntl), &
-                saveinit(jg)%snowfrac_t(nproma,nblks_c,ntl), &
-                saveinit(jg)%snowfrac_lc_t(nproma,nblks_c,ntl), &
-                saveinit(jg)%w_snow_t(nproma,nblks_c,ntl), &
-                saveinit(jg)%w_i_t(nproma,nblks_c,ntl),    &
-                saveinit(jg)%h_snow_t(nproma,nblks_c,ntl), &
-                saveinit(jg)%t_snow_t(nproma,nblks_c,ntl), &
-                saveinit(jg)%rho_snow_t(nproma,nblks_c,ntl), &
-                saveinit(jg)%snowtile_flag_t(nproma,nblks_c,ntl), &
-                saveinit(jg)%idx_lst_t(nproma,nblks_c,ntl), &
-                saveinit(jg)%frac_t(nproma,nblks_c,ntw),    &
-                saveinit(jg)%gp_count_t(nblks_c,ntl)        )
-
-      ALLOCATE (saveinit(jg)%tracer(nproma,nlev,nblks_c,ntracer),      &
-                saveinit(jg)%w_so_t(nproma,nlev_soil,nblks_c,ntl),     &
-                saveinit(jg)%w_so_ice_t(nproma,nlev_soil,nblks_c,ntl), &
-                saveinit(jg)%t_so_t(nproma,nlev_soil+1,nblks_c,ntl)    )
-
-      IF (lmulti_snow) THEN
-        ALLOCATE (saveinit(jg)%t_snow_mult_t(nproma,nlev_snow+1,nblks_c,ntl), &
-                  saveinit(jg)%rho_snow_mult_t(nproma,nlev_snow,nblks_c,ntl), &
-                  saveinit(jg)%wtot_snow_t(nproma,nlev_snow,nblks_c,ntl),     &
-                  saveinit(jg)%wliq_snow_t(nproma,nlev_snow,nblks_c,ntl),     &
-                  saveinit(jg)%dzh_snow_t(nproma,nlev_snow,nblks_c,ntl)       )
-      ELSE IF (l2lay_rho_snow) THEN
-        ALLOCATE (saveinit(jg)%rho_snow_mult_t(nproma,nlev_snow,nblks_c,ntl))
-      ENDIF
-
-      IF (iprog_aero == 1) ALLOCATE (saveinit(jg)%aerosol(nproma,nclass_aero,nblks_c))
-
-!$OMP PARALLEL
-      CALL copy(lnd_diag%fr_seaice, saveinit(jg)%fr_seaice)
-      CALL copy(wtr_prog%t_ice, saveinit(jg)%t_ice)
-      CALL copy(wtr_prog%h_ice, saveinit(jg)%h_ice)
-      CALL copy(prm_diag(jg)%gz0, saveinit(jg)%gz0)
-      CALL copy(wtr_prog%t_mnw_lk, saveinit(jg)%t_mnw_lk)
-      CALL copy(wtr_prog%t_wml_lk, saveinit(jg)%t_wml_lk)
-      CALL copy(wtr_prog%h_ml_lk, saveinit(jg)%h_ml_lk)
-      CALL copy(wtr_prog%t_bot_lk, saveinit(jg)%t_bot_lk)
-      CALL copy(wtr_prog%c_t_lk, saveinit(jg)%c_t_lk)
-      CALL copy(wtr_prog%t_b1_lk, saveinit(jg)%t_b1_lk)
-      CALL copy(wtr_prog%h_b1_lk, saveinit(jg)%h_b1_lk)
-
-      CALL copy(p_nh(jg)%prog(nnow(jg))%theta_v, saveinit(jg)%theta_v)
-      CALL copy(p_nh(jg)%prog(nnow(jg))%rho, saveinit(jg)%rho)
-      CALL copy(p_nh(jg)%prog(nnow(jg))%exner, saveinit(jg)%exner)
-      CALL copy(p_nh(jg)%prog(nnow(jg))%w, saveinit(jg)%w)
-      CALL copy(p_nh(jg)%prog(nnow_rcf(jg))%tke, saveinit(jg)%tke)
-      CALL copy(p_nh(jg)%prog(nnow(jg))%vn, saveinit(jg)%vn)
-      CALL copy(p_nh(jg)%prog(nnow_rcf(jg))%tracer, saveinit(jg)%tracer)
-
-      CALL copy(lnd_prog%t_g_t, saveinit(jg)%t_g_t)
-      CALL copy(lnd_diag%qv_s_t, saveinit(jg)%qv_s_t)
-      CALL copy(lnd_diag%freshsnow_t, saveinit(jg)%freshsnow_t)
-      CALL copy(lnd_diag%snowfrac_t, saveinit(jg)%snowfrac_t)
-      CALL copy(lnd_diag%snowfrac_lc_t, saveinit(jg)%snowfrac_lc_t)
-      CALL copy(lnd_prog%w_snow_t, saveinit(jg)%w_snow_t)
-      CALL copy(lnd_prog%w_i_t, saveinit(jg)%w_i_t)
-      CALL copy(lnd_diag%h_snow_t, saveinit(jg)%h_snow_t)
-      CALL copy(lnd_prog%t_snow_t, saveinit(jg)%t_snow_t)
-      CALL copy(lnd_prog%rho_snow_t, saveinit(jg)%rho_snow_t)
-      CALL copy(lnd_prog%w_so_t, saveinit(jg)%w_so_t)
-      CALL copy(lnd_prog%w_so_ice_t, saveinit(jg)%w_so_ice_t)
-      CALL copy(lnd_prog%t_so_t, saveinit(jg)%t_so_t)
-
-      IF (ntiles_total > 1 .AND. lsnowtile .AND. .NOT. ltile_coldstart) THEN
-        CALL copy(ext_data(jg)%atm%snowtile_flag_t, saveinit(jg)%snowtile_flag_t)
-        CALL copy(ext_data(jg)%atm%idx_lst_t, saveinit(jg)%idx_lst_t)
-        CALL copy(ext_data(jg)%atm%frac_t, saveinit(jg)%frac_t)
-        CALL copy(ext_data(jg)%atm%gp_count_t, saveinit(jg)%gp_count_t)
-      ENDIF
-
-      IF (lmulti_snow) THEN
-        CALL copy(lnd_prog%t_snow_mult_t, saveinit(jg)%t_snow_mult_t)
-        CALL copy(lnd_prog%rho_snow_mult_t, saveinit(jg)%rho_snow_mult_t)
-        CALL copy(lnd_prog%wtot_snow_t, saveinit(jg)%wtot_snow_t)
-        CALL copy(lnd_prog%wliq_snow_t, saveinit(jg)%wliq_snow_t)
-        CALL copy(lnd_prog%dzh_snow_t, saveinit(jg)%dzh_snow_t)
-      ELSE IF (l2lay_rho_snow) THEN
-        CALL copy(lnd_prog%rho_snow_mult_t, saveinit(jg)%rho_snow_mult_t)
-      ENDIF
-
-      IF (iprog_aero == 1)  CALL copy(prm_diag(jg)%aerosol, saveinit(jg)%aerosol)
-!$OMP END PARALLEL
-
-    ENDDO
-
-  END SUBROUTINE save_initial_state
-
-  !----------------------------------------------------------------------------
-  !>
-  !! Restores the initial state of NWP applications for the IAU iteration mode.
-  !!
-  !! @par Revision History
-  !! Initial release by Guenther Zaengl, DWD, (2016-06-17)
-  !!
-  SUBROUTINE restore_initial_state(p_patch, p_nh, prm_diag, prm_tend, p_lnd, ext_data)
-
-    TYPE(t_patch),             INTENT(IN)    :: p_patch(:)
-    TYPE(t_nh_state),          INTENT(INOUT) :: p_nh(:)
-    TYPE(t_nwp_phy_diag),      INTENT(INOUT) :: prm_diag(:)
-    TYPE(t_nwp_phy_tend),      INTENT(INOUT) :: prm_tend(:)
-    TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd(:)
-    TYPE(t_external_data),     INTENT(INOUT) :: ext_data(:)
-
-    INTEGER :: jg, ntl, ntw, nlev, nlevp1, nblks_c, nblks_e
-
-    TYPE(t_lnd_prog), POINTER :: lnd_prog
-    TYPE(t_lnd_diag), POINTER :: lnd_diag
-    TYPE(t_wtr_prog), POINTER :: wtr_prog
-
-    ntl = ntiles_total
-    ntw = ntiles_total+ntiles_water
-
-
-    DO jg = 1, n_dom
-
-      IF(.NOT. p_patch(jg)%ldom_active) CYCLE
-
-      nlev    = p_patch(jg)%nlev
-      nlevp1  = p_patch(jg)%nlevp1
-      nblks_c = p_patch(jg)%nblks_c
-      nblks_e = p_patch(jg)%nblks_e
-
-      lnd_prog => p_lnd(jg)%prog_lnd(nnow_rcf(jg))
-      lnd_diag => p_lnd(jg)%diag_lnd
-      wtr_prog => p_lnd(jg)%prog_wtr(nnow_rcf(jg))
-
-
-!$OMP PARALLEL
-      CALL copy(saveinit(jg)%fr_seaice, lnd_diag%fr_seaice)
-      CALL copy(saveinit(jg)%t_ice, wtr_prog%t_ice)
-      CALL copy(saveinit(jg)%h_ice, wtr_prog%h_ice)
-      CALL copy(saveinit(jg)%gz0, prm_diag(jg)%gz0)
-      CALL copy(saveinit(jg)%t_mnw_lk, wtr_prog%t_mnw_lk)
-      CALL copy(saveinit(jg)%t_wml_lk, wtr_prog%t_wml_lk)
-      CALL copy(saveinit(jg)%h_ml_lk, wtr_prog%h_ml_lk)
-      CALL copy(saveinit(jg)%t_bot_lk, wtr_prog%t_bot_lk)
-      CALL copy(saveinit(jg)%c_t_lk, wtr_prog%c_t_lk)
-      CALL copy(saveinit(jg)%t_b1_lk, wtr_prog%t_b1_lk)
-      CALL copy(saveinit(jg)%h_b1_lk, wtr_prog%h_b1_lk)
-
-      CALL copy(saveinit(jg)%theta_v, p_nh(jg)%prog(nnow(jg))%theta_v)
-      CALL copy(saveinit(jg)%rho, p_nh(jg)%prog(nnow(jg))%rho)
-      CALL copy(saveinit(jg)%exner, p_nh(jg)%prog(nnow(jg))%exner)
-      CALL copy(saveinit(jg)%w, p_nh(jg)%prog(nnow(jg))%w)
-      CALL copy(saveinit(jg)%tke, p_nh(jg)%prog(nnow_rcf(jg))%tke)
-      CALL copy(saveinit(jg)%vn, p_nh(jg)%prog(nnow(jg))%vn)
-      CALL copy(saveinit(jg)%tracer, p_nh(jg)%prog(nnow_rcf(jg))%tracer)
-
-      CALL copy(saveinit(jg)%t_g_t, lnd_prog%t_g_t)
-      CALL copy(saveinit(jg)%qv_s_t, lnd_diag%qv_s_t)
-      CALL copy(saveinit(jg)%freshsnow_t, lnd_diag%freshsnow_t)
-      CALL copy(saveinit(jg)%snowfrac_t, lnd_diag%snowfrac_t)
-      CALL copy(saveinit(jg)%snowfrac_lc_t, lnd_diag%snowfrac_lc_t)
-      CALL copy(saveinit(jg)%w_snow_t, lnd_prog%w_snow_t)
-      CALL copy(saveinit(jg)%w_i_t, lnd_prog%w_i_t)
-      CALL copy(saveinit(jg)%h_snow_t, lnd_diag%h_snow_t)
-      CALL copy(saveinit(jg)%t_snow_t, lnd_prog%t_snow_t)
-      CALL copy(saveinit(jg)%rho_snow_t, lnd_prog%rho_snow_t)
-      CALL copy(saveinit(jg)%w_so_t, lnd_prog%w_so_t)
-      CALL copy(saveinit(jg)%w_so_ice_t, lnd_prog%w_so_ice_t)
-      CALL copy(saveinit(jg)%t_so_t, lnd_prog%t_so_t)
-
-      IF (ntiles_total > 1 .AND. lsnowtile .AND. .NOT. ltile_coldstart) THEN
-        CALL copy(saveinit(jg)%snowtile_flag_t, ext_data(jg)%atm%snowtile_flag_t)
-        CALL copy(saveinit(jg)%idx_lst_t, ext_data(jg)%atm%idx_lst_t)
-        CALL copy(saveinit(jg)%frac_t, ext_data(jg)%atm%frac_t)
-        CALL copy(saveinit(jg)%gp_count_t, ext_data(jg)%atm%gp_count_t)
-      ENDIF
-
-      IF (lmulti_snow) THEN
-        CALL copy(saveinit(jg)%t_snow_mult_t, lnd_prog%t_snow_mult_t)
-        CALL copy(saveinit(jg)%rho_snow_mult_t, lnd_prog%rho_snow_mult_t)
-        CALL copy(saveinit(jg)%wtot_snow_t, lnd_prog%wtot_snow_t)
-        CALL copy(saveinit(jg)%wliq_snow_t, lnd_prog%wliq_snow_t)
-        CALL copy(saveinit(jg)%dzh_snow_t, lnd_prog%dzh_snow_t)
-      ELSE IF (l2lay_rho_snow) THEN
-        CALL copy(saveinit(jg)%rho_snow_mult_t, lnd_prog%rho_snow_mult_t)
-      ENDIF
-
-      IF (iprog_aero == 1)  CALL copy(saveinit(jg)%aerosol, prm_diag(jg)%aerosol)
-
-      ! Fields that need to be reset to zero in order to obtain identical results
-      CALL init (p_nh(jg)%diag%ddt_vn_phy)
-      CALL init (p_nh(jg)%diag%ddt_tracer_adv)
-      CALL init (prm_tend(jg)%ddt_tracer_turb)
-      CALL init (prm_tend(jg)%ddt_temp_radsw)
-      CALL init (prm_tend(jg)%ddt_temp_radlw)
-      CALL init (prm_tend(jg)%ddt_temp_turb)
-      CALL init (p_nh(jg)%diag%ddt_temp_dyn)
-      CALL init (p_nh(jg)%diag%exner_dyn_incr)
-      CALL init (prm_diag(jg)%rain_gsp_rate)
-      CALL init (prm_diag(jg)%snow_gsp_rate)
-      CALL init (prm_diag(jg)%shfl_s_t)
-      CALL init (prm_diag(jg)%qhfl_s_t)
-      CALL init (lnd_diag%runoff_s_t)
-      CALL init (lnd_diag%runoff_g_t)
-
-!$OMP END PARALLEL
-
-
-
-      DEALLOCATE (saveinit(jg)%fr_seaice, saveinit(jg)%t_ice, saveinit(jg)%h_ice, saveinit(jg)%gz0,          &
-                  saveinit(jg)%t_mnw_lk, saveinit(jg)%t_wml_lk, saveinit(jg)%h_ml_lk, saveinit(jg)%t_bot_lk, &
-                  saveinit(jg)%c_t_lk, saveinit(jg)%t_b1_lk, saveinit(jg)%h_b1_lk )
-
-      DEALLOCATE (saveinit(jg)%theta_v, saveinit(jg)%rho,saveinit(jg)%exner, saveinit(jg)%w, saveinit(jg)%tke,      &
-                  saveinit(jg)%vn, saveinit(jg)%t_g_t, saveinit(jg)%qv_s_t, saveinit(jg)%freshsnow_t,               &
-                  saveinit(jg)%snowfrac_t, saveinit(jg)%snowfrac_lc_t, saveinit(jg)%w_snow_t,                       &
-                  saveinit(jg)%w_i_t, saveinit(jg)%h_snow_t, saveinit(jg)%t_snow_t, saveinit(jg)%rho_snow_t,        &
-                  saveinit(jg)%snowtile_flag_t, saveinit(jg)%idx_lst_t, saveinit(jg)%frac_t, saveinit(jg)%gp_count_t)
-
-      DEALLOCATE (saveinit(jg)%tracer, saveinit(jg)%w_so_t, saveinit(jg)%w_so_ice_t, saveinit(jg)%t_so_t)
-
-      IF (lmulti_snow) THEN
-        DEALLOCATE (saveinit(jg)%t_snow_mult_t, saveinit(jg)%rho_snow_mult_t, saveinit(jg)%wtot_snow_t, &
-                   saveinit(jg)%wliq_snow_t, saveinit(jg)%dzh_snow_t)
-      ELSE IF (l2lay_rho_snow) THEN
-        DEALLOCATE (saveinit(jg)%rho_snow_mult_t)
-      ENDIF
-
-      IF (iprog_aero == 1) DEALLOCATE (saveinit(jg)%aerosol)
-    ENDDO
-
-    DEALLOCATE(saveinit)
-
-  END SUBROUTINE restore_initial_state
 
   !>
   !! Compute weights for incremental analysis update
@@ -1440,12 +1149,11 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by daniel Reinert, DWD (2014-01-29)
   !!
-  SUBROUTINE compute_iau_wgt(sim_time, dt, dt_iau, lreset_wgt_adv)
+  SUBROUTINE compute_iau_wgt(sim_time, dt, lreset_wgt_adv)
 
     REAL(wp)        , INTENT(IN)  :: sim_time          !< Simulation time since model
                                                        !< start
     REAL(wp)        , INTENT(IN)  :: dt                !< time step
-    REAL(wp)        , INTENT(IN)  :: dt_iau            !< width of IAU window
     LOGICAL         , INTENT(IN)  :: lreset_wgt_adv    !< If true, reset the accumulated weight for the advective time step
 
     ! local variables

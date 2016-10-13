@@ -29,7 +29,6 @@ MODULE mo_input_request_list
     USE mo_communication, ONLY: t_ScatterPattern
     USE mo_dictionary, ONLY: t_dictionary, dict_copy, dict_init, dict_get, dict_finalize
     USE mo_exception, ONLY: message, finish
-    USE mo_fortran_tools, ONLY: t_Destructible
     USE mo_grid_config, ONLY: n_dom
     USE mo_impl_constants, ONLY: SUCCESS
     USE mo_initicon_config, ONLY: timeshift, lconsistency_checks
@@ -37,19 +36,17 @@ MODULE mo_input_request_list
     USE mo_input_container, ONLY: t_InputContainer, inputContainer_make
     USE mo_kind, ONLY: wp, dp
     USE mo_lnd_nwp_config, ONLY: t_tile, select_tile, get_tile_suffix, find_tile_id
-    USE mo_math_types, ONLY: t_Statistics
     USE mo_model_domain, ONLY: t_patch
     USE mo_mpi, ONLY: my_process_is_mpi_workroot, get_my_mpi_work_id, p_bcast, process_mpi_root_id, p_comm_work, &
                     & my_process_is_stdio, p_pe, p_isEqual
     USE mo_run_config, ONLY: msg_level
     USE mo_time_config, ONLY: getIniTime
     USE mo_util_cdi, ONLY: trivial_tileId
-    USE mo_util_string, ONLY: real2string, int2string, toCharArray, toCharacter, charArray_equal, charArray_toLower, &
-                            & charArray_dup, one_of
+    USE mo_util_string, ONLY: int2string, toCharArray, toCharacter, charArray_equal, charArray_toLower, charArray_dup, one_of
     USE mo_util_table, ONLY: t_table, initialize_table, add_table_column, set_table_entry, print_table, finalize_table
     USE mo_util_uuid, ONLY: t_uuid, uuid_string_length, uuid_unparse, OPERATOR(==)
-    USE mtime, ONLY: datetime, timedelta, newDatetime, datetimeToString, newTimedelta, timedeltaToString, deallocateDatetime, &
-                   & deallocateTimedelta, max_timedelta_str_len, max_datetime_str_len, OPERATOR(-), OPERATOR(+), OPERATOR(==)
+    USE mtime, ONLY: datetime, timedelta, newDatetime, newTimedelta, timedeltaToString, deallocateDatetime, deallocateTimedelta, &
+                   & max_timedelta_str_len, OPERATOR(-), OPERATOR(+), OPERATOR(==)
 
     IMPLICIT NONE
 
@@ -110,7 +107,6 @@ PRIVATE
 
         CLASS(t_InputContainer), POINTER :: container
         TYPE(t_MetadataCache), POINTER :: metadata  !< Some metadata connected with the variable, which IS only used for consistency checking AND printing of the inventory table.
-        TYPE(t_Statistics) :: statistics
     END TYPE
 
     TYPE :: t_ListEntry
@@ -119,7 +115,7 @@ PRIVATE
         TYPE(t_DomainData), POINTER :: domainData   !< A linked list of an InputContainer AND a MetadataCache for each domain. Only accessed via findDomainData().
     END TYPE
 
-    TYPE, EXTENDS(t_Destructible) :: t_MetadataCache
+    TYPE :: t_MetadataCache
         CHARACTER(KIND = C_CHAR), POINTER :: rtime(:), vtime(:)
         INTEGER :: levelType, gridNumber, gridPosition, runClass, experimentId, generatingProcessType
         TYPE(t_CdiParam) :: param
@@ -127,7 +123,6 @@ PRIVATE
 
     CONTAINS
         PROCEDURE :: equalTo => MetadataCache_equalTo
-        PROCEDURE :: destruct => MetadataCache_destruct
     END TYPE
 
     CHARACTER(*), PARAMETER :: modname = "mo_input_request_list"
@@ -136,30 +131,30 @@ PRIVATE
 CONTAINS
 
     !Can't use a type constructor interface t_InputRequestList() since the cray compiler looses the list pointer while returning + assigning the function result.
-    FUNCTION InputRequestList_create() RESULT(resultVar)
-        TYPE(t_InputRequestList), POINTER :: resultVar
+    FUNCTION InputRequestList_create() RESULT(result)
+        TYPE(t_InputRequestList), POINTER :: result
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputRequestList_create"
         INTEGER :: error, i
 
-        ALLOCATE(resultVar, STAT = error)
+        ALLOCATE(result, STAT = error)
         if(error /= SUCCESS) CALL finish(routine, "error allocating memory")
 
-        resultVar%variableCount = 0
-        ALLOCATE(resultVar%list(8), STAT = error)
+        result%variableCount = 0
+        ALLOCATE(result%list(8), STAT = error)
         if(error /= SUCCESS) CALL finish(routine, "error allocating memory")
-        DO i = 1, SIZE(resultVar%list, 1)
-            resultVar%list(i)%iconVarName => NULL()
-            resultVar%list(i)%translatedVarName => NULL()
-            resultVar%list(i)%domainData => NULL()
+        DO i = 1, SIZE(RESULT%list, 1)
+            RESULT%list(i)%iconVarName => NULL()
+            RESULT%list(i)%translatedVarName => NULL()
+            RESULT%list(i)%domainData => NULL()
         END DO
     END FUNCTION InputRequestList_create
 
-    FUNCTION findDomainData(listEntry, domain, opt_lcreate) RESULT(resultVar)
+    FUNCTION findDomainData(listEntry, domain, opt_lcreate) RESULT(RESULT)
         TYPE(t_ListEntry), POINTER, INTENT(INOUT) :: listEntry
         INTEGER, VALUE :: domain
         LOGICAL, OPTIONAL, VALUE :: opt_lcreate
-        TYPE(t_DomainData), POINTER :: resultVar
+        TYPE(t_DomainData), POINTER :: RESULT
 
         CHARACTER(*), PARAMETER :: routine = modname//":findDomainData"
         INTEGER :: error
@@ -167,24 +162,23 @@ CONTAINS
         IF(.NOT.ASSOCIATED(listEntry)) CALL finish(routine, "assertion failed, listEntry IS NOT ASSOCIATED")
 
         ! Try to find a preexisting DomainData object.
-        resultVar => listEntry%domainData
+        RESULT => listEntry%domainData
         DO
-            IF(.NOT.ASSOCIATED(resultVar)) EXIT
-            IF(resultVar%domain == domain) RETURN
-            resultVar => resultVar%next
+            IF(.NOT.ASSOCIATED(RESULT)) EXIT
+            IF(RESULT%domain == domain) RETURN
+            RESULT => RESULT%next
         END DO
 
         ! Nothing preexisting found, should we create a new one?
         if(PRESENT(opt_lcreate)) THEN
             IF(opt_lcreate) THEN
-                ALLOCATE(resultVar, STAT = error)
+                ALLOCATE(RESULT, STAT = error)
                 IF(error /= SUCCESS) CALL finish(routine, "error allocating memory")
-                resultVar%domain = domain
-                resultVar%next => listEntry%domainData
-                resultVar%container => InputContainer_make()
-                resultVar%metadata => NULL()
-                CALL resultVar%statistics%construct()
-                listEntry%domainData => resultVar
+                RESULT%domain = domain
+                RESULT%next => listEntry%domainData
+                RESULT%container => InputContainer_make()
+                RESULT%metadata => NULL()
+                listEntry%domainData => RESULT
             END IF
         END IF
     END FUNCTION findDomainData
@@ -209,11 +203,11 @@ CONTAINS
         END DO
     END SUBROUTINE InputRequestList_translateNames
 
-    FUNCTION InputRequestList_findIconName(me, fieldName, opt_lDebug) RESULT(resultVar)
+    FUNCTION InputRequestList_findIconName(me, fieldName, opt_lDebug) RESULT(RESULT)
         CLASS(t_InputRequestList), INTENT(IN) :: me
         CHARACTER(*), INTENT(IN) :: fieldName
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDebug
-        TYPE(t_ListEntry), POINTER :: resultVar
+        TYPE(t_ListEntry), POINTER :: result
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputRequestList_findIconName"
         INTEGER :: i
@@ -223,12 +217,12 @@ CONTAINS
         debugInfo = .FALSE.
         IF(PRESENT(opt_lDebug)) debugInfo = opt_lDebug
 
-        resultVar => NULL()
+        result => NULL()
         DO i = 1, me%variableCount
             tempName => toCharacter(me%list(i)%iconVarName)
             IF(fieldName == tempName) THEN
                 IF(debugInfo) CALL message(routine, fieldName//" == "//tempName)
-                resultVar => me%list(i)
+                result => me%list(i)
                 RETURN
             ELSE
                 IF(debugInfo) CALL message(routine, fieldName//" /= "//tempName)
@@ -237,18 +231,18 @@ CONTAINS
         END DO
     END FUNCTION InputRequestList_findIconName
 
-    FUNCTION InputRequestList_findTranslatedName(me, fieldName) RESULT(resultVar)
+    FUNCTION InputRequestList_findTranslatedName(me, fieldName) RESULT(result)
         CLASS(t_InputRequestList), INTENT(IN) :: me
         CHARACTER(KIND = C_CHAR), INTENT(INOUT) :: fieldName(:)
-        TYPE(t_ListEntry), POINTER :: resultVar
+        TYPE(t_ListEntry), POINTER :: result
 
         INTEGER :: i
 
         CALL charArray_toLower(fieldName)
-        resultVar => NULL()
+        result => NULL()
         DO i = 1, me%variableCount
             IF(charArray_equal(fieldName, me%list(i)%translatedVarName)) THEN
-                resultVar => me%list(i)
+                result => me%list(i)
                 RETURN
             END IF
         END DO
@@ -336,7 +330,7 @@ CONTAINS
         END DO
     END SUBROUTINE InputRequestList_requestMultiple
 
-    LOGICAL FUNCTION InputRequestList_isRecordValid(me, iterator, p_patch, level, tileId, variableName, lIsFg) RESULT(resultVar)
+    LOGICAL FUNCTION InputRequestList_isRecordValid(me, iterator, p_patch, level, tileId, variableName, lIsFg) RESULT(result)
         CLASS(t_InputRequestList), INTENT(INOUT) :: me
         TYPE(t_CdiIterator) :: iterator
         TYPE(t_patch), INTENT(IN) :: p_patch
@@ -351,13 +345,13 @@ CONTAINS
         TYPE(t_ListEntry), POINTER :: listEntry
         TYPE(t_DomainData), POINTER :: domainData
         TYPE(t_CdiGribIterator) :: gribIterator
-        TYPE(datetime), POINTER :: tempTime, iniTime, startTime
+        TYPE(datetime) :: iniTime, startTime
+        TYPE(datetime), POINTER :: tempTime
         INTEGER(KIND = C_SIGNED_CHAR) :: gridUuid(CDI_UUID_SIZE)
         CHARACTER(:), POINTER :: vtimeString
-        CHARACTER(max_datetime_str_len) :: debugDatetimeString
         CHARACTER(*), PARAMETER :: routine = modname//":InputRequestList_isRecordValid"
 
-        resultVar = .TRUE.
+        result = .TRUE.
         variableName => cdiIterator_inqVariableName(iterator)
 
         metadata => MetadataCache_create()
@@ -373,30 +367,16 @@ CONTAINS
         IF(lconsistency_checks) THEN
             vtimeString => toCharacter(metadata%vtime)
             tempTime => newDatetime(vtimeString)
-
-            ALLOCATE(iniTime, STAT = error)
-            IF(error /= SUCCESS) CALL fail("memory allocation failure")
-            iniTime = getIniTime()
-            IF(lIsFg) THEN
-                ! add timeshift to INI-datetime to get true starting time
-                ALLOCATE(startTime, STAT = error)
-                IF(error /= SUCCESS) CALL fail("memory allocation failure")
-                startTime = iniTime + timeshift%mtime_shift
-                IF(.NOT.(tempTime == startTime)) THEN
-                    CALL datetimeToString(startTime, debugDatetimeString)
-                    CALL fail("vtime of first-guess field ("//vtimeString//") does not match model start time (" &
-                             &//TRIM(debugDatetimeString)//")")
-                END IF
-                DEALLOCATE(startTime)
-            ELSE
-                IF(.NOT.(tempTime == iniTime)) THEN
-                    CALL datetimeToString(iniTime, debugDatetimeString)
-                    CALL fail("vtime of analysis field ("//vtimeString//") does not match model initialization time (" &
-                             &//TRIM(debugDatetimeString)//")")
-                END IF
-            END IF
-            DEALLOCATE(iniTime)
             DEALLOCATE(vtimeString)
+            IF(lIsFg) THEN
+                iniTime = getIniTime()
+                ! add timeshift to INI-datetime to get true starting time
+                startTime = iniTime + timeshift%mtime_shift
+                IF(.NOT.(tempTime == startTime)) CALL fail("vtime of first-guess field does not match model start time")
+            ELSE
+                iniTime = getIniTime()
+                IF(.NOT.(tempTime == iniTime)) CALL fail("vtime of analysis field does not match model initialization time")
+            END IF
             CALL deallocateDatetime(tempTime)
         END IF
 
@@ -474,7 +454,7 @@ CONTAINS
         metadata%runClass = -1
         metadata%experimentId = -1
         metadata%generatingProcessType = -1
-        IF(resultVar) THEN
+        IF(RESULT) THEN
             gribIterator = cdiGribIterator_clone(iterator)
             IF(C_ASSOCIATED(gribIterator%ptr)) THEN
                 metadata%runClass = INT(cdiGribIterator_inqLongValue(gribIterator, "backgroundProcess"))
@@ -487,19 +467,17 @@ CONTAINS
         !Check whether the metadata of this record IS consistent with the metadata we've already seen for this variable.
         listEntry => me%findTranslatedName(variableName)
         IF(.NOT.ASSOCIATED(listEntry)) THEN
-            resultVar = .FALSE.    !We are NOT interested IN this variable.
-            CALL metadata%destruct()
-            DEALLOCATE(metadata)
+            RESULT = .FALSE.    !We are NOT interested IN this variable.
+            CALL MetadataCache_delete(metadata)
             RETURN
         END IF
-        IF(resultVar) domainData => findDomainData(listEntry, p_patch%id)
-        IF(resultVar .AND. ASSOCIATED(domainData)) resultVar = metadata%equalTo(domainData%metadata)
+        IF(RESULT) domainData => findDomainData(listEntry, p_patch%id)
+        IF(RESULT .AND. ASSOCIATED(domainData)) RESULT = metadata%equalTo(domainData%metadata)
 
         !Commit AND cleanup.
-        IF(resultVar) THEN
+        IF(RESULT) THEN
             IF(ASSOCIATED(domainData)) THEN
-                CALL metadata%destruct()
-                DEALLOCATE(metadata)
+                CALL MetadataCache_delete(metadata)
             ELSE
                 domainData => findDomainData(listEntry, p_patch%id, opt_lcreate = .TRUE.)
                 domainData%metadata => metadata  !We don't have a metadata cache yet, so we just remember this one.
@@ -508,8 +486,7 @@ CONTAINS
             !The record was not valid.
             DEALLOCATE(variableName)
             variableName => NULL()
-            CALL metadata%destruct()
-            DEALLOCATE(metadata)
+            CALL MetadataCache_delete(metadata)
         END IF
 
     CONTAINS
@@ -518,7 +495,7 @@ CONTAINS
             CHARACTER(LEN = *), INTENT(IN) :: message
 
             IF(msg_level >= 1) print*, 'invalid record for variable "', variableName, '" encountered: '//message
-            resultVar = .FALSE.
+            RESULT = .FALSE.
         END SUBROUTINE fail
 
     END FUNCTION InputRequestList_isRecordValid
@@ -566,7 +543,7 @@ CONTAINS
         DEALLOCATE(tempName)
     END SUBROUTINE InputRequestList_sendFieldMetadata
 
-    LOGICAL FUNCTION InputRequestList_recieveFieldMetadata(me, level, tileId, variableName) RESULT(resultVar)
+    LOGICAL FUNCTION InputRequestList_recieveFieldMetadata(me, level, tileId, variableName) RESULT(RESULT)
         CLASS(t_InputRequestList), INTENT(INOUT) :: me
         REAL(dp), INTENT(INOUT) :: level
         INTEGER, INTENT(INOUT) :: tileId
@@ -583,9 +560,9 @@ CONTAINS
         CALL p_bcast(message, process_mpi_root_id, p_comm_work)
         level = message(2)
         tileId = INT(message(3))
-        resultVar = message(1) /= 0.0_dp
+        RESULT = message(1) /= 0.0_dp
         variableName => NULL()
-        IF(resultVar) THEN
+        IF(RESULT) THEN
             ALLOCATE(CHARACTER(LEN = INT(message(1))) :: tempName, STAT = error)
             IF(error /= SUCCESS) CALL finish(routine, "error allocating memory")
             CALL p_bcast(tempName, process_mpi_root_id, p_comm_work)
@@ -600,7 +577,7 @@ CONTAINS
     !
     ! ignoredRecords IS NOT reset by this FUNCTION, it IS ONLY incremented
     LOGICAL FUNCTION InputRequestList_nextField(me, iterator, p_patch, level, tileId, variableName, ignoredRecords, lIsFg) &
-    &RESULT(resultVar)
+    &RESULT(RESULT)
         CLASS(t_InputRequestList), INTENT(INOUT) :: me
         TYPE(t_CdiIterator), VALUE :: iterator
         TYPE(t_patch), INTENT(IN) :: p_patch
@@ -610,7 +587,7 @@ CONTAINS
         INTEGER, INTENT(INOUT) :: ignoredRecords
         LOGICAL, VALUE :: lIsFg
 
-        resultVar = .FALSE.
+        RESULT = .FALSE.
         IF(my_process_is_mpi_workroot()) THEN
             ! Scan the file until we find a field that we are interested in.
             DO
@@ -621,7 +598,7 @@ CONTAINS
                     IF(me%isRecordValid(iterator, p_patch, level, tileId, variableName, lIsFg)) THEN
                         IF(ASSOCIATED(me%findTranslatedName(variableName))) THEN
                             CALL me%sendFieldMetadata(level, tileId, variableName)
-                            resultVar = .TRUE.
+                            RESULT = .TRUE.
                             RETURN
                         END IF
                     ELSE
@@ -630,7 +607,7 @@ CONTAINS
                 END IF
             END DO
         ELSE
-            resultVar = me%recieveFieldMetadata(level, tileId, variableName)
+            RESULT = me%recieveFieldMetadata(level, tileId, variableName)
         END IF
     END FUNCTION InputRequestList_nextField
 
@@ -645,7 +622,6 @@ CONTAINS
         TYPE(t_CdiIterator) :: iterator
         REAL(dp) :: level
         CHARACTER(KIND = C_CHAR), DIMENSION(:), POINTER :: vtime, variableName
-        CHARACTER(LEN = :), POINTER :: fortranName
         INTEGER :: i, tileId, recordsRead, recordsIgnored
         TYPE(t_ListEntry), POINTER :: listEntry
         TYPE(t_DomainData), POINTER :: domainData
@@ -667,9 +643,7 @@ CONTAINS
             listEntry => me%findTranslatedName(variableName)
             IF(.NOT.ASSOCIATED(listEntry)) CALL finish(routine, "Assertion failed: Processes have different input request lists!")
             domainData => findDomainData(listEntry, p_patch%id, opt_lcreate = .TRUE.)
-            fortranName => toCharacter(variableName)
-            CALL domainData%container%readField(fortranName, level, tileId, p_patch%id, iterator, domainData%statistics)
-            DEALLOCATE(fortranName)
+            CALL domainData%container%readField(level, tileId, p_patch%id, iterator)
             DEALLOCATE(variableName)
         END DO
         IF(my_process_is_mpi_workroot()) THEN
@@ -679,12 +653,12 @@ CONTAINS
         END IF
     END SUBROUTINE InputRequestList_readFile
 
-    FUNCTION InputRequestList_getLevels(me, varName, domain, opt_lDebug) RESULT(resultVar)
+    FUNCTION InputRequestList_getLevels(me, varName, domain, opt_lDebug) RESULT(RESULT)
         CLASS(t_InputRequestList), INTENT(IN) :: me
         CHARACTER(*), INTENT(IN) :: varName
         INTEGER, VALUE :: domain
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDebug
-        REAL(dp), POINTER :: resultVar(:)
+        REAL(dp), POINTER :: RESULT(:)
 
         CHARACTER(*), PARAMETER :: routine = modname//":InputRequestList_getLevels"
         TYPE(t_ListEntry), POINTER :: listEntry
@@ -695,11 +669,11 @@ CONTAINS
             CALL finish(routine, 'attempt to fetch level data for an input variable "'//varName//'" that has not been requested')
         END IF
         domainData => findDomainData(listEntry, domain)
-        resultVar => NULL()
-        IF(ASSOCIATED(domainData)) resultVar => domainData%container%getLevels()
+        RESULT => NULL()
+        IF(ASSOCIATED(domainData)) RESULT => domainData%container%getLevels()
     END FUNCTION InputRequestList_getLevels
 
-    LOGICAL FUNCTION InputRequestList_fetch2d(me, varName, level, tile, jg, outData, opt_lDebug) RESULT(resultVar)
+    LOGICAL FUNCTION InputRequestList_fetch2d(me, varName, level, tile, jg, outData, opt_lDebug) RESULT(RESULT)
         CLASS(t_InputRequestList), INTENT(IN) :: me
         CHARACTER(*), INTENT(IN) :: varName
         REAL(dp), VALUE :: level
@@ -721,9 +695,9 @@ CONTAINS
             CALL finish(routine, 'attempt to fetch data for an input variable "'//varName//'" that has not been requested')
         END IF
         domainData => findDomainData(listEntry, jg)
-        resultVar = ASSOCIATED(domainData)
-        IF(resultVar) resultVar = domainData%container%fetch2d(level, tile, outData, opt_lDebug)
-        IF(resultVar) THEN
+        RESULT = ASSOCIATED(domainData)
+        IF(RESULT) RESULT = domainData%container%fetch2d(level, tile, outData, opt_lDebug)
+        IF(RESULT) THEN
             tileinfo = select_tile(tile)
             CALL initicon_inverse_post_op( &
             &   TRIM(varName//TRIM(get_tile_suffix(tileinfo%GRIB2_tile%tileIndex, tileinfo%GRIB2_att%tileAttribute))), &
@@ -733,7 +707,7 @@ CONTAINS
         END IF
     END FUNCTION InputRequestList_fetch2d
 
-    LOGICAL FUNCTION InputRequestList_fetch3d(me, varName, tile, jg, outData, optLevelDimension, opt_lDebug) RESULT(resultVar)
+    LOGICAL FUNCTION InputRequestList_fetch3d(me, varName, tile, jg, outData, optLevelDimension, opt_lDebug) RESULT(RESULT)
         CLASS(t_InputRequestList), INTENT(IN) :: me
         CHARACTER(*), INTENT(IN) :: varName
         INTEGER, VALUE :: tile, jg
@@ -755,9 +729,9 @@ CONTAINS
             CALL finish(routine, 'attempt to fetch data for an input variable "'//varName//'" that has not been requested')
         END IF
         domainData => findDomainData(listEntry, jg)
-        resultVar = ASSOCIATED(domainData)
-        IF(resultVar) resultVar = domainData%container%fetch3d(tile, outData, optLevelDimension, opt_lDebug)
-        IF(resultVar .AND. varName /= 'smi' .AND. varName /= 'SMI') THEN   !SMI IS NOT IN the ICON variable lists, so we need to skip inverse postprocessing for it manually.
+        RESULT = ASSOCIATED(domainData)
+        IF(RESULT) RESULT = domainData%container%fetch3d(tile, outData, optLevelDimension, opt_lDebug)
+        IF(RESULT .AND. varName /= 'smi' .AND. varName /= 'SMI') THEN   !SMI IS NOT IN the ICON variable lists, so we need to skip inverse postprocessing for it manually.
             tileinfo = select_tile(tile)
             CALL initicon_inverse_post_op( &
             &   TRIM(varName//TRIM(get_tile_suffix(tileinfo%GRIB2_tile%tileIndex, tileinfo%GRIB2_att%tileAttribute))), &
@@ -767,7 +741,7 @@ CONTAINS
         END IF
     END FUNCTION InputRequestList_fetch3d
 
-    LOGICAL FUNCTION InputRequestList_fetchSurface(me, varName, tile, jg, outData, opt_lDebug) RESULT(resultVar)
+    LOGICAL FUNCTION InputRequestList_fetchSurface(me, varName, tile, jg, outData, opt_lDebug) RESULT(RESULT)
         CLASS(t_InputRequestList), INTENT(IN) :: me
         CHARACTER(*), INTENT(IN) :: varName
         INTEGER, VALUE :: tile, jg
@@ -789,22 +763,22 @@ CONTAINS
             CALL finish(routine, 'attempt to fetch data for an input variable "'//varName//'" that has not been requested')
         END IF
         domainData => findDomainData(listEntry, jg)
-        resultVar = ASSOCIATED(domainData)
-        IF(resultVar) THEN
+        RESULT = ASSOCIATED(domainData)
+        IF(RESULT) THEN
             levels => domainData%container%getLevels()
             SELECT CASE(SIZE(levels, 1))
                 CASE(0)
-                    resultVar = .FALSE.
+                    RESULT = .FALSE.
                     IF(debugInfo) CALL message(routine, "no levels found")
                 CASE(1)
-                    resultVar = domainData%container%fetch2d(levels(1), tile, outData, opt_lDebug)
-                    IF(debugInfo .AND. .NOT. resultVar) CALL message(routine, "InputContainer_fetch2d() returned an error")
+                    RESULT = domainData%container%fetch2d(levels(1), tile, outData, opt_lDebug)
+                    IF(debugInfo .AND. .NOT. RESULT) CALL message(routine, "InputContainer_fetch2d() returned an error")
                 CASE DEFAULT
                     CALL finish(routine, "trying to read '"//varName//"' as a surface variable, but the file contains several &
                                          &levels of this variable")
             END SELECT
         END IF
-        IF(resultVar) THEN
+        IF(RESULT) THEN
             tileinfo = select_tile(tile)
             CALL initicon_inverse_post_op( &
             &   TRIM(varName//TRIM(get_tile_suffix(tileinfo%GRIB2_tile%tileIndex, tileinfo%GRIB2_att%tileAttribute))), &
@@ -812,7 +786,7 @@ CONTAINS
         END IF
     END FUNCTION InputRequestList_fetchSurface
 
-    LOGICAL FUNCTION InputRequestList_fetchTiled2d(me, varName, level, jg, outData, opt_lDebug) RESULT(resultVar)
+    LOGICAL FUNCTION InputRequestList_fetchTiled2d(me, varName, level, jg, outData, opt_lDebug) RESULT(RESULT)
         CLASS(t_InputRequestList), INTENT(IN) :: me
         CHARACTER(*), INTENT(IN) :: varName
         REAL(dp), VALUE :: level
@@ -835,9 +809,9 @@ CONTAINS
             CALL finish(routine, 'attempt to fetch data for an input variable "'//varName//'" that has not been requested')
         END IF
         domainData => findDomainData(listEntry, jg)
-        resultVar = ASSOCIATED(domainData)
-        IF(resultVar) resultVar = domainData%container%fetchTiled2d(level, outData, opt_lDebug)
-        IF(resultVar) THEN
+        RESULT = ASSOCIATED(domainData)
+        IF(RESULT) RESULT = domainData%container%fetchTiled2d(level, outData, opt_lDebug)
+        IF(RESULT) THEN
             DO i = 1, SIZE(outData, 3)
                 tileinfo = select_tile(i)
                 CALL initicon_inverse_post_op(TRIM(varName//TRIM(get_tile_suffix(tileinfo%GRIB2_tile%tileIndex, &
@@ -848,7 +822,7 @@ CONTAINS
         END IF
     END FUNCTION InputRequestList_fetchTiled2d
 
-    LOGICAL FUNCTION InputRequestList_fetchTiled3d(me, varName, jg, outData, optLevelDimension, opt_lDebug) RESULT(resultVar)
+    LOGICAL FUNCTION InputRequestList_fetchTiled3d(me, varName, jg, outData, optLevelDimension, opt_lDebug) RESULT(RESULT)
         CLASS(t_InputRequestList), INTENT(IN) :: me
         CHARACTER(*), INTENT(IN) :: varName
         INTEGER, VALUE :: jg
@@ -871,9 +845,9 @@ CONTAINS
             CALL finish(routine, 'attempt to fetch data for an input variable "'//varName//'" that has not been requested')
         END IF
         domainData => findDomainData(listEntry, jg)
-        resultVar = ASSOCIATED(domainData)
-        IF(resultVar) resultVar = domainData%container%fetchTiled3d(outData, optLevelDimension, opt_lDebug)
-        IF(resultVar .AND. varName /= 'smi' .AND. varName /= 'SMI') THEN   !SMI IS NOT IN the ICON variable lists, so we need to skip inverse postprocessing for it manually.
+        RESULT = ASSOCIATED(domainData)
+        IF(RESULT) RESULT = domainData%container%fetchTiled3d(outData, optLevelDimension, opt_lDebug)
+        IF(RESULT .AND. varName /= 'smi' .AND. varName /= 'SMI') THEN   !SMI IS NOT IN the ICON variable lists, so we need to skip inverse postprocessing for it manually.
             DO i = 1, SIZE(outData, 4)
                 tileinfo = select_tile(i)
                 CALL initicon_inverse_post_op(TRIM(varName//TRIM(get_tile_suffix(tileinfo%GRIB2_tile%tileIndex, &
@@ -884,7 +858,7 @@ CONTAINS
         END IF
     END FUNCTION InputRequestList_fetchTiled3d
 
-    LOGICAL FUNCTION InputRequestList_fetchTiledSurface(me, varName, jg, outData, opt_lDebug) RESULT(resultVar)
+    LOGICAL FUNCTION InputRequestList_fetchTiledSurface(me, varName, jg, outData, opt_lDebug) RESULT(RESULT)
         CLASS(t_InputRequestList), INTENT(IN) :: me
         CHARACTER(*), INTENT(IN) :: varName
         INTEGER, VALUE :: jg
@@ -907,22 +881,22 @@ CONTAINS
             CALL finish(routine, 'attempt to fetch data for an input variable "'//varName//'" that has not been requested')
         END IF
         domainData => findDomainData(listEntry, jg)
-        resultVar = ASSOCIATED(domainData)
-        IF(resultVar) THEN
+        RESULT = ASSOCIATED(domainData)
+        IF(RESULT) THEN
             levels => domainData%container%getLevels()
             SELECT CASE(SIZE(levels, 1))
                 CASE(0)
-                    resultVar = .FALSE.
+                    RESULT = .FALSE.
                     IF(debugInfo) CALL message(routine, "no levels found")
                 CASE(1)
-                    resultVar = domainData%container%fetchTiled2d(levels(1), outData, opt_lDebug)
-                    IF(debugInfo .AND. .NOT. resultVar) CALL message(routine, "InputContainer_fetch2d() returned an error")
+                    RESULT = domainData%container%fetchTiled2d(levels(1), outData, opt_lDebug)
+                    IF(debugInfo .AND. .NOT. RESULT) CALL message(routine, "InputContainer_fetch2d() returned an error")
                 CASE DEFAULT
                     CALL finish(routine, "trying to read '"//varName//"' as a surface variable, but the file contains several &
                                          &levels of this variable")
             END SELECT
         END IF
-        IF(resultVar) THEN
+        IF(RESULT) THEN
             DO i = 1, SIZE(outData, 3)
                 tileinfo = select_tile(i)
                 CALL initicon_inverse_post_op(TRIM(varName//TRIM(get_tile_suffix(tileinfo%GRIB2_tile%tileIndex, &
@@ -1082,19 +1056,16 @@ CONTAINS
                                  & variableCol = "variable", &
                                  & tripleCol = "triple", &
                                  & vtimeCol = "validity time", &
-                                 & levelTypeCol = "levTyp", &
-                                 & levelCountCol = "nlev", &
-                                 & tileCountCol = "tileCnt", &
-                                 & untiledCol = "untiled", &
+                                 & levelTypeCol = "level type", &
+                                 & levelCountCol = "level count", &
+                                 & tileCountCol = "tileCount", &
+                                 & untiledCol = "untiled data", &
                                  & runtypeCol = "runtype", &
                                  & vvmmCol = "vvmm", &
                                  & clasCol = "clas", &
                                  & expidCol = "expid", &
                                  & gridCol = "grid", &
-                                 & rgridCol = "rgrid", &
-                                 & minCol = "min", &
-                                 & meanCol = "mean", &
-                                 & maxCol = "max"
+                                 & rgridCol = "rgrid"
         CHARACTER(LEN = 3*3+2) :: parameterString
         TYPE(datetime), POINTER :: rtime, vtime
         TYPE(timedelta), POINTER :: forecastTime
@@ -1116,9 +1087,6 @@ CONTAINS
         CALL add_table_column(table, expidCol)
         CALL add_table_column(table, gridCol)
         CALL add_table_column(table, rgridCol)
-        CALL add_table_column(table, minCol)
-        CALL add_table_column(table, meanCol)
-        CALL add_table_column(table, maxCol)
 
         IF(.NOT.my_process_is_mpi_workroot()) CALL finish(routine, "assertion failed")
         curRow = 1  !we can have zero to n_dom rows for each variable, so we can't USE the loop counter for the rows
@@ -1179,9 +1147,6 @@ CONTAINS
                 IF(curDomain%metadata%gridPosition /= -1) THEN
                     CALL set_table_entry(table, curRow, rgridCol, TRIM(int2string(curDomain%metadata%gridPosition)))
                 END IF
-                CALL set_table_entry(table, curRow, minCol, TRIM(real2string(curDomain%statistics%MIN)))
-                CALL set_table_entry(table, curRow, meanCol, TRIM(real2string(curDomain%statistics%mean)))
-                CALL set_table_entry(table, curRow, MAXCol, TRIM(real2string(curDomain%statistics%MAX)))
 
 
                 !next row
@@ -1212,11 +1177,7 @@ CONTAINS
                     CALL domainData%container%destruct()
                     DEALLOCATE(domainData%container)
                 END IF
-                IF(ASSOCIATED(domainData%metadata)) THEN
-                    CALL domainData%metadata%destruct()
-                    DEALLOCATE(domainData%metadata)
-                END IF
-                CALL domainData%statistics%destruct()
+                IF(ASSOCIATED(domainData%metadata)) CALL MetadataCache_delete(domainData%metadata)
                 domainDataTemp => domainData%next
                 DEALLOCATE(domainData)
                 domainData => domainDataTemp
@@ -1225,26 +1186,26 @@ CONTAINS
         DEALLOCATE(me%list)
     END SUBROUTINE InputRequestList_destruct
 
-    FUNCTION MetadataCache_create() RESULT(resultVar)
-        TYPE(t_MetadataCache), POINTER :: resultVar
+    FUNCTION MetadataCache_create() RESULT(RESULT)
+        TYPE(t_MetadataCache), POINTER :: RESULT
 
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":MetadataCache_create"
         INTEGER :: error
 
-        ALLOCATE(resultVar, STAT = error)
+        ALLOCATE(RESULT, STAT = error)
         IF(error /= success) CALL finish(routine, "memory allocation error")
-        resultVar%vtime => NULL()
-        resultVar%rtime => NULL()
+        RESULT%vtime => NULL()
+        RESULT%rtime => NULL()
     END FUNCTION MetadataCache_create
 
-    LOGICAL FUNCTION MetadataCache_equalTo(me, other) RESULT(resultVar)
+    LOGICAL FUNCTION MetadataCache_equalTo(me, other) RESULT(RESULT)
         CLASS(t_MetadataCache), INTENT(IN) :: me, other
 
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":MetadataCache_create"
 
         INTEGER :: gridNumber, gridPosition, runClass, experimentId, generatingProcessType
 
-        resultVar = .FALSE.
+        RESULT = .FALSE.
 
         !compare the time strings
         IF(.NOT.ASSOCIATED(me%rtime).OR..NOT.ASSOCIATED(other%rtime)) THEN
@@ -1313,14 +1274,14 @@ CONTAINS
             RETURN
         END IF
 
-        resultVar = .TRUE.
+        RESULT = .TRUE.
     END FUNCTION MetadataCache_equalTo
 
-    SUBROUTINE MetadataCache_destruct(me)
-        CLASS(t_MetadataCache), INTENT(INOUT) :: me
+    SUBROUTINE MetadataCache_delete(me)
+        TYPE(t_MetadataCache), POINTER, INTENT(INOUT) :: me
 
         IF(ASSOCIATED(me%vtime)) DEALLOCATE(me%vtime)
-        IF(ASSOCIATED(me%rtime)) DEALLOCATE(me%rtime)
-    END SUBROUTINE MetadataCache_destruct
+        DEALLOCATE(me)
+    END SUBROUTINE MetadataCache_delete
 
 END MODULE mo_input_request_list

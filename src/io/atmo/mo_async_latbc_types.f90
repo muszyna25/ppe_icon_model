@@ -59,7 +59,6 @@ MODULE mo_async_latbc_types
   PUBLIC :: t_buffer
   PUBLIC :: t_size
 
-
   !------------------------------------------------------------------------------------------------
   ! DERIVED DATA TYPES
   !------------------------------------------------------------------------------------------------
@@ -159,8 +158,6 @@ MODULE mo_async_latbc_types
      INTEGER :: nblks_c, nblks_e
 
   END TYPE t_patch_data
-
-
 
 END MODULE mo_async_latbc_types
 

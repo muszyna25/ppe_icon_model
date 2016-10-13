@@ -9,20 +9,18 @@ This section contains a list of output fields that are available with
 the launch of the ICON-EU nest. See Fig.~\ref{fig:EU_nest} on page~\pageref{fig:EU_nest} 
 for details regarding the nest location and extent.
 %
-Forecasts on the EU-nest are performed multiple times a day with varying forecast periods. Forecasts reaching out to $120\,\mathrm{h}$ 
+Forecasts on the EU-nest are performed multiple times a day with varying forecast times. Forecasts reaching out to $120\,\mathrm{h}$ 
 are performed at 00, 06, 12, and 18~UTC. Additional short-range forecasts reaching out to $30\,\mathrm{h}$ are performed at 03, 09, 15 and 21~UTC. 
 Its main purpose is to provide boundary data for the high resolution COSMO-DE runs. A schematic overview of the various forecasts, including its 
-forecast period and output intervals is provided in Figure \ref{fig:forecast_length_nest}.
+forecast time and output intervals is provided in Figure \ref{fig:forecast_length_nest}.
 \begin{figure}[hbt]
  \centering
  \includegraphics[width=0.92\textwidth]{forecast_length_nest.png}
- \caption{Time span covered by the various EU nest forecasts which are launched every three hours.
-          Output on the native (triangular) grid (\protect\markRed) and the regular grid (\protect\markBlue) 
-          is generally available until forecast end, as indicated by the lenght of the two bars shown for 
-          each forecast run. Output on the native grid is available hourly to $48\,\mathrm{h}$, and 
-          every $6$ hours for later forecast times. Output on the regular grid is available hourly to 
-          $78\,\mathrm{h}$, and every $3$ hours for later forecast times.
-          }\label{fig:forecast_length_nest}
+ \caption{Time span covered by the various EU nest forecasts. A forecast run is launched every three hours.
+          Output fields are available hourly up to $VV=78\,\mathrm{h}$ and 3-hourly for larger forecast times. 
+          The vertical rules indicate the time until when output is generally available on the native grid 
+          (\protect\markRed) and/or on the lat-lon grid (\protect\markBlue). I.e.\ output on the native grid is 
+          limited to $VV=48\,\mathrm{h}$.}\label{fig:forecast_length_nest}
 \end{figure}
 
 Output is available on two distinct horizontal grids: 
@@ -32,10 +30,8 @@ Output is available on two distinct horizontal grids:
     See Table~\ref{tab:ICON_latlon_summary} for a summary.
 \end{itemize}
 %
-Output on the native (triangular) grid is hourly to $48\,\mathrm{h}$, and every $6$ hours for verfication
-until the forecast end at $120\,\mathrm{h}$.
-Output on the regular grid is hourly to $78\,\mathrm{h}$, and every $3$ hours
-until forecast end. See also Figure \ref{fig:forecast_length_nest}.
+Note that output on the native (triangular) grid is limited to $48\,\mathrm{h}$, whereas output on the regular 
+grid is generally available until forecast end. See also Figure \ref{fig:forecast_length_nest}.
 
 Again, in the subsequent tables the availability of specific fields on the native grid ($\,$\markRed$\,$), 
 on the lat-lon grid($\,$\markBlue$\,$), or on both grids ($\,$\markRed\markBlue$\,$) is marked in the leftmost 

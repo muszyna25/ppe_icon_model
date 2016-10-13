@@ -173,7 +173,6 @@ case varname of
  'RAIN_GSP':  varfile = '0.1.77'      end
  'SNOW_CON':  varfile = 'csrwe'       end    # 0.1.55
  'SNOW_GSP':  varfile = 'lssrwe'      end    # 0.1.56
- 'CAPE'    :  varfile = '0.7.6'       end
  'TCC'     :  varfile = '0.6.1'       end
  'HCC'     :  varfile = 'cc.0'        end  # levtype =sfc
  'MCC'     :  varfile = 'cc.400'      end  # levtype =sfc
@@ -208,7 +207,6 @@ case varname of
  'T_2M'    :  varfile = '2t'          end
  'U_10M'   :  varfile = '10u'         end
  'V_10M'   :  varfile = '10v'         end
- 'SP_10M'  :  varfile = '10si'        end
  'W'       :  varfile = '0.2.9'       end
  'FI'      :  varfile = 'z'           end
  'P'       :  varfile = 'pres'        end
@@ -224,8 +222,6 @@ case varname of
  'T_SEAICE':  varfile = 'ist'         end
  'W_SO'    :  varfile = '2.3.20'      end  # levtype =sfc
  'T_SO'    :  varfile = '2.3.18'      end  # levtype =sfc
- 'EXTRA3D1':  varfile = '255.255.1'   end
- 'EXTRA3D2':  varfile = '255.255.2'   end
 end case
 
 #verify QV,QC,QI against Q1,Q2,Q3 at initial condition (IFS)
@@ -253,25 +249,23 @@ for nd=1 to ndays do
 
   if stat = 'rms' then
     # replace mn with var
-    end_tailfile = parse(tailfile,'-')
     index    = search(tailfile, 'mn')
-    tailfile = substring(tailfile,1,index-1)&"var-"&end_tailfile[2]
-   #tailfile = substring(tailfile,1,index-1)&"var"&substring(tailfile,index+2,length(tailfile))
+    tailfile = substring(tailfile,1,index-1)&"var"&substring(tailfile,index+2,length(tailfile))
   end if
 
   if lmonth = 0 then
     source_ini_icon = datadir&'/'&expnum&'_'&inidate&initime&'_DOM01_0001_'&varfile&'_'&levtype&'.grb'
     source_ref_icon = dataref&'/'&expref&'_'&inidate&initime&'_DOM01_0001_'&varfile&'_'&levtype&'.grb'
     source_ver_icon = datadir&'/'&expnum&'_'&verdate&vertime&'_DOM01_0001_'&varfile2&'_'&levtype&'.grb'
-    source_pl_ifs   ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.pl.grb'
-    source_sfc_ifs  ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.sfc.grb'
+    source_pl_ifs ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.pl.grb'
+    source_sfc_ifs='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.sfc.grb'
     nfc = ndays
   else
     source_ini_icon = datadir&'/'&expnum&'_'&yyyymm&'_DOM01_0001_'&varfile&'_'&levtype&tailfile
     source_ref_icon = dataref&'/'&expref&'_'&yyyymm&'_DOM01_0001_'&varfile&'_'&levtype&tailfile
     source_ver_icon = datadir&'/'&expnum&'_'&yyyymm&'_DOM01_0001_'&varfile2&'_'&levtype&tailfile 
-    source_pl_ifs   ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.pl.' &mntxt[3]
-    source_sfc_ifs  ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.sfc.'&mntxt[3]
+    source_pl_ifs ='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.pl.' &mntxt[3]
+    source_sfc_ifs='/scratch/ms/de/deia/ifs_data/ifs_oper_1x1_'&yyyymm&'.sfc.'&mntxt[3]
     nfc = parse(mntxt[3], "-")
     nfc = parse(nfc[2],".")
     nfc = nfc[1]
@@ -465,6 +459,7 @@ text = mtext(
         text_font_size  :   0.6,
         TEXT_COLOUR     :   'BLACK' 
     )
+
 all = mcont(  
                 LEGEND                         : 'ON',
 		CONTOUR                        : 'OFF', 

@@ -21,7 +21,7 @@ MODULE mo_extpar_nml
   USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_impl_constants,      ONLY: max_dom
 
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist         , &
+  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist         , &
                                   & open_and_restore_namelist, close_tmpfile
 
   USE mo_extpar_config,       ONLY: config_itopo                    => itopo             ,           &
@@ -31,8 +31,7 @@ MODULE mo_extpar_nml
                                   & config_l_emiss                  => l_emiss,                      &
                                   & config_heightdiff_threshold     => heightdiff_threshold,         &
                                   & config_extpar_filename          => extpar_filename,              &
-                                  & config_extpar_varnames_map_file => extpar_varnames_map_file,     &
-                                  & config_lrevert_sea_height       => lrevert_sea_height
+                                  & config_extpar_varnames_map_file => extpar_varnames_map_file
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
   IMPLICIT NONE
@@ -50,7 +49,6 @@ MODULE mo_extpar_nml
   REAL(wp) :: hgtdiff_max_smooth_topo(max_dom)
   LOGICAL  :: l_emiss ! if true: read external emissivity map
   REAL(wp) :: heightdiff_threshold(max_dom)
-  LOGICAL  :: lrevert_sea_height  ! if true: bring sea points back to original height
   CHARACTER(LEN=filename_max) :: extpar_filename
 
   ! external parameter: dictionary which maps internal variable names
@@ -59,8 +57,7 @@ MODULE mo_extpar_nml
 
   NAMELIST /extpar_nml/ itopo, fac_smooth_topo,n_iter_smooth_topo,l_emiss, &
                         heightdiff_threshold, extpar_filename,             &
-                        extpar_varnames_map_file, hgtdiff_max_smooth_topo, &
-                        lrevert_sea_height
+                        extpar_varnames_map_file, hgtdiff_max_smooth_topo
 
 CONTAINS
   !>
@@ -81,7 +78,6 @@ CONTAINS
     hgtdiff_max_smooth_topo(:) = 0._wp
     l_emiss                 = .TRUE.
     heightdiff_threshold(:) = 3000._wp
-    lrevert_sea_height      = .FALSE.
     extpar_filename         = "<path>extpar_<gridfile>"
     extpar_varnames_map_file = " "
 
@@ -132,7 +128,6 @@ CONTAINS
     config_hgtdiff_max_smooth_topo = hgtdiff_max_smooth_topo
     config_l_emiss            = l_emiss
     config_heightdiff_threshold = heightdiff_threshold
-    config_lrevert_sea_height = lrevert_sea_height
     config_extpar_filename    = extpar_filename
     config_extpar_varnames_map_file = extpar_varnames_map_file
 

@@ -31,7 +31,7 @@ MODULE mo_nwp_phy_nml
   USE mo_io_units,            ONLY: nnml, nnml_output, filename_max
   USE mo_master_control,      ONLY: use_restart_namelists, isRestart
 
-  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,    &
+  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,    &
     &                               open_and_restore_namelist, close_tmpfile
 
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config,                        &
@@ -59,7 +59,6 @@ MODULE mo_nwp_phy_nml
   ! switches defining physics packages
   INTEGER  :: inwp_convection(max_dom)    !! convection
   LOGICAL  :: lshallowconv_only(max_dom)  !! use shallow convection only
-  LOGICAL  :: ldetrain_conv_prec(max_dom) !! detrain convective rain and snow
   INTEGER  :: inwp_cldcover(max_dom)      !! cloud cover
   INTEGER  :: inwp_radiation(max_dom)     !! radiation
   INTEGER  :: inwp_sso(max_dom)           !! sso
@@ -99,7 +98,7 @@ MODULE mo_nwp_phy_nml
     &                    latm_above_top, itype_z0, mu_rain,          &
     &                    mu_snow, icapdcycl, icpl_aero_conv,         &
     &                    lrtm_filename, cldopt_filename, icpl_o3_tp, &
-    &                    iprog_aero, lshallowconv_only, ldetrain_conv_prec
+    &                    iprog_aero, lshallowconv_only
 
   LOGICAL :: l_nwp_phy_namelist_read = .false.
   
@@ -146,8 +145,7 @@ CONTAINS
     inwp_turb(:)       = -1
     inwp_surface(:)    = -1
 
-    lshallowconv_only(:)  = .FALSE.
-    ldetrain_conv_prec(:) = .FALSE.
+    lshallowconv_only(:) = .FALSE.
 
     dt_conv (:) = -999._wp
     dt_rad  (:) = -999._wp
@@ -354,8 +352,7 @@ CONTAINS
       atm_phy_nwp_config(jg)%inwp_surface    = inwp_surface(jg)
       atm_phy_nwp_config(jg)%itype_z0        = itype_z0
 
-      atm_phy_nwp_config(jg)%lshallowconv_only  = lshallowconv_only(jg)
-      atm_phy_nwp_config(jg)%ldetrain_conv_prec = ldetrain_conv_prec(jg)
+      atm_phy_nwp_config(jg)%lshallowconv_only = lshallowconv_only(jg)
 
       atm_phy_nwp_config(jg)%dt_conv         = dt_conv (jg) 
       atm_phy_nwp_config(jg)%dt_rad          = dt_rad  (jg)

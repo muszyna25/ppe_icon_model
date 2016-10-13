@@ -47,7 +47,7 @@ MODULE mo_cuascn
     &                        entshalp ,rmfcmin,rprcon   ,&
     &                        rmflic   ,rmflia ,rvdifts  ,&
     &                        rmfcmax, rlmin, detrpen    ,&
-    &                        lhook,   dr_hook, lmfglac
+    &                        lhook,   dr_hook
 
   USE mo_adjust ,ONLY: cuadjtq
 
@@ -74,7 +74,7 @@ CONTAINS
     & zdph,     zdgeoh,                  &
     & pvervel,  pwubase,  pcloudnum,     &
     & ldland,   ldlake,   ldcum,    ktype,    klab,&
-    & ptu,      pqu,      plu,      plrain,        &
+    & ptu,      pqu,      plu,&
     & pmfu,     pmfub,    plglac,&
     & pmfus,    pmfuq,    pmful,    plude,    pdmfup,&
     & pdmfen,   pcape,    pcapethresh,  &
@@ -163,7 +163,6 @@ CONTAINS
 !!    *PTU*          TEMPERATURE IN UPDRAFTS                        K
 !!    *PQU*          SPEC. HUMIDITY IN UPDRAFTS                   KG/KG
 !!    *PLU*          LIQUID WATER CONTENT IN UPDRAFTS             KG/KG
-!     *PLRAIN*       RAIN WATER CONTENT IN UPDRAFTS               KG/KG
 
 !!    OUTPUT PARAMETERS (INTEGER):
 
@@ -263,7 +262,6 @@ INTEGER(KIND=jpim),INTENT(inout) :: klab(klon,klev)
 REAL(KIND=jprb)   ,INTENT(inout) :: ptu(klon,klev) 
 REAL(KIND=jprb)   ,INTENT(inout) :: pqu(klon,klev) 
 REAL(KIND=jprb)   ,INTENT(inout) :: plu(klon,klev) 
-REAL(KIND=JPRB)   ,INTENT(inout) :: plrain(klon,klev) 
 REAL(KIND=jprb)   ,INTENT(inout) :: pmfu(klon,klev) 
 REAL(KIND=jprb)   ,INTENT(inout) :: pmfub(klon) 
 REAL(KIND=jprb)   ,INTENT(out)   :: plglac(klon,klev) 
@@ -284,7 +282,7 @@ REAL(KIND=jprb)   ,INTENT(out)   :: pkineu(klon,klev)
 REAL(KIND=jprb)   ,INTENT(out)   :: pwmean(klon) 
 
 REAL(KIND=jprb) ::     zdmfen(klon), zdmfde(klon),&
- & zqold(klon),  &
+ & zqold(klon),        zlrain(klon,klev),&
  & zbuo(klon,klev),    zluold(klon),&
  & zprecip(klon)  
 REAL(KIND=jprb) ::     zdpmean(klon)
@@ -302,7 +300,7 @@ REAL(KIND=jprb) :: z_cldmax, z_cprc2, z_cwdrag, z_cwifrac, zalfaw,&
  & zleen, zlnew, zmfmax, zmftest, zmfulk, zmfun, &
  & zmfuqk, zmfusk, zoealfa, zoealfap, zprcdgw, &
  & zprcon, zqeen, zqude, zrnew, zrold, zscde, &
- & zseen, ztglace, zvi, zvv, zvw, zwu, zzco, zzzmb, zdz, zmf, zglac
+ & zseen, ztglace, zvi, zvv, zvw, zwu, zzco, zzzmb, zdz, zmf
 
 REAL(KIND=jprb) ::  zchange,zxs,zxe
 REAL(KIND=jprb) :: zhook_handle
@@ -333,11 +331,6 @@ z_cwifrac=0.5_JPRB
 z_cprc2=0.5_JPRB
 z_cwdrag=(3._jprb/8._jprb)*0.506_JPRB/0.2_JPRB
 
-IF(lmfglac) THEN
-  zglac=0.5_JPRB
-ELSE
-  zglac=0.0_JPRB
-ENDIF
 
 !----------------------------------------------------------------------
 
@@ -398,7 +391,7 @@ DO jk=ktdia,klev
 !   plude(jl,jk)=0.0_JPRB
 !   plglac(jl,jk)=0.0_JPRB
 !   pdmfup(jl,jk)=0.0_JPRB
-    plrain(jl,jk)=0.0_JPRB
+    zlrain(jl,jk)=0.0_JPRB
 ! ENDDO
 ! DO jl=kidia,kfdia
     zbuo(jl,jk)=0.0_JPRB
@@ -525,7 +518,7 @@ DO jk=klev-1,ktdia+2,-1
 !   & ik,&
 !   & pten,     pqen,     pqsen,&
 !   & pvervel,  pgeo,     pgeoh,    ldcum,    ktype,    klab,&
-!   & kcbot,    pmfu,     pmfub,    plrain,&
+!   & kcbot,    pmfu,     pmfub,    zlrain,&
 !   & ptu,      pqu,      plu,&
 !   & pmfus,    pmfuq,    pmful,    pdmfup)  
 
@@ -547,7 +540,7 @@ DO jk=klev-1,ktdia+2,-1
         pmfuq(jl,kk+1)=pmfub(jl)*pqu(jl,kk+1)
         pmful(jl,kk+1)=0.0_JPRB
         pdmfup(jl,kk+1)=0.0_JPRB
-        plrain(jl,kk+1)=0.0_JPRB
+        zlrain(jl,kk+1)=0.0_JPRB
         kcbot(jl)=kk
         klab(jl,kk+1)=1
         ktype(jl)=3
@@ -694,7 +687,7 @@ DO jk=klev-1,ktdia+2,-1
         ptu(jl,jk)=MAX(100._jprb,ptu(jl,jk))
         ptu(jl,jk)=MIN(400._jprb,ptu(jl,jk))
         zqold(jl)=pqu(jl,jk)
-        plrain(jl,jk)=plrain(jl,jk+1)*(pmfu(jl,jk+1)-zdmfde(jl))*&
+        zlrain(jl,jk)=zlrain(jl,jk+1)*(pmfu(jl,jk+1)-zdmfde(jl))*&
          & (1.0_JPRB/MAX(rmfcmin,pmfu(jl,jk)))  
         zluold(jl)=plu(jl,jk)
     ENDDO
@@ -731,10 +724,6 @@ DO jk=klev-1,ktdia+2,-1
           zoealfa   = 0.545_JPRB*(TANH(0.17_JPRB*(ptu(jl,jk  )-rlptrc))+1.0_JPRB)
           zoealfap  = 0.545_JPRB*(TANH(0.17_JPRB*(ptu(jl,jk+1)-rlptrc))+1.0_JPRB)
           plglac(jl,jk)=plu(jl,jk)*((1.0_JPRB-zoealfa)-(1.0_JPRB-zoealfap))
-          ! add glaciation of rain
-          ZFAC      = 0.545_JPRB*(TANH(0.17_JPRB*(PTEN(JL,JK  )-RLPTRC))+1.0_JPRB)
-          PLGLAC(JL,JK)=PLGLAC(JL,JK)+ZFAC*PDMFUP(JL,JK+1)/MAX(RMFCMIN,PMFU(JL,JK+1))*&
-                       &(0.5_JPRB+SIGN(0.5_JPRB,RTT-PTEN(JL,JK)))*zglac
           ptu(jl,jk)=ptu(jl,jk)+ralfdcp*plglac(jl,jk)
         ENDIF
       ENDDO
@@ -749,10 +738,6 @@ DO jk=klev-1,ktdia+2,-1
         IF(pqu(jl,jk) /= zqold(jl)) THEN
           plglac(jl,jk)=plu(jl,jk)*((1.0_JPRB-foealfcu(ptu(jl,jk)))-&
            & (1.0_JPRB-foealfcu(ptu(jl,jk+1))))  
-          ! add glaciation of rain, only fraction added to updraught heat
-          ZFAC=FOEALFCU(PTEN(JL,JK))
-          PLGLAC(JL,JK)=PLGLAC(JL,JK)+ZFAC*PDMFUP(JL,JK+1)/MAX(RMFCMIN,PMFU(JL,JK+1))*&
-                       &(0.5_JPRB+SIGN(0.5_JPRB,RTT-PTEN(JL,JK)))*zglac
           ptu(jl,jk)=ptu(jl,jk)+ralfdcp*plglac(jl,jk)
         ENDIF
       ENDDO
@@ -765,7 +750,7 @@ DO jk=klev-1,ktdia+2,-1
       IF(pqu(jl,jk) /= zqold(jl)) THEN
         klab(jl,jk)=2
         plu(jl,jk)=plu(jl,jk)+zqold(jl)-pqu(jl,jk)
-        zbc(jl)=ptu(jl,jk)*(1.0_JPRB+retv*pqu(jl,jk)-plu(jl,jk+1)-plrain(jl,jk+1))
+        zbc(jl)=ptu(jl,jk)*(1.0_JPRB+retv*pqu(jl,jk)-plu(jl,jk+1)-zlrain(jl,jk+1))
         zbe=ptenh(jl,jk)*(1.0_JPRB+retv*pqenh(jl,jk))
         zbuo(jl,jk)=zbc(jl)-zbe
 
@@ -900,7 +885,7 @@ DO jk=klev-1,ktdia+2,-1
           zlnew=MIN(z_cldmax,zlnew)
           zprecip(jl)=MAX(0.0_JPRB,zluold(jl)+zc-zlnew)
           pdmfup(jl,jk)=zprecip(jl)*pmfu(jl,jk)
-          plrain(jl,jk)=plrain(jl,jk)+zprecip(jl)
+          zlrain(jl,jk)=zlrain(jl,jk)+zprecip(jl)
           plu(jl,jk)=zlnew
         ENDIF
       ENDIF
@@ -910,19 +895,19 @@ DO jk=klev-1,ktdia+2,-1
 
       DO jl=kidia,kfdia
         IF(llo1(jl)) THEN
-          IF(plrain(jl,jk) > 0.0_JPRB) THEN
-            zvw=21.18_JPRB*EXP(0.2_JPRB*LOG(plrain(jl,jk)))  ! optimization of plrain(JL,JK)**0.2_JPRB
+          IF(zlrain(jl,jk) > 0.0_JPRB) THEN
+            zvw=21.18_JPRB*EXP(0.2_JPRB*LOG(zlrain(jl,jk)))  ! optimization of ZLRAIN(JL,JK)**0.2_JPRB
             zvi=z_cwifrac*zvw
             zalfaw=0.545_JPRB*(TANH(0.17_JPRB*(ptu(jl,jk)-rlptrc))+1.0_JPRB)
             zvv=zalfaw*zvw+(1.0_JPRB-zalfaw)*zvi
-            zrold=plrain(jl,jk)-zprecip(jl)
+            zrold=zlrain(jl,jk)-zprecip(jl)
             zc=zprecip(jl)
             zwu=MIN(15._jprb,SQRT(2.0_JPRB*MAX(0.1_JPRB,pkineu(jl,jk))))
             zd=zvv/zwu
             zint=EXP(-zd)
             zrnew=zrold*zint+zc/zd*(1.0_JPRB-zint)
-            zrnew=MAX(0.0_JPRB,MIN(plrain(jl,jk),zrnew))
-            plrain(jl,jk)=zrnew
+            zrnew=MAX(0.0_JPRB,MIN(zlrain(jl,jk),zrnew))
+            zlrain(jl,jk)=zrnew
           ENDIF
         ENDIF
       ENDDO
@@ -931,19 +916,19 @@ DO jk=klev-1,ktdia+2,-1
 
       DO jl=kidia,kfdia
         IF(llo1(jl)) THEN
-          IF(plrain(jl,jk) > 0.0_JPRB) THEN
-            zvw=21.18_JPRB*EXP(0.2_JPRB*LOG(plrain(jl,jk)))
+          IF(zlrain(jl,jk) > 0.0_JPRB) THEN
+            zvw=21.18_JPRB*EXP(0.2_JPRB*LOG(zlrain(jl,jk)))
             zvi=z_cwifrac*zvw
             zalfaw=foealfcu(ptu(jl,jk))
             zvv=zalfaw*zvw+(1.0_JPRB-zalfaw)*zvi
-            zrold=plrain(jl,jk)-zprecip(jl)
+            zrold=zlrain(jl,jk)-zprecip(jl)
             zc=zprecip(jl)
             zwu=MIN(15._jprb,SQRT(2.0_JPRB*MAX(0.1_JPRB,pkineu(jl,jk))))
             zd=zvv/zwu
             zint=EXP(-zd)
             zrnew=zrold*zint+zc/zd*(1.0_JPRB-zint)
-            zrnew=MAX(0.0_JPRB,MIN(plrain(jl,jk),zrnew))
-            plrain(jl,jk)=zrnew
+            zrnew=MAX(0.0_JPRB,MIN(zlrain(jl,jk),zrnew))
+            zlrain(jl,jk)=zrnew
           ENDIF
         ENDIF
       ENDDO

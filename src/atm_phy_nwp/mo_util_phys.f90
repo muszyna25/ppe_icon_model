@@ -36,11 +36,9 @@ MODULE mo_util_phys
   USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, nqtendphy, lart
-  USE mo_nh_diagnose_pres_temp, ONLY: diag_pres, diag_temp
   USE mo_ls_forcing_nml,        ONLY: is_ls_forcing
   USE mo_loopindices,           ONLY: get_indices_c, get_indices_e
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
-  USE mo_advection_config,      ONLY: advection_config
   USE mo_art_config,            ONLY: art_config
   USE mo_initicon_config,       ONLY: is_iau_active, iau_wgt_adv
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
@@ -925,12 +923,11 @@ CONTAINS
   !   clipping is substracted from qv.
   ! - Diagnosis of rain_con, snow_con, tot_prec
   ! 
-  SUBROUTINE nh_update_tracer_phy( pt_patch, pdtime, pt_diag, p_metrics, prm_nwp_tend, &
+  SUBROUTINE nh_update_tracer_phy( pt_patch, pdtime, pt_diag, prm_nwp_tend, &
     &                            prm_diag, pt_prog_rcf, pt_prog, jb, i_startidx, i_endidx  )
 
     TYPE(t_patch),       INTENT(IN)   :: pt_patch     !< grid/patch info.
-    TYPE(t_nh_diag)     ,INTENT(INOUT):: pt_diag      !<the diagnostic variables
-    TYPE(t_nh_metrics),  INTENT(IN)   :: p_metrics    !< NH metrics variables
+    TYPE(t_nh_diag)     ,INTENT(IN)   :: pt_diag      !<the diagnostic variables
     TYPE(t_nwp_phy_tend),TARGET, INTENT(IN):: prm_nwp_tend   !< atm tend vars
     TYPE(t_nwp_phy_diag),INTENT(INOUT):: prm_diag     !< the physics variables
     TYPE(t_nh_prog),     INTENT(INOUT):: pt_prog_rcf  !< the tracer field at
@@ -958,12 +955,6 @@ CONTAINS
     ! add analysis increments from data assimilation to qv
     !
     IF (is_iau_active) THEN
-
-      ! Diagnose pressure and temperature for subsequent calculations
-      CALL diag_temp (pt_prog, pt_prog_rcf, advection_config(jg)%ilist_hydroMass, pt_diag, &
-                      jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
-      CALL diag_pres (pt_prog, pt_diag, p_metrics, jb, i_startidx, i_endidx, 1, nlev)
-
       ! Compute relative humidity w.r.t. water
       DO jk = 1, nlev
         DO jc = i_startidx, i_endidx
@@ -1004,19 +995,6 @@ CONTAINS
           &                       + pdtime*prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqv))
       ENDDO
     ENDDO
-
-    ! add convective detrainment tendencies for rain and snow if activated
-    IF (atm_phy_nwp_config(jg)%ldetrain_conv_prec) THEN
-      DO jk = kstart_moist(jg), nlev
-!DIR$ IVDEP
-        DO jc = i_startidx, i_endidx
-          pt_prog_rcf%tracer(jc,jk,jb,iqr) = pt_prog_rcf%tracer(jc,jk,jb,iqr) + &
-            pdtime*prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqr)
-          pt_prog_rcf%tracer(jc,jk,jb,iqs) = pt_prog_rcf%tracer(jc,jk,jb,iqs) + &
-            pdtime*prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqs)
-        ENDDO
-      ENDDO
-    ENDIF
 
     IF(lart .AND. art_config(jg)%lart_conv) THEN
       ! add convective tendency and fix to positive values

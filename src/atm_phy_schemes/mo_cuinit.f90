@@ -522,7 +522,6 @@ REAL(KIND=jprb) :: zkhvfl    ! SURFACE BUOYANCY FLUX (K M/S)
 REAL(KIND=jprb) :: zws       ! SIGMA_W AT LOWEST MODEL HALFLEVEL (M/S)
 REAL(KIND=jprb) :: zqexc     ! HUMIDITY EXCESS AT LOWEST MODEL HALFLEVEL (KG/KG)
 REAL(KIND=jprb) :: ztexc     ! TEMPERATURE EXCESS AT LOWEST MODEL HALFLEVEL (K)
-REAL(KIND=jprb) :: ztex(klon), zqex(klon) ! Corresponding fields at lowest model level
 REAL(KIND=jprb) :: zeps      ! FRACTIONAL ENTRAINMENT RATE   [M^-1]
 REAL(KIND=jprb) :: ztvenh    ! ENVIRONMENT VIRTUAL TEMPERATURE AT HALF LEVELS (K)  
 REAL(KIND=jprb) :: ztvuh     ! UPDRAFT VIRTUAL TEMPERATURE AT HALF LEVELS     (K)
@@ -636,17 +635,14 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
 !          ZUST  = MAX(SQRT(PSSTRU(JL)**2 + PSSTRV(JL)**2),ZREPUST)     !u* (repust=10e-4)
 !          ZWS=ZUST**3._JPRB- 1.5_JPRB*RKAP*ZKHVFL*PGEOH(JL,KLEV)/PTEN(JL,KLEV)
           zws=0.001_JPRB - 1.5_JPRB*rkap*zkhvfl*(pgeoh(jl,klev)-pgeoh(jl,klev+1))/pten(jl,klev)
-          ztex(jl)= 0.0_JPRB
-          zqex(jl)= 0.0_JPRB
           IF( zkhvfl < 0.0_JPRB ) THEN
             zws=1.2_JPRB*zws**.3333_JPRB
             ilab(jl,jkk)= 1
-            zredfac = 1._jprb/(1._jprb+mtnmask(jl))
-            ztex(jl)     = MAX(-1.5_JPRB*pahfs(jl,jkk+1)/(zrho*zws*rcpd),0.5_JPRB*texc)*zredfac
-            zqex(jl)     = MAX(-1.5_JPRB*pqhfl(jl,jkk+1)/(zrho*zws),0.0_JPRB)*zredfac
-            zqu (jl,jkk) = zqenh(jl,jkk) + zqex(jl)
-            zsuh (jl,jkk) = zsenh(jl,jkk) + rcpd*ztex(jl)
-            ztu (jl,jkk) = (zsenh(jl,jkk)-pgeoh(jl,jkk))*zrcpd + ztex(jl)
+            ztexc     = MAX(-1.5_JPRB*pahfs(jl,jkk+1)/(zrho*zws*rcpd),0.0_JPRB)
+            zqexc     = MAX(-1.5_JPRB*pqhfl(jl,jkk+1)/(zrho*zws),0.0_JPRB)
+            zqu (jl,jkk) = zqenh(jl,jkk) + zqexc
+            zsuh (jl,jkk) = zsenh(jl,jkk) + rcpd*ztexc
+            ztu (jl,jkk) = (zsenh(jl,jkk)-pgeoh(jl,jkk))*zrcpd + ztexc
             zlu (jl,jkk) = 0.0_JPRB
             zwu2h(jl,jkk) = zws**2
         !
@@ -670,12 +666,6 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
           zredfac = 1._jprb/(1._jprb+mtnmask(jl))
           ztexc=texc*zredfac
           zqexc=qexc*pqenh(jl,jkk)*zredfac
-          IF (jkk == klev-1 .AND. .NOT.(ldland(jl).OR.ldlake(jl)) ) THEN
-            ztexc = MAX(ztexc, ztex(jl))
-            ztexc = MIN(ztexc, 3.0_JPRB)
-            zqexc = MAX(zqexc, zqex(jl))
-            zqexc = MIN(zqexc, 2.E-3_JPRB)
-          ENDIF
           zqu (jl,jkk) = zqenh(jl,jkk) + zqexc
           zsuh (jl,jkk) = zsenh(jl,jkk) + rcpd*ztexc
           ztu (jl,jkk) = (zsenh(jl,jkk)-pgeoh(jl,jkk))*zrcpd + ztexc

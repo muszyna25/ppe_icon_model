@@ -25,7 +25,6 @@
 MODULE mo_nwp_rrtm_interface
 
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, iprog_aero, icpl_aero_conv
-  USE mo_grid_config,          ONLY: l_limited_area
   USE mo_datetime,             ONLY: t_datetime,  month2hour
   USE mo_exception,            ONLY: message,  finish, message_text
   USE mo_ext_data_types,       ONLY: t_external_data
@@ -690,7 +689,7 @@ CONTAINS
 
       i_chidx     =  pt_patch%parent_child_index
 
-      IF (jg == 1 .AND. .NOT. l_limited_area) THEN
+      IF (jg == 1) THEN
         ptr_pp => pt_par_patch
         nblks_par_c = pt_par_patch%nblks_c
         nblks_lp_c  =  p_patch_local_parent(jg)%nblks_c
@@ -767,33 +766,23 @@ CONTAINS
         zrg_trsol_clr_sfc(1:i_startidx-1,i_startblk) = 0
       ENDIF
 
+      ! parallel section commented because it does almost no work (more overhead than benefit)
+!!$OMP PARALLEL
+!!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
           &                       i_startidx, i_endidx, rl_start, rl_end)
 
-        ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-        prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog%t_g(1:i_endidx,jb)
+
+      ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
+
+      prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog%t_g(1:i_endidx,jb)
 
       ENDDO ! blocks
 
-      ! For limited-area radiation grids, tsfc needs to be filled with air temp along the nest boundary
-      ! because the surface scheme is not active on the boundary points
-      IF (jg == 1 .AND. l_limited_area) THEN
-        rl_start = 1
-        rl_end   = grf_bdywidth_c
-        i_startblk = pt_patch%cells%start_blk(rl_start,1)
-        i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-
-        DO jb = i_startblk, i_endblk
-
-          CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-            &                       i_startidx, i_endidx, rl_start, rl_end)
-
-          prm_diag%tsfctrad(i_startidx:i_endidx,jb) = pt_diag%temp(i_startidx:i_endidx,nlev,jb)
-
-        ENDDO ! blocks
-      ENDIF
+!!$OMP END DO NOWAIT
+!!$OMP END PARALLEL
 
       CALL upscale_rad_input(pt_patch%id, pt_par_patch%id,              &
         & nlev_rg, ext_data%atm%fr_land_smt, ext_data%atm%fr_glac_smt,  &
@@ -958,7 +947,7 @@ CONTAINS
         ! Unfortunately, the coding of SR radiation is not compatible with the presence
         ! of nested domains. Therefore, the normally unused elements of the first block
         ! need to be filled with dummy values
-        IF ( (jg > 1 .OR. l_limited_area) .AND. jb == i_startblk) THEN
+        IF (jg > 1 .AND. jb == i_startblk) THEN
           zrg_fr_land   (1:i_startidx-1,jb) = zrg_fr_land   (i_startidx,jb)
           zrg_fr_glac   (1:i_startidx-1,jb) = zrg_fr_glac   (i_startidx,jb)
           zrg_emis_rad  (1:i_startidx-1,jb) = zrg_emis_rad  (i_startidx,jb)

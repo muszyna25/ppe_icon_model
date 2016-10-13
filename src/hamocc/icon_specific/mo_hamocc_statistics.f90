@@ -1,5 +1,3 @@
-#ifndef __NO_ICON_OCEAN__
-
 !!
 !! @author Irene Stemmler, MPI
 !!
@@ -266,5 +264,3 @@ CONTAINS
   
   
 END MODULE mo_hamocc_statistics
-
-#endif

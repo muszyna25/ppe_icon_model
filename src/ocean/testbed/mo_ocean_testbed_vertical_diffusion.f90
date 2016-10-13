@@ -55,6 +55,7 @@ MODULE mo_ocean_testbed_vertical_diffusion
   USE mo_ocean_physics,          ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_var_list,               ONLY: print_var_list
+  USE mo_io_restart_attributes,  ONLY: get_restart_attribute
   USE mo_mpi,                    ONLY: my_process_is_stdio
   USE mo_time_config,            ONLY: time_config
   USE mo_statistics

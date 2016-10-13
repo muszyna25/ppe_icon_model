@@ -360,8 +360,6 @@ MODULE mo_cuparameters
   LOGICAL :: lmfsmooth
   LOGICAL :: lmftrac
   LOGICAL :: lmfwstar
-  LOGICAL :: lmfwetb
-  LOGICAL :: lmfglac
   ! INTEGER(KIND=jpim) :: njkt1, njkt2, njkt3, njkt4, njkt5
 
   !     -----------------------------------------------------------------
@@ -436,7 +434,7 @@ MODULE mo_cuparameters
           & entrdd   ,& ! njkt1                    ,&
         ! & njkt2    ,njkt3    ,njkt4    ,njkt5    ,&
           & rcpecons ,rtaumel  ,& ! rcucov, rhebc  ,&
-          & rmfdeps, icapdcycl, lmfglac, lmfwetb
+          & rmfdeps, icapdcycl
   !yoephli
   PUBLIC :: lphylin  ,rlptrc   ,rlpal1   ,rlpal2
   !yoephy
@@ -988,7 +986,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
   
-  SUBROUTINE sucumf(rsltn,klev,pmean,phy_params,lshallow_only,ldetrain_conv_prec)
+  SUBROUTINE sucumf(rsltn,klev,pmean,phy_params,lshallow_only)
 
 !     THIS ROUTINE DEFINES DISPOSABLE PARAMETERS FOR MASSFLUX SCHEME
 
@@ -1042,8 +1040,6 @@ REAL(KIND=jprb)   , INTENT(in) :: rsltn
 REAL(KIND=jprb)   , INTENT(in) :: pmean(klev)
 TYPE(t_phy_params), INTENT(inout) :: phy_params
 LOGICAL           , INTENT(in) :: lshallow_only
-LOGICAL           , INTENT(in) :: ldetrain_conv_prec
-
 !* change to operations
 
 #ifdef __GME__
@@ -1233,12 +1229,6 @@ ELSE
   phy_params%lmfpen  =.TRUE.   ! deep convection
 ENDIF
 
-IF (ldetrain_conv_prec) THEN
-  phy_params%lmfdsnow = .TRUE.
-ELSE
-  phy_params%lmfdsnow = .FALSE.
-ENDIF
-
 lmfdd   =.TRUE.   ! use downdrafts
 lmfit   =.FALSE.  ! updraught iteration or not
 LMFUVDIS=.TRUE.   ! use kinetic energy dissipation (addit T-tendency)
@@ -1246,8 +1236,6 @@ lmfdudv =.TRUE.   ! use convective momentum transport
 !*UPG add to operations
 lmftrac =.TRUE.   ! convective chemical tracer transport
 lepcld  =.TRUE.   ! produce detrained cloud water/ice
-lmfwetb =.TRUE.   ! use wet bulb T for melting
-lmfglac =.TRUE.   ! glaciation of precip in updraught
 ! to reuse in prognostic cloud scheme
 
 !     RMFCFL:     MASSFLUX MULTIPLE OF CFL STABILITY CRITERIUM
@@ -1363,7 +1351,7 @@ IF (lhook) CALL dr_hook('SUCUMF',1,zhook_handle)
     rtber=rtt-5._jprb
     rtbercu=rtt-5.0_JPRB
     rtice=rtt-23._jprb
-    rticecu=rtt-38._jprb
+    rticecu=rtt-23._jprb
     rtwat_rtice_r=1._jprb/(rtwat-rtice)
     rtwat_rticecu_r=1._jprb/(rtwat-rticecu)
 

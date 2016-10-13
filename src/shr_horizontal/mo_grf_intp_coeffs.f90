@@ -73,13 +73,6 @@ TYPE(t_patch), POINTER :: p_patch(:)
 PUBLIC :: grf_intp_coeffs_setpatch
 PUBLIC :: compute_pc2cc_distances, compute_pe2ce_distances, gridref_info,         &
         & init_fbk_wgt, grf_index, rbf_compute_coeff_grf_e, idw_compute_coeff_grf_e
-
-
-!> module name string
-CHARACTER(LEN=*), PARAMETER :: modname = 'mo_grf_intp_coeffs'
-
-
-
 CONTAINS
 
 #include "intp_functions.inc"
@@ -480,7 +473,7 @@ DO jg = n_dom_start+1, n_dom
   ENDDO
   IF (ierror > 0) THEN
     write(0,*) 'Error in domain ID: ',jg
-    CALL finish (modname//':init_fbk_wgt',  &
+    CALL finish ('mo_grf_interpolation:init_fbk_wgt',  &
       &          'size of nested domain is too small')
   ENDIF
 
@@ -724,36 +717,6 @@ END SUBROUTINE init_fbk_wgt
 !! Because both scalars and wind vectors need to be interpolated to the
 !! nest boundaries, different groups of indices are computed.
 !!
-!! Detailed illustration of the idx_2a/idx_2b stencils:
-!!
-!!   The dotted edges "..." denote
-!!   
-!!             idx_2a for edge "_____"                          idx_2b for edge "_____"       
-!!                              ^^^^^                                            ^^^^^        
-!!                                                                                      
-!!     /    \    /   \    /    \    /    \                /    \    /   \    /    \    /    \   
-!!    /      \  /     \  /      \  /      \              /      \  /     \  /      \  /      \  
-!!   /________\/...5...\/....4...\/________\            /________\/_______\/________\/________\ 
-!!   \        /\       ::        /\        /            \        /\       /\        /\        / 
-!!    \      /  \     :  :      /  \      /              \      /  \     /  \      /  \      /  
-!!     \    /    \   3    2    /    \    /                \    /    \   /    \    /    \    /   
-!!      \  /      \ :      :  /      \  /                  \  /      \ /      \  /      \  /    
-!!       \/________:____1___:/________\/                    \/________/________\/________\/     
-!!       /\       /\^^^^^^^^/\        /\                    /\       /:^^^^^^^^:\        /\     
-!!      /  \     /  \      /  \      /  \                  /  \     /  :      :  \      /  \    
-!!     /    \   /    \    /    \    /    \                /    \   /    :    :    \    /    \   
-!!    /      \ /      \  /      \  /      \              /      \ /      :  :      \  /      \  
-!!   /________/________\/________\/________\            /________/........::........\/________\ 
-!!   \        /\       /\        /\        /            \        /\       /\        /\        / 
-!!    \      /  \     /  \      /  \      /              \      /  \     /  \      /  \      /  
-!!   
-!!   These stencils are calculated as follows:
-!!   
-!!   1   : parent edge
-!!   2,3 : edges of parent cell in which inner child edge of 1 is located
-!!   4,5 : calculated via "quad indices".
-!!   
-!!   
 !! @par Revision History
 !! Developed and tested  by G. Zaengl (June 2008)
 !! Rewritten for vectorization by G. Zaengl (May 2010)
@@ -888,28 +851,16 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
       ENDDO  ! computation for child edges 1 and 2 finished
 
 
+      ! Part 2: interior child edges (i.e. child edges 3 and 4)
+      !
+      ! The interpolation stencil consists of 5 points, namely the 3 edges
+      ! of the parent cell in which the child cell is located, plus the 2
+      ! edges of the neighbor cells of the parent cell that have (approximately)
+      ! the same orientation as the child edge
+
       ierror = 0
 
       DO je = i_startidx, i_endidx
-
-        ! Part 2: interior child edges (i.e. child edges 3 and 4)
-        !
-        ! The interpolation stencil consists of 5 points, namely the 3 edges
-        ! of the parent cell in which the child cell is located, plus the 2
-        ! edges of the neighbor cells of the parent cell that have (approximately)
-        ! the same orientation as the child edge
-        
-        ! Skip outer boundary points for limited-area radiation grids. They cannot be
-        ! computed correctly but are not needed anyway
-        IF (jg == 0 .AND. ptr_ep%refin_ctrl(je,jb) >= -3) THEN
-          ptr_grf%grf_vec_stencil_2a(je,jb) = 0
-          ptr_grf%grf_vec_stencil_2b(je,jb) = 0
-          ptr_grf%grf_vec_ind_2a(je,1:5,jb) = je
-          ptr_grf%grf_vec_blk_2a(je,1:5,jb) = jb
-          ptr_grf%grf_vec_ind_2b(je,1:5,jb) = je
-          ptr_grf%grf_vec_blk_2b(je,1:5,jb) = jb
-          CYCLE
-        ENDIF
 
         ptr_grf%grf_vec_stencil_2a(je,jb) = 5
 
@@ -1119,7 +1070,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
 
       IF (MAXVAL(ierror) > 0) THEN
         write(0,*) 'Number of errors: ',SUM(ierror(1:nproma))
-        CALL finish (modname//':grf_index',  &
+        CALL finish ('mo_grf_interpolation:grf_index',  &
           &          'orientation of edge points incorrect')
       ENDIF
 
@@ -1136,7 +1087,7 @@ END SUBROUTINE grf_index
 !
 !
 !>
-!! This routine computes the coefficients needed for vector RBF interpolation.
+!! This routine computes the coefficients needed for vector RBF interpolation to.
 !!
 !! This routine computes the coefficients needed for vector RBF interpolation to
 !! child edges, which is required along the lateral boundaries
@@ -1258,7 +1209,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
               z_diag(nproma,max_points),               &
               z_rbfval(nproma,max_points), STAT=ist )
     IF (ist /= SUCCESS) THEN
-          CALL finish (modname//':rbf_compute_coeff_grf',      &
+          CALL finish ('mo_grf_interpolation:rbf_compute_coeff_grf',      &
         &             'allocation for working arrays failed')
     ENDIF
 
@@ -1423,7 +1374,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
 
     DEALLOCATE( z_rbfmat, z_diag, z_rbfval, STAT=ist )
     IF (ist /= SUCCESS) THEN
-      CALL finish (modname//':rbf_compute_coeff_grf',      &
+      CALL finish ('mo_grf_interpolation:rbf_compute_coeff_grf',      &
       &             'deallocation for working arrays failed')
     ENDIF
 
