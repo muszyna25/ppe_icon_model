@@ -53,8 +53,7 @@ MODULE mo_ha_testcases
   USE mo_io_units,        ONLY: nnml, nnml_output
   USE mo_namelist,        ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_master_config,   ONLY: isRestart
-  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist, &
-                                 & open_and_restore_namelist, close_tmpfile
+  USE mo_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist, open_and_restore_namelist, close_tmpfile
   USE mo_model_domain,    ONLY: t_patch
   USE mo_ext_data_types,  ONLY: t_external_data
   USE mo_grid_config,     ONLY: n_dom

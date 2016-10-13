@@ -135,6 +135,7 @@ ml_varlist="'temp','u','v','w','pres','pres_sfc', 'pres_msl',
 #'dzh_snow', 't_snow_mult', 'rho_snow_mult'
 #'t_so_t_1', 'w_so_t_1', 'w_snow_t_1'"
 
+#ml_varlist="'extra_3d1', 'extra_3d2', 'extra_3d3', 'extra_3d4'"
 pl_varlist="'u','v','temp','geopot','clc','tot_qv_dia','tot_qc_dia','tot_qi_dia','qv','qc','qi'"      
 hl_varlist="'u','v','temp','pres',  'clc','tot_qv_dia','tot_qc_dia','tot_qi_dia','qv','qc','qi'"   
 
@@ -186,6 +187,8 @@ cat > ${atmo_namelist} << EOF
  itype_pres_msl               = 4           ! 3: new IFS T and pressure calculation below ground
                                             ! 4: IFS method with bug fix for self-consistency between SLP and geopotential
  itype_rh                     = 1           ! RH w.r.t. water
+!inextra_2d                   = 2           ! 2D extra variables
+!inextra_3d                   = 4           ! 3D extra variables
 /
 ! OUTPUT: Regular grid, model levels, all domains
 &output_nml
@@ -200,11 +203,11 @@ cat > ${atmo_namelist} << EOF
  output_filename              = '${basename}'             ! file name base
  ml_varlist                   = ${ml_varlist}
  pl_varlist                   = ${pl_varlist}
- hl_varlist                   = ${hl_varlist}
+ !hl_varlist                  = ${hl_varlist}
  p_levels                     = 100,200,300,500,700,1000,2000,3000,5000,7000,10000,15000,20000,25000,
                                 30000,40000,50000,60000,70000,80000,85000,90000,92500,95000,100000
- h_levels                     = 50000,45000,40000,35000,30000,25000,20000,18000,16000,14000,12000,
-                                10000,8000,6000,5000,4000,3000,2000,1000,800,600,400,200,100,10
+ !h_levels                    = 50000,45000,40000,35000,30000,25000,20000,18000,16000,14000,12000,
+ !                              10000,8000,6000,5000,4000,3000,2000,1000,800,600,400,200,100,10
  output_grid                  = .FALSE.
  remap                        = 1                         ! 1: latlon,  0: native grid
  reg_lon_def                  =  0., 1.0, 359.
@@ -243,7 +246,7 @@ cat > ${atmo_namelist} << EOF
  inwp_convection              = 1
  inwp_radiation               = 1
  inwp_cldcover                = 1   ! 0: no cld, 1: new diagnostic, 3: COSMO, 5: grid scale
- inwp_turb                    = 1   ! 1/10: Raschendorfer, 2: GME, 3: EDMF-DUALM (ntracer+1,ntiles=8)
+ inwp_turb                    = 1   ! 1/10: Raschendorfer, 2: GME, 3: EDMF-DUALM (ntracer+1,ntiles=5)
  inwp_satad                   = 1
  inwp_sso                     = 1
  inwp_gwd                     = 1
@@ -361,7 +364,7 @@ cat > ${atmo_namelist} << EOF
  lsq_high_ord                 = 3
  l_intp_c2l                   = .TRUE.
  l_mono_c2l                   = .TRUE.
- support_baryctr_intp         = .true.
+!support_baryctr_intp         = .true.
 /
 &extpar_nml
  itopo                        = 1

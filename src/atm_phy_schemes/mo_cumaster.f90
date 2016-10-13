@@ -93,7 +93,7 @@ MODULE mo_cumaster
   
   
   USE mo_adjust,      ONLY: satur
-  USE mo_cufunctions, ONLY: foelhmcu, foealfa
+  USE mo_cufunctions, ONLY: foelhmcu, foealfcu
   USE mo_cuinit,      ONLY: cuinin, cubasen
   USE mo_cuascn,      ONLY: cuascn
   USE mo_cudescn,     ONLY: cudlfsn, cuddrafn
@@ -121,8 +121,7 @@ SUBROUTINE cumastrn &
  & pap,      paph,     pgeo,     pgeoh,          &
  & zdph,               zdgeoh,   pcloudnum,      &
  & ptent,    ptenu,    ptenv,                    &
- & ptenq,    ptenl,    pteni,                    &
- & ptens,                                        &
+ & ptenq,    ptenl,    pteni,    ptenr,  ptens,  &
  & ldcum,      ktype , kcbot,    kctop,          &
 !& KBOTSC,   LDSC                                &
  & LDSHCV,                                       &
@@ -187,7 +186,8 @@ SUBROUTINE cumastrn &
 !    *PTENQ*        MOISTURE TENDENCY                             KG/(KG S)
 !    *PTENL*        LIQUID WATER TENDENCY                         KG/(KG S)
 !    *PTENI*        ICE CONDENSATE TENDENCY                       KG/(KG S)
-!    *PTENS*        SNOW TENDENCY                                 KG/(KG S)
+!    *PTENR*        DETRAINED RAIN TENDENCY                       KG/(KG S)
+!    *PTENS*        DETRAINED SNOW TENDENCY                       KG/(KG S)
 !    *PTENU*        TENDENCY OF U-COMP. OF WIND                    M/S2
 !    *PTENV*        TENDENCY OF V-COMP. OF WIND                    M/S2
 !    *PTENC*        TENDENCY OF CHEMICAL TRACERS                   1/S
@@ -348,9 +348,10 @@ REAL(KIND=jprb)   ,INTENT(in)    :: pcloudnum(klon)
 TYPE(t_ptr_tracer),INTENT(in), OPTIONAL :: pcen(ktrac)
 REAL(KIND=jprb)   ,INTENT(inout) :: ptent(klon,klev) 
 REAL(KIND=jprb)   ,INTENT(inout) :: ptenq(klon,klev) 
-REAL(KIND=jprb)   ,INTENT(inout)   :: ptenl(klon,klev)
-REAL(KIND=jprb)   ,INTENT(inout)   :: pteni(klon,klev)
-REAL(KIND=jprb)   ,INTENT(out), OPTIONAL :: ptens(klon,klev)
+REAL(KIND=jprb)   ,INTENT(inout) :: ptenl(klon,klev)
+REAL(KIND=jprb)   ,INTENT(inout) :: pteni(klon,klev)
+REAL(KIND=jprb)   ,INTENT(inout) :: ptenr(klon,klev)
+REAL(KIND=jprb)   ,INTENT(inout) :: ptens(klon,klev)
 REAL(KIND=jprb)   ,INTENT(inout) :: ptenu(klon,klev) 
 REAL(KIND=jprb)   ,INTENT(inout) :: ptenv(klon,klev) 
 ! with ktrac=0 this has zero size
@@ -386,6 +387,7 @@ REAL(KIND=jprb) :: pwmean(klon)
 REAL(KIND=jprb) :: plude(klon,klev) ! only local variable
 REAL(KIND=jprb) :: penth(klon,klev) ! only local variable
 REAL(KIND=jprb) :: pqsen(klon,klev) ! only local variable
+REAL(KIND=JPRB) :: psnde(klon,klev,2)! only local variable
 !*UPG
 
 REAL(KIND=jprb) :: ztenh(klon,klev),       zqenh(klon,klev),&
@@ -398,9 +400,9 @@ REAL(KIND=jprb) :: ztenh(klon,klev),       zqenh(klon,klev),&
   & zuu(klon,klev),         zvu(klon,klev),&
   & zud(klon,klev),         zvd(klon,klev),&
   & zkineu(klon,klev),      zkined(klon,klev), &
-  & zvbuo(klon)      
+  & zvbuo(klon),            zlrain(klon,klev)
 REAL(KIND=jprb) :: &
-  & zmfub(klon),            zmfub1(klon),  zkhvfl(klon),&
+  & zmfub(klon),            zmfub1(klon),  zkhvfl(klon), zkhfl(klon),&
   & zdqcv(klon)
 REAL(KIND=jprb) :: zdpmel(klon,klev),zlglac(klon,klev)
 REAL(KIND=jprb) :: zdhpbl(klon),     zwubase(klon)
@@ -419,7 +421,7 @@ REAL(KIND=jprb) ::   zcons2, zcons, zdh,&
   & zdqmin, zdz, zeps, zfac, &
   & zmfmax, zpbmpt, zqumqe, zro, zmfa, zerate, zderate, zorcpd, zrdocpd,&
   & ZDUTEN, ZDVTEN, ZTDIS,&
-  & zalv, zsfl(klon)
+  & zalv, zsfl(klon), zcapefac
 
 REAL(KIND=jprb) :: ztau(klon), ztaupbl(klon)  ! adjustment time
 
@@ -599,6 +601,7 @@ DO jl=kidia,kfdia
   idtop(jl)=0
   zcappbl(jl)=0.
   zkhvfl(jl)= -pahfs(jl,klev+1) * zorcpd - retv * pten(jl,klev) * pqhfl(jl,klev+1)
+  zkhfl(JL) = -pahfs(jl,klev+1) - rlvtt * pqhfl(jl,klev+1)
 ENDDO
 DO jk=MAX(ktdia,phy_params%kcon2),klev
   DO jl=kidia,kfdia
@@ -734,7 +737,7 @@ CALL cuascn &
   & zdph,     zdgeoh,                  &
   & pvervel,  zwubase, pcloudnum,      &
   & ldland,   ldlake,  ldcum,    ktype,    ilab,&
-  & ptu,      pqu,      plu,&
+  & ptu,      pqu,      plu,     zlrain,        &
   & pmfu,     zmfub,    zlglac,&
   & zmfus,    zmfuq,    zmful,    plude,    zdmfup,&
   & zdmfen,   pcape,    zcapethresh, &
@@ -863,7 +866,8 @@ DO jl = kidia, kfdia
     IF (llo1 .AND. ldland(jl)) THEN
       ! Use PBL CAPE for diurnal cycle correction in the tropics and a fraction of it 
       ! to reduce excessive precipitation maxima over small-scale mountain peaks
-      zcapdcycl(jl) = (capdcfac(jl)*zcappbl(jl) + MAX(0._jprb,tune_capdcfac_et+mtnmask(jl)-capdcfac(jl)) * &
+      zcapefac = tune_capdcfac_et*MIN(1._jprb,MAX(0._jprb,(pcape(jl)-100._jprb)/300._jprb))
+      zcapdcycl(jl) = (capdcfac(jl)*zcappbl(jl) + MAX(0._jprb,zcapefac+mtnmask(jl)-capdcfac(jl)) * &
         MAX(0._jprb,zcappbl(jl)) ) * ztau(jl)*phy_params%tau0
     ENDIF
     ! Reduce adjustment time scale for extreme CAPE values
@@ -944,6 +948,8 @@ DO jl=kidia,kfdia
 
     IF(ktype(jl) == 3)THEN
       zmfub1(jl)=zmfub(jl)*(1.0_JPRB+zeps)
+      zmfub1(jl)=MAX(zmfub(jl),zkhfl(jl)/pgeoh(jl,ikb))&
+     &                    *(1.0_JPRB+zeps)
       zmfub1(jl)=MIN(zmfub1(jl),zmfmax)
     ENDIF
 
@@ -1000,7 +1006,7 @@ IF(lmfit) THEN
     & zdph,     zdgeoh,         &
     & pvervel,  zwubase,  pcloudnum,     &
     & ldland,   ldlake,   ldcum,    ktype,    ilab,&
-    & ptu,      pqu,      plu,&
+    & ptu,      pqu,      plu,      zlrain,        &
     & pmfu,     zmfub,    zlglac,&
     & zmfus,    zmfuq,    zmful,    plude,    zdmfup,&
     & zdmfen,   pcape,    zcapethresh, &
@@ -1128,15 +1134,15 @@ CALL cuflxn &
   & ( kidia,    kfdia,    klon,   ktdia,    klev, phy_params%mfcfl, &
   & phy_params%rhebc_land, phy_params%rhebc_ocean, phy_params%rcucov, &
   & phy_params%rhebc_land_trop, phy_params%rhebc_ocean_trop, &
-  & phy_params%rcucov_trop, capdcfac,                       &
+  & phy_params%rcucov_trop, phy_params%lmfdsnow, capdcfac,   &
   & ptsphy,  pten,     pqen,     pqsen,    ztenh,    zqenh,&
   & paph,     pap,      pgeoh,    ldland,   ldlake, ldcum,&
   & kcbot,    kctop,    idtop,    itopm2,&
   & ktype,    llddraf,&
   & pmfu,     pmfd,     zmfus,    zmfds,&
-  & zmfuq,    zmfdq,    zmful,    plude,&
+  & zmfuq,    zmfdq,    zmful,    plude,  zlrain,  psnde, &
   & zdmfup,   zdmfdp,   zdpmel,   zlglac,&
-  & pmflxr,   pmflxs,   prain,    pmfdde_rate )
+  & pmflxr,   pmflxs,   prain,    pmfude_rate,  pmfdde_rate )
 
 !- rescale DD fluxes if total mass flux becomes negative
 !- correct DD detrainment rates if entrainment becomes negative
@@ -1321,7 +1327,7 @@ CALL cudtdqn &
   & paph,     pgeoh,    pgeo,&
   & zdph,                    &
   & pten,     ztenh,    pqen,     zqenh,    pqsen,&
-  & zlglac,   plude,    pmfu,     pmfd,&
+  & zlglac,   plude,    psnde,    pmfu,     pmfd,&
   & zmfus,    zmfds,    zmfuq,    zmfdq,&
   & zmful,    zdmfup,   zdpmel,&
   & ptent,    ptenq,    penth )
@@ -1445,8 +1451,8 @@ IF(lmfdudv) THEN
         ENDIF
     ! add UV perturb to correct wind bias
         IF ( ldcum(jl).AND.jk>=kctop(jl) ) THEN
-          zuu(jl,jk)=zuu(jl,jk)-ruvper*SIGN(1.0_JPRB,zuu(jl,jk))
-          zvu(jl,jk)=zvu(jl,jk)-ruvper*SIGN(1.0_JPRB,zvu(jl,jk))
+          zuu(jl,jk)=zuu(jl,jk)-MIN(ABS(zuu(jl,jk)),ruvper)*SIGN(1.0_JPRB,zuu(jl,jk))
+          zvu(jl,jk)=zvu(jl,jk)-MIN(ABS(zvu(jl,jk)),ruvper)*SIGN(1.0_JPRB,zvu(jl,jk))
         ENDIF
       ENDDO
     ENDDO
@@ -1720,37 +1726,24 @@ ENDIF
 !                  CLOUD CONDENSATE, CHANGE PRECIP UNITS IN M/S (if wanted, K. Froehlich, 19.01.2009)
 !                  --------------------------------------------------
 
-IF (PRESENT(ptens)) THEN
-   ! KF calculate snow tendency
-  DO jk=ktdia,klev
-    DO jl=kidia,kfdia
-      ptenl(jl,jk)=plude(jl,jk)*rg/(paph(jl,jk+1)-paph(jl,jk))
-      pteni(jl,jk)=(1.0_JPRB-foealfa(pten(jl,jk)))*ptenl(jl,jk)
-      !KF 20100409
-      rtice2 = rtwat-38._jprb
-      rtmix  = rtwat-5._jprb
-      ptens(jl,jk)= MIN(1._jprb,((MAX(rtice2,MIN(rtmix,pten(jl,jk))) &
-           & - rtice2)/(rtmix-rtice2)))*pteni(jl,jk)
-      pteni(jl,jk)= pteni(jl,jk)- ptens(jl,jk)
-      ptenl(jl,jk)= ptenl(jl,jk)-pteni(jl,jk)-ptens(jl,jk)
-      !KF
-      !    PTENL(JL,JK)=PTENL(JL,JK)-PTENI(JL,JK)
-      !    PMFLXR(JL,JK)=PMFLXR(JL,JK)*1.E-3
-      !    PMFLXS(JL,JK)=PMFLXS(JL,JK)*1.E-3
-    ENDDO
-  ENDDO
-ELSE
   DO jk=ktdia,klev
      DO jl=kidia,kfdia
        ptenl(jl,jk)=plude(jl,jk)*rg/(paph(jl,jk+1)-paph(jl,jk))
-       pteni(jl,jk)=(1.0_JPRB-foealfa(pten(jl,jk)))*ptenl(jl,jk)
-       PTENL(JL,JK)= PTENL(jl,jk)-PTENI(JL,JK)
+       pteni(jl,jk)=(1.0_JPRB-foealfcu(pten(jl,jk)))*ptenl(jl,jk)
+       ptenl(JL,JK)= ptenl(jl,jk)-pteni(JL,JK)
       !PMFLXR(JL,JK)=PMFLXR(JL,JK)*1.E-3
       !PMFLXS(JL,JK)=PMFLXS(JL,JK)*1.E-3
-      
     ENDDO
   ENDDO
-ENDIF
+  IF (phy_params%lmfdsnow) THEN
+    DO jk=ktdia,klev
+      DO jl=kidia,kfdia
+        zdz = rg/(paph(jl,jk+1)-paph(jl,jk))
+        ptens(JL,JK)=psnde(JL,JK,1)*zdz
+        ptenr(JL,JK)=psnde(JL,JK,2)*zdz
+      ENDDO
+    ENDDO
+  ENDIF
 
 !  DO JL=KIDIA,KFDIA
 !   PMFLXR(JL,KLEV+1)=PMFLXR(JL,KLEV+1)*1.E-3

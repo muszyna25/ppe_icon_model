@@ -433,23 +433,23 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !> @return time level (extracted from time level suffix ".TL") or "-1"
   !
-  FUNCTION get_var_timelevel(var)
+  FUNCTION get_var_timelevel(info)
     INTEGER :: get_var_timelevel
-    TYPE(t_var_list_element)   :: var
+    TYPE(t_var_metadata), INTENT(IN) :: info
     ! local variable
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_var_list:get_var_timelevel'
     INTEGER :: idx
 
-    idx = INDEX(var%info%name,'.TL')
+    idx = INDEX(info%name,'.TL')
     IF (idx == 0) THEN
       get_var_timelevel = -1
       RETURN
     END IF
 
     ! Get time level
-    get_var_timelevel = ICHAR(var%info%name(idx+3:idx+3)) - ICHAR('0')
+    get_var_timelevel = ICHAR(info%name(idx+3:idx+3)) - ICHAR('0')
     IF(get_var_timelevel<=0 .OR. get_var_timelevel>max_time_levels) &
-      CALL finish(routine, 'Illegal time level in '//TRIM(var%info%name))
+      CALL finish(routine, 'Illegal time level in '//TRIM(info%name))
   END FUNCTION get_var_timelevel
 
 
@@ -859,7 +859,7 @@ CONTAINS
     &   p5_r, p5_i, p5_l, initval_r, initval_i, initval_l,                      &
     &   resetval_r, resetval_i, resetval_l, missval_r, missval_i, missval_l,    &
     &   var_class )
-    !
+
     INTEGER,                 INTENT(IN)           :: ndims                        ! used dimensions (1...5)
     INTEGER,                 INTENT(IN)           :: data_type
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
@@ -899,41 +899,44 @@ CONTAINS
     INTEGER,                 INTENT(in), OPTIONAL :: missval_i                    ! missing value
     LOGICAL,                 INTENT(in), OPTIONAL :: missval_l                    ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: var_class                    !< variable type/species
+
     ! local variables
     TYPE(t_union_vals) :: missval, initval, resetval
     INTEGER :: idims(5), istat
     LOGICAL :: referenced
-    !
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":add_var_list_element_5d"
+
     ! consistency check for restart and output
-    !
+
     IF (PRESENT(lrestart)) THEN
       IF (.NOT. this_list%p%lrestart .AND. lrestart) THEN
-        CALL finish('mo_var_list:add_var_list_element_5d',                             &
-             &      'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
-             &      'but restart of '//TRIM(name)//' requested.')
+        CALL finish(routine, 'for list '//TRIM(this_list%p%name)//' restarting not enabled, '// &
+                           & 'but restart of '//TRIM(name)//' requested.')
       ENDIF
+      IF(lrestart .AND. data_type /= REAL_T) CALL finish(routine, 'unsupported data_type for "'//TRIM(NAME)//'": '// &
+                                                                & 'data_type of restart variables must be REAL_T')
     ENDIF
-    !
+
     ! add list entry
-    !
+
     CALL append_list_element (this_list, new_list_element)
     new_list_element%field%info = default_var_list_metadata(this_list)
-    !
+
     ! init local fields
-    !
+
     missval = new_list_element%field%info%missval
     initval = new_list_element%field%info%initval
     resetval= new_list_element%field%info%resetval
-    !
+
     ! and set meta data
-    !
+
     IF (PRESENT(p5_r) .OR. PRESENT(p5_i) .OR. PRESENT(p5_l)) THEN
       referenced = .TRUE.
       new_list_element%field%info%allocated = .TRUE.
     ELSE
       referenced = .FALSE.
     ENDIF
-    !
+
     CALL assign_if_present(missval%rval, missval_r)
     CALL assign_if_present(missval%ival, missval_i)
     CALL assign_if_present(missval%lval, missval_l)
@@ -958,7 +961,7 @@ CONTAINS
     ! set dynamic metadata, i.e. polymorphic tracer metadata
     CALL set_var_metadata_dyn (new_list_element%field%info_dyn,              &
                                tracer_info=tracer_info)
-    !
+
     IF (.NOT. referenced) THEN
       new_list_element%field%info%ndims                    = ndims
       new_list_element%field%info%used_dimensions(1:ndims) = ldims(1:ndims)
@@ -986,8 +989,7 @@ CONTAINS
       END SELECT
 
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_5d', &
-             &      'allocation of array '//TRIM(name)//' failed')
+        CALL finish(routine, 'allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF

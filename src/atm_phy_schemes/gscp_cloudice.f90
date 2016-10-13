@@ -248,8 +248,11 @@ LOGICAL, PARAMETER :: &
 #ifdef __COSMO__
   lorig_icon   = .FALSE. , &  ! switch for original ICON setup (only for cloudice)
                               ! XL : should be false for COSMO ?
+  lred_depgrowth = .TRUE. , & ! switch for reduced depositional growth near tops of stratus clouds
 #else
   lorig_icon   = .TRUE.  , &  ! switch for original ICON setup (only for cloudice)
+  lred_depgrowth = .FALSE., & ! switch for reduced depositional growth near tops of stratus clouds
+                              ! (not used in ICON because it degrades scores at high latitudes)
 #endif
 
   lsedi_ice    = .FALSE. , &  ! switch for sedimentation of cloud ice (Heymsfield & Donner 1990 *1/3)
@@ -481,7 +484,6 @@ SUBROUTINE cloudice (             &
     zmi ,              & ! mass of a cloud ice crystal
     zsvidep, zsvisub,  & ! deposition, sublimation of cloud ice
     zsimax , zsisum , zsvmax,   & ! terms for limiting total
-    zqvsw,             & ! sat. specitic humidity at ice and water saturation
     zztau, zxfac, zx1, zx2, ztt, &   ! some help variables
     ztau, zphi, zhi, zdvtp, ztc, zlog_10
 
@@ -513,7 +515,9 @@ SUBROUTINE cloudice (             &
 !! -------------------------
 
   REAL    (KIND=wp   ) ::  &
-    zqvsi       (nvec),     & !> sat. specitic humidity at ice and water saturation
+    zqvsi       (nvec),     & !> sat. specitic humidity at ice saturation
+    zqvsw       (nvec),     & !> sat. specitic humidity at water saturation
+    zqvsw_up    (nvec),     & !> sat. specitic humidity at water saturation in previous layer
     zvzr        (nvec),     & !
     zvzs        (nvec),     & !
     zvzi        (nvec),     & ! terminal fall velocity of ice
@@ -666,6 +670,7 @@ SUBROUTINE cloudice (             &
     zvzr    (:) = 0.0_wp
     zvzs    (:) = 0.0_wp
     zvzi    (:) = 0.0_wp
+    zqvsw   (:) = 0.0_wp
     dist_cldtop(:) = 0.0_wp    
 !CDIR END
 
@@ -789,11 +794,7 @@ SUBROUTINE cloudice (             &
 
         qrg = qr(iv,k)
         qsg = qs(iv,k)
-        qvg = qv(iv,k)
-        qcg = qc(iv,k)
         qig = qi(iv,k)
-        tg  = t(iv,k)
-        ppg = p(iv,k)
         rhog = rho(iv,k)
 
         !..for density correction of fall speeds
@@ -806,15 +807,19 @@ SUBROUTINE cloudice (             &
         zqsk(iv) = qsg * rhog
         zqik(iv) = qig * rhog
 
-        llqr = zqrk(iv) > zqmin
-        llqs = zqsk(iv) > zqmin
-        llqi = zqik(iv) > zqmin
-
         zdtdh(iv) = 0.5_wp * zdt / dz(iv,k)
 
         zzar(iv)   = zqrk(iv)/zdtdh(iv) + zprvr(iv) + zpkr(iv)
         zzas(iv)   = zqsk(iv)/zdtdh(iv) + zprvs(iv) + zpks(iv)
         zzai(iv)   = zqik(iv)/zdtdh(iv) + zprvi(iv) + zpki(iv)
+
+     ENDDO
+
+    DO iv = iv_start, iv_end
+
+        llqr = zqrk(iv) > zqmin
+        llqs = zqsk(iv) > zqmin
+        llqi = zqik(iv) > zqmin
 
         IF (llqs) THEN
           ic1 = ic1 + 1
@@ -965,23 +970,24 @@ SUBROUTINE cloudice (             &
     ic4 = 0
     ic5 = 0
     ic6 = 0
+
     DO iv = iv_start, iv_end
 
-        qrg  = qr(iv,k)
-        qsg  = qs(iv,k)
-        qvg  = qv(iv,k)
-        qcg  = qc(iv,k)
-        qig  = qi(iv,k)
         tg   =  t(iv,k)
-        ppg  =  p(iv,k)
         rhog = rho(iv,k)
 
+        zqvsw_up(iv) = zqvsw(iv)
+
 #ifdef __COSMO__
+        ppg  =  p(iv,k)
         zqvsi(iv) = fqvs( fpvsi(tg), ppg )
+        zqvsw(iv) = fqvs( fpvsw(tg), ppg )
 #endif
 
 #ifdef __ICON__
-        zqvsi(iv) = sat_pres_ice(tg)/(rhog * r_v * tg)
+        hlp = 1._wp/(rhog * r_v * tg)
+        zqvsi(iv) = sat_pres_ice(tg) * hlp
+        zqvsw(iv) = sat_pres_water(tg) * hlp
 #endif
 
 
@@ -1001,11 +1007,19 @@ SUBROUTINE cloudice (             &
         zqsk(iv)   = zzas(iv)*zims(iv)
         zqik(iv)   = zzai(iv)*zimi(iv)
 
+     ENDDO
+
+    DO iv = iv_start, iv_end
+
+        qvg  = qv(iv,k)
+        qcg  = qc(iv,k)
+        qig  = qi(iv,k)
+        tg   =  t(iv,k)
+
         llqr = zqrk(iv) > zqmin
         llqs = zqsk(iv) > zqmin
         llqi = zqik(iv) > zqmin
-        llqc =       qcg > zqmin
-      ! llqi =       qig > zqmin 
+        llqc =      qcg > zqmin
 
         IF (llqr) THEN
           ic1 = ic1 + 1
@@ -1028,7 +1042,9 @@ SUBROUTINE cloudice (             &
           ic5 = ic5 + 1
           ivdx5(ic5) = iv
         ENDIF
-        IF (llqr .AND. qcg <= 0.0_wp) THEN
+        ! Use qvg+qcg <= zqvsw(iv) instead of qcg == 0 in order to be independent of satad
+        ! between turbulence and microphysics
+        IF (llqr .AND. qvg+qcg <= zqvsw(iv)) THEN
           ic6 = ic6 + 1
           ivdx6(ic6) = iv
         ENDIF
@@ -1216,12 +1232,12 @@ SUBROUTINE cloudice (             &
       ENDIF
       
 ! Calculation of reduction of depositional growth at cloud top (Forbes 2012)
-      IF( k>1 .AND. k<ke .AND. lsuper_coolw ) THEN
+      IF( k>k_start .AND. k<ke .AND. lred_depgrowth ) THEN
         znin  = MIN( fxna_cooper(tg), znimax )
         fnuc = MIN(znin/znimix, 1.0_wp)
         
         !! distance from cloud top
-        IF( qc(iv,k-1) + qi(iv,k-1) + qs(iv,k-1) .LT. zqmin ) THEN      ! cloud top layer
+        IF( qv(iv,k-1) + qc(iv,k-1) < zqvsw_up(iv) .AND. qi(iv,k-1) + qs(iv,k-1) < zqmin) THEN  ! cloud top layer
           dist_cldtop(iv) = 0.0_wp    ! reset distance to cloud top layer
         ELSE
           dist_cldtop(iv) = dist_cldtop(iv) + dz(iv,k)
@@ -1287,7 +1303,7 @@ SUBROUTINE cloudice (             &
         zsvisub   = 0.0_wp
         zsimax    = qig*zdtr 
         IF( zsidep > 0.0_wp ) THEN
-          IF (lsuper_coolw ) THEN
+          IF (lred_depgrowth ) THEN
             zsidep = zsidep * reduce_dep(iv)  !FR new: SLW reduction
           END IF
           zsvidep = MIN( zsidep, zsvmax )
@@ -1309,7 +1325,7 @@ SUBROUTINE cloudice (             &
 
         ! Check for maximal depletion of vapor by sdep
         IF (zssdep > 0.0_wp) THEN
-          IF (lsuper_coolw ) THEN
+          IF (lred_depgrowth ) THEN
             zssdep = zssdep*reduce_dep(iv)!FR new: SLW reduction
           END IF
           zssdep = MIN(zssdep, zsvmax-zsvidep)
@@ -1362,28 +1378,13 @@ SUBROUTINE cloudice (             &
       tg  =  t(iv,k)
       rhog = rho(iv,k)
 
-#ifdef __COSMO__
-      ppg  =   p(iv,k)
-      zqvsw    = fqvs( fpvsw(tg), ppg )
-#endif
-
-#ifdef __ICON__
-      zqvsw    = sat_pres_water(tg)/(rhog * r_v *tg)
-#endif
-
       zlnqrk      = LOG (zqrk(iv))
       zx1         = 1.0_wp + zbev * EXP (zbevxp  * zlnqrk)
       ! Limit evaporation rate in order to avoid overshoots towards supersaturation
       ! the pre-factor approximates (esat(T_wb)-e)/(esat(T)-e) at temperatures between 0 degC and 30 degC
       temp_c = tg - t0
-      maxevap     = (0.61_wp-0.0163_wp*temp_c+1.111e-4_wp*temp_c**2)*(zqvsw-qvg)/zdt
-      sev(iv)    = MIN(zcev*zx1*(zqvsw - qvg) * EXP (zcevxp  * zlnqrk), maxevap)
-!      sev(iv)    = zcev*zx1*(zqvsw - qvg) * EXP (zcevxp  * zlnqrk)
-
-!      zqvsw    = fqvs( fpvsw(tg), ppg )
-!      zx1      = 1.0_wp + zbev* zeln3o16qrk(iv)
-!      zsev     = zcev*zx1*(zqvsw - qvg)*SQRT(zqrk(iv))
-!      sev(iv) = MAX( zsev, 0.0_wp )
+      maxevap     = (0.61_wp-0.0163_wp*temp_c+1.111e-4_wp*temp_c**2)*(zqvsw(iv)-qvg)/zdt
+      sev(iv)    = MIN(zcev*zx1*(zqvsw(iv) - qvg) * EXP (zcevxp  * zlnqrk), maxevap)
 
       ! Calculation of below-cloud rainwater freezing
       IF ( tg < ztrfrz ) THEN
