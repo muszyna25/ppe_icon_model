@@ -316,7 +316,7 @@ CONTAINS
           CALL datetimeToString(time_config%tc_stopdate, sim_step_info%restart_time)
           sim_step_info%dtime      = dtime
           jstep0 = 0
-          IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
+          IF (isRestart()) THEN
             ! get start counter for time loop from restart file:
             CALL get_restart_attribute("jstep", jstep0)
           END IF
