@@ -64,6 +64,7 @@ pvi%a8(0,:,:)      =pvi%a8(1,:,:)
 pvi%a8(nlatx+1,:,:)=pvi%a8(nlatx,:,:)
 ALLOCATE(avi%tmprt(NCX,nlev))
 ALLOCATE(avi%vmr2molm2(NCX,nlev))
+ALLOCATE(avi%pres(NCX,nlev))
 ALLOCATE(avi%o3_vmr(NCX,nlev))
 ALLOCATE(avi%cell_center_lat(NCX))
 END SUBROUTINE cariolle_init

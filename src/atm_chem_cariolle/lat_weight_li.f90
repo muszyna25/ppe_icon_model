@@ -23,10 +23,4 @@ inmw1_lat(jcb:jce)=MAX(INT(n_order*(cell_center_lat(jcb:jce)-r_lat_clim(1))*r_de
 inmw2_lat(jcb:jce)=inmw1_lat(jcb:jce)+1
 wgt2_lat(jcb:jce)=n_order*(cell_center_lat(jcb:jce)-r_lat_clim(inmw1_lat(jcb:jce)))*r_delta_lat_clim_i
 wgt1_lat(jcb:jce)=1.0_wp-wgt2_lat(jcb:jce)
-write(*,*) 'r_lat_clim=',r_lat_clim, 'r_delta_lat_clim=',r_delta_lat_clim
-write(*,*) 'cell_center_lat(3)=',cell_center_lat(3)
-write(*,*) 'inmw1_lat(3)=',inmw1_lat(3),'inmw2_lat(3)=',inmw2_lat(3)
-write(*,*) 'r_lat_clim(inmw1_lat(3))=',r_lat_clim(inmw1_lat(3)), &
-           'r_lat_clim(inmw2_lat(3))=',r_lat_clim(inmw2_lat(3))
-write(*,*) 'wgt1_lat(3)=',wgt1_lat(3),'wgt2_lat(3)=',wgt2_lat(3)
 END SUBROUTINE lat_weight_li

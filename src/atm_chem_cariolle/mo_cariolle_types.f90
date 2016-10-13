@@ -7,6 +7,7 @@ INTEGER(wi), PARAMETER          :: nlatx=65, nlevx=91, nmonthx=12
 TYPE t_avi
 REAL(wp), POINTER :: tmprt(:,:)
 REAL(wp), POINTER :: vmr2molm2(:,:) 
+REAL(wp), POINTER :: pres(:,:)
 REAL(wp), POINTER :: o3_vmr(:,:)
 REAL(wp), POINTER :: cell_center_lat(:)
 LOGICAL           :: ldown

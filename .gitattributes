@@ -1386,6 +1386,7 @@ src/atm_chem_cariolle/lat_weight_li.f90 -text
 src/atm_chem_cariolle/mo_bc_cariolle_read.f90 -text
 src/atm_chem_cariolle/mo_cariolle_kind.f90 -text
 src/atm_chem_cariolle/mo_cariolle_types.f90 -text
+src/atm_chem_cariolle/pressure_weight_li.f90 -text
 src/atm_dyn_icoham/m_dyn.f90 -text
 src/atm_dyn_icoham/mo_eta_coord_diag.f90 -text
 src/atm_dyn_icoham/mo_expensive_functions.f90 -text

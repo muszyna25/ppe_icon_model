@@ -189,7 +189,7 @@ CONTAINS
 !++jsr
     ! Temporary variables for Cariolle scheme (ozone)
     REAL(wp)    :: do3dt(nbdim,nlev)
-    EXTERNAL       lat_weight_li
+    EXTERNAL       lat_weight_li, pressure_weight_li
 !--jsr
  
     ! Temporary array used by GW_HINES
@@ -1000,10 +1000,11 @@ CONTAINS
 !++jsr
     avi%tmprt(:,:)=field%temp(:,:,jb)
     avi%vmr2molm2(jcs:jce,:)=zmair(jcs:jce,:)/amd
+    avi%pres(jcs:jce,:)=field%presm_old(jcs:jce,:,jb)
     avi%o3_vmr(:,:)=0.0001_wp
     avi%cell_center_lat(:)=p_patch(jg)%cells%center(:,jb)%lat
     avi%ldown=.TRUE.
-    CALL cariolle_do3dt(jcs,jce,nbdim,nlev,lat_weight_li,avi,do3dt)
+    CALL cariolle_do3dt(jcs,jce,nbdim,nlev,lat_weight_li,pressure_weight_li,avi,do3dt)
 !--jsr
 
     !-------------------------------------------------------------------
