@@ -70,7 +70,8 @@ MODULE mo_echam_phy_main
   USE mo_model_domain,        ONLY: p_patch
   USE mo_util_dbg_prnt,      ONLY: dbg_print
 !++jsr
-  USE mo_cariolle_types,      ONLY: avi
+  USE mo_cariolle_types,      ONLY: avi, t_time_interpolation
+  USE mo_time_interpolation_weights, ONLY: wi_limm
 !--jsr
 
   IMPLICIT NONE
@@ -189,6 +190,7 @@ CONTAINS
 !++jsr
     ! Temporary variables for Cariolle scheme (ozone)
     REAL(wp)    :: do3dt(nbdim,nlev)
+    TYPE(t_time_interpolation) :: time_interpolation
     EXTERNAL       lat_weight_li, pressure_weight_li
 !--jsr
  
@@ -1004,7 +1006,13 @@ CONTAINS
     avi%o3_vmr(:,:)=0.0001_wp
     avi%cell_center_lat(:)=p_patch(jg)%cells%center(:,jb)%lat
     avi%ldown=.TRUE.
-    CALL cariolle_do3dt(jcs,jce,nbdim,nlev,lat_weight_li,pressure_weight_li,avi,do3dt)
+    time_interpolation%imonth1=wi_limm%inm1
+    time_interpolation%imonth2=wi_limm%inm2
+    time_interpolation%weight1=wi_limm%wgt1
+    time_interpolation%weight2=wi_limm%wgt2
+    CALL cariolle_do3dt(jcs,                jce,                nbdim,          &
+                       &nlev,               time_interpolation, lat_weight_li,  &
+                       &pressure_weight_li, avi,                do3dt           )
 !--jsr
 
     !-------------------------------------------------------------------
