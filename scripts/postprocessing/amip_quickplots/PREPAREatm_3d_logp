@@ -62,6 +62,7 @@ set  -ex
 
 #--interpolate to pressure level and t63
 cdo -setpartabn,partab -ap2pl,${LEVELS} $inDat Uatm_dyn_pl_log
+REMAP_AREA_MIN=0.5 
 cdo -r remapycon,t63grid  Uatm_dyn_pl_log Uatm_dyn_t63_L47
 rm -f  busy*
 set +e

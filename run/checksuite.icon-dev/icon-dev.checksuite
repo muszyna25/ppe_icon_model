@@ -402,6 +402,11 @@ if [ "${EXPERIMENT}" == 'atm_ape_test' ]; then
     DATES=${DATES='19790101T000000Z 19790101T000400Z 19790101T000800Z 19790101T001200Z 19790101T001600Z'}
     RESTART_DATE=${RESTART_DATE='19790101T000800Z'}
 fi
+if [ "${EXPERIMENT}" == 'atm_rce_test' ]; then
+    TYPES=${TYPES='atm_2d_ml atm_2d_rmb_ml phy_3d_ml phy_3d_rmb_ml'}
+    DATES=${DATES='19790101T000000Z 19790101T000400Z 19790101T000800Z 19790101T001200Z 19790101T001600Z'}
+    RESTART_DATE=${RESTART_DATE='19790101T000800Z'}
+fi
 
 echo " "
 echo "=============================================================="
@@ -697,9 +702,9 @@ if string_in_list $MD $CMODES; then
             # find out how many nodes and processes per node are in use
 
             N_NODES=`grep "no_of_nodes=" exp.${SCRIPT}.run`
-            echo ${N_NODES} | grep SLURM_JOB_NUM_NODES && N_NODES=1 || N_NODES=${N_NODES#'no_of_nodes='}
+            eval N_NODES=\""${N_NODES#'no_of_nodes='}"\"
             N_PPNODE=`grep "mpi_procs_pernode=" exp.${SCRIPT}.run`
-            N_PPNODE=${N_PPNODE#'mpi_procs_pernode='}
+            eval N_PPNODE=\""${N_PPNODE#'mpi_procs_pernode='}"\"
             N_PROCS=$(( N_NODES * N_PPNODE ))
 
             if [ $N_PROCS -gt 1 ]; then
@@ -708,7 +713,8 @@ if string_in_list $MD $CMODES; then
 
                 RUN_SCRIPT=exp.${EXP_TEST}.run
                 cd ${SCRIPT_DIR}
-                sed s/${SCRIPT}/${EXP_TEST}/g < exp.${SCRIPT}.run > ${RUN_SCRIPT}
+                sed "s/${SCRIPT}/${EXP_TEST}/g" exp.${SCRIPT}.run \
+                    > ${RUN_SCRIPT}
 
 
                 if [ $N_PPNODE -gt 1 ]; then
@@ -719,8 +725,9 @@ if string_in_list $MD $CMODES; then
                     N_PPNODE_NEW=$(( N_PPNODE - 1 ))
 
                     # change script variables
-                    sed s/"mpi_procs_pernode=$N_PPNODE"/"mpi_procs_pernode=$N_PPNODE_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
-                    mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
+                    sed -i \
+                      's/\b\(mpi_procs_pernode\)=.*/\1='"$N_PPNODE_NEW"'/g' \
+                      ${RUN_SCRIPT}
 
                     # change system variables where necessary
                     if [ "${TARGET_MACHINE}" == 'blizzard' ]; then
@@ -744,8 +751,9 @@ if string_in_list $MD $CMODES; then
 	            N_PPNODE_NEW=$N_PPNODE
 
                     # change script variables
-	            sed s/"no_of_nodes=$N_NODES"/"no_of_nodes=$N_NODES_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
-                    mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
+	            sed -i \
+                      's/\b\(no_of_nodes\)=.*/\1='"$N_NODES_NEW"'/g' \
+                      ${RUN_SCRIPT}
 
                     # change system variables where necessary
                     if [ "${TARGET_MACHINE}" == 'blizzard' ]; then
@@ -764,8 +772,9 @@ if string_in_list $MD $CMODES; then
 	        fi # N_PPNODE>1
 
                 N_PROCS_NEW=$(( N_NODES_NEW * N_PPNODE_NEW ))
-                sed s/"mpi_total_procs=$N_PROCS"/"mpi_total_procs=$N_PROCS_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
-                mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
+                sed -i \
+                  's/((\(mpi_total_procs=\).*/\1'"$N_PROCS_NEW"'/g' \
+                  ${RUN_SCRIPT}
 
                 echo "Perform $TEST run"
                 chmod 755 ${RUN_SCRIPT}
@@ -836,37 +845,42 @@ if string_in_list $MD $CMODES; then
             # find out how many omp threads are in use
 
             N_OMP_NUM_THREADS=`grep "export OMP_NUM_THREADS=" exp.${SCRIPT}.run`
-            N_OMP_NUM_THREADS=${N_OMP_NUM_THREADS#'export OMP_NUM_THREADS='}
+            eval N_OMP_NUM_THREADS=\""${N_OMP_NUM_THREADS#'export OMP_NUM_THREADS='}"\"
             N_ICON_THREADS=`grep "export ICON_THREADS=" exp.${SCRIPT}.run`
-            N_ICON_THREADS=${N_ICON_THREADS#'export ICON_THREADS='}
+            eval N_ICON_THREADS=\""${N_ICON_THREADS#'export ICON_THREADS='}"\"
 
             if [ $N_OMP_NUM_THREADS -gt 1 ]; then
 
 	        TEST_POSSIBLE='yes'
 
                 RUN_SCRIPT=exp.${EXP_TEST}.run
-                cd ${SCRIPT_DIR}
-                sed s/${SCRIPT}/${EXP_TEST}/g < exp.${SCRIPT}.run > ${RUN_SCRIPT}
+                sed "s/${SCRIPT}/${EXP_TEST}/g" exp.${SCRIPT}.run \
+                    > ${RUN_SCRIPT}
 
                 N_OMP_NUM_THREADS_NEW=$(( N_OMP_NUM_THREADS - 1 ))
 	        N_ICON_THREADS_NEW=$(( N_ICON_THREADS - 1 ))
 
+                # since the mistral script dynamically adapts the
+                # number of tasks to the number of threads, these need
+                # to be fixed too
+                N_PPNODE=`grep "mpi_procs_pernode=" exp.${SCRIPT}.run`
+                eval N_PPNODE=\""${N_PPNODE#'mpi_procs_pernode='}"\"
+
                 # change script variables
-                sed s/"export OMP_NUM_THREADS=$N_OMP_NUM_THREADS"/"export OMP_NUM_THREADS=$N_OMP_NUM_THREADS_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
-                mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
-                sed s/"export ICON_THREADS=$N_ICON_THREADS"/"export ICON_THREADS=$N_ICON_THREADS_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
-                mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
+                sed -i \
+                  -e 's/\b\(OMP_NUM_THREADS\)=.*/\1='"$N_OMP_NUM_THREADS_NEW"'/g' \
+                  -e 's/\b\(ICON_THREADS\)=.*/\1='"$N_ICON_THREADS_NEW"'/g' \
+                  -e 's/\b\(mpi_procs_pernode\)=.*/\1='"$N_PPNODE"'/g' \
+                      ${RUN_SCRIPT}
 
                 # change system variables where necessary
                 if [ "${TARGET_MACHINE}" == 'blizzard' ]; then
                     THREADS=`grep "# @"     ${RUN_SCRIPT} | grep  " task_affinity "`
                     THREADS_NEW=${THREADS%\($N_OMP_NUM_THREADS\)}\($N_OMP_NUM_THREADS_NEW\)
-                    sed s/"$THREADS"/"$THREADS_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
-                    mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
+                    sed -i "s/${THREADS}/${THREADS_NEW}/g" ${RUN_SCRIPT}
                     THREADS=`grep "# @"     ${RUN_SCRIPT} | grep  " parallel_threads "`
                     THREADS_NEW=${THREADS%$N_OMP_NUM_THREADS}$N_OMP_NUM_THREADS_NEW
-                    sed s/"$THREADS"/"$THREADS_NEW"/g < ${RUN_SCRIPT} > ${RUN_SCRIPT}.out
-                    mv ${RUN_SCRIPT}.out ${RUN_SCRIPT}
+                    sed -i "s/${THREADS}/${THREADS_NEW}/g" ${RUN_SCRIPT}
                 fi
 ##        if [ "${TARGET_MACHINE}" == 'thunder'  ]; then
 ##          THREADS=`grep "#SBATCH" ${RUN_SCRIPT} | grep  "cpus-per-task"`

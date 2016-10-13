@@ -62,7 +62,7 @@ reg_lon_def_tri=0.,1.125,358.875
 # (2) Set variables needed by the scripting mechanism
 
 # horizontal grid(s)
-grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip
+grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip/r0002
 atmo_dyn_grids='r2b4_amip.nc'
 
 # start and end date+time
@@ -79,8 +79,7 @@ restart_interval="PT16M"
 (( dt_restart    = 16 * minute))    # !! MUST BE EQUAL TO "restart_interval"     !!
 
 # output intervals
-output_interval_3d="PT4M"
-output_interval_2d="PT4M"
+output_interval="PT4M"
 file_interval="PT4M"
 
 # namelist files
@@ -171,7 +170,7 @@ cat > ${atmo_namelist} << EOF
  irad_o2          = 2           ! 2: horizontally and vertically constant
  irad_cfc11       = 4           ! 4: from greenhouse gas scenario
  irad_cfc12       = 4           ! 4: from greenhouse gas scenario
- irad_aero        = 15          ! 0: no aerosol
+ irad_aero        = 18          ! 0: no aerosol
                                 !13: only Kinne's tropospheric aerosols 
                                 !14: only Stenchikov's volcanic aerosols
                                 !15: Kinne aerosol optics for troposphere
@@ -184,16 +183,9 @@ cat > ${atmo_namelist} << EOF
  isolrad          = 1           ! 1: transient solar irradiance (at 1 AE)
 /
 &psrad_nml
-lradforcing       = .FALSE.,.FALSE. ! diagnose instantaneous radiative forcing
-                                    ! for solar and lw spectrum
-irad_aero_forcing     = 15          ! Kinne aerosols + Stenchikov's volc aerosols
-                                    ! as reference for instantaneous forcing
-rad_perm          = 1               ! Integer for perturbing random number seeds
+ rad_perm         = 1           ! Integer for perturbing random number seeds
 /
 &psrad_orbit_nml
-cecc        = 0.0
-cobld       = 0.0
-l_orbvsop87 = .TRUE.
 /
 &echam_conv_nml
 /
@@ -248,12 +240,12 @@ add_required_file ${basedir}/run/${lnd_namelist}                        ./
 # dictionary file for output variable names
 #
 dict_file="dict.${EXPNAME}"
-cat dict.iconam.mpim_inst  > ${dict_file}
+cat dict.iconam.mpim  > ${dict_file}
 add_required_file ${basedir}/run/${dict_file}                           ./
 
 # initial conditions
 #
-INDATA=${icon_data_poolFolder}/input/r0003
+INDATA=${icon_data_poolFolder}/input/r0004
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
 datadir=${icon_data_poolFolder}/setup/ifs_iconremap_amip
@@ -310,7 +302,7 @@ done
 #done
 #
 # - tropospheric anthropogenic aerosols, simple plumes
-  add_link_file ${basedir}/data/MACv2.0-SP_v1-beta.nc ./MACv2.0-SP_v1-beta.nc
+  add_link_file ${basedir}/data/MACv2.0-SP_v1.nc ./MACv2.0-SP_v1.nc
 #   Kinne background aerosols are needed for the years 1849, 1850, 1851 
 !   accessing all the same data of 1850:
 datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
@@ -385,7 +377,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval_3d}"
+ output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
@@ -407,7 +399,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval_2d}"
+ output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
@@ -434,7 +426,9 @@ if [[ "$output_atm_2d" == "yes" ]]; then
                     'sh_vdiff', 'qv_vdiff',
                     'ch_concloud',
                     'con_dtrl', 'con_dtri', 'con_iteqv',
-                    'cld_dtrl', 'cld_dtri', 'cld_iteq'
+                    'cld_dtrl', 'cld_dtri', 'cld_iteq', 
+                    'sfcwind' , 'uas'     , 'vas'     ,
+                    'tas'     , 'dew2'
 /
 EOF
 fi
@@ -452,7 +446,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval_3d}"
+ output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
@@ -465,8 +459,35 @@ if [[ "$output_phy_3d" == "yes" ]]; then
                     'tend_va'      , 'tend_va_dyn'  , 'tend_va_phy'  ,
                     'tend_va_vdf'  , 'tend_va_gwh'  , 'tend_va_sso'  ,
                     'tend_va_cnv'  ,
-                    'tend_hus'     , 'tend_hus_dyn' , 'tend_hus_phy' ,
-                    'tend_hus_cld' , 'tend_hus_cnv' , 'tend_hus_vdf' ,
+                    'tend_qhus'    , 'tend_qhus_dyn', 'tend_qhus_phy',
+                    'tend_qhus_cld', 'tend_qhus_cnv', 'tend_qhus_vdf',
+                    'pfull','ps'
+/
+EOF
+fi
+
+
+output_trc_3d=yes # "yes" increases the output volume significantly!
+#
+if [[ "$output_trc_3d" == "yes" ]]; then
+  #
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_trc_3d"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "${output_interval}"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'mairvi_phy',
+                    'mdryvi_phy',
+                    'mh2ovi_phy',
+                    'qhus_phy'  , 'mhusvi_phy'    , 'tend_mhusvi_phy', 
+                    'qclw_phy'  , 'mclwvi_phy'    , 'tend_mclwvi_phy', 
+                    'qcli_phy'  , 'mclivi_phy'    , 'tend_mclivi_phy', 
                     'pfull','ps'
 /
 EOF
@@ -485,7 +506,7 @@ if [[ "$output_lnd" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval_2d}"
+ output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'
@@ -518,7 +539,7 @@ if [[ "$output_aer_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval_3d}"
+ output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'aer_aod_533',  'aer_ssa_533',  'aer_asy_533' , 
@@ -543,7 +564,7 @@ if [[ "$output_radforcing_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval_3d}"
+ output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'fsw_clear_top','fsw_total_top',

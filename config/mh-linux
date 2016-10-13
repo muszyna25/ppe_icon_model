@@ -12,6 +12,7 @@
 # 2014-02-03, Rene Redler,     MPI-M: sun compiler removed.
 # 2014-03-27, Will Sawyer,     CSCS : additions for CSCS Cray platforms
 # 2015-09-25, Will Sawyer,     CSCS : refinements for CSCS platforms
+# 2016-07-14, Will Sawyer,     CSCS : additional refinements and bug fixes
 #
 #-----------------------------------------------------------------------------
 
@@ -119,7 +120,7 @@ case "$fortran_compiler" in
         DEBUG_FLAGS = -O0 -float-store -nan $FDEBUG
         STD_FLAGS   = -Wc,-O2 -Wc,-march=native -O0 -float-store -nan $FDEBUG
 	HIOPT_FLAGS = -Wc,-O3 -Wc,-march=native -float-store -nan $FDEBUG
-	MISMATCHS   = -wmismatch=mpi_allgather,mpi_allgatherv,mpi_allreduce,mpi_alltoall,mpi_alltoallv,mpi_bcast,mpi_free_mem,mpi_gather,mpi_gatherv,mpi_get,mpi_get_address,mpi_isend,mpi_irecv,mpi_op_create,mpi_pack,mpi_recv,mpi_reduce,mpi_scatter,mpi_scatterv,mpi_send,mpi_sendrecv,mpi_type_commit,mpi_type_extent,mpi_type_struct,mpi_unpack,mpi_win_create,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double,psmile_bsend -w=uep
+	MISMATCHS   = -wmismatch=mpi_allgather,mpi_allgatherv,mpi_allreduce,mpi_alltoall,mpi_alltoallv,mpi_bcast,mpi_free_mem,mpi_gather,mpi_gatherv,mpi_get,mpi_get_address,mpi_isend,mpi_irecv,mpi_sendrecv,mpi_op_create,mpi_pack,mpi_recv,mpi_reduce,mpi_scatter,mpi_scatterv,mpi_send,mpi_type_commit,mpi_type_extent,mpi_type_struct,mpi_unpack,mpi_win_create,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double,psmile_bsend -w=uep
         FFLAGS      = $GEN_FLAGS -f2008 $MISMATCHS $INCLUDES
         F77         = nagfor
         F77FLAGS    = $GEN_FLAGS -w=obs -O -dcfuns -mismatch_all
@@ -161,8 +162,8 @@ case "$fortran_compiler" in
         CC          = cc
         FC          = ftn
         F77         = $FC
-        FFLAGS      = -v -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -r am -Ktrap=divz,ovf,inv
-        CFLAGS      = -v -I${GRIB_API}/include -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -O3
+        FFLAGS      = -v -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc  -O cache0 -r am -Ktrap=divz,ovf,inv
+        CFLAGS      = -v -I${GRIB_API}/include -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -O3
         F77FLAGS    = $FFLAGS
         FCLIBS      = -v
         GEN_FLAGS   =
@@ -179,7 +180,7 @@ case "$fortran_compiler" in
         CC          = cc
         FC          = ftn
         F77         = $FC
-        FFLAGS      = -v -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf -hacc_model=deep_copy
+        FFLAGS      = -v -D__OPENACC_BUG_TYPES_1 -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf -hacc_model=deep_copy
         CFLAGS      = -v -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3
         CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3
         F77FLAGS    = $FFLAGS
@@ -227,7 +228,7 @@ case "$ac_sitename" in
    cscs.ch)
         echo The host is:  $HOST
         case "$HOST" in
-            *daint*)
+            *daint*|*santis*)
                 make_command="make" "-j" "8"
                 load_profile="." "/opt/modules/default/etc/modules.sh"
                 submit="sbatch"
@@ -239,13 +240,13 @@ case "$ac_sitename" in
                 case "$fortran_compiler" in
                     default|gcc)
                         config_target=daint_cpu
-                        load_modules ="PrgEnv-gnu" "cray-netcdf" "${load_modules}"
+                        load_modules ="PrgEnv-gnu" "cray-netcdf" "cray-mpich" "${load_modules}"
         		CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
 			NETCDFROOT  = /opt/cray/netcdf/default/GNU/4.8
                     ;;
                     intel)
                         config_target=daint_cpu
-                        load_modules = "PrgEnv-intel" "cray-netcdf" "${load_modules}"
+                        load_modules = "PrgEnv-intel" "cray-netcdf" "cray-mpich" "${load_modules}"
         		CFLAGS      = -std=gnu99 -march=native -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
         		STD_FLAGS   = -O2 -mavx -fltconsistency -g -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
         		FFLAGS      = -g -pc64 -fpp -D__LOOP_EXCHANGE
@@ -255,24 +256,24 @@ case "$ac_sitename" in
                     ;;
                     pgi)
                         config_target=daint_cpu
-                        load_modules = "PrgEnv-cray" "cray-netcdf" "${load_modules}"
+                        load_modules = "PrgEnv-pgi" "cray-netcdf" "cray-mpich" "${load_modules}"
         		CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
 			NETCDFROOT  = /opt/cray/netcdf/default/PGI/15.3
                     ;;
                     cray)
                         config_target=daint_cpu
-                        load_modules = "PrgEnv-cray" "cray-netcdf" "${load_modules}"
+                        load_modules = "PrgEnv-cray" "cray-netcdf" "cray-mpich" "${load_modules}"
         		CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
 			NETCDFROOT  = /opt/cray/netcdf/default/CRAY/83
                     ;;
                     cray_gpu)
                         config_target=daint_gpu
-                        load_modules = "PrgEnv-cray" "cray-netcdf" "craype-accel-nvidia35" "${load_modules}"
+                        load_modules = "PrgEnv-cray" "cray-netcdf" "cray-mpich" "craype-accel-nvidia35" "${load_modules}"
         		CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
 			NETCDFROOT  = /opt/cray/netcdf/default/CRAY/83
                     ;;
                 esac
-                mpi_startrun="aprun" "-N" "\\\$mpi_procs_pernode" "-n" "\\\$mpi_total_procs" "-d" "\\\$OMP_NUM_THREADS"
+                mpi_startrun="srun" "-n" "\\\$mpi_total_procs" "--ntasks-per-node" "\\\$mpi_procs_pernode" "--threads-per-core=1" "--cpus-per-task" "\\\$OMP_NUM_THREADS"
                 ;;
             *dora*)
                 config_target=dora
@@ -301,7 +302,7 @@ case "$ac_sitename" in
 			NETCDFROOT  = /opt/cray/netcdf/default/CRAY/83
                      ;;
                 esac
-                mpi_startrun="aprun" "-N" "\\\$mpi_procs_pernode" "-n" "\\\$mpi_total_procs" "-d" "\\\$OMP_NUM_THREADS"
+                mpi_startrun="srun" "-n" "\\\$mpi_total_procs" "--ntasks-per-node" "\\\$mpi_procs_pernode" "--threads-per-core=1" "--cpus-per-task" "\\\$OMP_NUM_THREADS"
                 ;;
         esac
         ;;
@@ -326,7 +327,12 @@ case "$ac_sitename" in
                       ;;
                     cray)
                       RTTOV_LIBS      = -L/usr/local/pkg/for0adm/lib -L/usr/local/pkg/for0adm/lib/unsupported -lradiance -lrttov10.2 -lhrit_tools
-                      OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $RTTOV_LIBS $OTHER_LIBS
+                      OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $RTTOV_LIBS ${OTHER_LIBS}
+                      case "$with_art" in
+                           yes)
+                             OTHER_LIBS = ${OTHER_LIBS} -L/e/uhome/jfoerstn/Software/lib -lTIXI -L/opt/cray/xc-sysroot/default/usr/lib64 -lxslt -lxml2
+                             ;;
+                      esac
                       STD_FLAGS       = -D__USE_RTTOV -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
                       FFLAGS          = ${FFLAGS} -I/usr/local/pkg/for0adm/include/radiance
                       ;;
@@ -334,6 +340,11 @@ case "$ac_sitename" in
                       load_modules    = PrgEnv-gnu netcdf grib_api cray-mpich ${load_modules}
                       FFLAGS          = ${FFLAGS}
                       OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $OTHER_LIBS
+                      case "$with_art" in
+                           yes)
+                             OTHER_LIBS = ${OTHER_LIBS} -L/e/uhome/jfoerstn/Software/lib -lTIXI -L/opt/cray/xc-sysroot/default/usr/lib64 -lxslt -lxml2
+                             ;;
+                      esac
                       ;;
                 esac
                 ;;
@@ -420,6 +431,7 @@ case "$ac_sitename" in
                         FPPFLAGS    = -fpp
                         STD_FLAGS   = -ftz -O2 -march=native -pc64 -fp-model source -g -assume realloc_lhs -DIFORT_CONSISTENCY_ENFORCE -DLRTM_FULL_VECTORIZATION
                         HIOPT_FLAGS = -O3 -march=native -mkl=sequential -pc64 -no-prec-div -no-prec-sqrt -fast-transcendentials -reentrancy threaded
+                        OCEAN_FLAGS = -O3 -march=native -pc64 -fp-model source -mkl=sequential -reentrancy threaded -qopt-report-file=stdout -qopt-report=0 -qopt-report-phase=vec -D__OMP_FIRSTTOUCH__
                         FFLAGS      = $FPPFLAGS
                         F77FLAGS    = $FPPFLAGS
 
@@ -481,6 +493,7 @@ case "$ac_sitename" in
                         CFLAGS = -std=gnu99 -g -O3 -march=native -mpc64 -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBSZ -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2 -DgFortran -DWITHOUT_PACK_EXTERNAL
                         F77    = gfortran
                         FC     = gfortran
+                        OCEAN_FLAGS = -march=native -O3 -mpc64 -D__LOOP_EXCHANGE -g
 
                         NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-$compiler_version
                         NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-gcc48
@@ -533,8 +546,23 @@ case "$ac_sitename" in
         esac
         ;;
 #===============================================
-    kfa-juelich.de)
+    kfa-juelich.de|*jureca*)
         case "$(hostname)" in
+            jrl*)
+                NETCDFROOT    = $EBROOTNETCDF
+                NETCDFLIBPATH = $NETCDFROOT/lib64
+                NETCDFFROOT   = $EBROOTNETCDFMINFORTRAN
+                HDF5ROOT      = $EBROOTHDF5
+                SZIPROOT      = $EBROOTSZIP
+                ZLIBROOT      = $EBROOTZLIB
+                MPIROOT       = $EBROOTPSMPI
+                MPI_LIB       = -L$MPIROOT/lib -lmpi -lmpifort
+                load_modules  = Intel ParaStationMPI netCDF-Fortran ${load_modules}
+                config_target = jureca
+                make_command  = make -j8
+                submit        = sbatch
+                mpi_startrun  = srun
+                ;;
             juqueen*)
                 #NETCDFROOT  = /bgsys/local/netcdf
                 NETCDFROOT = /homeb/slmet/slmet016/netcdf_xlc
@@ -559,13 +587,18 @@ case "$ac_sitename" in
     kit.edu)
         case $ac_hostname in
             ic2*)
-                NETCDFROOT  = /pfs/imk/ICON/LIBRARIES
-                NETCDFFROOT = /pfs/imk/ICON/LIBRARIES
-                HDF5ROOT    = /pfs/imk/ICON/LIBRARIES
-                SZIPROOT    = /pfs/imk/ICON/LIBRARIES
+                NETCDFROOT  = /pfs/imk/ICON/LIBRARIES_IFORT16
+                NETCDFFROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
+                HDF5ROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16
+                SZIPROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16
                 ZLIBROOT    = /usr
-                MPIROOT     = /pfs/imk/ICON/LIBRARIES
+                MPIROOT     = /pfs/imk/ICON/LIBRARIES_IFORT16
                 MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
+                case "$with_art" in
+                     yes)
+                       OTHER_LIBS = ${OTHER_LIBS} -lTIXI
+                       ;;
+                esac
                 CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2
                 config_target=ic2
                 make_command=make -j8

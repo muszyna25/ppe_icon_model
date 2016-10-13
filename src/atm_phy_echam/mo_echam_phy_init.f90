@@ -33,7 +33,7 @@ MODULE mo_echam_phy_init
 
   ! model configuration
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_run_config,           ONLY: nlev, iqv, iqt, ntracer, ltestcase
+  USE mo_run_config,           ONLY: nlev, iqv, iqt, ico2, ntracer, ltestcase
   USE mo_vertical_coord_table, ONLY: vct
   USE mo_dynamics_config,      ONLY: iequations
   USE mo_impl_constants,       ONLY: inh_atmosphere, max_char_length
@@ -57,7 +57,8 @@ MODULE mo_echam_phy_init
   ! radiation
   USE mo_radiation_config,     ONLY: ssi_radt, tsi_radt, tsi, &
                                    & ighg, isolrad, irad_aero
-  USE mo_srtm_config,          ONLY: setup_srtm, ssi_amip, ssi_default, ssi_preind, ssi_rce
+  USE mo_psrad_srtm_setup,     ONLY: setup_srtm, ssi_amip, ssi_default, &
+                                   & ssi_preind, ssi_RCEdiurnOn, ssi_RCEdiurnOFF
   USE mo_lrtm_setup,           ONLY: lrtm_setup
   USE mo_newcld_optics,        ONLY: setup_newcld_optics
 
@@ -94,7 +95,7 @@ MODULE mo_echam_phy_init
   USE mo_time_interpolation_weights ,ONLY: wi_limm
   USE mo_bc_sst_sic,           ONLY: read_bc_sst_sic, bc_sst_sic_time_interpolation
   USE mo_bc_greenhouse_gases,  ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
-    &                                bc_greenhouse_gases_file_read
+    &                                bc_greenhouse_gases_file_read, ghg_co2mmr
   ! for aeorosols in simple plumes
   USE mo_bc_aeropt_splumes,    ONLY: setup_bc_aeropt_splumes
 
@@ -164,19 +165,19 @@ CONTAINS
         ssi_radt(:) = ssi_amip(:)
         tsi_radt = SUM(ssi_amip)
         tsi      = tsi_radt
+      CASE (4)
+        ssi_radt(:) = ssi_RCEdiurnOn(:)
+        tsi_radt = SUM(ssi_RCEdiurnON)
+        tsi      = tsi_radt
+      CASE (5)
+        ssi_radt(:) = ssi_RCEdiurnOFF(:)
+        tsi_radt = SUM(ssi_RCEdiurnOFF)
+        tsi      = tsi_radt
       CASE default
         WRITE (message_text, '(a,i2,a)') &
              'isolrad = ', isolrad, ' in radiation_nml namelist is not supported'
-        CALL message('init_echam_phy', message_text)
+        CALL finish('init_echam_phy', message_text)
       END SELECT
-      IF ( ctest_name == 'RCE' ) THEN
-        tsi_radt = 0._wp
-        ! solar flux (W/m2) in 14 SW bands
-        ssi_radt(:) = ssi_rce(:)
-        ! solar constant (W/m2)
-        tsi_radt    = SUM(ssi_radt(:))
-        tsi         = tsi_radt
-      ENDIF
       CALL setup_srtm
       CALL lrtm_setup('rrtmg_lw.nc')
       CALL setup_newcld_optics('ECHAM6_CldOptProps.nc')
@@ -331,6 +332,15 @@ CONTAINS
       ! the mid points of the current and preceding or following year, if the
       ! current date is in the 1st or 2nd half of the year, respectively.
       CALL bc_greenhouse_gases_time_interpolation(current_date)
+      !
+      ! IF a CO2 tracer exists, then copy the time interpolated scalar ghg_co2mmr
+      ! to the 3-dimensional tracer field.
+      IF ( iqt <= ico2 .AND. ico2 <= ntracer ) THEN
+        DO jg = 1,ndomain
+          prm_field(jg)%qtrc(:,:,:,ico2) = ghg_co2mmr
+        END DO
+      END IF
+      !
     ENDIF
 
     ! interpolation weights for linear interpolation
@@ -440,7 +450,8 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP WORKSHARE
-      field% q    (:,:,:,iqv) = qv(:,:,:)
+      field% qtrc (:,:,:,:)   = 0._wp
+      field% qtrc (:,:,:,iqv) = qv(:,:,:)
       field% xvar (:,:,:)     = qv(:,:,:)*0.1_wp
       field% xskew(:,:,:)     = 2._wp
 
@@ -492,6 +503,19 @@ CONTAINS
       field% u_stress_tile(:,:,:) = 0._wp
       field% v_stress_tile(:,:,:) = 0._wp
 
+      field% sfcWind(:,  :) =   0._wp
+      field% uas    (:,  :) =   0._wp
+      field% vas    (:,  :) =   0._wp
+      field% tas    (:,  :) =   0._wp
+      field% dew2   (:,  :) =   0._wp
+      field% tasmax (:,  :) = -99._wp
+      field% tasmin (:,  :) = 999._wp
+      field% sfcWind_tile(:,:,:) = 0._wp
+      field% uas_tile    (:,:,:) = 0._wp
+      field% vas_tile    (:,:,:) = 0._wp
+      field% tas_tile    (:,:,:) = 0._wp
+      field% dew2_tile   (:,:,:) = 0._wp
+
       field% u_stress_sso(:,:) = 0._wp
       field% v_stress_sso(:,:) = 0._wp
       field% dissipation_sso(:,:) = 0._wp
@@ -504,25 +528,25 @@ CONTAINS
       tend% temp_rlw(:,:,:)   = 0._wp
       tend%temp_rlw_impl(:,:) = 0._wp
       tend% temp_cld(:,:,:)   = 0._wp
-      tend%    q_cld(:,:,:,:) = 0._wp
+      tend% qtrc_cld(:,:,:,:) = 0._wp
 
       tend% temp_dyn(:,:,:)   = 0._wp
-      tend%    q_dyn(:,:,:,:) = 0._wp
+      tend% qtrc_dyn(:,:,:,:) = 0._wp
       tend%    u_dyn(:,:,:)   = 0._wp
       tend%    v_dyn(:,:,:)   = 0._wp
 
       tend% temp_phy(:,:,:)   = 0._wp
-      tend%    q_phy(:,:,:,:) = 0._wp
+      tend% qtrc_phy(:,:,:,:) = 0._wp
       tend%    u_phy(:,:,:)   = 0._wp
       tend%    v_phy(:,:,:)   = 0._wp
 
       tend% temp_cnv(:,:,:)   = 0._wp
-      tend%    q_cnv(:,:,:,:) = 0._wp
+      tend% qtrc_cnv(:,:,:,:) = 0._wp
       tend%    u_cnv(:,:,:)   = 0._wp
       tend%    v_cnv(:,:,:)   = 0._wp
 
       tend% temp_vdf(:,:,:)   = 0._wp
-      tend%    q_vdf(:,:,:,:) = 0._wp
+      tend% qtrc_vdf(:,:,:,:) = 0._wp
       tend%    u_vdf(:,:,:)   = 0._wp
       tend%    v_vdf(:,:,:)   = 0._wp
 
@@ -561,6 +585,7 @@ CONTAINS
 
 !$OMP PARALLEL WORKSHARE
         field% ustar (:,:)   = 1._wp
+        field% wstar_tile (:,:,:) = 0._wp 
         field% kedisp(:,:)   = 0._wp
         field% tkem0 (:,:,:) = 1.e-4_wp
         field% tkem1 (:,:,:) = 1.e-4_wp
@@ -642,7 +667,7 @@ CONTAINS
       END IF
 
       SELECT CASE (ctest_name)
-      CASE('APE','APE_echam','RCEhydro') !Note that there is only one surface type in this case
+      CASE('APE','APE_echam','RCEhydro','RCE_glb') !Note that there is only one surface type in this case
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = jbs,nblks_c
@@ -659,7 +684,7 @@ CONTAINS
 
         IF ( is_coupled_run() ) CALL finish('ERROR: Use testcase APEc or APEc_nh for a coupled run')
 
-      CASE('RCE','RCE_glb') !Note that there is only one surface type in this case
+      CASE('RCE') !Note that there is only one surface type in this case
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = jbs,nblks_c

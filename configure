@@ -1407,7 +1407,7 @@ Optional Packages:
   --with-yac              enable use of yac
   --with-messy            enable Modular Earth Submodel System (MESSy)
                           interface
-  --with-flags=<name>     use specified group od flags (std, hiopt, noopt, etc
+  --with-flags=<name>     use specified group of flags (std, hiopt, noopt, etc
   --with-art              enable ART modules via precprocessing directive, if
                           available for selected compiler
   --with-xml2=DIR         Required libxml2
@@ -2620,6 +2620,9 @@ case $ac_hostname in #(
   mlogin*|btc*) :
     ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename ;; #(
+  daint*|dora*|santis*) :
+    ac_sitename=cscs.ch
+         fqdn=$ac_hostname.$ac_sitename ;; #(
   ic2*) :
     ac_sitename=kit.edu;
          fqdn=$ac_hostname.$ac_sitename ;; #(
@@ -2798,7 +2801,7 @@ if test "x$load_modules" != x ;  then
     echo 'exit $rc' >>conf_load_module.tmp
     chmod +x conf_load_module.tmp
     ./conf_load_module.tmp ; rc=$?
-#    rm conf_load_module.tmp
+    rm conf_load_module.tmp
     exit $rc
   fi
 fi
@@ -4297,7 +4300,7 @@ if test -n "$NETCDFROOT" ; then
   elif test -r "$NETCDFLIBPATH/libnetcdf.so" ; then
      NETCDF_LIB='-L$(NETCDFLIBPATH) -lnetcdf'
   else
-     echo "cannot read $NETCDFROOT/lib/libnetcdf.a"
+     echo "cannot read $NETCDFLIBPATH/libnetcdf.a"
      exit 1
   fi
   if test x$gcc_lib != x ; then
@@ -4327,8 +4330,8 @@ if test -n "$NETCDFROOT" ; then
   else
      if test -r "$NETCDFFROOT/include/netcdf.inc" ; then
        NETCDF_INCLUDE="-I$NETCDFROOT/include -I$NETCDFFROOT/include"
-       if test -r "$NETCDFFROOT/lib/libnetcdff.a" -a -r "$NETCDFROOT/lib/libnetcdf.a" ; then
-         NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
+       if test -r "$NETCDFFROOT/lib/libnetcdff.a" -a -r "$NETCDFLIBPATH/libnetcdf.a" ; then
+         NETCDF_LIB='-L$(NETCDFLIBPATH) -lnetcdf'
          NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff'
          case $ac_hostname in
          mlogin*|btc*)
@@ -4348,7 +4351,7 @@ if test -n "$NETCDFROOT" ; then
          esac
          NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"
        else
-         echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFROOT/lib/libnetcdf.a"
+         echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFLIBPATH/libnetcdf.a"
          exit 1
        fi
      fi
@@ -6359,6 +6362,10 @@ if [ "x$use_yac" = xyes ] ; then
    ac_libs="$ac_libs -lyac"
 fi
 
+if [ x"$OCEAN_FLAGS" == x ]; then
+  OCEAN_FLAGS=$HIOPT_FLAGS
+fi
+
 if eval test x\$\{`echo ${use_flags_group} | tr a-z A-Z`_FLAGS+set\} = xset; then :
   eval FFLAGS=\"\${FFLAGS} \${`echo ${use_flags_group} | tr a-z A-Z`_FLAGS}\"
    eval F77FLAGS=\"\${F77FLAGS} \${`echo ${use_flags_group} | tr a-z A-Z`_FLAGS}\"
@@ -8106,6 +8113,7 @@ if test "x${config_target}" = "xblizzard" ; then
    echo "export LDR_CNTRL=MAXDATA=0xD0000000@DSA"  >&8
 fi
 echo "$make_command" >&8
+echo "exit \$?" >&8
 exec 8>-
 chmod +x build_command
  ;;

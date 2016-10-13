@@ -29,18 +29,6 @@ MODULE mo_psrad_orbit_nml
   PRIVATE
   PUBLIC :: read_psrad_orbit_namelist
 
-  !--------------------
-  ! namelist variables   
-  !--------------------
-
-  REAL(wp) :: cecc           !< Eccentricity of Earth's Orbit
-  REAL(wp) :: cobld          !< Obliquity of Earth [Deg]
-  LOGICAL  :: l_orbvsop87    !< .TRUE. for VSOP87 orbit, 
-                             !< .FALSE. for Kepler orbit
-
-
-  NAMELIST /psrad_orbit_nml/ cecc, cobld, l_orbvsop87
-
 CONTAINS
   !>
   !!
@@ -50,12 +38,26 @@ CONTAINS
     INTEGER :: ist, funit
     INTEGER :: iunit
 
+    !--------------------
+    ! namelist variables   
+    !--------------------
+
+    REAL(wp) :: cecc           !< Eccentricity of Earth's Orbit
+    REAL(wp) :: cobld          !< Obliquity of Earth [Deg]
+    LOGICAL  :: l_orbvsop87    !< .TRUE. for VSOP87 orbit, 
+                               !< .FALSE. for Kepler orbit
+    LOGICAL  :: l_sph_symm_irr !< .TRUE. for globally averaged irradiation (RCE)
+                               !< .FALSE. for lat (lon) dependent irradiation
+
+    NAMELIST /psrad_orbit_nml/ cecc, cobld, l_orbvsop87, l_sph_symm_irr
+
     !----------------------------------------------------------------
     ! Default values
     !----------------------------------------------------------------
       cecc        =  0.016715_wp !< Eccentricity of Earth's Orbit
       cobld       =  23.44100_wp !< Obliquity of Earth [Deg]
-      l_orbvsop87 = .TRUE.
+      l_orbvsop87 = .TRUE.       !< (real) observed orbit, not idealized
+      l_sph_symm_irr = .FALSE.   !< lat (lon) dependent irradiation
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
     ! by values in the previous integration.
@@ -100,6 +102,7 @@ CONTAINS
     psrad_orbit_config%cecc        = cecc
     psrad_orbit_config%cobld       = cobld
     psrad_orbit_config%l_orbvsop87 = l_orbvsop87
+    psrad_orbit_config%l_sph_symm_irr = l_sph_symm_irr
   END SUBROUTINE read_psrad_orbit_namelist
 
 END MODULE mo_psrad_orbit_nml

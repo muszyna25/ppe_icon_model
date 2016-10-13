@@ -286,7 +286,8 @@ Fig.~\ref{fig:EU_nest} and Fig.~\ref{fig:EU_nest_polar}.
 
 \begin{table}
 \centering
-\caption{Key figures of the ICON-EU nest and the COSMO-EU region.}\label{tab:COSMO_ICON_nest_extent}
+\captionabove{Key figures of the ICON-EU nest and the COSMO-EU region.}\label{tab:COSMO_ICON_nest_extent}
+
 \begin{tabular}{|p{5cm}|l|l|}\hline
 \rowcolor{Gray}
                            &    {\centering\textbf{ICON-EU nest}}                 &     {\centering\textbf{COSMO-EU}} \\ \hline\hline
@@ -295,7 +296,7 @@ geogr. coordinates         &    $23.5^\degree~\text{W}$ -- $62.5^\degree~\text{E
                                                                                           $\phi_{\text{N}}    =  40^\degree~\text{N}$,     \\
                            &    $29.5^\degree~\text{N}$ -- $70.5^\degree~\text{N}$   &      $18.0^\degree~\text{W} - 23.5^\degree~\text{E}$ \\
                            &                                                      &     $20.0^\degree~\text{S} - 21.0^\degree~\text{N}$  \\[0.5em]
-mesh size                  &    $\approx 6.5~\km$ (R3B8)                          &     $0.0625^\degree$ ($\approx 7~\km$) \\
+mesh size                  &    $\approx 6.5~\km$ (R3B08)                         &     $0.0625^\degree$ ($\approx 7~\km$) \\
                            &    659156~triangles                                  &     $665 \times 657 = 436905$ grid points \\
 vertical levels            &    60 levels                                         &     40 levels      \\
 upper boundary             &    $22.5~\km$                                        &     $22.5~\km$ \\ \hline
@@ -304,24 +305,24 @@ upper boundary             &    $22.5~\km$                                      
 \end{table}
 
 \begin{note}
-    \textbf{A test version of model simulations including the nesting region over
-      Europe is running regularly, starting from 
+     \textbf{Model simulations including the nesting region over
+      Europe are running regularly, starting from 
       \begin{center}
-        2015-03-26, 12~UTC (\texttt{para1}).
+        2015-07-21, 06~UTC (\texttt{roma}).
       \end{center}
-      Currently only main forecasts at 00 and 12~UTC are performed, reaching out to 
-      $120\,\mathrm{h}$, while forecasts starting at 06 and 18~UTC are limited 
-      to $33\,\mathrm{h}$.
-      }
+      Main forecasts starting at $00$, $06$, $12$, $18\,\mathrm{UTC}$ reach out to 
+      $120\,\mathrm{h}$, while additional short-range forecasts starting at 
+      $03$, $09$, $15$, $21\,\mathrm{UTC}$ provide data until $+30\,\mathrm{h}$.
+      }     
 \end{note}
 
 
 Simulation on the global grid and the regional (Europe) domain are tightly coupled
 (\emph{two-way nesting}):
-Boundary data for the nest area is updated every time step (120~s).
+Boundary data for the nest area is updated every time step ($120\,\mathrm{s}$).
 %
 Feedback of atmospheric prognostic variables (except precipitation) is
-computed via relaxation on a 3~h time scale.
+computed via relaxation on a $3\,\mathrm{h}$ time scale.
 
   
 \begin{figure}[h]

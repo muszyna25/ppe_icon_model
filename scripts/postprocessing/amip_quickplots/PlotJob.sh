@@ -6,6 +6,13 @@ set -e
 # Please adjust the following variables in the script
 # explanation see below
 #
+# The following modules are loaded :
+# - cdo/1.7.2-gcc48 (mistral and other maschine)
+# - ncl/6.2.1-gccsys (mistral)
+# - ncl/6.2.0-precompiled (other maschine)
+# maybe you must change it; check it with:
+# "module avail cdo" and "module avail ncl"
+#
 
 TYP=ANN
 
@@ -94,8 +101,8 @@ MODULES=
 
     case `hostname` in
     mlogin*|mistral*)
-        CDO_MODULE=cdo/1.7.0-gcc48;;
-    *)  CDO_MODULE=cdo/1.7.0;;
+        CDO_MODULE=cdo/1.7.2-gcc48;;
+    *)  CDO_MODULE=cdo/1.7.2-gcc48;;
     esac
     MODULES="$MODULES $CDO_MODULE"
 
@@ -257,10 +264,6 @@ exit
 #
 # COMMENT= the comment appears in the subtitle of the plots
 #          maximum length 20 characters 
-# PRINTER = 1 Name of the black and white printer for the summary table 
-#           0 ghostview  the plot
-# PRINTERC= 1 Name of the color printer
-#           0 ghostview  the plot
 # TYP= average to compare with ERAinterim-data(1979-1999)or (1979-2008)
 #      ANN(annual), DJF(Dec-Feb), MAM(mar-may)  JJA(jul-aug), SON(sep-nov),
 #      JAN ... DEC
@@ -270,32 +273,33 @@ exit
 #                                
 #      
 # NAME= XXX name of data files (maximum length 10 characters)
-# WORKDIR= working directory (containing the input data atm_dyn_XXX and atm_phy_XXX)
+# WORKDIR= working directory 
+#         (containing the input data atm_3d_XXX and atm_2d_XXX)
 #
 # MODELDIR= model directory
 #
 #
-# ATM_dyn= 1 plot atmosphere data
+# ATM_3d= 1 plot atmosphere data
 #          0 no plot of atmospheric data
-# ATM_phy= 1 plot surface data
+# ATM_2d= 1 plot surface data
 #          0 no plot of surface data
 #
 #       the plot program expects the following two files:
-#                 atm_phy_XXX (surface data, containing at least:
+#               atm_2d_XXX (surface data, containing at least:
 #                           variable: 
-#                                     clwvi Liquid water + ice content
-#                                     clt   total cloud cover     
-#                                     psl   sea level pressure    
-#                                     tas   2 m temperature       
-#                                     ts    surface temperature   
-#                                     tauu  zonal wind stress     
-#                                     prw   column water vapor    
-#                                           vertical integral of cloud liquid water
-#                                     pr    total precipitation   
+#                                 clwvi Liquid water + ice content
+#                                 clt   total cloud cover     
+#                                 psl   sea level pressure    
+#                                 tas   2 m temperature       
+#                                 ts    surface temperature   
+#                                 tauu  zonal wind stress     
+#                                 prw   column water vapor    
+#                                       vertical integral of cloud liquid water
+#                                 pr    total precipitation   
 #                                                          
 #       the interpolation from model level to pressure level computes this programm automatically 
 # 
-#                atm_3d_XXX (atmosphere data, with the following pressure levels 
+#              atm_3d_XXX (atmosphere data, with the following pressure levels 
 #                         in hPa:  1000,925,850,775,700,600,500,400,300,250,
 #                                   200,150,100,70,50,30,10
 #                         containing at least:
@@ -310,7 +314,7 @@ exit
 #                                       hur relative humidity
 #                                       cl  cloud cover
 #
-#                atm_3d_XXX (atmosphere data, 
+#               atm_3d_XXX (atmosphere data, 
 #                         e.g. with the following pressure 47 levels in hPa:
 #                         100900,99500,97100,93900,90200,86100,81700,77200,
 #                         72500,67900,63300,58800,54300,49900,45700,41600,

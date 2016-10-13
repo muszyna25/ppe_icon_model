@@ -40,10 +40,11 @@ MODULE mo_ocean_testbed_modules
     & update_time_indices
   USE mo_random_util,            ONLY: add_random_noise_global
   USE mo_ocean_types,            ONLY: t_hydro_ocean_state
+  USE mo_hamocc_types,           ONLY: t_hamocc_state
   USE mo_io_restart,             ONLY: create_restart_file
   USE mo_io_config,              ONLY: n_checkpoints
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
-  USE mo_ocean_tracer,           ONLY: advect_tracer_ab
+  USE mo_ocean_tracer,           ONLY: advect_ocean_tracers
   USE mo_ocean_bulk,             ONLY: update_surface_flux
   USE mo_ocean_surface,          ONLY: update_ocean_surface
   USE mo_ocean_surface_types,    ONLY: t_ocean_surface
@@ -71,7 +72,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_ocean_tracer_transport_horz, ONLY: diffuse_horz
   USE mo_hydro_ocean_run,        ONLY: write_initial_ocean_timestep
-
+  USE mo_hamocc_types,          ONLY: t_hamocc_state
   IMPLICIT NONE
   PRIVATE
 
@@ -100,6 +101,7 @@ CONTAINS
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
 
     CHARACTER(LEN=*), PARAMETER ::  method_name = "ocean_test_modules"
+    TYPE (t_hamocc_state)        :: hamocc_State
 
     SELECT CASE (test_mode)  !  1 - 99 test ocean modules
       CASE (1)
@@ -138,7 +140,7 @@ CONTAINS
         CALL test_output( patch_3d, ocean_state,  &
           & datetime, surface_fluxes,             &
           & physics_parameters,                   &
-          & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients)
+          & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, hamocc_state,operators_coefficients)
 
       CASE DEFAULT
         CALL finish(method_name, "Unknown test_mode")
@@ -166,6 +168,7 @@ CONTAINS
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
     
     ! local variables
+    TYPE (t_hamocc_state)        :: hamocc_State
     INTEGER :: jstep, jg
     !LOGICAL                         :: l_outputtime
     CHARACTER(LEN=32)               :: datestring
@@ -363,6 +366,7 @@ ENDIF
           & datetime,                &
           & surface_fluxes,          &
           & ocean_ice,               &
+          & hamocc_state,               &
           & jstep, jstep0)
 
         ! Shift time indices for the next loop
@@ -399,6 +403,7 @@ ENDIF
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
     
     ! local variables
+    TYPE (t_hamocc_state)        :: hamocc_State
     INTEGER :: jstep, jg
     !LOGICAL                         :: l_outputtime
     CHARACTER(LEN=32)               :: datestring
@@ -436,7 +441,7 @@ ENDIF
 !          ENDIF
 
         !CALL calc_vert_velocity(patch_3d, ocean_state(jg),operators_coefficients)
-        CALL advect_tracer_ab( patch_3d, ocean_state(jg),  &
+        CALL advect_ocean_tracers( patch_3d, ocean_state(jg),  &
           & physics_parameters,surface_fluxes,&
           & operators_coefficients,&
           & jstep)
@@ -460,6 +465,7 @@ ENDIF
           & datetime,                &
           & surface_fluxes,          &
           & ocean_ice,               &
+          & hamocc_state,               &
           & jstep, jstep0)
 
         ! Shift time indices for the next loop
@@ -482,7 +488,7 @@ ENDIF
   !> surface only call, regular output, restart, checkpoints
   SUBROUTINE test_output( patch_3d, p_os,           &
     & datetime, surface_fluxes, physics_parameters, &
-    & p_as, atmos_fluxes, p_ice, operators_coefficients)
+    & p_as, atmos_fluxes, p_ice, hamocc_state,operators_coefficients)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: p_os(n_dom)
@@ -492,6 +498,7 @@ ENDIF
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: atmos_fluxes
     TYPE(t_sea_ice),          INTENT(inout)          :: p_ice
+    TYPE(t_hamocc_state),          INTENT(inout)      ::hamocc_state
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
     
     ! local variables
@@ -523,7 +530,7 @@ ENDIF
     ! write initial
     ! this is done 
       IF (output_mode%l_nml) THEN
-        CALL write_initial_ocean_timestep(patch_3D,p_os(n_dom),surface_fluxes,p_ice, operators_coefficients)
+        CALL write_initial_ocean_timestep(patch_3D,p_os(n_dom),surface_fluxes,p_ice,hamocc_state, operators_coefficients)
       ENDIF
 
 
@@ -599,6 +606,7 @@ ENDIF
         &                datetime,   &
         &                surface_fluxes,  &
         &                p_ice,      &
+        &                hamocc_state,      &
         &                jstep, jstep0)
 
       CALL update_time_indices(n_dom)
@@ -635,6 +643,7 @@ ENDIF
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
     
     ! local variables
+    TYPE (t_hamocc_state)        :: hamocc_State
     REAL(wp), DIMENSION(nproma,patch_3D%p_patch_2D(1)%alloc_cell_blocks) &
       &                                              :: draft, &
       &                                                 saltBefore, saltAfter, saltBudget, &
@@ -823,6 +832,7 @@ ENDIF
         &                datetime,   &
         &                surface_fluxes,  &
         &                p_ice,      &
+        &                hamocc_state,      &
         &                jstep, jstep0)
 
       CALL update_time_indices(n_dom)
@@ -857,6 +867,7 @@ ENDIF
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
     
     ! local variables
+    TYPE (t_hamocc_state)        :: hamocc_State
     REAL(wp), DIMENSION(nproma,patch_3D%p_patch_2D(1)%alloc_cell_blocks) &
       &                           :: energyCheck, energyCh2, energySav, energyDiff, energyDits, &
       &                              sstCheck, hCheck, meltdraft, conc_old, sst_old, fwfcheck,  &
@@ -1134,6 +1145,7 @@ ENDIF
         &                datetime,   &
         &                surface_fluxes,  &
         &                p_ice,      &
+        &                hamocc_state,      &
         &                jstep, jstep0)
 
       CALL update_time_indices(n_dom)
@@ -1157,6 +1169,7 @@ ENDIF
     REAL(wp):: t(n_zlev), s(n_zlev), p(n_zlev), co(n_zlev,2), aob
     REAL(wp):: alph(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp):: beta(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    TYPE (t_hamocc_state)        :: hamocc_State
     !INTEGER :: jk
 
     alph(:,:,:) = 0.0_wp

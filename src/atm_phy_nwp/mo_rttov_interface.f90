@@ -22,9 +22,8 @@ MODULE mo_rttov_interface
   USE mo_impl_constants,      ONLY: SUCCESS
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_model_domain,        ONLY: t_patch, t_grid_cells, p_patch_local_parent, p_patch
-  USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state, p_int_state_local_parent
-  USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, p_grf_state, p_grf_state_local_parent
-  USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
+  USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state_local_parent
+  USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, p_grf_state_local_parent
   USE mo_grf_nudgintp,        ONLY: interpol_scal_nudging
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqs, ltimer

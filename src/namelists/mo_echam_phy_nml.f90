@@ -44,6 +44,7 @@ MODULE mo_echam_phy_nml
                          !  phyiscs package
                          !  1: dynamics and physics update sequentially
                          !  2: dynamics uses physics forcing for updating
+  LOGICAL  :: ldrymoist  !   .true.  physics assumes moist air dynamics
   LOGICAL  :: lrad       !< .true. for radiation.
   REAL(wp) :: dt_rad   !! "-"                     radiation
   LOGICAL  :: lvdiff     !< .true. for vertical diffusion.
@@ -59,7 +60,7 @@ MODULE mo_echam_phy_nml
   LOGICAL  :: lebudget   !< .true. for echam physcics energy budget calculation
 
 
-  NAMELIST /echam_phy_nml/ idcphycpl,               &
+  NAMELIST /echam_phy_nml/ idcphycpl, ldrymoist,    &
     &                      lrad, dt_rad, lvdiff,    &
     &                      lconv, lcond,            &
     &                      lssodrag, lgw_hines,     &
@@ -81,6 +82,7 @@ CONTAINS
     ! 1. Set default values
     !------------------------------------------------------------------
     idcphycpl = 1         ! 1: dynamics and physics update sequentially
+    ldrymoist = .TRUE.    ! TRUE.: dry air mass conservation; .FALSE.: moist air mass cons.
     lrad      = .TRUE.
     dt_rad    = 3600.0_wp ! [s]
     lvdiff    = .TRUE.
@@ -146,6 +148,7 @@ CONTAINS
     ! 7. Fill the configuration state
     !------------------------------------------------------------------
     echam_phy_config% idcphycpl = idcphycpl
+    echam_phy_config% ldrymoist = ldrymoist
     echam_phy_config% lrad      = lrad                                                
     echam_phy_config% dt_rad    = dt_rad
     echam_phy_config% lvdiff    = lvdiff                                              

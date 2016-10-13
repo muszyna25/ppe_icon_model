@@ -72,6 +72,12 @@ MODULE mo_radiation_config
                                ! 4: Parameterization after Briegleb (1992) for snow-free land points
                                !    limitation after Zaengl for snow-coverer points
 
+    INTEGER :: icld_overlap    ! method for cloud overlap calculation in shortwave part of RRTM
+                               ! 1: maximum-random overlap
+                               ! 2: generalized overlap (Hogan, Illingworth, 2000)
+                               ! 3: maximum overlap
+                               ! 4: random overlap
+
     ! --- Switches for radiative agents
     !     irad_x=0 : radiation uses tracer x = 0
     !     irad_x=1 : radiation uses tracer x from a tracer variable
@@ -96,26 +102,35 @@ MODULE mo_radiation_config
     !
     INTEGER :: ighg
     !
-    ! --- Default gas volume mixing ratios - 1990 values (CMIP5)
+    ! --- Default gas mixing ratios - 1990 values (CMIP5)
     !
     !DR preliminary restart fix
 #ifdef __SX__
     INTEGER, PARAMETER :: qp = SELECTED_REAL_KIND(24, 307)
-    REAL(qp) :: vmr_co2     !< CO2
-    REAL(qp) :: vmr_n2o     !< N20
-    REAL(qp) :: vmr_o2      !< O2
-    REAL(qp) :: vmr_ch4     !< CH4
-    REAL(qp) :: vmr_cfc11   !< CFC 11
-    REAL(qp) :: vmr_cfc12   !< CFC 12
+    REAL(qp) :: vmr_co2  , mmr_co2   !< CO2
+    REAL(qp) :: vmr_n2o  , mmr_n2o   !< N20
+    REAL(qp) :: vmr_o2   , mmr_o2    !< O2
+    REAL(qp) :: vmr_ch4  , mmr_ch4   !< CH4
+    REAL(qp) :: vmr_cfc11, mmr_cfc11 !< CFC 11
+    REAL(qp) :: vmr_cfc12, mmr_cfc12 !< CFC 12
 #else
-    REAL(wp) :: vmr_co2     !< CO2
-    REAL(wp) :: vmr_n2o     !< N20
-    REAL(wp) :: vmr_o2      !< O2
-    REAL(wp) :: vmr_ch4     !< CH4
-    REAL(wp) :: vmr_cfc11   !< CFC 11
-    REAL(wp) :: vmr_cfc12   !< CFC 12
+    REAL(wp) :: vmr_co2  , mmr_co2   !< CO2
+    REAL(wp) :: vmr_n2o  , mmr_n2o   !< N20
+    REAL(wp) :: vmr_o2   , mmr_o2    !< O2
+    REAL(wp) :: vmr_ch4  , mmr_ch4   !< CH4
+    REAL(wp) :: vmr_cfc11, mmr_cfc11 !< CFC 11
+    REAL(wp) :: vmr_cfc12, mmr_cfc12 !< CFC 12
 #endif
     !
+    ! --- Scaling factor for mixing ratios
+    !
+    REAL(wp) :: fh2o
+    REAL(wp) :: fco2
+    REAL(wp) :: fn2o
+    REAL(wp) :: fo3
+    REAL(wp) :: fo2
+    REAL(wp) :: fch4
+    REAL(wp) :: fcfc
     !
     ! --- Different specifications of the zenith angle
     INTEGER  :: izenith     ! circular orbit, no seasonal cycle but with diurnal cycle 
@@ -154,15 +169,6 @@ MODULE mo_radiation_config
     !  REAL(wp) :: flx_ratio_rad
     !  REAL(wp) :: decl_sun_cur                  !< solar declination at current time step
     !
-    !
-    ! 3.0 Variables computed by routines in mo_radiation (export to submodels)
-    ! --------------------------------
-    !
-    REAL(wp) :: mmr_co2, mmr_ch4, mmr_n2o, mmr_o2                ! setup_radiation
-
-  REAL(wp), PARAMETER :: ch4_v(3) = (/1.25e-01_wp,  683.0_wp, -1.43_wp  /)
-  REAL(wp), PARAMETER :: n2o_v(3) = (/1.20e-02_wp, 1395.0_wp, -1.43_wp/)
-
   
   !END TYPE t_radiation_config
   !>

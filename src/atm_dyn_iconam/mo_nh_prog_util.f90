@@ -31,7 +31,8 @@ MODULE mo_nh_prog_util
   PRIVATE
 
 
-  PUBLIC :: nh_prog_add_random,init_nh_state_prog_isoRest
+  PUBLIC :: nh_prog_add_random
+!!$  PUBLIC :: init_nh_state_prog_isoRest  !DR is currently not used at all
 
 CONTAINS
   !-------------

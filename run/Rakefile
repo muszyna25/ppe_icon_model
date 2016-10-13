@@ -6,7 +6,7 @@ require 'parallel'
 require 'colorize'
 require 'iconPlot'
 require 'unifiedPlot'
-require 'gsl'
+#require 'gsl'
 begin
   require 'facets'
 rescue
@@ -21,6 +21,7 @@ String.disable_colorization = ENV.has_key?('COLOR')
 
 $DEBUG = ENV.has_key?('DEBUG')
 $QUIET = ENV.has_key?('QUIET')
+$BUILDERS = ['THUNDER_gcc' ,'THUNDER_intel' ,'THUNDER_nag' ,'DAINT_CPU_cce' ,'MISTRAL_intel_hybrid' ,'MISTRAL_intel' ,'MISTRAL_intel_openmp' ,'MISTRAL_gcc' ,'MISTRAL_nag' ,'MISTRAL_nag_serial' ,'MISTRAL_nag_mtime']
 
 CLEAN.include('*.run')
 #==============================================================================
@@ -89,20 +90,22 @@ CLEAN.include('*.run')
   :oceanLong              => [['exp.ocean_omip_long','no_of_nodes=8']],
   :oceanDev               => %w[oceanTechnical oceanBasicConservation],
   :oceanStable            => %w[oceanLong],
-  :oceanDycorePaper       => %w[exp.ocean_exp1_GeostrophicBalance exp.ocean_exp6a_Instability_Barotropic exp.ocean_exp2_WavePropagation exp.ocean_exp6b_Instability_KelvinHelmholtz exp.ocean_exp3_WindDrivenBasin exp.ocean_exp7_BaroclinicInstabilityChannel_10km exp.ocean_exp4_CheckerBoardBasin exp.ocean_exp8_OMIP],
+# :oceanDycorePaper       => %w[exp.ocean_exp1_GeostrophicBalance exp.ocean_exp6a_Instability_Barotropic exp.ocean_exp2_WavePropagation exp.ocean_exp6b_Instability_KelvinHelmholtz exp.ocean_exp3_WindDrivenBasin exp.ocean_exp7_BaroclinicInstabilityChannel_10km exp.ocean_exp4_CheckerBoardBasin exp.ocean_exp8_OMIP],
 # :oceanDycoreExp1        => %w[exp.ocean_exp1_GeostrophicBalance_0020km exp.ocean_exp1_GeostrophicBalance_0039km exp.ocean_exp1_GeostrophicBalance_0079km exp.ocean_exp1_GeostrophicBalance_0158km],
-  :oceanDycoreExp1        => [
-    %w[exp.ocean_exp1_GeostrophicBalance_0039km no_of_nodes=3],
-    %w[exp.ocean_exp1_GeostrophicBalance_0079km no_of_nodes=2],
-    %w[exp.ocean_exp1_GeostrophicBalance_0158km no_of_nodes=2],
-  ],
+# :oceanDycoreExp1        => [
+#   %w[exp.ocean_exp1_GeostrophicBalance_0039km no_of_nodes=3],
+#   %w[exp.ocean_exp1_GeostrophicBalance_0079km no_of_nodes=2],
+#   %w[exp.ocean_exp1_GeostrophicBalance_0158km no_of_nodes=2],
+# ],
   :oceanTracers           => %w[exp.test_ocean_numeric_tracerconservation],
   :oceanBuildbot          => %w[exp.test_ocean_omip_parallel exp.test_ocean_omip_10days exp.test_ocean_omip_technical],
   :iconDev                => %w[exp.atm_icoles_nested exp.atm_amip_test],
+
 # :atmTimeMeanSmall       => %w[exp.atm_amip_acc_dtime exp.atm_amip_acc_2dtime],
 # :atmTimeMean            => %w[exp.atm_amip_acc_dtime exp.atm_amip_acc_2dtime exp.atm_amip_acc_dtime_sp],
 # :atmTimeMeanX           => %w[exp.test_nat_rce_cbl_120km_nwp exp.test_nh_hdcp2_lam_r15000_modified],
   :meanStream             => %w[exp.ocean_meanStream],
+  :atMeanStream            => %w[exp.atmo_meanStream],
 }
 # }}}
 #==============================================================================
@@ -805,14 +808,14 @@ def getResultFiles(dir)
   [regularFiles ,meanFiles]
 end
 
-def hist(inputs)
-  nbins = 1000 
-  max = inputs[:y].abs.max   
-  h = GSL::Histogram.alloc(nbins, [-max, max])                                                                                                                                                                                               
-  h.fill(inputs[:y])         
-  GSL::graph(h)
-
-end
+#def hist(inputs)
+#  nbins = 1000 
+#  max = inputs[:y].abs.max   
+#  h = GSL::Histogram.alloc(nbins, [-max, max])                                                                                                                                                                                               
+#  h.fill(inputs[:y])         
+#  GSL::graph(h)
+#
+#end
 desc "check general mena value solution based on amip expriment"
 task :checkAtmoMeanStream, :dir, :what, :variable do |t,args|
 
@@ -1019,6 +1022,18 @@ task :testLib, :name do |t,args|
   else
     warn "No Test for method: #{args.name}"
   end
+end
+desc "Open  link to all builders for a given branch"
+task :openBuilders do
+  sep       = '&builder='
+  builders  = $BUILDERS.map {|b| "#{sep}#{b}"}.join
+  baseUrl   = 'https://buildbot.zmaw.de/icon/one_box_per_builder?'
+  _myBranch = 'branches/icon-cimd/icon-cimd-dev'.gsub(/\//,'%2F')
+  branch    ='branch='+_myBranch
+
+  url       = [baseUrl,branch,builders].join
+  puts url
+  sh "firefox #{url}"
 end
 # }}}
 # vim:fdm=marker

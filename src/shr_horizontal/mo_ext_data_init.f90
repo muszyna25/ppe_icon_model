@@ -80,7 +80,7 @@ MODULE mo_ext_data_init
     &                              read_cdi_3d, t_inputParameters,                 &
     &                              makeInputParameters, deleteInputParameters,     &
     &                              has_filetype_netcdf
-  USE mo_util_uuid,          ONLY: t_uuid, char2uuid, OPERATOR(==), uuid_unparse,  &
+  USE mo_util_uuid,          ONLY: t_uuid, OPERATOR(==), uuid_unparse,  &
     &                              uuid_string_length
   USE mo_dictionary,         ONLY: t_dictionary, dict_init, dict_finalize,         &
     &                              dict_loadfile
@@ -351,9 +351,8 @@ CONTAINS
     CHARACTER(filename_max) :: extpar_file !< file name for reading in
     INTEGER :: extpar_file_namelen
 
-    CHARACTER(len=1)        :: extpar_uuidOfHGrid_string(16)  ! uuidOfHGrid contained in the
+    TYPE(t_uuid)            :: extpar_uuidOfHGrid             ! uuidOfHGrid contained in the
                                                               ! extpar file
-    TYPE(t_uuid)            :: extpar_uuidOfHGrid             ! same, but converted to TYPE(t_uuid)
 
     CHARACTER(len=uuid_string_length) :: grid_uuid_unparsed   ! unparsed grid uuid (human readable)
     CHARACTER(len=uuid_string_length) :: extpar_uuid_unparsed ! same for extpar-file uuid
@@ -425,8 +424,7 @@ CONTAINS
       ! get horizontal grid UUID contained in extpar file
       ! use lu_class_fraction as sample field
       cdiGridID = vlistInqVarGrid(vlist_id, lu_class_fraction_id)
-      CALL gridInqUUID(cdiGridID, extpar_uuidOfHGrid_string)
-      CALL char2uuid(extpar_uuidOfHGrid_string, extpar_uuidOfHGrid)
+      CALL gridInqUUID(cdiGridID, extpar_uuidOfHGrid%DATA)
       !
       ! --- compare UUID of horizontal grid file with UUID from extpar file
       lmatch = (p_patch(jg)%grid_uuid == extpar_uuidOfHGrid)
@@ -698,10 +696,12 @@ CONTAINS
     REAL(wp):: zdummy_o3lev(nlev_o3) ! will be used for pressure and height levels
     REAL(wp):: albfac, albthresh             ! for MODIS albedo tuning
 
-    REAL(wp), DIMENSION(num_lcc*n_param_lcc):: lu_glc2000   ! < lookup table landuse class GLC2000
-    REAL(wp), DIMENSION(num_lcc*n_param_lcc):: lu_gcv2009   ! < lookup table landuse class GlobCover2009
-    REAL(wp), DIMENSION(num_lcc*n_param_lcc):: lu_gcv2009_v2 ! < modified lookup table landuse class GlobCover2009
-    REAL(wp), DIMENSION(num_lcc*n_param_lcc):: lu_gcv2009_v3 ! < even less evaporating lookup table landuse class GlobCover2009
+    REAL(wp), DIMENSION(num_lcc*n_param_lcc)         :: lu_glc2000   ! < lookup table landuse class GLC2000
+    REAL(wp), DIMENSION(num_lcc*n_param_lcc), TARGET :: lu_gcv2009   ! < lookup table landuse class GlobCover2009
+    REAL(wp), DIMENSION(num_lcc*n_param_lcc), TARGET :: lu_gcv2009_v2 ! < modified lookup table landuse class GlobCover2009
+    REAL(wp), DIMENSION(num_lcc*n_param_lcc), TARGET :: lu_gcv2009_v3 ! < even less evaporating lookup table landuse class GlobCover2009
+    REAL(wp), DIMENSION(num_lcc*n_param_lcc), TARGET :: lu_gcv2009_v4 ! < retuned lookup table landuse class GlobCover2009
+    REAL(wp), POINTER :: lu_gcv(:)
 
     LOGICAL :: l_exist
 
@@ -807,6 +807,30 @@ CONTAINS
                    &   0.01_wp,  0.0_wp,  0.0_wp, 0.0_wp, 120.0_wp,  -1.0_wp, 1._wp, & ! permanent snow and ice
                    &   0.00_wp,  0.0_wp,  0.0_wp, 0.0_wp, 250.0_wp,  -1.0_wp,-1._wp  / ! undefined
 
+! Yet another tuned version by Guenther Zaengl (adjusted to resistance-based bare soil evaporation scheme)
+ DATA lu_gcv2009_v4 /  0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 190.0_wp,  0.72_wp, 1._wp, & ! irrigated croplands
+                   &   0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 140.0_wp,  0.72_wp, 1._wp, & ! rainfed croplands
+                   &   0.25_wp,  0.8_wp,  3.0_wp, 0.8_wp, 130.0_wp,  0.55_wp, 1._wp, & ! mosaic cropland (50-70%) - vegetation (20-50%)
+                   &   0.07_wp,  0.9_wp,  3.5_wp, 1.0_wp, 120.0_wp,  0.72_wp, 1._wp, & ! mosaic vegetation (50-70%) - cropland (20-50%)
+                   &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 280.0_wp,  0.38_wp, 1._wp, & ! closed broadleaved evergreen forest
+                   &   1.00_wp,  0.9_wp,  5.0_wp, 1.0_wp, 300.0_wp,  0.31_wp, 1._wp, & ! closed broadleaved deciduous forest
+                   &   0.50_wp,  0.8_wp,  4.0_wp, 1.5_wp, 225.0_wp,  0.31_wp, 1._wp, & ! open broadleaved deciduous forest
+                   &   1.00_wp,  0.8_wp,  5.0_wp, 0.6_wp, 300.0_wp,  0.27_wp, 1._wp, & ! closed needleleaved evergreen forest
+                   &   1.00_wp,  0.9_wp,  5.0_wp, 0.6_wp, 300.0_wp,  0.33_wp, 1._wp, & ! open needleleaved deciduous forest
+                   &   1.00_wp,  0.9_wp,  5.0_wp, 0.8_wp, 270.0_wp,  0.29_wp, 1._wp, & ! mixed broadleaved and needleleaved forest
+                   &   0.20_wp,  0.8_wp,  2.5_wp, 0.8_wp, 200.0_wp,  0.60_wp, 1._wp, & ! mosaic shrubland (50-70%) - grassland (20-50%)
+                   &   0.20_wp,  0.8_wp,  2.5_wp, 0.6_wp, 180.0_wp,  0.65_wp, 1._wp, & ! mosaic grassland (50-70%) - shrubland (20-50%)
+                   &   0.15_wp,  0.8_wp,  2.5_wp, 0.9_wp, 265.0_wp,  0.65_wp, 1._wp, & ! closed to open shrubland
+                   &   0.03_wp,  0.9_wp,  3.1_wp, 0.6_wp, 100.0_wp,  0.82_wp, 1._wp, & ! closed to open herbaceous vegetation
+                   &   0.05_wp,  0.5_wp,  0.6_wp, 0.3_wp, 140.0_wp,  0.76_wp, 1._wp, & ! sparse vegetation
+                   &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 190.0_wp,  0.30_wp, 1._wp, & ! closed to open forest regulary flooded
+                   &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 190.0_wp,  0.30_wp, 1._wp, & ! closed forest or shrubland permanently flooded
+                   &   0.05_wp,  0.8_wp,  2.0_wp, 1.0_wp,  80.0_wp,  0.76_wp, 1._wp, & ! closed to open grassland regularly flooded
+                   &   1.00_wp,  0.2_wp,  1.6_wp, 0.6_wp, 300.0_wp,  0.50_wp, 1._wp, & ! artificial surfaces
+                   &   0.05_wp,  0.01_wp, 0.2_wp, 0.3_wp, 300.0_wp,  0.82_wp, 1._wp, & ! bare areas
+                   &   0.0002_wp,0.0_wp,  0.0_wp, 0.0_wp, 150.0_wp,  -1.0_wp,-1._wp, & ! water bodies
+                   &   0.01_wp,  0.0_wp,  0.0_wp, 0.0_wp, 120.0_wp,  -1.0_wp, 1._wp, & ! permanent snow and ice
+                   &   0.00_wp,  0.0_wp,  0.0_wp, 0.0_wp, 250.0_wp,  -1.0_wp,-1._wp  / ! undefined
 
 
     !----------------------------------------------------------------------
@@ -898,7 +922,18 @@ CONTAINS
             ext_data(jg)%atm%snowtile_lcc(ilu)    = &
               &          MERGE(.TRUE.,.FALSE.,lu_glc2000(i+6)>0._wp) ! Existence of snow tiles for land-cover class
           ENDDO
-        ELSE IF (i_lctype(jg) == GLOBCOVER2009 .AND. itype_lndtbl == 1) THEN
+        ELSE IF (i_lctype(jg) == GLOBCOVER2009) THEN
+          SELECT CASE (itype_lndtbl)
+          CASE (1)
+            lu_gcv => lu_gcv2009
+          CASE (2)
+            lu_gcv => lu_gcv2009_v2
+          CASE (3)
+            lu_gcv => lu_gcv2009_v3
+          CASE (4)
+            lu_gcv => lu_gcv2009_v4
+          END SELECT
+
           ext_data(jg)%atm%i_lc_snow_ice = 22
           ext_data(jg)%atm%i_lc_water    = 21
           ext_data(jg)%atm%i_lc_urban    = 19
@@ -909,54 +944,14 @@ CONTAINS
           ext_data(jg)%atm%i_lc_sparse   = 15
           DO i = 1, num_lcc*n_param_lcc, n_param_lcc
             ilu=ilu+1
-            ext_data(jg)%atm%z0_lcc(ilu)          = lu_gcv2009(i  )  ! Land-cover related roughness length
-            ext_data(jg)%atm%plcovmax_lcc(ilu)    = lu_gcv2009(i+1)  ! Maximum plant cover fraction for each land-cover class
-            ext_data(jg)%atm%laimax_lcc(ilu)      = lu_gcv2009(i+2)  ! Maximum leaf area index for each land-cover class
-            ext_data(jg)%atm%rootdmax_lcc(ilu)    = lu_gcv2009(i+3)  ! Maximum root depth for each land-cover class
-            ext_data(jg)%atm%stomresmin_lcc(ilu)  = lu_gcv2009(i+4)  ! Minimum stomata resistance for each land-cover class
-            ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_gcv2009(i+5)  ! Albedo in case of snow cover for each land-cover class
+            ext_data(jg)%atm%z0_lcc(ilu)          = lu_gcv(i  )  ! Land-cover related roughness length
+            ext_data(jg)%atm%plcovmax_lcc(ilu)    = lu_gcv(i+1)  ! Maximum plant cover fraction for each land-cover class
+            ext_data(jg)%atm%laimax_lcc(ilu)      = lu_gcv(i+2)  ! Maximum leaf area index for each land-cover class
+            ext_data(jg)%atm%rootdmax_lcc(ilu)    = lu_gcv(i+3)  ! Maximum root depth for each land-cover class
+            ext_data(jg)%atm%stomresmin_lcc(ilu)  = lu_gcv(i+4)  ! Minimum stomata resistance for each land-cover class
+            ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_gcv(i+5)  ! Albedo in case of snow cover for each land-cover class
             ext_data(jg)%atm%snowtile_lcc(ilu)    = &
-              &          MERGE(.TRUE.,.FALSE.,lu_gcv2009(i+6)>0._wp) ! Existence of snow tiles for land-cover class
-          ENDDO
-        ELSE IF (i_lctype(jg) == GLOBCOVER2009 .AND. itype_lndtbl == 2) THEN !
-          ext_data(jg)%atm%i_lc_snow_ice = 22
-          ext_data(jg)%atm%i_lc_water    = 21
-          ext_data(jg)%atm%i_lc_urban    = 19
-          ext_data(jg)%atm%i_lc_shrub_eg = 12
-          ext_data(jg)%atm%i_lc_shrub    = 13
-          ext_data(jg)%atm%i_lc_grass    = 14
-          ext_data(jg)%atm%i_lc_bare_soil= 20
-          ext_data(jg)%atm%i_lc_sparse   = 15
-          DO i = 1, num_lcc*n_param_lcc, n_param_lcc
-            ilu=ilu+1
-            ext_data(jg)%atm%z0_lcc(ilu)          = lu_gcv2009_v2(i  )  ! Land-cover related roughness length
-            ext_data(jg)%atm%plcovmax_lcc(ilu)    = lu_gcv2009_v2(i+1)  ! Maximum plant cover fraction for each land-cover class
-            ext_data(jg)%atm%laimax_lcc(ilu)      = lu_gcv2009_v2(i+2)  ! Maximum leaf area index for each land-cover class
-            ext_data(jg)%atm%rootdmax_lcc(ilu)    = lu_gcv2009_v2(i+3)  ! Maximum root depth for each land-cover class
-            ext_data(jg)%atm%stomresmin_lcc(ilu)  = lu_gcv2009_v2(i+4)  ! Minimum stomata resistance for each land-cover class
-            ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_gcv2009_v2(i+5)  ! Albedo in case of snow cover for each land-cover class
-            ext_data(jg)%atm%snowtile_lcc(ilu)    = &
-              &          MERGE(.TRUE.,.FALSE.,lu_gcv2009_v2(i+6)>0._wp) ! Existence of snow tiles for land-cover class
-          ENDDO
-        ELSE IF (i_lctype(jg) == GLOBCOVER2009 .AND. itype_lndtbl == 3) THEN !
-          ext_data(jg)%atm%i_lc_snow_ice = 22
-          ext_data(jg)%atm%i_lc_water    = 21
-          ext_data(jg)%atm%i_lc_urban    = 19
-          ext_data(jg)%atm%i_lc_shrub_eg = 12
-          ext_data(jg)%atm%i_lc_shrub    = 13
-          ext_data(jg)%atm%i_lc_grass    = 14
-          ext_data(jg)%atm%i_lc_bare_soil= 20
-          ext_data(jg)%atm%i_lc_sparse   = 15
-          DO i = 1, num_lcc*n_param_lcc, n_param_lcc
-            ilu=ilu+1
-            ext_data(jg)%atm%z0_lcc(ilu)          = lu_gcv2009_v3(i  )  ! Land-cover related roughness length
-            ext_data(jg)%atm%plcovmax_lcc(ilu)    = lu_gcv2009_v3(i+1)  ! Maximum plant cover fraction for each land-cover class
-            ext_data(jg)%atm%laimax_lcc(ilu)      = lu_gcv2009_v3(i+2)  ! Maximum leaf area index for each land-cover class
-            ext_data(jg)%atm%rootdmax_lcc(ilu)    = lu_gcv2009_v3(i+3)  ! Maximum root depth for each land-cover class
-            ext_data(jg)%atm%stomresmin_lcc(ilu)  = lu_gcv2009_v3(i+4)  ! Minimum stomata resistance for each land-cover class
-            ext_data(jg)%atm%snowalb_lcc(ilu)     = lu_gcv2009_v3(i+5)  ! Albedo in case of snow cover for each land-cover class
-            ext_data(jg)%atm%snowtile_lcc(ilu)    = &
-              &          MERGE(.TRUE.,.FALSE.,lu_gcv2009_v3(i+6)>0._wp) ! Existence of snow tiles for land-cover class
+              &          MERGE(.TRUE.,.FALSE.,lu_gcv(i+6)>0._wp) ! Existence of snow tiles for land-cover class
           ENDDO
         ENDIF
 

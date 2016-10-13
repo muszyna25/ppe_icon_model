@@ -354,13 +354,13 @@ if (isfilepresent(fili)) then
     res@cnMissingValFillColor = missColor
 
  if (fillKey.eq."cont") then
-     plot1 = plot_cont ( wks,var,x,y,cArea,res,\
+     plot0 = plot_cont ( wks,var,x,y,cArea,res,\
                  mainTitle,subTitle,comment )
  else 
-    plot1 = fast_cell (  wks,var,x,y,cArea,vlon,vlat,res,missColor,\
+    plot0 = fast_cell (  wks,var,x,y,cArea,vlon,vlat,res,missColor,\
                 mainTitle,subTitle,comment)
  end if
- listplots(noPlot)=plot1
+ listplots(noPlot)=plot0
 
     delete(res@cnLevels)
     delete (res@cnFillColors)
@@ -402,13 +402,13 @@ if (isfilepresent(fili)) then
 
 ;***create plot
 if (fillKey.eq."cont") then
-    plot2 = plot_cont ( wks,var,x,y,cArea,res,\
+    plot1 = plot_cont ( wks,var,x,y,cArea,res,\
                 mainTitle,subTitle,comment )
 else 
-    plot2 = fast_cell ( wks,var,x,y,cArea,vlon,vlat,res,missColor,\
+    plot1 = fast_cell ( wks,var,x,y,cArea,vlon,vlat,res,missColor,\
                             mainTitle,subTitle,comment)
 end if
-    listplots(noPlot)=plot2
+    listplots(noPlot)=plot1
 
     delete(res@cnLevels)
     delete (res@cnFillColors)
@@ -449,13 +449,13 @@ if (isfilepresent(fili)) then
     res@cnMissingValFillColor = missColor
 
 if (fillKey.eq."cont") then
-    plot3 = plot_cont ( wks,var,x,y,cArea,res,\
+    plot2 = plot_cont ( wks,var,x,y,cArea,res,\
                 mainTitle,subTitle,comment )
 else 
-    plot3 = fast_cell ( wks,var,x,y,cArea,vlon,vlat,res,missColor,\
+    plot2 = fast_cell ( wks,var,x,y,cArea,vlon,vlat,res,missColor,\
                 mainTitle,subTitle,comment )
 end if
-    listplots(noPlot)=plot3
+    listplots(noPlot)=plot2
 
     delete(res@cnLevels)
     delete (res@cnFillColors)
@@ -496,13 +496,13 @@ if (isfilepresent(fili)) then
 
 
 if (fillKey.eq."cont") then
-    plot4 = plot_cont ( wks,var,x,y,cArea,res,\
+    plot3 = plot_cont ( wks,var,x,y,cArea,res,\
                 mainTitle,subTitle,comment )
 else 
-    plot4 = fast_cell ( wks,var,x,y,cArea,vlon,vlat,res,missColor,\
+    plot3 = fast_cell ( wks,var,x,y,cArea,vlon,vlat,res,missColor,\
                 mainTitle,subTitle,comment )
 end if
-    listplots(noPlot)=plot4
+    listplots(noPlot)=plot3
 
     delete(res@cnLevels)
     delete (res@cnFillColors)
@@ -543,13 +543,13 @@ if (isfilepresent(fili)) then
     res@cnMissingValFillColor = missColor
 
 if (fillKey.eq."cont") then
-    plot5 = plot_cont ( wks,var,x,y,cArea,res,\
+    plot4 = plot_cont ( wks,var,x,y,cArea,res,\
                 mainTitle,subTitle,comment )
 else 
-    plot5 = fast_cell ( wks,var,x,y,cArea,vlon,vlat,res,missColor,\
+    plot4 = fast_cell ( wks,var,x,y,cArea,vlon,vlat,res,missColor,\
                 mainTitle,subTitle,comment )
 end if
-    listplots(noPlot)=plot5
+    listplots(noPlot)=plot4
 
     delete(res@cnLevels)
     delete (res@cnFillColors)
@@ -589,13 +589,13 @@ if (isfilepresent(fili)) then
     res@cnMissingValFillColor = missColor
 
 if (fillKey.eq."cont") then
-    plot6 = plot_cont ( wks,var,x,y,cArea,res,\
+    plot5 = plot_cont ( wks,var,x,y,cArea,res,\
                 mainTitle,subTitle,comment )
 else 
-    plot6 = fast_cell ( wks,var,x,y,cArea,vlon,vlat,res,missColor,\
+    plot5 = fast_cell ( wks,var,x,y,cArea,vlon,vlat,res,missColor,\
                 mainTitle,subTitle,comment )
 end if
-    listplots(noPlot)=plot6
+    listplots(noPlot)=plot5
 
     delete(res@cnLevels)
     delete (res@cnFillColors)
@@ -636,13 +636,13 @@ if (isfilepresent(fili)) then
     res@cnMissingValFillColor = missColor
 
 if (fillKey.eq."cont") then
-    plot7 = plot_cont ( wks,var,x,y,cArea,res,\
+    plot6 = plot_cont ( wks,var,x,y,cArea,res,\
                 mainTitle,subTitle,comment )
 else 
-    plot7 = fast_cell ( wks,var,x,y,cArea,vlon,vlat,res,missColor,\
+    plot6 = fast_cell ( wks,var,x,y,cArea,vlon,vlat,res,missColor,\
                 mainTitle,subTitle,comment )
 end if
-    listplots(noPlot)=plot7
+    listplots(noPlot)=plot6
 
 
     delete (res@cnLevels)
@@ -684,13 +684,14 @@ if (isfilepresent(fili)) then
     res@cnMissingValFillColor = missColor
 
 if (fillKey.eq."cont") then
-    plot8 = plot_cont ( wks,var,x,y,cArea,res,\
+    plot7 = plot_cont ( wks,var,x,y,cArea,res,\
                 mainTitle,subTitle,comment )
 else 
-    plot8 = fast_cell ( wks,var,x,y,cArea,vlon,vlat,res,missColor,\
+    plot7 = fast_cell ( wks,var,x,y,cArea,vlon,vlat,res,missColor,\
                 mainTitle,subTitle,comment )
 end if
-    listplots(noPlot)=plot8
+    listplots(noPlot)=plot7
+print ("plot7: "+ noPlot)
 
 
     delete (res@cnLevels)
@@ -699,13 +700,60 @@ end if
 
 
 ;************************************************
-;   2 m Temperature code167 (ERAin) Cmor: tas
+;   2 m Temperature code167  Cmor: tas
+;************************************************
+
+    Cvar="tas"
+    fili     =  workdir+"/Ubusy_"+Cvar+".nc"
+    mainTitle = "2 m Temperature [C] "+typ
+    subTitle  = run+meantime
+
+    if (default.eq.1.or.cell.eq.1) then   ; set key and appendix for 
+       fillKey="cell"                     ; contour or trigangels
+    else
+       fillKey="cont"                      
+    end if
+
+
+if (isfilepresent(fili)) then
+
+;***read code 167
+    File       = addfile (fili , "r") 
+    var     = File->$Cvar$(time|0,ncells|:)   ; dims: (time,ncells)    
+;   printVarSummary(var)
+    print("ploted: "+mainTitle)
+
+;***number of listplots
+   noPlot=noPlot+1
+
+;***create plot
+    res                      = True             ; plot mods desired
+    res@cnLevelSelectionMode = "ExplicitLevels"   ; set explicit contour levels
+    res@cnLevels             = (/-30,-25,-20,-15,-10,-5,0,5,10,15,20,25,30/)
+    res@cnFillColors         = (/2,4,5,6,7,8,9,10,11,12,14,15,16,17/)
+    res@cnMissingValFillColor = missColor
+
+if (fillKey.eq."cont") then
+    plot8 = plot_cont ( wks,var,x,y,cArea,res,\
+                mainTitle,subTitle,comment )
+else 
+    plot8 = fast_cell ( wks,var,x,y,cArea,vlon,vlat,res,missColor,\
+                mainTitle,subTitle,comment )
+end if
+    listplots(noPlot)=plot8
+print ("plot8: "+ noPlot)
+
+    delete(res@cnLevels)
+    delete (res@cnFillColors)
+end if
+;************************************************
+;   2 m Temperature code167 Cmor: tas model-era
 ;************************************************
 
     Cvar="tas"
     fili     =  workdir+"/Ubusy_"+Cvar+"_erain.nc"
     mainTitle = "2 m Temperature [C] "+typ
-    subTitle  = "ERAinterim "+eratime
+    subTitle  = run+meantime+" - ERAinterim "+eratime
 
 
     if (default.eq.1.or.cell.eq.0) then   ; set key and appendix for 
@@ -728,8 +776,8 @@ if (isfilepresent(fili)) then
 ;***create plot
     res                      = True             ; plot mods desired
     res@cnLevelSelectionMode = "ExplicitLevels"   ; set explicit contour levels
-    res@cnLevels             = (/-30,-25,-20,-15,-10,-5,0,5,10,15,20,25,30/)
-    res@cnFillColors         = (/2,4,5,6,7,8,9,10,11,12,14,15,16,17/)
+    res@cnLevels             = (/-5,-3,-2,-1,-.5,.5,1,2,3,5/)
+    res@cnFillColors         = (/2,4,6,8,9,0,10,11,12,14,15,16/)
     res@cnMissingValFillColor = missColor
 
 if (fillKey.eq."cont") then
@@ -740,6 +788,7 @@ else
                 mainTitle,subTitle,comment )
 end if
     listplots(noPlot)=plot9
+print ("plot9: "+ noPlot)
 
     delete(res@cnLevels)
     delete (res@cnFillColors)
@@ -788,6 +837,7 @@ else
                 mainTitle,subTitle,comment )
 end if
     listplots(noPlot)=plot10
+print ("plot10: "+ noPlot)
 
     delete(res@cnLevels)
     delete (res@cnFillColors)
@@ -834,59 +884,13 @@ else
                 mainTitle,subTitle,comment )
 end if
     listplots(noPlot)=plot11
+print ("plot11: "+ noPlot)
 
     delete(res@cnLevels)
     delete (res@cnFillColors)
 end if
 
-;************************************************
-;   Surface temperature  - SKIN temperature
-;************************************************
 
-;***setings
-    Cvar="ts"
-    fili     =  workdir+"/Ubusy_d"+Cvar+".nc"
-    
-    mainTitle = "Temperature [C] "+typ
-    subTitle  = "TSURF ["+run+meantime + "] - SKT [Erain"+eratime+"]"
-
-    if (default.eq.1.or.cell.eq.0) then   ; set key and appendix for 
-       fillKey="cont"                     ; contour or trigangels
-    else
-       fillKey="cell"                      
-    end if
-                
-if (isfilepresent(fili)) then
-;***read 
-    File    = addfile (fili , "r")  
-    var     = File->$Cvar$(time|0,ncells|:)   ; dims: (time,ncells)    
-   
-print(fili+" fili  "+min(var)+"   "+max(var))
-    print("ploted: "+mainTitle)
-
-;***open plot
-   noPlot=noPlot+1
-
-             
-;***number of listplots
-    res                       = True             ; plot mods desired
-    res@cnLevelSelectionMode  = "ExplicitLevels" ; set explicit contour levels
-    res@cnLevels              = (/-5,-3,-2,-1,-.5,.5,1,2,3,5/)
-    res@cnFillColors         = (/2,4,6,8,9,0,10,11,12,14,15,16/)
-    res@cnMissingValFillColor = missColor
-
-if (fillKey.eq."cont") then
-    plot12 = plot_cont ( wks,var,x,y,cArea,res,\
-                mainTitle,subTitle,comment )
-else 
-    plot12 = fast_cell ( wks,var,x,y,cArea,vlon,vlat,res,missColor,\
-                mainTitle,subTitle,comment )
-end if
-    listplots(noPlot)=plot12
-
-    delete(res@cnLevels)
-    delete (res@cnFillColors)
-end if
 
 ;*** PANNEL
 print("pannel:  "+noPlot)
@@ -895,12 +899,12 @@ print("pannel:  "+noPlot)
    
 
 
-   gsn_panel(wks, (/listplots(9),listplots(11),\
+   gsn_panel(wks, (/listplots(8),listplots(9),\
                     listplots(6),listplots(7),\
                     listplots(0),listplots(1)/), (/3,2/), pltres)   
    gsn_panel(wks, (/listplots(4),listplots(5),\
-                    listplots(10),listplots(2),\
-                    listplots(3)/), (/3,2/), pltres)   
+                    listplots(11),listplots(2),\
+                    listplots(3),listplots(10)/), (/3,2/), pltres)   
 
 exit
 end
