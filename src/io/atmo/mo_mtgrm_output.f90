@@ -100,7 +100,8 @@
 MODULE mo_meteogram_output
 
   USE mo_kind,                  ONLY: wp
-  USE mo_datetime,              ONLY: t_datetime, iso8601
+  USE mtime,                    ONLY: datetime, datetimeToString,         &
+    &                                 MAX_DATETIME_STR_LEN
   USE mo_exception,             ONLY: message, message_text, finish
   USE mo_mpi,                   ONLY: p_n_work, p_max,                    &
     &                                 get_my_mpi_all_id, p_wait,          &
@@ -143,8 +144,8 @@ MODULE mo_meteogram_output
   USE mo_dynamics_config,       ONLY: nnow
   USE mo_io_config,             ONLY: inextra_2d, inextra_3d
   USE mo_lnd_nwp_config,        ONLY: tiles
-  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, ltestcase, &
-    &                                 number_of_grid_used, iqm_max, iqni, &
+  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, ltestcase,    &
+    &                                 iqm_max, iqni,                         &
     &                                 iqns, iqng, iqnh, iqnr, iqnc, ininact, &
                                       iqg, iqh  
   USE mo_meteogram_config,      ONLY: t_meteogram_output_config, t_station_list, &
@@ -253,8 +254,8 @@ MODULE mo_meteogram_output
   !! Data structure containing time slice info.
   !!
   TYPE t_time_stamp
-    INTEGER                     :: istep    !< iteration step of model
-    CHARACTER(len=MAX_DATE_LEN) :: zdate    !< date and time of point sample (iso8601)
+    INTEGER                             :: istep    !< iteration step of model
+    CHARACTER(len=MAX_DATETIME_STR_LEN) :: zdate    !< date and time of point sample (iso8601)
   END TYPE t_time_stamp
 
 
@@ -801,8 +802,12 @@ CONTAINS
     TYPE(t_meteogram_station), POINTER :: p_station
     TYPE(t_cf_global)        , POINTER :: cf  !< meta info
     TYPE(t_gnat_tree)                  :: gnat
-
     INTEGER                            :: io_collector_rank
+
+    !-- consistency checks
+    IF (MAX_DATE_LEN < MAX_DATETIME_STR_LEN) THEN
+      CALL finish(routine, "Time stamps do not fit into data type!")
+    END IF
 
     !-- define the different roles in the MPI communication inside
     !-- this module
@@ -1331,7 +1336,7 @@ CONTAINS
   SUBROUTINE meteogram_sample_vars(jg, cur_step, cur_datetime, ierr)
     INTEGER,          INTENT(IN)  :: jg           !< patch index
     INTEGER,          INTENT(IN)  :: cur_step     !< current model iteration step
-    TYPE(t_datetime), INTENT(IN)  :: cur_datetime !< date and time of point sample
+    TYPE(datetime),   POINTER     :: cur_datetime !< date and time of point sample
     INTEGER,          INTENT(OUT) :: ierr         !< error code (e.g. buffer overflow)
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":meteogram_sample_vars"
@@ -1357,7 +1362,7 @@ CONTAINS
     END IF
 
     meteogram_data%time_stamp(i_tstep)%istep = cur_step
-    meteogram_data%time_stamp(i_tstep)%zdate = iso8601(cur_datetime)
+    CALL datetimeToString(cur_datetime, meteogram_data%time_stamp(i_tstep)%zdate)
 
     ! fill time step with values
     DO jb=1,meteogram_data%nblks

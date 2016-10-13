@@ -27,19 +27,19 @@ MODULE mo_util_string
   !
   PRIVATE
   !
-  PUBLIC :: tolower        ! Conversion   : 'ABCXYZ' -> 'abcxyz'   
-  PUBLIC :: toupper        ! Conversion   : 'abcxyz' -> 'ABCXYZ'
-  PUBLIC :: separator      ! Format string: (/"-----...-----"/)
-  PUBLIC :: int2string     ! returns integer n as a string
-  PUBLIC :: real2string    ! returns real n as a string
-  PUBLIC :: logical2string ! returns logical n as a string
+  PUBLIC :: tolower              ! Conversion   : 'ABCXYZ' -> 'abcxyz'   
+  PUBLIC :: toupper              ! Conversion   : 'abcxyz' -> 'ABCXYZ'
+  PUBLIC :: separator            ! Format string: (/"-----...-----"/)
+  PUBLIC :: int2string           ! returns integer n as a string
+  PUBLIC :: real2string          ! returns real n as a string
+  PUBLIC :: logical2string       ! returns logical n as a string
   PUBLIC :: split_string         ! splits string into words
   PUBLIC :: string_contains_word ! searches in a string list
-  PUBLIC :: tocompact      ! remove gaps in string
-  PUBLIC :: str_replace       ! replace any occurrence of keyword by substring
+  PUBLIC :: tocompact            ! remove gaps in string
+  PUBLIC :: str_replace          ! replace any occurrence of keyword by substring
   PUBLIC :: t_keyword_list
-  PUBLIC :: associate_keyword ! add a pair (keyword -> substitution) to a keyword list
-  PUBLIC :: with_keywords     ! subroutine for keyword substitution
+  PUBLIC :: associate_keyword    ! add a pair (keyword -> substitution) to a keyword list
+  PUBLIC :: with_keywords        ! subroutine for keyword substitution
   PUBLIC :: remove_duplicates
   PUBLIC :: difference
   PUBLIC :: add_to_list
@@ -47,7 +47,8 @@ MODULE mo_util_string
   PUBLIC :: insert_group
   PUBLIC :: delete_keyword_list
   PUBLIC :: sort_and_compress_list
-  PUBLIC :: tohex   ! For debugging: Produce a hex dump of the given string, revealing any unprintable characters.
+  PUBLIC :: tohex                ! For debugging: Produce a hex dump of the given string, revealing any unprintable characters.
+  PUBLIC :: remove_whitespace
 
   !functions to handle character arrays as strings
   PUBLIC :: toCharArray     ! convert a fortran string to a character array of kind = c_char
@@ -215,20 +216,36 @@ CONTAINS
   !
   ! returns real n as a string (often needed in printing messages)
   !
-  FUNCTION float2string(n) 
+  FUNCTION float2string(n, opt_fmt) 
     CHARACTER(len=32) :: float2string ! result
     REAL, INTENT(in) :: n
+    CHARACTER(len=*), INTENT(in), OPTIONAL :: opt_fmt
     !
-    WRITE(float2string,'(g32.5)') n
+    CHARACTER(len=10) :: fmt
+    !
+    IF (PRESENT(opt_fmt)) THEN
+      fmt = opt_fmt
+    ELSE
+      fmt = '(g32.5)'
+    END IF
+    WRITE(float2string,fmt) n
     float2string = ADJUSTL(float2string)
     !
   END FUNCTION float2string
   !
-  FUNCTION double2string(n) 
+  FUNCTION double2string(n, opt_fmt) 
     CHARACTER(len=32) :: double2string ! result
     DOUBLE PRECISION, INTENT(in) :: n
+    CHARACTER(len=*), INTENT(in), OPTIONAL :: opt_fmt
     !
-    WRITE(double2string,'(g32.5)') n
+    CHARACTER(len=10) :: fmt
+    !
+    IF (PRESENT(opt_fmt)) THEN
+      fmt = opt_fmt
+    ELSE
+      fmt = '(g32.5)'
+    END IF
+    WRITE(double2string,fmt) n
     double2string = ADJUSTL(double2string)
     !
   END FUNCTION double2string
@@ -752,6 +769,27 @@ CONTAINS
         RESULT = tohex_internal(TRANSFER(string, mold))
     END IF
   END FUNCTION tohex
+
+
+  !------------------------------------------------------------------------------------------------
+  !> Remove all white space from a string (also between "words").
+  !
+  FUNCTION remove_whitespace(in_str)
+    CHARACTER(len=*), INTENT(in)    :: in_str
+    CHARACTER(len=LEN_TRIM(in_str)) :: remove_whitespace
+    ! local variables
+    INTEGER   :: i,j, ichar
+
+    remove_whitespace = " "
+    j = 0
+    DO i = 1,LEN(in_str)
+      ichar = IACHAR(in_str(i:i))
+      IF ((ichar /= 9) .AND. (ichar /= 32)) THEN
+        j = j + 1
+        remove_whitespace(j:j) = in_str(i:i)
+      END IF
+    END DO
+  END FUNCTION remove_whitespace
 
   FUNCTION toCharArray(string) RESULT(result)
     CHARACTER(LEN = *), INTENT(IN) :: string

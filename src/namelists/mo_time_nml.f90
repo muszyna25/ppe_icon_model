@@ -15,16 +15,20 @@
 !!
 MODULE mo_time_nml
 
-  USE mo_kind,                  ONLY: wp, i8
-  USE mo_datetime,              ONLY: proleptic_gregorian, time_to_date, &
-                                    & date_to_time, string_to_datetime
-  USE mo_time_config,           ONLY: time_config
+  USE mo_kind,                  ONLY: wp
+  USE mo_time_config,           ONLY: cfg_dt_restart          => dt_restart,          &
+    &                                 cfg_icalendar           => icalendar,           &
+    &                                 cfg_is_relative_time    => is_relative_time,    &
+    &                                 cfg_ini_datetime_string => ini_datetime_string, &
+    &                                 cfg_end_datetime_string => end_datetime_string, &
+    &                                 restart_ini_datetime_string,                    &
+    &                                 restart_end_datetime_string,                    &
+    &                                 restart_calendar
   USE mo_io_units,              ONLY: nnml, nnml_output
   USE mo_master_control,        ONLY: use_restart_namelists, isRestart
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                   ONLY: my_process_is_stdio 
 
-  USE mo_io_restart_attributes, ONLY: get_restart_attribute
   USE mo_io_restart_namelist,   ONLY: open_and_restore_namelist, close_tmpfile, &
                                     & open_tmpfile, store_and_close_namelist
   USE mo_nml_annotate,          ONLY: temp_defaults, temp_settings
@@ -36,6 +40,8 @@ MODULE mo_time_nml
   !--------------------
   ! Namelist variables
   !--------------------
+
+  CHARACTER(LEN = *), PARAMETER :: modname = "mo_time_nml"
 
   INTEGER            ::  calendar         ! calendar type
   REAL(wp)           ::  dt_restart       ! [s] length of a restart cycle 
@@ -54,6 +60,7 @@ MODULE mo_time_nml
     &                 is_relative_time
 
 CONTAINS
+
   !-------------------------------------------------------------------------
   !>
   !!  Initialization of variables that contain general information.
@@ -82,42 +89,29 @@ CONTAINS
   !!
   SUBROUTINE read_time_namelist( filename )
 
-   CHARACTER(LEN=*), INTENT(IN) :: filename
-   INTEGER  :: istat, funit,calendar_old
-   CHARACTER(len=32) :: ini_datetime_string_old
+   CHARACTER(LEN=*), INTENT(IN)        :: filename
+   ! local variables
+   CHARACTER(len=*), PARAMETER         :: routine = modname//'::read_time_namelist'
 
-   INTEGER(i8) :: restart_calday
-   REAL(wp)    :: restart_caltime
-   REAL(wp)    :: restart_daysec
-   INTEGER     :: iunit
-
-
-   !0!CHARACTER(len=*), PARAMETER ::  routine = 'mo_time_nml:read_time_namelist'
+   INTEGER                             :: istat, funit
+   INTEGER                             :: iunit
 
    !------------------------------------------------------------------------
    ! Default values
    !------------------------------------------------------------------------
 
-   ! initial date and time
-    calendar            = proleptic_gregorian
-    ini_datetime_string = "2008-09-01T00:00:00Z"
-   !
-   ! end date and time
-    end_datetime_string = "2008-09-01T01:40:00Z"
-   !
-   ! length of integration = (number of timesteps)*(length of timestep)
-   ! - If nsteps is set to a non-zero positive value, then the end date is computed
-   !   from the initial date and time, the time step dtime, and nsteps.
-   ! - Else if run_day, run_hour, run_minute or run_second is set to a non-zero,
-   !   positive value, then the initial date and time and the run_... variables are
-   !   used to compute the end date and time and, using dtime, nsteps.
-   !   Else nsteps is computed from the initial and end date and time and dtime.
-   !
-   ! length of restart cycle
-    dt_restart     = 86400._wp*30._wp   ! = 30 days
+   ! Note: The default needs to be empty, since there exist
+   ! concurrent namelist parameters to specify these values:
+   calendar  = -1   ! unspecified
+
+   ! Initialize start and end date by empty strings, which means
+   ! "undefined". The same information may be set through other
+   ! namelist parameters from "master_time_control_nml".
+   ini_datetime_string = ""     ! initial date and time
+   end_datetime_string = ""     ! end date and time
+   dt_restart          = 0._wp  ! length of restart cycle (unspecified)
 
     is_relative_time = .FALSE.
-
 
     IF (isRestart()) THEN
  
@@ -126,14 +120,10 @@ CONTAINS
       READ(funit,NML=time_nml)
       CALL close_tmpfile(funit) 
 
-      calendar_old            = calendar
-      ini_datetime_string_old = ini_datetime_string
-
-      ! 2.2 Inquire the date/time at which the previous run stopped
-
-      CALL get_restart_attribute( 'current_caltime', restart_caltime )
-      CALL get_restart_attribute( 'current_calday' , restart_calday  )
-      CALL get_restart_attribute( 'current_daysec' , restart_daysec  )
+      ! store the namelist settings originating from the restart file:
+      restart_calendar            = calendar
+      restart_ini_datetime_string = ini_datetime_string
+      restart_end_datetime_string = end_datetime_string
 
     END IF
 
@@ -160,49 +150,13 @@ CONTAINS
     ! 4. Fill the configuration state
     !----------------------------------------------------
 
-    time_config%calendar = calendar
+    cfg_icalendar = calendar
 
-    CALL string_to_datetime( ini_datetime_string, time_config%ini_datetime )
+    cfg_ini_datetime_string = ini_datetime_string
+    cfg_end_datetime_string = end_datetime_string
 
-    time_config%ini_datetime%calendar = time_config%calendar
-    CALL date_to_time( time_config%ini_datetime )
-
-    IF (isRestart()) THEN
-      ! In a resumed integration, if the calendar or initial date/time 
-      ! is different from those in the restart file,
-      ! we regard this integration as a new one with its own calendar. 
-      ! Model time at which the previous run stopped is thus not relevant. 
-      ! Simulation will start from the user-specified initial date/time,
-      ! which is also the current model date/time.
-
-      IF (time_config%calendar /= calendar_old .OR.     &
-          ini_datetime_string_old /= ini_datetime_string) THEN
-
-        time_config%cur_datetime = time_config%ini_datetime
-
-      ELSE
-        time_config%cur_datetime%calendar = time_config%calendar
-        time_config%cur_datetime%caltime  = restart_caltime
-        time_config%cur_datetime%calday   = restart_calday
-        time_config%cur_datetime%daysec   = restart_daysec
-
-        CALL time_to_date(time_config%cur_datetime) ! fill date time structure
-
-      END IF
-
-    ELSE
-      ! In an initial run, current date/time is, naturally, the initial date/time
-      time_config%cur_datetime = time_config%ini_datetime
-
-    END IF !isRestart()
-
-    CALL string_to_datetime( end_datetime_string, time_config%end_datetime ) 
-
-    time_config%end_datetime%calendar = time_config%calendar
-    CALL date_to_time( time_config%end_datetime )
-
-    time_config%dt_restart       = dt_restart
-    time_config%is_relative_time = is_relative_time
+    cfg_dt_restart          = dt_restart
+    cfg_is_relative_time    = is_relative_time
 
     !-----------------------------------------------------
     ! Store the namelist for restart

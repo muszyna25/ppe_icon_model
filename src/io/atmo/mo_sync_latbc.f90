@@ -35,6 +35,7 @@ MODULE mo_sync_latbc
 
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma, p_test_run
+  USE mo_time_config,         ONLY: time_config
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: nroot
   USE mo_exception,           ONLY: message, message_text, finish
@@ -55,13 +56,16 @@ MODULE mo_sync_latbc
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, sync_patch_array
   USE mo_initicon_types,      ONLY: t_initicon_state
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
-  USE mo_datetime,            ONLY: t_datetime, date_to_time, add_time, rdaylen
-  USE mo_time_config,         ONLY: time_config
   USE mo_limarea_config,      ONLY: latbc_config, generate_filename
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport
   USE mo_initicon_config,     ONLY: init_mode
   USE mo_fortran_tools,       ONLY: copy
+  USE mtime,                  ONLY: datetime, newDatetime, deallocateDatetime,              &
+    &                               divideDatetimeDifferenceInSeconds, deallocateTimedelta, &
+    &                               divisionquotienttimespan,                               &
+    &                               timedelta, newTimedelta, OPERATOR(*), OPERATOR(+),      &
+    &                               getTotalMilliSecondsTimeDelta, OPERATOR(>=)
 
   IMPLICIT NONE
 
@@ -80,17 +84,17 @@ MODULE mo_sync_latbc
                             last_latbc_tlev     ! last_ext_tlev is the last written time level index
 
   ! ---------------------------------------------------------------------------------
-  ! TODO [MP]
-  !   Replace the "old" calender object TYPE t_datetime by the mtime library.
-  ! ---------------------------------------------------------------------------------
-  TYPE(t_datetime)       :: last_latbc_datetime ! last read time step
+  TYPE(datetime), POINTER :: last_latbc_mtime    ! last read time step (mtime)
 
-  TYPE(t_initicon_state) :: p_latbc_data(2)     ! storage for two time-level boundary data
-  INTEGER                :: nlev_in             ! number of vertical levels in the boundary data
+  TYPE(t_initicon_state)  :: p_latbc_data(2)     ! storage for two time-level boundary data
+  INTEGER                 :: nlev_in             ! number of vertical levels in the boundary data
 
-  PUBLIC :: prepare_latbc_data, read_latbc_data, deallocate_latbc_data,  &
+  PUBLIC :: prepare_latbc_data, read_latbc_data, deallocate_latbc_data,   &
     &       p_latbc_data, latbc_fileid, read_latbc_tlev, last_latbc_tlev, &
-    &       last_latbc_datetime, update_lin_interc
+    &       update_lin_interc
+
+  !> module name
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_sync_latbc'
 
   CONTAINS
 
@@ -106,19 +110,16 @@ MODULE mo_sync_latbc
     TYPE(t_external_data),  INTENT(IN)   :: ext_data    !< external data on the global domain
 
     ! local variables
-    INTEGER       :: tlev
-    INTEGER       :: tdiffsec
-    REAL(wp)      :: tdiff
-    INTEGER       :: nlev, nlevp1, nblks_c, nblks_e
-    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
-      "mo_sync_latbc::allocate_latbc_data"
+    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = modname//"::allocate_latbc_data"
+    INTEGER                              :: tlev
+    INTEGER                              :: nlev, nlevp1, nblks_c, nblks_e, errno, step
+    TYPE(divisionquotienttimespan)       :: tq     
+    TYPE(timedelta), POINTER             :: td
 
     nlev_in = latbc_config%nlev_in
     IF (nlev_in == 0) THEN
       CALL finish(TRIM(routine), "Number of input levels <nlev_in> not yet initialized.")
     END IF
-
-    last_latbc_datetime = time_config%ini_datetime
 
     nlev    = p_patch%nlev
     nlevp1  = p_patch%nlevp1
@@ -184,16 +185,24 @@ MODULE mo_sync_latbc
 !$OMP END PARALLEL
 
     END DO
+    
+    last_latbc_mtime    => newDatetime(time_config%tc_exp_startdate, errno)
+    IF (errno /= 0)  CALL finish(routine, "Error in initialization of last_latbc_mtime.")
 
     ! last reading-in time is the current time
-    last_latbc_datetime = time_config%ini_datetime
-    CALL date_to_time(time_config%cur_datetime)
-    CALL date_to_time(time_config%ini_datetime)
-    tdiff = (time_config%cur_datetime%calday - time_config%ini_datetime%calday + &
-    time_config%cur_datetime%caltime - time_config%ini_datetime%caltime)*rdaylen
-    tdiffsec = FLOOR(tdiff / latbc_config%dtime_latbc)
-    tdiff    = REAL(tdiffsec,wp)*latbc_config%dtime_latbc
-    CALL add_time(tdiff,0,0,0,last_latbc_datetime)
+    ! mtime calculation: 
+    !
+    td => newTimedelta(latbc_config%dtime_latbc_mtime, errno)
+    IF (errno /= 0)  CALL finish(routine, "Error in initialization of dtime_latbc time delta.")
+    !   last_latbc_datetime := tc_startdate + dtime_latbc * FLOOR( (tc_current_date - tc_startdate)/dtime_latbc )
+
+    CALL divideDatetimeDifferenceInSeconds(time_config%tc_current_date, time_config%tc_exp_startdate, &
+      &                                    latbc_config%dtime_latbc_mtime, tq)
+
+    step = INT(tq%quotient)
+    td   = td * step
+    last_latbc_mtime = last_latbc_mtime + td
+    CALL deallocateTimedelta(td)
 
     ! prepare read/last indices
     read_latbc_tlev = 1   ! read in the first time-level slot
@@ -201,11 +210,11 @@ MODULE mo_sync_latbc
 
     ! read first two time steps
     CALL read_latbc_data( p_patch, p_nh_state, p_int_state,                   &
-      &                   time_config%cur_datetime, lopt_check_read=.FALSE.,  &
-      &                   lopt_time_incr=.FALSE.                              )
+      &                   time_config%tc_current_date,                        &
+      &                   lopt_check_read=.FALSE., lopt_time_incr=.FALSE.     )
     CALL read_latbc_data( p_patch, p_nh_state, p_int_state,                   &
-      &                   time_config%cur_datetime, lopt_check_read=.FALSE.,  &
-      &                   lopt_time_incr=.TRUE.                               )
+      &                   time_config%tc_current_date,                        &
+      &                   lopt_check_read=.FALSE., lopt_time_incr=.TRUE.      )
 
   END SUBROUTINE prepare_latbc_data
   !-------------------------------------------------------------------------
@@ -222,19 +231,18 @@ MODULE mo_sync_latbc
   !! @par Revision History
   !! Initial version by S. Brdar, DWD (2013-07-19)
   !!
-  SUBROUTINE read_latbc_data( p_patch, p_nh_state, p_int, datetime, &
+  SUBROUTINE read_latbc_data( p_patch, p_nh_state, p_int, mtime_date, &
     &                         lopt_check_read, lopt_time_incr )
     TYPE(t_patch),          INTENT(IN)    :: p_patch
     TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state  !< nonhydrostatic state on the global domain
     TYPE(t_int_state),      INTENT(IN)    :: p_int
-    TYPE(t_datetime),       INTENT(INOUT) :: datetime    !< current time
+    TYPE(datetime),         pointer       :: mtime_date       !< current time (mtime format)
     LOGICAL,      INTENT(IN), OPTIONAL    :: lopt_check_read
     LOGICAL,      INTENT(IN), OPTIONAL    :: lopt_time_incr  !< increment latbc_datetime
 
     LOGICAL                               :: lcheck_read
     LOGICAL                               :: ltime_incr
-    REAL                                  :: tdiff
-    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_sync_latbc::read_latbc_data"
+    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = modname//"::read_latbc_data"
 
     IF (PRESENT(lopt_check_read)) THEN
       lcheck_read = lopt_check_read
@@ -251,17 +259,11 @@ MODULE mo_sync_latbc
     !
     ! do we need to read boundary data
     !
-    IF (lcheck_read) THEN
-      CALL date_to_time(datetime)
-      tdiff = (last_latbc_datetime%calday - datetime%calday + &
-        last_latbc_datetime%caltime - datetime%caltime)*rdaylen
-      IF (tdiff >= 0.) RETURN
-    ENDIF
+    IF (lcheck_read .AND. (last_latbc_mtime >= mtime_date)) RETURN
 
     ! Prepare the last_latbc_datetime for the next time level
     IF (ltime_incr) THEN
-      CALL add_time( latbc_config%dtime_latbc, 0, 0, 0, last_latbc_datetime )
-      CALL date_to_time(last_latbc_datetime)
+      last_latbc_mtime = last_latbc_mtime + latbc_config%dtime_latbc_mtime
     ENDIF
 
     ! Adjust read/last indices
@@ -302,26 +304,20 @@ MODULE mo_sync_latbc
     TYPE(t_int_state),      INTENT(IN)  :: p_int
 
     ! local variables
-    INTEGER                             :: mpi_comm, dimid, no_cells, &
+    INTEGER                             :: dimid, no_cells, &
                                            latbc_ncid, no_levels
     TYPE(t_stream_id)                   :: latbc_stream_id
     LOGICAL                             :: l_exist
     REAL(wp)                            :: temp_v(nproma,p_patch%nlev,p_patch%nblks_c)
     INTEGER                             :: tlev
 
-    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_sync_latbc::read_latbc_data"
+    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = modname//"::read_latbc_icon_data"
     CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
 
     nlev_in = latbc_config%nlev_in
     tlev = read_latbc_tlev
 
-    IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test
-    ELSE
-      mpi_comm = p_comm_work
-    ENDIF
-
-    latbc_filename = generate_filename(nroot, p_patch%level, last_latbc_datetime)
+    latbc_filename = generate_filename(nroot, p_patch%level, last_latbc_mtime)
 
     latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
 
@@ -458,7 +454,7 @@ MODULE mo_sync_latbc
     LOGICAL                             :: l_exist, lconvert_omega2w
     INTEGER                             :: jc, jk, jb, i_endidx
 
-    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_sync_latbc::read_latbc_data"
+    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = modname//"::read_latbc_ifs_data"
     CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
     INTEGER                             :: tlev
 
@@ -471,7 +467,7 @@ MODULE mo_sync_latbc
       mpi_comm = p_comm_work
     ENDIF
 
-    latbc_filename = generate_filename(nroot, p_patch%level, last_latbc_datetime)
+    latbc_filename = generate_filename(nroot, p_patch%level, last_latbc_mtime)
 
     latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
 
@@ -703,7 +699,7 @@ MODULE mo_sync_latbc
   SUBROUTINE deallocate_latbc_data()
     INTEGER             :: tlev
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
-      "mo_sync_latbc::deallocate_latbc_data"
+      modname//"::deallocate_latbc_data"
 
     WRITE(message_text,'(a,a)') 'deallocating latbc data'
     CALL message(TRIM(routine), message_text)
@@ -750,6 +746,9 @@ MODULE mo_sync_latbc
                  p_latbc_data(tlev)%atm%qs )
 
     END DO
+
+    ! clean up mtime calendar objects
+    CALL deallocateDatetime(last_latbc_mtime)
 
   END SUBROUTINE deallocate_latbc_data
   !-------------------------------------------------------------------------
@@ -878,13 +877,27 @@ MODULE mo_sync_latbc
   !! @par Revision History
   !! Initial version by S. Brdar, DWD (2013-08-02)
   !!
-  SUBROUTINE update_lin_interc( datetime )
-    TYPE(t_datetime),   INTENT(INOUT) :: datetime
+  SUBROUTINE update_lin_interc( mtime_date )
+    TYPE(datetime),     POINTER    :: mtime_date
+    ! local variables
+    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = modname//"::update_lin_interc"
+    TYPE(divisionquotienttimespan)       :: tq     
+    REAL(wp)                             :: dtime_latbc_in_ms
+#ifdef _MTIME_DEBUG
+    REAL(wp)                             :: d1
+#endif
 
-    CALL date_to_time(datetime)
-    CALL date_to_time(last_latbc_datetime)
-    latbc_config%lc1 = (last_latbc_datetime%calday - datetime%calday + &
-      last_latbc_datetime%caltime - datetime%caltime) * rdaylen / latbc_config%dtime_latbc
+    ! calendar calculation: mtime data structure
+    !
+    ! lc1 := (last_latbc_datetime - this_datetime) / dtime_latbc
+    ! lc2 := 1 - lc1
+    !
+    ! We have 0 <= lc1 <= 1, because "last_latbc_datetime" (despite
+    ! its name) denotes the *next* lateral bc read event.
+    !
+    dtime_latbc_in_ms = getTotalMilliSecondsTimeDelta(latbc_config%dtime_latbc_mtime, mtime_date)
+    CALL divideDatetimeDifferenceInSeconds(last_latbc_mtime, mtime_date, latbc_config%dtime_latbc_mtime, tq)
+    latbc_config%lc1 = REAL(tq%remainder_in_ms,wp)/dtime_latbc_in_ms
     latbc_config%lc2 = 1._wp - latbc_config%lc1
 
   END SUBROUTINE update_lin_interc

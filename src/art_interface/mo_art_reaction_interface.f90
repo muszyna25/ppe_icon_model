@@ -33,9 +33,9 @@ MODULE mo_art_reaction_interface
   USE mo_nonhydro_types,                ONLY: t_nh_diag
   USE mo_run_config,                    ONLY: lart
   USE mo_ext_data_types,                ONLY: t_external_data
-  USE mo_datetime,                      ONLY: t_datetime
   USE mo_nonhydro_types,                ONLY: t_nh_metrics, t_nh_prog, t_nh_diag
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
+  USE mtime,                            ONLY: datetime
 #ifdef __ICON_ART
   USE mo_art_decay_radioact,            ONLY: art_decay_radioact
   USE mo_art_chemtracer,                ONLY: art_loss_chemtracer
@@ -56,7 +56,7 @@ CONTAINS
 !!
 !!-------------------------------------------------------------------------
 !!
-SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list,p_prog, &
+SUBROUTINE art_reaction_interface(ext_data, p_patch,mtime_datetime,p_dtime,p_prog_list,p_prog, &
   &                               p_metrics,prm_diag,p_diag,p_tracer_now)
   !>
   !! Interface for ART-routines treating reactions of any kind (chemistry, radioactive decay)
@@ -71,26 +71,26 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
   ! atmosphere external data                                
   TYPE(t_external_data), INTENT(INOUT) :: &
     &  ext_data
-  TYPE(t_patch), TARGET, INTENT(IN) :: & 
+  TYPE(t_patch), TARGET, INTENT(IN)   :: & 
     &  p_patch                           !< patch on which computation is performed
-  TYPE(t_datetime), INTENT(IN)      :: &
-    &  datetime                          !< Actual time and date
-  REAL(wp), INTENT(IN)              :: &
+  TYPE(datetime), POINTER, INTENT(IN) :: &
+    &  mtime_datetime                    !< Actual time and date
+  REAL(wp), INTENT(IN)                :: &
     &  p_dtime                           !< time step
-  TYPE(t_nwp_phy_diag), INTENT(IN)  :: &
+  TYPE(t_nwp_phy_diag), INTENT(IN)    :: &
     &  prm_diag                          !< NH metrics state
-  TYPE(t_nh_diag), INTENT(IN)       :: &
+  TYPE(t_nh_diag), INTENT(IN)         :: &
     &  p_diag                            !< list of diagnostic fields
-  TYPE(t_var_list), INTENT(IN)      :: &
+  TYPE(t_var_list), INTENT(IN)        :: &
     &  p_prog_list                       !< current prognostic state list
-  TYPE(t_nh_prog), INTENT(IN)       :: &
+  TYPE(t_nh_prog), INTENT(IN)         :: &
     &  p_prog
-  TYPE(t_nh_metrics), INTENT(IN)    :: &
+  TYPE(t_nh_metrics), INTENT(IN)      :: &
     &  p_metrics                         !< NH metrics state
-  REAL(wp), INTENT(INOUT)           :: &
+  REAL(wp), INTENT(INOUT)             :: &
     &  p_tracer_now(:,:,:,:)             !< tracer mixing ratios (specific concentrations)
 ! Local variables
-  REAL(wp), POINTER                 :: &
+  REAL(wp), POINTER                   :: &
     &  p_rho(:,:,:)                      !< density of air [kg/m3]
   INTEGER  :: jg                         !< domain index
 #ifdef __ICON_ART
@@ -131,7 +131,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
       SELECT CASE(art_config(jg)%iart_chem_mechanism)
         CASE(0)
           CALL art_loss_chemtracer(ext_data, p_patch, &
-                 & datetime,                          &
+                 & mtime_datetime,                    &
                  & p_dtime,                           &
                  & p_prog,                            &
                  & p_prog_list,                       &
@@ -141,7 +141,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
         CASE(1)
           CALL art_photolysis(ext_data,               &
                  & p_patch,                           &
-                 & datetime,                          &
+                 & mtime_datetime,                    &
                  & p_dtime,                           &
                  & p_prog_list,                       &
                  & p_prog,                            &

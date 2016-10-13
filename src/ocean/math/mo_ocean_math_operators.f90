@@ -1416,7 +1416,7 @@ CONTAINS
     
     CALL calculate_thickness( patch_3D, ocean_state, p_ext_data, operators_coefficients, solvercoeff_sp)
     CALL update_thickness_dependent_operator_coeff( patch_3D, ocean_state, &
-	    & operators_coefficients, solvercoeff_sp )
+      & operators_coefficients, solvercoeff_sp )
     
   END SUBROUTINE update_height_depdendent_variables
   !---------------------------------------------------------------------------------

@@ -450,7 +450,7 @@ EOF
 # Dictionary
 # 
 dict_file="dict.${EXPNAME}"
-cat dict.iconam.mpim_inst > ${dict_file}
+cat dict.iconam.mpim > ${dict_file}
 #
 # -------------------------------------
 #
