@@ -2500,12 +2500,11 @@ if test "${with_fortran+set}" = set; then :
 fi
 
 
-if test x$with_fortran != x; then :
+if test -n "$with_fortran"; then :
   fortran_compiler=$with_fortran
-      fortran_compiler="default"
+else
+  fortran_compiler="default"
 fi
-
-
 
 
 # Check whether --with-openmp was given.

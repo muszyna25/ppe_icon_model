@@ -39,6 +39,8 @@ load_modules=
 CC     = gcc
 CFLAGS = -std=gnu99 -march=native -O2 -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE
 
+echo $fortran_compiler
+
 case "$fortran_compiler" in
     default|gcc)
         config_compiler  = gcc

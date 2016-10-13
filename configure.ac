@@ -66,11 +66,9 @@ AC_ARG_WITH([fortran],
   [],
   [])
 
-AS_IF([test x$with_fortran != x],
-      [fortran_compiler=$with_fortran]
+AS_IF([test -n "$with_fortran"],
+      [fortran_compiler=$with_fortran],
       [fortran_compiler="default"])
-
-
 
 AC_ARG_WITH([openmp],
   [AS_HELP_STRING([--with-openmp],
