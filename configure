@@ -667,6 +667,9 @@ SCTROOT
 XML2_INCLUDE
 XML2_LIB
 XML2ROOT
+GRIBAPI_INCLUDE
+GRIBAPI_LIB
+GRIBAPIROOT
 ZLIB_INCLUDE
 ZLIB_LIB
 ZLIBROOT
@@ -777,6 +780,7 @@ with_szip
 with_hdf5
 with_netcdf
 with_cdi
+with_grib_api
 with_sct
 with_sctlibs
 with_mpi
@@ -1432,6 +1436,7 @@ Optional Packages:
   --with-hdf5=DIR         Required I/O package
   --with-netcdf=DIR       Required I/O package
   --with-cdi=DIR          Required I/O package
+  --with-grib_api=DIR     Optional GRIB2 package
   --with-sct=DIR          Optional SCT timer package
   --with-sctlibs=PATHS    Optional libs needed for SCT
   --with-mpi=DIR          MPI library
@@ -2195,9 +2200,6 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 package="ICON"
-if test -r "./config/set-up" ; then
-. ./config/set-up
-fi
 
 
 
@@ -2491,19 +2493,19 @@ fi
 
 
 
+
 # Check whether --with-fortran was given.
 if test "${with_fortran+set}" = set; then :
   withval=$with_fortran;
 fi
 
 
-
-if test x$with_fortran != x; then
-    fortran_compiler=$with_fortran
-else
-    fortran_compiler="default"
+if test x$with_fortran != x; then :
+  fortran_compiler=$with_fortran
+      fortran_compiler="default"
 fi
-make_command="make"
+
+
 
 
 # Check whether --with-openmp was given.
@@ -2519,7 +2521,7 @@ if test "${with_setup+set}" = set; then :
 fi
 
 
-if test x$with_setup != x ; then
+if test x$with_setup != x; then :
   mh_setup=$with_setup
 else
   mh_setup=""
@@ -2571,61 +2573,16 @@ else
   use_art="no"
 fi
 
-case $host in
-  i*86-*-linux-*)
-    if test x$fortran_compiler != xintel ; then
-      gcc_lib="$(gcc -print-libgcc-file-name)"
-    fi
-    ;;
-  *)
-    gcc_lib=""
-    ;;
+case $host in #(
+  i*86-*-linux-*) :
+    if test x$fortran_compiler != xintel; then :
+  gcc_lib="$(gcc -print-libgcc-file-name)"
+else
+  gcc_lib=""
+fi ;; #(
+  *) :
+    gcc_lib="" ;;
 esac
-
-
-
-
-for ac_prog in gawk mawk nawk awk
-do
-  # Extract the first word of "$ac_prog", so it can be a program name with args.
-set dummy $ac_prog; ac_word=$2
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-$as_echo_n "checking for $ac_word... " >&6; }
-if ${ac_cv_prog_AWK+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  if test -n "$AWK"; then
-  ac_cv_prog_AWK="$AWK" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
-    ac_cv_prog_AWK="$ac_prog"
-    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-fi
-fi
-AWK=$ac_cv_prog_AWK
-if test -n "$AWK"; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $AWK" >&5
-$as_echo "$AWK" >&6; }
-else
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-fi
-
-
-  test -n "$AWK" && break
-done
 
 
 case $ac_hostname in #(
@@ -2733,6 +2690,9 @@ if test -f config/mh-override ; then
 fi
 host_frag=config/mh-config-use
 #------------------------------------
+
+# set default
+make_command="make"
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for machine dependent configuration" >&5
 $as_echo_n "checking for machine dependent configuration... " >&6; }
@@ -4477,6 +4437,149 @@ fi
 
 fi
 export CDIROOT	#inform config/createMakefiles.pl whether it should include cdilib.c in the support/Makefile .
+
+
+GRIBAPI_LIB=""
+GRIBAPI_INCLUDE=""
+
+
+# Check whether --with-grib_api was given.
+if test "${with_grib_api+set}" = set; then :
+  withval=$with_grib_api;
+else
+  with_grib_api=yes
+fi
+
+
+case $with_grib_api in #(
+  no) :
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for grib_api library" >&5
+$as_echo_n "checking for grib_api library... " >&6; }
+         { $as_echo "$as_me:${as_lineno-$LINENO}: result: suppressed" >&5
+$as_echo "suppressed" >&6; } ;; #(
+  yes) :
+    as_ac_File=`$as_echo "ac_cv_file_$GRIBAPIROOT/include/grib_api.h" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $GRIBAPIROOT/include/grib_api.h" >&5
+$as_echo_n "checking for $GRIBAPIROOT/include/grib_api.h... " >&6; }
+if eval \${$as_ac_File+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  test "$cross_compiling" = yes &&
+  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
+if test -r "$GRIBAPIROOT/include/grib_api.h"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+eval ac_res=\$$as_ac_File
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+
+else
+  as_fn_error $? "GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find grib_api.h" "$LINENO" 5
+fi
+
+         as_ac_File=`$as_echo "ac_cv_file_$GRIBAPIROOT/lib/libgrib_api.a" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $GRIBAPIROOT/lib/libgrib_api.a" >&5
+$as_echo_n "checking for $GRIBAPIROOT/lib/libgrib_api.a... " >&6; }
+if eval \${$as_ac_File+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  test "$cross_compiling" = yes &&
+  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
+if test -r "$GRIBAPIROOT/lib/libgrib_api.a"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+eval ac_res=\$$as_ac_File
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+
+else
+  as_fn_error $? "GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a" "$LINENO" 5
+fi
+ ;; #(
+  *) :
+    GRIBAPIROOT=$with_grib_api
+         as_ac_File=`$as_echo "ac_cv_file_$GRIBAPIROOT/include/grib_api.h" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $GRIBAPIROOT/include/grib_api.h" >&5
+$as_echo_n "checking for $GRIBAPIROOT/include/grib_api.h... " >&6; }
+if eval \${$as_ac_File+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  test "$cross_compiling" = yes &&
+  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
+if test -r "$GRIBAPIROOT/include/grib_api.h"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+eval ac_res=\$$as_ac_File
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+
+else
+  as_fn_error $? "GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.h" "$LINENO" 5
+fi
+
+         as_ac_File=`$as_echo "ac_cv_file_$GRIBAPIROOT/lib/libgrib_api.a" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $GRIBAPIROOT/lib/libgrib_api.a" >&5
+$as_echo_n "checking for $GRIBAPIROOT/lib/libgrib_api.a... " >&6; }
+if eval \${$as_ac_File+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  test "$cross_compiling" = yes &&
+  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
+if test -r "$GRIBAPIROOT/lib/libgrib_api.a"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+eval ac_res=\$$as_ac_File
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
+
+else
+  as_fn_error $? "GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a" "$LINENO" 5
+fi
+ ;;
+esac
+
+if test -n "$GRIBAPIROOT"; then :
+  if test -r "$GRIBAPIROOT/lib/libgrib_api.a"; then :
+  GRIBAPI_LIB='-L$(GRIBAPIROOT)/lib -lgrib_api'
+else
+  as_fn_error $? "cannot read $GRIBAPIROOT/lib/libgrib_api.a" "$LINENO" 5
+fi
+       if test -d "$GRIBAPIROOT/include"; then :
+  GRIBAPI_INCLUDE='-I$(GRIBAPIROOT)/include'
+else
+  as_fn_error $? "cannot find $GRIBAPIROOT/include" "$LINENO" 5
+fi
+       FFLAGS="${FFLAGS} ${DEFOPT}HAVE_LIBGRIB ${DEFOPT}HAVE_LIBGRIB_API"
+       CFLAGS="${CFLAGS} ${DEFCOPT}HAVE_LIBGRIB ${DEFCOPT}HAVE_LIBGRIB_API"
+       case $ac_hostname in #(
+  mlogin*|btc*) :
+    case $FC in #(
+  nagfor) :
+    GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g') ;; #(
+  *) :
+    GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g') ;;
+esac ;; #(
+  *) :
+     ;;
+esac
+fi
+
 
 
 SCT_LIB=""
@@ -6518,6 +6621,13 @@ ZLIB_LIB=$ZLIB_LIB
 ZLIB_INCLUDE=$ZLIB_INCLUDE
 
 
+GRIBAPIROOT=$GRIBAPIROOT
+
+GRIBAPI_LIB=$GRIBAPI_LIB
+
+GRIBAPI_INCLUDE=$GRIBAPI_INCLUDE
+
+
 XML2ROOT=$XML2ROOT
 
 XML2_LIB=$XML2_LIB
@@ -6779,9 +6889,9 @@ fi
 # general command for running a progmam
 if test "x$mpi_startrun" = "x" ; then
   if  test "x$MPIROOT" = "x" ; then
-    mpi_startrun="mpiexec -n \$mpi_total_procs"
+    mpi_startrun="mpiexec -n \\\$mpi_total_procs"
   else
-    mpi_startrun="$MPIROOT/bin/mpiexec -n \$mpi_total_procs"
+    mpi_startrun="$MPIROOT/bin/mpiexec -n \\\$mpi_total_procs"
   fi
 fi
 

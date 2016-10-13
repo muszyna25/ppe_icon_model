@@ -16,9 +16,6 @@ AC_PREREQ(2.59)
 dnl ######################################################################
 dnl basic package definitions (by default ICON)
 package="ICON"
-if test -r "./config/set-up" ; then
-. ./config/set-up
-fi
 
 dnl Checks for package options.
 dnl ######################################################################
@@ -61,19 +58,19 @@ AC_ARG_ENABLE([testbed],
               AS_HELP_STRING([--enable-testbed],[Use testbed component.]),
               [],[enable_testbed=no])
 
+dnl ######################################################################
+
 AC_ARG_WITH([fortran],
   [AS_HELP_STRING([--with-fortran=COMPILER],
     [select_available compiler (see README.compiler)])],
   [],
   [])
 
+AS_IF([test x$with_fortran != x],
+      [fortran_compiler=$with_fortran]
+      [fortran_compiler="default"])
 
-if test x$with_fortran != x; then
-    fortran_compiler=$with_fortran
-else
-    fortran_compiler="default"
-fi
-make_command="make"
+
 
 AC_ARG_WITH([openmp],
   [AS_HELP_STRING([--with-openmp],
@@ -87,11 +84,9 @@ AC_ARG_WITH([setup],
     [],
     [])
 
-if test x$with_setup != x ; then
-  mh_setup=$with_setup
-else
-  mh_setup=""            
-fi
+AS_IF([test x$with_setup != x],
+      [mh_setup=$with_setup],
+      [mh_setup=""])
 
 AC_ARG_WITH([yac],
   [AS_HELP_STRING([--with-yac],
@@ -129,22 +124,14 @@ AS_IF([test "x$with_art" = "xyes"],
       [use_art="yes"],
       [use_art="no"])
 
-case $host in
-  i*86-*-linux-*)  
-    if test x$fortran_compiler != xintel ; then
-      gcc_lib="$(gcc -print-libgcc-file-name)"
-    fi
-    ;;
-  *)               
-    gcc_lib=""                               
-    ;;
-esac
-
-
+AS_CASE([$host],
+        [i*86-*-linux-*],
+        [AS_IF([test x$fortran_compiler != xintel],
+               [gcc_lib="$(gcc -print-libgcc-file-name)"],
+               [gcc_lib=""])],
+        [gcc_lib=""])                               
 
 dnl ######################################################################
-
-AC_PROG_AWK
 
 AS_CASE([$ac_hostname],
         [wizard*],
@@ -235,6 +222,9 @@ if test -f config/mh-override ; then
 fi
 host_frag=config/mh-config-use
 #------------------------------------
+
+# set default
+make_command="make"
 
 AC_GET_MH($host_frag)
 
@@ -681,6 +671,48 @@ AS_IF(
 export CDIROOT	#inform config/createMakefiles.pl whether it should include cdilib.c in the support/Makefile .
 
 dnl ######################################################################
+dnl Checks for grib_api.
+
+GRIBAPI_LIB=""
+GRIBAPI_INCLUDE=""
+
+AC_ARG_WITH([grib_api],
+            [AC_HELP_STRING([--with-grib_api=DIR],
+                            [Optional GRIB2 package])],
+                            [],
+                            with_grib_api=yes)
+
+AS_CASE([$with_grib_api],
+        [no],
+        [AC_MSG_CHECKING([for grib_api library])
+         AC_MSG_RESULT([suppressed])],
+        [yes],
+        [AC_CHECK_FILE($GRIBAPIROOT/include/grib_api.h,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find grib_api.h]))
+         AC_CHECK_FILE($GRIBAPIROOT/lib/libgrib_api.a,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))],
+        [GRIBAPIROOT=$with_grib_api
+         AC_CHECK_FILE($GRIBAPIROOT/include/grib_api.h,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.h]))
+         AC_CHECK_FILE($GRIBAPIROOT/lib/libgrib_api.a,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))])
+
+AS_IF([test -n "$GRIBAPIROOT"],
+      [AS_IF([test -r "$GRIBAPIROOT/lib/libgrib_api.a"],
+             [GRIBAPI_LIB='-L$(GRIBAPIROOT)/lib -lgrib_api'],
+             [AC_MSG_ERROR([cannot read $GRIBAPIROOT/lib/libgrib_api.a])])
+       AS_IF([test -d "$GRIBAPIROOT/include"],
+             [GRIBAPI_INCLUDE='-I$(GRIBAPIROOT)/include'],
+             [AC_MSG_ERROR([cannot find $GRIBAPIROOT/include])])  
+       FFLAGS="${FFLAGS} ${DEFOPT}HAVE_LIBGRIB ${DEFOPT}HAVE_LIBGRIB_API"
+       CFLAGS="${CFLAGS} ${DEFCOPT}HAVE_LIBGRIB ${DEFCOPT}HAVE_LIBGRIB_API"
+       AS_CASE([$ac_hostname],
+               [mlogin*|btc*],
+               [AS_CASE([$FC],
+                        [nagfor],
+                        [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
+                        [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])],
+               [])],
+      [])
+
+        
+dnl ######################################################################
 dnl Checks for SCT.
 
 SCT_LIB=""
@@ -1063,6 +1095,10 @@ AC_SUBST(ZLIBROOT,$ZLIBROOT)
 AC_SUBST(ZLIB_LIB,$ZLIB_LIB)
 AC_SUBST(ZLIB_INCLUDE,$ZLIB_INCLUDE)
 
+AC_SUBST(GRIBAPIROOT,$GRIBAPIROOT)
+AC_SUBST(GRIBAPI_LIB,$GRIBAPI_LIB)
+AC_SUBST(GRIBAPI_INCLUDE,$GRIBAPI_INCLUDE)
+
 AC_SUBST(XML2ROOT,$XML2ROOT)
 AC_SUBST(XML2_LIB,$XML2_LIB)
 AC_SUBST(XML2_INCLUDE,$XML2_INCLUDE)
@@ -1293,9 +1329,9 @@ fi
 # general command for running a progmam
 if test "x$mpi_startrun" = "x" ; then
   if  test "x$MPIROOT" = "x" ; then
-    mpi_startrun="mpiexec -n \$mpi_total_procs"
+    mpi_startrun="mpiexec -n \\\$mpi_total_procs"
   else
-    mpi_startrun="$MPIROOT/bin/mpiexec -n \$mpi_total_procs"
+    mpi_startrun="$MPIROOT/bin/mpiexec -n \\\$mpi_total_procs"
   fi
 fi
 
