@@ -65,8 +65,8 @@ MODULE mo_ocean_nml
   INTEGER :: surface_module = 2  !  surface module - 1: old mo_ocean_bulk, 2: new mo_ocean_surface - implies i_therm_slo in sea ice
 
   ! switch for reading relaxation data: 1: read from file
-  INTEGER :: init_oce_relax = 0
-  INTEGER            :: relax_analytical_type     = 0 ! special setup for analytic testases, replacement for itestcase_oce in the
+  INTEGER :: init_oce_relax            = 0
+  INTEGER :: relax_analytical_type     = 0 ! special setup for analytic testases, replacement for itestcase_oce in the
 
 !  LOGICAL :: l_time_marching    = .TRUE.  !=.TRUE. is default, the time loop is entered
 !                                          !=.FALSE. the time loop is NOT entered and tests with stationary fields can
@@ -418,6 +418,7 @@ MODULE mo_ocean_nml
   LOGICAL            :: SWITCH_ON_TAPERING_HORIZONTAL_DIFFUSION=.FALSE.
   LOGICAL            :: SLOPE_CALC_VIA_TEMPERTURE_SALINITY=.FALSE.
   LOGICAL            :: BOLUS_VELOCITY_DIAGNOSTIC=.FALSE.
+  LOGICAL            :: REVERT_VERTICAL_RECON_AND_TRANSPOSED=.FALSE.  
   !Parameters for tapering schemes
   LOGICAL  :: GMRedi_usesRelativeMaxSlopes = .true. ! the slopes are defined relatively the the grid slopes: dz/dx
   REAL(wp) :: S_max      = 8.0_wp                   !maximally allowed slope
@@ -449,7 +450,8 @@ MODULE mo_ocean_nml
     & SWITCH_ON_REDI_BALANCE_DIAGONSTIC,&
     & SWITCH_ON_TAPERING_HORIZONTAL_DIFFUSION,&
     & SLOPE_CALC_VIA_TEMPERTURE_SALINITY,&
-    & BOLUS_VELOCITY_DIAGNOSTIC 
+    & BOLUS_VELOCITY_DIAGNOSTIC,         &
+    & REVERT_VERTICAL_RECON_AND_TRANSPOSED 
   
   ! ocean_physics_nml
   ! LOGICAL :: use_ThermoExpansion_Correction = .FALSE.

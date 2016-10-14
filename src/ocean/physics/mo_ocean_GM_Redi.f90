@@ -38,7 +38,7 @@ MODULE mo_ocean_GM_Redi
     & GMREDI_COMBINED_DIAGNOSTIC,GM_INDIVIDUAL_DIAGNOSTIC,REDI_INDIVIDUAL_DIAGNOSTIC,&
     &TEST_MODE_REDI_ONLY,TEST_MODE_GM_ONLY,LinearThermoExpansionCoefficient, LinearHalineContractionCoefficient,&
     & SWITCH_OFF_TAPERING,SWITCH_ON_REDI_BALANCE_DIAGONSTIC, SWITCH_ON_TAPERING_HORIZONTAL_DIFFUSION,&
-    &SLOPE_CALC_VIA_TEMPERTURE_SALINITY,BOLUS_VELOCITY_DIAGNOSTIC
+    &SLOPE_CALC_VIA_TEMPERTURE_SALINITY,BOLUS_VELOCITY_DIAGNOSTIC,REVERT_VERTICAL_RECON_AND_TRANSPOSED
     
 
   USE mo_util_dbg_prnt,             ONLY: dbg_print
@@ -61,7 +61,10 @@ MODULE mo_ocean_GM_Redi
     & verticalDeriv_vec_midlevel_on_block,div_oce_3d_ontriangles_onblock
   USE mo_scalar_product,            ONLY: map_cell2edges_3d,map_edges2cell_3d, &
     & map_scalar_center2prismtop, map_scalar_prismtop2center,map_edges2cell_with_height_3d,&
-    & map_vec_prismtop2center_on_block
+    & map_vec_prismtop2center_on_block,&
+    & map_scalar_center2prismtop_GM, map_scalar_prismtop2center_GM,&
+    & map_vec_prismtop2center_on_block_GM
+    
 
   IMPLICIT NONE
   
@@ -306,18 +309,30 @@ CONTAINS
 !ICON_OMP_END_DO_PARALLEL
 
     !Map the (explicit) vertical tracer flux to the prsim top (where the vertical divergence is calculated later)
-    CALL map_scalar_center2prismtop(patch_3d, flux_vert_center, op_coeff,GMredi_flux_vert)
-!   hier GMredi_flux_vert fuer T,S abgreifen
+    IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
+      CALL map_scalar_center2prismtop(patch_3d, flux_vert_center, op_coeff,GMredi_flux_vert)
+    ELSEIF(REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
+      CALL map_scalar_center2prismtop_GM(patch_3d, flux_vert_center, op_coeff,GMredi_flux_vert)    
+    ENDIF
       
       ! now we treat the vertical isoneutral flux that is discretized implicitely in time.
       ! 
       !1.) Interpolate the tapered coefficient for the vertical tracer flux from prism center to prism top: 
-      !this is the diagonal part that is handled implicitely in time  
+      !this is the diagonal part that is handled implicitely in time
+      
+    IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN        
       CALL map_scalar_center2prismtop( patch_3d, &
         &                              taper_diagonal_vert_impl,&
         &                              op_coeff,                &
         &                              ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit)        
-      !  &                              mapped_vertical_diagonal_impl)!param%a_tracer_v(:,:,:, tracer_index))
+
+    ELSEIF(REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
+      CALL map_scalar_center2prismtop_GM( patch_3d, &
+        &                              taper_diagonal_vert_impl,&
+        &                              op_coeff,                &
+        &                              ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit)        
+    
+    ENDIF      
       IF(tracer_index==1)THEN
       Do level=1,n_zlev
       !CALL dbg_print('Old vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
@@ -600,11 +615,18 @@ CONTAINS
         & subset_range=cells_in_domain)
 
 !     CALL sync_patch_array(sync_c, patch_2D, grad_T_vert)
-    
+    IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
     CALL map_scalar_prismtop2center(patch_3d,&
         & grad_T_vert,                &
         & op_coeff,                 &
         & grad_T_vert_center)
+    ELSEIF(REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
+    CALL map_scalar_prismtop2center_GM(patch_3d,&
+        & grad_T_vert,                &
+        & op_coeff,                 &
+        & grad_T_vert_center)    
+    
+    ENDIF    
         
 !     CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_aux%DerivTemperature_vert_center(:,:,:))
 
@@ -623,12 +645,17 @@ CONTAINS
           & op_coeff,                   &
           & grad_S_vec,                 &
           & subset_range=cells_in_domain)
-          
+    IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN          
       CALL map_scalar_prismtop2center(patch_3d,&
           & grad_S_vert,                       &
           & op_coeff,                          &
           & grad_S_vert_center)
-          
+    ELSEIF(REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN      
+      CALL map_scalar_prismtop2center_GM(patch_3d,&
+          & grad_S_vert,                       &
+          & op_coeff,                          &
+          & grad_S_vert_center)  
+    ENDIF              
     ENDIF
     IF(.NOT.SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN
       CALL map_edges2cell_3d(patch_3D,  &      
@@ -636,11 +663,18 @@ CONTAINS
           & op_coeff,                   &
           & grad_rho_GM_vec,            &
           & subset_range=cells_in_domain)
-          
+    IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN                    
       CALL map_scalar_prismtop2center(patch_3d,&
           & grad_rho_GM_vert,                  &
           & op_coeff,                          &
           & grad_rho_GM_vert_center)
+     ELSEIF(REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN  
+      CALL map_scalar_prismtop2center_GM(patch_3d,&
+          & grad_rho_GM_vert,                  &
+          & op_coeff,                          &
+          & grad_rho_GM_vert_center)     
+     
+     ENDIF         
     
     ENDIF    
     !------------------------------------------------------------------------------
@@ -931,12 +965,21 @@ CONTAINS
                                               & blockNo,                       &
                                               & start_cell_index,              &
                                               & end_cell_index)
-                                              
+       IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN                                       
        CALL map_vec_prismtop2center_on_block( patch_3d,                   &
                                             & grad_slope_vec(:,:,blockNo),&
                                             & op_coeff,                   &
                                             & slope_deriv_atcenter,       &
-                                            & blockNo, start_cell_index, end_cell_index)                                       
+                                            & blockNo, start_cell_index, end_cell_index) 
+       ELSE
+       CALL map_vec_prismtop2center_on_block_GM( patch_3d,                   &
+                                            & grad_slope_vec(:,:,blockNo),&
+                                            & op_coeff,                   &
+                                            & slope_deriv_atcenter,       &
+                                            & blockNo, start_cell_index, end_cell_index) 
+              
+       
+       ENDIF                                                                           
                                               
     END DO ! blocks
 !ICON_OMP_END_DO_NOWAIT
@@ -2259,9 +2302,11 @@ END DO
 !    CALL map_cell2edges_3D( patch_3D,flux_sum_horz, GMredi_flux_horz, op_coeff)
 
     !Map the (explicit) vertical tracer flux to the prism top (where the vertical divergence is calculated later)
-    CALL map_scalar_center2prismtop(patch_3d, flux_sum_vert, op_coeff,GMredi_flux_vert)
-
-    
+    IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
+      CALL map_scalar_center2prismtop(patch_3d, flux_sum_vert, op_coeff,GMredi_flux_vert)
+    ELSEIF(REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
+      CALL map_scalar_center2prismtop_GM(patch_3d, flux_sum_vert, op_coeff,GMredi_flux_vert)    
+    ENDIF
 !    !---------DEBUG DIAGNOSTICS-------------------------------------------edges_in_domain
     IF(tracer_index==no_tracer)THEN
 
