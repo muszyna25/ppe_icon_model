@@ -1645,7 +1645,7 @@ CONTAINS
         fname_metadata%extn                     = TRIM(p_onl%filename_extn)
       END IF
 
-      IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
+      IF (isRestart()) THEN
         ! Restart case: Get starting index of ouput from restart file
         !               (if there is such an attribute available).
         WRITE(attname,'(a,i2.2)') 'output_jfile_',i
