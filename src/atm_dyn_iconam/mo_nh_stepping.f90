@@ -633,7 +633,7 @@ MODULE mo_nh_stepping
   ENDIF
 
   jstep0 = 0
-  IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
+  IF (isRestart()) THEN
     ! get start counter for time loop from restart file:
     CALL get_restart_attribute("jstep", jstep0)
   END IF
@@ -896,7 +896,7 @@ MODULE mo_nh_stepping
     ! Set output flags
     !--------------------------------------------------------------------------
 
-    l_nml_output   = output_mode%l_nml   .AND. jstep >= 0 .AND.                  &
+    l_nml_output   = output_mode%l_nml .AND. jstep >= 0 .AND.                 &
       &              (jstep==(nsteps+jstep0) .OR. istime4name_list_output(jstep) )
 
     ! Computation of diagnostic quantities may also be necessary for
