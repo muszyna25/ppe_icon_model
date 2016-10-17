@@ -685,14 +685,14 @@ AS_CASE([$with_grib_api],
         [AC_MSG_CHECKING([for grib_api library])
          AC_MSG_RESULT([suppressed])],
         [yes],
-        [AC_CHECK_FILE($GRIBAPIROOT/include/grib_api.h,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find grib_api.h]))
-         AC_CHECK_FILE($GRIBAPIROOT/lib/libgrib_api.a,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))],
+        [#AC_CHECK_FILE($GRIBAPIROOT/lib/libgrib_api.a,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
+         AC_CHECK_FILE($GRIBAPIROOT/include/grib_api.h,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find grib_api.h]))],
         [GRIBAPIROOT=$with_grib_api
-         AC_CHECK_FILE($GRIBAPIROOT/include/grib_api.h,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.h]))
-         AC_CHECK_FILE($GRIBAPIROOT/lib/libgrib_api.a,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))])
+         #AC_CHECK_FILE($GRIBAPIROOT/lib/libgrib_api.a,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
+         AC_CHECK_FILE($GRIBAPIROOT/include/grib_api.h,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.h]))])
 
 AS_IF([test -n "$GRIBAPIROOT"],
-      [AS_IF([test -r "$GRIBAPIROOT/lib/libgrib_api.a"],
+      [AS_IF([test -r "$GRIBAPIROOT/lib/libgrib_api.a" || test -r "$GRIBAPIROOT/lib/libgrib_api.dylib"],
              [GRIBAPI_LIB='-L$(GRIBAPIROOT)/lib -lgrib_api'],
              [AC_MSG_ERROR([cannot read $GRIBAPIROOT/lib/libgrib_api.a])])
        AS_IF([test -d "$GRIBAPIROOT/include"],

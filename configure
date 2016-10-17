@@ -4457,7 +4457,8 @@ $as_echo_n "checking for grib_api library... " >&6; }
          { $as_echo "$as_me:${as_lineno-$LINENO}: result: suppressed" >&5
 $as_echo "suppressed" >&6; } ;; #(
   yes) :
-    as_ac_File=`$as_echo "ac_cv_file_$GRIBAPIROOT/include/grib_api.h" | $as_tr_sh`
+    #AC_CHECK_FILE($GRIBAPIROOT/lib/libgrib_api.a,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
+         as_ac_File=`$as_echo "ac_cv_file_$GRIBAPIROOT/include/grib_api.h" | $as_tr_sh`
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $GRIBAPIROOT/include/grib_api.h" >&5
 $as_echo_n "checking for $GRIBAPIROOT/include/grib_api.h... " >&6; }
 if eval \${$as_ac_File+:} false; then :
@@ -4479,32 +4480,10 @@ if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
 else
   as_fn_error $? "GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find grib_api.h" "$LINENO" 5
 fi
-
-         as_ac_File=`$as_echo "ac_cv_file_$GRIBAPIROOT/lib/libgrib_api.a" | $as_tr_sh`
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $GRIBAPIROOT/lib/libgrib_api.a" >&5
-$as_echo_n "checking for $GRIBAPIROOT/lib/libgrib_api.a... " >&6; }
-if eval \${$as_ac_File+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  test "$cross_compiling" = yes &&
-  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
-if test -r "$GRIBAPIROOT/lib/libgrib_api.a"; then
-  eval "$as_ac_File=yes"
-else
-  eval "$as_ac_File=no"
-fi
-fi
-eval ac_res=\$$as_ac_File
-	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
-$as_echo "$ac_res" >&6; }
-if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
-
-else
-  as_fn_error $? "GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a" "$LINENO" 5
-fi
  ;; #(
   *) :
     GRIBAPIROOT=$with_grib_api
+         #AC_CHECK_FILE($GRIBAPIROOT/lib/libgrib_api.a,[],AC_MSG_ERROR([GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a]))
          as_ac_File=`$as_echo "ac_cv_file_$GRIBAPIROOT/include/grib_api.h" | $as_tr_sh`
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $GRIBAPIROOT/include/grib_api.h" >&5
 $as_echo_n "checking for $GRIBAPIROOT/include/grib_api.h... " >&6; }
@@ -4527,34 +4506,11 @@ if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
 else
   as_fn_error $? "GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.h" "$LINENO" 5
 fi
-
-         as_ac_File=`$as_echo "ac_cv_file_$GRIBAPIROOT/lib/libgrib_api.a" | $as_tr_sh`
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $GRIBAPIROOT/lib/libgrib_api.a" >&5
-$as_echo_n "checking for $GRIBAPIROOT/lib/libgrib_api.a... " >&6; }
-if eval \${$as_ac_File+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  test "$cross_compiling" = yes &&
-  as_fn_error $? "cannot check for file existence when cross compiling" "$LINENO" 5
-if test -r "$GRIBAPIROOT/lib/libgrib_api.a"; then
-  eval "$as_ac_File=yes"
-else
-  eval "$as_ac_File=no"
-fi
-fi
-eval ac_res=\$$as_ac_File
-	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
-$as_echo "$ac_res" >&6; }
-if eval test \"x\$"$as_ac_File"\" = x"yes"; then :
-
-else
-  as_fn_error $? "GRIBAPIROOT (currently: $GRIBAPIROOT) not properly defined to find libgrib_api.a" "$LINENO" 5
-fi
  ;;
 esac
 
 if test -n "$GRIBAPIROOT"; then :
-  if test -r "$GRIBAPIROOT/lib/libgrib_api.a"; then :
+  if test -r "$GRIBAPIROOT/lib/libgrib_api.a" || test -r "$GRIBAPIROOT/lib/libgrib_api.dylib"; then :
   GRIBAPI_LIB='-L$(GRIBAPIROOT)/lib -lgrib_api'
 else
   as_fn_error $? "cannot read $GRIBAPIROOT/lib/libgrib_api.a" "$LINENO" 5
