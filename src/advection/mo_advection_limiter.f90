@@ -344,6 +344,7 @@ CONTAINS
 !                COLLAPSE should work fine on this loop; this might suggest a compiler bug
 !$ACC LOOP VECTOR
 #ifdef __LOOP_EXCHANGE
+!DIR$ IVDEP,PREFERVECTOR
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
 #else

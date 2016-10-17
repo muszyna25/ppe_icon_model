@@ -799,7 +799,7 @@ CONTAINS
     & ,tk_fl             ,qm_vap          ,qm_liq           ,qm_ice        &
     & ,qm_o3                                                               &
     & ,cdnc              ,cld_frc                                          &
-    & ,zaeq1, zaeq2, zaeq3, zaeq4, zaeq5 , dt_rad                          &
+    & ,zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, dust_tunefac, dt_rad             &
     ! output
     & ,cld_cvr, flx_lw_net, flx_uplw_sfc, trsol_net, trsol_up_toa,         &
     &  trsol_up_sfc, trsol_dn_sfc_diffus, trsol_clr_sfc, trsol_par_sfc     )
@@ -838,9 +838,10 @@ CONTAINS
       &  cld_frc(kbdim,klev),& !< Cloud fraction
       &  zaeq1(kbdim,klev) , & !< aerosol continental
       &  zaeq2(kbdim,klev) , & !< aerosol maritime
-      &  zaeq3(kbdim,klev) , & !< aerosol urban
-      &  zaeq4(kbdim,klev) , & !< aerosol volcano ashes
+      &  zaeq3(kbdim,klev) , & !< aerosol mineral dust
+      &  zaeq4(kbdim,klev) , & !< aerosol urban
       &  zaeq5(kbdim,klev) , & !< aerosol stratospheric background
+      &  dust_tunefac(kbdim,jpband),& !< LW tuning factor for dust aerosol
       &  dt_rad                !< radiation time step
 
 
@@ -994,7 +995,8 @@ CONTAINS
       ! output
       & flx_lw_net      ,flx_sw_net      ,flx_lw_net_clr  ,flx_sw_net_clr  ,&
       & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_sfc_clr,flx_upsw_sfc_clr,&
-      & flx_dnsw_diff_sfc=flx_dnsw_diff_sfc                                ,&
+      ! optional arguments
+      & dust_tunefac=dust_tunefac, flx_dnsw_diff_sfc=flx_dnsw_diff_sfc     ,&
       & flx_upsw_toa=flx_upsw_toa  ,flx_dnpar_sfc=flx_par_sfc               )
 
 
@@ -1141,6 +1143,8 @@ CONTAINS
     ! output
     & flx_lw_net      ,flx_sw_net      ,flx_lw_net_clr  ,flx_sw_net_clr  ,&
     & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_sfc_clr,flx_upsw_sfc_clr,&
+    ! optional input
+    & dust_tunefac                                                       ,&
     ! optional output
     & flx_dnsw_diff_sfc, flx_upsw_toa  ,flx_dnpar_sfc                    ,&
     & vis_frc_sfc     ,nir_dff_frc_sfc ,vis_dff_frc_sfc ,par_dff_frc_sfc  )
@@ -1201,6 +1205,8 @@ CONTAINS
       &  flx_uplw_sfc_clr(kbdim),         & !< clrsky sfc LW upward flux,
       &  flx_upsw_sfc_clr(kbdim)            !< clrsky sfc SW upward flux,
 
+    REAL(wp), INTENT(in),  OPTIONAL ::    dust_tunefac(kbdim,jpband) ! LW absorption tuning factor for dust
+
     REAL(wp), INTENT(out), OPTIONAL ::    &
       &  flx_dnsw_diff_sfc(kbdim),        & !< sfc SW diffuse downward flux,
       &  flx_upsw_toa(kbdim),             & !< TOA SW upward flux,
@@ -1258,6 +1264,8 @@ CONTAINS
       &  flx_upsw_clr(kbdim,klev+1),      & !< upward flux clear sky
       &  flx_dnsw(kbdim,klev+1),          & !< downward flux total sky
       &  flx_dnsw_clr(kbdim,klev+1)         !< downward flux clear sky
+
+    REAL(wp) :: tune_dust(kbdim,jpband)  ! local variable for LW absorption tuning of dust
 
     CHARACTER(LEN=3)     :: c_irad_aero
 
@@ -1390,6 +1398,11 @@ CONTAINS
       aer_piz_sw_vr(:,:,:) = 1.0_wp
       aer_cg_sw_vr(:,:,:)  = 0.0_wp
     CASE (5,6)
+      IF (PRESENT(dust_tunefac)) THEN
+        tune_dust(1:jce,1:jpband) = dust_tunefac(1:jce,1:jpband)
+      ELSE
+        tune_dust(1:jce,1:jpband) = 1._wp
+      ENDIF
       DO jspec=1,jpband
         DO jk=1,klev
           jkb = klev+1-jk
@@ -1397,7 +1410,7 @@ CONTAINS
             ! LW opt thickness of aerosols
             aer_tau_lw_vr(jl,jk,jspec) =  zaeq1(jl,jkb) * zaea_rrtm(jspec,1) &
               &                         + zaeq2(jl,jkb) * zaea_rrtm(jspec,2) &
-              &                         + zaeq3(jl,jkb) * zaea_rrtm(jspec,3) &
+              &   + tune_dust(jl,jspec) * zaeq3(jl,jkb) * zaea_rrtm(jspec,3) &
               &                         + zaeq4(jl,jkb) * zaea_rrtm(jspec,4) &
               &                         + zaeq5(jl,jkb) * zaea_rrtm(jspec,5)
           ENDDO
