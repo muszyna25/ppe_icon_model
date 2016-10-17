@@ -298,6 +298,13 @@
   \end{itemize}
 \end{changeitem}
 
+\begin{changeitem}{lnd\_nml}{2016-07-21}{28536}
+  \begin{itemize}
+   \item The numbering of the various options for \texttt{sstice\_mode} has changed. Former option $2$ became $3$, 
+   former option $3$ became $4$, and former option $4$ became $5$. This was necessary, because a new option was introduced (option $2$).
+  \end{itemize}
+\end{changeitem}
+
 \begin{changeitem}{initicon\_nml}{2016-07-22}{28556}
   \begin{itemize}
    \item Namelist parameter \texttt{latbc\_varnames\_map\_file} has
@@ -309,6 +316,15 @@
   \begin{itemize}
    \item Namelist parameter \texttt{niter\_fct} has been removed, since the functionality of 
    iterative flux correction is no longer available.
+  \end{itemize}
+\end{changeitem}
+
+\begin{changeitem}{initicon\_nml}{2016-10-07}{29484}
+  \begin{itemize}
+   \item Namelist parameter \texttt{l\_sst\_in} has been removed. In case of init\_mode=2 (IFSINIT), 
+   sea points are now initialized with SST, if provided in the input file. Otherwise sea points are initialized 
+   with the skin temperature. The possibility to use the skin temperature despite having the SST available 
+   has been dropped.
   \end{itemize}
 \end{changeitem}
 

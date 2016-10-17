@@ -22,7 +22,7 @@ MODULE mo_lnd_nwp_nml
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
-  USE mo_impl_constants,      ONLY: max_dom
+  USE mo_impl_constants,      ONLY: max_dom, SSTICE_ANA
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_units,            ONLY: nnml, nnml_output, filename_max
@@ -160,11 +160,11 @@ MODULE mo_lnd_nwp_nml
     ! 1. default settings   
     !-----------------------
 
-    sstice_mode  = 1         ! forecast mode, sst and sea ice fraction is read from 
-                             !  the analysis, sst ist kept constant, sea ice fraction
-                             !  is modified by the sea ice model
-                             ! default names for the time dependent SST and CI ext param files
-                             ! if sstice=2, <year> is substituted by "CLIM"
+    sstice_mode  = SSTICE_ANA  ! forecast mode, sst and sea ice fraction is read from 
+                               ! the analysis, sst ist kept constant, sea ice fraction
+                               ! is modified by the sea ice model
+                               ! default names for the time dependent SST and CI ext param files
+                               ! if sstice=SSTICE_CLIM, <year> is substituted by "CLIM"
     sst_td_filename = "<path>SST_<year>_<month>_<gridfile>"
     ci_td_filename = "<path>CI_<year>_<month>_<gridfile>"
 

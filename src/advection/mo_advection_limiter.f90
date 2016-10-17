@@ -42,7 +42,7 @@ MODULE mo_advection_limiter
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: l_limited_area
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
-  USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_C1, sync_patch_array, &
+  USE mo_sync,                ONLY: SYNC_C1, sync_patch_array, &
     &                               sync_patch_array_mult
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_intp_data_strc,      ONLY: t_int_state
@@ -344,6 +344,7 @@ CONTAINS
 !                COLLAPSE should work fine on this loop; this might suggest a compiler bug
 !$ACC LOOP VECTOR
 #ifdef __LOOP_EXCHANGE
+!DIR$ IVDEP,PREFERVECTOR
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
 #else
