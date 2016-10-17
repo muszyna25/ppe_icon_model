@@ -495,6 +495,7 @@ case "$ac_sitename" in
                         SZIPROOT    = $software_tree/sys/libaec-0.3.2-gcc48
                         XML2ROOT    = /usr
                         ZLIBROOT    = /usr
+                        GRIBAPIROOT = $software_tree/grib_api/grib_api-1.15.0-gcc48
 
                         case "$with_mpi" in
                             "$software_tree/intel/impi/5.1.0.038_dapl2.1.6"|*)
