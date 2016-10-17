@@ -821,7 +821,7 @@ AS_IF([test x"$with_mpi" = xno],
    MPIROOT=""
    use_mpcc_r=no],
   [AS_IF([test "x$with_mpi" != x -a x"$with_mpi" != xyes -a x"$with_mpi" != xno],
-    [MPIROOT=$with_mpi])
+    [MPIROOT=${MPIROOT:-$with_mpi}])
    AS_IF([test x"$MPIROOT" != x],
     [AC_CHECK_FILE([$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h],,[AC_MSG_ERROR([MPIROOT not properly defined])])
     case $host in
@@ -858,7 +858,7 @@ AS_IF([test x"$with_mpi" = xno],
                 [pgfortran],
                 [vers=$(pgfortran --version | $AWK 'NR==2{print $2}' | cut -d. -f1)
                  mod_file=$(find $real_path/include/pgfortran -name mpi.mod -print | $AWK 'NR==1')],
-                [mod_file=$(find $real_path -not \( -path */gfortran/* -prune \) -name mpi.mod -print | $AWK 'NR==1')])
+                [mod_file=$(find $real_path -not \( -path *gfortran/* -prune \) -not \( -path *ilp64* -prune \) -name mpi.mod -print | $AWK 'NR==1')])
         ;;      
       *)
         mod_file=$(find $real_path -name mpi.mod -print | $AWK 'NR==1')

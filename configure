@@ -4790,7 +4790,7 @@ if test x"$with_mpi" = xno; then :
    use_mpcc_r=no
 else
   if test "x$with_mpi" != x -a x"$with_mpi" != xyes -a x"$with_mpi" != xno; then :
-  MPIROOT=$with_mpi
+  MPIROOT=${MPIROOT:-$with_mpi}
 fi
    if test x"$MPIROOT" != x; then :
   as_ac_File=`$as_echo "ac_cv_file_$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h" | $as_tr_sh`
@@ -4851,7 +4851,7 @@ fi
     vers=$(pgfortran --version | $AWK 'NR==2{print $2}' | cut -d. -f1)
                  mod_file=$(find $real_path/include/pgfortran -name mpi.mod -print | $AWK 'NR==1') ;; #(
   *) :
-    mod_file=$(find $real_path -not \( -path */gfortran/* -prune \) -name mpi.mod -print | $AWK 'NR==1') ;;
+    mod_file=$(find $real_path -not \( -path *gfortran/* -prune \) -not \( -path *ilp64* -prune \) -name mpi.mod -print | $AWK 'NR==1') ;;
 esac
         ;;
       *)
