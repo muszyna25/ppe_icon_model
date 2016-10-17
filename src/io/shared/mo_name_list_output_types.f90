@@ -312,6 +312,9 @@ MODULE mo_name_list_output_types
     REAL(wp), POINTER :: p(:,:,:,:,:)
   END TYPE t_rptr_5d
 
+  TYPE t_sptr_5d
+    REAL(sp), POINTER :: p(:,:,:,:,:)
+  END TYPE t_sptr_5d
 
   TYPE t_iptr_5d
     INTEGER,  POINTER :: p(:,:,:,:,:)
@@ -320,8 +323,10 @@ MODULE mo_name_list_output_types
 
   TYPE t_var_desc
     REAL(wp), POINTER                     :: r_ptr(:,:,:,:,:)                 !< Pointer to time level independent REAL data (or NULL)
+    REAL(sp), POINTER                     :: s_ptr(:,:,:,:,:)                 !< Pointer to time level independent REAL(sp) data (or NULL)
     INTEGER,  POINTER                     :: i_ptr(:,:,:,:,:)                 !< Pointer to time level independent INTEGER data (or NULL)
     TYPE(t_rptr_5d)                       :: tlev_rptr(MAX_TIME_LEVELS)       !< Pointers to time level dependent REAL data
+    TYPE(t_sptr_5d)                       :: tlev_sptr(MAX_TIME_LEVELS)       !< Pointers to time level dependent REAL(sp) data
     TYPE(t_iptr_5d)                       :: tlev_iptr(MAX_TIME_LEVELS)       !< Pointers to time level dependent INTEGER data
     TYPE(t_var_metadata), POINTER         :: info_ptr                         !< Pointer to the info structure of the variable
 

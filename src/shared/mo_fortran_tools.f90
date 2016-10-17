@@ -20,9 +20,9 @@
 !!
 MODULE mo_fortran_tools
 
+  USE mo_kind,                    ONLY: wp, sp, vp, dp, ik4 => i4
   USE mo_exception,               ONLY: finish
   USE mo_impl_constants,          ONLY: SUCCESS
-  USE mo_kind,                    ONLY: wp, sp, dp, ik4 => i4
   USE mo_impl_constants,          ONLY: VARNAME_LEN
 #ifdef _OPENACC
   USE mo_mpi,                     ONLY: i_am_accel_node
@@ -32,11 +32,11 @@ MODULE mo_fortran_tools
 
   PUBLIC :: t_Destructible
   PUBLIC :: assign_if_present
+  PUBLIC :: t_ptr_2d3d, t_ptr_2d3d_vp
   PUBLIC :: assign_if_present_allocatable
   PUBLIC :: ensureSize
-  PUBLIC :: t_ptr_2d
-  PUBLIC :: t_ptr_3d
-  PUBLIC :: t_ptr_2d3d
+  PUBLIC :: t_ptr_2d, t_ptr_2d_sp
+  PUBLIC :: t_ptr_3d, t_ptr_3d_sp
   PUBLIC :: t_ptr_i2d3d
   PUBLIC :: t_ptr_tracer
   PUBLIC :: copy, init, swap, negative2zero
@@ -54,17 +54,31 @@ MODULE mo_fortran_tools
   END TYPE t_Destructible
 
   TYPE t_ptr_2d
-    REAL(wp),POINTER :: p(:,:)  ! pointer to 2D (spatial) array
+    REAL(dp),POINTER :: p(:,:)  ! pointer to 2D (spatial) array
   END TYPE t_ptr_2d
 
+  TYPE t_ptr_2d_sp
+    REAL(sp),POINTER :: p(:,:)  ! pointer to 2D (spatial) array
+  END TYPE t_ptr_2d_sp
+
   TYPE t_ptr_3d
-    REAL(wp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
+    REAL(dp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
   END TYPE t_ptr_3d
+
+  TYPE t_ptr_3d_sp
+    REAL(sp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
+  END TYPE t_ptr_3d_sp
 
   TYPE t_ptr_2d3d
     REAL(wp),POINTER :: p_3d(:,:,:)  ! REAL pointer to 3D (spatial) array
     REAL(wp),POINTER :: p_2d(:,:)    ! REAL pointer to 2D (spatial) array
   END TYPE t_ptr_2d3d
+
+  TYPE t_ptr_2d3d_vp
+    REAL(vp),POINTER :: p_3d(:,:,:)  ! REAL pointer to 3D (spatial) array
+    REAL(vp),POINTER :: p_2d(:,:)    ! REAL pointer to 2D (spatial) array
+  END TYPE t_ptr_2d3d_vp
+
 
   TYPE t_ptr_i2d3d
     INTEGER,POINTER :: p_3d(:,:,:)  ! INTEGER pointer to 3D (spatial) array
@@ -84,6 +98,7 @@ MODULE mo_fortran_tools
     MODULE PROCEDURE assign_if_present_integer
     MODULE PROCEDURE assign_if_present_integers
     MODULE PROCEDURE assign_if_present_real
+    MODULE PROCEDURE assign_if_present_real_sp
   END INTERFACE assign_if_present
 
   INTERFACE assign_if_present_allocatable
@@ -222,6 +237,13 @@ CONTAINS
     y = x
   END SUBROUTINE assign_if_present_real
 
+  SUBROUTINE assign_if_present_real_sp (y,x)
+    REAL(sp), INTENT(inout)        :: y
+    REAL(sp), INTENT(in) ,OPTIONAL :: x
+    IF (.NOT.PRESENT(x)) RETURN
+    IF ( x == -HUGE(x) ) RETURN
+    y = x
+  END SUBROUTINE assign_if_present_real_sp
 
   SUBROUTINE assign_if_present_logical_allocatable_1d(y, x)
     LOGICAL, ALLOCATABLE, INTENT(INOUT) :: y(:)
