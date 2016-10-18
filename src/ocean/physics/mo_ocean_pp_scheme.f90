@@ -211,6 +211,7 @@ CONTAINS
             & (z_rho_down(jk) - z_rho_up(jk-1)) / z_shear_cell, 0.0_wp) ! do not use z_vert_density_grad_c,
                                                                      ! this is canceled out in this formula
         END DO ! levels
+        ocean_state%p_diag%grad_rho_PP_vert(jc,2:levels,blockNo)=z_vert_density_grad_c(jc,2:levels,blockNo)
         ocean_state%p_diag%rho_GM(jc,1,blockNo)=ocean_state%p_diag%rho_GM(jc,2,blockNo)
  
       END DO ! index
@@ -399,6 +400,7 @@ CONTAINS
             & (z_rho_down(jk) - z_rho_up(jk-1)) / z_shear_cell, 0.0_wp) ! do not use z_vert_density_grad_c,
                                                                      ! this is canceled out in this formula
         END DO ! levels
+        ocean_state%p_diag%grad_rho_PP_vert(jc,2:levels,blockNo)=z_vert_density_grad_c(jc,2:levels,blockNo)
         ocean_state%p_diag%rho_GM(jc,1,blockNo)=ocean_state%p_diag%rho_GM(jc,2,blockNo)
       END DO ! index
       !-----------------------------------------------------------
@@ -749,6 +751,7 @@ CONTAINS
             & (z_rho_down(jk) - z_rho_up(jk-1)) / z_shear_cell, 0.0_wp) ! do not use z_vert_density_grad_c,
                                                                         ! this is canceled out in this formula
         END DO ! levels
+        ocean_state%p_diag%grad_rho_PP_vert(jc,2:levels,blockNo)=z_vert_density_grad_c(jc,2:levels,blockNo)
         ocean_state%p_diag%rho_GM(jc,1,blockNo)=ocean_state%p_diag%rho_GM(jc,2,blockNo)
       END DO ! index
       !-----------------------------------------------------------
@@ -958,11 +961,18 @@ CONTAINS
           ! d_rho/dz - full density gradient necessary for wind mixing, stability formula, mixed layer depth calculation
           vert_density_grad(jc,jk,blockNo) = (rho_down(jk) - rho_up(jk-1)) *  &
             & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,blockNo)
+
+          ocean_state%p_diag%grad_rho_PP_vert(jc,jk,blockNo)=vert_density_grad(jc,jk,blockNo)
+
+
           ! Ri = g/OceanReferenceDensity * dz * d_rho/(d_vn)**2
           richardson_no(jc,jk,blockNo) = MAX(patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,jk,blockNo) * grav_rho * &
             &                           (rho_down(jk) - rho_up(jk-1)) / vert_velocity_shear, 0.0_wp)
         END DO ! levels
+!        ocean_state%p_diag%grad_rho_PP_vert(jc,1,blockNo)=0.0_wp
+!        ocean_state%p_diag%grad_rho_PP_vert(jc,levels+1:n_zlev,blockNo)=0.0_wp
         ocean_state%p_diag%rho_GM(jc,1,blockNo)=ocean_state%p_diag%rho_GM(jc,2,blockNo)
+!FIXME : this is not done in the other pp schemes
         ocean_state%p_diag%rho_GM(jc,levels+1:n_zlev,blockNo)=ocean_state%p_diag%rho_GM(jc,levels,blockNo)
         
         IF (use_wind_mixing) THEN

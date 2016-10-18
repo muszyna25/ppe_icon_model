@@ -169,6 +169,7 @@ MODULE mo_ocean_types
       & rho            ,& ! density. Unit: [kg/m^3]
       & rhopot         ,& ! potential density. Unit: [kg/m^3]
       & rho_GM         ,& ! potential density. Unit: [kg/m^3]      
+      & grad_rho_PP_vert ,& ! vertical insitu density gradient. Unit: [kg/m^4]      
       & div_mass_flx_c ,& !
       & u              ,& ! reconstructed zonal velocity component. Unit [m/s]
       & v              ,& ! reconstructed meridional velocity component. Unit [m/s]

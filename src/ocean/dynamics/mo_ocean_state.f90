@@ -837,6 +837,11 @@ CONTAINS
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"))
 
+    CALL add_var(ocean_restart_list, 'grad_rho_PP_vert', ocean_state_diag%grad_rho_PP_vert, grid_unstructured_cell, &
+      & za_depth_below_sea_half, &
+      & t_cf_var('grad_rho_PP_vert','kg/m^4','vertical density gradient at cells', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_diag"))
     
     CALL add_var(ocean_default_list, 'zgrad_rho', ocean_state_diag%zgrad_rho , grid_unstructured_cell,&
       & za_depth_below_sea, &

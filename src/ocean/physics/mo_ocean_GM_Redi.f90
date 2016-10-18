@@ -562,14 +562,14 @@ CONTAINS
       ENDIF
     IF(.NOT.SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN
         grad_rho_GM_vert(:,:,blockNo) = 0.0_wp! this is only for the top level
-        CALL verticalDeriv_scalar_onHalfLevels_on_block( patch_3d,                &
-                                                    & rho_GM(:,:,blockNo),   &
-                                                    & grad_rho_GM_vert(:,:,blockNo),&
-                                                    & start_level+1,             &
-                                                    & blockNo,                 &
-                                                    & start_cell_index,        &
-                                                    & end_cell_index)
-    
+!        CALL verticalDeriv_scalar_onHalfLevels_on_block( patch_3d,                &
+!                                                    & rho_GM(:,:,blockNo),   &
+!                                                    & grad_rho_GM_vert(:,:,blockNo),&
+!                                                    & start_level+1,             &
+!                                                    & blockNo,                 &
+!                                                    & start_cell_index,        &
+!                                                    & end_cell_index)
+        grad_rho_GM_vert(:,:,blockNo) = ocean_state%p_diag%grad_rho_PP_vert(:,:,blockNo)
     ENDIF
     END DO ! blocks
 !ICON_OMP_END_DO_NOWAIT
@@ -768,20 +768,20 @@ CONTAINS
                 ocean_state%p_aux%slopes(cell_index,level,blockNo)%x                      &
                 & = - grad_rho_GM_vec(cell_index,level,blockNo)%x  &
                 &    /(grad_rho_GM_vert_center(cell_index,level,blockNo)-dbl_eps)
- 
+
                 ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)=&
                 & DOT_PRODUCT(ocean_state%p_aux%slopes(cell_index,level,blockNo)%x,&
                              &ocean_state%p_aux%slopes(cell_index,level,blockNo)%x)
 
-!                ocean_state%p_aux%slopes_drdx(cell_index,level,blockNo)=&
-!               & DOT_PRODUCT(grad_rho_GM_vec(cell_index,level,blockNo)%x,&
-!               & grad_rho_GM_vec(cell_index,level,blockNo)%x)
-!
-!               ocean_state%p_aux%slopes_drdx(cell_index,level,blockNo)=&
-!               & sqrt(ocean_state%p_aux%slopes_drdx(cell_index,level,blockNo))
-!
-!               ocean_state%p_aux%slopes_drdz(cell_index,level,blockNo)=&
-!               &         grad_rho_GM_vert_center(cell_index,level,blockNo)            
+                ocean_state%p_aux%slopes_drdx(cell_index,level,blockNo)=&
+               & DOT_PRODUCT(grad_rho_GM_vec(cell_index,level,blockNo)%x,&
+               & grad_rho_GM_vec(cell_index,level,blockNo)%x)
+
+               ocean_state%p_aux%slopes_drdx(cell_index,level,blockNo)=&
+               & sqrt(ocean_state%p_aux%slopes_drdx(cell_index,level,blockNo))
+
+               ocean_state%p_aux%slopes_drdz(cell_index,level,blockNo)=&
+               &         grad_rho_GM_vert_center(cell_index,level,blockNo)            
 
               END DO                         
 !Perform nearest neighbor interpolation at level where slopes are not well-defined
