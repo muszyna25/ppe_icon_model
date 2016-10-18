@@ -2272,8 +2272,8 @@ CONTAINS
     start_level = 1
 
    !-------------------------------------------------------------------------------
-!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, level,&
-!ICON_OMP prism_center_distance,prism_thick) ICON_OMP_DEFAULT_SCHEDULE     
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, level)
+!ICON_OMP_DEFAULT_SCHEDULE     
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
     
       scalar_top(:,:,blockNo) = 0.0_wp
@@ -2368,8 +2368,8 @@ CONTAINS
     start_level = 1
 
    !-------------------------------------------------------------------------------  
-!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, level,&
-!ICON_OMP prism_center_distance,prism_thick, jc) ICON_OMP_DEFAULT_SCHEDULE  
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index)
+!ICON_OMP_DEFAULT_SCHEDULE  
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
 
       ! these do not include the height
