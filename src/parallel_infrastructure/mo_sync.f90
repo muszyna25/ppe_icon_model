@@ -604,7 +604,7 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
 
    REAL(wp), ALLOCATABLE:: arr_g(:,:,:)
    INTEGER :: j, jb, jl, jb_g, jl_g, n, ndim2, ndim3, nblks_g, flag, jk
-   INTEGER :: ityp, ndim, ndim_g
+   INTEGER :: ityp, ndim, ndim_g, jk_min_err
    INTEGER :: nerr(0:n_ghost_rows), shape_recv(3)
    INTEGER, POINTER :: p_glb_index(:), p_decomp_domain(:,:)
    CLASS(t_comm_pattern), POINTER :: p_pat_work2test
@@ -711,15 +711,24 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
      ALLOCATE(arr_g(shape_recv(1),shape_recv(2),shape_recv(3)))
      CALL exchange_data(p_pat_work2test, arr_g, arr)
      IF(l_my_process_is_mpi_test) THEN
+       jk_min_err = HUGE(jk_min_err)
+!$OMP PARALLEL PRIVATE(jb,jk,jl) REDUCTION(.or.: sync_error) &
+!$OMP REDUCTION(MIN: jk_min_err)
+!$OMP DO
        DO jb = 1, ndim3
          DO jk = 1, ndim2
            DO jl = 1, nproma
-             sync_error = sync_error &
-               &          .OR. (p_decomp_domain(jl,jb) == 0 &
-               &                .AND. arr(jl, jk, jb) /= arr_g(jl, jk, jb))
+             IF (p_decomp_domain(jl,jb) == 0) THEN
+               sync_error = sync_error &
+                    .OR. arr(jl, jk, jb) /= arr_g(jl, jk, jb)
+               jk_min_err = MIN(jk_min_err, MERGE(jk, jk_min_err, &
+                    arr(jl, jk, jb) /= arr_g(jl, jk, jb)))
+             END IF
            END DO
          END DO
        END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
      END IF
    ELSE IF(l_my_process_is_mpi_test) THEN
 
@@ -833,6 +842,9 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
 
    ENDIF
    IF (sync_error) THEN
+     IF (num_test_procs > 1) &
+          WRITE(0, '(2a,i0)') varname(1:varname_tlen), &
+          ' sync error in level jk = ', jk_min_err
 #if defined( __ROUNDOFF_CHECK )
      PRINT *, TRIM(varname), ' synch error detected '
      IF(l_log_checks) THEN
