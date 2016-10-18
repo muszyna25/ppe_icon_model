@@ -609,6 +609,7 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
    INTEGER, POINTER :: p_glb_index(:), p_decomp_domain(:,:)
 
    CHARACTER(len=256) :: varname, cfmt
+   INTEGER :: varname_tlen
 
    CHARACTER(filename_max) :: log_file
    REAL(wp) :: absmax, relmax
@@ -624,9 +625,11 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
    IF(.NOT. p_test_run) RETURN ! This routine is only effective in a verification run
 
    IF(PRESENT(opt_varname)) THEN
-      varname = opt_varname
+     varname = opt_varname
+     varname_tlen = LEN(opt_varname)
    ELSE
-      varname = ' no VARNAME supplied'
+     varname = ' no VARNAME supplied'
+     varname_tlen = 20
    ENDIF
 
    ! Check dimensions of arr, determine if this is an cell/edge/vert array
@@ -763,7 +766,7 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
 #endif
                   IF (l_log_checks) THEN
 #if defined( __ROUNDOFF_CHECK )
-!!!                     PRINT *, TRIM(varname), ' sync error location:',&
+!!!                     PRINT *, varname(1:varname_tlen), ' sync error location:',&
 !!!                        jb,jl,jb_g,jl_g,n,arr(jl,n,jb),arr_g(jl_g,n,jb_g),    &
 !!!                       ABS(arr(jl,n,jb)-arr_g(jl_g,n,jb_g)),  &
 !!!                       ( ABS(arr(jl,n,jb)- arr_g(jl_g,n,jb_g) ) ) / (ABS(arr(jl,n,jb))+MACH_TOL)
@@ -787,12 +790,12 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
          ENDIF
 
          n = n_ghost_rows
-         WRITE(cfmt,'(a,i3,a)') '(',n+1,'i8,'' '',a)'
+         WRITE(cfmt,'(a,i3,a)') '(',n+1,'i8,'' '',2a)'
 
          IF(ALL(arr == 0.0_wp)) THEN
-            WRITE(log_unit,cfmt) nerr(0:n),TRIM(varname)//': ALL 0 !!!'
+            WRITE(log_unit,cfmt) nerr(0:n),varname(1:varname_tlen), ': ALL 0 !!!'
          ELSE
-            WRITE(log_unit,cfmt) nerr(0:n),TRIM(varname)
+            WRITE(log_unit,cfmt) nerr(0:n),varname(1:varname_tlen)
          ENDIF
 #if defined( __ROUNDOFF_CHECK )
          IF(absmax > 0.0_wp) WRITE(log_unit,*) 'Max abs inner err:',absmax, ' max rel error ', relmax
