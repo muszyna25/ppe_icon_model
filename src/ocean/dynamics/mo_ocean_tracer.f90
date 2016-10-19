@@ -505,9 +505,9 @@ CONTAINS
         DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
         if (tracer_index == 1) then
         p_os%p_diag%opottempGMRedi(jc,level,jb)&
-        &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))&
-        & * patch_3D%p_patch_1d(1)%prism_thick_c(jc,level,jb)&
-        & * clw *rho_ref
+        &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))!&
+        !& * patch_3D%p_patch_1d(1)%prism_thick_c(jc,level,jb)&
+        !& * clw *rho_ref
         endif
 	    if (tracer_index == 2) then
         p_os%p_diag%osaltGMRedi(jc,level,jb)&
@@ -535,10 +535,15 @@ CONTAINS
       !!CALL dbg_print('AftGMRedi: divGMRediflux_v',div_diff_flx_vert(:,level,:),&
       !& str_module, idt_src, in_subset=cells_in_domain)      
       END DO
+      
+      Do level=1,n_zlev
+      CALL dbg_print('AftGMRedi: divGMRediflux_v',div_diff_flx_vert(:,level,:),&
+      & str_module, idt_src, in_subset=cells_in_domain)      
+      END DO
       Do level=1,n_zlev
       !CALL dbg_print('AftGMRedi: divGMRediflux_h',div_diff_flux_horz(:,level,:),&
       !&str_module,idt_src, in_subset=cells_in_domain)
-      CALL dbg_print('AftGMRedi: divGMRediflux_v',div_diff_flx_vert(:,level,:),&
+      CALL dbg_print('AftGMRedi: opottempGMRedi',p_os%p_diag%opottempGMRedi(:,level,:),&
       & str_module, idt_src, in_subset=cells_in_domain)      
       END DO
       

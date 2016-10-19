@@ -1113,10 +1113,11 @@ CONTAINS
                 
               slope_abs    = sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo))           
 
-
               IF(slope_abs <= cell_max_slope)THEN
+
                 ocean_state%p_aux%taper_function_1(cell_index,level,blockNo) &
                   &= 0.5_wp*(1.0_wp + tanh((cell_critical_slope - slope_abs)*inv_S_d))
+!write(123,*)'inside tapering',level,ocean_state%p_aux%taper_function_1(cell_index,level,blockNo),slope_abs              
               ELSE
                 ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)=0.0_wp
               ENDIF

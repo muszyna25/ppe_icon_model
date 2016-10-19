@@ -615,6 +615,9 @@ CONTAINS
       CALL tracer_Redi_test2(patch_3d=patch_3d, ocean_tracer=ocean_temperature,ocean_state=ocean_state)      
     CASE(227)
       CALL tracer_GMR_slope_test(patch_3d=patch_3d, ocean_tracer=ocean_temperature,ocean_state=ocean_state)
+      
+    CASE(228)
+      CALL temperature_GM_idealized(patch_3d,ocean_temperature)  
     CASE(300)
      CALL message(TRIM(method_name), 'Temperature Kelvin-Helmholtz Test ')
      CALL temperature_KelvinHelmholtzTest(patch_3d, ocean_temperature,&
@@ -4092,6 +4095,65 @@ write(123,*)'perturb',max_perturbation*EXP(-(distan/(perturbation_width*deg2rad)
 
    END SUBROUTINE temperature_CollapsingDensityFront_StuhnePeltier
   !-------------------------------------------------------------------------------
+
+
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE temperature_GM_idealized(patch_3d, ocean_temperature)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_temperature(:,:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: block, idx, level
+    INTEGER :: start_cell_index, end_cell_index
+    INTEGER :: levels
+    REAL(wp):: lat_deg, lon_deg, z_tmp
+    ! REAL(wp):: perturbation_lat, perturbation_lon,  z_ltrop, z_lpol
+    ! REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_tpols
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_CollapsingDensityFront_StuhnePeltier'
+    !-------------------------------------------------------------------------
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    cell_center => patch_2d%cells%center
+
+    CALL message(TRIM(method_name), ': Collapsing density front, Stuhne-Peltier')
+
+    DO block = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
+      DO idx = start_cell_index, end_cell_index
+
+        !transer to latitude in degrees
+        lat_deg = cell_center(idx,block)%lat * rad2deg
+        !Impose emperature profile. Profile
+        !depends on latitude only and is uniform across
+        !all vertical layers
+        DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(idx,block)
+
+          IF (ABS(lat_deg) >= 10.0_wp) THEN
+
+            ocean_temperature(idx,level,block) = 10.0_wp-0.1_wp*level
+
+          ELSE ! IF (ABS(lat_deg) < 40.0_wp .AND. ABS(lat_deg) > 20.0_wp)THEN
+
+            z_tmp = pi*((ABS(lat_deg) -20.0_wp)/20.0_wp)
+
+            ocean_temperature(idx,level,block) = 11.0_wp-0.1_wp*level!&
+             ! & 5.0_wp + 0.5_wp * 25.0_wp * (1.0_wp + COS(z_tmp))
+
+          ENDIF
+
+        END DO
+      END DO
+    END DO
+
+   END SUBROUTINE temperature_GM_idealized
+  !-------------------------------------------------------------------------------
+
 
 
   !-------------------------------------------------------------------------------
