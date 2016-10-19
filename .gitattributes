@@ -4,6 +4,7 @@
 /LICENSE -text
 /Makefile.in -text
 /README -text
+/README.git -text
 /acinclude.m4 -text
 /aclocal.m4 -text
 blas/CMakeLists.txt -text
