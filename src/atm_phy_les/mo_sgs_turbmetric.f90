@@ -2290,7 +2290,6 @@ MODULE mo_sgs_turbmetric
           END DO
         ENDDO
 !$OMP END DO
-!$OMP END PARALLEL
 
     ! use conservative discretization div(k*grad(var))-horizontal part
     ! following mo_nh_diffusion
@@ -2303,7 +2302,6 @@ MODULE mo_sgs_turbmetric
     i_startblk = p_patch%edges%start_blk(rl_start,1)
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jk,je,jb,i_startidx,i_endidx)
         DO jb = i_startblk,i_endblk
 
