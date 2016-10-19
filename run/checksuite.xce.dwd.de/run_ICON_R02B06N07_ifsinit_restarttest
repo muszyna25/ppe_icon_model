@@ -1,7 +1,7 @@
 #! /bin/ksh
 # ----------------------------------------------------------------------------
-#PBS -q xc_normal
-#PBS -l select=12:ompthreads=10
+#PBS -q xc_norm_h
+#PBS -l select=20:ompthreads=4
 #PBS -l place=scatter
 #PBS -l walltime=01:00:00
 #PBS -j oe
@@ -395,7 +395,7 @@ EOF
 # -j 2    : Hyperthreading enabled: 20 physical cores -> 40 "virtual" cores
 # -m 6g   : 6G memory/task
 
-aprun  -n 48 -N 4 -j 2 -d 10 -m 6g icon
+aprun  -n 240 -N 12 -j 2 -d 4 -m 3g icon
 
 # ----------------------------------------------------------------------------
 done # iterations for restart testing

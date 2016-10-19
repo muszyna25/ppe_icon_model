@@ -64,16 +64,7 @@ MODULE mo_psrad_memory
   !!--------------------------------------------------------------------------
   !!                               DATA TYPES
   !!--------------------------------------------------------------------------
-  !>
-  !! Derived data types for building pointer arrays
-  !!
-  TYPE t_ptr2d
-    REAL(wp),POINTER :: p(:,:)    ! pointer to 2D (spatial) array
-  END TYPE t_ptr2d
 
-  TYPE t_ptr3d
-    REAL(wp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
-  END TYPE t_ptr3d
   !>
   !! Derived data type: t_psrad_forcing
   !!

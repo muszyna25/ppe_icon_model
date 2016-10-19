@@ -72,8 +72,8 @@ MODULE mo_time_management
     &                                    set_tc_dt_restart, set_tc_dt_checkpoint,          &
     &                                    set_tc_current_date, set_tc_write_restart,        &
     &                                    end_datetime_string
-  USE mo_io_restart_attributes,    ONLY: get_restart_attribute
-  USE mo_io_restart,               ONLY: read_restart_header
+  USE mo_restart_attributes,       ONLY: t_RestartAttributeList, getAttributesForRestarting
+
 
 
   IMPLICIT NONE
@@ -435,7 +435,7 @@ CONTAINS
     INTEGER                               ::  mtime_calendar, dtime_calendar,&
       &                                       errno
     CHARACTER(len=MAX_CALENDAR_STR_LEN)   ::  calendar1, calendar2, calendar
-
+    TYPE(t_RestartAttributeList), POINTER ::  restartAttributes
 
     ! --------------------------------------------------------------
     ! PART I: Collect all the dates as ISO8601 strings
@@ -622,8 +622,12 @@ CONTAINS
 
       ELSE
         CALL message('','Read restart file meta data ...')
-        CALL read_restart_header(TRIM(model_string))
-        CALL get_restart_attribute('tc_startdate', start_datetime_string)
+        restartAttributes => getAttributesForRestarting()
+        IF (ASSOCIATED(restartAttributes)) THEN
+          start_datetime_string = restartAttributes%getText('tc_startdate')
+        ELSE
+          CALL finish(routine, "Could not retrieve tc_startdate from restart file!")
+        ENDIF
       END IF
 
     ELSE

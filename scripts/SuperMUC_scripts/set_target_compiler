@@ -77,7 +77,7 @@ set_fortran_target_linux_sun()
   DEF_COPT="-D"
 
   FC="sunf95"
-  BASIC_FLAGS="-fpp -fstore -fnonstd -u -DUSE_CRAY_POINTER=0 -D__LOOP_EXCHANGE"
+  BASIC_FLAGS="-fpp -fstore -fnonstd -u -D__LOOP_EXCHANGE"
   DEBUG_FLAGS="-xcommonchk"
   # TRACE_FLAGS="-gline -g -mtrace=all"
   TRACE_FLAGS="-g"

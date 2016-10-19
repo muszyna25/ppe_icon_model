@@ -117,9 +117,9 @@ CONTAINS
     !> This uses the fact that there are generally three different scatter patterns per domain for the edges, cells, and vertices,
     !> all of which have a different global size. Thus the pair (jg, globalSize) uniquely identifies a scatter pattern.
     !-------------------------------------------------------------------------------------------------------------------------------
-    FUNCTION ScatterPattern_lookupSize(jg, globalSize) RESULT(result)
+    FUNCTION ScatterPattern_lookupSize(jg, globalSize) RESULT(resultVar)
         INTEGER, VALUE :: jg, globalSize
-        CLASS(t_ScatterPattern), POINTER :: result
+        CLASS(t_ScatterPattern), POINTER :: resultVar
 
         CHARACTER(*), PARAMETER :: routine = modname//":ScatterPattern_lookupSize"
         INTEGER :: i
@@ -129,10 +129,10 @@ CONTAINS
 
         DO i = 1, existingPatternCount
             temp => existingPatterns(i)
-            result => temp%ptr
-            IF(result%globalSize() == globalSize .and. result%jg == jg) RETURN
+            resultVar => temp%ptr
+            IF(resultVar%globalSize() == globalSize .and. resultVar%jg == jg) RETURN
         END DO
-        result => NULL()
+        resultVar => NULL()
 
         IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "leaving ", routine
     END FUNCTION ScatterPattern_lookupSize
@@ -197,17 +197,17 @@ CONTAINS
     !-------------------------------------------------------------------------------------------------------------------------------
     !> accessor
     !-------------------------------------------------------------------------------------------------------------------------------
-    INTEGER FUNCTION ScatterPattern_globalSize(me) RESULT(RESULT)
+    INTEGER FUNCTION ScatterPattern_globalSize(me) RESULT(resultVar)
         CLASS(t_ScatterPattern), INTENT(INOUT) :: me
-        RESULT = me%totalPointCount
+        resultVar = me%totalPointCount
     END FUNCTION ScatterPattern_globalSize
 
     !-------------------------------------------------------------------------------------------------------------------------------
     !> accessor
     !-------------------------------------------------------------------------------------------------------------------------------
-    INTEGER FUNCTION ScatterPattern_localSize(me) RESULT(RESULT)
+    INTEGER FUNCTION ScatterPattern_localSize(me) RESULT(resultVar)
         CLASS(t_ScatterPattern), INTENT(INOUT) :: me
-        RESULT = me%myPointCount
+        resultVar = me%myPointCount
     END FUNCTION ScatterPattern_localSize
 
     !-------------------------------------------------------------------------------------------------------------------------------

@@ -28,8 +28,7 @@ MODULE mo_time_nml
   USE mo_master_control,        ONLY: use_restart_namelists, isRestart
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                   ONLY: my_process_is_stdio 
-
-  USE mo_io_restart_namelist,   ONLY: open_and_restore_namelist, close_tmpfile, &
+  USE mo_restart_namelist,      ONLY: open_and_restore_namelist, close_tmpfile, &
                                     & open_tmpfile, store_and_close_namelist
   USE mo_nml_annotate,          ONLY: temp_defaults, temp_settings
 
@@ -113,19 +112,15 @@ CONTAINS
 
     is_relative_time = .FALSE.
 
-    IF (isRestart()) THEN
- 
-      ! 2.1 Overwrite the defaults above by values in the restart file
-      funit = open_and_restore_namelist('time_nml')
-      READ(funit,NML=time_nml)
-      CALL close_tmpfile(funit) 
+    ! 2.1 Overwrite the defaults above by values in the restart file
+    funit = open_and_restore_namelist('time_nml')
+    READ(funit,NML=time_nml)
+    CALL close_tmpfile(funit) 
 
-      ! store the namelist settings originating from the restart file:
-      restart_calendar            = calendar
-      restart_ini_datetime_string = ini_datetime_string
-      restart_end_datetime_string = end_datetime_string
-
-    END IF
+    ! store the namelist settings originating from the restart file:
+    restart_calendar            = calendar
+    restart_ini_datetime_string = ini_datetime_string
+    restart_end_datetime_string = end_datetime_string
 
    !------------------------------------------------------------------------
    !  Read user's (new) specifications. (Done so far by all MPI processes)
