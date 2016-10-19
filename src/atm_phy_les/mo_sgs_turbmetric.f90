@@ -1968,7 +1968,7 @@ MODULE mo_sgs_turbmetric
     TYPE(t_patch), INTENT(inout), TARGET :: p_patch      !< single patch
     TYPE(t_int_state), INTENT(in),TARGET :: p_int        !< single interpolation state
     TYPE(t_nh_diag),   INTENT(in)        :: p_nh_diag    !< single nh diagnostic state
-    REAL(wp),        INTENT(inout),TARGET:: tot_tend(:,:,:)!<total tendency
+    REAL(wp),        INTENT(inout)       :: tot_tend(:,:,:)!<total tendency
     REAL(wp),          INTENT(in)        :: exner(:,:,:)   !
     REAL(wp),          INTENT(in)        :: rho(:,:,:)     !density at cell center
     TYPE(t_nwp_phy_diag),  INTENT(inout) :: prm_diag       !< atm phys vars
