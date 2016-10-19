@@ -494,6 +494,7 @@ CONTAINS
         & p_os%p_diag%GMRedi_flux_vert(:,:,:,tracer_index), &
         & div_diff_flx_vert)
                    
+    END IF
                    
        IF(GMREDI_COMBINED_DIAGNOSTIC)THEN
 
@@ -549,7 +550,6 @@ CONTAINS
       
       !---------------------------------------------------------------------
 
-    END IF
 
     !Case: Implicit Vertical diffusion
     start_timer(timer_dif_vert,4)
