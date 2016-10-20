@@ -56,7 +56,8 @@ MODULE mo_ocean_physics
     & VerticalViscosity_TimeWeight, OceanReferenceDensity,    &
     & HorizontalViscosity_ScaleWeight,                        &
     & tracer_TopWindMixing, WindMixingDecayDepth,             &
-    & velocity_TopWindMixing, Salinity_ConvectionRestrict
+    & velocity_TopWindMixing, Salinity_ConvectionRestrict,    &
+    & SCALING_HORIZONTAL_DIFFUSIVITY
     
    !, l_convection, l_pp_scheme
   USE mo_parallel_config,     ONLY: nproma
@@ -138,7 +139,7 @@ CONTAINS
  
     ! Local variables
     INTEGER :: i, i_no_trac
-    INTEGER :: je, blockNo, jk
+    INTEGER :: je, blockNo, jk,jc
     INTEGER :: start_index, end_index
     REAL(wp) :: z_lower_bound_diff, C_MPIOM
     REAL(wp) :: z_largest_edge_length ,z_diff_multfac, z_diff_efdt_ratio
@@ -147,7 +148,7 @@ CONTAINS
     REAL(wp) :: minDualEdgeLength, minEdgeLength, meanDualEdgeLength, meanEdgeLength
     REAL(wp) :: maxDualEdgeLength, maxEdgeLength
     REAL(wp) :: minCellArea, meanCellArea, maxCellArea
-    TYPE(t_subset_range), POINTER :: all_edges, owned_edges
+    TYPE(t_subset_range), POINTER :: all_edges, owned_edges, all_cells
     TYPE(t_patch), POINTER :: patch_2D
     REAL(wp):: length_scale, dual_length_scale
     !-----------------------------------------------------------------------
@@ -155,6 +156,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     all_edges => patch_2D%edges%ALL
     owned_edges => patch_2D%edges%owned
+    all_cells   => patch_2D%cells%ALL
     !-------------------------------------------------------------------------
     WindAmplitude_at10m => fu10
     !-------------------------------------------------------------------------
@@ -165,15 +167,7 @@ CONTAINS
     p_phys_param%a_veloc_v_back = k_veloc_v
     p_phys_param%a_veloc_v      = k_veloc_v
 
-   IF(GMRedi_configuration==GMRedi_combined&
-   &.OR.GMRedi_configuration==GM_only.OR.GMRedi_configuration==Redi_only)THEN
-
-      p_phys_param%k_tracer_isoneutral = k_tracer_isoneutral_parameter
-      p_phys_param%k_tracer_dianeutral = k_tracer_dianeutral_parameter
-
-      p_phys_param%k_tracer_GM_kappa = k_tracer_GM_kappa_parameter
-    ENDIF
-
+ 
     z_largest_edge_length = global_max(MAXVAL(patch_2D%edges%primal_edge_length))
     minmaxmean_length = global_minmaxmean(patch_2D%edges%dual_edge_length, owned_edges)
     minDualEdgeLength = minmaxmean_length(1)
@@ -369,9 +363,70 @@ CONTAINS
        ! CALL finish ('mo_ocean_physics:init_ho_params',  &
        !   & 'number of tracers exceeds number of background values')
       ENDIF
-      p_phys_param%k_tracer_h(:,:,:,i) = p_phys_param%k_tracer_h_back(i)
-      p_phys_param%a_tracer_v(:,:,:,i) = p_phys_param%a_tracer_v_back(i)
+      
+      p_phys_param%a_tracer_v(:,:,:,i) = p_phys_param%a_tracer_v_back(i)     
+      
+      IF(SCALING_HORIZONTAL_DIFFUSIVITY)THEN
+      
+        DO blockNo = all_edges%start_block, all_edges%end_block
+          CALL get_index_range(all_edges, blockNo, start_index, end_index)
+          p_phys_param%k_tracer_h(:,:,blockNo,i) = 0.0_wp
+          DO je = start_index, end_index
+          
+            length_scale=(1.0_wp/4.0E5_wp)*sqrt(patch_2D%edges%primal_edge_length(je,blockNo)&
+                                       & * patch_2D%edges%dual_edge_length(je,blockNo))
+            p_phys_param%k_tracer_h(je,:,blockNo,i)=length_scale*p_phys_param%k_tracer_h_back(i)
+                                                  
+          END DO
+        END DO
+      
+      ELSE  
+      
+        p_phys_param%k_tracer_h(:,:,:,i) = p_phys_param%k_tracer_h_back(i)
+      
+      ENDIF
+      
+      CALL dbg_print('init_ho_params: horz diffusivity tracer i', p_phys_param%k_tracer_h(:,:,:,i),&
+      & this_mod_name, 3, patch_2D%cells%in_domain)
+      
     END DO
+    IF(GMRedi_configuration==GMRedi_combined&
+   &.OR.GMRedi_configuration==GM_only.OR.GMRedi_configuration==Redi_only)THEN
+
+      
+      IF(SCALING_HORIZONTAL_DIFFUSIVITY)THEN
+      
+        DO blockNo = all_cells%start_block, all_cells%end_block
+          CALL get_index_range(all_cells, blockNo, start_index, end_index)
+          p_phys_param%k_tracer_isoneutral(:,:,blockNo) = 0.0_wp
+          DO jc = start_index, end_index
+          
+            length_scale=(1.0_wp/4.0E5_wp)*sqrt(patch_2D%edges%primal_edge_length(je,blockNo)&
+                                       & * patch_2D%edges%dual_edge_length(je,blockNo))
+            p_phys_param%k_tracer_isoneutral(jc,:,blockNo)=length_scale*k_tracer_isoneutral_parameter
+            p_phys_param%k_tracer_GM_kappa(jc,:,blockNo)=length_scale*k_tracer_GM_kappa_parameter
+                                                  
+          END DO
+        END DO
+      ELSE
+
+        p_phys_param%k_tracer_isoneutral(:,:,:) = k_tracer_isoneutral_parameter
+        p_phys_param%k_tracer_dianeutral(:,:,:) = k_tracer_dianeutral_parameter
+
+        p_phys_param%k_tracer_GM_kappa(:,:,:) = k_tracer_GM_kappa_parameter
+      
+      ENDIF
+      CALL dbg_print('init_ho_params: isoneutral diffusivity', p_phys_param%k_tracer_isoneutral(:,:,:),&
+      & this_mod_name, 3, patch_2D%cells%in_domain)
+
+      CALL dbg_print('init_ho_params: GM-kappa', p_phys_param%k_tracer_GM_kappa(:,:,:),&
+      & this_mod_name, 3, patch_2D%cells%in_domain)
+
+      
+    ENDIF
+    
+
+
 
     p_phys_param%bottom_drag_coeff = bottom_drag_coeff
 

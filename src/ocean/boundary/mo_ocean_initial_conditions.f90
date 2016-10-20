@@ -4110,11 +4110,11 @@ write(123,*)'perturb',max_perturbation*EXP(-(distan/(perturbation_width*deg2rad)
     INTEGER :: block, idx, level
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: levels
-    REAL(wp):: lat_deg, lon_deg, z_tmp
+    REAL(wp):: lat_deg!, lon_deg, z_tmp
     ! REAL(wp):: perturbation_lat, perturbation_lon,  z_ltrop, z_lpol
     ! REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_tpols
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_CollapsingDensityFront_StuhnePeltier'
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_GM_idealized'
     !-------------------------------------------------------------------------
 
     patch_2d => patch_3d%p_patch_2d(1)
@@ -4138,13 +4138,11 @@ write(123,*)'perturb',max_perturbation*EXP(-(distan/(perturbation_width*deg2rad)
 
             ocean_temperature(idx,level,block) = 10.0_wp-0.1_wp*level
 
-          ELSE ! IF (ABS(lat_deg) < 40.0_wp .AND. ABS(lat_deg) > 20.0_wp)THEN
+          ELSE 
 
-            z_tmp = pi*((ABS(lat_deg) -20.0_wp)/20.0_wp)
-
-            ocean_temperature(idx,level,block) = 11.0_wp-0.1_wp*level!&
-             ! & 5.0_wp + 0.5_wp * 25.0_wp * (1.0_wp + COS(z_tmp))
-
+ 
+            ocean_temperature(idx,level,block) = 11.0_wp-0.1_wp*level
+ 
           ENDIF
 
         END DO

@@ -496,7 +496,7 @@ CONTAINS
                    
     END IF
                    
-       IF(GMREDI_COMBINED_DIAGNOSTIC)THEN
+    IF(GMREDI_COMBINED_DIAGNOSTIC)THEN
 
 !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, &
 !ICON_OMP level) ICON_OMP_DEFAULT_SCHEDULE
@@ -512,8 +512,8 @@ CONTAINS
         endif
 	    if (tracer_index == 2) then
         p_os%p_diag%osaltGMRedi(jc,level,jb)&
-        &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))&
-        & * patch_3D%p_patch_1d(1)%prism_thick_c(jc,level,jb)
+        &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))!&
+        !& * patch_3D%p_patch_1d(1)%prism_thick_c(jc,level,jb)
         endif
 
 
@@ -525,7 +525,7 @@ CONTAINS
       !CALL dbg_print('AftGMRedi: divofGMRediflux1',div_diff_flux_horz(:,:,:),&
       !& str_module, idt_src, in_subset=cells_in_domain)      
        
-       ENDIF            
+    ENDIF            
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=1  ! output print level (1-5, fix)
       !CALL dbg_print('AftGMRedi: GMRediflux_h',p_os%p_diag%GMRedi_flux_horz(:,:,:,tracer_index),&
@@ -623,8 +623,8 @@ CONTAINS
     IF ( l_with_vert_tracer_diffusion ) THEN
     
       IF(GMREDI_COMBINED_DIAGNOSTIC)THEN
-      ALLOCATE(temp_tracer_before%concentration(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks))
-      ALLOCATE(temp_tracer_after%concentration(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks))      
+        ALLOCATE(temp_tracer_before%concentration(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks))
+        ALLOCATE(temp_tracer_after%concentration(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks))      
 !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, &
 !ICON_OMP level) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = cells_in_domain%start_block, cells_in_domain%end_block
@@ -633,7 +633,7 @@ CONTAINS
             DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)     
 				
              temp_tracer_before%concentration(jc,level,jb)=new_ocean_tracer%concentration(jc,level,jb)            
-             temp_tracer_after%concentration(jc,level,jb)=new_ocean_tracer%concentration(jc,level,jb)                         
+             temp_tracer_after%concentration(jc,level,jb) =new_ocean_tracer%concentration(jc,level,jb)                         
             END DO
           END DO
         ENDDO 

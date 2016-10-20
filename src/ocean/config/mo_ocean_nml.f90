@@ -370,6 +370,7 @@ MODULE mo_ocean_nml
   REAL(wp) :: HorizontalViscosity_ScaleWeight = 0.5_wp
   REAL(wp) :: VerticalViscosity_TimeWeight = 0.0_wp
   REAL(wp) :: Salinity_ConvectionRestrict = 0.0_wp
+  LOGICAL  :: SCALING_HORIZONTAL_DIFFUSIVITY=.FALSE. 
 
   NAMELIST/ocean_diffusion_nml/&
     &  HorizontalViscosity_type,    &
@@ -391,7 +392,8 @@ MODULE mo_ocean_nml
     &  leith_closure,                   &
     &  leith_closure_gamma,             &
     &  biharmonic_const,                &
-    &  Salinity_ConvectionRestrict
+    &  Salinity_ConvectionRestrict,     &
+    &  SCALING_HORIZONTAL_DIFFUSIVITY
 
   !Parameters for GM-Redi configuration
   REAL(wp) :: k_tracer_dianeutral_parameter   = 1.0E-4_wp  !dianeutral tracer diffusivity for GentMcWilliams-Redi parametrization
