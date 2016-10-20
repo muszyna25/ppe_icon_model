@@ -22,7 +22,7 @@ MODULE mo_restart_util
     USE mo_run_config, ONLY: restart_filename
     USE mo_util_file, ONLY: util_symlink, util_islink, util_unlink
     USE mo_util_string, ONLY: int2string, real2string, associate_keyword, with_keywords, t_keyword_list
-    USE mtime, ONLY: datetime, datetimeToString, MAX_DATETIME_STR_LEN
+    USE mtime, ONLY: datetime, newDatetime, deallocateDatetime, datetimeToString, MAX_DATETIME_STR_LEN
     
     IMPLICIT NONE
 
@@ -61,8 +61,12 @@ CONTAINS
         CHARACTER(LEN=32) :: datetimeString
         TYPE(t_keyword_list), POINTER :: keywords => NULL()
 
-        CALL datetimeToString(this_datetime, datetimeString)
-
+        WRITE (datetimeString,'(i4.4,2(i2.2),a,3(i2.2),a)')  &
+             & this_datetime%date%year, this_datetime%date%month, this_datetime%date%day , &
+             & 'T', &
+             & this_datetime%time%hour, this_datetime%time%minute, this_datetime%time%second, &
+             & 'Z'
+        
         ! build the keyword list
         CALL associate_keyword("<gridfile>", TRIM(get_filename_noext(baseName)), keywords)
         CALL associate_keyword("<idom>", TRIM(int2string(domain, "(i2.2)")), keywords)
@@ -174,12 +178,16 @@ CONTAINS
 
     SUBROUTINE restartArgs_construct(me, this_datetime, jstep, modelType, opt_output_jfile)
         CLASS(t_restart_args), INTENT(INOUT) :: me
-        TYPE(datetime), INTENT(IN) :: this_datetime
+        TYPE(datetime), POINTER, INTENT(IN) :: this_datetime
         INTEGER, VALUE :: jstep
         CHARACTER(LEN = *), INTENT(IN) :: modelType
         INTEGER, INTENT(IN), OPTIONAL :: opt_output_jfile(:)
 
-        me%restart_datetime = this_datetime
+        integer :: ierr
+
+        me%restart_datetime => newDatetime(this_datetime%date%year, this_datetime%date%month, this_datetime%date%day, &
+             &                             this_datetime%time%hour, this_datetime%time%minute, this_datetime%time%second, &
+             &                             this_datetime%time%ms, ierr)
         me%jstep = jstep
         me%modelType = modelType
         CALL assign_if_present_allocatable(me%output_jfile, opt_output_jfile)
@@ -204,6 +212,7 @@ CONTAINS
     SUBROUTINE restartArgs_destruct(me)
         CLASS(t_restart_args), INTENT(INOUT) :: me
 
+        IF(ASSOCIATED(me%restart_datetime)) CALL deallocateDatetime(me%restart_datetime)
         IF(ALLOCATED(me%output_jfile)) DEALLOCATE(me%output_jfile)
     END SUBROUTINE restartArgs_destruct
 
