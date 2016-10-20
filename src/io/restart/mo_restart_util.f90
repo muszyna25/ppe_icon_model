@@ -38,7 +38,7 @@ MODULE mo_restart_util
 
     ! patch independent restart arguments
     TYPE t_restart_args
-        TYPE(datetime), POINTER :: restart_datetime
+        TYPE(datetime), POINTER :: restart_datetime => NULL()
         INTEGER :: jstep
         CHARACTER(LEN = 32) :: modelType
         INTEGER, ALLOCATABLE :: output_jfile(:)
@@ -85,7 +85,7 @@ CONTAINS
 
         CHARACTER(len=MAX_DATETIME_STR_LEN) :: dstring
         INTEGER :: i
-
+        
         ! set CF-Convention required restart attributes
         CALL restartAttributes%setText('title',       TRIM(cf_global_info%title))
         CALL restartAttributes%setText('institution', TRIM(cf_global_info%institution))
@@ -197,7 +197,15 @@ CONTAINS
         CLASS(t_restart_args), INTENT(INOUT) :: me
         INTEGER, VALUE :: operation
         TYPE(t_PackedMessage), INTENT(INOUT) :: packedMessage
-
+        CHARACTER(len=*), PARAMETER ::  routine = modname//':restartArgs_packer'
+        
+        IF (operation == kPackOp .AND. .NOT. ASSOCIATED(me%restart_datetime)) THEN
+          CALL finish(routine, 'Assertion failed: cannot pack unconstructed object.')
+        ENDIF
+        IF (.NOT. ASSOCIATED(me%restart_datetime)) THEN
+          me%restart_datetime => newDatetime(1878_i8,1,1,0,0,0,0)
+        ENDIF
+        
         CALL packedMessage%packer(operation, me%restart_datetime%date%year)
         CALL packedMessage%packer(operation, me%restart_datetime%date%month)
         CALL packedMessage%packer(operation, me%restart_datetime%date%day)
