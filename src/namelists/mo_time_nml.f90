@@ -110,18 +110,22 @@ CONTAINS
    end_datetime_string = ""     ! end date and time
    dt_restart          = 0._wp  ! length of restart cycle (unspecified)
 
-    is_relative_time = .FALSE.
+   is_relative_time = .FALSE.
 
-    ! 2.1 Overwrite the defaults above by values in the restart file
-    funit = open_and_restore_namelist('time_nml')
-    READ(funit,NML=time_nml)
-    CALL close_tmpfile(funit) 
+   IF (isRestart()) THEN
 
-    ! store the namelist settings originating from the restart file:
-    restart_calendar            = calendar
-    restart_ini_datetime_string = ini_datetime_string
-    restart_end_datetime_string = end_datetime_string
+     ! 2.1 Overwrite the defaults above by values in the restart file
+     funit = open_and_restore_namelist('time_nml')
+     READ(funit,NML=time_nml)
+     CALL close_tmpfile(funit) 
 
+     ! store the namelist settings originating from the restart file:
+     restart_calendar            = calendar
+     restart_ini_datetime_string = ini_datetime_string
+     restart_end_datetime_string = end_datetime_string
+     
+   END IF
+    
    !------------------------------------------------------------------------
    !  Read user's (new) specifications. (Done so far by all MPI processes)
    !------------------------------------------------------------------------
