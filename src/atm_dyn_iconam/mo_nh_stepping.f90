@@ -13,8 +13,39 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
+!! The time stepping does eventually perform an IAU with the follwing
+!! characteristics:
 !!
-
+!! IAU iteration
+!!
+!!                     input
+!!                       /
+!!                      /
+!!                     / 
+!!          ........../
+!!         /         
+!!        /
+!!       /
+!!      /
+!!     /
+!!  -90min               0min              90min         
+!! ---|------------------|------------------|------------->
+!!    |//////////////////| - - - - - - - - - - - - - - - ->                  
+!!                       /       free forecast (iteration = false)             
+!!                      /
+!!                     /
+!!          ........../
+!!         /   reset           
+!!        /   
+!!       /
+!!      /
+!!     /
+!!  -90min               0min              90min         
+!! ---|------------------|------------------|------------->
+!!    |//////////////////|//////////////////| free forecast                
+!!
+!!    \_______IAU________/  
+!!
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
@@ -1207,19 +1238,20 @@ MODULE mo_nh_stepping
     END IF
 
     ! Reset model to initial state if IAU iteration is selected and the first iteration cycle has been completed
-!    IF (jstep == 0 .AND. iau_iter == 1) THEN
-!      jstep_adv(:)%marchuk_order = 0
-!      t_elapsed_phy(:,:)         = 0._wp
-!      linit_dyn(:)               = .TRUE.
-!      time_config%sim_time(:)    = timeshift%dt_shift
-!      CALL add_time(timeshift%dt_shift,0,0,0,datetime_current)
-!      datetime_old = datetime_current
-!      CALL reset_to_initial_state(datetime_current)
-!      iau_iter = 2
-!      jstep = jstep0+jstep_shift+1
-!    ELSE
-      jstep = jstep + 1
-!    ENDIF
+
+    IF (jstep == 0 .AND. iau_iter == 1) THEN
+      jstep_adv(:)%marchuk_order = 0
+      t_elapsed_phy(:,:)         = 0._wp
+      linit_dyn(:)               = .TRUE.
+      !time_config%sim_time(:)    = timeshift%dt_shift
+      mtime_current = mtime_current + timeshift%mtime_shift
+      mtime_old = mtime_current
+      CALL reset_to_initial_state(mtime_current)
+      iau_iter = 2
+      jstep = jstep0+jstep_shift+1
+    ELSE
+     jstep = jstep + 1
+    ENDIF
     
   ENDDO TIME_LOOP
 
