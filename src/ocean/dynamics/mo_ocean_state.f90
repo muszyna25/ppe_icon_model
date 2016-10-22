@@ -1512,6 +1512,13 @@ CONTAINS
      ocean_state_aux%PgradTemperature_horz_center    (:,:,:)%x(1)=0.0_wp
      ocean_state_aux%PgradTemperature_horz_center    (:,:,:)%x(2)=0.0_wp
      ocean_state_aux%PgradTemperature_horz_center    (:,:,:)%x(3)=0.0_wp
+     ALLOCATE(ocean_state_aux%PgradTracer_horz_center(nproma,n_zlev,alloc_cell_blocks), stat=ist)
+     IF (ist/=success) THEN
+      CALL finish(TRIM(routine), 'allocation for PgradTracer_horz_center at cells failed')
+     END IF
+     ocean_state_aux%PgradTracer_horz_center    (:,:,:)%x(1)=0.0_wp
+     ocean_state_aux%PgradTracer_horz_center    (:,:,:)%x(2)=0.0_wp
+     ocean_state_aux%PgradTracer_horz_center    (:,:,:)%x(3)=0.0_wp
 
      ALLOCATE(ocean_state_aux%PgradSalinity_horz_center(nproma,n_zlev,alloc_cell_blocks), stat=ist)
      IF (ist/=success) THEN
@@ -1565,6 +1572,13 @@ CONTAINS
         & za_depth_below_sea, t_cf_var('DerivDensity_vert','','', datatype_flt),&
         & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
         & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.true.)
+
+     CALL add_var(ocean_default_list,'DerivTracer_vert',ocean_state_aux%DerivTracer_vert_center,&
+        & grid_unstructured_cell,&
+        & za_depth_below_sea, t_cf_var('DerivTracer_vert','','', datatype_flt),&
+        & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
+        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.true.)
+        ! & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.FALSE.)
 
         
      CALL add_var(ocean_default_list,'slopes_squared',ocean_state_aux%slopes_squared,&

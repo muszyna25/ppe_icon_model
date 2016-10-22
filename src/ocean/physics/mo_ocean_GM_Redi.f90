@@ -71,19 +71,17 @@ MODULE mo_ocean_GM_Redi
   PRIVATE
   CHARACTER(LEN=*), PARAMETER :: this_mod_name = 'GM_Redi'
   CHARACTER(LEN=16)           :: str_module = 'GM_Redi'  ! Output of module for 1 line debug
-  INTEGER :: idt_src    = 1               ! Level of detail for 1 line debug
+  INTEGER                     :: idt_src    = 1          ! Level of detail for 1 line debug
 
   PUBLIC  :: prepare_ocean_physics
   PUBLIC  :: calc_ocean_physics
-  !PUBLIC  :: calc_neutralslope_coeff
   PUBLIC  :: calc_neutralslope_coeff_func_onColumn
-!   PUBLIC  :: calc_neutralslope_coeff_func
   
   PRIVATE :: calc_combined_GentMcWilliamsRedi_flux
   PRIVATE :: calc_neutral_slopes
   PRIVATE :: calc_tapering_function
   PRIVATE :: calc_entries_mixing_tensor
-  PUBLIC :: diagnose_Redi_flux_balance
+  PUBLIC  :: diagnose_Redi_flux_balance
   PRIVATE :: calc_bolus_velocity
   
 CONTAINS
@@ -147,8 +145,7 @@ CONTAINS
     cells_in_domain  => patch_2D%cells%in_domain   
     GMredi_flux_horz => ocean_state%p_diag%GMRedi_flux_horz(:,:,:,tracer_index)
     GMredi_flux_vert => ocean_state%p_diag%GMRedi_flux_vert(:,:,:,tracer_index)
-    
-    
+        
     SELECT CASE(GMRedi_configuration)!GMRedi_configuration==Cartesian_Mixing)RETURN
  
     CASE(GMRedi_combined)
@@ -222,91 +219,106 @@ CONTAINS
     
     start_level=1
     IF(TEST_MODE_REDI_ONLY.OR.TEST_MODE_GM_ONLY)THEN
-    CALL selective_GMRedi(patch_3d, ocean_state, param, &
-                    & taper_diagonal_horz,           &
-                    & taper_diagonal_vert_expl,      &
-                    & taper_diagonal_vert_impl,      &
-                    & taper_off_diagonal_horz,       &
-                    & taper_off_diagonal_vert,       &
-                    & tracer_index )
+      CALL selective_GMRedi(patch_3d, ocean_state, param, &
+                      & taper_diagonal_horz,           &
+                      & taper_diagonal_vert_expl,      &
+                      & taper_diagonal_vert_impl,      &
+                      & taper_off_diagonal_horz,       &
+                      & taper_off_diagonal_vert,       &
+                      & tracer_index )
     ELSE
-    CALL calc_entries_mixing_tensor(patch_3d, ocean_state, param, &
-                    & taper_diagonal_horz,           &
-                    & taper_diagonal_vert_expl,      &
-                    & taper_diagonal_vert_impl,      &
-                    & taper_off_diagonal_horz,       &
-                    & taper_off_diagonal_vert,       &
-                    & tracer_index )
+      CALL calc_entries_mixing_tensor(patch_3d, ocean_state, param, &
+                      & taper_diagonal_horz,           &
+                      & taper_diagonal_vert_expl,      &
+                      & taper_diagonal_vert_impl,      &
+                      & taper_off_diagonal_horz,       &
+                      & taper_off_diagonal_vert,       &
+                      & tracer_index )
     ENDIF    
      
-    IF(no_tracer<=2)THEN
+    !Set pointers for tracer gradients, according to actual tracer index
+    IF(tracer_index==1)THEN
+      !write(0,*) "DerivTemperature_vec_center"
+      tracer_gradient_horz_vec_center => ocean_state%p_aux%PgradTemperature_horz_center
+      tracer_gradient_vert_center     => ocean_state%p_aux%DerivTemperature_vert_center
+    ELSEIF(tracer_index==2)THEN
+      !write(0,*) "DerivSalinity_vec_center"
+      tracer_gradient_horz_vec_center => ocean_state%p_aux%PgradSalinity_horz_center
+      tracer_gradient_vert_center     => ocean_state%p_aux%DerivSalinity_vert_center
+    ELSEIF(tracer_index>2)THEN
+      tracer_gradient_horz_vec_center => ocean_state%p_aux%PgradTracer_horz_center
+      tracer_gradient_vert_center     => ocean_state%p_aux%DerivTracer_vert_center
+       
+    ENDIF
 
-      IF(tracer_index==1)THEN
-!       write(0,*) "DerivTemperature_vert_center"
-        tracer_gradient_horz_vec_center => ocean_state%p_aux%PgradTemperature_horz_center
-        tracer_gradient_vert_center     => ocean_state%p_aux%DerivTemperature_vert_center
-      ELSEIF(tracer_index==2)THEN
-!       write(0,*) "DerivSalinity_vert_center"
-        tracer_gradient_horz_vec_center => ocean_state%p_aux%PgradSalinity_horz_center
-        tracer_gradient_vert_center     => ocean_state%p_aux%DerivSalinity_vert_center
-      ENDIF
-
-      DO blockNo = all_cells%start_block, all_cells%end_block        
-        CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)      
-        DO cell_index = start_cell_index, end_cell_index
-          DO level = 1, n_zlev
-            flux_vec_horz_center(cell_index,level,blockNo)%x = 0.0_wp
-          ENDDO
+    DO blockNo = all_cells%start_block, all_cells%end_block        
+      CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)      
+      DO cell_index = start_cell_index, end_cell_index
+        DO level = 1, n_zlev
+          flux_vec_horz_center(cell_index,level,blockNo)%x = 0.0_wp
         ENDDO
       ENDDO
+    ENDDO
+      
+    !The code below has to be executed for temperature, salinity and HAMMOC tracers, i.e. for all tracers.
+    !
 !ICON_OMP_DO_PARALLEL PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
-      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block        
-        CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)      
-        DO cell_index = start_cell_index, end_cell_index
+    DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block        
+      CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)      
+      DO cell_index = start_cell_index, end_cell_index
  
-          !horizontal GMRedi Flux at top layer: with the tapering this is the just horizontal diffusion
-          DO level = start_level, MIN(patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo),start_level)
-            flux_vec_horz_center(cell_index,start_level,blockNo)%x &
-              &=taper_diagonal_horz(cell_index,start_level,blockNo) &
-              &*tracer_gradient_horz_vec_center(cell_index,start_level,blockNo)%x
+        !GMRedi Flux at top layer: with tapering this is the just horizontal diffusion
+        DO level = start_level, MIN(patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo),start_level)
+          flux_vec_horz_center(cell_index,start_level,blockNo)%x &
+          &=taper_diagonal_horz(cell_index,start_level,blockNo)  &
+          &*tracer_gradient_horz_vec_center(cell_index,start_level,blockNo)%x
 
-!             flux_vert_center(cell_index,start_level,blockNo) &
-!               &=taper_diagonal_vert_expl(cell_index,start_level,blockNo)&
-!               &*tracer_gradient_vert_center(cell_index,start_level,blockNo)
+          !flux_vert_center(cell_index,start_level,blockNo) &
+          !&=taper_diagonal_vert_expl(cell_index,start_level,blockNo)&
+          !&*tracer_gradient_vert_center(cell_index,start_level,blockNo)
 
-!            ! the top level flux_vert_center will be filled from the second level, if it exists
-             flux_vert_center(cell_index,start_level,blockNo) = 0.0_wp
-          ENDDO
-
-          DO level = start_level+1, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
+          ! the top level flux_vert_center will be filled from the second level, if it exists
+          flux_vert_center(cell_index,start_level,blockNo) = 0.0_wp
           
-            !horizontal GM-Redi Flux
-            flux_vec_horz_center(cell_index,level,blockNo)%x &
-              &=taper_diagonal_horz(cell_index,level,blockNo)*  &
-              &tracer_gradient_horz_vec_center(cell_index,level,blockNo)%x&
-              !the second term vanishes if GM-Kappa=isoneutral diffusion
-              &+taper_off_diagonal_horz(cell_index,level,blockNo)%x&
-              &*tracer_gradient_vert_center(cell_index,level,blockNo)
+        ENDDO
+
+        DO level = start_level+1, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
+          
+          !horizontal GM-Redi Flux
+          flux_vec_horz_center(cell_index,level,blockNo)%x &
+          &=taper_diagonal_horz(cell_index,level,blockNo)*  &
+          &tracer_gradient_horz_vec_center(cell_index,level,blockNo)%x&
+          !the second term vanishes if GM-Kappa=isoneutral diffusion
+          &+taper_off_diagonal_horz(cell_index,level,blockNo)%x&
+          &*tracer_gradient_vert_center(cell_index,level,blockNo)
               
-            !vertical GM-Redi Flux: this is the part that is explicit in time
-            !If namelist option "switch_off_diagonal_vert_expl=TRUE" the
-            !first (diagonal) term is set to zero. Default option "switch_off_diagonal_vert_expl=FALSE"
-            !Second term contains isoneutral and GM components
-            flux_vert_center(cell_index,level,blockNo)= &
-              &taper_diagonal_vert_expl(cell_index,level,blockNo)&
-              &*tracer_gradient_vert_center(cell_index,level,blockNo)&
-              &+&
-              &Dot_Product(tracer_gradient_horz_vec_center(cell_index,level,blockNo)%x,&
-              &            taper_off_diagonal_vert(cell_index,level,blockNo)%x)
+          !vertical GM-Redi Flux: this is the part that is explicit in time
+          !If namelist option "switch_off_diagonal_vert_expl=TRUE" the
+          !first (diagonal) term is set to zero. Default option "switch_off_diagonal_vert_expl=FALSE"
+          !Second term contains isoneutral and GM components
+          flux_vert_center(cell_index,level,blockNo)= &
+          &taper_diagonal_vert_expl(cell_index,level,blockNo)&
+          &*tracer_gradient_vert_center(cell_index,level,blockNo)&
+          &+&
+          &Dot_Product(tracer_gradient_horz_vec_center(cell_index,level,blockNo)%x,&
+          &            taper_off_diagonal_vert(cell_index,level,blockNo)%x)
                 
-          END DO
-          ! fill the top level flux_vert_center from the second level, if it exists
-!           DO level = start_level+1, MIN(patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo),start_level+1)
-!             flux_vert_center(cell_index,start_level,blockNo) = flux_vert_center(cell_index,start_level+1,blockNo)
-!           END DO
-        END DO                
-      END DO
+        END DO
+
+      END DO                
+    END DO
 !ICON_OMP_END_DO_PARALLEL
+
+
+    !Map the explicit horizontal tracer flux from cell centers to edges (where the horizontal divergence is calculated)
+    !
+    ! use a vector communicator
+    CALL sync_patch_array_mult(sync_c, patch_2D, 3, &
+        & flux_vec_horz_center(:,:,:)%x(1), flux_vec_horz_center(:,:,:)%x(2), flux_vec_horz_center(:,:,:)%x(3))
+    !    
+    CALL map_cell2edges_3D( patch_3D,flux_vec_horz_center, GMredi_flux_horz, op_coeff)
+    !hier GMredi_flux_horz fuer T und S abgreifen
+
 
     !Map the (explicit) vertical tracer flux to the prsim top (where the vertical divergence is calculated later)
     IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
@@ -314,31 +326,34 @@ CONTAINS
     ELSEIF(REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
       CALL map_scalar_center2prismtop_GM(patch_3d, flux_vert_center, op_coeff,GMredi_flux_vert)    
     ENDIF
-      
-      ! now we treat the vertical isoneutral flux that is discretized implicitely in time.
+
+    ! Now we treat the vertical isoneutral coefficient that is discretized implicitely in time.  
+    ! This is only neccessary once for temperature and salinity, the HAMOCC tracers use these value  
+    IF(tracer_index<=1)THEN
+
       ! 
       !1.) Interpolate the tapered coefficient for the vertical tracer flux from prism center to prism top: 
       !this is the diagonal part that is handled implicitely in time
       
-    IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN        
-      CALL map_scalar_center2prismtop( patch_3d, &
-        &                              taper_diagonal_vert_impl,&
-        &                              op_coeff,                &
-        &                              ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit)        
+      IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN        
+        CALL map_scalar_center2prismtop( patch_3d, &
+          &                              taper_diagonal_vert_impl,&
+          &                              op_coeff,                &
+          &                              ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit)        
 
-    ELSEIF(REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
-      CALL map_scalar_center2prismtop_GM( patch_3d, &
-        &                              taper_diagonal_vert_impl,&
-        &                              op_coeff,                &
-        &                              ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit)        
+      ELSEIF(REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
+        CALL map_scalar_center2prismtop_GM( patch_3d, &
+          &                              taper_diagonal_vert_impl,&
+          &                              op_coeff,                &
+          &                              ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit)        
     
-    ENDIF      
+      ENDIF      
       IF(tracer_index==1)THEN
-      Do level=1,n_zlev
-      !CALL dbg_print('Old vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
-      CALL dbg_print('Old vert coeff: A_v', ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit,&
-      & this_mod_name, 4, patch_2D%cells%in_domain)
-      End do
+        Do level=1,n_zlev
+          !CALL dbg_print('Old vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
+          CALL dbg_print('Old vert coeff: A_v', ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit,&
+          & this_mod_name, 4, patch_2D%cells%in_domain)
+        End do
       ENDIF
       !
       !2.) Here we combine the vertical GMRedicoefficient that is treated implicitely (mapped_vertical_diagonal_impl, this
@@ -359,22 +374,16 @@ CONTAINS
         END DO                
       END DO
 !ICON_OMP_END_DO_PARALLEL
-     IF(tracer_index==1)THEN
-     Do level=1,n_zlev
-      CALL dbg_print('New vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
-      !CALL dbg_print('New vert coeff: A_v', &
-      !&ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit(:,level,:),&
-      !& this_mod_name, 4, patch_2D%cells%in_domain)
-     END DO 
-     ENDIF   
-    !Map the explicit horizontal tracer flux from cell centers to edges (where the horizontal divergence is calculated)
-    !
-    ! use a vector communicator
-    CALL sync_patch_array_mult(sync_c, patch_2D, 3, &
-        & flux_vec_horz_center(:,:,:)%x(1), flux_vec_horz_center(:,:,:)%x(2), flux_vec_horz_center(:,:,:)%x(3))
-    !    
-    CALL map_cell2edges_3D( patch_3D,flux_vec_horz_center, GMredi_flux_horz, op_coeff)
-    !hier GMredi_flux_horz fuer T und S abgreifen
+      IF(tracer_index==1)THEN
+        Do level=1,n_zlev
+          CALL dbg_print('New vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index),&
+          & this_mod_name, 4, patch_2D%cells%in_domain)
+          !CALL dbg_print('New vert coeff: A_v', &
+          !&ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit(:,level,:),&
+          !& this_mod_name, 4, patch_2D%cells%in_domain)
+        END DO 
+      ENDIF 
+    ENDIF!IF(tracer_index<=1)THEN 
       
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     Do level=1,n_zlev
@@ -389,10 +398,6 @@ CONTAINS
     !---------------------------------------------------------------------
     
      
-  ELSEIF( no_tracer>2)THEN
-    CALL finish(TRIM('calc_GMRediflux'),&
-    & 'calc_flux_neutral_diffusion beyond temperature and salinity is not impemented yet')
-  ENDIF
 
 
   END SUBROUTINE calc_combined_GentMcWilliamsRedi_flux

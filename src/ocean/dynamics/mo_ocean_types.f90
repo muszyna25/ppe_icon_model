@@ -321,12 +321,15 @@ MODULE mo_ocean_types
       & PgradSalinity_horz_center,           & ! reconstructed salinity gradient at cell center in cartesian coordinates
       & PgradDensity_horz_center,            & ! reconstructed density gradient at cell center in cartesian coordinates      
       & diagnose_Redi_flux_temp,             & ! diagnostics used for balance of density fluxes in GM,   
-      & diagnose_Redi_flux_sal                 ! can be removed once diagnostic is no longer necessary
+      & diagnose_Redi_flux_sal,              & ! can be removed once diagnostic is no longer necessary
+      & PgradTracer_horz_center                ! reconstructed tracer gradient at cell center in cartesian coordinates, for HAMMOC in GMredi
+      
    onCells ::         &
       & DerivTemperature_vert_center, &  
       & DerivSalinity_vert_center,    &
-      & DerivDensity_vert_center 
-
+      & DerivDensity_vert_center,     & 
+      & DerivTracer_vert_center
+      
   END TYPE t_hydro_ocean_aux
 
   !-------------------------------
