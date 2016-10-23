@@ -550,7 +550,6 @@ CONTAINS
 
               p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
               &=-(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z 
-        
             ENDDO
           END DO
         END DO
@@ -733,10 +732,10 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO    
 
         IF(tracer_index == 1) THEN     
-          CALL dbg_print('AftGMRedi: temperature complete divofGMRediflux',p_os%p_diag%div_of_GMRedi_flux(:,:,:),&
+          CALL dbg_print('AftGMRedi: temp. complete divofGMRediflux',p_os%p_diag%div_of_GMRedi_flux(:,:,:),&
           & str_module, idt_src, in_subset=cells_in_domain) 
         ELSEIF(tracer_index == 2) THEN
-          CALL dbg_print('AftGMRedi: salinity complete divofGMRediflux',p_os%p_diag%div_of_GMRedi_flux(:,:,:),&
+          CALL dbg_print('AftGMRedi: sal complete divofGMRediflux',p_os%p_diag%div_of_GMRedi_flux(:,:,:),&
           & str_module, idt_src, in_subset=cells_in_domain)        
         ENDIF     
       ENDIF          
