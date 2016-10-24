@@ -26,7 +26,7 @@ MODULE mo_master_nml
        &                       max_datetime_str_len, max_timedelta_str_len,                  &
        &                       datetime, newDatetime, deallocateDatetime,                    &
        &                       timedelta, newTimedelta, deallocateTimedelta,                 &
-       &                       OPERATOR(+) 
+       &                       datetimeToString, OPERATOR(+) 
   USE mo_master_config,  ONLY: master_component_models, addModel, noOfModels, maxNoOfModels, &
        &                       setInstitution, setRestart,                                   &
        &                       setRestartWriteLast, setModelBaseDir,                         &
@@ -202,17 +202,21 @@ CONTAINS
 
     CALL setCalendar(icalendar)
 
-    IF (forecastLeadTime /= "" .AND. experimentStartDate /= "") THEN
-      forecast_lead_time => newTimedelta(TRIM(forecastLeadTime))
-      experiment_start_date = newDatetime(TRIM(experimentStartDate))
-      experiment_stop_date = newDatetime(TRIM(experimentStartDate))
-      experiment_stop_date = experiment_start_date + forecast_lead_time
-      CALL datetimeToString(experiment_stop_date, experimentStopDate)
-      CALL deallocateDatetime(experiment_stop_date)
-      CALL deallocateDatetime(experiment_start_date)
-      CALL deallocateTimedelta(forecast_lead_time)      
-    ELSE
-      CALL finish('','Need forecastLeadTime AND experimentStartDate set in master_time_control_nml namelist.')
+    IF (experimentStartDate /= "") THEN
+      IF (experimentStopDate == "") THEN
+        IF (forecastLeadTime /= "") THEN
+          forecast_lead_time => newTimedelta(TRIM(forecastLeadTime))
+          experiment_start_date = newDatetime(TRIM(experimentStartDate))
+          experiment_stop_date = newDatetime(TRIM(experimentStartDate))
+          experiment_stop_date = experiment_start_date + forecast_lead_time
+          CALL datetimeToString(experiment_stop_date, experimentStopDate)
+          CALL deallocateDatetime(experiment_stop_date)
+          CALL deallocateDatetime(experiment_start_date)
+          CALL deallocateTimedelta(forecast_lead_time)      
+        ELSE
+          CALL finish('','Need forecastLeadTime AND experimentStartDate set in master_time_control_nml namelist.')
+        ENDIF
+      ENDIF
     ENDIF
 
 
