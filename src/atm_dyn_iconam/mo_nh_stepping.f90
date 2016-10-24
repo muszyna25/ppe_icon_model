@@ -1637,17 +1637,21 @@ MODULE mo_nh_stepping
 
         ! Apply boundary nudging in case of one-way nesting
         IF (jg > 1 ) THEN
-          IF (ltimer)            CALL timer_start(timer_nesting)
-          IF (timers_level >= 2) CALL timer_start(timer_nudging)
 
           IF (lfeedback(jg) .AND. l_density_nudging .AND. grf_intmethod_e <= 4) THEN
+            IF (ltimer)            CALL timer_start(timer_nesting)
+            IF (timers_level >= 2) CALL timer_start(timer_nudging)
             CALL density_boundary_nudging(jg,nnew(jg),REAL(ndyn_substeps,wp))
+            IF (timers_level >= 2) CALL timer_stop(timer_nudging)
+            IF (ltimer)            CALL timer_stop(timer_nesting)
           ELSE IF (.NOT. lfeedback(jg)) THEN
+            IF (ltimer)            CALL timer_start(timer_nesting)
+            IF (timers_level >= 2) CALL timer_start(timer_nudging)
             CALL nest_boundary_nudging(jg,nnew(jg),nnew_rcf(jg),REAL(ndyn_substeps,wp))
+            IF (timers_level >= 2) CALL timer_stop(timer_nudging)
+            IF (ltimer)            CALL timer_stop(timer_nesting)
           ENDIF
 
-          IF (timers_level >= 2) CALL timer_stop(timer_nudging)
-          IF (ltimer)            CALL timer_stop(timer_nesting)
         ENDIF
 
         IF ( ( iforcing==inwp .OR. iforcing==iecham ) ) THEN
@@ -1879,7 +1883,6 @@ MODULE mo_nh_stepping
         ENDDO
         IF (timers_level >= 2) CALL timer_stop(timer_bdy_interp)
 
-        IF (timers_level >= 2) CALL timer_start(timer_nudging)
         ! prep_bdy_nudging can not be called using delayed requests!
         DO jn = 1, p_patch(jg)%n_childdom
 
@@ -1889,12 +1892,15 @@ MODULE mo_nh_stepping
           ! differences for boundary nudging
           ! *** prep_bdy_nudging adapted for reduced calling frequency of tracers ***
           IF (lfeedback(jgc) .AND. l_density_nudging .AND. grf_intmethod_e <= 4) THEN
+            IF (timers_level >= 2) CALL timer_start(timer_nudging)
             CALL prep_rho_bdy_nudging(jg,jgc)
+            IF (timers_level >= 2) CALL timer_stop(timer_nudging)
           ELSE IF (.NOT. lfeedback(jgc)) THEN
+            IF (timers_level >= 2) CALL timer_start(timer_nudging)
             CALL prep_bdy_nudging(jg,jgc)
+            IF (timers_level >= 2) CALL timer_stop(timer_nudging)
           ENDIF
         ENDDO
-        IF (timers_level >= 2) CALL timer_stop(timer_nudging)
         IF (ltimer)            CALL timer_stop(timer_nesting)
 
         DO jn = 1, p_patch(jg)%n_childdom
@@ -1912,7 +1918,6 @@ MODULE mo_nh_stepping
         ENDDO
 
         IF (ltimer)            CALL timer_start(timer_nesting)
-        IF (timers_level >= 2) CALL timer_start(timer_feedback)
         DO jn = 1, p_patch(jg)%n_childdom
 
           ! Call feedback to copy averaged prognostic variables from refined mesh back
@@ -1921,6 +1926,7 @@ MODULE mo_nh_stepping
           IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
 
           IF (lfeedback(jgc)) THEN
+            IF (timers_level >= 2) CALL timer_start(timer_feedback)
             IF (ifeedback_type == 1) THEN
               CALL feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, &
                 &           jgc, jg)
@@ -1931,9 +1937,9 @@ MODULE mo_nh_stepping
             ENDIF
             ! Note: the last argument of "feedback" ensures that tracer feedback is
             ! only done for those time steps in which transport and microphysics are called
+            IF (timers_level >= 2) CALL timer_stop(timer_feedback)
           ENDIF
         ENDDO
-        IF (timers_level >= 2) CALL timer_stop(timer_feedback)
         IF (ltimer)            CALL timer_stop(timer_nesting)
 
       ENDIF
@@ -2607,7 +2613,7 @@ MODULE mo_nh_stepping
 
 
 !$OMP PARALLEL
-    CALL copy(p_nh_state(jg)%prog(nnow)%exner, &
+    CALL copy(p_nh_state(jg)%prog(nnow)%exner-REAL(p_nh_state(jg)%metrics%exner_ref_mc,wp), &
          p_nh_state(jg)%diag%exner_old)
 !$OMP END PARALLEL
 

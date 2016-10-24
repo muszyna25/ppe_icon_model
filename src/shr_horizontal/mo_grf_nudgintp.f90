@@ -639,9 +639,6 @@ DO jn = 1, nfields
                            grad_x(jc,jk)*ptr_dist(jc,4,1,jb) + &
                            grad_y(jc,jk)*ptr_dist(jc,4,2,jb),  &
                            1.e-80_wp )
-      ENDDO
-
-      DO jc = i_startidx, i_endidx
 
         ! Allow a limited amount of over-/undershooting in the downscaled fields
         relaxed_minval = MERGE(r_ovsht_fac, ovsht_fac, &

@@ -69,7 +69,7 @@ PUBLIC :: blk_no, idx_no, idx_1d
 PUBLIC :: setup_comm_pattern, delete_comm_pattern, exchange_data,  &
           exchange_data_mult, exchange_data_grf,                   &
           start_async_comm, complete_async_comm,                   &
-          exchange_data_4de1, &
+          exchange_data_4de1, exchange_data_mult_mixprec,          &
           get_np_recv, get_np_send, get_pelist_recv
 PUBLIC :: t_comm_pattern
 
@@ -2121,10 +2121,9 @@ CONTAINS
   !! Optimized version by Guenther Zaengl to process 4D fields or up to seven 3D fields
   !! in one step
   !!
-  SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv2, send2,   &
-    add2, recv3, send3, add3, recv4, send4, add4, recv5, send5,   &
-    add5, recv6, send6, add6, recv7, send7, add7, recv4d, send4d, &
-    add4d, nshift)
+  SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, recv2, send2,   &
+    recv3, send3, recv4, send4,  recv5, send5, recv6, send6, recv7, send7,              &
+    recv4d, send4d, nshift)
 
     TYPE(t_comm_pattern), INTENT(IN) :: p_pat
 
@@ -2134,9 +2133,6 @@ CONTAINS
     REAL(dp), INTENT(IN   ), TARGET, OPTIONAL ::  &
       send1(:,:,:), send2(:,:,:), send3(:,:,:), send4(:,:,:), send5(:,:,:), send6(:,:,:), &
       send7(:,:,:), send4d(:,:,:,:)
-    REAL(dp), INTENT(IN   ), TARGET, OPTIONAL ::  &
-      add1(:,:,:), add2(:,:,:), add3(:,:,:), add4(:,:,:), add5(:,:,:), add6(:,:,:),       &
-      add7(:,:,:), add4d(:,:,:,:)
 
     INTEGER, INTENT(IN)           :: nfields, ndim2tot
     INTEGER, OPTIONAL, INTENT(IN) :: nshift
@@ -2146,14 +2142,14 @@ CONTAINS
     END TYPE t_fieldptr
 
     CHARACTER(len=*), PARAMETER :: routine = modname//"::exchange_data_mult"
-    TYPE(t_fieldptr) :: recv(nfields), send(nfields), add(nfields)
+    TYPE(t_fieldptr) :: recv(nfields), send(nfields)
     INTEGER        :: ndim2(nfields), noffset(nfields)
 
     REAL(dp) :: send_buf(ndim2tot,p_pat%n_send),recv_buf(ndim2tot,p_pat%n_recv)
-    REAL(dp), POINTER :: send_fld(:,:,:), recv_fld(:,:,:), add_fld(:,:,:)  ! Refactoring for OpenACC
+    REAL(dp), POINTER :: send_fld(:,:,:), recv_fld(:,:,:)  ! Refactoring for OpenACC
 
     INTEGER :: i, k, kshift(nfields), jb,ik, jl, n, np, irs, iss, pid, icount, nf4d
-    LOGICAL :: lsend, ladd
+    LOGICAL :: lsend
 
     !-----------------------------------------------------------------------
 
@@ -2166,7 +2162,6 @@ CONTAINS
     start_sync_timer(timer_exch_data)
 
     lsend     = .FALSE.
-    ladd      = .FALSE.
 
     IF (PRESENT(nshift)) THEN
       kshift = nshift
@@ -2201,12 +2196,6 @@ CONTAINS
         ENDDO
         lsend = .TRUE.
       ENDIF
-      IF (PRESENT(add4d)) THEN
-        DO i = 1, nf4d
-          add(i)%fld => add4d(:,:,:,i)
-        ENDDO
-        ladd = .TRUE.
-      ENDIF
     ELSE
       nf4d = 0
     ENDIF
@@ -2216,34 +2205,24 @@ CONTAINS
         send(nf4d+1)%fld => send1
         lsend = .TRUE.
       ENDIF
-      IF (PRESENT(add1)) THEN
-        add(nf4d+1)%fld => add1
-        ladd = .TRUE.
-      ENDIF
       IF (PRESENT(recv2)) THEN
         recv(nf4d+2)%fld => recv2
         IF (lsend) send(nf4d+2)%fld => send2
-        IF (ladd)  add(nf4d+2)%fld  => add2
         IF (PRESENT(recv3)) THEN
           recv(nf4d+3)%fld => recv3
           IF (lsend) send(nf4d+3)%fld => send3
-          IF (ladd)  add(nf4d+3)%fld  => add3
           IF (PRESENT(recv4)) THEN
             recv(nf4d+4)%fld => recv4
             IF (lsend) send(nf4d+4)%fld => send4
-            IF (ladd)  add(nf4d+4)%fld  => add4
             IF (PRESENT(recv5)) THEN
               recv(nf4d+5)%fld => recv5
               IF (lsend) send(nf4d+5)%fld => send5
-              IF (ladd)  add(nf4d+5)%fld  => add5
               IF (PRESENT(recv6)) THEN
                 recv(nf4d+6)%fld => recv6
                 IF (lsend) send(nf4d+6)%fld => send6
-                IF (ladd)  add(nf4d+6)%fld  => add6
                 IF (PRESENT(recv7)) THEN
                   recv(nf4d+7)%fld => recv7
                   IF (lsend) send(nf4d+7)%fld => send7
-                  IF (ladd)  add(nf4d+7)%fld  => add7
                 ENDIF
               ENDIF
             ENDIF
@@ -2255,17 +2234,9 @@ CONTAINS
     IF(my_process_is_mpi_seq()) THEN
       DO n = 1, nfields
         IF(lsend) THEN
-          IF(ladd) THEN
-            CALL exchange_data_seq(p_pat, recv(n)%fld(:,:,:), send(n)%fld(:,:,:), add(n)%fld(:,:,:))
-          ELSE
-            CALL exchange_data_seq(p_pat, recv(n)%fld(:,:,:), send(n)%fld(:,:,:))
-          ENDIF
+          CALL exchange_data_seq(p_pat, recv(n)%fld(:,:,:), send(n)%fld(:,:,:))
         ELSE
-          IF(ladd) THEN
-            CALL exchange_data_seq(p_pat, recv(n)%fld(:,:,:), add=add(n)%fld(:,:,:))
-          ELSE
-            CALL exchange_data_seq(p_pat, recv(n)%fld(:,:,:))
-          ENDIF
+          CALL exchange_data_seq(p_pat, recv(n)%fld(:,:,:))
         ENDIF
       ENDDO
 
@@ -2421,41 +2392,21 @@ CONTAINS
       ! Fill in receive buffer
 
 #if defined( __SX__ ) || defined( _OPENACC )
-      IF (ladd) THEN
-        DO n = 1, nfields
-          recv_fld => recv(n)%fld
-          add_fld  => add(n)%fld
-!$ACC PARALLEL PRESENT( p_pat, recv_buf, recv_fld, add_fld ), COPYIN( kshift, noffset, ndim2 ), &
-!$ACC          IF( i_am_accel_node .AND. acc_on )
-!$ACC LOOP GANG
-!CDIR UNROLL=6
-          DO k = 1, ndim2(n)
-!$ACC LOOP VECTOR
-            DO i = 1, p_pat%n_pnts
-              recv_fld(p_pat%recv_dst_idx(i),k+kshift(n),p_pat%recv_dst_blk(i)) =  &
-                recv_buf(k+noffset(n),p_pat%recv_src(i)) +                         &
-                add_fld(p_pat%recv_dst_idx(i),k+kshift(n),p_pat%recv_dst_blk(i))
-            ENDDO
-          ENDDO
-!$ACC END PARALLEL
-        ENDDO
-      ELSE
-        DO n = 1, nfields
-          recv_fld => recv(n)%fld
+      DO n = 1, nfields
+        recv_fld => recv(n)%fld
 !$ACC PARALLEL &
 !$ACC PRESENT( p_pat, recv_buf, recv_fld ), COPYIN( kshift, noffset, ndim2 ), IF( i_am_accel_node .AND. acc_on )
 !$ACC LOOP GANG
 !CDIR UNROLL=6
-          DO k = 1, ndim2(n)
+        DO k = 1, ndim2(n)
 !$ACC LOOP VECTOR
-            DO i = 1, p_pat%n_pnts
-              recv(n)%fld(p_pat%recv_dst_idx(i),k+kshift(n),p_pat%recv_dst_blk(i)) =  &
-                recv_buf(k+noffset(n),p_pat%recv_src(i))
-            ENDDO
+          DO i = 1, p_pat%n_pnts
+            recv(n)%fld(p_pat%recv_dst_idx(i),k+kshift(n),p_pat%recv_dst_blk(i)) =  &
+              recv_buf(k+noffset(n),p_pat%recv_src(i))
           ENDDO
-!$ACC END PARALLEL
         ENDDO
-      ENDIF
+!$ACC END PARALLEL
+      ENDDO
 #else
 #ifdef __OMPPAR_COPY__
 !$OMP PARALLEL DO PRIVATE(jb,jl,ik)
@@ -2464,19 +2415,11 @@ CONTAINS
         jb = p_pat%recv_dst_blk(i)
         jl = p_pat%recv_dst_idx(i)
         ik  = p_pat%recv_src(i)
-        IF (ladd) THEN
-          DO n = 1, nfields
-            DO k = 1, ndim2(n)
-              recv(n)%fld(jl,k+kshift(n),jb)= recv_buf(k+noffset(n),ik)+add(n)%fld(jl,k+kshift(n),jb)
-            ENDDO
+        DO n = 1, nfields
+          DO k = 1, ndim2(n)
+            recv(n)%fld(jl,k+kshift(n),jb) = recv_buf(k+noffset(n),ik)
           ENDDO
-        ELSE
-          DO n = 1, nfields
-            DO k = 1, ndim2(n)
-              recv(n)%fld(jl,k+kshift(n),jb) = recv_buf(k+noffset(n),ik)
-            ENDDO
-          ENDDO
-        ENDIF
+        ENDDO
       ENDDO
 #ifdef __OMPPAR_COPY__
 !$OMP END PARALLEL DO
@@ -2490,6 +2433,462 @@ CONTAINS
     stop_sync_timer(timer_exch_data)
 
   END SUBROUTINE exchange_data_mult
+
+  !>
+  !! Does data exchange according to a communication pattern (in p_pat).
+  !!
+  !!
+  !! @par Revision History
+  !! Initial version by Rainer Johanni, Nov 2009
+  !! Optimized version by Guenther Zaengl to process 4D fields and 3D fields with either single
+  !! precision or double precision
+  !!
+  SUBROUTINE exchange_data_mult_mixprec(p_pat, nfields_dp, ndim2tot_dp, nfields_sp, ndim2tot_sp,        &
+    recv1_dp, send1_dp, recv2_dp, send2_dp, recv3_dp, send3_dp, recv4_dp, send4_dp, recv5_dp, send5_dp, &
+    recv1_sp, send1_sp, recv2_sp, send2_sp, recv3_sp, send3_sp, recv4_sp, send4_sp, recv5_sp, send5_sp, &
+    recv4d_dp, send4d_dp, recv4d_sp, send4d_sp, nshift)
+
+    TYPE(t_comm_pattern), INTENT(IN) :: p_pat
+
+    REAL(dp), INTENT(INOUT), TARGET, OPTIONAL ::  &
+      recv1_dp(:,:,:), recv2_dp(:,:,:), recv3_dp(:,:,:), recv4_dp(:,:,:), recv5_dp(:,:,:), recv4d_dp(:,:,:,:)
+    REAL(dp), INTENT(IN   ), TARGET, OPTIONAL ::  &
+      send1_dp(:,:,:), send2_dp(:,:,:), send3_dp(:,:,:), send4_dp(:,:,:), send5_dp(:,:,:), send4d_dp(:,:,:,:)
+
+    REAL(sp), INTENT(INOUT), TARGET, OPTIONAL ::  &
+      recv1_sp(:,:,:), recv2_sp(:,:,:), recv3_sp(:,:,:), recv4_sp(:,:,:), recv5_sp(:,:,:), recv4d_sp(:,:,:,:)
+    REAL(sp), INTENT(IN   ), TARGET, OPTIONAL ::  &
+      send1_sp(:,:,:), send2_sp(:,:,:), send3_sp(:,:,:), send4_sp(:,:,:), send5_sp(:,:,:), send4d_sp(:,:,:,:)
+
+    INTEGER, INTENT(IN)           :: nfields_dp, ndim2tot_dp, nfields_sp, ndim2tot_sp
+    INTEGER, OPTIONAL, INTENT(IN) :: nshift
+
+    TYPE t_fieldptr_dp
+      REAL(dp), POINTER :: fld(:,:,:)
+    END TYPE t_fieldptr_dp
+    TYPE t_fieldptr_sp
+      REAL(sp), POINTER :: fld(:,:,:)
+    END TYPE t_fieldptr_sp
+
+    TYPE(t_fieldptr_dp) :: recv_dp(nfields_dp), send_dp(nfields_dp)
+    TYPE(t_fieldptr_sp) :: recv_sp(nfields_sp), send_sp(nfields_sp)
+    INTEGER             :: ndim2_dp(nfields_dp), noffset_dp(nfields_dp), &
+                           ndim2_sp(nfields_sp), noffset_sp(nfields_sp)
+
+    REAL(dp) :: send_buf_dp(ndim2tot_dp,p_pat%n_send),recv_buf_dp(ndim2tot_dp,p_pat%n_recv)
+    REAL(dp), POINTER :: send_fld_dp(:,:,:), recv_fld_dp(:,:,:)  ! Refactoring for OpenACC
+    REAL(sp) :: send_buf_sp(ndim2tot_sp,p_pat%n_send),recv_buf_sp(ndim2tot_sp,p_pat%n_recv)
+    REAL(sp), POINTER :: send_fld_sp(:,:,:), recv_fld_sp(:,:,:)  ! Refactoring for OpenACC
+
+    INTEGER :: i, k, kshift_dp(nfields_dp), kshift_sp(nfields_sp), jb, ik, jl, n, np, irs, iss, pid, &
+      icount, nf4d_dp, nf4d_sp
+    LOGICAL :: lsend
+
+    !-----------------------------------------------------------------------
+
+    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
+      start_sync_timer(timer_barrier)
+      CALL work_mpi_barrier()
+      stop_sync_timer(timer_barrier)
+    ENDIF
+
+    start_sync_timer(timer_exch_data)
+
+    lsend     = .FALSE.
+
+    IF (PRESENT(nshift)) THEN
+      kshift_dp = nshift
+      kshift_sp = nshift
+    ELSE
+      kshift_dp = 0
+      kshift_sp = 0
+    ENDIF
+
+!$ACC DATA CREATE( send_buf_dp, recv_buf_dp, send_buf_sp, recv_buf_sp ) IF ( i_am_accel_node .AND. acc_on )
+
+    IF ((iorder_sendrecv == 1 .OR. iorder_sendrecv == 3) .AND. &
+      & .NOT. my_process_is_mpi_seq()) THEN
+      ! Set up irecv's for receive buffers
+      DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
+
+        pid    = p_pat%pelist_recv(np) ! ID of receiver PE
+        irs    = p_pat%recv_startidx(np)
+        icount = p_pat%recv_count(np)*ndim2tot_dp
+        IF (icount>0) CALL p_irecv(recv_buf_dp(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+
+        icount = p_pat%recv_count(np)*ndim2tot_sp
+        IF (icount>0) CALL p_irecv(recv_buf_sp(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+
+      ENDDO
+    ENDIF
+
+    ! Set pointers to input fields
+    IF (PRESENT(recv4d_dp)) THEN
+      nf4d_dp = SIZE(recv4d_dp,4)
+      DO i = 1, nf4d_dp
+        recv_dp(i)%fld => recv4d_dp(:,:,:,i)
+      ENDDO
+      IF (PRESENT(send4d_dp)) THEN ! all 4D fields must have the same dimensions
+        DO i = 1, nf4d_dp
+          send_dp(i)%fld => send4d_dp(:,:,:,i)
+        ENDDO
+        lsend = .TRUE.
+      ENDIF
+    ELSE
+      nf4d_dp = 0
+    ENDIF
+    IF (PRESENT(recv4d_sp)) THEN
+      nf4d_sp = SIZE(recv4d_sp,4)
+      DO i = 1, nf4d_sp
+        recv_sp(i)%fld => recv4d_sp(:,:,:,i)
+      ENDDO
+      IF (PRESENT(send4d_sp)) THEN ! all 4D fields must have the same dimensions
+        DO i = 1, nf4d_sp
+          send_sp(i)%fld => send4d_sp(:,:,:,i)
+        ENDDO
+        lsend = .TRUE.
+      ENDIF
+    ELSE
+      nf4d_sp = 0
+    ENDIF
+
+    IF (PRESENT(recv1_dp)) THEN
+      recv_dp(nf4d_dp+1)%fld => recv1_dp
+      IF (PRESENT(send1_dp)) THEN
+        send_dp(nf4d_dp+1)%fld => send1_dp
+        lsend = .TRUE.
+      ENDIF
+      IF (PRESENT(recv2_dp)) THEN
+        recv_dp(nf4d_dp+2)%fld => recv2_dp
+        IF (lsend) send_dp(nf4d_dp+2)%fld => send2_dp
+        IF (PRESENT(recv3_dp)) THEN
+          recv_dp(nf4d_dp+3)%fld => recv3_dp
+          IF (lsend) send_dp(nf4d_dp+3)%fld => send3_dp
+          IF (PRESENT(recv4_dp)) THEN
+            recv_dp(nf4d_dp+4)%fld => recv4_dp
+            IF (lsend) send_dp(nf4d_dp+4)%fld => send4_dp
+            IF (PRESENT(recv5_dp)) THEN
+              recv_dp(nf4d_dp+5)%fld => recv5_dp
+              IF (lsend) send_dp(nf4d_dp+5)%fld => send5_dp
+            ENDIF
+          ENDIF
+        ENDIF
+      ENDIF
+    ENDIF
+    IF (PRESENT(recv1_sp)) THEN
+      recv_sp(nf4d_sp+1)%fld => recv1_sp
+      IF (PRESENT(send1_sp)) THEN
+        send_sp(nf4d_sp+1)%fld => send1_sp
+        lsend = .TRUE.
+      ENDIF
+      IF (PRESENT(recv2_sp)) THEN
+        recv_sp(nf4d_sp+2)%fld => recv2_sp
+        IF (lsend) send_sp(nf4d_sp+2)%fld => send2_sp
+        IF (PRESENT(recv3_sp)) THEN
+          recv_sp(nf4d_sp+3)%fld => recv3_sp
+          IF (lsend) send_sp(nf4d_sp+3)%fld => send3_sp
+          IF (PRESENT(recv4_sp)) THEN
+            recv_sp(nf4d_sp+4)%fld => recv4_sp
+            IF (lsend) send_sp(nf4d_sp+4)%fld => send4_sp
+            IF (PRESENT(recv5_sp)) THEN
+              recv_sp(nf4d_sp+5)%fld => recv5_sp
+              IF (lsend) send_sp(nf4d_sp+5)%fld => send5_sp
+            ENDIF
+          ENDIF
+        ENDIF
+      ENDIF
+    ENDIF
+
+
+    IF(my_process_is_mpi_seq()) THEN
+      DO n = 1, nfields_dp
+        IF(lsend) THEN
+          CALL exchange_data_seq(p_pat, recv_dp(n)%fld(:,:,:), send_dp(n)%fld(:,:,:))
+        ELSE
+          CALL exchange_data_seq(p_pat, recv_dp(n)%fld(:,:,:))
+        ENDIF
+      ENDDO
+      DO n = 1, nfields_sp
+        IF(lsend) THEN
+          CALL exchange_data_seq(p_pat, recv_sp(n)%fld(:,:,:), send_sp(n)%fld(:,:,:))
+        ELSE
+          CALL exchange_data_seq(p_pat, recv_sp(n)%fld(:,:,:))
+        ENDIF
+      ENDDO
+
+    ELSE          ! WS: Removed RETURN in order to properly support OpenACC DATA region
+
+      ! Reset kshift to 0 if 2D fields are passed together with 3D fields
+      DO n = 1, nfields_dp
+        IF (SIZE(recv_dp(n)%fld,2) == 1) kshift_dp(n) = 0
+      ENDDO
+      DO n = 1, nfields_sp
+        IF (SIZE(recv_sp(n)%fld,2) == 1) kshift_sp(n) = 0
+      ENDDO
+
+      noffset_dp(1) = 0
+      ndim2_dp(1)   = SIZE(recv_dp(1)%fld,2) - kshift_dp(1)
+      DO n = 2, nfields_dp
+        noffset_dp(n) = noffset_dp(n-1)+ndim2_dp(n-1)
+        ndim2_dp(n)   = SIZE(recv_dp(n)%fld,2) - kshift_dp(n)
+      ENDDO
+      noffset_sp(1) = 0
+      ndim2_sp(1)   = SIZE(recv_sp(1)%fld,2) - kshift_sp(1)
+      DO n = 2, nfields_sp
+        noffset_sp(n) = noffset_sp(n-1)+ndim2_sp(n-1)
+        ndim2_sp(n)   = SIZE(recv_sp(n)%fld,2) - kshift_sp(n)
+      ENDDO
+
+
+      ! Set up send buffer
+#if defined( __SX__ ) || defined( _OPENACC )
+      IF ( lsend ) THEN
+        DO n = 1, nfields_dp
+          send_fld_dp => send_dp(n)%fld   ! Refactoring for OpenACC
+!$ACC PARALLEL PRESENT(p_pat,send_fld_dp,send_buf_dp), COPYIN(kshift_dp,noffset_dp,ndim2_dp), IF(i_am_accel_node .AND. acc_on)
+!$ACC LOOP GANG
+          DO k = 1, ndim2_dp(n)
+!$ACC LOOP VECTOR
+            DO i = 1, p_pat%n_send
+              send_buf_dp(k+noffset_dp(n),i) = &
+                send_dp(n)%fld(p_pat%send_src_idx(i),k+kshift_dp(n),p_pat%send_src_blk(i))
+            ENDDO
+          ENDDO
+!$ACC END PARALLEL
+        ENDDO
+        DO n = 1, nfields_sp
+          send_fld_sp => send_sp(n)%fld   ! Refactoring for OpenACC
+!$ACC PARALLEL PRESENT(p_pat,send_fld_sp,send_buf_sp), COPYIN(kshift_sp,noffset_sp,ndim2_sp), IF(i_am_accel_node .AND. acc_on)
+!$ACC LOOP GANG
+          DO k = 1, ndim2_sp(n)
+!$ACC LOOP VECTOR
+            DO i = 1, p_pat%n_send
+              send_buf_sp(k+noffset_sp(n),i) = &
+                send_sp(n)%fld(p_pat%send_src_idx(i),k+kshift_sp(n),p_pat%send_src_blk(i))
+            ENDDO
+          ENDDO
+!$ACC END PARALLEL
+        ENDDO
+      ELSE
+        ! Send and receive arrays are identical (for boundary exchange)
+        DO n = 1, nfields_dp
+          recv_fld_dp => recv_dp(n)%fld
+!$ACC PARALLEL PRESENT(p_pat,recv_fld_dp,send_buf_dp), COPYIN(kshift_dp,noffset_dp,ndim2_dp), IF(i_am_accel_node .AND. acc_on)
+!$ACC LOOP GANG
+!CDIR UNROLL=6
+          DO k = 1, ndim2_dp(n)
+!$ACC LOOP VECTOR
+            DO i = 1, p_pat%n_send
+              send_buf_dp(k+noffset_dp(n),i) = &
+                recv_dp(n)%fld(p_pat%send_src_idx(i),k+kshift_dp(n),p_pat%send_src_blk(i))
+            ENDDO
+          ENDDO
+!$ACC END PARALLEL
+        ENDDO
+        DO n = 1, nfields_sp
+          recv_fld_sp => recv_sp(n)%fld
+!$ACC PARALLEL PRESENT(p_pat,recv_fld_sp,send_buf_sp), COPYIN(kshift_sp,noffset_sp,ndim2_sp), IF(i_am_accel_node .AND. acc_on)
+!$ACC LOOP GANG
+!CDIR UNROLL=6
+          DO k = 1, ndim2_sp(n)
+!$ACC LOOP VECTOR
+            DO i = 1, p_pat%n_send
+              send_buf_sp(k+noffset_sp(n),i) = &
+                recv_sp(n)%fld(p_pat%send_src_idx(i),k+kshift_sp(n),p_pat%send_src_blk(i))
+            ENDDO
+          ENDDO
+!$ACC END PARALLEL
+        ENDDO
+      ENDIF
+#else
+#ifdef __OMPPAR_COPY__
+!$OMP PARALLEL DO PRIVATE(jb,jl)
+#endif
+      DO i = 1, p_pat%n_send
+        jb = p_pat%send_src_blk(i)
+        jl = p_pat%send_src_idx(i)
+        IF ( lsend ) THEN
+          DO n = 1, nfields_dp
+            DO k = 1, ndim2_dp(n)
+              send_buf_dp(k+noffset_dp(n),i) = send_dp(n)%fld(jl,k+kshift_dp(n),jb)
+            ENDDO
+          ENDDO
+          DO n = 1, nfields_sp
+            DO k = 1, ndim2_sp(n)
+              send_buf_sp(k+noffset_sp(n),i) = send_sp(n)%fld(jl,k+kshift_sp(n),jb)
+            ENDDO
+          ENDDO
+        ELSE
+          DO n = 1, nfields_dp
+            DO k = 1, ndim2_dp(n)
+              send_buf_dp(k+noffset_dp(n),i) = recv_dp(n)%fld(jl,k+kshift_dp(n),jb)
+            ENDDO
+          ENDDO
+          DO n = 1, nfields_sp
+            DO k = 1, ndim2_sp(n)
+              send_buf_sp(k+noffset_sp(n),i) = recv_sp(n)%fld(jl,k+kshift_sp(n),jb)
+            ENDDO
+          ENDDO
+        ENDIF
+      ENDDO
+#ifdef __OMPPAR_COPY__
+!$OMP END PARALLEL DO
+#endif
+#endif
+
+#ifndef __USE_G2G
+!$ACC UPDATE HOST( send_buf_dp, send_buf_sp ), IF ( i_am_accel_node .AND. acc_on )
+#endif
+
+      ! Send our data
+      IF (iorder_sendrecv == 1) THEN
+        DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+
+          pid    = p_pat%pelist_send(np) ! ID of sender PE
+          iss    = p_pat%send_startidx(np)
+          icount = p_pat%send_count(np)*ndim2tot_dp
+          IF (icount>0) CALL p_send(send_buf_dp(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+          icount = p_pat%send_count(np)*ndim2tot_sp
+          IF (icount>0) CALL p_send(send_buf_sp(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+
+        ENDDO
+      ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
+        DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+
+          pid    = p_pat%pelist_send(np) ! ID of sender PE
+          iss    = p_pat%send_startidx(np)
+          icount = p_pat%send_count(np)*ndim2tot_dp
+          IF (icount>0) CALL p_isend(send_buf_dp(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+          icount = p_pat%send_count(np)*ndim2tot_sp
+          IF (icount>0) CALL p_isend(send_buf_sp(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+
+        ENDDO
+
+        DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
+
+          pid    = p_pat%pelist_recv(np) ! ID of receiver PE
+          irs    = p_pat%recv_startidx(np)
+          icount = p_pat%recv_count(np)*ndim2tot_dp
+          IF (icount>0) CALL p_recv(recv_buf_dp(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+          icount = p_pat%recv_count(np)*ndim2tot_sp
+          IF (icount>0) CALL p_recv(recv_buf_sp(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+
+        ENDDO
+      ELSE IF (iorder_sendrecv == 3) THEN ! use isend/irecv
+        DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+
+          pid    = p_pat%pelist_send(np) ! ID of sender PE
+          iss    = p_pat%send_startidx(np)
+          icount = p_pat%send_count(np)*ndim2tot_dp
+          IF (icount>0) CALL p_isend(send_buf_dp(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+          icount = p_pat%send_count(np)*ndim2tot_sp
+          IF (icount>0) CALL p_isend(send_buf_sp(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+
+        ENDDO
+      ENDIF
+
+      IF (iorder_sendrecv > 0) THEN
+        ! Wait for all outstanding requests to finish
+        start_sync_timer(timer_exch_data_wait)
+        CALL p_wait
+#ifndef __USE_G2G
+!$ACC UPDATE DEVICE( recv_buf_dp, recv_buf_sp ), IF ( i_am_accel_node .AND. acc_on )
+#endif
+        stop_sync_timer(timer_exch_data_wait)
+
+      ELSE IF (iorder_sendrecv == 0) THEN
+        ! dummy mode; just fill the receive buffer with "something reasonable"
+        IF (p_pat%n_send > 0) THEN
+!$ACC KERNELS PRESENT( send_buf_dp, recv_buf_dp, send_buf_sp, recv_buf_sp ), IF( i_am_accel_node .AND. acc_on )
+          DO k = 1, ndim2tot_dp
+            recv_buf_dp(k,:) = send_buf_dp(k,1)
+          ENDDO
+          DO k = 1, ndim2tot_sp
+            recv_buf_sp(k,:) = send_buf_sp(k,1)
+          ENDDO
+!$ACC END KERNELS
+        ELSE
+!$ACC KERNELS PRESENT( recv_buf_dp, recv_buf_sp ), IF( i_am_accel_node .AND. acc_on )
+          DO k = 1, ndim2tot_dp
+            recv_buf_dp(k,:) = 1._dp
+          ENDDO
+          DO k = 1, ndim2tot_sp
+            recv_buf_sp(k,:) = 1._sp
+          ENDDO
+!$ACC END KERNELS
+        ENDIF
+      ENDIF
+
+      IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
+        start_sync_timer(timer_barrier)
+        CALL work_mpi_barrier()
+        stop_sync_timer(timer_barrier)
+      ENDIF
+
+      ! Fill in receive buffer
+
+#if defined( __SX__ ) || defined( _OPENACC )
+      DO n = 1, nfields_dp
+        recv_fld_dp => recv_dp(n)%fld
+!$ACC PARALLEL &
+!$ACC PRESENT( p_pat, recv_buf_dp, recv_fld_dp ), COPYIN( kshift_dp, noffset_dp, ndim2_dp ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
+!CDIR UNROLL=6
+        DO k = 1, ndim2_dp(n)
+!$ACC LOOP VECTOR
+          DO i = 1, p_pat%n_pnts
+            recv_dp(n)%fld(p_pat%recv_dst_idx(i),k+kshift_dp(n),p_pat%recv_dst_blk(i)) =  &
+              recv_buf_dp(k+noffset_dp(n),p_pat%recv_src(i))
+          ENDDO
+        ENDDO
+!$ACC END PARALLEL
+      ENDDO
+      DO n = 1, nfields_sp
+        recv_fld_sp => recv_sp(n)%fld
+!$ACC PARALLEL &
+!$ACC PRESENT( p_pat, recv_buf_sp, recv_fld_sp ), COPYIN( kshift_sp, noffset_sp, ndim2_sp ), IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
+!CDIR UNROLL=6
+        DO k = 1, ndim2_sp(n)
+!$ACC LOOP VECTOR
+          DO i = 1, p_pat%n_pnts
+            recv_sp(n)%fld(p_pat%recv_dst_idx(i),k+kshift_sp(n),p_pat%recv_dst_blk(i)) =  &
+              recv_buf_sp(k+noffset_sp(n),p_pat%recv_src(i))
+          ENDDO
+        ENDDO
+!$ACC END PARALLEL
+      ENDDO
+#else
+#ifdef __OMPPAR_COPY__
+!$OMP PARALLEL DO PRIVATE(jb,jl,ik)
+#endif
+      DO i = 1, p_pat%n_pnts
+        jb = p_pat%recv_dst_blk(i)
+        jl = p_pat%recv_dst_idx(i)
+        ik  = p_pat%recv_src(i)
+        DO n = 1, nfields_dp
+          DO k = 1, ndim2_dp(n)
+            recv_dp(n)%fld(jl,k+kshift_dp(n),jb) = recv_buf_dp(k+noffset_dp(n),ik)
+          ENDDO
+        ENDDO
+        DO n = 1, nfields_sp
+          DO k = 1, ndim2_sp(n)
+            recv_sp(n)%fld(jl,k+kshift_sp(n),jb) = recv_buf_sp(k+noffset_sp(n),ik)
+          ENDDO
+        ENDDO
+      ENDDO
+#ifdef __OMPPAR_COPY__
+!$OMP END PARALLEL DO
+#endif
+#endif
+
+    ENDIF  ! .NOT. my_process_is_mpi_seq()
+
+!$ACC END DATA
+
+    stop_sync_timer(timer_exch_data)
+
+  END SUBROUTINE exchange_data_mult_mixprec
 
 
   !>
