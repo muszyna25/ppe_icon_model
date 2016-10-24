@@ -221,7 +221,7 @@ CONTAINS
     CHARACTER(len=*), PARAMETER ::  routine = modname//'::compute_restart_settings'
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: checkpt_intvl_string, checkpt_intvl2,       &
                                             restart_intvl_string, dtime_string
-    TYPE(timedelta), POINTER             :: mtime_2_5h, mtime_dt_checkpoint,            &
+    TYPE(timedelta), POINTER             :: mtime_0h, mtime_2_5h, mtime_dt_checkpoint,  &
       &                                     mtime_dt_restart, mtime_dom_start,          &
       &                                     tmp_td1, tmp_td2
     TYPE(datetime), POINTER              :: reference_dt
@@ -359,15 +359,19 @@ CONTAINS
     ! into the integration because the results would not be
     ! bit-identical in this case
     !
-    mtime_2_5h          => newTimedelta("PT02H30M")
-    IF ((iequations    == inh_atmosphere) .AND. &
-      & (divdamp_order == 24)             .AND. &
-      & (mtime_dt_checkpoint < mtime_2_5h)) THEN
+    mtime_0h => newTimedelta("PT0S")
+    IF (mtime_dt_checkpoint /= mtime_0h) THEN
+      mtime_2_5h => newTimedelta("PT02H30M")
+      IF ((iequations == inh_atmosphere) .AND. &
+        & (divdamp_order == 24)          .AND. &
+        & (mtime_dt_checkpoint < mtime_2_5h)) THEN
         WRITE(message_text,'(a)') &
-          &  'dt_checkpoint < 2.5 hours not allowed in combination with divdamp_order = 24'
+             &  'dt_checkpoint < 2.5 hours not allowed in combination with divdamp_order = 24'
         CALL finish(routine, message_text)
+      ENDIF
+      CALL deallocateTimedelta(mtime_2_5h)
     ENDIF
-    CALL deallocateTimedelta(mtime_2_5h)
+    CALL deallocateTimedelta(mtime_0h)    
 
     ! Writing a checkpoint file exactly at the start time of a nest is
     ! not allowed:

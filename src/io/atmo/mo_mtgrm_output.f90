@@ -100,8 +100,7 @@
 MODULE mo_meteogram_output
 
   USE mo_kind,                  ONLY: wp
-  USE mtime,                    ONLY: datetime, datetimeToString,         &
-    &                                 MAX_DATETIME_STR_LEN
+  USE mtime,                    ONLY: datetime, datetimeToPosixString
   USE mo_exception,             ONLY: message, message_text, finish
   USE mo_mpi,                   ONLY: p_n_work, p_max,                    &
     &                                 get_my_mpi_all_id, p_wait,          &
@@ -254,8 +253,8 @@ MODULE mo_meteogram_output
   !! Data structure containing time slice info.
   !!
   TYPE t_time_stamp
-    INTEGER                             :: istep    !< iteration step of model
-    CHARACTER(len=MAX_DATETIME_STR_LEN) :: zdate    !< date and time of point sample (iso8601)
+    INTEGER                     :: istep    !< iteration step of model
+    CHARACTER(len=MAX_DATE_LEN) :: zdate    !< date and time of point sample (iso8601)
   END TYPE t_time_stamp
 
 
@@ -803,11 +802,6 @@ CONTAINS
     TYPE(t_cf_global)        , POINTER :: cf  !< meta info
     TYPE(t_gnat_tree)                  :: gnat
     INTEGER                            :: io_collector_rank
-
-    !-- consistency checks
-    IF (MAX_DATE_LEN < MAX_DATETIME_STR_LEN) THEN
-      CALL finish(routine, "Time stamps do not fit into data type!")
-    END IF
 
     !-- define the different roles in the MPI communication inside
     !-- this module
@@ -1362,7 +1356,7 @@ CONTAINS
     END IF
 
     meteogram_data%time_stamp(i_tstep)%istep = cur_step
-    CALL datetimeToString(cur_datetime, meteogram_data%time_stamp(i_tstep)%zdate)
+    CALL datetimeToPosixString(cur_datetime, meteogram_data%time_stamp(i_tstep)%zdate, "%Y%m%dT%H%M%SZ")
 
     ! fill time step with values
     DO jb=1,meteogram_data%nblks
