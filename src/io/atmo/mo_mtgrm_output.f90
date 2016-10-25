@@ -100,7 +100,8 @@
 MODULE mo_meteogram_output
 
   USE mo_kind,                  ONLY: wp
-  USE mtime,                    ONLY: datetime, datetimeToPosixString
+  USE mtime,                    ONLY: datetime, datetimeToPosixString,    &
+       &                              MAX_DATETIME_STR_LEN  
   USE mo_exception,             ONLY: message, message_text, finish
   USE mo_mpi,                   ONLY: p_n_work, p_max,                    &
     &                                 get_my_mpi_all_id, p_wait,          &
@@ -1335,7 +1336,8 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":meteogram_sample_vars"
     INTEGER :: jb, jc, i_startidx, i_endidx, ilev, ivar,  &
-      &        i_tstep, iidx, iblk
+         &        i_tstep, iidx, iblk
+    CHARACTER(len=MAX_DATETIME_STR_LEN) :: zdate
     TYPE(t_meteogram_data), POINTER :: meteogram_data
 
     meteogram_data => mtgrm(jg)%meteogram_local_data
@@ -1356,8 +1358,9 @@ CONTAINS
     END IF
 
     meteogram_data%time_stamp(i_tstep)%istep = cur_step
-    CALL datetimeToPosixString(cur_datetime, meteogram_data%time_stamp(i_tstep)%zdate, "%Y%m%dT%H%M%SZ")
-
+    CALL datetimeToPosixString(cur_datetime, zdate, "%Y%m%dT%H%M%SZ")
+    meteogram_data%time_stamp(i_tstep)%zdate = TRIM(zdate)
+    
     ! fill time step with values
     DO jb=1,meteogram_data%nblks
       i_startidx = 1
