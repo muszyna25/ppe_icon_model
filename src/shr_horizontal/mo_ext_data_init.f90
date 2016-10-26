@@ -74,7 +74,7 @@ MODULE mo_ext_data_init
   USE mo_io_config,          ONLY: default_read_method
   USE mo_read_interface,     ONLY: nf, openInputFile, closeFile, on_cells, &
     &                              t_stream_id, read_2D, read_2D_int, &
-    &                              read_3D_extdim
+    &                              read_3D_extdim, read_2D_extdim
   USE mo_phyparam_soil,      ONLY: c_lnd, c_soil, c_sea
   USE mo_datetime,           ONLY: t_datetime, month2hour, add_time
   USE mo_util_cdi,           ONLY: get_cdi_varID, test_cdi_varID, read_cdi_2d,     &
@@ -111,6 +111,7 @@ MODULE mo_ext_data_init
   INTEGER, PARAMETER :: num_lcc = 23, n_param_lcc = 7
 
   LOGICAL, ALLOCATABLE :: is_frglac_in(:) !< checks whether the extpar file contains fr_glac
+  LOGICAL :: read_netcdf_data             !< control variable if extpar data are in GRIB2 for NetCDF format
 
 
   PUBLIC :: init_ext_data
@@ -176,6 +177,9 @@ CONTAINS
       IF(extpar_varnames_map_file /= ' ') THEN
         CALL dict_loadfile(extpar_varnames_dict, TRIM(extpar_varnames_map_file))
       END IF
+      read_netcdf_data = .FALSE.
+    ELSE
+      read_netcdf_data = .TRUE.
     END IF
 
     !------------------------------------------------------------------
@@ -715,6 +719,7 @@ CONTAINS
     REAL(wp), POINTER :: lu_gcv(:)
 
     LOGICAL :: l_exist
+    CHARACTER(filename_max) :: extpar_file
 
     TYPE(t_inputParameters) :: parameters
 
@@ -978,54 +983,60 @@ CONTAINS
           ENDIF
         ENDDO
 
+        ! Start reading external parameter data
+        ! The cdi-based read routines are used for GRIB2 input data only due to performance problems
+        IF (read_netcdf_data) THEN
+          extpar_file = generate_filename(extpar_filename, getModelBaseDir(),TRIM(p_patch(jg)%grid_filename))
+          stream_id   = openInputFile(extpar_file, p_patch(jg), default_read_method)
+        ELSE
+          parameters = makeInputParameters(cdi_extpar_id(jg), p_patch(jg)%n_patch_cells_g, p_patch(jg)%comm_pat_scatter_c, &
+          &                                opt_dict=extpar_varnames_dict)
+        ENDIF
+
         !--------------------------------------------------------------------
         !
         ! Read topography for triangle centers (triangular grid)
         !
         !--------------------------------------------------------------------
-        parameters = makeInputParameters(cdi_extpar_id(jg), p_patch(jg)%n_patch_cells_g, p_patch(jg)%comm_pat_scatter_c, &
-        &                                opt_dict=extpar_varnames_dict)
-
-        ! triangle center
-        CALL read_cdi_2d(parameters, 'topography_c', ext_data(jg)%atm%topography_c)
+        CALL read_extdata('topography_c', ext_data(jg)%atm%topography_c)
 
         !
         ! other external parameters on triangular grid
         !
-        CALL read_cdi_2d(parameters, 'FR_LAND', ext_data(jg)%atm%fr_land)
-
+        CALL read_extdata('FR_LAND', ext_data(jg)%atm%fr_land)
 
         SELECT CASE ( iforcing )
         CASE ( inwp )
-          CALL read_cdi_2d(parameters, 'NDVI_MAX', ext_data(jg)%atm%ndvi_max)
-          CALL read_cdi_2d(parameters, 'SOILTYP', ext_data(jg)%atm%soiltyp)
-          CALL read_cdi_3d(parameters, 'LU_CLASS_FRACTION', nclass_lu(jg), ext_data(jg)%atm%lu_class_fraction, opt_lev_dim=3 )
-          CALL read_cdi_2d(parameters, 'T_CL', ext_data(jg)%atm%t_cl)
-          CALL read_cdi_2d(parameters, 'SSO_STDH', ext_data(jg)%atm%sso_stdh)
-          CALL read_cdi_2d(parameters, 'SSO_THETA', ext_data(jg)%atm%sso_theta)
-          CALL read_cdi_2d(parameters, 'SSO_GAMMA', ext_data(jg)%atm%sso_gamma)
-          CALL read_cdi_2d(parameters, 'SSO_SIGMA', ext_data(jg)%atm%sso_sigma)
-          CALL read_cdi_2d(parameters, 'FR_LAKE', ext_data(jg)%atm%fr_lake)
-          CALL read_cdi_2d(parameters, 'DEPTH_LK', ext_data(jg)%atm%depth_lk)
+        CALL read_extdata('NDVI_MAX',  ext_data(jg)%atm%ndvi_max)
+        CALL read_extdata('SOILTYP',   arr2di=ext_data(jg)%atm%soiltyp)
+        CALL read_extdata('T_CL',      ext_data(jg)%atm%t_cl)
+        CALL read_extdata('SSO_STDH',  ext_data(jg)%atm%sso_stdh)
+        CALL read_extdata('SSO_THETA', ext_data(jg)%atm%sso_theta)
+        CALL read_extdata('SSO_GAMMA', ext_data(jg)%atm%sso_gamma)
+        CALL read_extdata('SSO_SIGMA', ext_data(jg)%atm%sso_sigma)
+        CALL read_extdata('FR_LAKE',   ext_data(jg)%atm%fr_lake)
+        CALL read_extdata('DEPTH_LK',  ext_data(jg)%atm%depth_lk)
+
+        CALL read_extdata('LU_CLASS_FRACTION', arr3d=ext_data(jg)%atm%lu_class_fraction,ltime=.FALSE.) 
 
           ! The following fields are only required without surface tiles
           IF (ntiles_lnd == 1) THEN
-            CALL read_cdi_2d(parameters, 'PLCOV_MX', ext_data(jg)%atm%plcov_mx)
-            CALL read_cdi_2d(parameters, 'LAI_MX', ext_data(jg)%atm%lai_mx)
-            CALL read_cdi_2d(parameters, 'ROOTDP', ext_data(jg)%atm%rootdp)
-            CALL read_cdi_2d(parameters, 'RSMIN', ext_data(jg)%atm%rsmin)
-            CALL read_cdi_2d(parameters, 'FOR_D', ext_data(jg)%atm%for_d)
-            CALL read_cdi_2d(parameters, 'FOR_E', ext_data(jg)%atm%for_e)
+            CALL read_extdata('PLCOV_MX', ext_data(jg)%atm%plcov_mx)
+            CALL read_extdata('LAI_MX',   ext_data(jg)%atm%lai_mx)
+            CALL read_extdata('ROOTDP',   ext_data(jg)%atm%rootdp)
+            CALL read_extdata('RSMIN',    ext_data(jg)%atm%rsmin)
+            CALL read_extdata('FOR_D',    ext_data(jg)%atm%for_d)
+            CALL read_extdata('FOR_E',    ext_data(jg)%atm%for_e)
           ENDIF
 
           IF (atm_phy_nwp_config(jg)%itype_z0 == 1) THEN
             ! only read, if contribution from sub-scale orography should be included in z0
-            CALL read_cdi_2d(parameters, 'Z0', ext_data(jg)%atm%z0)
+            CALL read_extdata('Z0', ext_data(jg)%atm%z0)
           ENDIF
 
           IF (is_frglac_in(jg)) THEN
             ! for backward compatibility with extpar files generated prior to 2014-01-31
-            CALL read_cdi_2d(parameters, 'ICE', ext_data(jg)%atm%fr_glac)
+             CALL read_extdata('ICE', ext_data(jg)%atm%fr_glac)
           ELSE
             ! for new extpar files (generated after 2014-01-31)
             ! take it from lu_class_fraction
@@ -1033,7 +1044,7 @@ CONTAINS
           ENDIF
 
           IF ( l_emiss ) THEN
-            CALL read_cdi_2d(parameters, 'EMIS_RAD', ext_data(jg)%atm%emis_rad)
+            CALL read_extdata('EMIS_RAD', ext_data(jg)%atm%emis_rad)
           ELSE
             ext_data(jg)%atm%emis_rad(:,:)= zemiss_def
           ENDIF
@@ -1044,17 +1055,16 @@ CONTAINS
 
           ! Read time dependent data
           IF ( irad_aero == 6 .OR. irad_aero == 9) THEN
-            CALL read_cdi_2d(parameters, nmonths_ext(jg), 'AER_SS', ext_data(jg)%atm_td%aer_ss)
-            CALL read_cdi_2d(parameters, nmonths_ext(jg), 'AER_DUST', ext_data(jg)%atm_td%aer_dust)
-            CALL read_cdi_2d(parameters, nmonths_ext(jg), 'AER_ORG', ext_data(jg)%atm_td%aer_org)
-            CALL read_cdi_2d(parameters, nmonths_ext(jg), 'AER_SO4', ext_data(jg)%atm_td%aer_so4)
-            CALL read_cdi_2d(parameters, nmonths_ext(jg), 'AER_BC', ext_data(jg)%atm_td%aer_bc)
+            CALL read_extdata('AER_SS',   arr3d=ext_data(jg)%atm_td%aer_ss)
+            CALL read_extdata('AER_DUST', arr3d=ext_data(jg)%atm_td%aer_dust)
+            CALL read_extdata('AER_ORG',  arr3d=ext_data(jg)%atm_td%aer_org)
+            CALL read_extdata('AER_SO4',  arr3d=ext_data(jg)%atm_td%aer_so4)
+            CALL read_extdata('AER_BC',   arr3d=ext_data(jg)%atm_td%aer_bc)
           ENDIF  ! irad_aero
-
-          CALL read_cdi_2d(parameters, nmonths_ext(jg), 'NDVI_MRAT', ext_data(jg)%atm_td%ndvi_mrat)
+          CALL read_extdata('NDVI_MRAT', arr3d=ext_data(jg)%atm_td%ndvi_mrat)
 
           IF (sstice_mode == SSTICE_ANA_CLINC) THEN
-            CALL read_cdi_2d(parameters, nmonths_ext(jg), 'SST_CL', ext_data(jg)%atm_td%sst_m)
+            CALL read_extdata('SST_CL', arr3d=ext_data(jg)%atm_td%sst_m)
             ! transform from C to K
 !$OMP PARALLEL
             CALL var_add(ext_data(jg)%atm_td%sst_m(:,:,:), tmelt)
@@ -1065,10 +1075,9 @@ CONTAINS
           ! If MODIS albedo is used
           !--------------------------------
           IF ( albedo_type == MODIS) THEN
-            CALL read_cdi_2d(parameters, nmonths_ext(jg), 'ALB', ext_data(jg)%atm_td%alb_dif)
-            CALL read_cdi_2d(parameters, nmonths_ext(jg), 'ALUVD', ext_data(jg)%atm_td%albuv_dif)
-            CALL read_cdi_2d(parameters, nmonths_ext(jg), 'ALNID', ext_data(jg)%atm_td%albni_dif)
-
+            CALL read_extdata('ALB',   arr3d=ext_data(jg)%atm_td%alb_dif)
+            CALL read_extdata('ALUVD', arr3d=ext_data(jg)%atm_td%albuv_dif)
+            CALL read_extdata('ALNID', arr3d=ext_data(jg)%atm_td%albni_dif)
 
             rl_start = 1
             rl_end   = min_rlcell
@@ -1135,8 +1144,12 @@ CONTAINS
           END IF  !  albedo_type
 
         END SELECT ! iforcing
-        CALL deleteInputParameters(parameters)
 
+        IF (read_netcdf_data) THEN
+          CALL closeFile(stream_id)
+        ELSE
+          CALL deleteInputParameters(parameters)
+        ENDIF
 
         !
         ! derived external parameter fields
@@ -1323,6 +1336,47 @@ CONTAINS
 
    END IF ! sstice_mode
 
+   CONTAINS
+
+     ! Wrapper routine for reading input data via cdilib for GRIB2 or via optimized netcdf routines
+     !
+     SUBROUTINE read_extdata(varname,arr2d,arr2di,arr3d,ltime)
+       CHARACTER(LEN=*), INTENT(IN) :: varname  ! name of input variable
+       REAL(wp), OPTIONAL, INTENT(INOUT) :: arr2d(:,:), arr3d(:,:,:) ! alternative I/O arrays
+       INTEGER, OPTIONAL, INTENT(INOUT) :: arr2di(:,:)
+       LOGICAL, OPTIONAL, INTENT(IN) :: ltime ! .true. if third dimension is time
+
+       LOGICAL :: dim3_is_time
+
+       IF (PRESENT(arr3d) .AND. PRESENT(ltime)) THEN
+         dim3_is_time = ltime
+       ELSE
+         dim3_is_time = .TRUE.
+       ENDIF
+
+       IF (PRESENT(arr2d)) THEN
+         IF (read_netcdf_data) THEN
+           CALL read_2D(stream_id, on_cells, TRIM(varname), arr2d)
+         ELSE
+           CALL read_cdi_2d(parameters, TRIM(varname), arr2d)
+         ENDIF
+       ELSE IF (PRESENT(arr2di)) THEN
+         IF (read_netcdf_data) THEN
+           CALL read_2D_int(stream_id, on_cells, TRIM(varname), arr2di)
+         ELSE
+           CALL read_cdi_2d(parameters, TRIM(varname), arr2di)
+         ENDIF
+       ELSE IF (PRESENT(arr3d)) THEN
+         IF (read_netcdf_data) THEN
+           CALL read_2D_extdim(stream_id, on_cells, TRIM(varname), arr3d)
+         ELSE IF (dim3_is_time) THEN
+           CALL read_cdi_2d(parameters, SIZE(arr3d,3), TRIM(varname), arr3d)
+         ELSE
+           CALL read_cdi_3d(parameters, TRIM(varname), SIZE(arr3d,3), arr3d, opt_lev_dim=3 )
+         ENDIF
+       ENDIF
+
+     END SUBROUTINE read_extdata
 
   END SUBROUTINE read_ext_data_atm
   !-------------------------------------------------------------------------
