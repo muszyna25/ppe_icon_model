@@ -575,9 +575,10 @@ CONTAINS
                 &                   p_prog_list,           & !> in
                 &                   pt_prog,               & !> in
                 &                   p_metrics,             & !> in
-                &                   prm_diag,              & !> in
                 &                   pt_diag,               & !> inout
-                &                   pt_prog_rcf%tracer)
+                &                   pt_prog_rcf%tracer,    & !>
+                &                   prm_diag = prm_diag)     !> optional
+                
       END IF
 
       CALL art_washout_interface(pt_prog,pt_diag,              & !>in
