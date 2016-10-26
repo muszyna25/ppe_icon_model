@@ -1,3 +1,5 @@
+     ! HAMOCC tracer definitions for icon-oes
+
       SUBROUTINE set_bgc_tracer_info(no_tracer,max_oce_tracer,bgc_tracer_names,&
       & bgc_tracer_longnames,&
       & bgc_tracer_codes,&

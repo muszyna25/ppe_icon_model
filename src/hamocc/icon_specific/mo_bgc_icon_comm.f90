@@ -82,7 +82,7 @@
       SUBROUTINE update_icon(start_idx, end_idx, &
 &             klevs, pddpo, ptracer)
 
-      USE mo_carbch, ONLY: bgctra
+      USE mo_memory_bgc, ONLY: bgctra
       USE mo_param1_bgc, ONLY: n_bgctra
 
 
@@ -117,9 +117,9 @@
       SUBROUTINE update_bgc(start_index, end_index, &
 &             klevs,pddpo,jb,ptracer,p_diag,p_sed,p_tend)
 
-      USE MO_CARBCH, ONLY: bgctra, co3, hi, bgctend, bgcflux, &
+      USE mo_memory_bgc, ONLY: bgctra, co3, hi, bgctend, bgcflux, &
  &                         akw3,ak13,ak23,akb3,aksp,satoxy, &
- &                         satn2, satn2o, solco2 
+ &                         satn2, satn2o, solco2,kbo,bolay
       USE MO_PARAM1_BGC, ONLY: n_bgctra, issso12,         &
  &                             isssc12, issssil, issster, &
  &                             ipowaic, ipowaal, ipowaph, &
@@ -128,7 +128,6 @@
  &                             kh2ob, korginp, ksilinp,   &
 &                              kcalinp,keuexp
 
-      USE MO_BIOMOD,  ONLY:kbo,bolay
 
       USE mo_sedmnt,  ONLY: pown2bud, powh2obud
 
@@ -245,10 +244,9 @@
 &             klevs,pddpo,jb,p_tend, p_diag, p_sed)
 
       
-      USE mo_biomod, ONLY: bolay
-      USE mo_carbch, ONLY: bgctend, bgcflux, hi, co3, bgctra, sedfluxo, &
+      USE mo_memory_bgc, ONLY: bgctend, bgcflux, hi, co3, bgctra, sedfluxo, &
  &                         akw3, akb3, aksp, ak13, ak23, satoxy, satn2, &
- &                         satn2o, solco2
+ &                         satn2o, solco2, bolay
 
       USE mo_param1_bgc, ONLY: kphosy, ksred, kremin, kdenit, &
  &                             kcflux, koflux, knflux, knfixd, &
@@ -407,8 +405,7 @@
       SUBROUTINE initial_update_icon(start_index, end_index, &
 &             klevs,pddpo,jb,ptracer, p_sed,p_diag)
 
-      USE mo_carbch, ONLY: bgctra, hi, co3
-      USE mo_biomod, ONLY: kbo,bolay
+      USE mo_memory_bgc, ONLY: bgctra, hi, co3, kbo,bolay
       USE mo_param1_bgc, ONLY: n_bgctra, issso12, &
  &                             isssc12, issssil, issster, &
  &                             ipowaic, ipowaal, ipowaph, &
@@ -478,7 +475,7 @@
 
 
   SUBROUTINE print_bgc_parameters
-  USE mo_biomod, ONLY      : phytomi, grami, remido, dyphy, zinges,        &
+  USE mo_memory_bgc, ONLY      : phytomi, grami, remido, dyphy, zinges,        &
        &                     epsher, grazra, spemor, gammap, gammaz, ecan, &
        &                     pi_alpha, fpar, bkphy, bkzoo, bkopal,         &
        &                     drempoc,                                      &
@@ -602,8 +599,7 @@
 !================================================================================== 
 
   SUBROUTINE print_wpoc
-   USE mo_carbch, ONLY: wpoc    
-   USE mo_biomod, ONLY: wdust
+   USE mo_memory_bgc, ONLY: wpoc, wdust
     CHARACTER(LEN=max_char_length) :: &
                 cpara_name,cpara_val
 

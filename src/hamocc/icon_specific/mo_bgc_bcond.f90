@@ -1,11 +1,8 @@
 !>
 !! Allocation/deallocation and reading of HAMOCC boundary conditions
 !!
-!! @author Irene Stemmler, MPI 
 !!
 !!
-!! @par Revision History
-!! Initial version based on mo_ocean_ext_data, Irene Stemmler (2015-10-09)
 !!
 !! @par Copyright and License
 !!

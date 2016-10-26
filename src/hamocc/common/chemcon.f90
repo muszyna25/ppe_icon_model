@@ -1,9 +1,13 @@
 !>
 !! @file chemcon.f90
-!! @brief Inorganic carbon cycle.
+!! @brief T, S dependencies of chemical constants used in the inorganic carbon cycle.
 !!
-!! Computes chemical constants in the surface layer (aksurf, former chemc)
-!! and in the water column (ak13, ak23, akb3, aksp)
+!! Computes chemical constants in the surface layer (aksurf)
+!! and in the water column (ak13, ak23, akb3, aksp, ak1p3, ak2p3, ak3p3
+!! aks3,akf3,aksi3,akw3)
+!! Parametrizations follow Dickson 2007, 2010 (Guides to best practise for CO2
+!! measurements, OA research)
+!! Constant parameter values can be found in mo_bgc_constants.f90
 !!
 #include "hamocc_omp_definitions.inc"
 
@@ -11,12 +15,10 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
      &               pddpo, ptiestu, kldtday)
 
   USE mo_kind, ONLY        : wp
-  USE mo_carbch, ONLY      : akb3, akw3, ak13, ak23, aksp, &
+  USE mo_memory_bgc, ONLY      : akb3, akw3, ak13, ak23, aksp, &
        &                     satn2o, satoxy, satn2, solco2,&
        &                     aksurf,aks3,akf3,ak1p3,ak2p3,&
-       &                     ak3p3,aksi3
-
-  USE mo_biomod, ONLY      : rrrcl
+       &                     ak3p3,aksi3,rrrcl
   USE mo_sedmnt, ONLY      : calcon
   USE mo_control_bgc, ONLY : bgc_nproma, bgc_zlevs
 
@@ -34,7 +36,7 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
   REAL(wp) :: psao(bgc_nproma,bgc_zlevs)  !< salinity [psu]
   REAL(wp) :: ptho(bgc_nproma,bgc_zlevs)  !< potential temperature [deg C]
   REAL(wp) :: pddpo(bgc_nproma,bgc_zlevs) !< size of scalar grid cell (3rd REAL) [m]
-  REAL(wp) :: ptiestu(bgc_nproma,bgc_zlevs)       !< depth of scalar grid cell [m]
+  REAL(wp) :: ptiestu(bgc_nproma,bgc_zlevs)  !< depth of scalar grid cell [m]
 
   !! Local variables
 

@@ -3,10 +3,6 @@
 !!
 !! Definition of parameters
 !!
-!! @author N.N.
-!!
-!! See the LICENSE and the WARRANTY conditions.
-!!
 MODULE mo_param1_bgc
   USE mo_kind, ONLY : wp
 

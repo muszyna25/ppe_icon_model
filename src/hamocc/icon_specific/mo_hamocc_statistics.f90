@@ -1,9 +1,6 @@
 !!
-!! @author Irene Stemmler, MPI
+!! Computes averages for output
 !!
-!! @par Revision History
-!
-!
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in

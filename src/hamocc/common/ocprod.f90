@@ -7,7 +7,7 @@
     
    USE mo_kind, ONLY           : wp
    
-   USE mo_biomod, ONLY         :phytomi, grami, rnoi, riron, pi_alpha, &
+   USE mo_memory_bgc, ONLY     :phytomi, grami, rnoi, riron, pi_alpha, &
        &                        fpar, bkphy,grazra, bkzoo, epsher,         &
        &                        zinges, drempoc, ro2ut, remido, dyphy, spemor,     &
        &                        gammaz, gammap, ecan, rnit, ropal, bkopal,         &
@@ -15,10 +15,9 @@
        &                        denitrification, nitdem, dremn2o,         &
        &                        n2prod, sulfate_reduction, strahl,                 &
        &                        thresh_aerob, thresh_o2, prodn2o, & 
-       &                        thresh_sred, dmsp, calmax
- 
-   USE mo_carbch, ONLY         : satoxy, meanswr,&
-       &                         bgctra, swr_frac, bgctend
+       &                        thresh_sred, dmsp, calmax, &
+       &                        satoxy, meanswr,&
+       &                        bgctra, swr_frac, bgctend
 
 
    USE mo_control_bgc, ONLY    : dtb, bgc_nproma, bgc_zlevs, dtbgc 

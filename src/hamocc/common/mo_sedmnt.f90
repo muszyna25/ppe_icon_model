@@ -2,27 +2,14 @@
 !! @brief Variables for sediment modules
 !!
 !! declaration and memory allocation
-!!
-!! @author S.Legutke (MPI-M)
-!!
-!! @par Revision History
-!!
-!! First version by S.Legutke            (MPI-M)    Oct 31, 2001
-!!
-!! @par Copyright
-!! 2002-2013 by MPI-M
-!! This software is provided for non-commercial use only.
-!! See the LICENSE and the WARRANTY conditions.
-!!
 #include "hamocc_omp_definitions.inc"
 MODULE mo_sedmnt
 
   USE mo_kind, ONLY        : wp
- ! USE mo_control_bgc, ONLY : rmasks, rmasko,kchck
   USE mo_param1_bgc, ONLY  : nsedtra, npowtra, n_bgctra
   USE mo_control_bgc, ONLY: dtbgc, bgc_nproma, bgc_zlevs 
   USE mo_hamocc_nml, ONLY : isac
-  USE mo_biomod, ONLY : kbo, bolay, bolaymin, wdust
+  USE mo_memory_bgc, ONLY : kbo, bolay, bolaymin, wdust
   USE mo_bgc_constants, ONLY: g,rhoref_water
 
   IMPLICIT NONE

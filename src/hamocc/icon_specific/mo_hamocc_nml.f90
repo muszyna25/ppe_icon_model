@@ -1,19 +1,7 @@
 !>
-!! @brief namelist setup for the sea-ice model
+!! @brief namelist setup for HAMOCC
 !!
 !! Namelist setup for HAMOCC, the HAMburg Ocean Carbon Cycle model
-!! <Details of procedures are documented below with their definitions.>
-!! <Include any applicable external references inline as module::procedure,>
-!! <external_procedure(), or by using @see.>
-!! <Don't forget references to literature.>
-!!
-!! @author Irene Stemmler, MPI-M (2015-07-31)
-!!
-!!
-!! @par Revision History
-!! New file based on mo_sea_ice_nml.f90 by Irene Stemmler, MPI-M (2015-07-31)
-!!
-!! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
 !! its most recent form.

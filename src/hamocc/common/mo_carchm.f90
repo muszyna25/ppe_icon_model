@@ -8,11 +8,10 @@ MODULE mo_carchm
 !!
 #include "hamocc_omp_definitions.inc"
 
-USE mo_carbch, ONLY         : hi, aksp, akb3, akw3, ak13, ak23, co3, bgctra, bgctend,&
-       &                      aks3,akf3,ak1p3,ak2p3,ak3p3,aksi3
+USE mo_memory_bgc, ONLY     : hi, aksp, akb3, akw3, ak13, ak23, co3, bgctra, bgctend,&
+       &                      aks3,akf3,ak1p3,ak2p3,ak3p3,aksi3,rrrcl, dremcalc
 
 USE mo_kind, ONLY           : wp
-USE mo_biomod, ONLY         : rrrcl, dremcalc
 USE mo_control_bgc, ONLY    : dtbgc, bgc_nproma, bgc_zlevs
 
 IMPLICIT NONE
@@ -91,7 +90,8 @@ END SUBROUTINE
 
 
 FUNCTION update_hi(hi,c,ak1,ak2,akw,aks,akf,aksi,ak1p,ak2p,ak3p,s,akb,sit,pt,alk) RESULT (h)
-  
+ ! update hydrogen ion concentration
+ 
  REAL(wp) :: ah1, hi
  REAL(wp), INTENT(in):: ak1,ak2,akw,akb,aks,akf,aksi,c,ak1p,ak2p,&
 &                       ak3p,sit,pt,alk 

@@ -1,6 +1,6 @@
       MODULE mo_hamocc_output
 
-! icon specific routines for output, update etc
+! icon specific routines for output and restart
 
       USE mo_control_bgc,          ONLY: dtb
 

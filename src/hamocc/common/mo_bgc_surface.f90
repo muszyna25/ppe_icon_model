@@ -1,7 +1,7 @@
 MODULE mo_bgc_surface
 !! @file mo_bgc_surface.f90
 !! @brief module contains gas exchange, weathering fluxes,
-!!        dust deposition
+!!        dust & nitrogen deposition
 
   USE mo_kind, ONLY           : wp
   USE mo_control_bgc, ONLY    : dtbgc, bgc_nproma, bgc_zlevs
@@ -16,8 +16,9 @@ MODULE mo_bgc_surface
 contains
 
 SUBROUTINE update_weathering ( start_idx,end_idx, pddpo, za)
+! apply weathering rates
 
-  USE mo_carbch, ONLY         : bgctra, calcinp, orginp, silinp, bgcflux
+  USE mo_memory_bgc, ONLY     : bgctra, calcinp, orginp, silinp, bgcflux
   USE mo_param1_bgc, ONLY     : isco212, ialkali, idoc, isilica,  &
  &                              korginp, ksilinp, kcalinp
 
@@ -53,8 +54,8 @@ SUBROUTINE update_weathering ( start_idx,end_idx, pddpo, za)
 END SUBROUTINE
 
 SUBROUTINE nitrogen_deposition ( start_idx,end_idx, pddpo,za,nitinp)
-
-  USE mo_carbch, ONLY         : bgctra
+! apply nitrogen deposition
+  USE mo_memory_bgc, ONLY         : bgctra
   USE mo_param1_bgc, ONLY     : iano3
   USE mo_control_bgc, ONLY    : dtb
   USE mo_bgc_constants, ONLY : rmnit
@@ -90,11 +91,10 @@ SUBROUTINE nitrogen_deposition ( start_idx,end_idx, pddpo,za,nitinp)
 
 END SUBROUTINE
 SUBROUTINE dust_deposition ( start_idx,end_idx, pddpo,za,dustinp)
-
-  USE mo_carbch, ONLY         : bgctra
+! apply dust deposition
+  USE mo_memory_bgc, ONLY      : bgctra,perc_diron 
   USE mo_param1_bgc, ONLY     : iiron, idust
   USE mo_control_bgc, ONLY    : dtb
-  USE mo_biomod,     ONLY     : perc_diron 
 
   
   !Arguments
@@ -129,7 +129,7 @@ END SUBROUTINE
 SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
      &              pfu10, psicomo )
 !! @brief Computes sea-air gass exchange
-!!         for oxygen, O2, N2, and CO2.
+!!         for oxygen, O2, N2, N2O, DMS, and CO2.
 !!
 
 
@@ -138,7 +138,7 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
        &                        ialkali, kcflux, koflux, knflux,          &
        &                        kn2oflux, idms, kdmsflux 
 
-  USE mo_carbch, ONLY         : hi, &
+  USE mo_memory_bgc, ONLY         : hi, &
        &                        solco2,satoxy,satn2,aksurf,    &
        &                        satn2o,            &
        &                        bgctra, atm, bgcflux

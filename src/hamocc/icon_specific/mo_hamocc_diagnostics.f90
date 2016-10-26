@@ -1,8 +1,11 @@
+! calculates HAMOCC diagnostics:
+! monitoring variables, global inventories
 
 !--------------------------------------
 #include "hamocc_omp_definitions.inc"
 !--------------------------------------
 MODULE mo_hamocc_diagnostics
+! 
 
    USE mo_kind,     ONLY: wp
    USE mo_sync,     ONLY: global_sum_array
@@ -17,9 +20,8 @@ MODULE mo_hamocc_diagnostics
    USE mo_dynamics_config,     ONLY: nold, nnew
    USE mo_ocean_nml,   ONLY: n_zlev,no_tracer
    USE mo_bgc_constants, ONLY:  s2year, n2tgn, c2gtc, kilo
-   USE mo_biomod, ONLY: p2gtc
+   USE mo_memory_bgc, ONLY: p2gtc, totalarea
    USE mo_control_bgc, ONLY: dtbgc
-   USE mo_carbch, ONLY: totalarea
    USE mo_bgc_icon_comm, ONLY: to_bgcout
    USE mo_param1_bgc, ONLY: isco212, ialkali, iphosph,iano3, igasnit, &
 &                           iphy, izoo, icya, ioxygen, isilica, idoc, &
@@ -38,7 +40,7 @@ CONTAINS
 
 SUBROUTINE get_monitoring(hamocc_state,ocean_state,p_patch_3d)
 
-USE mo_biomod, ONLY: rcar, rn2, nitdem,doccya_fac
+USE mo_memory_bgc, ONLY: rcar, rn2, nitdem,doccya_fac
 TYPE(t_hamocc_state) :: hamocc_state
 TYPE(t_hydro_ocean_state) :: ocean_state
 TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
@@ -145,7 +147,7 @@ END SUBROUTINE get_monitoring
 
 SUBROUTINE get_inventories(hamocc_state,ocean_state,p_patch_3d,i_time_stat)
 
-USE mo_biomod,      ONLY: rnit,rn2, ro2bal,rcar
+USE mo_memory_bgc,      ONLY: rnit,rn2, ro2bal,rcar
 
 INTEGER :: i_time_stat
 TYPE(t_hydro_ocean_state) :: ocean_state

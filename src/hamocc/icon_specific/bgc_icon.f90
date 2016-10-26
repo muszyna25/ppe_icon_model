@@ -2,18 +2,15 @@
 !! @file bgc.f90
 !! @brief Main biogeochemical subroutine, called at each time step
 !!
-!! This subroutine computes all changes of pelagic biogeochemical 
+!! This subroutine calls all routines that calculate changes of pelagic biogeochemical 
 !! tracers due to local processes (like photosythesis, heterotrophic
 !! processes, N-fixation, and denitrification), the air-sea gas
 !! exchange of carbon dioxide, oxygen, dinitrogen, and the
-!! benthic processes. It further computes the vertical displacement of
+!! benthic processes. It further calls the computation of the vertical displacement of
 !! particles
 !!
 !! called by mo_hydro_ocean_run:perform_ho_stepping
 !!
-!! @author Irene Stemmler, MPI-Met, HH
-!!
-!! @par Revision History
 !!
 #include "icon_definitions.inc"
 
@@ -29,7 +26,7 @@ SUBROUTINE BGC_ICON(p_patch_3D, p_os, p_as, p_ice)
   USE mo_bgc_icon_comm,       ONLY: update_icon, update_bgc, hamocc_state, &
        &                            set_bgc_tendencies_output
   USE mo_dynamics_config,     ONLY: nold, nnew
-  USE mo_sea_ice_types,       ONLY: t_atmos_for_ocean, t_sea_ice ! for now, use different later
+  USE mo_sea_ice_types,       ONLY: t_atmos_for_ocean, t_sea_ice 
   USE mo_hamocc_nml,          ONLY: i_settling, l_cyadyn,l_bgc_check,io_stdo_bgc,l_implsed, &
        &                            l_dynamic_pi, l_pdm_settling 
   USE mo_control_bgc,         ONLY: dtb, dtbgc, inv_dtbgc, ndtdaybgc, icyclibgc,  &
@@ -42,6 +39,7 @@ SUBROUTINE BGC_ICON(p_patch_3D, p_os, p_as, p_ice)
   USE mo_hamocc_diagnostics,  ONLY: get_monitoring, get_inventories
   USE mo_exception, ONLY: message
   USE mo_carchm,              ONLY: calc_dissol 
+  USE mo_powach,              ONLY: powach, powach_impl
   USE mo_sedmnt, ONLY         : ini_bottom
   USE mo_timer, ONLY          : timer_bgc_up_bgc, timer_bgc_swr, timer_bgc_wea,timer_bgc_depo, &
     &                           timer_bgc_chemcon, timer_bgc_ocprod, timer_bgc_sett,timer_bgc_cya,&
