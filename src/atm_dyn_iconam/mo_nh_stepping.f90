@@ -324,8 +324,8 @@ MODULE mo_nh_stepping
       &                  p_nh_state(jg)%prog(nnow(jg)),&
       &                  p_nh_state(jg)%diag, itlev = 2)
 
-    ! initialize exner_old if the model domain is active
-    IF (p_patch(jg)%ldom_active .AND. .NOT. isRestart()) CALL init_exner_old(jg, nnow(jg))
+    ! initialize exner_pr if the model domain is active
+    IF (p_patch(jg)%ldom_active .AND. .NOT. isRestart()) CALL init_exner_pr(jg, nnow(jg))
   ENDDO
 
 
@@ -1994,7 +1994,7 @@ MODULE mo_nh_stepping
               p_nh_state(jgc)%prog(nnow(jgc))%rho, p_nh_state(jgc)%prog(nnow(jgc))%exner,         &
               p_nh_state(jgc)%prog(nnow(jgc))%theta_v )
 
-            CALL init_exner_old(jgc, nnow(jgc))
+            CALL init_exner_pr(jgc, nnow(jgc))
 
             ! Activate cold-start mode in TERRA-init routine irrespective of what has been used for the global domain
             init_mode_soil = 1
@@ -2604,9 +2604,9 @@ MODULE mo_nh_stepping
 
 
   !-------------------------------------------------------------------------
-  !> Auxiliary routine to encapsulate initialization of exner_old variable
+  !> Auxiliary routine to encapsulate initialization of exner_pr variable
   !!
-  SUBROUTINE init_exner_old(jg, nnow)
+  SUBROUTINE init_exner_pr(jg, nnow)
 
     INTEGER, INTENT(IN) :: jg   ! domain ID
     INTEGER, INTENT(IN) :: nnow ! time step indicator
@@ -2614,10 +2614,10 @@ MODULE mo_nh_stepping
 
 !$OMP PARALLEL
     CALL copy(p_nh_state(jg)%prog(nnow)%exner-REAL(p_nh_state(jg)%metrics%exner_ref_mc,wp), &
-         p_nh_state(jg)%diag%exner_old)
+         p_nh_state(jg)%diag%exner_pr)
 !$OMP END PARALLEL
 
-  END SUBROUTINE init_exner_old
+  END SUBROUTINE init_exner_pr
 
   !-------------------------------------------------------------------------
   !> Driver routine to reset the model to its initial state if IAU iteration is selected
@@ -2657,7 +2657,7 @@ MODULE mo_nh_stepping
         &                  p_nh_state(jg)%prog(nnow(jg)),&
         &                  p_nh_state(jg)%diag, itlev = 2)
 
-      CALL init_exner_old(jg, nnow(jg))
+      CALL init_exner_pr(jg, nnow(jg))
 
       CALL init_nwp_phy(                            &
            & p_patch(jg)                           ,&

@@ -1367,7 +1367,7 @@ MODULE mo_nonhydro_state
     &       p_diag%ddt_tracer_adv, &
     &       p_diag%tracer_vi, &
     &       p_diag%tracer_vi_avg, &
-    &       p_diag%exner_old, &
+    &       p_diag%exner_pr, &
     &       p_diag%exner_dyn_incr, &
     &       p_diag%temp, &
     &       p_diag%tempv, &
@@ -1525,11 +1525,11 @@ MODULE mo_nonhydro_state
                 &             vert_intp_type=vintp_types("P","Z","I"),          &
                 &             vert_intp_method=VINTP_METHOD_LIN ) )
 
-    ! exner_old    p_diag%exner_old(nproma,nlev,nblks_c)
+    ! exner_pr    p_diag%exner_pr(nproma,nlev,nblks_c)
     ! *** needs to be saved for restart ***
-    cf_desc    = t_cf_var('old_exner_pressure', '-', 'old exner pressure', datatype_flt)
+    cf_desc    = t_cf_var('exner_perturbation_pressure', '-', 'exner perturbation pressure', datatype_flt)
     grib2_desc = grib2_var(0, 3, 26, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( p_diag_list, 'exner_old', p_diag%exner_old,                   &
+    CALL add_var( p_diag_list, 'exner_pr', p_diag%exner_pr,                   &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c )
 

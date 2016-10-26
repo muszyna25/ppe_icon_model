@@ -670,14 +670,14 @@ CONTAINS
             pt_prog_new%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd_o_p0ref                         &
               &                       * pt_prog_new%rho(jc,jk,jb) * pt_diag%tempv(jc,jk,jb)))
             !
-            ! Add exner change from fast phyiscs to exner_old (why?)
-            pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb) + pt_prog_new%exner(jc,jk,jb) - z_exner
+            ! Add exner change from fast phyiscs to exner_pr in order to avoid unphysical sound wave generation
+            pt_diag%exner_pr(jc,jk,jb) = pt_diag%exner_pr(jc,jk,jb) + pt_prog_new%exner(jc,jk,jb) - z_exner
             !
 !!$            ! (b) Update Exner, then compute Temp_v
 !!$            !
 !!$            pt_prog_new%exner(jc,jk,jb) = pt_prog_new%exner(jc,jk,jb)                 &
 !!$              &                         + pt_diag%ddt_exner_phy(jc,jk,jb) * dtadv_loc
-!!$            pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb)                 &
+!!$            pt_diag%exner_pr(jc,jk,jb) = pt_diag%exner_pr(jc,jk,jb)                 &
 !!$              &                         + pt_diag%ddt_exner_phy(jc,jk,jb) * dtadv_loc
 !!$            !
 !!$            pt_diag%tempv(jc,jk,jb) = EXP(LOG(pt_prog_new%exner(jc,jk,jb)/rd_o_cpd) &
@@ -725,7 +725,7 @@ CONTAINS
         &                         patch                        ,&
         &                         ntracer+4                    ,&
         &                         pt_prog_new%w                ,&
-        &                         pt_diag%exner_old            ,&
+        &                         pt_diag%exner_pr             ,&
         &                         pt_prog_new%exner            ,&
         &                         pt_prog_new%theta_v          ,&
         &                         f4din=pt_prog_new_rcf%tracer )
@@ -733,7 +733,7 @@ CONTAINS
       CALL sync_patch_array_mult( SYNC_C                       ,&
         &                         patch                        ,&
         &                         ntracer+3                    ,&
-        &                         pt_diag%exner_old            ,&
+        &                         pt_diag%exner_pr             ,&
         &                         pt_prog_new%exner            ,&
         &                         pt_prog_new%theta_v          ,&
         &                         f4din=pt_prog_new_rcf%tracer )

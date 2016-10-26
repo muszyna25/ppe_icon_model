@@ -412,10 +412,10 @@ MODULE mo_solve_nonhydro
               ! temporally extrapolated perturbation Exner pressure (used for horizontal gradients only)
               z_exner_ex_pr(jc,jk,jb) = (1._wp + p_nh%metrics%exner_exfac(jc,jk,jb)) *    &
                 (p_nh%prog(nnow)%exner(jc,jk,jb) - p_nh%metrics%exner_ref_mc(jc,jk,jb)) - &
-                 p_nh%metrics%exner_exfac(jc,jk,jb) * p_nh%diag%exner_old(jc,jk,jb)
+                 p_nh%metrics%exner_exfac(jc,jk,jb) * p_nh%diag%exner_pr(jc,jk,jb)
 
-              ! non-extrapolated perturbation Exner pressure, saved in exner_old for the next time step
-              p_nh%diag%exner_old(jc,jk,jb) = p_nh%prog(nnow)%exner(jc,jk,jb) - &
+              ! non-extrapolated perturbation Exner pressure, saved in exner_pr for the next time step
+              p_nh%diag%exner_pr(jc,jk,jb) = p_nh%prog(nnow)%exner(jc,jk,jb) - &
                                               p_nh%metrics%exner_ref_mc(jc,jk,jb)
 
             ENDDO
@@ -512,8 +512,8 @@ MODULE mo_solve_nonhydro
 
               ! vertical pressure gradient * theta_v
               z_th_ddz_exner_c(jc,jk,jb) = p_nh%metrics%vwind_expl_wgt(jc,jb)* &
-                p_nh%diag%theta_v_ic(jc,jk,jb) * (p_nh%diag%exner_old(jc,jk-1,jb)-      &
-                p_nh%diag%exner_old(jc,jk,jb)) / p_nh%metrics%ddqz_z_half(jc,jk,jb) +   &
+                p_nh%diag%theta_v_ic(jc,jk,jb) * (p_nh%diag%exner_pr(jc,jk-1,jb)-      &
+                p_nh%diag%exner_pr(jc,jk,jb)) / p_nh%metrics%ddqz_z_half(jc,jk,jb) +   &
                 z_theta_v_pr_ic(jc,jk)*p_nh%metrics%d_exner_dz_ref_ic(jc,jk,jb)
             ENDDO
           ENDDO
@@ -561,8 +561,8 @@ MODULE mo_solve_nonhydro
 
               ! vertical pressure gradient * theta_v
               z_th_ddz_exner_c(jc,jk,jb) = p_nh%metrics%vwind_expl_wgt(jc,jb)* &
-                p_nh%diag%theta_v_ic(jc,jk,jb) * (p_nh%diag%exner_old(jc,jk-1,jb)-      &
-                p_nh%diag%exner_old(jc,jk,jb)) / p_nh%metrics%ddqz_z_half(jc,jk,jb) +   &
+                p_nh%diag%theta_v_ic(jc,jk,jb) * (p_nh%diag%exner_pr(jc,jk-1,jb)-      &
+                p_nh%diag%exner_pr(jc,jk,jb)) / p_nh%metrics%ddqz_z_half(jc,jk,jb) +   &
                 z_theta_v_pr_ic(jc,jk)*p_nh%metrics%d_exner_dz_ref_ic(jc,jk,jb)
             ENDDO
           ENDDO
@@ -1891,7 +1891,7 @@ MODULE mo_solve_nonhydro
             &                            +z_contr_w_fl_l(jc,1   ) &
             &                            -z_contr_w_fl_l(jc,2   ))
 
-          z_exner_expl(jc,1)=    p_nh%diag%exner_old(jc,1,jb)      &
+          z_exner_expl(jc,1)=     p_nh%diag%exner_pr(jc,1,jb)      &
             &      -z_beta (jc,1)*(z_flxdiv_theta(jc,1)            &
             & +p_nh%diag%theta_v_ic(jc,1,jb)*z_contr_w_fl_l(jc,1)  &
             & -p_nh%diag%theta_v_ic(jc,2,jb)*z_contr_w_fl_l(jc,2)) &
@@ -1908,7 +1908,7 @@ MODULE mo_solve_nonhydro
               &                            +z_contr_w_fl_l(jc,jk     ) &
               &                             -z_contr_w_fl_l(jc,jk+1   ))
 
-            z_exner_expl(jc,jk)=   p_nh%diag%exner_old(jc,jk,jb) - z_beta(jc,jk) &
+            z_exner_expl(jc,jk)=    p_nh%diag%exner_pr(jc,jk,jb) - z_beta(jc,jk) &
               &                             *(z_flxdiv_theta(jc,jk)              &
               &   +p_nh%diag%theta_v_ic(jc,jk  ,jb)*z_contr_w_fl_l(jc,jk  )      &
               &   -p_nh%diag%theta_v_ic(jc,jk+1,jb)*z_contr_w_fl_l(jc,jk+1))     &
