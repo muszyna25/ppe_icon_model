@@ -31,7 +31,6 @@ REAL(wp)               :: at1(0:nlatx+1,nlevx), at2(0:nlatx+1,nlevx), &
                         & at7(0:nlatx+1,nlevx), at8(0:nlatx+1,nlevx)
 
 CALL cariolle_o3_column(jcb,jce,NCX,nlev,avi%o3_vmr,avi%vmr2molm2,avi%ldown,o3_column)
-write(*,*) 'o3_column(1,5)=',o3_column(1,5)
 CALL lat_weight_linear( jcb,                 jce,                   NCX,               &
                       & avi%cell_center_lat, nlatx,                 pvi%rlat,          &
                       & pvi%delta_lat,       pvi%l_lat_sn,          wgt1_lat,          &

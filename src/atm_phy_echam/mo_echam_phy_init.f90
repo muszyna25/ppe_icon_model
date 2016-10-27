@@ -34,6 +34,9 @@ MODULE mo_echam_phy_init
   ! model configuration
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: nlev, iqv, iqt, ico2, ntracer, ltestcase
+!++jsr
+  USE mo_run_config,           ONLY: io3
+!--jsr
   USE mo_vertical_coord_table, ONLY: vct
   USE mo_dynamics_config,      ONLY: iequations
   USE mo_impl_constants,       ONLY: inh_atmosphere, max_char_length
@@ -348,6 +351,9 @@ CONTAINS
     ENDIF
 
 !++jsr
+    DO jg=1,ndomain
+      prm_field(jg)%qtrc(:,:,:,4)=0.01_wp
+    END DO
     CALL cariolle_init( openInputFile_wrap,       closeFile_wrap,             &
                       & read_bcast_real_3d_wrap,  read_bcast_real_1d_wrap,    &
                       & nproma,                   nlev                        )

@@ -107,7 +107,7 @@ cat > ${atmo_namelist} << EOF
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
- ntracer          = 3           ! number of tracers
+ ntracer          = 4           ! number of tracers
  iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
  msg_level        = 15          ! level of details report during integration 
@@ -143,9 +143,9 @@ cat > ${atmo_namelist} << EOF
 &diffusion_nml
 /
 &transport_nml
- ivadv_tracer     = 3,3,3
- itype_hlimit     = 3,4,4
- ihadv_tracer     = 52,2,2
+ ivadv_tracer     = 3,3,3,3
+ itype_hlimit     = 3,4,4,3
+ ihadv_tracer     = 52,2,2,52
 /
 &echam_phy_nml
  dt_rad           =  480.       ! [s] radiation time step
@@ -490,7 +490,7 @@ if [[ "$output_trc_3d" == "yes" ]]; then
                     'qhus_phy'  , 'mhusvi_phy'    , 'tend_mhusvi_phy', 
                     'qclw_phy'  , 'mclwvi_phy'    , 'tend_mclwvi_phy', 
                     'qcli_phy'  , 'mclivi_phy'    , 'tend_mclivi_phy', 
-                    'pfull','ps'
+                    'pfull','ps', 'qo3_phy'
 /
 EOF
 fi

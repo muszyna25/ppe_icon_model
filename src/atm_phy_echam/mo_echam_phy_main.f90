@@ -31,11 +31,14 @@ MODULE mo_echam_phy_main
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: grav, cpd, cpv, cvd, cvv
 !++jsr
-  USE mo_physical_constants,  ONLY: amd  
+  USE mo_physical_constants,  ONLY: amd,amo3  
 !--jsr
   USE mo_impl_constants,      ONLY: inh_atmosphere
   USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
     &                               iqv, iqc, iqi, iqt
+!++jsr
+  USE mo_run_config,           ONLY: io3
+!--jsr
   USE mo_dynamics_config,     ONLY: iequations
   USE mo_ext_data_state,      ONLY: ext_data
   USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
@@ -1003,7 +1006,7 @@ CONTAINS
     avi%tmprt(:,:)=field%temp(:,:,jb)
     avi%vmr2molm2(jcs:jce,:)=zmair(jcs:jce,:)/amd
     avi%pres(jcs:jce,:)=field%presm_old(jcs:jce,:,jb)
-    avi%o3_vmr(:,:)=0.0001_wp
+    avi%o3_vmr(:,:)=field%qtrc(jcs:jce,:,jb,4)*amd/amo3
     avi%cell_center_lat(:)=p_patch(jg)%cells%center(:,jb)%lat
     avi%ldown=.TRUE.
     time_interpolation%imonth1=wi_limm%inm1
@@ -1013,6 +1016,7 @@ CONTAINS
     CALL cariolle_do3dt(jcs,                jce,                nbdim,          &
                        &nlev,               time_interpolation, lat_weight_li,  &
                        &pressure_weight_li, avi,                do3dt           )
+    tend% qtrc(jcs:jce,:,jb,4) = tend% qtrc(jcs:jce,:,jb,4) + do3dt(jcs:jce,:)*amo3/amd
 !--jsr
 
     !-------------------------------------------------------------------
