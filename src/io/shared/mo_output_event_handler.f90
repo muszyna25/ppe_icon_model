@@ -2464,7 +2464,7 @@ CONTAINS
     ireq = 1
     DO
       IF (.NOT. ASSOCIATED(ev)) EXIT
-      irecv_req(ireq:(ireq+ev%irecv_nreq-1)) = event%irecv_req(1:ev%irecv_nreq)
+      irecv_req(ireq:(ireq+ev%irecv_nreq-1)) = ev%irecv_req(1:ev%irecv_nreq)
       ireq = ireq + ev%irecv_nreq
       ev => ev%next
     END DO
