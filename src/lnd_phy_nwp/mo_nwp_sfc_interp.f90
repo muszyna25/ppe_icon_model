@@ -116,13 +116,9 @@ CONTAINS
     ENDDO
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jk1,jc,nlen,wfac,tcorr1,tcorr2,snowdep,wfac_snow)
+!$OMP DO PRIVATE(jb,jk,jc,nlen,wfac,tcorr1,tcorr2,snowdep,wfac_snow)
     DO jb = 1, p_patch%nblks_c
-      IF (jb /= p_patch%nblks_c) THEN
-        nlen = nproma
-      ELSE
-        nlen = p_patch%npromz_c
-      ENDIF
+      nlen = MERGE(nproma, p_patch%npromz_c, jb /= p_patch%nblks_c)
 
       ! 2D fields that do not require height adjustment
       ! these fields are simply copied
@@ -130,18 +126,15 @@ CONTAINS
       DO jc = 1, nlen
         initicon%sfc%skinres(jc,jb) = initicon%sfc_in%skinres(jc,jb)
         initicon%sfc%ls_mask(jc,jb) = initicon%sfc_in%ls_mask(jc,jb)
-        IF (initicon%sfc_in%seaice(jc,jb) >= 0._wp) THEN
-          initicon%sfc%seaice(jc,jb)  = initicon%sfc_in%seaice(jc,jb) 
-        ELSE
-          initicon%sfc%seaice(jc,jb)  = -999.9_wp 
-        ENDIF
+        initicon%sfc%seaice(jc,jb) &
+          & = MERGE(initicon%sfc_in%seaice(jc,jb), -999.9_wp, &
+          &         initicon%sfc_in%seaice(jc,jb) >= 0._wp)
         ! Remark (GZ): the second condition is a workaround until a proper treatment of missing values
         !              becomes available in prep_icon
-        IF (initicon%sfc_in%sst(jc,jb) > 10._wp .AND. initicon%sfc_in%sst(jc,jb) < 305._wp) THEN
-          initicon%sfc%sst(jc,jb)  = initicon%sfc_in%sst(jc,jb) 
-        ELSE
-          initicon%sfc%sst(jc,jb)  = -999.9_wp 
-        ENDIF
+        initicon%sfc%sst(jc,jb) &
+          & = MERGE(initicon%sfc_in%sst(jc,jb), -999.9_wp, &
+          &               initicon%sfc_in%sst(jc,jb) > 10._wp &
+          &         .AND. initicon%sfc_in%sst(jc,jb) < 305._wp)
       ENDDO
 
       ! 2D fields that require height adjustment
@@ -221,7 +214,7 @@ CONTAINS
       ENDDO
 
     ENDDO  ! jb
-!$OMP END DO 
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
@@ -273,20 +266,17 @@ CONTAINS
 
     jg = p_patch%id
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,nlen,lerr,ic,i_count,zwsoil,ist)
+    ! initialize error flag
+    lerr = .FALSE.
+
+!$OMP PARALLEL REDUCTION(.or.: lerr)
+!$OMP DO PRIVATE(jb,jk,jc,nlen,ic,i_count,zwsoil,ist)
     DO jb = 1, p_patch%nblks_c
-      IF (jb /= p_patch%nblks_c) THEN
-        nlen = nproma
-      ELSE
-        nlen = p_patch%npromz_c
-      ENDIF
+      nlen = MERGE(nproma, p_patch%npromz_c, jb /= p_patch%nblks_c)
 
       ! loop over target (ICON) land points only
       i_count = ext_data(jg)%atm%lp_count(jb)
 
-      ! (re)-initialize error flag
-      lerr = .FALSE.
 
       ! Conversion of soil moisture index SMI into TERRA soil moisture [m]
       !   soil moisture index = (soil moisture - wilting point) / (field capacity - wilting point)
@@ -309,25 +299,23 @@ CONTAINS
             ! set dummy value (50% of pore volume)
             zwsoil(jc) = 0.5_wp * cporv(ext_data(jg)%atm%soiltyp(jc,jb)) * dzsoil_icon(jk)
 
-            CYCLE
-          ENDIF
-
-          ist = ext_data(jg)%atm%soiltyp(jc,jb)
-          SELECT CASE(ist)
+          ELSE
+            ist = ext_data(jg)%atm%soiltyp(jc,jb)
+            SELECT CASE(ist)
             CASE (1,2)  ! ice,rock
-            ! set wsoil to 0 for ice and rock
-            zwsoil(jc) = 0._wp
+              ! set wsoil to 0 for ice and rock
+              zwsoil(jc) = 0._wp
 
             CASE (3,4,5,6,7,8)  ! soil types with non-zero water content
-            zwsoil(jc) = dzsoil_icon(jk) * MIN(cporv(ist), &
-            & MAX((wsoil(jc,jk,jb)*(cfcap(ist) - cpwp(ist)) + cpwp(ist)),cadp(ist)))
+              zwsoil(jc) = dzsoil_icon(jk) * MIN(cporv(ist), &
+                & MAX((wsoil(jc,jk,jb)*(cfcap(ist) - cpwp(ist)) + cpwp(ist)),cadp(ist)))
 
             CASE (9,10) ! sea water, sea ice
-            ! ERROR landpoint has soiltype sea water or sea ice
-            lerr = .TRUE.
+              ! ERROR landpoint has soiltype sea water or sea ice
+              lerr = .TRUE.
 
-          END SELECT
-
+            END SELECT
+          END IF
         ENDDO  ! ic
         ! overwrite wsoil
         wsoil(1:nlen,jk,jb) = zwsoil(1:nlen)
@@ -340,13 +328,12 @@ CONTAINS
         ENDDO
       ENDDO  ! jk
 
-      IF (lerr) THEN
-        CALL finish(routine, "Landpoint has invalid soiltype (sea water or sea ice)")
-      ENDIF
 
     ENDDO  ! jb
-!$OMP END DO 
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
+    IF (lerr) CALL finish(routine, &
+         "Landpoint has invalid soiltype (sea water or sea ice)")
 
   END SUBROUTINE smi_to_wsoil
 
@@ -372,7 +359,7 @@ CONTAINS
     !
     REAL(wp) :: smi(nproma)           ! local storage for smi
     INTEGER  :: i_count, ic           ! counter
-    INTEGER  :: jg, jb, jk, jc, nlen
+    INTEGER  :: jg, jb, jk, jc, nlen, slt
     LOGICAL  :: lerr                  ! error flag
 
 !-------------
@@ -383,21 +370,14 @@ CONTAINS
     ENDIF
 
     jg = p_patch%id
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,nlen,lerr,ic,i_count,smi)
+    lerr = .FALSE.
+!$OMP PARALLEL REDUCTION(.or.: lerr)
+!$OMP DO PRIVATE(jb,jk,jc,nlen,ic,i_count,smi,slt)
     DO jb = 1, p_patch%nblks_c
-      IF (jb /= p_patch%nblks_c) THEN
-        nlen = nproma
-      ELSE
-        nlen = p_patch%npromz_c
-      ENDIF
+      nlen = MERGE(nproma, p_patch%npromz_c, jb /= p_patch%nblks_c)
 
       ! loop over target (ICON) land points only
       i_count = ext_data(jg)%atm%lp_count(jb)
-
-      ! (re)-initialize error flag
-      lerr = .FALSE.
 
       ! Conversion of TERRA soil moisture [m] into soil moisture index SMI
       !   soil moisture index = (soil moisture - wilting point) / (field capacity - wilting point)
@@ -409,35 +389,23 @@ CONTAINS
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, i_count
           jc = ext_data(jg)%atm%idx_lst_lp(ic,jb)
-
-          SELECT CASE(ext_data(jg)%atm%soiltyp(jc,jb))
-            CASE (1,2)  !ice,rock
+          slt = ext_data(jg)%atm%soiltyp(jc,jb)
+          SELECT CASE(slt)
+          CASE (1,2)  !ice,rock
             ! set wsoil to 0 for ice and rock
             smi(jc) = 0._wp
-
-
-            CASE(3)  !sand
-            smi(jc) = (wsoil(jc,jk,jb)/dzsoil_icon(jk) - cpwp(3))/(cfcap(3) - cpwp(3))
-
-            CASE(4)  !sandyloam
-            smi(jc) = (wsoil(jc,jk,jb)/dzsoil_icon(jk) - cpwp(4))/(cfcap(4) - cpwp(4))
-
-            CASE(5)  !loam
-            smi(jc) = (wsoil(jc,jk,jb)/dzsoil_icon(jk) - cpwp(5))/(cfcap(5) - cpwp(5))
-
-            CASE(6)  !clayloam
-            smi(jc) = (wsoil(jc,jk,jb)/dzsoil_icon(jk) - cpwp(6))/(cfcap(6) - cpwp(6))
-
-            CASE(7)  !clay
-            smi(jc) = (wsoil(jc,jk,jb)/dzsoil_icon(jk) - cpwp(7))/(cfcap(7) - cpwp(7))
-
-            CASE(8)  !peat
-            smi(jc) = (wsoil(jc,jk,jb)/dzsoil_icon(jk) - cpwp(8))/(cfcap(8) - cpwp(8))
-
-            CASE(9,10)!sea water, sea ice
+          CASE(3:8)
+            ! 3: sand
+            ! 4: sandyloam
+            ! 5: loam
+            ! 6: clayloam
+            ! 7: clay
+            ! 8: peat
+            smi(jc) = (wsoil(jc,jk,jb)/dzsoil_icon(jk) - cpwp(slt)) &
+                 / (cfcap(slt) - cpwp(slt))
+          CASE(9,10)!sea water, sea ice
             ! ERROR landpoint has soiltype sea water or sea ice
             lerr = .TRUE.
-
           END SELECT
 
         ENDDO  ! ic
@@ -451,13 +419,11 @@ CONTAINS
         wsoil(jc,nlev_soil,jb) = wsoil(jc,nlev_soil-1,jb)
       ENDDO
 
-      IF (lerr) THEN
-        CALL finish("wsoil_to_smi", "Landpoint has invalid soiltype (sea water or sea ice)")
-      ENDIF
-
     ENDDO  ! jb
-!$OMP END DO 
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
+    IF (lerr) CALL finish("wsoil_to_smi", &
+         "Landpoint has invalid soiltype (sea water or sea ice)")
 
   END SUBROUTINE wsoil_to_smi
 
