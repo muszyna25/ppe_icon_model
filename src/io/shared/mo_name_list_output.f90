@@ -1567,66 +1567,67 @@ CONTAINS
     END IF
 
     ! Enter I/O loop
-    DO
-      ! skip loop, if this output PE is idle:
-      IF (ALL(output_file(:)%io_proc_id /= p_pe)) EXIT
+    ! skip loop, if this output PE is idle:
+    IF (     ANY(                  output_file(:)%io_proc_id == p_pe) &
+        .OR. ANY(meteogram_output_config(1:n_dom)%io_proc_id == p_pe)) THEN
+      DO
 
-      ! Wait for a message from the compute PEs to start
-      CALL async_io_wait_for_start(action, jstep)
+        ! Wait for a message from the compute PEs to start
+        CALL async_io_wait_for_start(action, jstep)
 
-      IF(action == msg_io_shutdown) EXIT ! leave loop, we are done
+        IF(action == msg_io_shutdown) EXIT ! leave loop, we are done
 
-      IF (action == msg_io_start) THEN
-        ! perform I/O
-        CALL write_name_list_output(jstep, opt_lhas_output=lhas_output)
+        IF (action == msg_io_start) THEN
+          ! perform I/O
+          CALL write_name_list_output(jstep, opt_lhas_output=lhas_output)
 
-        ! Inform compute PEs that we are done, if this I/O PE has
-        ! written output:
-        IF (lhas_output)  CALL async_io_send_handshake(jstep)
+          ! Inform compute PEs that we are done, if this I/O PE has
+          ! written output:
+          IF (lhas_output)  CALL async_io_send_handshake(jstep)
 
-        ! Handle final pending "output step completed" messages: After
-        ! all participating I/O PE's have acknowledged the completion of
-        ! their write processes, we trigger a "ready file" on the first
-        ! I/O PE.
-        IF (.NOT.my_process_is_mpi_test()  .AND.  &
-             & use_async_name_list_io .AND. my_process_is_mpi_ioroot()) THEN
+          ! Handle final pending "output step completed" messages: After
+          ! all participating I/O PE's have acknowledged the completion of
+          ! their write processes, we trigger a "ready file" on the first
+          ! I/O PE.
+          IF (.NOT. my_process_is_mpi_test()  .AND.  &
+               & use_async_name_list_io .AND. my_process_is_mpi_ioroot()) THEN
 
-          ! Go over all output files
-          l_complete = .TRUE.
-          OUTFILE_LOOP : DO i=1,SIZE(output_file)
-            l_complete = l_complete .AND. is_output_event_finished(output_file(i)%out_event)
-          END DO OUTFILE_LOOP
+            ! Go over all output files
+            l_complete = .TRUE.
+            OUTFILE_LOOP : DO i=1,SIZE(output_file)
+              l_complete = l_complete .AND. is_output_event_finished(output_file(i)%out_event)
+            END DO OUTFILE_LOOP
 
-          IF (l_complete) THEN
-            IF (ldebug)   WRITE (0,*) p_pe, ": wait for fellow I/O PEs..."
-            WAIT_FINAL : DO
-              CALL blocking_wait_for_irecvs(all_events)
-              ev => all_events
-              l_complete = .TRUE.
-              HANDLE_COMPLETE_STEPS : DO
-                IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
+            IF (l_complete) THEN
+              IF (ldebug)   WRITE (0,*) p_pe, ": wait for fellow I/O PEs..."
+              WAIT_FINAL : DO
+                CALL blocking_wait_for_irecvs(all_events)
+                ev => all_events
+                l_complete = .TRUE.
+                HANDLE_COMPLETE_STEPS : DO
+                  IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
 
-                !--- write ready file
-                IF (check_write_readyfile(ev%output_event))  CALL write_ready_file(ev)
-                IF (.NOT. is_output_event_finished(ev)) THEN
-                  l_complete = .FALSE.
-                  IF (is_output_step_complete(ev)) THEN
-                    CALL trigger_output_step_irecv(ev)
+                  !--- write ready file
+                  IF (check_write_readyfile(ev%output_event))  CALL write_ready_file(ev)
+                  IF (.NOT. is_output_event_finished(ev)) THEN
+                    l_complete = .FALSE.
+                    IF (is_output_step_complete(ev)) THEN
+                      CALL trigger_output_step_irecv(ev)
+                    END IF
                   END IF
-                END IF
-                ev => ev%next
-              END DO HANDLE_COMPLETE_STEPS
-              IF (l_complete) EXIT WAIT_FINAL
-            END DO WAIT_FINAL
-            IF (ldebug)  WRITE (0,*) p_pe, ": Finalization sequence"
+                  ev => ev%next
+                END DO HANDLE_COMPLETE_STEPS
+                IF (l_complete) EXIT WAIT_FINAL
+              END DO WAIT_FINAL
+              IF (ldebug)  WRITE (0,*) p_pe, ": Finalization sequence"
+            END IF
           END IF
+        ELSE IF (action == msg_io_meteogram_flush) THEN
+          CALL meteogram_flush_file(jstep)
         END IF
-      ELSE IF (action == msg_io_meteogram_flush) THEN
-        CALL meteogram_flush_file(jstep)
-      END IF
 
-    ENDDO
-
+      ENDDO
+    ENDIF
     ! Finalization sequence:
     CALL close_name_list_output
 

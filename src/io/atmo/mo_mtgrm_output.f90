@@ -770,7 +770,7 @@ CONTAINS
     &                       prm_diag, p_lnd_state, iforcing, &
     &                       grid_uuid, number_of_grid_used)
     ! station data from namelist
-    TYPE(t_meteogram_output_config), TARGET, INTENT(IN) :: meteogram_output_config
+    TYPE(t_meteogram_output_config), INTENT(INOUT) :: meteogram_output_config
     ! patch index
     INTEGER,                   INTENT(IN) :: jg
     ! data structure containing grid info:
@@ -813,7 +813,9 @@ CONTAINS
     TYPE(t_gnat_tree)                  :: gnat
     INTEGER                            :: max_time_stamps
     INTEGER                            :: io_collector_rank
+    LOGICAL                            :: l_my_process_is_mpi_workroot
 
+    l_my_process_is_mpi_workroot = my_process_is_mpi_workroot()
     !-- define the different roles in the MPI communication inside
     !-- this module
 
@@ -821,7 +823,7 @@ CONTAINS
     ! (only relevant if pure I/O PEs exist)
     mtgrm(jg)%l_is_varlist_sender = (process_mpi_io_size > 0)    .AND.  &
       &                   my_process_is_work() .AND. &
-      &                   my_process_is_mpi_workroot() .AND.  &
+      &                   l_my_process_is_mpi_workroot .AND.  &
       &             .NOT. my_process_is_mpi_test()
 
     ! Flag. True, if this PE is a pure I/O PE without own patch data:
@@ -841,11 +843,12 @@ CONTAINS
       ! distribute rank of last I/O PE
       io_collector_rank = p_max(io_collector_rank, comm=p_comm_work_io)
     END IF
+    meteogram_output_config%io_proc_id = io_collector_rank
 
     ! Flag. True, if this PE collects data from (other) working PEs
     mtgrm(jg)%l_is_collecting_pe  = (.NOT. meteogram_output_config%ldistributed)   &
       &            .AND.  ( ((process_mpi_io_size == 0)  .AND.           &
-      &                      my_process_is_mpi_workroot() .AND.          &
+      &                      l_my_process_is_mpi_workroot .AND.          &
       &                      (p_n_work > 1) )                            &
       &               .OR.  (mtgrm(jg)%l_pure_io_pe .AND.                &
       &                     (get_my_mpi_all_id() == io_collector_rank)) )
@@ -2257,7 +2260,7 @@ CONTAINS
   SUBROUTINE meteogram_create_filename (meteogram_output_config, jg)
 
     ! station data from namelist
-    TYPE(t_meteogram_output_config), TARGET, INTENT(IN) :: meteogram_output_config
+    TYPE(t_meteogram_output_config), INTENT(IN) :: meteogram_output_config
     ! patch index
     INTEGER, INTENT(IN) :: jg
     ! Local variables
@@ -2575,6 +2578,5 @@ CONTAINS
     !
     ! IF (get_sfcvar == -1)  CALL finish (routine, 'Invalid name!')
   END FUNCTION get_sfcvar
-
 
 END MODULE mo_meteogram_output

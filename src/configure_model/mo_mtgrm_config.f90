@@ -61,6 +61,9 @@ MODULE mo_meteogram_config
     !> warn user about (synchronizing) flush?
     LOGICAL                        :: silent_flush
 
+    !> mpi_comm_world rank that writes the data for this meteogram file
+    INTEGER                        :: io_proc_id
+
     ! Specification of meteogram stations.
     ! Note: This info is the same for all patches.
     INTEGER                           :: nstations
