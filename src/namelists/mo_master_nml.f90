@@ -15,7 +15,7 @@
 !!
 MODULE mo_master_nml
 
-  USE mo_exception,      ONLY: finish, message
+  USE mo_exception,      ONLY: finish, message, warning
   USE mo_io_units,       ONLY: filename_max, nnml
   USE mo_namelist,       ONLY: open_nml, position_nml, POSITIONED
   USE mo_util_string,    ONLY: t_keyword_list, associate_keyword, with_keywords, tolower
@@ -26,7 +26,7 @@ MODULE mo_master_nml
        &                       max_datetime_str_len, max_timedelta_str_len,                  &
        &                       datetime, newDatetime, deallocateDatetime,                    &
        &                       timedelta, newTimedelta, deallocateTimedelta,                 &
-       &                       datetimeToString, OPERATOR(+) 
+       &                       datetimeToString, OPERATOR(+), register_print_mtime_procedure 
   USE mo_master_config,  ONLY: master_component_models, addModel, noOfModels, maxNoOfModels, &
        &                       setInstitution, setRestart,                                   &
        &                       setRestartWriteLast, setModelBaseDir,                         &
@@ -201,13 +201,14 @@ CONTAINS
     END SELECT
 
     CALL setCalendar(icalendar)
-
+    CALL register_print_mtime_procedure(warning)
+    
     IF (experimentStartDate /= "") THEN
       IF (experimentStopDate == "") THEN
         IF (forecastLeadTime /= "") THEN
           forecast_lead_time => newTimedelta(TRIM(forecastLeadTime))
-          experiment_start_date = newDatetime(TRIM(experimentStartDate))
-          experiment_stop_date = newDatetime(TRIM(experimentStartDate))
+          experiment_start_date => newDatetime(TRIM(experimentStartDate))
+          experiment_stop_date => newDatetime(TRIM(experimentStartDate))
           experiment_stop_date = experiment_start_date + forecast_lead_time
           CALL datetimeToString(experiment_stop_date, experimentStopDate)
           CALL deallocateDatetime(experiment_stop_date)
