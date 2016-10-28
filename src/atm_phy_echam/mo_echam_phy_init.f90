@@ -102,6 +102,7 @@ MODULE mo_echam_phy_init
 !++jsr
   USE mo_bc_cariolle_read,     ONLY: read_bcast_real_3d_wrap, read_bcast_real_1d_wrap, &
                                    & closeFile_wrap, openInputFile_wrap
+  USE mo_cariolle_types,       ONLY: avi, t_time_interpolation
 !--jsr
   ! for aeorosols in simple plumes
   USE mo_bc_aeropt_splumes,    ONLY: setup_bc_aeropt_splumes
@@ -137,6 +138,11 @@ CONTAINS
 
     INTEGER :: khydromet, ktrac
     INTEGER :: jg, ndomain
+!++jsr
+    INTEGER :: jb, nblks, kproma, ilev
+    TYPE(t_time_interpolation) :: time_interpolation
+    EXTERNAL lat_weight_li, pressure_weight_li
+!--jsr
     TYPE(t_stream_id) :: stream_id
 
     CHARACTER(len=*), PARAMETER :: land_frac_fn = 'bc_land_frac.nc'
@@ -350,15 +356,6 @@ CONTAINS
       !
     ENDIF
 
-!++jsr
-    DO jg=1,ndomain
-      prm_field(jg)%qtrc(:,:,:,4)=0.01_wp
-    END DO
-    CALL cariolle_init( openInputFile_wrap,       closeFile_wrap,             &
-                      & read_bcast_real_3d_wrap,  read_bcast_real_1d_wrap,    &
-                      & nproma,                   nlev                        )
-!--jsr
-
     ! interpolation weights for linear interpolation
     ! of monthly means onto the actual integration time step
     CALL time_weights_limm(current_date, wi_limm)
@@ -406,6 +403,37 @@ CONTAINS
       END IF
 
     END DO
+
+!++jsr
+    CALL cariolle_init( openInputFile_wrap,       closeFile_wrap,             &
+                      & read_bcast_real_3d_wrap,  read_bcast_real_1d_wrap,    &
+                      & nproma,                   nlev                        )
+    time_interpolation%imonth1=wi_limm%inm1
+    time_interpolation%imonth2=wi_limm%inm2
+    time_interpolation%weight1=wi_limm%wgt1
+    time_interpolation%weight2=wi_limm%wgt2
+DO jg=1,ndomain
+prm_field(jg)%qtrc(:,:,:,4)=0.001_wp
+END DO
+    DO jg=1,ndomain
+      nblks = p_patch(jg)%nblks_c
+      DO jb = 1,nblks
+        IF (jb < nblks) THEN
+          kproma = nproma 
+        ELSE
+          kproma = p_patch(jg)%npromz_c
+        END IF
+        avi%cell_center_lat(1:kproma)=p_patch(jg)%cells%center(1:kproma,jb)%lat
+        DO ilev=1,nlev
+          avi%pres(1:kproma,1:nlev)=100000._wp*exp(-DBLE(nlev-ilev)/7._wp)
+        END DO
+        CALL cariolle_init_ozone( &
+                           1,              kproma,              nproma,        &
+                           nlev,           time_interpolation,  lat_weight_li, &
+                           pressure_weight_li, avi, prm_field(jg)%qtrc(1:kproma,1:nlev,jb,4))
+      END DO
+    END DO
+!--jsr
 
 #ifndef __NO_JSBACH__
     IF (ilnd <= nsfc_type .AND. phy_config%ljsbach) THEN

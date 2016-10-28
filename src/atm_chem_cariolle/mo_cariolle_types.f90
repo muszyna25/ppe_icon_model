@@ -27,5 +27,4 @@ TYPE t_time_interpolation
 INTEGER(wi), POINTER :: imonth1,imonth2
 REAL(wp), POINTER :: weight1,weight2
 END TYPE t_time_interpolation
-TYPE(t_time_interpolation)          :: time_interpolation
 END MODULE mo_cariolle_types
