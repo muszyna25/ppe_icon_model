@@ -4133,7 +4133,7 @@ write(123,*)'perturb',max_perturbation*EXP(-(distan/(perturbation_width*deg2rad)
         !depends on latitude only and is uniform across
         !all vertical layers
         DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(idx,block)
-
+ocean_temperature(idx,level,block)=0.0_wp
           IF (ABS(lat_deg) >= 5.0_wp) THEN
 
             ocean_temperature(idx,level,block) = 10.0_wp-0.1_wp*level
