@@ -55,7 +55,7 @@ MODULE mo_solve_nonhydro
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_advection_hflux,   ONLY: upwind_hflux_miura3
   USE mo_advection_traj,    ONLY: btraj
-  USE mo_sync,              ONLY: SYNC_E, SYNC_C, sync_patch_array, sync_patch_array_mult
+  USE mo_sync,              ONLY: SYNC_E, SYNC_C, sync_patch_array, sync_patch_array_mult, sync_patch_array_mult_mp
   USE mo_mpi,               ONLY: my_process_is_mpi_all_seq, work_mpi_barrier
   USE mo_timer,             ONLY: timer_solve_nh, timer_barrier, timer_start, timer_stop,       &
                                   timer_solve_nh_cellcomp, timer_solve_nh_edgecomp,             &
@@ -135,11 +135,10 @@ MODULE mo_solve_nonhydro
                 z_rho_e         (nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_mass_fl_div   (nproma,p_patch%nlev  ,p_patch%nblks_c), & ! used for idiv_method=2 only
                 z_theta_v_fl_div(nproma,p_patch%nlev  ,p_patch%nblks_c), & ! used for idiv_method=2 only
-                z_exner_pr      (nproma,p_patch%nlev  ,p_patch%nblks_c), &
                 z_theta_v_v     (nproma,p_patch%nlev  ,p_patch%nblks_v), & ! used for iadv_rhotheta=1 only
                 z_rho_v         (nproma,p_patch%nlev  ,p_patch%nblks_v)    ! used for iadv_rhotheta=1 only
 
-    REAL(wp) :: z_dwdz_dd       (nproma,kstart_dd3d(p_patch%id):p_patch%nlev,p_patch%nblks_c)
+    REAL(vp) :: z_dwdz_dd       (nproma,kstart_dd3d(p_patch%id):p_patch%nlev,p_patch%nblks_c)
 
 #ifndef __LOOP_EXCHANGE
     REAL(vp) :: z_distv_bary  (nproma,p_patch%nlev  ,p_patch%nblks_e,2)
@@ -411,16 +410,13 @@ MODULE mo_solve_nonhydro
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
               ! temporally extrapolated perturbation Exner pressure (used for horizontal gradients only)
-              z_exner_ex_pr(jc,jk,jb) = - p_nh%metrics%exner_ref_mc(jc,jk,jb) +              &
-                (1._wp + p_nh%metrics%exner_exfac(jc,jk,jb))*p_nh%prog(nnow)%exner(jc,jk,jb) &
-                       - p_nh%metrics%exner_exfac(jc,jk,jb) *p_nh%diag%exner_old(jc,jk,jb)
+              z_exner_ex_pr(jc,jk,jb) = (1._wp + p_nh%metrics%exner_exfac(jc,jk,jb)) *    &
+                (p_nh%prog(nnow)%exner(jc,jk,jb) - p_nh%metrics%exner_ref_mc(jc,jk,jb)) - &
+                 p_nh%metrics%exner_exfac(jc,jk,jb) * p_nh%diag%exner_pr(jc,jk,jb)
 
-              ! non-extrapolated perturbation Exner pressure
-              z_exner_pr(jc,jk,jb) = p_nh%prog(nnow)%exner(jc,jk,jb) - &
-                                     p_nh%metrics%exner_ref_mc(jc,jk,jb)
-
-              ! Now save current time level in exner_old
-              p_nh%diag%exner_old(jc,jk,jb) = p_nh%prog(nnow)%exner(jc,jk,jb)
+              ! non-extrapolated perturbation Exner pressure, saved in exner_pr for the next time step
+              p_nh%diag%exner_pr(jc,jk,jb) = p_nh%prog(nnow)%exner(jc,jk,jb) - &
+                                              p_nh%metrics%exner_ref_mc(jc,jk,jb)
 
             ENDDO
           ENDDO
@@ -516,8 +512,8 @@ MODULE mo_solve_nonhydro
 
               ! vertical pressure gradient * theta_v
               z_th_ddz_exner_c(jc,jk,jb) = p_nh%metrics%vwind_expl_wgt(jc,jb)* &
-                p_nh%diag%theta_v_ic(jc,jk,jb) * (z_exner_pr(jc,jk-1,jb)-      &
-                z_exner_pr(jc,jk,jb)) / p_nh%metrics%ddqz_z_half(jc,jk,jb) +   &
+                p_nh%diag%theta_v_ic(jc,jk,jb) * (p_nh%diag%exner_pr(jc,jk-1,jb)-      &
+                p_nh%diag%exner_pr(jc,jk,jb)) / p_nh%metrics%ddqz_z_half(jc,jk,jb) +   &
                 z_theta_v_pr_ic(jc,jk)*p_nh%metrics%d_exner_dz_ref_ic(jc,jk,jb)
             ENDDO
           ENDDO
@@ -565,8 +561,8 @@ MODULE mo_solve_nonhydro
 
               ! vertical pressure gradient * theta_v
               z_th_ddz_exner_c(jc,jk,jb) = p_nh%metrics%vwind_expl_wgt(jc,jb)* &
-                p_nh%diag%theta_v_ic(jc,jk,jb) * (z_exner_pr(jc,jk-1,jb)-      &
-                z_exner_pr(jc,jk,jb)) / p_nh%metrics%ddqz_z_half(jc,jk,jb) +   &
+                p_nh%diag%theta_v_ic(jc,jk,jb) * (p_nh%diag%exner_pr(jc,jk-1,jb)-      &
+                p_nh%diag%exner_pr(jc,jk,jb)) / p_nh%metrics%ddqz_z_half(jc,jk,jb) +   &
                 z_theta_v_pr_ic(jc,jk)*p_nh%metrics%d_exner_dz_ref_ic(jc,jk,jb)
             ENDDO
           ENDDO
@@ -703,7 +699,7 @@ MODULE mo_solve_nonhydro
           lcleanup =.FALSE.
           ! First call: compute backward trajectory with wind at time level nnow
           CALL upwind_hflux_miura3(p_patch, p_nh%prog(nnow)%rho, p_nh%prog(nnow)%vn, &
-            p_nh%prog(nnow)%vn, p_nh%diag%vt, dtime, p_int,    &
+            p_nh%prog(nnow)%vn, REAL(p_nh%diag%vt,wp), dtime, p_int,    &
             lcompute, lcleanup, 0, z_rho_e,                    &
             opt_rlstart=7, opt_lout_edge=.TRUE. )
 
@@ -711,7 +707,7 @@ MODULE mo_solve_nonhydro
           lcompute =.FALSE.
           lcleanup =.TRUE.
           CALL upwind_hflux_miura3(p_patch, p_nh%prog(nnow)%theta_v, p_nh%prog(nnow)%vn, &
-            p_nh%prog(nnow)%vn, p_nh%diag%vt, dtime, p_int,        &
+            p_nh%prog(nnow)%vn, REAL(p_nh%diag%vt,wp), dtime, p_int,        &
             lcompute, lcleanup, 0, z_theta_v_e,                    &
             opt_rlstart=7, opt_lout_edge=.TRUE. )
 
@@ -803,14 +799,14 @@ MODULE mo_solve_nonhydro
                   ! Calculate "edge values" of rho and theta_v
                   ! Note: z_rth_pr contains the perturbation values of rho and theta_v,
                   ! and the corresponding gradients are stored in z_grad_rth.
-                  z_rho_e(je,jk,jb) = p_nh%metrics%rho_ref_me(je,jk,jb)     &
-                    +                            z_rth_pr(1,ilc0,jk,ibc0)   &
-                    + distv_bary_1 * z_grad_rth(1,ilc0,jk,ibc0) &
+                  z_rho_e(je,jk,jb) = REAL(p_nh%metrics%rho_ref_me(je,jk,jb),wp) &
+                    +                      z_rth_pr(1,ilc0,jk,ibc0)              &
+                    + distv_bary_1 * z_grad_rth(1,ilc0,jk,ibc0)                  &
                     + distv_bary_2 * z_grad_rth(2,ilc0,jk,ibc0)
 
-                  z_theta_v_e(je,jk,jb) = p_nh%metrics%theta_ref_me(je,jk,jb) &
-                    +                            z_rth_pr(2,ilc0,jk,ibc0)     &
-                    + distv_bary_1 * z_grad_rth(3,ilc0,jk,ibc0)   &
+                  z_theta_v_e(je,jk,jb) = REAL(p_nh%metrics%theta_ref_me(je,jk,jb),wp) &
+                    +                          z_rth_pr(2,ilc0,jk,ibc0)                &
+                    + distv_bary_1 * z_grad_rth(3,ilc0,jk,ibc0)                        &
                     + distv_bary_2 * z_grad_rth(4,ilc0,jk,ibc0)
 
 #else
@@ -823,14 +819,14 @@ MODULE mo_solve_nonhydro
                   ! Calculate "edge values" of rho and theta_v
                   ! Note: z_rth_pr contains the perturbation values of rho and theta_v,
                   ! and the corresponding gradients are stored in z_grad_rth.
-                  z_rho_e(je,jk,jb) = p_nh%metrics%rho_ref_me(je,jk,jb)     &
-                    +                            z_rth_pr(1,ilc0,jk,ibc0)   &
-                    + z_distv_bary(je,jk,jb,1) * z_grad_rth(1,ilc0,jk,ibc0) &
+                  z_rho_e(je,jk,jb) = REAL(p_nh%metrics%rho_ref_me(je,jk,jb),wp)     &
+                    +                            z_rth_pr(1,ilc0,jk,ibc0)            &
+                    + z_distv_bary(je,jk,jb,1) * z_grad_rth(1,ilc0,jk,ibc0)          &
                     + z_distv_bary(je,jk,jb,2) * z_grad_rth(2,ilc0,jk,ibc0)
 
-                  z_theta_v_e(je,jk,jb) = p_nh%metrics%theta_ref_me(je,jk,jb) &
-                    +                            z_rth_pr(2,ilc0,jk,ibc0)     &
-                    + z_distv_bary(je,jk,jb,1) * z_grad_rth(3,ilc0,jk,ibc0)   &
+                  z_theta_v_e(je,jk,jb) = REAL(p_nh%metrics%theta_ref_me(je,jk,jb),wp) &
+                    +                            z_rth_pr(2,ilc0,jk,ibc0)              &
+                    + z_distv_bary(je,jk,jb,1) * z_grad_rth(3,ilc0,jk,ibc0)            &
                     + z_distv_bary(je,jk,jb,2) * z_grad_rth(4,ilc0,jk,ibc0)
 #endif
 
@@ -1895,7 +1891,7 @@ MODULE mo_solve_nonhydro
             &                            +z_contr_w_fl_l(jc,1   ) &
             &                            -z_contr_w_fl_l(jc,2   ))
 
-          z_exner_expl(jc,1)=             z_exner_pr(jc,1,jb)      &
+          z_exner_expl(jc,1)=     p_nh%diag%exner_pr(jc,1,jb)      &
             &      -z_beta (jc,1)*(z_flxdiv_theta(jc,1)            &
             & +p_nh%diag%theta_v_ic(jc,1,jb)*z_contr_w_fl_l(jc,1)  &
             & -p_nh%diag%theta_v_ic(jc,2,jb)*z_contr_w_fl_l(jc,2)) &
@@ -1912,7 +1908,7 @@ MODULE mo_solve_nonhydro
               &                            +z_contr_w_fl_l(jc,jk     ) &
               &                             -z_contr_w_fl_l(jc,jk+1   ))
 
-            z_exner_expl(jc,jk)=          z_exner_pr(jc,jk,jb) - z_beta(jc,jk) &
+            z_exner_expl(jc,jk)=    p_nh%diag%exner_pr(jc,jk,jb) - z_beta(jc,jk) &
               &                             *(z_flxdiv_theta(jc,jk)              &
               &   +p_nh%diag%theta_v_ic(jc,jk  ,jb)*z_contr_w_fl_l(jc,jk  )      &
               &   -p_nh%diag%theta_v_ic(jc,jk+1,jb)*z_contr_w_fl_l(jc,jk+1))     &
@@ -2247,8 +2243,12 @@ MODULE mo_solve_nonhydro
 
       IF (use_icon_comm) THEN
         IF (istep == 1 .AND. lhdiff_rcf .AND. divdamp_type >= 3) THEN
+#ifdef __MIXED_PRECISION
+          CALL sync_patch_array_mult_mp(SYNC_C,p_patch,1,1,p_nh%prog(nnew)%w,f3din1_sp=z_dwdz_dd)
+#else
           CALL icon_comm_sync(p_nh%prog(nnew)%w, z_dwdz_dd, p_patch%sync_cells_not_owned, &
             & name="solve_step1_w")
+#endif
         ELSE IF (istep == 1) THEN ! Only w is updated in the predictor step
           CALL icon_comm_sync(p_nh%prog(nnew)%w, p_patch%sync_cells_not_owned, &
             & name="solve_step1_w")
@@ -2261,7 +2261,11 @@ MODULE mo_solve_nonhydro
         IF (istep == 1) THEN
           IF (lhdiff_rcf .AND. divdamp_type >= 3) THEN
             ! Synchronize w and vertical contribution to divergence damping
+#ifdef __MIXED_PRECISION
+            CALL sync_patch_array_mult_mp(SYNC_C,p_patch,1,1,p_nh%prog(nnew)%w,f3din1_sp=z_dwdz_dd)
+#else
             CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_nh%prog(nnew)%w,z_dwdz_dd)
+#endif
           ELSE
             ! Only w needs to be synchronized
             CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%w)

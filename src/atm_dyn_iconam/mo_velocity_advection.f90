@@ -164,10 +164,15 @@ MODULE mo_velocity_advection
     iqblk => p_patch%edges%quad_blk
 
     ! Limit on vertical CFL number for applying extra diffusion
-    cfl_w_limit = 0.65_wp/dtime   ! this means 65% of the nominal CFL stability limit
+    IF (lextra_diffu) THEN
+      cfl_w_limit = 0.65_wp/dtime   ! this means 65% of the nominal CFL stability limit
 
-    ! Scaling factor for extra diffusion
-    scalfac_exdiff = 0.05_wp / ( dtime*(0.85_wp - cfl_w_limit*dtime) )
+      ! Scaling factor for extra diffusion
+      scalfac_exdiff = 0.05_wp / ( dtime*(0.85_wp - cfl_w_limit*dtime) )
+    ELSE
+      cfl_w_limit = 0.85_wp/dtime   ! this means 65% of the nominal CFL stability limit
+      scalfac_exdiff = 0._wp
+    ENDIF
 
     ! Compute w at vertices
     IF (.NOT. lvn_only) CALL cells2verts_scalar_ri(p_prog%w, p_patch, &

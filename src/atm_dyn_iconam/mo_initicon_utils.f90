@@ -2181,9 +2181,9 @@ MODULE mo_initicon_utils
       IF(ASSOCIATED(p_nh_state(jg)%diag%tracer_vi_avg)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"tracer_vi_avg: ", &
         & p_nh_state(jg)%diag%tracer_vi_avg)
-      IF(ASSOCIATED(p_nh_state(jg)%diag%exner_old)) &
-        & CALL printChecksum(prefix(1:pfx_tlen)//"exner_old: ", &
-        & p_nh_state(jg)%diag%exner_old)
+      IF(ASSOCIATED(p_nh_state(jg)%diag%exner_pr)) &
+        & CALL printChecksum(prefix(1:pfx_tlen)//"exner_pr: ", &
+        & p_nh_state(jg)%diag%exner_pr)
       IF(ASSOCIATED(p_nh_state(jg)%diag%exner_dyn_incr)) &
         & CALL printChecksum(prefix(1:pfx_tlen)//"exner_dyn_incr: ", &
         & p_nh_state(jg)%diag%exner_dyn_incr)

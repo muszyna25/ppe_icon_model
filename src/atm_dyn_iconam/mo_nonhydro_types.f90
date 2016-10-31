@@ -77,7 +77,6 @@ MODULE mo_nonhydro_types
     ! a) variables needed for intermediate storage and physics-dynamics coupling
     &  u(:,:,:),            & ! zonal wind (nproma,nlev,nblks_c)               [m/s]
     &  v(:,:,:),            & ! meridional wind (nproma,nlev,nblks_c)          [m/s]
-    &  vt(:,:,:),           & ! tangential wind (nproma,nlev,nblks_e)          [m/s]
     &  omega_z(:,:,:),      & ! relative vertical vorticity at dual grid
                               ! (nproma,nlev,nblks_v)                          [1/s]
     &  vor(:,:,:),          & ! relative vertical vorticity interpolated to cells
@@ -86,7 +85,7 @@ MODULE mo_nonhydro_types
     &  ddt_tracer_adv(:,:,:,:), &! advective tendency of tracers          [kg/kg/s]
     &  tracer_vi(:,:,:),    & ! vertically integrated tracers( mass related ones only) [kg/m**2]
     &  tracer_vi_avg(:,:,:),& ! average since last output of tracer_vi [kg/m**2]
-    &  exner_old(:,:,:),    & ! exner pres from previous step (nproma,nlev,nblks_c)
+    &  exner_pr(:,:,:),     & ! exner pressure perturbation, saved from previous step (nproma,nlev,nblks_c)
     &  temp(:,:,:),         & ! temperature (nproma,nlev,nblks_c)                 [K]
     &  tempv(:,:,:),        & ! virtual temperature (nproma,nlev,nblks_c)         [K]
     &  temp_ifc(:,:,:),     & ! temperature at half levels (nproma,nlevp1,nblks_c)[K]
@@ -159,6 +158,7 @@ MODULE mo_nonhydro_types
     , CONTIGUOUS            &
 #endif
     &  ::                   &
+    &  vt(:,:,:),           & ! tangential wind (nproma,nlev,nblks_e)          [m/s]
     &  ddt_exner_phy(:,:,:),& ! exner pressure tendency from physical forcing 
                               ! (nproma,nlev,nblks_c)                     [1/s]
     &  ddt_vn_phy(:,:,:),   & ! normal wind tendency from forcing
@@ -236,24 +236,14 @@ MODULE mo_nonhydro_types
      vwind_expl_wgt(:,:)  , & ! explicit weight in vertical wind solver (nproma,nblks_c)
      vwind_impl_wgt(:,:)  , & ! implicit weight in vertical wind solver (nproma,nblks_c)
      !
-     ! c) Fields for the reference atmosphere
-     !
-     theta_ref_mc(:,:,:) , & 
-     theta_ref_me(:,:,:) , & 
-     theta_ref_ic(:,:,:) , & 
-     tsfc_ref(:,:)       , & 
-     exner_ref_mc(:,:,:) , & 
-     rho_ref_mc  (:,:,:) , &  
-     rho_ref_me  (:,:,:) , & 
-     !
-     ! d) Fields for truly horizontal temperature diffusion
+     ! c) Fields for truly horizontal temperature diffusion
      !
      zd_intcoef(:,:) , & 
      zd_geofac(:,:)  , & 
      zd_e2cell(:,:)  , & 
      zd_diffcoef(:)  , & 
      !
-     ! e) Fields for LES Model : Anurag Dipankar, MPIM (2013-04)
+     ! d) Fields for LES Model : Anurag Dipankar, MPIM (2013-04)
      !
      ! Vertical grid related
      inv_ddqz_z_full_e(:,:,:)  , & 
@@ -265,11 +255,8 @@ MODULE mo_nonhydro_types
      ! Mixing length for Smagorinsky model
      mixing_length_sq(:,:,:)   , & 
      !
-     ! f) Other stuff
+     ! e) Other stuff
      !
-     ! Correction term needed to use perturbation density for lateral boundary nudging
-     ! (note: this field is defined on the local parent grid in case of MPI parallelization)
-     rho_ref_corr(:,:,:) , &
      ! Mask field for mountain or upper slope points
      mask_mtnpoints(:,:) , & ! 
      ! Area of subdomain for which feedback is performed; dim: (nlev)
@@ -316,9 +303,20 @@ MODULE mo_nonhydro_types
      !
      ! c) Fields for reference atmosphere
      !
+     theta_ref_mc(:,:,:) , & 
+     theta_ref_me(:,:,:) , & 
+     theta_ref_ic(:,:,:) , & 
+     tsfc_ref(:,:)       , & 
+     exner_ref_mc(:,:,:) , & 
+     rho_ref_mc  (:,:,:) , &  
+     rho_ref_me  (:,:,:) , & 
      d_exner_dz_ref_ic(:,:,:), & 
      d2dexdz2_fac1_mc(:,:,:) , & 
      d2dexdz2_fac2_mc(:,:,:) , &
+     !
+     ! Correction term needed to use perturbation density for lateral boundary nudging
+     ! (note: this field is defined on the local parent grid in case of MPI parallelization)
+     rho_ref_corr(:,:,:) , &
      !
      ! d) other stuff
      !

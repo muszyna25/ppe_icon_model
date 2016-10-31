@@ -1608,24 +1608,15 @@ MODULE mo_vertical_grid
 
       ENDIF
 
-      ALLOCATE(z_aux_e(nproma,nlev,nblks_e))
-
       IF (igradp_method <= 3) THEN
-        z_aux_e(:,:,:) = p_nh(jg)%metrics%zdiff_gradp(1,:,:,:) ! needed because coefficient fields may be single precision
-        CALL sync_patch_array(SYNC_E,p_patch(jg),z_aux_e)
-        p_nh(jg)%metrics%zdiff_gradp(1,:,:,:) = z_aux_e(:,:,:)
-
-        z_aux_e(:,:,:) = p_nh(jg)%metrics%zdiff_gradp(2,:,:,:)
-        CALL sync_patch_array(SYNC_E,p_patch(jg),z_aux_e)
-        p_nh(jg)%metrics%zdiff_gradp(2,:,:,:) = z_aux_e(:,:,:)
+        CALL sync_patch_array(SYNC_E,p_patch(jg),p_nh(jg)%metrics%zdiff_gradp(1,:,:,:))
+        CALL sync_patch_array(SYNC_E,p_patch(jg),p_nh(jg)%metrics%zdiff_gradp(2,:,:,:))
       ELSE
         DO ic = 1, 8
-          z_aux_e(:,:,:) = p_nh(jg)%metrics%coeff_gradp(ic,:,:,:)
-          CALL sync_patch_array(SYNC_E,p_patch(jg),z_aux_e)
-          p_nh(jg)%metrics%coeff_gradp(ic,:,:,:) = z_aux_e(:,:,:)
+          CALL sync_patch_array(SYNC_E,p_patch(jg),p_nh(jg)%metrics%coeff_gradp(ic,:,:,:))
         ENDDO
       ENDIF
-      DEALLOCATE(z_me,flat_idx,z_aux_e)
+      DEALLOCATE(z_me,flat_idx)
 
     ENDDO
 

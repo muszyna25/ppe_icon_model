@@ -1367,7 +1367,7 @@ MODULE mo_nonhydro_state
     &       p_diag%ddt_tracer_adv, &
     &       p_diag%tracer_vi, &
     &       p_diag%tracer_vi_avg, &
-    &       p_diag%exner_old, &
+    &       p_diag%exner_pr, &
     &       p_diag%exner_dyn_incr, &
     &       p_diag%temp, &
     &       p_diag%tempv, &
@@ -1525,11 +1525,11 @@ MODULE mo_nonhydro_state
                 &             vert_intp_type=vintp_types("P","Z","I"),          &
                 &             vert_intp_method=VINTP_METHOD_LIN ) )
 
-    ! exner_old    p_diag%exner_old(nproma,nlev,nblks_c)
+    ! exner_pr    p_diag%exner_pr(nproma,nlev,nblks_c)
     ! *** needs to be saved for restart ***
-    cf_desc    = t_cf_var('old_exner_pressure', '-', 'old exner pressure', datatype_flt)
+    cf_desc    = t_cf_var('exner_perturbation_pressure', '-', 'exner perturbation pressure', datatype_flt)
     grib2_desc = grib2_var(0, 3, 26, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( p_diag_list, 'exner_old', p_diag%exner_old,                   &
+    CALL add_var( p_diag_list, 'exner_pr', p_diag%exner_pr,                   &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c )
 
@@ -2801,7 +2801,6 @@ MODULE mo_nonhydro_state
                 &    vert_intp_method=VINTP_METHOD_LIN ),                       &
                 & isteptype=TSTEP_CONSTANT )
 
-#ifndef __MIXED_PRECISION
     ! slope of the terrain in normal direction (full level)
     ! ddxn_z_full  p_metrics%ddxn_z_full(nproma,nlev,nblks_e)
     !
@@ -2958,37 +2957,6 @@ MODULE mo_nonhydro_state
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
                 & ldims=shape3d_chalf, loutput=.FALSE.,                         &
                 & isteptype=TSTEP_CONSTANT )
-#else
-    ALLOCATE(p_metrics%ddxn_z_full(nproma,nlev,nblks_e),  &
-             p_metrics%ddxt_z_full(nproma,nlev,nblks_e),  & 
-             p_metrics%ddqz_z_full_e(nproma,nlev,nblks_e),& 
-             p_metrics%ddqz_z_half(nproma,nlevp1,nblks_c) )
-    p_metrics%ddxn_z_full   = 0._vp
-    p_metrics%ddxt_z_full   = 0._vp
-    p_metrics%ddqz_z_full_e = 0._vp
-    p_metrics%ddqz_z_half   = 0._vp
-
-    IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
-      ALLOCATE(p_metrics%ddxn_z_half_e(nproma,nlevp1,nblks_e),  &
-               p_metrics%ddxn_z_half_c(nproma,nlevp1,nblks_c),  &
-               p_metrics%ddxn_z_full_c(nproma,nlev,nblks_c),  &
-               p_metrics%ddxn_z_full_v(nproma,nlev,nblks_v),  &
-               p_metrics%ddxt_z_half_e(nproma,nlevp1,nblks_e),  &
-               p_metrics%ddxt_z_half_c(nproma,nlevp1,nblks_c),  &
-               p_metrics%ddxt_z_half_v(nproma,nlevp1,nblks_v),  &
-               p_metrics%ddxt_z_full_c(nproma,nlev,nblks_c),  & 
-               p_metrics%ddxt_z_full_v(nproma,nlev,nblks_v) )
-      p_metrics%ddxn_z_half_e = 0._vp
-      p_metrics%ddxn_z_half_c = 0._vp
-      p_metrics%ddxn_z_full_c = 0._vp
-      p_metrics%ddxn_z_full_v = 0._vp
-      p_metrics%ddxt_z_half_e = 0._vp
-      p_metrics%ddxt_z_half_c = 0._vp
-      p_metrics%ddxt_z_half_v = 0._vp
-      p_metrics%ddxt_z_full_c = 0._vp
-      p_metrics%ddxt_z_full_v = 0._vp
-    ENDIF
-#endif
 
 
     ! functional determinant of the metrics [sqrt(gamma)]
@@ -3116,8 +3084,6 @@ MODULE mo_nonhydro_state
                 & ldims=shape2d_c )
 
 
-      ! If the __MIXED_PRECISION flag is set, the single precision fields use a direct ALLOCATE
-#ifndef __MIXED_PRECISION
       ! weighting factor for interpolation from full to half levels
       ! wgtfac_c     p_metrics%wgtfac_c(nproma,nlevp1,nblks_c)
       !
@@ -3239,28 +3205,6 @@ MODULE mo_nonhydro_state
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,         &
                   & ldims=shape3d_c, loutput=.FALSE.,                               &
                   & isteptype=TSTEP_CONSTANT )
-#else
-      ALLOCATE(p_metrics%inv_ddqz_z_full(nproma,nlev,nblks_c), & 
-               p_metrics%wgtfac_c(nproma,nlevp1,nblks_c),      &
-               p_metrics%wgtfac_e(nproma,nlevp1,nblks_e),      &
-               p_metrics%wgtfacq_c(nproma,3,nblks_c),          &
-               p_metrics%wgtfacq_e(nproma,3,nblks_e),          &
-               p_metrics%wgtfacq1_c(nproma,3,nblks_c),         &
-               p_metrics%wgtfacq1_e(nproma,3,nblks_e),         &
-               p_metrics%coeff_gradekin(nproma,2,nblks_e),     &
-               p_metrics%coeff1_dwdz(nproma,nlev,nblks_c),     & 
-               p_metrics%coeff2_dwdz(nproma,nlev,nblks_c)      )
-      p_metrics%inv_ddqz_z_full = 0._vp
-      p_metrics%wgtfac_c        = 0._vp
-      p_metrics%wgtfac_e        = 0._vp
-      p_metrics%wgtfacq_c       = 0._vp
-      p_metrics%wgtfacq_e       = 0._vp
-      p_metrics%wgtfacq1_c      = 0._vp
-      p_metrics%wgtfacq1_e      = 0._vp
-      p_metrics%coeff_gradekin  = 0._vp
-      p_metrics%coeff1_dwdz     = 0._vp
-      p_metrics%coeff2_dwdz     = 0._vp
-#endif
 
       ! Reference atmosphere field exner
       ! exner_ref_mc  p_metrics%exner_ref_mc(nproma,nlev,nblks_c)
@@ -3290,7 +3234,6 @@ MODULE mo_nonhydro_state
         ! pressure gradient computation
         ! zdiff_gradp  p_metrics%zdiff_gradp(2,nproma,nlev,nblks_e)
         !
-#ifndef __MIXED_PRECISION
         cf_desc    = t_cf_var('Height_differences', 'm',                          &
         &                     'Height differences', datatype_flt)
         grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
@@ -3298,15 +3241,10 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,     &
                     & ldims=shape3d_esquared, loutput=.FALSE.,                    &
                     & isteptype=TSTEP_CONSTANT  )
-#else
-        ALLOCATE(p_metrics%zdiff_gradp(2,nproma,nlev,nblks_e))
-        p_metrics%zdiff_gradp = 0._vp
-#endif
       ELSE
         ! Coefficients for cubic interpolation of Exner pressure
         ! coeff_gradp  p_metrics%coeff_gradp(8,nproma,nlev,nblks_e)
         !
-#ifndef __MIXED_PRECISION
         cf_desc    = t_cf_var('Interpolation_coefficients', '-',                  &
         &                     'Interpolation coefficients', datatype_flt)
         grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
@@ -3314,17 +3252,12 @@ MODULE mo_nonhydro_state
                     & GRID_UNSTRUCTURED_EDGE, ZA_HYBRID, cf_desc, grib2_desc,     &
                     & ldims=shape3d_e8, loutput=.FALSE.,                          &
                     & isteptype=TSTEP_CONSTANT  )
-#else
-        ALLOCATE(p_metrics%coeff_gradp(8,nproma,nlev,nblks_e))
-        p_metrics%coeff_gradp = 0._vp
-#endif
       ENDIF
 
 
       ! Extrapolation factor for Exner pressure
       ! exner_exfac  p_metrics%exner_exfac(nproma,nlev,nblks_c)
       !
-#ifndef __MIXED_PRECISION
       cf_desc    = t_cf_var('Extrapolation_factor_for_Exner_pressure', '-',     &
       &                     'Extrapolation factor for Exner pressure', datatype_flt)
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -3332,10 +3265,6 @@ MODULE mo_nonhydro_state
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,     &
                   & ldims=shape3d_c, loutput=.FALSE.,                           &
                   & isteptype=TSTEP_CONSTANT )
-#else
-      ALLOCATE(p_metrics%exner_exfac(nproma,nlev,nblks_c))
-      p_metrics%exner_exfac = 0._vp
-#endif
 
       ! Reference atmosphere field theta
       ! theta_ref_mc  p_metrics%theta_ref_mc(nproma,nlev,nblks_c)
@@ -3409,7 +3338,6 @@ MODULE mo_nonhydro_state
                   & isteptype=TSTEP_CONSTANT )
 
 
-#ifndef __MIXED_PRECISION
       ! Reference atmosphere field exner
       ! d_exner_dz_ref_ic  p_metrics%d_exner_dz_ref_ic(nproma,nlevp1,nblks_c)
       !
@@ -3446,16 +3374,6 @@ MODULE mo_nonhydro_state
                     & ldims=shape3d_c,  loutput=.FALSE.,                          &
                     & isteptype=TSTEP_CONSTANT )
       ENDIF
-#else
-      ALLOCATE(p_metrics%d_exner_dz_ref_ic(nproma,nlevp1,nblks_c))
-      p_metrics%d_exner_dz_ref_ic = 0._vp
-      IF (igradp_method <= 3) THEN
-        ALLOCATE(p_metrics%d2dexdz2_fac1_mc(nproma,nlev,nblks_c), &
-                 p_metrics%d2dexdz2_fac2_mc(nproma,nlev,nblks_c)  )
-        p_metrics%d2dexdz2_fac1_mc = 0._vp
-        p_metrics%d2dexdz2_fac2_mc = 0._vp
-      ENDIF
-#endif
 
       ! mask field that excludes boundary halo points
       ! mask_prog_halo_c  p_metrics%mask_prog_halo_c(nproma,nblks_c)
