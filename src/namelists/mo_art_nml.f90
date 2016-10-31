@@ -241,28 +241,30 @@ CONTAINS
     ENDIF
 
     ! Emission paths and file
-    DO jg = 1,max_dom
-      IF (TRIM(cart_emiss_xml_path)//TRIM(cart_emiss_xml_file(jg)) /= '') THEN
-        INQUIRE(file = TRIM(cart_emiss_xml_path)//TRIM(cart_emiss_xml_file(jg)), EXIST = l_exist)
-  
-        IF (l_exist) THEN
-          INQUIRE(DIRECTORY = TRIM(cart_emiss_base_path), EXIST = l_dir_exist)
-  
-          IF (.NOT. l_dir_exist) THEN
-            CALL finish('mo_art_nml:read_art_namelist',  &
-                        'Directory '//TRIM(cart_emiss_base_path)//  &
-                        & ' could not be found. Check cart_emiss_base_path.')
-          END IF
+    IF (TRIM(cart_emiss_xml_path) /= '') THEN
+      DO jg = 1,max_dom
+        IF (TRIM(cart_emiss_xml_file(jg)) /= '') THEN
+          INQUIRE(file = TRIM(cart_emiss_xml_path)//'/'//TRIM(cart_emiss_xml_file(jg)), EXIST = l_exist)
     
-        ELSE
-          WRITE(str_dom,'(I2)') jg
-          CALL finish('mo_art_nml:read_art_namelist',  &
-                      TRIM(cart_emiss_xml_path)//TRIM(cart_emiss_xml_file(jg))//  &
-                      & ' could not be found for domain '//str_dom// &
-                      & '. Check cart_emiss_xml_path and _file.')
+          IF (l_exist) THEN
+            INQUIRE(DIRECTORY = TRIM(cart_emiss_base_path), EXIST = l_dir_exist)
+    
+            IF (.NOT. l_dir_exist) THEN
+              CALL finish('mo_art_nml:read_art_namelist',  &
+                          'Directory '//TRIM(cart_emiss_base_path)//  &
+                          & ' could not be found. Check cart_emiss_base_path.')
+            END IF
+      
+          ELSE
+            WRITE(str_dom,'(I2)') jg
+            CALL finish('mo_art_nml:read_art_namelist',  &
+                        TRIM(cart_emiss_xml_path)//TRIM(cart_emiss_xml_file(jg))//  &
+                        & ' could not be found for domain '//str_dom// &
+                        & '. Check cart_emiss_xml_path and _file.')
+          END IF
         END IF
-      END IF
-    END DO
+      END DO
+    END IF
 
     !----------------------------------------------------
     ! 5. Fill the configuration state
