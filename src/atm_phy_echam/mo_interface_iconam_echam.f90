@@ -71,6 +71,9 @@ MODULE mo_interface_iconam_echam
 
   USE mo_coupling_config       ,ONLY: is_coupled_run
   USE mo_parallel_config       ,ONLY: nproma
+!++jsr
+  USE mo_master_config         ,ONLY: isRestart
+!--jsr
   USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi
   USE mo_nonhydrostatic_config ,ONLY: lhdiff_rcf
   USE mo_diffusion_config      ,ONLY: diffusion_config
@@ -87,6 +90,9 @@ MODULE mo_interface_iconam_echam
   USE mo_nonhydro_types        ,ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nh_diagnose_pres_temp ,ONLY: diagnose_pres_temp
   USE mo_physical_constants    ,ONLY: rd, p0ref, rd_o_cpd, vtmpc1, grav, amco2, amd
+!++jsr
+  USE mo_physical_constants    ,ONLY: amo3  
+!--jsr
 
   USE mo_datetime              ,ONLY: t_datetime
   USE mo_echam_phy_memory      ,ONLY: prm_field, prm_tend
@@ -101,6 +107,10 @@ MODULE mo_interface_iconam_echam
     &                                 timer_echam_bcs, timer_echam_phy, timer_coupling,                &
     &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
   USE mo_bc_greenhouse_gases   ,ONLY: ghg_co2mmr
+!++jsr
+  USE mo_cariolle_types        ,ONLY: avi, t_time_interpolation
+  USE mo_time_interpolation_weights  ,ONLY: wi_limm
+!--jsr
   IMPLICIT NONE
 
   PRIVATE
@@ -175,6 +185,12 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: method_name = "interface_iconam_echam"
 
+!++jsr
+    ! Temporary variables for Cariolle scheme (ozone)
+    REAL(wp)    :: vmr_o3(nproma,nlev)
+    TYPE(t_time_interpolation) :: time_interpolation
+    EXTERNAL       lat_weight_li, pressure_weight_li
+!--jsr
     !-------------------------------------------------------------------------------------
 
     IF (ltimer) CALL timer_start(timer_dyn2phy)
@@ -380,6 +396,30 @@ CONTAINS
     END DO ! jb
 !$OMP END DO
 !$OMP END PARALLEL
+
+!++ jsr: Initialize ozone mass mixing ratios here. An approximative initialization 
+!        that considers the atmosphere as being dry is enough.
+    IF (.NOT.isRestart().AND. .NOT. avi%l_initialized_o3) THEN
+      avi%ldown=.TRUE.
+      time_interpolation%imonth1=wi_limm%inm1
+      time_interpolation%imonth2=wi_limm%inm2
+      time_interpolation%weight1=wi_limm%wgt1
+      time_interpolation%weight2=wi_limm%wgt2
+      write(0,*) 'time_interpolation=',time_interpolation
+      DO jb = i_startblk,i_endblk
+        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+        avi%pres(jcs:jce,:)=prm_field(jg)%presm_old(jcs:jce,:,jb)
+        avi%cell_center_lat(jcs:jce)=patch%cells%center(jcs:jce,jb)%lat
+        CALL cariolle_init_ozone(                                &
+          jcs,                jce,                nproma,        &
+          nlev,               time_interpolation, lat_weight_li, &
+          pressure_weight_li, avi,                vmr_o3         )
+!!$        write(0,*) 'vmr_o3(jcs,:)=', vmr_o3(jcs,:)
+        pt_prog_new_rcf% tracer(jcs:jce,:,jb,4)=vmr_o3(jcs:jce,:)*amo3/amd
+      END DO
+      avi%l_initialized_o3=.TRUE.
+    END IF
+!-- jsr
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE

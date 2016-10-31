@@ -11,6 +11,7 @@ REAL(wp), POINTER :: pres(:,:)
 REAL(wp), POINTER :: o3_vmr(:,:)
 REAL(wp), POINTER :: cell_center_lat(:)
 LOGICAL           :: ldown
+LOGICAL           :: l_initialized_o3=.FALSE.
 END type t_avi
 TYPE(t_avi)       :: avi
 TYPE t_pvi
@@ -24,7 +25,7 @@ LOGICAL           :: l_lat_sn
 END type t_pvi
 TYPE(t_pvi)       :: pvi
 TYPE t_time_interpolation
-INTEGER(wi), POINTER :: imonth1,imonth2
-REAL(wp), POINTER :: weight1,weight2
+INTEGER(wi)          :: imonth1,imonth2
+REAL(wp)             :: weight1,weight2
 END TYPE t_time_interpolation
 END MODULE mo_cariolle_types

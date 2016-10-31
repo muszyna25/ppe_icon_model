@@ -408,31 +408,6 @@ CONTAINS
     CALL cariolle_init( openInputFile_wrap,       closeFile_wrap,             &
                       & read_bcast_real_3d_wrap,  read_bcast_real_1d_wrap,    &
                       & nproma,                   nlev                        )
-    time_interpolation%imonth1=wi_limm%inm1
-    time_interpolation%imonth2=wi_limm%inm2
-    time_interpolation%weight1=wi_limm%wgt1
-    time_interpolation%weight2=wi_limm%wgt2
-DO jg=1,ndomain
-prm_field(jg)%qtrc(:,:,:,4)=0.001_wp
-END DO
-    DO jg=1,ndomain
-      nblks = p_patch(jg)%nblks_c
-      DO jb = 1,nblks
-        IF (jb < nblks) THEN
-          kproma = nproma 
-        ELSE
-          kproma = p_patch(jg)%npromz_c
-        END IF
-        avi%cell_center_lat(1:kproma)=p_patch(jg)%cells%center(1:kproma,jb)%lat
-        DO ilev=1,nlev
-          avi%pres(1:kproma,1:nlev)=100000._wp*exp(-DBLE(nlev-ilev)/7._wp)
-        END DO
-        CALL cariolle_init_ozone( &
-                           1,              kproma,              nproma,        &
-                           nlev,           time_interpolation,  lat_weight_li, &
-                           pressure_weight_li, avi, prm_field(jg)%qtrc(1:kproma,1:nlev,jb,4))
-      END DO
-    END DO
 !--jsr
 
 #ifndef __NO_JSBACH__

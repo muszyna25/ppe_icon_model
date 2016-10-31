@@ -118,5 +118,5 @@ DO ic=jcb,jce
                    & al8(ic,ilev)*avi%o3_vmr(ic,ilev)
   END DO
 END DO
-write(*,*) 'do3dt(1,5)=',do3dt(1,5)
+!!$write(*,*) 'do3dt(1,5)=',do3dt(1,5)
 END SUBROUTINE cariolle_do3dt

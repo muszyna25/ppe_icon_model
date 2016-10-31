@@ -37,7 +37,7 @@ MODULE mo_echam_phy_main
   USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
     &                               iqv, iqc, iqi, iqt
 !++jsr
-  USE mo_run_config,           ONLY: io3
+  USE mo_run_config,          ONLY: io3
 !--jsr
   USE mo_dynamics_config,     ONLY: iequations
   USE mo_ext_data_state,      ONLY: ext_data
@@ -1006,13 +1006,15 @@ CONTAINS
     avi%tmprt(:,:)=field%temp(:,:,jb)
     avi%vmr2molm2(jcs:jce,:)=zmair(jcs:jce,:)/amd
     avi%pres(jcs:jce,:)=field%presm_old(jcs:jce,:,jb)
-    avi%o3_vmr(:,:)=field%qtrc(jcs:jce,:,jb,4)*amd/amo3
     avi%cell_center_lat(:)=p_patch(jg)%cells%center(:,jb)%lat
     avi%ldown=.TRUE.
     time_interpolation%imonth1=wi_limm%inm1
     time_interpolation%imonth2=wi_limm%inm2
     time_interpolation%weight1=wi_limm%wgt1
     time_interpolation%weight2=wi_limm%wgt2
+! set the initialization flag only here: If we are in a restart, it is set to
+! .TRUE. so that the initialization is not called later
+    avi%o3_vmr(:,:)=field%qtrc(jcs:jce,:,jb,4)*amd/amo3
     CALL cariolle_do3dt(jcs,                jce,                nbdim,          &
                        &nlev,               time_interpolation, lat_weight_li,  &
                        &pressure_weight_li, avi,                do3dt           )
