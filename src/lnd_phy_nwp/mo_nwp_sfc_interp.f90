@@ -20,6 +20,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
+#include "consistent_fma.inc"
 MODULE mo_nwp_sfc_interp
 
   USE mo_kind,                ONLY: wp
@@ -96,6 +97,7 @@ CONTAINS
     END IF
 
     ! Vertical interpolation indices and weights
+!PREVENT_INCONSISTENT_IFORT_FMA
     DO jk = 1, nlev_soil-1
       IF (zml_soil(jk) < zsoil_ifs(1)) THEN
         idx0(jk)       = 0
@@ -115,6 +117,7 @@ CONTAINS
       ENDIF
     ENDDO
 
+!PREVENT_INCONSISTENT_IFORT_FMA
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,nlen,wfac,tcorr1,tcorr2,snowdep,wfac_snow)
     DO jb = 1, p_patch%nblks_c
