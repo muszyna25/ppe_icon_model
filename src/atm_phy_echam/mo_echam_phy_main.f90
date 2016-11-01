@@ -1003,22 +1003,20 @@ CONTAINS
     END IF
 
 !++jsr
-    avi%tmprt(:,:)=field%temp(:,:,jb)
+    avi%tmprt(jcs:jce,:)=field%temp(jcs:jce,:,jb)
     avi%vmr2molm2(jcs:jce,:)=zmair(jcs:jce,:)/amd
     avi%pres(jcs:jce,:)=field%presm_old(jcs:jce,:,jb)
-    avi%cell_center_lat(:)=p_patch(jg)%cells%center(:,jb)%lat
+    avi%cell_center_lat(jcs:jce)=p_patch(jg)%cells%center(jcs:jce,jb)%lat
     avi%ldown=.TRUE.
     time_interpolation%imonth1=wi_limm%inm1
     time_interpolation%imonth2=wi_limm%inm2
     time_interpolation%weight1=wi_limm%wgt1
     time_interpolation%weight2=wi_limm%wgt2
-! set the initialization flag only here: If we are in a restart, it is set to
-! .TRUE. so that the initialization is not called later
-    avi%o3_vmr(:,:)=field%qtrc(jcs:jce,:,jb,4)*amd/amo3
+    avi%o3_vmr(jcs:jce,:)=field%qtrc(jcs:jce,:,jb,io3)*amd/amo3
     CALL cariolle_do3dt(jcs,                jce,                nbdim,          &
                        &nlev,               time_interpolation, lat_weight_li,  &
                        &pressure_weight_li, avi,                do3dt           )
-    tend% qtrc(jcs:jce,:,jb,4) = tend% qtrc(jcs:jce,:,jb,4) + do3dt(jcs:jce,:)*amo3/amd
+    tend% qtrc(jcs:jce,:,jb,io3) = tend% qtrc(jcs:jce,:,jb,io3) + do3dt(jcs:jce,:)*amo3/amd
 !--jsr
 
     !-------------------------------------------------------------------

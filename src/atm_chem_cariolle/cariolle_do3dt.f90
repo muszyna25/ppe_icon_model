@@ -109,8 +109,8 @@ DO ilev=1,nlev
   END DO
 END DO
 
-DO ic=jcb,jce
-  DO ilev=1,nlev
+DO ilev=1,nlev
+  DO ic=jcb,jce
     do3dt(ic,ilev) = al1(ic,ilev) + &
                    & al2(ic,ilev)*(avi%o3_vmr(ic,ilev)-al3(ic,ilev)) + &
                    & al4(ic,ilev)*(avi%tmprt(ic,ilev)-al5(ic,ilev)) + &

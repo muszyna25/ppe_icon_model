@@ -73,6 +73,7 @@ MODULE mo_interface_iconam_echam
   USE mo_parallel_config       ,ONLY: nproma
 !++jsr
   USE mo_master_config         ,ONLY: isRestart
+  USE mo_run_config            ,ONLY: io3
 !--jsr
   USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi
   USE mo_nonhydrostatic_config ,ONLY: lhdiff_rcf
@@ -397,7 +398,8 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-!++ jsr: Initialize ozone mass mixing ratios here. An approximative initialization 
+!++ jsr: Initialize ozone mass mixing ratios for Cariolle scheme here. 
+!        An approximative initialization 
 !        that considers the atmosphere as being dry is enough.
     IF (.NOT.isRestart().AND. .NOT. avi%l_initialized_o3) THEN
       avi%ldown=.TRUE.
@@ -415,7 +417,7 @@ CONTAINS
           nlev,               time_interpolation, lat_weight_li, &
           pressure_weight_li, avi,                vmr_o3         )
 !!$        write(0,*) 'vmr_o3(jcs,:)=', vmr_o3(jcs,:)
-        pt_prog_new_rcf% tracer(jcs:jce,:,jb,4)=vmr_o3(jcs:jce,:)*amo3/amd
+        pt_prog_new_rcf% tracer(jcs:jce,:,jb,io3)=vmr_o3(jcs:jce,:)*amo3/amd
       END DO
       avi%l_initialized_o3=.TRUE.
     END IF
