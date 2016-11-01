@@ -151,7 +151,7 @@ MODULE mo_opt_diagnostics
     !
     ! echam physics
     &  cosmu0(:,:),     &
-    &  swdnflxtoa(:,:), &
+    &  flxdwswtoa(:,:), &
     &  relhum(:,:,:),   &
     &  aclc(:,:,:),     &
     &  aclcov(:,:),     &
@@ -700,7 +700,7 @@ CONTAINS
                    &         'downward shortwave flux at the top of the atmosphere (time mean)', &
                    &         datatype_flt)
        grib2_desc = grib2_var(0,4,7, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( list, 'rsdt_m', p_acc%swdnflxtoa,                                &
+       CALL add_var( list, 'rsdt_m', p_acc%flxdwswtoa,                                &
                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
                    & cf_desc, grib2_desc,                                             &
                    & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean") )
@@ -1586,7 +1586,7 @@ CONTAINS
     END IF
 
     IF (acc%l_cosmu0_m)   CALL add_fields(acc%cosmu0         , prm_field(jg)%cosmu0         , subset)
-    IF (acc%l_rsdt_m)     CALL add_fields(acc%swdnflxtoa     , prm_field(jg)%swdnflxtoa     , subset)
+    IF (acc%l_rsdt_m)     CALL add_fields(acc%flxdwswtoa     , prm_field(jg)%flxdwswtoa     , subset)
     IF (acc%l_hur_m)      CALL add_fields(acc%relhum         , prm_field(jg)%relhum         , subset, levels=levels)
     IF (acc%l_cl_m)       CALL add_fields(acc%aclc           , prm_field(jg)%aclc           , subset, levels=levels)
     IF (acc%l_clt_m)      CALL add_fields(acc%aclcov         , prm_field(jg)%aclcov         , subset)
@@ -1680,7 +1680,7 @@ CONTAINS
     END IF
 
     IF (acc%l_cosmu0_m)   acc%cosmu0          = 0.0_wp
-    IF (acc%l_rsdt_m)     acc%swdnflxtoa      = 0.0_wp
+    IF (acc%l_rsdt_m)     acc%flxdwswtoa      = 0.0_wp
     IF (acc%l_hur_m)      acc%relhum          = 0.0_wp
     IF (acc%l_cl_m)       acc%aclc            = 0.0_wp
     IF (acc%l_clt_m)      acc%aclcov          = 0.0_wp
@@ -1775,7 +1775,7 @@ CONTAINS
     END IF
 
     IF (acc%l_cosmu0_m)   acc%cosmu0          = acc%cosmu0          *xfactor
-    IF (acc%l_rsdt_m)     acc%swdnflxtoa      = acc%swdnflxtoa      *xfactor
+    IF (acc%l_rsdt_m)     acc%flxdwswtoa      = acc%flxdwswtoa      *xfactor
     IF (acc%l_hur_m)      acc%relhum          = acc%relhum          *xfactor
     IF (acc%l_cl_m)       acc%aclc            = acc%aclc            *xfactor
     IF (acc%l_clt_m)      acc%aclcov          = acc%aclcov          *xfactor

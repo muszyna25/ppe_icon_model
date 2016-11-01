@@ -53,7 +53,7 @@ MODULE mo_echam_phy_main
   USE mo_surface_diag,        ONLY: nsurf_diag
   USE mo_cloud,               ONLY: cloud
   USE mo_cover,               ONLY: cover
-  USE mo_radheating,          ONLY: radheating
+  USE mo_radiation,           ONLY: radheat
   USE mo_psrad_radiation,     ONLY: psrad_radiation
   USE mo_radiation_config,    ONLY: tsi, izenith, irad_o3
   USE mo_vdiff_config,        ONLY: vdiff_config
@@ -406,7 +406,7 @@ CONTAINS
        IF (ltrig_rad) THEN
 
           ! store tsfc_rad of this radiatiative transfer timestep in tsfc_radt,
-          ! so that it can be reused in radheating in the other timesteps
+          ! so that it can be reused in radheat in the other timesteps
           field%tsfc_radt(jcs:jce,jb) = field%tsfc_rad(jcs:jce,jb)
 
           ! to do (for implementing seasonal cycle):
@@ -545,17 +545,17 @@ CONTAINS
       ! - compute orbit position at datetime
 
       ! - solar incoming flux at TOA
-      zi0(jcs:jce) = MAX(0._wp,field%cosmu0(jcs:jce,jb)) * ztsi  ! instantaneous for radheating
+      zi0(jcs:jce) = MAX(0._wp,field%cosmu0(jcs:jce,jb)) * ztsi  ! instantaneous for radheat
 
-      field% swdnflxtoa(jcs:jce,jb) = zi0 (jcs:jce)               ! (to be accumulated for output)
+      field% flxdwswtoa(jcs:jce,jb) = zi0 (jcs:jce)               ! (to be accumulated for output)
 
-      ! radheating first computes the shortwave and longwave radiation for the current time step from transmissivity and
+      ! radheat first computes the shortwave and longwave radiation for the current time step from transmissivity and
       ! the longwave flux at the radiation time step and, from there, the radiative heating due to sw and lw radiation.
       ! If radiation is called every time step, the longwave flux is not changed.
 
       IF (ltimer) CALL timer_start(timer_radheat)
 
-      CALL radheating (                                   &
+      CALL radheat (                                   &
         !
         ! input
         ! -----
@@ -565,10 +565,18 @@ CONTAINS
         & kbdim      = nbdim,                          &! in    dimension size
         & klev       = nlev,                           &! in    vertical dimension size
         & klevp1     = nlevp1,                         &! in    vertical dimension size
+        & ntiles     = 1,                              &! in    number of tiles of sfc flux fields
+        & ntiles_wtr =0,                               &! in    number of extra tiles for ocean and lakes
+        & pmair      = field%mair             (:,:,jb),&! in    layer air mass            [kg/m2]
+        & pqv        = field%qtrc             (:,:,jb,iqv),&!in specific moisture         [kg/kg]
+        & pcd        = zcd                            ,&! in    specific heat of dry air  [J/kg/K]
+        & pcv        = zcv                            ,&! in    specific heat of vapor    [J/kg/K]
         & pi0        = zi0                      (:)   ,&! in    solar incoming flux at TOA [W/m2]
         & pemiss     = ext_data(jg)%atm%emis_rad(:,jb),&! in    lw sfc emissivity
         & ptsfc      = field%tsfc_rad (:,jb)          ,&! in    rad. surface temperature now         [K]
         & ptsfctrad  = field%tsfc_radt(:,jb)          ,&! in    rad. surface temp. at last rad. step [K]
+        & jg         = jg                             ,&! in    domain index
+        & krow       = jb                             ,&! in    block index
         & ptrmsw     = field%swtrmall         (:,:,jb),&! in    shortwave net transmissivity at last rad. step []
         & pflxlw     = field%lwflxall         (:,:,jb),&! in    longwave net flux at last rad. step [W/m2]
         & lwflx_up_sfc_rs = field%lwflxupsfc  (:,  jb),&! in    surface longwave upward flux at last rad. step [W/m2]
@@ -578,37 +586,13 @@ CONTAINS
         ! output
         ! ------
         !
-        ! heating in layer
-        & pq_rsw        = zq_rsw                (:,:) ,&! out   rad. heating by SW           [W/m2]
-        & pq_rlw        = zq_rlw                (:,:) ,&! out   rad. heating by LW           [W/m2]
-        !
-        ! TOA all-sky fluxes
-        & pswdnflxtoa   = field%swdnflxtoa      (:,jb),&! out   all-sky   SW downward flux at TOA      [W/m2]
-        & pswupflxtoa   = field%swupflxtoa      (:,jb),&! out   all-sky   SW upward   flux at TOA      [W/m2]
-        & pswflxtoa     = field%swflxtoa        (:,jb),&! out   all-sky   SW net      flux at TOA      [W/m2]
-        & plwupflxtoa   = field%lwupflxtoa      (:,jb),&! out   all-sky   LW upward   flux at TOA      [W/m2]
-        & plwflxtoa     = field%lwflxtoa        (:,jb),&! out   all-sky   LW net      flux at TOA      [W/m2]
-        !
-        ! TOA clear-sky fluxes
-        & pswupflxtoacs = field%swupflxtoacs    (:,jb),&! out   clear-sky SW upward   flux at TOA      [W/m2]
-        & pswflxtoacs   = field%swflxtoacs      (:,jb),&! out   clear-sky SW net      flux at TOA      [W/m2]
-        & plwupflxtoacs = field%lwupflxtoacs    (:,jb),&! out   clear-sky LW upward   flux at TOA      [W/m2]
-        & plwflxtoacs   = field%lwflxtoacs      (:,jb),&! out   clear-sky LW net      flux at TOA      [W/m2]
-        !
-        ! Surface all-sky fluxes
-        & pswdnflxsfc   = field%swdnflxsfc      (:,jb),&! out   all-sky   SW downward flux at SFC      [W/m2]
-        & pswupflxsfc   = field%swupflxsfc      (:,jb),&! out   all-sky   SW upward   flux at SFC      [W/m2]
-        & pswflxsfc     = field%swflxsfc        (:,jb),&! out   all-sky   SW net      flux at SFC      [W/m2]
-        & plwdnflxsfc   = field%lwdnflxsfc      (:,jb),&! out   all-sky   LW downward flux at SFC      [W/m2]
-        & plwupflxsfc   = field%lwupflxsfc      (:,jb),&! out   all-sky   LW upward   flux at SFC      [W/m2]
-        & plwflxsfc     = field%lwflxsfc        (:,jb),&! out   all-sky   LW net      flux at SFC      [W/m2]
-        !
-        ! Surface clear-sky fluxes
-        & pswdnflxsfccs = field%swdnflxsfccs    (:,jb),&! out   clear-sky SW downward flux at SFC      [W/m2]
-        & pswupflxsfccs = field%swupflxsfccs    (:,jb),&! out   clear-sky SW upward   flux at SFC      [W/m2]
-        & pswflxsfccs   = field%swflxsfccs      (:,jb),&! out   clear-sky SW net      flux at SFC      [W/m2]
-        & plwdnflxsfccs = field%lwdnflxsfccs    (:,jb),&! out   clear-sky LW downward flux at SFC      [W/m2]
-        & plwflxsfccs   = field%lwflxsfccs      (:,jb) )! out   clear-sky LW net      flux at SFC      [W/m2]
+        & pdtdtradsw = zq_rsw                   (:,:) ,&! out   rad. heating by SW           [W/m2]
+        & pdtdtradlw = zq_rlw                   (:,:) ,&! out   rad. heating by LW           [W/m2]
+        & pflxsfcsw  = field%swflxsfc           (:,jb),&! out   shortwave surface net flux   [W/m2]
+        & pflxsfclw  = field%lwflxsfc           (:,jb),&! out   longwave surface net flux    [W/m2]
+        & lwflx_up_sfc = field%lwupflxsfc       (:,jb),&! out   longwave surface upward flux [W/m2]
+        & pflxtoasw  = field%swflxtoa           (:,jb),&! out   shortwave toa net flux       [W/m2]
+        & pflxtoalw  = field%lwflxtoa           (:,jb) )! out   longwave toa net flux        [W/m2]
 
       IF (ltimer) CALL timer_stop(timer_radheat)
 
@@ -973,7 +957,7 @@ CONTAINS
       ! Heating due to the fact that surface model only used part of longwave radiation to compute new surface temperature
       zq_rlw_impl(jcs:jce) =                                                  &
         & ( (field%lwflxall(jcs:jce,nlev,jb) - field%lwflxsfc(jcs:jce,jb)) ) &  ! new heating from new lwflxsfc
-        & - zq_rlw(jcs:jce,nlev)                                                ! old heating from radheating
+        & - zq_rlw(jcs:jce,nlev)                                                ! old heating from radheat
 
       ! Heating accumulated
       zq_phy(jcs:jce,nlev) = zq_phy(jcs:jce,nlev) + zq_rlw_impl(jcs:jce)

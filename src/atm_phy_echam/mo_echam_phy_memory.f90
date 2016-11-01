@@ -174,6 +174,7 @@ MODULE mo_echam_phy_memory
       & cosmu0_rad  (:,  :),  &!< [ ]    cos of zenith angle mu0 at radiation time step
       & daylght_frc (:,  :),  &!< [ ]    daylight fraction at each grid point
       & daylght_frc_rad (:,:),&!< [ ]    daylight fraction at each grid point for radiation time step
+      & flxdwswtoa  (:,  :),  &!< [W/m2] downward shortwave flux at TOA
       !
       ! shortwave surface fluxes (updated every time step)
       & vissfc      (:,  :),  &!< [ ]    net shortwave radiation in VIS (positive downward)
@@ -199,39 +200,6 @@ MODULE mo_echam_phy_memory
       & lwflxupsfc  (:,  :),  &!< [W/m2] upward longwave flux at surface, all-sky
       !
       & o3          (:,:,:)    !< temporary set ozone mass mixing ratio  
-      !
-    REAL(wp),POINTER ::     &
-      ! net fluxes at TOA and surface
-      & swflxsfc    (:,:),     &!< [W/m2] shortwave net flux at surface
-      & swflxsfc_tile(:,:,:),  &!< [W/m2] shortwave net flux at surface
-      & lwflxsfc    (:,:),     &!< [W/m2] longwave net flux at surface
-      & lwflxsfc_tile(:,:,:),  &!< [W/m2] longwave net flux at surface
-      & swflxtoa    (:,:),     &!< [W/m2] shortwave net flux at TOA 
-      & lwflxtoa    (:,:),     &!< [W/m2] shortwave net flux at TOA
-      ! directed fluxes
-      & swdnflxtoa  (:,:),     &!< [W/m2] downward shortwave flux at TOA
-      & swupflxtoa  (:,:),     &!< [W/m2] upward   shortwave flux at TOA 
-      & swdnflxsfc  (:,:),     &!< [W/m2] downward shortwave flux at surface
-      & swupflxsfc  (:,:),     &!< [W/m2] upward   shortwave flux at surface 
-      & lwupflxtoa  (:,:),     &!< [W/m2] upward   longwave  flux at TOA 
-      & lwdnflxsfc  (:,:),     &!< [W/m2] downward longwave  flux at surface
-      & lwupflxsfc  (:,:),     &!< [W/m2] upward   longwave  flux at surface 
-      !
-      ! clear-sky net fluxes at TOA and surface
-      & swflxsfccs  (:,:),     &!< [W/m2] clear-sky shortwave net flux at surface
-      & lwflxsfccs  (:,:),     &!< [W/m2] clear-sky longwave  net flux at surface
-      & swflxtoacs  (:,:),     &!< [W/m2] clear-sky shortwave net flux at TOA 
-      & lwflxtoacs  (:,:),     &!< [W/m2] clear-sky longwave  net flux at TOA
-      ! clear-sky directed fluxes at TOA and surface
-      & swupflxtoacs(:,:),     &!< [W/m2] clear-sky upward   shortwave flux at TOA 
-      & swdnflxsfccs(:,:),     &!< [W/m2] clear-sky downward shortwave flux at surface
-      & swupflxsfccs(:,:),     &!< [W/m2] clear-sky upward   shortwave flux at surface 
-      & lwupflxtoacs(:,:),     &!< [W/m2] clear-sky upward   longwave  flux at TOA 
-      & lwdnflxsfccs(:,:)       !< [W/m2] clear-sky downward longwave  flux at surface
-
-    TYPE(t_ptr2d),ALLOCATABLE :: swflxsfc_tile_ptr(:)
-    TYPE(t_ptr2d),ALLOCATABLE :: lwflxsfc_tile_ptr(:)
-
     ! aerosol optical properties
     REAL(wp), POINTER ::      &
       & aer_aod_533 (:,:,:),  &!< aerosol optical depth at 533 nm
@@ -369,6 +337,21 @@ MODULE mo_echam_phy_memory
       & kedisp(:,:),        &!< time-mean (or integrated?) vertically integrated dissipation of kinetic energy
       & ocu   (:,:),        &!< eastward  velocity of ocean surface current
       & ocv   (:,:)          !< northward velocity of ocean surface current
+
+      !
+    REAL(wp),POINTER ::     &
+      ! net fluxes at TOA and surface
+      & swflxsfc    (:,:),     &!< [ W/m2] shortwave net flux at surface
+      & swflxsfc_tile(:,:,:),  &!< [ W/m2] shortwave net flux at surface
+      & lwflxsfc    (:,:),     &!< [ W/m2] longwave net flux at surface
+      & lwupflxsfc    (:,:),   &!< [ W/m2] longwave upward flux at surface
+      & lwflxsfc_tile(:,:,:),  &!< [ W/m2] longwave net flux at surface
+      & dlwflxsfc_dT(:,:),     &!< [ W/m2/K] longwave net flux temp tend at surface
+      & swflxtoa    (:,:),     &!< [ W/m2] shortwave net flux at TOA 
+      & lwflxtoa    (:,:)       !< [ W/m2] shortwave net flux at TOA
+
+    TYPE(t_ptr2d),ALLOCATABLE :: swflxsfc_tile_ptr(:)
+    TYPE(t_ptr2d),ALLOCATABLE :: lwflxsfc_tile_ptr(:)
 
     TYPE(t_ptr2d),ALLOCATABLE :: z0m_tile_ptr(:)
     TYPE(t_ptr2d),ALLOCATABLE :: wstar_tile_ptr(:)
@@ -1149,6 +1132,14 @@ CONTAINS
     CALL add_var( field_list, prefix//'daylght_frc_rad', field%daylght_frc_rad,       &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
+    ! &       field% flxdwswtoa(nproma,       nblks),          &
+    cf_desc    = t_cf_var('flxdwswtoa', 'W m-2',                                  &
+                &         'downward shortwave flux at the top of the atmosphere', &
+                &         datatype_flt)
+    grib2_desc = grib2_var(0,4,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'rsdt', field%flxdwswtoa,                   &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
     ! &       field% visfrcsfc    (nproma,       nblks),          &
     cf_desc    = t_cf_var('visfrcsfc', '', 'visible fraction of sfc net sw', datatype_flt)
     grib2_desc = grib2_var(0,4,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -1230,73 +1221,8 @@ CONTAINS
          &        lrestart = .FALSE.,                            &
          &        isteptype=TSTEP_INSTANT )
 
-    cf_desc    = t_cf_var('rlnt', 'W m-2', 'longwave net flux at TOA', datatype_flt)
-    grib2_desc = grib2_var(0, 5, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'rlnt', field%lwflxtoa,    &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
-         &        isteptype=TSTEP_INSTANT )
-
-    
-    cf_desc    = t_cf_var('rsdt', 'W m-2', 'shortwave downward flux at TOA', datatype_flt)
-    grib2_desc = grib2_var(0, 4, 7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'rsdt', field%swdnflxtoa,  &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
-         &        isteptype=TSTEP_INSTANT )
-
-    cf_desc    = t_cf_var('rsut', 'W m-2', 'shortwave upward flux at TOA', datatype_flt)
-    grib2_desc = grib2_var(0, 4, 8, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'rsut', field%swupflxtoa,  &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
-         &        isteptype=TSTEP_INSTANT )
-
-    cf_desc    = t_cf_var('rsds', 'W m-2', 'shortwave downward flux at surface', datatype_flt)
-    grib2_desc = grib2_var(0, 4, 7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'rsds', field%swdnflxsfc,  &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
-         &        isteptype=TSTEP_INSTANT )
-
-    cf_desc    = t_cf_var('rsus', 'W m-2', 'shortwave upward flux at surface', datatype_flt)
-    grib2_desc = grib2_var(0, 4, 8, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'rsus', field%swupflxsfc,  &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
-         &        isteptype=TSTEP_INSTANT )
-
-    cf_desc    = t_cf_var('rlut', 'W m-2', 'longwave upward flux at TOA', datatype_flt)
-    grib2_desc = grib2_var(0, 5, 4, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'rlut', field%lwupflxtoa,  &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
-         &        isteptype=TSTEP_INSTANT )
-
-    cf_desc    = t_cf_var('rlds', 'W m-2', 'longwave downward flux at surface', datatype_flt)
-    grib2_desc = grib2_var(0, 5, 3, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'rlds', field%lwdnflxsfc,  &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
-         &        isteptype=TSTEP_INSTANT )
-
-
     cf_desc    = t_cf_var('rlus', 'W m-2', 'longwave upward flux at surface', datatype_flt)
-    grib2_desc = grib2_var(0, 5, 4, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    grib2_desc = grib2_var(0, 5, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'rlus', field%lwupflxsfc,&
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
@@ -1305,7 +1231,7 @@ CONTAINS
          &        isteptype=TSTEP_INSTANT )
 
     cf_desc    = t_cf_var('rlus_radt', 'W m-2', 'longwave upward flux at surface at rad time', datatype_flt)
-    grib2_desc = grib2_var(0, 5, 4, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    grib2_desc = grib2_var(0, 5, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'rlus_radt', field%lwflxupsfc,&
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
@@ -1313,90 +1239,24 @@ CONTAINS
          &        lrestart = .TRUE.,                             &
          &        isteptype=TSTEP_INSTANT )
 
-
-    cf_desc    = t_cf_var('rsnscs', 'W m-2', 'clear-sky shortwave net flux at surface', datatype_flt)
-    grib2_desc = grib2_var(0, 4, 9, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'rsnscs', field%swflxsfccs,&
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
-         &        isteptype=TSTEP_INSTANT )
-        
-    cf_desc    = t_cf_var('rsntcs', 'W m-2', 'clear-sky shortwave net flux at TOA', datatype_flt)
-    grib2_desc = grib2_var(0, 4, 9, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'rsntcs', field%swflxtoacs,&
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
-         &        isteptype=TSTEP_INSTANT )
-        
-    cf_desc    = t_cf_var('rlnscs', 'W m-2', 'clear-sky longwave net flux at surface', datatype_flt)
+    cf_desc    = t_cf_var('drlns_dT', 'W m-2 K-1', 'longwave net flux T-derivative at surface', &
+         &                datatype_flt)
     grib2_desc = grib2_var(0, 5, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'rlnscs', field%lwflxsfccs,&
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
+    CALL add_var( field_list, prefix//'drlns_dT', field%dlwflxsfc_dT, &
+         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                 &
+         &        cf_desc, grib2_desc,                                &
+         &        ldims=shape2d,                                      &
+         &        lrestart = .FALSE.,                                 &
          &        isteptype=TSTEP_INSTANT )
 
-    cf_desc    = t_cf_var('rlntcs', 'W m-2', 'clear-sky longwave net flux at TOA', datatype_flt)
+    cf_desc    = t_cf_var('rlnt', 'W m-2', 'longwave net flux at TOA', datatype_flt)
     grib2_desc = grib2_var(0, 5, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'rlntcs', field%lwflxtoacs,&
+    CALL add_var( field_list, prefix//'rlnt', field%lwflxtoa,    &
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
          &        ldims=shape2d,                                 &
          &        lrestart = .FALSE.,                            &
          &        isteptype=TSTEP_INSTANT )
-
-
-    cf_desc    = t_cf_var('rsutcs', 'W m-2', 'clear-sky shortwave upward flux at TOA', datatype_flt)
-    grib2_desc = grib2_var(0, 4, 8, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'rsutcs', field%swupflxtoacs,  &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
-         &        isteptype=TSTEP_INSTANT )
-
-    cf_desc    = t_cf_var('rsdscs', 'W m-2', 'clear-sky shortwave downward flux at surface', datatype_flt)
-    grib2_desc = grib2_var(0, 4, 7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'rsdscs', field%swdnflxsfccs,  &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
-         &        isteptype=TSTEP_INSTANT )
-
-    cf_desc    = t_cf_var('rsuscs', 'W m-2', 'clear-sky shortwave upward flux at surface', datatype_flt)
-    grib2_desc = grib2_var(0, 4, 8, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'rsuscs', field%swupflxsfccs,  &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
-         &        isteptype=TSTEP_INSTANT )
-
-
-    cf_desc    = t_cf_var('rlutcs', 'W m-2', 'clear-sky longwave upward flux at TOA', datatype_flt)
-    grib2_desc = grib2_var(0, 5, 4, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'rlutcs', field%lwupflxtoacs,  &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
-         &        isteptype=TSTEP_INSTANT )
-
-    cf_desc    = t_cf_var('rldscs', 'W m-2', 'clear-sky longwave downward flux at surface', datatype_flt)
-    grib2_desc = grib2_var(0, 5, 3, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'rldscs', field%lwdnflxsfc,  &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
-         &        isteptype=TSTEP_INSTANT )
-
 
     cf_desc    = t_cf_var('siced', 'm', 'sea ice thickness', datatype_flt)
     grib2_desc = grib2_var(10,2,1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
