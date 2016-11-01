@@ -1464,6 +1464,7 @@ src/atm_phy_echam/mo_interface_echam_ocean.f90 -text
 src/atm_phy_echam/mo_interface_icoham_echam.f90 -text
 src/atm_phy_echam/mo_interface_iconam_echam.f90 -text
 src/atm_phy_echam/mo_ml_ocean.f90 -text
+src/atm_phy_echam/mo_radheating.f90 -text
 src/atm_phy_echam/mo_ssodrag.f90 -text
 src/atm_phy_echam/mo_ssortns.f90 -text
 src/atm_phy_echam/mo_surface.f90 -text

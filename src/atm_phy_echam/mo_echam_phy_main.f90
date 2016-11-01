@@ -53,7 +53,7 @@ MODULE mo_echam_phy_main
   USE mo_surface_diag,        ONLY: nsurf_diag
   USE mo_cloud,               ONLY: cloud
   USE mo_cover,               ONLY: cover
-  USE mo_radiation,           ONLY: radheat
+  USE mo_radheating,          ONLY: radheating
   USE mo_psrad_radiation,     ONLY: psrad_radiation
   USE mo_radiation_config,    ONLY: tsi, izenith, irad_o3
   USE mo_vdiff_config,        ONLY: vdiff_config
@@ -555,7 +555,7 @@ CONTAINS
 
       IF (ltimer) CALL timer_start(timer_radheat)
 
-      CALL radheat (                                   &
+      CALL radheating (                                &
         !
         ! input
         ! -----
@@ -565,21 +565,13 @@ CONTAINS
         & kbdim      = nbdim,                          &! in    dimension size
         & klev       = nlev,                           &! in    vertical dimension size
         & klevp1     = nlevp1,                         &! in    vertical dimension size
-        & ntiles     = 1,                              &! in    number of tiles of sfc flux fields
-        & ntiles_wtr =0,                               &! in    number of extra tiles for ocean and lakes
-        & pmair      = field%mair             (:,:,jb),&! in    layer air mass            [kg/m2]
-        & pqv        = field%qtrc             (:,:,jb,iqv),&!in specific moisture         [kg/kg]
-        & pcd        = zcd                            ,&! in    specific heat of dry air  [J/kg/K]
-        & pcv        = zcv                            ,&! in    specific heat of vapor    [J/kg/K]
         & pi0        = zi0                      (:)   ,&! in    solar incoming flux at TOA [W/m2]
         & pemiss     = ext_data(jg)%atm%emis_rad(:,jb),&! in    lw sfc emissivity
         & ptsfc      = field%tsfc_rad (:,jb)          ,&! in    rad. surface temperature now         [K]
         & ptsfctrad  = field%tsfc_radt(:,jb)          ,&! in    rad. surface temp. at last rad. step [K]
-        & jg         = jg                             ,&! in    domain index
-        & krow       = jb                             ,&! in    block index
+        & lwflx_up_sfc_rs = field%lwflxupsfc  (:,  jb),&! in    surface longwave upward flux at last rad. step [W/m2]
         & ptrmsw     = field%swtrmall         (:,:,jb),&! in    shortwave net transmissivity at last rad. step []
         & pflxlw     = field%lwflxall         (:,:,jb),&! in    longwave net flux at last rad. step [W/m2]
-        & lwflx_up_sfc_rs = field%lwflxupsfc  (:,  jb),&! in    surface longwave upward flux at last rad. step [W/m2]
         & ptrmswclr  = field%swtrmclr         (:,:,jb),&! in    shortwave net transmissivity at last rad. step clear sky []
         & pflxlwclr  = field%lwflxclr         (:,:,jb),&! in    longwave net flux at last rad. step clear sky [W/m2]
         !
