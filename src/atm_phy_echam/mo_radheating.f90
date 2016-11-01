@@ -78,31 +78,46 @@ CONTAINS
   !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
   !!
 
-  SUBROUTINE radheating (jcs, jce, kbdim, &
-    &                 klev  , klevp1,  &
-    &                 pi0           ,  &
-    &                 pemiss        ,  &
-    &                 ptsfc         ,  &
-    &                 ptsfctrad     ,  &
-    &                 lwflx_up_sfc_rs, &
-    &                 ptrmsw        ,  &
-    &                 pflxlw        ,  &
-    &                 ptrmswclr     ,  &
-    &                 pflxlwclr     ,  &
-    &                 pdtdtradsw    ,  &
-    &                 pdtdtradlw    ,  &
-    &                 pflxsfcsw     ,  &
-    &                 pflxsfclw     ,  &
-    &                 pflxtoasw     ,  &
-    &                 pflxtoalw     ,  &
-    &                 lwflx_up_sfc     )
+  SUBROUTINE radheating ( &
+       !
+       ! input
+       ! -----
+       !
+       & jcs            , &
+       & jce            , &
+       & kbdim          , &
+       & klev           , &
+       & klevp1         , &
+       !
+       & prsdt          , &
+       & pemiss         , &
+       & ptsfc          , &
+       & ptsfctrad      , &
+       & lwflx_up_sfc_rs, &
+       !
+       & ptrmsw         , &
+       & pflxlw         , &
+       & ptrmswclr      , &
+       & pflxlwclr      , &
+       !
+       ! output
+       ! ------
+       !
+       & pq_rsw         , &
+       & pq_rlw         , &
+       !
+       & pflxsfcsw      , &
+       & pflxsfclw      , &
+       & pflxtoasw      , &
+       & pflxtoalw      , &
+       & lwflx_up_sfc   )
 
     INTEGER,  INTENT(in)  ::    &
       &     jcs, jce, kbdim,    &
       &     klev,   klevp1
 
     REAL(wp), INTENT(in)  ::           &
-      &     pi0        (kbdim),        & ! local solar incoming flux at TOA         [W/m2]
+      &     prsdt      (kbdim),        & ! local solar incoming flux at TOA         [W/m2]
       &     pemiss     (kbdim),        & ! lw sfc emissivity
       &     ptsfc      (kbdim),        & ! surface temperature at t                 [K]
       &     ptsfctrad  (kbdim),        & ! surface temperature at trad              [K]
@@ -117,8 +132,8 @@ CONTAINS
       &     pflxlwclr   (kbdim,klevp1)    ! longwave net flux at last rad. step clear sky [W/m2]
    
     REAL(wp), INTENT(inout) ::       &
-      &     pdtdtradsw (kbdim,klev), & ! shortwave temperature tendency           [K/s]
-      &     pdtdtradlw (kbdim,klev)    ! longwave temperature tendency            [K/s]
+      &     pq_rsw (kbdim,klev),     & ! shortwave temperature heating  [W/m2]
+      &     pq_rlw (kbdim,klev)        ! longwave  temperature heating  [W/m2]
 
     REAL(wp), INTENT(inout) :: &
       &     pflxsfcsw (kbdim), &       ! shortwave surface net flux [W/m2]
@@ -142,11 +157,11 @@ CONTAINS
     ! lev in [2,klev] => Atmosphere
     ! lev == klevp1   => Surface
     DO jk = 1, klevp1
-      zflxsw(jcs:jce,jk)      = ptrmsw(jcs:jce,jk) * pi0(jcs:jce)
+      zflxsw(jcs:jce,jk)      = ptrmsw(jcs:jce,jk) * prsdt(jcs:jce)
     END DO
       ! Shortwave fluxes clear sky = transmissivity clear sky * local solar incoming flux at TOA
       DO jk = 1, klevp1
-        zflxswclr(jcs:jce,jk)  = ptrmswclr(jcs:jce,jk)*pi0(jcs:jce)
+        zflxswclr(jcs:jce,jk)  = ptrmswclr(jcs:jce,jk)*prsdt(jcs:jce)
       END DO
     ! Longwave fluxes
     ! - TOA
@@ -196,8 +211,8 @@ CONTAINS
     !
     !     4.2  Fluxes and heating rates except for lowest layer
     !
-    pdtdtradsw(jcs:jce,1:klev) = (zflxsw(jcs:jce,1:klev)-zflxsw(jcs:jce,2:klev+1))
-    pdtdtradlw(jcs:jce,1:klev) = (zflxlw(jcs:jce,1:klev)-zflxlw(jcs:jce,2:klev+1))
+    pq_rsw(jcs:jce,1:klev) = zflxsw(jcs:jce,1:klev)-zflxsw(jcs:jce,2:klev+1)
+    pq_rlw(jcs:jce,1:klev) = zflxlw(jcs:jce,1:klev)-zflxlw(jcs:jce,2:klev+1)
 
     !
     !     4.3 net fluxes at surface

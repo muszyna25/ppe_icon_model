@@ -174,7 +174,7 @@ MODULE mo_echam_phy_memory
       & cosmu0_rad  (:,  :),  &!< [ ]    cos of zenith angle mu0 at radiation time step
       & daylght_frc (:,  :),  &!< [ ]    daylight fraction at each grid point
       & daylght_frc_rad (:,:),&!< [ ]    daylight fraction at each grid point for radiation time step
-      & flxdwswtoa  (:,  :),  &!< [W/m2] downward shortwave flux at TOA
+      & rsdt        (:,  :),  &!< [W/m2] TOA incident shortwave radiation
       !
       ! shortwave surface fluxes (updated every time step)
       & vissfc      (:,  :),  &!< [ ]    net shortwave radiation in VIS (positive downward)
@@ -1132,12 +1132,12 @@ CONTAINS
     CALL add_var( field_list, prefix//'daylght_frc_rad', field%daylght_frc_rad,       &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
-    ! &       field% flxdwswtoa(nproma,       nblks),          &
-    cf_desc    = t_cf_var('flxdwswtoa', 'W m-2',                                  &
-                &         'downward shortwave flux at the top of the atmosphere', &
+    ! &       field% rsdt(nproma,       nblks),          &
+    cf_desc    = t_cf_var('toa_incoming_shortwave_flux', 'W m-2', &
+                &         'TOA incident hhortwave radiation', &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,4,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'rsdt', field%flxdwswtoa,                   &
+    CALL add_var( field_list, prefix//'rsdt', field%rsdt,                   &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     ! &       field% visfrcsfc    (nproma,       nblks),          &

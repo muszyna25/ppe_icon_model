@@ -462,7 +462,7 @@ CONTAINS
       field% tke   (:,:,:) = 1.e-4_wp
 
       field% cosmu0    (:,  :) = 0._wp
-      field% flxdwswtoa(:,  :) = 0._wp
+      field% rsdt      (:,  :) = 0._wp
       field% vissfc    (:,  :) = 0._wp
       field% nirsfc    (:,  :) = 0._wp
       field% parsfcdn  (:,  :) = 0._wp

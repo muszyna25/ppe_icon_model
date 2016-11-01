@@ -117,7 +117,6 @@ CONTAINS
     REAL(wp) :: zqtec  (nbdim,nlev)       !< tracer tendency due to entrainment/detrainment
 
     REAL(wp) :: ztsi                      !< total solar irradiation at 1 AU   [W/m2]
-    REAL(wp) :: zi0    (nbdim)            !< solar incoming radiation at TOA   [W/m2]
     REAL(wp) :: zcd                       !< specific heat of dry air          [J/K/kg]
     REAL(wp) :: zcv                       !< specific heat of water vapor      [J/K/kg]
     REAL(wp) :: zcair  (nbdim,nlev)       !< specific heat of moist air        [J/K/kg]
@@ -545,9 +544,7 @@ CONTAINS
       ! - compute orbit position at datetime
 
       ! - solar incoming flux at TOA
-      zi0(jcs:jce) = MAX(0._wp,field%cosmu0(jcs:jce,jb)) * ztsi  ! instantaneous for radheat
-
-      field% flxdwswtoa(jcs:jce,jb) = zi0 (jcs:jce)               ! (to be accumulated for output)
+      field% rsdt(jcs:jce,jb) = MAX(0._wp,field%cosmu0(jcs:jce,jb)) * ztsi  ! instantaneous for radheat
 
       ! radheat first computes the shortwave and longwave radiation for the current time step from transmissivity and
       ! the longwave flux at the radiation time step and, from there, the radiative heating due to sw and lw radiation.
@@ -565,11 +562,13 @@ CONTAINS
         & kbdim      = nbdim,                          &! in    dimension size
         & klev       = nlev,                           &! in    vertical dimension size
         & klevp1     = nlevp1,                         &! in    vertical dimension size
-        & pi0        = zi0                      (:)   ,&! in    solar incoming flux at TOA [W/m2]
+        !
+        & prsdt      = field%rsdt               (:,jb),&! in    solar incoming flux at TOA [W/m2]
         & pemiss     = ext_data(jg)%atm%emis_rad(:,jb),&! in    lw sfc emissivity
         & ptsfc      = field%tsfc_rad (:,jb)          ,&! in    rad. surface temperature now         [K]
         & ptsfctrad  = field%tsfc_radt(:,jb)          ,&! in    rad. surface temp. at last rad. step [K]
         & lwflx_up_sfc_rs = field%lwflxupsfc  (:,  jb),&! in    surface longwave upward flux at last rad. step [W/m2]
+        !
         & ptrmsw     = field%swtrmall         (:,:,jb),&! in    shortwave net transmissivity at last rad. step []
         & pflxlw     = field%lwflxall         (:,:,jb),&! in    longwave net flux at last rad. step [W/m2]
         & ptrmswclr  = field%swtrmclr         (:,:,jb),&! in    shortwave net transmissivity at last rad. step clear sky []
@@ -578,13 +577,14 @@ CONTAINS
         ! output
         ! ------
         !
-        & pdtdtradsw = zq_rsw                   (:,:) ,&! out   rad. heating by SW           [W/m2]
-        & pdtdtradlw = zq_rlw                   (:,:) ,&! out   rad. heating by LW           [W/m2]
+        & pq_rsw     = zq_rsw                   (:,:) ,&! out   rad. heating by SW           [W/m2]
+        & pq_rlw     = zq_rlw                   (:,:) ,&! out   rad. heating by LW           [W/m2]
+        !
         & pflxsfcsw  = field%swflxsfc           (:,jb),&! out   shortwave surface net flux   [W/m2]
         & pflxsfclw  = field%lwflxsfc           (:,jb),&! out   longwave surface net flux    [W/m2]
-        & lwflx_up_sfc = field%lwupflxsfc       (:,jb),&! out   longwave surface upward flux [W/m2]
         & pflxtoasw  = field%swflxtoa           (:,jb),&! out   shortwave toa net flux       [W/m2]
-        & pflxtoalw  = field%lwflxtoa           (:,jb) )! out   longwave toa net flux        [W/m2]
+        & pflxtoalw  = field%lwflxtoa           (:,jb),&! out   longwave toa net flux        [W/m2]
+        & lwflx_up_sfc = field%lwupflxsfc       (:,jb)) ! out   longwave surface upward flux [W/m2]
 
       IF (ltimer) CALL timer_stop(timer_radheat)
 
@@ -605,15 +605,15 @@ CONTAINS
       tend%temp_rsw(jcs:jce,:,jb) = 0.0_wp
       tend%temp_rlw(jcs:jce,:,jb) = 0.0_wp
 
-      zi0(:) = 0._wp
+      field%rsdt(jcs:jce,jb)= 0.0_wp
 
     END IF ! lrad
 
     ! Compute VIS/NIR/PAR shortwave fluxes for surface processes
 
-    field%vissfc   (jcs:jce,jb) = field%swflxsfc(jcs:jce,jb) * field%visfrcsfc(jcs:jce,jb)
-    field%nirsfc   (jcs:jce,jb) = field%swflxsfc(jcs:jce,jb) - field%vissfc(jcs:jce,jb)
-    field%parsfcdn (jcs:jce,jb) = zi0(jcs:jce) * field%partrmdnsfc (jcs:jce,       jb)
+    field%vissfc   (jcs:jce,jb) = field%swflxsfc(jcs:jce,jb) * field%visfrcsfc   (jcs:jce,jb)
+    field%nirsfc   (jcs:jce,jb) = field%swflxsfc(jcs:jce,jb) - field%vissfc      (jcs:jce,jb)
+    field%parsfcdn (jcs:jce,jb) = field%rsdt(jcs:jce,jb)     * field%partrmdnsfc (jcs:jce,jb)
 
     !-------------------------------------------------------------------
     ! 5. BOUNDARY LAYER AND SURFACE PROCESSES
