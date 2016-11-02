@@ -522,16 +522,16 @@ CONTAINS
         & lw_flx_up_sfc = field%lwflxupsfc(:,jb),&!<out  longwave upward surface radiation
         & lw_net_clr_bnd= zlw_net_clr_bnd      ,&!< out  Clear-sky net longwave  at TOA (:,1) and surface (:,2)
         & sw_net_clr_bnd= zsw_net_clr_bnd      ,&!< out  Clear-sky net shortwave at TOA (:,1) and surface (:,2) 
-        & lw_net_clr = field%lwflxclr(:,:,jb)  ,&!< out  Clear-sky net longwave  at all levels
-        & sw_net_clr = field%swtrmclr(:,:,jb)  ,&!< out  Clear-sky net shortwave at all levels
-        & lw_net     = field%lwflxall(:,:,jb)  ,&!< out  All-sky net longwave  at all levels
-        & sw_net     = field%swtrmall(:,:,jb)   &!< out  All-sky net shortwave at all levels
+        & lw_net_clr = field%rlncs(:,:,jb)     ,&!< out  Clear-sky net longwave  at all levels
+        & sw_net_clr = field%rsncs(:,:,jb)     ,&!< out  Clear-sky net shortwave at all levels
+        & lw_net     = field%rln  (:,:,jb)     ,&!< out  All-sky net longwave  at all levels
+        & sw_net     = field%rsn  (:,:,jb)      &!< out  All-sky net shortwave at all levels
         &                           )
         
-        field%lwflxclr(jcs:jce,1,jb)=zlw_net_clr_bnd(jcs:jce,1)
-        field%lwflxclr(jcs:jce,nlevp1,jb)=zlw_net_clr_bnd(jcs:jce,2)
-        field%swtrmclr(jcs:jce,1,jb)=zsw_net_clr_bnd(jcs:jce,1)
-        field%swtrmclr(jcs:jce,nlevp1,jb)=zsw_net_clr_bnd(jcs:jce,2)
+        field%rlncs(jcs:jce,1,jb)=zlw_net_clr_bnd(jcs:jce,1)
+        field%rlncs(jcs:jce,nlevp1,jb)=zlw_net_clr_bnd(jcs:jce,2)
+        field%rsncs(jcs:jce,1,jb)=zsw_net_clr_bnd(jcs:jce,1)
+        field%rsncs(jcs:jce,nlevp1,jb)=zsw_net_clr_bnd(jcs:jce,2)
 
         IF (ltimer) CALL timer_stop(timer_radiation)
 
@@ -569,10 +569,10 @@ CONTAINS
         & ptsfctrad  = field%tsfc_radt(:,jb)          ,&! in    rad. surface temp. at last rad. step [K]
         & lwflx_up_sfc_rs = field%lwflxupsfc  (:,  jb),&! in    surface longwave upward flux at last rad. step [W/m2]
         !
-        & ptrmsw     = field%swtrmall         (:,:,jb),&! in    shortwave net transmissivity at last rad. step []
-        & pflxlw     = field%lwflxall         (:,:,jb),&! in    longwave net flux at last rad. step [W/m2]
-        & ptrmswclr  = field%swtrmclr         (:,:,jb),&! in    shortwave net transmissivity at last rad. step clear sky []
-        & pflxlwclr  = field%lwflxclr         (:,:,jb),&! in    longwave net flux at last rad. step clear sky [W/m2]
+        & ptrmsw     = field%rsn              (:,:,jb),&! in    shortwave net transmissivity at last rad. step []
+        & pflxlw     = field%rln              (:,:,jb),&! in    longwave net flux at last rad. step [W/m2]
+        & ptrmswclr  = field%rsncs            (:,:,jb),&! in    shortwave net transmissivity at last rad. step clear sky []
+        & pflxlwclr  = field%rlncs            (:,:,jb),&! in    longwave net flux at last rad. step clear sky [W/m2]
         !
         ! output
         ! ------
@@ -580,11 +580,11 @@ CONTAINS
         & pq_rsw     = zq_rsw                   (:,:) ,&! out   rad. heating by SW           [W/m2]
         & pq_rlw     = zq_rlw                   (:,:) ,&! out   rad. heating by LW           [W/m2]
         !
-        & pflxsfcsw  = field%swflxsfc           (:,jb),&! out   shortwave surface net flux   [W/m2]
-        & pflxsfclw  = field%lwflxsfc           (:,jb),&! out   longwave surface net flux    [W/m2]
-        & pflxtoasw  = field%swflxtoa           (:,jb),&! out   shortwave toa net flux       [W/m2]
-        & pflxtoalw  = field%lwflxtoa           (:,jb),&! out   longwave toa net flux        [W/m2]
-        & lwflx_up_sfc = field%lwupflxsfc       (:,jb)) ! out   longwave surface upward flux [W/m2]
+        & pflxsfcsw  = field%rsns               (:,jb),&! out   shortwave surface net flux   [W/m2]
+        & pflxsfclw  = field%rlns               (:,jb),&! out   longwave surface net flux    [W/m2]
+        & pflxtoasw  = field%rsnt               (:,jb),&! out   shortwave toa net flux       [W/m2]
+        & pflxtoalw  = field%rlnt               (:,jb),&! out   longwave toa net flux        [W/m2]
+        & lwflx_up_sfc = field%rlus       (:,jb)) ! out   longwave surface upward flux [W/m2]
 
       IF (ltimer) CALL timer_stop(timer_radheat)
 
@@ -611,9 +611,9 @@ CONTAINS
 
     ! Compute VIS/NIR/PAR shortwave fluxes for surface processes
 
-    field%vissfc   (jcs:jce,jb) = field%swflxsfc(jcs:jce,jb) * field%visfrcsfc   (jcs:jce,jb)
-    field%nirsfc   (jcs:jce,jb) = field%swflxsfc(jcs:jce,jb) - field%vissfc      (jcs:jce,jb)
-    field%parsfcdn (jcs:jce,jb) = field%rsdt(jcs:jce,jb)     * field%partrmdnsfc (jcs:jce,jb)
+    field%vissfc   (jcs:jce,jb) = field%rsns(jcs:jce,jb) * field%visfrcsfc   (jcs:jce,jb)
+    field%nirsfc   (jcs:jce,jb) = field%rsns(jcs:jce,jb) - field%vissfc      (jcs:jce,jb)
+    field%parsfcdn (jcs:jce,jb) = field%rsdt(jcs:jce,jb) * field%partrmdnsfc (jcs:jce,jb)
 
     !-------------------------------------------------------------------
     ! 5. BOUNDARY LAYER AND SURFACE PROCESSES
@@ -758,9 +758,9 @@ CONTAINS
           & prsfc = field% rsfc(:,jb),    &! in, rain surface concective (from cucall)
           & pssfl = field% ssfl(:,jb),    &! in, snow surface large scale (from cloud)
           & pssfc = field% ssfc(:,jb),    &! in, snow surface concective (from cucall)
-          & plw         = field% lwflxsfc (:,jb), &! inout, net surface longwave flux [W/m2]
-          & plw_down    = field% lwflxsfc (:,jb) + field%lwupflxsfc(:,jb),     &! in, downward surface longwave flux [W/m2]
-          & psw         = field% swflxsfc (:,jb), &! inout, net surface shortwave flux [W/m2]
+          & plw         = field% rlns (:,jb), &! inout, net surface longwave flux [W/m2]
+          & plw_down    = field% rlns (:,jb) + field%rlus(:,jb),     &! in, downward surface longwave flux [W/m2]
+          & psw         = field% rsns     (:,jb), &! inout, net surface shortwave flux [W/m2]
           & pswvis      = field% vissfc   (:,jb), &! in, net surface shortwave flux in visible range [W/m2]
           & pswnir      = field% nirsfc   (:,jb), &! in, net surface shortwave flux in NIR range [W/m2]
           & pswpar_down = field% parsfcdn (:,jb), &! in, downward surface shortwave flux in PAR range [W/m2]
@@ -947,9 +947,9 @@ CONTAINS
     IF (phy_config%lrad) THEN
 
       ! Heating due to the fact that surface model only used part of longwave radiation to compute new surface temperature
-      zq_rlw_impl(jcs:jce) =                                                  &
-        & ( (field%lwflxall(jcs:jce,nlev,jb) - field%lwflxsfc(jcs:jce,jb)) ) &  ! new heating from new lwflxsfc
-        & - zq_rlw(jcs:jce,nlev)                                                ! old heating from radheat
+      zq_rlw_impl(jcs:jce) =                                            &
+        & ( (field%rln(jcs:jce,nlev,jb) - field%rlns(jcs:jce,jb)) ) &  ! new heating from new rlns
+        & - zq_rlw(jcs:jce,nlev)                                       ! old heating from radheat
 
       ! Heating accumulated
       zq_phy(jcs:jce,nlev) = zq_phy(jcs:jce,nlev) + zq_rlw_impl(jcs:jce)

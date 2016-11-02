@@ -163,10 +163,10 @@ MODULE mo_opt_diagnostics
     &  qvi(:,:),        &
     &  xlvi(:,:),       &
     &  xivi(:,:),       &
-    &  swflxsfc(:,:),   &
-    &  swflxtoa(:,:),   &
-    &  lwflxsfc(:,:),   &
-    &  lwflxtoa(:,:),   &
+    &  rsns(:,:),       &
+    &  rsnt(:,:),       &
+    &  rlns(:,:),       &
+    &  rlnt(:,:),       &
     &  tsfc(:,:),       &
     &  evap(:,:),       &
     &  lhflx(:,:),      &
@@ -863,7 +863,7 @@ CONTAINS
     IF (p_acc%l_rsns_m) THEN
        cf_desc    = t_cf_var('rsns', 'W m-2', ' shortwave net flux at surface (time mean)', datatype_flt)
        grib2_desc = grib2_var(0, 4, 9, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( list, 'rsns_m', p_acc%swflxsfc,                                  &
+       CALL add_var( list, 'rsns_m', p_acc%rsns,                                  &
                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
                    & cf_desc, grib2_desc,                                             &
                    & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
@@ -875,7 +875,7 @@ CONTAINS
     IF (p_acc%l_rsnt_m) THEN
        cf_desc    = t_cf_var('rsnt', 'W m-2', ' shortwave net flux at TOA (time mean)', datatype_flt)
        grib2_desc = grib2_var(0, 4, 9, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( list, 'rsnt_m', p_acc%swflxtoa,                                  &
+       CALL add_var( list, 'rsnt_m', p_acc%rsnt,                                  &
                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
                    & cf_desc, grib2_desc,                                             &
                    & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
@@ -887,7 +887,7 @@ CONTAINS
     IF (p_acc%l_rlns_m) THEN
        cf_desc    = t_cf_var('rlns', 'W m-2', 'longwave net flux at surface (time mean)', datatype_flt)
        grib2_desc = grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( list, 'rlns_m', p_acc%lwflxsfc,                                  &
+       CALL add_var( list, 'rlns_m', p_acc%rlns,                                  &
                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
                    & cf_desc, grib2_desc,                                             &
                    & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
@@ -899,7 +899,7 @@ CONTAINS
     IF (p_acc%l_rlnt_m) THEN
        cf_desc    = t_cf_var('rlnt', 'W m-2', 'longwave net flux at TOA (time mean)', datatype_flt)
        grib2_desc = grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( list, 'rlnt_m', p_acc%lwflxtoa,&
+       CALL add_var( list, 'rlnt_m', p_acc%rlnt,&
                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
                    & cf_desc, grib2_desc,                                             &
                    & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
@@ -1598,10 +1598,10 @@ CONTAINS
     IF (acc%l_prw_m)      CALL add_fields(acc%qvi            , prm_field(jg)%qvi            , subset)
     IF (acc%l_cllvi_m)    CALL add_fields(acc%xlvi           , prm_field(jg)%xlvi           , subset)
     IF (acc%l_clivi_m)    CALL add_fields(acc%xivi           , prm_field(jg)%xivi           , subset)
-    IF (acc%l_rsns_m)     CALL add_fields(acc%swflxsfc       , prm_field(jg)%swflxsfc       , subset)
-    IF (acc%l_rsnt_m)     CALL add_fields(acc%swflxtoa       , prm_field(jg)%swflxtoa       , subset)
-    IF (acc%l_rlns_m)     CALL add_fields(acc%lwflxsfc       , prm_field(jg)%lwflxsfc       , subset)
-    IF (acc%l_rlnt_m)     CALL add_fields(acc%lwflxtoa       , prm_field(jg)%lwflxtoa       , subset)
+    IF (acc%l_rsns_m)     CALL add_fields(acc%rsns           , prm_field(jg)%rsns           , subset)
+    IF (acc%l_rsnt_m)     CALL add_fields(acc%rsnt           , prm_field(jg)%rsnt           , subset)
+    IF (acc%l_rlns_m)     CALL add_fields(acc%rlns           , prm_field(jg)%rlns           , subset)
+    IF (acc%l_rlnt_m)     CALL add_fields(acc%rlnt           , prm_field(jg)%rlnt           , subset)
     IF (acc%l_ts_m)       CALL add_fields(acc%tsfc           , prm_field(jg)%tsfc           , subset)
     IF (acc%l_evspsbl_m)  CALL add_fields(acc%evap           , prm_field(jg)%evap           , subset)
     IF (acc%l_hfls_m)     CALL add_fields(acc%lhflx          , prm_field(jg)%lhflx          , subset)
@@ -1692,10 +1692,10 @@ CONTAINS
     IF (acc%l_prw_m)      acc%qvi             = 0.0_wp
     IF (acc%l_cllvi_m)    acc%xlvi            = 0.0_wp
     IF (acc%l_clivi_m)    acc%xivi            = 0.0_wp
-    IF (acc%l_rsns_m)     acc%swflxsfc        = 0.0_wp
-    IF (acc%l_rsnt_m)     acc%swflxtoa        = 0.0_wp
-    IF (acc%l_rlns_m)     acc%lwflxsfc        = 0.0_wp
-    IF (acc%l_rlnt_m)     acc%lwflxtoa        = 0.0_wp
+    IF (acc%l_rsns_m)     acc%rsns            = 0.0_wp
+    IF (acc%l_rsnt_m)     acc%rsnt            = 0.0_wp
+    IF (acc%l_rlns_m)     acc%rlns            = 0.0_wp
+    IF (acc%l_rlnt_m)     acc%rlnt            = 0.0_wp
     IF (acc%l_ts_m)       acc%tsfc            = 0.0_wp
     IF (acc%l_evspsbl_m)  acc%evap            = 0.0_wp
     IF (acc%l_hfls_m)     acc%lhflx           = 0.0_wp
@@ -1787,10 +1787,10 @@ CONTAINS
     IF (acc%l_prw_m)      acc%qvi             = acc%qvi             *xfactor
     IF (acc%l_cllvi_m)    acc%xlvi            = acc%xlvi            *xfactor
     IF (acc%l_clivi_m)    acc%xivi            = acc%xivi            *xfactor
-    IF (acc%l_rsns_m)     acc%swflxsfc        = acc%swflxsfc        *xfactor
-    IF (acc%l_rsnt_m)     acc%swflxtoa        = acc%swflxtoa        *xfactor
-    IF (acc%l_rlns_m)     acc%lwflxsfc        = acc%lwflxsfc        *xfactor
-    IF (acc%l_rlnt_m)     acc%lwflxtoa        = acc%lwflxtoa        *xfactor
+    IF (acc%l_rsns_m)     acc%rsns            = acc%rsns            *xfactor
+    IF (acc%l_rsnt_m)     acc%rsnt            = acc%rsnt            *xfactor
+    IF (acc%l_rlns_m)     acc%rlns            = acc%rlns            *xfactor
+    IF (acc%l_rlnt_m)     acc%rlnt            = acc%rlnt            *xfactor
     IF (acc%l_ts_m)       acc%tsfc            = acc%tsfc            *xfactor
     IF (acc%l_evspsbl_m)  acc%evap            = acc%evap            *xfactor
     IF (acc%l_hfls_m)     acc%lhflx           = acc%lhflx           *xfactor
