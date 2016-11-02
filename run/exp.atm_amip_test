@@ -155,6 +155,7 @@ cat > ${atmo_namelist} << EOF
  lcond            = .TRUE.
  lgw_hines        = .TRUE.
  lssodrag         = .TRUE.
+ lcariolle        = .TRUE.
  lice             = .TRUE.
  ljsbach          = .TRUE.
  lebudget         = .TRUE.

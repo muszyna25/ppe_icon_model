@@ -405,9 +405,15 @@ CONTAINS
     END DO
 
 !++jsr
-    CALL cariolle_init( openInputFile_wrap,       closeFile_wrap,             &
-                      & read_bcast_real_3d_wrap,  read_bcast_real_1d_wrap,    &
-                      & nproma,                   nlev                        )
+    IF (phy_config%lcariolle) THEN
+      IF(io3 > ntracer) THEN
+        CALL finish('init_echam_phy: mo_echam_phy_init.f90', &
+                   &'cannot find an ozone tracer - abort')
+      END IF
+      CALL cariolle_init( openInputFile_wrap,       closeFile_wrap,           &
+                        & read_bcast_real_3d_wrap,  read_bcast_real_1d_wrap,  &
+                        & nproma,                   nlev                      )
+    END IF
 !--jsr
 
 #ifndef __NO_JSBACH__

@@ -1003,20 +1003,22 @@ CONTAINS
     END IF
 
 !++jsr
-    avi%tmprt(jcs:jce,:)=field%temp(jcs:jce,:,jb)
-    avi%vmr2molm2(jcs:jce,:)=zmair(jcs:jce,:)/amd
-    avi%pres(jcs:jce,:)=field%presm_old(jcs:jce,:,jb)
-    avi%cell_center_lat(jcs:jce)=p_patch(jg)%cells%center(jcs:jce,jb)%lat
-    avi%ldown=.TRUE.
-    time_interpolation%imonth1=wi_limm%inm1
-    time_interpolation%imonth2=wi_limm%inm2
-    time_interpolation%weight1=wi_limm%wgt1
-    time_interpolation%weight2=wi_limm%wgt2
-    avi%o3_vmr(jcs:jce,:)=field%qtrc(jcs:jce,:,jb,io3)*amd/amo3
-    CALL cariolle_do3dt(jcs,                jce,                nbdim,          &
-                       &nlev,               time_interpolation, lat_weight_li,  &
-                       &pressure_weight_li, avi,                do3dt           )
-    tend% qtrc(jcs:jce,:,jb,io3) = tend% qtrc(jcs:jce,:,jb,io3) + do3dt(jcs:jce,:)*amo3/amd
+    IF (phy_config%lcariolle) THEN
+      avi%tmprt(jcs:jce,:)=field%temp(jcs:jce,:,jb)
+      avi%vmr2molm2(jcs:jce,:)=zmair(jcs:jce,:)/amd
+      avi%pres(jcs:jce,:)=field%presm_old(jcs:jce,:,jb)
+      avi%cell_center_lat(jcs:jce)=p_patch(jg)%cells%center(jcs:jce,jb)%lat
+      avi%ldown=.TRUE.
+      time_interpolation%imonth1=wi_limm%inm1
+      time_interpolation%imonth2=wi_limm%inm2
+      time_interpolation%weight1=wi_limm%wgt1
+      time_interpolation%weight2=wi_limm%wgt2
+      avi%o3_vmr(jcs:jce,:)=field%qtrc(jcs:jce,:,jb,io3)*amd/amo3
+      CALL cariolle_do3dt(jcs,                jce,                nbdim,          &
+                         &nlev,               time_interpolation, lat_weight_li,  &
+                         &pressure_weight_li, avi,                do3dt           )
+      tend% qtrc(jcs:jce,:,jb,io3) = tend% qtrc(jcs:jce,:,jb,io3) + do3dt(jcs:jce,:)*amo3/amd
+    END IF
 !--jsr
 
     !-------------------------------------------------------------------

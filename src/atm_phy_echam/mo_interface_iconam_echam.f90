@@ -401,25 +401,26 @@ CONTAINS
 !++ jsr: Initialize ozone mass mixing ratios for Cariolle scheme here. 
 !        An approximative initialization 
 !        that considers the atmosphere as being dry is enough.
-    IF (.NOT.isRestart().AND. .NOT. avi%l_initialized_o3) THEN
-      avi%ldown=.TRUE.
-      time_interpolation%imonth1=wi_limm%inm1
-      time_interpolation%imonth2=wi_limm%inm2
-      time_interpolation%weight1=wi_limm%wgt1
-      time_interpolation%weight2=wi_limm%wgt2
-      write(0,*) 'time_interpolation=',time_interpolation
-      DO jb = i_startblk,i_endblk
-        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-        avi%pres(jcs:jce,:)=prm_field(jg)%presm_old(jcs:jce,:,jb)
-        avi%cell_center_lat(jcs:jce)=patch%cells%center(jcs:jce,jb)%lat
-        CALL cariolle_init_ozone(                                &
-          jcs,                jce,                nproma,        &
-          nlev,               time_interpolation, lat_weight_li, &
-          pressure_weight_li, avi,                vmr_o3         )
+    IF (echam_phy_config%lcariolle) THEN
+      IF (.NOT.isRestart().AND. .NOT. avi%l_initialized_o3) THEN
+        avi%ldown=.TRUE.
+        time_interpolation%imonth1=wi_limm%inm1
+        time_interpolation%imonth2=wi_limm%inm2
+        time_interpolation%weight1=wi_limm%wgt1
+        time_interpolation%weight2=wi_limm%wgt2
+        DO jb = i_startblk,i_endblk
+          CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+          avi%pres(jcs:jce,:)=prm_field(jg)%presm_old(jcs:jce,:,jb)
+          avi%cell_center_lat(jcs:jce)=patch%cells%center(jcs:jce,jb)%lat
+          CALL cariolle_init_ozone(                                &
+            jcs,                jce,                nproma,        &
+            nlev,               time_interpolation, lat_weight_li, &
+            pressure_weight_li, avi,                vmr_o3         )
 !!$        write(0,*) 'vmr_o3(jcs,:)=', vmr_o3(jcs,:)
-        pt_prog_new_rcf% tracer(jcs:jce,:,jb,io3)=vmr_o3(jcs:jce,:)*amo3/amd
-      END DO
-      avi%l_initialized_o3=.TRUE.
+          pt_prog_new_rcf% tracer(jcs:jce,:,jb,io3)=vmr_o3(jcs:jce,:)*amo3/amd
+        END DO
+        avi%l_initialized_o3=.TRUE.
+      END IF
     END IF
 !-- jsr
 
