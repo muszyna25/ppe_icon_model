@@ -1221,7 +1221,7 @@ MODULE mo_initicon
 
       ! Apply diffusion on wind increment
       DO iter = 1, niter_diffu
-        CALL nabla2_vec(p_diag%vn_incr, p_patch(jg), p_int_state(jg), nabla2_vn_incr, opt_rlstart=3)
+        CALL nabla2_vec(REAL(p_diag%vn_incr,wp), p_patch(jg), p_int_state(jg), nabla2_vn_incr, opt_rlstart=3)
 
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
 
@@ -1351,7 +1351,7 @@ MODULE mo_initicon
 
         CALL sync_patch_array(SYNC_E,p_patch(jg),p_diag%vn_incr)
 
-        CALL init_w(p_patch(jg), p_int_state(jg), p_diag%vn_incr, p_nh_state(jg)%metrics%z_ifc, w_incr)
+        CALL init_w(p_patch(jg), p_int_state(jg), REAL(p_diag%vn_incr,wp), p_nh_state(jg)%metrics%z_ifc, w_incr)
 
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
 

@@ -670,10 +670,6 @@ CONTAINS
           ENDDO
         ENDIF
 
-        ! reset dynamical exner increment to zero
-        ! (it is accumulated over one advective time step in solve_nh)
-        pt_diag%exner_dyn_incr(:,kstart_moist(jg):nlev,jb) = 0._wp
-
       ENDIF ! recalculation
 
       IF (lcall_phy_jg(itturb) .OR. linit .OR. l_any_slowphys) THEN

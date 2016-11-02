@@ -636,17 +636,6 @@ CONTAINS
           ENDDO
         ENDDO
 
-        !This loop computes ddt_temp_dyn for convection in nwp_interface
-        !which is not required for LES. However, exner_dyn_incr needs
-        !to be set = 0 OR we skip the part in mo_solve_nonhydro where
-        !exner_dyn_incr is stored for nwp_interface
-        DO jk = kstart_moist(jg), nlev
-          DO jc =  i_startidx, i_endidx
-            ! reset dynamical exner increment to zero
-            ! (it is accumulated over one advective time step in solve_nh)
-            pt_diag%exner_dyn_incr(jc,jk,jb) = 0._wp
-          ENDDO
-        ENDDO
 
       ENDDO
 !$OMP END DO NOWAIT

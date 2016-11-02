@@ -3405,7 +3405,7 @@ CONTAINS
 
     !-----------------------------------------------------------------------
 
-    ! some adjustmens to the standart communication patterns in order to make
+    ! some adjustmens to the standard communication patterns in order to make
     ! them work in this routine
 
     num_send = 0
@@ -3731,6 +3731,9 @@ CONTAINS
 
         ENDDO
       ELSE IF (iorder_sendrecv >= 3) THEN ! use isend/recv
+#ifdef __OMPPAR_COPY__
+!$OMP PARALLEL PRIVATE(ioffset,pid,isum,iss,ise,isum1)
+#endif
         ioffset = 0
         DO np = 1, num_send ! loop over PEs where to send the data
 
@@ -3743,10 +3746,17 @@ CONTAINS
             ise = p_pat(n)%send_limits(pid+1) + ioffset_s(n)
             isum1 = ise - iss + 1
             IF (isum1 > 0) THEN
-!CDIR COLLAPSE
+#ifdef __OMPPAR_COPY__
+!$OMP DO
+#endif
 !$ACC KERNELS PRESENT( auxs_buf, send_buf ), IF ( i_am_accel_node .AND. acc_on )
-              auxs_buf(:,isum+1:isum+isum1) = send_buf(:,iss:ise)
+              DO i = 1, isum1
+                auxs_buf(:,isum+i) = send_buf(:,iss-1+i)
+              ENDDO
 !$ACC END KERNELS
+#ifdef __OMPPAR_COPY__
+!$OMP END DO
+#endif
               isum = isum+isum1
             ENDIF
           ENDDO
@@ -3754,12 +3764,17 @@ CONTAINS
 #ifndef __USE_G2G
 !$ACC UPDATE HOST( auxs_buf ), IF ( i_am_accel_node .AND. acc_on )
 #endif
+!$OMP MASTER
           IF(isum > ioffset) CALL p_isend(auxs_buf(1,ioffset+1), pid, 1,            &
             p_count=(isum-ioffset)*ndim2tot, comm=p_comm_work)
+!$OMP END MASTER
 
           ioffset = isum
 
         ENDDO
+#ifdef __OMPPAR_COPY__
+!$OMP END PARALLEL
+#endif
       ENDIF
 
       ! Wait for all outstanding requests to finish

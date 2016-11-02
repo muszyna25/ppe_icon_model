@@ -2089,15 +2089,21 @@ MODULE mo_solve_nonhydro
           ENDDO
         ENDIF
 
-        IF (istep == 2) THEN
-          ! store dynamical part of exner time increment in exner_dyn_incr
-          ! the conversion into a temperature tendency is done in the NWP interface
+        ! store dynamical part of exner time increment in exner_dyn_incr
+        ! the conversion into a temperature tendency is done in the NWP interface
+        IF (istep == 1 .AND. idyn_timestep == 1) THEN
           DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
             DO jc = i_startidx, i_endidx
-              p_nh%diag%exner_dyn_incr(jc,jk,jb) = p_nh%diag%exner_dyn_incr(jc,jk,jb) + &
-                p_nh%prog(nnew)%exner(jc,jk,jb) - p_nh%prog(nnow)%exner(jc,jk,jb) -     &
-                dtime*p_nh%diag%ddt_exner_phy(jc,jk,jb)
+              p_nh%diag%exner_dyn_incr(jc,jk,jb) = p_nh%prog(nnow)%exner(jc,jk,jb)
+            ENDDO
+          ENDDO
+        ELSE IF (istep == 2 .AND. idyn_timestep == ndyn_substeps_var(jg)) THEN
+          DO jk = kstart_moist(jg), nlev
+!DIR$ IVDEP
+            DO jc = i_startidx, i_endidx
+              p_nh%diag%exner_dyn_incr(jc,jk,jb) = p_nh%prog(nnew)%exner(jc,jk,jb) - &
+               (p_nh%diag%exner_dyn_incr(jc,jk,jb) + ndyn_substeps_var(jg)*dtime*p_nh%diag%ddt_exner_phy(jc,jk,jb))
             ENDDO
           ENDDO
         ENDIF

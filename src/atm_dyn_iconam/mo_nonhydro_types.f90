@@ -140,11 +140,7 @@ MODULE mo_nonhydro_types
     &  q_ubc(:,:,:),       & ! Storage field for vertical nesting: q at child upper boundary
 
     !
-    ! c) analysis increments (necessary for incremental analysis update)
-    &  vn_incr   (:,:,:),   & ! normal velocity increment        [m/s]
-    &  exner_incr(:,:,:),   & ! exner inrement                   [-]
-    &  rho_incr  (:,:,:),   & ! moist density increment          [kg/m^3]
-    &  qv_incr   (:,:,:),   & ! specific humidity increment      [kg/kg]
+    ! c) storage variables for time-averaged first-guess output
     &  u_avg    (:,:,:),    & ! normal velocity average          [m/s]
     &  v_avg    (:,:,:),    & ! normal velocity average          [m/s]
     &  pres_avg (:,:,:),    & ! exner average                    [-]
@@ -158,6 +154,12 @@ MODULE mo_nonhydro_types
     , CONTIGUOUS            &
 #endif
     &  ::                   &
+    ! analysis increments
+    &  vn_incr   (:,:,:),   & ! normal velocity increment        [m/s]
+    &  exner_incr(:,:,:),   & ! exner inrement                   [-]
+    &  rho_incr  (:,:,:),   & ! moist density increment          [kg/m^3]
+    &  qv_incr   (:,:,:),   & ! specific humidity increment      [kg/kg]
+    ! tendencies, physics increments and derived velocity fields
     &  vt(:,:,:),           & ! tangential wind (nproma,nlev,nblks_e)          [m/s]
     &  ddt_exner_phy(:,:,:),& ! exner pressure tendency from physical forcing 
                               ! (nproma,nlev,nblks_c)                     [1/s]

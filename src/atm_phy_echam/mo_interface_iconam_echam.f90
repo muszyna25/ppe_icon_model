@@ -502,10 +502,6 @@ CONTAINS
             &     * (1._wp + vtmpc1*pt_prog_new_rcf%tracer(jc,jk,jb,iqv) - z_qsum )       &
             &     + pt_diag%temp(jc,jk,jb)                                                &
             &     * (        vtmpc1*prm_tend(jg)%q_phy(jc,jk,jb,iqv)     - z_ddt_qsum ) )
-          !
-          ! Additionally use this loop also to set the dynamical exner increment to zero.
-          ! (It is accumulated over one advective time step in solve_nh)
-          pt_diag%exner_dyn_incr(jc,jk,jb) = 0._wp
 
         END DO
       END DO
