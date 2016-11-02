@@ -35,7 +35,7 @@ MODULE mo_complete_subdivision
 #ifndef NOMPI
   USE mpi
   USE mo_mpi,                ONLY: mpi_comm_null
-  USE mo_parallel_config,    ONLY: p_test_run
+  USE mo_parallel_config,    ONLY: p_test_run, nproma
   USE ppm_extents,           ONLY: extent
 #endif
   USE mo_mpi,                ONLY: p_comm_work, my_process_is_mpi_test, &
@@ -63,6 +63,8 @@ MODULE mo_complete_subdivision
        dist_mult_array_new, dist_mult_array_delete, &
        dist_mult_array_get, dist_mult_array_local_ptr, &
        dist_mult_array_expose
+  USE mo_kind, ONLY: wp
+  USE mo_sync, ONLY: sync_c, sync_e, sync_v, sync_patch_array
   IMPLICIT NONE
 
   PRIVATE
@@ -737,10 +739,14 @@ CONTAINS
   SUBROUTINE create_work2test_patterns(patch)
     TYPE(t_patch), INTENT(INOUT) :: patch
     LOGICAL :: is_mpi_test
+    REAL(wp), ALLOCATABLE :: test_data(:,:,:)
     is_mpi_test = my_process_is_mpi_test()
     CALL create_work2test_pattern(patch%n_patch_cells_g, &
          patch%cells%decomp_info, is_mpi_test, p_comm_work_2_test, &
          patch%comm_pat_work2test(grid_cell)%p)
+    ALLOCATE(test_data(nproma, 1, patch%nblks_c))
+    test_data = 1.0_wp
+    CALL sync_patch_array(sync_c, patch, test_data)
     CALL create_work2test_pattern(patch%n_patch_verts_g, &
          patch%verts%decomp_info, is_mpi_test, p_comm_work_2_test, &
          patch%comm_pat_work2test(grid_vertex)%p)
