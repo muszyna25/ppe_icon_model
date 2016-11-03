@@ -146,7 +146,7 @@ MODULE mo_psrad_radiation
   USE mo_rrtm_params,   ONLY : nbndsw
 ! new to icon
   USE mo_psrad_srtm_setup,ONLY : ssi_default, ssi_preind, ssi_amip,           &
-                             & ssi_RCEdiurnOn, ssi_RCEdiurnOff
+                             & ssi_RCEdiurnOn, ssi_RCEdiurnOff, ssi_cmip6_picontrol
   USE mo_psrad_interface,ONLY : setup_psrad, psrad_interface, &
                                 lw_strat, sw_strat
   USE mo_psrad_spec_sampling, ONLY : set_spec_sampling_lw, set_spec_sampling_sw, get_num_gpoints
@@ -224,6 +224,8 @@ MODULE mo_psrad_radiation
         solc = SUM(ssi_RCEdiurnOn)
       CASE (5)
         solc = SUM(ssi_RCEdiurnOff)
+      CASE (6)
+        solc = SUM(ssi_cmip6_picontrol)
       CASE default
         WRITE (message_text, '(a,i2,a)') &
              'isolrad = ',isolrad, ' in radiation_nml namelist is not supported'
@@ -310,6 +312,9 @@ MODULE mo_psrad_radiation
       CASE (5)
         solcm = SUM(ssi_RCEdiurnOff)
         ssi_factor = ssi_RCEdiurnOff
+      CASE (6)
+        solcm = SUM(ssi_cmip6_picontrol)
+        ssi_factor = ssi_cmip6_picontrol
       CASE default
         WRITE (message_text, '(a,i2,a)') &
              'isolrad = ', isolrad, ' in radctl namelist is not supported'
@@ -652,13 +657,15 @@ MODULE mo_psrad_radiation
         CALL message('','isolrad = 1 --> time dependent spectrally resolved solar constant read from file')
 !!$        CALL init_solar_irradiance(nb_sw)
       CASE (2) 
-        CALL message('','isolrad = 2 --> preindustrial solar constant')
+        CALL message('','isolrad = 2 --> CMIP5 preindustrial solar constant')
       CASE (3) 
         CALL message('','isolrad = 3 --> solar constant for amip runs')
       CASE (4)
         CALL message('','isolrad = 4 --> solar constant for rad.-convective eq. runs with diurnal cycle ON')
       CASE (5)
         CALL message('','isolrad = 5 --> solar constant for rad.-convective eq. runs with diurnal cycle OFF')
+      CASE (6)
+        CALL message('','isolrad = 6 --> CMIP6 preindustrial solar constant')
       CASE default 
         WRITE (message_text, '(a,i3,a)') &
              'Run terminated isolrad = ', isolrad, ' not supported'
