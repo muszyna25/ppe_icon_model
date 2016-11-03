@@ -1,5 +1,5 @@
-MODULE mo_cariolle_types
-USE mo_cariolle_kind, ONLY: wp,wi
+MODULE mo_lcariolle_types
+USE mo_lcariolle_kind, ONLY: wp,wi
 IMPLICIT NONE
 PRIVATE
 PUBLIC :: t_avi, t_pvi, nlatx, nlevx, nmonthx, pvi, avi, t_time_interpolation
@@ -28,4 +28,4 @@ TYPE t_time_interpolation
 INTEGER(wi)          :: imonth1,imonth2
 REAL(wp)             :: weight1,weight2
 END TYPE t_time_interpolation
-END MODULE mo_cariolle_types
+END MODULE mo_lcariolle_types

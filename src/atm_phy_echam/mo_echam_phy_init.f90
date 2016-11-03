@@ -102,7 +102,6 @@ MODULE mo_echam_phy_init
 !++jsr
   USE mo_bc_cariolle_read,     ONLY: read_bcast_real_3d_wrap, read_bcast_real_1d_wrap, &
                                    & closeFile_wrap, openInputFile_wrap
-  USE mo_cariolle_types,       ONLY: avi, t_time_interpolation
 !--jsr
   ! for aeorosols in simple plumes
   USE mo_bc_aeropt_splumes,    ONLY: setup_bc_aeropt_splumes
@@ -138,11 +137,6 @@ CONTAINS
 
     INTEGER :: khydromet, ktrac
     INTEGER :: jg, ndomain
-!++jsr
-    INTEGER :: jb, nblks, kproma, ilev
-    TYPE(t_time_interpolation) :: time_interpolation
-    EXTERNAL lat_weight_li, pressure_weight_li
-!--jsr
     TYPE(t_stream_id) :: stream_id
 
     CHARACTER(len=*), PARAMETER :: land_frac_fn = 'bc_land_frac.nc'
@@ -410,9 +404,10 @@ CONTAINS
         CALL finish('init_echam_phy: mo_echam_phy_init.f90', &
                    &'cannot find an ozone tracer - abort')
       END IF
-      CALL cariolle_init( openInputFile_wrap,       closeFile_wrap,           &
-                        & read_bcast_real_3d_wrap,  read_bcast_real_1d_wrap,  &
-                        & nproma,                   nlev                      )
+      CALL lcariolle_init(                                     &
+         & openInputFile_wrap,       closeFile_wrap,           &
+         & read_bcast_real_3d_wrap,  read_bcast_real_1d_wrap,  &
+         & nproma,                   nlev                      )
     END IF
 !--jsr
 

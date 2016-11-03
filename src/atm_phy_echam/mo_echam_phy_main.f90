@@ -73,7 +73,7 @@ MODULE mo_echam_phy_main
   USE mo_model_domain,        ONLY: p_patch
   USE mo_util_dbg_prnt,      ONLY: dbg_print
 !++jsr
-  USE mo_cariolle_types,      ONLY: avi, t_time_interpolation
+  USE mo_lcariolle_types,     ONLY: avi, t_time_interpolation
   USE mo_time_interpolation_weights, ONLY: wi_limm
 !--jsr
 
@@ -194,7 +194,7 @@ CONTAINS
     ! Temporary variables for Cariolle scheme (ozone)
     REAL(wp)    :: do3dt(nbdim,nlev)
     TYPE(t_time_interpolation) :: time_interpolation
-    EXTERNAL       lat_weight_li, pressure_weight_li
+    EXTERNAL       lcariolle_lat_intp_li, lcariolle_pres_intp_li
 !--jsr
  
     ! Temporary array used by GW_HINES
@@ -1014,9 +1014,10 @@ CONTAINS
       time_interpolation%weight1=wi_limm%wgt1
       time_interpolation%weight2=wi_limm%wgt2
       avi%o3_vmr(jcs:jce,:)=field%qtrc(jcs:jce,:,jb,io3)*amd/amo3
-      CALL cariolle_do3dt(jcs,                jce,                nbdim,          &
-                         &nlev,               time_interpolation, lat_weight_li,  &
-                         &pressure_weight_li, avi,                do3dt           )
+      CALL lcariolle_do3dt(                                                    &
+         & jcs,                    jce,                nbdim,                  &
+         & nlev,                   time_interpolation, lcariolle_lat_intp_li,  &
+         & lcariolle_pres_intp_li, avi,                do3dt                   )
       tend% qtrc(jcs:jce,:,jb,io3) = tend% qtrc(jcs:jce,:,jb,io3) + do3dt(jcs:jce,:)*amo3/amd
     END IF
 !--jsr

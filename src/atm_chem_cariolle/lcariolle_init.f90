@@ -1,9 +1,9 @@
-SUBROUTINE cariolle_init( open_file,        close_file,              &
-                        & read_3d_var,      read_1d_var,             &
-                        & NCX,              nlev                     )
-!USE mo_cariolle_kind,         ONLY: wp,wi
-USE mo_kind,                  ONLY: wp
-USE mo_cariolle_types,        ONLY: nlatx,nlevx,nmonthx,pvi,avi
+SUBROUTINE lcariolle_init(                            &
+         & open_file,        close_file,              &
+         & read_3d_var,      read_1d_var,             &
+         & NCX,              nlev                     )
+USE mo_lcariolle_kind,         ONLY: wp,wi
+USE mo_lcariolle_types,        ONLY: nlatx,nlevx,nmonthx,pvi,avi
 IMPLICIT NONE
 INTEGER, EXTERNAL          :: open_file
 EXTERNAL close_file, read_3d_var, read_1d_var
@@ -84,4 +84,4 @@ ALLOCATE(avi%vmr2molm2(NCX,nlev))
 ALLOCATE(avi%pres(NCX,nlev))
 ALLOCATE(avi%o3_vmr(NCX,nlev))
 ALLOCATE(avi%cell_center_lat(NCX))
-END SUBROUTINE cariolle_init
+END SUBROUTINE lcariolle_init

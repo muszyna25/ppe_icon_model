@@ -109,7 +109,7 @@ MODULE mo_interface_iconam_echam
     &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
   USE mo_bc_greenhouse_gases   ,ONLY: ghg_co2mmr
 !++jsr
-  USE mo_cariolle_types        ,ONLY: avi, t_time_interpolation
+  USE mo_lcariolle_types       ,ONLY: avi, t_time_interpolation
   USE mo_time_interpolation_weights  ,ONLY: wi_limm
 !--jsr
   IMPLICIT NONE
@@ -190,7 +190,7 @@ CONTAINS
     ! Temporary variables for Cariolle scheme (ozone)
     REAL(wp)    :: vmr_o3(nproma,nlev)
     TYPE(t_time_interpolation) :: time_interpolation
-    EXTERNAL       lat_weight_li, pressure_weight_li
+    EXTERNAL       lcariolle_lat_intp_li, lcariolle_pres_intp_li
 !--jsr
     !-------------------------------------------------------------------------------------
 
@@ -412,10 +412,10 @@ CONTAINS
           CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
           avi%pres(jcs:jce,:)=prm_field(jg)%presm_old(jcs:jce,:,jb)
           avi%cell_center_lat(jcs:jce)=patch%cells%center(jcs:jce,jb)%lat
-          CALL cariolle_init_ozone(                                &
-            jcs,                jce,                nproma,        &
-            nlev,               time_interpolation, lat_weight_li, &
-            pressure_weight_li, avi,                vmr_o3         )
+          CALL lcariolle_init_o3(                                              &
+           & jcs,                   jce,                nproma,                &
+           & nlev,                  time_interpolation, lcariolle_lat_intp_li, &
+           & lcariolle_pres_intp_li,avi,                vmr_o3                 )
 !!$        write(0,*) 'vmr_o3(jcs,:)=', vmr_o3(jcs,:)
           pt_prog_new_rcf% tracer(jcs:jce,:,jb,io3)=vmr_o3(jcs:jce,:)*amo3/amd
         END DO

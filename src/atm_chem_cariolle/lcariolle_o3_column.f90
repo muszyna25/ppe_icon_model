@@ -1,5 +1,8 @@
-SUBROUTINE cariolle_o3_column(jcb,jce,NCX,nlev,o3_vmr,vmr2molm2,ldown,o3_column)
-USE mo_cariolle_kind,   ONLY: wp,wi 
+SUBROUTINE lcariolle_o3_column(                    &
+         & jcb,          jce,           NCX,       &
+         & nlev,         o3_vmr,        vmr2molm2, &
+         & ldown,        o3_column                 )
+USE mo_lcariolle_kind,   ONLY: wp,wi 
 IMPLICIT NONE
 INTEGER(wi),INTENT(IN)  :: jcb,jce,NCX,nlev
 REAL(wp),INTENT(IN)     :: o3_vmr(NCX,nlev)
@@ -24,4 +27,4 @@ DO ii=1,nlev-1
          & 0.5_wp * o3_vmr(jcb:jce,ilev) * vmr2molm2(jcb:jce,ilev)
 END DO
 
-END SUBROUTINE cariolle_o3_column
+END SUBROUTINE lcariolle_o3_column

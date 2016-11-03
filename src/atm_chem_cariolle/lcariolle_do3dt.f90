@@ -1,12 +1,13 @@
-SUBROUTINE cariolle_do3dt(jcb,                 jce,             NCX,               &
-                         &nlev,                time_ip,         lat_weight_linear, &
-                         &pres_weight_linear,  avi,             do3dt              )
-USE mo_cariolle_kind,  ONLY: wp,wi
-USE mo_cariolle_types, ONLY: t_time_interpolation,t_avi,pvi,nlatx,nlevx
+SUBROUTINE lcariolle_do3dt(                                         &
+         & jcb,                 jce,             NCX,               &
+         & nlev,                time_ip,         lat_intp_li,       &
+         & pres_weight_linear,  avi,             do3dt              )
+USE mo_lcariolle_kind,  ONLY: wp,wi
+USE mo_lcariolle_types, ONLY: t_time_interpolation,t_avi,pvi,nlatx,nlevx
 IMPLICIT NONE
 INTEGER(wi),INTENT(IN) :: jcb,jce,NCX,nlev
 TYPE(t_time_interpolation), INTENT(IN) :: time_ip
-EXTERNAL                  lat_weight_linear,pres_weight_linear
+EXTERNAL                  lat_intp_li,pres_weight_linear
 TYPE(t_avi),INTENT(IN) :: avi
 REAL(wp),INTENT(INOUT) :: do3dt(NCX,nlev) ! tendency of VMR per second
 
@@ -30,15 +31,20 @@ REAL(wp)               :: at1(0:nlatx+1,nlevx), at2(0:nlatx+1,nlevx), &
                         & at5(0:nlatx+1,nlevx), at6(0:nlatx+1,nlevx), &
                         & at7(0:nlatx+1,nlevx), at8(0:nlatx+1,nlevx)
 
-CALL cariolle_o3_column(jcb,jce,NCX,nlev,avi%o3_vmr,avi%vmr2molm2,avi%ldown,o3_column)
-CALL lat_weight_linear( jcb,                 jce,                   NCX,               &
-                      & avi%cell_center_lat, nlatx,                 pvi%rlat,          &
-                      & pvi%delta_lat,       pvi%l_lat_sn,          wgt1_lat,          &
-                      & wgt2_lat,            inmw1_lat,             inmw2_lat          )
-CALL pres_weight_linear(jcb,                 jce,                   NCX,               &
-                      & nlev,                avi%pres,              nlevx,             &
-                      & pvi%plev,            wgt1_p,                wgt2_p,            &
-                      & iw1_p,               iw2_p                                     )
+CALL lcariolle_o3_column(                         &
+   & jcb,           jce,           NCX,           &
+   & nlev,          avi%o3_vmr,    avi%vmr2molm2, &
+   & avi%ldown,     o3_column                     )
+CALL lat_intp_li(                                                   &
+   & jcb,                 jce,                   NCX,               &
+   & avi%cell_center_lat, nlatx,                 pvi%rlat,          &
+   & pvi%delta_lat,       pvi%l_lat_sn,          wgt1_lat,          &
+   & wgt2_lat,            inmw1_lat,             inmw2_lat          )
+CALL pres_weight_linear(                                            &
+   & jcb,                 jce,                   NCX,               &
+   & nlev,                avi%pres,              nlevx,             &
+   & pvi%plev,            wgt1_p,                wgt2_p,            &
+   & iw1_p,               iw2_p                                     )
 ! interpolate coefficients with respect to time
 wp1=time_ip%weight1
 wp2=time_ip%weight2
@@ -119,4 +125,4 @@ DO ilev=1,nlev
   END DO
 END DO
 !!$write(*,*) 'do3dt(1,5)=',do3dt(1,5)
-END SUBROUTINE cariolle_do3dt
+END SUBROUTINE lcariolle_do3dt

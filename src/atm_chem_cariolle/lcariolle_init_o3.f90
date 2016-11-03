@@ -1,13 +1,13 @@
-SUBROUTINE cariolle_init_ozone( &
-                         &jcb,                 jce,         NCX,               &
-                         &nlev,                time_ip,     lat_weight_linear, &
-                         &pres_weight_linear,  avi,         vmr_o3             )
-USE mo_cariolle_kind,  ONLY: wp,wi
-USE mo_cariolle_types, ONLY: t_time_interpolation,t_avi,pvi,nlatx,nlevx
+SUBROUTINE lcariolle_init_o3(                                   &
+         & jcb,                 jce,         NCX,               &
+         & nlev,                time_ip,     lat_intp_li,       &
+         & pres_weight_linear,  avi,         vmr_o3             )
+USE mo_lcariolle_kind,  ONLY: wp,wi
+USE mo_lcariolle_types, ONLY: t_time_interpolation,t_avi,pvi,nlatx,nlevx
 IMPLICIT NONE
 INTEGER(wi),INTENT(IN) :: jcb,jce,NCX,nlev
 TYPE(t_time_interpolation), INTENT(IN) :: time_ip
-EXTERNAL                  lat_weight_linear,pres_weight_linear
+EXTERNAL                  lat_intp_li,pres_weight_linear
 TYPE(t_avi),INTENT(IN) :: avi
 REAL(wp),INTENT(INOUT) :: vmr_o3(NCX,nlev) ! tendency of VMR per second
 
@@ -22,14 +22,16 @@ REAL(wp)               :: a3_p1,a3_p2
 REAL(wp)               :: al3(NCX,nlev)
 REAL(wp)               :: at3(0:nlatx+1,nlevx)
 
-CALL lat_weight_linear( jcb,                 jce,                NCX,          &
-                      & avi%cell_center_lat, nlatx,              pvi%rlat,     &
-                      & pvi%delta_lat,       pvi%l_lat_sn,       wgt1_lat,     &
-                      & wgt2_lat,            inmw1_lat,          inmw2_lat     )
-CALL pres_weight_linear(jcb,                 jce,                NCX,          &
-                      & nlev,                avi%pres,           nlevx,        &
-                      & pvi%plev,            wgt1_p,             wgt2_p,       &
-                      & iw1_p,               iw2_p                             )
+CALL lat_intp_li(                                           &
+   & jcb,                 jce,                NCX,          &
+   & avi%cell_center_lat, nlatx,              pvi%rlat,     &
+   & pvi%delta_lat,       pvi%l_lat_sn,       wgt1_lat,     &
+   & wgt2_lat,            inmw1_lat,          inmw2_lat     )
+CALL pres_weight_linear(                                    &
+   & jcb,                 jce,                NCX,          &
+   & nlev,                avi%pres,           nlevx,        &
+   & pvi%plev,            wgt1_p,             wgt2_p,       &
+   & iw1_p,               iw2_p                             )
 ! interpolate coefficients with respect to time
 wp1=time_ip%weight1
 wp2=time_ip%weight2
@@ -56,4 +58,4 @@ DO ilev=1,nlev
     vmr_o3(ic,ilev)=wp1*a3_p1+wp2*a3_p2
   END DO
 END DO
-END SUBROUTINE cariolle_init_ozone
+END SUBROUTINE lcariolle_init_o3

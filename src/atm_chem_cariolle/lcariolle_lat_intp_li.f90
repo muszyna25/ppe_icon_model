@@ -1,8 +1,9 @@
-SUBROUTINE lat_weight_li( jcb,                jce,                   NCX,              &
-                        & cell_center_lat,    n_lat_clim,            r_lat_clim,       &
-                        & r_delta_lat_clim,   l_lat_clim_sn,         wgt1_lat,         &
-                        & wgt2_lat,           inmw1_lat,             inmw2_lat         )
-USE mo_cariolle_kind,        ONLY: wi,wp
+SUBROUTINE lcariolle_lat_intp_li(                                       &
+         & jcb,                jce,                   NCX,              &
+         & cell_center_lat,    n_lat_clim,            r_lat_clim,       &
+         & r_delta_lat_clim,   l_lat_clim_sn,         wgt1_lat,         &
+         & wgt2_lat,           inmw1_lat,             inmw2_lat         )
+USE mo_lcariolle_kind,        ONLY: wi,wp
 INTEGER(wi),INTENT(IN)          :: jcb, jce, NCX
 REAL(wp),INTENT(IN)             :: cell_center_lat(NCX)
 INTEGER(wi),INTENT(IN)          :: n_lat_clim
@@ -23,4 +24,4 @@ inmw1_lat(jcb:jce)=MAX(INT(n_order*(cell_center_lat(jcb:jce)-r_lat_clim(1))*r_de
 inmw2_lat(jcb:jce)=inmw1_lat(jcb:jce)+1
 wgt2_lat(jcb:jce)=n_order*(cell_center_lat(jcb:jce)-r_lat_clim(inmw1_lat(jcb:jce)))*r_delta_lat_clim_i
 wgt1_lat(jcb:jce)=1.0_wp-wgt2_lat(jcb:jce)
-END SUBROUTINE lat_weight_li
+END SUBROUTINE lcariolle_lat_intp_li

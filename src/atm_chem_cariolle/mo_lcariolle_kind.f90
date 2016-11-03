@@ -1,4 +1,4 @@
-MODULE mo_cariolle_kind
+MODULE mo_lcariolle_kind
   USE mo_kind, ONLY: dp, i4
   IMPLICIT NONE
   PRIVATE
@@ -14,4 +14,4 @@ MODULE mo_cariolle_kind
 
 INTEGER, PARAMETER :: wp=dp
 INTEGER, PARAMETER :: wi=i4
-END MODULE mo_cariolle_kind
+END MODULE mo_lcariolle_kind

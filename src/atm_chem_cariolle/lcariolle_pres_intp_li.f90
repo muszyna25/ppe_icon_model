@@ -1,5 +1,9 @@
-SUBROUTINE pressure_weight_li (jcb,jce,NCX,nlev,plev,nlev_clim,plev_clim,wgt1_p,wgt2_p,inmw1_p,inmw2_p)
-USE mo_cariolle_kind,       ONLY: wi,wp
+SUBROUTINE lcariolle_pres_intp_li (                               &
+         & jcb,              jce,                 NCX,            &
+         & nlev,             plev,                nlev_clim,      &
+         & plev_clim,        wgt1_p,              wgt2_p,         &
+         & inmw1_p,          inmw2_p                              )
+USE mo_lcariolle_kind,       ONLY: wi,wp
 INTEGER(wi),INTENT(IN)         :: jcb,jce,NCX,nlev
 REAL(wp),INTENT(IN)            :: plev(NCX,nlev)
 INTEGER(wi),INTENT(IN)         :: nlev_clim
@@ -41,4 +45,4 @@ DO ic=jcb,jce
     ilev_low=ii
   END DO
 END DO
-END SUBROUTINE pressure_weight_li
+END SUBROUTINE lcariolle_pres_intp_li
