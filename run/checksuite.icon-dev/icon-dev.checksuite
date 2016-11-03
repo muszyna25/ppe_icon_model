@@ -379,6 +379,7 @@ SUB_FILES=${SUB_FILES='no'}
 # checks depending on the experiment.
 if [ "${EXPERIMENT}" == 'atm_amip_test' ]; then
     TYPES=${TYPES='atm_2d_ml atm_3d_ml phy_3d_ml trc_3d_ml lnd_ml'}
+#    TYPES=${TYPES='atm_2d_ml atm_3d_ml phy_3d_ml lnd_ml'}
     DATES=${DATES='19790101T000000Z 19790101T000400Z 19790101T000800Z 19790101T001200Z 19790101T001600Z'}
     RESTART_DATE=${RESTART_DATE='19790101T000800Z'}
 fi
