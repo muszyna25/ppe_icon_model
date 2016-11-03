@@ -1056,7 +1056,7 @@ MODULE mo_sgs_turbmetric
                       visc_smag_ie(je,jk+1,jb) * (vn_vert2i_p1 - vn_vert1i_p1))) + &
                       p_patch%edges%inv_vert_vert_length(je,jb) * ( &
                       (visc_smag_ie(je,jk,jb) * (vt_vert4i - vt_vert3i) - &
-                      visc_smag_ie(je,jk+1,jb) * (vt_vert4i_p1 - vt_vert4i_p1))))
+                      visc_smag_ie(je,jk+1,jb) * (vt_vert4i_p1 - vt_vert3i_p1))))
 
          tot_tend(je,jk,jb) = ( (flux_up_c-flux_dn_c)*p_patch%edges%inv_dual_edge_length(je,jb) + &
                         p_patch%edges%tangent_orientation(je,jb) * (flux_up_v-flux_dn_v) * &
