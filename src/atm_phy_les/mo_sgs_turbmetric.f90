@@ -856,7 +856,7 @@ MODULE mo_sgs_turbmetric
 !$OMP   vn_vert1i_p1,vn_vert2i_p1,vn_vert3i_p1,vn_vert4i_p1,vt_vert1i_p1,&
 !$OMP   vt_vert2i_p1,vt_vert3i, vt_vert3i_p1, vt_vert4i, vt_vert4i_p1,&
 !$OMP   dvt,jcn,jbn,flux_up_c,flux_dn_c,jvn,flux_up_v,flux_dn_v,&
-!$OMP   norm_metr,tang_metr)
+!$OMP   norm_metr,tang_metr,div_of_stress,div_of_stress_p1)
     DO jb = i_startblk,i_endblk
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
