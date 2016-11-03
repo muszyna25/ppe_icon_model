@@ -2524,14 +2524,14 @@ MODULE mo_sgs_turbmetric
 #endif
                 a(jc,jk)   = - diff_smag_ic(jc,jk,jb) * p_nh_metrics%inv_ddqz_z_half(jc,jk,jb) *&
                   p_nh_metrics%inv_ddqz_z_full(jc,jk,jb) * &
-                  (p_nh_metrics%ddxn_z_half_c(jc,jk,jb)*p_nh_metrics%ddxn_z_full(jc,jk,jb)+&
-                  p_nh_metrics%ddxt_z_half_c(jc,jk,jb)*p_nh_metrics%ddxt_z_full(jc,jk,jb)+1._wp) *&
+                  (p_nh_metrics%ddxn_z_half_c(jc,jk,jb)*p_nh_metrics%ddxn_z_full_c(jc,jk,jb)+&
+                  p_nh_metrics%ddxt_z_half_c(jc,jk,jb)*p_nh_metrics%ddxt_z_full_c(jc,jk,jb)+1._wp) *&
                   exner_ic(jc,jk,jb) * fac(jc,jk,jb)
 
                 c(jc,jk)   = - diff_smag_ic(jc,jk+1,jb) * p_nh_metrics%inv_ddqz_z_half(jc,jk+1,jb) *&
                   p_nh_metrics%inv_ddqz_z_full(jc,jk,jb) * &
-                  (p_nh_metrics%ddxn_z_half_c(jc,jk+1,jb)*p_nh_metrics%ddxn_z_full(jc,jk,jb)+&
-                  p_nh_metrics%ddxt_z_half_c(jc,jk+1,jb)*p_nh_metrics%ddxt_z_full(jc,jk,jb)+1._wp) *&
+                  (p_nh_metrics%ddxn_z_half_c(jc,jk+1,jb)*p_nh_metrics%ddxn_z_full_c(jc,jk,jb)+&
+                  p_nh_metrics%ddxt_z_half_c(jc,jk+1,jb)*p_nh_metrics%ddxt_z_full_c(jc,jk,jb)+1._wp) *&
                   exner_ic(jc,jk+1,jb) * fac(jc,jk,jb)
 
                 b(jc,jk)   =  inv_dt - a(jc,jk) - c(jc,jk)
@@ -2547,8 +2547,8 @@ MODULE mo_sgs_turbmetric
            DO jc = i_startidx, i_endidx
              c(jc,1)   = - diff_smag_ic(jc,2,jb) * p_nh_metrics%inv_ddqz_z_half(jc,2,jb) *&
                p_nh_metrics%inv_ddqz_z_full(jc,1,jb) * &
-               (p_nh_metrics%ddxn_z_half_c(jc,2,jb)*p_nh_metrics%ddxn_z_full(jc,1,jb)+&
-               p_nh_metrics%ddxt_z_half_c(jc,2,jb)*p_nh_metrics%ddxt_z_full(jc,1,jb)+1._wp)*&
+               (p_nh_metrics%ddxn_z_half_c(jc,2,jb)*p_nh_metrics%ddxn_z_full_c(jc,1,jb)+&
+               p_nh_metrics%ddxt_z_half_c(jc,2,jb)*p_nh_metrics%ddxt_z_full_c(jc,1,jb)+1._wp)*&
                exner_ic(jc,2,jb) * fac(jc,1,jb)
 
              b(jc,1)   = inv_dt - c(jc,1)
@@ -2562,8 +2562,8 @@ MODULE mo_sgs_turbmetric
            DO jc = i_startidx, i_endidx
              a(jc,nlev)   = - diff_smag_ic(jc,nlev,jb) * p_nh_metrics%inv_ddqz_z_half(jc,nlev,jb) *&
                p_nh_metrics%inv_ddqz_z_full(jc,nlev,jb) * &
-               (p_nh_metrics%ddxn_z_half_c(jc,nlev,jb)*p_nh_metrics%ddxn_z_full(jc,nlev,jb)+&
-               p_nh_metrics%ddxt_z_half_c(jc,nlev,jb)*p_nh_metrics%ddxt_z_full(jc,nlev,jb)+1._wp) *&
+               (p_nh_metrics%ddxn_z_half_c(jc,nlev,jb)*p_nh_metrics%ddxn_z_full_c(jc,nlev,jb)+&
+               p_nh_metrics%ddxt_z_half_c(jc,nlev,jb)*p_nh_metrics%ddxt_z_full_c(jc,nlev,jb)+1._wp) *&
                exner_ic(jc,nlev,jb) * fac(jc,nlev,jb)
 
              b(jc,nlev)  = inv_dt - a(jc,nlev)
