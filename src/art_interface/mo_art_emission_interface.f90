@@ -138,19 +138,17 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
   i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
   IF (lart) THEN
-    
+
     ALLOCATE(emiss_rate(nproma,nlev))
     ALLOCATE(dz(nproma,nlev))
-  
-    CALL art_air_properties(p_patch,p_art_data(jg))
-       
-    IF (art_config(jg)%lart_aerosol) THEN
 
+    IF (art_config(jg)%lart_aerosol) THEN
 !$omp parallel do default (shared) private(jb, istart, iend, dz)
       DO jb = i_startblk, i_endblk
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
           &                istart, iend, i_rlstart, i_rlend)
-        
+        CALL art_air_properties(p_nh_state%diag%pres(:,:,jb),p_nh_state%diag%temp(:,:,jb), &
+          &                     istart,iend,1,nlev,jb,p_art_data(jg))
         ! Get model layer heights
         DO jk = 1, nlev
           DO jc = istart, iend

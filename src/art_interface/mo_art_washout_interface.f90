@@ -114,7 +114,12 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
     IF (art_config(jg)%lart_aerosol) THEN
       ALLOCATE(wash_rate_m0(nproma,nlev))
       ALLOCATE(wash_rate_m3(nproma,nlev))
-      CALL art_air_properties(p_patch,p_art_data(jg))
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+          &                istart, iend, i_rlstart, i_rlend)
+        CALL art_air_properties(pt_diag%pres(:,:,jb),pt_diag%temp(:,:,jb), &
+          &                     istart,iend,1,nlev,jb,p_art_data(jg))
+      ENDDO
       
       this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
      
