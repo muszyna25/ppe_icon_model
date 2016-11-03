@@ -17,8 +17,8 @@ MODULE mo_psrad_srtm_setup
   PRIVATE
 
   PUBLIC :: ngb, ngc, ngs, nspa, nspb, ssi_default, ssi_preind, ssi_amip, &
-          & ssi_RCEdiurnON, ssi_RCEdiurnOFF, wavenum1, wavenum2, &
-          & delwave, setup_srtm
+          & ssi_RCEdiurnON, ssi_RCEdiurnOFF, ssi_cmip6_picontrol,         &
+          & wavenum1, wavenum2, delwave, setup_srtm
   ! ------- Definitions -------
   !     Arrays for the g-point reduction from 224 to 112 for the 16 LW bands:
   !     This mapping from 224 to 112 points has been carefully selected to 
@@ -131,7 +131,7 @@ MODULE mo_psrad_srtm_setup
     ! sum of 14 bands is: 1361.371
 
   REAL(wp), PARAMETER :: ssi_preind(14) =  (/ & !< solar flux (W/m2) in 14 SW bands for
-                           ! preindutrial CMIP5 simulation (average from 1944-1856)
+                           ! preindutrial CMIP5 simulation (average from 1844-1856)
     & 11.95005_wp, 20.14612_wp, 23.40302_wp, 22.09443_wp, 55.41679_wp,  &
     & 102.512_wp , 24.69536_wp, 347.4719_wp, 217.2217_wp, 343.2816_wp,  &
     & 129.3001_wp, 47.07624_wp, 3.130199_wp, 13.17521_wp /)
@@ -153,6 +153,13 @@ MODULE mo_psrad_srtm_setup
     & 32.63096_wp,  7.861645_wp,  110.624_wp,   69.16621_wp,  109.3144_wp, &
     & 41.19017_wp,  15.00594_wp, 1.009717_wp,   4.195554_wp  /)
     ! sum of 14 bands is: 433.3371
+
+  REAL(wp), PARAMETER :: ssi_cmip6_picontrol(14) =  (/ & !< solar flux (W/m2) in 14 SW bands for
+                           ! preindustrial CMIP6 simulation (average from 1850-1873)
+    & 12.02503_wp, 20.24537_wp, 23.69633_wp, 22.42093_wp, 55.91312_wp,  &
+    & 103.5685_wp, 24.46918_wp, 346.3545_wp, 217.1642_wp, 344.9983_wp,  &
+    & 127.7391_wp, 45.95287_wp, 2.957934_wp, 13.23855_wp /)
+    ! sum of 14 bands is: 1360.744
 
 CONTAINS
 
