@@ -1,13 +1,13 @@
 SUBROUTINE lcariolle_do3dt(                                         &
          & jcb,                 jce,             NCX,               &
          & nlev,                time_ip,         lat_intp_li,       &
-         & pres_weight_linear,  avi,             do3dt              )
+         & pres_intp_li,        avi,             do3dt              )
 USE mo_lcariolle_kind,  ONLY: wp,wi
 USE mo_lcariolle_types, ONLY: t_time_interpolation,t_avi,pvi,nlatx,nlevx
 IMPLICIT NONE
 INTEGER(wi),INTENT(IN) :: jcb,jce,NCX,nlev
 TYPE(t_time_interpolation), INTENT(IN) :: time_ip
-EXTERNAL                  lat_intp_li,pres_weight_linear
+EXTERNAL                  lat_intp_li,pres_intp_li
 TYPE(t_avi),INTENT(IN) :: avi
 REAL(wp),INTENT(INOUT) :: do3dt(NCX,nlev) ! tendency of VMR per second
 
@@ -40,7 +40,7 @@ CALL lat_intp_li(                                                   &
    & avi%cell_center_lat, nlatx,                 pvi%rlat,          &
    & pvi%delta_lat,       pvi%l_lat_sn,          wgt1_lat,          &
    & wgt2_lat,            inmw1_lat,             inmw2_lat          )
-CALL pres_weight_linear(                                            &
+CALL pres_intp_li(                                                  &
    & jcb,                 jce,                   NCX,               &
    & nlev,                avi%pres,              nlevx,             &
    & pvi%plev,            wgt1_p,                wgt2_p,            &
