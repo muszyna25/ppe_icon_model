@@ -470,12 +470,10 @@ CONTAINS
       field% visdffsfc (:,  :) = 0._wp
       field% nirdffsfc (:,  :) = 0._wp
       field% pardffsfc (:,  :) = 0._wp
-      field% lwflxupsfc(:,  :) = 0._wp
       field% rsns      (:,  :) = 0._wp
       field% rlns      (:,  :) = 0._wp
       field% swflxsfc_tile(:,:,:) = 0._wp
       field% lwflxsfc_tile(:,:,:) = 0._wp
-      field% lwupflxsfc  (:,:) = 0._wp
       field% dlwflxsfc_dT(:,:) = 0._wp
       field% rsnt      (:,  :) = 0._wp
       field% rlnt      (:,  :) = 0._wp

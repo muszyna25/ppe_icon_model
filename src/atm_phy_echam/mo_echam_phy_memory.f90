@@ -233,9 +233,6 @@ MODULE mo_echam_phy_memory
       ! shortwave net transmissivity (updated at radiation time steps)
       & partrmdnsfc (:,  :),  &!< [ ]    downward shortwave transmissivity in PAR, all-sky
       !
-      ! longwave net fluxes (updated at radiation time steps)
-      & lwflxupsfc  (:,  :),  &!< [W/m2] upward longwave flux at surface, all-sky
-      !
       & o3          (:,:,:)    !< temporary set ozone mass mixing ratio  
     ! aerosol optical properties
     REAL(wp), POINTER ::      &
@@ -379,7 +376,6 @@ MODULE mo_echam_phy_memory
     REAL(wp),POINTER ::     &
       ! net fluxes at TOA and surface
       & swflxsfc_tile(:,:,:),  &!< [ W/m2] shortwave net flux at surface
-      & lwupflxsfc    (:,:),   &!< [ W/m2] longwave upward flux at surface
       & lwflxsfc_tile(:,:,:),  &!< [ W/m2] longwave net flux at surface
       & dlwflxsfc_dT(:,:)       !< [ W/m2/K] longwave net flux temp tend at surface
 
@@ -1631,24 +1627,6 @@ CONTAINS
     grib2_desc = grib2_var(0,4,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'partrmdnsfc', field%partrmdnsfc,         &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
-    cf_desc    = t_cf_var('rlus', 'W m-2', 'longwave upward flux at surface', datatype_flt)
-    grib2_desc = grib2_var(0, 5, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'rlus', field%lwupflxsfc,&
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
-         &        isteptype=TSTEP_INSTANT )
-
-    cf_desc    = t_cf_var('rlus_radt', 'W m-2', 'longwave upward flux at surface at rad time', datatype_flt)
-    grib2_desc = grib2_var(0, 5, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'rlus_radt', field%lwflxupsfc,&
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,                                 &
-         &        lrestart = .TRUE.,                             &
-         &        isteptype=TSTEP_INSTANT )
 
     cf_desc    = t_cf_var('drlns_dT', 'W m-2 K-1', 'longwave net flux T-derivative at surface', &
          &                datatype_flt)

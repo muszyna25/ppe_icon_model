@@ -67,7 +67,7 @@ MODULE mo_psrad_radiation
   USE mo_ext_data_state,      ONLY: ext_data, nlev_o3
   USE mo_bc_ozone,            ONLY: o3_plev, nplev_o3, plev_full_o3, plev_half_o3
   USE mo_o3_util,             ONLY: o3_pl2ml, o3_timeint
-  USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
+  USE mo_echam_phy_config,    ONLY: echam_phy_config
 !  USE mo_time_control,        ONLY: l_orbvsop87, get_orbit_times,                 &
 !       &                            p_bcast_event, current_date, next_date,       &
 !       &                            previous_date, radiation_date,                &
@@ -77,9 +77,6 @@ MODULE mo_psrad_radiation
   USE mo_psrad_orbit,         ONLY: orbit_kepler, orbit_vsop87, &
                                   & get_orbit_times
   USE mo_psrad_orbit_nml,     ONLY: read_psrad_orbit_namelist
-  USE mo_psrad_radiation_parameters, ONLY: solar_parameters, &
-                                  & l_interp_rad_in_time,        &
-                                  & zepzen
 ! the present mo_bc_solar_irradiance is "old" and not the one used in echam-6.3.
 !  USE mo_solar_irradiance,    ONLY: get_solar_irradiance, set_solar_irradiance, &
 !                                    get_solar_irradiance_m, set_solar_irradiance_m
@@ -125,8 +122,6 @@ MODULE mo_psrad_radiation
                                     ssi_radt
   USE mo_psrad_radiation_parameters, ONLY: nb_sw,              & 
                                      irad_aero_forcing,        &
-                                     l_interp_rad_in_time,     &
-                                     zepzen,                   &
                                      lw_spec_samp,             &
                                      sw_spec_samp,             &
                                      lw_gpts_ts,               &
@@ -204,7 +199,7 @@ MODULE mo_psrad_radiation
          &                ldiur,          l_sph_symm_irr,   p_patch,           &
          &                flx_ratio_cur,  amu0_x,           rdayl_x            )
 
-    IF (phy_config%lrad) THEN
+    IF (echam_phy_config%lrad) THEN
 !!$
       SELECT CASE (isolrad)
       CASE (0)
@@ -234,7 +229,7 @@ MODULE mo_psrad_radiation
     !
     ! 2.0 Prepare time dependent quantities for rad (on radiation timestep)
     ! --------------------------------
-    IF (phy_config%lrad .AND. ltrig_rad) THEN
+    IF (echam_phy_config%lrad .AND. ltrig_rad) THEN
       CALL get_orbit_times(datetime_radiation, time_of_day , &
            &               orbit_date)
 
@@ -396,7 +391,7 @@ MODULE mo_psrad_radiation
     !
     ! 3.0 If radiation is active check NAMELIST variable conformance
     ! --------------------------------
-    IF (phy_config%lrad) THEN
+    IF (echam_phy_config%lrad) THEN
 
       CALL message('','')
       CALL message('','PSrad setup')
@@ -404,7 +399,7 @@ MODULE mo_psrad_radiation
       CALL message('','- New (V4) LRTM Model')
       CALL message('','- AER RRTM Shortwave Model')
       CALL message('','')
-      CALL print_value('radiation time step in [s]',phy_config%dt_rad)
+      CALL print_value('radiation time step in [s]',echam_phy_config%dt_rad)
       CALL message('','')
       !
       CALL setup_psrad
@@ -747,13 +742,14 @@ MODULE mo_psrad_radiation
     & nir_dff_frc,&!< diffuse fraction of downw. surf. near-infrared radiation
     & vis_dff_frc,&!< diffuse fraction of downward surface visible radiation
     & par_dff_frc,&!< iffuse fraction of downward surface PAR
-    & lw_flx_up_sfc,&!< longwave upward surface radiation
-    & lw_net_clr_bnd,&!< clear-sky net longwave  at TOA (:,1) and surface (:,2)
-    & sw_net_clr_bnd,&!< clear-sky net shortwave at TOA (:,1) and surface (:,2)
-    & lw_net_clr ,&!< clear-sky net longwave  at all levels
-    & sw_net_clr ,&!< clear-sky net shortwave at all levels
-    & lw_net     ,&!< all-sky net longwave  at all levels
-    & sw_net      &!< all-sky net shortwave at all levels
+    & lw_dnw_clr ,&!< clear-sky downward longwave  at all levels
+    & lw_upw_clr ,&!< clear-sky upward   longwave  at all levels
+    & sw_dnw_clr ,&!< clear-sky downward shortwave at all levels
+    & sw_upw_clr ,&!< clear-sky upward   shortwave at all levels
+    & lw_dnw     ,&!< all-sky   downward longwave  at all levels
+    & lw_upw     ,&!< all-sky   upward   longwave  at all levels
+    & sw_dnw     ,&!< all-sky   downward shortwave at all levels
+    & sw_upw      &!< all-sky   upward   shortwave at all levels
     &              )
     INTEGER, INTENT(in)  :: &
     & jg,             & !< domain index
@@ -796,22 +792,21 @@ MODULE mo_psrad_radiation
     & nir_dff_frc(kbdim),      & !< Diffuse fraction of downward surface near-infrared radiation
     & vis_dff_frc(kbdim),      & !< Diffuse fraction of downward surface visible radiation
     & par_dff_frc(kbdim),      & !< Diffuse fraction of downward surface PAR
-    & lw_flx_up_sfc(kbdim),    & !< longwave upward surface radiation
-    & lw_net_clr_bnd(kbdim,2), & !< Clear-sky net longwave  at TOA (:,1) and surface (:,2) 
-    & sw_net_clr_bnd(kbdim,2), & !< Clear-sky net shortwave at TOA (:,1) and surface (:,2) 
-    & lw_net_clr(kbdim,klevp1),& !< Clear-sky net longwave  at all levels
-    & sw_net_clr(kbdim,klevp1),& !< Clear-sky net shortwave at all levels
-    & lw_net(kbdim,klevp1),    & !< All-sky net longwave  at all levels
-    & sw_net(kbdim,klevp1)       !< All-sky net shortwave at all levels
+    & lw_dnw_clr(kbdim,klevp1),& !< Clear-sky downward longwave  at all levels
+    & lw_upw_clr(kbdim,klevp1),& !< Clear-sky upward   longwave  at all levels
+    & sw_dnw_clr(kbdim,klevp1),& !< Clear-sky downward shortwave at all levels
+    & sw_upw_clr(kbdim,klevp1),& !< Clear-sky upward   shortwave at all levels
+    & lw_dnw(kbdim,klevp1),    & !< All-sky   downward longwave  at all levels
+    & lw_upw(kbdim,klevp1),    & !< All-sky   upward   longwave  at all levels
+    & sw_dnw(kbdim,klevp1),    & !< All-sky   downward shortwave at all levels
+    & sw_upw(kbdim,klevp1)       !< All-sky   upward   shortwave at all levels
 
-    INTEGER              :: jk, jl, iaero_call, number_rad_call, i_rad_call
+    INTEGER              :: jk, jl
     INTEGER              :: knwtrc  !< number of non-water tracers
     INTEGER              :: selmon  !< index to select a calendar month
 
     REAL(wp)             ::         &
-    & cos_mu0(kbdim),               &
     & pp_sfc(kbdim),                &
-!!$    & ppd_hl(kbdim,klev),           &
     & tk_hl(kbdim,klevp1),          &
     & xm_vap(kbdim,klev),           & !< water vapor mass in layer [kg/m2]
     & xm_liq(kbdim,klev),           & !< cloud water mass in layer [kg/m2]
@@ -823,16 +818,7 @@ MODULE mo_psrad_radiation
     & xm_o2(kbdim,klev),            & !< O2  mass in layer [kg/m2]
     & xm_ch4(kbdim,klev),           & !< CH4 mass in layer [kg/m2]
     & xm_n2o(kbdim,klev),           & !< N2O mass in layer [kg/m2]
-    & xm_cfc(kbdim,klev,2),         & !< CFC mass in layer [kg/m2]
-    & flux_factor(kbdim),           & !< 1D Scratch Array for diagnostics
-    & flx_uplw    (kbdim,klevp1),   & !<   All-sky   upward longwave  flux [Wm2]
-    & flx_uplw_clr(kbdim,klevp1),   & !< Clear-sky   upward longwave  flux [Wm2]
-    & flx_dnlw    (kbdim,klevp1),   & !<   All-sky downward longwave  flux [Wm2]
-    & flx_dnlw_clr(kbdim,klevp1),   & !< Clear-sky downward longwave  flux [Wm2]
-    & flx_upsw    (kbdim,klevp1),   & !<   All-sky   upward shortwave flux [Wm2]
-    & flx_upsw_clr(kbdim,klevp1),   & !< Clear-sky   upward shortwave flux [Wm2]
-    & flx_dnsw    (kbdim,klevp1),   & !<   All-sky downward shortwave flux [Wm2]
-    & flx_dnsw_clr(kbdim,klevp1)      !< Clear-sky downward shortwave flux [Wm2]
+    & xm_cfc(kbdim,klev,2)!!$,         & !< CFC mass in layer [kg/m2]
 
     TYPE(t_external_atmos_td) ,POINTER :: atm_td
 
@@ -842,18 +828,9 @@ MODULE mo_psrad_radiation
     ! 1.0 calculate variable input parameters (location and state variables)
     ! --------------------------------
     ! 
-    ! --- solar zenith angle
-    !
-    ! Get the local cosine of the solar zenith angle, setting a minimum positive definite 
-    ! value for smooth interpretation in time (if desired(
-    !
-    cos_mu0(1:kproma) = pcos_mu0(1:kproma)
-    IF (l_interp_rad_in_time) cos_mu0(1:kproma) = MAX(cos_mu0(1:kproma), zepzen) 
-    !
     ! --- Pressure (surface and distance between half levels)
     !
     pp_sfc(1:kproma)   = pp_hl(1:kproma,klevp1)
-!!$    ppd_hl(1:kproma,:) = pp_hl(1:kproma,2:klev+1)-pp_hl(1:kproma,1:klev)
     !
     ! --- temperature at half levels
     !
@@ -987,21 +964,11 @@ MODULE mo_psrad_radiation
 
     ! 2.0 Radiation used to advance model, provide standard diagnostics, and radiative forcing if desired
     !
-    ! --------------------------------
-    ! 2.1 Radiation call (number of calls depends on whether forcing is desired)
-    ! --------------------------------
-    number_rad_call = 1
-    IF (lradforcing(1).OR.lradforcing(2)) number_rad_call = 2 
-
-    DO i_rad_call = 1,number_rad_call
-      iaero_call = irad_aero
-      IF (i_rad_call < number_rad_call) iaero_call = irad_aero_forcing
-
       CALL psrad_interface(                    jg              ,jb              ,&
-           & iaero_call      ,kproma          ,kbdim           ,klev            ,& 
+           & irad_aero       ,kproma          ,kbdim           ,klev            ,& 
 !!$           & knwtrc          ,ktype           ,nb_sw                            ,&
            &                  ktype           ,nb_sw                            ,&
-           & loland          ,loglac          ,datetime        ,cos_mu0         ,&
+           & loland          ,loglac          ,datetime        ,pcos_mu0        ,&
            & cemiss                                                             ,&
            & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
            & zf              ,zh              ,dz                               ,&
@@ -1012,40 +979,11 @@ MODULE mo_psrad_radiation
            & xm_co2          ,xm_ch4          ,xm_n2o          ,xm_cfc          ,&
            & xm_o3           ,xm_o2                                             ,&
 !!$           & xm_trc(:,:,iqt:ntracer)                                            ,&
-           & flx_uplw        ,flx_uplw_clr    ,flx_dnlw        ,flx_dnlw_clr    ,&
-           & flx_upsw        ,flx_upsw_clr    ,flx_dnsw        ,flx_dnsw_clr    ,&
+           & lw_upw          ,lw_upw_clr      ,lw_dnw          ,lw_dnw_clr      ,&
+           & sw_upw          ,sw_upw_clr      ,sw_dnw          ,sw_dnw_clr      ,&
            & vis_frc_sfc     ,par_dn_sfc      ,nir_dff_frc     ,vis_dff_frc     ,&
            & par_dff_frc                                                         )
-      !
-      ! Compute net fluxes from up/down fluxes, and normalize solar fluxes by current value of solar constant
-      ! and zenith angle as they are renormalized when heating rates are calculated.
-      !
-      flux_factor(1:kproma) = 1._wp / (psctm*cos_mu0(1:kproma))
-      lw_net    (1:kproma,1:klevp1) =  flx_dnlw    (1:kproma, 1:klevp1) - flx_uplw    (1:kproma, 1:klevp1)       
-      lw_flx_up_sfc (1:kproma)      =  flx_uplw(1:kproma,klevp1)
-      sw_net    (1:kproma,1:klevp1) = (flx_dnsw    (1:kproma, 1:klevp1) - flx_upsw    (1:kproma, 1:klevp1)) * &
-           &                      SPREAD(flux_factor(1:kproma),2,klevp1)       
-      lw_net_clr(1:kproma,1:klevp1) =  flx_dnlw_clr(1:kproma, 1:klevp1) - flx_uplw_clr(1:kproma, 1:klevp1)       
-      sw_net_clr(1:kproma,1:klevp1) = (flx_dnsw_clr(1:kproma, 1:klevp1) - flx_upsw_clr(1:kproma, 1:klevp1)) * &
-           &                      SPREAD(flux_factor(1:kproma),2,klevp1)
-      par_dn_sfc(1:kproma) = par_dn_sfc(1:kproma) * flux_factor(1:kproma)
 
-      IF (i_rad_call < number_rad_call) CALL prepare_psrad_radiation_forcing(jg, & 
-           & kproma          ,kbdim           ,klevp1          ,jb          ,&
-           & lw_net          ,sw_net          ,lw_net_clr      ,sw_net_clr   )
-    END DO
-    !
-    ! 2.1 Fluxes to advance to the model, compute cloud radiative effect 
-    ! --------------------------------
-    !
-    ! --- Total (net) fluxes, used to advance the model 
-    !
-    !
-    ! --- Clear sky fluxes
-    lw_net_clr_bnd(1:kproma,1)    = lw_net_clr(1:kproma,1)
-    lw_net_clr_bnd(1:kproma,2)    = lw_net_clr(1:kproma,klevp1)
-    sw_net_clr_bnd(1:kproma,1)    = sw_net_clr(1:kproma,1)        
-    sw_net_clr_bnd(1:kproma,2)    = sw_net_clr(1:kproma,klevp1) 
 
   END SUBROUTINE psrad_radiation
 
