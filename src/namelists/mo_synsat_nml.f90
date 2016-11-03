@@ -20,7 +20,6 @@
 !!
 MODULE mo_synsat_nml
 
-  USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_master_config,       ONLY: isRestart
@@ -150,6 +149,16 @@ CONTAINS
     !--------------------------------------------------------
     IF(my_process_is_stdio()) WRITE(nnml_output,nml=synsat_nml)
 
+
+    !--------------------------------------------------------
+    ! 8. consistency check
+    !--------------------------------------------------------
+
+#ifndef __USE_RTTOV
+    IF (ANY(lsynsat)) THEN
+      CALL finish(routine, 'Switch "lsynsat": Model has not been configured for RTTOV library.')
+    END IF
+#endif
 
   END SUBROUTINE read_synsat_namelist
 
