@@ -296,7 +296,12 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
               ! Sedimentation velocity is zero for radioact. tracers
               fields%flx_contra_vsed3(:,:,:) = 0.0_wp
               ! However, a deposition velocity is required
-              CALL art_drydepo_radioact( p_patch,p_prog,fields%itr ) 
+              DO jb = i_startblk, i_endblk
+                CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
+                  &                istart, iend, i_rlstart, i_rlend)
+                CALL art_drydepo_radioact(p_prog%turb_tracer(jb,:), art_config(jg),     &
+                  &                       fields%itr, istart, iend, jb, p_art_data(jg))
+              ENDDO
             CLASS DEFAULT
               CALL finish('mo_art_sedimentation_interface:art_sedimentation_interface', &
                 &         'ART: Unknown mode field type')
