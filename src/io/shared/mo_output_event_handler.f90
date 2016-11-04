@@ -819,7 +819,7 @@ CONTAINS
         n_event_steps_b = n_event_steps
         n_event_steps = 0      
         
-        CALL merge2SortedAndRemoveDublicates(mtime_date_container_a, n_event_steps_a, &
+        CALL merge2SortedAndRemoveDuplicates(mtime_date_container_a, n_event_steps_a, &
              &                               mtime_date_container_b, n_event_steps_b, &
              &                               mtime_date_uniq, remaining_event_steps)
       ENDIF
@@ -946,7 +946,7 @@ CONTAINS
 
   CONTAINS
 
-    SUBROUTINE merge2SortedAndRemoveDublicates(InputArray1, nsize_IA1, &
+    SUBROUTINE merge2SortedAndRemoveDuplicates(InputArray1, nsize_IA1, &
          &                                     InputArray2, nsize_IA2, &
          &                                     OutputArray, nsize_OA)
       TYPE(tmp_container), INTENT(in) :: InputArray1(:)
@@ -960,6 +960,24 @@ CONTAINS
       
       INTEGER :: n, na, nb
       INTEGER :: i, j, k
+
+
+      IF (nsize_IA1 == 0 .AND. nsize_IA2 == 0) THEN
+        CALL finish('merge2SortedAndRemoveDuplicates', 'Invalid size of both input arrays.')
+      ENDIF
+
+      IF (nsize_IA1 == 0) THEN
+        nsize_OA = nsize_IA2
+        ALLOCATE(OutputArray(nsize_IA2))
+        OutputArray(:) = InputArray2(:nsize_IA2)
+        RETURN
+      ENDIF
+      IF (nsize_IA2 == 0) THEN
+        nsize_OA = nsize_IA1
+        ALLOCATE(OutputArray(nsize_IA1))
+        OutputArray(:) = InputArray1(:nsize_IA1)
+        RETURN
+      ENDIF
       
       na = nsize_IA1
       nb = nsize_IA2 
@@ -970,23 +988,41 @@ CONTAINS
       i = 1
       j = 1
       k = 1
+
+      ! handle special case for k == 1 to be Fortran conforming in start-up step
+
+      diff = 86400000_i8 * (InputArray1(i)%day - InputArray2(j)%day) + InputArray1(i)%ms - InputArray2(j)%ms
+      IF (diff < 0_i8) THEN
+        OutputArray(1) = InputArray1(1)
+        i = 2
+        k = 2
+      ELSE IF (diff > 0_i8) THEN
+        OutputArray(1) = InputArray2(1)
+        j = 2
+        k = 2
+      ELSE
+        OutputArray(1) = InputArray1(1)
+        i = 2
+        j = 2
+        k = 2
+      ENDIF
       
-      DO WHILE(i <= na .AND. j <= nb)
+      DO WHILE (i <= na .AND. j <= nb)
         diff = 86400000_i8 * (InputArray1(i)%day - InputArray2(j)%day) + InputArray1(i)%ms - InputArray2(j)%ms
         IF (diff < 0_i8) THEN
-          IF (k == 1 .OR. ((InputArray1(i)%day /= OutputArray(k-1)%day) .OR. (InputArray1(i)%ms /= OutputArray(k-1)%ms))) THEN
+          IF ((InputArray1(i)%day /= OutputArray(k-1)%day) .OR. (InputArray1(i)%ms /= OutputArray(k-1)%ms)) THEN
             OutputArray(k) = InputArray1(i)
             k = k+1
           ENDIF
-          i=i+1
+          i = i+1
         ELSE IF (diff > 0_i8) THEN
-          IF (k == 1 .OR. ((InputArray2(j)%day /= OutputArray(k-1)%day) .OR. (InputArray2(j)%ms /= OutputArray(k-1)%ms))) THEN
+          IF ((InputArray2(j)%day /= OutputArray(k-1)%day) .OR. (InputArray2(j)%ms /= OutputArray(k-1)%ms)) THEN
             OutputArray(k) = InputArray2(j)
             k = k+1
           ENDIF
           j = j+1
         ELSE
-          IF (k == 1 .OR. ((InputArray1(i)%day /= OutputArray(k-1)%day) .OR. (InputArray1(i)%ms /= OutputArray(k-1)%ms))) THEN
+          IF ((InputArray1(i)%day /= OutputArray(k-1)%day) .OR. (InputArray1(i)%ms /= OutputArray(k-1)%ms)) THEN
             OutputArray(k) = InputArray1(i)
             k = k+1
           ENDIF
@@ -1017,7 +1053,7 @@ CONTAINS
       
       nsize_OA = k-1
       
-    END SUBROUTINE merge2SortedAndRemoveDublicates
+    END SUBROUTINE merge2SortedAndRemoveDuplicates
 
     SUBROUTINE remove_duplicate_intervals(starts, ends, intvls, n, indices_to_use, remaining)
       CHARACTER(len=*), INTENT(in) :: starts(:)

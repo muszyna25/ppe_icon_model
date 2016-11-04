@@ -340,7 +340,11 @@ MODULE mo_initicon
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":read_dwdana"
-    CHARACTER(LEN = :), ALLOCATABLE :: incrementsList(:)
+#if __GNUC__ < 6
+    CHARACTER(len=9), ALLOCATABLE :: incrementsList(:)
+#else
+    CHARACTER(len=:), ALLOCATABLE :: incrementsList(:)
+#endif
     CLASS(t_InputRequestList), POINTER :: requestList
     INTEGER :: jg
 
@@ -390,16 +394,39 @@ MODULE mo_initicon
     IF(my_process_is_stdio()) THEN
         CALL requestList%printInventory()
         IF(lconsistency_checks) THEN
-            SELECT CASE(init_mode)
-                CASE(MODE_IAU)
-                    incrementsList = [CHARACTER(LEN=9) :: 'u', 'v', 'pres', 'temp', 'qv', 'w_so', 'h_snow', 'freshsnow']
-                CASE(MODE_IAU_OLD)
-                    incrementsList = [CHARACTER(LEN=4) :: 'u', 'v', 'pres', 'temp', 'qv', 'w_so']
-                CASE DEFAULT
-                    incrementsList = [CHARACTER(LEN=1) :: ]
-            END SELECT
-            CALL requestList%checkRuntypeAndUuids(incrementsList, gridUuids(p_patch), lIsFg = .FALSE., &
-              lHardCheckUuids = .NOT.check_uuid_gracefully)
+#if __GNUC__ < 6
+          SELECT CASE(init_mode)
+          CASE(mode_iau)
+            incrementslist = ['u        ', &
+                 &            'v        ', &
+                 &            'pres     ', &
+                 &            'temp     ', &
+                 &            'qv       ', &
+                 &            'w_so     ', &
+                 &            'h_snow   ', &
+                 &            'freshsnow' ]
+          CASE(mode_iau_old)
+            incrementslist = ['u        ', &
+                 &            'v        ', &
+                 &            'pres     ', &
+                 &            'temp     ', &
+                 &            'qv       ', &
+                 &            'w_so     ' ]
+          CASE default
+            incrementslist = ['         ' ]
+          END SELECT
+#else
+          SELECT CASE(init_mode)
+          CASE(MODE_IAU)
+            incrementsList = [CHARACTER(LEN=9) :: 'u', 'v', 'pres', 'temp', 'qv', 'w_so', 'h_snow', 'freshsnow']
+          CASE(MODE_IAU_OLD)
+            incrementsList = [CHARACTER(LEN=4) :: 'u', 'v', 'pres', 'temp', 'qv', 'w_so']
+          CASE DEFAULT
+            incrementsList = [CHARACTER(LEN=1) :: ]
+          END SELECT
+#endif
+          CALL requestList%checkRuntypeAndUuids(incrementsList, gridUuids(p_patch), lIsFg = .FALSE., &
+               &                                lHardCheckUuids = .NOT.check_uuid_gracefully)
         END IF
     END IF
 

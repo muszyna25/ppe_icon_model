@@ -128,6 +128,7 @@ MODULE mo_name_list_output_init
     &                                             getTotalMilliSecondsTimeDelta, datetime,        &
     &                                             OPERATOR(+), datetimeToString, OPERATOR(>),     &
     &                                             timedeltaToString, calendarType,                &
+    &                                             getPTStringFromSeconds,                         &
     &                                             mtime_proleptic_gregorian => proleptic_gregorian, &
     &                                             mtime_year_of_360_days => year_of_360_days
   USE mo_output_event_types,                ONLY: t_sim_step_info, MAX_EVENT_NAME_STR_LEN,        &
@@ -989,7 +990,7 @@ CONTAINS
     TYPE(datetime),            POINTER   :: mtime_datetime, mtime_datetime_start,              &
       &                                     mtime_datetime_end, mtime_date1, mtime_date2,      &
       &                                     mtime_date
-    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: lower_bound_str
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: lower_bound_str, time_offset_str
     CHARACTER(len=MAX_CHAR_LENGTH)       :: attname                        !< attribute name
     CHARACTER(len=MAX_CHAR_LENGTH)       :: proc_list_str                  !< string (unoccupied I/O ranks)
     LOGICAL                              :: occupied_pes(MAX_NUM_IO_PROCS) !< explicitly placed I/O ranks
@@ -1646,7 +1647,8 @@ CONTAINS
       ! set model domain start/end time
       dom_sim_step_info = sim_step_info
       mtime_date => newDatetime(time_config%tc_startdate)
-      mtime_td   => newTimedelta("PT"//TRIM(int2string(NINT(start_time(p_of%log_patch_id)),'(i0)'))//"S")
+      CALL getPTStringFromSeconds(NINT(start_time(p_of%log_patch_id),i8), time_offset_str)
+      mtime_td   => newTimedelta(time_offset_str)
       mtime_date = mtime_date + mtime_td
       CALL datetimeToString(mtime_date, dom_sim_step_info%dom_start_time)
       CALL deallocateDatetime(mtime_date)
@@ -1654,7 +1656,8 @@ CONTAINS
 
       IF (end_time(p_of%log_patch_id) < DEFAULT_ENDTIME) THEN
         mtime_date => newDatetime(time_config%tc_startdate)
-        mtime_td   => newTimedelta("PT"//TRIM(int2string(NINT(end_time(p_of%log_patch_id)),'(i0)'))//"S")
+        CALL getPTStringFromSeconds(NINT(end_time(p_of%log_patch_id),i8), time_offset_str)        
+        mtime_td   => newTimedelta(time_offset_str)
         mtime_date = mtime_date + mtime_td
         CALL datetimeToString(mtime_date, dom_sim_step_info%dom_end_time)
         CALL deallocateDatetime(mtime_date)

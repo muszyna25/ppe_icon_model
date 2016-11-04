@@ -755,6 +755,8 @@ CONTAINS
       mtime_exp_stop => newDatetime(stop_datetime_string)
     END IF
 
+    CALL datetimeToString(mtime_exp_stop, exp_stop_datetime_string)
+    
     ! consistency checks:
     !
     IF (mtime_stop < mtime_start) THEN

@@ -653,9 +653,11 @@ MODULE mo_nh_stepping
   ENDIF
 
   ! allocate temporary variable for restarting purposes
-  ALLOCATE(output_jfile(SIZE(output_file)), STAT=ierr)
-  IF (ierr /= SUCCESS)  CALL finish (routine, 'ALLOCATE failed!')
-
+  IF (output_mode%l_nml) THEN
+    ALLOCATE(output_jfile(SIZE(output_file)), STAT=ierr)
+    IF (ierr /= SUCCESS)  CALL finish (routine, 'ALLOCATE failed!')
+  ENDIF
+  
   ! If the testbed mode is selected, reset iorder_sendrecv to 0 in order to suppress
   ! MPI communication from now on.
   IF (test_mode > 0) iorder_sendrecv = 0
@@ -779,9 +781,9 @@ MODULE mo_nh_stepping
   ! IMPORTANT NOTE: The MTIME implementation of the time loop does not
   ! take the IAU mode of the ICON model into account which starts with
   ! "negative" time steps, controlled by "jstep_shift".
-  IF (jstep_shift /= 0) THEN
-    CALL finish('perform_nh_timeloop', "Backward time shift of model not yet implemented!")
-  END IF
+!  IF (jstep_shift /= 0) THEN
+!    CALL finish('perform_nh_timeloop', "Backward time shift of model not yet implemented!")
+!  END IF
   
   CALL message('','')
   CALL datetimeToString(mtime_current, dstring)
@@ -1271,8 +1273,11 @@ MODULE mo_nh_stepping
   IF (ltimer) CALL timer_stop(timer_total)
 
   ! clean up
-  DEALLOCATE(output_jfile, STAT=ierr)
-  IF (ierr /= SUCCESS)  CALL finish (routine, 'DEALLOCATE failed!')
+  IF (output_mode%l_nml) THEN
+    DEALLOCATE(output_jfile, STAT=ierr)
+    IF (ierr /= SUCCESS)  CALL finish (routine, 'DEALLOCATE failed!')
+  ENDIF
+
   CALL deallocateDatetime(mtime_old)
   DO jg=1,n_dom
     IF (ASSOCIATED(datetime_current(jg)%ptr)) &
