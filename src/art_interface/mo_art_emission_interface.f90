@@ -146,7 +146,8 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     ALLOCATE(emiss_rate(nproma,nlev))
     ALLOCATE(dz(nproma,nlev))
 
-    IF (art_config(jg)%lart_aerosol .OR. art_config(jg)%lart_chem) THEN
+    IF (art_config(jg)%lart_aerosol .OR. art_config(jg)%lart_chem &
+        .OR. art_config(jg)%lart_passive) THEN
       DO jb = i_startblk, i_endblk
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
           &                istart, iend, i_rlstart, i_rlend)
