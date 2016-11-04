@@ -4120,6 +4120,14 @@ write(123,*)'perturb',max_perturbation*EXP(-(distan/(perturbation_width*deg2rad)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_GM_idealized'
     !-------------------------------------------------------------------------
+    REAL(wp) :: scal, delta_t_back, tano
+    
+    ! initialisation with stable background stratification and a latitude dependend t and/or s  anomaly
+    ! amplitude of the anomaly is decreasing with depth
+
+    delta_t_back=1.0_wp ! increase per level
+    tano=0.0_wp
+
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
@@ -4136,26 +4144,19 @@ write(123,*)'perturb',max_perturbation*EXP(-(distan/(perturbation_width*deg2rad)
         !Impose emperature profile. Profile
         !depends on latitude only and is uniform across
         !all vertical layers
-        DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(idx,BLOCK)
+        DO level = 1, n_zlev
 
-          ll=patch_3d%p_patch_1d(1)%dolic_c(idx,BLOCK)+1-level
+          ll=n_zlev+1-level
 
           ocean_temperature(idx,level,BLOCK)=0.0_wp
-          IF (ABS(lat_deg) >= 5.0_wp) THEN
+          IF (ABS(lat_deg) <= 5.0_wp) THEN
 
-            ocean_temperature(idx,level,BLOCK) = 10.0_wp+0.1_wp*ll
+           scal=(COS(lat_deg/5.0_wp * pi) +1.0_wp) *0.5_wp
+           ocean_temperature(idx,level,BLOCK) =0.0  + delta_t_back*ll + scal*ll*tano
 
           ELSE
 
-            IF (level .LE. 7) THEN
-
-              ocean_temperature(idx,level,BLOCK) = 10.0_wp+0.1_wp*ll*2
-
-            ELSE
-
-              ocean_temperature(idx,level,BLOCK) = 10.0_wp+0.1_wp*ll
-            ENDIF
-
+           ocean_temperature(idx,level,BLOCK) =0.0  + delta_t_back*ll
  
           ENDIF
 
@@ -4185,6 +4186,14 @@ write(123,*)'perturb',max_perturbation*EXP(-(distan/(perturbation_width*deg2rad)
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':salinity_GM_idealized'
     !-------------------------------------------------------------------------
+     REAL(wp) :: scal, delta_s_back, sano
+    
+    ! initialisation with stable background stratification and a latitude dependend t and/or s  anomaly
+    ! amplitude of the anomaly is decreasing with depth
+
+    delta_s_back=0.1_wp ! increase per level
+    sano=0.01_wp
+
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
@@ -4201,25 +4210,19 @@ write(123,*)'perturb',max_perturbation*EXP(-(distan/(perturbation_width*deg2rad)
         !Impose emperature profile. Profile
         !depends on latitude only and is uniform across
         !all vertical layers
-        DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(idx,BLOCK)
+        DO level = 1, n_zlev
 
-          ll=patch_3d%p_patch_1d(1)%dolic_c(idx,BLOCK)+1-level
+          ll=n_zlev+1-level
 
           ocean_salinity(idx,level,BLOCK)=0.0_wp
-          IF (ABS(lat_deg) >= 5.0_wp) THEN
+          IF (ABS(lat_deg) <= 5.0_wp) THEN
 
-            ocean_salinity(idx,level,BLOCK) = 35.0_wp+0.012_wp*ll
+           scal=(COS(lat_deg/5.0_wp * pi) +1.0_wp) *0.5_wp
+           ocean_salinity(idx,level,BLOCK) =35.0  + delta_s_back*ll + scal*ll*sano
 
           ELSE
 
-            IF (level .LE. 7 ) THEN
-
-              ocean_salinity(idx,level,BLOCK) = 35.0_wp+0.012_wp*ll*2
-
-            ELSE
-
-              ocean_salinity(idx,level,BLOCK) = 35.0_wp+0.012_wp*ll
-            ENDIF
+           ocean_salinity(idx,level,BLOCK) =35.0  + delta_s_back*ll
  
           ENDIF
 
