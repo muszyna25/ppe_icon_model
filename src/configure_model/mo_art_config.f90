@@ -86,7 +86,7 @@ MODULE mo_art_config
   !! Basic configuration setup for ICON-ART
   !!--------------------------------------------------------------------------
   INTEGER, PARAMETER  :: npreslay      = 7   !Number of pressure layers for diagnostic output of maximum concentration
-  INTEGER, PARAMETER  :: IART_PATH_LEN = 120 !Maximum length of file- and pathnames
+  INTEGER, PARAMETER  :: IART_PATH_LEN = 150 !Maximum length of file- and pathnames
 
   INTEGER             :: nart_tendphy  = 0  !Maximum number of tracers that are effected by deep convective transport 
   
