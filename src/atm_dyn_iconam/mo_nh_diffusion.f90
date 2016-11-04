@@ -238,24 +238,24 @@ MODULE mo_nh_diffusion
         ! linear increase starting at 25 km, reaching a value of 0.1 at 75 km
         enh_smag_fac(jk) = MIN(0.1_wp,MAX(0._wp,(0.5_wp*(vct_a(jk1)+vct_a(jk1+1))-25000._wp)/500000._wp))
         ! ... combined with quadratic increase starting at 50 km, reaching a value of 1 at 90 km
-        enh_smag_fac(jk) = MIN(1._wp,MAX(enh_smag_fac(jk),                                       &
+        enh_smag_fac(jk) = MIN(1._wp,MAX(REAL(enh_smag_fac(jk),wp),                              &
                            MAX(0._wp,(0.5_wp*(vct_a(jk1)+vct_a(jk1+1))-50000._wp)/40000._wp)**2) )
       ENDDO
 
       ! Smagorinsky coefficient is also enhanced in the six model levels beneath a vertical nest interface
       IF ((lvert_nest) .AND. (p_patch%nshift > 0)) THEN
-        enh_smag_fac(1) = MAX(0.333_wp, enh_smag_fac(1))
-        enh_smag_fac(2) = MAX(0.25_wp, enh_smag_fac(2))
-        enh_smag_fac(3) = MAX(0.20_wp, enh_smag_fac(3))
-        enh_smag_fac(4) = MAX(0.16_wp, enh_smag_fac(4))
-        enh_smag_fac(5) = MAX(0.12_wp, enh_smag_fac(5))
-        enh_smag_fac(6) = MAX(0.08_wp, enh_smag_fac(6))
+        enh_smag_fac(1) = MAX(0.333_vp, enh_smag_fac(1))
+        enh_smag_fac(2) = MAX(0.25_vp, enh_smag_fac(2))
+        enh_smag_fac(3) = MAX(0.20_vp, enh_smag_fac(3))
+        enh_smag_fac(4) = MAX(0.16_vp, enh_smag_fac(4))
+        enh_smag_fac(5) = MAX(0.12_vp, enh_smag_fac(5))
+        enh_smag_fac(6) = MAX(0.08_vp, enh_smag_fac(6))
       ENDIF
 
       ! empirically determined scaling factor
-      diff_multfac_smag(:) = MAX(diffusion_config(jg)%hdiff_smag_fac,enh_smag_fac(:))*dtime
+      diff_multfac_smag(:) = MAX(diffusion_config(jg)%hdiff_smag_fac,REAL(enh_smag_fac(:),wp))*dtime
 
-      IF (lhdiff_rcf) diff_multfac_smag(:) = diff_multfac_smag(:)*REAL(ndyn_substeps,wp)
+      IF (lhdiff_rcf) diff_multfac_smag(:) = diff_multfac_smag(:)*REAL(ndyn_substeps,vp)
 
     ELSE
       ltemp_diffu = .FALSE.
