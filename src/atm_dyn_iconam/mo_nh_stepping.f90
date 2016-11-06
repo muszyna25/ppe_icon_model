@@ -198,7 +198,8 @@ MODULE mo_nh_stepping
        &                                 ASSIGNMENT(=), OPERATOR(==), OPERATOR(>=), OPERATOR(/=),         &
        &                                 event, eventGroup, newEvent,                                     &
        &                                 addEventToEventGroup, isCurrentEventActive,                      &
-       &                                 getTotalMillisecondsTimedelta, getTimedeltaFromDatetime
+       &                                 getTotalMillisecondsTimedelta, getTotalSecondsTimedelta,     &
+       &                                 getTimedeltaFromDatetime
   USE mo_event_manager,            ONLY: initEventManager, addEventGroup, getEventGroup, printEventGroup
   USE mo_derived_variable_handling, ONLY: perform_accumulation, reset_accumulation
 #ifdef MESSY
@@ -868,19 +869,21 @@ MODULE mo_nh_stepping
              &                                   forecast_delta%second, 'S'
       ENDIF
 
-      CALL message('','')
       IF (iforcing == inwp) THEN
-        WRITE(message_text,'(a,i8,a,i0,a,5(i2.2,a),i3.3,a,a)') 'Time step: ', jstep, ', model time: ',      &
+        WRITE(message_text,'(a,i8,a,i0,a,5(i2.2,a),i3.3,a,a)') &
+             &             'Time step: ', jstep, ', model time: ',                              &
              &             mtime_current%date%year,   '-', mtime_current%date%month,    '-',    &
              &             mtime_current%date%day,    ' ', mtime_current%time%hour,     ':',    &
              &             mtime_current%time%minute, ':', mtime_current%time%second,   '.',    &
              &             mtime_current%time%ms, ' forecast time ', TRIM(forecast_delta_str)
       ELSE
-        WRITE(message_text,'(a,i8,a,i0,a,4(i2.2,a),i2.2)') 'Time step: ', jstep, ' model time ',            &
+        WRITE(message_text,'(a,i8,a,i0,a,4(i2.2,a),i2.2)') &
+             &             'Time step: ', jstep, ' model time ',                                &
              &             mtime_current%date%year,   '-', mtime_current%date%month,    '-',    &
              &             mtime_current%date%day,    ' ', mtime_current%time%hour,     ':',    &
              &             mtime_current%time%minute, ':', mtime_current%time%second
       ENDIF
+
       CALL message('',message_text)
 
       CALL deallocateTimedelta(forecast_delta)
@@ -1344,7 +1347,7 @@ MODULE mo_nh_stepping
     time_diff  =  getTimeDeltaFromDateTime(datetime_local(jg)%ptr, time_config%tc_exp_startdate)
     sim_time =  getTotalMillisecondsTimedelta(time_diff, datetime_local(jg)%ptr)*1.e-3_wp
     CALL deallocateTimedelta(time_diff)
-    
+
     !--------------------------------------------------------------------------
     ! This timer must not be called in nested domain because the model crashes otherwise
     IF (jg == 1 .AND. ltimer) CALL timer_start(timer_integrate_nh)
@@ -2245,13 +2248,12 @@ MODULE mo_nh_stepping
       ENDIF
 
       IF ( ANY((/MODE_IAU,MODE_IAU_OLD/)==init_mode) ) THEN ! incremental analysis mode
-
         time_diff  => newTimedelta("PT0S")
         time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_exp_startdate)
-        cur_time =  getTotalMillisecondsTimedelta(time_diff, mtime_current)*1.e-3_wp &
-          & + (REAL(nstep-ndyn_substeps_var(jg),wp)-0.5_wp)*dt_dyn
+        cur_time = REAL(getTotalSecondsTimedelta(time_diff, mtime_current)                  &
+             &         -getTotalSecondsTimedelta(timeshift%mtime_shift, mtime_current),wp)  &
+             &    +(REAL(nstep-ndyn_substeps_var(jg),wp)-0.5_wp)*dt_dyn
         CALL deallocateTimedelta(time_diff)
-
         IF (iau_iter == 1) THEN
           CALL compute_iau_wgt(cur_time, dt_dyn, 0.5_wp*dt_iau, lclean_mflx)
         ELSE
