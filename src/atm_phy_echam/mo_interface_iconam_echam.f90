@@ -87,7 +87,7 @@ MODULE mo_interface_iconam_echam
   USE mo_nh_diagnose_pres_temp ,ONLY: diagnose_pres_temp
   USE mo_physical_constants    ,ONLY: rd, p0ref, rd_o_cpd, vtmpc1, grav
 
-  USE mo_datetime              ,ONLY: t_datetime
+  USE mo_datetime              ,ONLY: t_datetime, add_time
   USE mo_echam_phy_memory      ,ONLY: prm_field, prm_tend
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs_global
   USE mo_echam_phy_main        ,ONLY: echam_phy_main
@@ -132,7 +132,7 @@ CONTAINS
     !> Arguments:
     !
     REAL(wp)              , INTENT(in)            :: dtadv_loc       !< advective time step
-    TYPE(t_datetime)      , INTENT(in)            :: datetime
+    TYPE(t_datetime)      , INTENT(in)            :: datetime        !< date and time of end of this time step
 
     TYPE(t_patch)         , INTENT(in)   , TARGET :: patch           !< grid/patch info
     TYPE(t_int_state)     , INTENT(in)   , TARGET :: pt_int_state    !< interpolation state
@@ -165,7 +165,7 @@ CONTAINS
     REAL(wp), POINTER :: zdudt(:,:,:), zdvdt(:,:,:)
 
     LOGICAL  :: ltrig_rad
-    TYPE(t_datetime)   :: datetime_radtran !< date and time for radiative transfer calculation
+    TYPE(t_datetime)  :: datetime_old !< date and time of start of this time step
 
     INTEGER  :: return_status
 
@@ -435,12 +435,19 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_echam_bcs)
 
-    CALL echam_phy_bcs_global( datetime     ,&! in
+    ! The date and time needed for the radiation computation in the phyiscs is
+    ! the date and time of the initial data for this step.
+    ! As 'datetime' contains already the date and time of the end of this time step,
+    ! we compute here the old datetime 'datetime_old':
+    !
+    datetime_old = datetime                       ! copy datetime
+    CALL add_time(-dtadv_loc,0,0,0,datetime_old)  ! and subtract one timestep
+
+    CALL echam_phy_bcs_global( datetime_old ,&! in
       &                        jg           ,&! in
       &                        patch        ,&! in
       &                        dtadv_loc    ,&! in
-      &                        ltrig_rad    ,&! out
-      &                        datetime_radtran) ! out
+      &                        ltrig_rad    ) ! out
 
     IF (ltimer) CALL timer_stop(timer_echam_bcs)
     !
@@ -482,7 +489,7 @@ CONTAINS
         &                  jcs          ,&! in
         &                  jce          ,&! in
         &                  nproma       ,&! in
-        &                  datetime     ,&! in
+        &                  datetime_old ,&! in
         &                  dtadv_loc    ,&! in
         &                  dtadv_loc    ,&! in
         &                  ltrig_rad     )

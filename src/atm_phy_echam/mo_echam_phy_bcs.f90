@@ -21,7 +21,6 @@
 MODULE mo_echam_phy_bcs
 
   USE mo_kind                       ,ONLY: wp
-!!$  USE mo_datetime                   ,ONLY: t_datetime, add_time , OPERATOR(==) ! for t_datetime typed variables
   USE mo_datetime                   ,ONLY: t_datetime, add_time
   USE mo_model_domain               ,ONLY: t_patch
 
@@ -67,29 +66,25 @@ CONTAINS
   !! Note that each call of this subroutine deals with a single grid
   !! with index jg rather than the entire grid tree.
 
-  SUBROUTINE echam_phy_bcs_global( datetime     ,&! in
-    &                              jg           ,&! in
-    &                              patch        ,&! in
-    &                              dtadv_loc    ,&! in
-    &                              ltrig_rad    ,&! out
-    &                              datetime_radtran) ! out
+  SUBROUTINE echam_phy_bcs_global(datetime        ,&! in
+    &                             jg              ,&! in
+    &                             patch           ,&! in
+    &                             dtadv_loc       ,&! in
+    &                             ltrig_rad       ) ! out
 
     ! Arguments
 
-    TYPE(t_datetime)         ,INTENT(in)    :: datetime      !< date and time fo this timestep
-    INTEGER                  ,INTENT(in)    :: jg            !< grid index
-    TYPE(t_patch)    ,TARGET ,INTENT(in)    :: patch         !< description of grid jg
-    REAL(wp)                 ,INTENT(in)    :: dtadv_loc     !< timestep of advection and physics on grid jg
-    LOGICAL                  ,INTENT(out)   :: ltrig_rad     !< trigger for radiation transfer computation
-    TYPE(t_datetime)         ,INTENT(out)   :: datetime_radtran !< full date and time variable for radiative transfer calculation
+    TYPE(t_datetime)      ,INTENT(in)    :: datetime         !< date and time for radiative heating
+    INTEGER               ,INTENT(in)    :: jg               !< grid index
+    TYPE(t_patch) ,TARGET ,INTENT(in)    :: patch            !< description of grid jg
+    REAL(wp)              ,INTENT(in)    :: dtadv_loc        !< timestep of advection and physics on grid jg
+    LOGICAL               ,INTENT(out)   :: ltrig_rad        !< trigger for radiation transfer computation
 
     ! Local variables
 
-!!$    TYPE(t_datetime) :: datetime_radtran  !< date and time of zenith angle for radiative transfer comp.
+    TYPE(t_datetime) :: datetime_radtran  !< date and time for radiative transfer
     REAL(wp)         :: dsec              !< [s] time increment of datetime_radtran wrt. datetime
 
-!!$    LOGICAL          :: is_initial_datetime
-!!$    LOGICAL          :: is_radtran_datetime
     LOGICAL          :: is_1st_call = .TRUE.
 
     ! Local parameters
@@ -105,9 +100,6 @@ CONTAINS
     !
     IF (echam_phy_config%lrad) THEN
 
-!!$      is_initial_datetime = (datetime == time_config%ini_datetime) ! here the overloaded == from mo_datetime is used
-!!$      is_radtran_datetime = (MOD(NINT(datetime%daysec),NINT(echam_phy_config%dt_rad)) == 0)
-!!$      ltrig_rad = ( is_initial_datetime .OR. is_radtran_datetime )
       ltrig_rad   = ( is_1st_call .AND. (.NOT.isRestart())                          ) .OR. &
         &           ( MOD(NINT(datetime%daysec),NINT(echam_phy_config%dt_rad)) == 0 )
 
@@ -117,13 +109,11 @@ CONTAINS
 
     ! Set the time instance datetime_radtran for the zenith angle to be used
     ! in the radiative transfer. All other input for the radiative transfer
-    ! is for datatime, i.e. the current timestep.
+    ! is for datetime, i.e. the start date and time of the current timestep.
     !
-    datetime_radtran = datetime                         ! copy current date and time
-    IF (ltrig_rad) THEN
-      dsec = 0.5_wp*(echam_phy_config%dt_rad - dtadv_loc) ! [s] time increment for zenith angle
-      CALL add_time(dsec,0,0,0,datetime_radtran)          ! datetime_radtran = datetime_radtran + dsec
-    END IF
+    dsec = 0.5_wp*(echam_phy_config%dt_rad - dtadv_loc) ! dsec [s] = time increment for zenith angle
+    datetime_radtran = datetime                         ! copy datetime
+    CALL add_time(dsec,0,0,0,datetime_radtran)          ! and add dsec
 
     ! interpolation weights for linear interpolation
     ! of monthly means onto the actual integration time step
