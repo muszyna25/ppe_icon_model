@@ -224,12 +224,10 @@ MODULE mo_psrad_radiation
       END SELECT
       psct = flx_ratio_cur*solc
 
-    END IF ! lrad
 
     !
     ! 2.0 Prepare time dependent quantities for rad (on radiation timestep)
     ! --------------------------------
-    IF (echam_phy_config%lrad .AND. ltrig_rad) THEN
       CALL get_orbit_times(datetime_radiation, time_of_day , &
            &               orbit_date)
 

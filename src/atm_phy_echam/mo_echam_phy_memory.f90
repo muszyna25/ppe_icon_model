@@ -178,10 +178,8 @@ MODULE mo_echam_phy_memory
       ! - through the atmosphere
       & rsd         (:,:,:),  &!< [W/m2] downwelling shortwave radiation
       & rsu         (:,:,:),  &!< [W/m2] upwelling   shortwave radiation
-      & rsn         (:,:,:),  &!< [W/m2] net         shortwave radiation
       & rsdcs       (:,:,:),  &!< [W/m2] downwelling clear-sky shortwave radiation
       & rsucs       (:,:,:),  &!< [W/m2] upwelling   clear-sky shortwave radiation
-      & rsncs       (:,:,:),  &!< [W/m2] net         clear-sky shortwave radiation
       ! - at the top of the atmosphere
       & rsdt        (:,  :),  &!< [W/m2] toa incident shortwave radiation
       & rsut        (:,  :),  &!< [W/m2] toa outgoing shortwave radiation
@@ -200,10 +198,8 @@ MODULE mo_echam_phy_memory
       ! - through the atmosphere
       & rld         (:,:,:),  &!< [W/m2] downwelling longwave radiation
       & rlu         (:,:,:),  &!< [W/m2] upwelling   longwave radiation
-      & rln         (:,:,:),  &!< [W/m2] net         longwave radiation
       & rldcs       (:,:,:),  &!< [W/m2] downwelling clear-sky longwave radiation
       & rlucs       (:,:,:),  &!< [W/m2] upwelling   clear-sky longwave radiation
-      & rlncs       (:,:,:),  &!< [W/m2] net         clear-sky longwave radiation
       ! - at the top of the atmosphere
       & rlut        (:,  :),  &!< [W/m2] toa outgoing longwave radiation
       & rlnt        (:,  :),  &!< [W/m2] toa net      longwave radiation
@@ -214,7 +210,7 @@ MODULE mo_echam_phy_memory
       & rlus        (:,  :),  &!< [W/m2] surface upwelling   longwave radiation
       & rlns        (:,  :),  &!< [W/m2] surface net         longwave radiation
       & rldscs      (:,  :),  &!< [W/m2] surface downwelling clear-sky longwave radiation
-      & rluscs      (:,  :),  &!< [W/m2] surface upwelling   clear-sky longwave radiation
+      & rluscs      (:,  :),  &!< [W/m2] surface downwelling clear-sky longwave radiation
       & rlnscs      (:,  :),  &!< [W/m2] surface net         clear-sky longwave radiation
       !
       ! shortwave surface fluxes (updated every time step)
@@ -1211,19 +1207,6 @@ CONTAINS
          &         (vert_intp_type=vintp_types("P","Z","I") ,   &
          &          vert_intp_method=VINTP_METHOD_LIN_NLEVP1) )
 
-    cf_desc    = t_cf_var('net_shortwave_flux_in_air', &
-         &                'W m-2'                    , &
-         &                'net shortwave radiation'  , &
-         &                datatype_flt               )
-    grib2_desc = grib2_var(0,4,9, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var(field_list, prefix//'rsn' , field%rsn        , &
-         &       GRID_UNSTRUCTURED_CELL    , ZA_HYBRID_HALF   , &
-         &       cf_desc, grib2_desc                          , &
-         &       ldims=shape3d_layer_interfaces               , &
-         &       vert_interp=create_vert_interp_metadata        &
-         &         (vert_intp_type=vintp_types("P","Z","I") ,   &
-         &          vert_intp_method=VINTP_METHOD_LIN_NLEVP1) )
-
     cf_desc    = t_cf_var('downwelling_shortwave_flux_in_air_assuming_clear_sky', &
          &                'W m-2'                                               , &
          &                'downwelling clear-sky shortwave radiation'           , &
@@ -1249,20 +1232,6 @@ CONTAINS
          &       vert_interp=create_vert_interp_metadata        &
          &         (vert_intp_type=vintp_types("P","Z","I") ,   &
          &          vert_intp_method=VINTP_METHOD_LIN_NLEVP1) )
-
-    cf_desc    = t_cf_var('net_shortwave_flux_in_air_assuming_clear_sky', &
-         &                'W m-2'                                       , &
-         &                'net clear-sky shortwave radiation'           , &
-         &                datatype_flt                                  )
-    grib2_desc = grib2_var(0,4,11, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var(field_list, prefix//'rsncs' , field%rsncs    , &
-         &       GRID_UNSTRUCTURED_CELL    , ZA_HYBRID_HALF   , &
-         &       cf_desc, grib2_desc                          , &
-         &       ldims=shape3d_layer_interfaces               , &
-         &       vert_interp=create_vert_interp_metadata        &
-         &         (vert_intp_type=vintp_types("P","Z","I") ,   &
-         &          vert_intp_method=VINTP_METHOD_LIN_NLEVP1) )
-
 
     ! - at the top of the atmosphere
     !
@@ -1412,19 +1381,6 @@ CONTAINS
          &         (vert_intp_type=vintp_types("P","Z","I") ,   &
          &          vert_intp_method=VINTP_METHOD_LIN_NLEVP1) )
 
-    cf_desc    = t_cf_var('net_longwave_flux_in_air', &
-         &                'W m-2'                   , &
-         &                'net longwave radiation'  , &
-         &                datatype_flt               )
-    grib2_desc = grib2_var(0,5,5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var(field_list, prefix//'rln' , field%rln        , &
-         &       GRID_UNSTRUCTURED_CELL    , ZA_HYBRID_HALF   , &
-         &       cf_desc, grib2_desc                          , &
-         &       ldims=shape3d_layer_interfaces               , &
-         &       vert_interp=create_vert_interp_metadata        &
-         &         (vert_intp_type=vintp_types("P","Z","I") ,   &
-         &          vert_intp_method=VINTP_METHOD_LIN_NLEVP1) )
-
     cf_desc    = t_cf_var('downwelling_longwave_flux_in_air_assuming_clear_sky', &
          &                'W m-2'                                              , &
          &                'downwelling clear-sky longwave radiation'           , &
@@ -1444,19 +1400,6 @@ CONTAINS
          &                datatype_flt                                       )
     grib2_desc = grib2_var(0,5,4, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var(field_list, prefix//'rlucs' , field%rlucs    , &
-         &       GRID_UNSTRUCTURED_CELL    , ZA_HYBRID_HALF   , &
-         &       cf_desc, grib2_desc                          , &
-         &       ldims=shape3d_layer_interfaces               , &
-         &       vert_interp=create_vert_interp_metadata        &
-         &         (vert_intp_type=vintp_types("P","Z","I") ,   &
-         &          vert_intp_method=VINTP_METHOD_LIN_NLEVP1) )
-
-    cf_desc    = t_cf_var('net_longwave_flux_in_air_assuming_clear_sky', &
-         &                'W m-2'                                      , &
-         &                'net clear-sky longwave radiation'           , &
-         &                datatype_flt                                 )
-    grib2_desc = grib2_var(0,5,6, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var(field_list, prefix//'rlncs' , field%rlncs    , &
          &       GRID_UNSTRUCTURED_CELL    , ZA_HYBRID_HALF   , &
          &       cf_desc, grib2_desc                          , &
          &       ldims=shape3d_layer_interfaces               , &

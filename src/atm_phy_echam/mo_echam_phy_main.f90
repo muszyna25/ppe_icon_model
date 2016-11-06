@@ -26,7 +26,7 @@
 MODULE mo_echam_phy_main
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish
+  USE mo_exception,           ONLY: finish, print_value
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: grav, cpd, cpv, cvd, cvv
@@ -55,8 +55,7 @@ MODULE mo_echam_phy_main
   USE mo_cover,               ONLY: cover
   USE mo_radheating,          ONLY: radheating
   USE mo_psrad_radiation,     ONLY: psrad_radiation
-  USE mo_psrad_radiation_parameters, ONLY: psctm
-  USE mo_radiation_config,    ONLY: tsi, izenith, irad_o3
+  USE mo_psrad_radiation_parameters, ONLY: psctm, psct
   USE mo_vdiff_config,        ONLY: vdiff_config
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
   USE mo_vdiff_upward_sweep,  ONLY: vdiff_up
@@ -117,8 +116,7 @@ CONTAINS
 
     REAL(wp) :: zqtec  (nbdim,nlev)       !< tracer tendency due to entrainment/detrainment
 
-    REAL(wp) :: flux_factor(nbdim)
-    REAL(wp) :: ztsi                      !< total solar irradiation at 1 AU   [W/m2]
+!!$    REAL(wp) :: flux_factor(nbdim)
     REAL(wp) :: zcd                       !< specific heat of dry air          [J/K/kg]
     REAL(wp) :: zcv                       !< specific heat of water vapor      [J/K/kg]
     REAL(wp) :: zcair  (nbdim,nlev)       !< specific heat of moist air        [J/K/kg]
@@ -186,14 +184,6 @@ CONTAINS
     REAL(wp) :: zdis_sso(nbdim,nlev)  !<  out, energy dissipation rate [J/s/kg]
 
 
-    ! Temporary variables used for zenith angle
-
-    REAL(wp) :: zleapfrac
-    REAL(wp) :: zyearfrac
-    REAL(wp) :: zdeclination_sun
-    REAL(wp) :: ztime_dateline
-
-    
     ! Temporary variables used for cloud droplet number concentration
 
     REAL(wp) :: zprat, zn1, zn2, zcdnc
@@ -359,47 +349,6 @@ CONTAINS
     !-------------------------------------------------------------------
     IF (phy_config%lrad) THEN
 
-       SELECT CASE(izenith)
-       CASE(0)
-       ! local insolation = constant = global mean insolation (ca. 340 W/m2)
-       ! zenith angle = 0,
-         ztsi = tsi/4._wp ! scale ztsi by 1/4 to get the correct global mean insolation
-       CASE(1)
-       ! circular non-seasonal orbit,
-       ! perpetual equinox,
-       ! no diurnal cycle,
-       ! local time always 12:00
-       ! --> sin(time of day)=1 ) and zenith angle depends on latitude only
-         ztsi = tsi/pi ! because sun is always in local noon, the TSI needs to be
-       !               ! scaled by 1/pi to get the correct global mean insolation
-       CASE(2)
-       ! circular non-seasonal orbit,
-       ! perpetual equinox,
-       ! no diurnal cycle,
-       ! local time always  07:14:15 or 16:45:45
-       ! --> sin(time of day)=1/pi and zenith angle depends on latitude only
-         ztsi = tsi
-       CASE(3)
-       ! circular non-seasonal orbit,
-       ! perpetual equinox,
-       ! with diurnal cycle,
-         ztsi = tsi
-       CASE(4)
-       ! elliptical seasonal orbit, with diurnal cycle
-         zleapfrac = 0.681_wp + 0.2422_wp * REAL(datetime%year - 1949,wp) - &
-                        REAL((datetime%year - 1949) / 4,wp)
-         zyearfrac = 2._wp * pi * (REAL(datetime%yeaday,wp) - 1.0_wp + zleapfrac) / 365.2422_wp
-         ztsi = (1.000110_wp + 0.034221_wp * COS(zyearfrac) + 0.001280_wp * SIN(zyearfrac) &
-            + 0.000719_wp * COS(2._wp * zyearfrac) + 0.000077_wp * SIN(2._wp * zyearfrac)) * tsi
-       CASE(5)
-       ! Radiative convective equilibrium
-       ! circular non-seasonal orbit,
-       ! perpetual equinox,
-       ! no diurnal cycle,
-       ! the product tsi*cos(zenith angle) should equal 340 W/m2
-         ztsi = tsi ! no rescale because tsi has been adjusted in echam_phy_init with ssi_rce
-       END SELECT
-
        ! 4.1 RADIATIVE TRANSFER
        !-----------------------
        IF (ltrig_rad) THEN
@@ -407,81 +356,6 @@ CONTAINS
           ! store tsfc_rad of this radiatiative transfer timestep in tsfc_radt,
           ! so that it can be reused in radheat in the other timesteps
           field%tsfc_radt(jcs:jce,jb) = field%tsfc_rad(jcs:jce,jb)
-
-          ! to do (for implementing seasonal cycle):
-          ! - compute orbit position at datetime_radtran
-
-          SELECT CASE(izenith)
-
-          CASE(0)
-          ! local insolation = constant = global mean insolation (ca. 340 W/m2)
-          ! zenith angle = 0,
-
-!!$            field%cosmu0(jcs:jce,jb) = 1._wp ! sun in zenith everywhere
-
-          CASE(1)
-          ! circular non-seasonal orbit,
-          ! perpetual equinox,
-          ! no diurnal cycle,
-          ! local time always 12:00
-          ! --> sin(time of day)=1 ) and zenith angle depends on latitude only
-
-!!$            field%cosmu0(jcs:jce,jb) = COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat )
-
-          CASE(2)
-          ! circular non-seasonal orbit,
-          ! perpetual equinox,
-          ! no diurnal cycle,
-          ! local time always  07:14:15 or 16:45:45
-          ! --> sin(time of day)=1/pi and zenith angle depends on latitude only
-
-!!$            field%cosmu0(jcs:jce,jb) = COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat )/pi
-
-          CASE(3)
-          ! circular non-seasonal orbit,
-          ! perpetual equinox,
-          ! with diurnal cycle,
-
-!!$            field%cosmu0(jcs:jce,jb) = -COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat ) &
-!!$                                     & *COS( p_patch(jg)%cells%center(jcs:jce,jb)%lon   &
-!!$                                     &      +2._wp*pi*datetime_radtran%daytim )
-
-          CASE(4)
-          ! elliptical seasonal orbit,
-          !  with diurnal cycle
-
-            zleapfrac = 0.681_wp + 0.2422_wp * REAL(datetime%year - 1949,wp) - &
-                        REAL((datetime%year - 1949) / 4,wp)
-            zyearfrac = 2._wp * pi * (REAL(datetime%yeaday,wp) - 1.0_wp + zleapfrac) / 365.2422_wp
-            zdeclination_sun = 0.006918_wp - 0.399912_wp * COS(zyearfrac) + &
-                               0.070257_wp * SIN(zyearfrac) -               &
-                               0.006758_wp * COS(2._wp * zyearfrac) +       &
-                               0.000907_wp * SIN(2._wp * zyearfrac) -       &
-                               0.002697_wp * COS(3._wp * zyearfrac) +       &
-                               0.001480_wp * SIN(3._wp * zyearfrac)
-            ztime_dateline = ((REAL(datetime%hour,wp) * 3600._wp + &
-                              REAL(datetime%minute,wp) * 60._wp +  &
-                              REAL(datetime%second,wp)) /          &
-                              REAL(datetime%daylen,wp)) - 0.5_wp
-            ztime_dateline = ztime_dateline * 2._wp * pi + 0.000075_wp +              &
-               0.001868_wp * COS(zyearfrac) - 0.032077_wp * SIN(zyearfrac) -          &
-               0.014615_wp * COS(2._wp * zyearfrac) - 0.040849_wp * SIN(2._wp * zyearfrac)
-
-!!$            field%cosmu0(jcs:jce,jb) = SIN(zdeclination_sun) * SIN(p_patch(jg)%cells%center(jcs:jce,jb)%lat) + &
-!!$                                       COS(zdeclination_sun) * COS(p_patch(jg)%cells%center(jcs:jce,jb)%lat) * &
-!!$                                       COS(ztime_dateline + p_patch(jg)%cells%center(jcs:jce,jb)%lon)
-          CASE(5)
-          ! Radiative convective equilibrium
-          ! circular non-seasonal orbit,
-          ! perpetual equinox,
-          ! no diurnal cycle,
-          ! see Popke et al. 2013 and Cronin 2013
-          !cosmu0 = pi/4._wp ! zenith = 45 deg
-          !cosmu0 = 2._wp/3._wp ! Cronin: zenith = 48.19
-
-!!$            field%cosmu0(jcs:jce,jb) = 0.7854_wp ! Popke: zenith = 38
-
-          END SELECT
 
         IF (ltimer) CALL timer_start(timer_radiation)
 
@@ -529,14 +403,8 @@ CONTAINS
         & sw_upw     = field%rsu  (:,:,jb)      &!< out  All-sky net longwave  at all levels
         &                           )
 
-        flux_factor(1:jce) = 1._wp / (psctm*field%cosmu0_rad(1:jce,jb))
-        field%rsn  (1:jce,1:nlevp1,jb) = (field%rsd  (1:jce,1:nlevp1,jb) - field%rsu  (1:jce,1:nlevp1,jb)) * &
-             &                           SPREAD(flux_factor(1:jce),2,nlevp1)
-        field%rsncs(1:jce,1:nlevp1,jb) = (field%rsdcs(1:jce,1:nlevp1,jb) - field%rsucs(1:jce,1:nlevp1,jb)) * &
-             &                           SPREAD(flux_factor(1:jce),2,nlevp1)
-        field%partrmdnsfc(1:jce,jb)    = field%partrmdnsfc(1:jce,jb) * flux_factor(1:jce)
-        field%rln  (1:jce,1:nlevp1,jb) = (field%rld  (1:jce,1:nlevp1,jb) - field%rlu  (1:jce,1:nlevp1,jb))
-        field%rlncs(1:jce,1:nlevp1,jb) = (field%rldcs(1:jce,1:nlevp1,jb) - field%rlucs(1:jce,1:nlevp1,jb))
+        field%partrmdnsfc(jcs:jce,jb)    = field%partrmdnsfc(jcs:jce,jb)
+
         
         IF (ltimer) CALL timer_stop(timer_radiation)
 
@@ -545,11 +413,20 @@ CONTAINS
       ! 4.2 RADIATIVE HEATING
       !----------------------
 
-      ! to do:
-      ! - compute orbit position at datetime
+      CALL print_value ('mo_echam_phy_main/echam_phy_main: jb    ',jb )
+      CALL print_value ('mo_echam_phy_main/echam_phy_main: jcs   ',jcs)
+      CALL print_value ('mo_echam_phy_main/echam_phy_main: nbdim ',nbdim)
+      CALL print_value ('mo_echam_phy_main/echam_phy_main: nlevp1',nlevp1)
+      CALL print_value ('mo_echam_phy_main/echam_phy_main:       psctm             ',psctm)
+      CALL print_value ('mo_echam_phy_main/echam_phy_main:       psct              ',psct )
+      CALL print_value ('mo_echam_phy_main/echam_phy_main:       psctm-psct        ',psctm-psct)
+      CALL print_value ('mo_echam_phy_main/echam_phy_main: field%cosmu0_rad(jcs,jb)',field%cosmu0_rad(jcs,jb))
+      CALL print_value ('mo_echam_phy_main/echam_phy_main: field%rsd   (jcs,  1,jb)',field%rsd(jcs,     1,jb))
+      CALL print_value ('mo_echam_phy_main/echam_phy_main: field%rsu   (jcs,  1,jb)',field%rsu(jcs,     1,jb))
 
       ! - solar incoming flux at TOA
-      field% rsdt(jcs:jce,jb) = MAX(0._wp,field%cosmu0(jcs:jce,jb)) * ztsi  ! instantaneous for radheat
+      field% rsdt(jcs:jce,jb) = MAX(0._wp,field%cosmu0(jcs:jce,jb)) * psct & ! instantaneous for radheat
+        &                       / (field%rsd(jcs:jce,1,jb))
 
       ! radheat first computes the shortwave and longwave radiation for the current time step from transmissivity and
       ! the longwave flux at the radiation time step and, from there, the radiative heating due to sw and lw radiation.
@@ -562,47 +439,59 @@ CONTAINS
         ! input
         ! -----
         !
-        & jcs        = jcs                            ,&! in    loop start index
-        & jce        = jce                            ,&! in    loop end index
-        & kbdim      = nbdim                          ,&! in    dimension size
-        & klev       = nlev                           ,&! in    vertical dimension size
-        & klevp1     = nlevp1                         ,&! in    vertical dimension size
+        & jcs        = jcs                            ,&! loop start index
+        & jce        = jce                            ,&! loop end index
+        & kbdim      = nbdim                          ,&! dimension size
+        & klev       = nlev                           ,&! vertical dimension size
+        & klevp1     = nlevp1                         ,&! vertical dimension size
         !
-        & cosmu0_rad = field%cosmu0_rad(:,jb)         ,&! in    solar zenith angle at radiation time
-        & cosmu0     = field%cosmu0    (:,jb)         ,&! in    solar zenith angle at current   time
+        & cosmu0     = field%cosmu0    (:,jb)         ,&! solar zenith angle at current time
         !
-        & prsdt      = field%rsdt               (:,jb),&! in    solar incoming flux at TOA [W/m2]
-        & pemiss     = ext_data(jg)%atm%emis_rad(:,jb),&! in    lw sfc emissivity
-        & ptsfc      = field%tsfc_rad (:,jb)          ,&! in    rad. surface temperature now         [K]
-        & ptsfctrad  = field%tsfc_radt(:,jb)          ,&! in    rad. surface temp. at last rad. step [K]
-        & lwflx_up_sfc_rs = field%rlu    (:,nlevp1,jb),&! in    surface longwave upward flux at last rad. step [W/m2]
+        & emiss      = ext_data(jg)%atm%emis_rad(:,jb),&! lw sfc emissivity
+        & tsr        = field%tsfc_rad (:,jb)          ,&! radiative surface temperature at current   time [K]
+        & tsr_rt     = field%tsfc_radt(:,jb)          ,&! radiative surface temperature at radiation time [K]
         !
-        & rsd        = field%rsd              (:,:,jb),&! in    all-sky   shortwave downward flux at last radiation step [W/m2]
-        & rsu        = field%rsu              (:,:,jb),&! in    all-sky   shortwave upward   flux at last radiation step [W/m2]
-        & rld        = field%rsd              (:,:,jb),&! in    all-sky   longwave  downward flux at last radiation step [W/m2]
-        & rlu        = field%rsu              (:,:,jb),&! in    all-sky   longwave  upward   flux at last radiation step [W/m2]
+        & rsd        = field%rsd              (:,:,jb),&! all-sky   shortwave downward flux at radiation time [W/m2]
+        & rsu        = field%rsu              (:,:,jb),&! all-sky   shortwave upward   flux at radiation time [W/m2]
         !
-        & rsdcs      = field%rsdcs            (:,:,jb),&! in    clear-sky shortwave downward flux at last radiation step [W/m2]
-        & rsucs      = field%rsucs            (:,:,jb),&! in    clear-sky shortwave upward   flux at last radiation step [W/m2]
-        & rldcs      = field%rsdcs            (:,:,jb),&! in    clear-sky longwave  downward flux at last radiation step [W/m2]
-        & rlucs      = field%rsucs            (:,:,jb),&! in    clear-sky longwave  upward   flux at last radiation step [W/m2]
+        & rsdcs      = field%rsdcs            (:,:,jb),&! clear-sky shortwave downward flux at radiation time [W/m2]
+        & rsucs      = field%rsucs            (:,:,jb),&! clear-sky shortwave upward   flux at radiation time [W/m2]
         !
-        & ptrmsw     = field%rsn              (:,:,jb),&! in    shortwave net transmissivity at last rad. step []
-        & rln        = field%rln              (:,:,jb),&! in    longwave net flux at last rad. step [W/m2]
-        & ptrmswclr  = field%rsncs            (:,:,jb),&! in    shortwave net transmissivity at last rad. step clear sky []
-        & rlncs      = field%rlncs            (:,:,jb),&! in    longwave net flux at last rad. step clear sky [W/m2]
+        & rld        = field%rld              (:,:,jb),&! all-sky   longwave  downward flux at radiation time [W/m2]
+        & rlu        = field%rlu              (:,:,jb),&! all-sky   longwave  upward   flux at radiation time [W/m2]
+        !
+        & rldcs      = field%rldcs            (:,:,jb),&! clear-sky longwave  downward flux at radiation time [W/m2]
+        & rlucs      = field%rlucs            (:,:,jb),&! clear-sky longwave  upward   flux at radiation time [W/m2]
         !
         ! output
         ! ------
         !
-        & pq_rsw     = zq_rsw                   (:,:) ,&! out   rad. heating by SW           [W/m2]
-        & pq_rlw     = zq_rlw                   (:,:) ,&! out   rad. heating by LW           [W/m2]
+        & rsdt       = field%rsdt               (:,jb),&! all-sky   shortwave downward flux at current   time [W/m2]
+        & rsut       = field%rsut               (:,jb),&! all-sky   shortwave upward   flux at current   time [W/m2]
+        & rsnt       = field%rsnt               (:,jb),&! all-sky   shortwave net      flux at current   time [W/m2]
+        & rsds       = field%rsds               (:,jb),&! all-sky   shortwave downward flux at current   time [W/m2]
+        & rsus       = field%rsus               (:,jb),&! all-sky   shortwave upward   flux at current   time [W/m2]
+        & rsns       = field%rsns               (:,jb),&! all-sky   shortwave net      flux at current   time [W/m2]
         !
-        & rsns       = field%rsns               (:,jb),&! out   shortwave surface net flux   [W/m2]
-        & rlns       = field%rlns               (:,jb),&! out   longwave surface net flux    [W/m2]
-        & rsnt       = field%rsnt               (:,jb),&! out   shortwave toa net flux       [W/m2]
-        & rlnt       = field%rlnt               (:,jb),&! out   longwave toa net flux        [W/m2]
-        & lwflx_up_sfc = field%rlus             (:,jb)) ! out   longwave surface upward flux [W/m2]
+        & rsutcs     = field%rsutcs             (:,jb),&! clear-sky shortwave upward   flux at current   time [W/m2]
+        & rsntcs     = field%rsntcs             (:,jb),&! clear-sky shortwave net      flux at current   time [W/m2]
+        & rsdscs     = field%rsdscs             (:,jb),&! clear-sky shortwave downward flux at current   time [W/m2]
+        & rsuscs     = field%rsuscs             (:,jb),&! clear-sky shortwave upward   flux at current   time [W/m2]
+        & rsnscs     = field%rsnscs             (:,jb),&! clear-sky shortwave net      flux at current   time [W/m2]
+        !
+        & rlut       = field%rlut               (:,jb),&! all-sky   longwave  upward   flux at current   time [W/m2]
+        & rlnt       = field%rlnt               (:,jb),&! all-sky   longwave  net      flux at current   time [W/m2]
+        & rlds       = field%rlds               (:,jb),&! all-sky   longwave  downward flux at current   time [W/m2]
+        & rlus       = field%rlus               (:,jb),&! all-sky   longwave  upward   flux at current   time [W/m2]
+        & rlns       = field%rlns               (:,jb),&! all-sky   longwave  net      flux at current   time [W/m2]
+        !
+        & rlutcs     = field%rlutcs             (:,jb),&! clear-sky longwave  upward   flux at current   time [W/m2]
+        & rlntcs     = field%rlntcs             (:,jb),&! clear-sky longwave  net      flux at current   time [W/m2]
+        & rldscs     = field%rldscs             (:,jb),&! clear-sky longwave  downward flux at current   time [W/m2]
+        & rlnscs     = field%rlnscs             (:,jb),&! clear-sky longwave  net      flux at current   time [W/m2]
+        !
+        & q_rsw      = zq_rsw                   (:,:) ,&! rad. heating by SW           [W/m2]
+        & q_rlw      = zq_rlw                   (:,:) ) ! rad. heating by LW           [W/m2]
 
       IF (ltimer) CALL timer_stop(timer_radheat)
 
@@ -966,7 +855,7 @@ CONTAINS
 
       ! Heating due to the fact that surface model only used part of longwave radiation to compute new surface temperature
       zq_rlw_impl(jcs:jce) =                                            &
-        & ( (field%rln(jcs:jce,nlev,jb) - field%rlns(jcs:jce,jb)) ) &  ! new heating from new rlns
+        & ( ((field%rld(jcs:jce,nlev,jb)-field%rlu(jcs:jce,nlev,jb)) - field%rlns(jcs:jce,jb)) ) &  ! new heating from new rlns
         & - zq_rlw(jcs:jce,nlev)                                       ! old heating from radheat
 
       ! Heating accumulated

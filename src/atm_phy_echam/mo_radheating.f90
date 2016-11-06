@@ -1,36 +1,10 @@
 !>
-!! @brief Module to provide interface to radiation routines.
+!! @brief Module to provide SW and LW fluxes and heating rates
 !!
 !! @remarks
-!!   This module contains routines that provide the interface between ECHAM
-!!   and the radiation code.  Mostly it organizes and calculates the
-!!   information necessary to call the radiative transfer solvers.
+!!   This module contains the "radheating" routine to 
 !!
-!! @author Bjorn Stevens, MPI-M, Hamburg (2009-09-19):
-!!
-!!         Hauke Schmidt, MPI-M, Hamburg (2009-12-18): Few modifications to
-!!              allow specific solar irradiance for AMIP-type and preindustrial
-!!              simulations.
-!!         Luis Kornblueh, MPI-M, Hamburg (2010-04-06): Never ever use write
-!!              directly
-!!         Martin Schultz, FZJ, Juelich (2010-04-13):
-!!              Extracted public parameters into new module mo_radiation_parameters
-!!              to avoid circular dependencies in submodels
-!!                                      (2010-06-03):
-!!              Added submodel calls, decl_sun_cur
-!!
-!! $ID: n/a$
-!!
-!! @par Origin
-!!   Major segments of this code combines and rewrites (for the ICON standard)
-!!   code previously contained in the ECHAM5 routines rad_int.f90,
-!!   radiation.f90 and prerad.f90.  Modifications were also made to provide
-!!   a cleaner interface to the aerosol and cloud properties. Contributors to
-!!   the code from which the present routines were derived include:  M. Jarraud,
-!!   ECMWF (1983-06); M.A. Giorgetta, MPI-M (2002-05); U. Schulzweida,  MPI-M
-!!   (2002-05); P. Stier MPI-M \& Caltech (2004-04, 2006-07), M. Thomas MPI-M
-!!   (2007-06); U. Schlese, MPI-M (2007-06); M. Esch, MPI-M (2007-06); S.J.
-!!   Lorenz, MPI-M (2007-11); T. Raddatz, MPI-M (2006-05); I. Kirchner.
+!! @author Marco Giorgetta, MPI-M, Hamburg (2016-11-02)
 !!
 !! @par Copyright and License
 !!
@@ -44,7 +18,7 @@ MODULE mo_radheating
 
   USE mo_kind                       , ONLY: wp
   USE mo_physical_constants         , ONLY: stbo
-  USE mo_psrad_radiation_parameters , ONLY: diff, psctm
+  USE mo_psrad_radiation_parameters , ONLY: diff, psct
 
   IMPLICIT NONE
 
@@ -59,17 +33,29 @@ CONTAINS
   !>
   !! Compute shortwave and longwave heating rates
   !!
-  !! The radheat subroutine computes the radiative heating rates resulting from
-  !! the divergence of the vertical profiles of longwave and shortwave net fluxes.
+  !! The radheating subroutine computes the radiative heating rates in the
+  !! shortwave (SW) and longwave (LW) part of the spectrum.
   !!
-  !! - Shortwave net flux profiles are computed from:
-  !!   - the vertical profiles of net transmissivity
-  !!   - the solar incoming flux at TOA
-  !! - Longwave net flux profiles are given as input
-  !! - Specific heat depends on the moisture in the air
+  !! SW and LW fluxes are computed only every radiation time step. The resulting
+  !! upward and downward fluxes at all half-levels are used here to approximate
+  !! fluxes at the current time, as follows:
+  !!
+  !! SW fluxes are rescaled by the SW indicent radiation at the top of the
+  !! atmosphere. In order to make this work the radiative transfer uses a zenith
+  !! angle limited to 84deg so that also at nighttime non-zero fluxes exist,
+  !! as needed for the scaling.
+  !!
+  !! LW fluxes are kept constant except for the upward flux from the surface,
+  !! which is corrected for the new radiative surface temperature.
+  !!
+  !! The corrected fluxes are used to diagnose various SW and LW flux components
+  !! at the top of the atmosphere and at the surface, and to compute the SW and LW
+  !! heating from the vertical flux convergences.
+  !!
+  !! The vertical ordering is assumed to be from the top of the atmosphere
+  !! downward to the surface.
   !!
   !! @author Marco Giorgetta, Max Planck Institute for Meteorology
-  !!
   !!
   !! @par Revision History
   !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
@@ -80,174 +66,189 @@ CONTAINS
        ! input
        ! -----
        !
-       & jcs            ,&
-       & jce            ,&
-       & kbdim          ,&
-       & klev           ,&
-       & klevp1         ,&
+       & jcs        ,&
+       & jce        ,&
+       & kbdim      ,&
+       & klev       ,&
+       & klevp1     ,&
        !
-       & cosmu0_rad     ,&
-       & cosmu0         ,&
+       & cosmu0     ,&
        !
-       & prsdt          ,&
-       & pemiss         ,&
-       & ptsfc          ,&
-       & ptsfctrad      ,&
-       & lwflx_up_sfc_rs,&
+       & emiss      ,&
+       & tsr        ,&
+       & tsr_rt     ,&
        !
-       & rsd            ,&
-       & rsu            ,&
-       & rld            ,&
-       & rlu            ,&
+       & rsd        ,&
+       & rsu        ,&
+       & rld        ,&
+       & rlu        ,&
        !
-       & rsdcs          ,&
-       & rsucs          ,&
-       & rldcs          ,&
-       & rlucs          ,&
-       !
-       & ptrmsw         ,&
-       & rln            ,&
-       & ptrmswclr      ,&
-       & rlncs          ,&
+       & rsdcs      ,&
+       & rsucs      ,&
+       & rldcs      ,&
+       & rlucs      ,&
        !
        ! output
        ! ------
        !
-       & pq_rsw         ,&
-       & pq_rlw         ,&
+       & rsdt       ,&
+       & rsut       ,&
+       & rsnt       ,&
+       & rsds       ,&
+       & rsus       ,&
+       & rsns       ,&
        !
-       & rsns           ,&
-       & rlns           ,&
-       & rsnt           ,&
-       & rlnt           ,&
-       & lwflx_up_sfc   )
+       & rsutcs     ,&
+       & rsntcs     ,&
+       & rsdscs     ,&
+       & rsuscs     ,&
+       & rsnscs     ,&
+       !
+       & rlut       ,&
+       & rlnt       ,&
+       & rlds       ,&
+       & rlus       ,&
+       & rlns       ,&
+       !
+       & rlutcs     ,&
+       & rlntcs     ,&
+       & rldscs     ,&
+       & rlnscs     ,&
+       !
+       & q_rsw      ,&
+       & q_rlw      )
 
-    INTEGER,  INTENT(in)  ::    &
-      &     jcs, jce, kbdim,    &
-      &     klev,   klevp1
+    
+    INTEGER,  INTENT(in)  :: &
+      &     jcs, jce, kbdim, &
+      &     klev, klevp1
 
-    REAL(wp), INTENT(in)  ::          &
-      &     cosmu0_rad (kbdim)       ,&! solar zenith angle at radiation time
-      &     cosmu0     (kbdim)       ,&! solar zenith angle at current   time
+    REAL(wp), INTENT(in)  ::        &
+      &     cosmu0(kbdim)          ,&! cosine of solar zenith angle at current time
+      &     emiss (kbdim)          ,&! lw sfc emissivity
+      &     tsr   (kbdim)          ,&! radiative surface temperature at current   time [K]
+      &     tsr_rt(kbdim)          ,&! radiative surface temperature at radiation time [K]
       !
-      &     prsdt      (kbdim)       ,&! local solar incoming flux at TOA         [W/m2]
-      &     pemiss     (kbdim)       ,&! lw sfc emissivity
-      &     ptsfc      (kbdim)       ,&! surface temperature at t                 [K]
-      &     ptsfctrad  (kbdim)       ,&! surface temperature at trad              [K]
-      &     lwflx_up_sfc_rs(kbdim),   &! longwave upward flux at surface calculated at radiation time steps
+      &     rsd   (kbdim,klevp1)   ,&! all-sky   shortwave downward flux at radiation time [W/m2]
+      &     rsu   (kbdim,klevp1)   ,&! all-sky   shortwave upward   flux at radiation time [W/m2]
       !
-      &     rsd   (kbdim,klevp1)     ,&! all-sky   shortwave downward flux at last radiation step [W/m2]
-      &     rsu   (kbdim,klevp1)     ,&! all-sky   shortwave upward   flux at last radiation step [W/m2]
-      &     rld   (kbdim,klevp1)     ,&! all-sky   longwave  downward flux at last radiation step [W/m2]
-      &     rlu   (kbdim,klevp1)     ,&! all-sky   longwave  upward   flux at last radiation step [W/m2]
+      &     rsdcs (kbdim,klevp1)   ,&! clear-sky shortwave downward flux at radiation time [W/m2]
+      &     rsucs (kbdim,klevp1)   ,&! clear-sky shortwave upward   flux at radiation time [W/m2]
       !
-      &     rsdcs (kbdim,klevp1)     ,&! clear-sky shortwave downward flux at last radiation step [W/m2]
-      &     rsucs (kbdim,klevp1)     ,&! clear-sky shortwave upward   flux at last radiation step [W/m2]
-      &     rldcs (kbdim,klevp1)     ,&! clear-sky longwave  downward flux at last radiation step [W/m2]
-      &     rlucs (kbdim,klevp1)       ! clear-sky longwave  upward   flux at last radiation step [W/m2]
+      &     rld   (kbdim,klevp1)   ,&! all-sky   longwave  downward flux at radiation time [W/m2]
+      &     rlu   (kbdim,klevp1)   ,&! all-sky   longwave  upward   flux at radiation time [W/m2]
       !
-    REAL(wp), INTENT(inout)  ::       &
-      &     ptrmsw     (kbdim,klevp1),&! shortwave transmissivity at trad         []
-      &     rln        (kbdim,klevp1),&! longwave net flux at trad                [W/m2]
-      &     ptrmswclr  (kbdim,klevp1),&! shortwave net transmissivity at last rad. step clear sky []
-      &     rlncs      (kbdim,klevp1)  ! longwave net flux at last rad. step clear sky [W/m2]
-   
-    REAL(wp), INTENT(inout) ::        &
-      &     pq_rsw (kbdim,klev)      ,&! shortwave temperature heating  [W/m2]
-      &     pq_rlw (kbdim,klev)        ! longwave  temperature heating  [W/m2]
-
-    REAL(wp), INTENT(inout) ::        &
-      &     rsns (kbdim)             ,&! shortwave surface net flux [W/m2]
-      &     rlns (kbdim)             ,&! longwave  surface net flux [W/m2]
-      &     rsnt (kbdim)             ,&! shortwave toa net flux [W/m2]
-      &     rlnt (kbdim)             ,&! longwave  toa net flux [W/m2]
-      &     lwflx_up_sfc(kbdim)        ! longwave upward flux at surface [W/m2]
+      &     rldcs (kbdim,klevp1)   ,&! clear-sky longwave  downward flux at radiation time [W/m2]
+      &     rlucs (kbdim,klevp1)     ! clear-sky longwave  upward   flux at radiation time [W/m2]
+      !
+    REAL(wp), INTENT(inout) ::      &
+      &     rsdt  (kbdim)          ,&! all-sky   shortwave downward flux at current   time [W/m2]
+      &     rsut  (kbdim)          ,&! all-sky   shortwave upward   flux at current   time [W/m2]
+      &     rsnt  (kbdim)          ,&! all-sky   shortwave net      flux at current   time [W/m2]
+      &     rsds  (kbdim)          ,&! all-sky   shortwave downward flux at current   time [W/m2]
+      &     rsus  (kbdim)          ,&! all-sky   shortwave upward   flux at current   time [W/m2]
+      &     rsns  (kbdim)          ,&! all-sky   shortwave net      flux at current   time [W/m2]
+      !
+      &     rsutcs(kbdim)          ,&! clear-sky shortwave upward   flux at current   time [W/m2]
+      &     rsntcs(kbdim)          ,&! clear-sky shortwave net      flux at current   time [W/m2]
+      &     rsdscs(kbdim)          ,&! clear-sky shortwave downward flux at current   time [W/m2]
+      &     rsuscs(kbdim)          ,&! clear-sky shortwave upward   flux at current   time [W/m2]
+      &     rsnscs(kbdim)          ,&! clear-sky shortwave net      flux at current   time [W/m2]
+      !
+      &     rlut  (kbdim)          ,&! all-sky   longwave  upward   flux at current   time [W/m2]
+      &     rlnt  (kbdim)          ,&! all-sky   longwave  net      flux at current   time [W/m2]
+      &     rlds  (kbdim)          ,&! all-sky   longwave  downward flux at current   time [W/m2]
+      &     rlus  (kbdim)          ,&! all-sky   longwave  upward   flux at current   time [W/m2]
+      &     rlns  (kbdim)          ,&! all-sky   longwave  net      flux at current   time [W/m2]
+      !
+      &     rlutcs(kbdim)          ,&! clear-sky longwave  upward   flux at current   time [W/m2]
+      &     rlntcs(kbdim)          ,&! clear-sky longwave  net      flux at current   time [W/m2]
+      &     rldscs(kbdim)          ,&! clear-sky longwave  downward flux at current   time [W/m2]
+      &     rlnscs(kbdim)          ,&! clear-sky longwave  net      flux at current   time [W/m2]
+      !
+      &     q_rsw (kbdim,klev)     ,&! radiative shortwave heating  [W/m2]
+      &     q_rlw (kbdim,klev)       ! radiative longwave  heating  [W/m2]
 
     ! Local arrays
     REAL(wp) ::                     &
-      &     zflxsw (kbdim,klevp1)  ,&
-      &     zflxlw (kbdim,klevp1)  ,&
-      &     zflxswclr(kbdim,klevp1),&
-      &     zflxlwclr(kbdim,klevp1),&
-      &     dlwem_o_dtg(kbdim)     ,&
-      &     flux_factor(kbdim)
+      &     xsdt  (kbdim)          ,&
+      &     rsn   (kbdim,klevp1)   ,&
+      &     rsncs (kbdim,klevp1)   ,&
+      &     rln   (kbdim,klevp1)   ,&
+      &     rlncs (kbdim,klevp1)   ,&
+      &     drlus_dtsr(kbdim)      ,&
+      &     dtsr  (kbdim)
 
     ! local scalars
     INTEGER :: jk
 
-    ! lev == 1        => TOA
-    ! lev in [2,klev] => Atmosphere
-    ! lev == klevp1   => Surface
-
-!!$    flux_factor(jcs:jce) = 1._wp / (psctm*cosmu0_rad(jcs:jce))
-    
     ! Shortwave fluxes
+    ! ----------------
+    !
+    ! top of atmophere (toa)
+    ! - toa incident SW radiation at the radiation time step: rsd(jk=1)
+    ! - toa incident SW radiation at the current   time step: rsdt
+    ! --> use rsdt/rsd(jk=1) for scaling of SW fluxes
+    rsdt(jcs:jce) = MAX(0._wp,cosmu0(jcs:jce)) * psct
+    xsdt(jcs:jce) = rsdt(jcs:jce) / rsd(jcs:jce,1)
+    !
+    rsut  (jcs:jce) = xsdt(jcs:jce) * rsu  (jcs:jce,1)
+    rsutcs(jcs:jce) = xsdt(jcs:jce) * rsucs(jcs:jce,1)
+    !
+    rsnt  (jcs:jce) = rsdt  (jcs:jce) - rsut  (jcs:jce)
+    rsntcs(jcs:jce) = rsdt  (jcs:jce) - rsutcs(jcs:jce)
+    !
+    ! all half levels
     DO jk = 1, klevp1
-!!$      ptrmsw   (jcs:jce,jk)  = (rsd  (jcs:jce,jk) - rsu  (jcs:jce,jk)) * flux_factor(jcs:jce)
-!!$      ptrmswclr(jcs:jce,jk)  = (rsdcs(jcs:jce,jk) - rsucs(jcs:jce,jk)) * flux_factor(jcs:jce)
-      !
-      zflxsw   (jcs:jce,jk)  = ptrmsw   (jcs:jce,jk) * prsdt(jcs:jce)
-      zflxswclr(jcs:jce,jk)  = ptrmswclr(jcs:jce,jk) * prsdt(jcs:jce)
+      rsn  (jcs:jce,jk) = xsdt(jcs:jce) * (rsd  (jcs:jce,jk) - rsu  (jcs:jce,jk))
+      rsncs(jcs:jce,jk) = xsdt(jcs:jce) * (rsdcs(jcs:jce,jk) - rsucs(jcs:jce,jk))
     END DO
+    !
+    ! surface
+    rsds  (jcs:jce) = xsdt(jcs:jce) * rsd  (jcs:jce,klevp1)
+    rsdscs(jcs:jce) = xsdt(jcs:jce) * rsdcs(jcs:jce,klevp1)
+    !
+    rsus  (jcs:jce) = xsdt(jcs:jce) * rsu  (jcs:jce,klevp1)
+    rsuscs(jcs:jce) = xsdt(jcs:jce) * rsucs(jcs:jce,klevp1)
+    !
+    rsns  (jcs:jce) = rsds  (jcs:jce) - rsus  (jcs:jce)
+    rsnscs(jcs:jce) = rsdscs(jcs:jce) - rsuscs(jcs:jce)
+    
 
     ! Longwave fluxes
+    ! ---------------
+    
+    ! top of atmophere (toa)
+    rlut  (jcs:jce) = rlu  (jcs:jce,1)
+    rlutcs(jcs:jce) = rlucs(jcs:jce,1)
+    !
+    rlnt  (jcs:jce) = -rlut  (jcs:jce)
+    rlntcs(jcs:jce) = -rlutcs(jcs:jce)
+    
+    ! all half levels
+    DO jk = 1, klevp1
+      rln  (jcs:jce,jk) = (rld  (jcs:jce,jk) - rlu  (jcs:jce,jk))
+      rlncs(jcs:jce,jk) = (rldcs(jcs:jce,jk) - rlucs(jcs:jce,jk))
+    END DO
+    !
+    ! surface
+    rlds  (jcs:jce) = rld  (jcs:jce,klevp1)
+    rldscs(jcs:jce) = rldcs(jcs:jce,klevp1)
+    !
+    ! - adjust upward sfc longwave radiation for changed surface temperature
+    drlus_dtsr(jcs:jce) = emiss(jcs:jce)*4._wp*stbo*tsr(jcs:jce)**3 ! derivative of rlus wrt. to tsr
+    dtsr      (jcs:jce) = tsr(jcs:jce) - tsr_rt(jcs:jce)            ! change in tsr
+    rlus(jcs:jce)       = rlu(jcs:jce,klevp1)                     & ! current rlus
+      &                 + drlus_dtsr(jcs:jce) * dtsr(jcs:jce)
+    !
+    rlns  (jcs:jce) = rlds  (jcs:jce) - rlus  (jcs:jce)
+    rlnscs(jcs:jce) = rldscs(jcs:jce) - rlus  (jcs:jce)
 
-      ! Longwave fluxes: For now keep fluxes fixed at TOA and in atmosphere,
-      ! but adjust flux from surface to the current surface temperature.
-      ! - TOA
-      zflxlw(jcs:jce,1)      = rln(jcs:jce,1)
-      ! - Atmosphere
-      zflxlw(jcs:jce,2:klev) = rln(jcs:jce,2:klev)
-
-      ! - Surface
-      !   Adjust net sfc longwave radiation for changed surface temperature (ptsfc) with respect to the
-      !   surface temperature used for the longwave flux computation (ptsfctrad).
-      !   --> modifies heating in lowermost layer only (is this smart?)
-      !   This assumes that downward sfc longwave radiation is constant between radiation time steps and
-      !   upward and net sfc longwave radiation are updated between radiation time steps
-      dlwem_o_dtg(jcs:jce) = pemiss(jcs:jce)*4._wp*stbo*ptsfc(jcs:jce)**3    ! Derivative of upward sfc rad wrt to sfc temperature
-      lwflx_up_sfc(jcs:jce) = lwflx_up_sfc_rs(jcs:jce)                 & ! Upward longwave sfc rad at radiation time step
-        &   + dlwem_o_dtg(jcs:jce) * (ptsfc(jcs:jce) - ptsfctrad(jcs:jce))   ! Correction for new sfc temp between radiation time steps
-      zflxlw(jcs:jce,klevp1) = rln(jcs:jce,klevp1)                      & ! Net longwave sfc rad at radiation time step
-        & - dlwem_o_dtg(jcs:jce) * (ptsfc(jcs:jce) - ptsfctrad(jcs:jce))     ! Correction for new sfc temp between radiation time steps
-!!$      zflxlw(jcs:jce,klevp1) = rln(jcs:jce,klevp1)                      &
-!!$        &                   + pemiss(jcs:jce)*stbo * ptsfctrad(jcs:jce)**4 &
-!!$        &                   - pemiss(jcs:jce)*stbo * ptsfc    (jcs:jce)**4
-        ! Longwave fluxes clear sky: For now keep fluxes fixed at TOA and in atmosphere,
-        ! but adjust flux from surface to the current surface temperature.
-        ! - TOA
-        zflxlwclr(jcs:jce,1)      = rlncs(jcs:jce,1)
-        ! - Atmosphere
-        zflxlwclr(jcs:jce,2:klev) = rlncs(jcs:jce,2:klev)
-
-        ! - Surface
-        !   Adjust net sfc longwave radiation for changed surface temperature (ptsfc) with respect to the
-        !   surface temperature used for the longwave flux computation (ptsfctrad).
-        !   --> modifies heating in lowermost layer only (is this smart?)
-        !   This assumes that downward sfc longwave radiation is constant between radiation time steps and
-        !   upward and net sfc longwave radiation are updated between radiation time steps
-        dlwem_o_dtg(jcs:jce) = pemiss(jcs:jce)*4._wp*stbo*ptsfc(jcs:jce)**3    ! Derivative of upward sfc rad wrt to sfc temperature
-        zflxlwclr(jcs:jce,klevp1) = rlncs(jcs:jce,klevp1)                & ! Net longwave sfc rad at radiation time step
-        & - dlwem_o_dtg(jcs:jce) * (ptsfc(jcs:jce) - ptsfctrad(jcs:jce))       ! Correction for new sfc temp between radiation time steps
-
-    !
-    !
-    !     4.2  Fluxes and heating rates except for lowest layer
-    !
-    pq_rsw(jcs:jce,1:klev) = zflxsw(jcs:jce,1:klev)-zflxsw(jcs:jce,2:klev+1)
-    pq_rlw(jcs:jce,1:klev) = zflxlw(jcs:jce,1:klev)-zflxlw(jcs:jce,2:klev+1)
-
-    !
-    !     4.3 net fluxes at surface
-    !
-    rsns(jcs:jce) = zflxsw(jcs:jce,klevp1)
-    rlns(jcs:jce) = zflxlw(jcs:jce,klevp1)
-
-    !
-    !     4.4 net sw flux at toa
-    !
-    rsnt(jcs:jce) = zflxsw(jcs:jce,1)
-    rlnt(jcs:jce) = zflxlw(jcs:jce,1)
+    
+    ! Heating rates in atmosphere
+    !----------------------------
+    q_rsw(jcs:jce,1:klev) = rsn(jcs:jce,1:klev)-rsn(jcs:jce,2:klev+1)
+    q_rlw(jcs:jce,1:klev) = rln(jcs:jce,1:klev)-rln(jcs:jce,2:klev+1)
 
   END SUBROUTINE radheating
 
