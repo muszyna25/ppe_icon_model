@@ -281,7 +281,7 @@ CONTAINS
 
     ! check whether the chemistry and/or the coupling event is active
     !
-    mtime_date = newDatetime(cur_datetime)
+    mtime_date => newDatetime(cur_datetime)
     !
     ! compute allowed slack in PT-Format
     ! Use factor 999 instead of 1000, since no open interval is available
