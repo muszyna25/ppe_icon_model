@@ -1359,7 +1359,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
         &  u_tens=prm_nwp_tend%ddt_u_turb(:,:,jb), &
         &  v_tens=prm_nwp_tend%ddt_v_turb(:,:,jb), &
         &  tketens=prm_nwp_tend%ddt_tke(:,:,jb), &
-        &  ut_sso=prm_nwp_tend%ddt_u_sso(:,:,jb), vt_sso=prm_nwp_tend%ddt_v_sso(:,:,jb), &
+        &  ut_sso=REAL(prm_nwp_tend%ddt_u_sso(:,:,jb),wp), vt_sso=REAL(prm_nwp_tend%ddt_v_sso(:,:,jb),wp), &
         &  shfl_s=prm_diag%shfl_s(:,jb), qvfl_s=prm_diag%qhfl_s(:,jb), &
         &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
 

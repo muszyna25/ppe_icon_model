@@ -25,7 +25,7 @@
 
 MODULE mo_nwp_gw_interface
 
-  USE mo_kind,                 ONLY: wp
+  USE mo_kind,                 ONLY: wp, vp
 
   USE mo_model_domain,         ONLY: t_patch
 
@@ -86,9 +86,9 @@ CONTAINS
     INTEGER :: i_nchdom                !< domain index
 
     REAL(wp) ::            &           !< != zonal component of vertical momentum flux (Pa)
-      &  z_fluxu(nproma,p_patch%nlevp1 , p_patch%nblks_c)
+      &  z_fluxu(nproma,p_patch%nlevp1)
     REAL(wp) ::            &           !< != meridional component of vertical momentum flux (Pa)
-      &  z_fluxv (nproma,p_patch%nlevp1, p_patch%nblks_c)
+      &  z_fluxv (nproma,p_patch%nlevp1)
     REAL(wp) ::            &           !< total precipitation rate [kg/m2/s]
       &  ztot_prec_rate(nproma)
 
@@ -113,7 +113,7 @@ CONTAINS
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ztot_prec_rate) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ztot_prec_rate,z_fluxu,z_fluxv) ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -165,10 +165,10 @@ CONTAINS
         DO jk = 1, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
-            prm_nwp_tend%ddt_u_sso(jc,jk,jb) = MAX(-0.1_wp,prm_nwp_tend%ddt_u_sso(jc,jk,jb))
-            prm_nwp_tend%ddt_u_sso(jc,jk,jb) = MIN( 0.1_wp,prm_nwp_tend%ddt_u_sso(jc,jk,jb))
-            prm_nwp_tend%ddt_v_sso(jc,jk,jb) = MAX(-0.1_wp,prm_nwp_tend%ddt_v_sso(jc,jk,jb))
-            prm_nwp_tend%ddt_v_sso(jc,jk,jb) = MIN( 0.1_wp,prm_nwp_tend%ddt_v_sso(jc,jk,jb))
+            prm_nwp_tend%ddt_u_sso(jc,jk,jb) = MAX(-0.1_vp,prm_nwp_tend%ddt_u_sso(jc,jk,jb))
+            prm_nwp_tend%ddt_u_sso(jc,jk,jb) = MIN( 0.1_vp,prm_nwp_tend%ddt_u_sso(jc,jk,jb))
+            prm_nwp_tend%ddt_v_sso(jc,jk,jb) = MAX(-0.1_vp,prm_nwp_tend%ddt_v_sso(jc,jk,jb))
+            prm_nwp_tend%ddt_v_sso(jc,jk,jb) = MIN( 0.1_vp,prm_nwp_tend%ddt_v_sso(jc,jk,jb))
           ENDDO
         ENDDO
 
@@ -204,17 +204,17 @@ CONTAINS
            & pprecip  = ztot_prec_rate          (:)     ,  & !< in:  total surface precipitation rate
            & ptenu    = prm_nwp_tend%ddt_u_gwd  (:,:,jb),  & !< out: u-tendency
            & ptenv    = prm_nwp_tend%ddt_v_gwd  (:,:,jb),  & !< out: v-tendency
-           & pfluxu   = z_fluxu (:,:,jb)                ,  & !< out: zonal  GWD vertical mom flux
-           & pfluxv   = z_fluxv (:,:,jb)   )                 !< out: merid. GWD vertical mom flux
+           & pfluxu   = z_fluxu (:,:)                   ,  & !< out: zonal  GWD vertical mom flux
+           & pfluxv   = z_fluxv (:,:)   )                    !< out: merid. GWD vertical mom flux
 
         ! Limit also gwdrag wind tendencies. They can become numerically unstable in the upper mesosphere
         DO jk = 1, nlev
 !DIR$ IVDEP
           DO jc = i_startidx, i_endidx
-            prm_nwp_tend%ddt_u_gwd(jc,jk,jb) = MAX(-0.05_wp,prm_nwp_tend%ddt_u_gwd(jc,jk,jb))
-            prm_nwp_tend%ddt_u_gwd(jc,jk,jb) = MIN( 0.05_wp,prm_nwp_tend%ddt_u_gwd(jc,jk,jb))
-            prm_nwp_tend%ddt_v_gwd(jc,jk,jb) = MAX(-0.05_wp,prm_nwp_tend%ddt_v_gwd(jc,jk,jb))
-            prm_nwp_tend%ddt_v_gwd(jc,jk,jb) = MIN( 0.05_wp,prm_nwp_tend%ddt_v_gwd(jc,jk,jb))
+            prm_nwp_tend%ddt_u_gwd(jc,jk,jb) = MAX(-0.05_vp,prm_nwp_tend%ddt_u_gwd(jc,jk,jb))
+            prm_nwp_tend%ddt_u_gwd(jc,jk,jb) = MIN( 0.05_vp,prm_nwp_tend%ddt_u_gwd(jc,jk,jb))
+            prm_nwp_tend%ddt_v_gwd(jc,jk,jb) = MAX(-0.05_vp,prm_nwp_tend%ddt_v_gwd(jc,jk,jb))
+            prm_nwp_tend%ddt_v_gwd(jc,jk,jb) = MIN( 0.05_vp,prm_nwp_tend%ddt_v_gwd(jc,jk,jb))
           ENDDO
         ENDDO
 

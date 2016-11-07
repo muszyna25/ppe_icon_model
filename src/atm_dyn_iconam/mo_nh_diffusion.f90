@@ -46,7 +46,7 @@ MODULE mo_nh_diffusion
   USE mo_gridref_config,      ONLY: denom_diffu_v
   USE mo_parallel_config,     ONLY: p_test_run, itype_comm
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
-                                    sync_patch_array_mult
+                                    sync_patch_array_mult, sync_patch_array_mult_mp
   USE mo_physical_constants,  ONLY: cvd_o_rd, rd, grav
   USE mo_timer,               ONLY: timer_nh_hdiffusion, timer_start, timer_stop
   USE mo_vertical_grid,       ONLY: nrdmax
@@ -99,8 +99,8 @@ MODULE mo_nh_diffusion
     ! For Smagorinsky diffusion - vp means variable precision depending on the __MIXED_PRECISION cpp flag
     REAL(vp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: kh_smag_e
     REAL(vp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e) :: kh_smag_ec
-    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_v) :: u_vert
-    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_v) :: v_vert
+    REAL(vp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_v) :: u_vert
+    REAL(vp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_v) :: v_vert
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: u_cell
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: v_cell
     REAL(vp), DIMENSION(nproma,p_patch%nlev) :: kh_c, div, vn_vert1, vn_vert2, vn_vert3, vn_vert4, &
@@ -281,7 +281,11 @@ MODULE mo_nh_diffusion
       rl_end   = min_rledge_int - 2
 
       IF (itype_comm == 1 .OR. itype_comm == 3) THEN
+#ifdef __MIXED_PRECISION
+        CALL sync_patch_array_mult_mp(SYNC_V,p_patch,0,2,f3din1_sp=u_vert,f3din2_sp=v_vert)
+#else
         CALL sync_patch_array_mult(SYNC_V,p_patch,2,u_vert,v_vert)
+#endif
       ENDIF
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
@@ -394,7 +398,11 @@ MODULE mo_nh_diffusion
       rl_end   = min_rledge_int - 2
 
       IF (itype_comm == 1 .OR. itype_comm == 3) THEN
+#ifdef __MIXED_PRECISION
+        CALL sync_patch_array_mult_mp(SYNC_V,p_patch,0,2,f3din1_sp=u_vert,f3din2_sp=v_vert)
+#else
         CALL sync_patch_array_mult(SYNC_V,p_patch,2,u_vert,v_vert)
+#endif
       ENDIF
       CALL cells2verts_scalar(p_nh_prog%w, p_patch, p_int%cells_aw_verts, z_w_v, opt_rlend=min_rlvert_int)
       CALL sync_patch_array(SYNC_V,p_patch,z_w_v)
@@ -748,7 +756,11 @@ MODULE mo_nh_diffusion
       rl_end   = min_rledge_int
 
       IF (itype_comm == 1 .OR. itype_comm == 3) THEN
+#ifdef __MIXED_PRECISION
+        CALL sync_patch_array_mult_mp(SYNC_V,p_patch,0,2,f3din1_sp=u_vert,f3din2_sp=v_vert)
+#else
         CALL sync_patch_array_mult(SYNC_V,p_patch,2,u_vert,v_vert)
+#endif
       ENDIF
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
@@ -946,6 +958,7 @@ MODULE mo_nh_diffusion
 
 #ifdef __LOOP_EXCHANGE
         DO jc = i_startidx, i_endidx
+!DIR$ IVDEP, PREFERVECTOR
           DO jk = 1, nlev
 #else
         DO jk = 1, nlev
@@ -1137,6 +1150,7 @@ MODULE mo_nh_diffusion
           ! interpolated diffusion coefficient times nabla2(theta)
 #ifdef __LOOP_EXCHANGE
           DO jc = i_startidx, i_endidx
+!DIR$ IVDEP, PREFERVECTOR
             DO jk = 1, nlev
 #else
           DO jk = 1, nlev
@@ -1172,7 +1186,7 @@ MODULE mo_nh_diffusion
           ! compute kh_smag_e * grad(theta) (stored in z_nabla2_e for memory efficiency)
 #ifdef __LOOP_EXCHANGE
           DO je = i_startidx, i_endidx
-!DIR$ IVDEP
+!DIR$ IVDEP, PREFERVECTOR
             DO jk = 1, nlev
 #else
           DO jk = 1, nlev
