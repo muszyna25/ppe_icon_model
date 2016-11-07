@@ -1139,7 +1139,7 @@ MODULE mo_initicon
         ! Unfortunately, we have to care about possible pathological cases here
         DO jc = i_startidx, i_endidx
           IF (mass_incr_int(jc)*mass_incr_smt_int(jc) > 0._wp .AND. grav*ABS(mass_incr_int(jc)) > 0.5_wp &
-              .AND. grav*ABS(mass_incr_int(jc)) > 0.5_wp) THEN
+              .AND. grav*ABS(mass_incr_smt_int(jc)) > 0.5_wp) THEN
             ! Multiplicative correction if mass increments are larger than 0.5 Pa and have the same sign
             DO jk = 1, nlev
               rho_incr_smt(jc,jk) = rho_incr_smt(jc,jk)                         &
