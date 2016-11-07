@@ -43,9 +43,6 @@ MODULE mo_time_interpolation
     REAL(wp)                     :: zcmlen2, znmlen2 !half of current/nearest month length
     TYPE(t_datetime)             :: znevent_date
     
-    
-    IF (wi%time == event_date) RETURN
-
     wi%time=event_date !save event_date in wi
     zcmonfrc=event_date%monfrc
     zevent_tim=event_date%montim ! event time since first of month in frac. days
