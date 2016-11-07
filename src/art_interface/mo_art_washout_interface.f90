@@ -175,14 +175,18 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
                 &                   tracer(:,:,jb,fields%itr))
             ENDDO
           CLASS IS (t_fields_radio)
-            CALL art_washout_radioact(rho(:,:,jb), p_metrics%ddqz_z_full(:,:,jb),                 &
-              &                       tracer(:,:,jb,iqr),tracer(:,:,jb,iqs),                      &
-              &                       prm_diag%rain_gsp_rate(:,jb), prm_diag%rain_con_rate(:,jb), &
-              &                       prm_diag%rain_con_rate_3d(:,:,jb),                          &
-              &                       prm_diag%snow_gsp_rate(:,jb), prm_diag%snow_con_rate(:,jb), &
-              &                       prm_diag%snow_con_rate_3d(:,:,jb),                          &
-              &                       fields%itr, fields%imis, istart, iend, nlev, jb, dtime,     &
-              &                       tracer(:,:,jb,fields%itr),p_art_data(jg))
+            DO jb = i_startblk, i_endblk
+              CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                &                istart, iend, i_rlstart, i_rlend)
+              CALL art_washout_radioact(rho(:,:,jb), p_metrics%ddqz_z_full(:,:,jb),                 &
+                &                       tracer(:,:,jb,iqr),tracer(:,:,jb,iqs),                      &
+                &                       prm_diag%rain_gsp_rate(:,jb), prm_diag%rain_con_rate(:,jb), &
+                &                       prm_diag%rain_con_rate_3d(:,:,jb),                          &
+                &                       prm_diag%snow_gsp_rate(:,jb), prm_diag%snow_con_rate(:,jb), &
+                &                       prm_diag%snow_con_rate_3d(:,:,jb),                          &
+                &                       fields%itr, fields%imis, istart, iend, nlev, jb, dtime,     &
+                &                       tracer(:,:,jb,fields%itr),p_art_data(jg))
+            ENDDO
           CLASS DEFAULT
             CALL finish('mo_art_washout_interface:art_washout_interface', &
                  &      'ART: Unknown mode field type')
