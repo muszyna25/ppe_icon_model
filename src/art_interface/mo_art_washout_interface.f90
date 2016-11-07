@@ -32,7 +32,7 @@ MODULE mo_art_washout_interface
   USE mo_exception,                     ONLY: finish
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
   USE mo_run_config,                    ONLY: lart,iqr,iqnr,iqs
-  USE mo_nonhydro_types,                ONLY: t_nh_prog, t_nh_diag
+  USE mo_nonhydro_types,                ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
 
 #ifdef __ICON_ART
 ! Infrastructure Routines
@@ -62,7 +62,7 @@ CONTAINS
 !!-------------------------------------------------------------------------
 !!
 SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
-              &                  prm_diag, tracer)
+              &                  prm_diag, p_metrics, tracer)
 !>
 !! Interface for ART-routines dealing with washout
 !!
@@ -80,6 +80,8 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
     &  p_patch                           !< Patch on which computation is performed
   TYPE(t_nwp_phy_diag), INTENT(IN)  :: &
     &  prm_diag                          !< Diagnostic variables (Physics)
+  TYPE(t_nh_metrics)                :: &
+    &  p_metrics                         !< Metrics (dz, ...)
   REAL(wp), INTENT(INOUT)           :: &
     &  tracer(:,:,:,:)                   !< Tracer mixing ratios [kg/kg]
   ! Local Variables
@@ -173,9 +175,14 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
                 &                   tracer(:,:,jb,fields%itr))
             ENDDO
           CLASS IS (t_fields_radio)
-            CALL art_washout_radioact(fields,p_patch,dtime,prm_diag,  &
-              &                       tracer,rho,p_art_data(jg))
-                               
+            CALL art_washout_radioact(rho(:,:,jb), p_metrics%ddqz_z_full(:,:,jb),                 &
+              &                       tracer(:,:,jb,iqr),tracer(:,:,jb,iqs),                      &
+              &                       prm_diag%rain_gsp_rate(:,jb), prm_diag%rain_con_rate(:,jb), &
+              &                       prm_diag%rain_con_rate_3d(:,:,jb),                          &
+              &                       prm_diag%snow_gsp_rate(:,jb), prm_diag%snow_con_rate(:,jb), &
+              &                       prm_diag%snow_con_rate_3d(:,:,jb),                          &
+              &                       fields%itr, fields%imis, istart, iend, nlev, jb, dtime,     &
+              &                       tracer(:,:,jb,fields%itr),p_art_data(jg))
           CLASS DEFAULT
             CALL finish('mo_art_washout_interface:art_washout_interface', &
                  &      'ART: Unknown mode field type')
