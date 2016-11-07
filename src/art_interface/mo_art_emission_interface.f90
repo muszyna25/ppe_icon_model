@@ -152,7 +152,9 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
           &                istart, iend, i_rlstart, i_rlend)
         
-        CALL art_add_emission_to_tracers(tracer,p_patch,p_nh_state%metrics,p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,jb,istart,iend,datetime,prm_diag%swflx_par_sfc)
+        CALL art_add_emission_to_tracers(tracer,p_patch,p_nh_state%metrics,                &
+                                      &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,  &
+                                      &  jb,istart,iend,datetime,prm_diag%swflx_par_sfc)
       END DO
     END IF
   
