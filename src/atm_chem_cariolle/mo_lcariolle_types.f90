@@ -9,6 +9,7 @@ REAL(wp), POINTER :: tmprt(:,:)
 REAL(wp), POINTER :: vmr2molm2(:,:) 
 REAL(wp), POINTER :: pres(:,:)
 REAL(wp), POINTER :: o3_vmr(:,:)
+LOGICAL, POINTER  :: lday(:)
 REAL(wp), POINTER :: cell_center_lat(:)
 REAL(wp)          :: avogadro
 LOGICAL           :: ldown

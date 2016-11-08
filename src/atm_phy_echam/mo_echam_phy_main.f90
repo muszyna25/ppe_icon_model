@@ -1008,6 +1008,7 @@ CONTAINS
       avi%vmr2molm2(jcs:jce,:)=zmair(jcs:jce,:)/amd*1.e3_wp
       avi%pres(jcs:jce,:)=field%presm_old(jcs:jce,:,jb)
       avi%cell_center_lat(jcs:jce)=p_patch(jg)%cells%center(jcs:jce,jb)%lat
+      avi%lday(jcs:jce)=field%cosmu0(jcs:jce,jb)>1.e-3_wp
       avi%avogadro=avo
       avi%ldown=.TRUE.
       time_interpolation%imonth1=wi_limm%inm1

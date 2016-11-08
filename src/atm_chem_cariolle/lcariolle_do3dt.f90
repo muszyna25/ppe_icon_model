@@ -121,9 +121,14 @@ DO ilev=1,nlev
     do3dt(ic,ilev) = al1(ic,ilev) + &
                    & al2(ic,ilev)*(avi%o3_vmr(ic,ilev)-al3(ic,ilev)) + &
                    & al4(ic,ilev)*(avi%tmprt(ic,ilev)-al5(ic,ilev)) + &
-                   & al6(ic,ilev)*(o3_column(ic,ilev)-al7(ic,ilev)) + &
-                   & al8(ic,ilev)*avi%o3_vmr(ic,ilev)
+                   & al6(ic,ilev)*(o3_column(ic,ilev)-al7(ic,ilev))
   END DO
+END DO
+DO ilev=1,nlev
+  WHERE (avi%lday(jcb:jce).AND.avi%tmprt(jcb:jce,ilev)<=195._wp)
+    do3dt(jcb:jce,ilev) = do3dt(jcb:jce,ilev) + &
+                        & al8(jcb:jce,ilev)*avi%o3_vmr(jcb:jce,ilev)
+  END WHERE
 END DO
 !!$write(*,*) 'do3dt(1,5)=',do3dt(1,5)
 END SUBROUTINE lcariolle_do3dt

@@ -84,4 +84,5 @@ ALLOCATE(avi%vmr2molm2(NCX,nlev))
 ALLOCATE(avi%pres(NCX,nlev))
 ALLOCATE(avi%o3_vmr(NCX,nlev))
 ALLOCATE(avi%cell_center_lat(NCX))
+ALLOCATE(avi%lday(NCX))
 END SUBROUTINE lcariolle_init
