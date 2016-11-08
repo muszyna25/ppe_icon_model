@@ -739,6 +739,7 @@ CONTAINS
               & ( z_div_c(icidx(edge_index,blockNo,2),level,icblk(edge_index,blockNo,2))      &
               & - z_div_c(icidx(edge_index,blockNo,1),level,icblk(edge_index,blockNo,1)) )    &
               & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo))
+            
           END DO
         END DO
       END DO

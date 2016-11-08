@@ -529,15 +529,16 @@ CONTAINS
       
             !top level
             level=1
-            delta_z = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nold(1))%h(jc,jb)
+            delta_z     = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nold(1))%h(jc,jb)
+            delta_z_new = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nnew(1))%h(jc,jb)
             
             p_os%p_diag%opottempGMRedi(jc,level,jb)&
-            &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z!&
+            &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))*(delta_z/delta_z_new)!/delta_z!&
 !           !& * patch_3D%p_patch_1d(1)%prism_thick_c(jc,level,jb)&
 !           !& * clw *rho_ref
 
             p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
-            &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z 
+            &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))*(delta_z/delta_z_new)!/delta_z 
             
             DO level = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
         
@@ -572,13 +573,14 @@ CONTAINS
       
             !top level
             level=1
-            delta_z = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nold(1))%h(jc,jb)
+            delta_z     = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nold(1))%h(jc,jb)
+            delta_z_new = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nnew(1))%h(jc,jb)
             
             p_os%p_diag%osaltGMRedi(jc,level,jb)&
-            &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z
+            &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))*(delta_z/delta_z_new)
 
             p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
-            &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z 
+            &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))*(delta_z/delta_z_new) 
 
         
             DO level = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)

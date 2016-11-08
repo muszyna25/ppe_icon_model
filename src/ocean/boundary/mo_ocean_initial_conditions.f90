@@ -4149,9 +4149,9 @@ write(123,*)'perturb',max_perturbation*EXP(-(distan/(perturbation_width*deg2rad)
           ll=n_zlev+1-level
 
           ocean_temperature(idx,level,BLOCK)=0.0_wp
-          IF (ABS(lat_deg) <= 5.0_wp) THEN
+          IF (ABS(lat_deg) <= 45.0_wp) THEN
 
-           scal=(COS(lat_deg/5.0_wp * pi) +1.0_wp) *0.5_wp
+           scal=(COS(lat_deg/45.0_wp * pi) +1.0_wp) *0.5_wp
            ocean_temperature(idx,level,BLOCK) =0.0  + delta_t_back*ll + scal*ll*tano
 
           ELSE
@@ -4215,9 +4215,10 @@ write(123,*)'perturb',max_perturbation*EXP(-(distan/(perturbation_width*deg2rad)
           ll=n_zlev+1-level
 
           ocean_salinity(idx,level,BLOCK)=0.0_wp
-          IF (ABS(lat_deg) <= 5.0_wp) THEN
+          IF (ABS(lat_deg) <= 45.0_wp) THEN
 
-           scal=(COS(lat_deg/5.0_wp * pi) +1.0_wp) *0.5_wp
+           scal=(COS(lat_deg/45.0_wp * 0.15*pi) +1.0_wp) *0.5_wp
+           !scal=(COS((lat_deg*deg2rad)/5.0_wp ) +1.0_wp) *0.5_wp
            ocean_salinity(idx,level,BLOCK) =35.0  + delta_s_back*ll + scal*ll*sano
 
           ELSE

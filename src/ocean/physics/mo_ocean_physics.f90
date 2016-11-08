@@ -776,13 +776,14 @@ CONTAINS
 
     !1) calculation leith closure or modified leith_closure
     IF(leith_closure==1)THEN
+
       DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
         CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
         DO je=start_edge_index, end_edge_index   
           end_level = patch_3D%p_patch_1D(1)%dolic_e(je,blockNo)
           DO level=start_level,end_level     
             param%k_veloc_h(je,level,blockNo) = &
-            &grad_vort_abs(je,level,blockNo) *(leith_closure_gamma* length_scale(je,blockNo))**LEITH_EXPONENT        
+            &grad_vort_abs(je,level,blockNo) *(leith_closure_gamma* length_scale(je,blockNo))**LEITH_EXPONENT 
           END DO    
         END DO
       END DO ! blocks

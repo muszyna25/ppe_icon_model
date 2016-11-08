@@ -246,6 +246,7 @@ CONTAINS
       tracer_gradient_horz_vec_center => ocean_state%p_aux%PgradSalinity_horz_center
       tracer_gradient_vert_center     => ocean_state%p_aux%DerivSalinity_vert_center
     ELSEIF(tracer_index>2)THEN
+      !Here we have to provide a sbr that calculates derivatives below
       tracer_gradient_horz_vec_center => ocean_state%p_aux%PgradTracer_horz_center
       tracer_gradient_vert_center     => ocean_state%p_aux%DerivTracer_vert_center
        
@@ -317,7 +318,7 @@ CONTAINS
         & flux_vec_horz_center(:,:,:)%x(1), flux_vec_horz_center(:,:,:)%x(2), flux_vec_horz_center(:,:,:)%x(3))
     !    
     CALL map_cell2edges_3D( patch_3D,flux_vec_horz_center, GMredi_flux_horz, op_coeff)
-    !hier GMredi_flux_horz fuer T und S abgreifen
+
 
 
     !Map the (explicit) vertical tracer flux to the prsim top (where the vertical divergence is calculated later)
@@ -330,7 +331,6 @@ CONTAINS
     ! Now we treat the vertical isoneutral coefficient that is discretized implicitely in time.  
     ! This is only neccessary once for temperature and salinity, the HAMOCC tracers use these value  
     IF(tracer_index<=1)THEN
-
       ! 
       !1.) Interpolate the tapered coefficient for the vertical tracer flux from prism center to prism top: 
       !this is the diagonal part that is handled implicitely in time
@@ -367,9 +367,9 @@ CONTAINS
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)      
         DO cell_index = start_cell_index, end_cell_index
           DO level = start_level, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
-            param%a_tracer_v(cell_index,level,blockNo, tracer_index) =    &
-             & param%a_tracer_v(cell_index,level,blockNo, tracer_index) + &
-             & ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit(cell_index,level,blockNo)
+            param%a_tracer_v(cell_index,level,blockNo, tracer_index) = 0.0_wp!  &
+             !& param%a_tracer_v(cell_index,level,blockNo, tracer_index) + &
+             !& ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit(cell_index,level,blockNo)
           END DO                  
         END DO                
       END DO
@@ -2242,6 +2242,7 @@ END DO
              neutral_coeff = calc_neutralslope_coeff_func_onColumn(         &
              & pot_temp(cell_index,1:end_level,blockNo), salinityColumn(1:end_level),  &
              & depth_cellinterface(cell_index,2:end_level+1,blockNo), end_level)
+             
            !Linear EOS: slope coefficients are equal to EOS-coefficients
            ELSEIF(EOS_TYPE==1)THEN
               neutral_coeff(:,1) = LinearThermoExpansionCoefficient 
@@ -2317,11 +2318,11 @@ END DO
     IF(tracer_index==no_tracer)THEN
 
 
-GMredi_flux_horz=0.0_wp
+
     CALL map_cell2edges_3D( patch_3D,flux_sum_horz, GMredi_flux_horz, op_coeff)
     Do level=start_level+1,n_zlev-1
     idt_src=1  ! output print level (1-5, fix)
-    write(0,*)'level',level,tracer_index
+    write(0,*)'level',level
     CALL dbg_print('diagnose_Redi:horz',GMredi_flux_horz(:,level,:),&
     & str_module, idt_src, in_subset=edges_in_domain)
     END DO
