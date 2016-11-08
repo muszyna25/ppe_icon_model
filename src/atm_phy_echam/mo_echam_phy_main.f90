@@ -29,7 +29,7 @@ MODULE mo_echam_phy_main
   USE mo_exception,           ONLY: finish, print_value
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_math_constants,      ONLY: pi
-  USE mo_physical_constants,  ONLY: grav, cpd, cpv, cvd, cvv
+  USE mo_physical_constants,  ONLY: cpd, cpv, cvd, cvv
   USE mo_impl_constants,      ONLY: inh_atmosphere
   USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
     &                               iqv, iqc, iqi, iqt
@@ -424,10 +424,6 @@ CONTAINS
       CALL print_value ('mo_echam_phy_main/echam_phy_main: field%rsd   (jcs,  1,jb)',field%rsd(jcs,     1,jb))
       CALL print_value ('mo_echam_phy_main/echam_phy_main: field%rsu   (jcs,  1,jb)',field%rsu(jcs,     1,jb))
 
-      ! - solar incoming flux at TOA
-      field% rsdt(jcs:jce,jb) = MAX(0._wp,field%cosmu0(jcs:jce,jb)) * psct & ! instantaneous for radheat
-        &                       / (field%rsd(jcs:jce,1,jb))
-
       ! radheat first computes the shortwave and longwave radiation for the current time step from transmissivity and
       ! the longwave flux at the radiation time step and, from there, the radiative heating due to sw and lw radiation.
       ! If radiation is called every time step, the longwave flux is not changed.
@@ -445,6 +441,7 @@ CONTAINS
         & klev       = nlev                           ,&! vertical dimension size
         & klevp1     = nlevp1                         ,&! vertical dimension size
         !
+        & rsdt0      = psct                           ,&! toa incident shortwave radiation for sun in zenith
         & cosmu0     = field%cosmu0    (:,jb)         ,&! solar zenith angle at current time
         !
         & emiss      = ext_data(jg)%atm%emis_rad(:,jb),&! lw sfc emissivity
@@ -666,7 +663,7 @@ CONTAINS
           & pssfl = field% ssfl(:,jb),    &! in, snow surface large scale (from cloud)
           & pssfc = field% ssfc(:,jb),    &! in, snow surface concective (from cucall)
           & plw         = field% rlns (:,jb), &! inout, net surface longwave flux [W/m2]
-          & plw_down    = field% rlns (:,jb) + field%rlus(:,jb),     &! in, downward surface longwave flux [W/m2]
+          & plw_down    = field% rlds (:,jb),     &! in, downward surface longwave flux [W/m2]
           & psw         = field% rsns     (:,jb), &! inout, net surface shortwave flux [W/m2]
           & pswvis      = field% vissfc   (:,jb), &! in, net surface shortwave flux in visible range [W/m2]
           & pswnir      = field% nirsfc   (:,jb), &! in, net surface shortwave flux in NIR range [W/m2]

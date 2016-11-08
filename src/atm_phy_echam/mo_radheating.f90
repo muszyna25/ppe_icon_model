@@ -2,7 +2,9 @@
 !! @brief Module to provide SW and LW fluxes and heating rates
 !!
 !! @remarks
-!!   This module contains the "radheating" routine to 
+!!   This module contains the "radheating" routine that diagnoses
+!!   SW and LW fluxes at TOA and at the surface and the heating
+!!   in the atmosphere.
 !!
 !! @author Marco Giorgetta, MPI-M, Hamburg (2016-11-02)
 !!
@@ -18,7 +20,6 @@ MODULE mo_radheating
 
   USE mo_kind                       , ONLY: wp
   USE mo_physical_constants         , ONLY: stbo
-  USE mo_psrad_radiation_parameters , ONLY: diff, psct
 
   IMPLICIT NONE
 
@@ -72,6 +73,7 @@ CONTAINS
        & klev       ,&
        & klevp1     ,&
        !
+       & rsdt0      ,&
        & cosmu0     ,&
        !
        & emiss      ,&
@@ -124,6 +126,7 @@ CONTAINS
       &     klev, klevp1
 
     REAL(wp), INTENT(in)  ::        &
+      &     rsdt0                  ,&! indicent SW flux for sun in zenith
       &     cosmu0(kbdim)          ,&! cosine of solar zenith angle at current time
       &     emiss (kbdim)          ,&! lw sfc emissivity
       &     tsr   (kbdim)          ,&! radiative surface temperature at current   time [K]
@@ -141,7 +144,7 @@ CONTAINS
       &     rldcs (kbdim,klevp1)   ,&! clear-sky longwave  downward flux at radiation time [W/m2]
       &     rlucs (kbdim,klevp1)     ! clear-sky longwave  upward   flux at radiation time [W/m2]
       !
-    REAL(wp), INTENT(inout) ::      &
+    REAL(wp), INTENT(out) ::        &
       &     rsdt  (kbdim)          ,&! all-sky   shortwave downward flux at current   time [W/m2]
       &     rsut  (kbdim)          ,&! all-sky   shortwave upward   flux at current   time [W/m2]
       &     rsnt  (kbdim)          ,&! all-sky   shortwave net      flux at current   time [W/m2]
@@ -173,73 +176,74 @@ CONTAINS
     REAL(wp) ::                     &
       &     xsdt  (kbdim)          ,&
       &     rsn   (kbdim,klevp1)   ,&
-      &     rsncs (kbdim,klevp1)   ,&
       &     rln   (kbdim,klevp1)   ,&
-      &     rlncs (kbdim,klevp1)   ,&
       &     drlus_dtsr(kbdim)      ,&
       &     dtsr  (kbdim)
-
-    ! local scalars
-    INTEGER :: jk
 
     ! Shortwave fluxes
     ! ----------------
     !
-    ! top of atmophere (toa)
-    ! - toa incident SW radiation at the radiation time step: rsd(jk=1)
-    ! - toa incident SW radiation at the current   time step: rsdt
-    ! --> use rsdt/rsd(jk=1) for scaling of SW fluxes
-    rsdt(jcs:jce) = MAX(0._wp,cosmu0(jcs:jce)) * psct
-    xsdt(jcs:jce) = rsdt(jcs:jce) / rsd(jcs:jce,1)
+    ! The original downward and upward fluxes form the radiative transfer (rt) calculation
+    ! are scaled by the ratio of the incident solar fluxes of the current time and the
+    ! rt-time. This assumes that the incident solar flux at rt-time is non-zero in all
+    ! columns.
+    ! - incident solar radiation at rt-time     : rsdt_rt = rsd(jk=1)
+    ! - incident solar radiation at current time: rsdt    = rsdt0*MAX(0,cosmu0)
+    ! - scaling ratio for fluxes at current time: xsdt    = rsdt / rsdt_rt
     !
-    rsut  (jcs:jce) = xsdt(jcs:jce) * rsu  (jcs:jce,1)
-    rsutcs(jcs:jce) = xsdt(jcs:jce) * rsucs(jcs:jce,1)
+    ! top of atmophere
+    rsdt  (jcs:jce)   = rsdt0*MAX(0._wp,cosmu0(jcs:jce))
+    xsdt  (jcs:jce)   = rsdt  (jcs:jce) / rsd  (jcs:jce,1)
     !
-    rsnt  (jcs:jce) = rsdt  (jcs:jce) - rsut  (jcs:jce)
-    rsntcs(jcs:jce) = rsdt  (jcs:jce) - rsutcs(jcs:jce)
+    rsut  (jcs:jce)   = rsu   (jcs:jce,1) * xsdt(jcs:jce)
+    rsutcs(jcs:jce)   = rsucs (jcs:jce,1) * xsdt(jcs:jce)
+    !
+    rsnt  (jcs:jce)   = rsdt  (jcs:jce) - rsut  (jcs:jce)
+    rsntcs(jcs:jce)   = rsdt  (jcs:jce) - rsutcs(jcs:jce)
     !
     ! all half levels
-    DO jk = 1, klevp1
-      rsn  (jcs:jce,jk) = xsdt(jcs:jce) * (rsd  (jcs:jce,jk) - rsu  (jcs:jce,jk))
-      rsncs(jcs:jce,jk) = xsdt(jcs:jce) * (rsdcs(jcs:jce,jk) - rsucs(jcs:jce,jk))
-    END DO
+    rsn   (jcs:jce,:) = (rsd  (jcs:jce,:) - rsu  (jcs:jce,:)) * SPREAD(xsdt(jcs:jce),2,klevp1)
     !
     ! surface
-    rsds  (jcs:jce) = xsdt(jcs:jce) * rsd  (jcs:jce,klevp1)
-    rsdscs(jcs:jce) = xsdt(jcs:jce) * rsdcs(jcs:jce,klevp1)
+    rsds  (jcs:jce)   = rsd   (jcs:jce,klevp1) * xsdt(jcs:jce)
+    rsdscs(jcs:jce)   = rsdcs (jcs:jce,klevp1) * xsdt(jcs:jce)
     !
-    rsus  (jcs:jce) = xsdt(jcs:jce) * rsu  (jcs:jce,klevp1)
-    rsuscs(jcs:jce) = xsdt(jcs:jce) * rsucs(jcs:jce,klevp1)
+    rsus  (jcs:jce)   = rsu   (jcs:jce,klevp1) * xsdt(jcs:jce)
+    rsuscs(jcs:jce)   = rsucs (jcs:jce,klevp1) * xsdt(jcs:jce)
     !
-    rsns  (jcs:jce) = rsds  (jcs:jce) - rsus  (jcs:jce)
-    rsnscs(jcs:jce) = rsdscs(jcs:jce) - rsuscs(jcs:jce)
+    rsns  (jcs:jce)   = rsds  (jcs:jce) - rsus  (jcs:jce)
+    rsnscs(jcs:jce)   = rsdscs(jcs:jce) - rsuscs(jcs:jce)
     
 
     ! Longwave fluxes
     ! ---------------
-    
-    ! top of atmophere (toa)
-    rlut  (jcs:jce) = rlu  (jcs:jce,1)
-    rlutcs(jcs:jce) = rlucs(jcs:jce,1)
     !
-    rlnt  (jcs:jce) = -rlut  (jcs:jce)
-    rlntcs(jcs:jce) = -rlutcs(jcs:jce)
+    ! The original downward and upward fluxes form the radiative transfer (rt) calculation
+    ! are kept constant, except for the upward flux from the surface, which is corrected
+    ! for the change in radiative surface temperature using a 1st order Taylor expansion.
+    ! - surface upward flux at rt-time      : rlus_rt = rlu(jk=klevp1)
+    ! - rad. surface temp.  at rt-time      : tsr_rt
+    ! - rad. surface temp.  at current time : tsr
+    !
+    ! top of atmophere
+    rlut  (jcs:jce)   = rlu  (jcs:jce,1)
+    rlutcs(jcs:jce)   = rlucs(jcs:jce,1)
+    !
+    rlnt  (jcs:jce)   = -rlut  (jcs:jce)
+    rlntcs(jcs:jce)   = -rlutcs(jcs:jce)
     
     ! all half levels
-    DO jk = 1, klevp1
-      rln  (jcs:jce,jk) = (rld  (jcs:jce,jk) - rlu  (jcs:jce,jk))
-      rlncs(jcs:jce,jk) = (rldcs(jcs:jce,jk) - rlucs(jcs:jce,jk))
-    END DO
+    rln   (jcs:jce,:) = (rld  (jcs:jce,:) - rlu  (jcs:jce,:))
     !
     ! surface
-    rlds  (jcs:jce) = rld  (jcs:jce,klevp1)
-    rldscs(jcs:jce) = rldcs(jcs:jce,klevp1)
+    rlds  (jcs:jce)  = rld  (jcs:jce,klevp1)
+    rldscs(jcs:jce)  = rldcs(jcs:jce,klevp1)
     !
-    ! - adjust upward sfc longwave radiation for changed surface temperature
-    drlus_dtsr(jcs:jce) = emiss(jcs:jce)*4._wp*stbo*tsr(jcs:jce)**3 ! derivative of rlus wrt. to tsr
+    ! - correct upward flux for changed radiative surface temperature
+    drlus_dtsr(jcs:jce) = emiss(jcs:jce)*4._wp*stbo*tsr(jcs:jce)**3 ! derivative
     dtsr      (jcs:jce) = tsr(jcs:jce) - tsr_rt(jcs:jce)            ! change in tsr
-    rlus(jcs:jce)       = rlu(jcs:jce,klevp1)                     & ! current rlus
-      &                 + drlus_dtsr(jcs:jce) * dtsr(jcs:jce)
+    rlus(jcs:jce)       = rlu(jcs:jce,klevp1)                     & ! rlus = rlus_rt
+      &                 + drlus_dtsr(jcs:jce) * dtsr(jcs:jce)       !       + correction
     !
     rlns  (jcs:jce) = rlds  (jcs:jce) - rlus  (jcs:jce)
     rlnscs(jcs:jce) = rldscs(jcs:jce) - rlus  (jcs:jce)
