@@ -100,7 +100,8 @@ MODULE mo_echam_phy_init
   USE mo_bc_greenhouse_gases,  ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
     &                                bc_greenhouse_gases_file_read, ghg_co2mmr
 !++jsr
-  USE mo_bc_cariolle_read,     ONLY: read_bcast_real_3d_wrap, read_bcast_real_1d_wrap, &
+  USE mo_lcariolle_externals,  ONLY: read_bcast_real_3d_wrap, &
+                                   & read_bcast_real_1d_wrap, &
                                    & closeFile_wrap, openInputFile_wrap
 !--jsr
   ! for aeorosols in simple plumes

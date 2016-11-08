@@ -1385,7 +1385,7 @@ src/atm_chem_cariolle/lcariolle_init_o3.f90 -text
 src/atm_chem_cariolle/lcariolle_lat_intp_li.f90 -text
 src/atm_chem_cariolle/lcariolle_o3_column.f90 -text
 src/atm_chem_cariolle/lcariolle_pres_intp_li.f90 -text
-src/atm_chem_cariolle/mo_bc_cariolle_read.f90 -text
+src/atm_chem_cariolle/mo_lcariolle_externals.f90 -text
 src/atm_chem_cariolle/mo_lcariolle_kind.f90 -text
 src/atm_chem_cariolle/mo_lcariolle_types.f90 -text
 src/atm_dyn_icoham/m_dyn.f90 -text

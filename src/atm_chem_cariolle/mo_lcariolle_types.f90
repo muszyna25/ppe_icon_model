@@ -10,6 +10,7 @@ REAL(wp), POINTER :: vmr2molm2(:,:)
 REAL(wp), POINTER :: pres(:,:)
 REAL(wp), POINTER :: o3_vmr(:,:)
 REAL(wp), POINTER :: cell_center_lat(:)
+REAL(wp)          :: avogadro
 LOGICAL           :: ldown
 LOGICAL           :: l_initialized_o3=.FALSE.
 END type t_avi

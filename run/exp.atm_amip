@@ -117,6 +117,7 @@ cat > ${atmo_namelist} << EOF
  lcond            = .TRUE.
  lgw_hines        = .TRUE.
  lssodrag         = .TRUE.
+ lcariolle        = .TRUE.
  lice             = .TRUE.
  ljsbach          = .TRUE.
  lebudget         = .TRUE.
@@ -128,7 +129,8 @@ cat > ${atmo_namelist} << EOF
  irad_co2         = 4           ! 4: from greenhouse gas scenario
  irad_ch4         = 4           ! 4: from greenhouse gas scenario
  irad_n2o         = 4           ! 4: from greenhouse gas scenario
- irad_o3          = 8           ! 8: horizontally and vertically variable
+ irad_o3          = 1           ! 1: interactive ozone, e.g. Cariolle
+! irad_o3          = 8           ! 8: horizontally and vertically variable
  irad_o2          = 2           ! 2: horizontally and vertically constant
  irad_cfc11       = 4           ! 4: from greenhouse gas scenario
  irad_cfc12       = 4           ! 4: from greenhouse gas scenario
@@ -236,8 +238,8 @@ do
 done
 #
 # - Cariolle interactive ozone
-add_link_file /work/mh0066/m218036/icon_data/COEF_91_v2.9.nc            ./cariolle_coeff.nc
-#add_link_file /scratch/local1/m218036/m218036_scratch_local2/cariolle/COEF_91_v2.9.nc ./cariolle_coeff.nc
+#add_link_file /work/mh0066/m218036/icon_data/COEF_91_v2.9.nc            ./cariolle_coeff.nc
+add_link_file /scratch/local1/m218036/m218036_scratch_local2/cariolle/COEF_91_v2.9.nc ./cariolle_coeff.nc
 #
 # - tropospheric aerosol
 datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne

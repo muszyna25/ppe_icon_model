@@ -31,7 +31,7 @@ MODULE mo_echam_phy_main
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: grav, cpd, cpv, cvd, cvv
 !++jsr
-  USE mo_physical_constants,  ONLY: amd,amo3  
+  USE mo_physical_constants,  ONLY: amd,amo3,avo 
 !--jsr
   USE mo_impl_constants,      ONLY: inh_atmosphere
   USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
@@ -1005,9 +1005,10 @@ CONTAINS
 !++jsr
     IF (phy_config%lcariolle) THEN
       avi%tmprt(jcs:jce,:)=field%temp(jcs:jce,:,jb)
-      avi%vmr2molm2(jcs:jce,:)=zmair(jcs:jce,:)/amd
+      avi%vmr2molm2(jcs:jce,:)=zmair(jcs:jce,:)/amd*1.e3_wp
       avi%pres(jcs:jce,:)=field%presm_old(jcs:jce,:,jb)
       avi%cell_center_lat(jcs:jce)=p_patch(jg)%cells%center(jcs:jce,jb)%lat
+      avi%avogadro=avo
       avi%ldown=.TRUE.
       time_interpolation%imonth1=wi_limm%inm1
       time_interpolation%imonth2=wi_limm%inm2

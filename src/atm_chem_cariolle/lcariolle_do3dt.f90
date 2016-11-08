@@ -35,6 +35,7 @@ CALL lcariolle_o3_column(                         &
    & jcb,           jce,           NCX,           &
    & nlev,          avi%o3_vmr,    avi%vmr2molm2, &
    & avi%ldown,     o3_column                     )
+o3_column(jcb:jce,1:nlev)=o3_column(jcb:jce,1:nlev)*avi%avogadro*1.e-4_wp
 CALL lat_intp_li(                                                   &
    & jcb,                 jce,                   NCX,               &
    & avi%cell_center_lat, nlatx,                 pvi%rlat,          &

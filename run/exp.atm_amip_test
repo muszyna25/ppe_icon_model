@@ -167,8 +167,8 @@ cat > ${atmo_namelist} << EOF
  irad_co2         = 4           ! 4: from greenhouse gas scenario
  irad_ch4         = 4           ! 4: from greenhouse gas scenario
  irad_n2o         = 4           ! 4: from greenhouse gas scenario
-! irad_o3          = 1           ! 1: Cariolle ozone
- irad_o3          = 8           ! 8: horizontally and vertically variable
+ irad_o3          = 1           ! 1: interactive ozone, e.g. Cariolle
+! irad_o3          = 8           ! 8: horizontally and vertically variable
  irad_o2          = 2           ! 2: horizontally and vertically constant
  irad_cfc11       = 4           ! 4: from greenhouse gas scenario
  irad_cfc12       = 4           ! 4: from greenhouse gas scenario

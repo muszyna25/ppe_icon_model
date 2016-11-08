@@ -1,4 +1,4 @@
-MODULE mo_bc_cariolle_read
+MODULE mo_lcariolle_externals
 USE mo_kind,               ONLY: wp
 USE mo_read_interface,     ONLY: read_bcast_REAL_3D, read_1D,  &
                                & closeFile, openInputFile
@@ -36,4 +36,4 @@ INTEGER FUNCTION openInputFile_wrap(filename)
   CHARACTER(LEN=*), INTENT(IN)      :: filename
   openInputFile_wrap=openInputFile(filename)
 END FUNCTION openInputFile_wrap
-END MODULE mo_bc_cariolle_read
+END MODULE mo_lcariolle_externals
