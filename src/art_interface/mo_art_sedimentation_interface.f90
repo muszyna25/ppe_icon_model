@@ -101,12 +101,12 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
     &  vdep0(:),                  & !< Deposition velocities 0th moment [m s-1]
     &  vdep3(:)                     !< Deposition velocities 3th moment [m s-1]
   REAL(wp),POINTER             :: &
-    &  mflx_contra_vsed(:,:,:),   & !< Massflux due to sedimentation
-    &  nflx_contra_vsed(:,:,:),   & !< Numberflux due to sedimentation
     &  flx_contra_vsed(:,:,:)       !< Flux due to sedimentation (can be mass or number)
   REAL(wp) ::       &
     &  sedim_update,              & !< tracer tendency due to sedimentation
     &  dt_sub                       !< integration time step of one substep
+  INTEGER,ALLOCATABLE          :: &
+    &  jsp_ar(:)                    !< Contains index of mass mixing ratios in tracer container
   INTEGER                      :: &
     &  jc, jk, jkp1, jb,          & !< loop index for: cell, level full, level half, block
     &  nlev, nlevp1,              & !< number of full / half levels
@@ -127,8 +127,6 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
   lcompute_gt=.TRUE. ! compute geometrical terms
   lcleanup_gt=.TRUE. ! clean up geometrical terms. obs. this i currently done for all components. improvement:
                      ! compute values for first component, cleanup after last component.
-  NULLIFY(mflx_contra_vsed)
-  NULLIFY(nflx_contra_vsed)
   NULLIFY(flx_contra_vsed)
   
   dt_sub = p_dtime/REAL(nsubsteps)
@@ -175,10 +173,8 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
         DO WHILE(ASSOCIATED(this_mode))
           ! Select type of mode
           SELECT TYPE (fields=>this_mode%fields)
-          
+
             CLASS IS (t_fields_2mom)
-              ! Before sedimentation/deposition velocity calculation, the modal parameters have to be calculated
-              
               DO jb = i_startblk, i_endblk
                 CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
                   &                istart, iend, i_rlstart, i_rlend)
@@ -206,47 +202,66 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
                     &     fields%info%exp_aero,fields%knudsen_nr(:,nlev,jb), vsed0(:,nlev),             &
                     &     vsed3(:,nlev), istart, iend, nlev, vdep0(:), vdep3(:))
                   ! Store deposition velocities for the use in turbulence scheme
-                  CALL art_store_v_dep(vdep0(:), vdep3(:), fields%info%njsp, fields%info%jsp(:),        &
-                    &     fields%info%i_number_conc, art_config(jg)%nturb_tracer,                       &
+                  ALLOCATE(jsp_ar(fields%ntr-1))
+                  DO i =1, fields%ntr-1
+                    jsp_ar(i) = fields%itr3(i)
+                  ENDDO
+                  CALL art_store_v_dep(vdep0(:), vdep3(:), (fields%ntr-1), jsp_ar,                     &
+                    &     fields%itr0, art_config(jg)%nturb_tracer,                                    &
                     &     p_prog%turb_tracer(jb,:),istart,iend,p_art_data(jg)%turb_fields%vdep(:,jb,:))
+                  DEALLOCATE(jsp_ar)
                 ENDIF
-              ENDDO
-              mflx_contra_vsed => fields%flx_contra_vsed3
-              nflx_contra_vsed => fields%flx_contra_vsed0
+              ENDDO !jb
               
+              DO i=1, fields%ntr            !< loop through the tracer contained in the mode
+                IF (i .NE. fields%ntr) THEN
+                  jsp = fields%itr3(i)
+                  flx_contra_vsed => fields%flx_contra_vsed3
+                ELSE
+                  jsp = fields%itr0
+                  flx_contra_vsed => fields%flx_contra_vsed0
+                ENDIF
+                
+                ! upwind_vflux_ppm_cfl is internally OpenMP parallelized
+                CALL upwind_vflux_ppm_cfl(p_patch, tracer(:,:,:,jsp),             &
+                  &                       iubc, flx_contra_vsed, dt_sub,          &
+                  &                       lcompute_gt, lcleanup_gt, itype_vlimit, &
+                  &                       dz,                                     &
+                  &                       rhodz_new, lprint_cfl,                  &
+                  &                       p_upflux_sed(:,:,:),                    &
+                  &                       opt_rlstart=i_rlstart,                  &
+                  &                       opt_rlend=i_rlend,                      &
+                  &                       opt_elev=nlevp1)
+                
+                ! ----------------------------------
+                ! --- update mixing ratio after sedimentation
+                ! ----------------------------------        
+                
+                DO jb = i_startblk, i_endblk
+                  CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
+                    &                istart, iend, i_rlstart, i_rlend)
+                  DO jk = 1, nlev
+                    ! index of bottom half level
+                    jkp1 = jk + 1
+                    DO jc = istart, iend
+                      sedim_update = (dt_sub * ( p_upflux_sed(jc,jk,  jb)   &
+                         &                      - p_upflux_sed(jc,jkp1,jb) )  &
+                         &         / rhodz_new(jc,jk,jb))
+                      tracer(jc,jk,jb,jsp) =   tracer(jc,jk,jb,jsp) - sedim_update
+                    ENDDO!jc
+                  ENDDO !jk
+                ENDDO !jb
+              ENDDO !i
+
             CLASS IS (t_fields_volc)
               CALL art_sedi_volc( p_patch,p_metrics,p_prog,    &
                 &                 rho, p_diag,                 & 
                 &                 fields%diam,fields%rho,      &
                 &                 fields%flx_contra_vsed3,     &
-                &                 fields%itracer )
-              mflx_contra_vsed => fields%flx_contra_vsed3
-            CLASS IS (t_fields_radio)
-              ! Sedimentation velocity is zero for radioact. tracers
-              fields%flx_contra_vsed3(:,:,:) = 0.0_wp
-              mflx_contra_vsed => fields%flx_contra_vsed3
-              ! However, a deposition velocity is required
-              CALL art_drydepo_radioact( p_patch,p_prog,fields%itracer ) 
-            CLASS DEFAULT
-              CALL finish('mo_art_sedimentation_interface:art_sedimentation_interface', &
-                &         'ART: Unknown mode field type')
-          END SELECT
-          
-          ! here the number needs to be accounted for, too
-          DO i=0, this_mode%fields%info%njsp !< loop through the tracer mass mixing ratios contained in the mode
-            IF (i .NE. 0) THEN !< get index of mass mixing ratio of the species contained in this_mode
-              jsp = this_mode%fields%info%jsp(i)
-              flx_contra_vsed => mflx_contra_vsed
-            ELSE               !< get index of number mixing ratio of this_mode
-              jsp = this_mode%fields%info%i_number_conc
-              flx_contra_vsed => nflx_contra_vsed
-            ENDIF
-            
-            IF (jsp .NE. UNDEF_INT_ART) then !< for monodisperse tracer, i_number_conc = UNDEF_INT_ART
-            
-              ! ----------------------------------
-              ! --- calculate vertical flux term due to sedimentation
-              ! ----------------------------------
+                &                 fields%itr)
+              flx_contra_vsed => fields%flx_contra_vsed3
+              jsp = fields%itr
+              
               ! upwind_vflux_ppm_cfl is internally OpenMP parallelized
               CALL upwind_vflux_ppm_cfl(p_patch, tracer(:,:,:,jsp),             &
                 &                       iubc, flx_contra_vsed, dt_sub,          &
@@ -257,11 +272,11 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
                 &                       opt_rlstart=i_rlstart,                  &
                 &                       opt_rlend=i_rlend,                      &
                 &                       opt_elev=nlevp1)
-    
+              
               ! ----------------------------------
               ! --- update mixing ratio after sedimentation
               ! ----------------------------------        
-            
+              
               DO jb = i_startblk, i_endblk
                 CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
                   &                istart, iend, i_rlstart, i_rlend)
@@ -272,13 +287,20 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
                     sedim_update = (dt_sub * ( p_upflux_sed(jc,jk,  jb)   &
                        &                      - p_upflux_sed(jc,jkp1,jb) )  &
                        &         / rhodz_new(jc,jk,jb))
-                
                     tracer(jc,jk,jb,jsp) =   tracer(jc,jk,jb,jsp) - sedim_update
                   ENDDO!jc
                 ENDDO !jk
               ENDDO !jb
-            ENDIF !jsp .ne. -999
-          ENDDO !i
+
+            CLASS IS (t_fields_radio)
+              ! Sedimentation velocity is zero for radioact. tracers
+              fields%flx_contra_vsed3(:,:,:) = 0.0_wp
+              ! However, a deposition velocity is required
+              CALL art_drydepo_radioact( p_patch,p_prog,fields%itr ) 
+            CLASS DEFAULT
+              CALL finish('mo_art_sedimentation_interface:art_sedimentation_interface', &
+                &         'ART: Unknown mode field type')
+          END SELECT
           this_mode => this_mode%next_mode
         ENDDO
       
@@ -300,7 +322,7 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
       ENDDO !nsubsteps
     ENDIF !lart_aerosol
   ENDIF !lart
-  
+
 #endif
 
 END SUBROUTINE art_sedi_interface

@@ -79,6 +79,8 @@ MODULE mo_art_nml
     &  cart_aerosol_xml              !< Path to XML file for aerosol tracers
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_passive_xml              !< Path to XML file for passive tracers
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_modes_xml                !< Path to XML file for modes
   ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
   LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
   INTEGER :: iart_seasalt            !< Treatment of sea salt aerosol
@@ -112,7 +114,8 @@ MODULE mo_art_nml
    &                lart_diag_out, cart_emiss_xml_file,                                &
    &                cart_emiss_base_path,  cart_pft_path,                              &
    &                cart_vortex_init_date , cart_mozartfile, cart_mozartcoord,         &
-   &                cart_chemistry_xml, cart_aerosol_xml, cart_passive_xml, iart_init_passive
+   &                cart_chemistry_xml, cart_aerosol_xml, cart_passive_xml,            &
+   &                cart_modes_xml, cart_io_suffix, iart_init_passive
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -167,10 +170,11 @@ CONTAINS
     cart_pft_path       = ''
     cart_vortex_init_date = ''
     cart_mozartfile       = ''
-    cart_mozartcoord       = ''
+    cart_mozartcoord      = ''
     cart_chemistry_xml    = ''
     cart_aerosol_xml      = ''
     cart_passive_xml      = ''
+    cart_modes_xml        = ''
 
     ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
     lart_aerosol        = .FALSE.
@@ -285,6 +289,7 @@ CONTAINS
       art_config(jg)%cart_chemistry_xml    = TRIM(cart_chemistry_xml)
       art_config(jg)%cart_aerosol_xml      = TRIM(cart_aerosol_xml)
       art_config(jg)%cart_passive_xml      = TRIM(cart_passive_xml)
+      art_config(jg)%cart_modes_xml        = TRIM(cart_modes_xml)
 
 
       ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)

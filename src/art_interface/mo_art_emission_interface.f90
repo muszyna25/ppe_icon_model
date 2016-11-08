@@ -128,9 +128,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
 #ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: &
     &  this_mode               !< pointer to current aerosol mode
-  
-  
-  
+
   ! --- Get the loop indizes
   i_nchdom   = MAX(1,p_patch%n_childdom)
   jg         = p_patch%id
@@ -139,7 +137,6 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
   i_rlend    = min_rlcell_int
   i_startblk = p_patch%cells%start_blk(i_rlstart,1)
   i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
-
 
   IF (lart) THEN
     
@@ -230,7 +227,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                   ENDDO
                 ENDDO
 
-                SELECT CASE(TRIM(fields%info%name))
+                SELECT CASE(TRIM(fields%name))
                   CASE ('seasa')
                     CALL art_seas_emiss_martensson(prm_diag%u_10m(:,jb), prm_diag%v_10m(:,jb),                        &
                       &             dz(:,nlev), p_diag_lnd%t_s(:,jb),                                                 &
@@ -283,13 +280,13 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                 END SELECT
                 
                 ! Update mass mixing ratios
-                DO ijsp = 1, fields%info%njsp
-                  CALL art_integrate_explicit(tracer(:,:,jb,fields%info%jsp(ijsp)),  emiss_rate(:,:), dtime,  &
-                    &                         istart, iend, nlev, opt_rho = rho(:,:,jb))
+                DO ijsp = 1, fields%ntr-1
+                  CALL art_integrate_explicit(tracer(:,:,jb,fields%itr3(ijsp)),  emiss_rate(:,:),      &
+                    &                         dtime, istart, iend, nlev, opt_rho = rho(:,:,jb))
                 ENDDO
                 ! Update mass-specific number
-                CALL art_integrate_explicit(tracer(:,:,jb,fields%info%i_number_conc), emiss_rate(:,:), dtime, &
-                  &                         istart, iend, nlev, opt_rho = rho(:,:,jb),                        &
+                CALL art_integrate_explicit(tracer(:,:,jb,fields%itr0), emiss_rate(:,:), dtime,        &
+                  &                         istart, iend, nlev, opt_rho = rho(:,:,jb),                 &
                   &                         opt_fac=(fields%info%mode_fac * fields%info%factnum))
               ENDDO !jb
 !$omp end parallel do
@@ -314,7 +311,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
           TYPE is (t_fields_2mom)
             ! Nothing to do here
           CLASS is (t_fields_radio)
-            SELECT CASE(TRIM(fields%info%name))
+            SELECT CASE(TRIM(fields%name))
               CASE ('Cs-137')
                 CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iCS137),373, & 
                   &                     p_art_data(jg)%radioact_data)
@@ -426,7 +423,6 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
   ENDIF !lart
        
 #endif
-
 END SUBROUTINE art_emission_interface
 !!
 !!-------------------------------------------------------------------------

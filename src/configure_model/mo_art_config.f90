@@ -132,6 +132,8 @@ MODULE mo_art_config
       &  cart_aerosol_xml             !< Path to XML file for aerosol tracers
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_passive_xml             !< Path to XML file for passive tracers
+    CHARACTER(LEN=IART_PATH_LEN) :: &
+      &  cart_modes_xml               !< Path to XML file for modes
 
     ! Atmospheric Aerosol (Details: cf. Tab. 2.4 ICON-ART User Guide)
     LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
