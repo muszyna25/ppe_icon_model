@@ -49,6 +49,7 @@ MODULE mo_art_emission_interface
   USE mo_nwp_lnd_types,                 ONLY: t_lnd_diag
   USE mo_run_config,                    ONLY: lart,ntracer
   USE mo_datetime,                      ONLY: t_datetime
+  USE mo_time_config,                   ONLY: time_config
 #ifdef __ICON_ART
 ! Infrastructure Routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
@@ -296,39 +297,10 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
           TYPE is (t_fields_2mom)
             ! Nothing to do here
           CLASS is (t_fields_radio)
-            SELECT CASE(TRIM(fields%name))
-              CASE ('Cs-137')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iCS137),373, & 
-                  &                     p_art_data(jg)%radioact_data)
-              CASE ('I-131')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iI131),340, & 
-                  &                     p_art_data(jg)%radioact_data)
-              CASE ('Te-132')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iTE132),325, & 
-                  &                     p_art_data(jg)%radioact_data)
-              CASE ('Zr-95')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iZR95),184, & 
-                  &                     p_art_data(jg)%radioact_data)
-              CASE ('Xe-133')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iXE133),355, & 
-                  &                     p_art_data(jg)%radioact_data)
-              CASE ('I-131g')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iI131g),870, & 
-                  &                     p_art_data(jg)%radioact_data)
-              CASE ('I-131o')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iI131o),880, & 
-                  &                     p_art_data(jg)%radioact_data)
-              CASE ('Ba-140')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iBA140),384, & 
-                  &                     p_art_data(jg)%radioact_data)
-              CASE ('Ru-103')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iRU103),220, & 
-                  &                     p_art_data(jg)%radioact_data)
-              ! And Default...
-              CASE default
-                CALL finish('mo_art_emission_interface:art_emission_interface', &
-                  &         'No according emission routine to mode')
-            END SELECT
+            CALL art_emiss_radioact(dtime,rho,p_patch%cells%area,p_nh_state%metrics%ddqz_z_full,  &
+              &                     fields%imis,time_config%sim_time(jg),tracer(:,:,:,fields%itr),&
+              &                     p_art_data(jg)%radioact_data)
+
           CLASS is (t_fields_volc)
             ! nothing to do here, see below
           CLASS default
