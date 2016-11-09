@@ -19,7 +19,6 @@
 MODULE mo_nwp_rad_interface
 
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_datetime,             ONLY: t_datetime
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma, parallel_radiation_mode
   USE mo_impl_constants,       ONLY: max_char_length, MODIS 
@@ -37,7 +36,8 @@ MODULE mo_nwp_rad_interface
   USE mo_nwp_rg_interface,     ONLY: nwp_rg_radiation,               &
     &                                nwp_rg_radiation_reduced
   USE mo_albedo,               ONLY: sfc_albedo, sfc_albedo_modis
-
+  USE mtime,                   ONLY: datetime
+  
   IMPLICIT NONE
 
   PRIVATE
@@ -57,26 +57,26 @@ MODULE mo_nwp_rad_interface
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_radiation ( lredgrid, p_sim_time, datetime, pt_patch,pt_par_patch, &
+  SUBROUTINE nwp_radiation ( lredgrid, p_sim_time, mtime_datetime, pt_patch,pt_par_patch, &
     & ext_data, lnd_diag, pt_prog, pt_diag, prm_diag, lnd_prog, wtr_prog )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
       &  routine = 'mo_nwp_rad_interface:nwp_radiation'
     
-    LOGICAL, INTENT(in)         :: lredgrid        !< use reduced grid for radiation
+    LOGICAL,                 INTENT(in)    :: lredgrid        !< use reduced grid for radiation
 
-    REAL(wp),INTENT(in)         :: p_sim_time
+    REAL(wp),                INTENT(in)    :: p_sim_time
 
-    TYPE(t_datetime)            ,INTENT(in) :: datetime
-    TYPE(t_patch)       , TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
-    TYPE(t_patch)       , TARGET,INTENT(in) :: pt_par_patch !<grid/patch info (parent grid)
-    TYPE(t_external_data)       ,INTENT(inout):: ext_data
-    TYPE(t_lnd_diag)            ,INTENT(in)   :: lnd_diag   !<diag vars for sfc
-    TYPE(t_nh_prog)     , TARGET,INTENT(inout):: pt_prog    !<the prognostic variables
-    TYPE(t_nh_diag)     , TARGET,INTENT(inout):: pt_diag    !<the diagnostic variables
-    TYPE(t_nwp_phy_diag)        ,INTENT(inout):: prm_diag
-    TYPE(t_lnd_prog)            ,INTENT(inout):: lnd_prog   ! time level new
-    TYPE(t_wtr_prog)            ,INTENT(   in):: wtr_prog   ! time level new
+    TYPE(datetime), POINTER, INTENT(in)    :: mtime_datetime
+    TYPE(t_patch), TARGET,   INTENT(in)    :: pt_patch     !<grid/patch info.
+    TYPE(t_patch), TARGET,   INTENT(in)    :: pt_par_patch !<grid/patch info (parent grid)
+    TYPE(t_external_data),   INTENT(inout) :: ext_data
+    TYPE(t_lnd_diag),        INTENT(in)    :: lnd_diag   !<diag vars for sfc
+    TYPE(t_nh_prog), TARGET, INTENT(inout) :: pt_prog    !<the prognostic variables
+    TYPE(t_nh_diag), TARGET, INTENT(inout) :: pt_diag    !<the diagnostic variables
+    TYPE(t_nwp_phy_diag),    INTENT(inout) :: prm_diag
+    TYPE(t_lnd_prog),        INTENT(inout) :: lnd_prog   ! time level new
+    TYPE(t_wtr_prog),        INTENT(in)    :: wtr_prog   ! time level new
 
     REAL(wp) :: &
       & zaeq1(nproma,pt_patch%nlev,pt_patch%nblks_c), &
@@ -154,19 +154,19 @@ MODULE mo_nwp_rad_interface
 
       irad = atm_phy_nwp_config(jg)%inwp_radiation
 
-      CALL nwp_ozon_aerosol ( p_sim_time, datetime, pt_patch, ext_data, &
+      CALL nwp_ozon_aerosol ( p_sim_time, mtime_datetime, pt_patch, ext_data, &
         & pt_diag, prm_diag, zaeq1, zaeq2, zaeq3, zaeq4, zaeq5 )
     
       IF ( .NOT. lredgrid ) THEN
 
         SELECT CASE(parallel_radiation_mode(jg))
         CASE(1) 
-          CALL nwp_rrtm_radiation_repartition ( pt_patch, ext_data, &
+          CALL nwp_rrtm_radiation_repartition ( mtime_datetime, pt_patch, ext_data, &
             & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                    &
             & pt_diag, prm_diag, lnd_prog )
           
         CASE default
-          CALL nwp_rrtm_radiation ( pt_patch, ext_data, &
+          CALL nwp_rrtm_radiation ( mtime_datetime, pt_patch, ext_data, &
             & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,        &
             & pt_diag, prm_diag, lnd_prog, irad )
 
@@ -174,7 +174,7 @@ MODULE mo_nwp_rad_interface
        
       ELSE 
 
-        CALL nwp_rrtm_radiation_reduced ( pt_patch,pt_par_patch, ext_data, &
+        CALL nwp_rrtm_radiation_reduced ( mtime_datetime, pt_patch,pt_par_patch, ext_data, &
           & zaeq1, zaeq2, zaeq3, zaeq4, zaeq5,                             &
           & pt_diag, prm_diag, lnd_prog, irad )
           
@@ -183,10 +183,10 @@ MODULE mo_nwp_rad_interface
     CASE (2) ! Ritter-Geleyn
 
       IF (.NOT. lredgrid) THEN
-        CALL nwp_rg_radiation ( p_sim_time, datetime, pt_patch, &
+        CALL nwp_rg_radiation ( p_sim_time, mtime_datetime, pt_patch, &
           & ext_data,pt_prog,pt_diag,prm_diag, lnd_prog, zsct )
       ELSE
-        CALL nwp_rg_radiation_reduced ( p_sim_time, datetime, pt_patch,pt_par_patch, &
+        CALL nwp_rg_radiation_reduced ( p_sim_time, mtime_datetime, pt_patch,pt_par_patch, &
           & ext_data, pt_prog, pt_diag, prm_diag, lnd_prog, zsct )
       ENDIF
 

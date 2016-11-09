@@ -43,7 +43,6 @@ MODULE mo_interface_icoham_echam
   USE mo_icoham_dyn_types      ,ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_eta_coord_diag        ,ONLY: half_level_pressure, full_level_pressure
 
-  USE mo_datetime              ,ONLY: t_datetime
   USE mo_echam_phy_memory      ,ONLY: prm_field, prm_tend
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs_global
   USE mo_echam_phy_main        ,ONLY: echam_phy_main
@@ -52,6 +51,8 @@ MODULE mo_interface_icoham_echam
   USE mo_timer                 ,ONLY: timer_start, timer_stop,        &
     &                                 timer_dyn2phy, timer_phy2dyn,   &
     &                                 timer_echam_phy, timer_coupling
+
+  USE mtime                    ,ONLY: datetime, deallocateDatetime
 
   IMPLICIT NONE
 
@@ -83,7 +84,7 @@ CONTAINS
   !! rather than the entire grid tree.
 
   SUBROUTINE interface_icoham_echam( pdtime, psteplen ,& !in
-    &                                datetime         ,& !in
+    &                                mtime_current    ,& !in
     &                                patch            ,& !in
     &                                pt_int_state     ,& !in
     &                                dyn_prog_old     ,& !in
@@ -96,7 +97,8 @@ CONTAINS
     !
     REAL(wp)              , INTENT(in)            :: pdtime          !< time step
     REAL(wp)              , INTENT(in)            :: psteplen        !< 2*time step in case of leapfrog
-    TYPE(t_datetime)      , INTENT(in)            :: datetime
+
+    TYPE(datetime)        , POINTER               :: mtime_current   !< current datetime (mtime)
 
     TYPE(t_patch)         , INTENT(in)   , TARGET :: patch           !< grid/patch info
     TYPE(t_int_state)     , INTENT(in)   , TARGET :: pt_int_state    !< interpolation state
@@ -126,9 +128,10 @@ CONTAINS
 
     LOGICAL  :: any_uv_tend
     LOGICAL  :: ltrig_rad
-    TYPE(t_datetime)   :: datetime_radtran !< date and time for radiative transfer calculation
 
     INTEGER  :: return_status
+
+    TYPE(datetime), POINTER             :: mtime_radtran
 
     ! Local parameters
 
@@ -257,13 +260,13 @@ CONTAINS
     !=====================================================================================
     !
     ! (3) Prepare boundary conditions for ECHAM physics
-    !
-    CALL echam_phy_bcs_global( datetime     ,&! in
-      &                        jg           ,&! in
-      &                        patch        ,&! in
-      &                        pdtime       ,&! in
-      &                        ltrig_rad    ,&! out
-      &                        datetime_radtran ) ! out
+    !    
+    CALL echam_phy_bcs_global( mtime_current, &   
+         &                     jg,            &! in
+         &                     patch,         &! in
+         &                     pdtime,        &! in
+         &                     ltrig_rad,     &! out
+         &                     mtime_radtran ) ! out
     !
     !=====================================================================================
 
@@ -295,17 +298,19 @@ CONTAINS
         &                  jcs          ,&! in
         &                  jce          ,&! in
         &                  nproma       ,&! in
-        &                  datetime     ,&! in
+        &                  mtime_current,&! in
         &                  pdtime       ,&! in
         &                  psteplen     ,&! in
         &                  ltrig_rad    ,&! in
-        &                  datetime_radtran ) ! in
+        &                  mtime_radtran ) ! in
 
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
     !
     !=====================================================================================
+
+    CALL deallocateDatetime(mtime_radtran)
 
     IF (ltimer) CALL timer_stop(timer_echam_phy)
 

@@ -15,26 +15,24 @@
 !!
 MODULE mo_master_nml
 
-  USE mo_exception,      ONLY: finish, message, message_text
+  USE mo_exception,      ONLY: finish, message
   USE mo_io_units,       ONLY: filename_max, nnml
   USE mo_namelist,       ONLY: open_nml, position_nml, POSITIONED
   USE mo_util_string,    ONLY: t_keyword_list, associate_keyword, with_keywords, tolower
   USE mo_nml_annotate,   ONLY: temp_defaults, temp_settings
-  USE mo_mpi,            ONLY: my_process_is_stdio, get_my_global_mpi_communicator
-  USE mtime,             ONLY: max_calendar_str_len, setCalendar,  calendarToString,         &
+  USE mo_mpi,            ONLY: my_process_is_stdio
+  USE mtime,             ONLY: max_calendar_str_len, setCalendar,                            &
        &                       proleptic_gregorian, year_of_365_days,  year_of_360_days,     &
-       &                       max_datetime_str_len, datetimeToString,                       &
-       &                       datetime, newDatetime, deallocateDatetime,                    &
-       &                       max_timedelta_str_len, timedeltaToString,                     &
-       &                       OPERATOR(+), OPERATOR(<)
+       &                       max_datetime_str_len, max_timedelta_str_len
   USE mo_master_config,  ONLY: master_component_models, addModel, noOfModels, maxNoOfModels, &
-       &                       setInstitution,                                               &
-       &                       setRestart, isRestart, setModelBaseDir,                       &
-       &                       setExpRefdate,                                                &
-       &                       setExpStartdate, setExpStopdate,                              &
-       &                       setCheckpointTimeInterval,  setRestartTimeInterval,           &
-       &                       tc_exp_refdate, tc_exp_startdate, tc_exp_stopdate,            &
-       &                       tc_dt_checkpoint, tc_dt_restart
+       &                       setInstitution, setRestart,                                   &
+       &                       setRestartWriteLast, setModelBaseDir,                         &
+       &                       cfg_experimentReferenceDate => experimentReferenceDate,       &
+       &                       cfg_experimentStartDate     => experimentStartDate,           &
+       &                       cfg_experimentStopDate      => experimentStopDate,            &
+       &                       cfg_calendar                => calendar_str,                  &
+       &                       cfg_checkpointTimeIntval => checkpointTimeIntval,             &
+       &                       cfg_restartTimeIntval => restartTimeIntval
 
   IMPLICIT NONE
   
@@ -60,10 +58,15 @@ CONTAINS
     ! Namelist variables
 
     CHARACTER(len=256) :: institute = ''
-    LOGICAL :: lRestart = .FALSE.
-    CHARACTER(len=filename_max) :: model_base_dir = ''
-    
-    CHARACTER(len=132)          :: model_name = ''
+
+    !> Flag: True, if model run is initialized from restart state.
+    LOGICAL :: lRestart             = .FALSE.
+    !> Flag: True, if model run should create restart at experiment end.
+    !  This is independent from the settings of the restart interval.
+    LOGICAL :: lrestart_write_last  = .TRUE.
+
+    CHARACTER(len=filename_max) :: model_base_dir          = ''
+    CHARACTER(len=132)          :: model_name              = ''
     CHARACTER(len=filename_max) :: model_namelist_filename = ''
     
     INTEGER :: model_type 
@@ -71,18 +74,18 @@ CONTAINS
     INTEGER :: model_max_rank
     INTEGER :: model_inc_rank
     
-    CHARACTER(len=max_calendar_str_len) :: calendar = ''
+    CHARACTER(len=max_calendar_str_len) :: calendar                 = ''
+    CHARACTER(len=max_datetime_str_len) :: experimentReferenceDate  = ''   
+    CHARACTER(len=max_datetime_str_len) :: experimentStartDate      = ''
+    CHARACTER(len=max_datetime_str_len) :: experimentStopDate       = ''
     
-    CHARACTER(len=max_datetime_str_len) :: experimentReferenceDate = ''   
-    CHARACTER(len=max_datetime_str_len) :: experimentStartDate = ''
-    CHARACTER(len=max_datetime_str_len) :: experimentStopDate = ''
-    
-    CHARACTER(len=max_timedelta_str_len) :: checkpointTimeIntval = ''
-    CHARACTER(len=max_timedelta_str_len) :: restartTimeIntval = ''
+    CHARACTER(len=max_timedelta_str_len) :: checkpointTimeIntval    = ''
+    CHARACTER(len=max_timedelta_str_len) :: restartTimeIntval       = ''
     
     NAMELIST /master_nml/              &
          &    institute,               &
          &    lRestart,                &
+         &    lrestart_write_last,     &
          &    model_base_dir
     
     NAMELIST /master_time_control_nml/ &
@@ -105,8 +108,6 @@ CONTAINS
     INTEGER :: istat
     INTEGER :: iunit
     LOGICAL :: lrewind
-
-    CHARACTER(len=max_datetime_str_len) :: dstring
     
     CHARACTER(len=*), PARAMETER :: routine = 'mo_master_nml:read_master_namelist'
     
@@ -120,6 +121,10 @@ CONTAINS
       read_master_namelist = -1
       RETURN
     ENDIF
+
+    ! --------------------------------------------------------------------------------
+    ! MASTER_NML
+    ! --------------------------------------------------------------------------------
     
     CALL position_nml('master_nml', STATUS=istat)
     IF (istat == POSITIONED) THEN
@@ -132,7 +137,7 @@ CONTAINS
     CASE ('MPIM')  
       CALL setInstitution('Max Planck Institute for Meteorology')
     CASE ('KIT')  
-      CALL setInstitution('Karlsruhe Institute for Technology')
+      CALL setInstitution('Karlsruhe Institute of Technology')
     CASE ('CSCS')
       CALL setInstitution('Swiss National Supercomputing Centre')      
     CASE DEFAULT
@@ -142,12 +147,34 @@ CONTAINS
     ! save namelist variables in configuration
 
     CALL setRestart(lRestart)
+    CALL setRestartWriteLast(lrestart_write_last)
     CALL setModelBaseDir(model_base_dir)
-    
+   
+
+    ! --------------------------------------------------------------------------------
+    ! MASTER_TIME_CONTROL_NML
+    ! --------------------------------------------------------------------------------
+
+    ! Note: The default needs to be empty, since there exist
+    ! concurrent namelist parameters to specify these values:
+    calendar                = ""
+    experimentReferenceDate = ""
+    experimentStartDate     = ""
+    experimentStopDate      = ""
+    checkpointTimeIntval    = ''
+    restartTimeIntval       = ''
+
     CALL position_nml('master_time_control_nml', STATUS=istat)
     IF (istat == POSITIONED) THEN
       READ (nnml, master_time_control_nml)
     ENDIF
+
+    cfg_experimentReferenceDate = experimentReferenceDate
+    cfg_experimentStartDate     = experimentStartDate
+    cfg_experimentStopDate      = experimentStopDate
+    cfg_checkpointTimeIntval    = checkpointTimeIntval
+    cfg_restartTimeIntval       = restartTimeIntval
+    cfg_calendar                = calendar
 
     ! set calendar (singleton, so do not change later!)
     
@@ -164,87 +191,11 @@ CONTAINS
     END SELECT
 
     CALL setCalendar(icalendar)
-      
-    ! take care that the reference date and start date strings are set 
-    
-    IF (experimentReferenceDate /= '') THEN
-      CALL setExpRefdate(experimentReferenceDate)
-      IF (experimentStartDate /= '') THEN
-        CALL setExpStartdate(experimentStartDate)
-      ELSE
-        CALL setExpStartdate(experimentReferenceDate)
-      ENDIF
-    ELSE
-      IF (experimentStartDate /= '') THEN
-        CALL setExpRefdate(experimentStartDate)
-        CALL setExpStartdate(experimentStartDate)
-      ENDIF
-    ENDIF
 
-    IF (experimentStopDate /= '') THEN
-      CALL setExpStopdate(experimentStopDate)
-    ENDIF
 
-    ! next check for given restart, checkpoint interval
-
-    IF (checkpointTimeIntval /= '') THEN
-      CALL setCheckpointTimeInterval(checkpointTimeIntval)
-      IF (restartTimeIntval /= '') THEN
-        CALL setRestartTimeInterval(restartTimeIntval)
-      ELSE
-        CALL setRestartTimeInterval(checkpointTimeIntval)
-      ENDIF
-    ELSE
-      IF (restartTimeIntval /= '') THEN
-        CALL setRestartTimeInterval(restartTimeIntval)
-        CALL setCheckpointTimeInterval(restartTimeIntval)        
-      ELSE
-        CALL message('','No restart and checkpoint time interval given: depend on restart file.')
-      ENDIF
-    ENDIF
-
-    ! inform about time setup
-
-    call message('','')
-    
-    CALL calendarToString(dstring)
-    CALL message('','Calendar: '//TRIM(dstring))
-
-    call message('','')
-    
-    IF (ASSOCIATED(tc_exp_refdate)) THEN
-      CALL datetimeToString(tc_exp_refdate, dstring)
-      WRITE(message_text,'(a,a)') 'Experiment reference date: ', dstring
-      CALL message('',message_text)
-    ENDIF
-
-    IF (ASSOCIATED(tc_exp_startdate)) THEN    
-      CALL datetimeToString(tc_exp_startdate, dstring)
-      WRITE(message_text,'(a,a)') 'Experiment start date    : ', dstring
-      CALL message('',message_text)
-    ENDIF
-
-    IF (ASSOCIATED(tc_exp_stopdate)) THEN
-      CALL datetimeToString(tc_exp_stopdate, dstring)
-      WRITE(message_text,'(a,a)') 'Experiment stop date     : ', dstring
-      CALL message('',message_text)
-    ENDIF
-
-    call message('','')
-    
-    IF (ASSOCIATED(tc_dt_restart)) THEN
-      CALL timedeltaToString(tc_dt_restart, dstring)
-      WRITE(message_text,'(a,a)') 'Restart interval         : ', dstring
-      CALL message('',message_text)
-    ENDIF
-
-    IF (ASSOCIATED(tc_dt_checkpoint)) THEN
-      CALL timedeltaToString(tc_dt_checkpoint, dstring)
-      WRITE(message_text,'(a,a)') 'Checkpointing interval   : ', dstring
-      CALL message('',message_text)
-    ENDIF
-
-    call message('','')
+    ! --------------------------------------------------------------------------------
+    ! MASTER_MODEL_NML
+    ! --------------------------------------------------------------------------------
     
     ! for positioning to the first entry of the namelist 
     lrewind = .TRUE.
@@ -285,7 +236,8 @@ CONTAINS
 
       CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
 
-      master_component_models(noOfModels())%model_namelist_filename = TRIM(with_keywords(keywords, model_namelist_filename))
+      master_component_models(noOfModels())%model_namelist_filename = &
+        &  TRIM(with_keywords(keywords, model_namelist_filename))
 
       master_component_models(noOfModels())%model_type = model_type
 

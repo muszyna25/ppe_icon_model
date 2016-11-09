@@ -49,19 +49,18 @@ MODULE mo_action
   USE mo_impl_constants,     ONLY: vname_len, MAX_CHAR_LENGTH
   USE mtime,                 ONLY: event, newEvent, datetime, newDatetime,           &
     &                              isCurrentEventActive, deallocateDatetime,         &
-    &                              MAX_DATETIME_STR_LEN, PROLEPTIC_GREGORIAN,        &
+    &                              MAX_DATETIME_STR_LEN,                             &
     &                              MAX_EVENTNAME_STR_LEN, timedelta,                 &
     &                              newTimedelta, deallocateTimedelta,                &
-    &                              setCalendar, getTriggeredPreviousEventAtDateTime, &
-    &                              getPTStringFromMS, OPERATOR(>=), OPERATOR(<=)
-  USE mo_mtime_extensions,   ONLY: get_datetime_string
+    &                              getTriggeredPreviousEventAtDateTime,              &
+    &                              getPTStringFromMS, OPERATOR(>=), OPERATOR(<=),    &
+    &                              datetimetostring
   USE mo_util_string,        ONLY: remove_duplicates
   USE mo_util_table,         ONLY: initialize_table, finalize_table, add_table_column, &
     &                              set_table_entry, print_table, t_table
   USE mo_action_types,       ONLY: t_var_action
   USE mo_grid_config,        ONLY: n_dom
   USE mo_run_config,         ONLY: msg_level
-  USE mo_time_config,        ONLY: time_config
   USE mo_var_list,           ONLY: nvar_lists, var_lists
   USE mo_linked_list,        ONLY: t_list_element
   USE mo_var_list_element,   ONLY: t_var_list_element
@@ -184,9 +183,6 @@ CONTAINS
 
     ! init nvars
     nvars = 0
-
-    CALL setCalendar(PROLEPTIC_GREGORIAN)
-
 
     ! store actionTyp
     act_obj%actionTyp = actionTyp
@@ -345,7 +341,7 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2014-09-11)
   !!
-  SUBROUTINE action_execute(act_obj, slack)
+  SUBROUTINE action_execute(act_obj, slack, mtime_date)
     !
     CLASS(t_action_obj)       :: act_obj
     REAL(wp), INTENT(IN)      :: slack     !< allowed slack for event triggering  [s]
@@ -373,10 +369,6 @@ CONTAINS
     TYPE(datetime) :: lastTrigger_datetime  ! latest intended triggering date
 
   !-------------------------------------------------------------------------
-
-    ! compute current datetime in a format appropriate for mtime
-    CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
-    mtime_date  => newDatetime(TRIM(mtime_cur_datetime))
 
     ! compute allowed slack in PT-Format
     ! Use factor 999 instead of 1000, since no open interval is available
@@ -415,13 +407,12 @@ CONTAINS
       ! triggers in interval [trigger_date + slack]
       isactive = LOGICAL(isCurrentEventActive(this_event,mtime_date, plus_slack=p_slack))
 
-
-
       ! Check wheter the action should be triggered for variable
       ! under consideration
       IF (isactive) THEN
 
         ! store latest true triggering date
+        CALL datetimeToString(mtime_date, mtime_cur_datetime)
         field%info%action_list%action(var_action_idx)%lastActive = TRIM(mtime_cur_datetime)
         ! store latest intended triggering date
         CALL getTriggeredPreviousEventAtDateTime(this_event, lastTrigger_datetime)
@@ -447,7 +438,6 @@ CONTAINS
 
     ! cleanup
     !
-    CALL deallocateDatetime(mtime_date)
     CALL deallocateTimedelta(p_slack)
 
   END SUBROUTINE action_execute

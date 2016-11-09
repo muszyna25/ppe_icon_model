@@ -36,7 +36,6 @@ MODULE mo_ocean_output
   USE mo_exception,              ONLY: message, message_text, finish
   USE mo_ext_data_types,         ONLY: t_external_data
   !USE mo_io_units,               ONLY: filename_max
-  USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time, datetime_to_string
   USE mo_ocean_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, &
     & t_hydro_ocean_prog
   USE mo_ocean_state,              ONLY: ocean_restart_list
@@ -53,11 +52,12 @@ MODULE mo_ocean_output
   USE mo_var_list,               ONLY: print_var_list, find_list_element
   USE mo_io_restart_attributes,  ONLY: get_restart_attribute
   USE mo_mpi,                    ONLY: my_process_is_stdio
-  USE mo_time_config,            ONLY: time_config
   USE mo_statistics
   USE mo_sea_ice_nml,            ONLY: i_ice_dyn
   USE mo_util_dbg_prnt,          ONLY: dbg_print
   USE mo_ocean_statistics
+  USE mtime,                     ONLY: datetime, MAX_DATETIME_STR_LEN, datetimeToPosixString
+  
   USE mo_hamocc_statistics
   USE mo_hamocc_types,           ONLY: t_hamocc_state, t_hamocc_acc, t_hamocc_tend
   USE mo_bgc_icon_comm,          ONLY: set_bgc_output_pointers
@@ -84,7 +84,7 @@ CONTAINS
   SUBROUTINE output_ocean( &
     & patch_3d,        &
     & ocean_state,     &
-    & datetime,        &
+    & this_datetime,   &
     & surface_fluxes,  &
     & sea_ice,         &
     & hamocc,          &
@@ -93,7 +93,7 @@ CONTAINS
 
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
-    TYPE(t_datetime), INTENT(inout)                  :: datetime
+    TYPE(datetime), POINTER                          :: this_datetime
     TYPE(t_sfc_flx)                                  :: surface_fluxes
     TYPE (t_sea_ice),         INTENT(inout)          :: sea_ice
     INTEGER,   INTENT(in)                            :: jstep, jstep0
@@ -105,12 +105,14 @@ CONTAINS
     INTEGER :: jg, jtrc, out_step
     INTEGER :: ocean_statistics
     !LOGICAL                         :: l_outputtime
-    CHARACTER(LEN=32)               :: datestring, plaindatestring
     TYPE(t_patch), POINTER :: patch_2d
     TYPE(t_patch_vert), POINTER :: patch_1d
     INTEGER, POINTER :: dolic(:,:)
     REAL(wp), POINTER :: prism_thickness(:,:,:)
-
+    
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datestring
+    CHARACTER(len=32) :: fmtstr
+    
     !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_ocean_output:output_ocean'
@@ -129,8 +131,9 @@ CONTAINS
       out_step = jstep - nsteps_since_last_output + timeSteps_per_outputStep
     ENDIF
 
-!     write(0,*) "out_step=", jstep, nsteps_since_last_output, timeSteps_per_outputStep, out_step
-    IF (.not. istime4name_list_output(out_step) )  RETURN
+   !write(0,*) "out_step=", jstep, nsteps_since_last_output, timeSteps_per_outputStep, out_step
+   IF (.not. istime4name_list_output(jstep) )  RETURN
+   !write(0,*) "write ....."
 
     !------------------------------------------------------------------
     CALL calc_slow_oce_diagnostics( patch_3d       , &
@@ -138,11 +141,11 @@ CONTAINS
       &                             surface_fluxes      , &
       &                             sea_ice          , &
       &                             jstep-jstep0   , &
-      &                             datetime) !    , &
+      &                             this_datetime) ! , &
           ! &                             oce_ts)
     IF (diagnostics_level > 0 ) THEN
       IF (no_tracer>=2) THEN
-        CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_diag%w(:,:,:), datetime)
+        CALL calc_moc (patch_2d,patch_3d, ocean_state(jg)%p_diag%w(:,:,:), this_datetime)
       ENDIF
     ENDIF
     ! compute mean values for output interval
@@ -160,13 +163,13 @@ CONTAINS
    ! set the output variable pointer to the correct timelevel
     CALL set_output_pointers(nnew(1), ocean_state(jg)%p_diag, ocean_state(jg)%p_prog(nnew(1)))
     IF(lhamocc)CALL set_bgc_output_pointers(nnew(1), hamocc%p_diag, ocean_state(jg)%p_prog(nnew(1)))
-  
-    IF (output_mode%l_nml) THEN
-      CALL write_name_list_output(out_step)
-    ENDIF
-  
-    CALL message (TRIM(routine),'Write output at:')
-    CALL print_datetime(datetime)
+ 
+    IF (output_mode%l_nml) CALL write_name_list_output(out_step)
+
+    fmtstr = '%Y-%m-%d %H:%M:%S'
+    call datetimeToPosixString(this_datetime, datestring, fmtstr)
+    WRITE(message_text,'(a,a)') 'Write output at:', TRIM(datestring)
+    CALL message (TRIM(routine),message_text)
   
     ! reset accumulation vars
     CALL reset_ocean_statistics(ocean_state(1)%p_acc,ocean_state(1)%p_diag,surface_fluxes,nsteps_since_last_output)
