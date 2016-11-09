@@ -865,9 +865,6 @@
         ioper_mode = 2
       CASE (MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU_OLD, MODE_IAU)
         ioper_mode = 3
-        IF (.NOT. latbc_buffer%lthd_progvars) &
-          CALL finish(routine,'Limited area mode with ICON initial data requires prognostic&
-            & thermodynamic variables in lateral boundary data')
       CASE DEFAULT
         ioper_mode = 1
       END SELECT
@@ -1087,7 +1084,7 @@
 !$OMP BARRIER
       ENDIF
 
-      IF (ioper_mode == 2) THEN
+      IF (ioper_mode >= 2 .AND. .NOT. latbc_buffer%lthd_progvars) THEN
          ! Read parameter Pressure
          jv = get_field_index('pres')
 !$OMP DO PRIVATE (jk,j,jb,jl) ICON_OMP_DEFAULT_SCHEDULE
@@ -1120,7 +1117,7 @@
            latbc_data(tlev)%atm_in%phi_sfc(jl,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,1,jb), wp)
          ENDDO
 !$OMP END DO
-      ELSE
+      ELSE IF (latbc_buffer%lthd_progvars) THEN
         ! Diagnose pres and temp from prognostic ICON variables
 !$OMP DO PRIVATE (jk,j,jb,jc,log_exner,tempv)
         DO jk = 1, nlev_in

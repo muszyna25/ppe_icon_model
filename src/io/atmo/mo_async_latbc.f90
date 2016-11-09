@@ -667,7 +667,8 @@ MODULE mo_async_latbc
             latbc_buffer%geop_ml_var = 'GEOSP'
          ELSE IF (test_cdi_varID(fileID_latbc, 'GEOP_ML') /= -1) THEN
             latbc_buffer%geop_ml_var = 'GEOP_ML'
-         ELSE IF (.NOT. latbc_buffer%lthd_progvars) THEN
+         ELSE IF (.NOT. (latbc_buffer%lthd_progvars .OR. test_cdi_varID(fileID_latbc, 'HHL') /= -1 &
+                  .OR. test_cdi_varID(fileID_latbc, 'Z_IFC') /= -1) ) THEN
             CALL finish(TRIM(routine),'Could not find model-level sfc geopotential')
          ENDIF
 
