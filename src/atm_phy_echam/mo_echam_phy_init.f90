@@ -33,6 +33,7 @@ MODULE mo_echam_phy_init
   USE mo_run_config,           ONLY: nlev, iqv, iqt, ico2, ntracer, ltestcase
 !++jsr
   USE mo_run_config,           ONLY: io3
+  USE mo_parallel_config,      ONLY: nproma
 !--jsr
   USE mo_vertical_coord_table, ONLY: vct
   USE mo_dynamics_config,      ONLY: iequations

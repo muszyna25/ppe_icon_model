@@ -74,6 +74,7 @@ MODULE mo_interface_iconam_echam
 !++jsr
   USE mo_master_config         ,ONLY: isRestart
   USE mo_run_config            ,ONLY: io3
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, calculate_time_interpolation_weights
 !--jsr
   USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi
   USE mo_nonhydrostatic_config ,ONLY: lhdiff_rcf
@@ -110,7 +111,6 @@ MODULE mo_interface_iconam_echam
   USE mo_bc_greenhouse_gases   ,ONLY: ghg_co2mmr
 !++jsr
   USE mo_lcariolle_types       ,ONLY: avi, t_time_interpolation
-  USE mo_time_interpolation_weights  ,ONLY: wi_limm
 !--jsr
   IMPLICIT NONE
 
@@ -187,6 +187,13 @@ CONTAINS
 
     TYPE(datetime), POINTER             :: mtime_radtran
 
+!++jsr
+    ! Temporary variables for Cariolle scheme (ozone)
+    REAL(wp)    :: vmr_o3(nproma,nlev)
+    TYPE(t_time_interpolation) :: time_interpolation
+    EXTERNAL       lcariolle_lat_intp_li, lcariolle_pres_intp_li
+    TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
+!--jsr
     !-------------------------------------------------------------------------------------
 
     IF (ltimer) CALL timer_start(timer_dyn2phy)
@@ -399,10 +406,11 @@ CONTAINS
     IF (echam_phy_config%lcariolle) THEN
       IF (.NOT.isRestart().AND. .NOT. avi%l_initialized_o3) THEN
         avi%ldown=.TRUE.
-        time_interpolation%imonth1=wi_limm%inm1
-        time_interpolation%imonth2=wi_limm%inm2
-        time_interpolation%weight1=wi_limm%wgt1
-        time_interpolation%weight2=wi_limm%wgt2
+        current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_current)
+        time_interpolation%imonth1=current_time_interpolation_weights%month1_index
+        time_interpolation%imonth2=current_time_interpolation_weights%month2_index
+        time_interpolation%weight1=current_time_interpolation_weights%weight1
+        time_interpolation%weight2=current_time_interpolation_weights%weight2
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
           avi%pres(jcs:jce,:)=prm_field(jg)%presm_old(jcs:jce,:,jb)

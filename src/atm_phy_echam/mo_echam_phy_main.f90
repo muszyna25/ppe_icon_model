@@ -75,7 +75,8 @@ MODULE mo_echam_phy_main
   USE mo_util_dbg_prnt,      ONLY: dbg_print
 !++jsr
   USE mo_lcariolle_types,     ONLY: avi, t_time_interpolation
-  USE mo_time_interpolation_weights, ONLY: wi_limm
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, calculate_time_interpolation_weights
+
 !--jsr
 
   IMPLICIT NONE
@@ -196,6 +197,7 @@ CONTAINS
     REAL(wp)    :: do3dt(nbdim,nlev)
     TYPE(t_time_interpolation) :: time_interpolation
     EXTERNAL       lcariolle_lat_intp_li, lcariolle_pres_intp_li
+    TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
 !--jsr
  
     ! Temporary array used by GW_HINES
@@ -1021,10 +1023,11 @@ CONTAINS
       avi%lday(jcs:jce)=field%cosmu0(jcs:jce,jb)>1.e-3_wp
       avi%avogadro=avo
       avi%ldown=.TRUE.
-      time_interpolation%imonth1=wi_limm%inm1
-      time_interpolation%imonth2=wi_limm%inm2
-      time_interpolation%weight1=wi_limm%wgt1
-      time_interpolation%weight2=wi_limm%wgt2
+      current_time_interpolation_weights = calculate_time_interpolation_weights(this_datetime)
+      time_interpolation%imonth1=current_time_interpolation_weights%month1_index
+      time_interpolation%imonth2=current_time_interpolation_weights%month2_index
+      time_interpolation%weight1=current_time_interpolation_weights%weight1
+      time_interpolation%weight2=current_time_interpolation_weights%weight2
       avi%o3_vmr(jcs:jce,:)=field%qtrc(jcs:jce,:,jb,io3)*amd/amo3
       CALL lcariolle_do3dt(                                                    &
          & jcs,                    jce,                nbdim,                  &
