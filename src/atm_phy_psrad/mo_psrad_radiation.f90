@@ -345,8 +345,8 @@ MODULE mo_psrad_radiation
       END IF
       !--jsr&hs
     ELSE
-      amu0m_x(:,:)=0._wp
-
+      amu0m_x(:,:) = 0.0_wp
+      rdaylm_x(:,:) = 0.0_wp
     END IF ! lrad .AND. l_trigrad
 
   END SUBROUTINE pre_psrad_radiation
