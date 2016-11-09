@@ -1286,7 +1286,7 @@ CONTAINS
         cf_desc    = t_cf_var('sst_m', 'K', &
           &                   '(monthly) sea surface temperature '  &
           &                   , datatype_flt)
-        grib2_desc = grib2_var(192 ,128 , 34, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+        grib2_desc = grib2_var(10 ,3 ,0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         CALL add_var( p_ext_atm_td_list, 'sst_m', p_ext_atm_td%sst_m, &
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
           &           ldims=shape3d_sstice, loutput=.FALSE. )
@@ -1297,7 +1297,7 @@ CONTAINS
         cf_desc    = t_cf_var('sst_m', 'K', &
           &                   '(monthly) sea surface temperature '  &
           &                   , datatype_flt)
-        grib2_desc = grib2_var(192 ,128 , 34, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+        grib2_desc = grib2_var(10 ,3 ,0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         CALL add_var( p_ext_atm_td_list, 'sst_m', p_ext_atm_td%sst_m, &
           &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
           &           ldims=shape3d_sstice, loutput=.FALSE. )

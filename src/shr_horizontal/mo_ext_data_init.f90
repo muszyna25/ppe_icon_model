@@ -494,8 +494,8 @@ CONTAINS
 
       ! Check whether external parameter file contains SST climatology
       IF ( sstice_mode == SSTICE_ANA_CLINC ) THEN
-        IF ( test_cdi_varID(cdi_extpar_id, 'SST_CL')  == -1 ) THEN
-          CALL finish(routine,'SST climatology SST_CL missing in '//TRIM(extpar_filename))
+        IF ( test_cdi_varID(cdi_extpar_id, 'SST')  == -1 ) THEN
+          CALL finish(routine,'SST climatology missing in '//TRIM(extpar_filename))
         ENDIF
       ENDIF
 
@@ -1064,7 +1064,7 @@ CONTAINS
           CALL read_extdata('NDVI_MRAT', arr3d=ext_data(jg)%atm_td%ndvi_mrat)
 
           IF (sstice_mode == SSTICE_ANA_CLINC) THEN
-            CALL read_extdata('SST_CL', arr3d=ext_data(jg)%atm_td%sst_m)
+            CALL read_extdata('SST', arr3d=ext_data(jg)%atm_td%sst_m)
             ! transform from C to K
 !$OMP PARALLEL
             CALL var_add(ext_data(jg)%atm_td%sst_m(:,:,:), tmelt)
