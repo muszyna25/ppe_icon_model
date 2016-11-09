@@ -303,6 +303,10 @@ CONTAINS
           &+&
           &Dot_Product(tracer_gradient_horz_vec_center(cell_index,level,blockNo)%x,&
           &            taper_off_diagonal_vert(cell_index,level,blockNo)%x)
+          
+          flux_vert_center(cell_index,level,blockNo)&
+          &= flux_vert_center(cell_index,level,blockNo)&
+          &*patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(cell_index,level,blockNo)
                 
         END DO
 
@@ -318,6 +322,19 @@ CONTAINS
         & flux_vec_horz_center(:,:,:)%x(1), flux_vec_horz_center(:,:,:)%x(2), flux_vec_horz_center(:,:,:)%x(3))
     !    
     CALL map_cell2edges_3D( patch_3D,flux_vec_horz_center, GMredi_flux_horz, op_coeff)
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
+       DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+         CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
+         DO je = start_edge_index, end_edge_index
+!DIR$ SIMD
+           DO level = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
+             GMredi_flux_horz(je,level,blockNo)=GMredi_flux_horz(je,level,blockNo)&
+             &*patch_3d%p_patch_1d(1)%prism_thick_e(je,level,blockNo)
+           END DO
+         ENDDO
+       END DO
+!ICON_OMP_END_PARALLEL_DO
 
 
 
@@ -428,9 +445,7 @@ CONTAINS
     REAL(wp) :: grad_S_vert(nproma, n_zlev+1,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: grad_rho_GM_horz(nproma, n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
     REAL(wp) :: grad_rho_GM_vert(nproma, n_zlev+1,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-
-
-    
+   
     TYPE(t_cartesian_coordinates),POINTER :: grad_T_vec(:,:,:)    
     TYPE(t_cartesian_coordinates),POINTER :: grad_S_vec(:,:,:)        
     TYPE(t_cartesian_coordinates),POINTER :: grad_rho_GM_vec(:,:,:)            
@@ -771,7 +786,7 @@ CONTAINS
               DO level = start_level+1, end_level-1
 
                 ocean_state%p_aux%slopes(cell_index,level,blockNo)%x                      &
-                & = - grad_rho_GM_vec(cell_index,level,blockNo)%x  &
+                & =   grad_rho_GM_vec(cell_index,level,blockNo)%x  &
                 &    /(grad_rho_GM_vert_center(cell_index,level,blockNo)-dbl_eps)
 
                 ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)=&

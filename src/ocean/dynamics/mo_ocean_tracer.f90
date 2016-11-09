@@ -219,6 +219,9 @@ CONTAINS
     !END IF
     !CALL dbg_print('aft. AdvTracer: h-new (fwf)',p_os%p_prog(nnew(1))%h   ,str_module,idt_src)
 
+!DO tracer_index = 1, no_tracer
+!CALL dbg_print('OLD:',  p_os%p_prog(nold(1))%ocean_tracers(tracer_index),str_module,idt_src)
+!END DO
   END SUBROUTINE advect_ocean_tracers
   !-------------------------------------------------------------------------
 
@@ -484,12 +487,14 @@ CONTAINS
       CALL calc_ocean_physics(patch_3d, p_os, p_param,p_op_coeff, tracer_index)
     
       !calculate horizontal divergence of diffusive flux
+      div_diff_flux_horz(:,:,:)=0.0_wp
       CALL div_oce_3d( p_os%p_diag%GMRedi_flux_horz(:,:,:,tracer_index),&
                    &   patch_3d, &
                    &   p_op_coeff%div_coeff, &
                    &   div_diff_flux_horz )
                                      
       !vertical div of explicit part of vertical GMRedi-flux
+      div_diff_flx_vert(:,:,:) = 0.0_wp
       CALL verticalDiv_scalar_onFullLevels( patch_3d, &
         & p_os%p_diag%GMRedi_flux_vert(:,:,:,tracer_index), &
         & div_diff_flx_vert)
@@ -515,7 +520,6 @@ CONTAINS
       END DO
     ENDIF   
    !---------------------------------------------------------------------
-
     
                    
     IF(GMREDI_COMBINED_DIAGNOSTIC)THEN
@@ -533,30 +537,30 @@ CONTAINS
             delta_z_new = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nnew(1))%h(jc,jb)
             
             p_os%p_diag%opottempGMRedi(jc,level,jb)&
-            &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))*(delta_z/delta_z_new)!/delta_z!&
+            &=delta_t*(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z_new
 !           !& * patch_3D%p_patch_1d(1)%prism_thick_c(jc,level,jb)&
 !           !& * clw *rho_ref
 
             p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
-            &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))*(delta_z/delta_z_new)!/delta_z 
-            
+            &=delta_t*(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z_new
+
             DO level = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
         
               delta_z = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)
  
               p_os%p_diag%opottempGMRedi(jc,level,jb)&
-              &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z!&
+              &=delta_t*(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z
 !             !& * patch_3D%p_patch_1d(1)%prism_thick_c(jc,level,jb)&
 !             !& * clw *rho_ref
 
               p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
-              &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z 
+              &=delta_t*(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z
             ENDDO
           END DO
         END DO
         
         DO level=1,n_zlev
-          !CALL dbg_print('AftGMRedi: divGMRediflux_h',div_diff_flux_horz(:,level,:),&
+          !CALL dbg_print('AftGMRedi: divGMRediflux',p_os%p_diag%div_of_GMRedi_flux(:,level,:),&
           !&str_module,idt_src, in_subset=cells_in_domain)
           CALL dbg_print('AftGMRedi: opottempGMRedi',p_os%p_diag%opottempGMRedi(:,level,:),&
           & str_module, idt_src, in_subset=cells_in_domain)      
@@ -574,13 +578,13 @@ CONTAINS
             !top level
             level=1
             delta_z     = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nold(1))%h(jc,jb)
-            delta_z_new = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nnew(1))%h(jc,jb)
-            
+            delta_z_new = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nnew(1))%h(jc,jb)  
+                     
             p_os%p_diag%osaltGMRedi(jc,level,jb)&
-            &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))*(delta_z/delta_z_new)
+            &=delta_t*(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z_new
 
             p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
-            &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))*(delta_z/delta_z_new) 
+            &=delta_t*(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z_new 
 
         
             DO level = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
@@ -588,10 +592,10 @@ CONTAINS
               delta_z = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)
  
               p_os%p_diag%osaltGMRedi(jc,level,jb)&
-              &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z!&
+              &=delta_t*(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z
 
               p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
-              &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z 
+              &=delta_t*(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z
 
             ENDDO
           END DO
@@ -650,8 +654,8 @@ CONTAINS
           new_ocean_tracer%concentration(jc,level,jb) =                          &
             &  old_ocean_tracer%concentration(jc,level,jb) -                     &
             &  (delta_t /  patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb))    &
-            & * (div_adv_flux_horz(jc,level,jb)  +div_adv_flux_vert(jc,level,jb)&
-            &  - div_diff_flux_horz(jc,level,jb)- div_diff_flx_vert(jc,level,jb))
+            & * (div_adv_flux_horz(jc,level,jb) +div_adv_flux_vert(jc,level,jb)&
+            &  - div_diff_flux_horz(jc,level,jb)-div_diff_flx_vert(jc,level,jb))
 
           !   test
           !   IF( delta_z/= delta_z1)THEN
@@ -763,6 +767,7 @@ CONTAINS
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     CALL dbg_print('aft. AdvIndivTrac: trac_old', trac_old, str_module, 3, in_subset=cells_in_domain)
     CALL dbg_print('aft. AdvIndivTrac: trac_new', trac_new, str_module, 3, in_subset=cells_in_domain)
+    CALL dbg_print('aft. AdvIndivTrac: trac chg', trac_new-trac_old, str_module, 3, in_subset=cells_in_domain)
     !---------------------------------------------------------------------
   
 
