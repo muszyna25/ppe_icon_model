@@ -74,6 +74,7 @@ MODULE mo_limarea_config
     CHARACTER(LEN=MAX_CHAR_LENGTH)  :: latbc_path          ! directory containing external latbc files
     REAL(wp)                        :: lc1, lc2            ! linear interpolation coefficients
     CHARACTER(LEN=FILENAME_MAX)     :: latbc_boundary_grid ! grid file defining the lateral boundary
+    LOGICAL                         :: init_latbc_from_fg  ! take initial lateral boundary conditions from first guess
 
     ! settings derived from the namelist parameters above:
     LOGICAL                         :: lsparse_latbc       ! Flag: TRUE if only boundary rows are read.

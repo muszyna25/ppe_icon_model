@@ -86,6 +86,7 @@
     USE mo_limarea_config,      ONLY: latbc_config, generate_filename_mtime
     USE mo_ext_data_types,      ONLY: t_external_data
     USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, dtime, nsteps, msg_level
+    USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
     USE mo_initicon_config,     ONLY: init_mode
     USE mtime_events,           ONLY: deallocateEvent
     USE mtime_timedelta,        ONLY: timedelta, newTimedelta, deallocateTimedelta, &
@@ -364,17 +365,23 @@
       prev_latbc_tlev = 2
 
       ! read first two time steps
-      IF( my_process_is_work()) THEN  ! IF (PRESENT(p_patch)) THEN
-         CALL pref_latbc_data( patch_data, p_patch, p_nh_state, p_int_state, &
+      IF (latbc_config%init_latbc_from_fg) THEN
+        new_latbc_tlev = prev_latbc_tlev
+        prev_latbc_tlev = 3 - new_latbc_tlev
+        IF (my_process_is_work()) CALL copy_fg_to_latbc(p_nh_state)
+      ELSE
+        IF( my_process_is_work()) THEN  ! IF (PRESENT(p_patch)) THEN
+          CALL pref_latbc_data( patch_data, p_patch, p_nh_state, p_int_state, &
               &                   time_config%cur_datetime, lopt_check_read=.FALSE., lopt_time_incr=.FALSE.)
-      ELSE IF( my_process_is_pref()) THEN
-         CALL pref_latbc_data( patch_data, datetime=time_config%cur_datetime, &
+        ELSE IF( my_process_is_pref()) THEN
+          CALL pref_latbc_data( patch_data, datetime=time_config%cur_datetime, &
               &                   lopt_check_read=.FALSE., lopt_time_incr=.FALSE. )
-         ! Inform compute PEs that we are done
-         CALL async_pref_send_handshake()
-         ! Wait for a message from the compute PEs to start
-         CALL async_pref_wait_for_start(done)
-      END IF
+          ! Inform compute PEs that we are done
+          CALL async_pref_send_handshake()
+          ! Wait for a message from the compute PEs to start
+          CALL async_pref_wait_for_start(done)
+        END IF
+      ENDIF
 
       IF( my_process_is_work()) THEN  !IF (PRESENT(p_patch)) THEN
          CALL pref_latbc_data( patch_data, p_patch, p_nh_state, p_int_state, &
@@ -1237,6 +1244,31 @@
       CALL deallocateTimedelta(delta_dtime)
 #endif
     END SUBROUTINE deallocate_pref_latbc_data
+
+    ! Wrapper routine for copying prognostic variables from initial state to the 
+    ! first time level of the lateral boundary data
+    !
+    SUBROUTINE copy_fg_to_latbc (p_nh)
+      TYPE(t_nh_state), INTENT(INOUT) :: p_nh
+
+      INTEGER :: jg, tlev
+
+      jg = 1
+      tlev = new_latbc_tlev
+
+!$OMP PARALLEL
+      CALL copy(p_nh%prog(nnow(jg))%vn,      latbc_data(tlev)%atm%vn)
+      CALL copy(p_nh%prog(nnow(jg))%w,       latbc_data(tlev)%atm%w)
+      CALL copy(p_nh%prog(nnow(jg))%rho,     latbc_data(tlev)%atm%rho)
+      CALL copy(p_nh%prog(nnow(jg))%theta_v, latbc_data(tlev)%atm%theta_v)
+      CALL copy(p_nh%prog(nnow_rcf(jg))%tracer(:,:,:,iqv), latbc_data(tlev)%atm%qv)
+      CALL copy(p_nh%prog(nnow_rcf(jg))%tracer(:,:,:,iqc), latbc_data(tlev)%atm%qc)
+      CALL copy(p_nh%prog(nnow_rcf(jg))%tracer(:,:,:,iqi), latbc_data(tlev)%atm%qi)
+      CALL copy(p_nh%prog(nnow_rcf(jg))%tracer(:,:,:,iqr), latbc_data(tlev)%atm%qr)
+      CALL copy(p_nh%prog(nnow_rcf(jg))%tracer(:,:,:,iqs), latbc_data(tlev)%atm%qs)
+!$OMP END PARALLEL
+
+    END SUBROUTINE copy_fg_to_latbc
 
     !-------------------------------------------------------------------------
     !>
