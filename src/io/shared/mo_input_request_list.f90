@@ -40,7 +40,7 @@ MODULE mo_input_request_list
     USE mo_math_types, ONLY: t_Statistics
     USE mo_model_domain, ONLY: t_patch
     USE mo_mpi, ONLY: my_process_is_mpi_workroot, get_my_mpi_work_id, p_bcast, process_mpi_root_id, p_comm_work, &
-                    & my_process_is_stdio, p_pe, p_isEqual
+                    & my_process_is_stdio, p_pe, p_isEqual, p_mpi_wtime
     USE mo_run_config, ONLY: msg_level
     USE mo_time_config, ONLY: getIniTime
     USE mo_util_cdi, ONLY: trivial_tileId
@@ -649,9 +649,13 @@ CONTAINS
         INTEGER :: i, tileId, recordsRead, recordsIgnored
         TYPE(t_ListEntry), POINTER :: listEntry
         TYPE(t_DomainData), POINTER :: domainData
+        REAL(dp) :: timer(5), savetime
+        LOGICAL  :: ret
 
         recordsRead = 0
         recordsIgnored = 0
+        timer(1) = p_mpi_wtime()
+        timer(2:5) = 0._dp
 
         CALL me%checkRequests() !sanity checks
         CALL me%translateNames(opt_dict)
@@ -661,20 +665,30 @@ CONTAINS
             iterator = cdiIterator_new(path)
             IF(.NOT. C_ASSOCIATED(iterator%ptr)) CALL finish(routine, "can't open file "//'"'//path//'" for reading')
         END IF
-        DO WHILE(me%nextField(iterator, p_patch, level, tileId, variableName, recordsIgnored, lIsFg))
+        DO 
+            savetime = p_mpi_wtime()
+            ret = me%nextField(iterator, p_patch, level, tileId, variableName, recordsIgnored, lIsFg)
+            timer(2) = timer(2) + p_mpi_wtime() - savetime
+            IF (.NOT. ret) EXIT
             recordsRead = recordsRead + 1
             ! We have now found the next field that we are interested IN.
             listEntry => me%findTranslatedName(variableName)
             IF(.NOT.ASSOCIATED(listEntry)) CALL finish(routine, "Assertion failed: Processes have different input request lists!")
             domainData => findDomainData(listEntry, p_patch%id, opt_lcreate = .TRUE.)
             fortranName => toCharacter(variableName)
-            CALL domainData%container%readField(fortranName, level, tileId, p_patch%id, iterator, domainData%statistics)
+            CALL domainData%container%readField(fortranName, level, tileId, timer, p_patch%id, iterator, domainData%statistics)
             DEALLOCATE(fortranName)
             DEALLOCATE(variableName)
         END DO
+        timer(1) = p_mpi_wtime() - timer(1)
         IF(my_process_is_mpi_workroot()) THEN
-            IF(msg_level > 4) WRITE(0, *) routine//": READ "//TRIM(int2string(recordsRead))//" records from file '"//path//"', &
-                                          &ignoring "//TRIM(int2string(recordsIgnored))//" records"
+            IF(msg_level > 4) THEN
+              WRITE(0, *) routine//": READ "//TRIM(int2string(recordsRead))//" records from file '"//path//"', &
+                         &ignoring "//TRIM(int2string(recordsIgnored))//" records"
+              WRITE(0, '(3(a,f10.5),a)') ' Timer report: Total ', timer(1), ' s, Read metadata ', timer(2), &
+                                       & ' s, Read data ', timer(3), ' s'
+              WRITE(0, '(2(a,f10.5),a)') '               Compute statistics ', timer(4), ' s, Distribute data ', timer(5), 's'
+            ENDIF
             CALL cdiIterator_delete(iterator)
         END IF
     END SUBROUTINE InputRequestList_readFile
