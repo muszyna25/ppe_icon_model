@@ -157,8 +157,8 @@ MODULE mo_psrad_srtm_setup
   REAL(wp), PARAMETER :: ssi_cmip6_picontrol(14) =  (/ & !< solar flux (W/m2) in 14 SW bands for
                            ! preindustrial CMIP6 simulation (average from 1850-1873)
     & 12.02503_wp, 20.24537_wp, 23.69633_wp, 22.42093_wp, 55.91312_wp,  &
-    & 103.5685_wp, 24.46918_wp, 346.3545_wp, 217.1642_wp, 344.9983_wp,  &
-    & 127.7391_wp, 45.95287_wp, 2.957934_wp, 13.23855_wp /)
+    & 103.5685_wp, 24.46918_wp, 346.3545_wp, 217.1642_wp, 344.9984_wp,  &
+    & 127.7391_wp, 45.95287_wp, 2.957935_wp, 13.2384_wp /)
     ! sum of 14 bands is: 1360.744
 
 CONTAINS
