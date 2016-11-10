@@ -254,11 +254,16 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
               ENDDO !i
 
             CLASS IS (t_fields_volc)
-              CALL art_sedi_volc( p_patch,p_metrics,p_prog,    &
-                &                 rho, p_diag,                 & 
-                &                 fields%diam,fields%rho,      &
-                &                 fields%flx_contra_vsed3,     &
-                &                 fields%itr)
+              DO jb = i_startblk, i_endblk
+                CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
+                  &                istart, iend, i_rlstart, i_rlend)
+                CALL art_sedi_volc(p_diag%temp(:,:,jb), p_diag%pres(:,:,jb), rho(:,:,jb),    &
+                  &                p_diag%rho_ic(:,:,jb), p_metrics%wgtfac_c(:,:,jb),        &
+                  &                p_metrics%wgtfacq_c(:,:,jb), fields%diam, fields%rho,     &
+                  &                p_prog%turb_tracer(jb,:), istart, iend, nlev, jb,         &
+                  &                fields%itr, art_config(jg), p_art_data(jg),               &
+                  &                fields%flx_contra_vsed3(:,:,jb))
+              ENDDO
               flx_contra_vsed => fields%flx_contra_vsed3
               jsp = fields%itr
               
@@ -296,7 +301,12 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
               ! Sedimentation velocity is zero for radioact. tracers
               fields%flx_contra_vsed3(:,:,:) = 0.0_wp
               ! However, a deposition velocity is required
-              CALL art_drydepo_radioact( p_patch,p_prog,fields%itr ) 
+              DO jb = i_startblk, i_endblk
+                CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
+                  &                istart, iend, i_rlstart, i_rlend)
+                CALL art_drydepo_radioact(p_prog%turb_tracer(jb,:), art_config(jg),     &
+                  &                       fields%itr, istart, iend, jb, p_art_data(jg))
+              ENDDO
             CLASS DEFAULT
               CALL finish('mo_art_sedimentation_interface:art_sedimentation_interface', &
                 &         'ART: Unknown mode field type')
