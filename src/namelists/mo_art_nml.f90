@@ -246,12 +246,12 @@ CONTAINS
       INQUIRE(file = TRIM(cart_emiss_xml_file), EXIST = l_exist)
     
       IF (l_exist) THEN
-        INQUIRE(DIRECTORY = TRIM(cart_emiss_base_path), EXIST = l_dir_exist)
+        !TRIM(cart_emiss_base_path), EXIST = l_dir_exist)
     
-        IF (.NOT. l_dir_exist) THEN
+        IF (TRIM(cart_emiss_base_path) == '') THEN
           CALL finish('mo_art_nml:read_art_namelist',  &
-                      'Directory '//TRIM(cart_emiss_base_path)//  &
-                      & ' could not be found. Check cart_emiss_base_path.')
+                      'The namelist parameter cart_emiss_base_path must be present '  &
+                  & //'and non-empty if cart_emiss_xml_file is present.')
         END IF
     
       ELSE
