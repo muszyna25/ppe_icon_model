@@ -24,14 +24,10 @@ MODULE mo_initicon_config
     &                              MODE_IAU, MODE_IAU_OLD, MODE_ICONVREMAP
   USE mo_grid_config,        ONLY: l_limited_area
   USE mo_time_config,        ONLY: time_config
-  USE mo_datetime,           ONLY: t_datetime
   USE mtime,                 ONLY: timedelta, newTimedelta, deallocateTimedelta,     &
-    &                              max_timedelta_str_len, datetime, newDatetime,     &
-    &                              deallocateDatetime, OPERATOR(+),                  &
+    &                              max_timedelta_str_len, datetime, OPERATOR(+),     &
     &                              MAX_DATETIME_STR_LEN, OPERATOR(<=), OPERATOR(>=), &
     &                              getPTStringFromSeconds
-  USE mo_mtime_extensions,   ONLY: get_datetime_string
-  USE mo_parallel_config,    ONLY: num_prefetch_proc
   USE mo_exception,          ONLY: finish, message_text, message
 
   IMPLICIT NONE
@@ -46,6 +42,7 @@ MODULE mo_initicon_config
   PUBLIC :: init_mode, nlevatm_in, nlevsoil_in, zpbl1, zpbl2
   PUBLIC :: dt_iau
   PUBLIC :: type_iau_wgt
+  PUBLIC :: iterate_iau
   PUBLIC :: l_sst_in
   PUBLIC :: lread_ana
   PUBLIC :: lread_vn
@@ -67,11 +64,11 @@ MODULE mo_initicon_config
   PUBLIC :: dwdana_filename
   PUBLIC :: filetype
   PUBLIC :: ana_varnames_map_file
-  PUBLIC :: latbc_varnames_map_file
   PUBLIC :: init_mode_soil
   PUBLIC :: is_iau_active
   PUBLIC :: iau_wgt_dyn, iau_wgt_adv
   PUBLIC :: rho_incr_filter_wgt
+  PUBLIC :: niter_divdamp, niter_diffu
   PUBLIC :: t_timeshift
   PUBLIC :: timeshift
   PUBLIC :: initicon_config
@@ -87,7 +84,7 @@ MODULE mo_initicon_config
 
   TYPE t_timeshift
     REAL(wp)                 :: dt_shift
-    TYPE(timedelta)          :: mtime_shift
+    TYPE(timedelta), POINTER :: mtime_shift
   END TYPE t_timeshift
 
   ! ----------------------------------------------------------------------------
@@ -148,8 +145,12 @@ MODULE mo_initicon_config
                             ! 1: Top-hat
                             ! 2: SIN2
                             ! Only required for init_mode=MODE_IAU, MODE_IAU_OLD
+  LOGICAL  :: iterate_iau   ! if .TRUE., iterate IAU phase with halved dt_iau in first iteration
   REAL(wp) :: rho_incr_filter_wgt  ! Vertical filtering weight for density increments 
                                    ! Only applicable for init_mode=MODE_IAU, MODE_IAU_OLD
+
+  INTEGER  :: niter_divdamp ! number of divergence damping iterations on wind increment from DA
+  INTEGER  :: niter_diffu   ! number of diffusion iterations on wind increment from DA
 
   ! IFS2ICON input filename, may contain keywords, by default
   ! ifs2icon_filename = "<path>ifs2icon_R<nroot>B<jlev>_DOM<idom>.nc"
@@ -167,9 +168,6 @@ MODULE mo_initicon_config
   ! GRIB2 shortnames or NetCDF var names.
   CHARACTER(LEN=filename_max) :: ana_varnames_map_file      
 
-  ! analysis file: dictionary which maps internal variable names onto
-  ! GRIB2 shortnames or NetCDF var names used in lateral boundary nudging.
-  CHARACTER(LEN=filename_max) :: latbc_varnames_map_file  
    
   ! ----------------------------------------------------------------------------
   ! Derived variables / variables based on input file contents
@@ -211,23 +209,15 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: routine = 'mo_initicon_config:configure_initicon'
     !
     CHARACTER(len=max_timedelta_str_len) :: PTshift
-    TYPE(timedelta), POINTER             :: mtime_shift_local, td_start_time_avg_fg, td_end_time_avg_fg
+    TYPE(timedelta), POINTER             :: td_start_time_avg_fg, td_end_time_avg_fg
     CHARACTER(len=max_timedelta_str_len) :: str_start_time_avg_fg, str_end_time_avg_fg
     !
-    TYPE(datetime), POINTER              :: inidatetime          ! in mtime format
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: iso8601_ini_datetime ! ISO_8601
 
     REAL(wp)                             :: zdt_shift            ! rounded dt_shift
     !
     !-----------------------------------------------------------------------
     !
-    ! Check whether an mapping file is provided for prefetching boundary data
-    ! calls a finish either when the flag is absent
-    !
-    IF ((num_prefetch_proc == 1) .AND. (latbc_varnames_map_file == ' ')) THEN
-       WRITE(message_text,'(a)') 'latbc_varnames_map_file required, but not found due to missing flag.'
-       CALL finish(TRIM(routine),message_text)
-    ENDIF
+
 
     IF ( ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMODE/) == init_mode) ) THEN
        init_mode_soil = 1   ! full coldstart is executed
@@ -254,27 +244,26 @@ CONTAINS
         CALL message('',message_text)
       ENDIF
       timeshift%dt_shift = zdt_shift
+    ELSE
+      iterate_iau = .FALSE. ! IAU iteration is meaningless if the model starts without backward time shift
     END IF
     !
     ! transform timeshift to mtime-format
     !
     CALL getPTStringFromSeconds(timeshift%dt_shift, PTshift)
-
+    timeshift%mtime_shift => newTimedelta(TRIM(PTshift))
+    WRITE(message_text,'(a,a)') 'IAU time shift: ', TRIM(PTshift)
+    CALL message('',message_text)
+        
     !*******************************************************
     ! can be removed, once the new libmtime is available (timedeltaToString)
-    IF (TRIM(PTshift)=="-P00.000S") THEN
-      PTshift = "-PT00.000S"
-    ELSE IF (TRIM(PTshift)=="+P00.000S") THEN
-      PTshift = "+PT00.000S"
-    ENDIF 
+    ! IF (TRIM(PTshift)=="-P00.000S") THEN
+    !   PTshift = "-PT00.000S"
+    ! ELSE IF (TRIM(PTshift)=="+P00.000S") THEN
+    !   PTshift = "+PT00.000S"
+    ! ENDIF 
     !********************************************************
-
-    mtime_shift_local => newTimedelta(TRIM(PTshift))
-    timeshift%mtime_shift = mtime_shift_local
-
-    ! cleanup
-    CALL deallocateTimedelta(mtime_shift_local)
-
+    
     ! Preparations for first guess averaging
     !
     IF (end_time_avg_fg > start_time_avg_fg) THEN
@@ -285,22 +274,16 @@ CONTAINS
     !
     ! transform end_time_avg_fg, start_time_avg_fg to mtime format
     !
-    ! create model ini_datetime in ISO_8601 format
-    CALL get_datetime_string(iso8601_ini_datetime, time_config%ini_datetime)
-    !
-    ! convert model ini datetime from ISO_8601 format to type datetime
-    inidatetime => newDatetime(TRIM(iso8601_ini_datetime))
-    !
     ! get start and end datetime in mtime-format
     CALL getPTStringFromSeconds(start_time_avg_fg, str_start_time_avg_fg)
     td_start_time_avg_fg => newTimedelta(str_start_time_avg_fg)
     CALL getPTStringFromSeconds(end_time_avg_fg, str_end_time_avg_fg)
     td_end_time_avg_fg   => newTimedelta(str_end_time_avg_fg)
     !
-    startdatetime_avgFG = inidatetime + td_start_time_avg_fg
-    enddatetime_avgFG   = inidatetime + td_end_time_avg_fg
+    startdatetime_avgFG = time_config%tc_startdate + td_start_time_avg_fg
+    enddatetime_avgFG   = time_config%tc_startdate + td_end_time_avg_fg
     !
-    ! get start and end datetime in ISO_8601 format relative to inidatetime
+    ! get start and end datetime in ISO_8601 format relative to "tc_startdate"
     ! start time
     CALL getPTStringFromSeconds(start_time_avg_fg, iso8601_start_timedelta_avg_fg)
     ! end time
@@ -325,9 +308,6 @@ CONTAINS
     ! transform averaging interval to ISO_8601 format
     !
     CALL getPTStringFromSeconds(interval_avg_fg, iso8601_interval_avg_fg)
-
-    ! cleanup
-    CALL deallocateDatetime(inidatetime)
 
   END SUBROUTINE configure_initicon
 
@@ -366,30 +346,13 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2014-12-17)
   !!
-  FUNCTION is_avgFG_time(cur_datetime)
-    TYPE(t_datetime), INTENT(INOUT)  :: cur_datetime
-
-    ! local variables
-    TYPE(datetime), POINTER :: curdatetime     ! current datetime in mtime format
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: iso8601_cur_datetime ! ISO_8601
-
-    LOGICAL :: is_avgFG_time
-    !---------------------------------------------------------------------
-
-    ! create model cur_datetime in ISO_8601 format
-    CALL get_datetime_string(iso8601_cur_datetime, cur_datetime)
-
-    !
-    ! convert model cur_datetime from ISO_8601 format to type datetime
-    curdatetime  => newDatetime(TRIM(iso8601_cur_datetime))
+  LOGICAL FUNCTION is_avgFG_time(curdatetime)
+    TYPE(datetime), POINTER :: curdatetime     !< current datetime in mtime format
 
     ! check whether startdatetime_avgFG <= curdatetime <= enddatetime_avgFG
     !
     is_avgFG_time = (curdatetime >= startdatetime_avgFG) .AND.              &
                     (curdatetime <= enddatetime_avgFG    .AND. lcalc_avg_fg )
-
-    ! cleanup
-    CALL deallocateDatetime(curdatetime)
 
   END FUNCTION is_avgFG_time
 

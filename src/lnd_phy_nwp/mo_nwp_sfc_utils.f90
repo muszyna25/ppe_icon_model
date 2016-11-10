@@ -1497,6 +1497,9 @@ CONTAINS
     DO jb = i_startblk, i_endblk
 
 
+      ! This (re)initialization is needed for correct functionality of the IAU iteration
+      ext_data%atm%spw_count(jb) = 0
+      ext_data%atm%spi_count(jb) = 0
 
       ! Init sub-index lists for sea points. We distinguish between open-water
       ! (i.e. ice free) points and sea-ice points. diag_lnd%fr_seaice is used
@@ -1919,8 +1922,8 @@ CONTAINS
   SUBROUTINE update_idx_lists_sea (hice_n, pres_sfc, idx_lst_spw, spw_count,    &
     &                              idx_lst_spi, spi_count, frac_t_ice,          &
     &                              frac_t_water, fr_seaice, hice_old, tice_old, &
-    &                              t_g_t_new, t_s_t_now, t_s_t_new, qv_s_t,     &
-    &                              t_seasfc )
+    &                              t_g_t_now, t_g_t_new, t_s_t_now, t_s_t_new,  &
+    &                              qv_s_t, t_seasfc )
 
 
     REAL(wp),    INTENT(IN)    ::  &   !< sea-ice depth at new time level  [m]
@@ -1947,6 +1950,9 @@ CONTAINS
 
     REAL(wp),    INTENT(INOUT) ::  &   !< sea-ice temperature at old time level  [K]
       &  tice_old(:)                   !< dim: (nproma)
+
+    REAL(wp),    INTENT(INOUT) ::  &   !< temperature of water tile (now)  [K]
+      &  t_g_t_now(:)
 
     REAL(wp),    INTENT(INOUT) ::  &   !< temperature of water tile (new)  [K]
       &  t_g_t_new(:)
@@ -2010,6 +2016,8 @@ CONTAINS
           t_g_t_new(jc) = tf_salt ! if the SST analysis contains a meaningful water
                                   ! temperature for this point, one may also take
                                   ! the latter
+          t_g_t_now(jc) = tf_salt 
+
           t_seasfc(jc)  = tf_salt
 
           ! Initialize surface saturation specific humidity for new water tile
@@ -2024,7 +2032,7 @@ CONTAINS
 
           ! reset sea-ice temperature and depth at old time level in order to prevent
           ! other schemes from using them incorrectly
-          tice_old     = tmelt
+          tice_old(jc) = tmelt
           hice_old(jc) = 0._wp
 
         ENDIF
@@ -2055,6 +2063,8 @@ CONTAINS
             t_g_t_new(jc) = tf_salt ! if the SST analysis contains a meaningful water
                                     ! temperature for this point, one may also take
                                     ! the latter
+            t_g_t_now(jc) = tf_salt 
+
             t_s_t_new(jc) = tf_salt ! otherwise aggregated t_so and t_s will be 
                                     ! 0 at these points
             t_s_t_now(jc) = tf_salt

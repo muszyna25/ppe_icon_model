@@ -41,7 +41,6 @@ MODULE mo_ocean_surface
   USE mo_grib2
   USE mo_cdi_constants
   USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16, GRID_UNSTRUCTURED
-  USE mo_datetime,            ONLY: t_datetime
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_ocean_ext_data,      ONLY: ext_data
   USE mo_ocean_nml,           ONLY: iforc_oce, forcing_timescale, relax_analytical_type,  &
@@ -81,7 +80,12 @@ MODULE mo_ocean_surface
   USE mo_sea_ice_nml,         ONLY: use_calculated_ocean_stress, i_ice_dyn
   USE mo_timer,               ONLY: timers_level, timer_start, timer_stop, timer_extra40
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
+  USE mtime,                  ONLY: datetime, &
+       &                            getDayOfYearFromDateTime, &
+       &                            getNoOfDaysInYearDateTime, &
+       &                            getNoOfSecondsElapsedInDayDateTime
 
+  
   IMPLICIT NONE
   
   ! required for reading netcdf files
@@ -229,7 +233,8 @@ CONTAINS
   !! restructured code (mo_ocean_surface) by Stephan Lorenz, MPI-M (2015-04)
   !
 !<Optimize_Used>
-  SUBROUTINE update_ocean_surface(p_patch_3D, p_os, p_as, p_ice, atmos_fluxes, p_sfc_flx, p_oce_sfc, jstep, datetime, p_op_coeff)
+  SUBROUTINE update_ocean_surface(p_patch_3D, p_os, p_as, p_ice, atmos_fluxes, &
+       &                          p_sfc_flx, p_oce_sfc, jstep, this_datetime, p_op_coeff)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)        :: p_patch_3D
     TYPE(t_hydro_ocean_state)                   :: p_os
@@ -239,7 +244,7 @@ CONTAINS
     TYPE(t_sfc_flx)                             :: p_sfc_flx      !  to be replaced by p_oce_sfc
     TYPE(t_ocean_surface)                       :: p_oce_sfc      !  new forcing for ocean surface
     INTEGER, INTENT(IN)                         :: jstep
-    TYPE(t_datetime), INTENT(INOUT)             :: datetime
+    TYPE(datetime), POINTER                     :: this_datetime
     TYPE(t_operator_coeff),   INTENT(IN)        :: p_op_coeff
     !
     ! local variables
@@ -352,7 +357,7 @@ CONTAINS
 
       !  Driving the ocean with OMIP fluxes
       !   a) read OMIP data (read relaxation data)
-      CALL update_flux_fromFile(p_patch_3D, p_as, jstep, datetime, p_op_coeff)
+      CALL update_flux_fromFile(p_patch_3D, p_as, jstep, this_datetime, p_op_coeff)
 
       !   b) calculate OMIP flux data
 
@@ -454,7 +459,7 @@ CONTAINS
             &   atmos_fluxes%albvisdif(:,:,jb), &
             &   atmos_fluxes%albnirdir(:,:,jb), &
             &   atmos_fluxes%albnirdif(:,:,jb), &
-            &   doy=datetime%yeaday)
+            &   doy = getDayOfYearFromDateTime(this_datetime))
         ENDDO
        
         ! Unique albedo for analytical and OMIP cases (i_ice_albedo=1)
@@ -872,7 +877,7 @@ CONTAINS
     !  - sea level is balanced to zero over ocean surface
     !  - correction applied daily
     !  calculate time
-    dsec  = datetime%daysec        ! real seconds since begin of day
+    dsec  = REAL(getNoOfSecondsElapsedInDayDateTime(this_datetime), wp)
     ! event at end of first timestep of day - tbd: use mtime
     IF (limit_elevation .AND. (dsec-dtime)<0.1 ) THEN
       CALL balance_elevation(p_patch_3D, p_os%p_prog(nold(1))%h)
@@ -894,12 +899,12 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010/2014)
   !
-  SUBROUTINE update_flux_fromFile(p_patch_3D, p_as, jstep, datetime, p_op_coeff)
+  SUBROUTINE update_flux_fromFile(p_patch_3D, p_as, jstep, this_datetime, p_op_coeff)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)        :: p_patch_3D
     TYPE(t_atmos_for_ocean)                     :: p_as
     INTEGER, INTENT(IN)                         :: jstep
-    TYPE(t_datetime), INTENT(INOUT)             :: datetime
+    TYPE(datetime), POINTER                     :: this_datetime
     TYPE(t_operator_coeff),   INTENT(IN)        :: p_op_coeff
     !
     ! local variables
@@ -918,12 +923,10 @@ CONTAINS
     !all_cells       => p_patch%cells%all
 
     !  calculate day and month
-    jmon  = datetime%month         ! integer current month
-    jdmon = datetime%day           ! integer day in month
-    yday  = datetime%yeaday        ! integer current day in year
-    ylen  = datetime%yealen        ! integer days in year (365 or 366)
-   !dsec  = datetime%daysec        ! real seconds since begin of day
-   !ytim  = datetime%yeatim        ! real time since begin of year
+    jmon  = this_datetime%date%month
+    jdmon = this_datetime%date%day
+    yday  = getDayOfYearFromDateTime(this_datetime)
+    ylen  = getNoOfDaysInYearDateTime(this_datetime)
 
     !
     ! use annual forcing-data:

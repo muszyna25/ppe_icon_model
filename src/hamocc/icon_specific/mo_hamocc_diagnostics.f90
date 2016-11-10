@@ -1,6 +1,6 @@
+#ifndef __NO_ICON_OCEAN__
 ! calculates HAMOCC diagnostics:
 ! monitoring variables, global inventories
-
 !--------------------------------------
 #include "hamocc_omp_definitions.inc"
 !--------------------------------------
@@ -601,3 +601,5 @@ ENDIF
 END SUBROUTINE 
 
 END MODULE mo_hamocc_diagnostics
+
+#endif

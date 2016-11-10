@@ -381,7 +381,7 @@ USE mo_lnd_nwp_config,     ONLY: lmulti_snow, l2lay_rho_snow,     &
   &                              cwimax_ml
 !
 !
-USE mo_exception,          ONLY: message, finish, message_text
+USE mo_exception,          ONLY: message, message_text
 USE mo_run_config,         ONLY: msg_level
 USE mo_impl_constants,     ONLY: iedmf
 #endif

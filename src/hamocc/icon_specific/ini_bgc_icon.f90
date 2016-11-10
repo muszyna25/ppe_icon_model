@@ -1,3 +1,5 @@
+#ifndef __NO_ICON_OCEAN__
+
 SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
 
   USE mo_kind, ONLY           : wp, dp
@@ -212,3 +214,5 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
 
  CALL message(TRIM(routine), 'end ini bgc')
 END SUBROUTINE 
+
+#endif

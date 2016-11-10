@@ -24,30 +24,27 @@
 !!
 MODULE mo_td_ext_data
 
-  USE mo_kind,               ONLY: wp
-  USE mo_model_domain,       ONLY: t_patch
-  USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_io_units,           ONLY: filename_max
-  USE mo_master_config,      ONLY: getModelBaseDir
-  USE mo_mpi,                ONLY: p_comm_work_test, p_comm_work
-#ifdef NOMPI
-  USE mo_mpi,                 ONLY: my_process_is_mpi_all_seq
-#endif
+  USE mo_kind,                ONLY: wp
+  USE mo_model_domain,        ONLY: t_patch
+  USE mo_exception,           ONLY: message, message_text, finish
+  USE mo_io_units,            ONLY: filename_max
+  USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_io_config,           ONLY: default_read_method
   USE mo_read_interface,      ONLY: openInputFile, closeFile, on_cells, &
     &                               t_stream_id, read_2D_1time
-  USE mo_datetime,            ONLY: t_datetime, month2hour
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, min_rlcell_int
   USE mo_grid_config,         ONLY: n_dom
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state
   USE mo_loopindices,         ONLY: get_indices_c
-  USE mo_parallel_config,     ONLY: p_test_run
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_seaice_nwp,          ONLY: frsi_min
 
   USE mo_extpar_config,       ONLY: generate_td_filename
   USE mo_lnd_nwp_config,      ONLY: sst_td_filename, ci_td_filename
+  USE mtime,                     ONLY: datetime
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
+    &                                  calculate_time_interpolation_weights
 
   IMPLICIT NONE
 
@@ -55,6 +52,8 @@ MODULE mo_td_ext_data
 
   PUBLIC  :: set_actual_td_ext_data
   PUBLIC  :: read_td_ext_data_file
+
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_td_extdata'
 
 CONTAINS
 
@@ -70,36 +69,41 @@ CONTAINS
   !! @par Revision History
   !! Developed  by P. Ripodas (2012-12)
   !!
-  SUBROUTINE set_actual_td_ext_data (lread, datetime,datetime_old,ext_data_mode,  &
+  SUBROUTINE set_actual_td_ext_data (lread, mtime_date, mtime_date_old, ext_data_mode,  &
                                   &  p_patch, ext_data, p_lnd_state)
 
-    LOGICAL , INTENT(IN)          :: lread !force the read of the ext dat files for sstice_mode=3
-    TYPE(t_datetime), INTENT(IN)  :: datetime, datetime_old
-    INTEGER,INTENT(IN)            :: ext_data_mode
-    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
+    LOGICAL ,              INTENT(IN)    :: lread !force the read of the ext dat files for sstice_mode=3
+    TYPE(datetime),        POINTER       :: mtime_date, mtime_date_old
+    INTEGER,               INTENT(IN)    :: ext_data_mode
+    TYPE(t_patch),         INTENT(IN)    :: p_patch(:)
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
-    TYPE(t_lnd_state), INTENT(INOUT)     :: p_lnd_state(:)
-
-    INTEGER                       :: month1, month2, year1, year2
-    INTEGER                       :: m1, m2
-    REAL (wp)                     :: pw1, pw2, pw2_old
-    INTEGER                       :: jg, jb, jc, i_startidx, i_endidx
-    INTEGER                       :: i_nchdom, i_rlstart, i_rlend
-    INTEGER                       :: i_startblk, i_endblk
+    TYPE(t_lnd_state),     INTENT(INOUT) :: p_lnd_state(:)
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_td_ext_data:set_actual_td_ext_data  '
+      routine = modname//':set_actual_td_ext_data  '
 
-    !---------------------------------------------------------------
+    INTEGER                             :: month1, month2, year1, year2
+    INTEGER                             :: m1, m2
+    REAL (wp)                           :: pw1, pw2, pw2_old
+    INTEGER                             :: jg, jb, jc, i_startidx, i_endidx
+    INTEGER                             :: i_nchdom, i_rlstart, i_rlend
+    INTEGER                             :: i_startblk, i_endblk
 
-      SELECT CASE (ext_data_mode)
+    TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
+    TYPE(t_time_interpolation_weights) :: old_time_interpolation_weights    
+
+    SELECT CASE (ext_data_mode)
 
        CASE (2) !SST and sea ice fraction updated based
                 !  on the climatological monthly values
-        CALL month2hour (datetime, month1, month2, pw2 )
-        pw1 = 1._wp - pw2
+         current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_date)
+         month1 = current_time_interpolation_weights%month1
+         month2 = current_time_interpolation_weights%month2
+         pw2 = current_time_interpolation_weights%weight2
 
-        DO jg = 1, n_dom
+         pw1 = 1._wp - pw2
+
+         DO jg = 1, n_dom
 
            i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk, i_rlstart, i_rlend)
@@ -141,10 +145,20 @@ CONTAINS
 
        CASE (3) !SST and sea ice fraction updated based
                 !  on the actual monthly values
-        CALL month2hour (datetime_old, m1, m2, pw2_old )
-        CALL month2hour (datetime, month1, month2, year1, year2, pw2 )
 
-        WRITE( message_text,'(a,5i6,f10.5)') 'sst ci interp,',datetime%day,month1,month2,year1,year2,pw2
+         old_time_interpolation_weights = calculate_time_interpolation_weights(mtime_date_old)
+         m1 = old_time_interpolation_weights%month1
+         m2 = old_time_interpolation_weights%month2
+         pw2_old = old_time_interpolation_weights%weight2
+
+         current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_date)
+         month1 = current_time_interpolation_weights%month1
+         month2 = current_time_interpolation_weights%month2
+         year1 = current_time_interpolation_weights%year1
+         year2 = current_time_interpolation_weights%year2
+         pw2 = current_time_interpolation_weights%weight2
+
+        WRITE( message_text,'(a,5i6,f10.5)') 'sst ci interp,',mtime_date%date%day,month1,month2,year1,year2,pw2
         CALL message  (routine, TRIM(message_text))
         IF (m1 /= month1 .OR. lread ) THEN
           CALL read_td_ext_data_file (month1,month2,year1,year2,p_patch(1:),ext_data)
@@ -241,7 +255,7 @@ CONTAINS
     INTEGER                     :: jg
     TYPE(t_stream_id)           :: stream_id
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-    &  routine = 'mo_td_ext_data:read_td_ext_data_file:'
+    &  routine = modname//':read_td_ext_data_file:'
 
 !-----------------------------------------------------------------------
    ! extpar_td_filename = "<path>extpar_<year>_<month>_<gridfile>"

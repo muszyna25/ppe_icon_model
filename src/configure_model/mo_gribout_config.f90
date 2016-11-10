@@ -40,6 +40,8 @@ MODULE mo_gribout_config
 
     ! namelist variables
 
+    INTEGER :: tablesVersion              ! Main switch for table version
+
     INTEGER :: &                          ! Table 1.2
       & significanceOfReferenceTime       ! 0: Analysis
                                           ! 1: Start of forecast

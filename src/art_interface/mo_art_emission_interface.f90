@@ -48,7 +48,7 @@ MODULE mo_art_emission_interface
   USE mo_ext_data_types,                ONLY: t_external_data
   USE mo_nwp_lnd_types,                 ONLY: t_lnd_diag
   USE mo_run_config,                    ONLY: lart
-  USE mo_datetime,                      ONLY: t_datetime
+  USE mtime,                            ONLY: datetime
 #ifdef __ICON_ART
 ! Infrastructure Routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
@@ -87,7 +87,7 @@ CONTAINS
 !!
 !!-------------------------------------------------------------------------
 !!
-SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_diag_lnd,rho,datetime,tracer)
+SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_diag_lnd,rho,mtime_current,tracer)
   !! Interface for ART: Emissions
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2012-01-27)
@@ -107,8 +107,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     &  p_diag_lnd              !< List of diagnostic fields (land)
   REAL(wp), INTENT(inout) :: &
     &  rho(:,:,:)              !< Density of air [kg/m3]
-  TYPE(t_datetime), INTENT(IN) :: &
-    &  datetime                !< Date and time information
+  TYPE(datetime), POINTER :: mtime_current !< Date and time information
   REAL(wp), INTENT(inout) :: &
     &  tracer(:,:,:,:)         !< Tracer mixing ratios [kg kg-1]
   ! Local variables
@@ -125,9 +124,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
 #ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: &
     &  this_mode               !< pointer to current aerosol mode
-  
-  
-  
+
   ! --- Get the loop indizes
   i_nchdom   = MAX(1,p_patch%n_childdom)
   jg         = p_patch%id
@@ -362,7 +359,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
             CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
               &                istart, iend, i_rlstart, i_rlend)
             
-            CALL art_emiss_chemtracer(datetime,                       &
+            CALL art_emiss_chemtracer(mtime_current,                  &
               &                       dtime,                          &
               &                       tracer,                         &
               &                       p_nh_state%diag%pres,           &

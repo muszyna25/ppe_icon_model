@@ -26,11 +26,12 @@ MODULE mo_io_nml
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio, p_n_work
   USE mo_master_control,     ONLY: use_restart_namelists
-  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
+  USE mo_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
   USE mo_io_config,          ONLY: config_lkeep_in_sync           => lkeep_in_sync          , &
                                  & config_dt_diag                 => dt_diag                , &
+                                 & config_gust_interval           => gust_interval          , &
                                  & config_dt_checkpoint           => dt_checkpoint          , &
                                  & config_inextra_2d              => inextra_2d             , &
                                  & config_inextra_3d              => inextra_3d             , &
@@ -81,6 +82,7 @@ CONTAINS
 
     LOGICAL :: lkeep_in_sync              ! if .true., sync stream after each timestep
     REAL(wp):: dt_diag                    ! diagnostic output timestep [seconds]
+    REAL(wp):: gust_interval(max_dom)     ! time interval over which maximum wind gusts are taken
     REAL(wp):: dt_checkpoint              ! timestep [seconds] for triggering new restart file
 
     INTEGER :: inextra_2d                 ! number of extra output fields for debugging
@@ -125,7 +127,7 @@ CONTAINS
       &              lnetcdf_flt64_output,                   &
       &              restart_file_type, write_initial_state, &
       &              write_last_restart, timeSteps_per_outputStep, &
-      &              lmask_boundary
+      &              lmask_boundary, gust_interval
 
     !-----------------------
     ! 1. default settings
@@ -133,8 +135,12 @@ CONTAINS
     lkeep_in_sync           = .FALSE.
 
     dt_diag                 = 86400._wp    !  1 day
-    dt_checkpoint           = 2592000._wp  ! 30 days
 
+    ! Note: The default needs to be empty, since there exists a
+    ! concurrent namelist parameter to specify this value:
+    dt_checkpoint           = 0._wp  ! unspecified
+
+    gust_interval(:)        = 3600._wp     ! 1 hour
     inextra_2d              = 0     ! no extra output 2D fields
     inextra_3d              = 0     ! no extra output 3D fields
     lflux_avg               = .TRUE.
@@ -186,6 +192,7 @@ CONTAINS
 
     config_lkeep_in_sync           = lkeep_in_sync
     config_dt_diag                 = dt_diag
+    config_gust_interval(:)        = gust_interval(:)
     config_dt_checkpoint           = dt_checkpoint
     config_inextra_2d              = inextra_2d
     config_inextra_3d              = inextra_3d

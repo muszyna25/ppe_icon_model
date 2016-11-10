@@ -299,7 +299,7 @@ if [[ "$output_atm_phy_tend_trac" == "yes" ]]; then
  output_interval  = "PT05M"                          ! ISO-format interval
  file_interval    = "PT05M"                          ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'tend_hus', 'tend_hus_cld', 'tend_hus_cnv', 'tend_hus_vdf'
+ ml_varlist       = 'tend_qhus', 'tend_qhus_cld', 'tend_qhus_cnv', 'tend_qhus_vdf'
 /
 EOF
 fi

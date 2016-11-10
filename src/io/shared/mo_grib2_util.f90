@@ -39,7 +39,6 @@ MODULE mo_grib2_util
     &                              datetime, newDatetime,                   &
     &                              deallocateTimedelta, deallocateDatetime, &
     &                              MAX_DATETIME_STR_LEN,                    &
-    &                              PROLEPTIC_GREGORIAN, setCalendar,        &
     &                              MAX_DATETIME_STR_LEN,                    &
     &                              OPERATOR(-)
 
@@ -83,8 +82,7 @@ CONTAINS
     !
     ! Load correct tables
     !
-    ! set tablesVersion=14
-    CALL vlistDefVarIntKey(vlistID, varID, "tablesVersion", 14)
+    CALL vlistDefVarIntKey(vlistID, varID, "tablesVersion", grib_conf%tablesVersion)
     !
     CALL vlistDefVarIntKey(vlistID, varID, "significanceOfReferenceTime",     &
       &                    grib_conf%significanceOfReferenceTime)
@@ -594,9 +592,6 @@ CONTAINS
     ! steptype TSTEP_MAX or TSTEP_MIN. These fields are special in the sense that averaging is not 
     ! performed over the entire model run but over only some intervals.
     CHARACTER(LEN=8) :: ana_avg_vars(5) = (/"u_avg   ", "v_avg   ", "pres_avg", "temp_avg", "qv_avg  "/)
-
-
-    CALL setCalendar(PROLEPTIC_GREGORIAN)
 
     !---------------------------------------------------------
     ! Set time-dependent metainfo

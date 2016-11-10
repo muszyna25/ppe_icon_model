@@ -28,7 +28,7 @@ MODULE mo_gribout_nml
   USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,     &
+  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_gribout_config,      ONLY: gribout_config
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
@@ -63,6 +63,7 @@ MODULE mo_gribout_nml
   ! value, an error message is thrown.
   CHARACTER(LEN=32) :: preset
 
+  INTEGER :: tablesVersion              ! Main switch for table version
 
   INTEGER :: &                          ! Table 1.2
     & significanceOfReferenceTime       ! 0: Analysis
@@ -138,7 +139,7 @@ MODULE mo_gribout_nml
 
 
   NAMELIST/gribout_nml/  &
-    &                    preset,                          &
+    &                    preset, tablesVersion,           &
     &                    significanceOfReferenceTime,     &
     &                    productionStatusOfProcessedData, &
     &                    typeOfProcessedData,             &
@@ -194,6 +195,7 @@ CONTAINS
     !-----------------------
     preset                               = "deterministic"
 
+    tablesVersion                        = 15
     significanceOfReferenceTime          = 1   ! 1: Start of forecast
     productionStatusOfProcessedData      = 1   ! 1: Oper. test products
     backgroundProcess                    = 0   ! 0: main run
@@ -251,6 +253,8 @@ CONTAINS
     !----------------------------------------------------
 
     DO jg= 1,max_dom
+      gribout_config(jg)%tablesVersion                     = &
+        &                tablesVersion
       gribout_config(jg)%significanceOfReferenceTime       = &
         &                significanceOfReferenceTime
       gribout_config(jg)%productionStatusOfProcessedData   = &

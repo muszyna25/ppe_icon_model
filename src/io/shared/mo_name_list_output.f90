@@ -18,10 +18,6 @@
 !!        clear that this does not pertain to a FORTRAN namelist but rather
 !!        to a list of names of output variables
 !!
-!! Define USE_CRAY_POINTER for platforms having problems with ISO_C_BINDING
-!! BUT understand CRAY pointers
-!!   #define USE_CRAY_POINTER
-!!
 !! -------------------------------------------------------------------------
 !!
 !! The "namelist_output" module was originally written by Rainer
@@ -130,8 +126,7 @@ MODULE mo_name_list_output
     &                                     num_work_procs, p_pe, p_pe_work, p_work_pe0, p_io_pe0,    &
     &                                     p_max
   ! calendar operations
-  USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime,                &
-    &                                     PROLEPTIC_GREGORIAN, setCalendar, OPERATOR(-),            &
+  USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime, OPERATOR(-),   &
     &                                     timedelta, newTimedelta, deallocateTimedelta
   ! output scheduling
   USE mo_output_event_handler,      ONLY: is_output_step, check_open_file, check_close_file,        &
@@ -198,17 +193,18 @@ CONTAINS
 
     TYPE(t_output_file), INTENT(INOUT) :: of
     ! local variables:
-    CHARACTER(LEN=*), PARAMETER       :: routine = modname//"::open_output_file"
-    CHARACTER(LEN=filename_max)       :: filename, filename_for_append
-    CHARACTER(LEN=MAX_CHAR_LENGTH)    :: cdiErrorText
-    INTEGER :: tsID
-    LOGICAL :: lexist, lappend
+    CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::open_output_file"
+    CHARACTER(LEN=filename_max)    :: filename, filename_for_append
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
+    INTEGER                        :: tsID
+    LOGICAL                        :: lexist, lappend
  
     ! open/append file: as this is a preliminary solution only, I do not try to
     ! streamline the conditionals
-    filename = TRIM(get_current_filename(of%out_event))
+    filename            = TRIM(get_current_filename(of%out_event))
     filename_for_append = ''
-    lappend = .FALSE.
+    lappend             = .FALSE.
+
     ! check and reset filename, if data should be appended
     IF (split_output_filename(filename, filename_for_append, '_part_') > 0) THEN
       ! does the file to append to exist
@@ -217,37 +213,43 @@ CONTAINS
         ! store the orginal allocated vlist (the handlers different) for later use with new files
         of%cdiVlistID_orig = of%cdiVlistID
         of%cdiTaxisID_orig = of%cdiTaxisID
+
         ! open for append
-        of%cdiFileID = streamOpenAppend(TRIM(filename_for_append))
+        of%cdiFileID       = streamOpenAppend(TRIM(filename_for_append))
+
         ! inquire the opened file for its associated vlist
-        of%cdiVlistID = streamInqVlist(of%cdiFileID)
+        of%cdiVlistID      = streamInqVlist(of%cdiFileID)
+
         ! and time axis, the only components different to the previous model prepared vlist
-        of%cdiTaxisID = vlistInqTaxis(of%cdiVlistID)
+        of%cdiTaxisID      = vlistInqTaxis(of%cdiVlistID)
+
         ! get the already stored number of time steps
-        of%cdiTimeIndex = vlistNtsteps(of%cdiVlistID)
-        lappend = .TRUE.
-        of%appending = .TRUE.
+        of%cdiTimeIndex    = vlistNtsteps(of%cdiVlistID)
+        lappend            = .TRUE.
+        of%appending       = .TRUE.
       ELSE
         IF (of%appending) THEN
           ! restore model internal vlist and time axis handler association
-          of%cdiVlistID = of%cdiVlistID_orig
+          of%cdiVlistID      = of%cdiVlistID_orig
           of%cdiVlistID_orig = CDI_UNDEFID
-          of%cdiTaxisID = of%cdiTaxisID_orig
+          of%cdiTaxisID      = of%cdiTaxisID_orig
           of%cdiTaxisID_orig = CDI_UNDEFID
         ENDIF
-        of%cdiFileID = streamOpenWrite(TRIM(filename), of%output_type)
-        of%appending = .FALSE.
+        ! file to append to does not exist that means we can use the name without part trailer
+        filename = filename_for_append
+        of%cdiFileID       = streamOpenWrite(TRIM(filename), of%output_type)
+        of%appending       = .FALSE.
       ENDIF
     ELSE
-      if (of%appending) THEN
+      IF (of%appending) THEN
         ! restore model internal vlist and time axis handler association
-        of%cdiVlistID = of%cdiVlistID_orig
+        of%cdiVlistID      = of%cdiVlistID_orig
         of%cdiVlistID_orig = CDI_UNDEFID
-        of%cdiTaxisID = of%cdiTaxisID_orig
+        of%cdiTaxisID      = of%cdiTaxisID_orig
         of%cdiTaxisID_orig = CDI_UNDEFID
       ENDIF
-      of%cdiFileID = streamOpenWrite(TRIM(filename), of%output_type)
-      of%appending = .FALSE.
+        of%cdiFileID       = streamOpenWrite(TRIM(filename), of%output_type)
+        of%appending       = .FALSE.
     ENDIF
 
     IF (of%cdiFileID < 0) THEN
@@ -486,7 +488,6 @@ CONTAINS
       END IF
 
       IF (output_file(i)%io_proc_id == p_pe) THEN
-        CALL setCalendar(PROLEPTIC_GREGORIAN)
         ! convert time stamp string into
         ! year/month/day/hour/minute/second values using the mtime
         ! library:
@@ -610,8 +611,6 @@ CONTAINS
     TYPE(timedelta), POINTER            :: forecast_delta
     INTEGER                             :: iunit
     TYPE (t_keyword_list), POINTER      :: keywords     => NULL()
-
-    CALL setCalendar(PROLEPTIC_GREGORIAN)
 
     ! compute current forecast time (delta):
     mtime_date     => newDatetime(TRIM(get_current_date(ev)))

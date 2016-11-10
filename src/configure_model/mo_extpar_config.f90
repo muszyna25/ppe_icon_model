@@ -43,6 +43,7 @@ MODULE mo_extpar_config
   PUBLIC :: hgtdiff_max_smooth_topo
   PUBLIC :: l_emiss
   PUBLIC :: heightdiff_threshold
+  PUBLIC :: lrevert_sea_height
   PUBLIC :: extpar_filename
   PUBLIC :: extpar_varnames_map_file
   PUBLIC :: i_lctype
@@ -52,6 +53,8 @@ MODULE mo_extpar_config
   ! subroutines/functions
   PUBLIC :: generate_filename
   PUBLIC :: generate_td_filename
+
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_extpar_config'
 
 
   !>
@@ -71,6 +74,7 @@ MODULE mo_extpar_config
   REAL(wp) :: hgtdiff_max_smooth_topo(max_dom)
   LOGICAL  :: l_emiss     ! if true: read external emissivity map 
   REAL(wp) :: heightdiff_threshold(max_dom)
+  LOGICAL  :: lrevert_sea_height  ! if true: bring sea points back to original height
 
   ! ExtPar input filename, may contain keywords, by default
   ! extpar_filename = "<path>extpar_<gridfile>"
@@ -123,7 +127,7 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH)  :: syear,smonth, result_str
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-    &  routine = 'mo_td_ext_data:generate_td_filename:'
+    &  routine = modname//':generate_td_filename:'
 
     IF (PRESENT (year)) THEN
      WRITE(syear, '(i4.4)') year

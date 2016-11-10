@@ -1,3 +1,5 @@
+#ifndef __NO_ICON_OCEAN__
+
 !!
 !! Computes averages for output
 !!
@@ -258,3 +260,5 @@ CONTAINS
   
   
 END MODULE mo_hamocc_statistics
+
+#endif

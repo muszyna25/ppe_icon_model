@@ -29,7 +29,7 @@ MODULE mo_hs_test
 
   USE mo_kind,                ONLY: wp
   USE mo_physical_constants,  ONLY: rd, cpd, cvd
-  USE mo_datetime,            ONLY: rdaylen
+  USE mo_physical_constants,  ONLY: rdaylen
 
   IMPLICIT NONE
   PRIVATE

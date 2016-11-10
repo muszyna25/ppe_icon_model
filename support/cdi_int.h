@@ -2,7 +2,7 @@
 #define _CDI_INT_H
 
 #if defined (HAVE_CONFIG_H)
-#  include "config.h"
+#include "config.h"
 #endif
 
 #include <assert.h>
@@ -13,8 +13,12 @@
 #include <math.h>
 #include <sys/types.h>
 
+#include "cdi.h"
+
 /* dummy use of unused parameters to silence compiler warnings */
+#ifndef UNUSED
 #define  UNUSED(x) (void)x
+#endif
 
 #ifndef strdupx
 #ifndef strdup
@@ -26,7 +30,7 @@ char *strdup(const char *s);
 ({					      	  \
    const char *__old = (s);			  \
    size_t __len = strlen(__old) + 1;		  \
-   char *__new = (char *) malloc(__len);	  \
+   char *__new = (char *) Malloc(__len);	  \
    (char *) memcpy(__new, __old, __len);	  \
 })
 */
@@ -94,7 +98,6 @@ char *strdup(const char *s);
 #  define IS_EQUAL(x,y)     (!IS_NOT_EQUAL(x,y))
 #endif
 
-
 #define  FALSE  0
 #define  TRUE   1
 
@@ -138,35 +141,6 @@ typedef struct {
     attribute;
 } var_tile_t;
 
-static var_tile_t dummy_tiles = { -1, -1, -1, -1, -1 };
-
-/* No. of different constants in the enumeration
-   "subtype_attributes" */
-static const int nSubtypeAttributes = 6;
-
-enum {
-  /* subtype attributes wrt. TILES */
-  SUBTYPE_ATT_TILEINDEX                 = 0,
-  SUBTYPE_ATT_TOTALNO_OF_TILEATTR_PAIRS = 1,
-  SUBTYPE_ATT_TILE_CLASSIFICATION       = 2,
-  SUBTYPE_ATT_NUMBER_OF_TILES           = 3,
-  SUBTYPE_ATT_NUMBER_OF_ATTR            = 4,
-  SUBTYPE_ATT_TILEATTRIBUTE             = 5
-} subtype_attributes;
-
-
-/* Literal constants corresponding to the different constants of the
-   enumeration "subtype_attributes". */
-static const char* subtypeAttributeName[] = {
-  "tileIndex",
-  "totalNumberOfTileAttributePairs",
-  "tileClassification",
-  "numberOfTiles",
-  "numberOfTileAttributes",
-  "tileAttribute"
-};
-
-
 
 typedef struct
 {
@@ -177,7 +151,7 @@ typedef struct
   int       ilevel;
   int       ilevel2;
   int       ltype;
-  int       tsteptype;
+  short     tsteptype;
   short     used;
   short     varID;
   short     levelID;
@@ -189,8 +163,8 @@ record_t;
 
 typedef struct {
   record_t *records;
-  int       recordSize;  /* number of allocated records           */
   int      *recIDs;      /* IDs of non constant records           */
+  int       recordSize;  /* number of allocated records           */
   int       nrecs;       /* number of used records                */
                          /* tsID=0 nallrecs                       */
                          /* tsID>0 number of non constant records */
@@ -205,9 +179,9 @@ tsteps_t;
 
 typedef struct {
   int       nlevs;
+  int       subtypeIndex; /* corresponding tile in subtype_t structure (subtype->self) */
   int      *recordID;     /* record IDs: [nlevs] */
   int      *lindex;       /* level index */
-  int       subtypeIndex; /* corresponding tile in subtype_t structure (subtype->self) */
 } sleveltable_t;
 
 
@@ -243,12 +217,12 @@ typedef struct {
   int         byteorder;
   int         fileID;
   int         filemode;
+  int         nrecs;        /* number of records                  */
   off_t       numvals;
   char       *filename;
   Record     *record;
-  int         nrecs;        /* number of records                  */
-  int         nvars;        /* number of variables                */
   svarinfo_t *vars;
+  int         nvars;        /* number of variables                */
   int         varsAllocated;
   int         curTsID;      /* current timestep ID */
   int         rtsteps;      /* number of tsteps accessed       */
@@ -262,6 +236,7 @@ typedef struct {
   int         xdimID[MAX_GRIDS_PS];	//Warning: synchronous array to vlist_to_pointer(vlistID)->gridIDs
   int         ydimID[MAX_GRIDS_PS];	//Warning: synchronous array to vlist_to_pointer(vlistID)->gridIDs
   int         zaxisID[MAX_ZAXES_PS];	//Warning: synchronous array to vlist_to_pointer(vlistID)->zaxisIDs
+  int         nczvarID[MAX_ZAXES_PS];
   int         ncxvarID[MAX_GRIDS_PS];
   int         ncyvarID[MAX_GRIDS_PS];
   int         ncavarID[MAX_GRIDS_PS];
@@ -279,9 +254,6 @@ typedef struct {
 #else
   void       *gribContainers;
 #endif
-  int         vlistIDorig;
-  /* only used by MPI-parallelized version of library */
-  int       ownerRank;    // MPI rank of owner process
 
   void *gh; // grib handle
 }
@@ -291,8 +263,7 @@ stream_t;
 /* Length of optional keyword/value pair list */
 #define MAX_OPT_GRIB_ENTRIES 500
 
-
-#if  defined  (HAVE_LIBGRIB_API)
+enum cdi_convention {CDI_CONVENTION_ECHAM, CDI_CONVENTION_CF};
 
 /* Data type specification for optional key/value pairs (GRIB) */
 typedef enum {
@@ -311,18 +282,25 @@ typedef struct
   int                    subtype_index;  /* tile index for this key-value pair */
 } opt_key_val_pair_t;
 
-#endif
+//enum for differenciating between the different times that we handle
+typedef enum {
+  kCdiTimeType_referenceTime,
+  kCdiTimeType_startTime,
+  kCdiTimeType_endTime
+} CdiTimeType;
 
 
 
 
 extern int CDI_Debug;      /* If set to 1, debuggig (default 0)            */
+extern int CDI_Recopt;
 extern int cdiGribApiDebug;
 extern double cdiDefaultMissval;
 extern int cdiDefaultInstID;
 extern int cdiDefaultModelID;
 extern int cdiDefaultTableID;
 extern int cdiDefaultLeveltype;
+extern int cdiDefaultCalendar;
 //extern int cdiNcMissingValue;
 extern int cdiNcChunksizehint;
 extern int cdiChunkType;
@@ -330,6 +308,15 @@ extern int cdiSplitLtype105;
 extern int cdiDataUnreduced;
 extern int cdiSortName;
 extern int cdiHaveMissval;
+extern int cdiIgnoreAttCoordinates;
+extern int cdiIgnoreValidRange;
+extern int cdiSkipRecords;
+extern int cdiConvention;
+extern int cdiInventoryMode;
+extern int CDI_Version_Info;
+extern int CDI_cmor_mode;
+extern size_t CDI_netcdf_hdr_pad;
+extern bool CDI_netcdf_lazy_grid_load;
 extern int STREAM_Debug;
 
 
@@ -340,7 +327,7 @@ extern const resOps streamOps;
 static inline stream_t *
 stream_to_pointer(int idx)
 {
-  return reshGetVal(idx, &streamOps);
+  return (stream_t *)reshGetVal(idx, &streamOps);
 }
 
 static inline void
@@ -355,7 +342,7 @@ int     streamInqFileID(int streamID);
 void    gridDefHasDims(int gridID, int hasdims);
 int     gridInqHasDims(int gridID);
 const char *gridNamePtr(int gridtype);
-char   *zaxisNamePtr(int leveltype);
+const char   *zaxisNamePtr(int leveltype);
 int     zaxisInqLevelID(int zaxisID, double level);
 
 void    streamCheckID(const char *caller, int streamID);
@@ -364,7 +351,9 @@ void    streamDefineTaxis(int streamID);
 
 int     streamsNewEntry(int filetype);
 void    streamsInitEntry(int streamID);
-void    cdiStreamSetupVlist(stream_t *streamptr, int vlistID, int vlistIDorig);
+void    cdiStreamSetupVlist(stream_t *streamptr, int vlistID);
+/* default implementation of the overridable function */
+void    cdiStreamSetupVlist_(stream_t *streamptr, int vlistID);
 int     stream_new_var(stream_t *streamptr, int gridID, int zaxisID, int tilesetID);
 
 int     tstepsNewEntry(stream_t *streamptr);
@@ -392,16 +381,12 @@ int     cdiInqAccesstype(int streamID);
 
 int     getByteswap(int byteorder);
 
-int     streamSize ();
-void    streamGetIndexList ( int, int * );
-
+void cdiStreamGetIndexList(unsigned numIDs, int IDs[]);
 
 void  cdiInitialize(void);
 
-void uuid2str(const unsigned char *uuid, char *uuidstr);
-int str2uuid(const char *uuidstr, unsigned char *uuid);
-int cdiUUIDIsNull(const unsigned char* uuid);
-
+char *cdiEscapeSpaces(const char *string);
+char *cdiUnescapeSpaces(const char *string, const char **outStringEnd);
 
 #define CDI_UNIT_PA   1
 #define CDI_UNIT_HPA  2
@@ -412,25 +397,30 @@ int cdiUUIDIsNull(const unsigned char* uuid);
 
 struct streamAssoc
 {
-  int streamID, vlistID, vlistIDorig;
+  int streamID, vlistID;
 };
 
 struct streamAssoc
-streamUnpack(char * unpackBuffer, int unpackBufferSize,
-             int * unpackBufferPos, int originNamespace, void *context);
+streamUnpack(char *unpackBuffer, int unpackBufferSize,
+             int *unpackBufferPos, int originNamespace, void *context);
 
 int
-cdiStreamOpenDefaultDelegate(const char *filename, const char *filemode,
+cdiStreamOpenDefaultDelegate(const char *filename, char filemode,
                              int filetype, stream_t *streamptr,
                              int recordBufIsToBeCreated);
 
+int
+streamOpenID(const char *filename, char filemode, int filetype,
+             int resH);
+
 void
 cdiStreamDefVlist_(int streamID, int vlistID);
+
+int
+cdiStreamWriteVar_(int streamID, int varID, int memtype, const void *data, int nmiss);
+
 void
-cdiStreamWriteVar_(int streamID, int varID, int memtype, const void *data,
-                   int nmiss);
-void
-cdiStreamwriteVarChunk_(int streamID, int varID, int memtype,
+cdiStreamWriteVarChunk_(int streamID, int varID, int memtype,
                         const int rect[][2], const void *data, int nmiss);
 void
 cdiStreamCloseDefaultDelegate(stream_t *streamptr,
@@ -440,15 +430,34 @@ int cdiStreamDefTimestep_(stream_t *streamptr, int tsID);
 
 void cdiStreamSync_(stream_t *streamptr);
 
-char *cdiUnitNamePtr(int cdi_unit);
+const char *cdiUnitNamePtr(int cdi_unit);
+
+enum {
+  /* 8192 is known to work on most systems (4096 isn't on Alpha) */
+  commonPageSize = 8192,
+};
+
+size_t cdiGetPageSize(bool largePageAlign);
 
 void zaxisGetIndexList(int nzaxis, int *zaxisIndexList);
 
 void zaxisDefLtype2(int zaxisID, int ltype2);
 int  zaxisInqLtype2(int zaxisID);
 
-void streamFCopyRecord(stream_t *streamptr2, stream_t *streamptr1,
-                       const char *container_name);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// functions used in CDO !!!
+
+void cdiDefTableID(int tableID);
+
+void gridGenXvals(int xsize, double xfirst, double xlast, double xinc, double *xvals);
+void gridGenYvals(int gridtype, int ysize, double yfirst, double ylast, double yinc, double *yvals);
+
+#if defined (__cplusplus)
+}
+#endif
 
 #endif  /* _CDI_INT_H */
 /*

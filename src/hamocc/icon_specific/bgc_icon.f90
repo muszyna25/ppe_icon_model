@@ -1,3 +1,5 @@
+#ifndef __NO_ICON_OCEAN__
+
 !>
 !! @file bgc.f90
 !! @brief Main biogeochemical subroutine, called at each time step
@@ -265,3 +267,5 @@ ENDIF
   
 
 END SUBROUTINE 
+
+#endif
