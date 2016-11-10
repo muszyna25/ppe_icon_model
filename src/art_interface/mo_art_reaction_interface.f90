@@ -29,6 +29,9 @@ MODULE mo_art_reaction_interface
   USE mo_kind,                          ONLY: wp
   USE mo_exception,                     ONLY: finish
   USE mo_model_domain,                  ONLY: t_patch
+  USE mo_impl_constants,                ONLY: min_rlcell_int
+  USE mo_impl_constants_grf,            ONLY: grf_bdywidth_c
+  USE mo_loopindices,                   ONLY: get_indices_c
   USE mo_linked_list,                   ONLY: t_var_list
   USE mo_nonhydro_types,                ONLY: t_nh_diag
   USE mo_run_config,                    ONLY: lart
@@ -92,9 +95,14 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
   TYPE(t_nwp_phy_diag),OPTIONAL, INTENT(IN)  :: &
     &  prm_diag                          !< NH metrics state
 ! Local variables
-  REAL(wp), POINTER                 :: &
-    &  p_rho(:,:,:)                      !< density of air [kg/m3]
-  INTEGER  :: jg                         !< domain index
+  INTEGER                           :: &
+    &  jb,                             & !< loop index
+    &  jg,                             & !< domain index
+    &  i_startblk, i_endblk,           & !< Start and end of block loop
+    &  istart, iend,                   & !< Start and end of nproma loop
+    &  i_rlstart, i_rlend,             & !< Relaxation start and end
+    &  i_nchdom,                       & !< Number of child domains
+    &  nlev                              !< Number of levels (equals index of lowest full level)
 #ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: this_mode
 #endif
@@ -102,9 +110,17 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
   !-----------------------------------------------------------------------
  
 #ifdef __ICON_ART
-  jg  = p_patch%id
-  p_rho => p_prog%rho
   IF(lart) THEN
+
+    ! --- Get the loop indizes
+    i_nchdom   = MAX(1,p_patch%n_childdom)
+    jg         = p_patch%id
+    nlev       = p_patch%nlev
+    i_rlstart  = grf_bdywidth_c+1
+    i_rlend    = min_rlcell_int
+    i_startblk = p_patch%cells%start_blk(i_rlstart,1)
+    i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
+
     IF (art_config(jg)%lart_aerosol) THEN
       ! ----------------------------------
       ! --- Radioactive particles
@@ -113,10 +129,15 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
     
       DO WHILE(ASSOCIATED(this_mode))
         ! Select type of mode
-        select type (fields=>this_mode%fields)
-          type is (t_fields_radio)
-            CALL  art_decay_radioact(p_patch,p_dtime,tracer(:,:,:,fields%itr),fields%halflife) 
-        end select                  
+        SELECT TYPE (fields=>this_mode%fields)
+          TYPE IS (t_fields_radio)
+            DO jb = i_startblk, i_endblk
+              CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                &                istart, iend, i_rlstart, i_rlend)
+              CALL art_decay_radioact(p_dtime,istart,iend,nlev,     &
+                &                     fields%halflife,tracer(:,:,jb,fields%itr))
+            ENDDO
+        END SELECT
         this_mode => this_mode%next_mode
       END DO
     
@@ -149,7 +170,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
                  & p_prog_list,                       &
                  & p_prog,                            &
                  & p_diag,                            &
-                 & p_rho,                             &
+                 & p_prog%rho,                        &
                  & p_metrics,                         &
                  & tracer,                            &
                  & prm_diag = prm_diag                )
@@ -161,7 +182,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
                  & p_prog_list,                       &
                  & p_prog,                            &
                  & p_diag,                            &
-                 & p_rho,                             &
+                 & p_prog%rho,                        &
                  & p_metrics,                         &
                  & tracer                             )
           ENDIF
@@ -182,7 +203,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
                    & p_prog_list,                       &
                    & p_prog,                            &
                    & p_diag,                            &
-                   & p_rho,                             &
+                   & p_prog%rho,                        &
                    & p_metrics,                         &
                    & tracer,                            &
                    & prm_diag = prm_diag)
@@ -201,7 +222,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
                    & p_prog_list,                       &
                    & p_prog,                            &
                    & p_diag,                            &
-                   & p_rho,                             &
+                   & p_prog%rho,                        &
                    & p_metrics,                         &
                    & tracer)
             CALL art_loss_gasphase(ext_data,            &
