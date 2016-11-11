@@ -1,14 +1,16 @@
 SUBROUTINE lcariolle_init(                            &
          & open_file,        close_file,              &
          & read_3d_var,      read_1d_var,             &
-         & NCX,              nlev                     )
+         & get_constants,    NCX,                     &
+         & nlev                                       )
 USE mo_lcariolle_kind,         ONLY: wp,wi
 USE mo_lcariolle_types,        ONLY: nlatx,nlevx,nmonthx,pvi,avi
 IMPLICIT NONE
-INTEGER, EXTERNAL          :: open_file
+INTEGER, EXTERNAL            :: open_file
 EXTERNAL close_file, read_3d_var, read_1d_var
-INTEGER, INTENT(in)        :: NCX, nlev 
-INTEGER                 :: file_id
+REAL(wp),EXTERNAL            :: get_constants
+INTEGER, INTENT(in)          :: NCX, nlev 
+INTEGER                      :: file_id
 CHARACTER(LEN=17)            :: fname='cariolle_coeff.nc'
 REAL(wp)                     :: a_3d(nmonthx,nlevx,nlatx)
 REAL(wp)                     :: deg2rad
@@ -79,6 +81,7 @@ pvi%a7(0,:,:)      =pvi%a7(1,:,:)
 pvi%a7(nlatx+1,:,:)=pvi%a7(nlatx,:,:)
 pvi%a8(0,:,:)      =pvi%a8(1,:,:)
 pvi%a8(nlatx+1,:,:)=pvi%a8(nlatx,:,:)
+pvi%avogadro=get_constants('avogadro')
 ALLOCATE(avi%tmprt(NCX,nlev))
 ALLOCATE(avi%vmr2molm2(NCX,nlev))
 ALLOCATE(avi%pres(NCX,nlev))

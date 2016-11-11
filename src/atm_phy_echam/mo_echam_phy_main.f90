@@ -32,7 +32,7 @@ MODULE mo_echam_phy_main
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: grav, cpd, cpv, cvd, cvv, idaylen
 !++jsr
-  USE mo_physical_constants,  ONLY: amd,amo3,avo 
+  USE mo_physical_constants,  ONLY: amd,amo3 
 !--jsr
   USE mo_impl_constants,      ONLY: inh_atmosphere
   USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
@@ -1021,7 +1021,6 @@ CONTAINS
       avi%pres(jcs:jce,:)=field%presm_old(jcs:jce,:,jb)
       avi%cell_center_lat(jcs:jce)=p_patch(jg)%cells%center(jcs:jce,jb)%lat
       avi%lday(jcs:jce)=field%cosmu0(jcs:jce,jb)>1.e-3_wp
-      avi%avogadro=avo
       avi%ldown=.TRUE.
       current_time_interpolation_weights = calculate_time_interpolation_weights(this_datetime)
       time_interpolation%imonth1=current_time_interpolation_weights%month1_index

@@ -11,7 +11,6 @@ REAL(wp), POINTER :: pres(:,:)
 REAL(wp), POINTER :: o3_vmr(:,:)
 LOGICAL, POINTER  :: lday(:)
 REAL(wp), POINTER :: cell_center_lat(:)
-REAL(wp)          :: avogadro
 LOGICAL           :: ldown
 LOGICAL           :: l_initialized_o3=.FALSE.
 END type t_avi
@@ -24,6 +23,7 @@ REAL(wp)                                         :: plev(nlevx),   &
                                                   & rlat(0:nlatx+1)
 REAL(wp)          :: delta_lat
 LOGICAL           :: l_lat_sn
+REAL(wp)          :: avogadro
 END type t_pvi
 TYPE(t_pvi)       :: pvi
 TYPE t_time_interpolation

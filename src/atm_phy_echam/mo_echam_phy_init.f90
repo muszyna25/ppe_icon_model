@@ -102,7 +102,8 @@ MODULE mo_echam_phy_init
 !++jsr
   USE mo_lcariolle_externals,  ONLY: read_bcast_real_3d_wrap, &
                                    & read_bcast_real_1d_wrap, &
-                                   & closeFile_wrap, openInputFile_wrap
+                                   & closeFile_wrap, openInputFile_wrap, &
+                                   & get_constants
 !--jsr
   ! for aeorosols in simple plumes
   USE mo_bc_aeropt_splumes,    ONLY: setup_bc_aeropt_splumes
@@ -415,7 +416,8 @@ CONTAINS
       CALL lcariolle_init(                                     &
          & openInputFile_wrap,       closeFile_wrap,           &
          & read_bcast_real_3d_wrap,  read_bcast_real_1d_wrap,  &
-         & nproma,                   nlev                      )
+         & get_constants,            nproma,                   &
+         & nlev                                                )
     END IF
 !--jsr
 
