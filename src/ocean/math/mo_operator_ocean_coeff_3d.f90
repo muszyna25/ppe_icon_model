@@ -200,14 +200,17 @@ CONTAINS
       CALL finish(method_name, "planar_torus_geometry is not implemented yet")
     CASE (sphere_geometry)
       d_vector%x = y%x - x%x
+
     CASE ( planar_channel_geometry )
       d_vector%x = y%x - x%x
       channel_x_modulo = geometry_info%domain_length / geometry_info%sphere_radius
       IF (ABS(d_vector%x(1)) > channel_x_modulo  * 0.5_wp) THEN
         d_vector%x(1) = SIGN(1.0_wp, d_vector%x(1)) * (ABS(d_vector%x(1)) - channel_x_modulo)
       ENDIF
+
     CASE ( planar_geometry )
       d_vector%x = y%x - x%x
+
     CASE DEFAULT
       CALL finish(method_name, "Undefined geometry type")
     END SELECT
@@ -1271,6 +1274,8 @@ CONTAINS
             fixed_vol_norm(cell_index,cell_block) = &
               & fixed_vol_norm(cell_index,cell_block) + &
               & 0.5_wp * norm * prime_edge_length(edge_index,edge_block)
+
+
 
 !             variable_vol_norm(cell_index, cell_block, neigbor) = &
 !               & 0.5_wp * norm * prime_edge_length(edge_index,edge_block)

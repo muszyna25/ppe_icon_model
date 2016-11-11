@@ -220,38 +220,6 @@ CONTAINS
     slopes          => ocean_state%p_aux%slopes 
 
 
-    !1) calculation of horizontal gradient for potential temperature and salinity
-!ICON_OMP_PARALLEL
-!ICON_OMP_DO PRIVATE(start_edge_index,end_edge_index) ICON_OMP_DEFAULT_SCHEDULE
-    DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
-      CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
-
-      nabla_T_horz(:,:,blockNo) = 0.0_wp
-      !1a) calculate horizontal gradient of temperature
-      CALL grad_fd_norm_oce_3d_onBlock ( &
-        & ocean_state%p_prog(nold(1))%ocean_tracers(1)%concentration, &
-        & patch_3D,                           &
-        & op_coeff%grad_coeff(:,:,blockNo), &
-        & nabla_T_horz(:,:,blockNo),           &
-        & start_edge_index, end_edge_index, blockNo)
-
-     !1b)calculate horizontal  gradient of salinity
-      IF(no_tracer>=2)THEN
-        nabla_S_horz(:,:,blockNo) = 0.0_wp
-        CALL grad_fd_norm_oce_3d_onBlock ( &
-          & ocean_state%p_prog(nold(1))%ocean_tracers(2)%concentration, &
-          & patch_3D,                    &
-          & op_coeff%grad_coeff(:,:,blockNo), &
-          & nabla_S_horz(:,:,blockNo),           &
-          & start_edge_index, end_edge_index, blockNo)
-     ENDIF
-    END DO ! blocks
-!ICON_OMP_END_DO
-
-
-
-
-    
     start_level=1
     IF(TEST_MODE_REDI_ONLY.OR.TEST_MODE_GM_ONLY)THEN
       CALL selective_GMRedi(patch_3d, ocean_state, param, &
@@ -357,52 +325,6 @@ CONTAINS
         & flux_vec_horz_center(:,:,:)%x(1), flux_vec_horz_center(:,:,:)%x(2), flux_vec_horz_center(:,:,:)%x(3))
     !    
     CALL map_cell2edges_3D( patch_3D,flux_vec_horz_center, GMredi_flux_horz, op_coeff)
-
-
-
-!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
-!      DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
-!        CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
-!        DO je = start_edge_index, end_edge_index
-!DIR$ SIMD
-!          DO level = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
-!            GMredi_flux_horz(je,level,blockNo)= GMredi_flux_horz(je,level,blockNo)!&
-!            !&*patch_3d%p_patch_1d(1)%prism_thick_e(je,level,blockNo)
-!          END DO
-!        ENDDO
-!      END DO
-!ICON_OMP_END_PARALLEL_DO
-
-!IF(tracer_index==1)THEN
-!!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
-!
-!       DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
-!         CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
-!         DO je = start_edge_index, end_edge_index
-!!DIR$ SIMD
-!           DO level = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
-!             GMredi_flux_horz(je,level,blockNo)=&
-!             60_wp*nabla_T_horz(je,level,blockNo)
-!           END DO
-!         ENDDO
-!       END DO
-!!ICON_OMP_END_PARALLEL_DO
-!ELSEIF(tracer_index==2)THEN
-!!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
-!
-!       DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
-!         CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
-!         DO je = start_edge_index, end_edge_index
-!!DIR$ SIMD
-!           DO level = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
-!             GMredi_flux_horz(je,level,blockNo)=&
-!             &60_wp*nabla_S_horz(je,level,blockNo)
-!           END DO
-!         ENDDO
-!       END DO
-!!ICON_OMP_END_PARALLEL_DO
-!ENDIF
-
 
 
     !Map the (explicit) vertical tracer flux to the prsim top (where the vertical divergence is calculated later)
@@ -619,12 +541,6 @@ CONTAINS
     END DO ! blocks
 !ICON_OMP_END_DO
 
-!     CALL sync_patch_array(sync_e, patch_2D, grad_T_horz)
-!     IF(no_tracer>=2)   CALL sync_patch_array(sync_e, patch_2D, grad_S_horz)
-
-
-
-
 
     !---------------------------------------------------------------------
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index) ICON_OMP_DEFAULT_SCHEDULE
@@ -718,16 +634,8 @@ CONTAINS
     
     ENDIF    
         
-!     CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_aux%DerivTemperature_vert_center(:,:,:))
-
-!     CALL sync_patch_array(sync_c, patch_2D, grad_T_vec(:,:,:)%x(1))
-!     CALL sync_patch_array(sync_c, patch_2D, grad_T_vec(:,:,:)%x(2))
-!     CALL sync_patch_array(sync_c, patch_2D, grad_T_vec(:,:,:)%x(3))
        
     IF((no_tracer>=2))THEN        
-!       CALL sync_patch_array(sync_c, patch_2D, grad_S_vec(:,:,:)%x(1))
-!       CALL sync_patch_array(sync_c, patch_2D, grad_S_vec(:,:,:)%x(2))
-!       CALL sync_patch_array(sync_c, patch_2D, grad_S_vec(:,:,:)%x(3))
       
       CALL map_edges2cell_3d(patch_3D,  &      
           & grad_S_horz,                &
@@ -1219,7 +1127,7 @@ CONTAINS
 
                 ocean_state%p_aux%taper_function_1(cell_index,level,blockNo) &
                   &= 0.5_wp*(1.0_wp + tanh((cell_critical_slope - slope_abs)*inv_S_d))
-!write(123,*)'inside tapering',level,ocean_state%p_aux%taper_function_1(cell_index,level,blockNo),slope_abs              
+
               ELSE
                 ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)=0.0_wp
               ENDIF
@@ -1262,12 +1170,6 @@ CONTAINS
 !ICON_OMP_END_DO
     ENDIF !GMRedi_usesRelativeMaxSlopes
 
-!     CALL sync_patch_array(sync_c, patch_2D,ocean_state%p_aux%taper_function_1)
-! Do level=1,n_zlev
-! write(*,*)'max-min taper 1',maxval( ocean_state%p_aux%taper_function_1(:,level,:)),&
-! &minval( ocean_state%p_aux%taper_function_1(:,level,:))     
-! End do
-!stop
     !tapering schemes other than Danabasoglu-McWilliams require a second
     !tapering function
     IF(tapering_scheme/=tapering_DanaMcWilliams)THEN
