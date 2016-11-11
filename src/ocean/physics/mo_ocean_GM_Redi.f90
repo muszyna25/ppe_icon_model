@@ -451,9 +451,9 @@ CONTAINS
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)      
         DO cell_index = start_cell_index, end_cell_index
           DO level = start_level, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
-            param%a_tracer_v(cell_index,level,blockNo, tracer_index) = !0.0_wp!  &
+            param%a_tracer_v(cell_index,level,blockNo, tracer_index) = 0.0_wp!  &
              !& param%a_tracer_v(cell_index,level,blockNo, tracer_index) + &
-             & ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit(cell_index,level,blockNo)
+             !& ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit(cell_index,level,blockNo)
           END DO                  
         END DO                
       END DO
