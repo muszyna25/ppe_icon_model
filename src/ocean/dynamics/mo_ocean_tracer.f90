@@ -535,26 +535,37 @@ CONTAINS
             level=1
             delta_z     = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nold(1))%h(jc,jb)
             delta_z_new = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nnew(1))%h(jc,jb)
-            
+
+            !This contains the divergence of the diffusive temperature fluxes,
+            !either due to the GMRedi-scheme or due to the cartesian mixing  
+            !The implicit contribution is not included.               
             p_os%p_diag%opottempGMRedi(jc,level,jb)&
-            &=delta_t*(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z_new
-!           !& * patch_3D%p_patch_1d(1)%prism_thick_c(jc,level,jb)&
-!           !& * clw *rho_ref
+            &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))
+            !& * clw *rho_ref
 
+            !This contains sum of advective and diffusive fluxes, i.e the whole tendency,
+            !except for the implicit contribution.
+            !This is overwritten each time a new tracer is calculated
             p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
-            &=delta_t*(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z_new
-
+            &=-(div_adv_flux_horz(jc,level,jb) +div_adv_flux_vert(jc,level,jb)&
+            & - div_diff_flux_horz(jc,level,jb)-div_diff_flx_vert(jc,level,jb))
+            
             DO level = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-        
-              delta_z = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)
- 
-              p_os%p_diag%opottempGMRedi(jc,level,jb)&
-              &=delta_t*(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z
-!             !& * patch_3D%p_patch_1d(1)%prism_thick_c(jc,level,jb)&
-!             !& * clw *rho_ref
 
+              !This contains the divergence of the diffusive temperature fluxes,
+              !either due to the GMRedi-scheme or due to the cartesian mixing  
+              !The implicit contribution is not included.   
+              p_os%p_diag%opottempGMRedi(jc,level,jb)&
+              &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))
+              !& * clw *rho_ref
+        
+             !This contains sum of advective and diffusive fluxes, i.e the whole tendency,
+             !except for the implicit contribution.
+             !This is overwritten each time a new tracer is calculated
               p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
-              &=delta_t*(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z
+              &=-(div_adv_flux_horz(jc,level,jb) +div_adv_flux_vert(jc,level,jb)&
+              & - div_diff_flux_horz(jc,level,jb)-div_diff_flx_vert(jc,level,jb))
+
             ENDDO
           END DO
         END DO
@@ -578,24 +589,36 @@ CONTAINS
             !top level
             level=1
             delta_z     = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nold(1))%h(jc,jb)
-            delta_z_new = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nnew(1))%h(jc,jb)  
-                     
+            delta_z_new = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nnew(1))%h(jc,jb)
+              
+            !This contains the divergence of the diffusive temperature fluxes,
+            !either due to the GMRedi-scheme or due to the cartesian mixing   
+            !The implicit contribution is not included.                         
             p_os%p_diag%osaltGMRedi(jc,level,jb)&
-            &=delta_t*(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z_new
-
+            &=-(div_adv_flux_horz(jc,level,jb) +div_adv_flux_vert(jc,level,jb)&
+            &  - div_diff_flux_horz(jc,level,jb)-div_diff_flx_vert(jc,level,jb))
+                     
+            !This contains sum of advective and diffusive fluxes, i.e the whole tendency,
+            !except for the implicit contribution.
+            !This is overwritten each time a new tracer is calculated
             p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
-            &=delta_t*(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z_new 
+            &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))
 
         
             DO level = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
         
-              delta_z = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)
- 
+              !This contains the divergence of the diffusive temperature fluxes,
+              !either due to the GMRedi-scheme or due to the cartesian mixing.
+              !The implicit contribution is not included.   
               p_os%p_diag%osaltGMRedi(jc,level,jb)&
-              &=delta_t*(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z
+              &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))
 
+             !This contains sum of advective and diffusive fluxes, i.e the whole tendency,
+             !except for the implicit contribution.
+             !This is overwritten each time a new tracer is calculated
               p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
-              &=delta_t*(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z
+              &=-(div_adv_flux_horz(jc,level,jb) +div_adv_flux_vert(jc,level,jb)&
+              & - div_diff_flux_horz(jc,level,jb)-div_diff_flx_vert(jc,level,jb))
 
             ENDDO
           END DO
@@ -630,9 +653,6 @@ CONTAINS
         !TODO check algorithm: inv_prism_thick_c vs. del_zlev_m | * vs. /
         DO level = 1, MIN(patch_3d%p_patch_1d(1)%dolic_c(jc,jb),1)  ! this at most should be 1
 
-          !delta_z     = patch_3d%p_patch_1d(1)%del_zlev_m(level) + p_os%p_prog(nold(1))%h(jc,jb)
-          !delta_z_new = patch_3d%p_patch_1d(1)%del_zlev_m(level) + p_os%p_prog(nnew(1))%h(jc,jb)
-          !  not yet changed
           delta_z     = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nold(1))%h(jc,jb)
           delta_z_new = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb)+p_os%p_prog(nnew(1))%h(jc,jb)
 
@@ -646,6 +666,15 @@ CONTAINS
           new_ocean_tracer%concentration(jc,level,jb) =         &
             & ( new_ocean_tracer%concentration(jc,level,jb) +   &
             & (delta_t  / delta_z_new) * bc_top_tracer(jc,jb))
+            
+            
+          !p_os%p_diag%osaltGMRedi(jc,level,jb)&
+          !&= (new_ocean_tracer%concentration(jc,level,jb)- old_ocean_tracer%concentration(jc,level,jb))*delta_z/delta_t
+          
+          !p_os%p_diag%opottempGMRedi(jc,level,jb)=-(div_adv_flux_horz(jc,level,jb) +div_adv_flux_vert(jc,level,jb)&
+          !  &  - div_diff_flux_horz(jc,level,jb)-div_diff_flx_vert(jc,level,jb))
+          
+
 
         ENDDO
 
@@ -657,12 +686,12 @@ CONTAINS
             & * (div_adv_flux_horz(jc,level,jb) +div_adv_flux_vert(jc,level,jb)&
             &  - div_diff_flux_horz(jc,level,jb)-div_diff_flx_vert(jc,level,jb))
 
-          !   test
-          !   IF( delta_z/= delta_z1)THEN
-          !     write(0,*)'no agreement',level,jc,jb,&
-          !     &patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,jb), patch_3d%p_patch_1D(1)%del_zlev_m(level)
-          !     &patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb), patch_3d%p_patch_1D(1)%del_zlev_m(level)
-          !   ENDIF
+          !p_os%p_diag%osaltGMRedi(jc,level,jb)&
+          !&= (new_ocean_tracer%concentration(jc,level,jb)- old_ocean_tracer%concentration(jc,level,jb))*&
+          !&patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb)/delta_t
+                   
+          !p_os%p_diag%opottempGMRedi(jc,level,jb)=-(div_adv_flux_horz(jc,level,jb) +div_adv_flux_vert(jc,level,jb)&
+          !  &  - div_diff_flux_horz(jc,level,jb)-div_diff_flx_vert(jc,level,jb))
 
         ENDDO
 
@@ -767,7 +796,9 @@ CONTAINS
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     CALL dbg_print('aft. AdvIndivTrac: trac_old', trac_old, str_module, 3, in_subset=cells_in_domain)
     CALL dbg_print('aft. AdvIndivTrac: trac_new', trac_new, str_module, 3, in_subset=cells_in_domain)
-    CALL dbg_print('aft. AdvIndivTrac: trac chg', trac_new-trac_old, str_module, 3, in_subset=cells_in_domain)
+    DO level=1,n_zlev
+    CALL dbg_print('aft. AdvIndivTrac: trac chg', trac_new(:,level,:)-trac_old(:,level,:), str_module, 3, in_subset=cells_in_domain)
+    END DO
     !---------------------------------------------------------------------
   
 

@@ -689,11 +689,11 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_patch), POINTER :: patch_2d
     !-----------------------------------------------------------------------
-     IF (no_primal_edges == 3) THEN
-       CALL map_edges2cell_no_height_3d_onTriangles( patch_3d, vn_e, operators_coefficients, p_vn_c, opt_startLevel, &
-         & opt_endLevel, subset_range)
-       RETURN
-     ENDIF
+ !    IF (no_primal_edges == 3) THEN
+ !      CALL map_edges2cell_no_height_3d_onTriangles( patch_3d, vn_e, operators_coefficients, p_vn_c, opt_startLevel, &
+ !        & opt_endLevel, subset_range)
+ !      RETURN
+ !    ENDIF
     !-----------------------------------------------------------------------
     patch_2d   => patch_3d%p_patch_2d(1)
     !-----------------------------------------------------------------------
@@ -949,7 +949,8 @@ CONTAINS
       END DO  cell_idx_loop
       
     END DO ! blockNo = all_cells%start_block, all_cells%end_block
-
+! CALL dbg_print('thick_e', patch_3d%p_patch_1d(1)%prism_thick_e, &
+!       & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%edges%owned)
 !     CALL dbg_print('x(1)', p_vn_c(:,:,:)%x(1), &
 !       & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
 !     CALL dbg_print('x(2)', p_vn_c(:,:,:)%x(2), &

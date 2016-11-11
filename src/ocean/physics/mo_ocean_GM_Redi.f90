@@ -208,13 +208,48 @@ CONTAINS
     REAL(wp)                                 :: taper_diagonal_horz(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp)                                 :: taper_diagonal_vert_expl(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)    
     REAL(wp)                                 :: taper_diagonal_vert_impl(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)            
-    REAL(wp) :: mapped_vertical_diagonal_impl(nproma,n_zlev+1,patch_3D%p_patch_2D(1)%alloc_cell_blocks)         
+    REAL(wp) :: mapped_vertical_diagonal_impl(nproma,n_zlev+1,patch_3D%p_patch_2D(1)%alloc_cell_blocks)      
+    
+    REAL(wp) :: nabla_T_horz(nproma, n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
+    REAL(wp) :: nabla_S_horz(nproma, n_zlev,patch_3D%p_patch_2d(1)%nblks_e)   
     !-------------------------------------------------------------------------------
     patch_2D        => patch_3d%p_patch_2d(1)
     cells_in_domain => patch_2D%cells%in_domain 
     all_cells       => patch_2D%cells%all
     edges_in_domain => patch_2D%edges%in_domain 
     slopes          => ocean_state%p_aux%slopes 
+
+
+    !1) calculation of horizontal gradient for potential temperature and salinity
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_edge_index,end_edge_index) ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
+
+      nabla_T_horz(:,:,blockNo) = 0.0_wp
+      !1a) calculate horizontal gradient of temperature
+      CALL grad_fd_norm_oce_3d_onBlock ( &
+        & ocean_state%p_prog(nold(1))%ocean_tracers(1)%concentration, &
+        & patch_3D,                           &
+        & op_coeff%grad_coeff(:,:,blockNo), &
+        & nabla_T_horz(:,:,blockNo),           &
+        & start_edge_index, end_edge_index, blockNo)
+
+     !1b)calculate horizontal  gradient of salinity
+      IF(no_tracer>=2)THEN
+        nabla_S_horz(:,:,blockNo) = 0.0_wp
+        CALL grad_fd_norm_oce_3d_onBlock ( &
+          & ocean_state%p_prog(nold(1))%ocean_tracers(2)%concentration, &
+          & patch_3D,                    &
+          & op_coeff%grad_coeff(:,:,blockNo), &
+          & nabla_S_horz(:,:,blockNo),           &
+          & start_edge_index, end_edge_index, blockNo)
+     ENDIF
+    END DO ! blocks
+!ICON_OMP_END_DO
+
+
+
 
     
     start_level=1
@@ -304,9 +339,9 @@ CONTAINS
           &Dot_Product(tracer_gradient_horz_vec_center(cell_index,level,blockNo)%x,&
           &            taper_off_diagonal_vert(cell_index,level,blockNo)%x)
           
-          flux_vert_center(cell_index,level,blockNo)&
-          &= flux_vert_center(cell_index,level,blockNo)&
-          &*patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(cell_index,level,blockNo)
+          !flux_vert_center(cell_index,level,blockNo)&
+          !&= flux_vert_center(cell_index,level,blockNo)&
+          !&*patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(cell_index,level,blockNo)
                 
         END DO
 
@@ -323,18 +358,50 @@ CONTAINS
     !    
     CALL map_cell2edges_3D( patch_3D,flux_vec_horz_center, GMredi_flux_horz, op_coeff)
 
+
+
 !ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
-       DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
-         CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
-         DO je = start_edge_index, end_edge_index
+!      DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+!        CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
+!        DO je = start_edge_index, end_edge_index
 !DIR$ SIMD
-           DO level = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
-             GMredi_flux_horz(je,level,blockNo)=GMredi_flux_horz(je,level,blockNo)&
-             &*patch_3d%p_patch_1d(1)%prism_thick_e(je,level,blockNo)
-           END DO
-         ENDDO
-       END DO
+!          DO level = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
+!            GMredi_flux_horz(je,level,blockNo)= GMredi_flux_horz(je,level,blockNo)!&
+!            !&*patch_3d%p_patch_1d(1)%prism_thick_e(je,level,blockNo)
+!          END DO
+!        ENDDO
+!      END DO
 !ICON_OMP_END_PARALLEL_DO
+
+!IF(tracer_index==1)THEN
+!!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
+!
+!       DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+!         CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
+!         DO je = start_edge_index, end_edge_index
+!!DIR$ SIMD
+!           DO level = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
+!             GMredi_flux_horz(je,level,blockNo)=&
+!             60_wp*nabla_T_horz(je,level,blockNo)
+!           END DO
+!         ENDDO
+!       END DO
+!!ICON_OMP_END_PARALLEL_DO
+!ELSEIF(tracer_index==2)THEN
+!!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
+!
+!       DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+!         CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
+!         DO je = start_edge_index, end_edge_index
+!!DIR$ SIMD
+!           DO level = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
+!             GMredi_flux_horz(je,level,blockNo)=&
+!             &60_wp*nabla_S_horz(je,level,blockNo)
+!           END DO
+!         ENDDO
+!       END DO
+!!ICON_OMP_END_PARALLEL_DO
+!ENDIF
 
 
 
@@ -384,9 +451,9 @@ CONTAINS
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)      
         DO cell_index = start_cell_index, end_cell_index
           DO level = start_level, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
-            param%a_tracer_v(cell_index,level,blockNo, tracer_index) = 0.0_wp!  &
+            param%a_tracer_v(cell_index,level,blockNo, tracer_index) = !0.0_wp!  &
              !& param%a_tracer_v(cell_index,level,blockNo, tracer_index) + &
-             !& ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit(cell_index,level,blockNo)
+             & ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit(cell_index,level,blockNo)
           END DO                  
         END DO                
       END DO
@@ -555,6 +622,10 @@ CONTAINS
 !     CALL sync_patch_array(sync_e, patch_2D, grad_T_horz)
 !     IF(no_tracer>=2)   CALL sync_patch_array(sync_e, patch_2D, grad_S_horz)
 
+
+
+
+
     !---------------------------------------------------------------------
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index) ICON_OMP_DEFAULT_SCHEDULE
  
@@ -627,7 +698,6 @@ CONTAINS
   !---------------------------------------------------------------------   
    
     !2) map horizontal and vertial derivative to cell centered vector
-    !CALL map_edges2cell_with_height_3d(patch_3D,  &
     CALL map_edges2cell_3d(patch_3D,  &
         & grad_T_horz,                &
         & op_coeff,                   &
@@ -659,7 +729,6 @@ CONTAINS
 !       CALL sync_patch_array(sync_c, patch_2D, grad_S_vec(:,:,:)%x(2))
 !       CALL sync_patch_array(sync_c, patch_2D, grad_S_vec(:,:,:)%x(3))
       
-      !CALL map_edges2cell_with_height_3d(patch_3D,  &
       CALL map_edges2cell_3d(patch_3D,  &      
           & grad_S_horz,                &
           & op_coeff,                   &
@@ -678,6 +747,7 @@ CONTAINS
     ENDIF              
     ENDIF
     IF(.NOT.SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN
+
       CALL map_edges2cell_3d(patch_3D,  &      
           & grad_rho_GM_horz,           &
           & op_coeff,                   &
@@ -745,7 +815,7 @@ CONTAINS
              & sqrt(ocean_state%p_aux%slopes_drdx(cell_index,level,blockNo))
 
            ocean_state%p_aux%slopes_drdz(cell_index,level,blockNo)=&
-                 & (-neutral_coeff(level,1) * grad_T_vert_center(cell_index,level,blockNo)+ &
+                 & -(-neutral_coeff(level,1) * grad_T_vert_center(cell_index,level,blockNo)+ &
                  &      neutral_coeff(level,2) * grad_S_vert_center(cell_index,level,blockNo))
               
                   ocean_state%p_aux%slopes(cell_index,level,blockNo)%x &
@@ -873,9 +943,21 @@ CONTAINS
    DO level=1,n_zlev
      CALL dbg_print('calc_slopes: slobe abs',sqrt(ocean_state%p_aux%slopes_squared(:,level,:)),&
        & str_module,idt_src, in_subset=cells_in_domain)
+       
   END DO
-!stop
-  !---------------------------------------------------------------------
+
+   DO level=1,n_zlev       
+       CALL dbg_print('calc_slopes: slopes dz',ocean_state%p_aux%slopes_drdz(:,level,:),&
+       & str_module,idt_src, in_subset=cells_in_domain)
+  END DO
+
+
+   DO level=1,n_zlev       
+       CALL dbg_print('calc_slopes: slopes dx',ocean_state%p_aux%slopes_drdx(:,level,:),&
+       & str_module,idt_src, in_subset=cells_in_domain)
+  END DO
+  
+   !---------------------------------------------------------------------
 
  !  DO level= 1, n_zlev  
  !  write(0,*)'max-min vert deriv',level,maxval(grad_T_vert_center(:,level,:)),&
