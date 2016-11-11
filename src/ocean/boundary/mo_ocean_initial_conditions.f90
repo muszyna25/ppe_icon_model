@@ -355,7 +355,11 @@ CONTAINS
 
     !------------------------------
     CASE (228)
-      CALL salinity_GM_idealized(patch_3d,ocean_salinity)  
+      CALL salinity_GM_idealized(patch_3d,ocean_salinity) 
+
+    CASE (229)
+      CALL salinity_GM_idealized2(patch_3d,ocean_salinity)  
+
 
     CASE (300)
       CALL tracer_bubble(patch_3d, ocean_salinity ,initial_salinity_top, initial_salinity_bottom)
@@ -621,6 +625,9 @@ CONTAINS
       
     CASE(228)
       CALL temperature_GM_idealized(patch_3d,ocean_temperature)  
+
+    CASE(229)
+      CALL temperature_GM_idealized2(patch_3d,ocean_temperature)  
 
     CASE(300)
      CALL message(TRIM(method_name), 'Temperature Kelvin-Helmholtz Test ')
@@ -4234,6 +4241,140 @@ write(123,*)'perturb',max_perturbation*EXP(-(distan/(perturbation_width*deg2rad)
    END SUBROUTINE salinity_GM_idealized
   !-------------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------------
+  SUBROUTINE temperature_GM_idealized2(patch_3d, ocean_temperature)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_temperature(:,:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: BLOCK, idx, level, ll
+    INTEGER :: start_cell_index, end_cell_index
+    INTEGER :: levels
+    REAL(wp):: lat_deg!, lon_deg, z_tmp
+    ! REAL(wp):: perturbation_lat, perturbation_lon,  z_ltrop, z_lpol
+    ! REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_tpols
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':temperature_GM_idealized'
+    !-------------------------------------------------------------------------
+    REAL(wp) :: delta_t_back, north, south
+
+    ! initialisation with stable background stratification and a latitude dependend t and/or s  anomaly
+
+    delta_t_back=1.0_wp ! increase per level
+
+    north=45.0_wp
+    south=-45.0_wp
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    cell_center => patch_2d%cells%center
+
+    CALL message(TRIM(method_name), ': Collapsing density front, Stuhne-Peltier')
+
+    DO block = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
+      DO idx = start_cell_index, end_cell_index
+
+        !transer to latitude in degrees
+        lat_deg = cell_center(idx,block)%lat * rad2deg
+        !Impose emperature profile. Profile
+        !depends on latitude only and is uniform across
+        !all vertical layers
+        DO level = 1, n_zlev
+
+          ll=n_zlev+1-level
+
+          ocean_temperature(idx,level,BLOCK)=0.0_wp
+          IF (lat_deg < south) THEN
+
+            ocean_temperature(idx,level,BLOCK) =0.0  + delta_t_back*ll
+
+          ELSEIF(lat_deg > north) THEN
+
+            ocean_temperature(idx,level,BLOCK) =0.0  + delta_t_back*ll
+
+          ELSEIF(lat_deg <= north .AND. lat_deg >= south) THEN
+
+            ocean_temperature(idx,level,BLOCK) =0.0  + delta_t_back*ll
+
+          ENDIF
+
+        END DO
+      END DO
+    END DO
+
+   END SUBROUTINE temperature_GM_idealized2
+  !-------------------------------------------------------------------------------
+
+  SUBROUTINE salinity_GM_idealized2(patch_3d, ocean_salinity)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
+    REAL(wp), TARGET :: ocean_salinity(:,:,:)
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_geographical_coordinates), POINTER :: cell_center(:,:)
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    INTEGER :: BLOCK, idx, level, ll
+    INTEGER :: start_cell_index, end_cell_index
+    INTEGER :: levels
+    REAL(wp):: lat_deg!, lon_deg, z_tmp
+    ! REAL(wp):: perturbation_lat, perturbation_lon,  z_ltrop, z_lpol
+    ! REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_tpols
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':salinity_GM_idealized'
+    !-------------------------------------------------------------------------
+    REAL(wp) :: north, south, sano, scal
+
+    ! initialisation with stable background stratification and a latitude dependend t and/or s  anomaly
+
+    sano=0.1
+    north=45.0_wp
+    south=-45.0_wp
+
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+    cell_center => patch_2d%cells%center
+
+    CALL message(TRIM(method_name), ': Collapsing density front, Stuhne-Peltier')
+
+    DO block = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
+      DO idx = start_cell_index, end_cell_index
+
+        !transer to latitude in degrees
+        lat_deg = cell_center(idx,block)%lat * rad2deg
+        !Impose emperature profile. Profile
+        !depends on latitude only and is uniform across
+        !all vertical layers
+        DO level = 1, n_zlev
+
+          ll=n_zlev+1-level
+
+          ocean_salinity(idx,level,BLOCK)=0.0_wp
+          IF (lat_deg < south) THEN
+
+            ocean_salinity(idx,level,BLOCK) =35.0_wp
+
+          ELSEIF(lat_deg > north) THEN
+
+            ocean_salinity(idx,level,BLOCK) =35.0_wp + sano
+
+          ELSEIF(lat_deg <= north .AND. lat_deg >= south) THEN
+
+            scal=(north - lat_deg) / (north - south)
+            ocean_salinity(idx,level,BLOCK) =  35.0_wp + sano - scal*sano
+
+          ENDIF
+
+        END DO
+      END DO
+    END DO
+
+   END SUBROUTINE salinity_GM_idealized2
+  !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
   SUBROUTINE salinity_AnalyticSmoothVerticalProfile(patch_3d, ocean_salinity)
