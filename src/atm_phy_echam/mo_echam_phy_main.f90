@@ -517,7 +517,7 @@ CONTAINS
 
     field%vissfc   (jcs:jce,jb) = field%rsns(jcs:jce,jb) * field%visfrcsfc   (jcs:jce,jb)
     field%nirsfc   (jcs:jce,jb) = field%rsns(jcs:jce,jb) - field%vissfc      (jcs:jce,jb)
-    field%parsfcdn (jcs:jce,jb) = field%rsdt(jcs:jce,jb) * field%partrmdnsfc (jcs:jce,jb)
+    field%parsfcdn (jcs:jce,jb) = field%partrmdnsfc (jcs:jce,jb)
 
     !-------------------------------------------------------------------
     ! 5. BOUNDARY LAYER AND SURFACE PROCESSES
