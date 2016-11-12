@@ -423,9 +423,9 @@ MODULE mo_ocean_nml
   LOGICAL            :: REVERT_VERTICAL_RECON_AND_TRANSPOSED=.FALSE.  
   !Parameters for tapering schemes
   LOGICAL  :: GMRedi_usesRelativeMaxSlopes = .true. ! the slopes are defined relatively the the grid slopes: dz/dx
-  REAL(wp) :: S_max      = 8.0_wp                   !maximally allowed slope
-  REAL(wp) :: S_critical = 2.5_wp                   !critical value at which tapering reduces slope by 50%
-  REAL(wp) :: S_d        = 0.2_wp                   !width of transition zone from untapered to tapered
+  REAL(wp) :: S_max      = 1.0_wp                   !maximally allowed slope
+  REAL(wp) :: S_critical = 0.25_wp                   !critical value at which tapering reduces slope by 50%
+  REAL(wp) :: S_d        = 0.01_wp                   !width of transition zone from untapered to tapered
   REAL(wp) :: c_speed    = 2.0_wp                   !aproximation to first baroclinic wave speed. Used in tapering scheme "Large"
   REAL(wp) :: RossbyRadius_min = 15000.0_wp
   REAL(wp) :: RossbyRadius_max =100000.0_wp
