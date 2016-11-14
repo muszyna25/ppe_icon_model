@@ -463,11 +463,6 @@ CONTAINS
 
       field% cosmu0    (:,  :) = 0._wp
       field% rsdt      (:,  :) = 0._wp
-      field% vissfc    (:,  :) = 0._wp
-      field% nirsfc    (:,  :) = 0._wp
-      field% visfrcsfc (:,  :) = 0._wp
-      field% visdffsfc (:,  :) = 0._wp
-      field% nirdffsfc (:,  :) = 0._wp
       field% rsns      (:,  :) = 0._wp
       field% rlns      (:,  :) = 0._wp
       field% swflxsfc_tile(:,:,:) = 0._wp

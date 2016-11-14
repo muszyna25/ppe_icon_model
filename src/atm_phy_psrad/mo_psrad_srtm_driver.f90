@@ -73,8 +73,7 @@ CONTAINS
        &  psctm           ,cld_frc         ,cld_tau_sw      ,cld_cg_sw       , &
        &  cld_piz_sw      ,aer_tau_sw      ,aer_cg_sw       ,aer_piz_sw      , &
        &  rnseeds         ,strategy        ,n_gpts_ts       ,flxd_sw         , &
-       &  flxu_sw         ,flxd_sw_clr     ,flxu_sw_clr     ,vis_frc_sfc     , &
-       &  nir_dff_frc     ,vis_dff_frc                                       , &
+       &  flxu_sw         ,flxd_sw_clr     ,flxu_sw_clr                      , &
        &  vis_dn_dir_sfc  ,par_dn_dir_sfc  ,nir_dn_dir_sfc                   , &
        &  vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   , &
        &  vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )
@@ -121,10 +120,7 @@ CONTAINS
          flxd_sw    (kbdim,klev+1)        , & !< downward flux total sky
          flxd_sw_clr(kbdim,klev+1)        , & !< downward flux clear sky
          flxu_sw    (kbdim,klev+1)        , & !< upward flux total sky
-         flxu_sw_clr(kbdim,klev+1)        , & !< upward flux clear sky
-         vis_frc_sfc(kbdim)               , & !< Visible (250-680) fraction of net surface radiation
-         nir_dff_frc(kbdim)               , & !< Diffuse fraction of downward surface near-infrared radiation
-         vis_dff_frc(kbdim)                   !< Diffuse fraction of downward surface visible radiation 
+         flxu_sw_clr(kbdim,klev+1)            !< upward flux clear sky
     
     REAL(WP),   INTENT(OUT)   ::   &
          vis_dn_dir_sfc(kbdim)            , & !< Diffuse downward flux surface visible radiation 
@@ -509,18 +505,6 @@ CONTAINS
     zfvis(1:kproma,1:nbndsw) = SPREAD(         frc_vis(1:nbndsw), DIM=1, NCOPIES=kproma)
     zfnir(1:kproma,1:nbndsw) = SPREAD(1.0_wp - frc_vis(1:nbndsw), DIM=1, NCOPIES=kproma)
     zfpar(1:kproma,1:nbndsw) = SPREAD(   frc_par_array(1:nbndsw), DIM=1, NCOPIES=kproma)
-
-    vis_frc_sfc(1:kproma) = SUM(zfvis(1:kproma,1:nbndsw)                             * &
-         (zbbfd(1:kproma,1:nbndsw) - zbbfu(1:kproma,1:nbndsw)), DIM=2) / &
-         (flxd_sw(1:kproma,klev+1) - flxu_sw(1:kproma,klev+1) + zepsec)
-
-    nir_dff_frc(1:kproma) = SUM(zfnir(1:kproma,1:nbndsw) * &
-         (zbbfd(1:kproma,1:nbndsw) - zbbfddir(1:kproma,1:nbndsw)), DIM = 2)   / & 
-         (SUM(zfnir(1:kproma,1:nbndsw) * zbbfd(1:kproma,1:nbndsw), DIM=2) + zepsec)
-
-    vis_dff_frc(1:kproma) = SUM(zfvis(1:kproma,1:nbndsw) * &
-         (zbbfd(1:kproma,1:nbndsw) - zbbfddir(1:kproma,1:nbndsw)), DIM = 2)   / &
-         (SUM(zfvis(1:kproma,1:nbndsw) * zbbfd(1:kproma,1:nbndsw), DIM=2) + zepsec)
 
     vis_dn_dir_sfc(1:kproma) = SUM( zfvis(1:kproma,1:nbndsw) * zbbfddir(1:kproma,1:nbndsw), DIM = 2)
     par_dn_dir_sfc(1:kproma) = SUM( zfpar(1:kproma,1:nbndsw) * zbbfddir(1:kproma,1:nbndsw), DIM = 2)

@@ -111,7 +111,6 @@ CONTAINS
 !!$       & xm_trc                                                             ,&
        & flx_uplw        ,flx_uplw_clr    ,flx_dnlw        ,flx_dnlw_clr    ,&
        & flx_upsw        ,flx_upsw_clr    ,flx_dnsw        ,flx_dnsw_clr    ,&
-       & vis_frc_sfc     ,nir_dff_frc     ,vis_dff_frc                      ,&
        & vis_dn_dir_sfc  ,par_dn_dir_sfc  ,nir_dn_dir_sfc                   ,&
        & vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   ,&
        & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )
@@ -170,10 +169,7 @@ CONTAINS
          flx_upsw    (kbdim,klev+1),   & !<   upward SW flux profile, all sky
          flx_upsw_clr(kbdim,klev+1),   & !<   upward SW flux profile, clear sky
          flx_dnsw    (kbdim,klev+1),   & !< downward SW flux profile, all sky
-         flx_dnsw_clr(kbdim,klev+1),   & !< downward SW flux profile, clear sky
-         vis_frc_sfc(kbdim)        ,   & !< Visible (250-680) fraction of net surface radiation
-         nir_dff_frc(kbdim)        ,   & !< Diffuse fraction of downward surface near-infrared radiation
-         vis_dff_frc(kbdim)              !< Diffuse fraction of downward surface visible radiation 
+         flx_dnsw_clr(kbdim,klev+1)      !< downward SW flux profile, clear sky
 
     REAL (wp), INTENT (OUT) ::         &
          vis_dn_dir_sfc(kbdim)       , & !< Diffuse downward flux surface visible radiation 
@@ -466,8 +462,7 @@ CONTAINS
          &  psctm           ,cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr    , &
          &  cld_piz_sw_vr   ,aer_tau_sw_vr   ,aer_cg_sw_vr    ,aer_piz_sw_vr   , & 
          &  rnseeds         ,sw_strat        ,n_gpts_ts       ,flx_dnsw        , &
-         &  flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr    ,vis_frc_sfc     , &
-         &  nir_dff_frc     ,vis_dff_frc                                       , &
+         &  flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr                     , &
          &  vis_dn_dir_sfc  ,par_dn_dir_sfc  ,nir_dn_dir_sfc                   , &
          &  vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   , &
          &  vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )

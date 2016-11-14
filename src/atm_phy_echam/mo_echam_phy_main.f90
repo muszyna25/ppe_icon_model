@@ -388,9 +388,6 @@ CONTAINS
         & cld_frc    = field% aclc(:,:,jb)     ,&!< in   cloud fraction [m2/m2]
         !
         & cld_cvr    = field%aclcov(:,jb)      ,&!< out  total cloud cover
-        & vis_frc_sfc= field%visfrcsfc(:,jb)   ,&!< out  visible (250-680nm) fraction of net surface radiation
-        & nir_dff_frc= field%nirdffsfc(:,jb)   ,&!< out  diffuse fraction of downward surface near-infrared radiation
-        & vis_dff_frc= field%visdffsfc(:,jb)   ,&!< out  diffuse fraction of downward surface visible radiation
         !
         & lw_dnw_clr = field%rldcs_rt(:,:,jb)     ,&!< out  Clear-sky net longwave  at all levels
         & lw_upw_clr = field%rlucs_rt(:,:,jb)     ,&!< out  Clear-sky net longwave  at all levels
@@ -528,11 +525,6 @@ CONTAINS
 
     END IF ! lrad
 
-    ! Compute VIS/NIR shortwave fluxes for surface processes
-
-    field%vissfc   (jcs:jce,jb) = field%rsns(jcs:jce,jb) * field%visfrcsfc   (jcs:jce,jb)
-    field%nirsfc   (jcs:jce,jb) = field%rsns(jcs:jce,jb) - field%vissfc      (jcs:jce,jb)
-
     CALL print_value('mo_echam_phy_main, jb',jb)
     CALL print_value('mo_echam_phy_main,       psctm',psctm)
     CALL print_value('mo_echam_phy_main,       psct ',psctm)
@@ -548,10 +540,6 @@ CONTAINS
     CALL print_value('mo_echam_phy_main,      rsus',field%rsus(1,jb))
     CALL print_value('mo_echam_phy_main,      rsnt',field%rsnt(1,jb))
     CALL print_value('mo_echam_phy_main,      rsns',field%rsns(1,jb))
-    CALL print_value('mo_echam_phy_main,    vissfc',field%vissfc(1,jb))
-    CALL print_value('mo_echam_phy_main,    nirsfc',field%nirsfc(1,jb))
-    CALL print_value('mo_echam_phy_main, visdffsfc',field% visdffsfc(1,jb))
-    CALL print_value('mo_echam_phy_main, nirdffsfc',field% nirdffsfc(1,jb))
 
     !-------------------------------------------------------------------
     ! 5. BOUNDARY LAYER AND SURFACE PROCESSES

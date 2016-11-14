@@ -735,9 +735,6 @@ MODULE mo_psrad_radiation
     & cdnc           ,&!< in  cloud droplet number concentration
     & cld_frc        ,&!< in  cloud fraction
     & cld_cvr        ,&!< out cloud cover in a column
-    & vis_frc_sfc    ,&!< out visible (250-680) fraction of net surface radiation
-    & nir_dff_frc    ,&!< out diffuse fraction of downw. surf. near-infrared radiation
-    & vis_dff_frc    ,&!< out diffuse fraction of downward surface visible radiation
     & lw_dnw_clr     ,&!< out clear-sky downward longwave  at all levels
     & lw_upw_clr     ,&!< out clear-sky upward   longwave  at all levels
     & sw_dnw_clr     ,&!< out clear-sky downward shortwave at all levels
@@ -792,9 +789,6 @@ MODULE mo_psrad_radiation
     & xm_ozn(kbdim,klev)    !< ozone mixing ratio  [kg/kg]
     REAL(wp), INTENT(OUT) ::      &
     & cld_cvr(:),              & !< Cloud cover in a column
-    & vis_frc_sfc(kbdim),      & !< Visible (250-680) fraction of net surface radiation
-    & nir_dff_frc(kbdim),      & !< Diffuse fraction of downward surface near-infrared radiation
-    & vis_dff_frc(kbdim),      & !< Diffuse fraction of downward surface visible radiation
     & lw_dnw_clr(kbdim,klevp1),& !< Clear-sky downward longwave  at all levels
     & lw_upw_clr(kbdim,klevp1),& !< Clear-sky upward   longwave  at all levels
     & sw_dnw_clr(kbdim,klevp1),& !< Clear-sky downward shortwave at all levels
@@ -995,7 +989,6 @@ MODULE mo_psrad_radiation
 !!$           & xm_trc(:,:,iqt:ntracer)                                            ,&
            & lw_upw          ,lw_upw_clr      ,lw_dnw          ,lw_dnw_clr      ,&
            & sw_upw          ,sw_upw_clr      ,sw_dnw          ,sw_dnw_clr      ,&
-           & vis_frc_sfc     ,nir_dff_frc     ,vis_dff_frc                      ,&
            & vis_dn_dir_sfc  ,par_dn_dir_sfc  ,nir_dn_dir_sfc                   ,&
            & vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   ,&
            & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )
