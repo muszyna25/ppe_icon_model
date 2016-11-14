@@ -699,10 +699,6 @@ CONTAINS
           & rlns        = field% rlns (:,jb), &! inout, net surface longwave flux [W/m2]
           & rlds        = field% rlds (:,jb),     &! in, downward surface longwave flux [W/m2]
           & rsns        = field% rsns     (:,jb), &! inout, net surface shortwave flux [W/m2]
-          & pswvis      = field% vissfc   (:,jb), &! in, net surface shortwave flux in visible range [W/m2]
-          & pswnir      = field% nirsfc   (:,jb), &! in, net surface shortwave flux in NIR range [W/m2]
-          & pvisdff     = field% visdffsfc(:,jb), &! in, diffuse fraction in visible shortwave surface flux
-          & pnirdff     = field% nirdffsfc(:,jb), &! in, diffuse fraction in NIR shortwave surface flux
           !
           & rvds_dir   = field%rvds_dir   (:,jb), &! in, all-sky downward direct visible radiation at surface
           & rpds_dir   = field%rpds_dir   (:,jb), &! in, all-sky downward direct PAR     radiation at surface
