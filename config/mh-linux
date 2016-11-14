@@ -489,7 +489,7 @@ case "$ac_sitename" in
                         mpi_startrun = srun
                         ;;
                     gcc*)
-                        load_modules    = gcc/5.1.0 intelmpi/5.1.0.038_dapl2.1.6 ${load_modules}
+                        load_modules    = gcc/5.1.0 intelmpi/2017.0.098  ${load_modules}
                         config_compiler = gcc
                         c_compiler_version = $(gcc --version | awk 'NR==1{split($NF,v,"."); printf("gcc%1d%1d", v[1], v[2])}')
                         CC     = gcc
@@ -507,10 +507,10 @@ case "$ac_sitename" in
                         GRIBAPIROOT = $software_tree/grib_api/grib_api-1.15.0-gcc48
 
                         case "$with_mpi" in
-                            "$software_tree/intel/impi/5.1.0.038_dapl2.1.6"|*)
-                                load_modules = ${load_modules} intelmpi/5.1.0.038_dapl2.1.6
+                            "$software_tree/intel/impi/2017.0.098"|*)
+                                load_modules = ${load_modules} intelmpi/2017.0.098
                                 FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
-                                MPIROOT      = $software_tree/intel/impi/5.1.0.038_dapl2.1.6/compilers_and_libraries_2016.0.079/linux/mpi/intel64
+                                MPIROOT      = $software_tree/intel/impi/2017.0.098/compilers_and_libraries_2017.0.098/linux/mpi/intel64
                                 MPI_LIB      = $WLFLAG,--disable-new-dtags -L$MPIROOT/lib/release_mt $WLFLAG,-rpath,$MPIROOT/lib/release_mt -L$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib -lmpifort -lmpi -lmpigi -ldl -lrt -lpthread
                                 ;;
                         esac
