@@ -74,7 +74,10 @@ CONTAINS
        &  cld_piz_sw      ,aer_tau_sw      ,aer_cg_sw       ,aer_piz_sw      , &
        &  rnseeds         ,strategy        ,n_gpts_ts       ,flxd_sw         , &
        &  flxu_sw         ,flxd_sw_clr     ,flxu_sw_clr     ,vis_frc_sfc     , &
-       &  par_dn_sfc      ,nir_dff_frc     ,vis_dff_frc     ,par_dff_frc       )
+       &  nir_dff_frc     ,vis_dff_frc                                       , &
+       &  vis_dn_dir_sfc  ,par_dn_dir_sfc  ,nir_dn_dir_sfc                   , &
+       &  vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   , &
+       &  vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )
 
     ! This program is the driver for RRTMG_SW, the AER SW radiation model for 
     !  application to GCMs, that has been adapted from RRTM_SW for improved
@@ -120,10 +123,19 @@ CONTAINS
          flxu_sw    (kbdim,klev+1)        , & !< upward flux total sky
          flxu_sw_clr(kbdim,klev+1)        , & !< upward flux clear sky
          vis_frc_sfc(kbdim)               , & !< Visible (250-680) fraction of net surface radiation
-         par_dn_sfc(kbdim)                , & !< Downward Photosynthetically Active Radiation (PAR) at surface
          nir_dff_frc(kbdim)               , & !< Diffuse fraction of downward surface near-infrared radiation
-         vis_dff_frc(kbdim)               , & !< Diffuse fraction of downward surface visible radiation 
-         par_dff_frc(kbdim)                   !< Diffuse fraction of downward surface PAR
+         vis_dff_frc(kbdim)                   !< Diffuse fraction of downward surface visible radiation 
+    
+    REAL(WP),   INTENT(OUT)   ::   &
+         vis_dn_dir_sfc(kbdim)            , & !< Diffuse downward flux surface visible radiation 
+         par_dn_dir_sfc(kbdim)            , & !< Diffuse downward flux surface PAR
+         nir_dn_dir_sfc(kbdim)            , & !< Diffuse downward flux surface near-infrared radiation
+         vis_dn_dff_sfc(kbdim)            , & !< Direct  downward flux surface visible radiation 
+         par_dn_dff_sfc(kbdim)            , & !< Direct  downward flux surface PAR
+         nir_dn_dff_sfc(kbdim)            , & !< Direct  downward flux surface near-infrared radiation
+         vis_up_sfc    (kbdim)            , & !< Upward flux surface visible radiation 
+         par_up_sfc    (kbdim)            , & !< Upward flux surface PAR
+         nir_up_sfc    (kbdim)                !< Upward flux surface near-infrared radiation
 
     ! ----------------
     LOGICAL     :: sunUp(kbdim)         !< Mask for sunlit points
@@ -502,8 +514,6 @@ CONTAINS
          (zbbfd(1:kproma,1:nbndsw) - zbbfu(1:kproma,1:nbndsw)), DIM=2) / &
          (flxd_sw(1:kproma,klev+1) - flxu_sw(1:kproma,klev+1) + zepsec)
 
-    par_dn_sfc(1:kproma) = SUM(zfpar(1:kproma,1:nbndsw)*(zbbfd(1:kproma,1:nbndsw)), DIM=2) 
-
     nir_dff_frc(1:kproma) = SUM(zfnir(1:kproma,1:nbndsw) * &
          (zbbfd(1:kproma,1:nbndsw) - zbbfddir(1:kproma,1:nbndsw)), DIM = 2)   / & 
          (SUM(zfnir(1:kproma,1:nbndsw) * zbbfd(1:kproma,1:nbndsw), DIM=2) + zepsec)
@@ -512,9 +522,18 @@ CONTAINS
          (zbbfd(1:kproma,1:nbndsw) - zbbfddir(1:kproma,1:nbndsw)), DIM = 2)   / &
          (SUM(zfvis(1:kproma,1:nbndsw) * zbbfd(1:kproma,1:nbndsw), DIM=2) + zepsec)
 
-    par_dff_frc(1:kproma) = SUM(zfpar(1:kproma,1:nbndsw) * &
-         (zbbfd(1:kproma,1:nbndsw) - zbbfddir(1:kproma,1:nbndsw)), DIM = 2)   / & 
-         (SUM(zfpar(1:kproma,1:nbndsw) * zbbfd(1:kproma,1:nbndsw), DIM=2) + zepsec) 
+    vis_dn_dir_sfc(1:kproma) = SUM( zfvis(1:kproma,1:nbndsw) * zbbfddir(1:kproma,1:nbndsw), DIM = 2)
+    par_dn_dir_sfc(1:kproma) = SUM( zfpar(1:kproma,1:nbndsw) * zbbfddir(1:kproma,1:nbndsw), DIM = 2)
+    nir_dn_dir_sfc(1:kproma) = SUM( zfnir(1:kproma,1:nbndsw) * zbbfddir(1:kproma,1:nbndsw), DIM = 2)
+
+    vis_dn_dff_sfc(1:kproma) = SUM( zfvis(1:kproma,1:nbndsw) * (zbbfd(1:kproma,1:nbndsw) - zbbfddir(1:kproma,1:nbndsw)), DIM = 2)
+    par_dn_dff_sfc(1:kproma) = SUM( zfpar(1:kproma,1:nbndsw) * (zbbfd(1:kproma,1:nbndsw) - zbbfddir(1:kproma,1:nbndsw)), DIM = 2)
+    nir_dn_dff_sfc(1:kproma) = SUM( zfnir(1:kproma,1:nbndsw) * (zbbfd(1:kproma,1:nbndsw) - zbbfddir(1:kproma,1:nbndsw)), DIM = 2)
+
+    vis_up_sfc    (1:kproma) = SUM( zfvis(1:kproma,1:nbndsw) * zbbfu(1:kproma,1:nbndsw), DIM = 2)
+    par_up_sfc    (1:kproma) = SUM( zfpar(1:kproma,1:nbndsw) * zbbfu(1:kproma,1:nbndsw), DIM = 2)
+    nir_up_sfc    (1:kproma) = SUM( zfnir(1:kproma,1:nbndsw) * zbbfu(1:kproma,1:nbndsw), DIM = 2)
+
     !
     ! ---  4.1 If computing clear-sky fluxes from samples, flag any columns where all samples were cloudy
     ! 

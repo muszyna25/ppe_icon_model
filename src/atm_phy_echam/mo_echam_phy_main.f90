@@ -116,7 +116,6 @@ CONTAINS
 
     REAL(wp) :: zqtec  (nbdim,nlev)       !< tracer tendency due to entrainment/detrainment
 
-!!$    REAL(wp) :: flux_factor(nbdim)
     REAL(wp) :: zcd                       !< specific heat of dry air          [J/K/kg]
     REAL(wp) :: zcv                       !< specific heat of water vapor      [J/K/kg]
     REAL(wp) :: zcair  (nbdim,nlev)       !< specific heat of moist air        [J/K/kg]
@@ -370,7 +369,7 @@ CONTAINS
         & loland     = lland      ,&!< in  land-sea mask. (logical)
         & loglac     = lglac      ,&!< in  glacier mask (logical)
         & datetime   = datetime   ,&!< in  actual time step
-        & pcos_mu0   = field%cosmu0_rad(:,jb)  ,&!< in  solar zenith angle
+        & pcos_mu0   = field%cosmu0_rt(:,jb)   ,&!< in  solar zenith angle
         & alb_vis_dir= field%albvisdir(:,jb)   ,&!< in  surface albedo for visible range, direct
         & alb_nir_dir= field%albnirdir(:,jb)   ,&!< in  surface albedo for near IR range, direct
         & alb_vis_dif= field%albvisdif(:,jb)   ,&!< in  surface albedo for visible range, diffuse
@@ -387,23 +386,30 @@ CONTAINS
         & xm_ozn     = field%o3(:,:,jb)        ,&!< inout  ozone  mass mixing ratio [kg/kg]
         & cdnc       = field% acdnc(:,:,jb)    ,&!< in   cloud droplet number conc
         & cld_frc    = field% aclc(:,:,jb)     ,&!< in   cloud fraction [m2/m2]
+        !
         & cld_cvr    = field%aclcov(:,jb)      ,&!< out  total cloud cover
         & vis_frc_sfc= field%visfrcsfc(:,jb)   ,&!< out  visible (250-680nm) fraction of net surface radiation
-        & par_dn_sfc = field%partrmdnsfc(:,jb) ,&!< out  downward photosynthetically active radiation (par) at surface
         & nir_dff_frc= field%nirdffsfc(:,jb)   ,&!< out  diffuse fraction of downward surface near-infrared radiation
         & vis_dff_frc= field%visdffsfc(:,jb)   ,&!< out  diffuse fraction of downward surface visible radiation
-        & par_dff_frc= field%pardffsfc(:,jb)   ,&!< out  diffuse fraction of downward surface par
-        & lw_dnw_clr = field%rldcs(:,:,jb)     ,&!< out  Clear-sky net longwave  at all levels
-        & lw_upw_clr = field%rlucs(:,:,jb)     ,&!< out  Clear-sky net longwave  at all levels
-        & sw_dnw_clr = field%rsdcs(:,:,jb)     ,&!< out  Clear-sky net shortwave at all levels
-        & sw_upw_clr = field%rsucs(:,:,jb)     ,&!< out  Clear-sky net shortwave at all levels
-        & lw_dnw     = field%rld  (:,:,jb)     ,&!< out  All-sky net longwave  at all levels
-        & lw_upw     = field%rlu  (:,:,jb)     ,&!< out  All-sky net longwave  at all levels
-        & sw_dnw     = field%rsd  (:,:,jb)     ,&!< out  All-sky net longwave  at all levels
-        & sw_upw     = field%rsu  (:,:,jb)      &!< out  All-sky net longwave  at all levels
-        &                           )
-
-        field%partrmdnsfc(jcs:jce,jb)    = field%partrmdnsfc(jcs:jce,jb)
+        !
+        & lw_dnw_clr = field%rldcs_rt(:,:,jb)     ,&!< out  Clear-sky net longwave  at all levels
+        & lw_upw_clr = field%rlucs_rt(:,:,jb)     ,&!< out  Clear-sky net longwave  at all levels
+        & sw_dnw_clr = field%rsdcs_rt(:,:,jb)     ,&!< out  Clear-sky net shortwave at all levels
+        & sw_upw_clr = field%rsucs_rt(:,:,jb)     ,&!< out  Clear-sky net shortwave at all levels
+        & lw_dnw     = field%rld_rt  (:,:,jb)     ,&!< out  All-sky net longwave  at all levels
+        & lw_upw     = field%rlu_rt  (:,:,jb)     ,&!< out  All-sky net longwave  at all levels
+        & sw_dnw     = field%rsd_rt  (:,:,jb)     ,&!< out  All-sky net longwave  at all levels
+        & sw_upw     = field%rsu_rt  (:,:,jb)     ,&!< out  All-sky net longwave  at all levels
+        !
+        & vis_dn_dir_sfc = field%rvds_dir_rt(:,jb),&!< out  all-sky downward direct visible radiation at surface
+        & par_dn_dir_sfc = field%rpds_dir_rt(:,jb),&!< all-sky downward direct PAR     radiation at surface
+        & nir_dn_dir_sfc = field%rnds_dir_rt(:,jb),&!< all-sky downward direct near-IR radiation at surface
+        & vis_dn_dff_sfc = field%rvds_dif_rt(:,jb),&!< all-sky downward diffuse visible radiation at surface
+        & par_dn_dff_sfc = field%rpds_dif_rt(:,jb),&!< all-sky downward diffuse PAR     radiation at surface
+        & nir_dn_dff_sfc = field%rnds_dif_rt(:,jb),&!< all-sky downward diffuse near-IR radiation at surface
+        & vis_up_sfc     = field%rvus_rt    (:,jb),&!< all-sky upward visible radiation at surface
+        & par_up_sfc     = field%rpus_rt    (:,jb),&!< all-sky upward PAR     radiation at surfac
+        & nir_up_sfc     = field%rnus_rt    (:,jb)) !< all-sky upward near-IR radiation at surface
 
         
         IF (ltimer) CALL timer_stop(timer_radiation)
@@ -412,17 +418,6 @@ CONTAINS
 
       ! 4.2 RADIATIVE HEATING
       !----------------------
-
-      CALL print_value ('mo_echam_phy_main/echam_phy_main: jb    ',jb )
-      CALL print_value ('mo_echam_phy_main/echam_phy_main: jcs   ',jcs)
-      CALL print_value ('mo_echam_phy_main/echam_phy_main: nbdim ',nbdim)
-      CALL print_value ('mo_echam_phy_main/echam_phy_main: nlevp1',nlevp1)
-      CALL print_value ('mo_echam_phy_main/echam_phy_main:       psctm             ',psctm)
-      CALL print_value ('mo_echam_phy_main/echam_phy_main:       psct              ',psct )
-      CALL print_value ('mo_echam_phy_main/echam_phy_main:       psctm-psct        ',psctm-psct)
-      CALL print_value ('mo_echam_phy_main/echam_phy_main: field%cosmu0_rad(jcs,jb)',field%cosmu0_rad(jcs,jb))
-      CALL print_value ('mo_echam_phy_main/echam_phy_main: field%rsd   (jcs,  1,jb)',field%rsd(jcs,     1,jb))
-      CALL print_value ('mo_echam_phy_main/echam_phy_main: field%rsu   (jcs,  1,jb)',field%rsu(jcs,     1,jb))
 
       ! radheat first computes the shortwave and longwave radiation for the current time step from transmissivity and
       ! the longwave flux at the radiation time step and, from there, the radiative heating due to sw and lw radiation.
@@ -448,17 +443,27 @@ CONTAINS
         & tsr        = field%tsfc_rad (:,jb)          ,&! radiative surface temperature at current   time [K]
         & tsr_rt     = field%tsfc_radt(:,jb)          ,&! radiative surface temperature at radiation time [K]
         !
-        & rsd        = field%rsd              (:,:,jb),&! all-sky   shortwave downward flux at radiation time [W/m2]
-        & rsu        = field%rsu              (:,:,jb),&! all-sky   shortwave upward   flux at radiation time [W/m2]
+        & rsd_rt     = field%rsd_rt           (:,:,jb),&! all-sky   shortwave downward flux at radiation time [W/m2]
+        & rsu_rt     = field%rsu_rt           (:,:,jb),&! all-sky   shortwave upward   flux at radiation time [W/m2]
         !
-        & rsdcs      = field%rsdcs            (:,:,jb),&! clear-sky shortwave downward flux at radiation time [W/m2]
-        & rsucs      = field%rsucs            (:,:,jb),&! clear-sky shortwave upward   flux at radiation time [W/m2]
+        & rsdcs_rt   = field%rsdcs_rt         (:,:,jb),&! clear-sky shortwave downward flux at radiation time [W/m2]
+        & rsucs_rt   = field%rsucs_rt         (:,:,jb),&! clear-sky shortwave upward   flux at radiation time [W/m2]
         !
-        & rld        = field%rld              (:,:,jb),&! all-sky   longwave  downward flux at radiation time [W/m2]
-        & rlu        = field%rlu              (:,:,jb),&! all-sky   longwave  upward   flux at radiation time [W/m2]
+        & rld_rt     = field%rld_rt           (:,:,jb),&! all-sky   longwave  downward flux at radiation time [W/m2]
+        & rlu_rt     = field%rlu_rt           (:,:,jb),&! all-sky   longwave  upward   flux at radiation time [W/m2]
         !
-        & rldcs      = field%rldcs            (:,:,jb),&! clear-sky longwave  downward flux at radiation time [W/m2]
-        & rlucs      = field%rlucs            (:,:,jb),&! clear-sky longwave  upward   flux at radiation time [W/m2]
+        & rldcs_rt   = field%rldcs_rt         (:,:,jb),&! clear-sky longwave  downward flux at radiation time [W/m2]
+        & rlucs_rt   = field%rlucs_rt         (:,:,jb),&! clear-sky longwave  upward   flux at radiation time [W/m2]
+        !
+        & rvds_dir_rt= field%rvds_dir_rt        (:,jb),&!< out  all-sky downward direct visible radiation at surface
+        & rpds_dir_rt= field%rpds_dir_rt        (:,jb),&!< out  all-sky downward direct PAR     radiation at surface
+        & rnds_dir_rt= field%rnds_dir_rt        (:,jb),&!< out  all-sky downward direct near-IR radiation at surface
+        & rvds_dif_rt= field%rvds_dif_rt        (:,jb),&!< out  all-sky downward diffuse visible radiation at surface
+        & rpds_dif_rt= field%rpds_dif_rt        (:,jb),&!< out  all-sky downward diffuse PAR     radiation at surface
+        & rnds_dif_rt= field%rnds_dif_rt        (:,jb),&!< out  all-sky downward diffuse near-IR radiation at surface
+        & rvus_rt    = field%rvus_rt            (:,jb),&!< out  all-sky upward visible radiation at surface
+        & rpus_rt    = field%rpus_rt            (:,jb),&!< out  all-sky upward PAR     radiation at surfac
+        & rnus_rt    = field%rnus_rt            (:,jb),&!< out  all-sky upward near-IR radiation at surface
         !
         ! output
         ! ------
@@ -475,6 +480,16 @@ CONTAINS
         & rsdscs     = field%rsdscs             (:,jb),&! clear-sky shortwave downward flux at current   time [W/m2]
         & rsuscs     = field%rsuscs             (:,jb),&! clear-sky shortwave upward   flux at current   time [W/m2]
         & rsnscs     = field%rsnscs             (:,jb),&! clear-sky shortwave net      flux at current   time [W/m2]
+        !
+        & rvds_dir   = field%rvds_dir           (:,jb),&!< out  all-sky downward direct visible radiation at surface
+        & rpds_dir   = field%rpds_dir           (:,jb),&!< out  all-sky downward direct PAR     radiation at surface
+        & rnds_dir   = field%rnds_dir           (:,jb),&!< out  all-sky downward direct near-IR radiation at surface
+        & rvds_dif   = field%rvds_dif           (:,jb),&!< out  all-sky downward diffuse visible radiation at surface
+        & rpds_dif   = field%rpds_dif           (:,jb),&!< out  all-sky downward diffuse PAR     radiation at surface
+        & rnds_dif   = field%rnds_dif           (:,jb),&!< out  all-sky downward diffuse near-IR radiation at surface
+        & rvus       = field%rvus               (:,jb),&!< out  all-sky upward visible radiation at surface
+        & rpus       = field%rpus               (:,jb),&!< out  all-sky upward PAR     radiation at surfac
+        & rnus       = field%rnus               (:,jb),&!< out  all-sky upward near-IR radiation at surface
         !
         & rlut       = field%rlut               (:,jb),&! all-sky   longwave  upward   flux at current   time [W/m2]
         & rlnt       = field%rlnt               (:,jb),&! all-sky   longwave  net      flux at current   time [W/m2]
@@ -513,11 +528,30 @@ CONTAINS
 
     END IF ! lrad
 
-    ! Compute VIS/NIR/PAR shortwave fluxes for surface processes
+    ! Compute VIS/NIR shortwave fluxes for surface processes
 
     field%vissfc   (jcs:jce,jb) = field%rsns(jcs:jce,jb) * field%visfrcsfc   (jcs:jce,jb)
     field%nirsfc   (jcs:jce,jb) = field%rsns(jcs:jce,jb) - field%vissfc      (jcs:jce,jb)
-    field%parsfcdn (jcs:jce,jb) = field%partrmdnsfc (jcs:jce,jb)
+
+    CALL print_value('mo_echam_phy_main, jb',jb)
+    CALL print_value('mo_echam_phy_main,       psctm',psctm)
+    CALL print_value('mo_echam_phy_main,       psct ',psctm)
+    CALL print_value('mo_echam_phy_main,   cosmu0_rt',field%cosmu0_rt(1,jb))
+    CALL print_value('mo_echam_phy_main,   cosmu0   ',field%cosmu0(1,jb))
+    CALL print_value('mo_echam_phy_main, rsd(     1)',field%rsd_rt(1,     1,jb))
+    CALL print_value('mo_echam_phy_main, rsd(nlevp1)',field%rsd_rt(1,nlevp1,jb))
+    CALL print_value('mo_echam_phy_main, rsu(     1)',field%rsu_rt(1,     1,jb))
+    CALL print_value('mo_echam_phy_main, rsu(nlevp1)',field%rsu_rt(1,nlevp1,jb))
+    CALL print_value('mo_echam_phy_main,      rsdt',field%rsdt(1,jb))
+    CALL print_value('mo_echam_phy_main,      rsds',field%rsds(1,jb))
+    CALL print_value('mo_echam_phy_main,      rsut',field%rsut(1,jb))
+    CALL print_value('mo_echam_phy_main,      rsus',field%rsus(1,jb))
+    CALL print_value('mo_echam_phy_main,      rsnt',field%rsnt(1,jb))
+    CALL print_value('mo_echam_phy_main,      rsns',field%rsns(1,jb))
+    CALL print_value('mo_echam_phy_main,    vissfc',field%vissfc(1,jb))
+    CALL print_value('mo_echam_phy_main,    nirsfc',field%nirsfc(1,jb))
+    CALL print_value('mo_echam_phy_main, visdffsfc',field% visdffsfc(1,jb))
+    CALL print_value('mo_echam_phy_main, nirdffsfc',field% nirdffsfc(1,jb))
 
     !-------------------------------------------------------------------
     ! 5. BOUNDARY LAYER AND SURFACE PROCESSES
@@ -662,15 +696,21 @@ CONTAINS
           & prsfc = field% rsfc(:,jb),    &! in, rain surface concective (from cucall)
           & pssfl = field% ssfl(:,jb),    &! in, snow surface large scale (from cloud)
           & pssfc = field% ssfc(:,jb),    &! in, snow surface concective (from cucall)
-          & plw         = field% rlns (:,jb), &! inout, net surface longwave flux [W/m2]
-          & plw_down    = field% rlds (:,jb),     &! in, downward surface longwave flux [W/m2]
-          & psw         = field% rsns     (:,jb), &! inout, net surface shortwave flux [W/m2]
+          & rlns        = field% rlns (:,jb), &! inout, net surface longwave flux [W/m2]
+          & rlds        = field% rlds (:,jb),     &! in, downward surface longwave flux [W/m2]
+          & rsns        = field% rsns     (:,jb), &! inout, net surface shortwave flux [W/m2]
           & pswvis      = field% vissfc   (:,jb), &! in, net surface shortwave flux in visible range [W/m2]
           & pswnir      = field% nirsfc   (:,jb), &! in, net surface shortwave flux in NIR range [W/m2]
-          & pswpar_down = field% parsfcdn (:,jb), &! in, downward surface shortwave flux in PAR range [W/m2]
           & pvisdff     = field% visdffsfc(:,jb), &! in, diffuse fraction in visible shortwave surface flux
           & pnirdff     = field% nirdffsfc(:,jb), &! in, diffuse fraction in NIR shortwave surface flux
-          & ppardff     = field% pardffsfc(:,jb), &! in, diffuse fraction in PAR shortwave surface flux
+          !
+          & rvds_dir   = field%rvds_dir   (:,jb), &! in, all-sky downward direct visible radiation at surface
+          & rpds_dir   = field%rpds_dir   (:,jb), &! in, all-sky downward direct PAR     radiation at surface
+          & rnds_dir   = field%rnds_dir   (:,jb), &! in, all-sky downward direct near-IR radiation at surface
+          & rvds_dif   = field%rvds_dif   (:,jb), &! in, all-sky downward diffuse visible radiation at surface
+          & rpds_dif   = field%rpds_dif   (:,jb), &! in, all-sky downward diffuse PAR     radiation at surface
+          & rnds_dif   = field%rnds_dif   (:,jb), &! in, all-sky downward diffuse near-IR radiation at surface
+          !
           & presi_old = field% presi_old(:,:,jb),&! in, paphm1, half level pressure
           & pcosmu0 = field% cosmu0(:,jb),&! in, amu0_x, cos of zenith angle
           & pch_tile = zch_tile(:,:),     &! in, from "vdiff_down" for JSBACH
@@ -691,8 +731,8 @@ CONTAINS
           & albedo_tile    = field% albedo_tile(:,jb,:),                       &! inout
           & ptsfc     = field%tsfc    (:,jb),                      &! out
           & ptsfc_rad = field%tsfc_rad(:,jb),                      &! out
-          & plwflx_tile = field%lwflxsfc_tile(:,jb,:),             &! out (for coupling)
-          & pswflx_tile = field%swflxsfc_tile(:,jb,:),             &! out (for coupling)
+          & rlns_tile = field%lwflxsfc_tile(:,jb,:),               &! out (for coupling)
+          & rsns_tile = field%swflxsfc_tile(:,jb,:),               &! out (for coupling)
           & Tsurf = field% Tsurf(:,:,jb),  &! inout, for sea ice
           & T1    = field% T1   (:,:,jb),  &! inout, for sea ice
           & T2    = field% T2   (:,:,jb),  &! inout, for sea ice
@@ -852,7 +892,7 @@ CONTAINS
 
       ! Heating due to the fact that surface model only used part of longwave radiation to compute new surface temperature
       zq_rlw_impl(jcs:jce) =                                            &
-        & ( ((field%rld(jcs:jce,nlev,jb)-field%rlu(jcs:jce,nlev,jb)) - field%rlns(jcs:jce,jb)) ) &  ! new heating from new rlns
+        & ( ((field%rld_rt(jcs:jce,nlev,jb)-field%rlu_rt(jcs:jce,nlev,jb)) - field%rlns(jcs:jce,jb)) ) &  ! new heating from new rlns
         & - zq_rlw(jcs:jce,nlev)                                       ! old heating from radheat
 
       ! Heating accumulated

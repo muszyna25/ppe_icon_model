@@ -707,48 +707,55 @@ MODULE mo_psrad_radiation
   END SUBROUTINE setup_psrad_radiation
 
   SUBROUTINE psrad_radiation ( &
-    & jg         ,&!< in  domain index
-    & jb         ,&!< in  block index
-    & kproma     ,&!< in  end index for loop over block
-    & kbdim      ,&!< in  dimension of block over cells
-    & klev       ,&!< in  number of full levels = number of layers
-    & klevp1     ,&!< in  number of half levels = number of layer interfaces
-    & ktype      ,&!< in  type of convection
-    & loland     ,&!< in  land-sea mask. (1. = land, 0. = sea/lakes)
-    & loglac     ,&!< in  fraction of land covered by glaciers
-    & datetime   ,&!< in  actual time step
-    & pcos_mu0   ,&!< in  cosine of solar zenith angle
-    & alb_vis_dir,&!< in  surface albedo for visible range, direct
-    & alb_nir_dir,&!< in  surface albedo for near IR range, direct
-    & alb_vis_dif,&!< in  surface albedo for visible range, diffuse
-    & alb_nir_dif,&!< in  surface albedo for near IR range, diffuse
-    & tk_sfc     ,&!< in  grid box mean surface temperature
-    & zf         ,&!< in  geometric height at full level      [m]
-    & zh         ,&!< in  geometric height at half level      [m]
-    & dz         ,&!< in  geometric height thickness of layer [m]
-    & pp_hl      ,&!< in  pressure at half levels at t-dt [Pa]
-    & pp_fl      ,&!< in  pressure at full levels at t-dt [Pa]
-    & tk_fl      ,&!< in  tk_fl  = temperature at full level at t-dt
-    & xm_dry     ,&!< in  dry air mass in layer [kg/m2]
-    & xm_trc     ,&!< in  tracer  mass in layer [kg/m2]
-    & xm_ozn     ,&!< inout ozone mass mixing ratio [kg/kg]
-    & cdnc       ,&!< in  cloud droplet number concentration
-    & cld_frc    ,&!< in  cloud fraction
-    & cld_cvr    ,&!< cloud cover in a column
-    & vis_frc_sfc,&!< visible (250-680) fraction of net surface radiation
-    & par_dn_sfc ,&!< downward Photosynth. Active Radiation (PAR) at surface
-    & nir_dff_frc,&!< diffuse fraction of downw. surf. near-infrared radiation
-    & vis_dff_frc,&!< diffuse fraction of downward surface visible radiation
-    & par_dff_frc,&!< iffuse fraction of downward surface PAR
-    & lw_dnw_clr ,&!< clear-sky downward longwave  at all levels
-    & lw_upw_clr ,&!< clear-sky upward   longwave  at all levels
-    & sw_dnw_clr ,&!< clear-sky downward shortwave at all levels
-    & sw_upw_clr ,&!< clear-sky upward   shortwave at all levels
-    & lw_dnw     ,&!< all-sky   downward longwave  at all levels
-    & lw_upw     ,&!< all-sky   upward   longwave  at all levels
-    & sw_dnw     ,&!< all-sky   downward shortwave at all levels
-    & sw_upw      &!< all-sky   upward   shortwave at all levels
-    &              )
+    & jg             ,&!< in  domain index
+    & jb             ,&!< in  block index
+    & kproma         ,&!< in  end index for loop over block
+    & kbdim          ,&!< in  dimension of block over cells
+    & klev           ,&!< in  number of full levels = number of layers
+    & klevp1         ,&!< in  number of half levels = number of layer interfaces
+    & ktype          ,&!< in  type of convection
+    & loland         ,&!< in  land-sea mask. (1. = land, 0. = sea/lakes)
+    & loglac         ,&!< in  fraction of land covered by glaciers
+    & datetime       ,&!< in  actual time step
+    & pcos_mu0       ,&!< in  cosine of solar zenith angle
+    & alb_vis_dir    ,&!< in  surface albedo for visible range, direct
+    & alb_nir_dir    ,&!< in  surface albedo for near IR range, direct
+    & alb_vis_dif    ,&!< in  surface albedo for visible range, diffuse
+    & alb_nir_dif    ,&!< in  surface albedo for near IR range, diffuse
+    & tk_sfc         ,&!< in  grid box mean surface temperature
+    & zf             ,&!< in  geometric height at full level      [m]
+    & zh             ,&!< in  geometric height at half level      [m]
+    & dz             ,&!< in  geometric height thickness of layer [m]
+    & pp_hl          ,&!< in  pressure at half levels at t-dt [Pa]
+    & pp_fl          ,&!< in  pressure at full levels at t-dt [Pa]
+    & tk_fl          ,&!< in  tk_fl  = temperature at full level at t-dt
+    & xm_dry         ,&!< in  dry air mass in layer [kg/m2]
+    & xm_trc         ,&!< in  tracer  mass in layer [kg/m2]
+    & xm_ozn         ,&!< inout ozone mass mixing ratio [kg/kg]
+    & cdnc           ,&!< in  cloud droplet number concentration
+    & cld_frc        ,&!< in  cloud fraction
+    & cld_cvr        ,&!< out cloud cover in a column
+    & vis_frc_sfc    ,&!< out visible (250-680) fraction of net surface radiation
+    & nir_dff_frc    ,&!< out diffuse fraction of downw. surf. near-infrared radiation
+    & vis_dff_frc    ,&!< out diffuse fraction of downward surface visible radiation
+    & lw_dnw_clr     ,&!< out clear-sky downward longwave  at all levels
+    & lw_upw_clr     ,&!< out clear-sky upward   longwave  at all levels
+    & sw_dnw_clr     ,&!< out clear-sky downward shortwave at all levels
+    & sw_upw_clr     ,&!< out clear-sky upward   shortwave at all levels
+    & lw_dnw         ,&!< out all-sky   downward longwave  at all levels
+    & lw_upw         ,&!< out all-sky   upward   longwave  at all levels
+    & sw_dnw         ,&!< out all-sky   downward shortwave at all levels
+    & sw_upw         ,&!< out all-sky   upward   shortwave at all levels
+    & vis_dn_dir_sfc ,&!< out all-sky downward direct visible radiation at surface
+    & par_dn_dir_sfc ,&!< out all-sky downward direct PAR     radiation at surface
+    & nir_dn_dir_sfc ,&!< out all-sky downward direct near-IR radiation at surface
+    & vis_dn_dff_sfc ,&!< out all-sky downward diffuse visible radiation at surface
+    & par_dn_dff_sfc ,&!< out all-sky downward diffuse PAR     radiation at surface
+    & nir_dn_dff_sfc ,&!< out all-sky downward diffuse near-IR radiation at surface
+    & vis_up_sfc     ,&!< out all-sky upward visible radiation at surface
+    & par_up_sfc     ,&!< out all-sky upward PAR     radiation at surfac
+    & nir_up_sfc     ) !< out all-sky upward near-IR radiation at surface
+
     INTEGER, INTENT(in)  :: &
     & jg,             & !< domain index
     & jb,             & !< block index
@@ -786,10 +793,8 @@ MODULE mo_psrad_radiation
     REAL(wp), INTENT(OUT) ::      &
     & cld_cvr(:),              & !< Cloud cover in a column
     & vis_frc_sfc(kbdim),      & !< Visible (250-680) fraction of net surface radiation
-    & par_dn_sfc(kbdim),       & !< Downward Photosynthetically Active Radiation (PAR) at surface
     & nir_dff_frc(kbdim),      & !< Diffuse fraction of downward surface near-infrared radiation
     & vis_dff_frc(kbdim),      & !< Diffuse fraction of downward surface visible radiation
-    & par_dff_frc(kbdim),      & !< Diffuse fraction of downward surface PAR
     & lw_dnw_clr(kbdim,klevp1),& !< Clear-sky downward longwave  at all levels
     & lw_upw_clr(kbdim,klevp1),& !< Clear-sky upward   longwave  at all levels
     & sw_dnw_clr(kbdim,klevp1),& !< Clear-sky downward shortwave at all levels
@@ -798,6 +803,17 @@ MODULE mo_psrad_radiation
     & lw_upw(kbdim,klevp1),    & !< All-sky   upward   longwave  at all levels
     & sw_dnw(kbdim,klevp1),    & !< All-sky   downward shortwave at all levels
     & sw_upw(kbdim,klevp1)       !< All-sky   upward   shortwave at all levels
+
+    REAL (wp), INTENT (OUT) ::         &
+    & vis_dn_dir_sfc(kbdim)       , & !< Diffuse downward flux surface visible radiation 
+    & par_dn_dir_sfc(kbdim)       , & !< Diffuse downward flux surface PAR
+    & nir_dn_dir_sfc(kbdim)       , & !< Diffuse downward flux surface near-infrared radiation
+    & vis_dn_dff_sfc(kbdim)       , & !< Direct  downward flux surface visible radiation 
+    & par_dn_dff_sfc(kbdim)       , & !< Direct  downward flux surface PAR
+    & nir_dn_dff_sfc(kbdim)       , & !< Direct  downward flux surface near-infrared radiation
+    & vis_up_sfc    (kbdim)       , & !< Upward  flux surface visible radiation 
+    & par_up_sfc    (kbdim)       , & !< Upward  flux surface PAR
+    & nir_up_sfc    (kbdim)           !< Upward  flux surface near-infrared radiation
 
     INTEGER              :: jk, jl
     INTEGER              :: knwtrc  !< number of non-water tracers
@@ -979,8 +995,10 @@ MODULE mo_psrad_radiation
 !!$           & xm_trc(:,:,iqt:ntracer)                                            ,&
            & lw_upw          ,lw_upw_clr      ,lw_dnw          ,lw_dnw_clr      ,&
            & sw_upw          ,sw_upw_clr      ,sw_dnw          ,sw_dnw_clr      ,&
-           & vis_frc_sfc     ,par_dn_sfc      ,nir_dff_frc     ,vis_dff_frc     ,&
-           & par_dff_frc                                                         )
+           & vis_frc_sfc     ,nir_dff_frc     ,vis_dff_frc                      ,&
+           & vis_dn_dir_sfc  ,par_dn_dir_sfc  ,nir_dn_dir_sfc                   ,&
+           & vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   ,&
+           & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )
 
 
   END SUBROUTINE psrad_radiation

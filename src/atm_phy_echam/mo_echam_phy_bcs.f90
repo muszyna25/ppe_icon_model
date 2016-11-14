@@ -202,7 +202,7 @@ CONTAINS
             & patch,                           datetime_radtran,             &
             & datetime,                        ltrig_rad,                    &
             & prm_field(jg)%cosmu0,            prm_field(jg)%daylght_frc,    &
-            & prm_field(jg)%cosmu0_rad,        prm_field(jg)%daylght_frc_rad )
+            & prm_field(jg)%cosmu0_rt,         prm_field(jg)%daylght_frc_rt )
 
     is_1st_call = .FALSE.
 

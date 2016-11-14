@@ -170,23 +170,23 @@ MODULE mo_echam_phy_memory
     REAL(wp),POINTER ::       &
       !
       & cosmu0      (:,  :),  &!< [ ]    cos of zenith angle mu0 for radiative heating  calculation
-      & cosmu0_rad  (:,  :),  &!< [ ]    cos of zenith angle mu0 at radiation time step
+      & cosmu0_rt   (:,  :),  &!< [ ]    cos of zenith angle mu0 at radiation time step
       & daylght_frc (:,  :),  &!< [ ]    daylight fraction at each grid point
-      & daylght_frc_rad (:,:),&!< [ ]    daylight fraction at each grid point for radiation time step
+      & daylght_frc_rt(:,:),  &!< [ ]    daylight fraction at each grid point for radiation time step
       !
       ! shortwave fluxes
-      ! - through the atmosphere
-      & rsd         (:,:,:),  &!< [W/m2] downwelling shortwave radiation
-      & rsu         (:,:,:),  &!< [W/m2] upwelling   shortwave radiation
-      & rsdcs       (:,:,:),  &!< [W/m2] downwelling clear-sky shortwave radiation
-      & rsucs       (:,:,:),  &!< [W/m2] upwelling   clear-sky shortwave radiation
-      ! - at the top of the atmosphere
+      ! - through the atmosphere at the radiation time step
+      & rsd_rt      (:,:,:),  &!< [W/m2] downwelling shortwave radiation
+      & rsu_rt      (:,:,:),  &!< [W/m2] upwelling   shortwave radiation
+      & rsdcs_rt    (:,:,:),  &!< [W/m2] downwelling clear-sky shortwave radiation
+      & rsucs_rt    (:,:,:),  &!< [W/m2] upwelling   clear-sky shortwave radiation
+      ! - at the top of the atmosphere at all times
       & rsdt        (:,  :),  &!< [W/m2] toa incident shortwave radiation
       & rsut        (:,  :),  &!< [W/m2] toa outgoing shortwave radiation
       & rsnt        (:,  :),  &!< [W/m2] toa net      shortwave radiation
       & rsutcs      (:,  :),  &!< [W/m2] toa outgoing clear-sky shortwave radiation
       & rsntcs      (:,  :),  &!< [W/m2] toa net      clear-sky shortwave radiation
-      ! - at the surface
+      ! - at the surface at all times
       & rsds        (:,  :),  &!< [W/m2] surface downwelling shortwave radiation
       & rsus        (:,  :),  &!< [W/m2] surface upwelling   shortwave radiation
       & rsns        (:,  :),  &!< [W/m2] surface net         shortwave radiation
@@ -194,18 +194,40 @@ MODULE mo_echam_phy_memory
       & rsuscs      (:,  :),  &!< [W/m2] surface upwelling   clear-sky shortwave radiation
       & rsnscs      (:,  :),  &!< [W/m2] surface net         clear-sky shortwave radiation
       !
+      ! shortwave flux components at the surface
+      ! - at radiation times
+      & rvds_dir_rt (:,  :),  &!< [W/m2] surface downwelling direct  visible            radiation
+      & rpds_dir_rt (:,  :),  &!< [W/m2] surface downwelling direct  photosynth. active radiation
+      & rnds_dir_rt (:,  :),  &!< [W/m2] surface downwelling direct  near-infrared      radiation
+      & rvds_dif_rt (:,  :),  &!< [W/m2] surface downwelling diffuse visible            radiation
+      & rpds_dif_rt (:,  :),  &!< [W/m2] surface downwelling diffuse photosynth. active radiation
+      & rnds_dif_rt (:,  :),  &!< [W/m2] surface downwelling diffuse near-infrared      radiation
+      & rvus_rt     (:,  :),  &!< [W/m2] surface   upwelling         visible            radiation
+      & rpus_rt     (:,  :),  &!< [W/m2] surface   upwelling         photosynth. active radiation
+      & rnus_rt     (:,  :),  &!< [W/m2] surface   upwelling         near-infrared      radiation
+      ! - at all times
+      & rvds_dir    (:,  :),  &!< [W/m2] surface downwelling direct  visible            radiation
+      & rpds_dir    (:,  :),  &!< [W/m2] surface downwelling direct  photosynth. active radiation
+      & rnds_dir    (:,  :),  &!< [W/m2] surface downwelling direct  near-infrared      radiation
+      & rvds_dif    (:,  :),  &!< [W/m2] surface downwelling diffuse visible            radiation
+      & rpds_dif    (:,  :),  &!< [W/m2] surface downwelling diffuse photosynth. active radiation
+      & rnds_dif    (:,  :),  &!< [W/m2] surface downwelling diffuse near-infrared      radiation
+      & rvus        (:,  :),  &!< [W/m2] surface   upwelling         visible            radiation
+      & rpus        (:,  :),  &!< [W/m2] surface   upwelling         photosynth. active radiation
+      & rnus        (:,  :),  &!< [W/m2] surface   upwelling         near-infrared      radiation
+      !
       ! longwave fluxes
-      ! - through the atmosphere
-      & rld         (:,:,:),  &!< [W/m2] downwelling longwave radiation
-      & rlu         (:,:,:),  &!< [W/m2] upwelling   longwave radiation
-      & rldcs       (:,:,:),  &!< [W/m2] downwelling clear-sky longwave radiation
-      & rlucs       (:,:,:),  &!< [W/m2] upwelling   clear-sky longwave radiation
-      ! - at the top of the atmosphere
+      ! - through the atmosphere at the radiation time step
+      & rld_rt      (:,:,:),  &!< [W/m2] downwelling longwave radiation
+      & rlu_rt      (:,:,:),  &!< [W/m2] upwelling   longwave radiation
+      & rldcs_rt    (:,:,:),  &!< [W/m2] downwelling clear-sky longwave radiation
+      & rlucs_rt    (:,:,:),  &!< [W/m2] upwelling   clear-sky longwave radiation
+      ! - at the top of the atmosphere at all times
       & rlut        (:,  :),  &!< [W/m2] toa outgoing longwave radiation
       & rlnt        (:,  :),  &!< [W/m2] toa net      longwave radiation
       & rlutcs      (:,  :),  &!< [W/m2] toa outgoing clear-sky longwave radiation
       & rlntcs      (:,  :),  &!< [W/m2] toa net      clear-sky longwave radiation
-      ! - at the surface
+      ! - at the surface at all times
       & rlds        (:,  :),  &!< [W/m2] surface downwelling longwave radiation
       & rlus        (:,  :),  &!< [W/m2] surface upwelling   longwave radiation
       & rlns        (:,  :),  &!< [W/m2] surface net         longwave radiation
@@ -216,7 +238,6 @@ MODULE mo_echam_phy_memory
       ! shortwave surface fluxes (updated every time step)
       & vissfc      (:,  :),  &!< [ ]    net shortwave radiation in VIS (positive downward)
       & nirsfc      (:,  :),  &!< [ ]    net shortwave radiation in NIR (positive downward)
-      & parsfcdn    (:,  :),  &!< [ ]    downward shortwave radiation in PAR
       !
       ! fractions of net surface shortwave flux (updated every radiation time step)
       & visfrcsfc   (:,  :),  &!< [ ]    visible fraction of net surface shortwave flux 
@@ -224,10 +245,6 @@ MODULE mo_echam_phy_memory
       ! fractions of diffuse shortwave surface radiation (updated every radiation time step)
       & visdffsfc   (:,  :),  &!< [ ]    diffuse fraction in VIS downward flux
       & nirdffsfc   (:,  :),  &!< [ ]    diffuse fraction in NIR downward flux
-      & pardffsfc   (:,  :),  &!< [ ]    diffuse fraction in PAR downward flux
-      !
-      ! shortwave net transmissivity (updated at radiation time steps)
-      & partrmdnsfc (:,  :),  &!< [ ]    downward shortwave transmissivity in PAR, all-sky
       !
       & o3          (:,:,:)    !< temporary set ozone mass mixing ratio  
     ! aerosol optical properties
@@ -1147,12 +1164,12 @@ CONTAINS
          &       cf_desc , grib2_desc                       , &
          &       ldims=shape2d                              )
 
-    cf_desc    = t_cf_var( 'cosmu0_rad'                                   , &
+    cf_desc    = t_cf_var( 'cosmu0_rt'                                    , &
          &                 ''                                             , &
-         &                 'cosine of the zenith angle for rad. transfer' , &
+         &                 'cosine of the zenith angle at radiation time' , &
          &                 datatype_flt                                   )
     grib2_desc = grib2_var(192,214,1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var(field_list, prefix//'cosmu0_rad', field%cosmu0_rad, &
+    CALL add_var(field_list, prefix//'cosmu0_rad', field%cosmu0_rt , &
          &       GRID_UNSTRUCTURED_CELL , ZA_SURFACE               , &
          &       cf_desc , grib2_desc                              , &
          &       ldims=shape2d                                     )
@@ -1167,12 +1184,12 @@ CONTAINS
          &       cf_desc, grib2_desc                                 , &
          &       ldims=shape2d                                       )
 
-    cf_desc    = t_cf_var( 'daylght_frc_rad', &
+    cf_desc    = t_cf_var( 'daylght_frc_rt' , &
          &                 ''               , &
          &                 ''               , &
          &                 datatype_flt     )
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var(field_list, prefix//'daylght_frc_rad', field%daylght_frc_rad, &
+    CALL add_var(field_list, prefix//'daylght_frc_rad', field%daylght_frc_rt , &
          &       GRID_UNSTRUCTURED_CELL , ZA_SURFACE                         , &
          &       cf_desc, grib2_desc                                         , &
          &       ldims=shape2d                                               )
@@ -1186,33 +1203,33 @@ CONTAINS
          &                'downwelling shortwave radiation'  , &
          &                datatype_flt                       )
     grib2_desc = grib2_var(0,4,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var(field_list, prefix//'rsd' , field%rsd        , &
-         &       GRID_UNSTRUCTURED_CELL    , ZA_HYBRID_HALF   , &
-         &       cf_desc, grib2_desc                          , &
-         &       ldims=shape3d_layer_interfaces               , &
-         &       vert_interp=create_vert_interp_metadata        &
-         &         (vert_intp_type=vintp_types("P","Z","I") ,   &
-         &          vert_intp_method=VINTP_METHOD_LIN_NLEVP1) )
+    CALL add_var(field_list, prefix//'rsd', field%rsd_rt     , &
+         &       GRID_UNSTRUCTURED_CELL   , ZA_HYBRID_HALF   , &
+         &       cf_desc, grib2_desc                         , &
+         &       ldims=shape3d_layer_interfaces              , &
+         &       vert_interp=create_vert_interp_metadata       &
+         &         (vert_intp_type=vintp_types("P","Z","I") ,  &
+         &          vert_intp_method=VINTP_METHOD_LIN_NLEVP1))
 
     cf_desc    = t_cf_var('upwelling_shortwave_flux_in_air', &
          &                'W m-2'                          , &
          &                'upwelling shortwave radiation'  , &
          &                datatype_flt                     )
     grib2_desc = grib2_var(0,4,8, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var(field_list, prefix//'rsu' , field%rsu        , &
-         &       GRID_UNSTRUCTURED_CELL    , ZA_HYBRID_HALF   , &
-         &       cf_desc, grib2_desc                          , &
-         &       ldims=shape3d_layer_interfaces               , &
-         &       vert_interp=create_vert_interp_metadata        &
-         &         (vert_intp_type=vintp_types("P","Z","I") ,   &
-         &          vert_intp_method=VINTP_METHOD_LIN_NLEVP1) )
+    CALL add_var(field_list, prefix//'rsu' , field%rsu_rt    , &
+         &       GRID_UNSTRUCTURED_CELL    , ZA_HYBRID_HALF  , &
+         &       cf_desc, grib2_desc                         , &
+         &       ldims=shape3d_layer_interfaces              , &
+         &       vert_interp=create_vert_interp_metadata       &
+         &         (vert_intp_type=vintp_types("P","Z","I") ,  &
+         &          vert_intp_method=VINTP_METHOD_LIN_NLEVP1))
 
     cf_desc    = t_cf_var('downwelling_shortwave_flux_in_air_assuming_clear_sky', &
          &                'W m-2'                                               , &
          &                'downwelling clear-sky shortwave radiation'           , &
          &                datatype_flt                                          )
     grib2_desc = grib2_var(0,4,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var(field_list, prefix//'rsdcs' , field%rsdcs    , &
+    CALL add_var(field_list, prefix//'rsdcs' , field%rsdcs_rt , &
          &       GRID_UNSTRUCTURED_CELL    , ZA_HYBRID_HALF   , &
          &       cf_desc, grib2_desc                          , &
          &       ldims=shape3d_layer_interfaces               , &
@@ -1225,7 +1242,7 @@ CONTAINS
          &                'upwelling clear-sky shortwave radiation'           , &
          &                datatype_flt                                        )
     grib2_desc = grib2_var(0,4,8, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var(field_list, prefix//'rsucs' , field%rsucs    , &
+    CALL add_var(field_list, prefix//'rsucs' , field%rsucs_rt , &
          &       GRID_UNSTRUCTURED_CELL    , ZA_HYBRID_HALF   , &
          &       cf_desc, grib2_desc                          , &
          &       ldims=shape3d_layer_interfaces               , &
@@ -1348,6 +1365,197 @@ CONTAINS
          &       cf_desc, grib2_desc                       , &
          &       ldims=shape2d                             )
 
+    ! shortwave flux components at the surface
+    ! - at radiation times
+    cf_desc    = t_cf_var('surface_downwelling_direct_visible_flux_in_air_at_rad_time'    , &
+         &                'W m-2'                                                         , &
+         &                'surface downwelling direct visible radiation at radiation time', &
+         &                datatype_flt                                                    )
+    grib2_desc = grib2_var(0,4,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'rvds_dir_rt', field%rvds_dir_rt, &
+         &        GRID_UNSTRUCTURED_CELL           , ZA_SURFACE       , &
+         &        cf_desc, grib2_desc                                 , &
+         &        ldims=shape2d                                       )
+
+    cf_desc    = t_cf_var('surface_downwelling_direct_par_flux_in_air_at_rad_time'                          , &
+         &                'W m-2'                                                                           , &
+         &                'surface downwelling direct photosynthetically active radiation at radiation time', &
+         &                datatype_flt                                                                      )
+    grib2_desc = grib2_var(0,4,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'rpds_dir_rt', field%rpds_dir_rt, &
+         &        GRID_UNSTRUCTURED_CELL           , ZA_SURFACE       , &
+         &        cf_desc, grib2_desc                                 , &
+         &        ldims=shape2d                                       )
+
+    cf_desc    = t_cf_var('surface_downwelling_direct_nearir_flux_in_air_at_rad_time'           , &
+         &                'W m-2'                                                               , &
+         &                'surface downwelling direct near infrared radiation at radiation time', &
+         &                datatype_flt                                                          )
+    grib2_desc = grib2_var(0,4,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'rnds_dir_rt', field%rnds_dir_rt, &
+         &        GRID_UNSTRUCTURED_CELL           , ZA_SURFACE       , &
+         &        cf_desc, grib2_desc                                 , &
+         &        ldims=shape2d                                       )
+
+
+    cf_desc    = t_cf_var('surface_downwelling_diffuse_visible_flux_in_air_at_rad_time'    , &
+         &                'W m-2'                                                          , &
+         &                'surface downwelling diffuse visible radiation at radiation time', &
+         &                datatype_flt                                                     )
+    grib2_desc = grib2_var(0,4,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'rvds_dif_rt', field%rvds_dif_rt, &
+         &        GRID_UNSTRUCTURED_CELL        , ZA_SURFACE          , &
+         &        cf_desc, grib2_desc                                 , &
+         &        ldims=shape2d                                       )
+
+    cf_desc    = t_cf_var('surface_downwelling_diffuse_par_flux_in_air_at_rad_time'                          , &
+         &                'W m-2'                                                                            , &
+         &                'surface downwelling diffuse photosynthetically active radiation at radiation time', &
+         &                datatype_flt                                                                       )
+    grib2_desc = grib2_var(0,4,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'rpds_dif_rt', field%rpds_dif_rt, &
+         &        GRID_UNSTRUCTURED_CELL           , ZA_SURFACE       , &
+         &        cf_desc, grib2_desc                                 , &
+         &        ldims=shape2d                                       )
+
+    cf_desc    = t_cf_var('surface_downwelling_diffuse_nearir_flux_in_air_at_rad_time'           , &
+         &                'W m-2'                                                                , &
+         &                'surface downwelling diffuse near infrared radiation at radiation time', &
+         &                datatype_flt                                                           )
+    grib2_desc = grib2_var(0,4,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'rnds_dif_rt', field%rnds_dif_rt, &
+         &        GRID_UNSTRUCTURED_CELL           , ZA_SURFACE       , &
+         &        cf_desc, grib2_desc                                 , &
+         &        ldims=shape2d                                       )
+
+
+    cf_desc    = t_cf_var('surface_upwelling_visible_flux_in_air_at_rad_time'    , &
+         &                'W m-2'                                                , &
+         &                'surface upwelling visible radiation at radiation time', &
+         &                datatype_flt                                           )
+    grib2_desc = grib2_var(0,4,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'rvus_rt', field%rvus_rt, &
+         &        GRID_UNSTRUCTURED_CELL       , ZA_SURFACE   , &
+         &        cf_desc, grib2_desc                         , &
+         &        ldims=shape2d                               )
+
+    cf_desc    = t_cf_var('surface_upwelling_par_flux_in_air_at_rad_time'                          , &
+         &                'W m-2'                                                                  , &
+         &                'surface upwelling photosynthetically active radiation at radiation time', &
+         &                datatype_flt                                                             )
+    grib2_desc = grib2_var(0,4,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'rpus_rt', field%rpus_rt, &
+         &        GRID_UNSTRUCTURED_CELL       , ZA_SURFACE   , &
+         &        cf_desc, grib2_desc                         , &
+         &        ldims=shape2d                               )
+
+    cf_desc    = t_cf_var('surface_upwelling_nearir_flux_in_air_at_rad_time'           , &
+         &                'W m-2'                                                      , &
+         &                'surface upwelling near infrared radiation at radiation time', &
+         &                datatype_flt                                                 )
+    grib2_desc = grib2_var(0,4,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'rnus_rt', field%rnus_rt, &
+         &        GRID_UNSTRUCTURED_CELL       , ZA_SURFACE   , &
+         &        cf_desc, grib2_desc                         , &
+         &        ldims=shape2d                               )
+
+
+    ! shortwave flux components at the surface
+    ! - at all times
+    cf_desc    = t_cf_var('surface_downwelling_direct_visible_flux_in_air', &
+         &                'W m-2'                                         , &
+         &                'surface downwelling direct visible radiation'  , &
+         &                datatype_flt                                    )
+    grib2_desc = grib2_var(0,4,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'rvds_dir', field%rvds_dir, &
+         &        GRID_UNSTRUCTURED_CELL        , ZA_SURFACE    , &
+         &        cf_desc, grib2_desc                           , &
+         &        ldims=shape2d                                 )
+
+    cf_desc    = t_cf_var('surface_downwelling_direct_par_flux_in_air'                    , &
+         &                'W m-2'                                                         , &
+         &                'surface downwelling direct photosynthetically active radiation', &
+         &                datatype_flt                                                    )
+    grib2_desc = grib2_var(0,4,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'rpds_dir', field%rpds_dir, &
+         &        GRID_UNSTRUCTURED_CELL        , ZA_SURFACE    , &
+         &        cf_desc, grib2_desc                           , &
+         &        ldims=shape2d                                 )
+
+    cf_desc    = t_cf_var('surface_downwelling_direct_nearir_flux_in_air'     , &
+         &                'W m-2'                                             , &
+         &                'surface downwelling direct near infrared radiation', &
+         &                datatype_flt                                        )
+    grib2_desc = grib2_var(0,4,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'rnds_dir', field%rnds_dir, &
+         &        GRID_UNSTRUCTURED_CELL        , ZA_SURFACE    , &
+         &        cf_desc, grib2_desc                           , &
+         &        ldims=shape2d                                 )
+
+
+    cf_desc    = t_cf_var('surface_downwelling_diffuse_visible_flux_in_air', &
+         &                'W m-2'                                          , &
+         &                'surface downwelling diffuse visible radiation'  , &
+         &                datatype_flt                                     )
+    grib2_desc = grib2_var(0,4,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'rvds_dif', field%rvds_dif, &
+         &        GRID_UNSTRUCTURED_CELL        , ZA_SURFACE    , &
+         &        cf_desc, grib2_desc                           , &
+         &        ldims=shape2d                                 )
+
+    cf_desc    = t_cf_var('surface_downwelling_diffuse_par_flux_in_air'                    , &
+         &                'W m-2'                                                          , &
+         &                'surface downwelling diffuse photosynthetically active radiation', &
+         &                datatype_flt                                                     )
+    grib2_desc = grib2_var(0,4,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'rpds_dif', field%rpds_dif, &
+         &        GRID_UNSTRUCTURED_CELL        , ZA_SURFACE    , &
+         &        cf_desc, grib2_desc                           , &
+         &        ldims=shape2d                                 )
+
+    cf_desc    = t_cf_var('surface_downwelling_diffuse_nearir_flux_in_air'     , &
+         &                'W m-2'                                              , &
+         &                'surface downwelling diffuse near infrared radiation', &
+         &                datatype_flt                                         )
+    grib2_desc = grib2_var(0,4,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'rnds_dif', field%rnds_dif, &
+         &        GRID_UNSTRUCTURED_CELL        , ZA_SURFACE    , &
+         &        cf_desc, grib2_desc                           , &
+         &        ldims=shape2d                                 )
+
+
+    cf_desc    = t_cf_var('surface_upwelling_visible_flux_in_air', &
+         &                'W m-2'                                , &
+         &                'surface upwelling visible radiation'  , &
+         &                datatype_flt                           )
+    grib2_desc = grib2_var(0,4,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'rvus', field%rvus, &
+         &        GRID_UNSTRUCTURED_CELL    , ZA_SURFACE, &
+         &        cf_desc, grib2_desc                   , &
+         &        ldims=shape2d                         )
+
+    cf_desc    = t_cf_var('surface_upwelling_par_flux_in_air'                    , &
+         &                'W m-2'                                                , &
+         &                'surface upwelling photosynthetically active radiation', &
+         &                datatype_flt                                           )
+    grib2_desc = grib2_var(0,4,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'rpus', field%rpus, &
+         &        GRID_UNSTRUCTURED_CELL    , ZA_SURFACE, &
+         &        cf_desc, grib2_desc                   , &
+         &        ldims=shape2d                         )
+
+    cf_desc    = t_cf_var('surface_upwelling_nearir_flux_in_air'     , &
+         &                'W m-2'                                    , &
+         &                'surface upwelling near infrared radiation', &
+         &                datatype_flt                               )
+    grib2_desc = grib2_var(0,4,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'rnus', field%rnus, &
+         &        GRID_UNSTRUCTURED_CELL    , ZA_SURFACE, &
+         &        cf_desc, grib2_desc                   , &
+         &        ldims=shape2d                         )
+
+
+
     !
     !------------------
     !
@@ -1360,7 +1568,7 @@ CONTAINS
          &                'downwelling longwave radiation'  , &
          &                datatype_flt                       )
     grib2_desc = grib2_var(0,5,3, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var(field_list, prefix//'rld' , field%rld        , &
+    CALL add_var(field_list, prefix//'rld' , field%rld_rt     , &
          &       GRID_UNSTRUCTURED_CELL    , ZA_HYBRID_HALF   , &
          &       cf_desc, grib2_desc                          , &
          &       ldims=shape3d_layer_interfaces               , &
@@ -1373,7 +1581,7 @@ CONTAINS
          &                'upwelling longwave radiation'  , &
          &                datatype_flt                     )
     grib2_desc = grib2_var(0,5,4, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var(field_list, prefix//'rlu' , field%rlu        , &
+    CALL add_var(field_list, prefix//'rlu' , field%rlu_rt     , &
          &       GRID_UNSTRUCTURED_CELL    , ZA_HYBRID_HALF   , &
          &       cf_desc, grib2_desc                          , &
          &       ldims=shape3d_layer_interfaces               , &
@@ -1386,7 +1594,7 @@ CONTAINS
          &                'downwelling clear-sky longwave radiation'           , &
          &                datatype_flt                                         )
     grib2_desc = grib2_var(0,5,3, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var(field_list, prefix//'rldcs' , field%rldcs    , &
+    CALL add_var(field_list, prefix//'rldcs' , field%rldcs_rt , &
          &       GRID_UNSTRUCTURED_CELL    , ZA_HYBRID_HALF   , &
          &       cf_desc, grib2_desc                          , &
          &       ldims=shape3d_layer_interfaces               , &
@@ -1399,7 +1607,7 @@ CONTAINS
          &                'upwelling clear-sky longwave radiation'           , &
          &                datatype_flt                                       )
     grib2_desc = grib2_var(0,5,4, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var(field_list, prefix//'rlucs' , field%rlucs    , &
+    CALL add_var(field_list, prefix//'rlucs' , field%rlucs_rt , &
          &       GRID_UNSTRUCTURED_CELL    , ZA_HYBRID_HALF   , &
          &       cf_desc, grib2_desc                          , &
          &       ldims=shape3d_layer_interfaces               , &
@@ -1545,30 +1753,6 @@ CONTAINS
     cf_desc    = t_cf_var('nirdffsfc', 'W m-2', 'net near-IR diffuse flux at surface', datatype_flt)
     grib2_desc = grib2_var(0,4,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'nirdffsfc', field%nirdffsfc,             &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
-    ! &       field% parsfcdn    (nproma,       nblks),          &
-    cf_desc    = t_cf_var('parsfcdn', 'W m-2',                                            &
-                &         'downward photoysnthetically active radiation flux at surface', &
-                &         datatype_flt)
-    grib2_desc = grib2_var(0,4,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'parsfcdn', field%parsfcdn,               &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
-    ! &       field% pardffsfc (nproma,       nblks),          &
-    cf_desc    = t_cf_var('pardffsfc', 'W m-2',                                              &
-                &         'net photoysnthetically active radiation diffuse flux at surface', &
-                &         datatype_flt)
-    grib2_desc = grib2_var(0,4,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'pardffsfc', field%pardffsfc,             &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
-    ! &       field% partrmdnsfc (nproma,       nblks),        &
-    cf_desc    = t_cf_var('partrmdnsfc', 'W m-2',                                                   &
-                &         'downward photoysnthetically active radiation transmissivity at surface', &
-                &          datatype_flt)
-    grib2_desc = grib2_var(0,4,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'partrmdnsfc', field%partrmdnsfc,         &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     cf_desc    = t_cf_var('drlns_dT', 'W m-2 K-1', 'longwave net flux T-derivative at surface', &
