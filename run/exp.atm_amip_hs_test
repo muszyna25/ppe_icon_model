@@ -207,7 +207,6 @@ if [[ "$output_atm_phy" == "yes" ]]; then
                     'rlns_wtr', 'rlns_ice', 'rlns_lnd',
                     'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts'      ,
                     'sic'     , 'sit'     ,
-                    'vissfc'  , 'nirsfc'  ,
                     'albedo'  , 'albedo_wtr', 'albedo_ice', 'albedo_lnd',
                     'clt'     ,
                     'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
