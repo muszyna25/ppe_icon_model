@@ -494,9 +494,9 @@ CONTAINS
     !
     ! Spectrally resolved fluxes of various kinds
     !
-    zfvis(1:kproma,1:nbndsw) = SPREAD(bnd_wght(1:nbndsw) *           frc_vis(1:nbndsw) , DIM=1, NCOPIES=kproma)
-    zfnir(1:kproma,1:nbndsw) = SPREAD(bnd_wght(1:nbndsw) * (1.0_wp - frc_vis(1:nbndsw)), DIM=1, NCOPIES=kproma)
-    zfpar(1:kproma,1:nbndsw) = SPREAD(bnd_wght(1:nbndsw) * frc_par_array(1:nbndsw)     , DIM=1, NCOPIES=kproma)
+    zfvis(1:kproma,1:nbndsw) = SPREAD(         frc_vis(1:nbndsw), DIM=1, NCOPIES=kproma)
+    zfnir(1:kproma,1:nbndsw) = SPREAD(1.0_wp - frc_vis(1:nbndsw), DIM=1, NCOPIES=kproma)
+    zfpar(1:kproma,1:nbndsw) = SPREAD(   frc_par_array(1:nbndsw), DIM=1, NCOPIES=kproma)
 
     vis_frc_sfc(1:kproma) = SUM(zfvis(1:kproma,1:nbndsw)                             * &
          (zbbfd(1:kproma,1:nbndsw) - zbbfu(1:kproma,1:nbndsw)), DIM=2) / &
