@@ -82,10 +82,6 @@ externals/*.settings
 externals/.cproject
 externals/.project
 externals/icon-dev
-externals/mtime/*.settings
-externals/mtime/.cproject
-externals/mtime/.project
-externals/mtime/icon-dev
 /icon-dev
 lapack/*.settings
 lapack/.cproject
