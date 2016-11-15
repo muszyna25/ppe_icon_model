@@ -160,7 +160,7 @@ CONTAINS
     lart_chem             = .FALSE.
     lart_passive          = .FALSE.
     iart_chem_mechanism   = 0
-    cart_emiss_xml_file = ''
+    cart_emiss_xml_file   = ''
     cart_vortex_init_date = ''
     cart_mozartfile       = ''
     cart_mozartcoord      = ''
