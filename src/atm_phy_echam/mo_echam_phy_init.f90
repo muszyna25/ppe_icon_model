@@ -55,7 +55,8 @@ MODULE mo_echam_phy_init
   USE mo_radiation_config,     ONLY: ssi_radt, tsi_radt, tsi, &
                                    & ighg, isolrad, irad_aero
   USE mo_psrad_srtm_setup,     ONLY: setup_srtm, ssi_amip, ssi_default, &
-                                   & ssi_preind, ssi_RCEdiurnOn, ssi_RCEdiurnOFF
+                                   & ssi_preind, ssi_RCEdiurnOn, ssi_RCEdiurnOFF, &
+                                   & ssi_cmip6_picontrol
   USE mo_lrtm_setup,           ONLY: lrtm_setup
   USE mo_newcld_optics,        ONLY: setup_newcld_optics
 
@@ -172,6 +173,10 @@ CONTAINS
       CASE (5)
         ssi_radt(:) = ssi_RCEdiurnOFF(:)
         tsi_radt = SUM(ssi_RCEdiurnOFF)
+        tsi      = tsi_radt
+      CASE (6)
+        ssi_radt(:) = ssi_cmip6_picontrol(:)
+        tsi_radt = SUM(ssi_cmip6_picontrol)
         tsi      = tsi_radt
       CASE default
         WRITE (message_text, '(a,i2,a)') &
