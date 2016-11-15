@@ -94,7 +94,6 @@ MODULE mo_hydro_ocean_run
   USE mo_hamocc_diagnostics,    ONLY: get_inventories
   USE mo_hamocc_nml,         ONLY: io_stdo_bgc
 
-
   IMPLICIT NONE
 
   PRIVATE
@@ -314,35 +313,24 @@ CONTAINS
     CALL message('',message_text)
     CALL message('','')
 
-
     !------------------------------------------------------------------
     ! call the dynamical core: start the time loop
     !------------------------------------------------------------------
     CALL timer_start(timer_total)
 
     jstep = jstep0
-    TIME_LOOP: DO 
-    IF (lhamocc) THEN
-      IF (ltimer) CALL timer_start(timer_bgc_inv)
-      CALL message ('start of time loop', 'HAMOCC inventories', io_stdo_bgc)
-      IF (ltimer) CALL get_inventories(hamocc_state,ocean_state(1),patch_3d,nold(1))
-      CALL timer_stop(timer_bgc_inv)
-    ENDIF
+    TIME_LOOP: DO
+      
+      IF (lhamocc) THEN
+        IF (ltimer) CALL timer_start(timer_bgc_inv)
+        CALL message ('start of time loop', 'HAMOCC inventories', io_stdo_bgc)
+        IF (ltimer) CALL get_inventories(hamocc_state,ocean_state(1),patch_3d,nold(1))
+        CALL timer_stop(timer_bgc_inv)
+      ENDIF
 
+      jstep = jstep + 1
       ! update model date and time mtime based
       mtime_current = mtime_current + model_time_step
-      jstep = jstep + 1
-      IF (mtime_current > time_config%tc_stopdate) then
-#ifdef _MTIME_DEBUG
-        ! consistency check: compare step counter to expected end step
-        if (jstep /= (jstep0+nsteps)) then
-           call finish(routine, 'Step counter does not match expected end step: '//int2string(jstep,'(i0)')&
-               &//' /= '//int2string((jstep0+nsteps),'(i0)'))
-        end if
-#endif
-        ! leave time loop
-        EXIT TIME_LOOP
-      END IF
 
       CALL datetimeToString(mtime_current, datestring)
       WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
@@ -371,8 +359,6 @@ CONTAINS
       ENDIF
 
     
-
-
       IF(lhamocc)CALL update_bgc_bcond( patch_3d, ext_data_bgc, jstep, this_datetime)
       stop_timer(timer_upd_flx,3)
 
@@ -542,19 +528,19 @@ CONTAINS
         &                hamocc_state,            &
         &                jstep, jstep0)
       
-    CALL reset_accumulation
+      CALL reset_accumulation
       ! send and receive coupling fluxes for ocean at the end of time stepping loop
       IF (iforc_oce == Coupled_FluxFromAtmo) &  !  14
         &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, p_as, mtime_current)
 !       &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, p_as%fu10, mtime_current)
 !       &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, mtime_current)
 
-  
       start_detail_timer(timer_extra21,5)
+      
       ! Shift time indices for the next loop
       ! this HAS to ge into the restart files, because the start with the following loop
       CALL update_time_indices(jg)
-  
+
       ! update intermediate timestepping variables for the tracers
       CALL update_time_g_n(ocean_state(jg))
 
@@ -584,7 +570,7 @@ CONTAINS
           lwrite_checkpoint = .TRUE.
         END IF
       END IF
-    
+
       IF (lwrite_checkpoint) THEN
         CALL create_restart_file( patch = patch_2d,       &
              & current_date=mtime_current, &
@@ -596,6 +582,22 @@ CONTAINS
              & ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
       END IF
 
+      stop_detail_timer(timer_extra21,5)
+      
+      IF (mtime_current >= time_config%tc_stopdate) THEN
+
+#ifdef _MTIME_DEBUG
+        ! consistency check: compare step counter to expected end step
+        if (jstep /= (jstep0+nsteps)) then
+          call finish(routine, 'Step counter does not match expected end step: ' &
+               // int2string(jstep,'(i0)') // ' /= ' // int2string((jstep0+nsteps),'(i0)'))
+        end if
+#endif
+
+        ! leave time loop
+        EXIT TIME_LOOP
+      END IF
+      
       ! check cfl criterion
       IF (cfl_check) THEN
         CALL check_cfl_horizontal(ocean_state(jg)%p_prog(nnew(1))%vn, &
@@ -615,28 +617,16 @@ CONTAINS
           & cfl_stop_on_violation,&
           & cfl_write)
       END IF
-      
-      stop_detail_timer(timer_extra21,5)
-
-    ENDDO time_loop
+            
+    ENDDO TIME_LOOP
     
-    IF(lhamocc) THEN
-     if(ltimer)CALL timer_start(timer_bgc_inv)
-     CALL message ('end of time loop', 'HAMOCC inventories', io_stdo_bgc)
-     CALL get_inventories(hamocc_state,ocean_state(1),patch_3d,nold(1))
-     if(ltimer)CALL timer_stop(timer_bgc_inv)
+    IF (lhamocc) THEN
+      if(ltimer) CALL timer_start(timer_bgc_inv)
+      CALL message ('end of time loop', 'HAMOCC inventories', io_stdo_bgc)
+      CALL get_inventories(hamocc_state,ocean_state(1),patch_3d,nold(1))
+      if(ltimer) CALL timer_stop(timer_bgc_inv)
     ENDIF
 
-    IF (write_last_restart .and. .not. lwrite_checkpoint) &
-        & CALL create_restart_file( patch = patch_2d,       &
-        & current_date=mtime_current, &
-        & jstep=jstep-1,          &
-        & model_type="oce",       &
-        & opt_nice_class=1,       &
-        & ocean_zlevels=n_zlev,                                         &
-        & ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:),  &
-        & ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
-  
     CALL timer_stop(timer_total)
   
   END SUBROUTINE perform_ho_stepping
