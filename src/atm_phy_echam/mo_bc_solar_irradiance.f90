@@ -54,7 +54,7 @@ CONTAINS
     INTEGER :: ssi_numwl
     INTEGER :: start(2), cnt(2)
 
-    INTEGER :: idx, first_year, first_month
+    INTEGER :: idx, first_year
 
     IF (lradt) THEN
        IF (last_year_radt /= year ) lread_solar_radt=.TRUE.
@@ -90,7 +90,6 @@ CONTAINS
     CALL nf_check(p_nf_get_var_int (ncid, nvarid, ssi_months))
 
     first_year = ssi_years(1)
-    first_month = ssi_months(1)
 
     ! not adding 1 in calculating the offset leads to an index to December of year-1
     idx = 12*(year - first_year)

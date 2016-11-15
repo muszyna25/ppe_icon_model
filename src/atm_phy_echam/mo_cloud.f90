@@ -112,7 +112,7 @@ CONTAINS
     ! - INPUT  1D .
                            , kctop                                                   &
     ! - INPUT  2D .
-                           , paphm1,       pvervel                                   &
+                           , paphm1                                                  &
                            , papm1                                                   &
 #ifndef __ICON__
                            , papp1                                                   &
@@ -173,7 +173,6 @@ CONTAINS
     REAL(wp), INTENT(IN)    :: ptime_step_len
     REAL(wp), INTENT(IN)    ::     &
       & paphm1   (kbdim,klevp1)   ,&!< pressure at half levels                   (n-1)
-      & pvervel  (kbdim,klev)     ,&!< vertical velocity in pressure coordinate  (n)
       & papm1    (kbdim,klev)     ,&!< pressure at full levels                   (n-1)
 #ifndef __ICON__
       & papp1    (kbdim,klev)     ,&!< pressure at full levels                   (n+1)
@@ -268,9 +267,9 @@ CONTAINS
     INTEGER:: cond1(kbdim), cond2(kbdim)
     INTEGER:: idx1(kbdim), idx2(kbdim)
 
-    INTEGER:: jb, nclcpre
+    INTEGER:: nclcpre
     INTEGER:: jl, jk, nl, locnt, nlocnt, nphase, i1 , i2, klevtop
-    LOGICAL   lo, lo1
+    LOGICAL   lo
     !!$ used in Revised Bergeron-Findeisen process only
     !!$  LOGICAL   locc
 

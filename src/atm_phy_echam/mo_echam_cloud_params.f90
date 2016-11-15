@@ -18,7 +18,10 @@
 MODULE mo_echam_cloud_params
 
   USE mo_kind,               ONLY: wp
-  USE mo_physical_constants, ONLY: tmelt, grav
+  USE mo_physical_constants, ONLY: tmelt
+#ifndef __ICON__
+  USE mo_physical_constants, ONLY: grav
+#endif
 #ifdef __ICON__
   USE mo_exception,          ONLY: print_value
 #else
@@ -107,14 +110,20 @@ CONTAINS
   !! This routine is called from *iniphy* in ECHAM
   !! This routine is called from *mo_echam_phy_init* in ICON
   !!
+#ifdef __ICON__
+  SUBROUTINE sucloud ( )
+#else
   SUBROUTINE sucloud ( nlev, vct )
 
-    INTEGER,INTENT(IN)  :: nlev          !< total # of vertical layers
+    INTEGER ,INTENT(IN) :: nlev          !< total # of vertical layers
     REAL(wp),INTENT(IN) :: vct(2*(nlev+1))
+#endif
 
     ! local variables
+#ifndef __ICON__
     REAL(wp) :: za, zb, zph(nlev+1), zp(nlev), zh(nlev)
     INTEGER :: jk
+#endif
     !
     ! Calculate values for ECHAM using vct
     ! Preset values for ICON (first attempt): Use values

@@ -1109,7 +1109,6 @@ CONTAINS
           &        psteplen,                  &! in
           &        ictop,                     &! in (from "cucall")
           &        field% presi_old(:,:,jb),  &! in
-          &        field% omega (:,:,jb),     &! in. vervel
           &        field% presm_old(:,:,jb),  &! in
 !          &        field% presm_new(:,:,jb), &! in
           &        field% acdnc (:,:,jb),     &! in. acdnc

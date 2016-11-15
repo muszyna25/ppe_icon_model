@@ -62,8 +62,6 @@ MODULE mo_echam_phy_memory
     &                               ZA_HYBRID, ZA_HYBRID_HALF,         &
     &                               ZA_SURFACE, ZA_GENERIC_ICE
   USE mo_sea_ice_nml,         ONLY: kice
-  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqt, ico2, ich4, in2o, io3
-
 
   IMPLICIT NONE
   PRIVATE

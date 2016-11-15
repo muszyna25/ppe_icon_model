@@ -22,17 +22,14 @@
 MODULE mo_echam_phy_init
 
   USE mo_kind,                 ONLY: wp
-  USE mo_exception,            ONLY: finish, message, warning, message_text
+  USE mo_exception,            ONLY: finish, message_text
   USE mo_datetime,             ONLY: t_datetime
-
-  USE mo_sync,                 ONLY: sync_c, sync_patch_array
 
   USE mo_io_config,            ONLY: default_read_method
   USE mo_read_interface,       ONLY: openInputFile, closeFile, read_2D, &
     &                                t_stream_id, on_cells
 
   ! model configuration
-  USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: nlev, iqv, iqt, ico2, ntracer, ltestcase
   USE mo_vertical_coord_table, ONLY: vct
   USE mo_dynamics_config,      ONLY: iequations

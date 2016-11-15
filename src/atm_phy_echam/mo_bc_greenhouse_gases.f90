@@ -27,14 +27,12 @@
 MODULE mo_bc_greenhouse_gases
 
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: finish, message, message_text
+  USE mo_exception,          ONLY: finish, message
   USE mo_physical_constants, ONLY: amd, amco2, amch4, amn2o, amc11, amc12
   USE mo_datetime,           ONLY: t_datetime, idaylen
   USE mo_netcdf_parallel,    ONLY: p_nf_open, p_nf_inq_dimid, p_nf_inq_dimlen, &
        &                           p_nf_inq_varid, p_nf_get_var_double, p_nf_close, &
        &                           nf_read, nf_noerr, nf_strerror
-  USE mo_radiation_config,   ONLY: vmr_co2, vmr_ch4, vmr_n2o, vmr_cfc11, vmr_cfc12, &
-       &                           mmr_co2, mmr_ch4, mmr_n2o
 
   IMPLICIT NONE
 

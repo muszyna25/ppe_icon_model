@@ -32,7 +32,7 @@ MODULE mo_surface
   USE mo_sea_ice,           ONLY: ice_fast
   USE mo_ml_ocean,            ONLY: ml_ocean
 #endif
-  USE mo_physical_constants,ONLY: rhos, rhoi, Tf, alf, albedoW, zemiss_def, stbo, tmelt
+  USE mo_physical_constants,ONLY: Tf, alf, albedoW, zemiss_def, stbo, tmelt, rhos!!$, rhoi
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: update_surface

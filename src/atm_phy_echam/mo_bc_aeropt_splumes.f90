@@ -28,8 +28,7 @@ MODULE mo_bc_aeropt_splumes
       &  sw_wv1 => wavenum1     ,&     !< smallest wave number in each of the sw bands
       &  sw_wv2 => wavenum2            !< largest wave number in each of the sw bands
   USE mo_rrtm_params,          ONLY: &
-      & jpb1                    ,&     !< index for lower sw band
-      & jpb2                           !< index for upper sw band
+      &  jpb1                          !< index for lower sw band
   USE mo_math_constants,       ONLY: rad2deg
 
 !!$, on_cells, &
