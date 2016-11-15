@@ -353,8 +353,11 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
-                    'cosmu0'  , 'rsdt'    ,
-                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
+                    'cosmu0'  ,
+                    'rsdt'    ,
+                    'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'
+                    'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs'
+                    'rsus'    , 'rsuscs'  , 'rlus'    ,
                     'ts'      ,
                     'sic'     , 'sit'     ,
                     'albedo'  ,

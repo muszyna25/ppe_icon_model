@@ -201,27 +201,23 @@ if [[ "$output_atm_phy" == "yes" ]]; then
  output_interval  = "PT05M"                          ! ISO-format interval
  file_interval    = "PT05M"                          ! ISO-format interval
  include_last     = .FALSE.
- ml_varlist       = 'cosmu0'  , 'rsdt'    ,
-                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
-                    'rsns_wtr', 'rsns_ice', 'rsns_lnd',
-                    'rlns_wtr', 'rlns_ice', 'rlns_lnd',
-                    'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts'      ,
+ ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
+                    'cosmu0'  ,
+                    'rsdt'    ,
+                    'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'
+                    'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs'
+                    'rsus'    , 'rsuscs'  , 'rlus'    ,
+                    'ts'      ,
                     'sic'     , 'sit'     ,
-                    'albedo'  , 'albedo_wtr', 'albedo_ice', 'albedo_lnd',
+                    'albedo'  ,
                     'clt'     ,
                     'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
                     'hfls'    , 'hfss'    , 'evspsbl' ,
-                    'hfls_wtr', 'hfls_ice', 'hfls_lnd',
-                    'hfss_wtr', 'hfss_ice', 'hfss_lnd',
                     'tauu'    , 'tauv'    ,
-                    'tauu_wtr', 'tauu_ice', 'tauu_lnd',
-                    'tauv_wtr', 'tauv_ice', 'tauv_lnd',
                     'tauu_sso', 'tauv_sso', 'diss_sso', 
-                    'sh_vdiff', 'qv_vdiff',
-                    'ch_concloud',
-                    'con_dtri', 'con_dtrl', 'con_iteqv',
-                    'cld_dtri', 'cld_dtrl', 'cld_iteq'
+                    'sfcwind' , 'uas'     , 'vas'     ,
+                    'tas'     , 'dew2'
 /
 EOF
 fi

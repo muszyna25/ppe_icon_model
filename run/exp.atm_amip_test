@@ -403,81 +403,22 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
-                    'cosmu0'  , 'daylght_frc', 'rsdt'    ,
-                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
-                    'rsns_wtr', 'rsns_ice', 'rsns_lnd',
-                    'rlns_wtr', 'rlns_ice', 'rlns_lnd', 'tend_ta_rlw_impl',
-                    'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts'      , 'ts_rad'  ,
+                    'cosmu0'  ,
+                    'rsdt'    ,
+                    'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'
+                    'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs'
+                    'rsus'    , 'rsuscs'  , 'rlus'    ,
+                    'ts'      ,
                     'sic'     , 'sit'     ,
-                    'albedo'  , 'albedo_wtr', 'albedo_ice', 'albedo_lnd',
+                    'albedo'  ,
                     'clt'     ,
                     'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
                     'hfls'    , 'hfss'    , 'evspsbl' ,
-                    'hfls_wtr', 'hfls_ice', 'hfls_lnd',
-                    'hfss_wtr', 'hfss_ice', 'hfss_lnd',
                     'tauu'    , 'tauv'    ,
-                    'tauu_wtr', 'tauu_ice', 'tauu_lnd',
-                    'tauv_wtr', 'tauv_ice', 'tauv_lnd',
                     'tauu_sso', 'tauv_sso', 'diss_sso', 
-                    'sh_vdiff', 'qv_vdiff',
-                    'ch_concloud',
-                    'con_dtrl', 'con_dtri', 'con_iteqv',
-                    'cld_dtrl', 'cld_dtri', 'cld_iteq', 
                     'sfcwind' , 'uas'     , 'vas'     ,
                     'tas'     , 'dew2'
-/
-EOF
-fi
-
-
-output_rad_2d=yes
-#
-if [[ "$output_rad_2d" == "yes" ]]; then
-  #
-  cat >> ${atmo_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_rad_2d"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = 0
- output_grid      = .TRUE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
- output_interval  = "${output_interval}"
- file_interval    = "${file_interval}"
- include_last     = .FALSE.
- ml_varlist       = 'cosmu0'  , 'cosmu0_rad'          ,
-                    'rsdt'    , 'rsut'    , 'rsnt'    ,
-                                'rsutcs'  , 'rsntcs'  ,
-                    'rsds'    , 'rsus'    , 'rsns'    ,
-                    'rsdscs'  , 'rsuscs'  , 'rsnscs'  ,
-                                'rlut'    , 'rlnt'    ,   
-                                'rlutcs'  , 'rlntcs'  ,   
-                    'rlds'    , 'rlus'    , 'rlns'    ,   
-                    'rldscs'  ,             'rlnscs'  ,   
-/
-EOF
-fi
-
-output_rad_3d=yes
-#
-if [[ "$output_rad_3d" == "yes" ]]; then
-  #
-  cat >> ${atmo_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_rad_3d"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = 0
- output_grid      = .TRUE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
- output_interval  = "${output_interval}"
- file_interval    = "${file_interval}"
- include_last     = .FALSE.
- ml_varlist       = 'rsd'     , 'rsu'     ,
-                    'rsdcs'   , 'rsucs'   ,
-                    'rld'     , 'rlu'     ,
-                    'rldcs'   , 'rlucs'   ,
 /
 EOF
 fi

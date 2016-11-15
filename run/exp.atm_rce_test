@@ -289,8 +289,11 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
-                    'cosmu0'  , 'rsdt'    ,
-                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
+                    'cosmu0'  ,
+                    'rsdt'    ,
+                    'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'
+                    'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs'
+                    'rsus'    , 'rsuscs'  , 'rlus'    ,
                     'ts'      ,
                     'sic'     , 'sit'     ,
                     'albedo'  ,
@@ -323,9 +326,12 @@ if [[ "$output_atm_2d_rmb" == "yes" ]]; then
 ! steps_per_file   = ${output_steps_per_file}
  include_last     = .FALSE.
  ml_varlist       = 'ps','psl'
-                    'cosmu0'  , 'rsdt'    ,
-                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
-                    'ts'      , 'ts_rad'  ,
+                    'cosmu0'  ,
+                    'rsdt'    ,
+                    'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'
+                    'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs'
+                    'rsus'    , 'rsuscs'  , 'rlus'    ,
+                    'ts'      ,
                     'albedo'  ,
                     'clt'     ,
                     'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
@@ -333,11 +339,7 @@ if [[ "$output_atm_2d_rmb" == "yes" ]]; then
                     'hfls'    , 'hfss'    , 'evspsbl' ,
                     'tauu'    , 'tauv'    ,
                     'sfcwind' , 'uas'     , 'vas'     ,
-                    'tas'     , 'dew2'    ,
-                    'sh_vdiff', 'qv_vdiff',
-                    'ch_concloud',
-                    'con_dtrl', 'con_dtri', 'con_iteqv',
-                    'cld_dtrl', 'cld_dtri', 'cld_iteq'
+                    'tas'     , 'dew2'
 /
 EOF
 fi
