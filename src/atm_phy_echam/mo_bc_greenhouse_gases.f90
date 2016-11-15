@@ -26,13 +26,16 @@
 !! headers of the routines.
 MODULE mo_bc_greenhouse_gases
 
-  USE mo_kind,               ONLY: wp
+  USE mo_kind,               ONLY: wp, dp, i8
   USE mo_exception,          ONLY: finish, message
   USE mo_physical_constants, ONLY: amd, amco2, amch4, amn2o, amc11, amc12
-  USE mo_datetime,           ONLY: t_datetime, idaylen
   USE mo_netcdf_parallel,    ONLY: p_nf_open, p_nf_inq_dimid, p_nf_inq_dimlen, &
        &                           p_nf_inq_varid, p_nf_get_var_double, p_nf_close, &
        &                           nf_read, nf_noerr, nf_strerror
+  USE mtime,                 ONLY: datetime, no_of_sec_in_a_day, &
+       &                           getNoOfDaysInYearDateTime, &
+       &                           getdayofyearfromdatetime,  &
+       &                           getnoofsecondselapsedindaydatetime
 
   IMPLICIT NONE
 
@@ -125,27 +128,34 @@ CONTAINS
   
   SUBROUTINE bc_greenhouse_gases_time_interpolation(radiation_date)
 
-    TYPE(t_datetime), INTENT(in) :: radiation_date 
+    TYPE(datetime), POINTER, INTENT(in) :: radiation_date 
 
-    REAL(wp) :: zsecref, zsecnow
-    REAL(wp) :: zw1, zw2
+    REAL(dp) :: zsecref, zsecnow
+    REAL(dp) :: zw1, zw2
     REAL(wp) :: zco2int, zch4int, zn2oint
     REAL(wp) :: zcfc(ghg_no_cfc)
-    INTEGER  :: iyear, iyearm, iyearp
+    INTEGER(i8) :: yearlen, yearday
+    INTEGER :: iyear, iyearm, iyearp
+
+!    CHARACTER(len=32)  :: cdate, cformat
+!    CHARACTER(len=256) :: ccfc
 
     ! interpolation in time
 
-    zsecref = REAL(radiation_date%yealen * idaylen, wp)
-    zsecnow = REAL(((radiation_date%yeaday - 1) * idaylen), wp) + radiation_date%daysec
+    yearlen = getNoOfDaysInYearDateTime(radiation_date)*no_of_sec_in_a_day
+    yearday = (getdayofyearfromdatetime(radiation_date)-1)*no_of_sec_in_a_day &
+         &   +getnoofsecondselapsedindaydatetime(radiation_date)    
+    zsecref = REAL(yearlen, dp)
+    zsecnow = REAL(yearday, dp)
 
-    iyear =  radiation_date%year - INT(ghg_base_year) + 1   ! set right index to access in ghg fields
+    iyear =  radiation_date%date%year - INT(ghg_base_year) + 1   ! set right index to access in ghg fields
     iyearm = iyear - 1
     iyearp = iyear + 1
 
-    IF (radiation_date%month <= 6) THEN     ! first half of year
+    IF (radiation_date%date%month <= 6) THEN     ! first half of year
 
-      zw1 = zsecnow/zsecref + 0.5_wp
-      zw2 = 1.0_wp - zw1
+      zw1 = zsecnow/zsecref + 0.5_dp
+      zw2 = 1.0_dp - zw1
 
       zco2int   = 1.0e-06_wp * ( zw1*ghg_co2(iyear)   + zw2*ghg_co2(iyearm)   )
       zch4int   = 1.0e-09_wp * ( zw1*ghg_ch4(iyear)   + zw2*ghg_ch4(iyearm)   )
@@ -153,8 +163,8 @@ CONTAINS
       zcfc(:)   = 1.0e-12_wp * ( zw1*ghg_cfc(iyear,:) + zw2*ghg_cfc(iyearm,:) )
     ELSE                                    ! second half of year
 
-      zw2= zsecnow/zsecref - 0.5_wp
-      zw1= 1.0_wp - zw2
+      zw2= zsecnow/zsecref - 0.5_dp
+      zw1= 1.0_dp - zw2
 
       zco2int   = 1.0e-06_wp * ( zw1*ghg_co2(iyear)   + zw2*ghg_co2(iyearp)   )
       zch4int   = 1.0e-09_wp * ( zw1*ghg_ch4(iyear)   + zw2*ghg_ch4(iyearp)   )

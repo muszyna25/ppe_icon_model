@@ -133,7 +133,10 @@ CONTAINS
     lkeep_in_sync           = .FALSE.
 
     dt_diag                 = 86400._wp    !  1 day
-    dt_checkpoint           = 2592000._wp  ! 30 days
+
+    ! Note: The default needs to be empty, since there exists a
+    ! concurrent namelist parameter to specify this value:
+    dt_checkpoint           = 0._wp  ! unspecified
 
     inextra_2d              = 0     ! no extra output 2D fields
     inextra_3d              = 0     ! no extra output 3D fields

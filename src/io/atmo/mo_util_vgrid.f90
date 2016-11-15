@@ -54,8 +54,7 @@ MODULE mo_util_vgrid
   USE mo_util_cdi,                          ONLY: get_cdi_varID, read_cdi_3d, cdiGetStringError, &
     &                                             t_inputParameters, makeInputParameters, deleteInputParameters
   USE mo_mpi,                               ONLY: my_process_is_mpi_workroot,                           &
-    &                                             p_comm_work, p_comm_work_test, p_bcast, p_io
-  USE mo_parallel_config,                   ONLY: p_test_run
+    &                                             p_comm_work, p_bcast, p_io
   USE mo_util_vgrid_types,                  ONLY: vgrid_buffer
 
   IMPLICIT NONE
@@ -380,7 +379,7 @@ CONTAINS
     LOGICAL                  :: lexists
     INTEGER                  :: cdiFileID, cdiVarID_vct_a, cdiVarID_vct_b,       &
       &                         nlevp1, nmiss, iret, cdiVlistID, cdiGridID,      &
-      &                         cdiVarID_z_ifc, cdiZaxisID, communicator, oneInt(1)
+      &                         cdiVarID_z_ifc, cdiZaxisID, oneInt(1)
     TYPE(t_uuid)             :: vfile_uuidOfHGrid            ! uuidOfHGrid contained in the
                                                              ! vertical grid file
     LOGICAL                  :: lmatch                       ! check matching of uuid's
@@ -465,11 +464,6 @@ CONTAINS
 
     !--- read 3D fields
     nlevp1 = p_patch%nlevp1
-    IF(p_test_run) THEN
-      communicator = p_comm_work_test
-    ELSE
-      communicator = p_comm_work
-    ENDIF
     parameters = makeInputParameters(cdiFileID, p_patch%n_patch_cells_g, p_patch%comm_pat_scatter_c)
     CALL read_cdi_3d(parameters, 'z_ifc', nlevp1, vgrid_buffer(p_patch%id)%z_ifc )
     CALL deleteInputParameters(parameters)

@@ -54,29 +54,31 @@
 !
 MODULE mo_psrad_radiation
 
-  USE mo_kind,                ONLY: wp
-  USE mo_model_domain,        ONLY: t_patch
-  USE mo_physical_constants,  ONLY: rae, amo3, amd
-  USE mo_exception,           ONLY: finish, message, message_text, print_value
-  USE mo_mpi,                 ONLY: my_process_is_stdio
-  USE mo_namelist,            ONLY: open_nml, position_nml, close_nml, POSITIONED
-  USE mo_io_units,            ONLY: nnml, nnml_output
+  USE mo_kind,            ONLY: wp, i8
+  USE mo_model_domain,    ONLY: t_patch
+  USE mo_physical_constants,       ONLY: rae
+  USE mo_exception,       ONLY: finish, message, message_text, print_value
+  USE mo_mpi,             ONLY: my_process_is_stdio
+  USE mo_namelist,        ONLY: open_nml, position_nml, close_nml, POSITIONED
+  USE mo_io_units,        ONLY: nnml, nnml_output
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist
   USE mo_impl_constants,      ONLY: io3_clim, io3_ape, io3_amip
   USE mo_ext_data_types,      ONLY: t_external_atmos_td
   USE mo_ext_data_state,      ONLY: ext_data, nlev_o3
   USE mo_bc_ozone,            ONLY: o3_plev, nplev_o3, plev_full_o3, plev_half_o3
   USE mo_o3_util,             ONLY: o3_pl2ml, o3_timeint
-  USE mo_echam_phy_config,    ONLY: echam_phy_config
-!  USE mo_time_control,        ONLY: l_orbvsop87, get_orbit_times,                 &
-!       &                            p_bcast_event, current_date, next_date,       &
-!       &                            previous_date, radiation_date,                &
-!       &                            prev_radiation_date,get_date_components,      &
-!       &                            lresume, lstart, get_month_len
-  USE mo_datetime,            ONLY: t_datetime
-  USE mo_psrad_orbit,         ONLY: orbit_kepler, orbit_vsop87, &
-                                  & get_orbit_times
-  USE mo_psrad_orbit_nml,     ONLY: read_psrad_orbit_namelist
+  USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
+!  USE mo_time_control,    ONLY: l_orbvsop87, get_orbit_times,                 &
+!       &                        p_bcast_event, current_date, next_date,       &
+!       &                        previous_date, radiation_date,                &
+!       &                        prev_radiation_date,get_date_components,      &
+!       &                        lresume, lstart, get_month_len
+  USE mo_psrad_orbit,     ONLY: orbit_kepler, orbit_vsop87, &
+                              & get_orbit_times
+  USE mo_psrad_orbit_nml, ONLY: read_psrad_orbit_namelist
+  USE mo_psrad_radiation_parameters, ONLY: solar_parameters, &
+                              & l_interp_rad_in_time,        &
+                              & zepzen
 ! the present mo_bc_solar_irradiance is "old" and not the one used in echam-6.3.
 !  USE mo_solar_irradiance,    ONLY: get_solar_irradiance, set_solar_irradiance, &
 !                                    get_solar_irradiance_m, set_solar_irradiance_m
@@ -148,6 +150,8 @@ MODULE mo_psrad_radiation
   USE mo_psrad_spec_sampling, ONLY : set_spec_sampling_lw, set_spec_sampling_sw, get_num_gpoints
   USE mo_psrad_orbit_config,  ONLY : psrad_orbit_config
 
+  USE mtime, ONLY: datetime
+  
   IMPLICIT NONE
   
   PRIVATE
@@ -156,24 +160,25 @@ MODULE mo_psrad_radiation
 
   CONTAINS
 
-  SUBROUTINE pre_psrad_radiation( p_patch,         datetime_radiation,        &
-                                & datetime,        ltrig_rad,                 &
-                                & amu0_x,          rdayl_x,                   &
-                                & amu0m_x,         rdaylm_x                   )
+  SUBROUTINE pre_psrad_radiation( p_patch,          datetime_radiation, &
+                                & current_datetime, ltrig_rad,          &
+                                & amu0_x,           rdayl_x,            &
+                                & amu0m_x,          rdaylm_x            )
   !-----------------------------------------------------------------------------
   !>
   !! @brief Prepares information for radiation call
   !
 
-    TYPE(t_patch), INTENT(IN)        :: p_patch
-    TYPE(t_datetime), INTENT(IN)     :: datetime_radiation, & !< date and time of radiative transfer calculation
-                                      & datetime !< current time step
-    LOGICAL         , INTENT(IN)     :: ltrig_rad !< .true. if radiative transfer calculation has to be done at current time step
-    REAL(wp), INTENT(OUT)            :: amu0_x(:,:), rdayl_x(:,:), &
-                                        amu0m_x(:,:), rdaylm_x(:,:)
+    TYPE(t_patch),           INTENT(in) :: p_patch
+    TYPE(datetime), POINTER, INTENT(in) :: datetime_radiation, & !< date and time of radiative transfer calculation
+         &                                 current_datetime       !< current time step
+    LOGICAL,                 INTENT(in) :: ltrig_rad !< .true. if radiative transfer calculation has to be done at current time step
+    REAL(wp),                INTENT(out) :: amu0_x(:,:), rdayl_x(:,:), &
+         &                                  amu0m_x(:,:), rdaylm_x(:,:)
 
     LOGICAL  :: l_write_solar
-    INTEGER  :: icurrentyear, icurrentmonth, i
+    INTEGER(i8) :: icurrentyear
+    INTEGER  :: icurrentmonth, i
     INTEGER, SAVE :: iprevmonth=-9999
     REAL(wp) :: rasc_sun, decl_sun, dist_sun, time_of_day, zrae
     REAL(wp) :: orbit_date
@@ -186,14 +191,14 @@ MODULE mo_psrad_radiation
     !
     ! 1.0 Compute orbital parameters for current time step
     ! --------------------------------
-    CALL get_orbit_times(datetime, time_of_day, &
-         &               orbit_date)
+    CALL get_orbit_times(current_datetime, time_of_day, orbit_date)
 
     IF (l_orbvsop87) THEN 
       CALL orbit_vsop87 (orbit_date, rasc_sun, decl_sun, dist_sun)
     ELSE
       CALL orbit_kepler (orbit_date, rasc_sun, decl_sun, dist_sun)
     END IF
+
 !!$    decl_sun_cur = decl_sun       ! save for aerosol and chemistry submodels
     CALL solar_parameters(decl_sun,       dist_sun,         time_of_day,       &
          &                ldiur,          l_sph_symm_irr,   p_patch,           &
@@ -230,8 +235,8 @@ MODULE mo_psrad_radiation
     ! 2.0 Prepare time dependent quantities for rad (on radiation timestep)
     ! --------------------------------
     IF (echam_phy_config%lrad .AND. ltrig_rad) THEN
-      CALL get_orbit_times(datetime_radiation, time_of_day , &
-           &               orbit_date)
+
+      CALL get_orbit_times(datetime_radiation, time_of_day, orbit_date)
 
       IF ( l_orbvsop87 ) THEN 
         CALL orbit_vsop87 (orbit_date, rasc_sun, decl_sun, dist_sun)
@@ -316,10 +321,11 @@ MODULE mo_psrad_radiation
 !!$      CALL get_date_components(current_date, month=icurrentmonth, &
 !!$           year=icurrentyear)
 !!$      CALL get_date_components(previous_date, month=iprevmonth)
-      icurrentmonth=datetime_radiation%month
-      icurrentyear=datetime_radiation%year
+
+      icurrentmonth = datetime_radiation%date%month
+      icurrentyear = datetime_radiation%date%year
       l_write_solar = icurrentmonth/=iprevmonth
-      iprevmonth=icurrentmonth
+      iprevmonth = icurrentmonth
       IF (l_write_solar) THEN
         CALL message('','')
         WRITE (message_text,'(a,i0,a,i2.2,a,f6.1)') &
@@ -709,6 +715,7 @@ MODULE mo_psrad_radiation
   END SUBROUTINE setup_psrad_radiation
 
   SUBROUTINE psrad_radiation ( &
+    & current_date   ,&!< in current date
     & jg             ,&!< in  domain index
     & jb             ,&!< in  block index
     & kproma         ,&!< in  end index for loop over block
@@ -718,7 +725,7 @@ MODULE mo_psrad_radiation
     & ktype          ,&!< in  type of convection
     & loland         ,&!< in  land-sea mask. (1. = land, 0. = sea/lakes)
     & loglac         ,&!< in  fraction of land covered by glaciers
-    & datetime       ,&!< in  actual time step
+    & this_datetime  ,&!< in  actual time step
     & pcos_mu0       ,&!< in  cosine of solar zenith angle
     & alb_vis_dir    ,&!< in  surface albedo for visible range, direct
     & alb_nir_dir    ,&!< in  surface albedo for near IR range, direct
@@ -755,6 +762,9 @@ MODULE mo_psrad_radiation
     & par_up_sfc     ,&!< out all-sky upward PAR     radiation at surfac
     & nir_up_sfc     ) !< out all-sky upward near-IR radiation at surface
 
+
+    TYPE(datetime), POINTER, INTENT(in) :: current_date
+    
     INTEGER, INTENT(in)  :: &
     & jg,             & !< domain index
     & jb,             & !< block index
@@ -768,7 +778,7 @@ MODULE mo_psrad_radiation
     & loland(kbdim),     & !< land mask
     & loglac(kbdim)        !< glacier mask
 
-    TYPE(t_datetime), INTENT(in) :: datetime !< actual time step
+    TYPE(datetime), POINTER :: this_datetime !< actual time step
 
     REAL(wp), INTENT(IN) :: &
     & pcos_mu0(kbdim),   & !< cosine of solar zenith angle
@@ -953,9 +963,10 @@ MODULE mo_psrad_radiation
       CALL o3_timeint(kproma = kproma, kbdim = kbdim,        &
            &          nlev_pres=nplev_o3,                    &
            &          ext_o3=o3_plev(:,:,jb,:),              &
+           &          current_date=current_date,             &
            &          o3_time_int=zo3_timint                 )
-      CALL o3_pl2ml ( kproma = kproma, kbdim = kbdim,        &
-           &          nlev_pres = nplev_o3, klev = klev,     &
+      CALL o3_pl2ml ( kproma = kproma, kbdim = kbdim,         &
+           &          nlev_pres = nplev_o3, klev = klev,      &
            &          pfoz = plev_full_o3,                   &
            &          phoz = plev_half_o3,                   &
            &          ppf  = pp_fl(:,:),                     &
@@ -974,12 +985,22 @@ MODULE mo_psrad_radiation
 
     ! 2.0 Radiation used to advance model, provide standard diagnostics, and radiative forcing if desired
     !
-      CALL psrad_interface(                    jg              ,jb              ,&
-           & irad_aero       ,kproma          ,kbdim           ,klev            ,& 
-!!$           & knwtrc          ,ktype           ,nb_sw                            ,&
-           &                  ktype           ,nb_sw                            ,&
-           & loland          ,loglac          ,datetime        ,pcos_mu0        ,&
-           & cemiss                                                             ,&
+    ! --------------------------------
+    ! 2.1 Radiation call (number of calls depends on whether forcing is desired)
+    ! --------------------------------
+    number_rad_call = 1
+    IF (lradforcing(1).OR.lradforcing(2)) number_rad_call = 2 
+
+    DO i_rad_call = 1,number_rad_call
+      iaero_call = irad_aero
+      IF (i_rad_call < number_rad_call) iaero_call = irad_aero_forcing
+
+      CALL psrad_interface(   current_date    ,jg                               ,&
+           & iaero_call      ,kproma          ,kbdim           ,klev            ,& 
+!!$           & jb              ,knwtrc          ,ktype           ,nb_sw           ,&
+           & jb                               ,ktype           ,nb_sw           ,&
+           & loland          ,loglac          ,cemiss          ,this_datetime   ,&
+           & cos_mu0         ,geoi            ,geom            ,oromea          ,&
            & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
            & zf              ,zh              ,dz                               ,&
            & pp_sfc          ,pp_fl                                             ,&

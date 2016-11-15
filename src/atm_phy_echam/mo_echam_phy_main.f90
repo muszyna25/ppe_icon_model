@@ -25,6 +25,7 @@
 
 MODULE mo_echam_phy_main
 
+  USE, INTRINSIC :: iso_c_binding, ONLY: c_int
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish, print_value
   USE mo_mpi,                 ONLY: my_process_is_stdio
@@ -46,7 +47,7 @@ MODULE mo_echam_phy_main
     &                               timer_vdiff_down, timer_surface,timer_vdiff_up, &
     &                               timer_gw_hines, timer_ssodrag,                  &
     &                               timer_cucall, timer_cloud
-  USE mo_datetime,            ONLY: t_datetime
+  USE mtime,                  ONLY: datetime, getDayOfYearFromDateTime
   USE mo_ham_aerosol_params,  ONLY: ncdnc, nicnc
   USE mo_echam_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_surface,             ONLY: update_surface
@@ -75,7 +76,7 @@ CONTAINS
   !>
   !!
   SUBROUTINE echam_phy_main( jg,jb,jcs,jce,nbdim,      &
-    &                        datetime,pdtime,psteplen, &
+    &                        this_datetime,pdtime,psteplen, &
     &                        ltrig_rad                 )
 
     INTEGER         ,INTENT(IN) :: jg             !< grid level/domain index
@@ -83,7 +84,7 @@ CONTAINS
     INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
     INTEGER         ,INTENT(IN) :: nbdim          !< size of this block
 
-    TYPE(t_datetime),INTENT(IN) :: datetime       !< time step
+    TYPE(datetime), POINTER     :: this_datetime  !< time step
     REAL(wp)        ,INTENT(IN) :: pdtime         !< time step
     REAL(wp)        ,INTENT(IN) :: psteplen       !< 2*pdtime in case of leapfrog
 
@@ -190,6 +191,10 @@ CONTAINS
 
     CHARACTER(len=12)  :: str_module = 'e_phy_main'        ! Output of module for 1 line debug
     INTEGER            :: idt_src               ! Determines level of detail for 1 line debug
+
+    INTEGER(c_int) :: yeaday
+    INTEGER        :: errno
+
     idt_src=4
 
     ! number of cells/columns from index jcs to jce
@@ -359,6 +364,7 @@ CONTAINS
         IF (ltimer) CALL timer_start(timer_radiation)
 
         CALL psrad_radiation(      &
+        & this_datetime           ,&!< in  current date 
         & jg                      ,&!< in  domain index
         & jb                      ,&!< in  block index
         & kproma     = jce        ,&!< in  end index for loop over block
@@ -368,7 +374,7 @@ CONTAINS
         & ktype      = itype(:)   ,&!< in  type of convection
         & loland     = lland      ,&!< in  land-sea mask. (logical)
         & loglac     = lglac      ,&!< in  glacier mask (logical)
-        & datetime   = datetime   ,&!< in  actual time step
+        & this_datetime = this_datetime   ,&!< in  actual time step
         & pcos_mu0   = field%cosmu0_rt(:,jb)   ,&!< in  solar zenith angle
         & alb_vis_dir= field%albvisdir(:,jb)   ,&!< in  surface albedo for visible range, direct
         & alb_nir_dir= field%albnirdir(:,jb)   ,&!< in  surface albedo for near IR range, direct

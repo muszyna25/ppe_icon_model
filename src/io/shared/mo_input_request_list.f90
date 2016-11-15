@@ -40,7 +40,7 @@ MODULE mo_input_request_list
     USE mo_mpi, ONLY: my_process_is_mpi_workroot, get_my_mpi_work_id, p_bcast, process_mpi_root_id, p_comm_work, &
                     & my_process_is_stdio, p_pe, p_isEqual
     USE mo_run_config, ONLY: msg_level
-    USE mo_time_config, ONLY: getIniTime
+    USE mo_time_config, ONLY: time_config
     USE mo_util_cdi, ONLY: trivial_tileId
     USE mo_util_string, ONLY: int2string, toCharArray, toCharacter, charArray_equal, charArray_toLower, charArray_dup, one_of
     USE mo_util_table, ONLY: t_table, initialize_table, add_table_column, set_table_entry, print_table, finalize_table
@@ -369,12 +369,12 @@ CONTAINS
             tempTime => newDatetime(vtimeString)
             DEALLOCATE(vtimeString)
             IF(lIsFg) THEN
-                iniTime = getIniTime()
+                iniTime = time_config%tc_startdate
                 ! add timeshift to INI-datetime to get true starting time
                 startTime = iniTime + timeshift%mtime_shift
                 IF(.NOT.(tempTime == startTime)) CALL fail("vtime of first-guess field does not match model start time")
             ELSE
-                iniTime = getIniTime()
+                iniTime = time_config%tc_startdate
                 IF(.NOT.(tempTime == iniTime)) CALL fail("vtime of analysis field does not match model initialization time")
             END IF
             CALL deallocateDatetime(tempTime)

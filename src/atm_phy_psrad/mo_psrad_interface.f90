@@ -21,19 +21,20 @@ MODULE mo_psrad_interface
 !!$  USE mo_aero_volc_tab,              ONLY: add_aop_volc_ham, add_aop_volc_crow
 !!$  USE mo_lrtm_setup,                 ONLY: lrtm_setup
   USE mo_psrad_lrtm_setup,ONLY: setup_lrtm
-  USE mo_psrad_srtm_setup,ONLY: setup_srtm ! here, the new name is chosen to distinguish
+  USE mo_psrad_srtm_setup,ONLY: setup_srtm ! here, the new name is chosen to distinguish 
                                            ! it from lrtm_setup in the "old" version
-  USE mo_psrad_lrtm_driver,          ONLY: lrtm
-  USE mo_psrad_srtm_driver,          ONLY: srtm
-!!$  USE mo_submodel,                   ONLY: lanysubmodel
-!!$  USE mo_submodel_interface,         ONLY: radiation_subm_1, radiation_subm_2  
-!!$  USE mo_cosp_simulator,             ONLY: cosp_reffl, cosp_reffi,      &
-!!$                                           locosp, cosp_f3d, Lisccp_sim,&
-!!$                                           cisccp_cldtau3d, cisccp_cldemi3d
-  USE mo_psrad_spec_sampling,        ONLY: spec_sampling_strategy, get_num_gpoints
-  USE mo_random_numbers,             ONLY: seed_size_random
-  USE mo_rad_diag,                   ONLY: rad_aero_diag
-  USE mo_datetime,                   ONLY: t_datetime
+  USE mo_psrad_lrtm_driver,     ONLY: lrtm
+  USE mo_psrad_srtm_driver,     ONLY: srtm
+!!$  USE mo_submodel,        ONLY: lanysubmodel
+!!$  USE mo_submodel_interface, &
+!!$       ONLY: radiation_subm_1, radiation_subm_2  
+!!$  USE mo_cosp_simulator,  ONLY: cosp_reffl, cosp_reffi,      &
+!!$                                locosp, cosp_f3d, Lisccp_sim,&
+!!$                                cisccp_cldtau3d, cisccp_cldemi3d
+  USE mo_psrad_spec_sampling,   ONLY: spec_sampling_strategy, get_num_gpoints
+  USE mo_random_numbers,        ONLY: seed_size_random
+  USE mo_rad_diag,              ONLY: rad_aero_diag
+  USE mtime,                    ONLY: datetime
 
   IMPLICIT NONE
 
@@ -94,12 +95,12 @@ CONTAINS
   !!    index = 7 => O2
   !
 
-  SUBROUTINE psrad_interface(              jg              ,krow            ,&
+  SUBROUTINE psrad_interface(              current_date    ,jg              ,&
        & iaero           ,kproma          ,kbdim           ,klev            ,&
-!!$       & ktrac           ,ktype           ,nb_sw                         ,&
-       &                  ktype           ,nb_sw                            ,&
-       & laland          ,laglac          ,datetime        ,pmu0            ,&
-       & cemiss                                                             ,&
+!!$       & krow            ,ktrac           ,ktype           ,nb_sw           ,&
+       & krow                             ,ktype           ,nb_sw           ,&
+       & laland          ,laglac          ,cemiss          ,this_datetime   ,&
+       & pmu0            ,geoi            ,geom            ,oromea          ,&
        & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
        & zf              ,zh              ,dz                               ,&
        & pp_sfc          ,pp_fl                                             ,&
@@ -115,6 +116,7 @@ CONTAINS
        & vis_dn_dff_sfc  ,par_dn_dff_sfc  ,nir_dn_dff_sfc                   ,&
        & vis_up_sfc      ,par_up_sfc      ,nir_up_sfc                       )
 
+    TYPE(datetime), POINTER, INTENT(in) :: current_date 
     INTEGER,INTENT(IN)  ::             &
          jg,                           & !< domain index
          krow,                         & !< first dimension of 2-d arrays
@@ -130,7 +132,7 @@ CONTAINS
          laland(kbdim),                & !< land sea mask, land=.true.
          laglac(kbdim)                   !< glacier mask, glacier=.true.
 
-    TYPE(t_datetime), INTENT(IN) ::    datetime !< actual time step
+    TYPE(datetime), POINTER ::  this_datetime !< actual time step
 
     REAL(WP),INTENT(IN)  ::            &
          pmu0(kbdim),                  & !< mu0 for solar zenith angle
@@ -331,7 +333,7 @@ CONTAINS
 ! iaero=13: only Kinne aerosols are used
 ! iaero=15: Kinne aerosols plus Stenchikov's volcanic aerosols are used
 ! iaero=18: Kinne background aerosols (of natural origin, 1850) are set
-      CALL set_bc_aeropt_kinne(                                         &
+      CALL set_bc_aeropt_kinne( current_date         ,jg               ,&
            & kproma           ,kbdim                 ,klev             ,&
            & krow             ,nb_sw                 ,nbndlw           ,&
            & zf               ,dz                                      ,&
@@ -343,7 +345,7 @@ CONTAINS
 ! iaero=15: Stenchikov's volcanic aerosols are added to Kinne aerosols
 ! iaero=18: Stenchikov's volcanic aerosols are added to Kinne background
 !           aerosols (of natural origin, 1850) 
-      CALL add_bc_aeropt_stenchikov( jg                                ,&
+      CALL add_bc_aeropt_stenchikov( current_date    ,jg               ,&
            & kproma           ,kbdim                 ,klev             ,&
            & krow             ,nb_sw                 ,nbndlw           ,&
            & dz               ,pp_fl                                   ,&
@@ -369,7 +371,7 @@ CONTAINS
 !           and Kinne background aerosols (of natural origin, 1850) 
      CALL add_bc_aeropt_splumes(jg                                     ,&
            & kproma           ,kbdim                 ,klev             ,&
-           & krow             ,nb_sw                 ,datetime         ,&
+           & krow             ,nb_sw                 ,this_datetime    ,&
            & zf               ,dz                    ,zh(:,klev+1)     ,&
            & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
            & x_cdnc                                                     )
