@@ -114,12 +114,7 @@ MODULE mo_art_config
     LOGICAL :: lart_passive            !< Main switch to enable chemistry
     INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
     CHARACTER(LEN=IART_PATH_LEN) :: &
-      &  cart_emiss_base_path         !< Base path to emission datasets
-    CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_emiss_xml_file          !< Path and file name of the xml file containing meta information of the emissions.
-    CHARACTER(LEN=IART_PATH_LEN) :: &
-      &  cart_pft_path                !< Full path to the plant functional type data 
-                                      !  (only necessary if online biogenic emissions are calculated)
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_vortex_init_date        !< Date of vortex initialization
     CHARACTER(LEN=IART_PATH_LEN) :: &

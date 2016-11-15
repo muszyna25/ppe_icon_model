@@ -62,11 +62,7 @@ MODULE mo_art_nml
   LOGICAL :: lart_passive            !< Main switch to enable passive tracers
   INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
   CHARACTER(LEN=IART_PATH_LEN)  :: &
-    &  cart_emiss_base_path          !< base path to the emission datasets without the four to five last folder, i.e. for example without "acetone/ANT/MACCity/R2B04" at the end.
-  CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_emiss_xml_file           !< path and file name of the xml files for emission metadata
-  CHARACTER(LEN=IART_PATH_LEN)  :: &
-    &  cart_pft_path                 !< path to the PFT data (only necessary if online biogenic emissions are calculated)
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_vortex_init_date         !< Date of vortex initialization
   CHARACTER(LEN=IART_PATH_LEN)  :: &
@@ -112,7 +108,6 @@ MODULE mo_art_nml
    &                iart_aci_warm, iart_aci_cold, iart_ari,                            &
    &                lart_conv, lart_turb, iart_ntracer, iart_init_aero, iart_init_gas, &
    &                lart_diag_out, cart_emiss_xml_file,                                &
-   &                cart_emiss_base_path,  cart_pft_path,                              &
    &                cart_vortex_init_date , cart_mozartfile, cart_mozartcoord,         &
    &                cart_chemistry_xml, cart_aerosol_xml, cart_passive_xml,            &
    &                cart_modes_xml, cart_io_suffix, iart_init_passive
@@ -165,9 +160,7 @@ CONTAINS
     lart_chem             = .FALSE.
     lart_passive          = .FALSE.
     iart_chem_mechanism   = 0
-    cart_emiss_base_path = ''
     cart_emiss_xml_file = ''
-    cart_pft_path       = ''
     cart_vortex_init_date = ''
     cart_mozartfile       = ''
     cart_mozartcoord      = ''
@@ -245,16 +238,7 @@ CONTAINS
     IF (TRIM(cart_emiss_xml_file) /= '') THEN
       INQUIRE(file = TRIM(cart_emiss_xml_file), EXIST = l_exist)
     
-      IF (l_exist) THEN
-        !TRIM(cart_emiss_base_path), EXIST = l_dir_exist)
-    
-        IF (TRIM(cart_emiss_base_path) == '') THEN
-          CALL finish('mo_art_nml:read_art_namelist',  &
-                      'The namelist parameter cart_emiss_base_path must be present '  &
-                  & //'and non-empty if cart_emiss_xml_file is present.')
-        END IF
-    
-      ELSE
+      IF (.NOT. l_exist) THEN
         CALL finish('mo_art_nml:read_art_namelist',  &
                     TRIM(cart_emiss_xml_file)//  &
                     & ' could not be found. Check cart_emiss_xml_file.')
@@ -280,9 +264,7 @@ CONTAINS
       art_config(jg)%lart_chem             = lart_chem
       art_config(jg)%lart_passive          = lart_passive
       art_config(jg)%iart_chem_mechanism   = iart_chem_mechanism
-      art_config(jg)%cart_emiss_base_path  = TRIM(cart_emiss_base_path)
       art_config(jg)%cart_emiss_xml_file   = TRIM(cart_emiss_xml_file)
-      art_config(jg)%cart_pft_path         = TRIM(cart_pft_path)
       art_config(jg)%cart_vortex_init_date = TRIM(cart_vortex_init_date)
       art_config(jg)%cart_mozartfile       = TRIM(cart_mozartfile)
       art_config(jg)%cart_mozartcoord      = TRIM(cart_mozartcoord)
