@@ -525,22 +525,6 @@ CONTAINS
 
     END IF ! lrad
 
-    CALL print_value('mo_echam_phy_main, jb',jb)
-    CALL print_value('mo_echam_phy_main,       psctm',psctm)
-    CALL print_value('mo_echam_phy_main,       psct ',psctm)
-    CALL print_value('mo_echam_phy_main,   cosmu0_rt',field%cosmu0_rt(1,jb))
-    CALL print_value('mo_echam_phy_main,   cosmu0   ',field%cosmu0(1,jb))
-    CALL print_value('mo_echam_phy_main, rsd(     1)',field%rsd_rt(1,     1,jb))
-    CALL print_value('mo_echam_phy_main, rsd(nlevp1)',field%rsd_rt(1,nlevp1,jb))
-    CALL print_value('mo_echam_phy_main, rsu(     1)',field%rsu_rt(1,     1,jb))
-    CALL print_value('mo_echam_phy_main, rsu(nlevp1)',field%rsu_rt(1,nlevp1,jb))
-    CALL print_value('mo_echam_phy_main,      rsdt',field%rsdt(1,jb))
-    CALL print_value('mo_echam_phy_main,      rsds',field%rsds(1,jb))
-    CALL print_value('mo_echam_phy_main,      rsut',field%rsut(1,jb))
-    CALL print_value('mo_echam_phy_main,      rsus',field%rsus(1,jb))
-    CALL print_value('mo_echam_phy_main,      rsnt',field%rsnt(1,jb))
-    CALL print_value('mo_echam_phy_main,      rsns',field%rsns(1,jb))
-
     !-------------------------------------------------------------------
     ! 5. BOUNDARY LAYER AND SURFACE PROCESSES
     !-------------------------------------------------------------------
