@@ -1,10 +1,10 @@
 !>
-!! @brief Module to provide SW and LW fluxes and heating rates
+!! @brief Module to provide updated radiative fluxes and heating rates
 !!
 !! @remarks
 !!   This module contains the "radheating" routine that diagnoses
 !!   SW and LW fluxes at TOA and at the surface and the heating
-!!   in the atmosphere.
+!!   in the atmosphere for the current time.
 !!
 !! @author Marco Giorgetta, MPI-M, Hamburg (2016-11-02)
 !!
@@ -43,7 +43,7 @@ CONTAINS
   !!
   !! SW fluxes are rescaled by the SW indicent radiation at the top of the
   !! atmosphere. In order to make this work the radiative transfer uses a zenith
-  !! angle limited to 84deg so that also at nighttime non-zero fluxes exist,
+  !! angle limited to 84deg so that also at night time non-zero fluxes exist,
   !! as needed for the scaling.
   !!
   !! LW fluxes are kept constant except for the upward flux from the surface,
@@ -297,8 +297,10 @@ CONTAINS
     rlus(jcs:jce)       = rlu_rt(jcs:jce,klevp1)                  & ! rlus = rlus_rt
       &                 + drlus_dtsr(jcs:jce) * dtsr(jcs:jce)       !       + correction
     !
-    rlns  (jcs:jce) = rlds  (jcs:jce) - rlus  (jcs:jce)
-    rlnscs(jcs:jce) = rldscs(jcs:jce) - rlus  (jcs:jce)
+    rlns  (jcs:jce)        = rlds  (jcs:jce) - rlus  (jcs:jce)
+    rln   (jcs:jce,klevp1) = rlds  (jcs:jce) - rlus  (jcs:jce)
+    !
+    rlnscs(jcs:jce)        = rldscs(jcs:jce) - rlus  (jcs:jce)
 
     
     ! Heating rates in atmosphere
