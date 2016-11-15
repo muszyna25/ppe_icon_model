@@ -423,7 +423,7 @@ MODULE mo_async_latbc
       INTEGER :: jlev, ierrstat, vlistID, nvars, varID, zaxisID, gridID, &
            &       jp, fileID_latbc, counter, filetype, ngrp_prefetch_vars
       INTEGER(KIND=i8) :: flen_latbc
-      LOGICAL :: l_exist, l_icon_lbc
+      LOGICAL :: l_exist
       CHARACTER(LEN=filename_max)    :: latbc_filename
       CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
@@ -436,13 +436,6 @@ MODULE mo_async_latbc
 
       ! initialising counter
       counter = 0
-
-      SELECT CASE (init_mode)
-      CASE (MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU_OLD, MODE_IAU)
-        l_icon_lbc = .TRUE.
-      CASE DEFAULT
-        l_icon_lbc = .FALSE.
-      END SELECT
 
       !>Looks for variable groups ("group:xyz") and collects
       ! them to map prefetch variable names onto
@@ -505,7 +498,7 @@ MODULE mo_async_latbc
          ! Search name mapping for name in GRIB2 file
          SELECT CASE(filetype)
          CASE (FILETYPE_NC2, FILETYPE_NC4)
-            IF (latbc_config%itype_latbc == 1 .AND. .NOT. l_icon_lbc) THEN
+            IF (latbc_config%itype_latbc == 1) THEN
                DO jp= 1, ngrp_prefetch_vars
                   latbc_buffer%grp_vars(jp) = TRIM(dict_get(latbc_varnames_dict, grp_vars(jp), default=grp_vars(jp)))
                ENDDO
