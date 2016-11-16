@@ -157,8 +157,7 @@ MODULE mo_nh_stepping
   USE mo_opt_diagnostics,          ONLY: update_opt_acc, reset_opt_acc, &
     &                                    calc_mean_opt_acc, p_nh_opt_diag
   USE mo_var_list,                 ONLY: nvar_lists, var_lists, print_var_list
-  USE mo_async_latbc,              ONLY: prefetch_input
-  USE mo_async_latbc_utils,        ONLY: deallocate_pref_latbc_data, new_latbc_tlev, &
+  USE mo_async_latbc_utils,        ONLY: deallocate_pref_latbc_data, new_latbc_tlev, pref_latbc_data, &
     &                                    prev_latbc_tlev, latbc_data, update_lin_interpolation
   USE mo_nonhydro_types,           ONLY: t_nh_state
   USE mo_interface_les,            ONLY: init_les_phy_interface
@@ -1179,7 +1178,7 @@ MODULE mo_nh_stepping
 
     ! prefetch boundary data if necessary
     IF(num_prefetch_proc >= 1 .AND. latbc_config%itype_latbc > 0) THEN
-       CALL prefetch_input( datetime_current, p_patch(1), p_int_state(1), p_nh_state(1))
+      CALL pref_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), datetime=datetime_current)
     ENDIF
 
     ! Reset model to initial state if IAU iteration is selected and the first iteration cycle has been completed

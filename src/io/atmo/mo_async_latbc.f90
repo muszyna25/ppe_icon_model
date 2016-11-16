@@ -69,7 +69,7 @@ MODULE mo_async_latbc
     USE mo_datetime,                  ONLY: t_datetime
     USE mo_async_latbc_types,         ONLY: t_patch_data, t_reorder_data, latbc_buffer
     USE mo_grid_config,               ONLY: nroot
-    USE mo_async_latbc_utils,         ONLY: pref_latbc_data, prepare_pref_latbc_data, &
+    USE mo_async_latbc_utils,         ONLY: pref_latbc_data, prepare_pref_latbc_data, patch_data, &
          &                                  compute_wait_for_async_pref, compute_shutdown_async_pref, &
          &                                  async_pref_send_handshake,  async_pref_wait_for_start
     USE mo_impl_constants,            ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_DWDANA, MODE_ICONVREMAP, &
@@ -82,7 +82,8 @@ MODULE mo_async_latbc
     USE mo_var_metadata_types,        ONLY: t_var_metadata, VARNAME_LEN
     USE mo_var_list,                  ONLY: nvar_lists, var_lists, new_var_list, &
          &                                  collect_group
-    USE mo_limarea_config,            ONLY: latbc_config, generate_filename, t_glb_indices
+    USE mo_limarea_config,            ONLY: latbc_config, generate_filename, t_glb_indices,   &
+      &                                     LATBC_TYPE_IFS_COSMODE
     USE mo_dictionary,                ONLY: t_dictionary, dict_get, dict_init, dict_loadfile, &
          &                                  dict_finalize
     USE mo_util_string,               ONLY: add_to_list, tolower
@@ -104,7 +105,6 @@ MODULE mo_async_latbc
 
     ! subroutines
     PUBLIC :: latbc_buffer
-    PUBLIC :: prefetch_input
     PUBLIC :: prefetch_main_proc
     PUBLIC :: init_prefetch
     PUBLIC :: close_prefetch
@@ -127,8 +127,6 @@ MODULE mo_async_latbc
     CHARACTER(LEN=*), PARAMETER :: ALLOCATE_FAILED   = 'ALLOCATE failed!'
     CHARACTER(LEN=*), PARAMETER :: UNKNOWN_GRID_TYPE = 'Unknown grid type!'
     CHARACTER(LEN=*), PARAMETER :: modname = 'mo_async_latbc'
-
-    TYPE(t_patch_data), PUBLIC, SAVE, TARGET :: patch_data
 
     !------------------------------------------------------------------------------------------------
     ! Broadcast root for intercommunicator broadcasts form compute PEs to prefetching
@@ -171,29 +169,6 @@ MODULE mo_async_latbc
 
     END SUBROUTINE close_prefetch
 
-    !------------------------------------------------------------------------------------------------
-    !> Loop over all output_name_list's, write the ones for which output is due
-    !  This routine also cares about opening the output files the first time
-    !  and reopening the files after a certain number of steps.
-    !
-    SUBROUTINE prefetch_input( datetime, p_patch, p_int_state, p_nh_state)
-      TYPE(t_datetime), OPTIONAL, INTENT(INOUT) :: datetime
-      TYPE(t_patch),          OPTIONAL, INTENT(IN)   :: p_patch
-      TYPE(t_int_state),      OPTIONAL, INTENT(IN)   :: p_int_state
-      TYPE(t_nh_state),       OPTIONAL, INTENT(INOUT):: p_nh_state  !< nonhydrostatic state on the global domain
-      CHARACTER(*), PARAMETER :: method_name = "prefetch_input"
-
-#ifndef NOMPI
-      ! Set input prefetch attributes
-      IF( my_process_is_work()) THEN
-         CALL pref_latbc_data(patch_data, p_patch, p_nh_state, p_int_state, datetime=datetime)
-      ELSE IF( my_process_is_pref()) THEN
-         CALL pref_latbc_data(patch_data)
-      END IF
-#endif
-      ! NOMPI
-
-    END SUBROUTINE prefetch_input
 
     !------------------------------------------------------------------------------------------------
     !------------------------------------------------------------------------------------------------
@@ -215,7 +190,7 @@ MODULE mo_async_latbc
          CALL async_pref_wait_for_start(done)
          IF(done) EXIT ! leave loop, we are done
          ! perform input prefetching
-         CALL prefetch_input()
+         CALL pref_latbc_data()
          ! Inform compute PEs that we are done
          CALL async_pref_send_handshake()
       END DO
@@ -325,7 +300,7 @@ MODULE mo_async_latbc
 
       ! subroutine to check whether some variable is specified
       ! in input file and setting flag for its further usage
-      IF (latbc_config%itype_latbc == 1) &
+      IF (latbc_config%itype_latbc == LATBC_TYPE_IFS_COSMODE) &
            &  CALL check_variable()
 #endif
 
@@ -390,12 +365,11 @@ MODULE mo_async_latbc
         END IF
       END IF
 
+      ! allocate input data for lateral boundary nudging
       IF( my_process_is_work()) THEN
-         ! allocate input data for lateral boundary nudging
-         CALL prepare_pref_latbc_data(patch_data, p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
+         CALL prepare_pref_latbc_data(p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
       ELSE IF( my_process_is_pref()) THEN
-         ! allocate input data for lateral boundary nudging
-         CALL prepare_pref_latbc_data(patch_data)
+         CALL prepare_pref_latbc_data()
       ENDIF
 
       CALL message(routine,'Done')
@@ -453,7 +427,7 @@ MODULE mo_async_latbc
 
       ! adding the variable 'GEOSP' to the list by add_to_list
       ! as the variable cannot be found in metadata variable list
-      IF (latbc_config%itype_latbc == 1) &
+      IF (latbc_config%itype_latbc == LATBC_TYPE_IFS_COSMODE) &
            CALL add_to_list( grp_vars, ngrp_prefetch_vars, (/latbc_buffer%geop_ml_var/) , 1)
 
       ! read the map file into dictionary data structure
@@ -498,7 +472,7 @@ MODULE mo_async_latbc
          ! Search name mapping for name in GRIB2 file
          SELECT CASE(filetype)
          CASE (FILETYPE_NC2, FILETYPE_NC4)
-            IF (latbc_config%itype_latbc == 1) THEN
+            IF (latbc_config%itype_latbc == LATBC_TYPE_IFS_COSMODE) THEN
                DO jp= 1, ngrp_prefetch_vars
                   latbc_buffer%grp_vars(jp) = TRIM(dict_get(latbc_varnames_dict, grp_vars(jp), default=grp_vars(jp)))
                ENDDO
@@ -508,7 +482,7 @@ MODULE mo_async_latbc
                ENDDO
             ENDIF
          CASE (FILETYPE_GRB2)
-            IF (latbc_config%itype_latbc == 1) THEN
+            IF (latbc_config%itype_latbc == LATBC_TYPE_IFS_COSMODE) THEN
                DO jp= 1, ngrp_prefetch_vars
                   latbc_buffer%grp_vars(jp) = TRIM(dict_get(latbc_varnames_dict, grp_vars(jp), default=grp_vars(jp)))
                ENDDO
@@ -1116,7 +1090,7 @@ MODULE mo_async_latbc
          ENDDO
       ENDDO ! vars
 
-      IF (latbc_config%itype_latbc == 1) THEN
+      IF (latbc_config%itype_latbc == LATBC_TYPE_IFS_COSMODE) THEN
          DO jp = 1, latbc_buffer%ngrp_vars
             IF (TRIM(latbc_buffer%mapped_name(jp)) == TRIM(latbc_buffer%geop_ml_var)) THEN
                ! Memory for GEOSP variable taken as memory equivalent to 1 level of z_ifc
