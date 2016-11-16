@@ -187,6 +187,7 @@ doc/technical/dwd_database/grid_geometry.tex -text
 doc/technical/dwd_database/icon_in_sky.tex -text
 doc/technical/dwd_database/iglo_namelst_output.pl -text
 doc/technical/dwd_database/input.tex -text
+doc/technical/dwd_database/jas99.bst -text
 doc/technical/dwd_database/level_tables/vertical_full_levels_i.txt -text
 doc/technical/dwd_database/level_tables/vertical_full_levels_maxheight_i.txt -text
 doc/technical/dwd_database/level_tables/vertical_half_levels_maxheight_i.txt -text
