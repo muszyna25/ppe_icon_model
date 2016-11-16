@@ -1,7 +1,7 @@
 # Set configure options by omitting the "--" from the option name and replacing the remaining dashes with underscores.
 # This should work for all "--enable-*" and "--with-*" options.
 #enable_atmo=no
-enable_jsbach=no
+#enable_jsbach=no
 #enable_ocean=no
 #enable_testbed=no
 
