@@ -131,7 +131,8 @@ MODULE mo_model_domimp_patches
   USE mo_reorder_patches,    ONLY: reorder_cells, reorder_edges, &
     &                              reorder_verts
   USE mo_mpi,                ONLY: p_pe_work, my_process_is_mpi_parallel, &
-    &                              p_comm_work_test, p_comm_work
+    &                              p_comm_work_test, p_comm_work,         &
+    &                              my_process_is_stdio
 #ifdef HAVE_PARALLEL_NETCDF
   USE mo_mpi,                ONLY: p_comm_input_bcast
 #endif
@@ -409,7 +410,9 @@ CONTAINS
       IF ((TRIM(grid_metadata(jg)%uuid_par) /= TRIM(grid_metadata(jgp)%uuid_grid)) .AND. &
         & (LEN_TRIM(grid_metadata(jg)%uuid_par) > 0) .AND. (LEN_TRIM(grid_metadata(jgp)%uuid_grid) > 0)) THEN
         IF (check_uuid_gracefully) THEN
-          CALL warning(routine, 'incorrect uuids in parent-child connectivity file')
+          IF (my_process_is_stdio()) THEN
+            CALL warning(routine, 'incorrect uuids in parent-child connectivity file')
+          END IF
         ELSE
           WRITE (0,*) "parent grid UUID in child file: ", grid_metadata(jg)%uuid_par
           WRITE (0,*) "parent grid UUID: ", grid_metadata(jgp)%uuid_grid
