@@ -86,7 +86,7 @@ MODULE mo_art_config
   !! Basic configuration setup for ICON-ART
   !!--------------------------------------------------------------------------
   INTEGER, PARAMETER  :: npreslay      = 7   !Number of pressure layers for diagnostic output of maximum concentration
-  INTEGER, PARAMETER  :: IART_PATH_LEN = 120 !Maximum length of file- and pathnames
+  INTEGER, PARAMETER  :: IART_PATH_LEN = 200 !Maximum length of file- and pathnames
 
   INTEGER             :: nart_tendphy  = 0  !Maximum number of tracers that are effected by deep convective transport 
   
@@ -114,9 +114,7 @@ MODULE mo_art_config
     LOGICAL :: lart_passive            !< Main switch to enable chemistry
     INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
     CHARACTER(LEN=IART_PATH_LEN) :: &
-      &  cart_emiss_table_path        !< path of tex-files with meta data of emissions.
-    CHARACTER(LEN=IART_PATH_LEN) :: &
-      &  cart_emiss_table_file        !< file names of tex-files with meta data of emissions without "_DOM??.tex"
+      &  cart_emiss_xml_file          !< Path and file name of the xml file containing meta information of the emissions.
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_vortex_init_date        !< Date of vortex initialization
     CHARACTER(LEN=IART_PATH_LEN) :: &

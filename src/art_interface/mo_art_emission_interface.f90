@@ -75,6 +75,7 @@ MODULE mo_art_emission_interface
   USE mo_art_emission_dust_simple,      ONLY: art_prepare_emission_dust_simple
   USE mo_art_emission_chemtracer,       ONLY: art_emiss_chemtracer
   USE mo_art_emission_gasphase,         ONLY: art_emiss_gasphase
+  USE mo_art_read_emissions,            ONLY: art_add_emission_to_tracers
   USE omp_lib 
   USE mo_sync,                          ONLY: sync_patch_array_mult, SYNC_C
 
@@ -143,6 +144,18 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     ALLOCATE(emiss_rate(nproma,nlev))
     ALLOCATE(dz(nproma,nlev))
 
+    IF (art_config(jg)%lart_aerosol .OR. art_config(jg)%lart_chem &
+        .OR. art_config(jg)%lart_passive) THEN
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+          &                istart, iend, i_rlstart, i_rlend)
+        
+        CALL art_add_emission_to_tracers(tracer,p_patch,p_nh_state%metrics,                &
+                                      &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,  &
+                                      &  jb,istart,iend,datetime,prm_diag%swflx_par_sfc)
+      END DO
+    END IF
+  
     IF (art_config(jg)%lart_aerosol) THEN
 !$omp parallel do default (shared) private(jb, istart, iend, dz)
       DO jb = i_startblk, i_endblk
@@ -336,12 +349,10 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               &                       tracer,                         &
               &                       p_nh_state%diag%pres,           &
               &                       p_nh_state%diag%temp,           &
-              &                       p_nh_state%metrics,             &
               &                       ext_data%atm%llsm_atm_c,        &
               &                       ext_data%atm%fr_land,           &
               &                       p_patch,                        &
-              &                       jb,istart,iend,nlev,nproma,     &
-              &                       prm_diag%swflx_par_sfc)
+              &                       jb,istart,iend,nlev,nproma)
           ENDDO
         CASE(1)
           DO jb = i_startblk, i_endblk
@@ -353,12 +364,10 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               &                       tracer,                         &
               &                       p_nh_state%diag%pres,           &
               &                       p_nh_state%diag%temp,           &
-              &                       p_nh_state%metrics,             &
               &                       ext_data%atm%llsm_atm_c,        &
               &                       ext_data%atm%fr_land,           &
               &                       p_patch,                        &
-              &                       jb,istart,iend,nlev,nproma,     &
-              &                       prm_diag%swflx_par_sfc)
+              &                       jb,istart,iend,nlev,nproma)
           ENDDO
         CASE(2)
           DO jb = i_startblk, i_endblk
@@ -370,11 +379,9 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               &                     tracer,                         &
               &                     p_nh_state%diag%pres,           &
               &                     p_nh_state%diag%temp,           &
-              &                     p_nh_state%metrics,             &
               &                     ext_data%atm%llsm_atm_c,        &
               &                     p_patch,                        &
-              &                     jb,istart,iend,nlev,nproma,     &
-              &                     prm_diag%swflx_par_sfc)
+              &                     jb,istart,iend,nlev,nproma)
           ENDDO
         CASE DEFAULT
           CALL finish('mo_art_emission_interface:art_emission_interface', &
