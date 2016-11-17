@@ -18,6 +18,7 @@
 !!
 MODULE mo_limarea_config
 
+  USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: max_dom, MAX_CHAR_LENGTH, SUCCESS
   USE mo_io_units,           ONLY: filename_max
@@ -28,7 +29,8 @@ MODULE mo_limarea_config
   USE mo_datetime,           ONLY: t_datetime
   USE mtime,                 ONLY: MAX_DATETIME_STR_LEN, datetime,   &
     &                              timedelta, deallocateTimedelta,   &
-    &                              newTimedelta, OPERATOR(-)
+    &                              newTimedelta, OPERATOR(-),        &
+    &                              getTotalSecondsTimeDelta
   USE mo_parallel_config,    ONLY: num_prefetch_proc
 
   IMPLICIT NONE
@@ -207,12 +209,13 @@ CONTAINS
     CHARACTER(MAX_CHAR_LENGTH )                 :: result_str
 
     ! Local variables
+    CHARACTER(MAX_CHAR_LENGTH), PARAMETER       :: routine = modname//'::generate_filename_mtime:'
     TYPE (t_keyword_list), POINTER              :: keywords => NULL()
     CHARACTER(MAX_CHAR_LENGTH)                  :: str
     TYPE(timedelta), POINTER                    :: td
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)         :: timedelta_str
-    CHARACTER(MAX_CHAR_LENGTH), PARAMETER       :: &
-      &  routine = 'mo_limarea_config::generate_filename_mtime:'
+    INTEGER(c_int64_t)                          :: td_seconds
+    INTEGER                                     :: errno
     
     WRITE(str,'(i4)')   latbc_mtime%date%year
     CALL associate_keyword("<y>",         TRIM(str),                        keywords)
@@ -238,6 +241,9 @@ CONTAINS
     ! (where, for convenience, the 'T' token has been erased)
     WRITE (timedelta_str,'(4(i2.2,a))') td%day,    'D',  td%hour,   'H',   &
       &                                 td%minute, 'M',  td%second, 'S'
+    td_seconds = getTotalSecondsTimeDelta(td, mtime_begin, errno)
+    IF (errno /= 0)  CALL finish(routine, "Internal error!")
+    WRITE (timedelta_str,'(4(i2.2))') td_seconds/86400, td%hour, td%minute, td%second 
     CALL associate_keyword("<ddhhmmss>",  TRIM(timedelta_str), keywords)
     CALL deallocateTimedelta(td)
 

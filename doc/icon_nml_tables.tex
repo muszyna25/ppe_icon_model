@@ -2460,14 +2460,23 @@ itype\_latbc $\ge$ 1
 C &
 &
 &
-Filename of boundary data input file, default:\\
-''\texttt{prepiconR<nroot>B<jlev>\_<y><m><d><h>.nc}''.
-\texttt{<y>}, \texttt{<m>}, \texttt{<d>}, and \texttt{<h>} 
-will be automatically replaced during the run-time. In case
-the time span between two consecutive boundary data is less than 1 hour, 
-one can use \texttt{<min>} and \texttt{<sec>}.
-These files must be located in
+%
+Filename of boundary data input file, these files must be located in
 the \texttt{latbc\_path} directory.
+%
+Default:\\
+''\texttt{prepiconR<nroot>B<jlev>\_<y><m><d><h>.nc}''.
+%
+The keyword tokens \texttt{<y>}, \texttt{<m>}, \texttt{<d>}, and
+\texttt{<h>} will be automatically replaced during the run-time (year,
+month, day, hour).
+%
+In case the time span between two consecutive boundary data is less
+than 1 hour, one can use \texttt{<min>} and \texttt{<sec>}.
+%
+The keyword \texttt{<ddhhmmss>} is replaced by a \emph{relative}
+day-hour-minute-second string.
+%
 &
 itype\_latbc $\ge$ 1
 \tabularnewline
