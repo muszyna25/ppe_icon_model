@@ -83,7 +83,7 @@ MODULE mo_async_latbc
     USE mo_var_list,                  ONLY: nvar_lists, var_lists, new_var_list, &
          &                                  collect_group
     USE mo_limarea_config,            ONLY: latbc_config, generate_filename, t_glb_indices,   &
-      &                                     LATBC_TYPE_IFS_COSMODE
+      &                                     LATBC_TYPE_EXT
     USE mo_dictionary,                ONLY: t_dictionary, dict_get, dict_init, dict_loadfile, &
          &                                  dict_finalize
     USE mo_util_string,               ONLY: add_to_list, tolower
@@ -300,7 +300,7 @@ MODULE mo_async_latbc
 
       ! subroutine to check whether some variable is specified
       ! in input file and setting flag for its further usage
-      IF (latbc_config%itype_latbc == LATBC_TYPE_IFS_COSMODE) &
+      IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) &
            &  CALL check_variable()
 #endif
 
@@ -427,7 +427,7 @@ MODULE mo_async_latbc
 
       ! adding the variable 'GEOSP' to the list by add_to_list
       ! as the variable cannot be found in metadata variable list
-      IF (latbc_config%itype_latbc == LATBC_TYPE_IFS_COSMODE) &
+      IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) &
            CALL add_to_list( grp_vars, ngrp_prefetch_vars, (/latbc_buffer%geop_ml_var/) , 1)
 
       ! read the map file into dictionary data structure
@@ -472,7 +472,7 @@ MODULE mo_async_latbc
          ! Search name mapping for name in GRIB2 file
          SELECT CASE(filetype)
          CASE (FILETYPE_NC2, FILETYPE_NC4)
-            IF (latbc_config%itype_latbc == LATBC_TYPE_IFS_COSMODE) THEN
+            IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) THEN
                DO jp= 1, ngrp_prefetch_vars
                   latbc_buffer%grp_vars(jp) = TRIM(dict_get(latbc_varnames_dict, grp_vars(jp), default=grp_vars(jp)))
                ENDDO
@@ -482,7 +482,7 @@ MODULE mo_async_latbc
                ENDDO
             ENDIF
          CASE (FILETYPE_GRB2)
-            IF (latbc_config%itype_latbc == LATBC_TYPE_IFS_COSMODE) THEN
+            IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) THEN
                DO jp= 1, ngrp_prefetch_vars
                   latbc_buffer%grp_vars(jp) = TRIM(dict_get(latbc_varnames_dict, grp_vars(jp), default=grp_vars(jp)))
                ENDDO
@@ -1090,7 +1090,7 @@ MODULE mo_async_latbc
          ENDDO
       ENDDO ! vars
 
-      IF (latbc_config%itype_latbc == LATBC_TYPE_IFS_COSMODE) THEN
+      IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) THEN
          DO jp = 1, latbc_buffer%ngrp_vars
             IF (TRIM(latbc_buffer%mapped_name(jp)) == TRIM(latbc_buffer%geop_ml_var)) THEN
                ! Memory for GEOSP variable taken as memory equivalent to 1 level of z_ifc

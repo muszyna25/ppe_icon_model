@@ -2412,10 +2412,17 @@ Defined and used in: \verb+src/namelists/mo_les_nml.f90+
 %\hline
 \textbf{itype\_latbc}&
 I & 0& &
-Type of lateral boundary nudging. Nudge from\\
-0: the initial data,\\
-1: IFS data analysis/forecast (if \texttt{initicon\_nml:init\_mode}=4, we take COSMO-DE data),\\
-2: ICON output data (with the identical 3d grid)&
+Type of lateral boundary nudging.\\
+%
+0: constant lateral boundary conditions derived from the initial
+conditions,\\
+%
+1: time-dependent lateral boundary conditions provided by an external
+source (IFS, COSMO-DE or a coarser-resolution ICON run), \\
+%
+2: Test mode using time-dependent lateral boundary conditions from a
+nested ICON run in which the present limited-area domain was operated
+as a nested grid with identical(!) model level configuration.
 \tabularnewline
 
 %\hline

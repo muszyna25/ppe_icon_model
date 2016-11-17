@@ -83,7 +83,7 @@
     USE mo_mtime_extensions,    ONLY: get_datetime_string, get_duration_string_real
     USE mo_datetime,            ONLY: t_datetime
     USE mo_time_config,         ONLY: time_config
-    USE mo_limarea_config,      ONLY: latbc_config, generate_filename_mtime, LATBC_TYPE_IFS_COSMODE
+    USE mo_limarea_config,      ONLY: latbc_config, generate_filename_mtime, LATBC_TYPE_EXT
     USE mo_ext_data_types,      ONLY: t_external_data
     USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, dtime, nsteps, msg_level
     USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
@@ -488,7 +488,7 @@
       IF( my_process_is_pref()) THEN
         CALL prefetch_latbc_intp_data( patch_data )
       ELSE IF( my_process_is_work()) THEN
-        IF (latbc_config%itype_latbc == LATBC_TYPE_IFS_COSMODE) THEN
+        IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) THEN
           CALL compute_latbc_intp_data( p_patch, patch_data, p_nh_state, p_int )
         ELSE
           CALL compute_latbc_icon_data( p_patch, patch_data, p_int )

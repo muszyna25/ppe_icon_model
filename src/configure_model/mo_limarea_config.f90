@@ -41,10 +41,22 @@ MODULE mo_limarea_config
   !> module name string
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_limarea_config'
 
-  ! CONSTANTS (for better readability)
-  INTEGER, PARAMETER :: LATBC_TYPE_NUDING      = 0
-  INTEGER, PARAMETER :: LATBC_TYPE_IFS_COSMODE = 1
-  INTEGER, PARAMETER :: LATBC_TYPE_ICON        = 2
+  ! CONSTANTS (for better readability):
+  !
+  ! LATBC_TYPE_CONST: constant lateral boundary conditions derived
+  ! from the initial conditions
+  INTEGER, PARAMETER :: LATBC_TYPE_CONST       = 0
+
+  ! LATBC_TYPE_EXT: time-dependent lateral boundary conditions
+  ! provided by an external source (IFS, COSMO-DE or a
+  ! coarser-resolution ICON run)
+  INTEGER, PARAMETER :: LATBC_TYPE_EXT         = 1
+
+  ! LATBC_TYPE_TEST: Test mode using time-dependent lateral boundary
+  ! conditions from a nested ICON run in which the present
+  ! limited-area domain was operated as a nested grid with
+  ! identical(!) model level configuration
+  INTEGER, PARAMETER :: LATBC_TYPE_TEST        = 2
 
 
 
@@ -114,17 +126,17 @@ CONTAINS
     ! Sanity check and Prints
     !----------------------------------------------------
 
-    IF (latbc_config%itype_latbc == LATBC_TYPE_NUDING) THEN
+    IF (latbc_config%itype_latbc == LATBC_TYPE_CONST) THEN
 
        WRITE(message_text,'(a)')'Lateral boundary nudging using the initial boundary data.'
        CALL message(TRIM(routine),message_text)
 
-    ELSE IF (latbc_config%itype_latbc == LATBC_TYPE_IFS_COSMODE) THEN
+    ELSE IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) THEN
 
        WRITE(message_text,'(a)')'Lateral boundary condition using the IFS or COSMO-DE boundary data.'
        CALL message(TRIM(routine),message_text)
 
-    ELSE IF (latbc_config%itype_latbc == LATBC_TYPE_ICON) THEN
+    ELSE IF (latbc_config%itype_latbc == LATBC_TYPE_TEST) THEN
 
        WRITE(message_text,'(a)')'Lateral boundary condition using the ICON global boundary data.'
        CALL message(TRIM(routine),message_text)
