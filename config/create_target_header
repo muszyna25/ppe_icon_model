@@ -671,11 +671,11 @@ $(case $use_flags_group in
   esac)
 # this can not be done in use_mpi_startrun since it depends on the
 # environment at time of script execution
-case " \$loadmodule " in
-  *\ mxm\ *)
-    START+=" --export=\$(env | sed '/()=/d;/=/{;s/=.*//;b;};d' | tr '\n' ',')LD_PRELOAD=\${LD_PRELOAD+\$LD_PRELOAD:}\${MXM_HOME}/lib/libmxm.so"
-    ;;
-esac
+#case " \$loadmodule " in
+#  *\ mxm\ *)
+#    START+=" --export=\$(env | sed '/()=/d;/=/{;s/=.*//;b;};d' | tr '\n' ',')LD_PRELOAD=\${LD_PRELOAD+\$LD_PRELOAD:}\${MXM_HOME}/lib/libmxm.so"
+#    ;;
+#esac
 EOF
 }
 
