@@ -97,7 +97,6 @@ CONTAINS
     !
     REAL(wp)              , INTENT(in)            :: pdtime          !< time step
     REAL(wp)              , INTENT(in)            :: psteplen        !< 2*time step in case of leapfrog
-
     TYPE(datetime)        , POINTER               :: mtime_current   !< current datetime (mtime)
 
     TYPE(t_patch)         , INTENT(in)   , TARGET :: patch           !< grid/patch info
@@ -130,8 +129,6 @@ CONTAINS
     LOGICAL  :: ltrig_rad
 
     INTEGER  :: return_status
-
-    TYPE(datetime), POINTER             :: mtime_radtran
 
     ! Local parameters
 
@@ -261,12 +258,11 @@ CONTAINS
     !
     ! (3) Prepare boundary conditions for ECHAM physics
     !    
-    CALL echam_phy_bcs_global( mtime_current, &   
-         &                     jg,            &! in
-         &                     patch,         &! in
-         &                     pdtime,        &! in
-         &                     ltrig_rad,     &! out
-         &                     mtime_radtran ) ! out
+    CALL echam_phy_bcs_global( mtime_current,&! in
+      &                        jg           ,&! in
+      &                        patch        ,&! in
+      &                        pdtime       ,&! in
+      &                        ltrig_rad    ) ! out
     !
     !=====================================================================================
 
@@ -301,16 +297,13 @@ CONTAINS
         &                  mtime_current,&! in
         &                  pdtime       ,&! in
         &                  psteplen     ,&! in
-        &                  ltrig_rad    ,&! in
-        &                  mtime_radtran ) ! in
+        &                  ltrig_rad    ) ! in
 
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
     !
     !=====================================================================================
-
-    CALL deallocateDatetime(mtime_radtran)
 
     IF (ltimer) CALL timer_stop(timer_echam_phy)
 

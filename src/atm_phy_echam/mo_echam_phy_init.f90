@@ -24,7 +24,7 @@ MODULE mo_echam_phy_init
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: finish, message_text
   USE mtime,                   ONLY: datetime
-  
+
   USE mo_io_config,            ONLY: default_read_method
   USE mo_read_interface,       ONLY: openInputFile, closeFile, read_2D, &
     &                                t_stream_id, on_cells
@@ -89,8 +89,6 @@ MODULE mo_echam_phy_init
     &                                timer_prep_echam_phy
 
   ! for AMIP boundary conditions
-!  USE mo_time_interpolation         ,ONLY: time_weights_limm
-!  USE mo_time_interpolation_weights ,ONLY: wi_limm
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, calculate_time_interpolation_weights
   USE mo_bc_sst_sic,             ONLY: read_bc_sst_sic, bc_sst_sic_time_interpolation
   USE mo_bc_greenhouse_gases,    ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
@@ -136,7 +134,7 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: land_sso_fn  = 'bc_land_sso.nc'
 
     TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
-    
+
     IF (timers_level > 1) CALL timer_start(timer_prep_echam_phy)
 
     !-------------------------------------------------------------------
@@ -351,7 +349,6 @@ CONTAINS
     ! interpolation weights for linear interpolation
     ! of monthly means onto the actual integration time step
     current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_current)
-!    CALL time_weights_limm(datetime_current, wi_limm)
 
 !    IF (.NOT. ctest_name(1:3) == 'TPE') THEN
 

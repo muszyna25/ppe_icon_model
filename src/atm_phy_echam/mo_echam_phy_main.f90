@@ -47,7 +47,7 @@ MODULE mo_echam_phy_main
     &                               timer_vdiff_down, timer_surface,timer_vdiff_up, &
     &                               timer_gw_hines, timer_ssodrag,                  &
     &                               timer_cucall, timer_cloud
-  USE mtime,                  ONLY: datetime, getDayOfYearFromDateTime
+  USE mtime,                  ONLY: datetime
   USE mo_ham_aerosol_params,  ONLY: ncdnc, nicnc
   USE mo_echam_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_surface,             ONLY: update_surface
@@ -66,7 +66,6 @@ MODULE mo_echam_phy_main
   USE mo_ssortns,             ONLY: ssodrag
   ! provisional to get coordinates
   USE mo_model_domain,        ONLY: p_patch
-  USE mo_util_dbg_prnt,      ONLY: dbg_print
 
   IMPLICIT NONE
   PRIVATE
@@ -97,7 +96,6 @@ CONTAINS
 
     REAL(wp) :: zlat_deg(nbdim)           !< latitude in deg N
 
-!!$    REAL(wp) :: zhmixtau   (nbdim,nlev)   !< timescale of mixing for horizontal eddies
     REAL(wp) :: zvmixtau   (nbdim,nlev)   !< timescale of mixing for vertical turbulence
     REAL(wp) :: zqtvar_prod(nbdim,nlev)   !< production rate of total water variance
                                           !< due to turbulence. Computed in "vdiff",
@@ -188,14 +186,6 @@ CONTAINS
 
     REAL(wp) :: zprat, zn1, zn2, zcdnc
     LOGICAL  :: lland(nbdim), lglac(nbdim)
-
-    CHARACTER(len=12)  :: str_module = 'e_phy_main'        ! Output of module for 1 line debug
-    INTEGER            :: idt_src               ! Determines level of detail for 1 line debug
-
-    INTEGER(c_int) :: yeaday
-    INTEGER        :: errno
-
-    idt_src=4
 
     ! number of cells/columns from index jcs to jce
     nc = jce-jcs+1
@@ -363,56 +353,55 @@ CONTAINS
 
         IF (ltimer) CALL timer_start(timer_radiation)
 
-        CALL psrad_radiation(      &
-        & this_datetime           ,&!< in  current date 
-        & jg                      ,&!< in  domain index
-        & jb                      ,&!< in  block index
-        & kproma     = jce        ,&!< in  end index for loop over block
-        & kbdim      = nbdim      ,&!< in  dimension of block over cells
-        & klev       = nlev       ,&!< in  number of full levels = number of layers
-        & klevp1     = nlevp1     ,&!< in  number of half levels = number of layer interfaces
-        & ktype      = itype(:)   ,&!< in  type of convection
-        & loland     = lland      ,&!< in  land-sea mask. (logical)
-        & loglac     = lglac      ,&!< in  glacier mask (logical)
-        & this_datetime = this_datetime   ,&!< in  actual time step
-        & pcos_mu0   = field%cosmu0_rt(:,jb)   ,&!< in  solar zenith angle
-        & alb_vis_dir= field%albvisdir(:,jb)   ,&!< in  surface albedo for visible range, direct
-        & alb_nir_dir= field%albnirdir(:,jb)   ,&!< in  surface albedo for near IR range, direct
-        & alb_vis_dif= field%albvisdif(:,jb)   ,&!< in  surface albedo for visible range, diffuse
-        & alb_nir_dif= field%albnirdif(:,jb)   ,&!< in  surface albedo for near IR range, diffuse
-        & tk_sfc     = field%tsfc_radt(:,jb)   ,&!< in  grid box mean surface temperature
-        & zf         = field%zf(:,:,jb)        ,&!< in  geometric height at full level      [m]
-        & zh         = field%zh(:,:,jb)        ,&!< in  geometric height at half level      [m]
-        & dz         = field%dz(:,:,jb)        ,&!< in  geometric height thickness of layer [m]
-        & pp_hl      = field%presi_old(:,:,jb) ,&!< in  pressure at half levels at t-dt [Pa]
-        & pp_fl      = field%presm_old(:,:,jb) ,&!< in  pressure at full levels at t-dt [Pa]
-        & tk_fl      = field%temp(:,:,jb)      ,&!< in  tk_fl  = temperature at full level at t-dt
-        & xm_dry     = field%mdry(:,:,jb)      ,&!< in  dry air mass in layer [kg/m2]
-        & xm_trc     = field%mtrc(:,:,jb,:)    ,&!< in  tracer  mass in layer [kg/m2]
-        & xm_ozn     = field%o3(:,:,jb)        ,&!< inout  ozone  mass mixing ratio [kg/kg]
-        & cdnc       = field% acdnc(:,:,jb)    ,&!< in   cloud droplet number conc
-        & cld_frc    = field% aclc(:,:,jb)     ,&!< in   cloud fraction [m2/m2]
+        CALL psrad_radiation(                       &
+        & jg                                       ,&!< in  domain index
+        & jb                                       ,&!< in  block index
+        & kproma         = jce                     ,&!< in  end index for loop over block
+        & kbdim          = nbdim                   ,&!< in  dimension of block over cells
+        & klev           = nlev                    ,&!< in  number of full levels = number of layers
+        & klevp1         = nlevp1                  ,&!< in  number of half levels = number of layer interfaces
+        & ktype          = itype(:)                ,&!< in  type of convection
+        & loland         = lland                   ,&!< in  land-sea mask. (logical)
+        & loglac         = lglac                   ,&!< in  glacier mask (logical)
+        & this_datetime  = this_datetime           ,&!< in  actual time step
+        & pcos_mu0       = field%cosmu0_rt(:,jb)   ,&!< in  solar zenith angle
+        & alb_vis_dir    = field%albvisdir(:,jb)   ,&!< in  surface albedo for visible range, direct
+        & alb_nir_dir    = field%albnirdir(:,jb)   ,&!< in  surface albedo for near IR range, direct
+        & alb_vis_dif    = field%albvisdif(:,jb)   ,&!< in  surface albedo for visible range, diffuse
+        & alb_nir_dif    = field%albnirdif(:,jb)   ,&!< in  surface albedo for near IR range, diffuse
+        & tk_sfc         = field%tsfc_radt(:,jb)   ,&!< in  grid box mean surface temperature
+        & zf             = field%zf(:,:,jb)        ,&!< in  geometric height at full level      [m]
+        & zh             = field%zh(:,:,jb)        ,&!< in  geometric height at half level      [m]
+        & dz             = field%dz(:,:,jb)        ,&!< in  geometric height thickness of layer [m]
+        & pp_hl          = field%presi_old(:,:,jb) ,&!< in  pressure at half levels at t-dt [Pa]
+        & pp_fl          = field%presm_old(:,:,jb) ,&!< in  pressure at full levels at t-dt [Pa]
+        & tk_fl          = field%temp(:,:,jb)      ,&!< in  tk_fl  = temperature at full level at t-dt
+        & xm_dry         = field%mdry(:,:,jb)      ,&!< in  dry air mass in layer [kg/m2]
+        & xm_trc         = field%mtrc(:,:,jb,:)    ,&!< in  tracer  mass in layer [kg/m2]
+        & xm_ozn         = field%o3(:,:,jb)        ,&!< inout  ozone  mass mixing ratio [kg/kg]
         !
-        & cld_cvr    = field%aclcov(:,jb)      ,&!< out  total cloud cover
+        & cdnc           = field% acdnc(:,:,jb)    ,&!< in   cloud droplet number conc
+        & cld_frc        = field% aclc(:,:,jb)     ,&!< in   cloud fraction [m2/m2]
+        & cld_cvr        = field%aclcov(:,jb)      ,&!< out  total cloud cover
         !
-        & lw_dnw_clr = field%rldcs_rt(:,:,jb)     ,&!< out  Clear-sky net longwave  at all levels
-        & lw_upw_clr = field%rlucs_rt(:,:,jb)     ,&!< out  Clear-sky net longwave  at all levels
-        & sw_dnw_clr = field%rsdcs_rt(:,:,jb)     ,&!< out  Clear-sky net shortwave at all levels
-        & sw_upw_clr = field%rsucs_rt(:,:,jb)     ,&!< out  Clear-sky net shortwave at all levels
-        & lw_dnw     = field%rld_rt  (:,:,jb)     ,&!< out  All-sky net longwave  at all levels
-        & lw_upw     = field%rlu_rt  (:,:,jb)     ,&!< out  All-sky net longwave  at all levels
-        & sw_dnw     = field%rsd_rt  (:,:,jb)     ,&!< out  All-sky net longwave  at all levels
-        & sw_upw     = field%rsu_rt  (:,:,jb)     ,&!< out  All-sky net longwave  at all levels
+        & lw_dnw_clr     = field%rldcs_rt(:,:,jb)  ,&!< out  Clear-sky net longwave  at all levels
+        & lw_upw_clr     = field%rlucs_rt(:,:,jb)  ,&!< out  Clear-sky net longwave  at all levels
+        & sw_dnw_clr     = field%rsdcs_rt(:,:,jb)  ,&!< out  Clear-sky net shortwave at all levels
+        & sw_upw_clr     = field%rsucs_rt(:,:,jb)  ,&!< out  Clear-sky net shortwave at all levels
+        & lw_dnw         = field%rld_rt  (:,:,jb)  ,&!< out  All-sky net longwave  at all levels
+        & lw_upw         = field%rlu_rt  (:,:,jb)  ,&!< out  All-sky net longwave  at all levels
+        & sw_dnw         = field%rsd_rt  (:,:,jb)  ,&!< out  All-sky net longwave  at all levels
+        & sw_upw         = field%rsu_rt  (:,:,jb)  ,&!< out  All-sky net longwave  at all levels
         !
-        & vis_dn_dir_sfc = field%rvds_dir_rt(:,jb),&!< out  all-sky downward direct visible radiation at surface
-        & par_dn_dir_sfc = field%rpds_dir_rt(:,jb),&!< all-sky downward direct PAR     radiation at surface
-        & nir_dn_dir_sfc = field%rnds_dir_rt(:,jb),&!< all-sky downward direct near-IR radiation at surface
-        & vis_dn_dff_sfc = field%rvds_dif_rt(:,jb),&!< all-sky downward diffuse visible radiation at surface
-        & par_dn_dff_sfc = field%rpds_dif_rt(:,jb),&!< all-sky downward diffuse PAR     radiation at surface
-        & nir_dn_dff_sfc = field%rnds_dif_rt(:,jb),&!< all-sky downward diffuse near-IR radiation at surface
-        & vis_up_sfc     = field%rvus_rt    (:,jb),&!< all-sky upward visible radiation at surface
-        & par_up_sfc     = field%rpus_rt    (:,jb),&!< all-sky upward PAR     radiation at surfac
-        & nir_up_sfc     = field%rnus_rt    (:,jb)) !< all-sky upward near-IR radiation at surface
+        & vis_dn_dir_sfc = field%rvds_dir_rt(:,jb) ,&!< out  all-sky downward direct visible radiation at surface
+        & par_dn_dir_sfc = field%rpds_dir_rt(:,jb) ,&!< all-sky downward direct PAR     radiation at surface
+        & nir_dn_dir_sfc = field%rnds_dir_rt(:,jb) ,&!< all-sky downward direct near-IR radiation at surface
+        & vis_dn_dff_sfc = field%rvds_dif_rt(:,jb) ,&!< all-sky downward diffuse visible radiation at surface
+        & par_dn_dff_sfc = field%rpds_dif_rt(:,jb) ,&!< all-sky downward diffuse PAR     radiation at surface
+        & nir_dn_dff_sfc = field%rnds_dif_rt(:,jb) ,&!< all-sky downward diffuse near-IR radiation at surface
+        & vis_up_sfc     = field%rvus_rt    (:,jb) ,&!< all-sky upward visible radiation at surface
+        & par_up_sfc     = field%rpus_rt    (:,jb) ,&!< all-sky upward PAR     radiation at surfac
+        & nir_up_sfc     = field%rnus_rt    (:,jb) ) !< all-sky upward near-IR radiation at surface
 
         
         IF (ltimer) CALL timer_stop(timer_radiation)
@@ -1105,9 +1094,6 @@ CONTAINS
 
         field% rsfl(:,jb) = 0._wp
         field% ssfl(:,jb) = 0._wp
-
-  CALL dbg_print('xl_dtr',tend%xl_dtr,str_module,idt_src,in_subset=p_patch(1)%cells%owned)
-  CALL dbg_print('xi_dtr',tend%xi_dtr,str_module,idt_src,in_subset=p_patch(1)%cells%owned)
 
         IF (ltimer) CALL timer_start(timer_cloud)
 

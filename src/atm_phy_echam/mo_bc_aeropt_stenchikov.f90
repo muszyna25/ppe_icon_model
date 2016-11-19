@@ -33,11 +33,9 @@ MODULE mo_bc_aeropt_stenchikov
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
        &                               calculate_time_interpolation_weights
 
-
   IMPLICIT NONE
 
   PRIVATE
-
   PUBLIC                           :: read_bc_aeropt_stenchikov, add_bc_aeropt_stenchikov
 
   INTERFACE reorder_stenchikov
@@ -105,9 +103,8 @@ END SUBROUTINE shift_months_bc_aeropt_stenchikov
   !> SUBROUTINE read_bc_aeropt_stenchikov -- read the aerosol optical properties 
   !! of the volcanic (Stratospheric) Stenchikov aerosols
 
-SUBROUTINE read_bc_aeropt_stenchikov(current_date, kyear)
+SUBROUTINE read_bc_aeropt_stenchikov(current_date)
   TYPE(datetime), POINTER, INTENT(in) :: current_date
-  INTEGER(i8), INTENT(in)       :: kyear
 
   !LOCAL VARIABLES
   INTEGER(i8) :: iyear(2)
@@ -121,7 +118,7 @@ SUBROUTINE read_bc_aeropt_stenchikov(current_date, kyear)
   IF (ALLOCATED(aod_v_s)) THEN
     CALL shift_months_bc_aeropt_stenchikov
     imonth(1)=tiw%month2_index
-    iyear(1)=kyear
+    iyear(1)=current_date%date%year
     IF (imonth(1) == 13 ) THEN
       imonth(1)=1
       iyear(1)=iyear(1)+1
@@ -133,8 +130,8 @@ SUBROUTINE read_bc_aeropt_stenchikov(current_date, kyear)
     CALL su_bc_aeropt_stenchikov
     imonth(1)=tiw%month1_index
     imonth(2)=tiw%month2_index
-    iyear(1)=kyear
-    iyear(2)=kyear
+    iyear(1)=current_date%date%year
+    iyear(2)=current_date%date%year
     IF (imonth(1) == 0) THEN
       imonth(1)=12
       iyear(1)=iyear(1)-1

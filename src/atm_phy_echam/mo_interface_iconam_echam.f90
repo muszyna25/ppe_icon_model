@@ -67,8 +67,6 @@ MODULE mo_interface_iconam_echam
   USE mo_kind                  ,ONLY: wp
   USE mo_exception             ,ONLY: finish
 
-  USE mo_impl_constants        ,ONLY: min_rlcell_int, grf_bdywidth_c, grf_bdywidth_e
-
   USE mo_coupling_config       ,ONLY: is_coupled_run
   USE mo_parallel_config       ,ONLY: nproma
   USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi
@@ -79,15 +77,19 @@ MODULE mo_interface_iconam_echam
   USE mo_model_domain          ,ONLY: t_patch
   USE mo_intp_data_strc        ,ONLY: t_int_state
   USE mo_intp_rbf              ,ONLY: rbf_vec_interpol_cell
-
   USE mo_loopindices           ,ONLY: get_indices_c, get_indices_e
+  USE mo_impl_constants        ,ONLY: min_rlcell_int, grf_bdywidth_c, grf_bdywidth_e
   USE mo_sync                  ,ONLY: sync_c, sync_e, sync_patch_array, sync_patch_array_mult
 
   USE mo_nonhydro_types        ,ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nh_diagnose_pres_temp ,ONLY: diagnose_pres_temp
   USE mo_physical_constants    ,ONLY: rd, p0ref, rd_o_cpd, vtmpc1, grav
 
-  USE mtime                    ,ONLY: datetime, deallocateDatetime
+  USE mtime                    ,ONLY: datetime , newDatetime , deallocateDatetime     ,&
+    &                                 timedelta, newTimedelta, deallocateTimedelta    ,&
+    &                                 max_timedelta_str_len  , getPTStringFromSeconds ,&
+    &                                 OPERATOR(+)
+
   USE mo_echam_phy_memory      ,ONLY: prm_field, prm_tend
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs_global
   USE mo_echam_phy_main        ,ONLY: echam_phy_main
@@ -119,20 +121,20 @@ CONTAINS
   !
   !  Marco Giorgetta, MPI-M, 2014
   !
-  SUBROUTINE interface_iconam_echam( dtadv_loc        ,& !in
-    &                                mtime_current    ,& !in
-    &                                patch            ,& !in
-    &                                pt_int_state     ,& !in
-    &                                p_metrics        ,& !in
-    &                                pt_prog_new      ,& !inout
-    &                                pt_prog_new_rcf  ,& !inout
-    &                                pt_diag          )  !inout
+  SUBROUTINE interface_iconam_echam( dt_loc          ,& !in
+    &                                datetime_new    ,& !in
+    &                                patch           ,& !in
+    &                                pt_int_state    ,& !in
+    &                                p_metrics       ,& !in
+    &                                pt_prog_new     ,& !inout
+    &                                pt_prog_new_rcf ,& !inout
+    &                                pt_diag         )  !inout
 
     !
     !> Arguments:
     !
-    REAL(wp)              , INTENT(in)            :: dtadv_loc       !< advective time step
-    TYPE(datetime),          POINTER              :: mtime_current
+    REAL(wp)              , INTENT(in)            :: dt_loc          !< advective time step
+    TYPE(datetime)        , POINTER               :: datetime_new    !< date and time at the end of this time step
 
     TYPE(t_patch)         , INTENT(in)   , TARGET :: patch           !< grid/patch info
     TYPE(t_int_state)     , INTENT(in)   , TARGET :: pt_int_state    !< interpolation state
@@ -157,6 +159,10 @@ CONTAINS
 
     ! Local variables
 
+    CHARACTER(len=max_timedelta_str_len) :: neg_dt_loc_string !< negative time delta as string
+    TYPE(timedelta), POINTER             :: neg_dt_loc_mtime  !< negative time delta as mtime variable
+    TYPE(datetime) , POINTER             :: datetime_old      !< date and time at the beginning of this time step
+
     REAL(wp) :: z_exner              !< to save provisional new exner
     REAL(wp) :: z_qsum               !< summand of virtual increment
 !!$    REAL(wp) :: z_ddt_qsum           !< summand of virtual increment
@@ -171,8 +177,6 @@ CONTAINS
     ! Local parameters
 
     CHARACTER(*), PARAMETER :: method_name = "interface_iconam_echam"
-
-    TYPE(datetime), POINTER             :: mtime_radtran
 
     !-------------------------------------------------------------------------------------
 
@@ -226,7 +230,7 @@ CONTAINS
             DO jc = jcs, jce
               !
               pt_prog_new_rcf%tracer(jc,jk,jb,jt) =   pt_prog_new_rcf%tracer(jc,jk,jb,jt)             &
-                &                                   + prm_tend(jg)% qtrc_phy(jc,jk,jb,jt) * dtadv_loc
+                &                                   + prm_tend(jg)% qtrc_phy(jc,jk,jb,jt) * dt_loc
               !
             END DO
           END DO
@@ -436,21 +440,22 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_echam_bcs)
 
-!!$    ! The date and time needed for the radiation computation in the phyiscs is
-!!$    ! the date and time of the initial data for this step.
-!!$    ! As 'datetime' contains already the date and time of the end of this time step,
-!!$    ! we compute here the old datetime 'datetime_old':
-!!$    !
-!!$    datetime_old = datetime                       ! copy datetime
-!!$    CALL add_time(-dtadv_loc,0,0,0,datetime_old)  ! and subtract one timestep
+    ! The date and time needed for the radiation computation in the phyiscs is
+    ! the date and time of the initial data for this step.
+    ! As 'datetime_new' contains already the date and time of the end of this
+    ! time step, we compute here the old datetime 'datetime_old':
+    !
+    CALL getPTStringFromSeconds(-dt_loc, neg_dt_loc_string)
+    neg_dt_loc_mtime  => newTimedelta(neg_dt_loc_string)
+    datetime_old      => newDatetime(datetime_new)
+    datetime_old      =  datetime_new + neg_dt_loc_mtime
+    CALL deallocateTimedelta(neg_dt_loc_mtime)
 
-
-    CALL echam_phy_bcs_global( mtime_current,&! in   
+    CALL echam_phy_bcs_global( datetime_old ,&! in
       &                        jg           ,&! in
       &                        patch        ,&! in
-      &                        dtadv_loc    ,&! in
-      &                        ltrig_rad    ,&! out
-      &                        mtime_radtran) ! out
+      &                        dt_loc       ,&! in
+      &                        ltrig_rad    ) ! out
 
     IF (ltimer) CALL timer_stop(timer_echam_bcs)
     !
@@ -463,13 +468,13 @@ CONTAINS
     !     the land processes, which are vertically implicitly coupled
     !     to the parameterization of vertical turbulent fluxes.
     !
-    IF (ltimer) CALL timer_start(timer_echam_phy)
-
 #ifndef __NO_JSBACH__
     IF (echam_phy_config%ljsbach) THEN
       CALL jsbach_start_timestep(jg)
     END IF
 #endif
+
+    IF (ltimer) CALL timer_start(timer_echam_phy)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce),  ICON_OMP_GUIDED_SCHEDULE
@@ -492,25 +497,24 @@ CONTAINS
         &                  jcs          ,&! in
         &                  jce          ,&! in
         &                  nproma       ,&! in
-        &                  mtime_current,&! in   ! <--- ALSO HERE WE SHOULD USE MTIME_OLD 
-        &                  dtadv_loc    ,&! in
-        &                  dtadv_loc    ,&! in
-        &                  ltrig_rad    ,&! in
-        &                  mtime_radtran) ! in
+        &                  datetime_old ,&! in
+        &                  dt_loc       ,&! in
+        &                  dt_loc       ,&! in
+        &                  ltrig_rad    ) ! in
 
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-    CALL deallocateDatetime(mtime_radtran)
-
     IF (ltimer) CALL timer_stop(timer_echam_phy)
+
+    CALL deallocateDatetime(datetime_old)
     !
     !=====================================================================================
 
 #ifndef __NO_JSBACH__
     IF (echam_phy_config%ljsbach) THEN
-      CALL jsbach_finish_timestep(jg, dtadv_loc)
+      CALL jsbach_finish_timestep(jg, dt_loc)
     END IF
 #endif
     !=====================================================================================
@@ -664,7 +668,7 @@ CONTAINS
             !
             ! Update with the total phyiscs tendencies
             pt_prog_new%vn    (je,jk,jb) =   pt_prog_new%vn    (je,jk,jb)             &
-              &                            + pt_diag%ddt_vn_phy(je,jk,jb) * dtadv_loc
+              &                            + pt_diag%ddt_vn_phy(je,jk,jb) * dt_loc
             !
             ! Set physics forcing to zero so that it is not re-applied in the dynamical core
             pt_diag%ddt_vn_phy(je,jk,jb) = 0._wp
@@ -707,7 +711,7 @@ CONTAINS
               ! new tracer mass
               prm_field(jg)%  mtrc    (jc,jk,jb,jt)  = prm_field(jg)% mtrc    (jc,jk,jb,jt) &
                 &                                     +prm_tend(jg)%  mtrc_phy(jc,jk,jb,jt) &
-                &                                     *dtadv_loc
+                &                                     *dt_loc
               !
               ! new tracer path
               prm_field(jg)%  mtrcvi  (jc,   jb,jt)  = prm_field(jg)% mtrcvi  (jc,   jb,jt) &
@@ -815,7 +819,7 @@ CONTAINS
             ! (a) Update T, then compute Temp_v, Exner and Theta_v
             !
             pt_diag        %temp  (jc,jk,jb    ) =   pt_diag%     temp    (jc,jk,jb)             &
-              &                                    + prm_tend(jg)%temp_phy(jc,jk,jb) * dtadv_loc
+              &                                    + prm_tend(jg)%temp_phy(jc,jk,jb) * dt_loc
             !
             z_qsum = pt_prog_new_rcf%tracer(jc,jk,jb,iqc) + pt_prog_new_rcf%tracer(jc,jk,jb,iqi)
             !
@@ -834,9 +838,9 @@ CONTAINS
 !!$            ! (b) Update Exner, then compute Temp_v
 !!$            !
 !!$            pt_prog_new%exner(jc,jk,jb) = pt_prog_new%exner(jc,jk,jb)                 &
-!!$              &                         + pt_diag%ddt_exner_phy(jc,jk,jb) * dtadv_loc
+!!$              &                         + pt_diag%ddt_exner_phy(jc,jk,jb) * dt_loc
 !!$            pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb)                 &
-!!$              &                         + pt_diag%ddt_exner_phy(jc,jk,jb) * dtadv_loc
+!!$              &                         + pt_diag%ddt_exner_phy(jc,jk,jb) * dt_loc
 !!$            !
 !!$            pt_diag%tempv(jc,jk,jb) = EXP(LOG(pt_prog_new%exner(jc,jk,jb)/rd_o_cpd)) &
 !!$              &                     / (pt_prog_new%rho(jc,jk,jb)*rd/p0ref)

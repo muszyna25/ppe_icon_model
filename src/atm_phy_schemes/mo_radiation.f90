@@ -197,9 +197,9 @@ CONTAINS
       nsteps = NINT(p_inc_rad/p_inc_radheat)
 
       DO jmu0=1,nsteps
-        
+
         p_sim_time_rad = p_sim_time + (REAL(jmu0,wp)-0.5_wp)*p_inc_radheat
-        
+
         current => newDatetime(time_config%tc_exp_startdate)
         CALL getPTStringFromMS(INT(1000.0_wp*p_sim_time_rad,i8), td_string)
         td => newTimedelta(td_string)
@@ -440,7 +440,7 @@ CONTAINS
     ENDIF
 
     p_sim_time_rad = p_sim_time + 0.5_wp*p_inc_rad
-    
+
     current => newDatetime(time_config%tc_exp_startdate)
     CALL getPTStringFromMS(INT(1000.0_wp*p_sim_time_rad,i8), td_string)
     td => newTimedelta(td_string)
@@ -1484,7 +1484,7 @@ CONTAINS
         &                         aer_piz_sw_vr,                 &
         &                         aer_cg_sw_vr)
     CASE (13)
-      CALL set_bc_aeropt_kinne( current_date      ,jg               ,&
+      CALL set_bc_aeropt_kinne( current_date                        ,&
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpsw                  ,jpband           ,&
         & p_nh_state(jg)% metrics% z_mc(:,:,jb)                     ,&
@@ -1505,7 +1505,7 @@ CONTAINS
         & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
         & aer_tau_lw_vr                                              )
     CASE (15)
-      CALL set_bc_aeropt_kinne( current_date      ,jg               ,&
+      CALL set_bc_aeropt_kinne( current_date                        ,&
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpsw                  ,jpband           ,&
         & p_nh_state(jg)% metrics% z_mc(:,:,jb)                     ,&
