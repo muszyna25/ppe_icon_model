@@ -1494,8 +1494,10 @@ CONTAINS
       iau_wgt_adv   = 0._wp
     ENDIF
 
-!!$write(0,*) "sim_time, is_iau_active, iau_wgt_dyn, iau_wgt_adv: ", &
-!!$  & sim_time, is_iau_active, iau_wgt_dyn, iau_wgt_adv
+    write(message_text,'(a,f10.2,l4,2e25.15)') &
+         &   'sim_time, is_iau_active, iau_wgt_dyn, iau_wgt_adv: ',  &
+         &    sim_time, is_iau_active, iau_wgt_dyn, iau_wgt_adv
+    call message('LK',message_text)
 
   END SUBROUTINE compute_iau_wgt
 

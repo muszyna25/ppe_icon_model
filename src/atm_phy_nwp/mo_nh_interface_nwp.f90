@@ -220,6 +220,8 @@ CONTAINS
     time_diff  => newTimedelta("PT0S")
     time_diff  =  getTimeDeltaFromDateTime(mtime_datetime, time_config%tc_exp_startdate)
     p_sim_time =  getTotalMillisecondsTimedelta(time_diff, mtime_datetime)*1.e-3_wp
+    write (message_text,'(a,f25.15)') 'p_sim_time (nwp phy iface = ', p_sim_time
+    call message('LK',message_text)
     CALL deallocateTimedelta(time_diff)
 
     IF (ltimer) CALL timer_start(timer_physics)
