@@ -509,6 +509,40 @@ int uuid_parse(uuid_t *uuid, const char *uuid_str)
 }
 
 
+// Auxiliary routine for "uuid_generate": add data to 48 bit and 64
+// bit fingerprint.
+//
+void uuid_scan_data(const double* val, const int nval, context_t* fprnt, int *max_zero)
+{
+  // pre-compute tables for fingerprint algorithm
+  if (fprnt->initialized == 0) {
+    compute_table_64(P64, fprnt->TA64, fprnt->TB64, fprnt->TC64, fprnt->TD64);
+    compute_table_48(P48, fprnt->TC48, fprnt->TD48, fprnt->TE48, fprnt->TF48);
+    fprnt->f48[0] = fprnt->f48[1] = 0; // 48 bit fingerprint
+    fprnt->f64[0] = fprnt->f64[1] = 0; // 64 bit fingerprint
+
+    fprnt->initialized = 1;
+  }
+
+  // --- loop over the sequence of double precision floating point
+  //     numbers, let "t" denote the current float
+  unsigned long long val_fp;
+  int izero;
+  for (int i=0; i<nval; i++)
+    {
+      // --- --- update the 64 bit fingerprint F1 by the current float t
+      fp4_64(fprnt->f64, (unsigned char*) &val[i],     fprnt->TA64, fprnt->TB64, fprnt->TC64, fprnt->TD64);
+      fp4_64(fprnt->f64, (unsigned char*) &val[i] + 4, fprnt->TA64, fprnt->TB64, fprnt->TC64, fprnt->TD64);
+      // --- --- translate float t into 64 bit *fixed* point number t'
+      convert_to_fixed64(val[i], &val_fp, &izero);
+      if ((*max_zero) <= izero)  (*max_zero)=izero;
+      // --- --- update 48 bit fingerprint F2 with t'
+      fp4_48(fprnt->f48, (unsigned char*) &val_fp,     fprnt->TC48, fprnt->TD48, fprnt->TE48, fprnt->TF48);
+      fp4_48(fprnt->f48, (unsigned char*) &val_fp + 4, fprnt->TC48, fprnt->TD48, fprnt->TE48, fprnt->TF48);
+    }
+}
+
+
 // Given a sequence of 64 bit double precision floating point numbers,
 // the UUID (Universally Unique Identifier) is computed here as follows.
 //
@@ -527,36 +561,17 @@ int uuid_parse(uuid_t *uuid, const char *uuid_str)
 //
 void uuid_generate(const double* val, const int nval, uuid_t* uuid) 
 {
-  // pre-compute tables for fingerprint algorithm
-  unsigned int 
-    TA64[256][2], TB64[256][2], TC64[256][2], TD64[256][2],
-    TC48[256][2], TD48[256][2], TE48[256][2], TF48[256][2];
-  compute_table_64(P64, TA64, TB64, TC64, TD64);
-  compute_table_48(P48, TC48, TD48, TE48, TF48);
+  context_t context;
+  context.initialized = 0;
 
-  unsigned int f48[2] = { 0, 0 }; // 48 bit fingerprint
-  unsigned int f64[2] = { 0, 0 }; // 64 bit fingerprint
+  // --- loop over the sequence of floating point numbers
+  int max_zero = 0;
+  uuid_scan_data(val, nval, &context, &max_zero);
 
-  // --- loop over the sequence of double precision floating point
-  //     numbers, let "t" denote the current float
-  unsigned long long val_fp;
-  int max_zero = 0, izero;
-  for (int i=0; i<nval; i++)
-    {
-      // --- --- update the 64 bit fingerprint F1 by the current float t
-      fp4_64(f64, (unsigned char*) &val[i],     TA64, TB64, TC64, TD64);
-      fp4_64(f64, (unsigned char*) &val[i] + 4, TA64, TB64, TC64, TD64);
-      // --- --- translate float t into 64 bit *fixed* point number t'
-      convert_to_fixed64(val[i], &val_fp, &izero);
-      if (max_zero <= izero)  max_zero=izero;
-      // --- --- update 48 bit fingerprint F2 with t'
-      fp4_48(f48, (unsigned char*) &val_fp,     TC48, TD48, TE48, TF48);
-      fp4_48(f48, (unsigned char*) &val_fp + 4, TC48, TD48, TE48, TF48);
-    }
   // --- concatenate the two fingerprints
   for (int i=0; i<16; ++i) uuid->data[i] = 0x00;
-  unsigned char* words64 = (unsigned char*) f64;
-  unsigned char* words48 = (unsigned char*) f48;
+  unsigned char* words64 = (unsigned char*) context.f64;
+  unsigned char* words48 = (unsigned char*) context.f48;
   for (int i=0; i<8; ++i) uuid->data[i]   = words64[i];
   for (int i=0; i<6; ++i) uuid->data[i+8] = words48[i];
 

@@ -203,11 +203,11 @@ CONTAINS
           IF (my_process_is_mpi_workroot()) THEN
              DO jg = 1,n_dom
                ! fill UUID with zero-bytes
-               vgrid_buffer(jg)%uuid%DATA(:) = 0_C_SIGNED_CHAR
+               vgrid_buffer(jg)%uuid%data(:) = 0_C_SIGNED_CHAR
              ENDDO
           END IF
           DO jg = 1,n_dom
-            CALL p_bcast(vgrid_buffer(jg)%uuid%DATA, SIZE(vgrid_buffer(jg)%uuid%DATA, 1), p_io, p_comm_work)
+            CALL p_bcast(vgrid_buffer(jg)%uuid%data, SIZE(vgrid_buffer(jg)%uuid%data, 1), p_io, p_comm_work)
           ENDDO
         ENDIF  ! create_vgrid
 
@@ -288,7 +288,7 @@ CONTAINS
       !--- copy UUID for horizontal grid
       !
       ! cells
-      CALL gridDefUUID(cdiCellGridID, p_patch%grid_uuid%DATA)
+      CALL gridDefUUID(cdiCellGridID, p_patch%grid_uuid%data)
       CALL gridDefNumber(cdiCellGridID, number_of_grid_used(p_patch%id))
       CALL gridDefPosition(cdiCellGridID, 1)
 
@@ -416,7 +416,7 @@ CONTAINS
       !--- get UUID for horizontal grid contained in vertical grid file
       cdiVarID_z_ifc     = get_cdi_varID(cdiFileID, "z_ifc")
       cdiGridID          = vlistInqVarGrid(cdiVlistID, cdiVarID_z_ifc)
-      CALL gridInqUUID(cdiGridID, vfile_uuidOfHGrid%DATA)
+      CALL gridInqUUID(cdiGridID, vfile_uuidOfHGrid%data)
 
       ! compare horizontal UUID contained in the vertical grid file with the
       ! UUID of the horizontal grid file
@@ -433,7 +433,7 @@ CONTAINS
 
       !--- get UUID for vertical grid
       cdiZaxisID = vlistInqVarZaxis(cdiVlistID, cdiVarID_z_ifc)
-      CALL zaxisInqUUID(cdiZaxisID, vgrid_buffer(p_patch%id)%uuid%DATA)
+      CALL zaxisInqUUID(cdiZaxisID, vgrid_buffer(p_patch%id)%uuid%data)
 
 
 
@@ -460,7 +460,7 @@ CONTAINS
     CALL p_bcast(vct_a,                         p_io, p_comm_work)
     CALL p_bcast(vct_b,                         p_io, p_comm_work)
     CALL p_bcast(nflat,                         p_io, p_comm_work)
-    CALL p_bcast(vgrid_buffer(p_patch%id)%uuid%DATA, SIZE(vgrid_buffer(p_patch%id)%uuid%DATA, 1), p_io, p_comm_work)
+    CALL p_bcast(vgrid_buffer(p_patch%id)%uuid%data, SIZE(vgrid_buffer(p_patch%id)%uuid%data, 1), p_io, p_comm_work)
 
     !--- read 3D fields
     nlevp1 = p_patch%nlevp1

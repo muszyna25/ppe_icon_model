@@ -30,6 +30,22 @@ typedef enum {
   UUID_UNEQUAL
 } cmp_UUID_t;
 
+
+typedef struct 
+{
+  unsigned int initialized;
+
+  unsigned int f48[2]; // 48 bit fingerprint
+  unsigned int f64[2]; // 64 bit fingerprint
+
+  // pre-computed tables for fingerprint algorithm
+  unsigned int 
+    TA64[256][2], TB64[256][2], TC64[256][2], TD64[256][2],
+    TC48[256][2], TD48[256][2], TE48[256][2], TF48[256][2];
+
+} context_t;
+
+
 void            uuid_generate(const double* val, const int nval, uuid_t* uuid);
 cmp_UUID_t      compare_UUID(const uuid_t uuid_A, const uuid_t uuid_B, 
                              double* min_difference);
