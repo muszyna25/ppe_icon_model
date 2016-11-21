@@ -2143,6 +2143,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: sst_cl_cur_day(:,:)
     ! climatological SST increment
     REAL(wp) :: sst_cl_inc
+    REAL(wp) :: new_sst             ! updated SST value
     REAL(wp) :: max_inc, min_inc    ! max/min SST increment on given PE
     REAL(wp), ALLOCATABLE :: sst_inc(:,:)
 
@@ -2192,7 +2193,7 @@ CONTAINS
         i_endblk   = p_patch(jg)%cells%end_block(rl_end)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,ic,jc,sst_cl_inc)
+!$OMP DO PRIVATE(jb,ic,jc,sst_cl_inc,new_sst)
         DO jb=i_startblk, i_endblk
 
           ! loop over all open water points and add climatological increments
@@ -2200,14 +2201,14 @@ CONTAINS
             jc = ext_data(jg)%atm%idx_lst_spw(ic,jb)
 
             sst_cl_inc = sst_cl_cur_day(jc,jb) - sst_cl_ini_day(jc,jb)
-            p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water)=   &
-                               p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) + sst_cl_inc
-            p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_water)=   &
-                               p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) + sst_cl_inc
-            p_lnd_state(jg)%prog_lnd(n_new)%t_g_t(jc,jb,isub_water)=   &
-                               p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) + sst_cl_inc
-            p_lnd_state(jg)%prog_lnd(n_new)%t_s_t(jc,jb,isub_water)=   &
-                               p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) + sst_cl_inc
+            ! make sure, that the updated SST does not drop below 
+            ! the salt-water freezing point
+            new_sst = MAX(tf_salt,p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) + sst_cl_inc)
+            !
+            p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water) = new_sst
+            p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_water) = new_sst
+            p_lnd_state(jg)%prog_lnd(n_new)%t_g_t(jc,jb,isub_water) = new_sst
+            p_lnd_state(jg)%prog_lnd(n_new)%t_s_t(jc,jb,isub_water) = new_sst
 
             ! includes reduction of saturation pressure due to salt content
             p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water) = 0.981_wp *                           & 
