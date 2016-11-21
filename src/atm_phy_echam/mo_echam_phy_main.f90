@@ -461,13 +461,11 @@ CONTAINS
         !
         & rsdt       = field%rsdt               (:,jb),&! all-sky   shortwave downward flux at current   time [W/m2]
         & rsut       = field%rsut               (:,jb),&! all-sky   shortwave upward   flux at current   time [W/m2]
-        & rsnt       = field%rsnt               (:,jb),&! all-sky   shortwave net      flux at current   time [W/m2]
         & rsds       = field%rsds               (:,jb),&! all-sky   shortwave downward flux at current   time [W/m2]
         & rsus       = field%rsus               (:,jb),&! all-sky   shortwave upward   flux at current   time [W/m2]
         & rsns       = field%rsns               (:,jb),&! all-sky   shortwave net      flux at current   time [W/m2]
         !
         & rsutcs     = field%rsutcs             (:,jb),&! clear-sky shortwave upward   flux at current   time [W/m2]
-        & rsntcs     = field%rsntcs             (:,jb),&! clear-sky shortwave net      flux at current   time [W/m2]
         & rsdscs     = field%rsdscs             (:,jb),&! clear-sky shortwave downward flux at current   time [W/m2]
         & rsuscs     = field%rsuscs             (:,jb),&! clear-sky shortwave upward   flux at current   time [W/m2]
         & rsnscs     = field%rsnscs             (:,jb),&! clear-sky shortwave net      flux at current   time [W/m2]
@@ -483,13 +481,11 @@ CONTAINS
         & rnus       = field%rnus               (:,jb),&!< out  all-sky upward near-IR radiation at surface
         !
         & rlut       = field%rlut               (:,jb),&! all-sky   longwave  upward   flux at current   time [W/m2]
-        & rlnt       = field%rlnt               (:,jb),&! all-sky   longwave  net      flux at current   time [W/m2]
         & rlds       = field%rlds               (:,jb),&! all-sky   longwave  downward flux at current   time [W/m2]
         & rlus       = field%rlus               (:,jb),&! all-sky   longwave  upward   flux at current   time [W/m2]
         & rlns       = field%rlns               (:,jb),&! all-sky   longwave  net      flux at current   time [W/m2]
         !
         & rlutcs     = field%rlutcs             (:,jb),&! clear-sky longwave  upward   flux at current   time [W/m2]
-        & rlntcs     = field%rlntcs             (:,jb),&! clear-sky longwave  net      flux at current   time [W/m2]
         & rldscs     = field%rldscs             (:,jb),&! clear-sky longwave  downward flux at current   time [W/m2]
         & rlnscs     = field%rlnscs             (:,jb),&! clear-sky longwave  net      flux at current   time [W/m2]
         !

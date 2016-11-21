@@ -464,15 +464,9 @@ CONTAINS
       field% thvsig(:,  :) = 1.e-2_wp
       field% tke   (:,:,:) = 1.e-4_wp
 
-      field% cosmu0    (:,  :) = 0._wp
-      field% rsdt      (:,  :) = 0._wp
-      field% rsns      (:,  :) = 0._wp
-      field% rlns      (:,  :) = 0._wp
       field% swflxsfc_tile(:,:,:) = 0._wp
       field% lwflxsfc_tile(:,:,:) = 0._wp
       field% dlwflxsfc_dT(:,:) = 0._wp
-      field% rsnt      (:,  :) = 0._wp
-      field% rlnt      (:,  :) = 0._wp
       field% aclc  (:,:,:) = 0._wp
       field% aclcov(:,  :) = 0._wp
       field% qvi   (:,  :) = 0._wp

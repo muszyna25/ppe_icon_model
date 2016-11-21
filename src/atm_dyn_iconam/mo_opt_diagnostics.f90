@@ -150,8 +150,6 @@ MODULE mo_opt_diagnostics
 
     !
     ! echam physics
-    &  cosmu0(:,:),     &
-    &  rsdt(:,:),       &
     &  relhum(:,:,:),   &
     &  aclc(:,:,:),     &
     &  aclcov(:,:),     &
@@ -163,10 +161,6 @@ MODULE mo_opt_diagnostics
     &  qvi(:,:),        &
     &  xlvi(:,:),       &
     &  xivi(:,:),       &
-    &  rsns(:,:),       &
-    &  rsnt(:,:),       &
-    &  rlns(:,:),       &
-    &  rlnt(:,:),       &
     &  tsfc(:,:),       &
     &  evap(:,:),       &
     &  lhflx(:,:),      &
@@ -255,8 +249,6 @@ MODULE mo_opt_diagnostics
     LOGICAL :: l_tracer_m
     !
     !  physics
-    LOGICAL :: l_cosmu0_m
-    LOGICAL :: l_rsdt_m
     LOGICAL :: l_hur_m
     LOGICAL :: l_cl_m
     LOGICAL :: l_clt_m
@@ -268,10 +260,6 @@ MODULE mo_opt_diagnostics
     LOGICAL :: l_prw_m
     LOGICAL :: l_cllvi_m
     LOGICAL :: l_clivi_m
-    LOGICAL :: l_rsns_m
-    LOGICAL :: l_rsnt_m
-    LOGICAL :: l_rlns_m
-    LOGICAL :: l_rlnt_m
     LOGICAL :: l_ts_m
     LOGICAL :: l_evspsbl_m
     LOGICAL :: l_hfls_m
@@ -682,30 +670,6 @@ CONTAINS
     ! }}}
 
     ! ECHAM {{{
-    p_acc%l_cosmu0_m = is_variable_in_output(first_output_name_list, var_name="cosmu0_m")
-    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_cosmu0_m
-    IF (p_acc%l_cosmu0_m) THEN
-       cf_desc    = t_cf_var('cosmu0', '', 'cosine of the zenith angle (time mean)', datatype_flt)
-       grib2_desc = grib2_var(192,214,1, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( list, 'cosmu0_m', p_acc%cosmu0,                                  &
-                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
-                   & cf_desc, grib2_desc,                                             &
-                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"))
-    END IF
-
-    p_acc%l_rsdt_m = is_variable_in_output(first_output_name_list, var_name="rsdt_m")
-    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_rsdt_m
-    IF (p_acc%l_rsdt_m) THEN
-       cf_desc    = t_cf_var('rsdt', 'W m-2',                                                    &
-                   &         'downward shortwave flux at the top of the atmosphere (time mean)', &
-                   &         datatype_flt)
-       grib2_desc = grib2_var(0,4,7, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( list, 'rsdt_m', p_acc%rsdt,                                &
-                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
-                   & cf_desc, grib2_desc,                                             &
-                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean") )
-    END IF
-
     p_acc%l_hur_m = is_variable_in_output(first_output_name_list, var_name="hur_m")
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_hur_m
     IF (p_acc%l_hur_m) THEN
@@ -852,54 +816,6 @@ CONTAINS
                    & 'vertically integrated cloud ice (time mean)', datatype_flt)
        grib2_desc = grib2_var(0,1,70, ibits, GRID_REFERENCE, GRID_CELL)
        CALL add_var( list, 'clivi_m', p_acc%xivi,                                     &
-                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
-                   & cf_desc, grib2_desc,                                             &
-                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
-                   & isteptype=TSTEP_INSTANT )
-    END IF
-
-    p_acc%l_rsns_m = is_variable_in_output(first_output_name_list, var_name="rsns_m")
-    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_rsns_m
-    IF (p_acc%l_rsns_m) THEN
-       cf_desc    = t_cf_var('rsns', 'W m-2', ' shortwave net flux at surface (time mean)', datatype_flt)
-       grib2_desc = grib2_var(0, 4, 9, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( list, 'rsns_m', p_acc%rsns,                                  &
-                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
-                   & cf_desc, grib2_desc,                                             &
-                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
-                   & isteptype=TSTEP_INSTANT )
-    END IF
-
-    p_acc%l_rsnt_m = is_variable_in_output(first_output_name_list, var_name="rsnt_m")
-    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_rsnt_m
-    IF (p_acc%l_rsnt_m) THEN
-       cf_desc    = t_cf_var('rsnt', 'W m-2', ' shortwave net flux at TOA (time mean)', datatype_flt)
-       grib2_desc = grib2_var(0, 4, 9, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( list, 'rsnt_m', p_acc%rsnt,                                  &
-                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
-                   & cf_desc, grib2_desc,                                             &
-                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
-                   & isteptype=TSTEP_INSTANT )
-    END IF
-
-    p_acc%l_rlns_m = is_variable_in_output(first_output_name_list, var_name="rlns_m")
-    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_rlns_m
-    IF (p_acc%l_rlns_m) THEN
-       cf_desc    = t_cf_var('rlns', 'W m-2', 'longwave net flux at surface (time mean)', datatype_flt)
-       grib2_desc = grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( list, 'rlns_m', p_acc%rlns,                                  &
-                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
-                   & cf_desc, grib2_desc,                                             &
-                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
-                   & isteptype=TSTEP_INSTANT )
-    END IF
-
-    p_acc%l_rlnt_m = is_variable_in_output(first_output_name_list, var_name="rlnt_m")
-    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_rlnt_m
-    IF (p_acc%l_rlnt_m) THEN
-       cf_desc    = t_cf_var('rlnt', 'W m-2', 'longwave net flux at TOA (time mean)', datatype_flt)
-       grib2_desc = grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL)
-       CALL add_var( list, 'rlnt_m', p_acc%rlnt,&
                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
                    & cf_desc, grib2_desc,                                             &
                    & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
@@ -1585,8 +1501,6 @@ CONTAINS
        END IF
     END IF
 
-    IF (acc%l_cosmu0_m)   CALL add_fields(acc%cosmu0         , prm_field(jg)%cosmu0         , subset)
-    IF (acc%l_rsdt_m)     CALL add_fields(acc%rsdt           , prm_field(jg)%rsdt           , subset)
     IF (acc%l_hur_m)      CALL add_fields(acc%relhum         , prm_field(jg)%relhum         , subset, levels=levels)
     IF (acc%l_cl_m)       CALL add_fields(acc%aclc           , prm_field(jg)%aclc           , subset, levels=levels)
     IF (acc%l_clt_m)      CALL add_fields(acc%aclcov         , prm_field(jg)%aclcov         , subset)
@@ -1598,10 +1512,6 @@ CONTAINS
     IF (acc%l_prw_m)      CALL add_fields(acc%qvi            , prm_field(jg)%qvi            , subset)
     IF (acc%l_cllvi_m)    CALL add_fields(acc%xlvi           , prm_field(jg)%xlvi           , subset)
     IF (acc%l_clivi_m)    CALL add_fields(acc%xivi           , prm_field(jg)%xivi           , subset)
-    IF (acc%l_rsns_m)     CALL add_fields(acc%rsns           , prm_field(jg)%rsns           , subset)
-    IF (acc%l_rsnt_m)     CALL add_fields(acc%rsnt           , prm_field(jg)%rsnt           , subset)
-    IF (acc%l_rlns_m)     CALL add_fields(acc%rlns           , prm_field(jg)%rlns           , subset)
-    IF (acc%l_rlnt_m)     CALL add_fields(acc%rlnt           , prm_field(jg)%rlnt           , subset)
     IF (acc%l_ts_m)       CALL add_fields(acc%tsfc           , prm_field(jg)%tsfc           , subset)
     IF (acc%l_evspsbl_m)  CALL add_fields(acc%evap           , prm_field(jg)%evap           , subset)
     IF (acc%l_hfls_m)     CALL add_fields(acc%lhflx          , prm_field(jg)%lhflx          , subset)
@@ -1679,8 +1589,6 @@ CONTAINS
        END IF
     END IF
 
-    IF (acc%l_cosmu0_m)   acc%cosmu0          = 0.0_wp
-    IF (acc%l_rsdt_m)     acc%rsdt            = 0.0_wp
     IF (acc%l_hur_m)      acc%relhum          = 0.0_wp
     IF (acc%l_cl_m)       acc%aclc            = 0.0_wp
     IF (acc%l_clt_m)      acc%aclcov          = 0.0_wp
@@ -1692,10 +1600,6 @@ CONTAINS
     IF (acc%l_prw_m)      acc%qvi             = 0.0_wp
     IF (acc%l_cllvi_m)    acc%xlvi            = 0.0_wp
     IF (acc%l_clivi_m)    acc%xivi            = 0.0_wp
-    IF (acc%l_rsns_m)     acc%rsns            = 0.0_wp
-    IF (acc%l_rsnt_m)     acc%rsnt            = 0.0_wp
-    IF (acc%l_rlns_m)     acc%rlns            = 0.0_wp
-    IF (acc%l_rlnt_m)     acc%rlnt            = 0.0_wp
     IF (acc%l_ts_m)       acc%tsfc            = 0.0_wp
     IF (acc%l_evspsbl_m)  acc%evap            = 0.0_wp
     IF (acc%l_hfls_m)     acc%lhflx           = 0.0_wp
@@ -1774,8 +1678,6 @@ CONTAINS
        END IF
     END IF
 
-    IF (acc%l_cosmu0_m)   acc%cosmu0          = acc%cosmu0          *xfactor
-    IF (acc%l_rsdt_m)     acc%rsdt            = acc%rsdt            *xfactor
     IF (acc%l_hur_m)      acc%relhum          = acc%relhum          *xfactor
     IF (acc%l_cl_m)       acc%aclc            = acc%aclc            *xfactor
     IF (acc%l_clt_m)      acc%aclcov          = acc%aclcov          *xfactor
@@ -1787,10 +1689,6 @@ CONTAINS
     IF (acc%l_prw_m)      acc%qvi             = acc%qvi             *xfactor
     IF (acc%l_cllvi_m)    acc%xlvi            = acc%xlvi            *xfactor
     IF (acc%l_clivi_m)    acc%xivi            = acc%xivi            *xfactor
-    IF (acc%l_rsns_m)     acc%rsns            = acc%rsns            *xfactor
-    IF (acc%l_rsnt_m)     acc%rsnt            = acc%rsnt            *xfactor
-    IF (acc%l_rlns_m)     acc%rlns            = acc%rlns            *xfactor
-    IF (acc%l_rlnt_m)     acc%rlnt            = acc%rlnt            *xfactor
     IF (acc%l_ts_m)       acc%tsfc            = acc%tsfc            *xfactor
     IF (acc%l_evspsbl_m)  acc%evap            = acc%evap            *xfactor
     IF (acc%l_hfls_m)     acc%lhflx           = acc%lhflx           *xfactor
