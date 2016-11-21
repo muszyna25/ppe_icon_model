@@ -2104,6 +2104,7 @@ support/util_sysinfo.c -text
 support/util_system.c -text
 support/util_timer.c -text
 support/util_uuid.c -text
+support/util_uuid.h -text
 /target_confmake.ksh -text
 /target_database.ksh -text
 vertical_coord_tables/README -text

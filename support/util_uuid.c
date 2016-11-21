@@ -1,361 +1,493 @@
-/*
- * This product is derived out of software developed by 
- *
- * The Apache Software Foundation (http://www.apache.org/).
- * 
- * Copyright 2011 Luis Kornblueh
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
+/* 128 bit UUID computation / Rabin fingerprinting algorithm                                        */
+/*                                                                                                  */
+/* ("A fingerprinting algorithm is a procedure that maps an arbitrarily large data item             */
+/* to a much shorter bit string" [Wikipedia-en]).                                                   */
+/*                                                                                                  */
+/* The fingerprint of string A is computed as                                                       */
+/*   f(A) = A(t) mod P(t)   where P(t) is an irreducible polynomial                                 */
+/*                          in the ring of integers modulus 2 ("Z2").                               */
+/*                                                                                                  */
+/* @author F. Prill, DWD (2015-01-20)                                                               */
+/*                                                                                                  */
+/* Literature:                                                                                      */
+/* [1] Rabin, M. O.:      "Fingerprinting by Random Polynomials."                                   */
+/*                          Center for Research in Computing Technology, Harvard University., 1981  */
+/* [2] Broder, A. Z.:     "Some applications of Rabin's fingerprinting method".                     */
+/*                         Sequences II: Methods in Communications, Security, and Computer Science, */  
+/*                         Springer-Verlag, 1993, 143-152                                           */
+/* [3] Chan, C. & Lu, H.: "Fingerprinting using Polynomial (Rabin's method)"                        */
+/*                         CMPUT690 Term Project, 2001                                              */
+/* [4] IEEE754 floating point numbers: see, e.g., lecture notes by M. Hill,                         */
+/*     http://pages.cs.wisc.edu/~markhill/cs354/Fall2008/notes/flpt.apprec.html                     */
+/*                                                                                                  */
+/* Remarks:                                                                                         */
+/*                                                                                                  */
+/* 1. The fingerprint ("UUID") can be used to distinguish between sequences of double precision     */
+/*    64 bit values with a probability of failure of                                                */
+/*      Pr(f(A) = f(B) | A != B) <= |length of sequence|/2^57                                       */
+/*                                                                                                  */
+/* 2. The fingerprint can also be used to determine if number sequences are equal up to a           */
+/*    precision of 2^-24 ~ 5.96e-8, provided the numbers are known to be smaller than 2^40.         */
+/*    The error probability for this is bound by                                                    */
+/*      Pr(f(A) = f(B) | A != B) <= |length of sequence|/2^41                                       */
+/*                                                                                                  */
+/* 3. For identical sequences the algorithm deterministically generates the same UUID.              */
+/*                                                                                                  */
+/* 4. The algorithm generates 128 bit fingerprints that do not contain NaN or Inf values in their   */
+/*    representation as four 32 bit floating point numbers.                                         */
+/*                                                                                                  */
+/* 5. As a slight drawback, the fingerprint is not cryptographically secure, i.e. an adversary      */
+/*    is able to alter the data but to maintain the signature.                                      */
+/*                                                                                                  */
+/* 6. This implementation assumes a little-endian hardware architecture.                            */
+/*                                                                                                  */
+/* 7. The fingerprinting technique could easily allow for a cascade of accuracy tests, if more      */
+/*    than 128 bits were available for the UUID.                                                    */
+/*                                                                                                  */
+/*                                                                                                  */
+/* @par Copyright and License                                                                       */
+/*                                                                                                  */
+/* This code is subject to the DWD and MPI-M-Software-License-Agreement in                          */
+/* its most recent form.                                                                            */
+/* Please see the file LICENSE in the root of the source tree for this code.                        */
+/* Where software is supplied by third parties, it is indicated in the                              */
+/* headers of the routines.                                                                         */
 
-#define _POSIX_C_SOURCE 200112L
+#include "util_uuid.h"
 
-#ifdef __APPLE__
-/* allow accessing syscall() */
-#define _DARWIN_C_SOURCE
-/* this prevents using the Darwin provided version of uuid */
-#define _UUID_T 
-#endif
+/* -------------------- General Utility Routines -------------------- */
 
-#ifdef __linux__
-#define _SVID_SOURCE        
-#endif
+#define BYTETOBINARYPATTERN "%d%d%d%d%d%d%d%d"
+#define BYTETOBINARY(byte)  \
+  (byte & 0x80 ? 1 : 0), \
+  (byte & 0x40 ? 1 : 0), \
+  (byte & 0x20 ? 1 : 0), \
+  (byte & 0x10 ? 1 : 0), \
+  (byte & 0x08 ? 1 : 0), \
+  (byte & 0x04 ? 1 : 0), \
+  (byte & 0x02 ? 1 : 0), \
+  (byte & 0x01 ? 1 : 0) 
 
-/* required here for clean load of Darwin header files */
-typedef struct
+
+// Display integer number as a binary string.
+//
+void printBinary(const unsigned int* sWord, unsigned int len) 
 {
-  unsigned char data[16];
-} uuid_t;
-
-/****************************************************************************/
-
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-#include <inttypes.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/time.h>
-
-#ifndef _SX
-#ifdef _AIX
-#include <sys/thread.h>
-#else
-#include <sys/syscall.h>
-#include <sys/types.h>
-#endif
-#endif
-
-/****************************************************************************/
-
-static unsigned short jrand_seed[3];
-
-int
-get_random_fd(void)
-{
-  struct timeval tv;
-  static int fd = -2;
-  int i;
-
-  if (fd == -2)
-    {
-      gettimeofday(&tv, 0);
-      fd = open("/dev/urandom", O_RDONLY);
-      if (fd == -1)
-        fd = open("/dev/random", O_RDONLY | O_NONBLOCK);
-      if (fd >= 0)
-        {
-          i = fcntl(fd, F_GETFD);
-          if (i >= 0)
-            fcntl(fd, F_SETFD, i | FD_CLOEXEC);
-        }
-      srand((getpid() << 16) ^ getuid() ^ tv.tv_sec ^ tv.tv_usec);
-      jrand_seed[0] = getpid() ^ (tv.tv_sec & 0xFFFF);
-      jrand_seed[1] = getppid() ^ (tv.tv_usec & 0xFFFF);
-      jrand_seed[2] = (tv.tv_sec ^ tv.tv_usec) >> 16;
-    }
-
-  gettimeofday(&tv, 0);
-  for (i = (tv.tv_sec ^ tv.tv_usec) & 0x1F; i > 0; i--)
-    rand();
-
-  return fd;
+  unsigned char* s = ((unsigned char*) sWord)+4*len-1;
+  for (unsigned int i=0; i<4*len; i++,s--)
+    printf(BYTETOBINARYPATTERN"  ", BYTETOBINARY(*s));
+  printf("\n");
 }
 
-void
-generate_random_bytes(void *buf, int nbytes)
+// Display integer number as a binary string.
+//
+void printBinary64(const unsigned long long val) 
 {
-  int i, n = nbytes, fd = get_random_fd();
-  int lose_counter = 0;
-  unsigned char *cp = (unsigned char *) buf;
-  unsigned short tmp_seed[3];
-
-  if (fd >= 0)
-    {
-      while (n > 0)
-        {
-          i = read(fd, cp, n);
-          if (i <= 0)
-            {
-              if (lose_counter++ > 16)
-                break;
-              continue;
-            }
-          n -= i;
-          cp += i;
-          lose_counter = 0;
-        }
-    }
-
-  for (cp = buf, i = 0; i < nbytes; i++)
-    *cp++ ^= (rand() >> 7) & 0xFF;
-
-  memcpy(tmp_seed, jrand_seed, sizeof(tmp_seed));
-
-#if defined _AIX
-  jrand_seed[2] = jrand_seed[2] ^ thread_self();
-#elif defined _SX
-  jrand_seed[2] = jrand_seed[2] ^ getpid();
-#else
-  jrand_seed[2] = jrand_seed[2] ^ syscall(SYS_gettid);
-#endif
-
-  // till I'm able to resolve the link problem with intel icc/ifort 16.0  
-#ifdef __INTEL_COMPILER
-#pragma novector
-#endif
-  for (cp = buf, i = 0; i < nbytes; i++)
-    *cp++ ^= (jrand48(tmp_seed) >> 7) & 0xFF;
-
-  memcpy(jrand_seed, tmp_seed, sizeof(jrand_seed)-sizeof(unsigned short));
+  unsigned char* s = ((unsigned char*) &val)+7;
+  for (int i=0; i<8; i++,s--)
+    printf(BYTETOBINARYPATTERN"  ", BYTETOBINARY(*s));
+  printf("\n");
 }
 
-#ifdef DEBUG
 
-int main(int argc, char *argv[])
-  {
-    unsigned char buffer[36];
-    int i;
+/* ---------- Auxiliary Routines for Z2 Arithmetics ----------------- */
 
-    generate_random_bytes(buffer, 36);
-
-    for (i = 0; i < 36; i++)
-    printf("%02x ", buffer[i]);
-    printf("\n");
-
-    return 0;
+// Perform 64 bit right-shift operation.
+//
+void longRightShift(unsigned int* sWord, unsigned int s) 
+{
+  if (s > 8) {
+    longRightShift(sWord, 8);
+    longRightShift(sWord, s-8);
+  } else {
+    long long unsigned int*  w = (long long unsigned int*) sWord;
+    (*w) = (*w) >> s;
   }
-
-#endif
-
-/****************************************************************************/
-
-#define APR_USEC_PER_SEC APR_TIME_C(1000000)
-
-uint64_t
-time_now(void)
-{
-  struct timeval tv;
-  gettimeofday(&tv, NULL );
-  return tv.tv_sec * 1000000 + tv.tv_usec;
 }
 
-void
-get_system_time(uint64_t *uuid_time)
+
+// Perform 64 bit left-shift operation.
+//
+void longLeftShift(unsigned int* sWord, unsigned int s) 
 {
-  *uuid_time = time_now();
-  *uuid_time = (*uuid_time * 10) + (uint64_t) 0x01B21DD213814000;
+  if (s > 8) {
+    longLeftShift(sWord, 8);
+    longLeftShift(sWord, s-8);
+  } else {
+    long long unsigned int*  w = (long long unsigned int*) sWord;
+    (*w) = (*w) << s;
+  }
 }
 
-void
-get_current_time(uint64_t *timestamp)
+
+// Generate irreducible polynomial of degree k
+//
+// see [Chan&Lu], Section 2.2.2
+//
+void generate_polynomial(unsigned int k, unsigned int* W)
 {
-  uint64_t time_now;
-  static uint64_t time_last = 0;
-  static uint64_t fudge = 0;
+  srand(time(NULL));
 
-  get_system_time(&time_now);
+  unsigned int r = rand() % ((k-1)/2);
+  r = 2*r + 1;
+  unsigned int A[k];
+  A[0] = 1;
+  for (unsigned int i=1; i<k; i++) A[i] = 0;
 
-  if (time_last != time_now)
-    {
-      if (time_last + fudge > time_now)
-        fudge = time_last + fudge - time_now + 1;
-      else
-        fudge = 0;
-      time_last = time_now;
+  for (unsigned int i=1; i<r; i++) {
+    unsigned int j = 0;
+    while (A[j] != 0)  j = rand() % (k-1);
+    A[j+1] = 1;
+  }
+  const unsigned int len = (k+31)/32;
+  for (unsigned int i=0; i<len; i++) W[i] = 0;
+  for (int i=(k-1); i>=0; i--) {
+    longLeftShift(W, 1);
+    W[0] += A[i];
+  }
+}
+
+
+// Compute i x t^8 mod P(t) in the ring of integers modulus 2.
+//
+// This variant operates on 64 bit numbers, represented by two 32 bit
+// integers.
+//
+void multiT8_64(unsigned int* s, 
+                  unsigned int* in_s, 
+                  const unsigned int* p) 
+{
+  s[0] = in_s[0];
+  s[1] = in_s[1];
+  for (int i=0; i<8; i++) {
+    int needXOR = (s[1] & 0x80000000) == 0x80000000;  // conditional XOR 
+
+    // left shift 1 bit: extract highest bit from lower word, insert
+    // as lowest bit in higher word
+    unsigned int temp = (s[0] >> 31) & 0x00000001;
+    s[1] = (s[1] << 1) | temp;
+    s[0] =  s[0] << 1;
+
+    if (needXOR) {
+      s[0] ^= p[0];
+      s[1] ^= p[1];
     }
-  else
-    {
-      ++fudge;
+  }
+}
+
+
+// Compute i x t^8 mod P(t) in the ring of integers modulus 2.
+//
+// This variant operates on 48 bit numbers, represented by "one and a
+// half" 32 bit integer. Therefore, the left shift operation explicitly
+// sets the output bit to zero.
+//
+void multiT8_48(unsigned int* s, 
+                  unsigned int* in_s, 
+                  const unsigned int* p) 
+{
+  s[0] = in_s[0];
+  s[1] = in_s[1];
+  for (int i=0; i<8; i++) {
+    int needXOR = (s[1] & 0x00008000) == 0x00008000;  // conditional XOR 
+    // left shift 1 bit: extract highest bit from lower word, insert
+    // as lowest bit in higher word
+    unsigned int temp = (s[0] >> 31) & 0x00000001;
+    s[1]  = (s[1] << 1) | temp;
+    s[1] &= 0xFFFF; // clear old leading bit
+    s[0]  =  s[0] << 1;
+
+    if (needXOR) {
+      s[0] ^= p[0];
+      s[1] ^= p[1];
     }
-
-  *timestamp = time_now + fudge;
+  }
 }
 
-/****************************************************************************/
 
-#define NODE_LENGTH 6
+/* ---------- Fingerprint Routines, 48 bit and 64 bit --------------- */
 
-static int uuid_state_seqnum;
-static unsigned char uuid_state_node[NODE_LENGTH] =
-  { 0 };
-
-int
-true_random(void)
+// Pre-compute tables to process 4 bytes at once for 64 bit
+// fingerprinting.
+//
+void compute_table_64(const unsigned int*  p, 
+		      unsigned int TA[256][2], 
+		      unsigned int TB[256][2], 
+		      unsigned int TC[256][2], 
+		      unsigned int TD[256][2]) 
 {
-  unsigned char buf[2];
-
-  generate_random_bytes(buf, 2);
-  return (buf[0] << 8) | buf[1];
+  for (int i=0; i<256; i++) {
+    // compute TD[i] = i x t^(k-8)
+    //         TD[i] = i x t^8 mod P(t)
+    TD[i][0] = 0x00000000;
+    TD[i][1] = i << 24;
+    multiT8_64(TD[i], TD[i], p);  
+    multiT8_64(TC[i], TD[i], p);
+    multiT8_64(TB[i], TC[i], p);
+    multiT8_64(TA[i], TB[i], p);
+  }
 }
 
-void
-get_random_info(unsigned char node[NODE_LENGTH])
+
+// Pre-compute tables to process 4 bytes at once for 32 bit
+// fingerprinting.
+//
+// Compared to the 64 bit fingerprint we need two additional tables: 
+//    TE(t) = F_c5(t)*t^56 mod P(t)  and 
+//    TF(t) = F_c6(t)*t^48 mod P(t)
+//
+void compute_table_48(const unsigned int*  p, 
+		      unsigned int TC[256][2], 
+		      unsigned int TD[256][2],
+		      unsigned int TE[256][2], 
+		      unsigned int TF[256][2]) 
 {
-  generate_random_bytes(node, NODE_LENGTH);
+  for (int i=0; i<256; i++) {
+    // compute TF[i] = i x t^40
+    //         TF[i] = i x t^8 mod P(t)
+    TF[i][0] = 0x00000000;
+    TF[i][1] = i << 8;
+    multiT8_48(TF[i], TF[i], p);  
+    multiT8_48(TE[i], TF[i], p);  
+    multiT8_48(TD[i], TE[i], p);  
+    multiT8_48(TC[i], TD[i], p);
+  }
 }
 
-void
-get_pseudo_node_identifier(unsigned char *node)
+
+// Fingerprint 4 characters (bytes) at once, 64 bit fingerprint.
+//
+void fp4_64(unsigned int* s, const unsigned char* w, 
+	    unsigned int TA[256][2], 
+	    unsigned int TB[256][2], 
+	    unsigned int TC[256][2], 
+	    unsigned int TD[256][2]) 
 {
-  get_random_info(node);
-  node[0] |= 0x01;
+  unsigned int f[4];
+  unsigned int j = 24, ww = 0;
+  for (int i=0; i<4; i++,j-=8) {
+    f[i]  =  (s[1] >> j) & 0xff;
+    ww    =  (ww << 8) | w[i];
+  }
+  s[1] = s[0] ^ TA[f[0]][1] ^ TB[f[1]][1] ^ TC[f[2]][1] ^ TD[f[3]][1];
+  s[0] = ww   ^ TA[f[0]][0] ^ TB[f[1]][0] ^ TC[f[2]][0] ^ TD[f[3]][0];
 }
 
-void
-init_state(void)
+
+// Fingerprint 4 characters at once, 48 bit fingerprint.
+//
+void fp4_48(unsigned int* s, const unsigned char* w, 
+	    unsigned int TC[256][2], 
+	    unsigned int TD[256][2],
+	    unsigned int TE[256][2], 
+	    unsigned int TF[256][2]) 
 {
-  uuid_state_seqnum = true_random();
-  get_pseudo_node_identifier(uuid_state_node);
+  unsigned int f[6];
+  unsigned int j = 24, ww = 0;
+  for (int i=0; i<4; i++,j-=8) {
+    f[i]  =  (s[1] >> j) & 0xff;
+    ww    =  (ww << 8) | w[i];
+  }
+  f[4] = (s[0] >> 24) & 0xff;
+  f[5] = (s[0] >> 16) & 0xff;
+  unsigned int s0 = s[0] & 0xFFFF;
+  s[1] = s0  ^ TC[f[2]][1] ^ TD[f[3]][1] ^ TE[f[4]][1] ^ TF[f[5]][1];
+  s[0] = ww  ^ TC[f[2]][0] ^ TD[f[3]][0] ^ TE[f[4]][0] ^ TF[f[5]][0];
 }
 
-void
-uuid_get(uuid_t *uuid)
+
+// Fingerprint 1 character, 64 bit fingerprint version.
+//
+// Computing the fingerprint extended by one bit consists of one shift
+// left operation with the new bit as input bit and r1 as output bit and
+// then, conditioned upon r1=1, a bit-wise exclusive operation, the
+// second operand being P with the leading coefficient removed.
+//
+void fp1_64(unsigned int* s, unsigned char w, 
+             const unsigned int* p) 
 {
-  uint64_t timestamp;
-  unsigned char *d = uuid->data;
-  float *test = (float *) d;
-  int i, n;
+  for (int i=0; i<8; i++) {
+    int needXOR = (s[1] & 0x80000000) == 0x80000000;
 
-  do
-    {
-      if (!uuid_state_node[0])
-        init_state();
+    // left shift 1 bit
+    unsigned int temp = (s[0] >> 31) & 0x00000001;
+    s[1] = (s[1] << 1) | temp;
+    s[0] =  s[0] << 1;
 
-      get_current_time(&timestamp);
-
-      /* time_low, uint32 */
-      d[3] = (unsigned char) timestamp;
-      d[2] = (unsigned char) (timestamp >> 8);
-      d[1] = (unsigned char) (timestamp >> 16);
-      d[0] = (unsigned char) (timestamp >> 24);
-      /* time_mid, uint16 */
-      d[5] = (unsigned char) (timestamp >> 32);
-      d[4] = (unsigned char) (timestamp >> 40);
-      /* time_hi_and_version, uint16 */
-      d[7] = (unsigned char) (timestamp >> 48);
-      d[6] = (unsigned char) (((timestamp >> 56) & 0x0F) | 0x10);
-      /* clock_seq_hi_and_reserved, uint8 */
-      d[8] = (unsigned char) (((uuid_state_seqnum >> 8) & 0x3F) | 0x80);
-      /* clock_seq_low, uint8 */
-      d[9] = (unsigned char) uuid_state_seqnum;
-      /* node, byte[6] */
-      memcpy(&d[10], uuid_state_node, NODE_LENGTH);
-
-      n = 0;
-      for (i = 0; i < 4; i++)
-        {
-          if (isnan(test[i]))
-            n++;
-        }
+    s[0] |= ((w & 0x80) >> 7);
+    w = w << 1;
+    if (needXOR) {
+      s[0] ^= p[0];
+      s[1] ^= p[1];
     }
-  while (n != 0);
-
-  return;
+  }
 }
 
-#define UUID_FORMATTED_LENGTH 36
 
-void
-uuid_format(char *buffer, const uuid_t *uuid)
+// Fingerprint 1 character, 48 bit fingerprint version.
+//
+void fp1_48(unsigned int* s, unsigned char w, 
+             const unsigned int* p) 
+{
+  for (int i=0; i<8; i++) {
+    int needXOR = s[1] & 0x00008000;
+
+    // left shift 1 bit
+    unsigned int temp = (s[0] >> 31) & 0x00000001;
+    s[1]  = (s[1] << 1) | temp;
+    s[1] &= 0xFFFF; // clear old leading bit
+    s[0]  =  s[0] << 1;
+
+    s[0] |= ((w & 0x80) >> 7);
+    w = w << 1;
+    if (needXOR) {
+      s[0] ^= p[0];
+      s[1] ^= p[1];
+    }
+  }
+}
+
+
+/* ----------------IEEE float to fixed point conversion ------------- */
+
+// Extract unbiased exponent from 64 bit IEEE floating point number
+//
+int extract_exponent64(const double val)
+{
+  const unsigned int EXP_BIAS = 1023;
+  unsigned char*     word     = ((unsigned char*) &val);
+  return (((unsigned int) (word[7] & 0x7F)) << 4) + (word[6] >> 4) - EXP_BIAS;
+}
+
+
+// Extract unbiased exponent from 32 bit IEEE floating point number
+//
+int extract_exponent32(const float val)
+{
+  const unsigned int EXP_BIAS = 127;
+  unsigned char*     word     = ((unsigned char*) &val);
+  return (((int) word[3] & 0x7F) << 1) + (word[2] >> 7) - EXP_BIAS;
+}
+
+
+// Convert IEEE float to a 64 bit fixed point number.
+//
+// *IMPORTANT Assumption: Little-Endianness*
+//
+// IEEE:         [   1 Sign bit                                   ]
+//               [ + 11-bit, biased-1023 integer for the exponent ]
+//               [ + 52-bit mantissa                              ]
+//
+// Fixed-Point:  [ Sign bit + 2^39, ..., 2^-23 ]
+//
+// Parameter "izero": Consider the part of the mantissa that is
+// truncated by converting a number~$x$ to its fixed-point
+// representation and let $q(x)$ denote the largest bit position with a
+// zero coefficient.
+//
+void convert_to_fixed64(const double val, unsigned long long* fp, int* izero)
+{
+  // split floating point number into its sign, exponent and mantissa:
+  unsigned char*     word     = ((unsigned char*) &val);
+  unsigned int       sign     = ((unsigned int) (word[7] & 0x80));  // note: sign is at MSB position
+  int                exponent = extract_exponent64(val);
+
+  // re-order normalized little-endian mantissa
+  unsigned long long mantissa = 
+    0x0010000000000000ull                         + // hidden bit
+    (((unsigned long long) (word[6] & 0x0F)) << 48) + 
+    (((unsigned long long) word[5])          << 40) + 
+    (((unsigned long long) word[4])          << 32) + 
+    (((unsigned long long) word[3])          << 24) + 
+    (((unsigned long long) word[2])          << 16) + 
+    (((unsigned long long) word[1])          <<  8) +
+    ((unsigned long long) word[0]);
+
+  // shift mantissa to the right position in the fixed point representation
+  const int smallest_exp = -23;
+  //                sign bit    shift to 2^0 location 
+  const int shift = 1         + 63-12+smallest_exp        - exponent;
+
+  (*izero) = 0;
+  if (shift > 0) 
+    {
+      // determine highest-value zero in the truncated part of the
+      // mantissa; performance could certainly be improved by using a
+      // lookup table.
+      unsigned long long bitmask = 0, testbit=1;
+      for (int j=0; j<shift; ++j, testbit<<=1)
+	bitmask = (bitmask << 1) + 1;
+      for (*izero=0; *izero<shift; ++(*izero)) {
+	testbit >>= 1;	
+	if ((mantissa & testbit) == 0) break;
+      }
+      longRightShift((unsigned int*) &mantissa, shift);
+    }
+  else if (shift < 0)
+    longLeftShift( (unsigned int*) &mantissa, -1*shift);
+  (*fp) = mantissa;
+
+  // set sign bit
+  *((unsigned char*) fp+7) |= sign;
+  (*izero) -= smallest_exp - 1;
+}
+
+
+/* ----------------------- UUID Computation ------------------------- */
+
+// irreducible polynomial x^64 + x^4 + x^3 +   x + 1
+// with the leading coefficient removed.
+const unsigned int P64[2] = { 0x0000001B, 0x00000000 };
+const unsigned int P48[2] = { 0xaf5433a5, 0xb09a };
+
+
+// Print UUID in standard hexadecimal format.
+//
+void uuid_unparse(char *buffer, const uuid_t *uuid)
 {
   const unsigned char *d = uuid->data;
 
   sprintf(buffer,
-      "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x", d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15]);
+      "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x", 
+           d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15]);
 }
 
-unsigned char
-parse_hexpair(const char *s)
+
+unsigned char parse_hexpair(const char *s)
 {
   int result;
-
   if (isdigit(*s))
-    {
-      result = (*s - '0') << 4;
-    }
+    result = (*s - '0') << 4;
+  else if (isupper(*s))
+    result = (*s - 'A' + 10) << 4;
   else
-    {
-      if (isupper(*s))
-        {
-          result = (*s - 'A' + 10) << 4;
-        }
-      else
-        {
-          result = (*s - 'a' + 10) << 4;
-        }
-    }
-
+    result = (*s - 'a' + 10) << 4;
   ++s;
   if (isdigit(*s))
-    {
-      result |= (*s - '0');
-    }
+    result |= (*s - '0');
+  else if (isupper(*s))
+    result |= (*s - 'A' + 10);
   else
-    {
-      if (isupper(*s))
-        {
-          result |= (*s - 'A' + 10);
-        }
-      else
-        {
-          result |= (*s - 'a' + 10);
-        }
-    }
-
+    result |= (*s - 'a' + 10);
   return (unsigned char) result;
 }
 
-int
-uuid_parse(uuid_t *uuid, const char *uuid_str)
+
+// Convert a hex-string representation of a UUID into a uuid byte
+// array.
+//
+int uuid_parse(uuid_t *uuid, const char *uuid_str)
 {
   int i;
   unsigned char *d = uuid->data;
 
-  for (i = 0; i < 36; ++i)
-    {
+  for (i = 0; i < 36; ++i) {
       char c = uuid_str[i];
       if (!isxdigit(c)
           && !(c == '-' && (i == 8 || i == 13 || i == 18 || i == 23)))
         return -1;
     }
-  if (uuid_str[36] != '\0')
-    {
-      return -1;
-    }
+  if (uuid_str[36] != '\0')  return -1;
 
   d[0] = parse_hexpair(&uuid_str[0]);
   d[1] = parse_hexpair(&uuid_str[2]);
@@ -373,38 +505,147 @@ uuid_parse(uuid_t *uuid, const char *uuid_str)
 
   for (i = 6; i--;)
     d[10 + i] = parse_hexpair(&uuid_str[i * 2 + 24]);
-
   return 0;
 }
 
-#ifdef DEBUG
 
-int main(int argc, char *argv[])
-  {
-    uuid_t uuid;
-    uuid_t uuid2;
-    char buf[UUID_FORMATTED_LENGTH + 1];
+// Given a sequence of 64 bit double precision floating point numbers,
+// the UUID (Universally Unique Identifier) is computed here as follows.
+//
+// The 128 bit (16 byte UUID or four 32 bit REALs) consists of three parts:
+//
+// bits   0- 63 : 64 bit fingerprint
+//                of the floating point number sequence.
+// bits  64-111 : 48 bit fingerprint
+//                of a truncated fixed-point number sequence.
+// bits 112-119 : largest bit position with a zero coefficient (max over all numbers)
+// bits 120-123 : 4 bits to avoid NaN/Inf in the representation
+//                of the UUID as four single precision floating point
+//                numbers (these bits are moved out of the REALs' exponents 
+//                where they are set accordingly if a NaN/Inf needs to be 
+//                avoided).
+//
+void uuid_generate(const double* val, const int nval, uuid_t* uuid) 
+{
+  // pre-compute tables for fingerprint algorithm
+  unsigned int 
+    TA64[256][2], TB64[256][2], TC64[256][2], TD64[256][2],
+    TC48[256][2], TD48[256][2], TE48[256][2], TF48[256][2];
+  compute_table_64(P64, TA64, TB64, TC64, TD64);
+  compute_table_48(P48, TC48, TD48, TE48, TF48);
 
-    uuid_get(&uuid);
-    uuid_format(buf, &uuid);
+  unsigned int f48[2] = { 0, 0 }; // 48 bit fingerprint
+  unsigned int f64[2] = { 0, 0 }; // 64 bit fingerprint
 
-    printf("%s \n", buf);
+  // --- loop over the sequence of double precision floating point
+  //     numbers, let "t" denote the current float
+  unsigned long long val_fp;
+  int max_zero = 0, izero;
+  for (int i=0; i<nval; i++)
+    {
+      // --- --- update the 64 bit fingerprint F1 by the current float t
+      fp4_64(f64, (unsigned char*) &val[i],     TA64, TB64, TC64, TD64);
+      fp4_64(f64, (unsigned char*) &val[i] + 4, TA64, TB64, TC64, TD64);
+      // --- --- translate float t into 64 bit *fixed* point number t'
+      convert_to_fixed64(val[i], &val_fp, &izero);
+      if (max_zero <= izero)  max_zero=izero;
+      // --- --- update 48 bit fingerprint F2 with t'
+      fp4_48(f48, (unsigned char*) &val_fp,     TC48, TD48, TE48, TF48);
+      fp4_48(f48, (unsigned char*) &val_fp + 4, TC48, TD48, TE48, TF48);
+    }
+  // --- concatenate the two fingerprints
+  for (int i=0; i<16; ++i) uuid->data[i] = 0x00;
+  unsigned char* words64 = (unsigned char*) f64;
+  unsigned char* words48 = (unsigned char*) f48;
+  for (int i=0; i<8; ++i) uuid->data[i]   = words64[i];
+  for (int i=0; i<6; ++i) uuid->data[i+8] = words48[i];
 
-    uuid_parse(&uuid2, buf);
-    if (memcmp(&uuid, &uuid2, sizeof(uuid)) != 0)
-      {
-        fprintf(stderr,"uuid_parse produced a different UUID ...\n");
-      }
-
-    uuid_get(&uuid);
-    uuid_get(&uuid2);
-
-    if (memcmp(&uuid, &uuid2, sizeof(uuid)) == 0)
-      {
-        fprintf(stderr,"uuid_get generated the same UUID twice ...\n");
-      }
-
-    return 0;
+  // --- cast (F1,F2) into four 32 bit floating point numbers,
+  //     insert four bits, each into the exponent of the
+  //     4-floats representation of the 128 bit string.
+  unsigned int old_bits = 0;
+  for (int i=0; i<4; i++) {
+    unsigned char new_bit = (uuid->data[4*i+3] & 0x40) >> 6;
+    old_bits = (old_bits << 1) + new_bit;
+    float* data = (float*) &uuid->data[i];
+    int exponent = extract_exponent32(*data);
+    if (exponent == 0)
+      uuid->data[4*i+3] |=  0x40;
+    else
+      uuid->data[4*i+3] &= ~0x40;
   }
 
-#endif
+  // maximum of highest-value zero in the truncated part of the
+  // mantissa
+  uuid->data[14] = max_zero;
+
+  //     The original bits are appended at bit position 120-123
+  //     fingerprints.
+  uuid->data[15] = old_bits << 4;
+}
+
+
+/* ------------------------ UUID Decoding --------------------------- */
+
+// Splits the UUID into its fingerprint parts.
+//
+void decode_UUID(const uuid_t uuid_in, 
+		 long long unsigned int* f64,
+		 long long unsigned int* f48,
+		 unsigned char* izero)
+{
+  // --- insert bits 112 - 115 into locations 0x40 of bytes 3,7,11,15
+  uuid_t uuid = uuid_in;
+  unsigned int old_bits = uuid.data[15];
+  for (int i=0; i<4; i++) {
+    if ((old_bits & 0x80) == 0x80)
+      uuid.data[4*i+3] |=  0x40;  // set bit
+    else
+      uuid.data[4*i+3] &= ~0x40;  // unset bit
+    old_bits = old_bits << 1;
+  }
+  // --- split UUID into 64 bit and 48 bit fingerprint
+  (*f64) = 0;
+  (*f48) = 0;
+  unsigned char* words64 = (unsigned char*) f64;
+  unsigned char* words48 = (unsigned char*) f48;
+  for (int i=0; i<8; ++i) words64[i] = uuid.data[i];
+  for (int i=0; i<6; ++i) words48[i] = uuid.data[i+8];
+  (*izero) = uuid.data[14];
+}
+
+
+// Compare two UUIDs.
+//
+cmp_UUID_t compare_UUID(const uuid_t uuid_A, const uuid_t uuid_B, 
+			double* min_difference)
+{
+  // decode the full-precision and the low-accuracy
+  // fingerprint from the UUID:
+  long long unsigned int f64_A, f48_A, f64_B, f48_B;
+  unsigned char          q_A, q_B;
+  decode_UUID(uuid_A, &f64_A, &f48_A, &q_A);
+  decode_UUID(uuid_B, &f64_B, &f48_B, &q_B);
+
+  (*min_difference) = -1.;
+
+  if (f64_A == f64_B) 
+    return UUID_EQUAL;
+  else if (f48_A == f48_B) 
+    return UUID_EQUAL_LIMITED_ACCURACY;
+  else {
+    unsigned char q = (q_A > q_B) ? q_A : q_B;
+    (*min_difference) = exp(-1.*q*log(2.));
+    return UUID_UNEQUAL;
+  }
+}
+
+
+void
+uuid_format(char *buffer, const uuid_t *uuid)
+{
+  const unsigned char *d = uuid->data;
+
+  sprintf(buffer,
+      "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x", d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15]);
+}

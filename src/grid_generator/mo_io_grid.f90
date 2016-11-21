@@ -58,6 +58,8 @@
 !!
 MODULE mo_io_grid
 
+  USE ISO_C_BINDING,         ONLY: C_DOUBLE
+
   USE mo_kind,               ONLY: wp
   USE mo_io_units,           ONLY: filename_max
   USE mo_exception,          ONLY: message_text, message, finish
@@ -278,7 +280,7 @@ CONTAINS
 
     !-------------------------------------------------------------------------
     ! get unique grid file identifier for GRIB2 and updated CF-Convention
-    CALL uuid_generate(uuid)
+    CALL uuid_generate(REAL(gg%cells%center(:)%lon, C_DOUBLE), SIZE(gg%cells%center), uuid)
     CALL uuid_unparse(uuid, uuid_string)
 
     grid_root = 0

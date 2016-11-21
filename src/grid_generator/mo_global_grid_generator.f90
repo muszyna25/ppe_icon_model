@@ -81,6 +81,8 @@ MODULE mo_global_grid_generator
   !            Almut Gassmann
   !
   !-------------------------------------------------------------------------
+  USE ISO_C_BINDING,         ONLY: C_DOUBLE
+
   USE mo_exception, ONLY: message, message_text, open_log, finish
   USE mo_topology,  ONLY: init_topology_graph,  init_topology_grid, &
     & generate_tree,          &
@@ -385,7 +387,8 @@ CONTAINS
       IF (TRIM(uuid_sourcefile(i)) /= 'EMPTY') THEN
         CALL read_uuid(uuid_sourcefile(i), uuid_grid(idom))
       ELSE
-        CALL uuid_generate(uuid)
+        ! UUID is generated as fingerprint of "clon" field:
+        CALL uuid_generate(REAL(p_patch%cells%center(:)%lon, C_DOUBLE), SIZE(p_patch%cells%center), uuid)
         CALL uuid_unparse(uuid, uuid_grid(idom))
       ENDIF
       IF (idom==1 .AND. n_dom_start==0) THEN

@@ -15,7 +15,7 @@
 !!
 MODULE mo_util_vgrid
 
-  USE ISO_C_BINDING,                        ONLY: C_SIGNED_CHAR
+  USE ISO_C_BINDING,                        ONLY: C_SIGNED_CHAR, C_DOUBLE
   USE mo_cdi,                               ONLY: streamDefTimestep, streamOpenWrite, gridCreate, institutInq, vlistCreate, &
                                                 & vlistInqVarZaxis, vlistInqVarGrid, streamInqVlist, streamOpenRead, &
                                                 & ZAXIS_REFERENCE, zaxisCreate, TSTEP_CONSTANT, vlistDefVar, FILETYPE_NC2, &
@@ -292,9 +292,6 @@ CONTAINS
       CALL gridDefNumber(cdiCellGridID, number_of_grid_used(p_patch%id))
       CALL gridDefPosition(cdiCellGridID, 1)
 
-      !--- set UUID for vertical grid
-      CALL uuid_generate(vgrid_buffer(p_patch%id)%uuid)
-      CALL zaxisDefUUID(cdiZaxisID, vgrid_buffer(p_patch%id)%uuid%DATA)
       CALL zaxisDefNumber(cdiZaxisID, ivctype)
 
       !--- add variables
@@ -342,6 +339,10 @@ CONTAINS
         &                out_array=r1d, gather_pattern=p_patch%comm_pat_gather_c)
       IF (my_process_is_mpi_workroot()) THEN
         CALL streamWriteVarSlice(cdiFileID, cdiVarID_c, jk-1, r1d, 0)
+
+        !--- set UUID for vertical grid
+        CALL uuid_generate(REAL(r1d, C_DOUBLE), SIZE(r1d), vgrid_buffer(p_patch%id)%uuid)
+        CALL zaxisDefUUID(cdiZaxisID, vgrid_buffer(p_patch%id)%uuid%data)
       END IF
     END DO
     DEALLOCATE(r1d, STAT=error_status)

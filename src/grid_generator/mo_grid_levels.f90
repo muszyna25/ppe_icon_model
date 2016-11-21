@@ -63,6 +63,8 @@ MODULE mo_grid_levels
   !    modified for ICON project, DWD/MPI-M 2005
   !
   !-------------------------------------------------------------------------
+  USE ISO_C_BINDING,         ONLY: C_DOUBLE
+
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message_text, message, finish
 
@@ -748,7 +750,9 @@ CONTAINS
 
     !-------------------------------------------------------------------------
     ! get unique grid file identifier for GRIB2 and updated CF-Convention
-    CALL uuid_generate(uuid)
+    !
+    ! the UUID is generated as fingerprint of "clon" field:
+    CALL uuid_generate(REAL(gg%cells%center(:)%lon, C_DOUBLE), SIZE(gg%cells%center), uuid)
     CALL uuid_unparse(uuid, uuid_string)
 
     ! distinguish between gridgeneration for optimization strategies
