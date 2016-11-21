@@ -140,12 +140,13 @@ cat > ${atmo_namelist} << EOF
                                 !18: Kinne background aerosols of 1850 (natural
                                 !    background + Stenchikov's volc. aerosols
                                 !    + simple plumes (anthropogenic)
- lrad_aero_diag   = .FALSE.     ! switch for diagnostics of the aerosol optical properties
  ighg             = 1           ! 1: transient well mixed greenhouse gas concentrations
  isolrad          = 1           ! 1: transient solar irradiance (at 1 AE)
 /
 &psrad_nml
-rad_perm          = 1           ! Integer for perturbing random number seeds
+ rad_perm         = 1           ! Integer for perturbing random number seeds
+/
+&psrad_orbit_nml
 /
 &echam_conv_nml
 /
@@ -264,6 +265,7 @@ do
   add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
   (( year = year+1 ))
 done
+#
 # - stratospheric aerosol
 datadir=$INDATA/r2b4_amip/atm/bc_aeropt_stenchikov
 year=$start_year
@@ -400,6 +402,8 @@ if [[ "$output_phy_3d" == "yes" ]]; then
                     'tend_va'      , 'tend_va_dyn'  , 'tend_va_phy'  ,
                     'tend_va_vdf'  , 'tend_va_gwh'  , 'tend_va_sso'  ,
                     'tend_va_cnv'  ,
+                    'tend_qhus'    , 'tend_qhus_dyn', 'tend_qhus_phy',
+                    'tend_qhus_cld', 'tend_qhus_cnv', 'tend_qhus_vdf',
                     'pfull','ps'
 /
 EOF
