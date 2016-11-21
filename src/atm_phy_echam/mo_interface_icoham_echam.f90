@@ -52,7 +52,7 @@ MODULE mo_interface_icoham_echam
     &                                 timer_dyn2phy, timer_phy2dyn,   &
     &                                 timer_echam_phy, timer_coupling
 
-  USE mtime                    ,ONLY: datetime, deallocateDatetime
+  USE mtime                    ,ONLY: datetime
 
   IMPLICIT NONE
 

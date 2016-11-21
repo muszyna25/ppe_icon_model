@@ -24,10 +24,7 @@
 MODULE mo_psrad_memory
 
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH,  & 
-    &                               VINTP_METHOD_PRES,         &
-    &                               VINTP_METHOD_LIN,          &
-    &                               VINTP_METHOD_LIN_NLEVP1
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
   USE mo_exception,           ONLY: message, finish
   USE mo_parallel_config,     ONLY: nproma
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
@@ -35,7 +32,7 @@ MODULE mo_psrad_memory
 
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: default_var_list_settings, &
-    &                               add_var, add_ref,          &
+    &                               add_var,                   &
     &                               new_var_list,              &
     &                               delete_var_list
   USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types
@@ -44,7 +41,6 @@ MODULE mo_psrad_memory
   USE mo_cdi,                 ONLY: DATATYPE_PACK16, DATATYPE_PACK24,  &
     &                               DATATYPE_FLT32,  DATATYPE_FLT64,   &
     &                               GRID_UNSTRUCTURED,                 &
-    &                               TSTEP_INSTANT, TSTEP_AVG,          &
     &                               cdiDefMissval
   USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL, &
     &                               ZA_HYBRID, ZA_HYBRID_HALF,         &
@@ -248,10 +244,10 @@ CONTAINS
     TYPE(t_grib2_var) :: grib2_desc
 
     INTEGER :: shape2d(2), shape3d(3), shape3d_layer_interfaces(3)
-!0!    INTEGER :: shape4d(4)
+!!$    INTEGER :: shape4d(4)
     INTEGER :: ibits, iextbits
     INTEGER :: datatype_flt
-    INTEGER :: jsfc, jtrc
+!!$    INTEGER :: jsfc, jtrc
 
     ibits = DATATYPE_PACK16
     iextbits = DATATYPE_PACK24

@@ -97,7 +97,6 @@ MODULE mo_psrad_radiation
                                     irad_cfc11,           &
                                     irad_cfc12,           &
                                     irad_aero,            &
-                                    ighg,                 &
                                     vmr_co2,   mmr_co2,   &
                                     vmr_ch4,   mmr_ch4,   &
                                     vmr_n2o,   mmr_n2o,   &
@@ -134,9 +133,6 @@ MODULE mo_psrad_radiation
                                      flx_ratio_cur,            &
                                      flx_ratio_rad,            &
                                      solar_parameters
-
-! following module for diagnostic of radiative forcing only
-  USE mo_psrad_radiation_forcing,ONLY: prepare_psrad_radiation_forcing
 
   USE mo_rrtm_params,   ONLY : nbndsw
 ! new to icon
@@ -807,7 +803,7 @@ MODULE mo_psrad_radiation
     & nir_up_sfc    (kbdim)      !< Upward  flux surface near-infrared radiation
 
     INTEGER              :: jk, jl
-    INTEGER              :: knwtrc  !< number of non-water tracers
+!!$    INTEGER              :: knwtrc  !< number of non-water tracers
     INTEGER              :: selmon  !< index to select a calendar month
 
     REAL(wp)             ::         &
@@ -827,7 +823,7 @@ MODULE mo_psrad_radiation
 
     TYPE(t_external_atmos_td) ,POINTER :: atm_td
 
-    knwtrc = ntracer-iqt+1 ! tracers iqt:ntracer are non-water tracers
+!!$    knwtrc = ntracer-iqt+1 ! tracers iqt:ntracer are non-water tracers
     
     !
     ! 1.0 calculate variable input parameters (location and state variables)

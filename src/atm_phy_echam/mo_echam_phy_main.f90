@@ -25,9 +25,8 @@
 
 MODULE mo_echam_phy_main
 
-  USE, INTRINSIC :: iso_c_binding, ONLY: c_int
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish, print_value
+  USE mo_exception,           ONLY: finish
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: cpd, cpv, cvd, cvv
@@ -56,7 +55,7 @@ MODULE mo_echam_phy_main
   USE mo_cover,               ONLY: cover
   USE mo_radheating,          ONLY: radheating
   USE mo_psrad_radiation,     ONLY: psrad_radiation
-  USE mo_psrad_radiation_parameters, ONLY: psctm, psct
+  USE mo_psrad_radiation_parameters, ONLY: psct
   USE mo_vdiff_config,        ONLY: vdiff_config
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
   USE mo_vdiff_upward_sweep,  ONLY: vdiff_up
