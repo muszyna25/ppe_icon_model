@@ -42,7 +42,7 @@ MODULE mo_td_ext_data
 
   USE mo_extpar_config,       ONLY: generate_td_filename
   USE mo_lnd_nwp_config,      ONLY: sst_td_filename, ci_td_filename
-  USE mtime,                  ONLY: datetime, newDatetime, deallocateDatetime
+  USE mtime,                     ONLY: datetime
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
     &                                  calculate_time_interpolation_weights
 
@@ -82,15 +82,13 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = modname//':set_actual_td_ext_data  '
 
-    INTEGER                            :: month1, month2, year1, year2
-    INTEGER                            :: m1, m2
-    REAL (wp)                          :: pw1, pw2, pw2_old
-    INTEGER                            :: jg, jb, jc, i_startidx, i_endidx
-    INTEGER                            :: i_nchdom, i_rlstart, i_rlend
-    INTEGER                            :: i_startblk, i_endblk
+    INTEGER                             :: month1, month2, year1, year2
+    INTEGER                             :: m1, m2
+    REAL (wp)                           :: pw1, pw2, pw2_old
+    INTEGER                             :: jg, jb, jc, i_startidx, i_endidx
+    INTEGER                             :: i_nchdom, i_rlstart, i_rlend
+    INTEGER                             :: i_startblk, i_endblk
 
-    TYPE(datetime), POINTER            :: mtime_hour
-    
     TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
     TYPE(t_time_interpolation_weights) :: old_time_interpolation_weights    
 
@@ -98,12 +96,7 @@ CONTAINS
 
        CASE (2) !SST and sea ice fraction updated based
                 !  on the climatological monthly values
-         mtime_hour => newDatetime(mtime_date)
-         mtime_hour%time%minute = 0
-         mtime_hour%time%second = 0
-         mtime_hour%time%ms     = 0                  
-         current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_hour)
-         call deallocateDatetime(mtime_hour)
+         current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_date)
          month1 = current_time_interpolation_weights%month1
          month2 = current_time_interpolation_weights%month2
          pw2 = current_time_interpolation_weights%weight2
@@ -153,30 +146,19 @@ CONTAINS
        CASE (3) !SST and sea ice fraction updated based
                 !  on the actual monthly values
 
-         mtime_hour => newDatetime(mtime_date_old)
-         mtime_hour%time%minute = 0
-         mtime_hour%time%second = 0
-         mtime_hour%time%ms     = 0                  
-         old_time_interpolation_weights = calculate_time_interpolation_weights(mtime_hour)
-         call deallocateDatetime(mtime_hour)
+         old_time_interpolation_weights = calculate_time_interpolation_weights(mtime_date_old)
          m1 = old_time_interpolation_weights%month1
          m2 = old_time_interpolation_weights%month2
          pw2_old = old_time_interpolation_weights%weight2
 
-         mtime_hour => newDatetime(mtime_date)
-         mtime_hour%time%minute = 0
-         mtime_hour%time%second = 0
-         mtime_hour%time%ms     = 0                  
-         current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_hour)
-         call deallocateDatetime(mtime_hour)
+         current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_date)
          month1 = current_time_interpolation_weights%month1
          month2 = current_time_interpolation_weights%month2
          year1 = current_time_interpolation_weights%year1
          year2 = current_time_interpolation_weights%year2
          pw2 = current_time_interpolation_weights%weight2
 
-         WRITE(message_text,'(a,5i6,f10.5)') 'sst ci interp,', &
-              & mtime_date%date%day,month1,month2,year1,year2,pw2
+        WRITE( message_text,'(a,5i6,f10.5)') 'sst ci interp,',mtime_date%date%day,month1,month2,year1,year2,pw2
         CALL message  (routine, TRIM(message_text))
         IF (m1 /= month1 .OR. lread ) THEN
           CALL read_td_ext_data_file (month1,month2,year1,year2,p_patch(1:),ext_data)

@@ -959,19 +959,20 @@ CONTAINS
     REAL(wp) :: ztimi,zxtime,zjl,zlatint,zint,zadd_o3
     REAL(wp) :: dzsum,dtdzavg,tpshp,wfac
     LOGICAL  :: lfound_all
-    
+
+
     !Time index. Taken from su_ghgclim.F90 of ECMWF's IFS (37r2).
 
     IDY = mtime_datetime%date%day - 1 !NDD(KINDAT)-1
     IMN = mtime_datetime%date%month ! NMM(KINDAT)
     IF (IMN == 1) THEN
-      ZXTIME=REAL(IDY,wp)*1440._wp + mtime_datetime%time%hour*60._wp + mtime_datetime%time%minute !KMINUT
+      ZXTIME=REAL(IDY,wp)*1440._wp + mtime_datetime%time%minute !KMINUT
     ELSEIF (IMN == 2) THEN
       IF(IDY == 28) IDY=IDY-1
       ! A DAY IN FEB. IS 28.25*24*60/28=1452.8571min LONG.
-      ZXTIME=44640._wp+REAL(IDY,wp)*1452.8571_wp + mtime_datetime%time%hour*60._wp + mtime_datetime%time%minute !KMINUT
+      ZXTIME=44640._wp+REAL(IDY,wp)*1452.8571_wp + mtime_datetime%time%minute !KMINUT
     ELSE
-      ZXTIME=(ZMDAY(IMN-1)+REAL(IDY,KIND(ZXTIME)))*1440._wp + mtime_datetime%time%hour*60._wp + mtime_datetime%time%minute !KMINUT
+      ZXTIME=(ZMDAY(IMN-1)+REAL(IDY,KIND(ZXTIME)))*1440._wp + mtime_datetime%time%minute !KMINUT
     ENDIF
     ! 525960=MINUTES IN A SIDERAL YEAR (365.25d)
     ZXTIME=MOD(ZXTIME,525960._wp)

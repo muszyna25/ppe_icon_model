@@ -23,13 +23,12 @@
 MODULE mo_update_dyn
 
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: message, message_text
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
   USE mo_model_domain,       ONLY: t_patch
   USE mo_nonhydro_types,     ONLY: t_nh_state
   USE mo_physical_constants, ONLY: p0ref, rd, cvd_o_rd
   USE mo_impl_constants,     ONLY: min_rlcell_int, min_rledge_int
-  USE mo_sync,               ONLY: SYNC_E, SYNC_C, sync_patch_array, global_sum_array
+  USE mo_sync,               ONLY: SYNC_E, SYNC_C, sync_patch_array
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
 
   IMPLICIT NONE
@@ -73,11 +72,6 @@ CONTAINS
 
 !-----------------------------------------------------------------------
 
-    write(message_text,'(a,e25.15,a,e25.15)') &
-         & 'ddt_exner = ', global_sum_array(p_nh%diag%ddt_exner_phy), &
-         & 'ddt_vn    = ', global_sum_array(p_nh%diag%ddt_vn_phy)
-    call message('LK',message_text)
-    
     ! number of vertical levels
     nlev   = p_patch%nlev
 

@@ -68,8 +68,7 @@ MODULE mo_initicon_utils
   USE mo_var_list_element,    ONLY: level_type_ml
   USE mo_util_uuid,           ONLY: OPERATOR(==)
   USE mo_flake,               ONLY: flake_coldinit
-  USE mtime,                  ONLY: datetime, newDatetime, deallocateDatetime, &
-    &                               OPERATOR(==), OPERATOR(+) 
+  USE mtime,                  ONLY: OPERATOR(==), OPERATOR(+)
   USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_statistics,          ONLY: time_avg
@@ -209,8 +208,6 @@ MODULE mo_initicon_utils
     TYPE(t_nwp_phy_diag),   INTENT(inout) :: prm_diag(:)
 
     TYPE(t_time_interpolation_weights)  :: current_time_interpolation_weights
-
-    TYPE(datetime), POINTER :: mtime_hour
     
     INTEGER  :: rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: jb, jc, jg
@@ -219,12 +216,8 @@ MODULE mo_initicon_utils
     REAL(wp) :: zw1, zw2
 
     !    CALL month2hour (time_config%cur_datetime, mo1, mo2, wgt)
-    mtime_hour => newDatetime(time_config%tc_current_date)
-    mtime_hour%time%minute = 0
-    mtime_hour%time%second = 0
-    mtime_hour%time%ms     = 0        
-    current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_hour)
-    call deallocateDatetime(mtime_hour)
+    current_time_interpolation_weights = calculate_time_interpolation_weights(time_config%tc_current_date)
+
     mo1 = current_time_interpolation_weights%month1
     mo2 = current_time_interpolation_weights%month2
     zw1 = current_time_interpolation_weights%weight1

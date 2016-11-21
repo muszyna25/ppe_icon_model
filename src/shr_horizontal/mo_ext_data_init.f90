@@ -2023,7 +2023,6 @@ CONTAINS
     INTEGER                             :: i_startidx, i_endidx
     INTEGER                             :: mo1, mo2             !< nearest months
     REAL(wp)                            :: zw1, zw2
-    TYPE(datetime), POINTER             :: mtime_hour
     TYPE(t_time_interpolation_weights)  :: current_time_interpolation_weights
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string
     
@@ -2034,33 +2033,22 @@ CONTAINS
     ! Find the 2 nearest months mo1, mo2 and the weights zw1, zw2
     ! to the actual date and time
 
-    mtime_hour => newDatetime(mtime_date)
-    mtime_hour%time%minute = 0
-    mtime_hour%time%second = 0
-    mtime_hour%time%ms     = 0     
-    current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_hour)
-    call deallocateDatetime(mtime_hour)             
+    current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_date)
+    
     mo1 = current_time_interpolation_weights%month1
     mo2 = current_time_interpolation_weights%month2
     zw1 = current_time_interpolation_weights%weight1
     zw2 = current_time_interpolation_weights%weight2
 
     ! consistency check
-!    IF ((MIN(mo1,mo2) < 1) .OR. (MAX(mo1,mo2) > SIZE(monthly_means,3))) THEN
+    IF ((MIN(mo1,mo2) < 1) .OR. (MAX(mo1,mo2) > SIZE(monthly_means,3))) THEN
+      WRITE (0,*) "Result of call to calculate_time_interpolation_weights:"
       CALL datetimeToString(mtime_date, dtime_string)
-      CALL message('','Result of call to calculate_time_interpolation_weights:')
-      WRITE (message_text,'(a,a)')      '   mtime_date = ', TRIM(dtime_string)
-      CALL message('', message_text)
-      WRITE (message_text,'(a,i2.2)')   '   mo1        = ', mo1
-      CALL message('', message_text)
-      WRITE (message_text,'(a,i2.2)')   '   mo2        = ', mo2
-      CALL message('', message_text)
-      WRITE (message_text,'(a,f25.15)') '   weight1    = ', zw1
-      CALL message('', message_text)
-      WRITE (message_text,'(a,f25.15)') '   weight2    = ', zw2
-      CALL message('', message_text)
-!      CALL finish(routine, "Error!")
-!    END IF
+      WRITE (0,*) "   mtime_date = ", dtime_string
+      WRITE (0,*) "   mo1        = ", mo1
+      WRITE (0,*) "   mo2        = ", mo2
+      CALL finish(routine, "Error!")
+    END IF
 
     ! Get interpolated field
     i_nchdom  = MAX(1,p_patch%n_childdom)

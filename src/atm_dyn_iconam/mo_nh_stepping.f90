@@ -343,8 +343,6 @@ MODULE mo_nh_stepping
   IF (.NOT. isRestart()) THEN
     IF (timeshift%dt_shift < 0._wp) THEN
       ! add IAU time shift interval to current date (mtime):
-      write(message_text,'(a,f25.15)') 'IAU time shift: ', (timeshift%dt_shift)
-      call message('LK',message_text)
       mtime_current = mtime_current + timeshift%mtime_shift
     ENDIF
   ENDIF
@@ -675,7 +673,7 @@ MODULE mo_nh_stepping
   ENDIF
 
   mtime_old => newDatetime(mtime_current)
-  DO jg = 1, n_dom
+  DO jg=1, n_dom
     datetime_current(jg)%ptr => newDatetime(mtime_current)
   END DO
 
@@ -781,10 +779,17 @@ MODULE mo_nh_stepping
   ! set time loop properties
   model_time_step => time_config%tc_dt_model
 
+  ! IMPORTANT NOTE: The MTIME implementation of the time loop does not
+  ! take the IAU mode of the ICON model into account which starts with
+  ! "negative" time steps, controlled by "jstep_shift".
+!  IF (jstep_shift /= 0) THEN
+!    CALL finish('perform_nh_timeloop', "Backward time shift of model not yet implemented!")
+!  END IF
+  
   CALL message('','')
   CALL datetimeToString(mtime_current, dstring)
   WRITE(message_text,'(a,a)') 'Start date of this run: ', dstring
-
+  CALL message('',message_text)
   CALL datetimeToString(time_config%tc_stopdate, dstring)
   WRITE(message_text,'(a,a)') 'Stop date of this run:  ', dstring
   CALL message('',message_text)
@@ -805,11 +810,6 @@ MODULE mo_nh_stepping
 
 #endif
 
-  write(message_text,'(i8)') jstep
-  CALL message('LK jstep start value: ',message_text)
-  write(message_text,'(f20.12)') sim_time
-  CALL message('LK sim_time defined before time_loop: ',message_text)
-
   TIME_LOOP: DO
 
     ! Check if a nested domain needs to be turned off
@@ -823,12 +823,6 @@ MODULE mo_nh_stepping
 
     ! update model date and time mtime based
     mtime_current = mtime_current + model_time_step
-
-    write (message_text,'(a,i4,a,6i6)') &
-         & 'main time loop: domain = ', 1, ' date = ', &
-         & mtime_current%date%year, mtime_current%date%month, mtime_current%date%day, &
-         & mtime_current%time%hour, mtime_current%time%minute, mtime_current%time%second
-    call message('LK',message_text)
 
     ! store state of output files for restarting purposes
     IF (output_mode%l_nml .AND. jstep>=0 ) THEN
@@ -906,9 +900,6 @@ MODULE mo_nh_stepping
     ! end of the current time step
     IF ( (mtime_current%date%day /= mtime_old%date%day) .AND. .NOT. (jstep == 0 .AND. iau_iter == 1) ) THEN
 
-      CALL message('LK','new day ...')
-
-      
       WRITE(message_text,'(a,i10,a,i10)') 'New day  day_old: ', mtime_old%date%day, &
                 &                 ' ,  day: ', mtime_current%date%day
       CALL message(TRIM(routine),message_text)
@@ -930,8 +921,6 @@ MODULE mo_nh_stepping
       !Check if the SST and Sea ice fraction have to be updated (sstice_mode 2,3,4)
       IF (sstice_mode > 1 .AND. iforcing == inwp  ) THEN
 
-        call message('LK','Reset sst and sie-ice data ...')
-        
         CALL set_actual_td_ext_data (.FALSE., mtime_current, mtime_old, sstice_mode,  &
                                   &  p_patch(1:), ext_data, p_lnd_state)
 
@@ -1185,6 +1174,9 @@ MODULE mo_nh_stepping
     ! Write restart file
     !--------------------------------------------------------------------------
     ! check whether time has come for writing restart file
+
+    CALL message('','')
+    !
     ! default is to assume we do not write a checkpoint/restart file
     lwrite_checkpoint = .FALSE.
     ! if thwe model is not supposed to write output, do not write checkpoints
@@ -1356,9 +1348,6 @@ MODULE mo_nh_stepping
     sim_time =  getTotalMillisecondsTimedelta(time_diff, datetime_local(jg)%ptr)*1.e-3_wp
     CALL deallocateTimedelta(time_diff)
 
-    write(message_text,'(4i8,2f20.12)') jg, nstep_global, iau_iter, num_steps, dt_loc, sim_time
-    CALL message('LK',message_text)
-    
     !--------------------------------------------------------------------------
     ! This timer must not be called in nested domain because the model crashes otherwise
     IF (jg == 1 .AND. ltimer) CALL timer_start(timer_integrate_nh)
@@ -1399,8 +1388,6 @@ MODULE mo_nh_stepping
     ! This executes one time step for the global domain and two steps for nested domains
     DO jstep = 1, num_steps
 
-      write (message_text,'(a,3i6)') 'Integration steps for domain = ', jg, jstep, num_steps
-      call message('LK',message_text)
 
       IF (ifeedback_type == 1 .AND. (jstep == 1) .AND. jg > 1 ) THEN
         ! Save prognostic variables at current timestep to compute
@@ -1419,11 +1406,14 @@ MODULE mo_nh_stepping
 !$OMP END PARALLEL
       ENDIF
 
+
       ! update several switches which decide upon
       ! - switching order of operators in case of Marchuk-splitting
       !
       ! simplified setting (may be removed lateron)
       jstep_adv(jg)%marchuk_order = jstep_adv(jg)%marchuk_order + 1
+
+
 
       IF ( p_patch(jg)%n_childdom > 0 .AND. ndyn_substeps_var(jg) > 1) THEN
 
@@ -1454,6 +1444,7 @@ MODULE mo_nh_stepping
 
       ENDIF
 
+
       ! Set local variable for rcf-time levels
       n_now_rcf = nnow_rcf(jg)
       n_new_rcf = nnew_rcf(jg)
@@ -1472,18 +1463,6 @@ MODULE mo_nh_stepping
       time_diff  =  getTimeDeltaFromDateTime(datetime_local(jg)%ptr, time_config%tc_exp_startdate)
       sim_time =  getTotalMillisecondsTimedelta(time_diff, datetime_local(jg)%ptr)*1.e-3_wp
       CALL deallocateTimedelta(time_diff)
-
-      write (message_text,'(a,i4,a,6i6)') 'integrate_nh: domain = ', jg, ' date = ', &
-           &                              datetime_local(jg)%ptr%date%year, &
-           &                              datetime_local(jg)%ptr%date%month, &
-           &                              datetime_local(jg)%ptr%date%day, &
-           &                              datetime_local(jg)%ptr%time%hour, &
-           &                              datetime_local(jg)%ptr%time%minute, &
-           &                              datetime_local(jg)%ptr%time%second
-      call message('LK',message_text)
-      
-      write (message_text,'(a,i6,f10.2)') 'Simulation time for domain = ', jg, sim_time
-      CALL message('LK',message_text)
 
       IF (itime_scheme == 1) THEN
         !------------------
@@ -1632,7 +1611,7 @@ MODULE mo_nh_stepping
         IF (itype_comm == 1) THEN
 
           IF (ldynamics) THEN
-            CALL message('LK',' Substepping ...')
+
             ! dynamics integration with substepping
             !
             CALL perform_dyn_substepping (p_patch(jg), p_nh_state(jg), p_int_state(jg), &
@@ -1647,7 +1626,6 @@ MODULE mo_nh_stepping
             ENDIF
 
           ELSE IF (iforcing == inwp .OR. iforcing == iecham) THEN
-            CALL message('LK',' Add slow physics ...')
             CALL add_slowphys(p_nh_state(jg), p_patch(jg), nnow(jg), nnew(jg), dt_loc)
           ENDIF
         ELSE
@@ -1928,6 +1906,7 @@ MODULE mo_nh_stepping
       ENDIF
 
 
+
       ! Check if at least one of the nested domains is active
       !
       IF (p_patch(jg)%n_childdom > 0) THEN
@@ -1941,7 +1920,6 @@ MODULE mo_nh_stepping
       ! If there are nested domains...
       IF (p_patch(jg)%n_childdom > 0 .AND. lnest_active ) THEN
 
-        CALL message('LK:','Run in a domain ...')
 
         IF (ndyn_substeps_var(jg) == 1) THEN
           n_now_grf  = nnow(jg)
@@ -1954,9 +1932,6 @@ MODULE mo_nh_stepping
         mtime_dt_sub => newTimedelta(mtime_dt_loc)
         mtime_dt_sub = mtime_dt_sub*0.5_wp
         rdtmflx_loc = 1._wp/(dt_loc*(REAL(MAX(1,ndyn_substeps_var(jg)-1),wp)/REAL(ndyn_substeps_var(jg),wp)))
-
-        write(message_text,'(i4,3e25.15)') jg, dt_loc, dt_sub, rdtmflx_loc  
-        call message('LK', message_Text)
 
         IF (ltimer)            CALL timer_start(timer_nesting)
         IF (timers_level >= 2) CALL timer_start(timer_bdy_interp)
@@ -2077,15 +2052,6 @@ MODULE mo_nh_stepping
             p_patch(jgc)%ldom_active = .TRUE.
 
             jstep_adv(jgc)%marchuk_order = 0
-            write (message_text,'(a,2i5)') 'nested domain loop: ', jg, jgc
-            call message('LK', message_text)
-            write (message_text,'(a,6i6)') 'nested domain loop: ', &
-                 & datetime_local(jg)%ptr%time%hour, &
-                 & datetime_local(jg)%ptr%time%minute, &
-                 & datetime_local(jg)%ptr%time%second, &
-                 & datetime_local(jgc)%ptr%time%hour, &
-                 & datetime_local(jgc)%ptr%time%minute, &
-                 & datetime_local(jgc)%ptr%time%second
             datetime_local(jgc)%ptr      = datetime_local(jg)%ptr
             t_elapsed_phy(jgc,:)         = 0._wp
             linit_dyn(jgc)               = .TRUE.
@@ -2122,10 +2088,10 @@ MODULE mo_nh_stepping
                 & p_lnd_state(jgc)%prog_wtr(nnew_rcf(jgc)),&
                 & p_lnd_state(jgc)%diag_lnd               ,&
                 & ext_data(jgc)                           ,&
-                & phy_params(jgc), datetime_local(jgc)%ptr,&
+                & phy_params(jgc), datetime_local(jg)%ptr ,&
                 & lnest_start=.TRUE. )
 
-              CALL init_cloud_aero_cpl (datetime_local(jgc)%ptr, p_patch(jgc), p_nh_state(jgc)%metrics, &
+              CALL init_cloud_aero_cpl (datetime_local(jg)%ptr, p_patch(jgc), p_nh_state(jgc)%metrics, &
                 &                       ext_data(jgc), prm_diag(jgc))
 
               IF (iprog_aero == 1) CALL setup_aerosol_advection(p_patch(jgc))
@@ -2143,7 +2109,7 @@ MODULE mo_nh_stepping
               ENDIF
             ENDIF
 
-            CALL init_slowphysics (datetime_local(jgc)%ptr, jgc, dt_sub)
+            CALL init_slowphysics (datetime_local(jg)%ptr, jgc, dt_sub)
 
             WRITE(message_text,'(a,i2,a,f12.2)') 'domain ',jgc,' started at time ',sim_time
             CALL message('integrate_nh', TRIM(message_text))
@@ -2296,10 +2262,16 @@ MODULE mo_nh_stepping
       ENDIF
 
       ! integrate dynamical core
+#ifdef _OPENACC
+      i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
       CALL solve_nh(p_nh_state, p_patch, p_int_state, prep_adv,     &
         &           nnow(jg), nnew(jg), linit_dyn(jg), l_recompute, &
         &           lsave_mflx, lprep_adv, lclean_mflx,             &
         &           nstep, ndyn_substeps_tot-1, l_bdy_nudge, dt_dyn)
+#ifdef _OPENACC
+      i_am_accel_node = .FALSE.
+#endif
 
       ! now reset linit_dyn to .FALSE.
       linit_dyn(jg) = .FALSE.

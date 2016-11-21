@@ -39,6 +39,8 @@ MODULE mo_nwp_rg_interface
   USE mo_nwp_rrtm_interface,   ONLY: nwp_ozon_aerosol
   USE mo_satad,                ONLY: qsat_rho
   USE mtime,                     ONLY: datetime
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
+    &                                  calculate_time_interpolation_weights
 
   IMPLICIT NONE
 

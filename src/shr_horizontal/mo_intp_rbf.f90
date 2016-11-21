@@ -159,7 +159,7 @@ PUBLIC :: rbf_vec_interpol_cell, rbf_interpol_c2grad,     &
         & rbf_vec_interpol_vertex, rbf_vec_interpol_edge
 
 #if defined( _OPENACC )
-#define ACC_DEBUG $ACC
+#define ACC_DEBUG NOACC
 #if defined(__INTP_RBF_NOACC)
   LOGICAL, PARAMETER ::  acc_on = .FALSE.
 #else

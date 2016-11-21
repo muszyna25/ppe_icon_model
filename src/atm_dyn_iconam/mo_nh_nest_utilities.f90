@@ -52,7 +52,7 @@ MODULE mo_nh_nest_utilities
   USE mo_mpi,                 ONLY: my_process_is_mpi_seq
   USE mo_communication,       ONLY: exchange_data, exchange_data_mult
   USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array, &
-    global_sum_array3, sync_patch_array_mult, global_sum_array
+    global_sum_array3, sync_patch_array_mult
   USE mo_physical_constants,  ONLY: rd, cvd_o_rd, p0ref
   USE mo_limarea_config,      ONLY: latbc_config
   USE mo_initicon_types,      ONLY: t_pi_atm
@@ -548,7 +548,7 @@ CONTAINS
             ( p_prog_new%w(jc,jk,jb) - p_prog_now%w(jc,jk,jb) )*rdt
         ENDDO
       ENDDO
-      
+
       DO ic = jshift+1, jshift+nlen
         jc = p_grf%idxlist_bdyintp_src_c(ic)
         jb = p_grf%blklist_bdyintp_src_c(ic)
@@ -556,19 +556,6 @@ CONTAINS
           ( p_prog_new%w(jc,nlevp1,jb) - p_prog_now%w(jc,nlevp1,jb) )*rdt
       ENDDO
 
-      write (message_text,'(a,e25.15)') 'new rho = ', sum(p_prog_new%rho)
-      call message('LK',message_text)
-      write (message_text,'(a,e25.15)') 'now rho = ', sum(p_prog_now%rho)
-      call message('LK',message_text)
-      write (message_text,'(a,e25.15)') 'new tv  = ', sum(p_prog_new%theta_v)
-      call message('LK',message_text)
-      write (message_text,'(a,e25.15)') 'now tv  = ', sum(p_prog_now%theta_v)
-      call message('LK',message_text)
-      write (message_text,'(a,e25.15)') 'new w   = ', sum(p_prog_new%w)
-      call message('LK',message_text)
-      write (message_text,'(a,e25.15)') 'now w   = ', sum(p_prog_now%w)
-      call message('LK',message_text)
-            
       IF (ltransport) THEN
 
 #ifdef __LOOP_EXCHANGE
