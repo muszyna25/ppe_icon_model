@@ -62,9 +62,7 @@ MODULE mo_art_nml
   LOGICAL :: lart_passive            !< Main switch to enable passive tracers
   INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
   CHARACTER(LEN=IART_PATH_LEN)  :: &
-    &  cart_emiss_table_path         !< path of tex-files with meta data of emissions.
-  CHARACTER(LEN=IART_PATH_LEN)  :: &
-    &  cart_emiss_table_file(0:max_dom) !< file names of tex-files with meta data of emissions without "_DOM??.tex"
+    &  cart_emiss_xml_file           !< path and file name of the xml files for emission metadata
   CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_vortex_init_date         !< Date of vortex initialization
   CHARACTER(LEN=IART_PATH_LEN)  :: &
@@ -109,7 +107,7 @@ MODULE mo_art_nml
    &                cart_radioact_file, iart_pollen,                                   &
    &                iart_aci_warm, iart_aci_cold, iart_ari,                            &
    &                lart_conv, lart_turb, iart_ntracer, iart_init_aero, iart_init_gas, &
-   &                lart_diag_out, cart_emiss_table_path, cart_emiss_table_file,       &
+   &                lart_diag_out, cart_emiss_xml_file,                                &
    &                cart_vortex_init_date , cart_mozartfile, cart_mozartcoord,         &
    &                cart_chemistry_xml, cart_aerosol_xml, cart_passive_xml,            &
    &                cart_modes_xml, cart_io_suffix, iart_init_passive
@@ -137,6 +135,9 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
     INTEGER :: jg          !< patch loop index
+    LOGICAL :: l_exist, l_dir_exist     !< variable for inquiring if the xml file 
+                                        !   and emission base path exist.
+    CHARACTER(LEN = 2) :: str_dom  !< number of domain as string
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_art_nml: read_art_nml'
     INTEGER :: iunit
@@ -159,8 +160,7 @@ CONTAINS
     lart_chem             = .FALSE.
     lart_passive          = .FALSE.
     iart_chem_mechanism   = 0
-    cart_emiss_table_path = TRIM(cart_folder)//'docs/'   
-    cart_emiss_table_file = 'art_emission_metadata_tables_DOM01.tex' 
+    cart_emiss_xml_file   = ''
     cart_vortex_init_date = ''
     cart_mozartfile       = ''
     cart_mozartcoord      = ''
@@ -234,6 +234,17 @@ CONTAINS
         &         'Invalid combination: iart_aci_cold = 7 and iart_dust = 0')
     ENDIF
 
+    ! Emission paths and file
+    IF (TRIM(cart_emiss_xml_file) /= '') THEN
+      INQUIRE(file = TRIM(cart_emiss_xml_file), EXIST = l_exist)
+    
+      IF (.NOT. l_exist) THEN
+        CALL finish('mo_art_nml:read_art_namelist',  &
+                    TRIM(cart_emiss_xml_file)//  &
+                    & ' could not be found. Check cart_emiss_xml_file.')
+      END IF
+    END IF
+
     !----------------------------------------------------
     ! 5. Fill the configuration state
     !----------------------------------------------------
@@ -253,8 +264,7 @@ CONTAINS
       art_config(jg)%lart_chem             = lart_chem
       art_config(jg)%lart_passive          = lart_passive
       art_config(jg)%iart_chem_mechanism   = iart_chem_mechanism
-      art_config(jg)%cart_emiss_table_path = TRIM(cart_emiss_table_path)
-      art_config(jg)%cart_emiss_table_file = TRIM(cart_emiss_table_file(jg))
+      art_config(jg)%cart_emiss_xml_file   = TRIM(cart_emiss_xml_file)
       art_config(jg)%cart_vortex_init_date = TRIM(cart_vortex_init_date)
       art_config(jg)%cart_mozartfile       = TRIM(cart_mozartfile)
       art_config(jg)%cart_mozartcoord      = TRIM(cart_mozartcoord)
