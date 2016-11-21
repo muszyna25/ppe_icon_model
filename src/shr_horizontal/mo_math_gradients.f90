@@ -130,7 +130,7 @@ INTERFACE grad_fe_cell
 END INTERFACE
 
 #if defined( _OPENACC )
-#define ACC_DEBUG $ACC
+#define ACC_DEBUG NOACC
 #if defined(__MATH_GRADIENTS_NOACC)
   LOGICAL, PARAMETER ::  acc_on = .FALSE.
 #else

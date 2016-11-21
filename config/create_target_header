@@ -1030,6 +1030,77 @@ set_run_target_daint_gpu()
 EOF
 }
 
+#=============================================================================
+set_run_target_dom_gpu()
+{
+
+  set_default use_nproma 256
+  set_default use_nodes 1
+  use_OMP_SCHEDULE="static,1"
+
+  is_serial_run="no"
+  if [[ $use_mpi == "yes" ]]; then
+    if [[ $use_openmp == "yes" ]]; then
+      set_default use_mpi_procs_pernode 1
+      set_default use_openmp_threads 1
+    else
+      set_default use_mpi_procs_pernode 1
+    fi
+  else
+    if [[ $use_openmp == "yes" ]]; then
+      set_default use_openmp_threads 1
+      set_default use_mpi_procs_pernode 1
+     else
+       is_serial_run="yes"
+   fi
+  fi
+
+  # create header
+  start_header
+
+  if [[ "$is_serial_run" == "yes"  ]] ; then
+    use_nodes=1
+    tasks_per_node=1
+    SBATCH_ntasks_per_node=""
+  else
+    job_type=parallel
+    tasks_per_node=$use_mpi_procs_pernode
+    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=1"
+  fi
+
+  if [[ "x$BB_SYSTEM" != "x" ]]; then
+    # this buildbot, do not use job id
+    job_log_name="LOG.$job_name"
+  else
+    job_log_name="LOG.$job_name.%j"
+  fi
+
+  # ------------------------------------
+  s_cpu_time=""
+  if [[ "x$use_cpu_time" != "x" ]] ; then
+     s_cpu_time="SBATCH --time=$use_cpu_time"
+  fi
+  if [[ "x$BB_SYSTEM" != "x" ]]; then
+    # this is buldbot, do not run more than 45 minutes
+    s_cpu_time="SBATCH --time=00:45:00"
+  fi
+
+  # ------------------------------------
+
+  cat >> $output_script << EOF
+# =====================================
+# daint batch job parameters
+#-----------------------------------------------------------------------------
+#SBATCH --job-name=$job_name
+#SBATCH --output=$job_log_name.o
+#SBATCH --error=$job_log_name.o
+#SBATCH --nodes=$use_nodes
+#$SBATCH_ntasks_per_node
+#$s_cpu_time
+#========================================
+EOF
+}
+
 set_run_target_dora()
 {
 

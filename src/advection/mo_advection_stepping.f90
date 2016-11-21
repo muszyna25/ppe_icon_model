@@ -304,7 +304,8 @@ CONTAINS
     ptr_delp_mc_now    => p_delp_mc_now
 
 #ifdef _OPENACC
-    i_am_accel_node = my_process_is_work()    ! Activate GPUs
+!!!    i_am_accel_node = my_process_is_work()    ! Activate GPUs
+    i_am_accel_node = .FALSE.    ! Deactivate GPUs
 #endif
 
 #ifdef _OPENACC
