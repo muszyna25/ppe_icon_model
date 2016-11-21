@@ -394,7 +394,7 @@ CONTAINS
 
     ! for index list generation
     LOGICAL :: llist_gen           !< if TRUE, generate index list
-    INTEGER :: ie                  !< counter
+    INTEGER :: ie, ie_capture      !< counter, and its captured value
     REAL(wp):: traj_length         !< backward trajectory length [m]
     REAL(wp):: e2c_length          !< edge-upwind cell circumcenter length [m]
     !-------------------------------------------------------------------------
@@ -455,7 +455,7 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,ie,i_startidx,i_endidx,traj_length,e2c_length, &
 !$OMP depart_pts,pos_dreg_vert_c,pos_on_tplane_e,pn_cell,dn_cell,lvn_pos,&
-!$OMP lvn_sys_pos,edge_verts) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP lvn_sys_pos,edge_verts,ie_capture) ICON_OMP_DEFAULT_SCHEDULE
 #endif
     DO jb = i_startblk, i_endblk
 
@@ -493,23 +493,20 @@ CONTAINS
 
             ! compute length of backward trajectory
             traj_length = SQRT(p_vn(je,jk,jb)**2 + p_vt(je,jk,jb)**2) * p_dt
-!!$            traj_length = ABS(p_vn(je,jk,jb)) * p_dt
 
             ! distance from edge midpoint to upwind cell circumcenter [m]
             e2c_length  = MERGE(ptr_p%edges%edge_cell_length(je,jb,1),       &
               &                 ptr_p%edges%edge_cell_length(je,jb,2),lvn_pos)
 
             IF (traj_length > 1.25_wp*e2c_length) THEN   ! add point to index list
-!!$            IF (traj_length > ((1.4_wp - MIN(0.5_wp,(0.1_wp*ABS(p_vt(je,jk,jb)/MAX(dbl_eps,p_vn(je,jk,jb)))))) &
-!!$                               *e2c_length)) THEN   ! add point to index list
 
-!
 ! OpenACC:  This seems to be the only atomic operation in the calculation
-!$ACC ATOMIC UPDATE
+!$ACC ATOMIC CAPTURE
               ie = ie + 1
+              ie_capture = ie
 !$ACC END ATOMIC
-              opt_falist%eidx(ie,jb) = je
-              opt_falist%elev(ie,jb) = jk
+              opt_falist%eidx(ie_capture,jb) = je
+              opt_falist%elev(ie_capture,jb) = jk
             ENDIF
           ENDDO ! loop over edges
         ENDDO   ! loop over vertical levels
