@@ -229,7 +229,7 @@ case "$ac_sitename" in
    cscs.ch)
         echo The host is:  $HOST
         case "$HOST" in
-            *daint*|*santis*)
+            *daint*|*santis*|*dom*)
                 make_command="make" "-j" "8"
                 load_profile="." "/opt/modules/default/etc/modules.sh"
                 submit="sbatch"
@@ -243,7 +243,7 @@ case "$ac_sitename" in
                         config_target=daint_cpu
                         load_modules ="PrgEnv-gnu" "cray-netcdf" "cray-mpich" "${load_modules}"
                         CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
-                        NETCDFROOT  = /opt/cray/netcdf/default/GNU/4.8
+                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/GNU/5.1
                     ;;
                     intel)
                         config_target=daint_cpu
@@ -251,7 +251,7 @@ case "$ac_sitename" in
                         CFLAGS      = -std=gnu99 -march=native -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
                         STD_FLAGS   = -O2 -mavx -fltconsistency -g -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
                         FFLAGS      = -g -pc64 -fpp -D__LOOP_EXCHANGE
-                        NETCDFROOT  = /opt/cray/netcdf/default/INTEL/14.0
+                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/INTEL/15.0
                         F77FLAGS    = "$FFLAGS" "$STD_FLAGS"
                         MODDIR      = -I
                     ;;
@@ -259,49 +259,20 @@ case "$ac_sitename" in
                         config_target=daint_cpu
                         load_modules = "PrgEnv-pgi" "cray-netcdf" "cray-mpich" "${load_modules}"
                         CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
-                        NETCDFROOT  = /opt/cray/netcdf/default/PGI/15.3
+                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
                     ;;
                     cray)
                         config_target=daint_cpu
                         load_modules = "PrgEnv-cray" "cray-netcdf" "cray-mpich" "${load_modules}"
                         CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
-                        NETCDFROOT  = /opt/cray/netcdf/default/CRAY/83
+                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
                     ;;
                     cray_gpu)
                         config_target=daint_gpu
                         load_modules = "PrgEnv-cray" "cray-netcdf" "cray-mpich" "craype-accel-nvidia35" "${load_modules}"
                         CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
-                        NETCDFROOT  = /opt/cray/netcdf/default/CRAY/83
+                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
                     ;;
-                esac
-                mpi_startrun="srun" "-n" "\\\$mpi_total_procs" "--ntasks-per-node" "\\\$mpi_procs_pernode" "--threads-per-core=1" "--cpus-per-task" "\\\$OMP_NUM_THREADS"
-                ;;
-            *dora*)
-                config_target=dora
-                make_command="make" "-j" "8"
-                load_profile="." "/opt/modules/default/etc/modules.sh"
-                submit="sbatch"
-                sync_submit="sbatch"
-                CC = cc
-                FC = ftn
-                F77= ftn
-
-                case "$fortran_compiler" in
-                    default|gcc)
-                        load_modules ="PrgEnv-gnu" "cray-netcdf" "${load_modules}"
-                        CFLAGS       = "$CFLAGS" -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
-                        NETCDFROOT  = /opt/cray/netcdf/default/GNU/4.9
-                    ;;
-                    intel)
-                        load_modules = "PrgEnv-intel" "cray-netcdf" "${load_modules}"
-                        CFLAGS      = "$CFLAGS" -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
-                        NETCDFROOT  = /opt/cray/netcdf/default/INTEL/14.0
-                    ;;
-                    cray)
-                        load_modules = "PrgEnv-cray" "cray-netcdf" "${load_modules}"
-                        CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
-                        NETCDFROOT  = /opt/cray/netcdf/default/CRAY/83
-                     ;;
                 esac
                 mpi_startrun="srun" "-n" "\\\$mpi_total_procs" "--ntasks-per-node" "\\\$mpi_procs_pernode" "--threads-per-core=1" "--cpus-per-task" "\\\$OMP_NUM_THREADS"
                 ;;
