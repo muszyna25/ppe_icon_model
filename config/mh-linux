@@ -451,7 +451,7 @@ case "$ac_sitename" in
                                 FFLAGS       = $FFLAGS -DHAVE_PARALLEL_NETCDF
                                 MPIROOT      = /opt/mpi/bullxmpi_mlx/1.2.9.2
                                 SYS_LIBS     = -ldl -lm -lnuma -Wl,--export-dynamic -lrt -lnsl -lutil -lm -ldl
-                                MPI_LIB      = $WLFLAG,-rpath,${MPIROOT}/lib -lmpi_f90 -lmpi_f77 $SYS_LIBS
+                                MPI_LIB      = $WLFLAG,-rpath,${MPIROOT}/lib -lmpi_f90 -lmpi_f77 -lmpi $SYS_LIBS
                                 NETCDFFROOT  = $software_tree/netcdf/netcdf_fortran-4.4.2-parallel-bullxmpi-intel14
                                 NETCDFROOT   = $software_tree/netcdf/netcdf_c-4.3.2-parallel-bullxmpi-intel14
                                 HDF5ROOT     = $software_tree/hdf5/hdf5-1.8.14-parallel-bullxmpi-intel14
