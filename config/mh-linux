@@ -612,7 +612,7 @@ case "$ac_sitename" in
 
         ;;              
 #===============================================
-    zmaw.de)
+    zmaw.de|mpg.de)
         dist_codename = $(lsb_release -c | awk '{print $2}')
         software_tree = /sw/${dist_codename}-x64
         case $ac_hostname in
@@ -746,6 +746,7 @@ case "$ac_sitename" in
                            load_modules = ncl/6.3.0-nodap-precompiled cdo/1.7.1-gcc52 python/2.7-ve6 ${load_modules}   
                            SZIPROOT = $software_tree/szip-2.1-static-gccsys
                            NETCDFFROOT = $software_tree/netcdf_fortran-4.4.2-static-${compiler_version}
+                           GRIBAPIROOT = $software_tree/grib_api-1.14.3-static-${compiler_version}
                            NETCDFROOT = $software_tree/netcdf-4.3.3.1-static-gccsys
                            HDF5ROOT = $software_tree/hdf5-1.8.16-static-gccsys
                            SYS_LIBS = -L/usr/x86_64-linux-gnu/lib -lm -ldl -lrt -lutil -lpthread -lpciaccess
