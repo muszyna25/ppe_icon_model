@@ -737,6 +737,7 @@ CONTAINS
                 & vert_interp=create_vert_interp_metadata(                      &
                 &   vert_intp_type=vintp_types("P","Z","I"),                    &
                 &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),                 &
+                & lrestart = .FALSE.,                                           &
                 & isteptype=TSTEP_CONSTANT  )
 
     cf_desc    = t_cf_var('geometric_height_at_full_level', 'm',                &
@@ -749,6 +750,7 @@ CONTAINS
                 & vert_interp=create_vert_interp_metadata(                      &
                 &   vert_intp_type=vintp_types("P","Z","I"),                    &
                 &   vert_intp_method=VINTP_METHOD_LIN ),                        &
+                & lrestart = .FALSE.,                                           &
                 & isteptype=TSTEP_CONSTANT  )
 
     cf_desc    = t_cf_var('geometric_height_thickness', 'm',                    &
@@ -761,6 +763,7 @@ CONTAINS
                 & vert_interp=create_vert_interp_metadata(                      &
                 &   vert_intp_type=vintp_types("P","Z","I"),                    &
                 &   vert_intp_method=VINTP_METHOD_LIN ),                        &
+                & lrestart = .FALSE.,                                           &
                 & isteptype=TSTEP_CONSTANT  )
 
 
@@ -773,6 +776,7 @@ CONTAINS
     grib2_desc = grib2_var(0, 2, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'ua_phy', field%u,                                 &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & lrestart = .FALSE.,                                                    &
                 & vert_interp = &
                 &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ) )
 
@@ -781,6 +785,7 @@ CONTAINS
     grib2_desc = grib2_var(0, 2, 3, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'va_phy', field%v,                                 &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & lrestart = .FALSE.,                                                    &
                 & vert_interp = &
                 &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ) )
 
@@ -789,6 +794,7 @@ CONTAINS
     grib2_desc = grib2_var(0, 2, 12, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'vor_phy', field%vor,                     &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & lrestart = .FALSE.,                                           &
                 & vert_interp=create_vert_interp_metadata(                      &
                 &   vert_intp_type=vintp_types("P","Z","I"),                    &
                 &   vert_intp_method=VINTP_METHOD_LIN ) )
@@ -798,6 +804,7 @@ CONTAINS
     grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'ta_phy', field%temp,                     &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & lrestart = .FALSE.,                                           &
                 & vert_interp=create_vert_interp_metadata(                      &
                 &   vert_intp_type=vintp_types("P","Z","I"),                    &
                 &   vert_intp_method=VINTP_METHOD_LIN ) )
@@ -807,6 +814,7 @@ CONTAINS
     grib2_desc = grib2_var(0,0,1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'tv_phy', field%tv,                       &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & lrestart = .FALSE.,                                           &
                 & vert_interp=create_vert_interp_metadata(                      &
                 &   vert_intp_type=vintp_types("P","Z","I"),                    &
                 &   vert_intp_method=VINTP_METHOD_LIN ) )
@@ -817,6 +825,7 @@ CONTAINS
     grib2_desc = grib2_var(0,14,1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'tro3', field%o3,                         &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
+                & lrestart = .FALSE.,                                           &
                 & vert_interp=create_vert_interp_metadata(                      &
                 &   vert_intp_type=vintp_types("P","Z","I"),                    &
                 &   vert_intp_method=VINTP_METHOD_LIN ) )
@@ -829,6 +838,7 @@ CONTAINS
     CALL add_var( field_list, prefix//'aer_aod_533', field%aer_aod_533,        &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
                 & ldims=shape3d,                                               &
+                & lrestart = .FALSE.,                                          &
                 & vert_interp=create_vert_interp_metadata(                     &
                 &   vert_intp_type=vintp_types("P","Z","I"),                   &
                 &   vert_intp_method=VINTP_METHOD_LIN,                         &
@@ -839,6 +849,7 @@ CONTAINS
     CALL add_var( field_list, prefix//'aer_ssa_533', field%aer_ssa_533,        &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
                 & ldims=shape3d,                                               &
+                & lrestart = .FALSE.,                                          &
                 & vert_interp=create_vert_interp_metadata(                     &
                 &   vert_intp_type=vintp_types("P","Z","I"),                   &
                 &   vert_intp_method=VINTP_METHOD_LIN,                         &
@@ -849,6 +860,7 @@ CONTAINS
     CALL add_var( field_list, prefix//'aer_asy_533', field%aer_asy_533,        &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
                 & ldims=shape3d,                                               &
+                & lrestart = .FALSE.,                                          &
                 & vert_interp=create_vert_interp_metadata(                     &
                 &   vert_intp_type=vintp_types("P","Z","I"),                   &
                 &   vert_intp_method=VINTP_METHOD_LIN ) )
@@ -859,6 +871,7 @@ CONTAINS
     CALL add_var( field_list, prefix//'aer_aod_2325', field%aer_aod_2325,      &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
                 & ldims=shape3d,                                               &
+                & lrestart = .FALSE.,                                          &
                 & vert_interp=create_vert_interp_metadata(                     &
                 &   vert_intp_type=vintp_types("P","Z","I"),                   &
                 &   vert_intp_method=VINTP_METHOD_LIN,                         &
@@ -869,6 +882,7 @@ CONTAINS
     CALL add_var( field_list, prefix//'aer_ssa_2325', field%aer_ssa_2325,      &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
                 & ldims=shape3d,                                               &
+                & lrestart = .FALSE.,                                          &
                 & vert_interp=create_vert_interp_metadata(                     &
                 &   vert_intp_type=vintp_types("P","Z","I"),                   &
                 &   vert_intp_method=VINTP_METHOD_LIN,                         &
@@ -879,6 +893,7 @@ CONTAINS
     CALL add_var( field_list, prefix//'aer_asy_2325', field%aer_asy_2325,      &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
                 & ldims=shape3d,                                               &
+                & lrestart = .FALSE.,                                          &
                 & vert_interp=create_vert_interp_metadata(                     &
                 &   vert_intp_type=vintp_types("P","Z","I"),                   &
                 &   vert_intp_method=VINTP_METHOD_LIN,                         &
@@ -890,6 +905,7 @@ CONTAINS
     CALL add_var( field_list, prefix//'aer_aod_9731', field%aer_aod_9731,      &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
                 & ldims=shape3d,                                               &
+                & lrestart = .FALSE.,                                          &
                 & vert_interp=create_vert_interp_metadata(                     &
                 &   vert_intp_type=vintp_types("P","Z","I"),                   &
                 &   vert_intp_method=VINTP_METHOD_LIN,                         &
