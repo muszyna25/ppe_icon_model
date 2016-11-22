@@ -271,8 +271,17 @@ MODULE mo_ocean_types
                                 ! at timelevel n
       & g_nm1         ,& ! explicit velocity term in Adams-Bashford time marching routines,
                                 ! at timelevel n-1
-      & g_nimd           ! explicit velocity term in Adams-Bashford time marching routines,
+      & g_nimd        ,& ! explicit velocity term in Adams-Bashford time marching routines,
                                 ! located at intermediate timelevel
+      & tracer_grad_horz, &      !horizontal tracer gradient                          
+      & temperature_grad_horz,&  !horizontal temperature gradient                          
+      & salinity_grad_horz       !horizontal salinity gradient                                
+
+    onCells_HalfLevels ::   &
+      & tracer_deriv_vert,&      ! vertical tracer gradient
+      & temperature_deriv_vert,& ! vertical temperature gradient
+      & salinity_deriv_vert      ! vertical salinity gradient            
+
 
     onEdges_2D :: &
       & bc_bot_vn       ,& ! normal velocity boundary condition at bottom

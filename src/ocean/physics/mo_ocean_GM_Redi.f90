@@ -249,7 +249,14 @@ CONTAINS
       tracer_gradient_horz_vec_center => ocean_state%p_aux%PgradSalinity_horz_center
       tracer_gradient_vert_center     => ocean_state%p_aux%DerivSalinity_vert_center
     ELSEIF(tracer_index>2)THEN
-      !Here we have to provide a sbr that calculates derivatives below
+    
+      !Here we have to provide a sbr that calculates derivatives below    
+      CALL calc_tracer_derivatives( patch_3d,&
+                                  & ocean_state%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration,&
+                                  & ocean_state, &
+                                  & op_coeff, &
+                                  & tracer_index)
+
       tracer_gradient_horz_vec_center => ocean_state%p_aux%PgradTracer_horz_center
       tracer_gradient_vert_center     => ocean_state%p_aux%DerivTracer_vert_center
        
@@ -373,9 +380,9 @@ CONTAINS
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)      
         DO cell_index = start_cell_index, end_cell_index
           DO level = start_level, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
-            param%a_tracer_v(cell_index,level,blockNo, tracer_index) = 0.0_wp!  &
+            param%a_tracer_v(cell_index,level,blockNo, tracer_index) = &!0.0_wp!  &
              !& param%a_tracer_v(cell_index,level,blockNo, tracer_index) + &
-             !& ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit(cell_index,level,blockNo)
+             & ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit(cell_index,level,blockNo)
           END DO                  
         END DO                
       END DO
@@ -677,9 +684,7 @@ CONTAINS
     ENDIF    
     !------------------------------------------------------------------------------
 
-    !------------------------------------------------------------------------------
-
-    
+    !------------------------------------------------------------------------------    
     SELECT CASE (no_tracer)
 
       CASE(2)!Two tracer
@@ -882,6 +887,142 @@ CONTAINS
   
   
   END SUBROUTINE calc_neutral_slopes
+  !-------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------
+  !>
+  !! !  SUBROUTINE calculates horizontal and vertical derivatives of tracer and the corresponding
+  !!    !reconstructions on cell centers.
+  !!
+  !!
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2016).
+  !!
+!<Optimize:inUse>
+  SUBROUTINE calc_tracer_derivatives(patch_3d, tracer, ocean_state, op_coeff, tracer_index)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    REAL(wp)                                         :: tracer(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)    
+    TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
+    TYPE(t_operator_coeff),            INTENT(in)    :: op_coeff
+    INTEGER, INTENT(in)                              :: tracer_index
+    
+    !Local variables
+    TYPE(t_cartesian_coordinates),POINTER :: grad_horz_center_vec(:,:,:)    
+    REAL(wp),POINTER :: grad_vert_center(:,:,:)
+    REAL(wp),POINTER :: grad_vert(:,:,:)    
+    REAL(wp),POINTER :: grad_horz(:,:,:)
+               
+    INTEGER :: level, blockNo, je, start_level, end_level
+    INTEGER :: start_cell_index, end_cell_index, cell_index
+    INTEGER :: start_edge_index, end_edge_index
+    TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain, all_cells
+    TYPE(t_patch), POINTER :: patch_2D
+    !-----------------------------------------------------------------------
+    patch_2D        => patch_3D%p_patch_2D(1)
+    all_cells       => patch_2D%cells%all
+    cells_in_domain => patch_2D%cells%in_domain
+    edges_in_domain => patch_2D%edges%in_domain
+    !-------------------------------------------------------------------------
+    IF(tracer_index==1)THEN
+    
+      grad_horz            => ocean_state%p_aux%temperature_grad_horz
+      grad_vert            => ocean_state%p_aux%temperature_deriv_vert        
+
+      grad_horz_center_vec => ocean_state%p_aux%PgradTemperature_horz_center
+      grad_vert_center     => ocean_state%p_aux%DerivTemperature_vert_center
+          
+    ELSEIF(tracer_index==2)THEN      
+    
+      grad_horz             => ocean_state%p_aux%salinity_grad_horz
+      grad_vert             => ocean_state%p_aux%salinity_deriv_vert  
+          
+      grad_horz_center_vec  => ocean_state%p_aux%PgradSalinity_horz_center
+      grad_vert_center      => ocean_state%p_aux%DerivSalinity_vert_center
+  
+    ELSEIF(tracer_index>2)THEN           
+
+      grad_horz            => ocean_state%p_aux%tracer_grad_horz
+      grad_vert            => ocean_state%p_aux%tracer_deriv_vert
+      
+      grad_horz_center_vec => ocean_state%p_aux%PgradTracer_horz_center
+      grad_vert_center     => ocean_state%p_aux%DerivTracer_vert_center
+    
+    ENDIF
+
+
+    !-------------------------------------------------------------------------------
+    !1) calculation of horizontal and vertical gradient for potential temperature and salinity
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_edge_index,end_edge_index) ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
+
+      grad_horz(:,:,blockNo) = 0.0_wp
+      !1a) calculate horizontal gradient
+      CALL grad_fd_norm_oce_3d_onBlock ( &
+        & tracer, &
+        & patch_3D,                           &
+        & op_coeff%grad_coeff(:,:,blockNo), &
+        & grad_horz(:,:,blockNo),           &
+        & start_edge_index, end_edge_index, blockNo)
+
+    END DO ! blocks
+!ICON_OMP_END_DO
+
+
+    !---------------------------------------------------------------------
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index) ICON_OMP_DEFAULT_SCHEDULE
+ 
+    DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+
+      grad_vert(:,:,blockNo) = 0.0_wp ! this is only for the top level
+      !1c) calculation of vertical derivative
+      CALL verticalDeriv_scalar_onHalfLevels_on_block( patch_3d,                &
+                                                  & tracer(:,:,blockNo),   &
+                                                  & grad_vert(:,:,blockNo),&
+                                                  & start_level+1,             &
+                                                  & blockNo,                 &
+                                                  & start_cell_index,        &
+                                                  & end_cell_index)
+    END DO ! blocks
+!ICON_OMP_END_DO_NOWAIT
+!ICON_OMP_END_PARALLEL
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('calc_derivatives: grad_horz',grad_horz,&
+      & str_module,idt_src, in_subset=edges_in_domain)
+
+    CALL dbg_print('calc_derivatives: grad_vert',grad_vert,&
+      & str_module,idt_src, in_subset=cells_in_domain)
+  !---------------------------------------------------------------------   
+   
+    !2) map horizontal and vertial derivative to cell centered vector
+    CALL map_edges2cell_3d(patch_3D,  &
+        & grad_horz,                  &
+        & op_coeff,                   &
+        & grad_horz_center_vec,       &
+        & subset_range=cells_in_domain)
+
+
+    IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
+    CALL map_scalar_prismtop2center(patch_3d,&
+        & grad_vert,                &
+        & op_coeff,                 &
+        & grad_vert_center)
+    ELSEIF(REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
+    CALL map_scalar_prismtop2center_GM(patch_3d,&
+        & grad_vert,                &
+        & op_coeff,                 &
+        & grad_vert_center)    
+    
+    ENDIF    
+    !------------------------------------------------------------------------------
+
+
+  END SUBROUTINE calc_tracer_derivatives
   !-------------------------------------------------------------------------
 
 

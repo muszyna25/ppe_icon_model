@@ -1496,7 +1496,7 @@ CONTAINS
         & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.FALSE.)
     END IF
     
-   IF(GMRedi_configuration/=Cartesian_mixing)THEN
+   !IF(GMRedi_configuration/=Cartesian_mixing)THEN
    
      ALLOCATE(ocean_state_aux%slopes(nproma,n_zlev,alloc_cell_blocks), stat=ist)
      IF (ist/=success) THEN
@@ -1573,14 +1573,54 @@ CONTAINS
         & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
         & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.true.)
 
-     CALL add_var(ocean_default_list,'DerivTracer_vert',ocean_state_aux%DerivTracer_vert_center,&
+     CALL add_var(ocean_default_list,'DerivTracer_vert_center',ocean_state_aux%DerivTracer_vert_center,&
         & grid_unstructured_cell,&
-        & za_depth_below_sea, t_cf_var('DerivTracer_vert','','', datatype_flt),&
+        & za_depth_below_sea, t_cf_var('DerivTracer_vert:center','','', datatype_flt),&
         & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
         & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.true.)
         ! & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.FALSE.)
 
-        
+    CALL add_var(ocean_default_list, 'tracer_deriv_vert', ocean_state_aux%tracer_deriv_vert, &
+      & grid_unstructured_cell, za_depth_below_sea_half, &
+      & t_cf_var('w_prev','m/s','vertical velocity at cells', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_diag"))
+
+    CALL add_var(ocean_default_list, 'temperature_deriv_vert', ocean_state_aux%temperature_deriv_vert, &
+      & grid_unstructured_cell, za_depth_below_sea_half, &
+      & t_cf_var('w_prev','m/s','vertical velocity at cells', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_diag"))
+
+    CALL add_var(ocean_default_list, 'salinity_deriv_vert', ocean_state_aux%salinity_deriv_vert, &
+      & grid_unstructured_cell, za_depth_below_sea_half, &
+      & t_cf_var('w_prev','m/s','vertical velocity at cells', datatype_flt),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+      & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_diag"))
+
+!     CALL add_var(ocean_default_list,'DerivTracer_vert',ocean_state_aux%DerivTracer_vert_center,&
+!        & grid_unstructured_cell,&
+!        & za_depth_below_sea, t_cf_var('DerivTracer_vert','','', datatype_flt),&
+!        & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
+!        & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.true.)
+
+
+    CALL add_var(ocean_restart_list,'tracergrad_horz',ocean_state_aux%tracer_grad_horz, grid_unstructured_edge,&
+      & za_depth_below_sea, t_cf_var('tracergrad_horz','','', datatype_flt),&
+      & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_edge),&
+      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_aux"),loutput=.TRUE.,lrestart_cont=.TRUE.)
+
+    CALL add_var(ocean_restart_list,'tenperaturegrad_horz',ocean_state_aux%temperature_grad_horz, grid_unstructured_edge,&
+      & za_depth_below_sea, t_cf_var('temperaturegrad_horz','','', datatype_flt),&
+      & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_edge),&
+      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_aux"),loutput=.TRUE.,lrestart_cont=.TRUE.)
+
+    CALL add_var(ocean_restart_list,'salinitygrad_horz',ocean_state_aux%salinity_grad_horz, grid_unstructured_edge,&
+      & za_depth_below_sea, t_cf_var('salinitygrad_horz','','', datatype_flt),&
+      & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_edge),&
+      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_aux"),loutput=.TRUE.,lrestart_cont=.TRUE.)
+
+      
      CALL add_var(ocean_default_list,'slopes_squared',ocean_state_aux%slopes_squared,&
         & grid_unstructured_cell,&
         & za_depth_below_sea, t_cf_var('slopes_squared','','', datatype_flt),&
@@ -1621,7 +1661,7 @@ CONTAINS
      ! set all values - incl. last block - of cartesian coordinates to zero (NAG compiler)
      
 !      ocean_state_aux%slopes_squared=0.0_wp
-    ENDIF
+    !ENDIF
   END SUBROUTINE construct_hydro_ocean_aux
   
 !<Optimize:inUse>
