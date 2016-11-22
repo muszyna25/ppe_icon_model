@@ -82,16 +82,16 @@ mts_oce="PT10M"
 
 # in seconds for YAC - must match those of the model
 dtime_atm=${dtime_atm:=600}
+dtime_oce=${dtime_oce:=600}
+
+# change timestep of ocean/coupled to multiple of atm. timestep
 # dtime_oce must be multiple of dtime_atm
-(( dtime_oce=dtime_atm * 1 ))
+#(( dtime_oce=dtime_atm * 1 ))
 
 # restart interval
 # ----------------
 
 checkpoint_interval="P200Y" #  mtime ISO-format
-
-# NEEDED TO KEEP THIS EXPERIMENT WORKING WITHOUT "--enable-mtime-loop" CONFIGURATION.
-# TO BE DELETED AFTER THE "mtime time loop" IS COMPLETELY IMPLEMENTED.
 
 # high frequency output and restart intervals
 restart_interval="P1D"
@@ -107,13 +107,15 @@ oce_output_interval="PT6H"
 #oce_output_interval="P1D"
 
 ## long-term low frequency output and restart intervals
-#checkpoint_interval="P1Y" #  mtime ISO-format
-#restart_interval="P5Y"   
+#restart_interval="P2Y"   
 #atm_output_interval="P1M"
 #lnd_output_interval="P1M"
 #oce_output_interval="P1M"
-## ocean timestep increased to 30 minutes
+
+# ocean timestep increased to 30 minutes - icon and yac
 #mts_oce="PT30M"
+# change timestep of ocean/coupled to multiple of atm. timestep
+# dtime_oce must be multiple of dtime_atm
 #(( dtime_oce=dtime_atm * 3 ))
 
 # standard long-term output switches - _min=yes only:
@@ -1158,7 +1160,7 @@ EOF
 #  <interpolation method="source_to_target_map"/>
 #  <interpolation method="fixed_value" user_value="99.0"/>
 #  <interpolation method="user_file" filename="runoff_a2o.weights.nc"/>
-#  <enforce_write_weight_file filename="wind_a2o_lndcoast2ocecoast.nc">true</enforce_write_weight_file>
+#  <enforce_write_weight_file filename="runoff_a2o_written.weights.nc">true</enforce_write_weight_file>
 
 # IV.4 xsd and xml files for yac
 # ------------------------------
