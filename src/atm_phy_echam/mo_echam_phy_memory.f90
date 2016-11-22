@@ -1104,19 +1104,21 @@ CONTAINS
     ! &       field% presm_old (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('pressure', 'Pa', 'pressure at old time step', datatype_flt)
     grib2_desc = grib2_var(0, 3, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'pam_old', field%presm_old,               &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
-                & vert_interp=create_vert_interp_metadata(                      &
-                &             vert_intp_type=vintp_types("Z","I"),              &
+    CALL add_var( field_list, prefix//'pam_old', field%presm_old,              &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
+                & ldims=shape3d, lrestart = .FALSE.,                           &
+                & vert_interp=create_vert_interp_metadata(                     &
+                &             vert_intp_type=vintp_types("Z","I"),             &
                 &             vert_intp_method=VINTP_METHOD_PRES ) )
 
     ! &       field% presm_new (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('pressure', 'Pa', 'pressure at new time step', datatype_flt)
     grib2_desc = grib2_var(0, 3, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'pam_new', field%presm_new,               &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
-                & vert_interp=create_vert_interp_metadata(                      &
-                &             vert_intp_type=vintp_types("Z","I"),              &
+    CALL add_var( field_list, prefix//'pam_new', field%presm_new,              &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
+                & ldims=shape3d, lrestart = .FALSE.,                           &
+                & vert_interp=create_vert_interp_metadata(                     &
+                &             vert_intp_type=vintp_types("Z","I"),             &
                 &             vert_intp_method=VINTP_METHOD_PRES ) )
 
 
@@ -1126,7 +1128,8 @@ CONTAINS
     grib2_desc = grib2_var(0, 3, 4, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'gpsi', field%geoi,                        &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,   &
-                & ldims=shape3d_layer_interfaces,                                &
+                & ldims=shape3d_layer_interfaces, lrestart = .FALSE.,            &
+                & isteptype=TSTEP_CONSTANT,                                      &
                 & vert_interp=create_vert_interp_metadata(                       &
                 &   vert_intp_type=vintp_types("P","Z","I"),                     &
                 &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ) )
@@ -1136,7 +1139,7 @@ CONTAINS
     grib2_desc = grib2_var(0, 3, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'pai_old', field%presi_old,               &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
-                & ldims=shape3d_layer_interfaces,                               &
+                & ldims=shape3d_layer_interfaces, lrestart = .FALSE.,           &
                 & vert_interp=create_vert_interp_metadata(                      &
                 &   vert_intp_type=vintp_types("Z","I"),                        &
                 &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ) )
@@ -1146,7 +1149,7 @@ CONTAINS
     grib2_desc = grib2_var(0, 3, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'pai_new', field%presi_new,               &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
-                & ldims=shape3d_layer_interfaces,                               &
+                & ldims=shape3d_layer_interfaces, lrestart = .FALSE.,           &
                 & vert_interp=create_vert_interp_metadata(                      &
                 &   vert_intp_type=vintp_types("Z","I"),                        &
                 &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ) )
@@ -1605,6 +1608,7 @@ CONTAINS
     CALL add_var(field_list, prefix//'rlut', field%rlut, &
          &       GRID_UNSTRUCTURED_CELL    , ZA_SURFACE, &
          &       cf_desc, grib2_desc                   , &
+         &       lrestart = .FALSE.                    , &
          &       ldims=shape2d                         )
 
     cf_desc    = t_cf_var('toa_outgoing_longwave_flux_assuming_clear_sky', &
@@ -1615,6 +1619,7 @@ CONTAINS
     CALL add_var(field_list, prefix//'rlutcs', field%rlutcs, &
          &       GRID_UNSTRUCTURED_CELL      , ZA_SURFACE  , &
          &       cf_desc, grib2_desc                       , &
+         &       lrestart = .FALSE.                        , &
          &       ldims=shape2d                             )
 
 
@@ -1628,6 +1633,7 @@ CONTAINS
     CALL add_var(field_list, prefix//'rlds', field%rlds, &
          &       GRID_UNSTRUCTURED_CELL    , ZA_SURFACE, &
          &       cf_desc, grib2_desc                   , &
+         &       lrestart = .FALSE.                    , &
          &       ldims=shape2d                         )
 
     cf_desc    = t_cf_var('surface_upwelling_longwave_flux_in_air', &
@@ -1638,6 +1644,7 @@ CONTAINS
     CALL add_var(field_list, prefix//'rlus', field%rlus, &
          &       GRID_UNSTRUCTURED_CELL    , ZA_SURFACE, &
          &       cf_desc, grib2_desc                   , &
+         &       lrestart = .FALSE.                    , &
          &       ldims=shape2d                         )
 
     cf_desc    = t_cf_var('surface_downwelling_longwave_flux_in_air_assuming_clear_sky', &
@@ -1648,6 +1655,7 @@ CONTAINS
     CALL add_var(field_list, prefix//'rldscs', field%rldscs, &
          &       GRID_UNSTRUCTURED_CELL      , ZA_SURFACE  , &
          &       cf_desc, grib2_desc                       , &
+         &       lrestart = .FALSE.                        , &
          &       ldims=shape2d                             )
 
     cf_desc    = t_cf_var('surface_upwelling_longwave_flux_in_air_assuming_clear_sky', &
@@ -1658,6 +1666,7 @@ CONTAINS
     CALL add_var(field_list, prefix//'rluscs', field%rluscs, &
          &       GRID_UNSTRUCTURED_CELL      , ZA_SURFACE  , &
          &       cf_desc, grib2_desc                       , &
+         &       lrestart = .FALSE.                        , &
          &       ldims=shape2d                             )
 
     !
