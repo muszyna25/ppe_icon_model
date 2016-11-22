@@ -775,7 +775,46 @@ CONTAINS
         ENDIF     
       ENDIF          
       DEALLOCATE(temp_tracer_before%concentration)
-      DEALLOCATE(temp_tracer_after%concentration)      
+      DEALLOCATE(temp_tracer_after%concentration) 
+      
+
+      IF(tracer_index == 1) THEN           
+      !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, &
+!ICON_OMP level ) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+          CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
+          DO jc = start_cell_index, end_cell_index
+
+            DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)       
+
+              p_os%p_diag%opottemptend(jc,level,jb)&
+              &=(new_ocean_tracer%concentration(jc,level,jb)&
+              &- old_ocean_tracer%concentration(jc,level,jb))/dtime            
+            END DO
+          END DO
+        ENDDO 
+!ICON_OMP_END_PARALLEL_DO 
+
+      ELSEIF(tracer_index == 2) THEN 
+     !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index, end_cell_index, jc, &
+!ICON_OMP level ) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+          CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
+          DO jc = start_cell_index, end_cell_index
+
+            DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)       
+
+              p_os%p_diag%osalttend(jc,level,jb)&
+              &=(new_ocean_tracer%concentration(jc,level,jb)&
+              &- old_ocean_tracer%concentration(jc,level,jb))/dtime            
+            END DO
+          END DO
+        ENDDO 
+!ICON_OMP_END_PARALLEL_DO 
+      
+      
+      ENDIF   
+           
           
     ENDIF!IF ( l_with_vert_tracer_diffusion )
 
@@ -796,9 +835,16 @@ CONTAINS
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     CALL dbg_print('aft. AdvIndivTrac: trac_old', trac_old, str_module, 3, in_subset=cells_in_domain)
     CALL dbg_print('aft. AdvIndivTrac: trac_new', trac_new, str_module, 3, in_subset=cells_in_domain)
-    DO level=1,n_zlev
-    CALL dbg_print('aft. AdvIndivTrac: trac chg', trac_new(:,level,:)-trac_old(:,level,:), str_module, 3, in_subset=cells_in_domain)
-    END DO
+    IF(tracer_index == 1) THEN
+      DO level=1,n_zlev
+        CALL dbg_print('after trac: temp chg', p_os%p_diag%opottemptend(:,level,:), str_module, 3, in_subset=cells_in_domain)
+      END DO
+     ELSEIF(tracer_index == 2) THEN
+      DO level=1,n_zlev
+        CALL dbg_print('after trac: salt chg', p_os%p_diag%opottemptend(:,level,:), str_module, 3, in_subset=cells_in_domain)
+      END DO
+    ENDIF  
+      
     !---------------------------------------------------------------------
   
 
