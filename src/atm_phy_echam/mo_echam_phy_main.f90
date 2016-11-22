@@ -463,12 +463,10 @@ CONTAINS
         & rsut       = field%rsut               (:,jb),&! all-sky   shortwave upward   flux at current   time [W/m2]
         & rsds       = field%rsds               (:,jb),&! all-sky   shortwave downward flux at current   time [W/m2]
         & rsus       = field%rsus               (:,jb),&! all-sky   shortwave upward   flux at current   time [W/m2]
-        & rsns       = field%rsns               (:,jb),&! all-sky   shortwave net      flux at current   time [W/m2]
         !
         & rsutcs     = field%rsutcs             (:,jb),&! clear-sky shortwave upward   flux at current   time [W/m2]
         & rsdscs     = field%rsdscs             (:,jb),&! clear-sky shortwave downward flux at current   time [W/m2]
         & rsuscs     = field%rsuscs             (:,jb),&! clear-sky shortwave upward   flux at current   time [W/m2]
-        & rsnscs     = field%rsnscs             (:,jb),&! clear-sky shortwave net      flux at current   time [W/m2]
         !
         & rvds_dir   = field%rvds_dir           (:,jb),&!< out  all-sky downward direct visible radiation at surface
         & rpds_dir   = field%rpds_dir           (:,jb),&!< out  all-sky downward direct PAR     radiation at surface
@@ -483,11 +481,9 @@ CONTAINS
         & rlut       = field%rlut               (:,jb),&! all-sky   longwave  upward   flux at current   time [W/m2]
         & rlds       = field%rlds               (:,jb),&! all-sky   longwave  downward flux at current   time [W/m2]
         & rlus       = field%rlus               (:,jb),&! all-sky   longwave  upward   flux at current   time [W/m2]
-        & rlns       = field%rlns               (:,jb),&! all-sky   longwave  net      flux at current   time [W/m2]
         !
         & rlutcs     = field%rlutcs             (:,jb),&! clear-sky longwave  upward   flux at current   time [W/m2]
         & rldscs     = field%rldscs             (:,jb),&! clear-sky longwave  downward flux at current   time [W/m2]
-        & rlnscs     = field%rlnscs             (:,jb),&! clear-sky longwave  net      flux at current   time [W/m2]
         !
         & q_rsw      = zq_rsw                   (:,:) ,&! rad. heating by SW           [W/m2]
         & q_rlw      = zq_rlw                   (:,:) ) ! rad. heating by LW           [W/m2]
@@ -658,9 +654,10 @@ CONTAINS
           & prsfc = field% rsfc(:,jb),    &! in, rain surface concective (from cucall)
           & pssfl = field% ssfl(:,jb),    &! in, snow surface large scale (from cloud)
           & pssfc = field% ssfc(:,jb),    &! in, snow surface concective (from cucall)
-          & rlns        = field% rlns (:,jb), &! inout, net surface longwave flux [W/m2]
-          & rlds        = field% rlds (:,jb),     &! in, downward surface longwave flux [W/m2]
-          & rsns        = field% rsns     (:,jb), &! inout, net surface shortwave flux [W/m2]
+          & rlds        = field% rlds (:,jb), &! in,  downward surface  longwave flux [W/m2]
+          & rlus        = field% rlus (:,jb), &! inout, upward surface  longwave flux [W/m2]
+          & rsds        = field% rsds (:,jb), &! in,  downward surface shortwave flux [W/m2]
+          & rsus        = field% rsus (:,jb), &! inout, upward surface shortwave flux [W/m2]
           !
           & rvds_dir   = field%rvds_dir   (:,jb), &! in, all-sky downward direct visible radiation at surface
           & rpds_dir   = field%rpds_dir   (:,jb), &! in, all-sky downward direct PAR     radiation at surface
@@ -849,9 +846,10 @@ CONTAINS
     IF (phy_config%lrad) THEN
 
       ! Heating due to the fact that surface model only used part of longwave radiation to compute new surface temperature
-      zq_rlw_impl(jcs:jce) =                                            &
-        & ( ((field%rld_rt(jcs:jce,nlev,jb)-field%rlu_rt(jcs:jce,nlev,jb)) - field%rlns(jcs:jce,jb)) ) &  ! new heating from new rlns
-        & - zq_rlw(jcs:jce,nlev)                                       ! old heating from radheat
+      zq_rlw_impl(jcs:jce) =                                                  &
+        &   ( (field%rld_rt(jcs:jce,nlev,jb)-field%rlu_rt(jcs:jce,nlev,jb))   & ! (( rlns from "radiation"
+        &    -(field%rlds  (jcs:jce,jb)     -field%rlus  (jcs:jce,jb)     ))  & !   -rlns from "radheating" and "update_surface")
+        &  -zq_rlw(jcs:jce,nlev)                                                ! old heating from radheat
 
       ! Heating accumulated
       zq_phy(jcs:jce,nlev) = zq_phy(jcs:jce,nlev) + zq_rlw_impl(jcs:jce)

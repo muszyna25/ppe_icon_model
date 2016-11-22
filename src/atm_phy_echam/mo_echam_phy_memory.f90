@@ -185,10 +185,8 @@ MODULE mo_echam_phy_memory
       ! - at the surface at all times
       & rsds        (:,  :),  &!< [W/m2] surface downwelling shortwave radiation
       & rsus        (:,  :),  &!< [W/m2] surface upwelling   shortwave radiation
-      & rsns        (:,  :),  &!< [W/m2] surface net         shortwave radiation
       & rsdscs      (:,  :),  &!< [W/m2] surface downwelling clear-sky shortwave radiation
       & rsuscs      (:,  :),  &!< [W/m2] surface upwelling   clear-sky shortwave radiation
-      & rsnscs      (:,  :),  &!< [W/m2] surface net         clear-sky shortwave radiation
       !
       ! shortwave flux components at the surface
       ! - at radiation times
@@ -224,10 +222,8 @@ MODULE mo_echam_phy_memory
       ! - at the surface at all times
       & rlds        (:,  :),  &!< [W/m2] surface downwelling longwave radiation
       & rlus        (:,  :),  &!< [W/m2] surface upwelling   longwave radiation
-      & rlns        (:,  :),  &!< [W/m2] surface net         longwave radiation
       & rldscs      (:,  :),  &!< [W/m2] surface downwelling clear-sky longwave radiation
       & rluscs      (:,  :),  &!< [W/m2] surface downwelling clear-sky longwave radiation
-      & rlnscs      (:,  :),  &!< [W/m2] surface net         clear-sky longwave radiation
       !
       & o3          (:,:,:)    !< temporary set ozone mass mixing ratio  
     ! aerosol optical properties
@@ -1295,17 +1291,6 @@ CONTAINS
          &       lrestart = .FALSE.                    , &
          &       ldims=shape2d                         )
 
-    cf_desc    = t_cf_var('surface_net_shortwave_flux_in_air', &
-         &                'W m-2'                            , &
-         &                'surface net shortwave radiation'  , &
-         &                datatype_flt                       )
-    grib2_desc = grib2_var(0,4,9, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var(field_list, prefix//'rsns', field%rsns, &
-         &       GRID_UNSTRUCTURED_CELL    , ZA_SURFACE, &
-         &       cf_desc, grib2_desc                   , &
-         &       lrestart = .FALSE.                    , &
-         &       ldims=shape2d                         )
-
     cf_desc    = t_cf_var('surface_downwelling_shortwave_flux_in_air_assuming_clear_sky', &
          &                'W m-2'                                                       , &
          &                'surface downwelling clear-sky shortwave radiation'           , &
@@ -1323,17 +1308,6 @@ CONTAINS
          &                datatype_flt                                                )
     grib2_desc = grib2_var(0,4,8, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var(field_list, prefix//'rsuscs', field%rsuscs, &
-         &       GRID_UNSTRUCTURED_CELL      , ZA_SURFACE  , &
-         &       cf_desc, grib2_desc                       , &
-         &       lrestart = .FALSE.                        , &
-         &       ldims=shape2d                             )
-
-    cf_desc    = t_cf_var('surface_net_shortwave_flux_in_air_assuming_clear_sky', &
-         &                'W m-2'                                               , &
-         &                'surface net clear-sky shortwave radiation'           , &
-         &                datatype_flt                                          )
-    grib2_desc = grib2_var(0,4,11, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var(field_list, prefix//'rsnscs', field%rsnscs, &
          &       GRID_UNSTRUCTURED_CELL      , ZA_SURFACE  , &
          &       cf_desc, grib2_desc                       , &
          &       lrestart = .FALSE.                        , &
@@ -1643,16 +1617,6 @@ CONTAINS
          &       cf_desc, grib2_desc                   , &
          &       ldims=shape2d                         )
 
-    cf_desc    = t_cf_var('surface_net_longwave_flux_in_air', &
-         &                'W m-2'                           , &
-         &                'surface net longwave radiation'  , &
-         &                datatype_flt                       )
-    grib2_desc = grib2_var(0,5,5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var(field_list, prefix//'rlns', field%rlns, &
-         &       GRID_UNSTRUCTURED_CELL    , ZA_SURFACE, &
-         &       cf_desc, grib2_desc                   , &
-         &       ldims=shape2d                         )
-
     cf_desc    = t_cf_var('surface_downwelling_longwave_flux_in_air_assuming_clear_sky', &
          &                'W m-2'                                                      , &
          &                'surface downwelling clear-sky longwave radiation'           , &
@@ -1669,16 +1633,6 @@ CONTAINS
          &                datatype_flt                                               )
     grib2_desc = grib2_var(0,5,4, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var(field_list, prefix//'rluscs', field%rluscs, &
-         &       GRID_UNSTRUCTURED_CELL      , ZA_SURFACE  , &
-         &       cf_desc, grib2_desc                       , &
-         &       ldims=shape2d                             )
-
-    cf_desc    = t_cf_var('surface_net_longwave_flux_in_air_assuming_clear_sky', &
-         &                'W m-2'                                              , &
-         &                'surface net clear-sky longwave radiation'           , &
-         &                datatype_flt                                         )
-    grib2_desc = grib2_var(0,5,6, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var(field_list, prefix//'rlnscs', field%rlnscs, &
          &       GRID_UNSTRUCTURED_CELL      , ZA_SURFACE  , &
          &       cf_desc, grib2_desc                       , &
          &       ldims=shape2d                             )

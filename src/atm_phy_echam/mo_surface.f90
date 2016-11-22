@@ -16,7 +16,9 @@
 MODULE mo_surface
 
   USE mo_kind,              ONLY: wp
+#if defined(__NO_JSBACH__) || defined (__NO_ICON_OCEAN__)
   USE mo_exception,         ONLY: finish
+#endif
   USE mo_surface_diag,      ONLY: wind_stress, surface_fluxes
   USE mo_echam_vdiff_params,ONLY: tpfac2
   USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config
@@ -72,9 +74,10 @@ CONTAINS
                            & prsfc,                             &! in
                            & pssfl,                             &! in
                            & pssfc,                             &! in
-                           & rlns,                              &! inout
                            & rlds,                              &! in
-                           & rsns,                              &! inout
+                           & rlus,                              &! inout
+                           & rsds,                              &! in
+                           & rsus,                              &! inout
                            !
                            & rvds_dir,                          &! in
                            & rpds_dir,                          &! in
@@ -157,7 +160,8 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(IN) :: prsfc     (kbdim)              ! rain convective
     REAL(wp),OPTIONAL,INTENT(IN) :: pssfl     (kbdim)              ! snow large scale
     REAL(wp),OPTIONAL,INTENT(IN) :: pssfc     (kbdim)              ! snow convective
-    REAL(wp),OPTIONAL,INTENT(IN) :: rlds      (kbdim)              ! downward surface longwave flux [W/m2]
+    REAL(wp),OPTIONAL,INTENT(IN) :: rlds      (kbdim)              ! downward surface  longwave flux [W/m2]
+    REAL(wp),OPTIONAL,INTENT(IN) :: rsds      (kbdim)              ! downward surface shortwave flux [W/m2]
     
     REAL(wp),INTENT(IN) :: rvds_dir(kbdim)        ! all-sky   vis. dir. downward flux at current   time [W/m2]
     REAL(wp),INTENT(IN) :: rpds_dir(kbdim)        ! all-sky   par  dir. downward flux at current   time [W/m2]
@@ -185,8 +189,8 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(INOUT) :: albedo_tile(kbdim,ksfc_type)
     REAL(wp),OPTIONAL,INTENT(OUT)   :: ptsfc    (kbdim) ! OUT
     REAL(wp),OPTIONAL,INTENT(OUT)   :: ptsfc_rad(kbdim) ! OUT
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: rlns       (kbdim)            ! INOUT net surface longwave flux [W/m2]
-    REAL(wp),OPTIONAL,INTENT(INOUT) :: rsns       (kbdim)            ! IOUT net surface shortwave flux [W/m2]
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: rlus     (kbdim)           ! INOUT upward surface  longwave flux [W/m2]
+    REAL(wp),OPTIONAL,INTENT(INOUT) :: rsus     (kbdim)           ! INOUT upward surface shortwave flux [W/m2]
     REAL(wp),OPTIONAL,INTENT(INOUT) :: rsns_tile(kbdim,ksfc_type) ! OUT
     REAL(wp),OPTIONAL,INTENT(INOUT) :: rlns_tile(kbdim,ksfc_type) ! OUT
     !! Sea ice
@@ -216,11 +220,13 @@ CONTAINS
     REAL(wp) :: zen_qv(kbdim,ksfc_type)
     REAL(wp) :: zfn_qv(kbdim,ksfc_type)
 
-    REAL(wp) :: &
-      & evapotranspiration(kbdim),                                                                  &
-      & sat_surface_specific_humidity(kbdim), dry_static_energy(kbdim),                             &
-      & ztsfc_lnd(kbdim), ztsfc_lnd_eff(kbdim),                                                     &
-      & rvds(kbdim), rnds(kbdim), rsds(kbdim), rpds(kbdim),                                         &
+    REAL(wp) ::                                 &
+      & evapotranspiration(kbdim),              &
+      & sat_surface_specific_humidity(kbdim),   &
+      & dry_static_energy(kbdim),               &
+      & ztsfc_lnd(kbdim), ztsfc_lnd_eff(kbdim), &
+      & rvds(kbdim), rnds(kbdim), rpds(kbdim),  &
+      & rsns(kbdim), rlns(kbdim),               &
       & zalbvis(kbdim), zalbnir(kbdim)
 
     REAL(wp) :: zgrnd_hflx(kbdim,ksfc_type), zgrnd_hcap(kbdim,ksfc_type), ztsfc(kbdim)
@@ -265,10 +271,11 @@ CONTAINS
     ! Compute downward shortwave surface fluxes
     rvds(1:kproma)      = rvds_dif(1:kproma) + rvds_dir(1:kproma)
     rnds(1:kproma)      = rnds_dif(1:kproma) + rnds_dir(1:kproma)
-    rsds(1:kproma)      = rvds(1:kproma)     + rnds(1:kproma)
-
     rpds(1:kproma)      = rpds_dif(1:kproma) + rpds_dir(1:kproma)
     
+    rsns(1:kproma)      = rsds(1:kproma) - rsus(1:kproma)
+    rlns(1:kproma)      = rlds(1:kproma) - rlus(1:kproma)
+
     ! Turbulent transport of moisture:
     ! - finish matrix set up;
     ! - perform bottom level elimination;
@@ -659,11 +666,13 @@ CONTAINS
     ! This includes the update of the lw flux on land due to the new surface temperature where only part
     ! of the net radiation was used (due to the Taylor truncation in the surface energy balance)
     rlns(:) = 0._wp
-    rsns(:) = 0._wp
+!!$    rsns(:) = 0._wp
     DO jsfc=1,ksfc_type
       rlns(1:kproma) = rlns(1:kproma) + pfrc(1:kproma,jsfc) * rlns_tile(1:kproma,jsfc)
-      rsns(1:kproma) = rsns(1:kproma) + pfrc(1:kproma,jsfc) * rsns_tile(1:kproma,jsfc)
+!!$      rsns(1:kproma) = rsns(1:kproma) + pfrc(1:kproma,jsfc) * rsns_tile(1:kproma,jsfc)
     END DO
+    rlus(1:kproma) = rlds(1:kproma) -rlns(1:kproma)
+!!$    rsus(1:kproma) = rsds(1:kproma) -rsns(1:kproma)
 
     ! Merge surface albedos
     albvisdir(:) = 0._wp
