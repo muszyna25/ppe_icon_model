@@ -148,6 +148,7 @@ CONTAINS
     ! minimum top index for dry convection
     mtop_min = (ih_clch+ih_clcm)/2    
 
+   
     prm_diag%locum(:,:) = .FALSE.
 
 !$OMP PARALLEL 
@@ -160,28 +161,37 @@ CONTAINS
        !Cloud base and cloud top model levels
        DO jc = i_startidx, i_endidx
 
+         !cloud top
          found_cltop = -1
-         found_clbas = -1
          DO jk = kstart_moist, nlev-1
-
-           !cloud top- full level
-           IF(p_prog_rcf%tracer(jc,jk,jb,iqc)<qc_min.AND. &
+           IF(jk.EQ.kstart_moist.AND.p_prog_rcf%tracer(jc,jk,jb,iqc)>qc_min.AND.found_cltop/=1)THEN
+             prm_diag%mtop_con(jc,jb) = jk
+             found_cltop = 1
+           ELSEIF(p_prog_rcf%tracer(jc,jk,jb,iqc)<qc_min.AND. &
                p_prog_rcf%tracer(jc,jk+1,jb,iqc)>qc_min.AND.found_cltop/=1)THEN
              prm_diag%mtop_con(jc,jb) = jk
              found_cltop = 1
            END IF
-
-           !cloud base- half level
-           IF(p_prog_rcf%tracer(jc,jk,jb,iqc)>qc_min.AND. &
-               p_prog_rcf%tracer(jc,jk+1,jb,iqc)<qc_min.AND.found_clbas/=1)THEN
-             prm_diag%mbas_con(jc,jb) = jk    
-             found_clbas = 1   
-           END IF
-           
          END DO
 
+         !cloud base
+         found_clbas = -1
+         DO jk = nlev, kstart_moist+1, -1
+           IF(jk.EQ.nlev.AND.p_prog_rcf%tracer(jc,jk,jb,iqc)>qc_min.AND.found_clbas/=1)THEN !Fog
+             prm_diag%mbas_con(jc,jb) = jk    
+             found_clbas = 1
+           ELSEIF(p_prog_rcf%tracer(jc,jk,jb,iqc)<qc_min.AND. &
+               p_prog_rcf%tracer(jc,jk-1,jb,iqc)>qc_min.AND.found_clbas/=1)THEN !otherwise
+             prm_diag%mbas_con(jc,jb) = jk    
+             found_clbas = 1
+           END IF
+         END DO
+
+         !Accept only when both top and bottom exist and height of bottom is 
+         !lower than that of top
          IF(found_clbas==1.AND.found_cltop==1)THEN
-           prm_diag%locum(jc,jb) = .TRUE.
+           IF(prm_diag%mtop_con(jc,jb) < prm_diag%mbas_con(jc,jb)) &
+              prm_diag%locum(jc,jb) = .TRUE.
          ELSE
            prm_diag%mbas_con(jc,jb) = -1
            prm_diag%mtop_con(jc,jb) = -1
