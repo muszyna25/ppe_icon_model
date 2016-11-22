@@ -295,7 +295,7 @@ cat > ${lnd_namelist} <<EOF
   routing_scheme  = 'full'
   bc_filename     = 'bc_land_hd.nc'
   diag_water_budget = .TRUE.
-  debug_hd        = .TRUE.
+  !debug_hd        = .TRUE.
 /
 EOF
 
@@ -440,7 +440,7 @@ if [[ "$output_atm_min" == "yes" ]]; then
                     'sfcwind' , 'uas'     , 'vas'
 /
 &dbg_index_nml
-  idbg_mxmn        = 4                        ! initialize MIN/MAX  debug output
+  idbg_mxmn        = 2                        ! initialize MIN/MAX  debug output
   idbg_val         = 0                        ! initialize one cell debug output
   idbg_slev        = 1                        ! initialize start level for debug output
   idbg_elev        = 2                        ! initialize end level for debug output
@@ -670,7 +670,7 @@ cat > ${oce_namelist} << EOF
   ml_varlist       =  'group:ocean_monitor'
 /
 &dbg_index_nml
-  idbg_mxmn        = 4                        ! initialize MIN/MAX  debug output
+  idbg_mxmn        = 2                        ! initialize MIN/MAX  debug output
   idbg_val         = 0                        ! initialize one cell debug output
   idbg_slev        = 1                        ! initialize start level for debug output
   idbg_elev        = 2                        ! initialize end level for debug output
@@ -838,6 +838,7 @@ fi
 # III.2 Add standard ocean input files 
 # ------------------------------------
 
+# PHC3.0, 40km resolution:
 datadir=$grids_folder/Ocean
 add_required_file ${datadir}/ts_phc3.0_annual_pre04_slo_0039km_L64.nc initial_state.nc
 
