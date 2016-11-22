@@ -955,6 +955,7 @@ CONTAINS
                   &          datatype_flt),                                    &
                   & grib2_var(0,20,2, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
                   & ldims=(/kproma,klev,kblks/),                               &
+                  & lrestart = .FALSE.,                                        &
                   & vert_interp=create_vert_interp_metadata(                   &
                   &             vert_intp_type=vintp_types("P","Z","I"),       & 
                   &             vert_intp_method=VINTP_METHOD_LIN,             &
@@ -970,6 +971,7 @@ CONTAINS
                   &          datatype_flt),                                    &
                   & grib2_var(0,20,2, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
                   & ldims=(/kproma,klev,kblks/),                               &
+                  & lrestart = .FALSE.,                                        &
                   & vert_interp=create_vert_interp_metadata(                   &
                   &             vert_intp_type=vintp_types("P","Z","I"),       & 
                   &             vert_intp_method=VINTP_METHOD_LIN,             &
@@ -983,6 +985,7 @@ CONTAINS
                   &          'kg m-2', TRIM(ctracer(jtrc))//' path (physics)', &
                   &          datatype_flt),                                    &
                   & grib2_var(0,20,2, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
+                  & lrestart = .FALSE.,                                        &
                   & ldims=(/kproma,kblks/)                                     )
     END DO                                                                                
 
@@ -1065,33 +1068,37 @@ CONTAINS
     cf_desc    = t_cf_var('condensated_water', 'kg kg-1', 'cloud water + cloud ice', &
          &                datatype_flt)
     grib2_desc = grib2_var(0,1,21, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'clx_phy', field%qx,                          &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
-                & vert_interp=create_vert_interp_metadata(                          &
-                &             vert_intp_type=vintp_types("P","Z","I"),              & 
-                &             vert_intp_method=VINTP_METHOD_LIN,                    &
-                &             l_loglin=.FALSE.,                                     &
-                &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,                &
+    CALL add_var( field_list, prefix//'clx_phy', field%qx,                     &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
+                & ldims=shape3d, lrestart = .FALSE.,                           &
+                & vert_interp=create_vert_interp_metadata(                     &
+                &             vert_intp_type=vintp_types("P","Z","I"),         & 
+                &             vert_intp_method=VINTP_METHOD_LIN,               &
+                &             l_loglin=.FALSE.,                                &
+                &             l_extrapol=.TRUE., l_pd_limit=.FALSE.,           &
                 &             lower_limit=0._wp  ) )
 
     ! &       field% omega     (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('vertical_velocity', 'Pa s-1', 'vertical velocity in physics', datatype_flt)
     grib2_desc = grib2_var(0,2,8, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'omega_phy', field%omega,                  &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
-                & vert_interp=create_vert_interp_metadata(                       &
-                &             vert_intp_type=vintp_types("P","Z","I"),           &
-                &             vert_intp_method=VINTP_METHOD_LIN,                 &
+    CALL add_var( field_list, prefix//'omega_phy', field%omega,                &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
+                & ldims=shape3d, lrestart = .FALSE.,                           &
+                & vert_interp=create_vert_interp_metadata(                     &
+                &             vert_intp_type=vintp_types("P","Z","I"),         &
+                &             vert_intp_method=VINTP_METHOD_LIN,               &
                 &             l_loglin=.FALSE., l_extrapol=.FALSE.) )
 
     ! &       field% geom      (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('geopotential', 'm2 s-2', 'geopotential above surface', datatype_flt)
     grib2_desc = grib2_var(0, 3, 4, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'gpsm', field%geom,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
-                & vert_interp=create_vert_interp_metadata(                      &
-                &             vert_intp_type=vintp_types("P","Z","I"),          &
-                &             vert_intp_method=VINTP_METHOD_LIN,                &
+    CALL add_var( field_list, prefix//'gpsm', field%geom,                      &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
+                & ldims=shape3d, lrestart = .FALSE.,                           &
+                & isteptype=TSTEP_CONSTANT,                                    &
+                & vert_interp=create_vert_interp_metadata(                     &
+                &             vert_intp_type=vintp_types("P","Z","I"),         &
+                &             vert_intp_method=VINTP_METHOD_LIN,               &
                 &             l_extrapol=.TRUE., l_pd_limit=.FALSE.) )
 
     ! &       field% presm_old (nproma,nlev  ,nblks),          &
