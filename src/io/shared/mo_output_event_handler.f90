@@ -2487,7 +2487,7 @@ CONTAINS
     nreq = 0
     DO
       IF (.NOT. ASSOCIATED(ev)) EXIT
-      nreq = nreq + ev%irecv_nreq
+      IF (ALLOCATED(ev%irecv_req)) nreq = nreq + ev%irecv_nreq
       ev => ev%next
     END DO
     IF (ldebug) THEN
@@ -2503,9 +2503,10 @@ CONTAINS
     ireq = 1
     DO
       IF (.NOT. ASSOCIATED(ev)) EXIT
-      IF (ALLOCATED(event%irecv_req)) &
+      IF (ALLOCATED(ev%irecv_req)) THEN
         irecv_req(ireq:(ireq+ev%irecv_nreq-1)) = ev%irecv_req(1:ev%irecv_nreq)
-      ireq = ireq + ev%irecv_nreq
+        ireq = ireq + ev%irecv_nreq
+      ENDIF
       ev => ev%next
     END DO
 
