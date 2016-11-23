@@ -478,7 +478,6 @@ CONTAINS
       field% ssfc  (:,  :) = 0._wp
       field% omega (:,:,:) = 0._wp
 
-      field%totprec_avg(:,:) = 0._wp
       field%  evap (:,  :) = 0._wp
       field% lhflx (:,  :) = 0._wp
       field% shflx (:,  :) = 0._wp
@@ -913,12 +912,6 @@ CONTAINS
       ENDDO   !jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-
-      !----------------------------------------
-      ! Reset accumulated variables
-      !----------------------------------------
-
-      field%totprec_avg(:,:)   = 0._wp
 
       NULLIFY( field )
     ENDDO !jg

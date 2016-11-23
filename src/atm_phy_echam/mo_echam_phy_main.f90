@@ -1161,10 +1161,6 @@ CONTAINS
             &                            +field% rsfc (jcs:jce,jb) & ! rain convection
             &                            +field% ssfc (jcs:jce,jb)   ! snow convection
 
-    ! accumulated total precipitation flux => average when output
-       field% totprec_avg (jcs:jce,jb) =  field% totprec_avg (jcs:jce,jb)          &
-            &                            +field% totprec     (jcs:jce,jb) * pdtime
-
     ! Now compute tendencies from physics alone
 
     tend% temp_phy (jcs:jce,:,jb)   = tend% temp (jcs:jce,:,jb)   - tend% temp_phy (jcs:jce,:,jb)
