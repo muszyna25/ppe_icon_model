@@ -335,8 +335,8 @@ CONTAINS
     REAL(wp), INTENT(in)     :: pqm1(kbdim), pgeom1(kbdim) 
     REAL(wp), INTENT(in)     :: pcptgz(kbdim)         !< dry static energy at surface level
     REAL(wp), INTENT(in)     :: pcpt_tile(kbdim,ksfc_type) !< dry static energy on tiles
-    REAL(wp), INTENT(in)     :: pbn_tile(kbdim,ksfc_type)   !< for diagnostics
-    REAL(wp), INTENT(in)     :: pbhn_tile(kbdim,ksfc_type)  !< for diagnostics
+    REAL(wp), TARGET, INTENT(in) :: pbn_tile(kbdim,ksfc_type)   !< for diagnostics
+    REAL(wp), TARGET, INTENT(in) :: pbhn_tile(kbdim,ksfc_type)  !< for diagnostics
     REAL(wp), INTENT(in)     :: pbh_tile(kbdim,ksfc_type)   !< for diagnostics
     REAL(wp), INTENT(in)     :: pbm_tile(kbdim,ksfc_type)   !< for diagnostics
     REAL(wp), INTENT(in)     :: pri_tile   (kbdim,ksfc_type) !< moist Richardson number
@@ -360,8 +360,10 @@ CONTAINS
     REAL(wp)     :: zh2m(kbdim), zqs1(kbdim), zrh2m(kbdim), zcvm3(kbdim), zcvm4(kbdim)
     REAL(wp)     :: zaph2m(kbdim), zqs2(kbdim), zq2m(kbdim), zfrac(kbdim)
     REAL(wp)     :: ua(kbdim)
-    
-    
+    REAL(wp), POINTER :: pbtile(:,:)
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: pbtile
+#endif
     !CONSTANTS
     zhuv          = 10._wp * grav
     zhtq          = 2._wp * grav
@@ -397,22 +399,23 @@ CONTAINS
     !     Compute new t2m
     !
     DO jsfc = 1,ksfc_type
-     DO jls=1,is(jsfc)
+      IF ( jsfc == idx_lnd ) THEN
+        ! land only
+        pbtile => pbhn_tile
+      ELSE
+        ! water and ice
+        pbtile => pbn_tile
+      END IF
+      DO jls=1,is(jsfc)
        jl = loidx(jls,jsfc)
        zrat   = zhtq / pgeom1(jl)
-       IF ( jsfc == idx_lnd ) THEN                    ! land only
-          zcbn   = LOG(1._wp + (EXP (pbhn_tile(jl,jsfc)) - 1._wp) * zrat )
-          zcbs   = -(pbhn_tile(jl,jsfc) - pbh_tile(jl,jsfc)) * zrat
-          zcbu   = -LOG(1._wp + (EXP (pbhn_tile(jl,jsfc) - pbh_tile(jl,jsfc)) - 1._wp) * zrat)
-       ELSE                                           ! water and ice
-          zcbn   = LOG(1._wp + (EXP (pbn_tile(jl,jsfc)) - 1._wp) * zrat )
-          zcbs   = -(pbn_tile(jl,jsfc) - pbh_tile(jl,jsfc)) * zrat
-          zcbu   = -LOG(1._wp + (EXP (pbn_tile(jl,jsfc) - pbh_tile(jl,jsfc)) - 1._wp) * zrat)
-       ENDIF
+       zcbn   = LOG(1._wp + (EXP(pbtile(jl,jsfc)) - 1._wp) * zrat )
+       zcbs   = -(pbtile(jl,jsfc) - pbh_tile(jl,jsfc)) * zrat
+       zcbu   = -LOG(1._wp + (EXP(pbtile(jl,jsfc) - pbh_tile(jl,jsfc)) - 1._wp) * zrat)
        zmerge = MERGE(zcbs,zcbu,pri_tile(jl,jsfc) .GT. 0._wp)
        zred   = (zcbn + zmerge) / pbh_tile(jl,jsfc)
        zh2m(jl)   = pcpt_tile(jl,jsfc) + zred * (pcptgz(jl) - pcpt_tile(jl,jsfc))
-       ptas_tile(jl,jsfc) = (zh2m(jl) - zhtq ) / (cpd * (1._wp + vtmpc2 * pqm1(jl)))    
+       ptas_tile(jl,jsfc) = (zh2m(jl) - zhtq ) / (cpd * (1._wp + vtmpc2 * pqm1(jl)))
      ENDDO
     ENDDO
     !
