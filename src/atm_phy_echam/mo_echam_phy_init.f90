@@ -824,8 +824,8 @@ CONTAINS
         prm_field(jg)%albedo   (:,:) = prm_field(jg)%alb(:,:)
       END IF
 
-      prm_field(jg)%tsfc_rad (:,:) = prm_field(jg)%tsfc(:,:)
-      prm_field(jg)%tsfc_radt(:,:) = prm_field(jg)%tsfc(:,:)
+      prm_field(jg)%tsfc_rad   (:,:) = prm_field(jg)%tsfc(:,:)
+      prm_field(jg)%tsfc_rad_rt(:,:) = prm_field(jg)%tsfc(:,:)
 
       NULLIFY( field,tend )
 

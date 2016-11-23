@@ -346,9 +346,9 @@ CONTAINS
        !-----------------------
        IF (ltrig_rad) THEN
 
-          ! store tsfc_rad of this radiatiative transfer timestep in tsfc_radt,
+          ! store tsfc_rad of this radiatiative transfer timestep in tsfc_rad_rt,
           ! so that it can be reused in radheat in the other timesteps
-          field%tsfc_radt(jcs:jce,jb) = field%tsfc_rad(jcs:jce,jb)
+          field%tsfc_rad_rt(jcs:jce,jb) = field%tsfc_rad(jcs:jce,jb)
 
         IF (ltimer) CALL timer_start(timer_radiation)
 
@@ -368,7 +368,7 @@ CONTAINS
         & alb_nir_dir    = field%albnirdir(:,jb)   ,&!< in  surface albedo for near IR range, direct
         & alb_vis_dif    = field%albvisdif(:,jb)   ,&!< in  surface albedo for visible range, diffuse
         & alb_nir_dif    = field%albnirdif(:,jb)   ,&!< in  surface albedo for near IR range, diffuse
-        & tk_sfc         = field%tsfc_radt(:,jb)   ,&!< in  grid box mean surface temperature
+        & tk_sfc         = field%tsfc_rad_rt(:,jb) ,&!< in  grid box mean surface temperature
         & zf             = field%zf(:,:,jb)        ,&!< in  geometric height at full level      [m]
         & zh             = field%zh(:,:,jb)        ,&!< in  geometric height at half level      [m]
         & dz             = field%dz(:,:,jb)        ,&!< in  geometric height thickness of layer [m]
@@ -432,7 +432,7 @@ CONTAINS
         !
         & emiss      = ext_data(jg)%atm%emis_rad(:,jb),&! lw sfc emissivity
         & tsr        = field%tsfc_rad (:,jb)          ,&! radiative surface temperature at current   time [K]
-        & tsr_rt     = field%tsfc_radt(:,jb)          ,&! radiative surface temperature at radiation time [K]
+        & tsr_rt     = field%tsfc_rad_rt(:,jb)        ,&! radiative surface temperature at radiation time [K]
         !
         & rsd_rt     = field%rsd_rt           (:,:,jb),&! all-sky   shortwave downward flux at radiation time [W/m2]
         & rsu_rt     = field%rsu_rt           (:,:,jb),&! all-sky   shortwave upward   flux at radiation time [W/m2]

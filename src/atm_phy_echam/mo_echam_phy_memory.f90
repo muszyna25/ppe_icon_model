@@ -295,10 +295,10 @@ MODULE mo_echam_phy_memory
 
     ! JSBACH
     REAL(wp),POINTER :: &
-      & tsfc_rad  (:,  :),  &!< [K] radiative sfc. temperature for use in radiation
-      & tsfc_radt (:,  :),  &!< [K] radiative sfc. temperature at radiation time
-      & csat      (:,  :),  &!<
-      & cair      (:,  :)    !<
+      & tsfc_rad   (:,  :),  &!< [K] radiative sfc. temperature for use in radiation
+      & tsfc_rad_rt(:,  :),  &!< [K] radiative sfc. temperature at radiation time
+      & csat       (:,  :),  &!<
+      & cair       (:,  :)    !<
 
     ! Sea ice.
     ! See also atm_oce_lnd_interface/mo_sea_ice_types.f90
@@ -1175,10 +1175,10 @@ CONTAINS
          &                 'cosine of the zenith angle at radiation time' , &
          &                 datatype_flt                                   )
     grib2_desc = grib2_var(192,214,1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var(field_list, prefix//'cosmu0_rad', field%cosmu0_rt , &
-         &       GRID_UNSTRUCTURED_CELL , ZA_SURFACE               , &
-         &       cf_desc , grib2_desc                              , &
-         &       ldims=shape2d                                     )
+    CALL add_var(field_list, prefix//'cosmu0_rt', field%cosmu0_rt, &
+         &       GRID_UNSTRUCTURED_CELL , ZA_SURFACE             , &
+         &       cf_desc , grib2_desc                            , &
+         &       ldims=shape2d                                   )
 
     cf_desc    = t_cf_var( 'daylght_frc', &
          &                 ''           , &
@@ -1196,10 +1196,10 @@ CONTAINS
          &                 ''               , &
          &                 datatype_flt     )
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var(field_list, prefix//'daylght_frc_rad', field%daylght_frc_rt , &
-         &       GRID_UNSTRUCTURED_CELL , ZA_SURFACE                         , &
-         &       cf_desc, grib2_desc                                         , &
-         &       ldims=shape2d                                               )
+    CALL add_var(field_list, prefix//'daylght_frc_rt', field%daylght_frc_rt, &
+         &       GRID_UNSTRUCTURED_CELL , ZA_SURFACE                       , &
+         &       cf_desc, grib2_desc                                       , &
+         &       ldims=shape2d                                             )
 
 
     ! shortwave fluxes
@@ -1686,75 +1686,105 @@ CONTAINS
 
     cf_desc    = t_cf_var('siced', 'm', 'sea ice thickness', datatype_flt)
     grib2_desc = grib2_var(10,2,1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'sit', field%siced,      &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+    CALL add_var( field_list, prefix//'sit', field%siced,                  &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape2d )
 
     cf_desc    = t_cf_var('alb', '', 'surface albedo from external file', datatype_flt)
     grib2_desc = grib2_var(0,19,1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'alb', field%alb,      &
+    CALL add_var( field_list, prefix//'alb', field%alb,                    &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape2d )
+
+    cf_desc    = t_cf_var('ts_rad', 'K', 'radiative surface temperature', datatype_flt)
+    grib2_desc = grib2_var(0,0,17, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'ts_rad', field%tsfc_rad,            &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape2d )
+
+    cf_desc    = t_cf_var('ts_rad_rt', 'K', 'radiative surface temperature at rad. time', datatype_flt)
+    grib2_desc = grib2_var(0,0,17, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'ts_rad_rt', field%tsfc_rad_rt,  &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
+    !
+    !------------------
+    !
+
+    ! Topography
+    ! - resolved
+    !
     cf_desc    = t_cf_var('surface_height_above_sea_level', 'm',   &
                 &         'Mean height above sea level of orography', datatype_flt)
     grib2_desc = grib2_var(0,3,6, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'oromea', field%oromea,      &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+    CALL add_var( field_list, prefix//'oromea', field%oromea,              &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape2d,                       &
+                & isteptype=TSTEP_CONSTANT )
 
+    ! - unresolved
     cf_desc    = t_cf_var('standard_deviation_of_height', 'm',     &
                 &         'Standard deviation of height above sea level of sub-grid scale orography', &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,3,20, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'orostd', field%orostd,      &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+    CALL add_var( field_list, prefix//'orostd', field%orostd,              &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape2d,                       &
+                & isteptype=TSTEP_CONSTANT )
 
     cf_desc    = t_cf_var('slope_of_terrain', '-',                 &
                 &         'Slope of sub-gridscale orography', datatype_flt)
     grib2_desc = grib2_var(0,3,22, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'orosig', field%orosig,      &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape2d,                       &
+                & isteptype=TSTEP_CONSTANT )
 
     cf_desc    = t_cf_var('anisotropy_factor', '-',                &
                 &         'Anisotropy of sub-gridscale orography', datatype_flt)
     grib2_desc = grib2_var(0,3,24, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-
-    CALL add_var( field_list, prefix//'orogam', field%orogam,      &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+    CALL add_var( field_list, prefix//'orogam', field%orogam,              &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape2d,                       &
+                & isteptype=TSTEP_CONSTANT )
 
     cf_desc    = t_cf_var('angle_of_principal_axis', 'radians',    &
                 &         'Angle of sub-gridscale orography', datatype_flt)
     grib2_desc = grib2_var(0,3,21, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'orothe', field%orothe,      &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+    CALL add_var( field_list, prefix//'orothe', field%orothe,              &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape2d,                       &
+                & isteptype=TSTEP_CONSTANT )
 
     cf_desc    = t_cf_var('height_of_peaks', 'm', 'Height above sea level of peaks', datatype_flt)
     grib2_desc = grib2_var(0,3,6, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'oropic', field%oropic,      &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+    CALL add_var( field_list, prefix//'oropic', field%oropic,              &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape2d,                       &
+                & isteptype=TSTEP_CONSTANT )
 
     cf_desc    = t_cf_var('height_of_valleys', 'm', 'Height above sea level of valleys', datatype_flt)
     grib2_desc = grib2_var(0,3,6, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'oroval', field%oroval,      &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+    CALL add_var( field_list, prefix//'oroval', field%oroval,              &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape2d,                       &
+                & isteptype=TSTEP_CONSTANT )
 
-    cf_desc    = t_cf_var('ts_rad', 'K', 'radiative surface temperature', datatype_flt)
-    grib2_desc = grib2_var(0,0,17, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'ts_rad', field%tsfc_rad,    &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-
-    cf_desc    = t_cf_var('ts_radt', 'K', 'radiative surface temperature at rad. time', datatype_flt)
-    grib2_desc = grib2_var(0,0,17, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'ts_radt', field%tsfc_radt,  &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+    !
+    !------------------
+    !
 
     cf_desc    = t_cf_var('csat', '', '', datatype_flt)
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'csat', field%csat,      &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+    CALL add_var( field_list, prefix//'csat', field%csat,                  &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape2d )
 
     cf_desc    = t_cf_var('cair', '', '', datatype_flt)
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'cair', field%cair,      &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+    CALL add_var( field_list, prefix//'cair', field%cair,                  &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape2d )
 
     !-------------------------
     ! Sea ice
