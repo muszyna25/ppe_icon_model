@@ -45,11 +45,12 @@
 MODULE mo_advection_traj
 
   USE mo_kind,                ONLY: wp, vp
+  USE mo_exception,           ONLY: finish
   USE mo_model_domain,        ONLY: t_patch
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_parallel_config,     ONLY: nproma
   USE mo_loopindices,         ONLY: get_indices_e
-  USE mo_impl_constants,      ONLY: min_rledge_int
+  USE mo_impl_constants,      ONLY: min_rledge_int, SUCCESS, MAX_CHAR_LENGTH
   USE mo_timer,               ONLY: timer_start, timer_stop, timers_level, timer_back_traj
   USE mo_advection_utils,     ONLY: t_list2D
 !!$  USE mo_math_constants,      ONLY: dbl_eps
@@ -68,6 +69,7 @@ MODULE mo_advection_traj
   PUBLIC :: btraj
   PUBLIC :: btraj_dreg
   PUBLIC :: btraj_o2
+  PUBLIC :: t_back_traj
 
 #if defined( _OPENACC )
 #define ACC_DEBUG $ACC
@@ -78,7 +80,97 @@ MODULE mo_advection_traj
 #endif
 #endif
 
+
+  TYPE t_back_traj
+    ! line indices of cell centers in which the calculated barycenters are located
+    ! dim: (nproma,nlev,p_patch%nblks_e)
+    INTEGER , ALLOCATABLE :: cell_idx(:,:,:)
+    !
+    ! block indices of cell centers in which the calculated barycenters are located
+    ! dim: (nproma,nlev,p_patch%nblks_e)
+    INTEGER , ALLOCATABLE :: cell_blk(:,:,:)
+    !
+    ! distance vectors cell center --> barycenter of advected area (geographical coordinates)
+    ! dim: (nproma,nlev,p_patch%nblks_e,2)
+    REAL(vp), ALLOCATABLE :: distv_bary(:,:,:,:)
+
+  CONTAINS
+    !
+    PROCEDURE :: construct
+    PROCEDURE :: destruct
+    PROCEDURE :: compute    => btraj_compute_o1 ! 1st order backward trajectore computation
+    PROCEDURE :: compute_o2 => btraj_compute_o2 ! 2nd order backward trajectore computation
+    
+  END TYPE t_back_traj
+
 CONTAINS
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Allocate object components
+  !!
+  !! Allocates all components of the object of class t_back_traj
+  !!
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2016-11-23)
+  !!
+  SUBROUTINE construct(obj, nproma, nlev, nblks, ncoord)
+    CLASS(t_back_traj) :: obj
+    INTEGER, INTENT(IN) :: nproma
+    INTEGER, INTENT(IN) :: nlev
+    INTEGER, INTENT(IN) :: nblks
+    INTEGER, INTENT(IN) :: ncoord
+    !
+    ! local
+    INTEGER :: ist
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_advection_traj: construct'
+
+    ALLOCATE(obj%cell_idx(nproma,nlev,nblks), &
+      &      obj%cell_blk(nproma,nlev,nblks), STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish ( TRIM(routine), 'allocation for cell_idx and cell_blk failed' )
+    ENDIF
+
+    ALLOCATE(obj%distv_bary(nproma,nlev,nblks,ncoord), STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish ( TRIM(routine), 'allocation for distv_bary failed' )
+    ENDIF
+
+  END SUBROUTINE construct
+
+
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Deallocate object components
+  !!
+  !! Deallocates all components of the object of class t_back_traj
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2016-11-23)
+  !!
+  SUBROUTINE destruct(obj)
+    CLASS(t_back_traj) :: obj
+    !
+    ! local
+    INTEGER :: ist
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_advection_traj: construct'
+
+    DEALLOCATE(obj%cell_idx, obj%cell_blk, STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish ( TRIM(routine), 'deallocation for cell_idx and cell_blk failed' )
+    ENDIF
+
+    DEALLOCATE(obj%distv_bary, STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish ( TRIM(routine), 'allocation for distv_bary failed' )
+    ENDIF
+
+  END SUBROUTINE destruct
+
 
 
   !-------------------------------------------------------------------------
@@ -100,9 +192,200 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2010-03-17)
   !!
-  SUBROUTINE btraj( ptr_p, ptr_int, p_vn, p_vt, p_dthalf, p_cell_idx, &
+  SUBROUTINE btraj_compute_o1( this, ptr_p, ptr_int, p_vn, p_vt, p_dthalf, &
+    &                          opt_rlstart, opt_rlend, opt_slev, opt_elev )
+
+    CLASS(t_back_traj) :: this
+
+    TYPE(t_patch), TARGET, INTENT(in) ::      &  !< patch on which computation is performed
+         &  ptr_p
+
+    TYPE(t_int_state), TARGET, INTENT(in) ::  &  !< pointer to data structure for interpolation
+         &  ptr_int
+
+    REAL(wp), INTENT(IN)    ::  &  !< normal component of velocity vector at edge midpoints
+         &  p_vn(:,:,:)
+
+    REAL(wp), INTENT(IN)    ::  &  !< tangential component of velocity vector at
+         &  p_vt(:,:,:)               !< edge midpoints
+
+    REAL(wp), INTENT(IN)    ::  &  !< $0.5 \Delta t$
+         &  p_dthalf
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
+         &  opt_rlstart
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
+         &  opt_rlend                     !< (to avoid calculation of halo points)
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
+         &  opt_slev
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
+         &  opt_elev
+
+    REAL(wp) :: z_ntdistv_bary(2)      !< cell center --> barycenter in 'normal' and
+                                       !< 'tangential' coordinates.
+
+    INTEGER :: je, jk, jb        !< index of edge, vert level, block
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER :: i_rlstart, i_rlend, i_nchdom
+    INTEGER :: slev, elev        !< vertical start and end level
+    LOGICAL :: lvn_pos
+
+    !-------------------------------------------------------------------------
+
+    ! Check for optional arguments
+    IF ( PRESENT(opt_slev) ) THEN
+      slev = opt_slev
+    ELSE
+      slev = 1
+    END IF
+
+    IF ( PRESENT(opt_elev) ) THEN
+      elev = opt_elev
+    ELSE
+      elev = ptr_p%nlev
+    END IF
+
+    IF ( PRESENT(opt_rlstart) ) THEN
+      i_rlstart = opt_rlstart
+    ELSE
+      i_rlstart = 4
+    ENDIF
+
+    IF ( PRESENT(opt_rlend) ) THEN
+      i_rlend = opt_rlend
+    ELSE
+      i_rlend = min_rledge_int - 2
+    ENDIF
+
+    ! number of child domains
+    i_nchdom   = MAX(1,ptr_p%n_childdom)
+
+    i_startblk = ptr_p%edges%start_blk(i_rlstart,1)
+    i_endblk   = ptr_p%edges%end_blk(i_rlend,i_nchdom)
+
+    !-------------------------------------------------------------------------
+    IF (timers_level > 5) THEN
+      CALL timer_start(timer_back_traj)
+    ENDIF
+
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( this%distv_bary, this%cell_idx, this%cell_blk ),  IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG  UPDATE DEVICE ( p_vn, p_vt ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, this%distv_bary, this%cell_idx, this%cell_blk ), &
+!$ACC PRIVATE( z_ntdistv_bary ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,z_ntdistv_bary,lvn_pos) ICON_OMP_DEFAULT_SCHEDULE
+#endif
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
+           i_startidx, i_endidx, i_rlstart, i_rlend)
+
+!$ACC LOOP VECTOR COLLAPSE(2)
+      DO jk = slev, elev
+        DO je = i_startidx, i_endidx
+
+          !
+          ! Calculate backward trajectories
+          !
+
+          ! position of barycenter in normal direction
+          ! pos_barycenter(1) = - p_vn(je,jk,jb) * p_dthalf
+
+          ! position of barycenter in tangential direction
+          ! pos_barycenter(2) = - p_vt(je,jk,jb) * p_dthalf
+
+          ! logical auxiliary for MERGE operations: .TRUE. for vn >= 0
+          lvn_pos = p_vn(je,jk,jb) >= 0._wp
+
+          ! If vn > 0 (vn < 0), the upwind cell is cell 1 (cell 2)
+
+          ! line and block indices of neighbor cell with barycenter
+          this%cell_idx(je,jk,jb) = &
+             &   MERGE(ptr_p%edges%cell_idx(je,jb,1),ptr_p%edges%cell_idx(je,jb,2),lvn_pos)
+
+          this%cell_blk(je,jk,jb) = &
+             &   MERGE(ptr_p%edges%cell_blk(je,jb,1),ptr_p%edges%cell_blk(je,jb,2),lvn_pos)
+
+
+          ! Calculate the distance cell center --> barycenter for the cell,
+          ! in which the barycenter is located. The distance vector points
+          ! from the cell center to the barycenter.
+          z_ntdistv_bary(1) =  - ( p_vn(je,jk,jb) * p_dthalf     &
+               & + MERGE(ptr_int%pos_on_tplane_e(je,jb,1,1),        &
+               &         ptr_int%pos_on_tplane_e(je,jb,2,1),lvn_pos))
+
+          z_ntdistv_bary(2) =  - ( p_vt(je,jk,jb) * p_dthalf     &
+               & + MERGE(ptr_int%pos_on_tplane_e(je,jb,1,2),        &
+               &         ptr_int%pos_on_tplane_e(je,jb,2,2),lvn_pos))
+
+          ! In a last step, transform this distance vector into a rotated
+          ! geographical coordinate system with its origin at the circumcenter
+          ! of the upstream cell. Coordinate axes point to local East and local
+          ! North.
+
+          ! component in longitudinal direction
+          this%distv_bary(je,jk,jb,1) =                                                        &
+               &   z_ntdistv_bary(1)*MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v1,         &
+               &                           ptr_p%edges%primal_normal_cell(je,jb,2)%v1,lvn_pos) &
+               & + z_ntdistv_bary(2)*MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v1,           &
+               &                           ptr_p%edges%dual_normal_cell(je,jb,2)%v1,lvn_pos)
+
+          ! component in latitudinal direction
+          this%distv_bary(je,jk,jb,2) =                                                        &
+               &   z_ntdistv_bary(1)*MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v2,         &
+               &                           ptr_p%edges%primal_normal_cell(je,jb,2)%v2,lvn_pos) &
+               & + z_ntdistv_bary(2)*MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v2,           &
+               &                           ptr_p%edges%dual_normal_cell(je,jb,2)%v2,lvn_pos)
+
+        ENDDO ! loop over edges
+      ENDDO   ! loop over vertical levels
+    END DO    ! loop over blocks
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( this%cell_idx, this%cell_blk, this%distv_bary ) IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+#endif
+
+    IF (timers_level > 5) CALL timer_stop(timer_back_traj)
+
+  END SUBROUTINE btraj_compute_o1
+
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Computation of first order backward trajectories for FFSL transport scheme
+  !!
+  !! Computes backward trajectories in order to determine the barycenter of the
+  !! departure region. Here, a simple first order method is used. Computations are
+  !! performed on a plane tangent to the edge midpoint. Coordinate axes point into
+  !! the local normal and tangential direction.
+  !! Once the barycenter of the departure region is known, the distance vector
+  !! between the circumcenter of the upstream cell and the barycenter is computed.
+  !! In a final step, this vector is transformed into a rotated coordinate system
+  !! which has its origin at the circumcenter. The coordinate axes point to the local
+  !! east and local north. Note that this subroutine has specifically been designed
+  !! for the MIURA scheme with second order (linear) reconstruction of the subgrid 
+  !! distribution.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2010-03-17)
+  !!
+  SUBROUTINE btraj(ptr_p, ptr_int, p_vn, p_vt, p_dthalf, p_cell_idx, &
     &               p_cell_blk, p_distv_bary, opt_rlstart, opt_rlend, &
     &               opt_slev, opt_elev )
+
 
     TYPE(t_patch), TARGET, INTENT(in) ::      &  !< patch on which computation is performed
          &  ptr_p
@@ -654,6 +937,361 @@ CONTAINS
 
   END SUBROUTINE btraj_dreg
 
+
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Computation of second order backward trajectories for FFSL transport scheme
+  !!
+  !! Computes backward trajectories in order to determine the barycenter of the
+  !! departure region. Here, an iterative second order method is used. Computations
+  !! are performed on a plane tangent to the edge midpoint. Coordinate axes point
+  !! into the local normal and tangential direction. A bilinear interpolation is
+  !! applied using the velocity vectors at the three edge midpoints of the upwind cell
+  !! in order to derive an improved estimate of the velocity.
+  !!
+  !! Once the barycenter of the departure region is known, the distance vector
+  !! between the circumcenter of the upstream cell and the barycenter is computed.
+  !! In a final step, this vector is transformed into a different coordinate system
+  !! which has its origin at the circumcenter. The coordinate axes point to the local
+  !! east and local north.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2010-03-24)
+  !!
+  SUBROUTINE btraj_compute_o2( this, ptr_p, ptr_int, p_vn, p_vt, p_dthalf, &
+       &                       opt_rlstart, opt_rlend, opt_slev, opt_elev )
+
+    CLASS(t_back_traj) :: this
+
+    TYPE(t_patch), TARGET, INTENT(IN) ::      &  !< patch on which computation is performed
+         &  ptr_p
+
+    TYPE(t_int_state), TARGET, INTENT(IN) ::  &  !< pointer to data structure for interpolation
+         &  ptr_int
+
+    REAL(wp), INTENT(IN)    ::  &  !< normal component of velocity vector at edge midpoints
+         &  p_vn(:,:,:)
+
+    REAL(wp), INTENT(IN)    ::  &  !< tangential component of velocity vector at
+         &  p_vt(:,:,:)               !< edge midpoints
+
+    REAL(wp), INTENT(IN)  ::    &  !< $0.5 \Delta t$
+         &  p_dthalf
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
+         &  opt_rlstart
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
+         &  opt_rlend                     !< (to avoid calculation of halo points)
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
+         &  opt_slev
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
+         &  opt_elev
+
+    REAL(wp) :: pos_barycenter(2),  &   !< position of barycenter and distance vector
+         &         z_ntdistv_bary(2)       !< cell center --> barycenter in 'normal' and
+    !< 'tangential' coordinates.
+
+    REAL(wp), POINTER  ::  &     !< pointer to positions of quadrilateral edge midpoints
+         &  ptr_em(:,:,:,:)         !< on tangent plane
+
+    REAL(wp)           ::  &     ! normal and tangential components of the velocity vectors
+         &  z_vn_plane(nproma,ptr_p%nlev,ptr_p%nblks_e,4), &!< projected into local edge-based
+         &  z_vt_plane(nproma,ptr_p%nlev,ptr_p%nblks_e,4)   !< coordinate system
+
+
+    REAL(wp)  :: w1, w2, w3      !< weights for bilinear interpolation
+
+    REAL(wp)  ::           &     !< resulting normal and tangential velocity component
+         &  vn_new, vt_new          !< after bilinear interpolation
+
+    INTEGER :: je, jk, jb        !< index of edge, vert level, block
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER :: i_rlstart, i_rlend, i_nchdom
+    INTEGER :: slev, elev        !< vertical start and end level
+    INTEGER :: zcell             !< determines whether the barycenter is located
+    !< in cell 1 or 2
+    INTEGER, POINTER ::    &     !< pointer for line and block indices of edge
+         & iidx(:,:,:), iblk(:,:,:) !< midpoints for quadrilateral cell
+
+    !DR    REAL(wp) :: z_vabs_orig, z_vabs_new
+
+    !-------------------------------------------------------------------------
+
+
+    ! Check for optional arguments
+    IF ( PRESENT(opt_slev) ) THEN
+      slev = opt_slev
+    ELSE
+      slev = 1
+    END IF
+
+    IF ( PRESENT(opt_elev) ) THEN
+      elev = opt_elev
+    ELSE
+      elev = ptr_p%nlev
+    END IF
+
+    IF ( PRESENT(opt_rlstart) ) THEN
+      i_rlstart = opt_rlstart
+    ELSE
+      i_rlstart = 4
+    ENDIF
+
+    IF ( PRESENT(opt_rlend) ) THEN
+      i_rlend = opt_rlend
+    ELSE
+      i_rlend = min_rledge_int - 1
+    ENDIF
+
+    ! number of child domains
+    i_nchdom   = MAX(1,ptr_p%n_childdom)
+
+    i_startblk = ptr_p%edges%start_blk(i_rlstart,1)
+    i_endblk   = ptr_p%edges%end_blk(i_rlend,i_nchdom)
+
+
+    ! For each edge the velocity vectors at the quadrilateral edges are
+    ! transformed into the new edge-based coordinate system (coordinate axes
+    ! normal and tangential to the inner edge).
+    ! - projection of normal component into local normal direction
+    ! - projection of tangential component into local normal direction
+    ! - projection of normal component into local tangential direction
+    ! - projection of tangential component into local tangential direction
+
+    ! pointer to the quadrilateral edge midpoints
+    ! Note that ptr_em(:,:,1:2,:) belong to cell number 1 and
+    ! ptr_em(:,:,3:4,:) belong to cell number 2 as seen from the edge.
+    ptr_em => ptr_int%pos_on_tplane_e(:,:,3:6,:)
+
+    ! pointer to line and block indices of outer quadrilateral edge midpoints
+    iidx => ptr_p%edges%quad_idx
+    iblk => ptr_p%edges%quad_blk
+
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( this%distv_bary, this%cell_idx, this%cell_blk ), &
+!$ACC CREATE( z_vn_plane, pos_barycenter, z_ntdistv_bary ),   IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG  UPDATE DEVICE ( p_vn, p_vt ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, z_vn_plane ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
+!$OMP PARALLEL
+!$OMP DO PRIVATE(je,jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+#endif
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
+           i_startidx, i_endidx, i_rlstart, i_rlend)
+
+!$ACC LOOP VECTOR COLLAPSE(2)
+#ifdef __LOOP_EXCHANGE
+      DO je = i_startidx, i_endidx
+        DO jk = slev, elev
+#else
+          DO jk = slev, elev
+            DO je = i_startidx, i_endidx
+#endif
+
+              z_vn_plane(je,jk,jb,1) =                                                         &
+                   &   p_vn(iidx(je,jb,1),jk,iblk(je,jb,1)) * ptr_int%tplane_e_dotprod(je,jb,1,1) &
+                   & + p_vt(iidx(je,jb,1),jk,iblk(je,jb,1)) * ptr_int%tplane_e_dotprod(je,jb,1,2)
+
+              z_vn_plane(je,jk,jb,2) =                                                         &
+                   &   p_vn(iidx(je,jb,2),jk,iblk(je,jb,2)) * ptr_int%tplane_e_dotprod(je,jb,2,1) &
+                   & + p_vt(iidx(je,jb,2),jk,iblk(je,jb,2)) * ptr_int%tplane_e_dotprod(je,jb,2,2)
+
+              z_vn_plane(je,jk,jb,3) =                                                         &
+                   &   p_vn(iidx(je,jb,3),jk,iblk(je,jb,3)) * ptr_int%tplane_e_dotprod(je,jb,3,1) &
+                   & + p_vt(iidx(je,jb,3),jk,iblk(je,jb,3)) * ptr_int%tplane_e_dotprod(je,jb,3,2)
+
+              z_vn_plane(je,jk,jb,4) =                                                         &
+                   &   p_vn(iidx(je,jb,4),jk,iblk(je,jb,4)) * ptr_int%tplane_e_dotprod(je,jb,4,1) &
+                   & + p_vt(iidx(je,jb,4),jk,iblk(je,jb,4)) * ptr_int%tplane_e_dotprod(je,jb,4,2)
+
+
+              z_vt_plane(je,jk,jb,1) =                                                         &
+                   &   p_vn(iidx(je,jb,1),jk,iblk(je,jb,1)) * ptr_int%tplane_e_dotprod(je,jb,1,3) &
+                   & + p_vt(iidx(je,jb,1),jk,iblk(je,jb,1)) * ptr_int%tplane_e_dotprod(je,jb,1,4)
+
+              z_vt_plane(je,jk,jb,2) =                                                         &
+                   &   p_vn(iidx(je,jb,2),jk,iblk(je,jb,2)) * ptr_int%tplane_e_dotprod(je,jb,2,3) &
+                   & + p_vt(iidx(je,jb,2),jk,iblk(je,jb,2)) * ptr_int%tplane_e_dotprod(je,jb,2,4)
+
+              z_vt_plane(je,jk,jb,3) =                                                         &
+                   &   p_vn(iidx(je,jb,3),jk,iblk(je,jb,3)) * ptr_int%tplane_e_dotprod(je,jb,3,3) &
+                   & + p_vt(iidx(je,jb,3),jk,iblk(je,jb,3)) * ptr_int%tplane_e_dotprod(je,jb,3,4)
+
+              z_vt_plane(je,jk,jb,4) =                                                         &
+                   &   p_vn(iidx(je,jb,4),jk,iblk(je,jb,4)) * ptr_int%tplane_e_dotprod(je,jb,4,3) &
+                   & + p_vt(iidx(je,jb,4),jk,iblk(je,jb,4)) * ptr_int%tplane_e_dotprod(je,jb,4,4)
+
+
+              !            ! Re-normalize the projected velocity vector
+              !            z_vabs_orig = SQRT( p_vn(ilq,jk,ibq)*p_vn(ilq,jk,ibq)                &
+              !              &         + p_vt(ilq,jk,ibq)*p_vt(ilq,jk,ibq) )
+              !            z_vabs_new  = SQRT( z_vn_plane(je,jk,jb,ne)*z_vn_plane(je,jk,jb,ne)  &
+              !              &         + z_vt_plane(je,jk,jb,ne)*z_vt_plane(je,jk,jb,ne) )
+
+              !            z_vn_plane(je,jk,jb,ne) = z_vn_plane(je,jk,jb,ne) * (z_vabs_orig/z_vabs_new)
+              !            z_vt_plane(je,jk,jb,ne) = z_vt_plane(je,jk,jb,ne) * (z_vabs_orig/z_vabs_new)
+
+
+            ENDDO ! loop over edges
+          ENDDO   ! loop over vertical levels
+        END DO    ! loop over blocks
+#ifdef _OPENACC
+!$ACC END PARALLEL
+
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, this%distv_bary, this%cell_idx, this%cell_blk ), &
+!$ACC PRIVATE( pos_barycenter, z_ntdistv_bary ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
+!$OMP END DO
+
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,pos_barycenter,zcell,w1,w2,w3, &
+!$OMP            vn_new,vt_new,z_ntdistv_bary) ICON_OMP_DEFAULT_SCHEDULE
+#endif
+        DO jb = i_startblk, i_endblk
+
+          CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
+               i_startidx, i_endidx, i_rlstart, i_rlend)
+
+          DO jk = slev, elev
+            DO je = i_startidx, i_endidx
+
+
+              !
+              ! Calculate backward trajectories
+              !
+
+              ! First guess
+              ! position of barycenter in normal direction
+              pos_barycenter(1) = - p_vn(je,jk,jb) * p_dthalf
+
+              ! position of barycenter in tangential direction
+              pos_barycenter(2) = - p_vt(je,jk,jb) * p_dthalf
+
+
+
+              IF (p_vn(je,jk,jb) >= 0._wp) THEN
+
+                !! we are in cell 1 !!
+
+                ! line and block indices of neighboring cell with barycenter
+                this%cell_idx(je,jk,jb) = ptr_p%edges%cell_idx(je,jb,1)
+                this%cell_blk(je,jk,jb) = ptr_p%edges%cell_blk(je,jb,1)
+
+                zcell = 1
+
+                ! calculate weights for bilinear interpolation of velocities onto the
+                ! barycenter
+                w3 = ( pos_barycenter(2)                                          &
+                     &   - pos_barycenter(1) * ptr_em(je,jb,1,2)/ptr_em(je,jb,1,1) ) &
+                     &   / ( ptr_em(je,jb,2,2)                                       &
+                     &   - ptr_em(je,jb,2,1) * ptr_em(je,jb,1,2)/ptr_em(je,jb,1,1) )
+
+                w2 = (pos_barycenter(1) - w3 * ptr_em(je,jb,2,1))       &
+                     &  / ptr_em(je,jb,1,1)
+
+                w1 = 1._wp - w2 - w3
+
+
+                ! calculate improved normal and tangential velocity components using
+                ! the bilinear interpolation weights.
+                vn_new = w1 * p_vn(je,jk,jb) + w2 * z_vn_plane(je,jk,jb,1) &
+                     &    + w3 * z_vn_plane(je,jk,jb,2)
+                vt_new = w1 * p_vt(je,jk,jb) + w2 * z_vt_plane(je,jk,jb,1) &
+                     &    + w3 * z_vt_plane(je,jk,jb,2)
+
+              ELSE
+
+                !! we are in cell 2 !!
+
+                ! line and block indices of neighboring cell with barycenter
+                this%cell_idx(je,jk,jb) = ptr_p%edges%cell_idx(je,jb,2)
+                this%cell_blk(je,jk,jb) = ptr_p%edges%cell_blk(je,jb,2)
+
+                zcell = 2
+
+
+                ! calculate weights for bilinear interpolation of velocities onto the
+                ! barycenter
+                w3 = ( pos_barycenter(2)                                          &
+                     &   - pos_barycenter(1) * ptr_em(je,jb,3,2)/ptr_em(je,jb,3,1) ) &
+                     &   / ( ptr_em(je,jb,4,2)                                       &
+                     &   - ptr_em(je,jb,4,1) * ptr_em(je,jb,3,2)/ptr_em(je,jb,3,1) )
+
+                w2 = (pos_barycenter(1) - w3 * ptr_em(je,jb,4,1))       &
+                     &  / ptr_em(je,jb,3,1)
+
+                w1 = 1._wp - w2 - w3
+
+
+                ! calculate improved normal and tangential velocity components using
+                ! the bilinear interpolation weights.
+                vn_new = w1 * p_vn(je,jk,jb) + w2 * z_vn_plane(je,jk,jb,3) &
+                     &    + w3 * z_vn_plane(je,jk,jb,4)
+                vt_new = w1 * p_vt(je,jk,jb) + w2 * z_vt_plane(je,jk,jb,3) &
+                     &    + w3 * z_vt_plane(je,jk,jb,4)
+
+              ENDIF
+
+
+              ! Improved guess
+              ! position of barycenter in normal direction
+              pos_barycenter(1) = - vn_new * p_dthalf
+
+              ! position of barycenter in tangential direction
+              pos_barycenter(2) = - vt_new * p_dthalf
+
+
+              ! Calculate the distance cell center --> barycenter for the cell,
+              ! in which the barycenter is located. The distance vector points
+              ! from the cell center to the barycenter.
+              z_ntdistv_bary(1:2) = pos_barycenter(1:2)                      &
+                   &                 - ptr_int%pos_on_tplane_e(je,jb,zcell,1:2)
+
+
+              ! In a last step, transform this distance vector into a rotated
+              ! geographical coordinate system with its origin at the circumcenter
+              ! of the upstream cell. Coordinate axes point to local East and local
+              ! North.
+
+              ! component in longitudinal direction
+              this%distv_bary(je,jk,jb,1) =                                                 &
+                   &    z_ntdistv_bary(1) * ptr_p%edges%primal_normal_cell(je,jb,zcell)%v1  &
+                   &  + z_ntdistv_bary(2) * ptr_p%edges%dual_normal_cell(je,jb,zcell)%v1
+
+              ! component in latitudinal direction
+              this%distv_bary(je,jk,jb,2) =                                                 &
+                   &    z_ntdistv_bary(1) * ptr_p%edges%primal_normal_cell(je,jb,zcell)%v2  &
+                   &  + z_ntdistv_bary(2) * ptr_p%edges%dual_normal_cell(je,jb,zcell)%v2
+
+
+
+            ENDDO ! loop over edges
+          ENDDO   ! loop over vertical levels
+        END DO    ! loop over blocks
+
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( this%cell_idx, this%cell_blk, this%distv_bary ) IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+#endif
+
+      END SUBROUTINE btraj_compute_o2
 
 
   !-------------------------------------------------------------------------

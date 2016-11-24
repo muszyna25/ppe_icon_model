@@ -306,14 +306,14 @@ CONTAINS
       SELECT CASE( advection_config(pid)%ihadv_tracer(1) )
       CASE( MIURA )
 
-        CALL upwind_hflux_miura(p_patch, ptr_current_rho, p_prog_new%vn, &
-          &                     z_vn_traj, z_vt_traj, p_dtime, p_int,    &
-          &                     lcompute, lcleanup,                      &
-          &                     advection_config(pid)%igrad_c_miura,     &
-          &                     advection_config(pid)%itype_hlimit(1),   &
-          &                     advection_config(pid)%iord_backtraj,     &
-          &                     z_rho_e, opt_lout_edge=.TRUE.,           &
-          &                     opt_rlend=i_rlend   )
+!!$        CALL upwind_hflux_miura(p_patch, ptr_current_rho, p_prog_new%vn, &
+!!$          &                     z_vn_traj, z_vt_traj, p_dtime, p_int,    &
+!!$          &                     lcompute, lcleanup,                      &
+!!$          &                     advection_config(pid)%igrad_c_miura,     &
+!!$          &                     advection_config(pid)%itype_hlimit(1),   &
+!!$          &                     advection_config(pid)%iord_backtraj,     &
+!!$          &                     z_rho_e, opt_lout_edge=.TRUE.,           &
+!!$          &                     opt_rlend=i_rlend   )
 
       CASE( MIURA3 )
 

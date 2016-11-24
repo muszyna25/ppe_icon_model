@@ -103,7 +103,7 @@ MODULE mo_advection_hflux
     &                               prep_gauss_quadrature_c,                    &
     &                               prep_gauss_quadrature_c_list,               &
     &                               prep_gauss_quadrature_cpoor
-  USE mo_advection_traj,      ONLY: btraj, btraj_dreg, btraj_o2
+  USE mo_advection_traj,      ONLY: btraj, btraj_dreg, btraj_o2, t_back_traj
   USE mo_advection_geometry,  ONLY: divide_flux_area, divide_flux_area_list
   USE mo_advection_limiter,   ONLY: hflx_limiter_mo, hflx_limiter_sm
   USE mo_timer,               ONLY: timer_adv_horz, timer_start, timer_stop
@@ -233,6 +233,9 @@ CONTAINS
     REAL(wp)::   &                  !< unweighted tangential velocity
       &  z_real_vt(nproma,p_patch%nlev,p_patch%nblks_e)!< component at edges
 
+    TYPE(t_back_traj) :: btraj
+    INTEGER :: i_rlstart
+    INTEGER :: i_rlend_tr
     !-----------------------------------------------------------------------
 
     ! get patch ID
@@ -267,6 +270,39 @@ CONTAINS
     ENDIF
 
 
+    !Allocation
+    CALL btraj%construct(nproma,p_patch%nlev,p_patch%nblks_e,2)
+    !
+    ! Backward trajectory computation for MIURA-scheme with linear 
+    ! reconstruction. In that case it is sufficient to compute 
+    ! only the barycenter of the departure region (instead of all the vertices).
+    i_rlstart  = 5
+    i_rlend_tr = MIN(i_rlend, min_rledge_int - 1)
+    iadv_min_slev = advection_config(jg)%miura_h%iadv_min_slev
+    IF (p_iord_backtraj == 1)  THEN
+      ! 1st order backward trajectory
+      CALL btraj%compute ( ptr_p       = p_patch,          & !in
+        &                  ptr_int     = p_int,            & !in
+        &                  p_vn        = p_vn,             & !in
+        &                  p_vt        = z_real_vt,        & !in
+        &                  p_dthalf    = 0.5_wp * p_dtime, & !in
+        &                  opt_rlstart = i_rlstart,        & !in
+        &                  opt_rlend   = i_rlend_tr,       & !in
+        &                  opt_slev    = iadv_min_slev,    & !in
+        &                  opt_elev    = p_patch%nlev      ) !in
+    ELSE
+      ! 2nd order backward trajectory
+      CALL btraj%compute_o2 ( ptr_p    = p_patch,          & !in
+        &                  ptr_int     = p_int,            & !in
+        &                  p_vn        = p_vn,             & !in
+        &                  p_vt        = z_real_vt,        & !in
+        &                  p_dthalf    = 0.5_wp * p_dtime, & !in
+        &                  opt_rlstart = i_rlstart,        & !in
+        &                  opt_rlend   = i_rlend_tr,       & !in
+        &                  opt_slev    = iadv_min_slev,    & !in
+        &                  opt_elev    = p_patch%nlev      ) !in
+    ENDIF
+
 
 
     DO jt = 1, ntracer ! Tracer loop
@@ -293,18 +329,14 @@ CONTAINS
 
       CASE( MIURA )   ! ihadv_tracer = 2
 
-        iadv_min_slev = advection_config(jg)%miura_h%iadv_min_slev
-
         ! CALL MIURA with second order accurate reconstruction
         CALL upwind_hflux_miura( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,    &! in
-          &                 p_vn, z_real_vt, p_dtime, p_int,               &! in
-          &                 lcompute%miura_h(jt), lcleanup%miura_h(jt),    &! in
+          &                 p_dtime, p_int, btraj,                         &! in
           &                 p_igrad_c_miura, p_itype_hlimit(jt),           &! in
-          &                 p_iord_backtraj, p_upflux(:,:,:,jt),           &! in,inout
+          &                 p_upflux(:,:,:,jt),                            &! in,inout
           &                 opt_lconsv  = llsq_lin_consv,                  &! in
           &                 opt_rlend   = i_rlend,                         &! in
-          &                 opt_slev    = p_iadv_slev(jt),                 &! in
-          &                 opt_ti_slev = iadv_min_slev                    )! in
+          &                 opt_slev    = p_iadv_slev(jt)                  )! in
 
 
       CASE( MIURA3 )  ! ihadv_tracer = 3
@@ -379,17 +411,28 @@ CONTAINS
 
         ! CALL standard MIURA for lower atmosphere and the subcycling version of
         ! MIURA for upper atmosphere
-        CALL upwind_hflux_miura( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,  &! in
-          &              p_vn, z_real_vt, p_dtime, p_int,                &! in
-          &              lcompute%miura_h(jt), lcleanup%miura_h(jt),     &! in
-          &              p_igrad_c_miura, p_itype_hlimit(jt),            &! in
-          &              p_iord_backtraj, p_upflux(:,:,:,jt),            &! in,inout
-          &              opt_lconsv  = llsq_lin_consv,                   &! in
-          &              opt_rlend   = i_rlend,                          &! in
-          &              opt_slev    = qvsubstep_elev+1,                 &! in
-          &              opt_elev    = p_patch%nlev,                     &! in
-          &              opt_ti_slev = qvsubstep_elev+1,                 &! in
-          &              opt_ti_elev = p_patch%nlev                      )! in
+        CALL upwind_hflux_miura( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,    &! in
+          &                 p_dtime, p_int, btraj,                         &! in
+          &                 p_igrad_c_miura, p_itype_hlimit(jt),           &! in
+          &                 p_upflux(:,:,:,jt),                            &! in,inout
+          &                 opt_lconsv  = llsq_lin_consv,                  &! in
+          &                 opt_rlend   = i_rlend,                         &! in
+          &                 opt_slev    = qvsubstep_elev+1,                &! in
+          &                 opt_elev    = p_patch%nlev                     )
+
+!!$        ! CALL standard MIURA for lower atmosphere and the subcycling version of
+!!$        ! MIURA for upper atmosphere
+!!$        CALL upwind_hflux_miura( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,  &! in
+!!$          &              p_vn, z_real_vt, p_dtime, p_int,                &! in
+!!$          &              lcompute%miura_h(jt), lcleanup%miura_h(jt),     &! in
+!!$          &              p_igrad_c_miura, p_itype_hlimit(jt),            &! in
+!!$          &              p_iord_backtraj, p_upflux(:,:,:,jt),            &! in,inout
+!!$          &              opt_lconsv  = llsq_lin_consv,                   &! in
+!!$          &              opt_rlend   = i_rlend,                          &! in
+!!$          &              opt_slev    = qvsubstep_elev+1,                 &! in
+!!$          &              opt_elev    = p_patch%nlev,                     &! in
+!!$          &              opt_ti_slev = qvsubstep_elev+1,                 &! in
+!!$          &              opt_ti_elev = p_patch%nlev                      )! in
 
         IF (qvsubstep_elev > 0) THEN
 
@@ -526,6 +569,9 @@ CONTAINS
       END SELECT
 
     END DO  ! Tracer loop
+
+    ! destruct backward trajectory components
+    CALL btraj%destruct()
 
     IF (timers_level > 2) CALL timer_stop(timer_adv_horz)
 
@@ -697,6 +743,11 @@ CONTAINS
   !! - moved calculation of backward trajectories and barycenter into subroutine
   !!   back_traj_o1 in module mo_advection_utils. Added second order accurate
   !!   computation of backward trajectories (subroutine back_traj_o2)
+  !! Modification by Daniel Reinert, DWD (2016-11-24)
+  !! - computation of backward trajectories moved one level up which simplifys 
+  !!   flow control. It is now simpler to ensure that backward trajectories are only 
+  !!   computed once per time step and that the backward trajectory information is 
+  !!   available at all points and levels.
   !!
   !! @par LITERATURE
   !! - Miura, H. (2007), Mon. Weather Rev., 135, 4038-4044
@@ -704,13 +755,11 @@ CONTAINS
   !!   Grids: High-order Reconstructions for Forward-in-Time Schemes, Mon. Wea. Rev,
   !!   in Press
   !!
-  SUBROUTINE upwind_hflux_miura( p_patch, p_cc, p_mass_flx_e, p_vn, p_vt,    &
-    &                      p_dtime, p_int, ld_compute, ld_cleanup,           &
-    &                      p_igrad_c_miura, p_itype_hlimit, p_iord_backtraj, &
+  SUBROUTINE upwind_hflux_miura( p_patch, p_cc, p_mass_flx_e,    &
+    &                      p_dtime, p_int, btraj,    &
+    &                      p_igrad_c_miura, p_itype_hlimit, &
     &                      p_out_e, opt_lconsv, opt_rlstart, opt_rlend,      &
-    &                      opt_lout_edge, opt_slev, opt_elev, opt_ti_slev,   &
-    &                      opt_ti_elev )
-
+    &                      opt_lout_edge, opt_slev, opt_elev )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_hflux: upwind_hflux_miura'
@@ -721,34 +770,22 @@ CONTAINS
     TYPE(t_int_state), TARGET, INTENT(IN) ::  &  !< pointer to data structure for interpolation
       &  p_int
 
+    TYPE(t_back_traj), INTENT(IN) :: &      !< information on backward trajectories
+      &  btraj
+
     REAL(wp), TARGET, INTENT(IN) ::     &   !< cell centered variable to be advected
       &  p_cc(:,:,:)                        !< dim: (nproma,nlev,nblks_c)
 
     REAL(wp), INTENT(IN) ::    &    !< contravariant horizontal mass flux
       &  p_mass_flx_e(:,:,:)        !< dim: (nproma,nlev,nblks_e)
 
-    REAL(wp), INTENT(IN) ::    &    !< unweighted normal velocity field
-      &  p_vn(:,:,:)                !< dim: (nproma,nlev,nblks_e)
-
-    REAL(wp), INTENT(IN) ::    &    !< unweighted tangential velocity field
-      &  p_vt(:,:,:)                !< dim: (nproma,nlev,nblks_e)
-
     REAL(wp), INTENT(IN) :: p_dtime !< time step
-
-    LOGICAL, INTENT(IN) ::     &    !< flag, if .TRUE. compute geometrical terms
-      &  ld_compute
-
-    LOGICAL, INTENT(IN) ::     &    !< flag, if .TRUE. clean up geometrical terms
-      &  ld_cleanup
 
     INTEGER, INTENT(IN) :: p_igrad_c_miura   !< parameter to select the gradient
                                              !< reconstruction method at cell center
 
     INTEGER, INTENT(IN) :: p_itype_hlimit    !< parameter to select the limiter
                                              !< for horizontal transport
-
-    INTEGER, INTENT(IN) :: p_iord_backtraj   !< parameter to select the spacial order
-                                             !< of accuracy for the backward trajectory
 
     REAL(wp), INTENT(INOUT) ::  &   !< output field, containing the upwind flux or the
       &  p_out_e(:,:,:)             !< reconstructed edge value; dim: (nproma,nlev,nblks_e)
@@ -771,12 +808,6 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
       &  opt_elev
 
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level (tracer independent part)
-      &  opt_ti_slev
-
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level (tracer independent part)
-      &  opt_ti_elev
-
     LOGICAL  :: l_out_edgeval          !< corresponding local variable; default .FALSE.
                                        !< i.e. output flux across the edge
 
@@ -790,29 +821,13 @@ CONTAINS
                                                     !< includes coeff0 and gradients in
                                                     !< zonal and meridional direction
 
-    REAL(vp), ALLOCATABLE, SAVE ::  &   !< distance vectors cell center -->
-      &  z_distv_bary(:,:,:,:)          !< barycenter of advected area
-                                        !< (geographical coordinates)
-                                        !< dim: (nproma,nlev,p_patch%nblks_e,2)
-
-    INTEGER, ALLOCATABLE, SAVE  ::  &   !< line indices of cell centers in which
-      &  z_cell_idx(:,:,:)              !< the calculated barycenters are located
-                                        !< dim: (nproma,nlev,p_patch%nblks_e)
-    INTEGER, ALLOCATABLE, SAVE  ::  &   !< block indices of cell centers in which
-      &  z_cell_blk(:,:,:)              !< the calculated barycenters are located
-                                        !< dim: (nproma,nlev,p_patch%nblks_e)
-
-    REAL(wp) :: z_dthalf                !< \Delta t/2
-
     INTEGER  :: pid
     INTEGER  :: nlev               !< number of full levels
     INTEGER  :: slev, elev         !< vertical start and end level
-    INTEGER  :: slev_ti, elev_ti   !< vertical start and end level (tracer independent part)
-    INTEGER  :: ist                !< status variable
     INTEGER  :: je, jk, jb         !< index of edge, vert level, block
     INTEGER  :: ilc0, ibc0         !< line and block index for local cell center
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER  :: i_rlstart, i_rlend, i_nchdom, i_rlend_c, i_rlend_tr, i_rlend_vt
+    INTEGER  :: i_rlstart, i_rlend, i_nchdom, i_rlend_c
     LOGICAL  :: l_consv            !< true if conservative lsq reconstruction is used
     LOGICAL  :: use_zlsq           !< true if z_lsq_coeff is used to store the gradients
 #ifdef __OPENACC_BUG_TYPES_1
@@ -846,17 +861,6 @@ CONTAINS
       elev = nlev
     END IF
 
-    IF ( PRESENT(opt_ti_slev) ) THEN
-      slev_ti = opt_ti_slev
-    ELSE
-      slev_ti = 1
-    END IF
-    IF ( PRESENT(opt_ti_elev) ) THEN
-      elev_ti = opt_ti_elev
-    ELSE
-      elev_ti = nlev
-    END IF
-
     IF ( PRESENT(opt_lconsv) ) THEN
      l_consv = opt_lconsv
     ELSE
@@ -885,15 +889,6 @@ CONTAINS
 
     i_rlend_c = min_rlcell_int - 1
 
-    i_rlend_tr = MIN(i_rlend, min_rledge_int - 1)
-
-
-    IF (p_iord_backtraj == 1)  THEN
-      i_rlend_vt = i_rlend_tr
-    ELSE
-      i_rlend_vt = MAX(i_rlend_tr - 1, min_rledge)
-    ENDIF
-
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
@@ -916,51 +911,6 @@ CONTAINS
     ! 2 options:  without limiter
     !             with    flux limiter following Zalesak (1979)
     !
-
-    !
-    ! 1. Approximation of the 'departure region'. In case of a linear
-    !    reconstruction it is sufficient to calculate the barycenter
-    !    of the departure region (instead of all the vertices).
-    !
-    IF ( ld_compute ) THEN
-      ! allocate temporary arrays for distance vectors and upwind cells
-      ALLOCATE( z_distv_bary(nproma,nlev,p_patch%nblks_e,2),          &
-        &       z_cell_idx(nproma,nlev,p_patch%nblks_e),              &
-        &       z_cell_blk(nproma,nlev,p_patch%nblks_e),              &
-        &       STAT=ist )
-
-      IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                  &
-          &  'allocation for z_distv_bary, z_cell_idx, z_cell_blk ' //&
-          &  'failed' )
-      ENDIF
-
-!$ACC ENTER DATA CREATE( z_distv_bary, z_cell_idx, z_cell_blk ), IF (i_am_accel_node .AND. acc_on)
-
-      ! one half of current time step
-      z_dthalf = 0.5_wp * p_dtime
-
-      ! compute barycenter of departure region and the distance vector between
-      ! the cell center and the barycenter using backward trajectories.
-      IF (p_iord_backtraj == 1)  THEN
-
-        ! first order backward trajectory
-        CALL btraj   ( p_patch, p_int, p_vn, p_vt, z_dthalf,        &! in
-          &            z_cell_idx, z_cell_blk, z_distv_bary,        &! out
-          &            opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr, &! in
-          &            opt_slev=slev_ti, opt_elev=elev_ti           )! in
-
-      ELSE
-
-        ! second order backward trajectory
-        CALL btraj_o2( p_patch, p_int, p_vn, p_vt, z_dthalf,        &! in
-          &            z_cell_idx, z_cell_blk, z_distv_bary,        &! out
-          &            opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr, &! in
-          &            opt_slev=slev_ti, opt_elev=elev_ti           )! in
-
-      ENDIF
-
-    END IF ! ld_compute
 
 
     use_zlsq = .FALSE. ! default: use z_grad to store the gradient
@@ -1040,7 +990,7 @@ CONTAINS
 
 #ifdef _OPENACC
 !$ACC PARALLEL &
-!$ACC PRESENT( p_patch, p_cc, p_mass_flx_e, z_cell_idx, z_cell_blk, z_grad, z_distv_bary ), &
+!$ACC PRESENT( p_patch, p_cc, p_mass_flx_e, btraj%cell_idx, btraj%cell_blk, z_grad, z_distv_bary ), &
 !$ACC PRESENT( p_out_e ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
@@ -1062,13 +1012,13 @@ CONTAINS
 
             ! Calculate reconstructed tracer value at barycenter of rhomboidal
             ! area which is swept across the corresponding edge.
-            ilc0 = z_cell_idx(je,jk,jb)
-            ibc0 = z_cell_blk(je,jk,jb)
+            ilc0 = btraj%cell_idx(je,jk,jb)
+            ibc0 = btraj%cell_blk(je,jk,jb)
 
             ! Calculate 'edge value' of advected quantity (cc_bary)
-            p_out_e(je,jk,jb) = p_cc(ilc0,jk,ibc0)                       &
-              &    + z_distv_bary(je,jk,jb,1) * z_grad(1,ilc0,jk,ibc0)   &
-              &    + z_distv_bary(je,jk,jb,2) * z_grad(2,ilc0,jk,ibc0)
+            p_out_e(je,jk,jb) = p_cc(ilc0,jk,ibc0)                           &
+              &    + btraj%distv_bary(je,jk,jb,1) * z_grad(1,ilc0,jk,ibc0)   &
+              &    + btraj%distv_bary(je,jk,jb,2) * z_grad(2,ilc0,jk,ibc0)
 
           ENDDO ! loop over edges
         ENDDO   ! loop over vertical levels
@@ -1082,13 +1032,13 @@ CONTAINS
 
             ! Calculate reconstructed tracer value at barycenter of rhomboidal
             ! area which is swept across the corresponding edge.
-            ilc0 = z_cell_idx(je,jk,jb)
-            ibc0 = z_cell_blk(je,jk,jb)
+            ilc0 = btraj%cell_idx(je,jk,jb)
+            ibc0 = btraj%cell_blk(je,jk,jb)
 
             ! Calculate flux at cell edge (cc_bary*v_{n}* \Delta p)
-            p_out_e(je,jk,jb) = ( z_lsq_coeff(1,ilc0,jk,ibc0)                  &
-              &    + z_distv_bary(je,jk,jb,1) * z_lsq_coeff(2,ilc0,jk,ibc0)    &
-              &    + z_distv_bary(je,jk,jb,2) * z_lsq_coeff(3,ilc0,jk,ibc0) )  &
+            p_out_e(je,jk,jb) = ( z_lsq_coeff(1,ilc0,jk,ibc0)                      &
+              &    + btraj%distv_bary(je,jk,jb,1) * z_lsq_coeff(2,ilc0,jk,ibc0)    &
+              &    + btraj%distv_bary(je,jk,jb,2) * z_lsq_coeff(3,ilc0,jk,ibc0) )  &
               &    * p_mass_flx_e(je,jk,jb)
 
           ENDDO ! loop over edges
@@ -1103,13 +1053,13 @@ CONTAINS
 
             ! Calculate reconstructed tracer value at barycenter of rhomboidal
             ! area which is swept across the corresponding edge.
-            ilc0 = z_cell_idx(je,jk,jb)
-            ibc0 = z_cell_blk(je,jk,jb)
+            ilc0 = btraj%cell_idx(je,jk,jb)
+            ibc0 = btraj%cell_blk(je,jk,jb)
 
             ! Calculate flux at cell edge (cc_bary*v_{n}* \Delta p)
-            p_out_e(je,jk,jb) = ( p_cc(ilc0,jk,ibc0)                      &
-              &    + z_distv_bary(je,jk,jb,1) * z_grad(1,ilc0,jk,ibc0)    &
-              &    + z_distv_bary(je,jk,jb,2) * z_grad(2,ilc0,jk,ibc0) )  &
+            p_out_e(je,jk,jb) = ( p_cc(ilc0,jk,ibc0)                          &
+              &    + btraj%distv_bary(je,jk,jb,1) * z_grad(1,ilc0,jk,ibc0)    &
+              &    + btraj%distv_bary(je,jk,jb,2) * z_grad(2,ilc0,jk,ibc0) )  &
               &    * p_mass_flx_e(je,jk,jb)
 
           ENDDO ! loop over edges
@@ -1142,18 +1092,6 @@ CONTAINS
         &                   slev, elev, opt_rlend=i_rlend            ) !in
     ENDIF
 
-
-    IF ( ld_cleanup ) THEN
-      ! deallocate temporary arrays for velocity, Gauss-points and barycenters
-!$ACC EXIT DATA DELETE( z_distv_bary, z_cell_idx, z_cell_blk ), IF (i_am_accel_node .AND. acc_on)
-      DEALLOCATE( z_distv_bary, z_cell_idx, z_cell_blk, STAT=ist )
-
-      IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                    &
-          &  'deallocation for z_distv_bary, z_cell_idx, z_cell_blk '// &
-          &  'failed' )
-      ENDIF
-    END IF
 
 !ACC_DEBUG UPDATE HOST( p_out_e ), IF( i_am_accel_node .AND. acc_on )
 !$ACC END DATA
