@@ -1038,6 +1038,9 @@ CONTAINS
                                     & salinity(2:end_level), pressure(2:end_level), end_level-1)
 
         DO level = 2, end_level
+        
+          ocean_state%p_diag%rho_GM(cell_index,level,blockNo)=0.5_wp*(z_rho_up(level)+z_rho_down(level))
+                
           z_shear_cell = dbl_eps + &
             & SUM((ocean_state%p_diag%p_vn(cell_index,level-1,blockNo)%x - ocean_state%p_diag%p_vn(cell_index,level,blockNo)%x)**2)
             
@@ -1051,6 +1054,8 @@ CONTAINS
           &= MAX(patch_3d%p_patch_1d(1)%prism_center_dist_c(cell_index,level,blockNo) * z_grav_rho * &
           & (z_rho_down(level) - z_rho_up(level-1)) / z_shear_cell, 0.0_wp) 
         END DO ! levels
+        ocean_state%p_diag%grad_rho_PP_vert(cell_index,2:end_level,blockNo)=z_vert_density_grad_c(cell_index,2:end_level,blockNo)
+        ocean_state%p_diag%rho_GM(cell_index,1,blockNo)                 =ocean_state%p_diag%rho_GM(cell_index,2,blockNo)
 
       END DO ! index
     END DO

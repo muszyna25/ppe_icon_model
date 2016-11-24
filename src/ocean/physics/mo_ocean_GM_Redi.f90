@@ -38,8 +38,8 @@ MODULE mo_ocean_GM_Redi
     & GMREDI_COMBINED_DIAGNOSTIC,GM_INDIVIDUAL_DIAGNOSTIC,REDI_INDIVIDUAL_DIAGNOSTIC,&
     &TEST_MODE_REDI_ONLY,TEST_MODE_GM_ONLY,LinearThermoExpansionCoefficient, LinearHalineContractionCoefficient,&
     & SWITCH_OFF_TAPERING,SWITCH_ON_REDI_BALANCE_DIAGONSTIC, SWITCH_ON_TAPERING_HORIZONTAL_DIFFUSION,&
-    &SLOPE_CALC_VIA_TEMPERTURE_SALINITY,BOLUS_VELOCITY_DIAGNOSTIC,REVERT_VERTICAL_RECON_AND_TRANSPOSED
-    
+    &SLOPE_CALC_VIA_TEMPERTURE_SALINITY,BOLUS_VELOCITY_DIAGNOSTIC,REVERT_VERTICAL_RECON_AND_TRANSPOSED,&
+    & INCLUDE_SLOPE_SQUARED_IMPLICIT
 
   USE mo_util_dbg_prnt,             ONLY: dbg_print
   USE mo_parallel_config,           ONLY: nproma
@@ -163,7 +163,7 @@ CONTAINS
     
     END SELECT
     
-    IF(SWITCH_ON_REDI_BALANCE_DIAGONSTIC)THEN
+    IF(SWITCH_ON_REDI_BALANCE_DIAGONSTIC.AND.SLOPE_CALC_VIA_TEMPERTURE_SALINITY)THEN
 
      CALL diagnose_Redi_flux_balance(patch_3d, ocean_state, param, op_coeff,&
      & tracer_index)
@@ -340,64 +340,65 @@ CONTAINS
     ELSEIF(REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
       CALL map_scalar_center2prismtop_GM(patch_3d, flux_vert_center, op_coeff,GMredi_flux_vert)    
     ENDIF
-
-    ! Now we treat the vertical isoneutral coefficient that is discretized implicitely in time.  
-    ! This is only neccessary once for temperature and salinity, the HAMOCC tracers use these value  
-    IF(tracer_index<=1)THEN
-      ! 
-      !1.) Interpolate the tapered coefficient for the vertical tracer flux from prism center to prism top: 
-      !this is the diagonal part that is handled implicitely in time
+    
+    IF(INCLUDE_SLOPE_SQUARED_IMPLICIT)THEN
+      ! Now we treat the vertical isoneutral coefficient that is discretized implicitely in time.  
+      ! This is only neccessary once for temperature and salinity, the HAMOCC tracers use these value  
+      IF(tracer_index<=2)THEN
+        ! 
+        !1.) Interpolate the tapered coefficient for the vertical tracer flux from prism center to prism top: 
+        !this is the diagonal part that is handled implicitely in time
       
-      IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN        
-        CALL map_scalar_center2prismtop( patch_3d, &
+        IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN        
+          CALL map_scalar_center2prismtop( patch_3d, &
           &                              taper_diagonal_vert_impl,&
           &                              op_coeff,                &
           &                              ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit)        
 
-      ELSEIF(REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
-        CALL map_scalar_center2prismtop_GM( patch_3d, &
+        ELSEIF(REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
+          CALL map_scalar_center2prismtop_GM( patch_3d, &
           &                              taper_diagonal_vert_impl,&
           &                              op_coeff,                &
           &                              ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit)        
     
-      ENDIF      
-      IF(tracer_index==1)THEN
-        Do level=1,n_zlev
-          !CALL dbg_print('Old vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
-          CALL dbg_print('Old vert coeff: A_v', ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit,&
-          & this_mod_name, 4, patch_2D%cells%in_domain)
-        End do
-      ENDIF
-      !
-      !2.) Here we combine the vertical GMRedicoefficient that is treated implicitely (mapped_vertical_diagonal_impl, this
-      !term involves the slopes-squared times the isopycnal mixing coefficient and is potentially large, therefore
-      !it is discretized implicitely) with the vertical mixing coefficient from the PP-scheme. 
-      !We follow the approach in POP, where these two contributions are added
-      !(see Reference manual POP, sect 5.1.3, in particular p. 41, after eq (150)).
-      !
+        ENDIF      
+        IF(tracer_index==1)THEN
+          Do level=1,n_zlev
+            !CALL dbg_print('Old vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
+            CALL dbg_print('Old vert coeff: A_v', ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit,&
+            & this_mod_name, 4, patch_2D%cells%in_domain)
+          End do
+        ENDIF
+        !
+        !2.) Here we combine the vertical GMRedicoefficient that is treated implicitely (mapped_vertical_diagonal_impl, this
+        !term involves the slopes-squared times the isopycnal mixing coefficient and is potentially large, therefore
+        !it is discretized implicitely) with the vertical mixing coefficient from the PP-scheme. 
+        !We follow the approach in POP, where these two contributions are added
+        !(see Reference manual POP, sect 5.1.3, in particular p. 41, after eq (150)).
+        !
 !ICON_OMP_DO_PARALLEL PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
-      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block     
-        CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)      
-        DO cell_index = start_cell_index, end_cell_index
-          DO level = start_level, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
-            param%a_tracer_v(cell_index,level,blockNo, tracer_index) = &!0.0_wp!  &
-             !& param%a_tracer_v(cell_index,level,blockNo, tracer_index) + &
-             & ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit(cell_index,level,blockNo)
-          END DO                  
-        END DO                
-      END DO
+        DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block     
+          CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)      
+          DO cell_index = start_cell_index, end_cell_index
+            DO level = start_level, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
+              param%a_tracer_v(cell_index,level,blockNo, tracer_index) = &!0.0_wp!  &
+              !& param%a_tracer_v(cell_index,level,blockNo, tracer_index) + &
+              & ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit(cell_index,level,blockNo)
+            END DO                  
+          END DO                
+        END DO
 !ICON_OMP_END_DO_PARALLEL
-      IF(tracer_index==1)THEN
-        Do level=1,n_zlev
-          CALL dbg_print('New vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index),&
-          & this_mod_name, 4, patch_2D%cells%in_domain)
-          !CALL dbg_print('New vert coeff: A_v', &
-          !&ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit(:,level,:),&
-          !& this_mod_name, 4, patch_2D%cells%in_domain)
-        END DO 
-      ENDIF 
-    ENDIF!IF(tracer_index<=1)THEN 
-      
+        IF(tracer_index==1)THEN
+          Do level=1,n_zlev
+            CALL dbg_print('New vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index),&
+            & this_mod_name, 4, patch_2D%cells%in_domain)
+            !CALL dbg_print('New vert coeff: A_v', &
+            !&ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit(:,level,:),&
+            !& this_mod_name, 4, patch_2D%cells%in_domain)
+          END DO 
+        ENDIF 
+      ENDIF!IF(tracer_index<=1)THEN 
+    ENDIF  
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     Do level=1,n_zlev
     idt_src=1  ! output print level (1-5, fix)

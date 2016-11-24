@@ -421,6 +421,7 @@ MODULE mo_ocean_nml
   LOGICAL            :: SLOPE_CALC_VIA_TEMPERTURE_SALINITY=.FALSE.
   LOGICAL            :: BOLUS_VELOCITY_DIAGNOSTIC=.FALSE.
   LOGICAL            :: REVERT_VERTICAL_RECON_AND_TRANSPOSED=.FALSE.  
+  LOGICAL            :: INCLUDE_SLOPE_SQUARED_IMPLICIT=.TRUE.
   !Parameters for tapering schemes
   LOGICAL  :: GMRedi_usesRelativeMaxSlopes = .true. ! the slopes are defined relatively the the grid slopes: dz/dx
   REAL(wp) :: S_max      = 1.0_wp                   !maximally allowed slope
@@ -453,7 +454,8 @@ MODULE mo_ocean_nml
     & SWITCH_ON_TAPERING_HORIZONTAL_DIFFUSION,&
     & SLOPE_CALC_VIA_TEMPERTURE_SALINITY,&
     & BOLUS_VELOCITY_DIAGNOSTIC,         &
-    & REVERT_VERTICAL_RECON_AND_TRANSPOSED 
+    & REVERT_VERTICAL_RECON_AND_TRANSPOSED,&
+    & INCLUDE_SLOPE_SQUARED_IMPLICIT 
   
   ! ocean_physics_nml
   ! LOGICAL :: use_ThermoExpansion_Correction = .FALSE.

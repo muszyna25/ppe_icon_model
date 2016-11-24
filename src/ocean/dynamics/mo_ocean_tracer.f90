@@ -773,9 +773,10 @@ CONTAINS
           CALL dbg_print('AftGMRedi: sal complete divofGMRediflux',p_os%p_diag%div_of_GMRedi_flux(:,:,:),&
           & str_module, idt_src, in_subset=cells_in_domain)        
         ENDIF     
-      ENDIF          
-      DEALLOCATE(temp_tracer_before%concentration)
-      DEALLOCATE(temp_tracer_after%concentration) 
+        DEALLOCATE(temp_tracer_before%concentration)
+        DEALLOCATE(temp_tracer_after%concentration) 
+        
+      ENDIF!IF(GMREDI_COMBINED_DIAGNOSTIC)THEN          
       
 
       IF(tracer_index == 1) THEN           
@@ -811,9 +812,8 @@ CONTAINS
           END DO
         ENDDO 
 !ICON_OMP_END_PARALLEL_DO 
-      
-      
-      ENDIF   
+
+      ENDIF!IF(tracer_index == 1)   
            
           
     ENDIF!IF ( l_with_vert_tracer_diffusion )
