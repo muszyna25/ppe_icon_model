@@ -258,19 +258,20 @@ PROGRAM icon
 
   END SELECT
 
-  ! write the control.status file
-  IF (my_process_is_global_root()) THEN
-    OPEN (500, FILE="finish.status")
-    IF ((time_config%tc_exp_stopdate > time_config%tc_stopdate) .AND. time_config%tc_write_restart) THEN
-      WRITE(500,*) "RESTART"
-    ELSE
-      WRITE(500,*) "OK"
-    ENDIF
-    CLOSE(500)
+  IF (ASSOCIATED(time_config%tc_exp_stopdate) .AND. ASSOCIATED(time_config%tc_stopdate)) THEN
+    ! write the control.status file
+    IF (my_process_is_global_root()) THEN
+      OPEN (500, FILE="finish.status")
+      IF ((time_config%tc_exp_stopdate > time_config%tc_stopdate) .AND. time_config%tc_write_restart) THEN
+        WRITE(500,*) "RESTART"
+      ELSE
+        WRITE(500,*) "OK"
+      ENDIF
+      CLOSE(500)
+    END IF
   END IF
 
   ! Shut down MPI
-  !
   CALL stop_mpi
 
 #if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)

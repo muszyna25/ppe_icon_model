@@ -1,0 +1,23 @@
+##################################
+# set-up.info created by configure
+# do not modify this file
+##################################
+use_site='@ac_sitename@'
+use_target='@config_target@'
+use_compiler='@config_compiler@'
+use_mpi='@use_mpi@'
+use_openmp='@use_openmp@'
+use_builddir='build/@build_host@'
+use_mpi_root='@MPIROOT@'
+use_mpi_procs_pernode='@use_mpi_procs_pernode@'
+use_mpi_startrun='@mpi_startrun@'
+use_load_modules='@load_modules@'
+use_load_profile='@load_profile@'
+use_netcdflibpath='@NETCDFLIBPATH@'
+use_cdilibpath='@CDILIBPATH@'
+use_make_command='@make_command@'
+use_submit='@submit@'
+use_sync_submit='@sync_submit@'
+use_shell='@use_shell@'
+use_flags_group='@use_flags_group@'
+##################################

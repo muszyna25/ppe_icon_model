@@ -1,0 +1,137 @@
+#! /bin/ksh
+#
+# Warning: if you change the script's shell adapt the shell_in_use
+#          variable as well (for dash keep sh as shell in use)
+
+shell_in_use=ksh
+
+#________________________________________________________________
+#
+
+set -eu
+
+#________________________________________________________________
+#
+
+module_list() {
+    modversion=$(module --version 2>&1 | awk 'NR==1{print $0}')
+    if [ "x$modversion" = x"3.3.0" ]
+    then
+        module list -t 2>&1
+    else
+        module -t list 2>&1
+    fi
+}
+
+module_swap() {
+    modversion=$(module --version 2>&1 | awk 'NR==1{print $0}')
+    if [ "x$modversion" = x"3.3.0" ]
+    then
+        module unload $1 
+        module load $2
+    else
+        module swap $1 $2
+    fi
+}
+
+is_module_loaded() {
+    mod_base="^${1%%/*}"
+    module_load_status=$(module_list | awk -v p="$mod_base" '$0 ~ p { print $0}')
+
+    if [ -z $module_load_status ]
+    then
+        return 1
+    else
+        return 0
+    fi
+}
+
+#________________________________________________________________
+#
+
+load_modules="@load_modules@"
+config_compiler=@config_compiler@
+config_target=@config_target@
+
+moduleshome_in_use=${MODULESHOME-}
+load_modules_in_use=${load_modules-}
+
+#________________________________________________________________
+#
+
+if [ ! -z $moduleshome_in_use ]
+then
+    grep TCLSH $moduleshome_in_use/init/$shell_in_use > /dev/null && { export TCLSH=$(which tclsh); } 
+    . $moduleshome_in_use/init/$shell_in_use
+else
+    if [ x"$load_modules_in_use" != x"" ]
+    then
+        printf "ERROR: modules required, but module comman not available\n"
+        exit 1
+    fi
+fi
+
+if [ x"$load_modules_in_use" != x"" ]
+then
+    echo "______________________________________________________________________"
+    echo
+    echo Original loaded modules
+    echo
+    module list
+    echo
+
+
+    module_list=$(echo $load_modules_in_use | awk '{split($0,a," "); for(i=1;i<=length(a);i++){print a[i];}}')
+    current_prgenv=$(module_list | awk '/PrgEnv/{print}')
+
+    if [ ! -z $current_prgenv ]
+    then
+        # module update on Cray
+
+        for mod in $module_list
+        do
+            if [ "${mod%%-*}" = "PrgEnv" ]
+            then
+                module_swap $current_prgenv $mod
+            fi
+        done
+        module unload $mod
+        module load $mod        
+    else
+        # module update on other systems, non-Cray
+        for mod in $module_list
+        do
+            is_module_loaded $mod || {
+                module load $mod
+                false
+            } && {
+                mod_loaded=$(module_list | awk -v p="^${mod%%/*}$" '$0 ~ p { print $0}')
+                if [ "$mod_loaded" != "$mod" ]
+                then
+                    module_swap "$mod_loaded" "$mod"
+                fi
+            }
+        done                
+    fi
+
+    echo Modules loaded for compiling
+    echo
+    module list
+    echo
+    echo "______________________________________________________________________"
+    echo
+fi
+
+if  [ "x${config_target}" = "xbullx" ] && [ "x${config_compiler}" = "xpgi" ]
+then
+    export TMPDIR=/scratch/${USER:0:1}/$USER/
+fi
+
+if [ "x${config_target}" = "xblizzard" ]
+then
+    export LDR_CNTRL=MAXDATA=0xD0000000@DSA
+fi
+
+@make_command@
+
+exit $?

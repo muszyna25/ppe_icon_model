@@ -444,6 +444,17 @@ module mo_cdi
   public :: gridInqXvals
   public :: gridDefYvals
   public :: gridInqYvals
+  integer(c_int), public, parameter :: CDI_GRID_XNAME = 901
+  integer(c_int), public, parameter :: CDI_GRID_YNAME = 902
+  integer(c_int), public, parameter :: CDI_GRID_XDIMNAME = 903
+  integer(c_int), public, parameter :: CDI_GRID_YDIMNAME = 904
+  integer(c_int), public, parameter :: CDI_GRID_VDIMNAME = 905
+  integer(c_int), public, parameter :: CDI_GRID_XLONGNAME = 906
+  integer(c_int), public, parameter :: CDI_GRID_YLONGNAME = 907
+  integer(c_int), public, parameter :: CDI_GRID_XUNITS = 908
+  integer(c_int), public, parameter :: CDI_GRID_YUNITS = 909
+  public :: cdiGridDefString
+  public :: cdiGridInqString
   public :: gridDefXname
   public :: gridInqXname
   public :: gridDefXlongname
@@ -528,6 +539,13 @@ module mo_cdi
   public :: zaxisInqNumber
   public :: zaxisDefUUID
   public :: zaxisInqUUID
+  integer(c_int), public, parameter :: CDI_ZAXIS_NAME = 801
+  integer(c_int), public, parameter :: CDI_ZAXIS_DIMNAME = 802
+  integer(c_int), public, parameter :: CDI_ZAXIS_VDIMNAME = 803
+  integer(c_int), public, parameter :: CDI_ZAXIS_LONGNAME = 804
+  integer(c_int), public, parameter :: CDI_ZAXIS_UNITS = 805
+  public :: cdiZaxisDefString
+  public :: cdiZaxisInqString
   public :: zaxisDefName
   public :: zaxisInqName
   public :: zaxisDefLongname
@@ -4901,6 +4919,73 @@ contains
     end if
   end function gridNamePtr
 
+  function cdiGridDefString(gridID_dummy, key_dummy, size_dummy, mesg_dummy)&
+  & result(f_result)
+    integer(c_int) :: f_result
+    integer(c_int), value :: gridID_dummy
+    integer(c_int), value :: key_dummy
+    integer(c_int), value :: size_dummy
+    character(kind = c_char, len = *), intent(in) :: mesg_dummy
+    character(kind = c_char) :: mesg_temp(len(mesg_dummy) + 1)
+    integer :: mesg_i
+    interface
+      function lib_cdiGridDefString(gridID_dummy, key_dummy, size_dummy,&
+      & mesg_dummy) bind(c, name = 'cdiGridDefString') result(c_result)
+        import c_char, c_int
+        integer(c_int) :: c_result
+        integer(c_int), value :: gridID_dummy
+        integer(c_int), value :: key_dummy
+        integer(c_int), value :: size_dummy
+        character(kind = c_char) :: mesg_dummy(*)
+      end function lib_cdiGridDefString
+    end interface
+    do mesg_i = 1, len(mesg_dummy)
+      mesg_temp(mesg_i) = mesg_dummy(mesg_i:mesg_i)
+    end do
+    mesg_temp(len(mesg_dummy) + 1) = c_null_char
+    f_result = lib_cdiGridDefString(gridID_dummy, key_dummy, size_dummy,&
+    & mesg_temp)
+  end function cdiGridDefString
+
+  function cdiGridInqString(gridID_dummy, key_dummy, size_dummy, mesg_dummy)&
+  & result(f_result)
+    integer(c_int) :: f_result
+    integer(c_int), value :: gridID_dummy
+    integer(c_int), value :: key_dummy
+    integer(c_int), value :: size_dummy
+    character(kind = c_char, len = *), intent(inout) :: mesg_dummy
+    character(kind = c_char) :: mesg_temp(len(mesg_dummy) + 1)
+    integer :: mesg_i
+    interface
+      function lib_cdiGridInqString(gridID_dummy, key_dummy, size_dummy,&
+      & mesg_dummy) bind(c, name = 'cdiGridInqString') result(c_result)
+        import c_char, c_int
+        integer(c_int) :: c_result
+        integer(c_int), value :: gridID_dummy
+        integer(c_int), value :: key_dummy
+        integer(c_int), value :: size_dummy
+        character(kind = c_char) :: mesg_dummy(*)
+      end function lib_cdiGridInqString
+    end interface
+    mesg_temp(len(mesg_dummy) + 1) = c_null_char
+    do mesg_i = len(mesg_dummy), 1, -1
+      if(mesg_dummy(mesg_i:mesg_i) /= ' ') exit
+      mesg_temp(mesg_i) = c_null_char
+    end do
+    do mesg_i = mesg_i, 1, -1
+        mesg_temp(mesg_i) = mesg_dummy(mesg_i:mesg_i)
+    end do
+    f_result = lib_cdiGridInqString(gridID_dummy, key_dummy, size_dummy,&
+    & mesg_temp)
+    do mesg_i = 1, len(mesg_dummy)
+      if(mesg_temp(mesg_i) == c_null_char) exit
+      mesg_dummy(mesg_i:mesg_i) = mesg_temp(mesg_i)
+    end do
+    do mesg_i = mesg_i, len(mesg_dummy)
+      mesg_dummy(mesg_i:mesg_i) = ' '
+    end do
+  end function cdiGridInqString
+
   subroutine gridDefXname(gridID_dummy, xname_dummy)
     integer(c_int), value :: gridID_dummy
     character(kind = c_char, len = *), intent(in) :: xname_dummy
@@ -5352,6 +5437,73 @@ contains
       zaxisname_dummy(zaxisname_i:zaxisname_i) = ' '
     end do
   end subroutine zaxisName
+
+  function cdiZaxisDefString(zaxisID_dummy, key_dummy, size_dummy, mesg_dummy)&
+  & result(f_result)
+    integer(c_int) :: f_result
+    integer(c_int), value :: zaxisID_dummy
+    integer(c_int), value :: key_dummy
+    integer(c_int), value :: size_dummy
+    character(kind = c_char, len = *), intent(in) :: mesg_dummy
+    character(kind = c_char) :: mesg_temp(len(mesg_dummy) + 1)
+    integer :: mesg_i
+    interface
+      function lib_cdiZaxisDefString(zaxisID_dummy, key_dummy, size_dummy,&
+      & mesg_dummy) bind(c, name = 'cdiZaxisDefString') result(c_result)
+        import c_char, c_int
+        integer(c_int) :: c_result
+        integer(c_int), value :: zaxisID_dummy
+        integer(c_int), value :: key_dummy
+        integer(c_int), value :: size_dummy
+        character(kind = c_char) :: mesg_dummy(*)
+      end function lib_cdiZaxisDefString
+    end interface
+    do mesg_i = 1, len(mesg_dummy)
+      mesg_temp(mesg_i) = mesg_dummy(mesg_i:mesg_i)
+    end do
+    mesg_temp(len(mesg_dummy) + 1) = c_null_char
+    f_result = lib_cdiZaxisDefString(zaxisID_dummy, key_dummy, size_dummy,&
+    & mesg_temp)
+  end function cdiZaxisDefString
+
+  function cdiZaxisInqString(zaxisID_dummy, key_dummy, size_dummy, mesg_dummy)&
+  & result(f_result)
+    integer(c_int) :: f_result
+    integer(c_int), value :: zaxisID_dummy
+    integer(c_int), value :: key_dummy
+    integer(c_int), value :: size_dummy
+    character(kind = c_char, len = *), intent(inout) :: mesg_dummy
+    character(kind = c_char) :: mesg_temp(len(mesg_dummy) + 1)
+    integer :: mesg_i
+    interface
+      function lib_cdiZaxisInqString(zaxisID_dummy, key_dummy, size_dummy,&
+      & mesg_dummy) bind(c, name = 'cdiZaxisInqString') result(c_result)
+        import c_char, c_int
+        integer(c_int) :: c_result
+        integer(c_int), value :: zaxisID_dummy
+        integer(c_int), value :: key_dummy
+        integer(c_int), value :: size_dummy
+        character(kind = c_char) :: mesg_dummy(*)
+      end function lib_cdiZaxisInqString
+    end interface
+    mesg_temp(len(mesg_dummy) + 1) = c_null_char
+    do mesg_i = len(mesg_dummy), 1, -1
+      if(mesg_dummy(mesg_i:mesg_i) /= ' ') exit
+      mesg_temp(mesg_i) = c_null_char
+    end do
+    do mesg_i = mesg_i, 1, -1
+        mesg_temp(mesg_i) = mesg_dummy(mesg_i:mesg_i)
+    end do
+    f_result = lib_cdiZaxisInqString(zaxisID_dummy, key_dummy, size_dummy,&
+    & mesg_temp)
+    do mesg_i = 1, len(mesg_dummy)
+      if(mesg_temp(mesg_i) == c_null_char) exit
+      mesg_dummy(mesg_i:mesg_i) = mesg_temp(mesg_i)
+    end do
+    do mesg_i = mesg_i, len(mesg_dummy)
+      mesg_dummy(mesg_i:mesg_i) = ' '
+    end do
+  end function cdiZaxisInqString
 
   subroutine zaxisDefName(zaxisID_dummy, name)
     integer(c_int), value :: zaxisID_dummy

@@ -131,7 +131,7 @@ INTERFACE nabla2_vec
 END INTERFACE
 
 #if defined( _OPENACC )
-#define ACC_DEBUG $ACC
+#define ACC_DEBUG NOACC
 #if defined(__MATH_LAPLACE_NOACC)
   LOGICAL, PARAMETER ::  acc_on = .FALSE.
 #else
