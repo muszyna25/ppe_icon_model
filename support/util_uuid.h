@@ -46,6 +46,7 @@ typedef struct
 void            encode_uuid(context_t *context, uuid_t* uuid);
 context_t*      uuid_scan_data(const double* val, const int nval);
 context_t*      concat_fingerprints(context_t* context0, context_t *context1);
+void            deallocate_fingerprint(context_t* context);
 
 void            uuid_generate(const double* val, const int nval, uuid_t* uuid);
 cmp_UUID_t      compare_UUID(const uuid_t uuid_A, const uuid_t uuid_B, double* min_difference);

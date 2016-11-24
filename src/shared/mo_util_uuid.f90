@@ -125,7 +125,7 @@ MODULE mo_util_uuid
   END INTERFACE
 
   INTERFACE
-    SUBROUTINE deallocate_c(ptr) BIND(C,NAME='free') 
+    SUBROUTINE deallocate_c(ptr) BIND(C,NAME='deallocate_fingerprint') 
       IMPORT :: C_PTR
       TYPE(C_PTR), VALUE :: ptr
     END SUBROUTINE deallocate_c
