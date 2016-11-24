@@ -7,7 +7,7 @@
 /*   f(A) = A(t) mod P(t)   where P(t) is an irreducible polynomial                                 */
 /*                          in the ring of integers modulus 2 ("Z2").                               */
 /*                                                                                                  */
-/* @author F. Prill, DWD (2015-01-20)                                                               */
+/* @author F. Prill, DWD (2015-01-20 / 2016-11-23)                                                  */
 /*                                                                                                  */
 /* Literature:                                                                                      */
 /* [1] Rabin, M. O.:      "Fingerprinting by Random Polynomials."                                   */
@@ -55,6 +55,18 @@
 
 #include "util_uuid.h"
 
+// irreducible polynomial x^64 + x^4 + x^3 +   x + 1
+// with the leading coefficient removed.
+const unsigned int P64[2] = { 0x0000001B, 0x0000 };
+const unsigned int P48[2] = { 0xaf5433a5, 0xb09a };
+
+// clear bit mask and leading bit for 48 bit and 64 bit:
+const unsigned int mask64 = 0xFFFFFFFF;
+const unsigned int lbit64 = 0x80000000;
+const unsigned int mask48 = 0x0000FFFF;
+const unsigned int lbit48 = 0x00008000;
+
+
 /* -------------------- General Utility Routines -------------------- */
 
 #define BYTETOBINARYPATTERN "%d%d%d%d%d%d%d%d"
@@ -71,20 +83,11 @@
 
 // Display integer number as a binary string.
 //
-void printBinary(const unsigned int* sWord, unsigned int len) 
+void printBinary(const unsigned int* sWord) 
 {
+  const unsigned int len = 2;
   unsigned char* s = ((unsigned char*) sWord)+4*len-1;
   for (unsigned int i=0; i<4*len; i++,s--)
-    printf(BYTETOBINARYPATTERN"  ", BYTETOBINARY(*s));
-  printf("\n");
-}
-
-// Display integer number as a binary string.
-//
-void printBinary64(const unsigned long long val) 
-{
-  unsigned char* s = ((unsigned char*) &val)+7;
-  for (int i=0; i<8; i++,s--)
     printf(BYTETOBINARYPATTERN"  ", BYTETOBINARY(*s));
   printf("\n");
 }
@@ -116,6 +119,84 @@ void longLeftShift(unsigned int* sWord, unsigned int s)
   } else {
     long long unsigned int*  w = (long long unsigned int*) sWord;
     (*w) = (*w) << s;
+  }
+}
+
+
+// Compute a*t mod P48 or P64
+//
+void multiply_t(const unsigned int* a, 
+                unsigned int* s, 
+                const unsigned int* p,
+                const unsigned int lbit,
+                const unsigned int mask) 
+{
+  s[0] = a[0];
+  s[1] = a[1];
+
+  int needXOR = (s[1] & lbit); // conditional XOR 
+  
+  // left shift 1 bit: extract highest bit from lower word, insert
+  // as lowest bit in higher word
+  unsigned int temp = (s[0] >> 31) & 0x00000001;
+  s[1]  = (s[1] << 1) | temp;
+  s[1] &= mask; // clear old leading bit
+  s[0]  =  s[0] << 1;
+
+  if (needXOR) {
+    s[0] ^= p[0];
+    s[1] ^= p[1];
+  }
+}
+
+
+// Compute a*t^m mod P48 or P64
+//
+void multiply_tm(const unsigned int* a, 
+                 unsigned int* s, 
+                 unsigned int m,
+                 const unsigned int* p,
+                 const unsigned int lbit,
+                 const unsigned int mask) 
+{
+  s[0] = a[0];
+  s[1] = a[1];
+  for (unsigned int i=0; i<m; ++i)
+    multiply_t(s,s,p,lbit,mask);
+}
+
+
+// Multiplication of two polynomials (mod P48) or (mod P64).
+//
+// Direct (inefficient) implementation.
+//
+void multiply(const unsigned int* a_in, 
+              const unsigned int* b_in, 
+              unsigned int* s,
+              const unsigned int* p,
+              const unsigned int lbit,
+              const unsigned int mask) 
+{
+  unsigned int b[2];
+  b[0] = b_in[0];
+  b[1] = b_in[1];
+  s[0] = s[1] = 0;
+  for (int i=0; i<64; i++) {
+    int needXOR = b[1] & lbit; // conditional XOR 
+    
+    // left shift 1 bit: extract highest bit from lower word, insert
+    // as lowest bit in higher word
+    unsigned int temp = (b[0] >> 31) & 0x00000001;
+    b[1] = (b[1] << 1) | temp;
+    b[1] &= mask; // clear old leading bit
+    b[0] =  b[0] << 1;
+
+    if (needXOR) {
+      unsigned int c[2];
+      multiply_tm(a_in, c, 63-i, p, lbit, mask);
+      s[0] ^= c[0];
+      s[1] ^= c[1];
+    }
   }
 }
 
@@ -153,19 +234,22 @@ void generate_polynomial(unsigned int k, unsigned int* W)
 // This variant operates on 64 bit numbers, represented by two 32 bit
 // integers.
 //
-void multiT8_64(unsigned int* s, 
-                  unsigned int* in_s, 
-                  const unsigned int* p) 
+void multiT8(unsigned int* s, 
+             unsigned int* in_s, 
+             const unsigned int* p,
+             const unsigned int lbit,
+             const unsigned int mask) 
 {
   s[0] = in_s[0];
   s[1] = in_s[1];
   for (int i=0; i<8; i++) {
-    int needXOR = (s[1] & 0x80000000) == 0x80000000;  // conditional XOR 
+    int needXOR = (s[1] & lbit);  // conditional XOR 
 
     // left shift 1 bit: extract highest bit from lower word, insert
     // as lowest bit in higher word
     unsigned int temp = (s[0] >> 31) & 0x00000001;
     s[1] = (s[1] << 1) | temp;
+    s[1] &= mask; // clear old leading bit
     s[0] =  s[0] << 1;
 
     if (needXOR) {
@@ -174,36 +258,7 @@ void multiT8_64(unsigned int* s,
     }
   }
 }
-
-
-// Compute i x t^8 mod P(t) in the ring of integers modulus 2.
-//
-// This variant operates on 48 bit numbers, represented by "one and a
-// half" 32 bit integer. Therefore, the left shift operation explicitly
-// sets the output bit to zero.
-//
-void multiT8_48(unsigned int* s, 
-                  unsigned int* in_s, 
-                  const unsigned int* p) 
-{
-  s[0] = in_s[0];
-  s[1] = in_s[1];
-  for (int i=0; i<8; i++) {
-    int needXOR = (s[1] & 0x00008000) == 0x00008000;  // conditional XOR 
-    // left shift 1 bit: extract highest bit from lower word, insert
-    // as lowest bit in higher word
-    unsigned int temp = (s[0] >> 31) & 0x00000001;
-    s[1]  = (s[1] << 1) | temp;
-    s[1] &= 0xFFFF; // clear old leading bit
-    s[0]  =  s[0] << 1;
-
-    if (needXOR) {
-      s[0] ^= p[0];
-      s[1] ^= p[1];
-    }
-  }
-}
-
+                
 
 /* ---------- Fingerprint Routines, 48 bit and 64 bit --------------- */
 
@@ -221,10 +276,10 @@ void compute_table_64(const unsigned int*  p,
     //         TD[i] = i x t^8 mod P(t)
     TD[i][0] = 0x00000000;
     TD[i][1] = i << 24;
-    multiT8_64(TD[i], TD[i], p);  
-    multiT8_64(TC[i], TD[i], p);
-    multiT8_64(TB[i], TC[i], p);
-    multiT8_64(TA[i], TB[i], p);
+    multiT8(TD[i], TD[i], p, lbit64, mask64);  
+    multiT8(TC[i], TD[i], p, lbit64, mask64);
+    multiT8(TB[i], TC[i], p, lbit64, mask64);
+    multiT8(TA[i], TB[i], p, lbit64, mask64);
   }
 }
 
@@ -247,10 +302,10 @@ void compute_table_48(const unsigned int*  p,
     //         TF[i] = i x t^8 mod P(t)
     TF[i][0] = 0x00000000;
     TF[i][1] = i << 8;
-    multiT8_48(TF[i], TF[i], p);  
-    multiT8_48(TE[i], TF[i], p);  
-    multiT8_48(TD[i], TE[i], p);  
-    multiT8_48(TC[i], TD[i], p);
+    multiT8(TF[i], TF[i], p, lbit48, mask48);  
+    multiT8(TE[i], TF[i], p, lbit48, mask48);  
+    multiT8(TD[i], TE[i], p, lbit48, mask48);  
+    multiT8(TC[i], TD[i], p, lbit48, mask48);
   }
 }
 
@@ -296,47 +351,27 @@ void fp4_48(unsigned int* s, const unsigned char* w,
 }
 
 
-// Fingerprint 1 character, 64 bit fingerprint version.
+// Fingerprint 1 character. For efficiency reasons, this routine is
+// actually not used.
 //
 // Computing the fingerprint extended by one bit consists of one shift
 // left operation with the new bit as input bit and r1 as output bit and
 // then, conditioned upon r1=1, a bit-wise exclusive operation, the
 // second operand being P with the leading coefficient removed.
 //
-void fp1_64(unsigned int* s, unsigned char w, 
-             const unsigned int* p) 
+void fp1(unsigned int* s, unsigned char w, 
+         const unsigned int* p,
+         const unsigned int lbit,
+         const unsigned int mask) 
 {
   for (int i=0; i<8; i++) {
-    int needXOR = (s[1] & 0x80000000) == 0x80000000;
+    int needXOR = (s[1] & lbit);
 
     // left shift 1 bit
     unsigned int temp = (s[0] >> 31) & 0x00000001;
     s[1] = (s[1] << 1) | temp;
+    s[1] &= mask; // clear old leading bit
     s[0] =  s[0] << 1;
-
-    s[0] |= ((w & 0x80) >> 7);
-    w = w << 1;
-    if (needXOR) {
-      s[0] ^= p[0];
-      s[1] ^= p[1];
-    }
-  }
-}
-
-
-// Fingerprint 1 character, 48 bit fingerprint version.
-//
-void fp1_48(unsigned int* s, unsigned char w, 
-             const unsigned int* p) 
-{
-  for (int i=0; i<8; i++) {
-    int needXOR = s[1] & 0x00008000;
-
-    // left shift 1 bit
-    unsigned int temp = (s[0] >> 31) & 0x00000001;
-    s[1]  = (s[1] << 1) | temp;
-    s[1] &= 0xFFFF; // clear old leading bit
-    s[0]  =  s[0] << 1;
 
     s[0] |= ((w & 0x80) >> 7);
     w = w << 1;
@@ -433,13 +468,104 @@ void convert_to_fixed64(const double val, unsigned long long* fp, int* izero)
 }
 
 
+// Auxiliary routine for "uuid_generate": add data to 48 bit and 64
+// bit fingerprint.
+//
+// Looping over the byte stream in 64 bit chunks ("fp4_64" calls) is
+// identical to this:
+//
+//    unsigned long long fpval2 = 0x00;
+//    for (int i=0; i<nval; ++i)
+//      for (int j=0; j<8; ++j)
+//        { 
+//          unsigned char *w = ((unsigned char*)&val[i])+j;
+//          fp1((unsigned int*) &fpval2, *w, (const unsigned int*) P64, lbit64, mask64) ;
+//        }
+//
+// This subroutine additionally computes f(t^l), where l = 64*nval is
+// the length of the data string.
+//
+context_t* uuid_scan_data(const double* val, const int nval)
+{
+  context_t* fprnt = malloc(sizeof *fprnt);
+
+  // pre-compute tables for fingerprint algorithm
+  unsigned int 
+    TA64[256][2], TB64[256][2], TC64[256][2], TD64[256][2],
+    TC48[256][2], TD48[256][2], TE48[256][2], TF48[256][2];
+  compute_table_64(P64, TA64, TB64, TC64, TD64);
+  compute_table_48(P48, TC48, TD48, TE48, TF48);
+  fprnt->f48[0] = fprnt->f48[1] = 0; // 48 bit fingerprint
+  fprnt->f64[0] = fprnt->f64[1] = 0; // 64 bit fingerprint
+
+  // --- loop over the sequence of double precision floating point
+  //     numbers, let "t" denote the current float
+  unsigned long long val_fp;
+  int izero;
+  fprnt->max_zero = 0;
+  unsigned int zero   = 0x00000000;
+  unsigned int one64  = 0x00000080;
+  unsigned int one48  = 0x00800000;
+  unsigned int tl64_1[2], tl48_1[2];
+  tl64_1[0] = tl64_1[1] = tl48_1[0] = tl48_1[1] = 0;
+
+  // start of t^(l-1) (mod P64/P48) computation
+  fp4_64(tl64_1, (unsigned char*) &one64, TA64, TB64, TC64, TD64);
+  fp4_48(tl48_1, (unsigned char*) &one48, TC48, TD48, TE48, TF48);
+
+  for (int i=0; i<nval; i++)
+    {
+      // --- --- update the 64 bit fingerprint F1 by the current float t
+      fp4_64(fprnt->f64, (unsigned char*) &val[i],     TA64, TB64, TC64, TD64);
+      fp4_64(fprnt->f64, (unsigned char*) &val[i] + 4, TA64, TB64, TC64, TD64);
+
+      // --- compute t^(l-1) mod P64
+      if (i > 0) fp4_64(tl64_1, (unsigned char*) &zero, TA64, TB64, TC64, TD64);
+      fp4_64(tl64_1, (unsigned char*) &zero, TA64, TB64, TC64, TD64);
+      
+      // --- --- translate float t into 64 bit *fixed* point number t'
+      convert_to_fixed64(val[i], &val_fp, &izero);
+      if (fprnt->max_zero <= izero)  fprnt->max_zero = izero;
+      // --- --- update 48 bit fingerprint F2 with t'
+      fp4_48(fprnt->f48, (unsigned char*) &val_fp,     TC48, TD48, TE48, TF48);
+      fp4_48(fprnt->f48, (unsigned char*) &val_fp + 4, TC48, TD48, TE48, TF48);
+
+      // --- compute t^(l-1) mod P48
+      if (i > 0) fp4_48(tl48_1, (unsigned char*) &zero, TC48, TD48, TE48, TF48);
+      fp4_48(tl48_1, (unsigned char*) &zero, TC48, TD48, TE48, TF48);
+    }
+  // one more multiplication: t^(l-1) -> t^l
+  multiply_t(tl64_1,fprnt->tl64,P64,lbit64,mask64);
+  multiply_t(tl48_1,fprnt->tl48,P48,lbit48,mask48);
+
+  return fprnt;
+}
+
+
+// Concatenate two fingerprints f(t) by
+//    f(concat(A,B)) = f(f(A) * f(t^l)) + f(B)
+// The result ends up in "context0".
+//
+context_t *concat_fingerprints(context_t* context0, context_t *context1)
+{
+  context_t *result = malloc(sizeof *context0);
+  // 64 bit fingerprint:
+  multiply( context0->f64, context1->tl64, result->f64, P64, lbit64, mask64);
+  result->f64[0] ^= context1->f64[0];
+  result->f64[1] ^= context1->f64[1];
+  // 48 bit fingerprint:
+  multiply( context0->f48, context1->tl48, result->f48, P48, lbit48, mask48);
+  result->f48[0] ^= context1->f48[0];
+  result->f48[1] ^= context1->f48[1];
+
+  result->max_zero = (context0->max_zero > context1->max_zero) ? 
+    context0->max_zero : context1->max_zero;
+
+  return result;
+}
+
+
 /* ----------------------- UUID Computation ------------------------- */
-
-// irreducible polynomial x^64 + x^4 + x^3 +   x + 1
-// with the leading coefficient removed.
-const unsigned int P64[2] = { 0x0000001B, 0x00000000 };
-const unsigned int P48[2] = { 0xaf5433a5, 0xb09a };
-
 
 // Print UUID in standard hexadecimal format.
 //
@@ -509,40 +635,9 @@ int uuid_parse(uuid_t *uuid, const char *uuid_str)
 }
 
 
-// Auxiliary routine for "uuid_generate": add data to 48 bit and 64
-// bit fingerprint.
+// Merges the 64 bit fingerprint and the 48 bit fingerprint into a
+// valid UUID.
 //
-void uuid_scan_data(const double* val, const int nval, context_t* fprnt, int *max_zero)
-{
-  // pre-compute tables for fingerprint algorithm
-  if (fprnt->initialized == 0) {
-    compute_table_64(P64, fprnt->TA64, fprnt->TB64, fprnt->TC64, fprnt->TD64);
-    compute_table_48(P48, fprnt->TC48, fprnt->TD48, fprnt->TE48, fprnt->TF48);
-    fprnt->f48[0] = fprnt->f48[1] = 0; // 48 bit fingerprint
-    fprnt->f64[0] = fprnt->f64[1] = 0; // 64 bit fingerprint
-
-    fprnt->initialized = 1;
-  }
-
-  // --- loop over the sequence of double precision floating point
-  //     numbers, let "t" denote the current float
-  unsigned long long val_fp;
-  int izero;
-  for (int i=0; i<nval; i++)
-    {
-      // --- --- update the 64 bit fingerprint F1 by the current float t
-      fp4_64(fprnt->f64, (unsigned char*) &val[i],     fprnt->TA64, fprnt->TB64, fprnt->TC64, fprnt->TD64);
-      fp4_64(fprnt->f64, (unsigned char*) &val[i] + 4, fprnt->TA64, fprnt->TB64, fprnt->TC64, fprnt->TD64);
-      // --- --- translate float t into 64 bit *fixed* point number t'
-      convert_to_fixed64(val[i], &val_fp, &izero);
-      if ((*max_zero) <= izero)  (*max_zero)=izero;
-      // --- --- update 48 bit fingerprint F2 with t'
-      fp4_48(fprnt->f48, (unsigned char*) &val_fp,     fprnt->TC48, fprnt->TD48, fprnt->TE48, fprnt->TF48);
-      fp4_48(fprnt->f48, (unsigned char*) &val_fp + 4, fprnt->TC48, fprnt->TD48, fprnt->TE48, fprnt->TF48);
-    }
-}
-
-
 // Given a sequence of 64 bit double precision floating point numbers,
 // the UUID (Universally Unique Identifier) is computed here as follows.
 //
@@ -559,19 +654,12 @@ void uuid_scan_data(const double* val, const int nval, context_t* fprnt, int *ma
 //                where they are set accordingly if a NaN/Inf needs to be 
 //                avoided).
 //
-void uuid_generate(const double* val, const int nval, uuid_t* uuid) 
+void encode_uuid(context_t *context, uuid_t* uuid)
 {
-  context_t context;
-  context.initialized = 0;
-
-  // --- loop over the sequence of floating point numbers
-  int max_zero = 0;
-  uuid_scan_data(val, nval, &context, &max_zero);
-
   // --- concatenate the two fingerprints
   for (int i=0; i<16; ++i) uuid->data[i] = 0x00;
-  unsigned char* words64 = (unsigned char*) context.f64;
-  unsigned char* words48 = (unsigned char*) context.f48;
+  unsigned char* words64 = (unsigned char*) context->f64;
+  unsigned char* words48 = (unsigned char*) context->f48;
   for (int i=0; i<8; ++i) uuid->data[i]   = words64[i];
   for (int i=0; i<6; ++i) uuid->data[i+8] = words48[i];
 
@@ -592,11 +680,26 @@ void uuid_generate(const double* val, const int nval, uuid_t* uuid)
 
   // maximum of highest-value zero in the truncated part of the
   // mantissa
-  uuid->data[14] = max_zero;
+  uuid->data[14] = context->max_zero;
 
-  //     The original bits are appended at bit position 120-123
-  //     fingerprints.
+  // The original bits are appended at bit position 120-123
+  // fingerprints.
   uuid->data[15] = old_bits << 4;
+
+  const unsigned int UUID_FORMATTED_LENGTH = 36;
+  char buf[UUID_FORMATTED_LENGTH + 1];
+  uuid_unparse(buf, uuid);
+}
+
+
+// Generates UUID for data array "val".
+//
+void uuid_generate(const double* val, const int nval, uuid_t* uuid) 
+{
+  // --- loop over the sequence of floating point numbers
+  context_t *fingerprint = uuid_scan_data(val, nval);
+  encode_uuid(fingerprint, uuid);
+  free(fingerprint);
 }
 
 
@@ -620,8 +723,7 @@ void decode_UUID(const uuid_t uuid_in,
     old_bits = old_bits << 1;
   }
   // --- split UUID into 64 bit and 48 bit fingerprint
-  (*f64) = 0;
-  (*f48) = 0;
+  (*f64) = (*f48) = 0;
   unsigned char* words64 = (unsigned char*) f64;
   unsigned char* words48 = (unsigned char*) f48;
   for (int i=0; i<8; ++i) words64[i] = uuid.data[i];
@@ -660,7 +762,6 @@ void
 uuid_format(char *buffer, const uuid_t *uuid)
 {
   const unsigned char *d = uuid->data;
-
   sprintf(buffer,
       "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x", d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8], d[9], d[10], d[11], d[12], d[13], d[14], d[15]);
 }
