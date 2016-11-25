@@ -10,7 +10,9 @@ MODULE mo_util_uuid
 
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_CHAR, C_SIGNED_CHAR, C_NULL_CHAR, &
     &                                    C_DOUBLE, C_INT, C_PTR, C_F_POINTER, C_LOC
+#ifndef NOMPI
   USE MPI
+#endif
 
   IMPLICIT NONE 
 
@@ -303,11 +305,12 @@ CONTAINS
       WRITE (0,*) routine, ": Size of input fields does not match!"
       RETURN
     END IF
+    nval = SIZE(in_val)
 
+#ifndef NOMPI
     CALL MPI_COMM_SIZE(comm, npes, p_error)
     CALL MPI_COMM_RANK(comm, ipe,  p_error)
 
-    nval      = SIZE(in_val)
     chunksize = (glb_nval+npes/2)/npes
 
     ! first, we need to reorder the scattered global indices without
@@ -428,6 +431,13 @@ CONTAINS
     END IF
     DEALLOCATE(val_sorted, glbidx_sorted, sdispls, sendcounts, &
       &        glbidx_local, val_local, recvcounts, rdispls, glbidx)
+#else
+    ! non-MPI mode: execute sequential version
+    ALLOCATE(permutation(nval))
+    permutation(in_glbidx(:)) = (/ (i, i=1,nval) /)
+    CALL uuid_generate(in_val(permutation), nval, uuid)
+    DEALLOCATE(permutation)
+#endif
   END SUBROUTINE uuid_generate_parallel
 
 
