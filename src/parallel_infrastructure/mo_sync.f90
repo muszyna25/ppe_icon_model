@@ -45,6 +45,9 @@ USE mo_mpi,                ONLY: p_pe, p_bcast, p_sum, p_max, p_min, p_send, p_r
   &                              my_process_is_mpi_parallel, p_work_pe0,p_pe_work,                 &
   &                              comm_lev, glob_comm, comm_proc0,   &
   &                              p_gather, p_gatherv
+#ifdef _OPENACC
+USE mo_mpi,                ONLY: i_am_accel_node
+#endif
 USE mo_parallel_config, ONLY:p_test_run,   &
   & n_ghost_rows, l_log_checks, l_fast_sum
 USE mo_communication,      ONLY: exchange_data, exchange_data_4de1,            &
@@ -146,6 +149,14 @@ INTEGER :: ncumul_sync(4,max_dom) = 0
 !> List of cumulative sync fields:
 TYPE(t_cumulative_sync) :: cumul_sync(4,max_dom,MAX_CUMULATIVE_SYNC)
 
+#if defined( _OPENACC )
+#define ACC_DEBUG NOACC
+#if defined(__SYNC_NOACC)
+  LOGICAL, PARAMETER ::  acc_on = .FALSE.
+#else
+  LOGICAL, PARAMETER ::  acc_on = .TRUE.
+#endif
+#endif
 
 CONTAINS
 
@@ -359,10 +370,14 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
    IF (p_test_run .AND. do_sync_checks) THEN
      IF (PRESENT(f4din)) THEN
        ALLOCATE(arr3(UBOUND(f4din,1), UBOUND(f4din,2), UBOUND(f4din,3)))
+!$ACC DATA CREATE( arr3 ), IF ( i_am_accel_node .AND. acc_on )
        DO i = 1, SIZE(f4din,4)
+!$ACC KERNELS PRESENT( f4din, arr3 ), IF ( i_am_accel_node .AND. acc_on )
          arr3(:,:,:) = f4din(:,:,:,i)
+!$ACC END KERNELS
          CALL check_patch_array_3(typ, p_patch, arr3, 'sync')
        ENDDO
+!$ACC END DATA
        DEALLOCATE(arr3)
      ENDIF
      IF (PRESENT(f3din1)) CALL check_patch_array_3(typ, p_patch, f3din1, 'sync')
@@ -527,10 +542,14 @@ SUBROUTINE sync_patch_array_4de1(typ, p_patch, nfields, f4din)
    ! If this is a verification run, check consistency before doing boundary exchange
    IF (p_test_run .AND. do_sync_checks) THEN
      ALLOCATE(arr3(UBOUND(f4din,2), UBOUND(f4din,3), UBOUND(f4din,4)))
+!$ACC DATA CREATE( arr3 ), IF ( i_am_accel_node .AND. acc_on )
      DO i = 1, nfields
+!$ACC KERNELS PRESENT( f4din, arr3 ), IF ( i_am_accel_node .AND. acc_on )
        arr3(:,:,:) = f4din(i,:,:,:)
+!$ACC END KERNELS
        CALL check_patch_array_3(typ, p_patch, arr3, 'sync')
      ENDDO
+!$ACC END DATA
      DEALLOCATE(arr3)
    ENDIF
 
@@ -622,6 +641,9 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
 
    ndim2 = UBOUND(arr,2)
    ndim3 = UBOUND(arr,3)
+
+!$ACC DATA PRESENT( arr ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC UPDATE HOST( arr ), IF ( i_am_accel_node .AND. acc_on )
 
    IF(typ == SYNC_C .OR. typ == SYNC_C1) THEN
       ndim   = p_patch%n_patch_cells
@@ -804,6 +826,8 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
 
    ENDIF
 
+!$ACC END DATA
+
 END SUBROUTINE check_patch_array_3
 !-------------------------------------------------------------------------
 !
@@ -831,14 +855,17 @@ SUBROUTINE check_patch_array_2(typ, p_patch, arr, opt_varname)
    IF(.NOT. p_test_run) RETURN ! This routine is only effective in a verification run
 
    ALLOCATE(arr3(UBOUND(arr,1), 1, UBOUND(arr,2)))
+!$ACC DATA CREATE( arr3 ), IF ( i_am_accel_node .AND. acc_on )
+!$ACC KERNELS PRESENT( arr ), IF ( i_am_accel_node .AND. acc_on )
    arr3(:,1,:) = arr(:,:)
+!$ACC END KERNELS
 
    IF(PRESENT(opt_varname)) THEN
       CALL check_patch_array_3(typ, p_patch, arr3, opt_varname)
    ELSE
       CALL check_patch_array_3(typ, p_patch, arr3)
    ENDIF
-
+!$ACC END DATA
    DEALLOCATE(arr3) ! NB: No back-copy here!
 
 END SUBROUTINE check_patch_array_2

@@ -28,22 +28,27 @@ MODULE mo_nh_prepadv_types
 
   ! for preparation of transport with optional reduced calling frequency
   TYPE :: t_prepare_adv
+#ifdef _OPENACC
+    REAL(wp), POINTER ::     &
+#else
+    REAL(wp), ALLOCATABLE :: &
+#endif
     ! mass flux at full level edges (currently at N+1\2)
-    REAL(wp), ALLOCATABLE :: mass_flx_me(:,:,:)
-
+    mass_flx_me(:,:,:) ,     &
+    !
     !mass flux at half level centers (currently at N+1\2)
-    REAL(wp), ALLOCATABLE :: mass_flx_ic(:,:,:)
-
+    mass_flx_ic(:,:,:) ,     &
+    !
     ! horizontal velocity at edges for computation of backward trajectories
     ! (currently at N+1/2)
-    REAL(wp), ALLOCATABLE :: vn_traj(:,:,:)
-
+    vn_traj(:,:,:) ,         &
+    !
     ! vertical velocity at half level centers for computation of
     ! backward trajectories (currently at N+1/2)
-    REAL(wp), ALLOCATABLE :: w_traj(:,:,:)
-
+    w_traj(:,:,:) ,          &
+    !
     !< vertical tracer flux at domain top (time average; n+1/2)
-    REAL(wp), ALLOCATABLE :: topflx_tra(:,:,:)
+    topflx_tra(:,:,:)
 
   END TYPE t_prepare_adv
 

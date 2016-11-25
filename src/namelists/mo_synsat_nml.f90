@@ -88,8 +88,11 @@ CONTAINS
     lsynsat(:) = .FALSE.
 
     ! Number of RTTOV levels
+#ifdef RTTOV12
+    nlev_rttov = 54
+#else
     nlev_rttov = 51
-
+#endif
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
