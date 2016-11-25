@@ -98,8 +98,8 @@ MODULE mo_advection_traj
     !
     PROCEDURE :: construct
     PROCEDURE :: destruct
-    PROCEDURE :: compute    => btraj_compute_o1 ! 1st order backward trajectore computation
-    PROCEDURE :: compute_o2 => btraj_compute_o2 ! 2nd order backward trajectore computation
+    PROCEDURE :: compute    => btraj_compute_o1 ! 1st order backward trajectory computation
+    PROCEDURE :: compute_o2 => btraj_compute_o2 ! 2nd order backward trajectory computation
     
   END TYPE t_back_traj
 
@@ -157,7 +157,7 @@ CONTAINS
     ! local
     INTEGER :: ist
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_traj: construct'
+      &  routine = 'mo_advection_traj: destruct'
 
     DEALLOCATE(obj%cell_idx, obj%cell_blk, STAT=ist)
     IF (ist /= SUCCESS) THEN
