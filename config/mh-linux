@@ -750,6 +750,7 @@ case "$ac_sitename" in
                            NETCDFROOT = $software_tree/netcdf-4.3.3.1-static-gccsys
                            HDF5ROOT = $software_tree/hdf5-1.8.16-static-gccsys
                            SYS_LIBS = -L/usr/x86_64-linux-gnu/lib -lm -ldl -lrt -lutil -lpthread -lpciaccess
+                           SYS_LIBS = -ljasper -ljpeg $SYS_LIBS
                            XML2ROOT = /usr
                            case "$fortran_compiler" in
                                default|gcc)
