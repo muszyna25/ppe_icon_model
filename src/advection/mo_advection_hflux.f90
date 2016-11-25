@@ -233,9 +233,11 @@ CONTAINS
     REAL(wp)::   &                  !< unweighted tangential velocity
       &  z_real_vt(nproma,p_patch%nlev,p_patch%nblks_e)!< component at edges
 
-    TYPE(t_back_traj) :: btraj
-    INTEGER :: i_rlstart
-    INTEGER :: i_rlend_tr
+    TYPE(t_back_traj) :: btraj, btraj_cycl
+    INTEGER  :: i_rlstart
+    INTEGER  :: i_rlend_tr
+    REAL(wp) :: z_dthalf
+    REAL(wp) :: z_dthalf_cycl
     !-----------------------------------------------------------------------
 
     ! get patch ID
@@ -270,8 +272,9 @@ CONTAINS
     ENDIF
 
 
-    !Allocation
-    CALL btraj%construct(nproma,p_patch%nlev,p_patch%nblks_e,2)
+    ! Allocation
+    CALL btraj%construct     (nproma,p_patch%nlev,p_patch%nblks_e,2)
+    CALL btraj_cycl%construct(nproma,p_patch%nlev,p_patch%nblks_e,2)
     !
     ! Backward trajectory computation for MIURA-scheme with linear 
     ! reconstruction. In that case it is sufficient to compute 
@@ -279,43 +282,71 @@ CONTAINS
     i_rlstart  = 5
     i_rlend_tr = MIN(i_rlend, min_rledge_int - 1)
     iadv_min_slev = advection_config(jg)%miura_h%iadv_min_slev
+    qvsubstep_elev = advection_config(jg)%iadv_qvsubstep_elev
+
+    ! Determine number of substeps in miura_cycl
+    ! It is assumed that three substeps are needed if the top of the currently active
+    ! model domain is higher than 40 km, otherwise, two are sufficient
+    !
+    IF (vct_a(advection_config(jg)%miura_h%iadv_min_slev+p_patch%nshift_total) > 40000._wp) THEN
+      nsubsteps = 3
+    ELSE
+      nsubsteps = 2
+    ENDIF
+    z_dthalf = 0.5_wp * p_dtime
+    z_dthalf_cycl = z_dthalf/REAL(nsubsteps,wp)
+    !
     IF (p_iord_backtraj == 1)  THEN
       ! 1st order backward trajectory
       CALL btraj%compute ( ptr_p       = p_patch,          & !in
         &                  ptr_int     = p_int,            & !in
         &                  p_vn        = p_vn,             & !in
         &                  p_vt        = z_real_vt,        & !in
-        &                  p_dthalf    = 0.5_wp * p_dtime, & !in
+        &                  p_dthalf    = z_dthalf,         & !in
         &                  opt_rlstart = i_rlstart,        & !in
         &                  opt_rlend   = i_rlend_tr,       & !in
         &                  opt_slev    = iadv_min_slev,    & !in
         &                  opt_elev    = p_patch%nlev      ) !in
-    ELSE
-      ! 2nd order backward trajectory
-      CALL btraj%compute_o2 ( ptr_p    = p_patch,          & !in
+      !
+      ! 1st order backward trajectory for subcycled version
+      ! The only thing that differs is the time step passed in
+      CALL btraj_cycl%compute ( ptr_p  = p_patch,          & !in
         &                  ptr_int     = p_int,            & !in
         &                  p_vn        = p_vn,             & !in
         &                  p_vt        = z_real_vt,        & !in
-        &                  p_dthalf    = 0.5_wp * p_dtime, & !in
+        &                  p_dthalf    = z_dthalf_cycl,    & !in
         &                  opt_rlstart = i_rlstart,        & !in
         &                  opt_rlend   = i_rlend_tr,       & !in
         &                  opt_slev    = iadv_min_slev,    & !in
-        &                  opt_elev    = p_patch%nlev      ) !in
+        &                  opt_elev    = qvsubstep_elev    ) !in
+    ELSE
+      ! 2nd order backward trajectory
+      CALL btraj%compute_o2 ( ptr_p       = p_patch,          & !in
+        &                     ptr_int     = p_int,            & !in
+        &                     p_vn        = p_vn,             & !in
+        &                     p_vt        = z_real_vt,        & !in
+        &                     p_dthalf    = z_dthalf,         & !in
+        &                     opt_rlstart = i_rlstart,        & !in
+        &                     opt_rlend   = i_rlend_tr,       & !in
+        &                     opt_slev    = iadv_min_slev,    & !in
+        &                     opt_elev    = p_patch%nlev      ) !in
+      !
+      ! 2nd order backward trajectory for subcycled version
+      ! The only thing that differs is the time step passed in
+      CALL btraj_cycl%compute_o2 ( ptr_p  = p_patch,          & !in
+        &                     ptr_int     = p_int,            & !in
+        &                     p_vn        = p_vn,             & !in
+        &                     p_vt        = z_real_vt,        & !in
+        &                     p_dthalf    = z_dthalf_cycl,    & !in
+        &                     opt_rlstart = i_rlstart,        & !in
+        &                     opt_rlend   = i_rlend_tr,       & !in
+        &                     opt_slev    = iadv_min_slev,    & !in
+        &                     opt_elev    = p_patch%nlev      ) !in
     ENDIF
 
 
 
     DO jt = 1, ntracer ! Tracer loop
-
-      ! Determine number of substeps in miura_cycl
-      ! It is assumed that three substeps are needed if the top of the currently active
-      ! model domain is higher than 40 km, otherwise, two are sufficient
-      !
-      IF (vct_a(p_iadv_slev(jt)+p_patch%nshift_total) > 40000._wp) THEN
-        nsubsteps = 3
-      ELSE
-        nsubsteps = 2
-      ENDIF
 
       ! Select desired flux calculation method
       SELECT CASE( p_ihadv_tracer(jt) )
@@ -390,19 +421,15 @@ CONTAINS
 
       CASE ( MCYCL )   ! ihadv_tracer = 20
 
-        iadv_min_slev = advection_config(jg)%mcycl_h%iadv_min_slev
-
         ! CALL MIURA with second order accurate reconstruction and subcycling
         CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,     &! in
-          &             p_mass_flx_e, p_vn, z_real_vt, p_dtime, nsubsteps,&! in
-          &             p_int, lcompute%mcycl_h(jt), lcleanup%mcycl_h(jt),&! in
+          &             p_mass_flx_e, p_dtime, nsubsteps,                 &! in
+          &             p_int, btraj_cycl,                                &! in
           &             p_igrad_c_miura, p_itype_hlimit(jt),              &! in
-          &             p_iord_backtraj, p_upflux(:,:,:,jt),              &! in,inout
+          &             p_upflux(:,:,:,jt),                               &! inout
           &             elev = p_patch%nlev,                              &! in
           &             opt_lconsv  = llsq_lin_consv,                     &! in
-          &             opt_rlend   = i_rlend,                            &! in
-          &             opt_slev    = p_iadv_slev(jt),                    &! in
-          &             opt_ti_slev = iadv_min_slev                       )! in
+          &             opt_rlend   = i_rlend                             )! in
 
 
       CASE( MIURA_MCYCL )   ! ihadv_tracer = 22
@@ -420,19 +447,6 @@ CONTAINS
           &                 opt_slev    = qvsubstep_elev+1,                &! in
           &                 opt_elev    = p_patch%nlev                     )
 
-!!$        ! CALL standard MIURA for lower atmosphere and the subcycling version of
-!!$        ! MIURA for upper atmosphere
-!!$        CALL upwind_hflux_miura( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,  &! in
-!!$          &              p_vn, z_real_vt, p_dtime, p_int,                &! in
-!!$          &              lcompute%miura_h(jt), lcleanup%miura_h(jt),     &! in
-!!$          &              p_igrad_c_miura, p_itype_hlimit(jt),            &! in
-!!$          &              p_iord_backtraj, p_upflux(:,:,:,jt),            &! in,inout
-!!$          &              opt_lconsv  = llsq_lin_consv,                   &! in
-!!$          &              opt_rlend   = i_rlend,                          &! in
-!!$          &              opt_slev    = qvsubstep_elev+1,                 &! in
-!!$          &              opt_elev    = p_patch%nlev,                     &! in
-!!$          &              opt_ti_slev = qvsubstep_elev+1,                 &! in
-!!$          &              opt_ti_elev = p_patch%nlev                      )! in
 
         IF (qvsubstep_elev > 0) THEN
 
@@ -441,16 +455,14 @@ CONTAINS
         ! trajectories multiple times when combining the substepping scheme with
         ! different other schemes.
         CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,       &! in
-          &              p_mass_flx_e, p_vn, z_real_vt, p_dtime, nsubsteps, &! in
-          &              p_int, lcompute%mcycl_h(jt), lcleanup%mcycl_h(jt), &! in
+          &              p_mass_flx_e, p_dtime, nsubsteps,                  &! in
+          &              p_int, btraj_cycl,                                 &! in
           &              p_igrad_c_miura, p_itype_hlimit(jt),               &! in
-          &              p_iord_backtraj, p_upflux(:,:,:,jt),               &! in,inout
+          &              p_upflux(:,:,:,jt),                                &! inout
           &              elev        = qvsubstep_elev,                      &! in
           &              opt_lconsv  = llsq_lin_consv,                      &! in
           &              opt_rlend   = i_rlend,                             &! in
-          &              opt_slev    = p_iadv_slev(jt),                     &! in
-          &              opt_ti_slev = p_iadv_slev(jt),                     &! in
-          &              opt_ti_elev = qvsubstep_elev                       )! in
+          &              opt_slev    = p_iadv_slev(jt)                      )! in
         ENDIF
 
 
@@ -478,17 +490,16 @@ CONTAINS
         ! trajectories multiple times when combining the substepping scheme with
         ! different other schemes.
         CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,       &! in
-          &              p_mass_flx_e, p_vn, z_real_vt, p_dtime, nsubsteps, &! in
-          &              p_int, lcompute%mcycl_h(jt), lcleanup%mcycl_h(jt), &! in
+          &              p_mass_flx_e, p_dtime, nsubsteps,                  &! in
+          &              p_int, btraj_cycl,                                 &! in
           &              p_igrad_c_miura, p_itype_hlimit(jt),               &! in
-          &              p_iord_backtraj, p_upflux(:,:,:,jt),               &! in,inout
+          &              p_upflux(:,:,:,jt),                                &! inout
           &              elev        = qvsubstep_elev,                      &! in
           &              opt_lconsv  = llsq_lin_consv,                      &! in
           &              opt_rlend   = i_rlend,                             &! in
-          &              opt_slev    = p_iadv_slev(jt),                     &! in
-          &              opt_ti_slev = p_iadv_slev(jt),                     &! in
-          &              opt_ti_elev = qvsubstep_elev                       )! in
+          &              opt_slev    = p_iadv_slev(jt)                      )! in
         ENDIF
+
 
       CASE (FFSL_MCYCL)   ! ihadv_tracer = 42
 
@@ -515,16 +526,14 @@ CONTAINS
         ! trajectories multiple times when combining the substepping scheme with
         ! different other schemes.
         CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,       &! in
-          &              p_mass_flx_e, p_vn, z_real_vt, p_dtime, nsubsteps, &! in
-          &              p_int, lcompute%mcycl_h(jt), lcleanup%mcycl_h(jt), &! in
+          &              p_mass_flx_e, p_dtime, nsubsteps,                  &! in
+          &              p_int, btraj_cycl,                                 &! in
           &              p_igrad_c_miura, p_itype_hlimit(jt),               &! in
-          &              p_iord_backtraj, p_upflux(:,:,:,jt),               &! in,inout
+          &              p_upflux(:,:,:,jt),                                &! inout
           &              elev        = qvsubstep_elev,                      &! in
           &              opt_lconsv  = llsq_lin_consv,                      &! in
           &              opt_rlend   = i_rlend,                             &! in
-          &              opt_slev    = p_iadv_slev(jt),                     &! in
-          &              opt_ti_slev = p_iadv_slev(jt),                     &! in
-          &              opt_ti_elev = qvsubstep_elev                       )! in
+          &              opt_slev    = p_iadv_slev(jt)                      )! in
         ENDIF
 
 
@@ -554,16 +563,14 @@ CONTAINS
         ! trajectories multiple times when combining the substepping scheme with
         ! different other schemes.
         CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,       &! in
-          &              p_mass_flx_e, p_vn, z_real_vt, p_dtime, nsubsteps, &! in
-          &              p_int, lcompute%mcycl_h(jt), lcleanup%mcycl_h(jt), &! in
+          &              p_mass_flx_e, p_dtime, nsubsteps,                  &! in
+          &              p_int, btraj_cycl,                                 &! in
           &              p_igrad_c_miura, p_itype_hlimit(jt),               &! in
-          &              p_iord_backtraj, p_upflux(:,:,:,jt),               &! in,inout
+          &              p_upflux(:,:,:,jt),                                &! inout
           &              elev        = qvsubstep_elev,                      &! in
           &              opt_lconsv  = llsq_lin_consv,                      &! in
           &              opt_rlend   = i_rlend,                             &! in
-          &              opt_slev    = p_iadv_slev(jt),                     &! in
-          &              opt_ti_slev = p_iadv_slev(jt),                     &! in
-          &              opt_ti_elev = qvsubstep_elev                       )! in
+          &              opt_slev    = p_iadv_slev(jt)                      )! in
         ENDIF
 
       END SELECT
@@ -572,6 +579,7 @@ CONTAINS
 
     ! destruct backward trajectory components
     CALL btraj%destruct()
+    CALL btraj_cycl%destruct()
 
     IF (timers_level > 2) CALL timer_stop(timer_adv_horz)
 
@@ -753,12 +761,12 @@ CONTAINS
   !! - Miura, H. (2007), Mon. Weather Rev., 135, 4038-4044
   !! - Skamarock, W.C. (2010), Conservative Transport schemes for Spherical Geodesic
   !!   Grids: High-order Reconstructions for Forward-in-Time Schemes, Mon. Wea. Rev,
-  !!   in Press
+  !!   139, 4497-4508
   !!
   SUBROUTINE upwind_hflux_miura( p_patch, p_cc, p_mass_flx_e,    &
-    &                      p_dtime, p_int, btraj,    &
-    &                      p_igrad_c_miura, p_itype_hlimit, &
-    &                      p_out_e, opt_lconsv, opt_rlstart, opt_rlend,      &
+    &                      p_dtime, p_int, btraj,                &
+    &                      p_igrad_c_miura, p_itype_hlimit,      &
+    &                      p_out_e, opt_lconsv, opt_rlstart, opt_rlend, &
     &                      opt_lout_edge, opt_slev, opt_elev )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -800,7 +808,7 @@ CONTAINS
       &  opt_rlend                     !< (to avoid calculation of halo points)
 
     LOGICAL, INTENT(IN), OPTIONAL :: & !< optional: output edge value (.TRUE.),
-      & opt_lout_edge                  !< or the flux across the edge (.FALSE./not specified)
+      &  opt_lout_edge                 !< or the flux across the edge (.FALSE./not specified)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
       &  opt_slev
@@ -840,8 +848,8 @@ CONTAINS
 
    !-------------------------------------------------------------------------
 
-!$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e, p_vn, p_vt ), PCOPY( p_out_e ), CREATE( z_grad, z_lsq_coeff ), IF( i_am_accel_node .AND. acc_on)
-!ACC_DEBUG UPDATE DEVICE( p_cc, p_mass_flx_e, p_vn, p_vt, p_out_e ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA  PCOPYIN( p_cc, p_mass_flx_e ), PCOPY( p_out_e ), CREATE( z_grad, z_lsq_coeff ), IF( i_am_accel_node .AND. acc_on)
+!ACC_DEBUG UPDATE DEVICE( p_cc, p_mass_flx_e, p_out_e ), IF( i_am_accel_node .AND. acc_on )
 
     ! number of vertical levels
     nlev = p_patch%nlev
@@ -990,7 +998,7 @@ CONTAINS
 
 #ifdef _OPENACC
 !$ACC PARALLEL &
-!$ACC PRESENT( p_patch, p_cc, p_mass_flx_e, btraj%cell_idx, btraj%cell_blk, z_grad, z_distv_bary ), &
+!$ACC PRESENT( p_patch, p_cc, p_mass_flx_e, btraj%cell_idx, btraj%cell_blk, z_grad, btraj%distv_bary ), &
 !$ACC PRESENT( p_out_e ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
@@ -1119,18 +1127,22 @@ CONTAINS
   !! - increased number of subcycling steps from 2 to 3 (hard coded)
   !! Modification by Daniel Reinert, DWD (2013-10-09)
   !! - reduce vertical dimension of local arrays from nlev to elev
+  !! Modification by Daniel Reinert, DWD (2016-11-24)
+  !! - computation of backward trajectories moved one level up to simplify 
+  !!   flow control. It is now simpler to ensure that backward trajectories are only 
+  !!   computed once per time step and that the backward trajectory information is 
+  !!   available at all points and levels.
   !!
   !! @par LITERATURE
   !! - Miura, H. (2007), Mon. Weather Rev., 135, 4038-4044
   !! - Skamarock, W.C. (2010), Conservative Transport schemes for Spherical Geodesic
   !!   Grids: High-order Reconstructions for Forward-in-Time Schemes, Mon. Wea. Rev,
-  !!   138, 4497-4508
+  !!   139, 4497-4508
   !!
-  SUBROUTINE upwind_hflux_miura_cycl( p_patch, p_cc, p_rho, p_mass_flx_e, p_vn,    &
-    &                   p_vt, p_dtime,  p_ncycl, p_int, ld_compute, ld_cleanup,    &
-    &                   p_igrad_c_miura, p_itype_hlimit, p_iord_backtraj, p_out_e, &
-    &                   elev, opt_lconsv, opt_rlstart, opt_rlend, opt_slev,        &
-    &                   opt_ti_slev, opt_ti_elev  )
+  SUBROUTINE upwind_hflux_miura_cycl( p_patch, p_cc, p_rho, p_mass_flx_e,  &
+    &                   p_dtime,  p_ncycl, p_int, btraj,                   &
+    &                   p_igrad_c_miura, p_itype_hlimit, p_out_e,          &
+    &                   elev, opt_lconsv, opt_rlstart, opt_rlend, opt_slev )
 
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
@@ -1142,6 +1154,9 @@ CONTAINS
     TYPE(t_int_state), TARGET, INTENT(IN) ::  &  !< pointer to data structure for interpolation
       &  p_int
 
+    TYPE(t_back_traj), INTENT(IN) :: &      !< information on backward trajectories
+      &  btraj
+
     REAL(wp), TARGET, INTENT(IN) ::     &   !< cell centered variable to be advected
       &  p_cc(:,:,:)                        !< dim: (nproma,nlev,nblks_c)
 
@@ -1152,33 +1167,16 @@ CONTAINS
       &  p_mass_flx_e(:,:,:)        !< Assumption: constant over p_dtime
                                     !< dim: (nproma,nlev,nblks_e)
 
-    REAL(wp), INTENT(IN) ::    &    !< unweighted normal velocity field
-      &  p_vn(:,:,:)                !< Assumption: constant over p_dtime
-                                    !< dim: (nproma,nlev,nblks_e)
-
-    REAL(wp), INTENT(IN) ::    &    !< unweighted tangential velocity field
-      &  p_vt(:,:,:)                !< Assumption: constant over p_dtime
-                                    !< dim: (nproma,nlev,nblks_e)
-
     REAL(wp), INTENT(IN) :: p_dtime !< time step
 
     INTEGER,  INTENT(IN) ::    &    !< number of sub-timesteps into which p_dtime
       &  p_ncycl                    !< is split (p_ncycl=1 : no subcycling)
-
-    LOGICAL, INTENT(IN) ::     &    !< flag, if .TRUE. compute geometrical terms
-      &  ld_compute
-
-    LOGICAL, INTENT(IN) ::     &    !< flag, if .TRUE. clean up geometrical terms
-      &  ld_cleanup
 
     INTEGER, INTENT(IN) :: p_igrad_c_miura   !< parameter to select the gradient
                                              !< reconstruction method at cell center
 
     INTEGER, INTENT(IN) :: p_itype_hlimit    !< parameter to select the limiter
                                              !< for horizontal transport
-
-    INTEGER, INTENT(IN) :: p_iord_backtraj   !< parameter to select the order of
-                                             !< spacial accuracy for the backward trajectory
 
     REAL(wp), INTENT(INOUT) ::  &   !< output field, containing the upwind flux or the
       &  p_out_e(:,:,:)             !< reconstructed edge value; dim: (nproma,nlev,nblks_e)
@@ -1198,12 +1196,6 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
       &  opt_slev
 
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level (tracer independent part)
-      &  opt_ti_slev
-
-    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level (tracer independent part)
-      &  opt_ti_elev
-
     REAL(vp), TARGET ::    &                   !< reconstructed gradient vector at
       &  z_grad(2,nproma,p_patch%nlev,p_patch%nblks_c)
                                                !< cell center (geographical coordinates)
@@ -1213,18 +1205,6 @@ CONTAINS
                                                     !< at cell center (geogr. coordinates)
                                                     !< includes coeff0 and gradients in
                                                     !< zonal and meridional direction
-
-    REAL(vp), ALLOCATABLE, SAVE ::  &   !< distance vectors cell center -->
-      &  z_distv_bary(:,:,:,:)          !< barycenter of advected area
-                                        !< (geographical coordinates)
-                                        !< dim: (nproma,nlev,p_patch%nblks_e,2)
-
-    INTEGER, ALLOCATABLE, SAVE  ::  &   !< line indices of cell centers in which the
-      &  z_cell_idx(:,:,:)              !< calculated barycenters are located
-                                        !< dim: (nproma,nlev,p_patch%nblks_e,2)
-    INTEGER, ALLOCATABLE, SAVE  ::  &   !< block indices of cell centers in which the
-      &  z_cell_blk(:,:,:)              !< calculated barycenters are located
-                                        !< dim: (nproma,nlev,p_patch%nblks_e,2)
 
     REAL(wp) :: z_dtsub                 !< sub timestep p_dtime/p_ncycl
     REAL(wp) :: z_dthalf                !< z_dtsub/2
@@ -1246,12 +1226,11 @@ CONTAINS
     INTEGER  :: pid
     INTEGER  :: nlev               !< number of full levels
     INTEGER  :: slev               !< vertical start level
-    INTEGER  :: slev_ti, elev_ti   !< vertical start and end level (tracer independent part)
     INTEGER  :: ist                !< status variable
     INTEGER  :: jc, je, jk, jb     !< index of cell, edge, vert level, block
     INTEGER  :: ilc0, ibc0         !< line and block index for local cell center
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER  :: i_rlstart, i_rlend, i_nchdom, i_rlend_c, i_rlend_tr, i_rlend_vt
+    INTEGER  :: i_rlstart, i_rlend, i_nchdom, i_rlend_c
     LOGICAL  :: l_consv            !< true if conservative lsq reconstruction is used
     LOGICAL  :: use_zlsq           !< true if z_lsq_coeff is used to store the gradients
     INTEGER  :: nsub               !< counter for sub-timesteps
@@ -1286,17 +1265,6 @@ CONTAINS
       slev = 1
     END IF
 
-    IF ( PRESENT(opt_ti_slev) ) THEN
-      slev_ti = opt_ti_slev
-    ELSE
-      slev_ti = 1
-    END IF
-    IF ( PRESENT(opt_ti_elev) ) THEN
-      elev_ti = opt_ti_elev
-    ELSE
-      elev_ti = nlev
-    END IF
-
     IF ( PRESENT(opt_lconsv) ) THEN
      l_consv = opt_lconsv
     ELSE
@@ -1315,19 +1283,12 @@ CONTAINS
       i_rlend = min_rledge_int - 1
     ENDIF
 
-    i_rlend_tr = MIN(i_rlend, min_rledge_int - 1)
-
 !!$    IF (p_igrad_c_miura == 3) THEN
 !!$      i_rlend_c = min_rlcell_int
 !!$    ELSE
       i_rlend_c = min_rlcell_int - 1
 !!$    ENDIF
 
-    IF (p_iord_backtraj == 1)  THEN
-      i_rlend_vt = i_rlend_tr
-    ELSE
-      i_rlend_vt = MAX(i_rlend_tr - 1, min_rledge)
-    ENDIF
 
     ! line and block indices of edges as seen from cells
     iidx => p_patch%cells%edge_idx
@@ -1370,49 +1331,6 @@ CONTAINS
     ! 2 options:  without limiter
     !             with    flux limiter following Zalesak (1979)
     !
-    IF (ld_compute) THEN
-
-      ! allocate temporary arrays for distance vectors and upwind cells
-      ALLOCATE( z_distv_bary(nproma,nlev,p_patch%nblks_e,2),         &
-        &       z_cell_idx(nproma,nlev,p_patch%nblks_e),             &
-        &       z_cell_blk(nproma,nlev,p_patch%nblks_e),             &
-        &       STAT=ist )
-      IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                     &
-          &  'allocation for z_distv_bary, z_cell_idx, z_cell_blk, failed' )
-      ENDIF
-
-
-      !
-      ! 1. Approximation of the 'departure region'. In case of a linear
-      !    reconstruction it is sufficient to compute the barycenter
-      !    of the departure region (instead of all the vertices).
-      !
-
-      ! compute barycenter of departure region and the distance vector between
-      ! the cell center and the barycenter using backward trajectories.
-      IF (p_iord_backtraj == 1)  THEN
-
-        ! first order backward trajectory
-        CALL btraj   ( p_patch, p_int, p_vn, p_vt, z_dthalf,         &! in
-          &            z_cell_idx, z_cell_blk, z_distv_bary,         &! out
-          &            opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,  &! in
-          &            opt_slev=slev_ti, opt_elev=elev_ti            )! in
-
-      ELSE
-
-        ! second order backward trajectory
-        CALL btraj_o2( p_patch, p_int, p_vn, p_vt, z_dthalf,         &! in
-          &            z_cell_idx, z_cell_blk, z_distv_bary,         &! out
-          &            opt_rlstart=i_rlstart, opt_rlend=i_rlend_tr,  &! in
-          &            opt_slev=slev_ti, opt_elev=elev_ti            )! in
-
-      ENDIF
-
-    END IF ! ld_compute
-
-
-
 
     !
     ! Loop over sub-timesteps (subcycling)
@@ -1494,13 +1412,13 @@ CONTAINS
 
             DO je = i_startidx, i_endidx
 
-              ilc0 = z_cell_idx(je,jk,jb)
-              ibc0 = z_cell_blk(je,jk,jb)
+              ilc0 = btraj%cell_idx(je,jk,jb)
+              ibc0 = btraj%cell_blk(je,jk,jb)
 
               ! compute intermediate flux at cell edge (cc_bary*v_{n}* \Delta p)
               z_tracer_mflx(je,jk,jb,nsub) = ( z_lsq_coeff(1,ilc0,jk,ibc0)        &
-                &      + z_distv_bary(je,jk,jb,1) * z_lsq_coeff(2,ilc0,jk,ibc0)   &
-                &      + z_distv_bary(je,jk,jb,2) * z_lsq_coeff(3,ilc0,jk,ibc0) ) &
+                &      + btraj%distv_bary(je,jk,jb,1) * z_lsq_coeff(2,ilc0,jk,ibc0)   &
+                &      + btraj%distv_bary(je,jk,jb,2) * z_lsq_coeff(3,ilc0,jk,ibc0) ) &
                 &      * p_mass_flx_e(je,jk,jb)
 
             ENDDO ! loop over edges
@@ -1511,13 +1429,13 @@ CONTAINS
 
             DO je = i_startidx, i_endidx
 
-              ilc0 = z_cell_idx(je,jk,jb)
-              ibc0 = z_cell_blk(je,jk,jb)
+              ilc0 = btraj%cell_idx(je,jk,jb)
+              ibc0 = btraj%cell_blk(je,jk,jb)
 
               ! compute intermediate flux at cell edge (cc_bary*v_{n}* \Delta p)
               z_tracer_mflx(je,jk,jb,nsub) = ( z_tracer(ilc0,jk,ibc0,nnow)   &
-                &      + z_distv_bary(je,jk,jb,1) * z_grad(1,ilc0,jk,ibc0)   &
-                &      + z_distv_bary(je,jk,jb,2) * z_grad(2,ilc0,jk,ibc0) ) &
+                &      + btraj%distv_bary(je,jk,jb,1) * z_grad(1,ilc0,jk,ibc0)   &
+                &      + btraj%distv_bary(je,jk,jb,2) * z_grad(2,ilc0,jk,ibc0) ) &
                 &      * p_mass_flx_e(je,jk,jb)
 
             ENDDO ! loop over edges
@@ -1686,16 +1604,6 @@ CONTAINS
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-
-
-    IF ( ld_cleanup ) THEN
-      ! deallocate temporary arrays for velocity, Gauss-points and barycenters
-      DEALLOCATE( z_distv_bary, z_cell_idx, z_cell_blk, STAT=ist )
-      IF (ist /= SUCCESS) THEN
-        CALL finish ( TRIM(routine),                                 &
-          &  'deallocation for z_distv_bary, z_cell_idx, z_cell_blk, failed' )
-      ENDIF
-    END IF
 
   END SUBROUTINE upwind_hflux_miura_cycl
 
