@@ -1990,6 +1990,7 @@ src/shared/mo_util_sysinfo.f90 -text
 src/shared/mo_util_system.f90_off -text
 src/shared/mo_util_table.f90 -text
 src/shared/mo_util_uuid.f90 -text
+src/shared/mo_util_uuid_types.f90 -text
 src/shared/mo_util_vcs.f90 -text
 src/shared/mo_var_list.f90 -text
 src/shared/mo_var_list_element.f90 -text

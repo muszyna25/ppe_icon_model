@@ -81,8 +81,8 @@ MODULE mo_ext_data_init
     &                              read_cdi_3d, t_inputParameters,                 &
     &                              makeInputParameters, deleteInputParameters,     &
     &                              has_filetype_netcdf
-  USE mo_util_uuid,          ONLY: t_uuid, OPERATOR(==), uuid_unparse,  &
-    &                              uuid_string_length
+  USE mo_util_uuid_types,    ONLY: t_uuid, uuid_string_length
+  USE mo_util_uuid,          ONLY: OPERATOR(==), uuid_unparse
   USE mo_dictionary,         ONLY: t_dictionary, dict_init, dict_finalize,         &
     &                              dict_loadfile
   USE mo_initicon_config,    ONLY: timeshift

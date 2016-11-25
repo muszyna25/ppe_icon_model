@@ -96,8 +96,9 @@ MODULE mo_global_grid_generator
   USE mo_grid_levels
   USE mo_io_grid
   USE mo_gridref
-  USE mo_util_uuid,  ONLY: t_uuid, uuid_generate, uuid_unparse, uuid_string_length
-  USE mo_impl_constants, ONLY: max_dom
+  USE mo_util_uuid_types, ONLY: t_uuid, uuid_string_length
+  USE mo_util_uuid,       ONLY: uuid_generate, uuid_unparse
+  USE mo_impl_constants,  ONLY: max_dom
 
   IMPLICIT NONE
   
@@ -388,7 +389,7 @@ CONTAINS
         CALL read_uuid(uuid_sourcefile(i), uuid_grid(idom))
       ELSE
         ! UUID is generated as fingerprint of "clon" field:
-        CALL uuid_generate(REAL(p_patch%cells%center(:)%lon, C_DOUBLE), SIZE(p_patch%cells%center), uuid)
+        CALL uuid_generate(p_patch%cells%center(:)%lon, uuid)
         CALL uuid_unparse(uuid, uuid_grid(idom))
       ENDIF
       IF (idom==1 .AND. n_dom_start==0) THEN

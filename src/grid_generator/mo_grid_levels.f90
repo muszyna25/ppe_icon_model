@@ -86,8 +86,8 @@ MODULE mo_grid_levels
   USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell, &
        &                           min_rlvert, max_rlvert, &
        &                           min_rledge, max_rledge
-  USE mo_util_uuid,          ONLY: t_uuid, uuid_generate, &
-       &                           uuid_unparse, uuid_string_length
+  USE mo_util_uuid_types,    ONLY: t_uuid, uuid_string_length
+  USE mo_util_uuid,          ONLY: uuid_generate, uuid_unparse
 
   USE mo_math_utilities,     ONLY: check_orientation
 
@@ -752,7 +752,7 @@ CONTAINS
     ! get unique grid file identifier for GRIB2 and updated CF-Convention
     !
     ! the UUID is generated as fingerprint of "clon" field:
-    CALL uuid_generate(REAL(gg%cells%center(:)%lon, C_DOUBLE), SIZE(gg%cells%center), uuid)
+    CALL uuid_generate(gg%cells%center(:)%lon, uuid)
     CALL uuid_unparse(uuid, uuid_string)
 
     ! distinguish between gridgeneration for optimization strategies

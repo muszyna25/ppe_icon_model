@@ -10,6 +10,8 @@ MODULE mo_util_uuid
 
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_CHAR, C_SIGNED_CHAR, C_NULL_CHAR, &
     &                                    C_DOUBLE, C_INT, C_PTR, C_F_POINTER, C_LOC
+  USE mo_util_uuid_types, ONLY: t_uuid, UUID_STRING_LENGTH
+
 #ifndef NOMPI
   USE MPI
 #endif
@@ -18,10 +20,7 @@ MODULE mo_util_uuid
 
   PRIVATE
 
-  PUBLIC :: t_uuid
-
   PUBLIC :: uuid_generate
-  PUBLIC :: uuid_generate_parallel
 
   PUBLIC :: compare_uuid
 
@@ -35,19 +34,10 @@ MODULE mo_util_uuid
 
   PUBLIC :: OPERATOR(==)
 
-  PUBLIC :: UUID_STRING_LENGTH
-  PUBLIC :: UUID_DATA_LENGTH
   PUBLIC :: UUID_EQUAL, UUID_EQUAL_LIMITED_ACCURACY, UUID_UNEQUAL
-
-  INTEGER, PARAMETER :: UUID_STRING_LENGTH = 36
-  INTEGER, PARAMETER :: UUID_DATA_LENGTH   = 16
 
   !> module name string
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_util_uuid'
-
-  TYPE, BIND(C) :: t_uuid
-    INTEGER(C_SIGNED_CHAR) :: data(16)
-  END TYPE t_uuid
 
   TYPE, BIND(C) :: t_context
     INTEGER(C_INT) :: f64(2)
@@ -66,6 +56,12 @@ MODULE mo_util_uuid
   INTERFACE OPERATOR (==)
     MODULE PROCEDURE uuid_compare
   END INTERFACE OPERATOR (==)
+
+  INTERFACE uuid_generate
+    MODULE PROCEDURE uuid_generate_sequential
+    MODULE PROCEDURE uuid_generate_parallel
+    MODULE PROCEDURE uuid_generate_parallel1D
+  END INTERFACE uuid_generate
 
   INTERFACE
     SUBROUTINE my_uuid_generate(val, nval, uuid) BIND(C,NAME='uuid_generate')
@@ -170,12 +166,11 @@ CONTAINS
     uuid%data  = TRANSFER(string, uuid%data)
   END SUBROUTINE char2uuid
 
-  SUBROUTINE uuid_generate(val, nval, uuid)
-    REAL(C_DOUBLE), INTENT(IN)  :: val(*)
-    INTEGER(C_INT), INTENT(IN)  :: nval
+  SUBROUTINE uuid_generate_sequential(val, uuid)
+    REAL(C_DOUBLE), INTENT(IN)  :: val(:)
     TYPE(t_uuid),   INTENT(out) :: uuid
-    CALL my_uuid_generate(val, nval, uuid)
-  END SUBROUTINE uuid_generate
+    CALL my_uuid_generate(val, SIZE(val), uuid)
+  END SUBROUTINE uuid_generate_sequential
 
   INTEGER(C_INT) FUNCTION compare_uuid(uuid_A, uuid_B) 
     TYPE(t_uuid),   INTENT(IN)  :: uuid_A, uuid_B    
@@ -281,37 +276,40 @@ CONTAINS
   ! independently computed fingerprints.
   !
   SUBROUTINE uuid_generate_parallel(comm, in_val, in_glbidx, glb_nval, uuid)
-    INTEGER,        INTENT(IN)  :: comm
-    REAL(C_DOUBLE), INTENT(IN)  :: in_val(:)
-    INTEGER,        INTENT(IN)  :: in_glbidx(:)
-    INTEGER,        INTENT(IN)  :: glb_nval
-    TYPE(t_uuid),   INTENT(OUT) :: uuid
+    INTEGER,        INTENT(IN)  :: comm             !< MPI communicator
+    REAL(C_DOUBLE), INTENT(IN)  :: in_val(:,:)      !< input value, dim2: data-parallel
+    INTEGER,        INTENT(IN)  :: in_glbidx(:)     !< "in_glbidx(:,i)": global index of "in_val(:,i)"
+    INTEGER,        INTENT(IN)  :: glb_nval         !< total no. of global indices
+    TYPE(t_uuid),   INTENT(OUT) :: uuid             !< (output:) UUID
     ! local variables
-    INTEGER, PARAMETER :: ROOTPE = 0
+    INTEGER, PARAMETER :: ROOTPE    = 0
+    INTEGER, PARAMETER :: dbg_level = 0
+
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':uuid_generate_parallel'
-    TYPE(C_PTR)                          :: fingerprint
-    TYPE(C_PTR)                          :: fingerprint_merge, new_fingerprint
+    TYPE(C_PTR)                          :: fingerprint, fingerprint_merge, new_fingerprint
     TYPE(t_context), TARGET, ALLOCATABLE :: fingerprint_i(:)
-    INTEGER                              :: i, p_error, ipe, npes, target_pe, nval_local, chunksize
+    INTEGER                              :: nval, nrow, i, p_error, ipe, npes, target_pe,  &
+      &                                     nval_local, chunksize, p_c_double_byte, p_c_double
+    REAL(C_DOUBLE)                       :: tmp_c_double
     TYPE(t_context), POINTER             :: ptr
-    INTEGER, ALLOCATABLE                 :: sendbuf(:), recvbuf(:,:), permutation(:), glbidx_sorted(:), &
-      &                                     glbidx_local(:), glbidx(:)
-    INTEGER, ALLOCATABLE                 :: sdispls(:), sendcounts(:), rdispls(:), recvcounts(:)
-    REAL(C_DOUBLE), ALLOCATABLE          :: val_sorted(:), val_local(:)
-    INTEGER(C_INT)                       :: nval
+    INTEGER, ALLOCATABLE                 :: sendbuf(:), recvbuf(:,:), permutation(:),      &
+      &                                     glbidx_sorted(:), glbidx_local(:), glbidx(:),  &
+      &                                     sdispls(:), sendcounts(:), rdispls(:), recvcounts(:)
+    REAL(C_DOUBLE), ALLOCATABLE          :: val_sorted(:,:), val_local(:,:)
     LOGICAL                              :: lcontiguous
 
-    IF (SIZE(in_glbidx) /= SIZE(in_val)) THEN
-      WRITE (0,*) routine, ": Size of input fields does not match!"
-      RETURN
+    nrow = SIZE(in_val,1)
+    nval = SIZE(in_val,2)
+
+    IF (SIZE(in_glbidx) /= nval) THEN
+      WRITE (0,*) routine, ": Size of input fields does not match!" ; RETURN
     END IF
-    nval = SIZE(in_val)
 
 #ifndef NOMPI
     CALL MPI_COMM_SIZE(comm, npes, p_error)
     CALL MPI_COMM_RANK(comm, ipe,  p_error)
 
-    chunksize = (glb_nval+npes/2)/npes
+    chunksize = INT(CEILING(REAL(glb_nval)/REAL(npes)))
 
     ! first, we need to reorder the scattered global indices without
     ! the use of a global-size array. We need to build an
@@ -319,33 +317,45 @@ CONTAINS
     ! glbidx/chunksize:
 
     ! --- build local copies of "val", "glbidx", sorted by "glbidx":
-    ALLOCATE(val_sorted(nval), permutation(nval), glbidx_sorted(nval))
-    glbidx = in_glbidx
-    permutation = (/ ( i, i=1,nval ) /)
+    IF ((ipe == 0) .AND. (dbg_level > 0)) THEN
+      WRITE (0,*) 'build local copies of "val", "glbidx", sorted by "glbidx":'
+    END IF
+    ALLOCATE(val_sorted(nrow,nval), permutation(nval), glbidx_sorted(nval))
+    glbidx        = in_glbidx
+    permutation   = (/ ( i, i=1,nval ) /)
     CALL quicksort_int(glbidx, permutation)
-    val_sorted    = in_val(permutation)
+    val_sorted    = in_val(:,permutation(:))
     glbidx_sorted = glbidx
     DEALLOCATE(permutation)
 
     ! --- build a "displacement array", i.e. the first index which is
-    ! --- going to a specific PE:
+    ! --- sent to a specific PE:
+    IF ((ipe == 0) .AND. (dbg_level > 0)) THEN
+      WRITE (0,*) 'build a "displacement array"'
+    END IF
     ALLOCATE(sdispls(npes), sendcounts(npes))
     sdispls       = -1
     sendcounts(:) =  0
     DO i=1,SIZE(glbidx_sorted)
       target_pe = (glbidx_sorted(i)-1)/chunksize +1
       sendcounts(target_pe) = sendcounts(target_pe) + 1
-      IF (sdispls(target_pe) == -1)  sdispls(target_pe) = i - 1
+      IF (sdispls(target_pe) == -1)  sdispls(target_pe) = (i-1)
     END DO
     WHERE (sdispls(:) < 0)  sdispls(:) = 0
 
     ! --- each PE tells each other PE how many items it indends to
     ! --- send:
+    IF ((ipe == 0) .AND. (dbg_level > 0)) THEN
+      WRITE (0,*) 'each PE tells each other PE how many items'
+    END IF
     ALLOCATE(recvcounts(npes), rdispls(npes))
     CALL MPI_ALLTOALL(sendcounts, 1, MPI_INTEGER, recvcounts, 1, MPI_INTEGER, comm, p_error)
 
     ! --- build a "displacement array" for the receiver side, i.e. the
     ! --- first index where to receive a block from another PE:
+    IF ((ipe == 0) .AND. (dbg_level > 0)) THEN
+      WRITE (0,*) 'build a "displacement array" for the receiver side'
+    END IF
     rdispls(:) = 0
     DO i=1,npes-1
       rdispls(i+1) = rdispls(i) + recvcounts(i)
@@ -353,29 +363,60 @@ CONTAINS
 
     ! --- consistency check: test if our PE is going to receive at
     ! --- most "chunksize" items:
+    IF ((ipe == 0) .AND. (dbg_level > 0)) THEN
+      WRITE (0,*) 'consistency check'
+    END IF
     nval_local = SUM(recvcounts)
     IF (nval_local > chunksize) THEN
-      WRITE (0,*) routine, ": Internal error! #local values=", nval_local, "; chunksize=", chunksize
-      RETURN
+      WRITE (0,*) routine, ": PE ", ipe, " - Internal error! #local values=", nval_local, &
+        &                  "; chunksize=", chunksize ; RETURN
     END IF
+    IF (ANY(sendcounts(:) < 0) .OR. ANY(recvcounts(:) < 0) .OR.  &
+      & ANY(sdispls(:) < 0)    .OR. ANY(rdispls(:) < 0)) THEN
+      WRITE (0,*) routine, ": PE ", ipe, " - Internal error: counts/displacements!" ; RETURN
+    END IF
+
+    ! determine MPI data type for REAL(C_DOUBLE):
+    CALL MPI_SIZEOF(tmp_c_double, p_c_double_byte, p_error)
+    CALL MPI_TYPE_MATCH_SIZE(MPI_TYPECLASS_REAL, p_c_double_byte, p_c_double, p_error)
 
     ! --- now perform the ALLTOALLV operation for the data and the
     ! --- global indices:
-
-    ALLOCATE(glbidx_local(nval_local), val_local(nval_local))
+    IF ((ipe == 0) .AND. (dbg_level > 0)) THEN
+      WRITE (0,*) 'perform the ALLTOALLV operation'
+    END IF
+    ALLOCATE(glbidx_local(nval_local), val_local(nrow, nval_local))
     CALL MPI_ALLTOALLV(glbidx_sorted, sendcounts, sdispls, MPI_INTEGER, &
-      &                glbidx_local, recvcounts, rdispls, MPI_INTEGER, comm, p_error)
-    CALL MPI_ALLTOALLV(val_sorted, sendcounts, sdispls, MPI_DOUBLE, &
-      &                val_local, recvcounts, rdispls, MPI_DOUBLE, comm, p_error)
+      &                glbidx_local,  recvcounts, rdispls, MPI_INTEGER, comm, p_error)
+    sendcounts = nrow * sendcounts
+    sdispls    = nrow * sdispls
+    recvcounts = nrow * recvcounts
+    rdispls    = nrow * rdispls
+    ! consistency check
+    IF (ANY(rdispls+recvcounts > nrow*nval_local)) THEN
+      WRITE (0,*) routine, ": PE ", ipe, " - Internal error: receive buffer size!" ; RETURN
+    END IF
 
+    IF ((ipe == 0) .AND. (dbg_level > 0)) THEN
+      WRITE (0,*) 'perform the ALLTOALLV operation II'
+    END IF
+    CALL MPI_ALLTOALLV(val_sorted, sendcounts, sdispls, p_c_double, &
+      &                val_local,  recvcounts, rdispls, p_c_double, comm, p_error)
+
+    IF ((ipe == 0) .AND. (dbg_level > 0)) THEN
+      WRITE (0,*) 'sort the result'
+    END IF
     ALLOCATE(permutation(nval_local))
-    permutation = (/ ( i, i=1,nval_local ) /)
+    permutation  = (/ ( i, i=1,nval_local ) /)
     CALL quicksort_int(glbidx_local, permutation)
-    val_local    = val_local(permutation)
+    val_local    = val_local(:,permutation(:))
     DEALLOCATE(permutation)
 
     ! --- consistency check: test if this PE has received a contiguous
     ! --- chunk of indices:
+    IF ((ipe == 0) .AND. (dbg_level > 0)) THEN
+      WRITE (0,*) 'consistency check II'
+    END IF
     lcontiguous = .TRUE.
     DO i=2,nval_local
       IF (glbidx_local(i) /= glbidx_local(i-1)+1) THEN
@@ -384,14 +425,41 @@ CONTAINS
       END IF
     END DO
     IF (.NOT. lcontiguous) THEN
-      WRITE (0,*) routine, ": Internal error, PE has not received a contiguous chunk of indices!"
+      WRITE (0,*) routine, ": Internal error, PE has non-contiguous chunk of indices!" ; RETURN
+    END IF
+    ! check if the every PE except the last one has received
+    ! "chunksize" items:
+    IF ((ipe < (npes-1)) .AND. (nval_local /= chunksize)) THEN
+      WRITE (0,*) routine, ": Internal error, PE has not the right no. of local values: ", &
+        &         "nval_local=",nval_local, "; chunksize=", chunksize
+      RETURN
+    END IF
+    ! check if the last PE has got the index "glb_nval":
+    IF (ipe == (npes-1)) THEN
+      IF (glbidx_local(nval_local) /= glb_nval) THEN
+        WRITE (0,*) routine, ': Internal error, last index not "glb_nval"!' 
+        WRITE (0,*) "Indices are: ", glbidx_local(:)
+        WRITE (0,*) "glb_nval: ", glb_nval
+        RETURN
+      END IF
+    END IF
+    IF ((ipe == (npes-1)) .AND. (nval_local /= MOD(glb_nval-1,chunksize)+1)) THEN
+      WRITE (0,*) routine, ": Internal error, last PE has not the right no. of local values: ", &
+        &         "nval_local=",nval_local, "; chunksize=", chunksize,                          &
+        &         "; MOD(glb_nval,chunksize)=", MOD(glb_nval,chunksize)
       RETURN
     END IF
 
     ! each PE creates "its" part as an independent fingerprint:
-    fingerprint = my_uuid_scan_data(val_local, nval_local)
+    IF ((ipe == 0) .AND. (dbg_level > 0)) THEN
+      WRITE (0,*) 'each PE creates "its" part as an independent fingerprint'
+    END IF
+    fingerprint = my_uuid_scan_data(val_local, nrow*nval_local)
 
     ! gather all fingerprints on PE#0:
+    IF ((ipe == 0) .AND. (dbg_level > 0)) THEN
+      WRITE (0,*) 'gather all fingerprints on PE#0'
+    END IF
     CALL C_F_POINTER(fingerprint, ptr)
     ALLOCATE(recvbuf(9,npes), sendbuf(9))
     sendbuf(:) = (/ ptr%f64(1),  ptr%f64(2),  &
@@ -431,14 +499,35 @@ CONTAINS
     END IF
     DEALLOCATE(val_sorted, glbidx_sorted, sdispls, sendcounts, &
       &        glbidx_local, val_local, recvcounts, rdispls, glbidx)
+    IF ((ipe == 0) .AND. (dbg_level > 0)) THEN
+      WRITE (0,*) 'mo_util_uuid done.'
+    END IF
 #else
     ! non-MPI mode: execute sequential version
     ALLOCATE(permutation(nval))
     permutation(in_glbidx(:)) = (/ (i, i=1,nval) /)
-    CALL uuid_generate(in_val(permutation), nval, uuid)
+    CALL uuid_generate_sequential(in_val(permutation), uuid)
     DEALLOCATE(permutation)
 #endif
   END SUBROUTINE uuid_generate_parallel
+
+
+  ! Parallel computation of UUID.
+  ! Wrapper for 1D array input.
+  !
+  SUBROUTINE uuid_generate_parallel1D(comm, in_val, in_glbidx, glb_nval, uuid)
+    INTEGER,        INTENT(IN)  :: comm
+    REAL(C_DOUBLE), INTENT(IN)  :: in_val(:)
+    INTEGER,        INTENT(IN)  :: in_glbidx(:)
+    INTEGER,        INTENT(IN)  :: glb_nval
+    TYPE(t_uuid),   INTENT(OUT) :: uuid
+    ! local variables
+    REAL(C_DOUBLE), ALLOCATABLE :: tmp_val(:,:)
+    ALLOCATE(tmp_val(1,SIZE(in_val)))
+    tmp_val(1,:) = in_val(:)
+    CALL uuid_generate_parallel(comm, tmp_val, in_glbidx, glb_nval, uuid)
+    DEALLOCATE(tmp_val)
+  END SUBROUTINE uuid_generate_parallel1D
 
 
   SUBROUTINE clear_uuid(uuid)
