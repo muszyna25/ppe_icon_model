@@ -1,3 +1,14 @@
+!! This module contains the routines for the calculation of 128bit
+!! data checksums/fingerprints (which are called "UUID's" in ICON).
+!!
+!! The larger part of this functionality is implemented in C routines
+!! in the "support" subdirectory, while this Fortran module acts
+!! merely as a wrapper. For *parallel* fingerprint calculation,
+!! however, the MPI-parallel communication is invoked on the Fortran
+!! level only.
+!!
+!! 11/2016: F. Prill, DWD
+!!
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
@@ -21,19 +32,13 @@ MODULE mo_util_uuid
   PRIVATE
 
   PUBLIC :: uuid_generate
-
   PUBLIC :: compare_uuid
-
   PUBLIC :: uuid_parse
   PUBLIC :: uuid_unparse
-
   PUBLIC :: uuid2char
   PUBLIC :: char2uuid
-
   PUBLIC :: clear_uuid
-
   PUBLIC :: OPERATOR(==)
-
   PUBLIC :: UUID_EQUAL, UUID_EQUAL_LIMITED_ACCURACY, UUID_UNEQUAL
 
   !> module name string
@@ -506,7 +511,7 @@ CONTAINS
     ! non-MPI mode: execute sequential version
     ALLOCATE(permutation(nval))
     permutation(in_glbidx(:)) = (/ (i, i=1,nval) /)
-    CALL uuid_generate_sequential(in_val(permutation), uuid)
+    CALL uuid_generate_sequential(RESHAPE(in_val(:,permutation), (/ SIZE(in_val) /)), uuid)
     DEALLOCATE(permutation)
 #endif
   END SUBROUTINE uuid_generate_parallel
