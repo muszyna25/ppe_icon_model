@@ -103,7 +103,7 @@ MODULE mo_advection_hflux
     &                               prep_gauss_quadrature_c,                    &
     &                               prep_gauss_quadrature_c_list,               &
     &                               prep_gauss_quadrature_cpoor
-  USE mo_advection_traj,      ONLY: btraj, btraj_dreg, btraj_o2, t_back_traj
+  USE mo_advection_traj,      ONLY: btraj_dreg, t_back_traj
   USE mo_advection_geometry,  ONLY: divide_flux_area, divide_flux_area_list
   USE mo_advection_limiter,   ONLY: hflx_limiter_mo, hflx_limiter_sm
   USE mo_timer,               ONLY: timer_adv_horz, timer_start, timer_stop
