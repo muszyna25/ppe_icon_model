@@ -2255,32 +2255,37 @@ CONTAINS
       ! &       field% cfv    (nproma,nlev,     nblks), &
       cf_desc    = t_cf_var('turb_exchng_coeff_water_var', '', '', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( field_list, prefix//'cfv', field%cfv,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+      CALL add_var( field_list, prefix//'cfv', field%cfv,                 &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape3d )
 
       ! &       field% cftke  (nproma,nlev,     nblks), &
       cf_desc    = t_cf_var('turb_exchng_coeff_tke', '', '', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( field_list, prefix//'cftke', field%cftke,                   &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+      CALL add_var( field_list, prefix//'cftke', field%cftke,             &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape3d )
 
       ! &       field% cfthv  (nproma,nlev,     nblks)  )
       cf_desc    = t_cf_var('turb_exchng_coeff_thv', '', '', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( field_list, prefix//'cfthv', field%cfthv,                   &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+      CALL add_var( field_list, prefix//'cfthv', field%cfthv,             &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape3d )
 
      !ALLOCATE( field% coriol (nproma,nblks),                &
       cf_desc    = t_cf_var('Coriolis_param', 's-1', 'Coriolis parameter', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( field_list, prefix//'coriol', field%coriol,                 &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+      CALL add_var( field_list, prefix//'coriol', field%coriol,            &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape2d )
 
       ! &       field% ghpbl  (nproma,nblks),                &
       cf_desc    = t_cf_var('geopot_pbl_top', '', 'geopotential of PBL top', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( field_list, prefix//'ghpbl', field%ghpbl,                   &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+      CALL add_var( field_list, prefix//'ghpbl', field%ghpbl,              &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
+                & lrestart = .FALSE., ldims=shape2d )
 
       !-----------------------------------
       ! &       field% z0m(nproma,nblks), &
