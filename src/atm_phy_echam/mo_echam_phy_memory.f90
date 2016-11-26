@@ -56,8 +56,8 @@ MODULE mo_echam_phy_memory
   USE mo_cdi,                 ONLY: DATATYPE_PACK16, DATATYPE_PACK24,  &
     &                               DATATYPE_FLT32,  DATATYPE_FLT64,   &
     &                               GRID_UNSTRUCTURED,                 &
-    &                               TSTEP_INSTANT, TSTEP_AVG,          &
-    &                               TSTEP_CONSTANT, cdiDefMissval
+    &                               TSTEP_INSTANT, TSTEP_CONSTANT,     &
+    &                               cdiDefMissval
   USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL, &
     &                               ZA_HYBRID, ZA_HYBRID_HALF,         &
     &                               ZA_SURFACE, ZA_GENERIC_ICE
@@ -2032,7 +2032,7 @@ CONTAINS
     grib2_desc = grib2_var(0,6,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'rtype', field%rtype,                &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-                & lrestart = .FALSE., ldims=shape2d )
+                & lrestart = .TRUE., ldims=shape2d )
 
     ! &       field% topmax (nproma,       nblks), &
     cf_desc    = t_cf_var('topmax', 'Pa', 'maximum height of convective cloud tops', &
@@ -2194,7 +2194,7 @@ CONTAINS
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( field_list, prefix//'tkem1', field%tkem1,             &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, &
-                & lrestart = .FALSE., ldims=shape3d )
+                & lrestart = .TRUE., ldims=shape3d )
 
      !---------
      !ALLOCATE( field% cfm    (nproma,nlev,     nblks), &
@@ -2227,7 +2227,7 @@ CONTAINS
       ! &       field% cfh    (nproma,nlev,     nblks), &
       cf_desc    = t_cf_var('turb_exchng_coeff_heat', '', '', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-      CALL add_var( field_list, prefix//'cfh', field%cfh,                       &
+      CALL add_var( field_list, prefix//'cfh', field%cfh,                 &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, &
                 & lrestart = .FALSE., ldims=shape3d )
 
