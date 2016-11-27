@@ -2452,7 +2452,7 @@ CONTAINS
     grib2_desc = grib2_var(0,0,0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'ts', field%tsfc,                  &
               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-              & lrestart=.FALSE., ldims=shape2d )
+              & lrestart=.TRUE., ldims=shape2d )
 
     ! &       field% tsfc_tile(nproma,nblks,nsfc_type), &
     CALL add_var( field_list, prefix//'ts_tile', field%tsfc_tile,              &
