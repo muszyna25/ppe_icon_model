@@ -1,3 +1,23 @@
+!>
+!! @brief This subroutine calculates the ozone tendency according to equation (1)
+!! of Cariolle et al.: Atmos. Chem. Phys. 7, 2183 (2007).
+!! The subroutine can take any number of columns jcb,...,jce, but the columns must
+!! comprise the full overhead ozone column.
+!! documentation: cr2016_10_22_rjs
+!!
+!! @author Sebastian Rast, MPI-M
+!!
+!! @par Revision History
+!!  Original version Sebastian Rast (2016)
+!!
+!! @par Copyright and License
+!!
+!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
+!! its most recent form.
+!! Please see the file LICENSE in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the
+!! headers of the routines.
+!!
 SUBROUTINE lcariolle_do3dt(                                         &
          & jcb,                 jce,             NCX,               &
          & nlev,                time_ip,         lat_intp_li,       &
@@ -5,15 +25,20 @@ SUBROUTINE lcariolle_do3dt(                                         &
 USE mo_lcariolle_kind,  ONLY: wp,wi
 USE mo_lcariolle_types, ONLY: t_time_interpolation,t_avi,pvi,nlatx,nlevx
 IMPLICIT NONE
-INTEGER(wi),INTENT(IN) :: jcb,jce,NCX,nlev
-TYPE(t_time_interpolation), INTENT(IN) :: time_ip
-EXTERNAL                  lat_intp_li,pres_intp_li
-TYPE(t_avi),INTENT(IN) :: avi
-REAL(wp),INTENT(INOUT) :: do3dt(NCX,nlev) ! tendency of VMR per second
+INTEGER(wi),INTENT(IN) :: &
+     & jcb,jce,   & !< begin, end index of column
+     & NCX,       & !< first dim of fields as in calling subprogram
+     & nlev         !< number of levels in column
+TYPE(t_time_interpolation), INTENT(IN) :: time_ip   !< contains linear interpolation weights
+EXTERNAL                  lat_intp_li, pres_intp_li !< subprograms for linear interpolation
+                                                    !< wrt latitudes and pressure
+TYPE(t_avi),INTENT(IN) :: avi                       !< derived type containing all variables
+                                                    !< passed to submodel Cariolle
+REAL(wp),INTENT(INOUT) :: do3dt(NCX,nlev)           !< tendency of ozone VMR per second
 
 INTEGER(wi)            :: ilev,ic
-INTEGER(wi)            :: lev_temp,it_temp
-REAL(wp)               :: o3_column(NCX,nlev)
+INTEGER(wi)            :: lev_temp
+REAL(wp)               :: o3_column(NCX,nlev)       !< overhead ozone column 
 REAL(wp)               :: wgt1_lat(NCX),wgt2_lat(NCX), &
                         & wgt1_p(NCX,nlev),wgt2_p(NCX,nlev)
 INTEGER(wi)            :: inmw1_lat(NCX),inmw2_lat(NCX), &
@@ -31,16 +56,19 @@ REAL(wp)               :: at1(0:nlatx+1,nlevx), at2(0:nlatx+1,nlevx), &
                         & at5(0:nlatx+1,nlevx), at6(0:nlatx+1,nlevx), &
                         & at7(0:nlatx+1,nlevx), at8(0:nlatx+1,nlevx)
 
+! calculate overhead ozone column for each model layer
 CALL lcariolle_o3_column(                         &
    & jcb,           jce,           NCX,           &
    & nlev,          avi%o3_vmr,    avi%vmr2molm2, &
    & avi%ldown,     o3_column                     )
 o3_column(jcb:jce,1:nlev)=o3_column(jcb:jce,1:nlev)*pvi%avogadro*1.e-4_wp
+! calculate linear interpolation weights for latitude interpolation
 CALL lat_intp_li(                                                   &
    & jcb,                 jce,                   NCX,               &
    & avi%cell_center_lat, nlatx,                 pvi%rlat,          &
    & pvi%delta_lat,       pvi%l_lat_sn,          wgt1_lat,          &
    & wgt2_lat,            inmw1_lat,             inmw2_lat          )
+! calculate linear interpolation weights for pressure interpolation 
 CALL pres_intp_li(                                                  &
    & jcb,                 jce,                   NCX,               &
    & nlev,                avi%pres,              nlevx,             &
@@ -59,7 +87,7 @@ at5(:,:)=wp1*pvi%a5(:,:,ip1)+wp2*pvi%a5(:,:,ip2)
 at6(:,:)=wp1*pvi%a6(:,:,ip1)+wp2*pvi%a6(:,:,ip2)
 at7(:,:)=wp1*pvi%a7(:,:,ip1)+wp2*pvi%a7(:,:,ip2)
 at8(:,:)=wp1*pvi%a8(:,:,ip1)+wp2*pvi%a8(:,:,ip2)
-it_temp=1
+! latitude and pressure interpolation of at1,...,at8
 DO ilev=1,nlev
   DO ic=jcb,jce
     wgt1=wgt1_lat(ic)
@@ -115,7 +143,8 @@ DO ilev=1,nlev
     al8(ic,ilev)=wp1*a8_p1+wp2*a8_p2
   END DO
 END DO
-
+! calculate equation (1) of Cariolle et al., Atmos. Chem. Phys. 7, 2183 (2007).
+! first step: all terms except the A_8 term for polar stratospheric clouds
 DO ilev=1,nlev
   DO ic=jcb,jce
     do3dt(ic,ilev) = al1(ic,ilev) + &
@@ -124,11 +153,12 @@ DO ilev=1,nlev
                    & al6(ic,ilev)*(o3_column(ic,ilev)-al7(ic,ilev))
   END DO
 END DO
+! Add A_8 in case of polar stratospheric clouds and daylight for
+! additional ozone destruction
 DO ilev=1,nlev
   WHERE (avi%lday(jcb:jce).AND.avi%tmprt(jcb:jce,ilev)<=195._wp)
     do3dt(jcb:jce,ilev) = do3dt(jcb:jce,ilev) + &
                         & al8(jcb:jce,ilev)*avi%o3_vmr(jcb:jce,ilev)
   END WHERE
 END DO
-!!$write(*,*) 'do3dt(1,5)=',do3dt(1,5)
 END SUBROUTINE lcariolle_do3dt

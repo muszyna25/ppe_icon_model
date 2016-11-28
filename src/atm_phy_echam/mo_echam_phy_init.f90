@@ -30,16 +30,14 @@ MODULE mo_echam_phy_init
     &                                t_stream_id, on_cells
 
   ! model configuration
-  USE mo_run_config,           ONLY: nlev, iqv, iqt, ico2, ntracer, ltestcase
-!++jsr
-  USE mo_run_config,           ONLY: io3
+  USE mo_run_config,           ONLY: nlev, iqv, iqt, ico2, io3, &
+    &                                ntracer, ltestcase
   USE mo_parallel_config,      ONLY: nproma
-!--jsr
   USE mo_vertical_coord_table, ONLY: vct
   USE mo_dynamics_config,      ONLY: iequations
   USE mo_impl_constants,       ONLY: inh_atmosphere, max_char_length
   USE mo_echam_phy_config,     ONLY: phy_config => echam_phy_config, &
-                                   & configure_echam_phy
+    &                                configure_echam_phy
   USE mo_echam_conv_config,    ONLY: configure_echam_convection
   USE mo_echam_cloud_config,   ONLY: configure_echam_cloud
 
@@ -57,10 +55,10 @@ MODULE mo_echam_phy_init
 
   ! radiation
   USE mo_radiation_config,     ONLY: ssi_radt, tsi_radt, tsi, &
-                                   & ighg, isolrad, irad_aero
+    &                                ighg, isolrad, irad_aero
   USE mo_psrad_srtm_setup,     ONLY: setup_srtm, ssi_amip, ssi_default, &
-                                   & ssi_preind, ssi_RCEdiurnOn, ssi_RCEdiurnOFF, &
-                                   & ssi_cmip6_picontrol
+    &                                ssi_preind, ssi_RCEdiurnOn, ssi_RCEdiurnOFF, &
+    &                                ssi_cmip6_picontrol
   USE mo_lrtm_setup,           ONLY: lrtm_setup
   USE mo_newcld_optics,        ONLY: setup_newcld_optics
 
@@ -84,8 +82,8 @@ MODULE mo_echam_phy_init
 
   ! atmospheric state
   USE mo_echam_phy_memory,     ONLY: construct_echam_phy_state,    &
-                                   & prm_field, t_echam_phy_field, &
-                                   & prm_tend,  t_echam_phy_tend
+    &                                prm_field, t_echam_phy_field, &
+    &                                prm_tend,  t_echam_phy_tend
   ! for coupling
   USE mo_coupling_config,      ONLY: is_coupled_run
 
@@ -99,12 +97,10 @@ MODULE mo_echam_phy_init
   USE mo_bc_sst_sic,             ONLY: read_bc_sst_sic, bc_sst_sic_time_interpolation
   USE mo_bc_greenhouse_gases,    ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
     &                                bc_greenhouse_gases_file_read, ghg_co2mmr
-!++jsr
   USE mo_lcariolle_externals,  ONLY: read_bcast_real_3d_wrap, &
-                                   & read_bcast_real_1d_wrap, &
-                                   & closeFile_wrap, openInputFile_wrap, &
-                                   & get_constants
-!--jsr
+    &                                read_bcast_real_1d_wrap, &
+    &                                closeFile_wrap, openInputFile_wrap, &
+    &                                get_constants
   ! for aeorosols in simple plumes
   USE mo_bc_aeropt_splumes,    ONLY: setup_bc_aeropt_splumes
 
@@ -407,7 +403,6 @@ CONTAINS
 
     END DO
 
-!++jsr
     IF (phy_config%lcariolle) THEN
       IF(io3 > ntracer) THEN
         CALL finish('init_echam_phy: mo_echam_phy_init.f90', &
@@ -419,7 +414,6 @@ CONTAINS
          & get_constants,            nproma,                   &
          & nlev                                                )
     END IF
-!--jsr
 
 #ifndef __NO_JSBACH__
     IF (ilnd <= nsfc_type .AND. phy_config%ljsbach) THEN

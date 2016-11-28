@@ -30,16 +30,11 @@ MODULE mo_echam_phy_main
   USE mo_exception,           ONLY: finish
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_math_constants,      ONLY: pi
-  USE mo_physical_constants,  ONLY: grav, cpd, cpv, cvd, cvv, idaylen
-!++jsr
-  USE mo_physical_constants,  ONLY: amd,amo3 
-!--jsr
+  USE mo_physical_constants,  ONLY: grav, cpd, cpv, cvd, cvv, &
+    &                               amd, amo3, idaylen
   USE mo_impl_constants,      ONLY: inh_atmosphere
   USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
-    &                               iqv, iqc, iqi, iqt
-!++jsr
-  USE mo_run_config,          ONLY: io3
-!--jsr
+    &                               iqv, iqc, iqi, iqt, io3
   USE mo_dynamics_config,     ONLY: iequations
   USE mo_ext_data_state,      ONLY: ext_data
   USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
@@ -67,17 +62,15 @@ MODULE mo_echam_phy_main
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
   USE mo_vdiff_upward_sweep,  ONLY: vdiff_up
   USE mo_vdiff_solver,        ONLY: nvar_vdiff, nmatrix, imh, imqv,   &
-                                  & ih_vdiff=>ih, iqv_vdiff=>iqv
+    &                               ih_vdiff=>ih, iqv_vdiff=>iqv
   USE mo_gw_hines,            ONLY: gw_hines
   USE mo_ssortns,             ONLY: ssodrag
   ! provisional to get coordinates
   USE mo_model_domain,        ONLY: p_patch
-  USE mo_util_dbg_prnt,      ONLY: dbg_print
-!++jsr
+  USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_lcariolle_types,     ONLY: avi, t_time_interpolation
-  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, calculate_time_interpolation_weights
-
-!--jsr
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
+    &                                  calculate_time_interpolation_weights
 
   IMPLICIT NONE
   PRIVATE
@@ -192,13 +185,11 @@ CONTAINS
 
     REAL(wp) :: ztte_corr(nbdim)      !< tte correction for snow melt over land (JSBACH)
 
-!++jsr
     ! Temporary variables for Cariolle scheme (ozone)
     REAL(wp)    :: do3dt(nbdim,nlev)
     TYPE(t_time_interpolation) :: time_interpolation
     EXTERNAL       lcariolle_lat_intp_li, lcariolle_pres_intp_li
     TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
-!--jsr
  
     ! Temporary array used by GW_HINES
 
@@ -1014,7 +1005,6 @@ CONTAINS
 
     END IF
 
-!++jsr
     IF (phy_config%lcariolle) THEN
       avi%tmprt(jcs:jce,:)=field%temp(jcs:jce,:,jb)
       avi%vmr2molm2(jcs:jce,:)=zmair(jcs:jce,:)/amd*1.e3_wp
@@ -1034,7 +1024,6 @@ CONTAINS
          & lcariolle_pres_intp_li, avi,                do3dt                   )
       tend% qtrc(jcs:jce,:,jb,io3) = tend% qtrc(jcs:jce,:,jb,io3) + do3dt(jcs:jce,:)*amo3/amd
     END IF
-!--jsr
 
     !-------------------------------------------------------------------
     ! 6. ATMOSPHERIC GRAVITY WAVES

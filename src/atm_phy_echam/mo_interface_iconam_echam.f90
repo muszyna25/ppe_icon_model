@@ -71,12 +71,10 @@ MODULE mo_interface_iconam_echam
 
   USE mo_coupling_config       ,ONLY: is_coupled_run
   USE mo_parallel_config       ,ONLY: nproma
-!++jsr
   USE mo_master_config         ,ONLY: isRestart
-  USE mo_run_config            ,ONLY: io3
-  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, calculate_time_interpolation_weights
-!--jsr
-  USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
+    &                                  calculate_time_interpolation_weights
+  USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi, io3
   USE mo_nonhydrostatic_config ,ONLY: lhdiff_rcf
   USE mo_diffusion_config      ,ONLY: diffusion_config
   USE mo_echam_phy_config      ,ONLY: echam_phy_config
@@ -91,11 +89,8 @@ MODULE mo_interface_iconam_echam
 
   USE mo_nonhydro_types        ,ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nh_diagnose_pres_temp ,ONLY: diagnose_pres_temp
-  USE mo_physical_constants    ,ONLY: rd, p0ref, rd_o_cpd, vtmpc1, grav, amco2, amd
-!++jsr
-  USE mo_physical_constants    ,ONLY: amo3  
-!--jsr
-
+  USE mo_physical_constants    ,ONLY: rd, p0ref, rd_o_cpd, vtmpc1, grav, &
+    &                                 amco2, amd, amo3
   USE mtime                    ,ONLY: datetime, deallocateDatetime
   USE mo_echam_phy_memory      ,ONLY: prm_field, prm_tend
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs_global
@@ -109,9 +104,7 @@ MODULE mo_interface_iconam_echam
     &                                 timer_echam_bcs, timer_echam_phy, timer_coupling,                &
     &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
   USE mo_bc_greenhouse_gases   ,ONLY: ghg_co2mmr
-!++jsr
   USE mo_lcariolle_types       ,ONLY: avi, t_time_interpolation
-!--jsr
   IMPLICIT NONE
 
   PRIVATE
@@ -187,13 +180,11 @@ CONTAINS
 
     TYPE(datetime), POINTER             :: mtime_radtran
 
-!++jsr
     ! Temporary variables for Cariolle scheme (ozone)
     REAL(wp)    :: vmr_o3(nproma,nlev)
     TYPE(t_time_interpolation) :: time_interpolation
     EXTERNAL       lcariolle_lat_intp_li, lcariolle_pres_intp_li
     TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
-!--jsr
     !-------------------------------------------------------------------------------------
 
     IF (ltimer) CALL timer_start(timer_dyn2phy)
@@ -400,9 +391,9 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-!++ jsr: Initialize ozone mass mixing ratios for Cariolle scheme here. 
-!        An approximative initialization 
-!        that considers the atmosphere as being dry is enough.
+!   Initialize ozone mass mixing ratios for Cariolle scheme here. 
+!   An approximative initialization 
+!   that considers the atmosphere as being dry is enough.
     IF (echam_phy_config%lcariolle) THEN
       IF (.NOT.isRestart().AND. .NOT. avi%l_initialized_o3) THEN
         avi%ldown=.TRUE.
@@ -419,13 +410,11 @@ CONTAINS
            & jcs,                   jce,                nproma,                &
            & nlev,                  time_interpolation, lcariolle_lat_intp_li, &
            & lcariolle_pres_intp_li,avi,                vmr_o3                 )
-!!$        write(0,*) 'vmr_o3(jcs,:)=', vmr_o3(jcs,:)
           pt_prog_new_rcf% tracer(jcs:jce,:,jb,io3)=vmr_o3(jcs:jce,:)*amo3/amd
         END DO
         avi%l_initialized_o3=.TRUE.
       END IF
     END IF
-!-- jsr
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
