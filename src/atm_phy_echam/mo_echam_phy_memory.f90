@@ -1228,7 +1228,7 @@ CONTAINS
     CALL add_var(field_list, prefix//'rsdcs' , field%rsdcs_rt , &
          &       GRID_UNSTRUCTURED_CELL    , ZA_HYBRID_HALF   , &
          &       cf_desc, grib2_desc                          , &
-         &       lrestart = .FALSE.                           , &
+         &       lrestart = .TRUE.                            , &
          &       ldims=shape3d_layer_interfaces               , &
          &       vert_interp=create_vert_interp_metadata        &
          &         (vert_intp_type=vintp_types("P","Z","I") ,   &
@@ -1242,7 +1242,7 @@ CONTAINS
     CALL add_var(field_list, prefix//'rsucs' , field%rsucs_rt , &
          &       GRID_UNSTRUCTURED_CELL    , ZA_HYBRID_HALF   , &
          &       cf_desc, grib2_desc                          , &
-         &       lrestart = .FALSE.                           , &
+         &       lrestart = .TRUE.                            , &
          &       ldims=shape3d_layer_interfaces               , &
          &       vert_interp=create_vert_interp_metadata        &
          &         (vert_intp_type=vintp_types("P","Z","I") ,   &
@@ -1582,7 +1582,7 @@ CONTAINS
     CALL add_var(field_list, prefix//'rldcs' , field%rldcs_rt , &
          &       GRID_UNSTRUCTURED_CELL    , ZA_HYBRID_HALF   , &
          &       cf_desc, grib2_desc                          , &
-         &       lrestart = .FALSE.                           , &
+         &       lrestart = .TRUE.                            , &
          &       ldims=shape3d_layer_interfaces               , &
          &       vert_interp=create_vert_interp_metadata        &
          &         (vert_intp_type=vintp_types("P","Z","I") ,   &
@@ -1596,7 +1596,7 @@ CONTAINS
     CALL add_var(field_list, prefix//'rlucs' , field%rlucs_rt , &
          &       GRID_UNSTRUCTURED_CELL    , ZA_HYBRID_HALF   , &
          &       cf_desc, grib2_desc                          , &
-         &       lrestart = .FALSE.                           , &
+         &       lrestart = .TRUE.                            , &
          &       ldims=shape3d_layer_interfaces               , &
          &       vert_interp=create_vert_interp_metadata        &
          &         (vert_intp_type=vintp_types("P","Z","I") ,   &
