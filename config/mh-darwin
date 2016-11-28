@@ -50,14 +50,12 @@ HDF5ROOT    = /opt/local/lib/hdf5-18
 NETCDFROOT  = /opt/local
 XML2ROOT    = /opt/local
 LAPACKROOT  =
-GRIBAPIROOT = /opt/local
 
 ZLIB_LIB    = -lz
 SZIP_LIB    = -lsz
 HDF5_LIB    = -lhdf5_hl -lhdf5
 NETCDF_LIB  = -lnetcdff -lnetcdf
 LAPACK_LIB  =
-GRIBAPI_LIB = -lgrib_api
 
 LIBS        = -L../lib -lsupport $LIBS
 OTHER_LIBS  = -lcurl $OTHER_LIBS
