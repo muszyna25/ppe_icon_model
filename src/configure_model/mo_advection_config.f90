@@ -177,6 +177,8 @@ MODULE mo_advection_config
       &  ilist_hydroMass(:)      ! allocated and filled in 
                                  ! create_idlist_hydroMass
 
+    LOGICAL :: isAnyTypeMiura    ! TRUE if any tracer is to be advected with MIURA scheme
+    LOGICAL :: isAnyTypeMcycl    ! TRUE if any tracer is to be advected with subcycling
 
     ! scheme specific derived variables
     !
@@ -581,6 +583,26 @@ CONTAINS
     DO jt=ntracer,1,-1
       IF ( ANY( (/MCYCL, MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL, FFSL_HYB_MCYCL/) == ihadv_tracer(jt) ) ) THEN
         lcleanup%mcycl_h(jt) = .TRUE.
+        exit
+      ENDIF
+    ENDDO
+
+    ! Check, whether any of the tracers is supposed to be transported horizontally  
+    ! with a scheme of Miura type (i.e. 2nd order scheme with linear reconstruction)
+    advection_config(jg)%isAnyTypeMiura=.FALSE.
+    DO jt=1,ntracer
+      IF (ANY((/MIURA, MIURA_MCYCL/) == ihadv_tracer(jt))) THEN
+        advection_config(jg)%isAnyTypeMiura=.TRUE.
+        exit
+      ENDIF
+    ENDDO
+    !
+    ! Check, whether any of the tracers is supposed to be transported horizontally  
+    ! with substepping (i.e. 2nd order scheme with substepping)
+    advection_config(jg)%isAnyTypeMcycl=.FALSE.
+    DO jt=1,ntracer
+      IF (ANY((/MCYCL, MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL, FFSL_HYB_MCYCL/) == ihadv_tracer(jt))) THEN
+        advection_config(jg)%isAnyTypeMcycl=.TRUE.
         exit
       ENDIF
     ENDDO
