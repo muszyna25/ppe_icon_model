@@ -461,46 +461,58 @@ CONTAINS
     END IF
     fingerprint = my_uuid_scan_data(val_local, nrow*nval_local)
 
-    ! gather all fingerprints on PE#0:
-    IF ((ipe == 0) .AND. (dbg_level > 0)) THEN
-      WRITE (0,*) 'gather all fingerprints on PE#0'
-    END IF
-    CALL C_F_POINTER(fingerprint, ptr)
-    ALLOCATE(recvbuf(9,npes), sendbuf(9))
-    sendbuf(:) = (/ ptr%f64(1),  ptr%f64(2),  &
-      &             ptr%f48(1),  ptr%f48(2),  &
-      &             ptr%tl64(1), ptr%tl64(2), &
-      &             ptr%tl48(1), ptr%tl48(2), &
-      &             ptr%max_zero /)
-    CALL MPI_GATHER(sendbuf, SIZE(sendbuf), MPI_INTEGER, &
-      &             recvbuf, SIZE(sendbuf), MPI_INTEGER, ROOTPE, comm, p_error)
+    IF (npes == 1) THEN
 
-    IF (ipe == ROOTPE) THEN
-      ALLOCATE(fingerprint_i(npes))
-      DO i=1,npes
-        fingerprint_i(i)%f64(1)   = recvbuf(1,i)
-        fingerprint_i(i)%f64(2)   = recvbuf(2,i)
-        fingerprint_i(i)%f48(1)   = recvbuf(3,i)
-        fingerprint_i(i)%f48(2)   = recvbuf(4,i)
-        fingerprint_i(i)%tl64(1)  = recvbuf(5,i)
-        fingerprint_i(i)%tl64(2)  = recvbuf(6,i)
-        fingerprint_i(i)%tl48(1)  = recvbuf(7,i)
-        fingerprint_i(i)%tl48(2)  = recvbuf(8,i)
-        fingerprint_i(i)%max_zero = recvbuf(9,i)
-      END DO
-      DEALLOCATE(sendbuf, recvbuf)
+      ! this branch especially holds true in "ptestrun" mode:
+      CALL my_encode_uuid(fingerprint, uuid)
+
+    ELSE
+
+      ! gather all fingerprints on PE#0:
+      IF ((ipe == 0) .AND. (dbg_level > 0)) THEN
+        WRITE (0,*) 'gather all fingerprints on PE#0'
+      END IF
+      CALL C_F_POINTER(fingerprint, ptr)
+      ALLOCATE(recvbuf(9,npes), sendbuf(9))
+      sendbuf(:) = (/ ptr%f64(1),  ptr%f64(2),  &
+        &             ptr%f48(1),  ptr%f48(2),  &
+        &             ptr%tl64(1), ptr%tl64(2), &
+        &             ptr%tl48(1), ptr%tl48(2), &
+        &             ptr%max_zero /)
+      CALL MPI_GATHER(sendbuf, SIZE(sendbuf), MPI_INTEGER, &
+        &             recvbuf, SIZE(sendbuf), MPI_INTEGER, ROOTPE, comm, p_error)
       
-      ! concatenate them:
-      fingerprint_merge = C_LOC(fingerprint_i(1))
-      DO i=2,npes
-        new_fingerprint   = my_concat_fingerprints(fingerprint_merge, C_LOC(fingerprint_i(i)));
-        IF (i>2)  CALL deallocate_c(fingerprint_merge)
-        fingerprint_merge = new_fingerprint
-      END DO
-      
-      CALL my_encode_uuid(fingerprint_merge, uuid)
-      CALL deallocate_c(fingerprint_merge)
-      DEALLOCATE(fingerprint_i)
+      IF (ipe == ROOTPE) THEN
+        ALLOCATE(fingerprint_i(npes))
+        DO i=1,npes
+          fingerprint_i(i)%f64(1)   = recvbuf(1,i)
+          fingerprint_i(i)%f64(2)   = recvbuf(2,i)
+          fingerprint_i(i)%f48(1)   = recvbuf(3,i)
+          fingerprint_i(i)%f48(2)   = recvbuf(4,i)
+          fingerprint_i(i)%tl64(1)  = recvbuf(5,i)
+          fingerprint_i(i)%tl64(2)  = recvbuf(6,i)
+          fingerprint_i(i)%tl48(1)  = recvbuf(7,i)
+          fingerprint_i(i)%tl48(2)  = recvbuf(8,i)
+          fingerprint_i(i)%max_zero = recvbuf(9,i)
+        END DO
+        DEALLOCATE(sendbuf, recvbuf)
+        
+        ! concatenate them:
+        IF ((ipe == 0) .AND. (dbg_level > 0)) THEN
+          WRITE (0,*) 'concatenate fingerprints'
+        END IF
+        fingerprint_merge = C_LOC(fingerprint_i(1))
+        DO i=2,npes
+          new_fingerprint   = my_concat_fingerprints(fingerprint_merge, C_LOC(fingerprint_i(i)));
+          IF (i>2)  CALL deallocate_c(fingerprint_merge)
+          fingerprint_merge = new_fingerprint
+        END DO
+        
+        CALL my_encode_uuid(fingerprint_merge, uuid)
+        CALL deallocate_c(fingerprint_merge)
+        DEALLOCATE(fingerprint_i)
+      END IF
+
     END IF
     DEALLOCATE(val_sorted, glbidx_sorted, sdispls, sendcounts, &
       &        glbidx_local, val_local, recvcounts, rdispls, glbidx)
