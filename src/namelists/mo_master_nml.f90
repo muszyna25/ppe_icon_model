@@ -15,7 +15,7 @@
 !!
 MODULE mo_master_nml
 
-  USE mo_exception,      ONLY: finish, message
+  USE mo_exception,      ONLY: finish, message, warning
   USE mo_io_units,       ONLY: filename_max, nnml
   USE mo_namelist,       ONLY: open_nml, position_nml, POSITIONED
   USE mo_util_string,    ONLY: t_keyword_list, associate_keyword, with_keywords, tolower
@@ -23,7 +23,10 @@ MODULE mo_master_nml
   USE mo_mpi,            ONLY: my_process_is_stdio
   USE mtime,             ONLY: max_calendar_str_len, setCalendar,                            &
        &                       proleptic_gregorian, year_of_365_days,  year_of_360_days,     &
-       &                       max_datetime_str_len, max_timedelta_str_len
+       &                       max_datetime_str_len, max_timedelta_str_len,                  &
+       &                       datetime, newDatetime, deallocateDatetime,                    &
+       &                       timedelta, newTimedelta, deallocateTimedelta,                 &
+       &                       datetimeToString, OPERATOR(+), register_print_mtime_procedure 
   USE mo_master_config,  ONLY: master_component_models, addModel, noOfModels, maxNoOfModels, &
        &                       setInstitution, setRestart,                                   &
        &                       setRestartWriteLast, setModelBaseDir,                         &
@@ -78,9 +81,14 @@ CONTAINS
     CHARACTER(len=max_datetime_str_len) :: experimentReferenceDate  = ''   
     CHARACTER(len=max_datetime_str_len) :: experimentStartDate      = ''
     CHARACTER(len=max_datetime_str_len) :: experimentStopDate       = ''
+
+    CHARACTER(len=max_timedelta_str_len) :: forecastLeadTime        = ''
     
     CHARACTER(len=max_timedelta_str_len) :: checkpointTimeIntval    = ''
     CHARACTER(len=max_timedelta_str_len) :: restartTimeIntval       = ''
+
+    TYPE(datetime), POINTER :: experiment_start_date, experiment_stop_date
+    TYPE(timedelta), POINTER :: forecast_lead_time
     
     NAMELIST /master_nml/              &
          &    institute,               &
@@ -93,6 +101,7 @@ CONTAINS
          &    experimentReferenceDate, &   
          &    experimentStartDate,     &
          &    experimentStopDate,      &
+         &    forecastLeadTime,        &
          &    checkpointTimeIntval,    &
          &    restartTimeIntval        
     
@@ -161,14 +170,15 @@ CONTAINS
     experimentReferenceDate = ""
     experimentStartDate     = ""
     experimentStopDate      = ""
-    checkpointTimeIntval    = ''
-    restartTimeIntval       = ''
+    forecastLeadTime        = ""
+    checkpointTimeIntval    = ""
+    restartTimeIntval       = ""
 
     CALL position_nml('master_time_control_nml', STATUS=istat)
     IF (istat == POSITIONED) THEN
       READ (nnml, master_time_control_nml)
     ENDIF
-
+    
     cfg_experimentReferenceDate = experimentReferenceDate
     cfg_experimentStartDate     = experimentStartDate
     cfg_experimentStopDate      = experimentStopDate
@@ -191,6 +201,24 @@ CONTAINS
     END SELECT
 
     CALL setCalendar(icalendar)
+    CALL register_print_mtime_procedure(warning)
+    
+    IF (experimentStartDate /= "") THEN
+      IF (experimentStopDate == "") THEN
+        IF (forecastLeadTime /= "") THEN
+          forecast_lead_time => newTimedelta(TRIM(forecastLeadTime))
+          experiment_start_date => newDatetime(TRIM(experimentStartDate))
+          experiment_stop_date => newDatetime(TRIM(experimentStartDate))
+          experiment_stop_date = experiment_start_date + forecast_lead_time
+          CALL datetimeToString(experiment_stop_date, experimentStopDate)
+          CALL deallocateDatetime(experiment_stop_date)
+          CALL deallocateDatetime(experiment_start_date)
+          CALL deallocateTimedelta(forecast_lead_time)      
+        ELSE
+          CALL finish('','Need forecastLeadTime AND experimentStartDate set in master_time_control_nml namelist.')
+        ENDIF
+      ENDIF
+    ENDIF
 
 
     ! --------------------------------------------------------------------------------

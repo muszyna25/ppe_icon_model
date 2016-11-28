@@ -61,7 +61,7 @@ MODULE mo_psrad_radiation
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_namelist,            ONLY: open_nml, position_nml, close_nml, POSITIONED
   USE mo_io_units,            ONLY: nnml, nnml_output
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist
+  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist
   USE mo_impl_constants,      ONLY: io3_clim, io3_ape, io3_amip
   USE mo_ext_data_types,      ONLY: t_external_atmos_td
   USE mo_ext_data_state,      ONLY: ext_data, nlev_o3

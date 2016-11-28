@@ -942,9 +942,9 @@ CONTAINS
   !! @par Revision History
   !!
   SUBROUTINE write_vertical_profiles(outvar, this_datetime, ncount)
-    REAL(wp),       INTENT(IN)  :: outvar(:,:)
-    TYPE(datetime), INTENT(IN)  :: this_datetime
-    INTEGER,        INTENT (IN) :: ncount
+    REAL(wp),                INTENT(IN)  :: outvar(:,:)
+    TYPE(datetime), POINTER, INTENT(IN)  :: this_datetime
+    INTEGER,                 INTENT(IN)  :: ncount
 
     INTEGER                  :: nvar, n
     REAL(wp)                 :: inv_ncount
@@ -991,8 +991,8 @@ CONTAINS
   !! @par Revision History
   !!
   SUBROUTINE write_time_series(outvar, this_datetime)
-    REAL(wp),       INTENT(IN) :: outvar(:)
-    TYPE(datetime), INTENT(IN) :: this_datetime
+    REAL(wp),                INTENT(IN) :: outvar(:)
+    TYPE(datetime), POINTER, INTENT(IN) :: this_datetime
 
     INTEGER                  :: nvar, n
     REAL(wp)                 :: sim_time     !< elapsed simulation time on this grid level
@@ -1035,7 +1035,7 @@ CONTAINS
   SUBROUTINE init_les_turbulent_output(p_patch, p_metrics, this_datetime, l_rh, ldelete)
    TYPE(t_patch),   TARGET, INTENT(in)   :: p_patch    !<grid/patch info.
    TYPE(t_nh_metrics)     , INTENT(in)   :: p_metrics
-   TYPE(datetime), INTENT(IN)            :: this_datetime
+   TYPE(datetime), POINTER, INTENT(IN)   :: this_datetime
    LOGICAL, INTENT(IN), OPTIONAL         :: ldelete
    LOGICAL, INTENT(IN), OPTIONAL         :: l_rh  !if rh to be output or not
   

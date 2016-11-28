@@ -96,9 +96,10 @@ MODULE mo_model_domimp_patches
     &                              min_rledge_int,         &
     &                              min_rlvert_int
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
+  USE mo_util_string,        ONLY: int2string
   USE mo_model_domain,       ONLY: t_patch, t_pre_patch, p_patch_local_parent, &
-       c_num_edges, c_parent, c_child, c_phys_id, c_neighbor, c_edge, &
-       c_vertex, c_center, c_refin_ctrl, e_parent, e_child, e_cell, &
+       c_num_edges, c_parent, c_phys_id, c_neighbor, c_edge, &
+       c_vertex, c_center, c_refin_ctrl, e_parent, e_cell, &
        e_refin_ctrl, v_cell, v_num_edges, v_vertex, v_refin_ctrl
   USE mo_decomposition_tools,ONLY: t_glb2loc_index_lookup, &
     &                              get_valid_local_index, &
@@ -108,13 +109,14 @@ MODULE mo_model_domimp_patches
     & set_verts_phys_id, init_butterfly_idx, fill_grid_subsets
   USE mo_grid_tools,         ONLY: calculate_patch_cartesian_positions, rescale_grid
   USE mo_grid_config,        ONLY: start_lev, nroot, n_dom, n_dom_start, &
-    & l_limited_area, max_childdom, dynamics_parent_grid_id, &
+    & max_childdom, dynamics_parent_grid_id, &
     & lplane, grid_length_rescale_factor, is_plane_torus, grid_sphere_radius, &
     & use_duplicated_connectivity
   USE mo_dynamics_config,    ONLY: lcoriolis
   USE mo_run_config,         ONLY: grid_generatingCenter, grid_generatingSubcenter, &
     &                              number_of_grid_used, msg_level, check_uuid_gracefully
   USE mo_master_control,     ONLY: my_process_is_ocean
+  USE mo_reshuffle,          ONLY: reshuffle
   USE mo_sync,               ONLY: disable_sync_checks, enable_sync_checks
   USE mo_communication,      ONLY: idx_no, blk_no, idx_1d, makeScatterPattern
   USE mo_util_uuid,          ONLY: uuid_string_length, uuid_parse, clear_uuid
@@ -185,15 +187,26 @@ MODULE mo_model_domimp_patches
   INCLUDE 'netcdf.inc'
 #endif
 
+  ! derived type: some grid metadata used for consistency checks
+  TYPE t_grid_metadata
+    CHARACTER(LEN=uuid_string_length) :: uuid_grid  !< UUID of grid
+    CHARACTER(LEN=uuid_string_length) :: uuid_par   !< UUID of parent grid
+    INTEGER                           :: grid_root  !< grid root subdivision
+    INTEGER                           :: grid_level !< grid bisection level
+  END TYPE t_grid_metadata
+
+
   !modules interface-------------------------------------------
   !subroutines
   PUBLIC :: import_pre_patches
   PUBLIC :: complete_patches
   PUBLIC :: reorder_patch_refin_ctrl
-
-  INTEGER, SAVE :: ishift_child_id
+  PUBLIC :: set_parent_loc_idx
 
   !-------------------------------------------------------------------------
+
+  !> module name string
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_model_domimp_patches'
 
 CONTAINS
 
@@ -233,18 +246,15 @@ CONTAINS
     !> If .true., read fields related to grid refinement from separate  grid files
     LOGICAL,                   INTENT(OUT)   :: lsep_grfinfo
     ! local variables:
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches/import_basic_patch'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':import_pre_patches'
     INTEGER                           :: jg, jg1, n_chd, n_chdc
-    INTEGER                           :: jgp, jgc            ! parent/child patch index
-    CHARACTER(LEN=uuid_string_length) :: uuid_grid(0:max_dom), &
-      &                                  uuid_par(0:max_dom),  &
-      &                                  uuid_chi(0:max_dom,5)
+    INTEGER                           :: jgp            ! parent/child patch index
+    TYPE(t_grid_metadata)             :: grid_metadata(0:max_dom)
     TYPE(t_pre_patch), POINTER        :: p_single_patch => NULL()
 
     !-----------------------------------------------------------------------
 
-    CALL message ('mo_model_domimp_patches:import_pre_patches', &
-      & 'start to import patches')
+    CALL message (routine, 'start to import patches')
 
     ! Set some basic flow control variables on the patch
 
@@ -349,8 +359,7 @@ CONTAINS
         DO jg1 = 1, patch_pre(jg)%n_childdom
           IF (patch_pre(patch_pre(jg)%child_id(jg1))%nshift /= &
             & patch_pre(jg)%nshift_child) &
-            & CALL finish ('mo_model_domimp_patches:import_pre_patches', &
-            & 'multiple nests at the same level must have the same nshift')
+            & CALL finish (routine, 'multiple nests at the same level must have the same nshift')
         ENDDO
       ELSE
         patch_pre(jg)%nshift_child = 0
@@ -370,75 +379,50 @@ CONTAINS
 
     patch_pre(n_dom_start:n_dom)%max_childdom =  max_childdom
 
-
-    !init patch by reading data from file
-    !required: path to patch directory and file names, see top of module
-    ! l_exist = .FALSE.
-
-    ! IF (lplane) THEN
-    !   gridtype='plan'
-    ! ELSE
-    !   gridtype='icon'
-    ! END IF
-
     CALL set_patches_grid_filename(patch_pre)
 
-    ishift_child_id = 0
+    ! nullify UUID buffer and other metadata vars
+    DO jg = n_dom_start, n_dom
+      grid_metadata(jg)%uuid_grid      = ""
+      grid_metadata(jg)%uuid_par       = ""
+      grid_metadata(jg)%grid_level     = -1
+      grid_metadata(jg)%grid_level     = -1
+    END DO
 
     grid_level_loop: DO jg = n_dom_start, n_dom
 
-      !   jlev = patch_pre(jg)%level
-
-      ! Allow file names without "DOM" specifier if n_dom=1.
-      !   IF (n_dom == 1) THEN
-      !     ! Check if file name without "DOM" specifier exists.
-      !     WRITE (patch_file,'(a,a,i0,a,i2.2,a)') &
-      !          & TRIM(gridtype),'R',nroot,'B',jlev,'-grid.nc'
-      !     INQUIRE (FILE=patch_file, EXIST=l_exist)
-      !     ! Otherwise use file name with "DOM" specifier
-      !     IF (.NOT. l_exist)                                            &
-      !          & WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)')              &
-      !          & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
-      !   ELSE
-      !     ! n_dom >1 --> "'_DOM',jg" required in file name
-      !     WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)') &
-      !          & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
-      !   ENDIF
-
-
       p_single_patch => patch_pre(jg)
-
-      CALL read_pre_patch( jg, p_single_patch, uuid_grid(jg), uuid_par(jg), uuid_chi(jg,:), lsep_grfinfo )
+      CALL read_pre_patch( jg, p_single_patch, grid_metadata(jg), lsep_grfinfo )
 
     ENDDO grid_level_loop
 
-    IF (lsep_grfinfo) THEN ! perform uuid crosscheck for parent-child connectivities
-      DO jg = n_dom_start, n_dom
-        IF (jg > n_dom_start) THEN
-          jgp = patch_pre(jg)%parent_id
-          IF (TRIM(uuid_par(jg)) /= TRIM(uuid_grid(jgp))) THEN
-            IF (check_uuid_gracefully) THEN
-              CALL warning('import_pre_patches','incorrect uuids in parent-child connectivity file')
-            ELSE
-              CALL finish('import_pre_patches','incorrect uuids in parent-child connectivity file')
-            END IF
-          ENDIF
-        ENDIF
-        IF (patch_pre(jg)%n_childdom > 0) THEN
-          DO jg1 = 1, patch_pre(jg)%n_childdom
-            jgc = patch_pre(jg)%child_id(jg1)
-            IF (TRIM(uuid_chi(jg,jg1)) /= TRIM(uuid_grid(jgc))) THEN
-              IF (check_uuid_gracefully) THEN
-                CALL warning('import_pre_patches','incorrect uuids in parent-child connectivity file')
-              ELSE
-                CALL finish('import_pre_patches','incorrect uuids in parent-child connectivity file')
-              END IF
-            ENDIF
-          ENDDO
-        ENDIF
-      ENDDO
-    ENDIF
+    ! Perform consistency checks for parent-child connectivities
+    !
+    ! Note: this metadata is not necessarily available in the grid
+    ! file. For reasons of backward compatibility, this check will
+    ! then be skipped.
 
+    DO jg = n_dom_start+1, n_dom
+      jgp = patch_pre(jg)%parent_id
+      
+      ! perform UUID crosscheck for parent-child connectivities
+      IF ((TRIM(grid_metadata(jg)%uuid_par) /= TRIM(grid_metadata(jgp)%uuid_grid)) .AND. &
+        & (LEN_TRIM(grid_metadata(jg)%uuid_par) > 0) .AND. (LEN_TRIM(grid_metadata(jgp)%uuid_grid) > 0)) THEN
+        IF (check_uuid_gracefully) THEN
+          CALL warning(routine, 'incorrect uuids in parent-child connectivity file')
+        ELSE
+          WRITE (0,*) "parent grid UUID in child file: ", grid_metadata(jg)%uuid_par
+          WRITE (0,*) "parent grid UUID: ", grid_metadata(jgp)%uuid_grid
+          CALL finish(routine,  'incorrect uuids in parent-child connectivity file')
+        END IF
+      ENDIF
+
+      ! check matching grid root and bisection level:
+      IF ((grid_metadata(jg)%grid_root  /= grid_metadata(jgp)%grid_root)  .OR.   &
+        & (grid_metadata(jg)%grid_level /= (grid_metadata(jgp)%grid_level+1))) THEN
+        CALL finish(routine, "incorrect grid root and/or bisection level!")
+      END IF
+    ENDDO
   END SUBROUTINE import_pre_patches
   !-------------------------------------------------------------------------
 
@@ -459,8 +443,7 @@ CONTAINS
     LOGICAL,                   INTENT(IN)    :: lsep_grfinfo
 
     INTEGER :: jg, jgp, n_lp, id_lp(max_dom)
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:complete_patches'
-
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':complete_patches'
 
     DO jg = n_dom_start, n_dom
 
@@ -530,15 +513,31 @@ CONTAINS
         ENDIF
       ENDDO
 
-      ! Get all patch information not read by read_pre_patch
+      ! Get all patch information not read by "read_pre_patch"
       CALL read_remaining_patch( jg, patch(jg), n_lp, id_lp, lsep_grfinfo )
     ENDDO
 
+    ! In parent grids: compute "refin_e_ctrl", "refin_v_ctrl" flags
+    ! for overlap with nested domain:
+    !   
+    ! Note: we need to compute these values here, since necessary
+    ! indices are only read by "read_remaining_patch" above, but the
+    ! resulting "refin_ctrl" flags are used by the
+    ! "set_parent_child_relations" subroutine below.
+    !   
+    DO jg = n_dom_start,n_dom
+      jgp = patch(jg)%parent_id
+      IF (jgp >= n_dom_start) THEN
+        CALL set_parent_refin_ev_ctrl("patch", patch(jgp))
+        CALL set_parent_refin_ev_ctrl("local parent patch", p_patch_local_parent(jg))
+      END IF
+    END DO
+
     ! set parent-child relationships
     DO jg = n_dom_start, n_dom
-
+      
       IF(jg == n_dom_start) THEN
-
+        
         ! parent_loc/glb_idx/blk is set to 0 since it just doesn't exist,
         patch(jg)%cells%parent_glb_idx = 0
         patch(jg)%cells%parent_glb_blk = 0
@@ -558,10 +557,12 @@ CONTAINS
           patch(jg)%edges%child_idx  = 0
           patch(jg)%edges%child_blk  = 0
         END IF
-
+        
       ELSE
 
         CALL set_parent_child_relations(p_patch_local_parent(jg), patch(jg))
+        CALL set_parent_loc_idx(p_patch_local_parent(jg), patch(jg))
+
       ENDIF
     END DO
 
@@ -584,6 +585,7 @@ CONTAINS
 
     ! do other stuff
     DO jg = n_dom_start, n_dom
+      ! set phys_id for verts since this is not read from input
       CALL set_verts_phys_id( patch(jg) )
     ENDDO
 
@@ -618,7 +620,10 @@ CONTAINS
         IF (jg>n_dom_start) THEN
           CALL disable_sync_checks
           CALL init_coriolis( lcoriolis, lplane, p_patch_local_parent(jg) )
+          
+          ! set phys_id for verts since this is not read from input
           CALL set_verts_phys_id( p_patch_local_parent(jg) )
+
           CALL enable_sync_checks
         ENDIF
 
@@ -632,7 +637,7 @@ CONTAINS
 
     SUBROUTINE set_comm_pat_scatter(p, jg)
       TYPE(t_patch), INTENT(INOUT):: p
-	  INTEGER, VALUE :: jg
+      INTEGER, VALUE :: jg
 
       INTEGER :: communicator
 
@@ -658,14 +663,15 @@ CONTAINS
 
   !-------------------------------------------------------------------------------------------------
   !
-  !> Sets parent_loc_idx/blk in child and child_idx/blk in parent patches.
+  !> Sets child_idx/blk in parent patches.
 
   SUBROUTINE set_parent_child_relations(p_pp, p_pc)
 
-    TYPE(t_patch), INTENT(INOUT) :: p_pp   !> divided local parent patch
-    TYPE(t_patch), INTENT(INOUT) :: p_pc   !> divided child patch
+    TYPE(t_patch), INTENT(INOUT) :: p_pp       !> divided local parent patch
+    TYPE(t_patch), INTENT(INOUT) :: p_pc       !> divided child patch
 
-    INTEGER :: i, j, jl, jb, jc, jc_g, jp, jp_g
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_parent_child_relations"
+    INTEGER   :: i, j, jl, jb, jc, jc_g
 
     ! Before this call, child_idx/child_blk still point to the global values.
     ! This is changed here.
@@ -696,10 +702,10 @@ CONTAINS
       DO i= 1, 4
         jc_g = idx_1d(p_pp%cells%child_idx(jl,jb,i),p_pp%cells%child_blk(jl,jb,i))
         IF(jc_g<1 .OR. jc_g>p_pc%n_patch_cells_g) &
-          & CALL finish('set_parent_child_relations','Invalid cell child index in global parent')
+          & CALL finish(routine, 'Invalid cell child index in global parent')
         jc = get_local_index(p_pc%cells%decomp_info%glb2loc_index, jc_g)
         IF(jc <= 0) &
-          & CALL finish('set_parent_child_relations','cell child index outside child domain')
+          & CALL finish(routine, 'cell child index outside child domain')
         p_pp%cells%child_blk(jl,jb,i) = blk_no(jc)
         p_pp%cells%child_idx(jl,jb,i) = idx_no(jc)
       ENDDO
@@ -731,14 +737,42 @@ CONTAINS
         jc = get_valid_local_index(p_pc%edges%decomp_info%glb2loc_index, &
           &                        jc_g, .TRUE.)
         IF(jc == 0) &
-          & CALL finish('set_parent_child_relations','edge child index outside child domain')
+          & CALL finish(routine, 'edge child index outside child domain '//int2string(p_pc%id))
         p_pp%edges%child_blk(jl,jb,i) = blk_no(jc)
         p_pp%edges%child_idx(jl,jb,i) = SIGN(idx_no(jc),jc_g)
       ENDDO
 
-      p_pp%edges%child_id(jl,jb) = p_pc%id
-
     ENDDO
+
+    ! Although this is not really necessary, we set the child index in child
+    ! and the parent index in parent to 0 since these have no significance
+    ! in the parallel code (and must not be used as they are).
+
+    IF (my_process_is_mpi_parallel()) THEN
+      p_pc%cells%child_idx  = 0
+      p_pc%cells%child_blk  = 0
+      p_pp%cells%parent_glb_idx = 0
+      p_pp%cells%parent_glb_blk = 0
+
+      p_pc%edges%child_idx  = 0
+      p_pc%edges%child_blk  = 0
+      p_pp%edges%parent_glb_idx = 0
+      p_pp%edges%parent_glb_blk = 0
+    END IF
+
+  END SUBROUTINE set_parent_child_relations
+
+
+  !-------------------------------------------------------------------------------------------------
+  !
+  !> Sets parent_loc_idx/blk in child patches.
+  !
+  SUBROUTINE set_parent_loc_idx(p_pp, p_pc)
+    TYPE(t_patch), INTENT(INOUT) :: p_pp       !> divided local parent patch
+    TYPE(t_patch), INTENT(INOUT) :: p_pc       !> divided child patch
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_parent_loc_idx"
+    INTEGER   :: j, jl, jb, jp, jp_g
 
     ! Set parent indices in child ...
 
@@ -752,7 +786,7 @@ CONTAINS
       jp_g = idx_1d(p_pc%cells%parent_glb_idx(jl,jb), &
         &           p_pc%cells%parent_glb_blk(jl,jb))
       IF(jp_g<1 .OR. jp_g>p_pp%n_patch_cells_g) &
-        & CALL finish('set_parent_child_relations','Inv. cell parent index in global child')
+        & CALL finish(routine, 'Inv. cell parent index in global child')
 
       jp = get_local_index(p_pp%cells%decomp_info%glb2loc_index, jp_g)
       IF(jp <= 0) THEN
@@ -775,7 +809,7 @@ CONTAINS
       jp_g = idx_1d(p_pc%edges%parent_glb_idx(jl,jb), &
         &           p_pc%edges%parent_glb_blk(jl,jb))
       IF(jp_g<1 .OR. jp_g>p_pp%n_patch_edges_g) &
-        & CALL finish('set_parent_child_relations','Inv. edge parent index in global child')
+        & CALL finish(routine, 'Inv. edge parent index in global child')
 
       jp = get_local_index(p_pp%edges%decomp_info%glb2loc_index, jp_g)
       IF(jp <= 0) THEN
@@ -793,22 +827,15 @@ CONTAINS
     ! in the parallel code (and must not be used as they are).
 
     IF (my_process_is_mpi_parallel()) THEN
-      p_pc%cells%child_idx  = 0
-      p_pc%cells%child_blk  = 0
-      p_pp%cells%parent_glb_idx = 0
-      p_pp%cells%parent_glb_blk = 0
       p_pp%cells%parent_loc_idx = 0
       p_pp%cells%parent_loc_blk = 0
 
-      p_pc%edges%child_idx  = 0
-      p_pc%edges%child_blk  = 0
-      p_pp%edges%parent_glb_idx = 0
-      p_pp%edges%parent_glb_blk = 0
       p_pp%edges%parent_loc_idx = 0
       p_pp%edges%parent_loc_blk = 0
     END IF
 
-  END SUBROUTINE set_parent_child_relations
+  END SUBROUTINE set_parent_loc_idx
+
 
   !-----------------------------------------------------------------------------
   !>
@@ -954,14 +981,14 @@ CONTAINS
   SUBROUTINE set_missing_geometry_info( patch )
     TYPE(t_patch), INTENT(inout), TARGET ::  patch
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:set_missing_geometry_info'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':set_missing_geometry_info'
 
     !-----------------------------------------------------------------------
     SELECT CASE(patch%geometry_info%geometry_type)
 
     CASE (planar_torus_geometry, planar_channel_geometry)
 
-      CALL finish(method_name, "planar_torus_geometry should be read from the grid file")
+      CALL finish(routine, "planar_torus_geometry should be read from the grid file")
 
     CASE (sphere_geometry)
       ! if geometry_info is missing then the grid is trianguler by default
@@ -985,7 +1012,7 @@ CONTAINS
       patch%geometry_info%mean_edge_length = 0.0_wp
 
     CASE default
-      CALL finish(method_name, "Undefined geometry type")
+      CALL finish(routine, "Undefined geometry type")
 
     END SELECT
 
@@ -1016,14 +1043,14 @@ CONTAINS
   !!   for subdivision into the fully allocated patch and read_remaining_patch
   !!   for reading the remaining information
   !!
-  SUBROUTINE read_pre_patch( ig, patch_pre, uuid_grid, uuid_par, uuid_chi, lsep_grfinfo )
+  SUBROUTINE read_pre_patch( ig, patch_pre, grid_metadata, lsep_grfinfo )
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:read_pre_patch'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':read_pre_patch'
     INTEGER,                           INTENT(in)    ::  ig                  ! domain ID
     TYPE(t_pre_patch), TARGET,         INTENT(inout) ::  patch_pre           ! patch data structure
-    CHARACTER(LEN=uuid_string_length), INTENT(inout) :: uuid_grid, uuid_par, uuid_chi(5)
+    TYPE(t_grid_metadata),             intent(INOUT) ::  grid_metadata
     !> If .true., read fields related to grid refinement from separate  grid files:
-    LOGICAL,                           INTENT(OUT)   :: lsep_grfinfo
+    LOGICAL,                           INTENT(OUT)   ::  lsep_grfinfo
 
     ! local variables
     INTEGER, ALLOCATABLE :: &
@@ -1031,28 +1058,14 @@ CONTAINS
       & start_idx_e(:,:), end_idx_e(:,:), &
       & start_idx_v(:,:), end_idx_v(:,:)
 
-    ! dummy values for number of internal halo cells, edges, vertices, not actually used
-!    INTEGER :: n_e_halo_cells
-!    INTEGER :: n_e_halo_edges
-!    INTEGER :: n_e_halo_verts
-
-    ! INTEGER :: patch_unit
-
-    ! LOGICAL :: lnetcdf = .TRUE.
-    ! CHARACTER(len=filename_max) :: file
-
     CHARACTER(LEN=uuid_string_length) :: uuid_string, uuid_string_grfinfo
-    CHARACTER(LEN=1) :: child_id
 
     ! status variables
-    INTEGER :: ist, netcd_status
-
-    INTEGER :: ncid, ncid_grf, dimid, varid, max_cell_connectivity, max_verts_connectivity
-    INTEGER :: ji
-    INTEGER :: jc, ic
-    INTEGER :: icheck, ilev, igrid_level, igrid_id, iparent_id, i_max_childdom, ipar_id, dim_idxlist
-    INTEGER, POINTER :: local_ptr(:), local_ptr_2d(:,:)
-    REAL(wp), POINTER :: local_ptr_wp(:), local_ptr_wp_2d(:, :)
+    INTEGER :: ist, netcd_status, ncid, ncid_grf, dimid, varid, max_cell_connectivity, &
+      &        max_verts_connectivity, ji, jc, ic, ilev, dim_idxlist, ierr
+    INTEGER,  POINTER :: local_ptr(:), local_ptr_2d(:,:)
+    REAL(wp), POINTER :: local_ptr_wp_2d(:, :)
+    LOGICAL :: lhave_phys_id
     !-----------------------------------------------------------------------
 
     ! set dummy values to zero
@@ -1061,10 +1074,8 @@ CONTAINS
 !    n_e_halo_verts = 0
 
     ilev = patch_pre%level
-    ipar_id = patch_pre%parent_id
 
-
-    CALL message (TRIM(method_name), 'start to init patch_pre')
+    CALL message (routine, 'start to init patch_pre')
 
     WRITE(message_text,'(a,a)') 'Read grid file ', TRIM(patch_pre%grid_filename)
     CALL message ('', TRIM(message_text))
@@ -1098,13 +1109,13 @@ CONTAINS
 
     IF (nf_get_att_text(ncid, nf_global, 'uuidOfHGrid', uuid_string) /= nf_noerr) THEN
       IF (is_grib_output()) THEN
-        CALL message(TRIM(method_name), "Warning: uuidOfHGrid not set as an attribute!")
+        CALL message(routine, "Warning: uuidOfHGrid not set as an attribute!")
       END IF
       CALL clear_uuid(patch_pre%grid_uuid)
     ELSE
       CALL uuid_parse(uuid_string, patch_pre%grid_uuid)
       WRITE(message_text,'(a,a)') 'grid uuid: ', TRIM(uuid_string)
-      CALL message  (TRIM(method_name), message_text)
+      CALL message  (routine, message_text)
     END IF
 
     IF (lsep_grfinfo) THEN ! check correspondence of uuids between main grid file and connectivity info file
@@ -1112,19 +1123,17 @@ CONTAINS
       IF (TRIM(uuid_string_grfinfo) /= TRIM(uuid_string)) THEN
         WRITE(message_text,'(a,a)') 'uuidOfHGrid of grfinfo file does not match uuidOfHGrid of basic grid file'
         IF (check_uuid_gracefully) THEN
-          CALL warning(TRIM(method_name), TRIM(message_text))
+          CALL warning(routine, TRIM(message_text))
         ELSE
-          CALL finish (TRIM(method_name), TRIM(message_text))
+          CALL finish (routine, TRIM(message_text))
         END IF
       ENDIF
-      uuid_grid = uuid_string_grfinfo
-      ! Read also parent and child grid uuids for subsequent crosscheck
-      CALL nf(nf_get_att_text(ncid_grf, nf_global, 'uuidOfParHGrid', uuid_par))
-      DO ji=1,5
-        WRITE(child_id,'(i1)') ji
-        CALL nf(nf_get_att_text(ncid_grf, nf_global, 'uuidOfChiHGrid_'//child_id , uuid_chi(ji) ))
-      ENDDO
-    ENDIF
+    END IF
+
+    ! Read also parent grid UUID for subsequent crosscheck (if available):
+    grid_metadata%uuid_grid = uuid_string
+    ierr = nf_get_att_text(ncid_grf, nf_global, 'uuidOfParHGrid', grid_metadata%uuid_par)
+    IF (ierr /= nf_noerr)  grid_metadata%uuid_par = ""
 
     ! Read additional grid identifiers
     ! grid_generatingCenter
@@ -1135,11 +1144,11 @@ CONTAINS
     IF (netcd_status == nf_noerr) THEN
       WRITE(message_text,'(a,i4,a,i4)') &
         & 'generating center of patch ', ig, ': ',grid_generatingCenter(ig)
-      CALL message  (TRIM(method_name), TRIM(message_text))
+      CALL message  (routine, TRIM(message_text))
     ELSE
       WRITE(message_text,'(a,i4,a,i4)') &
         & 'WARNING: generating center of patch ', ig, ' not found'
-      CALL message  (TRIM(method_name), TRIM(message_text))
+      CALL message  (routine, TRIM(message_text))
       ! set default value
       grid_generatingCenter(ig) = 78    ! DWD
     ENDIF
@@ -1149,11 +1158,11 @@ CONTAINS
     IF (netcd_status == nf_noerr) THEN
       WRITE(message_text,'(a,i4,a,i4)') &
         & 'generating subcenter of patch ', ig, ': ',grid_generatingSubcenter(ig)
-      CALL message  (TRIM(method_name), TRIM(message_text))
+      CALL message  (routine, TRIM(message_text))
     ELSE
       WRITE(message_text,'(a,i4,a,i4)') &
         & 'WARNING: generating subcenter of patch ', ig, ' not found'
-      CALL message  (TRIM(method_name), TRIM(message_text))
+      CALL message  (routine, TRIM(message_text))
       ! set default value
       grid_generatingSubcenter(ig) = 255
     ENDIF
@@ -1163,66 +1172,34 @@ CONTAINS
     IF (netcd_status == nf_noerr) THEN
       WRITE(message_text,'(a,i4,a,i4)') &
         & 'number_of_grid_used of patch ', ig, ': ',number_of_grid_used(ig)
-      CALL message  (TRIM(method_name), TRIM(message_text))
+      CALL message  (routine, TRIM(message_text))
     ELSE
       WRITE(message_text,'(a,i4,a,i4)') &
         & 'WARNING: number_of_grid_used of patch ', ig, ' not found'
-      CALL message  (TRIM(method_name), TRIM(message_text))
+      CALL message  (routine, TRIM(message_text))
       ! set default value
       number_of_grid_used(ig) = 42
     ENDIF
 
-    CALL nf(nf_get_att_int(ncid, nf_global, 'grid_root', icheck))
-    IF (icheck /= nroot) THEN
+    CALL nf(nf_get_att_int(ncid, nf_global, 'grid_root', grid_metadata%grid_root))
+    IF (grid_metadata%grid_root /= nroot) THEN
       WRITE(message_text,'(a,i4,a,i4)') &
-        & 'grid_root attribute:', icheck,', R:',nroot
-      CALL message  (TRIM(method_name), TRIM(message_text))
+        & 'grid_root attribute:', grid_metadata%grid_root,', R:',nroot
+      CALL message  (routine, TRIM(message_text))
       WRITE(message_text,'(a)') &
         & 'Mismatch between "grid_root" attribute and "R" parameter in the filename'
-      CALL finish  (TRIM(method_name), TRIM(message_text))
+      CALL finish  (routine, TRIM(message_text))
     END IF
 
-    CALL nf(nf_get_att_int(ncid, nf_global, 'grid_level', igrid_level))
-    IF (igrid_level /= ilev) THEN
+    CALL nf(nf_get_att_int(ncid, nf_global, 'grid_level', grid_metadata%grid_level))
+    IF (grid_metadata%grid_level /= ilev) THEN
       WRITE(message_text,'(a,i4,a,i4)') &
-        & 'grid_level attribute:', igrid_level,', B:',ilev
-      CALL message  (TRIM(method_name), TRIM(message_text))
+        & 'grid_level attribute:', grid_metadata%grid_level,', B:',ilev
+      CALL message  (routine, TRIM(message_text))
       WRITE(message_text,'(a)') &
         & 'Mismatch between "grid_level" attribute and "B" parameter in the filename'
-      CALL finish  (TRIM(method_name), TRIM(message_text))
+      CALL finish  (routine, TRIM(message_text))
     END IF
-
-    ! Check additional attributes for consistency with the current namelist settings
-    CALL nf(nf_get_att_int(ncid, nf_global, 'grid_ID', igrid_id))
-    IF ((.NOT.l_limited_area).AND.(igrid_id /= ig)) THEN
-      WRITE(message_text,'(a,i4,a,i4)') &
-        & 'grid ID attribute:', igrid_id,', namelist value:',ig
-      CALL message  (TRIM(method_name), TRIM(message_text))
-      WRITE(message_text,'(a)') &
-        & 'Mismatch between "grid ID" attribute and corresponding namelist setting'
-      CALL finish  (TRIM(method_name), TRIM(message_text))
-    END IF
-
-    CALL nf(nf_get_att_int(ncid_grf, nf_global, 'parent_grid_ID', iparent_id))
-    IF ((.NOT.l_limited_area).AND.(iparent_id /= ipar_id)) THEN
-      WRITE(message_text,'(a,i4,a,i4)') &
-        & 'parent ID attribute:', iparent_id,', namelist value:',ipar_id
-      CALL message  (TRIM(method_name), TRIM(message_text))
-      WRITE(message_text,'(a)') &
-        & 'Mismatch between "parent grid ID" attribute and corresponding namelist setting'
-      CALL finish  (TRIM(method_name), TRIM(message_text))
-    END IF
-
-    CALL nf(nf_get_att_int(ncid_grf, nf_global, 'max_childdom', i_max_childdom))
-    IF (i_max_childdom /= max_childdom) THEN
-      WRITE(message_text,'(a,i4,a,i4)') &
-        & 'max_childdom attribute:', i_max_childdom,', namelist value:',max_childdom
-      CALL message  (TRIM(method_name), TRIM(message_text))
-      WRITE(message_text,'(a)') &
-        & 'Mismatch between "max_childdom" attribute and corresponding namelist setting'
-      CALL message  (TRIM(method_name), TRIM(message_text))
-    END IF
-
 
     !--------------------------------------
     ! get number of cells, edges and vertices
@@ -1245,7 +1222,7 @@ CONTAINS
     IF (dim_idxlist>1) THEN
       WRITE(message_text,'(a)') &
         & 'WARNING: you are using an old grid file with multiple nesting'
-      CALL message  (TRIM(method_name), TRIM(message_text))
+      CALL message  (routine, TRIM(message_text))
     ENDIF
 
     !
@@ -1280,7 +1257,7 @@ CONTAINS
       & stat=ist )
 
     IF (ist /= success) THEN
-      CALL finish (TRIM(method_name), 'allocation for array_[cev]_indlist failed')
+      CALL finish (routine, 'allocation for array_[cev]_indlist failed')
     ENDIF
 
 !     write(0,*) "allocate_pre_patch..."
@@ -1335,14 +1312,20 @@ CONTAINS
     IF (dim_idxlist > 1) &
       patch_pre%verts%end(min_rlvert_int) = patch_pre%n_patch_verts_g
 
-!     write(0,*) "get phys_cell_id..."
     ! patch_pre%cells%phys_id(:)
-    CALL nf(nf_inq_varid(ncid_grf, 'phys_cell_id', varid))
+    !
+    ! If no domain merging is used, the physical cell/edge ID must not
+    ! necessarily specified in the grid file:
     CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_phys_id, local_ptr)
-    CALL nf(nf_get_vara_int(ncid_grf, varid, &
-      &                     (/patch_pre%cells%local_chunk(1,1)%first/), &
-      &                     (/patch_pre%cells%local_chunk(1,1)%size/), &
-      &                     local_ptr(:)))
+    lhave_phys_id = (nf_inq_varid(ncid_grf, 'phys_cell_id', varid) == nf_noerr)
+    IF (lhave_phys_id) THEN
+      CALL nf(nf_get_vara_int(ncid_grf, varid, &
+        &                     (/patch_pre%cells%local_chunk(1,1)%first/), &
+        &                     (/patch_pre%cells%local_chunk(1,1)%size/), &
+        &                     local_ptr(:)))
+    ELSE
+      local_ptr(:) = ig
+    END IF
 
     ! patch_pre%cells%neighbor
     CALL nf(nf_inq_varid(ncid, 'neighbor_cell_index', varid))
@@ -1366,7 +1349,7 @@ CONTAINS
             IF ( ji /= 6 ) THEN
               local_ptr_2d(ic,ji) = local_ptr_2d(ic,6)
               ! this should not happen
-              ! CALL finish(method_name, "cells%neighbor_idx=0 not at the end")
+              ! CALL finish(routine, "cells%neighbor_idx=0 not at the end")
             END IF
             ! Fill dummy neighbor with an existing index to simplify do loops
             ! Note, however, that related multiplication factors must be zero
@@ -1485,23 +1468,15 @@ CONTAINS
     !------------------------------------------
     ! nesting/lateral boundary indexes
     IF (max_cell_connectivity == 3) THEN ! triangular grid
-
-!       write(0,*) "get parent_cell_index..."
       ! patch_pre%cells%parent
-      CALL nf(nf_inq_varid(ncid_grf, 'parent_cell_index', varid))
-      CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_parent, local_ptr)
-      CALL nf(nf_get_vara_int(ncid_grf, varid, &
-        &                     (/patch_pre%cells%local_chunk(1,1)%first/), &
-        &                     (/patch_pre%cells%local_chunk(1,1)%size/), &
-        &                     local_ptr))
-      ! patch_pre%cells%child(:,:)
-      CALL nf(nf_inq_varid(ncid_grf, 'child_cell_index', varid))
-      CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_child, local_ptr_2d)
-      CALL nf(nf_get_vara_int(ncid_grf, varid, &
-        &                     (/patch_pre%cells%local_chunk(1,1)%first, 1/), &
-        &                     (/patch_pre%cells%local_chunk(1,1)%size, 4/), &
-        &                     local_ptr_2d))
-
+      IF (ig > 0) THEN
+        CALL nf(nf_inq_varid(ncid_grf, 'parent_cell_index', varid))
+        CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_parent, local_ptr)
+        CALL nf(nf_get_vara_int(ncid_grf, varid, &
+          &                     (/patch_pre%cells%local_chunk(1,1)%first/), &
+          &                     (/patch_pre%cells%local_chunk(1,1)%size/), &
+          &                     local_ptr))
+      ENDIF
     ELSE
       CALL message ('read_patch',&
         & 'nesting incompatible with non-triangular grid')
@@ -1522,29 +1497,14 @@ CONTAINS
 
     ! patch_pre%edges%parent
 !     write(0,*) "parent_edge_index..."
-    CALL nf(nf_inq_varid(ncid_grf, 'parent_edge_index', varid))
-    CALL dist_mult_array_local_ptr(patch_pre%edges%dist, e_parent, local_ptr)
-    CALL nf(nf_get_vara_int(ncid_grf, varid, &
-      &                     (/patch_pre%edges%local_chunk(1,1)%first/), &
-      &                     (/patch_pre%edges%local_chunk(1,1)%size/), &
-      &                     local_ptr))
-
-    ! patch_pre%edges%child
-!     write(0,*) "child_edge_index..."
-    CALL nf(nf_inq_varid(ncid_grf, 'child_edge_index', varid))
-    CALL dist_mult_array_local_ptr(patch_pre%edges%dist, e_child, local_ptr_2d)
-    CALL nf(nf_get_vara_int(ncid_grf, varid, &
-      &                     (/patch_pre%edges%local_chunk(1,1)%first, 1/), &
-      &                     (/patch_pre%edges%local_chunk(1,1)%size, 4/), &
-      &                     local_ptr_2d))
-
-    ! First ensure that child edge indices are all positive;
-    ! if there are negative values, grid files are too old
-    IF(ANY(local_ptr_2d(:,1:4)<0)) THEN
-      CALL finish (TRIM(method_name), &
-        & 'negative child edge indices detected - patch files are too old')
+    IF (ig > 0) THEN
+      CALL nf(nf_inq_varid(ncid_grf, 'parent_edge_index', varid))
+      CALL dist_mult_array_local_ptr(patch_pre%edges%dist, e_parent, local_ptr)
+      CALL nf(nf_get_vara_int(ncid_grf, varid, &
+        &                     (/patch_pre%edges%local_chunk(1,1)%first/), &
+        &                     (/patch_pre%edges%local_chunk(1,1)%size/), &
+        &                     local_ptr))
     ENDIF
-
     ! patch_pre%edges%refin_ctrl
 !     write(0,*) "refin_e_ctrl..."
     CALL nf(nf_inq_varid(ncid_grf, 'refin_e_ctrl', varid))
@@ -1625,10 +1585,10 @@ CONTAINS
     DEALLOCATE( start_idx_c, end_idx_c, start_idx_e, end_idx_e, start_idx_v, end_idx_v, &
       & stat=ist )
     IF (ist /= success) THEN
-      CALL finish (TRIM(method_name), 'deallocation for array_[cev]_indlist failed')
+      CALL finish (routine, 'deallocation for array_[cev]_indlist failed')
     ENDIF
 
-    CALL message (TRIM(method_name), 'read_patches finished')
+    CALL message (routine, 'read_patches finished')
 
   END SUBROUTINE read_pre_patch
   !-------------------------------------------------------------------------
@@ -1647,7 +1607,7 @@ CONTAINS
 
     INTEGER :: ncid, varid, ncid_grf
     TYPE(t_stream_id) :: stream_id, stream_id_grf
-    INTEGER :: ip, jv, igrid_id, idx, blk
+    INTEGER :: ip, jv, idx, blk
     INTEGER :: max_cell_connectivity, max_verts_connectivity
 
     INTEGER :: return_status
@@ -1658,13 +1618,13 @@ CONTAINS
     TYPE(var_data_2d_wp)  :: multivar_2d_data_wp(n_lp+1)
     TYPE(var_data_3d_int) :: multivar_3d_data_int(n_lp+1)
     TYPE(var_data_3d_wp) :: multivar_3d_data_wp(n_lp+1)
+    LOGICAL :: lhave_phys_id
 
 
 !    REAL(wp), POINTER :: tmp_check_array(:,:)
 !    REAL(wp) :: max_diff
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_model_domimp_patches/read_remaining_patch'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':read_remaining_patch'
     !-----------------------------------------------------------------------
 
     CALL message ('mo_model_domimp_patches:read_remaining_patch', &
@@ -1708,32 +1668,8 @@ CONTAINS
       CALL message ('read_remaining_patch',&
         & 'nesting incompatible with non-triangular grid')
 
-    ! Preparation: In limited-area mode, check if child domain ID's read
-    ! from the grid files need to be shifted
-    IF (ig == 1 .AND. l_limited_area .AND. patch%n_childdom>0) THEN
-      CALL nf(nf_get_att_int(ncid_grf, nf_global, 'grid_ID', igrid_id))
-      ishift_child_id = igrid_id - 1
-      WRITE(message_text,'(a,i4)') 'Limited-area mode: child cell IDs are shifted by ',ishift_child_id
-      CALL message ('', TRIM(message_text))
-    ENDIF
-
     !------------------------------------------
     ! nesting/lateral boundary indexes
-
-    ! patch%cells%child_id(:,:)
-    DO ip = 0, n_lp
-      p_p => get_patch_ptr(patch, id_lp, ip)
-      multivar_2d_data_int(ip+1)%data => p_p%cells%child_id(:,:)
-    END DO
-    CALL read_2D_int(stream_id_grf, on_cells, 'child_cell_id', n_lp+1, &
-      &              multivar_2d_data_int(:))
-    IF(ishift_child_id /= 0 .AND. patch%n_childdom>0) THEN
-      DO ip = 0, n_lp
-        WHERE (multivar_2d_data_int(ip+1)%data(:,:) > 0) &
-          multivar_2d_data_int(ip+1)%data(:,:) = &
-            multivar_2d_data_int(ip+1)%data(:,:) - ishift_child_id
-      END DO
-    ENDIF
 
     ! p_p%cells%phys_id(:,:)
     IF (ig <= 1) THEN
@@ -1746,14 +1682,19 @@ CONTAINS
         p_p => get_patch_ptr(patch, id_lp, ip)
         multivar_2d_data_int(ip+1)%data => p_p%cells%phys_id(:,:)
       END DO
-      CALL read_2D_int(stream_id_grf, on_cells, 'phys_cell_id', n_lp+1, &
-        &              multivar_2d_data_int(:))
-      IF(ishift_child_id > 0) THEN
+
+      lhave_phys_id = (nf_inq_varid(ncid_grf, 'phys_cell_id', varid) == nf_noerr)
+      IF (lhave_phys_id) THEN
+        CALL read_2D_int(stream_id_grf, on_cells, 'phys_cell_id', n_lp+1, &
+          &              multivar_2d_data_int(:))
+      ELSE
+
         DO ip = 0, n_lp
-          multivar_2d_data_int(ip+1)%data(:,:) = &
-            multivar_2d_data_int(ip+1)%data(:,:) - ishift_child_id
+          p_p => get_patch_ptr(patch, id_lp, ip)
+          p_p%cells%phys_id(:,:) = ig
         END DO
-      ENDIF
+
+      END IF
     END IF
 
     ! p_p%cells%edge_orientation(:,:,:)
@@ -1774,20 +1715,6 @@ CONTAINS
     CALL read_2D(stream_id, on_cells, 'cell_area_p', n_lp+1, &
       &          multivar_2d_data_wp(:))
 
-    ! p_p%edges%child_id(:,:)
-    DO ip = 0, n_lp
-      p_p => get_patch_ptr(patch, id_lp, ip)
-      multivar_2d_data_int(ip+1)%data => p_p%edges%child_id(:,:)
-    END DO
-    CALL read_2D_int(stream_id_grf, on_edges, 'child_edge_id', n_lp+1, &
-      &              multivar_2d_data_int(:))
-    IF(ishift_child_id /= 0 .AND. patch%n_childdom>0) THEN
-      DO ip = 0, n_lp
-        multivar_2d_data_int(ip+1)%data(:,:) = &
-          multivar_2d_data_int(ip+1)%data(:,:) - ishift_child_id
-      END DO
-    ENDIF
-
     ! p_p%edges%phys_id(:,:)
     IF (ig <= 1) THEN
       DO ip = 0, n_lp
@@ -1799,14 +1726,17 @@ CONTAINS
         p_p => get_patch_ptr(patch, id_lp, ip)
         multivar_2d_data_int(ip+1)%data => p_p%edges%phys_id(:,:)
       END DO
-      CALL read_2D_int(stream_id_grf, on_edges, 'phys_edge_id', n_lp+1, &
-        &              multivar_2d_data_int(:))
-      IF(ishift_child_id > 0) THEN
+      lhave_phys_id = (nf_inq_varid(ncid_grf, 'phys_edge_id', varid) == nf_noerr)
+      IF (lhave_phys_id) THEN
+        CALL read_2D_int(stream_id_grf, on_edges, 'phys_edge_id', n_lp+1, &
+          &              multivar_2d_data_int(:))
+      ELSE
+
         DO ip = 0, n_lp
-          multivar_2d_data_int(ip+1)%data(:,:) = &
-            multivar_2d_data_int(ip+1)%data(:,:) - ishift_child_id
-        END DO
-      ENDIF
+          p_p => get_patch_ptr(patch, id_lp, ip)
+          p_p%edges%phys_id(:,:) = ig
+        ENDDO
+      END IF
     END IF
 
     ! p_p%edges%cell_idx(:,:,:)
@@ -2180,16 +2110,16 @@ CONTAINS
     !-------------------------------------------------
      !Check for plane_torus case
     IF(p_p%geometry_info%geometry_type == planar_torus_geometry .AND. .NOT. is_plane_torus) THEN
-      CALL message(TRIM(method_name), &
+      CALL message(routine, &
         & "Grid is plane torus: turning on is_plane_torus automatically")
       is_plane_torus = .TRUE.
     END IF
 
     IF(p_p%geometry_info%geometry_type /= planar_torus_geometry .AND. is_plane_torus) &
-      CALL finish(TRIM(method_name),"Input grid is NOT plane torus, Stopping")
+      CALL finish(routine,"Input grid is NOT plane torus, Stopping")
     !-------------------------------------------------
 
-    CALL message ('mo_model_domimp_patches:read_remaining_patch', 'read finished')
+    CALL message (modname//':read_remaining_patch', 'read finished')
 
   END SUBROUTINE read_remaining_patch
   !-------------------------------------------------------------------------
@@ -2232,15 +2162,14 @@ CONTAINS
     LOGICAL, INTENT(in) :: duplicate
 
     INTEGER :: i, zeros(1:max_connectivity), num_non_zero
-    CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_model_domimp_patches:move_dummies_to_end'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':move_dummies_to_end'
 
     IF (duplicate) THEN
       DO i = 1, array_size
         num_non_zero = COUNT(array(i,1:max_connectivity) /= 0)
         IF (num_non_zero /= max_connectivity) THEN
           IF (num_non_zero == 0) THEN
-            ! CALL warning(method_name, "no connectivity found")
+            ! CALL warning(routine, "no connectivity found")
             CYCLE
           END IF
           array(i,1:num_non_zero) = PACK(array(i,1:max_connectivity), &
@@ -2274,8 +2203,7 @@ CONTAINS
     LOGICAL, INTENT(in) :: duplicate
 
     INTEGER :: i, idx, blk, zeros(1:max_connectivity), num_non_zero
-    CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_model_domimp_patches:move_dummies_to_end_idxblk'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':move_dummies_to_end_idxblk'
 
     IF (duplicate) THEN
       DO i = 1, array_size
@@ -2284,7 +2212,7 @@ CONTAINS
         num_non_zero = COUNT(array(idx,blk,1:max_connectivity) /= 0)
         IF (num_non_zero /= max_connectivity) THEN
           IF (num_non_zero == 0) THEN
-            ! CALL warning(method_name, "no connectivity found")
+            ! CALL warning(routine, "no connectivity found")
             CYCLE
           END IF
           array(idx,blk,1:num_non_zero) = &
@@ -2315,23 +2243,9 @@ CONTAINS
     INTEGER, INTENT(in)    :: ncid
 
     INTEGER :: varid
-    REAL(wp) :: x(3)
 
     gridfile_has_cartesian_info = &
       nf_inq_varid(ncid, 'cell_circumcenter_cartesian_x', varid) == nf_noerr
-
-!     IF (gridfile_has_cartesian_info) THEN
-!
-!       CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_x', varid))
-!       CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(1)))
-!       CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_y', varid))
-!       CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(2)))
-!       CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_z', varid))
-!       CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(3)))
-!
-!       gridfile_has_cartesian_info = ANY(ABS(x(:)) >= 0.001_wp)
-!
-!     END IF
 
   END FUNCTION gridfile_has_cartesian_info
   !-------------------------------------------------------------------------
@@ -2348,8 +2262,7 @@ CONTAINS
     INTEGER :: ip
     TYPE(t_patch), POINTER :: p_p
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = &
-      'mo_model_domimp_patches:read_cartesian_positions'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':read_cartesian_positions'
     !-----------------------------------------------------------------------
 
 #ifdef __GNUC__
@@ -2685,15 +2598,15 @@ CONTAINS
     TYPE(t_patch), POINTER :: p_p
 
     INTEGER :: ip
-    CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:calculate_cartesian_positions'
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':calculate_cartesian_positions'
     !-----------------------------------------------------------------------
     ! GZ: This routine is always called with grids from the global grid generator, so this warning
     ! is more confusing than useful
     IF (msg_level >= 15 .OR. patch%geometry_info%geometry_type /= sphere_geometry) THEN
-      CALL message(method_name, " is called")
+      CALL message(routine, " is called")
     ENDIF
     IF (patch%geometry_info%geometry_type /= sphere_geometry) &
-      CALL finish(method_name, "geometry_type /= sphere_geometry")
+      CALL finish(routine, "geometry_type /= sphere_geometry")
 
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
@@ -2741,14 +2654,160 @@ CONTAINS
     IF (lsilent) RETURN
     IF (STATUS /= nf_noerr) THEN
       IF (lwarnonly) THEN
-        CALL message('mo_model_domain_import netCDF error', nf_strerror(STATUS), &
+        CALL message(modname//': netCDF error', nf_strerror(STATUS), &
           & level=em_warn)
       ELSE
-        CALL finish('mo_model_domain_import netCDF error', nf_strerror(STATUS))
+        CALL finish(modname//': netCDF error', nf_strerror(STATUS))
       ENDIF
     ENDIF
 
   END SUBROUTINE nf
+
+
+  ! -----------------------------------------------------------------
+  !
+  !  In parent grids: compute "refin_e_ctrl", "refin_v_ctrl" flags for
+  !  overlap with nested domain.
+  !
+  !  input: 
+  !   p_p% id
+  !        n_patch_cells, n_patch_edges, n_patch_verts, n_patch_edges_g
+  !        cells%decomp_info%decomp_domain
+  !        edges%decomp_info%glb_index
+  !        cells%refin_ctrl
+  !
+  !        cells%edge_idx/blk  (from "read_remaining_patch")
+  !        cells%vertex_idx/blk  (from "read_remaining_patch")
+  !
+  !  @author F. Prill, DWD (2016-06-16)
+  !
+  SUBROUTINE set_parent_refin_ev_ctrl(description, p_p)
+    CHARACTER(LEN=*),      INTENT(IN)    :: description !< description string (for debugging purposes)
+    TYPE(t_patch), TARGET, INTENT(INOUT) :: p_p         !< parent patch
+    ! local variables
+    INTEGER,          PARAMETER :: UNDEFINED_VALUE = 99
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//':set_parent_refin_ev_ctrl'
+    INTEGER              :: jc_c, jb_c, jc_v, jb_v, j, i, jc_e, jb_e, jc_n, jb_n,  &
+      &                     communicator, refin_e, iidx, j_v
+    INTEGER, ALLOCATABLE :: in_data(:), dst_idx(:), out_data(:,:), out_count(:,:), &
+      &                     refin_v_ctrl(:,:)
+
+    CALL message(modname, "set negative edge/vertex refin_ctrl flags "//&
+      &"for "//TRIM(description)//" (id "//TRIM(int2string(p_p%id))//")")
+
+    ! EDGES ------------------------------------------------------
+    !
+    ! The "refin_e_ctrl" value is the sum of the "refin_c_ctrl" values
+    ! of the two adjacent cells!
+    !   
+    ALLOCATE(in_data(3*p_p%n_patch_cells), dst_idx(3*p_p%n_patch_cells))
+
+    ! by looping over the cells, we visit each edge twice
+    iidx = 0
+    DO j = 1,p_p%n_patch_cells
+      jc_c = idx_no(j) ;  jb_c = blk_no(j)
+
+      ! loop over inner domain and boundary
+      IF (p_p%cells%decomp_info%decomp_domain(jc_c,jb_c) > 1)  CYCLE
+
+      ! (set this entry only, if the left or right side is zero or
+      ! negative:)
+      IF (p_p%cells%refin_ctrl(jc_c,jb_c) > 0)  CYCLE
+      DO i=1,3
+        jc_e = p_p%cells%edge_idx(jc_c,jb_c,i)
+        jb_e = p_p%cells%edge_blk(jc_c,jb_c,i)
+
+        iidx = iidx + 1
+        dst_idx(iidx) = p_p%edges%decomp_info%glb_index(idx_1d(jc_e,jb_e))
+        ! (we need a shift of -1 to distinguish between zero values
+        ! and unset values:)
+        in_data(iidx) = p_p%cells%refin_ctrl(jc_c,jb_c) - 1
+      END DO
+    END DO
+
+    ALLOCATE(out_data(2,p_p%n_patch_edges),out_count(2,p_p%n_patch_edges))
+    out_data(:,:)  = 0
+    out_count(:,:) = 0
+    communicator   = p_comm_work
+ 
+    ! communicate between processors:
+    CALL reshuffle("send refin_c_ctrl to edges", dst_idx(1:iidx), in_data(1:iidx),     &
+      &            p_p%edges%decomp_info%glb_index, p_p%n_patch_edges_g, communicator, &
+      &            out_data, out_count)
+
+    ! now loop over the edges and sum the two adjacent cell refin_ctrl
+    ! flags:
+    DO j = 1,p_p%n_patch_edges
+      jc_e = idx_no(j)  ;  jb_e = blk_no(j) 
+
+      ! nothing was set for this entry:
+      IF (out_count(1,j) == 0)  CYCLE
+            
+      IF (out_count(2,j) == 0) THEN
+        ! (the "+2" takes care of the "-1"-shift above)
+        refin_e = 2*out_data(1,j) + 2
+      ELSE
+        refin_e = out_data(1,j) + out_data(2,j) + 2
+      END IF
+
+      p_p%edges%refin_ctrl(jc_e,jb_e) = refin_e 
+    END DO
+
+    ! Reset edges%refin_ctrl at outer boundary of a limited-area grid
+    DO j = 1,p_p%n_patch_cells
+      jc_c = idx_no(j) ;  jb_c = blk_no(j)
+
+      IF (p_p%cells%decomp_info%decomp_domain(jc_c,jb_c) > 1)  CYCLE
+
+      IF (p_p%cells%refin_ctrl(jc_c,jb_c) == -1)  THEN
+        DO i=1,3
+          jc_e = p_p%cells%edge_idx(jc_c,jb_c,i)
+          jb_e = p_p%cells%edge_blk(jc_c,jb_c,i)
+
+          jc_n = p_p%cells%neighbor_idx(jc_c,jb_c,i)
+          jb_n = p_p%cells%neighbor_blk(jc_c,jb_c,i)
+
+          IF (jc_n <= 0 .OR. jb_n <= 0)  p_p%edges%refin_ctrl(jc_e,jb_e) = -1
+        END DO
+      ENDIF
+    END DO
+
+    DEALLOCATE(in_data, dst_idx, out_data, out_count)
+
+    ! VERTICES ---------------------------------------------------
+    !
+    ! The "refin_v_ctrl" value is the minimum of the adjacent
+    ! "refin_c_ctrl" values!
+
+    ALLOCATE(refin_v_ctrl(SIZE(p_p%verts%refin_ctrl,1),SIZE(p_p%verts%refin_ctrl,2)))
+    refin_v_ctrl(:,:) = UNDEFINED_VALUE
+
+    DO j = 1,p_p%n_patch_cells
+      jc_c = idx_no(j) ;  jb_c = blk_no(j)
+
+      ! loop over inner domain and boundary
+      IF (p_p%cells%decomp_info%decomp_domain(jc_c,jb_c) > 2)  CYCLE
+      IF (p_p%cells%refin_ctrl(jc_c,jb_c) > 0)  CYCLE
+
+      DO i=1,3
+        jc_v = p_p%cells%vertex_idx(jc_c,jb_c,i)
+        jb_v = p_p%cells%vertex_blk(jc_c,jb_c,i)
+        j_v = idx_1d(jc_v,jb_v)
+
+        refin_v_ctrl(jc_v,jb_v) = MIN(refin_v_ctrl(jc_v,jb_v), p_p%cells%refin_ctrl(jc_c,jb_c))
+      END DO
+    END DO
+    DO j = 1,p_p%n_patch_verts
+      jc_v = idx_no(j)  ;  jb_v = blk_no(j) 
+            
+      IF (refin_v_ctrl(jc_v,jb_v) < 0) THEN     
+        p_p%verts%refin_ctrl(jc_v,jb_v) = refin_v_ctrl(jc_v,jb_v)
+      END IF
+    END DO
+    DEALLOCATE(refin_v_ctrl)
+
+  END SUBROUTINE set_parent_refin_ev_ctrl
+
 
 END MODULE mo_model_domimp_patches
 

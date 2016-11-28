@@ -28,6 +28,7 @@ MODULE mo_io_config
   USE mo_run_config,     ONLY: dtime
   USE mo_io_units,       ONLY: filename_max
   USE mo_cdi,            ONLY: FILETYPE_NC2
+  USE mo_impl_constants, ONLY: max_dom
 
   IMPLICIT NONE
   PUBLIC
@@ -40,6 +41,7 @@ MODULE mo_io_config
 
   LOGICAL :: lkeep_in_sync              ! if .true., sync stream after each timestep
   REAL(wp):: dt_diag                    ! diagnostic output timestep [seconds]
+  REAL(wp):: gust_interval(max_dom)     ! time interval over which maximum wind gusts are taken
   REAL(wp):: dt_checkpoint              ! timestep [seconds] for triggering new restart file
 
   INTEGER :: inextra_2d                 ! number of extra output fields for debugging

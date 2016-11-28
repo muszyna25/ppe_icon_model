@@ -26,6 +26,7 @@ MODULE mo_complete_subdivision
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              get_valid_local_index, t_glb2loc_index_lookup
   USE mo_mpi,                ONLY: p_send, p_recv, p_max, p_min, proc_split, p_sum
+  USE mo_util_string,        ONLY: int2string
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_COMM_NULL
 #endif
@@ -767,19 +768,22 @@ CONTAINS
     n_patch_edges(:) = 0
 
     DO jg = 1, n_dom
-      CALL setup_phys_patches_cve(p_patch(jg)%n_patch_cells_g, &
+      CALL setup_phys_patches_cve("cells, jg="//int2string(jg), &
+        &                         p_patch(jg)%n_patch_cells_g, &
         &                         p_patch(jg)%n_patch_cells, &
         &                         p_patch(jg)%cells%decomp_info, &
         &                         p_patch(jg)%cells%phys_id, jg, &
         &                         .TRUE., n_patch_cells(:), &
         &                         comm_pat_gather_cells(:))
-      CALL setup_phys_patches_cve(p_patch(jg)%n_patch_verts_g, &
+      CALL setup_phys_patches_cve("edges, jg="//int2string(jg), &
+        &                         p_patch(jg)%n_patch_verts_g, &
         &                         p_patch(jg)%n_patch_verts, &
         &                         p_patch(jg)%verts%decomp_info, &
         &                         p_patch(jg)%verts%phys_id, jg, &
         &                         .FALSE., n_patch_verts(:), &
         &                         comm_pat_gather_verts(:))
-      CALL setup_phys_patches_cve(p_patch(jg)%n_patch_edges_g, &
+      CALL setup_phys_patches_cve("verts, jg="//int2string(jg), &
+        &                         p_patch(jg)%n_patch_edges_g, &
         &                         p_patch(jg)%n_patch_edges, &
         &                         p_patch(jg)%edges%decomp_info, &
         &                         p_patch(jg)%edges%phys_id, jg, &
@@ -827,9 +831,10 @@ CONTAINS
 
   END SUBROUTINE setup_phys_patches
 
-  SUBROUTINE setup_phys_patches_cve(n_g, n, decomp_info, phys_id, &
+  SUBROUTINE setup_phys_patches_cve(description_str, n_g, n, decomp_info, phys_id, &
     &                               curr_patch_idx, set_logical_id, &
     &                               n_patch_cve, comm_pat_gather)
+    CHARACTER(LEN=*), INTENT(IN) :: description_str
     INTEGER, INTENT(IN) :: n_g, n
     TYPE(t_grid_domain_decomp_info), INTENT(IN) :: decomp_info
     INTEGER, INTENT(IN) :: phys_id(:,:)
@@ -851,7 +856,7 @@ CONTAINS
     DO i = 1, n
       ip = phys_id(idx_no(i),blk_no(i))
       IF (ip < 1 .OR. ip > max_phys_dom) &
-        CALL finish("setup_phys_patches_cve", "invalid phys_id")
+        CALL finish("setup_phys_patches_cve, "//TRIM(description_str), "invalid phys_id "//int2string(ip))
       IF (decomp_info%owner_local(i) == p_pe_work) &
         temp_n_patch_cve(ip) = temp_n_patch_cve(ip) + 1
     END DO
@@ -863,7 +868,7 @@ CONTAINS
       ! Check if no other patch uses the same phys_id
       IF (ANY((p_phys_patch(1:max_phys_dom)%logical_id /= -1) .AND. &
         &     (temp_n_patch_cve(:) /= 0))) &
-        CALL finish("setup_phys_patches_cve", &
+        CALL finish("setup_phys_patches_cve, "//TRIM(description_str), &
           &         "invalid value in p_phys_patch(:)%logical_id")
 
       WHERE(temp_n_patch_cve(:) /= 0) &
@@ -872,7 +877,7 @@ CONTAINS
       ! Check if no other patch uses the same phys_id
       IF (ANY((p_phys_patch(1:max_phys_dom)%logical_id /= curr_patch_idx) &
         &     .AND. (temp_n_patch_cve(:) /= 0))) &
-        CALL finish("setup_phys_patches_cve", &
+        CALL finish("setup_phys_patches_cve, "//TRIM(description_str), &
           &         "invalid value in p_phys_patch(:)%logical_id")
     END IF
 

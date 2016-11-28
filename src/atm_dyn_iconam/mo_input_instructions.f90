@@ -283,11 +283,11 @@ CONTAINS
     !! It ONLY provides concise instructions of which fields to READ from which file.
     !!
     !! Returns a new instruction list object.
-    FUNCTION readInstructionList_make(p_patch, init_mode) RESULT(RESULT)
+    FUNCTION readInstructionList_make(p_patch, init_mode) RESULT(resultVar)
         TYPE(t_patch), INTENT(IN) :: p_patch
         INTEGER, VALUE :: init_mode
         ! the resulting list of variable names to be READ together with flags defining which input file may be used
-        TYPE(t_readInstructionList), POINTER :: RESULT
+        TYPE(t_readInstructionList), POINTER :: resultVar
 
         ! local variables
         CHARACTER(LEN = *), PARAMETER :: routine = modname//':readInstructionList_make'
@@ -305,15 +305,15 @@ CONTAINS
 
         ! create a list of instructions according to the current init_mode AND configuration flags
         CALL collectGroups(p_patch, init_mode, grp_vars_fg, ngrp_vars_fg, grp_vars_ana, ngrp_vars_ana)
-        ALLOCATE(RESULT, STAT = error)
+        ALLOCATE(resultVar, STAT = error)
         IF(error /= SUCCESS) CALL finish(routine, "memory allocation failure");
-        CALL RESULT%construct()
+        CALL resultVar%construct()
         DO ivar = 1, ngrp_vars_fg
-            curInstruction => RESULT%findInstruction(grp_vars_fg(ivar))
+            curInstruction => resultVar%findInstruction(grp_vars_fg(ivar))
             curInstruction%lReadFg = .TRUE.
         END DO
         DO ivar = 1, ngrp_vars_ana
-            curInstruction => RESULT%findInstruction(grp_vars_ana(ivar))
+            curInstruction => resultVar%findInstruction(grp_vars_ana(ivar))
             curInstruction%lReadFg = .TRUE.
             curInstruction%lReadAna = .TRUE.
         END DO
@@ -327,7 +327,7 @@ CONTAINS
             DO ivar=1,SIZE(initicon_config(p_patch%id)%ana_varlist)
                 IF (initicon_config(p_patch%id)%ana_varlist(ivar) == ' ') EXIT
 
-                curInstruction => RESULT%findInstruction(TRIM(dict_get(ana_varnames_dict, &
+                curInstruction => resultVar%findInstruction(TRIM(dict_get(ana_varnames_dict, &
                 &                                                      initicon_config(p_patch%id)%ana_varlist(ivar), &
                 &                                                      linverse=.TRUE.)))
                 curInstruction%lReadAna = .TRUE.
@@ -347,18 +347,18 @@ CONTAINS
         me%nInstructions = 0
     END SUBROUTINE readInstructionList_construct
 
-    FUNCTION readInstructionList_findInstruction(me, varName) RESULT(RESULT)
+    FUNCTION readInstructionList_findInstruction(me, varName) RESULT(resultVar)
         CLASS(t_readInstructionList), INTENT(INOUT) :: me
         CHARACTER(LEN = *), INTENT(IN) :: varName
-        TYPE(t_readInstruction), POINTER :: RESULT
+        TYPE(t_readInstruction), POINTER :: resultVar
 
         INTEGER :: i, error
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":readInstructionList_findInstruction"
 
         ! try to find it IN the current list
         DO i = 1, me%nInstructions
-            RESULT => me%list(i)
-            IF(RESULT%varName == varName) RETURN
+            resultVar => me%list(i)
+            IF(resultVar%varName == varName) RETURN
         END DO
 
         ! the variable IS NOT found IN the list, expand the list
@@ -366,14 +366,14 @@ CONTAINS
         IF(me%nInstructions == SIZE(me%list, 1)) CALL me%resize(2*me%nInstructions)
         ! THEN add a new entry at the END
         me%nInstructions = me%nInstructions + 1
-        RESULT => me%list(me%nInstructions)
-        RESULT%varName = varName
-        RESULT%lReadFg = .FALSE.
-        RESULT%lReadAna = .FALSE.
-        RESULT%lRequireAna = .FALSE.
-        RESULT%statusFg = kStateNoFetch
-        RESULT%statusAna = kStateNoFetch
-        RESULT%sourceOverride = kInputSourceUnset
+        resultVar => me%list(me%nInstructions)
+        resultVar%varName = varName
+        resultVar%lReadFg = .FALSE.
+        resultVar%lReadAna = .FALSE.
+        resultVar%lRequireAna = .FALSE.
+        resultVar%statusFg = kStateNoFetch
+        resultVar%statusAna = kStateNoFetch
+        resultVar%sourceOverride = kInputSourceUnset
     END FUNCTION readInstructionList_findInstruction
 
     SUBROUTINE readInstructionList_resize(me, newSize)
@@ -424,43 +424,43 @@ CONTAINS
         END DO
     END SUBROUTINE readInstructionList_fileRequests
 
-    LOGICAL FUNCTION readInstructionList_wantVar(me, varName, lIsFg) RESULT(RESULT)
+    LOGICAL FUNCTION readInstructionList_wantVar(me, varName, lIsFg) RESULT(resultVar)
         CLASS(t_readInstructionList), INTENT(IN) :: me
         CHARACTER(LEN = *), INTENT(IN) :: varName
         LOGICAL, VALUE :: lIsFg
 
         IF(lIsFg) THEN
-            RESULT = me%wantVarFg(varName)
+            resultVar = me%wantVarFg(varName)
         ELSE
-            RESULT = me%wantVarAna(varName)
+            resultVar = me%wantVarAna(varName)
         END IF
     END FUNCTION readInstructionList_wantVar
 
-    LOGICAL FUNCTION readInstructionList_wantVarFg(me, varName) RESULT(RESULT)
+    LOGICAL FUNCTION readInstructionList_wantVarFg(me, varName) RESULT(resultVar)
         CLASS(t_readInstructionList), INTENT(IN) :: me
         CHARACTER(LEN = *), INTENT(IN) :: varName
 
         INTEGER :: i
 
-        RESULT = .FALSE.
+        resultVar = .FALSE.
         DO i = 1, me%nInstructions
             IF(me%list(i)%varName == varName) THEN
-                RESULT = me%list(i)%lReadFg
+                resultVar = me%list(i)%lReadFg
                 RETURN
             END IF
         END DO
     END FUNCTION readInstructionList_wantVarFg
 
-    LOGICAL FUNCTION readInstructionList_wantVarAna(me, varName) RESULT(RESULT)
+    LOGICAL FUNCTION readInstructionList_wantVarAna(me, varName) RESULT(resultVar)
         CLASS(t_readInstructionList), INTENT(IN) :: me
         CHARACTER(LEN = *), INTENT(IN) :: varName
 
         INTEGER :: i
 
-        RESULT = .FALSE.
+        resultVar = .FALSE.
         DO i = 1, me%nInstructions
             IF(me%list(i)%varName == varName) THEN
-                RESULT = me%list(i)%lReadAna
+                resultVar = me%list(i)%lReadAna
                 RETURN
             END IF
         END DO
@@ -605,30 +605,30 @@ CONTAINS
         END IF
     END SUBROUTINE readInstructionList_optionalReadResultAna
 
-    INTEGER FUNCTION readInstruction_source(me) RESULT(RESULT)
+    INTEGER FUNCTION readInstruction_source(me) RESULT(resultVar)
         CLASS(t_readInstruction), INTENT(IN) :: me
 
         IF(me%sourceOverride /= kInputSourceUnset) THEN
-            RESULT = me%sourceOverride
+            resultVar = me%sourceOverride
         ELSE
             IF(me%statusAna == kStateRead) THEN
-                RESULT = kInputSourceAna
+                resultVar = kInputSourceAna
             ELSE IF(me%statusFg == kStateRead) THEN
-                RESULT = kInputSourceFg
+                resultVar = kInputSourceFg
             ELSE
-                RESULT = kInputSourceNone
+                resultVar = kInputSourceNone
             END IF
         END IF
     END FUNCTION readInstruction_source
 
-    INTEGER FUNCTION readInstructionList_sourceOfVar(me, varName) RESULT(RESULT)
+    INTEGER FUNCTION readInstructionList_sourceOfVar(me, varName) RESULT(resultVar)
         CLASS(t_readInstructionList), INTENT(INOUT) :: me
         CHARACTER(LEN = *), INTENT(IN) :: varName
 
         TYPE(t_readInstruction), POINTER :: instruction
 
         instruction => me%findInstruction(varName)
-        RESULT = instruction%source()
+        resultVar = instruction%source()
     END FUNCTION readInstructionList_sourceOfVar
 
     SUBROUTINE readInstructionList_setSource(me, varName, source)
@@ -649,7 +649,7 @@ CONTAINS
     END SUBROUTINE readInstructionList_setSource
 
 
-    INTEGER FUNCTION readInstructionList_fetchStatus(me, varName, lIsFg) RESULT(RESULT)
+    INTEGER FUNCTION readInstructionList_fetchStatus(me, varName, lIsFg) RESULT(resultVar)
         CLASS(t_readInstructionList), INTENT(INOUT) :: me
         CHARACTER(LEN = *), INTENT(IN) :: varName
         LOGICAL, VALUE :: lIsFg
@@ -658,9 +658,9 @@ CONTAINS
 
         instruction => me%findInstruction(varName)
         IF(lIsFg) THEN
-            RESULT = instruction%statusFg
+            resultVar = instruction%statusFg
         ELSE
-            RESULT = instruction%statusAna
+            resultVar = instruction%statusAna
         ENDIF
     END FUNCTION readInstructionList_fetchStatus
 

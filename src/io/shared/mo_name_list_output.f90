@@ -18,10 +18,6 @@
 !!        clear that this does not pertain to a FORTRAN namelist but rather
 !!        to a list of names of output variables
 !!
-!! Define USE_CRAY_POINTER for platforms having problems with ISO_C_BINDING
-!! BUT understand CRAY pointers
-!!   #define USE_CRAY_POINTER
-!!
 !! -------------------------------------------------------------------------
 !!
 !! The "namelist_output" module was originally written by Rainer
