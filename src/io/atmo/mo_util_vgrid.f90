@@ -196,8 +196,7 @@ CONTAINS
         ! this end, we create a local copy). No global array involved.
         DO jg = 1,n_dom
 
-!          nlevels = SIZE(vgrid_buffer(jg)%z_ifc,2)
-          nlevels = 2
+          nlevels = SIZE(vgrid_buffer(jg)%z_ifc,2)
           ALLOCATE(r_in(nlevels, p_patch(jg)%n_patch_cells), &
             &      glbidx(p_patch(jg)%n_patch_cells))
           iidx = 0
