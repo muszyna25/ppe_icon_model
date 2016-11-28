@@ -28,7 +28,7 @@ MODULE mo_advection_aerosols
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_edge
   USE mo_math_gradients,      ONLY: grad_green_gauss_cell
   USE mo_math_divrot,         ONLY: recon_lsq_cell_l_svd
-  USE mo_advection_traj,      ONLY: t_back_traj
+  USE mo_advection_traj,      ONLY: t_back_traj, btraj_compute_o1
   USE mo_exception,           ONLY: message, message_text
 
   IMPLICIT NONE
@@ -256,8 +256,8 @@ CONTAINS
                                opt_rlstart=grf_bdywidth_e-2, opt_rlend=min_rledge_int-1)
 
     ! Compute back trajectories
-    CALL btraj%construct (nproma,2,p_patch%nblks_e,2)
-    CALL btraj%compute ( ptr_p       = p_patch,          & !in
+    CALL btraj_compute_o1 ( this     = btraj,            & !inout
+      &                  ptr_p       = p_patch,          & !in
       &                  ptr_int     = p_int,            & !in
       &                  p_vn        = vn_traj_avg,      & !in
       &                  p_vt        = vt_traj_avg,      & !in

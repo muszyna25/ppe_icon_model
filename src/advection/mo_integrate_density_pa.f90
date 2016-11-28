@@ -32,7 +32,7 @@ MODULE mo_integrate_density_pa
   USE mo_parallel_config,     ONLY: nproma
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_advection_config,    ONLY: advection_config 
-  USE mo_advection_traj,      ONLY: t_back_traj
+  USE mo_advection_traj,      ONLY: t_back_traj, btraj_compute_o1
   USE mo_advection_hflux,     ONLY: upwind_hflux_miura, upwind_hflux_miura3
   USE mo_advection_vflux,     ONLY: upwind_vflux_ppm_cfl
   USE mo_math_divrot,         ONLY: div
@@ -308,10 +308,9 @@ CONTAINS
       SELECT CASE( advection_config(pid)%ihadv_tracer(1) )
       CASE( MIURA )
 
-        ! allocate
-        CALL btraj%construct(nproma,p_patch%nlev,p_patch%nblks_e,2)
         ! 1st order backward trajectory
-        CALL btraj%compute ( ptr_p       = p_patch,          & !in
+        CALL btraj_compute_o1 ( this     = btraj,            & !inout
+          &                  ptr_p       = p_patch,          & !in
           &                  ptr_int     = p_int,            & !in
           &                  p_vn        = z_vn_traj,        & !in
           &                  p_vt        = z_vt_traj,        & !in

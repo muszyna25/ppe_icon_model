@@ -103,7 +103,8 @@ MODULE mo_advection_hflux
     &                               prep_gauss_quadrature_c,                    &
     &                               prep_gauss_quadrature_c_list,               &
     &                               prep_gauss_quadrature_cpoor
-  USE mo_advection_traj,      ONLY: btraj_dreg, t_back_traj
+  USE mo_advection_traj,      ONLY: btraj_dreg, t_back_traj,                    &
+    &                               btraj_compute_o1, btraj_compute_o2
   USE mo_advection_geometry,  ONLY: divide_flux_area, divide_flux_area_list
   USE mo_advection_limiter,   ONLY: hflx_limiter_mo, hflx_limiter_sm
   USE mo_timer,               ONLY: timer_adv_horz, timer_start, timer_stop
@@ -229,12 +230,14 @@ CONTAINS
     INTEGER :: iadv_min_slev        !< scheme specific minimum slev
                                     !< i.e. minimum slev of all tracers which
                                     !< are advected with the given scheme
+    INTEGER :: iadv_max_elev        !< scheme specific maximum elev
     INTEGER :: nsubsteps            !< number of substeps in miura_cycl (2 or 3)
 
     REAL(wp)::   &                  !< unweighted tangential velocity
       &  z_real_vt(nproma,p_patch%nlev,p_patch%nblks_e)!< component at edges
 
-    TYPE(t_back_traj) :: btraj, btraj_cycl  ! backward trajectories for MIURA, MIURA_MCYCL
+    TYPE(t_back_traj) :: btraj       ! backward trajectories for MIURA, MIURA_MCYCL
+    TYPE(t_back_traj) :: btraj_cycl  ! backward trajectories for subcycling
 
     REAL(wp) :: z_dthalf            !< 0.5 * pdtime
     REAL(wp) :: z_dthalf_cycl       !< z_dthalf/nsubsteps
@@ -283,12 +286,12 @@ CONTAINS
 
     IF (advection_config(jg)%isAnyTypeMiura) THEN
       z_dthalf = 0.5_wp * p_dtime
-      ! Allocation
-      CALL btraj%construct(nproma,p_patch%nlev,p_patch%nblks_e,2)
 
       IF (p_iord_backtraj == 1)  THEN
+
         ! 1st order backward trajectory
-        CALL btraj%compute ( ptr_p       = p_patch,          & !in
+        CALL btraj_compute_o1( this      = btraj,            & !inout
+          &                  ptr_p       = p_patch,          & !in
           &                  ptr_int     = p_int,            & !in
           &                  p_vn        = p_vn,             & !in
           &                  p_vt        = z_real_vt,        & !in
@@ -299,7 +302,8 @@ CONTAINS
           &                  opt_elev    = p_patch%nlev      ) !in
       ELSE
         ! 2nd order backward trajectory
-        CALL btraj%compute_o2 ( ptr_p       = p_patch,          & !in
+        CALL btraj_compute_o2 ( this        = btraj,            & !inout
+          &                     ptr_p       = p_patch,          & !in
           &                     ptr_int     = p_int,            & !in
           &                     p_vn        = p_vn,             & !in
           &                     p_vt        = z_real_vt,        & !in
@@ -314,6 +318,9 @@ CONTAINS
 
     IF (advection_config(jg)%isAnyTypeMcycl) THEN
 
+      ! should be moved to advection_config
+      iadv_max_elev = MERGE(p_patch%nlev,qvsubstep_elev,ANY(p_ihadv_tracer(:)== MCYCL))
+
       ! Determine number of substeps in miura_cycl
       ! It is assumed that three substeps are needed if the top of the currently active
       ! model domain is higher than 40 km, otherwise, two are sufficient
@@ -325,13 +332,13 @@ CONTAINS
       ENDIF
       z_dthalf_cycl = z_dthalf/REAL(nsubsteps,wp)
 
-      CALL btraj_cycl%construct(nproma,p_patch%nlev,p_patch%nblks_e,2)
       !
       IF (p_iord_backtraj == 1)  THEN
         !
         ! 1st order backward trajectory for subcycled version
         ! The only thing that differs is the time step passed in
-        CALL btraj_cycl%compute ( ptr_p  = p_patch,          & !in
+        CALL btraj_compute_o1( this      = btraj_cycl,       & !inout
+          &                  ptr_p       = p_patch,          & !in
           &                  ptr_int     = p_int,            & !in
           &                  p_vn        = p_vn,             & !in
           &                  p_vt        = z_real_vt,        & !in
@@ -339,12 +346,13 @@ CONTAINS
           &                  opt_rlstart = i_rlstart,        & !in
           &                  opt_rlend   = i_rlend_tr,       & !in
           &                  opt_slev    = iadv_min_slev,    & !in
-          &                  opt_elev    = qvsubstep_elev    ) !in
+          &                  opt_elev    = iadv_max_elev     ) !in
       ELSE
         !
         ! 2nd order backward trajectory for subcycled version
         ! The only thing that differs is the time step passed in
-        CALL btraj_cycl%compute_o2 ( ptr_p  = p_patch,          & !in
+        CALL btraj_compute_o2 ( this        = btraj_cycl,       & !inout
+          &                     ptr_p       = p_patch,          & !in
           &                     ptr_int     = p_int,            & !in
           &                     p_vn        = p_vn,             & !in
           &                     p_vt        = z_real_vt,        & !in
@@ -352,7 +360,7 @@ CONTAINS
           &                     opt_rlstart = i_rlstart,        & !in
           &                     opt_rlend   = i_rlend_tr,       & !in
           &                     opt_slev    = iadv_min_slev,    & !in
-          &                     opt_elev    = p_patch%nlev      ) !in
+          &                     opt_elev    = iadv_max_elev     ) !in
       ENDIF
     ENDIF
 

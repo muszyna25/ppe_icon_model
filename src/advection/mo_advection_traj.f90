@@ -66,7 +66,8 @@ MODULE mo_advection_traj
 
   PUBLIC :: btraj_dreg
   PUBLIC :: t_back_traj
-
+  PUBLIC :: btraj_compute_o1
+  PUBLIC :: btraj_compute_o2
 
 #if defined( _OPENACC )
 #define ACC_DEBUG $ACC
@@ -95,8 +96,6 @@ MODULE mo_advection_traj
     !
     PROCEDURE :: construct
     PROCEDURE :: destruct
-    PROCEDURE :: compute    => btraj_compute_o1 ! 1st order backward trajectory computation
-    PROCEDURE :: compute_o2 => btraj_compute_o2 ! 2nd order backward trajectory computation
     
   END TYPE t_back_traj
 
@@ -192,7 +191,7 @@ CONTAINS
   SUBROUTINE btraj_compute_o1( this, ptr_p, ptr_int, p_vn, p_vt, p_dthalf, &
     &                          opt_rlstart, opt_rlend, opt_slev, opt_elev )
 
-    CLASS(t_back_traj) :: this
+    TYPE(t_back_traj), INTENT(INOUT) :: this
 
     TYPE(t_patch), TARGET, INTENT(in) ::      &  !< patch on which computation is performed
          &  ptr_p
@@ -267,6 +266,9 @@ CONTAINS
     IF (timers_level > 5) THEN
       CALL timer_start(timer_back_traj)
     ENDIF
+
+    ! allocate output arrays
+    CALL this%construct(nproma,ptr_p%nlev,ptr_p%nblks_e,2)
 
 #ifdef _OPENACC
 !$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( this%distv_bary, this%cell_idx, this%cell_blk ),  IF( i_am_accel_node .AND. acc_on )
@@ -760,7 +762,7 @@ CONTAINS
   SUBROUTINE btraj_compute_o2( this, ptr_p, ptr_int, p_vn, p_vt, p_dthalf, &
        &                       opt_rlstart, opt_rlend, opt_slev, opt_elev )
 
-    CLASS(t_back_traj) :: this
+    TYPE(t_back_traj), INTENT(INOUT) :: this
 
     TYPE(t_patch), TARGET, INTENT(IN) ::      &  !< patch on which computation is performed
          &  ptr_p
@@ -819,6 +821,8 @@ CONTAINS
 
     !-------------------------------------------------------------------------
 
+    ! allocate output arrays
+    CALL this%construct(nproma,ptr_p%nlev,ptr_p%nblks_e,2)
 
     ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN

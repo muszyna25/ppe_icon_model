@@ -56,7 +56,7 @@ MODULE mo_solve_nonhydro
     &                             min_rlcell, RAYLEIGH_CLASSIC, RAYLEIGH_KLEMP
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_advection_hflux,   ONLY: upwind_hflux_miura3
-  USE mo_advection_traj,    ONLY: t_back_traj
+  USE mo_advection_traj,    ONLY: t_back_traj, btraj_compute_o1
   USE mo_sync,              ONLY: SYNC_E, SYNC_C, sync_patch_array, sync_patch_array_mult, sync_patch_array_mult_mp
   USE mo_mpi,               ONLY: my_process_is_mpi_all_seq, work_mpi_barrier
   USE mo_timer,             ONLY: timer_solve_nh, timer_barrier, timer_start, timer_stop,       &
@@ -820,8 +820,8 @@ MODULE mo_solve_nonhydro
 
 #ifndef __LOOP_EXCHANGE
           ! Compute backward trajectory - code is inlined for cache-based machines (see below)
-          CALL btraj%construct(nproma,p_patch%nlev,p_patch%nblks_e,2)
-          CALL btraj%compute  ( ptr_p       = p_patch,               & !in
+          CALL btraj_compute_o1( this       = btraj,                 & !inout
+            &                   ptr_p       = p_patch,               & !in
             &                   ptr_int     = p_int,                 & !in
             &                   p_vn        = p_nh%prog(nnow)%vn,    & !in
             &                   p_vt        = REAL(p_nh%diag%vt,wp), & !in
