@@ -4491,7 +4491,7 @@ write(123,*)'perturb',max_perturbation*EXP(-(distan/(perturbation_width*deg2rad)
     cell_center => patch_2d%cells%center
 
     delta_t_back=0.2_wp ! increase per level
-    tano=0.1_wp
+    tano=0.0_wp
 
 
     CALL message(TRIM(method_name), ': Collapsing density front, Stuhne-Peltier')
