@@ -123,10 +123,10 @@ MODULE mo_echam_phy_memory
       
     ! Meteorology and tracers
     REAL(wp),POINTER ::     &
-      & u         (:,:,:),  &!< [m/s]   zonal wind
-      & v         (:,:,:),  &!< [m/s]   meridional wind
+      & ua        (:,:,:),  &!< [m/s]   zonal wind
+      & va        (:,:,:),  &!< [m/s]   meridional wind
       & vor       (:,:,:),  &!< [1/s]   relative vorticity
-      & temp      (:,:,:),  &!< [K]     temperature          (tm1  of memory_g1a in ECHAM)
+      & ta        (:,:,:),  &!< [K]     temperature          (tm1  of memory_g1a in ECHAM)
       & tv        (:,:,:),  &!< [K]     virtual temperature  (tvm1 of memory_g1a in ECHAM)
       & qtrc      (:,:,:,:),&!< [kg/kg] tracer concentration (qm1, xlm1, xim1 of memory_g1a in ECHAM)
       & mtrc      (:,:,:,:),&!< [kg/m2] tracer content
@@ -280,8 +280,8 @@ MODULE mo_echam_phy_memory
 
     ! JSBACH
     REAL(wp),POINTER :: &
-      & tsfc_rad   (:,  :),  &!< [K] radiative sfc. temperature for use in radiation
-      & tsfc_rad_rt(:,  :),  &!< [K] radiative sfc. temperature at radiation time
+      & ts_rad     (:,  :),  &!< [K] radiative sfc. temperature for use in radiation
+      & ts_rad_rt  (:,  :),  &!< [K] radiative sfc. temperature at radiation time
       & csat       (:,  :),  &!<
       & cair       (:,  :)    !<
 
@@ -374,11 +374,11 @@ MODULE mo_echam_phy_memory
       & lsmask(:,:),        &!< land-sea mask. (1. = land, 0. = sea/lakes) (slm in memory_g3b)
       & glac  (:,:),        &!< fraction of land covered by glaciers (glac in memory_g3b)
       & icefrc(:,:),        &!< ice cover given as the fraction of grid box (friac  in memory_g3b)
-      & tsfc_tile (:,:,:),  &!< surface temperature over land/water/ice (tsw/l/i in memory_g3b)
-      & tsfc      (:,  :),  &!< surface temperature, grid box mean
+      & ts_tile(:,:,:),     &!< surface temperature over land/water/ice (tsw/l/i in memory_g3b)
+      & ts     (:,  :),     &!< surface temperature, grid box mean
       & qs_sfc_tile(:,:,:)   !< saturation specific humidity at surface 
 
-    TYPE(t_ptr_2d),ALLOCATABLE ::   tsfc_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: ts_tile_ptr(:)
     TYPE(t_ptr_2d),ALLOCATABLE :: qs_sfc_tile_ptr(:)
 
     ! Surface albedo
@@ -459,65 +459,65 @@ MODULE mo_echam_phy_memory
       !
       ! tendency due to all processes
       !
-      &    u     (:,:,:)  , & !< [m/s2]    u-wind
-      &    v     (:,:,:)  , & !< [m/s2]    v-wind
-      & temp     (:,:,:)  , & !< [K/s]     temperature
+      &   ua     (:,:,:)  , & !< [m/s2]    u-wind
+      &   va     (:,:,:)  , & !< [m/s2]    v-wind
+      &   ta     (:,:,:)  , & !< [K/s]     temperature
       & qtrc     (:,:,:,:), & !< [kg/kg/s] tracer mass mixing ratio
       !
       ! tendency due to resolved dynamics
       !
-      &    u_dyn (:,:,:)  , & !< [m/s2]    u-wind
-      &    v_dyn (:,:,:)  , & !< [m/s2]    v-wind
-      & temp_dyn (:,:,:)  , & !< [K/s]     temperature
+      &   ua_dyn (:,:,:)  , & !< [m/s2]    u-wind
+      &   va_dyn (:,:,:)  , & !< [m/s2]    v-wind
+      &   ta_dyn (:,:,:)  , & !< [K/s]     temperature
       & qtrc_dyn (:,:,:,:), & !< [kg/kg/s] tracer mass mixing ratio
       !
       ! tendency due to parameterized processes
       !
-      &    u_phy (:,:,:)  , & !< [m/s2]    u-wind
-      &    v_phy (:,:,:)  , & !< [m/s2]    v-wind
-      & temp_phy (:,:,:)  , & !< [K/s]     temperature
+      &   ua_phy (:,:,:)  , & !< [m/s2]    u-wind
+      &   va_phy (:,:,:)  , & !< [m/s2]    v-wind
+      &   ta_phy (:,:,:)  , & !< [K/s]     temperature
       & qtrc_phy (:,:,:,:), & !< [kg/kg/s] tracer mass mixing ratio
       & mtrc_phy (:,:,:,:), & !< [kg/m2/s] tracer mass
       & mtrcvi_phy(:,:,  :),& !< [kg/m2/s] tracer content, vertically integrated through the atmospheric column
       !
       ! cloud microphysics
       !
-      & temp_cld (:,:,:)  , & !< temperature tendency due to large scale cloud processes
+      &   ta_cld (:,:,:)  , & !< temperature tendency due to large scale cloud processes
       & qtrc_cld (:,:,:,:), & !< tracer tendency  due to large scale cloud processes
       !
       ! cumulus convection
       !
-      & temp_cnv (:,:,:),   & !< temperature tendency due to convective cloud processes
-      &    u_cnv (:,:,:),   & !< u-wind tendency due to convective cloud processes
-      &    v_cnv (:,:,:),   & !< v-wind tendency due to convective cloud processes
+      &   ta_cnv (:,:,:),   & !< temperature tendency due to convective cloud processes
+      &   ua_cnv (:,:,:),   & !< u-wind tendency due to convective cloud processes
+      &   va_cnv (:,:,:),   & !< v-wind tendency due to convective cloud processes
       & qtrc_cnv (:,:,:,:), & !< tracer tendency due to convective cloud processes
       &   xl_dtr (:,:,:),   & !< cloud water tendency due to detrainment from convective clouds
       &   xi_dtr (:,:,:),   & !< cloud ice tendency due to detrainment from convective clouds
       !
       ! vertical diffusion ("vdiff")
       !
-      & temp_vdf (:,:,:)  , & !< temperature tendency due to vertical diffusion
-      &    u_vdf (:,:,:)  , & !< u-wind tendency due to vertical diffusion
-      &    v_vdf (:,:,:)  , & !< v-wind tendency due to vertical diffusion
+      &   ta_vdf (:,:,:)  , & !< temperature tendency due to vertical diffusion
+      &   ua_vdf (:,:,:)  , & !< u-wind tendency due to vertical diffusion
+      &   va_vdf (:,:,:)  , & !< v-wind tendency due to vertical diffusion
       & qtrc_vdf (:,:,:,:), & !< tracer tendency due to vertical diffusion
       !
       ! Hines param. for atmospheric gravity waves
       !
-      & u_gwh    (:,:,:)  , & !< u-wind tendency due to non-orographic gravity waves
-      & v_gwh    (:,:,:)  , & !< v-wind tendency due to non-orographic gravity waves
-      & temp_gwh (:,:,:)  , & !< temperature tendency due to non-orographic gravity waves
+      &   ua_gwh (:,:,:)  , & !< u-wind tendency due to non-orographic gravity waves
+      &   va_gwh (:,:,:)  , & !< v-wind tendency due to non-orographic gravity waves
+      &   ta_gwh (:,:,:)  , & !< temperature tendency due to non-orographic gravity waves
       !
       ! subgrid scale orographic (sso) blocking and gravity wave drag
       !
-      & u_sso    (:,:,:)  , & !< u-wind tendency due to sub grid scale orography
-      & v_sso    (:,:,:)  , & !< v-wind tendency due to sub grid scale orography
-      & temp_sso (:,:,:)  , & !< temperature tendency due to sub grid scale orography
+      &   ua_sso (:,:,:)  , & !< u-wind tendency due to sub grid scale orography
+      &   va_sso (:,:,:)  , & !< v-wind tendency due to sub grid scale orography
+      &   ta_sso (:,:,:)  , & !< temperature tendency due to sub grid scale orography
       !
       ! radiation
       !
-      & temp_rsw (:,:,:)  , & !< temperature due to shortwave radiation
-      & temp_rlw (:,:,:)  , & !< temperature due to longwave radiation
-      & temp_rlw_impl(:,:)    !< temperature tendency due to LW rad. due to implicit land surface temperature change
+      &   ta_rsw (:,:,:)  , & !< temperature due to shortwave radiation
+      &   ta_rlw (:,:,:)  , & !< temperature due to longwave radiation
+      &   ta_rlw_impl(:,:)    !< temperature tendency due to LW rad. due to implicit land surface temperature change
 
     TYPE(t_ptr_3d),ALLOCATABLE :: qtrc_ptr(:)
     TYPE(t_ptr_3d),ALLOCATABLE :: qtrc_dyn_ptr(:)
@@ -756,19 +756,19 @@ CONTAINS
     ! Meteorological quantities
     !------------------------------
 
-    ! &       field% u         (nproma,nlev  ,nblks),          &
+    ! &       field% ua        (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('eastward_wind', 'm s-1', 'u-component of wind in physics', datatype_flt)
     grib2_desc = grib2_var(0, 2, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'ua_phy', field%u,                                 &
+    CALL add_var( field_list, prefix//'ua_phy', field%ua,                                &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & lrestart = .FALSE.,                                                    &
                 & vert_interp = &
                 &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ) )
 
-    ! &       field% v         (nproma,nlev  ,nblks),          &
+    ! &       field% va        (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('northward_wind', 'm s-1', 'v-component of wind in physics', datatype_flt)
     grib2_desc = grib2_var(0, 2, 3, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'va_phy', field%v,                                 &
+    CALL add_var( field_list, prefix//'va_phy', field%va,                                &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & lrestart = .FALSE.,                                                    &
                 & vert_interp = &
@@ -784,10 +784,10 @@ CONTAINS
                 &   vert_intp_type=vintp_types("P","Z","I"),                    &
                 &   vert_intp_method=VINTP_METHOD_LIN ) )
 
-    ! &       field% temp      (nproma,nlev  ,nblks),          &
+    ! &       field% ta        (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('temperature', 'K', 'temperature in physics', datatype_flt)
     grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'ta_phy', field%temp,                     &
+    CALL add_var( field_list, prefix//'ta_phy', field%ta,                       &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & lrestart = .FALSE.,                                           &
                 & vert_interp=create_vert_interp_metadata(                      &
@@ -1702,13 +1702,13 @@ CONTAINS
 
     cf_desc    = t_cf_var('ts_rad', 'K', 'radiative surface temperature', datatype_flt)
     grib2_desc = grib2_var(0,0,17, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'ts_rad', field%tsfc_rad,            &
+    CALL add_var( field_list, prefix//'ts_rad', field%ts_rad,              &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart = .TRUE., ldims=shape2d )
 
     cf_desc    = t_cf_var('ts_rad_rt', 'K', 'radiative surface temperature at rad. time', datatype_flt)
     grib2_desc = grib2_var(0,0,17, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'ts_rad_rt', field%tsfc_rad_rt,  &
+    CALL add_var( field_list, prefix//'ts_rad_rt', field%ts_rad_rt,        &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                 & lrestart = .TRUE., ldims=shape2d )
 
@@ -2456,25 +2456,25 @@ CONTAINS
               & lrestart=.FALSE., ldims=shape2d )
 
     !-----------------------------------
-    ! &       field% tsfc(nproma,nblks), &
+    ! &       field% ts(nproma,nblks), &
     cf_desc    = t_cf_var('surface_temperature', 'K', 'surface temperature', datatype_flt)
     grib2_desc = grib2_var(0,0,0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'ts', field%tsfc,                  &
+    CALL add_var( field_list, prefix//'ts', field%ts,                    &
               & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
               & lrestart=.TRUE., ldims=shape2d )
 
-    ! &       field% tsfc_tile(nproma,nblks,nsfc_type), &
-    CALL add_var( field_list, prefix//'ts_tile', field%tsfc_tile,              &
+    ! &       field% ts_tile(nproma,nblks,nsfc_type), &
+    CALL add_var( field_list, prefix//'ts_tile', field%ts_tile,                &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                 & t_cf_var('_tile', 'K', 'surface temperature on tiles', datatype_flt), &
                 & grib2_var(0,0,0, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
                 & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,            &
                 & lcontainer=.TRUE., lrestart=.FALSE.         )
 
-    ALLOCATE(field%tsfc_tile_ptr(ksfc_type))
+    ALLOCATE(field%ts_tile_ptr(ksfc_type))
     DO jsfc = 1,ksfc_type
       CALL add_ref( field_list, prefix//'ts_tile',                                   &
-                  & prefix//'ts_'//csfc(jsfc), field%tsfc_tile_ptr(jsfc)%p,          &
+                  & prefix//'ts_'//csfc(jsfc), field%ts_tile_ptr(jsfc)%p,            &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
                   & t_cf_var('ts_'//csfc(jsfc), 'K',                                 &
                   &          'surface temperature on '//csfc(jsfc), datatype_flt),   &
@@ -3061,129 +3061,129 @@ CONTAINS
     !------------------------------
     ! Temperature tendencies
     !------------------------------
-    ! &       tend% temp      (nproma,nlev,nblks),          &
+    ! &       tend% ta      (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency', 'K s-1',                               &
                 &         'temperature tendency',                                        &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'ta', tend%temp,                                    &
+    CALL add_var( tend_list, prefix//'ta', tend%ta,                                      &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend% temp_dyn  (nproma,nlev,nblks),          &
+    ! &       tend% ta_dyn  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_dyn', 'K s-1',                           &
                 &         'temperature tendency due to  due to resolved dynamics',       &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'ta_dyn', tend%temp_dyn,                            &
+    CALL add_var( tend_list, prefix//'ta_dyn', tend%  ta_dyn,                            &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend% temp_phy  (nproma,nlev,nblks),          &
+    ! &       tend% ta_phy  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_phy', 'K s-1',                           &
                 &         'temperature tendency due to parameterized processes',         &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'ta_phy', tend%temp_phy,                            &
+    CALL add_var( tend_list, prefix//'ta_phy', tend%  ta_phy,                            &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend% temp_rsw(nproma,nlev,nblks),            &
+    ! &       tend% ta_rsw(nproma,nlev,nblks),            &
     cf_desc    = t_cf_var('temperature_tendency_rsw', 'K s-1',                           &
                 &         'temperature tendency due to shortwave radiation',             &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'ta_rsw', tend%temp_rsw,                            &
+    CALL add_var( tend_list, prefix//'ta_rsw', tend%  ta_rsw,                            &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend% temp_rlw(nproma,nlev,nblks),            &
+    ! &       tend% ta_rlw(nproma,nlev,nblks),            &
     cf_desc    = t_cf_var('temperature_tendency_rlw', 'K s-1',                           &
                 &         'temperature tendency due to longwave radiation',              &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'ta_rlw', tend%temp_rlw,                            &
+    CALL add_var( tend_list, prefix//'ta_rlw', tend%  ta_rlw,                            &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend% temp_rlw_impl(nproma,nblks),            &
+    ! &       tend% ta_rlw_impl(nproma,nblks),            &
     cf_desc    = t_cf_var('temperature_tendency_rlw_impl', 'K s-1',                      &
                 &         'temperature tendency due to LW rad. due to implicit land surface temperature change', &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'ta_rlw_impl', tend%temp_rlw_impl,                  &
+    CALL add_var( tend_list, prefix//'ta_rlw_impl', tend%  ta_rlw_impl,                  &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,               &
                 & ldims=(/kproma,kblks/))
 
-    ! &       tend% temp_cld  (nproma,nlev,nblks),          &
+    ! &       tend% ta_cld  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_cloud', 'K s-1',                         &
                 &         'temperature tendency due to large scale cloud processes',     &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'ta_cld', tend%temp_cld,                            &
+    CALL add_var( tend_list, prefix//'ta_cld', tend%  ta_cld,                            &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend% temp_cnv  (nproma,nlev,nblks),          &
+    ! &       tend% ta_cnv  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_convective', 'K s-1',                    &
                 &         'temperature tendency due to convective cloud processes',      &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'ta_cnv', tend%temp_cnv,                            &
+    CALL add_var( tend_list, prefix//'ta_cnv', tend%  ta_cnv,                            &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend% temp_vdf  (nproma,nlev,nblks),          &
+    ! &       tend% ta_vdf  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_turbulent', 'K s-1',                     &
                 &         'temperature tendency due to vertical diffusion',              &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'ta_vdf', tend%temp_vdf,                            &
+    CALL add_var( tend_list, prefix//'ta_vdf', tend%  ta_vdf,                            &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend% temp_gwh  (nproma,nlev,nblks),          &
+    ! &       tend% ta_gwh  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_Hines_gw', 'K s-1',                      &
                 &         'temperature tendency due to non-orographic gravity waves',    &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'ta_gwh', tend%temp_gwh,                            &
+    CALL add_var( tend_list, prefix//'ta_gwh', tend%  ta_gwh,                            &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend% temp_sso  (nproma,nlev,nblks),          &
+    ! &       tend% ta_sso  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temperature_tendency_sso', 'K s-1',                           &
                 &         'temperature tendency due to sub grid scale orography',        &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,0,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'ta_sso', tend%temp_sso,                            &
+    CALL add_var( tend_list, prefix//'ta_sso', tend%  ta_sso,                            &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
@@ -3193,84 +3193,84 @@ CONTAINS
     !------------------------------
     ! U-wind tendencies
     !------------------------------
-    ! &       tend%    u      (nproma,nlev,nblks),          &
+    ! &       tend%    ua     (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('u_wind_tendency', 'm s-2',                                    &
                 &         'u-wind tendency',                                             &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,2,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'ua', tend%u,                                       &
+    CALL add_var( tend_list, prefix//'ua', tend%ua,                                      &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend%    u_dyn  (nproma,nlev,nblks),          &
+    ! &       tend%    ua_dyn (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('u_wind_tendency_dyn', 'm s-2',                                &
                 &         'u-wind tendency due to resolved dynamics',                    &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,2,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'ua_dyn', tend%u_dyn,                               &
+    CALL add_var( tend_list, prefix//'ua_dyn', tend%ua_dyn,                              &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend%    u_phy  (nproma,nlev,nblks),          &
+    ! &       tend%    ua_phy (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('u_wind_tendency_phy', 'm s-2',                                &
                 &         'u-wind tendency due to parameterized processes',              &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,2,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'ua_phy', tend%u_phy,                               &
+    CALL add_var( tend_list, prefix//'ua_phy', tend%ua_phy,                              &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend%    u_cnv  (nproma,nlev,nblks),          &
+    ! &       tend%    ua_cnv (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('u_wind_tendency_convective', 'm s-2',                         &
                 &         'u-wind tendency due to convective cloud processes',           &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,2,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'ua_cnv', tend%u_cnv,                               &
+    CALL add_var( tend_list, prefix//'ua_cnv', tend%ua_cnv,                              &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend%    u_vdf  (nproma,nlev,nblks),          &
+    ! &       tend%    ua_vdf (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('u_wind_tendency_turbulent', 'm s-2',                          &
                 &         'u-wind tendency due to vertical diffusion',                   &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,2,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'ua_vdf', tend%u_vdf,                               &
+    CALL add_var( tend_list, prefix//'ua_vdf', tend%ua_vdf,                              &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend%    u_gwh  (nproma,nlev,nblks),          &
+    ! &       tend%    ua_gwh (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('u_wind_tendency_nonoro_gw', 'm s-2',                          &
                 &         'u-wind tendency due to non-orographic gravity waves',         &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,2,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'ua_gwh', tend%u_gwh,                               &
+    CALL add_var( tend_list, prefix//'ua_gwh', tend%ua_gwh,                              &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend%    u_sso  (nproma,nlev,nblks),          &   
+    ! &       tend%    ua_sso (nproma,nlev,nblks),          &   
     cf_desc    = t_cf_var('u_wind_tendency_sso', 'm s-2',                                &
                 &         'u-wind tendency due to sub grid scale orography',             &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,2,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'ua_sso', tend%u_sso,                               &
+    CALL add_var( tend_list, prefix//'ua_sso', tend%ua_sso,                              &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
@@ -3280,84 +3280,84 @@ CONTAINS
     !------------------------------
     ! V-wind tendencies
     !------------------------------
-    ! &       tend%    v      (nproma,nlev,nblks),          &
+    ! &       tend%    va     (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('v_wind_tendency', 'm s-2',                                    &
                 &         'v-wind tendency',                                             &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,2,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'va', tend%v,                                       &
+    CALL add_var( tend_list, prefix//'va', tend%va,                                      &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend%    v_dyn  (nproma,nlev,nblks),          &
+    ! &       tend%    va_dyn (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('v_wind_tendency_dyn', 'm s-2',                                &
                 &         'v-wind tendency due to resolved dynamics',                    &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,2,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'va_dyn', tend%v_dyn,                               &
+    CALL add_var( tend_list, prefix//'va_dyn', tend%va_dyn,                              &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend%    v_phy  (nproma,nlev,nblks),          &
+    ! &       tend%    va_phy (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('v_wind_tendency_phy', 'm s-2',                                &
                 &         'v-wind tendency due to parameterized processes',              &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,2,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'va_phy', tend%v_phy,                               &
+    CALL add_var( tend_list, prefix//'va_phy', tend%va_phy,                              &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend%    v_cnv  (nproma,nlev,nblks),          &
+    ! &       tend%    va_cnv (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('v_wind_tendency', 'm s-2',                                    &
                 &         'v-wind tendency due to convective cloud processes',           &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,2,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'va_cnv', tend%v_cnv,                               &
+    CALL add_var( tend_list, prefix//'va_cnv', tend%va_cnv,                              &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend%    v_vdf  (nproma,nlev,nblks),          &
+    ! &       tend%    va_vdf (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('v_wind_tendency_turbulent', 'm s-2',                          &
                 &         'v-wind tendency due to vertical diffusion',                   &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,2,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'va_vdf', tend%v_vdf,                               &
+    CALL add_var( tend_list, prefix//'va_vdf', tend%va_vdf,                              &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend%    v_gwh  (nproma,nlev,nblks),          &
+    ! &       tend%    va_gwh (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('v_wind_tendency_Hines_gw', 'm s-2',                           &
                 &         'v-wind tendency due to non-orographic gravity waves',         &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,2,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'va_gwh', tend%v_gwh,                               &
+    CALL add_var( tend_list, prefix//'va_gwh', tend%va_gwh,                              &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
                 &   vert_intp_method=VINTP_METHOD_LIN,                                   &
                 &   l_extrapol=.FALSE. ) )
 
-    ! &       tend%    v_sso  (nproma,nlev,nblks),          &              
+    ! &       tend%    va_sso (nproma,nlev,nblks),          &              
     cf_desc    = t_cf_var('v_wind_tendency_sso', 'm s-2',                                &
                 &         'v-wind tendency due to sub grid scale orography',             &
                 &         datatype_flt)
     grib2_desc = grib2_var(0,2,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'va_sso', tend%v_sso,                               &
+    CALL add_var( tend_list, prefix//'va_sso', tend%va_sso,                              &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &

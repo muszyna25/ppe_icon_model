@@ -163,15 +163,15 @@ CONTAINS
     ! LL The physics runs only on the owned cells
     !  but the following rbf_vec_interpol_cell may use the halos(?)
     !
-    ! - prm_field(jg)%u
-    ! - prm_field(jg)%v
+    ! - prm_field(jg)%ua
+    ! - prm_field(jg)%va
     CALL sync_patch_array( SYNC_E, patch, dyn_prog_old%vn )
 
     CALL rbf_vec_interpol_cell( dyn_prog_old%vn       ,&! in
       &                         patch                 ,&! in
       &                         pt_int_state          ,&! in
-      &                         prm_field(jg)%u       ,&! out
-      &                         prm_field(jg)%v       ,&! out
+      &                         prm_field(jg)%ua      ,&! out
+      &                         prm_field(jg)%va      ,&! out
       &                         opt_rlstart=rl_start  ,&! in
       &                         opt_rlend=rl_end      ) ! in
 
@@ -183,7 +183,7 @@ CONTAINS
     !
     prm_field(jg)%       vor(:,:,:)   = dyn_diag_old% rel_vort_c(:,:,:)
     !
-    prm_field(jg)%      temp(:,:,:)   = dyn_prog_old%       temp(:,:,:)
+    prm_field(jg)%        ta(:,:,:)   = dyn_prog_old%       temp(:,:,:)
     prm_field(jg)%        tv(:,:,:)   = dyn_diag_old%      tempv(:,:,:)
     !
     prm_field(jg)% presm_old(:,:,:)   = dyn_diag_old%    pres_mc(:,:,:)
@@ -231,15 +231,15 @@ CONTAINS
 
     CALL rbf_vec_interpol_cell( dyn_tend%vn,          &! in
       &                         patch, pt_int_state,  &! in
-      &                         prm_tend(jg)%u,       &! out
-      &                         prm_tend(jg)%v,       &! out
+      &                         prm_tend(jg)%ua,      &! out
+      &                         prm_tend(jg)%va,      &! out
       &   opt_rlstart=rl_start, opt_rlend=rl_end     ) ! in
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,i_endblk
       CALL get_indices_c( patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-      prm_tend(jg)%    temp(jcs:jce,:,jb)   = dyn_tend%   temp(jcs:jce,:,jb)
+      prm_tend(jg)%      ta(jcs:jce,:,jb)   = dyn_tend%   temp(jcs:jce,:,jb)
       prm_tend(jg)%    qtrc(jcs:jce,:,jb,:) = dyn_tend% tracer(jcs:jce,:,jb,:)
       prm_tend(jg)%qtrc_dyn(jcs:jce,:,jb,:) = dyn_tend% tracer(jcs:jce,:,jb,:)
     END DO
@@ -332,7 +332,7 @@ CONTAINS
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,i_endblk
       CALL get_indices_c( patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-      dyn_tend%   temp(jcs:jce,:,jb)   = prm_tend(jg)% temp(jcs:jce,:,jb)
+      dyn_tend%   temp(jcs:jce,:,jb)   = prm_tend(jg)% ta(jcs:jce,:,jb)
       dyn_tend% tracer(jcs:jce,:,jb,:) = prm_tend(jg)% qtrc(jcs:jce,:,jb,:)
     END DO
 !$OMP END DO NOWAIT
@@ -370,8 +370,8 @@ CONTAINS
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,i_endblk
         CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-        zdudt(jcs:jce,:,jb) = prm_tend(jg)% u_phy(jcs:jce,:,jb)
-        zdvdt(jcs:jce,:,jb) = prm_tend(jg)% v_phy(jcs:jce,:,jb)
+        zdudt(jcs:jce,:,jb) = prm_tend(jg)% ua_phy(jcs:jce,:,jb)
+        zdvdt(jcs:jce,:,jb) = prm_tend(jg)% va_phy(jcs:jce,:,jb)
       END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL

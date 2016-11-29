@@ -315,11 +315,11 @@ CONTAINS
           prm_field(jg)%        dz(jc,jk,jb)     = p_metrics% ddqz_z_full(jc,jk,jb)
           prm_field(jg)%      geom(jc,jk,jb)     = p_metrics%  geopot_agl(jc,jk,jb)
           !
-          prm_field(jg)%         u(jc,jk,jb)     = pt_diag%    u(jc,jk,jb)
-          prm_field(jg)%         v(jc,jk,jb)     = pt_diag%    v(jc,jk,jb)
+          prm_field(jg)%        ua(jc,jk,jb)     = pt_diag%    u(jc,jk,jb)
+          prm_field(jg)%        va(jc,jk,jb)     = pt_diag%    v(jc,jk,jb)
           prm_field(jg)%       vor(jc,jk,jb)     = pt_diag%  vor(jc,jk,jb)
           !
-          prm_field(jg)%      temp(jc,jk,jb)     = pt_diag% temp(jc,jk,jb)
+          prm_field(jg)%        ta(jc,jk,jb)     = pt_diag% temp(jc,jk,jb)
           prm_field(jg)%        tv(jc,jk,jb)     = pt_diag% tempv(jc,jk,jb)
           !
           prm_field(jg)% presm_old(jc,jk,jb)     = pt_diag%  pres(jc,jk,jb)
@@ -358,10 +358,10 @@ CONTAINS
           ! Tendencies passed to the ECHAM physics for internal upating are set to 0
           ! because the state passed to physics is already updated with tendencies
           ! due to dynamics and transport.
-          prm_tend(jg)%          u(jc,jk,jb)     = 0.0_wp
-          prm_tend(jg)%          v(jc,jk,jb)     = 0.0_wp
+          prm_tend(jg)%         ua(jc,jk,jb)     = 0.0_wp
+          prm_tend(jg)%         va(jc,jk,jb)     = 0.0_wp
           !
-          prm_tend(jg)%       temp(jc,jk,jb)     = 0.0_wp
+          prm_tend(jg)%         ta(jc,jk,jb)     = 0.0_wp
           !
 
         END DO
@@ -583,8 +583,8 @@ CONTAINS
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,i_endblk
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-      zdudt(jcs:jce,:,jb) = prm_tend(jg)% u_phy(jcs:jce,:,jb)
-      zdvdt(jcs:jce,:,jb) = prm_tend(jg)% v_phy(jcs:jce,:,jb)
+      zdudt(jcs:jce,:,jb) = prm_tend(jg)% ua_phy(jcs:jce,:,jb)
+      zdvdt(jcs:jce,:,jb) = prm_tend(jg)% va_phy(jcs:jce,:,jb)
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -819,7 +819,7 @@ CONTAINS
             ! (a) Update T, then compute Temp_v, Exner and Theta_v
             !
             pt_diag        %temp  (jc,jk,jb    ) =   pt_diag%     temp    (jc,jk,jb)             &
-              &                                    + prm_tend(jg)%temp_phy(jc,jk,jb) * dt_loc
+              &                                    + prm_tend(jg)%ta_phy  (jc,jk,jb) * dt_loc
             !
             z_qsum = pt_prog_new_rcf%tracer(jc,jk,jb,iqc) + pt_prog_new_rcf%tracer(jc,jk,jb,iqi)
             !

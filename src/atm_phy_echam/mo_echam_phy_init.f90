@@ -380,7 +380,7 @@ CONTAINS
         !
         CALL bc_sst_sic_time_interpolation(current_time_interpolation_weights, &
              &                             prm_field(jg)%lsmask(:,:)         , &
-             &                             prm_field(jg)%tsfc_tile(:,:,iwtr) , &
+             &                             prm_field(jg)%ts_tile(:,:,iwtr)   , &
              &                             prm_field(jg)%seaice(:,:)         , &
              &                             prm_field(jg)%siced(:,:)          , &
              &                             p_patch(1)                        )
@@ -511,39 +511,39 @@ CONTAINS
       field% rintop(:,  :) = 0._wp
 
       ! Initialization of tendencies is necessary for doing I/O with the NAG compiler
-      tend% temp_rsw(:,:,:)   = 0._wp
-      tend% temp_rlw(:,:,:)   = 0._wp
-      tend%temp_rlw_impl(:,:) = 0._wp
-      tend% temp_cld(:,:,:)   = 0._wp
+      tend%   ta_rsw(:,:,:)   = 0._wp
+      tend%   ta_rlw(:,:,:)   = 0._wp
+      tend%   ta_rlw_impl(:,:)= 0._wp
+      tend%   ta_cld(:,:,:)   = 0._wp
       tend% qtrc_cld(:,:,:,:) = 0._wp
 
-      tend% temp_dyn(:,:,:)   = 0._wp
+      tend%   ta_dyn(:,:,:)   = 0._wp
       tend% qtrc_dyn(:,:,:,:) = 0._wp
-      tend%    u_dyn(:,:,:)   = 0._wp
-      tend%    v_dyn(:,:,:)   = 0._wp
+      tend%   ua_dyn(:,:,:)   = 0._wp
+      tend%   va_dyn(:,:,:)   = 0._wp
 
-      tend% temp_phy(:,:,:)   = 0._wp
+      tend%   ta_phy(:,:,:)   = 0._wp
       tend% qtrc_phy(:,:,:,:) = 0._wp
-      tend%    u_phy(:,:,:)   = 0._wp
-      tend%    v_phy(:,:,:)   = 0._wp
+      tend%   ua_phy(:,:,:)   = 0._wp
+      tend%   va_phy(:,:,:)   = 0._wp
 
-      tend% temp_cnv(:,:,:)   = 0._wp
+      tend%   ta_cnv(:,:,:)   = 0._wp
       tend% qtrc_cnv(:,:,:,:) = 0._wp
-      tend%    u_cnv(:,:,:)   = 0._wp
-      tend%    v_cnv(:,:,:)   = 0._wp
+      tend%   ua_cnv(:,:,:)   = 0._wp
+      tend%   va_cnv(:,:,:)   = 0._wp
 
-      tend% temp_vdf(:,:,:)   = 0._wp
+      tend%   ta_vdf(:,:,:)   = 0._wp
       tend% qtrc_vdf(:,:,:,:) = 0._wp
-      tend%    u_vdf(:,:,:)   = 0._wp
-      tend%    v_vdf(:,:,:)   = 0._wp
+      tend%   ua_vdf(:,:,:)   = 0._wp
+      tend%   va_vdf(:,:,:)   = 0._wp
 
-      tend% temp_gwh(:,:,:)   = 0._wp
-      tend%    u_gwh(:,:,:)   = 0._wp
-      tend%    v_gwh(:,:,:)   = 0._wp
+      tend%   ta_gwh(:,:,:)   = 0._wp
+      tend%   ua_gwh(:,:,:)   = 0._wp
+      tend%   va_gwh(:,:,:)   = 0._wp
 
-      tend% temp_sso(:,:,:)   = 0._wp
-      tend%    u_sso(:,:,:)   = 0._wp
-      tend%    v_sso(:,:,:)   = 0._wp
+      tend%   ta_sso(:,:,:)   = 0._wp
+      tend%   ua_sso(:,:,:)   = 0._wp
+      tend%   va_sso(:,:,:)   = 0._wp
 
       tend% xl_dtr  (:,:,:)   = 0._wp  !"xtecl" in ECHAM
       tend% xi_dtr  (:,:,:)   = 0._wp  !"xteci" in ECHAM
@@ -603,7 +603,7 @@ CONTAINS
       IF (ilnd <= nsfc_type) THEN
 
         IF (phy_config%lamip .OR. (is_coupled_run() .AND. .NOT. ltestcase)) THEN
-          prm_field(jg)%tsfc_tile(:,:,ilnd) = prm_field(jg)%tsfc_tile(:,:,iwtr)
+          prm_field(jg)%ts_tile(:,:,ilnd) = prm_field(jg)%ts_tile(:,:,iwtr)
         END IF
 
         prm_field(jg)% albvisdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the visible range for direct radiation
@@ -616,7 +616,7 @@ CONTAINS
 
       IF (iice <= nsfc_type) THEN
 
-        prm_field(jg)%tsfc_tile(:,:,iice) = prm_field(jg)%tsfc_tile(:,:,iwtr)
+        prm_field(jg)%ts_tile(:,:,iice) = prm_field(jg)%ts_tile(:,:,iwtr)
         !
         prm_field(jg)% albvisdir_tile(:,:,iice) = albi    ! albedo in the visible range for direct radiation
         prm_field(jg)% albnirdir_tile(:,:,iice) = albi    ! albedo in the NIR range for direct radiation
@@ -661,7 +661,7 @@ CONTAINS
           CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
           DO jc = jcs,jce
             zlat = p_patch%cells%center(jc,jb)%lat
-            field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)
+            field% ts_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)
           END DO
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
@@ -678,7 +678,7 @@ CONTAINS
           CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
           DO jc = jcs,jce
             zlat = p_patch%cells%center(jc,jb)%lat
-            field% tsfc_tile(jc,jb,iwtr) = th_cbl(1)
+            field% ts_tile(jc,jb,iwtr) = th_cbl(1)
           END DO
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
@@ -696,15 +696,15 @@ CONTAINS
           DO jc = jcs,jce
             zlat = p_patch%cells%center(jc,jb)%lat
             ! SST must reach Tf where there's ice. It may be better to modify ape_sst it self.
-            field% tsfc_tile  (jc,jb,iwtr) = ape_sst(ape_sst_case,zlat) + Tf
+            field% ts_tile    (jc,jb,iwtr) = ape_sst(ape_sst_case,zlat) + Tf
             ! Initialise the ice - Tsurf, T1 & T2 must be in degC
-            field% tsfc_tile  (jc,jb,iice) = Tf + tmelt
+            field% ts_tile    (jc,jb,iice) = Tf + tmelt
             field% Tsurf      (jc,1, jb  ) = Tf
             field% T1         (jc,1, jb  ) = Tf
             field% T2         (jc,1, jb  ) = Tf
             field% hs         (jc,1, jb  ) = 0._wp
-            IF ( field%tsfc_tile(jc,jb,iwtr) <= Tf + tmelt ) THEN
-              field%Tsurf (jc,1,jb) = field% tsfc_tile(jc,jb,iice) - tmelt
+            IF ( field%ts_tile(jc,jb,iwtr) <= Tf + tmelt ) THEN
+              field%Tsurf (jc,1,jb) = field% ts_tile(jc,jb,iice) - tmelt
               field%conc  (jc,1,jb) = 0.9_wp
               field%hi    (jc,1,jb) = 1.0_wp
               field%seaice(jc,  jb) = field%conc(jc,1,jb)
@@ -732,9 +732,9 @@ CONTAINS
           CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
           DO jc = jcs,jce
             zlat = p_patch%cells%center(jc,jb)%lat
-            field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)
+            field% ts_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)
             ! Initialise the ice - Tsurf, T1 & T2 must be in degC
-            field% tsfc_tile  (jc,jb,iice) = Tf + tmelt
+            field% ts_tile    (jc,jb,iice) = Tf + tmelt
             field% Tsurf      (jc,1, jb  ) = Tf
             field% T1         (jc,1, jb  ) = Tf
             field% T2         (jc,1, jb  ) = Tf
@@ -761,7 +761,7 @@ CONTAINS
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
 
-          field% tsfc_tile(jcs:jce,jb,ilnd) = tpe_temp
+          field% ts_tile(jcs:jce,jb,ilnd) = tpe_temp
         END DO
 !$OMP END PARALLEL DO
 
@@ -776,7 +776,7 @@ CONTAINS
           ! level above surface. For this test case, currently we assume
           ! there is no land or sea ice.
 
-          field% tsfc_tile(jcs:jce,jb,iwtr) = temp(jcs:jce,nlev,jb)
+          field% ts_tile(jcs:jce,jb,iwtr) = temp(jcs:jce,nlev,jb)
 
           field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
@@ -808,14 +808,14 @@ CONTAINS
       ! (after tile masks and variables potentially have been overwritten by testcases above)
 
       IF (iwtr <= nsfc_type) THEN
-        prm_field(jg)%tsfc     (:,:) = prm_field(jg)%tsfc_tile(:,:,iwtr)
+        prm_field(jg)%ts       (:,:) = prm_field(jg)%ts_tile(:,:,iwtr)
         prm_field(jg)%albvisdir(:,:) = albedoW
         prm_field(jg)%albvisdif(:,:) = albedoW
         prm_field(jg)%albnirdir(:,:) = albedoW
         prm_field(jg)%albnirdif(:,:) = albedoW
         prm_field(jg)%albedo   (:,:) = albedoW
       ELSE
-        prm_field(jg)%tsfc     (:,:) = prm_field(jg)%tsfc_tile(:,:,ilnd)
+        prm_field(jg)%ts       (:,:) = prm_field(jg)%ts_tile(:,:,ilnd)
         prm_field(jg)%albvisdir(:,:) = prm_field(jg)%alb(:,:)
         prm_field(jg)%albvisdif(:,:) = prm_field(jg)%alb(:,:)
         prm_field(jg)%albnirdir(:,:) = prm_field(jg)%alb(:,:)
@@ -823,8 +823,8 @@ CONTAINS
         prm_field(jg)%albedo   (:,:) = prm_field(jg)%alb(:,:)
       END IF
 
-      prm_field(jg)%tsfc_rad   (:,:) = prm_field(jg)%tsfc(:,:)
-      prm_field(jg)%tsfc_rad_rt(:,:) = prm_field(jg)%tsfc(:,:)
+      prm_field(jg)%ts_rad     (:,:) = prm_field(jg)%ts(:,:)
+      prm_field(jg)%ts_rad_rt  (:,:) = prm_field(jg)%ts(:,:)
 
       NULLIFY( field,tend )
 
@@ -887,8 +887,8 @@ CONTAINS
 
             DO jc = jcs,jce
               zlat = p_patch(jg)%cells%center(jc,jb)%lat
-              field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)   ! SST
-              field% tsfc     (jc,     jb) = field% tsfc_tile(jc,jb,iwtr)
+              field% ts_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)   ! SST
+              field% ts     (jc,     jb) = field% ts_tile(jc,jb,iwtr)
             END DO
             field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
             field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
