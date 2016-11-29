@@ -95,7 +95,7 @@ MODULE mo_advection_traj
   CONTAINS
     !
     PROCEDURE :: construct
-    PROCEDURE :: destruct
+    FINAL     :: destruct
     
   END TYPE t_back_traj
 
@@ -148,21 +148,23 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2016-11-23)
   !!
   SUBROUTINE destruct(obj)
-    CLASS(t_back_traj) :: obj
+    TYPE(t_back_traj) :: obj
     !
     ! local
     INTEGER :: ist
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_traj: destruct'
 
-    DEALLOCATE(obj%cell_idx, obj%cell_blk, STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish ( TRIM(routine), 'deallocation for cell_idx and cell_blk failed' )
-    ENDIF
+    IF (ALLOCATED(obj%cell_idx)) THEN
+      DEALLOCATE(obj%cell_idx, obj%cell_blk, STAT=ist)
+      IF (ist /= SUCCESS) THEN
+        CALL finish ( TRIM(routine), 'deallocation for cell_idx and cell_blk failed' )
+      ENDIF
 
-    DEALLOCATE(obj%distv_bary, STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish ( TRIM(routine), 'allocation for distv_bary failed' )
+      DEALLOCATE(obj%distv_bary, STAT=ist)
+      IF (ist /= SUCCESS) THEN
+        CALL finish ( TRIM(routine), 'allocation for distv_bary failed' )
+      ENDIF
     ENDIF
 
   END SUBROUTINE destruct

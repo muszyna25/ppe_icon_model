@@ -2868,12 +2868,6 @@ MODULE mo_solve_nonhydro
 #endif
 #endif
 
-#ifndef __LOOP_EXCHANGE
-    ! deallocate backward trajectory related memory
-    IF (iadv_rhotheta == 2) THEN
-      CALL btraj%destruct()
-    ENDIF
-#endif
 
     IF (ltimer) CALL timer_stop(timer_solve_nh)
 

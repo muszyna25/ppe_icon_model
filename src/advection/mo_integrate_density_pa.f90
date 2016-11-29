@@ -332,8 +332,6 @@ CONTAINS
           &                 opt_slev     = 1,                              &! in
           &                 opt_elev     = p_patch%nlev                    )! in
 
-        ! deallocate
-        CALL btraj%destruct()
       CASE( MIURA3 )
 
         CALL upwind_hflux_miura3(p_patch, ptr_current_rho, p_prog_new%vn,&

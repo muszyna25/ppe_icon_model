@@ -254,6 +254,12 @@ CONTAINS
 
     IF (timers_level > 2) CALL timer_start(timer_adv_horz)
 
+    !*******************************************************************
+    !
+    ! Tracer-independent part
+    !
+    !*******************************************************************
+
     ! In case that different transport schemes (MIURA, MIURA3) are used
     ! for different tracers, the double computation of tangential velocity
     ! vt should be avoided. Instead of computing vt inside each of the
@@ -281,10 +287,12 @@ CONTAINS
     ! only the barycenter of the departure region (instead of all the vertices).
     i_rlstart  = 5
     i_rlend_tr = MIN(i_rlend, min_rledge_int - 1)
-    iadv_min_slev = advection_config(jg)%miura_h%iadv_min_slev
     qvsubstep_elev = advection_config(jg)%iadv_qvsubstep_elev
 
+
     IF (advection_config(jg)%isAnyTypeMiura) THEN
+
+      iadv_min_slev = advection_config(jg)%miura_h%iadv_min_slev
       z_dthalf = 0.5_wp * p_dtime
 
       IF (p_iord_backtraj == 1)  THEN
@@ -318,6 +326,7 @@ CONTAINS
 
     IF (advection_config(jg)%isAnyTypeMcycl) THEN
 
+      iadv_min_slev = advection_config(jg)%mcycl_h%iadv_min_slev
       ! should be moved to advection_config
       iadv_max_elev = MERGE(p_patch%nlev,qvsubstep_elev,ANY(p_ihadv_tracer(:)== MCYCL))
 
@@ -325,12 +334,12 @@ CONTAINS
       ! It is assumed that three substeps are needed if the top of the currently active
       ! model domain is higher than 40 km, otherwise, two are sufficient
       !
-      IF (vct_a(advection_config(jg)%miura_h%iadv_min_slev+p_patch%nshift_total) > 40000._wp) THEN
+      IF (vct_a(iadv_min_slev+p_patch%nshift_total) > 40000._wp) THEN
         nsubsteps = 3
       ELSE
         nsubsteps = 2
       ENDIF
-      z_dthalf_cycl = z_dthalf/REAL(nsubsteps,wp)
+      z_dthalf_cycl = 0.5_wp * p_dtime/REAL(nsubsteps,wp)
 
       !
       IF (p_iord_backtraj == 1)  THEN
@@ -364,6 +373,12 @@ CONTAINS
       ENDIF
     ENDIF
 
+
+    !*******************************************************************
+    !
+    ! Tracer-specific part
+    !
+    !*******************************************************************
 
     DO jt = 1, ntracer ! Tracer loop
 
@@ -595,14 +610,6 @@ CONTAINS
       END SELECT
 
     END DO  ! Tracer loop
-
-    ! destruct backward trajectory components
-    IF (advection_config(jg)%isAnyTypeMiura) THEN
-      CALL btraj%destruct()
-    END IF
-    IF (advection_config(jg)%isAnyTypeMcycl) THEN
-      CALL btraj_cycl%destruct()
-    ENDIF
 
     IF (timers_level > 2) CALL timer_stop(timer_adv_horz)
 
@@ -1249,7 +1256,6 @@ CONTAINS
     INTEGER  :: pid
     INTEGER  :: nlev               !< number of full levels
     INTEGER  :: slev               !< vertical start level
-    INTEGER  :: ist                !< status variable
     INTEGER  :: jc, je, jk, jb     !< index of cell, edge, vert level, block
     INTEGER  :: ilc0, ibc0         !< line and block index for local cell center
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx

@@ -346,8 +346,6 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-    ! destruct backward trajectory components
-    CALL btraj%destruct()
 
   END SUBROUTINE aerosol_2D_advection
 
