@@ -130,6 +130,8 @@ CONTAINS
       SELECT CASE(iforcing)
       CASE(INOFORCING,IHELDSUAREZ,ILDF_DRY)  ! without moist processes
         ha_dyn_config%ldry_dycore = .TRUE.
+      CASE(IECHAM)                           ! with ECHAM physics
+        CALL finish(method_name, 'Hydrostatic dynamics cannot be used with ECHAM physics')
       END SELECT
 
     END SELECT
