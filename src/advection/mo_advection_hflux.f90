@@ -387,21 +387,29 @@ CONTAINS
 
       CASE( UP )      ! ihadv_tracer = 1
         ! CALL first order upwind
-        CALL upwind_hflux_up( p_patch, p_cc(:,:,:,jt),                &! in
-          &                 p_mass_flx_e, p_upflux(:,:,:,jt),         &! in,inout
-          &                 opt_slev=p_iadv_slev(jt),opt_rlend=i_rlend)! in
+        CALL upwind_hflux_up( p_patch      = p_patch,            & !in
+          &                   p_cc         = p_cc(:,:,:,jt),     & !in
+          &                   p_mass_flx_e = p_mass_flx_e,       & !in
+          &                   p_upflux     = p_upflux(:,:,:,jt), & !inout
+          &                   opt_slev     = p_iadv_slev(jt),    & !in
+          &                   opt_rlend    = i_rlend             ) !in
 
 
       CASE( MIURA )   ! ihadv_tracer = 2
 
         ! CALL MIURA with second order accurate reconstruction
-        CALL upwind_hflux_miura( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,    &! in
-          &                 p_dtime, p_int, btraj,                         &! in
-          &                 p_igrad_c_miura, p_itype_hlimit(jt),           &! in
-          &                 p_upflux(:,:,:,jt),                            &! in,inout
-          &                 opt_lconsv  = llsq_lin_consv,                  &! in
-          &                 opt_rlend   = i_rlend,                         &! in
-          &                 opt_slev    = p_iadv_slev(jt)                  )! in
+        CALL upwind_hflux_miura( p_patch         = p_patch,            & !in
+          &                      p_cc            = p_cc(:,:,:,jt),     & !in
+          &                      p_mass_flx_e    = p_mass_flx_e,       & !in
+          &                      p_dtime         = p_dtime,            & !in
+          &                      p_int           = p_int,              & !in
+          &                      btraj           = btraj,              & !in
+          &                      p_igrad_c_miura = p_igrad_c_miura,    & !in
+          &                      p_itype_hlimit  = p_itype_hlimit(jt), & !in
+          &                      p_out_e         = p_upflux(:,:,:,jt), & !inout
+          &                      opt_lconsv      = llsq_lin_consv,     & !in
+          &                      opt_rlend       = i_rlend,            & !in
+          &                      opt_slev        = p_iadv_slev(jt)     ) !in
 
 
       CASE( MIURA3 )  ! ihadv_tracer = 3
@@ -456,14 +464,20 @@ CONTAINS
       CASE ( MCYCL )   ! ihadv_tracer = 20
 
         ! CALL MIURA with second order accurate reconstruction and subcycling
-        CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,     &! in
-          &             p_mass_flx_e, p_dtime, nsubsteps,                 &! in
-          &             p_int, btraj_cycl,                                &! in
-          &             p_igrad_c_miura, p_itype_hlimit(jt),              &! in
-          &             p_upflux(:,:,:,jt),                               &! inout
-          &             elev = p_patch%nlev,                              &! in
-          &             opt_lconsv  = llsq_lin_consv,                     &! in
-          &             opt_rlend   = i_rlend                             )! in
+        CALL upwind_hflux_miura_cycl( p_patch         = p_patch,            & !in
+          &                           p_cc            = p_cc(:,:,:,jt),     & !in
+          &                           p_rho           = p_rho,              & !in
+          &                           p_mass_flx_e    = p_mass_flx_e,       & !in
+          &                           p_dtime         = p_dtime,            & !in
+          &                           p_ncycl         = nsubsteps,          & !in
+          &                           p_int           = p_int,              & !in
+          &                           btraj           = btraj_cycl,         & !in
+          &                           p_igrad_c_miura = p_igrad_c_miura,    & !in
+          &                           p_itype_hlimit  = p_itype_hlimit(jt), & !in
+          &                           p_out_e         = p_upflux(:,:,:,jt), & !inout
+          &                           elev            = p_patch%nlev,       & !in
+          &                           opt_lconsv      = llsq_lin_consv,     & !in
+          &                           opt_rlend       = i_rlend             ) !in
 
 
       CASE( MIURA_MCYCL )   ! ihadv_tracer = 22
@@ -472,14 +486,19 @@ CONTAINS
 
         ! CALL standard MIURA for lower atmosphere and the subcycling version of
         ! MIURA for upper atmosphere
-        CALL upwind_hflux_miura( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,    &! in
-          &                 p_dtime, p_int, btraj,                         &! in
-          &                 p_igrad_c_miura, p_itype_hlimit(jt),           &! in
-          &                 p_upflux(:,:,:,jt),                            &! in,inout
-          &                 opt_lconsv  = llsq_lin_consv,                  &! in
-          &                 opt_rlend   = i_rlend,                         &! in
-          &                 opt_slev    = qvsubstep_elev+1,                &! in
-          &                 opt_elev    = p_patch%nlev                     )
+        CALL upwind_hflux_miura( p_patch         = p_patch,            & !in
+          &                      p_cc            = p_cc(:,:,:,jt),     & !in
+          &                      p_mass_flx_e    = p_mass_flx_e,       & !in
+          &                      p_dtime         = p_dtime,            & !in
+          &                      p_int           = p_int,              & !in
+          &                      btraj           = btraj,              & !in
+          &                      p_igrad_c_miura = p_igrad_c_miura,    & !in
+          &                      p_itype_hlimit  = p_itype_hlimit(jt), & !in
+          &                      p_out_e         = p_upflux(:,:,:,jt), & !inout
+          &                      opt_lconsv      = llsq_lin_consv,     & !in
+          &                      opt_rlend       = i_rlend,            & !in
+          &                      opt_slev        = qvsubstep_elev+1,   & !in
+          &                      opt_elev        = p_patch%nlev        ) !in
 
 
         IF (qvsubstep_elev > 0) THEN
@@ -488,15 +507,22 @@ CONTAINS
         ! with substepping. This prevents us from computing the backward
         ! trajectories multiple times when combining the substepping scheme with
         ! different other schemes.
-        CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,       &! in
-          &              p_mass_flx_e, p_dtime, nsubsteps,                  &! in
-          &              p_int, btraj_cycl,                                 &! in
-          &              p_igrad_c_miura, p_itype_hlimit(jt),               &! in
-          &              p_upflux(:,:,:,jt),                                &! inout
-          &              elev        = qvsubstep_elev,                      &! in
-          &              opt_lconsv  = llsq_lin_consv,                      &! in
-          &              opt_rlend   = i_rlend,                             &! in
-          &              opt_slev    = p_iadv_slev(jt)                      )! in
+
+        CALL upwind_hflux_miura_cycl( p_patch         = p_patch,            & !in
+          &                           p_cc            = p_cc(:,:,:,jt),     & !in
+          &                           p_rho           = p_rho,              & !in
+          &                           p_mass_flx_e    = p_mass_flx_e,       & !in
+          &                           p_dtime         = p_dtime,            & !in
+          &                           p_ncycl         = nsubsteps,          & !in
+          &                           p_int           = p_int,              & !in
+          &                           btraj           = btraj_cycl,         & !in
+          &                           p_igrad_c_miura = p_igrad_c_miura,    & !in
+          &                           p_itype_hlimit  = p_itype_hlimit(jt), & !in
+          &                           p_out_e         = p_upflux(:,:,:,jt), & !inout
+          &                           elev            = qvsubstep_elev,     & !in
+          &                           opt_lconsv      = llsq_lin_consv,     & !in
+          &                           opt_rlend       = i_rlend,            & !in
+          &                           opt_slev        = p_iadv_slev(jt)     ) !in
         ENDIF
 
 
@@ -523,15 +549,21 @@ CONTAINS
         ! with substepping. This prevents us from computing the backward
         ! trajectories multiple times when combining the substepping scheme with
         ! different other schemes.
-        CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,       &! in
-          &              p_mass_flx_e, p_dtime, nsubsteps,                  &! in
-          &              p_int, btraj_cycl,                                 &! in
-          &              p_igrad_c_miura, p_itype_hlimit(jt),               &! in
-          &              p_upflux(:,:,:,jt),                                &! inout
-          &              elev        = qvsubstep_elev,                      &! in
-          &              opt_lconsv  = llsq_lin_consv,                      &! in
-          &              opt_rlend   = i_rlend,                             &! in
-          &              opt_slev    = p_iadv_slev(jt)                      )! in
+        CALL upwind_hflux_miura_cycl( p_patch         = p_patch,            & !in
+          &                           p_cc            = p_cc(:,:,:,jt),     & !in
+          &                           p_rho           = p_rho,              & !in
+          &                           p_mass_flx_e    = p_mass_flx_e,       & !in
+          &                           p_dtime         = p_dtime,            & !in
+          &                           p_ncycl         = nsubsteps,          & !in
+          &                           p_int           = p_int,              & !in
+          &                           btraj           = btraj_cycl,         & !in
+          &                           p_igrad_c_miura = p_igrad_c_miura,    & !in
+          &                           p_itype_hlimit  = p_itype_hlimit(jt), & !in
+          &                           p_out_e         = p_upflux(:,:,:,jt), & !inout
+          &                           elev            = qvsubstep_elev,     & !in
+          &                           opt_lconsv      = llsq_lin_consv,     & !in
+          &                           opt_rlend       = i_rlend,            & !in
+          &                           opt_slev        = p_iadv_slev(jt)     ) !in
         ENDIF
 
 
@@ -559,15 +591,21 @@ CONTAINS
         ! with substepping. This prevents us from computing the backward
         ! trajectories multiple times when combining the substepping scheme with
         ! different other schemes.
-        CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,       &! in
-          &              p_mass_flx_e, p_dtime, nsubsteps,                  &! in
-          &              p_int, btraj_cycl,                                 &! in
-          &              p_igrad_c_miura, p_itype_hlimit(jt),               &! in
-          &              p_upflux(:,:,:,jt),                                &! inout
-          &              elev        = qvsubstep_elev,                      &! in
-          &              opt_lconsv  = llsq_lin_consv,                      &! in
-          &              opt_rlend   = i_rlend,                             &! in
-          &              opt_slev    = p_iadv_slev(jt)                      )! in
+        CALL upwind_hflux_miura_cycl( p_patch         = p_patch,            & !in
+          &                           p_cc            = p_cc(:,:,:,jt),     & !in
+          &                           p_rho           = p_rho,              & !in
+          &                           p_mass_flx_e    = p_mass_flx_e,       & !in
+          &                           p_dtime         = p_dtime,            & !in
+          &                           p_ncycl         = nsubsteps,          & !in
+          &                           p_int           = p_int,              & !in
+          &                           btraj           = btraj_cycl,         & !in
+          &                           p_igrad_c_miura = p_igrad_c_miura,    & !in
+          &                           p_itype_hlimit  = p_itype_hlimit(jt), & !in
+          &                           p_out_e         = p_upflux(:,:,:,jt), & !inout
+          &                           elev            = qvsubstep_elev,     & !in
+          &                           opt_lconsv      = llsq_lin_consv,     & !in
+          &                           opt_rlend       = i_rlend,            & !in
+          &                           opt_slev        = p_iadv_slev(jt)     ) !in
         ENDIF
 
 
@@ -596,15 +634,21 @@ CONTAINS
         ! with substepping. This prevents us from computing the backward
         ! trajectories multiple times when combining the substepping scheme with
         ! different other schemes.
-        CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,       &! in
-          &              p_mass_flx_e, p_dtime, nsubsteps,                  &! in
-          &              p_int, btraj_cycl,                                 &! in
-          &              p_igrad_c_miura, p_itype_hlimit(jt),               &! in
-          &              p_upflux(:,:,:,jt),                                &! inout
-          &              elev        = qvsubstep_elev,                      &! in
-          &              opt_lconsv  = llsq_lin_consv,                      &! in
-          &              opt_rlend   = i_rlend,                             &! in
-          &              opt_slev    = p_iadv_slev(jt)                      )! in
+        CALL upwind_hflux_miura_cycl( p_patch         = p_patch,            & !in
+          &                           p_cc            = p_cc(:,:,:,jt),     & !in
+          &                           p_rho           = p_rho,              & !in
+          &                           p_mass_flx_e    = p_mass_flx_e,       & !in
+          &                           p_dtime         = p_dtime,            & !in
+          &                           p_ncycl         = nsubsteps,          & !in
+          &                           p_int           = p_int,              & !in
+          &                           btraj           = btraj_cycl,         & !in
+          &                           p_igrad_c_miura = p_igrad_c_miura,    & !in
+          &                           p_itype_hlimit  = p_itype_hlimit(jt), & !in
+          &                           p_out_e         = p_upflux(:,:,:,jt), & !inout
+          &                           elev            = qvsubstep_elev,     & !in
+          &                           opt_lconsv      = llsq_lin_consv,     & !in
+          &                           opt_rlend       = i_rlend,            & !in
+          &                           opt_slev        = p_iadv_slev(jt)     ) !in
         ENDIF
 
       END SELECT
@@ -1237,7 +1281,6 @@ CONTAINS
                                                     !< zonal and meridional direction
 
     REAL(wp) :: z_dtsub                 !< sub timestep p_dtime/p_ncycl
-    REAL(wp) :: z_dthalf                !< z_dtsub/2
     REAL(wp) ::                     &   !< tracer flux at n + nsub/p_ncycl
       &  z_tracer_mflx(nproma,elev,p_patch%nblks_e,p_ncycl)
 
@@ -1254,7 +1297,6 @@ CONTAINS
       &  z_rho(nproma,elev,p_patch%nblks_c,2) !< old and new timestep
 
     INTEGER  :: pid
-    INTEGER  :: nlev               !< number of full levels
     INTEGER  :: slev               !< vertical start level
     INTEGER  :: jc, je, jk, jb     !< index of cell, edge, vert level, block
     INTEGER  :: ilc0, ibc0         !< line and block index for local cell center
@@ -1280,9 +1322,6 @@ CONTAINS
     IF (p_ncycl /= 2 .AND. p_ncycl /= 3) &
     CALL finish(TRIM(routine),'current implementation of upwind_hflux_miura_cycl '//&
       &                       'requires 2 or 3 subcycling steps (p_ncycl=2/3)')
-
-    ! number of vertical levels
-    nlev = p_patch%nlev
 
     ! get patch ID
     pid = p_patch%id
@@ -1325,9 +1364,6 @@ CONTAINS
 
     ! get local sub-timestep
     z_dtsub = p_dtime/REAL(p_ncycl,wp)
-
-    ! one half of current time step
-    z_dthalf = 0.5_wp * z_dtsub
 
 
     ! number of child domains
