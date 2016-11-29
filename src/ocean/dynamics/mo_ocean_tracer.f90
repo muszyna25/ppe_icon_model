@@ -540,7 +540,7 @@ CONTAINS
             !either due to the GMRedi-scheme or due to the cartesian mixing  
             !The implicit contribution is not included.               
             p_os%p_diag%opottempGMRedi(jc,level,jb)&
-            &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))
+            &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z_new
             !& * clw *rho_ref
 
             !This contains sum of advective and diffusive fluxes, i.e the whole tendency,
@@ -548,7 +548,7 @@ CONTAINS
             !This is overwritten each time a new tracer is calculated
             p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
             &=-(div_adv_flux_horz(jc,level,jb) +div_adv_flux_vert(jc,level,jb)&
-            & - div_diff_flux_horz(jc,level,jb)-div_diff_flx_vert(jc,level,jb))
+            & - div_diff_flux_horz(jc,level,jb)-div_diff_flx_vert(jc,level,jb))/delta_z_new
             
             DO level = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
 
@@ -556,7 +556,7 @@ CONTAINS
               !either due to the GMRedi-scheme or due to the cartesian mixing  
               !The implicit contribution is not included.   
               p_os%p_diag%opottempGMRedi(jc,level,jb)&
-              &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))
+              &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z_new
               !& * clw *rho_ref
         
              !This contains sum of advective and diffusive fluxes, i.e the whole tendency,
@@ -564,7 +564,7 @@ CONTAINS
              !This is overwritten each time a new tracer is calculated
               p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
               &=-(div_adv_flux_horz(jc,level,jb) +div_adv_flux_vert(jc,level,jb)&
-              & - div_diff_flux_horz(jc,level,jb)-div_diff_flx_vert(jc,level,jb))
+              & - div_diff_flux_horz(jc,level,jb)-div_diff_flx_vert(jc,level,jb))/delta_z
 
             ENDDO
           END DO
@@ -596,13 +596,13 @@ CONTAINS
             !The implicit contribution is not included.                         
             p_os%p_diag%osaltGMRedi(jc,level,jb)&
             &=-(div_adv_flux_horz(jc,level,jb) +div_adv_flux_vert(jc,level,jb)&
-            &  - div_diff_flux_horz(jc,level,jb)-div_diff_flx_vert(jc,level,jb))
+            &  - div_diff_flux_horz(jc,level,jb)-div_diff_flx_vert(jc,level,jb))/delta_z_new
                      
             !This contains sum of advective and diffusive fluxes, i.e the whole tendency,
             !except for the implicit contribution.
             !This is overwritten each time a new tracer is calculated
             p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
-            &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))
+            &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z_new
 
         
             DO level = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
@@ -611,14 +611,14 @@ CONTAINS
               !either due to the GMRedi-scheme or due to the cartesian mixing.
               !The implicit contribution is not included.   
               p_os%p_diag%osaltGMRedi(jc,level,jb)&
-              &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))
+              &=(div_diff_flux_horz(jc,level,jb)+div_diff_flx_vert(jc,level,jb))/delta_z
 
              !This contains sum of advective and diffusive fluxes, i.e the whole tendency,
              !except for the implicit contribution.
              !This is overwritten each time a new tracer is calculated
               p_os%p_diag%div_of_GMRedi_flux(jc,level,jb)&
               &=-(div_adv_flux_horz(jc,level,jb) +div_adv_flux_vert(jc,level,jb)&
-              & - div_diff_flux_horz(jc,level,jb)-div_diff_flx_vert(jc,level,jb))
+              & - div_diff_flux_horz(jc,level,jb)-div_diff_flx_vert(jc,level,jb))/delta_z
 
             ENDDO
           END DO
