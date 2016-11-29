@@ -357,12 +357,12 @@ CONTAINS
           &             ext_data(1:)    )
 
         ! initialize tracers fields jt=iqt to jt=ntracer, which are not available
-        ! in the analysis file, to a non-zero value
+        ! in the analysis file
         DO jg = 1,n_dom
            IF (.NOT. p_patch(jg)%ldom_active) CYCLE
            DO jt = iqt,ntracer
 !$OMP PARALLEL
-             CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,jt),100.e-6_wp)
+             CALL init(p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(:,:,:,jt),0.0_wp)
 !$OMP END PARALLEL
           END DO
         END DO
