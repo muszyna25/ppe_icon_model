@@ -36,7 +36,7 @@ MODULE mo_nh_init_utils
   USE mo_physical_constants,    ONLY: grav, cpd, rd, cvd_o_rd, p0ref
   USE mo_vertical_coord_table,  ONLY: vct_a, vct_b, read_vct
   USE mo_nonhydrostatic_config, ONLY: ivctype
-  USE mo_sleve_config,          ONLY: min_lay_thckn, max_lay_thckn, htop_thcknlimit, top_height, &
+  USE mo_sleve_config,          ONLY: itype_laydistr, min_lay_thckn, max_lay_thckn, htop_thcknlimit, top_height, &
                                       decay_scale_1, decay_scale_2, decay_exp, flat_height, stretch_fac
   USE mo_impl_constants,        ONLY: max_dom, MAX_CHAR_LENGTH, nclass_aero
   USE mo_math_constants,        ONLY: pi
@@ -801,7 +801,7 @@ CONTAINS
     INTEGER,  INTENT(IN)    :: nlev  !< number of full levels
     REAL(wp), INTENT(INOUT) :: vct_a(:), vct_b(:)
 
-    REAL(wp) :: z_exp, dvct(nlev), zvcta(nlev+1), stretchfac, zdvct
+    REAL(wp) :: z_exp, dvct(nlev), zvcta(nlev+1), stretchfac, zdvct, x1, a, b, c, jkr
     INTEGER  :: jk, jk1, jks, jk2
     INTEGER  :: nlevp1        !< number of full and half levels
 
@@ -809,18 +809,32 @@ CONTAINS
     nlevp1 = nlev+1
 
     IF (min_lay_thckn > 0.01_wp) THEN
-      z_exp = LOG(min_lay_thckn/top_height)/LOG(2._wp/pi*ACOS(REAL(nlev-1,wp)**stretch_fac/&
-        &     REAL(nlev,wp)**stretch_fac))
+      IF (itype_laydistr == 1) THEN
+        z_exp = LOG(min_lay_thckn/top_height)/LOG(2._wp/pi*ACOS(REAL(nlev-1,wp)**stretch_fac/&
+          &     REAL(nlev,wp)**stretch_fac))
 
-      ! Set up distribution of coordinate surfaces according to the analytical formula
-      ! vct = h_top*(2/pi*arccos(jk-1/nlev))**z_exp (taken from the COSMO model, src_artifdata)
-      ! z_exp has been calculated above in order to return min_lay_thckn as thickness
-      ! of the lowest model layer
-      DO jk = 1, nlevp1
-        vct_a(jk)      = top_height*(2._wp/pi*ACOS(REAL(jk-1,wp)**stretch_fac/ &
-          &              REAL(nlev,wp)**stretch_fac))**z_exp
-        vct_b(jk)      = EXP(-vct_a(jk)/5000._wp)
-      ENDDO
+        ! Set up distribution of coordinate surfaces according to the analytical formula
+        ! vct = h_top*(2/pi*arccos(jk-1/nlev))**z_exp (taken from the COSMO model, src_artifdata)
+        ! z_exp has been calculated above in order to return min_lay_thckn as thickness
+        ! of the lowest model layer
+        DO jk = 1, nlevp1
+          vct_a(jk)      = top_height*(2._wp/pi*ACOS(REAL(jk-1,wp)**stretch_fac/ &
+            &              REAL(nlev,wp)**stretch_fac))**z_exp
+          vct_b(jk)      = EXP(-vct_a(jk)/5000._wp)
+        ENDDO
+      ELSE
+        ! use third-order polynomial
+        x1 = (2._wp*stretch_fac-1._wp)*min_lay_thckn
+        b = (top_height-x1/6._wp*nlev**3-(min_lay_thckn-x1/6._wp)*nlev)/&
+            (nlev**2-1._wp/3._wp*nlev**3-2._wp/3._wp*nlev)
+        a = (x1-2._wp*b)/6._wp
+        c = min_lay_thckn-(a+b)
+        DO jk = 1, nlevp1
+          jkr = REAL(nlevp1-jk,wp)
+          vct_a(jk) = a*jkr**3 + b*jkr**2 + c*jkr
+          vct_b(jk) = EXP(-vct_a(jk)/5000._wp)
+        ENDDO
+      ENDIF
       ! Apply additional limitation on layer thickness in the middle and upper troposphere if the paramter
       ! max_lay_thckn is specified appropriately
       IF (max_lay_thckn > 2._wp*min_lay_thckn .AND. max_lay_thckn < 0.5_wp*htop_thcknlimit) THEN
