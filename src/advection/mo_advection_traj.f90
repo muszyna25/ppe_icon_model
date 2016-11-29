@@ -227,7 +227,7 @@ CONTAINS
 
     INTEGER :: je, jk, jb        !< index of edge, vert level, block
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER :: i_rlstart, i_rlend, i_nchdom
+    INTEGER :: i_rlstart, i_rlend
     INTEGER :: slev, elev        !< vertical start and end level
     LOGICAL :: lvn_pos
 
@@ -258,11 +258,9 @@ CONTAINS
       i_rlend = min_rledge_int - 2
     ENDIF
 
-    ! number of child domains
-    i_nchdom   = MAX(1,ptr_p%n_childdom)
 
-    i_startblk = ptr_p%edges%start_blk(i_rlstart,1)
-    i_endblk   = ptr_p%edges%end_blk(i_rlend,i_nchdom)
+    i_startblk = ptr_p%edges%start_block(i_rlstart)
+    i_endblk   = ptr_p%edges%end_block(i_rlend)
 
     !-------------------------------------------------------------------------
     IF (timers_level > 5) THEN
@@ -472,7 +470,7 @@ CONTAINS
 
     INTEGER :: je, jk, jb          !< index of edge, vert level, block
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER :: i_rlstart, i_rlend, i_nchdom
+    INTEGER :: i_rlstart, i_rlend
     INTEGER :: slev, elev          !< vertical start and end level
     LOGICAL :: lvn_pos             !< vn > 0: TRUE/FALSE
     LOGICAL :: lvn_sys_pos(nproma,ptr_p%nlev)   !< vn*system_orient > 0
@@ -519,11 +517,9 @@ CONTAINS
       llist_gen = .FALSE.
     ENDIF
 
-    ! number of child domains
-    i_nchdom   = MAX(1,ptr_p%n_childdom)
 
-    i_startblk = ptr_p%edges%start_blk(i_rlstart,1)
-    i_endblk   = ptr_p%edges%end_blk(i_rlend,i_nchdom)
+    i_startblk = ptr_p%edges%start_block(i_rlstart)
+    i_endblk   = ptr_p%edges%end_block(i_rlend)
 
 
 #ifdef _OPENACC
@@ -812,7 +808,7 @@ CONTAINS
 
     INTEGER :: je, jk, jb        !< index of edge, vert level, block
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER :: i_rlstart, i_rlend, i_nchdom
+    INTEGER :: i_rlstart, i_rlend
     INTEGER :: slev, elev        !< vertical start and end level
     INTEGER :: zcell             !< determines whether the barycenter is located
     !< in cell 1 or 2
@@ -851,11 +847,9 @@ CONTAINS
       i_rlend = min_rledge_int - 1
     ENDIF
 
-    ! number of child domains
-    i_nchdom   = MAX(1,ptr_p%n_childdom)
 
-    i_startblk = ptr_p%edges%start_blk(i_rlstart,1)
-    i_endblk   = ptr_p%edges%end_blk(i_rlend,i_nchdom)
+    i_startblk = ptr_p%edges%start_block(i_rlstart)
+    i_endblk   = ptr_p%edges%end_block(i_rlend)
 
 
     ! For each edge the velocity vectors at the quadrilateral edges are
