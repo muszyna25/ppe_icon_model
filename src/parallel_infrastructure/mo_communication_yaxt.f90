@@ -26,10 +26,11 @@ MODULE mo_communication_yaxt
 
 USE mpi
 USE mo_kind,               ONLY: dp, sp
-USE mo_exception,          ONLY: finish
-USE mo_mpi,                ONLY: p_comm_work, p_pe_work, work_mpi_barrier, &
+USE mo_exception,          ONLY: finish, message
+USE mo_mpi,                ONLY: p_comm_work, p_barrier, &
   &                              p_real_dp, p_real_sp, p_int, p_address_kind, &
-  &                              p_n_work, p_alltoall, p_alltoallv, p_bcast
+  &                              p_alltoall, p_alltoallv, p_bcast, &
+  &                              p_comm_size, p_comm_rank
 USE mo_parallel_config, ONLY: nproma, itype_exch_barrier
 USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
   &                           timer_exch_data, timer_barrier
@@ -325,22 +326,22 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
    INTEGER, INTENT(IN)           :: src_global_index(:) ! Global index of every point
 
    LOGICAL, OPTIONAL, INTENT(IN) :: inplace
-   INTEGER, OPTIONAL, INTENT(in) :: comm
+   INTEGER, OPTIONAL, INTENT(IN) :: comm
 
    TYPE(xt_idxlist) :: src_idxlist, dst_idxlist
    TYPE(xt_com_list), ALLOCATABLE :: src_com(:), dst_com(:)
    INTEGER :: src_com_size, dst_com_size
 
-   INTEGER :: dst_count_per_rank(0:p_n_work-1), dst_count
-   INTEGER :: src_count_per_rank(0:p_n_work-1), src_count
+   INTEGER :: dst_count, src_count, accum_dst
    INTEGER(xt_int_kind), ALLOCATABLE :: receive_indices(:), send_indices(:)
-   INTEGER :: dst_indices_displ(0:p_n_work-1), src_indices_displ(0:p_n_work-1)
+   INTEGER, ALLOCATABLE :: dst_indices_displ(:), src_indices_displ(:), &
+        src_count_per_rank(:), dst_count_per_rank(:)
 
-   INTEGER :: i, pcomm, ierror
+   INTEGER :: i, ierror
    CHARACTER(len=*), PARAMETER :: routine = modname//'::setup_comm_pattern'
-!-----------------------------------------------------------------------
+   INTEGER :: pcomm, comm_size, comm_rank
 
-   IF (.NOT. xt_initialized()) CALL xt_initialize(p_comm_work)
+!-----------------------------------------------------------------------
 
    IF (PRESENT(comm)) THEN
      pcomm = comm
@@ -348,6 +349,12 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
      pcomm = p_comm_work
    END IF
    CALL mpi_comm_dup(pcomm, p_pat%comm, ierror)
+   comm_size = p_comm_size(p_pat%comm)
+   comm_rank = p_comm_rank(p_pat%comm)
+   ALLOCATE(src_indices_displ(0:comm_size-1), dst_indices_displ(0:comm_size-1), &
+        src_count_per_rank(0:comm_size-1), dst_count_per_rank(0:comm_size-1))
+   IF (.NOT. xt_initialized()) CALL xt_initialize(p_pat%comm)
+
    IF (ierror /= mpi_success) &
         CALL finish(routine, 'failed to duplicate communicator')
    CALL xt_mpi_comm_mark_exclusive(p_pat%comm)
@@ -361,15 +368,13 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
 
    CALL p_alltoall(dst_count_per_rank, src_count_per_rank, p_pat%comm)
 
-   dst_count = SUM(dst_count_per_rank)
-   src_count = SUM(src_count_per_rank)
-
-   dst_indices_displ(0) = 0
-   src_indices_displ(0) = 0
-
-   DO i = 1, p_n_work-1
-      dst_indices_displ(i) = dst_indices_displ(i-1) + dst_count_per_rank(i-1)
-      src_indices_displ(i) = src_indices_displ(i-1) + src_count_per_rank(i-1)
+   dst_count = 0
+   src_count = 0
+   DO i = 0, comm_size-1
+     dst_indices_displ(i) = dst_count
+     dst_count = dst_count + dst_count_per_rank(i)
+     src_indices_displ(i) = src_count
+     src_count = src_count + src_count_per_rank(i)
    END DO
 
    ALLOCATE(receive_indices(dst_count), send_indices(src_count))
@@ -382,10 +387,10 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
       END IF
    END DO
 
-   dst_indices_displ(0) = 0
-
-   DO i = 1, p_n_work-1
-      dst_indices_displ(i) = dst_indices_displ(i-1) + dst_count_per_rank(i-1)
+   accum_dst = 0
+   DO i = 0, comm_size-1
+     dst_indices_displ(i) = accum_dst
+     accum_dst = accum_dst + dst_count_per_rank(i)
    END DO
 
    CALL p_alltoallv(receive_indices, dst_count_per_rank, dst_indices_displ, &
@@ -398,7 +403,7 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
    src_com_size = 0
    dst_com_size = 0
 
-   DO i = 0, p_n_work-1
+   DO i = 0, comm_size-1
 
       IF (src_count_per_rank(i) > 0) THEN
 
@@ -429,7 +434,7 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
    END IF
    src_idxlist = &
     xt_idxvec_new(MERGE(src_global_index(1:src_n_points), -1,&
-    &                   src_owner(1:src_n_points) == p_pe_work))
+    &                  src_owner(1:src_n_points) == comm_rank))
    IF (ALLOCATED(p_pat%dst_mask)) THEN
      dst_idxlist = xt_idxvec_new(PACK(dst_global_index(1:dst_n_points), &
        &                              p_pat%dst_mask))
@@ -987,9 +992,9 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
    ENDIF
 
    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
-     start_sync_timer(timer_barrier)
-     CALL work_mpi_barrier()
-     stop_sync_timer(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
+     CALL p_barrier(p_pat%comm)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    start_sync_timer(timer_exch_data)
@@ -1021,9 +1026,9 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
    END IF
 
    IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
-     start_sync_timer(timer_barrier)
-     CALL work_mpi_barrier()
-     stop_sync_timer(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
+     CALL p_barrier(p_pat%comm)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    IF (PRESENT(add)) THEN
@@ -1093,9 +1098,9 @@ SUBROUTINE exchange_data_s3d(p_pat, recv, send, add)
    ENDIF
 
    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
-     start_sync_timer(timer_barrier)
-     CALL work_mpi_barrier()
-     stop_sync_timer(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
+     CALL p_barrier(p_pat%comm)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    start_sync_timer(timer_exch_data)
@@ -1127,9 +1132,9 @@ SUBROUTINE exchange_data_s3d(p_pat, recv, send, add)
    END IF
 
    IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
-     start_sync_timer(timer_barrier)
-     CALL work_mpi_barrier()
-     stop_sync_timer(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
+     CALL p_barrier(p_pat%comm)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    IF (PRESENT(add)) THEN
@@ -1202,9 +1207,9 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add)
    ENDIF
 
    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
-     start_sync_timer(timer_barrier)
-     CALL work_mpi_barrier()
-     stop_sync_timer(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
+     CALL p_barrier(p_pat%comm)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    start_sync_timer(timer_exch_data)
@@ -1236,9 +1241,9 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add)
    END IF
 
    IF (itype_exch_barrier == 2 .OR. itype_exch_barrier == 3) THEN
-     start_sync_timer(timer_barrier)
-     CALL work_mpi_barrier()
-     stop_sync_timer(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
+     CALL p_barrier(p_pat%comm)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    IF (PRESENT(add)) THEN
@@ -1324,9 +1329,9 @@ SUBROUTINE exchange_data_mult_dp(p_pat, ndim2tot, &
 !-----------------------------------------------------------------------
 
    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
-     start_sync_timer(timer_barrier)
-     CALL work_mpi_barrier()
-     stop_sync_timer(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
+     CALL p_barrier(p_pat%comm)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    start_sync_timer(timer_exch_data)
@@ -1509,9 +1514,9 @@ SUBROUTINE exchange_data_mult_sp(p_pat, ndim2tot, &
 !-----------------------------------------------------------------------
 
    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
-     start_sync_timer(timer_barrier)
-     CALL work_mpi_barrier()
-     stop_sync_timer(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
+     CALL p_barrier(p_pat%comm)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    start_sync_timer(timer_exch_data)
@@ -1717,22 +1722,24 @@ SUBROUTINE exchange_data_4de1(p_pat, nfields, ndim2tot, recv, send)
    INTEGER :: data_type
    TYPE(xt_redist) :: redist
 
-   INTEGER :: nlev(1, 2), i
+   INTEGER :: nlev(1, 2), i, comm_size
    LOGICAL, SAVE :: first_call = .TRUE., mpi_is_buggy
 
    CHARACTER(len=*), PARAMETER :: &
-     routine = "mo_communication::exchange_data_4de1"
+     routine = modname//"::exchange_data_4de1"
 
 !-----------------------------------------------------------------------
 
-   IF (first_call) THEN
+   comm_size = p_comm_size(p_pat%comm)
+   IF (comm_size > 1 .AND. first_call) THEN
 
      first_call = .FALSE.
-     mpi_is_buggy = test_mpich_bug()
-     IF (mpi_is_buggy .AND. (p_pe_work == 0)) THEN
-       print *, "WARNING: your MPI contains a serious bug, in order to " // &
-                "avoid problems a workaround has been activated in " // &
-                "exchange_data_4de1 that significatly decreases its performance"
+     mpi_is_buggy = test_mpich_bug(p_pat%comm)
+     IF (mpi_is_buggy) THEN
+       CALL message(routine, &
+            "WARNING: your MPI contains a serious bug, in order to &
+            &avoid problems a workaround has been activated in &
+            &exchange_data_4de1 that significatly decreases its performance")
      END IF
    END IF
 
@@ -1754,9 +1761,9 @@ SUBROUTINE exchange_data_4de1(p_pat, nfields, ndim2tot, recv, send)
    END IF
 
    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
-     start_sync_timer(timer_barrier)
-     CALL work_mpi_barrier()
-     stop_sync_timer(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
+     CALL p_barrier(p_pat%comm)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    start_sync_timer(timer_exch_data)
@@ -1852,9 +1859,9 @@ SUBROUTINE exchange_data_grf(p_pat_coll, nfields, ndim2tot, recv1, send1, &
 !-----------------------------------------------------------------------
 
    IF (itype_exch_barrier == 1 .OR. itype_exch_barrier == 3) THEN
-     start_sync_timer(timer_barrier)
-     CALL work_mpi_barrier()
-     stop_sync_timer(timer_barrier)
+     IF (activate_sync_timers) CALL timer_start(timer_barrier)
+     CALL p_barrier(p_pat_coll%patterns(1)%p%comm)
+     IF (activate_sync_timers) CALL timer_stop(timer_barrier)
    ENDIF
 
    start_sync_timer(timer_exch_data)
@@ -2417,7 +2424,8 @@ END SUBROUTINE get_pelist_recv
 ! Each point consists of VECTOR_SIZE elements. The data sent by rank 1 is
 ! level-wise; data from different levels does not overlap in the send buffer.
 !
-FUNCTION test_mpich_bug()
+FUNCTION test_mpich_bug(comm)
+  INTEGER, INTENT(in) :: comm
   LOGICAL :: test_mpich_bug
 
   INTEGER, PARAMETER :: VECTOR_SIZE = 2, &
@@ -2428,16 +2436,12 @@ FUNCTION test_mpich_bug()
   INTEGER :: displs(9)
   INTEGER :: lenghts(9)
 
+  INTEGER :: comm_rank
   INTEGER :: num_exchange_indices, ierror, i, j, lev, vector
   INTEGER :: datatype_vector, datatype_1lev, datatype_with_extent, datatype_nlev
   INTEGER(KIND=MPI_ADDRESS_KIND) :: lb, extent, dummy
   REAL(dp) :: v
   REAL(dp), ALLOCATABLE :: ref_data(:), recv_data(:), send_data(:)
-
-  IF (p_n_work == 1) THEN
-    test_mpich_bug = .FALSE.
-    RETURN
-  END IF
 
   displs = (/   1, & ! idx 1 blk 0
               720, & ! idx 0 blk 1
@@ -2454,7 +2458,8 @@ FUNCTION test_mpich_bug()
   ! (not including VECTOR_SIZE and NLEV)
   num_exchange_indices = SUM(lenghts)
 
-  IF (p_pe_work == 0) THEN
+  comm_rank = p_comm_rank(comm)
+  IF (comm_rank == 0) THEN
 
     ! create contiguous datatype for the vector
     CALL MPI_Type_contiguous(VECTOR_SIZE, MPI_DOUBLE_PRECISION, &
@@ -2494,7 +2499,7 @@ FUNCTION test_mpich_bug()
     recv_data = -1.0_dp
 
     ! receive data from rank 1
-    CALL MPI_Recv(recv_data, 1, datatype_nlev, 1, TAG, p_comm_work, &
+    CALL MPI_Recv(recv_data, 1, datatype_nlev, 1, TAG, comm, &
                   MPI_STATUS_IGNORE, ierror);
 
     ! check data
@@ -2511,7 +2516,7 @@ FUNCTION test_mpich_bug()
     CALL MPI_Type_free(datatype_1lev, ierror)
     CALL MPI_Type_free(datatype_vector, ierror)
 
-  ELSE IF (p_pe_work == 1) THEN
+  ELSE IF (comm_rank == 1) THEN
 
     ! send requested data
     ALLOCATE(send_data(VECTOR_SIZE * NLEV * num_exchange_indices))
@@ -2519,11 +2524,11 @@ FUNCTION test_mpich_bug()
       send_data(i) = REAL(i, dp)
     END DO
     CALL MPI_Send(send_data, VECTOR_SIZE * NLEV * num_exchange_indices, &
-                  p_real_dp, 0, TAG, p_comm_work, ierror)
+                  p_real_dp, 0, TAG, comm, ierror)
     DEALLOCATE(send_data)
   END IF
 
-  CALL p_bcast(test_mpich_bug, 0, p_comm_work)
+  CALL p_bcast(test_mpich_bug, 0, comm)
 
 END FUNCTION test_mpich_bug
 
