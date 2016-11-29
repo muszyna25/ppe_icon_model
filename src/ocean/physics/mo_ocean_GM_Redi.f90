@@ -195,7 +195,7 @@ CONTAINS
     
     !Local variables
     INTEGER :: start_cell_index, end_cell_index, cell_index,level,start_level,end_level,blockNo
-    INTEGER :: start_edge_index, end_edge_index, je     
+    INTEGER :: start_edge_index, end_edge_index, edge_index     
     TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain, edges_in_domain
     TYPE(t_patch), POINTER :: patch_2D
     REAL(wp) :: flux_vert_center(nproma, n_zlev,patch_3D%p_patch_2d(1)%alloc_cell_blocks)
@@ -314,9 +314,9 @@ CONTAINS
           &Dot_Product(tracer_gradient_horz_vec_center(cell_index,level,blockNo)%x,&
           &            taper_off_diagonal_vert(cell_index,level,blockNo)%x)
           
-          !flux_vert_center(cell_index,level,blockNo)&
-          !&= flux_vert_center(cell_index,level,blockNo)&
-          !&*patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(cell_index,level,blockNo)
+          flux_vert_center(cell_index,level,blockNo)&
+          &= flux_vert_center(cell_index,level,blockNo)&
+          &*patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(cell_index,level,blockNo)
                 
         END DO
 
@@ -332,6 +332,21 @@ CONTAINS
         & flux_vec_horz_center(:,:,:)%x(1), flux_vec_horz_center(:,:,:)%x(2), flux_vec_horz_center(:,:,:)%x(3))
     !    
     CALL map_cell2edges_3D( patch_3D,flux_vec_horz_center, GMredi_flux_horz, op_coeff)
+
+!ICON_OMP_DO_PARALLEL PRIVATE(start_edge_index,end_edge_index, edge_index, level) ICON_OMP_DEFAULT_SCHEDULE
+        DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block     
+          CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)      
+          DO edge_index = start_edge_index, end_edge_index
+            DO level = start_level, patch_3D%p_patch_1D(1)%dolic_e(edge_index,blockNo)
+              GMredi_flux_horz(edge_index,level,blockNo)&
+              &=GMredi_flux_horz(edge_index,level,blockNo)*patch_3D%p_patch_1d(1)%prism_thick_e(edge_index,level,blockNo) 
+            END DO                  
+          END DO                
+        END DO
+!ICON_OMP_END_DO_PARALLEL
+
+
+
 
 
     !Map the (explicit) vertical tracer flux to the prsim top (where the vertical divergence is calculated later)
