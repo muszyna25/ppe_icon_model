@@ -332,14 +332,15 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
    TYPE(xt_com_list), ALLOCATABLE :: src_com(:), dst_com(:)
    INTEGER :: src_com_size, dst_com_size
 
-   INTEGER :: dst_count, src_count, accum_dst
+   INTEGER :: dst_count, src_count, accum_dst, n_dst_com, n_src_com
    INTEGER(xt_int_kind), ALLOCATABLE :: receive_indices(:), send_indices(:)
    INTEGER, ALLOCATABLE :: dst_indices_displ(:), src_indices_displ(:), &
         src_count_per_rank(:), dst_count_per_rank(:)
 
-   INTEGER :: i, ierror
+   INTEGER :: i, ierror, dst_owner_i
    CHARACTER(len=*), PARAMETER :: routine = modname//'::setup_comm_pattern'
    INTEGER :: pcomm, comm_size, comm_rank
+   LOGICAL :: any_dst_owner_lt_0
 
 !-----------------------------------------------------------------------
 
@@ -351,7 +352,7 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
    CALL mpi_comm_dup(pcomm, p_pat%comm, ierror)
    comm_size = p_comm_size(p_pat%comm)
    comm_rank = p_comm_rank(p_pat%comm)
-   ALLOCATE(src_indices_displ(0:comm_size-1), dst_indices_displ(0:comm_size-1), &
+   ALLOCATE(src_indices_displ(0:comm_size), dst_indices_displ(0:comm_size), &
         src_count_per_rank(0:comm_size-1), dst_count_per_rank(0:comm_size-1))
    IF (.NOT. xt_initialized()) CALL xt_initialize(p_pat%comm)
 
@@ -362,76 +363,87 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
    dst_count_per_rank = 0
 
    DO i = 1, dst_n_points
-      IF (dst_owner(i) >= 0) &
-         dst_count_per_rank(dst_owner(i)) = dst_count_per_rank(dst_owner(i)) + 1
+     dst_owner_i = dst_owner(i)
+     IF (dst_owner_i >= 0) &
+       dst_count_per_rank(dst_owner_i) = dst_count_per_rank(dst_owner_i) + 1
    END DO
 
    CALL p_alltoall(dst_count_per_rank, src_count_per_rank, p_pat%comm)
 
    dst_count = 0
+   n_dst_com = 0
    src_count = 0
+   n_src_com = 0
    DO i = 0, comm_size-1
      dst_indices_displ(i) = dst_count
      dst_count = dst_count + dst_count_per_rank(i)
+     n_dst_com = n_dst_com + MERGE(1, 0, dst_count_per_rank(i) > 0)
      src_indices_displ(i) = src_count
      src_count = src_count + src_count_per_rank(i)
+     n_src_com = n_src_com + MERGE(1, 0, src_count_per_rank(i) > 0)
    END DO
+   src_indices_displ(comm_size) = src_count
 
    ALLOCATE(receive_indices(dst_count), send_indices(src_count))
 
+   any_dst_owner_lt_0 = .FALSE.
    DO i = 1, dst_n_points
-      IF (dst_owner(i) >= 0) THEN
-         dst_indices_displ(dst_owner(i)) = dst_indices_displ(dst_owner(i)) + 1
-         receive_indices(dst_indices_displ(dst_owner(i))) &
-            = INT(dst_global_index(i), xt_int_kind)
-      END IF
+     dst_owner_i = dst_owner(i)
+     any_dst_owner_lt_0 = any_dst_owner_lt_0 .OR. dst_owner_i < 0
+     IF (dst_owner_i >= 0) THEN
+       dst_indices_displ(dst_owner_i) = dst_indices_displ(dst_owner_i) + 1
+       receive_indices(dst_indices_displ(dst_owner_i)) &
+         = INT(dst_global_index(i), xt_int_kind)
+     END IF
    END DO
+
+   IF (any_dst_owner_lt_0) THEN
+     ALLOCATE(p_pat%dst_mask(dst_n_points))
+     p_pat%dst_mask = dst_owner >= 0
+   END IF
 
    accum_dst = 0
    DO i = 0, comm_size-1
      dst_indices_displ(i) = accum_dst
      accum_dst = accum_dst + dst_count_per_rank(i)
    END DO
+   dst_indices_displ(comm_size) = accum_dst
 
    CALL p_alltoallv(receive_indices, dst_count_per_rank, dst_indices_displ, &
       &             send_indices, src_count_per_rank, src_indices_displ, &
       &             p_pat%comm)
 
-   ALLOCATE(src_com(COUNT(src_count_per_rank > 0)), &
-    &       dst_com(COUNT(dst_count_per_rank > 0)))
+   DEALLOCATE(src_count_per_rank, dst_count_per_rank)
+   ALLOCATE(src_com(n_src_com), dst_com(n_dst_com))
 
    src_com_size = 0
    dst_com_size = 0
 
    DO i = 0, comm_size-1
 
-      IF (src_count_per_rank(i) > 0) THEN
+     src_count = src_indices_displ(i+1) - src_indices_displ(i)
+     IF (src_count > 0) THEN
 
-         src_com_size = src_com_size + 1
-         src_com(src_com_size)%rank = i
-         src_com(src_com_size)%list = &
-            xt_idxvec_new( &
-               send_indices(src_indices_displ(i)+1: &
-                            src_indices_displ(i)+src_count_per_rank(i)))
+       src_com_size = src_com_size + 1
+       src_com(src_com_size)%rank = i
+       src_com(src_com_size)%list = &
+            xt_idxvec_new(send_indices(src_indices_displ(i)+1: &
+            &                          src_indices_displ(i+1)))
       END IF
 
-      IF (dst_count_per_rank(i) > 0) THEN
+      dst_count = dst_indices_displ(i+1) - dst_indices_displ(i)
+      IF (dst_count > 0) THEN
 
          dst_com_size = dst_com_size + 1
          dst_com(dst_com_size)%rank = i
          dst_com(dst_com_size)%list = &
-            xt_idxvec_new( &
-               receive_indices(dst_indices_displ(i)+1: &
-                               dst_indices_displ(i)+dst_count_per_rank(i)))
+              xt_idxvec_new(receive_indices(dst_indices_displ(i)+1: &
+              &                             dst_indices_displ(i+1)))
       END IF
    END DO
 
    p_pat%src_n_points = src_n_points
    p_pat%dst_n_points = dst_n_points
-   IF (ANY(dst_owner < 0)) THEN
-     ALLOCATE(p_pat%dst_mask(dst_n_points))
-     p_pat%dst_mask = dst_owner >= 0
-   END IF
    src_idxlist = &
     xt_idxvec_new(MERGE(src_global_index(1:src_n_points), -1,&
     &                  src_owner(1:src_n_points) == comm_rank))
@@ -1005,11 +1017,11 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add)
 
    dst_nlev(1) = n
    IF (PRESENT(send)) THEN
-     nlev(1, 2) = SIZE(send,2)
+     src_nlev(1) = SIZE(send,2)
    ELSE
-     nlev(1, 2) = nlev(1, 1)
+     src_nlev(1) = n
    END IF
-   redist = comm_pattern_get_redist(p_pat, 1, nlev, p_real_dp)
+   redist = comm_pattern_get_redist(p_pat, 1, dst_nlev, src_nlev, p_real_dp)
 
    IF (PRESENT(send)) THEN
      CALL xt_redist_s_exchange1_contiguous(redist, send, recv)
