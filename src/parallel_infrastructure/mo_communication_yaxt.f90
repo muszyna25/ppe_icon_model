@@ -35,7 +35,8 @@ USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
   &                           timer_exch_data, timer_barrier
 USE mo_decomposition_tools, ONLY: t_glb2loc_index_lookup
 USE mo_parallel_config, ONLY: blk_no, idx_no, idx_1d
-USE yaxt, ONLY: xt_initialized, xt_initialize, xt_idxlist, xt_idxvec_new, &
+USE yaxt, ONLY: xt_initialized, xt_initialize, xt_idxlist, &
+  &             xt_int_kind, xt_idxvec_new, &
   &             xt_xmap, xt_xmap_delete, xt_xmap_intersection_new, &
   &             xt_idxlist_delete, xt_redist, xt_redist_p2p_off_new, &
   &             xt_redist_s_exchange1, xt_redist_delete, xt_redist_p2p_new, &
@@ -330,7 +331,7 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
 
    INTEGER :: dst_count_per_rank(0:p_n_work-1), dst_count
    INTEGER :: src_count_per_rank(0:p_n_work-1), src_count
-   INTEGER, ALLOCATABLE :: receive_indices(:), send_indices(:)
+   INTEGER(xt_int_kind), ALLOCATABLE :: receive_indices(:), send_indices(:)
    INTEGER :: dst_indices_displ(0:p_n_work-1), src_indices_displ(0:p_n_work-1)
 
    INTEGER :: i, pcomm, ierror
@@ -374,7 +375,8 @@ SUBROUTINE setup_comm_pattern(p_pat, dst_n_points, dst_owner, &
    DO i = 1, dst_n_points
       IF (dst_owner(i) >= 0) THEN
          dst_indices_displ(dst_owner(i)) = dst_indices_displ(dst_owner(i)) + 1
-         receive_indices(dst_indices_displ(dst_owner(i))) = dst_global_index(i)
+         receive_indices(dst_indices_displ(dst_owner(i))) &
+            = INT(dst_global_index(i), xt_int_kind)
       END IF
    END DO
 
