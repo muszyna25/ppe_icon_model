@@ -744,6 +744,7 @@ CONTAINS
                    &  tend%   ua_vdf(:,:,jb),         &! out
                    &  tend%   va_vdf(:,:,jb),         &! out
                    &  tend%   ta_vdf(:,:,jb),         &! out
+!!$                   &          zq_vdf(:,:),            &! out   heating W/m2
                    &  tend% qtrc_vdf(:,:,jb,iqv),     &! out
                    &  tend% qtrc_vdf(:,:,jb,iqc),     &! out
                    &  tend% qtrc_vdf(:,:,jb,iqi),     &! out
@@ -759,6 +760,12 @@ CONTAINS
 
       IF (ltimer) CALL timer_stop(timer_vdiff_up)
 
+!!$      ! heating accumulated
+!!$      zq_phy(jcs:jce,:) = zq_phy(jcs:jce,:) + zq_vdf(jcs:jce,:)
+!!$
+!!$      ! tendency
+!!$      tend% temp_vdf(jcs:jce,:,jb) = zq_vdf(jcs:jce,:)*zconv(jcs:jce,:)
+!!$
       ! tendencies accumulated
       tend%   ua(jcs:jce,:,jb)      = tend%   ua(jcs:jce,:,jb)      + tend%   ua_vdf(jcs:jce,:,jb)
       tend%   va(jcs:jce,:,jb)      = tend%   va(jcs:jce,:,jb)      + tend%   va_vdf(jcs:jce,:,jb)
@@ -1055,6 +1062,12 @@ CONTAINS
 
       field% rtype(jcs:jce,jb) = REAL(itype(jcs:jce),wp)
 
+!!$      ! heating accumulated
+!!$      zq_phy(jcs:jce,:) = zq_phy(jcs:jce,:) + zq_cnv(jcs:jce,:)
+!!$
+!!$      ! tendency
+!!$      tend% temp_cnv(jcs:jce,:,jb) = zq_cnv(jcs:jce,:)*zconv(jcs:jce,:)
+!!$
       ! tendencies accumulated
       tend%   ua(jcs:jce,:,jb)      = tend%   ua(jcs:jce,:,jb)      + tend%   ua_cnv(jcs:jce,:,jb)
       tend%   va(jcs:jce,:,jb)      = tend%   va(jcs:jce,:,jb)      + tend%   va_cnv(jcs:jce,:,jb)

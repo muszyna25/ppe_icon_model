@@ -19,16 +19,7 @@ MODULE mo_echam_cloud_params
 
   USE mo_kind,               ONLY: wp
   USE mo_physical_constants, ONLY: tmelt
-#ifndef __ICON__
-  USE mo_physical_constants, ONLY: grav
-#endif
-#ifdef __ICON__
   USE mo_exception,          ONLY: print_value
-#else
-  USE mo_control,            ONLY: nn
-  USE mo_submodel,           ONLY: print_value
-  USE mo_exception,          ONLY: finish
-#endif
 
   IMPLICIT NONE
   PRIVATE
@@ -110,88 +101,26 @@ CONTAINS
   !! This routine is called from *iniphy* in ECHAM
   !! This routine is called from *mo_echam_phy_init* in ICON
   !!
-#ifdef __ICON__
   SUBROUTINE sucloud ( )
-#else
-  SUBROUTINE sucloud ( nlev, vct )
-
-    INTEGER ,INTENT(IN) :: nlev          !< total # of vertical layers
-    REAL(wp),INTENT(IN) :: vct(2*(nlev+1))
-#endif
 
     ! local variables
-#ifndef __ICON__
-    REAL(wp) :: za, zb, zph(nlev+1), zp(nlev), zh(nlev)
-    INTEGER :: jk
-#endif
     !
     ! Calculate values for ECHAM using vct
     ! Preset values for ICON (first attempt): Use values
     !  of ECHAM L47
     !
-#ifdef __ICON__
     jbmin=40
     jbmax=45
     ncctop=13
     nccbot=35
-#else
     !
-    !-- half level pressure values, assuming 101320. Pa surface pressure
-    !
-    DO jk=1,nlev+1
-      za=vct(jk)
-      zb=vct(jk+nlev+1)
-      zph(jk)=za+zb*101320.0_wp
-    END DO
-    !
-    ! -- full level pressure
-    !
-    DO jk = 1, nlev
-      zp(jk)=(zph(jk)+zph(jk+1))*0.5_wp
-    END DO
-    !
-    DO jk = 1, nlev
-      zh(jk)=(zph(nlev+1)-zp(jk))/(grav*1.25_wp)
-    END DO
-    !
-    ! -- search for highest inversion level (first full level below 2000 m)
-    !
-    DO jk = 1, nlev
-      jbmin=jk
-      IF(zh(jk).LT.2000.0_wp) EXIT
-    END DO
-    !
-    ! -- search for lowest inversion level (first full level below 500 m)
-    !
-    DO jk = 1, nlev
-      jbmax=jk
-      IF(zh(jk).LT.500.0_wp) EXIT
-    END DO
-    !
-    ! -- search for pressure level cptop (Pa)
-    !
-    DO jk = 1, nlev
-      ncctop=jk
-      IF(zp(jk).GE.cptop) EXIT
-    END DO
-    !
-    ! -- search for pressure level cpbot (Pa)
-    !
-    DO jk = 1, nlev
-      nccbot=jk
-      IF(zp(jk).GE.cpbot) EXIT
-    END DO
-    !
-#endif
-    !
-    CALL print_value ('highest inversion level: jbmin = ', jbmin)
-    CALL print_value ('lowest inversion level: jbmax = ', jbmax)
-    CALL print_value ('highest level for condensation: ncctop = ', ncctop)
-    CALL print_value('lowest level for tropopause calc.: nccbot = ', nccbot)
+    CALL print_value ('highest inversion level           : jbmin  = ', jbmin )
+    CALL print_value ('lowest  inversion level           : jbmax  = ', jbmax )
+    CALL print_value ('highest level for condensation    : ncctop = ', ncctop)
+    CALL print_value ('lowest  level for tropopause calc.: nccbot = ', nccbot)
     !
     ! -- set resolution dependent parameters
     !
-#ifdef __ICON__
     crs     = 0.975_wp
     crt     = 0.75_wp
     cvtfall = 2.5_wp
@@ -200,47 +129,6 @@ CONTAINS
     csatsc  = 0.7_wp
     nex     = 2
     nadd    = 0
-#else
-    IF (nn == 31) THEN
-      crs     = 0.945_wp
-      crt     = 0.85_wp
-      cvtfall = 3.5_wp
-      csecfrl = 5.E-7_wp
-      clwprat = 0.0_wp
-      csatsc  = 0.1_wp
-      nex     = 1
-      nadd    = 1
-    ELSE IF (nn == 63) THEN
-      crs     = 0.975_wp
-      crt     = 0.75_wp
-      cvtfall = 2.5_wp
-      csecfrl = 5.E-6_wp
-      clwprat = 4.0_wp
-      csatsc  = 0.7_wp
-      nex     = 2
-      nadd    = 0
-    ELSE IF (nn==127) THEN
-      crs     = 0.985_wp
-      crt     = 0.75_wp
-      cvtfall = 2.5_wp
-      csecfrl = 1.E-5_wp
-      clwprat = 4.0_wp
-      csatsc  = 0.7_wp
-      nex     = 2
-      nadd    = 0
-    ELSE IF (nn==255) THEN
-      crs     = 0.975_wp
-      crt     = 0.75_wp
-      cvtfall = 2.5_wp
-      csecfrl = 5.E-6_wp
-      clwprat = 4.0_wp
-      csatsc  = 0.7_wp
-      nex     = 2
-      nadd    = 0
-    ELSE
-      CALL finish ('mo_echam_cloud_params', 'Truncation not supported.')
-    ENDIF
-#endif
 
 END SUBROUTINE sucloud
 
