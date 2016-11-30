@@ -256,7 +256,8 @@ MODULE mo_mpi
     &       p_unpack_int, p_unpack_bool, p_unpack_real,   &
     &       p_unpack_int_1d, p_unpack_real_1d,            &
     &       p_unpack_string, p_unpack_real_2d, p_test
-  PUBLIC :: p_scatter, p_gather, p_max, p_min, p_sum, p_global_sum, p_field_sum
+  PUBLIC :: p_max, p_min, p_lor, p_sum, p_global_sum, p_field_sum
+  PUBLIC :: p_scatter, p_gather
   PUBLIC :: p_probe
   PUBLIC :: p_gatherv, p_allgather, p_allgatherv
   PUBLIC :: p_scatterv
@@ -691,6 +692,10 @@ MODULE mo_mpi
      MODULE PROCEDURE p_min_2d
      MODULE PROCEDURE p_min_3d
   END INTERFACE
+
+  INTERFACE p_lor
+    MODULE PROCEDURE p_lor_0d
+  END INTERFACE p_lor
 
   INTERFACE p_sum
      MODULE PROCEDURE p_sum_dp_0s
@@ -9040,6 +9045,26 @@ CONTAINS
 
   END FUNCTION p_min_3d
 
+  FUNCTION p_lor_0d(zfield, comm) RESULT(res)
+    LOGICAL :: res
+    LOGICAL, INTENT(in) :: zfield
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+#ifndef NOMPI
+    INTEGER :: pcomm
+    IF (PRESENT(comm)) THEN
+       pcomm = comm
+    ELSE
+       pcomm = process_mpi_all_comm
+    ENDIF
+    IF (my_process_is_mpi_all_parallel()) THEN
+      CALL mpi_allreduce(zfield, res, 1, p_bool, mpi_lor, pcomm, p_error)
+    ELSE
+      res = zfield
+    END IF
+#else
+    res = zfield
+#endif
+  END FUNCTION p_lor_0d
 
   ! Computes maximum of a 1D field of integers.
   !
