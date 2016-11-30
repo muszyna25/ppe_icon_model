@@ -347,8 +347,6 @@ CONTAINS
 
 
 
-
-
     !Map the (explicit) vertical tracer flux to the prsim top (where the vertical divergence is calculated later)
     IF(.NOT.REVERT_VERTICAL_RECON_AND_TRANSPOSED)THEN
       CALL map_scalar_center2prismtop(patch_3d, flux_vert_center, op_coeff,GMredi_flux_vert)
@@ -357,6 +355,7 @@ CONTAINS
     ENDIF
     
     IF(INCLUDE_SLOPE_SQUARED_IMPLICIT)THEN
+
       ! Now we treat the vertical isoneutral coefficient that is discretized implicitely in time.  
       ! This is only neccessary once for temperature and salinity, the HAMOCC tracers use these value  
       IF(tracer_index<=2)THEN

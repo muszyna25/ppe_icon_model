@@ -4000,7 +4000,7 @@ stop
                 & - max_perturbation*EXP(-(distan/(perturbation_width*deg2rad))**2) !&
              !                &   * sin(pi*v_base%zlev_m(level)/4000.0_wp)!&
              !   & * SIN(pi*patch_3d%p_patch_1d(1)%zlev_m(level) / patch_3d%p_patch_1d(1)%zlev_i(levels+1))
-write(123,*)'perturb',max_perturbation*EXP(-(distan/(perturbation_width*deg2rad))**2)			 
+!write(123,*)'perturb',max_perturbation*EXP(-(distan/(perturbation_width*deg2rad))**2)			 
             END DO
           ENDIF !Local hot perturbation
 
@@ -4396,7 +4396,7 @@ write(123,*)'perturb',max_perturbation*EXP(-(distan/(perturbation_width*deg2rad)
     INTEGER :: BLOCK, idx, level, ll
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: levels
-    REAL(wp):: lat_deg, lon_deg !, z_tmp
+    REAL(wp):: lat_deg, lon_deg, distan !, z_tmp
     ! REAL(wp):: perturbation_lat, perturbation_lon,  z_ltrop, z_lpol
     ! REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_tpols
 
@@ -4422,8 +4422,8 @@ write(123,*)'perturb',max_perturbation*EXP(-(distan/(perturbation_width*deg2rad)
         !Impose emperature profile. Profile
         !depends on latitude only and is uniform across
 
-        alat_0=-30.0_wp
-        alon_0=250.0_wp
+        alat_0=-5.0_wp !-30.0_wp
+        alon_0=90_wp!200_wp !250.0_wp
 
 
         !all vertical layers
@@ -4435,7 +4435,9 @@ write(123,*)'perturb',max_perturbation*EXP(-(distan/(perturbation_width*deg2rad)
 
           a=(lat_deg-alat_0)**2
           xlon=MERGE(lon_deg,lon_deg+360,lon_deg.GE.0)
-          b= (xlon-alon_0)**2
+
+          !b= (xlon-alon_0)**2
+          b= (lon_deg-alon_0)**2          
           c= 10_wp**2
 
           height=0.0_wp
@@ -4451,14 +4453,21 @@ write(123,*)'perturb',max_perturbation*EXP(-(distan/(perturbation_width*deg2rad)
 
           ELSE
 
-            ocean_salinity(idx,level,BLOCK) =  34.1_wp + sssu*patch_3d%p_patch_1d(1)%zlev_m(level)/1400.0_wp
 
+         distan=SQRT((cell_center(idx, block)%lat*rad2deg + 5.0_wp)**2 + &
+            & (xlon - 180_wp)**2)
+ !write(1020,*)'dist', distan,lat_deg,lon_deg,10.0_wp * deg2rad          
+          !IF(distan < 10_wp) THEN
+ 
+
+            ocean_salinity(idx,level,BLOCK) =  34.1_wp + sssu*patch_3d%p_patch_1d(1)%zlev_m(level)/1400.0_wp
+          ! ENDIF 
           ENDIF
 
         END DO
       END DO
     END DO
-
+!stop
    END SUBROUTINE salinity_GM_idealized3
   !-------------------------------------------------------------------------------
 

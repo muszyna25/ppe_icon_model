@@ -732,7 +732,11 @@ CONTAINS
       ENDIF!IF(GMREDI_COMBINED_DIAGNOSTIC)
       
       !Vertical mixing: implicit and with coefficient a_v
-      !that is the sum of PP-coeff and implii part of Redi-scheme
+      !that is the sum of PP-coeff and implicit part of Redi-scheme
+DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)           
+write(0,*)'vert coeff',level,maxval(a_v(:,level,:)),minval(a_v(:,level,:))
+END DO
+      a_v=0.0_wp
       CALL tracer_diffusion_vertical_implicit( &
           & patch_3d,                        &
           & new_ocean_tracer,                &
@@ -841,7 +845,7 @@ CONTAINS
       END DO
      ELSEIF(tracer_index == 2) THEN
       DO level=1,n_zlev
-        CALL dbg_print('after trac: salt chg', p_os%p_diag%opottemptend(:,level,:), str_module, 3, in_subset=cells_in_domain)
+        CALL dbg_print('after trac: salt chg', p_os%p_diag%osalttend(:,level,:), str_module, 3, in_subset=cells_in_domain)
       END DO
     ENDIF  
       

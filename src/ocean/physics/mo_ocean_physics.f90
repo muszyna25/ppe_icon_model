@@ -374,7 +374,7 @@ CONTAINS
           DO je = start_index, end_index
           
             length_scale=(1.0_wp/4.0E5_wp)*sqrt(patch_2D%edges%primal_edge_length(je,blockNo)&
-                                       & * patch_2D%edges%dual_edge_length(je,blockNo))
+                                       & * patch_2D%edges%primal_edge_length(je,blockNo))
             p_phys_param%k_tracer_h(je,:,blockNo,i)=length_scale*p_phys_param%k_tracer_h_back(i)
                                                   
           END DO
@@ -401,8 +401,11 @@ CONTAINS
           p_phys_param%k_tracer_isoneutral(:,:,blockNo) = 0.0_wp
           DO jc = start_index, end_index
           
-            length_scale=(1.0_wp/4.0E5_wp)*sqrt(patch_2D%edges%primal_edge_length(je,blockNo)&
-                                       & * patch_2D%edges%dual_edge_length(je,blockNo))
+            !length_scale=(1.0_wp/4.0E5_wp)*sqrt(patch_2D%edges%primal_edge_length(je,blockNo)&
+            !                           & * patch_2D%edges%dual_edge_length(je,blockNo))
+ 
+             length_scale=(1.0_wp/4.0E5_wp)*sqrt(patch_2D%cells%area(jc,blockNo))                                      
+                                       
             p_phys_param%k_tracer_isoneutral(jc,:,blockNo)=length_scale*k_tracer_isoneutral_parameter
             p_phys_param%k_tracer_GM_kappa(jc,:,blockNo)=length_scale*k_tracer_GM_kappa_parameter
                                                   
