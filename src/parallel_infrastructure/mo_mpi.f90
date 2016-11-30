@@ -737,6 +737,7 @@ MODULE mo_mpi
 
   INTERFACE p_alltoallv
     MODULE PROCEDURE p_alltoallv_int
+    MODULE PROCEDURE p_alltoallv_int_i8_1d
     MODULE PROCEDURE p_alltoallv_real_2d
     MODULE PROCEDURE p_alltoallv_sreal_2d
     MODULE PROCEDURE p_alltoallv_int_2d
@@ -10093,6 +10094,29 @@ CONTAINS
        sendbuf(sdispls(1)+1:sdispls(1)+sendcounts(1))
 #endif
    END SUBROUTINE p_alltoallv_int
+
+   SUBROUTINE p_alltoallv_int_i8_1d(sendbuf, sendcounts, sdispls, &
+     &                         recvbuf, recvcounts, rdispls, comm)
+     INTEGER(i8),       INTENT(in) :: sendbuf(:)
+     INTEGER(i8),       INTENT(inout) :: recvbuf(:)
+     INTEGER,           INTENT(in) :: sendcounts(:), sdispls(:), &
+       &                              recvcounts(:), rdispls(:)
+     INTEGER,           INTENT(in) :: comm
+#if !defined(NOMPI)
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_alltoallv_int")
+     INTEGER :: p_comm, p_error
+
+     p_comm = comm
+     CALL mpi_alltoallv(sendbuf, sendcounts, sdispls, p_int_i8, &
+       &                recvbuf, recvcounts, rdispls, p_int_i8, p_comm, p_error)
+     IF (p_error /=  MPI_SUCCESS) &
+       CALL finish (routine, 'Error in MPI_ALLTOALLV operation!')
+#else
+     ! displs are zero based -> have to add 1
+     recvbuf(rdispls(1)+1:rdispls(1)+recvcounts(1)) = &
+       sendbuf(sdispls(1)+1:sdispls(1)+sendcounts(1))
+#endif
+   END SUBROUTINE p_alltoallv_int_i8_1d
 
 #if !defined(NOMPI)
    SUBROUTINE p_alltoallv_p2p_real_2d_core(dim1_size, sendbuf, sendcounts, sdispls, &
