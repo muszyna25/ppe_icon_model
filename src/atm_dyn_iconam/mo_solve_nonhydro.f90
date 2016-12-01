@@ -820,7 +820,7 @@ MODULE mo_solve_nonhydro
 
 #ifndef __LOOP_EXCHANGE
           ! Compute backward trajectory - code is inlined for cache-based machines (see below)
-          CALL btraj_compute_o1( this       = btraj,                 & !inout
+          CALL btraj_compute_o1( btraj      = btraj,                 & !inout
             &                   ptr_p       = p_patch,               & !in
             &                   ptr_int     = p_int,                 & !in
             &                   p_vn        = p_nh%prog(nnow)%vn,    & !in

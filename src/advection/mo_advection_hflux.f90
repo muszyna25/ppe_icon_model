@@ -298,7 +298,7 @@ CONTAINS
       IF (p_iord_backtraj == 1)  THEN
 
         ! 1st order backward trajectory
-        CALL btraj_compute_o1( this      = btraj,            & !inout
+        CALL btraj_compute_o1( btraj     = btraj,            & !inout
           &                  ptr_p       = p_patch,          & !in
           &                  ptr_int     = p_int,            & !in
           &                  p_vn        = p_vn,             & !in
@@ -310,7 +310,7 @@ CONTAINS
           &                  opt_elev    = p_patch%nlev      ) !in
       ELSE
         ! 2nd order backward trajectory
-        CALL btraj_compute_o2 ( this        = btraj,            & !inout
+        CALL btraj_compute_o2 ( btraj       = btraj,            & !inout
           &                     ptr_p       = p_patch,          & !in
           &                     ptr_int     = p_int,            & !in
           &                     p_vn        = p_vn,             & !in
@@ -346,7 +346,7 @@ CONTAINS
         !
         ! 1st order backward trajectory for subcycled version
         ! The only thing that differs is the time step passed in
-        CALL btraj_compute_o1( this      = btraj_cycl,       & !inout
+        CALL btraj_compute_o1( btraj     = btraj_cycl,       & !inout
           &                  ptr_p       = p_patch,          & !in
           &                  ptr_int     = p_int,            & !in
           &                  p_vn        = p_vn,             & !in
@@ -360,7 +360,7 @@ CONTAINS
         !
         ! 2nd order backward trajectory for subcycled version
         ! The only thing that differs is the time step passed in
-        CALL btraj_compute_o2 ( this        = btraj_cycl,       & !inout
+        CALL btraj_compute_o2 ( btraj       = btraj_cycl,       & !inout
           &                     ptr_p       = p_patch,          & !in
           &                     ptr_int     = p_int,            & !in
           &                     p_vn        = p_vn,             & !in

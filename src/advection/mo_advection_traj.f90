@@ -190,10 +190,10 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2010-03-17)
   !!
-  SUBROUTINE btraj_compute_o1( this, ptr_p, ptr_int, p_vn, p_vt, p_dthalf, &
+  SUBROUTINE btraj_compute_o1( btraj, ptr_p, ptr_int, p_vn, p_vt, p_dthalf, &
     &                          opt_rlstart, opt_rlend, opt_slev, opt_elev )
 
-    TYPE(t_back_traj), INTENT(INOUT) :: this
+    TYPE(t_back_traj), INTENT(INOUT) :: btraj
 
     TYPE(t_patch), TARGET, INTENT(in) ::      &  !< patch on which computation is performed
          &  ptr_p
@@ -268,13 +268,13 @@ CONTAINS
     ENDIF
 
     ! allocate output arrays
-    CALL this%construct(nproma,ptr_p%nlev,ptr_p%nblks_e,2)
+    CALL btraj%construct(nproma,ptr_p%nlev,ptr_p%nblks_e,2)
 
 #ifdef _OPENACC
-!$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( this%distv_bary, this%cell_idx, this%cell_blk ),  IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( btraj%distv_bary, btraj%cell_idx, btraj%cell_blk ),  IF( i_am_accel_node .AND. acc_on )
 !ACC_DEBUG  UPDATE DEVICE ( p_vn, p_vt ) IF( i_am_accel_node .AND. acc_on )
 !$ACC PARALLEL &
-!$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, this%distv_bary, this%cell_idx, this%cell_blk ), &
+!$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, btraj%distv_bary, btraj%cell_idx, btraj%cell_blk ), &
 !$ACC PRIVATE( z_ntdistv_bary ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
@@ -308,10 +308,10 @@ CONTAINS
           ! If vn > 0 (vn < 0), the upwind cell is cell 1 (cell 2)
 
           ! line and block indices of neighbor cell with barycenter
-          this%cell_idx(je,jk,jb) = &
+          btraj%cell_idx(je,jk,jb) = &
              &   MERGE(ptr_p%edges%cell_idx(je,jb,1),ptr_p%edges%cell_idx(je,jb,2),lvn_pos)
 
-          this%cell_blk(je,jk,jb) = &
+          btraj%cell_blk(je,jk,jb) = &
              &   MERGE(ptr_p%edges%cell_blk(je,jb,1),ptr_p%edges%cell_blk(je,jb,2),lvn_pos)
 
 
@@ -332,14 +332,14 @@ CONTAINS
           ! North.
 
           ! component in longitudinal direction
-          this%distv_bary(je,jk,jb,1) =                                                        &
+          btraj%distv_bary(je,jk,jb,1) =                                                       &
                &   z_ntdistv_bary(1)*MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v1,         &
                &                           ptr_p%edges%primal_normal_cell(je,jb,2)%v1,lvn_pos) &
                & + z_ntdistv_bary(2)*MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v1,           &
                &                           ptr_p%edges%dual_normal_cell(je,jb,2)%v1,lvn_pos)
 
           ! component in latitudinal direction
-          this%distv_bary(je,jk,jb,2) =                                                        &
+          btraj%distv_bary(je,jk,jb,2) =                                                       &
                &   z_ntdistv_bary(1)*MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v2,         &
                &                           ptr_p%edges%primal_normal_cell(je,jb,2)%v2,lvn_pos) &
                & + z_ntdistv_bary(2)*MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v2,           &
@@ -350,7 +350,7 @@ CONTAINS
     END DO    ! loop over blocks
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( this%cell_idx, this%cell_blk, this%distv_bary ) IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE HOST( btraj%cell_idx, btraj%cell_blk, btraj%distv_bary ) IF( i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 #else
 !$OMP END DO NOWAIT
@@ -757,10 +757,10 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2010-03-24)
   !!
-  SUBROUTINE btraj_compute_o2( this, ptr_p, ptr_int, p_vn, p_vt, p_dthalf, &
+  SUBROUTINE btraj_compute_o2( btraj, ptr_p, ptr_int, p_vn, p_vt, p_dthalf, &
        &                       opt_rlstart, opt_rlend, opt_slev, opt_elev )
 
-    TYPE(t_back_traj), INTENT(INOUT) :: this
+    TYPE(t_back_traj), INTENT(INOUT) :: btraj
 
     TYPE(t_patch), TARGET, INTENT(IN) ::      &  !< patch on which computation is performed
          &  ptr_p
@@ -820,7 +820,7 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     ! allocate output arrays
-    CALL this%construct(nproma,ptr_p%nlev,ptr_p%nblks_e,2)
+    CALL btraj%construct(nproma,ptr_p%nlev,ptr_p%nblks_e,2)
 
     ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN
@@ -870,7 +870,7 @@ CONTAINS
     iblk => ptr_p%edges%quad_blk
 
 #ifdef _OPENACC
-!$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( this%distv_bary, this%cell_idx, this%cell_blk ), &
+!$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( btraj%distv_bary, btraj%cell_idx, btraj%cell_blk ), &
 !$ACC CREATE( z_vn_plane, pos_barycenter, z_ntdistv_bary ),   IF( i_am_accel_node .AND. acc_on )
 !ACC_DEBUG  UPDATE DEVICE ( p_vn, p_vt ) IF( i_am_accel_node .AND. acc_on )
 !$ACC PARALLEL &
@@ -947,7 +947,7 @@ CONTAINS
 !$ACC END PARALLEL
 
 !$ACC PARALLEL &
-!$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, this%distv_bary, this%cell_idx, this%cell_blk ), &
+!$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, btraj%distv_bary, btraj%cell_idx, btraj%cell_blk ), &
 !$ACC PRIVATE( pos_barycenter, z_ntdistv_bary ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
 
@@ -985,8 +985,8 @@ CONTAINS
                 !! we are in cell 1 !!
 
                 ! line and block indices of neighboring cell with barycenter
-                this%cell_idx(je,jk,jb) = ptr_p%edges%cell_idx(je,jb,1)
-                this%cell_blk(je,jk,jb) = ptr_p%edges%cell_blk(je,jb,1)
+                btraj%cell_idx(je,jk,jb) = ptr_p%edges%cell_idx(je,jb,1)
+                btraj%cell_blk(je,jk,jb) = ptr_p%edges%cell_blk(je,jb,1)
 
                 zcell = 1
 
@@ -1015,8 +1015,8 @@ CONTAINS
                 !! we are in cell 2 !!
 
                 ! line and block indices of neighboring cell with barycenter
-                this%cell_idx(je,jk,jb) = ptr_p%edges%cell_idx(je,jb,2)
-                this%cell_blk(je,jk,jb) = ptr_p%edges%cell_blk(je,jb,2)
+                btraj%cell_idx(je,jk,jb) = ptr_p%edges%cell_idx(je,jb,2)
+                btraj%cell_blk(je,jk,jb) = ptr_p%edges%cell_blk(je,jb,2)
 
                 zcell = 2
 
@@ -1065,12 +1065,12 @@ CONTAINS
               ! North.
 
               ! component in longitudinal direction
-              this%distv_bary(je,jk,jb,1) =                                                 &
+              btraj%distv_bary(je,jk,jb,1) =                                                &
                    &    z_ntdistv_bary(1) * ptr_p%edges%primal_normal_cell(je,jb,zcell)%v1  &
                    &  + z_ntdistv_bary(2) * ptr_p%edges%dual_normal_cell(je,jb,zcell)%v1
 
               ! component in latitudinal direction
-              this%distv_bary(je,jk,jb,2) =                                                 &
+              btraj%distv_bary(je,jk,jb,2) =                                                &
                    &    z_ntdistv_bary(1) * ptr_p%edges%primal_normal_cell(je,jb,zcell)%v2  &
                    &  + z_ntdistv_bary(2) * ptr_p%edges%dual_normal_cell(je,jb,zcell)%v2
 
@@ -1082,7 +1082,7 @@ CONTAINS
 
 #ifdef _OPENACC
 !$ACC END PARALLEL
-!ACC_DEBUG UPDATE HOST( this%cell_idx, this%cell_blk, this%distv_bary ) IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE HOST( btraj%cell_idx, btraj%cell_blk, btraj%distv_bary ) IF( i_am_accel_node .AND. acc_on )
 !$ACC END DATA
 #else
 !$OMP END DO NOWAIT

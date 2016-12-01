@@ -256,7 +256,7 @@ CONTAINS
                                opt_rlstart=grf_bdywidth_e-2, opt_rlend=min_rledge_int-1)
 
     ! Compute back trajectories
-    CALL btraj_compute_o1 ( this     = btraj,            & !inout
+    CALL btraj_compute_o1 ( btraj    = btraj,            & !inout
       &                  ptr_p       = p_patch,          & !in
       &                  ptr_int     = p_int,            & !in
       &                  p_vn        = vn_traj_avg,      & !in
