@@ -736,7 +736,6 @@ CONTAINS
 !DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)           
 !write(0,*)'vert coeff',level,maxval(a_v(:,level,:)),minval(a_v(:,level,:))
 !END DO
-      a_v=0.0_wp
       CALL tracer_diffusion_vertical_implicit( &
           & patch_3d,                        &
           & new_ocean_tracer,                &

@@ -378,9 +378,10 @@ CONTAINS
         ENDIF      
         IF(tracer_index==1)THEN
           Do level=1,n_zlev
-            !CALL dbg_print('Old vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
-            CALL dbg_print('Old vert coeff: A_v', ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit,&
+            CALL dbg_print('Old vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index),&
             & this_mod_name, 4, patch_2D%cells%in_domain)
+            !CALL dbg_print('Old vert coeff: A_v', ocean_state%p_diag%vertical_mixing_coeff_GMRedi_implicit,&
+            !& this_mod_name, 4, patch_2D%cells%in_domain)
           End do
         ENDIF
         !
