@@ -27,43 +27,15 @@ author_list="Marco Giorgetta, MPIM"
 # basedir                       = base directory, where src/, run/ etc exist
 # icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
 # nproma                        = blocking length for array dimensioning and inner loop lengths
-# second, minute, hour, day     = length of these intervals in [s]
 
-#--------------------------------------------------------------------------------------------------
-#--------------------------------------
-# Define grids for horizontal remapping
-# -------------------------------------
-#
-# The ICON RmBn grid has 3*m*2**n rows of triangles between the vertices at the N and S pole.
-# The number of triangles in a row around this axis increases linearly from 5 to 5*(1+2*(i-1))
-# at the base of the "polar" icosahedral triangles. In the "tropical" icosahedral triangles
-# all rows have a  5*(2*(m*2**n)) triangles. The triangles are either northward or southward
-# pointing. Thus the smallest periodic element in a tropical row is a rhombus formed by two
-# adjacent triangles. A tropical row has 5*(m*n**2) rhombi.
-#
-# The R2B4 grid has a total of 20480 triangular cells in 96 rows.
-# The tropical rows have 320 triangles or 160 rhombi.
-#
-# Therefore the following regular lon-lat grids are of interest for remapping:
-#
-# regular  grid: nlat=96, nlon=192, npts=18432, dlat=1.875 deg, dlon=1.875 deg
-reg_lat_def_reg=-89.0625,1.875,89.0625
-reg_lon_def_reg=0.,1.875,358.125
-#
-# rhombus  grid: nlat=96, nlon=160, npts=15360, dlat=1.875 deg, dlon=2.250 deg
-reg_lat_def_rmb=$reg_lat_def_reg
-reg_lon_def_rmb=0.,2.25,357.75
-#
-# triangle grid: nlat=96, nlon=320, npts=30720, dlat=1.875 deg, dlon=1.125 deg
-reg_lat_def_tri=$reg_lat_def_reg
-reg_lon_def_tri=0.,1.125,358.875
 #--------------------------------------------------------------------------------------------------
 
 # (2) Set variables needed by the scripting mechanism
 
 # horizontal grid(s)
-grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip/r0002
-atmo_dyn_grids='r2b4_amip.nc'
+grid_name=r2b4_amip
+grids_folder=${icon_data_poolFolder}/grids/private/${grid_name}/r0002
+atmo_dyn_grids=${grid_name}.nc
 
 # start and end date+time
 start_date="1979-01-01T00:00:00Z"
@@ -72,11 +44,6 @@ start_date="1979-01-01T00:00:00Z"
 # restart intervals
 checkpoint_interval="PT8M"
 restart_interval="PT16M"
-#
-# NEEDED TO KEEP THIS TEST WORKING WITHOUT "--enable-mtime-loop" CONFIGURATION.
-# TO BE DELETED AFTER THE "mtime time loop" IS COMPLETELY IMPLEMENTED.
-(( dt_checkpoint =  8 * minute))    # !! MUST BE EQUAL TO "checkpoint_interval"  !!
-(( dt_restart    = 16 * minute))    # !! MUST BE EQUAL TO "restart_interval"     !!
 
 # output intervals
 output_interval="PT4M"
@@ -102,8 +69,7 @@ cat > ${atmo_namelist} << EOF
 /
 &run_nml
  num_lev          = 47          ! number of full levels
- dtime            = 240         ! [s] time step   !! MUST BE EQUAL TO "modelTimeStep" !!
- modelTimeStep    = "PT04M"
+ modelTimeStep    = "PT4M"
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
@@ -180,7 +146,6 @@ cat > ${atmo_namelist} << EOF
                                 !18: Kinne background aerosols of 1850 (natural
                                 !    background + Stenchikov's volc. aerosols
                                 !    + simple plumes (anthropogenic)
- lrad_aero_diag   = .TRUE.      ! switch for diagnostics of the aerosol optical properties
  ighg             = 1           ! 1: transient well mixed greenhouse gas concentrations
  isolrad          = 1           ! 1: transient solar irradiance (at 1 AE)
 /
@@ -251,10 +216,10 @@ INDATA=${icon_data_poolFolder}/input/r0004
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
 datadir=${icon_data_poolFolder}/setup/ifs_iconremap_amip
-add_link_file $datadir/ifs_remap_R2B4_00XX_AMIP_2012010100_setyear1979.nc ./ifs2icon_R2B04_DOM01.nc
+add_link_file $datadir/ifs_remap_${grid_name}_2012010100_setyear1979.nc ./ifs2icon_R2B04_DOM01.nc
 #
 # - land: source?, date+time?
-datadir=$INDATA/r2b4_amip/lnd
+datadir=$INDATA/${grid_name}/lnd
 add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil.nc
 
 # boundary conditions
@@ -269,7 +234,7 @@ datadir=$INDATA/global/atm
 add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc                 ./bc_greenhouse_gases.nc
 #
 # - ozone
-datadir=$INDATA/r2b4_amip/atm/bc_ozone_cmip5
+datadir=$INDATA/${grid_name}/atm/bc_ozone_cmip5
 year=$start_year
 while [[ $year -le $end_year ]]
 do
@@ -280,7 +245,7 @@ done
 add_link_file /scratch/local1/m218036/m218036_scratch_local2/cariolle/COEF_91_v2.9.nc ./cariolle_coeff.nc
 #
 # - tropospheric aerosol
-datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
+datadir=$INDATA/${grid_name}/atm/bc_aeropt_kinne
 year=$start_year
 while [[ $year -le $end_year ]]
 do
@@ -294,22 +259,12 @@ do
   fi
   (( year = year+1 ))
 done
-# for aerosol forcing calculations, the reference aerosols are the natural aerosols which are the Kinne
-# aerosols of 1850
-#year=$start_year
-#while [[ $year -le $end_year ]]
-#do
-#  add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  ./bc_aeropt_kinne_lw_b16_coa_${year}.nc
-#  add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                  ./bc_aeropt_kinne_sw_b14_coa_${year}.nc
-#  add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
-#  (( year = year+1 ))
-#done
 #
 # - tropospheric anthropogenic aerosols, simple plumes
   add_link_file ${basedir}/data/MACv2.0-SP_v1.nc ./MACv2.0-SP_v1.nc
 #   Kinne background aerosols are needed for the years 1849, 1850, 1851 
 !   accessing all the same data of 1850:
-datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
+datadir=$INDATA/${grid_name}/atm/bc_aeropt_kinne
 year=1849
 while [[ $year -le 1851 ]]
 do
@@ -318,8 +273,9 @@ do
   add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
   (( year = year+1 ))
 done
+#
 # - stratospheric aerosol
-datadir=$INDATA/r2b4_amip/atm/bc_aeropt_stenchikov
+datadir=$INDATA/${grid_name}/atm/bc_aeropt_stenchikov
 year=$start_year
 while [[ $year -le $end_year ]]
 do
@@ -333,7 +289,7 @@ do
 done
 #
 # - sst and sic
-datadir=$INDATA/r2b4_amip/oce
+datadir=$INDATA/${grid_name}/oce
 add_link_file $datadir/bc_sic_pcmdi_1870-2010.nc                        ./bc_sic.nc
 add_link_file $datadir/bc_sst_pcmdi_1870-2010.nc                        ./bc_sst.nc
 #
@@ -342,7 +298,7 @@ datadir=$INDATA/global/sun
 add_link_file $datadir/bc_solar_irradiance_14band_1849-2399.nc          ./bc_solar_irradiance_sw_b14.nc
 #
 # - land parameters
-datadir=$INDATA/r2b4_amip/lnd
+datadir=$INDATA/${grid_name}/lnd
 add_link_file $datadir/bc_land_frac_1976.nc                             ./bc_land_frac.nc
 add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
 add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
@@ -352,11 +308,37 @@ add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_lan
 
 # (5) Define the output
 
+# Define grids for horizontal remapping of output fields
+# ------------------------------------------------------
+#
+# The ICON RmBn grid has 3*m*2**n rows of triangles between the vertices at the N and S pole.
+# The number of triangles in a row around this axis increases linearly from 5 to 5*(1+2*(i-1))
+# at the base of the "polar" icosahedral triangles. In the "tropical" icosahedral triangles
+# all rows have a  5*(2*(m*2**n)) triangles. The triangles are either northward or southward
+# pointing. Thus the smallest periodic element in a tropical row is a rhombus formed by two
+# adjacent triangles. A tropical row has 5*(m*n**2) rhombi.
+#
+# The R2B4 grid has a total of 20480 triangular cells in 96 rows.
+# The tropical rows have 320 triangles or 160 rhombi.
+#
+# Therefore the following regular lon-lat grids are of interest for remapping:
+#
+# regular  grid: nlat=96, nlon=192, npts=18432, dlat=1.875 deg, dlon=1.875 deg
+reg_lat_def_reg=-89.0625,1.875,89.0625
+reg_lon_def_reg=0.,1.875,358.125
+#
+# rhombus  grid: nlat=96, nlon=160, npts=15360, dlat=1.875 deg, dlon=2.250 deg
+reg_lat_def_rmb=$reg_lat_def_reg
+reg_lon_def_rmb=0.,2.25,357.75
+#
+# triangle grid: nlat=96, nlon=320, npts=30720, dlat=1.875 deg, dlon=1.125 deg
+reg_lat_def_tri=$reg_lat_def_reg
+reg_lon_def_tri=0.,1.125,358.875
+
 # Parameters for all output files
 # -------------------------------
 cat >> ${atmo_namelist} << EOF
 &io_nml
- dt_checkpoint    = ${dt_checkpoint}  !  NEEDED TO KEEP THIS TEST WORKING WITHOUT "--enable-mtime-loop" CONFIGURATION.
  output_nml_dict  = "${dict_file}"
  netcdf_dict      = "${dict_file}"
  lnetcdf_flt64_output = .TRUE.
@@ -407,30 +389,20 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
-                    'cosmu0'  , 'daylght_frc', 'rsdt'    ,
-                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
-                    'rsns_wtr', 'rsns_ice', 'rsns_lnd',
-                    'rlns_wtr', 'rlns_ice', 'rlns_lnd', 'tend_ta_rlw_impl',
-                    'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts'      , 'ts_rad'  ,
+                    'cosmu0'  ,
+                    'rsdt'    ,
+                    'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'
+                    'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs'
+                    'rsus'    , 'rsuscs'  , 'rlus'    ,
+                    'ts'      ,
                     'sic'     , 'sit'     ,
-                    'visdffsfc','nirdffsfc','vissfc'  , 'nirsfc'  ,
-                    'albedo'  , 'albedo_wtr', 'albedo_ice', 'albedo_lnd',
-                    'albvisdir','albvisdif' , 'albnirdir' , 'albnirdif',
-                    'albvisdir_ice', 'albvisdir_wtr', 'albvisdir_lnd',
+                    'albedo'  ,
                     'clt'     ,
                     'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
                     'hfls'    , 'hfss'    , 'evspsbl' ,
-                    'hfls_wtr', 'hfls_ice', 'hfls_lnd',
-                    'hfss_wtr', 'hfss_ice', 'hfss_lnd',
                     'tauu'    , 'tauv'    ,
-                    'tauu_wtr', 'tauu_ice', 'tauu_lnd',
-                    'tauv_wtr', 'tauv_ice', 'tauv_lnd',
                     'tauu_sso', 'tauv_sso', 'diss_sso', 
-                    'sh_vdiff', 'qv_vdiff',
-                    'ch_concloud',
-                    'con_dtrl', 'con_dtri', 'con_iteqv',
-                    'cld_dtrl', 'cld_dtri', 'cld_iteq', 
                     'sfcwind' , 'uas'     , 'vas'     ,
                     'tas'     , 'dew2'
 /
@@ -528,6 +500,8 @@ if [[ "$output_lnd" == "yes" ]]; then
 /
 EOF
 fi
+
+
 output_aer_3d=no # "yes" needs lrad_aero_diag=.TRUE. in radiation_nml
 #
 if [[ "$output_aer_3d" == "yes" ]]; then
@@ -550,37 +524,6 @@ if [[ "$output_aer_3d" == "yes" ]]; then
                     'aer_aod_2325', 'aer_ssa_2325', 'aer_asy_2325', 
                     'aer_aod_9731',
                     'pfull'
-/
-EOF
-fi
-output_radforcing_3d=no # "yes" needs lradforcing being set in psrad_nml
-#
-if [[ "$output_radforcing_3d" == "yes" ]]; then
-  #
-  cat >> ${atmo_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_radforcing_3d"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = 1
- reg_def_mode     = 1
- reg_lat_def      = ${reg_lat_def_rmb}
- reg_lon_def      = ${reg_lon_def_rmb}
- output_grid      = .TRUE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
- output_interval  = "${output_interval}"
- file_interval    = "${file_interval}"
- include_last     = .FALSE.
- ml_varlist       = 'fsw_clear_top','fsw_total_top',
-                    'fsw_clear_sur','fsw_total_sur',
-                    'd_aflx_sw'    ,'d_aflx_swc',
-                    'netht_sw',
-                    'flw_clear_top','flw_total_top',
-                    'flw_clear_sur','flw_total_sur',
-                    'd_aflx_lw'    ,'d_aflx_lwc',
-                    'netht_lw',
-		    'emter_for'    ,'emtef_for',
-                    'trsol_for'    ,'trsof_for'
 /
 EOF
 fi

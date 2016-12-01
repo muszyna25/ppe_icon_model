@@ -150,7 +150,7 @@ INTERFACE div
 END INTERFACE
 
 #if defined( _OPENACC )
-#define ACC_DEBUG $ACC
+#define ACC_DEBUG NOACC
 #if defined(__MATH_DIVROT_NOACC)
   LOGICAL, PARAMETER ::  acc_on = .FALSE.
 #else
@@ -477,9 +477,6 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$ACC PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
 !$ACC PRIVATE( z_b ), &
 !$ACC IF( i_am_accel_node .AND. acc_on )
-
-!$ACC PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
-
 !$ACC LOOP GANG
 #else
 !$OMP PARALLEL
@@ -3548,6 +3545,7 @@ END IF
     ! calculate rotation, i.e.
     ! add individual edge contributions to rotation
     !
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jv = i_startidx, i_endidx
       DO jk = slev, elev

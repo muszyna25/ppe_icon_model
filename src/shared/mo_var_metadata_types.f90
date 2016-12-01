@@ -8,6 +8,7 @@
 MODULE mo_var_metadata_types
 
   USE mo_kind,                  ONLY: dp, wp
+  USE mo_impl_constants,        ONLY: VARNAME_LEN
   USE mo_grib2,                 ONLY: t_grib2_var
   USE mo_action_types,          ONLY: t_var_action
   USE mo_cf_convention,         ONLY: t_cf_var
@@ -22,9 +23,6 @@ MODULE mo_var_metadata_types
   ! CONSTANTS
   ! ---------------------------------------------------------------
 
-
-  ! maximum string length for variable names
-  INTEGER, PARAMETER :: VARNAME_LEN = 256
 
   ! List of variable groups
   ! 

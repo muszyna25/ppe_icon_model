@@ -25,7 +25,7 @@ SUBROUTINE lcariolle_init(                            &
 USE mo_lcariolle_kind,         ONLY: wp,wi
 USE mo_lcariolle_types,        ONLY: &
      & nlatx,nlevx,nmonthx, & !< number of latitudes, levels, months in climatology
-     & pvi,avi              & !< derived types: pvi (inside Cariolle),
+     & pvi,avi                !< derived types: pvi (inside Cariolle),
                               !< avi (variables passed from host model to this submodel)
 IMPLICIT NONE
 INTEGER, EXTERNAL            :: open_file

@@ -46,11 +46,7 @@ CONTAINS
                        & pgeohm1,                                       &! in
                        & ptvm1,      paclc,     pxt_emis,   pthvvar,    &! in
                        & pxvar,      pz0m_tile,                         &! in
-#ifdef __ICON__
                        & ptkem1,                                        &! in
-#else
-                       & ptkem1,     ptkem0,                            &! inout
-#endif
                        & pustar,     pwstar,    pwstar_tile,            &! inout
                        & pqsat_tile, ihpbl,     pghpbl,                 &! out
                        & pri,        pri_tile,  pmixlen,                &! out
@@ -109,12 +105,7 @@ CONTAINS
       & pxvar    (kbdim,klev)     ,&!< step t-dt
       & pz0m_tile(kbdim,ksfc_type)  !< roughness length at step t-dt
 
-#ifdef __ICON__
     REAL(wp),INTENT(IN)  :: ptkem1(kbdim,klev)    !< TKE at step t-dt
-#else
-    REAL(wp),INTENT(INOUT) :: ptkem1(kbdim,klev)  !< TKE at step t-dt
-    REAL(wp),INTENT(INOUT) :: ptkem0(kbdim,klev)  !< TKE at step t
-#endif
 
     ! Grid-box mean friction velocity.
     ! In: value at step t-2dt computed in the previous time step,
@@ -218,11 +209,7 @@ CONTAINS
                            & pum1, pvm1, ptm1, ptvm1, pgeom1, pgeohm1,&! in
                            & pqm1, pxm1,                              &! in
                            & papm1, paphm1, paclc, pustar,            &! in
-#ifdef __ICON__
                            & pthvvar, ptkem1,                         &! in
-#else
-                           & pthvvar, ptkem1, ptkem0,                 &! in, inout, inout
-#endif
                            & pcptgz (:,1:klev),   ihpbl(:), pghpbl(:),&! out
                            & pqshear(:,1:klevm1),                     &! out
                            & pzthvvar(:,1:klevm1),pztkevn(:,1:klevm1),&! out

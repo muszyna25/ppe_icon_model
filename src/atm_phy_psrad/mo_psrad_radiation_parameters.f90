@@ -48,7 +48,6 @@ IMPLICIT NONE
   PUBLIC :: twopi, deg2rad, ch4_v, n2o_v
   PUBLIC :: cemiss, diff, rad_undef, solc
   PUBLIC :: psct, psctm, ssi_factor, flx_ratio_cur, flx_ratio_rad, decl_sun_cur 
-  PUBLIC :: l_interp_rad_in_time, zepzen
   
   ! 1.0 NAMELIST global variables and parameters
   ! --------------------------------
@@ -69,7 +68,6 @@ IMPLICIT NONE
   ! Radiation driver
   LOGICAL :: l_do_sep_clear_sky = .TRUE. ! Compute clear-sky fluxes by removing clouds
   INTEGER :: i_overlap = 1               ! 1 = max-ran, 2 = max, 3 = ran
-  LOGICAL :: l_interp_rad_in_time = .TRUE. 
   !
   ! --- Switches for radiative agents
   !
@@ -104,7 +102,6 @@ IMPLICIT NONE
   REAL(wp), PARAMETER :: cemiss = 0.996_wp  !< LW Emissivity Factor
   REAL(wp), PARAMETER :: diff   = 1.66_wp   !< LW Diffusivity Factor
   REAL(wp), PARAMETER :: rad_undef = -999._wp
-  REAL(wp), PARAMETER :: zepzen = 1.e-10_wp 
   !
   !
   REAL(wp) :: solc = 1361.371_wp            !< default solar constant [W/m2] for

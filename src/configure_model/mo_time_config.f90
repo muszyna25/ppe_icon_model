@@ -125,7 +125,7 @@ MODULE mo_time_config
   CHARACTER(LEN = *), PARAMETER :: modname = "mo_time_config"
 
 CONTAINS
-
+  
   !> Convert the calendar setting (which is an integer value for this
   !  namelist) into a string. The naming scheme is then compatible
   !  with concurrent namelist settings of the calendar (mtime).
@@ -146,7 +146,6 @@ CONTAINS
       ret = '360 day year'
     END SELECT
   END FUNCTION calendar_index2string
-
 
   !> Convert the calendar setting (which is an integer value for this
   !  namelist) into a string. The naming scheme is then compatible

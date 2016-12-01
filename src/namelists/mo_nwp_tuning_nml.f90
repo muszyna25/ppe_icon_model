@@ -25,7 +25,7 @@ MODULE mo_nwp_tuning_nml
   USE mo_master_config,       ONLY: isRestart
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,     &
+  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
   USE mo_nwp_tuning_config,   ONLY: config_tune_gkwake    => tune_gkwake,    &
@@ -181,7 +181,7 @@ CONTAINS
     !
     ! convection
     tune_entrorg     = 1.85e-3_wp   ! entrainment parameter for deep convection valid at dx=20 km
-    tune_capdcfac_et = 0.0_wp       ! fraction of CAPE diurnal cycle correction applied in the extratropics
+    tune_capdcfac_et = 0.125_wp     ! fraction of CAPE diurnal cycle correction applied in the extratropics
     tune_rhebc_land  = 0.75_wp      ! RH threshold for onset of evaporation below cloud base over land (original IFS value 0.7)
     tune_rhebc_ocean = 0.85_wp      ! RH threshold for onset of evaporation below cloud base over sea (original IFS value 0.9)
     tune_rcucov      = 0.05_wp      ! Convective area fraction used for computing evaporation below cloud base (original IFS value 0.05)

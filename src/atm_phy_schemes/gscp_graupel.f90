@@ -1388,7 +1388,6 @@ SUBROUTINE graupel     (             &
       !            and calculation of the evaporation rate of rain
       !--------------------------------------------------------------------------
 
-      IF( (llqr) .AND. (qcg <= 0.0_wp)) THEN
 
 #ifdef __COSMO__
         zqvsw    = fqvs( fpvsw(tg), ppg )
@@ -1397,6 +1396,8 @@ SUBROUTINE graupel     (             &
 #ifdef __ICON__
         zqvsw    = sat_pres_water(tg)/(rhog * r_v *tg)
 #endif
+
+      IF( (llqr) .AND. (qvg+qcg <= zqvsw)) THEN
 
         zlnqrk   = LOG (zqrk)
         zx1      = 1.0_wp + zbev * EXP (zbevxp  * zlnqrk)

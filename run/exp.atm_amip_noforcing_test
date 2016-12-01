@@ -21,15 +21,15 @@ author_list="Marco Giorgetta, MPIM"
 # basedir                       = base directory, where src/, run/ etc exist
 # icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
 # nproma                        = blocking length for array dimensioning and inner loop lengths
-# second, minute, hour, day     = length of these intervals in [s]
 
 #--------------------------------------------------------------------------------------------------
 
 # (2) Set variables needed by the scripting mechanism
 
 # horizontal grid(s)
-grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip/r0002
-atmo_dyn_grids='r2b4_amip.nc'
+grid_name=r2b4_amip
+grids_folder=${icon_data_poolFolder}/grids/private/${grid_name}/r0002
+atmo_dyn_grids=${grid_name}.nc
 
 # start and end date+time
 start_date="1979-01-01T00:00:00Z"
@@ -38,11 +38,6 @@ start_date="1979-01-01T00:00:00Z"
 # restart intervals
 checkpoint_interval="PT8M"
 restart_interval="PT16M"
-#
-# NEEDED TO KEEP THIS TEST WORKING WITHOUT "--enable-mtime-loop" CONFIGURATION.
-# TO BE DELETED AFTER THE "mtime time loop" IS COMPLETELY IMPLEMENTED.
-(( dt_checkpoint =  8 * minute))    # !! MUST BE EQUAL TO "checkpoint_interval"  !!
-(( dt_restart    = 16 * minute))    # !! MUST BE EQUAL TO "restart_interval"     !!
 
 # output intervals
 output_interval="PT4M"
@@ -67,7 +62,6 @@ cat > ${atmo_namelist} << EOF
 /
 &run_nml
  num_lev          = 47          ! number of full levels
- dtime            = 240         ! [s] time step   !! MUST BE EQUAL TO "modelTimeStep" !!
  modelTimeStep    = "PT4M"
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
@@ -135,7 +129,7 @@ INDATA=${icon_data_poolFolder}/input/r0004
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
 datadir=${icon_data_poolFolder}/setup/ifs_iconremap_amip
-add_link_file $datadir/ifs_remap_R2B4_00XX_AMIP_2012010100_setyear1979.nc ./ifs2icon_R2B04_DOM01.nc
+add_link_file $datadir/ifs_remap_${grid_name}_2012010100_setyear1979.nc ./ifs2icon_R2B04_DOM01.nc
 
 #--------------------------------------------------------------------------------------------------
 
@@ -145,7 +139,6 @@ add_link_file $datadir/ifs_remap_R2B4_00XX_AMIP_2012010100_setyear1979.nc ./ifs2
 # -------------------------------
 cat >> ${atmo_namelist} << EOF
 &io_nml
- dt_checkpoint    = ${dt_checkpoint}  !  NEEDED TO KEEP THIS TEST WORKING WITHOUT "--enable-mtime-loop" CONFIGURATION.
  output_nml_dict  = "${dict_file}"
  netcdf_dict      = "${dict_file}"
  lnetcdf_flt64_output = .TRUE.

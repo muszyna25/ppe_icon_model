@@ -71,7 +71,7 @@ MODULE mo_nml_crosscheck
   USE mo_gridref_config
   USE mo_interpol_config
   USE mo_sleve_config
-
+  USE mo_grid_config
 
   IMPLICIT NONE
 
@@ -130,6 +130,8 @@ CONTAINS
       SELECT CASE(iforcing)
       CASE(INOFORCING,IHELDSUAREZ,ILDF_DRY)  ! without moist processes
         ha_dyn_config%ldry_dycore = .TRUE.
+      CASE(IECHAM)                           ! with ECHAM physics
+        CALL finish(method_name, 'Hydrostatic dynamics cannot be used with ECHAM physics')
       END SELECT
 
     END SELECT
@@ -143,6 +145,17 @@ CONTAINS
                  (ha_dyn_config%itime_scheme/=LEAPFROG_SI)
 
     END SELECT
+
+    ! Limited area mode must not be enabled for torus grid:
+    IF (is_plane_torus .AND. l_limited_area) THEN
+      CALL finish(method_name, 'Plane torus grid requires l_limited_area = .FALSE.!')
+    END IF
+
+    ! Root bisection "0" does not make sense for limited area mode; it
+    ! is more likely that the user tried to use a torus grid here:
+    IF (l_limited_area .AND. (nroot == 0)) THEN
+      CALL finish(method_name, "Root bisection 0 does not make sense for limited area mode; did you try to use a torus grid?")
+    END IF
 
     !--------------------------------------------------------------------
     ! If ltestcase is set to .FALSE. in run_nml set testcase name to empty
@@ -334,6 +347,9 @@ CONTAINS
     !--------------------------------------------------------------------
     ! Tracers and diabatic forcing
     !--------------------------------------------------------------------
+
+    !ATTENTION: note that in the following we make use of jg without and jg-loop.
+    !           Curently it is right for the wrong reasons.
 
     !
     ! Check settings of ntracer
@@ -534,16 +550,6 @@ CONTAINS
                                    'ntracer is automatically reset to ',ntracer
       CALL message(TRIM(method_name),message_text)
 
-      ! take into account additional passive tracers, if present
-      ! iqt is not increased, since passive tracers do not belong to the hydrometeor group.
-      IF ( advection_config(jg)%npassive_tracer > 0) THEN
-        ntracer = ntracer + advection_config(jg)%npassive_tracer
-        WRITE(message_text,'(a,i3,a,i3)') 'Attention: passive tracers have been added, '//&
-                                     'ntracer is increased by ',advection_config(jg)%npassive_tracer, &
-                                     ' to ',ntracer
-        CALL message(TRIM(method_name),message_text)
-      ENDIF
-
 
       IF (lart) THEN
         
@@ -576,73 +582,85 @@ CONTAINS
 
     END SELECT ! iforcing
 
+    ! take into account additional passive tracers, if present
+    ! no need to update iqt, since passive tracers do not belong to the hydrometeor group.
+    ! ATTENTION: as long as ntracer is not domain specific, we set jg=1
+    IF ( advection_config(1)%npassive_tracer > 0) THEN
+      ntracer = ntracer + advection_config(1)%npassive_tracer
+      WRITE(message_text,'(a,i3,a,i3)') 'Attention: passive tracers have been added, '//&
+                                   'ntracer is increased by ',advection_config(1)%npassive_tracer, &
+                                   ' to ',ntracer
+      CALL message(TRIM(method_name),message_text)
+    ENDIF
+
 
     IF (ltransport) THEN
-    DO jg = 1,n_dom
 
-      i_listlen = LEN_TRIM(advection_config(jg)%ctracer_list)
+      DO jg = 1,n_dom
 
-      SELECT CASE ( iforcing )
-      CASE ( INWP )
-      !...........................................................
-      ! in NWP physics
-      !...........................................................
+        i_listlen = LEN_TRIM(advection_config(jg)%ctracer_list)
 
-
-        ! Force settings for tracer iqtke, if TKE advection is performed
-        !
-        IF ( advection_config(jg)%iadv_tke > 0 ) THEN
-
-          ! force monotonous slope limiter for vertical advection
-          advection_config(jg)%itype_vlimit(iqtke) = 2
-
-          ! force positive definite flux limiter for horizontal advection
-          advection_config(jg)%itype_hlimit(iqtke) = 4
-
-          SELECT CASE (advection_config(jg)%iadv_tke)
-          CASE (1)
-            ! switch off horizontal advection
-            advection_config(jg)%ihadv_tracer(iqtke) = 0
-          CASE (2)
-            ! check whether horizontal substepping is switched on 
-            IF (ALL( (/22,32,42,52/) /= advection_config(jg)%ihadv_tracer(iqtke)) ) THEN
-              ! choose Miura with substepping
-              advection_config(jg)%ihadv_tracer(iqtke) = 22
-            ENDIF
-          END SELECT
-
-        ENDIF
+        SELECT CASE ( iforcing )
+        CASE ( INWP )
+        !...........................................................
+        ! in NWP physics
+        !...........................................................
 
 
-        IF ( i_listlen /= ntracer ) THEN
-          DO jt=1,ntracer
-            WRITE(advection_config(jg)%ctracer_list(jt:jt),'(i1.1)')jt
-          ENDDO
-          WRITE(message_text,'(a,a)') &
-            & 'Attention: according to physics, ctracer_list is set to ',&
-            & advection_config(jg)%ctracer_list(1:ntracer)
-          CALL message(TRIM(method_name),message_text)
-        ENDIF
+          ! Force settings for tracer iqtke, if TKE advection is performed
+          !
+          IF ( advection_config(jg)%iadv_tke > 0 ) THEN
+
+            ! force monotonous slope limiter for vertical advection
+            advection_config(jg)%itype_vlimit(iqtke) = 2
+
+            ! force positive definite flux limiter for horizontal advection
+            advection_config(jg)%itype_hlimit(iqtke) = 4
+
+            SELECT CASE (advection_config(jg)%iadv_tke)
+            CASE (1)
+              ! switch off horizontal advection
+              advection_config(jg)%ihadv_tracer(iqtke) = 0
+            CASE (2)
+              ! check whether horizontal substepping is switched on 
+              IF (ALL( (/22,32,42,52/) /= advection_config(jg)%ihadv_tracer(iqtke)) ) THEN
+                ! choose Miura with substepping
+                advection_config(jg)%ihadv_tracer(iqtke) = 22
+              ENDIF
+            END SELECT
+
+          ENDIF
 
 
-      CASE (inoforcing, iheldsuarez, iecham, ildf_dry, ildf_echam)
-      !...........................................................
-      ! Other types of adiabatic forcing
-      !...........................................................
+          IF ( i_listlen /= ntracer ) THEN
+            DO jt=1,ntracer
+              WRITE(advection_config(jg)%ctracer_list(jt:jt),'(i1.1)')jt
+            ENDDO
+            WRITE(message_text,'(a,a)') &
+              & 'Attention: according to physics, ctracer_list is set to ',&
+              & advection_config(jg)%ctracer_list(1:ntracer)
+            CALL message(TRIM(method_name),message_text)
+          ENDIF
 
-        IF ( i_listlen < ntracer .AND. i_listlen /= 0 ) THEN
-          ntracer = i_listlen
-          CALL message(TRIM(method_name),'number of tracers is adjusted according to given list')
-        END IF
+
+        CASE (inoforcing, iheldsuarez, iecham, ildf_dry, ildf_echam)
+        !...........................................................
+        ! Other types of adiabatic forcing
+        !...........................................................
+
+          IF ( i_listlen < ntracer .AND. i_listlen /= 0 ) THEN
+            ntracer = i_listlen
+            CALL message(TRIM(method_name),'number of tracers is adjusted according to given list')
+          END IF
 
 
-        IF (echam_phy_config%lrad) THEN
-          IF ( izenith > 5)  &
-            CALL finish(TRIM(method_name), 'Choose a valid case for rad_nml: izenith.')
-        ENDIF
-      END SELECT ! iforcing
+          IF (echam_phy_config%lrad) THEN
+            IF ( izenith > 5)  &
+              CALL finish(TRIM(method_name), 'Choose a valid case for rad_nml: izenith.')
+          ENDIF
+        END SELECT ! iforcing
 
-    END DO ! jg = 1,n_dom
+      END DO ! jg = 1,n_dom
     END IF ! ltransport
 
 
