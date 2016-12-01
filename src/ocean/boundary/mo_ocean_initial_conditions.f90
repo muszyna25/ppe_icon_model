@@ -4422,8 +4422,8 @@ stop
         !Impose emperature profile. Profile
         !depends on latitude only and is uniform across
 
-        alat_0=-5.0_wp !-30.0_wp
-        alon_0=90_wp!200_wp !250.0_wp
+        alat_0=-30.0_wp
+        alon_0=250_wp
 
 
         !all vertical layers
@@ -4436,8 +4436,8 @@ stop
           a=(lat_deg-alat_0)**2
           xlon=MERGE(lon_deg,lon_deg+360,lon_deg.GE.0)
 
-          !b= (xlon-alon_0)**2
-          b= (lon_deg-alon_0)**2          
+          b= (xlon-alon_0)**2
+          !b= (lon_deg-alon_0)**2          
           c= 10_wp**2
 
           height=0.0_wp
