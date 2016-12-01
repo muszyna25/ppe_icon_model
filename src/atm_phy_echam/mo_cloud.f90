@@ -60,23 +60,7 @@ MODULE mo_cloud
   USE mo_echam_convect_tables, ONLY : prepare_ua_index_spline, lookup_ua_spline      &
                                     , lookup_uaw_spline, lookup_ubc                  &
                                     , lookup_ua_eor_uaw_spline
-#ifndef __ICON__
-  USE mo_echam_cloud_params,   ONLY : cqtmin, cvtfall, crhosno, cn0s, cthomi         &
-                                    , csecfrl, cauloc, clmax, clmin, jbmin, jbmax    &
-                                    , lonacc, ccraut, ceffmin, ceffmax, crhoi        &
-                                    , ccsaut, ccsacl, ccracl, ccwmin, clwprat
-#else
   USE mo_echam_cloud_config,   ONLY : echam_cloud_config
-#endif
-
-#ifndef __ICON__
-  USE mo_submodel_interface,   ONLY : cloud_subm
-  USE mo_submodel,             ONLY : lanysubmodel
-  USE mo_vphysc,               ONLY : set_vphysc_var
-  USE mo_cosp_offline,         ONLY : locospoffl, cospoffl_lsrain, cospoffl_lssnow
-  USE mo_memory_g3b,           ONLY : aclcov_na, aprl_na, aprs_na, xivi_na,          &
-                                      xlvi_na, qvi_na
-#endif
 
 #ifdef _PROFILE
   USE mo_profile,              ONLY : trace_start, trace_stop
@@ -86,14 +70,12 @@ MODULE mo_cloud
   PRIVATE
   PUBLIC :: cloud
 
-#ifdef __ICON__
   ! to simplify access to components of echam_cloud_config
   LOGICAL , POINTER :: lonacc
   INTEGER , POINTER :: jbmin, jbmax
   REAL(wp), POINTER :: cqtmin, cvtfall, crhosno, cn0s   , cthomi , csecfrl, cauloc, &
        &               clmax , clmin  , ccraut , ceffmin, ceffmax, crhoi  ,         &
        &               ccsaut, ccsacl , ccracl , ccwmin , clwprat
-#endif
 
 
 CONTAINS
@@ -102,82 +84,45 @@ CONTAINS
   !!
   SUBROUTINE cloud (         kproma,       kbdim,          ktdia                     &
                            , klev,         klevp1                                    &
-#ifndef __ICON__
-                           , pdelta_time                                             &
-#endif
                            , ptime_step_len                                          &
-#ifndef __ICON__
-                           , ktrac,        krow                                      &
-#endif
     ! - INPUT  1D .
                            , kctop                                                   &
     ! - INPUT  2D .
-                           , paphm1,       pvervel                                   &
+                           , paphm1                                                  &
                            , papm1                                                   &
-#ifndef __ICON__
-                           , papp1                                                   &
-#endif
                            , pacdnc                                                  &
                            , pqm1,         ptm1,           ptvm1                     &
                            , pxlm1,        pxim1                                     &
                            , pcair,        pgeo                                      &
-#ifndef __ICON__
-                           , paphp1                                                  &
-    ! - INPUT  3D .
-                           , pxtm1                                                   &
-#endif
     ! - INPUT/OUTPUT 1D .
                            , paclcov                                                 &
-#ifndef __ICON__
-                           , paprl                                                   &
-#endif
                            , pqvi                                                    &
                            , pxlvi,        pxivi                                     &
-#ifndef __ICON__
-                           , paprs                                                   &
-#endif
                            , ktype                                                   &
                            , pch_concloud, pcw_concloud                              &
     ! - INPUT/OUTPUT 2D .
                            , pxtecl,       pxteci,         pqtec                     &
                            , pqte,         ptte                                      &
                            , pxlte,        pxite                                     &
-#ifndef __ICON__
-                           , pxtte                                                   &
-                           , paclc,        paclcac                                   &
-#else
                            , pcld_etrl,    pcld_etri,      pcld_iteq                 &
                            , paclc                                                   &
-#endif
     ! - OUTPUT 1D .
                            , pssfl,        prsfl                                     &
     ! - OUTPUT 2D .
                            , prelhum                                                 &
-#ifdef __ICON__
                            , ptte_prc,     pqte_prc                                  &
                            , pxlte_prc,    pxite_prc                                 &
-#endif
                             )
     !
     !
     !
     INTEGER,  INTENT(IN)    :: kproma, kbdim, ktdia, klev, klevp1
-#ifndef __ICON__
-    INTEGER,  INTENT(IN)    :: ktrac, krow
-#endif
     INTEGER,  INTENT(IN)    :: kctop(kbdim)
     INTEGER,  INTENT(INOUT) :: ktype(kbdim)
-#ifndef __ICON__
-    REAL(wp), INTENT(IN)    :: pdelta_time
-#endif
     REAL(wp), INTENT(IN)    :: ptime_step_len
     REAL(wp), INTENT(IN)    ::     &
       & paphm1   (kbdim,klevp1)   ,&!< pressure at half levels                   (n-1)
-      & pvervel  (kbdim,klev)     ,&!< vertical velocity in pressure coordinate  (n)
       & papm1    (kbdim,klev)     ,&!< pressure at full levels                   (n-1)
-#ifndef __ICON__
-      & papp1    (kbdim,klev)     ,&!< pressure at full levels                   (n+1)
-#endif
       & pacdnc   (kbdim,klev)     ,&!< cloud droplet number concentration (specified)
       & pqm1     (kbdim,klev)     ,&!< specific humidity                         (n-1)
       & ptm1     (kbdim,klev)     ,&!< temperature                               (n-1)
@@ -186,18 +131,8 @@ CONTAINS
       & pxim1    (kbdim,klev)     ,&!< cloud ice                                 (n-1)
       & pcair    (kbdim,klev)     ,&!< specific heat of moist air
       & pgeo     (kbdim,klev)       !< geopotential minus its surface value
-#ifndef __ICON__
-    REAL(wp), INTENT(IN)    ::     &
-      & paphp1   (kbdim,klevp1)     !< pressure at half levels                   (n+1)
-    REAL(wp), INTENT(IN)    ::     &
-      & pxtm1    (kbdim,klev,ktrac) !< tracer (aerosol etc) concentration
-#endif
     REAL(wp), INTENT(INOUT) ::     &
       & paclcov  (kbdim)          ,&!< total cloud cover
-#ifndef __ICON__
-      & paprl    (kbdim)          ,&!< total stratiform precipitation (rain+snow), acc
-      & paprs    (kbdim)          ,&!< snowfall, accumulated
-#endif
       & pqvi     (kbdim)          ,&!< vertically integrated spec. humidity, acc
       & pxlvi    (kbdim)          ,&!< vertically integrated cloud liquid water, acc
       & pxivi    (kbdim)          ,&!< vertically integrated cloud ice, accumulated
@@ -212,12 +147,6 @@ CONTAINS
       & ptte     (kbdim,klev)     ,&!< tendency of temperature
       & pxlte    (kbdim,klev)     ,&!< tendency of cloud liquid water
       & pxite    (kbdim,klev)     ,&!< tendency of cloud ice
-#ifndef __ICON__
-      & paclc    (kbdim,klev)     ,&!< cloud cover  (now diagnosed in cover)
-      & paclcac  (kbdim,klev)       !< cloud cover, accumulated
-    REAL(wp), INTENT(INOUT) ::     &
-      & pxtte    (kbdim,klev,ktrac) !<
-#else
       & paclc    (kbdim,klev)       !< cloud cover  (now diagnosed in cover)
     REAL(wp),INTENT(INOUT) ::      &
       & pcld_etrl(kbdim)          ,&!< entrained liquid from convection
@@ -228,7 +157,6 @@ CONTAINS
     REAL(wp),INTENT(INOUT) ::      &
       & pxlte_prc(kbdim,klev)     ,&!<
       & pxite_prc(kbdim,klev)       ! OUT
-#endif
     REAL(wp), INTENT(INOUT)   ::   &! use INOUT to preserve the initialization
       & prsfl    (kbdim)          ,&!< surface rain flux
       & pssfl    (kbdim)            !< surface snow flux
@@ -268,15 +196,12 @@ CONTAINS
     INTEGER:: cond1(kbdim), cond2(kbdim)
     INTEGER:: idx1(kbdim), idx2(kbdim)
 
-    INTEGER:: jb, nclcpre
+    INTEGER:: nclcpre
     INTEGER:: jl, jk, nl, locnt, nlocnt, nphase, i1 , i2, klevtop
-    LOGICAL   lo, lo1
+    LOGICAL   lo
     !!$ used in Revised Bergeron-Findeisen process only
     !!$  LOGICAL   locc
 
-#ifndef __ICON__
-    REAL(wp):: zdtime
-#endif
     REAL(wp):: zdqsat, zqcdif, zfrho, zifrac, zepsec, zxsec                          &
       &      , zqsec, ztmst, zcons2, zrc, zcons, ztdif, zsnmlt, zclcstar             &
       &      , zdpg, zesi, zsusati, zb1, zb2, zcfac4c, zzeps, zesw, zesat            &
@@ -305,11 +230,7 @@ CONTAINS
       &        zmiwc(kbdim,klev),    & ! In-cloud ice mass mixing ratio before snow formation [kg/kg]
       &        zmsnowacl(kbdim,klev)   ! Accretion rate of snow with cloud droplets
                                        ! in cloudy part of the grid box  [kg/kg]
-#ifndef __ICON__
-    REAL(wp):: pclcpre(kbdim,klev)
-#endif
 
-#ifdef __ICON__
     ! to simplify access to components of echam_cloud_config
     lonacc   => echam_cloud_config% lonacc
     jbmin    => echam_cloud_config% jbmin
@@ -332,7 +253,6 @@ CONTAINS
     ccracl   => echam_cloud_config% ccracl
     ccwmin   => echam_cloud_config% ccwmin
     clwprat  => echam_cloud_config% clwprat
-#endif
 
     zmratepr(:,:) = 0._wp
     zmrateps(:,:) = 0._wp
@@ -347,7 +267,6 @@ CONTAINS
     !                                be defined for all array elements.
     prelhum(:,:)  = 0._wp
 
-#ifdef __ICON__
     ! save the tendencies accumulated before calling this routine
 
     ptte_prc(1:kproma,:)   =  ptte(1:kproma,:)
@@ -364,7 +283,6 @@ CONTAINS
         pcld_etri(jl)=pcld_etri(jl)+pxteci(jl,jk)*(paphm1(jl,jk+1)-paphm1(jl,jk))/grav
       END DO
     END DO
-#endif
     !
     ! Executable statements
     !
@@ -382,9 +300,6 @@ CONTAINS
     !
     !   Computational constants
     !
-#ifndef __ICON__
-    zdtime = REAL(pdelta_time,wp)
-#endif
     ztmst  = REAL(ptime_step_len,wp)
     zcons2 = 1._wp/(ztmst*grav)
     !
@@ -1315,10 +1230,6 @@ CONTAINS
        zxlp1_d        = MAX(zxlp1_d,0.0_wp)
        paclc(jl,jk)   = FSEL(-(zxlp1_d*zxip1_d),paclc(jl,jk),0._wp)
 
-#ifndef __ICON__
-       paclcac(jl,jk) = paclcac(jl,jk) + paclc(jl,jk)*zdtime
-       pclcpre(jl,jk) = zclcpre(jl)
-#endif
        pxlte(jl,jk)   = pxlte(jl,jk) + zdxlcor
        pxite(jl,jk)   = pxite(jl,jk) + zdxicor
        pqte(jl,jk)    = pqte(jl,jk) - zdxlcor - zdxicor
@@ -1330,15 +1241,6 @@ CONTAINS
                               *(zcpten(jl,jk)+zlvdcp(jl)*zdxlcor+zlsdcp(jl)*zdxicor)
        !
 821 END DO
-
-#ifndef __ICON__
-    IF ( locospoffl ) THEN
-      DO jl = 1,kproma
-         cospoffl_lsrain(jl,jk,krow) = zrfl(jl)
-         cospoffl_lssnow(jl,jk,krow) = zsfl(jl)
-      END DO
-    END IF
-#endif
 
 #ifdef _PROFILE
     CALL trace_stop ('cloud_loop_8', 18)
@@ -1353,20 +1255,6 @@ CONTAINS
     !     ----------------------------------------------------------------------------
     !       9.    Wet chemistry and in-cloud scavenging
     !     ----------------------------------------------------------------------------
-#ifndef __ICON__
-    !! a) sulfur chemistry (currently gas+wet)
-    !! b) wet scavenging
-    !!
-    IF (lanysubmodel) THEN
-      CALL cloud_subm(kproma,     kbdim,      klev,       ktdia,                     &
-        &             krow,                                                          &
-        &             zmlwc,      zmiwc,      zmratepr,   zmrateps,                  &
-        &             zfrain,     zfsnow,     zfevapr,    zfsubls,                   &
-        &             zmsnowacl,  paclc,      ptm1,       ptte,                      &
-        &             pxtm1,      pxtte,      paphp1,     papp1,                     &
-        &             zrho,       pclcpre                                          )
-    END IF
-#endif
     !     ----------------------------------------------------------------------------
     !       10.    Diagnostics
     !     ----------------------------------------------------------------------------
@@ -1376,21 +1264,8 @@ CONTAINS
     DO 911 jl    = 1,kproma
        prsfl(jl) = zrfl(jl)
        pssfl(jl) = zsfl(jl)
-#ifndef __ICON__
-       ! Set not accumulated variables first
-       aprl_na(jl,krow)=prsfl(jl)+pssfl(jl)
-       aprs_na(jl,krow)=pssfl(jl)
-       ! Set accumulated variables
-       paprl(jl) = paprl(jl)+zdtime*aprl_na(jl,krow)
-       paprs(jl) = paprs(jl)+zdtime*pssfl(jl)
-#endif
 911 END DO
 
-#ifndef __ICON__
-    IF (lanysubmodel) THEN
-      CALL set_vphysc_var(kproma, -1, krow, prflstrat=prsfl, psflstrat=pssfl)
-    END IF
-#endif
     !
     !       10.2   Total cloud cover
     !
@@ -1408,14 +1283,7 @@ CONTAINS
 
     DO 924 jl     = 1,kproma
        zclcov(jl)  = 1.0_wp-zclcov(jl)
-#ifndef __ICON__
-       ! set no accumulated variable first
-       aclcov_na(jl,krow) = zclcov(jl)
-       ! accumulated variable
-       paclcov(jl) = paclcov(jl)+zdtime*zclcov(jl)
-#else
        paclcov(jl) = zclcov(jl)
-#endif
 924 END DO
     !
     !       10.3   Vertical integrals of humidity, cloud water and cloud ice
@@ -1439,20 +1307,6 @@ CONTAINS
 932    END DO
 933 END DO
 
-#ifndef __ICON__
-    ! Store instantaneous values for station diagnostic
-    xivi_na(1:kproma,krow) = zxivi(1:kproma)
-    xlvi_na(1:kproma,krow) = zxlvi(1:kproma)
-    qvi_na(1:kproma,krow) = zqvi(1:kproma)
-    DO 934 jl   = 1,kproma
-       pqvi(jl)  = pqvi(jl)+zdtime*zqvi(jl)
-       pxlvi(jl) = pxlvi(jl)+zdtime*zxlvi(jl)
-       pxivi(jl) = pxivi(jl)+zdtime*zxivi(jl)
-       pch_concloud(jl) = pch_concloud(jl)+zclten(jl)-(alv*prsfl(jl)+als*pssfl(jl)) ! [W/m2]
-       pcw_concloud(jl) = pcw_concloud(jl)+zqviten(jl)+prsfl(jl)+pssfl(jl)          ! [kg/m2s]
-934 END DO
-
-#else
 !
     DO 934 jl   = 1,kproma
        pqvi(jl)  = zqvi(jl)
@@ -1470,7 +1324,6 @@ CONTAINS
                                          *(paphm1(jl,jk+1)-paphm1(jl,jk))/grav
       END DO
     END DO
-#endif
 
     ! compare liquid water path below and above convective cloud top
     DO 938 jl = 1,kproma
@@ -1495,7 +1348,6 @@ CONTAINS
     CALL trace_stop ('cloud', 10)
 #endif
 
-#ifdef __ICON__
     !
     !      10.4 Derive the tendency increment induced by this routine
     !
@@ -1503,7 +1355,6 @@ CONTAINS
     pqte_prc(1:kproma,:)   =  pqte(1:kproma,:)   -  pqte_prc(1:kproma,:)
     pxlte_prc(1:kproma,:)   = pxlte(1:kproma,:)   - pxlte_prc(1:kproma,:)
     pxite_prc(1:kproma,:)   = pxite(1:kproma,:)   - pxite_prc(1:kproma,:)
-#endif
 
   END SUBROUTINE cloud
 

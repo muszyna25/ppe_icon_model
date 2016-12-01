@@ -218,7 +218,6 @@ CONTAINS
     ! gw variances from orographic sources (for coupling to a orogwd)
     REAL(wp) :: sigsqmcw(nc,nlev,nazmth)
     REAL(wp) :: sigmatm(nc,nlev)
-    REAL(wp) :: vtmp(nc)
 
     !
     ! Local scalars:
@@ -293,7 +292,6 @@ CONTAINS
     rgocp=rd/cpd
 
     ! Vertical positioning arrays:
-    vtmp(1:nc) = rgocp
     DO jk=1,nlev
 !IBM* novector
       DO jl=1,nc

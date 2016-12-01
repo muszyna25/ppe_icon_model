@@ -30,8 +30,9 @@ author_list="Marco Giorgetta, MPIM"
 # (2) Set variables needed by the scripting mechanism
 
 # horizontal grid(s)
-grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip/r0002
-atmo_dyn_grids='r2b4_amip.nc'
+grid_name=r2b4_amip
+grids_folder=${icon_data_poolFolder}/grids/private/${grid_name}/r0002
+atmo_dyn_grids=${grid_name}.nc
 
 # start and end date+time
 start_date="1979-01-01T00:00:00Z"
@@ -140,12 +141,13 @@ cat > ${atmo_namelist} << EOF
                                 !18: Kinne background aerosols of 1850 (natural
                                 !    background + Stenchikov's volc. aerosols
                                 !    + simple plumes (anthropogenic)
- lrad_aero_diag   = .FALSE.     ! switch for diagnostics of the aerosol optical properties
  ighg             = 1           ! 1: transient well mixed greenhouse gas concentrations
  isolrad          = 1           ! 1: transient solar irradiance (at 1 AE)
 /
 &psrad_nml
-rad_perm          = 1           ! Integer for perturbing random number seeds
+ rad_perm         = 1           ! Integer for perturbing random number seeds
+/
+&psrad_orbit_nml
 /
 &echam_conv_nml
 /
@@ -209,10 +211,10 @@ INDATA=${icon_data_poolFolder}/input/r0004
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
 datadir=${icon_data_poolFolder}/setup/ifs_iconremap_amip
-add_link_file $datadir/ifs_remap_R2B4_00XX_AMIP_2012010100_setyear1979.nc ./ifs2icon_R2B04_DOM01.nc
+add_link_file $datadir/ifs_remap_${grid_name}_2012010100_setyear1979.nc ./ifs2icon_R2B04_DOM01.nc
 #
 # - land: source?, date+time?
-datadir=$INDATA/r2b4_amip/lnd
+datadir=$INDATA/${grid_name}/lnd
 add_link_file ${datadir}/ic_land_soil_1976.nc                           ./ic_land_soil.nc
 
 # boundary conditions
@@ -227,7 +229,7 @@ datadir=$INDATA/global/atm
 add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc                 ./bc_greenhouse_gases.nc
 #
 # - ozone
-datadir=$INDATA/r2b4_amip/atm/bc_ozone_cmip5
+datadir=$INDATA/${grid_name}/atm/bc_ozone_cmip5
 year=$start_year
 while [[ $year -le $end_year ]]
 do
@@ -236,7 +238,7 @@ do
 done
 #
 # - tropospheric aerosol
-datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
+datadir=$INDATA/${grid_name}/atm/bc_aeropt_kinne
 year=$start_year
 while [[ $year -le $end_year ]]
 do
@@ -255,7 +257,7 @@ done
   add_link_file ${basedir}/data/MACv2.0-SP_v1.nc ./MACv2.0-SP_v1.nc
 #   Kinne background aerosols are needed for the years 1849, 1850, 1851 
 !   accessing all the same data of 1850:
-datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
+datadir=$INDATA/${grid_name}/atm/bc_aeropt_kinne
 year=1849
 while [[ $year -le 1851 ]]
 do
@@ -264,8 +266,9 @@ do
   add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_1850.nc             ./bc_aeropt_kinne_sw_b14_fin_${year}.nc
   (( year = year+1 ))
 done
+#
 # - stratospheric aerosol
-datadir=$INDATA/r2b4_amip/atm/bc_aeropt_stenchikov
+datadir=$INDATA/${grid_name}/atm/bc_aeropt_stenchikov
 year=$start_year
 while [[ $year -le $end_year ]]
 do
@@ -279,7 +282,7 @@ do
 done
 #
 # - sst and sic
-datadir=$INDATA/r2b4_amip/oce
+datadir=$INDATA/${grid_name}/oce
 add_link_file $datadir/bc_sic_pcmdi_1870-2010.nc                        ./bc_sic.nc
 add_link_file $datadir/bc_sst_pcmdi_1870-2010.nc                        ./bc_sst.nc
 #
@@ -288,7 +291,7 @@ datadir=$INDATA/global/sun
 add_link_file $datadir/bc_solar_irradiance_14band_1849-2399.nc          ./bc_solar_irradiance_sw_b14.nc
 #
 # - land parameters
-datadir=$INDATA/r2b4_amip/lnd
+datadir=$INDATA/${grid_name}/lnd
 add_link_file $datadir/bc_land_frac_1976.nc                             ./bc_land_frac.nc
 add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
 add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
@@ -353,8 +356,11 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
-                    'cosmu0'  , 'rsdt'    ,
-                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
+                    'cosmu0'  ,
+                    'rsdt'    ,
+                    'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'
+                    'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs'
+                    'rsus'    , 'rsuscs'  , 'rlus'    ,
                     'ts'      ,
                     'sic'     , 'sit'     ,
                     'albedo'  ,
@@ -397,6 +403,8 @@ if [[ "$output_phy_3d" == "yes" ]]; then
                     'tend_va'      , 'tend_va_dyn'  , 'tend_va_phy'  ,
                     'tend_va_vdf'  , 'tend_va_gwh'  , 'tend_va_sso'  ,
                     'tend_va_cnv'  ,
+                    'tend_qhus'    , 'tend_qhus_dyn', 'tend_qhus_phy',
+                    'tend_qhus_cld', 'tend_qhus_cnv', 'tend_qhus_vdf',
                     'pfull','ps'
 /
 EOF

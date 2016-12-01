@@ -858,8 +858,6 @@ run/exp.ICON_limarea -text
 run/exp.aloy.mixRes -text
 run/exp.aloy.uni160km -text
 run/exp.atm_amip -text
-run/exp.atm_amip_hs -text
-run/exp.atm_amip_hs_test -text
 run/exp.atm_amip_noforcing_notransport_nodynamics_test -text
 run/exp.atm_amip_noforcing_notransport_test -text
 run/exp.atm_amip_noforcing_test -text
@@ -878,10 +876,7 @@ run/exp.couple_dummy_models -text
 run/exp.hamocc_omip_10days -text
 run/exp.hamocc_omip_long -text
 run/exp.hat_heldsuarez -text
-run/exp.hat_icoham_ape -text
-run/exp.hat_icoham_apei -text
 run/exp.hat_jww -text
-run/exp.hat_rce_120km -text
 run/exp.hdcp2_final -text
 run/exp.hdcp2_final_3dom -text
 run/exp.hdcp2_germany_776km-diam_1250m_test -text
@@ -1484,7 +1479,6 @@ src/atm_phy_echam/mo_cudescent.f90 -text
 src/atm_phy_echam/mo_cufluxdts.f90 -text
 src/atm_phy_echam/mo_cuinitialize.f90 -text
 src/atm_phy_echam/mo_cumastr.f90 -text
-src/atm_phy_echam/mo_echam_cloud_params.f90 -text
 src/atm_phy_echam/mo_echam_convect_tables.f90 -text
 src/atm_phy_echam/mo_echam_phy_bcs.f90 -text
 src/atm_phy_echam/mo_echam_phy_cleanup.f90 -text
@@ -1496,9 +1490,9 @@ src/atm_phy_echam/mo_echam_vdiff_params.f90 -text
 src/atm_phy_echam/mo_gw_hines.f90 -text
 src/atm_phy_echam/mo_ham_aerosol_params.f90 -text
 src/atm_phy_echam/mo_interface_echam_ocean.f90 -text
-src/atm_phy_echam/mo_interface_icoham_echam.f90 -text
 src/atm_phy_echam/mo_interface_iconam_echam.f90 -text
 src/atm_phy_echam/mo_ml_ocean.f90 -text
+src/atm_phy_echam/mo_radheating.f90 -text
 src/atm_phy_echam/mo_ssodrag.f90 -text
 src/atm_phy_echam/mo_ssortns.f90 -text
 src/atm_phy_echam/mo_surface.f90 -text

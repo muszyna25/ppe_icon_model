@@ -47,6 +47,7 @@ MODULE mo_radiation
   USE mo_exception,            ONLY: finish
 
   USE mo_model_domain,         ONLY: t_patch
+  USE mo_nonhydro_state,       ONLY: p_nh_state
 
   USE mo_math_constants,       ONLY: pi, rpi
   USE mo_physical_constants,   ONLY: grav,  rd,    avo,   amd,  amw,  &
@@ -196,9 +197,9 @@ CONTAINS
       nsteps = NINT(p_inc_rad/p_inc_radheat)
 
       DO jmu0=1,nsteps
-        
+
         p_sim_time_rad = p_sim_time + (REAL(jmu0,wp)-0.5_wp)*p_inc_radheat
-        
+
         current => newDatetime(time_config%tc_exp_startdate)
         CALL getPTStringFromMS(INT(1000.0_wp*p_sim_time_rad,i8), td_string)
         td => newTimedelta(td_string)
@@ -439,7 +440,7 @@ CONTAINS
     ENDIF
 
     p_sim_time_rad = p_sim_time + 0.5_wp*p_inc_rad
-    
+
     current => newDatetime(time_config%tc_exp_startdate)
     CALL getPTStringFromMS(INT(1000.0_wp*p_sim_time_rad,i8), td_string)
     td => newTimedelta(td_string)
@@ -1307,7 +1308,7 @@ CONTAINS
     REAL(wp) ::                        &
          re_drop   (kbdim,klev),       & !< effective radius of liquid
          re_cryst  (kbdim,klev),       & !< effective radius of ice
-         aux_out   (kbdim,5),          &
+         aux_out   (kbdim,9),          &
          zmu0      (kbdim)
 
     INTEGER, PARAMETER    :: rng_seed_size = 4
@@ -1483,12 +1484,13 @@ CONTAINS
         &                         aer_piz_sw_vr,                 &
         &                         aer_cg_sw_vr)
     CASE (13)
-      CALL set_bc_aeropt_kinne( current_date      ,jg               ,&
+      CALL set_bc_aeropt_kinne( current_date                        ,&
         & jce              ,kbdim                 ,klev             ,&
-        & jb               ,jpband                ,jpsw             ,&
-        & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
-        & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
-        & tk_fl                                                      )
+        & jb               ,jpsw                  ,jpband           ,&
+        & p_nh_state(jg)% metrics% z_mc(:,:,jb)                     ,&
+        & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
+        & aer_tau_sw_vr    ,aer_piz_sw_vr         , aer_cg_sw_vr    ,&
+        & aer_tau_lw_vr                                              )
     CASE (14)
       ! set zero aerosol before adding Stenchikov aerosols
       aer_tau_lw_vr(:,:,:) = 0.0_wp
@@ -1497,23 +1499,26 @@ CONTAINS
       aer_cg_sw_vr(:,:,:)  = 0.0_wp
       CALL add_bc_aeropt_stenchikov( current_date ,jg               ,&
         & jce              ,kbdim                 ,klev             ,&
-        & jb               ,jpband                ,jpsw             ,&
-        & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
-        & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
-        & tk_fl                                                      )
+        & jb               ,jpsw                  ,jpband           ,&
+        & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
+        & pp_fl                                                     ,&
+        & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
+        & aer_tau_lw_vr                                              )
     CASE (15)
-      CALL set_bc_aeropt_kinne( current_date      ,jg               ,&
+      CALL set_bc_aeropt_kinne( current_date                        ,&
         & jce              ,kbdim                 ,klev             ,&
-        & jb               ,jpband                ,jpsw             ,&
-        & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
-        & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
-        & tk_fl                                                      )
+        & jb               ,jpsw                  ,jpband           ,&
+        & p_nh_state(jg)% metrics% z_mc(:,:,jb)                     ,&
+        & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
+        & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
+        & aer_tau_lw_vr                                              )
       CALL add_bc_aeropt_stenchikov( current_date ,jg               ,&      
         & jce              ,kbdim                 ,klev             ,&
-        & jb               ,jpband                ,jpsw             ,&
-        & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
-        & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
-        & tk_fl                                                      )
+        & jb               ,jpsw                  ,jpband           ,&
+        & p_nh_state(jg)% metrics% ddqz_z_full(:,:,jb)              ,&
+        & pp_fl                                                     ,&
+        & aer_tau_sw_vr    ,aer_piz_sw_vr         ,aer_cg_sw_vr     ,&
+        & aer_tau_lw_vr                                              )
     CASE DEFAULT
       WRITE (c_irad_aero,'(i3)') irad_aero
       CALL finish ('rrtm_interface of mo_radition','irad_aero= '// &
@@ -1623,8 +1628,14 @@ CONTAINS
          &  psctm           ,cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr    , &
          &  cld_piz_sw_vr   ,aer_tau_sw_vr   ,aer_cg_sw_vr    ,aer_piz_sw_vr   , & 
          &  rnseeds         ,sw_strat        ,n_gpts_ts       ,flx_dnsw        , &
-         &  flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr    ,aux_out(:,1)    , &
-         &  flx_dnpar_sfc   ,aux_out(:,3)    ,aux_out(:,4)    ,aux_out(:,5)      )
+         &  flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr                     , &
+         &  aux_out(:,1)    ,aux_out(:,2)    ,aux_out(:,3)                     , &
+         &  aux_out(:,4)    ,aux_out(:,5)    ,aux_out(:,6)                     , &
+         &  aux_out(:,7)    ,aux_out(:,8)    ,aux_out(:,9)                     )
+
+      !   dnpar_sfc        = dnpar_sfc_dir    + dnpar_sfc_dif                 
+      flx_dnpar_sfc(1:jce) = aux_out(1:jce,2) + aux_out(1:jce,5)
+
       ! Reset solar fluxes to zero at dark points
       DO jl = 1, jce
         IF (pmu0(jl) <= 0._wp) THEN
@@ -1655,8 +1666,8 @@ CONTAINS
     flx_upsw_sfc_clr(1:jce) = flx_upsw_clr(1:jce,klev+1)
     IF (PRESENT(flx_upsw_toa)) flx_upsw_toa(1:jce) = flx_upsw(1:jce,1)
     IF (irad /= 1 .AND. PRESENT(flx_dnsw_diff_sfc))    &  ! approximate calculation!!
-      flx_dnsw_diff_sfc(1:jce) = flx_dnsw(1:jce,klev+1)*                            &
-      (aux_out(1:jce,1)*aux_out(1:jce,4) + (1._wp-aux_out(1:jce,1))*aux_out(1:jce,3))
+      !   dnsw_diff_sfc        = vis_dn_dff_sfc   + nir_dn_dff_sfc
+      flx_dnsw_diff_sfc(1:jce) = aux_out(1:jce,4) + aux_out(1:jce,6)
 !!$    sw_irr_toa(1:jce)       = flx_dnsw(1:jce,1)
     !
     IF (ltimer) CALL timer_stop(timer_rrtm_post)
