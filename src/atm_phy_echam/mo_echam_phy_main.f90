@@ -17,6 +17,10 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
 #if defined __xlC__ && !defined NOXLFPROCESS
 @PROCESS HOT
 @PROCESS SPILLSIZE(5000)
@@ -70,6 +74,9 @@ MODULE mo_echam_phy_main
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
     &                                  calculate_time_interpolation_weights
 
+  USE mo_parallel_config     ,ONLY: nproma
+  USE mo_loopindices         ,ONLY: get_indices_c
+  USE mo_model_domain        ,ONLY: t_patch
   
   IMPLICIT NONE
   PRIVATE
@@ -78,68 +85,68 @@ MODULE mo_echam_phy_main
 CONTAINS
   !>
   !!
-  SUBROUTINE echam_phy_main( jg,jb,jcs,jce,nbdim,      &
+  SUBROUTINE echam_phy_main( patch,                         &
+    &                        rl_start, rl_end,              &
     &                        this_datetime,pdtime,psteplen, &
-    &                        ltrig_rad                 )
+    &                        ltrig_rad                      )
 
-    INTEGER         ,INTENT(IN) :: jg             !< grid level/domain index
-    INTEGER         ,INTENT(IN) :: jb             !< block index
-    INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
-    INTEGER         ,INTENT(IN) :: nbdim          !< size of this block
+    TYPE(t_patch)   ,INTENT(in), TARGET :: patch           !< grid/patch info
+    INTEGER         ,INTENT(IN)  :: rl_start, rl_end
 
-    TYPE(datetime), POINTER     :: this_datetime  !< time step
-    REAL(wp)        ,INTENT(IN) :: pdtime         !< time step
-    REAL(wp)        ,INTENT(IN) :: psteplen       !< 2*pdtime in case of leapfrog
+    TYPE(datetime),  POINTER     :: this_datetime  !< time step
+    REAL(wp)        ,INTENT(IN)  :: pdtime         !< time step
+    REAL(wp)        ,INTENT(IN)  :: psteplen       !< 2*pdtime in case of leapfrog
 
-    LOGICAL         ,INTENT(IN) :: ltrig_rad      !< perform radiative transfer computation
+    LOGICAL         ,INTENT(IN)  :: ltrig_rad      !< perform radiative transfer computation
 
     ! Local variables
-
     TYPE(t_echam_phy_field),   POINTER :: field
     TYPE(t_echam_phy_tend) ,   POINTER :: tend
 
-    REAL(wp) :: zlat_deg(nbdim)           !< latitude in deg N
+    REAL(wp) :: zlat_deg(nproma)           !< latitude in deg N
 
-    REAL(wp) :: zvmixtau   (nbdim,nlev)   !< timescale of mixing for vertical turbulence
-    REAL(wp) :: zqtvar_prod(nbdim,nlev)   !< production rate of total water variance
+    REAL(wp) :: zvmixtau   (nproma,nlev)   !< timescale of mixing for vertical turbulence
+    REAL(wp) :: zqtvar_prod(nproma,nlev)   !< production rate of total water variance
                                           !< due to turbulence. Computed in "vdiff",
                                           !< used by "cloud"
-    INTEGER  :: itype(nbdim)              !< type of convection
-    INTEGER  :: ictop (nbdim)             !< from massflux
+    INTEGER  :: itype(nproma)              !< type of convection
+    INTEGER  :: ictop (nproma)             !< from massflux
 
-    REAL(wp) :: zfrl (nbdim)              !< fraction of land in the grid box
-    REAL(wp) :: zfrw (nbdim)              !< fraction of water (without ice) in the grid point
-    REAL(wp) :: zfri (nbdim)              !< fraction of ice in the grid box
-    REAL(wp) :: zfrc (nbdim,nsfc_type)    !< zfrl, zfrw, zfrc combined
-    REAL(wp) :: zri_tile(nbdim,nsfc_type) !< Richardson number
+    REAL(wp) :: zfrc (nproma,nsfc_type,patch%nblks_c)    !< zfrl, zfrw, zfrc combined
+    REAL(wp) :: zri_tile(nproma,nsfc_type) !< Richardson number
 
-    INTEGER  :: ilab   (nbdim,nlev)
-!    REAL(wp) :: zcvcbot(nbdim)
-!    REAL(wp) :: zwcape (nbdim)
+    INTEGER  :: ilab   (nproma,nlev)
+!    REAL(wp) :: zcvcbot(nproma)
+!    REAL(wp) :: zwcape (nproma)
 
-    REAL(wp) :: zqtec  (nbdim,nlev)       !< tracer tendency due to entrainment/detrainment
+    REAL(wp) :: zqtec  (nproma,nlev)       !< tracer tendency due to entrainment/detrainment
 
     REAL(wp) :: zcd                       !< specific heat of dry air          [J/K/kg]
     REAL(wp) :: zcv                       !< specific heat of water vapor      [J/K/kg]
-    REAL(wp) :: zcair  (nbdim,nlev)       !< specific heat of moist air        [J/K/kg]
-    REAL(wp) :: zcpair (nbdim,nlev)       !< specific heat of moist air at const. pressure [J/K/kg]
-    REAL(wp) :: zcvair (nbdim,nlev)       !< specific heat of moist air at const. volume   [J/K/kg]
-    REAL(wp) :: zconv  (nbdim,nlev)       !< conversion factor q-->dT/dt       [(K/s)/(W/m2)]
-    REAL(wp) :: zdelp  (nbdim,nlev)       !< layer thickness in pressure coordinate  [Pa]
+    REAL(wp) :: zcair  (nproma,nlev)       !< specific heat of moist air        [J/K/kg]
+    REAL(wp) :: zcpair (nproma,nlev)       !< specific heat of moist air at const. pressure [J/K/kg]
+    REAL(wp) :: zcvair (nproma,nlev)       !< specific heat of moist air at const. volume   [J/K/kg]
+    REAL(wp) :: zconv  (nproma,nlev)       !< conversion factor q-->dT/dt       [(K/s)/(W/m2)]
+    REAL(wp) :: zdelp  (nproma,nlev)       !< layer thickness in pressure coordinate  [Pa]
 
-    REAL(wp) :: zq_phy (nbdim,nlev)       !< heating by whole ECHAM physics    [W/m2]
-    REAL(wp) :: zq_rsw (nbdim,nlev)       !< heating by short wave radiation   [W/m2]
-    REAL(wp) :: zq_rlw (nbdim,nlev)       !< heating by long  wave radiation   [W/m2]
-    REAL(wp) :: zq_rlw_impl (nbdim)       !< additional heating by LW rad. due to impl. coupling in surface energy balance [W/m2]
-!!$    REAL(wp) :: zq_vdf (nbdim,nlev)       !< heating by vertical diffusion     [W/m2]
-    REAL(wp) :: zq_sso (nbdim,nlev)       !< heating by subgrid scale orogr.   [W/m2]
-    REAL(wp) :: zq_gwh (nbdim,nlev)       !< heating by atm. gravity waves     [W/m2]
-!!$    REAL(wp) :: zq_cnv (nbdim,nlev)       !< heating by convection             [W/m2]
-!!$    REAL(wp) :: zq_cld (nbdim,nlev)       !< heating by stratiform clouds      [W/m2]
+    REAL(wp) :: zq_phy (nproma,nlev)       !< heating by whole ECHAM physics    [W/m2]
+    REAL(wp) :: zq_rsw (nproma,nlev)       !< heating by short wave radiation   [W/m2]
+    REAL(wp) :: zq_rlw (nproma,nlev)       !< heating by long  wave radiation   [W/m2]
+    REAL(wp) :: zq_rlw_impl (nproma)       !< additional heating by LW rad. due to impl. coupling in surface energy balance [W/m2]
+!!$    REAL(wp) :: zq_vdf (nproma,nlev)       !< heating by vertical diffusion     [W/m2]
+    REAL(wp) :: zq_sso (nproma,nlev)       !< heating by subgrid scale orogr.   [W/m2]
+    REAL(wp) :: zq_gwh (nproma,nlev)       !< heating by atm. gravity waves     [W/m2]
+!!$    REAL(wp) :: zq_cnv (nproma,nlev)       !< heating by convection             [W/m2]
+!!$    REAL(wp) :: zq_cld (nproma,nlev)       !< heating by stratiform clouds      [W/m2]
 
-    INTEGER  :: ihpbl  (nbdim)            !< location of PBL top given as vertical level index
-    REAL(wp) :: zxt_emis(nbdim,ntracer-iqt+1)  !< tracer tendency due to surface emission
+    INTEGER  :: ihpbl  (nproma)            !< location of PBL top given as vertical level index
+    REAL(wp) :: zxt_emis(nproma,ntracer-iqt+1)  !< tracer tendency due to surface emission
                                                !< and dry deposition. "zxtems" in ECHAM5
+    INTEGER  :: jg             !< grid level/domain index
+    INTEGER  :: i_nchdom
+    INTEGER  :: i_startblk,i_endblk
+    INTEGER  :: jb             !< block index
+    INTEGER  :: jcs, jce       !< start/end column index within this block
     INTEGER  :: jk
     INTEGER  :: jks   !< start index for vertical loops
     INTEGER  :: nc    !< number of cells/columns from (jce-jcs+1)
@@ -150,62 +157,77 @@ CONTAINS
     ! Coefficient matrices and right-hand-side vectors for the turbulence solver
     ! _btm refers to the lowest model level (i.e., full level "klev", not the surface)
 
-    REAL(wp) :: zaa    (nbdim,nlev,3,nmatrix)       !< coeff. matrices, all variables
-    REAL(wp) :: zaa_btm(nbdim,3,nsfc_type,imh:imqv) !< last row of coeff. matrix of heat and moisture
-    REAL(wp) :: zbb    (nbdim,nlev,nvar_vdiff)  !< r.h.s., all variables
-    REAL(wp) :: zbb_btm(nbdim,nsfc_type,ih_vdiff:iqv_vdiff) !< last row of r.h.s. of heat and moisture
+    REAL(wp) :: zaa    (nproma,nlev,3,nmatrix)       !< coeff. matrices, all variables
+    REAL(wp) :: zaa_btm(nproma,3,nsfc_type,imh:imqv) !< last row of coeff. matrix of heat and moisture
+    REAL(wp) :: zbb    (nproma,nlev,nvar_vdiff)  !< r.h.s., all variables
+    REAL(wp) :: zbb_btm(nproma,nsfc_type,ih_vdiff:iqv_vdiff) !< last row of r.h.s. of heat and moisture
 
     ! Temporary arrays used by VDIFF, JSBACH
 
-    REAL(wp) :: zfactor_sfc(nbdim)
-    REAL(wp) :: zcpt_sfc_tile(nbdim,nsfc_type)  !< dry static energy at surface
+    REAL(wp) :: zfactor_sfc(nproma)
+    REAL(wp) :: zcpt_sfc_tile(nproma,nsfc_type)  !< dry static energy at surface
 
-    REAL(wp) :: zcptgz   (nbdim,nlev) !< dry static energy
-    REAL(wp) :: zrhoh    (nbdim,nlev) !< air density at half levels
-    REAL(wp) :: zqshear  (nbdim,nlev) !<
-    REAL(wp) :: zthvvar  (nbdim,nlev) !< intermediate value of thvvar
-    REAL(wp) :: ztkevn   (nbdim,nlev) !< intermediate value of tke
-    REAL(wp) :: zch_tile (nbdim,nsfc_type)   !<  for "nsurf_diag"
-!    REAL(wp) :: zchn_tile(nbdim,nsfc_type)   !<  for "nsurf_diag"
-!    REAL(wp) :: zcdn_tile(nbdim,nsfc_type)   !<  for "nsurf_diag"
-!    REAL(wp) :: zcfnc_tile(nbdim,nsfc_type)  !<  for "nsurf_diag"
-    REAL(wp) :: zbn_tile (nbdim,nsfc_type)   !<  for "nsurf_diag"
-    REAL(wp) :: zbhn_tile(nbdim,nsfc_type)   !<  for "nsurf_diag"
-    REAL(wp) :: zbm_tile (nbdim,nsfc_type)   !<  for "nsurf_diag"
-    REAL(wp) :: zbh_tile (nbdim,nsfc_type)   !<  for "nsurf_diag"
+    REAL(wp) :: zcptgz   (nproma,nlev) !< dry static energy
+    REAL(wp) :: zrhoh    (nproma,nlev) !< air density at half levels
+    REAL(wp) :: zqshear  (nproma,nlev) !<
+    REAL(wp) :: zthvvar  (nproma,nlev) !< intermediate value of thvvar
+    REAL(wp) :: ztkevn   (nproma,nlev) !< intermediate value of tke
+    REAL(wp) :: zch_tile (nproma,nsfc_type)   !<  for "nsurf_diag"
+!    REAL(wp) :: zchn_tile(nproma,nsfc_type)   !<  for "nsurf_diag"
+!    REAL(wp) :: zcdn_tile(nproma,nsfc_type)   !<  for "nsurf_diag"
+!    REAL(wp) :: zcfnc_tile(nproma,nsfc_type)  !<  for "nsurf_diag"
+    REAL(wp) :: zbn_tile (nproma,nsfc_type)   !<  for "nsurf_diag"
+    REAL(wp) :: zbhn_tile(nproma,nsfc_type)   !<  for "nsurf_diag"
+    REAL(wp) :: zbm_tile (nproma,nsfc_type)   !<  for "nsurf_diag"
+    REAL(wp) :: zbh_tile (nproma,nsfc_type)   !<  for "nsurf_diag"
 
-    REAL(wp) :: ztte_corr(nbdim)      !< tte correction for snow melt over land (JSBACH)
+    REAL(wp) :: ztte_corr(nproma)      !< tte correction for snow melt over land (JSBACH)
 
     ! Temporary variables for Cariolle scheme (ozone)
-    REAL(wp)    :: do3dt(nbdim,nlev)
+    REAL(wp)    :: do3dt(nproma,nlev)
     TYPE(t_time_interpolation) :: time_interpolation
     EXTERNAL       lcariolle_lat_intp_li, lcariolle_pres_intp_li
     TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
  
     ! Temporary array used by GW_HINES
 
-    REAL(wp) :: zdis_gwh(nbdim,nlev)  !<  out, energy dissipation rate [J/s/kg]
+    REAL(wp) :: zdis_gwh(nproma,nlev)  !<  out, energy dissipation rate [J/s/kg]
 
 
     ! Temporary array used by SSODRAG
 
-    REAL(wp) :: zdis_sso(nbdim,nlev)  !<  out, energy dissipation rate [J/s/kg]
+    REAL(wp) :: zdis_sso(nproma,nlev)  !<  out, energy dissipation rate [J/s/kg]
 
 
     ! Temporary variables used for cloud droplet number concentration
 
     REAL(wp) :: zprat, zn1, zn2, zcdnc
-    LOGICAL  :: lland(nbdim), lglac(nbdim)
+    LOGICAL  :: lland(nproma), lglac(nproma)
 
     ! number of cells/columns from index jcs to jce
     nc = jce-jcs+1
 
-    ! start index for vertical loops
+    jg         = patch%id
+    i_nchdom   = MAX(1,patch%n_childdom)
+    i_startblk = patch%cells%start_blk(rl_start,1)
+    i_endblk   = patch%cells%end_blk(rl_end,i_nchdom)
+
+     ! start index for vertical loops
     jks=1
 
     ! 1. Associate pointers
-
     field  => prm_field(jg)
+
+ 
+!$OMP PARALLEL DO PRIVATE(jcs,jce)
+    DO jb = i_startblk,i_endblk
+      CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+      CALL landFraction_cloudCover( jb,jcs,jce,jks, nproma, field, zfrc(:,:,jb))
+    ENDDO
+!$OMP END PARALLEL DO 
+
+
+    !========================================================================================================================
     tend   => prm_tend (jg)
 
     ! provisionally copy the incoming tedencies
@@ -257,27 +279,6 @@ CONTAINS
     ! 3.3 Weighting factors for fractional surface coverage
     !     Accumulate ice portion for diagnostics
 
-    DO jc=jcs,jce
-
-      ! fraction of land in the grid box. lsmask: land-sea mask, 1.= land
-
-      ! TBD: use fractional mask here
-      zfrl(jc) = field% lsmask(jc,jb)
-
-      ! fraction of sea/lake in the grid box
-      ! * (1. - fraction of sea ice in the sea/lake part of the grid box)
-      ! => fraction of open water in the grid box
-
-      zfrw(jc) = (1._wp-zfrl(jc))*(1._wp-field%seaice(jc,jb))
-
-      ! fraction of sea ice in the grid box
-      zfri(jc) = 1._wp-zfrl(jc)-zfrw(jc)
-    END DO
-
-    ! 3.4 Merge three pieces of information into one array for vdiff
-    IF (ilnd.LE.nsfc_type) zfrc(jcs:jce,ilnd) = zfrl(jcs:jce)
-    IF (iwtr.LE.nsfc_type) zfrc(jcs:jce,iwtr) = zfrw(jcs:jce)
-    IF (iice.LE.nsfc_type) zfrc(jcs:jce,iice) = zfri(jcs:jce)
 
     !---------------------------------------------------------------------
     ! 3.9 DETERMINE TROPOPAUSE HEIGHT AND MASS BUDGETS
@@ -285,7 +286,7 @@ CONTAINS
     !      different from the original ECHAM6)
     !---------------------------------------------------------------------
     !
-    !CALL WMO_tropopause( jce, nbdim, nlev,         &! in
+    !CALL WMO_tropopause( jce, nproma, nlev,         &! in
     !                   & ncctop, nccbot, lresum,   &! in
     !                   & field% ta(:,:,jb),        &! in
     !                   & field% presm_old(:,:,jb), &! in
@@ -330,24 +331,6 @@ CONTAINS
 
     itype(jcs:jce) = NINT(field%rtype(jcs:jce,jb))
 
-    IF (phy_config%lcond) THEN
-      IF (ltimer) CALL timer_start(timer_cover)
-
-      CALL cover( jce, nbdim, jks,          &! in
-        &         nlev, nlevp1,             &! in
-        &         itype,  zfrw, zfri,       &! in
-        &         field% zf(:,:,jb),        &! in
-        &         field% presi_old(:,:,jb), &! in
-        &         field% presm_old(:,:,jb), &! in
-        &         field%  ta(:,:,jb),       &! in    tm1
-        &         field%  qtrc(:,:,jb,iqv), &! in    qm1
-        &         field%  qtrc(:,:,jb,iqi), &! in    xim1
-        &         field%  aclc(:,:,jb),     &! out   (for "radiation" and "vdiff_down")
-        &         field% rintop(:,  jb)    ) ! out   (for output)
-
-      IF (ltimer) CALL timer_stop(timer_cover)
-    ENDIF ! lcond
-
     !-------------------------------------------------------------------
     ! 4. RADIATION PARAMETERISATION
     !-------------------------------------------------------------------
@@ -367,7 +350,7 @@ CONTAINS
         & jg                                       ,&!< in  domain index
         & jb                                       ,&!< in  block index
         & kproma         = jce                     ,&!< in  end index for loop over block
-        & kbdim          = nbdim                   ,&!< in  dimension of block over cells
+        & kbdim          = nproma                   ,&!< in  dimension of block over cells
         & klev           = nlev                    ,&!< in  number of full levels = number of layers
         & klevp1         = nlevp1                  ,&!< in  number of half levels = number of layer interfaces
         & ktype          = itype(:)                ,&!< in  type of convection
@@ -434,7 +417,7 @@ CONTAINS
         !
         & jcs        = jcs                            ,&! loop start index
         & jce        = jce                            ,&! loop end index
-        & kbdim      = nbdim                          ,&! dimension size
+        & kbdim      = nproma                          ,&! dimension size
         & klev       = nlev                           ,&! vertical dimension size
         & klevp1     = nlevp1                         ,&! vertical dimension size
         !
@@ -550,12 +533,12 @@ CONTAINS
 
       CALL vdiff_down( vdiff_config%lsfc_mom_flux,      &! in
                      & vdiff_config%lsfc_heat_flux,     &! in
-                     & jce, nbdim, nlev, nlevm1, nlevp1,&! in
+                     & jce, nproma, nlev, nlevm1, nlevp1,&! in
                      & ntrac, nsfc_type,                &! in
                      & iwtr, iice, ilnd,                &! in, indices of different surface types
                      & psteplen,                        &! in, time step (2*dt if leapfrog)
                      & field%coriol(:,jb),              &! in, Coriolis parameter
-                     & zfrc(:,:),                       &! in, area fraction of each sfc type
+                     & zfrc(:,:,jb),                    &! in, area fraction of each sfc type
                      & field% ts_tile(:,jb,:),          &! in, surface temperature
                      & field% ocu (:,jb),               &! in, ocean sfc velocity, u-component
                      & field% ocv (:,jb),               &! in, ocean sfc velocity, v-component
@@ -630,10 +613,10 @@ CONTAINS
         CALL update_surface( vdiff_config%lsfc_heat_flux,  &! in
           & vdiff_config%lsfc_mom_flux,   &! in
           & pdtime, psteplen,             &! in, time steps
-          & jg, jce, nbdim, field%kice,   &! in
+          & jg, jce, nproma, field%kice,  &! in
           & nlev, nsfc_type,              &! in
           & iwtr, iice, ilnd,             &! in, indices of surface types
-          & zfrc(:,:),                    &! in, area fraction
+          & zfrc(:,:,jb),                 &! in, area fraction
           & field% cfh_tile(:,jb,:),      &! in, from "vdiff_down"
           & field% cfm_tile(:,jb,:),      &! in, from "vdiff_down"
           & zfactor_sfc(:),               &! in, from "vdiff_down"
@@ -722,11 +705,11 @@ CONTAINS
 
       IF (ltimer) CALL timer_start(timer_vdiff_up)
 
-      CALL vdiff_up( jce, nbdim, nlev, nlevm1, nlevp1,&! in
+      CALL vdiff_up( jce, nproma, nlev, nlevm1, nlevp1,&! in
                    & ntrac, nsfc_type,                &! in
                    & iwtr,                            &! in, indices of different sfc types
                    & pdtime, psteplen,                &! in, time steps
-                   & zfrc(:,:),                       &! in, area fraction of each sfc type
+                   & zfrc(:,:,jb),                    &! in, area fraction of each sfc type
                    & field% cfm_tile(:,jb,:),         &! in
                    & zaa,                             &! in, from "vdiff_down"
                    &   ihpbl(:),                      &! in, from "vdiff_down"
@@ -813,9 +796,9 @@ CONTAINS
     ! 5.6 Turbulent mixing, part III:
     !     - Further diagnostics.
 
-    CALL nsurf_diag( jce, nbdim, nsfc_type,           &! in
+    CALL nsurf_diag( jce, nproma, nsfc_type,          &! in
                    & ilnd,                            &! in
-                   & zfrc(:,:),                       &! in
+                   & zfrc(:,:,jb),                    &! in
                    & field%  qtrc(:,nlev,jb,iqv),     &! in humidity qm1
                    & field%    ta(:,nlev,jb),         &! in tm1
                    & field% presm_old(:,nlev,jb),     &! in, apm1
@@ -898,7 +881,7 @@ CONTAINS
       time_interpolation%weight2=current_time_interpolation_weights%weight2
       avi%o3_vmr(jcs:jce,:)=field%qtrc(jcs:jce,:,jb,io3)*amd/amo3
       CALL lcariolle_do3dt(                                                    &
-         & jcs,                    jce,                nbdim,                  &
+         & jcs,                    jce,                nproma,                  &
          & nlev,                   time_interpolation, lcariolle_lat_intp_li,  &
          & lcariolle_pres_intp_li, avi,                do3dt                   )
       tend% qtrc(jcs:jce,:,jb,io3) = tend% qtrc(jcs:jce,:,jb,io3) + do3dt(jcs:jce,:)*amo3/amd
@@ -917,7 +900,7 @@ CONTAINS
       IF (ltimer) call timer_start(timer_gw_hines)
 
       CALL gw_hines ( jg                       ,&
-        &             nbdim                    ,&
+        &             nproma                    ,&
         &             jcs                      ,&
         &             jce                      ,&
         &             nc                       ,&
@@ -965,7 +948,7 @@ CONTAINS
       IF (ltimer) call timer_start(timer_ssodrag)
 
        CALL ssodrag( nc                                        ,& ! in,  number of cells/columns in loop (jce-jcs+1)
-                     nbdim                                     ,& ! in,  dimension of block of cells/columns
+                     nproma                                     ,& ! in,  dimension of block of cells/columns
                      nlev                                      ,& ! in,  number of levels
                      !
                      p_patch(jg)%cells%center(:,jb)%lat        ,& ! in,  Latitude in radians
@@ -1039,7 +1022,7 @@ CONTAINS
 
       IF (ltimer) call timer_start(timer_cucall)
 
-      CALL cucall( jce, nbdim, nlev,          &! in
+      CALL cucall( jce, nproma, nlev,          &! in
         &          nlevp1, nlevm1,            &! in
         &          ntrac,                     &! in     tracers
 !        &          jb,                        &! in     row index
@@ -1134,7 +1117,7 @@ CONTAINS
 
         IF (ltimer) CALL timer_start(timer_cloud)
 
-        CALL cloud(jce, nbdim, jks, nlev, nlevp1, &! in
+        CALL cloud(jce, nproma, jks, nlev, nlevp1, &! in
           &        psteplen,                  &! in
           &        ictop,                     &! in (from "cucall")
           &        field% presi_old(:,:,jb),  &! in
@@ -1220,6 +1203,78 @@ CONTAINS
     NULLIFY(field,tend)
 
   END SUBROUTINE echam_phy_main
-  !-------------
+  !----------------------------------------------------------------
+
+  !----------------------------------------------------------------
+  SUBROUTINE landFraction_cloudCover( jb,jcs,jce,jks, nbdim, field, zfrc)
+
+    INTEGER         ,INTENT(IN) :: jb             !< block index
+    INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
+    INTEGER         ,INTENT(IN) :: jks            !< starting vertical level
+    INTEGER         ,INTENT(IN) :: nbdim          !< size of this block
+    TYPE(t_echam_phy_field),   POINTER :: field
+
+    REAL(wp),        INTENT(inout) :: zfrc (nbdim,nsfc_type)    !< zfrl, zfrw, zfrc combined, output
+
+    REAL(wp) :: zfrl (nbdim)              !< fraction of land in the grid box
+    REAL(wp) :: zfrw (nbdim)              !< fraction of water (without ice) in the grid point
+    REAL(wp) :: zfri (nbdim)              !< fraction of ice in the grid box
+    INTEGER  :: itype(nbdim)              !< type of convection
+
+    INTEGER  :: jc
+ 
+ 
+    ! 3.3 Weighting factors for fractional surface coverage
+    !     Accumulate ice portion for diagnostics
+    DO jc=jcs,jce
+
+      ! fraction of land in the grid box. lsmask: land-sea mask, 1.= land
+
+      ! TBD: use fractional mask here
+      zfrl(jc) = field% lsmask(jc,jb)
+
+      ! fraction of sea/lake in the grid box
+      ! * (1. - fraction of sea ice in the sea/lake part of the grid box)
+      ! => fraction of open water in the grid box
+
+      zfrw(jc) = (1._wp-zfrl(jc))*(1._wp-field%seaice(jc,jb))
+
+      ! fraction of sea ice in the grid box
+      zfri(jc) = 1._wp-zfrl(jc)-zfrw(jc)
+    END DO
+
+    ! 3.4 Merge three pieces of information into one array for vdiff
+    IF (ilnd.LE.nsfc_type) zfrc(jcs:jce,ilnd) = zfrl(jcs:jce)
+    IF (iwtr.LE.nsfc_type) zfrc(jcs:jce,iwtr) = zfrw(jcs:jce)
+    IF (iice.LE.nsfc_type) zfrc(jcs:jce,iice) = zfri(jcs:jce)
+
+
+    !-------------------------------------------------------------------
+    ! 3.13 DIAGNOSE CURRENT CLOUD COVER
+    !-------------------------------------------------------------------
+
+    itype(jcs:jce) = NINT(field%rtype(jcs:jce,jb))
+    IF (phy_config%lcond) THEN
+      IF (ltimer) CALL timer_start(timer_cover)
+
+      CALL cover( jce, nbdim, jks,          &! in
+        &         nlev, nlevp1,             &! in
+        &         itype,  zfrw, zfri,       &! in
+        &         field% zf(:,:,jb),        &! in
+        &         field% presi_old(:,:,jb), &! in
+        &         field% presm_old(:,:,jb), &! in
+        &         field%  ta(:,:,jb),       &! in    tm1
+        &         field%  qtrc(:,:,jb,iqv), &! in    qm1
+        &         field%  qtrc(:,:,jb,iqi), &! in    xim1
+        &         field%  aclc(:,:,jb),     &! out   (for "radiation" and "vdiff_down")
+        &         field% rintop(:,  jb)    ) ! out   (for output)
+
+      IF (ltimer) CALL timer_stop(timer_cover)
+    ENDIF ! lcond
+
+
+  END SUBROUTINE landFraction_cloudCover
+  !----------------------------------------------------------------
+
 
 END MODULE mo_echam_phy_main

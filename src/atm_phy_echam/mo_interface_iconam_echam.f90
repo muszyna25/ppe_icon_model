@@ -510,35 +510,25 @@ CONTAINS
 
     IF (ltimer) CALL timer_start(timer_echam_phy)
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jcs,jce),  ICON_OMP_GUIDED_SCHEDULE
-
-    DO jb = i_startblk,i_endblk
-      CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+! !$OMP PARALLEL
+! !$OMP DO PRIVATE(jb,jcs,jce),  ICON_OMP_GUIDED_SCHEDULE
+! 
+!     DO jb = i_startblk,i_endblk
+!       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 
       ! Like in ECHAM, the subroutine *echam_phy_main* has direct access to the memory
-      ! buffers prm_field and prm_tend. In addition it can also directly access
-      ! the grid/patch information on which the computations are performed.
-      ! Thus the argument list contains only
-      ! - jg: the grid index in the grid hierarchy
-      ! - jb: the row index in the block
-      ! - jcs and jce: start and end indices of columns in a row
-      ! - nproma: the block length
-      ! - a few other globally valid arguments
+      ! buffers prm_field and prm_tend. 
 
-      CALL echam_phy_main( jg           ,&! in
-        &                  jb           ,&! in
-        &                  jcs          ,&! in
-        &                  jce          ,&! in
-        &                  nproma       ,&! in
-        &                  datetime_old ,&! in
-        &                  dt_loc       ,&! in
-        &                  dt_loc       ,&! in
-        &                  ltrig_rad    ) ! in
+      CALL echam_phy_main( patch,           &! in
+        &                  rl_start, rl_end,&! in  
+        &                  datetime_old    ,&! in
+        &                  dt_loc          ,&! in
+        &                  dt_loc          ,&! in
+        &                  ltrig_rad        ) ! in
 
-    END DO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!     END DO
+! !$OMP END DO NOWAIT
+! !$OMP END PARALLEL
 
     IF (ltimer) CALL timer_stop(timer_echam_phy)
 
