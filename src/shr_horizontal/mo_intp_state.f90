@@ -197,7 +197,9 @@ INTERFACE xfer_idx
   MODULE PROCEDURE xfer_idx_3
 END INTERFACE
 
-TYPE(t_comm_pattern) :: comm_pat_glb_to_loc_c, comm_pat_glb_to_loc_e, comm_pat_glb_to_loc_v
+CLASS(t_comm_pattern), POINTER :: comm_pat_glb_to_loc_c, &
+  &                               comm_pat_glb_to_loc_e, &
+  &                               comm_pat_glb_to_loc_v
 
 
 CONTAINS

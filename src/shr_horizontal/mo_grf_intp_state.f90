@@ -48,10 +48,12 @@ USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e, grf_
                                   grf_fbk_start_c, grf_fbk_start_e, grf_bdywidth_c,               &
                                   grf_bdywidth_e
 USE mo_parallel_config,     ONLY: nproma
-USE mo_communication,       ONLY: t_comm_pattern, blk_no, idx_no, idx_1d, &
+  USE mo_mpi,                  ONLY: p_pe_work
+
+USE mo_communication,       ONLY: t_p_comm_pattern, blk_no, idx_no, idx_1d, &
   &                               setup_comm_pattern, delete_comm_pattern, &
   &                               exchange_data, t_comm_pattern_collection, &
-  &                               setup_comm_pattern_collection, &
+  &                               t_comm_pattern, setup_comm_pattern_collection, &
   &                               delete_comm_pattern_collection
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_intp_data_strc,      ONLY: t_int_state
@@ -75,7 +77,7 @@ PUBLIC :: allocate_grf_state, deallocate_grf_state
 PUBLIC :: transfer_grf_state
 PUBLIC :: create_grf_index_lists, destruct_interpol_patterns
 
-TYPE(t_comm_pattern) :: comm_pat_loc_to_glb_c, comm_pat_loc_to_glb_e
+CLASS(t_comm_pattern), POINTER :: comm_pat_loc_to_glb_c, comm_pat_loc_to_glb_e
 
   !> module name string
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_grf_intp_state'
@@ -1762,7 +1764,8 @@ CONTAINS
     TYPE(t_glb2loc_index_lookup), INTENT(IN) :: glb2loc
     INTEGER, INTENT(IN) :: n_src, owner_local_src(:), glb_index_src(:)
     TYPE(t_patch), INTENT(IN) :: p_patch
-    TYPE(t_comm_pattern_collection), INTENT(OUT) :: comm_pat_coll_interpol
+    CLASS(t_comm_pattern_collection), POINTER, INTENT(OUT) :: &
+      comm_pat_coll_interpol
     INTERFACE
       FUNCTION select_func(idx, blk, n, p_patch) RESULT(p)
         USE mo_model_domain, ONLY : t_patch
@@ -1772,7 +1775,7 @@ CONTAINS
       END FUNCTION select_func
     END INTERFACE
 
-    TYPE(t_comm_pattern) :: comm_pat_interpol(4)
+    TYPE(t_p_comm_pattern) :: comm_pat_interpol(4)
     INTEGER :: i, n, idx, blk
     INTEGER :: owner_local_dst(n_patch_cve), glb_index_dst(n_patch_cve)
 
@@ -1802,7 +1805,7 @@ CONTAINS
       ! Set up communication pattern
       CALL setup_comm_pattern(n_patch_cve, owner_local_dst, glb_index_dst,  &
         &                     glb2loc, n_src, owner_local_src, glb_index_src, &
-        &                     comm_pat_interpol(n))
+        &                     comm_pat_interpol(n)%p)
 
     ENDDO
 

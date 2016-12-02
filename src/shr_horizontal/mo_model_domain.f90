@@ -901,17 +901,17 @@ MODULE mo_model_domain
     ! communication patterns for parallelization
     !
     ! Boundary exchange within patches, defined on regular patches and local parents
-    TYPE(t_comm_pattern) :: comm_pat_c
-    TYPE(t_comm_pattern) :: comm_pat_c1 ! reduced communication pattern, only level-1 halo cells
-    TYPE(t_comm_pattern) :: comm_pat_e
-    TYPE(t_comm_pattern) :: comm_pat_v
+    CLASS(t_comm_pattern), POINTER :: comm_pat_c
+    CLASS(t_comm_pattern), POINTER :: comm_pat_c1 ! reduced communication pattern, only level-1 halo cells
+    CLASS(t_comm_pattern), POINTER :: comm_pat_e
+    CLASS(t_comm_pattern), POINTER :: comm_pat_v
 
     ! Interpolation for grid refinement, defined only on regular patches
-    TYPE(t_comm_pattern) :: comm_pat_interpolation_c
-    TYPE(t_comm_pattern_collection) :: comm_pat_coll_interpol_vec_grf
-    TYPE(t_comm_pattern_collection) :: comm_pat_coll_interpol_scal_grf
-    TYPE(t_comm_pattern_collection) :: comm_pat_coll_interpol_vec_ubc
-    TYPE(t_comm_pattern_collection) :: comm_pat_coll_interpol_scal_ubc
+    CLASS(t_comm_pattern), POINTER :: comm_pat_interpolation_c
+    CLASS(t_comm_pattern_collection), POINTER :: comm_pat_coll_interpol_vec_grf
+    CLASS(t_comm_pattern_collection), POINTER :: comm_pat_coll_interpol_scal_grf
+    CLASS(t_comm_pattern_collection), POINTER :: comm_pat_coll_interpol_vec_ubc
+    CLASS(t_comm_pattern_collection), POINTER :: comm_pat_coll_interpol_scal_ubc
 
     ! Gather complete patch to proc 0
     ! Useful only for regular patches (defined but unused on local parents)
@@ -929,10 +929,10 @@ MODULE mo_model_domain
     ! defined only on local parents.
     ! Please note that these communicate between
     ! p_patch_local_parent(jg) and p_patch(p_patch(jg)%parent_id)
-    TYPE(t_comm_pattern) :: comm_pat_glb_to_loc_c
-    TYPE(t_comm_pattern) :: comm_pat_glb_to_loc_e
-    TYPE(t_comm_pattern) :: comm_pat_loc_to_glb_c_fbk
-    TYPE(t_comm_pattern) :: comm_pat_loc_to_glb_e_fbk
+    CLASS(t_comm_pattern), POINTER :: comm_pat_glb_to_loc_c
+    CLASS(t_comm_pattern), POINTER :: comm_pat_glb_to_loc_e
+    CLASS(t_comm_pattern), POINTER :: comm_pat_loc_to_glb_c_fbk
+    CLASS(t_comm_pattern), POINTER :: comm_pat_loc_to_glb_e_fbk
 
     ! Halo comm patterns for the icon_commm_lib
     INTEGER ::  sync_cells_not_in_domain

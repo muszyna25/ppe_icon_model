@@ -38,7 +38,7 @@ MODULE mo_load_multifile_restart
       &                                  streamClose, streamReadVar,                                   &
       &                                  streamReadVarSlice, streamReadVarSliceF, CDI_GLOBAL,          &
       &                                  vlistInqAttInt
-    USE mo_communication,          ONLY: t_comm_pattern, setup_comm_pattern, delete_comm_pattern, exchange_data_noblk
+    USE mo_communication_orig,     ONLY: t_comm_pattern_orig, exchange_data_noblk
     USE mo_decomposition_tools,    ONLY: t_glb2loc_index_lookup, init_glb2loc_index_lookup, set_inner_glb_index, &
       &                                  deallocate_glb2loc_index_lookup
     USE mo_dynamics_config,        ONLY: nnew, nnew_rcf
@@ -101,7 +101,7 @@ MODULE mo_load_multifile_restart
       REAL(dp), POINTER :: readBuffer_1d_d(:)
       INTEGER,  POINTER :: readBuffer_1d_int(:)
 
-      CLASS(t_comm_pattern), POINTER :: commPattern
+      TYPE(t_comm_pattern_orig), POINTER :: commPattern
     CONTAINS
         PROCEDURE :: construct => readBuffer_construct
 
@@ -503,7 +503,8 @@ CONTAINS
         IF(me%curWindowOffset /= 1) CALL finish(routine, "assertion failed: buffer NOT empty on destruction")
 
         DEALLOCATE(me%readBuffer_1d_d, me%readBuffer_1d_s, me%readBuffer_1d_int)
-        CALL delete_comm_pattern(me%commPattern)
+        CALL me%commPattern%delete()
+        DEALLOCATE(me%commPattern)
     END SUBROUTINE readBuffer_destruct
 
     SUBROUTINE multifileCheckRestartFiles(filename)
@@ -618,7 +619,7 @@ CONTAINS
     ! must be IN the range [1, globalSize].  owners(M): Rank of the PE
     ! providing each of the required points.
     FUNCTION makeCommPattern(globalSize, providedGlobalIndices, requiredGlobalIndices, owners) RESULT(resultVar)
-        CLASS(t_comm_pattern), POINTER :: resultVar
+      TYPE(t_comm_pattern_orig), POINTER :: resultVar
         INTEGER, VALUE :: globalSize
         INTEGER, INTENT(IN) :: providedGlobalIndices(:), requiredGlobalIndices(:), owners(:)
 
@@ -642,16 +643,16 @@ CONTAINS
         CALL set_inner_glb_index(lookupTable, providedGlobalIndices, local_index)
         local_owner = p_comm_rank(p_comm_work)
 
-        CALL setup_comm_pattern(nreq, owners, requiredGlobalIndices, &
-             lookupTable, nown, local_owner, providedGlobalIndices, &
-             resultVar)
+        ALLOCATE(resultvar)
+        CALL resultVar%setup(nreq, owners, requiredGlobalIndices, &
+             lookupTable, nown, local_owner, providedGlobalIndices)
         CALL deallocate_glb2loc_index_lookup(lookupTable)
     END FUNCTION makeCommPattern
 
     ! This asserts that the given pattern redistributes a given array
     ! exactly as described by the global indices arrays.
     SUBROUTINE checkRedistributionPattern(pattern, providedGlobalIndices, requiredGlobalIndices)
-        TYPE(t_comm_pattern), INTENT(IN) :: pattern
+        TYPE(t_comm_pattern_orig), INTENT(IN) :: pattern
         INTEGER, INTENT(IN) :: providedGlobalIndices(:), requiredGlobalIndices(:)
 
         INTEGER :: inputSize, outputSize, i, error
@@ -689,7 +690,7 @@ CONTAINS
     !
     ! The resulting t_comm_pattern will also initialize the halo points.
     FUNCTION makeRedistributionPattern(name, providedGlobalIndices, requiredGlobalIndices) RESULT(resultVar)
-        CLASS(t_comm_pattern), POINTER :: resultVar
+        TYPE(t_comm_pattern_orig), POINTER :: resultVar
         CHARACTER(LEN=*), INTENT(IN) :: name
         INTEGER, INTENT(IN) :: providedGlobalIndices(:), requiredGlobalIndices(:)
 
@@ -937,6 +938,8 @@ CONTAINS
         CALL reader%construct(p_patch, multifilePath)
         CALL reader%readData(varData)
         CALL reader%destruct()
-    END SUBROUTINE multifileReadPatch
+      END SUBROUTINE multifileReadPatch
+
+
 
 END MODULE mo_load_multifile_restart

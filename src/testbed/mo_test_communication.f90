@@ -32,7 +32,7 @@ MODULE mo_test_communication
     &                               t_comm_allgather_pattern, &
     &                               setup_comm_allgather_pattern, &
     &                               delete_comm_allgather_pattern, &
-    &                               exchange_data_grf, &
+    &                               exchange_data_grf, t_p_comm_pattern, &
     &                               t_comm_pattern_collection, &
     &                               setup_comm_pattern_collection, &
     &                               delete_comm_pattern_collection
@@ -1111,7 +1111,7 @@ CONTAINS
       &                     glb_index_src(:), glb_index_dst(:)
     INTEGER :: i, j, n, local_size_src, local_size_dst, global_size
     TYPE(t_glb2loc_index_lookup) :: send_glb2loc_index
-    TYPE(t_comm_pattern) :: comm_pattern
+    CLASS(t_comm_pattern), POINTER :: comm_pattern
 
     INTEGER :: nlev
     REAL(wp), ALLOCATABLE :: in_array_r_2d(:,:), in_array_r_3d(:,:,:), &
@@ -2095,7 +2095,7 @@ CONTAINS
       REAL(wp), INTENT(IN) :: ref_out_array_r_2d(:,:), ref_out_array_r_3d(:,:,:)
       INTEGER, INTENT(IN) ::  ref_out_array_i_2d(:,:), ref_out_array_i_3d(:,:,:)
       LOGICAL, INTENT(IN) ::  ref_out_array_l_2d(:,:), ref_out_array_l_3d(:,:,:)
-      TYPE(t_comm_pattern), INTENT(INOUT) :: comm_pattern
+      CLASS(t_comm_pattern), POINTER, INTENT(INOUT) :: comm_pattern
 
       CALL exchange_data(p_pat=comm_pattern, recv=out_array_r_2d, &
         &                send=in_array_r_2d, add=add_array_r_2d, &
@@ -2145,7 +2145,7 @@ CONTAINS
       REAL(wp), OPTIONAL, INTENT(IN) :: in_array(:,:,:,:)
       REAL(wp), INTENT(INOUT) :: out_array(:,:,:,:)
       REAL(wp), INTENT(IN) :: ref_out_array(:,:,:,:)
-      TYPE(t_comm_pattern), INTENT(INOUT) :: comm_pattern
+      CLASS(t_comm_pattern), POINTER, INTENT(INOUT) :: comm_pattern
 
       INTEGER :: nfields, ndim2tot
 
@@ -2188,7 +2188,7 @@ CONTAINS
       REAL(wp), INTENT(IN   ), OPTIONAL :: in_array4d(:,:,:,:)
       REAL(wp), INTENT(INOUT), OPTIONAL :: ref_out_array4d(:,:,:,:)
       INTEGER, OPTIONAL, INTENT(IN) :: nshift
-      TYPE(t_comm_pattern), INTENT(INOUT) :: comm_pattern
+      CLASS(t_comm_pattern), POINTER, INTENT(INOUT) :: comm_pattern
 
       INTEGER :: nfields, ndim2tot, ndim2, kshift
 
@@ -2313,8 +2313,8 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: ref_recv_add(:,:)
     INTEGER :: i, j, n, local_size_src, local_size_dst, global_size, count
     TYPE(t_glb2loc_index_lookup) :: send_glb2loc_index
-    TYPE(t_comm_pattern) :: comm_pattern(4)
-    TYPE(t_comm_pattern_collection) :: comm_pattern_collection
+    TYPE(t_p_comm_pattern) :: comm_pattern(4)
+    CLASS(t_comm_pattern_collection), POINTER :: comm_pattern_collection
 
     REAL(wp) :: recv1(nproma,2,18), recv2(nproma,4,18), &
       &         recv3(nproma,6,18), recv4(nproma,8,18), &
@@ -2359,7 +2359,7 @@ CONTAINS
       CALL setup_comm_pattern(local_size_dst, owner_local_dst(:,i), &
         &                     glb_index_dst, send_glb2loc_index, &
         &                     local_size_src, owner_local_src, glb_index_src, &
-        &                     comm_pattern(i))
+        &                     comm_pattern(i)%p)
     END DO
 
     CALL setup_comm_pattern_collection(comm_pattern, comm_pattern_collection)
@@ -2506,7 +2506,7 @@ CONTAINS
       recv6, send6, ref_recv6, recv4d1, send4d1, ref_recv4d1, recv4d2, &
       send4d2, ref_recv4d2)
 
-      TYPE(t_comm_pattern_collection), INTENT(INOUT), TARGET :: p_pat_coll
+      CLASS(t_comm_pattern_collection), POINTER, INTENT(INOUT) :: p_pat_coll
 
       ! recv3d (nproma,nlev,blk)
       ! recv4d (nproma,nlev,blk,nfield)
