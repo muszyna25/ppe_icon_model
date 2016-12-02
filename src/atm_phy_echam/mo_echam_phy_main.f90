@@ -29,10 +29,11 @@ MODULE mo_echam_phy_main
   USE mo_exception,           ONLY: finish
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_math_constants,      ONLY: pi
-  USE mo_physical_constants,  ONLY: cpd, cpv, cvd, cvv
+  USE mo_physical_constants,  ONLY: cpd, cpv, cvd, cvv, &
+    &                               amd, amo3
   USE mo_impl_constants,      ONLY: inh_atmosphere
   USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
-    &                               iqv, iqc, iqi, iqt
+    &                               iqv, iqc, iqi, iqt, io3
   USE mo_dynamics_config,     ONLY: iequations
   USE mo_ext_data_state,      ONLY: ext_data
   USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
@@ -60,12 +61,16 @@ MODULE mo_echam_phy_main
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
   USE mo_vdiff_upward_sweep,  ONLY: vdiff_up
   USE mo_vdiff_solver,        ONLY: nvar_vdiff, nmatrix, imh, imqv,   &
-                                  & ih_vdiff=>ih, iqv_vdiff=>iqv
+    &                               ih_vdiff=>ih, iqv_vdiff=>iqv
   USE mo_gw_hines,            ONLY: gw_hines
   USE mo_ssortns,             ONLY: ssodrag
   ! provisional to get coordinates
   USE mo_model_domain,        ONLY: p_patch
+  USE mo_lcariolle_types,     ONLY: avi, t_time_interpolation
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
+    &                                  calculate_time_interpolation_weights
 
+  
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: echam_phy_main
@@ -171,6 +176,12 @@ CONTAINS
 
     REAL(wp) :: ztte_corr(nbdim)      !< tte correction for snow melt over land (JSBACH)
 
+    ! Temporary variables for Cariolle scheme (ozone)
+    REAL(wp)    :: do3dt(nbdim,nlev)
+    TYPE(t_time_interpolation) :: time_interpolation
+    EXTERNAL       lcariolle_lat_intp_li, lcariolle_pres_intp_li
+    TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
+ 
     ! Temporary array used by GW_HINES
 
     REAL(wp) :: zdis_gwh(nbdim,nlev)  !<  out, energy dissipation rate [J/s/kg]
@@ -871,6 +882,26 @@ CONTAINS
 
       tend%ta_rlw_impl(jcs:jce,jb) = 0._wp
 
+    END IF
+
+    IF (phy_config%lcariolle) THEN
+      avi%tmprt(jcs:jce,:)=field%ta(jcs:jce,:,jb)
+      avi%vmr2molm2(jcs:jce,:)=field%mdry(jcs:jce,:,jb)/amd*1.e3_wp
+      avi%pres(jcs:jce,:)=field%presm_old(jcs:jce,:,jb)
+      avi%cell_center_lat(jcs:jce)=p_patch(jg)%cells%center(jcs:jce,jb)%lat
+      avi%lday(jcs:jce)=field%cosmu0(jcs:jce,jb)>1.e-3_wp
+      avi%ldown=.TRUE.
+      current_time_interpolation_weights = calculate_time_interpolation_weights(this_datetime)
+      time_interpolation%imonth1=current_time_interpolation_weights%month1_index
+      time_interpolation%imonth2=current_time_interpolation_weights%month2_index
+      time_interpolation%weight1=current_time_interpolation_weights%weight1
+      time_interpolation%weight2=current_time_interpolation_weights%weight2
+      avi%o3_vmr(jcs:jce,:)=field%qtrc(jcs:jce,:,jb,io3)*amd/amo3
+      CALL lcariolle_do3dt(                                                    &
+         & jcs,                    jce,                nbdim,                  &
+         & nlev,                   time_interpolation, lcariolle_lat_intp_li,  &
+         & lcariolle_pres_intp_li, avi,                do3dt                   )
+      tend% qtrc(jcs:jce,:,jb,io3) = tend% qtrc(jcs:jce,:,jb,io3) + do3dt(jcs:jce,:)*amo3/amd
     END IF
 
     !-------------------------------------------------------------------

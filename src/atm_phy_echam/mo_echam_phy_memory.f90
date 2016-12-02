@@ -580,10 +580,10 @@ CONTAINS
        IF (jtrc == 1 ) ctracer(jtrc) = 'hus'
        IF (jtrc == 2 ) ctracer(jtrc) = 'clw'
        IF (jtrc == 3 ) ctracer(jtrc) = 'cli'
-       IF (jtrc == 4 ) ctracer(jtrc) = 'co2'
-       IF (jtrc == 5 ) ctracer(jtrc) = 'ch4'
-       IF (jtrc == 6 ) ctracer(jtrc) = 'n2o'
-       IF (jtrc == 7 ) ctracer(jtrc) = 'o3'
+       IF (jtrc == 4 ) ctracer(jtrc) = 'o3'
+       IF (jtrc == 5 ) ctracer(jtrc) = 'co2'
+       IF (jtrc == 6 ) ctracer(jtrc) = 'ch4'
+       IF (jtrc == 7 ) ctracer(jtrc) = 'n2o'
        !
     END DO
 
