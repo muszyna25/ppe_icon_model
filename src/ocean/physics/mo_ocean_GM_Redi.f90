@@ -52,7 +52,7 @@ MODULE mo_ocean_GM_Redi
   USE mo_ocean_physics_types,       ONLY: t_ho_params 
   USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff, Get3DVectorTo2DLocal_array3D
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
-  USE mo_sync,                      ONLY: sync_patch_array_mult, sync_c, sync_e!, sync_patch_array
+  USE mo_sync,                      ONLY: sync_patch_array_mult, sync_c, sync_e, sync_patch_array
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_dif_vert
   USE mo_statistics,                ONLY: global_minmaxmean
   USE mo_mpi,                       ONLY: my_process_is_stdio !global_mpi_barrier
@@ -101,7 +101,6 @@ CONTAINS
     TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
     TYPE(t_ho_params),                 INTENT(inout) :: param
     TYPE(t_operator_coeff),            INTENT(inout) :: op_coeff
-        
    !-------------------------------------------------------------------------------
    ! IF(tracer_index>2)THEN
    !   CALL message (TRIM('calc_ocean_physics'), 'GM-Redi parametrization &
@@ -134,7 +133,7 @@ CONTAINS
     INTEGER, INTENT(IN)                      :: tracer_index
     
     !Local variables
-    INTEGER :: start_cell_index, end_cell_index, cell_index, blockNo
+    INTEGER :: start_cell_index, end_cell_index, cell_index, blockNo,level
     TYPE(t_subset_range), POINTER :: cells_in_domain
     TYPE(t_patch), POINTER :: patch_2D
     
@@ -145,6 +144,11 @@ CONTAINS
     cells_in_domain  => patch_2D%cells%in_domain   
     GMredi_flux_horz => ocean_state%p_diag%GMRedi_flux_horz(:,:,:,tracer_index)
     GMredi_flux_vert => ocean_state%p_diag%GMRedi_flux_vert(:,:,:,tracer_index)
+
+!DO level=1,10
+!write(0,*)'A_v 0',tracer_index,level,maxval(param%a_tracer_v(:,level,:, tracer_index)),&
+!&minval(param%a_tracer_v(:,level,:, tracer_index)) 
+!END DO
         
     SELECT CASE(GMRedi_configuration)!GMRedi_configuration==Cartesian_Mixing)RETURN
  
@@ -168,8 +172,12 @@ CONTAINS
      CALL diagnose_Redi_flux_balance(patch_3d, ocean_state, param, op_coeff,&
      & tracer_index)
     ENDIF           
-    
 
+DO level=1,10
+write(0,*)'A_v 1',tracer_index,level,maxval(param%a_tracer_v(:,level,:, tracer_index)),&
+&minval(param%a_tracer_v(:,level,:, tracer_index)) 
+END DO
+    
   END SUBROUTINE calc_ocean_physics
   !-------------------------------------------------------------------------
 
@@ -403,6 +411,10 @@ CONTAINS
           END DO                
         END DO
 !ICON_OMP_END_DO_PARALLEL
+
+    CALL sync_patch_array(sync_c, patch_2D, param%a_tracer_v(:,:,:,tracer_index))
+           
+
         IF(tracer_index==1)THEN
           Do level=1,n_zlev
             CALL dbg_print('New vert coeff: A_v', param%a_tracer_v(:,level,:, tracer_index),&
@@ -2476,17 +2488,18 @@ END DO
 
 
     CALL map_cell2edges_3D( patch_3D,flux_sum_horz, GMredi_flux_horz, op_coeff)
+    
     Do level=start_level+1,n_zlev-1
     idt_src=1  ! output print level (1-5, fix)
-    write(0,*)'level',level
-    CALL dbg_print('diagnose_Redi:horz',GMredi_flux_horz(:,level,:),&
+    !write(0,*)'level',level
+    CALL dbg_print('diag_Redi:horz',GMredi_flux_horz(:,level,:),&
     & str_module, idt_src, in_subset=edges_in_domain)
     END DO
     
     Do level=start_level+1,n_zlev-1
     idt_src=1  ! output print level (1-5, fix)
-    write(0,*)'level',level,tracer_index
-    CALL dbg_print('diagnose_Redi:vert',GMredi_flux_vert(:,level,:),&
+    !write(0,*)'level',level,tracer_index
+    CALL dbg_print('diag_Redi:vert',GMredi_flux_vert(:,level,:),&
     & str_module, idt_src, in_subset=cells_in_domain)
     END DO
     ENDIF

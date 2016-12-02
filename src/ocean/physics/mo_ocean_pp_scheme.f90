@@ -100,6 +100,7 @@ MODULE mo_ocean_pp_scheme
   PUBLIC :: update_physics_parameters_ICON_PP_Edge_scheme
   PUBLIC :: update_physics_parameters_ICON_PP_Tracer
   PUBLIC :: update_physics_parameters_MPIOM_PP_scheme
+  PUBLIC :: calculate_rho4GMRedi
   
   !TYPE(t_ho_params),PUBLIC,TARGET :: v_params  
 !  REAL(wp), POINTER :: WindAmplitude_at10m(:,:)  ! can be single precision
@@ -107,6 +108,104 @@ MODULE mo_ocean_pp_scheme
 !  REAL(wp), POINTER :: WindMixingDecay(:), WindMixingLevel(:)
 
 CONTAINS
+
+ !-------------------------------------------------------------------------
+  !>
+  !! 
+  !!
+  !! @par Revision History
+  !! Initial release by Peter Korn, MPI-M (2016-12)
+  !<Optimize:inUse:done>
+  SUBROUTINE calculate_rho4GMRedi(patch_3d, temperature, salinity, rho_GM) 
+
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    !TYPE(t_hydro_ocean_state), TARGET    :: ocean_state
+    REAL(wp), INTENT(IN)                 :: temperature(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp), INTENT(IN)                 :: salinity(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp), INTENT(INOUT)              :: rho_GM(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    !TYPE(t_ho_params), INTENT(inout)     :: params_oce
+
+    ! Local variables
+    INTEGER :: jc, blockNo, je,jk, tracer_index
+    !INTEGER  :: ile1, ibe1,ile2, ibe2,ile3, ibe3
+    INTEGER :: cell_1_idx, cell_1_block, cell_2_idx,cell_2_block
+    INTEGER :: start_index, end_index
+    INTEGER :: levels
+
+    REAL(wp) :: z_rho_up(n_zlev), z_rho_down(n_zlev), density(n_zlev)
+    REAL(wp) :: pressure(n_zlev), sal(n_zlev)
+    !REAL(wp), POINTER :: z_vert_density_grad_c(:,:,:)
+    !-------------------------------------------------------------------------
+    TYPE(t_subset_range), POINTER :: edges_in_domain, all_cells!, cells_in_domain
+    TYPE(t_patch), POINTER :: patch_2D
+
+    !-------------------------------------------------------------------------
+    patch_2D         => patch_3d%p_patch_2d(1)
+    !edges_in_domain => patch_2D%edges%in_domain
+    !cells_in_domain => patch_2D%cells%in_domain
+    all_cells       => patch_2D%cells%ALL
+    !z_vert_density_grad_c => ocean_state%p_diag%zgrad_rho
+    levels = n_zlev
+
+
+!     IF (ltimer) CALL timer_start(timer_extra10)
+
+!ICON_OMP_PARALLEL PRIVATE(salinity,z_rho_up, z_rho_down)
+    sal(1:levels) = sal_ref
+
+    z_rho_up(:)=0.0_wp
+    z_rho_down(:)=0.0_wp
+    rho_GM(:,:,:)=0.0_wp
+
+!ICON_OMP_DO PRIVATE(start_index, end_index, jc, levels, jk, pressure, &
+!ICON_OMP  tracer_index) ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, blockNo, start_index, end_index)
+      DO jc = start_index, end_index
+
+        levels = patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo)
+        IF (levels < 2) CYCLE
+
+        !--------------------------------------------------------
+        sal(1:levels)      = salinity(jc,1:levels,blockNo)
+
+        pressure(2:levels) = patch_3d%p_patch_1d(1)%depth_CellInterface(jc, 2:levels, blockNo) * OceanReferenceDensity * sitodbar
+
+        z_rho_up(1:levels-1)  &
+        &= calculate_density_onColumn(temperature(jc,1:levels-1,blockNo), sal(1:levels-1), pressure(2:levels), levels-1)
+        z_rho_down(2:levels)  &
+        &= calculate_density_onColumn(temperature(jc,2:levels,blockNo),   sal(2:levels), pressure(2:levels), levels-1)
+
+
+        DO jk = 2, levels
+          rho_GM(jc,jk,blockNo)=0.5_wp*(z_rho_up(jk)+z_rho_down(jk))
+        
+          !z_vert_density_grad_c(jc,jk,blockNo) = (z_rho_down(jk) - z_rho_up(jk-1)) *  &
+          !  & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,blockNo)
+        END DO ! levels
+        !ocean_state%p_diag%grad_rho_PP_vert(jc,2:levels,blockNo)=z_vert_density_grad_c(jc,2:levels,blockNo)
+        rho_GM(jc,1,blockNo)=rho_GM(jc,2,blockNo)
+ 
+      END DO ! index
+
+
+    END DO ! blocks
+!ICON_OMP_END_DO
+
+! !ICON_OMP_END_PARALLEL
+!     IF (ltimer) CALL timer_stop(timer_extra10)
+!     IF (ltimer) CALL timer_start(timer_extra11)
+! !ICON_OMP_PARALLEL
+
+!     IF (ltimer) CALL timer_stop(timer_extra11)
+DO jk=1,10
+CALL dbg_print('calc_rho4GMRedi: rho_GM',rho_GM(:,jk,:),&
+          & str_module, idt_src, in_subset=all_cells) 
+END DO          
+
+  END SUBROUTINE calculate_rho4GMRedi
+  !-------------------------------------------------------------------------
+
 
 
   !-------------------------------------------------------------------------
@@ -303,6 +402,10 @@ CONTAINS
 !ICON_OMP_END_DO NOWAIT
 !ICON_OMP_END_PARALLEL
 !     IF (ltimer) CALL timer_stop(timer_extra11)
+DO jk=1,10
+CALL dbg_print('PP-scheme: rho_GM',ocean_state%p_diag%rho_GM(:,jk,:),&
+          & str_module, idt_src, in_subset=all_cells) 
+END DO          
 
   END SUBROUTINE update_physics_parameters_ICON_PP_scheme
   !-------------------------------------------------------------------------

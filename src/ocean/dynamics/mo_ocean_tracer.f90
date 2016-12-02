@@ -59,6 +59,7 @@ MODULE mo_ocean_tracer
   USE mo_ocean_math_operators,      ONLY: div_oce_3d, verticalDiv_scalar_onFullLevels! !verticalDiv_scalar_midlevel
   USE mo_scalar_product,            ONLY: map_edges2edges_viacell_3d_const_z
   USE mo_physical_constants,        ONLY: clw, rho_ref
+  USE mo_ocean_pp_scheme,           ONLY: calculate_rho4GMRedi
   IMPLICIT NONE
 
   PRIVATE
@@ -95,6 +96,8 @@ CONTAINS
     INTEGER :: iloc(2)
     REAL(wp) :: zlat, zlon
     REAL(wp) :: z_c(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: density_old(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: density_new(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)    
     REAL(wp) :: minmaxmean(3)
     TYPE(t_subset_range), POINTER :: cells_in_domain
     TYPE(t_patch), POINTER :: patch_2D
@@ -143,6 +146,36 @@ CONTAINS
         & tracer_index )
 
     END DO
+    density_old(:,:,:)=0.0_wp
+    density_new(:,:,:)=0.0_wp    
+    CALL calculate_rho4GMRedi(patch_3d,&
+     & p_os%p_prog(nold(1))%ocean_tracers(1)%concentration,&
+     & p_os%p_prog(nold(1))%ocean_tracers(2)%concentration,&
+     & density_old)
+
+    CALL calculate_rho4GMRedi(patch_3d,&
+     & p_os%p_prog(nnew(1))%ocean_tracers(1)%concentration,&
+     & p_os%p_prog(nnew(1))%ocean_tracers(2)%concentration,&
+     & density_new)
+     
+
+     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
+        DO jc = start_cell_index, end_cell_index
+          DO level = 1, n_zlev
+          
+            p_os%p_diag%odensitytend(jc,level,jb)  &
+            &=(density_new(jc,level,jb)-density_old(jc,level,jb))/dtime
+
+          END DO
+        END DO
+      END DO
+
+      CALL sync_patch_array(sync_c, patch_2D, p_os%p_diag%odensitytend)
+ 
+      idt_src=4    
+      CALL dbg_print('DENSITY-Change', p_os%p_diag%odensitytend, str_module,idt_src, in_subset=cells_in_domain)    
+
 
     ! Final step: 3-dim temperature relaxation
     !  - strict time constant, i.e. independent of layer thickness
@@ -733,9 +766,7 @@ CONTAINS
       
       !Vertical mixing: implicit and with coefficient a_v
       !that is the sum of PP-coeff and implicit part of Redi-scheme
-!DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)           
-!write(0,*)'vert coeff',level,maxval(a_v(:,level,:)),minval(a_v(:,level,:))
-!END DO
+      
       CALL tracer_diffusion_vertical_implicit( &
           & patch_3d,                        &
           & new_ocean_tracer,                &

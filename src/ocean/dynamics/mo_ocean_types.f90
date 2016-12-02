@@ -192,7 +192,8 @@ MODULE mo_ocean_types
       & vertical_mixing_coeff_GMRedi_implicit,&
       & w_bolus,                      &
       & opottemptend,                 &
-      & osalttend
+      & osalttend,                    &
+      & odensitytend
 
     onCells_2D :: &
       & thick_c          ,& ! individual fluid column thickness at cells. Unit [m].

@@ -921,9 +921,18 @@ CONTAINS
       CALL add_var(ocean_default_list, 'osalttend', ocean_state_diag%osalttend,&
        & grid_unstructured_cell, &
        & za_depth_below_sea, &
-       & t_cf_var('osalttend','','complete salinity at cells', datatype_flt),&
+       & t_cf_var('osalttend','','complete salinity tendency at cells', datatype_flt),&
        & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
+
+      CALL add_var(ocean_default_list, 'odensitytend', ocean_state_diag%odensitytend,&
+       & grid_unstructured_cell, &
+       & za_depth_below_sea, &
+       & t_cf_var('odensitytend','','complete density tendency at cells', datatype_flt),&
+       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
+
+
       
 !   CALL add_var(ocean_restart_list, 'w_e', ocean_state_diag%w_e, grid_unstructured_cell, &
 !     & za_depth_below_sea_half, &
