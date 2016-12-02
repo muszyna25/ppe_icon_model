@@ -2977,7 +2977,7 @@ CONTAINS
       modname//"::replicate_coordinate_data_on_io_procs"
     INTEGER                       :: idom, i
 
-    INTEGER :: idom_log
+    INTEGER :: idom_log, temp(4,n_dom_out)
     LOGICAL :: keep_grid_info, is_io
 
     is_io = my_process_is_io()
@@ -2986,11 +2986,17 @@ CONTAINS
 
     ! Go over all output domains
     DO idom = 1, n_dom_out
-      CALL p_bcast(patch_info(idom)%nblks_glb_c, bcast_root, p_comm_work_2_io)
-      CALL p_bcast(patch_info(idom)%nblks_glb_e, bcast_root, p_comm_work_2_io)
-      CALL p_bcast(patch_info(idom)%nblks_glb_v, bcast_root, p_comm_work_2_io)
-      CALL p_bcast(patch_info(idom)%max_cell_connectivity, bcast_root, p_comm_work_2_io)
-
+      temp(1,idom) = patch_info(idom)%nblks_glb_c
+      temp(2,idom) = patch_info(idom)%nblks_glb_e
+      temp(3,idom) = patch_info(idom)%nblks_glb_v
+      temp(4,idom) = patch_info(idom)%max_cell_connectivity
+    END DO
+    CALL p_bcast(temp, bcast_root, p_comm_work_2_io)
+    DO idom = 1, n_dom_out
+      patch_info(idom)%nblks_glb_c = temp(1,idom)
+      patch_info(idom)%nblks_glb_e = temp(2,idom)
+      patch_info(idom)%nblks_glb_v = temp(3,idom)
+      patch_info(idom)%max_cell_connectivity = temp(4,idom)
       IF (patch_info(idom)%grid_info_mode == GRID_INFO_BCAST) THEN
         ! logical domain ID
         idom_log = patch_info(idom)%log_patch_id
