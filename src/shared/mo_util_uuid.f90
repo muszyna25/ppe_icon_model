@@ -314,7 +314,7 @@ CONTAINS
     CALL MPI_COMM_SIZE(comm, npes, p_error)
     CALL MPI_COMM_RANK(comm, ipe,  p_error)
 
-    chunksize = INT(CEILING(REAL(glb_nval)/REAL(npes)))
+    chunksize = INT(FLOOR(REAL(glb_nval)/REAL(npes)))
 
     ! first, we need to reorder the scattered global indices without
     ! the use of a global-size array. We need to build an
@@ -342,7 +342,9 @@ CONTAINS
     sdispls       = -1
     sendcounts(:) =  0
     DO i=1,SIZE(glbidx_sorted)
-      target_pe = (glbidx_sorted(i)-1)/chunksize +1
+      ! every PE gets "chunksize" data entries to work on, except the
+      ! last one which may have a slightly higher workload.
+      target_pe = MIN( (glbidx_sorted(i)-1)/chunksize + 1, npes)
       sendcounts(target_pe) = sendcounts(target_pe) + 1
       IF (sdispls(target_pe) == -1)  sdispls(target_pe) = (i-1)
     END DO
@@ -372,7 +374,7 @@ CONTAINS
       WRITE (0,*) 'consistency check'
     END IF
     nval_local = SUM(recvcounts)
-    IF (nval_local > chunksize) THEN
+    IF ((nval_local > chunksize) .AND. (ipe < (npes-1))) THEN
       WRITE (0,*) routine, ": PE ", ipe, " - Internal error! #local values=", nval_local, &
         &                  "; chunksize=", chunksize ; RETURN
     END IF
@@ -435,7 +437,7 @@ CONTAINS
     ! check if the every PE except the last one has received
     ! "chunksize" items:
     IF ((ipe < (npes-1)) .AND. (nval_local /= chunksize)) THEN
-      WRITE (0,*) routine, ": Internal error, PE has not the right no. of local values: ", &
+      WRITE (0,*) routine, ": Internal error, PE ", ipe, " has not the right no. of local values: ", &
         &         "nval_local=",nval_local, "; chunksize=", chunksize
       RETURN
     END IF
@@ -443,16 +445,10 @@ CONTAINS
     IF (ipe == (npes-1)) THEN
       IF (glbidx_local(nval_local) /= glb_nval) THEN
         WRITE (0,*) routine, ': Internal error, last index not "glb_nval"!' 
+        WRITE (0,*) "glb_nval = ", glb_nval, "; npes = ", npes
         WRITE (0,*) "Indices are: ", glbidx_local(:)
-        WRITE (0,*) "glb_nval: ", glb_nval
         RETURN
       END IF
-    END IF
-    IF ((ipe == (npes-1)) .AND. (nval_local /= MOD(glb_nval-1,chunksize)+1)) THEN
-      WRITE (0,*) routine, ": Internal error, last PE has not the right no. of local values: ", &
-        &         "nval_local=",nval_local, "; chunksize=", chunksize,                          &
-        &         "; MOD(glb_nval,chunksize)=", MOD(glb_nval,chunksize)
-      RETURN
     END IF
 
     ! each PE creates "its" part as an independent fingerprint:
