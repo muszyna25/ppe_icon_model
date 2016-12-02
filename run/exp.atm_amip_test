@@ -73,7 +73,8 @@ cat > ${atmo_namelist} << EOF
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
- ntracer          = 4           ! number of tracers
+ ntracer          = 3           ! number of tracers
+! ntracer          = 4           ! number of tracers
  iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
  msg_level        = 15          ! level of details report during integration 
@@ -109,9 +110,12 @@ cat > ${atmo_namelist} << EOF
 &diffusion_nml
 /
 &transport_nml
- ivadv_tracer     = 3,3,3,3
- itype_hlimit     = 3,4,4,3
- ihadv_tracer     = 52,2,2,52
+ ivadv_tracer     = 3,3,3
+ itype_hlimit     = 3,4,4
+ ihadv_tracer     = 52,2,2
+! ivadv_tracer     = 3,3,3,3
+! itype_hlimit     = 3,4,4,3
+! ihadv_tracer     = 52,2,2,52
 /
 &echam_phy_nml
  dt_rad           =  480.       ! [s] radiation time step
@@ -121,7 +125,7 @@ cat > ${atmo_namelist} << EOF
  lcond            = .TRUE.
  lgw_hines        = .TRUE.
  lssodrag         = .TRUE.
- lcariolle        = .TRUE. 
+! lcariolle        = .TRUE.
  lice             = .TRUE.
  ljsbach          = .TRUE.
  lebudget         = .TRUE.
@@ -133,8 +137,8 @@ cat > ${atmo_namelist} << EOF
  irad_co2         = 4           ! 4: from greenhouse gas scenario
  irad_ch4         = 4           ! 4: from greenhouse gas scenario
  irad_n2o         = 4           ! 4: from greenhouse gas scenario
- irad_o3          = 1           ! 1: interactive ozone, e.g. Cariolle
-! irad_o3          = 8           ! 8: horizontally and vertically variable
+ irad_o3          = 8           ! 8: horizontally and vertically variable
+! irad_o3          = 1           ! 1: interactive ozone, e.g. Cariolle
  irad_o2          = 2           ! 2: horizontally and vertically constant
  irad_cfc11       = 4           ! 4: from greenhouse gas scenario
  irad_cfc12       = 4           ! 4: from greenhouse gas scenario
@@ -464,7 +468,8 @@ if [[ "$output_trc_3d" == "yes" ]]; then
                     'qhus_phy'  , 'mhusvi_phy'    , 'tend_mhusvi_phy', 
                     'qclw_phy'  , 'mclwvi_phy'    , 'tend_mclwvi_phy', 
                     'qcli_phy'  , 'mclivi_phy'    , 'tend_mclivi_phy', 
-                    'pfull','ps', 'qo3_phy'
+                    'pfull','ps'
+!                    'pfull','ps', 'qo3_phy'
 /
 EOF
 fi
