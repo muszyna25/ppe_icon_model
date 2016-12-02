@@ -32,7 +32,7 @@ MODULE mo_interface_echam_ocean
   USE mo_timer,               ONLY: timer_start, timer_stop,                &
        &                            timer_coupling_put, timer_coupling_get, &
        &                            timer_coupling_1stget, timer_coupling_init
-  USE mo_echam_sfc_indices   ,ONLY: iwtr, iice
+  USE mo_echam_sfc_indices   ,ONLY: iwtr, iice, ilnd
 
   USE mo_sync                ,ONLY: SYNC_C, sync_patch_array
   USE mo_impl_constants      ,ONLY: MAX_CHAR_LENGTH
@@ -478,6 +478,7 @@ CONTAINS
 
     REAL(wp), PARAMETER   :: dummy = 0.0_wp
     REAL(wp)              :: scr(nproma,p_patch%alloc_cell_blocks)
+    REAL(wp)              :: frac_oce
 
     IF ( .NOT. is_coupled_run() ) RETURN
 
@@ -488,26 +489,21 @@ CONTAINS
 
     ! Possible fields that contain information to be sent to the ocean include
     !
-    ! 1. prm_field(jg)% u_stress_tile(:,:,iwtr)  and 
-    !    prm_field(jg)% v_stress_tile(:,:,iwtr)  which are the wind stress components;
+    ! 1. prm_field(jg)% u_stress_tile(:,:,iwtr/iice)  and 
+    !    prm_field(jg)% v_stress_tile(:,:,iwtr/iice)  which are the wind stress components over water and ice respectively
     !
-    ! 2. prm_field(jg)% evap(:,:)  evaporation rate over whole grid-cell,
-    !    which is ice-covered, open ocean, no land;
+    ! 2. prm_field(jg)% evap_tile(:,:,iwtr/iice)  evaporation rate over ice-covered and open ocean, no land;
     !
     ! 3. prm_field(jg)%rsfl + prm_field(jg)%rsfc + prm_field(jg)%ssfl + prm_field(jg)%ssfc
     !    which gives the precipitation rate;
     !
-    ! 4. prm_field(jg)% temp(:,nlev,:)  temperature at the lowest model level, or
-    !    prm_field(jg)% temp_2m(:,:)    2-m temperature, not available yet, or
-    !    prm_field(jg)% shflx_tile(:,:,iwtr) sensible heat flux
-    !
-    ! 5  prm_field(jg)% lhflx_tile(:,:,iwtr) latent heat flux
-    ! 6. shortwave radiation flux at the surface
+    ! 4. ... tbc
     !
     ! Possible fields to receive from the ocean include
     !
     ! 1. prm_field(jg)% tsfc_tile(:,:,iwtr)   SST
     ! 2. prm_field(jg)% ocu(:,:) and ocv(:,:) ocean surface current
+    ! 3. ... tbc
     ! 
 
     nbr_hor_cells = p_patch%n_patch_cells
@@ -602,10 +598,10 @@ CONTAINS
     !   field_id(3) represents "surface_fresh_water_flux" bundle - liquid rain, snowfall, evaporation
     !
     !   Note: the evap_tile should be properly updated and added;
-    !         as long as the tiles are not passed correctly, the evaporation over the
-    !         whole grid-cell is passed to the ocean
+    !         as long as evaporation over sea-ice is not used in ocean thermodynamics, the evaporation over the
+    !         whole ocean part of grid-cell is passed to the ocean
     !         for pre04 a preliminary solution for evaporation in ocean model is to exclude the land fraction
-    !         evap.oce = evap.wtr*frac.wtr + evap.ice*frac.ice
+    !         evap.oce = (evap.wtr*frac.wtr + evap.ice*frac.ice)/(1-frac.lnd)
     !
     buffer(:,:) = 0.0_wp  ! temporarily
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
@@ -617,12 +613,15 @@ CONTAINS
         nlen = p_patch%npromz_c
       END IF
       DO n = 1, nlen
-        buffer(nn+n,1) = prm_field(jg)%rsfl(n,i_blk) + prm_field(jg)%rsfc(n,i_blk) ! total rain
-        buffer(nn+n,2) = prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk) ! total snow
-        !buffer(nn+n,3) = prm_field(jg)%evap(n,i_blk)                               ! global evaporation
-        ! evaporation over ice-free and ice-covered water fraction
-        buffer(nn+n,3) = prm_field(jg)%evap_tile(n,i_blk,iwtr) * prm_field(jg)%frac_tile(n,i_blk,iwtr) + &
-         &               prm_field(jg)%evap_tile(n,i_blk,iice) * prm_field(jg)%frac_tile(n,i_blk,iice)
+
+        ! total rates of rain and snow over whole cell
+        buffer(nn+n,1) = prm_field(jg)%rsfl(n,i_blk) + prm_field(jg)%rsfc(n,i_blk)
+        buffer(nn+n,2) = prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk)
+
+        ! evaporation over ice-free and ice-covered water fraction - of whole ocean part
+        frac_oce=1.0_wp-prm_field(jg)%frac_tile(n,i_blk,ilnd)
+        buffer(nn+n,3) = (prm_field(jg)%evap_tile(n,i_blk,iwtr)*prm_field(jg)%frac_tile(n,i_blk,iwtr) + &
+          &               prm_field(jg)%evap_tile(n,i_blk,iice)*prm_field(jg)%frac_tile(n,i_blk,iice))/frac_oce
       ENDDO
     ENDDO
 !ICON_OMP_END_PARALLEL_DO

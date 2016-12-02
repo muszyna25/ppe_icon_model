@@ -108,6 +108,7 @@ oce_output_interval="PT6H"
 
 ## long-term low frequency output and restart intervals
 #restart_interval="P2Y"   
+#checkpoint_interval="P1Y"
 #atm_output_interval="P1M"
 #lnd_output_interval="P1M"
 #oce_output_interval="P1M"
@@ -794,7 +795,7 @@ if [[ "$output_oce_min" == "yes" ]]; then
   include_last     = .false.
   m_levels         = "1...3,10"                       ! reduced output out of 64 levels
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c',
+  ml_varlist       =  'wet_c','basin_c','regio_c','lsm_ctr_c', 'Qtop', 'Qbot',
                       'mld','condep','h_acc','u_vint_acc','hi_acc','hs_acc','conc_acc',
                       't_acc','s_acc','u_acc','topBoundCond_windStress_u_acc',
                       'HeatFlux_Total_acc','atmos_fluxes_HeatFlux_ShortWave','atmos_fluxes_HeatFlux_LongWave',
