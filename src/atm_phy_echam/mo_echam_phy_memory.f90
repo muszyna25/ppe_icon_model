@@ -34,7 +34,7 @@
 !!
 MODULE mo_echam_phy_memory
 
-  USE mo_kind,                ONLY: wp
+  USE mo_kind,                ONLY: dp, wp
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH,  & 
     &                               VINTP_METHOD_PRES,         &
     &                               VINTP_METHOD_LIN,          &
@@ -58,7 +58,7 @@ MODULE mo_echam_phy_memory
     &                               DATATYPE_FLT32,  DATATYPE_FLT64,   &
     &                               GRID_UNSTRUCTURED,                 &
     &                               TSTEP_INSTANT, TSTEP_CONSTANT,     &
-    &                               cdiDefMissval
+    &                               cdiInqMissval
   USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL, &
     &                               ZA_HYBRID, ZA_HYBRID_HALF,         &
     &                               ZA_SURFACE, ZA_GENERIC_ICE
@@ -546,7 +546,7 @@ MODULE mo_echam_phy_memory
   TYPE(t_var_list),ALLOCATABLE :: prm_field_list(:)  !< shape: (n_dom)
   TYPE(t_var_list),ALLOCATABLE :: prm_tend_list (:)  !< shape: (n_dom)
 
-  DOUBLE PRECISION, PARAMETER :: cdimissval = -9.E+15
+  REAL(dp), SAVE :: cdimissval
  
 CONTAINS
 
@@ -587,7 +587,7 @@ CONTAINS
        !
     END DO
 
-    CALL cdiDefMissval(cdimissval)
+    cdimissval = cdiInqMissval()
 
     ! Allocate pointer arrays prm_field and prm_tend, 
     ! as well as the corresponding list arrays.
