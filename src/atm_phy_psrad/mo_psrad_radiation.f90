@@ -335,10 +335,6 @@ MODULE mo_psrad_radiation
           CALL message('',message_text)
         END DO
       END IF
-      !--jsr&hs
-    ELSE
-      amu0m_x(:,:) = 0.0_wp
-      rdaylm_x(:,:) = 0.0_wp
     END IF ! lrad .AND. l_trigrad
 
   END SUBROUTINE pre_psrad_radiation
