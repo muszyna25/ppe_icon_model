@@ -255,7 +255,7 @@ MODULE mo_psrad_radiation
       ! of the zenith angle > 0.1.  This approach limits the calculation of the 
       ! curvature effect above, and should be reconsidered in the future
       ! 
-      amu0m_x(:,:) = MAX(amu0m_x(:,:),0.05_wp)
+      amu0m_x(:,:) = MAX(amu0m_x(:,:),0.1_wp)
 !!$      !
 !!$      ! --- Prepare Ozone climatology
 !!$      !
