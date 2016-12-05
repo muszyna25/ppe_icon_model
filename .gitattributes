@@ -4,6 +4,7 @@
 /LICENSE -text
 /Makefile.in -text
 /README -text
+/README.git -text
 /acinclude.m4 -text
 /aclocal.m4 -text
 blas/CMakeLists.txt -text
@@ -61,6 +62,7 @@ cmake/FindGRIB_API.cmake -text
 cmake/FindHDF5.cmake -text
 cmake/FindMPI.cmake -text
 cmake/FindNETCDF.cmake -text
+config/build_command.in -text
 config/config-options -text
 config/config.guess -text
 config/config.h.SX -text
@@ -76,6 +78,7 @@ config/mh-linux -text
 config/mh-nec -text
 config/missing -text
 config/pvcs.pl -text
+config/set-up.info.in -text
 /configure -text
 /configure.ac -text
 data/ECHAM6_CldOptProps.nc -text
@@ -187,6 +190,7 @@ doc/technical/dwd_database/grid_geometry.tex -text
 doc/technical/dwd_database/icon_in_sky.tex -text
 doc/technical/dwd_database/iglo_namelst_output.pl -text
 doc/technical/dwd_database/input.tex -text
+doc/technical/dwd_database/jas99.bst -text
 doc/technical/dwd_database/level_tables/vertical_full_levels_i.txt -text
 doc/technical/dwd_database/level_tables/vertical_full_levels_maxheight_i.txt -text
 doc/technical/dwd_database/level_tables/vertical_half_levels_maxheight_i.txt -text
@@ -1989,6 +1993,7 @@ src/shared/mo_util_sysinfo.f90 -text
 src/shared/mo_util_system.f90_off -text
 src/shared/mo_util_table.f90 -text
 src/shared/mo_util_uuid.f90 -text
+src/shared/mo_util_uuid_types.f90 -text
 src/shared/mo_util_vcs.f90 -text
 src/shared/mo_var_list.f90 -text
 src/shared/mo_var_list_element.f90 -text
@@ -2103,6 +2108,7 @@ support/util_sysinfo.c -text
 support/util_system.c -text
 support/util_timer.c -text
 support/util_uuid.c -text
+support/util_uuid.h -text
 /target_confmake.ksh -text
 /target_database.ksh -text
 vertical_coord_tables/README -text

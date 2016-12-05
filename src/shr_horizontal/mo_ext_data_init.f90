@@ -48,7 +48,7 @@ MODULE mo_ext_data_init
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
                                    frlndtile_thrhld, frlake_thrhld, frsea_thrhld, isub_water,       &
                                    isub_seaice, isub_lake, sstice_mode, sst_td_filename,            &
-                                   ci_td_filename, itype_lndtbl
+                                   ci_td_filename, itype_lndtbl, c_soil, c_soil_urb
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename, &
     &                              generate_td_filename, extpar_varnames_map_file, &
@@ -75,14 +75,14 @@ MODULE mo_ext_data_init
   USE mo_read_interface,     ONLY: nf, openInputFile, closeFile, on_cells, &
     &                              t_stream_id, read_2D, read_2D_int, &
     &                              read_3D_extdim, read_2D_extdim
-  USE mo_phyparam_soil,      ONLY: c_lnd, c_soil, c_sea
+  USE mo_phyparam_soil,      ONLY: c_lnd, c_sea
   USE mo_datetime,           ONLY: t_datetime, month2hour, add_time
   USE mo_util_cdi,           ONLY: get_cdi_varID, test_cdi_varID, read_cdi_2d,     &
     &                              read_cdi_3d, t_inputParameters,                 &
     &                              makeInputParameters, deleteInputParameters,     &
     &                              has_filetype_netcdf
-  USE mo_util_uuid,          ONLY: t_uuid, OPERATOR(==), uuid_unparse,  &
-    &                              uuid_string_length
+  USE mo_util_uuid_types,    ONLY: t_uuid, uuid_string_length
+  USE mo_util_uuid,          ONLY: OPERATOR(==), uuid_unparse
   USE mo_dictionary,         ONLY: t_dictionary, dict_init, dict_finalize,         &
     &                              dict_loadfile
   USE mo_initicon_config,    ONLY: timeshift
@@ -494,7 +494,7 @@ CONTAINS
 
       ! Check whether external parameter file contains SST climatology
       IF ( sstice_mode == SSTICE_ANA_CLINC ) THEN
-        IF ( test_cdi_varID(cdi_extpar_id, 'SST')  == -1 ) THEN
+        IF ( test_cdi_varID(cdi_extpar_id, 'T_SEA')  == -1 ) THEN
           CALL finish(routine,'SST climatology missing in '//TRIM(extpar_filename))
         ENDIF
       ENDIF
@@ -828,7 +828,7 @@ CONTAINS
                    &   0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 140.0_wp,  0.72_wp, 1._wp, & ! rainfed croplands
                    &   0.25_wp,  0.8_wp,  3.0_wp, 0.8_wp, 130.0_wp,  0.55_wp, 1._wp, & ! mosaic cropland (50-70%) - vegetation (20-50%)
                    &   0.07_wp,  0.9_wp,  3.5_wp, 1.0_wp, 120.0_wp,  0.72_wp, 1._wp, & ! mosaic vegetation (50-70%) - cropland (20-50%)
-                   &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 280.0_wp,  0.38_wp, 1._wp, & ! closed broadleaved evergreen forest
+                   &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 250.0_wp,  0.38_wp, 1._wp, & ! closed broadleaved evergreen forest
                    &   1.00_wp,  0.9_wp,  5.0_wp, 1.0_wp, 300.0_wp,  0.31_wp, 1._wp, & ! closed broadleaved deciduous forest
                    &   0.50_wp,  0.8_wp,  4.0_wp, 1.5_wp, 225.0_wp,  0.31_wp, 1._wp, & ! open broadleaved deciduous forest
                    &   1.00_wp,  0.8_wp,  5.0_wp, 0.6_wp, 300.0_wp,  0.27_wp, 1._wp, & ! closed needleleaved evergreen forest
@@ -1064,11 +1064,7 @@ CONTAINS
           CALL read_extdata('NDVI_MRAT', arr3d=ext_data(jg)%atm_td%ndvi_mrat)
 
           IF (sstice_mode == SSTICE_ANA_CLINC) THEN
-            CALL read_extdata('SST', arr3d=ext_data(jg)%atm_td%sst_m)
-            ! transform from C to K
-!$OMP PARALLEL
-            CALL var_add(ext_data(jg)%atm_td%sst_m(:,:,:), tmelt)
-!$OMP END PARALLEL
+            CALL read_extdata('T_SEA', arr3d=ext_data(jg)%atm_td%sst_m)
           ENDIF
 
           !--------------------------------
@@ -1494,7 +1490,8 @@ CONTAINS
                ! surface area index
                ext_data(jg)%atm%sai_t    (jc,jb,1)  = c_lnd+ext_data(jg)%atm%tai_t(jc,jb,1)
                ! evaporative soil area index
-               ext_data(jg)%atm%eai_t (jc,jb,1)  = c_soil
+               ext_data(jg)%atm%eai_t(jc,jb,1) = &
+                 MERGE(c_soil_urb,c_soil,ext_data(jg)%atm%lc_class_t(jc,jb,1) == ext_data(jg)%atm%i_lc_urban)
                ! minimal stomata resistance
                ext_data(jg)%atm%rsmin2d_t(jc,jb,1)  = ext_data(jg)%atm%rsmin(jc,jb)
                ! soil type
@@ -1636,7 +1633,7 @@ CONTAINS
                  ext_data(jg)%atm%sai_t    (jc,jb,i_lu)  = c_lnd+ ext_data(jg)%atm%tai_t (jc,jb,i_lu)
 
                  ! evaporative soil area index
-                 ext_data(jg)%atm%eai_t (jc,jb,i_lu)  = c_soil
+                 ext_data(jg)%atm%eai_t (jc,jb,i_lu)  = MERGE(c_soil_urb,c_soil,lu_subs == ext_data(jg)%atm%i_lc_urban)
 
                  ! minimal stomata resistance
                  ext_data(jg)%atm%rsmin2d_t(jc,jb,i_lu)  = ext_data(jg)%atm%stomresmin_lcc(lu_subs)

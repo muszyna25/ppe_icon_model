@@ -11,6 +11,8 @@
 !! Modification by Daniel Reinert, DWD (2011-02-14)
 !! - included computation of nonzero fluxes at the upper boundary
 !!   (necessery if vertical nesting is swithced on)
+!! Modification by William Sawyer, CSCS (2015-02-06)
+!! - OpenACC implementation
 !!
 !!
 !! @par Copyright and License
@@ -40,9 +42,12 @@ MODULE mo_nh_dtp_interface
   USE mo_impl_constants,     ONLY: min_rledge_int, min_rlcell_int, min_rlcell
   USE mo_sync,               ONLY: SYNC_C, sync_patch_array, sync_patch_array_mult
   USE mo_advection_config,   ONLY: advection_config
-  USE mo_initicon_config,     ONLY: is_iau_active, iau_wgt_adv
+  USE mo_initicon_config,    ONLY: is_iau_active, iau_wgt_adv
   USE mo_timer,              ONLY: timers_level, timer_start, timer_stop, timer_prep_tracer
-  USE mo_fortran_tools,       ONLY: init
+  USE mo_fortran_tools,      ONLY: init
+#ifdef _OPENACC
+  USE mo_mpi,                 ONLY: i_am_accel_node
+#endif
 
   IMPLICIT NONE
   PRIVATE
@@ -50,6 +55,15 @@ MODULE mo_nh_dtp_interface
 
   PUBLIC :: prepare_tracer
   PUBLIC :: compute_airmass
+
+#if defined( _OPENACC )
+#define ACC_DEBUG NOACC
+#if defined(__NH_DTP_DIFFUSSION_NOACC)
+  LOGICAL, PARAMETER ::  acc_on = .FALSE.
+#else
+  LOGICAL, PARAMETER ::  acc_on = .TRUE.
+#endif
+#endif
 
 CONTAINS
 
@@ -482,14 +496,21 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(i_rlstart,1)
     i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( p_patch, p_nh_diag, p_prog, p_metrics ), IF( i_am_accel_node )
+!$ACC LOOP GANG
+#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+#endif
     DO jb = i_startblk, i_endblk
 
        CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
          &                 i_startidx, i_endidx, i_rlstart, i_rlend)
 
        IF (itlev == 1) THEN
+!$ACC LOOP VECTOR COLLAPSE(2)
          DO jk = 1, nlev
 !DIR$ IVDEP
            DO jc= i_startidx, i_endidx
@@ -497,6 +518,7 @@ CONTAINS
            ENDDO  ! jc
          ENDDO  ! jk
        ELSE !  itlev = 2
+!$ACC LOOP VECTOR COLLAPSE(2)
          DO jk = 1, nlev
 !DIR$ IVDEP
            DO jc= i_startidx, i_endidx
@@ -504,6 +526,7 @@ CONTAINS
            ENDDO  ! jc
          ENDDO  ! jk
          IF (is_iau_active) THEN ! Correct 'old' air mass for IAU density increments
+!$ACC LOOP VECTOR COLLAPSE(2)
            DO jk = 1, nlev
 !DIR$ IVDEP
              DO jc= i_startidx, i_endidx
@@ -515,8 +538,12 @@ CONTAINS
        ENDIF
 
     ENDDO ! jb
+#ifdef _OPENACC
+!$ACC END PARALLEL
+#else
 !$OMP ENDDO NOWAIT
 !$OMP END PARALLEL
+#endif
 
   END SUBROUTINE compute_airmass
 
