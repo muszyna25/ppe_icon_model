@@ -1736,8 +1736,8 @@ END SUBROUTINE message
 
 !   energy required to melt existing snow
         ze_melt(i)=w_snow_now(i)*rho_w*lh_f     ! (J/m**2)
-!   heat capacity of snow layer
-        zch_snow(i)=w_snow_now(i)*rho_w*chc_i   ! (J/(m**2 K))
+!   heat capacity of snow layer, limited to a snow depth of 1.5 m for consistency with subsequent calculations
+        zch_snow(i)=MIN(w_snow_now(i),1.5_ireals*rho_snow_now(i)/rho_w)*rho_w*chc_i   ! (J/(m**2 K))
 
 !   constrain transfer coefficient, if energy budget  of topmost soil layer is:
 !   a) negative & surface layer is unstable (i.e   upward directed turbulent heat flux)
