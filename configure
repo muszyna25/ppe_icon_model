@@ -2701,7 +2701,9 @@ fi
 
 # Check whether --with-yaxt was given.
 if test "${with_yaxt+set}" = set; then :
-  withval=$with_yaxt;
+  withval=$with_yaxt; if test -d "$with_yaxt"; then :
+  YAXTROOT=$with_yaxt
+fi
 else
   with_yaxt=no
 fi
@@ -6780,7 +6782,13 @@ fi
   YAXT_VERSION=`pkg-config --modversion yaxt`
       YAXT_INCLUDE="${MODOPT}${YAXTROOT}/include"
       FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_YAXT"
-      YAXT_LIB="-L${YAXTROOT}/lib -lyaxt"
+      YAXT_LIB=`pkg-config --libs yaxt`
+      case $host in #(
+  *-*-linux-*) :
+    YAXT_LIB=`echo "$YAXT_LIB" | sed -e 's/-L\([^ ]*\)/-L\1 '"$WLFLAG"',-rpath,\1/'` ;; #(
+  *) :
+     ;;
+esac
 else
 
        ac_sub_configure_args=$(echo " $ac_configure_args " | $SED 's/ '\''FC=^'\''*//

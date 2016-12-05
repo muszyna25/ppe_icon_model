@@ -169,7 +169,8 @@ dnl       [mh_setup=""])
 AC_ARG_WITH([yaxt],
   [AS_HELP_STRING([--with-yaxt],
     [enable experimental use of yaxt])],
-    [],
+    [AS_IF([test -d "$with_yaxt"],
+           [YAXTROOT=$with_yaxt])],
     [with_yaxt=no])
 
 AS_IF([test "x$with_yaxt" = "xno"],
@@ -1345,7 +1346,9 @@ AS_IF([test "x$use_yaxt" = "xyes" -a "x$with_mpi" != "xno"],
      [YAXT_VERSION=`pkg-config --modversion yaxt`
       YAXT_INCLUDE="${MODOPT}${YAXTROOT}/include"
       FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_YAXT"
-      YAXT_LIB="-L${YAXTROOT}/lib -lyaxt"],
+      YAXT_LIB=`pkg-config --libs yaxt`
+      AS_CASE([$host],[*-*-linux-*],
+        [YAXT_LIB=`echo "$YAXT_LIB" | sed -e 's/-L\(@<:@^ @:>@*\)/-L\1 '"$WLFLAG"',-rpath,\1/'`])],
      [AC_CONFIG_COMMANDS_POST([ac_configure_args=$ac_sub_configure_args])
        ac_sub_configure_args=$(echo " $ac_configure_args " | $SED 's/ '\''FC=[^'\'']*//
 s/ '\''FCFLAGS=[^'\'']*//
