@@ -1551,6 +1551,8 @@ AS_IF([test $enable_cdi_pio = yes],
      [PKG_CONFIG_PATH="$CDIROOT/lib/pkgconfig:${PKG_CONFIG_PATH}"
       AS_IF([pkg-config --exists cdipio],
         [CDI_LIB=`pkg-config --libs cdipio`
+         AS_CASE([$host],[*-*-linux-*],
+           [CDI_LIB=`echo "$CDI_LIB" | sed -e 's/-L\(@<:@^ @:>@*\)/-L\1 '"$WLFLAG"',-rpath,\1/g'`])
          CDI_INCLUDE=`pkg-config --variable=fcflags cdipio`
          FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_CDI_PIO"],
         [AC_MSG_ERROR([Cannot find cdipio pkg-conf description.])])],

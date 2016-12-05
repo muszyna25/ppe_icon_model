@@ -7973,6 +7973,12 @@ if test $enable_cdi_pio = yes; then :
   PKG_CONFIG_PATH="$CDIROOT/lib/pkgconfig:${PKG_CONFIG_PATH}"
       if pkg-config --exists cdipio; then :
   CDI_LIB=`pkg-config --libs cdipio`
+         case $host in #(
+  *-*-linux-*) :
+    CDI_LIB=`echo "$CDI_LIB" | sed -e 's/-L\([^ ]*\)/-L\1 '"$WLFLAG"',-rpath,\1/g'` ;; #(
+  *) :
+     ;;
+esac
          CDI_INCLUDE=`pkg-config --variable=fcflags cdipio`
          FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_CDI_PIO"
 else
