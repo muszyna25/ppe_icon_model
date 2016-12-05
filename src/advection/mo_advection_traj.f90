@@ -134,6 +134,8 @@ CONTAINS
       CALL finish ( TRIM(routine), 'allocation for distv_bary failed' )
     ENDIF
 
+!$ACC ENTER DATA CREATE( obj%cell_idx, obj%cell_blk, obj%distv_bary ), IF (i_am_accel_node .AND. acc_on)
+
   END SUBROUTINE construct
 
 
@@ -154,6 +156,8 @@ CONTAINS
     INTEGER :: ist
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_traj: destruct'
+
+!$ACC EXIT DATA DELETE( obj%cell_idx, obj%cell_blk, obj%distv_bary ), IF (i_am_accel_node .AND. acc_on)
 
     IF (ALLOCATED(obj%cell_idx)) THEN
       DEALLOCATE(obj%cell_idx, obj%cell_blk, STAT=ist)
