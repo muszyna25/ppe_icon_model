@@ -28,6 +28,7 @@ MODULE mo_ocean_surface
 !
   USE mo_kind,                ONLY: wp
   USE mo_parallel_config,     ONLY: nproma
+  USE mo_coupling_config,     ONLY: is_coupled_run
   USE mo_run_config,          ONLY: dtime
   USE mo_sync,                ONLY: global_sum_array
   USE mo_io_units,            ONLY: filename_max
@@ -36,7 +37,7 @@ MODULE mo_ocean_surface
   USE mo_read_interface,      ONLY: openInputFile, closeFile, t_stream_id, &
     &                               on_cells, read_2D_time  !, read_3D
   USE mo_var_list,            ONLY: add_var
-  USE mo_ocean_state,         ONLY: ocean_default_list
+  USE mo_ocean_state,         ONLY: ocean_restart_list, ocean_default_list
   USE mo_cf_convention
   USE mo_grib2
   USE mo_cdi_constants
@@ -145,6 +146,25 @@ CONTAINS
     p_patch           => p_patch_3D%p_patch_2D(1)
     alloc_cell_blocks =  p_patch%alloc_cell_blocks
   ! nblks_e           =  p_patch%nblks_e
+      
+    ! Coupling fluxes must go into restart file:
+    IF (is_coupled_run()) THEN
+
+      CALL add_var(ocean_restart_list, 'oceWind_Speed_10m', p_oce_sfc%Wind_Speed_10m, &
+        &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+        &        t_cf_var('Wind_Speed_10m', 'm/s', 'Wind Speed at 10m height', datatype_flt),&
+        &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
+        &        ldims=(/nproma,alloc_cell_blocks/), lrestart_cont=.TRUE.)
+
+    ELSE
+     
+      CALL add_var(ocean_default_list, 'oceWind_Speed_10m', p_oce_sfc%Wind_Speed_10m, &
+        &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+        &        t_cf_var('Wind_Speed_10m', 'm/s', 'Wind Speed at 10m height', datatype_flt),&
+        &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
+        &        ldims=(/nproma,alloc_cell_blocks/))
+
+    ENDIF
 
     CALL add_var(ocean_default_list, 'oceTopBC_WindStress_u', p_oce_sfc%TopBC_WindStress_u, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
@@ -156,12 +176,6 @@ CONTAINS
       &        t_cf_var('TopBC_WindStress_v', 'Pa', 'Meridional Wind Stress', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
       &        ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(ocean_default_list, 'oceWind_Speed_10m', p_oce_sfc%Wind_Speed_10m, &
-      &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &        t_cf_var('Wind_Speed_10m', 'm/s', 'Wind Speed at 10m height', datatype_flt),&
-      &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
-      &        ldims=(/nproma,alloc_cell_blocks/))
-
     CALL add_var(ocean_default_list, 'oceHeatFlux_Total', p_oce_sfc%HeatFlux_Total, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('HeatFlux_Total', 'W/m2', 'Total Heat Flux', datatype_flt),&
