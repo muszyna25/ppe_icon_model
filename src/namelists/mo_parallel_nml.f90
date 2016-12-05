@@ -282,7 +282,11 @@ MODULE mo_parallel_nml
 
     io_process_stride = -1
     io_process_rotate = 0
+#ifdef HAVE_YAXT
+    default_comm_pattern_type = 2
+#else
     default_comm_pattern_type = 1
+#endif
 
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
