@@ -2047,15 +2047,16 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_patch_info"
     INTEGER :: jp, jl, jg
-    LOGICAL :: is_mpi_test
+    LOGICAL :: is_mpi_test, is_io
 
     is_mpi_test = my_process_is_mpi_test()
+    is_io = my_process_is_io()
 
     DO jp = 1, n_dom_out
 
       jl = patch_info(jp)%log_patch_id
 
-      IF(.NOT.my_process_is_io()) THEN
+      IF (.NOT. is_io) THEN
         ! Set reorder_info on work and test PE
         CALL set_reorder_info(jp, p_patch(jl)%n_patch_cells_g, p_patch(jl)%n_patch_cells,             &
           &                   p_patch(jl)%cells%decomp_info%owner_mask, p_patch(jl)%cells%phys_id,    &
@@ -2100,7 +2101,7 @@ CONTAINS
     DO jl = 1,lonlat_grids%ngrids
       DO jg = 1,n_dom
         IF (.NOT. lonlat_grids%list(jl)%l_dom(jg)) CYCLE
-        IF(.NOT.my_process_is_io()) THEN
+        IF (.NOT. is_io) THEN
           ! Set reorder_info on work and test PE
           CALL set_reorder_info_lonlat(lonlat_grids%list(jl)%grid,      &
             &                          lonlat_grids%list(jl)%intp(jg),  &
