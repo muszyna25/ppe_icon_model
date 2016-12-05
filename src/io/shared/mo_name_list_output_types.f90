@@ -30,7 +30,7 @@ MODULE mo_name_list_output_types
     &                                 MAX_NZLEVS, MAX_NILEVS
   USE mo_io_units,              ONLY: filename_max
   USE mo_var_metadata_types,    ONLY: t_var_metadata
-  USE mo_util_uuid,             ONLY: t_uuid
+  USE mo_util_uuid_types,       ONLY: t_uuid
   USE mo_util_string,           ONLY: tolower
   USE mo_communication,         ONLY: t_comm_gather_pattern
   USE mtime,                    ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN

@@ -15,7 +15,7 @@
 !!
 MODULE mo_util_vgrid
 
-  USE ISO_C_BINDING,                        ONLY: C_SIGNED_CHAR
+  USE ISO_C_BINDING,                        ONLY: C_SIGNED_CHAR, C_DOUBLE
   USE mo_cdi,                               ONLY: streamDefTimestep, streamOpenWrite, gridCreate, institutInq, vlistCreate, &
                                                 & vlistInqVarZaxis, vlistInqVarGrid, streamInqVlist, streamOpenRead, &
                                                 & ZAXIS_REFERENCE, zaxisCreate, TSTEP_CONSTANT, vlistDefVar, FILETYPE_NC2, &
@@ -26,7 +26,7 @@ MODULE mo_util_vgrid
                                                 & gridDefPosition, gridInqUUID, gridDefNumber, gridDefUUID, zaxisDefLevels, &
                                                 & gridDefNvertex, vlistDefInstitut, zaxisInqUUID, streamReadVar, &
                                                 & GRID_UNSTRUCTURED
-  USE mo_kind,                              ONLY: wp, dp
+  USE mo_kind,                              ONLY: wp, dp, sp
   USE mo_exception,                         ONLY: finish, message, message_text, warning
   !
   USE mo_dynamics_config,                   ONLY: iequations
@@ -47,10 +47,10 @@ MODULE mo_util_vgrid
     &                                             init_vert_coord, compute_smooth_topo,                 &
     &                                             prepare_hybrid_coord, prepare_sleve_coord
   USE mo_nh_init_nest_utils,                ONLY: topo_blending_and_fbk
-  USE mo_communication,                     ONLY: exchange_data
+  USE mo_communication,                     ONLY: exchange_data, idx_no, blk_no
   USE mo_util_string,                       ONLY: int2string
-  USE mo_util_uuid,                         ONLY: uuid_generate, t_uuid,          &
-    &                                             OPERATOR(==), uuid_unparse, uuid_string_length
+  USE mo_util_uuid_types,                   ONLY: t_uuid, UUID_STRING_LENGTH
+  USE mo_util_uuid,                         ONLY: uuid_generate, OPERATOR(==), uuid_unparse
   USE mo_util_cdi,                          ONLY: get_cdi_varID, read_cdi_3d, cdiGetStringError, &
     &                                             t_inputParameters, makeInputParameters, deleteInputParameters
   USE mo_mpi,                               ONLY: my_process_is_mpi_workroot,                           &
@@ -90,9 +90,13 @@ CONTAINS
     INTEGER,                INTENT(INOUT) :: nflatlev(:)
 
     ! local variables
-    CHARACTER(*), PARAMETER   :: routine = modname//"::construct_vertical_grid"
-    INTEGER                   :: nlevp1, nblks_c, jg, error_status
-    REAL(wp), ALLOCATABLE     :: topography_smt(:,:)
+    CHARACTER(*), PARAMETER           :: routine = modname//"::construct_vertical_grid"
+    INTEGER                           :: nlevp1, nblks_c, jg, error_status, j, iidx, &
+      &                                  jc_c, jb_c, nlevels
+    REAL(wp), ALLOCATABLE             :: topography_smt(:,:)
+    REAL(C_DOUBLE), ALLOCATABLE       :: r_in(:,:)
+    INTEGER, ALLOCATABLE              :: glbidx(:)
+    CHARACTER(len=UUID_STRING_LENGTH) :: uuid_unparsed
 
     !--- Initialize vertical coordinate table vct_a, vct_b (grid stretching)
     SELECT CASE (iequations)
@@ -182,33 +186,49 @@ CONTAINS
           ENDIF
 
           ! Initialize vertical coordinate for cell points
-          CALL init_vert_coord(ext_data(jg)%atm%topography_c, topography_smt, vgrid_buffer(jg)%z_ifc, p_patch(jg)%nlev, &
-            &                  p_patch(jg)%nblks_c, p_patch(jg)%npromz_c, p_patch(jg)%nshift_total, nflatlev(jg) )
+          CALL init_vert_coord(ext_data(jg)%atm%topography_c, topography_smt, vgrid_buffer(jg)%z_ifc, &
+            &                  p_patch(jg)%nlev, p_patch(jg)%nblks_c, p_patch(jg)%npromz_c,           &
+            &                  p_patch(jg)%nshift_total, nflatlev(jg) )
           DEALLOCATE(topography_smt)
         END DO
+
+        ! Parallel generation of UUID for distributed 3D field (to
+        ! this end, we create a local copy). No global array involved.
+        DO jg = 1,n_dom
+
+          nlevels = SIZE(vgrid_buffer(jg)%z_ifc,2)
+          ALLOCATE(r_in(nlevels, p_patch(jg)%n_patch_cells), &
+            &      glbidx(p_patch(jg)%n_patch_cells))
+          iidx = 0
+          DO j = 1, p_patch(jg)%n_patch_cells
+            jc_c = idx_no(j)
+            jb_c = blk_no(j)
+            IF (p_patch(jg)%cells%decomp_info%decomp_domain(jc_c,jb_c) /= 0)  CYCLE
+            iidx = iidx + 1
+            r_in(:,iidx) = vgrid_buffer(jg)%z_ifc(jc_c,1:nlevels,jb_c)
+            glbidx(iidx) = p_patch(jg)%cells%decomp_info%glb_index(j)
+          ENDDO
+          CALL uuid_generate(p_comm_work, r_in(:,1:iidx), glbidx(1:iidx), &
+            &                p_patch(jg)%n_patch_cells_g, vgrid_buffer(jg)%uuid)
+          IF (my_process_is_mpi_workroot()) THEN
+            CALL uuid_unparse(vgrid_buffer(jg)%uuid, uuid_unparsed)
+            WRITE (0,*) "parallel calculation of vgrid UUID. Generated UUID: ", uuid_unparsed
+          END IF
+          DEALLOCATE(r_in,glbidx)
+          
+          ! broadcast the generated UUID st. it is available on all
+          ! workers:
+          CALL p_bcast(vgrid_buffer(jg)%uuid%data, SIZE(vgrid_buffer(jg)%uuid%data, 1), 0, p_comm_work)
+
+        ENDDO ! jg
 
         !--- If the user did not provide an external vertical grid
         !--- file, this file will be created:
         IF (create_vgrid) THEN
-          ! Note that the UUID is generated in write_vgrid_file
           DO jg = 1,n_dom
-            CALL write_vgrid_file(p_patch(jg), vct_a, vct_b, nflatlev(jg), "vgrid_DOM"//TRIM(int2string(jg, "(i2.2)"))//".nc")
+            CALL write_vgrid_file(p_patch(jg), vct_a, vct_b, nflatlev(jg), &
+              &                   "vgrid_DOM"//TRIM(int2string(jg, "(i2.2)"))//".nc")
           END DO
-        ELSE
-
-          ! If the vertical grid is created on the fly and not stored for later use,
-          ! a vertical grid UUID is rather useless. Thus, only a dummy UUID
-          ! is created and written to the output data files:
-          !
-          IF (my_process_is_mpi_workroot()) THEN
-             DO jg = 1,n_dom
-               ! fill UUID with zero-bytes
-               vgrid_buffer(jg)%uuid%DATA(:) = 0_C_SIGNED_CHAR
-             ENDDO
-          END IF
-          DO jg = 1,n_dom
-            CALL p_bcast(vgrid_buffer(jg)%uuid%DATA, SIZE(vgrid_buffer(jg)%uuid%DATA, 1), p_io, p_comm_work)
-          ENDDO
         ENDIF  ! create_vgrid
 
       ELSE
@@ -288,13 +308,10 @@ CONTAINS
       !--- copy UUID for horizontal grid
       !
       ! cells
-      CALL gridDefUUID(cdiCellGridID, p_patch%grid_uuid%DATA)
+      CALL gridDefUUID(cdiCellGridID, p_patch%grid_uuid%data)
       CALL gridDefNumber(cdiCellGridID, number_of_grid_used(p_patch%id))
       CALL gridDefPosition(cdiCellGridID, 1)
 
-      !--- set UUID for vertical grid
-      CALL uuid_generate(vgrid_buffer(p_patch%id)%uuid)
-      CALL zaxisDefUUID(cdiZaxisID, vgrid_buffer(p_patch%id)%uuid%DATA)
       CALL zaxisDefNumber(cdiZaxisID, ivctype)
 
       !--- add variables
@@ -342,6 +359,9 @@ CONTAINS
         &                out_array=r1d, gather_pattern=p_patch%comm_pat_gather_c)
       IF (my_process_is_mpi_workroot()) THEN
         CALL streamWriteVarSlice(cdiFileID, cdiVarID_c, jk-1, r1d, 0)
+
+        !--- set UUID for vertical grid
+        CALL zaxisDefUUID(cdiZaxisID, vgrid_buffer(p_patch%id)%uuid%data)
       END IF
     END DO
     DEALLOCATE(r1d, STAT=error_status)
@@ -415,7 +435,7 @@ CONTAINS
       !--- get UUID for horizontal grid contained in vertical grid file
       cdiVarID_z_ifc     = get_cdi_varID(cdiFileID, "z_ifc")
       cdiGridID          = vlistInqVarGrid(cdiVlistID, cdiVarID_z_ifc)
-      CALL gridInqUUID(cdiGridID, vfile_uuidOfHGrid%DATA)
+      CALL gridInqUUID(cdiGridID, vfile_uuidOfHGrid%data)
 
       ! compare horizontal UUID contained in the vertical grid file with the
       ! UUID of the horizontal grid file
@@ -432,7 +452,7 @@ CONTAINS
 
       !--- get UUID for vertical grid
       cdiZaxisID = vlistInqVarZaxis(cdiVlistID, cdiVarID_z_ifc)
-      CALL zaxisInqUUID(cdiZaxisID, vgrid_buffer(p_patch%id)%uuid%DATA)
+      CALL zaxisInqUUID(cdiZaxisID, vgrid_buffer(p_patch%id)%uuid%data)
 
 
 
@@ -459,7 +479,7 @@ CONTAINS
     CALL p_bcast(vct_a,                         p_io, p_comm_work)
     CALL p_bcast(vct_b,                         p_io, p_comm_work)
     CALL p_bcast(nflat,                         p_io, p_comm_work)
-    CALL p_bcast(vgrid_buffer(p_patch%id)%uuid%DATA, SIZE(vgrid_buffer(p_patch%id)%uuid%DATA, 1), p_io, p_comm_work)
+    CALL p_bcast(vgrid_buffer(p_patch%id)%uuid%data, SIZE(vgrid_buffer(p_patch%id)%uuid%data, 1), p_io, p_comm_work)
 
     !--- read 3D fields
     nlevp1 = p_patch%nlevp1

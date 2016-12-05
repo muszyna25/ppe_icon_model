@@ -1993,6 +1993,7 @@ src/shared/mo_util_sysinfo.f90 -text
 src/shared/mo_util_system.f90_off -text
 src/shared/mo_util_table.f90 -text
 src/shared/mo_util_uuid.f90 -text
+src/shared/mo_util_uuid_types.f90 -text
 src/shared/mo_util_vcs.f90 -text
 src/shared/mo_var_list.f90 -text
 src/shared/mo_var_list_element.f90 -text
@@ -2107,6 +2108,7 @@ support/util_sysinfo.c -text
 support/util_system.c -text
 support/util_timer.c -text
 support/util_uuid.c -text
+support/util_uuid.h -text
 /target_confmake.ksh -text
 /target_database.ksh -text
 vertical_coord_tables/README -text

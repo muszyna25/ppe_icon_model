@@ -41,7 +41,8 @@ MODULE mo_nonhydro_state
     &                                TASK_INTP_MSL, HINTP_TYPE_NONE,       &
     &                                iedmf, MODE_IAU, MODE_IAU_OLD,        &
     &                                TASK_COMPUTE_OMEGA, TLEV_NNOW_RCF,    &
-    &                                MODE_ICONVREMAP
+    &                                MODE_ICONVREMAP,HINTP_TYPE_LONLAT_RBF,&
+    &                                HINTP_TYPE_LONLAT_BCTR
   USE mo_exception,            ONLY: message, finish
   USE mo_model_domain,         ONLY: t_patch
   USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_state_lists,       &
@@ -614,7 +615,10 @@ MODULE mo_nonhydro_state
             &           tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
             &                       name        = TRIM(vname_prefix)//'qv'//suffix,    &
             &                       ihadv_tracer=advconf%ihadv_tracer(iqv),            &
-            &                       ivadv_tracer=advconf%ivadv_tracer(iqv)),           & 
+            &                       ivadv_tracer=advconf%ivadv_tracer(iqv)),           &
+            &           hor_interp=create_hor_interp_metadata(                         &
+            &                       hor_intp_type=HINTP_TYPE_LONLAT_BCTR,              &
+            &                       fallback_type=HINTP_TYPE_LONLAT_RBF),              &
             &           vert_interp=create_vert_interp_metadata(                       &
             &                       vert_intp_type=vintp_types("P","Z","I"),           &
             &                       vert_intp_method=VINTP_METHOD_QV,                  &
@@ -1591,6 +1595,9 @@ MODULE mo_nonhydro_state
     CALL add_var( p_diag_list, 'temp', p_diag%temp,                             &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
                 & ldims=shape3d_c, lrestart=.FALSE.,                            &
+                & hor_interp=create_hor_interp_metadata(                        &
+                &            hor_intp_type=HINTP_TYPE_LONLAT_BCTR,              &
+                &            fallback_type=HINTP_TYPE_LONLAT_RBF),              &
                 & vert_interp=create_vert_interp_metadata(                      &
                 &             vert_intp_type=vintp_types("P","Z","I"),          &
                 &             vert_intp_method=VINTP_METHOD_LIN ),              &
