@@ -49,11 +49,9 @@ MODULE mo_advection_config
   !
   TYPE t_compute                                                               
     LOGICAL :: ppm_v     (MAX_NTRACER)                                           
-    LOGICAL :: miura_h   (MAX_NTRACER)                                           
     LOGICAL :: miura3_h  (MAX_NTRACER)
     LOGICAL :: ffsl_h    (MAX_NTRACER)
     LOGICAL :: ffsl_hyb_h(MAX_NTRACER)
-    LOGICAL :: mcycl_h   (MAX_NTRACER)                            
   END TYPE t_compute                                                           
 
 
@@ -177,6 +175,8 @@ MODULE mo_advection_config
       &  ilist_hydroMass(:)      ! allocated and filled in 
                                  ! create_idlist_hydroMass
 
+    LOGICAL :: isAnyTypeMiura    ! TRUE if any tracer is to be advected with MIURA scheme
+    LOGICAL :: isAnyTypeMcycl    ! TRUE if any tracer is to be advected with subcycling
 
     ! scheme specific derived variables
     !
@@ -186,14 +186,6 @@ MODULE mo_advection_config
     TYPE(t_scheme) :: ffsl_h     !< horizontal FFSL scheme
     TYPE(t_scheme) :: ffsl_hyb_h !< horizontal hybrid FFSL/miura3 scheme
     TYPE(t_scheme) :: mcycl_h    !< horizontal miura scheme (linear) with subcycling
-    TYPE(t_scheme) ::  &         !< combination of horizontal miura scheme and miura 
-      &  miura_mcycl_h           !< scheme with subcycling
-    TYPE(t_scheme) ::  &         !< combination of horizontal miura3 scheme and miura
-      &  miura3_mcycl_h          !< scheme with subcycling
-    TYPE(t_scheme) ::  &         !< combination of horizontal ffsl scheme and miura
-      &  ffsl_mcycl_h            !< scheme with subcycling
-    TYPE(t_scheme) ::  &         !< combination of horizontal hybrid ffsl scheme and miura
-      &  ffsl_hyb_mcycl_h        !< scheme with subcycling 
   END TYPE t_advection_config
 
   !>
@@ -407,8 +399,6 @@ CONTAINS
     !
     ! MIURA specific settings (horizontal transport)
     !
-    lcompute%miura_h(:) = .FALSE.
-    lcleanup%miura_h(:) = .FALSE.
 
     advection_config(jg)%miura_h%iadv_min_slev = HUGE(1)
 
@@ -419,24 +409,6 @@ CONTAINS
         advection_config(jg)%miura_h%iadv_min_slev =  &
           &                  MIN( advection_config(jg)%miura_h%iadv_min_slev, &
           &                       advection_config(jg)%iadv_slev(jt) )
-      ENDIF
-    ENDDO
-
-    ! Search for the first tracer jt for which horizontal advection of
-    ! type MIURA has been selected.
-    DO jt=1,ntracer
-      IF ( ANY( (/MIURA, MIURA_MCYCL/) == ihadv_tracer(jt) ) ) THEN
-        lcompute%miura_h(jt) = .TRUE.
-        exit
-      ENDIF
-    ENDDO
-
-    ! Search for the last tracer jt for which horizontal advection of
-    ! type MIURA has been selected.
-    DO jt=ntracer,1,-1
-      IF ( ANY( (/MIURA, MIURA_MCYCL/) == ihadv_tracer(jt) ) ) THEN
-        lcleanup%miura_h(jt) = .TRUE.
-        exit
       ENDIF
     ENDDO
 
@@ -553,8 +525,6 @@ CONTAINS
     !
     ! MCYCL specific settings (horizontal transport)
     !
-    lcompute%mcycl_h(:) = .FALSE.
-    lcleanup%mcycl_h(:) = .FALSE.
 
     advection_config(jg)%mcycl_h%iadv_min_slev = HUGE(1)
 
@@ -567,20 +537,23 @@ CONTAINS
       ENDIF
     ENDDO
 
-    ! Search for the first tracer jt for which horizontal advection of
-    ! type MCYCL has been selected.
+
+    ! Check, whether any of the tracers is supposed to be transported horizontally  
+    ! with a scheme of Miura type (i.e. 2nd order scheme with linear reconstruction)
+    advection_config(jg)%isAnyTypeMiura=.FALSE.
     DO jt=1,ntracer
-      IF ( ANY( (/MCYCL, MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL, FFSL_HYB_MCYCL/) == ihadv_tracer(jt) ) ) THEN
-        lcompute%mcycl_h(jt) = .TRUE.
+      IF (ANY((/MIURA, MIURA_MCYCL/) == ihadv_tracer(jt))) THEN
+        advection_config(jg)%isAnyTypeMiura=.TRUE.
         exit
       ENDIF
     ENDDO
-
-    ! Search for the last tracer jt for which horizontal advection of
-    ! type MCYCL has been selected.
-    DO jt=ntracer,1,-1
-      IF ( ANY( (/MCYCL, MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL, FFSL_HYB_MCYCL/) == ihadv_tracer(jt) ) ) THEN
-        lcleanup%mcycl_h(jt) = .TRUE.
+    !
+    ! Check, whether any of the tracers is supposed to be transported horizontally  
+    ! with substepping (i.e. 2nd order scheme with substepping)
+    advection_config(jg)%isAnyTypeMcycl=.FALSE.
+    DO jt=1,ntracer
+      IF (ANY((/MCYCL, MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL, FFSL_HYB_MCYCL/) == ihadv_tracer(jt))) THEN
+        advection_config(jg)%isAnyTypeMcycl=.TRUE.
         exit
       ENDIF
     ENDDO

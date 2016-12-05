@@ -56,7 +56,7 @@ MODULE mo_solve_nonhydro
     &                             min_rlcell, RAYLEIGH_CLASSIC, RAYLEIGH_KLEMP
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_advection_hflux,   ONLY: upwind_hflux_miura3
-  USE mo_advection_traj,    ONLY: btraj
+  USE mo_advection_traj,    ONLY: t_back_traj, btraj_compute_o1
   USE mo_sync,              ONLY: SYNC_E, SYNC_C, sync_patch_array, sync_patch_array_mult, sync_patch_array_mult_mp
   USE mo_mpi,               ONLY: my_process_is_mpi_all_seq, work_mpi_barrier
   USE mo_timer,             ONLY: timer_solve_nh, timer_barrier, timer_start, timer_stop,       &
@@ -150,9 +150,7 @@ MODULE mo_solve_nonhydro
     REAL(vp) :: z_dwdz_dd       (nproma,kstart_dd3d(p_patch%id):p_patch%nlev,p_patch%nblks_c)
 
 #ifndef __LOOP_EXCHANGE
-    REAL(vp) :: z_distv_bary  (nproma,p_patch%nlev  ,p_patch%nblks_e,2)
-    INTEGER ::  z_cell_idx    (nproma,p_patch%nlev  ,p_patch%nblks_e)
-    INTEGER ::  z_cell_blk    (nproma,p_patch%nlev  ,p_patch%nblks_e)
+    TYPE(t_back_traj) :: btraj
 #endif
 
     ! The data type vp (variable precision) is by default the same as wp but reduces
@@ -316,7 +314,7 @@ MODULE mo_solve_nonhydro
 !$ACC              z_mflx_top, &
 !$ACC              z_rho_v, z_theta_v_v, z_graddiv_vn, z_hydro_corr, z_graddiv2_vn, &
 #ifndef __LOOP_EXCHANGE
-!$ACC              z_cell_idx, z_cell_blk, z_distv_bary, &
+!$ACC              btraj%cell_idx, btraj%cell_blk, btraj%distv_bary, &
 #endif
 !$ACC              scal_divdamp, enh_divdamp_fac, bdy_divdamp ), &
 !$ACC      COPYIN( nflatlev, nflat_gradp, vct_a, kstart_dd3d, kstart_moist, nrdmax, z_raylfac, ndyn_substeps_var ), &
@@ -822,9 +820,14 @@ MODULE mo_solve_nonhydro
 
 #ifndef __LOOP_EXCHANGE
           ! Compute backward trajectory - code is inlined for cache-based machines (see below)
-          CALL btraj(p_patch, p_int, p_nh%prog(nnow)%vn, REAL(p_nh%diag%vt,wp), &
-            0.5_wp*dtime, z_cell_idx, z_cell_blk, z_distv_bary, &
-            opt_rlstart=7, opt_rlend=min_rledge_int-1 )
+          CALL btraj_compute_o1( btraj      = btraj,                 & !inout
+            &                   ptr_p       = p_patch,               & !in
+            &                   ptr_int     = p_int,                 & !in
+            &                   p_vn        = p_nh%prog(nnow)%vn,    & !in
+            &                   p_vt        = REAL(p_nh%diag%vt,wp), & !in
+            &                   p_dthalf    = 0.5_wp*dtime,          & !in
+            &                   opt_rlstart = 7,                     & !in
+            &                   opt_rlend   = min_rledge_int-1       ) !in
 #endif
 
           ! Compute Green-Gauss gradients for rho and theta
@@ -969,21 +972,21 @@ MODULE mo_solve_nonhydro
 !$ACC LOOP VECTOR
                 DO je = i_startidx, i_endidx
 
-                  ilc0 = z_cell_idx(je,jk,jb)
-                  ibc0 = z_cell_blk(je,jk,jb)
+                  ilc0 = btraj%cell_idx(je,jk,jb)
+                  ibc0 = btraj%cell_blk(je,jk,jb)
 
                   ! Calculate "edge values" of rho and theta_v
                   ! Note: z_rth_pr contains the perturbation values of rho and theta_v,
                   ! and the corresponding gradients are stored in z_grad_rth.
                   z_rho_e(je,jk,jb) = REAL(p_nh%metrics%rho_ref_me(je,jk,jb),wp)     &
                     +                            z_rth_pr(1,ilc0,jk,ibc0)            &
-                    + z_distv_bary(je,jk,jb,1) * z_grad_rth(1,ilc0,jk,ibc0)          &
-                    + z_distv_bary(je,jk,jb,2) * z_grad_rth(2,ilc0,jk,ibc0)
+                    + btraj%distv_bary(je,jk,jb,1) * z_grad_rth(1,ilc0,jk,ibc0)      &
+                    + btraj%distv_bary(je,jk,jb,2) * z_grad_rth(2,ilc0,jk,ibc0)
 
                   z_theta_v_e(je,jk,jb) = REAL(p_nh%metrics%theta_ref_me(je,jk,jb),wp) &
                     +                            z_rth_pr(2,ilc0,jk,ibc0)              &
-                    + z_distv_bary(je,jk,jb,1) * z_grad_rth(3,ilc0,jk,ibc0)            &
-                    + z_distv_bary(je,jk,jb,2) * z_grad_rth(4,ilc0,jk,ibc0)
+                    + btraj%distv_bary(je,jk,jb,1) * z_grad_rth(3,ilc0,jk,ibc0)        &
+                    + btraj%distv_bary(je,jk,jb,2) * z_grad_rth(4,ilc0,jk,ibc0)
 #endif
 
                 ENDDO ! loop over edges
@@ -2864,6 +2867,7 @@ MODULE mo_solve_nonhydro
 !$OMP END PARALLEL
 #endif
 #endif
+
 
     IF (ltimer) CALL timer_stop(timer_solve_nh)
 
