@@ -69,7 +69,7 @@ MODULE mo_gridref
        &                           max_rlvert, min_rledge, max_rledge,    &
        &                           min_rlcell_int, min_rlvert_int,        &
        &                           min_rledge_int, max_dom, max_phys_dom
-  USE mo_util_uuid,          ONLY: uuid_string_length
+  USE mo_util_uuid_types,    ONLY: uuid_string_length
 
   IMPLICIT NONE
 

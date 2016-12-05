@@ -77,7 +77,7 @@ MODULE mo_initicon
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_input_instructions,  ONLY: t_readInstructionListPtr, readInstructionList_make, kInputSourceAna, &
                                     kInputSourceBoth
-  USE mo_util_uuid,           ONLY: t_uuid
+  USE mo_util_uuid_types,     ONLY: t_uuid
 
   IMPLICIT NONE
 

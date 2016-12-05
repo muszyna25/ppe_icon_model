@@ -66,7 +66,6 @@ MODULE mo_initicon_utils
   USE mo_linked_list,         ONLY: t_list_element
   USE mo_var_list,            ONLY: get_var_name, nvar_lists, var_lists
   USE mo_var_list_element,    ONLY: level_type_ml
-  USE mo_util_uuid,           ONLY: OPERATOR(==)
   USE mo_flake,               ONLY: flake_coldinit
   USE mo_time_config,         ONLY: time_config
   USE mtime,                  ONLY: OPERATOR(==), OPERATOR(+)
