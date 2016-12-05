@@ -1031,6 +1031,7 @@ CONTAINS
     INTEGER                              :: remaining_io_procs(MAX_NUM_IO_PROCS) !< non-placed I/O ranks
 
     INTEGER                              :: idx, istart
+    LOGICAL                              :: is_io
     INTEGER(c_int64_t)                   :: total_ms
     LOGICAL                              :: is_mpi_test
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
@@ -1062,10 +1063,11 @@ CONTAINS
     ! We need dtime
     IF(dtime<=0._wp) CALL finish(routine, 'dtime must be set before reading output namelists')
 
+    is_io = my_process_is_io()
 
 #ifndef NOMPI
     ! Set broadcast root for intercommunicator broadcasts
-    IF(my_process_is_io()) THEN
+    IF (is_io) THEN
       ! Root is proc 0 on the compute PEs
       bcast_root = 0
     ELSE
@@ -1123,7 +1125,7 @@ CONTAINS
     DO jp = 1, n_dom_out
       IF(l_output_phys_patch) THEN
         patch_info(jp)%log_patch_id = p_phys_patch(jp)%logical_id
-        IF (.NOT. my_process_is_io()) THEN
+        IF (.NOT. is_io) THEN
           patch_info(jp)%p_pat_c    => p_phys_patch(jp)%comm_pat_gather_c
           patch_info(jp)%nblks_glb_c = (p_phys_patch(jp)%n_patch_cells-1)/nproma + 1
           patch_info(jp)%p_pat_e    => p_phys_patch(jp)%comm_pat_gather_e
@@ -1135,7 +1137,7 @@ CONTAINS
         END IF
       ELSE
         patch_info(jp)%log_patch_id = jp
-        IF (.NOT. my_process_is_io()) THEN
+        IF (.NOT. is_io) THEN
           patch_info(jp)%p_pat_c    => p_patch(jp)%comm_pat_gather_c
           patch_info(jp)%nblks_glb_c = (p_patch(jp)%n_patch_cells_g-1)/nproma + 1
           patch_info(jp)%p_pat_e    => p_patch(jp)%comm_pat_gather_e
@@ -1549,7 +1551,7 @@ CONTAINS
 
       ! Clear patch_info fields clon, clat, etc. (especially on work
       ! PE 0) since they aren't needed there any longer.
-      IF ((.NOT. my_process_is_io())) THEN
+      IF (.NOT. is_io) THEN
         ! Go over all output domains (deallocation is skipped if data
         ! structures were not allocated)
         DO idom = 1, n_dom_out
@@ -1573,7 +1575,7 @@ CONTAINS
     !
     local_i = 0
     DO i = 1, nfiles
-      IF (.NOT. use_async_name_list_io .OR. .NOT. my_process_is_io() &
+      IF (.NOT. use_async_name_list_io .OR. .NOT. is_io &
            .OR. output_file(i)%io_proc_id == p_pe) THEN
         CALL add_out_event(output_file(i)%name_list, output_file(i), &
              i, local_i, sim_step_info, dom_sim_step_info)
