@@ -535,6 +535,9 @@ CONTAINS
 !       &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, p_as%fu10, mtime_current)
 !       &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, mtime_current)
 
+      ! copy atmospheric wind speed of coupling from p_as%fu10 into forcing to be written by restart
+      p_sfc%Wind_Speed_10m(:,:) = p_as%fu10(:,:)
+
       start_detail_timer(timer_extra21,5)
       
       ! Shift time indices for the next loop

@@ -405,6 +405,9 @@ CONTAINS
 
       ! wind stress over water (stress_xw, stress_yw) is the same and read from OMIP, see calc_omip_budgets_oce
 
+      ! copy atmospheric wind speed from p_as%fu10 into new forcing variable for output purpose - not accumulated yet
+      p_oce_sfc%Wind_Speed_10m(:,:) = p_as%fu10(:,:)
+
     CASE (Coupled_FluxFromAtmo)                                       !  14
 
       !  Driving the ocean in a coupled mode:
@@ -419,9 +422,6 @@ CONTAINS
       CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION DOES NOT EXIST - TERMINATE')
 
     END SELECT
-
-    ! copy atmospheric wind speed from p_as%fu10 into new forcing variable for output purpose - not accumulated yet
-    p_oce_sfc%Wind_Speed_10m(:,:) = p_as%fu10(:,:)
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
