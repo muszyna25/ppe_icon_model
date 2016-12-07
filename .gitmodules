@@ -1,0 +1,7 @@
+[submodule "externals/mtime"]
+	path = externals/mtime
+	branch = develop
+[submodule "externals/jsbach"]
+	branch = jsbach4icon-dev
+[submodule "externals/self"]
+	branch = libself-icon_derived_variables
