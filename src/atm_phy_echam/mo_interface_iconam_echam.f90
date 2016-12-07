@@ -69,7 +69,10 @@ MODULE mo_interface_iconam_echam
 
   USE mo_coupling_config       ,ONLY: is_coupled_run
   USE mo_parallel_config       ,ONLY: nproma
-  USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi
+  USE mo_master_config         ,ONLY: isRestart
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
+    &                                  calculate_time_interpolation_weights
+  USE mo_run_config            ,ONLY: nlev, ntracer, iqv, iqc, iqi, io3
   USE mo_nonhydrostatic_config ,ONLY: lhdiff_rcf
   USE mo_diffusion_config      ,ONLY: diffusion_config
   USE mo_echam_phy_config      ,ONLY: echam_phy_config
@@ -83,8 +86,8 @@ MODULE mo_interface_iconam_echam
 
   USE mo_nonhydro_types        ,ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nh_diagnose_pres_temp ,ONLY: diagnose_pres_temp
-  USE mo_physical_constants    ,ONLY: rd, p0ref, rd_o_cpd, vtmpc1, grav
-
+  USE mo_physical_constants    ,ONLY: rd, p0ref, rd_o_cpd, vtmpc1, grav, &
+    &                                 amd, amo3       
   USE mtime                    ,ONLY: datetime , newDatetime , deallocateDatetime     ,&
     &                                 timedelta, newTimedelta, deallocateTimedelta    ,&
     &                                 max_timedelta_str_len  , getPTStringFromSeconds ,&
@@ -104,6 +107,7 @@ MODULE mo_interface_iconam_echam
     &                                 timer_echam_bcs, timer_echam_phy, timer_coupling,                &
     &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
 
+  USE mo_lcariolle_types       ,ONLY: avi, t_time_interpolation
   IMPLICIT NONE
 
   PRIVATE
@@ -178,6 +182,11 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: method_name = "interface_iconam_echam"
 
+    ! Temporary variables for Cariolle scheme (ozone)
+    REAL(wp)    :: vmr_o3(nproma,nlev)
+    TYPE(t_time_interpolation) :: time_interpolation
+    EXTERNAL       lcariolle_lat_intp_li, lcariolle_pres_intp_li
+    TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
     !-------------------------------------------------------------------------------------
 
     IF (ltimer) CALL timer_start(timer_dyn2phy)
@@ -191,6 +200,17 @@ CONTAINS
     i_endblk   = patch%cells%end_blk(rl_end,i_nchdom)
 
     jg    = patch%id
+
+    ! The date and time needed for the radiation computation in the phyiscs is
+    ! the date and time of the initial data for this step.
+    ! As 'datetime_new' contains already the date and time of the end of this
+    ! time step, we compute here the old datetime 'datetime_old':
+    !
+    CALL getPTStringFromSeconds(-dt_loc, neg_dt_loc_string)
+    neg_dt_loc_mtime  => newTimedelta(neg_dt_loc_string)
+    datetime_old      => newDatetime(datetime_new)
+    datetime_old      =  datetime_new + neg_dt_loc_mtime
+    CALL deallocateTimedelta(neg_dt_loc_mtime)
 
     !=====================================================================================
     !
@@ -383,6 +403,31 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
+!   Initialize ozone mass mixing ratios for Cariolle scheme here. 
+!   An approximative initialization 
+!   that considers the atmosphere as being dry is enough.
+    IF (echam_phy_config%lcariolle) THEN
+      IF (.NOT.isRestart().AND. .NOT. avi%l_initialized_o3) THEN
+        avi%ldown=.TRUE.
+        current_time_interpolation_weights = calculate_time_interpolation_weights(datetime_old)
+        time_interpolation%imonth1=current_time_interpolation_weights%month1_index
+        time_interpolation%imonth2=current_time_interpolation_weights%month2_index
+        time_interpolation%weight1=current_time_interpolation_weights%weight1
+        time_interpolation%weight2=current_time_interpolation_weights%weight2
+        DO jb = i_startblk,i_endblk
+          CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
+          avi%pres(jcs:jce,:)=prm_field(jg)%presm_old(jcs:jce,:,jb)
+          avi%cell_center_lat(jcs:jce)=patch%cells%center(jcs:jce,jb)%lat
+          CALL lcariolle_init_o3(                                              &
+           & jcs,                   jce,                nproma,                &
+           & nlev,                  time_interpolation, lcariolle_lat_intp_li, &
+           & lcariolle_pres_intp_li,avi,                vmr_o3                 )
+          pt_prog_new_rcf% tracer(jcs:jce,:,jb,io3)=vmr_o3(jcs:jce,:)*amo3/amd
+        END DO
+        avi%l_initialized_o3=.TRUE.
+      END IF
+    END IF
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jt,jb,jk,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jt = 1,ntracer
@@ -439,17 +484,6 @@ CONTAINS
     ! (3) Prepare boundary conditions for ECHAM physics
     !
     IF (ltimer) CALL timer_start(timer_echam_bcs)
-
-    ! The date and time needed for the radiation computation in the phyiscs is
-    ! the date and time of the initial data for this step.
-    ! As 'datetime_new' contains already the date and time of the end of this
-    ! time step, we compute here the old datetime 'datetime_old':
-    !
-    CALL getPTStringFromSeconds(-dt_loc, neg_dt_loc_string)
-    neg_dt_loc_mtime  => newTimedelta(neg_dt_loc_string)
-    datetime_old      => newDatetime(datetime_new)
-    datetime_old      =  datetime_new + neg_dt_loc_mtime
-    CALL deallocateTimedelta(neg_dt_loc_mtime)
 
     CALL echam_phy_bcs_global( datetime_old ,&! in
       &                        jg           ,&! in

@@ -62,7 +62,7 @@ MODULE mo_psrad_radiation
   USE mo_namelist,            ONLY: open_nml, position_nml, close_nml, POSITIONED
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist
-  USE mo_impl_constants,      ONLY: io3_clim, io3_ape, io3_amip
+  USE mo_impl_constants,      ONLY: io3_interact, io3_clim, io3_ape, io3_amip
   USE mo_ext_data_types,      ONLY: t_external_atmos_td
   USE mo_ext_data_state,      ONLY: ext_data, nlev_o3
   USE mo_bc_ozone,            ONLY: o3_plev, nplev_o3, plev_full_o3, plev_half_o3
@@ -83,6 +83,9 @@ MODULE mo_psrad_radiation
   USE mo_psrad_cloud_optics,  ONLY: setup_cloud_optics  
   USE mo_bc_greenhouse_gases, ONLY: ghg_co2mmr, ghg_ch4mmr, ghg_n2ommr, ghg_cfcmmr
   USE mo_run_config,          ONLY: iqv, iqc, iqi, iqt, ico2, ntracer
+!++jsr
+  USE mo_run_config,            ONLY: io3
+!--jsr
 ! ozone: read by mo_bc_ozone in icon, does not contain full functionality like here.
 !  USE mo_o3clim,              ONLY: pre_o3clim_4, pre_o3clim_3, o3clim,            &
 !       &                            read_o3clim_3
@@ -343,6 +346,7 @@ MODULE mo_psrad_radiation
 
     CHARACTER(len=*), INTENT(IN)      :: file_name
     INTEGER :: istat, funit
+    CHARACTER(len=2)                  :: cio3
 
     NAMELIST /psrad_nml/ lradforcing,       & ! switch for short and longwave
      ! radiative forcing calculation by double call to radiation (default:
@@ -534,6 +538,9 @@ MODULE mo_psrad_radiation
       SELECT CASE (irad_o3)
       CASE(0)
         CALL message('','irad_o3    = 0 --> no O3 in radiation')
+        CASE(io3_interact)
+          WRITE(cio3,'(I2)') irad_o3
+          CALL message('','irad_o3  ='//cio3//' --> O3    volume mixing ratio from 3d--tracer field (interactive ozone)')
 !!$      CASE(2)
 !!$        CALL message('','irad_o3    = 2 --> O3    periodic-in-time 3-dim. volume mixing ratio from file')
       CASE(4)
@@ -919,6 +926,16 @@ MODULE mo_psrad_radiation
       CALL finish('radiation','o3: this "irad_o3" is not supported')
     CASE(0)
       xm_ozn(:,:) = 0.0_wp
+      xm_o3(1:kproma,:)    = gas_profile(kproma, klev, irad_o3, xm_dry,       &
+           &                             gas_scenario_v = xm_ozn(1:kproma,:), &
+           &                             gas_factor     = fo3)
+
+    CASE(io3_interact)
+      xm_ozn(1:kproma,:) = xm_trc(1:kproma,:,io3)
+      xm_o3(1:kproma,:)    = gas_profile(kproma, klev, irad_o3, xm_dry,     &
+           &                             gas_val = xm_ozn(1:kproma,:),      &
+           &                             gas_factor     = fo3)
+
     CASE(io3_clim, io3_ape)
 
       IF(irad_o3 == io3_ape) THEN
@@ -935,6 +952,9 @@ MODULE mo_psrad_radiation
            &          pph  = pp_hl(:,:),                     &! in  aphp1
            &          o3_time_int = atm_td%o3(:,:,jb,selmon),&! in
            &          o3_clim     = xm_ozn(:,:)              )! OUT
+      xm_o3(1:kproma,:)    = gas_profile(kproma, klev, irad_o3, xm_dry,       &
+           &                             gas_scenario_v = xm_ozn(1:kproma,:), &
+           &                             gas_factor     = fo3)
 
     CASE(io3_amip)
       CALL o3_timeint(kproma = kproma, kbdim = kbdim,        &
@@ -950,11 +970,10 @@ MODULE mo_psrad_radiation
            &          pph  = pp_hl(:,:),                     &
            &          o3_time_int = zo3_timint,              &
            &          o3_clim     = xm_ozn(:,:)              )
+      xm_o3(1:kproma,:)    = gas_profile(kproma, klev, irad_o3, xm_dry,       &
+           &                             gas_scenario_v = xm_ozn(1:kproma,:), &
+           &                             gas_factor     = fo3)
     END SELECT
-
-    xm_o3(1:kproma,:)    = gas_profile(kproma, klev, irad_o3, xm_dry,       &
-         &                             gas_scenario_v = xm_ozn(1:kproma,:), &
-         &                             gas_factor     = fo3)
 
     xm_o2(1:kproma,:)    = gas_profile(kproma, klev, irad_o2, xm_dry,       &
          &                             gas_mmr      = mmr_o2,               &
