@@ -13,5 +13,6 @@ config.status
 config/mh-config-use
 config/set-up.info
 src/lnd_phy_jsbach
+src/art
 *.o
 *~
