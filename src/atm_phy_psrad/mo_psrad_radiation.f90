@@ -200,7 +200,6 @@ MODULE mo_psrad_radiation
          &                ldiur,          l_sph_symm_irr,   p_patch,           &
          &                flx_ratio_cur,  amu0_x,           rdayl_x            )
 
-    IF (echam_phy_config%lrad) THEN
 !!$
       SELECT CASE (isolrad)
       CASE (0)
@@ -227,12 +226,11 @@ MODULE mo_psrad_radiation
       END SELECT
       psct = flx_ratio_cur*solc
 
-    END IF ! lrad
 
     !
     ! 2.0 Prepare time dependent quantities for rad (on radiation timestep)
     ! --------------------------------
-    IF (echam_phy_config%lrad .AND. ltrig_rad) THEN
+    IF (ltrig_rad) THEN
 
       CALL get_orbit_times(datetime_radiation, time_of_day, orbit_date)
 
@@ -338,7 +336,7 @@ MODULE mo_psrad_radiation
           CALL message('',message_text)
         END DO
       END IF
-    END IF ! lrad .AND. l_trigrad
+    END IF ! l_trigrad
 
   END SUBROUTINE pre_psrad_radiation
 
