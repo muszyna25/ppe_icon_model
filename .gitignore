@@ -15,3 +15,9 @@ config/set-up.info
 src/lnd_phy_jsbach
 *.o
 *~
+.status.file
+cdo_diffn*.out
+experiments*
+run/*.status
+run/*.run
+run/NAMELIST_*_lnd
