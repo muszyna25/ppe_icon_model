@@ -1309,7 +1309,7 @@ CONTAINS
     ELSE IF (     my_mpi_function == work_mpi_process &
       &      .OR. my_mpi_function == test_mpi_process) THEN
       p_comm_work_io = my_function_comm
-      p_comm_io = MERGE(mpi_comm_self, mpi_comm_null, p_pe <= p_work_pe0)
+      p_comm_io = MERGE(mpi_comm_self, mpi_comm_null, p_pe_work == 0)
     ELSE
       p_comm_io = mpi_comm_null
       p_comm_work_io = mpi_comm_null
@@ -1321,7 +1321,7 @@ CONTAINS
       CALL MPI_Comm_group(p_comm_work_io,       grp_comm_work_io,         p_error)
       IF (num_io_procs > 0) THEN
         input_ranks(1) = p_io_pe0
-      ELSE IF (p_test_run .AND. (p_pe < p_work_pe0)) THEN
+      ELSE IF (p_test_run .AND. my_mpi_function == test_mpi_process) THEN
         input_ranks(1) = 0
       ELSE
         input_ranks(1) = p_work_pe0
