@@ -32,7 +32,6 @@ MODULE mo_psrad_radiation_parameters
   USE mo_model_domain,    ONLY: t_patch
   USE mo_parallel_config, ONLY: nproma
   USE mo_math_constants,  ONLY: pi
-!!$  USE mo_control,         ONLY: lrce
 
 IMPLICIT NONE
 
@@ -139,7 +138,6 @@ contains
   !
   SUBROUTINE solar_parameters(decl_sun, dist_sun,        time_of_day,         &
        &                      ldiur,    l_sph_symm_irr,  p_patch,             &
-!!$   &                     ,sinlon, sinlat, coslon, coslat                   &
        &                      flx_ratio,cos_mu0,         daylght_frc          )   
 
     REAL(wp), INTENT(in)  :: &
@@ -151,10 +149,6 @@ contains
          l_sph_symm_irr        !< spherical symmetric irradiation ON (l_sph_symm_irr=.TRUE.)
                                !< or OFF (l_sph_symm_irr=.FALSE.)
     TYPE(t_patch), INTENT(in) ::      p_patch
-!!$         sinlon(:,:),        & !< sines of longitudes
-!!$         sinlat(:,:),        & !< and latitudes
-!!$         coslon(:,:),        & !< cosines of longitudes
-!!$         coslat(:,:)           !< and latitudes
     REAL(wp), INTENT(out) :: &
          flx_ratio,          & !< ratio of actual to average solar constant
          cos_mu0(:,:),       & !< cos_mu_0, cosine of the solar zenith angle
@@ -211,7 +205,6 @@ contains
           cos_mu0(:,:)     = -zen2
           daylght_frc(:,:) = 1.0_wp
           WHERE (cos_mu0(:,:) < 0.0_wp)
-             cos_mu0(:,:)     = 0.0_wp
              daylght_frc(:,:) = 0.0_wp
           END WHERE
        ELSE
@@ -242,7 +235,6 @@ contains
             &             +zen3*coslat(:,:)*sinlon(:,:) 
        daylght_frc(:,:) = 1.0_wp
        WHERE (cos_mu0(:,:) < 0.0_wp)
-         cos_mu0(:,:)     = 0.0_wp
          daylght_frc(:,:) = 0.0_wp
        END WHERE
      ELSE
