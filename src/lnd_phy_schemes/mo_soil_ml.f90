@@ -1247,6 +1247,7 @@ END SUBROUTINE message
                               !    with respect to t_snow
     zrho_snow(ie)      , & ! snow density used for computing heat capacity and conductivity
     zts_pm   (ie)      , & ! indicator zts > < T_melt
+    ztfunc   (ie)      , & ! smoothed transition function between T_melt and T_melt+2K
     ztsnow_pm(ie)          ! indicator ztsnow > < T_melt
 
 
@@ -1917,8 +1918,10 @@ END SUBROUTINE message
         IF (w_snow_now(i) > 0.0_ireals) THEN
           ! existence of snow
           ! --> no water in interception store and t_snow < t0_melt
-          w_snow_now(i) = w_snow_now(i) + w_i_now(i)
-          w_i_now(i) = 0.0_ireals
+          ! GZ: this effectively suppresses rime formation because deposition rates per time
+          ! step are usually less than 1e-6 m (zepsi)
+      !!!    w_snow_now(i) = w_snow_now(i) + w_i_now(i)
+      !!!    w_i_now(i) = 0.0_ireals
           t_snow_now(i) = MIN (t0_melt - zepsi, t_snow_now(i) )
         ELSE IF (t_snow_now(i) >= t0_melt) THEN
           ! no snow and t_snow >= t0_melt --> t_s > t0_melt and t_snow = t_s
@@ -1929,7 +1932,7 @@ END SUBROUTINE message
           ! --> t_snow = t_s and no water w_i in interception store
           t_s_now   (i) = MIN (t0_melt - zepsi, t_s_now(i) )
           t_snow_now(i) = t_s_now(i)
-          w_i_now(i) = 0.0_ireals
+     !!!     w_i_now(i) = 0.0_ireals
         END IF
 !      END IF
     ENDDO
@@ -1995,6 +1998,7 @@ END SUBROUTINE message
     ! ztsnow   (i) = t_snow(i,nx)
     zts      (i) = t_s_now   (i)
     zts_pm   (i) = zsf_heav(zts   (i) - t0_melt)
+    ztfunc   (i) = MAX(0._ireals,1._ireals - MAX(0._ireals,0.5_ireals*(zts(i)-t0_melt)))
     ztsnow_pm(i) = zsf_heav(ztsnow(i) - t0_melt)
    IF (itype_interception == 1) THEN
     zwin     (i) = w_i_now(i)
@@ -2023,14 +2027,14 @@ END SUBROUTINE message
     z234iw      = z2iw*(b3 - z4iw)
     zqs         = zsf_qsat( zsf_psat_iw(zts(i), z2iw,z4iw), ps(i) )
     zdqs        = zqvlow - zqs
-    IF (ABS(zdqs).LT.zepsi) zdqs = 0._ireals
+    IF (ABS(zdqs).LT.0.01_ireals*zepsi) zdqs = 0._ireals
     z2iw        = ztsnow_pm(i)*b2w + (1._ireals - ztsnow_pm(i))*b2i
     z4iw        = ztsnow_pm(i)*b4w + (1._ireals - ztsnow_pm(i))*b4i
     z234iw      = z2iw*(b3 - z4iw)
     zqsnow      = zsf_qsat(zsf_psat_iw(ztsnow(i),z2iw,z4iw), ps(i))
     zdqvtsnow(i)= zsf_dqvdt_iw(ztsnow(i), zqsnow, z4iw,z234iw)
     zdqsnow     = zqvlow - zqsnow
-    IF (ABS(zdqsnow).LT.zepsi) zdqsnow = 0._ireals
+    IF (ABS(zdqsnow).LT.0.01_ireals*zepsi) zdqsnow = 0._ireals
 
     ! potential evaporation at T_snow and Ts
     zep_snow(i) = (1._ireals-ztsnow_pm(i))* tfv(i)*zrhoch(i)*zdqsnow
@@ -2104,8 +2108,9 @@ END SUBROUTINE message
         ! Evaporation from interception store if it contains water (wi>0) and
         ! if zep_s<0 indicates potential evaporation for temperature Ts
         ! amount of water evaporated is limited to total content of store
-        zdwidt(i) = zsf_heav(-zep_s(i)) * MAX(-zrhwddt*zwin(i),                       &
-          0.333_ireals*zf_wi(i)*zep_s(i), -MAX(300._ireals,0.75_ireals*zradfl(i))/lh_v)
+        zzz = (1._ireals + 0.5_ireals*ztfunc(i))/3._ireals
+        zdwidt(i) = zsf_heav(-zep_s(i)) * MAX(-zrhwddt*zwin(i),              &
+          zzz*zf_wi(i)*zep_s(i), -MAX(300._ireals,0.75_ireals*zradfl(i))/lh_v)
         ! Evaporation of snow, if snow exists (wsnow>0) and if zep_snow<0
         ! indicates potential evaporation for temperature t_snow
         zdwsndt(i) = zsf_heav(-zep_snow(i))  &
@@ -2713,7 +2718,7 @@ ELSE          IF (itype_interception == 2) THEN
         ! to avoid infiltration at snow covered parts of soil surface
         zinfmx(i) = zinfmx(i)*(1._ireals - zf_snow(i))
 
-        zwimax(i) = cwimax_ml*MAX(2._ireals*(1._ireals-zts_pm(i)), zepsi, tai(i))
+        zwimax(i) = cwimax_ml*MAX(2._ireals*ztfunc(i), zepsi, tai(i))
         zalf   = SQRT(MAX(0.0_ireals,1.0_ireals - zwinstr(i)/zwimax(i)))
 
         ! water supply from interception store (if Ts above freezing)
@@ -2753,6 +2758,11 @@ ELSE          IF (itype_interception == 2) THEN
         zdwidtt      = zdwidtt - zro_wi
         zdwidt(i)    = zdwidtt
         zinf         = zinf + zro_wi
+        IF (zts(i) <= t0_melt) THEN
+          ! add excess rime to snow
+          zrs(i) = zrs(i) + zinf
+          zinf = 0._ireals
+        ENDIF
 
         ! add rain contribution to water supply for infiltration
         zvers(i) = zinf + (1._ireals - zalf)*zrr(i) + (1._ireals-conv_frac(i))*zalf*prr_con(i)
@@ -3649,7 +3659,7 @@ ELSE   IF (itype_interception == 2) THEN
 
           ! avoid overflow of interception store, add possible excess to
           ! surface run-off
-          zwimax(i)  = cwimax_ml*MAX(2._ireals*(1._ireals-zts_pm(i)), zepsi, tai(i))
+          zwimax(i) = cwimax_ml*MAX(2._ireals*ztfunc(i), zepsi, tai(i))
           zwinstr(i) = zwin(i) + zdwidt(i)*zdtdrhw
           IF (zwinstr(i) > zwimax(i)) THEN  ! overflow of interception store
             zro         = (zwinstr(i) - zwimax(i))*zrhwddt
@@ -4813,7 +4823,7 @@ ENDIF
            w_snow_new(i) = 0.0_ireals
            t_snow_new(i) = t_so_new(i,0)
          ENDIF
-        IF (w_i_new(i) <= zepsi) w_i_new(i) = 0.0_ireals
+        IF (w_i_new(i) <= 1.e-4_ireals*zepsi) w_i_new(i) = 0.0_ireals
      end DO
 !<JH
 
