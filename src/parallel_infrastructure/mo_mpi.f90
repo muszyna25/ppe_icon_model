@@ -1272,13 +1272,13 @@ CONTAINS
     ! * io ranks
     ! * restart ranks and
     ! * prefetch ranks
-    my_color = MERGE(1, my_mpi_function, &
+    my_color = MERGE(work_mpi_process, my_mpi_function, &
       &                   my_mpi_function == test_mpi_process &
       &              .OR. my_mpi_function == work_mpi_process)
     CALL mpi_comm_split(process_mpi_all_comm, my_color, p_pe, &
          my_function_comm, p_error)
 
-    IF(p_test_run .AND. my_color == 1) THEN
+    IF (p_test_run .AND. my_color == work_mpi_process) THEN
       p_comm_work_test = my_function_comm
       my_color = MERGE(1, 2, my_mpi_function == test_mpi_process)
       CALL mpi_comm_split(p_comm_work_test, my_color, p_pe, &
