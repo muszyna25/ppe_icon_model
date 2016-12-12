@@ -146,11 +146,7 @@ CONTAINS
       ALLOCATE(plev_full_o3(nplev_o3))
       ALLOCATE(plev_half_o3(nplev_o3+1))
 
-      IF(p_test_run) THEN
-        mpi_comm = p_comm_work_test
-      ELSE
-        mpi_comm = p_comm_work
-      ENDIF
+      mpi_comm = MERGE(p_comm_work_test, p_comm_work, p_test_run)
 
       IF(my_process_is_stdio()) THEN
         CALL nf(nf_open(TRIM(fname), NF_NOWRITE, ncid), subprog_name)
