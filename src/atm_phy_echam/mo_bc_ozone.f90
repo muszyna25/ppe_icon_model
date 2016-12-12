@@ -54,7 +54,9 @@ CONTAINS
     CHARACTER(len=16)                 :: fname
     TYPE(t_stream_id)                 :: stream_id
     CHARACTER(len=4)                  :: cyear
-    CHARACTER(len=25)                 :: subprog_name
+    CHARACTER(len=*), PARAMETER       :: subprog_name &
+         = 'mo_bc_ozone:read_bc_ozone'
+
     INTEGER                           :: ncid, varid, mpi_comm
     REAL(wp), POINTER                 :: zo3_plev(:,:,:,:)
 
@@ -137,7 +139,6 @@ CONTAINS
         o3_plev(:,:,:,13)=vmr2mmr_o3*zo3_plev(:,:,:,1)       
       END IF
 
-      subprog_name='mo_bc_ozone:read_bc_ozone'
       nplev_o3=SIZE(o3_plev,2)
 
       IF(ALLOCATED(plev_full_o3)) DEALLOCATE(plev_full_o3)
