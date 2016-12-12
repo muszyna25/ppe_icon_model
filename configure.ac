@@ -39,7 +39,7 @@ AS_CASE([$ac_hostname],
         [wizard*],
         [ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename],
-        [mlogin*|btlogin*],
+        [mlogin*|btlogin*|btc*],
         [ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename],
         [daint*|tave*|santis*|kesch*],
@@ -513,20 +513,13 @@ if test -n "$SZIPROOT" ; then
      echo "cannot find $SZIPROOT/include"  
      exit 1    
   fi
-  case $ac_hostname in
-  mlogin*|btlogin*)
-    case x"$WLFLAG" in
-    x-Wl,-Wl,)
-      SZIP_LIB=$(echo $SZIP_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
-      ;;
-    x-Wl)
-      SZIP_LIB=$(echo $SZIP_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
-      ;;
-    esac
-    ;;
-  *)
-    ;;
-  esac
+  AS_CASE([$ac_hostname],
+    [mlogin*|btlogin*|btc*],
+    [AS_CASE([x"$WLFLAG"],
+      [x-Wl,-Wl,],
+      [SZIP_LIB=$(echo $SZIP_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
+      [x-Wl],
+      [SZIP_LIB=$(echo $SZIP_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])])
 else
   echo "Warning: the variable SZIPROOT is not set in $host_frag"  
   echo "         set SZIPROOT to the szip root directory"
@@ -562,20 +555,13 @@ if test -n "$HDF5ROOT" ; then
      echo "cannot find $HDF5ROOT/include"  
      exit 1    
   fi
-  case $ac_hostname in
-  mlogin*|btlogin*)
-    case x"$WLFLAG" in
-    x-Wl,-Wl,)
-      HDF5_LIB=$(echo $HDF5_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
-      ;;
-    x-Wl)
-      HDF5_LIB=$(echo $HDF5_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
-     ;;
-    esac    
-    ;;
-  *)
-    ;;
-  esac
+  AS_CASE([$ac_hostname],
+    [mlogin*|btlogin*|btc*],
+    [AS_CASE([x"$WLFLAG"],
+      [x-Wl,-Wl,],
+      [HDF5_LIB=$(echo $HDF5_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
+      [x-Wl],
+      [HDF5_LIB=$(echo $HDF5_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])])
 else
   echo "Warning: the variable HDF5ROOT is not set in $host_frag"  
   echo "         set HDF5ROOT to the hdf5 root directory"
@@ -620,20 +606,13 @@ if test -n "$NETCDFROOT" ; then
   if test x$gcc_lib != x ; then
      NETCDF_LIB="${NETCDF_LIB} ${gcc_lib}"
   fi
-  case $ac_hostname in
-  mlogin*|btlogin*)
-    case x"$WLFLAG" in
-    x-Wl,-Wl,)
-      NETCDF_LIB=$(echo $NETCDF_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
-      ;;
-    x-Wl)
-      NETCDF_LIB=$(echo $NETCDF_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
-      ;;
-    esac
-    ;;
-  *)
-    ;;
-  esac
+  AS_CASE([$ac_hostname],
+    [mlogin*|btlogin*|btc*],
+    [AS_CASE([x"$WLFLAG"],
+      [x-Wl,-Wl,],
+      [NETCDF_LIB=$(echo $NETCDF_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
+      [x-Wl],
+      [NETCDF_LIB=$(echo $NETCDF_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])])
   if test -z "$NETCDFFROOT" ; then
      if test -r "$NETCDFROOT/include/netcdf.inc" ; then
          NETCDF_INCLUDE='-I$(NETCDFROOT)/include'
@@ -647,22 +626,15 @@ if test -n "$NETCDFROOT" ; then
        if test -r "$NETCDFFROOT/lib/libnetcdff.a" -a -r "$NETCDFROOT/lib/libnetcdf.a" ; then
          NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
          NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff'
-         case $ac_hostname in
-         mlogin*|btlogin*)
-           case x"$WLFLAG" in
-           x-Wl,-Wl,)
-             NETCDF_FLIB=$(echo $NETCDF_FLIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
-             NETCDF_LIB=$(echo $NETCDF_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
-             ;;
-           x-Wl)
-             NETCDF_FLIB=$(echo $NETCDF_FLIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
-             NETCDF_LIB=$(echo $NETCDF_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
-             ;;
-           esac
-           ;;
-         *)
-           ;;
-         esac
+         AS_CASE([$ac_hostname],
+           [mlogin*|btlogin*|btc*],
+           [AS_CASE([x"$WLFLAG"],
+           [x-Wl,-Wl,],
+           [NETCDF_FLIB=$(echo $NETCDF_FLIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
+            NETCDF_LIB=$(echo $NETCDF_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],
+           [x-Wl],
+           [NETCDF_FLIB=$(echo $NETCDF_FLIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+            NETCDF_LIB=$(echo $NETCDF_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])])
          NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"
        else
          echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFROOT/lib/libnetcdf.a"
@@ -776,7 +748,7 @@ AS_IF([test -n "$GRIBAPIROOT"],
 			[cray],
                         [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -dynamic -Wl,-rpath,\2!g')],
                         [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')])],
-               [mlogin*|btlogin*],
+               [mlogin*|btlogin*|btc*],
                [AS_CASE([x"$WLFLAG"],
                         [x-Wl,-Wl,],
                         [GRIBAPI_LIB=$(echo $GRIBAPI_LIB | $SED -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')],

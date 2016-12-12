@@ -581,7 +581,7 @@ case "$ac_sitename" in
 
     dkrz.de|bullx)
         case "$(hostname)" in
-            btlogin*|mlogin*)
+            btlogin*|btc*|mlogin*)
                 load_modules  = ncl/6.2.1-gccsys cdo/default svn/1.8.13 ${load_modules}
                 load_profile  = /etc/profile
                 software_tree = /sw/rhel6-x64
