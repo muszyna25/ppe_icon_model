@@ -64,9 +64,9 @@ CONTAINS
 
       IF (ALLOCATED(o3_plev)) THEN
         o3_plev(:,:,:,0:1)=o3_plev(:,:,:,12:13)
-        write(cyear,'(i4)') year
 
         IF ( echam_phy_config(p_patch%id)%lamip ) THEN
+          WRITE(cyear,'(i4)') year
           fname='bc_ozone_'//TRIM(cyear)//'.nc'
         ELSE
           fname='bc_ozone'//'.nc'
@@ -94,9 +94,9 @@ CONTAINS
         CALL closeFile(stream_id)
         o3_plev(:,:,:,13)=vmr2mmr_o3*zo3_plev(:,:,:,1)
       ELSE
-        write(cyear,'(i4)') year
 
         IF ( echam_phy_config(p_patch%id)%lamip ) THEN
+          WRITE(cyear,'(i4)') year
           fname='bc_ozone_'//TRIM(cyear)//'.nc'
         ELSE
           fname='bc_ozone'//'.nc'
@@ -109,9 +109,9 @@ CONTAINS
         CALL closeFile(stream_id)
         ALLOCATE(o3_plev(SIZE(zo3_plev,1),SIZE(zo3_plev,2),SIZE(zo3_plev,3),0:13))
         o3_plev(:,:,:,1:12)=vmr2mmr_o3*zo3_plev
-        write(cyear,'(i4)') year-1
 
         IF ( echam_phy_config(p_patch%id)%lamip ) THEN
+          WRITE(cyear,'(i4)') year-1
           fname='bc_ozone_'//TRIM(cyear)//'.nc'
         ELSE
           fname='bc_ozone'//'.nc'
@@ -123,9 +123,9 @@ CONTAINS
           &               start_timestep=12,end_timestep=12)
         CALL closeFile(stream_id)
         o3_plev(:,:,:,0)=vmr2mmr_o3*zo3_plev(:,:,:,1)
-        write(cyear,'(i4)') year+1
 
         IF ( echam_phy_config(p_patch%id)%lamip ) THEN
+          WRITE(cyear,'(i4)') year+1
           fname='bc_ozone_'//TRIM(cyear)//'.nc'
         ELSE
           fname='bc_ozone'//'.nc'
