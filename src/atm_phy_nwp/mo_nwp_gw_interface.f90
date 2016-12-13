@@ -25,7 +25,7 @@
 
 MODULE mo_nwp_gw_interface
 
-  USE mo_kind,                 ONLY: wp, vp
+  USE mo_kind,                 ONLY: wp, vp => vp2
 
   USE mo_model_domain,         ONLY: t_patch
 

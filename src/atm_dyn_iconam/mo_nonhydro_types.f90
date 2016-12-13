@@ -24,7 +24,7 @@
 !!
 MODULE mo_nonhydro_types
 
-  USE mo_kind,                 ONLY: wp, vp
+  USE mo_kind,                 ONLY: wp, vp, vp2
   USE mo_fortran_tools,        ONLY: t_ptr_2d3d, t_ptr_2d3d_vp, t_ptr_tracer
   USE mo_linked_list,          ONLY: t_var_list
 
@@ -162,7 +162,6 @@ MODULE mo_nonhydro_types
     &  vt(:,:,:),           & ! tangential wind (nproma,nlev,nblks_e)          [m/s]
     &  ddt_exner_phy(:,:,:),& ! exner pressure tendency from physical forcing 
                               ! (nproma,nlev,nblks_c)                     [1/s]
-    &  ddt_temp_dyn(:,:,:), & ! rediagnosed temperature tendency from dynamics [K/s]
     &  ddt_vn_phy(:,:,:),   & ! normal wind tendency from forcing
                               ! (nproma,nlev,nblks_e)                          [m/s^2]
     &  exner_dyn_incr(:,:,:), & ! exner pres dynamics increment (nproma,nlev,nblks_c)
@@ -173,6 +172,13 @@ MODULE mo_nonhydro_types
                               ! (nproma,nlev,nblks_e,1:3)                    [m/s^2]
     &  ddt_w_adv(:,:,:,:)     ! vert. wind tendency from advection
                               ! (nproma,nlevp1,nblks_c,1:3)                  [m/s^2]
+
+    REAL(vp2), POINTER      &   ! single precision if "__MIXED_PRECISION_2" is defined
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    , CONTIGUOUS            &
+#endif
+    &  ::                   &
+    &  ddt_temp_dyn(:,:,:)    ! rediagnosed temperature tendency from dynamics [K/s]
 
 
     INTEGER, POINTER ::     &

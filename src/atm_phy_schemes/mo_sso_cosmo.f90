@@ -173,9 +173,9 @@ USE data_runcontrol , ONLY :    &
 
 #ifdef __ICON__
 
-USE mo_kind               , ONLY :   &
-    ireals=>wp, vp, & ! KIND-type parameter for real variables
-    iintegers=>i4     ! KIND-type parameter for standard integer variables
+USE mo_kind   , ONLY :   &
+    ireals=>wp, vp=>vp2, & ! KIND-type parameter for real variables
+    iintegers=>i4          ! KIND-type parameter for standard integer variables
 
 !------------------------------------------------------------------------------
 

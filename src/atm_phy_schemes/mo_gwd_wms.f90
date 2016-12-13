@@ -32,7 +32,7 @@
 !!
 MODULE mo_gwd_wms
   
-  USE mo_kind,               ONLY: jprb=>wp, vp    , &
+  USE mo_kind,               ONLY: jprb=>wp, vp=>vp2    , &
     & jpim =>i4
   !------------------------------------------------------------------------------
   USE mo_math_constants , ONLY : rpi => pi
