@@ -2139,9 +2139,6 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_reorder_info"
 
-    ! Just for safety
-    IF(my_process_is_io()) CALL finish(routine, 'Must not be called on IO PEs')
-
     p_ri%n_log = n_points_g ! Total points in logical domain
 
     ! Set the physical patch owner mask
