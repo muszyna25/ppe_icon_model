@@ -2207,12 +2207,9 @@ CONTAINS
 ! NOMPI
 
     ! Get reorder_index
-
-    ALLOCATE(p_ri%reorder_index(p_ri%n_glb))
-    IF (patch_info(phys_patch_id)%grid_info_mode == GRID_INFO_FILE) THEN
-      ALLOCATE(p_ri%grid_info%log_dom_index(p_ri%n_glb))
-    END IF
-    ALLOCATE(reorder_index_log_dom(n_points_g)) ! spans the complete logical domain
+    ALLOCATE(p_ri%reorder_index(p_ri%n_glb), &
+      ! spans the complete logical domain
+      &      reorder_index_log_dom(n_points_g))
     reorder_index_log_dom(:) = 0
 
     DO i = 1, p_ri%n_glb
@@ -2231,6 +2228,7 @@ CONTAINS
     ENDDO
 
     IF (patch_info(phys_patch_id)%grid_info_mode == GRID_INFO_FILE) THEN
+      ALLOCATE(p_ri%grid_info%log_dom_index(p_ri%n_glb))
       n = 0
       DO i = 1, n_points_g
         IF(reorder_index_log_dom(i)>0) THEN
