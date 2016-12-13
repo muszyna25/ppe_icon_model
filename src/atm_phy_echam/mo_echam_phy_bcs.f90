@@ -84,7 +84,7 @@ CONTAINS
 
     ! Local variables
 
-    TYPE(datetime) , POINTER                 :: radiation_time !< date and time for radiative transfer
+    TYPE(datetime) , POINTER, SAVE           :: radiation_time !< date and time for radiative transfer
     TYPE(timedelta), POINTER                 :: td_radiation_offset
     CHARACTER(len=max_timedelta_str_len)     :: dstring
 
