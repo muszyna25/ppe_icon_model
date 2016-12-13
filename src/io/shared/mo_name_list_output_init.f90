@@ -2144,17 +2144,18 @@ CONTAINS
     ! Set the physical patch owner mask
 
     ALLOCATE(phys_owner_mask(n_points))
+    n = 0
     DO i = 1, n_points
       il = idx_no(i)
       ib = blk_no(i)
-      phys_owner_mask(i) = owner_mask(il,ib)
-      IF(l_output_phys_patch) &
-        phys_owner_mask(i) = phys_owner_mask(i) .AND. (phys_id(il,ib) == phys_patch_id)
+      phys_owner_mask(i) =       owner_mask(il,ib) &
+        &                  .AND. (     .NOT. l_output_phys_patch &
+        &                         .OR. phys_id(il,ib) == phys_patch_id)
+      n = n + MERGE(1, 0, phys_owner_mask(i))
     ENDDO
 
     ! Get number of owned cells/edges/verts (without halos, physical patch only)
-
-    p_ri%n_own = COUNT(phys_owner_mask(:))
+    p_ri%n_own = n
 
     ! Set index arrays to own cells/edges/verts
 
