@@ -56,7 +56,7 @@ MODULE mo_echam_phy_main
   USE mo_cover,               ONLY: cover
   USE mo_radheating,          ONLY: radheating
   USE mo_psrad_radiation,     ONLY: psrad_radiation
-  USE mo_psrad_radiation_parameters, ONLY: psct
+  USE mo_psrad_radiation_parameters, ONLY: psctm
   USE mo_vdiff_config,        ONLY: vdiff_config
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
   USE mo_vdiff_upward_sweep,  ONLY: vdiff_up
@@ -70,7 +70,6 @@ MODULE mo_echam_phy_main
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
     &                                  calculate_time_interpolation_weights
 
-  
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: echam_phy_main
@@ -438,7 +437,7 @@ CONTAINS
         & klev       = nlev                           ,&! vertical dimension size
         & klevp1     = nlevp1                         ,&! vertical dimension size
         !
-        & rsdt0      = psct                           ,&! toa incident shortwave radiation for sun in zenith
+        & rsdt0      = psctm                          ,&! toa incident shortwave radiation for sun in zenith
         & cosmu0     = field%cosmu0    (:,jb)         ,&! solar zenith angle at current time
         !
         & emiss      = ext_data(jg)%atm%emis_rad(:,jb),&! lw sfc emissivity
