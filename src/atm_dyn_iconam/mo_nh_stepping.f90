@@ -2703,9 +2703,9 @@ MODULE mo_nh_stepping
 
     lskip = .FALSE.
 
-    mvcfl(1:n_dom) = p_nh_state(1:n_dom)%metrics%max_vcfl_dyn
+    mvcfl(1:n_dom) = p_nh_state(1:n_dom)%diag%max_vcfl_dyn
 
-    p_nh_state(1:n_dom)%metrics%max_vcfl_dyn = 0._vp
+    p_nh_state(1:n_dom)%diag%max_vcfl_dyn = 0._vp
 
     mvcfl = global_max(mvcfl)
     IF (ANY(mvcfl(1:n_dom) > 0.85_wp) .AND. .NOT. lcfl_watch_mode) THEN

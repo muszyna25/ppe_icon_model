@@ -183,6 +183,7 @@ MODULE mo_nonhydro_types
      &  extra_2d(:,:,:)  ,  & !> extra debug output in 2d and
      &  extra_3d(:,:,:,:)     !!                       3d
 
+    REAL(vp) :: max_vcfl_dyn=0._vp  ! maximum vertical CFL number in dynamical core
 
     TYPE(t_ptr_2d3d),ALLOCATABLE ::   &
       &  ddt_grf_trc_ptr(:),   &  !< pointer array: one pointer for each tracer
@@ -372,8 +373,6 @@ MODULE mo_nonhydro_types
    INTEGER  :: nudge_c_dim, nudge_e_dim ! for grid points on which lateral boundary nudging is applied
    INTEGER  :: bdy_halo_c_dim ! for halo points belonging to the nest boundary region
    INTEGER  :: bdy_mflx_e_dim ! for mass fluxes at lateral nest boundary
-
-   REAL(vp) :: max_vcfl_dyn=0._vp  ! maximum vertical CFL number in dynamical core
 
 
    ! Finally, a mask field that excludes boundary halo points
