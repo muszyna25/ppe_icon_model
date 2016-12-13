@@ -68,29 +68,12 @@ MODULE mo_psrad_radiation
   USE mo_bc_ozone,            ONLY: o3_plev, nplev_o3, plev_full_o3, plev_half_o3
   USE mo_o3_util,             ONLY: o3_pl2ml, o3_timeint
   USE mo_echam_phy_config,    ONLY: echam_phy_config
-!  USE mo_time_control,        ONLY: l_orbvsop87, get_orbit_times,                 &
-!       &                            p_bcast_event, current_date, next_date,       &
-!       &                            previous_date, radiation_date,                &
-!       &                            prev_radiation_date,get_date_components,      &
-!       &                            lresume, lstart, get_month_len
   USE mo_psrad_orbit,         ONLY: orbit_kepler, orbit_vsop87, &
                                   & get_orbit_times
   USE mo_psrad_orbit_nml,     ONLY: read_psrad_orbit_namelist
-! the present mo_bc_solar_irradiance is "old" and not the one used in echam-6.3.
-!  USE mo_solar_irradiance,    ONLY: get_solar_irradiance, set_solar_irradiance, &
-!                                    get_solar_irradiance_m, set_solar_irradiance_m
-! cloud optics does not exist in icon
   USE mo_psrad_cloud_optics,  ONLY: setup_cloud_optics  
   USE mo_bc_greenhouse_gases, ONLY: ghg_co2mmr, ghg_ch4mmr, ghg_n2ommr, ghg_cfcmmr
-  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqt, ico2, ntracer
-!++jsr
-  USE mo_run_config,            ONLY: io3
-!--jsr
-! ozone: read by mo_bc_ozone in icon, does not contain full functionality like here.
-!  USE mo_o3clim,              ONLY: pre_o3clim_4, pre_o3clim_3, o3clim,            &
-!       &                            read_o3clim_3
-!  USE mo_o3_lwb,              ONLY: o3_lwb
-! used for interactive CO2, can be switched off for the moment.
+  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqt, ico2, io3, ntracer
   USE mo_radiation_config,    ONLY: irad_h2o,             &
                                     irad_co2,             &
                                     irad_ch4,             &
@@ -118,7 +101,6 @@ MODULE mo_psrad_radiation
                                     lyr_perp,             &
                                     yr_perp,              &
                                     lradforcing,          &
-                                    tsi,                  &
                                     tsi_radt,             &
                                     ssi_radt
   USE mo_psrad_radiation_parameters, ONLY: nb_sw,              & 
@@ -129,8 +111,6 @@ MODULE mo_psrad_radiation
                                      sw_gpts_ts,               &
                                      rad_perm,                 &
                                      cemiss,                   &
-                                     solc,                     &
-                                     psct,                     &
                                      psctm,                    &
                                      ssi_factor,               &
                                      flx_ratio_cur,            &
@@ -176,9 +156,11 @@ MODULE mo_psrad_radiation
     INTEGER(i8) :: icurrentyear
     INTEGER  :: icurrentmonth, i
     INTEGER, SAVE :: iprevmonth=-9999
-    REAL(wp) :: rasc_sun, decl_sun, dist_sun, time_of_day, zrae
-    REAL(wp) :: orbit_date
-    REAL(wp) :: solcm
+    REAL(wp) :: rasc_sun, decl_sun, dist_sun
+    REAL(wp) :: time_of_day, orbit_date
+    REAL(wp) :: time_of_day_rt, orbit_date_rt
+    REAL(wp) :: dt_ext
+    REAL(wp) :: tsi
     LOGICAL  :: l_orbvsop87, l_sph_symm_irr
 
     l_orbvsop87 = psrad_orbit_config%l_orbvsop87
@@ -187,89 +169,69 @@ MODULE mo_psrad_radiation
     !
     ! 1.0 Compute orbital parameters for current time step
     ! --------------------------------
+    !
+    ! "time_of_day"  defines the local noon longitude for the time of this time step.
+    ! "orbit_date" is not used. Instead always "orbit_date_rt" is used.
     CALL get_orbit_times(current_datetime, time_of_day, orbit_date)
+    !
+    ! "time_of_day_rt" defines the local noon longitude for the time of the
+    ! radiative transfer calculation.
+    ! "orbit_date_rt" defines the orbit position at the radiation time.
+    ! This orbit position is kept constant through the radiation interval.
+    CALL get_orbit_times(datetime_radiation, time_of_day_rt, orbit_date_rt)
 
+
+    ! Compute the orbital parameters of Earth for "orbit_date_rt".
     IF (l_orbvsop87) THEN 
-      CALL orbit_vsop87 (orbit_date, rasc_sun, decl_sun, dist_sun)
+      CALL orbit_vsop87 (orbit_date_rt, rasc_sun, decl_sun, dist_sun)
     ELSE
-      CALL orbit_kepler (orbit_date, rasc_sun, decl_sun, dist_sun)
+      CALL orbit_kepler (orbit_date_rt, rasc_sun, decl_sun, dist_sun)
     END IF
 
-!!$    decl_sun_cur = decl_sun       ! save for aerosol and chemistry submodels
-    CALL solar_parameters(decl_sun,       dist_sun,         time_of_day,       &
-         &                ldiur,          l_sph_symm_irr,   p_patch,           &
+    ! Compute cos(zenith angle) "amu0_x" for the time "time_of_day" of this time step
+    ! and for the orbit parameters "decl_sun" and "dist_sun" valid for "orbit_date_rt".
+    !
+    ! "amu0_x" is needed for the incoming SW flux field at the top of the atmosphere.
+    !
+    ! Do not extend the sun-lit area. Exactly half of the globe is sun-lit
+    dt_ext = 0.0_wp
+    !
+    CALL solar_parameters(decl_sun,       dist_sun,                            &
+         &                time_of_day,    dt_ext,                              &
+         &                ldiur,          l_sph_symm_irr,                      &
+         &                p_patch,                                             &
          &                flx_ratio_cur,  amu0_x,           rdayl_x            )
-
-    IF (echam_phy_config%lrad) THEN
-!!$
-      SELECT CASE (isolrad)
-      CASE (0)
-        solc = SUM(ssi_default)
-      CASE (1)
-!!$        CALL get_solar_irradiance(current_date, next_date)
-!!$        CALL set_solar_irradiance(solc)
-        solc = tsi
-        continue ! solar irradiance was read in echam_phy_bcs_global
-      CASE (2)
-        solc = SUM(ssi_preind)
-      CASE (3)
-        solc = SUM(ssi_amip)
-      CASE (4)
-        solc = SUM(ssi_RCEdiurnOn)
-      CASE (5)
-        solc = SUM(ssi_RCEdiurnOff)
-      CASE (6)
-        solc = SUM(ssi_cmip6_picontrol)
-      CASE default
-        WRITE (message_text, '(a,i2,a)') &
-             'isolrad = ',isolrad, ' in radiation_nml namelist is not supported'
-        CALL finish('pre_psrad_radiation', message_text)
-      END SELECT
-      psct = flx_ratio_cur*solc
-
-    END IF ! lrad
 
     !
     ! 2.0 Prepare time dependent quantities for rad (on radiation timestep)
     ! --------------------------------
-    IF (echam_phy_config%lrad .AND. ltrig_rad) THEN
+    IF (ltrig_rad) THEN
 
-      CALL get_orbit_times(datetime_radiation, time_of_day, orbit_date)
-
-      IF ( l_orbvsop87 ) THEN 
-        CALL orbit_vsop87 (orbit_date, rasc_sun, decl_sun, dist_sun)
-      ELSE
-        CALL orbit_kepler (orbit_date, rasc_sun, decl_sun, dist_sun)
-      END IF
-      CALL solar_parameters(decl_sun,        dist_sun,          time_of_day,        &
-           &                ldiur,           l_sph_symm_irr,    p_patch,            &
+      ! Compute cos(zenith angle) "amu0m_x" for the radiation time "time_of_day_rt"
+      ! and the orbit parameters "decl_sun" and "dist_sun" valid for "orbit_date_rt".
+      !
+      ! "amu0m_x" is needed for the incoming SW flux field at the top of the atmosphere
+      ! and for the optical paths.
+      !
+      ! Extend the sunlit area for the radiative transfer calculations over an extended area
+      ! including a rim of width dt_rad/2/86400*2pi (in radian) around the sunlit hemisphere.
+      dt_ext = echam_phy_config%dt_rad
+      !
+      CALL solar_parameters(decl_sun,        dist_sun,                              &
+           &                time_of_day_rt,  dt_ext,                                &
+           &                ldiur,           l_sph_symm_irr,                        &
+           &                p_patch,                                                &
            &                flx_ratio_rad,   amu0m_x,           rdaylm_x            )
       !
-      ! consider curvature of the atmosphere for high zenith angles
+      ! Consider curvature of the atmosphere for high zenith angles:
+      ! The atmospheric path for a zenith angle mu0 through a spherical shell of
+      ! thickness H and an inner radius R (and ratio rae=H/R) is shorter than
+      ! a path at equal zenith angle through a plane parallel layer of thickness H.
       !
-      zrae = rae*(rae+2.0_wp)
-      amu0m_x(:,:)  = rae/(SQRT(amu0m_x(:,:)**2+zrae)-amu0m_x(:,:))
-      !
-      ! For the calculation of radiative transfer, a maximum zenith angle
-      ! of about 84 degrees is applied in order to avoid to much overshooting
-      ! when the extrapolation of the radiative fluxes from night time
-      ! regions to daytime regions is done for time steps at which no
-      ! radiation calculation is performed. This translates into cosines
-      ! of the zenith angle > 0.1.  This approach limits the calculation of the 
-      ! curvature effect above, and should be reconsidered in the future
-      ! 
-      amu0m_x(:,:) = MAX(amu0m_x(:,:),0.1_wp)
-!!$      !
-!!$      ! --- Prepare Ozone climatology
-!!$      !
-!!$      SELECT CASE (irad_o3)
-!!$      CASE (3) 
-!!$        CALL pre_o3clim_3(nmonth)
-!!$      CASE (4) 
-!!$        CALL pre_o3clim_4
-!!$      END SELECT
-!!$      !
-!!$
+      WHERE (rdaylm_x == 1.0_wp) 
+         amu0m_x(:,:)  = rae/(SQRT(amu0m_x(:,:)**2+rae*(rae+2.0_wp))-amu0m_x(:,:))
+      END WHERE
+
       !++jsr&hs
       ! 3.0 Prepare possibly time dependent total solar and spectral irradiance
       ! --------------------------------
@@ -286,36 +248,34 @@ MODULE mo_psrad_radiation
 
       SELECT CASE (isolrad)
       CASE (0)
-        solcm = SUM(ssi_default)
+        tsi = SUM(ssi_default)
         ssi_factor = ssi_default
       CASE (1)
-!!$        CALL get_solar_irradiance_m(prev_radiation_date, radiation_date, nb_sw)
-!!$        CALL set_solar_irradiance_m(solcm, ssi_factor, nb_sw)
-        solcm=tsi_radt
+        tsi=tsi_radt
         ssi_factor=ssi_radt
         continue ! solar irradiance was read in echam_phy_bcs_global
       CASE (2)
-        solcm = SUM(ssi_preind)
+        tsi = SUM(ssi_preind)
         ssi_factor = ssi_preind
       CASE (3)
-        solcm = SUM(ssi_amip)
+        tsi = SUM(ssi_amip)
         ssi_factor = ssi_amip
       CASE (4)
-        solcm = SUM(ssi_RCEdiurnOn)
+        tsi = SUM(ssi_RCEdiurnOn)
         ssi_factor = ssi_RCEdiurnOn
       CASE (5)
-        solcm = SUM(ssi_RCEdiurnOff)
+        tsi = SUM(ssi_RCEdiurnOff)
         ssi_factor = ssi_RCEdiurnOff
       CASE (6)
-        solcm = SUM(ssi_cmip6_picontrol)
+        tsi = SUM(ssi_cmip6_picontrol)
         ssi_factor = ssi_cmip6_picontrol
       CASE default
         WRITE (message_text, '(a,i2,a)') &
              'isolrad = ', isolrad, ' in radctl namelist is not supported'
         CALL message('pre_radiation', message_text)
       END SELECT
-      psctm = flx_ratio_rad*solcm
-      ssi_factor(:) = ssi_factor(:)/solcm
+      psctm = flx_ratio_rad*tsi
+      ssi_factor(:) = ssi_factor(:)/tsi
 
       ! output of solar constant every month
 
@@ -328,7 +288,7 @@ MODULE mo_psrad_radiation
         WRITE (message_text,'(a,i0,a,i2.2,a,f6.1)') &
              'Total solar constant [W/m^2] for ',      &
              icurrentyear, '-',                        &
-             icurrentmonth, ' = ', solcm
+             icurrentmonth, ' = ', tsi
         CALL message('',message_text)
         CALL message('','')
         DO i = 1, nb_sw
@@ -338,7 +298,7 @@ MODULE mo_psrad_radiation
           CALL message('',message_text)
         END DO
       END IF
-    END IF ! lrad .AND. l_trigrad
+    END IF ! l_trigrad
 
   END SUBROUTINE pre_psrad_radiation
 
@@ -668,20 +628,11 @@ MODULE mo_psrad_radiation
       ! --- Check perpetual orbit
       ! 
       IF (yr_perp.NE.-99999)  lyr_perp = .TRUE.
-!!$      CALL p_bcast (lyr_perp, p_io)
-!!$
+
       IF (lyr_perp) THEN
-!!$        IF (l_orbvsop87) THEN
           WRITE (message_text, '(a,i0,a)') &
                'yr_perp=', yr_perp, ' --> perpetual year for orbit'
           CALL message('',message_text)
-!!$        ELSE
-!!$          WRITE (message_text, '(a,i0,a,l1,a)') &
-!!$               'yr_perp = ', yr_perp, ' l_orbvsop87 = ',l_orbvsop87,' not allowed!'
-!!$          CALL message('',message_text)
-!!$          CALL finish('setup_psrad_radiation', &
-!!$               ' yr_perp.ne.-99999 cannot run  PCMDI-orbit (l_orbvsop87=.F.).')
-!!$        END IF
       END IF
       !
       ! 4.0 Initialization for radiation
@@ -691,10 +642,6 @@ MODULE mo_psrad_radiation
       !
       CALL setup_cloud_optics
       !
-!!$      ! --- Ozone climatology
-!!$      ! 
-!!$      IF (irad_o3==3) CALL read_o3clim_3
-!!$      !
     ENDIF
   END SUBROUTINE setup_psrad_radiation
 

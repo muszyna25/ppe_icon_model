@@ -395,7 +395,7 @@ CONTAINS
     !
     ! ---  3.1.2 Solar illumination
     !
-    cossza(1:kproma) = prmu0(1:kproma) 
+    cossza(1:kproma) = MAX(prmu0(1:kproma),0.0_wp) 
 
     !
     ! --- 3.2 Compute fluxes for each set of samples in turn

@@ -210,14 +210,18 @@ CONTAINS
     ! The original downward and upward fluxes form the radiative transfer (rt) calculation
     ! are scaled by the ratio of the incident solar fluxes of the current time and the
     ! rt-time. This assumes that the incident solar flux at rt-time is non-zero in all
-    ! columns.
+    ! columns, where cosmu0 is currently positive.
     ! - incident solar radiation at rt-time     : rsdt_rt = rsd_rt(jk=1)
     ! - incident solar radiation at current time: rsdt    = rsdt0*MAX(0,cosmu0)
     ! - scaling ratio for fluxes at current time: xsdt    = rsdt / rsdt_rt
     !
     ! top of atmophere
     rsdt  (jcs:jce)   = rsdt0*MAX(0._wp,cosmu0(jcs:jce))
-    xsdt  (jcs:jce)   = rsdt  (jcs:jce) / rsd_rt(jcs:jce,1)
+    WHERE (rsd_rt(jcs:jce,1) > 0.0_wp)
+       xsdt  (jcs:jce)   = rsdt  (jcs:jce) / rsd_rt(jcs:jce,1)
+    ELSEWHERE
+       xsdt  (jcs:jce)   = 0.0_wp
+    END WHERE
     !
     rsut  (jcs:jce)   = rsu_rt  (jcs:jce,1) * xsdt(jcs:jce)
     rsutcs(jcs:jce)   = rsucs_rt(jcs:jce,1) * xsdt(jcs:jce)
