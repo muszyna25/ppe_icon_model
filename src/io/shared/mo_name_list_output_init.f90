@@ -2158,10 +2158,8 @@ CONTAINS
     p_ri%n_own = n
 
     ! Set index arrays to own cells/edges/verts
-
-    ALLOCATE(p_ri%own_idx(p_ri%n_own))
-    ALLOCATE(p_ri%own_blk(p_ri%n_own))
-    ALLOCATE(glbidx_own(p_ri%n_own)) ! Global index of my own points
+    ! Global index of my own points
+    ALLOCATE(p_ri%own_idx(n), p_ri%own_blk(n), glbidx_own(n))
 
     n = 0
     DO i = 1, n_points
@@ -2175,8 +2173,7 @@ CONTAINS
 
     ! Gather the number of own points for every PE into p_ri%pe_own
 
-    ALLOCATE(p_ri%pe_own(0:p_n_work-1))
-    ALLOCATE(p_ri%pe_off(0:p_n_work-1))
+    ALLOCATE(p_ri%pe_own(0:p_n_work-1), p_ri%pe_off(0:p_n_work-1))
 #ifndef NOMPI
     CALL MPI_Allgather(p_ri%n_own,  1, p_int, &
                        p_ri%pe_own, 1, p_int, &
