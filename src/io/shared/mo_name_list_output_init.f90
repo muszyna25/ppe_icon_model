@@ -103,7 +103,8 @@ MODULE mo_name_list_output_init
     &                                             process_mpi_stdio_id, process_work_io0,         &
     &                                             process_mpi_io_size, num_work_procs, p_n_work,  &
     &                                             p_pe_work, p_io_pe0, p_pe, &
-    &                                             my_process_is_work, num_test_procs
+    &                                             my_process_is_work, num_test_procs, &
+    &                                             p_allgather, p_allgatherv
   USE mo_communication,                     ONLY: idx_no, blk_no
   ! namelist handling
   USE mo_namelist,                          ONLY: position_nml, positioned, open_nml, close_nml
@@ -2133,7 +2134,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: glb_index(:)    ! glb_index for logical patch
     TYPE(t_reorder_info), INTENT(INOUT) :: p_ri ! Result: reorder info
     ! local variables
-    INTEGER :: i, n, il, ib, mpierr
+    INTEGER :: i, n, il, ib
     LOGICAL, ALLOCATABLE :: phys_owner_mask(:) ! owner mask for physical patch
     INTEGER, ALLOCATABLE :: glbidx_own(:), glbidx_glb(:), reorder_index_log_dom(:)
 
@@ -2174,14 +2175,7 @@ CONTAINS
     ! Gather the number of own points for every PE into p_ri%pe_own
 
     ALLOCATE(p_ri%pe_own(0:p_n_work-1), p_ri%pe_off(0:p_n_work-1))
-#ifndef NOMPI
-    CALL MPI_Allgather(p_ri%n_own,  1, p_int, &
-                       p_ri%pe_own, 1, p_int, &
-                       p_comm_work, mpierr)
-#else
-    p_ri%pe_own(0) = p_ri%n_own
-#endif
-! NOMPI
+    CALL p_allgather(p_ri%n_own, p_ri%pe_own, p_comm_work)
 
     ! Get offset within result array
     il = 0
@@ -2197,14 +2191,8 @@ CONTAINS
     ! exactly in the same order as it is retrieved later during I/O
 
     ALLOCATE(glbidx_glb(p_ri%n_glb))
-#ifndef NOMPI
-    CALL MPI_Allgatherv(glbidx_own, p_ri%n_own, p_int, &
-                        glbidx_glb, p_ri%pe_own, p_ri%pe_off, p_int, &
-                        p_comm_work, mpierr)
-#else
-    glbidx_glb(:) = glbidx_own(:)
-#endif
-! NOMPI
+    CALL p_allgatherv(glbidx_own(1:p_ri%n_own), glbidx_glb, &
+      &               p_ri%pe_own, p_ri%pe_off, p_comm_work)
 
     ! Get reorder_index
     ALLOCATE(p_ri%reorder_index(p_ri%n_glb), &
