@@ -24,6 +24,7 @@ MODULE mo_storage
   USE mo_util_string,                   ONLY: tolower
   USE mo_hash_table,                    ONLY: t_HashTable, hashTable_make
   USE mo_fortran_tools,                 ONLY: t_Destructible
+  USE mo_impl_constants,                ONLY: SUCCESS
 
   IMPLICIT NONE
 
@@ -229,17 +230,19 @@ END SUBROUTINE put_logical
 !!
 !!-------------------------------------------------------------------------
 !!
-SUBROUTINE get_real(this_storage, key, value)
+SUBROUTINE get_real(this_storage, key, value, ierror)
 ! Implemented as subroutine rather than function as the interface "get" is not distinguishable otherwise.
   CLASS(t_storage),INTENT(in)    :: this_storage
   CHARACTER(LEN=*),INTENT(in)    :: key
   REAL(wp)        ,INTENT(out)   :: value
+  INTEGER,OPTIONAL,INTENT(out)   :: ierror
 ! Local
   CHARACTER(LEN=*), PARAMETER    :: routine = modname//":get_real"
   CLASS(t_Destructible),POINTER  :: p_key
   CLASS(t_Destructible),POINTER  :: p_value
 
   ALLOCATE(t_stringVal :: p_key)
+  IF (PRESENT(ierror)) ierror = SUCCESS
 
   SELECT TYPE(p_key)
     TYPE IS(t_stringVal)
@@ -248,28 +251,34 @@ SUBROUTINE get_real(this_storage, key, value)
 
   p_value => this_storage%container%getEntry(p_key)
 
-  SELECT TYPE (p_value)
-    TYPE IS(t_realVal)
-      value = p_value%realVal
-    CLASS DEFAULT
-      CALL finish(routine, "Wrong return type for "//TRIM(key)//".")
-  END SELECT
+  IF (ASSOCIATED(p_value)) THEN
+    SELECT TYPE (p_value)
+      TYPE IS(t_realVal)
+        value = p_value%realVal
+      CLASS DEFAULT
+        CALL finish(routine, "Wrong return type for "//TRIM(key)//".")
+    END SELECT
+  ELSE
+    IF (PRESENT(ierror)) ierror = 1
+  ENDIF
 
 END SUBROUTINE get_real
 !!
 !!-------------------------------------------------------------------------
 !!
-SUBROUTINE get_int(this_storage, key, value)
+SUBROUTINE get_int(this_storage, key, value, ierror)
 ! Implemented as subroutine rather than function as the interface "get" is not distinguishable otherwise.
   CLASS(t_storage),INTENT(in)    :: this_storage
   CHARACTER(LEN=*),INTENT(in)    :: key
   INTEGER         ,INTENT(out)   :: value
+  INTEGER,OPTIONAL,INTENT(out)   :: ierror
 ! Local
   CHARACTER(LEN=*), PARAMETER    :: routine = modname//":get_int"
   CLASS(t_Destructible),POINTER  :: p_key
   CLASS(t_Destructible),POINTER  :: p_value
 
   ALLOCATE(t_stringVal :: p_key)
+  IF (PRESENT(ierror)) ierror = SUCCESS
 
   SELECT TYPE(p_key)
     TYPE IS(t_stringVal)
@@ -278,28 +287,34 @@ SUBROUTINE get_int(this_storage, key, value)
 
   p_value => this_storage%container%getEntry(p_key)
 
-  SELECT TYPE (p_value)
-    TYPE IS(t_intVal)
-      value = p_value%intVal
-    CLASS DEFAULT
-      CALL finish(routine, "Wrong return type for "//TRIM(key)//".")
-  END SELECT
+  IF (ASSOCIATED(p_value)) THEN
+    SELECT TYPE (p_value)
+      TYPE IS(t_intVal)
+        value = p_value%intVal
+      CLASS DEFAULT
+        CALL finish(routine, "Wrong return type for "//TRIM(key)//".")
+    END SELECT
+  ELSE
+    IF (PRESENT(ierror)) ierror = 1
+  ENDIF
 
 END SUBROUTINE get_int
 !!
 !!-------------------------------------------------------------------------
 !!
-SUBROUTINE get_string(this_storage, key, value)
+SUBROUTINE get_string(this_storage, key, value, ierror)
 ! Implemented as subroutine rather than function as the interface "get" is not distinguishable otherwise.
   CLASS(t_storage),INTENT(in)    :: this_storage
   CHARACTER(LEN=*),INTENT(in)    :: key
   CHARACTER(LEN=*),INTENT(out)   :: value
+  INTEGER,OPTIONAL,INTENT(out)   :: ierror
 ! Local
   CHARACTER(LEN=*), PARAMETER    :: routine = modname//":get_string"
   CLASS(t_Destructible),POINTER  :: p_key
   CLASS(t_Destructible),POINTER  :: p_value
 
   ALLOCATE(t_stringVal :: p_key)
+  IF (PRESENT(ierror)) ierror = SUCCESS
 
   SELECT TYPE(p_key)
     TYPE IS(t_stringVal)
@@ -308,28 +323,34 @@ SUBROUTINE get_string(this_storage, key, value)
 
   p_value => this_storage%container%getEntry(p_key)
 
-  SELECT TYPE (p_value)
-    TYPE IS(t_stringVal)
-      value = TRIM(p_value%stringVal)
-    CLASS DEFAULT
-      CALL finish(routine, "Wrong return type for "//TRIM(key)//".")
-  END SELECT
+  IF (ASSOCIATED(p_value)) THEN
+    SELECT TYPE (p_value)
+      TYPE IS(t_stringVal)
+        value = TRIM(p_value%stringVal)
+      CLASS DEFAULT
+        CALL finish(routine, "Wrong return type for "//TRIM(key)//".")
+    END SELECT
+  ELSE
+    IF (PRESENT(ierror)) ierror = 1
+  ENDIF
 
 END SUBROUTINE get_string
 !!
 !!-------------------------------------------------------------------------
 !!
-SUBROUTINE get_logical(this_storage, key, value)
+SUBROUTINE get_logical(this_storage, key, value, ierror)
 ! Implemented as subroutine rather than function as the interface "get" is not distinguishable otherwise.
   CLASS(t_storage),INTENT(in)    :: this_storage
   CHARACTER(LEN=*),INTENT(in)    :: key
   LOGICAL         ,INTENT(out)   :: value
+  INTEGER,OPTIONAL,INTENT(out)   :: ierror
 ! Local
   CHARACTER(LEN=*), PARAMETER    :: routine = modname//":get_logical"
   CLASS(t_Destructible),POINTER  :: p_key
   CLASS(t_Destructible),POINTER  :: p_value
 
   ALLOCATE(t_stringVal :: p_key)
+  IF (PRESENT(ierror)) ierror = SUCCESS
 
   SELECT TYPE(p_key)
     TYPE IS(t_stringVal)
@@ -338,12 +359,16 @@ SUBROUTINE get_logical(this_storage, key, value)
 
   p_value => this_storage%container%getEntry(p_key)
 
-  SELECT TYPE (p_value)
-    TYPE IS(t_logVal)
-      value = p_value%logVal
-    CLASS DEFAULT
-      CALL finish(routine, "Wrong return type for "//TRIM(key)//".")
-  END SELECT
+  IF (ASSOCIATED(p_value)) THEN
+    SELECT TYPE (p_value)
+      TYPE IS(t_logVal)
+        value = p_value%logVal
+      CLASS DEFAULT
+        CALL finish(routine, "Wrong return type for "//TRIM(key)//".")
+    END SELECT
+  ELSE
+    IF (PRESENT(ierror)) ierror = 1
+  ENDIF
 
 END SUBROUTINE get_logical
 !!
