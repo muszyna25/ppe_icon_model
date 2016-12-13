@@ -2184,14 +2184,14 @@ CONTAINS
 ! NOMPI
 
     ! Get offset within result array
-    p_ri%pe_off(0) = 0
-    DO i = 1, p_n_work-1
-      p_ri%pe_off(i) = p_ri%pe_off(i-1) + p_ri%pe_own(i-1)
+    il = 0
+    DO i = 0, p_n_work-1
+      p_ri%pe_off(i) = il
+      il = il + p_ri%pe_own(i)
     ENDDO
 
     ! Get global number of points for current (physical!) patch
-
-    p_ri%n_glb = SUM(p_ri%pe_own(:))
+    p_ri%n_glb = il
 
     ! Get the global index numbers of the data when it is gathered on PE 0
     ! exactly in the same order as it is retrieved later during I/O
