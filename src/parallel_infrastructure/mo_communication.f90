@@ -1503,7 +1503,7 @@ CONTAINS
     IF (SIZE(out_array, 1) < SUM(collector_buffer_sizes)) &
       CALL finish("allgather_i_1d_deblock", "invalid out_array size")
     CALL p_allgatherv(collector_buffer(1,:), out_array, collector_buffer_sizes,&
-      comm)
+      &               comm=comm)
 
     DEALLOCATE(collector_buffer_sizes, collector_buffer)
   END SUBROUTINE allgather_i_1d_deblock
@@ -1589,7 +1589,6 @@ CONTAINS
     ! reorder collector_buffer
     collector_buffer_nofill_r(:,:) = &
       collector_buffer_nofill_r(:, gather_pattern%recv_buffer_reorder)
-
     IF (use_fill_value) THEN
       ALLOCATE(collector_buffer_fill_r(SIZE(send_buffer_r, 1), &
         &      collector_buffer_fill_size))

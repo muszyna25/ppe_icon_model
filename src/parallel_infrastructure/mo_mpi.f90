@@ -657,6 +657,7 @@ MODULE mo_mpi
   INTERFACE p_allgatherv
      MODULE PROCEDURE p_allgatherv_real_1d
      MODULE PROCEDURE p_allgatherv_int_1d
+     MODULE PROCEDURE p_allgatherv_int_1d_contiguous
   END INTERFACE
 
   INTERFACE p_scatterv
@@ -9912,38 +9913,29 @@ CONTAINS
 #endif
    END SUBROUTINE p_allgatherv_real_1d
 
-   SUBROUTINE p_allgatherv_int_1d(sendbuf, recvbuf, recvcounts, comm)
+   SUBROUTINE p_allgatherv_int_1d(sendbuf, recvbuf, recvcounts, displs, &
+     &                            comm)
      INTEGER,           INTENT(in)    :: sendbuf(:)
      INTEGER,           INTENT(inout) :: recvbuf(:)
-     INTEGER,           INTENT(in)    :: recvcounts(:)
+     INTEGER,           INTENT(in)    :: recvcounts(:), displs(:)
      INTEGER, OPTIONAL, INTENT(in)    :: comm
 
 #ifndef NOMPI
      CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_allgatherv_int_1d"
      INTEGER :: p_comm, sendcount, comm_size, i
-     INTEGER, ALLOCATABLE :: displs(:)
 
      IF (PRESENT(comm)) THEN
        p_comm = comm
      ELSE
        p_comm = process_mpi_all_comm
      ENDIF
-
      IF (p_comm_is_intercomm(p_comm)) THEN
       comm_size = p_comm_remote_size(p_comm)
      ELSE
       comm_size = p_comm_size(p_comm)
      END IF
 
-     IF ((comm_size > SIZE(recvcounts, 1)) .OR. &
-      &  (SUM(recvcounts) > SIZE(recvbuf, 1))) &
-       CALL finish(routine, "invalid recvcounts")
-
-     ALLOCATE(displs(comm_size))
-     displs(1) = 0
-     DO i = 2, comm_size
-       displs(i) = displs(i-1) + recvcounts(i-1)
-     END DO
+     IF (comm_size > SIZE(displs)) CALL finish(routine, "invalid recvdispls")
 
      sendcount = SIZE(sendbuf)
      CALL mpi_allgatherv(sendbuf, sendcount, mpi_integer, &
@@ -9952,11 +9944,50 @@ CONTAINS
      IF (p_error /=  MPI_SUCCESS) &
        CALL finish (routine, 'Error in mpi_allgatherv operation!')
 
-     DEALLOCATE(displs)
 #else
      recvbuf = sendbuf
 #endif
    END SUBROUTINE p_allgatherv_int_1d
+
+   SUBROUTINE p_allgatherv_int_1d_contiguous(sendbuf, recvbuf, recvcounts, &
+     &                                       comm)
+     INTEGER,           INTENT(in)    :: sendbuf(:)
+     INTEGER,           INTENT(inout) :: recvbuf(:)
+     INTEGER,           INTENT(in)    :: recvcounts(:)
+     INTEGER, OPTIONAL, INTENT(in)    :: comm
+
+#ifndef NOMPI
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_allgatherv_int_1d")
+     INTEGER :: p_comm, sendcount, comm_size, i, n
+     INTEGER, ALLOCATABLE :: displs(:)
+
+     IF (PRESENT(comm)) THEN
+       p_comm = comm
+     ELSE
+       p_comm = process_mpi_all_comm
+     ENDIF
+     IF (p_comm_is_intercomm(p_comm)) THEN
+      comm_size = p_comm_remote_size(p_comm)
+     ELSE
+      comm_size = p_comm_size(p_comm)
+     END IF
+
+     ALLOCATE(displs(comm_size))
+     n = 0
+     DO i = 1, comm_size
+       displs(i) = n
+       n = n + recvcounts(i)
+     END DO
+
+     sendcount = SIZE(sendbuf)
+     CALL p_allgatherv(sendbuf, recvbuf, recvcounts, displs, p_comm)
+     IF (p_error /=  MPI_SUCCESS) &
+       CALL finish (routine, 'Error in mpi_allgatherv operation!')
+
+#else
+     recvbuf = sendbuf
+#endif
+   END SUBROUTINE p_allgatherv_int_1d_contiguous
 
 
    ! Commits a user-defined MPI type
