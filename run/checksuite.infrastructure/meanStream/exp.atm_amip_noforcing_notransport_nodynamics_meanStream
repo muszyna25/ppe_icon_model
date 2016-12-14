@@ -32,6 +32,7 @@ author_list="Marco Giorgetta, MPIM"
 # (2) Set variables needed by the scripting mechanism
 
 # horizontal grid(s)
+icon_data_poolFolder=/pool/data/ICON
 grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip
 atmo_dyn_grids='r2b4_amip.nc'
 
