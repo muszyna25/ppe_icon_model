@@ -724,9 +724,9 @@ incrank_list[1]=$ocean_inc_rank
 # atmosphere model files
 # ----------------------
 #
-add_required_file ${basedir}/data/rrtmg_lw.nc           ./
-add_required_file ${basedir}/data/rrtmg_sw.nc           ./
-add_required_file ${basedir}/data/ECHAM6_CldOptProps.nc ./
+add_required_file ${icon_data_rootFolder}/external/rrtmg_lw.nc           ./
+add_required_file ${icon_data_rootFolder}/external/rrtmg_sw.nc           ./
+add_required_file ${icon_data_rootFolder}/external/ECHAM6_CldOptProps.nc ./
 #
 # namelist files
 # --------------
@@ -747,7 +747,7 @@ add_required_file ${thisdir}/${atmo_namelist} ./
 #
 # - ozone
 ozone_file="ape_o3_iconR2B04-ocean_aqua_planet.nc"
-add_required_file ${icon_data_rootFolder}/data/external/ape_ozone/$ozone_file ./o3_icon_DOM01.nc
+add_required_file ${icon_data_rootFolder}/external/ape_ozone/$ozone_file ./o3_icon_DOM01.nc
 #
 # dictionary for variable names
 # -----------------------------
