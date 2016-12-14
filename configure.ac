@@ -1344,9 +1344,13 @@ AS_IF([test "x$use_yaxt" = "xyes" -a "x$with_mpi" != "xno"],
      [PKG_CONFIG_PATH="$YAXTROOT/lib/pkgconfig${PKG_CONFIG_PATH+:$PKG_CONFIG_PATH}" ; export PKG_CONFIG_PATH])
    AS_IF([test "x$YAXTROOT" != xexternals/yaxt -a "x$YAXTROOT" != x && pkg-config --exists yaxt],
      [YAXT_VERSION=`pkg-config --modversion yaxt`
+      YAXT_MAJOR_VERSION=`expr "$YAXT_VERSION" : "@<:@0-9@:>@*"`
+      YAXT_MINOR_VERSION=`echo "$YAXT_VERSION" | sed -e 's/^@<:@0-9@:>@*\.\(@<:@0-9@:>@*\).*/\1/'`
       YAXT_INCLUDE="${MODOPT}${YAXTROOT}/include"
       FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_YAXT"
       YAXT_LIB=`pkg-config --libs yaxt`
+      AS_IF([test "$YAXT_MAJOR_VERSION" -gt 0 -o "$YAXT_MINOR_VERSION" -gt 4],
+        [YAXT_LIB="$YAXT_LIB -lyaxt_c"])
       AS_CASE([$host],[*-*-linux-*],
         [YAXT_LIB=`echo "$YAXT_LIB" | sed -e 's/-L\(@<:@^ @:>@*\)/-L\1 '"$WLFLAG"',-rpath,\1/'`])],
      [AC_CONFIG_COMMANDS_POST([ac_configure_args=$ac_sub_configure_args])
@@ -1380,7 +1384,7 @@ fi
        AC_CONFIG_SUBDIRS([externals/yaxt])
        YAXTROOT=externals/yaxt
        AS_IF([test -f $YAXTROOT/src/yaxt.f90],
-             [YAXT_LIB="-L../../../${YAXTROOT}/src/.libs -lyaxt -lyaxt_c"
+             [YAXT_LIB="-L../../../${YAXTROOT}/src/.libs -lyaxt"
               AS_IF([grep MPI_FC_INCLUDE $YAXTROOT/src/Makefile.in],,
                 [YAXT_LIB="$YAXT_LIB -lyaxt_c"])
               YAXT_INCLUDE="${MODOPT}../../../${YAXTROOT}/inst_headers/f90"

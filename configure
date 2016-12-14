@@ -6780,9 +6780,14 @@ if test "x$use_yaxt" = "xyes" -a "x$with_mpi" != "xno"; then :
 fi
    if test "x$YAXTROOT" != xexternals/yaxt -a "x$YAXTROOT" != x && pkg-config --exists yaxt; then :
   YAXT_VERSION=`pkg-config --modversion yaxt`
+      YAXT_MAJOR_VERSION=`expr "$YAXT_VERSION" : "[0-9]*"`
+      YAXT_MINOR_VERSION=`echo "$YAXT_VERSION" | sed -e 's/^[0-9]*\.\([0-9]*\).*/\1/'`
       YAXT_INCLUDE="${MODOPT}${YAXTROOT}/include"
       FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_YAXT"
       YAXT_LIB=`pkg-config --libs yaxt`
+      if test "$YAXT_MAJOR_VERSION" -gt 0 -o "$YAXT_MINOR_VERSION" -gt 4; then :
+  YAXT_LIB="$YAXT_LIB -lyaxt_c"
+fi
       case $host in #(
   *-*-linux-*) :
     YAXT_LIB=`echo "$YAXT_LIB" | sed -e 's/-L\([^ ]*\)/-L\1 '"$WLFLAG"',-rpath,\1/'` ;; #(
@@ -6822,7 +6827,7 @@ fi
 
        YAXTROOT=externals/yaxt
        if test -f $YAXTROOT/src/yaxt.f90; then :
-  YAXT_LIB="-L../../../${YAXTROOT}/src/.libs -lyaxt -lyaxt_c"
+  YAXT_LIB="-L../../../${YAXTROOT}/src/.libs -lyaxt"
               if grep MPI_FC_INCLUDE $YAXTROOT/src/Makefile.in; then :
 
 else
