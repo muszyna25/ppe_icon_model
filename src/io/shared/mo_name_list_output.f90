@@ -1499,6 +1499,7 @@ CONTAINS
     INTEGER                                     :: rl_start, rl_end, i_nchdom, &
          i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: i, jk, lev_idx
+    LOGICAL :: apply_missval
 #ifndef NOMPI
     ! ------------------------
     ! Asynchronous I/O is used
@@ -1506,9 +1507,10 @@ CONTAINS
     ! just copy the OWN DATA points to the memory window
 
     ! set missval if needed
-    IF ( info%lmask_boundary                    .AND. &
-      &  (info%hgrid == GRID_UNSTRUCTURED_CELL) .AND. &
-      &  config_lmask_boundary ) THEN
+    apply_missval =       info%lmask_boundary                  &
+      &             .AND. info%hgrid == GRID_UNSTRUCTURED_CELL &
+      &             .AND. config_lmask_boundary
+    IF (apply_missval) THEN
       missval = BOUNDARY_MISSVAL
       IF (info%lmiss) THEN
         IF (idata_type == iREAL) THEN
@@ -1560,9 +1562,7 @@ CONTAINS
 
         ! If required, set lateral boundary points to missing
         ! value. Note that this modifies only the output buffer!
-        IF ( info%lmask_boundary                    .AND. &
-             &  (info%hgrid == GRID_UNSTRUCTURED_CELL) .AND. &
-             &  config_lmask_boundary ) THEN
+        IF (apply_missval) THEN
           DO i = 1, p_ri%n_own
             IF ( (p_ri%own_blk(i) < i_endblk) .OR. &
                  &  ((p_ri%own_blk(i) == i_endblk) .AND. &
@@ -1593,9 +1593,7 @@ CONTAINS
 
         ! If required, set lateral boundary points to missing
         ! value. Note that this modifies only the output buffer!
-        IF ( info%lmask_boundary                    .AND. &
-             &  (info%hgrid == GRID_UNSTRUCTURED_CELL) .AND. &
-             &  config_lmask_boundary ) THEN
+        IF (apply_missval) THEN
           DO i = 1, p_ri%n_own
             IF ( (p_ri%own_blk(i) < i_endblk) .OR. &
                  &  ((p_ri%own_blk(i) == i_endblk) .AND. &
