@@ -846,7 +846,7 @@ CONTAINS
       ! --------------------------------------------------------
 
 #ifndef __NO_ICON_ATMO__
-      ipost_op_type = of%var_desc(iv)%info%post_op%ipost_op_type
+      ipost_op_type = info%post_op%ipost_op_type
       post_op_apply &
            = ipost_op_type == post_op_scale .OR. ipost_op_type == post_op_luc
       IF ( post_op_apply ) THEN
@@ -863,7 +863,7 @@ CONTAINS
           END IF
           r_ptr_m = r_ptr
           r_ptr => r_ptr_m
-          CALL perform_post_op(of%var_desc(iv)%info%post_op, r_ptr)
+          CALL perform_post_op(info%post_op, r_ptr)
         ELSE IF (idata_type == iREAL_sp) THEN
           alloc_shape = SHAPE(s_ptr)
           IF (ALLOCATED(s_ptr_m)) THEN
@@ -877,7 +877,7 @@ CONTAINS
           END IF
           s_ptr_m = s_ptr
           s_ptr => s_ptr_m
-          CALL perform_post_op(of%var_desc(iv)%info%post_op, s_ptr)
+          CALL perform_post_op(info%post_op, s_ptr)
         ELSE IF (idata_type == iINTEGER) THEN
           alloc_shape = SHAPE(i_ptr)
           IF (ALLOCATED(i_ptr_m)) THEN
@@ -891,7 +891,7 @@ CONTAINS
           END IF
           i_ptr_m = i_ptr
           i_ptr => i_ptr_m
-          CALL perform_post_op(of%var_desc(iv)%info%post_op, i_ptr)
+          CALL perform_post_op(info%post_op, i_ptr)
         ENDIF
       END IF
 #endif
