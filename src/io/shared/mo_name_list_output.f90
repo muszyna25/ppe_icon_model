@@ -713,6 +713,13 @@ CONTAINS
     INTEGER :: ipost_op_type, alloc_shape(3), alloc_shape_op(3)
     LOGICAL :: post_op_apply
 #endif
+    LOGICAL :: is_mpi_test
+#ifndef NOMPI
+    LOGICAL :: participate_in_async_io, lasync_io_metadata_prepare
+    LOGICAL :: is_mpi_workroot
+#else
+    LOGICAL, PARAMETER :: participate_in_async_io = .FALSE.
+#endif
     ! Offset in memory window for async I/O
     ioff = 0_i8
 
@@ -724,21 +731,23 @@ CONTAINS
     ! ---------------------------------------------------------
     ! PE#0 : store variable meta-info to be accessed by I/O PEs
     ! ---------------------------------------------------------
+    is_mpi_test = my_process_is_mpi_test()
 #ifndef NOMPI
-    IF (      use_async_name_list_io   .AND.  &
-      & .NOT. my_process_is_mpi_test() .AND.  &
-      &       my_process_is_mpi_workroot()) THEN
-      ! In case of async IO: Lock own window before writing to it
-      CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, of%mem_win%mpi_win_metainfo, mpierr)
-
+    is_mpi_workroot = my_process_is_mpi_workroot()
+    participate_in_async_io &
+      = use_async_name_list_io .AND. .NOT. is_mpi_test
+    lasync_io_metadata_prepare &
+      = participate_in_async_io .AND. is_mpi_workroot
+    ! In case of async IO: Lock own window before writing to it
+    IF (lasync_io_metadata_prepare) THEN
+      CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, &
+        of%mem_win%mpi_win_metainfo, mpierr)
       DO iv = 1, of%num_vars
         ! Note that we provide the pointer "info_ptr" to the variable's
         ! info data object and not the modified copy "info".
         info => of%var_desc(iv)%info_ptr
         CALL metainfo_write_to_memwin(of%mem_win, iv, info)
       END DO
-
-      ! In case of async IO: Done writing to memory window, unlock it
       CALL MPI_Win_unlock(p_pe_work, of%mem_win%mpi_win_metainfo, mpierr)
     END IF
 #endif
