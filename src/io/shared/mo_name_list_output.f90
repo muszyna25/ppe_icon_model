@@ -449,13 +449,14 @@ CONTAINS
     TYPE(t_par_output_event), POINTER :: ev
     INTEGER                           :: noutput_pe_list, list_idx
     INTEGER                           :: output_pe_list(MAX(1,num_io_procs))
+    LOGICAL :: is_io, is_test
 
+    is_io = my_process_is_io()
+    is_test = my_process_is_mpi_test()
     IF (ltimer) CALL timer_start(timer_write_output)
 #ifndef NOMPI
 #ifndef __NO_ICON_ATMO__
-    IF  (use_async_name_list_io      .AND.  &
-      &  .NOT. my_process_is_io()    .AND.  &
-      &  .NOT. my_process_is_mpi_test()) THEN
+    IF  (use_async_name_list_io .AND. .NOT. is_io .AND. .NOT. is_test) THEN
 
       ! If asynchronous I/O is enabled, the compute PEs have to make
       ! sure that the I/O PEs are ready with the last output step
@@ -523,7 +524,7 @@ CONTAINS
         output_file(i)%cdiTimeIndex = output_file(i)%cdiTimeIndex + 1
       END IF
 
-      IF(my_process_is_io()) THEN
+      IF(is_io) THEN
 #ifndef NOMPI
         IF(output_file(i)%io_proc_id == p_pe) THEN
           CALL io_proc_write_name_list(output_file(i), check_open_file(output_file(i)%out_event))
@@ -572,9 +573,7 @@ CONTAINS
     ! If asynchronous I/O is enabled, the compute PEs can now start
     ! the I/O PEs
 #ifndef NOMPI
-    IF (use_async_name_list_io  .AND. &
-      & .NOT.my_process_is_io() .AND. &
-      & .NOT.my_process_is_mpi_test()) THEN
+    IF (use_async_name_list_io  .AND. .NOT. is_io .AND. .NOT. is_test) THEN
       CALL compute_start_async_io(jstep, output_pe_list, noutput_pe_list)
     END IF
 #endif
