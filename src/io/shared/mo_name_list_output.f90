@@ -499,15 +499,15 @@ CONTAINS
       ! -------------------------------------------------
 
       ! Notify user
-      IF (ofile_is_assigned_here .AND. (msg_level >= 8)) THEN
-        WRITE(text,'(a,a,a,a,a,i0)') &
-          & 'Output to ',TRIM(get_current_filename(output_file(i)%out_event)),        &
-          & ' at simulation time ', TRIM(get_current_date(output_file(i)%out_event)), &
-          & ' by PE ', p_pe
-        CALL message(routine, text,all_print=.TRUE.)
-      END IF
-
       IF (ofile_is_assigned_here) THEN
+        IF (msg_level >= 8) THEN
+          WRITE(text,'(a,a,a,a,a,i0)') &
+            & 'Output to ',TRIM(get_current_filename(output_file(i)%out_event)),        &
+            & ' at simulation time ', TRIM(get_current_date(output_file(i)%out_event)), &
+            & ' by PE ', p_pe
+          CALL message(routine, text,all_print=.TRUE.)
+        END IF
+
         ! convert time stamp string into
         ! year/month/day/hour/minute/second values using the mtime
         ! library:
