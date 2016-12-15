@@ -567,18 +567,17 @@ CONTAINS
        IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
             & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
           ev => all_events
-          HANDLE_COMPLETE_STEPS : DO
-             IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
-             IF (.NOT. is_output_step_complete(ev) .OR.  &
-                  & is_output_event_finished(ev)) THEN
-                ev => ev%next
-                CYCLE HANDLE_COMPLETE_STEPS
-             END IF
-             !--- write ready file
-             IF (check_write_readyfile(ev%output_event))  CALL write_ready_file(ev)
-             ! launch a non-blocking request to all participating PEs to
-             ! acknowledge the completion of the next output event
-             CALL trigger_output_step_irecv(ev)
+          HANDLE_COMPLETE_STEPS : DO WHILE (ASSOCIATED(ev))
+            IF (is_output_step_complete(ev) .AND.  &
+              & .NOT. is_output_event_finished(ev)) THEN
+              !--- write ready file
+              IF (check_write_readyfile(ev%output_event))  CALL write_ready_file(ev)
+              ! launch a non-blocking request to all participating PEs to
+              ! acknowledge the completion of the next output event
+              CALL trigger_output_step_irecv(ev)
+            ELSE
+              ev => ev%next
+            END IF
           END DO HANDLE_COMPLETE_STEPS
        END IF
     END IF
