@@ -1635,12 +1635,12 @@ CONTAINS
       WRITE (0,'(a)') " ", "I/O : Round-Robin placement of I/O ranks:"
     END IF
     IF (use_async_name_list_io) THEN
+      IF (ANY(pe_placement == -1) .AND. nremaining_io_procs == 0) THEN
+        CALL finish(routine, "No I/O proc left after explicit placement!")
+      END IF
       j = 0
       DO i = 1, nfiles
         IF (pe_placement(i) == -1) THEN
-          IF (nremaining_io_procs == 0) THEN
-            CALL finish(routine, "No I/O proc left after explicit placement!")
-          END IF
           ! Asynchronous I/O
           j = j + 1
           io_proc_id(i) = p_io_pe0 + remaining_io_procs(MOD(j-1,nremaining_io_procs) + 1)
