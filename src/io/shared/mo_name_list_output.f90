@@ -558,7 +558,7 @@ CONTAINS
       ! -------------------------------------------------
       ! hand-shake protocol: step finished!
       ! -------------------------------------------------
-      CALL pass_output_step(output_file(i)%out_event)
+      IF (use_async_name_list_io) CALL pass_output_step(output_file(i)%out_event)
     ENDDO OUTFILE_LOOP
 
     ! If asynchronous I/O is enabled, the compute PEs can now start
