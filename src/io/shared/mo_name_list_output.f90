@@ -1733,10 +1733,7 @@ CONTAINS
                & use_async_name_list_io .AND. my_process_is_mpi_ioroot()) THEN
 
             ! Go over all output files
-            l_complete = .TRUE.
-            OUTFILE_LOOP : DO i=1,SIZE(output_file)
-              l_complete = l_complete .AND. is_output_event_finished(output_file(i)%out_event)
-            END DO OUTFILE_LOOP
+            l_complete = all_output_file_event_finished(output_file(:))
 
             IF (l_complete) THEN
               IF (ldebug)   WRITE (0,*) p_pe, ": wait for fellow I/O PEs..."
@@ -1808,8 +1805,18 @@ CONTAINS
     CALL stop_mpi
     STOP
 #endif
-
   END SUBROUTINE name_list_io_main_proc
+
+  FUNCTION all_output_file_event_finished(output_files) RESULT(p)
+    TYPE (t_output_file), INTENT(in) :: output_files(:)
+    LOGICAL :: p
+    INTEGER :: i, n
+    p = .TRUE.
+    n = SIZE(output_files)
+    DO i = 1, n
+      p = p .AND. is_output_event_finished(output_files(i)%out_event)
+    END DO
+  END FUNCTION all_output_file_event_finished
   !------------------------------------------------------------------------------------------------
 
 
