@@ -131,9 +131,12 @@ MODULE mo_name_list_output
   ! output scheduling
   USE mo_output_event_handler,      ONLY: is_output_step, check_open_file, check_close_file,        &
     &                                     pass_output_step, get_current_filename,                   &
-    &                                     get_current_date, trigger_output_step_irecv,              &
+    &                                     get_current_date,                                         &
     &                                     is_output_step_complete, is_output_event_finished,        &
     &                                     check_write_readyfile, blocking_wait_for_irecvs
+#ifndef NOMPI
+  USE mo_output_event_handler,      ONLY: trigger_output_step_irecv
+#endif
   USE mo_name_list_output_stats,    ONLY: set_reference_time, interval_start, interval_end,         &
     &                                     interval_write_psfile
   ! output initialization
@@ -548,7 +551,6 @@ CONTAINS
       ! hand-shake protocol: step finished!
       ! -------------------------------------------------
       CALL pass_output_step(output_file(i)%out_event)
-
     ENDDO OUTFILE_LOOP
 
     ! If asynchronous I/O is enabled, the compute PEs can now start
@@ -574,7 +576,17 @@ CONTAINS
               IF (check_write_readyfile(ev%output_event))  CALL write_ready_file(ev)
               ! launch a non-blocking request to all participating PEs to
               ! acknowledge the completion of the next output event
-              CALL trigger_output_step_irecv(ev)
+#ifndef NOMPI
+              IF (use_async_name_list_io) THEN
+                CALL trigger_output_step_irecv(ev)
+              ELSE
+#endif
+                ev%output_event%i_event_step = ev%output_event%i_event_step + 1
+#ifndef NOMPI
+              END IF
+#else
+              ev => ev%next
+#endif
             ELSE
               ev => ev%next
             END IF
