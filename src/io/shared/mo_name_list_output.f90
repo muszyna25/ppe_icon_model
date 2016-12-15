@@ -2334,7 +2334,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: jstep         !< model step
     ! local variables
     INTEGER :: msg
-    INTEGER  :: i,j, nwait_list, wait_idx
+    INTEGER  :: i,j, nwait_list, io_proc_id
     INTEGER  :: wait_list(num_io_procs)
 
     ! Compute PE #0 receives message from I/O PEs
@@ -2351,20 +2351,13 @@ CONTAINS
 
         ! Go over all output files, collect IO PEs
         OUTFILE_LOOP : DO i=1,SIZE(output_file)
+          io_proc_id = output_file(i)%io_proc_id
           ! Skip this output file if it is not due for output!
-          IF (.NOT. is_output_step(output_file(i)%out_event, jstep))  CYCLE OUTFILE_LOOP
-          wait_idx = -1
-          DO j=1,nwait_list
-            IF (wait_list(j) == output_file(i)%io_proc_id) THEN
-              wait_idx = j
-              EXIT
-            END IF
-          END DO
-          IF (wait_idx == -1) THEN
+          IF (is_output_step(output_file(i)%out_event, jstep) &
+            & .AND. ALL(wait_list(1:nwait_list) /= io_proc_id)) THEN
             nwait_list = nwait_list + 1
-            wait_idx   = nwait_list
+            wait_list(nwait_list) = io_proc_id
           END IF
-          wait_list(wait_idx) = output_file(i)%io_proc_id
         END DO OUTFILE_LOOP
         DO i=1,nwait_list
           ! Blocking receive call:
