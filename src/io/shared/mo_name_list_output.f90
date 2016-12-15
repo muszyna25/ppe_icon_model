@@ -2217,7 +2217,7 @@ CONTAINS
   SUBROUTINE async_io_send_handshake(jstep)
     INTEGER, INTENT(IN) :: jstep
     ! local variables
-    REAL(wp) :: msg
+    INTEGER :: msg
     TYPE(t_par_output_event), POINTER :: ev
 
     IF (ldebug) &
@@ -2228,7 +2228,7 @@ CONTAINS
     ! Note: We have to do this in a non-blocking fashion in order to
     !       receive "ready file" messages.
     CALL p_wait()
-    msg = REAL(msg_io_done, wp)
+    msg = msg_io_done
     CALL p_isend(msg, p_work_pe0, 0)
 
     ! --- I/O PE #0  :  take care of ready files
@@ -2333,7 +2333,7 @@ CONTAINS
   SUBROUTINE compute_wait_for_async_io(jstep)
     INTEGER, INTENT(IN) :: jstep         !< model step
     ! local variables
-    REAL(wp) :: msg
+    INTEGER :: msg
     INTEGER  :: i,j, nwait_list, wait_idx
     INTEGER  :: wait_list(num_io_procs)
 
@@ -2424,7 +2424,7 @@ CONTAINS
 #ifndef NOMPI
   SUBROUTINE compute_shutdown_async_io
     INTEGER :: msg(2)
-    INTEGER  :: pe, i, ierror
+    INTEGER :: pe, i, ierror
 
     IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": compute_shutdown_async_io."
     CALL p_barrier(comm=p_comm_work) ! make sure all are here
