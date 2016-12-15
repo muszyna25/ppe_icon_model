@@ -134,8 +134,8 @@ CONTAINS
          nir_up_sfc    (kbdim)                !< Upward flux surface near-infrared radiation
 
     ! ----------------
-    LOGICAL     :: sunUp(kbdim)         !< Mask for sunlit points
-    INTEGER(WP) :: idxSunUp(kbdim)      !< Indicies of sunlit points
+!!$    LOGICAL     :: sunUp(kbdim)         !< Mask for sunlit points
+!!$    INTEGER(WP) :: idxSunUp(kbdim)      !< Indicies of sunlit points
 
     INTEGER :: jl   !< column loop index
     INTEGER :: jk   !< level index
@@ -247,9 +247,9 @@ CONTAINS
       adjflux(jb) = bnd_wght(jb-jpb1+1)
     ENDDO
 
-    ! Which input points are sunlit? 
-    sunUp(1:kproma)    = prmu0(1:kproma) > 0._wp 
-    idxSunUp(1:kproma) = PACK( (/ (jl, jl = 1, kproma) /),  sunUp(1:kproma))
+!!$    ! Which input points are sunlit? 
+!!$    sunUp(1:kproma)    = prmu0(1:kproma) > 0._wp 
+!!$    idxSunUp(1:kproma) = PACK( (/ (jl, jl = 1, kproma) /),  sunUp(1:kproma))
 
     !
     ! ---  1.0 Choose a set of g-points to do consistent with the spectral sampling strategy
@@ -395,7 +395,7 @@ CONTAINS
     !
     ! ---  3.1.2 Solar illumination
     !
-    cossza(1:kproma) = MAX(prmu0(1:kproma),0.0_wp) 
+    cossza(1:kproma) = MAX(prmu0(1:kproma),0.01_wp) 
 
     !
     ! --- 3.2 Compute fluxes for each set of samples in turn
