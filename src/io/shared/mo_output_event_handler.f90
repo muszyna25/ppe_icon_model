@@ -129,7 +129,8 @@ MODULE mo_output_event_handler
     &                                  p_unpack_real, p_send_packed, p_irecv_packed,        &
     &                                  p_wait, p_bcast, get_my_global_mpi_id,               &
     &                                  my_process_is_mpi_test, p_pe,                        &
-    &                                  my_process_is_mpi_workroot
+    &                                  my_process_is_mpi_workroot,                          &
+    &                                  p_comm_rank, p_comm_size
   USE mtime,                     ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,         &
     &                                  datetime, timedelta,  newTimedelta,                  &
     &                                  deallocateDatetime, datetimeToString,                &
@@ -1163,10 +1164,8 @@ CONTAINS
     nranks  = 1
 #ifndef NOMPI
     IF (icomm /= MPI_COMM_NULL) THEN
-      CALL MPI_COMM_RANK(icomm, this_pe, ierrstat)
-      IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_COMM_RANK.')
-      CALL MPI_COMM_SIZE (icomm, nranks, ierrstat)
-      IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_COMM_SIZE.')
+      this_pe = p_comm_rank(icomm)
+      nranks = p_comm_size(icomm)
       IF (ldebug) THEN
         WRITE (0,*) "PE ",get_my_global_mpi_id(), ": local rank is ", this_pe, "; icomm has size ", nranks
       END IF
@@ -1323,15 +1322,12 @@ CONTAINS
     this_pe = -1
 #ifndef NOMPI
     IF (icomm /= MPI_COMM_NULL) THEN
-      CALL MPI_COMM_RANK(icomm, this_pe, ierrstat)
-      IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_COMM_RANK.')
-      CALL MPI_COMM_SIZE (icomm, nranks, ierrstat)
-      IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_COMM_SIZE.')
+      this_pe = p_comm_rank(icomm)
+      nranks = p_comm_size(icomm)
       IF (ldebug) THEN
          WRITE (0,*) "PE ",get_my_global_mpi_id(), ": local rank is ", this_pe, "; icomm has size ", nranks
          IF (lbroadcast) THEN
-            CALL MPI_COMM_SIZE (opt_broadcast_comm, nbcast_ranks, ierrstat)
-            IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_COMM_SIZE.')
+            nbcast_ranks = p_comm_size(opt_broadcast_comm)
             WRITE (0,*) "PE ",get_my_global_mpi_id(), ": local rank is ", this_pe, "; bcast comm has size ", nbcast_ranks, &
                  &      ", root is ", opt_broadcast_root
             lbroadcast = (nbcast_ranks > 1)
@@ -1968,8 +1964,7 @@ CONTAINS
     END IF
     ! determine this PE's MPI rank wrt. the given MPI communicator and
     ! return if this PE is not root PE for the given event:
-    CALL MPI_COMM_RANK(p_comm, this_pe, ierrstat)
-    IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_COMM_RANK.')
+    this_pe = p_comm_rank(p_comm)
     IF (PRESENT(opt_event)) THEN
       is_event_root_pe = (this_pe == opt_event%iroot)
     ELSE
@@ -2040,9 +2035,8 @@ CONTAINS
     CHARACTER, ALLOCATABLE :: buffer(:)   !< MPI buffer for packed
 
     IF (icomm /= MPI_COMM_NULL) THEN
-      CALL MPI_COMM_RANK(icomm, this_pe, ierrstat)
-      IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_COMM_RANK.')
-      
+      this_pe = p_comm_rank(icomm)
+
       IF (this_pe /= ROOT_OUTEVENT) THEN
         ! allocate message buffer
         ALLOCATE(buffer(MAX_BUF_SIZE), stat=ierrstat)
@@ -2158,10 +2152,7 @@ CONTAINS
     ! determine this PE's MPI rank wrt. the given MPI communicator:
     this_pe = -1
 #ifndef NOMPI
-    IF (icomm /= MPI_COMM_NULL) THEN
-      CALL MPI_COMM_RANK(icomm, this_pe, ierrstat)
-      IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_COMM_RANK.')
-    END IF
+    IF (icomm /= MPI_COMM_NULL) this_pe = p_comm_rank(icomm)
 #endif
 
     ! prepare an MPI message:
