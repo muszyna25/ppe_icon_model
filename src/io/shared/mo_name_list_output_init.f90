@@ -1347,8 +1347,7 @@ CONTAINS
     !
     local_i = 0
     DO i = 1, nfiles
-      IF (.NOT. use_async_name_list_io .OR. .NOT. is_io &
-           .OR. output_file(i)%io_proc_id == p_pe) THEN
+      IF (.NOT. is_io .OR. output_file(i)%io_proc_id == p_pe) THEN
         CALL add_out_event(output_file(i)%name_list, output_file(i), &
              i, local_i, sim_step_info, dom_sim_step_info)
       ELSE
