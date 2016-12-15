@@ -447,7 +447,7 @@ CONTAINS
     TYPE(datetime),           POINTER :: io_datetime
     CHARACTER(LEN=filename_max+100)   :: text
     TYPE(t_par_output_event), POINTER :: ev
-    INTEGER                           :: noutput_pe_list, list_idx
+    INTEGER                           :: noutput_pe_list, io_proc_id
     INTEGER                           :: output_pe_list(MAX(1,num_io_procs))
     LOGICAL :: is_io, is_test
 
@@ -481,13 +481,13 @@ CONTAINS
 
       ! Skip this output file if it is not due for output!
       IF (.NOT. is_output_step(output_file(i)%out_event, jstep))  CYCLE OUTFILE_LOOP
-
+      io_proc_id = output_file(i)%io_proc_id
       ! -------------------------------------------------
       ! Check if files have to be (re)opened
       ! -------------------------------------------------
 
-      IF (check_open_file(output_file(i)%out_event) .AND.  &
-        & (output_file(i)%io_proc_id == p_pe)) THEN
+      IF (check_open_file(output_file(i)%out_event) &
+        & .AND. (io_proc_id == p_pe)) THEN
         IF (output_file(i)%cdiVlistId == CDI_UNDEFID)  &
           &  CALL setup_output_vlist(output_file(i))
         CALL open_output_file(output_file(i))
@@ -498,7 +498,7 @@ CONTAINS
       ! -------------------------------------------------
 
       ! Notify user
-      IF ((output_file(i)%io_proc_id == p_pe) .AND. (msg_level >= 8)) THEN
+      IF ((io_proc_id == p_pe) .AND. (msg_level >= 8)) THEN
         WRITE(text,'(a,a,a,a,a,i0)') &
           & 'Output to ',TRIM(get_current_filename(output_file(i)%out_event)),        &
           & ' at simulation time ', TRIM(get_current_date(output_file(i)%out_event)), &
@@ -506,7 +506,7 @@ CONTAINS
         CALL message(routine, text,all_print=.TRUE.)
       END IF
 
-      IF (output_file(i)%io_proc_id == p_pe) THEN
+      IF (io_proc_id == p_pe) THEN
         ! convert time stamp string into
         ! year/month/day/hour/minute/second values using the mtime
         ! library:
@@ -526,7 +526,7 @@ CONTAINS
 
       IF(is_io) THEN
 #ifndef NOMPI
-        IF(output_file(i)%io_proc_id == p_pe) THEN
+        IF (io_proc_id == p_pe) THEN
           CALL io_proc_write_name_list(output_file(i), check_open_file(output_file(i)%out_event))
           IF (PRESENT(opt_lhas_output))  opt_lhas_output = .TRUE.
         ENDIF
@@ -539,8 +539,8 @@ CONTAINS
       ! Check if files have to be closed
       ! -------------------------------------------------
 
-      IF (check_close_file(output_file(i)%out_event) .AND.  &
-        & (output_file(i)%io_proc_id == p_pe)) THEN
+      IF (check_close_file(output_file(i)%out_event) .AND. &
+        & (io_proc_id == p_pe)) THEN
         CALL close_output_file(output_file(i))
         IF (msg_level >= 8) THEN
           CALL message (routine, 'closed '//TRIM(get_current_filename(output_file(i)%out_event)),all_print=.TRUE.)
@@ -550,18 +550,9 @@ CONTAINS
       ! -------------------------------------------------
       ! add I/O PE of output file to the "output_list"
       ! -------------------------------------------------
-
-      list_idx = -1
-      DO j=1,noutput_pe_list
-        IF (output_pe_list(j) == output_file(i)%io_proc_id) THEN
-          list_idx = j
-          EXIT
-        END IF
-      END DO
-      IF (list_idx == -1) THEN
+      IF (ALL(output_pe_list(1:noutput_pe_list) /= io_proc_id)) THEN
         noutput_pe_list = noutput_pe_list + 1
-        list_idx   = noutput_pe_list
-        output_pe_list(list_idx) = output_file(i)%io_proc_id
+        output_pe_list(noutput_pe_list) = io_proc_id
       END IF
 
       ! -------------------------------------------------
