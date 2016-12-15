@@ -1815,6 +1815,7 @@ CONTAINS
     n = SIZE(output_files)
     DO i = 1, n
       p = p .AND. is_output_event_finished(output_files(i)%out_event)
+      IF (.NOT. p) EXIT
     END DO
   END FUNCTION all_output_file_event_finished
   !------------------------------------------------------------------------------------------------
