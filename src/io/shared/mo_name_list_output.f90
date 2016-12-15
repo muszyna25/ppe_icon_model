@@ -1504,6 +1504,29 @@ CONTAINS
     ! Asynchronous I/O is used
     ! ------------------------
     ! just copy the OWN DATA points to the memory window
+
+    ! set missval if needed
+    IF ( info%lmask_boundary                    .AND. &
+      &  (info%hgrid == GRID_UNSTRUCTURED_CELL) .AND. &
+      &  config_lmask_boundary ) THEN
+      missval = BOUNDARY_MISSVAL
+      IF (info%lmiss) THEN
+        IF (idata_type == iREAL) THEN
+          missval = info%missval%rval
+        ELSE IF (idata_type == iINTEGER) THEN
+          missval = REAL(info%missval%ival,dp)
+        END IF
+      END IF
+      ptr_patch => p_patch(i_log_dom)
+      rl_start   = 1
+      rl_end     = grf_bdywidth_c
+      i_nchdom   = MAX(1,ptr_patch%n_childdom)
+      i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+      i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+      CALL get_indices_c(ptr_patch, i_endblk, i_startblk, i_endblk, &
+        &                i_startidx, i_endidx, rl_start, rl_end)
+    END IF
+
     DO jk = 1, nlevs
       ! handle the case that a few levels have been selected out of
       ! the total number of levels:
@@ -1540,22 +1563,6 @@ CONTAINS
         IF ( info%lmask_boundary                    .AND. &
              &  (info%hgrid == GRID_UNSTRUCTURED_CELL) .AND. &
              &  config_lmask_boundary ) THEN
-          missval = BOUNDARY_MISSVAL
-          IF (info%lmiss) THEN
-            IF (idata_type == iREAL) THEN
-              missval = info%missval%rval
-            ELSE IF (idata_type == iINTEGER) THEN
-              missval = REAL(info%missval%ival,dp)
-            END IF
-          END IF
-          ptr_patch => p_patch(i_log_dom)
-          rl_start   = 1
-          rl_end     = grf_bdywidth_c
-          i_nchdom   = MAX(1,ptr_patch%n_childdom)
-          i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-          i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
-          CALL get_indices_c(ptr_patch, i_endblk, i_startblk, i_endblk, &
-               i_startidx, i_endidx, rl_start, rl_end)
           DO i = 1, p_ri%n_own
             IF ( (p_ri%own_blk(i) < i_endblk) .OR. &
                  &  ((p_ri%own_blk(i) == i_endblk) .AND. &
@@ -1589,22 +1596,6 @@ CONTAINS
         IF ( info%lmask_boundary                    .AND. &
              &  (info%hgrid == GRID_UNSTRUCTURED_CELL) .AND. &
              &  config_lmask_boundary ) THEN
-          missval = BOUNDARY_MISSVAL
-          IF (info%lmiss) THEN
-            IF (idata_type == iREAL) THEN
-              missval = info%missval%rval
-            ELSE IF (idata_type == iINTEGER) THEN
-              missval = REAL(info%missval%ival,sp)
-            END IF
-          END IF
-          ptr_patch => p_patch(i_log_dom)
-          rl_start   = 1
-          rl_end     = grf_bdywidth_c
-          i_nchdom   = MAX(1,ptr_patch%n_childdom)
-          i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-          i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
-          CALL get_indices_c(ptr_patch, i_endblk, i_startblk, i_endblk, &
-               i_startidx, i_endidx, rl_start, rl_end)
           DO i = 1, p_ri%n_own
             IF ( (p_ri%own_blk(i) < i_endblk) .OR. &
                  &  ((p_ri%own_blk(i) == i_endblk) .AND. &
