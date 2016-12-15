@@ -2989,14 +2989,9 @@ CONTAINS
       IF (patch_info(idom)%grid_info_mode == GRID_INFO_BCAST) THEN
         ! logical domain ID
         idom_log = patch_info(idom)%log_patch_id
-        keep_grid_info = .FALSE.
-        IF (is_io) THEN
-          DO i = 1, SIZE(output_file, 1)
-            keep_grid_info = keep_grid_info .OR. &
-              &              ((output_file(i)%io_proc_id == p_pe) .AND. &
-              &               (output_file(i)%phys_patch_id == idom))
-          END DO
-        END IF
+        keep_grid_info = is_io &
+          &           .AND. ANY(output_file(:)%io_proc_id == p_pe &
+          &                     .AND. output_file(:)%phys_patch_id == idom)
         CALL allgather_grid_info(patch_info(idom), idom_log, keep_grid_info)
       END IF
     END DO
