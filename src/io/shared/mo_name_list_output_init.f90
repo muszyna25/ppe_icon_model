@@ -1347,7 +1347,7 @@ CONTAINS
     !
     local_i = 0
     DO i = 1, nfiles
-      IF (.NOT. is_io .OR. output_file(i)%io_proc_id == p_pe) THEN
+      IF (.NOT. is_io .OR. output_file(i)%io_proc_id == p_pe_work) THEN
         CALL add_out_event(output_file(i)%name_list, output_file(i), &
              i, local_i, sim_step_info, dom_sim_step_info)
       ELSE
@@ -1585,7 +1585,7 @@ CONTAINS
         ! MPI ranks "p_io_pe0 ... (p_io_pe0+process_mpi_io_size-1)" are available.
 
         IF (pe_placement(i) /= -1) THEN
-          io_proc_id(i) = p_io_pe0 + pe_placement(i)
+          io_proc_id(i) = pe_placement(i)
           occupied_pes(pe_placement(i)+1) = .TRUE.
         END IF
       END DO
@@ -1598,7 +1598,7 @@ CONTAINS
       ! Normal I/O done by the standard I/O processor
       !
       ! Only MPI rank "process_mpi_stdio_id" is available.
-      io_proc_id(1:nfiles) = process_mpi_stdio_id + test_rank_offset
+      io_proc_id(1:nfiles) = -2
     END IF
 
     ! --- Build a list of MPI ranks that have not yet been occupied:
@@ -1643,7 +1643,7 @@ CONTAINS
         IF (pe_placement(i) == -1) THEN
           ! Asynchronous I/O
           j = j + 1
-          io_proc_id(i) = p_io_pe0 + remaining_io_procs(MOD(j-1,nremaining_io_procs) + 1)
+          io_proc_id(i) = remaining_io_procs(MOD(j-1,nremaining_io_procs) + 1)
           IF ((process_mpi_io_size /= nremaining_io_procs) .AND. is_stdio) THEN
             WRITE (0,'(a,i0,a,i0)') "    file #", i, " placed on rank #", io_proc_id(i)
           END IF
@@ -1814,7 +1814,7 @@ CONTAINS
 
     DO i = 1, SIZE(output_file)
       p_of  => output_file(i)
-      IF (p_of%io_proc_id /= p_pe) CYCLE
+      IF (p_of%io_proc_id /= p_pe_work) CYCLE
 
       p_of%verticalAxisList = t_verticalAxisList()
 
@@ -2990,7 +2990,7 @@ CONTAINS
         ! logical domain ID
         idom_log = patch_info(idom)%log_patch_id
         keep_grid_info = is_io &
-          &           .AND. ANY(output_file(:)%io_proc_id == p_pe &
+          &           .AND. ANY(output_file(:)%io_proc_id == p_pe_work &
           &                     .AND. output_file(:)%phys_patch_id == idom)
         CALL allgather_grid_info(patch_info(idom), idom_log, keep_grid_info)
       END IF

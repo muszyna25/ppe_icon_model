@@ -131,7 +131,7 @@ MODULE mo_name_list_output
     &                                     my_process_is_io, my_process_is_mpi_ioroot,               &
     &                                     process_mpi_all_test_id, process_mpi_all_workroot_id,     &
     &                                     num_work_procs, p_pe, p_pe_work, p_work_pe0, p_io_pe0,    &
-    &                                     p_max
+    &                                     p_max, p_comm_work_2_io
   ! calendar operations
   USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime, OPERATOR(-),   &
     &                                     timedelta, newTimedelta, deallocateTimedelta,             &
@@ -482,7 +482,10 @@ CONTAINS
       ! Skip this output file if it is not due for output!
       IF (.NOT. is_output_step(output_file(i)%out_event, jstep))  CYCLE OUTFILE_LOOP
       io_proc_id = output_file(i)%io_proc_id
-      ofile_is_assigned_here = io_proc_id == p_pe
+      ofile_is_assigned_here = &
+        &      (is_io .AND. io_proc_id == p_pe_work) &
+        & .OR. (.NOT. use_async_name_list_io .AND. .NOT. is_test &
+        &       .AND. p_pe_work == 0)
       ! -------------------------------------------------
       ! Check if files have to be (re)opened
       ! -------------------------------------------------
@@ -1703,14 +1706,14 @@ CONTAINS
     CALL create_vertical_axes(output_file)
 
     ! Tell the compute PEs that we are ready to work
-    IF (ANY(output_file(:)%io_proc_id == p_pe)) THEN
+    IF (ANY(output_file(:)%io_proc_id == p_pe_work)) THEN
       CALL async_io_send_handshake(0)
     END IF
 
     ! Enter I/O loop
     ! skip loop, if this output PE is idle:
-    IF (     ANY(                  output_file(:)%io_proc_id == p_pe) &
-        .OR. ANY(meteogram_output_config(1:n_dom)%io_proc_id == p_pe)) THEN
+    IF (     ANY(                  output_file(:)%io_proc_id == p_pe_work) &
+        .OR. ANY(meteogram_output_config(1:n_dom)%io_proc_id == p_pe_work)) THEN
       DO
 
         ! Wait for a message from the compute PEs to start
@@ -1785,7 +1788,7 @@ CONTAINS
     ! situation when computing the global sums for these timers.
     IF (ltimer) THEN
       IF (ALLOCATED(output_file)) THEN
-        lset_timers_for_idle_pe = ALL(output_file(:)%io_proc_id /= p_pe)
+        lset_timers_for_idle_pe = ALL(output_file(:)%io_proc_id /= p_pe_work)
       ELSE
         lset_timers_for_idle_pe = .TRUE.
       END IF
@@ -2230,7 +2233,7 @@ CONTAINS
     !       receive "ready file" messages.
     CALL p_wait()
     msg = msg_io_done
-    CALL p_isend(msg, p_work_pe0, 0)
+    CALL p_isend(msg, 0, 0, comm=p_comm_work_2_io)
 
     ! --- I/O PE #0  :  take care of ready files
     IF(p_pe_work == 0) THEN
@@ -2284,7 +2287,7 @@ CONTAINS
     !       receive "ready file" messages.
     !
     CALL p_wait()
-    CALL p_irecv(msg, p_work_pe0, 0)
+    CALL p_irecv(msg, 0, 0, comm=p_comm_work_2_io)
 
     IF(p_pe_work == 0) THEN
       DO
@@ -2363,7 +2366,7 @@ CONTAINS
         DO i=1,nwait_list
           ! Blocking receive call:
           IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": wait for PE ",  wait_list(i)
-          CALL p_recv(msg, wait_list(i), 0)
+          CALL p_recv(msg, wait_list(i), 0, comm=p_comm_work_2_io)
           ! Just for safety: Check if we got the correct tag
           IF(INT(msg) /= msg_io_done) CALL finish(modname, 'Compute PE: Got illegal I/O tag')
         END DO
@@ -2402,7 +2405,7 @@ CONTAINS
       ! due for output.
       DO i=1,noutput_pe_list
         IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": send signal to PE ",  output_pe_list(i)
-        CALL p_isend(msg, output_pe_list(i), 0)
+        CALL p_isend(msg, output_pe_list(i), 0, comm=p_comm_work_2_io)
       END DO
       CALL p_wait()
     END IF
@@ -2427,8 +2430,8 @@ CONTAINS
     msg(2) = 0
     ! tell all I/O PEs about the shutdown
     IF(p_pe_work==0) THEN
-      DO pe = p_io_pe0, (p_io_pe0+num_io_procs-1)
-        CALL p_send(msg, pe, 0)
+      DO pe = 0, num_io_procs-1
+        CALL p_send(msg, pe, 0, comm=p_comm_work_2_io)
       END DO
     END IF
 
