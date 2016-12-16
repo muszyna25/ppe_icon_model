@@ -732,9 +732,6 @@ CONTAINS
 
     tl = 0 ! to prevent warning
 
-    ! ---------------------------------------------------------
-    ! PE#0 : store variable meta-info to be accessed by I/O PEs
-    ! ---------------------------------------------------------
     is_mpi_test = my_process_is_mpi_test()
 #ifndef NOMPI
     is_mpi_workroot = my_process_is_mpi_workroot()
@@ -744,6 +741,9 @@ CONTAINS
       = participate_in_async_io .AND. is_mpi_workroot
     ! In case of async IO: Lock own window before writing to it
     IF (lasync_io_metadata_prepare) THEN
+      ! ---------------------------------------------------------
+      ! PE#0 : store variable meta-info to be accessed by I/O PEs
+      ! ---------------------------------------------------------
       CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, &
         of%mem_win%mpi_win_metainfo, mpierr)
       DO iv = 1, of%num_vars
