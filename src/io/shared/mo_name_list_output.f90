@@ -193,6 +193,10 @@ MODULE mo_name_list_output
   INTEGER,          PARAMETER                 :: iREAL    = 2
   INTEGER,          PARAMETER                 :: iREAL_sp = 3
 
+  INTERFACE set_boundary_mask
+    MODULE PROCEDURE set_boundary_mask_dp
+    MODULE procedure set_boundary_mask_sp
+  END INTERFACE set_boundary_mask
 
 CONTAINS
 
@@ -1567,15 +1571,9 @@ CONTAINS
 
         ! If required, set lateral boundary points to missing
         ! value. Note that this modifies only the output buffer!
-        IF (apply_missval) THEN
-          DO i = 1, ri%n_own
-            IF ( (ri%own_blk(i) < i_endblk) .OR. &
-                 &  ((ri%own_blk(i) == i_endblk) .AND. &
-                 &   (ri%own_idx(i) <= i_endidx)) ) THEN
-              of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = missval
-            END IF
-          END DO
-        END IF
+        IF (apply_missval) &
+          CALL set_boundary_mask(of%mem_win%mem_ptr_dp(ioff:ioff+ri%n_own), &
+          &                      missval, i_endblk, i_endidx, ri)
       ELSE
         IF (idata_type == iREAL) THEN
           DO i = 1, ri%n_own
@@ -1598,21 +1596,49 @@ CONTAINS
 
         ! If required, set lateral boundary points to missing
         ! value. Note that this modifies only the output buffer!
-        IF (apply_missval) THEN
-          DO i = 1, ri%n_own
-            IF ( (ri%own_blk(i) < i_endblk) .OR. &
-                 &  ((ri%own_blk(i) == i_endblk) .AND. &
-                 &   (ri%own_idx(i) <= i_endidx)) ) THEN
-              of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = REAL(missval,sp)
-            END IF
-          END DO
-        END IF
-
+        IF (apply_missval) &
+          CALL set_boundary_mask(of%mem_win%mem_ptr_sp(ioff:ioff+ri%n_own), &
+          &                      REAL(missval, sp), i_endblk, i_endidx, ri)
       END IF
       ioff = ioff + INT(ri%n_own,i8)
     END DO ! nlevs
 #endif !not NOMPI
   END SUBROUTINE data_write_to_memwin
+
+  SUBROUTINE set_boundary_mask_dp(buf, missval, i_endblk, i_endidx, ri)
+    REAL(dp), INTENT(inout) :: buf(:)
+    REAL(dp), INTENT(in) :: missval
+    INTEGER, INTENT(in) :: i_endblk, i_endidx
+    TYPE(t_reorder_info), INTENT(in) :: ri
+
+    INTEGER :: i, n
+
+    n = ri%n_own
+    DO i = 1, n
+      IF (ri%own_blk(i) < i_endblk .OR. &
+        & (ri%own_blk(i) == i_endblk .AND. ri%own_idx(i) <= i_endidx)) THEN
+        buf(i) = missval
+      END IF
+    END DO
+  END SUBROUTINE set_boundary_mask_dp
+
+  SUBROUTINE set_boundary_mask_sp(buf, missval, i_endblk, i_endidx, ri)
+    REAL(sp), INTENT(inout) :: buf(:)
+    REAL(sp), INTENT(in) :: missval
+    INTEGER, INTENT(in) :: i_endblk, i_endidx
+    TYPE(t_reorder_info), INTENT(in) :: ri
+
+    INTEGER :: i, n
+
+    n = ri%n_own
+    DO i = 1, n
+      IF (ri%own_blk(i) < i_endblk .OR. &
+        & (ri%own_blk(i) == i_endblk .AND. ri%own_idx(i) <= i_endidx)) THEN
+        buf(INT(i,i8)) = missval
+      END IF
+    END DO
+  END SUBROUTINE set_boundary_mask_sp
+
   !------------------------------------------------------------------------------------------------
   !> Returns if it is time for the next output step
   !  Please note:
