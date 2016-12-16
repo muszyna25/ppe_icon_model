@@ -110,7 +110,7 @@ MODULE mo_name_list_output
 #endif
   USE mo_gribout_config,            ONLY: gribout_config
   USE mo_parallel_config,           ONLY: p_test_run, use_dp_mpi2io, &
-       num_io_procs, io_proc_chunk_size
+       num_io_procs, io_proc_chunk_size, nproma
   USE mo_name_list_output_config,   ONLY: use_async_name_list_io
   ! data types
   USE mo_var_metadata_types,        ONLY: t_var_metadata, POST_OP_SCALE, POST_OP_LUC
@@ -994,7 +994,8 @@ CONTAINS
     TYPE(t_patch), POINTER                      :: ptr_patch
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER :: jb, jc, local_idx, max_glb_idx
+    INTEGER :: jl_start, jl_end, jl
+    INTEGER :: max_glb_idx, tmp_dummy
     INTEGER, POINTER :: glb_index(:)
 
     rl_start   = 1
@@ -1004,13 +1005,14 @@ CONTAINS
     max_glb_idx = 0
     ptr_patch => p_patch(i_log_dom)
     glb_index => ptr_patch%cells%decomp_info%glb_index
-    DO jb=i_startblk,i_endblk
-      CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
-           i_startidx, i_endidx, rl_start, rl_end)
-      DO jc=i_startidx, i_endidx
-        local_idx = idx_1d(jc,jb)
-        max_glb_idx = MAX(max_glb_idx, glb_index(local_idx))
-      END DO
+    CALL get_indices_c(ptr_patch, i_startblk, i_startblk, i_endblk, &
+         i_startidx, tmp_dummy, rl_start, rl_end)
+    CALL get_indices_c(ptr_patch, i_endblk, i_startblk, i_endblk, &
+         tmp_dummy, i_endidx, rl_start, rl_end)
+    jl_start = (i_startblk-1)*nproma + i_startidx
+    jl_end = (i_endblk-1)*nproma + i_endidx
+    DO jl=jl_start,jl_end
+      max_glb_idx = MAX(max_glb_idx, glb_index(jl))
     END DO
     last_bdry_index = p_max(max_glb_idx, p_comm_work)
   END FUNCTION get_last_bdry_index
