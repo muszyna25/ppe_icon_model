@@ -1461,19 +1461,18 @@ CONTAINS
           END IF
         END IF
 
-      END IF
-
-      ! ----------
-      ! write data
-      ! ----------
-      IF (my_process_is_mpi_workroot() .AND. .NOT. my_process_is_mpi_test()) THEN
-        IF (.NOT. lwrite_single_precision) THEN
-          CALL streamWriteVarSlice (of%cdiFileID, info%cdiVarID, lev-1, r_out_dp(:), nmiss)
-        ELSE
-          CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, lev-1, r_out_sp(:), nmiss)
+        ! ----------
+        ! write data
+        ! ----------
+        IF (.NOT. is_mpi_test) THEN
+          IF (.NOT. lwrite_single_precision) THEN
+            CALL streamWriteVarSlice (of%cdiFileID, info%cdiVarID, lev-1, r_out_dp(:), nmiss)
+          ELSE
+            CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, lev-1, r_out_sp(:), nmiss)
+          END IF
         END IF
-      END IF
 
+      END IF ! is_mpi_workroot
     END DO ! lev = 1, nlevs
 
     IF (my_process_is_mpi_workroot() .AND. lkeep_in_sync .AND. &
