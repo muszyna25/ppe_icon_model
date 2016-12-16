@@ -711,8 +711,6 @@ CONTAINS
     TYPE(t_comm_gather_pattern), POINTER        :: p_pat
     LOGICAL                                     :: var_ignore_level_selection
     INTEGER                                     :: last_bdry_index
-    INTEGER                                     :: rl_start, rl_end, i_nchdom, &
-         i_startblk, i_endblk, i_startidx, i_endidx
 #ifndef __NO_ICON_ATMO__
     INTEGER :: ipost_op_type, alloc_shape(3), alloc_shape_op(3)
     LOGICAL :: post_op_apply
@@ -994,18 +992,18 @@ CONTAINS
     INTEGER :: last_bdry_index
 
     TYPE(t_patch), POINTER                      :: ptr_patch
-    INTEGER :: rl_start, rl_end, i_nchdom, i_startblk, i_endblk
-    INTEGER :: jb, jc, local_idx, i_startidx, i_endidx, max_glb_idx
+    INTEGER :: rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER :: jb, jc, local_idx, max_glb_idx
     INTEGER, POINTER :: glb_index(:)
 
-    ptr_patch => p_patch(i_log_dom)
     rl_start   = 1
     rl_end     = grf_bdywidth_c
-    i_nchdom   = MAX(1,ptr_patch%n_childdom)
-    i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-    i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+    CALL get_bdry_blk_idx(i_log_dom, &
+      &                   i_startidx, i_endidx, i_startblk, i_endblk)
     max_glb_idx = 0
-    glb_index  => ptr_patch%cells%decomp_info%glb_index
+    ptr_patch => p_patch(i_log_dom)
+    glb_index => ptr_patch%cells%decomp_info%glb_index
     DO jb=i_startblk,i_endblk
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
            i_startidx, i_endidx, rl_start, rl_end)
@@ -1503,12 +1501,9 @@ CONTAINS
     TYPE(t_reorder_info),  INTENT(in) :: ri
     TYPE(t_var_metadata), INTENT(in) :: info
     INTEGER, INTENT(in) :: i_log_dom
-    TYPE(t_patch), POINTER :: ptr_patch
 
-
-    REAL(wp)                                    :: missval
-    INTEGER                                     :: rl_start, rl_end, i_nchdom, &
-         i_startblk, i_endblk, i_startidx, i_endidx
+    REAL(wp) :: missval
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: i, jk, lev_idx
     LOGICAL :: apply_missval
 #ifndef NOMPI
@@ -1522,22 +1517,9 @@ CONTAINS
       &             .AND. info%hgrid == GRID_UNSTRUCTURED_CELL &
       &             .AND. config_lmask_boundary
     IF (apply_missval) THEN
-      missval = BOUNDARY_MISSVAL
-      IF (info%lmiss) THEN
-        IF (idata_type == iREAL) THEN
-          missval = info%missval%rval
-        ELSE IF (idata_type == iINTEGER) THEN
-          missval = REAL(info%missval%ival,dp)
-        END IF
-      END IF
-      ptr_patch => p_patch(i_log_dom)
-      rl_start   = 1
-      rl_end     = grf_bdywidth_c
-      i_nchdom   = MAX(1,ptr_patch%n_childdom)
-      i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-      i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
-      CALL get_indices_c(ptr_patch, i_endblk, i_startblk, i_endblk, &
-        &                i_startidx, i_endidx, rl_start, rl_end)
+      missval = get_bdry_missval(info, idata_type)
+      CALL get_bdry_blk_idx(i_log_dom, &
+        &                   i_startidx, i_endidx, i_startblk, i_endblk)
     END IF
 
     DO jk = 1, nlevs
@@ -1640,6 +1622,39 @@ CONTAINS
       END IF
     END DO
   END SUBROUTINE set_boundary_mask_sp
+
+  FUNCTION get_bdry_missval(info, idata_type) RESULT(missval)
+    TYPE(t_var_metadata), INTENT(in) :: info
+    INTEGER, INTENT(in) :: idata_type
+
+    REAL(dp) :: missval
+    missval = BOUNDARY_MISSVAL
+    IF (info%lmiss) THEN
+      IF (idata_type == iREAL) THEN
+        missval = info%missval%rval
+      ELSE IF (idata_type == iINTEGER) THEN
+        missval = REAL(info%missval%ival,dp)
+      END IF
+    END IF
+  END FUNCTION get_bdry_missval
+
+  SUBROUTINE get_bdry_blk_idx(i_log_dom, &
+       i_startblk, i_endblk, i_startidx, i_endidx)
+    INTEGER, INTENT(in) :: i_log_dom
+    INTEGER, INTENT(out) :: i_startblk, i_endblk, i_startidx, i_endidx
+
+    INTEGER  :: rl_start, rl_end, i_nchdom
+    TYPE(t_patch), POINTER :: ptr_patch
+
+    ptr_patch => p_patch(i_log_dom)
+    rl_start   = 1
+    rl_end     = grf_bdywidth_c
+    i_nchdom   = MAX(1,ptr_patch%n_childdom)
+    i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+    i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+    CALL get_indices_c(ptr_patch, i_endblk, i_startblk, i_endblk, &
+      &                i_startidx, i_endidx, rl_start, rl_end)
+  END SUBROUTINE get_bdry_blk_idx
 
   !------------------------------------------------------------------------------------------------
   !> Returns if it is time for the next output step
