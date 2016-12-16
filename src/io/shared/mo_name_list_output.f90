@@ -1265,7 +1265,8 @@ CONTAINS
       n_points = p_ri%n_glb
     END IF
 
-    have_GRIB = of%output_type == FILETYPE_GRB .OR. of%output_type == FILETYPE_GRB2
+    have_GRIB =      of%output_type == FILETYPE_GRB  &
+      &         .OR. of%output_type == FILETYPE_GRB2
     lwrite_single_precision = (.NOT. use_dp_mpi2io) .AND. (.NOT. have_GRIB)
 
     IF (idata_type == iREAL) THEN
