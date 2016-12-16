@@ -1232,7 +1232,7 @@ CONTAINS
   END SUBROUTINE get_ptr_to_var_data
 
   SUBROUTINE gather_on_workroot_and_write(of, idata_type, r_ptr, s_ptr, &
-       i_ptr, p_ri, iv, last_bdry_index, &
+       i_ptr, ri, iv, last_bdry_index, &
        nlevs, var_ignore_level_selection, p_pat, info)
     TYPE (t_output_file), INTENT(IN) :: of
     INTEGER, INTENT(in) :: idata_type, iv, nlevs, last_bdry_index
@@ -1240,7 +1240,7 @@ CONTAINS
     REAL(dp), INTENT(in) :: r_ptr(:,:,:)
     REAL(sp), INTENT(in) :: s_ptr(:,:,:)
     INTEGER,  INTENT(in) :: i_ptr(:,:,:)
-    TYPE(t_reorder_info), INTENT(in), POINTER :: p_ri
+    TYPE(t_reorder_info),  INTENT(in) :: ri
 
     REAL(dp), ALLOCATABLE :: r_out_dp(:)
     INTEGER, ALLOCATABLE :: r_out_int(:)
@@ -1256,13 +1256,18 @@ CONTAINS
 
     INTEGER :: lev, lev_idx, i, n_points, nmiss
     LOGICAL :: l_error, have_grib, lwrite_single_precision
+    LOGICAL :: is_mpi_test, is_mpi_workroot
+
+    is_mpi_workroot = my_process_is_mpi_workroot()
+
+    is_mpi_test = my_process_is_mpi_test()
 
     IF (info%hgrid == GRID_LONLAT) THEN
       n_points = 1
     ELSE IF (info%hgrid == GRID_ZONAL) THEN
       n_points = 180
     ELSE
-      n_points = p_ri%n_glb
+      n_points = ri%n_glb
     END IF
 
     have_GRIB =      of%output_type == FILETYPE_GRB  &
@@ -1481,7 +1486,7 @@ CONTAINS
   END SUBROUTINE gather_on_workroot_and_write
 
   SUBROUTINE data_write_to_memwin(of, idata_type, r_ptr, s_ptr, i_ptr, ioff, &
-       nlevs, var_ignore_level_selection, p_ri, info, i_log_dom)
+       nlevs, var_ignore_level_selection, ri, info, i_log_dom)
     TYPE (t_output_file), INTENT(INOUT) :: of
     INTEGER, INTENT(in) :: idata_type, nlevs
     LOGICAL, INTENT(in) :: var_ignore_level_selection
@@ -1489,7 +1494,7 @@ CONTAINS
     REAL(sp), INTENT(in) :: s_ptr(:,:,:)
     INTEGER, INTENT(in) :: i_ptr(:,:,:)
     INTEGER(i8), INTENT(inout) :: ioff
-    TYPE(t_reorder_info),  INTENT(in) :: p_ri
+    TYPE(t_reorder_info),  INTENT(in) :: ri
     TYPE(t_var_metadata), INTENT(in) :: info
     INTEGER, INTENT(in) :: i_log_dom
     TYPE(t_patch), POINTER :: ptr_patch
@@ -1542,69 +1547,69 @@ CONTAINS
 
       IF (use_dp_mpi2io) THEN
         IF (idata_type == iREAL) THEN
-          DO i = 1, p_ri%n_own
+          DO i = 1, ri%n_own
             of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = &
-                 & REAL(r_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),dp)
+                 & REAL(r_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),dp)
           ENDDO
         END IF
         IF (idata_type == iREAL_sp) THEN
-          DO i = 1, p_ri%n_own
+          DO i = 1, ri%n_own
             of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = &
-                 & REAL(s_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),dp)
+                 & REAL(s_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),dp)
           ENDDO
         END IF
         IF (idata_type == iINTEGER) THEN
-          DO i = 1, p_ri%n_own
+          DO i = 1, ri%n_own
             of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = &
-                 & REAL(i_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),dp)
+                 & REAL(i_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),dp)
           ENDDO
         END IF
 
         ! If required, set lateral boundary points to missing
         ! value. Note that this modifies only the output buffer!
         IF (apply_missval) THEN
-          DO i = 1, p_ri%n_own
-            IF ( (p_ri%own_blk(i) < i_endblk) .OR. &
-                 &  ((p_ri%own_blk(i) == i_endblk) .AND. &
-                 &   (p_ri%own_idx(i) <= i_endidx)) ) THEN
+          DO i = 1, ri%n_own
+            IF ( (ri%own_blk(i) < i_endblk) .OR. &
+                 &  ((ri%own_blk(i) == i_endblk) .AND. &
+                 &   (ri%own_idx(i) <= i_endidx)) ) THEN
               of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = missval
             END IF
           END DO
         END IF
       ELSE
         IF (idata_type == iREAL) THEN
-          DO i = 1, p_ri%n_own
+          DO i = 1, ri%n_own
             of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = &
-                 & REAL(r_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),sp)
+                 & REAL(r_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),sp)
           ENDDO
         END IF
         IF (idata_type == iREAL_sp) THEN
-          DO i = 1, p_ri%n_own
+          DO i = 1, ri%n_own
             of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = &
-                 & s_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i))
+                 & s_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i))
           ENDDO
         END IF
         IF (idata_type == iINTEGER) THEN
-          DO i = 1, p_ri%n_own
+          DO i = 1, ri%n_own
             of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = &
-                 & REAL(i_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),sp)
+                 & REAL(i_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),sp)
           ENDDO
         END IF
 
         ! If required, set lateral boundary points to missing
         ! value. Note that this modifies only the output buffer!
         IF (apply_missval) THEN
-          DO i = 1, p_ri%n_own
-            IF ( (p_ri%own_blk(i) < i_endblk) .OR. &
-                 &  ((p_ri%own_blk(i) == i_endblk) .AND. &
-                 &   (p_ri%own_idx(i) <= i_endidx)) ) THEN
+          DO i = 1, ri%n_own
+            IF ( (ri%own_blk(i) < i_endblk) .OR. &
+                 &  ((ri%own_blk(i) == i_endblk) .AND. &
+                 &   (ri%own_idx(i) <= i_endidx)) ) THEN
               of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = REAL(missval,sp)
             END IF
           END DO
         END IF
 
       END IF
-      ioff = ioff + INT(p_ri%n_own,i8)
+      ioff = ioff + INT(ri%n_own,i8)
     END DO ! nlevs
 #endif !not NOMPI
   END SUBROUTINE data_write_to_memwin
