@@ -728,7 +728,25 @@ CONTAINS
     END IF
 #endif
 
-    ! only for synchronous output mode: communicate the largest global
+    ! "lmask_boundary": Some of the output fields are not updated with
+    ! meaningful values in the vicinity of the lateral domain
+    ! boundary. To avoid spurious data on these triangle cells (which
+    ! could also spoil the GRIB range compression), the user may
+    ! choose to set them to a "missing value". Implementation details:
+    ! In the "synchronous" output mode, the implementation exploits
+    ! the fact that all (global) indices for the lateral boundary
+    ! region are ordered to the start of the data array. Therefore,
+    ! only the computation of a limit index "last_bdry_index" is
+    ! required to mask out the lateral points. In the asynchronous
+    ! output mode, on the other hand, the compute processes possess
+    ! only a portion of the output field and therefore need to loop
+    ! over the lateral triangles block- and line-wise. This feature
+    ! can be (de-)activated for specific variables through the
+    ! "info%lmask_boundary" metadata flag. It also depends on a global
+    ! namelist switch "io_nml/lmask_boundary" (LOGICAL, default:
+    ! false).
+    !
+    ! Only for synchronous output mode: communicate the largest global
     ! index of the lateral boundary cells, if required:
 
     last_bdry_index = 0
