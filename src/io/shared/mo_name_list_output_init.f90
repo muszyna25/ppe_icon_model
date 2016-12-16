@@ -77,8 +77,7 @@ MODULE mo_name_list_output_init
   USE mo_io_config,                         ONLY: netcdf_dict, output_nml_dict, linvert_dict,     &
     &                                             config_lmask_boundary => lmask_boundary
   USE mo_name_list_output_config,           ONLY: use_async_name_list_io,                         &
-    &                                             first_output_name_list,                         &
-    &                                             add_var_desc
+    &                                             first_output_name_list
   USE mo_time_config,                       ONLY: time_config
   USE mo_gribout_config,                    ONLY: gribout_config
   USE mo_dynamics_config,                   ONLY: iequations
@@ -2035,6 +2034,58 @@ CONTAINS
     ENDDO ! ivar = 1,nvars
 
   END SUBROUTINE add_varlist_to_output_file
+
+
+  !------------------------------------------------------------------------------------------------
+  !> Append variable descriptor to the end of a (dynamically growing) list
+  !!
+  !! @author  F. Prill, DWD
+  SUBROUTINE add_var_desc(p_of, var_desc)
+    TYPE(t_output_file), INTENT(INOUT)        :: p_of       !< output file
+    TYPE(t_var_desc),    INTENT(IN)           :: var_desc   !< variable descriptor
+    ! local variables
+    ! Constant defining how many variable entries are added when resizing array:
+    INTEGER, PARAMETER :: nvars_grow = 10
+    CHARACTER(*), PARAMETER :: routine = "mo_name_list_output_init:add_var_desc"
+    INTEGER                       :: errstat, new_max_vars, i, ivar
+    TYPE(t_var_desc), ALLOCATABLE :: tmp(:)
+
+    ! increase number of variables currently in use:
+    p_of%num_vars = p_of%num_vars + 1
+    IF (p_of%num_vars > p_of%max_vars) THEN
+      ! array full, enlarge and make a triangle copy:
+      new_max_vars = p_of%max_vars + NVARS_GROW
+      IF (p_of%max_vars > 0) THEN
+        ALLOCATE(tmp(p_of%max_vars), STAT=errstat)
+        IF (errstat /= 0)  CALL finish (routine, 'Error in ALLOCATE operation!')
+        tmp(1:p_of%max_vars) = p_of%var_desc(1:p_of%max_vars)
+        DEALLOCATE(p_of%var_desc, STAT=errstat)
+        IF (errstat /= 0)  CALL finish (routine, 'Error in DEALLOCATE operation!')
+      END IF
+
+      ALLOCATE(p_of%var_desc(new_max_vars), STAT=errstat)
+      IF (errstat /= 0)    CALL finish (routine, 'Error in ALLOCATE operation!')
+      ! Nullify pointers in p_of%var_desc
+      DO ivar=(p_of%max_vars+1),new_max_vars
+        p_of%var_desc(ivar)%r_ptr => NULL()
+        p_of%var_desc(ivar)%i_ptr => NULL()
+        DO i = 1, max_time_levels
+          p_of%var_desc(ivar)%tlev_rptr(i)%p => NULL()
+          p_of%var_desc(ivar)%tlev_sptr(i)%p => NULL()
+          p_of%var_desc(ivar)%tlev_iptr(i)%p => NULL()
+        ENDDO
+      END DO
+
+      IF (p_of%max_vars > 0) THEN
+        p_of%var_desc(1:p_of%max_vars) = tmp(1:p_of%max_vars)
+        DEALLOCATE(tmp, STAT=errstat)
+        IF (errstat /= 0)  CALL finish (routine, 'Error in DEALLOCATE operation!')
+      END IF
+      p_of%max_vars = new_max_vars
+    END IF
+    ! add new element to array
+    p_of%var_desc(p_of%num_vars) = var_desc
+  END SUBROUTINE add_var_desc
 
 
   !------------------------------------------------------------------------------------------------
