@@ -994,8 +994,9 @@ CONTAINS
     INTEGER :: last_bdry_index
 
     TYPE(t_patch), POINTER                      :: ptr_patch
-    INTEGER :: rl_start, rl_end, i_nchdom, i_startblk, i_endblk, glb_idx
-    INTEGER :: jb, jc, local_idx, i_startidx, i_endidx
+    INTEGER :: rl_start, rl_end, i_nchdom, i_startblk, i_endblk
+    INTEGER :: jb, jc, local_idx, i_startidx, i_endidx, max_glb_idx
+    INTEGER, POINTER :: glb_index(:)
 
     ptr_patch => p_patch(i_log_dom)
     rl_start   = 1
@@ -1003,16 +1004,17 @@ CONTAINS
     i_nchdom   = MAX(1,ptr_patch%n_childdom)
     i_startblk = ptr_patch%cells%start_blk(rl_start,1)
     i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
-    glb_idx    = 0
+    max_glb_idx = 0
+    glb_index  => ptr_patch%cells%decomp_info%glb_index
     DO jb=i_startblk,i_endblk
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
            i_startidx, i_endidx, rl_start, rl_end)
       DO jc=i_startidx, i_endidx
         local_idx = idx_1d(jc,jb)
-        glb_idx   = MAX(glb_idx, ptr_patch%cells%decomp_info%glb_index(local_idx))
+        max_glb_idx = MAX(max_glb_idx, glb_index(local_idx))
       END DO
     END DO
-    last_bdry_index = p_max(glb_idx, p_comm_work)
+    last_bdry_index = p_max(max_glb_idx, p_comm_work)
   END FUNCTION get_last_bdry_index
 
   SUBROUTINE get_ptr_to_var_data(i_ptr, r_ptr, s_ptr, nindex, tl, var_desc, info)
