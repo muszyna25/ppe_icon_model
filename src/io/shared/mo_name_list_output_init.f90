@@ -2047,44 +2047,34 @@ CONTAINS
     ! Constant defining how many variable entries are added when resizing array:
     INTEGER, PARAMETER :: nvars_grow = 10
     CHARACTER(*), PARAMETER :: routine = "mo_name_list_output_init:add_var_desc"
-    INTEGER                       :: errstat, new_max_vars, i, ivar
+    INTEGER                       :: errstat, new_max_vars, i, ivar, &
+         new_num_vars
     TYPE(t_var_desc), ALLOCATABLE :: tmp(:)
 
     ! increase number of variables currently in use:
-    p_of%num_vars = p_of%num_vars + 1
-    IF (p_of%num_vars > p_of%max_vars) THEN
+    new_num_vars = p_of%num_vars + 1
+    IF (new_num_vars > p_of%max_vars) THEN
       ! array full, enlarge and make a triangle copy:
-      new_max_vars = p_of%max_vars + NVARS_GROW
-      IF (p_of%max_vars > 0) THEN
-        ALLOCATE(tmp(p_of%max_vars), STAT=errstat)
-        IF (errstat /= 0)  CALL finish (routine, 'Error in ALLOCATE operation!')
-        tmp(1:p_of%max_vars) = p_of%var_desc(1:p_of%max_vars)
-        DEALLOCATE(p_of%var_desc, STAT=errstat)
-        IF (errstat /= 0)  CALL finish (routine, 'Error in DEALLOCATE operation!')
-      END IF
-
-      ALLOCATE(p_of%var_desc(new_max_vars), STAT=errstat)
-      IF (errstat /= 0)    CALL finish (routine, 'Error in ALLOCATE operation!')
+      new_max_vars = p_of%max_vars + nvars_grow
+      ALLOCATE(tmp(new_max_vars), STAT=errstat)
+      IF (errstat /= 0)  CALL finish (routine, 'Error in ALLOCATE operation!')
+      IF (new_num_vars > 1) &
+        &     tmp(1:new_num_vars-1) = p_of%var_desc(1:new_num_vars-1)
+      CALL MOVE_ALLOC(tmp, p_of%var_desc)
       ! Nullify pointers in p_of%var_desc
-      DO ivar=(p_of%max_vars+1),new_max_vars
-        p_of%var_desc(ivar)%r_ptr => NULL()
-        p_of%var_desc(ivar)%i_ptr => NULL()
+      DO ivar=new_num_vars,new_max_vars
+        NULLIFY(p_of%var_desc(ivar)%r_ptr, p_of%var_desc(ivar)%i_ptr)
         DO i = 1, max_time_levels
-          p_of%var_desc(ivar)%tlev_rptr(i)%p => NULL()
-          p_of%var_desc(ivar)%tlev_sptr(i)%p => NULL()
-          p_of%var_desc(ivar)%tlev_iptr(i)%p => NULL()
+          NULLIFY(p_of%var_desc(ivar)%tlev_rptr(i)%p, &
+            &     p_of%var_desc(ivar)%tlev_sptr(i)%p, &
+            &     p_of%var_desc(ivar)%tlev_iptr(i)%p)
         ENDDO
       END DO
-
-      IF (p_of%max_vars > 0) THEN
-        p_of%var_desc(1:p_of%max_vars) = tmp(1:p_of%max_vars)
-        DEALLOCATE(tmp, STAT=errstat)
-        IF (errstat /= 0)  CALL finish (routine, 'Error in DEALLOCATE operation!')
-      END IF
       p_of%max_vars = new_max_vars
     END IF
     ! add new element to array
-    p_of%var_desc(p_of%num_vars) = var_desc
+    p_of%var_desc(new_num_vars) = var_desc
+    p_of%num_vars = new_num_vars
   END SUBROUTINE add_var_desc
 
 
