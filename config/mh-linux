@@ -204,7 +204,7 @@ case "$fortran_compiler" in
         FC          = ifort
         DEBUG_FLAGS = -check bounds -check pointers -check uninit -debug -O0 -g
         STD_FLAGS   = -O2 -msse2 -fltconsistency -g -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
-        FFLAGS      = -g -pc64 -fpp -D__LOOP_EXCHANGE -assume realloc_lhs -D__NO_JSBACH__
+        FFLAGS      = -g -pc64 -fpp -D__LOOP_EXCHANGE -assume realloc_lhs
         F77         = $FC
         F77FLAGS    = $FFLAGS $STD_FLAGS
         OMPFLAG     = -openmp
