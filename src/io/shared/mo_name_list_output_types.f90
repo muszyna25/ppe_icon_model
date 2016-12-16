@@ -341,8 +341,18 @@ MODULE mo_name_list_output_types
   TYPE t_mem_win
     INTEGER                               :: mpi_win                          !< MPI window for data communication
     INTEGER                               :: mpi_win_metainfo                 !< MPI window for metadata
-    REAL(dp), POINTER                     :: mem_ptr_dp(:)                    !< Pointer to memory window (REAL*8)
-    REAL(sp), POINTER                     :: mem_ptr_sp(:)                    !< Pointer to memory window (REAL*4)
+    !> Pointer to memory window (REAL*8)
+    REAL(dp), POINTER  &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+         , CONTIGUOUS &
+#endif
+         :: mem_ptr_dp(:)
+    !> Pointer to memory window (REAL*4)
+    REAL(sp), POINTER  &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+         , CONTIGUOUS &
+#endif
+         :: mem_ptr_sp(:)
     INTEGER,  POINTER                     :: mem_ptr_metainfo_pe0(:)          !< Pointer to variable meta-info.
   END TYPE t_mem_win
 
