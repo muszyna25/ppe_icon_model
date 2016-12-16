@@ -705,7 +705,7 @@ CONTAINS
     TYPE(t_patch), POINTER                      :: ptr_patch
     REAL(wp)                                    :: missval
     INTEGER                                     :: rl_start, rl_end, i_nchdom, &
-         i_startblk, i_endblk, i_startidx, i_endidx, local_idx, glb_idx, jb, jc
+         i_startblk, i_endblk, i_startidx, i_endidx
     ! Offset in memory window for async I/O
     ioff = 0_i8
 
@@ -768,26 +768,9 @@ CONTAINS
     ! Only for synchronous output mode: communicate the largest global
     ! index of the lateral boundary cells, if required:
 
-    last_bdry_index = 0
     IF ( (.NOT.use_async_name_list_io .OR. my_process_is_mpi_test()) .AND.   &
       &  config_lmask_boundary )  THEN
-
-      ptr_patch => p_patch(i_log_dom)
-      rl_start   = 1
-      rl_end     = grf_bdywidth_c
-      i_nchdom   = MAX(1,ptr_patch%n_childdom)
-      i_startblk = ptr_patch%cells%start_blk(rl_start,1)
-      i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
-      glb_idx    = 0
-      DO jb=i_startblk,i_endblk
-        CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
-          i_startidx, i_endidx, rl_start, rl_end)
-        DO jc=i_startidx, i_endidx
-          local_idx = idx_1d(jc,jb)
-          glb_idx   = MAX(glb_idx, ptr_patch%cells%decomp_info%glb_index(local_idx))
-        END DO
-      END DO
-      last_bdry_index = p_max(glb_idx, p_comm_work)
+      last_bdry_index = get_last_bdry_index(i_log_dom)
     END IF
 
     ! ----------------------------------------------------
@@ -1278,6 +1261,32 @@ CONTAINS
 #endif
 
   END SUBROUTINE write_name_list
+
+  FUNCTION get_last_bdry_index(i_log_dom) RESULT(last_bdry_index)
+    INTEGER, INTENT(in) :: i_log_dom
+    INTEGER :: last_bdry_index
+
+    TYPE(t_patch), POINTER                      :: ptr_patch
+    INTEGER :: rl_start, rl_end, i_nchdom, i_startblk, i_endblk, glb_idx
+    INTEGER :: jb, jc, local_idx, i_startidx, i_endidx
+
+    ptr_patch => p_patch(i_log_dom)
+    rl_start   = 1
+    rl_end     = grf_bdywidth_c
+    i_nchdom   = MAX(1,ptr_patch%n_childdom)
+    i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+    i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+    glb_idx    = 0
+    DO jb=i_startblk,i_endblk
+      CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+           i_startidx, i_endidx, rl_start, rl_end)
+      DO jc=i_startidx, i_endidx
+        local_idx = idx_1d(jc,jb)
+        glb_idx   = MAX(glb_idx, ptr_patch%cells%decomp_info%glb_index(local_idx))
+      END DO
+    END DO
+    last_bdry_index = p_max(glb_idx, p_comm_work)
+  END FUNCTION get_last_bdry_index
 
   SUBROUTINE gather_on_workroot_and_write(of, idata_type, r_ptr, s_ptr, &
        i_ptr, p_ri, iv, last_bdry_index, &
