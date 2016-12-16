@@ -1650,7 +1650,7 @@ CONTAINS
     INTEGER, INTENT(IN)   :: jstep            ! simulation time step
     ! local variables
     INTEGER :: i
-    LOGICAL :: ret, ret_local
+    LOGICAL :: ret
 
     ret = .FALSE.
     IF (ALLOCATED(output_file)) THEN
@@ -1658,8 +1658,8 @@ CONTAINS
        ! defined. thus we must check if "output_file" has been
        ! allocated.
        DO i = 1, SIZE(output_file)
-          ret_local = is_output_step(output_file(i)%out_event, jstep)
-          ret = ret .OR. ret_local
+         ret = ret .OR. is_output_step(output_file(i)%out_event, jstep)
+         IF (ret) EXIT
        END DO
     END IF
     istime4name_list_output = ret
