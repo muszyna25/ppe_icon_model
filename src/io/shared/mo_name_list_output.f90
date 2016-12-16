@@ -1306,8 +1306,8 @@ CONTAINS
 
     ! set missval flag, if applicable
     !
-    nmiss = MERGE(1, 0, (of%var_desc(iv)%info%lmiss &
-      &                  .OR. ( of%var_desc(iv)%info%lmask_boundary &
+    nmiss = MERGE(1, 0, (info%lmiss &
+      &                  .OR. (info%lmask_boundary &
       &                        .AND. config_lmask_boundary) ) &
       &                 .AND. last_bdry_index > 0)
 
