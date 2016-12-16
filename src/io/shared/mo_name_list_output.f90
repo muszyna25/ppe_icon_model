@@ -1774,9 +1774,7 @@ CONTAINS
                 CALL blocking_wait_for_irecvs(all_events)
                 ev => all_events
                 l_complete = .TRUE.
-                HANDLE_COMPLETE_STEPS : DO
-                  IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
-
+                HANDLE_COMPLETE_STEPS : DO WHILE (ASSOCIATED(ev))
                   !--- write ready file
                   IF (check_write_readyfile(ev%output_event))  CALL write_ready_file(ev)
                   IF (.NOT. is_output_event_finished(ev)) THEN
