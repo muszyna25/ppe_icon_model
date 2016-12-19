@@ -144,7 +144,7 @@ MODULE mo_name_list_output_init
   USE mo_output_event_handler,              ONLY: trigger_output_step_irecv
 #endif
   ! name list output
-  USE mo_reorder_info,                      ONLY: t_reorder_info
+  USE mo_reorder_info,                      ONLY: t_reorder_info, transfer_reorder_info
   USE mo_name_list_output_types,            ONLY: l_output_phys_patch, t_output_name_list,        &
     &                                             t_output_file, t_var_desc, t_grid_info,         &
     &                                             t_patch_info, icell, iedge, ivert,              &
@@ -2110,7 +2110,8 @@ CONTAINS
       IF (use_async_name_list_io .AND. .NOT. is_mpi_test) THEN
         ! Transfer reorder_info to IO PEs
         DO i = 1, 3 ! icell, iedge, ivert
-          CALL transfer_reorder_info(patch_info(jp)%ri(i))
+          CALL transfer_reorder_info(patch_info(jp)%ri(i), &
+            &    my_process_is_io(), bcast_root, p_comm_work_2_io)
           CALL transfer_grid_info(patch_info(jp)%grid_info(i), patch_info(jp)%ri(i)%n_glb, patch_info(jp)%grid_info_mode)
         END DO
         CALL p_bcast(patch_info(jp)%grid_filename, bcast_root, p_comm_work_2_io)
@@ -2137,7 +2138,8 @@ CONTAINS
 #ifndef NOMPI
         IF (use_async_name_list_io .AND. .NOT. is_mpi_test) THEN
           ! Transfer reorder_info to IO PEs
-          CALL transfer_reorder_info(lonlat_info(jl,jg)%ri)
+          CALL transfer_reorder_info(lonlat_info(jl,jg)%ri, &
+            &    my_process_is_io(), bcast_root, p_comm_work_2_io)
           CALL transfer_grid_info(lonlat_info(jl,jg)%grid_info, lonlat_info(jl,jg)%ri%n_glb, lonlat_info(jl,jg)%grid_info_mode)
         ENDIF
 #endif
@@ -2736,34 +2738,6 @@ CONTAINS
     !
   END SUBROUTINE add_variables_to_vlist
 
-
-  !------------------------------------------------------------------------------------------------
-  !> Transfers reorder_info to IO PEs
-  !
-  SUBROUTINE transfer_reorder_info(p_ri)
-    TYPE(t_reorder_info), INTENT(INOUT) :: p_ri ! Result: reorder info
-
-    ! Transfer the global number of points, this is not yet known on IO PEs
-    CALL p_bcast(p_ri%n_glb,  bcast_root, p_comm_work_2_io)
-
-    IF(my_process_is_io()) THEN
-
-      ! On IO PEs: n_own = 0, own_idx and own_blk are not allocated
-      p_ri%n_own = 0
-
-      ! pe_own/pe_off must be allocated for num_work_procs, not for p_n_work
-      ALLOCATE(p_ri%pe_own(0:num_work_procs-1))
-      ALLOCATE(p_ri%pe_off(0:num_work_procs-1))
-
-      ALLOCATE(p_ri%reorder_index(p_ri%n_glb))
-    ENDIF
-
-    CALL p_bcast(p_ri%pe_own, bcast_root, p_comm_work_2_io)
-    CALL p_bcast(p_ri%pe_off, bcast_root, p_comm_work_2_io)
-
-    CALL p_bcast(p_ri%reorder_index, bcast_root, p_comm_work_2_io)
-
-  END SUBROUTINE transfer_reorder_info
 
   SUBROUTINE transfer_grid_info(grid_info, n_glb, grid_info_mode)
     TYPE(t_grid_info), INTENT(INOUT)    :: grid_info
