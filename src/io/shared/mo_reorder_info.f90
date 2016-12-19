@@ -29,10 +29,24 @@ MODULE mo_reorder_info
     ! grid information: geographical locations of cells, edges, and
     ! vertices which is first collected on working PE 0 - from where
     ! it will be broadcasted to the pure I/O PEs.
+  CONTAINS
+    PROCEDURE :: finalize => t_reorder_info_finalize
   END TYPE t_reorder_info
   PUBLIC :: t_reorder_info
   PUBLIC :: transfer_reorder_info
 CONTAINS
+
+  SUBROUTINE t_reorder_info_finalize(reorder_data)
+    CLASS(t_reorder_info), INTENT(INOUT) :: reorder_data
+
+    !CALL message("", 't_reorder_data_finalize')
+
+    IF (ALLOCATED(reorder_data%reorder_index))  DEALLOCATE(reorder_data%reorder_index)
+    IF (ALLOCATED(reorder_data%own_idx))        DEALLOCATE(reorder_data%own_idx)
+    IF (ALLOCATED(reorder_data%own_blk))        DEALLOCATE(reorder_data%own_blk)
+    IF (ALLOCATED(reorder_data%pe_own))         DEALLOCATE(reorder_data%pe_own)
+    IF (ALLOCATED(reorder_data%pe_off))         DEALLOCATE(reorder_data%pe_off)
+  END SUBROUTINE t_reorder_info_finalize
   !------------------------------------------------------------------------------------------------
   !> Transfers reorder_info from clients to servers for IO/async latbc
   !
