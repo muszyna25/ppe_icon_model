@@ -661,7 +661,7 @@ CONTAINS
     TYPE(t_patch_info),   INTENT(INOUT) :: patch_info (:)
     TYPE (t_output_file), INTENT(IN) :: of
 
-    INTEGER :: ncid, dimid, varid
+    INTEGER :: ncid, dimid, varid, tlen
     INTEGER :: i_nc, i_ne, i_nv, max_cell_connectivity, max_verts_connectivity
     INTEGER :: i_dom
 
@@ -681,7 +681,8 @@ CONTAINS
     ! Open grid file, read dimensions and make a cross check if they match.
     ! This is just for safety and could be skipped, of course.
 
-    CALL nf(nf_open(TRIM(patch_info(i_dom)%grid_filename), NF_NOWRITE, ncid))
+    tlen = LEN_TRIM(patch_info(i_dom)%grid_filename)
+    CALL nf(nf_open(patch_info(i_dom)%grid_filename(1:tlen), NF_NOWRITE, ncid))
 
     CALL nf(nf_inq_dimid(ncid, 'nv', dimid))
     CALL nf(nf_inq_dimlen(ncid, dimid, max_cell_connectivity))
@@ -698,11 +699,11 @@ CONTAINS
     CALL nf(nf_inq_dimlen(ncid, dimid, i_nv))
 
     IF(i_nc /= patch_info(i_dom)%grid_info(icell)%n_log) &
-      CALL finish(routine,'Number of cells differs in '//TRIM(patch_info(i_dom)%grid_filename))
+      CALL finish(routine,'Number of cells differs in '//patch_info(i_dom)%grid_filename(1:tlen))
     IF(i_ne /= patch_info(i_dom)%grid_info(iedge)%n_log) &
-      CALL finish(routine,'Number of edges differs in '//TRIM(patch_info(i_dom)%grid_filename))
+      CALL finish(routine,'Number of edges differs in '//patch_info(i_dom)%grid_filename(1:tlen))
     IF(i_nv /= patch_info(i_dom)%grid_info(ivert)%n_log) &
-      CALL finish(routine,'Number of verts differs in '//TRIM(patch_info(i_dom)%grid_filename))
+      CALL finish(routine,'Number of verts differs in '//patch_info(i_dom)%grid_filename(1:tlen))
     !
     !---------------------------------------------------------------------------
     ! cell grid
