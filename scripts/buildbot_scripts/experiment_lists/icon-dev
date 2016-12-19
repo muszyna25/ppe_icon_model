@@ -56,8 +56,6 @@ experiment|checksuite.infrastructure/meanStream/exp.atm_amip_noforcing_notranspo
 experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.ocean_internal/other/exp.oce_testbed_read|cpu_time=00:30:00
 experiment|checksuite.icon-dev/check.atm_icoles_nested|cpu_time=00:30:00
-builder|MISTRAL_nag_mtime|--with-fortran=nag --enable-mtime-loop --without-yac|Restricted
-experiment|checksuite.icon-dev/check.atm_amip|cpu_time=00:30:00
 builder|MISTRAL_intel_openmp|--with-fortran=intel --without-mpi --with-openmp --without-yac|Active
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|
 experiment|exp.nat_rce_cbl_120km_nwp|cpu_time=00:30:00
