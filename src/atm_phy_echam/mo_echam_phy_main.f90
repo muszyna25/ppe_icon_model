@@ -78,7 +78,7 @@ CONTAINS
   !>
   !!
   SUBROUTINE echam_phy_main( jg,jb,jcs,jce,nbdim,      &
-    &                        this_datetime,pdtime,psteplen, &
+    &                        this_datetime,pdtime,     &
     &                        ltrig_rad                 )
 
     INTEGER         ,INTENT(IN) :: jg             !< grid level/domain index
@@ -86,9 +86,8 @@ CONTAINS
     INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
     INTEGER         ,INTENT(IN) :: nbdim          !< size of this block
 
-    TYPE(datetime), POINTER     :: this_datetime  !< time step
+    TYPE(datetime), POINTER     :: this_datetime  !< date and time
     REAL(wp)        ,INTENT(IN) :: pdtime         !< time step
-    REAL(wp)        ,INTENT(IN) :: psteplen       !< 2*pdtime in case of leapfrog
 
     LOGICAL         ,INTENT(IN) :: ltrig_rad      !< perform radiative transfer computation
 
@@ -552,7 +551,7 @@ CONTAINS
                      & jce, nbdim, nlev, nlevm1, nlevp1,&! in
                      & ntrac, nsfc_type,                &! in
                      & iwtr, iice, ilnd,                &! in, indices of different surface types
-                     & psteplen,                        &! in, time step (2*dt if leapfrog)
+                     & pdtime,                          &! in, time step
                      & field%coriol(:,jb),              &! in, Coriolis parameter
                      & zfrc(:,:),                       &! in, area fraction of each sfc type
                      & field% ts_tile(:,jb,:),          &! in, surface temperature
@@ -628,7 +627,7 @@ CONTAINS
 
         CALL update_surface( vdiff_config%lsfc_heat_flux,  &! in
           & vdiff_config%lsfc_mom_flux,   &! in
-          & pdtime, psteplen,             &! in, time steps
+          & pdtime,                       &! in, time step
           & jg, jce, nbdim, field%kice,   &! in
           & nlev, nsfc_type,              &! in
           & iwtr, iice, ilnd,             &! in, indices of surface types
@@ -724,7 +723,7 @@ CONTAINS
       CALL vdiff_up( jce, nbdim, nlev, nlevm1, nlevp1,&! in
                    & ntrac, nsfc_type,                &! in
                    & iwtr,                            &! in, indices of different sfc types
-                   & pdtime, psteplen,                &! in, time steps
+                   & pdtime,                          &! in, time steps
                    & zfrc(:,:),                       &! in, area fraction of each sfc type
                    & field% cfm_tile(:,jb,:),         &! in
                    & zaa,                             &! in, from "vdiff_down"
@@ -800,14 +799,8 @@ CONTAINS
 !396   END DO
 !397 END DO
 
-      IF (ABS(pdtime*2._wp-psteplen)<1e-6_wp) THEN
-        ! Leapfrog scheme. No Asselin filter. Just swap time steps
-        field% tkem1(jcs:jce,:,jb) = field% tkem0(jcs:jce,:,jb)
-        field% tkem0(jcs:jce,:,jb) = field% tke  (jcs:jce,:,jb)
-      ELSE
-        ! 2-tl-scheme
-        field% tkem1(jcs:jce,:,jb) = field% tke  (jcs:jce,:,jb)
-      ENDIF
+      ! 2-tl-scheme
+      field% tkem1(jcs:jce,:,jb) = field% tke  (jcs:jce,:,jb)
 
     ! 5.6 Turbulent mixing, part III:
     !     - Further diagnostics.
@@ -968,7 +961,7 @@ CONTAINS
                      nlev                                      ,& ! in,  number of levels
                      !
                      p_patch(jg)%cells%center(:,jb)%lat        ,& ! in,  Latitude in radians
-                     psteplen                                  ,& ! in,  time step length, usually 2*delta_time
+                     pdtime                                    ,& ! in,  time step length
                      !
                      field% presi_old(:,:,jb)                  ,& ! in,  p at half levels
                      field% presm_old(:,:,jb)                  ,& ! in,  p at full levels
@@ -1042,7 +1035,7 @@ CONTAINS
         &          nlevp1, nlevm1,            &! in
         &          ntrac,                     &! in     tracers
 !        &          jb,                        &! in     row index
-        &          psteplen,                  &! in
+        &          pdtime,                    &! in
         &          field% lfland(:,jb),       &! in     loland
         &          field% ta(:,:,jb),         &! in     tm1
         &          field% ua(:,:,jb),         &! in     um1
@@ -1134,7 +1127,7 @@ CONTAINS
         IF (ltimer) CALL timer_start(timer_cloud)
 
         CALL cloud(jce, nbdim, jks, nlev, nlevp1, &! in
-          &        psteplen,                  &! in
+          &        pdtime,                    &! in
           &        ictop,                     &! in (from "cucall")
           &        field% presi_old(:,:,jb),  &! in
           &        field% presm_old(:,:,jb),  &! in

@@ -722,7 +722,7 @@ CONTAINS
   !!
   SUBROUTINE vdiff_tendencies( kproma, kbdim, itop, klev, klevm1, klevp1,  &! in
                              & ktrac, ksfc_type, idx_wtr,                  &! in
-                             & pdtime, pstep_len,                          &! in
+                             & pdtime,                                     &! in
                              & pum1, pvm1, ptm1, pqm1, pxlm1, pxim1,       &! in
                              & pxtm1, pgeom1, pdelpm1, pcptgz,             &! in
                              & pcd, pcv,                                   &! in
@@ -739,7 +739,7 @@ CONTAINS
 
     INTEGER, INTENT(IN) :: kproma, kbdim, itop, klev, klevm1, klevp1, ktrac
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr
-    REAL(wp),INTENT(IN) :: pstep_len, pdtime
+    REAL(wp),INTENT(IN) :: pdtime
 
     REAL(wp),INTENT(IN)  :: pum1   (kbdim,klev)
     REAL(wp),INTENT(IN)  :: pvm1   (kbdim,klev)
@@ -801,8 +801,8 @@ CONTAINS
     INTEGER  :: jk, jl, jt, irhs, jsfc
 
 
-    zrdt   = 1._wp/pstep_len
-    zconst = pdtime/(grav*pstep_len)
+    zrdt   = 1._wp/pdtime
+    zconst = 1._wp/grav
 
     IF (itop>1) THEN
       pute_vdf (1:kproma,1:itop-1)   = 0._wp
