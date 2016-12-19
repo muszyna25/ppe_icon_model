@@ -114,7 +114,8 @@ MODULE mo_name_list_output
   USE mo_name_list_output_config,   ONLY: use_async_name_list_io
   ! data types
   USE mo_var_metadata_types,        ONLY: t_var_metadata, POST_OP_SCALE, POST_OP_LUC
-  USE mo_name_list_output_types,    ONLY: t_output_file, t_reorder_info, &
+  USE mo_reorder_info,              ONLY: t_reorder_info
+  USE mo_name_list_output_types,    ONLY: t_output_file, icell, iedge, ivert, &
     &                                     msg_io_start, msg_io_done, &
     &                                     msg_io_meteogram_flush, &
     &                                     msg_io_shutdown, all_events, &
@@ -942,15 +943,15 @@ CONTAINS
       nullify(p_ri, p_pat)
       SELECT CASE (info%hgrid)
       CASE (GRID_UNSTRUCTURED_CELL)
-        p_ri  => patch_info(i_dom)%cells
+        p_ri  => patch_info(i_dom)%ri(icell)
         p_pat => patch_info(i_dom)%p_pat_c
       CASE (GRID_LONLAT)
       CASE (GRID_ZONAL)
       CASE (GRID_UNSTRUCTURED_EDGE)
-        p_ri  => patch_info(i_dom)%edges
+        p_ri  => patch_info(i_dom)%ri(iedge)
         p_pat => patch_info(i_dom)%p_pat_e
       CASE (GRID_UNSTRUCTURED_VERT)
-        p_ri  => patch_info(i_dom)%verts
+        p_ri  => patch_info(i_dom)%ri(ivert)
         p_pat => patch_info(i_dom)%p_pat_v
 #ifndef __NO_ICON_ATMO__
       CASE (GRID_REGULAR_LONLAT)
@@ -1935,9 +1936,9 @@ CONTAINS
     ! Get maximum number of data points in a slice and allocate tmp variables
 
     i_dom = of%phys_patch_id
-    nval = MAX(patch_info(i_dom)%cells%n_glb, &
-               patch_info(i_dom)%edges%n_glb, &
-               patch_info(i_dom)%verts%n_glb)
+    nval = MAX(patch_info(i_dom)%ri(icell)%n_glb, &
+               patch_info(i_dom)%ri(iedge)%n_glb, &
+               patch_info(i_dom)%ri(ivert)%n_glb)
 #ifndef __NO_ICON_ATMO__
     ! take also the lon-lat grids into account
     DO iv = 1, of%num_vars
@@ -2051,11 +2052,11 @@ CONTAINS
       ! Get pointer to appropriate reorder_info
       SELECT CASE (info%hgrid)
         CASE (GRID_UNSTRUCTURED_CELL)
-          p_ri => patch_info(of%phys_patch_id)%cells
+          p_ri => patch_info(of%phys_patch_id)%ri(icell)
         CASE (GRID_UNSTRUCTURED_EDGE)
-          p_ri => patch_info(of%phys_patch_id)%edges
+          p_ri => patch_info(of%phys_patch_id)%ri(iedge)
         CASE (GRID_UNSTRUCTURED_VERT)
-          p_ri => patch_info(of%phys_patch_id)%verts
+          p_ri => patch_info(of%phys_patch_id)%ri(ivert)
 
 #ifndef __NO_ICON_ATMO__
         CASE (GRID_REGULAR_LONLAT)

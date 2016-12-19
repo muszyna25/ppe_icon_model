@@ -37,6 +37,7 @@ MODULE mo_name_list_output_types
   USE mo_output_event_types,    ONLY: t_par_output_event, MAX_EVENT_NAME_STR_LEN
   USE mo_level_selection_types, ONLY: t_level_selection
   USE mo_name_list_output_zaxes_types,ONLY: t_verticalAxisList
+  USE mo_reorder_info,          ONLY: t_reorder_info
 
   IMPLICIT NONE
 
@@ -123,49 +124,17 @@ MODULE mo_name_list_output_types
     REAL(wp), ALLOCATABLE :: lon   (:), lat   (:)
     REAL(wp), ALLOCATABLE :: lonv(:,:), latv(:,:)
 
+    !> Global number of points in the associated logical patch
+    INTEGER :: n_log
     ! only used when copying grid info from file (grid_info_mode = GRID_INFO_FILE):
     INTEGER,  ALLOCATABLE :: log_dom_index(:)
     ! Index where a point of the physical domains is in the logical domain
   END TYPE t_grid_info
 
-
-  !------------------------------------------------------------------------------------------------
-  ! TYPE t_reorder_info describes how local cells/edges/verts
-  ! have to be reordered to get the global array.
-  ! Below, "points" refers to either cells, edges or verts.
-  !
-  ! TODO[FP] Note that the "reorder_info" contains fields of *global*
-  !          size (reorder_index). On the compute PEs these fields
-  !          could be deallocated after the call to
-  !          "transfer_reorder_info" in the setup phase!
-
-  TYPE t_reorder_info
-    INTEGER                    :: n_glb  ! Global number of points per physical patch
-    INTEGER                    :: n_log  ! Global number of points in the associated logical patch
-    INTEGER                    :: n_own  ! Number of own points (without halo, only belonging to phyiscal patch)
-    ! Only set on compute PEs, set to 0 on IO PEs
-    INTEGER, ALLOCATABLE       :: own_idx(:), own_blk(:)
-    ! dest idx and blk for own points, only set on sequential/test PEs
-    INTEGER, ALLOCATABLE       :: pe_own(:)
-    ! n_own, gathered for all compute PEs (set on all PEs)
-    INTEGER, ALLOCATABLE       :: pe_off(:)
-    ! offset of contributions of PEs (set on all PEs)
-    INTEGER, ALLOCATABLE       :: reorder_index(:)
-    ! Index how to reorder the contributions of all compute PEs
-    ! into the global array (set on all PEs)
-
-    ! grid information: geographical locations of cells, edges, and
-    ! vertices which is first collected on working PE 0 - from where
-    ! it will be broadcasted to the pure I/O PEs.
-    TYPE (t_grid_info)         :: grid_info
-  END TYPE t_reorder_info
-
-
   ! TYPE t_patch_info contains the reordering info for cells, edges and verts
   TYPE t_patch_info
-    TYPE(t_reorder_info)                 :: cells
-    TYPE(t_reorder_info)                 :: edges
-    TYPE(t_reorder_info)                 :: verts
+    TYPE(t_reorder_info)                 :: ri(3)
+    TYPE(t_grid_info)                    :: grid_info(3)
     INTEGER                              :: log_patch_id
 
     ! pointer to communication pattern for GATHER operation;
@@ -200,6 +169,7 @@ MODULE mo_name_list_output_types
   !> Reordering info for regular (lon-lat) grids
   TYPE t_patch_info_ll
     TYPE(t_reorder_info)                 :: ri
+    TYPE(t_grid_info)                    :: grid_info
     ! mode how to collect grid information (for output)
     INTEGER                              :: grid_info_mode
   END TYPE t_patch_info_ll

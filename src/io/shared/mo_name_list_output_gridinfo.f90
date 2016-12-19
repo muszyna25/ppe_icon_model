@@ -110,9 +110,11 @@ CONTAINS
     TYPE(t_patch_info),   INTENT(INOUT) :: patch_info
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::deallocate_grid_info"
 
-    CALL deallocate_grid_info(patch_info%cells%grid_info)
-    CALL deallocate_grid_info(patch_info%edges%grid_info)
-    CALL deallocate_grid_info(patch_info%verts%grid_info)
+    INTEGER :: i
+
+    DO i = 1, 3
+      CALL deallocate_grid_info(patch_info%grid_info(i))
+    END DO
   END SUBROUTINE deallocate_all_grid_info
 
 
@@ -138,7 +140,7 @@ CONTAINS
       &                    p_patch%nblks_c,                     &
       &                    p_patch%cells%center,                &
       &                    lonv, latv,                          &
-      &                    patch_info%cells%grid_info,          &
+      &                    patch_info%grid_info(icell),         &
       &                    max_cell_connectivity,               &
       &                    patch_info%p_pat_c)
     DEALLOCATE(lonv, latv, STAT=ierrstat)
@@ -154,7 +156,7 @@ CONTAINS
       &                    p_patch%nblks_e,                     &
       &                    p_patch%edges%center,                &
       &                    lonv, latv,                          &
-      &                    patch_info%edges%grid_info,          &
+      &                    patch_info%grid_info(iedge),         &
       &                    4,                                   &
       &                    patch_info%p_pat_e)
     DEALLOCATE(lonv, latv, STAT=ierrstat)
@@ -176,7 +178,7 @@ CONTAINS
       &                    p_patch%nblks_v,                     &
       &                    p_patch%verts%vertex,                &
       &                    lonv, latv,                          &
-      &                    patch_info%verts%grid_info,          &
+      &                    patch_info%grid_info(ivert),          &
       &                    max_vertex_connectivity,             &
       &                    patch_info%p_pat_v)
     DEALLOCATE(lonv, latv, STAT=ierrstat)
@@ -695,11 +697,11 @@ CONTAINS
     CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
     CALL nf(nf_inq_dimlen(ncid, dimid, i_nv))
 
-    IF(i_nc /= patch_info(i_dom)%cells%n_log) &
+    IF(i_nc /= patch_info(i_dom)%grid_info(icell)%n_log) &
       CALL finish(routine,'Number of cells differs in '//TRIM(patch_info(i_dom)%grid_filename))
-    IF(i_ne /= patch_info(i_dom)%edges%n_log) &
+    IF(i_ne /= patch_info(i_dom)%grid_info(iedge)%n_log) &
       CALL finish(routine,'Number of edges differs in '//TRIM(patch_info(i_dom)%grid_filename))
-    IF(i_nv /= patch_info(i_dom)%verts%n_log) &
+    IF(i_nv /= patch_info(i_dom)%grid_info(ivert)%n_log) &
       CALL finish(routine,'Number of verts differs in '//TRIM(patch_info(i_dom)%grid_filename))
     !
     !---------------------------------------------------------------------------
@@ -707,8 +709,8 @@ CONTAINS
     CALL nf(nf_inq_varid(ncid, 'clon', varid))
     ALLOCATE(clon(i_nc))
     CALL nf(nf_get_var_double(ncid, varid, clon))
-    CALL reorder1(patch_info(i_dom)%cells%n_glb, &
-      &           patch_info(i_dom)%cells%grid_info%log_dom_index, clon)
+    CALL reorder1(patch_info(i_dom)%ri(icell)%n_glb, &
+      &           patch_info(i_dom)%grid_info(icell)%log_dom_index, clon)
     CALL gridDefXvals(of%cdiCellGridID, clon)
     DEALLOCATE(clon)
 
@@ -716,8 +718,8 @@ CONTAINS
     CALL nf(nf_inq_varid(ncid, 'clat', varid))
     ALLOCATE(clat(i_nc))
     CALL nf(nf_get_var_double(ncid, varid, clat))
-    CALL reorder1(patch_info(i_dom)%cells%n_glb, &
-      &           patch_info(i_dom)%cells%grid_info%log_dom_index, clat)
+    CALL reorder1(patch_info(i_dom)%ri(icell)%n_glb, &
+      &           patch_info(i_dom)%grid_info(icell)%log_dom_index, clat)
 
     CALL gridDefYvals(of%cdiCellGridID, clat)
     DEALLOCATE(clat)
@@ -726,8 +728,8 @@ CONTAINS
     CALL nf(nf_inq_varid(ncid, 'clon_vertices', varid))
     ALLOCATE(clonv(max_cell_connectivity, i_nc))
     CALL nf(nf_get_var_double(ncid, varid, clonv))
-    CALL reorder2(patch_info(i_dom)%cells%n_glb, &
-      &           patch_info(i_dom)%cells%grid_info%log_dom_index, clonv)
+    CALL reorder2(patch_info(i_dom)%ri(icell)%n_glb, &
+      &           patch_info(i_dom)%grid_info(icell)%log_dom_index, clonv)
 
     CALL gridDefXbounds(of%cdiCellGridID, clonv)
     DEALLOCATE(clonv)
@@ -736,8 +738,8 @@ CONTAINS
     CALL nf(nf_inq_varid(ncid, 'clat_vertices', varid))
     ALLOCATE(clatv(max_cell_connectivity, i_nc))
     CALL nf(nf_get_var_double(ncid, varid, clatv))
-    CALL reorder2(patch_info(i_dom)%cells%n_glb, &
-      &           patch_info(i_dom)%cells%grid_info%log_dom_index, clatv)
+    CALL reorder2(patch_info(i_dom)%ri(icell)%n_glb, &
+      &           patch_info(i_dom)%grid_info(icell)%log_dom_index, clatv)
 
     CALL gridDefYbounds(of%cdiCellGridID, clatv)
     DEALLOCATE(clatv)
@@ -748,8 +750,8 @@ CONTAINS
     ALLOCATE(elon(i_ne))
     CALL nf(nf_inq_varid(ncid, 'elon', varid))
     CALL nf(nf_get_var_double(ncid, varid, elon))
-    CALL reorder1(patch_info(i_dom)%edges%n_glb, &
-      &           patch_info(i_dom)%edges%grid_info%log_dom_index, elon)
+    CALL reorder1(patch_info(i_dom)%ri(iedge)%n_glb, &
+      &           patch_info(i_dom)%grid_info(iedge)%log_dom_index, elon)
 
     CALL gridDefXvals(of%cdiEdgeGridID, elon)
     DEALLOCATE(elon)
@@ -757,8 +759,8 @@ CONTAINS
     ALLOCATE(elat(i_ne))
     CALL nf(nf_inq_varid(ncid, 'elat', varid))
     CALL nf(nf_get_var_double(ncid, varid, elat))
-    CALL reorder1(patch_info(i_dom)%edges%n_glb, &
-      &           patch_info(i_dom)%edges%grid_info%log_dom_index, elat)
+    CALL reorder1(patch_info(i_dom)%ri(iedge)%n_glb, &
+      &           patch_info(i_dom)%grid_info(iedge)%log_dom_index, elat)
 
     CALL gridDefYvals(of%cdiEdgeGridID, elat)
     DEALLOCATE(elat)
@@ -766,8 +768,8 @@ CONTAINS
     ALLOCATE(elonv(4, i_ne))
     CALL nf(nf_inq_varid(ncid, 'elon_vertices', varid))
     CALL nf(nf_get_var_double(ncid, varid, elonv))
-    CALL reorder2(patch_info(i_dom)%edges%n_glb, &
-      &           patch_info(i_dom)%edges%grid_info%log_dom_index, elonv)
+    CALL reorder2(patch_info(i_dom)%ri(iedge)%n_glb, &
+      &           patch_info(i_dom)%grid_info(iedge)%log_dom_index, elonv)
 
     CALL gridDefXbounds(of%cdiEdgeGridID, elonv)
     DEALLOCATE(elonv)
@@ -775,8 +777,8 @@ CONTAINS
     ALLOCATE(elatv(4, i_ne))
     CALL nf(nf_inq_varid(ncid, 'elat_vertices', varid))
     CALL nf(nf_get_var_double(ncid, varid, elatv))
-    CALL reorder2(patch_info(i_dom)%edges%n_glb, &
-      &           patch_info(i_dom)%edges%grid_info%log_dom_index, elatv)
+    CALL reorder2(patch_info(i_dom)%ri(iedge)%n_glb, &
+      &           patch_info(i_dom)%grid_info(iedge)%log_dom_index, elatv)
 
     CALL gridDefYbounds(of%cdiEdgeGridID, elatv)
     DEALLOCATE(elatv)
@@ -786,8 +788,8 @@ CONTAINS
     CALL nf(nf_inq_varid(ncid, 'vlon', varid))
     ALLOCATE(vlon(i_nv))
     CALL nf(nf_get_var_double(ncid, varid, vlon))
-    CALL reorder1(patch_info(i_dom)%verts%n_glb, &
-      &           patch_info(i_dom)%verts%grid_info%log_dom_index, vlon)
+    CALL reorder1(patch_info(i_dom)%ri(ivert)%n_glb, &
+      &           patch_info(i_dom)%grid_info(ivert)%log_dom_index, vlon)
 
     CALL gridDefXvals(of%cdiVertGridID, vlon)
     DEALLOCATE(vlon)
@@ -795,8 +797,8 @@ CONTAINS
     CALL nf(nf_inq_varid(ncid, 'vlat', varid))
     ALLOCATE(vlat(i_nv))
     CALL nf(nf_get_var_double(ncid, varid, vlat))
-    CALL reorder1(patch_info(i_dom)%verts%n_glb, &
-      &           patch_info(i_dom)%verts%grid_info%log_dom_index, vlat)
+    CALL reorder1(patch_info(i_dom)%ri(ivert)%n_glb, &
+      &           patch_info(i_dom)%grid_info(ivert)%log_dom_index, vlat)
 
     CALL gridDefYvals(of%cdiVertGridID, vlat)
     DEALLOCATE(vlat)
@@ -804,8 +806,8 @@ CONTAINS
     CALL nf(nf_inq_varid(ncid, 'vlon_vertices', varid))
     ALLOCATE(vlonv(max_verts_connectivity, i_nv))
     CALL nf(nf_get_var_double(ncid, varid, vlonv))
-    CALL reorder2(patch_info(i_dom)%verts%n_glb, &
-      &           patch_info(i_dom)%verts%grid_info%log_dom_index, vlonv)
+    CALL reorder2(patch_info(i_dom)%ri(ivert)%n_glb, &
+      &           patch_info(i_dom)%grid_info(ivert)%log_dom_index, vlonv)
 
     CALL gridDefXbounds(of%cdiVertGridID, vlonv)
     DEALLOCATE(vlonv)
@@ -813,8 +815,8 @@ CONTAINS
     CALL nf(nf_inq_varid(ncid, 'vlat_vertices', varid))
     ALLOCATE(vlatv(max_verts_connectivity, i_nv))
     CALL nf(nf_get_var_double(ncid, varid, vlatv))
-    CALL reorder2(patch_info(i_dom)%verts%n_glb, &
-      &           patch_info(i_dom)%verts%grid_info%log_dom_index, vlatv)
+    CALL reorder2(patch_info(i_dom)%ri(ivert)%n_glb, &
+      &           patch_info(i_dom)%grid_info(ivert)%log_dom_index, vlatv)
 
     CALL gridDefYbounds(of%cdiVertGridID, vlatv)
     DEALLOCATE(vlatv)
@@ -960,7 +962,7 @@ CONTAINS
 
     CALL allgather_grid_info_cve(idom_log, patch_info%max_cell_connectivity, &
       &                          patch_info%nblks_glb_c, patch_info%nblks_glb_c, &
-      &                          coordinates, patch_info%cells%grid_info, &
+      &                          coordinates, patch_info%grid_info(icell), &
       &                          gather_pattern, cf_1_1_grid_cells, &
       &                          keep_grid_info)
 
@@ -972,13 +974,13 @@ CONTAINS
     IF (my_process_is_ocean()) THEN
       CALL allgather_grid_info_cve(idom_log, patch_info%max_vertex_connectivity, &
         &                          patch_info%nblks_glb_v, patch_info%nblks_glb_v, &
-        &                          coordinates, patch_info%verts%grid_info, &
+        &                          coordinates, patch_info%grid_info(ivert), &
         &                          gather_pattern, cf_1_1_grid_verts_ocean, &
       &                          keep_grid_info)
     ELSE
       CALL allgather_grid_info_cve(idom_log, 9 - patch_info%max_cell_connectivity, &
         &                          patch_info%nblks_glb_v, patch_info%nblks_glb_v, &
-        &                          coordinates, patch_info%verts%grid_info, &
+        &                          coordinates, patch_info%grid_info(ivert), &
         &                          gather_pattern, cf_1_1_grid_verts, &
       &                          keep_grid_info)
     END IF
@@ -990,7 +992,7 @@ CONTAINS
 
     CALL allgather_grid_info_cve(idom_log, 4, &
       &                          patch_info%nblks_glb_e, patch_info%nblks_glb_e, &
-      &                          coordinates, patch_info%edges%grid_info, &
+      &                          coordinates, patch_info%grid_info(iedge), &
       &                          gather_pattern, cf_1_1_grid_edges, &
       &                          keep_grid_info)
 
@@ -1011,14 +1013,9 @@ CONTAINS
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::write_grid_info_grb2"
 
-    TYPE t_grid_info_ptr
-      TYPE (t_grid_info), POINTER :: ptr
-    END TYPE t_grid_info_ptr
-
-    INTEGER                        :: errstat, idom, igrid, idx(3), isize(3), idom_log
+    INTEGER                        :: errstat, idom, igrid, idx(3), n, idom_log
     TYPE (t_lon_lat_grid), POINTER :: grid
     REAL(wp), ALLOCATABLE          :: rotated_pts(:,:,:), r_out_dp(:,:), r_out_dp_1D(:)
-    TYPE(t_grid_info_ptr)          :: gptr(3)
     CHARACTER(LEN=vname_len), POINTER :: p_varlist(:)
 
     SELECT CASE(of%name_list%remap)
@@ -1026,25 +1023,20 @@ CONTAINS
       idom     = of%phys_patch_id
       idom_log = patch_info(idom)%log_patch_id
       idx(:)    = (/ ICELL, IEDGE, IVERT /)
-      isize(1) = patch_info(idom_log)%cells%n_glb
-      isize(2) = patch_info(idom_log)%edges%n_glb
-      isize(3) = patch_info(idom_log)%verts%n_glb
-      gptr(1)%ptr => patch_info(idom_log)%cells%grid_info
-      gptr(2)%ptr => patch_info(idom_log)%edges%grid_info
-      gptr(3)%ptr => patch_info(idom_log)%verts%grid_info
       DO igrid=1,3
+        n = patch_info(idom_log)%ri(igrid)%n_glb
         ! allocate data buffer:
-        ALLOCATE(r_out_dp_1D(isize(igrid)), stat=errstat)
+        ALLOCATE(r_out_dp_1D(n), stat=errstat)
         IF (errstat /= SUCCESS) CALL finish(routine, 'ALLOCATE failed!')
 
         ! write RLON, RLAT
         CALL get_varlist(of, p_varlist)
         IF (one_of(GRB2_GRID_INFO_NAME(igrid,IRLON), p_varlist) /= -1) THEN
-          r_out_dp_1D(:) = gptr(igrid)%ptr%lon(1:isize(igrid)) / pi_180
+          r_out_dp_1D(:) = patch_info(idom_log)%grid_info(igrid)%lon(1:n) / pi_180
           CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(idx(igrid),IRLON), r_out_dp_1D, 0)
         END IF
         IF (one_of(GRB2_GRID_INFO_NAME(igrid,IRLAT), p_varlist) /= -1) THEN
-          r_out_dp_1D(:) = gptr(igrid)%ptr%lat(1:isize(igrid)) / pi_180
+          r_out_dp_1D(:) = patch_info(idom_log)%grid_info(igrid)%lat(1:n) / pi_180
           CALL streamWriteVar(of%cdiFileID, of%cdi_grb2(idx(igrid),IRLAT), r_out_dp_1D, 0)
         END IF
 

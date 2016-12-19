@@ -144,9 +144,10 @@ MODULE mo_name_list_output_init
   USE mo_output_event_handler,              ONLY: trigger_output_step_irecv
 #endif
   ! name list output
+  USE mo_reorder_info,                      ONLY: t_reorder_info
   USE mo_name_list_output_types,            ONLY: l_output_phys_patch, t_output_name_list,        &
-    &                                             t_output_file, t_var_desc,                      &
-    &                                             t_patch_info, t_reorder_info,                   &
+    &                                             t_output_file, t_var_desc, t_grid_info,         &
+    &                                             t_patch_info, icell, iedge, ivert,              &
     &                                             REMAP_NONE, REMAP_REGULAR_LATLON,               &
     &                                             GRP_PREFIX, TILE_PREFIX,                        &
     &                                             t_fname_metadata, all_events, t_patch_info_ll,  &
@@ -2082,15 +2083,18 @@ CONTAINS
         ! Set reorder_info on work and test PE
         CALL set_reorder_info(jp, p_patch(jl)%n_patch_cells_g, p_patch(jl)%n_patch_cells,             &
           &                   p_patch(jl)%cells%decomp_info%owner_mask, p_patch(jl)%cells%phys_id,    &
-          &                   p_patch(jl)%cells%decomp_info%glb_index, patch_info(jp)%cells )
+          &                   p_patch(jl)%cells%decomp_info%glb_index,                                &
+          &                   patch_info(jp)%ri(icell), patch_info(jp)%grid_info(icell))
 
         CALL set_reorder_info(jp, p_patch(jl)%n_patch_edges_g, p_patch(jl)%n_patch_edges,             &
           &                   p_patch(jl)%edges%decomp_info%owner_mask, p_patch(jl)%edges%phys_id,    &
-          &                   p_patch(jl)%edges%decomp_info%glb_index, patch_info(jp)%edges )
+          &                   p_patch(jl)%edges%decomp_info%glb_index,                                &
+          &                   patch_info(jp)%ri(iedge), patch_info(jp)%grid_info(iedge))
 
         CALL set_reorder_info(jp, p_patch(jl)%n_patch_verts_g, p_patch(jl)%n_patch_verts,             &
           &                   p_patch(jl)%verts%decomp_info%owner_mask, p_patch(jl)%verts%phys_id,    &
-          &                   p_patch(jl)%verts%decomp_info%glb_index, patch_info(jp)%verts )
+          &                   p_patch(jl)%verts%decomp_info%glb_index,                                &
+          &                   patch_info(jp)%ri(ivert), patch_info(jp)%grid_info(ivert))
         ! Set grid_filename on work and test PE
         patch_info(jp)%grid_filename = TRIM(p_patch(jl)%grid_filename)
         ! Set UUID on work and test PE
@@ -2105,9 +2109,9 @@ CONTAINS
 #ifndef NOMPI
       IF (use_async_name_list_io .AND. .NOT. is_mpi_test) THEN
         ! Transfer reorder_info to IO PEs
-        CALL transfer_reorder_info(patch_info(jp)%cells, patch_info(jp)%grid_info_mode)
-        CALL transfer_reorder_info(patch_info(jp)%edges, patch_info(jp)%grid_info_mode)
-        CALL transfer_reorder_info(patch_info(jp)%verts, patch_info(jp)%grid_info_mode)
+        CALL transfer_reorder_info(patch_info(jp)%ri(icell), patch_info(jp)%grid_info(icell), patch_info(jp)%grid_info_mode)
+        CALL transfer_reorder_info(patch_info(jp)%ri(iedge), patch_info(jp)%grid_info(iedge), patch_info(jp)%grid_info_mode)
+        CALL transfer_reorder_info(patch_info(jp)%ri(ivert), patch_info(jp)%grid_info(ivert), patch_info(jp)%grid_info_mode)
         CALL p_bcast(patch_info(jp)%grid_filename, bcast_root, p_comm_work_2_io)
         CALL p_bcast(patch_info(jp)%grid_uuid%data, SIZE(patch_info(jp)%grid_uuid%data),  &
           &          bcast_root, p_comm_work_2_io)
@@ -2132,7 +2136,7 @@ CONTAINS
 #ifndef NOMPI
         IF (use_async_name_list_io .AND. .NOT. is_mpi_test) THEN
           ! Transfer reorder_info to IO PEs
-          CALL transfer_reorder_info(lonlat_info(jl,jg)%ri, lonlat_info(jl,jg)%grid_info_mode)
+          CALL transfer_reorder_info(lonlat_info(jl,jg)%ri, lonlat_info(jl,jg)%grid_info, lonlat_info(jl,jg)%grid_info_mode)
         ENDIF
 #endif
 ! NOMPI
@@ -2149,7 +2153,7 @@ CONTAINS
   !             The arguments don't make sense on the IO PEs anyways
   !
   SUBROUTINE set_reorder_info(phys_patch_id, n_points_g, n_points, owner_mask, phys_id, &
-                              glb_index, p_ri)
+                              glb_index, p_ri, grid_info)
 
     INTEGER, INTENT(IN) :: phys_patch_id   ! Physical patch ID
     INTEGER, INTENT(IN) :: n_points_g      ! Global number of cells/edges/verts in logical patch
@@ -2158,14 +2162,13 @@ CONTAINS
     INTEGER, INTENT(IN) :: phys_id(:,:)    ! phys_id for logical patch
     INTEGER, INTENT(IN) :: glb_index(:)    ! glb_index for logical patch
     TYPE(t_reorder_info), INTENT(INOUT) :: p_ri ! Result: reorder info
+    TYPE(t_grid_info), INTENT(INOUT) :: grid_info
     ! local variables
     INTEGER :: i, n, il, ib
     LOGICAL, ALLOCATABLE :: phys_owner_mask(:) ! owner mask for physical patch
     INTEGER, ALLOCATABLE :: glbidx_own(:), glbidx_glb(:), reorder_index_log_dom(:)
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_reorder_info"
-
-    p_ri%n_log = n_points_g ! Total points in logical domain
 
     ! Set the physical patch owner mask
 
@@ -2240,13 +2243,15 @@ CONTAINS
       ENDIF
     ENDDO
 
+    grid_info%n_log = n_points_g ! Total points in logical domain
+
     IF (patch_info(phys_patch_id)%grid_info_mode == GRID_INFO_FILE) THEN
-      ALLOCATE(p_ri%grid_info%log_dom_index(p_ri%n_glb))
+      ALLOCATE(grid_info%log_dom_index(p_ri%n_glb))
       n = 0
       DO i = 1, n_points_g
         IF(reorder_index_log_dom(i)>0) THEN
           n = n+1
-          p_ri%grid_info%log_dom_index(n) = i
+          grid_info%log_dom_index(n) = i
         ENDIF
       ENDDO
     END IF
@@ -2317,7 +2322,7 @@ CONTAINS
     ALLOCATE(patch_info_ll%ri%reorder_index(patch_info_ll%ri%n_glb), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     IF (patch_info_ll%grid_info_mode == GRID_INFO_FILE) THEN
-      ALLOCATE(patch_info_ll%ri%grid_info%log_dom_index(patch_info_ll%ri%n_glb), STAT=ierrstat)
+      ALLOCATE(patch_info_ll%grid_info%log_dom_index(patch_info_ll%ri%n_glb), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     END IF
 
@@ -2332,7 +2337,7 @@ CONTAINS
     IF (patch_info_ll%grid_info_mode == GRID_INFO_FILE) THEN
       ! mapping between logical and physical patch is trivial for
       ! lon-lat grids:
-      patch_info_ll%ri%grid_info%log_dom_index(:) = (/ (i, i=1,patch_info_ll%ri%n_glb) /)
+      patch_info_ll%grid_info%log_dom_index(:) = (/ (i, i=1,patch_info_ll%ri%n_glb) /)
     END IF
   END SUBROUTINE set_reorder_info_lonlat
 #endif
@@ -2464,7 +2469,7 @@ CONTAINS
 
       ! Cells
 
-      of%cdiCellGridID = gridCreate(gridtype, patch_info(i_dom)%cells%n_glb)
+      of%cdiCellGridID = gridCreate(gridtype, patch_info(i_dom)%ri(icell)%n_glb)
       CALL gridDefNvertex(of%cdiCellGridID, max_cell_connectivity)
       !
       CALL gridDefXname(of%cdiCellGridID, 'clon')
@@ -2503,7 +2508,7 @@ CONTAINS
 
       ! Verts
 
-      of%cdiVertGridID = gridCreate(gridtype, patch_info(i_dom)%verts%n_glb)
+      of%cdiVertGridID = gridCreate(gridtype, patch_info(i_dom)%ri(ivert)%n_glb)
       IF (my_process_is_ocean()) THEN
         CALL gridDefNvertex(of%cdiVertGridID, max_vertex_connectivity)
       ELSE
@@ -2528,7 +2533,7 @@ CONTAINS
 
       ! Edges
 
-      of%cdiEdgeGridID = gridCreate(gridtype, patch_info(i_dom)%edges%n_glb)
+      of%cdiEdgeGridID = gridCreate(gridtype, patch_info(i_dom)%ri(iedge)%n_glb)
       CALL gridDefNvertex(of%cdiEdgeGridID, 4)
       !
       CALL gridDefXname(of%cdiEdgeGridID, 'elon')
@@ -2559,9 +2564,9 @@ CONTAINS
             CALL copy_grid_info(of, patch_info)
           CASE (GRID_INFO_BCAST)
             IF (.NOT. my_process_is_mpi_test()) THEN
-              CALL set_grid_info_netcdf(of%cdiCellGridID, patch_info(of%phys_patch_id)%cells%grid_info)
-              CALL set_grid_info_netcdf(of%cdiEdgeGridID, patch_info(of%phys_patch_id)%edges%grid_info)
-              CALL set_grid_info_netcdf(of%cdiVertGridID, patch_info(of%phys_patch_id)%verts%grid_info)
+              CALL set_grid_info_netcdf(of%cdiCellGridID, patch_info(of%phys_patch_id)%grid_info(icell))
+              CALL set_grid_info_netcdf(of%cdiEdgeGridID, patch_info(of%phys_patch_id)%grid_info(iedge))
+              CALL set_grid_info_netcdf(of%cdiVertGridID, patch_info(of%phys_patch_id)%grid_info(ivert))
             END IF
           END SELECT
         CASE (FILETYPE_GRB2)
@@ -2733,13 +2738,14 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !> Transfers reorder_info to IO PEs
   !
-  SUBROUTINE transfer_reorder_info(p_ri, grid_info_mode)
+  SUBROUTINE transfer_reorder_info(p_ri, grid_info, grid_info_mode)
     TYPE(t_reorder_info), INTENT(INOUT) :: p_ri ! Result: reorder info
+    TYPE(t_grid_info), INTENT(INOUT)    :: grid_info
     INTEGER,              INTENT(IN)    :: grid_info_mode
 
     ! Transfer the global number of points, this is not yet known on IO PEs
     CALL p_bcast(p_ri%n_glb,  bcast_root, p_comm_work_2_io)
-    CALL p_bcast(p_ri%n_log,  bcast_root, p_comm_work_2_io)
+    CALL p_bcast(grid_info%n_log,  bcast_root, p_comm_work_2_io)
 
     IF(my_process_is_io()) THEN
 
@@ -2752,7 +2758,7 @@ CONTAINS
 
       ALLOCATE(p_ri%reorder_index(p_ri%n_glb))
       IF (grid_info_mode == GRID_INFO_FILE) THEN
-        ALLOCATE(p_ri%grid_info%log_dom_index(p_ri%n_glb))
+        ALLOCATE(grid_info%log_dom_index(p_ri%n_glb))
       END IF
     ENDIF
 
@@ -2761,7 +2767,7 @@ CONTAINS
 
     CALL p_bcast(p_ri%reorder_index, bcast_root, p_comm_work_2_io)
     IF (grid_info_mode == GRID_INFO_FILE) THEN
-      CALL p_bcast(p_ri%grid_info%log_dom_index, bcast_root, p_comm_work_2_io)
+      CALL p_bcast(grid_info%log_dom_index, bcast_root, p_comm_work_2_io)
     END IF
 
   END SUBROUTINE transfer_reorder_info
@@ -3086,11 +3092,11 @@ CONTAINS
 
         SELECT CASE (output_file(i)%var_desc(iv)%info%hgrid)
         CASE (GRID_UNSTRUCTURED_CELL)
-          mem_size = mem_size + INT(nlevs*patch_info(jp)%cells%n_own,i8)
+          mem_size = mem_size + INT(nlevs*patch_info(jp)%ri(icell)%n_own,i8)
         CASE (GRID_UNSTRUCTURED_EDGE)
-          mem_size = mem_size + INT(nlevs*patch_info(jp)%edges%n_own,i8)
+          mem_size = mem_size + INT(nlevs*patch_info(jp)%ri(iedge)%n_own,i8)
         CASE (GRID_UNSTRUCTURED_VERT)
-          mem_size = mem_size + INT(nlevs*patch_info(jp)%verts%n_own,i8)
+          mem_size = mem_size + INT(nlevs*patch_info(jp)%ri(ivert)%n_own,i8)
 
 #ifndef __NO_ICON_ATMO__
         CASE (GRID_REGULAR_LONLAT)
