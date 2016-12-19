@@ -2069,7 +2069,7 @@ CONTAINS
   SUBROUTINE set_patch_info()
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_patch_info"
-    INTEGER :: jp, jl, jg
+    INTEGER :: jp, jl, jg, i
     LOGICAL :: is_mpi_test, is_io
 
     is_mpi_test = my_process_is_mpi_test()
@@ -2361,6 +2361,7 @@ CONTAINS
     REAL(wp)                          :: pi_180
     INTEGER                           :: max_cell_connectivity, max_vertex_connectivity, &
       &                                  cdiInstID
+    INTEGER                           :: i, cdi_grid_ids(3)
     REAL(wp), ALLOCATABLE             :: p_lonlat(:)
     TYPE(t_verticalAxisList), POINTER :: it
 
@@ -2568,9 +2569,13 @@ CONTAINS
             CALL copy_grid_info(of, patch_info)
           CASE (GRID_INFO_BCAST)
             IF (.NOT. my_process_is_mpi_test()) THEN
-              CALL set_grid_info_netcdf(of%cdiCellGridID, patch_info(of%phys_patch_id)%grid_info(icell))
-              CALL set_grid_info_netcdf(of%cdiEdgeGridID, patch_info(of%phys_patch_id)%grid_info(iedge))
-              CALL set_grid_info_netcdf(of%cdiVertGridID, patch_info(of%phys_patch_id)%grid_info(ivert))
+              cdi_grid_ids(icell) = of%cdiCellGridID
+              cdi_grid_ids(iedge) = of%cdiEdgeGridID
+              cdi_grid_ids(ivert) = of%cdiVertGridID
+              DO i = 1, 3 ! icell, iedge, ivert
+                CALL set_grid_info_netcdf(cdi_grid_ids(i), &
+                     patch_info(of%phys_patch_id)%grid_info(i))
+              END DO
             END IF
           END SELECT
         CASE (FILETYPE_GRB2)
