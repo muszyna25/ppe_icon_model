@@ -107,7 +107,7 @@ MODULE mo_interface_iconam_echam
     &                                 timer_echam_bcs, timer_echam_phy, timer_coupling,                &
     &                                 timer_phy2dyn, timer_p2d_prep, timer_p2d_sync, timer_p2d_couple
 
-  USE mo_lcariolle_types       ,ONLY: avi, t_time_interpolation
+  USE mo_lcariolle_types       ,ONLY: l_cariolle_initialized_o3, t_avi, t_time_interpolation
   IMPLICIT NONE
 
   PRIVATE
@@ -175,6 +175,7 @@ CONTAINS
     REAL(wp), POINTER :: zdudt(:,:,:), zdvdt(:,:,:)
 
     LOGICAL  :: ltrig_rad
+    TYPE(t_avi) :: avi
 
     INTEGER  :: return_status
 
@@ -407,7 +408,8 @@ CONTAINS
 !   An approximative initialization 
 !   that considers the atmosphere as being dry is enough.
     IF (echam_phy_config%lcariolle) THEN
-      IF (.NOT.isRestart().AND. .NOT. avi%l_initialized_o3) THEN
+      IF (.NOT.isRestart().AND. .NOT. l_cariolle_initialized_o3) THEN
+        ALLOCATE(avi%cell_center_lat(nproma))
         avi%ldown=.TRUE.
         current_time_interpolation_weights = calculate_time_interpolation_weights(datetime_old)
         time_interpolation%imonth1=current_time_interpolation_weights%month1_index
@@ -416,7 +418,7 @@ CONTAINS
         time_interpolation%weight2=current_time_interpolation_weights%weight2
         DO jb = i_startblk,i_endblk
           CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-          avi%pres(jcs:jce,:)=prm_field(jg)%presm_old(jcs:jce,:,jb)
+          avi%pres(:,:) => prm_field(jg)%presm_old(jcs:jce,:,jb)
           avi%cell_center_lat(jcs:jce)=patch%cells%center(jcs:jce,jb)%lat
           CALL lcariolle_init_o3(                                              &
            & jcs,                   jce,                nproma,                &
@@ -424,7 +426,8 @@ CONTAINS
            & lcariolle_pres_intp_li,avi,                vmr_o3                 )
           pt_prog_new_rcf% tracer(jcs:jce,:,jb,io3)=vmr_o3(jcs:jce,:)*amo3/amd
         END DO
-        avi%l_initialized_o3=.TRUE.
+        l_cariolle_initialized_o3 = .TRUE.
+        DEALLOCATE(avi%cell_center_lat)
       END IF
     END IF
 

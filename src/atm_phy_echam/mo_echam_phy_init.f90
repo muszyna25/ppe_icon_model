@@ -408,8 +408,7 @@ CONTAINS
       CALL lcariolle_init(                                     &
          & openInputFile_wrap,       closeFile_wrap,           &
          & read_bcast_real_3d_wrap,  read_bcast_real_1d_wrap,  &
-         & get_constants,            nproma,                   &
-         & nlev                                                )
+         & get_constants                                       )
     END IF
 
 #ifndef __NO_JSBACH__
