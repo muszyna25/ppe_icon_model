@@ -1140,9 +1140,9 @@ CONTAINS
           &        field% presm_old(:,:,jb),  &! in
 !          &        field% presm_new(:,:,jb), &! in
           &        field% acdnc (:,:,jb),     &! in. acdnc
-          &        field% qtrc  (:,:,jb,iqv), &! in.  qm1
           &        field%   ta  (:,:,jb),     &! in. tm1
           &        field%   tv  (:,:,jb),     &! in. ztvm1
+          &        field% qtrc  (:,:,jb,iqv), &! in. qm1
           &        field% qtrc  (:,:,jb,iqc), &! in. xlm1
           &        field% qtrc  (:,:,jb,iqi), &! in. xim1
           &        zcair(:,:),                &! in
@@ -1157,8 +1157,8 @@ CONTAINS
           &         tend% xl_dtr(:,:,jb),     &! inout  xtecl
           &         tend% xi_dtr(:,:,jb),     &! inout  xteci
           &        zqtec,                     &! inout (there is a clip inside)
-          &         tend% qtrc  (:,:,jb,iqv), &! inout.  qte
           &         tend% ta  (:,:,jb),     &! inout.  tte
+          &         tend% qtrc  (:,:,jb,iqv), &! inout.  qte
           &         tend% qtrc  (:,:,jb,iqc), &! inout. xlte
           &         tend% qtrc  (:,:,jb,iqi), &! inout. xite
           &        field% cld_dtrl(:,jb),     &! inout detrained liquid

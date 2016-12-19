@@ -91,8 +91,8 @@ CONTAINS
                            , paphm1                                                  &
                            , papm1                                                   &
                            , pacdnc                                                  &
-                           , pqm1,         ptm1,           ptvm1                     &
-                           , pxlm1,        pxim1                                     &
+                           , ptm1,         ptvm1                                     &
+                           , pqm1,         pxlm1,        pxim1                       &
                            , pcair,        pgeo                                      &
     ! - INPUT/OUTPUT 1D .
                            , paclcov                                                 &
@@ -101,10 +101,10 @@ CONTAINS
                            , ktype                                                   &
                            , pch_concloud, pcw_concloud                              &
     ! - INPUT/OUTPUT 2D .
-                           , pxtecl,       pxteci,         pqtec                     &
-                           , pqte,         ptte                                      &
-                           , pxlte,        pxite                                     &
-                           , pcld_etrl,    pcld_etri,      pcld_iteq                 &
+                           , pxtecl,       pxteci,       pqtec                       &
+                           , ptte                                                    &
+                           , pqte,         pxlte,        pxite                       &
+                           , pcld_etrl,    pcld_etri,    pcld_iteq                   &
                            , paclc                                                   &
     ! - OUTPUT 1D .
                            , pssfl,        prsfl                                     &
@@ -124,9 +124,9 @@ CONTAINS
       & paphm1   (kbdim,klevp1)   ,&!< pressure at half levels                   (n-1)
       & papm1    (kbdim,klev)     ,&!< pressure at full levels                   (n-1)
       & pacdnc   (kbdim,klev)     ,&!< cloud droplet number concentration (specified)
-      & pqm1     (kbdim,klev)     ,&!< specific humidity                         (n-1)
       & ptm1     (kbdim,klev)     ,&!< temperature                               (n-1)
       & ptvm1    (kbdim,klev)     ,&!< virtual temperature                       (n-1)
+      & pqm1     (kbdim,klev)     ,&!< specific humidity                         (n-1)
       & pxlm1    (kbdim,klev)     ,&!< cloud liquid water                        (n-1)
       & pxim1    (kbdim,klev)     ,&!< cloud ice                                 (n-1)
       & pcair    (kbdim,klev)     ,&!< specific heat of moist air
@@ -143,8 +143,8 @@ CONTAINS
       & pxtecl   (kbdim,klev)     ,&!< detrained convective cloud liquid water   (n)
       & pxteci   (kbdim,klev)     ,&!< detrained convective cloud ice            (n)
       & pqtec    (kbdim,klev)     ,&!<
-      & pqte     (kbdim,klev)     ,&!< tendency of specific humidity
       & ptte     (kbdim,klev)     ,&!< tendency of temperature
+      & pqte     (kbdim,klev)     ,&!< tendency of specific humidity
       & pxlte    (kbdim,klev)     ,&!< tendency of cloud liquid water
       & pxite    (kbdim,klev)     ,&!< tendency of cloud ice
       & paclc    (kbdim,klev)       !< cloud cover  (now diagnosed in cover)
