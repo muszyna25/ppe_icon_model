@@ -2199,6 +2199,7 @@ CONTAINS
         glbidx_own(n)   = glb_index(i)
       ENDIF
     ENDDO
+    DEALLOCATE(phys_owner_mask)
 
     ! Gather the number of own points for every PE into p_ri%pe_own
 
@@ -2259,7 +2260,6 @@ CONTAINS
     ! Safety check
     IF(n/=p_ri%n_glb) CALL finish(routine,'Reordering failed')
 
-    DEALLOCATE(phys_owner_mask)
     DEALLOCATE(glbidx_own)
     DEALLOCATE(glbidx_glb)
     DEALLOCATE(reorder_index_log_dom)
