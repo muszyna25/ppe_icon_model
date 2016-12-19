@@ -68,7 +68,6 @@ MODULE mo_echam_phy_main
     &                               ih_vdiff=>ih, iqv_vdiff=>iqv
   USE mo_gw_hines,            ONLY: gw_hines
   USE mo_ssortns,             ONLY: ssodrag
-  USE mo_lcariolle_types,     ONLY: avi, t_time_interpolation
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
     &                                  calculate_time_interpolation_weights
   USE mo_echam_radiation,     ONLY: echam_radiation
@@ -76,6 +75,7 @@ MODULE mo_echam_phy_main
   USE mo_parallel_config     ,ONLY: nproma
   USE mo_loopindices         ,ONLY: get_indices_c
   USE mo_model_domain        ,ONLY: t_patch
+  USE mo_lcariolle_types,     ONLY: t_avi, t_time_interpolation
   
   IMPLICIT NONE
   PRIVATE
@@ -1086,6 +1086,7 @@ CONTAINS
     TYPE(t_time_interpolation) :: time_interpolation
     EXTERNAL       lcariolle_lat_intp_li, lcariolle_pres_intp_li
     TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
+    TYPE(t_avi) :: avi
 
     INTEGER  :: i_nchdom
     INTEGER  :: i_startblk,i_endblk
@@ -1096,7 +1097,6 @@ CONTAINS
     i_startblk = patch%cells%start_blk(rl_start,1)
     i_endblk   = patch%cells%end_blk(rl_end,i_nchdom)
 
-    avi%ldown=.TRUE.
     current_time_interpolation_weights = calculate_time_interpolation_weights(this_datetime)
     time_interpolation%imonth1=current_time_interpolation_weights%month1_index
     time_interpolation%imonth2=current_time_interpolation_weights%month2_index
@@ -1104,16 +1104,20 @@ CONTAINS
     time_interpolation%weight2=current_time_interpolation_weights%weight2
 
 !  NOTE: something is wrong with the avi dimensions; cannot be run in OpenMP
-!! !> !!$OMP PARALLEL DO PRIVATE(jcs,jce,do3dt)
+!$OMP PARALLEL PRIVATE(avi)
+    ALLOCATE(avi%o3_vmr(nproma,nlev), avi%vmr2molm2(nproma,nlev), avi%cell_center_lat(nproma), &
+        & avi%lday(nproma))
+!$OMP DO PRIVATE(jcs,jce,do3dt)
     DO jb = i_startblk,i_endblk
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-
-      avi%o3_vmr(jcs:jce,:)=field%qtrc(jcs:jce,:,jb,io3)*amd/amo3
-      avi%tmprt(jcs:jce,:)=field%ta(jcs:jce,:,jb)
-      avi%vmr2molm2(jcs:jce,:)=field%mdry(jcs:jce,:,jb)/amd*1.e3_wp
-      avi%pres(jcs:jce,:)=field%presm_old(jcs:jce,:,jb)
-      avi%cell_center_lat(jcs:jce)=patch%cells%center(jcs:jce,jb)%lat
-      avi%lday(jcs:jce)=field%cosmu0(jcs:jce,jb)>1.e-3_wp
+ 
+      avi%ldown=.TRUE.
+      avi%o3_vmr(jcs:jce,:)        = field%qtrc(jcs:jce,:,jb,io3)*amd/amo3
+      avi%tmprt(:,:)               => field%ta(:,:,jb)
+      avi%vmr2molm2(jcs:jce,:)     = field%mdry(jcs:jce,:,jb) / amd * 1.e3_wp
+      avi%pres(:,:)                => field%presm_old(jcs:jce,:,jb)
+      avi%cell_center_lat(jcs:jce) = patch%cells%center(jcs:jce,jb)%lat
+      avi%lday(jcs:jce)            = field%cosmu0(jcs:jce,jb) > 1.e-3_wp
 
       CALL lcariolle_do3dt(                                                    &
           & jcs,                    jce,                nproma,                  &
@@ -1121,7 +1125,9 @@ CONTAINS
           & lcariolle_pres_intp_li, avi,                do3dt                   )
       tend% qtrc(jcs:jce,:,jb,io3) = tend% qtrc(jcs:jce,:,jb,io3) + do3dt(jcs:jce,:)*amo3/amd
     ENDDO
-!! !> !!$OMP END PARALLEL DO 
+!$OMP END DO 
+    DEALLOCATE(avi%o3_vmr, avi%vmr2molm2, avi%cell_center_lat, avi%lday)
+!$OMP END PARALLEL
 
   END SUBROUTINE echam_lcariolle
   !---------------------------------------------------------------------
