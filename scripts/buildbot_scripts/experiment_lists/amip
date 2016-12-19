@@ -1,22 +1,3 @@
-machine|thunder|mpi-compute
-builder|THUNDER_gcc|--with-fortran=gcc|AES
-experiment|checksuite.icon-dev/check.atm_amip_noforcing|
-experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
-experiment|checksuite.icon-dev/check.atm_amip_noparams|
-experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport_nodynamics|
-experiment|checksuite.icon-dev/check.atm_amip|
-builder|THUNDER_nag|--with-fortran=nag|AES
-experiment|checksuite.icon-dev/check.atm_amip_noforcing|
-experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
-experiment|checksuite.icon-dev/check.atm_amip_noparams|
-experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport_nodynamics|
-experiment|checksuite.icon-dev/check.atm_amip|
-builder|THUNDER_intel_hybrid|--with-fortran=intel --with-openmp|AES
-experiment|checksuite.icon-dev/check.atm_amip_noforcing|
-experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
-experiment|checksuite.icon-dev/check.atm_amip_noparams|
-experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport_nodynamics|
-experiment|checksuite.icon-dev/check.atm_amip|
 machine|daint_cpu|default
 builder|DAINT_CPU_cce||AES
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|

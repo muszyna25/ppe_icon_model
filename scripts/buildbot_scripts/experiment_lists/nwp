@@ -1,13 +1,3 @@
-machine|thunder|mpi-compute
-builder|THUNDER_gcc|--with-fortran=gcc|NWP
-experiment|exp.test_nwp_R02B04N06multi|cpu_time=00:30:00
-experiment|exp.test_nwp_R02B04_R02B05_nest|cpu_time=00:30:00
-builder|THUNDER_nag|--with-fortran=nag|NWP
-experiment|exp.test_nwp_R02B04N06multi|cpu_time=00:30:00
-experiment|exp.test_nwp_R02B04_R02B05_nest|cpu_time=00:30:00
-builder|THUNDER_intel_hybrid|--with-fortran=intel --with-openmp|NWP
-experiment|exp.test_nwp_R02B04N06multi|cpu_time=00:30:00
-experiment|exp.test_nwp_R02B04_R02B05_nest|cpu_time=00:30:00
 machine|daint_cpu|default
 builder|DAINT_CPU_cce||NWP
 experiment|exp.test_nwp_R02B04N06multi|cpu_time=00:30:00
