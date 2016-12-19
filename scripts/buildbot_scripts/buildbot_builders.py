@@ -327,8 +327,8 @@ class buildbot_machines_list(object):
     mistral_intel_openmp  = mistral.add_builder('MISTRAL_intel_openmp', '--with-fortran=intel --without-mpi --with-openmp --without-yac', 'Active')
     mistral_nag           = mistral.add_builder('MISTRAL_nag', '--with-fortran=nag', 'Active')
     mistral_nag_serial    = mistral.add_builder('MISTRAL_nag_serial', '--with-fortran=nag --without-mpi --without-yac', 'build_only')
-    mistral_nag_serial    = mistral.add_builder('MISTRAL_ocean', '--with-fortran=intel --with-openmp', 'Ocean')
-    # CSCS builders
+    mistral_ocean         = mistral.add_builder('MISTRAL_ocean', '--with-fortran=intel --with-openmp', 'Ocean')
+# CSCS builders
     daint_cpu             = self.add_machine('daint_cpu', 'default')
     daint_cpu_cce         = daint_cpu.add_builder('DAINT_CPU_cce', '', 'Active')
 
