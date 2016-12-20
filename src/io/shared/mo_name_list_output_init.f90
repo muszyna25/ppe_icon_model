@@ -144,7 +144,8 @@ MODULE mo_name_list_output_init
   USE mo_output_event_handler,              ONLY: trigger_output_step_irecv
 #endif
   ! name list output
-  USE mo_reorder_info,                      ONLY: t_reorder_info, transfer_reorder_info
+  USE mo_reorder_info,                      ONLY: t_reorder_info, &
+    mask2reorder_info, transfer_reorder_info
   USE mo_name_list_output_types,            ONLY: l_output_phys_patch, t_output_name_list,        &
     &                                             t_output_file, t_var_desc, t_grid_info,         &
     &                                             t_patch_info, icell, iedge, ivert,              &
@@ -2170,7 +2171,7 @@ CONTAINS
     ! local variables
     INTEGER :: i, n, il, ib
     LOGICAL, ALLOCATABLE :: phys_owner_mask(:) ! owner mask for physical patch
-    INTEGER, ALLOCATABLE :: glbidx_own(:), glbidx_glb(:), reorder_index_log_dom(:)
+    INTEGER, ALLOCATABLE :: reorder_index_log_dom(:)
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_reorder_info"
 
@@ -2184,69 +2185,12 @@ CONTAINS
       phys_owner_mask(i) =       owner_mask(il,ib) &
         &                  .AND. (     .NOT. l_output_phys_patch &
         &                         .OR. phys_id(il,ib) == phys_patch_id)
-      n = n + MERGE(1, 0, phys_owner_mask(i))
     ENDDO
 
-    ! Get number of owned cells/edges/verts (without halos, physical patch only)
-    p_ri%n_own = n
-
-    ! Set index arrays to own cells/edges/verts
-    ! Global index of my own points
-    ALLOCATE(p_ri%own_idx(n), p_ri%own_blk(n), glbidx_own(n))
-
-    n = 0
-    DO i = 1, n_points
-      IF(phys_owner_mask(i)) THEN
-        n = n+1
-        p_ri%own_idx(n) = idx_no(i)
-        p_ri%own_blk(n) = blk_no(i)
-        glbidx_own(n)   = glb_index(i)
-      ENDIF
-    ENDDO
+    CALL mask2reorder_info(p_ri, phys_owner_mask, n_points_g, glb_index, &
+         p_comm_work, reorder_index_log_dom)
     DEALLOCATE(phys_owner_mask)
 
-    ! Gather the number of own points for every PE into p_ri%pe_own
-
-    ALLOCATE(p_ri%pe_own(0:p_n_work-1), p_ri%pe_off(0:p_n_work-1))
-    CALL p_allgather(p_ri%n_own, p_ri%pe_own, p_comm_work)
-
-    ! Get offset within result array
-    il = 0
-    DO i = 0, p_n_work-1
-      p_ri%pe_off(i) = il
-      il = il + p_ri%pe_own(i)
-    ENDDO
-
-    ! Get global number of points for current (physical!) patch
-    p_ri%n_glb = il
-
-    ! Get the global index numbers of the data when it is gathered on PE 0
-    ! exactly in the same order as it is retrieved later during I/O
-
-    ALLOCATE(glbidx_glb(p_ri%n_glb))
-    CALL p_allgatherv(glbidx_own(1:p_ri%n_own), glbidx_glb, &
-      &               p_ri%pe_own, p_ri%pe_off, p_comm_work)
-
-    ! Get reorder_index
-    ALLOCATE(p_ri%reorder_index(p_ri%n_glb), &
-      ! spans the complete logical domain
-      &      reorder_index_log_dom(n_points_g))
-    reorder_index_log_dom(:) = 0
-
-    DO i = 1, p_ri%n_glb
-      ! reorder_index_log_dom stores where a global point in logical domain comes from.
-      ! It is nonzero only at the physical patch locations
-      reorder_index_log_dom(glbidx_glb(i)) = i
-    ENDDO
-
-    ! Gather the reorder index for the physical domain
-    n = 0
-    DO i = 1, n_points_g
-      IF(reorder_index_log_dom(i)>0) THEN
-        n = n+1
-        p_ri%reorder_index(reorder_index_log_dom(i)) = n
-      ENDIF
-    ENDDO
 
     grid_info%n_log = n_points_g ! Total points in logical domain
 
@@ -2259,13 +2203,14 @@ CONTAINS
           grid_info%log_dom_index(n) = i
         ENDIF
       ENDDO
+      ! Safety check
+      IF (n/=p_ri%n_glb) THEN
+        WRITE(message_text, '(2(a,i0))')  'Reordering failed, n=', n, &
+             ', p_ri%n_glb = ', p_ri%n_glb
+        CALL finish(routine, message_text)
+      END IF
     END IF
 
-    ! Safety check
-    IF(n/=p_ri%n_glb) CALL finish(routine,'Reordering failed')
-
-    DEALLOCATE(glbidx_own)
-    DEALLOCATE(glbidx_glb)
     DEALLOCATE(reorder_index_log_dom)
 
   END SUBROUTINE set_reorder_info
