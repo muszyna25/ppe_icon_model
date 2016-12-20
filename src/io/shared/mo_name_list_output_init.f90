@@ -851,9 +851,7 @@ CONTAINS
 
     ! -- loop over all output namelists
     p_onl => first_output_name_list
-    DO
-      IF(.NOT.ASSOCIATED(p_onl)) EXIT
-
+    DO WHILE (ASSOCIATED(p_onl))
       ! process i_typ=ml_varlist, pl_varlist, hl_varlist, il_varlist:
       DO i_typ = 1, 4
 
