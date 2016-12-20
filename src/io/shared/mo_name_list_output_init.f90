@@ -2509,7 +2509,7 @@ CONTAINS
         SELECT CASE(of%name_list%filetype)
         CASE (FILETYPE_NC2, FILETYPE_NC4)
           ! encode grid info in NetCDF format:
-          SELECT CASE(patch_info(of%phys_patch_id)%grid_info_mode)
+          SELECT CASE(patch_info(i_dom)%grid_info_mode)
           CASE (GRID_INFO_FILE)
             CALL copy_grid_info(of, patch_info)
           CASE (GRID_INFO_BCAST)
@@ -2519,7 +2519,7 @@ CONTAINS
               cdi_grid_ids(ivert) = of%cdiVertGridID
               DO i = 1, 3 ! icell, iedge, ivert
                 CALL set_grid_info_netcdf(cdi_grid_ids(i), &
-                     patch_info(of%phys_patch_id)%grid_info(i))
+                     patch_info(i_dom)%grid_info(i))
               END DO
             END IF
           END SELECT
