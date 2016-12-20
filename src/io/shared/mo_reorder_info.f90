@@ -50,32 +50,32 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   !> Transfers reorder_info from clients to servers for IO/async latbc
   !
-  SUBROUTINE transfer_reorder_info(p_ri, is_server, bcast_root, &
+  SUBROUTINE transfer_reorder_info(ri, is_server, bcast_root, &
        client_server_intercomm)
-    TYPE(t_reorder_info), INTENT(INOUT) :: p_ri ! Result: reorder info
+    TYPE(t_reorder_info), INTENT(INOUT) :: ri ! Result: reorder info
     LOGICAL, INTENT(in) :: is_server
     INTEGER, INTENT(in) :: bcast_root, client_server_intercomm
 
     INTEGER :: client_group_size
     ! Transfer the global number of points, this is not yet known on IO PEs
-    CALL p_bcast(p_ri%n_glb,  bcast_root, client_server_intercomm)
+    CALL p_bcast(ri%n_glb,  bcast_root, client_server_intercomm)
 
     IF (is_server) THEN
 
       ! On IO PEs: n_own = 0, own_idx and own_blk are not allocated
-      p_ri%n_own = 0
+      ri%n_own = 0
       client_group_size = p_comm_remote_size(client_server_intercomm)
       ! pe_own/pe_off must be allocated for client_group_size, not for p_n_work
-      ALLOCATE(p_ri%pe_own(0:client_group_size-1))
-      ALLOCATE(p_ri%pe_off(0:client_group_size-1))
+      ALLOCATE(ri%pe_own(0:client_group_size-1))
+      ALLOCATE(ri%pe_off(0:client_group_size-1))
 
-      ALLOCATE(p_ri%reorder_index(p_ri%n_glb))
+      ALLOCATE(ri%reorder_index(ri%n_glb))
     ENDIF
 
-    CALL p_bcast(p_ri%pe_own, bcast_root, client_server_intercomm)
-    CALL p_bcast(p_ri%pe_off, bcast_root, client_server_intercomm)
+    CALL p_bcast(ri%pe_own, bcast_root, client_server_intercomm)
+    CALL p_bcast(ri%pe_off, bcast_root, client_server_intercomm)
 
-    CALL p_bcast(p_ri%reorder_index, bcast_root, client_server_intercomm)
+    CALL p_bcast(ri%reorder_index, bcast_root, client_server_intercomm)
 
   END SUBROUTINE transfer_reorder_info
 
