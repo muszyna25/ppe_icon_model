@@ -2511,7 +2511,7 @@ CONTAINS
           ! encode grid info in NetCDF format:
           SELECT CASE(patch_info(i_dom)%grid_info_mode)
           CASE (GRID_INFO_FILE)
-            CALL copy_grid_info(of, patch_info)
+            CALL copy_grid_info(of, patch_info(i_dom))
           CASE (GRID_INFO_BCAST)
             IF (.NOT. my_process_is_mpi_test()) THEN
               cdi_grid_ids(icell) = of%cdiCellGridID
