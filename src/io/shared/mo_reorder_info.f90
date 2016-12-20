@@ -58,6 +58,9 @@ CONTAINS
     TYPE(t_reorder_info), INTENT(inout) :: ri
     LOGICAL, INTENT(in) :: mask(:)
     INTEGER, INTENT(in) :: n_points_g, glb_index(:), group_comm
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: glb_index, mask
+#endif
     INTEGER, ALLOCATABLE, OPTIONAL, INTENT(out) :: &
          retained_reorder_index_log_dom(:)
 
