@@ -30,8 +30,13 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #
 ##-----------------------------------------------------------------------------
 # global timing
-start_date="2013-04-24T00:00:00Z" 
-end_date="2013-04-24T12:00:00Z"
+start_date="2013-04-25T00:00:00Z" 
+end_date="2013-04-26T00:00:00Z"
+##KGinit_date=2013042500
+init_date=`echo ${start_date%%:*} | sed 's/\-//g' | sed 's/T//g'`
+
+#
+#
 ndays_restart=6
 dt_restart=`expr ${ndays_restart} \* 86400`
 #restart=".true."
@@ -40,33 +45,84 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 out_start_day="2013-04-24T06:00:00Z" 
 out_end_day=${end_date} 
 out_start_night=${start_date} 
-out_end_night="2013-04-24T06:00:00Z" 
+out_end_night=${out_start_day} 
 #
 #for 3D fine based on A-train overpass timing
 #which needs to be adjusted everywhere day
 #Use the list below to adjust output timing
 #
+
+notsatpass=${start_date%%T*}
+currentdate=`echo ${start_date%%T*} | sed 's/\-//g' `
+case $currentdate in
+      20130424) sat_pass_in="2013-04-24T12:35:00Z" ;  out_int="PT6H"  ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FALSE."   ;;
+      20130425) sat_pass_in="2013-04-25T02:07:00Z" ;  out_int="PT12H" ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FALSE."   ;;
+      20130426) sat_pass_in="2013-04-26T12:22:00Z" ;  out_int="PT6H"  ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FALSE."   ;;
+      20130502) sat_pass_in="2013-05-02T02:12:00Z" ;  out_int="PT12H" ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FALSE."   ;;
+      20130504) sat_pass_in="2013-05-04T02:01:00Z" ;  out_int="PT12H" ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FALSE."   ;;
+      20130505) sat_pass_in="2013-05-05T12:16:00Z" ;  out_int="PT6H"  ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FASLE."   ;;
+      20130507) sat_pass_in="2013-05-07T12:04:00Z" ;  out_int="PT6H"  ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FALSE."   ;;
+##      20130508) sat_pass_in="2013-05-08T01:36:00Z" ;  out_int="PT11H"  ; 
+##                sat_pass_out="2013-05-08T18:36:00Z" ; inc_las=".FALSE."  ;;
+      20130511) sat_pass_in="2013-05-11T02:06:00Z" ;  out_int="PT12H" ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FALSE."   ;;
+##      20130517) sat_pass_in="2013-05-05T12:16:00Z" ;  out_int="PT6H" ; 
+##                sat_pass_out="${end_date}" ;  inc_las=".FASLE." ;;
+      20130518) sat_pass_in="2013-05-18T02:12:00Z" ;  out_int="PT12H" ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FALSE."   ;;
+      20130519) sat_pass_in="2013-05-19T12:28:00Z" ;  out_int="PT6H"  ; 
+                sat_pass_out="${end_date}" ; inc_las=".FALSE."    ;;
+      20130521) sat_pass_in="2013-05-21T12:16:00Z" ;  out_int="PT6H"  ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FALSE."   ;;
+      20130522) sat_pass_in="2013-05-22T01:48:00Z" ;  out_int="PT13H" ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FALSE."   ;;
+      20130523) sat_pass_in="2013-05-23T12:04:00Z" ;  out_int="PT6H"  ; 
+                sat_pass_out="${end_date}" ; inc_las=".FALSE."    ;;
+      20130528) sat_pass_in="2013-05-28T12:22:00Z" ;  out_int="PT6H"  ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FALSE."   ;;
+      20130529) sat_pass_in="2013-05-29T01:54:00Z" ;  out_int="PT13H" ; 
+                sat_pass_out="${end_date}" ;  inc_las=".FALSE."   ;;
+       *)       sat_pass_in="${notsatpass}T06:00:00" ;  out_int="PT8H" ; 
+                sat_pass_out="${notsatpass}T21:00:00" ;  inc_las=".FALSE." ;; 
+esac
+
 #     date     time_in   time_out
 # 24/04/2013     12:34   12:36
+##KGsat_pass_time_2404=2013-04-24T12:35:00Z
 # 25/04/2013     02:06   02:08
+##KGsat_pass_time_2504=2013-04-25T02:07:00Z
+#
 # 26/04/2013     12:21   12:24
-# 27/04/2013     01:53   01:56
-# 28/04/2013     12:10   12:11
-# 29/04/2013     01:41   01:43
-# 29/04/2013     12:52   12:52
-# 01/05/2013     01:30   01:31
-# 01/05/2013     12:40   12:42
+##KGsat_pass_time_2604=2013-04-26T12:22:00Z
+#
 # 02/05/2013     02:12   02:13
-# 03/05/2013     12:27   12:29
+##KGsat_pass_time_0205=2013-05-02T02:12:00Z
+#
 # 04/05/2013     01:59   02:02
+##KGsat_pass_time_0405=2013-05-04T02:00:00Z
+#
 # 05/05/2013     12:15   12:17
-# 06/05/2013     01:47   01:49
+##KGsat_pass_time_0505=2013-05-05T12:16:00Z
+#
 # 07/05/2013     12:04   12:05
+##KGsat_pass_time_0705=2013-05-07T12:04:00Z
+#
 # 08/05/2013     01:35   01:37
+##KGsat_pass_time_0805_1=2013-05-08T01:36:00Z
+#
 # 08/05/2013     12:46   12:47
-# 10/05/2013     12:33   12:35
+##KGsat_pass_time_0805_2=2013-05-08T12:46:00Z
+#
 # 11/05/2013     02:05   02:07
-# 12/05/2013     12:21   12:23
+##KGsat_pass_time_1105=2013-05-11T02:06:00Z
+#
 #
 #
 #Dictionary file for output
@@ -84,7 +140,7 @@ add_link_file ${DATADIR}/dmin_wetgrowth_lookup.dat ./   #for inwp_gscp==4
 #-----------------------------------------------------------------------------
 # model timing
 dtime=3
-dt_checkpoint=`expr 3 \* 3600 `  # write restart file every 12 hours
+dt_checkpoint=`expr 2 \* 3600 `  # write restart file every 2 hours
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -101,8 +157,8 @@ nlev=150
 # the grid and other files
 #
 # the grid parameters
-#grids_folder="/pool/data/ICON/ICON-DE/GRIDS/HDCP_FINAL_4"
-grids_folder="/work/bm0834/anurag/icon-GridGenerator-dev/grids/HDCP_FINAL_4"
+grids_folder="/work/bm0834/k203095/pool/GRIDS/HDCP_FINAL_4"
+#grids_folder="/work/bm0834/anurag/icon-GridGenerator-dev/grids/HDCP_FINAL_4"
 grid_1=hdcp2_cosmodom_R0625m
 grid_2=hdcp2_cosmodom_nest_R0312m
 grid_3=hdcp2_cosmodom_nest_R0156m
@@ -110,8 +166,8 @@ atmo_dyn_grids="${grid_1}.nc  ${grid_2}.nc  ${grid_3}.nc"
 dynamics_parent_grid_id="0,   1,  2"
 #
 # absolute path to directory with LAM data
-#LAMDATA=/pool/data/ICON/ICON-DE/HDCP2_FINAL_INPUT_4
-LAMDATA=/work/bm0834/anurag/dwd_icon_tools/HDCP2_FINAL_INPUT_4
+LAMDATA=/work/bm0834/k203095/pool/HDCP2_FINAL_INPUT_4
+#LAMDATA=/work/bm0834/anurag/dwd_icon_tools/HDCP2_FINAL_INPUT_4
 #
 #LATBC PATH
 LATBC_PATH=${LAMDATA}/
@@ -124,7 +180,6 @@ add_link_file $ext_data_path/extpar_${grid_3}.nc  extpar_${grid_3}.nc
 
 #INITIAL DATA
 init_data_path=$LAMDATA
-init_date=2013042400
 add_link_file $init_data_path/init_${grid_1}_${init_date}.nc ifs2icon_R2B12_DOM01.nc
 add_link_file $init_data_path/init_${grid_1}_${init_date}.nc dwdFG_R2B12_DOM01.nc
 add_link_file $init_data_path/init_${grid_2}_${init_date}.nc ifs2icon_R2B13_DOM02.nc
@@ -203,12 +258,10 @@ cat > ${atmo_namelist} << EOF
 /
 &diffusion_nml
  hdiff_order      = 5 
- hdiff_efdt_ratio = 17.5
- hdiff_smag_fac   = 0.05
+ hdiff_smag_fac   = 0.01
  lhdiff_vn        = .TRUE.
  lhdiff_temp      = .TRUE.
  lhdiff_w         = .TRUE.
- itype_t_diffu    = 2 
 /
 &nwp_phy_nml
 inwp_gscp       = 4,4,4 !4 for two moment
@@ -302,7 +355,7 @@ rbf_scale_mode_ll = 1 !2=default for automatic calculations
 &meteogram_output_nml
  lmeteogram_enabled= .FALSE.,.FALSE.,.TRUE.
  n0_mtgrm          = 0             ! meteogram initial time step (0 is first step!)
- ninc_mtgrm        = 1,1,2       ! meteogram output interval (steps)
+ ninc_mtgrm        = 1,1,3       ! meteogram output interval (steps)
  ldistributed      = .false,.false.,.false.
  stationlist_tot   =  50.909,   6.414, 'c1',             ! Lat,Lon
                       50.897,   6.464, 'c2',
@@ -350,8 +403,7 @@ rbf_scale_mode_ll = 1 !2=default for automatic calculations
  output_filename  = '3d_coarse_night_ll'
  remap            = 1
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
- !ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qnc','qni','qnr','qns','qng','qnh','ninact','u','v','w','temp','pres','tkvh','clc'
- ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qnc','qni','qnr','qns','u','v','w','temp','pres','tkvh','clc'
+ ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qnc','qni','qnr','qns','qng','qnh','ninact','u','v','w','temp','pres','tkvh','clc'
  reg_lon_def      = 4.5,0.017,14.5
  reg_lat_def      = 47.5,0.011,54.5
  filetype         = 5
@@ -366,23 +418,21 @@ rbf_scale_mode_ll = 1 !2=default for automatic calculations
  output_filename  = '3d_coarse_day_ll'
  remap            = 1
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
- !ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qnc','qni','qnr','qns','qng','qnh','ninact','u','v','w','temp','pres','tkvh','clc'
- ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qnc','qni','qnr','qns','u','v','w','temp','pres','tkvh','clc'
+ ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qnc','qni','qnr','qns','qng','qnh','ninact','u','v','w','temp','pres','tkvh','clc'
  reg_lon_def      = 4.5,0.017,14.5
  reg_lat_def      = 47.5,0.011,54.5
  filetype         = 5
  dom              = 3
 /
 &output_nml
- output_start     = "${out_start_day}"
- output_end       = "${out_end_day}"
- output_interval  = "PT06H30M"
+ output_start     = "${sat_pass_in}"
+ output_end       = "${sat_pass_out}"
+ output_interval  = "${out_int}"
  file_interval    = "P01D"
- include_last     = .FALSE.
+ include_last     = ${inc_las}
  output_filename  = '3d_fine_day'
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
- !ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qnc','qni','qnr','qns','qng','qnh','ninact','u','v','w','temp','pres','tkvh','clc'
- ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qnc','qni','qnr','qns','u','v','w','temp','pres','tkvh','clc'
+ ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qnc','qni','qnr','qns','qng','qnh','ninact','u','v','w','temp','pres','tkvh','clc'
  filetype         = 5
  dom              = 3
 /

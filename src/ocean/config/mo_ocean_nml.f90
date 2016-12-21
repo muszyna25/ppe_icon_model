@@ -106,13 +106,6 @@ MODULE mo_ocean_nml
                                             ! i_bc_veloc_bot =1 : bottom boundary friction
                                             ! i_bc_veloc_bot =2 : bottom friction plus topographic
                                             !                     slope (not implemented yet)
-  ! Parameters for tracer transport scheme
-  !
-  !identifiers for different modes of updating the tracer state (substep 
-  INTEGER, PARAMETER :: i_during_step =1
-  INTEGER, PARAMETER :: i_post_step   =2
-  !default value
-  INTEGER :: tracer_update_mode = i_post_step
 
   !Options for non-linear corilois term in vector invariant velocity equations
   INTEGER            :: NONLINEAR_CORIOLIS            =200
@@ -126,7 +119,7 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: central                    = 2  
   INTEGER, PARAMETER :: lax_friedrichs             = 3
   INTEGER, PARAMETER :: miura_order1               = 4
-  INTEGER, PARAMETER :: fct_horz                   = 5
+  INTEGER, PARAMETER :: horz_flux_twisted_vec_recon                   = 5
   INTEGER, PARAMETER :: fct_vert_adpo              = 6
   INTEGER, PARAMETER :: fct_vert_ppm               = 7  
   INTEGER, PARAMETER :: fct_vert_minmod            = 8      
@@ -142,7 +135,7 @@ MODULE mo_ocean_nml
   
   !The default setting concerning tracer advection
   !horizontal
-  INTEGER            :: flux_calculation_horz      = fct_horz      
+  INTEGER            :: flux_calculation_horz      = horz_flux_twisted_vec_recon      
   INTEGER            :: fct_limiter_horz           = fct_limiter_horz_zalesak!! 
   !vertical
   INTEGER            :: flux_calculation_vert      = fct_vert_ppm !fct_vert_ppm
@@ -150,8 +143,8 @@ MODULE mo_ocean_nml
   
   LOGICAL            :: l_adpo_flowstrength        = .FALSE.   ! .TRUE.: activate second condition for adpo weight
 
-  LOGICAL            :: l_LAX_FRIEDRICHS          =.FALSE.  !Additional LAX-Friedich for horizontal tracer advection of full mimetic scheme fct_horz
-  LOGICAL            :: l_GRADIENT_RECONSTRUCTION = .FALSE. !Additional Gradient-Reconstruction for horizontal tracer advection of full mimetic scheme fct_horz
+  LOGICAL            :: l_LAX_FRIEDRICHS          =.FALSE.  !Additional LAX-Friedich for horizontal tracer advection of full mimetic scheme horz_flux_twisted_vec_recon
+  LOGICAL            :: l_GRADIENT_RECONSTRUCTION = .FALSE. !Additional Gradient-Reconstruction for horizontal tracer advection of full mimetic scheme horz_flux_twisted_vec_recon
   !this distinction is no longer used: INTEGER  :: i_sfc_forcing_form        = 0
   !=0: surface forcing applied as top boundary condition to vertical diffusion
   !=1: surface forcing applied as volume forcing at rhs, i.e.part of explicit term in momentum and tracer eqs. 
@@ -212,10 +205,9 @@ MODULE mo_ocean_nml
 
   ! more ocean parameters, not yet well placed
 !   INTEGER  :: expl_vertical_velocity_diff = 1    ! 0=explicit, 1 = implicit
-  INTEGER, PARAMETER :: explicit_diffusion = 0
-  INTEGER, PARAMETER :: implicit_diffusion = 1
-  INTEGER  :: expl_vertical_tracer_diff   = 1    ! NOT USED
-  INTEGER  :: vertical_tracer_diffusion_type   = 1    ! 0=explicit, 1 = implicit
+!   INTEGER, PARAMETER :: explicit_diffusion = 2
+!   INTEGER, PARAMETER :: implicit_diffusion = 1
+!   INTEGER  :: vertical_tracer_diffusion_type   = 1   ! not used !
   INTEGER  :: HorizontalViscosity_type  = 1          ! 0=no hor.diff; 1=constant Laplacian coefficients
                                                  ! 2=constant coefficients satisfying Munk criterion
                                                  ! 3=variable coefficients satisfying Munk criterion
@@ -302,7 +294,6 @@ MODULE mo_ocean_nml
     &                 dhdtw_abort                  , &
     &                 discretization_scheme        , &
     &                 dzlev_m                      , &
-    &                 vertical_tracer_diffusion_type , &
     &                 i_bc_veloc_bot               , &
     &                 i_bc_veloc_lateral           , &
     &                 i_bc_veloc_top               , &
@@ -350,7 +341,6 @@ MODULE mo_ocean_nml
     &                 threshold_max_T              , &
     &                 threshold_min_S              , &
     &                 threshold_min_T              , &
-    &                 tracer_update_mode           , &
     &                 l_LAX_FRIEDRICHS             , &
     &                 l_GRADIENT_RECONSTRUCTION
 
@@ -906,11 +896,11 @@ MODULE mo_ocean_nml
     !consistency check for horizontal advection in edge_based configuration
     IF(l_edge_based)THEN
       CALL message(TRIM(routine),'You are using the EDGE_BASED discretization')
-      IF( flux_calculation_horz > fct_horz .OR. flux_calculation_horz <upwind ) THEN
+      IF( flux_calculation_horz > horz_flux_twisted_vec_recon .OR. flux_calculation_horz <upwind ) THEN
         CALL finish(TRIM(routine), 'wrong parameter for horizontal advection scheme; use 1-5')
       ENDIF
       !the fct case requires suitable choices of high- and low order fluxes and of limiter
-      IF( flux_calculation_horz == fct_horz) THEN
+      IF( flux_calculation_horz == horz_flux_twisted_vec_recon) THEN
         !high and low order flux check
         IF(fct_low_order_flux/=upwind .AND. fct_low_order_flux/=miura_order1)THEN
           CALL finish(TRIM(routine), 'wrong parameter for low order advection scheme in horizontal fct')
@@ -929,10 +919,11 @@ MODULE mo_ocean_nml
     !consistency check for horizontal advection in cell_based configuration       
     ELSEIF(.NOT.l_edge_based)THEN
       CALL message(TRIM(routine),'You are using the CELL_BASED discretization')
-      IF( flux_calculation_horz > fct_horz .OR. flux_calculation_horz <upwind.OR.flux_calculation_horz==lax_friedrichs ) THEN
+      IF( flux_calculation_horz > horz_flux_twisted_vec_recon&
+       & .OR. flux_calculation_horz <upwind.OR.flux_calculation_horz==lax_friedrichs ) THEN
         CALL finish(TRIM(routine), 'wrong parameter for horizontal advection scheme; use 1-5 without 3')
       ENDIF     
-      IF( flux_calculation_horz == fct_horz) THEN
+      IF( flux_calculation_horz == horz_flux_twisted_vec_recon) THEN
         !high and low order flux check
         IF(fct_low_order_flux/=upwind .AND. fct_low_order_flux/=miura_order1)THEN
           CALL finish(TRIM(routine), 'wrong parameter for low order advection scheme in horizontal fct')

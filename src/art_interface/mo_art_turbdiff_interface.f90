@@ -32,7 +32,8 @@ MODULE mo_art_turbdiff_interface
   USE src_turbdiff,                     ONLY: modvar
   USE mo_run_config,                    ONLY: lart
 #ifdef __ICON_ART
-  USE mo_art_data,                      ONLY: t_art_diag, p_art_data
+  USE mo_art_data,                      ONLY: p_art_data
+  USE mo_art_diag_types,                ONLY: t_art_diag
   USE mo_art_surface_value,             ONLY: art_surface_value
   USE mo_art_config,                    ONLY: art_config
 #endif

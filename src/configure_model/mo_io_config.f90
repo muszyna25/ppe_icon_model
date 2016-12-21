@@ -81,6 +81,8 @@ MODULE mo_io_config
   LOGICAL :: l_outputtime      ! if .true., output is written at the end of the time step.
   LOGICAL :: l_diagtime        ! if .true., diagnostic output is computed and written at the end of the time step.
 
+  LOGICAL :: lmask_boundary    ! flag: true, if interpolation zone should be masked *in output*
+
 CONTAINS
 
   !>

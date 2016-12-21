@@ -1228,6 +1228,7 @@ CONTAINS
 !$OMP DO PRIVATE(jb,nlen,jk,jc,jk_start) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1, nblks
+      kextrap(:,jb) = -1
       IF (jb /= nblks) THEN
         nlen = nproma
       ELSE
@@ -1236,6 +1237,7 @@ CONTAINS
         wfac_extrap(nlen+1:nproma,jb) = 0.5_wp
       ENDIF
 
+      jk_start = nlevs_in-1
       DO jk = 1, nlevs_in
         IF (MINVAL(z3d_in(1:nlen,jk,jb)-z3d_h_in(1:nlen,nlevs_in+1,jb)) <= zagl_ifsextrap) THEN
           jk_start = jk - 1
@@ -1247,7 +1249,8 @@ CONTAINS
         DO jc = 1, nlen
 
           IF (z3d_in(jc,jk,jb)  >= z3d_h_in(jc,nlevs_in+1,jb)+zagl_ifsextrap .AND. &
-              z3d_in(jc,jk+1,jb) < z3d_h_in(jc,nlevs_in+1,jb)+zagl_ifsextrap) THEN
+              z3d_in(jc,jk+1,jb) < z3d_h_in(jc,nlevs_in+1,jb)+zagl_ifsextrap .OR.  & 
+              kextrap(jc,jb) == -1 .AND. jk == nlevs_in-1) THEN
             kextrap(jc,jb) = jk
             wfac_extrap(jc,jb) = (z3d_h_in(jc,nlevs_in+1,jb)+zagl_ifsextrap - z3d_in(jc,jk+1,jb)) / &
                                  (z3d_in(jc,jk,jb)                          - z3d_in(jc,jk+1,jb))

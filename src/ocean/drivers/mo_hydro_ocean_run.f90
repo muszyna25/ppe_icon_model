@@ -52,7 +52,7 @@ MODULE mo_hydro_ocean_run
     & t_operator_coeff, t_solvercoeff_singleprecision
   USE mo_ocean_math_operators,   ONLY: update_height_depdendent_variables, check_cfl_horizontal, check_cfl_vertical
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
-  USE mo_ocean_tracer,             ONLY: advect_tracer_ab
+  USE mo_ocean_tracer,             ONLY: advect_ocean_tracers
   USE mo_io_restart,             ONLY: create_restart_file
   USE mo_ocean_bulk,             ONLY: update_surface_flux
   USE mo_ocean_surface,          ONLY: update_ocean_surface
@@ -376,7 +376,7 @@ CONTAINS
       ! Step 6: transport tracers and diffuse them
       IF (no_tracer>=1) THEN
         start_timer(timer_tracer_ab,1)
-        CALL advect_tracer_ab( patch_3d, ocean_state(jg), p_phys_param,&
+        CALL advect_ocean_tracers( patch_3d, ocean_state(jg), p_phys_param,&
           & surface_fluxes,&
           & operators_coefficients,&
           & jstep)
@@ -445,9 +445,11 @@ CONTAINS
         &                hamocc_state,            &
         &                jstep, jstep0)
       
-      ! receive coupling fluxes for ocean at the end of time stepping loop
+      ! send and receive coupling fluxes for ocean at the end of time stepping loop
       IF (iforc_oce == Coupled_FluxFromAtmo) &  !  14
-        &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, datetime)
+        &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, p_as, datetime)
+!       &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, p_as%fu10, datetime)
+!       &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, datetime)
 
   
       start_detail_timer(timer_extra21,5)

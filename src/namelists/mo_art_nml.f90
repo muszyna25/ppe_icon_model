@@ -29,7 +29,7 @@ MODULE mo_art_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
-  USE mo_art_config,          ONLY: art_config
+  USE mo_art_config,          ONLY: art_config, IART_PATH_LEN
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
   
@@ -43,13 +43,17 @@ MODULE mo_art_nml
   !----------------------------------!
   
   ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
-  CHARACTER(LEN=120) :: cart_folder  !< Absolute Path to ART source code
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_folder                   !< Absolute Path to ART source code
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_input_folder             !< Absolute Path to ART source code
   INTEGER :: iart_ntracer            !< number transported ART tracers
   INTEGER :: iart_init_aero          !< Initialization of aerosol species
+  INTEGER :: iart_init_passive       !< Initialization of passive species
   INTEGER :: iart_init_gas           !< Initialization of gaseous species
   LOGICAL :: lart_diag_out           !< Enable output of diagnostic fields
   CHARACTER(LEN=20) :: & 
-   &  cart_io_suffix(0:max_dom)      !< user given suffix instead of automatically generated grid number 
+   &  cart_io_suffix(1:max_dom)      !< user given suffix instead of automatically generated grid number 
                                      !  in ICON-ART input filename convention: 
                                      !  ART_iconR<n>B<kk>-grid-<yyyy-mm-dd-hh>_<grid_suffix>.nc
     
@@ -57,13 +61,22 @@ MODULE mo_art_nml
   LOGICAL :: lart_chem               !< Main switch to enable chemistry
   LOGICAL :: lart_passive            !< Main switch to enable passive tracers
   INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
-  CHARACTER(LEN=120) :: cart_emiss_table_path 
-  CHARACTER(LEN=120) :: cart_emiss_table_file(0:max_dom)
-  CHARACTER(LEN=120) :: cart_vortex_init_date
-  CHARACTER(LEN=120) :: cart_mozartfile 
-  CHARACTER(LEN=120) :: cart_chemistry_xml     !< Path to XML file for chemical tracers
-  CHARACTER(LEN=120) :: cart_aerosol_xml       !< Path to XML file for aerosol tracers
-  CHARACTER(LEN=120) :: cart_passive_xml       !< Path to XML file for passive tracers
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_emiss_xml_file           !< path and file name of the xml files for emission metadata
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_vortex_init_date         !< Date of vortex initialization
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_mozartfile               !< Path to mozart initialization file
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_mozartcoord              !< Path to mozart coordinate file
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_chemistry_xml            !< Path to XML file for chemical tracers
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_aerosol_xml              !< Path to XML file for aerosol tracers
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_passive_xml              !< Path to XML file for passive tracers
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_modes_xml                !< Path to XML file for modes
   ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
   LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
   INTEGER :: iart_seasalt            !< Treatment of sea salt aerosol
@@ -71,9 +84,11 @@ MODULE mo_art_nml
   INTEGER :: iart_anthro             !< Treatment of anthropogenic aerosol
   INTEGER :: iart_fire               !< Treatment of wildfire aerosol
   INTEGER :: iart_volcano            !< Treatment of volcanic ash aerosol
-  CHARACTER(LEN=120) :: cart_volcano_file  !< Absolute path + filename of input file for volcanoes
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_volcano_file             !< Absolute path + filename of input file for volcanoes
   INTEGER :: iart_radioact           !< Treatment of radioactive particles
-  CHARACTER(LEN=120) :: cart_radioact_file !< Absolute path + filename of input file for radioactive emissions
+  CHARACTER(LEN=IART_PATH_LEN)  :: &
+    &  cart_radioact_file            !< Absolute path + filename of input file for radioactive emissions
   INTEGER :: iart_pollen             !< Treatment of pollen
     
   ! Feedback processes (Details: cf. Tab. 2.4 ICON-ART User Guide)
@@ -85,15 +100,17 @@ MODULE mo_art_nml
   LOGICAL :: lart_conv               !< Convection of aerosol (TRUE/FALSE)
   LOGICAL :: lart_turb               !< Turbulent diffusion of aerosol (TRUE/FALSE)
 
-  NAMELIST/art_nml/ cart_folder, lart_chem, lart_passive, iart_chem_mechanism,         &
+  NAMELIST/art_nml/ cart_folder, cart_input_folder, lart_chem, lart_passive,           &
+   &                iart_chem_mechanism, cart_io_suffix,                               &
    &                lart_aerosol, iart_seasalt, iart_dust, iart_anthro, iart_fire,     &
    &                iart_volcano, cart_volcano_file, iart_radioact,                    &
    &                cart_radioact_file, iart_pollen,                                   &
    &                iart_aci_warm, iart_aci_cold, iart_ari,                            &
    &                lart_conv, lart_turb, iart_ntracer, iart_init_aero, iart_init_gas, &
-   &                lart_diag_out, cart_emiss_table_path, cart_emiss_table_file,       &
-   &                cart_vortex_init_date , cart_mozartfile,  cart_chemistry_xml,      &
-   &                cart_aerosol_xml, cart_passive_xml
+   &                lart_diag_out, cart_emiss_xml_file,                                &
+   &                cart_vortex_init_date , cart_mozartfile, cart_mozartcoord,         &
+   &                cart_chemistry_xml, cart_aerosol_xml, cart_passive_xml,            &
+   &                cart_modes_xml, cart_io_suffix, iart_init_passive
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -118,6 +135,9 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
     INTEGER :: jg          !< patch loop index
+    LOGICAL :: l_exist, l_dir_exist     !< variable for inquiring if the xml file 
+                                        !   and emission base path exist.
+    CHARACTER(LEN = 2) :: str_dom  !< number of domain as string
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_art_nml: read_art_nml'
     INTEGER :: iunit
@@ -128,23 +148,26 @@ CONTAINS
       
     ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
     cart_folder                = ''
+    cart_input_folder          = ''
     iart_ntracer               = 0
     iart_init_aero             = 0
+    iart_init_passive          = 0
     iart_init_gas              = 0
     lart_diag_out              = .FALSE.
-    cart_io_suffix(0:max_dom)  = 'grid-number'
+    cart_io_suffix(1:max_dom)  = 'grid-number'
       
     ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
     lart_chem             = .FALSE.
     lart_passive          = .FALSE.
     iart_chem_mechanism   = 0
-    cart_emiss_table_path = TRIM(cart_folder)//'docs/'   
-    cart_emiss_table_file = 'art_emission_metadata_tables_DOM01.tex' 
+    cart_emiss_xml_file   = ''
     cart_vortex_init_date = ''
     cart_mozartfile       = ''
+    cart_mozartcoord      = ''
     cart_chemistry_xml    = ''
     cart_aerosol_xml      = ''
     cart_passive_xml      = ''
+    cart_modes_xml        = ''
 
     ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)
     lart_aerosol        = .FALSE.
@@ -211,8 +234,17 @@ CONTAINS
         &         'Invalid combination: iart_aci_cold = 7 and iart_dust = 0')
     ENDIF
 
-
+    ! Emission paths and file
+    IF (TRIM(cart_emiss_xml_file) /= '') THEN
+      INQUIRE(file = TRIM(cart_emiss_xml_file), EXIST = l_exist)
     
+      IF (.NOT. l_exist) THEN
+        CALL finish('mo_art_nml:read_art_namelist',  &
+                    TRIM(cart_emiss_xml_file)//  &
+                    & ' could not be found. Check cart_emiss_xml_file.')
+      END IF
+    END IF
+
     !----------------------------------------------------
     ! 5. Fill the configuration state
     !----------------------------------------------------
@@ -220,9 +252,11 @@ CONTAINS
     DO jg= 1,max_dom !< Do not take into account reduced radiation grid
       ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
       art_config(jg)%cart_folder         = TRIM(cart_folder)
+      art_config(jg)%cart_input_folder   = TRIM(cart_input_folder)
       art_config(jg)%iart_ntracer        = iart_ntracer
       art_config(jg)%iart_init_aero      = iart_init_aero
       art_config(jg)%iart_init_gas       = iart_init_gas
+      art_config(jg)%iart_init_passive   = iart_init_passive
       art_config(jg)%lart_diag_out       = lart_diag_out
       art_config(jg)%cart_io_suffix      = TRIM(cart_io_suffix(jg))
       
@@ -230,13 +264,14 @@ CONTAINS
       art_config(jg)%lart_chem             = lart_chem
       art_config(jg)%lart_passive          = lart_passive
       art_config(jg)%iart_chem_mechanism   = iart_chem_mechanism
-      art_config(jg)%cart_emiss_table_path = TRIM(cart_emiss_table_path)
-      art_config(jg)%cart_emiss_table_file = TRIM(cart_emiss_table_file(jg))
+      art_config(jg)%cart_emiss_xml_file   = TRIM(cart_emiss_xml_file)
       art_config(jg)%cart_vortex_init_date = TRIM(cart_vortex_init_date)
       art_config(jg)%cart_mozartfile       = TRIM(cart_mozartfile)
+      art_config(jg)%cart_mozartcoord      = TRIM(cart_mozartcoord)
       art_config(jg)%cart_chemistry_xml    = TRIM(cart_chemistry_xml)
       art_config(jg)%cart_aerosol_xml      = TRIM(cart_aerosol_xml)
       art_config(jg)%cart_passive_xml      = TRIM(cart_passive_xml)
+      art_config(jg)%cart_modes_xml        = TRIM(cart_modes_xml)
 
 
       ! Atmospheric Aerosol (Details: cf. Tab. 2.3 ICON-ART User Guide)

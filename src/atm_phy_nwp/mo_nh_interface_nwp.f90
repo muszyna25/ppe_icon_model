@@ -55,7 +55,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nwp_phy_types,           ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,         ONLY: nproma, p_test_run, use_icon_comm, use_physics_barrier
   USE mo_diffusion_config,        ONLY: diffusion_config
-  USE mo_run_config,              ONLY: ntracer, iqv, iqc, iqi, iqr, iqs, iqtvar, iqtke, iqm_max,    &
+  USE mo_run_config,              ONLY: ntracer, iqv, iqc, iqi, iqs, iqtvar, iqtke,  &
     &                                   msg_level, ltimer, timers_level, lart
   USE mo_grid_config,             ONLY: l_limited_area
   USE mo_physical_constants,      ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cvd, cvv
@@ -63,7 +63,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nh_diagnose_pres_temp,   ONLY: diagnose_pres_temp, diag_pres, diag_temp
 
   USE mo_atm_phy_nwp_config,      ONLY: atm_phy_nwp_config, iprog_aero
-  USE mo_util_phys,               ONLY: nh_update_prog_phy
+  USE mo_util_phys,               ONLY: nh_update_tracer_phy
   USE mo_lnd_nwp_config,          ONLY: ntiles_total, ntiles_water
   USE mo_cover_koe,               ONLY: cover_koe
   USE mo_satad,                   ONLY: satad_v_3D
@@ -91,7 +91,6 @@ MODULE mo_nh_interface_nwp
   USE mo_ls_forcing_nml,          ONLY: is_ls_forcing
   USE mo_ls_forcing,              ONLY: apply_ls_forcing
   USE mo_advection_config,        ONLY: advection_config
-  USE mo_util_phys,               ONLY: nh_update_prog_phy
   USE mo_o3_util,                 ONLY: calc_o3_gems
 
   IMPLICIT NONE
@@ -168,7 +167,7 @@ CONTAINS
 
     ! Local scalars:
 
-    INTEGER :: jc,jk,jb,jce,jt   !loop indices
+    INTEGER :: jc,jk,jb,jce      !loop indices
     INTEGER :: jg                !domain id
 
     LOGICAL :: ltemp, lpres, ltemp_ifc, l_any_fastphys, l_any_slowphys
@@ -208,6 +207,12 @@ CONTAINS
 
     INTEGER :: ntracer_sync
 
+    ! Pointer to IDs of tracers which contain prognostic condensate.
+    ! Required for computing the water loading term 
+    INTEGER, POINTER :: condensate_list(:)
+
+
+
     IF (ltimer) CALL timer_start(timer_physics)
 
     ! local variables related to the blocking
@@ -239,29 +244,10 @@ CONTAINS
       l_any_slowphys = .FALSE.
     ENDIF
 
-    !-------------------------------------------------------------------------
-    !>  Update the tracer for every advective timestep,
-    !!  all other updates are done in dynamics
-    !-------------------------------------------------------------------------
+    ! condensate tracer IDs
+    condensate_list => advection_config(jg)%ilist_hydroMass
 
-    IF (.NOT. linit) THEN
 
-      IF (msg_level >= 15) &
-           & CALL message('mo_nh_interface_nwp:', 'update_tracers')
-
-      IF (timers_level > 2) CALL timer_start(timer_update_prog_phy)
-
-      CALL nh_update_prog_phy(pt_patch              ,& !in
-           &                  dt_phy_jg(itfastphy)  ,& !in
-           &                  pt_diag               ,& !in
-           &                  prm_nwp_tend          ,& !in
-           &                  prm_diag              ,& !inout phyfields
-           &                  pt_prog_rcf           ,& !inout tracer
-           &                  pt_prog                ) !in density
-
-      IF (timers_level > 2) CALL timer_stop(timer_update_prog_phy)
-
-    ENDIF
 
     IF ( lcall_phy_jg(itturb) .OR. lcall_phy_jg(itconv) .OR.           &
          lcall_phy_jg(itsso)  .OR. lcall_phy_jg(itgwd) .OR. linit ) THEN
@@ -321,6 +307,7 @@ CONTAINS
     i_startblk = pt_patch%cells%start_block(rl_start)
     i_endblk   = pt_patch%cells%end_block(rl_end)
 
+
     IF (jg > 1 .OR. l_limited_area) THEN
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx)
       DO jb = i_startblk, i_endblk
@@ -328,14 +315,14 @@ CONTAINS
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk,  &
                              i_startidx, i_endidx, rl_start, rl_end)
 
-        CALL diag_temp (pt_prog, pt_prog_rcf, pt_diag,          &
+        CALL diag_temp (pt_prog, pt_prog_rcf, condensate_list, pt_diag,    &
                         jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
 
         CALL diag_pres (pt_prog, pt_diag, p_metrics,     &
                         jb, i_startidx, i_endidx, 1, nlev)
 
       ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
     ENDIF
 
     ! Save Exner pressure field on halo points (prognostic points are treated below)
@@ -353,7 +340,7 @@ CONTAINS
 
       z_exner_sv(i_startidx:i_endidx,:,jb) = pt_prog%exner(i_startidx:i_endidx,:,jb)
     ENDDO
-!$OMP END DO
+!$OMP END DO NOWAIT
 
 
     ! computations on prognostic points
@@ -363,14 +350,35 @@ CONTAINS
     i_startblk = pt_patch%cells%start_block(rl_start)
     i_endblk   = pt_patch%cells%end_block(rl_end)
 
-!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx,i_endidx,z_qsum,z_tempv) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_qsum,z_tempv) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
         & i_startidx, i_endidx, rl_start, rl_end)
 
+
+      IF (.NOT. linit) THEN
+
+        ! The provisional "new" tracer state, resulting from the advection 
+        ! step, still needs to be updated with the SLOW-physics tracer tendencies 
+        ! computed at the end of the last physics call for the then final 
+        ! "new" state. The corresponding update for the dynamics variables has 
+        ! already happened in the dynamical core.
+        !
+        ! In addition: Update qv with DA increment (during IAU phase)
+        CALL nh_update_tracer_phy(pt_patch          ,& !in
+           &                  dt_phy_jg(itfastphy)  ,& !in
+           &                  pt_diag               ,& !in
+           &                  prm_nwp_tend          ,& !in
+           &                  prm_diag              ,& !inout phyfields
+           &                  pt_prog_rcf           ,& !inout tracer
+           &                  pt_prog               ,& !in density
+           &                  jb, i_startidx, i_endidx ) !in
+      ENDIF  ! linit
+
+
       IF (l_any_fastphys .OR. linit) THEN  ! diagnose temperature
-        CALL diag_temp (pt_prog, pt_prog_rcf, pt_diag,       &
+        CALL diag_temp (pt_prog, pt_prog_rcf, condensate_list, pt_diag,    &
                         jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
       ENDIF
 
@@ -403,24 +411,10 @@ CONTAINS
 
             ! calculate virtual temperature from condens' output temperature
             ! taken from SUBROUTINE update_tempv_geopot in hydro_atmos/mo_ha_update_diag.f90
-            z_qsum(jc,jk) = pt_prog_rcf%tracer (jc,jk,jb,iqc) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqs)
-
+            z_qsum(jc,jk) = SUM(pt_prog_rcf%tracer (jc,jk,jb,condensate_list))
           ENDDO
         ENDDO
 
-        ! Add further hydrometeor species to water loading term if required
-        IF (iqm_max > iqs) THEN
-          DO jt = iqs+1, iqm_max
-            DO jk = kstart_moist(jg), nlev
-              DO jc = i_startidx, i_endidx
-                z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
-              ENDDO
-            ENDDO
-          ENDDO
-        ENDIF
 
         DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
@@ -581,15 +575,17 @@ CONTAINS
                 &                   p_prog_list,           & !> in
                 &                   pt_prog,               & !> in
                 &                   p_metrics,             & !> in
-                &                   prm_diag,              & !> in
                 &                   pt_diag,               & !> inout
-                &                   pt_prog_rcf%tracer)
+                &                   pt_prog_rcf%tracer,    & !>
+                &                   prm_diag = prm_diag)     !> optional
+                
       END IF
 
       CALL art_washout_interface(pt_prog,pt_diag,              & !>in
                 &          dt_phy_jg(itfastphy),               & !>in
                 &          pt_patch,                           & !>in
                 &          prm_diag,                           & !>in
+                &          p_metrics,                          & !>in
                 &          pt_prog_rcf%tracer)                   !>inout
     ENDIF !lart
 
@@ -613,7 +609,7 @@ CONTAINS
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx, i_endidx, z_qsum) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx, z_qsum) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = i_startblk, i_endblk
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -631,24 +627,11 @@ CONTAINS
         DO jk = kstart_moist(jg), nlev
           DO jc = i_startidx, i_endidx
 
-            z_qsum(jc,jk) = pt_prog_rcf%tracer (jc,jk,jb,iqc) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqs)
+            z_qsum(jc,jk) = SUM(pt_prog_rcf%tracer (jc,jk,jb,condensate_list))
 
           ENDDO
         ENDDO
 
-        ! Add further hydrometeor species to water loading term if required
-        IF (iqm_max > iqs) THEN
-          DO jt = iqs+1, iqm_max
-            DO jk = kstart_moist(jg), nlev
-              DO jc = i_startidx, i_endidx
-                z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
-              ENDDO
-            ENDDO
-          ENDDO
-        ENDIF
 
         DO jk = 1, nlev
 !DIR$ IVDEP
@@ -861,6 +844,7 @@ CONTAINS
 &              qv     = pt_prog_rcf%tracer   (:,:,jb,iqv) ,       & !! in:  spec. humidity
 &              qc     = pt_prog_rcf%tracer   (:,:,jb,iqc) ,       & !! in:  cloud water
 &              qi     = pt_prog_rcf%tracer   (:,:,jb,iqi) ,       & !! in:  cloud ice
+&              qs     = pt_prog_rcf%tracer   (:,:,jb,iqs) ,       & !! in:  snow
 &              qtvar  = qtvar                             ,       & !! in:  qtvar
 &              cc_tot = prm_diag%clc         (:,:,jb)     ,       & !! out: cloud cover
 &              qv_tot = prm_diag%tot_cld     (:,:,jb,iqv) ,       & !! out: qv       -"-
@@ -1164,7 +1148,7 @@ CONTAINS
       i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx,i_endidx,z_qsum,z_ddt_temp,z_ddt_qsum,vabs, &
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_qsum,z_ddt_temp,z_ddt_qsum,vabs, &
 !$OMP  rfric_fac,zddt_u_raylfric,zddt_v_raylfric) ICON_OMP_DEFAULT_SCHEDULE
 !
       DO jb = i_startblk, i_endblk
@@ -1220,24 +1204,11 @@ CONTAINS
         DO jk = kstart_moist(jg), nlev
           DO jc = i_startidx, i_endidx
 
-            z_qsum(jc,jk) = pt_prog_rcf%tracer (jc,jk,jb,iqc) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqi) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqr) &
-              &           + pt_prog_rcf%tracer (jc,jk,jb,iqs)
+            z_qsum(jc,jk) = SUM(pt_prog_rcf%tracer (jc,jk,jb,condensate_list))
 
           ENDDO
         ENDDO
 
-        ! Add further hydrometeor species to water loading term if required
-        IF (iqm_max > iqs) THEN
-          DO jt = iqs+1, iqm_max
-            DO jk = kstart_moist(jg), nlev
-              DO jc = i_startidx, i_endidx
-                z_qsum(jc,jk) = z_qsum(jc,jk) + pt_prog_rcf%tracer(jc,jk,jb,jt)
-              ENDDO
-            ENDDO
-          ENDDO
-        ENDIF
 
         ! Convert temperature tendency into Exner function tendency
         DO jk = 1, nlev
@@ -1576,10 +1547,22 @@ CONTAINS
 &                                  +  z_ddt_v_tot(iidx(jce,jb,2),jk,iblk(jce,jb,2))    &
 &                                   *  pt_patch%edges%primal_normal_cell(jce,jb,2)%v2 )
 
+            pt_prog%vn(jce,jk,jb) = pt_prog%vn(jce,jk,jb) + dt_loc * (                 &
+                                              pt_int_state%c_lin_e(jce,1,jb)           &
+&                     * ( prm_nwp_tend%ddt_u_turb(iidx(jce,jb,1),jk,iblk(jce,jb,1))    &
+&                                   *  pt_patch%edges%primal_normal_cell(jce,jb,1)%v1  &
+&                       + prm_nwp_tend%ddt_v_turb(iidx(jce,jb,1),jk,iblk(jce,jb,1))    &
+&                                   *  pt_patch%edges%primal_normal_cell(jce,jb,1)%v2 )&
+&                                                 + pt_int_state%c_lin_e(jce,2,jb)     &
+&                     * ( prm_nwp_tend%ddt_u_turb(iidx(jce,jb,2),jk,iblk(jce,jb,2))    &
+&                                    * pt_patch%edges%primal_normal_cell(jce,jb,2)%v1  &
+&                      +  prm_nwp_tend%ddt_v_turb(iidx(jce,jb,2),jk,iblk(jce,jb,2))    &
+&                                  *  pt_patch%edges%primal_normal_cell(jce,jb,2)%v2 ) )
+
           ENDDO
         ENDDO
-      END IF
-      IF (lcall_phy_jg(itturb) ) THEN
+
+      ELSE IF (lcall_phy_jg(itturb) ) THEN
 #ifdef __LOOP_EXCHANGE
         DO jce = i_startidx, i_endidx
 !DIR$ IVDEP

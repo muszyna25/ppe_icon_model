@@ -1,22 +1,22 @@
 #--------------------------------------------------------------------------------------------------
 #
-# AMIP experiment
+# Aqua Planet Experiment (APE)
 #
-author_list="Marco Giorgetta, MPIM"
+author_list="Marco Giorgetta, Sebastian Mueller, Sebastian Rast, MPIM"
 #
 #--------------------------------------------------------------------------------------------------
 #
-# This file describes an AMIP experiment based on the non-hydrostatic atmosphere and the
-# ECHAM physics. The experiment is intialized from IFS analysis files and uses transient
+# This file describes an aqua planet experiment based on the non-hydrostatic atmosphere and the
+# ECHAM physics. The experiment is intialized analytically and uses constant-in-time
 # boundary conditions for:
 # - SST and sea ice
 # - spectral solar irradiation
 # - well mixed greenhouse gases CO2, CH4, N2O, CFCs
 # - O3 concentration
-# - tropospheric aerosol optical properties
-# - stratospheric volcanic aerosol optical properties
 #
-# _bb_table_Description_  AMIP experiment
+# No aerosols are used
+#
+# _bb_table_Description_  aqua planet experiment
 # _bb_table_Model_        non-hydrostatic atmosphere with ECHAM physics
 #
 #--------------------------------------------------------------------------------------------------
@@ -34,15 +34,16 @@ author_list="Marco Giorgetta, MPIM"
 # (2) Set variables needed by the scripting mechanism
 
 # horizontal grid(s)
-grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip
+grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip/r0002
 atmo_dyn_grids='r2b4_amip.nc'
 
 # start and end date+time
 start_date="1979-01-01T00:00:00Z"
   end_date="1979-01-01T00:16:00Z"
-
+  calendar="'360 day year'"
+  calendar_type=2
 # restart intervals
-checkpoint_interval="PT8M"
+checkpoint_interval="PT08M"
 restart_interval="PT16M"
 #
 # NEEDED TO KEEP THIS TEST WORKING WITHOUT "--enable-mtime-loop" CONFIGURATION.
@@ -51,14 +52,40 @@ restart_interval="PT16M"
 (( dt_restart    = 16 * minute))    # !! MUST BE EQUAL TO "restart_interval"     !!
 
 # output intervals
-output_interval_3d="PT4M"
-output_interval_2d="PT4M"
-file_interval="PT4M"
+output_interval_3d="PT04M"
+output_interval_2d="PT04M"
+file_interval="PT04M"
 
 # namelist files
 atmo_namelist=NAMELIST_${EXPNAME}_atm
-lnd_namelist=NAMELIST_${EXPNAME}_lnd
 
+#--------------------------------------------------------------------------------------------------
+# Define grids for horizontal remapping
+# -------------------------------------
+#
+# The ICON RmBn grid has 3*m*2**n rows of triangles between the vertices at the N and S pole.
+# The number of triangles in a row around this axis increases linearly from 5 to 5*(1+2*(i-1))
+# at the base of the "polar" icosahedral triangles. In the "tropical" icosahedral triangles
+# all rows have a  5*(2*(m*2**n)) triangles. The triangles are either northward or southward
+# pointing. Thus the smallest periodic element in a tropical row is a rhombus formed by two
+# adjacent triangles. A tropical row has 5*(m*n**2) rhombi.
+#
+# The R2B4 grid has a total of 20480 triangular cells in 96 rows.
+# The tropical rows have 320 triangles or 160 rhombi.
+#
+# Therefore the following regular lon-lat grids are of interest for remapping:
+#
+# regular  grid: nlat=96, nlon=192, npts=18432, dlat=1.875 deg, dlon=1.875 deg
+reg_lat_def_reg=-89.0625,1.875,89.0625
+reg_lon_def_reg=0.,1.875,358.125
+#
+# rhombus  grid: nlat=96, nlon=160, npts=15360, dlat=1.875 deg, dlon=2.250 deg
+reg_lat_def_rmb=$reg_lat_def_reg
+reg_lon_def_rmb=0.,2.25,357.75
+#
+# triangle grid: nlat=96, nlon=320, npts=30720, dlat=1.875 deg, dlon=1.125 deg
+reg_lat_def_tri=$reg_lat_def_reg
+reg_lon_def_tri=0.,1.125,358.875
 #--------------------------------------------------------------------------------------------------
 
 # (3) Define the model configuration
@@ -76,7 +103,7 @@ cat > ${atmo_namelist} << EOF
 &run_nml
  num_lev          = 47          ! number of full levels
  dtime            = 240         ! [s] time step   !! MUST BE EQUAL TO "modelTimeStep" !!
- modelTimeStep    = "PT4M"
+ modelTimeStep    = "PT04M"
  ltestcase        = .TRUE.      ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
@@ -85,7 +112,6 @@ cat > ${atmo_namelist} << EOF
  output           = 'nml'
  msg_level        = 15          ! level of details report during integration 
  restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
- irad_type        = 2
  activate_sync_timers = .TRUE.
 /
 &nh_testcase_nml
@@ -137,23 +163,26 @@ cat > ${atmo_namelist} << EOF
  irad_co2         = 2           ! 2: constant co2
  irad_ch4         = 0           ! 0: no ch4
  irad_n2o         = 0           ! 0: no n2o
- irad_o3          = 0           ! 0: no o3 FOR TESTING
+ irad_o3          = 4           ! 4: APE ozone (perpetual january of ozone file linked below)
  irad_o2          = 0           ! 0: no o2
  irad_cfc11       = 0           ! 0: no cfc11
  irad_cfc12       = 0           ! 0: no cfc12
  irad_aero        = 0           ! 0: no aerosol
- isolrad          = 1           ! 1: transient solar irradiance (at 1 AE)
+ isolrad          = 2           ! 2: preindustrial solar constant 1360.875 W/m^ at 1 AE
 /
 &psrad_nml
 rad_perm          = 1           ! Integer for perturbing random number seeds
+/
+&psrad_orbit_nml
+cecc        = 0.0
+cobld       = 0.0
+l_orbvsop87 = .FALSE.
 /
 &echam_conv_nml
 /
 &echam_cloud_nml
 /
 &gw_hines_nml
-/
-&sea_ice_nml
 /
 EOF
 
@@ -177,7 +206,7 @@ dict_file="dict.${EXPNAME}"
 cat dict.iconam.mpim_inst  > ${dict_file}
 add_required_file ${basedir}/run/${dict_file}                           ./
 
-INDATA=${icon_data_poolFolder}/input/r0003
+INDATA=${icon_data_poolFolder}/input/r0004
 
 # boundary conditions
 #
@@ -191,17 +220,9 @@ datadir=$INDATA/global/atm
 add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc                 ./bc_greenhouse_gases.nc
 #
 # - ozone
-datadir=$INDATA/r2b4_amip/atm/bc_ozone_cmip5
-year=$start_year
-while [[ $year -le $end_year ]]
-do
-  add_link_file $datadir/bc_ozone_cmip5_${year}.nc                      ./bc_ozone_${year}.nc
-  (( year = year+1 ))
-done
-#
-# - ssi and tsi
-datadir=$INDATA/global/sun
-add_link_file $datadir/bc_solar_irradiance_14band_1849-2399.nc          ./bc_solar_irradiance_sw_b14.nc
+datadir=${icon_data_poolFolder}/external/ape_ozone/
+ozone_file="ape_o3_iconR2B04-ocean_aqua_planet.nc"
+add_required_file ${datadir}/${ozone_file}                              ./o3_icon_DOM01.nc
 
 #--------------------------------------------------------------------------------------------------
 
@@ -276,8 +297,42 @@ if [[ "$output_atm_2d" == "yes" ]]; then
 /
 EOF
 fi
-
-
+output_atm_2d_rmb=yes
+#
+if [[ "$output_atm_2d_rmb" == "yes" ]]; then
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_atm_2d_rmb"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 1
+ reg_def_mode     = 1
+ reg_lat_def      = ${reg_lat_def_rmb}
+ reg_lon_def      = ${reg_lon_def_rmb}
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "${output_interval_2d}"          ! ISO-format interval
+ file_interval    = "${file_interval}"
+! steps_per_file   = ${output_steps_per_file}
+ include_last     = .FALSE.
+ ml_varlist       = 'ps','psl'
+                    'cosmu0'  , 'rsdt'    ,
+                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
+                    'ts'      , 'ts_rad'  ,
+                    'albedo'  ,
+                    'clt'     ,
+                    'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
+                    'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
+                    'hfls'    , 'hfss'    , 'evspsbl' ,
+                    'tauu'    , 'tauv'    ,
+                    'sh_vdiff', 'qv_vdiff',
+                    'ch_concloud',
+                    'con_dtrl', 'con_dtri', 'con_iteqv',
+                    'cld_dtrl', 'cld_dtri', 'cld_iteq'
+/
+EOF
+fi
+#
 output_phy_3d=yes # "yes" increases the output volume significantly!
 #
 if [[ "$output_phy_3d" == "yes" ]]; then
@@ -309,5 +364,39 @@ if [[ "$output_phy_3d" == "yes" ]]; then
 /
 EOF
 fi
-
+#
+output_phy_3d_rmb=yes # "yes" increases the output volume significantly!
+#
+if [[ "$output_phy_3d_rmb" == "yes" ]]; then
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_phy_3d_rmb"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+  remap            = 1
+ reg_def_mode     = 1
+ reg_lat_def      = ${reg_lat_def_rmb}
+ reg_lon_def      = ${reg_lon_def_rmb}
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "${output_interval_3d}"          ! ISO-format interval
+ file_interval    = "${file_interval}"
+! steps_per_file   = ${output_steps_per_file}
+ include_last     = .FALSE.
+ ml_varlist       = 'ta','ua','va','wa','wap','hus','hur','cl','clw','cli','rho','zg'
+                    'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
+                    'tend_ta_rlw'  , 'tend_ta_rsw'  ,
+                    'tend_ta_vdf'  , 'tend_ta_gwh'  , 
+                    'tend_ta_cnv'  , 'tend_ta_cld'  , 
+                    'tend_ua'      , 'tend_ua_dyn'  , 'tend_ua_phy'  ,
+                    'tend_ua_vdf'  , 'tend_ua_gwh'  , 
+                    'tend_ua_cnv'  , 
+                    'tend_va'      , 'tend_va_dyn'  , 'tend_va_phy'  ,
+                    'tend_va_vdf'  , 'tend_va_gwh'  , 
+                    'tend_va_cnv'  ,
+                    'tend_hus'     , 'tend_hus_dyn' , 'tend_hus_phy' ,
+                    'tend_hus_cld' , 'tend_hus_cnv' , 'tend_hus_vdf'
+/
+EOF
+fi
 #--------------------------------------------------------------------------------------------------

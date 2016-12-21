@@ -26,7 +26,7 @@ MODULE mo_phys_nest_utilities
 USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: message_text, message
 USE mo_model_domain,        ONLY: t_patch, t_grid_cells, p_patch_local_parent, p_patch
-USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state, p_int_state_local_parent
+USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state_local_parent
 USE mo_grf_intp_data_strc,  ONLY: t_gridref_state, t_gridref_single_state, &
                                   p_grf_state, p_grf_state_local_parent
 USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
@@ -1900,7 +1900,6 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
   TYPE(t_patch),                POINTER :: ptr_pp
   TYPE(t_patch),                POINTER :: ptr_pc
   TYPE(t_gridref_single_state), POINTER :: ptr_grf
-  TYPE(t_int_state),            POINTER :: ptr_int
   TYPE(t_lnd_diag),             POINTER :: ptr_ldiagp ! parent level land diag state
   TYPE(t_lnd_diag),             POINTER :: ptr_ldiagc ! child level land diag state
   TYPE(t_lnd_prog),             POINTER :: ptr_lprogp ! parent level land prog state
@@ -1934,7 +1933,6 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
   ptr_pp  => p_patch(jg)
   ptr_pc  => p_patch(jgc)
   ptr_grf => p_grf_state(jg)%p_dom(jn)
-  ptr_int => p_int_state(jg)
 
   nlev_c = ptr_pc%nlev
 
@@ -2401,7 +2399,6 @@ SUBROUTINE interpol_rrg_grf (jg, jgc, jn, ntl_rcf)
   TYPE(t_patch),                POINTER :: ptr_pp
   TYPE(t_patch),                POINTER :: ptr_pc
   TYPE(t_gridref_single_state), POINTER :: ptr_grf
-  TYPE(t_int_state),            POINTER :: ptr_int
   TYPE(t_nwp_phy_diag),         POINTER :: prm_diagp
   TYPE(t_nwp_phy_diag),         POINTER :: prm_diagc
   TYPE(t_lnd_prog),             POINTER :: ptr_lprogp
@@ -2421,7 +2418,6 @@ SUBROUTINE interpol_rrg_grf (jg, jgc, jn, ntl_rcf)
   ptr_pp        => p_patch(jg)
   ptr_pc        => p_patch(jgc)
   ptr_grf       => p_grf_state(jg)%p_dom(jn)
-  ptr_int       => p_int_state(jg)
   prm_diagp     => prm_diag(jg)
   prm_diagc     => prm_diag(jgc)
   ptr_lprogp    => p_lnd_state(jg)%prog_lnd(ntl_rcf)

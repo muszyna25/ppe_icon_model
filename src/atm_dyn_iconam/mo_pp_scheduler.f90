@@ -162,13 +162,14 @@ MODULE mo_pp_scheduler
     &                                   TASK_INTP_VER_ILEV, TASK_INTP_EDGE2CELL,            &
     &                                   max_phys_dom, UNDEF_TIMELEVEL, ALL_TIMELEVELS,      &
     &                                   vname_len, TASK_COMPUTE_OMEGA,                      &
-    &                                   TLEV_NNOW, TLEV_NNOW_RCF
+    &                                   TLEV_NNOW, TLEV_NNOW_RCF, HINTP_TYPE_LONLAT_NNB
   USE mo_model_domain,            ONLY: p_patch, p_phys_patch
   USE mo_var_list,                ONLY: add_var, nvar_lists, var_lists, get_var_name,       &
     &                                   get_var_timelevel, find_list_element
   USE mo_var_list_element,        ONLY: level_type_ml,                                      &
     &                                   level_type_pl, level_type_hl, level_type_il
-  USE mo_var_metadata_types,      ONLY: t_var_metadata, VARNAME_LEN, t_post_op_meta
+  USE mo_var_metadata_types,      ONLY: t_var_metadata, t_var_metadata_dynamic, VARNAME_LEN,&
+    &                                   t_post_op_meta
   USE mo_var_metadata,            ONLY: create_hor_interp_metadata, vintp_type_id
   USE mo_intp_data_strc,          ONLY: lonlat_grid_list,                                   &
     &                                   t_lon_lat_intp, p_int_state,                        &
@@ -488,7 +489,8 @@ CONTAINS
     CHARACTER(LEN=vname_len), ALLOCATABLE :: ll_varlist(:)
     INTEGER, ALLOCATABLE                  :: ll_varlevs(:)
     CHARACTER(LEN=vname_len)              :: vname
-    TYPE(t_var_metadata),      POINTER    :: info
+    TYPE(t_var_metadata),POINTER          :: info
+    TYPE(t_var_metadata_dynamic),POINTER  :: info_dyn
     INTEGER                               :: var_shape(5)
     TYPE (t_lon_lat_intp),     POINTER    :: ptr_int_lonlat
     INTEGER                               :: uv_hrz_intp_grid(4*MAX_LONLAT_GRIDS), &
@@ -635,7 +637,8 @@ CONTAINS
           ENDIF
           IF(.NOT.ASSOCIATED(element)) EXIT
             
-          info => element%field%info
+          info     => element%field%info
+          info_dyn => element%field%info_dyn
           ! Do not inspect element if it is a container
           IF (info%lcontainer) CYCLE VAR_LOOP
           ! Do not inspect element if "loutput=.false."
@@ -652,7 +655,7 @@ CONTAINS
 
           ! Check for matching name (take care of suffix of
           ! time-dependent variables):
-          IF (TRIM(tolower(vname)) /= TRIM(tolower(get_var_name(element%field)))) CYCLE VAR_LOOP
+          IF (TRIM(vname) /= TRIM(tolower(get_var_name(element%field)))) CYCLE VAR_LOOP
 
           IF (info%hgrid /= GRID_UNSTRUCTURED_CELL)  CYCLE VAR_LOOP
 
@@ -682,6 +685,16 @@ CONTAINS
             var_shape(3)     =  nblks_lonlat
           END IF
 
+          ! cross-check: some output fields set "undefined" values as
+          ! a fixed value and communicate this to the output module to
+          ! create a bit mask (GRIB). However, for lon-lat
+          ! interpolated output products this "missval" is preserved
+          ! exactly only when nearest-neighbor interpolation is
+          ! applied.
+          IF (info%lmiss .AND. (info%hor_interp%hor_intp_type /= HINTP_TYPE_LONLAT_NNB)) THEN
+            CALL finish(routine, "User tried to interpolate field with missing value!")
+          END IF
+
           SELECT CASE (info%hgrid)
           CASE (GRID_UNSTRUCTURED_CELL)
             !--- REAL fields
@@ -689,7 +702,7 @@ CONTAINS
               CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d,          &
                 &           GRID_REGULAR_LONLAT, info%vgrid, info%cf, info%grib2, &
                 &           ldims=var_shape, lrestart=.FALSE.,                    &
-                &           tracer_info=info%tracer,                              &
+                &           tracer_info=info_dyn%tracer,                          &
                 &           loutput=.TRUE., new_element=new_element,              &
                 &           isteptype=info%isteptype,                             &
                 &           hor_interp=create_hor_interp_metadata(                &
@@ -875,7 +888,7 @@ CONTAINS
     ! add new variable, copy the meta-data from the existing variable
     CALL add_var( dst_varlist, TRIM(name), ptr, element%field%info%hgrid, dst_axis,     &
       &           element%field%info%cf, element%field%info%grib2, ldims=shape3d,       &
-      &           tracer_info=element%field%info%tracer,                                &
+      &           tracer_info=element%field%info_dyn%tracer,                            &
       &           post_op=element%field%info%post_op, loutput=.TRUE., lrestart=.FALSE., &
       &           var_class=element%field%info%var_class,                               &
       &           tlev_source=element%field%info%tlev_source )
@@ -1076,11 +1089,12 @@ CONTAINS
     ! variable lists (for all domains + output name lists):
     CHARACTER(LEN=vname_len), TARGET, ALLOCATABLE  :: &
          &                                pl_varlist(:), hl_varlist(:), il_varlist(:)
-    CHARACTER(LEN=vname_len),  POINTER :: varlist(:)
-    CHARACTER(LEN=10)                  :: prefix
-    TYPE(t_var_metadata),      POINTER :: info
-    TYPE(t_cf_var)                     :: cf_desc
-    TYPE(t_grib2_var)                  :: grib2_desc
+    CHARACTER(LEN=vname_len),  POINTER   :: varlist(:)
+    CHARACTER(LEN=10)                    :: prefix
+    TYPE(t_var_metadata),POINTER         :: info
+    TYPE(t_var_metadata_dynamic),POINTER :: info_dyn
+    TYPE(t_cf_var)                       :: cf_desc
+    TYPE(t_grib2_var)                    :: grib2_desc
 
     ! define NetCDF output precision
     IF ( lnetcdf_flt64_output ) THEN
@@ -1324,7 +1338,8 @@ CONTAINS
               ENDIF
               IF(.NOT.ASSOCIATED(element)) EXIT
 
-              info => element%field%info
+              info     => element%field%info
+              info_dyn => element%field%info_dyn
               ! Do not inspect element if it is a container
               IF (info%lcontainer) CYCLE
               ! Do not inspect element if "loutput=.false."
@@ -1342,7 +1357,7 @@ CONTAINS
 
               ! Check for matching name (take care of suffix of
               ! time-dependent variables):
-              IF (TRIM(tolower(varlist(ivar))) /= TRIM(tolower(get_var_name(element%field)))) CYCLE
+              IF (TRIM(varlist(ivar)) /= TRIM(tolower(get_var_name(element%field)))) CYCLE
 
               ! throw error message, if this variable is not a REAL field:
               IF (.NOT. ASSOCIATED(element%field%r_ptr)) THEN
@@ -1364,7 +1379,7 @@ CONTAINS
               CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d,    &
                 &           info%hgrid, vgrid, info%cf, info%grib2,         &
                 &           ldims=shape3d, lrestart=.FALSE.,                &
-                &           tracer_info=info%tracer,                     &
+                &           tracer_info=info_dyn%tracer,                    &
                 &           loutput=.TRUE., new_element=new_element,        &
                 &           post_op=info%post_op, var_class=info%var_class, &
                 &           tlev_source=info%tlev_source )

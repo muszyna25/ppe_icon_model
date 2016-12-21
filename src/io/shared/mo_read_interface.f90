@@ -38,8 +38,10 @@ MODULE mo_read_interface
     & read_netcdf_distribute_method,  default_read_method
   USE mo_read_netcdf_broadcast_2, ONLY: netcdf_open_input, netcdf_close, &
     &                                   netcdf_read_2D, netcdf_read_2D_int, &
+    &                                   netcdf_read_REAL_2D_all, &
     &                                   netcdf_read_2D_extdim, &
     &                                   netcdf_read_2D_extdim_int, &
+    &                                   netcdf_read_REAL_3D_all, &
     &                                   netcdf_read_3D_extdim, &
     &                                   read_0D_real => netcdf_read_0D_real, &
     &                                   netcdf_read_1D, netcdf_read_3D, &
@@ -49,7 +51,6 @@ MODULE mo_read_interface
     &                                   netcdf_get_missValue
   USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data, distrib_nf_open, &
     &                                   distrib_read, distrib_nf_close, &
-    &                                   var_data_1d_int, &
     &                                   var_data_2d_wp, var_data_2d_int, &
     &                                   var_data_3d_wp, var_data_3d_int, &
     &                                   distrib_inq_var_dims, idx_lvl_blk, &
@@ -78,11 +79,13 @@ MODULE mo_read_interface
   PUBLIC :: read_1D_extdim_time
   PUBLIC :: read_1D_extdim_extdim_time
   PUBLIC :: read_2D
+  PUBLIC :: read_bcast_REAL_2D
   PUBLIC :: read_2D_int
   PUBLIC :: read_2D_time
   PUBLIC :: read_2D_1time
   PUBLIC :: read_2D_1lev_1time
   PUBLIC :: read_3D
+  PUBLIC :: read_bcast_REAL_3D
   PUBLIC :: read_3D_1time
   PUBLIC :: read_3D_time
   PUBLIC :: read_2D_extdim
@@ -260,6 +263,34 @@ CONTAINS
     IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
 
   END SUBROUTINE read_bcast_REAL_1D
+  !-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE read_bcast_REAL_2D(file_id, variable_name, fill_array, &
+    &                           return_pointer)
+
+    INTEGER, INTENT(IN)          :: file_id
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    define_fill_target           :: fill_array(:,:)
+    define_return_pointer        :: return_pointer(:,:)
+
+    REAL(wp), POINTER            :: tmp_pointer(:,:)
+    CHARACTER(LEN=NF_MAX_NAME)   :: variable_name_
+    CHARACTER(LEN=*), PARAMETER  :: method_name = &
+      'mo_read_interface:read_bcast_REAL_2D'
+
+    ! make variable name available on all processes
+    CALL bcast_varname(variable_name, variable_name_)
+
+    ! check whether fill_array and/or return_pointer was provided
+    IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
+      CALL finish(method_name, "invalid arguments")
+
+    ! there is only one implementation for this read routine type
+    tmp_pointer => netcdf_read_REAL_2D_all(file_id, variable_name_, fill_array)
+    IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
+
+  END SUBROUTINE read_bcast_REAL_2D
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -1208,6 +1239,35 @@ CONTAINS
     END SELECT
 
   END SUBROUTINE read_dist_INT_2D_extdim_multivar
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE read_bcast_REAL_3D(file_id, variable_name, fill_array, &
+    &                           return_pointer)
+
+    INTEGER, INTENT(IN)          :: file_id
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    define_fill_target           :: fill_array(:,:,:)
+    define_return_pointer        :: return_pointer(:,:,:)
+
+    REAL(wp), POINTER            :: tmp_pointer(:,:,:)
+    CHARACTER(LEN=NF_MAX_NAME)   :: variable_name_
+    CHARACTER(LEN=*), PARAMETER  :: method_name = &
+      'mo_read_interface:read_bcast_REAL_3D'
+
+    ! make variable name available on all processes
+    CALL bcast_varname(variable_name, variable_name_)
+
+    ! check whether fill_array and/or return_pointer was provided
+    IF (.NOT. (PRESENT(fill_array) .OR. PRESENT(return_pointer))) &
+      CALL finish(method_name, "invalid arguments")
+
+    ! there is only one implementation for this read routine type
+    tmp_pointer => netcdf_read_REAL_3D_all(file_id, variable_name_, fill_array)
+    IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
+
+  END SUBROUTINE read_bcast_REAL_3D
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
