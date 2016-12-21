@@ -445,7 +445,7 @@ sub ScanDirectory {
         next if ($name eq "nh");
         next if ($name eq "phys");
         next if ($name eq "sw_options");
-        next if (($enable_ocean eq "no") and (($name eq "ocean") or ($name eq "sea_ice")) );
+        next if (($enable_ocean eq "no") and (($name eq "ocean") or ($name eq "sea_ice") or ($name eq "hamocc")) );
         next if (($enable_jsbach eq "no") and ($name eq "lnd_phy_jsbach") );
         next if (($enable_testbed eq "no") and ($name eq "testbed") and ($workpath eq "src") );
 
