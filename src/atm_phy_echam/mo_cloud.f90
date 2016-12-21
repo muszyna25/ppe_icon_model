@@ -106,7 +106,6 @@ CONTAINS
                            , pxtecl,       pxteci,       pqtec                       &
                            , ptte                                                    &
                            , pqte,         pxlte,        pxite                       &
-                           , pcld_etrl,    pcld_etri,    pcld_iteq                   &
                            , paclc                                                   &
     ! - OUTPUT 1D .
                            , pssfl,        prsfl                                     &
@@ -152,9 +151,6 @@ CONTAINS
       & pxite    (kbdim,klev)     ,&!< tendency of cloud ice
       & paclc    (kbdim,klev)       !< cloud cover  (now diagnosed in cover)
     REAL(wp),INTENT(INOUT) ::      &
-      & pcld_etrl(kbdim)          ,&!< entrained liquid from convection
-      & pcld_etri(kbdim)          ,&!< entrained ice from convection
-      & pcld_iteq(kbdim)          ,&!< vert. integrated tend of qv,ql, and qc
       & ptte_prc(kbdim,klev)      ,&!<
       & pqte_prc(kbdim,klev)        ! OUT
     REAL(wp),INTENT(INOUT) ::      &
@@ -276,16 +272,6 @@ CONTAINS
     pqte_prc(1:kproma,:)   =  pqte(1:kproma,:)
     pxlte_prc(1:kproma,:)  = pxlte(1:kproma,:)
     pxite_prc(1:kproma,:)  = pxite(1:kproma,:)
-    !
-    ! Diagnostic: write entrained liquid water and ice to output vars.
-    pcld_etrl=0._wp                       ! entrained liquid water
-    pcld_etri=0._wp                       ! entrained ice
-    DO jk=1,klev
-      DO jl=1,kproma
-        pcld_etrl(jl)=pcld_etrl(jl)+pxtecl(jl,jk)*pmdry(jl,jk)
-        pcld_etri(jl)=pcld_etri(jl)+pxteci(jl,jk)*pmdry(jl,jk)
-      END DO
-    END DO
     !
     ! Executable statements
     !
@@ -1298,14 +1284,6 @@ CONTAINS
        pch_concloud(jl) = pch_concloud(jl)+zclten(jl)-(alv*prsfl(jl)+als*pssfl(jl)) ! [W/m2]
        pcw_concloud(jl) = pcw_concloud(jl)+zqviten(jl)+prsfl(jl)+pssfl(jl)          ! [kg/m2s]
 934 END DO
-
-    ! Diagnostic: calculate vert int of ddt(qv+qi+qc) and write to output var.
-    pcld_iteq=0._wp
-    DO jk=1,klev
-      DO jl=1,kproma
-        pcld_iteq(jl) = pcld_iteq(jl) + (pqte(jl,jk)+pxlte(jl,jk)+pxite(jl,jk)) * pmdry(jl,jk)
-      END DO
-    END DO
 
     ! compare liquid water path below and above convective cloud top
     DO 938 jl = 1,kproma

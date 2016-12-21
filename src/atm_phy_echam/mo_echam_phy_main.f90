@@ -1155,9 +1155,6 @@ CONTAINS
           &         tend% qtrc  (:,:,jb,iqv), &! inout.  qte
           &         tend% qtrc  (:,:,jb,iqc), &! inout. xlte
           &         tend% qtrc  (:,:,jb,iqi), &! inout. xite
-          &        field% cld_dtrl(:,jb),     &! inout detrained liquid
-          &        field% cld_dtri(:,jb),     &! inout detrained ice
-          &        field% cld_iteq(:,jb),     &! inout v. int. tend of qv,qc, and qi within cloud
 !          &         tend% x_dtr(:,:,jb),      &! inout (there is a clip inside)
           &        field% aclc  (:,:,jb),     &! inout
           &        field% ssfl  (:,  jb),     &! out

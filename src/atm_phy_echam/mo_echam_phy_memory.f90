@@ -263,10 +263,7 @@ MODULE mo_echam_phy_memory
       & cw_concloud (:,  :),&!< condensational moistening, convection, large scale clouds
       & con_dtrl (:,  :),   &!< detrainment of liquid from convection
       & con_dtri (:,  :),   &!< detrainment of ice from convection 
-      & con_iteqv (:,  :),  &!< v. int. tendency of water vapor within convection
-      & cld_dtrl (:,  :),   &!< entrainment of liquid from convection to cloud
-      & cld_dtri (:,  :),   &!< entrainment of ice from convection to cloud
-      & cld_iteq (:,  :)    !< v. int. tendency of qv,qc, and qi within cloud
+      & con_iteqv(:,  :)     !< v. int. tendency of water vapor within convection
 
     ! orography
     REAL(wp),POINTER :: &
@@ -2109,21 +2106,6 @@ CONTAINS
        cf_desc    = t_cf_var('qv_vdiff','kg/m^2/s', '', datatype_flt)
        grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( field_list, prefix//'qv_vdiff', field%qv_vdiff,          &
-                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-                   & lrestart = .FALSE., ldims=shape2d )
-       cf_desc    = t_cf_var('cld_dtrl','?', '', datatype_flt)
-       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-       CALL add_var( field_list, 'cld_dtrl', field%cld_dtrl,                  &
-                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-                   & lrestart = .FALSE., ldims=shape2d )
-       cf_desc    = t_cf_var('cld_dtri','?', '', datatype_flt)
-       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-       CALL add_var( field_list, 'cld_dtri', field%cld_dtri,                  &
-                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-                   & lrestart = .FALSE., ldims=shape2d )
-       cf_desc    = t_cf_var('cld_iteq','?', '', datatype_flt)
-       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-       CALL add_var( field_list, 'cld_iteq', field%cld_iteq,                  &
                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                    & lrestart = .FALSE., ldims=shape2d )
 
