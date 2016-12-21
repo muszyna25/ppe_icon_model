@@ -1131,6 +1131,8 @@ CONTAINS
           &        ictop,                     &! in (from "cucall")
           &        field% presi_old(:,:,jb),  &! in
           &        field% presm_old(:,:,jb),  &! in
+          &        field% dz(:,:,jb),         &! in
+          &        field% mdry(:,:,jb),       &! in
 !          &        field% presm_new(:,:,jb), &! in
           &        field% acdnc (:,:,jb),     &! in. acdnc
           &        field%   ta  (:,:,jb),     &! in. tm1
@@ -1139,7 +1141,6 @@ CONTAINS
           &        field% qtrc  (:,:,jb,iqc), &! in. xlm1
           &        field% qtrc  (:,:,jb,iqi), &! in. xim1
           &        zcair(:,:),                &! in
-          &        field% geom  (:,:,jb),     &! in. geom1
           &        field% aclcov(:,  jb),     &! out
           &        field%  qvi  (:,  jb),     &! out
           &        field% xlvi  (:,  jb),     &! out
