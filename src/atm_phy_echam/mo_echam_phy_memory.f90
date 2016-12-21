@@ -131,6 +131,7 @@ MODULE mo_echam_phy_memory
       & qtrc      (:,:,:,:),&!< [kg/kg] tracer concentration (qm1, xlm1, xim1 of memory_g1a in ECHAM)
       & mtrc      (:,:,:,:),&!< [kg/m2] tracer content
       & mtrcvi    (:,:,:),  &!< [kg/m2] tracer content, vertically integrated through the atmospheric column
+      & rho       (:,:,:),  &!< [kg/m3] air density
       & mh2o      (:,:,:),  &!< [kg/m2] h2o content (vap+liq+ice)
       & mair      (:,:,:),  &!< [kg/m2] air content
       & mdry      (:,:,:),  &!< [kg/m2] dry air content
@@ -970,6 +971,20 @@ CONTAINS
                   & lrestart = .FALSE.,                                        &
                   & ldims=(/kproma,kblks/)                                     )
     END DO                                                                                
+
+    ! &       field% rho        (nproma,nlev  ,nblks),          &
+    cf_desc    = t_cf_var('air_density', 'kg m-3', 'density of air',           &
+         &                datatype_flt)
+    grib2_desc = grib2_var(0,3,10, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'rho_phy', field%rho,                    &
+         &        GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
+         &        ldims=shape3d, lrestart = .FALSE.,                           &
+         &        vert_interp=create_vert_interp_metadata(                     &
+         &                    vert_intp_type=vintp_types("P","Z","I"),         & 
+         &                    vert_intp_method=VINTP_METHOD_LIN,               &
+         &                    l_loglin=.FALSE.,                                &
+         &                    l_extrapol=.TRUE., l_pd_limit=.FALSE.,           &
+         &                    lower_limit=0._wp  ) )
 
     ! &       field% mh2o        (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('h2o_mass', 'kg m-2', 'h2o (vap+liq+ice) mass in layer', &
