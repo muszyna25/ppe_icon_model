@@ -177,7 +177,6 @@ CONTAINS
       &      , zxlb(kbdim)          ,zxib(kbdim)          ,zqrho(kbdim)              &
       &      , zqrho_sqrt(kbdim)    ,zpapm1_inv(kbdim)    ,zpapp1i(kbdim)            &
       &      , zclcov(kbdim)        ,zclcaux(kbdim)       ,zqsed(kbdim)              &
-      &      , zqvi(kbdim)          ,zxlvi(kbdim)         ,zxivi(kbdim)              &
       &      , zxlvitop(kbdim)      ,zxlvibot(kbdim)      ,zxrp1(kbdim)              &
       &      , zxsp1(kbdim)         ,zxsp2(kbdim)         ,zgenti(kbdim)             &
       &      , zgentl(kbdim)        ,zauloc(kbdim)                                   &
@@ -1259,18 +1258,18 @@ CONTAINS
     !       10.3   Vertical integrals of humidity, cloud water and cloud ice
     !
     DO 931 jl   = 1,kproma
-       zqvi(jl)  = 0.0_wp
-       zxlvi(jl) = 0.0_wp
-       zxivi(jl) = 0.0_wp
+       pqvi(jl)  = 0.0_wp
+       pxlvi(jl) = 0.0_wp
+       pxivi(jl) = 0.0_wp
        zclten(jl) = 0.0_wp
        zqviten(jl) = 0.0_wp
 931 END DO
     !
     DO 933 jk     = ktdia,klev
        DO 932 jl   = 1,kproma
-          zqvi(jl)   = zqvi(jl)    + pqm1  (jl,jk) *pmdry(jl,jk)
-          zxlvi(jl)  = zxlvi(jl)   + pxlm1 (jl,jk) *pmdry(jl,jk)
-          zxivi(jl)  = zxivi(jl)   + pxim1 (jl,jk) *pmdry(jl,jk)
+          pqvi(jl)   = pqvi(jl)    + pqm1  (jl,jk) *pmdry(jl,jk)
+          pxlvi(jl)  = pxlvi(jl)   + pxlm1 (jl,jk) *pmdry(jl,jk)
+          pxivi(jl)  = pxivi(jl)   + pxim1 (jl,jk) *pmdry(jl,jk)
           zclten(jl) = zclten(jl)  + zcpten(jl,jk) *pmdry(jl,jk)     ! [W/m2]
           zqviten(jl)= zqviten(jl) + zqten (jl,jk) *pmdry(jl,jk)     ! [kg/m2s]
 932    END DO
@@ -1278,9 +1277,6 @@ CONTAINS
 
 !
     DO 934 jl   = 1,kproma
-       pqvi(jl)  = zqvi(jl)
-       pxlvi(jl) = zxlvi(jl)
-       pxivi(jl) = zxivi(jl)
        pch_concloud(jl) = pch_concloud(jl)+zclten(jl)-(alv*prsfl(jl)+als*pssfl(jl)) ! [W/m2]
        pcw_concloud(jl) = pcw_concloud(jl)+zqviten(jl)+prsfl(jl)+pssfl(jl)          ! [kg/m2s]
 934 END DO
@@ -1296,7 +1292,7 @@ CONTAINS
 
     ! modify ktype where appropriate (to be used in mo_cloud_optics)
     DO 940 jl = 1,kproma
-       zxlvibot(jl) = zxlvi(jl) - zxlvitop(jl)
+       zxlvibot(jl) = pxlvi(jl) - zxlvitop(jl)
        IF (ktype(jl) .EQ. 2 .AND. zxlvibot(jl) .GT. clwprat * zxlvitop(jl)) THEN
           ktype(jl) = 4
        END IF
