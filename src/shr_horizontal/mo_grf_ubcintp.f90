@@ -61,7 +61,7 @@ CONTAINS
 SUBROUTINE interpol_vec_ubc(p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
   !
   TYPE(t_patch), INTENT(in) :: p_pp
-  TYPE(t_patch), TARGET, INTENT(inout) :: p_pc
+  TYPE(t_patch), INTENT(inout) :: p_pc
 
   ! input: delta vn at interface level
   REAL(wp), INTENT(IN) :: p_vn_in(:,:) ! dim: (nproma,nblks_e)
