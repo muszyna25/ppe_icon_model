@@ -99,11 +99,7 @@ SUBROUTINE interpol_vec_ubc(p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
 !$OMP PARALLEL
 !$OMP DO PRIVATE (jb,je,nlen,nshift) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = 1, nblks_ubcintp
-    IF (jb == nblks_ubcintp) THEN
-      nlen = npromz_ubcintp
-    ELSE
-      nlen = nproma_ubcintp
-    ENDIF
+    nlen = MERGE(nproma_ubcintp, npromz_ubcintp, jb /= nblks_ubcintp)
     nshift = (jb-1)*nproma_ubcintp
 
     DO je = nshift+1, nshift+nlen
