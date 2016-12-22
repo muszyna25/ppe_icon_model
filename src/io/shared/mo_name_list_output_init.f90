@@ -94,7 +94,7 @@ MODULE mo_name_list_output_init
     &                                             get_my_mpi_work_communicator,                   &
     &                                             p_comm_work, p_comm_work_2_io,                  &
     &                                             p_comm_io, p_comm_work_io,                      &
-    &                                             p_int, p_real_dp, p_real_sp,                    &
+    &                                             p_int, p_int_i8, p_real_dp, p_real_sp,          &
     &                                             my_process_is_stdio, my_process_is_mpi_test,    &
     &                                             my_process_is_mpi_workroot,                     &
     &                                             my_process_is_io,        &
@@ -2172,11 +2172,10 @@ CONTAINS
     INTEGER :: i, n, il, ib
     LOGICAL, ALLOCATABLE :: phys_owner_mask(:) ! owner mask for physical patch
     INTEGER, ALLOCATABLE :: reorder_index_log_dom(:)
-
+    INTEGER(i8), ALLOCATABLE :: occupation_mask(:)
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_reorder_info"
 
     ! Set the physical patch owner mask
-
     ALLOCATE(phys_owner_mask(n_points))
     n = 0
     DO i = 1, n_points
@@ -2188,7 +2187,7 @@ CONTAINS
     ENDDO
 
     CALL mask2reorder_info(p_ri, phys_owner_mask, n_points_g, glb_index, &
-         p_comm_work, reorder_index_log_dom)
+         p_comm_work, reorder_index_log_dom, occupation_mask)
     DEALLOCATE(phys_owner_mask)
 
 
@@ -2198,23 +2197,92 @@ CONTAINS
       ALLOCATE(grid_info%log_dom_index(p_ri%n_glb))
       n = 0
       DO i = 1, n_points_g
-        IF(reorder_index_log_dom(i)>0) THEN
+        IF (reorder_index_log_dom(i)>0) THEN
           n = n+1
           grid_info%log_dom_index(n) = i
         ENDIF
-      ENDDO
+      END DO
+      CALL bitmask2start_count_blks(occupation_mask, INT(n_points_g, i8), &
+           grid_info%log_dom_starts, grid_info%log_dom_counts)
       ! Safety check
-      IF (n/=p_ri%n_glb) THEN
+      n = SUM(grid_info%log_dom_counts)
+      IF (n /= p_ri%n_glb) THEN
         WRITE(message_text, '(2(a,i0))')  'Reordering failed, n=', n, &
              ', p_ri%n_glb = ', p_ri%n_glb
         CALL finish(routine, message_text)
       END IF
+      n = 0
+      DO i = 1, SIZE(grid_info%log_dom_counts)
+        DO ib = 1, grid_info%log_dom_counts(i)
+          IF (grid_info%log_dom_index(n+ib) &
+               /= grid_info%log_dom_starts(i) + ib - 1) THEN
+            WRITE(message_text, '(3(a,i0))')  'Reordering failed, n=', n, &
+                 ', i = ', i, ', ib = ', ib
+            CALL finish(routine, message_text)
+          END IF
+        END DO
+        n = n + grid_info%log_dom_counts(i)
+      END DO
     END IF
 
     DEALLOCATE(reorder_index_log_dom)
 
   END SUBROUTINE set_reorder_info
 
+  SUBROUTINE bitmask2start_count_blks(mask, nb, starts, counts)
+    INTEGER(i8), INTENT(in) :: mask(0:), nb
+    INTEGER, ALLOCATABLE, INTENT(out) :: starts(:), counts(:)
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: mask
+#endif
+    INTEGER(i8) :: i
+    INTEGER(i8), PARAMETER :: nbits_i8 = BIT_SIZE(i)
+    INTEGER :: num_cblk, n
+    LOGICAL :: prev_is_set, current_is_set
+    INTEGER(i8) :: pos, apos, bpos, bmask
+
+    num_cblk = 0
+    prev_is_set = .FALSE.
+    bmask = 1_i8
+    DO i = 0_i8, nb-1_i8
+      ! extract logical from single bit
+      apos = i/nbits_i8
+      current_is_set = IAND(mask(apos), bmask) /= 0_i8
+      num_cblk = num_cblk + MERGE(1, 0, (.NOT.prev_is_set) .AND. current_is_set)
+      bmask = ISHFTC(bmask, 1_i8)
+      prev_is_set = current_is_set
+    ENDDO
+    ALLOCATE(starts(num_cblk), counts(num_cblk))
+    bmask = 1_i8
+    DO i = 0_i8, nb-1_i8
+      apos = i/nbits_i8
+      current_is_set = IAND(mask(apos), bmask) /= 0_i8
+      bmask = ISHFTC(bmask, 1_i8)
+      IF (current_is_set) EXIT
+    END DO
+    n = 0
+    DO WHILE (i < nb)
+      ! at this point bit i is set because of the previous loop
+      n = n + 1
+      ! i is zero-based but starts are Fortran indices
+      starts(n) = INT(i+1_i8)
+      DO WHILE (current_is_set)
+        i = i + 1_i8
+        IF (i >= nb) EXIT
+        apos = i/nbits_i8
+        current_is_set = IAND(mask(apos), bmask) /= 0_i8
+        bmask = ISHFTC(bmask, 1_i8)
+      END DO
+      counts(n) = INT(i+1_i8) - starts(n)
+      DO WHILE (.NOT. current_is_set)
+        i = i + 1_i8
+        IF (i >= nb) EXIT
+        apos = i/nbits_i8
+        current_is_set = IAND(mask(apos), bmask) /= 0_i8
+        bmask = ISHFTC(bmask, 1_i8)
+      END DO
+    END DO
+  END SUBROUTINE bitmask2start_count_blks
 
   !------------------------------------------------------------------------------------------------
   !> Sets the reorder_info for lon-lat-grids
@@ -2272,18 +2340,20 @@ CONTAINS
     ALLOCATE(patch_info_ll%ri%reorder_index_own(n_own), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
-    IF (patch_info_ll%grid_info_mode == GRID_INFO_FILE) THEN
-      ALLOCATE(patch_info_ll%grid_info%log_dom_index(patch_info_ll%ri%n_glb), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-    END IF
-
     DO i=1,n_own
       patch_info_ll%ri%reorder_index_own(i) = intp%global_idx(i)
     END DO
 
     IF (patch_info_ll%grid_info_mode == GRID_INFO_FILE) THEN
+      ALLOCATE(patch_info_ll%grid_info%log_dom_index(patch_info_ll%ri%n_glb), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
       ! mapping between logical and physical patch is trivial for
       ! lon-lat grids:
+      ALLOCATE(patch_info_ll%grid_info%log_dom_starts(1), &
+        &      patch_info_ll%grid_info%log_dom_counts(1), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+      patch_info_ll%grid_info%log_dom_starts(1) = 1
+      patch_info_ll%grid_info%log_dom_counts(1) = patch_info_ll%ri%n_glb
       patch_info_ll%grid_info%log_dom_index(:) = (/ (i, i=1,patch_info_ll%ri%n_glb) /)
     END IF
   END SUBROUTINE set_reorder_info_lonlat

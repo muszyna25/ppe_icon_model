@@ -62,7 +62,7 @@ CONTAINS
   END SUBROUTINE t_reorder_info_finalize
 
   SUBROUTINE mask2reorder_info(ri, mask, n_points_g, glb_index, group_comm, &
-       retained_reorder_index_log_dom)
+       retained_reorder_index_log_dom, retained_occupation_mask)
     TYPE(t_reorder_info), INTENT(inout) :: ri
     LOGICAL, INTENT(in) :: mask(:)
     INTEGER, INTENT(in) :: n_points_g, glb_index(:), group_comm
@@ -71,6 +71,8 @@ CONTAINS
 #endif
     INTEGER, ALLOCATABLE, OPTIONAL, INTENT(out) :: &
          retained_reorder_index_log_dom(:)
+    INTEGER(i8), ALLOCATABLE, OPTIONAL, INTENT(out) :: &
+         retained_occupation_mask(:)
 
     INTEGER :: n_points, i, il, n, group_comm_size
     INTEGER :: nocc, ierror
@@ -173,6 +175,11 @@ CONTAINS
       CALL MOVE_ALLOC(reorder_index_log_dom, retained_reorder_index_log_dom)
     ELSE
       DEALLOCATE(reorder_index_log_dom)
+    END IF
+    IF (PRESENT(retained_occupation_mask)) THEN
+      CALL MOVE_ALLOC(occupation_mask, retained_occupation_mask)
+    ELSE
+      DEALLOCATE(occupation_mask)
     END IF
   END SUBROUTINE mask2reorder_info
 
