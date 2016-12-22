@@ -345,8 +345,11 @@ CONTAINS
           prm_field(jg)% presm_old(jc,jk,jb)     = pt_diag%  pres(jc,jk,jb)
           prm_field(jg)% presm_new(jc,jk,jb)     = pt_diag%  pres(jc,jk,jb)
           !
-          ! Air mass
-          prm_field(jg)%       mair(jc,jk,jb)    = pt_prog_new %         rho(jc,jk,jb) &
+          ! density
+          prm_field(jg)%       rho(jc,jk,jb)     = pt_prog_new %         rho(jc,jk,jb)
+              !
+          ! air mass
+          prm_field(jg)%      mair(jc,jk,jb)     = pt_prog_new %         rho(jc,jk,jb) &
             &                                     *prm_field(jg)%         dz(jc,jk,jb)
           !
           ! H2O mass (vap+liq+ice)
@@ -355,7 +358,7 @@ CONTAINS
             &                                       +pt_prog_new_rcf% tracer(jc,jk,jb,iqi)) &
             &                                      *prm_field(jg)%      mair(jc,jk,jb)
           !
-          ! Dry air mass
+          ! dry air mass
           prm_field(jg)%      mdry(jc,jk,jb)     = prm_field(jg)%       mair(jc,jk,jb) &
             &                                     -prm_field(jg)%       mh2o(jc,jk,jb)
           !
@@ -532,7 +535,6 @@ CONTAINS
         &                  jce          ,&! in
         &                  nproma       ,&! in
         &                  datetime_old ,&! in
-        &                  dt_loc       ,&! in
         &                  dt_loc       ,&! in
         &                  ltrig_rad    ) ! in
 
@@ -764,9 +766,10 @@ CONTAINS
       DO jb = i_startblk,i_endblk
         CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
         DO jc = jcs, jce
-          prm_field(jg)% mh2ovi(jc,jb) = 0.0_wp ! initialize air path after physics
-          prm_field(jg)% mairvi(jc,jb) = 0.0_wp ! initialize air path after physics
-          prm_field(jg)% mdryvi(jc,jb) = 0.0_wp ! initialize air path after physics
+          ! initialize vertical integrals
+          prm_field(jg)% mh2ovi(jc,jb) = 0.0_wp
+          prm_field(jg)% mairvi(jc,jb) = 0.0_wp
+          prm_field(jg)% mdryvi(jc,jb) = 0.0_wp
         END DO
         DO jk = 1,nlev
           DO jc = jcs, jce
@@ -785,6 +788,10 @@ CONTAINS
               ! new air mass
               prm_field(jg)% mair  (jc,jk,jb) = prm_field(jg)%      mdry (jc,jk,jb) &
                 &                              +prm_field(jg)%      mh2o (jc,jk,jb)
+              !
+              ! new density
+              prm_field(jg)%    rho(jc,jk,jb) = prm_field(jg)%      mair  (jc,jk,jb) &
+                &                              /prm_field(jg)%      dz    (jc,jk,jb)
               !
               ! new density
               pt_prog_new %     rho(jc,jk,jb) = prm_field(jg)%      mair  (jc,jk,jb) &

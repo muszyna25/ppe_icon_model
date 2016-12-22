@@ -44,7 +44,7 @@ CONTAINS
   !!
   !!
   SUBROUTINE update_surface( lsfc_heat_flux, lsfc_mom_flux,     &! in
-                           & pdtime, psteplen,                  &! in
+                           & pdtime,                            &! in
                            & jg,                                &! in
                            & kproma, kbdim,                     &! in
                            & kice,                              &! in
@@ -117,7 +117,7 @@ CONTAINS
                            & albnirdir_ice, albnirdif_ice)       ! inout
 
     LOGICAL, INTENT(IN) :: lsfc_heat_flux, lsfc_mom_flux
-    REAL(wp),INTENT(IN) :: pdtime, psteplen
+    REAL(wp),INTENT(IN) :: pdtime
     INTEGER, INTENT(IN) :: jg
     INTEGER, INTENT(IN) :: kproma, kbdim
     INTEGER, INTENT(IN) :: klev, ksfc_type
@@ -261,7 +261,7 @@ CONTAINS
     ! At this point bb(:,klev,iu) = u_klev(t)/tpfac1 (= udif in echam)
     !               bb(:,klev,iv) = v_klev(t)/tpfac1 (= vdif in echam)
 
-    CALL wind_stress( lsfc_mom_flux, psteplen,             &! in
+    CALL wind_stress( lsfc_mom_flux, pdtime,               &! in
                     & kproma, kbdim, ksfc_type,            &! in
                     & pfrc, pcfm_tile, pfac_sfc,           &! in
                     & bb(:,klev,iu), bb(:,klev,iv),        &! in
@@ -318,7 +318,7 @@ CONTAINS
       ztsfc_lnd_eff(:)    = 0._wp
       z0m_tile(:,idx_lnd) = 0._wp
 
-      CALL jsbach_interface ( jg, nblock, 1, kproma, pdtime, psteplen,                  & ! in
+      CALL jsbach_interface ( jg, nblock, 1, kproma, pdtime, pdtime,                    & ! in
         & t_air            = ptemp(1:kproma),                                           & ! in
         & q_air            = pq(1:kproma),                                              & ! in
         & rain             = prsfl(1:kproma) + prsfc(1:kproma),                         & ! in
@@ -597,7 +597,7 @@ CONTAINS
    ! Various diagnostics
    !-------------------------------------------------------------------
 
-   CALL surface_fluxes( lsfc_heat_flux, psteplen,             &! in
+   CALL surface_fluxes( lsfc_heat_flux, pdtime,               &! in
                       & kproma, kbdim, ksfc_type,             &! in
                       & idx_wtr, idx_ice, idx_lnd, ih, iqv,   &! in
                       & pfrc, pcfh_tile, pfac_sfc,            &! in

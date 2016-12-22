@@ -73,8 +73,7 @@ cat > ${atmo_namelist} << EOF
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
- ntracer          = 3           ! number of tracers
-! ntracer          = 4           ! number of tracers
+ ntracer          = 3           ! number of tracers; 3: hus, clw, cli; 4: hus, clw, cli, o3
  iforcing         = 2           ! 0: none, 1: HS, 2: ECHAM, 3: NWP
  output           = 'nml'
  msg_level        = 15          ! level of details report during integration 
@@ -110,12 +109,10 @@ cat > ${atmo_namelist} << EOF
 &diffusion_nml
 /
 &transport_nml
- ivadv_tracer     = 3,3,3
- itype_hlimit     = 3,4,4
- ihadv_tracer     = 52,2,2
-! ivadv_tracer     = 3,3,3,3
-! itype_hlimit     = 3,4,4,3
-! ihadv_tracer     = 52,2,2,52
+!                   hus,clw,cli, o3
+ ivadv_tracer     =   3,  3,  3,  3
+ itype_hlimit     =   3,  4,  4,  4
+ ihadv_tracer     =  52,  2,  2, 52
 /
 &echam_phy_nml
  dt_rad           =  480.       ! [s] radiation time step
@@ -125,7 +122,7 @@ cat > ${atmo_namelist} << EOF
  lcond            = .TRUE.
  lgw_hines        = .TRUE.
  lssodrag         = .TRUE.
-! lcariolle        = .TRUE.
+ lcariolle        = .FALSE.
  lice             = .TRUE.
  ljsbach          = .TRUE.
  lebudget         = .TRUE.
@@ -137,8 +134,7 @@ cat > ${atmo_namelist} << EOF
  irad_co2         = 4           ! 4: from greenhouse gas scenario
  irad_ch4         = 4           ! 4: from greenhouse gas scenario
  irad_n2o         = 4           ! 4: from greenhouse gas scenario
- irad_o3          = 8           ! 8: horizontally and vertically variable
-! irad_o3          = 1           ! 1: interactive ozone, e.g. Cariolle
+ irad_o3          = 8           ! 1: prognostic ozone; 8: prescribed transient monthly mean ozone
  irad_o2          = 2           ! 2: horizontally and vertically constant
  irad_cfc11       = 4           ! 4: from greenhouse gas scenario
  irad_cfc12       = 4           ! 4: from greenhouse gas scenario
@@ -238,6 +234,7 @@ datadir=$INDATA/global/atm
 add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc                 ./bc_greenhouse_gases.nc
 #
 # - ozone
+# -- for irad_o3=8
 datadir=$INDATA/${grid_name}/atm/bc_ozone_cmip5
 year=$start_year
 while [[ $year -le $end_year ]]
@@ -245,8 +242,9 @@ do
   add_link_file $datadir/bc_ozone_cmip5_${year}.nc                      ./bc_ozone_${year}.nc
   (( year = year+1 ))
 done
-# interactive Cariolle ozone:
-add_link_file /scratch/local1/m218036/m218036_scratch_local2/cariolle/COEF_91_v2.9.nc ./cariolle_coeff.nc
+# -- for irad_o3=1 with Cariolle ozone chemistry
+datadir=$INDATA/global/atm
+add_link_file $datadir/bc_ozone_cariolle.nc                             ./cariolle_coeff.nc
 #
 # - tropospheric aerosol
 datadir=$INDATA/${grid_name}/atm/bc_aeropt_kinne
@@ -467,9 +465,9 @@ if [[ "$output_trc_3d" == "yes" ]]; then
                     'mh2ovi_phy',
                     'qhus_phy'  , 'mhusvi_phy'    , 'tend_mhusvi_phy', 
                     'qclw_phy'  , 'mclwvi_phy'    , 'tend_mclwvi_phy', 
-                    'qcli_phy'  , 'mclivi_phy'    , 'tend_mclivi_phy', 
+                    'qcli_phy'  , 'mclivi_phy'    , 'tend_mclivi_phy',
+!                    'qo3_phy'   , 'mo3vi_phy'     , 'tend_mo3vi_phy' ,
                     'pfull','ps'
-!                    'pfull','ps', 'qo3_phy'
 /
 EOF
 fi

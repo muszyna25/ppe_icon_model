@@ -131,6 +131,7 @@ MODULE mo_echam_phy_memory
       & qtrc      (:,:,:,:),&!< [kg/kg] tracer concentration (qm1, xlm1, xim1 of memory_g1a in ECHAM)
       & mtrc      (:,:,:,:),&!< [kg/m2] tracer content
       & mtrcvi    (:,:,:),  &!< [kg/m2] tracer content, vertically integrated through the atmospheric column
+      & rho       (:,:,:),  &!< [kg/m3] air density
       & mh2o      (:,:,:),  &!< [kg/m2] h2o content (vap+liq+ice)
       & mair      (:,:,:),  &!< [kg/m2] air content
       & mdry      (:,:,:),  &!< [kg/m2] dry air content
@@ -263,10 +264,7 @@ MODULE mo_echam_phy_memory
       & cw_concloud (:,  :),&!< condensational moistening, convection, large scale clouds
       & con_dtrl (:,  :),   &!< detrainment of liquid from convection
       & con_dtri (:,  :),   &!< detrainment of ice from convection 
-      & con_iteqv (:,  :),  &!< v. int. tendency of water vapor within convection
-      & cld_dtrl (:,  :),   &!< entrainment of liquid from convection to cloud
-      & cld_dtri (:,  :),   &!< entrainment of ice from convection to cloud
-      & cld_iteq (:,  :)    !< v. int. tendency of qv,qc, and qi within cloud
+      & con_iteqv(:,  :)     !< v. int. tendency of water vapor within convection
 
     ! orography
     REAL(wp),POINTER :: &
@@ -973,6 +971,20 @@ CONTAINS
                   & lrestart = .FALSE.,                                        &
                   & ldims=(/kproma,kblks/)                                     )
     END DO                                                                                
+
+    ! &       field% rho        (nproma,nlev  ,nblks),          &
+    cf_desc    = t_cf_var('air_density', 'kg m-3', 'density of air',           &
+         &                datatype_flt)
+    grib2_desc = grib2_var(0,3,10, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'rho_phy', field%rho,                    &
+         &        GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
+         &        ldims=shape3d, lrestart = .FALSE.,                           &
+         &        vert_interp=create_vert_interp_metadata(                     &
+         &                    vert_intp_type=vintp_types("P","Z","I"),         & 
+         &                    vert_intp_method=VINTP_METHOD_LIN,               &
+         &                    l_loglin=.FALSE.,                                &
+         &                    l_extrapol=.TRUE., l_pd_limit=.FALSE.,           &
+         &                    lower_limit=0._wp  ) )
 
     ! &       field% mh2o        (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('h2o_mass', 'kg m-2', 'h2o (vap+liq+ice) mass in layer', &
@@ -2109,21 +2121,6 @@ CONTAINS
        cf_desc    = t_cf_var('qv_vdiff','kg/m^2/s', '', datatype_flt)
        grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( field_list, prefix//'qv_vdiff', field%qv_vdiff,          &
-                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-                   & lrestart = .FALSE., ldims=shape2d )
-       cf_desc    = t_cf_var('cld_dtrl','?', '', datatype_flt)
-       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-       CALL add_var( field_list, 'cld_dtrl', field%cld_dtrl,                  &
-                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-                   & lrestart = .FALSE., ldims=shape2d )
-       cf_desc    = t_cf_var('cld_dtri','?', '', datatype_flt)
-       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-       CALL add_var( field_list, 'cld_dtri', field%cld_dtri,                  &
-                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-                   & lrestart = .FALSE., ldims=shape2d )
-       cf_desc    = t_cf_var('cld_iteq','?', '', datatype_flt)
-       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-       CALL add_var( field_list, 'cld_iteq', field%cld_iteq,                  &
                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                    & lrestart = .FALSE., ldims=shape2d )
 
