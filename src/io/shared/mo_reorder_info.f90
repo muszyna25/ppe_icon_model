@@ -1,8 +1,12 @@
 MODULE mo_reorder_info
+  USE mo_kind, ONLY: i8
   USE mo_mpi, ONLY: p_bcast, p_comm_remote_size, p_allgather, p_allgatherv, &
-       p_comm_size
+       p_comm_size, p_int_i8
   USE mo_exception, ONLY: finish, message_text
   USE mo_communication,             ONLY: idx_no, blk_no
+#ifndef NOMPI
+  USE mpi
+#endif
   IMPLICIT NONE
   PRIVATE
   !------------------------------------------------------------------------------------------------
@@ -24,7 +28,11 @@ MODULE mo_reorder_info
     INTEGER, ALLOCATABLE       :: pe_own(:)
     !> n_own, gathered for all compute PEs (set on all PEs)
     INTEGER, ALLOCATABLE       :: pe_off(:)
+    !> this ranks reordering indices, i.e. place each packed element goes into
+    !! in final array
+    INTEGER, ALLOCATABLE       :: reorder_index_own(:)
     !> offset of contributions of all ranks concatenated
+    !! (should ONLY be set on I/O servers)
     INTEGER, ALLOCATABLE       :: reorder_index(:)
     ! Index how to reorder the contributions of all compute PEs
     ! into the global array (set on all PEs)
@@ -65,8 +73,13 @@ CONTAINS
          retained_reorder_index_log_dom(:)
 
     INTEGER :: n_points, i, il, n, group_comm_size
+    INTEGER :: nocc, ierror
+    INTEGER(i8) :: pos, apos, bpos
     INTEGER, ALLOCATABLE :: glbidx_own(:), glbidx_glb(:), &
-         reorder_index_log_dom(:)
+         reorder_index_log_dom(:), occ_pfxsum(:)
+    INTEGER(i8), ALLOCATABLE :: occupation_mask(:)
+    INTEGER(i8) :: occ_temp, occ_accum
+    INTEGER(i8), PARAMETER :: nbits_i8 = BIT_SIZE(occ_temp)
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_reorder_data"
 
     n_points = SIZE(mask)
@@ -107,36 +120,53 @@ CONTAINS
     ! exactly in the same order as it is retrieved later during I/O
 
     ALLOCATE(glbidx_glb(ri%n_glb))
-    CALL p_allgatherv(glbidx_own(1:ri%n_own), glbidx_glb, &
+    CALL p_allgatherv(glbidx_own, glbidx_glb, &
       &               ri%pe_own, ri%pe_off, group_comm)
 
     ! Get reorder_index
-    ALLOCATE(ri%reorder_index(ri%n_glb), &
-      ! spans the complete logical domain
-      &      reorder_index_log_dom(n_points_g))
+    ! spans the complete logical domain
+    ALLOCATE(reorder_index_log_dom(n_points_g))
     reorder_index_log_dom(:) = 0
-
     DO i = 1, ri%n_glb
       ! reorder_index_log_dom stores where a global point in logical domain comes from.
       ! It is nonzero only at the physical patch locations
       reorder_index_log_dom(glbidx_glb(i)) = i
     ENDDO
 
-    ! Gather the reorder index for the physical domain
-    n = 0
-    DO i = 1, n_points_g
-      IF(reorder_index_log_dom(i)>0) THEN
-        n = n+1
-        ri%reorder_index(reorder_index_log_dom(i)) = n
-      ENDIF
-    ENDDO
-
-    ! Safety check
-    IF(n/=ri%n_glb) THEN
-      WRITE (message_text, '(2(a,i0))') 'Reordering failed: n=',n, &
-           & ' /= ri%n_glb=',ri%n_glb
+    nocc = (INT(n_points_g, i8) + nbits_i8 - 1_i8) / nbits_i8
+    ALLOCATE(occupation_mask(0:INT(nocc-1_i8)))
+    occupation_mask = 0_i8
+    DO i = 1, ri%n_own
+      pos = INT(glbidx_own(i), i8)
+      apos = (pos - 1_i8)/nbits_i8
+      bpos = MOD(pos - 1_i8, nbits_i8)
+      occupation_mask(apos) = IBSET(occupation_mask(apos), bpos)
+    END DO
+#ifndef NOMPI
+    CALL mpi_allreduce(mpi_in_place, occupation_mask, INT(nocc), p_int_i8, &
+      &                mpi_bor, group_comm, ierror)
+    IF (ierror /= MPI_SUCCESS) CALL finish(routine, 'mpi_allreduce failed')
+#endif
+    ALLOCATE(occ_pfxsum(0:INT(nocc-1)))
+    occ_accum = 0
+    DO i = 0, INT(nocc-1)
+      occ_pfxsum(i) = occ_accum
+      occ_temp = POPCNT(occupation_mask(i))
+      occ_accum = occ_accum + occ_temp
+    END DO
+    IF (occ_accum /= ri%n_glb) THEN
+      WRITE (message_text, '(2(a,i0))') 'Bit-counting failed: n=', occ_accum, &
+           & ' /= ri%n_glb=', ri%n_glb
       CALL finish(routine,TRIM(message_text))
     ENDIF
+    ALLOCATE(ri%reorder_index_own(ri%n_own))
+    DO i = 1, ri%n_own
+      pos = INT(glbidx_own(i), i8)
+      apos = (pos - 1_i8)/nbits_i8
+      bpos = MOD(pos - 1_i8, nbits_i8)
+      occ_accum = IAND(ISHFT(1_i8, bpos) - 1_i8, occupation_mask(apos))
+      ri%reorder_index_own(i) = occ_pfxsum(apos) + POPCNT(occ_accum) + 1
+    END DO
 
     DEALLOCATE(glbidx_own, glbidx_glb)
     IF (PRESENT(retained_reorder_index_log_dom)) THEN
@@ -155,18 +185,19 @@ CONTAINS
     LOGICAL, INTENT(in) :: is_server
     INTEGER, INTENT(in) :: bcast_root, client_server_intercomm
 
-    INTEGER :: client_group_size
+    INTEGER :: other_group_size, dummy(1)
+    INTEGER, ALLOCATABLE :: zcounts(:)
     ! Transfer the global number of points, this is not yet known on IO PEs
     CALL p_bcast(ri%n_glb,  bcast_root, client_server_intercomm)
 
+    other_group_size = p_comm_remote_size(client_server_intercomm)
     IF (is_server) THEN
 
       ! On IO PEs: n_own = 0, own_idx and own_blk are not allocated
       ri%n_own = 0
-      client_group_size = p_comm_remote_size(client_server_intercomm)
       ! pe_own/pe_off must be allocated for client_group_size, not for p_n_work
-      ALLOCATE(ri%pe_own(0:client_group_size-1))
-      ALLOCATE(ri%pe_off(0:client_group_size-1))
+      ALLOCATE(ri%pe_own(0:other_group_size-1))
+      ALLOCATE(ri%pe_off(0:other_group_size-1))
 
       ALLOCATE(ri%reorder_index(ri%n_glb))
     ENDIF
@@ -174,7 +205,15 @@ CONTAINS
     CALL p_bcast(ri%pe_own, bcast_root, client_server_intercomm)
     CALL p_bcast(ri%pe_off, bcast_root, client_server_intercomm)
 
-    CALL p_bcast(ri%reorder_index, bcast_root, client_server_intercomm)
+    IF (is_server) THEN
+      CALL p_allgatherv(dummy(1:0), ri%reorder_index, &
+        &               ri%pe_own, ri%pe_off, client_server_intercomm)
+    ELSE
+      ALLOCATE(zcounts(0:other_group_size-1))
+      zcounts = 0
+      CALL p_allgatherv(ri%reorder_index_own, dummy(1:0), &
+        &               zcounts, zcounts, client_server_intercomm)
+    END IF
 
   END SUBROUTINE transfer_reorder_info
 

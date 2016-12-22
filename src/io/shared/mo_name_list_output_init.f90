@@ -2227,7 +2227,7 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_reorder_info_lonlat"
     INTEGER :: ierrstat, i, this_pe, mpierr, &
-    &          ioffset, gidx, n_own
+    &          ioffset, gidx, n_own, n
 
     ! Just for safety
     IF(my_process_is_io()) CALL finish(routine, 'Must not be called on IO PEs')
@@ -2261,28 +2261,26 @@ CONTAINS
 ! NOMPI
 
     ! Get offset within result array
-    patch_info_ll%ri%pe_off(0) = 0
-    DO i = 1, p_n_work-1
-      patch_info_ll%ri%pe_off(i) = patch_info_ll%ri%pe_off(i-1) + patch_info_ll%ri%pe_own(i-1)
+    n = 0
+    DO i = 0, p_n_work-1
+      patch_info_ll%ri%pe_off(i) = n
+      n = n + patch_info_ll%ri%pe_own(i)
     ENDDO
 
     ! Get the global index numbers of the data when it is gathered on PE 0
     ! exactly in the same order as it is retrieved later during I/O
-    ALLOCATE(patch_info_ll%ri%reorder_index(patch_info_ll%ri%n_glb), STAT=ierrstat)
+    ALLOCATE(patch_info_ll%ri%reorder_index_own(n_own), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
     IF (patch_info_ll%grid_info_mode == GRID_INFO_FILE) THEN
       ALLOCATE(patch_info_ll%grid_info%log_dom_index(patch_info_ll%ri%n_glb), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     END IF
 
-    ioffset = patch_info_ll%ri%pe_off(this_pe)
-    patch_info_ll%ri%reorder_index = -1
-    DO i=1,intp%nthis_local_pts
-      patch_info_ll%ri%reorder_index(ioffset + i) = intp%global_idx(i)
+    DO i=1,n_own
+      patch_info_ll%ri%reorder_index_own(i) = intp%global_idx(i)
     END DO
-    ! merge all fields across working PEs:
-    patch_info_ll%ri%reorder_index = p_max(patch_info_ll%ri%reorder_index, &
-      &                                    comm=get_my_mpi_work_communicator())
+
     IF (patch_info_ll%grid_info_mode == GRID_INFO_FILE) THEN
       ! mapping between logical and physical patch is trivial for
       ! lon-lat grids:
