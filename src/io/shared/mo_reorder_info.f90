@@ -18,13 +18,13 @@ MODULE mo_reorder_info
   TYPE t_reorder_info
     INTEGER                    :: n_glb  ! Global number of points per physical patch
     INTEGER                    :: n_own  ! Number of own points (without halo, only belonging to phyiscal patch)
-    ! Only set on compute PEs, set to 0 on IO PEs
+    !> Only set on compute PEs, set to 0 on IO PEs
     INTEGER, ALLOCATABLE       :: own_idx(:), own_blk(:)
-    ! dest idx and blk for own points, only set on sequential/test PEs
+    !> dest idx and blk for own points, only set on sequential/test PEs
     INTEGER, ALLOCATABLE       :: pe_own(:)
-    ! n_own, gathered for all compute PEs (set on all PEs)
+    !> n_own, gathered for all compute PEs (set on all PEs)
     INTEGER, ALLOCATABLE       :: pe_off(:)
-    ! offset of contributions of PEs (set on all PEs)
+    !> offset of contributions of all ranks concatenated
     INTEGER, ALLOCATABLE       :: reorder_index(:)
     ! Index how to reorder the contributions of all compute PEs
     ! into the global array (set on all PEs)
