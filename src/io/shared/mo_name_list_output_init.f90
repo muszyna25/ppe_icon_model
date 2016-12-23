@@ -2270,7 +2270,7 @@ CONTAINS
     TYPE(t_patch_info_ll), INTENT(INOUT) :: patch_info_ll      ! Result: reorder info
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_reorder_info_lonlat"
-    INTEGER :: ierrstat, i, this_pe, mpierr, &
+    INTEGER :: ierrstat, i, this_pe, &
     &          ioffset, gidx, n_own, n
 
     ! Just for safety
@@ -2295,14 +2295,7 @@ CONTAINS
     ALLOCATE(patch_info_ll%ri%pe_own(0:p_n_work-1), &
       &      patch_info_ll%ri%pe_off(0:p_n_work-1), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-#ifndef NOMPI
-    CALL MPI_Allgather(n_own,  1, p_int,                  &
-                       patch_info_ll%ri%pe_own, 1, p_int, &
-                       p_comm_work, mpierr)
-#else
-    patch_info_ll%ri%pe_own(0) = n_own
-#endif
-! NOMPI
+    CALL p_allgather(n_own, patch_info_ll%ri%pe_own, p_comm_work)
 
     ! Get offset within result array
     n = 0
