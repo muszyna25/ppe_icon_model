@@ -2171,7 +2171,6 @@ CONTAINS
     ! local variables
     INTEGER :: i, n, il, ib
     LOGICAL, ALLOCATABLE :: phys_owner_mask(:) ! owner mask for physical patch
-    INTEGER, ALLOCATABLE :: reorder_index_log_dom(:)
     INTEGER(i8), ALLOCATABLE :: occupation_mask(:)
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_reorder_info"
 
@@ -2187,7 +2186,7 @@ CONTAINS
     ENDDO
 
     CALL mask2reorder_info(p_ri, phys_owner_mask, n_points_g, glb_index, &
-         p_comm_work, reorder_index_log_dom, occupation_mask)
+         p_comm_work, occupation_mask)
     DEALLOCATE(phys_owner_mask)
 
 
@@ -2204,9 +2203,6 @@ CONTAINS
         CALL finish(routine, message_text)
       END IF
     END IF
-
-    DEALLOCATE(reorder_index_log_dom)
-
   END SUBROUTINE set_reorder_info
 
   SUBROUTINE bitmask2start_count_blks(mask, nb, starts, counts)

@@ -62,23 +62,20 @@ CONTAINS
   END SUBROUTINE t_reorder_info_finalize
 
   SUBROUTINE mask2reorder_info(ri, mask, n_points_g, glb_index, group_comm, &
-       retained_reorder_index_log_dom, retained_occupation_mask)
+       retained_occupation_mask)
     TYPE(t_reorder_info), INTENT(inout) :: ri
     LOGICAL, INTENT(in) :: mask(:)
     INTEGER, INTENT(in) :: n_points_g, glb_index(:), group_comm
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     CONTIGUOUS :: glb_index, mask
 #endif
-    INTEGER, ALLOCATABLE, OPTIONAL, INTENT(out) :: &
-         retained_reorder_index_log_dom(:)
     INTEGER(i8), ALLOCATABLE, OPTIONAL, INTENT(out) :: &
          retained_occupation_mask(:)
 
     INTEGER :: n_points, i, il, n, group_comm_size
     INTEGER :: nocc, ierror
     INTEGER(i8) :: pos, apos, bpos
-    INTEGER, ALLOCATABLE :: glbidx_own(:), glbidx_glb(:), &
-         reorder_index_log_dom(:), occ_pfxsum(:)
+    INTEGER, ALLOCATABLE :: glbidx_own(:), occ_pfxsum(:)
     INTEGER(i8), ALLOCATABLE :: occupation_mask(:)
     INTEGER(i8) :: occ_temp, occ_accum
     INTEGER(i8), PARAMETER :: nbits_i8 = BIT_SIZE(occ_temp)
@@ -118,23 +115,12 @@ CONTAINS
     ! Get global number of points for current (physical!) patch
     ri%n_glb = il
 
-    ! Get the global index numbers of the data when it is gathered on PE 0
-    ! exactly in the same order as it is retrieved later during I/O
-
-    ALLOCATE(glbidx_glb(ri%n_glb))
-    CALL p_allgatherv(glbidx_own, glbidx_glb, &
-      &               ri%pe_own, ri%pe_off, group_comm)
-
-    ! Get reorder_index
-    ! spans the complete logical domain
-    ALLOCATE(reorder_index_log_dom(n_points_g))
-    reorder_index_log_dom(:) = 0
-    DO i = 1, ri%n_glb
-      ! reorder_index_log_dom stores where a global point in logical domain comes from.
-      ! It is nonzero only at the physical patch locations
-      reorder_index_log_dom(glbidx_glb(i)) = i
-    ENDDO
-
+    ! Compute the global ordering of the local data when it is gathered
+    ! on PE 0 or I/O servers exactly as it is retrieved later during I/O
+    ! 1. set bit for every global index used
+    ! todo: occupation_mask is still a global size array but only uses one bit
+    ! per grid cell, i.e. decomposition makes sense but takes additional coding
+    ! effort
     nocc = (INT(n_points_g, i8) + nbits_i8 - 1_i8) / nbits_i8
     ALLOCATE(occupation_mask(0:INT(nocc-1_i8)))
     occupation_mask = 0_i8
@@ -149,6 +135,11 @@ CONTAINS
       &                mpi_bor, group_comm, ierror)
     IF (ierror /= MPI_SUCCESS) CALL finish(routine, 'mpi_allreduce failed')
 #endif
+
+    ! now compute number of bits set in preceding entries of occupation_mask.
+    ! After the following loop, occ_pfxsum(i) equals the number of set bits
+    ! (i.e. number of global indices used in output) contained in
+    ! occupation_mask(0:i-1)
     ALLOCATE(occ_pfxsum(0:INT(nocc-1)))
     occ_accum = 0
     DO i = 0, INT(nocc-1)
@@ -161,6 +152,8 @@ CONTAINS
            & ' /= ri%n_glb=', ri%n_glb
       CALL finish(routine,TRIM(message_text))
     ENDIF
+    ! given the above two arrays, one can now compute for each global index its
+    ! position in the output array in O(1)
     ALLOCATE(ri%reorder_index_own(ri%n_own))
     DO i = 1, ri%n_own
       pos = INT(glbidx_own(i), i8)
@@ -170,12 +163,7 @@ CONTAINS
       ri%reorder_index_own(i) = occ_pfxsum(apos) + POPCNT(occ_accum) + 1
     END DO
 
-    DEALLOCATE(glbidx_own, glbidx_glb)
-    IF (PRESENT(retained_reorder_index_log_dom)) THEN
-      CALL MOVE_ALLOC(reorder_index_log_dom, retained_reorder_index_log_dom)
-    ELSE
-      DEALLOCATE(reorder_index_log_dom)
-    END IF
+    DEALLOCATE(glbidx_own)
     IF (PRESENT(retained_occupation_mask)) THEN
       CALL MOVE_ALLOC(occupation_mask, retained_occupation_mask)
     ELSE
