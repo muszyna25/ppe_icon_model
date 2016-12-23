@@ -2279,8 +2279,11 @@ CONTAINS
     patch_info_ll%ri%n_glb = grid%lon_dim * grid%lat_dim ! Total points in lon-lat grid
     patch_info_ll%ri%n_own = n_own
     ! Set index arrays to own cells/edges/verts
-    ALLOCATE(patch_info_ll%ri%own_idx(n_own), &
-      &      patch_info_ll%ri%own_blk(n_own), &
+    ALLOCATE(patch_info_ll%ri%own_idx(n_own),           &
+      &      patch_info_ll%ri%own_blk(n_own),           &
+      &      patch_info_ll%ri%pe_own(0:p_n_work-1),     &
+      &      patch_info_ll%ri%pe_off(0:p_n_work-1),     &
+      &      patch_info_ll%ri%reorder_index_own(n_own), &
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
@@ -2290,9 +2293,6 @@ CONTAINS
     END DO ! i
 
     ! Gather the number of own points for every PE into p_ri%pe_own
-    ALLOCATE(patch_info_ll%ri%pe_own(0:p_n_work-1), &
-      &      patch_info_ll%ri%pe_off(0:p_n_work-1), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     CALL p_allgather(n_own, patch_info_ll%ri%pe_own, p_comm_work)
 
     ! Get offset within result array
