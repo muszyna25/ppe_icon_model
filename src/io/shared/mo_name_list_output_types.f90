@@ -128,7 +128,6 @@ MODULE mo_name_list_output_types
     INTEGER :: n_log
     ! only used when copying grid info from file (grid_info_mode = GRID_INFO_FILE):
     INTEGER,  ALLOCATABLE :: log_dom_starts(:), log_dom_counts(:)
-    INTEGER,  ALLOCATABLE :: log_dom_index(:)
     ! Index where a point of the physical domains is in the logical domain
   END TYPE t_grid_info
 

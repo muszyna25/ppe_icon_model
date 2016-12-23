@@ -2194,14 +2194,6 @@ CONTAINS
     grid_info%n_log = n_points_g ! Total points in logical domain
 
     IF (patch_info(phys_patch_id)%grid_info_mode == GRID_INFO_FILE) THEN
-      ALLOCATE(grid_info%log_dom_index(p_ri%n_glb))
-      n = 0
-      DO i = 1, n_points_g
-        IF (reorder_index_log_dom(i)>0) THEN
-          n = n+1
-          grid_info%log_dom_index(n) = i
-        ENDIF
-      END DO
       CALL bitmask2start_count_blks(occupation_mask, INT(n_points_g, i8), &
            grid_info%log_dom_starts, grid_info%log_dom_counts)
       ! Safety check
@@ -2211,18 +2203,6 @@ CONTAINS
              ', p_ri%n_glb = ', p_ri%n_glb
         CALL finish(routine, message_text)
       END IF
-      n = 0
-      DO i = 1, SIZE(grid_info%log_dom_counts)
-        DO ib = 1, grid_info%log_dom_counts(i)
-          IF (grid_info%log_dom_index(n+ib) &
-               /= grid_info%log_dom_starts(i) + ib - 1) THEN
-            WRITE(message_text, '(3(a,i0))')  'Reordering failed, n=', n, &
-                 ', i = ', i, ', ib = ', ib
-            CALL finish(routine, message_text)
-          END IF
-        END DO
-        n = n + grid_info%log_dom_counts(i)
-      END DO
     END IF
 
     DEALLOCATE(reorder_index_log_dom)
@@ -2345,8 +2325,6 @@ CONTAINS
     END DO
 
     IF (patch_info_ll%grid_info_mode == GRID_INFO_FILE) THEN
-      ALLOCATE(patch_info_ll%grid_info%log_dom_index(patch_info_ll%ri%n_glb), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
       ! mapping between logical and physical patch is trivial for
       ! lon-lat grids:
       ALLOCATE(patch_info_ll%grid_info%log_dom_starts(1), &
@@ -2354,7 +2332,6 @@ CONTAINS
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
       patch_info_ll%grid_info%log_dom_starts(1) = 1
       patch_info_ll%grid_info%log_dom_counts(1) = patch_info_ll%ri%n_glb
-      patch_info_ll%grid_info%log_dom_index(:) = (/ (i, i=1,patch_info_ll%ri%n_glb) /)
     END IF
   END SUBROUTINE set_reorder_info_lonlat
 #endif
@@ -2760,12 +2737,24 @@ CONTAINS
   SUBROUTINE transfer_grid_info(grid_info, n_glb, grid_info_mode)
     TYPE(t_grid_info), INTENT(INOUT)    :: grid_info
     INTEGER,              INTENT(IN)    :: n_glb, grid_info_mode
+    INTEGER :: nblk, temp(2)
+    LOGICAL :: is_io
 
     IF (grid_info_mode == GRID_INFO_FILE) THEN
-      CALL p_bcast(grid_info%n_log, bcast_root, p_comm_work_2_io)
-      IF (my_process_is_io()) &
-        & ALLOCATE(grid_info%log_dom_index(n_glb))
-      CALL p_bcast(grid_info%log_dom_index, bcast_root, p_comm_work_2_io)
+      is_io = my_process_is_io()
+      IF (.NOT. is_io) THEN
+        temp(1) = grid_info%n_log
+        temp(2) = SIZE(grid_info%log_dom_starts)
+      END IF
+      CALL p_bcast(temp, bcast_root, p_comm_work_2_io)
+      IF (is_io) THEN
+        grid_info%n_log = temp(1)
+        nblk = temp(2)
+        ALLOCATE(grid_info%log_dom_starts(nblk))
+        ALLOCATE(grid_info%log_dom_counts(nblk))
+      END IF
+      CALL p_bcast(grid_info%log_dom_starts, bcast_root, p_comm_work_2_io)
+      CALL p_bcast(grid_info%log_dom_counts, bcast_root, p_comm_work_2_io)
     END IF
 
   END SUBROUTINE transfer_grid_info
