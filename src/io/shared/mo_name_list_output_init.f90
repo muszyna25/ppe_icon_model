@@ -2270,12 +2270,10 @@ CONTAINS
     TYPE(t_patch_info_ll), INTENT(INOUT) :: patch_info_ll      ! Result: reorder info
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::set_reorder_info_lonlat"
-    INTEGER :: ierrstat, i, this_pe, &
-    &          ioffset, gidx, n_own, n
+    INTEGER :: ierrstat, i, n_own, n
 
     ! Just for safety
     IF(my_process_is_io()) CALL finish(routine, 'Must not be called on IO PEs')
-    this_pe = get_my_mpi_work_id()
 
     n_own                  = intp%nthis_local_pts        ! No. of own points
     patch_info_ll%ri%n_glb = grid%lon_dim * grid%lat_dim ! Total points in lon-lat grid
