@@ -931,10 +931,10 @@ CONTAINS
               nlevs = info_nlevs
               EXIT CHECK_LOOP
             ELSE
-              IF ((of%level_selection%global_idx(jk) >= 1) .AND.  &
-                & (of%level_selection%global_idx(jk) <= info_nlevs)) THEN
-                nlevs = nlevs + 1
-              END IF
+              nlevs = nlevs &
+                & + MERGE(1, 0, &
+                &         of%level_selection%global_idx(jk) >= 1 &
+                &   .AND. of%level_selection%global_idx(jk) <= info_nlevs)
             END IF
           END DO CHECK_LOOP
         ELSE
