@@ -161,7 +161,7 @@ MODULE mo_icon_interpolation_scalar
   PUBLIC :: edges2edges_scalar
 
 #if defined( _OPENACC )
-#define ACC_DEBUG $ACC
+#define ACC_DEBUG NOACC
 #if defined(__ICON_INTERPOLATION_SCALAR_NOACC)
   LOGICAL, PARAMETER ::  acc_on = .FALSE.
 #else

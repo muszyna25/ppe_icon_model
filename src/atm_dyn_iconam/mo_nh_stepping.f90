@@ -2180,10 +2180,16 @@ MODULE mo_nh_stepping
       ENDIF
 
       ! integrate dynamical core
+#ifdef _OPENACC
+      i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
       CALL solve_nh(p_nh_state, p_patch, p_int_state, prep_adv,     &
         &           nnow(jg), nnew(jg), linit_dyn(jg), l_recompute, &
         &           lsave_mflx, lprep_adv, lclean_mflx,             &
         &           nstep, ndyn_substeps_tot-1, l_bdy_nudge, dt_dyn)
+#ifdef _OPENACC
+      i_am_accel_node = .FALSE.
+#endif
 
       ! now reset linit_dyn to .FALSE.
       linit_dyn(jg) = .FALSE.

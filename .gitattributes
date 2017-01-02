@@ -4,6 +4,7 @@
 /LICENSE -text
 /Makefile.in -text
 /README -text
+/README.git -text
 /acinclude.m4 -text
 /aclocal.m4 -text
 blas/CMakeLists.txt -text
@@ -61,6 +62,7 @@ cmake/FindGRIB_API.cmake -text
 cmake/FindHDF5.cmake -text
 cmake/FindMPI.cmake -text
 cmake/FindNETCDF.cmake -text
+config/build_command.in -text
 config/config-options -text
 config/config.guess -text
 config/config.h.SX -text
@@ -76,6 +78,7 @@ config/mh-linux -text
 config/mh-nec -text
 config/missing -text
 config/pvcs.pl -text
+config/set-up.info.in -text
 /configure -text
 /configure.ac -text
 data/ECHAM6_CldOptProps.nc -text
