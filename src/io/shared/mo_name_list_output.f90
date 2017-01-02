@@ -923,8 +923,8 @@ CONTAINS
           !
           ! (... but note that we accept (nlevs+1) for an nlevs variable.)
           CHECK_LOOP : DO jk=1,MIN(of%level_selection%n_selected, info_nlevs)
-            IF ((of%level_selection%global_idx(jk) < 1) .OR.  &
-              & (of%level_selection%global_idx(jk) > (info_nlevs+1))) THEN
+            IF (of%level_selection%global_idx(jk) < 1 .OR.  &
+              & of%level_selection%global_idx(jk) > info_nlevs+1) THEN
               var_ignore_level_selection = .TRUE.
               nlevs = info_nlevs
               EXIT CHECK_LOOP
