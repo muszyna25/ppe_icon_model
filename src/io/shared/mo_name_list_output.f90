@@ -717,7 +717,7 @@ CONTAINS
     INTEGER :: ipost_op_type, alloc_shape(3), alloc_shape_op(3)
     LOGICAL :: post_op_apply
 #endif
-    LOGICAL :: is_mpi_test
+    LOGICAL :: is_mpi_test, is_stdio
 #ifndef NOMPI
     LOGICAL :: participate_in_async_io, lasync_io_metadata_prepare
     LOGICAL :: is_mpi_workroot
@@ -733,6 +733,7 @@ CONTAINS
     tl = 0 ! to prevent warning
 
     is_mpi_test = my_process_is_mpi_test()
+    is_stdio = my_process_is_stdio()
 #ifndef NOMPI
     is_mpi_workroot = my_process_is_mpi_workroot()
     participate_in_async_io &
@@ -925,7 +926,7 @@ CONTAINS
             IF ((of%level_selection%global_idx(jk) < 1) .OR.  &
               & (of%level_selection%global_idx(jk) > (info_nlevs+1))) THEN
               var_ignore_level_selection = .TRUE.
-              IF (my_process_is_stdio() .AND. (msg_level >= 15)) &
+              IF (is_stdio .AND. msg_level >= 15) &
                 &   WRITE (0,*) "warning: ignoring level selection for variable ", TRIM(info%name)
               nlevs = info_nlevs
               EXIT CHECK_LOOP
