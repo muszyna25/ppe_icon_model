@@ -533,7 +533,6 @@ CONTAINS
         &                  nproma       ,&! in
         &                  datetime_old ,&! in
         &                  dt_loc       ,&! in
-        &                  dt_loc       ,&! in
         &                  ltrig_rad    ) ! in
 
     END DO

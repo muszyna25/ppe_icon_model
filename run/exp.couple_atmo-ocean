@@ -745,7 +745,7 @@ add_required_file ${thisdir}/${atmo_namelist} ./
 #
 # - ozone
 ozone_file="ape_o3_iconR2B04-ocean_aqua_planet.nc"
-add_required_file ${basedir}/data/external/ape_ozone/$ozone_file ./o3_icon_DOM01.nc
+add_required_file ${icon_data_poolFolder}/external/ape_ozone/$ozone_file ./o3_icon_DOM01.nc
 #
 # dictionary for variable names
 # -----------------------------

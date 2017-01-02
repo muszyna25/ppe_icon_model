@@ -34,7 +34,7 @@ CONTAINS
   !!
   SUBROUTINE vdiff_up( kproma, kbdim, klev, klevm1, klevp1, ktrac,       &! in
                        ksfc_type, idx_wtr,                               &! in
-                       pdtime, pstep_len, pfrc,                          &! in
+                       pdtime, pfrc,                                     &! in
                        pcfm_tile,                                        &! in 
                        aa,                                               &! in
                        ihpbl,      pcptgz,      prhoh,       pqshear,    &! in
@@ -55,7 +55,7 @@ CONTAINS
 
     INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevm1, klevp1, ktrac
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr
-    REAL(wp),INTENT(IN) :: pdtime, pstep_len
+    REAL(wp),INTENT(IN) :: pdtime
 
     REAL(wp),INTENT(IN) ::           &
       & pfrc      (kbdim,ksfc_type), &!< area fraction of each surface type
@@ -139,7 +139,7 @@ CONTAINS
 
     CALL vdiff_tendencies( kproma, kbdim, itop, klev, klevm1, klevp1,   &! in
                          & ktrac, ksfc_type, idx_wtr,                   &! in
-                         & pdtime, pstep_len,                           &! in
+                         & pdtime,                                      &! in
                          & pum1, pvm1, ptm1, pqm1, pxlm1, pxim1,        &! in
                          & pxtm1, pgeom1, pdelpm1, pcptgz,              &! in
                          & pcd, pcv,                                    &! in
