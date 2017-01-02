@@ -1550,24 +1550,23 @@ CONTAINS
       END IF
 
       IF (use_dp_mpi2io) THEN
-        IF (idata_type == iREAL) THEN
+        SELECT CASE(idata_type)
+        CASE (iREAL)
           DO i = 1, ri%n_own
             of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = &
                  & REAL(r_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),dp)
           ENDDO
-        END IF
-        IF (idata_type == iREAL_sp) THEN
+        CASE (iREAL_sp)
           DO i = 1, ri%n_own
             of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = &
                  & REAL(s_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),dp)
           ENDDO
-        END IF
-        IF (idata_type == iINTEGER) THEN
+        CASE (iINTEGER)
           DO i = 1, ri%n_own
             of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = &
                  & REAL(i_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),dp)
           ENDDO
-        END IF
+        END SELECT
 
         ! If required, set lateral boundary points to missing
         ! value. Note that this modifies only the output buffer!
@@ -1575,24 +1574,23 @@ CONTAINS
           CALL set_boundary_mask(of%mem_win%mem_ptr_dp(ioff:ioff+ri%n_own), &
           &                      missval, i_endblk, i_endidx, ri)
       ELSE
-        IF (idata_type == iREAL) THEN
+        SELECT CASE (idata_type)
+        CASE(ireal)
           DO i = 1, ri%n_own
             of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = &
                  & REAL(r_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),sp)
           ENDDO
-        END IF
-        IF (idata_type == iREAL_sp) THEN
+        CASE (iREAL_sp)
           DO i = 1, ri%n_own
             of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = &
                  & s_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i))
           ENDDO
-        END IF
-        IF (idata_type == iINTEGER) THEN
+        CASE (iINTEGER)
           DO i = 1, ri%n_own
             of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = &
                  & REAL(i_ptr(ri%own_idx(i),lev_idx,ri%own_blk(i)),sp)
           ENDDO
-        END IF
+        END SELECT
 
         ! If required, set lateral boundary points to missing
         ! value. Note that this modifies only the output buffer!
