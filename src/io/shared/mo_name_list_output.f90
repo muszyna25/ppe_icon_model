@@ -1272,6 +1272,7 @@ CONTAINS
     INTEGER :: lev, lev_idx, i, n_points, nmiss
     LOGICAL :: l_error, have_grib, lwrite_single_precision
     LOGICAL :: is_mpi_test, is_mpi_workroot
+    LOGICAL :: make_level_selection
 
     is_mpi_workroot = my_process_is_mpi_workroot()
 
@@ -1332,6 +1333,9 @@ CONTAINS
       &                        .AND. config_lmask_boundary) ) &
       &                 .AND. last_bdry_index > 0)
 
+    make_level_selection = ASSOCIATED(of%level_selection) &
+      &              .AND. (.NOT. var_ignore_level_selection) &
+      &              .AND. (info%ndims > 2)
     ! For all levels (this needs to be done level-wise in order to reduce
     !                 memory consumption)
     DO lev = 1, nlevs
@@ -1369,9 +1373,7 @@ CONTAINS
           lev_idx = lev
           ! handle the case that a few levels have been selected out of
           ! the total number of levels:
-          IF (      ASSOCIATED(of%level_selection)   .AND. &
-            & (.NOT. var_ignore_level_selection)     .AND. &
-            & (info%ndims > 2)) THEN
+          IF (make_level_selection) THEN
             lev_idx = of%level_selection%global_idx(lev_idx)
           END IF
           CALL exchange_data(in_array=r_ptr(:,lev_idx,:),                 &
@@ -1398,9 +1400,7 @@ CONTAINS
           lev_idx = lev
           ! handle the case that a few levels have been selected out of
           ! the total number of levels:
-          IF (      ASSOCIATED(of%level_selection)   .AND. &
-               & (.NOT. var_ignore_level_selection)     .AND. &
-               & (info%ndims > 2)) THEN
+          IF (make_level_selection) THEN
             lev_idx = of%level_selection%global_idx(lev_idx)
           END IF
           CALL exchange_data(in_array=i_ptr(:,lev_idx,:),                  &
@@ -1518,7 +1518,9 @@ CONTAINS
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: i, jk, lev_idx
     LOGICAL :: apply_missval
+    LOGICAL :: make_level_selection
 #ifndef NOMPI
+
     ! ------------------------
     ! Asynchronous I/O is used
     ! ------------------------
@@ -1534,12 +1536,14 @@ CONTAINS
         &                   i_startidx, i_endidx, i_startblk, i_endblk)
     END IF
 
+    make_level_selection = ASSOCIATED(of%level_selection) &
+      &              .AND. (.NOT. var_ignore_level_selection) &
+      &              .AND. (info%ndims > 2)
+
     DO jk = 1, nlevs
       ! handle the case that a few levels have been selected out of
       ! the total number of levels:
-      IF (      ASSOCIATED(of%level_selection)   .AND. &
-           & (.NOT. var_ignore_level_selection)     .AND. &
-           & (info%ndims > 2)) THEN
+      IF (make_level_selection) THEN
         lev_idx = of%level_selection%global_idx(jk)
       ELSE
         lev_idx = jk
