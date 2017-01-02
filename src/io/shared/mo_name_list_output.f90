@@ -965,7 +965,7 @@ CONTAINS
 
       IF (.NOT.use_async_name_list_io .OR. my_process_is_mpi_test()) THEN
         CALL gather_on_workroot_and_write(of, idata_type, r_ptr, s_ptr, &
-             i_ptr, p_ri, iv, last_bdry_index, &
+             i_ptr, p_ri%n_glb, iv, last_bdry_index, &
              nlevs, var_ignore_level_selection, p_pat, info)
 #ifndef NOMPI
 
@@ -1243,15 +1243,14 @@ CONTAINS
   END SUBROUTINE get_ptr_to_var_data
 
   SUBROUTINE gather_on_workroot_and_write(of, idata_type, r_ptr, s_ptr, &
-       i_ptr, ri, iv, last_bdry_index, &
+       i_ptr, n_glb, iv, last_bdry_index, &
        nlevs, var_ignore_level_selection, pat, info)
     TYPE (t_output_file), INTENT(IN) :: of
     INTEGER, INTENT(in) :: idata_type, iv, nlevs, last_bdry_index
     LOGICAL, INTENT(in) :: var_ignore_level_selection
     REAL(dp), INTENT(in) :: r_ptr(:,:,:)
     REAL(sp), INTENT(in) :: s_ptr(:,:,:)
-    INTEGER,  INTENT(in) :: i_ptr(:,:,:)
-    TYPE(t_reorder_info),  INTENT(in) :: ri
+    INTEGER, INTENT(in)  :: i_ptr(:,:,:), n_glb
 
     REAL(dp), ALLOCATABLE :: r_out_dp(:)
     INTEGER, ALLOCATABLE :: r_out_int(:)
@@ -1278,7 +1277,7 @@ CONTAINS
     ELSE IF (info%hgrid == GRID_ZONAL) THEN
       n_points = 180
     ELSE
-      n_points = ri%n_glb
+      n_points = n_glb
     END IF
 
     have_GRIB =      of%output_type == FILETYPE_GRB  &
