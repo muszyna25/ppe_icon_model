@@ -926,8 +926,6 @@ CONTAINS
             IF ((of%level_selection%global_idx(jk) < 1) .OR.  &
               & (of%level_selection%global_idx(jk) > (info_nlevs+1))) THEN
               var_ignore_level_selection = .TRUE.
-              IF (is_stdio .AND. msg_level >= 15) &
-                &   WRITE (0,*) "warning: ignoring level selection for variable ", TRIM(info%name)
               nlevs = info_nlevs
               EXIT CHECK_LOOP
             ELSE
@@ -937,6 +935,10 @@ CONTAINS
                 &   .AND. of%level_selection%global_idx(jk) <= info_nlevs)
             END IF
           END DO CHECK_LOOP
+          IF (var_ignore_level_selection .AND. is_stdio .AND. msg_level >= 15) &
+            &   WRITE (0,'(2a)') &
+            &         "warning: ignoring level selection for variable ", &
+            &         TRIM(info%name)
         ELSE
           nlevs = info_nlevs
         END IF
