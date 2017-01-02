@@ -1,6 +1,7 @@
 *.settings
 .cproject
 .project
+.history
 /Rakefile
 /tempList
 .DS_Store
