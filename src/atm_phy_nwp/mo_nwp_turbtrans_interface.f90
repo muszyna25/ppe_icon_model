@@ -618,7 +618,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
           &                                       p_diag%u      (jc,nlev,jb), &
           &                                       p_diag%v      (jc,nlev,jb), &
           &                                       p_diag%u(jc,jk_gust(jc),jb),&
-          &                                       p_diag%v(jc,jk_gust(jc),jb))
+          &                                       p_diag%v(jc,jk_gust(jc),jb),&
+          &                                  p_metrics%mask_mtnpoints_g(jc,jb))
       ENDDO
 
       ! transform updated turbulent velocity scale back to TKE
@@ -682,7 +683,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       DO jc = i_startidx, i_endidx
         prm_diag%dyn_gust(jc,jb) = nwp_dyn_gust(prm_diag%u_10m(jc,jb), prm_diag%v_10m(jc,jb), &
           &  prm_diag%tcm(jc,jb), p_diag%u(jc,nlev,jb), p_diag%v(jc,nlev,jb),                 &
-          &  p_diag%u(jc,jk_gust(jc),jb), p_diag%v(jc,jk_gust(jc),jb) )
+          &  p_diag%u(jc,jk_gust(jc),jb), p_diag%v(jc,jk_gust(jc),jb),p_metrics%mask_mtnpoints_g(jc,jb) )
       ENDDO
 
       prm_diag%tmax_2m(i_startidx:i_endidx,jb) = MAX(prm_diag%t_2m(i_startidx:i_endidx,jb), &
