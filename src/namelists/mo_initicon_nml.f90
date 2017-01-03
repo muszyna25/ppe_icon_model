@@ -35,6 +35,7 @@ MODULE mo_initicon_nml
     & config_zpbl1               => zpbl1,               &
     & config_zpbl2               => zpbl2,               &
     & config_lread_ana           => lread_ana,           &
+    & config_use_lakeiceana      => use_lakeiceana,      &
     & config_lconsistency_checks => lconsistency_checks, &
     & config_ifs2icon_filename   => ifs2icon_filename,   &
     & config_dwdfg_filename      => dwdfg_filename,      &
@@ -92,6 +93,8 @@ MODULE mo_initicon_nml
 
   LOGICAL  :: ltile_init       ! If true, initialize tile-based surface fields from first guess without tiles
 
+  LOGICAL  :: use_lakeiceana   ! If true, use ice fraction analysis data also over lakes (otherwise sea points only)
+
   LOGICAL  :: lvert_remap_fg   ! If true, vertical remappting of first guess input is performed
 
   ! Variables controlling computation of temporally averaged first guess fields for DA
@@ -148,7 +151,7 @@ MODULE mo_initicon_nml
                           dwdana_filename, filetype, dt_iau, dt_shift,      &
                           type_iau_wgt, ana_varlist, ana_varlist_n2,        &
                           ana_varnames_map_file, lp2cintp_incr,             &
-                          lp2cintp_sfcana,                                  &
+                          lp2cintp_sfcana, use_lakeiceana,                  &
                           start_time_avg_fg, end_time_avg_fg,               &
                           interval_avg_fg, ltile_coldstart, ltile_init,     &
                           lvert_remap_fg, iterate_iau, niter_divdamp,       &
@@ -190,6 +193,7 @@ CONTAINS
   zpbl2       = 1000._wp       ! gradients
   lread_ana   = .TRUE.         ! true: read analysis fields from file dwdana_filename
                                ! false: start ICON from first guess file (no analysis)
+  use_lakeiceana = .FALSE.     ! do not use ice fraction analysis data over freshwater lakes
   lconsistency_checks = .TRUE. ! check validity of input fields  
   filetype    = -1             ! "-1": undefined
   dt_iau      = 10800._wp      ! 3-hour interval for IAU
@@ -326,6 +330,7 @@ CONTAINS
   config_zpbl1               = zpbl1
   config_zpbl2               = zpbl2
   config_lread_ana           = lread_ana
+  config_use_lakeiceana      = use_lakeiceana
   config_lconsistency_checks = lconsistency_checks
   config_ifs2icon_filename   = ifs2icon_filename
   config_dwdfg_filename      = dwdfg_filename

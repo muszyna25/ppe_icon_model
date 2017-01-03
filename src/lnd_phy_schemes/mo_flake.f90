@@ -377,8 +377,8 @@ CONTAINS
   !!
 
   SUBROUTINE flake_init (                                       &
-                     &  nflkgb,                                 &
-                     &  fr_lake, depth_lk,                      &
+                     &  nflkgb, use_iceanalysis,                &
+                     &  fr_lake, depth_lk, fr_ice,              &
                      &  fetch_lk, dp_bs_lk, t_bs_lk, gamso_lk,  &
                      &  t_snow_p, h_snow_p,                     & 
                      &  t_ice_p, h_ice_p,                       & 
@@ -400,9 +400,13 @@ CONTAINS
 
     ! FLake external parameters
 
+    LOGICAL, DIMENSION(:), INTENT(IN) :: use_iceanalysis !< switch whether to use ice fraction analysis
+                                                         !  on a given grid point
+
     REAL(KIND = ireals), DIMENSION(:), INTENT(IN) ::  &
                         &  fr_lake          , & !< lake fraction in a grid box [-]
-                        &  depth_lk             !< lake depth [m]
+                        &  depth_lk         , & !< lake depth [m]
+                        &  fr_ice               !< ice fraction coming from analysis
 
     REAL(KIND = ireals), DIMENSION(:), INTENT(INOUT) ::  &
                         &  fetch_lk         , & !< wind fetch over lake [m]
@@ -572,6 +576,47 @@ CONTAINS
         t_scf_lk_p(iflk) = t_wml_lk_p(iflk)
       END IF
 
+      ! Adapt ice thickness and temperatures if analysis data of ice fraction are available
+      IF (use_iceanalysis(iflk)) THEN
+
+        IF (fr_ice(iflk) > 0.05_ireals .AND. h_ice_p(iflk) < h_Ice_min_flk) THEN
+          ! There was no ice in the first guess, create new ice with an amount depending on ice fraction
+          h_ice_p(iflk)  = 0.025_ireals*fr_ice(iflk)
+          ! Set the ice surface temperature to the fresh-water freezing point
+          t_ice_p(iflk)  = tpl_T_f
+          ! Set the snow variables
+          t_snow_p(iflk) = tpl_T_f
+          h_snow_p(iflk) = 0._ireals
+          ! Set the mixed-layer temperature to the fresh-water freezing point
+          t_wml_lk_p(iflk)  = tpl_T_f
+          ! Adjust the temperature profile
+          IF(h_ml_lk_p(iflk) >= (depth_lk(iflk)-h_ML_min_flk)) THEN
+            ! Mixing down to the lake bottom (h_ML should be set to zero)
+            t_mnw_lk_p(iflk) = t_wml_lk_p(iflk)
+            t_b1_lk_p(iflk)  = t_wml_lk_p(iflk)
+            h_ml_lk_p(iflk)  = 0._ireals
+            c_t_lk_p(iflk)   = C_T_min       
+          ELSE
+            ! Mixed layer depth is less than depth to the bottom 
+            ! (h_ML and C_T remain unchanged)
+            ! Limit the bottom temperature
+            t_b1_lk_p(iflk) = MAX(tpl_T_f, MIN(t_b1_lk_p(iflk), tpl_T_r))
+            ! Compute the mean temperature of the water column
+            t_mnw_lk_p(iflk) = t_wml_lk_p(iflk) - c_t_lk_p(iflk)*(1._ireals-h_ml_lk_p(iflk)/ &
+                               depth_lk(iflk))*(t_mnw_lk_p(iflk)-t_b1_lk_p(iflk))
+          END IF 
+
+        ELSE IF (fr_ice(iflk) < 0.75_ireals .AND. h_ice_p(iflk) >= 0.1_ireals*fr_ice(iflk)) THEN
+          ! Ice exists and should be reduced in depth or removed
+          h_ice_p(iflk)  = 0.1_ireals*fr_ice(iflk)
+          ! Set the ice surface temperature to the fresh-water freezing point if the ice fraction is < 0.1
+          IF (fr_ice(iflk) < 0.1_ireals) t_ice_p(iflk)  = tpl_T_f
+          ! Set the snow variables
+          t_snow_p(iflk) = t_ice_p(iflk)
+          h_snow_p(iflk) = 0._ireals
+        END IF
+
+      ENDIF
 
     END DO GridBoxesWithLakes 
 
