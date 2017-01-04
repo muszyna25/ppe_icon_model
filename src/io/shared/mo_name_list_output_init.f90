@@ -3066,24 +3066,21 @@ CONTAINS
 
         SELECT CASE (output_file(i)%var_desc(iv)%info%hgrid)
         CASE (GRID_UNSTRUCTURED_CELL)
-          mem_size = mem_size + INT(nlevs*patch_info(jp)%ri(icell)%n_own,i8)
+          n_own = patch_info(jp)%ri(icell)%n_own
         CASE (GRID_UNSTRUCTURED_EDGE)
-          mem_size = mem_size + INT(nlevs*patch_info(jp)%ri(iedge)%n_own,i8)
+          n_own = patch_info(jp)%ri(iedge)%n_own
         CASE (GRID_UNSTRUCTURED_VERT)
-          mem_size = mem_size + INT(nlevs*patch_info(jp)%ri(ivert)%n_own,i8)
-
+          n_own = patch_info(jp)%ri(ivert)%n_own
 #ifndef __NO_ICON_ATMO__
         CASE (GRID_REGULAR_LONLAT)
           lonlat_id = output_file(i)%var_desc(iv)%info%hor_interp%lonlat_id
           i_log_dom = output_file(i)%log_patch_id
           n_own     = lonlat_info(lonlat_id, i_log_dom)%ri%n_own
-          mem_size  = mem_size + INT(nlevs*n_own,i8)
 #endif
-! #ifndef __NO_ICON_ATMO__
-
         CASE DEFAULT
           CALL finish(routine,'unknown grid type')
         END SELECT
+        mem_size  = mem_size + INT(nlevs, i8) * INT(n_own, i8)
 
       ENDDO ! vars
 
