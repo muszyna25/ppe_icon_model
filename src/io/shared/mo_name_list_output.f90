@@ -580,7 +580,7 @@ CONTAINS
     ! Handle incoming "output step completed" messages: After all
     ! participating I/O PE's have acknowledged the completion of their
     ! write processes, we trigger a "ready file" on the first I/O PE.
-    IF (.NOT.my_process_is_mpi_test()) THEN
+    IF (.NOT. is_mpi_test) THEN
        IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
             & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
           ev => all_events
