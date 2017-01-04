@@ -7,6 +7,7 @@ MODULE mo_reorder_info
 #ifndef NOMPI
   USE mpi
 #endif
+  USE mo_util_sort, ONLY: quicksort
   IMPLICIT NONE
   PRIVATE
   !------------------------------------------------------------------------------------------------
@@ -87,7 +88,8 @@ CONTAINS
     INTEGER :: n_points, i, il, n, group_comm_size
     INTEGER :: nocc, ierror
     INTEGER(i8) :: pos, apos, bpos
-    INTEGER, ALLOCATABLE :: glbidx_own(:), occ_pfxsum(:)
+    INTEGER, ALLOCATABLE :: glbidx_own(:), permutation(:), occ_pfxsum(:), &
+         buf(:)
     INTEGER(i8), ALLOCATABLE :: occupation_mask(:)
     INTEGER(i8) :: occ_temp, occ_accum
     INTEGER(i8), PARAMETER :: nbits_i8 = BIT_SIZE(occ_temp)
@@ -103,7 +105,7 @@ CONTAINS
     ALLOCATE(ri%own_idx(n), ri%own_blk(n), ri%reorder_index_own(ri%n_own))
     group_comm_size = p_comm_size(group_comm)
     ALLOCATE(ri%pe_own(0:group_comm_size-1), ri%pe_off(0:group_comm_size-1))
-    ALLOCATE(glbidx_own(n))
+    ALLOCATE(glbidx_own(n), permutation(n), buf(n))
     n = 0
     DO i = 1, n_points
       IF (mask(i)) THEN
@@ -114,6 +116,14 @@ CONTAINS
       ENDIF
     ENDDO
 
+    ! sort used global indices so that target-side re-ordering has lower overhead
+    DO i = 1, n
+      permutation(i) = i
+    END DO
+    CALL quicksort(glbidx_own, permutation)
+    CALL permute(ri%own_idx, permutation, buf)
+    CALL permute(ri%own_blk, permutation, buf)
+    DEALLOCATE(buf, permutation)
     ! Gather the number of own points for every PE into ri%pe_own
     CALL p_allgather(ri%n_own, ri%pe_own, group_comm)
 
@@ -182,6 +192,35 @@ CONTAINS
     END IF
   END SUBROUTINE mask2reorder_info
 
+  SUBROUTINE permute(a, permutation, a_perm)
+    INTEGER, ALLOCATABLE, INTENT(inout) :: a(:)
+    INTEGER, ALLOCATABLE, INTENT(inout) :: a_perm(:)
+    INTEGER, INTENT(in) :: permutation(:)
+    CHARACTER(len=*), PARAMETER :: routine=modname//"::permute"
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: permutation
+#endif
+    INTEGER, ALLOCATABLE :: temp(:)
+    INTEGER :: i, n
+    n = SIZE(a)
+    IF (SIZE(permutation) /= n) THEN
+      CALL finish(routine, "invalid permutation")
+    END IF
+    IF (ALLOCATED(a_perm)) THEN
+      IF (SIZE(a_perm) /= n) THEN
+        DEALLOCATE(a_perm)
+        ALLOCATE(a_perm(n))
+      END IF
+    ELSE
+      ALLOCATE(a_perm(n))
+    END IF
+    DO i = 1, n
+      a_perm(i) = a(permutation(i))
+    END DO
+    CALL MOVE_ALLOC(a, temp)
+    CALL MOVE_ALLOC(a_perm, a)
+    CALL MOVE_ALLOC(temp, a_perm)
+  END SUBROUTINE permute
   !------------------------------------------------------------------------------------------------
   !> Transfers reorder_info from clients to servers for IO/async latbc
   !
