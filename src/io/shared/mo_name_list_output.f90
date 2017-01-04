@@ -580,7 +580,7 @@ CONTAINS
     ! Handle incoming "output step completed" messages: After all
     ! participating I/O PE's have acknowledged the completion of their
     ! write processes, we trigger a "ready file" on the first I/O PE.
-    IF (.NOT. is_mpi_test) THEN
+    IF (.NOT. is_test) THEN
        IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
             & (.NOT. use_async_name_list_io .AND. my_process_is_mpi_workroot())) THEN
           ev => all_events
@@ -1725,10 +1725,13 @@ CONTAINS
 
 #ifndef __NO_ICON_ATMO__
     LOGICAL             :: l_complete, lhas_output, &
-      &                    lset_timers_for_idle_pe
+      &                    lset_timers_for_idle_pe, is_mpi_test, is_io_root
     INTEGER             :: jg, jstep, i, action
     TYPE(t_par_output_event), POINTER :: ev
-    
+
+    is_mpi_test = my_process_is_mpi_test()
+    is_io_root = my_process_is_mpi_ioroot()
+
     ! define initial time stamp used as reference for output statistics
     CALL set_reference_time()
 
@@ -1793,8 +1796,7 @@ CONTAINS
           ! all participating I/O PE's have acknowledged the completion of
           ! their write processes, we trigger a "ready file" on the first
           ! I/O PE.
-          IF (.NOT. my_process_is_mpi_test()  .AND.  &
-               & use_async_name_list_io .AND. my_process_is_mpi_ioroot()) THEN
+          IF (.NOT. is_mpi_test .AND. use_async_name_list_io .AND. is_io_root) THEN
 
             ! Go over all output files
             l_complete = all_output_file_event_finished(output_file(:))
