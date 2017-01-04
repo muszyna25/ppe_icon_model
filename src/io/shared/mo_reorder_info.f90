@@ -100,8 +100,10 @@ CONTAINS
 
     ! Set index arrays to own cells/edges/verts
     ! Global index of my own points
-    ALLOCATE(ri%own_idx(n), ri%own_blk(n), glbidx_own(n))
-
+    ALLOCATE(ri%own_idx(n), ri%own_blk(n), ri%reorder_index_own(ri%n_own))
+    group_comm_size = p_comm_size(group_comm)
+    ALLOCATE(ri%pe_own(0:group_comm_size-1), ri%pe_off(0:group_comm_size-1))
+    ALLOCATE(glbidx_own(n))
     n = 0
     DO i = 1, n_points
       IF (mask(i)) THEN
@@ -113,8 +115,6 @@ CONTAINS
     ENDDO
 
     ! Gather the number of own points for every PE into ri%pe_own
-    group_comm_size = p_comm_size(group_comm)
-    ALLOCATE(ri%pe_own(0:group_comm_size-1), ri%pe_off(0:group_comm_size-1))
     CALL p_allgather(ri%n_own, ri%pe_own, group_comm)
 
     ! Get offset within result array
@@ -166,7 +166,6 @@ CONTAINS
     ENDIF
     ! given the above two arrays, one can now compute for each global index its
     ! position in the output array in O(1)
-    ALLOCATE(ri%reorder_index_own(ri%n_own))
     DO i = 1, ri%n_own
       pos = INT(glbidx_own(i), i8)
       apos = (pos - 1_i8)/nbits_i8
