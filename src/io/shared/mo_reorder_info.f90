@@ -165,7 +165,7 @@ CONTAINS
     ALLOCATE(occ_pfxsum(0:INT(nocc-1)))
     occ_accum = 0
     DO i = 0, INT(nocc-1)
-      occ_pfxsum(i) = occ_accum
+      occ_pfxsum(i) = INT(occ_accum)
       occ_temp = POPCNT(occupation_mask(i))
       occ_accum = occ_accum + occ_temp
     END DO
