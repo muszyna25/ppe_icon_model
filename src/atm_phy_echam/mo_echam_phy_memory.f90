@@ -131,6 +131,9 @@ MODULE mo_echam_phy_memory
       & qtrc      (:,:,:,:),&!< [kg/kg] tracer concentration (qm1, xlm1, xim1 of memory_g1a in ECHAM)
       & mtrc      (:,:,:,:),&!< [kg/m2] tracer content
       & mtrcvi    (:,:,:),  &!< [kg/m2] tracer content, vertically integrated through the atmospheric column
+      & prw       (:,:),    &!< [kg/m2] water vapor content, vertically integrated through the atmospheric column
+      & cllvi     (:,:),    &!< [kg/m2] cloud water content, vertically integrated through the atmospheric column
+      & clivi     (:,:),    &!< [kg/m2] cloud ice   content, vertically integrated through the atmospheric column
       & rho       (:,:,:),  &!< [kg/m3] air density
       & mh2o      (:,:,:),  &!< [kg/m2] h2o content (vap+liq+ice)
       & mair      (:,:,:),  &!< [kg/m2] air content
@@ -236,10 +239,7 @@ MODULE mo_echam_phy_memory
       & rsfc      (:,  :),  &!< sfc rain flux, convective  [kg m-2 s-1]
       & ssfl      (:,  :),  &!< sfc snow flux, large scale [kg m-2 s-1]
       & ssfc      (:,  :),  &!< sfc snow flux, convective  [kg m-2 s-1]
-      & totprec   (:,  :),  &!< total precipitation flux,[kg m-2 s-1]
-      & qvi       (:,  :),  &!< vertically integrated water vapor [kg/m**2]
-      & xlvi      (:,  :),  &!< vertically integrated cloud water [kg/m**2]
-      & xivi      (:,  :)    !< vertically integrated cloud ice   [kg/m**2]
+      & totprec   (:,  :)    !< total precipitation flux,[kg m-2 s-1]
 
     REAL(wp),POINTER :: &
       & rintop (:,  :),     &!< low lever inversion, computed by "cover" (memory_g3b)
@@ -928,6 +928,7 @@ CONTAINS
     ALLOCATE(field%mtrc_ptr(ktracer))
     ALLOCATE(field%mtrcvi_ptr(ktracer))
     
+    ! Generic references to single tracers
     DO jtrc = 1,ktracer
       CALL add_ref( field_list, prefix//'qtrc_phy',                            &
                   & prefix//'q'//TRIM(ctracer(jtrc))//'_phy', field%qtrc_ptr(jtrc)%p, &
@@ -937,7 +938,7 @@ CONTAINS
                   &          'mass fraction of '//TRIM(ctracer(jtrc))//' in air (physics)', &
                   &          datatype_flt),                                    &
                   & grib2_var(0,20,2, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
-                  & ldims=(/kproma,klev,kblks/),                               &
+                  & ref_idx=jtrc, ldims=(/kproma,klev,kblks/),                 &
                   & lrestart = .FALSE.,                                        &
                   & vert_interp=create_vert_interp_metadata(                   &
                   &             vert_intp_type=vintp_types("P","Z","I"),       & 
@@ -953,7 +954,7 @@ CONTAINS
                   &          'mass of '//TRIM(ctracer(jtrc))//' in air (physics)', &
                   &          datatype_flt),                                    &
                   & grib2_var(0,20,2, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
-                  & ldims=(/kproma,klev,kblks/),                               &
+                  & ref_idx=jtrc, ldims=(/kproma,klev,kblks/),                 &
                   & lrestart = .FALSE.,                                        &
                   & vert_interp=create_vert_interp_metadata(                   &
                   &             vert_intp_type=vintp_types("P","Z","I"),       & 
@@ -968,9 +969,43 @@ CONTAINS
                   &          'kg m-2', TRIM(ctracer(jtrc))//' path (physics)', &
                   &          datatype_flt),                                    &
                   & grib2_var(0,20,2, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
-                  & lrestart = .FALSE.,                                        &
-                  & ldims=(/kproma,kblks/)                                     )
+                  & ref_idx=jtrc, ldims=(/kproma,kblks/),                      &
+                  & lrestart = .FALSE.                                         )
     END DO                                                                                
+
+    ! Specific references for tracers with specific names
+    DO jtrc = 1,ktracer
+       IF ( TRIM(ctracer(jtrc)) == 'hus' ) THEN
+          CALL add_ref( field_list, prefix//'mtrcvi_phy',                      &
+                  & prefix//'prw', field%prw,                                  &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
+                  & t_cf_var('total_vapour', 'kg m-2', 'vertically integrated water vapour', &
+                  &          datatype_flt),                                    &
+                  & grib2_var(0,1,64, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
+                  & ref_idx=jtrc, ldims=(/kproma,kblks/),                      &
+                  & lrestart = .FALSE.                                         )
+       END IF
+       IF ( TRIM(ctracer(jtrc)) == 'clw' ) THEN
+          CALL add_ref( field_list, prefix//'mtrcvi_phy',                      &
+                  & prefix//'cllvi', field%cllvi,                              &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
+                  & t_cf_var('total_cloud_water', 'kg m-2', 'vertically integrated cloud water', &
+                  &          datatype_flt),                                    &
+                  & grib2_var(0,1,69, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
+                  & ref_idx=jtrc, ldims=(/kproma,kblks/),                      &
+                  & lrestart = .FALSE.                                         )
+       END IF
+       IF ( TRIM(ctracer(jtrc)) == 'cli' ) THEN
+          CALL add_ref( field_list, prefix//'mtrcvi_phy',                      &
+                  & prefix//'clivi', field%clivi,                              &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
+                  & t_cf_var('total_cloud_ice', 'kg m-2', 'vertically integrated cloud ice', &
+                  &          datatype_flt),                                    &
+                  & grib2_var(0,1,70, ibits, GRID_UNSTRUCTURED, GRID_CELL),    &
+                  & ref_idx=jtrc, ldims=(/kproma,kblks/),                      &
+                  & lrestart = .FALSE.                                         )
+       END IF
+    END DO
 
     ! &       field% rho        (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('air_density', 'kg m-3', 'density of air',           &
@@ -2005,36 +2040,6 @@ CONTAINS
          &                datatype_flt)
     grib2_desc = grib2_var(0, 1, 52, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'pr', field%totprec,       &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
-         &        isteptype=TSTEP_INSTANT )
-
-    cf_desc    = t_cf_var('total_vapour', 'kg m-2', 'vertically integrated water vapour', &
-         &                datatype_flt)
-    grib2_desc = grib2_var(0,1,64, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'prw', field%qvi,          &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
-         &        isteptype=TSTEP_INSTANT )
-
-    cf_desc    = t_cf_var('total_cloud_water', 'kg m-2',&
-               & 'vertically integrated cloud water', datatype_flt)
-    grib2_desc = grib2_var(0,1,69, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'cllvi', field%xlvi,       &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,                                 &
-         &        lrestart = .FALSE.,                            &
-         &        isteptype=TSTEP_INSTANT )
-
-    cf_desc    = t_cf_var('total_cloud_ice', 'kg m-2',&
-               & 'vertically integrated cloud ice', datatype_flt)
-    grib2_desc = grib2_var(0,1,70, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'clivi', field%xivi,       &
          &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
          &        cf_desc, grib2_desc,                           &
          &        ldims=shape2d,                                 &
@@ -3495,7 +3500,7 @@ CONTAINS
                   &          TRIM(ctracer(jtrc)),                                         &
                   &          datatype_flt),                                               &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
-                  & ldims=(/kproma,klev,kblks/),                                          &
+                  & ref_idx=jtrc, ldims=(/kproma,klev,kblks/),                            &
                   & vert_interp=create_vert_interp_metadata(                              &
                   &             vert_intp_type=vintp_types("P","Z","I"),                  &
                   &             vert_intp_method=VINTP_METHOD_LIN )                       )
@@ -3509,7 +3514,7 @@ CONTAINS
                   &          ' due to resolved dynamics',                                 &
                   &          datatype_flt),                                               &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
-                  & ldims=(/kproma,klev,kblks/),                                          &
+                  & ref_idx=jtrc, ldims=(/kproma,klev,kblks/),                            &
                   & vert_interp=create_vert_interp_metadata(                              &
                   &             vert_intp_type=vintp_types("P","Z","I"),                  &
                   &             vert_intp_method=VINTP_METHOD_LIN )                       )
@@ -3523,7 +3528,7 @@ CONTAINS
                   &          ' due to parameterized processes',                           &
                   &          datatype_flt),                                               &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
-                  & ldims=(/kproma,klev,kblks/),                                          &
+                  & ref_idx=jtrc, ldims=(/kproma,klev,kblks/),                            &
                   & vert_interp=create_vert_interp_metadata(                              &
                   &             vert_intp_type=vintp_types("P","Z","I"),                  &
                   &             vert_intp_method=VINTP_METHOD_LIN )                       )
@@ -3537,7 +3542,7 @@ CONTAINS
                   &          ' due to large scale cloud processes',                       &
                   &          datatype_flt),                                               &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
-                  & ldims=(/kproma,klev,kblks/),                                          &
+                  & ref_idx=jtrc, ldims=(/kproma,klev,kblks/),                            &
                   & vert_interp=create_vert_interp_metadata(                              &
                   &             vert_intp_type=vintp_types("P","Z","I"),                  &
                   &             vert_intp_method=VINTP_METHOD_LIN )                       )
@@ -3551,7 +3556,7 @@ CONTAINS
                   &          ' due to convective cloud processes',                        &
                   &          datatype_flt),                                               &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
-                  & ldims=(/kproma,klev,kblks/),                                          &
+                  & ref_idx=jtrc, ldims=(/kproma,klev,kblks/),                            &
                   & vert_interp=create_vert_interp_metadata(                              &
                   &             vert_intp_type=vintp_types("P","Z","I"),                  &
                   &             vert_intp_method=VINTP_METHOD_LIN )                       )
@@ -3565,7 +3570,7 @@ CONTAINS
                   &          ' due to vertical diffusion',                                &
                   &          datatype_flt),                                               &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
-                  & ldims=(/kproma,klev,kblks/),                                          &
+                  & ref_idx=jtrc, ldims=(/kproma,klev,kblks/),                            &
                   & vert_interp=create_vert_interp_metadata(                              &
                   &             vert_intp_type=vintp_types("P","Z","I"),                  &
                   &             vert_intp_method=VINTP_METHOD_LIN )                       )
@@ -3578,7 +3583,7 @@ CONTAINS
                   &          ' mass due to parameterized processes',                      &
                   &          datatype_flt),                                               &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
-                  & ldims=(/kproma,klev,kblks/),                                          &
+                  & ref_idx=jtrc, ldims=(/kproma,klev,kblks/),                            &
                   & vert_interp=create_vert_interp_metadata(                              &
                   &             vert_intp_type=vintp_types("P","Z","I"),                  &
                   &             vert_intp_method=VINTP_METHOD_LIN )                       )
@@ -3591,7 +3596,7 @@ CONTAINS
                   &          ' path due to parameterized processes',                      &
                   &          datatype_flt),                                               &
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
-                  & ldims=(/kproma,kblks/)                                                )
+                  & ref_idx=jtrc, ldims=(/kproma,kblks/)                                  )
 
     END DO
 

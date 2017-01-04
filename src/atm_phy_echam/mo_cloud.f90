@@ -98,8 +98,6 @@ CONTAINS
                            , pcair                                                   &
     ! - INPUT/OUTPUT 1D .
                            , paclcov                                                 &
-                           , pqvi                                                    &
-                           , pxlvi,        pxivi                                     &
                            , ktype                                                   &
                            , pch_concloud, pcw_concloud                              &
     ! - INPUT/OUTPUT 2D .
@@ -135,9 +133,6 @@ CONTAINS
       & pcair    (kbdim,klev)       !< specific heat of moist air
     REAL(wp), INTENT(INOUT) ::     &
       & paclcov  (kbdim)          ,&!< total cloud cover
-      & pqvi     (kbdim)          ,&!< vertically integrated spec. humidity, acc
-      & pxlvi    (kbdim)          ,&!< vertically integrated cloud liquid water, acc
-      & pxivi    (kbdim)          ,&!< vertically integrated cloud ice, accumulated
       & pch_concloud(kbdim)       ,&!< checking the global heat budget and
       & pcw_concloud(kbdim)         !< checking the local water budget
                                     !< due to convection + cloud processes
@@ -177,9 +172,9 @@ CONTAINS
       &      , zxlb(kbdim)          ,zxib(kbdim)          ,zqrho(kbdim)              &
       &      , zqrho_sqrt(kbdim)    ,zpapm1_inv(kbdim)    ,zpapp1i(kbdim)            &
       &      , zclcov(kbdim)        ,zclcaux(kbdim)       ,zqsed(kbdim)              &
-      &      , zxlvitop(kbdim)      ,zxlvibot(kbdim)      ,zxrp1(kbdim)              &
-      &      , zxsp1(kbdim)         ,zxsp2(kbdim)         ,zgenti(kbdim)             &
-      &      , zgentl(kbdim)        ,zauloc(kbdim)                                   &
+      &      , zxlvi(kbdim)         ,zxlvitop(kbdim)      ,zxlvibot(kbdim)           &
+      &      , zxrp1(kbdim)         ,zxsp1(kbdim)         ,zxsp2(kbdim)              &
+      &      , zgenti(kbdim)        ,zgentl(kbdim)        ,zauloc(kbdim)             &
       &      , zqsi(kbdim)          ,ztmp1(kbdim)         ,ztmp2(kbdim)              &
       &      , ztmp3(kbdim)         ,ztmp4(kbdim)         ,zxised(kbdim)             &
       &      , zqvdt(kbdim)         ,zqsm1(kbdim)         ,zdtdt(kbdim)              &
@@ -1255,21 +1250,25 @@ CONTAINS
        paclcov(jl) = zclcov(jl)
 924 END DO
     !
-    !       10.3   Vertical integrals of humidity, cloud water and cloud ice
+    !      10.3 Derive the tendency increment induced by this routine
+    !
+    ptte_prc(1:kproma,:)   =  ptte(1:kproma,:)   -  ptte_prc(1:kproma,:)
+    pqte_prc(1:kproma,:)   =  pqte(1:kproma,:)   -  pqte_prc(1:kproma,:)
+    pxlte_prc(1:kproma,:)   = pxlte(1:kproma,:)   - pxlte_prc(1:kproma,:)
+    pxite_prc(1:kproma,:)   = pxite(1:kproma,:)   - pxite_prc(1:kproma,:)
+
+    !
+    !      10.4 Vertical integrals of humidity, cloud water and cloud ice
     !
     DO 931 jl   = 1,kproma
-       pqvi(jl)  = 0.0_wp
-       pxlvi(jl) = 0.0_wp
-       pxivi(jl) = 0.0_wp
+       zxlvi(jl) = 0.0_wp
        zclten(jl) = 0.0_wp
        zqviten(jl) = 0.0_wp
 931 END DO
     !
     DO 933 jk     = ktdia,klev
        DO 932 jl   = 1,kproma
-          pqvi(jl)   = pqvi(jl)    + pqm1  (jl,jk) *pmdry(jl,jk)
-          pxlvi(jl)  = pxlvi(jl)   + pxlm1 (jl,jk) *pmdry(jl,jk)
-          pxivi(jl)  = pxivi(jl)   + pxim1 (jl,jk) *pmdry(jl,jk)
+          zxlvi(jl)  = zxlvi(jl)   + (pxlm1 (jl,jk)+pxlte_prc(jl,jk)*pdtime)*pmdry(jl,jk)
           zclten(jl) = zclten(jl)  + zcpten(jl,jk) *pmdry(jl,jk)     ! [W/m2]
           zqviten(jl)= zqviten(jl) + zqten (jl,jk) *pmdry(jl,jk)     ! [kg/m2s]
 932    END DO
@@ -1292,7 +1291,7 @@ CONTAINS
 
     ! modify ktype where appropriate (to be used in mo_cloud_optics)
     DO 940 jl = 1,kproma
-       zxlvibot(jl) = pxlvi(jl) - zxlvitop(jl)
+       zxlvibot(jl) = zxlvi(jl) - zxlvitop(jl)
        IF (ktype(jl) .EQ. 2 .AND. zxlvibot(jl) .GT. clwprat * zxlvitop(jl)) THEN
           ktype(jl) = 4
        END IF
@@ -1302,14 +1301,6 @@ CONTAINS
     CALL trace_stop ('cloud_loop_9', 19)
     CALL trace_stop ('cloud', 10)
 #endif
-
-    !
-    !      10.4 Derive the tendency increment induced by this routine
-    !
-    ptte_prc(1:kproma,:)   =  ptte(1:kproma,:)   -  ptte_prc(1:kproma,:)
-    pqte_prc(1:kproma,:)   =  pqte(1:kproma,:)   -  pqte_prc(1:kproma,:)
-    pxlte_prc(1:kproma,:)   = pxlte(1:kproma,:)   - pxlte_prc(1:kproma,:)
-    pxite_prc(1:kproma,:)   = pxite(1:kproma,:)   - pxite_prc(1:kproma,:)
 
   END SUBROUTINE cloud
 
