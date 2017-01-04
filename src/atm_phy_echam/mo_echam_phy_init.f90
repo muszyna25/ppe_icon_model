@@ -487,9 +487,6 @@ CONTAINS
       field% dlwflxsfc_dT(:,:) = 0._wp
       field% aclc  (:,:,:) = 0._wp
       field% aclcov(:,  :) = 0._wp
-      field% qvi   (:,  :) = 0._wp
-      field% xlvi  (:,  :) = 0._wp
-      field% xivi  (:,  :) = 0._wp
       field% rsfl  (:,  :) = 0._wp
       field% ssfl  (:,  :) = 0._wp
       field% rsfc  (:,  :) = 0._wp

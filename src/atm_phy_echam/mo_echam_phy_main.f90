@@ -1142,9 +1142,6 @@ CONTAINS
           &        field% qtrc  (:,:,jb,iqi), &! in. xim1
           &        zcair(:,:),                &! in
           &        field% aclcov(:,  jb),     &! out
-          &        field%  qvi  (:,  jb),     &! out
-          &        field% xlvi  (:,  jb),     &! out
-          &        field% xivi  (:,  jb),     &! out
           &        itype,                     &!
           &        field% ch_concloud(:,jb),  &! inout condens. heat
           &        field% cw_concloud(:,jb),  &! inout condens. heat
