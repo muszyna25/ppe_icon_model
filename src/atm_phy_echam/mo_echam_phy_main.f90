@@ -60,7 +60,7 @@ MODULE mo_echam_phy_main
   USE mo_cover,               ONLY: cover
   USE mo_radheating,          ONLY: radheating
   USE mo_psrad_radiation,     ONLY: psrad_radiation
-  USE mo_psrad_radiation_parameters, ONLY: psct
+  USE mo_psrad_radiation_parameters, ONLY: psctm
   USE mo_vdiff_config,        ONLY: vdiff_config
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
   USE mo_vdiff_upward_sweep,  ONLY: vdiff_up
@@ -91,22 +91,20 @@ MODULE mo_echam_phy_main
 
   ! the following would depend on the nesting, ie jg
   REAL(wp) :: pdtime         !< time step
-  REAL(wp) :: psteplen       !< 2*pdtime in case of leapfrog
 
 CONTAINS
   !>
   !!
   SUBROUTINE echam_phy_main( patch,                         &
     &                        rl_start, rl_end,              &
-    &                        this_datetime,inpdtime,inpsteplen, &
+    &                        this_datetime,inpdtime,        &
     &                        ltrig_rad                      )
 
     TYPE(t_patch)   ,INTENT(in), TARGET :: patch           !< grid/patch info
     INTEGER         ,INTENT(IN)  :: rl_start, rl_end
 
-    TYPE(datetime),  POINTER     :: this_datetime  !< time step
+    TYPE(datetime),  POINTER     :: this_datetime    !< date and time 
     REAL(wp)        ,INTENT(IN)  :: inpdtime         !< time step
-    REAL(wp)        ,INTENT(IN)  :: inpsteplen       !< 2*pdtime in case of leapfrog
 
     LOGICAL         ,INTENT(IN)  :: ltrig_rad      !< perform radiative transfer computation
 
@@ -140,7 +138,6 @@ CONTAINS
     i_endblk   = patch%cells%end_blk(rl_end,i_nchdom)
 
     ! fill the module timestep lengths
-    psteplen = inpsteplen
     pdtime = inpdtime
     ! start index for vertical loops
     jks=1
@@ -645,7 +642,7 @@ CONTAINS
       & klev       = nlev                           ,&! vertical dimension size
       & klevp1     = nlevp1                         ,&! vertical dimension size
       !
-      & rsdt0      = psct                           ,&! toa incident shortwave radiation for sun in zenith
+      & rsdt0      = psctm                          ,&! toa incident shortwave radiation for sun in zenith
       & cosmu0     = field%cosmu0    (:,jb)         ,&! solar zenith angle at current time
       !
       & emiss      = ext_data(jg)%atm%emis_rad(:,jb),&! lw sfc emissivity
@@ -777,7 +774,7 @@ CONTAINS
                      & jce, nbdim, nlev, nlevm1, nlevp1,&! in
                      & ntrac, nsfc_type,                &! in
                      & iwtr, iice, ilnd,                &! in, indices of different surface types
-                     & psteplen,                        &! in, time step (2*dt if leapfrog)
+                     & pdtime,                          &! in, time step 
                      & field%coriol(:,jb),              &! in, Coriolis parameter
                      & zfrc(:,:),                    &! in, area fraction of each sfc type
                      & field% ts_tile(:,jb,:),          &! in, surface temperature
@@ -853,7 +850,7 @@ CONTAINS
 
         CALL update_surface( vdiff_config%lsfc_heat_flux,  &! in
           & vdiff_config%lsfc_mom_flux,   &! in
-          & pdtime, psteplen,             &! in, time steps
+          & pdtime,                       &! in, time step
           & jg, jce, nbdim, field%kice,   &! in
           & nlev, nsfc_type,              &! in
           & iwtr, iice, ilnd,             &! in, indices of surface types
@@ -949,7 +946,7 @@ CONTAINS
       CALL vdiff_up( jce, nbdim, nlev, nlevm1, nlevp1,&! in
                    & ntrac, nsfc_type,                &! in
                    & iwtr,                            &! in, indices of different sfc types
-                   & pdtime, psteplen,                &! in, time steps
+                   & pdtime,                          &! in, time step
                    & zfrc(:,:),                       &! in, area fraction of each sfc type
                    & field% cfm_tile(:,jb,:),         &! in
                    & zaa,                             &! in, from "vdiff_down"
@@ -1025,14 +1022,8 @@ CONTAINS
 !396   END DO
 !397 END DO
 
-      IF (ABS(pdtime*2._wp-psteplen)<1e-6_wp) THEN
-        ! Leapfrog scheme. No Asselin filter. Just swap time steps
-        field% tkem1(jcs:jce,:,jb) = field% tkem0(jcs:jce,:,jb)
-        field% tkem0(jcs:jce,:,jb) = field% tke  (jcs:jce,:,jb)
-      ELSE
-        ! 2-tl-scheme
-        field% tkem1(jcs:jce,:,jb) = field% tke  (jcs:jce,:,jb)
-      ENDIF
+    ! 2-tl-scheme
+    field% tkem1(jcs:jce,:,jb) = field% tke  (jcs:jce,:,jb)
 
     ! 5.6 Turbulent mixing, part III:
     !     - Further diagnostics.
@@ -1113,9 +1104,9 @@ CONTAINS
  
       avi%ldown=.TRUE.
       avi%o3_vmr(jcs:jce,:)        = field%qtrc(jcs:jce,:,jb,io3)*amd/amo3
-      avi%tmprt(:,:)               => field%ta(:,:,jb)
+      avi%tmprt                    => field%ta(:,:,jb)
       avi%vmr2molm2(jcs:jce,:)     = field%mdry(jcs:jce,:,jb) / amd * 1.e3_wp
-      avi%pres(:,:)                => field%presm_old(jcs:jce,:,jb)
+      avi%pres                     => field%presm_old(jcs:jce,:,jb)
       avi%cell_center_lat(jcs:jce) = patch%cells%center(jcs:jce,jb)%lat
       avi%lday(jcs:jce)            = field%cosmu0(jcs:jce,jb) > 1.e-3_wp
 
@@ -1214,8 +1205,8 @@ CONTAINS
                   nbdim                                     ,& ! in,  dimension of block of cells/columns
                   nlev                                      ,& ! in,  number of levels
                   !
-                  patch%cells%center(:,jb)%lat        ,& ! in,  Latitude in radians
-                  psteplen                                  ,& ! in,  time step length, usually 2*delta_time
+                  patch%cells%center(:,jb)%lat              ,& ! in,  Latitude in radians
+                  pdtime                                    ,& ! in,  time step length
                   !
                   field% presi_old(:,:,jb)                  ,& ! in,  p at half levels
                   field% presm_old(:,:,jb)                  ,& ! in,  p at full levels
@@ -1295,7 +1286,7 @@ CONTAINS
         &          nlevp1, nlevm1,            &! in
         &          ntrac,                     &! in     tracers
 !        &          jb,                        &! in     row index
-        &          psteplen,                  &! in
+        &          pdtime,                    &! in
         &          field% lfland(:,jb),       &! in     loland
         &          field% ta(:,:,jb),         &! in     tm1
         &          field% ua(:,:,jb),         &! in     um1
@@ -1387,15 +1378,15 @@ CONTAINS
         IF (ltimer) CALL timer_start(timer_cloud)
 
         CALL cloud(jce, nproma, jks, nlev, nlevp1, &! in
-          &        psteplen,                  &! in
+          &        pdtime,                    &! in
           &        ictop,                     &! in (from "cucall")
           &        field% presi_old(:,:,jb),  &! in
           &        field% presm_old(:,:,jb),  &! in
 !          &        field% presm_new(:,:,jb), &! in
           &        field% acdnc (:,:,jb),     &! in. acdnc
-          &        field% qtrc  (:,:,jb,iqv), &! in.  qm1
           &        field%   ta  (:,:,jb),     &! in. tm1
           &        field%   tv  (:,:,jb),     &! in. ztvm1
+          &        field% qtrc  (:,:,jb,iqv), &! in.  qm1
           &        field% qtrc  (:,:,jb,iqc), &! in. xlm1
           &        field% qtrc  (:,:,jb,iqi), &! in. xim1
           &        zcair(:,:),                &! in
@@ -1410,8 +1401,8 @@ CONTAINS
           &         tend% xl_dtr(:,:,jb),     &! inout  xtecl
           &         tend% xi_dtr(:,:,jb),     &! inout  xteci
           &        zqtec,                     &! inout (there is a clip inside)
-          &         tend% qtrc  (:,:,jb,iqv), &! inout.  qte
           &         tend% ta  (:,:,jb),     &! inout.  tte
+          &         tend% qtrc  (:,:,jb,iqv), &! inout.  qte
           &         tend% qtrc  (:,:,jb,iqc), &! inout. xlte
           &         tend% qtrc  (:,:,jb,iqi), &! inout. xite
           &        field% cld_dtrl(:,jb),     &! inout detrained liquid

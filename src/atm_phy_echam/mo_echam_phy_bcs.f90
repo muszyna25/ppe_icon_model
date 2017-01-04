@@ -84,7 +84,7 @@ CONTAINS
 
     ! Local variables
 
-    TYPE(datetime) , POINTER                 :: radiation_time !< date and time for radiative transfer
+    TYPE(datetime) , POINTER, SAVE           :: radiation_time !< date and time for radiative transfer
     TYPE(timedelta), POINTER                 :: td_radiation_offset
     CHARACTER(len=max_timedelta_str_len)     :: dstring
 
@@ -102,29 +102,6 @@ CONTAINS
     !-------------------------------------------------------------------------
     ! Prepare some global parameters or parameter arrays
     !-------------------------------------------------------------------------
-
-    ! Check whether the radiative transfer needs to be calculated in this
-    ! timestep. Then boundary conditions must be prepared for this purpose.
-    !
-    IF (echam_phy_config%lrad) THEN
-      ltrig_rad   = ( is_1st_call .AND. (.NOT.isRestart()) ) .OR. &
-        &           ( MOD(getNoOfSecondsElapsedInDayDateTime(mtime_old),NINT(echam_phy_config%dt_rad)) == 0 )
-    ELSE
-      ltrig_rad = .FALSE.
-    END IF
-
-    ! Set the time instance datetime_radtran for the zenith angle to be used
-    ! in the radiative transfer. All other input for the radiative transfer
-    ! is for datetime, i.e. the start date and time of the current timestep.
-    !
-
-    radiation_time => newDatetime(mtime_old)
-    IF (ltrig_rad) THEN
-      dsec = 0.5_wp*(echam_phy_config%dt_rad - dtadv_loc) ! [s] time increment for zenith angle
-      CALL getPTStringFromSeconds(dsec, dstring)
-      td_radiation_offset => newTimedelta(dstring)
-      radiation_time = radiation_time + td_radiation_offset
-    END IF
 
     ! interpolation weights for linear interpolation
     ! of monthly means onto the actual integration time step
@@ -154,16 +131,34 @@ CONTAINS
       END IF
     END IF
 
-    ! total solar irradiation at the mean sun earth distance
-    IF (isolrad==1) THEN
-      CALL read_bc_solar_irradiance(mtime_old%date%year, .FALSE.)
-      CALL ssi_time_interpolation(current_time_interpolation_weights, .FALSE., tsi)
-    END IF
+    IF (echam_phy_config%lrad) THEN
 
-    ! quantities needed for the radiative transfer only
-    !
+      ! total solar irradiation at the mean sun earth distance
+      IF (isolrad==1) THEN
+        CALL read_bc_solar_irradiance(mtime_old%date%year, .FALSE.)
+        CALL ssi_time_interpolation(current_time_interpolation_weights, .FALSE., tsi)
+      END IF
+
+      ! Check whether the radiative transfer needs to be calculated in this
+      ! timestep. Then boundary conditions must be prepared for this purpose.
+      !
+      ltrig_rad   = ( is_1st_call .AND. (.NOT.isRestart()) ) .OR. &
+        &           ( MOD(getNoOfSecondsElapsedInDayDateTime(mtime_old),NINT(echam_phy_config%dt_rad)) == 0 )
+      !
+      ! quantities needed for the radiative transfer only
+      !
     IF (ltrig_rad) THEN
       !
+      ! Set the time instance datetime_radtran for the zenith angle to be used
+      ! in the radiative transfer. All other input for the radiative transfer
+      ! is for datetime, i.e. the start date and time of the current timestep.
+      !
+      radiation_time => newDatetime(mtime_old)
+      dsec = 0.5_wp*(echam_phy_config%dt_rad - dtadv_loc) ! [s] time increment for zenith angle
+      CALL getPTStringFromSeconds(dsec, dstring)
+      td_radiation_offset => newTimedelta(dstring)
+      radiation_time = radiation_time + td_radiation_offset
+
       ! interpolation weights for linear interpolation
       ! of monthly means onto the radiation time step
       radiation_time_interpolation_weights = calculate_time_interpolation_weights(radiation_time)
@@ -207,6 +202,9 @@ CONTAINS
         CALL read_bc_aeropt_stenchikov(mtime_old)
       END IF
       !
+
+      is_1st_call = .FALSE.
+
     END IF ! ltrig_rad
 
     CALL pre_psrad_radiation( &
@@ -215,7 +213,9 @@ CONTAINS
             & prm_field(jg)%cosmu0,            prm_field(jg)%daylght_frc,    &
             & prm_field(jg)%cosmu0_rt,         prm_field(jg)%daylght_frc_rt )
 
-    is_1st_call = .FALSE.
+    ELSE
+      ltrig_rad = .FALSE.
+    END IF ! lrad
 
   END SUBROUTINE echam_phy_bcs_global
 

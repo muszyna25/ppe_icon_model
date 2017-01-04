@@ -40,8 +40,7 @@ MODULE mo_psrad_memory
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_PACK16, DATATYPE_PACK24,  &
     &                               DATATYPE_FLT32,  DATATYPE_FLT64,   &
-    &                               GRID_UNSTRUCTURED,                 &
-    &                               cdiDefMissval
+    &                               GRID_UNSTRUCTURED
   USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL, &
     &                               ZA_HYBRID, ZA_HYBRID_HALF,         &
     &                               ZA_SURFACE
@@ -54,8 +53,6 @@ MODULE mo_psrad_memory
   PUBLIC :: construct_psrad_forcing_list                !< subroutine
   PUBLIC :: destruct_psrad_forcing_list                 !< subroutines
   PUBLIC :: t_psrad_forcing                             !< derived types
-
-  PUBLIC :: cdimissval
 
   !!--------------------------------------------------------------------------
   !!                               DATA TYPES
@@ -128,8 +125,6 @@ MODULE mo_psrad_memory
   !!--------------------------------------------------------------------------
   TYPE(t_var_list),ALLOCATABLE :: prm_psrad_forcing_list(:)  !< shape: (n_dom)
 
-  DOUBLE PRECISION, PARAMETER :: cdimissval = -9.E+15
-
 CONTAINS
 
   !!--------------------------------------------------------------------------
@@ -149,7 +144,6 @@ CONTAINS
 
     IF (.NOT.(lradforcing(1).OR.lradforcing(2))) RETURN
     CALL message(TRIM(thissubprog),'Construction of psrad_forcing_list started.')
-    CALL cdiDefMissval(cdimissval)
 
     ! Allocate pointer arrays prm_field and prm_tend, 
     ! as well as the corresponding list arrays.

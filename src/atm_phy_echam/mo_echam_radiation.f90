@@ -38,7 +38,6 @@ MODULE mo_echam_radiation
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_radiation
   USE mtime,                  ONLY: datetime
   USE mo_psrad_radiation,     ONLY: psrad_radiation
-  USE mo_psrad_radiation_parameters, ONLY: psct
 
   USE mo_parallel_config     ,ONLY: nproma
   USE mo_loopindices         ,ONLY: get_indices_c
