@@ -37,12 +37,6 @@ MODULE mo_reorder_info
     INTEGER, ALLOCATABLE       :: reorder_index(:)
     ! Index how to reorder the contributions of all compute PEs
     ! into the global array (set on all PEs)
-
-    ! grid information: geographical locations of cells, edges, and
-    ! vertices which is first collected on working PE 0 - from where
-    ! it will be broadcasted to the pure I/O PEs.
-  CONTAINS
-    PROCEDURE :: finalize => t_reorder_info_finalize
   END TYPE t_reorder_info
   INTERFACE ri_cpy_part2whole
     MODULE PROCEDURE ri_part2whole_1d_dp_dp, ri_part2whole_1d_sp_sp, &
@@ -59,20 +53,20 @@ MODULE mo_reorder_info
   PUBLIC :: mask2reorder_info
   PUBLIC :: ri_cpy_part2whole
   PUBLIC :: ri_cpy_blk2part
+  PUBLIC :: release_reorder_info
   CHARACTER(len=*), PARAMETER :: modname = 'mo_reorder_info'
 CONTAINS
 
-  SUBROUTINE t_reorder_info_finalize(reorder_data)
-    CLASS(t_reorder_info), INTENT(INOUT) :: reorder_data
+  SUBROUTINE release_reorder_info(ri)
+    TYPE(t_reorder_info), INTENT(INOUT) :: ri
 
-    !CALL message("", 't_reorder_data_finalize')
-
-    IF (ALLOCATED(reorder_data%reorder_index))  DEALLOCATE(reorder_data%reorder_index)
-    IF (ALLOCATED(reorder_data%own_idx))        DEALLOCATE(reorder_data%own_idx)
-    IF (ALLOCATED(reorder_data%own_blk))        DEALLOCATE(reorder_data%own_blk)
-    IF (ALLOCATED(reorder_data%pe_own))         DEALLOCATE(reorder_data%pe_own)
-    IF (ALLOCATED(reorder_data%pe_off))         DEALLOCATE(reorder_data%pe_off)
-  END SUBROUTINE t_reorder_info_finalize
+    IF (ALLOCATED(ri%reorder_index_own)) DEALLOCATE(ri%reorder_index_own)
+    IF (ALLOCATED(ri%reorder_index)) DEALLOCATE(ri%reorder_index)
+    IF (ALLOCATED(ri%own_idx)) DEALLOCATE(ri%own_idx)
+    IF (ALLOCATED(ri%own_blk)) DEALLOCATE(ri%own_blk)
+    IF (ALLOCATED(ri%pe_own)) DEALLOCATE(ri%pe_own)
+    IF (ALLOCATED(ri%pe_off)) DEALLOCATE(ri%pe_off)
+  END SUBROUTINE release_reorder_info
 
   SUBROUTINE mask2reorder_info(ri, mask, n_points_g, glb_index, group_comm, &
        retained_occupation_mask)
@@ -102,7 +96,7 @@ CONTAINS
 
     ! Set index arrays to own cells/edges/verts
     ! Global index of my own points
-    ALLOCATE(ri%own_idx(n), ri%own_blk(n), ri%reorder_index_own(ri%n_own))
+    ALLOCATE(ri%own_idx(n), ri%own_blk(n), ri%reorder_index_own(n))
     group_comm_size = p_comm_size(group_comm)
     ALLOCATE(ri%pe_own(0:group_comm_size-1), ri%pe_off(0:group_comm_size-1))
     ALLOCATE(glbidx_own(n), permutation(n), buf(n))
