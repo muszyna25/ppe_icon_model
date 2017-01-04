@@ -352,6 +352,29 @@ EOF
 # -------------------
 #
 # output_<xyz>=yes : yes --> output files for <xyz>, any other value --> no files for <xyz>
+#
+# 3-dimensional files include 'ps' and 'pfull' to allow the vertical
+# interpolation to pressure levels by cdo ap2pl.
+
+output_vgrid=yes
+#
+if [[ "$output_vgrid" == "yes" ]]; then
+  #
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_vgrid"
+ filename_format  = "<output_filename>_<levtype_l>"
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"       ! output_start = output_end
+ output_end       = "${start_date}"       ! --> write once only irrespective of
+ output_interval  = "${output_interval}"  !     the output interval and
+ file_interval    = "${file_interval}"    !     the file interval
+ ml_varlist       = 'zghalf'  , 'zg'      ,
+/
+EOF
+fi
+
 
 output_atm_3d=yes
 #
@@ -368,8 +391,12 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
-                    'zg','pfull','ps'
+ ml_varlist       = 'ps'      , 'pfull'   , 'zg'      ,
+                    'rho'     , 'ta'      ,
+                    'ua'      , 'va'      , 'wap'     ,
+                    'hus'     , 'clw'     , 'cli'     ,
+                    'hur'     , 'cl'      ,
+                    !'qo3'    ,
 /
 EOF
 fi
@@ -390,11 +417,12 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
+ ml_varlist       = 'orog'    ,
+                    'ps'      , 'psl'     ,
                     'cosmu0'  ,
                     'rsdt'    ,
-                    'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'
-                    'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs'
+                    'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'  ,
+                    'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs'  ,
                     'rsus'    , 'rsuscs'  , 'rlus'    ,
                     'ts'      ,
                     'sic'     , 'sit'     ,
@@ -404,9 +432,9 @@ if [[ "$output_atm_2d" == "yes" ]]; then
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
                     'hfls'    , 'hfss'    , 'evspsbl' ,
                     'tauu'    , 'tauv'    ,
-                    'tauu_sso', 'tauv_sso', 'diss_sso', 
+                    'tauu_sso', 'tauv_sso', 'diss_sso',
                     'sfcwind' , 'uas'     , 'vas'     ,
-                    'tas'     , 'dew2'
+                    'tas'     , 'dew2'    ,
 /
 EOF
 fi
@@ -427,7 +455,8 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
+ ml_varlist       = 'ps'           , 'pfull'        ,
+                    'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
                     'tend_ta_rlw'  , 'tend_ta_rsw'  ,
                     'tend_ta_vdf'  , 'tend_ta_gwh'  , 'tend_ta_sso'  ,
                     'tend_ta_cnv'  , 'tend_ta_cld'  , 
@@ -439,7 +468,6 @@ if [[ "$output_phy_3d" == "yes" ]]; then
                     'tend_va_cnv'  ,
                     'tend_qhus'    , 'tend_qhus_dyn', 'tend_qhus_phy',
                     'tend_qhus_cld', 'tend_qhus_cnv', 'tend_qhus_vdf',
-                    'pfull','ps'
 /
 EOF
 fi
@@ -460,14 +488,14 @@ if [[ "$output_trc_3d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'mairvi_phy',
+ ml_varlist       = 'ps'        , 'pfull'     ,
+                    'mairvi_phy',
                     'mdryvi_phy',
                     'mh2ovi_phy',
-                    'qhus_phy'  , 'mhusvi_phy'    , 'tend_mhusvi_phy', 
-                    'qclw_phy'  , 'mclwvi_phy'    , 'tend_mclwvi_phy', 
-                    'qcli_phy'  , 'mclivi_phy'    , 'tend_mclivi_phy',
-                    !'qo3_phy'   , 'mo3vi_phy'     , 'tend_mo3vi_phy' ,
-                    'pfull','ps'
+                    'qhus_phy'  , 'mhusvi_phy', 'tend_mhusvi_phy',
+                    'qclw_phy'  , 'mclwvi_phy', 'tend_mclwvi_phy',
+                    'qcli_phy'  , 'mclivi_phy', 'tend_mclivi_phy',
+                    !'qo3_phy'   , 'mo3vi_phy' , 'tend_mo3vi_phy',
 /
 EOF
 fi
@@ -523,10 +551,10 @@ if [[ "$output_aer_3d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'aer_aod_533',  'aer_ssa_533',  'aer_asy_533' , 
+ ml_varlist       = 'ps'          , 'pfull'       ,
+                    'aer_aod_533' , 'aer_ssa_533',  'aer_asy_533' , 
                     'aer_aod_2325', 'aer_ssa_2325', 'aer_asy_2325', 
                     'aer_aod_9731',
-                    'pfull'
 /
 EOF
 fi

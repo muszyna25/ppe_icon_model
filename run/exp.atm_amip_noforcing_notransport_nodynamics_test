@@ -134,6 +134,29 @@ EOF
 # -------------------
 #
 # output_<xyz>=yes : yes --> output files for <xyz>, any other value --> no files for <xyz>
+#
+# 3-dimensional files include 'ps' and 'pfull' to allow the vertical
+# interpolation to pressure levels by cdo ap2pl.
+
+output_vgrid=yes
+#
+if [[ "$output_vgrid" == "yes" ]]; then
+  #
+  cat >> ${atmo_namelist} << EOF
+&output_nml
+ output_filename  = "${EXPNAME}_vgrid"
+ filename_format  = "<output_filename>_<levtype_l>"
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"       ! output_start = output_end
+ output_end       = "${start_date}"       ! --> write once only irrespective of
+ output_interval  = "${output_interval}"  !     the output interval and
+ file_interval    = "${file_interval}"    !     the file interval
+ ml_varlist       = 'zghalf'  , 'zg'      ,
+/
+EOF
+fi
+
 
 output_atm_3d=yes
 #
@@ -150,8 +173,10 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'ta','ua','va','wap','hus','clw','cli','rho',
-                    'zg','pfull','ps'
+ ml_varlist       = 'ps'      , 'pfull'   , 'zg'      ,
+                    'rho'     , 'ta'      ,
+                    'ua'      , 'va'      , 'wap'     ,
+                    'hus'     , 'clw'     , 'cli'     ,
 /
 EOF
 fi
@@ -171,8 +196,8 @@ if [[ "$output_trc_3d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'q4',
-                    'zg','pfull','ps'
+ ml_varlist       = 'ps'        , 'pfull'     ,
+                    'q4'        ,
 /
 EOF
 fi

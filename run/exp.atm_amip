@@ -321,6 +321,9 @@ EOF
 # -------------------
 #
 # output_<xyz>=yes : yes --> output files for <xyz>, any other value --> no files for <xyz>
+#
+# 3-dimensional files include 'ps' and 'pfull' to allow the vertical
+# interpolation to pressure levels by cdo ap2pl.
 
 output_atm_3d=yes
 #
@@ -338,9 +341,13 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
-                    'zg','pfull','ps'
-!                    'zg','pfull','ps','qo3_phy'
+ ml_varlist       = 'zg'      ,
+                    'ps'      , 'pfull'   ,
+                    'rho'     , 'ta'      ,
+                    'ua'      , 'va'      , 'wap'     ,
+                    'hus'     , 'clw'     , 'cli'     ,
+                    'hur'     , 'cl'      ,
+!                    'qo3_phy' ,
 /
 EOF
 fi
@@ -362,11 +369,12 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
+ ml_varlist       = 'orog'    ,
+                    'ps'      , 'psl'     ,
                     'cosmu0'  ,
                     'rsdt'    ,
-                    'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'
-                    'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs'
+                    'rsut'    , 'rsutcs'  , 'rlut'    , 'rlutcs'  ,
+                    'rsds'    , 'rsdscs'  , 'rlds'    , 'rldscs'  ,
                     'rsus'    , 'rsuscs'  , 'rlus'    ,
                     'ts'      ,
                     'sic'     , 'sit'     ,
@@ -376,9 +384,9 @@ if [[ "$output_atm_2d" == "yes" ]]; then
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
                     'hfls'    , 'hfss'    , 'evspsbl' ,
                     'tauu'    , 'tauv'    ,
-                    'tauu_sso', 'tauv_sso', 'diss_sso', 
+                    'tauu_sso', 'tauv_sso', 'diss_sso',
                     'sfcwind' , 'uas'     , 'vas'     ,
-                    'tas'     , 'dew2'
+                    'tas'     , 'dew2'    ,
 /
 EOF
 fi
@@ -400,7 +408,8 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
+ ml_varlist       = 'ps'           , 'pfull'        ,
+                    'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
                     'tend_ta_rlw'  , 'tend_ta_rsw'  ,
                     'tend_ta_vdf'  , 'tend_ta_gwh'  , 'tend_ta_sso'  ,
                     'tend_ta_cnv'  , 'tend_ta_cld'  , 
@@ -412,7 +421,6 @@ if [[ "$output_phy_3d" == "yes" ]]; then
                     'tend_va_cnv'  ,
                     'tend_qhus'    , 'tend_qhus_dyn', 'tend_qhus_phy',
                     'tend_qhus_cld', 'tend_qhus_cnv', 'tend_qhus_vdf',
-                    'pfull','ps'
 /
 EOF
 fi
