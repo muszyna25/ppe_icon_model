@@ -93,7 +93,7 @@ CONTAINS
                            , pdz                                                     &
                            , pmdry                                                   &
                            , pacdnc                                                  &
-                           , ptm1,         ptvm1                                     &
+                           , ptm1,         prho                                      &
                            , pqm1,         pxlm1,        pxim1                       &
                            , pcair                                                   &
     ! - INPUT/OUTPUT 1D .
@@ -126,7 +126,7 @@ CONTAINS
       & pmdry    (kbdim,klev)     ,&!< dry air content
       & pacdnc   (kbdim,klev)     ,&!< cloud droplet number concentration (specified)
       & ptm1     (kbdim,klev)     ,&!< temperature                               (n-1)
-      & ptvm1    (kbdim,klev)     ,&!< virtual temperature                       (n-1)
+      & prho     (kbdim,klev)     ,&!< air density
       & pqm1     (kbdim,klev)     ,&!< specific humidity                         (n-1)
       & pxlm1    (kbdim,klev)     ,&!< cloud liquid water                        (n-1)
       & pxim1    (kbdim,klev)     ,&!< cloud ice                                 (n-1)
@@ -183,8 +183,6 @@ CONTAINS
       &      , uaw(kbdim)           ,duaw(kbdim)          ,zclten(kbdim)             &
       &      , zcpten(kbdim,klev)   ,zqviten(kbdim)       ,zqten(kbdim,klev)
 
-    REAL(wp):: zrho(kbdim,klev)
-    !
     INTEGER:: loidx(kbdim), nloidx(kbdim), jjclcpre(kbdim)
     INTEGER:: cond1(kbdim), cond2(kbdim)
     INTEGER:: idx1(kbdim), idx2(kbdim)
@@ -305,8 +303,7 @@ CONTAINS
     !
 !IBM* NOVECTOR
       DO jl = 1,kproma
-         zrho(jl,jk)      = papm1(jl,jk)/(rd*ptvm1(jl,jk))
-         zqrho(jl)        = 1.3_wp/zrho(jl,jk)
+         zqrho(jl)        = 1.3_wp/prho(jl,jk)
          pxtecl(jl,jk)    = MAX(pxtecl(jl,jk),0.0_wp)
          pxteci(jl,jk)    = MAX(pxteci(jl,jk),0.0_wp)
          pqtec(jl,jk)     = MAX(pqtec(jl,jk),0.0_wp)
@@ -378,8 +375,8 @@ CONTAINS
              zqsi(jl) = zesi/(1._wp-vtmpc1*zesi)
              zsusati  = MIN(pqm1(jl,jk)/zqsi(jl)-1.0_wp,0.0_wp)
              zb1      = zlsdcp(jl)**2/(2.43e-2_wp*rv*(ptm1(jl,jk)**2))
-             zb2      = 1._wp/(zrho(jl,jk)*zqsi(jl)*0.211e-4_wp)
-             zcoeff(jl) = 3.e6_wp*2._wp*pi*(zsusati/(zrho(jl,jk)*(zb1+zb2)))
+             zb2      = 1._wp/(prho(jl,jk)*zqsi(jl)*0.211e-4_wp)
+             zcoeff(jl) = 3.e6_wp*2._wp*pi*(zsusati/(prho(jl,jk)*(zb1+zb2)))
              zclcpre_inv(jl) = 1._wp/zclcpre(jl)
           END DO
           !
@@ -505,7 +502,7 @@ CONTAINS
       !  zxip1         = pxim1(jl,jk)+pxite(jl,jk)*pdtime-zimlt(jl)
         zxip1         = MAX(zxip1,EPSILON(1._wp))
         ztmp1(jl)     = zxip1
-        ztmp2(jl)     = zrho(jl,jk)*zxip1
+        ztmp2(jl)     = prho(jl,jk)*zxip1
 401   END DO
 
       ztmp2(1:kproma) = ztmp2(1:kproma)**0.16_wp
@@ -524,7 +521,7 @@ CONTAINS
         zxitop        = zxiflux(jl)
         zxip1         = ztmp1(jl)
         zxifall       = cvtfall*ztmp2(jl)
-        zal2          = zxitop/(zrho(jl,jk)*zxifall)
+        zal2          = zxitop/(prho(jl,jk)*zxifall)
         zxised(jl)    = MAX(0.0_wp,zxip1*ztmp3(jl)+zal2*(1._wp-ztmp3(jl)))
         zqsed(jl)     = zxised(jl)-zxip1
         zxibot        = MAX(0.0_wp,zxitop-zqsed(jl)*pmdry(jl,jk)/pdtime)
@@ -779,7 +776,7 @@ CONTAINS
 !IBM* NOVECTOR
       DO 622 nl = 1,locnt
         jl = loidx(nl)
-        zfrho    = zrho(jl,jk)/(rhoh2o*pacdnc(jl,jk))
+        zfrho    = prho(jl,jk)/(rhoh2o*pacdnc(jl,jk))
         zfrl(jl) = 100._wp*(ztmp1(nl)-1._wp)*zfrho
 #if defined (__PGI)
         zfrl(jl) = zxlb(jl)*(1._wp-1._wp/(1._wp+zfrl(jl)*pdtime*zxlb(jl)))
@@ -797,7 +794,7 @@ CONTAINS
         jl = loidx(nl)
         zradl    = ztmp1(nl)
         zval     = 4._wp*pi*zradl*pacdnc(jl,jk)*2.e5_wp*(tmelt-3._wp-ztp1tmp(jl))
-        zf1      = zval/zrho(jl,jk)
+        zf1      = zval/prho(jl,jk)
         zf1      = MAX(0.0_wp,zf1)
         zfrl(jl) = zfrl(jl)+pdtime*1.4e-20_wp*zf1
         zfrl(jl) = MAX(0.0_wp,MIN(zfrl(jl),zxlb(jl)))
@@ -888,9 +885,9 @@ CONTAINS
 !IBM* NOVECTOR
       DO nl = 1,locnt
          jl = loidx(nl)
-         ztmp1(nl) = (ccraut*1.2e27_wp)/zrho(jl,jk)
+         ztmp1(nl) = (ccraut*1.2e27_wp)/prho(jl,jk)
          ztmp2(nl) = pacdnc(jl,jk)*1.e-6_wp
-         ztmp3(nl) = zrho(jl,jk)  *1.e-3_wp
+         ztmp3(nl) = prho(jl,jk)  *1.e-3_wp
          ztmp4(nl) = zxlb(jl)
       END DO
       ztmp2(1:locnt) = ztmp2(1:locnt)**(-3.3_wp)
@@ -907,8 +904,8 @@ CONTAINS
          jl = loidx(nl)
          zraut     = zxlb(jl)*(1._wp-ztmp4(nl))
          ztmp1(nl) = -ccracl*zxrp1(jl)*pdtime
-         ztmp2(nl) = -ccracl*zauloc(jl)*zrho(jl,jk)*zraut*pdtime
-         ztmp3(nl) = zxib(jl)*zrho(jl,jk)*1000._wp
+         ztmp2(nl) = -ccracl*zauloc(jl)*prho(jl,jk)*zraut*pdtime
+         ztmp3(nl) = zxib(jl)*prho(jl,jk)*1000._wp
          ztmp4(nl) = zraut
       END DO
       ztmp1(1:locnt) = EXP(ztmp1(1:locnt))
@@ -957,12 +954,12 @@ CONTAINS
 !IBM* ASSERT(NODEPS)
       DO 721 nl = 1,locnt
          jl = loidx(nl)
-         zc1       = 17.5_wp*zrho(jl,jk)/crhoi*ztmp2(nl)
+         zc1       = 17.5_wp*prho(jl,jk)/crhoi*ztmp2(nl)
          zdt2      = -6._wp/zc1*(ztmp1(nl)/3._wp-2._wp)
          zsaut     = ccsaut/zdt2
          zsaut     = zxib(jl)*(1._wp-1._wp/(1._wp+zsaut*pdtime*zxib(jl)))
          zxib(jl)  = zxib(jl)-zsaut
-         zxsp2(nl) = zauloc(jl)*zrho(jl,jk)*zsaut
+         zxsp2(nl) = zauloc(jl)*prho(jl,jk)*zsaut
          ztmp1(nl) = zsaut
 721   END DO
 
