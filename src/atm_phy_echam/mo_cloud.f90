@@ -253,10 +253,10 @@ CONTAINS
 
     ! save the tendencies accumulated before calling this routine
 
-    ptte_prc(1:kproma,:)   =  ptte(1:kproma,:)
-    pqte_prc(1:kproma,:)   =  pqte(1:kproma,:)
-    pxlte_prc(1:kproma,:)  = pxlte(1:kproma,:)
-    pxite_prc(1:kproma,:)  = pxite(1:kproma,:)
+    ptte_prc(1:kproma,:)   = 0.0_wp
+    pqte_prc(1:kproma,:)   = 0.0_wp
+    pxlte_prc(1:kproma,:)  = 0.0_wp
+    pxite_prc(1:kproma,:)  = 0.0_wp
     !
     ! Executable statements
     !
@@ -802,9 +802,9 @@ CONTAINS
     !!$           IF (locc .AND. zdep(jl)>0._wp .AND. zxlb(jl)>0._wp .AND.           &
     !!$                          zxib(jl)>csecfrl .AND. zsupsatw(jl)<zeps) THEN
     !!$              zzevp        = zxlb(jl)*zclcaux(jl)/pdtime
-    !!$              pxlte(jl,jk) = pxlte(jl,jk)-zzevp
-    !!$              pxite(jl,jk) = pxite(jl,jk)+zzevp
-    !!$              ptte(jl,jk)  = ptte(jl,jk)+(zlsdcp(jl)-zlvdcp(jl))*zzevp
+    !!$              pxlte_prc(jl,jk) = pxlte_prc(jl,jk)-zzevp
+    !!$              pxite_prc(jl,jk) = pxite_prc(jl,jk)+zzevp
+    !!$              ptte_prc(jl,jk)  = ptte_prc(jl,jk)+(zlsdcp(jl)-zlvdcp(jl))*zzevp
     !!$              zxib(jl)     = zxib(jl)+zxlb(jl)
     !!$              zxlb(jl)     = 0.0_wp
     !!$           END IF
@@ -1153,10 +1153,10 @@ CONTAINS
          &     +(zlsdcp(jl)-zlvdcp(jl))                                              &
          &     *(-zsmlt(jl)-zimlt(jl)+zfrl(jl)+zsacl(jl)))/pdtime
 
-       pqte(jl,jk)   = pqte(jl,jk)  + zqvte
-       pxlte(jl,jk)  = pxlte(jl,jk) + pxtecl(jl,jk) + zxlte
-       pxite(jl,jk)  = pxite(jl,jk) + pxteci(jl,jk) + zxite
-       ptte(jl,jk)   = ptte(jl,jk)  + ztte
+       pqte_prc(jl,jk)   = pqte_prc(jl,jk)  + zqvte
+       pxlte_prc(jl,jk)  = pxlte_prc(jl,jk) + pxtecl(jl,jk) + zxlte
+       pxite_prc(jl,jk)  = pxite_prc(jl,jk) + pxteci(jl,jk) + zxite
+       ptte_prc(jl,jk)   = ptte_prc(jl,jk)  + ztte
        zcpten(jl,jk) = ztte                        ! diagnostics [K/s]
        zqten(jl,jk)  = zqvte + zxlte + zxite       ! diagnostics [1/s] ...< 0
 820 END DO
@@ -1164,8 +1164,8 @@ CONTAINS
 !IBM* NOVECTOR
     DO 821 jl = 1,kproma
 
-       zxlp1        = pxlm1(jl,jk) + pxlte(jl,jk)*pdtime
-       zxip1        = pxim1(jl,jk) + pxite(jl,jk)*pdtime
+       zxlp1        = pxlm1(jl,jk) + (pxlte(jl,jk)+pxlte_prc(jl,jk))*pdtime
+       zxip1        = pxim1(jl,jk) + (pxite(jl,jk)+pxite_prc(jl,jk))*pdtime
     !
     !       8.4   Corrections: Avoid negative cloud water/ice
     !
@@ -1182,10 +1182,10 @@ CONTAINS
        zxlp1_d        = MAX(zxlp1_d,0.0_wp)
        paclc(jl,jk)   = FSEL(-(zxlp1_d*zxip1_d),paclc(jl,jk),0._wp)
 
-       pxlte(jl,jk)   = pxlte(jl,jk) + zdxlcor
-       pxite(jl,jk)   = pxite(jl,jk) + zdxicor
-       pqte(jl,jk)    = pqte(jl,jk) - zdxlcor - zdxicor
-       ptte(jl,jk)    = ptte(jl,jk) + zlvdcp(jl)*zdxlcor + zlsdcp(jl)*zdxicor
+       pxlte_prc(jl,jk)   = pxlte_prc(jl,jk) + zdxlcor
+       pxite_prc(jl,jk)   = pxite_prc(jl,jk) + zdxicor
+       pqte_prc(jl,jk)    = pqte_prc(jl,jk)  - zdxlcor - zdxicor
+       ptte_prc(jl,jk)    = ptte_prc(jl,jk)  + zlvdcp(jl)*zdxlcor + zlsdcp(jl)*zdxicor
        ! Here mulitply with the same specific heat as used in the definition
        ! of zlvdcp and zlsdcp ( =Lv/(cp or cv) and Ls/(cp or cv) ) in order
        ! to obtain the specific heating by cloud processes in [W/kg].
@@ -1238,15 +1238,7 @@ CONTAINS
        paclcov(jl) = zclcov(jl)
 924 END DO
     !
-    !      10.3 Derive the tendency increment induced by this routine
-    !
-    ptte_prc(1:kproma,:)   =  ptte(1:kproma,:)   -  ptte_prc(1:kproma,:)
-    pqte_prc(1:kproma,:)   =  pqte(1:kproma,:)   -  pqte_prc(1:kproma,:)
-    pxlte_prc(1:kproma,:)   = pxlte(1:kproma,:)   - pxlte_prc(1:kproma,:)
-    pxite_prc(1:kproma,:)   = pxite(1:kproma,:)   - pxite_prc(1:kproma,:)
-
-    !
-    !      10.4 Vertical integrals of humidity, cloud water and cloud ice
+    !      10.3 Vertical integrals of humidity, cloud water and cloud ice
     !
     DO 931 jl   = 1,kproma
        zxlvi(jl) = 0.0_wp
@@ -1256,7 +1248,7 @@ CONTAINS
     !
     DO 933 jk     = ktdia,klev
        DO 932 jl   = 1,kproma
-          zxlvi(jl)  = zxlvi(jl)   + (pxlm1 (jl,jk)+pxlte_prc(jl,jk)*pdtime)*pmdry(jl,jk)
+          zxlvi(jl)  = zxlvi(jl)   + (pxlm1 (jl,jk)+(pxlte(jl,jk)+pxlte_prc(jl,jk))*pdtime)*pmdry(jl,jk)
           zclten(jl) = zclten(jl)  + zcpten(jl,jk) *pmdry(jl,jk)     ! [W/m2]
           zqviten(jl)= zqviten(jl) + zqten (jl,jk) *pmdry(jl,jk)     ! [kg/m2s]
 932    END DO

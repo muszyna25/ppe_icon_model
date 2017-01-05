@@ -1163,6 +1163,12 @@ CONTAINS
 
         IF (ltimer) CALL timer_stop(timer_cloud)
 
+      ! tendencies accumulated
+      tend%   ta(jcs:jce,:,jb)      = tend%   ta(jcs:jce,:,jb)      + tend%   ta_cld(jcs:jce,:,jb)
+      tend% qtrc(jcs:jce,:,jb,iqv)  = tend% qtrc(jcs:jce,:,jb,iqv)  + tend% qtrc_cld(jcs:jce,:,jb,iqv)
+      tend% qtrc(jcs:jce,:,jb,iqc)  = tend% qtrc(jcs:jce,:,jb,iqc)  + tend% qtrc_cld(jcs:jce,:,jb,iqc)
+      tend% qtrc(jcs:jce,:,jb,iqi)  = tend% qtrc(jcs:jce,:,jb,iqi)  + tend% qtrc_cld(jcs:jce,:,jb,iqi)
+
       ELSE IF (ncdnc>0 .AND. nicnc>0) THEN
 !0      CALL cloud_cdnc_icnc(...) !!skipped in ICON
       ELSE
