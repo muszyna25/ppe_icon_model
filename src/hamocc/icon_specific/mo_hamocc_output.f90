@@ -730,6 +730,23 @@
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.TRUE., lrestart=.FALSE.)
 
+    CALL add_var(hamocc_acc_list, 'o2min',hamocc_state_acc%o2min,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('o2min','mol m-3','mole_concentration_of_dissolved_molecular_&
+      &oxygen_in_sea_water_at_shallowest_local_minimum_in_vertical_profile', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 162, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_acc_list, 'zo2min',hamocc_state_acc%zo2min,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('zo2min','m','depth_at_shallowest_local_minimum_&
+      &in_vertical_profile_of_mole_concentration_of_dissolved_molecular&
+      &_oxygen_in_sea_water', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 163, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
     CALL message(TRIM(routine), 'construct hamocc acc end')
   END SUBROUTINE 
 
@@ -1268,6 +1285,23 @@
       & t_cf_var('cFlim','','Fe_limitation of cyanobacteria growth', DATATYPE_FLT32), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_acc_list, 'o2min',hamocc_state_tend%o2min,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('o2min','mol m-3','mole_concentration_of_dissolved_molecular_&
+      &oxygen_in_sea_water_at_shallowest_local_minimum_in_vertical_profile', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_acc_list, 'zo2min',hamocc_state_tend%zo2min,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('zo2min','m','depth_at_shallowest_local_minimum_&
+      &in_vertical_profile_of_mole_concentration_of_dissolved_molecular&
+      &_oxygen_in_sea_water', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.FALSE., lrestart=.FALSE.)
 
     CALL add_var(hamocc_tendency_list, 'dmsflux',hamocc_state_tend%dmsflux,    &
