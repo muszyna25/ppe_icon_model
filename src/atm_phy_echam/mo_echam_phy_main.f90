@@ -1126,10 +1126,9 @@ CONTAINS
 
         IF (ltimer) CALL timer_start(timer_cloud)
 
-        CALL cloud(jce, nbdim, jks, nlev, nlevp1, &! in
+        CALL cloud(jce, nbdim, jks, nlev,     &! in
           &        pdtime,                    &! in
           &        ictop,                     &! in (from "cucall")
-          &        field% presi_old(:,:,jb),  &! in
           &        field% presm_old(:,:,jb),  &! in
           &        field% dz(:,:,jb),         &! in
           &        field% mdry(:,:,jb),       &! in
