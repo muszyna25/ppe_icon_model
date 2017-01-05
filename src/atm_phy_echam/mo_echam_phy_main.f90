@@ -1136,7 +1136,7 @@ CONTAINS
 !          &        field% presm_new(:,:,jb), &! in
           &        field% acdnc (:,:,jb),     &! in. acdnc
           &        field%   ta  (:,:,jb),     &! in. tm1
-          &        field%   tv  (:,:,jb),     &! in. ztvm1
+          &        field%  rho  (:,:,jb),     &! in.
           &        field% qtrc  (:,:,jb,iqv), &! in. qm1
           &        field% qtrc  (:,:,jb,iqc), &! in. xlm1
           &        field% qtrc  (:,:,jb,iqi), &! in. xim1

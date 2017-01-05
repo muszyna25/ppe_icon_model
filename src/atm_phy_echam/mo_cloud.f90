@@ -71,8 +71,6 @@ MODULE mo_cloud
   PUBLIC :: cloud
 
   ! to simplify access to components of echam_cloud_config
-  LOGICAL , POINTER :: lonacc
-  INTEGER , POINTER :: jbmin, jbmax
   REAL(wp), POINTER :: cqtmin, cvtfall, crhosno, cn0s   , cthomi , csecfrl, cauloc, &
        &               clmax , clmin  , ccraut , ceffmin, ceffmax, crhoi  ,         &
        &               ccsaut, ccsacl , ccracl , ccwmin , clwprat
@@ -93,7 +91,7 @@ CONTAINS
                            , pdz                                                     &
                            , pmdry                                                   &
                            , pacdnc                                                  &
-                           , ptm1,         ptvm1                                     &
+                           , ptm1,         prho                                      &
                            , pqm1,         pxlm1,        pxim1                       &
                            , pcair                                                   &
     ! - INPUT/OUTPUT 1D .
@@ -126,7 +124,7 @@ CONTAINS
       & pmdry    (kbdim,klev)     ,&!< dry air content
       & pacdnc   (kbdim,klev)     ,&!< cloud droplet number concentration (specified)
       & ptm1     (kbdim,klev)     ,&!< temperature                               (n-1)
-      & ptvm1    (kbdim,klev)     ,&!< virtual temperature                       (n-1)
+      & prho     (kbdim,klev)     ,&!< air density
       & pqm1     (kbdim,klev)     ,&!< specific humidity                         (n-1)
       & pxlm1    (kbdim,klev)     ,&!< cloud liquid water                        (n-1)
       & pxim1    (kbdim,klev)     ,&!< cloud ice                                 (n-1)
@@ -160,7 +158,7 @@ CONTAINS
     !   Temporary arrays
     !
     REAL(wp):: zclcpre(kbdim)       ,zclcpre_inv(kbdim)                              &
-      &      , zcnd(kbdim)          ,zdep(kbdim)          ,zdp(kbdim)                &
+      &      , zcnd(kbdim)          ,zdep(kbdim)                                     &
       &      , zevp(kbdim)          ,zxievap(kbdim)       ,zxlevap(kbdim)            &
       &      , zfrl(kbdim)          ,zimlt(kbdim)         ,zsmlt(kbdim)              &
       &      , zrpr(kbdim)          ,zspr(kbdim)          ,zsub(kbdim)               &
@@ -183,8 +181,6 @@ CONTAINS
       &      , uaw(kbdim)           ,duaw(kbdim)          ,zclten(kbdim)             &
       &      , zcpten(kbdim,klev)   ,zqviten(kbdim)       ,zqten(kbdim,klev)
 
-    REAL(wp):: zrho(kbdim,klev)
-    !
     INTEGER:: loidx(kbdim), nloidx(kbdim), jjclcpre(kbdim)
     INTEGER:: cond1(kbdim), cond2(kbdim)
     INTEGER:: idx1(kbdim), idx2(kbdim)
@@ -213,21 +209,18 @@ CONTAINS
     !
     ! mpuetz : the following tendencies don't have to be vectors
     !
-    REAL(wp):: zmratepr(kbdim,klev), & ! Rain formation rate in cloudy part of the grid box [kg/kg]
-      &        zmrateps(kbdim,klev), & ! Ice  formation rate in cloudy part of the grid box  [kg/kg]
-      &        zfrain(kbdim,klev),   & ! Rain flux before evaporation [kg/m2/s]
-      &        zfsnow(kbdim,klev),   & ! Snow flux before sublimation [kg/m2/s]
-      &        zfevapr(kbdim,klev),  & ! Evaporation of rain [kg/m2/s]
-      &        zfsubls(kbdim,klev),  & ! Sublimation of snow [kg/m2/s]
-      &        zmlwc(kbdim,klev),    & ! In-cloud liquid water mass mixing ratio before rain formation [kg/kg]
-      &        zmiwc(kbdim,klev),    & ! In-cloud ice mass mixing ratio before snow formation [kg/kg]
-      &        zmsnowacl(kbdim,klev)   ! Accretion rate of snow with cloud droplets
-                                       ! in cloudy part of the grid box  [kg/kg]
+!!$    REAL(wp):: zmratepr(kbdim,klev), & ! Rain formation rate in cloudy part of the grid box [kg/kg]
+!!$      &        zmrateps(kbdim,klev), & ! Ice  formation rate in cloudy part of the grid box  [kg/kg]
+!!$      &        zfrain(kbdim,klev),   & ! Rain flux before evaporation [kg/m2/s]
+!!$      &        zfsnow(kbdim,klev),   & ! Snow flux before sublimation [kg/m2/s]
+!!$      &        zfevapr(kbdim,klev),  & ! Evaporation of rain [kg/m2/s]
+!!$      &        zfsubls(kbdim,klev),  & ! Sublimation of snow [kg/m2/s]
+!!$      &        zmlwc(kbdim,klev),    & ! In-cloud liquid water mass mixing ratio before rain formation [kg/kg]
+!!$      &        zmiwc(kbdim,klev),    & ! In-cloud ice mass mixing ratio before snow formation [kg/kg]
+!!$      &        zmsnowacl(kbdim,klev)   ! Accretion rate of snow with cloud droplets
+!!$                                       ! in cloudy part of the grid box  [kg/kg]
 
     ! to simplify access to components of echam_cloud_config
-    lonacc   => echam_cloud_config% lonacc
-    jbmin    => echam_cloud_config% jbmin
-    jbmax    => echam_cloud_config% jbmax
     cqtmin   => echam_cloud_config% cqtmin
     cvtfall  => echam_cloud_config% cvtfall
     crhosno  => echam_cloud_config% crhosno
@@ -247,15 +240,15 @@ CONTAINS
     ccwmin   => echam_cloud_config% ccwmin
     clwprat  => echam_cloud_config% clwprat
 
-    zmratepr(:,:) = 0._wp
-    zmrateps(:,:) = 0._wp
-    zfrain(:,:)   = 0._wp
-    zfsnow(:,:)   = 0._wp
-    zfevapr(:,:)  = 0._wp
-    zfsubls(:,:)  = 0._wp
-    zmlwc(:,:)    = 0._wp
-    zmiwc(:,:)    = 0._wp
-    zmsnowacl(:,:)= 0._wp
+!!$    zmratepr(:,:) = 0._wp
+!!$    zmrateps(:,:) = 0._wp
+!!$    zfrain(:,:)   = 0._wp
+!!$    zfsnow(:,:)   = 0._wp
+!!$    zfevapr(:,:)  = 0._wp
+!!$    zfsubls(:,:)  = 0._wp
+!!$    zmlwc(:,:)    = 0._wp
+!!$    zmiwc(:,:)    = 0._wp
+!!$    zmsnowacl(:,:)= 0._wp
     ! special treatment for prelhum: actual parameter is stream element and must
     !                                be defined for all array elements.
     prelhum(:,:)  = 0._wp
@@ -305,8 +298,7 @@ CONTAINS
     !
 !IBM* NOVECTOR
       DO jl = 1,kproma
-         zrho(jl,jk)      = papm1(jl,jk)/(rd*ptvm1(jl,jk))
-         zqrho(jl)        = 1.3_wp/zrho(jl,jk)
+         zqrho(jl)        = 1.3_wp/prho(jl,jk)
          pxtecl(jl,jk)    = MAX(pxtecl(jl,jk),0.0_wp)
          pxteci(jl,jk)    = MAX(pxteci(jl,jk),0.0_wp)
          pqtec(jl,jk)     = MAX(pqtec(jl,jk),0.0_wp)
@@ -331,8 +323,6 @@ CONTAINS
          zqsed(jl)      = 0.0_wp
          zxlevap(jl)    = 0.0_wp
          zxievap(jl)    = 0.0_wp
-
-         zdp(jl)        = paphm1(jl,jk+1)-paphm1(jl,jk)
 
          zrc            = 1._wp/pcair(jl,jk)
          zlvdcp(jl)     = alv*zrc
@@ -378,8 +368,8 @@ CONTAINS
              zqsi(jl) = zesi/(1._wp-vtmpc1*zesi)
              zsusati  = MIN(pqm1(jl,jk)/zqsi(jl)-1.0_wp,0.0_wp)
              zb1      = zlsdcp(jl)**2/(2.43e-2_wp*rv*(ptm1(jl,jk)**2))
-             zb2      = 1._wp/(zrho(jl,jk)*zqsi(jl)*0.211e-4_wp)
-             zcoeff(jl) = 3.e6_wp*2._wp*pi*(zsusati/(zrho(jl,jk)*(zb1+zb2)))
+             zb2      = 1._wp/(prho(jl,jk)*zqsi(jl)*0.211e-4_wp)
+             zcoeff(jl) = 3.e6_wp*2._wp*pi*(zsusati/(prho(jl,jk)*(zb1+zb2)))
              zclcpre_inv(jl) = 1._wp/zclcpre(jl)
           END DO
           !
@@ -505,7 +495,7 @@ CONTAINS
       !  zxip1         = pxim1(jl,jk)+pxite(jl,jk)*pdtime-zimlt(jl)
         zxip1         = MAX(zxip1,EPSILON(1._wp))
         ztmp1(jl)     = zxip1
-        ztmp2(jl)     = zrho(jl,jk)*zxip1
+        ztmp2(jl)     = prho(jl,jk)*zxip1
 401   END DO
 
       ztmp2(1:kproma) = ztmp2(1:kproma)**0.16_wp
@@ -524,7 +514,7 @@ CONTAINS
         zxitop        = zxiflux(jl)
         zxip1         = ztmp1(jl)
         zxifall       = cvtfall*ztmp2(jl)
-        zal2          = zxitop/(zrho(jl,jk)*zxifall)
+        zal2          = zxitop/(prho(jl,jk)*zxifall)
         zxised(jl)    = MAX(0.0_wp,zxip1*ztmp3(jl)+zal2*(1._wp-ztmp3(jl)))
         zqsed(jl)     = zxised(jl)-zxip1
         zxibot        = MAX(0.0_wp,zxitop-zqsed(jl)*pmdry(jl,jk)/pdtime)
@@ -533,9 +523,9 @@ CONTAINS
         zxiflux(jl)   = zxibot
 410   END DO
 
-      DO 411 jl = 1,kproma
-        zmrateps(jl,jk)=zmrateps(jl,jk)+(ztmp1(jl)-zxised(jl))
-411   END DO
+!!$      DO 411 jl = 1,kproma
+!!$        zmrateps(jl,jk)=zmrateps(jl,jk)+(ztmp1(jl)-zxised(jl))
+!!$411   END DO
 
       locnt = 0
       nlocnt = 0
@@ -779,7 +769,7 @@ CONTAINS
 !IBM* NOVECTOR
       DO 622 nl = 1,locnt
         jl = loidx(nl)
-        zfrho    = zrho(jl,jk)/(rhoh2o*pacdnc(jl,jk))
+        zfrho    = prho(jl,jk)/(rhoh2o*pacdnc(jl,jk))
         zfrl(jl) = 100._wp*(ztmp1(nl)-1._wp)*zfrho
 #if defined (__PGI)
         zfrl(jl) = zxlb(jl)*(1._wp-1._wp/(1._wp+zfrl(jl)*pdtime*zxlb(jl)))
@@ -797,7 +787,7 @@ CONTAINS
         jl = loidx(nl)
         zradl    = ztmp1(nl)
         zval     = 4._wp*pi*zradl*pacdnc(jl,jk)*2.e5_wp*(tmelt-3._wp-ztp1tmp(jl))
-        zf1      = zval/zrho(jl,jk)
+        zf1      = zval/prho(jl,jk)
         zf1      = MAX(0.0_wp,zf1)
         zfrl(jl) = zfrl(jl)+pdtime*1.4e-20_wp*zf1
         zfrl(jl) = MAX(0.0_wp,MIN(zfrl(jl),zxlb(jl)))
@@ -833,8 +823,8 @@ CONTAINS
     !
     zxlb(1:kproma) = MAX(zxlb(1:kproma),1.e-20_wp)
     zxib(1:kproma) = MAX(zxib(1:kproma),1.e-20_wp)
-    zmlwc(1:kproma,jk)=zxlb(1:kproma)
-    zmiwc(1:kproma,jk)=zxib(1:kproma)
+!!$    zmlwc(1:kproma,jk)=zxlb(1:kproma)
+!!$    zmiwc(1:kproma,jk)=zxib(1:kproma)
 
 !IBM* NOVECTOR
     DO 701 jl = 1,kproma
@@ -888,9 +878,9 @@ CONTAINS
 !IBM* NOVECTOR
       DO nl = 1,locnt
          jl = loidx(nl)
-         ztmp1(nl) = (ccraut*1.2e27_wp)/zrho(jl,jk)
+         ztmp1(nl) = (ccraut*1.2e27_wp)/prho(jl,jk)
          ztmp2(nl) = pacdnc(jl,jk)*1.e-6_wp
-         ztmp3(nl) = zrho(jl,jk)  *1.e-3_wp
+         ztmp3(nl) = prho(jl,jk)  *1.e-3_wp
          ztmp4(nl) = zxlb(jl)
       END DO
       ztmp2(1:locnt) = ztmp2(1:locnt)**(-3.3_wp)
@@ -907,8 +897,8 @@ CONTAINS
          jl = loidx(nl)
          zraut     = zxlb(jl)*(1._wp-ztmp4(nl))
          ztmp1(nl) = -ccracl*zxrp1(jl)*pdtime
-         ztmp2(nl) = -ccracl*zauloc(jl)*zrho(jl,jk)*zraut*pdtime
-         ztmp3(nl) = zxib(jl)*zrho(jl,jk)*1000._wp
+         ztmp2(nl) = -ccracl*zauloc(jl)*prho(jl,jk)*zraut*pdtime
+         ztmp3(nl) = zxib(jl)*prho(jl,jk)*1000._wp
          ztmp4(nl) = zraut
       END DO
       ztmp1(1:locnt) = EXP(ztmp1(1:locnt))
@@ -928,7 +918,7 @@ CONTAINS
          zclcstar = MIN(zclcaux(jl),zclcpre(jl))
          zrpr(jl) = zclcaux(jl)*(zraut+zrac2)+zclcstar*zrac1
          ! zrpr is initialized to zero
-         zmratepr(jl,jk)=zraut+zrac1+zrac2
+!!$         zmratepr(jl,jk)=zraut+zrac1+zrac2
       END DO
       !
       !       7.2  Cold clouds:
@@ -957,12 +947,12 @@ CONTAINS
 !IBM* ASSERT(NODEPS)
       DO 721 nl = 1,locnt
          jl = loidx(nl)
-         zc1       = 17.5_wp*zrho(jl,jk)/crhoi*ztmp2(nl)
+         zc1       = 17.5_wp*prho(jl,jk)/crhoi*ztmp2(nl)
          zdt2      = -6._wp/zc1*(ztmp1(nl)/3._wp-2._wp)
          zsaut     = ccsaut/zdt2
          zsaut     = zxib(jl)*(1._wp-1._wp/(1._wp+zsaut*pdtime*zxib(jl)))
          zxib(jl)  = zxib(jl)-zsaut
-         zxsp2(nl) = zauloc(jl)*zrho(jl,jk)*zsaut
+         zxsp2(nl) = zauloc(jl)*prho(jl,jk)*zsaut
          ztmp1(nl) = zsaut
 721   END DO
 
@@ -1000,17 +990,17 @@ CONTAINS
          zspr(jl)     = zclcaux(jl)*(zsaut+zsaci2) + zclcstar*zsaci1
          ! zspr is initialized to zero
 
-         IF(zclcstar>zepsec .AND. zclcaux(jl)>zepsec) THEN
-           zmsnowacl(jl,jk)=zsacl1/zclcstar+zsacl2/zclcaux(jl)
-         ELSE IF (zclcstar>zepsec .AND. zclcaux(jl)<=zepsec) THEN
-           zmsnowacl(jl,jk)=zsacl1/zclcstar
-         ELSE IF (zclcstar<=zepsec .AND. zclcaux(jl)>zepsec) THEN
-           zmsnowacl(jl,jk)=zsacl2/zclcaux(jl)
-         ELSE
-           zmsnowacl(jl,jk)=0._wp
-         END IF
+!!$         IF(zclcstar>zepsec .AND. zclcaux(jl)>zepsec) THEN
+!!$           zmsnowacl(jl,jk)=zsacl1/zclcstar+zsacl2/zclcaux(jl)
+!!$         ELSE IF (zclcstar>zepsec .AND. zclcaux(jl)<=zepsec) THEN
+!!$           zmsnowacl(jl,jk)=zsacl1/zclcstar
+!!$         ELSE IF (zclcstar<=zepsec .AND. zclcaux(jl)>zepsec) THEN
+!!$           zmsnowacl(jl,jk)=zsacl2/zclcaux(jl)
+!!$         ELSE
+!!$           zmsnowacl(jl,jk)=0._wp
+!!$         END IF
 
-         zmrateps(jl,jk)=zmrateps(jl,jk)+zsaut+zsaci1+zsaci2
+!!$         zmrateps(jl,jk)=zmrateps(jl,jk)+zsaut+zsaci1+zsaci2
 
 722   END DO
 
@@ -1064,18 +1054,18 @@ CONTAINS
 
          zcnt           = zcnt + FSEL(-zclcpre(jl),0.0_wp,1.0_wp)
          cond1(jl)      = INT(FSEL(-zclcpre(jl),0.0_wp,1.0_wp))
-         !   Corrected by Junhua Zhang, Philip Stier (01/2004)
-         IF (zclcpre(jl) > zepsec) THEN
-            zfrain(jl,jk)=(zrfl(jl)+zzdrr)/zclcpre(jl)
-            zfsnow(jl,jk)=(zsfl(jl)+zzdrs)/zclcpre(jl)
-            zfevapr(jl,jk)=(zevp(jl)*pmdry(jl,jk)/pdtime)/zclcpre(jl)
-            zfsubls(jl,jk)=(zsub(jl)*pmdry(jl,jk)/pdtime)/zclcpre(jl)
-         ELSE
-            zfrain(jl,jk) =0.0_wp
-            zfsnow(jl,jk) =0.0_wp
-            zfevapr(jl,jk)=0.0_wp
-            zfsubls(jl,jk)=0.0_wp
-         ENDIF
+!!$         !   Corrected by Junhua Zhang, Philip Stier (01/2004)
+!!$         IF (zclcpre(jl) > zepsec) THEN
+!!$            zfrain(jl,jk)=(zrfl(jl)+zzdrr)/zclcpre(jl)
+!!$            zfsnow(jl,jk)=(zsfl(jl)+zzdrs)/zclcpre(jl)
+!!$            zfevapr(jl,jk)=(zevp(jl)*pmdry(jl,jk)/pdtime)/zclcpre(jl)
+!!$            zfsubls(jl,jk)=(zsub(jl)*pmdry(jl,jk)/pdtime)/zclcpre(jl)
+!!$         ELSE
+!!$            zfrain(jl,jk) =0.0_wp
+!!$            zfsnow(jl,jk) =0.0_wp
+!!$            zfevapr(jl,jk)=0.0_wp
+!!$            zfsubls(jl,jk)=0.0_wp
+!!$         ENDIF
 
          zrfl(jl)    = zrfl(jl)+zzdrr-zevp(jl)*pmdry(jl,jk)/pdtime
          zsfl(jl)    = zsfl(jl)+zzdrs-zsub(jl)*pmdry(jl,jk)/pdtime
@@ -1111,18 +1101,18 @@ CONTAINS
          zclcpre(jl)    = FSEL(cqtmin-zpresum,0._wp,zclcpre1)
          zcnt           = zcnt + FSEL(-zclcpre(jl),0.0_wp,1.0_wp)
          cond1(jl)      = INT(FSEL(-zclcpre(jl),0.0_wp,1.0_wp))
-         !   Corrected by Junhua Zhang, Philip Stier (01/2004)
-         IF (zclcpre(jl) > zepsec) THEN
-           zfrain(jl,jk)=(zrfl(jl)+zzdrr)/zclcpre(jl)
-           zfsnow(jl,jk)=(zsfl(jl)+zzdrs)/zclcpre(jl)
-           zfevapr(jl,jk)=(zevp(jl)*pmdry(jl,jk)/pdtime)/zclcpre(jl)
-           zfsubls(jl,jk)=(zsub(jl)*pmdry(jl,jk)/pdtime)/zclcpre(jl)
-         ELSE
-           zfrain(jl,jk) =0.0_wp
-           zfsnow(jl,jk) =0.0_wp
-           zfevapr(jl,jk)=0.0_wp
-           zfsubls(jl,jk)=0.0_wp
-         ENDIF
+!!$         !   Corrected by Junhua Zhang, Philip Stier (01/2004)
+!!$         IF (zclcpre(jl) > zepsec) THEN
+!!$           zfrain(jl,jk)=(zrfl(jl)+zzdrr)/zclcpre(jl)
+!!$           zfsnow(jl,jk)=(zsfl(jl)+zzdrs)/zclcpre(jl)
+!!$           zfevapr(jl,jk)=(zevp(jl)*pmdry(jl,jk)/pdtime)/zclcpre(jl)
+!!$           zfsubls(jl,jk)=(zsub(jl)*pmdry(jl,jk)/pdtime)/zclcpre(jl)
+!!$         ELSE
+!!$           zfrain(jl,jk) =0.0_wp
+!!$           zfsnow(jl,jk) =0.0_wp
+!!$           zfevapr(jl,jk)=0.0_wp
+!!$           zfsubls(jl,jk)=0.0_wp
+!!$         ENDIF
          zrfl(jl)       = zrfl(jl)+zzdrr-zevp(jl)*pmdry(jl,jk)/pdtime
          zsfl(jl)       = zsfl(jl)+zzdrs-zsub(jl)*pmdry(jl,jk)/pdtime
       END DO
