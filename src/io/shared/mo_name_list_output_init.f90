@@ -2112,7 +2112,7 @@ CONTAINS
         ! Transfer reorder_info to IO PEs
         DO i = 1, 3 ! icell, iedge, ivert
           CALL transfer_reorder_info(patch_info(jp)%ri(i), &
-            &    my_process_is_io(), bcast_root, p_comm_work_2_io)
+            &                        is_io, bcast_root, p_comm_work_2_io)
           CALL transfer_grid_info(patch_info(jp)%grid_info(i), patch_info(jp)%ri(i)%n_glb, patch_info(jp)%grid_info_mode)
         END DO
         CALL p_bcast(patch_info(jp)%grid_filename, bcast_root, p_comm_work_2_io)
