@@ -5,8 +5,9 @@
 #  useful for multiple setups, sharing the source code
 
 set -x
-icon_dev_from=$1
-icon_dev_to=$2
+thisfolder=`pwd`
+icon_dev_from=$thisfolder/git/$1
+icon_dev_to=$thisfolder/$2
 
 if [ ! -d ${icon_dev_to} ] ; then
   mkdir -p ${icon_dev_to}
@@ -40,13 +41,15 @@ link_source_list()
 
 #-----------------------------------------------------------------------------------
 #link folder
+link_list=`ls $icon_dev_from`
+link_source_list "" "$link_list"
 
-link_source_list "" "src data doc include scripts support create_builds build_all 
-aclocal.m4 configure.ac configure make_my_runscript make_runscripts make_nat-ape-dec_runs 
-Makefile.in externals lapack blas conrib vertical_coord_tables"
+rm $icon_dev_to/config $icon_dev_to/run 
 
 link_source_list "config/" all
 link_source_list "run/" all
+
+ln -s ${icon_dev_to}/scripts/building/create_builds ${icon_dev_to}
 
 #-----------------------------------------------------------------------------------
 
@@ -61,6 +64,7 @@ run_scripts=*
 
 #==============================================
 # Define parameters for each build - examples:
+build_folder=gcc_yMyO configure_options=--with-fortran=gcc --with-mpi  --with-openmp
 build_folder=gcc_yMyO_hiopt configure_options=--with-fortran=gcc --with-mpi  --with-openmp --with-flags=hiopt
 build_folder=gcc_nMnO configure_options=--with-fortran=gcc --without-mpi
 build_folder=gcc_nMyO configure_options=--with-fortran=gcc --without-mpi --with-openmp
