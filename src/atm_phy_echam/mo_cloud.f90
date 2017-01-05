@@ -81,12 +81,11 @@ CONTAINS
   !!
   !!
   SUBROUTINE cloud (         kproma,       kbdim,          ktdia                     &
-                           , klev,         klevp1                                    &
+                           , klev                                                    &
                            , pdtime                                                  &
     ! - INPUT  1D .
                            , kctop                                                   &
     ! - INPUT  2D .
-                           , paphm1                                                  &
                            , papm1                                                   &
                            , pdz                                                     &
                            , pmdry                                                   &
@@ -113,12 +112,11 @@ CONTAINS
     !
     !
     !
-    INTEGER,  INTENT(IN)    :: kproma, kbdim, ktdia, klev, klevp1
+    INTEGER,  INTENT(IN)    :: kproma, kbdim, ktdia, klev
     INTEGER,  INTENT(IN)    :: kctop(kbdim)
     INTEGER,  INTENT(INOUT) :: ktype(kbdim)
     REAL(wp), INTENT(IN)    :: pdtime
     REAL(wp), INTENT(IN)    ::     &
-      & paphm1   (kbdim,klevp1)   ,&!< pressure at half levels                   (n-1)
       & papm1    (kbdim,klev)     ,&!< pressure at full levels                   (n-1)
       & pdz      (kbdim,klev)     ,&!< geometric height thickness of layer
       & pmdry    (kbdim,klev)     ,&!< dry air content
