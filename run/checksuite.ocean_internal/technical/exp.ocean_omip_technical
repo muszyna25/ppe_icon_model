@@ -4,26 +4,14 @@
 # the namelist filename
 ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
-# global timing
 start_date="2001-01-01T00:00:00Z"
   end_date="2001-01-03T00:00:00Z"
+checkpoint_interval="P01D"
+restart_interval="P25Y"
+output_interval="PT06H"
+file_interval=${output_interval}
 # restart=".true."
 #-----------------------------------------------------------------------------
-# model timing
-((  hours_checkp   =24  ))  # write restart file interval [days]
-(( years_restart     = 25 ))    # stop model for restart [days]
-(( days_data         =  1 ))    # ocean model output interval hours [hours] - for test runs
-#
-#-----------------------------------------------------------------------------
-# calculate model timesteps using $days_data
-leading_zero=""
-if [[ $days_data -lt 10 ]] ; then leading_zero="0"; fi
-output_interval="P$leading_zero${days_data}D"     # ocean model output interval in days
-(( dt_data        = days_data         * day  ))   # used for output_bounds and buildbot
-(( dt_checkpoint  = hours_checkp  * hour ))
-(( dt_restart     = years_restart     * year ))
-(( steps_per_file = dt_restart / dt_data+10  ))   # calculated output intervals per file interval
-#steps_per_file=610                               # assigned output intervals per file interval
 #-----------------------------------------------------------------------------
 # global resolution
 iforc=12
@@ -31,6 +19,8 @@ forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly d
 init_relax=1
 ocean_vertical_levels=40
 ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"
+#icon_data_rootFolder=/pool/data/ICON
+#ocean_location="fluent"
 #grids_folder="/scratch/mpi/CC/mh0287/users/m300056/icon/boundary_files/OceanOnly_160km_20levels_conservative"
 #-----------------------------------------------------------------------------
 #
@@ -63,8 +53,8 @@ cat > ${ocean_namelist} << EOF
 &output_nml
   output_start     = "${start_date}"
   output_end       = "${end_date}"
-  output_interval  = "PT06H"
-  steps_per_file   = 1
+  output_interval  = "${output_interval}"
+  file_interval    = "${file_interval}"
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_oceDefault"
   filename_format  = "<output_filename>_<datetime2>"
@@ -74,21 +64,11 @@ cat > ${ocean_namelist} << EOF
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'group:oce_default','group:ice_default', 'topBoundCond_windStress_u', 'A_tracer_v_T'
 /
-!&output_nml
-!  output_start     = "${start_date}"
-!  output_end       = "${end_date}"
-!  output_interval  = "PT06H"
-!  steps_per_file   = 1
-!  output_grid      = .TRUE.
-!  output_filename  = "${EXPNAME}_oceDiag"
-!  filename_format  = "<output_filename>_<datetime2>"
-!  ml_varlist       =  'group:oce_diag','group:ice_diag',
-!/
 &output_nml
   output_start     = "${start_date}"
   output_end       = "${end_date}"
-  output_interval  = "PT06H"
-  steps_per_file   = 1
+  output_interval  = "${output_interval}"
+  file_interval    = "${file_interval}"
   output_grid      = .TRUE.
   output_filename  = "${EXPNAME}_oceMonitor"
   filename_format  = "<output_filename>_<datetime2>"
@@ -168,7 +148,7 @@ cat > ${ocean_namelist} << EOF
   i_ice_dyn                       =   1       ! 1/0=switch on/off AWI ice dynamics
 /
 &ocean_forcing_nml
-  iforc_oce                       =  12       ! ocean forcing
+  iforc_oce                       =  $iforc   ! ocean forcing
   forcing_windstress_u_type       =   1
   forcing_windstress_v_type       =   1
   forcing_fluxes_type             =   1
@@ -203,10 +183,6 @@ cat > ${ocean_namelist} << EOF
    agulhas(1:10)                = 8024,8022
    agulhas_long(1:10)           = 8024,8022,6036
    agulhas_longer(1:10)         = 8024,8022,6036,6025
-/
-&io_nml
-  dt_checkpoint = ${dt_checkpoint}
-  lkeep_in_sync = .true.          ! sync after each timestep
 /
 EOF
 #-----------------------------------------------------------------------------

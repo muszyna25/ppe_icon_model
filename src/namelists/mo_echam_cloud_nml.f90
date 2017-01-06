@@ -19,7 +19,7 @@ MODULE mo_echam_cloud_nml
   USE mo_io_units,            ONLY: nnml
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_master_control,      ONLY: use_restart_namelists
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist, &
+  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist, &
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
@@ -115,12 +115,12 @@ CONTAINS
     lonacc  = .TRUE.
 
     ccsacl  = 0.10_wp
-    ccracl  = 6.0_wp
-    ccraut  = 15.0_wp
+    ccracl  = 12.0_wp
+    ccraut  = 20.0_wp
     ceffmin = 10.0_wp    ! min eff.radius for ice cloud
     ccwmin  = 1.e-7_wp   ! cloud water limit for cover>0
     cinv    = 0.25_wp    ! fraction of dry adiabatic lapse rate
-    cauloc  = 0.0_wp
+    cauloc  = 10.0_wp
     cqtmin  = 1.e-12_wp  ! total water minimum
 
     cn1lnd  =  20._wp

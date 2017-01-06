@@ -127,16 +127,6 @@
 !!
 
 !----------------------------
-#if defined(__INTP_RBF_NOACC)
-#undef ACC_LOCAL_FLAG
-#else
-#define ACC_LOCAL_FLAG
-#endif
-#define ACC_DEBUG !$ACC
-#undef DEBUG_INTP_RBF
-!----------------------------
-
-!----------------------------
 #include "omp_definitions.inc"
 !----------------------------
 
@@ -169,7 +159,7 @@ PUBLIC :: rbf_vec_interpol_cell, rbf_interpol_c2grad,     &
         & rbf_vec_interpol_vertex, rbf_vec_interpol_edge
 
 #if defined( _OPENACC )
-#define ACC_DEBUG $ACC
+#define ACC_DEBUG NOACC
 #if defined(__INTP_RBF_NOACC)
   LOGICAL, PARAMETER ::  acc_on = .FALSE.
 #else

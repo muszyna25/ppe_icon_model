@@ -20,20 +20,15 @@
 MODULE mo_turbulence_diag
 
   USE mo_kind,              ONLY: wp
-  USE mo_exception,         ONLY: finish
   USE mo_convect_tables,    ONLY: prepare_ua_index_spline, lookup_ua_spline, &
     &                             compute_qsat
-  USE mo_echam_vdiff_params,ONLY: clam, cgam, ckap, cb,cc, chneu, shn, smn, &
-    &                             da1, custf, cwstf, cfreec, tpfac1,        &
-    &                             eps_shear, eps_corio, tke_min,            &
-    &                             cons2, cons25, cons5
+  USE mo_echam_vdiff_params,ONLY: clam, ckap, cb,cc, chneu, da1, tpfac1,    &
+    &                             eps_shear, eps_corio, tke_min, cons5,     &
+    &                             f_tau0, f_theta0, c_f, c_n, c_e, pr0,     &
+    &                             wmc,fsl,fbl 
   USE mo_physical_constants,ONLY: grav, rd, cpd, cpv, rd_o_cpd, rv,         &
-    &                             vtmpc1, tmelt, alv, als, p0ref
-#ifdef __ICON__
-  USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config
-#else
-  USE mo_time_control,      ONLY: lstart
-#endif
+    &                             vtmpc1, tmelt, alv, als, p0ref,           &
+    &                             earth_angular_velocity
 
   IMPLICIT NONE
   PRIVATE
@@ -60,19 +55,12 @@ CONTAINS
   !!  updated to echam-6.3.01 by Monika Esch (2014-11)
   !!
   SUBROUTINE atm_exchange_coeff( kproma, kbdim, klev, klevm1, klevp1,     &! in
-#ifndef __ICON__
-                               & lstart,                                  &! in
-#endif
                                & pstep_len, pcoriol,                      &! in
-                               & pum1, pvm1, ptm1, ptvm1, pgeom1,         &! in
+                               & pum1, pvm1, ptm1, ptvm1, pgeom1, pgeohm1,&! in
                                & pqm1, pxm1,                              &! in
                                & papm1, paphm1, paclc,                    &! in
                                & pustarm, pthvvar,                        &! in
-#ifdef __ICON__
                                & ptkem1,                                  &! in
-#else
-                               & ptkem1, ptkem0,                          &! inout
-#endif
                                & pcptgz, ihpbl, pghabl,                   &! out
                                & pqshear, pzthvvar, ptkevn,               &! out
                                & pcfm, pcfh, pcfv, pcftke, pcfthv, pprfac,&! out
@@ -83,9 +71,6 @@ CONTAINS
 
     INTEGER, INTENT(IN) :: kproma, kbdim
     INTEGER, INTENT(IN) :: klev, klevm1, klevp1
-#ifndef __ICON__
-    LOGICAL, INTENT(IN) :: lstart
-#endif
     REAL(wp),INTENT(IN) :: pstep_len
     REAL(wp),INTENT(IN) :: pcoriol(kbdim)   !< Coriolis parameter: 2*omega*sin(lat)
     REAL(wp),INTENT(IN) :: pxm1(kbdim,klev)
@@ -96,27 +81,23 @@ CONTAINS
     REAL(wp),INTENT(IN) :: papm1(kbdim,klev),  paphm1(kbdim,klevp1)
     REAL(wp),INTENT(IN) :: pthvvar(kbdim,klev)
     REAL(wp),INTENT(IN) :: pgeom1(kbdim,klev)
+    REAL(wp),INTENT(IN) :: pgeohm1(kbdim,klevp1)
     REAL(wp),INTENT(IN) :: pustarm(kbdim)
 
-#ifdef __ICON__
     REAL(wp),INTENT(IN) :: ptkem1 (kbdim,klev)
-#else
-    REAL(wp),INTENT(INOUT) :: ptkem1 (kbdim,klev)
-    REAL(wp),INTENT(INOUT) :: ptkem0 (kbdim,klev)
-#endif
 
     INTEGER, INTENT(OUT) :: ihpbl   (kbdim)        !< grid level index of PBL top
     REAL(wp),INTENT(OUT) :: pghabl  (kbdim)        !< geopotential of PBL top
     REAL(wp),INTENT(OUT) :: ptkevn  (kbdim,klevm1) !< TKE at intermediate time step
     REAL(wp),INTENT(OUT) :: pcftke  (kbdim,klevm1) !< exchange coeff. for TKE
-    REAL(wp),INTENT(OUT) :: pcfthv  (kbdim,klevm1) !< exchange coeff. for variance of theta_v
+    REAL(wp),INTENT(OUT) :: pcfthv  (kbdim,klevm1) !< exchange coeff. for var. of theta_v
     REAL(wp),INTENT(OUT) :: pqshear (kbdim,klevm1) !< vertical gradient of qv
     REAL(wp),INTENT(OUT) :: pcfm    (kbdim,klevm1) !< exchange coeff. for u, v
     REAL(wp),INTENT(OUT) :: pcfh    (kbdim,klevm1) !< exchange coeff. for cptgz and tracers
     REAL(wp),INTENT(OUT) :: pcfv    (kbdim,klevm1) !< exchange coeff. for variance of qx
-    REAL(wp),INTENT(OUT) :: pzthvvar(kbdim,klevm1) !< variance of theta_v at intermediate step
+    REAL(wp),INTENT(OUT) :: pzthvvar(kbdim,klevm1) !< variance of theta_v at interm. step
     REAL(wp),INTENT(OUT) :: pcptgz  (kbdim,klev)   !< dry static energy
-    REAL(wp),INTENT(OUT) :: pprfac  (kbdim,klevm1) !< prefactor for the exchange coefficients
+    REAL(wp),INTENT(OUT) :: pprfac  (kbdim,klevm1) !< prefactor for the exchange coeff.
     REAL(wp),INTENT(OUT) :: prhoh   (kbdim,klevm1) !< air density at half levels
 
     ! _b denotes the values at the bottom level (the klev-th full level)
@@ -127,7 +108,7 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: plh_b    (kbdim)  !< latent heat
 
     ! Just for output
-    REAL(wp),INTENT(OUT) :: pri     (kbdim,klevm1) !< moist Richardson number at half levels
+    REAL(wp),INTENT(OUT) :: pri     (kbdim,klevm1) !< moist Richardson number at half lev.
     REAL(wp),INTENT(OUT) :: pmixlen (kbdim,klevm1) !< mixing length
 
     ! Local variables
@@ -138,6 +119,8 @@ CONTAINS
     REAL(wp) :: zthetav(kbdim,klev)  !< virtual potential temperature
     REAL(wp) :: zthetal(kbdim,klev)  !< liquid (and ice?) potential temperature
     REAL(wp) :: zqsat  (kbdim,klev)  !< specific humidity at saturation
+    REAL(wp) :: km     (kbdim,klev)  !< turbulent viscosity
+    REAL(wp) :: kh     (kbdim,klev)  !< turbulent conductivity
 
     ! - Variables defined at half levels
 
@@ -152,23 +135,20 @@ CONTAINS
     ! - 1D variables and scalars
 
     INTEGER  :: ihpblc(kbdim),          ihpbld(kbdim),          idx(kbdim)
-    INTEGER  :: jk, jl, it
+    INTEGER  :: jk, jl
     REAL(wp) :: za(kbdim),              zhdyn(kbdim)                          &
                ,zpapm1i(kbdim),         zua(kbdim)
-    REAL(wp) :: z2geomf, zalf, zalh2, zbet, zbuoy
-    REAL(wp) :: zcons18, zcons23
-    REAL(wp) :: zcor, zdisl, zdusq, zdvsq
+    REAL(wp) :: hdt(kbdim)
+    REAL(wp) :: f_tau, f_theta, e_kin, e_pot, lmix, ldis, lmc, kmc, khc
+    REAL(wp) :: zalh2, zbuoy,zcor, zdisl, zdusq, zdvsq
     REAL(wp) :: zdqtot, zds, zdus1, zdus2, zdz
-    REAL(wp) :: zes, zfox, zfux, zhexp
-    REAL(wp) :: zktest, zlam
-    REAL(wp) :: zmix, zmult1, zmult2, zmult3, zmult4
+    REAL(wp) :: zes, zfox, zfux, zktest
+    REAL(wp) :: zmult1, zmult2, zmult3, zmult4
     REAL(wp) :: zmult5, zqddif, zqtmit, zrdp
     REAL(wp) :: zrdrv, zri, zrvrd, zsdep1
-    REAL(wp) :: zsdep2, zsh, zshear, zsm
-    REAL(wp) :: zteldif, ztkesq
+    REAL(wp) :: zsdep2, zshear, zteldif, ztkesq
     REAL(wp) :: zthvprod, zthvdiss, zthvirdif
-    REAL(wp) :: zucf, zusus1
-    REAL(wp) :: zz2geo, zzb, ztvm
+    REAL(wp) :: zucf, zusus1, zzb, ztvm
 
     REAL(wp) :: zonethird
 
@@ -178,7 +158,6 @@ CONTAINS
     zrvrd     = rv/rd
     zrdrv     = rd/rv
     zonethird = 1._wp/3._wp
-    zcons18   = tpfac1*pstep_len*grav**2
 
     !-------------------------------------
     ! 2. NEW THERMODYNAMIC VARIABLES
@@ -276,6 +255,16 @@ CONTAINS
     DO jl=1,kproma
       ihpbl (jl) = MIN(ihpblc(jl),ihpbld(jl))
       pghabl(jl) = MIN(50000._wp,pgeom1(jl,ihpbl(jl)))
+
+      ! Interpolate dry thermal top, fxp 04/2014
+      hdt(jl) = pgeom1(jl,ihpblc(jl))/grav                                               &
+              & -((pgeom1(jl,ihpblc(jl))/grav-pgeom1(jl,ihpblc(jl)+1)/grav)              &
+              & /(pcptgz(jl,ihpblc(jl))-pcptgz(jl,ihpblc(jl)+1)))                        &
+              & *(pcptgz(jl,ihpblc(jl))-pcptgz(jl,klev)) 
+
+      IF( (pcptgz(jl,klevm1).GT.pcptgz(jl,klev)).AND.(ihpbld(jl).LT.ihpblc(jl))) THEN
+         hdt(jl)=0._wp
+      END IF
     END DO
 
     !--------------------------------------------
@@ -290,7 +279,8 @@ CONTAINS
         zqtmit=zqxmit(jl,jk)+zqmit(jl,jk)                               ! qt
         zfux=zlhh(jl,jk)/(cpd*ztmitte(jl,jk))                           ! L/(cpd*T)
         zfox=zlhh(jl,jk)/(rd*ztmitte(jl,jk))                            ! L/(Rd*T)
-        zmult1=1._wp+vtmpc1*zqtmit                                      ! (1+0.61*qt) = A in clear sky
+        zmult1=1._wp+vtmpc1*zqtmit                                      ! (1+0.61*qt) = 
+                                                                        !  A in clear sky
         zmult2=zfux*zmult1-zrvrd
         zmult3=zrdrv*zfox*zqsatm(jl,jk)/(1._wp+zrdrv*zfux*zfox*zqsatm(jl,jk))
         zmult5=zmult1-zmult2*zmult3                                     ! A in cloud
@@ -311,40 +301,81 @@ CONTAINS
         pqshear(jl,jk) = zqddif   ! store for variance production
         pri(jl,jk) = zri          ! save for output
 
-       ! Asymptotic mixing length for momentum and
-       ! heat (zlam) above the PBL as a function of height
-       ! according to Holtslag and Boville (1992), J. CLIMATE.
+        ! stability functions for heat and momentum (Mauritsen et al. 2007) 
 
-        zhexp=EXP(1._wp-pgeom1(jl,jk)/pgeom1(jl,ihpbl(jl)))
-        zlam=1._wp+(clam-1._wp)*zhexp
-        IF(jk.GE.ihpbl(jl)) THEN
-           zcons23=cons25        ! (1/lambda)*(0.5/grav)
+        IF(zri.GT.0._wp) THEN
+           f_tau   = f_tau0*(0.25_wp+0.75_wp/(1._wp+4._wp*zri))
+           f_theta = f_theta0/(1._wp+4._wp*zri)
         ELSE
-           zcons23=cons2/zlam    ! (1/lambda)*(0.5/grav)
+           f_tau   = f_tau0
+           f_theta = f_theta0
         END IF
 
-        ! Mixing length (Blackadar)
+        ! turbulent kinetic and turbulent potential energy
 
-        z2geomf = pgeom1(jl,jk)+pgeom1(jl,jk+1)  ! half-level value of gz
-        zz2geo  = cons2*z2geomf                  ! z*(Karman constant)
-        zmix    = zz2geo/(1._wp+zcons23*z2geomf) ! mixing length
+        IF(zri.GT.0._wp) THEN
+           e_kin=ptkem1(jl,jk)/(1._wp+zri/(f_tau0**2/(2._wp*f_theta0**2)+3._wp*zri))
+           e_pot=e_kin*zri/(f_tau0**2/(2._wp*f_theta0**2)+3._wp*zri)
+        ELSE
+           e_kin=ptkem1(jl,jk)/(1._wp+zri/(2._wp*zri-f_tau0**2/(2._wp*f_theta0**2)))
+           e_pot=e_kin*zri/(2._wp*zri-f_tau0**2/(2._wp*f_theta0**2)) 
+        END IF
 
-        pmixlen(jl,jk) = zmix   ! save for output
+        ! mixing length 
 
-        ! Stability functions (Louis, 1979)
+        IF(zri.GT.0._wp) THEN 
+           lmix=1._wp*grav/(ckap*pgeohm1(jl,jk+1))+2._wp*earth_angular_velocity          &
+               & /(c_f*SQRT(f_tau*e_kin))+SQRT(zbuoy)/(c_n*SQRT(f_tau*e_kin))            &
+               & +1._wp/150._wp
+        ELSE
+           lmix=1._wp*grav/(ckap*pgeohm1(jl,jk+1))+2._wp*earth_angular_velocity          &
+               & /(c_f*SQRT(f_tau*e_kin))+1._wp/150._wp
+        END IF
+        lmix=1._wp/lmix
+        ldis=lmix
+        pmixlen(jl,jk)=lmix
 
-        IF(zri.LT.0._wp) THEN  ! unstable condition
-           zalh2=zmix*zmix
-           zucf=1._wp/                                              &
-                (1._wp+cons5*zalh2*SQRT(ABS(zri)*(((pgeom1(jl,jk)   &
-                    /pgeom1(jl,jk+1))**zonethird-1._wp)/(pgeom1(jl,jk) &
-                    -pgeom1(jl,jk+1)))**3/(pgeom1(jl,jk+1))))
-           zsh=shn*(1._wp-3._wp*cb*zri*zucf)*zmix
-           zsm=smn*(1._wp-2._wp*cb*zri*zucf)*zmix
+        ! mixing coefficients 
+        
+        km(jl,jk)=f_tau**2*e_kin**2                                                      &
+                 & /((c_e*e_kin*SQRT(ptkem1(jl,jk))/lmix)-grav/zthetavh(jl,jk)           &
+                 & *f_theta*SQRT(e_kin*2._wp*e_pot*abs(zbuoy)/(grav/zthetavh(jl,jk))**2))
+        kh(jl,jk)=2._wp*f_theta**2*e_kin*lmix/(c_e*SQRT(ptkem1(jl,jk)))
 
-        ELSE  ! stable condition
-           zsh=shn/(1._wp+2._wp*cb*zri*SQRT(1._wp+zri))*zmix
-           zsm=smn/(1._wp+2._wp*cb*zri/SQRT(1._wp+zri))*zmix
+        ! convective bl mixing coefs
+
+        IF(pgeom1(jl,jk)/grav.LE.hdt(jl)) THEN
+           lmc=1._wp*grav/(ckap*pgeohm1(jl,jk+1))                                        &
+              & +fbl/(ckap*(hdt(jl)-pgeohm1(jl,jk+1)/grav))
+           lmc=1._wp/lmc
+           kmc=f_tau0/c_e*lmc*SQRT(e_kin)
+           khc=kmc/pr0
+        ELSE
+           lmc=lmix
+           kmc=km(jl,jk)
+           khc=kh(jl,jk)
+        END IF
+ 
+        ! merge mixing coefs
+
+        IF (pgeom1(jl,jk)/grav.LE.0.5_wp*hdt(jl)) THEN
+           km(jl,jk)=kmc
+           kh(jl,jk)=khc
+        ELSE
+           km(jl,jk)=max(km(jl,jk),kmc)  
+           kh(jl,jk)=max(kh(jl,jk),khc)
+        END IF
+
+        ! introduce unstable stability function (Louis 79)
+
+        IF (zri.LT.0._wp) THEN 
+           zalh2=lmix*lmix
+           zucf=1._wp/                                             &
+                (1._wp+cons5*zalh2*SQRT(ABS(zri)*(((pgeom1(jl,jk)  &
+                /pgeom1(jl,jk+1))**zonethird-1._wp)/(pgeom1(jl,jk) &
+                -pgeom1(jl,jk+1)))**3/(pgeom1(jl,jk+1))))
+           kh(jl,jk)=kh(jl,jk)*(1._wp-3._wp*cb*zri*zucf)
+           km(jl,jk)=km(jl,jk)*(1._wp-2._wp*cb*zri*zucf)
         END IF
 
         ! TKE at intermediate time step, obtained by solving a prognostic equation
@@ -352,8 +383,12 @@ CONTAINS
         ! buoyancy production, and dissipation of TKE.
         ! See Appendix A in Brinkop and Roeckner (1995, Tellus) for the numerics.
 
-        zzb=zshear*zsm-zbuoy*zsh
-        zdisl=da1*zmix/pstep_len
+        IF (zri.GT.0._wp) THEN 
+           zzb=km(jl,jk)*zshear
+        ELSE 
+           zzb=km(jl,jk)*zshear-2._wp*kh(jl,jk)*zbuoy
+        END IF
+        zdisl=ldis/(c_e*pstep_len)
         zktest=1._wp+(zzb*pstep_len+SQRT(ptkem1(jl,jk))*2._wp)/zdisl
         IF (zktest.LE.1._wp) THEN
            ptkevn(jl,jk)=tke_min
@@ -361,29 +396,20 @@ CONTAINS
            ptkevn(jl,jk)=MAX(tke_min,(zdisl*(SQRT(zktest)-1._wp))**2)
         END IF
 
-#ifdef __ICON__
         ! Should we do the same as in echam, or should we do the initialization
         ! in, e.g., init_vdiff_xxx?
-#else
-        ! For ECHAM: initialize tkem1 and tkem0 at the first time step
-
-        IF (lstart) THEN
-           ptkem1(jl,jk) = ptkevn(jl,jk)
-           ptkem0(jl,jk) = ptkevn(jl,jk)
-        END IF
-#endif
 
         ! Square root of TKE at the old time step
 
         ztkesq = SQRT(MAX(tke_min,ptkem1(jl,jk)))
 
-        ! Virtual potential temperautre variance at intermediate step,
+        ! Virtual potential temperature variance at intermediate step,
         ! obtained by solving a prognostic equation the variance, the right-hand side
         ! of which consists of a production term and dissipation.
         ! An explicit time stepping method is used here.
 
-        zthvprod = 2._wp*zsh*ztkesq*zthvirdif**2       ! production rate
-        zthvdiss = pthvvar(jl,jk)*ztkesq/(da1*zmix)    ! dissipation rate
+        zthvprod = 2._wp*kh(jl,jk)*zthvirdif**2        ! production rate
+        zthvdiss = pthvvar(jl,jk)*ztkesq/(da1*lmix)    ! dissipation rate
         pzthvvar(jl,jk) = pthvvar(jl,jk)+(zthvprod-zthvdiss)*pstep_len
         pzthvvar(jl,jk) = MAX(tke_min,pzthvvar(jl,jk))
 
@@ -393,9 +419,9 @@ CONTAINS
         ! - variance of hydrometeors (variable pcfv).
         ! These are proportional to the square root of TKE at the old step.
 
-        pcfm(jl,jk) = zsm*ztkesq
-        pcfh(jl,jk) = zsh*ztkesq
-        pcfv(jl,jk) = zsh*ztkesq*0.5_wp
+        pcfm(jl,jk) = km(jl,jk)
+        pcfh(jl,jk) = kh(jl,jk)
+        pcfv(jl,jk) = kh(jl,jk)*0.5_wp
 
         ! Exchange coefficients for
         ! - TKE (variable pfctke),
@@ -403,8 +429,8 @@ CONTAINS
         ! which are proportional to the square root of TKE at the
         ! intermediate time step
 
-        pcftke(jl,jk) = zsm*SQRT(ptkevn(jl,jk))
-        pcfthv(jl,jk) = zsh*SQRT(ptkevn(jl,jk))
+        pcftke(jl,jk) = km(jl,jk)
+        pcfthv(jl,jk) = kh(jl,jk)
 
         ! Air density at half levels, and the prefactor that will be multiplied
         ! later to the exchange coeffcients to build a linear algebraic equation set.
@@ -420,7 +446,7 @@ CONTAINS
   !-------------
   !>
   !!
-  SUBROUTINE sfc_exchange_coeff( kproma, kbdim, ksfc_type,          &! in
+  SUBROUTINE sfc_exchange_coeff( kproma, kbdim, ksfc_type,               &! in
                                & idx_wtr, idx_ice, idx_lnd,              &! in
                                & lsfc_mom_flux, lsfc_heat_flux,          &! in
                                & pz0m, ptsfc,                            &! in
@@ -433,8 +459,10 @@ CONTAINS
                                & ptheta_b, pthetav_b,                    &! in
                                & pthetal_b, paclc_b,                     &! in
                                & pthvvar_b,                              &! in
+                               & pthvsig_b,                              &! inout
+                               & pwstar, pwstar_sfc,                     &! inout
                                & pqsat_sfc, pcpt_sfc,                    &! out
-                               & pri_gbm,                                &! out
+                               & pri_gbm, pri_sfc,                       &! out
                                & pcfm_gbm, pcfm_sfc,                     &! out
                                & pcfh_gbm, pcfh_sfc,                     &! out
                                & pcfv_sfc,                               &! out
@@ -443,11 +471,11 @@ CONTAINS
                                & ptkevn_sfc, pthvvar_sfc,                &! out
                                & pqshear_sfc, pustarm,                   &! out
                                & pch_sfc,                                &! out
+!                               & pch_sfc, pchn_sfc, pcdn_sfc, pcfnc_sfc, &! out
+                               & pbn_sfc, pbhn_sfc, pbm_sfc, pbh_sfc,    &! out
                                & paz0lh,                                 &! in, optional
                                & pcsat, pcair                            &! in, optional
                                & )
-!                               & pch_sfc, pchn_sfc, pcdn_sfc, pcfnc_sfc, &! out
-!                               & pbn_sfc, pbhn_sfc, pbm_sfc, pbh_sfc     )! out
 
     INTEGER, INTENT(IN) :: kproma, kbdim
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr, idx_ice, idx_lnd
@@ -458,8 +486,8 @@ CONTAINS
 
     REAL(wp),INTENT(IN) :: pz0m     (kbdim,ksfc_type) !< aerodynamic roughness length
     REAL(wp),INTENT(IN) :: ptsfc    (kbdim,ksfc_type) !< temp. at surface
-    REAL(wp),INTENT(IN) :: pfrc     (kbdim,ksfc_type) !< fraction of the grid box occupied by
-                                                      !< each surface type
+    REAL(wp),INTENT(IN) :: pfrc     (kbdim,ksfc_type) !< fraction of the grid box occupied
+                                                      !< by each surface type
     REAL(wp),INTENT(IN) :: pghabl   (kbdim)  !< geopotential of PBL top
     REAL(wp),INTENT(IN) :: pocu     (kbdim)  !< ocean surface velocity
     REAL(wp),INTENT(IN) :: pocv     (kbdim)  !< ocean surface velocity
@@ -487,31 +515,38 @@ CONTAINS
 
     ! "_sfc" denotes value at surface
 
-    REAL(wp),INTENT(OUT) :: pqsat_sfc (kbdim,ksfc_type) !< saturation specific humidity at surface
+    REAL(wp),INTENT(OUT) :: pqsat_sfc (kbdim,ksfc_type) !< saturation specific humidity 
+                                                        !<  at surface
     REAL(wp),INTENT(OUT) :: pcpt_sfc  (kbdim,ksfc_type) !< dry static energy
     REAL(wp),INTENT(OUT) :: pri_gbm   (kbdim)           !< moist Richardson number
-    REAL(wp)             :: pri_sfc   (kbdim,ksfc_type) !< moist Richardson number
+    REAL(wp),INTENT(OUT) :: pri_sfc   (kbdim,ksfc_type) !< moist Richardson number
 
     REAL(wp),INTENT(OUT) :: pcfm_gbm  (kbdim)           !< exchange coeff. of momentum
     REAL(wp),INTENT(OUT) :: pcfm_sfc  (kbdim,ksfc_type) !< exchange coeff. of momentum,
                                                         !< for each type of surface
-    REAL(wp),INTENT(OUT) :: pcfh_gbm  (kbdim)           !< exchange coeff. of heat and vapor
-    REAL(wp),INTENT(OUT) :: pcfh_sfc  (kbdim,ksfc_type) !< exchange coeff. of heat and vapour
-                                                        !< for each type of surface
+    REAL(wp),INTENT(OUT) :: pcfh_gbm  (kbdim)           !< exchange coeff. of heat and 
+                                                        !<  vapor
+    REAL(wp),INTENT(OUT) :: pcfh_sfc  (kbdim,ksfc_type) !< exchange coeff. of heat and 
+                                                        !<  vapor for each surface type
     REAL(wp),INTENT(OUT) :: pcfv_sfc   (kbdim)  !< exchange coeff. of total water variance
     REAL(wp),INTENT(OUT) :: pcftke_sfc (kbdim)  !< exchange coeff. of TKE
-    REAL(wp),INTENT(OUT) :: pcfthv_sfc (kbdim)  !< exchange coeff. of the variance of theta_v
+    REAL(wp),INTENT(OUT) :: pcfthv_sfc (kbdim)  !< exchange coeff. of the variance of 
+                                                !<  theta_v
     REAL(wp),INTENT(OUT) :: pprfac_sfc (kbdim)  !< prefactor for exchange coefficients
     REAL(wp),INTENT(OUT) :: prho_sfc   (kbdim)  !< air density
-    REAL(wp),INTENT(OUT) :: ptkevn_sfc (kbdim)  !< boundary condition (sfc value) of TKE
+    REAL(wp),INTENT(INOUT) :: ptkevn_sfc (kbdim)  !< boundary condition (sfc value) of TKE
     REAL(wp),INTENT(OUT) :: pthvvar_sfc(kbdim)  !< boundary condition (sfc value)
                                                 !< of the variance of theta_v
-    REAL(wp),INTENT(OUT) :: pqshear_sfc(kbdim)  !< vertical shear of total water concentration
+    REAL(wp),INTENT(OUT) :: pqshear_sfc(kbdim)  !< vertical shear of total water conc.
     REAL(wp),INTENT(OUT) :: pustarm    (kbdim)  !< friction velocity, grid-box mean
-!    REAL(wp),INTENT(OUT) :: pbn_sfc  (kbdim,ksfc_type) !< for diagnostics
-!    REAL(wp),INTENT(OUT) :: pbhn_sfc (kbdim,ksfc_type) !< for diagnostics
-!    REAL(wp),INTENT(OUT) :: pbm_sfc  (kbdim,ksfc_type) !< for diagnostics
-!    REAL(wp),INTENT(OUT) :: pbh_sfc  (kbdim,ksfc_type) !< for diagnostics
+    REAL(wp),INTENT(OUT) :: pwstar     (kbdim)  !< convective velocity scale, grid-box mean
+    REAL(wp),INTENT(INOUT) ::pwstar_sfc(kbdim,ksfc_type)!< convective velocity scale, 
+                                                        !<  each sfc type
+    REAL(wp),INTENT(INOUT) ::pthvsig_b(kbdim)
+    REAL(wp),INTENT(OUT) :: pbn_sfc  (kbdim,ksfc_type) !< for diagnostics
+    REAL(wp),INTENT(OUT) :: pbhn_sfc (kbdim,ksfc_type) !< for diagnostics
+    REAL(wp),INTENT(OUT) :: pbm_sfc  (kbdim,ksfc_type) !< for diagnostics
+    REAL(wp),INTENT(OUT) :: pbh_sfc  (kbdim,ksfc_type) !< for diagnostics
 !    REAL(wp),INTENT(OUT) :: pchn_sfc (kbdim,ksfc_type) !<
 !    REAL(wp),INTENT(OUT) :: pcdn_sfc (kbdim,ksfc_type) !<
 !    REAL(wp),INTENT(OUT) :: pcfnc_sfc(kbdim,ksfc_type) !<
@@ -522,13 +557,15 @@ CONTAINS
     REAL(wp),OPTIONAL,INTENT(IN) :: pcsat  (kbdim)  !< area fraction with wet land surface
     REAL(wp),OPTIONAL,INTENT(IN) :: pcair  (kbdim)  !< area fraction with wet land surface (air)
 
-!    REAL(wp),INTENT(INOUT) :: ptkem1_sfc (kbdim)  !< boundary condition (surface value) for TKE
-!    REAL(wp),INTENT(INOUT) :: ptkem0_sfc (kbdim)  !< boundary condition (surface value) for TKE
+!    REAL(wp),INTENT(INOUT) :: ptkem1_sfc (kbdim)  !< boundary condition (surface value) 
+!                                                  !<  for TKE
+!    REAL(wp),INTENT(INOUT) :: ptkem0_sfc (kbdim)  !< boundary condition (surface value) 
+!                                                  !<  for TKE
 
-    REAL(wp) :: pbn_sfc  (kbdim,ksfc_type) !< for diagnostics
-    REAL(wp) :: pbhn_sfc (kbdim,ksfc_type) !< for diagnostics
-    REAL(wp) :: pbm_sfc  (kbdim,ksfc_type) !< for diagnostics
-    REAL(wp) :: pbh_sfc  (kbdim,ksfc_type) !< for diagnostics
+!    REAL(wp) :: pbn_sfc  (kbdim,ksfc_type) !< for diagnostics
+!    REAL(wp) :: pbhn_sfc (kbdim,ksfc_type) !< for diagnostics
+!    REAL(wp) :: pbm_sfc  (kbdim,ksfc_type) !< for diagnostics
+!    REAL(wp) :: pbh_sfc  (kbdim,ksfc_type) !< for diagnostics
     REAL(wp) :: pchn_sfc (kbdim,ksfc_type) !<
     REAL(wp) :: pcdn_sfc (kbdim,ksfc_type) !<
     REAL(wp) :: pcfnc_sfc(kbdim,ksfc_type) !<
@@ -537,23 +574,32 @@ CONTAINS
 
     REAL(wp) :: zdu2   (kbdim,ksfc_type) !<
     REAL(wp) :: zcfnch (kbdim,ksfc_type) !<
-    REAL(wp) :: zcr    (kbdim)           !< for open water only
-    REAL(wp) :: zwst   (kbdim,ksfc_type) !<
     REAL(wp) :: zcsat  (kbdim,ksfc_type) !<
     REAL(wp) :: zustar (kbdim,ksfc_type) !< friction velocity
     REAL(wp) :: ztvsfc (kbdim)           !< virtual temperature at surface
     REAL(wp) :: zqts   (kbdim,ksfc_type)
+    REAL(wp) :: zthetavmit (kbdim,ksfc_type) ! virtual potential temperature at half level
+    REAL(wp) :: zdthetal (kbdim,ksfc_type) !
+    REAL(wp) :: lmix (kbdim,ksfc_type)   !< mixing length
+    REAL(wp) :: e_kin (kbdim,ksfc_type)  !< turbulent kinetic energy
+    REAL(wp) :: e_pot (kbdim,ksfc_type)  !< turbulent potential energy
+    REAL(wp) :: f_tau (kbdim,ksfc_type)  !< stability finction for momentum
+    REAL(wp) :: f_theta (kbdim,ksfc_type)!< stability finction for heat
+    REAL(wp) :: z0h   (kbdim,ksfc_type)  !
+ 
     INTEGER  :: loidx  (kbdim,ksfc_type) !< counter for masks
     INTEGER  :: is     (ksfc_type)       !< counter for masks
 
-    REAL(wp) :: zrdrv, zrvrd, zrgam, zonethird, ztwothirds
-    REAL(wp) :: z2b, z3b, z3bc, zcons17, zepsr, zepdu2, zepsec
+    
+    REAL(wp) :: zrdrv, zrvrd, zonethird, ztwothirds
+    REAL(wp) :: z2b, z3b, z3bc, zcons17, zepdu2, zepsec
     REAL(wp) :: zqtl, zqtmit, zdqt, zqsmit
-    REAL(wp) :: ztmit, ztheta, zthetav, zthetamit, zthetavmit, zfux, zfox
+    REAL(wp) :: ztmit, ztheta, zthetav, zthetamit, zfux, zfox
     REAL(wp) :: zmult1, zmult2, zmult3, zmult4, zmult5
-    REAL(wp) :: zdus1, zdus2, zbuoy, zalo, zaloh, ztkev, zstabf
-    REAL(wp) :: zdthetal, zdthv, z0h, zscf,  zconvs, zucf, zucfh
-    REAL(wp) :: z2m, zcdn2m, zcdnr, zcfm2m, zust, zrrd
+    REAL(wp) :: zdus1, zdus2, zbuoy, ztkev
+    REAL(wp) :: zdthv, zucf, zucfh
+    REAL(wp) :: zust, zrrd
+    REAL(wp) :: lmc
     LOGICAL  :: lhighz0
     INTEGER  :: jsfc, jl, jls, js
 
@@ -564,12 +610,10 @@ CONTAINS
     zrrd       = 1._wp/rd
     zrvrd      = rv/rd
     zrdrv      = rd/rv
-    zrgam      = 1._wp/cgam
     z2b        = 2._wp*cb
     z3b        = 3._wp*cb
     z3bc       = 3._wp*cb*cc
     zcons17    = 1._wp / ckap**2
-    zepsr      = 1.E-10_wp
     zepdu2     = 1._wp
     zonethird  = 1._wp/3._wp
     ztwothirds = 2._wp/3._wp
@@ -592,6 +636,7 @@ CONTAINS
 !TODO:    preset values to zero
      pcpt_sfc(1:kproma,1:ksfc_type) = 0._wp
      pqsat_sfc(1:kproma,1:ksfc_type) = 0._wp
+     pri_sfc(1:kproma,1:ksfc_type) = 0._wp
 
      DO jsfc = 1,ksfc_type
 
@@ -616,73 +661,136 @@ CONTAINS
         ! dry static energy pcpt_sfc
         !
         IF(jsfc == idx_lnd) THEN
-          zqts(js,jsfc) = pcsat(js) * pqsat_sfc(js,jsfc) + (1._wp - pcair(js))*pqm1_b(js) ! q_total at land surface
+          zqts(js,jsfc) = pcsat(js) * pqsat_sfc(js,jsfc) + (1._wp - pcair(js))*pqm1_b(js) 
+                                                           ! q_total at land surface
         ELSE
-          zqts(js,jsfc) = pqsat_sfc(js,jsfc)                                              ! q_total at surface
+          zqts(js,jsfc) = pqsat_sfc(js,jsfc)               ! q_total at surface
         END IF
         pcpt_sfc(js,jsfc) = ptsfc(js,jsfc) * (cpd + (cpv - cpd) * zqts(js,jsfc))
 
         ztheta      = ptsfc(js,jsfc)*(p0ref/ppsfc(js))**rd_o_cpd
         zthetav     = ztheta*(1._wp+vtmpc1*zqts(js,jsfc))
 
-        zqtl       = pqm1_b(js) + pqxm1_b(js)                          ! q_total at lowest model level
+        zqtl       = pqm1_b(js) + pqxm1_b(js)              ! q_total at lowest model level
 
-        zqtmit     = 0.5_wp*( zqtl + zqts(js,jsfc) )                   ! q_total, vertical average
+        zqtmit     = 0.5_wp*( zqtl + zqts(js,jsfc) )       ! q_total, vertical average
 
-        zqsmit     = 0.5_wp*( pqsat_b  (js) + pqsat_sfc(js,jsfc) )  ! qs
-        ztmit      = 0.5_wp*( ptm1_b   (js) + ptsfc    (js,jsfc) )  ! temp.
-        zthetamit  = 0.5_wp*( ptheta_b (js) + ztheta  )  ! potential temp.
-        zthetavmit = 0.5_wp*( pthetav_b(js) + zthetav )  ! virtual potential temp.
+        zqsmit     = 0.5_wp*( pqsat_b  (js) + pqsat_sfc(js,jsfc) ) ! qs
+        ztmit      = 0.5_wp*( ptm1_b   (js) + ptsfc    (js,jsfc) ) ! temp.
+        zthetamit  = 0.5_wp*( ptheta_b (js) + ztheta  )           ! potential temp.
+        zthetavmit(js,jsfc) = 0.5_wp*( pthetav_b(js) + zthetav )  ! virtual potential temp.
 
         zfux = plh_b(js)/(cpd*ztmit)
         zfox = plh_b(js)/(rd*ztmit)
 
-        zmult1 = 1._wp+vtmpc1*zqtmit   ! A in clear sky
+        zmult1 = 1._wp+vtmpc1*zqtmit                              ! A in clear sky
         zmult2 = zfux*zmult1-zrvrd
         zmult3 = zrdrv*zfox*zqsmit/(1._wp+zrdrv*zfox*zfux*zqsmit)
-        zmult5 = zmult1-zmult2*zmult3  ! A in cloud
-        zmult4 = zfux*zmult5-1._wp     ! D in cloud
+        zmult5 = zmult1-zmult2*zmult3                             ! A in cloud
+        zmult4 = zfux*zmult5-1._wp                                ! D in cloud
 
         zdus1 = paclc_b(js)*zmult5 + (1._wp-paclc_b(js))*zmult1   ! A avg
         zdus2 = paclc_b(js)*zmult4 + (1._wp-paclc_b(js))*vtmpc1   ! D avg
 
         zdqt     = zqtl - zqts(js,jsfc)                           ! d qt
-        zdthetal = pthetal_b(js) - ztheta                         ! d theta_l
+        zdthetal(js,jsfc) = pthetal_b(js) - ztheta                ! d theta_l
         IF (jsfc == idx_lnd) THEN                                 ! over land
-          zdu2(js,jsfc) = MAX(zepdu2,(pum1_b(js)**2+pvm1_b(js)**2))
+          zdu2(js,jsfc) = MAX(zepdu2,(pum1_b(js)**2+pvm1_b(js)**2 &
+                                    +(wmc*pwstar_sfc(js,jsfc))**2))
         ELSE                                                      ! over water or ice
           zdu2(js,jsfc) = MAX(zepdu2,(pum1_b(js)-pocu(js))**2 &   ! (d u)^2
-                                    +(pvm1_b(js)-pocv(js))**2)    ! (d v)^2
+                                    +(pvm1_b(js)-pocv(js))**2 &   ! (d v)^2
+                                    +(wmc*pwstar_sfc(js,jsfc))**2 )
         END IF
 
-        zbuoy        = zdus1*zdthetal + zdus2*zthetamit*zdqt
-        pri_sfc(js,jsfc) = pgeom1_b(js)*zbuoy/(zthetavmit*zdu2(js,jsfc))
+        zbuoy        = zdus1*zdthetal(js,jsfc) + zdus2*zthetamit*zdqt
+        pri_sfc(js,jsfc) = pgeom1_b(js)*zbuoy/(zthetavmit(js,jsfc)*zdu2(js,jsfc))
 
-        zalo = LOG( 1._wp + pgeom1_b(js)/(grav*pz0m(js,jsfc)) )  ! ln[ 1 + zL/z0m ]
-        pcdn_sfc(js,jsfc) = (ckap/zalo)**2
+ ! stability functions for heat and momentum (Mauritsen et al. 2007) 
+
+        IF(pri_sfc(js,jsfc).GT.0._wp) THEN
+           f_tau(js,jsfc)   = f_tau0*(0.25_wp+0.75_wp/(1._wp+4._wp*pri_sfc(js,jsfc)))
+           f_theta(js,jsfc) = f_theta0/(1._wp+4._wp*pri_sfc(js,jsfc))
+        ELSE
+           f_tau(js,jsfc)   = f_tau0
+           f_theta(js,jsfc) = f_theta0
+        END IF
+
+ ! diagnose turbulent kinetic and turbulent potential energy from total turb. energy
+
+        IF(pri_sfc(js,jsfc).GT.0._wp) THEN
+           e_kin(js,jsfc) = ptkevn_sfc(js)/(1._wp+pri_sfc(js,jsfc)                       &
+                          & /(pr0+3._wp*pri_sfc(js,jsfc)))
+           e_pot(js,jsfc) = e_kin(js,jsfc)*pri_sfc(js,jsfc)                              &
+                          & /(pr0+3._wp*pri_sfc(js,jsfc))
+        ELSE
+           e_kin(js,jsfc) = ptkevn_sfc(js)/(1._wp+pri_sfc(js,jsfc)                       &
+                          & /(2._wp*pri_sfc(js,jsfc)-pr0))
+           e_pot(js,jsfc) = e_kin(js,jsfc)*pri_sfc(js,jsfc)                              &
+                          & /(2._wp*pri_sfc(js,jsfc)-pr0) 
+        END IF
+
+        pthvsig_b(js) =  zthetav/grav*SQRT(2.0_wp*e_pot(js,jsfc)*ABS(zbuoy))
+
+ !  compute mixing length 
+
+        IF(pri_sfc(js,jsfc).GT.0._wp) THEN
+           lmix(js,jsfc) = 1._wp*grav/(ckap*fsl*pgeom1_b(js))                            &
+                         & +2._wp*earth_angular_velocity                                 &
+                         & /(c_f*SQRT(f_tau(js,jsfc)*e_kin(js,jsfc)))                    &
+                         & +SQRT(grav**2*zbuoy/(zthetavmit(js,jsfc)*pgeom1_b(js)))       &
+                         & /(c_n*SQRT(f_tau(js,jsfc)*e_kin(js,jsfc)))
+        ELSE
+           lmix(js,jsfc) = 1._wp*grav/(ckap*fsl*pgeom1_b(js))                            &
+                         & +2._wp*earth_angular_velocity                                 &
+                         & /(c_f*SQRT(f_tau(js,jsfc)*e_kin(js,jsfc)))
+        END IF 
+
+        lmix(js,jsfc) = 1._wp/lmix(js,jsfc)
+
+ !  convective BL mixing length formulation
+
+        IF(pri_sfc(js,jsfc).LT.0._wp) THEN
+           lmc = 1._wp*grav/(ckap*fsl*pgeom1_b(js))+fbl                                  &
+               & /(ckap*(pghabl(js)/grav-fsl*pgeom1_b(js)/grav))
+           lmc = 1._wp/lmc
+           lmix(js,jsfc) = MAX(lmix(js,jsfc),lmc)
+        END IF
+
+ ! neutral drag coefficient for momentum, z0m is effectively limited to half 
+ ! the first level height! 
+       
+        pcdn_sfc(js,jsfc) = lmix(js,jsfc)**2/((fsl*pgeom1_b(js)/grav)**2                 &
+                          & *((LOG(MAX(2._wp,pgeom1_b(js)/(grav*pz0m(js,jsfc)))))**2))
 
         pcfnc_sfc(js,jsfc)= SQRT(zdu2(js,jsfc))*pcdn_sfc(js,jsfc)
+
  !  REMARK:
  !  compared to the original (precalc_land,ocean,ice) the factor zcons is missing
  !  this factor is included as "prefactor for the exchange coefficients" in
  !  subroutine matrix_setup_elim
 
         zdthv         = MAX(0._wp,(zthetav-pthetav_b(js)))
-        zwst(js,jsfc) = zdthv*SQRT(zdu2(js,jsfc))/zthetavmit
+
+ ! compute/extract roughness length for heat over each surface, currently                &
+ !  equal to z0m over ice
 
         IF ( jsfc == idx_wtr ) THEN         ! over water
-          z0h        =pz0m(js,jsfc)*EXP(2._wp-86.276_wp*pz0m(js,jsfc)**0.375_wp)
-          zaloh      =LOG(1._wp+pgeom1_b(js)/(grav*z0h))
-          pchn_sfc  (js,jsfc)=ckap**2/(zalo*zaloh)
-          zcfnch(js,jsfc)=SQRT(zdu2(js,jsfc))*pchn_sfc(js,jsfc)
-          zcr   (js)=(cfreec/(pchn_sfc(js,jsfc)*SQRT(zdu2(js,jsfc))))*ABS(zbuoy)**zonethird
-        ELSE IF ( jsfc == idx_ice ) THEN    ! over ice
-          pchn_sfc  (js,jsfc) = pcdn_sfc (js,jsfc)
-          zcfnch(js,jsfc) = pcfnc_sfc(js,jsfc)  ! coeff. for scalar is the same as for momentum
-        ELSE IF ( jsfc == idx_lnd ) THEN    ! over  land
-          pchn_sfc  (js,jsfc) = (ckap / LOG(1._wp+pgeom1_b(js)/(grav*paz0lh(js))))**2
-          zcfnch(js,jsfc) = SQRT(zdu2(js,jsfc))*pchn_sfc(js,jsfc)
-        ENDIF
+           z0h(js,jsfc)=pz0m(js,jsfc)*EXP(2._wp-86.276_wp*pz0m(js,jsfc)**0.375_wp)
+        ELSE IF ( jsfc == idx_ice ) THEN
+           z0h(js,jsfc)=pz0m(js,jsfc)
+        ELSE IF ( jsfc == idx_lnd ) THEN
+           z0h(js,jsfc)=paz0lh(js)
+        END IF
+
+ ! neutral drag coefficient for heat/scalars, z0h is effectively limited 
+ !  to half the first level height! 
+
+          pchn_sfc(js,jsfc) = lmix(js,jsfc)/((fsl*pgeom1_b(js)/grav)                     &
+                            & *LOG(MAX(2._wp,pgeom1_b(js)/(grav*z0h(js,jsfc)))))         &
+                            & *1._wp/pr0*SQRT(pcdn_sfc(js,jsfc))
+          zcfnch(js,jsfc)   = SQRT(zdu2(js,jsfc))*pchn_sfc(js,jsfc)
+
       ENDDO ! 1:is
     ENDDO   ! 1:ksfc_type
 
@@ -697,74 +805,41 @@ CONTAINS
      pcfh_sfc(1:kproma,1:ksfc_type) = 0._wp
      pcfm_sfc(1:kproma,1:ksfc_type) = 0._wp
 
-      ! stable case              pri_sfc(js,jsfc) > 0.
+! multiply neutral coefficients by stability functions
 
       DO jsfc = 1,ksfc_type
         DO jls = 1,is(jsfc)
           ! set index
           js=loidx(jls,jsfc)
           IF ( pri_sfc(js,jsfc) > 0._wp ) THEN
-            zscf = SQRT(1._wp+pri_sfc(js,jsfc))
-            pcfm_sfc(js,jsfc) = pcfnc_sfc (js,jsfc)/(1._wp+z2b*pri_sfc(js,jsfc)/zscf)   ! 5.2? 5.5
-            pcfh_sfc(js,jsfc) = zcfnch(js,jsfc)/(1._wp+z2b*pri_sfc(js,jsfc)*zscf)   ! 5.2? 5.6
-            pch_sfc (js,jsfc) = pchn_sfc  (js,jsfc)/(1._wp+z2b*pri_sfc(js,jsfc)*zscf)   ! for (5.22)
+            pcfm_sfc(js,jsfc) = pcfnc_sfc (js,jsfc)*f_tau(js,jsfc)/f_tau0
+            pcfh_sfc(js,jsfc) = zcfnch(js,jsfc)*f_theta(js,jsfc)/f_theta0                &
+                              & *SQRT(f_tau(js,jsfc)/f_tau0)  
+            pch_sfc (js,jsfc) = pcfh_sfc(js,jsfc)/zcfnch(js,jsfc)*pchn_sfc(js,jsfc)   
           ENDIF
-        ENDDO
-      ENDDO
-
-      ! unstable case           pri_sfc(js,jsfc) <= 0.
-
-      IF (idx_wtr<=ksfc_type) THEN
-        jsfc = idx_wtr  ! water
-        DO jls = 1,is(jsfc)
-          ! set index
-          js=loidx(jls,jsfc)
-          IF ( pri_sfc(js,jsfc) <= 0._wp ) THEN
-            zucf =  SQRT( -pri_sfc(js,jsfc)*(1._wp+ pgeom1_b(js)/(grav*pz0m(js,jsfc))) ) ! sqrt in (5.4)
-            zucf =  1._wp+z3bc*pcdn_sfc(js,jsfc)*zucf                          ! denominator in (5.4)
+        
+ 
+          IF ( pri_sfc(js,jsfc) <= 0._wp ) THEN         ! retain Louis stability functions
+                                                        ! functions for the unstable case
+            zucf =  SQRT( -pri_sfc(js,jsfc)*(1._wp+ pgeom1_b(js)/(grav*pz0m(js,jsfc))) ) 
+                                                        ! sqrt in (5.4)
+            zucf =  1._wp+z3bc*pcdn_sfc(js,jsfc)*zucf   ! denominator in (5.4)
             zucf =  1._wp/zucf
-            pcfm_sfc(js,jsfc) = pcfnc_sfc (js,jsfc)*(1._wp-z2b*pri_sfc(js,jsfc)*zucf)  ! (5.2), (5.4)
-            pcfh_sfc(js,jsfc) = zcfnch(js,jsfc)*(1._wp+zcr(js)**cgam)**zrgam       ! (5.9)
-            pch_sfc (js,jsfc) = pchn_sfc  (js,jsfc)*(1._wp+zcr(js)**cgam)**zrgam
-          ENDIF
-        ENDDO
-      ENDIF
-
-      IF (idx_ice<=ksfc_type) THEN
-        jsfc = idx_ice  ! ice
-        DO jls = 1,is(jsfc)
-          ! set index
-          js=loidx(jls,jsfc)
-          IF ( pri_sfc(js,jsfc) <= 0._wp ) THEN
-            zucf =  SQRT( -pri_sfc(js,jsfc)*(1._wp+ pgeom1_b(js)/(grav*pz0m(js,jsfc))) ) ! sqrt in (5.4)
-            zucf =  1._wp+z3bc*pcdn_sfc(js,jsfc)*zucf                   ! denominator in (5.4)
-            zucf =  1._wp/zucf
-            pcfm_sfc(js,jsfc) = pcfnc_sfc (js,jsfc)*(1._wp-z2b*pri_sfc(js,jsfc)*zucf)  ! (5.2), (5.4)
-            pcfh_sfc(js,jsfc) = zcfnch(js,jsfc)*(1._wp-z3b*pri_sfc(js,jsfc)*zucf)  ! (5.2), (5.4)
-            pch_sfc (js,jsfc) = pchn_sfc  (js,jsfc)*(1._wp-z3b*pri_sfc(js,jsfc)*zucf)
-          ENDIF
-        ENDDO
-      ENDIF
-
-      IF (idx_lnd<=ksfc_type) THEN
-        jsfc = idx_lnd  ! land
-        DO jls = 1,is(jsfc)
-          ! set index
-          js=loidx(jls,jsfc)
-          IF ( pri_sfc(js,jsfc) <= 0._wp ) THEN
-            zucf =  SQRT( -pri_sfc(js,jsfc)*(1._wp+ pgeom1_b(js)/(grav*pz0m(js,jsfc))) ) ! sqrt in (5.4)
-            zucf =  1._wp+z3bc*pcdn_sfc(js,jsfc)*zucf                   ! denominator in (5.4)
-            zucf =  1._wp/zucf
-            zucfh=  SQRT( -pri_sfc(js,jsfc)*(1._wp+ pgeom1_b(js)/(grav*paz0lh(js))) ) ! sqrt in (5.4)
-            zucfh=  1._wp+z3bc*pchn_sfc(js,jsfc)*zucfh                   ! denominator in (5.4)
+            zucfh=  SQRT( -pri_sfc(js,jsfc)*(1._wp+ pgeom1_b(js)/(grav*z0h(js,jsfc))) ) 
+                                                        ! sqrt in (5.4)
+            zucfh=  1._wp+z3bc*pchn_sfc(js,jsfc)*zucfh  ! denominator in (5.4)
             zucfh=  1._wp/zucfh
-            pcfm_sfc(js,jsfc) = pcfnc_sfc (js,jsfc)*(1._wp-z2b*pri_sfc(js,jsfc)*zucf)  ! (5.2), (5.4)
-            pcfh_sfc(js,jsfc) = zcfnch(js,jsfc)*(1._wp-z3b*pri_sfc(js,jsfc)*zucfh) ! (5.2), (5.4)
+            pcfm_sfc(js,jsfc) = pcfnc_sfc (js,jsfc)*(1._wp-z2b*pri_sfc(js,jsfc)*zucf)  
+                                                        ! (5.2), (5.4)
+            pcfh_sfc(js,jsfc) = zcfnch(js,jsfc)*(1._wp-z3b*pri_sfc(js,jsfc)*zucfh) 
+                                                        ! (5.2), (5.4)
             pch_sfc (js,jsfc) = pchn_sfc  (js,jsfc)*(1._wp-z3b*pri_sfc(js,jsfc)*zucfh)
           ENDIF
-        ENDDO
-      ENDIF
+          
 
+        ENDDO
+      ENDDO
+    
     END IF  ! lsfc_mom_flux.OR.lsfc_heat_flux
 
     IF (.NOT.lsfc_mom_flux) THEN  ! Surface momentum flux is switched off
@@ -773,8 +848,31 @@ CONTAINS
 
     IF (.NOT.lsfc_heat_flux) THEN  ! Surface heat flux is switched off
       pcfh_sfc(1:kproma,1:ksfc_type) = 0._wp
-      zwst    (1:kproma,1:ksfc_type) = 0._wp   ! affects TKE at surface
     END IF
+
+    !------------------------------------------------------------------------------
+    ! Store values
+    ! to be used in subroutine "nsurf_diag" to compute
+    ! new t2m, 2m dew point, 10m wind components
+    !------------------------------------------------------------------------------
+
+    pbn_sfc (1:kproma,1:ksfc_type) = 0._wp  !
+    pbhn_sfc(1:kproma,1:ksfc_type) = 0._wp  !
+    pbm_sfc (1:kproma,1:ksfc_type) = 0._wp  !
+    pbh_sfc (1:kproma,1:ksfc_type) = 0._wp  !
+    DO jsfc = 1,ksfc_type
+      DO jls = 1,is(jsfc)
+! set index
+      js=loidx(jls,jsfc)
+        pbn_sfc(js,jsfc) = ckap / MAX(zepsec, SQRT(pcdn_sfc(js,jsfc)))
+        pbhn_sfc(js,jsfc) = ckap / MAX(zepsec, SQRT(pchn_sfc(js,jsfc)))
+        pbm_sfc(js,jsfc) = MAX(zepsec, SQRT(pcfm_sfc(js,jsfc)*pcdn_sfc(js,jsfc) *  &
+                               zcons17 / pcfnc_sfc(js,jsfc)))
+        pbh_sfc(js,jsfc) = MAX(zepsec, pch_sfc(js,jsfc)/pbm_sfc(js,jsfc)*zcons17)
+        pbm_sfc(js,jsfc) = 1._wp / pbm_sfc(js,jsfc)
+        pbh_sfc(js,jsfc) = 1._wp / pbh_sfc(js,jsfc)
+      END DO
+    END DO
 
     !-------------------------------------------------------------------------
     ! Get the aggregated exchange coefficient for momentum
@@ -830,14 +928,12 @@ CONTAINS
       DO jls = 1,is(jsfc)
 ! set index
       js=loidx(jls,jsfc)
-        pqshear_sfc(js) =  pqshear_sfc(js)      &
-                              & +  pqsat_sfc(js,jsfc) &
-                              &       *zcsat(js,jsfc) &
-                              &        *pfrc(js,jsfc)
+        pqshear_sfc(js) =  pqshear_sfc(js) +  pqsat_sfc(js,jsfc)                         &
+                              &      * zcsat(js,jsfc) * pfrc(js,jsfc)
       ENDDO
     ENDDO
 
-    pqshear_sfc(1:kproma) = ( pqm1_b(1:kproma)+pqxm1_b(1:kproma)          &
+    pqshear_sfc(1:kproma) = ( pqm1_b(1:kproma)+pqxm1_b(1:kproma)                         &
                           &  -pqshear_sfc(1:kproma) )*grav/pgeom1_b(1:kproma)
 
     !-------------------------------------------------------------------------
@@ -848,23 +944,19 @@ CONTAINS
     !-------------------------------------------------------------------------
     IF (lsfc_mom_flux) THEN  ! Surface momentum flux is switched on
 
-      z2m = 2._wp            ! 2-m height
       DO jsfc = 1,ksfc_type
         DO jls = 1,is(jsfc)
 ! set index
         js=loidx(jls,jsfc)
-          lhighz0 = pz0m(js,jsfc).GT.z2m
-          zcdn2m = MERGE((ckap/LOG(1._wp+pgeom1_b(js)/(grav*z2m)))**2, &
-                 &        pcdn_sfc(js,jsfc),lhighz0 )
-          zcdnr  = zcdn2m/pcdn_sfc(js,jsfc)
-
-          zucf   = SQRT( ABS(pri_sfc(js,jsfc))*(1._wp+pgeom1_b(js)/(grav*z2m)) )  ! sqrt in (5.4)
-          zucf  = 1._wp + z3bc*zcdn2m*zucf                              ! denomenator in (5.4)
-          zucf = 1._wp - z2b*pri_sfc(js,jsfc)/zucf                      ! (5.4)
-          zcfm2m = MERGE( pcfnc_sfc(js,jsfc)*zcdnr*zucf, pcfm_sfc(js,jsfc)*zcdnr, &
-                 &        lhighz0.AND.pri_sfc(js,jsfc).LT.0._wp           )
-          zust   = zcfm2m*SQRT(zdu2(js,jsfc))
+          zust   = pcfm_sfc(js,jsfc)*SQRT(zdu2(js,jsfc)-(wmc*pwstar_sfc(js,jsfc))**2)
           zustar(js,jsfc) = SQRT(zust)
+         IF (pri_sfc(js,jsfc).LT. 0._wp) THEN
+           pwstar_sfc(js,jsfc)= 0.5_wp*(pwstar_sfc(js,jsfc)                              &
+                   &                  +(pghabl(js)/zthetavmit(js,jsfc)*pcfh_sfc(js,jsfc) & 
+                   &                  *abs(zdthetal(js,jsfc)))**zonethird)
+         ELSE
+           pwstar_sfc(js,jsfc) = 0._wp
+         END IF
         END DO
       END DO
  !  REMARK:
@@ -873,26 +965,30 @@ CONTAINS
  !  subroutine matrix_setup_elim
 
       pustarm(1:kproma) = 0._wp
+      pwstar(1:kproma)= 0._wp
       DO jsfc = 1,ksfc_type
         DO jls = 1,is(jsfc)
 ! set index
         js=loidx(jls,jsfc)
           pustarm(js) = pustarm(js) + pfrc(js,jsfc)*zustar(js,jsfc)
+          pwstar(js)  = pwstar(js)  + pfrc(js,jsfc)*pwstar_sfc(js,jsfc)
         END DO
       END DO
 
     ELSE ! Surface momentum flux is off. Friction velocity is by definition zero.
       zustar (1:kproma,1:ksfc_type) = 0._wp
       pustarm(1:kproma)             = 0._wp
+      pwstar_sfc(1:kproma,1:ksfc_type) = 0._wp
+      pwstar(1:kproma)              = 0._wp
     END IF
 
     !---------------------------------------------------
-    ! Surface value of TKE and its exchange coefficient
+    ! Surface value of TTE and its exchange coefficient
     !---------------------------------------------------
-    ! The exchange coefficient of TKE is set to the same value as for momentum
+    ! The exchange coefficient of TTE is set to the same value as for momentum
     pcftke_sfc(1:kproma) = pcfm_gbm(1:kproma)
 
-    ! TKE at the surface (formulation of Mailhot and Benoit (1982))
+    ! TTE at the surface
 
     ptkevn_sfc(1:kproma) = 0._wp  ! initialize the weighted average
 
@@ -900,13 +996,15 @@ CONTAINS
       DO jls = 1,is(jsfc)
 ! set index
       js=loidx(jls,jsfc)
-        ztkev = custf*(zustar(js,jsfc)**2)
-        IF(zwst(js,jsfc).GT.zepsr) THEN
-           zconvs = (zwst(js,jsfc)*pch_sfc(js,jsfc)*pghabl(js))**zonethird
-           zstabf = (pgeom1_b(js)*ckap*zwst(js,jsfc)*pch_sfc(js,jsfc))**ztwothirds
-           zstabf = MIN(custf*3._wp*zustar(js,jsfc)**2,zstabf)
-           ztkev = ztkev + zstabf + cwstf*(zconvs**2)
-        END IF
+
+       IF(pri_sfc(js,jsfc).GT.0._wp) THEN
+         ztkev    = (1._wp+e_pot(js,jsfc)/e_kin(js,jsfc))/f_tau(js,jsfc)*(pustarm(js)**2)
+       ELSE
+         ztkev    = (1._wp+e_pot(js,jsfc)/e_kin(js,jsfc))/f_tau(js,jsfc)                 &
+                    & *(pustarm(js)**3+lmix(js,jsfc)*2._wp*grav/zthetavmit(js,jsfc)      &
+                    & *pcfh_sfc(js,jsfc)*abs(zdthetal(js,jsfc)))**ztwothirds
+       END IF
+
         ptkevn_sfc(js) = ptkevn_sfc(js) + ztkev*pfrc(js,jsfc)
       END DO
     END DO
@@ -937,39 +1035,15 @@ CONTAINS
         prho_sfc(js) = prho_sfc(js) + zrrd*ppsfc(js)/ztvsfc(js)
       END DO
     END DO
-
-    !------------------------------------------------------------------------------
-    ! Store values
-    ! to be used in subroutine "vdiff_tendencies" to compute
-    ! new t2m, t2m_max t2m_min, 2m dew point, 10m wind components
-    !------------------------------------------------------------------------------
-
-    pbn_sfc (1:kproma,1:ksfc_type) = 0._wp  !
-    pbhn_sfc(1:kproma,1:ksfc_type) = 0._wp  !
-    pbm_sfc (1:kproma,1:ksfc_type) = 0._wp  !
-    pbh_sfc (1:kproma,1:ksfc_type) = 0._wp  !
-    DO jsfc = 1,ksfc_type
-      DO jls = 1,is(jsfc)
-! set index
-      js=loidx(jls,jsfc)
-        pbn_sfc(js,jsfc) = ckap / SQRT(pcdn_sfc(js,jsfc))
-        pbhn_sfc(js,jsfc) = ckap / SQRT(pchn_sfc(js,jsfc))
-        pbm_sfc(js,jsfc) = MAX(zepsec, SQRT(pcfm_sfc(js,jsfc)*pcdn_sfc(js,jsfc) *  &
-                               zcons17 * pcfnc_sfc(js,jsfc)))
-        pbh_sfc(js,jsfc) = MAX(zepsec, pch_sfc(js,jsfc)/pbm_sfc(js,jsfc)*zcons17)
-        pbm_sfc(js,jsfc) = 1._wp / pbm_sfc(js,jsfc)
-        pbh_sfc(js,jsfc) = 1._wp / pbh_sfc(js,jsfc)
-      END DO
-    END DO
 ! extra variable for land points:
-    IF (idx_lnd<=ksfc_type) THEN
-     jsfc = idx_lnd  ! land
-      DO jls = 1,is(jsfc)
-! set index
-      js=loidx(jls,jsfc)
-        pbhn_sfc(js,jsfc) = ckap / SQRT(pchn_sfc(js,jsfc))
-      END DO
-    END IF
+!    IF (idx_lnd<=ksfc_type) THEN
+!     jsfc = idx_lnd  ! land
+!      DO jls = 1,is(jsfc)
+!! set index
+!      js=loidx(jls,jsfc)
+!        pbhn_sfc(js,jsfc) = ckap / SQRT(pchn_sfc(js,jsfc))
+!      END DO
+!    END IF
 
   END SUBROUTINE sfc_exchange_coeff
   !-------------

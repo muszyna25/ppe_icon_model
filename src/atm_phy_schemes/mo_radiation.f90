@@ -43,7 +43,7 @@
 MODULE mo_radiation
 
   USE mo_aerosol_util,         ONLY: zaea_rrtm,zaes_rrtm,zaeg_rrtm
-  USE mo_kind,                 ONLY: wp
+  USE mo_kind,                 ONLY: wp, i8
   USE mo_exception,            ONLY: finish
 
   USE mo_model_domain,         ONLY: t_patch
@@ -51,20 +51,17 @@ MODULE mo_radiation
   USE mo_math_constants,       ONLY: pi, rpi
   USE mo_physical_constants,   ONLY: grav,  rd,    avo,   amd,  amw,  &
     &                                amco2, amch4, amn2o, amo3, amo2, &
-    &                                stbo,  vpp_ch4, vpp_n2o
-
-  USE mo_datetime,             ONLY: rdaylen
-
-  USE mo_radiation_config,     ONLY: tsi_radt,   ssi_radt,    &
-    &                                irad_co2,   mmr_co2,     &
-    &                                irad_ch4,   mmr_ch4,     &
-    &                                irad_n2o,   mmr_n2o,     &
-    &                                irad_o2,    mmr_o2,      &
-    &                                irad_cfc11, vmr_cfc11,   &
-    &                                irad_cfc12, vmr_cfc12,   &
-    &                                irad_aero,               &
-    &                                lrad_aero_diag,          &
-    &                                izenith
+    &                                stbo
+  USE mo_time_config,          ONLY: time_config
+  USE mo_radiation_config,     ONLY: tsi_radt,   ssi_radt,            &
+    &                                irad_co2,   mmr_co2,             &
+    &                                irad_ch4,   mmr_ch4,   vpp_ch4,  &
+    &                                irad_n2o,   mmr_n2o,   vpp_n2o,  &
+    &                                irad_o2,    mmr_o2,              &
+    &                                irad_cfc11, vmr_cfc11,           &
+    &                                irad_cfc12, vmr_cfc12,           &
+    &                                irad_aero,  lrad_aero_diag,      &
+    &                                izenith, lradforcing
   USE mo_lnd_nwp_config,       ONLY: isub_seaice, isub_lake
 
   USE mo_newcld_optics,        ONLY: newcld_optics
@@ -81,7 +78,6 @@ MODULE mo_radiation
   USE mo_psrad_spec_sampling,  ONLY: get_num_gpoints
   USE mo_psrad_interface,      ONLY: lw_strat, sw_strat
   USE mo_psrad_radiation_parameters, ONLY: psctm
-  USE mo_get_utc_date_tr,      ONLY: get_utc_date_tr
   USE mo_timer,                ONLY: ltimer, timer_start, timer_stop,  &
     &                                timer_radiation,                  &
     &                                timer_rrtm_prep, timer_rrtm_post, &
@@ -90,7 +86,14 @@ MODULE mo_radiation
   USE mo_nh_testcases_nml,     ONLY: zenithang
   USE mo_rad_diag,             ONLY: rad_aero_diag
   USE mo_art_radiation_interface, ONLY: art_rad_aero_interface
-
+  USE mo_psrad_radiation_forcing, ONLY: calculate_psrad_radiation_forcing
+  USE mtime,                   ONLY: datetime, newDatetime, timedelta, newTimedelta, &
+       &                             getPTStringFromMS, OPERATOR(+),                 &
+       &                             NO_OF_MS_IN_A_MINUTE, NO_OF_MS_IN_A_HOUR,       &
+       &                             getDayOfYearFromDatetime, MAX_TIMEDELTA_STR_LEN,&
+       &                             deallocateTimedelta, deallocateDatetime,        &
+       &                             NO_OF_MS_IN_A_SECOND, NO_OF_SEC_IN_A_DAY
+  
   IMPLICIT NONE
 
   PRIVATE
@@ -123,7 +126,7 @@ CONTAINS
 
     REAL(wp) ::                    &
       & p_sim_time_rad,            &
-      & zstunde,                   & ! output from routine get_utc_date_tr
+      & zstunde,                   &
       & ztwo, ztho  ,              &
       & zdek,                      &
       & zsocof, zeit0,             &
@@ -140,7 +143,7 @@ CONTAINS
       & zeitrad(kbdim,pt_patch%nblks_c) ,&
       & z_cosmu0(kbdim,pt_patch%nblks_c)
 
-    INTEGER :: jj, itaja   ! output from routine get_utc_date_tr
+    INTEGER :: jj, itaja
 
     INTEGER :: ie,jb,jc,jmu0,n_zsct,nsteps
 
@@ -148,6 +151,10 @@ CONTAINS
 
     INTEGER , SAVE :: itaja_zsct_previous = 0
 
+    TYPE(datetime), POINTER :: current => NULL()
+    TYPE(timedelta), POINTER :: td => NULL()
+    CHARACTER(len=MAX_TIMEDELTA_STR_LEN) :: td_string 
+        
     IF (izenith == 0) THEN
     ! local insolation = constant = global mean insolation (ca. 340 W/m2)
     ! zenith angle = 0,
@@ -189,15 +196,21 @@ CONTAINS
       nsteps = NINT(p_inc_rad/p_inc_radheat)
 
       DO jmu0=1,nsteps
-
+        
         p_sim_time_rad = p_sim_time + (REAL(jmu0,wp)-0.5_wp)*p_inc_radheat
-
-        CALL get_utc_date_tr (                 &
-          &   p_sim_time     = p_sim_time_rad, &
-          &   itype_calendar = 0,              &
-          &   iyear          = jj,             &
-          &   nactday        = itaja,          &
-          &   acthour        = zstunde )
+        
+        current => newDatetime(time_config%tc_exp_startdate)
+        CALL getPTStringFromMS(INT(1000.0_wp*p_sim_time_rad,i8), td_string)
+        td => newTimedelta(td_string)
+        current = time_config%tc_exp_startdate + td
+        jj = INT(current%date%year)
+        itaja = getDayOfYearFromDateTime(current)
+        zstunde = current%time%hour+( &
+             &    REAL(current%time%minute*NO_OF_MS_IN_A_MINUTE &
+             &        +current%time%second*NO_OF_MS_IN_A_SECOND &
+             &        +current%time%ms,wp)/REAL(NO_OF_MS_IN_A_HOUR,wp))
+        CALL deallocateDatetime(current)
+        CALL deallocateTimedelta(td)
 
         DO jb = 1, pt_patch%nblks_c
           ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
@@ -249,12 +262,18 @@ CONTAINS
 
         p_sim_time_rad = p_sim_time + (REAL(jmu0,wp)-0.5_wp)*p_inc_radheat
 
-        CALL get_utc_date_tr (                 &
-          &   p_sim_time     = p_sim_time_rad, &
-          &   itype_calendar = 0,              &
-          &   iyear          = jj,             &
-          &   nactday        = itaja,          &
-          &   acthour        = zstunde )
+        current => newDatetime(time_config%tc_exp_startdate)
+        CALL getPTStringFromMS(INT(1000.0_wp*p_sim_time_rad,i8), td_string)
+        td => newTimedelta(td_string)
+        current = time_config%tc_exp_startdate + td
+        jj = INT(current%date%year)
+        itaja = getDayOfYearFromDateTime(current)
+        zstunde = current%time%hour+( &
+             &    REAL(current%time%minute*NO_OF_MS_IN_A_MINUTE &
+             &        +current%time%second*NO_OF_MS_IN_A_SECOND &
+             &        +current%time%ms,wp)/REAL(NO_OF_MS_IN_A_HOUR,wp))
+        CALL deallocateDatetime(current)
+        CALL deallocateTimedelta(td)
 
         IF ( itaja /= itaja_zsct_previous ) THEN
           itaja_zsct_previous = itaja
@@ -367,11 +386,11 @@ CONTAINS
 
     REAL(wp) ::                     &
       & p_sim_time_rad,  &
-      & zstunde,                   & ! output from routine get_utc_date_tr
-      & ztwo  , ztho  ,            & !
-      & zdtzgl, zdek  ,            & !
-      & zsocof, zeit0 ,            & !
-      & zdeksin,zdekcos!,           & !
+      & zstunde,                   &
+      & ztwo  , ztho  ,            &
+      & zdtzgl, zdek  ,            &
+      & zsocof, zeit0 ,            &
+      & zdeksin,zdekcos
 
     REAL(wp) ::                     &
       & zsinphi(kbdim,pt_patch%nblks_c) ,&
@@ -379,10 +398,14 @@ CONTAINS
       & zeitrad(kbdim,pt_patch%nblks_c)! ,&
 
     INTEGER :: &
-      & jj, itaja, jb, ie !& ! output from routine get_utc_date_tr
+      & jj, itaja, jb, ie
 
     INTEGER , SAVE :: itaja_zsct_previous = 0
     REAL(wp), SAVE :: zsct_save
+
+    TYPE(datetime), POINTER :: current => NULL()
+    TYPE(timedelta), POINTER :: td => NULL()
+    CHARACTER(len=MAX_TIMEDELTA_STR_LEN) :: td_string 
 
     !First: cases izenith==0 to izenith==2 (no date and time needed)
     IF (izenith == 0) THEN
@@ -416,13 +439,19 @@ CONTAINS
     ENDIF
 
     p_sim_time_rad = p_sim_time + 0.5_wp*p_inc_rad
-
-    CALL get_utc_date_tr (                 &
-      &   p_sim_time     = p_sim_time_rad, &
-      &   itype_calendar = 0,              &
-      &   iyear          = jj,             &
-      &   nactday        = itaja,          &
-      &   acthour        = zstunde )
+    
+    current => newDatetime(time_config%tc_exp_startdate)
+    CALL getPTStringFromMS(INT(1000.0_wp*p_sim_time_rad,i8), td_string)
+    td => newTimedelta(td_string)
+    current = time_config%tc_exp_startdate + td
+    jj = INT(current%date%year)
+    itaja = getDayOfYearFromDateTime(current)
+    zstunde = current%time%hour+( &
+         &    REAL(current%time%minute*NO_OF_MS_IN_A_MINUTE &
+         &        +current%time%second*NO_OF_MS_IN_A_SECOND &
+         &        +current%time%ms,wp)/REAL(NO_OF_MS_IN_A_HOUR,wp))
+    CALL deallocateDatetime(current)
+    CALL deallocateTimedelta(td)
 
     !Second case izenith==3 (time (but no date) needed)
     IF (izenith == 3) THEN
@@ -499,7 +528,8 @@ CONTAINS
   !
   SUBROUTINE radiation(                                                    &
     ! input
-    &  jg, jb                                                              &
+    & current_date                                                         &
+    & ,jg, jb                                                              &
     & ,jce               ,kbdim           ,klev             ,klevp1        &
     & ,ktype             ,zland           ,zglac            ,cos_mu0       &
     & ,alb_vis_dir       ,alb_nir_dir     ,alb_vis_dif      ,alb_nir_dif   &
@@ -521,6 +551,7 @@ CONTAINS
     ! input
     ! -----
     !
+    TYPE(datetime), POINTER, INTENT(in) :: current_date !< current date
     INTEGER, INTENT(in)   :: &
       &  jg,                 & !< domain index
       &  jb,                 & !< block index
@@ -626,7 +657,7 @@ CONTAINS
       !     The width of the halo is set to the change in cos(zenith angle) over
       !     half of the radiation time step dt_rad at the equator at equinox.
       !
-      cos_mu0_halo = -SIN(pi*dt_rad/rdaylen)
+      cos_mu0_halo = -SIN(pi*dt_rad/REAL(no_of_sec_in_a_day,wp))
       !
       WHERE (cos_mu0(1:jce) > cos_mu0_halo)
         ! Within the sun-lit hemisphere and the halo: use a minimum value of
@@ -731,7 +762,8 @@ CONTAINS
     ! --------------------------------------
     !
     CALL rrtm_interface(                                                    &
-                                ! input
+      ! input
+      & current_date                                                       ,&
       & jg              ,jb              ,1                                ,&
       & jce             ,kbdim           ,klev                             ,&
       & ktype           ,zland           ,zglac                            ,&
@@ -790,7 +822,8 @@ CONTAINS
   !
   SUBROUTINE radiation_nwp(                                                &
     ! input
-    &  jg, jb, irad                                                        &
+    &  current_date                                                        &
+    & ,jg, jb, irad                                                        &
     & ,jce               ,kbdim           ,klev             ,klevp1        &
     & ,ktype             ,zland           ,zglac            ,cos_mu0       &
     & ,alb_vis_dir       ,alb_nir_dir     ,alb_vis_dif      ,alb_nir_dif   &
@@ -807,6 +840,7 @@ CONTAINS
     ! input
     ! -----
     !
+    TYPE(datetime), POINTER, INTENT(in) :: current_date !< current date
     INTEGER, INTENT(in)   :: &
       &  jg,                 & !< domain index
       &  jb,                 & !< block index
@@ -977,6 +1011,7 @@ CONTAINS
     !
     CALL rrtm_interface(                                                    &
       ! input
+      & current_date                                                       ,&
       & jg              ,jb              ,irad                             ,&
       & jce             ,kbdim           ,klev                             ,&
       & ktype           ,zland           ,zglac                            ,&
@@ -1124,6 +1159,7 @@ CONTAINS
 
   SUBROUTINE rrtm_interface(                                              &
     ! input
+    & current_date                                                       ,&
     & jg              ,jb              ,irad                             ,&
     & jce             ,kbdim           ,klev                             ,&
     & ktype           ,zland           ,zglac                            ,&
@@ -1145,6 +1181,8 @@ CONTAINS
     & flx_dnsw_diff_sfc, flx_upsw_toa  ,flx_dnpar_sfc                    ,&
     & vis_frc_sfc     ,nir_dff_frc_sfc ,vis_dff_frc_sfc ,par_dff_frc_sfc  )
 
+    TYPE(datetime), POINTER, INTENT(in) :: current_date
+    
     INTEGER,INTENT(in)  ::                &
       &  jg,                              & !< domain index
       &  jb,                              & !< block index
@@ -1445,7 +1483,7 @@ CONTAINS
         &                         aer_piz_sw_vr,                 &
         &                         aer_cg_sw_vr)
     CASE (13)
-      CALL set_bc_aeropt_kinne( jg,                                  &
+      CALL set_bc_aeropt_kinne( current_date      ,jg               ,&
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpband                ,jpsw             ,&
         & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
@@ -1457,20 +1495,20 @@ CONTAINS
       aer_tau_sw_vr(:,:,:) = 0.0_wp
       aer_piz_sw_vr(:,:,:) = 1.0_wp
       aer_cg_sw_vr(:,:,:)  = 0.0_wp
-      CALL add_bc_aeropt_stenchikov( jg,                             &
+      CALL add_bc_aeropt_stenchikov( current_date ,jg               ,&
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpband                ,jpsw             ,&
         & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
         & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
         & tk_fl                                                      )
     CASE (15)
-      CALL set_bc_aeropt_kinne( jg,                                  &
+      CALL set_bc_aeropt_kinne( current_date      ,jg               ,&
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpband                ,jpsw             ,&
         & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
         & aer_cg_sw_vr     ,ppd_hl                ,pp_fl            ,&
         & tk_fl                                                      )
-      CALL add_bc_aeropt_stenchikov( jg,                             &
+      CALL add_bc_aeropt_stenchikov( current_date ,jg               ,&      
         & jce              ,kbdim                 ,klev             ,&
         & jb               ,jpband                ,jpsw             ,&
         & aer_tau_lw_vr    ,aer_tau_sw_vr         ,aer_piz_sw_vr    ,&
@@ -1679,8 +1717,12 @@ CONTAINS
     &                 cosmu0,          & ! optional: cosine of zenith angle
     &                 opt_nh_corr   ,  & ! optional: switch for applying corrections for NH model
     &                 use_trsolclr_sfc,& ! optional: use clear-sky surface transmissivity passed on input
+    &                 jg            ,  & ! optional: domain index
+    &                 krow          ,  & ! optional: block index
     &                 ptrmsw        ,  &
     &                 pflxlw        ,  &
+    &                 ptrmswclr     ,  & ! optional: shortwave net transmissivity at last rad. step clear sky []
+    &                 pflxlwclr     ,  & ! optional: longwave net flux at last rad. step clear sky [W/m2]
     &                 pdtdtradsw    ,  &
     &                 pdtdtradlw    ,  &
     &                 pflxsfcsw     ,  &
@@ -1737,6 +1779,14 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL   ::  &
       &     opt_nh_corr, use_trsolclr_sfc
 
+    INTEGER, INTENT(in), OPTIONAL   ::  &
+      &     jg,                         & ! index of domain
+      &     krow                          ! block index
+
+    REAL(wp), INTENT(in), OPTIONAL  ::  &
+      &     ptrmswclr   (kbdim,klevp1), & ! shortwave net transmissivity at last rad. step clear sky []
+      &     pflxlwclr   (kbdim,klevp1)    ! longwave net flux at last rad. step clear sky [W/m2]
+   
     REAL(wp), INTENT(inout) ::       &
       &     pdtdtradsw (kbdim,klev), & ! shortwave temperature tendency           [K/s]
       &     pdtdtradlw (kbdim,klev)    ! longwave temperature tendency            [K/s]
@@ -1760,6 +1810,8 @@ CONTAINS
     REAL(wp) ::                    &
       &     zflxsw (kbdim,klevp1), &
       &     zflxlw (kbdim,klevp1), &
+      &     zflxswclr(kbdim,klevp1),&
+      &     zflxlwclr(kbdim,klevp1),&
       &     zconv  (kbdim,klev)  , &
       &     tqv    (kbdim)       , &
       &     dlwem_o_dtg(kbdim)   , &
@@ -1768,6 +1820,7 @@ CONTAINS
       &     intclw (kbdim,klevp1), &
       &     intcli (kbdim,klevp1), &
       &     dlwflxall_o_dtg(kbdim,klevp1)
+    REAL(wp) :: dummy(kbdim,klevp1)
 
     REAL(wp) :: swfac1(kbdim), swfac2(kbdim), dflxsw_o_dalb(kbdim), trsolclr(kbdim), logtqv(kbdim)
 
@@ -1797,15 +1850,18 @@ CONTAINS
     ! Conversion factor for heating rates
     zconv(jcs:jce,1:klev) = 1._wp/(pmair(jcs:jce,1:klev)*(pcd+(pcv-pcd)*pqv(jcs:jce,1:klev)))
 
-    ! Shortwave fluxes = transmissivity * local solar incoming flux at TOA
-    ! ----------------
-
     ! lev == 1        => TOA
     ! lev in [2,klev] => Atmosphere
     ! lev == klevp1   => Surface
     DO jk = 1, klevp1
       zflxsw(jcs:jce,jk)      = ptrmsw(jcs:jce,jk) * pi0(jcs:jce)
     END DO
+    IF (lradforcing(1)) THEN
+      ! Shortwave fluxes clear sky = transmissivity clear sky * local solar incoming flux at TOA
+      DO jk = 1, klevp1
+        zflxswclr(jcs:jce,jk)  = ptrmswclr(jcs:jce,jk)*pi0(jcs:jce)
+      END DO
+    END IF
     ! Longwave fluxes
     ! - TOA
 !    zflxlw(jcs:jce,1)      = pflxlw(jcs:jce,1)
@@ -1973,7 +2029,24 @@ CONTAINS
 !!$      zflxlw(jcs:jce,klevp1) = pflxlw(jcs:jce,klevp1)                      &
 !!$        &                   + pemiss(jcs:jce)*stbo * ptsfctrad(jcs:jce)**4 &
 !!$        &                   - pemiss(jcs:jce)*stbo * ptsfc    (jcs:jce)**4
+      IF (lradforcing(2)) THEN
+        ! Longwave fluxes clear sky: For now keep fluxes fixed at TOA and in atmosphere,
+        ! but adjust flux from surface to the current surface temperature.
+        ! - TOA
+        zflxlwclr(jcs:jce,1)      = pflxlwclr(jcs:jce,1)
+        ! - Atmosphere
+        zflxlwclr(jcs:jce,2:klev) = pflxlwclr(jcs:jce,2:klev)
 
+        ! - Surface
+        !   Adjust net sfc longwave radiation for changed surface temperature (ptsfc) with respect to the
+        !   surface temperature used for the longwave flux computation (ptsfctrad).
+        !   --> modifies heating in lowermost layer only (is this smart?)
+        !   This assumes that downward sfc longwave radiation is constant between radiation time steps and
+        !   upward and net sfc longwave radiation are updated between radiation time steps
+        dlwem_o_dtg(jcs:jce) = pemiss(jcs:jce)*4._wp*stbo*ptsfc(jcs:jce)**3    ! Derivative of upward sfc rad wrt to sfc temperature
+        zflxlwclr(jcs:jce,klevp1) = pflxlwclr(jcs:jce,klevp1)                & ! Net longwave sfc rad at radiation time step
+        & - dlwem_o_dtg(jcs:jce) * (ptsfc(jcs:jce) - ptsfctrad(jcs:jce))       ! Correction for new sfc temp between radiation time steps
+      END IF
 
     ENDIF
 
@@ -1998,6 +2071,26 @@ CONTAINS
     IF ( PRESENT(pflxtoasw) ) pflxtoasw(jcs:jce) = zflxsw(jcs:jce,1)
     IF ( PRESENT(pflxtoalw) ) pflxtoalw(jcs:jce) = zflxlw(jcs:jce,1)
 
+! Calculate radiative forcing
+    IF (lradforcing(1).OR.lradforcing(2)) THEN
+      zconv(jcs:jce,1:klev) = 1._wp/(pmair(jcs:jce,1:klev)*(pcd+(pcv-pcd)*pqv(jcs:jce,1:klev)))
+      CALL calculate_psrad_radiation_forcing( &
+                  & jg=jg,                    &
+                  & jcs=jcs,                  &
+                  & jce=jce,                  &
+                  & kbdim=kbdim,              &
+                  & klevp1=klevp1,            &
+                  & krow=krow,                &       
+                  & pi0=pi0,                  &
+                  & pconvfact=zconv,          &
+                  & pflxs=zflxsw,             &
+                  & pflxs0=zflxswclr,         &
+                  & pflxt=zflxlw,             &
+                  & pflxt0=zflxlwclr,         &   
+                  & pemiss=pemiss,            &
+                  & ptsfctrad=ptsfctrad,      &
+                  & pztsnew=ptsfc             )
+   END IF
 
   END SUBROUTINE radheat
 

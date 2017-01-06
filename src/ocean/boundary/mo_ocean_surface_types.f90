@@ -28,13 +28,7 @@ MODULE mo_ocean_surface_types
   ! Definition of forcing types for ocean surface module
   ! public types
   PUBLIC  :: t_ocean_surface
-  PUBLIC  :: t_ptr2d
 
-
-
-  TYPE t_ptr2d
-    REAL(wp),POINTER :: p(:,:)  ! pointer to 2D (spatial) array
-  END TYPE t_ptr2d
 
   !------  Definition of surface flux type---------------------
 

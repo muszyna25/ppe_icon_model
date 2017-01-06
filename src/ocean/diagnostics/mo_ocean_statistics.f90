@@ -39,7 +39,6 @@ MODULE mo_ocean_statistics
   USE mo_exception,              ONLY: message, message_text, finish
   USE mo_ext_data_types,         ONLY: t_external_data
   !USE mo_io_units,               ONLY: filename_max
-  USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time, datetime_to_string
   USE mo_ocean_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
     & t_hydro_ocean_prog
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
@@ -51,7 +50,6 @@ MODULE mo_ocean_statistics
   USE mo_linked_list,            ONLY: t_list_element
   USE mo_var_list,               ONLY: print_var_list, find_list_element
   USE mo_mpi,                    ONLY: my_process_is_stdio
-  USE mo_time_config,            ONLY: time_config
   USE mo_statistics
   USE mo_sea_ice_nml,            ONLY: i_ice_dyn
   USE mo_util_dbg_prnt,          ONLY: dbg_print

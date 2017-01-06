@@ -50,7 +50,6 @@ MODULE mo_sea_ice_refactor
 !  USE mo_grid_config,         ONLY: n_dom   ! restrict sea-ice model to the global domain for the time being
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_ice_slow2
-  USE mo_time_config,         ONLY: time_config
 
   IMPLICIT NONE
 
@@ -315,7 +314,7 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial release by Achim Randelhoff
-  !! Update and rewrite by Stephan Loreny, MPI-M (2015-01).
+  !! Update and rewrite by Stephan Lorenz, MPI-M (2015-01).
   !!
  
  SUBROUTINE ice_growth_zero_slo(p_patch, p_os, ice, rpreci)

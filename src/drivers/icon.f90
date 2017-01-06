@@ -33,7 +33,8 @@ PROGRAM icon
   USE mo_master_control,      ONLY: init_master_control,                                &
     &                               get_my_namelist_filename, get_my_process_type,      &
     &                               atmo_process, ocean_process, testbed_process
-  USE mo_time_config,         ONLY: restart_experiment
+  USE mo_time_config,         ONLY: time_config
+  USE mtime,                  ONLY: OPERATOR(>)
   USE mo_util_signal
   USE mo_util_sysinfo,        ONLY: util_user_name, util_os_system, util_node_name
   USE mo_util_vcs,            ONLY: util_repository_url,                                &
@@ -54,7 +55,7 @@ PROGRAM icon
 
   USE mo_cdi,                 ONLY: gribapiLibraryVersion
   USE mo_cf_convention          ! We need all ?
-
+  
   IMPLICIT NONE
 
   INTEGER                     :: master_control_status, my_process_component
@@ -257,19 +258,20 @@ PROGRAM icon
 
   END SELECT
 
-  ! write the control.status file
-  IF (my_process_is_global_root()) THEN
-    OPEN (500, FILE="finish.status")
-    IF (restart_experiment) THEN
-      WRITE(500,*) "RESTART"
-    ELSE
-      WRITE(500,*) "OK"
-    ENDIF
-    CLOSE(500)
+  IF (ASSOCIATED(time_config%tc_exp_stopdate) .AND. ASSOCIATED(time_config%tc_stopdate)) THEN
+    ! write the control.status file
+    IF (my_process_is_global_root()) THEN
+      OPEN (500, FILE="finish.status")
+      IF ((time_config%tc_exp_stopdate > time_config%tc_stopdate) .AND. time_config%tc_write_restart) THEN
+        WRITE(500,*) "RESTART"
+      ELSE
+        WRITE(500,*) "OK"
+      ENDIF
+      CLOSE(500)
+    END IF
   END IF
 
   ! Shut down MPI
-  !
   CALL stop_mpi
 
 #if defined (__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR)

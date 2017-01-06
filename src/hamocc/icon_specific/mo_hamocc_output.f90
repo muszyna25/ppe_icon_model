@@ -1,6 +1,8 @@
+#ifndef __NO_ICON_OCEAN__
+
       MODULE mo_hamocc_output
 
-! icon specific routines for output, update etc
+! icon specific routines for output and restart
 
       USE mo_control_bgc,          ONLY: dtb
 
@@ -177,12 +179,6 @@
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_BASE"),&
       & loutput=.TRUE., lrestart=.FALSE.)
 
-     CALL add_var(hamocc_default_list, 'doccya',hamocc_state_diag%doccya,    &
-      & grid_unstructured_cell, za_depth_below_sea,&
-      & t_cf_var('doccya','kmolP m-3','DOCcya concentration', DATATYPE_FLT32), &
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_BASE"),&
-      & loutput=.TRUE., lrestart=.FALSE.)
 
      CALL add_var(hamocc_default_list, 'alk',hamocc_state_diag%alk,    &
       & grid_unstructured_cell, za_depth_below_sea,&
@@ -314,13 +310,6 @@
       & grid_unstructured_cell, za_depth_below_sea,&
       & t_cf_var('BACFRA','kmolP m-3 s-1','bacterial decomposition of DOC', DATATYPE_FLT32), &
       & grib2_var(255, 255, 293, DATATYPE_PACK16, grid_reference, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
-      & loutput=.TRUE., lrestart=.FALSE.)
-
-   CALL add_var(hamocc_acc_list, 'degr_bac_cya',hamocc_state_acc%bacfrac,    &
-      & grid_unstructured_cell, za_depth_below_sea,&
-      & t_cf_var('degr_bac_cya','kmolP m-3 s-1','bacterial decomposition of DOCcya', DATATYPE_FLT32), &
-      & grib2_var(255, 255, 297, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.TRUE., lrestart=.FALSE.)
 
@@ -933,14 +922,6 @@
       & 'global annual primary production of cyanobacteria', &
       &  DATATYPE_FLT32)))
 
-   CALL add_var(hamocc_tendency_list, 'EU_bact_degr_DOC_cya', hamocc_state_moni%bacfrac , &
-      & GRID_LONLAT, za_surface,    &
-      & t_cf_var('EU_bact_degr_DOC_cya', 'GtC s-1', 'EU_microbilad degradation DOCcya', DATATYPE_FLT32),&
-      & grib2_var(255, 255, 521, DATATYPE_PACK16, grid_reference, grid_lonlat),&
-      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
-      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
-      &  arg1=s2year,new_cf=t_cf_var('EU_bact_degr_DOC_cya','GtC yr-1','EU_microbial degradation DOCcya', &
-      &  DATATYPE_FLT32)))
 
    CALL add_var(hamocc_tendency_list, 'Aerob_remin_of_detritus', hamocc_state_moni%remina , &
       & GRID_LONLAT, za_surface,    &
@@ -1092,13 +1073,6 @@
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.FALSE., lrestart=.FALSE.)
    
-  CALL add_var(hamocc_tendency_list, 'degr_bac_cya',hamocc_state_tend%bacfrac,    &
-      & grid_unstructured_cell, za_depth_below_sea,&
-      & t_cf_var('degra_bac_cya','kmolP m-3 s-1','bacterial decomposition of DOCcya', DATATYPE_FLT32), &
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
-      & loutput=.FALSE., lrestart=.FALSE.)
-
 
     CALL add_var(hamocc_tendency_list, 'SRED',hamocc_state_tend%remins,    &
       & grid_unstructured_cell, za_depth_below_sea,&
@@ -1871,3 +1845,5 @@
   END SUBROUTINE close_bgcout
 
  END MODULE
+
+#endif

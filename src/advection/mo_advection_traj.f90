@@ -27,6 +27,8 @@
 !! - moved setup_transport to mo_advection_nml
 !! Modification by Daniel Reinert, DWD (2013-10-30)
 !! - moved divide_flux_area to mo_advection_geometry
+!! Modification by William Sawyer, CSCS (2016-02-26)
+!! - OpenACC implementation
 !!
 !! @par Copyright and License
 !!
@@ -51,6 +53,10 @@ MODULE mo_advection_traj
   USE mo_timer,               ONLY: timer_start, timer_stop, timers_level, timer_back_traj
   USE mo_advection_utils,     ONLY: t_list2D
 !!$  USE mo_math_constants,      ONLY: dbl_eps
+#ifdef _OPENACC
+  USE mo_sync,                ONLY: SYNC_E, SYNC_C, sync_patch_array
+  USE mo_mpi,                 ONLY: i_am_accel_node
+#endif
 
 
   IMPLICIT NONE
@@ -63,6 +69,14 @@ MODULE mo_advection_traj
   PUBLIC :: btraj_dreg
   PUBLIC :: btraj_o2
 
+#if defined( _OPENACC )
+#define ACC_DEBUG $ACC
+#if defined(__ADVECTION_TRAJ_NOACC)
+  LOGICAL, PARAMETER ::  acc_on = .FALSE.
+#else
+  LOGICAL, PARAMETER ::  acc_on = .TRUE.
+#endif
+#endif
 
 CONTAINS
 
@@ -80,7 +94,7 @@ CONTAINS
   !! In a final step, this vector is transformed into a rotated coordinate system
   !! which has its origin at the circumcenter. The coordinate axes point to the local
   !! east and local north. Note that this subroutine has specifically been designed
-  !! for the MIURA scheme with second order (linear) reconstruction of the subgrid
+  !! for the MIURA scheme with second order (linear) reconstruction of the subgrid 
   !! distribution.
   !!
   !! @par Revision History
@@ -162,7 +176,6 @@ CONTAINS
       i_rlend = min_rledge_int - 2
     ENDIF
 
-
     ! number of child domains
     i_nchdom   = MAX(1,ptr_p%n_childdom)
 
@@ -174,13 +187,25 @@ CONTAINS
       CALL timer_start(timer_back_traj)
     ENDIF
 
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( p_distv_bary, p_cell_idx, p_cell_blk ),  IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG  UPDATE DEVICE ( p_vn, p_vt ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, p_distv_bary, p_cell_idx, p_cell_blk ), &
+!$ACC PRIVATE( z_ntdistv_bary ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,z_ntdistv_bary,lvn_pos) ICON_OMP_DEFAULT_SCHEDULE
+#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
            i_startidx, i_endidx, i_rlstart, i_rlend)
 
+!$ACC LOOP VECTOR COLLAPSE(2)
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 
@@ -240,8 +265,14 @@ CONTAINS
         ENDDO ! loop over edges
       ENDDO   ! loop over vertical levels
     END DO    ! loop over blocks
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( p_cell_idx, p_cell_blk, p_distv_bary ) IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
     IF (timers_level > 5) CALL timer_stop(timer_back_traj)
 
@@ -267,23 +298,23 @@ CONTAINS
   !! Note: So far, we take care that the vertices of the departure region are stored in
   !! counterclockwise order. This ensures that the gaussian quadrature is positive definite.
   !!
-  !! NOTE_1: Since we are only interested in the departure region average rather than
-  !!       the departure region integral, counterclockwise numbering is not strictly
-  !!       necessary. Maybe we should remove the computational overhead of counterclockwise
+  !! NOTE_1: Since we are only interested in the departure region average rather than 
+  !!       the departure region integral, counterclockwise numbering is not strictly 
+  !!       necessary. Maybe we should remove the computational overhead of counterclockwise 
   !!       numbering at some time. However, the points must not be numbered in random order.
-  !!       Care must be taken that the points are numbered either clockwise or counterclockwise.
-  !!
-  !! Note_2: The coordinates for 2 of the 4 vertices do not change with time. However,
-  !!       tests indicated that re-computing these coordinates is faster than fetching
-  !!       precomputed ones from memory.
+  !!       Care must be taken that the points are numbered either clockwise or counterclockwise. 
+  !!       
+  !! Note_2: The coordinates for 2 of the 4 vertices do not change with time. However, 
+  !!       tests indicated that re-computing these coordinates is faster than fetching 
+  !!       precomputed ones from memory. 
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2010-05-12)
   !! Modification by Daniel Reinert, DWD (2012-04-24)
-  !! - bug fix: counterclockwise numbering is now ensured independent of the
+  !! - bug fix: counterclockwise numbering is now ensured independent of the 
   !!   edge system-orientation.
   !! Modification by Daniel Reinert, DWD (2013-11-01)
-  !! - optionally derive list of edges for which the standard Miura scheme is
+  !! - optionally derive list of edges for which the standard Miura scheme is 
   !!   potentially insufficient
   !!
   SUBROUTINE btraj_dreg( ptr_p, ptr_int, p_vn, p_vt, p_dt, lcounterclock, &
@@ -306,7 +337,7 @@ CONTAINS
     REAL(wp), INTENT(IN)    ::  &  !< time step $\Delta t$
          &  p_dt
 
-    LOGICAL, INTENT(IN)     ::  &  !< if TRUE, flux area vertices are ordered
+    LOGICAL, INTENT(IN)     ::  &  !< if TRUE, flux area vertices are ordered 
          &  lcounterclock            !< counterclockwise. If FALSE, some are ordered
                                      !< counterclockwise, some clockwise
 
@@ -334,11 +365,11 @@ CONTAINS
          &  opt_elev
 
     TYPE(t_list2D), INTENT(INOUT), OPTIONAL :: & !< list with points for which a local
-         &  opt_falist                      !< polynomial approximation is insufficient
-                                            !< and a piecewise approximation is needed,
+         &  opt_falist                      !< polynomial approximation is insufficient 
+                                            !< and a piecewise approximation is needed, 
                                             !< instead
 
-    REAL(wp) ::            &       !< coordinates of departure points
+    REAL(wp) ::            &       !< coordinates of departure points 
          &  depart_pts(nproma,2,2) !< in edge-based coordinate system
 
     REAL(wp) ::            &       !< coordinates of departure region vertices
@@ -363,7 +394,7 @@ CONTAINS
 
     ! for index list generation
     LOGICAL :: llist_gen           !< if TRUE, generate index list
-    INTEGER :: ie                  !< counter
+    INTEGER :: ie, ie_capture      !< counter, and its captured value
     REAL(wp):: traj_length         !< backward trajectory length [m]
     REAL(wp):: e2c_length          !< edge-upwind cell circumcenter length [m]
     !-------------------------------------------------------------------------
@@ -410,10 +441,22 @@ CONTAINS
     i_endblk   = ptr_p%edges%end_blk(i_rlend,i_nchdom)
 
 
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( p_coords_dreg_v, p_cell_idx, p_cell_blk ),  &
+!$ACC      CREATE(  edge_verts,lvn_sys_pos,depart_pts,pos_dreg_vert_c,pos_on_tplane_e,pn_cell,dn_cell ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG  UPDATE DEVICE ( p_vn, p_vt ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, p_coords_dreg_v, p_cell_idx, p_cell_blk ), &
+!$ACC PRIVATE( edge_verts, lvn_sys_pos, depart_pts,pos_dreg_vert_c,pos_on_tplane_e,pn_cell,dn_cell ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,je,ie,i_startidx,i_endidx,traj_length,e2c_length, &
 !$OMP depart_pts,pos_dreg_vert_c,pos_on_tplane_e,pn_cell,dn_cell,lvn_pos,&
 !$OMP lvn_sys_pos,edge_verts) ICON_OMP_DEFAULT_SCHEDULE
+#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk, &
@@ -421,12 +464,14 @@ CONTAINS
 
 
       ! get local copy of edge vertices
+!$ACC LOOP VECTOR
       DO je = i_startidx, i_endidx
         edge_verts(je,1:2,1:2) = ptr_int%pos_on_tplane_e(je,jb,7:8,1:2)
       ENDDO
 
       ! logical switch for merge options regarding the counterclockwise numbering
       IF (lcounterclock) THEN
+!$ACC LOOP VECTOR COLLAPSE(2)
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
             lvn_sys_pos(je,jk) = p_vn(je,jk,jb)*ptr_p%edges%tangent_orientation(je,jb) >= 0._wp
@@ -440,6 +485,7 @@ CONTAINS
       !
       IF (llist_gen) THEN
         ie = 0
+!$ACC LOOP VECTOR COLLAPSE(2)
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
             ! logical switch for MERGE operations: .TRUE. for p_vn >= 0
@@ -457,9 +503,14 @@ CONTAINS
 !!$            IF (traj_length > ((1.4_wp - MIN(0.5_wp,(0.1_wp*ABS(p_vt(je,jk,jb)/MAX(dbl_eps,p_vn(je,jk,jb)))))) &
 !!$                               *e2c_length)) THEN   ! add point to index list
 
+!
+! OpenACC:  This seems to be the only atomic operation in the calculation
+!$ACC ATOMIC CAPTURE
               ie = ie + 1
-              opt_falist%eidx(ie,jb) = je
-              opt_falist%elev(ie,jb) = jk
+              ie_capture = ie
+!$ACC END ATOMIC
+              opt_falist%eidx(ie_capture,jb) = je
+              opt_falist%elev(ie_capture,jb) = jk
             ENDIF
           ENDDO ! loop over edges
         ENDDO   ! loop over vertical levels
@@ -468,6 +519,7 @@ CONTAINS
         opt_falist%len(jb) = ie
       ENDIF
 
+!$ACC LOOP VECTOR COLLAPSE(2)
       DO jk = slev, elev
 !DIR$ IVDEP
         DO je = i_startidx, i_endidx
@@ -501,7 +553,7 @@ CONTAINS
 
           !
           ! Calculate backward trajectories, starting at the two edge vertices
-          ! (arrival points). It is assumed that the velocity vector is constant
+          ! (arrival points). It is assumed that the velocity vector is constant 
           ! along the edge.
           !
 
@@ -516,7 +568,7 @@ CONTAINS
             &                          ptr_p%edges%cell_blk(je,jb,2),lvn_pos)
 
 
-          ! departure points of the departure cell. Point 1 belongs to edge-vertex 1,
+          ! departure points of the departure cell. Point 1 belongs to edge-vertex 1, 
           ! point 2 belongs to edge_vertex 2.
           !
           ! position of vertex 4 (vn > 0) / vertex 2(vn < 0) in normal direction
@@ -592,8 +644,15 @@ CONTAINS
         ENDDO ! loop over edges
       ENDDO   ! loop over vertical levels
     END DO    ! loop over blocks
+
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( p_cell_idx, p_cell_blk, p_coords_dreg_v ) IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
     IF (timers_level > 5) CALL timer_stop(timer_back_traj)
 
@@ -720,7 +779,6 @@ CONTAINS
       i_rlend = min_rledge_int - 1
     ENDIF
 
-
     ! number of child domains
     i_nchdom   = MAX(1,ptr_p%n_childdom)
 
@@ -745,13 +803,25 @@ CONTAINS
     iidx => ptr_p%edges%quad_idx
     iblk => ptr_p%edges%quad_blk
 
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( p_vn, p_vt ), PCOPYOUT( p_distv_bary, p_cell_idx, p_cell_blk ), &
+!$ACC CREATE( z_vn_plane, pos_barycenter, z_ntdistv_bary ),   IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG  UPDATE DEVICE ( p_vn, p_vt ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, z_vn_plane ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
            i_startidx, i_endidx, i_rlstart, i_rlend)
 
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
         DO jk = slev, elev
@@ -807,12 +877,21 @@ CONTAINS
             ENDDO ! loop over edges
           ENDDO   ! loop over vertical levels
         END DO    ! loop over blocks
+#ifdef _OPENACC
+!$ACC END PARALLEL
+
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_p, ptr_int, p_vn, p_vt, p_distv_bary, p_cell_idx, p_cell_blk ), &
+!$ACC PRIVATE( pos_barycenter, z_ntdistv_bary ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
 !$OMP END DO
-
-
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,pos_barycenter,zcell,w1,w2,w3, &
 !$OMP            vn_new,vt_new,z_ntdistv_bary) ICON_OMP_DEFAULT_SCHEDULE
+#endif
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
@@ -934,8 +1013,15 @@ CONTAINS
             ENDDO ! loop over edges
           ENDDO   ! loop over vertical levels
         END DO    ! loop over blocks
+
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( p_cell_idx, p_cell_blk, p_distv_bary ) IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
       END SUBROUTINE btraj_o2
 

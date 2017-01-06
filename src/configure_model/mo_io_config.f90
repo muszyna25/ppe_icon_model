@@ -28,6 +28,7 @@ MODULE mo_io_config
   USE mo_run_config,     ONLY: dtime
   USE mo_io_units,       ONLY: filename_max
   USE mo_cdi,            ONLY: FILETYPE_NC2
+  USE mo_impl_constants, ONLY: max_dom
 
   IMPLICIT NONE
   PUBLIC
@@ -40,6 +41,7 @@ MODULE mo_io_config
 
   LOGICAL :: lkeep_in_sync              ! if .true., sync stream after each timestep
   REAL(wp):: dt_diag                    ! diagnostic output timestep [seconds]
+  REAL(wp):: gust_interval(max_dom)     ! time interval over which maximum wind gusts are taken
   REAL(wp):: dt_checkpoint              ! timestep [seconds] for triggering new restart file
 
   INTEGER :: inextra_2d                 ! number of extra output fields for debugging
@@ -134,17 +136,21 @@ CONTAINS
 
      LOGICAL              :: l_checkpoint
 
-     IF (PRESENT(n_steps)) THEN
-       IF ( MOD(current_step,n_checkpoints)==0 .AND. current_step/=n_steps ) THEN
-         l_checkpoint = .TRUE.
-       ELSE
-         l_checkpoint = .FALSE.
-       END IF
+     IF (n_checkpoints == 0) THEN
+       l_checkpoint = .FALSE.
      ELSE
-       IF ( MOD(current_step,n_checkpoints)==0 ) THEN
-         l_checkpoint = .TRUE.
+       IF (PRESENT(n_steps)) THEN
+         IF ( MOD(current_step,n_checkpoints)==0 .AND. current_step/=n_steps ) THEN
+           l_checkpoint = .TRUE.
+         ELSE
+           l_checkpoint = .FALSE.
+         END IF
        ELSE
-         l_checkpoint = .FALSE.
+         IF ( MOD(current_step,n_checkpoints)==0 ) THEN
+           l_checkpoint = .TRUE.
+         ELSE
+           l_checkpoint = .FALSE.
+         END IF
        END IF
      END IF
    END FUNCTION is_checkpoint_time

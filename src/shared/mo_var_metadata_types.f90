@@ -8,6 +8,7 @@
 MODULE mo_var_metadata_types
 
   USE mo_kind,                  ONLY: dp, wp
+  USE mo_impl_constants,        ONLY: VARNAME_LEN
   USE mo_grib2,                 ONLY: t_grib2_var
   USE mo_action_types,          ONLY: t_var_action
   USE mo_cf_convention,         ONLY: t_cf_var
@@ -22,9 +23,6 @@ MODULE mo_var_metadata_types
   ! CONSTANTS
   ! ---------------------------------------------------------------
 
-
-  ! maximum string length for variable names
-  INTEGER, PARAMETER :: VARNAME_LEN = 256
 
   ! List of variable groups
   ! 
@@ -43,7 +41,7 @@ MODULE mo_var_metadata_types
   ! New groups can be added by extending the VAR_GROUPS list.
   !
 
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(56) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(57) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -99,6 +97,7 @@ MODULE mo_var_metadata_types
     &  "ART_AERO_DUST         ",  &  ! ICON-ART fields for mineral dust aerosol
     &  "ART_AERO_SEAS         ",  &  ! ICON-ART fields for sea salt aerosol
     &  "ART_CHEMTRACER        ",  &  ! ICON-ART fields for lifetime based chemical tracer
+    &  "ART_PASSIVE           ",  &  ! ICON-ART fields for passive tracer
     &  "RTTOV                 " /)
 
   ! maximum number of variable groups supported by info state

@@ -25,7 +25,6 @@ MODULE mo_atmo_hydrostatic
   USE mo_ha_testcases,      ONLY: ctest_name
   USE mo_io_config,         ONLY: configure_io
   USE mo_grid_config,       ONLY: n_dom
-
   USE mo_model_domain,        ONLY: p_patch
   USE mo_intp_data_strc,      ONLY: p_int_state
   USE mo_grf_intp_data_strc,  ONLY: p_grf_state
@@ -38,14 +37,13 @@ MODULE mo_atmo_hydrostatic
   USE mo_echam_phy_init,      ONLY: init_echam_phy, initcond_echam_phy !, additional_restart_init
   USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
 
-  USE mo_io_restart,           ONLY: read_restart_files
-  USE mo_io_restart_attributes,ONLY: get_restart_attribute
+  USE mo_load_restart,          ONLY: read_restart_files
+  USE mo_restart_attributes,    ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_name_list_output_init, ONLY: init_name_list_output
   USE mo_name_list_output,     ONLY:  write_name_list_output, &
        &                              close_name_list_output
-  USE mo_mtime_extensions,     ONLY: get_datetime_string
   USE mo_output_event_types,   ONLY: t_sim_step_info
-  USE mtime,                   ONLY: setCalendar, PROLEPTIC_GREGORIAN
+  USE mtime,                   ONLY: datetimeToString
 
 
   IMPLICIT NONE
@@ -77,7 +75,7 @@ CONTAINS
 
     CALL perform_ha_stepping( p_patch(1:), p_int_state(1:),                  &
                             & p_grf_state(1:),                               &
-                            & p_hydro_state, time_config%cur_datetime )
+                            & p_hydro_state, time_config%tc_current_date )
 
     !---------------------------------------------------------------------
     ! Integration finished. Start to clean up.
@@ -97,6 +95,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: method_name = "construct_atmo_hydrostatic"
     TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 
     !------------------------------------------------------------------
     ! Initialize parameters and solvers;
@@ -122,7 +121,7 @@ CONTAINS
 
     IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
       CALL init_echam_phy( p_patch(1:), ctest_name, &
-                            & nlev, vct_a, vct_b, time_config%cur_datetime )
+                            & nlev, vct_a, vct_b, time_config%tc_current_date )
     END IF
 
     !------------------------------------------------------------------
@@ -159,18 +158,18 @@ CONTAINS
     !------------------------------------------------------------------
 
     IF (output_mode%l_nml) THEN
-      CALL setCalendar(PROLEPTIC_GREGORIAN)
       ! compute sim_start, sim_end
-      CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)
-      CALL get_datetime_string(sim_step_info%sim_end,   time_config%end_datetime)
-      CALL get_datetime_string(sim_step_info%restart_time,  time_config%cur_datetime, &
-        &                      INT(time_config%dt_restart))
-      CALL get_datetime_string(sim_step_info%run_start, time_config%cur_datetime)
+      CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
+      CALL datetimeToString(time_config%tc_exp_stopdate, sim_step_info%sim_end)
+      CALL datetimeToString(time_config%tc_startdate, sim_step_info%run_start)
+      CALL datetimeToString(time_config%tc_stopdate, sim_step_info%restart_time)
+
       sim_step_info%dtime      = dtime
       jstep0 = 0
-      IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
+      restartAttributes => getAttributesForRestarting()
+      IF (ASSOCIATED(restartAttributes)) THEN
         ! get start counter for time loop from restart file:
-        CALL get_restart_attribute("jstep", jstep0)
+        jstep0 = restartAttributes%getInteger("jstep", jstep0)
       END IF
       sim_step_info%jstep0    = jstep0
       CALL init_name_list_output(sim_step_info)

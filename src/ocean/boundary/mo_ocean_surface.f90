@@ -41,7 +41,6 @@ MODULE mo_ocean_surface
   USE mo_grib2
   USE mo_cdi_constants
   USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16, GRID_UNSTRUCTURED
-  USE mo_datetime,            ONLY: t_datetime
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_ocean_ext_data,      ONLY: ext_data
   USE mo_ocean_nml,           ONLY: iforc_oce, forcing_timescale, relax_analytical_type,  &
@@ -81,7 +80,12 @@ MODULE mo_ocean_surface
   USE mo_sea_ice_nml,         ONLY: use_calculated_ocean_stress, i_ice_dyn
   USE mo_timer,               ONLY: timers_level, timer_start, timer_stop, timer_extra40
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
+  USE mtime,                  ONLY: datetime, &
+       &                            getDayOfYearFromDateTime, &
+       &                            getNoOfDaysInYearDateTime, &
+       &                            getNoOfSecondsElapsedInDayDateTime
 
+  
   IMPLICIT NONE
   
   ! required for reading netcdf files
@@ -154,7 +158,7 @@ CONTAINS
       &        ldims=(/nproma,alloc_cell_blocks/))
     CALL add_var(ocean_default_list, 'oceWind_Speed_10m', p_oce_sfc%Wind_Speed_10m, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &        t_cf_var('Wind_Speed_10m', 'Pa', 'Wind Speed at 10m height', datatype_flt),&
+      &        t_cf_var('Wind_Speed_10m', 'm/s', 'Wind Speed at 10m height', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
       &        ldims=(/nproma,alloc_cell_blocks/))
 
@@ -189,7 +193,7 @@ CONTAINS
 
     CALL add_var(ocean_default_list, 'SSS', p_oce_sfc%SSS, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &        t_cf_var('SSS', 'C', 'Sea Surface Salinity', datatype_flt),&
+      &        t_cf_var('SSS', 'psu', 'Sea Surface Salinity', datatype_flt),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
       &        ldims=(/nproma,alloc_cell_blocks/))
 
@@ -229,7 +233,8 @@ CONTAINS
   !! restructured code (mo_ocean_surface) by Stephan Lorenz, MPI-M (2015-04)
   !
 !<Optimize_Used>
-  SUBROUTINE update_ocean_surface(p_patch_3D, p_os, p_as, p_ice, atmos_fluxes, p_sfc_flx, p_oce_sfc, jstep, datetime, p_op_coeff)
+  SUBROUTINE update_ocean_surface(p_patch_3D, p_os, p_as, p_ice, atmos_fluxes, &
+       &                          p_sfc_flx, p_oce_sfc, jstep, this_datetime, p_op_coeff)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)        :: p_patch_3D
     TYPE(t_hydro_ocean_state)                   :: p_os
@@ -239,7 +244,7 @@ CONTAINS
     TYPE(t_sfc_flx)                             :: p_sfc_flx      !  to be replaced by p_oce_sfc
     TYPE(t_ocean_surface)                       :: p_oce_sfc      !  new forcing for ocean surface
     INTEGER, INTENT(IN)                         :: jstep
-    TYPE(t_datetime), INTENT(INOUT)             :: datetime
+    TYPE(datetime), POINTER                     :: this_datetime
     TYPE(t_operator_coeff),   INTENT(IN)        :: p_op_coeff
     !
     ! local variables
@@ -352,7 +357,7 @@ CONTAINS
 
       !  Driving the ocean with OMIP fluxes
       !   a) read OMIP data (read relaxation data)
-      CALL update_flux_fromFile(p_patch_3D, p_as, jstep, datetime, p_op_coeff)
+      CALL update_flux_fromFile(p_patch_3D, p_as, jstep, this_datetime, p_op_coeff)
 
       !   b) calculate OMIP flux data
 
@@ -392,6 +397,10 @@ CONTAINS
       !  nothing to be done, atmospheric fluxes are provided at the end of time stepping
       !  atmospheric fluxes drive the ocean; fluxes are calculated by atmospheric model
       !  use atmospheric fluxes directly, i.e. no bulk formula as for OMIP is applied
+       
+       ! HAMOCC uses p_as to get SW radiation and wind, so we need to copy
+       ! the SW radiation onto it in the coupled case 
+       if(lhamocc) p_as%fswr(:,:) = atmos_fluxes%HeatFlux_ShortWave(:,:)
       CONTINUE
 
     CASE DEFAULT
@@ -400,6 +409,9 @@ CONTAINS
       CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION DOES NOT EXIST - TERMINATE')
 
     END SELECT
+
+    ! copy atmospheric wind speed from p_as%fu10 into new forcing variable for output purpose - not accumulated yet
+    p_oce_sfc%Wind_Speed_10m(:,:) = p_as%fu10(:,:)
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
@@ -447,7 +459,7 @@ CONTAINS
             &   atmos_fluxes%albvisdif(:,:,jb), &
             &   atmos_fluxes%albnirdir(:,:,jb), &
             &   atmos_fluxes%albnirdif(:,:,jb), &
-            &   doy=datetime%yeaday)
+            &   doy = getDayOfYearFromDateTime(this_datetime))
         ENDDO
        
         ! Unique albedo for analytical and OMIP cases (i_ice_albedo=1)
@@ -516,7 +528,7 @@ CONTAINS
       atmos_fluxes%sensw  (:,:)   = atmos_fluxes%HeatFlux_Sensible (:,:)
       atmos_fluxes%latw   (:,:)   = atmos_fluxes%HeatFlux_Latent   (:,:)
      
-      WHERE ( p_ice%concSum(:,:) > 0._wp) !  corresponding to 1-concSum in TotalOcean
+      WHERE ( p_ice%concSum(:,:) > 0._wp) !  corresponding to (1-concSum)*Precip in TotalOcean
    !  WHERE ( ALL( p_ice%hi   (:,:,:) > 0._wp, 2 ) )  !  corresponding to hi>0 in ice_growth_zero
    !  WHERE ( ALL( p_ice%Tsurf(:,:,:) < 0._wp, 2 ) )  !  Tsurf is -1.8 over open water, incorrect specification
         ! SnowFall and liquid rain over ice-covered part of ocean are taken from the atmosphere model
@@ -531,9 +543,12 @@ CONTAINS
       ! copy flux for use in TotalOcean, since analytical/omip use p_as:
       !p_as%FrshFlux_Precipitation      = atmos_fluxes%FrshFlux_Precipitation
 
-      ! total water flux (runoff added elsewhere) on ice-free ocean water, snowfall is included as water
-      atmos_fluxes%FrshFlux_TotalOcean(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) * &
-        &  (atmos_fluxes%FrshFlux_Precipitation(:,:) + atmos_fluxes%FrshFlux_Evaporation(:,:))
+      ! total water flux over ice-free ocean water: P*(1-C)+E
+      !  - whole evaporation over grid-box enters open ocean, this includes evaporation over sea ice covered part
+      !  - snowfall is included as (melted) water equivalent
+      !  - runoff is added to VolumeTotal below
+      atmos_fluxes%FrshFlux_TotalOcean(:,:) = p_patch_3d%wet_c(:,1,:)* &
+        &  (( 1.0_wp-p_ice%concSum(:,:) ) * atmos_fluxes%FrshFlux_Precipitation(:,:) + atmos_fluxes%FrshFlux_Evaporation(:,:))
 
     ENDIF  ! iforc_oce
 
@@ -868,7 +883,7 @@ CONTAINS
     !  - sea level is balanced to zero over ocean surface
     !  - correction applied daily
     !  calculate time
-    dsec  = datetime%daysec        ! real seconds since begin of day
+    dsec  = REAL(getNoOfSecondsElapsedInDayDateTime(this_datetime), wp)
     ! event at end of first timestep of day - tbd: use mtime
     IF (limit_elevation .AND. (dsec-dtime)<0.1 ) THEN
       CALL balance_elevation(p_patch_3D, p_os%p_prog(nold(1))%h)
@@ -890,12 +905,12 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010/2014)
   !
-  SUBROUTINE update_flux_fromFile(p_patch_3D, p_as, jstep, datetime, p_op_coeff)
+  SUBROUTINE update_flux_fromFile(p_patch_3D, p_as, jstep, this_datetime, p_op_coeff)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)        :: p_patch_3D
     TYPE(t_atmos_for_ocean)                     :: p_as
     INTEGER, INTENT(IN)                         :: jstep
-    TYPE(t_datetime), INTENT(INOUT)             :: datetime
+    TYPE(datetime), POINTER                     :: this_datetime
     TYPE(t_operator_coeff),   INTENT(IN)        :: p_op_coeff
     !
     ! local variables
@@ -914,12 +929,10 @@ CONTAINS
     !all_cells       => p_patch%cells%all
 
     !  calculate day and month
-    jmon  = datetime%month         ! integer current month
-    jdmon = datetime%day           ! integer day in month
-    yday  = datetime%yeaday        ! integer current day in year
-    ylen  = datetime%yealen        ! integer days in year (365 or 366)
-   !dsec  = datetime%daysec        ! real seconds since begin of day
-   !ytim  = datetime%yeatim        ! real time since begin of year
+    jmon  = this_datetime%date%month
+    jdmon = this_datetime%date%day
+    yday  = getDayOfYearFromDateTime(this_datetime)
+    ylen  = getNoOfDaysInYearDateTime(this_datetime)
 
     !
     ! use annual forcing-data:

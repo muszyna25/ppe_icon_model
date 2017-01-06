@@ -24,7 +24,7 @@ MODULE mo_run_config
   USE mo_impl_constants, ONLY: MAX_DOM, IHELDSUAREZ, INWP, IECHAM, ILDF_ECHAM, &
                                IMPIOM, INOFORCING, ILDF_DRY, MAX_CHAR_LENGTH,  &
                                TIMER_MODE_AGGREGATED, TIMER_MODE_DETAILED
-  USE mtime,             ONLY: timedelta, newTimedelta
+  USE mtime,             ONLY: MAX_TIMEDELTA_STR_LEN
   
   IMPLICIT NONE
   PRIVATE
@@ -32,9 +32,8 @@ MODULE mo_run_config
   PUBLIC :: ltransport, ntracer, nlev, nlevm1, nlevp1
   PUBLIC :: lart
   PUBLIC :: lvert_nest, num_lev, nshift, nsteps, dtime
-  PUBLIC :: tc_dt_model, setModelTimeStep
   PUBLIC :: ltimer, timers_level, activate_sync_timers, msg_level
-  PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqtvar, nqtendphy, iqt, ico2
+  PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqtvar, nqtendphy, iqt, ico2, ich4, in2o, io3
   PUBLIC :: iqni, iqni_nuc, iqg, iqm_max
   PUBLIC :: iqh, iqnh, iqnr, iqns, iqng, iqnc, inccn, ininpot, ininact
   PUBLIC :: iqtke
@@ -48,7 +47,7 @@ MODULE mo_run_config
   PUBLIC :: restart_filename
   PUBLIC :: profiling_output, TIMER_MODE_AGGREGATED, TIMER_MODE_DETAILED
   PUBLIC :: check_uuid_gracefully
-  PUBLIC :: irad_type
+  PUBLIC :: modelTimeStep
 
     ! Namelist variables
     !
@@ -68,7 +67,6 @@ MODULE mo_run_config
 
     INTEGER :: nsteps          !< number of time steps to integrate
     REAL(wp):: dtime           !< [s] length of a time step
-    TYPE(timedelta), POINTER, PROTECTED :: tc_dt_model => NULL()
     
     LOGICAL :: ltimer          !< if .TRUE.,  the timer is switched on
     INTEGER :: timers_level    !< what level of timers to run
@@ -129,8 +127,11 @@ MODULE mo_run_config
     INTEGER :: iqtke      !< turbulent kinetic energy
 
     ! Tracer indices of other species
-    INTEGER :: ico2       !< CO2
     INTEGER :: iqt        !< start index of other tracers than hydrometeors
+    INTEGER :: ico2       !< CO2
+    INTEGER :: ich4       !< CH4
+    INTEGER :: in2o       !< N2O
+    INTEGER :: io3        !< O3
 
 
     INTEGER :: nlev               !< number of full levels for each domain
@@ -151,9 +152,8 @@ MODULE mo_run_config
     !> substition patterns)
     CHARACTER(len=MAX_CHAR_LENGTH) :: restart_filename
 
-    !> variable irad_type determines choice of radiation flux scheme
-    !> irad_type=1: rrtm, irad_type=2: psrad
-    INTEGER :: irad_type
+    !> namelist parameter (as raw character string):
+    CHARACTER(len=max_timedelta_str_len) :: modelTimeStep
 
 CONTAINS
   !>
@@ -195,11 +195,7 @@ CONTAINS
   END SUBROUTINE configure_run
   !-------------------------------------------------------------
 
-  SUBROUTINE setModelTimeStep(modelTimeStep)
-    CHARACTER(len=*), INTENT(in) :: modelTimeStep
-    tc_dt_model => newTimedelta(modelTimeStep)
-  END SUBROUTINE setModelTimeStep
-  
+ 
 !  !---------------------------------------
 !  !>
 !  LOGICAL FUNCTION get_ltestcase()

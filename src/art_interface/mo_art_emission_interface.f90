@@ -48,7 +48,7 @@ MODULE mo_art_emission_interface
   USE mo_ext_data_types,                ONLY: t_external_data
   USE mo_nwp_lnd_types,                 ONLY: t_lnd_diag
   USE mo_run_config,                    ONLY: lart
-  USE mo_datetime,                      ONLY: t_datetime
+  USE mtime,                            ONLY: datetime
 #ifdef __ICON_ART
 ! Infrastructure Routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
@@ -66,7 +66,7 @@ MODULE mo_art_emission_interface
   USE mo_art_emission_volc_1mom,        ONLY: art_organize_emission_volc
   USE mo_art_emission_volc_2mom,        ONLY: art_prepare_emission_volc,    &
                                           &   art_calculate_emission_volc
-  USE mo_art_radioactive,               ONLY: art_emiss_radioact
+  USE mo_art_emission_radioact,         ONLY: art_emiss_radioact
   USE mo_art_emission_seas,             ONLY: art_seas_emiss_martensson,    &
                                           &   art_seas_emiss_monahan,       &
                                           &   art_seas_emiss_smith
@@ -87,7 +87,7 @@ CONTAINS
 !!
 !!-------------------------------------------------------------------------
 !!
-SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_diag_lnd,rho,datetime,tracer)
+SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_diag_lnd,rho,mtime_current,tracer)
   !! Interface for ART: Emissions
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2012-01-27)
@@ -107,8 +107,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     &  p_diag_lnd              !< List of diagnostic fields (land)
   REAL(wp), INTENT(inout) :: &
     &  rho(:,:,:)              !< Density of air [kg/m3]
-  TYPE(t_datetime), INTENT(IN) :: &
-    &  datetime                !< Date and time information
+  TYPE(datetime), POINTER :: mtime_current !< Date and time information
   REAL(wp), INTENT(inout) :: &
     &  tracer(:,:,:,:)         !< Tracer mixing ratios [kg kg-1]
   ! Local variables
@@ -125,9 +124,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
 #ifdef __ICON_ART
   TYPE(t_mode), POINTER   :: &
     &  this_mode               !< pointer to current aerosol mode
-  
-  
-  
+
   ! --- Get the loop indizes
   i_nchdom   = MAX(1,p_patch%n_childdom)
   jg         = p_patch%id
@@ -300,24 +297,33 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
             ! Nothing to do here
           CLASS is (t_fields_radio)
             SELECT CASE(TRIM(fields%info%name))
-              CASE ('CS137')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iCS137),373)
-              CASE ('I131')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iI131),340)
-              CASE ('TE132')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iTE132),325)
-              CASE ('ZR95')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iZR95),184)
-              CASE ('XE133')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iXE133),355)
-              CASE ('I131g')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iI131g),870)
-              CASE ('I131o')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iI131o),880)
-              CASE ('BA140')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iBA140),384)
-              CASE ('RU103')
-                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iRU103),220)
+              CASE ('Cs-137')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iCS137),373, & 
+                  &                     p_art_data(jg)%radioact_data)
+              CASE ('I-131')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iI131),340, & 
+                  &                     p_art_data(jg)%radioact_data)
+              CASE ('Te-132')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iTE132),325, & 
+                  &                     p_art_data(jg)%radioact_data)
+              CASE ('Zr-95')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iZR95),184, & 
+                  &                     p_art_data(jg)%radioact_data)
+              CASE ('Xe-133')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iXE133),355, & 
+                  &                     p_art_data(jg)%radioact_data)
+              CASE ('I-131g')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iI131g),870, & 
+                  &                     p_art_data(jg)%radioact_data)
+              CASE ('I-131o')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iI131o),880, & 
+                  &                     p_art_data(jg)%radioact_data)
+              CASE ('Ba-140')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iBA140),384, & 
+                  &                     p_art_data(jg)%radioact_data)
+              CASE ('Ru-103')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iRU103),220, & 
+                  &                     p_art_data(jg)%radioact_data)
               ! And Default...
               CASE default
                 CALL finish('mo_art_emission_interface:art_emission_interface', &
@@ -353,7 +359,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
             CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
               &                istart, iend, i_rlstart, i_rlend)
             
-            CALL art_emiss_chemtracer(datetime,                       &
+            CALL art_emiss_chemtracer(mtime_current,                  &
               &                       dtime,                          &
               &                       tracer,                         &
               &                       p_nh_state%diag%pres,           &

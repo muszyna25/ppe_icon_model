@@ -16,7 +16,7 @@
 MODULE mo_atmo_model
 
   ! basic modules
-  USE mo_exception,               ONLY: message, finish, message_text
+  USE mo_exception,               ONLY: message, finish
   USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
     &                                   set_mpi_work_communicators, process_mpi_io_size,      &
     &                                   my_process_is_restart, process_mpi_restart_size,      &
@@ -28,10 +28,7 @@ MODULE mo_atmo_model
   USE mo_parallel_config,         ONLY: p_test_run, l_test_openmp, num_io_procs,              &
     &                                   num_restart_procs, use_async_restart_output,          &
     &                                   num_prefetch_proc
-  USE mo_master_config,           ONLY: isRestart, setStartdate, setStopdate, setExpStopdate, &
-       &                                tc_startdate, tc_stopdate, tc_dt_restart,             &
-       &                                tc_exp_stopdate, tc_exp_startdate
-  USE mo_master_control,          ONLY: get_my_process_name, get_my_model_no
+  USE mo_master_config,           ONLY: isRestart
 #ifndef NOMPI
 #if defined(__GET_MAXRSS__)
   USE mo_mpi,                     ONLY: get_my_mpi_all_id
@@ -41,8 +38,8 @@ MODULE mo_atmo_model
   USE mo_impl_constants,          ONLY: SUCCESS,                                              &
     &                                   ihs_atm_temp, ihs_atm_theta, inh_atmosphere,          &
     &                                   ishallow_water, inwp
-  USE mo_io_restart,              ONLY: read_restart_header
-  USE mo_io_restart_attributes,   ONLY: get_restart_attribute
+  USE mo_load_restart,            ONLY: read_restart_header
+  USE mo_restart_attributes,      ONLY: t_RestartAttributeList, getAttributesForRestarting
 
   ! namelist handling; control parameters: run control, dynamics
   USE mo_read_namelists,          ONLY: read_atmo_namelists
@@ -108,16 +105,14 @@ MODULE mo_atmo_model
   USE mo_interface_echam_ocean,   ONLY: construct_atmo_coupler, destruct_atmo_coupler
 
   ! I/O
-  USE mo_io_restart_async,        ONLY: restart_main_proc                                       ! main procedure for Restart PEs
+#ifndef NOMPI
+  USE mo_async_restart,           ONLY: restart_main_proc                                       ! main procedure for Restart PEs
+#endif
   USE mo_name_list_output,        ONLY: name_list_io_main_proc
   USE mo_name_list_output_config, ONLY: use_async_name_list_io
-  USE mo_io_restart_namelist,     ONLY: delete_restart_namelists
   USE mo_time_config,             ONLY: time_config      ! variable
-  USE mo_mtime_extensions,        ONLY: get_datetime_string
   USE mo_output_event_types,      ONLY: t_sim_step_info
-  USE mtime,                      ONLY: setCalendar, MAX_DATETIME_STR_LEN,         &
-       &                                datetime, newDatetime, deallocateDatetime, &
-       &                                datetimeToString, OPERATOR(<), OPERATOR(+)
+  USE mtime,                      ONLY: datetimeToString, OPERATOR(<), OPERATOR(+)
   ! Prefetching  
   USE mo_async_latbc,             ONLY: prefetch_main_proc
   ! ART
@@ -215,9 +210,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:construct_atmo_model"
     INTEGER                 :: jg, jgp, jstep0, error_status
     TYPE(t_sim_step_info)   :: sim_step_info  
-
-    TYPE(datetime), POINTER :: calculatedStopDate => NULL()
-    CHARACTER(len=max_datetime_str_len) :: startDate = '', dstring
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 
     ! initialize global registry of lon-lat grids
     CALL init_lonlat_grid_list()
@@ -226,60 +219,14 @@ CONTAINS
     ! 0. If this is a resumed or warm-start run...
     !---------------------------------------------------------------------
 
+    restartAttributes => NULL()
     IF (isRestart()) THEN
       CALL message('','Read restart file meta data ...')
       CALL read_restart_header("atm")
-      CALL get_restart_attribute('tc_startdate', startDate)
-    ELSE
-      call datetimeToString(tc_exp_startdate, startDate)
     ENDIF
 
     !---------------------------------------------------------------------
-    ! 0.1 check for start and stop dates
-    !---------------------------------------------------------------------
 
-    CALL setStartdate(startDate)
-    
-    IF (ASSOCIATED(tc_startdate) .AND. ASSOCIATED(tc_dt_restart)) THEN
-      calculatedStopDate => newDatetime('0001-01-01T00:00:00')
-      calculatedStopDate = tc_startdate + tc_dt_restart 
-      IF (ASSOCIATED(tc_exp_stopdate)) THEN
-        IF (tc_exp_stopdate < calculatedStopDate) THEN
-          calculatedStopDate = tc_exp_stopdate
-          CALL message('','Experiment stop date earlier than run stop date. '// &
-           &         'Reset end to experiment stop date!')   
-        ENDIF
-      ENDIF
-      CALL datetimeToString(calculatedStopDate, dstring)
-      CALL setStopdate(dstring)
-      IF (.NOT. ASSOCIATED(tc_exp_stopdate)) THEN
-        CALL setExpStopdate(dstring)
-      ENDIF
-      CALL deallocateDatetime(calculatedStopDate)
-    ELSE
-#ifdef USE_MTIME_LOOP
-      CALL finish('','Cannot calculate this runs stop date.')
-#else
-!      CALL message('use_mtime_loop','Cannot calculate this runs stop date.')
-#endif
-    ENDIF
-#ifdef USE_MTIME_LOOP
-    IF (ASSOCIATED(tc_startdate)) THEN
-      CALL datetimeToString(tc_startdate, dstring)
-      WRITE(message_text,'(a,a)') 'Start date of this run   : ', dstring
-      CALL message('',message_text)
-    ENDIF
-
-    IF (ASSOCIATED(tc_stopdate)) THEN
-      CALL datetimeToString(tc_stopdate, dstring)
-      WRITE(message_text,'(a,a)') 'Stop date of this run    : ', dstring
-      CALL message('',message_text)
-    ENDIF
-
-    CALL message('','')
-#endif
-
-    !---------------------------------------------------------------------
     ! 1.1 Read namelists (newly) specified by the user; fill the
     !     corresponding sections of the configuration states.
     !---------------------------------------------------------------------
@@ -329,11 +276,15 @@ CONTAINS
     ! If we belong to the Restart PEs just call restart_main_proc before reading patches.
     ! This routine will never return
     IF (process_mpi_restart_size > 0) THEN
+#ifndef NOMPI
       use_async_restart_output = .TRUE.
       CALL message('','asynchronous restart output is enabled.')
       IF (my_process_is_restart()) THEN
         CALL restart_main_proc
       ENDIF
+#else
+      CALL finish('', 'this executable was compiled without MPI support, hence asynchronous restart output is not available')
+#endif
     ENDIF
 
     ! If we belong to the prefetching PEs just call prefetch_main_proc before reading patches.
@@ -342,7 +293,7 @@ CONTAINS
       num_prefetch_proc = 1
       CALL message(routine,'asynchronous input prefetching is enabled.')
       IF (my_process_is_pref() .AND. (.NOT. my_process_is_mpi_test())) THEN
-        CALL prefetch_main_proc  
+        CALL prefetch_main_proc()
       ENDIF
     ENDIF
  
@@ -366,16 +317,17 @@ CONTAINS
           IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
           ! compute sim_start, sim_end
-          CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)
-          CALL get_datetime_string(sim_step_info%sim_end,   time_config%end_datetime)
-          CALL get_datetime_string(sim_step_info%restart_time,  time_config%cur_datetime, &
-            &                      INT(time_config%dt_restart))
-          CALL get_datetime_string(sim_step_info%run_start, time_config%cur_datetime)
+          CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
+          CALL datetimeToString(time_config%tc_exp_stopdate, sim_step_info%sim_end)
+          CALL datetimeToString(time_config%tc_startdate, sim_step_info%run_start)
+          CALL datetimeToString(time_config%tc_stopdate, sim_step_info%restart_time)
           sim_step_info%dtime      = dtime
           jstep0 = 0
-          IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
+
+          restartAttributes => getAttributesForRestarting()
+          IF (ASSOCIATED(restartAttributes)) THEN
             ! get start counter for time loop from restart file:
-            CALL get_restart_attribute("jstep", jstep0)
+            jstep0 = restartAttributes%getInteger("jstep")
           END IF
           sim_step_info%jstep0    = jstep0
           CALL name_list_io_main_proc(sim_step_info)
@@ -542,7 +494,7 @@ CONTAINS
         CALL configure_nonhydrostatic( jg, p_patch(jg)%nlev,     &
           &                            p_patch(jg)%nshift_total  )
         IF ( iforcing == inwp) THEN
-          CALL configure_ww( jg, p_patch(jg)%nlev, p_patch(jg)%nshift_total)
+          CALL configure_ww( time_config%tc_startdate, jg, p_patch(jg)%nlev, p_patch(jg)%nshift_total)
         END IF
       ENDDO
     ENDIF
@@ -623,10 +575,6 @@ CONTAINS
     IF (error_status/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocate for patch array failed')
     ENDIF
-
-    ! clear restart namelist buffer
-    CALL delete_restart_namelists()
-    IF (msg_level > 5) CALL message(TRIM(routine),'delete_restart_namelists is done')
 
     CALL destruct_rrtm_model_repart()
 !    IF (use_icon_comm) THEN

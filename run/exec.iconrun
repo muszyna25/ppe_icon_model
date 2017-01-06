@@ -150,28 +150,35 @@ if [ x$end_date = x ]; then
 cat > $master_namelist << EOF
 &master_nml
  lrestart            = $restart
+ experimentStartDate  = "$start_date" 
+ restartTimeIntval    = "$restart_interval" 
+ checkpointTimeIntval = "$checkpoint_interval" 
 /
 &time_nml
- ini_datetime_string = "$start_date"
- dt_restart          = $dt_restart
+ is_relative_time = .false.
 /
 EOF
 else
+if [ x$calendar = x ]; then
+  calendar='proleptic gregorian'
+  calendar_type=1
+else
+  calendar=$calendar
+  calendar_type=$calendar_type
+fi
 cat > $master_namelist << EOF
 &master_nml
  lrestart            = $restart
 /
 &master_time_control_nml
- calendar             = "proleptic gregorian" 
+ calendar             = "$calendar"
  checkpointTimeIntval = "$checkpoint_interval" 
  restartTimeIntval    = "$restart_interval" 
  experimentStartDate  = "$start_date" 
  experimentStopDate   = "$end_date" 
 /
 &time_nml
- ini_datetime_string = "$start_date"
- end_datetime_string = "$end_date"
- dt_restart          = $dt_restart
+ is_relative_time = .false.
 /
 EOF
 fi
