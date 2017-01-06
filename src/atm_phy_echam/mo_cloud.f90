@@ -80,8 +80,7 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE cloud (         kproma,       kbdim,          ktdia                     &
-                           , klev                                                    &
+  SUBROUTINE cloud (         kproma,       kbdim,        ktdia,        klev          &
                            , pdtime                                                  &
     ! - INPUT  1D .
                            , kctop                                                   &
@@ -89,21 +88,22 @@ CONTAINS
                            , papm1                                                   &
                            , pdz                                                     &
                            , pmdry                                                   &
-                           , pacdnc                                                  &
-                           , ptm1,         prho                                      &
-                           , pqm1,         pxlm1,        pxim1                       &
+                           , prho                                                    &
                            , pcair                                                   &
+                           , pacdnc                                                  &
+                           , ptm1                                                    &
+                           , pqm1,         pxlm1,        pxim1                       &
+                           , ptte                                                    &
+                           , pqte,         pxlte,        pxite                       &
     ! - INPUT/OUTPUT 1D .
-                           , paclcov                                                 &
                            , ktype                                                   &
                            , pch_concloud, pcw_concloud                              &
     ! - INPUT/OUTPUT 2D .
-                           , pxtecl,       pxteci,       pqtec                       &
-                           , ptte                                                    &
-                           , pqte,         pxlte,        pxite                       &
+                           , pxtecl,       pxteci                                    &
                            , paclc                                                   &
     ! - OUTPUT 1D .
-                           , pssfl,        prsfl                                     &
+                           , paclcov                                                 &
+                           , prsfl,        pssfl                                     &
     ! - OUTPUT 2D .
                            , prelhum                                                 &
                            , ptte_prc,     pqte_prc                                  &
@@ -120,38 +120,32 @@ CONTAINS
       & papm1    (kbdim,klev)     ,&!< pressure at full levels                   (n-1)
       & pdz      (kbdim,klev)     ,&!< geometric height thickness of layer
       & pmdry    (kbdim,klev)     ,&!< dry air content
+      & prho     (kbdim,klev)     ,&!< air density
+      & pcair    (kbdim,klev)     ,&!< specific heat of moist air
       & pacdnc   (kbdim,klev)     ,&!< cloud droplet number concentration (specified)
       & ptm1     (kbdim,klev)     ,&!< temperature                               (n-1)
-      & prho     (kbdim,klev)     ,&!< air density
       & pqm1     (kbdim,klev)     ,&!< specific humidity                         (n-1)
       & pxlm1    (kbdim,klev)     ,&!< cloud liquid water                        (n-1)
       & pxim1    (kbdim,klev)     ,&!< cloud ice                                 (n-1)
-      & pcair    (kbdim,klev)       !< specific heat of moist air
-    REAL(wp), INTENT(INOUT) ::     &
-      & paclcov  (kbdim)          ,&!< total cloud cover
-      & pch_concloud(kbdim)       ,&!< checking the global heat budget and
-      & pcw_concloud(kbdim)         !< checking the local water budget
-                                    !< due to convection + cloud processes
-    REAL(wp), INTENT(INOUT) ::     &
-      & pxtecl   (kbdim,klev)     ,&!< detrained convective cloud liquid water   (n)
-      & pxteci   (kbdim,klev)     ,&!< detrained convective cloud ice            (n)
-      & pqtec    (kbdim,klev)     ,&!<
       & ptte     (kbdim,klev)     ,&!< tendency of temperature
       & pqte     (kbdim,klev)     ,&!< tendency of specific humidity
       & pxlte    (kbdim,klev)     ,&!< tendency of cloud liquid water
-      & pxite    (kbdim,klev)     ,&!< tendency of cloud ice
+      & pxite    (kbdim,klev)       !< tendency of cloud ice
+    REAL(wp), INTENT(INOUT) ::     &
+      & pch_concloud(kbdim)       ,&!< checking the global heat budget of convection+cloud
+      & pcw_concloud(kbdim)       ,&!< checking the local water budget of convection+cloud
+      & pxtecl   (kbdim,klev)     ,&!< detrained convective cloud liquid water   (n)
+      & pxteci   (kbdim,klev)     ,&!< detrained convective cloud ice            (n)
       & paclc    (kbdim,klev)       !< cloud cover  (now diagnosed in cover)
-    REAL(wp),INTENT(INOUT) ::      &
-      & ptte_prc(kbdim,klev)      ,&!<
-      & pqte_prc(kbdim,klev)        ! OUT
-    REAL(wp),INTENT(INOUT) ::      &
-      & pxlte_prc(kbdim,klev)     ,&!<
-      & pxite_prc(kbdim,klev)       ! OUT
-    REAL(wp), INTENT(INOUT)   ::   &! use INOUT to preserve the initialization
+    REAL(wp),INTENT(OUT)    ::     &
+      & paclcov  (kbdim)          ,&!< total cloud cover
       & prsfl    (kbdim)          ,&!< surface rain flux
-      & pssfl    (kbdim)            !< surface snow flux
-    REAL(wp), INTENT(OUT)   ::     &
-      & prelhum  (kbdim,klev)       !< relative humidity
+      & pssfl    (kbdim)          ,&!< surface snow flux
+      & prelhum  (kbdim,klev)     ,&!< relative humidity
+      & ptte_prc (kbdim,klev)     ,&!< cloud related tendency of temperature
+      & pqte_prc (kbdim,klev)     ,&!< cloud related tendency of specific humidity
+      & pxlte_prc(kbdim,klev)     ,&!< cloud related tendency of cloud liquid water
+      & pxite_prc(kbdim,klev)       !< cloud related tendency of cloud ice
     !
     !   Temporary arrays
     !
@@ -238,6 +232,18 @@ CONTAINS
     ccwmin   => echam_cloud_config% ccwmin
     clwprat  => echam_cloud_config% clwprat
 
+    ! initialize output arrays
+    !
+    paclcov  (:)    = 0.0_wp
+    prsfl    (:)    = 0.0_wp
+    pssfl    (:)    = 0.0_wp
+    prelhum  (:,:)  = 0.0_wp
+    ptte_prc (:,:)  = 0.0_wp
+    pqte_prc (:,:)  = 0.0_wp
+    pxlte_prc(:,:)  = 0.0_wp
+    pxite_prc(:,:)  = 0.0_wp
+
+!!$    ! initialize locla arrays
 !!$    zmratepr(:,:) = 0._wp
 !!$    zmrateps(:,:) = 0._wp
 !!$    zfrain(:,:)   = 0._wp
@@ -247,17 +253,7 @@ CONTAINS
 !!$    zmlwc(:,:)    = 0._wp
 !!$    zmiwc(:,:)    = 0._wp
 !!$    zmsnowacl(:,:)= 0._wp
-    ! special treatment for prelhum: actual parameter is stream element and must
-    !                                be defined for all array elements.
-    prelhum(:,:)  = 0._wp
 
-    ! save the tendencies accumulated before calling this routine
-
-    ptte_prc(1:kproma,:)   =  ptte(1:kproma,:)
-    pqte_prc(1:kproma,:)   =  pqte(1:kproma,:)
-    pxlte_prc(1:kproma,:)  = pxlte(1:kproma,:)
-    pxite_prc(1:kproma,:)  = pxite(1:kproma,:)
-    !
     ! Executable statements
     !
 #ifdef _PROFILE
@@ -299,7 +295,6 @@ CONTAINS
          zqrho(jl)        = 1.3_wp/prho(jl,jk)
          pxtecl(jl,jk)    = MAX(pxtecl(jl,jk),0.0_wp)
          pxteci(jl,jk)    = MAX(pxteci(jl,jk),0.0_wp)
-         pqtec(jl,jk)     = MAX(pqtec(jl,jk),0.0_wp)
       END DO
 
       zqrho_sqrt(1:kproma) = SQRT(zqrho(1:kproma))
@@ -802,9 +797,9 @@ CONTAINS
     !!$           IF (locc .AND. zdep(jl)>0._wp .AND. zxlb(jl)>0._wp .AND.           &
     !!$                          zxib(jl)>csecfrl .AND. zsupsatw(jl)<zeps) THEN
     !!$              zzevp        = zxlb(jl)*zclcaux(jl)/pdtime
-    !!$              pxlte(jl,jk) = pxlte(jl,jk)-zzevp
-    !!$              pxite(jl,jk) = pxite(jl,jk)+zzevp
-    !!$              ptte(jl,jk)  = ptte(jl,jk)+(zlsdcp(jl)-zlvdcp(jl))*zzevp
+    !!$              pxlte_prc(jl,jk) = pxlte_prc(jl,jk)-zzevp
+    !!$              pxite_prc(jl,jk) = pxite_prc(jl,jk)+zzevp
+    !!$              ptte_prc(jl,jk)  = ptte_prc(jl,jk)+(zlsdcp(jl)-zlvdcp(jl))*zzevp
     !!$              zxib(jl)     = zxib(jl)+zxlb(jl)
     !!$              zxlb(jl)     = 0.0_wp
     !!$           END IF
@@ -1153,10 +1148,10 @@ CONTAINS
          &     +(zlsdcp(jl)-zlvdcp(jl))                                              &
          &     *(-zsmlt(jl)-zimlt(jl)+zfrl(jl)+zsacl(jl)))/pdtime
 
-       pqte(jl,jk)   = pqte(jl,jk)  + zqvte
-       pxlte(jl,jk)  = pxlte(jl,jk) + pxtecl(jl,jk) + zxlte
-       pxite(jl,jk)  = pxite(jl,jk) + pxteci(jl,jk) + zxite
-       ptte(jl,jk)   = ptte(jl,jk)  + ztte
+       pqte_prc(jl,jk)   = pqte_prc(jl,jk)  + zqvte
+       pxlte_prc(jl,jk)  = pxlte_prc(jl,jk) + pxtecl(jl,jk) + zxlte
+       pxite_prc(jl,jk)  = pxite_prc(jl,jk) + pxteci(jl,jk) + zxite
+       ptte_prc(jl,jk)   = ptte_prc(jl,jk)  + ztte
        zcpten(jl,jk) = ztte                        ! diagnostics [K/s]
        zqten(jl,jk)  = zqvte + zxlte + zxite       ! diagnostics [1/s] ...< 0
 820 END DO
@@ -1164,8 +1159,8 @@ CONTAINS
 !IBM* NOVECTOR
     DO 821 jl = 1,kproma
 
-       zxlp1        = pxlm1(jl,jk) + pxlte(jl,jk)*pdtime
-       zxip1        = pxim1(jl,jk) + pxite(jl,jk)*pdtime
+       zxlp1        = pxlm1(jl,jk) + (pxlte(jl,jk)+pxlte_prc(jl,jk))*pdtime
+       zxip1        = pxim1(jl,jk) + (pxite(jl,jk)+pxite_prc(jl,jk))*pdtime
     !
     !       8.4   Corrections: Avoid negative cloud water/ice
     !
@@ -1182,10 +1177,10 @@ CONTAINS
        zxlp1_d        = MAX(zxlp1_d,0.0_wp)
        paclc(jl,jk)   = FSEL(-(zxlp1_d*zxip1_d),paclc(jl,jk),0._wp)
 
-       pxlte(jl,jk)   = pxlte(jl,jk) + zdxlcor
-       pxite(jl,jk)   = pxite(jl,jk) + zdxicor
-       pqte(jl,jk)    = pqte(jl,jk) - zdxlcor - zdxicor
-       ptte(jl,jk)    = ptte(jl,jk) + zlvdcp(jl)*zdxlcor + zlsdcp(jl)*zdxicor
+       pxlte_prc(jl,jk)   = pxlte_prc(jl,jk) + zdxlcor
+       pxite_prc(jl,jk)   = pxite_prc(jl,jk) + zdxicor
+       pqte_prc(jl,jk)    = pqte_prc(jl,jk)  - zdxlcor - zdxicor
+       ptte_prc(jl,jk)    = ptte_prc(jl,jk)  + zlvdcp(jl)*zdxlcor + zlsdcp(jl)*zdxicor
        ! Here mulitply with the same specific heat as used in the definition
        ! of zlvdcp and zlsdcp ( =Lv/(cp or cv) and Ls/(cp or cv) ) in order
        ! to obtain the specific heating by cloud processes in [W/kg].
@@ -1238,15 +1233,7 @@ CONTAINS
        paclcov(jl) = zclcov(jl)
 924 END DO
     !
-    !      10.3 Derive the tendency increment induced by this routine
-    !
-    ptte_prc(1:kproma,:)   =  ptte(1:kproma,:)   -  ptte_prc(1:kproma,:)
-    pqte_prc(1:kproma,:)   =  pqte(1:kproma,:)   -  pqte_prc(1:kproma,:)
-    pxlte_prc(1:kproma,:)   = pxlte(1:kproma,:)   - pxlte_prc(1:kproma,:)
-    pxite_prc(1:kproma,:)   = pxite(1:kproma,:)   - pxite_prc(1:kproma,:)
-
-    !
-    !      10.4 Vertical integrals of humidity, cloud water and cloud ice
+    !      10.3 Vertical integrals of humidity, cloud water and cloud ice
     !
     DO 931 jl   = 1,kproma
        zxlvi(jl) = 0.0_wp
@@ -1256,7 +1243,7 @@ CONTAINS
     !
     DO 933 jk     = ktdia,klev
        DO 932 jl   = 1,kproma
-          zxlvi(jl)  = zxlvi(jl)   + (pxlm1 (jl,jk)+pxlte_prc(jl,jk)*pdtime)*pmdry(jl,jk)
+          zxlvi(jl)  = zxlvi(jl)   + (pxlm1 (jl,jk)+(pxlte(jl,jk)+pxlte_prc(jl,jk))*pdtime)*pmdry(jl,jk)
           zclten(jl) = zclten(jl)  + zcpten(jl,jk) *pmdry(jl,jk)     ! [W/m2]
           zqviten(jl)= zqviten(jl) + zqten (jl,jk) *pmdry(jl,jk)     ! [kg/m2s]
 932    END DO

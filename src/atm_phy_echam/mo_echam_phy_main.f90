@@ -27,7 +27,6 @@ MODULE mo_echam_phy_main
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
-  USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: cpd, cpv, cvd, cvv, &
     &                               amd, amo3
@@ -48,7 +47,6 @@ MODULE mo_echam_phy_main
     &                               timer_gw_hines, timer_ssodrag,                  &
     &                               timer_cucall, timer_cloud
   USE mtime,                  ONLY: datetime
-  USE mo_ham_aerosol_params,  ONLY: ncdnc, nicnc
   USE mo_echam_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_surface,             ONLY: update_surface
   USE mo_surface_diag,        ONLY: nsurf_diag
@@ -1013,14 +1011,14 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 7. CONVECTION PARAMETERISATION
     !-------------------------------------------------------------------
-    itype(jcs:jce) = 0
+    itype(:) = 0
 
     ! 7.1   INITIALIZE ARRAYS FOR CONVECTIVE PRECIPITATION
     !       AND COPY ARRAYS FOR CONVECTIVE CLOUD PARAMETERS
 
-    tend% xl_dtr(jcs:jce,:,jb) = 0._wp
-    tend% xi_dtr(jcs:jce,:,jb) = 0._wp
-    zqtec  (jcs:jce,:) = 0._wp
+    tend% xl_dtr(:,:,jb) = 0._wp
+    tend% xi_dtr(:,:,jb) = 0._wp
+    zqtec  (:,:) = 0._wp
 
     field% rsfc(:,jb) = 0._wp
     field% ssfc(:,jb) = 0._wp
@@ -1083,32 +1081,32 @@ CONTAINS
 
       IF (ltimer) CALL timer_stop(timer_cucall)
 
-      field% rtype(jcs:jce,jb) = REAL(itype(jcs:jce),wp)
+      field% rtype(:,jb) = REAL(itype(:),wp)
 
 !!$      ! heating accumulated
-!!$      zq_phy(jcs:jce,:) = zq_phy(jcs:jce,:) + zq_cnv(jcs:jce,:)
+!!$      zq_phy(:,:) = zq_phy(:,:) + zq_cnv(:,:)
 !!$
 !!$      ! tendency
-!!$      tend% temp_cnv(jcs:jce,:,jb) = zq_cnv(jcs:jce,:)*zconv(jcs:jce,:)
+!!$      tend% temp_cnv(:,:,jb) = zq_cnv(:,:)*zconv(:,:)
 !!$
       ! tendencies accumulated
-      tend%   ua(jcs:jce,:,jb)      = tend%   ua(jcs:jce,:,jb)      + tend%   ua_cnv(jcs:jce,:,jb)
-      tend%   va(jcs:jce,:,jb)      = tend%   va(jcs:jce,:,jb)      + tend%   va_cnv(jcs:jce,:,jb)
-      tend%   ta(jcs:jce,:,jb)      = tend%   ta(jcs:jce,:,jb)      + tend%   ta_cnv(jcs:jce,:,jb)
-      tend% qtrc(jcs:jce,:,jb,iqv)  = tend% qtrc(jcs:jce,:,jb,iqv)  + tend% qtrc_cnv(jcs:jce,:,jb,iqv)
-      tend% qtrc(jcs:jce,:,jb,iqt:) = tend% qtrc(jcs:jce,:,jb,iqt:) + tend% qtrc_cnv(jcs:jce,:,jb,iqt:)
+      tend%   ua(:,:,jb)      = tend%   ua(:,:,jb)      + tend%   ua_cnv(:,:,jb)
+      tend%   va(:,:,jb)      = tend%   va(:,:,jb)      + tend%   va_cnv(:,:,jb)
+      tend%   ta(:,:,jb)      = tend%   ta(:,:,jb)      + tend%   ta_cnv(:,:,jb)
+      tend% qtrc(:,:,jb,iqv)  = tend% qtrc(:,:,jb,iqv)  + tend% qtrc_cnv(:,:,jb,iqv)
+      tend% qtrc(:,:,jb,iqt:) = tend% qtrc(:,:,jb,iqt:) + tend% qtrc_cnv(:,:,jb,iqt:)
 
 
     ELSE ! NECESSARY COMPUTATIONS IF MASSFLUX IS BY-PASSED
 
-      ilab(jcs:jce,1:nlev) = 0
-      ictop(jcs:jce)       = nlev-1
+      ilab (:,:) = 0
+      ictop(:)   = nlev-1
 
-      tend%   ua_cnv(jcs:jce,:,jb)      = 0._wp
-      tend%   va_cnv(jcs:jce,:,jb)      = 0._wp
-      tend%   ta_cnv(jcs:jce,:,jb)      = 0._wp
-      tend% qtrc_cnv(jcs:jce,:,jb,iqv)  = 0._wp
-      tend% qtrc_cnv(jcs:jce,:,jb,iqt:) = 0._wp
+      tend%   ua_cnv(:,:,jb)      = 0._wp
+      tend%   va_cnv(:,:,jb)      = 0._wp
+      tend%   ta_cnv(:,:,jb)      = 0._wp
+      tend% qtrc_cnv(:,:,jb,iqv)  = 0._wp
+      tend% qtrc_cnv(:,:,jb,iqt:) = 0._wp
 
     ENDIF !lconv
 
@@ -1119,87 +1117,78 @@ CONTAINS
 
       !IF (lcotra) CALL get_col_pol( tend%ta(:,:,jb),tend%qtrc(:,:,jb,iqv),jb )
 
-      IF (ncdnc==0 .AND. nicnc==0) THEN
+      IF (ltimer) CALL timer_start(timer_cloud)
 
-        field% rsfl(:,jb) = 0._wp
-        field% ssfl(:,jb) = 0._wp
+      CALL cloud(jce, nbdim, jks, nlev,     &! in
+        &        pdtime,                    &! in
+        &        ictop,                     &! in (from "cucall")
+        &        field% presm_old(:,:,jb),  &! in
+        &        field% dz(:,:,jb),         &! in
+        &        field% mdry(:,:,jb),       &! in
+        &        field%  rho  (:,:,jb),     &! in
+        &        zcair(:,:),                &! in
+        &        field% acdnc (:,:,jb),     &! in  acdnc
+        &        field%   ta  (:,:,jb),     &! in  tm1
+        &        field% qtrc  (:,:,jb,iqv), &! in  qm1
+        &        field% qtrc  (:,:,jb,iqc), &! in  xlm1
+        &        field% qtrc  (:,:,jb,iqi), &! in  xim1
+        &         tend% ta    (:,:,jb),     &! in  tte
+        &         tend% qtrc  (:,:,jb,iqv), &! in  qte
+        &         tend% qtrc  (:,:,jb,iqc), &! in  xlte
+        &         tend% qtrc  (:,:,jb,iqi), &! in  xite
+        !
+        &        itype,                     &! inout
+        &        field% ch_concloud(:,jb),  &! inout condens. heat
+        &        field% cw_concloud(:,jb),  &! inout condens. heat
+        &         tend% xl_dtr(:,:,jb),     &! inout  xtecl
+        &         tend% xi_dtr(:,:,jb),     &! inout  xteci
+        &        field% aclc  (:,:,jb),     &! inout
+        !
+        &        field% aclcov(:,  jb),     &! out
+        &        field% rsfl  (:,  jb),     &! out
+        &        field% ssfl  (:,  jb),     &! out
+        &        field% relhum(:,:,jb),     &! out
+        &        tend%  ta_cld(:,:,jb),     &! out
+        &        tend%qtrc_cld(:,:,jb,iqv), &! out
+        &        tend%qtrc_cld(:,:,jb,iqc), &! out
+        &        tend%qtrc_cld(:,:,jb,iqi)  )! out
 
-        IF (ltimer) CALL timer_start(timer_cloud)
+      IF (ltimer) CALL timer_stop(timer_cloud)
 
-        CALL cloud(jce, nbdim, jks, nlev,     &! in
-          &        pdtime,                    &! in
-          &        ictop,                     &! in (from "cucall")
-          &        field% presm_old(:,:,jb),  &! in
-          &        field% dz(:,:,jb),         &! in
-          &        field% mdry(:,:,jb),       &! in
-!          &        field% presm_new(:,:,jb), &! in
-          &        field% acdnc (:,:,jb),     &! in. acdnc
-          &        field%   ta  (:,:,jb),     &! in. tm1
-          &        field%  rho  (:,:,jb),     &! in.
-          &        field% qtrc  (:,:,jb,iqv), &! in. qm1
-          &        field% qtrc  (:,:,jb,iqc), &! in. xlm1
-          &        field% qtrc  (:,:,jb,iqi), &! in. xim1
-          &        zcair(:,:),                &! in
-          &        field% aclcov(:,  jb),     &! out
-          &        itype,                     &!
-          &        field% ch_concloud(:,jb),  &! inout condens. heat
-          &        field% cw_concloud(:,jb),  &! inout condens. heat
-          &         tend% xl_dtr(:,:,jb),     &! inout  xtecl
-          &         tend% xi_dtr(:,:,jb),     &! inout  xteci
-          &        zqtec,                     &! inout (there is a clip inside)
-          &         tend% ta  (:,:,jb),     &! inout.  tte
-          &         tend% qtrc  (:,:,jb,iqv), &! inout.  qte
-          &         tend% qtrc  (:,:,jb,iqc), &! inout. xlte
-          &         tend% qtrc  (:,:,jb,iqi), &! inout. xite
-!          &         tend% x_dtr(:,:,jb),      &! inout (there is a clip inside)
-          &        field% aclc  (:,:,jb),     &! inout
-          &        field% ssfl  (:,  jb),     &! out
-          &        field% rsfl  (:,  jb),     &! out
-          &        field% relhum(:,:,jb),     &! out
-          &        tend%  ta_cld(:,:,jb),     &! out
-          &        tend%qtrc_cld(:,:,jb,iqv), &! out
-          &        tend%qtrc_cld(:,:,jb,iqc), &! out
-          &        tend%qtrc_cld(:,:,jb,iqi)  )! out
-
-        IF (ltimer) CALL timer_stop(timer_cloud)
-
-      ELSE IF (ncdnc>0 .AND. nicnc>0) THEN
-!0      CALL cloud_cdnc_icnc(...) !!skipped in ICON
-      ELSE
-        IF (my_process_is_stdio()) CALL finish('echam_phy_main', ' check setting of ncdnc and nicnc.')
-      END IF
+      ! tendencies accumulated
+      tend%   ta(:,:,jb)      = tend%   ta(:,:,jb)      + tend%   ta_cld(:,:,jb)
+      tend% qtrc(:,:,jb,iqv)  = tend% qtrc(:,:,jb,iqv)  + tend% qtrc_cld(:,:,jb,iqv)
+      tend% qtrc(:,:,jb,iqc)  = tend% qtrc(:,:,jb,iqc)  + tend% qtrc_cld(:,:,jb,iqc)
+      tend% qtrc(:,:,jb,iqi)  = tend% qtrc(:,:,jb,iqi)  + tend% qtrc_cld(:,:,jb,iqi)
 
     ELSE ! NECESSARY COMPUTATIONS IF *CLOUD* IS BY-PASSED.
 
-      field% rsfl (jcs:jce,  jb) = 0._wp
-      field% ssfl (jcs:jce,  jb) = 0._wp
-      field% aclc (jcs:jce,:,jb) = 0._wp
+      field% rsfl   (:,  jb)   = 0._wp
+      field% ssfl   (:,  jb)   = 0._wp
+      field% aclc   (:,:,jb)   = 0._wp
 
-      tend%   ta_cld(jcs:jce,:,jb)      = 0._wp
-      tend% qtrc_cld(jcs:jce,:,jb,iqv)  = 0._wp
-      tend% qtrc_cld(jcs:jce,:,jb,iqc)  = 0._wp
-      tend% qtrc_cld(jcs:jce,:,jb,iqi)  = 0._wp
-      tend% qtrc_cld(jcs:jce,:,jb,iqt:) = 0._wp
+      tend%   ta_cld(:,:,jb)   = 0._wp
+      tend% qtrc_cld(:,:,jb,:) = 0._wp
 
     ENDIF !lcond
 
     ! KF accumulate fields for diagnostics
 
     !  total precipitation flux
-       field% totprec (jcs:jce,jb)     =  field% rsfl (jcs:jce,jb) & ! rain large scale
-            &                            +field% ssfl (jcs:jce,jb) & ! snow large scale
-            &                            +field% rsfc (jcs:jce,jb) & ! rain convection
-            &                            +field% ssfc (jcs:jce,jb)   ! snow convection
+       field% totprec (:,jb)     =  field% rsfl (:,jb) & ! rain large scale
+            &                      +field% ssfl (:,jb) & ! snow large scale
+            &                      +field% rsfc (:,jb) & ! rain convection
+            &                      +field% ssfc (:,jb)   ! snow convection
 
     ! Now compute tendencies from physics alone
 
-    tend%   ta_phy (jcs:jce,:,jb)   = tend%   ta (jcs:jce,:,jb)   - tend%   ta_phy (jcs:jce,:,jb)
-    tend%   ua_phy (jcs:jce,:,jb)   = tend%   ua (jcs:jce,:,jb)   - tend%   ua_phy (jcs:jce,:,jb)
-    tend%   va_phy (jcs:jce,:,jb)   = tend%   va (jcs:jce,:,jb)   - tend%   va_phy (jcs:jce,:,jb)
-    tend% qtrc_phy (jcs:jce,:,jb,:) = tend% qtrc (jcs:jce,:,jb,:) - tend% qtrc_phy (jcs:jce,:,jb,:)
+    tend%   ta_phy (:,:,jb)   = tend%   ta (:,:,jb)   - tend%   ta_phy (:,:,jb)
+    tend%   ua_phy (:,:,jb)   = tend%   ua (:,:,jb)   - tend%   ua_phy (:,:,jb)
+    tend%   va_phy (:,:,jb)   = tend%   va (:,:,jb)   - tend%   va_phy (:,:,jb)
+    tend% qtrc_phy (:,:,jb,:) = tend% qtrc (:,:,jb,:) - tend% qtrc_phy (:,:,jb,:)
 
     IF ( iequations == inh_atmosphere ) THEN
-      tend% ta_phy (jcs:jce,:,jb) = tend% ta_phy(jcs:jce,:,jb)*zcpair(jcs:jce,:)/zcvair(jcs:jce,:)
+      tend% ta_phy (:,:,jb) = tend% ta_phy(:,:,jb)*zcpair(:,:)/zcvair(:,:)
     END IF
 
     ! Done. Disassociate pointers.
