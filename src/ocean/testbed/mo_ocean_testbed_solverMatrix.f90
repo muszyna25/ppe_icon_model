@@ -22,7 +22,6 @@ MODULE mo_ocean_testbed_solverMatrix
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode, test_mode
   USE mo_exception,              ONLY: message, message_text, finish
-  USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time, datetime_to_string
   USE mo_ocean_ab_timestepping,  ONLY: solve_free_surface_eq_ab, &
     & calc_normal_velocity_ab,  &
     & calc_vert_velocity,       &

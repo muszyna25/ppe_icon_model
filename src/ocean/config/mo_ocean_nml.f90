@@ -30,7 +30,6 @@ MODULE mo_ocean_nml
   USE mo_io_units,           ONLY: filename_max
   USE mo_physical_constants, ONLY: a_T, b_S,rho_ref, grav, sitodbar
   USE mo_param1_bgc,         ONLY: n_bgctra, ntraad
-  USE mo_param1_bgc,         ONLY: n_bgctra, ntraad
 
 #ifndef __NO_ICON_ATMO__
   USE mo_coupling_config,    ONLY: is_coupled_run

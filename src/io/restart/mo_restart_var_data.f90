@@ -16,7 +16,7 @@ MODULE mo_restart_var_data
     USE mo_exception, ONLY: finish
     USE mo_fortran_tools, ONLY: t_ptr_2d
     USE mo_grid_config, ONLY: l_limited_area
-    USE mo_ha_dyn_config, ONLY: ha_dyn_config
+!     USE mo_ha_dyn_config, ONLY: ha_dyn_config
     USE mo_impl_constants, ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, INH_ATMOSPHERE, TLEV_NNOW, TLEV_NNOW_RCF, SUCCESS, &
                                & LEAPFROG_EXPL, LEAPFROG_SI
 #ifdef DEBUG
@@ -235,16 +235,16 @@ CONTAINS
             ENDIF
         ENDIF
 
-        SELECT CASE (iequations)
-            CASE(IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER)
-
-                IF ( lskip_timelev                        &
-                    & .AND. ha_dyn_config%itime_scheme/=LEAPFROG_EXPL &
-                    & .AND. ha_dyn_config%itime_scheme/=LEAPFROG_SI   ) &
-                    & RETURN
-            CASE default
-                IF ( lskip_timelev ) RETURN
-        END SELECT
+!         SELECT CASE (iequations)
+!             CASE(IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER)
+! 
+!                 IF ( lskip_timelev                        &
+!                     & .AND. ha_dyn_config%itime_scheme/=LEAPFROG_EXPL &
+!                     & .AND. ha_dyn_config%itime_scheme/=LEAPFROG_SI   ) &
+!                     & RETURN
+!             CASE default
+!                 IF ( lskip_timelev ) RETURN
+!         END SELECT
         resultVar = .TRUE.
 #endif
     END FUNCTION has_valid_time_level

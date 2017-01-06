@@ -62,7 +62,7 @@ CONTAINS
   !>
   SUBROUTINE ocean_postprocess( namelist_filename, shr_namelist_filename,             &
     & patch_3d, ocean_state, external_data,                                           &
-    & datetime, surface_fluxes,                                                       &
+    & surface_fluxes,                                                                 &
     & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients, &
     & solverCoeff_sp)
 
@@ -72,7 +72,6 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
     TYPE(t_external_data), TARGET, INTENT(in)        :: external_data(n_dom)
-    TYPE(datetime), POINTER                          :: this_datetime
     TYPE(t_sfc_flx)                                  :: surface_fluxes
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: oceans_atmosphere
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: oceans_atmosphere_fluxes

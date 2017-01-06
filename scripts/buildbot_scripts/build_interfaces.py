@@ -86,7 +86,7 @@ def make_aes_binaries(configure_flags):
 
 
 def make_nwp_binaries(configure_flags):
-  aes_flags=" --disable-ocean --with-yac=no"
+  aes_flags=" --disable-ocean --disable-jsbach --disable-testbed --with-yac=no"
   os.chdir(paths.basePath)
   aes_folder = paths.basePath+"/nwp_build"
   status = os.system("scripts/building/get_atmo "+paths.basePath+" "+aes_folder)

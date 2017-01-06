@@ -247,7 +247,7 @@ MODULE mo_ocean_model
       CASE (2000 : 3999) !
         CALL ocean_postprocess( oce_namelist_filename,shr_namelist_filename, &
           & ocean_patch_3d, ocean_state,                    &
-          & ext_data, start_datetime,                       &
+          & ext_data,                                       &
           & v_sfc_flx,  p_as, atmos_fluxes,v_sea_ice,       &
           & operators_coefficients,                         &
           & solverCoefficients_sp)

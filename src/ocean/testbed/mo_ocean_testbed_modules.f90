@@ -53,9 +53,9 @@ MODULE mo_ocean_testbed_modules
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
   USE mo_physical_constants,     ONLY: rhoi, rhos, clw, alf, Tf
-  USE mo_ocean_physics,          ONLY: t_ho_params
+  USE mo_ocean_physics_types,    ONLY: t_ho_params
   USE mo_master_config,          ONLY: isRestart
-  USE mo_ocean_GM_Redi,          ONLY: calc_neutralslope_coeff, calc_neutralslope_coeff_func_onColumn, &
+  USE mo_ocean_GM_Redi,          ONLY: calc_neutralslope_coeff, calc_neutralslope_coeff_onColumn, &
   &                                    prepare_ocean_physics,calc_ocean_physics
   USE mo_ocean_diagnostics,      ONLY: calc_fast_oce_diagnostics, calc_psi
   USE mo_ocean_thermodyn,        ONLY: calc_potential_density, calculate_density
