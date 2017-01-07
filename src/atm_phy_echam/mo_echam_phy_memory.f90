@@ -1052,7 +1052,7 @@ CONTAINS
     grib2_desc = grib2_var(0,1,21, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'mair_phy', field%mair,                  &
          &        GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
-         &        ldims=shape3d, lrestart = .FALSE.,                           &
+         &        ldims=shape3d, lrestart = .FALSE., initval=1.0_wp,           &
          &        vert_interp=create_vert_interp_metadata(                     &
          &                    vert_intp_type=vintp_types("P","Z","I"),         & 
          &                    vert_intp_method=VINTP_METHOD_LIN,               &

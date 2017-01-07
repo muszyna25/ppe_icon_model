@@ -26,47 +26,54 @@
 MODULE mo_echam_phy_main
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish
+  USE mtime,                  ONLY: datetime
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: cpd, cpv, cvd, cvv, &
     &                               amd, amo3
-  USE mo_impl_constants,      ONLY: inh_atmosphere
   USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
     &                               iqv, iqc, iqi, iqt, io3
-  USE mo_dynamics_config,     ONLY: iequations
-  USE mo_ext_data_state,      ONLY: ext_data
-  USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
-  USE mo_echam_conv_config,   ONLY: echam_conv_config
-  USE mo_echam_cloud_config,  ONLY: echam_cloud_config
-  USE mo_cumastr,             ONLY: cucall
+  !
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
     &                               t_echam_phy_tend,  prm_tend
+  USE mo_echam_phy_config,    ONLY: echam_phy_config
+  !
+  USE mo_cover,               ONLY: cover
+  !
+  USE mo_ext_data_state,      ONLY: ext_data
+  USE mo_psrad_radiation_parameters, ONLY: psctm
+  USE mo_psrad_radiation,     ONLY: psrad_radiation
+  USE mo_radheating,          ONLY: radheating
+  !
+  USE mo_echam_conv_config,   ONLY: echam_conv_config
+  USE mo_cumastr,             ONLY: cucall
+  !
+  USE mo_echam_cloud_config,  ONLY: echam_cloud_config
+  USE mo_cloud,               ONLY: cloud
+  !
+  USE mo_vdiff_config,        ONLY: vdiff_config
+  USE mo_vdiff_downward_sweep,ONLY: vdiff_down
+  USE mo_vdiff_upward_sweep,  ONLY: vdiff_up
+  USE mo_vdiff_solver,        ONLY: nvar_vdiff, nmatrix, imh, imqv,   &
+       &                               ih_vdiff=>ih, iqv_vdiff=>iqv
+  !
+  USE mo_echam_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
+  USE mo_surface,             ONLY: update_surface
+  USE mo_surface_diag,        ONLY: nsurf_diag
+  !
+  USE mo_gw_hines,            ONLY: gw_hines
+  USE mo_ssortns,             ONLY: ssodrag
+  !
+  ! Cariolle ozone chemistry
+  USE mo_model_domain,        ONLY: p_patch
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
+    &                                  calculate_time_interpolation_weights
+  USE mo_lcariolle_types,     ONLY: avi, t_time_interpolation
+  !
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop,                &
     &                               timer_cover, timer_radiation, timer_radheat,    &
     &                               timer_vdiff_down, timer_surface,timer_vdiff_up, &
     &                               timer_gw_hines, timer_ssodrag,                  &
     &                               timer_cucall, timer_cloud
-  USE mtime,                  ONLY: datetime
-  USE mo_echam_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
-  USE mo_surface,             ONLY: update_surface
-  USE mo_surface_diag,        ONLY: nsurf_diag
-  USE mo_cloud,               ONLY: cloud
-  USE mo_cover,               ONLY: cover
-  USE mo_radheating,          ONLY: radheating
-  USE mo_psrad_radiation,     ONLY: psrad_radiation
-  USE mo_psrad_radiation_parameters, ONLY: psctm
-  USE mo_vdiff_config,        ONLY: vdiff_config
-  USE mo_vdiff_downward_sweep,ONLY: vdiff_down
-  USE mo_vdiff_upward_sweep,  ONLY: vdiff_up
-  USE mo_vdiff_solver,        ONLY: nvar_vdiff, nmatrix, imh, imqv,   &
-    &                               ih_vdiff=>ih, iqv_vdiff=>iqv
-  USE mo_gw_hines,            ONLY: gw_hines
-  USE mo_ssortns,             ONLY: ssodrag
-  ! provisional to get coordinates
-  USE mo_model_domain,        ONLY: p_patch
-  USE mo_lcariolle_types,     ONLY: avi, t_time_interpolation
-  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
-    &                                  calculate_time_interpolation_weights
 
   IMPLICIT NONE
   PRIVATE
@@ -115,9 +122,6 @@ CONTAINS
 
     REAL(wp) :: zqtec  (nbdim,nlev)       !< tracer tendency due to entrainment/detrainment
 
-    REAL(wp) :: zcd                       !< specific heat of dry air          [J/K/kg]
-    REAL(wp) :: zcv                       !< specific heat of water vapor      [J/K/kg]
-    REAL(wp) :: zcair  (nbdim,nlev)       !< specific heat of moist air        [J/K/kg]
     REAL(wp) :: zcpair (nbdim,nlev)       !< specific heat of moist air at const. pressure [J/K/kg]
     REAL(wp) :: zcvair (nbdim,nlev)       !< specific heat of moist air at const. volume   [J/K/kg]
     REAL(wp) :: zconv  (nbdim,nlev)       !< conversion factor q-->dT/dt       [(K/s)/(W/m2)]
@@ -222,32 +226,19 @@ CONTAINS
     ! 3. COMPUTE SOME FIELDS NEEDED BY THE PHYSICAL ROUTINES.
     !------------------------------------------------------------
 
-    ! Use constant volume or constant pressure specific heats for dry air and vapor
-    ! for the computation of temperature tendencies.
-!!$    IF ( iequations == inh_atmosphere ) THEN
-!!$      zcd = cvd
-!!$      zcv = cvv
-!!$    ELSE
-      zcd = cpd
-      zcv = cpv
-!!$    END IF
+    ! 3.2b Specific heat of moist air
+    !
+    zcpair  (:,:) = cpd+(cpv-cpd)*field%qtrc(:,:,jb,iqv)
+    zcvair  (:,:) = cvd+(cvv-cvd)*field%qtrc(:,:,jb,iqv)
+    !
+    zconv   (:,:) = 1._wp/(field%mair(:,:,jb)*zcpair(:,:))
 
     DO jk = 1,nlev
-      DO jc = jcs,jce
-        !
-        ! 3.2 Thickness of model layer in pressure coordinate
-        !
-        zdelp   (jc,jk) = field% presi_old (jc,jk+1,jb) - field% presi_old (jc,jk,jb)
-        !
-        ! 3.2b Specific heat of moist air
-        !
-        zcair   (jc,jk) = zcd+(zcv-zcd)*field%qtrc(jc,jk,jb,iqv)
-        zconv   (jc,jk) = 1._wp/(field%mair(jc,jk,jb)*zcair(jc,jk))
-        !
-        zcpair  (jc,jk) = cpd+(cpv-cpd)*field%qtrc(jc,jk,jb,iqv)
-        zcvair  (jc,jk) = cvd+(cvv-cvd)*field%qtrc(jc,jk,jb,iqv)
-        !
-      END DO
+      !
+      ! 3.2 Thickness of model layer in pressure coordinate
+      !
+      zdelp   (:,jk) = field% presi_old (:,jk+1,jb) - field% presi_old (:,jk,jb)
+      !
     END DO
 
     ! 3.3 Weighting factors for fractional surface coverage
@@ -326,7 +317,7 @@ CONTAINS
 
     itype(jcs:jce) = NINT(field%rtype(jcs:jce,jb))
 
-    IF (phy_config%lcond) THEN
+    IF (echam_phy_config%lcond) THEN
       IF (ltimer) CALL timer_start(timer_cover)
 
       CALL cover( jce, nbdim, jks,          &! in
@@ -347,7 +338,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 4. RADIATION PARAMETERISATION
     !-------------------------------------------------------------------
-    IF (phy_config%lrad) THEN
+    IF (echam_phy_config%lrad) THEN
 
        ! 4.1 RADIATIVE TRANSFER
        !-----------------------
@@ -540,7 +531,7 @@ CONTAINS
     !     build up the tridiagonal linear algebraic system;
     !     downward sweep (Gaussian elimination from top till level nlev-1)
 
-    IF (phy_config%lvdiff) THEN
+    IF (echam_phy_config%lvdiff) THEN
       IF (ltimer) CALL timer_start(timer_vdiff_down)
 
 
@@ -736,8 +727,8 @@ CONTAINS
                    & field% qtrc(:,:,jb,iqc),         &! in, xlm1
                    & field% qtrc(:,:,jb,iqi),         &! in, xim1
                    & field% qtrc(:,:,jb,iqt:),        &! in, xtm1
-                   & zcd,                             &! in, specific heat of dry air
-                   & zcv,                             &! in, specific heat of water vapor
+                   & cpd,                             &! in, specific heat of dry air
+                   & cpv,                             &! in, specific heat of water vapor
                    & zdelp(:,:),                      &! in, layer thickness [Pa]
                    & field% geom(:,:,jb),             &! in, pgeom1 = geopotential above ground
                    &      ztkevn(:,:),                &! in, tke at intermediate time step
@@ -851,7 +842,7 @@ CONTAINS
 
     ENDIF !lvdiff
 
-    IF (phy_config%lrad) THEN
+    IF (echam_phy_config%lrad) THEN
 
       ! Heating due to the fact that surface model only used part of longwave radiation to compute new surface temperature
       zq_rlw_impl(jcs:jce) =                                                  &
@@ -874,7 +865,7 @@ CONTAINS
 
     END IF
 
-    IF (phy_config%lcariolle) THEN
+    IF (echam_phy_config%lcariolle) THEN
       avi%tmprt(jcs:jce,:)=field%ta(jcs:jce,:,jb)
       avi%vmr2molm2(jcs:jce,:)=field%mdry(jcs:jce,:,jb)/amd*1.e3_wp
       avi%pres(jcs:jce,:)=field%presm_old(jcs:jce,:,jb)
@@ -900,7 +891,7 @@ CONTAINS
 
     ! 6.1   CALL SUBROUTINE GW_HINES
 
-    IF (phy_config%lgw_hines) THEN
+    IF (echam_phy_config%lgw_hines) THEN
 
       zlat_deg(jcs:jce) = p_patch(jg)%cells%center(jcs:jce,jb)%lat * 180._wp/pi
 
@@ -950,7 +941,7 @@ CONTAINS
 
     ! 6.2   CALL SUBROUTINE SSODRAG
 
-    IF (phy_config%lssodrag) THEN
+    IF (echam_phy_config%lssodrag) THEN
 
       IF (ltimer) call timer_start(timer_ssodrag)
 
@@ -1025,7 +1016,7 @@ CONTAINS
 
     ! 7.2   CALL SUBROUTINE CUCALL FOR CUMULUS PARAMETERIZATION
 
-    IF (phy_config%lconv) THEN
+    IF (echam_phy_config%lconv) THEN
 
       IF (ltimer) call timer_start(timer_cucall)
 
@@ -1067,7 +1058,7 @@ CONTAINS
         &          ilab,                      &! out
         &          field% topmax(:,jb),       &! inout
         &          echam_conv_config%cevapcu, &! in
-        &          zcd, zcv,                  &! in
+        &          cpd, cpv,                  &! in
         &          tend% qtrc_dyn(:,:,jb,iqv),&! in     qte by transport
         &          tend% qtrc_phy(:,:,jb,iqv),&! in     qte by physics
         &          field% con_dtrl(:,jb),     &! inout detrained liquid
@@ -1113,7 +1104,7 @@ CONTAINS
     !-------------------------------------------------------------
     ! 7. LARGE SCALE CONDENSATION.
     !-------------------------------------------------------------
-    IF(phy_config%lcond) THEN
+    IF(echam_phy_config%lcond) THEN
 
       !IF (lcotra) CALL get_col_pol( tend%ta(:,:,jb),tend%qtrc(:,:,jb,iqv),jb )
 
@@ -1126,7 +1117,7 @@ CONTAINS
         &        field% dz(:,:,jb),         &! in
         &        field% mdry(:,:,jb),       &! in
         &        field%  rho  (:,:,jb),     &! in
-        &        zcair(:,:),                &! in
+        &        zcpair(:,:),               &! in
         &        field% acdnc (:,:,jb),     &! in  acdnc
         &        field%   ta  (:,:,jb),     &! in  tm1
         &        field% qtrc  (:,:,jb,iqv), &! in  qm1
@@ -1187,9 +1178,8 @@ CONTAINS
     tend%   va_phy (:,:,jb)   = tend%   va (:,:,jb)   - tend%   va_phy (:,:,jb)
     tend% qtrc_phy (:,:,jb,:) = tend% qtrc (:,:,jb,:) - tend% qtrc_phy (:,:,jb,:)
 
-    IF ( iequations == inh_atmosphere ) THEN
-      tend% ta_phy (:,:,jb) = tend% ta_phy(:,:,jb)*zcpair(:,:)/zcvair(:,:)
-    END IF
+    ! And convert constant pressure temperture tendency to constant volume temperature tendency
+    tend% ta_phy (:,:,jb) = tend% ta_phy(:,:,jb)*zcpair(:,:)/zcvair(:,:)
 
     ! Done. Disassociate pointers.
     NULLIFY(field,tend)
