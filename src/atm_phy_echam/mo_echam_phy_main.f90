@@ -727,8 +727,6 @@ CONTAINS
                    & field% qtrc(:,:,jb,iqc),         &! in, xlm1
                    & field% qtrc(:,:,jb,iqi),         &! in, xim1
                    & field% qtrc(:,:,jb,iqt:),        &! in, xtm1
-                   & cpd,                             &! in, specific heat of dry air
-                   & cpv,                             &! in, specific heat of water vapor
                    & zdelp(:,:),                      &! in, layer thickness [Pa]
                    & field% geom(:,:,jb),             &! in, pgeom1 = geopotential above ground
                    &      ztkevn(:,:),                &! in, tke at intermediate time step
@@ -1058,7 +1056,6 @@ CONTAINS
         &          ilab,                      &! out
         &          field% topmax(:,jb),       &! inout
         &          echam_conv_config%cevapcu, &! in
-        &          cpd, cpv,                  &! in
         &          tend% qtrc_dyn(:,:,jb,iqv),&! in     qte by transport
         &          tend% qtrc_phy(:,:,jb,iqv),&! in     qte by physics
         &          field% con_dtrl(:,jb),     &! inout detrained liquid

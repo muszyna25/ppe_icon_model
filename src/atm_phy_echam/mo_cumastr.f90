@@ -94,7 +94,6 @@ CONTAINS
     &                  ktype,    ictop,    ilab,                       &! out
     &                  ptopmax,                                        &! inout
     &                  cevapcu,                                        &! in
-    &                  pcd, pcv,                                       &! in
     &                  pqte_dyn, pqte_phy,                             &! in
     &                  pcon_dtrl, pcon_dtri, pcon_iqte,                &! inout
     &                  ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv,         &! out
@@ -103,7 +102,6 @@ CONTAINS
     INTEGER, INTENT (IN) :: klev, klevm1, klevp1, kproma, kbdim, ktrac
     REAL(wp),INTENT (IN) :: ptime_step_len
     REAL(wp),INTENT (IN) :: cevapcu(:)
-    REAL(wp),INTENT (IN) :: pcd, pcv
     REAL(wp)::  ptm1(kbdim,klev),         pqm1(kbdim,klev),              &
       &         pum1(kbdim,klev),         pvm1(kbdim,klev),              &
       &         pqte(kbdim,klev),                                        &
@@ -135,7 +133,7 @@ CONTAINS
       &         ztu(kbdim,klev),          zqu(kbdim,klev),               &
       &         zlu(kbdim,klev),          zlude(kbdim,klev),             &
       &         zqude(kbdim,klev),                                       &
-      &         zcpq(kbdim,klev),         zcq(kbdim,klev),               &
+      &         zcpq(kbdim,klev),                                        &
       &         zmfu(kbdim,klev),         zmfd(kbdim,klev),              &
       &         zqsat(kbdim,klev),        zrain(kbdim),                  &
       &         za(kbdim),                ua(kbdim)
@@ -180,7 +178,6 @@ CONTAINS
         zqsat(jl,jk)=MIN(0.5_wp,zqsat(jl,jk))
         zqsat(jl,jk)=zqsat(jl,jk)/(1._wp-vtmpc1*zqsat(jl,jk))
         zcpq(jl,jk)=cpd+(cpv-cpd)*MAX(pqm1(jl,jk),0.0_wp) ! cp of moist air for comp. of fluxes
-        zcq (jl,jk)=pcd+(pcv-pcd)*MAX(pqm1(jl,jk),0.0_wp) ! cp or cv of moist air for temp tendency
       END DO
 
       DO jt=1,ktrac
@@ -218,7 +215,6 @@ CONTAINS
       &          ztu,      zqu,      zlu,      zlude,                 &
       &          zmfu,     zmfd,     zrain,    pthvsig,               &
       &          cevapcu,                                             &
-      &          zcq,                                                 &
       &          pcon_dtrl, pcon_dtri, pcon_iqte,                     &
       &          ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv,pxtte_cnv,    &
       &          pxtecl,   pxteci                                     )
@@ -275,7 +271,6 @@ CONTAINS
     &        ptu,      pqu,      plu,      plude,                         &
     &        pmfu,     pmfd,     prain,    pthvsig,                       &
     &        cevapcu,                                                     &
-    &        pcen,                                                        &
     &        pcon_dtrl, pcon_dtri, pcon_iqte,                             &
     &        ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv, pxtte_cnv,           &
     &        pxtecl,   pxteci                                             )
@@ -289,7 +284,6 @@ CONTAINS
     REAL(wp),INTENT(INOUT):: ptte_cnv(kbdim,klev)
     REAL(wp),INTENT(INOUT):: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
     REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
-    REAL(wp),INTENT(IN)   :: pcen(kbdim,klev)
     REAL(wp),INTENT(IN)   :: pcpen(kbdim,klev), pqte(kbdim,klev)
     !
     REAL(wp):: pten(kbdim,klev),        pqen(kbdim,klev),                  &
@@ -881,7 +875,7 @@ CONTAINS
       &         zmfus,    zmfds,    zmfuq,    zmfdq,                     &
       &         zmful,    zdmfup,   zdmfdp,   plude,                     &
       &         zdpmel,   zrfl,     zsfl,                                &
-      &         pcen,     zalvsh,   pqtec,    pqude,                     &
+      &         pcpen,    zalvsh,   pqtec,    pqude,                     &
       &         prsfc,    pssfc,                                         &
       &         pch_con,  pcw_con,                                       &
       &         pcon_dtrl, pcon_dtri, pcon_iqte,                         &
