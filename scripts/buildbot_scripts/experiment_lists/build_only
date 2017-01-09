@@ -3,7 +3,6 @@ builder|DAINT_CPU_cce||build_only
 machine|mistral|compute
 builder|MISTRAL_intel|--with-fortran=intel|build_only
 builder|MISTRAL_intel_hybrid|--with-fortran=intel --with-openmp|build_only
-builder|MISTRAL_nag_mtime|--with-fortran=nag --enable-mtime-loop --without-yac|build_only
 builder|MISTRAL_intel_openmp|--with-fortran=intel --without-mpi --with-openmp --without-yac|build_only
 builder|MISTRAL_nag_serial|--with-fortran=nag --without-mpi --without-yac|build_only
 builder|MISTRAL_ocean|--with-fortran=intel --with-openmp|build_only

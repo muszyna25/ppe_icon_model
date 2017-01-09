@@ -48,7 +48,7 @@ cat > ${ocean_namelist} << EOF
  profiling_output = 3
  msg_timestamp        = .FALSE.
  debug_check_level    = 10
- restart_filename = "${EXPNAME}_restart_oce_<rsttime>.nc"
+!  restart_filename = "${EXPNAME}_restart_oce_<rsttime>.nc"
 /
 &output_nml
   output_start     = "${start_date}"
@@ -107,38 +107,48 @@ cat > ${ocean_namelist} << EOF
   use_continuity_correction       = .TRUE.    ! height adjustment according to vertical velocity in dynamics
   cfl_check                       = .FALSE.
   cfl_write                       = .FALSE.
-                                              ! horizontal viscosity parametrization:
-  veloc_diffusion_form            =   1       ! 1: laplace; 2: biharmonic
-  veloc_diffusion_order           =   1       ! 1: curlcurl 2: divgrad
 /
+
 &ocean_tracer_transport_nml
-! no_tracer             = 2      ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
-! FLUX_CALCULATION_HORZ = 5      ! 1=upwind, 2=central, 3=Lax-Friedrichs, 4=Miura, 5=FCT with Zalesak limiter (default)
-! FLUX_CALCULATION_VERT = 7      ! 6=adpo; 7=upwind biased ppm (default); 8=FCT with zalesak limiter
+  tracer_HorizontalAdvection_type = 1 ! cell based=edge_based
+  FLUX_CALCULATION_HORZ =  5 ! 5      ! 1=upwind, 2=central, 3=Lax-Friedrichs, 4=Miura, 5=FCT with Zalesak limiter (default)
+  FLUX_CALCULATION_VERT =  7 ! 7      ! 6=adpo; 7=upwind biased ppm (default); 8=FCT with zalesak limiter
   ! define low and high order methods to be used in horizontal flux corrected transport methods (flux_calculation_horz=4,5)
   fct_low_order_flux    = 1      ! horizontal low  order method: 1=upwind (def), no other implemented
-  fct_high_order_flux   = 2      ! horizontal high order method: 1=upwind, 2=central (def), 3=lax_friedrichs, 4=miura_order1
+  fct_high_order_flux   = 5      ! horizontal high order method: 1=upwind, 2=central, 3=lax_friedrichs, 4=miura_order1
+  fct_limiter_horz      = 100    ! zalesak
   threshold_min_T       = -4.0   ! to avoid abort
 /
-&ocean_diffusion_nml
-  HorizontalViscosity_type            =   1       ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
-  k_veloc_h                       =   3.0E+4  ! [m2/s] constant horizontal viscosity coefficient for velocity
-  biharmonic_const                =   0.01    ! used with veloc_diffusion_form=2 only
-  k_veloc_v                       =   1.5E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
-  MAX_VERT_DIFF_VELOC             =   0.0     ! max vertical viscosity for convection used in case of instability
-  k_pot_temp_h                    = 600.0     ! [m2/s] constant horizontal diffusion coefficient for temperature
-  k_pot_temp_v                    =   1.5E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
-  k_sal_h                         = 600.0     ! [m2/s] constant horizontal diffusion coefficient for salinity
-  k_sal_v                         =   1.5E-5  ! [m2/s]  vertical background diffusion coefficient for salinity
-  MAX_VERT_DIFF_TRAC              =   0.1     ! max vertical tracer diffusion for convection used in case of instability
+&ocean_horizontal_diffusion_nml
+  laplacian_form = 1                   ! 1=curlcurl-graddiv
+  VelocityDiffusion_order = 1          ! 21=biharmonic+laplacian (for the laplacian leith)
+
+  HarmonicViscosity_scaling     =  1
+  HarmonicViscosity_reference   =  3.0E+4  !  [m2/s] constant horizontal viscosity coefficient for velocity
+  HarmonicViscosity_background  =  0.0  
+
+  TracerHorizontalDiffusion_scaling          = 1
+  Temperature_HorizontalDiffusion_Background = 0.0
+  Temperature_HorizontalDiffusion_Reference  = 600 !  40
+  Salinity_HorizontalDiffusion_Background    = 0.0
+  Salinity_HorizontalDiffusion_Reference     = 600 !  40
 /
-&ocean_physics_nml
-  i_sea_ice                       =   1       ! 0 = no sea ice; 1 = sea ice model on
-  richardson_tracer               =   2.0E-3  ! factor for vertical diffusion coefficient in PP scheme
-  richardson_veloc                =   2.0E-3  ! factor for vertical viscosity coefficient in PP scheme
-! bottom_drag_coeff               =   2.5E-3  ! default=2.5E-3
-  physics_parameters_type         =   1       ! type of pp-scheme: 1=ICON-optimized; 2=MPIOM-type
-  use_wind_mixing                 = .FALSE.   ! true: use wind mixing scheme in MPIOM-type pp-scheme
+&ocean_vertical_diffusion_nml
+  PPscheme_type                            = 4
+  velocity_VerticalDiffusion_background    =   1.5E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
+  Temperature_VerticalDiffusion_background =   1.5E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
+  Salinity_VerticalDiffusion_background    =   1.5E-5  ! [m2/s]  vertical background diffusion coefficient for salinity
+  tracer_convection_MixingCoefficient =   0.1 ! max vertical tracer diffusion for convection used in case of instability
+  convection_InstabilityThreshold =  -1.0E-6  ! used in update_ho_params - default=-5e-8
+  RichardsonDiffusion_threshold   =   0.0     ! used in update_ho_params - default=+5e-8
+  tracer_RichardsonCoeff          =   2.0E-3  ! factor for vertical diffusion coefficient in PP scheme
+  velocity_RichardsonCoeff        =   2.0E-3  ! factor for vertical viscosity coefficient in PP scheme
+  bottom_drag_coeff               =   3.0E-3  ! default=2.5E-3; active for i_bc_veloc_bot=1
+  use_wind_mixing                 = .true.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
+  lambda_wind                     = 0.03
+  tracer_TopWindMixing            = 4.0E-6
+  velocity_TopWindMixing          = 4.0E-6
+  Salinity_ConvectionRestrict     = 0.0
 /                                           
 &ocean_GentMcWilliamsRedi_nml
   GMRedi_configuration           =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
@@ -162,7 +172,7 @@ cat > ${ocean_namelist} << EOF
   para_surfRelax_Salt             =   3.0     ! strength of 2-dim relaxation for salinity (months)
   forcing_enable_freshwater       = .TRUE.    ! apply freshwater forcing boundary condition (OMIP only)
   forcing_set_runoff_to_zero      = .FALSE.   ! set runoff to zero for comparison to MPIOM
-  seaice_limit                    =   0.4     ! maximum of 8m (0.4*dz) for both, ice and snow
+  seaice_limit                    =   0.8     ! maximum of 8m (0.4*dz) for both, ice and snow
   limit_elevation                 = .TRUE.
 /                                    
 &ocean_initialConditions_nml
