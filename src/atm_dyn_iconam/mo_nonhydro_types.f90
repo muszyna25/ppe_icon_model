@@ -268,6 +268,7 @@ MODULE mo_nonhydro_types
      !
      ! Mask field for mountain or upper slope points
      mask_mtnpoints(:,:) , & ! 
+     mask_mtnpoints_g(:,:) , & ! 
      ! Area of subdomain for which feedback is performed; dim: (nlev)
      fbk_dom_volume(:)
 

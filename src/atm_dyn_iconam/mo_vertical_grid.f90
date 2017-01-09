@@ -466,13 +466,14 @@ MODULE mo_vertical_grid
       i_startblk = p_patch(jg)%cells%start_block(2)
 
 
-      ALLOCATE (z_maxslp(nproma,nlev,nblks_c), z_maxhgtd(nproma,nlev,nblks_c) )
+      ALLOCATE (z_maxslp(nproma,nlev,nblks_c), z_maxhgtd(nproma,nlev,nblks_c), z_aux_c(nproma,1,nblks_c) )
 
 !$OMP PARALLEL
       ! Initialization to ensure that values are properly set at lateral boundaries
       CALL init(p_nh(jg)%metrics%exner_exfac(:,:,:), exner_expol)
       CALL init(z_maxslp(:,:,:))
       CALL init(z_maxhgtd(:,:,:))
+      CALL init(z_aux_c(:,:,:))
 !$OMP BARRIER
 
 !$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jk1, jc, z_maxslope, z_offctr, z_diff, &
@@ -572,6 +573,13 @@ MODULE mo_vertical_grid
           ELSE
             p_nh(jg)%metrics%mask_mtnpoints(jc,jb) = 0._wp
           ENDIF
+          ! Second mask field used for gust parameterization
+          IF (p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)-zn_min > 50._wp .AND. p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb) > zn_avg) THEN
+            z_aux_c(jc,1,jb) = MIN(1.2_wp,70._wp*MAX(zn_rms,p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)-zn_avg,  &
+              ext_data(jg)%atm%sso_stdh_raw(jc,jb))/p_patch(jg)%geometry_info%mean_characteristic_length)
+          ELSE
+            z_aux_c(jc,1,jb) = 0._wp
+          ENDIF
         ENDDO
 
       ENDDO
@@ -581,8 +589,12 @@ MODULE mo_vertical_grid
 
       DEALLOCATE(z_ddxn_z_half_e,z_ddxt_z_half_e)
 
-      ALLOCATE(z_aux_c(nproma,1,nblks_c),z_aux_e(nproma,1,nblks_c))
+      ALLOCATE(z_aux_e(nproma,1,nblks_c))
       z_aux_e(:,1,:) = 0._wp
+
+      CALL sync_patch_array(SYNC_C, p_patch(jg), z_aux_c)
+      CALL cell_avg(z_aux_c, p_patch(jg), p_int(jg)%c_bln_avg, z_aux_e)
+      p_nh(jg)%metrics%mask_mtnpoints_g(:,:) = MIN(1._wp,z_aux_e(:,1,:))
 
       CALL sync_patch_array(SYNC_C, p_patch(jg), p_nh(jg)%metrics%mask_mtnpoints)
       z_aux_c(:,1,:) = p_nh(jg)%metrics%mask_mtnpoints(:,:)
