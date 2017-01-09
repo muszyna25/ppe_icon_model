@@ -649,7 +649,7 @@ set_run_target_bullx()
 #SBATCH --job-name=$job_name
 #SBATCH --partition=$queue
 #SBATCH --workdir=$output_folder
-#SBATCH --nodes=1
+#SBATCH --nodes=$use_nodes
 #SBATCH --threads-per-core=2
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
