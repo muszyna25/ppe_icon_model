@@ -575,7 +575,7 @@ MODULE mo_vertical_grid
           ENDIF
           ! Second mask field used for gust parameterization
           IF (p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)-zn_min > 50._wp .AND. p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb) > zn_avg) THEN
-            z_aux_c(jc,1,jb) = MIN(1.75_wp,70._wp*MAX(zn_rms,p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)-zn_avg,  &
+            z_aux_c(jc,1,jb) = MIN(1.2_wp,70._wp*MAX(zn_rms,p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)-zn_avg,  &
               ext_data(jg)%atm%sso_stdh_raw(jc,jb))/p_patch(jg)%geometry_info%mean_characteristic_length)
           ELSE
             z_aux_c(jc,1,jb) = 0._wp
