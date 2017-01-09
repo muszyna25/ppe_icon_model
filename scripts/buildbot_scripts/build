@@ -23,5 +23,13 @@ status         = thisList.make_binaries(args.builder_name)
 if not status == 0: quit(1)
 runscriptsList = thisList.make_runscripts(args.builder_name)
 
+
+#write runscripts
+listfile = open(paths.get_runpath()+"/runscripts_list", 'w')
+for runscript in runscriptsList:
+  listfile.write(runscript+" ")
+listfile.close()
+
+
 #print(runscriptsList)
 
