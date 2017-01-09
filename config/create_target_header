@@ -596,6 +596,8 @@ set_run_target_bullx()
       add_free_var OMPI_MCA_mtl mxm
       add_free_var OMPI_MCA_coll '^ghc'
       add_free_var MXM_RDMA_PORTS 'mlx5_0:1'
+      add_free_var OMPI_MCA_coll_fca_enable 1
+      add_free_var OMPI_MCA_coll_fca_priority 95
       ;;
     *intel*mpi*)
       add_free_var I_MPI_FABRICS shm:dapl
@@ -647,7 +649,7 @@ set_run_target_bullx()
 #SBATCH --job-name=$job_name
 #SBATCH --partition=$queue
 #SBATCH --workdir=$output_folder
-#SBATCH --nodes=1
+#SBATCH --nodes=$use_nodes
 #SBATCH --threads-per-core=2
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
