@@ -46,7 +46,7 @@ CONTAINS
     &        ktype,    lddraf,   ldcum,                                              &
     &        pmfu,     pmfd,     pmfus,    pmfds,                                    &
     &        pmfuq,    pmfdq,    pmful,                                              &
-    &        pdmfup,   pdmfdp,   prfl,     prain,                                    &
+    &        pdmfup,   pdmfdp,   prfl,                                               &
     &        pcpcu,                                                                  &
     &        pten,     psfl,     pdpmel,   ktopm2                                   )
     !
@@ -62,7 +62,7 @@ CONTAINS
       &        pmfuq(kbdim,klev),       pmfdq(kbdim,klev),                           &
       &        pdmfup(kbdim,klev),      pdmfdp(kbdim,klev),                          &
       &        pmful(kbdim,klev),                                                    &
-      &        prfl(kbdim),             prain(kbdim)
+      &        prfl(kbdim)
     REAL(wp):: pten(kbdim,klev),        pdpmel(kbdim,klev),                          &
       &        psfl(kbdim)
     REAL(wp):: pcpcu(kbdim,klev)
@@ -167,16 +167,12 @@ CONTAINS
     !*        Calculate evaporation of precipitation
     !         --------------------------------------
     !
-    DO jl=1,kproma
-      prfl(jl)=0._wp
-      psfl(jl)=0._wp
-      prain(jl)=0._wp
-    END DO
+    prfl(:)=0._wp
+    psfl(:)=0._wp
       
     DO jk=ktopm2,klev
       DO jl=1,kproma
         IF(ldcum(jl)) THEN
-          prain(jl)=prain(jl)+pdmfup(jl,jk)
           IF(pten(jl,jk).GT.tmelt) THEN
             prfl(jl)=prfl(jl)+pdmfup(jl,jk)+pdmfdp(jl,jk)
             IF(psfl(jl).GT.0._wp.AND.pten(jl,jk).GT.ztmelp2) THEN
@@ -237,60 +233,57 @@ CONTAINS
     &               pmfus,    pmfds,    pmfuq,    pmfdq,                             &
     &               pmful,    pdmfup,   pdmfdp,   plude,                             &
     &               pdpmel,   prfl,     psfl,                                        &
-    &               pcpen,    palvsh,   pqtec,    pqude,                             &
-    &               prsfc,    pssfc,                                                 &
+    &               palvsh,                                                          &
     &               pch_con,  pcw_con,                                               &
-    &               pcon_dtrl, pcon_dtri, pcon_iqte,                                 &
-    &               ptte_cnv, pqte_cnv, pxtte_cnv,                                   &
+    &               pcon_dtrl,pcon_dtri,pcon_iqte,                                   &
+    &               pq_cnv,   pqte_cnv, pxtte_cnv,                                   &
     &               pxtecl,   pxteci                                                )
     !
     INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, ktopm2, ktrac
-    REAL(wp),INTENT(INOUT) :: pcon_dtrl(kbdim), pcon_dtri(kbdim)
-    REAL(wp),INTENT(INOUT) :: pcon_iqte(kbdim) ! integrated qv tendency
-    REAL(wp),INTENT(OUT) :: ptte_cnv(kbdim,klev)
+    REAL(wp),INTENT(IN)  :: prfl (kbdim), psfl(kbdim)
+    REAL(wp),INTENT(OUT) :: pcon_dtrl(kbdim), pcon_dtri(kbdim)
+    REAL(wp),INTENT(OUT) :: pcon_iqte(kbdim) ! integrated qv tendency
+    REAL(wp),INTENT(OUT) :: pq_cnv(kbdim,klev)
     REAL(wp),INTENT(OUT) :: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
+    REAL(wp),INTENT(OUT) :: pxtecl(kbdim,klev), pxteci(kbdim,klev)
+    
     LOGICAL  llo1
     !
-    REAL(wp) :: pten(kbdim,klev),        paphp1(kbdim,klevp1),                       &
-      &         prsfc(kbdim),            pssfc(kbdim)
-    REAL(wp) :: pxtecl(kbdim,klev),      pxteci(kbdim,klev)
+    REAL(wp) :: pten(kbdim,klev),        paphp1(kbdim,klevp1)
     REAL(wp) :: pmfus(kbdim,klev),       pmfds(kbdim,klev),                          &
       &         pmfuq(kbdim,klev),       pmfdq(kbdim,klev),                          &
       &         pmful(kbdim,klev),       plude(kbdim,klev),                          &
-      &         pdmfup(kbdim,klev),      pdmfdp(kbdim,klev),                         &
-      &         pqtec(kbdim,klev),       pqude(kbdim,klev),                          &
-      &         prfl(kbdim)
-    REAL(wp) :: pdpmel(kbdim,klev),      psfl(kbdim)
-    REAL(wp) :: pcpen(kbdim,klev),       palvsh(kbdim,klev),                         &
-      &         pch_con(kbdim),          pcw_con(kbdim)
+      &         pdmfup(kbdim,klev),      pdmfdp(kbdim,klev)
+    REAL(wp) :: pdpmel(kbdim,klev)
+    REAL(wp) :: palvsh(kbdim,klev)
+    REAL(wp) :: pch_con(kbdim),          pcw_con(kbdim)
     LOGICAL  :: ldcum(kbdim)
     REAL(wp) :: zmelt(kbdim), zcpten(kbdim,klev), zqten(kbdim,klev)
     REAL(wp) :: zsheat(kbdim)
     REAL(wp) :: pmfuxt(kbdim,klev,ktrac),pmfdxt(kbdim,klev,ktrac)
     REAL(wp) :: zxtec(kbdim,klev)
-    REAL(wp) :: zrcpm ! reciprocal value of specific heat of moist air
     INTEGER  :: jl, jk, jt
-    REAL(wp) :: zalv, zdtdt, zdqdt, zdxtdt
-    ptte_cnv(:,:)       = 0._wp
-    pqte_cnv(:,:)       = 0._wp
-    pxtte_cnv(:,:,:)    = 0._wp
-    pcon_dtrl(1:kproma) = 0._wp
-    pcon_dtri(1:kproma) = 0._wp
-    pcon_iqte(1:kproma) = 0._wp
+    REAL(wp) :: zalv, zdqdt, zdxtdt, zq
+    pq_cnv   (:,:)    = 0.0_wp
+    pqte_cnv (:,:)    = 0.0_wp
+    pxtte_cnv(:,:,:)  = 0.0_wp
+    pxtecl   (:,:)    = 0.0_wp
+    pxteci   (:,:)    = 0.0_wp
+    pcon_dtrl(:)      = 0.0_wp
+    pcon_dtri(:)      = 0.0_wp
+    pcon_iqte(:)      = 0.0_wp
     !----------------------------------------------------------------------
     !
     !*    2.0          Incrementation of t and q tendencies
     !                  ------------------------------------
     !
-    DO jl=1,kproma
-      zmelt(jl)=0._wp
-      zsheat(jl)=0._wp
-    END DO
+    zmelt(:)=0._wp
+    zsheat(:)=0._wp
     !
-    zcpten(1:kproma,ktopm2:klev)=0._wp
-    zqten (1:kproma,ktopm2:klev)=0._wp
-    pch_con(1:kproma)=0._wp
-    pcw_con(1:kproma)=0._wp
+    zcpten(:,ktopm2:klev)=0._wp
+    zqten (:,ktopm2:klev)=0._wp
+    pch_con(:)=0._wp
+    pcw_con(:)=0._wp
     !
     DO jk=ktopm2,klev
       !
@@ -299,15 +292,13 @@ CONTAINS
           IF(ldcum(jl)) THEN
             llo1=(pten(jl,jk)-tmelt).GT.0._wp
             zalv=MERGE(alv,als,llo1)
-            zrcpm=1._wp/pcpen(jl,jk)
-            zdtdt=(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*zrcpm*                      &
-              &                 (pmfus(jl,jk+1)-pmfus(jl,jk)+                        &
+            zq   =              (pmfus(jl,jk+1)-pmfus(jl,jk)+                        &
               &                  pmfds(jl,jk+1)-pmfds(jl,jk)-                        &
               &                  alf*pdpmel(jl,jk)-                                  &
               &                  palvsh(jl,jk+1)*pmful(jl,jk+1)+                     &
               &                  palvsh(jl,jk)*pmful(jl,jk)+                         &
               &                  zalv*(plude(jl,jk)+pdmfup(jl,jk)+pdmfdp(jl,jk)))
-            zcpten(jl,jk)=zdtdt*pcpen(jl,jk)
+            zcpten(jl,jk)=zq*(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))
             zdqdt=(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*                            &
               &                 (pmfuq(jl,jk+1)-pmfuq(jl,jk)+                        &
               &                  pmfdq(jl,jk+1)-pmfdq(jl,jk)+                        &
@@ -318,10 +309,9 @@ CONTAINS
             zqten(jl,jk) = zdqdt + zxtec(jl,jk)
             pxteci(jl,jk)=MERGE(0.0_wp,zxtec(jl,jk),llo1)
             pxtecl(jl,jk)=MERGE(zxtec(jl,jk),0.0_wp,llo1)
-            pqtec(jl,jk)=(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*pqude(jl,jk)
             zsheat(jl)=zsheat(jl)+zalv*(pdmfup(jl,jk)+pdmfdp(jl,jk))
             zmelt(jl)=zmelt(jl)+pdpmel(jl,jk)
-            ptte_cnv(jl,jk)=zdtdt
+            pq_cnv(jl,jk)=zq
             pqte_cnv(jl,jk)=zdqdt
           ENDIF
         END DO
@@ -342,12 +332,10 @@ CONTAINS
           IF(ldcum(jl)) THEN
             llo1=(pten(jl,jk)-tmelt).GT.0._wp
             zalv=MERGE(alv,als,llo1)
-            zrcpm=1._wp/pcpen(jl,jk)
-            zdtdt=-(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*zrcpm*                     &
-              &    (pmfus(jl,jk)+pmfds(jl,jk)+alf*pdpmel(jl,jk)-                     &
+            zq   =-(pmfus(jl,jk)+pmfds(jl,jk)+alf*pdpmel(jl,jk)-                     &
               &     palvsh(jl,jk)*pmful(jl,jk)-                                      &
               &     zalv*(pdmfup(jl,jk)+pdmfdp(jl,jk)+plude(jl,jk)))
-            zcpten(jl,jk)=zdtdt*pcpen(jl,jk)
+            zcpten(jl,jk)=zq*(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))
             zdqdt=-(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*                           &
               &       (pmfuq(jl,jk)+pmfdq(jl,jk)+plude(jl,jk)+                       &
               &       (pmful(jl,jk)+pdmfup(jl,jk)+pdmfdp(jl,jk)))
@@ -355,10 +343,9 @@ CONTAINS
             zqten(jl,jk) = zdqdt + zxtec(jl,jk)
             pxteci(jl,jk)=MERGE(0.0_wp,zxtec(jl,jk),llo1)
             pxtecl(jl,jk)=MERGE(zxtec(jl,jk),0.0_wp,llo1)
-            pqtec(jl,jk)=(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*pqude(jl,jk)
             zsheat(jl)=zsheat(jl)+zalv*(pdmfup(jl,jk)+pdmfdp(jl,jk))
             zmelt(jl)=zmelt(jl)+pdpmel(jl,jk)
-            ptte_cnv(jl,jk)=zdtdt
+            pq_cnv(jl,jk)=zq
             pqte_cnv(jl,jk)=zdqdt
           END IF
         END DO
@@ -382,11 +369,6 @@ CONTAINS
     !      3.          Update surface fields
     !                  ---------------------
     !
-    DO jl=1,kproma
-      prsfc(jl)=prfl(jl)
-      pssfc(jl)=psfl(jl)
-    END DO
-    !
     ! column integral of convective heating and moistening
     DO jk=ktopm2,klev
       DO jl=1,kproma
@@ -395,8 +377,8 @@ CONTAINS
       END DO
     END DO
     DO jl=1,kproma
-      pch_con(jl)=pch_con(jl)-(alv*prsfc(jl)+als*pssfc(jl))
-      pcw_con(jl)=pcw_con(jl)+prsfc(jl)+pssfc(jl)
+      pch_con(jl)=pch_con(jl)-(alv*prfl(jl)+als*psfl(jl))
+      pcw_con(jl)=pcw_con(jl)+prfl(jl)+psfl(jl)
     END DO
     !
     ! do we need to account for the surface, or for the top 2 layers?

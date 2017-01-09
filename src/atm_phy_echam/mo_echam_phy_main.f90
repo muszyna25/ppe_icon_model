@@ -120,8 +120,6 @@ CONTAINS
 !    REAL(wp) :: zcvcbot(nbdim)
 !    REAL(wp) :: zwcape (nbdim)
 
-    REAL(wp) :: zqtec  (nbdim,nlev)       !< tracer tendency due to entrainment/detrainment
-
     REAL(wp) :: zcpair (nbdim,nlev)       !< specific heat of moist air at const. pressure [J/K/kg]
     REAL(wp) :: zcvair (nbdim,nlev)       !< specific heat of moist air at const. volume   [J/K/kg]
     REAL(wp) :: zconv  (nbdim,nlev)       !< conversion factor q-->dT/dt       [(K/s)/(W/m2)]
@@ -134,7 +132,7 @@ CONTAINS
 !!$    REAL(wp) :: zq_vdf (nbdim,nlev)       !< heating by vertical diffusion     [W/m2]
     REAL(wp) :: zq_sso (nbdim,nlev)       !< heating by subgrid scale orogr.   [W/m2]
     REAL(wp) :: zq_gwh (nbdim,nlev)       !< heating by atm. gravity waves     [W/m2]
-!!$    REAL(wp) :: zq_cnv (nbdim,nlev)       !< heating by convection             [W/m2]
+    REAL(wp) :: zq_cnv (nbdim,nlev)       !< heating by convection             [W/m2]
 !!$    REAL(wp) :: zq_cld (nbdim,nlev)       !< heating by stratiform clouds      [W/m2]
 
     INTEGER  :: ihpbl  (nbdim)            !< location of PBL top given as vertical level index
@@ -1000,19 +998,6 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 7. CONVECTION PARAMETERISATION
     !-------------------------------------------------------------------
-    itype(:) = 0
-
-    ! 7.1   INITIALIZE ARRAYS FOR CONVECTIVE PRECIPITATION
-    !       AND COPY ARRAYS FOR CONVECTIVE CLOUD PARAMETERS
-
-    tend% xl_dtr(:,:,jb) = 0._wp
-    tend% xi_dtr(:,:,jb) = 0._wp
-    zqtec  (:,:) = 0._wp
-
-    field% rsfc(:,jb) = 0._wp
-    field% ssfc(:,jb) = 0._wp
-
-    ! 7.2   CALL SUBROUTINE CUCALL FOR CUMULUS PARAMETERIZATION
 
     IF (echam_phy_config%lconv) THEN
 
@@ -1021,7 +1006,6 @@ CONTAINS
       CALL cucall( jce, nbdim, nlev,          &! in
         &          nlevp1, nlevm1,            &! in
         &          ntrac,                     &! in     tracers
-!        &          jb,                        &! in     row index
         &          pdtime,                    &! in
         &          field% lfland(:,jb),       &! in     loland
         &          field% ta(:,:,jb),         &! in     tm1
@@ -1044,24 +1028,23 @@ CONTAINS
         &          tend% ua(:,:,jb),          &! in     vom  for internal updating
         &          tend% va(:,:,jb),          &! in     vol  for internal updating
         &          tend% qtrc(:,:,jb,iqt:),   &! in     xtte for internal updating
-        &          zqtec,                     &! inout
-        &          field% ch_concloud(:,jb),  &! inout condensational heat
-        &          field% cw_concloud(:,jb),  &! inout condensational heat
+        &          field% ch_concloud(:,jb),  &! inout  condensational heat
+        &          field% cw_concloud(:,jb),  &! inout  condensational heat
         &          field% rsfc(:,jb),         &! out
         &          field% ssfc(:,jb),         &! out
-        &          tend% xl_dtr(:,:,jb),      &! inout  xtecl
-        &          tend% xi_dtr(:,:,jb),      &! inout  xteci
-        &          itype,                     &! inout
+        &          tend% xl_dtr(:,:,jb),      &! out    xtecl
+        &          tend% xi_dtr(:,:,jb),      &! out    xteci
+        &          itype,                     &! out
         &          ictop,                     &! out
         &          ilab,                      &! out
         &          field% topmax(:,jb),       &! inout
         &          echam_conv_config%cevapcu, &! in
         &          tend% qtrc_dyn(:,:,jb,iqv),&! in     qte by transport
         &          tend% qtrc_phy(:,:,jb,iqv),&! in     qte by physics
-        &          field% con_dtrl(:,jb),     &! inout detrained liquid
-        &          field% con_dtri(:,jb),     &! inout detrained ice
-        &          field% con_iteqv(:,jb),    &! inout v. int. tend of water vapor within conv
-        &          tend%  ta_cnv(:,:,jb),     &! out
+        &          field% con_dtrl(:,jb),     &! out    detrained liquid
+        &          field% con_dtri(:,jb),     &! out    detrained ice
+        &          field% con_iteqv(:,jb),    &! out    v. int. tend of water vapor within conv
+        &                 zq_cnv(:,:),        &! out
         &          tend%  ua_cnv(:,:,jb),     &! out
         &          tend%  va_cnv(:,:,jb),     &! out
         &          tend%qtrc_cnv(:,:,jb,iqv), &! out
@@ -1071,12 +1054,12 @@ CONTAINS
 
       field% rtype(:,jb) = REAL(itype(:),wp)
 
-!!$      ! heating accumulated
-!!$      zq_phy(:,:) = zq_phy(:,:) + zq_cnv(:,:)
-!!$
-!!$      ! tendency
-!!$      tend% temp_cnv(:,:,jb) = zq_cnv(:,:)*zconv(:,:)
-!!$
+      ! heating accumulated
+      zq_phy(:,:) = zq_phy(:,:) + zq_cnv(:,:)
+
+      ! tendency
+      tend% ta_cnv(:,:,jb) = zq_cnv(:,:)*zconv(:,:)
+
       ! tendencies accumulated
       tend%   ua(:,:,jb)      = tend%   ua(:,:,jb)      + tend%   ua_cnv(:,:,jb)
       tend%   va(:,:,jb)      = tend%   va(:,:,jb)      + tend%   va_cnv(:,:,jb)
@@ -1089,7 +1072,13 @@ CONTAINS
 
       ilab (:,:) = 0
       ictop(:)   = nlev-1
+      itype(:)   = 0
 
+      field% rsfc   (:,  jb)      = 0._wp
+      field% ssfc   (:,  jb)      = 0._wp
+
+      tend%   xl_dtr(:,:,jb)      = 0._wp
+      tend%   xi_dtr(:,:,jb)      = 0._wp
       tend%   ua_cnv(:,:,jb)      = 0._wp
       tend%   va_cnv(:,:,jb)      = 0._wp
       tend%   ta_cnv(:,:,jb)      = 0._wp

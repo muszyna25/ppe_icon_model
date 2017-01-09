@@ -87,16 +87,15 @@ CONTAINS
     &                  papp1,    paphp1,   pthvsig,                    &! in
     &                  ptte,     pvom,     pvol,                       &! in
     &                  pxtte,                                          &! inout
-    &                  pqtec,                                          &! inout
     &                  pch_con,  pcw_con,                              &! inout
     &                  prsfc,    pssfc,                                &! out
-    &                  pxtecl,   pxteci,                               &! out (?)
+    &                  pxtecl,   pxteci,                               &! out
     &                  ktype,    ictop,    ilab,                       &! out
     &                  ptopmax,                                        &! inout
     &                  cevapcu,                                        &! in
     &                  pqte_dyn, pqte_phy,                             &! in
-    &                  pcon_dtrl, pcon_dtri, pcon_iqte,                &! inout
-    &                  ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv,         &! out
+    &                  pcon_dtrl,pcon_dtri,pcon_iqte,                  &! out
+    &                  pq_cnv,   pvom_cnv, pvol_cnv, pqte_cnv,         &! out
     &                  pxtte_cnv                               )        ! out
 
     INTEGER, INTENT (IN) :: klev, klevm1, klevp1, kproma, kbdim, ktrac
@@ -106,27 +105,27 @@ CONTAINS
       &         pum1(kbdim,klev),         pvm1(kbdim,klev),              &
       &         pqte(kbdim,klev),                                        &
       &         pverv(kbdim,klev),        pgeo(kbdim,klev),              &
-      &         papp1(kbdim,klev),        paphp1(kbdim,klevp1),          &
-      &         prsfc(kbdim),             pssfc(kbdim)
+      &         papp1(kbdim,klev),        paphp1(kbdim,klevp1)
     REAL(wp)::  ptte(kbdim,klev),                                        &
       &         pvom(kbdim,klev),         pvol(kbdim,klev)
     REAL(wp)::  pxtte(kbdim,klev,ktrac)
-    REAL(wp),INTENT(INOUT) :: pcon_dtrl(kbdim), pcon_dtri(kbdim)
-    REAL(wp),INTENT(INOUT) :: pcon_iqte(kbdim)
-    REAL(wp),INTENT(INOUT) :: ptte_cnv(kbdim,klev)
-    REAL(wp),INTENT(INOUT) :: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
-    REAL(wp),INTENT(INOUT) :: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
     REAL(wp),INTENT(IN)    :: pqte_dyn(kbdim,klev), pqte_phy(kbdim,klev)
+    REAL(wp),INTENT(OUT)   :: pcon_dtrl(kbdim), pcon_dtri(kbdim)
+    REAL(wp),INTENT(OUT)   :: pcon_iqte(kbdim)
+    REAL(wp),INTENT(OUT)   :: pq_cnv(kbdim,klev)
+    REAL(wp),INTENT(OUT)   :: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
+    REAL(wp),INTENT(OUT)   :: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
+    REAL(wp),INTENT(OUT)   :: prsfc(kbdim), pssfc(kbdim)
+    REAL(wp),INTENT(OUT)   :: pxtecl(kbdim,klev), pxteci(kbdim,klev)
     REAL(wp)::  pthvsig(kbdim)
     INTEGER ::  ktype(kbdim)
     REAL(wp)::  pqhfla(kbdim)
     REAL(wp)::  pch_con(kbdim),           pcw_con(kbdim)
     REAL(wp)::  ptopmax(kbdim)
     INTEGER ::  ilab(kbdim,klev)
-    REAL(wp)::  pqtec(kbdim,klev)
-    REAL(wp)::  pxtecl(kbdim,klev),       pxteci(kbdim,klev)
     REAL(wp)::  pxlm1(kbdim,klev),        pxim1(kbdim,klev),             &
       &         pxlte(kbdim,klev),        pxite(kbdim,klev)
+    
     REAL(wp)::  ztp1(kbdim,klev),         zqp1(kbdim,klev),              &
       &         zxp1(kbdim,klev),         ztvp1(kbdim,klev),             &
       &         zup1(kbdim,klev),         zvp1(kbdim,klev),              &
@@ -135,7 +134,7 @@ CONTAINS
       &         zqude(kbdim,klev),                                       &
       &         zcpq(kbdim,klev),                                        &
       &         zmfu(kbdim,klev),         zmfd(kbdim,klev),              &
-      &         zqsat(kbdim,klev),        zrain(kbdim),                  &
+      &         zqsat(kbdim,klev),                                       &
       &         za(kbdim),                ua(kbdim)
     INTEGER ::  itopec2(kbdim),           idx(kbdim)
     INTEGER ::  icbot(kbdim),             ictop(kbdim)
@@ -187,7 +186,6 @@ CONTAINS
       END DO
     END DO
     DO jl=1,kproma
-      zrain(jl)=0._wp
       locum(jl)=.FALSE.
     END DO
     !
@@ -209,14 +207,14 @@ CONTAINS
       &          paphp1,   pgeo,                                      &
       &          zqte_dyn_phy,                                        &
       &          prsfc,    pssfc,                                     &
-      &          pqtec,    zqude,    zcpq,                            &
+      &          zqude,    zcpq,                                      &
       &          pch_con,  pcw_con,                                   &
       &          locum,    ktype,    icbot,    ictop,                 &
       &          ztu,      zqu,      zlu,      zlude,                 &
-      &          zmfu,     zmfd,     zrain,    pthvsig,               &
+      &          zmfu,     zmfd,     pthvsig,                         &
       &          cevapcu,                                             &
-      &          pcon_dtrl, pcon_dtri, pcon_iqte,                     &
-      &          ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv,pxtte_cnv,    &
+      &          pcon_dtrl,pcon_dtri,pcon_iqte,                       &
+      &          pq_cnv,   pvom_cnv, pvol_cnv, pqte_cnv,pxtte_cnv,    &
       &          pxtecl,   pxteci                                     )
     !
     ! ------------------------------------------------------------------
@@ -257,7 +255,7 @@ CONTAINS
   !>
   !!
   SUBROUTINE cumastr(  kproma, kbdim, klev, klevp1, klevm1, ilab,         &
-    &                  ptime_step_len,                                    &!in
+    &                  ptime_step_len,                                    &
     &        pten,     pqen,     pxen,     puen,     pven,                &
     &        ptven,    ktrac,    ldland,                                  &
     &        pxten,    pxtu,                                              &
@@ -265,25 +263,30 @@ CONTAINS
     &        paphp1,   pgeo,                                              &
     &        pqte,                                                        &
     &        prsfc,    pssfc,                                             &
-    &        pqtec,    pqude,    pcpen,                                   &
+    &        pqude,    pcpen,                                             &
     &        pch_con,  pcw_con,                                           &
     &        ldcum,    ktype,    kcbot,    kctop,                         &
     &        ptu,      pqu,      plu,      plude,                         &
-    &        pmfu,     pmfd,     prain,    pthvsig,                       &
+    &        pmfu,     pmfd,     pthvsig,                                 &
     &        cevapcu,                                                     &
-    &        pcon_dtrl, pcon_dtri, pcon_iqte,                             &
-    &        ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv, pxtte_cnv,           &
+    &        pcon_dtrl,pcon_dtri,pcon_iqte,                               &
+    &        pq_cnv,   pvom_cnv, pvol_cnv, pqte_cnv, pxtte_cnv,           &
     &        pxtecl,   pxteci                                             )
     !
     INTEGER, INTENT(IN)   :: kproma, kbdim, klev, klevp1, ktrac, klevm1
     REAL(wp),INTENT(IN)   :: ptime_step_len
     REAL(wp),INTENT(INOUT):: pch_con(kbdim), pcw_con(kbdim)
     REAL(wp),INTENT(IN)   :: cevapcu(:)
-    REAL(wp),INTENT(INOUT):: pcon_dtrl(kbdim), pcon_dtri(kbdim)
-    REAL(wp),INTENT(INOUT):: pcon_iqte(kbdim)
-    REAL(wp),INTENT(INOUT):: ptte_cnv(kbdim,klev)
-    REAL(wp),INTENT(INOUT):: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
-    REAL(wp),INTENT(INOUT):: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
+
+    INTEGER, INTENT(OUT)  :: ktype(kbdim)
+    REAL(wp),INTENT(OUT)  :: pcon_dtrl(kbdim), pcon_dtri(kbdim)
+    REAL(wp),INTENT(OUT)  :: pcon_iqte(kbdim)
+    REAL(wp),INTENT(OUT)  :: pq_cnv(kbdim,klev)
+    REAL(wp),INTENT(OUT)  :: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
+    REAL(wp),INTENT(OUT)  :: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
+    REAL(wp),INTENT(OUT)  :: prsfc(kbdim), pssfc(kbdim)
+    REAL(wp),INTENT(OUT)  :: pxtecl(kbdim,klev), pxteci(kbdim,klev)
+
     REAL(wp),INTENT(IN)   :: pcpen(kbdim,klev), pqte(kbdim,klev)
     !
     REAL(wp):: pten(kbdim,klev),        pqen(kbdim,klev),                  &
@@ -295,14 +298,10 @@ CONTAINS
     REAL(wp):: ptu(kbdim,klev),         pqu(kbdim,klev),                   &
       &        plu(kbdim,klev),         plude(kbdim,klev),                 &
       &        pmfu(kbdim,klev),        pmfd(kbdim,klev),                  &
-      &        prsfc(kbdim),            pssfc(kbdim),                      &
-      &        prain(kbdim),            pqhfla(kbdim)
+      &        pqhfla(kbdim)
     REAL(wp):: pthvsig(kbdim)
-    INTEGER :: kcbot(kbdim),            kctop(kbdim),                      &
-      &        ktype(kbdim)
-    REAL(wp):: pqtec(kbdim,klev),                                          &
-      &        pxtecl(kbdim,klev),      pxteci(kbdim,klev),                &
-      &        pqude(kbdim,klev)
+    INTEGER :: kcbot(kbdim),            kctop(kbdim)
+    REAL(wp):: pqude(kbdim,klev)
     REAL(wp):: ztenh(kbdim,klev),       zqenh(kbdim,klev),                 &
       &        zxenh(kbdim,klev),       zalvsh(kbdim,klev),                &
       ! zalvsh: latent heat of vaporisation/sublimation defined at half levels
@@ -427,6 +426,7 @@ CONTAINS
     !                  ---------------------------------------------------------------
     !
     zldcum(1:kproma) = MERGE(1._wp,0._wp,ldcum(1:kproma))
+    ktype(:) = 0
 
 !DIR$ IVDEP
 !DIR$ CONCURRENT
@@ -861,9 +861,13 @@ CONTAINS
       &        ktype,    loddraf,  ldcum,                                &
       &        pmfu,     pmfd,     zmfus,    zmfds,                      &
       &        zmfuq,    zmfdq,    zmful,                                &
-      &        zdmfup,   zdmfdp,   zrfl,     prain,                      &
+      &        zdmfup,   zdmfdp,   zrfl,                                 &
       &        zcpcu,                                                    &
       &        pten,     zsfl,     zdpmel,   itopm2                     )
+
+    prsfc(:)=zrfl(:)
+    pssfc(:)=zsfl(:)
+
     !-----------------------------------------------------------------------
     !
     !*    8.0      Update tendencies for t and q in subroutine'cudtdq'
@@ -875,11 +879,10 @@ CONTAINS
       &         zmfus,    zmfds,    zmfuq,    zmfdq,                     &
       &         zmful,    zdmfup,   zdmfdp,   plude,                     &
       &         zdpmel,   zrfl,     zsfl,                                &
-      &         pcpen,    zalvsh,   pqtec,    pqude,                     &
-      &         prsfc,    pssfc,                                         &
+      &         zalvsh,                                                  &
       &         pch_con,  pcw_con,                                       &
-      &         pcon_dtrl, pcon_dtri, pcon_iqte,                         &
-      &         ptte_cnv, pqte_cnv, pxtte_cnv,                           &
+      &         pcon_dtrl,pcon_dtri,pcon_iqte,                           &
+      &         pq_cnv,   pqte_cnv, pxtte_cnv,                           &
       &         pxtecl,   pxteci                                        )
     !
     !-----------------------------------------------------------------------
