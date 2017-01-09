@@ -258,15 +258,17 @@ CONTAINS
     REAL(wp) :: palvsh(kbdim,klev)
     REAL(wp) :: pch_con(kbdim),          pcw_con(kbdim)
     LOGICAL  :: ldcum(kbdim)
-    REAL(wp) :: zmelt(kbdim), zcpten(kbdim,klev), zqten(kbdim,klev)
-    REAL(wp) :: zsheat(kbdim)
+    REAL(wp) :: zqte_cnv(kbdim,klev)
     REAL(wp) :: pmfuxt(kbdim,klev,ktrac),pmfdxt(kbdim,klev,ktrac)
-    REAL(wp) :: zxtec(kbdim,klev)
+    REAL(wp) :: zxtecl(kbdim,klev),zxteci(kbdim,klev)
     INTEGER  :: jl, jk, jt
-    REAL(wp) :: zalv, zdqdt, zdxtdt, zq
+    REAL(wp) :: zalv
     pq_cnv   (:,:)    = 0.0_wp
+    zqte_cnv (:,:)    = 0.0_wp
     pqte_cnv (:,:)    = 0.0_wp
     pxtte_cnv(:,:,:)  = 0.0_wp
+    zxtecl   (:,:)    = 0.0_wp
+    zxteci   (:,:)    = 0.0_wp
     pxtecl   (:,:)    = 0.0_wp
     pxteci   (:,:)    = 0.0_wp
     pcon_dtrl(:)      = 0.0_wp
@@ -277,11 +279,6 @@ CONTAINS
     !*    2.0          Incrementation of t and q tendencies
     !                  ------------------------------------
     !
-    zmelt(:)=0._wp
-    zsheat(:)=0._wp
-    !
-    zcpten(:,ktopm2:klev)=0._wp
-    zqten (:,ktopm2:klev)=0._wp
     pch_con(:)=0._wp
     pcw_con(:)=0._wp
     !
@@ -292,37 +289,35 @@ CONTAINS
           IF(ldcum(jl)) THEN
             llo1=(pten(jl,jk)-tmelt).GT.0._wp
             zalv=MERGE(alv,als,llo1)
-            zq   =              (pmfus(jl,jk+1)-pmfus(jl,jk)+                        &
-              &                  pmfds(jl,jk+1)-pmfds(jl,jk)-                        &
-              &                  alf*pdpmel(jl,jk)-                                  &
-              &                  palvsh(jl,jk+1)*pmful(jl,jk+1)+                     &
-              &                  palvsh(jl,jk)*pmful(jl,jk)+                         &
-              &                  zalv*(plude(jl,jk)+pdmfup(jl,jk)+pdmfdp(jl,jk)))
-            zcpten(jl,jk)=zq*(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))
-            zdqdt=(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*                            &
-              &                 (pmfuq(jl,jk+1)-pmfuq(jl,jk)+                        &
-              &                  pmfdq(jl,jk+1)-pmfdq(jl,jk)+                        &
-              &                  pmful(jl,jk+1)-pmful(jl,jk)-                        &
-              &                  plude(jl,jk)-                                       &
-              &                  (pdmfup(jl,jk)+pdmfdp(jl,jk)))
-            zxtec(jl,jk)=(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*plude(jl,jk)
-            zqten(jl,jk) = zdqdt + zxtec(jl,jk)
-            pxteci(jl,jk)=MERGE(0.0_wp,zxtec(jl,jk),llo1)
-            pxtecl(jl,jk)=MERGE(zxtec(jl,jk),0.0_wp,llo1)
-            zsheat(jl)=zsheat(jl)+zalv*(pdmfup(jl,jk)+pdmfdp(jl,jk))
-            zmelt(jl)=zmelt(jl)+pdpmel(jl,jk)
-            pq_cnv(jl,jk)=zq
-            pqte_cnv(jl,jk)=zdqdt
+            
+            pq_cnv(jl,jk)   =   pmfus(jl,jk+1)-pmfus(jl,jk)+                        &
+              &                 pmfds(jl,jk+1)-pmfds(jl,jk)-                        &
+              &                 alf*pdpmel(jl,jk)-                                  &
+              &                 palvsh(jl,jk+1)*pmful(jl,jk+1)+                     &
+              &                 palvsh(jl,jk)*pmful(jl,jk)+                         &
+              &                 zalv*(plude(jl,jk)+pdmfup(jl,jk)+pdmfdp(jl,jk))
+            
+            zqte_cnv(jl,jk) =   pmfuq(jl,jk+1)-pmfuq(jl,jk)+                        &
+              &                 pmfdq(jl,jk+1)-pmfdq(jl,jk)+                        &
+              &                 pmful(jl,jk+1)-pmful(jl,jk)-                        &
+              &                 plude(jl,jk)-                                       &
+              &                 (pdmfup(jl,jk)+pdmfdp(jl,jk))
+            pqte_cnv(jl,jk) =  (grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*zqte_cnv(jl,jk)
+            
+            zxteci(jl,jk)   =  MERGE(0.0_wp,plude(jl,jk),llo1)
+            pxteci(jl,jk)   =  (grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*zxteci(jl,jk)
+            
+            zxtecl(jl,jk)   =  MERGE(plude(jl,jk),0.0_wp,llo1)
+            pxtecl(jl,jk)   =  (grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*zxtecl(jl,jk)
           ENDIF
         END DO
         !
           DO jt=1,ktrac
               DO jl=1,kproma
                 IF(ldcum(jl)) THEN
-                  zdxtdt=(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))                      &
-                    &         *(pmfuxt(jl,jk+1,jt)-pmfuxt(jl,jk,jt)                  &
-                    &          +pmfdxt(jl,jk+1,jt)-pmfdxt(jl,jk,jt))
-                  pxtte_cnv(jl,jk,jt)=zdxtdt
+                  pxtte_cnv(jl,jk,jt) = (grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))      &
+                    &                  *(pmfuxt(jl,jk+1,jt)-pmfuxt(jl,jk,jt)        &
+                    &                   +pmfdxt(jl,jk+1,jt)-pmfdxt(jl,jk,jt))
                 ENDIF
               END DO
           END DO
@@ -332,30 +327,28 @@ CONTAINS
           IF(ldcum(jl)) THEN
             llo1=(pten(jl,jk)-tmelt).GT.0._wp
             zalv=MERGE(alv,als,llo1)
-            zq   =-(pmfus(jl,jk)+pmfds(jl,jk)+alf*pdpmel(jl,jk)-                     &
-              &     palvsh(jl,jk)*pmful(jl,jk)-                                      &
-              &     zalv*(pdmfup(jl,jk)+pdmfdp(jl,jk)+plude(jl,jk)))
-            zcpten(jl,jk)=zq*(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))
-            zdqdt=-(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*                           &
-              &       (pmfuq(jl,jk)+pmfdq(jl,jk)+plude(jl,jk)+                       &
-              &       (pmful(jl,jk)+pdmfup(jl,jk)+pdmfdp(jl,jk)))
-            zxtec(jl,jk)=(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*plude(jl,jk)
-            zqten(jl,jk) = zdqdt + zxtec(jl,jk)
-            pxteci(jl,jk)=MERGE(0.0_wp,zxtec(jl,jk),llo1)
-            pxtecl(jl,jk)=MERGE(zxtec(jl,jk),0.0_wp,llo1)
-            zsheat(jl)=zsheat(jl)+zalv*(pdmfup(jl,jk)+pdmfdp(jl,jk))
-            zmelt(jl)=zmelt(jl)+pdpmel(jl,jk)
-            pq_cnv(jl,jk)=zq
-            pqte_cnv(jl,jk)=zdqdt
+            
+            pq_cnv(jl,jk)   = -(pmfus(jl,jk)+pmfds(jl,jk)+alf*pdpmel(jl,jk)-        &
+              &                 palvsh(jl,jk)*pmful(jl,jk)-                         &
+              &                 zalv*(pdmfup(jl,jk)+pdmfdp(jl,jk)+plude(jl,jk)))
+            
+            zqte_cnv(jl,jk) = -(pmfuq(jl,jk)+pmfdq(jl,jk)+plude(jl,jk)+             &
+              &                 (pmful(jl,jk)+pdmfup(jl,jk)+pdmfdp(jl,jk)))
+            pqte_cnv(jl,jk) =  (grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*zqte_cnv(jl,jk)
+            
+            zxteci(jl,jk)   =  MERGE(0.0_wp,plude(jl,jk),llo1)
+            pxteci(jl,jk)   =  (grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*zxteci(jl,jk)
+            
+            zxtecl(jl,jk)   =  MERGE(plude(jl,jk),0.0_wp,llo1)
+            pxtecl(jl,jk)   =  (grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*zxtecl(jl,jk)
           END IF
         END DO
         !
           DO jt=1,ktrac
               DO jl=1,kproma
                 IF(ldcum(jl)) THEN
-                  zdxtdt=-(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))                     &
-                    &    *(pmfuxt(jl,jk,jt)+pmfdxt(jl,jk,jt))
-                  pxtte_cnv(jl,jk,jt)=zdxtdt
+                  pxtte_cnv(jl,jk,jt) =-(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))      &
+                    &                  *(pmfuxt(jl,jk,jt)+pmfdxt(jl,jk,jt))
                 ENDIF
               END DO
           END DO
@@ -372,8 +365,8 @@ CONTAINS
     ! column integral of convective heating and moistening
     DO jk=ktopm2,klev
       DO jl=1,kproma
-        pch_con(jl)=pch_con(jl)+zcpten(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))/grav
-        pcw_con(jl)=pcw_con(jl)+zqten(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))/grav
+        pch_con(jl)=pch_con(jl)+pq_cnv(jl,jk)
+        pcw_con(jl)=pcw_con(jl)+zqte_cnv(jl,jk)+plude(jl,jk)
       END DO
     END DO
     DO jl=1,kproma
@@ -385,14 +378,11 @@ CONTAINS
     DO jk=ktopm2,klev
       DO jl=1,kproma
         ! water vapor
-        pcon_iqte(jl)=pcon_iqte(jl)+                                                 &
-          &   pqte_cnv(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))/grav
+        pcon_iqte(jl)=pcon_iqte(jl)+zqte_cnv(jl,jk)
         ! detrained liquid water
-        pcon_dtrl(jl)=pcon_dtrl(jl)+                                                 &
-          &   pxtecl(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))/grav
+        pcon_dtrl(jl)=pcon_dtrl(jl)+zxtecl(jl,jk)
         ! detrained ice
-        pcon_dtri(jl)=pcon_dtri(jl)+                                                 &
-          &   pxteci(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))/grav
+        pcon_dtri(jl)=pcon_dtri(jl)+zxteci(jl,jk)
       END DO
     END DO
     !
