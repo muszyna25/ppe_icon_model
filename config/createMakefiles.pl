@@ -92,7 +92,7 @@ if ( -d "externals/yac/include" ) {
     }
 }
 
-if ( -d ".git" and ($enable_jsbach eq "yes") and ! -d "src/lnd_phy_jsbach" ) {
+if ( ($enable_jsbach eq "yes") and ! -d "src/lnd_phy_jsbach" ) {
     symlink "../externals/jsbach/src", "src/lnd_phy_jsbach"; 
 }
 
