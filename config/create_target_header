@@ -663,8 +663,8 @@ export I_MPI_PMI_LIBRARY=/usr/lib64/libpmi.so
 #========================================' ; fi)
 EOF
 
-# by default use the SLURM_JOB_NUM_NODES
-use_nodes="\${SLURM_JOB_NUM_NODES:${use_nodes}}"
+# for the rest use the SLURM_JOB_NUM_NODES by default 
+use_nodes="\${SLURM_JOB_NUM_NODES:=${use_nodes}}"
 
   # create header
   start_header
