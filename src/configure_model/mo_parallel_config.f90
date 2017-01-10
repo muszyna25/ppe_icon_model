@@ -40,7 +40,7 @@ MODULE mo_parallel_config
        &  sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
        &  restart_chunk_size, ext_div_from_file, write_div_to_file, &
        &  use_div_from_file, io_proc_chunk_size,                    &
-       &  num_dist_array_replicas
+       &  num_dist_array_replicas, io_process_stride, io_process_rotate
 
   PUBLIC :: set_nproma, get_nproma, check_parallel_configuration, use_async_restart_output, blk_no, idx_no, idx_1d
 
@@ -159,6 +159,12 @@ MODULE mo_parallel_config
   ! t_patch_pre
   INTEGER :: num_dist_array_replicas
 
+  ! use every nth process to do distributed netcdf reads
+  INTEGER :: io_process_stride
+
+  ! shift ranks doing I/O by this number
+  INTEGER :: io_process_rotate
+
 CONTAINS
 
   !-------------------------------------------------------------------------
@@ -195,8 +201,8 @@ CONTAINS
 
     ! check p_test_run, num_io_procs, num_restart_procs and num_prefetch_proc
 #ifdef NOMPI
-    ! Unconditionally set p_test_run to .FALSE. and num_io_procs to 0, num_restart_procs to 0 
-    ! and num_prefetch_proc to 0 
+    ! Unconditionally set p_test_run to .FALSE. and num_io_procs to 0, num_restart_procs to 0
+    ! and num_prefetch_proc to 0
     ! all other variables are already set correctly
     IF (p_test_run) THEN
       CALL message(method_name, &
