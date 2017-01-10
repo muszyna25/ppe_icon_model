@@ -96,15 +96,6 @@ if ( -d ".git" and ($enable_jsbach eq "yes") and ! -d "src/lnd_phy_jsbach" ) {
     symlink "../externals/jsbach/src", "src/lnd_phy_jsbach"; 
 }
 
-if ( ($enable_jsbach eq "yes") and -d "src/lnd_phy_jsbach/include" ) {
-    opendir(DIR, "src/lnd_phy_jsbach/include");
-    @incs = grep /\.(inc|h)/, readdir(DIR);
-    closedir(DIR);
-    foreach my $inc ( @incs ) {
-	copy ( "src/lnd_phy_jsbach/include/${inc}", "${build_path}/include/${inc}" );
-    }
-}
-
 if ( ($enable_ocean eq "yes") and -d "src/ocean/include" ) {
     opendir(DIR, "src/ocean/include");
     @incs = grep /\.(inc|h)/, readdir(DIR);
@@ -194,17 +185,12 @@ foreach my $dir ( @directories ) {
     push @vpath, "VPATH = ";
     while ( my ($key, $value) = each(%vpath_directories) ) {
 	if ( $dir ne "src" ) { $value++; }
-#	for my $i ( 0 .. $value ) {
-#	    #$key = "../".$key;
-#            # RS Hack to work with JSBACH sub-directories in src/lnd_phy_jsbach
-#            $key = "../".$key unless $key =~ /^..\/..\/..\/src\/lnd_phy_jsbach\/.*/ ;
-#	}
         # Use a constant upward path, this allows arbitary source folder tree depth 
         $key = "../../../".$key.":";
 	if ($add_vpath_level == 2) {
 	    $key = "../../".$key;
 	}
-	push @vpath, $key;
+	push @vpath, $key unless $key =~ /^..\/..\/..\/src\/lnd_phy_jsbach.*/ ;
     }
     print MAKEFILE @vpath;
     print MAKEFILE "\n\n";
@@ -464,8 +450,12 @@ sub ScanDirectory {
         next if (($enable_testbed eq "no") and ($name eq "testbed") and ($workpath eq "src") );
 
         if (-d $name){
-	    my $nextpath="$workpath/$name";
-            &ScanDirectory($name, $nextpath, $level);
+            if ($name eq "lnd_phy_jsbach") {
+                &ScanDirectory($build_path, "src", $level);
+            } else {
+                my $nextpath="$workpath/$name";
+                &ScanDirectory($name, $nextpath, $level);
+            }
             next;
         } else {
 	    if ($name =~ /\.[c|f|F]{1}(90|95|03)?$/) {
