@@ -662,6 +662,10 @@ $(if [[ "$use_mpi_root" == *intel*mpi* ]]; then
 export I_MPI_PMI_LIBRARY=/usr/lib64/libpmi.so
 #========================================' ; fi)
 EOF
+
+# by default use the SLURM_JOB_NUM_NODES
+use_nodes="\${SLURM_JOB_NUM_NODES:${use_nodes}}"
+
   # create header
   start_header
   cat >>$output_script <<EOF
