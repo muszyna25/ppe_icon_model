@@ -56,7 +56,7 @@ MODULE mo_cloud
 
   USE mo_kind,                 ONLY : wp
   USE mo_math_constants,       ONLY : pi
-  USE mo_physical_constants,   ONLY : rd, alv, als, rv, vtmpc1, tmelt, rhoh2o
+  USE mo_physical_constants,   ONLY : rd, alf, alv, als, rv, vtmpc1, tmelt, rhoh2o
   USE mo_echam_convect_tables, ONLY : prepare_ua_index_spline, lookup_ua_spline      &
                                     , lookup_uaw_spline, lookup_ubc                  &
                                     , lookup_ua_eor_uaw_spline
@@ -793,7 +793,7 @@ CONTAINS
     !!$              zzevp        = zxlb(jl)*zclcaux(jl)/pdtime
     !!$              pxlte_cld(jl,jk) = pxlte_cld(jl,jk)-zzevp
     !!$              pxite_cld(jl,jk) = pxite_cld(jl,jk)+zzevp
-    !!$              pq_cld  (jl,jk)  = pq_cld(jl,jk)+(als-alv)*zzevp*pmdry(jl,jk)
+    !!$              pq_cld  (jl,jk)  = pq_cld(jl,jk)+alf*zzevp*pmdry(jl,jk)
     !!$              zxib(jl)     = zxib(jl)+zxlb(jl)
     !!$              zxlb(jl)     = 0.0_wp
     !!$           END IF
@@ -1137,9 +1137,9 @@ CONTAINS
          &                     +zcnd(jl)+zgentl(jl)-zxlevap(jl))/pdtime
        zxite  = (zfrl(jl)-zspr(jl)+zdep(jl)+zgenti(jl)                               &
          &                     -zxievap(jl)-zimlt(jl)+zqsed(jl))/pdtime
-       zq     = (  alv     *(zcnd(jl)+zgentl(jl)-zevp(jl)-zxlevap(jl))               &
-         &       + als     *(zdep(jl)+zgenti(jl)-zsub(jl)-zxievap(jl))               &
-         &       +(als-alv)*(-zsmlt(jl)-zimlt(jl)+zfrl(jl)+zsacl(jl)) )/pdtime
+       zq     = (  alv*(zcnd(jl)+zgentl(jl)-zevp(jl)-zxlevap(jl))                    &
+         &       + als*(zdep(jl)+zgenti(jl)-zsub(jl)-zxievap(jl))                    &
+         &       + alf*(-zsmlt(jl)-zimlt(jl)+zfrl(jl)+zsacl(jl)) )/pdtime
 
        pqte_cld(jl,jk)   = pqte_cld(jl,jk)  + zqvte
        pxlte_cld(jl,jk)  = pxlte_cld(jl,jk) + pxtecl(jl,jk) + zxlte
