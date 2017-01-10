@@ -498,13 +498,6 @@ CONTAINS
         &                    + tend% ta_rsw (jcs:jce,:,jb) &
         &                    + tend% ta_rlw (jcs:jce,:,jb)
 
-    ELSE   ! If computation of radiative heating is by-passed
-
-      tend%ta_rsw(jcs:jce,:,jb) = 0.0_wp
-      tend%ta_rlw(jcs:jce,:,jb) = 0.0_wp
-
-      field%rsdt(jcs:jce,jb)= 0.0_wp
-
     END IF ! lrad
 
     !-------------------------------------------------------------------
@@ -825,16 +818,7 @@ CONTAINS
 
     ELSE
       zvmixtau   (jcs:jce,:) = 0._wp
-      field% evap(jcs:jce,jb)= 0._wp
       zqtvar_prod(jcs:jce,:) = 0._wp
-
-      tend%   ua_vdf(jcs:jce,:,jb)      = 0._wp
-      tend%   va_vdf(jcs:jce,:,jb)      = 0._wp
-      tend%   ta_vdf(jcs:jce,:,jb)      = 0._wp
-      tend% qtrc_vdf(jcs:jce,:,jb,iqv)  = 0._wp
-      tend% qtrc_vdf(jcs:jce,:,jb,iqc)  = 0._wp
-      tend% qtrc_vdf(jcs:jce,:,jb,iqi)  = 0._wp
-      tend% qtrc_vdf(jcs:jce,:,jb,iqt:) = 0._wp
 
     ENDIF !lvdiff
 
@@ -854,10 +838,6 @@ CONTAINS
 
       ! Tendencies accumulated
       tend%ta(jcs:jce,nlev,jb) = tend%ta(jcs:jce,nlev,jb) + tend%ta_rlw_impl(jcs:jce,jb)
-
-    ELSE
-
-      tend%ta_rlw_impl(jcs:jce,jb) = 0._wp
 
     END IF
 
@@ -926,12 +906,6 @@ CONTAINS
       tend%   ua(jcs:jce,:,jb) = tend%   ua(jcs:jce,:,jb) + tend%   ua_gwh(jcs:jce,:,jb)
       tend%   va(jcs:jce,:,jb) = tend%   va(jcs:jce,:,jb) + tend%   va_gwh(jcs:jce,:,jb)
 
-    ELSE ! NECESSARY COMPUTATIONS IF GW_HINES IS BY-PASSED
-
-      tend%   ta_gwh(jcs:jce,:,jb) = 0._wp
-      tend%   ua_gwh(jcs:jce,:,jb) = 0._wp
-      tend%   va_gwh(jcs:jce,:,jb) = 0._wp
-
     END IF !lgw_hines
 
 
@@ -986,12 +960,6 @@ CONTAINS
       tend%   ta(jcs:jce,:,jb) = tend%   ta(jcs:jce,:,jb) + tend%   ta_sso(jcs:jce,:,jb)
       tend%   ua(jcs:jce,:,jb) = tend%   ua(jcs:jce,:,jb) + tend%   ua_sso(jcs:jce,:,jb)
       tend%   va(jcs:jce,:,jb) = tend%   va(jcs:jce,:,jb) + tend%   va_sso(jcs:jce,:,jb)
-
-    ELSE ! NECESSARY COMPUTATIONS IF SSODRAG IS BY-PASSED
-
-      tend%   ta_sso(jcs:jce,:,jb) = 0._wp
-      tend%   ua_sso(jcs:jce,:,jb) = 0._wp
-      tend%   va_sso(jcs:jce,:,jb) = 0._wp
 
     END IF ! SSODRAG
 
@@ -1079,17 +1047,6 @@ CONTAINS
       ictop(:)   = nlev-1
       itype(:)   = 0
 
-      field% rsfc   (:,  jb)      = 0._wp
-      field% ssfc   (:,  jb)      = 0._wp
-
-      tend%   xl_dtr(:,:,jb)      = 0._wp
-      tend%   xi_dtr(:,:,jb)      = 0._wp
-      tend%   ua_cnv(:,:,jb)      = 0._wp
-      tend%   va_cnv(:,:,jb)      = 0._wp
-      tend%   ta_cnv(:,:,jb)      = 0._wp
-      tend% qtrc_cnv(:,:,jb,iqv)  = 0._wp
-      tend% qtrc_cnv(:,:,jb,iqt:) = 0._wp
-
     ENDIF !lconv
 
     !-------------------------------------------------------------
@@ -1146,15 +1103,6 @@ CONTAINS
       tend% qtrc(:,:,jb,iqv)  = tend% qtrc(:,:,jb,iqv)  + tend% qtrc_cld(:,:,jb,iqv)
       tend% qtrc(:,:,jb,iqc)  = tend% qtrc(:,:,jb,iqc)  + tend% qtrc_cld(:,:,jb,iqc)
       tend% qtrc(:,:,jb,iqi)  = tend% qtrc(:,:,jb,iqi)  + tend% qtrc_cld(:,:,jb,iqi)
-
-    ELSE ! NECESSARY COMPUTATIONS IF *CLOUD* IS BY-PASSED.
-
-      field% rsfl   (:,  jb)   = 0._wp
-      field% ssfl   (:,  jb)   = 0._wp
-      field% aclc   (:,:,jb)   = 0._wp
-
-      tend%   ta_cld(:,:,jb)   = 0._wp
-      tend% qtrc_cld(:,:,jb,:) = 0._wp
 
     ENDIF !lcond
 
