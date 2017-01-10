@@ -1111,10 +1111,10 @@ CONTAINS
         &         tend% qtrc  (:,:,jb,iqv), &! in  qte
         &         tend% qtrc  (:,:,jb,iqc), &! in  xlte
         &         tend% qtrc  (:,:,jb,iqi), &! in  xite
+        &         tend% xl_dtr(:,:,jb),     &! in  xtecl
+        &         tend% xi_dtr(:,:,jb),     &! in  xteci
         !
         &        itype,                     &! inout
-        &         tend% xl_dtr(:,:,jb),     &! inout  xtecl
-        &         tend% xi_dtr(:,:,jb),     &! inout  xteci
         &        field% aclc  (:,:,jb),     &! inout
         !
         &        field% aclcov(:,  jb),     &! out

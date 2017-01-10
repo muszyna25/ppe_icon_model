@@ -95,10 +95,10 @@ CONTAINS
                            , pqm1,         pxlm1,        pxim1                       &
                            , ptte                                                    &
                            , pqte,         pxlte,        pxite                       &
+                           , pxtecl,       pxteci                                    &
     ! - INPUT/OUTPUT 1D .
                            , ktype                                                   &
     ! - INPUT/OUTPUT 2D .
-                           , pxtecl,       pxteci                                    &
                            , paclc                                                   &
     ! - OUTPUT 1D .
                            , paclcov                                                 &
@@ -129,10 +129,10 @@ CONTAINS
       & ptte     (kbdim,klev)     ,&!< tendency of temperature
       & pqte     (kbdim,klev)     ,&!< tendency of specific humidity
       & pxlte    (kbdim,klev)     ,&!< tendency of cloud liquid water
-      & pxite    (kbdim,klev)       !< tendency of cloud ice
-    REAL(wp), INTENT(INOUT) ::     &
+      & pxite    (kbdim,klev)     ,&!< tendency of cloud ice
       & pxtecl   (kbdim,klev)     ,&!< detrained convective cloud liquid water   (n)
-      & pxteci   (kbdim,klev)     ,&!< detrained convective cloud ice            (n)
+      & pxteci   (kbdim,klev)       !< detrained convective cloud ice            (n)
+    REAL(wp), INTENT(INOUT) ::     &
       & paclc    (kbdim,klev)       !< cloud cover  (now diagnosed in cover)
     REAL(wp),INTENT(OUT)    ::     &
       & paclcov  (kbdim)          ,&!< total cloud cover
@@ -289,8 +289,6 @@ CONTAINS
 !IBM* NOVECTOR
       DO jl = 1,kproma
          zqrho(jl)        = 1.3_wp/prho(jl,jk)
-         pxtecl(jl,jk)    = MAX(pxtecl(jl,jk),0.0_wp)
-         pxteci(jl,jk)    = MAX(pxteci(jl,jk),0.0_wp)
       END DO
 
       zqrho_sqrt(1:kproma) = SQRT(zqrho(1:kproma))

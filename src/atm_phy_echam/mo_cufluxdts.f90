@@ -300,10 +300,10 @@ CONTAINS
             pqte_cnv(jl,jk) =  (grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*zqte_cnv(jl,jk)
             
             zxteci(jl,jk)   =  MERGE(0.0_wp,plude(jl,jk),llo1)
-            pxteci(jl,jk)   =  (grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*zxteci(jl,jk)
+            pxteci(jl,jk)   =  MAX  (0.0_wp,(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*zxteci(jl,jk))
             
             zxtecl(jl,jk)   =  MERGE(plude(jl,jk),0.0_wp,llo1)
-            pxtecl(jl,jk)   =  (grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*zxtecl(jl,jk)
+            pxtecl(jl,jk)   =  MAX  (0.0_wp,(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*zxtecl(jl,jk))
           ENDIF
         END DO
         !
@@ -332,10 +332,10 @@ CONTAINS
             pqte_cnv(jl,jk) =  (grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*zqte_cnv(jl,jk)
             
             zxteci(jl,jk)   =  MERGE(0.0_wp,plude(jl,jk),llo1)
-            pxteci(jl,jk)   =  (grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*zxteci(jl,jk)
+            pxteci(jl,jk)   =  MAX  (0.0_wp,(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*zxteci(jl,jk))
             
             zxtecl(jl,jk)   =  MERGE(plude(jl,jk),0.0_wp,llo1)
-            pxtecl(jl,jk)   =  (grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*zxtecl(jl,jk)
+            pxtecl(jl,jk)   =  MAX  (0.0_wp,(grav/(paphp1(jl,jk+1)-paphp1(jl,jk)))*zxtecl(jl,jk))
           END IF
         END DO
         !
