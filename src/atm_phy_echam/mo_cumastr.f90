@@ -872,7 +872,7 @@ CONTAINS
     !*    8.0      Update tendencies for t and q in subroutine'cudtdq'
     !              ---------------------------------------------------
     !
-    CALL cudtdq(kproma, kbdim, klev, klevp1, itopm2, ldcum, ktrac,       &
+    CALL cudtdq(kproma, kbdim, klev, itopm2, ldcum, ktrac,               &
       &         pmdry,    pten,                                          &
       &         zmfuxt,   zmfdxt,                                        &
       &         zmfus,    zmfds,    zmfuq,    zmfdq,                     &
