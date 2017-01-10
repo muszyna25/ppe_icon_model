@@ -348,7 +348,7 @@ CONTAINS
       
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     Do level=1,n_zlev
-    idt_src=1  ! output print level (1-5, fix)
+    idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('InGMRedi: GMRedi_vert',GMredi_flux_vert(:,level,:),&
     & str_module, idt_src, in_subset=cells_in_domain)
     END DO
@@ -679,7 +679,7 @@ CONTAINS
 
   !---------------------------------------------------------------------
   !---------DEBUG DIAGNOSTICS-------------------------------------------
-  idt_src=1  ! output print level (1-5, fix)
+  idt_src=3  ! output print level (1-5, fix)
  ! CALL dbg_print('calc_slopes: squared',(ocean_state%p_aux%slopes_squared(:,:,:)),&
  !   & str_module,idt_src, in_subset=cells_in_domain)
    DO level=1,n_zlev
@@ -1182,15 +1182,15 @@ CONTAINS
 !     CALL sync_patch_array(sync_c, patch_2D,kappa)
 Do level=1,n_zlev
     CALL dbg_print('apply_tapering: vert diag expl', taper_diagonal_vert_expl(:,level,:),&
-    & this_mod_name, 1, patch_2D%cells%in_domain)
+    & this_mod_name, 3, patch_2D%cells%in_domain)
 END DO    
 Do level=1,n_zlev
     CALL dbg_print('apply_tapering: vert diag impl', taper_diagonal_vert_impl(:,level,:),&
-    & this_mod_name, 1, patch_2D%cells%in_domain)
+    & this_mod_name, 3, patch_2D%cells%in_domain)
 END DO
 Do level=1,n_zlev    
     CALL dbg_print('apply_tapering: horz diag', taper_diagonal_horz(:,level,:),&
-    & this_mod_name, 1, patch_2D%cells%in_domain)
+    & this_mod_name, 3, patch_2D%cells%in_domain)
 END DO   
   END SUBROUTINE calc_tapering
   !-------------------------------------------------------------------------

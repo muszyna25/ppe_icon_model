@@ -161,8 +161,8 @@ cat > ${ocean_namelist} << EOF
   Salinity_ConvectionRestrict     = 0.0
 /
 &ocean_GentMcWilliamsRedi_nml
-  GMRedi_configuration           =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
-  GMREDI_COMBINED_DIAGNOSTIC    = .true.
+  GMRedi_configuration           =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
+  GMREDI_COMBINED_DIAGNOSTIC    = .false.
 /
 &ocean_physics_nml
   EOS_TYPE           = 2

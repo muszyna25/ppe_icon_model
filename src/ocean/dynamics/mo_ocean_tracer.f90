@@ -547,7 +547,7 @@ CONTAINS
        
        ENDIF            
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      idt_src=1  ! output print level (1-5, fix)
+      idt_src=3  ! output print level (1-5, fix)
       !CALL dbg_print('AftGMRedi: GMRediflux_h',p_os%p_diag%GMRedi_flux_horz(:,:,:,tracer_index),&
       !&str_module,idt_src, in_subset=edges_in_domain)
       Do level=1,n_zlev
