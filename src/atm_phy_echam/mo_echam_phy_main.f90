@@ -1028,8 +1028,6 @@ CONTAINS
         &          tend% ua(:,:,jb),          &! in     vom  for internal updating
         &          tend% va(:,:,jb),          &! in     vol  for internal updating
         &          tend% qtrc(:,:,jb,iqt:),   &! in     xtte for internal updating
-        &          field% ch_concloud(:,jb),  &! inout  condensational heat
-        &          field% cw_concloud(:,jb),  &! inout  condensational heat
         &          field% rsfc(:,jb),         &! out
         &          field% ssfc(:,jb),         &! out
         &          tend% xl_dtr(:,:,jb),      &! out    xtecl
@@ -1115,8 +1113,6 @@ CONTAINS
         &         tend% qtrc  (:,:,jb,iqi), &! in  xite
         !
         &        itype,                     &! inout
-        &        field% ch_concloud(:,jb),  &! inout condens. heat
-        &        field% cw_concloud(:,jb),  &! inout condens. heat
         &         tend% xl_dtr(:,:,jb),     &! inout  xtecl
         &         tend% xi_dtr(:,:,jb),     &! inout  xteci
         &        field% aclc  (:,:,jb),     &! inout

@@ -234,7 +234,6 @@ CONTAINS
     &               pmful,    pdmfup,   pdmfdp,   plude,                             &
     &               pdpmel,   prfl,     psfl,                                        &
     &               palvsh,                                                          &
-    &               pch_con,  pcw_con,                                               &
     &               pcon_dtrl,pcon_dtri,pcon_iqte,                                   &
     &               pq_cnv,   pqte_cnv, pxtte_cnv,                                   &
     &               pxtecl,   pxteci                                                )
@@ -256,7 +255,6 @@ CONTAINS
       &         pdmfup(kbdim,klev),      pdmfdp(kbdim,klev)
     REAL(wp) :: pdpmel(kbdim,klev)
     REAL(wp) :: palvsh(kbdim,klev)
-    REAL(wp) :: pch_con(kbdim),          pcw_con(kbdim)
     LOGICAL  :: ldcum(kbdim)
     REAL(wp) :: zqte_cnv(kbdim,klev)
     REAL(wp) :: pmfuxt(kbdim,klev,ktrac),pmfdxt(kbdim,klev,ktrac)
@@ -278,9 +276,6 @@ CONTAINS
     !
     !*    2.0          Incrementation of t and q tendencies
     !                  ------------------------------------
-    !
-    pch_con(:)=0._wp
-    pcw_con(:)=0._wp
     !
     DO jk=ktopm2,klev
       !
@@ -361,18 +356,6 @@ CONTAINS
     !
     !      3.          Update surface fields
     !                  ---------------------
-    !
-    ! column integral of convective heating and moistening
-    DO jk=ktopm2,klev
-      DO jl=1,kproma
-        pch_con(jl)=pch_con(jl)+pq_cnv(jl,jk)
-        pcw_con(jl)=pcw_con(jl)+zqte_cnv(jl,jk)+plude(jl,jk)
-      END DO
-    END DO
-    DO jl=1,kproma
-      pch_con(jl)=pch_con(jl)-(alv*prfl(jl)+als*psfl(jl))
-      pcw_con(jl)=pcw_con(jl)+prfl(jl)+psfl(jl)
-    END DO
     !
     ! do we need to account for the surface, or for the top 2 layers?
     DO jk=ktopm2,klev

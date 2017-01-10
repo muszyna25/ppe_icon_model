@@ -87,7 +87,6 @@ CONTAINS
     &                  papp1,    paphp1,   pthvsig,                    &! in
     &                  ptte,     pvom,     pvol,                       &! in
     &                  pxtte,                                          &! inout
-    &                  pch_con,  pcw_con,                              &! inout
     &                  prsfc,    pssfc,                                &! out
     &                  pxtecl,   pxteci,                               &! out
     &                  ktype,    ictop,    ilab,                       &! out
@@ -120,7 +119,6 @@ CONTAINS
     REAL(wp)::  pthvsig(kbdim)
     INTEGER ::  ktype(kbdim)
     REAL(wp)::  pqhfla(kbdim)
-    REAL(wp)::  pch_con(kbdim),           pcw_con(kbdim)
     REAL(wp)::  ptopmax(kbdim)
     INTEGER ::  ilab(kbdim,klev)
     REAL(wp)::  pxlm1(kbdim,klev),        pxim1(kbdim,klev),             &
@@ -208,7 +206,6 @@ CONTAINS
       &          zqte_dyn_phy,                                        &
       &          prsfc,    pssfc,                                     &
       &          zqude,    zcpq,                                      &
-      &          pch_con,  pcw_con,                                   &
       &          locum,    ktype,    icbot,    ictop,                 &
       &          ztu,      zqu,      zlu,      zlude,                 &
       &          zmfu,     zmfd,     pthvsig,                         &
@@ -264,7 +261,6 @@ CONTAINS
     &        pqte,                                                        &
     &        prsfc,    pssfc,                                             &
     &        pqude,    pcpen,                                             &
-    &        pch_con,  pcw_con,                                           &
     &        ldcum,    ktype,    kcbot,    kctop,                         &
     &        ptu,      pqu,      plu,      plude,                         &
     &        pmfu,     pmfd,     pthvsig,                                 &
@@ -275,7 +271,6 @@ CONTAINS
     !
     INTEGER, INTENT(IN)   :: kproma, kbdim, klev, klevp1, ktrac, klevm1
     REAL(wp),INTENT(IN)   :: ptime_step_len
-    REAL(wp),INTENT(INOUT):: pch_con(kbdim), pcw_con(kbdim)
     REAL(wp),INTENT(IN)   :: cevapcu(:)
 
     INTEGER, INTENT(OUT)  :: ktype(kbdim)
@@ -880,7 +875,6 @@ CONTAINS
       &         zmful,    zdmfup,   zdmfdp,   plude,                     &
       &         zdpmel,   zrfl,     zsfl,                                &
       &         zalvsh,                                                  &
-      &         pch_con,  pcw_con,                                       &
       &         pcon_dtrl,pcon_dtri,pcon_iqte,                           &
       &         pq_cnv,   pqte_cnv, pxtte_cnv,                           &
       &         pxtecl,   pxteci                                        )

@@ -97,7 +97,6 @@ CONTAINS
                            , pqte,         pxlte,        pxite                       &
     ! - INPUT/OUTPUT 1D .
                            , ktype                                                   &
-                           , pch_concloud, pcw_concloud                              &
     ! - INPUT/OUTPUT 2D .
                            , pxtecl,       pxteci                                    &
                            , paclc                                                   &
@@ -132,8 +131,6 @@ CONTAINS
       & pxlte    (kbdim,klev)     ,&!< tendency of cloud liquid water
       & pxite    (kbdim,klev)       !< tendency of cloud ice
     REAL(wp), INTENT(INOUT) ::     &
-      & pch_concloud(kbdim)       ,&!< checking the global heat budget of convection+cloud
-      & pcw_concloud(kbdim)       ,&!< checking the local water budget of convection+cloud
       & pxtecl   (kbdim,klev)     ,&!< detrained convective cloud liquid water   (n)
       & pxteci   (kbdim,klev)     ,&!< detrained convective cloud ice            (n)
       & paclc    (kbdim,klev)       !< cloud cover  (now diagnosed in cover)
@@ -170,8 +167,7 @@ CONTAINS
       &      , zqvdt(kbdim)         ,zqsm1(kbdim)         ,zdtdt(kbdim)              &
       &      , zstar1(kbdim)        ,zlo2(kbdim)          ,za(kbdim)                 &
       &      , ub(kbdim)            ,ua(kbdim)            ,dua(kbdim)                &
-      &      , uaw(kbdim)           ,duaw(kbdim)          ,zclten(kbdim)             &
-      &      , zcpten(kbdim,klev)   ,zqviten(kbdim)       ,zqten(kbdim,klev)
+      &      , uaw(kbdim)           ,duaw(kbdim)
 
     INTEGER:: loidx(kbdim), nloidx(kbdim), jjclcpre(kbdim)
     INTEGER:: cond1(kbdim), cond2(kbdim)
@@ -1151,8 +1147,6 @@ CONTAINS
        pxlte_cld(jl,jk)  = pxlte_cld(jl,jk) + pxtecl(jl,jk) + zxlte
        pxite_cld(jl,jk)  = pxite_cld(jl,jk) + pxteci(jl,jk) + zxite
        pq_cld(jl,jk)     = pq_cld(jl,jk)    + zq*pmdry(jl,jk)
-       zcpten(jl,jk) = zq                          ! diagnostics [W/kg]
-       zqten(jl,jk)  = zqvte + zxlte + zxite       ! diagnostics [1/s] ...< 0
 820 END DO
 
 !IBM* NOVECTOR
@@ -1180,11 +1174,7 @@ CONTAINS
        pxite_cld(jl,jk)   = pxite_cld(jl,jk) + zdxicor
        pqte_cld(jl,jk)    = pqte_cld(jl,jk)  - zdxlcor - zdxicor
        pq_cld(jl,jk)      = pq_cld(jl,jk)    + (alv*zdxlcor + als*zdxicor)*pmdry(jl,jk)
-       ! Here mulitply with the same specific heat as used in the definition
-       ! of zlvdcp and zlsdcp ( =Lv/(cp or cv) and Ls/(cp or cv) ) in order
-       ! to obtain the specific heating by cloud processes in [W/kg].
-       zcpten(jl,jk)  = zcpten(jl,jk) + (alv*zdxlcor+als*zdxicor)
-       !
+
 821 END DO
 
 #ifdef _PROFILE
@@ -1231,27 +1221,17 @@ CONTAINS
        paclcov(jl) = zclcov(jl)
 924 END DO
     !
-    !      10.3 Vertical integrals of humidity, cloud water and cloud ice
+    !      10.3 Vertical integrals of cloud water
     !
     DO 931 jl   = 1,kproma
        zxlvi(jl) = 0.0_wp
-       zclten(jl) = 0.0_wp
-       zqviten(jl) = 0.0_wp
 931 END DO
     !
     DO 933 jk     = ktdia,klev
        DO 932 jl   = 1,kproma
           zxlvi(jl)  = zxlvi(jl)   + (pxlm1 (jl,jk)+(pxlte(jl,jk)+pxlte_cld(jl,jk))*pdtime)*pmdry(jl,jk)
-          zclten(jl) = zclten(jl)  + zcpten(jl,jk) *pmdry(jl,jk)     ! [W/m2]
-          zqviten(jl)= zqviten(jl) + zqten (jl,jk) *pmdry(jl,jk)     ! [kg/m2s]
 932    END DO
 933 END DO
-
-!
-    DO 934 jl   = 1,kproma
-       pch_concloud(jl) = pch_concloud(jl)+zclten(jl)-(alv*prsfl(jl)+als*pssfl(jl)) ! [W/m2]
-       pcw_concloud(jl) = pcw_concloud(jl)+zqviten(jl)+prsfl(jl)+pssfl(jl)          ! [kg/m2s]
-934 END DO
 
     ! compare liquid water path below and above convective cloud top
     DO 938 jl = 1,kproma
