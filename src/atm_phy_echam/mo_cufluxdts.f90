@@ -227,7 +227,7 @@ CONTAINS
   END SUBROUTINE cuflx
   !>
   !!
-  SUBROUTINE cudtdq(kproma, kbdim, klev, klevp1, ktopm2, ldcum, ktrac,               &
+  SUBROUTINE cudtdq(kproma, kbdim, klev, ktopm2, ldcum, ktrac,                       &
     &               pmdry,    pten,                                                  &
     &               pmfuxt,   pmfdxt,                                                &
     &               pmfus,    pmfds,    pmfuq,    pmfdq,                             &
@@ -238,7 +238,7 @@ CONTAINS
     &               pq_cnv,   pqte_cnv, pxtte_cnv,                                   &
     &               pxtecl,   pxteci                                                )
     !
-    INTEGER, INTENT(IN)  :: kproma, kbdim, klev, klevp1, ktopm2, ktrac
+    INTEGER, INTENT(IN)  :: kproma, kbdim, klev, ktopm2, ktrac
     LOGICAL ,INTENT(IN)  :: ldcum(kbdim)
     REAL(wp),INTENT(IN)  :: pmdry(kbdim,klev), pten(kbdim,klev)
     REAL(wp),INTENT(IN)  :: pmfuxt(kbdim,klev,ktrac),pmfdxt(kbdim,klev,ktrac)
