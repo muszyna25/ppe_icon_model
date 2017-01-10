@@ -996,6 +996,12 @@ CONTAINS
     END IF ! SSODRAG
 
     !-------------------------------------------------------------------
+
+
+    ! Put here update of physics state, now done in cucall
+
+
+    !-------------------------------------------------------------------
     ! 7. CONVECTION PARAMETERISATION
     !-------------------------------------------------------------------
 
@@ -1008,6 +1014,7 @@ CONTAINS
         &          ntrac,                     &! in     tracers
         &          pdtime,                    &! in
         &          field% lfland(:,jb),       &! in     loland
+        &          field% mdry(:,:,jb),       &! in
         &          field% ta(:,:,jb),         &! in     tm1
         &          field% ua(:,:,jb),         &! in     um1
         &          field% va(:,:,jb),         &! in     vm1
