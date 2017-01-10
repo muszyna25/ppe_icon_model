@@ -54,7 +54,7 @@ MODULE mo_echam_phy_main
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
   USE mo_vdiff_upward_sweep,  ONLY: vdiff_up
   USE mo_vdiff_solver,        ONLY: nvar_vdiff, nmatrix, imh, imqv,   &
-       &                               ih_vdiff=>ih, iqv_vdiff=>iqv
+    &                               ih_vdiff=>ih, iqv_vdiff=>iqv
   !
   USE mo_echam_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_surface,             ONLY: update_surface
@@ -133,7 +133,7 @@ CONTAINS
     REAL(wp) :: zq_sso (nbdim,nlev)       !< heating by subgrid scale orogr.   [W/m2]
     REAL(wp) :: zq_gwh (nbdim,nlev)       !< heating by atm. gravity waves     [W/m2]
     REAL(wp) :: zq_cnv (nbdim,nlev)       !< heating by convection             [W/m2]
-!!$    REAL(wp) :: zq_cld (nbdim,nlev)       !< heating by stratiform clouds      [W/m2]
+    REAL(wp) :: zq_cld (nbdim,nlev)       !< heating by stratiform clouds      [W/m2]
 
     INTEGER  :: ihpbl  (nbdim)            !< location of PBL top given as vertical level index
     REAL(wp) :: zxt_emis(nbdim,ntracer-iqt+1)  !< tracer tendency due to surface emission
@@ -1125,12 +1125,18 @@ CONTAINS
         &        field% rsfl  (:,  jb),     &! out
         &        field% ssfl  (:,  jb),     &! out
         &        field% relhum(:,:,jb),     &! out
-        &        tend%  ta_cld(:,:,jb),     &! out
+        &               zq_cld(:,:),        &! out
         &        tend%qtrc_cld(:,:,jb,iqv), &! out
         &        tend%qtrc_cld(:,:,jb,iqc), &! out
         &        tend%qtrc_cld(:,:,jb,iqi)  )! out
 
       IF (ltimer) CALL timer_stop(timer_cloud)
+
+      ! heating accumulated
+      zq_phy(:,:) = zq_phy(:,:) + zq_cld(:,:)
+
+      ! tendency
+      tend% ta_cld(:,:,jb) = zq_cld(:,:)*zconv(:,:)
 
       ! tendencies accumulated
       tend%   ta(:,:,jb)      = tend%   ta(:,:,jb)      + tend%   ta_cld(:,:,jb)
