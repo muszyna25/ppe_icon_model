@@ -725,7 +725,6 @@ CONTAINS
                              & pdtime,                                     &! in
                              & pum1, pvm1, ptm1, pqm1, pxlm1, pxim1,       &! in
                              & pxtm1, pgeom1, pdelpm1, pcptgz,             &! in
-                             & pcd, pcv,                                   &! in
                              & ptkem1, pztkevn, pzthvvar, prhoh,           &! in
                              & pqshear, ihpbl,                       &! in
                              & pcfm_tile, pfrc, ptte_corr, bb,       &! in
@@ -751,8 +750,6 @@ CONTAINS
     REAL(wp),INTENT(IN)  :: pgeom1 (kbdim,klev)
     REAL(wp),INTENT(IN)  :: pdelpm1(kbdim,klev)
     REAL(wp),INTENT(IN)  :: pcptgz (kbdim,klev)
-    REAL(wp),INTENT(IN)  :: pcd
-    REAL(wp),INTENT(IN)  :: pcv
     REAL(wp),INTENT(IN)  :: ptkem1 (kbdim,klev)
     REAL(wp),INTENT(IN)  :: pztkevn (kbdim,klev)
     REAL(wp),INTENT(IN)  :: pzthvvar(kbdim,klev)
@@ -791,7 +788,7 @@ CONTAINS
     REAL(wp) :: ztest, zrdt, zconst
     REAL(wp) :: zunew, zvnew, zqnew, zsnew, ztnew
     REAL(wp) :: zrhodz, zhexp, zlam, zcons23, z2geomf, zz2geo, zmix, ztkesq
-    REAL(wp) :: zcp, zpc
+    REAL(wp) :: zcp
     REAL(wp) :: zvidis(kbdim)
     REAL(wp) :: zdis  (kbdim,klev)
     REAL(wp) :: zqflux(kbdim,klevp1)
@@ -888,7 +885,6 @@ CONTAINS
         zsnew = bb(jl,jk,ih) + tpfac3*pcptgz(jl,jk)
 
         zcp = cpd+(cpv-cpd)*pqm1(jl,jk) ! cp of moist air
-        zpc = pcd+(pcv-pcd)*pqm1(jl,jk) ! cp (hydrost.) or cv (non-hydrost.) of moist air
 
         ! The computation of the new temperature must be consistent with the computation of
         ! the static energy pcptgz in the subroutine mo_turbulence_diag:atm_exchange_coeff.
@@ -897,12 +893,9 @@ CONTAINS
         ztnew = (zsnew + zdis(jl,jk) - pgeom1(jl,jk))/zcp
         !
         ! Now derive the temperature tendency for constant pressure
-        ! conditions for the hydrostatic dycore (zcp/zpc=1) or the
-        ! non-hydrostatic dycore (zcp/zpc>1), where the mechanical work
-        ! (=expansion) is done later by the dynamics.
+        ! conditions as needed for provisional updating in the physics.
         ! 
-        ptte_vdf(jl,jk) = (ztnew - ptm1(jl,jk))*zrdt *zcp/zpc
-!!$        pq_vdf(jl,jk) = (ztnew - ptm1(jl,jk))*zrdt *zcp/zpc
+        ptte_vdf(jl,jk) = (ztnew - ptm1(jl,jk))*zrdt
 
         ! When coupled with JSBACH: Correction of tte for snow melt
         IF (phy_config%ljsbach) THEN

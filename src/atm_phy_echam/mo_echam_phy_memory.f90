@@ -260,8 +260,6 @@ MODULE mo_echam_phy_memory
     REAL(wp),POINTER :: &
       & sh_vdiff (:,  :),   &!< sensible heat flux of vdiff
       & qv_vdiff (:,  :),   &!< qv flux of vdiff
-      & ch_concloud (:,  :),&!< condensational heating, convection, large scale clouds
-      & cw_concloud (:,  :),&!< condensational moistening, convection, large scale clouds
       & con_dtrl (:,  :),   &!< detrainment of liquid from convection
       & con_dtri (:,  :),   &!< detrainment of ice from convection 
       & con_iteqv(:,  :)     !< v. int. tendency of water vapor within convection
@@ -1052,7 +1050,7 @@ CONTAINS
     grib2_desc = grib2_var(0,1,21, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'mair_phy', field%mair,                  &
          &        GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
-         &        ldims=shape3d, lrestart = .FALSE.,                           &
+         &        ldims=shape3d, lrestart = .FALSE., initval=1.0_wp,           &
          &        vert_interp=create_vert_interp_metadata(                     &
          &                    vert_intp_type=vintp_types("P","Z","I"),         & 
          &                    vert_intp_method=VINTP_METHOD_LIN,               &
@@ -1077,7 +1075,7 @@ CONTAINS
     grib2_desc = grib2_var(0,1,21, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'mdry_phy', field%mdry,                  &
          &        GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,      &
-         &        ldims=shape3d, lrestart = .FALSE.,                           &
+         &        ldims=shape3d, lrestart = .FALSE., initval=1.0_wp,           &
          &        vert_interp=create_vert_interp_metadata(                     &
          &                    vert_intp_type=vintp_types("P","Z","I"),         & 
          &                    vert_intp_method=VINTP_METHOD_LIN,               &
@@ -2096,16 +2094,6 @@ CONTAINS
        cf_desc    = t_cf_var('sh_vdiff','J m-2 s-1', '', datatype_flt)
        grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( field_list, prefix//'sh_vdiff', field%sh_vdiff,          &
-                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-                   & lrestart = .FALSE., ldims=shape2d )
-       cf_desc    = t_cf_var('ch_concloud','J m-2 s-1', '', datatype_flt)
-       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-       CALL add_var( field_list, prefix//'ch_concloud', field%ch_concloud,    &
-                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-                   & lrestart = .FALSE., ldims=shape2d )
-       cf_desc    = t_cf_var('cw_concloud','J/m^2/s', '', datatype_flt)
-       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-       CALL add_var( field_list, prefix//'cw_concloud', field%cw_concloud,    &
                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
                    & lrestart = .FALSE., ldims=shape2d )
        cf_desc    = t_cf_var('con_dtrl','?', '', datatype_flt)

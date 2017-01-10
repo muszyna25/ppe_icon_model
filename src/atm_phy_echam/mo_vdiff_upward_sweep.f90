@@ -40,7 +40,6 @@ CONTAINS
                        ihpbl,      pcptgz,      prhoh,       pqshear,    &! in
                        pum1,       pvm1,        ptm1,        pqm1,       &! in
                        pxlm1,      pxim1,       pxtm1,                   &! in
-                       pcd,        pcv,                                  &! in
                        pdelpm1,    pgeom1,      pztkevn,                 &! in
                        ptkem1,                                           &! in
                        ptte_corr,                                        &! in
@@ -78,9 +77,6 @@ CONTAINS
     REAL(wp),INTENT(IN) :: pxlm1   (kbdim,klev)  !< cloud water concentration at step t-dt
     REAL(wp),INTENT(IN) :: pxim1   (kbdim,klev)  !< cloud ice   concentration at step t-dt
     REAL(wp),INTENT(IN) :: pxtm1   (kbdim,klev,ktrac) !< specific density of other tracers at step t-dt
-
-    REAL(wp),INTENT(IN) :: pcd                   !< specific heat of dry air
-    REAL(wp),INTENT(IN) :: pcv                   !< specific heat of water vapor
 
     REAL(wp),INTENT(IN) :: pdelpm1(kbdim,klev)   !< layer thickness [Pa]
     REAL(wp),INTENT(IN) :: pgeom1 (kbdim,klev)   !< geopotential above ground
@@ -142,7 +138,6 @@ CONTAINS
                          & pdtime,                                      &! in
                          & pum1, pvm1, ptm1, pqm1, pxlm1, pxim1,        &! in
                          & pxtm1, pgeom1, pdelpm1, pcptgz,              &! in
-                         & pcd, pcv,                                    &! in
                          & ptkem1, pztkevn, pzthvvar, prhoh,            &! in
                          & pqshear, ihpbl,                              &! in
                          & pcfm_tile, pfrc, ptte_corr, bb,              &! in
