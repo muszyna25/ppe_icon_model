@@ -13,7 +13,7 @@ experiment|checksuite.ocean_internal/omip/exp.test_ocean_omip_10days|cpu_time=00
 experiment|checksuite.icon-dev/check.atm_amip|
 experiment|exp.test_nwp_R02B04N06multi|cpu_time=00:30:00
 experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
-experiment|exp.test_nwp_R02B04N06multi2|cpu_time=00:30:00 no_of_nodes=2
+experiment|exp.test_nwp_R02B04N06multi2|cpu_time=00:30:00 no_of_nodes=1
 experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.ocean_internal/other/exp.oce_testbed_read|cpu_time=00:30:00
 experiment|checksuite.icon-dev/check.atm_icoles_nested|cpu_time=00:30:00
@@ -32,7 +32,7 @@ experiment|checksuite.ocean_internal/omip/exp.test_ocean_omip_10days|cpu_time=00
 experiment|checksuite.icon-dev/check.atm_amip|
 experiment|exp.test_nwp_R02B04N06multi|cpu_time=00:30:00
 experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
-experiment|exp.test_nwp_R02B04N06multi2|cpu_time=00:30:00 no_of_nodes=2
+experiment|exp.test_nwp_R02B04N06multi2|cpu_time=00:30:00 no_of_nodes=1
 experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.ocean_internal/other/exp.oce_testbed_read|cpu_time=00:30:00
 experiment|checksuite.icon-dev/check.atm_icoles_nested|cpu_time=00:30:00
@@ -83,7 +83,7 @@ experiment|checksuite.ocean_internal/omip/exp.test_ocean_omip_10days|cpu_time=00
 experiment|checksuite.icon-dev/check.atm_amip|
 experiment|exp.test_nwp_R02B04N06multi|cpu_time=00:30:00
 experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
-experiment|exp.test_nwp_R02B04N06multi2|cpu_time=00:30:00 no_of_nodes=2
+experiment|exp.test_nwp_R02B04N06multi2|cpu_time=00:30:00 no_of_nodes=1
 experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.ocean_internal/other/exp.oce_testbed_read|cpu_time=00:30:00
 experiment|checksuite.icon-dev/check.atm_icoles_nested|cpu_time=00:30:00
@@ -101,7 +101,7 @@ experiment|checksuite.ocean_internal/omip/exp.test_ocean_omip_10days|cpu_time=00
 experiment|checksuite.icon-dev/check.atm_amip|
 experiment|exp.test_nwp_R02B04N06multi|cpu_time=00:30:00
 experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
-experiment|exp.test_nwp_R02B04N06multi2|cpu_time=00:30:00 no_of_nodes=2
+experiment|exp.test_nwp_R02B04N06multi2|cpu_time=00:30:00 no_of_nodes=1
 experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.ocean_internal/other/exp.oce_testbed_read|cpu_time=00:30:00
 experiment|checksuite.icon-dev/check.atm_icoles_nested|cpu_time=00:30:00
