@@ -20,6 +20,7 @@ def make_binaries_interface(configure_flags, builder_flags):
 
 def make_all_binaries(configure_flags):
   os.chdir(paths.basePath)
+  print("BuildCommand: ./configure "+configure_flags)
   status = os.system("./configure "+configure_flags)
   if not status == 0:
     print("Configure failed")
@@ -41,6 +42,7 @@ def make_ocean_binaries(configure_flags):
     print("get_ocean failed")
     return status
   os.chdir(ocean_folder)  
+  print("BuildCommand: ./configure "+configure_flags+ocean_flags)
   status = os.system("./configure "+configure_flags+ocean_flags)
   if not status == 0:
     print("Configure failed")
@@ -67,6 +69,7 @@ def make_aes_binaries(configure_flags):
     print("get_aes failed")
     return status
   os.chdir(aes_folder)
+  print("BuildCommand: ./configure "+configure_flags+aes_flags)
   status = os.system("./configure "+configure_flags+aes_flags)
   if not status == 0:
     print("Configure failed")
@@ -94,6 +97,7 @@ def make_nwp_binaries(configure_flags):
     print("get_aes failed")
     return status
   os.chdir(aes_folder)
+  print("BuildCommand: ./configure "+configure_flags+aes_flags)
   status = os.system("./configure "+configure_flags+aes_flags)
   if not status == 0:
     print("Configure failed")
