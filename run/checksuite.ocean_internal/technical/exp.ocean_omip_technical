@@ -48,7 +48,7 @@ cat > ${ocean_namelist} << EOF
  profiling_output = 3
  msg_timestamp        = .FALSE.
  debug_check_level    = 10
-!  restart_filename = "${EXPNAME}_restart_oce_<rsttime>.nc"
+ restart_filename = "${EXPNAME}_restart_oce_<rsttime>.nc"
 /
 &output_nml
   output_start     = "${start_date}"
