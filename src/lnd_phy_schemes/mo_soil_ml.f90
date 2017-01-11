@@ -1633,8 +1633,8 @@ END SUBROUTINE message
   ! thermal conductivity
 
         ! tuning factor to indirectly account for the impact of vegetation, which does not depend on soil moisture
-        IF(itype_heatcond == 3 .AND. zmls(kso) < 0.05_ireals) THEN
-          zaa = 15._ireals*(0.05_ireals-zmls(kso))*zzz
+        IF(itype_heatcond == 3 .AND. zmls(kso) < 0.075_ireals) THEN
+          zaa = 12.5_ireals*(0.075_ireals-zmls(kso))*zzz
         ELSE
           zaa = 0._ireals
         ENDIF
@@ -3377,8 +3377,9 @@ ELSE   IF (itype_interception == 2) THEN
         ! freezing of rain falling on soil with Ts < T0  (black-ice !!!)
         ELSEIF ((1._ireals-zts_pm(i))*zrr(i) > 0.0_ireals) THEN
           zsprs  (i) = lh_f*zrr(i)
-          zdwidt (i) = zdwidt (i) - zrr(i)
-          zdwsndt(i) = zdwsndt(i) + zrr(i)
+          ! keep freezing rain in interception storage rather than shifting it to snow
+         ! zdwidt (i) = zdwidt (i) - zrr(i)
+         ! zdwsndt(i) = zdwsndt(i) + zrr(i)
         ELSE
           zsprs  (i) = 0.0_ireals
         END IF
@@ -3672,8 +3673,9 @@ ELSE   IF (itype_interception == 2) THEN
         ELSEIF (zwsnow(i) == 0.0_ireals .AND.                            &
                (1._ireals-ztsnow_pm(i))*zrr(i) > 0.0_ireals) THEN
           zsprs  (i) = MIN(lh_f*zrr(i),(t0_melt-t_s_now(i))*zroc(i,1)*zdzhs(1)/zdt)
-          zdwidt (i) = zdwidt (i) - zrr(i)
-          zdwsndt(i) = zdwsndt(i) + zrr(i)
+          ! keep freezing rain in interception storage rather than shifting it to snow
+         ! zdwidt (i) = zdwidt (i) - zrr(i)
+         ! zdwsndt(i) = zdwsndt(i) + zrr(i)
         END IF
 
 !       Influence of heatflux through snow on total forcing:
@@ -4889,6 +4891,8 @@ ENDIF
            IF (w_i_new(i) > zwimax(i)) THEN  ! overflow of interception store
              zinf = w_i_new(i) - zwimax(i)
              w_i_new(i) = zwimax(i)
+           ELSE
+             zinf = 0._ireals
            ENDIF 
            zdwgme        = zinf*zrock(i)                    ! contribution to w_so
            zro           = (1._ireals - zrock(i))*zinf      ! surface runoff
