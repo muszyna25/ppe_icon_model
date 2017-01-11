@@ -7,9 +7,8 @@ from model_paths import paths
 #-----------------------------------------------------------------------
 # some help method to call commands and return stdout and stderr
 def runCommand(cmd):
-  print("' execute by print' Command:"+cmd)
-  sys.stdout.write("STDOUT:"+cmd+"\n")
-  sys.stderr.write("STDERR:"+cmd+"\n")
+  print("COMMAND: "+cmd)
+  sys.stdout.flush()
   status = os.system(cmd)
   return status
 #-----------------------------------------------------------------------
