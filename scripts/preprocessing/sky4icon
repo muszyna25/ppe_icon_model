@@ -1,0 +1,92 @@
+#!/bin/ksh
+
+####################################################################
+#                                                                  #
+#  PURPOSE: Request DWD analysis from DWD's database SKY           # 
+#                                                                  #
+#  USAGE: get_initdata mode startdate enddate incdate              #
+#                                                                  #
+#  Mandatory arguments: mode startdate                             #
+#                                                                  #
+#  OPTIONS:                                                        #
+#  mode     : 1 get analysis increments for intialization with IAU #
+#             2 get full analysis for intialization without IAU    #
+#  startdate: start DateTime for retrieval [YYYYMMDDhhmmss]        #
+#  enddate  : end DateTime for retrieval [YYYYMMDDhhmmss]          #
+#             DEFAULT: startdate                                   #
+#  incdate  : Interval    [h]                                      #
+#             DEFAULT: 24                                          #
+#                                                                  #
+####################################################################
+
+ set -e
+
+ export PATH=${PATH}:~routfor/routfox/bin
+
+ typeset pdatin
+ typeset startdate enddate incdate
+ typeset req
+ integer cymdg cymdgm3 cymdg_start cymdg_end
+ typeset arr_req
+ set -A arr_req
+
+ mode=${1?missing mode}
+ startdate=${2?missing startdate}
+ enddate=${3:-${startdate}}
+ incdate=${4:-24}
+
+ if [[ mode -eq 1 ]];then
+     print "mode: IAU"
+ elif [[ mode -eq 2 ]];then
+     print "mode: NO IAU"
+ else
+     print "mode: wrong mode $mode"
+     exit
+ fi
+ print "startdate: $startdate"
+ print "enddate: $enddate"
+ print "increment $incdate"
+
+
+ cymdg_start=$(datconv -Cy ${startdate})
+ cymdg_end=$(  datconv -Cy ${enddate})
+
+ for cymdg in $(eval_numlist -d -i ${incdate} ${cymdg_start}-${cymdg_end}) ; do
+    req="${TMPDIR}/skyreq_${cymdg}00R_G+N"
+    cymdgm3=$(datconv -Cy -d -3 ${cymdg})
+
+    if [[ $mode -eq 1 ]];then    # IAU
+
+	cat >${req} <<%---
+reqColl proc=parallel timeout=0
+read db=roma cat=icogl130l90_main_an_rout d=${cymdg}0000 gptype=201     bin info=countPlus f=igaf${cymdg}0000R.grb p=u,v,t,p,qv
+read db=roma cat=icogl130l90_main_an_rout d=${cymdg}0000 gptype=0 bin info=countPlus       f=igaf${cymdg}0000R.grb p=t_so,fr_ice,h_ice,t_ice
+read db=roma cat=icogl130l90_main_an_rout d=${cymdg}0000 gptype=201 bin info=countPlus     f=igaf${cymdg}0000R.grb p=w_so lin=20
+read db=roma cat=icogl130l90_main_an_rout d=${cymdg}0000 gptype=201 bin info=countPlus     f=igaf${cymdg}0000R.grb p=freshsnw,h_snow
+read db=roma cat=icogl130l90_pre_fc_rout  d=${cymdgm3}0000 s[s]=5400 bin info=countPlus      f=igfff${cymdgm3}-0130R.grb lvt1=!100
+read db=roma cat=icoeu_main_an_rout d=${cymdg}0000 gptype=0 bin info=countPlus             f=ieaf${cymdg}0000R.grb p=t_so,fr_ice,h_ice,t_ice
+read db=roma cat=icoeu_main_an_rout d=${cymdg}0000 gptype=201 bin info=countPlus           f=ieaf${cymdg}0000R.grb p=w_so lin=20
+read db=roma cat=icoeu_main_an_rout d=${cymdg}0000 gptype=201 bin info=countPlus           f=ieaf${cymdg}0000R.grb p=freshsnw,h_snow
+read db=roma cat=icoeu_pre_fc_rout  d=${cymdgm3}0000 s[s]=5400 bin info=countPlus            f=iefff${cymdgm3}-0130R.grb lvt1=!100
+%---
+    elif [[ $mode -eq 2 ]];then    # NO IAU
+	cat >${req} <<%---
+reqColl proc=parallel timeout=0
+read db=roma cat=icogl130l90_main_an_rout d=${cymdg}0000 gptype=!201     bin info=countPlus f=igaf${cymdg}0000R.grb p=u,v,t,p,qv
+read db=roma cat=icogl130l90_main_an_rout d=${cymdg}0000 gptype=0 bin info=countPlus       f=igaf${cymdg}0000R.grb p=t_so,fr_ice,h_ice,t_ice
+read db=roma cat=icogl130l90_main_an_rout d=${cymdg}0000 gptype=0 bin info=countPlus        f=igaf${cymdg}0000R.grb p=w_so lin=20
+read db=roma cat=icogl130l90_main_an_rout d=${cymdg}0000 gptype=0 bin info=countPlus       f=igaf${cymdg}0000R.grb p=w_snow,t_snow,w_i,rho_snow,freshsnw,h_snow
+read db=roma cat=icogl130l90_pre_fc_rout  d=${cymdgm3}0000 s[s]=10800 bin info=countPlus    f=igfff${cymdgm3}-0300R.grb lvt1=!100
+read db=roma cat=icoeu_main_an_rout d=${cymdg}0000 gptype=0 bin info=countPlus             f=ieaf${cymdg}0000R.grb p=t_so,fr_ice,h_ice,t_ice
+read db=roma cat=icoeu_main_an_rout d=${cymdg}0000 gptype=0 bin info=countPlus              f=ieaf${cymdg}0000R.grb p=w_so lin=20
+read db=roma cat=icoeu_main_an_rout d=${cymdg}0000 gptype=0 bin info=countPlus             f=ieaf${cymdg}0000R.grb p=w_snow,t_snow,w_i,rho_snow,freshsnw,h_snow
+read db=roma cat=icoeu_pre_fc_rout  d=${cymdgm3}0000 s[s]=10800 bin info=countPlus          f=iefff${cymdgm3}-0300R.grb lvt1=!100
+%---
+    fi
+    arr_req[${#arr_req[*]}]="${req}"
+ done
+
+# pbank ${arr_req[*]}
+
+# ---
+ exit 0

@@ -714,7 +714,7 @@ MODULE mo_velocity_advection
     ! Save maximum vertical CFL number for substep number adaptation
     i_startblk = p_patch%cells%start_block(grf_bdywidth_c)
     i_endblk   = p_patch%cells%end_block(min_rlcell_int)
-    p_metrics%max_vcfl_dyn = MAX(p_metrics%max_vcfl_dyn,MAXVAL(vcflmax(i_startblk:i_endblk)))
+    p_diag%max_vcfl_dyn = MAX(p_diag%max_vcfl_dyn,MAXVAL(vcflmax(i_startblk:i_endblk)))
 
     IF (timers_level > 5) CALL timer_stop(timer_solve_nh_veltend)
 
