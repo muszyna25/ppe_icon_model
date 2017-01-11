@@ -49,6 +49,9 @@ file_interval="P1M"
 atmo_namelist=NAMELIST_${EXPNAME}_atm
 lnd_namelist=NAMELIST_${EXPNAME}_lnd
 
+# JSBACH settings
+jsbach_usecase=jsbach_lite
+jsbach_with_hd=no
 #--------------------------------------------------------------------------------------------------
 
 # (3) Define the model configuration
@@ -161,7 +164,7 @@ EOF
 # ---------------------
 cat > ${lnd_namelist} <<EOF
 &jsb_model_nml
-  usecase         = 'jsbach_lite'
+  usecase         = "${jsbach_usecase}"
 /
 &jsb_srf_nml
   bc_filename     = 'bc_land_phys.nc'
@@ -181,6 +184,17 @@ cat > ${lnd_namelist} <<EOF
   ic_filename     = 'ic_land_soil.nc'
 /
 EOF
+if [[ ${jsbach_with_hd} = yes ]]; then
+cat >> ${lnd_namelist} <<EOF
+&jsb_hd_nml
+  active          = .TRUE.
+  routing_scheme  = 'full'
+  bc_filename     = 'bc_land_hd.nc'
+  diag_water_budget = .TRUE.
+  debug_hd        = .FALSE.
+/
+EOF
+fi
 
 #--------------------------------------------------------------------------------------------------
 
@@ -293,6 +307,9 @@ add_link_file $datadir/bc_land_frac_1976.nc                             ./bc_lan
 add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
 add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
 add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
+if [[ ${jsbach_with_hd} = yes ]]; then
+  add_link_file $datadir/bc_land_hd.nc                                    ./bc_land_hd.nc
+fi
 
 #--------------------------------------------------------------------------------------------------
 
