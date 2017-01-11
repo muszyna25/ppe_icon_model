@@ -1,8 +1,28 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #==============================================================================
-import os
+import os,subprocess
 from model_paths import paths
+
+#-----------------------------------------------------------------------
+# some help method to call commands and return stdout and stderr
+def runCommand(cmd):
+# proc = subprocess.Popen(' '.join(cmd),
+#                         shell  = True,
+#                         stderr = subprocess.PIPE,
+#                         stdout = subprocess.PIPE)
+#
+# retvals = proc.communicate()
+# stdout  = retvals[0].decode("utf-8")
+# stderr  = retvals[1].decode("utf-8")
+
+  print("Command:"+cmd)
+# print("StdOut:"+stdout)
+# print("StdErr:"+stderr)
+
+  status = subprocess.call(cmd,shell=True)
+  return status
+
 
 #-----------------------------------------------------------------------
 
@@ -20,12 +40,11 @@ def make_binaries_interface(configure_flags, builder_flags):
 
 def make_all_binaries(configure_flags):
   os.chdir(paths.basePath)
-  print("BuildCommand: ./configure "+configure_flags)
-  status = os.system("./configure "+configure_flags)
+  status = runCommand("./configure "+configure_flags)
   if not status == 0:
     print("Configure failed")
     return status
-  status = os.system("./build_command")
+  status = runCommand("./build_command")
   if not status == 0:
     print("Build failed")
     return status
@@ -37,24 +56,23 @@ def make_ocean_binaries(configure_flags):
   ocean_flags=" --disable-atmo --disable-jsbach --with-yac=no --with-flags=ocean"
   os.chdir(paths.basePath)
   ocean_folder = paths.basePath+"/ocean_build"
-  status = os.system("scripts/building/get_ocean "+paths.basePath+" "+ocean_folder)
+  status = runCommand("scripts/building/get_ocean "+paths.basePath+" "+ocean_folder)
   if not status == 0:
     print("get_ocean failed")
     return status
   os.chdir(ocean_folder)  
-  print("BuildCommand: ./configure "+configure_flags+ocean_flags)
-  status = os.system("./configure "+configure_flags+ocean_flags)
+  status = runCommand("./configure "+configure_flags+ocean_flags)
   if not status == 0:
     print("Configure failed")
     return status
-  status = os.system("./build_command")
+  status = runCommand("./build_command")
   if not status == 0:
     print("Build failed")
     return status
   # get the ocean binaries and setup-info  
   os.chdir(paths.basePath)
-  status = os.system("cp -r "+ocean_folder+"/build .")
-  status = os.system("cp "+ocean_folder+"/config/set-up.info config")
+  status = runCommand("cp -r "+ocean_folder+"/build .")
+  status = runCommand("cp "+ocean_folder+"/config/set-up.info config")
   set_account()
   
   os.chdir(paths.thisPath)  
@@ -64,24 +82,23 @@ def make_aes_binaries(configure_flags):
   aes_flags=" --disable-ocean --with-yac=no"
   os.chdir(paths.basePath)
   aes_folder = paths.basePath+"/aes_build"
-  status = os.system("scripts/building/get_atmo "+paths.basePath+" "+aes_folder)
+  status = runCommand("scripts/building/get_atmo "+paths.basePath+" "+aes_folder)
   if not status == 0:
     print("get_aes failed")
     return status
   os.chdir(aes_folder)
-  print("BuildCommand: ./configure "+configure_flags+aes_flags)
-  status = os.system("./configure "+configure_flags+aes_flags)
+  status = runCommand("./configure "+configure_flags+aes_flags)
   if not status == 0:
     print("Configure failed")
     return status
-  status = os.system("./build_command")
+  status = runCommand("./build_command")
   if not status == 0:
     print("Build failed")
     return status
   # get the aes binaries and setup-info
   os.chdir(paths.basePath)
-  status = os.system("cp -r "+aes_folder+"/build .")
-  status = os.system("cp "+aes_folder+"/config/set-up.info config")
+  status = runCommand("cp -r "+aes_folder+"/build .")
+  status = runCommand("cp "+aes_folder+"/config/set-up.info config")
   set_account()
 
   os.chdir(paths.thisPath)
@@ -92,24 +109,23 @@ def make_nwp_binaries(configure_flags):
   aes_flags=" --disable-ocean --disable-jsbach --disable-testbed --with-yac=no"
   os.chdir(paths.basePath)
   aes_folder = paths.basePath+"/nwp_build"
-  status = os.system("scripts/building/get_atmo "+paths.basePath+" "+aes_folder)
+  status = runCommand("scripts/building/get_atmo "+paths.basePath+" "+aes_folder)
   if not status == 0:
     print("get_aes failed")
     return status
   os.chdir(aes_folder)
-  print("BuildCommand: ./configure "+configure_flags+aes_flags)
-  status = os.system("./configure "+configure_flags+aes_flags)
+  status = runCommand("./configure "+configure_flags+aes_flags)
   if not status == 0:
     print("Configure failed")
     return status
-  status = os.system("./build_command")
+  status = runCommand("./build_command")
   if not status == 0:
     print("Build failed")
     return status
   # get the aes binaries and setup-info
   os.chdir(paths.basePath)
-  status = os.system("cp -r "+aes_folder+"/build .")
-  status = os.system("cp "+aes_folder+"/config/set-up.info config")
+  status = runCommand("cp -r "+aes_folder+"/build .")
+  status = runCommand("cp "+aes_folder+"/config/set-up.info config")
   set_account()
 
   os.chdir(paths.thisPath)
@@ -136,7 +152,7 @@ def make_runscript(experimentPathName, runflags):
   make_runscript_command=paths.basePath+"/config/make_target_runscript "
   inoutFiles="in_script="+experimentPathName+" in_script=exec.iconrun out_script="+outscript+" EXPNAME="+expname+" "
   print(make_runscript_command+inoutFiles+runflags)
-  status = os.system(make_runscript_command+inoutFiles+runflags)
+  status = runCommand(make_runscript_command+inoutFiles+runflags)
   if not status == 0:
     print("make_runscripts failed")
   os.chdir(paths.thisPath)
