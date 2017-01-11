@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #==============================================================================
-import os,subprocess
+import os,subprocess,time
 from model_paths import paths
 
 #-----------------------------------------------------------------------
@@ -19,6 +19,7 @@ def runCommand(cmd):
   print("Command:"+cmd)
 # print("StdOut:"+stdout)
 # print("StdErr:"+stderr)
+  time.sleep(1)
 
   status = subprocess.call(cmd,shell=True)
   return status
