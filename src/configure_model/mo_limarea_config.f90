@@ -35,9 +35,12 @@ MODULE mo_limarea_config
 
   IMPLICIT NONE
 
+  PRIVATE
+
   PUBLIC :: t_latbc_config, latbc_config, configure_latbc, generate_filename, &
     &       generate_filename_mtime 
   PUBLIC :: t_glb_indices
+  PUBLIC :: LATBC_TYPE_CONST, LATBC_TYPE_EXT, LATBC_TYPE_TEST
 
 
   !> module name string
