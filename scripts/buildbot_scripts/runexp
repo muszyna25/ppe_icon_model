@@ -96,7 +96,7 @@ run_scripts_submit()
 
   echo "Run all *.run in run directory"
   cd run
-  EXP_FILES=`ls *.run`
+  EXP_FILES=`cat runscripts_list`
 
   for EXP_FILE in $EXP_FILES
   do 
