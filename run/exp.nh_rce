@@ -211,6 +211,7 @@ add_link_file ${DATADIR}/rrtmg_lw.nc                 rrtmg_lw.nc
 add_link_file ${DATADIR}/ECHAM6_CldOptProps.nc       ECHAM6_CldOptProps.nc
 add_link_file ${DATADIR}/dmin_wetgrowth_lookup.dat   dmin_wetgrowth_lookup.dat   #for inwp_gscp==4
 add_link_file ${DATADIR}/sound_rce_new               sound_in
-OZONEDIR=${basedir}/data/external/ape_ozone
+OZONEDIR=/pool/data/ICON/external/ape_ozone
 add_link_file ${OZONEDIR}/${grid_name}_o3_CMIP5_ape_1870_march.nc  o3_icon_DOM01.nc
 #----------------------------------------------------------------------------------
+

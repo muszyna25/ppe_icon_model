@@ -935,8 +935,9 @@ CONTAINS
     INTEGER  :: jk,jkk,jk1,jl,jc,jb !loop indices
     INTEGER  :: idy,im,imn,im1,im2,jk_start,i_startidx,i_endidx,i_nchdom,i_startblk,i_endblk
     INTEGER  :: rl_start,rl_end,k375,k100,ktp
-    REAL(wp) :: ztimi,zxtime,zjl,zlatint,zint,zadd_o3,tuneo3_1(nlev_gems),tuneo3_2(nlev_gems),o3_macc1,o3_macc2
-    REAL(wp) :: dzsum,dtdzavg,tpshp,wfac,wfac_lat(ilat),wfac_p(nlev_gems)
+    REAL(wp) :: ztimi,zxtime,zjl,zlatint,zint,zadd_o3,tuneo3_1(nlev_gems),tuneo3_2(nlev_gems),&
+                o3_macc1,o3_macc2,o3_gems1,o3_gems2
+    REAL(wp) :: dzsum,dtdzavg,tpshp,wfac,wfac_lat(ilat),wfac_p(nlev_gems),wfac_tr(ilat),wfac_p_tr(nlev_gems)
     LOGICAL  :: lfound_all
 
 
@@ -1020,7 +1021,7 @@ CONTAINS
       ENDDO
     CASE (79) ! blending between GEMS and MACC
 
-      ! Latitude-dependent weight for MACC
+      ! Latitude-dependent weight for using MACC in the Antarctic region
       DO jl = 1, ilat
         IF (zlat(jl)*rad2deg > -45._wp) THEN
           wfac_lat(jl) = 0._wp
@@ -1031,7 +1032,7 @@ CONTAINS
         ENDIF
       ENDDO
 
-      ! Pressure-dependent weight for MACC
+      ! Pressure-dependent weight for using MACC in the upper stratosphere and mesosphere
       DO jk = 1, nlev_gems
         IF (zrefp(jk) > 500._wp) THEN
           wfac_p(jk) = 0._wp
@@ -1039,6 +1040,30 @@ CONTAINS
           wfac_p(jk) = 1._wp - (zrefp(jk)-100._wp)/400._wp
         ELSE
           wfac_p(jk) = 1._wp
+        ENDIF
+      ENDDO
+
+      ! Latitude mask field for tropics (used for ozone enhancement in January and February)
+      DO jl = 1, ilat
+        IF (ABS(zlat(jl))*rad2deg > 30._wp) THEN
+          wfac_tr(jl) = 0._wp
+        ELSE IF (ABS(zlat(jl))*rad2deg > 20._wp) THEN
+          wfac_tr(jl) = (30._wp-ABS(zlat(jl))*rad2deg)/10._wp
+        ELSE
+          wfac_tr(jl) = 1._wp
+        ENDIF
+      ENDDO
+
+      ! Pressure mask field for tropics (used for ozone enhancement in January and February)
+      DO jk = 1, nlev_gems
+        IF (zrefp(jk) >= 7000._wp .AND. zrefp(jk) <= 10000._wp) THEN
+          wfac_p_tr(jk) = 1._wp
+        ELSE IF (zrefp(jk) < 7000._wp .AND. zrefp(jk) >= 5000._wp) THEN
+          wfac_p_tr(jk) = (zrefp(jk)-5000._wp)/2000._wp
+        ELSE IF (zrefp(jk) > 10000._wp .AND. zrefp(jk) < 15000._wp) THEN
+          wfac_p_tr(jk) = (15000._wp-zrefp(jk))/5000._wp
+        ELSE
+          wfac_p_tr(jk) = 0._wp
         ENDIF
       ENDDO
 
@@ -1050,7 +1075,7 @@ CONTAINS
         ELSE IF (zrefp(jk) < 2000._wp .AND. zrefp(jk) >= 1000._wp) THEN
           tuneo3_1(jk) = (zrefp(jk)-1000._wp)/1000._wp
         ELSE IF (zrefp(jk) > 10000._wp .AND. zrefp(jk) < 15000._wp) THEN
-          tuneo3_1(jk) = 1._wp - (zrefp(jk)-10000._wp)/5000._wp
+          tuneo3_1(jk) = (15000._wp-zrefp(jk))/5000._wp
         ELSE
           tuneo3_1(jk) = 0._wp
         ENDIF
@@ -1069,11 +1094,17 @@ CONTAINS
         DO jl=1,ilat
           wfac = MAX(wfac_lat(jl),wfac_p(jk))
           o3_macc1 = RGHG7_MACC(JL,JK,IM1) + MERGE(wfac_lat(jl)*tuneo3_1(jk)*tuneo3_2(jk)*&
-                     MAX(0._wp,RGHG7_MACC(JL,JK,12)-RGHG7_MACC(JL,JK,IM1)),0._wp,im1==11)
+                     MAX(0._wp,RGHG7_MACC(JL,JK,12)-RGHG7_MACC(JL,JK,IM1)), 0._wp, im1==11)
           o3_macc2 = RGHG7_MACC(JL,JK,IM2) + MERGE(wfac_lat(jl)*tuneo3_1(jk)*tuneo3_2(jk)*&
-                     MAX(0._wp,RGHG7_MACC(JL,JK,12)-RGHG7_MACC(JL,JK,IM2)),0._wp,im2==11)
-          zozn(JL,JK) = amo3/amd * ( wfac * (o3_macc2+ZTIMI*(o3_macc1-o3_macc2)) +      &
-            (1._wp-wfac) * (RGHG7(JL,JK,IM2)+ZTIMI*(RGHG7(JL,JK,IM1)-RGHG7(JL,JK,IM2))) )
+                     MAX(0._wp,RGHG7_MACC(JL,JK,12)-RGHG7_MACC(JL,JK,IM2)), 0._wp, im2==11)
+
+          o3_gems1 = RGHG7(JL,JK,IM1) + MERGE(wfac_tr(jl)*wfac_p_tr(jk)*&
+                     MAX(0._wp,RGHG7(JL,JK,12)-RGHG7(JL,JK,IM1)), 0._wp, im1==1 .OR. im1==2)
+          o3_gems2 = RGHG7(JL,JK,IM2) + MERGE(wfac_tr(jl)*wfac_p_tr(jk)*&
+                     MAX(0._wp,RGHG7(JL,JK,12)-RGHG7(JL,JK,IM2)), 0._wp, im1==1 .OR. im1==2)
+
+          zozn(JL,JK) = amo3/amd * ( wfac * (o3_macc2+ZTIMI*(o3_macc1-o3_macc2)) + &
+                              (1._wp-wfac)* (o3_gems2+ZTIMI*(o3_gems1-o3_gems2)) )
           zozn(JL,JK) = zozn(JL,JK) * (ZPRESH(JK)-ZPRESH(JK-1))
         ENDDO
       ENDDO

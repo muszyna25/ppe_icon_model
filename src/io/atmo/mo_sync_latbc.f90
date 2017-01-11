@@ -57,7 +57,7 @@ MODULE mo_sync_latbc
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_datetime,            ONLY: t_datetime, date_to_time, add_time, rdaylen
   USE mo_time_config,         ONLY: time_config
-  USE mo_limarea_config,      ONLY: latbc_config, generate_filename
+  USE mo_limarea_config,      ONLY: latbc_config, generate_filename, LATBC_TYPE_EXT
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport
   USE mo_initicon_config,     ONLY: init_mode
@@ -275,7 +275,7 @@ MODULE mo_sync_latbc
     !
     ! start reading boundary data
     !
-    IF (latbc_config%itype_latbc == 1) THEN
+    IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) THEN
       CALL read_latbc_ifs_data(  p_patch, p_nh_state, p_int )
     ELSE
       CALL read_latbc_icon_data( p_patch, p_int )
