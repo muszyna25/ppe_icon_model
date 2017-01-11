@@ -1,30 +1,15 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
 #==============================================================================
-import os,subprocess,time
+import os,subprocess
 from model_paths import paths
 
 #-----------------------------------------------------------------------
 # some help method to call commands and return stdout and stderr
 def runCommand(cmd):
-# proc = subprocess.Popen(' '.join(cmd),
-#                         shell  = True,
-#                         stderr = subprocess.PIPE,
-#                         stdout = subprocess.PIPE)
-#
-# retvals = proc.communicate()
-# stdout  = retvals[0].decode("utf-8")
-# stderr  = retvals[1].decode("utf-8")
-
   print("Command:"+cmd)
-# print("StdOut:"+stdout)
-# print("StdErr:"+stderr)
-  time.sleep(1)
-
-  status = subprocess.call(cmd,shell=True)
+  status = os.system(cmd)
   return status
-
-
 #-----------------------------------------------------------------------
 
 def make_binaries_interface(configure_flags, builder_flags):
