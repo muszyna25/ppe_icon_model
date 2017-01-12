@@ -560,8 +560,6 @@ CONTAINS
       tend%   ua_sso(:,:,:)   = 0._wp
       tend%   va_sso(:,:,:)   = 0._wp
 
-      tend% xl_dtr  (:,:,:)   = 0._wp  !"xtecl" in ECHAM
-      tend% xi_dtr  (:,:,:)   = 0._wp  !"xteci" in ECHAM
 !$OMP END WORKSHARE
 
       IF (phy_config%ljsbach) THEN

@@ -487,8 +487,6 @@ MODULE mo_echam_phy_memory
       &   ua_cnv (:,:,:),   & !< u-wind tendency due to convective cloud processes
       &   va_cnv (:,:,:),   & !< v-wind tendency due to convective cloud processes
       & qtrc_cnv (:,:,:,:), & !< tracer tendency due to convective cloud processes
-      &   xl_dtr (:,:,:),   & !< cloud water tendency due to detrainment from convective clouds
-      &   xi_dtr (:,:,:),   & !< cloud ice tendency due to detrainment from convective clouds
       !
       ! vertical diffusion ("vdiff")
       !
@@ -3348,34 +3346,6 @@ CONTAINS
                 &         datatype_flt)
     grib2_desc = grib2_var(0,2,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( tend_list, prefix//'va_sso', tend%va_sso,                              &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
-                & vert_interp=create_vert_interp_metadata(                               &
-                &   vert_intp_type=vintp_types("P","Z","I"),                             &
-                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
-                &   l_extrapol=.FALSE. ) )
-
-    !------------------------------
-    ! Detrainment
-    !------------------------------
-
-    ! &       tend%    xl_dtr  (nproma,nlev,nblks),          &
-    cf_desc    = t_cf_var('liquid_detrain_rate', 'kg kg-1 s-1',                          &
-                &         'cloud water tendency due to detrainment from convective clouds', & 
-                &         datatype_flt)
-    grib2_desc = grib2_var(0,6,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'clw_dtr', tend%xl_dtr,                             &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
-                & vert_interp=create_vert_interp_metadata(                               &
-                &   vert_intp_type=vintp_types("P","Z","I"),                             &
-                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
-                &   l_extrapol=.FALSE. ) )
-
-   ! &       tend%    xi_dtr  (nproma,nlev,nblks),          &
-   cf_desc    = t_cf_var('ice_detrain_rate', 'kg kg-1 s-1',                              &
-                &        'cloud ice tendency due to detrainment from convective clouds', & 
-                &         datatype_flt)
-   grib2_desc = grib2_var(0,6,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-   CALL add_var( tend_list, prefix//'cli_dtr', tend%xi_dtr,                              &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
