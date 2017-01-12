@@ -120,45 +120,27 @@ CONTAINS
     REAL(wp), INTENT(OUT) :: vct(:)
     INTEGER,  INTENT(OUT) :: nflatlev(:)
 
-    REAL(wp) :: z_height, z_flat
     INTEGER  :: jk, nflat
     INTEGER  :: nlevp1            !< number of half levels
 
     ! number of vertical half levels
     nlevp1 = nlev+1
 
-    IF ( layer_thickness < 0.0_wp) THEN
-
-      CALL read_vct (iequations,nlev)
-
-      DO jk = 1, nlevp1
-        IF (vct_b(jk) /= 0.0_wp) THEN
-          nflat = jk-1
-          nflatlev(1) = nflat
-          EXIT
-        ENDIF
-      ENDDO
-
-    ELSE
-
-      nflat  = -1
-      z_flat = REAL(nlevp1-n_flat_level,wp) * layer_thickness
-      DO jk = 1, nlevp1
-        z_height  = layer_thickness*REAL(nlevp1-jk,wp)
-        IF ( z_height < z_flat) THEN
-          IF (nflat == -1) THEN
-            nflat = jk-1
-          ENDIF
-        ENDIF
-      ENDDO
-      nflatlev(1) = nflat
-
-      vct(       1:       nlevp1) = vct_a(:)
-      vct(nlevp1+1:nlevp1+nlevp1) = vct_b(:)
-    ENDIF
+    nflat = -1
+    DO jk = 1, nlevp1
+      IF (vct_b(jk) /= 0.0_wp) THEN
+        nflat = jk-1
+        EXIT
+      ENDIF
+    ENDDO
+    nflat = MAX(1,nflat)
+    nflatlev(1) = nflat
+    !
+    vct(       1:       nlevp1) = vct_a(:)
+    vct(nlevp1+1:nlevp1+nlevp1) = vct_b(:)
 
     IF (msg_level >= 7) THEN
-      CALL print_vcoord_info(nlev, vct_a, "init_hybrid_coord")
+      CALL print_vcoord_info(nlev, vct_a, nflatlev(1), "init_hybrid_coord")
     ENDIF
 
   END SUBROUTINE prepare_hybrid_coord
@@ -330,7 +312,7 @@ CONTAINS
     nflatlev(1) = nflat
 
     IF (msg_level >= 7) THEN
-      CALL print_vcoord_info(nlev, vct_a, "init_sleve_coord")
+      CALL print_vcoord_info(nlev, vct_a, nflatlev(1), "init_sleve_coord")
     ENDIF
 
   END SUBROUTINE prepare_sleve_coord
@@ -345,10 +327,12 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2017-01-12)
   !! - encapsulate into subroutine
   !!
-  SUBROUTINE print_vcoord_info(nlev, vct_a, vcoord_type)
+  SUBROUTINE print_vcoord_info(nlev, vct_a, nflat, vcoord_type)
     !
     INTEGER,  INTENT(IN)  :: nlev  !< number of full levels
     REAL(wp), INTENT(IN)  :: vct_a(:)
+    INTEGER,  INTENT(IN)  :: nflat  !< level from which on coordinate surfaces are flat
+    !
     CHARACTER(len=MAX_CHAR_LENGTH) :: vcoord_type
     !
     ! local
@@ -359,7 +343,8 @@ CONTAINS
     nlevp1 = nlev+1
 
     CALL message(TRIM(vcoord_type), 'Coordinate setup finished')
-
+    WRITE(message_text,'(a,i3)') 'flat coordinate surfaces starting at level ', nflat
+      CALL message('', TRIM(message_text))
     WRITE(message_text,'(a)') 'Nominal heights of coordinate half levels and layer thicknesses (m):'
       CALL message('', TRIM(message_text))
 
