@@ -51,20 +51,19 @@ MODULE mo_radiation
   USE mo_math_constants,       ONLY: pi, rpi
   USE mo_physical_constants,   ONLY: grav,  rd,    avo,   amd,  amw,  &
     &                                amco2, amch4, amn2o, amo3, amo2, &
-    &                                stbo,  vpp_ch4, vpp_n2o
+    &                                stbo
 
   USE mo_datetime,             ONLY: rdaylen
 
-  USE mo_radiation_config,     ONLY: tsi_radt,   ssi_radt,    &
-    &                                irad_co2,   mmr_co2,     &
-    &                                irad_ch4,   mmr_ch4,     &
-    &                                irad_n2o,   mmr_n2o,     &
-    &                                irad_o2,    mmr_o2,      &
-    &                                irad_cfc11, vmr_cfc11,   &
-    &                                irad_cfc12, vmr_cfc12,   &
-    &                                irad_aero,               &
-    &                                lrad_aero_diag,          &
-    &                                izenith
+  USE mo_radiation_config,     ONLY: tsi_radt,   ssi_radt,            &
+    &                                irad_co2,   mmr_co2,             &
+    &                                irad_ch4,   mmr_ch4,   vpp_ch4,  &
+    &                                irad_n2o,   mmr_n2o,   vpp_n2o,  &
+    &                                irad_o2,    mmr_o2,              &
+    &                                irad_cfc11, vmr_cfc11,           &
+    &                                irad_cfc12, vmr_cfc12,           &
+    &                                irad_aero,  lrad_aero_diag,      &
+    &                                izenith, lradforcing
   USE mo_lnd_nwp_config,       ONLY: isub_seaice, isub_lake
 
   USE mo_newcld_optics,        ONLY: newcld_optics
@@ -90,6 +89,7 @@ MODULE mo_radiation
   USE mo_nh_testcases_nml,     ONLY: zenithang
   USE mo_rad_diag,             ONLY: rad_aero_diag
   USE mo_art_radiation_interface, ONLY: art_rad_aero_interface
+  USE mo_psrad_radiation_forcing, ONLY: calculate_psrad_radiation_forcing
 
   IMPLICIT NONE
 
@@ -799,7 +799,7 @@ CONTAINS
     & ,tk_fl             ,qm_vap          ,qm_liq           ,qm_ice        &
     & ,qm_o3                                                               &
     & ,cdnc              ,cld_frc                                          &
-    & ,zaeq1, zaeq2, zaeq3, zaeq4, zaeq5 , dt_rad                          &
+    & ,zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, dust_tunefac, dt_rad             &
     ! output
     & ,cld_cvr, flx_lw_net, flx_uplw_sfc, trsol_net, trsol_up_toa,         &
     &  trsol_up_sfc, trsol_dn_sfc_diffus, trsol_clr_sfc, trsol_par_sfc     )
@@ -838,9 +838,10 @@ CONTAINS
       &  cld_frc(kbdim,klev),& !< Cloud fraction
       &  zaeq1(kbdim,klev) , & !< aerosol continental
       &  zaeq2(kbdim,klev) , & !< aerosol maritime
-      &  zaeq3(kbdim,klev) , & !< aerosol urban
-      &  zaeq4(kbdim,klev) , & !< aerosol volcano ashes
+      &  zaeq3(kbdim,klev) , & !< aerosol mineral dust
+      &  zaeq4(kbdim,klev) , & !< aerosol urban
       &  zaeq5(kbdim,klev) , & !< aerosol stratospheric background
+      &  dust_tunefac(kbdim,jpband),& !< LW tuning factor for dust aerosol
       &  dt_rad                !< radiation time step
 
 
@@ -994,7 +995,8 @@ CONTAINS
       ! output
       & flx_lw_net      ,flx_sw_net      ,flx_lw_net_clr  ,flx_sw_net_clr  ,&
       & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_sfc_clr,flx_upsw_sfc_clr,&
-      & flx_dnsw_diff_sfc=flx_dnsw_diff_sfc                                ,&
+      ! optional arguments
+      & dust_tunefac=dust_tunefac, flx_dnsw_diff_sfc=flx_dnsw_diff_sfc     ,&
       & flx_upsw_toa=flx_upsw_toa  ,flx_dnpar_sfc=flx_par_sfc               )
 
 
@@ -1141,6 +1143,8 @@ CONTAINS
     ! output
     & flx_lw_net      ,flx_sw_net      ,flx_lw_net_clr  ,flx_sw_net_clr  ,&
     & flx_uplw_sfc    ,flx_upsw_sfc    ,flx_uplw_sfc_clr,flx_upsw_sfc_clr,&
+    ! optional input
+    & dust_tunefac                                                       ,&
     ! optional output
     & flx_dnsw_diff_sfc, flx_upsw_toa  ,flx_dnpar_sfc                    ,&
     & vis_frc_sfc     ,nir_dff_frc_sfc ,vis_dff_frc_sfc ,par_dff_frc_sfc  )
@@ -1201,6 +1205,8 @@ CONTAINS
       &  flx_uplw_sfc_clr(kbdim),         & !< clrsky sfc LW upward flux,
       &  flx_upsw_sfc_clr(kbdim)            !< clrsky sfc SW upward flux,
 
+    REAL(wp), INTENT(in),  OPTIONAL ::    dust_tunefac(kbdim,jpband) ! LW absorption tuning factor for dust
+
     REAL(wp), INTENT(out), OPTIONAL ::    &
       &  flx_dnsw_diff_sfc(kbdim),        & !< sfc SW diffuse downward flux,
       &  flx_upsw_toa(kbdim),             & !< TOA SW upward flux,
@@ -1258,6 +1264,8 @@ CONTAINS
       &  flx_upsw_clr(kbdim,klev+1),      & !< upward flux clear sky
       &  flx_dnsw(kbdim,klev+1),          & !< downward flux total sky
       &  flx_dnsw_clr(kbdim,klev+1)         !< downward flux clear sky
+
+    REAL(wp) :: tune_dust(kbdim,jpband)  ! local variable for LW absorption tuning of dust
 
     CHARACTER(LEN=3)     :: c_irad_aero
 
@@ -1390,6 +1398,11 @@ CONTAINS
       aer_piz_sw_vr(:,:,:) = 1.0_wp
       aer_cg_sw_vr(:,:,:)  = 0.0_wp
     CASE (5,6)
+      IF (PRESENT(dust_tunefac)) THEN
+        tune_dust(1:jce,1:jpband) = dust_tunefac(1:jce,1:jpband)
+      ELSE
+        tune_dust(1:jce,1:jpband) = 1._wp
+      ENDIF
       DO jspec=1,jpband
         DO jk=1,klev
           jkb = klev+1-jk
@@ -1397,7 +1410,7 @@ CONTAINS
             ! LW opt thickness of aerosols
             aer_tau_lw_vr(jl,jk,jspec) =  zaeq1(jl,jkb) * zaea_rrtm(jspec,1) &
               &                         + zaeq2(jl,jkb) * zaea_rrtm(jspec,2) &
-              &                         + zaeq3(jl,jkb) * zaea_rrtm(jspec,3) &
+              &   + tune_dust(jl,jspec) * zaeq3(jl,jkb) * zaea_rrtm(jspec,3) &
               &                         + zaeq4(jl,jkb) * zaea_rrtm(jspec,4) &
               &                         + zaeq5(jl,jkb) * zaea_rrtm(jspec,5)
           ENDDO
@@ -1679,8 +1692,12 @@ CONTAINS
     &                 cosmu0,          & ! optional: cosine of zenith angle
     &                 opt_nh_corr   ,  & ! optional: switch for applying corrections for NH model
     &                 use_trsolclr_sfc,& ! optional: use clear-sky surface transmissivity passed on input
+    &                 jg            ,  & ! optional: domain index
+    &                 krow          ,  & ! optional: block index
     &                 ptrmsw        ,  &
     &                 pflxlw        ,  &
+    &                 ptrmswclr     ,  & ! optional: shortwave net transmissivity at last rad. step clear sky []
+    &                 pflxlwclr     ,  & ! optional: longwave net flux at last rad. step clear sky [W/m2]
     &                 pdtdtradsw    ,  &
     &                 pdtdtradlw    ,  &
     &                 pflxsfcsw     ,  &
@@ -1737,6 +1754,14 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL   ::  &
       &     opt_nh_corr, use_trsolclr_sfc
 
+    INTEGER, INTENT(in), OPTIONAL   ::  &
+      &     jg,                         & ! index of domain
+      &     krow                          ! block index
+
+    REAL(wp), INTENT(in), OPTIONAL  ::  &
+      &     ptrmswclr   (kbdim,klevp1), & ! shortwave net transmissivity at last rad. step clear sky []
+      &     pflxlwclr   (kbdim,klevp1)    ! longwave net flux at last rad. step clear sky [W/m2]
+   
     REAL(wp), INTENT(inout) ::       &
       &     pdtdtradsw (kbdim,klev), & ! shortwave temperature tendency           [K/s]
       &     pdtdtradlw (kbdim,klev)    ! longwave temperature tendency            [K/s]
@@ -1760,6 +1785,8 @@ CONTAINS
     REAL(wp) ::                    &
       &     zflxsw (kbdim,klevp1), &
       &     zflxlw (kbdim,klevp1), &
+      &     zflxswclr(kbdim,klevp1),&
+      &     zflxlwclr(kbdim,klevp1),&
       &     zconv  (kbdim,klev)  , &
       &     tqv    (kbdim)       , &
       &     dlwem_o_dtg(kbdim)   , &
@@ -1768,6 +1795,7 @@ CONTAINS
       &     intclw (kbdim,klevp1), &
       &     intcli (kbdim,klevp1), &
       &     dlwflxall_o_dtg(kbdim,klevp1)
+    REAL(wp) :: dummy(kbdim,klevp1)
 
     REAL(wp) :: swfac1(kbdim), swfac2(kbdim), dflxsw_o_dalb(kbdim), trsolclr(kbdim), logtqv(kbdim)
 
@@ -1797,15 +1825,18 @@ CONTAINS
     ! Conversion factor for heating rates
     zconv(jcs:jce,1:klev) = 1._wp/(pmair(jcs:jce,1:klev)*(pcd+(pcv-pcd)*pqv(jcs:jce,1:klev)))
 
-    ! Shortwave fluxes = transmissivity * local solar incoming flux at TOA
-    ! ----------------
-
     ! lev == 1        => TOA
     ! lev in [2,klev] => Atmosphere
     ! lev == klevp1   => Surface
     DO jk = 1, klevp1
       zflxsw(jcs:jce,jk)      = ptrmsw(jcs:jce,jk) * pi0(jcs:jce)
     END DO
+    IF (lradforcing(1)) THEN
+      ! Shortwave fluxes clear sky = transmissivity clear sky * local solar incoming flux at TOA
+      DO jk = 1, klevp1
+        zflxswclr(jcs:jce,jk)  = ptrmswclr(jcs:jce,jk)*pi0(jcs:jce)
+      END DO
+    END IF
     ! Longwave fluxes
     ! - TOA
 !    zflxlw(jcs:jce,1)      = pflxlw(jcs:jce,1)
@@ -1973,7 +2004,24 @@ CONTAINS
 !!$      zflxlw(jcs:jce,klevp1) = pflxlw(jcs:jce,klevp1)                      &
 !!$        &                   + pemiss(jcs:jce)*stbo * ptsfctrad(jcs:jce)**4 &
 !!$        &                   - pemiss(jcs:jce)*stbo * ptsfc    (jcs:jce)**4
+      IF (lradforcing(2)) THEN
+        ! Longwave fluxes clear sky: For now keep fluxes fixed at TOA and in atmosphere,
+        ! but adjust flux from surface to the current surface temperature.
+        ! - TOA
+        zflxlwclr(jcs:jce,1)      = pflxlwclr(jcs:jce,1)
+        ! - Atmosphere
+        zflxlwclr(jcs:jce,2:klev) = pflxlwclr(jcs:jce,2:klev)
 
+        ! - Surface
+        !   Adjust net sfc longwave radiation for changed surface temperature (ptsfc) with respect to the
+        !   surface temperature used for the longwave flux computation (ptsfctrad).
+        !   --> modifies heating in lowermost layer only (is this smart?)
+        !   This assumes that downward sfc longwave radiation is constant between radiation time steps and
+        !   upward and net sfc longwave radiation are updated between radiation time steps
+        dlwem_o_dtg(jcs:jce) = pemiss(jcs:jce)*4._wp*stbo*ptsfc(jcs:jce)**3    ! Derivative of upward sfc rad wrt to sfc temperature
+        zflxlwclr(jcs:jce,klevp1) = pflxlwclr(jcs:jce,klevp1)                & ! Net longwave sfc rad at radiation time step
+        & - dlwem_o_dtg(jcs:jce) * (ptsfc(jcs:jce) - ptsfctrad(jcs:jce))       ! Correction for new sfc temp between radiation time steps
+      END IF
 
     ENDIF
 
@@ -1998,6 +2046,26 @@ CONTAINS
     IF ( PRESENT(pflxtoasw) ) pflxtoasw(jcs:jce) = zflxsw(jcs:jce,1)
     IF ( PRESENT(pflxtoalw) ) pflxtoalw(jcs:jce) = zflxlw(jcs:jce,1)
 
+! Calculate radiative forcing
+    IF (lradforcing(1).OR.lradforcing(2)) THEN
+      zconv(jcs:jce,1:klev) = 1._wp/(pmair(jcs:jce,1:klev)*(pcd+(pcv-pcd)*pqv(jcs:jce,1:klev)))
+      CALL calculate_psrad_radiation_forcing( &
+                  & jg=jg,                    &
+                  & jcs=jcs,                  &
+                  & jce=jce,                  &
+                  & kbdim=kbdim,              &
+                  & klevp1=klevp1,            &
+                  & krow=krow,                &       
+                  & pi0=pi0,                  &
+                  & pconvfact=zconv,          &
+                  & pflxs=zflxsw,             &
+                  & pflxs0=zflxswclr,         &
+                  & pflxt=zflxlw,             &
+                  & pflxt0=zflxlwclr,         &   
+                  & pemiss=pemiss,            &
+                  & ptsfctrad=ptsfctrad,      &
+                  & pztsnew=ptsfc             )
+   END IF
 
   END SUBROUTINE radheat
 

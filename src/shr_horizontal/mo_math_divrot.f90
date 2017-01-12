@@ -74,6 +74,8 @@
 !!  - added an alternative for NEC SX-ACE to replace the calls of DOT_PRODUCT 
 !!    The DOT_PRODUCE has once been introduced to overcome performance penalties
 !!    on older NEC systems. 
+!!  Modification by Will Sawyer, CSCS (2016-07-14)
+!!  - added OpenACC implementation
 !!
 !! @par To Do
 !! Boundary exchange, nblks in presence of halos and dummy edge
@@ -112,6 +114,10 @@ USE mo_parallel_config,     ONLY: nproma
 USE mo_exception,           ONLY: finish
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_fortran_tools,       ONLY: init, copy
+#ifdef _OPENACC
+USE mo_mpi,                 ONLY: i_am_accel_node
+#endif
+
 ! USE mo_timer,              ONLY: timer_start, timer_stop, timer_div
 
 IMPLICIT NONE
@@ -128,7 +134,6 @@ PUBLIC :: div_quad_twoadjcells
 PUBLIC :: rot_vertex, rot_vertex_ri
 PUBLIC :: rot_vertex_atmos
 
-
 INTERFACE rot_vertex
 
   MODULE PROCEDURE rot_vertex_atmos
@@ -139,10 +144,19 @@ END INTERFACE
 INTERFACE div
 
   MODULE PROCEDURE div3d
+  MODULE PROCEDURE div3d_2field
   MODULE PROCEDURE div4d
 
 END INTERFACE
 
+#if defined( _OPENACC )
+#define ACC_DEBUG NOACC
+#if defined(__MATH_DIVROT_NOACC)
+  LOGICAL, PARAMETER ::  acc_on = .FALSE.
+#else
+  LOGICAL, PARAMETER ::  acc_on = .TRUE.
+#endif
+#endif
 
 CONTAINS
 
@@ -178,7 +192,7 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   &                           opt_slev, opt_elev, opt_rlstart,      &
   &                           opt_rlend, opt_lconsv )
 
-  TYPE(t_patch), TARGET, INTENT(IN) :: &  !< patch on which computation
+  TYPE(t_patch), TARGET, INTENT(IN) :: &  !< patch on which computation 
     &  ptr_patch                          !<is performed
 
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
@@ -260,13 +274,25 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   !
   ! 1. reconstruction of cell based gradient (geographical components)
   !
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), CREATE( z_d, z_qt_times_d ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE ( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
+!$ACC PRIVATE( z_d, z_qt_times_d ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
+#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -286,6 +312,7 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
       END DO ! end loop over cells
     END DO ! end loop over vertical levels
 
+!$ACC LOOP VECTOR COLLAPSE(2)
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 
@@ -316,6 +343,7 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     END DO ! end loop over vertical levels
 
     IF (l_consv) THEN
+!$ACC LOOP VECTOR COLLAPSE(2)
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
           ! constant
@@ -329,8 +357,14 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     ENDIF
 
   END DO ! end loop over blocks
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(p_coeff), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
 END SUBROUTINE recon_lsq_cell_l
 
@@ -349,7 +383,7 @@ END SUBROUTINE recon_lsq_cell_l
 !! cell : solution coefficients defined at cell center
 !! l    : linear reconstruction
 !!
-!! The least squares approach is used. Solves Ax = b via Singular
+!! The least squares approach is used. Solves Ax = b via Singular 
 !! Value Decomposition (SVD)
 !! x = PINV(A) * b
 !!
@@ -365,7 +399,7 @@ END SUBROUTINE recon_lsq_cell_l
 SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   &                           opt_slev, opt_elev, opt_rlstart, opt_rlend )
 
-  TYPE(t_patch), TARGET, INTENT(IN) :: &  !< patch on which computation
+  TYPE(t_patch), TARGET, INTENT(IN) :: &  !< patch on which computation 
     &  ptr_patch                          !< is performed
 
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
@@ -436,13 +470,24 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   !
   ! 1. reconstruction of cell based gradient (geographical components)
   !
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), CREATE( z_b ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE ( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
+!$ACC PRIVATE( z_b ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
+#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
+#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -452,7 +497,7 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 #endif
 
         ! note that the multiplication with lsq_weights_c(jc,js,jb) at
-        ! runtime is now avoided. Instead, the weights have been shifted
+        ! runtime is now avoided. Instead, the weights have been shifted 
         ! into the pseudoinverse.
         z_b(1,jc,jk) = p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) - p_cc(jc,jk,jb)
         z_b(2,jc,jk) = p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) - p_cc(jc,jk,jb)
@@ -465,6 +510,7 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     ! 2. compute cell based coefficients for linear reconstruction
     !    calculate matrix vector product PINV(A) * b
     !
+!$ACC LOOP VECTOR COLLAPSE(2)
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 
@@ -478,14 +524,19 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
           &                 + ptr_int_lsq%lsq_pseudoinv(jc,1,2,jb) * z_b(2,jc,jk)  &
           &                 + ptr_int_lsq%lsq_pseudoinv(jc,1,3,jb) * z_b(3,jc,jk)
 
-
       END DO ! end loop over cells
     END DO ! end loop over vertical levels
 
 
   END DO ! end loop over blocks
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(p_coeff), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
 END SUBROUTINE recon_lsq_cell_l_svd
 
@@ -503,7 +554,7 @@ END SUBROUTINE recon_lsq_cell_l_svd
 !! cell : solution coefficients defined at cell center
 !! l    : linear reconstruction
 !!
-!! The least squares approach is used. Solves Ax = b via Singular
+!! The least squares approach is used. Solves Ax = b via Singular 
 !! Value Decomposition (SVD)
 !! x = PINV(A) * b
 !!
@@ -520,7 +571,7 @@ SUBROUTINE recon_lsq_cell_l_consv_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   &                                    opt_slev, opt_elev, opt_rlstart,      &
   &                                    opt_rlend, opt_lconsv )
 
-  TYPE(t_patch), TARGET, INTENT(IN) :: &  !< patch on which computation
+  TYPE(t_patch), TARGET, INTENT(IN) :: &  !< patch on which computation 
     &  ptr_patch                          !< is performed
 
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
@@ -600,13 +651,25 @@ SUBROUTINE recon_lsq_cell_l_consv_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   !
   ! 1. reconstruction of cell based gradient (geographical components)
   !
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE ( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
+!$ACC PRIVATE( z_b ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
+#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -616,7 +679,7 @@ SUBROUTINE recon_lsq_cell_l_consv_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 #endif
 
         ! note that the multiplication with lsq_weights_c(jc,js,jb) at
-        ! runtime is now avoided. Instead, the weights have been shifted
+        ! runtime is now avoided. Instead, the weights have been shifted 
         ! into the pseudoinverse.
         z_b(1,jc,jk) = p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) - p_cc(jc,jk,jb)
         z_b(2,jc,jk) = p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) - p_cc(jc,jk,jb)
@@ -628,7 +691,8 @@ SUBROUTINE recon_lsq_cell_l_consv_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     !
     ! 2. compute cell based coefficients for linear reconstruction
     !    calculate matrix vector product PINV(A) * b
-    !
+    ! 
+!$ACC LOOP VECTOR COLLAPSE(2)
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 
@@ -652,7 +716,7 @@ SUBROUTINE recon_lsq_cell_l_consv_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
 
-          ! In the case of a conservative reconstruction,
+          ! In the case of a conservative reconstruction, 
           ! the coefficient c0 is derived from the linear constraint
           !
           p_coeff(1,jc,jk,jb) = p_coeff(1,jc,jk,jb)                                    &
@@ -664,8 +728,14 @@ SUBROUTINE recon_lsq_cell_l_consv_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     ENDIF
 
   END DO ! end loop over blocks
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(p_coeff), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
 END SUBROUTINE recon_lsq_cell_l_consv_svd
 
@@ -721,7 +791,7 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   TYPE(t_patch), INTENT(IN) ::   & !< patch on which computation
     &  ptr_patch                   !< is performed
-
+                                        
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
     &  ptr_int_lsq
 
@@ -800,15 +870,31 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   ptr_rutri => ptr_int_lsq%lsq_rmat_utri_c(:,:,:)
 
 
-
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), &
+!$ACC      CREATE(  z_d, z_qt_times_d ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE ( p_cc, ptr_rrdiag, ptr_rutri, p_coeff ), IF( i_am_accel_node .AND. acc_on )
+#else
 !$OMP PARALLEL
+#endif
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
     CALL init(p_coeff(:,:,1:6,1:i_startblk))
+#ifndef _OPENACC
 !$OMP BARRIER
+#endif
   ENDIF
 
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
+!$ACC PRIVATE( z_d, z_qt_times_d ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
+#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -817,6 +903,7 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     !
     ! 1. compute right hand side of linear system
     !
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -843,6 +930,7 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     !
     ! 2. compute cell based coefficients for quadratic reconstruction
     !
+!$ACC LOOP VECTOR COLLAPSE(2)
     DO jk = slev, elev
 
       DO jc = i_startidx, i_endidx
@@ -891,8 +979,14 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     END DO ! end loop over vertical levels
 
   END DO ! end loop over blocks
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(p_coeff), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
 
 END SUBROUTINE recon_lsq_cell_q
@@ -913,7 +1007,7 @@ END SUBROUTINE recon_lsq_cell_q
 !! q    : quadratic reconstruction
 !!
 !! Computes unknown coefficients (derivatives) of a quadratic polynomial,
-!! using the least-squares method. The coefficients are provided at cell
+!! using the least-squares method. The coefficients are provided at cell 
 !! centers in a local 2D cartesian system (tangential plane).
 !!
 !! Mathematically we solve Ax = b via Singular Value Decomposition (SVD)
@@ -947,7 +1041,7 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   TYPE(t_patch), INTENT(IN) ::   & !< patch on which computation
     &  ptr_patch                   !< is performed
-
+                                        
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
     &  ptr_int_lsq
 
@@ -1014,14 +1108,30 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
 
 
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on ) 
+#else
 !$OMP PARALLEL
+#endif
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
     CALL init(p_coeff(:,:,1:6,1:i_startblk))
+#ifndef _OPENACC
 !$OMP BARRIER
+#endif
   ENDIF
 
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
+!$ACC PRIVATE( z_b ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
+#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1030,6 +1140,8 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     !
     ! 1. compute right hand side of linear system
     !
+
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -1057,6 +1169,7 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     ! 2. compute cell based coefficients for quadratic reconstruction
     !    calculate matrix vector product PINV(A) * b
     !
+!$ACC LOOP VECTOR COLLAPSE(2)
     DO jk = slev, elev
 
       DO jc = i_startidx, i_endidx
@@ -1089,9 +1202,14 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     END DO ! end loop over vertical levels
 
   END DO ! end loop over blocks
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(p_coeff) IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-
+#endif
 
 END SUBROUTINE recon_lsq_cell_q_svd
 
@@ -1147,7 +1265,7 @@ SUBROUTINE recon_lsq_cell_cpoor( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   TYPE(t_patch), INTENT(IN) :: & !< patch on which computation
     &  ptr_patch                 !< is performed
-
+                                        
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
     &  ptr_int_lsq
 
@@ -1228,14 +1346,30 @@ SUBROUTINE recon_lsq_cell_cpoor( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
 
 
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN(  ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), CREATE( z_d, z_qt_times_d ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on )
+#else
 !$OMP PARALLEL
+#endif
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
     CALL init(p_coeff(:,:,1:8,1:i_startblk))
+#ifndef _OPENACC
 !$OMP BARRIER
+#endif
   ENDIF
 
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
+!$ACC PRIVATE( z_d, z_qt_times_d ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
+#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1244,6 +1378,8 @@ SUBROUTINE recon_lsq_cell_cpoor( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     !
     ! 1. compute right hand side of linear system
     !
+
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -1269,6 +1405,7 @@ SUBROUTINE recon_lsq_cell_cpoor( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     !
     ! 2. compute cell based coefficients for quadratic reconstruction
     !
+!$ACC LOOP VECTOR COLLAPSE(2)
     DO jk = slev, elev
 
       DO jc = i_startidx, i_endidx
@@ -1335,8 +1472,14 @@ SUBROUTINE recon_lsq_cell_cpoor( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     END DO ! end loop over vertical levels
 
   END DO ! end loop over blocks
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(p_coeff), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
 
 END SUBROUTINE recon_lsq_cell_cpoor
@@ -1357,8 +1500,8 @@ END SUBROUTINE recon_lsq_cell_cpoor
 !! c    : cubic reconstruction
 !!
 !! Computes unknown coefficients (derivatives) of a cubic polynomial,
-!! without cross derivatives, using the least-squares method. The
-!! coefficients are provided at cell centers in a local 2D cartesian
+!! without cross derivatives, using the least-squares method. The 
+!! coefficients are provided at cell centers in a local 2D cartesian 
 !! system (tangential plane).
 !!
 !! Mathematically we solve Ax = b via Singular Value Decomposition (SVD)
@@ -1394,7 +1537,7 @@ SUBROUTINE recon_lsq_cell_cpoor_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   TYPE(t_patch), INTENT(IN) :: & !< patch on which computation
     &  ptr_patch                 !< is performed
-
+                                        
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
     &  ptr_int_lsq
 
@@ -1460,15 +1603,31 @@ SUBROUTINE recon_lsq_cell_cpoor_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   iidx => ptr_int_lsq%lsq_idx_c
   iblk => ptr_int_lsq%lsq_blk_c
 
-
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), CREATE( z_b ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on )
+#else
 !$OMP PARALLEL
+#endif
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
     CALL init(p_coeff(:,:,:,1:i_startblk))
+#ifndef _OPENACC
 !$OMP BARRIER
+#endif
   ENDIF
 
+
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
+!$ACC PRIVATE( z_b ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
+#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1477,6 +1636,7 @@ SUBROUTINE recon_lsq_cell_cpoor_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     !
     ! 1. compute right hand side of linear system
     !
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -1503,6 +1663,7 @@ SUBROUTINE recon_lsq_cell_cpoor_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     ! 2. compute cell based coefficients for poor man's cubic reconstruction
     !    calculate matrix vector product PINV(A) * b
     !
+!$ACC LOOP VECTOR COLLAPSE(2)
     DO jk = slev, elev
 
       DO jc = i_startidx, i_endidx
@@ -1538,9 +1699,14 @@ SUBROUTINE recon_lsq_cell_cpoor_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     END DO ! end loop over vertical levels
 
   END DO ! end loop over blocks
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(p_coeff) IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-
+#endif
 
 END SUBROUTINE recon_lsq_cell_cpoor_svd
 
@@ -1597,7 +1763,7 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   TYPE(t_patch), INTENT(IN) :: & !< patch on which computation
     &  ptr_patch                 !< is performed
-
+                                        
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
     &  ptr_int_lsq
 
@@ -1677,15 +1843,30 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   ptr_rutri => ptr_int_lsq%lsq_rmat_utri_c(:,:,:)
 
 
-
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), CREATE( z_d,z_qt_times_d ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on )
+#else
 !$OMP PARALLEL
+#endif
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
     CALL init(p_coeff(:,:,1:10,1:i_startblk))
+#ifndef _OPENACC
 !$OMP BARRIER
+#endif
   ENDIF
 
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, p_cc, ptr_int_lsq, p_coeff ), &
+!$ACC PRIVATE( z_d, z_qt_times_d ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
+#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1694,6 +1875,7 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     !
     ! 1. compute right hand side of linear system
     !
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -1719,6 +1901,7 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     !
     ! 2. compute cell based coefficients for quadratic reconstruction
     !
+!$ACC LOOP VECTOR COLLAPSE(2)
     DO jk = slev, elev
 
       DO jc = i_startidx, i_endidx
@@ -1728,6 +1911,7 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
         ! performance penalty on the NEC. Instead the intrinsic dot product
         ! function is applied
 !CDIR BEGIN EXPAND=9
+!TODO:  these should be nine scalars, since they should reside in registers
         z_qt_times_d(1) = DOT_PRODUCT(ptr_int_lsq%lsq_qtmat_c(jc,1,1:9,jb),z_d(1:9,jc,jk))
         z_qt_times_d(2) = DOT_PRODUCT(ptr_int_lsq%lsq_qtmat_c(jc,2,1:9,jb),z_d(1:9,jc,jk))
         z_qt_times_d(3) = DOT_PRODUCT(ptr_int_lsq%lsq_qtmat_c(jc,3,1:9,jb),z_d(1:9,jc,jk))
@@ -1806,8 +1990,14 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     END DO ! end loop over vertical levels
 
   END DO ! end loop over blocks
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(p_coeff) IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
 
 END SUBROUTINE recon_lsq_cell_c
@@ -1829,7 +2019,7 @@ END SUBROUTINE recon_lsq_cell_c
 !! c    : cubic reconstruction
 !!
 !! Computes unknown coefficients (derivatives) of a cubic polynomial,
-!! using the least-squares method. The coefficients are provided at
+!! using the least-squares method. The coefficients are provided at 
 !! cell centers in a local 2D cartesian system (tangential plane).
 !!
 !! Mathematically we solve Ax = b via Singular Value Decomposition (SVD)
@@ -1868,7 +2058,7 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   TYPE(t_patch), INTENT(IN) :: & !< patch on which computation
     &  ptr_patch                 !< is performed
-
+                                        
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
     &  ptr_int_lsq
 
@@ -1894,7 +2084,7 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   REAL(wp)  ::           &        !< difference of scalars i j
     &  z_b(lsq_high_set%dim_c,nproma,ptr_patch%nlev)
 #else
-  REAL(wp)  ::           & 
+  REAL(wp)  ::           &
     &  z_b1, z_b2, z_b3, z_b4, z_b5, z_b6, z_b7, z_b8, z_b9, &
     &  zdp(nproma,ptr_patch%nlev)
   INTEGER :: jj
@@ -1941,20 +2131,34 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   iidx => ptr_int_lsq%lsq_idx_c
   iblk => ptr_int_lsq%lsq_blk_c
 
-
-
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), CREATE( z_b), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE ( p_cc, p_coeff  ), IF( i_am_accel_node .AND. acc_on )
+#else
 !$OMP PARALLEL
+#endif
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
     CALL init(p_coeff(:,:,:,1:i_startblk))
+#ifndef _OPENACC
 !$OMP BARRIER
+#endif
   ENDIF
 
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
+!$ACC PRIVATE( z_b ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
 #ifndef __SX__
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
 #else
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b1,z_b2,z_b3,z_b4,z_b5,z_b6,z_b7,z_b8,z_b9, &
 !$OMP            zdp), ICON_OMP_RUNTIME_SCHEDULE
+#endif
 #endif
   DO jb = i_startblk, i_endblk
 
@@ -1964,7 +2168,9 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     !
     ! 1. compute right hand side of linear system
     !
+
 #ifndef __SX__
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -1992,8 +2198,8 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     ! 2. compute cell based coefficients for cubic reconstruction
     !    calculate matrix vector product PINV(A) * b
     !
+!$ACC LOOP VECTOR COLLAPSE(2)
     DO jk = slev, elev
-
       DO jc = i_startidx, i_endidx
 
         ! (intrinsic function matmul not applied, due to massive
@@ -2034,6 +2240,7 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
 #else
 
+!$ACC LOOP VECTOR COLLAPSE(3)
     DO jj = 2, 10
       DO jk = slev, elev
 !CDIR NODEP
@@ -2073,6 +2280,7 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
     zdp=0._wp
 
+!$ACC LOOP VECTOR COLLAPSE(3)
     DO jj = 2, 10
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
@@ -2082,6 +2290,7 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
       END DO ! end loop over vertical levels
     END DO ! jj
 
+!$ACC LOOP VECTOR COLLAPSE(2)
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
         p_coeff(1,jc,jk,jb)  = p_cc(jc,jk,jb) - zdp(jc,jk)
@@ -2090,8 +2299,14 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 #endif
 
   END DO ! end loop over blocks
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(p_coeff) IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
 
 END SUBROUTINE recon_lsq_cell_c_svd
@@ -2121,9 +2336,11 @@ END SUBROUTINE recon_lsq_cell_c_svd
 !! - vector optimization
 !! Modification by Guenther Zaengl, DWD (2010-08-20) :
 !! - Option for processing two fields at once for efficiency optimization
+!! Modification by Will Sawyer, CSCS (2014-07-18) :
+!! - Split out 2 field version into separate subroutine
 !!
 SUBROUTINE div3d( vec_e, ptr_patch, ptr_int, div_vec_c, &
-  &              opt_slev, opt_elev, opt_in2, opt_out2, opt_rlstart, opt_rlend )
+  &               opt_slev, opt_elev, opt_rlstart, opt_rlend )
 !
 
 !
@@ -2139,10 +2356,6 @@ TYPE(t_int_state), INTENT(in)     :: ptr_int
 !
 REAL(wp), INTENT(in) ::  &
   &  vec_e(:,:,:) ! dim: (nproma,nlev,nblks_e)
-
-! optional second input field for more efficient processing in NH core
-REAL(wp), OPTIONAL, INTENT(in) ::  &
-  &  opt_in2(:,:,:) ! dim: (nproma,nlev,nblks_e)
 
 INTEGER, INTENT(in), OPTIONAL ::  &
   &  opt_slev    ! optional vertical start level
@@ -2160,17 +2373,12 @@ INTEGER, INTENT(in), OPTIONAL ::  &
 REAL(wp), INTENT(inout) ::  &
   &  div_vec_c(:,:,:) ! dim: (nproma,nlev,nblks_c)
 
-! optional second output field
-REAL(wp), OPTIONAL, INTENT(inout) ::  &
-  &  opt_out2(:,:,:) ! dim: (nproma,nlev,nblks_c)
-
 INTEGER :: slev, elev     ! vertical start and end level
 INTEGER :: jc, jk, jb
 INTEGER :: rl_start, rl_end
 INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
 
 INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
-LOGICAL :: l2fields
 
 !-----------------------------------------------------------------------
 
@@ -2197,11 +2405,6 @@ ELSE
   rl_end = min_rlcell
 END IF
 
-IF ( PRESENT(opt_in2) .AND. PRESENT(opt_out2)) THEN
-  l2fields = .TRUE.
-ELSE
-  l2fields = .FALSE.
-ENDIF
 
 iidx => ptr_patch%cells%edge_idx
 iblk => ptr_patch%cells%edge_blk
@@ -2216,10 +2419,19 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 !IF(ltimer) CALL timer_start(timer_div)
 
+
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int, vec_e ), PCOPY( div_vec_c ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE ( vec_e, div_vec_c ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int, vec_e, iidx, iblk, div_vec_c ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
 !$OMP PARALLEL
-
-
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
+#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -2240,31 +2452,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
     ! coefficient (equal to +-1) is necessary, given by
     ! ptr_patch%grid%cells%edge_orientation)
 
-    IF (l2fields) THEN
-
-#ifdef __LOOP_EXCHANGE
-      DO jc = i_startidx, i_endidx
-        DO jk = slev, elev
-#else
-      DO jk = slev, elev
-        DO jc = i_startidx, i_endidx
-#endif
-
-          div_vec_c(jc,jk,jb) =  &
-            vec_e(iidx(jc,jb,1),jk,iblk(jc,jb,1)) * ptr_int%geofac_div(jc,1,jb) + &
-            vec_e(iidx(jc,jb,2),jk,iblk(jc,jb,2)) * ptr_int%geofac_div(jc,2,jb) + &
-            vec_e(iidx(jc,jb,3),jk,iblk(jc,jb,3)) * ptr_int%geofac_div(jc,3,jb)
-
-          opt_out2(jc,jk,jb) =  &
-            opt_in2(iidx(jc,jb,1),jk,iblk(jc,jb,1)) * ptr_int%geofac_div(jc,1,jb) + &
-            opt_in2(iidx(jc,jb,2),jk,iblk(jc,jb,2)) * ptr_int%geofac_div(jc,2,jb) + &
-            opt_in2(iidx(jc,jb,3),jk,iblk(jc,jb,3)) * ptr_int%geofac_div(jc,3,jb)
-
-        END DO
-      END DO
-
-    ELSE
-
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
@@ -2281,15 +2469,175 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
         END DO
       END DO
 
-    ENDIF
   END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(div_vec_c) IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$OMP END DO NOWAIT
-
 !$OMP END PARALLEL
+#endif
 
 !IF(ltimer) CALL timer_stop(timer_div)
 
 END SUBROUTINE div3d
+
+SUBROUTINE div3d_2field( vec_e, ptr_patch, ptr_int, div_vec_c, &
+  &                      opt_slev, opt_elev, in2, out2, opt_rlstart, opt_rlend )
+!
+
+!
+!  patch on which computation is performed
+!
+TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+
+! Interpolation state
+TYPE(t_int_state), INTENT(in)     :: ptr_int
+!
+! edge based variable of which divergence
+! is computed
+!
+REAL(wp), INTENT(in) ::  &
+  &  vec_e(:,:,:) ! dim: (nproma,nlev,nblks_e)
+
+! second input field for more efficient processing in NH core
+REAL(wp), INTENT(in) ::  &
+  &  in2(:,:,:) ! dim: (nproma,nlev,nblks_e)
+
+INTEGER, INTENT(in), OPTIONAL ::  &
+  &  opt_slev    ! optional vertical start level
+
+INTEGER, INTENT(in), OPTIONAL ::  &
+  &  opt_elev    ! optional vertical end level
+
+INTEGER, INTENT(in), OPTIONAL ::  &
+  &  opt_rlstart, opt_rlend   ! start and end values of refin_ctrl flag
+
+!
+! cell based variable in which divergence is stored
+!
+!REAL(wp), INTENT(out) ::  &
+REAL(wp), INTENT(inout) ::  &
+  &  div_vec_c(:,:,:) ! dim: (nproma,nlev,nblks_c)
+
+! second output field
+REAL(wp), OPTIONAL, INTENT(inout) ::  &
+  &  out2(:,:,:) ! dim: (nproma,nlev,nblks_c)
+
+INTEGER :: slev, elev     ! vertical start and end level
+INTEGER :: jc, jk, jb
+INTEGER :: rl_start, rl_end
+INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+
+INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+
+!-----------------------------------------------------------------------
+
+! check optional arguments
+IF ( PRESENT(opt_slev) ) THEN
+  slev = opt_slev
+ELSE
+  slev = 1
+END IF
+IF ( PRESENT(opt_elev) ) THEN
+  elev = opt_elev
+ELSE
+  elev = UBOUND(vec_e,2)
+END IF
+
+IF ( PRESENT(opt_rlstart) ) THEN
+  rl_start = opt_rlstart
+ELSE
+  rl_start = 1
+END IF
+IF ( PRESENT(opt_rlend) ) THEN
+  rl_end = opt_rlend
+ELSE
+  rl_end = min_rlcell
+END IF
+
+iidx => ptr_patch%cells%edge_idx
+iblk => ptr_patch%cells%edge_blk
+
+! values for the blocking
+i_nchdom   = MAX(1,ptr_patch%n_childdom)
+i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+
+! loop through all patch cells (and blocks)
+!
+
+!IF(ltimer) CALL timer_start(timer_div)
+
+
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int, vec_e, in2 ), PCOPY( div_vec_c, out2 ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE ( vec_e, in2, div_vec_c, out2 ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int, vec_e, in2, div_vec_c, out2 ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
+#endif
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, rl_start, rl_end)
+
+    ! original comment for divergence computation;
+    ! everything that follows in this explanation has been combined into geofac_div
+
+    ! compute the discrete divergence for cell jc by finite volume
+    ! approximation (see Bonaventura and Ringler MWR 2005);
+    ! multiplication of the normal vector component vec_e at the edges
+    ! by the appropriate cell based edge_orientation is required to
+    ! obtain the correct value for the application of Gauss theorem
+    ! (which requires the scalar product of the vector field with the
+    ! OUTWARD pointing unit vector with respect to cell jc; since the
+    ! positive direction for the vector components is not necessarily
+    ! the outward pointing one with respect to cell jc, a correction
+    ! coefficient (equal to +-1) is necessary, given by
+    ! ptr_patch%grid%cells%edge_orientation)
+
+!$ACC LOOP VECTOR COLLAPSE(2)
+#ifdef __LOOP_EXCHANGE
+      DO jc = i_startidx, i_endidx
+        DO jk = slev, elev
+#else
+      DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+#endif
+
+          div_vec_c(jc,jk,jb) =  &
+            vec_e(iidx(jc,jb,1),jk,iblk(jc,jb,1)) * ptr_int%geofac_div(jc,1,jb) + &
+            vec_e(iidx(jc,jb,2),jk,iblk(jc,jb,2)) * ptr_int%geofac_div(jc,2,jb) + &
+            vec_e(iidx(jc,jb,3),jk,iblk(jc,jb,3)) * ptr_int%geofac_div(jc,3,jb)
+
+          out2(jc,jk,jb) =  &
+            in2(iidx(jc,jb,1),jk,iblk(jc,jb,1)) * ptr_int%geofac_div(jc,1,jb) + &
+            in2(iidx(jc,jb,2),jk,iblk(jc,jb,2)) * ptr_int%geofac_div(jc,2,jb) + &
+            in2(iidx(jc,jb,3),jk,iblk(jc,jb,3)) * ptr_int%geofac_div(jc,3,jb)
+
+        END DO
+      END DO
+
+  END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(div_vec_c, out2) IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+#endif
+
+!IF(ltimer) CALL timer_stop(timer_div)
+
+END SUBROUTINE div3d_2field
 
 !-------------------------------------------------------------------------
 !
@@ -2381,14 +2729,25 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 !IF(ltimer) CALL timer_start(timer_div)
 
-!$OMP PARALLEL
 
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int, f4din ), PCOPY( f4dout ),  IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE ( f4din, f4dout ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int, f4din, f4dout ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,ji) ICON_OMP_DEFAULT_SCHEDULE
+#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
+!$ACC LOOP VECTOR
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO ji = 1, dim4d
@@ -2409,13 +2768,19 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
     ENDDO
 
   ENDDO
+
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(f4dout) IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
 !IF(ltimer) CALL timer_stop(timer_div)
 
 END SUBROUTINE div4d
-
 
 !-------------------------------------------------------------------------
 !
@@ -2536,18 +2901,34 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 
 ! First compute divergence
 !
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int, vec_e, avg_coeff ), PCOPY( div_vec_c ), CREATE( aux_c ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( opt_in2 ), PCOPY( opt_out2 ), CREATE( aux_c2 ), IF( i_am_accel_node .AND. acc_on .AND. l2fields )
+!ACC_DEBUG UPDATE DEVICE ( vec_e, div_vec_c ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE ( opt_in2, opt_out2 ), IF( i_am_accel_node .AND. acc_on .AND. l2fields )
+#else
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+#endif
 i_startblk = ptr_patch%cells%start_blk(rl_start,1)
 i_endblk   = ptr_patch%cells%end_blk(rl_end_l1,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk), ICON_OMP_RUNTIME_SCHEDULE
-DO jb = i_startblk, i_endblk
+IF (l2fields) THEN
 
-  CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int, vec_e, opt_in2, aux_c, aux_c2 ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk), ICON_OMP_RUNTIME_SCHEDULE
+#endif
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start, rl_end_l1)
 
-  IF (l2fields) THEN
-
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -2568,8 +2949,30 @@ DO jb = i_startblk, i_endblk
 
       END DO
     END DO
-  ELSE
+  END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+#else
+!$OMP END DO
+#endif
 
+ELSE
+
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int, vec_e, aux_c ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk), ICON_OMP_RUNTIME_SCHEDULE
+#endif
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+                     i_startidx, i_endidx, rl_start, rl_end_l1)
+
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -2584,10 +2987,15 @@ DO jb = i_startblk, i_endblk
 
       END DO
     END DO
-  ENDIF
 
-END DO
+  END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+#else
 !$OMP END DO
+#endif
+
+ENDIF
 
 IF (l_limited_area .OR. ptr_patch%id > 1) THEN
   ! Fill div_vec_c along the lateral boundaries of nests
@@ -2600,7 +3008,9 @@ IF (l_limited_area .OR. ptr_patch%id > 1) THEN
   IF (l2fields) &
        CALL copy(aux_c2(:,:,i_startblk:i_endblk), &
        &         opt_out2 (:,:,i_startblk:i_endblk))
+#ifndef _OPENACC
 !$OMP BARRIER
+#endif
 ENDIF
 
 !
@@ -2613,14 +3023,23 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 ! loop through all patch cells (and blocks)
 !
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk), ICON_OMP_RUNTIME_SCHEDULE
-DO jb = i_startblk, i_endblk
+IF (l2fields) THEN
 
-  CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, aux_c, aux_c2, avg_coeff, div_vec_c, opt_out2 ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk), ICON_OMP_RUNTIME_SCHEDULE
+#endif
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start_l2, rl_end)
 
-  IF (l2fields) THEN
-
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -2644,8 +3063,31 @@ DO jb = i_startblk, i_endblk
 
       END DO !cell loop
     END DO !vertical levels loop
-  ELSE
+  END DO !block loop
 
+#ifdef _OPENACC
+!$ACC END PARALLEL
+#else
+!$OMP END DO NOWAIT
+#endif
+
+ELSE
+
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, aux_c, avg_coeff, div_vec_c), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk), ICON_OMP_RUNTIME_SCHEDULE
+#endif
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+                     i_startidx, i_endidx, rl_start_l2, rl_end)
+
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -2663,11 +3105,25 @@ DO jb = i_startblk, i_endblk
 
       END DO !cell loop
     END DO !vertical levels loop
-  ENDIF
 
-END DO !block loop
+  END DO !block loop
+
+#ifdef _OPENACC
+!$ACC END PARALLEL
+#else
 !$OMP END DO NOWAIT
+#endif
+
+ENDIF
+
+#ifdef _OPENACC
+!ACC_DEBUG UPDATE HOST(div_vec_c) IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE HOST(opt_out2) IF( i_am_accel_node .AND. acc_on .AND. l2fields )
+!$ACC END DATA
+!$ACC END DATA
+#else
 !$OMP END PARALLEL
+#endif
 
 END SUBROUTINE div_avg
 
@@ -2769,13 +3225,24 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 !
 ! loop through all patch edges (and blocks)
 !
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int, vec_e ), PCOPY( div_vec_e ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE ( vec_e, div_vec_e ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int, vec_e, div_vec_e ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx) ICON_OMP_RUNTIME_SCHEDULE
+#endif
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start, rl_end)
 
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
   DO je = i_startidx, i_endidx
     DO jk = slev, elev
@@ -2794,8 +3261,14 @@ DO jb = i_startblk, i_endblk
   END DO
 
 END DO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(div_vec_e) IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
 END SUBROUTINE div_quad_twoadjcells
 
@@ -2904,8 +3377,17 @@ END IF
   i_startblk = ptr_patch%verts%start_blk(rl_start,1)
   i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
 
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int, vec_e ), PCOPY( rot_vec ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE ( vec_e, rot_vec ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int, vec_e, rot_vec ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
+#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk), ICON_OMP_RUNTIME_SCHEDULE
+#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &
@@ -2927,6 +3409,7 @@ END IF
     ! is necessary, given by g%verts%edge_orientation
     !
 
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jv = i_startidx, i_endidx
       DO jk = slev, elev
@@ -2952,15 +3435,21 @@ END IF
     END DO
 
   ENDDO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(rot_vec) IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
 
 END SUBROUTINE rot_vertex_atmos
 
 !>
 !! Same as above routine, but expects reversed index order (vertical first)
-!! of the output field if __LOOP_EXCHANGE is specified. In addition, the
+!! of the output field if __LOOP_EXCHANGE is specified. In addition, the 
 !! output field (vorticity) has single precision if __MIXED_PRECISION is specified
 !!
 !!
@@ -3036,8 +3525,18 @@ END IF
   i_startblk = ptr_patch%verts%start_block(rl_start)
   i_endblk   = ptr_patch%verts%end_block(rl_end)
 
+
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int, vec_e ), PCOPY( rot_vec ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE ( vec_e, rot_vec ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int, vec_e, rot_vec ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
+#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk), ICON_OMP_RUNTIME_SCHEDULE
+#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &
@@ -3046,6 +3545,7 @@ END IF
     ! calculate rotation, i.e.
     ! add individual edge contributions to rotation
     !
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jv = i_startidx, i_endidx
       DO jk = slev, elev
@@ -3066,8 +3566,14 @@ END IF
     END DO
 
   ENDDO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(rot_vec), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
 END SUBROUTINE rot_vertex_ri
 

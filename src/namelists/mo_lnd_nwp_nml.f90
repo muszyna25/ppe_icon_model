@@ -22,12 +22,12 @@ MODULE mo_lnd_nwp_nml
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
-  USE mo_impl_constants,      ONLY: max_dom
+  USE mo_impl_constants,      ONLY: max_dom, SSTICE_ANA
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_units,            ONLY: nnml, nnml_output, filename_max
   USE mo_master_control,      ONLY: use_restart_namelists
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
+  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,  &
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
 
@@ -45,8 +45,9 @@ MODULE mo_lnd_nwp_nml
     &                            config_l2lay_rho_snow => l2lay_rho_snow, &
     &                          config_max_toplaydepth => max_toplaydepth, &
     &                            config_idiag_snowfrac => idiag_snowfrac, &
-    &                                 config_cwimax_ml => cwimax_ml     , &
-    &                            config_soil_ice_limit => soil_ice_limit, &
+    &                               config_cwimax_ml   => cwimax_ml     , &
+    &                               config_c_soil      => c_soil        , &
+    &                               config_c_soil_urb  => c_soil_urb    , &
     &                               config_itype_trvg  => itype_trvg    , &
     &                               config_itype_evsl  => itype_evsl    , &
     &                              config_itype_lndtbl => itype_lndtbl  , &
@@ -84,7 +85,8 @@ MODULE mo_lnd_nwp_nml
   INTEGER ::  itype_heatcond    !< type of soil heat conductivity
   INTEGER ::  itype_interception!< type of plant interception
   REAL(wp)::  cwimax_ml         !< scaling parameter for maximum interception storage
-  REAL(wp)::  soil_ice_limit    !< scaling parameter for allowed deviation of w_so_ice from its equilibrium value
+  REAL(wp)::  c_soil            !< surface area density of the (evaporative) soil surface
+  REAL(wp)::  c_soil_urb        !< surface area density of the (evaporative) soil surface, urban areas
   INTEGER ::  itype_hydbound    !< type of hydraulic lower boundary condition
   INTEGER ::  idiag_snowfrac    !< method for diagnosis of snow-cover fraction       
 
@@ -123,7 +125,7 @@ MODULE mo_lnd_nwp_nml
     &               lsnowtile                                 , &
     &               sstice_mode                               , &
     &               sst_td_filename                           , &
-    &               ci_td_filename, cwimax_ml,soil_ice_limit
+    &               ci_td_filename, cwimax_ml, c_soil, c_soil_urb
    
   PUBLIC :: read_nwp_lnd_namelist
 
@@ -162,11 +164,11 @@ MODULE mo_lnd_nwp_nml
     ! 1. default settings   
     !-----------------------
 
-    sstice_mode  = 1         ! forecast mode, sst and sea ice fraction is read from 
-                             !  the analysis, sst ist kept constant, sea ice fraction
-                             !  is modified by the sea ice model
-                             ! default names for the time dependent SST and CI ext param files
-                             ! if sstice=2, <year> is substituted by "CLIM"
+    sstice_mode  = SSTICE_ANA  ! forecast mode, sst and sea ice fraction is read from 
+                               ! the analysis, sst ist kept constant, sea ice fraction
+                               ! is modified by the sea ice model
+                               ! default names for the time dependent SST and CI ext param files
+                               ! if sstice=SSTICE_CLIM, <year> is substituted by "CLIM"
     sst_td_filename = "<path>SST_<year>_<month>_<gridfile>"
     ci_td_filename = "<path>CI_<year>_<month>_<gridfile>"
 
@@ -200,7 +202,8 @@ MODULE mo_lnd_nwp_nml
     itype_interception = 1   ! type of plant interception
     cwimax_ml      = 1.e-6_wp ! scaling parameter for maximum interception storage. Almost turned off by default;
                               ! the recommended value to activate interception storage is 5.e-4
-    soil_ice_limit = 1.05_wp ! scaling parameter for the allowed deviation of w_so_ice from its equilibrium value
+    c_soil         = 1._wp   ! surface area density of the (evaporative) soil surface
+    c_soil_urb     = 1._wp   ! surface area density of the (evaporative) soil surface, urban areas
     itype_hydbound = 1       ! type of hydraulic lower boundary condition
     lstomata       =.TRUE.   ! map of minimum stomata resistance
     l2tls          =.TRUE.   ! forecast with 2-TL integration scheme
@@ -287,7 +290,8 @@ MODULE mo_lnd_nwp_nml
       config_itype_heatcond = itype_heatcond
       config_itype_interception = itype_interception
       config_cwimax_ml   = cwimax_ml
-      config_soil_ice_limit = soil_ice_limit
+      config_c_soil      = c_soil
+      config_c_soil_urb  = c_soil_urb
       config_itype_hydbound = itype_hydbound
       config_lana_rho_snow  = lana_rho_snow
       config_l2lay_rho_snow = l2lay_rho_snow

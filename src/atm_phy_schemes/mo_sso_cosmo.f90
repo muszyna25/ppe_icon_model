@@ -174,7 +174,7 @@ USE data_runcontrol , ONLY :    &
 #ifdef __ICON__
 
 USE mo_kind               , ONLY :   &
-    ireals=>wp    , & ! KIND-type parameter for real variables
+    ireals=>wp, vp, & ! KIND-type parameter for real variables
     iintegers=>i4     ! KIND-type parameter for standard integer variables
 
 !------------------------------------------------------------------------------
@@ -439,8 +439,8 @@ SUBROUTINE sso (                                                       &
 #else
       REAL(KIND=ireals) :: pdt_sso(:,:)  ! (ie,ke)
 #endif
-      REAL(KIND=ireals) :: pdv_sso(:,:)  ! (ie,ke)
-      REAL(KIND=ireals) :: pdu_sso(:,:)  ! (ie,ke)
+      REAL(KIND=vp) :: pdv_sso(:,:)  ! (ie,ke)
+      REAL(KIND=vp) :: pdu_sso(:,:)  ! (ie,ke)
 
 !     Surface (u,v) momentum fluxes and vertically integrated dissipation
 !
@@ -523,8 +523,8 @@ SUBROUTINE sso (                                                       &
 !     ===========================================================
       DO j3=1,ke
         DO j1=istart,iend
-          pdu_sso(j1,j3) = 0.0_ireals
-          pdv_sso(j1,j3) = 0.0_ireals
+          pdu_sso(j1,j3) = 0.0_vp
+          pdv_sso(j1,j3) = 0.0_vp
 #ifndef __ICON__
           pdt_sso(j1,j3) = 0.0_ireals
 #endif

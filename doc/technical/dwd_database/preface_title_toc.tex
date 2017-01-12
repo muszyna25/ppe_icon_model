@@ -67,20 +67,20 @@
 \newpage
 \thispagestyle{empty}
 \begin{tikzpicture}[remember picture,overlay,transform shape] 
-  \node[anchor=north west, xshift=1.1cm, yshift=-18.5cm, scale=0.9] at (current page.north west)
+  \node[anchor=north west, xshift=1.1cm, yshift=-18.0cm, scale=0.9] at (current page.north west)
   {\begin{sansserif}%
       \textbf{Version: \vhCurrentVersion}
     \end{sansserif}};
   % 
-  \node[anchor=north west, xshift=1.1cm, yshift=-19.5cm, scale=0.9] at (current page.north west)
+  \node[anchor=north west, xshift=1.1cm, yshift=-19.0cm, scale=0.9] at (current page.north west)
   {\begin{sansserif}%
       This document is based on Revision \svnInfoRevision \, of the ICON code,
       last changed on \svnInfoDate.
     \end{sansserif}};
   % 
-  \draw[black] ($(current page.north west)+(1.1cm,-20.7cm)$) -- ++ (18.4cm,0cm);
+  \draw[black] ($(current page.north west)+(1.1cm,-20.2cm)$) -- ++ (18.4cm,0cm);
   % 
-  \node[anchor=north west, xshift=1.1cm, yshift=-21.2cm, scale=0.9] at (current page.north west)
+  \node[anchor=north west, xshift=1.1cm, yshift=-20.7cm, scale=0.9] at (current page.north west)
   %  Der DOI bildet sich aus
   %  1.       10.5676/DWD_    : für den ganzen DWD einheitlich
   %  2.       Pub/nwv/        : von PBFB für die FE1-Publikationen vorgegeben
@@ -89,10 +89,10 @@
       \detokenize{DOI: 10.5676/DWD_pub/nwv/icon_}\vhCurrentVersion
     \end{sansserif}};
   % 
-  \node[anchor=north west, xshift=1.1cm, yshift=-22.95cm, scale=1.] at (current page.north west)
+  \node[anchor=north west, xshift=1.1cm, yshift=-22.45cm, scale=1.] at (current page.north west)
   {\includegraphics[width=2.25cm]{by-nc-nd.pdf}};
   % 
-  \node[anchor=north west, xshift=3.75cm, yshift=-23cm, scale=0.9] at (current page.north west)
+  \node[anchor=north west, xshift=3.75cm, yshift=-22.5cm, scale=0.9] at (current page.north west)
   {\begin{sansserif}%
       \parbox{17.cm}{
         The CC license ``BY-NC-ND'' allows others only to download the publication and share it
@@ -101,9 +101,9 @@
       }
   \end{sansserif}};
   % 
-  \draw[black] ($(current page.north west)+(1.1cm,-24.75cm)$) -- ++ (18.4cm,0cm);
+  \draw[black] ($(current page.north west)+(1.1cm,-24.25cm)$) -- ++ (18.4cm,0cm);
   % 
-  \node[anchor=north west, xshift=1.1cm, yshift=-25.3cm, scale=0.9] at (current page.north west)
+  \node[anchor=north west, xshift=1.1cm, yshift=-24.8cm, scale=0.9] at (current page.north west)
   {\begin{sansserif}%
     \parbox{8cm}{
       \textbf{Publisher} \\
@@ -112,10 +112,14 @@
       Frankfurter Stra\ss e 135 \\
       63067 Offenbach \\
       www.dwd.de
-    }
+    } 
+  \end{sansserif}};
+  \node[anchor=north west, xshift=1.1cm, yshift=-28.0cm, scale=0.9] at (current page.north west)
+  {\begin{sansserif}%
+    For \textbf{data requests} please contact: datenservice@dwd.de
   \end{sansserif}};
   % 
-  \node[anchor=north west, xshift=8.6cm, yshift=-25.3cm, scale=0.9] at (current page.north west)
+  \node[anchor=north west, xshift=8.6cm, yshift=-24.8cm, scale=0.9] at (current page.north west)
   {\begin{sansserif}%
     \parbox{11cm}{
       \textbf{Editors} \\
@@ -124,7 +128,7 @@
       Helmut Frank, FE13, \\
       \hspace*{2em} Tel. +49 (69) 8062-2742, helmut.frank@dwd.de \\
       Florian Prill, FE13, \\
-      \hspace*{2em} Tel. +49 (69) 8062-2727, florian.prill@dwd.de \\
+      \hspace*{2em} Tel. +49 (69) 8062-2727, florian.prill@dwd.de
     }
   \end{sansserif}};
 \end{tikzpicture}
@@ -174,4 +178,5 @@
   \vhEntry{1.1.6}{28.01.16}{DR   }{Extend tables by field specific lat-lon interpolation method.}
   \vhEntry{1.1.7}{11.04.16}{DR|FP}{Add timeline of model changes.}
   \vhEntry{1.1.8}{06.07.16}{HF   }{Add DTKE\_HSH and other minor corrections.}
+  \vhEntry{1.1.9}{27.09.16}{DR   }{Update intro and timeline.}  
 \end{versionhistory}

@@ -25,7 +25,7 @@ MODULE mo_nwp_tuning_nml
   USE mo_master_config,       ONLY: isRestart
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,     &
+  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
   USE mo_nwp_tuning_config,   ONLY: config_tune_gkwake    => tune_gkwake,    &
@@ -45,8 +45,9 @@ MODULE mo_nwp_tuning_nml
     &                               config_tune_texc        => tune_texc,        &  
     &                               config_tune_qexc        => tune_qexc,        &  
     &                               config_tune_minsnowfrac => tune_minsnowfrac, &  
-    &                               config_tune_box_liq   => tune_box_liq,   &  
-    &                               config_itune_albedo   => itune_albedo,   &
+    &                               config_tune_box_liq   => tune_box_liq,       &  
+    &                               config_tune_dust_abs  => tune_dust_abs,      &  
+    &                               config_itune_albedo   => itune_albedo,       &
     &                               config_max_freshsnow_inc => max_freshsnow_inc 
   
   IMPLICIT NONE
@@ -113,6 +114,9 @@ MODULE mo_nwp_tuning_nml
   REAL(wp) :: &                    !< Box width for liquid clouds assumed in the cloud cover scheme
     &  tune_box_liq                ! (in case of inwp_cldcover = 1)
 
+  REAL(wp) :: &                    !< Tuning factor for enhanced LW absorption of mineral dust in the Saharan region
+    &  tune_dust_abs               !
+
   INTEGER :: &                     !< (MODIS) albedo tuning
     &  itune_albedo                ! 0: no tuning
                                    ! 1: dimmed Sahara
@@ -127,7 +131,8 @@ MODULE mo_nwp_tuning_nml
     &                      tune_capdcfac_et, tune_box_liq, tune_rhebc_land, &
     &                      tune_rhebc_ocean, tune_rcucov, tune_texc,        &
     &                      tune_qexc, tune_minsnowfrac,tune_rhebc_land_trop,&
-    &                      tune_rhebc_ocean_trop, tune_rcucov_trop
+    &                      tune_rhebc_ocean_trop, tune_rcucov_trop,         &
+    &                      tune_dust_abs
 
 CONTAINS
 
@@ -202,6 +207,7 @@ CONTAINS
     ! cloud cover
     tune_box_liq    = 0.05_wp      ! box width scale of liquid clouds
 
+    tune_dust_abs   = 0._wp        ! no tuning of LW absorption of mineral dust
     itune_albedo    = 0            ! original (measured) albedo
     !
     ! IAU increment tuning
@@ -267,6 +273,7 @@ CONTAINS
     config_tune_qexc             = tune_qexc
     config_tune_minsnowfrac      = tune_minsnowfrac
     config_tune_box_liq          = tune_box_liq
+    config_tune_dust_abs         = tune_dust_abs
     config_itune_albedo          = itune_albedo
     config_max_freshsnow_inc     = max_freshsnow_inc
 

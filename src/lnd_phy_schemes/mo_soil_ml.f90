@@ -348,7 +348,6 @@ USE mo_kind,               ONLY: ireals=>wp,    &
 USE mo_math_constants    , ONLY: pi
 !
 USE mo_physical_constants, ONLY: t0_melt => tmelt,& ! absolute zero for temperature
-                                 r_v   => rv    , & ! gas constant for water vapour
                                  r_d   => rd    , & ! gas constant for dry air
                                  rvd_m_o=>vtmpc1, & ! r_v/r_d - 1
                                  o_m_rdv        , & ! 1 - r_d/r_v
@@ -357,7 +356,6 @@ USE mo_physical_constants, ONLY: t0_melt => tmelt,& ! absolute zero for temperat
                                  lh_s  => als   , & ! latent heat of sublimation
                                  lh_f  => alf   , & ! latent heat of fusion
                                  cp_d  => cpd   , & ! specific heat of dry air at constant press
-                                 cpdr  => rcpd  , & ! (specific heat of dry air at constant press)^-1
                                  g     => grav  , & ! acceleration due to gravity
                                  sigma => stbo  , & ! Boltzmann-constant
                                  rho_w => rhoh2o, & ! density of liquid water (kg/m^3)
@@ -376,7 +374,7 @@ USE mo_phyparam_soil
 USE mo_lnd_nwp_config,     ONLY: lmulti_snow, l2lay_rho_snow,     &
   &                              itype_trvg, itype_evsl,          &
   &                              itype_root, itype_heatcond,      &
-  &                              itype_hydbound, lstomata, l2tls, &
+  &                              itype_hydbound, lstomata,        &
   &                              max_toplaydepth, itype_interception, &
   &                              cwimax_ml
 !
@@ -1749,8 +1747,8 @@ END SUBROUTINE message
 
 !   energy required to melt existing snow
         ze_melt(i)=w_snow_now(i)*rho_w*lh_f     ! (J/m**2)
-!   heat capacity of snow layer
-        zch_snow(i)=w_snow_now(i)*rho_w*chc_i   ! (J/(m**2 K))
+!   heat capacity of snow layer, limited to a snow depth of 1.5 m for consistency with subsequent calculations
+        zch_snow(i)=MIN(w_snow_now(i),1.5_ireals*rho_snow_now(i)/rho_w)*rho_w*chc_i   ! (J/(m**2 K))
 
 !   constrain transfer coefficient, if energy budget  of topmost soil layer is:
 !   a) negative & surface layer is unstable (i.e   upward directed turbulent heat flux)

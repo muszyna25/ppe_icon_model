@@ -4,7 +4,7 @@
 !!
 !! See the LICENSE and the WARRANTY conditions.
 !!
-MODULE MO_INI_BGC
+MODULE mo_ini_bgc
 
   USE mo_kind, ONLY        : wp
   USE mo_carbch, ONLY      : hi, co3, totarea, bgctra, atdifv, atm, &
@@ -421,7 +421,7 @@ CONTAINS
                 sedlay(j,k,isssc12) = 1.e-8_wp
 
                 sedlay(j,k,issster) = 30._wp
-                sedlay(j,k,issssil) = 3._wp
+                sedlay(j,k,issssil) = 0._wp
 
                 sedhpl(j,k)         = hi(j,kbo(j))
              ELSE

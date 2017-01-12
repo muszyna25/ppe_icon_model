@@ -110,7 +110,7 @@ CONTAINS
                            , ktrac,        krow                                      &
 #endif
     ! - INPUT  1D .
-                           , knvb,         kctop                                     &
+                           , kctop                                                   &
     ! - INPUT  2D .
                            , paphm1,       pvervel                                   &
                            , papm1                                                   &
@@ -165,7 +165,7 @@ CONTAINS
 #ifndef __ICON__
     INTEGER,  INTENT(IN)    :: ktrac, krow
 #endif
-    INTEGER,  INTENT(IN)    :: knvb(kbdim), kctop(kbdim)
+    INTEGER,  INTENT(IN)    :: kctop(kbdim)
     INTEGER,  INTENT(INOUT) :: ktype(kbdim)
 #ifndef __ICON__
     REAL(wp), INTENT(IN)    :: pdelta_time
@@ -905,7 +905,7 @@ CONTAINS
 #if defined (__PGI)
         zfrl(jl) = zxlb(jl)*(1._wp-1._wp/(1._wp+zfrl(jl)*ztmst*zxlb(jl)))
 #else
-        zfrl(jl) = zxlb(jl)*(1._wp-SWDIV_NOCHK(1._wp,(1._wp+zfrl(jl)*ztmst*zxlb(jl))))
+        zfrl(jl) = zxlb(jl)*(1._wp -SWDIV_NOCHK(1._wp,(1._wp+zfrl(jl)*ztmst*zxlb(jl))))
 #endif
         ztmp1(nl)= 0.75_wp*zxlb(jl)*zfrho/pi
 622   END DO
@@ -961,14 +961,6 @@ CONTAINS
     DO 701 jl = 1,kproma
       zauloc(jl) = cauloc*zdz(jl)/5000._wp
       zauloc(jl) = MAX(MIN(zauloc(jl),clmax),clmin)
-      !
-      ! mpuetz: the following conditions are constant throughout the module
-      !         i.e. we should compute an index for all jl where zauloc=0.0
-      !
-      jb=knvb(jl)
-      lo=(jb.GE.jbmin .AND. jb.LE.jbmax .AND. pvervel(jl,jk).GT.0._wp)
-      lo1=(jk.EQ.jb .OR. jk.EQ.jb+1)
-      IF(lo .AND. lo1 .AND. lonacc) zauloc(jl)= 0.0_wp
 701 END DO
 
     zxrp1(1:kproma) = 0.0_wp

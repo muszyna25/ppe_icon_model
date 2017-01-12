@@ -4,6 +4,7 @@
 /LICENSE -text
 /Makefile.in -text
 /README -text
+/README.git -text
 /acinclude.m4 -text
 /aclocal.m4 -text
 blas/CMakeLists.txt -text
@@ -61,6 +62,7 @@ cmake/FindGRIB_API.cmake -text
 cmake/FindHDF5.cmake -text
 cmake/FindMPI.cmake -text
 cmake/FindNETCDF.cmake -text
+config/build_command.in -text
 config/config-options -text
 config/config.guess -text
 config/config.h.SX -text
@@ -76,9 +78,11 @@ config/mh-linux -text
 config/mh-nec -text
 config/missing -text
 config/pvcs.pl -text
+config/set-up.info.in -text
 /configure -text
 /configure.ac -text
 data/ECHAM6_CldOptProps.nc -text
+data/MACv2.0-SP_v1.nc -text
 data/README -text
 data/dmin_wetgrowth_lookup.dat -text
 data/external/etopo40.cdf -text
@@ -126,6 +130,10 @@ doc/resources/img/mpglogo.pdf -text svneol=unset#unset
 doc/resources/img/mpglogo.png -text
 doc/resources/img/mpilogo.pdf -text
 doc/resources/img/mpilogo.png -text
+doc/science/atm_echam_phy/Makefile -text
+doc/science/atm_echam_phy/icon_atm_echam_phy_scidoc.pdf -text
+doc/science/atm_echam_phy/icon_atm_echam_phy_scidoc.tex -text
+doc/science/atm_echam_phy/make_icon_guide.sh -text
 doc/science/dynamics/ICON-Ocean-Kladde.tex -text
 doc/science/dynamics/fig_edge_volume.pdf -text
 doc/science/dynamics/fig_edge_volume.tex -text
@@ -146,32 +154,10 @@ doc/science/dynamics/vortex_bracket_ICONAM.tex -text
 doc/science/physics/ICON_COSMO_micro_scheme_changes.tex -text
 doc/science/physics/IFS_gw_param.pdf -text
 doc/science/physics/Microphys.tar -text
-doc/science/physics/albnirdif_20120601_tuned-untuned.png -text svneol=unset#image/png
-doc/science/physics/albnirdif_20120601_tuned.png -text svneol=unset#image/png
-doc/science/physics/albnirdif_20120601_untuned.png -text svneol=unset#image/png
-doc/science/physics/albnirdir_20120601_blacksky_ritter.png -text svneol=unset#image/png
-doc/science/physics/albvisdif_20120601_tuned-untuned.png -text svneol=unset#image/png
-doc/science/physics/albvisdif_20120601_tuned.png -text svneol=unset#image/png
-doc/science/physics/albvisdif_20120601_untuned.png -text svneol=unset#image/png
-doc/science/physics/albvisdir_20120601_blacksky_ritter.png -text svneol=unset#image/png
-doc/science/physics/cloud_cover_docu.tex -text
-doc/science/physics/detrainment_anvil.pdf -text
-doc/science/physics/detrainment_anvil.ppt -text
-doc/science/physics/direct_albedo_Briegleb.png -text svneol=unset#image/png
-doc/science/physics/direct_albedo_Ritter.png -text svneol=unset#image/png
-doc/science/physics/direct_albedo_Zaengl.png -text svneol=unset#image/png
 doc/science/physics/graupelscheme.eps -text
-doc/science/physics/icon-docu-cloud.pdf -text
-doc/science/physics/icon-docu-cloud.tex -text
 doc/science/physics/icon_nwp_physics.tex -text
-doc/science/physics/liquidPDF.pdf -text
-doc/science/physics/liquidPDF.pptx -text
 doc/science/physics/lmclouds2010.pdf -text
 doc/science/physics/microphysics.tex -text
-doc/science/physics/surface_albedo.pdf -text svneol=unset#unset
-doc/science/physics/surface_albedo.tex -text
-doc/science/physics/wind_gust.pdf -text
-doc/science/physics/wind_gust.tex -text
 doc/science/references-icon-science.bib -text
 doc/science/transport/transport_main.pdf -text
 doc/science/wileyqj.bst -text
@@ -204,6 +190,7 @@ doc/technical/dwd_database/grid_geometry.tex -text
 doc/technical/dwd_database/icon_in_sky.tex -text
 doc/technical/dwd_database/iglo_namelst_output.pl -text
 doc/technical/dwd_database/input.tex -text
+doc/technical/dwd_database/jas99.bst -text
 doc/technical/dwd_database/level_tables/vertical_full_levels_i.txt -text
 doc/technical/dwd_database/level_tables/vertical_full_levels_maxheight_i.txt -text
 doc/technical/dwd_database/level_tables/vertical_half_levels_maxheight_i.txt -text
@@ -268,12 +255,16 @@ doc/technical/transport_arlists.tex -text
 doc/userguide/Makefile -text
 doc/userguide/authorlist.tex -text
 doc/userguide/content/cr2014_01_30_rjs.tex -text
+doc/userguide/content/cr2016_02_16_rjs.tex -text
+doc/userguide/content/cr2016_06_14_rjs.tex -text
 doc/userguide/content/namelist.tex -text
 doc/userguide/content/new_user.tex -text
 doc/userguide/content/output.tex -text
 doc/userguide/content/preface.tex -text
 doc/userguide/content/title.tex -text
 doc/userguide/content/visualization.tex -text
+doc/userguide/cr2016_02_16_rjs.bib -text
+doc/userguide/cr2016_06_14_rjs.bib -text
 doc/userguide/icon_user_guide.pdf -text svneol=unset#unset
 doc/userguide/icon_user_guide.tex -text
 doc/userguide/icon_user_guide_bib.bib -text
@@ -730,6 +721,7 @@ run/checksuite.icon-dev/check.atm_amip_noforcing_notransport_nodynamics -text
 run/checksuite.icon-dev/check.atm_amip_noparams -text
 run/checksuite.icon-dev/check.atm_ape -text
 run/checksuite.icon-dev/check.atm_icoles_nested -text
+run/checksuite.icon-dev/check.atm_rce -text
 run/checksuite.icon-dev/check.atm_rce_les -text
 run/checksuite.icon-dev/check.oce_omip_0160km -text
 run/checksuite.icon-dev/icon-dev.checksuite -text
@@ -833,7 +825,6 @@ run/component.xsd -text
 run/coupling.xsd -text
 run/dict.echam.mpim_mean -text
 run/dict.extpar -text
-run/dict.hdcp2_final -text
 run/dict.icoham.mpim -text
 run/dict.icon.hdcp2 -text
 run/dict.iconam.mpim_inst -text
@@ -843,7 +834,8 @@ run/dict.output.dwd -text
 run/exec.iconrun -text
 run/exp.ICOLES_nestgrid -text
 run/exp.ICON_limarea -text
-run/exp.aloy_r2b4 -text
+run/exp.aloy.mixRes -text
+run/exp.aloy.uni160km -text
 run/exp.atm_amip -text
 run/exp.atm_amip_hs -text
 run/exp.atm_amip_hs_test -text
@@ -852,13 +844,12 @@ run/exp.atm_amip_noforcing_notransport_test -text
 run/exp.atm_amip_noforcing_test -text
 run/exp.atm_amip_noparams_test -text
 run/exp.atm_amip_test -text
-run/exp.atm_amip_withTimeMeanOutput -text
-run/exp.atm_amip_withTimeMeanOutput_only -text
 run/exp.atm_ape_test -text
 run/exp.atm_icoles_nested -text
 run/exp.atm_jww_hs -text
 run/exp.atm_jww_hs_test -text
 run/exp.atm_rce_les -text
+run/exp.atm_rce_test -text
 run/exp.bench_nh_hdcp2_lam_r0416 -text
 run/exp.couple_atmo-ocean -text
 run/exp.couple_atmo-radiation -text
@@ -1130,24 +1121,42 @@ scripts/gmt_scripts/banner/iconR2B04-dual_area.gmt.lzma -text svneol=unset#unset
 scripts/gmt_scripts/banner/landfill_tri-hex.bash -text
 scripts/gmt_scripts/plot_model_domains -text
 scripts/postprocessing/.hluresfile -text
-scripts/postprocessing/amip_quickplots/amip_r2b4_ncl6.2.0.sh -text
-scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/PREPAREatm_2d_r2b4 -text
-scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/PREPAREatm_3d_logp_r2b4 -text
-scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/PREPAREatm_3d_r2b4 -text
-scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/TABLEr2b4_job -text
-scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/VARS.txt -text
-scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/atm_2d_r2b4_page.ncl -text
-scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/atm_2d_r2b4_single.ncl -text
-scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/atm_3d_linp_page.ncl -text
-scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/atm_3d_linp_single.ncl -text
-scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/atm_3d_logp_page.ncl -text
-scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/atm_3d_logp_single.ncl -text
-scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/atm_3d_map_page.ncl -text
-scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/atm_3d_map_single.ncl -text
-scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/partab -text
-scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/tab.ncl -text
-scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/table_thunder.f90 -text
-scripts/postprocessing/amip_quickplots/r2b4_ncl6.2.0/table_thunder.x -text
+scripts/postprocessing/amip_quickplots/PREPAREatm_2d -text
+scripts/postprocessing/amip_quickplots/PREPAREatm_2d_diff -text
+scripts/postprocessing/amip_quickplots/PREPAREatm_3d -text
+scripts/postprocessing/amip_quickplots/PREPAREatm_3d_diff -text
+scripts/postprocessing/amip_quickplots/PREPAREatm_3d_logp -text
+scripts/postprocessing/amip_quickplots/PREPAREatm_3d_logp_diff -text
+scripts/postprocessing/amip_quickplots/PREPAREera -text
+scripts/postprocessing/amip_quickplots/PREPAREera_3d -text
+scripts/postprocessing/amip_quickplots/PlotJob.sh -text
+scripts/postprocessing/amip_quickplots/PlotJobDiff.sh -text
+scripts/postprocessing/amip_quickplots/TABLEjob_full -text
+scripts/postprocessing/amip_quickplots/VARS.txt -text
+scripts/postprocessing/amip_quickplots/atm_2d_diff_page.ncl -text
+scripts/postprocessing/amip_quickplots/atm_2d_diff_single.ncl -text
+scripts/postprocessing/amip_quickplots/atm_2d_page.ncl -text
+scripts/postprocessing/amip_quickplots/atm_2d_single.ncl -text
+scripts/postprocessing/amip_quickplots/atm_3d_linp_diff_page.ncl -text
+scripts/postprocessing/amip_quickplots/atm_3d_linp_diff_single.ncl -text
+scripts/postprocessing/amip_quickplots/atm_3d_linp_page.ncl -text
+scripts/postprocessing/amip_quickplots/atm_3d_linp_single.ncl -text
+scripts/postprocessing/amip_quickplots/atm_3d_logp_diff_page.ncl -text
+scripts/postprocessing/amip_quickplots/atm_3d_logp_diff_single.ncl -text
+scripts/postprocessing/amip_quickplots/atm_3d_logp_page.ncl -text
+scripts/postprocessing/amip_quickplots/atm_3d_logp_single.ncl -text
+scripts/postprocessing/amip_quickplots/atm_3d_map_diff_page.ncl -text
+scripts/postprocessing/amip_quickplots/atm_3d_map_diff_single.ncl -text
+scripts/postprocessing/amip_quickplots/atm_3d_map_page.ncl -text
+scripts/postprocessing/amip_quickplots/atm_3d_map_single.ncl -text
+scripts/postprocessing/amip_quickplots/mo_tables.mod -text
+scripts/postprocessing/amip_quickplots/mo_util_string.mod -text
+scripts/postprocessing/amip_quickplots/partab -text
+scripts/postprocessing/amip_quickplots/tab.ncl -text
+scripts/postprocessing/amip_quickplots/table_fldmean.f90 -text
+scripts/postprocessing/amip_quickplots/table_t63.f90 -text
+scripts/postprocessing/amip_quickplots/table_t63.x -text
+scripts/postprocessing/amip_quickplots/table_t63_mistral.x -text
 scripts/postprocessing/climplot/Z500_bias_era_mm.met -text
 scripts/postprocessing/climplot/avgtime.f90 -text
 scripts/postprocessing/climplot/climate_obs.met -text
@@ -1425,6 +1434,7 @@ src/atm_dyn_iconam/mo_nh_prog_util.f90 -text
 src/atm_dyn_iconam/mo_nh_stepping.f90 -text
 src/atm_dyn_iconam/mo_nh_supervise.f90 -text
 src/atm_dyn_iconam/mo_nh_vert_interp.f90 -text
+src/atm_dyn_iconam/mo_nonhydro_gpu_types.f90 -text
 src/atm_dyn_iconam/mo_nonhydro_state.f90 -text
 src/atm_dyn_iconam/mo_nonhydro_types.f90 -text
 src/atm_dyn_iconam/mo_opt_diagnostics.f90 -text
@@ -1436,6 +1446,7 @@ src/atm_dyn_iconam/mo_velocity_advection.f90 -text
 src/atm_dyn_iconam/mo_vertical_grid.f90 -text
 src/atm_phy_echam/mo_ape.f90 -text
 src/atm_phy_echam/mo_bc_aeropt_kinne.f90 -text
+src/atm_phy_echam/mo_bc_aeropt_splumes.f90 -text
 src/atm_phy_echam/mo_bc_aeropt_stenchikov.f90 -text
 src/atm_phy_echam/mo_bc_greenhouse_gases.f90 -text
 src/atm_phy_echam/mo_bc_ozone.f90 -text
@@ -1545,8 +1556,11 @@ src/atm_phy_psrad/mo_psrad_lrtm_kgs.f90 -text
 src/atm_phy_psrad/mo_psrad_lrtm_netcdf.f90 -text
 src/atm_phy_psrad/mo_psrad_lrtm_setup.f90 -text
 src/atm_phy_psrad/mo_psrad_lrtm_solver.f90 -text
+src/atm_phy_psrad/mo_psrad_memory.f90 -text
 src/atm_phy_psrad/mo_psrad_orbit.f90 -text
+src/atm_phy_psrad/mo_psrad_orbit_config.f90 -text
 src/atm_phy_psrad/mo_psrad_radiation.f90 -text
+src/atm_phy_psrad/mo_psrad_radiation_forcing.f90 -text
 src/atm_phy_psrad/mo_psrad_radiation_parameters.f90 -text
 src/atm_phy_psrad/mo_psrad_rrtm_coeffs.f90 -text
 src/atm_phy_psrad/mo_psrad_spec_sampling.f90 -text
@@ -1731,21 +1745,31 @@ src/include/phillips_nucleation_2010.incf -text
 src/io/atmo/mo_async_latbc.f90 -text
 src/io/atmo/mo_async_latbc_types.f90 -text
 src/io/atmo/mo_async_latbc_utils.f90 -text
-src/io/atmo/mo_io_restart_async.f90 -text
 src/io/atmo/mo_latbc_read_recv.f90 -text
 src/io/atmo/mo_mtgrm_output.f90 -text
 src/io/atmo/mo_post_op.f90 -text
 src/io/atmo/mo_sync_latbc.f90 -text
 src/io/atmo/mo_util_vgrid.f90 -text
+src/io/restart/mo_async_restart.f90 -text
+src/io/restart/mo_async_restart_comm_data.f90 -text
+src/io/restart/mo_async_restart_packer.f90 -text
+src/io/restart/mo_load_restart.f90 -text
+src/io/restart/mo_restart.f90 -text
+src/io/restart/mo_restart_attributes.f90 -text
+src/io/restart/mo_restart_descriptor.f90 -text
+src/io/restart/mo_restart_file.f90 -text
+src/io/restart/mo_restart_namelist.f90 -text
+src/io/restart/mo_restart_patch_description.f90 -text
+src/io/restart/mo_restart_util.f90 -text
+src/io/restart/mo_restart_var_data.f90 -text
+src/io/restart/mo_sync_restart.f90 -text
+src/io/shared/mo_cdi_ids.f90 -text
 src/io/shared/mo_cf_convention.f90 -text
 src/io/shared/mo_grib1.f90 -text
 src/io/shared/mo_grib2.f90 -text
 src/io/shared/mo_grib2_util.f90 -text
 src/io/shared/mo_input_container.f90 -text
 src/io/shared/mo_input_request_list.f90 -text
-src/io/shared/mo_io_restart.f90 -text
-src/io/shared/mo_io_restart_attributes.f90 -text
-src/io/shared/mo_io_restart_namelist.f90 -text
 src/io/shared/mo_io_units.f90 -text
 src/io/shared/mo_io_util.f90 -text
 src/io/shared/mo_name_list_output.f90 -text
@@ -1813,6 +1837,7 @@ src/namelists/mo_nonhydrostatic_nml.f90 -text
 src/namelists/mo_nwp_phy_nml.f90 -text
 src/namelists/mo_nwp_tuning_nml.f90 -text
 src/namelists/mo_parallel_nml.f90 -text
+src/namelists/mo_psrad_orbit_nml.f90 -text
 src/namelists/mo_radiation_nml.f90 -text
 src/namelists/mo_read_namelists.f90 -text
 src/namelists/mo_run_nml.f90 -text
@@ -1886,6 +1911,7 @@ src/parallel_infrastructure/mo_icon_comm_interface.f90 -text
 src/parallel_infrastructure/mo_icon_comm_lib.f90 -text
 src/parallel_infrastructure/mo_mpi.f90 -text
 src/parallel_infrastructure/mo_ompthreads.f90 -text
+src/parallel_infrastructure/mo_packed_message.f90 -text
 src/parallel_infrastructure/mo_reshuffle.f90 -text
 src/parallel_infrastructure/mo_scatter.f90 svneol=native#text/plain
 src/parallel_infrastructure/mo_scatter_pattern_base.f90 -text
@@ -1967,6 +1993,7 @@ src/shared/mo_util_sysinfo.f90 -text
 src/shared/mo_util_system.f90_off -text
 src/shared/mo_util_table.f90 -text
 src/shared/mo_util_uuid.f90 -text
+src/shared/mo_util_uuid_types.f90 -text
 src/shared/mo_util_vcs.f90 -text
 src/shared/mo_var_list.f90 -text
 src/shared/mo_var_list_element.f90 -text
@@ -2081,6 +2108,7 @@ support/util_sysinfo.c -text
 support/util_system.c -text
 support/util_timer.c -text
 support/util_uuid.c -text
+support/util_uuid.h -text
 /target_confmake.ksh -text
 /target_database.ksh -text
 vertical_coord_tables/README -text

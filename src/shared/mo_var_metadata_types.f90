@@ -7,7 +7,7 @@
 !! headers of the routines.
 MODULE mo_var_metadata_types
 
-  USE mo_kind,                  ONLY: dp, wp
+  USE mo_kind,                  ONLY: dp, wp, sp
   USE mo_impl_constants,        ONLY: VARNAME_LEN
   USE mo_grib2,                 ONLY: t_grib2_var
   USE mo_action_types,          ONLY: t_var_action
@@ -41,7 +41,7 @@ MODULE mo_var_metadata_types
   ! New groups can be added by extending the VAR_GROUPS list.
   !
 
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(56) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(57) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -97,6 +97,7 @@ MODULE mo_var_metadata_types
     &  "ART_AERO_DUST         ",  &  ! ICON-ART fields for mineral dust aerosol
     &  "ART_AERO_SEAS         ",  &  ! ICON-ART fields for sea salt aerosol
     &  "ART_CHEMTRACER        ",  &  ! ICON-ART fields for lifetime based chemical tracer
+    &  "ART_PASSIVE           ",  &  ! ICON-ART fields for passive tracer
     &  "RTTOV                 " /)
 
   ! maximum number of variable groups supported by info state
@@ -140,6 +141,7 @@ MODULE mo_var_metadata_types
 
   TYPE t_union_vals
     REAL(dp) :: rval
+    REAL(sp) :: sval
     INTEGER  :: ival
     LOGICAL  :: lval
   END type t_union_vals
@@ -193,6 +195,7 @@ MODULE mo_var_metadata_types
     CHARACTER(len=VARNAME_LEN) :: name                  ! variable name
     INTEGER                    :: var_class             ! variable type
     !                                                   ! 0: CLASS_DEFAULT, 1: CLASS_TILE, ... 
+    INTEGER                    :: data_type             ! variable data type: REAL_T, SINGLE_T, INT_T, BOOL_T
     !
     TYPE(t_cf_var)             :: cf                    ! CF convention information 
     TYPE(t_grib2_var)          :: grib2                 ! GRIB2 related information

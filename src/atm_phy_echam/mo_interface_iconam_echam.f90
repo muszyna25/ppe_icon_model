@@ -502,10 +502,6 @@ CONTAINS
             &     * (1._wp + vtmpc1*pt_prog_new_rcf%tracer(jc,jk,jb,iqv) - z_qsum )       &
             &     + pt_diag%temp(jc,jk,jb)                                                &
             &     * (        vtmpc1*prm_tend(jg)%q_phy(jc,jk,jb,iqv)     - z_ddt_qsum ) )
-          !
-          ! Additionally use this loop also to set the dynamical exner increment to zero.
-          ! (It is accumulated over one advective time step in solve_nh)
-          pt_diag%exner_dyn_incr(jc,jk,jb) = 0._wp
 
         END DO
       END DO
@@ -670,14 +666,14 @@ CONTAINS
             pt_prog_new%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd_o_p0ref                         &
               &                       * pt_prog_new%rho(jc,jk,jb) * pt_diag%tempv(jc,jk,jb)))
             !
-            ! Add exner change from fast phyiscs to exner_old (why?)
-            pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb) + pt_prog_new%exner(jc,jk,jb) - z_exner
+            ! Add exner change from fast phyiscs to exner_pr in order to avoid unphysical sound wave generation
+            pt_diag%exner_pr(jc,jk,jb) = pt_diag%exner_pr(jc,jk,jb) + pt_prog_new%exner(jc,jk,jb) - z_exner
             !
 !!$            ! (b) Update Exner, then compute Temp_v
 !!$            !
 !!$            pt_prog_new%exner(jc,jk,jb) = pt_prog_new%exner(jc,jk,jb)                 &
 !!$              &                         + pt_diag%ddt_exner_phy(jc,jk,jb) * dtadv_loc
-!!$            pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb)                 &
+!!$            pt_diag%exner_pr(jc,jk,jb) = pt_diag%exner_pr(jc,jk,jb)                 &
 !!$              &                         + pt_diag%ddt_exner_phy(jc,jk,jb) * dtadv_loc
 !!$            !
 !!$            pt_diag%tempv(jc,jk,jb) = EXP(LOG(pt_prog_new%exner(jc,jk,jb)/rd_o_cpd) &
@@ -718,32 +714,29 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_p2d_sync)
 
-    CALL sync_patch_array_mult( SYNC_E, patch, 2, pt_prog_new%vn, pt_diag%ddt_vn_phy )
+    CALL sync_patch_array_mult( SYNC_E, patch, 1, pt_prog_new%vn )
 
     IF      (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w) THEN
       CALL sync_patch_array_mult( SYNC_C                       ,&
         &                         patch                        ,&
-        &                         ntracer+5                    ,&
+        &                         ntracer+4                    ,&
         &                         pt_prog_new%w                ,&
-        &                         pt_diag%exner_old            ,&
-        &                         pt_diag%tempv                ,&
+        &                         pt_diag%exner_pr             ,&
         &                         pt_prog_new%exner            ,&
         &                         pt_prog_new%theta_v          ,&
         &                         f4din=pt_prog_new_rcf%tracer )
     ELSE IF (lhdiff_rcf) THEN
       CALL sync_patch_array_mult( SYNC_C                       ,&
         &                         patch                        ,&
-        &                         ntracer+4                    ,&
-        &                         pt_diag%exner_old            ,&
-        &                         pt_diag%tempv                ,&
+        &                         ntracer+3                    ,&
+        &                         pt_diag%exner_pr             ,&
         &                         pt_prog_new%exner            ,&
         &                         pt_prog_new%theta_v          ,&
         &                         f4din=pt_prog_new_rcf%tracer )
     ELSE
       CALL sync_patch_array_mult( SYNC_C                       ,&
         &                         patch                        ,&
-        &                         ntracer+3                    ,&
-        &                         pt_diag%tempv                ,&
+        &                         ntracer+2                    ,&
         &                         pt_prog_new%exner            ,&
         &                         pt_prog_new%theta_v          ,&
         &                         f4din=pt_prog_new_rcf%tracer )

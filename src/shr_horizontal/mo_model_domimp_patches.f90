@@ -119,7 +119,8 @@ MODULE mo_model_domimp_patches
   USE mo_reshuffle,          ONLY: reshuffle
   USE mo_sync,               ONLY: disable_sync_checks, enable_sync_checks
   USE mo_communication,      ONLY: idx_no, blk_no, idx_1d, makeScatterPattern
-  USE mo_util_uuid,          ONLY: uuid_string_length, uuid_parse, clear_uuid
+  USE mo_util_uuid_types,    ONLY: uuid_string_length
+  USE mo_util_uuid,          ONLY: uuid_parse, clear_uuid
   USE mo_name_list_output_config, ONLY: is_grib_output
 
   USE mo_grid_geometry_info, ONLY: planar_torus_geometry, sphere_geometry, &

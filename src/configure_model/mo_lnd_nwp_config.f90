@@ -55,7 +55,7 @@ MODULE mo_lnd_nwp_config
   PUBLIC :: lseaice,  llake, lmelt, lmelt_var, lmulti_snow, lsnowtile, max_toplaydepth
   PUBLIC :: itype_trvg, itype_evsl, itype_lndtbl, l2lay_rho_snow
   PUBLIC :: itype_root, itype_heatcond, itype_interception, &
-             itype_hydbound, idiag_snowfrac, cwimax_ml, soil_ice_limit
+             itype_hydbound, idiag_snowfrac, cwimax_ml, c_soil, c_soil_urb
   PUBLIC :: lstomata, l2tls, lana_rho_snow 
   PUBLIC :: isub_water, isub_lake, isub_seaice
   PUBLIC :: sstice_mode, sst_td_filename, ci_td_filename
@@ -83,7 +83,8 @@ MODULE mo_lnd_nwp_config
   INTEGER ::  itype_heatcond     !< type of soil heat conductivity
   INTEGER ::  itype_interception !< type of plant interception
   REAL(wp)::  cwimax_ml          !< scaling parameter for maximum interception storage
-  REAL(wp)::  soil_ice_limit     !< scaling parameter for the allowed deviation of w_so_ice from its equilibrium value
+  REAL(wp)::  c_soil             !< surface area density of the (evaporative) soil surface
+  REAL(wp)::  c_soil_urb         !< surface area density of the (evaporative) soil surface, urban areas
   INTEGER ::  itype_hydbound     !< type of hydraulic lower boundary condition
   INTEGER ::  idiag_snowfrac     !< method for diagnosis of snow-cover fraction
 
@@ -469,18 +470,18 @@ CONTAINS
   !!
   !! Returns zero on failure to find the given tile.
   !!
-  FUNCTION find_tile_id(tileIndex, tileAttribute) RESULT(RESULT)
+  FUNCTION find_tile_id(tileIndex, tileAttribute) RESULT(resultVar)
     INTEGER, VALUE :: tileIndex, tileAttribute  !GRIB2 tile index AND attribute values
-    INTEGER :: RESULT
+    INTEGER :: resultVar
 
-    DO RESULT = 1, SIZE(tiles, 1)
-        IF(tiles(RESULT)%GRIB2_tile%tileIndex == tileIndex) THEN
-            IF(tiles(RESULT)%GRIB2_att%tileAttribute == tileAttribute) THEN
+    DO resultVar = 1, SIZE(tiles, 1)
+        IF(tiles(resultVar)%GRIB2_tile%tileIndex == tileIndex) THEN
+            IF(tiles(resultVar)%GRIB2_att%tileAttribute == tileAttribute) THEN
                 RETURN
             END IF
         END IF
     END DO
-    RESULT = -1
+    resultVar = -1
   END FUNCTION find_tile_id
 
 

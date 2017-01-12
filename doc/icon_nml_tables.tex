@@ -1843,15 +1843,6 @@ top height (AGL) of layer used for gradient computation&
 \tabularnewline
 
 %\hline
-l\_sst\_in&
-L & .TRUE.& &
-Logical switch. If true, the surface temperature of the water sea points is initialized
-with the SST provided in the ifs2icon file. If false, it is initialized with the skin
-temperature. If the SST is not provided in the ifs2icon file, l\_sst\_in is reset to false.  &
-init\_mode=2
-\tabularnewline
-
-%\hline
 lread\_ana&
 L & .TRUE.& &
 If .FALSE., ICON is started from first guess only. Analysis field is not required, and skipped if provided. &
@@ -2438,6 +2429,16 @@ itype\_latbc $\ge$ 1
 \tabularnewline
 
 %\hline
+init\_latbc\_from\_fg&
+L &
+.FALSE. & 
+&
+If .TRUE., take lateral boundary conditions for initial time from first guess (or analysis) field
+&
+itype\_latbc $\ge$ 1
+\tabularnewline
+
+%\hline
 \textbf{nlev\_latbc}&
 I &
 0& s
@@ -2681,6 +2682,18 @@ use 5.e-4 to activate interception storage & itype\_interception = 1
 \tabularnewline
 
 %\hline
+c\_soil &
+R & 1. &  & surface area density of the (evaporative) soil surface \\
+allowed range: 0 -- 2 &
+\tabularnewline
+
+%\hline
+c\_soil\_urb &
+R & 1. &  & surface area density of the (evaporative) soil surface, urban areas \\
+allowed range: 0 -- 2 &
+\tabularnewline
+
+%\hline
 itype\_hydbound &
 I & 1 &  & type of hydraulic lower boundary condition \\
 1 = none \\
@@ -2719,13 +2732,14 @@ sstice\_mode &
 I&
 1&
 &
-1: SST and sea ice fraction are read from the analysis and kept constant. The
-sea ice fraction can be modified by the seaice model.\\
-2: SST and sea ice fraction are updated daily, based on climatological monthly
+1: SST and sea ice fraction are read from the analysis. The SST is kept constant 
+whereas the sea ice fraction can be modified by the seaice model.\\
+2: SST and sea ice fraction are read from the analysis. The SST is updated by climatological 
+increments on a daily basis. The sea ice fraction can be modified by the seaice model.\\
+3: SST and sea ice fraction are updated daily, based on climatological monthly
 means\\
-3: SST and sea ice fraction are updated daily, based on actual monthly means\\
-4: SST and sea ice fraction are updated daily, based on actual daily means,
-\textcolor{red}{not yet implemented}&
+4: SST and sea ice fraction are updated daily, based on actual monthly means\\
+5: SST and sea ice fraction are updated daily, based on actual daily means (\textcolor{red}{not yet implemented})&
 iequations=3\\
 iforcing=3
 \tabularnewline
@@ -3418,8 +3432,9 @@ inwp\_radiation $>$ 0
 %\hline
 itype\_z0&
 I & 2 &  & Type of roughness length data used for turbulence scheme: \\
-1 = land-cover-related roughness including contribution from sub-scale orography \\
-2 = land-cover-related roughness only &
+1 = land-cover-related roughness including contribution from sub-scale orography (does not account for tiles)\\
+2 = land-cover-related roughness based on tile-specific landuse class \\
+3 = land-cover-related roughness based on tile-specific landuse class including contribution from sub-scale orography &
 inwp\_turb $>$ 0
 \tabularnewline
 
@@ -4447,6 +4462,14 @@ Defined and used in: \verb+src/namelists/mo_parallel_nml.f90+
 \begin{longtab}
 
 %\hline
+fco2 & 
+R &
+1.\_wp&
+&
+factor by which the CO2 concentration of either a scenario
+(irad\_co2=4) or a constant value (irad\_co2=2) is multiplied.
+\tabularnewline
+
 lradforcing &
 L(2)&
 .FALSE.&
@@ -4524,6 +4547,49 @@ sw\_spec\_samp = 2: Monte--Carlo spectral integration (MSCI); lw\_gpts\_ts
 \end{longtab}
 
 Defined and used in: \verb+src/echam_phy_psrad/mo_psrad_radiation.f90+
+
+%------------------------------------------------------------------------------
+% psrad_orbit_nml:
+%------------------------------------------------------------------------------
+\subsection{psrad\_orbit\_nml}
+
+\begin{longtab}
+
+%\hline
+cecc &
+R&
+0.016715&
+&
+eccentricity of earth's orbit&
+\tabularnewline
+
+cobld &
+R&
+23.44100&
+&
+obliquity of earth in degrees&
+\tabularnewline
+
+l\_orbvsop87 &
+L&
+.TRUE.&
+&
+switch on (.TRUE.) the (real) observed orbit of the earth (not
+idealized) or switch it off (.FALSE.). In the latter case, a Kepler
+orbit is used.&
+\tabularnewline
+
+l\_sph\_symm\_irr&
+L&
+.FALSE.&
+&
+switch on (.TRUE.) a spherically symmetric irradiation from all sides
+or use an irradiation by a point source like the sun (.FALSE.).&
+\tabularnewline 
+
+\end{longtab}
+
+Defined and used in: \verb+src/namelists/mo_psrad_radiation.f90+
 %------------------------------------------------------------------------------
 % radiation_nml:
 %------------------------------------------------------------------------------
@@ -4573,7 +4639,11 @@ Insolation scheme\\
 1: Use insolation from external file containing the spectrally
 resolved insolation (monthly means)\\
 2: Use preindustrial insolation as in CMIP5 (average from 1844--1856)\\
-3: Use insolation for AMIP--type CMIP5 simulation (average from 1979--1988)
+3: Use insolation for AMIP--type CMIP5 simulation (average from 1979--1988)\\
+4: Use insolation for RCE--type simulation with cos(zenith angle) =
+pi/4 (with PSRAD: use ``4'' if the diurnal cycle is switched on)\\
+5: Use insolation for RCE--type simulation with PSRAD if the diurnal
+cycle is switched off.
  &
 \tabularnewline
 
@@ -4950,6 +5020,14 @@ Height below which the layer thickness does not exceed max\_lay\_thckn &
 \tabularnewline
 
 %\hline
+itype\_laydistr&
+I& 1& &
+Type of analytical function used to specify the distribution of the vertical coordinate surfaces \\
+1: transformed cosine, 2: third-order polynomial &
+\tabularnewline
+
+
+%\hline
 \textbf{top\_height}&
 R& 23500.0& m&
 Height of model top&
@@ -5234,10 +5312,6 @@ I(ntracer)&
 & & & & 2: monotonous slope limiter& \tabularnewline
 & & & & 4: positive definite flux limiter& \tabularnewline
 
-%\hline
-niter\_fct&
-I& 1& & number of iterations  of monotone flux correction procedure (experimental!)& itype\_hlimit = 3
-\tabularnewline
 
 %\hline
 beta\_fct&

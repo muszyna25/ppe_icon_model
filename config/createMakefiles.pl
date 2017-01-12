@@ -1,7 +1,7 @@
 #! /usr/bin/env perl
 #__________________________________________________________________________________________________________________________________
 #
-# Createes Makefiles for the list of given source code directories. 
+# Creates Makefiles for the list of given source code directories. 
 # This program is highly specialized for ICON and cannot be used 
 # with other packages.
 #__________________________________________________________________________________________________________________________________
@@ -90,6 +90,10 @@ if ( -d "externals/yac/include" ) {
     foreach my $inc ( @incs ) {
 	copy ( "externals/yac/include/${inc}", "${build_path}/include/${inc}" );
     }
+}
+
+if ( -d ".git" and ($enable_jsbach eq "yes") and ! -d "src/lnd_phy_jsbach" ) {
+    symlink "../externals/jsbach/src", "src/lnd_phy_jsbach"; 
 }
 
 if ( ($enable_jsbach eq "yes") and -d "src/lnd_phy_jsbach/include" ) {

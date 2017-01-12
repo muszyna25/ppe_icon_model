@@ -34,7 +34,6 @@ MODULE mo_initicon_nml
     & config_nlevsoil_in         => nlevsoil_in,         &
     & config_zpbl1               => zpbl1,               &
     & config_zpbl2               => zpbl2,               &
-    & config_l_sst_in            => l_sst_in,            &
     & config_lread_ana           => lread_ana,           &
     & config_lconsistency_checks => lconsistency_checks, &
     & config_ifs2icon_filename   => ifs2icon_filename,   &
@@ -175,6 +174,7 @@ CONTAINS
   INTEGER :: i_status
   INTEGER :: z_go_init(7)   ! for consistency check
   INTEGER :: iunit
+  INTEGER :: jg
 
   CHARACTER(len=*), PARAMETER ::  &
     &  routine = 'mo_initicon_nml: read_initicon_namelist'
@@ -188,7 +188,6 @@ CONTAINS
   nlevsoil_in = 4              ! number of soil levels of input data
   zpbl1       = 500._wp        ! AGL heights used for computing vertical 
   zpbl2       = 1000._wp       ! gradients
-  l_sst_in    = .TRUE.         ! true: sea surface temperature field provided as input
   lread_ana   = .TRUE.         ! true: read analysis fields from file dwdana_filename
                                ! false: start ICON from first guess file (no analysis)
   lconsistency_checks = .TRUE. ! check validity of input fields  
@@ -313,6 +312,10 @@ CONTAINS
     CALL finish(TRIM(routine),message_text)
   ENDIF
 
+  ! 
+  WRITE(message_text,'(a)') &
+    &  'Namelist switch l_sst_in is obsolete and will soon be removed!'
+  CALL message("WARNING",message_text)
 
   !------------------------------------------------------------
   ! 5.0 Fill the configuration state
@@ -322,7 +325,6 @@ CONTAINS
   config_nlevsoil_in         = nlevsoil_in
   config_zpbl1               = zpbl1
   config_zpbl2               = zpbl2
-  config_l_sst_in            = l_sst_in
   config_lread_ana           = lread_ana
   config_lconsistency_checks = lconsistency_checks
   config_ifs2icon_filename   = ifs2icon_filename
@@ -347,8 +349,12 @@ CONTAINS
   config_niter_divdamp       = niter_divdamp
   config_niter_diffu         = niter_diffu
 
-  initicon_config(1)%ana_varlist = ana_varlist
-  initicon_config(2)%ana_varlist = ana_varlist_n2
+  initicon_config(1)%ana_varlist  = ana_varlist
+  initicon_config(2)%ana_varlist  = ana_varlist_n2
+  ! Well defined state for all other domains
+  DO jg=3,max_dom
+    initicon_config(jg)%ana_varlist = ' '
+  ENDDO
 
   ! write the contents of the namelist to an ASCII file
 

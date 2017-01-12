@@ -27,7 +27,7 @@ MODULE mo_gw_hines_nml
 
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_master_control,      ONLY: use_restart_namelists
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist, &
+  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist, &
     &                               open_and_restore_namelist, close_tmpfile
 
   USE mo_gw_hines_config,     ONLY: gw_hines_config
@@ -117,7 +117,7 @@ CONTAINS
     lheatcal      = .FALSE.
 
     emiss_lev     = 10         ! is correct for L31 and L47
-    rmscon        = 1.0_wp     ! default value used in ECHAM5
+    rmscon        = 0.87_wp    ! default value used in ECHAM5
     kstar         = 5.0e-5_wp  ! = 2*pi/(126000 m)
     m_min         = 0.0_wp
 

@@ -30,7 +30,7 @@ MODULE mo_newcld_optics
   USE mo_exception,          ONLY: finish
 
   USE mo_math_constants,     ONLY: pi
-  USE mo_physical_constants, ONLY: rhoh2o, tmelt
+  USE mo_physical_constants, ONLY: rhoh2o
 
   USE mo_netcdf_parallel,    ONLY: p_nf_open, p_nf_close, &
     &                              p_nf_inq_varid,        &

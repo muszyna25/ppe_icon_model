@@ -20,7 +20,7 @@ MODULE mo_echam_conv_nml
   USE mo_io_units,            ONLY: nnml
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_master_control,      ONLY: use_restart_namelists
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist, &
+  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist, &
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
@@ -84,9 +84,9 @@ CONTAINS
     lmfdudv  = .TRUE.
     !
     entrscv  = 3.0e-3_wp
-    entrmid  = 1.0e-4_wp
-    entrpen  = 1.0e-4_wp
-    entrdd   = 2.0e-4_wp
+    entrmid  = 2.0e-4_wp
+    entrpen  = 2.0e-4_wp
+    entrdd   = 4.0e-4_wp
     !
     cprcon   = 1.5e-4_wp
     cmfctop  = 0.23_wp
@@ -97,8 +97,8 @@ CONTAINS
     cbfac    = 1.0_wp
     centrmax = 3.0e-4_wp
     !
-    dlev_land  = 3.0e4_wp
-    dlev_ocean = 1.5e4_wp
+    dlev_land  = 0.0_wp
+    dlev_ocean = 0.0_wp
     !
     cmftau   = 3600.0_wp
 

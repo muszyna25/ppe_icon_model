@@ -205,7 +205,6 @@ CONTAINS
 
         ! The following input fields must be reset to zero because the convective
         ! tendencies are added to them
-        prm_nwp_tend%ddt_temp_pconv  (:,:,jb)     = 0._wp
         prm_nwp_tend%ddt_tracer_pconv(:,:,jb,2:)  = 0._wp
         prm_nwp_tend%ddt_u_pconv     (:,:,jb)     = 0._wp
         prm_nwp_tend%ddt_v_pconv     (:,:,jb)     = 0._wp

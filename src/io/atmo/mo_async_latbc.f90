@@ -37,15 +37,9 @@
   !!
   !!
 
-#if ! (defined (__GNUC__) || defined(__SX__) || defined(__SUNPRO_F95) || defined(__INTEL_COMPILER) || defined (__PGI))
-#define HAVE_F2003
-#endif
 MODULE mo_async_latbc
 
-#ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
-#endif
-! USE_CRAY_POINTER
 
 #ifndef NOMPI
     USE mpi
@@ -103,10 +97,6 @@ MODULE mo_async_latbc
     USE mo_io_util,                   ONLY: read_netcdf_int_1d
     USE mo_util_file,                 ONLY: util_filesize
     USE mo_util_cdi,                  ONLY: test_cdi_varID, cdiGetStringError
-
-#ifdef USE_CRAY_POINTER
-    USE mo_name_list_output_init,     ONLY: set_mem_ptr_sp
-#endif
 
     IMPLICIT NONE
 
@@ -433,7 +423,7 @@ MODULE mo_async_latbc
       INTEGER :: jlev, ierrstat, vlistID, nvars, varID, zaxisID, gridID, &
            &       jp, fileID_latbc, counter, filetype, ngrp_prefetch_vars
       INTEGER(KIND=i8) :: flen_latbc
-      LOGICAL :: l_exist, l_icon_lbc
+      LOGICAL :: l_exist
       CHARACTER(LEN=filename_max)    :: latbc_filename
       CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
@@ -446,13 +436,6 @@ MODULE mo_async_latbc
 
       ! initialising counter
       counter = 0
-
-      SELECT CASE (init_mode)
-      CASE (MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU_OLD, MODE_IAU)
-        l_icon_lbc = .TRUE.
-      CASE DEFAULT
-        l_icon_lbc = .FALSE.
-      END SELECT
 
       !>Looks for variable groups ("group:xyz") and collects
       ! them to map prefetch variable names onto
@@ -515,7 +498,7 @@ MODULE mo_async_latbc
          ! Search name mapping for name in GRIB2 file
          SELECT CASE(filetype)
          CASE (FILETYPE_NC2, FILETYPE_NC4)
-            IF (latbc_config%itype_latbc == 1 .AND. .NOT. l_icon_lbc) THEN
+            IF (latbc_config%itype_latbc == 1) THEN
                DO jp= 1, ngrp_prefetch_vars
                   latbc_buffer%grp_vars(jp) = TRIM(dict_get(latbc_varnames_dict, grp_vars(jp), default=grp_vars(jp)))
                ENDDO
@@ -677,7 +660,8 @@ MODULE mo_async_latbc
             latbc_buffer%geop_ml_var = 'GEOSP'
          ELSE IF (test_cdi_varID(fileID_latbc, 'GEOP_ML') /= -1) THEN
             latbc_buffer%geop_ml_var = 'GEOP_ML'
-         ELSE IF (.NOT. latbc_buffer%lthd_progvars) THEN
+         ELSE IF (.NOT. (latbc_buffer%lthd_progvars .OR. test_cdi_varID(fileID_latbc, 'HHL') /= -1 &
+                  .OR. test_cdi_varID(fileID_latbc, 'Z_IFC') /= -1) ) THEN
             CALL finish(TRIM(routine),'Could not find model-level sfc geopotential')
          ENDIF
 
@@ -1154,63 +1138,12 @@ MODULE mo_async_latbc
       DEALLOCATE(StrLowCasegrp)
 
       ! allocate amount of memory needed with MPI_Alloc_mem
-#ifdef USE_CRAY_POINTER
-      CALL allocate_mem_cray(mem_size)
-#else
       CALL allocate_mem_noncray(mem_size)
-#endif
-      ! USE_CRAY_POINTER
 #endif
 
     END SUBROUTINE init_remote_memory_window
 
 
-#ifdef USE_CRAY_POINTER
-    !------------------------------------------------------------------------------------------------
-    !> allocate amount of memory needed with MPI_Alloc_mem
-    !
-    !  @note Implementation for Cray pointers
-    !
-    SUBROUTINE allocate_mem_cray(mem_size)
-
-#ifdef NOMPI
-      INTEGER, INTENT(IN)    :: mem_size
-#else
-      INTEGER (KIND=MPI_ADDRESS_KIND), INTENT(IN)    :: mem_size
-      ! local variables
-      CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allocate_mem_cray"
-      INTEGER (KIND=MPI_ADDRESS_KIND) :: iptr
-      REAL(wp)                        :: tmp_dp
-      INTEGER                         :: mpierr
-      INTEGER                         :: nbytes_real
-      INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_bytes
-      POINTER(tmp_ptr_sp,tmp_sp(*))
-
-      ! Get the amount of bytes per REAL*4 variable (as used in MPI
-      ! communication)
-      CALL MPI_Type_extent(p_real_sp, nbytes_real, mpierr)
-
-      ! For the IO PEs the amount of memory needed is 0 - allocate at least 1 word there:
-      mem_bytes = MAX(mem_size,1_i8)*INT(nbytes_real,i8)
-
-      CALL MPI_Alloc_mem(mem_bytes, MPI_INFO_NULL, iptr, mpierr)
-
-      tmp_ptr_sp = iptr
-      CALL set_mem_ptr_sp(tmp_sp, INT(mem_size))
-
-      ! Create memory window for communication
-      patch_data%mem_win%mem_ptr_sp(:) = 0._sp
-      CALL MPI_Win_create(patch_data%mem_win%mem_ptr_sp, mem_bytes, nbytes_real, MPI_INFO_NULL,&
-           &                 p_comm_work_pref, patch_data%mem_win%mpi_win, mpierr)
-
-      IF (mpierr /= 0) CALL finish(TRIM(routine), "MPI error!")
-#endif
-
-    END SUBROUTINE allocate_mem_cray
-#endif
-    ! USE_CRAY_POINTER
-
-#ifndef USE_CRAY_POINTER
     !------------------------------------------------------------------------------------------------
     !> allocate amount of memory needed with MPI_Alloc_mem
     !
@@ -1270,8 +1203,5 @@ MODULE mo_async_latbc
 #endif
 
     END SUBROUTINE allocate_mem_noncray
-
-#endif
-  !------------------------------------------------------------------------------------------------
 
 END MODULE mo_async_latbc
