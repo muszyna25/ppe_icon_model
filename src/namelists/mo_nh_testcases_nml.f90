@@ -46,7 +46,7 @@ MODULE mo_nh_testcases_nml
                                    & nlayers_poly,                                   &
                                    & p_base_poly, h_poly, t_poly,                    &
                                    & tgr_poly, rh_poly, rhgr_poly
-  USE mo_nh_init_utils,        ONLY: n_flat_level, layer_thickness
+  USE mo_init_vgrid,           ONLY: n_flat_level, layer_thickness
   USE mo_nh_mrw_exp,           ONLY: mount_lonctr_mrw_deg, mount_latctr_mrw_deg,     &
                                    &  u0_mrw,  mount_height_mrw, mount_half_width,   &
                                    &  temp_i_mwbr_const, p_int_mwbr_const,           &
