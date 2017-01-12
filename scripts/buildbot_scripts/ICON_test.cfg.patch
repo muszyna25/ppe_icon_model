@@ -1,125 +1,245 @@
-Index: ICON.cfg
-===================================================================
---- ICON.cfg	(revision 24199)
-+++ ICON.cfg	(working copy)
-@@ -42,10 +42,12 @@
- 	           'workdir' : 'default'
+diff --git b/scripts/buildbot_scripts/ICON.cfg a/scripts/buildbot_scripts/ICON.cfg
+index 8efaf11240..d79da4f70f 100644
+--- b/scripts/buildbot_scripts/ICON.cfg
++++ a/scripts/buildbot_scripts/ICON.cfg
+@@ -47,8 +47,7 @@ c['properties'] = {'section' : 'all',
+ 	           'subdir' : 'default'
                    }
  
--c['slaves'] = [BuildSlave("blizzard", "bot1passwd", notify_on_missing="help-buildbot@zmaw.de", missing_timeout=300)
--              ,BuildSlave("thunder" , "bot1passwd", notify_on_missing="help-buildbot@zmaw.de", missing_timeout=300)
--              ,BuildSlave("daint_cpu" , "bot1passwd", notify_on_missing="help-buildbot@zmaw.de", missing_timeout=300)
+-c['slaves'] = [BuildSlave("daint_cpu" , "bot1passwd", notify_on_missing="help-buildbot@zmaw.de", missing_timeout=300)
 -              ,BuildSlave("mistral" , "bot1passwd", notify_on_missing="help-buildbot@zmaw.de", missing_timeout=300)
-+c['slaves'] = [BuildSlave("blizzard", "bot1passwd", notify_on_missing="karl-hermann.wieners@mpimet.mpg.de", missing_timeout=300)
-+              ,BuildSlave("thunder_test" , "bot1passwd", notify_on_missing="karl-hermann.wieners@mpimet.mpg.de", missing_timeout=300)
-+              ,BuildSlave("thunder" , "bot1passwd", notify_on_missing="karl-hermann.wieners@mpimet.mpg.de", missing_timeout=300)
-+              ,BuildSlave("daint_cpu" , "bot1passwd", notify_on_missing="karl-hermann.wieners@mpimet.mpg.de", missing_timeout=300)
-+              ,BuildSlave("mistral_test" , "bot1passwd", notify_on_missing="karl-hermann.wieners@mpimet.mpg.de", missing_timeout=300)
-+              ,BuildSlave("mistral" , "bot1passwd", notify_on_missing="karl-hermann.wieners@mpimet.mpg.de", missing_timeout=300)
++c['slaves'] = [BuildSlave("mistral_test" , "bot1passwd", notify_on_missing="karl-hermann.wieners@mpimet.mpg.de", missing_timeout=300)
                ]
  
  # to limit to two concurrent builds on a slave, use
-@@ -53,7 +55,7 @@
+@@ -56,7 +55,7 @@ c['slaves'] = [BuildSlave("daint_cpu" , "bot1passwd", notify_on_missing="help-bu
  
  # 'slavePortnum' defines the TCP port to listen on. This must match the value
  # configured into the buildslaves (with their --master option)
 -c['slavePortnum'] = 9988
-+c['slavePortnum'] = 8988
++c['slavePortnum'] = 9989
  
  
  ####### CHANGESOURCES
-@@ -167,7 +169,7 @@
-                       ,onlyIfChanged=True
-                       )
+@@ -113,7 +112,6 @@ from buildbot.schedulers.forcesched \
+ # Definition of the defaults =========
+ #default_Branch     = 'master'
+ default_builder_list = [
+-    'DAINT_CPU_cce',
+     'MISTRAL_intel_hybrid', 'MISTRAL_intel', 'MISTRAL_intel_openmp',
+     'MISTRAL_ocean',
+     'MISTRAL_gcc',
+@@ -136,8 +134,8 @@ n1 = scheduler.Nightly(
+          builderNames = default_builder_list,
+          codebases = {'': {'repository': 'git@git.mpimet.mpg.de:icon-nwp.git'}},
+          branch = 'icon-nwp/icon-nwp-dev',
+-         hour = 01,
+-         minute = 00,
++         hour = 1,
++         minute = 0,
+          onlyIfChanged = True,
+      )
  
--c['schedulers'] = [n1]
-+c['schedulers'] = []
- 
- 
- ####### BUILDERS
-@@ -764,13 +766,13 @@
-         'env':{'BB_SYSTEM':'thunder', 'BB_SLAVE':'doc'}},
- 
-     {'name':'THUNDER_gcc',
--        'slavename':'thunder', 'builddir':'thunder_gcc', 'factory':m1,
-+        'slavename':'thunder_test', 'builddir':'thunder_gcc', 'factory':m1,
-         'env':{'BB_SYSTEM':'thunder' , 'BB_SLAVE':'gcc'}},
-     {'name':'THUNDER_intel',
--        'slavename':'thunder', 'builddir':'thunder_intel', 'factory':m1,
-+        'slavename':'thunder_test', 'builddir':'thunder_intel', 'factory':m1,
-         'env':{'BB_SYSTEM':'thunder' , 'BB_SLAVE':'intel_hybrid'}},
-     {'name':'THUNDER_nag',
--        'slavename':'thunder', 'builddir':'thunder_nag', 'factory':m1,
-+        'slavename':'thunder_test', 'builddir':'thunder_nag', 'factory':m1,
-         'env':{'BB_SYSTEM':'thunder' , 'BB_SLAVE':'nag'}},
- 
-     {'name':'DAINT_CPU_cce',
-@@ -778,26 +780,26 @@
-         'env':{'BB_SYSTEM':'daint_cpu', 'BB_SLAVE':'cce'}},
- 
+@@ -485,30 +483,26 @@ m2.addStep(make_doc)
+ #========================================================
+ # Builders/BuildSlave definitions
+ c['builders'] = [
+-    {'name':'DAINT_CPU_cce',
+-        'slavename':'daint_cpu', 'builddir':'daint_cpu_cce', 'factory':run_full,
+-        'env':{'BB_SYSTEM':'daint_cpu', 'BB_SLAVE':'cce'}},
+-
      {'name':'MISTRAL_intel_hybrid',
--        'slavename':'mistral', 'builddir':'mistral_intel_hybrid', 'factory':m1,
-+        'slavename':'mistral_test', 'builddir':'mistral_intel_hybrid', 'factory':m1,
+-        'slavename':'mistral', 'builddir':'mistral_intel_hybrid', 'factory':run_full,
++        'slavename':'mistral_test', 'builddir':'mistral_intel_hybrid', 'factory':run_full,
          'env':{'BB_SYSTEM':'mistral' , 'BB_SLAVE':'intel_hybrid'}},
      {'name':'MISTRAL_intel',
--        'slavename':'mistral', 'builddir':'mistral_intel', 'factory':m1,
-+        'slavename':'mistral_test', 'builddir':'mistral_intel', 'factory':m1,
+-        'slavename':'mistral', 'builddir':'mistral_intel', 'factory':run_full,
++        'slavename':'mistral_test', 'builddir':'mistral_intel', 'factory':run_full,
          'env':{'BB_SYSTEM':'mistral' , 'BB_SLAVE':'intel'}},
      {'name':'MISTRAL_intel_openmp',
--        'slavename':'mistral', 'builddir':'mistral_intel_openmp', 'factory':m1,
-+        'slavename':'mistral_test', 'builddir':'mistral_intel_openmp', 'factory':m1,
+-        'slavename':'mistral', 'builddir':'mistral_intel_openmp', 'factory':run_full,
++        'slavename':'mistral_test', 'builddir':'mistral_intel_openmp', 'factory':run_full,
          'env':{'BB_SYSTEM':'mistral' , 'BB_SLAVE':'intel_openmp'}},
+     {'name':'MISTRAL_ocean',
+-        'slavename':'mistral', 'builddir':'mistral_ocean', 'factory':run_full,
++        'slavename':'mistral_test', 'builddir':'mistral_ocean', 'factory':run_full,
+         'env':{'BB_SYSTEM':'mistral' , 'BB_SLAVE':'ocean'}},
      {'name':'MISTRAL_gcc',
--        'slavename':'mistral', 'builddir':'mistral_gcc', 'factory':m1,
-+        'slavename':'mistral_test', 'builddir':'mistral_gcc', 'factory':m1,
+-        'slavename':'mistral', 'builddir':'mistral_gcc', 'factory':run_full,
++        'slavename':'mistral_test', 'builddir':'mistral_gcc', 'factory':run_full,
          'env':{'BB_SYSTEM':'mistral' , 'BB_SLAVE':'gcc'}},
      {'name':'MISTRAL_nag',
--        'slavename':'mistral', 'builddir':'mistral_nag', 'factory':m1,
-+        'slavename':'mistral_test', 'builddir':'mistral_nag', 'factory':m1,
+-        'slavename':'mistral', 'builddir':'mistral_nag', 'factory':run_full,
++        'slavename':'mistral_test', 'builddir':'mistral_nag', 'factory':run_full,
          'env':{'BB_SYSTEM':'mistral' , 'BB_SLAVE':'nag'}},
-     {'name':'MISTRAL_nag_mtime',
--        'slavename':'mistral', 'builddir':'mistral_nag_mtime',
-+        'slavename':'mistral_test', 'builddir':'mistral_nag_mtime',
-         'factory':run_minimal,
-         'env':{'BB_SYSTEM':'mistral' , 'BB_SLAVE':'nag_mtime'}},
      {'name':'MISTRAL_nag_serial',
--        'slavename':'mistral', 'builddir':'mistral_nag_serial',
-+        'slavename':'mistral_test', 'builddir':'mistral_nag_serial',
-         'factory':build_only,
+-        'slavename':'mistral', 'builddir':'mistral_nag_serial', 'factory':run_full,
++        'slavename':'mistral_test', 'builddir':'mistral_nag_serial', 'factory':run_full,
          'env':{'BB_SYSTEM':'mistral' , 'BB_SLAVE':'nag_serial'}}
  ]
-@@ -818,7 +820,7 @@
- import exp_plot
- import reference_page
+ #========================================================
+@@ -559,7 +553,7 @@ authorizations = Authz(
+ )
  
--WEB=html.WebStatus(http_port=8011,allowForce=True)
-+WEB=html.WebStatus(http_port=9011,allowForce=True)
- WEB.putChild('home', MainPage.HomePage())
- WEB.putChild('reference', reference_page.MainPage())
- WEB.putChild('plot', exp_plot.EXP_plot())
-@@ -833,7 +835,7 @@
+ WEB = html.WebStatus(
+-    http_port = "tcp:8011:interface=127.0.0.1",
++    http_port = "tcp:9011:interface=127.0.0.1",
+     ### allowForce = True,
+     authz = authorizations
+ )
+@@ -577,7 +571,7 @@ from buildbot.status import mail
  # Any failures
  # ------------
  
 -c['status'].append(mail.MailNotifier(fromaddr="help-buildbot@zmaw.de",
-+c['status'].append(mail.MailNotifier(fromaddr="karl-hermann.wieners@mpimet.mpg.de",
++c['status'].append(mail.MailNotifier(fromaddr="buildbot@zmaw.de",
                                       mode='failing',
                                       subject='[BUILDBOT ICON] %(builder)s BUILD FAILED',
                                       relayhost="smtp.zmaw.de",
-@@ -845,7 +847,7 @@
+@@ -589,7 +583,7 @@ c['status'].append(mail.MailNotifier(fromaddr="help-buildbot@zmaw.de",
  
  from buildbot.status import client
  c['status'].append(
 -    client.PBListener(port = 9998)
-+    client.PBListener(port = 8998)
++    client.PBListener(port = 9981)
  )
  
  
-@@ -887,6 +889,6 @@
+@@ -631,6 +625,6 @@ c['projectURL']  = "https://code.zmaw.de/projects/icon"
  # with an externally-visible host name which the buildbot cannot figure out
  # without some help.
  
--c['buildbotURL'] = "http://buildbot.zmaw.de:8011/"
-+c['buildbotURL'] = "http://buildbot.zmaw.de/icon_test"
+-c['buildbotURL'] = "http://buildbot.zmaw.de/icon/"
++c['buildbotURL'] = "http://buildbot.zmaw.de/icon_test/"
  
  # vim:ft=python
+diff --git b/scripts/buildbot_scripts/ICON_test.cfg.patch a/scripts/buildbot_scripts/ICON_test.cfg.patch
+index 742b7a566e..d88c6edd02 100644
+--- b/scripts/buildbot_scripts/ICON_test.cfg.patch
++++ a/scripts/buildbot_scripts/ICON_test.cfg.patch
+@@ -0,0 +1,125 @@
++Index: ICON.cfg
++===================================================================
++--- ICON.cfg	(revision 24199)
+++++ ICON.cfg	(working copy)
++@@ -42,10 +42,12 @@
++ 	           'workdir' : 'default'
++                   }
++ 
++-c['slaves'] = [BuildSlave("blizzard", "bot1passwd", notify_on_missing="help-buildbot@zmaw.de", missing_timeout=300)
++-              ,BuildSlave("thunder" , "bot1passwd", notify_on_missing="help-buildbot@zmaw.de", missing_timeout=300)
++-              ,BuildSlave("daint_cpu" , "bot1passwd", notify_on_missing="help-buildbot@zmaw.de", missing_timeout=300)
++-              ,BuildSlave("mistral" , "bot1passwd", notify_on_missing="help-buildbot@zmaw.de", missing_timeout=300)
+++c['slaves'] = [BuildSlave("blizzard", "bot1passwd", notify_on_missing="karl-hermann.wieners@mpimet.mpg.de", missing_timeout=300)
+++              ,BuildSlave("thunder_test" , "bot1passwd", notify_on_missing="karl-hermann.wieners@mpimet.mpg.de", missing_timeout=300)
+++              ,BuildSlave("thunder" , "bot1passwd", notify_on_missing="karl-hermann.wieners@mpimet.mpg.de", missing_timeout=300)
+++              ,BuildSlave("daint_cpu" , "bot1passwd", notify_on_missing="karl-hermann.wieners@mpimet.mpg.de", missing_timeout=300)
+++              ,BuildSlave("mistral_test" , "bot1passwd", notify_on_missing="karl-hermann.wieners@mpimet.mpg.de", missing_timeout=300)
+++              ,BuildSlave("mistral" , "bot1passwd", notify_on_missing="karl-hermann.wieners@mpimet.mpg.de", missing_timeout=300)
++               ]
++ 
++ # to limit to two concurrent builds on a slave, use
++@@ -53,7 +55,7 @@
++ 
++ # 'slavePortnum' defines the TCP port to listen on. This must match the value
++ # configured into the buildslaves (with their --master option)
++-c['slavePortnum'] = 9988
+++c['slavePortnum'] = 8988
++ 
++ 
++ ####### CHANGESOURCES
++@@ -167,7 +169,7 @@
++                       ,onlyIfChanged=True
++                       )
++ 
++-c['schedulers'] = [n1]
+++c['schedulers'] = []
++ 
++ 
++ ####### BUILDERS
++@@ -764,13 +766,13 @@
++         'env':{'BB_SYSTEM':'thunder', 'BB_SLAVE':'doc'}},
++ 
++     {'name':'THUNDER_gcc',
++-        'slavename':'thunder', 'builddir':'thunder_gcc', 'factory':m1,
+++        'slavename':'thunder_test', 'builddir':'thunder_gcc', 'factory':m1,
++         'env':{'BB_SYSTEM':'thunder' , 'BB_SLAVE':'gcc'}},
++     {'name':'THUNDER_intel',
++-        'slavename':'thunder', 'builddir':'thunder_intel', 'factory':m1,
+++        'slavename':'thunder_test', 'builddir':'thunder_intel', 'factory':m1,
++         'env':{'BB_SYSTEM':'thunder' , 'BB_SLAVE':'intel_hybrid'}},
++     {'name':'THUNDER_nag',
++-        'slavename':'thunder', 'builddir':'thunder_nag', 'factory':m1,
+++        'slavename':'thunder_test', 'builddir':'thunder_nag', 'factory':m1,
++         'env':{'BB_SYSTEM':'thunder' , 'BB_SLAVE':'nag'}},
++ 
++     {'name':'DAINT_CPU_cce',
++@@ -778,26 +780,26 @@
++         'env':{'BB_SYSTEM':'daint_cpu', 'BB_SLAVE':'cce'}},
++ 
++     {'name':'MISTRAL_intel_hybrid',
++-        'slavename':'mistral', 'builddir':'mistral_intel_hybrid', 'factory':m1,
+++        'slavename':'mistral_test', 'builddir':'mistral_intel_hybrid', 'factory':m1,
++         'env':{'BB_SYSTEM':'mistral' , 'BB_SLAVE':'intel_hybrid'}},
++     {'name':'MISTRAL_intel',
++-        'slavename':'mistral', 'builddir':'mistral_intel', 'factory':m1,
+++        'slavename':'mistral_test', 'builddir':'mistral_intel', 'factory':m1,
++         'env':{'BB_SYSTEM':'mistral' , 'BB_SLAVE':'intel'}},
++     {'name':'MISTRAL_intel_openmp',
++-        'slavename':'mistral', 'builddir':'mistral_intel_openmp', 'factory':m1,
+++        'slavename':'mistral_test', 'builddir':'mistral_intel_openmp', 'factory':m1,
++         'env':{'BB_SYSTEM':'mistral' , 'BB_SLAVE':'intel_openmp'}},
++     {'name':'MISTRAL_gcc',
++-        'slavename':'mistral', 'builddir':'mistral_gcc', 'factory':m1,
+++        'slavename':'mistral_test', 'builddir':'mistral_gcc', 'factory':m1,
++         'env':{'BB_SYSTEM':'mistral' , 'BB_SLAVE':'gcc'}},
++     {'name':'MISTRAL_nag',
++-        'slavename':'mistral', 'builddir':'mistral_nag', 'factory':m1,
+++        'slavename':'mistral_test', 'builddir':'mistral_nag', 'factory':m1,
++         'env':{'BB_SYSTEM':'mistral' , 'BB_SLAVE':'nag'}},
++     {'name':'MISTRAL_nag_mtime',
++-        'slavename':'mistral', 'builddir':'mistral_nag_mtime',
+++        'slavename':'mistral_test', 'builddir':'mistral_nag_mtime',
++         'factory':run_minimal,
++         'env':{'BB_SYSTEM':'mistral' , 'BB_SLAVE':'nag_mtime'}},
++     {'name':'MISTRAL_nag_serial',
++-        'slavename':'mistral', 'builddir':'mistral_nag_serial',
+++        'slavename':'mistral_test', 'builddir':'mistral_nag_serial',
++         'factory':build_only,
++         'env':{'BB_SYSTEM':'mistral' , 'BB_SLAVE':'nag_serial'}}
++ ]
++@@ -818,7 +820,7 @@
++ import exp_plot
++ import reference_page
++ 
++-WEB=html.WebStatus(http_port=8011,allowForce=True)
+++WEB=html.WebStatus(http_port=9011,allowForce=True)
++ WEB.putChild('home', MainPage.HomePage())
++ WEB.putChild('reference', reference_page.MainPage())
++ WEB.putChild('plot', exp_plot.EXP_plot())
++@@ -833,7 +835,7 @@
++ # Any failures
++ # ------------
++ 
++-c['status'].append(mail.MailNotifier(fromaddr="help-buildbot@zmaw.de",
+++c['status'].append(mail.MailNotifier(fromaddr="karl-hermann.wieners@mpimet.mpg.de",
++                                      mode='failing',
++                                      subject='[BUILDBOT ICON] %(builder)s BUILD FAILED',
++                                      relayhost="smtp.zmaw.de",
++@@ -845,7 +847,7 @@
++ 
++ from buildbot.status import client
++ c['status'].append(
++-    client.PBListener(port = 9998)
+++    client.PBListener(port = 8998)
++ )
++ 
++ 
++@@ -887,6 +889,6 @@
++ # with an externally-visible host name which the buildbot cannot figure out
++ # without some help.
++ 
++-c['buildbotURL'] = "http://buildbot.zmaw.de:8011/"
+++c['buildbotURL'] = "http://buildbot.zmaw.de/icon_test"
++ 
++ # vim:ft=python
