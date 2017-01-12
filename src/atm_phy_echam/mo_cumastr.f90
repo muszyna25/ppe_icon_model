@@ -89,14 +89,14 @@ CONTAINS
     &                  ptte,     pvom,     pvol,                       &! in
     &                  pxtte,                                          &! inout
     &                  prsfc,    pssfc,                                &! out
-    &                  pxtecl,   pxteci,                               &! out
     &                  ktype,    ictop,    ilab,                       &! out
     &                  ptopmax,                                        &! inout
     &                  cevapcu,                                        &! in
     &                  pqte_dyn, pqte_phy,                             &! in
-    &                  pcon_dtrl,pcon_dtri,pcon_iqte,                  &! out
-    &                  pq_cnv,   pvom_cnv, pvol_cnv, pqte_cnv,         &! out
-    &                  pxtte_cnv                               )        ! out
+    &                  pq_cnv,   pvom_cnv, pvol_cnv,                   &! out
+    &                  pqte_cnv, pxtecl,   pxteci,                     &! out
+    &                  pxtte_cnv,                                      &! out
+    &                  pcon_dtrl,pcon_dtri,pcon_iqte           )        ! out
 
     INTEGER, INTENT (IN) :: klev, klevm1, klevp1, kproma, kbdim, ktrac
     REAL(wp),INTENT (IN) :: pdtime
@@ -111,13 +111,13 @@ CONTAINS
     REAL(wp)::  pxtte(kbdim,klev,ktrac)
     REAL(wp),INTENT(IN)    :: pmdry(kbdim,klev)
     REAL(wp),INTENT(IN)    :: pqte_dyn(kbdim,klev), pqte_phy(kbdim,klev)
-    REAL(wp),INTENT(OUT)   :: pcon_dtrl(kbdim), pcon_dtri(kbdim)
-    REAL(wp),INTENT(OUT)   :: pcon_iqte(kbdim)
+    REAL(wp),INTENT(OUT)   :: prsfc(kbdim), pssfc(kbdim)
     REAL(wp),INTENT(OUT)   :: pq_cnv(kbdim,klev)
     REAL(wp),INTENT(OUT)   :: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
     REAL(wp),INTENT(OUT)   :: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
-    REAL(wp),INTENT(OUT)   :: prsfc(kbdim), pssfc(kbdim)
     REAL(wp),INTENT(OUT)   :: pxtecl(kbdim,klev), pxteci(kbdim,klev)
+    REAL(wp),INTENT(OUT)   :: pcon_dtrl(kbdim), pcon_dtri(kbdim)
+    REAL(wp),INTENT(OUT)   :: pcon_iqte(kbdim)
     REAL(wp)::  pthvsig(kbdim)
     INTEGER ::  ktype(kbdim)
     REAL(wp)::  pqhfla(kbdim)

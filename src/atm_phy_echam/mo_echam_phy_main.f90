@@ -977,51 +977,51 @@ CONTAINS
 
       IF (ltimer) call timer_start(timer_cucall)
 
-      CALL cucall( jce, nbdim, nlev,          &! in
-        &          nlevp1, nlevm1,            &! in
-        &          ntrac,                     &! in     tracers
-        &          pdtime,                    &! in
-        &          field% lfland(:,jb),       &! in     loland
-        &          field% mdry(:,:,jb),       &! in
-        &          field% ta(:,:,jb),         &! in     tm1
-        &          field% ua(:,:,jb),         &! in     um1
-        &          field% va(:,:,jb),         &! in     vm1
-        &          field% qtrc(:,:,jb,iqv),   &! in     qm1
-        &          field% qtrc(:,:,jb,iqc),   &! in     xlm1
-        &          field% qtrc(:,:,jb,iqi),   &! in     xim1
-        &          field% qtrc(:,:,jb,iqt:),  &! in     xtm1
-        &          tend% qtrc(:,:,jb,iqv),    &! in     qte  for internal updating
-        &          tend% qtrc(:,:,jb,iqc),    &! in     xlte
-        &          tend% qtrc(:,:,jb,iqi),    &! in     xite
-        &          field% omega(:,:,jb),      &! in     vervel
-        &          field% evap(:,jb),         &! in     qhfla (from "vdiff")
-        &          field% geom(:,:,jb),       &! in     geom1
-        &          field% presm_new(:,:,jb),  &! in     app1
-        &          field% presi_new(:,:,jb),  &! in     aphp1
-        &          field% thvsig(:,jb),       &! in           (from "vdiff")
-        &          tend% ta(:,:,jb),          &! in     tte  for internal updating
-        &          tend% ua(:,:,jb),          &! in     vom  for internal updating
-        &          tend% va(:,:,jb),          &! in     vol  for internal updating
-        &          tend% qtrc(:,:,jb,iqt:),   &! in     xtte for internal updating
-        &          field% rsfc(:,jb),         &! out
-        &          field% ssfc(:,jb),         &! out
-        &          tend% xl_dtr(:,:,jb),      &! out    xtecl
-        &          tend% xi_dtr(:,:,jb),      &! out    xteci
-        &          itype,                     &! out
-        &          ictop,                     &! out
-        &          ilab,                      &! out
-        &          field% topmax(:,jb),       &! inout
-        &          echam_conv_config%cevapcu, &! in
-        &          tend% qtrc_dyn(:,:,jb,iqv),&! in     qte by transport
-        &          tend% qtrc_phy(:,:,jb,iqv),&! in     qte by physics
-        &          field% con_dtrl(:,jb),     &! out    detrained liquid
-        &          field% con_dtri(:,jb),     &! out    detrained ice
-        &          field% con_iteqv(:,jb),    &! out    v. int. tend of water vapor within conv
-        &                 zq_cnv(:,:),        &! out
-        &          tend%  ua_cnv(:,:,jb),     &! out
-        &          tend%  va_cnv(:,:,jb),     &! out
-        &          tend%qtrc_cnv(:,:,jb,iqv), &! out
-        &          tend%qtrc_cnv(:,:,jb,iqt:) )! out
+      CALL cucall( jce, nbdim, nlev,             &! in
+        &          nlevp1, nlevm1,               &! in
+        &          ntrac,                        &! in     tracers
+        &          pdtime,                       &! in
+        &          field% lfland   (:,  jb),     &! in     loland
+        &          field% mdry     (:,:,jb),     &! in
+        &          field% ta       (:,:,jb),     &! in     tm1
+        &          field% ua       (:,:,jb),     &! in     um1
+        &          field% va       (:,:,jb),     &! in     vm1
+        &          field% qtrc     (:,:,jb,iqv), &! in     qm1
+        &          field% qtrc     (:,:,jb,iqc), &! in     xlm1
+        &          field% qtrc     (:,:,jb,iqi), &! in     xim1
+        &          field% qtrc     (:,:,jb,iqt:),&! in     xtm1
+        &           tend% qtrc     (:,:,jb,iqv), &! in     qte  for internal updating
+        &           tend% qtrc     (:,:,jb,iqc), &! in     xlte
+        &           tend% qtrc     (:,:,jb,iqi), &! in     xite
+        &          field% omega    (:,:,jb),     &! in     vervel
+        &          field% evap     (:,  jb),     &! in     qhfla (from "vdiff")
+        &          field% geom     (:,:,jb),     &! in     geom1
+        &          field% presm_new(:,:,jb),     &! in     app1
+        &          field% presi_new(:,:,jb),     &! in     aphp1
+        &          field% thvsig   (:,  jb),     &! in           (from "vdiff")
+        &           tend% ta       (:,:,jb),     &! in     tte  for internal updating
+        &           tend% ua       (:,:,jb),     &! in     vom  for internal updating
+        &           tend% va       (:,:,jb),     &! in     vol  for internal updating
+        &           tend% qtrc     (:,:,jb,iqt:),&! in     xtte for internal updating
+        &          field% rsfc     (:,  jb),     &! out
+        &          field% ssfc     (:,  jb),     &! out
+        &          itype,                        &! out
+        &          ictop,                        &! out
+        &          ilab,                         &! out
+        &          field% topmax   (:,  jb),     &! inout
+        &          echam_conv_config%cevapcu,    &! in
+        &           tend% qtrc_dyn (:,:,jb,iqv), &! in     qte by transport
+        &           tend% qtrc_phy (:,:,jb,iqv), &! in     qte by physics
+        &                   zq_cnv (:,:),        &! out
+        &           tend%   ua_cnv (:,:,jb),     &! out
+        &           tend%   va_cnv (:,:,jb),     &! out
+        &           tend% qtrc_cnv (:,:,jb,iqv), &! out
+        &           tend% qtrc_cnv (:,:,jb,iqc), &! out    xtecl
+        &           tend% qtrc_cnv (:,:,jb,iqi), &! out    xteci
+        &           tend% qtrc_cnv (:,:,jb,iqt:),&! out
+        &          field% con_dtrl (:,jb),       &! out    detrained liquid
+        &          field% con_dtri (:,jb),       &! out    detrained ice
+        &          field% con_iteqv(:,jb)        )! out    v. int. tend of water vapor within conv
 
       IF (ltimer) CALL timer_stop(timer_cucall)
 
@@ -1040,6 +1040,13 @@ CONTAINS
       tend% qtrc(:,:,jb,iqv)  = tend% qtrc(:,:,jb,iqv)  + tend% qtrc_cnv(:,:,jb,iqv)
       tend% qtrc(:,:,jb,iqt:) = tend% qtrc(:,:,jb,iqt:) + tend% qtrc_cnv(:,:,jb,iqt:)
 
+      ! If the cloud scheme is not used, then the tendencies of cloud water and ice tendencies
+      ! due to detrainement from convection is consumed in the cloud scheme. Otherwise these
+      ! tendencies from convection accumulate.
+      IF(.NOT.echam_phy_config%lcond) THEN
+         tend% qtrc(:,:,jb,iqc) = tend% qtrc(:,:,jb,iqc) + tend% qtrc_cnv(:,:,jb,iqc)
+         tend% qtrc(:,:,jb,iqi) = tend% qtrc(:,:,jb,iqi) + tend% qtrc_cnv(:,:,jb,iqi)
+      END IF
 
     ELSE ! NECESSARY COMPUTATIONS IF MASSFLUX IS BY-PASSED
 
@@ -1058,37 +1065,37 @@ CONTAINS
 
       IF (ltimer) CALL timer_start(timer_cloud)
 
-      CALL cloud(jce, nbdim, jks, nlev,     &! in
-        &        pdtime,                    &! in
-        &        ictop,                     &! in (from "cucall")
-        &        field% presm_old(:,:,jb),  &! in
-        &        field% dz(:,:,jb),         &! in
-        &        field% mdry(:,:,jb),       &! in
-        &        field%  rho  (:,:,jb),     &! in
-        &        zcpair(:,:),               &! in
-        &        field% acdnc (:,:,jb),     &! in  acdnc
-        &        field%   ta  (:,:,jb),     &! in  tm1
-        &        field% qtrc  (:,:,jb,iqv), &! in  qm1
-        &        field% qtrc  (:,:,jb,iqc), &! in  xlm1
-        &        field% qtrc  (:,:,jb,iqi), &! in  xim1
-        &         tend% ta    (:,:,jb),     &! in  tte
-        &         tend% qtrc  (:,:,jb,iqv), &! in  qte
-        &         tend% qtrc  (:,:,jb,iqc), &! in  xlte
-        &         tend% qtrc  (:,:,jb,iqi), &! in  xite
-        &         tend% xl_dtr(:,:,jb),     &! in  xtecl
-        &         tend% xi_dtr(:,:,jb),     &! in  xteci
+      CALL cloud(jce, nbdim, jks, nlev,        &! in
+        &        pdtime,                       &! in
+        &        ictop,                        &! in (from "cucall")
+        &        field% presm_old(:,:,jb),     &! in
+        &        field% dz       (:,:,jb),     &! in
+        &        field% mdry     (:,:,jb),     &! in
+        &        field% rho      (:,:,jb),     &! in
+        &               zcpair   (:,:),        &! in
+        &        field% acdnc    (:,:,jb),     &! in  acdnc
+        &        field% ta       (:,:,jb),     &! in  tm1
+        &        field% qtrc     (:,:,jb,iqv), &! in  qm1
+        &        field% qtrc     (:,:,jb,iqc), &! in  xlm1
+        &        field% qtrc     (:,:,jb,iqi), &! in  xim1
+        &         tend% ta       (:,:,jb),     &! in  tte
+        &         tend% qtrc     (:,:,jb,iqv), &! in  qte
+        &         tend% qtrc     (:,:,jb,iqc), &! in  xlte
+        &         tend% qtrc     (:,:,jb,iqi), &! in  xite
+        &         tend% qtrc_cnv (:,:,jb,iqc), &! in  xtecl
+        &         tend% qtrc_cnv (:,:,jb,iqi), &! in  xteci
         !
-        &        itype,                     &! inout
-        &        field% aclc  (:,:,jb),     &! inout
+        &        itype,                        &! inout
+        &        field% aclc     (:,:,jb),     &! inout
         !
-        &        field% aclcov(:,  jb),     &! out
-        &        field% rsfl  (:,  jb),     &! out
-        &        field% ssfl  (:,  jb),     &! out
-        &        field% relhum(:,:,jb),     &! out
-        &               zq_cld(:,:),        &! out
-        &        tend%qtrc_cld(:,:,jb,iqv), &! out
-        &        tend%qtrc_cld(:,:,jb,iqc), &! out
-        &        tend%qtrc_cld(:,:,jb,iqi)  )! out
+        &        field% aclcov   (:,  jb),     &! out
+        &        field% rsfl     (:,  jb),     &! out
+        &        field% ssfl     (:,  jb),     &! out
+        &        field% relhum   (:,:,jb),     &! out
+        &               zq_cld   (:,:),        &! out
+        &         tend% qtrc_cld (:,:,jb,iqv), &! out
+        &         tend% qtrc_cld (:,:,jb,iqc), &! out
+        &         tend% qtrc_cld (:,:,jb,iqi)  )! out
 
       IF (ltimer) CALL timer_stop(timer_cloud)
 

@@ -487,8 +487,6 @@ MODULE mo_echam_phy_memory
       &   ua_cnv (:,:,:),   & !< u-wind tendency due to convective cloud processes
       &   va_cnv (:,:,:),   & !< v-wind tendency due to convective cloud processes
       & qtrc_cnv (:,:,:,:), & !< tracer tendency due to convective cloud processes
-      &   xl_dtr (:,:,:),   & !< cloud water tendency due to detrainment from convective clouds
-      &   xi_dtr (:,:,:),   & !< cloud ice tendency due to detrainment from convective clouds
       !
       ! vertical diffusion ("vdiff")
       !
@@ -1828,13 +1826,13 @@ CONTAINS
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'csat', field%csat,                  &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-                & lrestart = .TRUE., ldims=shape2d )
+                & lrestart = .TRUE., initval =  1.0_wp, ldims=shape2d )
 
     cf_desc    = t_cf_var('cair', '', '', datatype_flt)
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'cair', field%cair,                  &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-                & lrestart = .TRUE., ldims=shape2d )
+                & lrestart = .TRUE., initval =  1.0_wp, ldims=shape2d )
 
     !-------------------------
     ! Sea ice
@@ -1973,7 +1971,7 @@ CONTAINS
     grib2_desc = grib2_var(0,6,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'xskew', field%xskew,                              &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
-                & lrestart = .FALSE.,                                                    &
+                & lrestart = .FALSE., initval = 2._wp,                                   &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &             vert_intp_type=vintp_types("P","Z","I"),                   &
                 &             vert_intp_method=VINTP_METHOD_LIN,                         &
@@ -2064,7 +2062,7 @@ CONTAINS
     grib2_desc = grib2_var(0,6,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'topmax', field%topmax,              &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-                & lrestart = .FALSE., ldims=shape2d )
+                & lrestart = .FALSE., initval =  99999.0_wp, ldims=shape2d)
 
     ! &       field% tke    (nproma,nlev  ,nblks), &
     cf_desc    = t_cf_var('turbulent_kinetic_energy', 'J kg-1', 'turbulent kinetic energy', &
@@ -2072,7 +2070,7 @@ CONTAINS
     grib2_desc = grib2_var(0,19,11, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'tke_echam', field%tke,              &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,  &
-                & lrestart = .FALSE., ldims=shape3d,                       &
+                & lrestart = .FALSE., initval = 1.e-4_wp, ldims=shape3d,   &
                 & vert_interp=create_vert_interp_metadata(                 &
                 &             vert_intp_type=vintp_types("P","Z","I"),     &
                 &             vert_intp_method=VINTP_METHOD_LIN,           &
@@ -2085,7 +2083,7 @@ CONTAINS
     grib2_desc = grib2_var(0,19,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'thvsig', field%thvsig,              &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-                & lrestart = .FALSE., ldims=shape2d )
+                & lrestart = .FALSE., initval = 1.e-2_wp, ldims=shape2d )
 
     !---------------------------
     ! Variables for energy diagnostic of echam6 physics
@@ -2171,7 +2169,7 @@ CONTAINS
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( field_list, prefix//'mixlen', field%mixlen,           &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, &
-                & lrestart = .FALSE., ldims=shape3d )
+                & lrestart = .FALSE., initval = -999._wp, ldims=shape3d )
 
       ! &       field% thvvar (nproma,nlev,nblks), &
       cf_desc    = t_cf_var('thvvar', 'K2',                           &
@@ -2179,21 +2177,21 @@ CONTAINS
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( field_list, prefix//'thvvar', field%thvvar,           &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, &
-                & lrestart = .FALSE., ldims=shape3d )
+                & lrestart = .FALSE., initval = 1.e-4_wp, ldims=shape3d )
 
       ! &       field% tkem0  (nproma,nlev,nblks), &
       cf_desc    = t_cf_var('tke', 'm2 s-2', 'TKE at step t', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( field_list, prefix//'tkem0', field%tkem0,             &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, &
-                & lrestart = .FALSE., ldims=shape3d )
+                & lrestart = .FALSE., initval = 1.e-4_wp, ldims=shape3d )
 
       ! &       field% tkem1  (nproma,nlev,nblks), &
       cf_desc    = t_cf_var('tke', 'm2 s-2', 'TKE at step t-dt', datatype_flt)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( field_list, prefix//'tkem1', field%tkem1,             &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, &
-                & lrestart = .TRUE., ldims=shape3d )
+                & lrestart = .TRUE., initval = 1.e-4_wp, ldims=shape3d )
 
      !---------
      !ALLOCATE( field% cfm    (nproma,nlev,     nblks), &
@@ -2333,7 +2331,7 @@ CONTAINS
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( field_list, prefix//'ustar', field%ustar,              &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-                & lrestart = .TRUE., ldims=shape2d )
+                & lrestart = .TRUE., initval = 1._wp, ldims=shape2d )
 
       ! &       field% wstar  (nproma,nblks),                &
       cf_desc    = t_cf_var('conv_velocity_scale', 'm s-1', 'convective velocity scale', datatype_flt)
@@ -2347,18 +2345,17 @@ CONTAINS
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                   & t_cf_var('wstar_tile', '', 'convective velocity scale', datatype_flt),&
                   & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED,GRID_CELL),&
-                  & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,            &
-                  & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
+                  & ldims=shapesfc, lcontainer=.TRUE.,                           &
+                  & lrestart=.FALSE., loutput=.FALSE.                            )
 
       ALLOCATE(field%wstar_tile_ptr(ksfc_type))
       DO jsfc = 1,ksfc_type
         CALL add_ref( field_list, prefix//'wstar_tile',                            &
                     & prefix//'wstar_'//csfc(jsfc), field%wstar_tile_ptr(jsfc)%p,  &
                     & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
-                    & t_cf_var('z0m_'//csfc(jsfc), '','', datatype_flt),           &
+                    & t_cf_var('wstar_'//csfc(jsfc), '','', datatype_flt),         &
                     & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED,GRID_CELL),&
-                    & lrestart=.TRUE., ldims=shape2d,                              &
-                    & lmiss=.TRUE., missval=cdimissval )
+                    & lrestart=.TRUE., ldims=shape2d                               )
       END DO
 
 
@@ -2887,6 +2884,7 @@ CONTAINS
                 & grib2_var(0,0,4, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
                 & ldims=shape2d,                                                &
                 & lrestart = .FALSE.,                                           &
+                & initval = -99._wp,                                            &
                 & isteptype=TSTEP_INSTANT                                       )
 
     CALL add_var( field_list, prefix//'tasmin', field%tasmin,                   &
@@ -2896,6 +2894,7 @@ CONTAINS
                 & grib2_var(0,0,5, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
                 & ldims=shape2d,                                                &
                 & lrestart = .FALSE.,                                           &
+                & initval = 999._wp,                                            &
                 & isteptype=TSTEP_INSTANT                                       )
 
     !--------------------------------------
@@ -3348,34 +3347,6 @@ CONTAINS
                 &         datatype_flt)
     grib2_desc = grib2_var(0,2,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( tend_list, prefix//'va_sso', tend%va_sso,                              &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
-                & vert_interp=create_vert_interp_metadata(                               &
-                &   vert_intp_type=vintp_types("P","Z","I"),                             &
-                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
-                &   l_extrapol=.FALSE. ) )
-
-    !------------------------------
-    ! Detrainment
-    !------------------------------
-
-    ! &       tend%    xl_dtr  (nproma,nlev,nblks),          &
-    cf_desc    = t_cf_var('liquid_detrain_rate', 'kg kg-1 s-1',                          &
-                &         'cloud water tendency due to detrainment from convective clouds', & 
-                &         datatype_flt)
-    grib2_desc = grib2_var(0,6,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( tend_list, prefix//'clw_dtr', tend%xl_dtr,                             &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
-                & vert_interp=create_vert_interp_metadata(                               &
-                &   vert_intp_type=vintp_types("P","Z","I"),                             &
-                &   vert_intp_method=VINTP_METHOD_LIN,                                   &
-                &   l_extrapol=.FALSE. ) )
-
-   ! &       tend%    xi_dtr  (nproma,nlev,nblks),          &
-   cf_desc    = t_cf_var('ice_detrain_rate', 'kg kg-1 s-1',                              &
-                &        'cloud ice tendency due to detrainment from convective clouds', & 
-                &         datatype_flt)
-   grib2_desc = grib2_var(0,6,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-   CALL add_var( tend_list, prefix//'cli_dtr', tend%xi_dtr,                              &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &   vert_intp_type=vintp_types("P","Z","I"),                             &
