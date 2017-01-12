@@ -38,7 +38,6 @@ CONTAINS
                            & plhflx_gbm, pshflx_gbm,               &! out
                            & pevap_gbm,                            &! out
                            & plhflx_tile, pshflx_tile,             &! out
-                           & dshflx_dT_tile,                       &! out
                            & pevap_tile,                           &! out
                            & evapotranspiration)
 
@@ -66,8 +65,6 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: pshflx_tile(kbdim,ksfc_type)
     REAL(wp),INTENT(INOUT) :: pevap_tile(kbdim,ksfc_type)    ! OUT
 
-    REAL(wp),INTENT(INOUT) :: dshflx_dT_tile(kbdim,ksfc_type)  ! OUT
-
     REAL(wp),OPTIONAL,INTENT(IN)    :: evapotranspiration(kbdim) ! present for JSBACH land
 
     INTEGER  :: jsfc
@@ -89,8 +86,6 @@ CONTAINS
         pshflx_tile(1:kproma,jsfc) = 0._wp
       END IF
     END DO
-    ! COMMENT: should span whole array, because there might be dead ends
-    dshflx_dT_tile(:,:)= 0._wp
 
     IF (.NOT.lsfc_heat_flux) THEN
       RETURN
@@ -177,8 +172,7 @@ CONTAINS
 
       ! Note: sensible heat flux from land is already in pshflx_tile(:,idx_lnd)
       IF (jsfc == idx_lnd) THEN
-        ! COMMENT: already done at begin of routine
-        ! dshflx_dT_tile(1:kproma,jsfc) = 0._wp
+        ! 
       ELSE
 
       ! Vertical gradient of dry static energy.
@@ -195,12 +189,6 @@ CONTAINS
                                    & *pcfh_tile(1:kproma,jsfc)  &
                                    & *zdcptv(1:kproma)
 
-      ! KF: For the Sea-ice model!
-      ! attempt to made a first guess of temperature tendency for SHF
-      ! over ICE! by assuming only the cp*delta(T) matters. So: d(SHF)/deltaT
-
-        dshflx_dT_tile(1:kproma,jsfc) =  pshflx_tile(1:kproma,jsfc) &
-          &                           / zdcptv(1:kproma) !*(1._wp+pevap_tile(1:kproma,jsfc)*vtmpc2)
       END IF
 
     ENDDO

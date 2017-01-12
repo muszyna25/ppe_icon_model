@@ -108,7 +108,6 @@ CONTAINS
     REAL(wp) :: zfrl (nbdim)              !< fraction of land in the grid box
     REAL(wp) :: zfrw (nbdim)              !< fraction of water (without ice) in the grid point
     REAL(wp) :: zfri (nbdim)              !< fraction of ice in the grid box
-    REAL(wp) :: zfrc (nbdim,nsfc_type)    !< zfrl, zfrw, zfrc combined
     REAL(wp) :: zri_tile(nbdim,nsfc_type) !< Richardson number
 
     INTEGER  :: ilab   (nbdim,nlev)
@@ -257,9 +256,12 @@ CONTAINS
 
     DO jc=jcs,jce
 
-      ! fraction of land in the grid box. lsmask: land-sea mask, 1.= land
+      ! fraction of land in the grid box.
+      ! lsmask: land-sea mask, depends on input data, either:
+      ! fractional, including or excluding lakes in the land part or
+      ! non-fractional, each grid cell is either land, sea, or sea-ice.
+      ! See mo_echam_phy_init or input data set for details.
 
-      ! TBD: use fractional mask here
       zfrl(jc) = field% lsmask(jc,jb)
 
       ! fraction of sea/lake in the grid box
@@ -273,9 +275,9 @@ CONTAINS
     END DO
 
     ! 3.4 Merge three pieces of information into one array for vdiff
-    IF (ilnd.LE.nsfc_type) zfrc(jcs:jce,ilnd) = zfrl(jcs:jce)
-    IF (iwtr.LE.nsfc_type) zfrc(jcs:jce,iwtr) = zfrw(jcs:jce)
-    IF (iice.LE.nsfc_type) zfrc(jcs:jce,iice) = zfri(jcs:jce)
+    IF (ilnd.LE.nsfc_type) field%frac_tile(jcs:jce,jb,ilnd) = zfrl(jcs:jce)
+    IF (iwtr.LE.nsfc_type) field%frac_tile(jcs:jce,jb,iwtr) = zfrw(jcs:jce)
+    IF (iice.LE.nsfc_type) field%frac_tile(jcs:jce,jb,iice) = zfri(jcs:jce)
 
     !---------------------------------------------------------------------
     ! 3.9 DETERMINE TROPOPAUSE HEIGHT AND MASS BUDGETS
@@ -553,7 +555,7 @@ CONTAINS
                      & iwtr, iice, ilnd,                &! in, indices of different surface types
                      & pdtime,                          &! in, time step
                      & field%coriol(:,jb),              &! in, Coriolis parameter
-                     & zfrc(:,:),                       &! in, area fraction of each sfc type
+                     & field%frac_tile(:,jb,:),         &! in, area fraction of each sfc type
                      & field% ts_tile(:,jb,:),          &! in, surface temperature
                      & field% ocu (:,jb),               &! in, ocean sfc velocity, u-component
                      & field% ocv (:,jb),               &! in, ocean sfc velocity, v-component
@@ -631,7 +633,7 @@ CONTAINS
           & jg, jce, nbdim, field%kice,   &! in
           & nlev, nsfc_type,              &! in
           & iwtr, iice, ilnd,             &! in, indices of surface types
-          & zfrc(:,:),                    &! in, area fraction
+          & field%frac_tile(:,jb,:),      &! in, area fraction
           & field% cfh_tile(:,jb,:),      &! in, from "vdiff_down"
           & field% cfm_tile(:,jb,:),      &! in, from "vdiff_down"
           & zfactor_sfc(:),               &! in, from "vdiff_down"
@@ -650,7 +652,6 @@ CONTAINS
           & field%v_stress_tile  (:,jb,:),   &! out
           & field% lhflx_tile    (:,jb,:),   &! out
           & field% shflx_tile    (:,jb,:),   &! out
-          & field% dshflx_dT_tile(:,jb,:),   &! out for Sea ice
           & field%  evap_tile    (:,jb,:),   &! out
                                 !! optional
           & nblock = jb,                  &! in
@@ -724,7 +725,7 @@ CONTAINS
                    & ntrac, nsfc_type,                &! in
                    & iwtr,                            &! in, indices of different sfc types
                    & pdtime,                          &! in, time steps
-                   & zfrc(:,:),                       &! in, area fraction of each sfc type
+                   & field%frac_tile(:,jb,:),         &! in, area fraction of each sfc type
                    & field% cfm_tile(:,jb,:),         &! in
                    & zaa,                             &! in, from "vdiff_down"
                    &   ihpbl(:),                      &! in, from "vdiff_down"
@@ -807,7 +808,7 @@ CONTAINS
 
     CALL nsurf_diag( jce, nbdim, nsfc_type,           &! in
                    & ilnd,                            &! in
-                   & zfrc(:,:),                       &! in
+                   & field%frac_tile(:,jb,:),         &! in
                    & field%  qtrc(:,nlev,jb,iqv),     &! in humidity qm1
                    & field%    ta(:,nlev,jb),         &! in tm1
                    & field% presm_old(:,nlev,jb),     &! in, apm1

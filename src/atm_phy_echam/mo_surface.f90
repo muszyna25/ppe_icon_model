@@ -61,7 +61,6 @@ CONTAINS
                            & pevap_gbm,                         &! out
                            & pu_stress_tile,   pv_stress_tile,  &! out
                            & plhflx_tile, pshflx_tile,          &! out
-                           & dshflx_dT_tile,                    &! out
                            & pevap_tile,                        &! out
                            !! optional
                            & nblock,                            &! in
@@ -146,7 +145,6 @@ CONTAINS
     REAL(wp),INTENT(INOUT)   :: pv_stress_tile (kbdim,ksfc_type)   ! OUT
     REAL(wp),INTENT(INOUT)   ::    plhflx_tile (kbdim,ksfc_type)   ! OUT
     REAL(wp),INTENT(INOUT)   ::    pshflx_tile (kbdim,ksfc_type)   ! OUT
-    REAL(wp),INTENT(INOUT)   :: dshflx_dT_tile (kbdim,ksfc_type)   ! OUT
     REAL(wp),INTENT(INOUT)   ::     pevap_tile (kbdim,ksfc_type)   ! OUT
 
     !! JSBACH input
@@ -606,7 +604,6 @@ CONTAINS
                       & plhflx_gbm, pshflx_gbm,               &! out
                       & pevap_gbm,                            &! out
                       & plhflx_tile, pshflx_tile,             &! inout
-                      & dshflx_dT_tile,                       &! out
                       & pevap_tile,                           &! out
                       & evapotranspiration)                    ! in (optional)
 
@@ -710,7 +707,6 @@ CONTAINS
         albnirdif_tile (1:kproma,jsfc) = cdimissval
         pu_stress_tile (1:kproma,jsfc) = cdimissval
         pv_stress_tile (1:kproma,jsfc) = cdimissval
-        dshflx_dT_tile (1:kproma,jsfc) = cdimissval
         z0m_tile       (1:kproma,jsfc) = cdimissval
       END WHERE
       IF (jsfc == idx_lnd) THEN

@@ -404,12 +404,12 @@ MODULE mo_echam_phy_memory
       & lhflx_tile(:,:,:),    &!< latent   heat flux at surface on tiles
       & shflx_tile(:,:,:),    &!< sensible heat flux at surface on tiles
       & evap_tile(:,:,:),     &!< evaporation at surface on tiles
-      & dshflx_dT_tile(:,:,:)  !< temp tendency of SHF at surface on tiles
+      & frac_tile(:,:,:)       !< surface fraction of tiles
 
     TYPE(t_ptr_2d),ALLOCATABLE :: lhflx_tile_ptr(:)
     TYPE(t_ptr_2d),ALLOCATABLE :: shflx_tile_ptr(:)
     TYPE(t_ptr_2d),ALLOCATABLE :: evap_tile_ptr(:)
-    TYPE(t_ptr_2d),ALLOCATABLE :: dshflx_dT_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: frac_tile_ptr(:)
 
     REAL(wp),POINTER :: &
       & u_stress     (:,  :), &!< grid box mean wind stress
@@ -2698,21 +2698,20 @@ CONTAINS
                 & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,       &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.    )
 
-    CALL add_var( field_list,prefix//'dhfss_dT_tile',field%dshflx_dT_tile,&
+    CALL add_var( field_list, prefix//'frac_tile', field%frac_tile,       &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
-                & t_cf_var('dhfss_dT_tile', 'W m-2 K-1',                  &
-                &          'temp tend of SHF on tiles', datatype_flt),    &
-                & grib2_var(0,0,11, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
-                & ldims=shapesfc,                                         &
+                & t_cf_var('frac_tile', '%',                              &
+                &          'surface fraction of tiles', datatype_flt),    &
+                & grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL), &
+                & ldims=shapesfc, lmiss=.TRUE., missval=cdimissval,       &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.    )
-
 
     ALLOCATE(field%swflxsfc_tile_ptr(ksfc_type))
     ALLOCATE(field%lwflxsfc_tile_ptr(ksfc_type))
     ALLOCATE(field%evap_tile_ptr(ksfc_type))
     ALLOCATE(field%lhflx_tile_ptr(ksfc_type))
     ALLOCATE(field%shflx_tile_ptr(ksfc_type))
-    ALLOCATE(field%dshflx_dT_tile_ptr(ksfc_type))
+    ALLOCATE(field%frac_tile_ptr(ksfc_type))
 
     DO jsfc = 1,ksfc_type
 
@@ -2763,14 +2762,15 @@ CONTAINS
                   & lrestart=.FALSE., ldims=shape2d,                                   &
                   & lmiss=.TRUE., missval=cdimissval )
 
-      CALL add_ref( field_list, prefix//'dhfss_dT_tile',                               &
-                  & prefix//'dhfss_dT_'//csfc(jsfc), field%dshflx_dT_tile_ptr(jsfc)%p, &
+      CALL add_ref( field_list, prefix//'frac_tile',                                   &
+                  & prefix//'frac_'//csfc(jsfc), field%frac_tile_ptr(jsfc)%p,          &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                &
-                  & t_cf_var('dhfss_dT_'//csfc(jsfc), 'W m-2 K-1',                     &
-                  &          'temp tend of SHF on tile '//csfc(jsfc), datatype_flt),   &
-                  & grib2_var(0,0,11, ibits, GRID_UNSTRUCTURED, GRID_CELL),            &
-                  & lrestart=.FALSE., ldims=shape2d,                                   &
-                  & lmiss=.TRUE., missval=cdimissval )
+                  & t_cf_var('frac_'//csfc(jsfc), '%',                                 &
+                  &          'surface fraction of tile '//csfc(jsfc),                  &
+                  &          datatype_flt),                                            &
+                  & grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
+                  &  ldims=shape2d, lmiss=.TRUE., missval=cdimissval )
+
     END DO
 
     !-----------------------------------------

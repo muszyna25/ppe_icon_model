@@ -121,9 +121,6 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: pqsat_tile(kbdim,ksfc_type) !< saturation specific     out
                                                           !< humidity at sfc.
                                                           !< (step t-dt)
-!! TODO: ME
-!!    REAL(wp),INTENT(OUT) :: pcpt_sfc  (kbdim,ksfc_type) !< dry static energy
-!    REAL(wp) :: pcpt_sfc  (kbdim,ksfc_type) !< dry static energy
 
     INTEGER, INTENT(INOUT) :: ihpbl (kbdim)  !< PBL height given as level index    out
     REAL(wp),INTENT(INOUT) :: pghpbl(kbdim)  !< geopotential height of PBL top
