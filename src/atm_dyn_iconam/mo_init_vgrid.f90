@@ -76,9 +76,6 @@ CONTAINS
   !!
   SUBROUTINE init_hybrid_coord(nlev, vct_a, vct_b)
 
-!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-!!$      &  routine = 'mo_nh_init_utils:init_hybrid_coord'
-
     INTEGER,  INTENT(IN)    :: nlev  !< number of full levels
     REAL(wp), INTENT(INOUT) :: vct_a(:), vct_b(:)
 
@@ -117,9 +114,6 @@ CONTAINS
   !> Utility routine: computes some values based on vct_a, vct_b
   !
   SUBROUTINE prepare_hybrid_coord(nlev, vct_a, vct_b, vct, nflatlev)
-
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_nh_init_utils:init_hybrid_coord'
 
     INTEGER,  INTENT(IN)  :: nlev  !< number of full levels
     REAL(wp), INTENT(IN)  :: vct_a(:), vct_b(:)
@@ -163,7 +157,6 @@ CONTAINS
       vct(nlevp1+1:nlevp1+nlevp1) = vct_b(:)
     ENDIF
 
-!!$    CALL message(TRIM(routine), ' coordinate setup finished')
     IF (msg_level >= 7) THEN
       CALL print_vcoord_info(nlev, vct_a, "init_hybrid_coord")
     ENDIF
@@ -339,18 +332,6 @@ CONTAINS
     IF (msg_level >= 7) THEN
       CALL print_vcoord_info(nlev, vct_a, "init_sleve_coord")
     ENDIF
-
-!!$    CALL message('mo_nh_init_utils: init_sleve_coord', '')
-!!$
-!!$    IF (msg_level >= 7) THEN
-!!$     WRITE(message_text,'(a)') 'Nominal heights of coordinate half levels and layer thicknesses (m):'
-!!$        CALL message('', TRIM(message_text))
-!!$
-!!$      DO jk = 1, nlevp1
-!!$       WRITE(message_text,'(a,i4,2F12.3)') 'jk, vct_a, dvct: ',jk, vct_a(jk), vct_a(jk)-vct_a(MIN(jk+1,nlevp1))
-!!$        CALL message('', TRIM(message_text))
-!!$      ENDDO
-!!$    ENDIF
 
   END SUBROUTINE prepare_sleve_coord
 
