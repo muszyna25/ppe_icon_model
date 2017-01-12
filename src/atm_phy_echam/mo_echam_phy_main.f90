@@ -29,8 +29,7 @@ MODULE mo_echam_phy_main
   USE mo_exception,           ONLY: finish
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_math_constants,      ONLY: pi
-  USE mo_physical_constants,  ONLY: cpd, cpv, cvd, cvv, &
-    &                               amd, amo3
+  USE mo_physical_constants,  ONLY: cpd, cpv, cvd, cvv, amd, amo3, Tf, tmelt
   USE mo_impl_constants,      ONLY: inh_atmosphere
   USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
     &                               iqv, iqc, iqi, iqt, io3
@@ -41,7 +40,8 @@ MODULE mo_echam_phy_main
   USE mo_echam_cloud_config,  ONLY: echam_cloud_config
   USE mo_cumastr,             ONLY: cucall
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
-    &                               t_echam_phy_tend,  prm_tend
+    &                               t_echam_phy_tend,  prm_tend,      &
+    &                               cdimissval
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop,                &
     &                               timer_cover, timer_radiation, timer_radheat,    &
     &                               timer_vdiff_down, timer_surface,timer_vdiff_up, &
@@ -272,6 +272,11 @@ CONTAINS
 
       ! fraction of sea ice in the grid box
       zfri(jc) = 1._wp-zfrl(jc)-zfrw(jc)
+      ! security for ice temperature with changing ice mask
+      !
+      IF(zfri(jc) > 0._wp .AND. field%ts_tile(jc,jb,iice) == cdimissval ) THEN
+         field% ts_tile(jc,jb,iice)  = tmelt + Tf    ! = 271.35 K
+      ENDIF
     END DO
 
     ! 3.4 Merge three pieces of information into one array for vdiff
