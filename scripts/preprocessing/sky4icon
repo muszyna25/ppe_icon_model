@@ -86,7 +86,7 @@ read db=roma cat=icoeu_pre_fc_rout  d=${cymdgm3}0000 s[s]=10800 bin info=countPl
     arr_req[${#arr_req[*]}]="${req}"
  done
 
-# pbank ${arr_req[*]}
+ pbank ${arr_req[*]}
 
 # ---
  exit 0
