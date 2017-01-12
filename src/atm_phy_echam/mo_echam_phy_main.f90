@@ -1099,6 +1099,8 @@ CONTAINS
 
       IF (ltimer) CALL timer_stop(timer_cloud)
 
+      field% rtype(:,jb) = REAL(itype(:),wp)
+
       ! heating accumulated
       zq_phy(:,:) = zq_phy(:,:) + zq_cld(:,:)
 

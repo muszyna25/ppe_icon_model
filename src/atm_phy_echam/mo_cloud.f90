@@ -1236,7 +1236,7 @@ CONTAINS
        zxlvitop(jl) = 0.0_wp
        klevtop = kctop(jl) - 1
        DO 936 jk = ktdia, klevtop
-          zxlvitop(jl) = zxlvitop(jl)+pxlm1(jl,jk)*pmdry(jl,jk)
+          zxlvitop(jl) = zxlvitop(jl)+(pxlm1 (jl,jk)+(pxlte(jl,jk)+pxlte_cld(jl,jk))*pdtime)*pmdry(jl,jk)
 936    END DO
 938 END DO
 
