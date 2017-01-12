@@ -387,6 +387,7 @@ CONTAINS
         CALL bc_sst_sic_time_interpolation(current_time_interpolation_weights, &
              &                             prm_field(jg)%lsmask(:,:)         , &
              &                             prm_field(jg)%ts_tile(:,:,iwtr)   , &
+             &                             prm_field(jg)%ts_tile(:,:,iice)   , &
              &                             prm_field(jg)%seaice(:,:)         , &
              &                             prm_field(jg)%siced(:,:)          , &
              &                             p_patch(1)                        )

@@ -174,10 +174,11 @@ CONTAINS
 
   END SUBROUTINE read_sst_sic_data
 
-  SUBROUTINE bc_sst_sic_time_interpolation(tiw, slf, tsw, seaice, siced, p_patch)
+  SUBROUTINE bc_sst_sic_time_interpolation(tiw, slf, tsw, tsi, seaice, siced, p_patch)
     TYPE( t_time_interpolation_weights), INTENT(in) :: tiw
     REAL(dp)       , INTENT(in)  :: slf(:,:) 
     REAL(dp)       , INTENT(out) :: tsw(:,:) 
+    REAL(dp)       , INTENT(out) :: tsi(:,:) 
     REAL(dp)       , INTENT(out) :: seaice(:,:) 
     REAL(dp)       , INTENT(out) :: siced(:,:) 
     TYPE(t_patch)  , INTENT(in)  :: p_patch
@@ -202,6 +203,7 @@ CONTAINS
       !   tsw(:,:)=MAX(zts(:,:), tf_salt)
       ! END IF
       tsw(:,:) = MERGE(tf_salt, MAX(zts(:,:), tf_salt), seaice(:,:) > 0.0_dp) 
+      tsi(:,:) = tsw(:,:)
       WHERE (p_patch%cells%center(:,:)%lat > 0.0_dp)
          siced(:,:) = MERGE(2.0_dp, 0.0_dp, seaice(:,:) > 0.0_dp) 
       ELSEWHERE
@@ -212,6 +214,7 @@ CONTAINS
       siced(:,:)  = 0.0_dp
       !TODO: check tsw/i/l sequence,dummy setting to some reasonable value for land and ice
       tsw(:,:) = zts(:,:)
+      tsi(:,:) = tsw(:,:)
     ENDWHERE
 
     !CALL message('','Interpolated sea surface temperature and sea ice cover.')
