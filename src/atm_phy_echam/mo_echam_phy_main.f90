@@ -1128,7 +1128,7 @@ CONTAINS
     INTEGER         ,INTENT(IN) :: jg
     INTEGER         ,INTENT(IN) :: jb             !< block index
     INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
-    INTEGER         ,INTENT(IN) :: nbdim          !< size of this block  !---------------------------------------------------------------------
+    INTEGER         ,INTENT(IN) :: nbdim          !< size of this block  
     REAL(wp)        ,INTENT(IN) :: zconv  (nbdim,nlev)       !< specific heat of moist air        [J/K/kg]
     TYPE(t_echam_phy_field),   POINTER :: field
     TYPE(t_echam_phy_tend) ,   POINTER :: tend
@@ -1186,7 +1186,7 @@ CONTAINS
     TYPE(t_patch)   ,INTENT(in), TARGET :: patch           !< grid/patch info
     INTEGER         ,INTENT(IN) :: jb             !< block index
     INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
-    INTEGER         ,INTENT(IN) :: nbdim          !< size of this block  !---------------------------------------------------------------------
+    INTEGER         ,INTENT(IN) :: nbdim          !< size of this block 
     REAL(wp)        ,INTENT(IN) :: zconv  (nbdim,nlev)       !< specific heat of moist air        [J/K/kg]
     TYPE(t_echam_phy_field),   POINTER :: field
     TYPE(t_echam_phy_tend) ,   POINTER :: tend
@@ -1252,7 +1252,7 @@ CONTAINS
   SUBROUTINE echam_cumulus_condensation(jb,jcs,jce, nbdim, field, tend, zcair)
     INTEGER         ,INTENT(IN) :: jb             !< block index
     INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
-    INTEGER         ,INTENT(IN) :: nbdim          !< size of this block  !---------------------------------------------------------------------
+    INTEGER         ,INTENT(IN) :: nbdim          !< size of this block 
     REAL(wp)        ,INTENT(IN) :: zcair  (nbdim,nlev)       !< specific heat of moist air        [J/K/kg]
     TYPE(t_echam_phy_field),   POINTER :: field
     TYPE(t_echam_phy_tend) ,   POINTER :: tend
