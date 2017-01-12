@@ -319,12 +319,6 @@ CONTAINS
           CALL closeFile(stream_id)
         END IF
 
-      ELSE
-
-        prm_field(jg)%lsmask(:,:) = 0._wp
-        prm_field(jg)%glac  (:,:) = 0._wp
-        prm_field(jg)%alake (:,:) = 0._wp
-
       END IF
 
     END DO ! jg
@@ -391,11 +385,6 @@ CONTAINS
              &                             prm_field(jg)%siced(:,:)          , &
              &                             p_patch(1)                        )
         !
-
-      ELSE
-
-        prm_field(jg)%seaice(:,:) = 0._wp
-
       END IF
 
     END DO
@@ -471,106 +460,9 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP WORKSHARE
-      field% qtrc (:,:,:,:)   = 0._wp
       field% qtrc (:,:,:,iqv) = qv(:,:,:)
       field% xvar (:,:,:)     = qv(:,:,:)*0.1_wp
-      field% xskew(:,:,:)     = 2._wp
-
-      ! Other variabels (cf. subroutine init_g3 in ECHAM6)
-
-      field% topmax(:,  :) = 99999._wp
-      field% thvsig(:,  :) = 1.e-2_wp
-      field% tke   (:,:,:) = 1.e-4_wp
-
-      field% swflxsfc_tile(:,:,:) = 0._wp
-      field% lwflxsfc_tile(:,:,:) = 0._wp
-      field% dlwflxsfc_dT(:,:) = 0._wp
-      field% aclc  (:,:,:) = 0._wp
-      field% aclcov(:,  :) = 0._wp
-      field% rsfl  (:,  :) = 0._wp
-      field% ssfl  (:,  :) = 0._wp
-      field% rsfc  (:,  :) = 0._wp
-      field% ssfc  (:,  :) = 0._wp
-      field% omega (:,:,:) = 0._wp
-
-      field%  evap (:,  :) = 0._wp
-      field% lhflx (:,  :) = 0._wp
-      field% shflx (:,  :) = 0._wp
-      field% lhflx_tile (:,:,:) = 0._wp
-      field% shflx_tile (:,:,:) = 0._wp
-      field%dshflx_dT_tile    (:,:,:)= 0._wp
-
-      field% u_stress(:,  :) = 0._wp
-      field% v_stress(:,  :) = 0._wp
-      field% u_stress_tile(:,:,:) = 0._wp
-      field% v_stress_tile(:,:,:) = 0._wp
-
-      field% sfcWind(:,  :) =   0._wp
-      field% uas    (:,  :) =   0._wp
-      field% vas    (:,  :) =   0._wp
-      field% tas    (:,  :) =   0._wp
-      field% dew2   (:,  :) =   0._wp
-      field% tasmax (:,  :) = -99._wp
-      field% tasmin (:,  :) = 999._wp
-      field% sfcWind_tile(:,:,:) = 0._wp
-      field% uas_tile    (:,:,:) = 0._wp
-      field% vas_tile    (:,:,:) = 0._wp
-      field% tas_tile    (:,:,:) = 0._wp
-      field% dew2_tile   (:,:,:) = 0._wp
-
-      field% u_stress_sso(:,:) = 0._wp
-      field% v_stress_sso(:,:) = 0._wp
-      field% dissipation_sso(:,:) = 0._wp
-
-      field% rtype (:,  :) = 0._wp
-      field% rintop(:,  :) = 0._wp
-
-      ! Initialization of tendencies is necessary for doing I/O with the NAG compiler
-      tend%   ta_rsw(:,:,:)   = 0._wp
-      tend%   ta_rlw(:,:,:)   = 0._wp
-      tend%   ta_rlw_impl(:,:)= 0._wp
-      tend%   ta_cld(:,:,:)   = 0._wp
-      tend% qtrc_cld(:,:,:,:) = 0._wp
-
-      tend%   ta_dyn(:,:,:)   = 0._wp
-      tend% qtrc_dyn(:,:,:,:) = 0._wp
-      tend%   ua_dyn(:,:,:)   = 0._wp
-      tend%   va_dyn(:,:,:)   = 0._wp
-
-      tend%   ta_phy(:,:,:)   = 0._wp
-      tend% qtrc_phy(:,:,:,:) = 0._wp
-      tend%   ua_phy(:,:,:)   = 0._wp
-      tend%   va_phy(:,:,:)   = 0._wp
-
-      tend%   ta_cnv(:,:,:)   = 0._wp
-      tend% qtrc_cnv(:,:,:,:) = 0._wp
-      tend%   ua_cnv(:,:,:)   = 0._wp
-      tend%   va_cnv(:,:,:)   = 0._wp
-
-      tend%   ta_vdf(:,:,:)   = 0._wp
-      tend% qtrc_vdf(:,:,:,:) = 0._wp
-      tend%   ua_vdf(:,:,:)   = 0._wp
-      tend%   va_vdf(:,:,:)   = 0._wp
-
-      tend%   ta_gwh(:,:,:)   = 0._wp
-      tend%   ua_gwh(:,:,:)   = 0._wp
-      tend%   va_gwh(:,:,:)   = 0._wp
-
-      tend%   ta_sso(:,:,:)   = 0._wp
-      tend%   ua_sso(:,:,:)   = 0._wp
-      tend%   va_sso(:,:,:)   = 0._wp
-
 !$OMP END WORKSHARE
-
-      IF (phy_config%ljsbach) THEN
-
-!$OMP WORKSHARE
-        field% csat    (:,  :) = 1.0_wp
-        field% cair    (:,  :) = 1.0_wp
-!$OMP END WORKSHARE
-
-      END IF ! ljsbach
-
 !$OMP END PARALLEL
 
       IF (phy_config%lvdiff) THEN
@@ -582,18 +474,6 @@ CONTAINS
         ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-
-!$OMP PARALLEL WORKSHARE
-        field% ustar (:,:)   = 1._wp
-        field% wstar_tile (:,:,:) = 0._wp 
-        field% kedisp(:,:)   = 0._wp
-        field% tkem0 (:,:,:) = 1.e-4_wp
-        field% tkem1 (:,:,:) = 1.e-4_wp
-        field% thvvar(:,:,:) = 1.e-4_wp
-        field% ocu   (:,:)   = 0._wp
-        field% ocv   (:,:)   = 0._wp
-        field% mixlen(:,:,:) = -999._wp
-!$OMP END PARALLEL WORKSHARE
         IF (iwtr<=nsfc_type) field% z0m_tile(:,:,iwtr) = 1e-3_wp !see init_surf in echam (or z0m_oce?)
         IF (iice<=nsfc_type) field% z0m_tile(:,:,iice) = 1e-3_wp !see init_surf in echam (or z0m_ice?)
         IF (ilnd<=nsfc_type) THEN
