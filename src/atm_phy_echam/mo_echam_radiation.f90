@@ -25,16 +25,10 @@
 MODULE mo_echam_radiation
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish
-  USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_math_constants,      ONLY: pi
-  USE mo_physical_constants,  ONLY: cpd, cpv, cvd, cvv, &
-    &                               amd, amo3
-  USE mo_impl_constants      ,ONLY: inh_atmosphere, min_rlcell_int, grf_bdywidth_c
-  USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
-    &                               iqv, iqc, iqi, iqt, io3
-  USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
-    &                               t_echam_phy_tend,  prm_tend
+  USE mo_impl_constants      ,ONLY: min_rlcell_int, grf_bdywidth_c
+  USE mo_run_config,          ONLY: ntracer, nlev, nlevp1
+  USE mo_echam_phy_memory,    ONLY: t_echam_phy_field
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_radiation
   USE mtime,                  ONLY: datetime
   USE mo_psrad_radiation,     ONLY: psrad_radiation

@@ -35,7 +35,7 @@ MODULE mo_echam_phy_main
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: cpd, cpv, cvd, cvv, &
     &                               amd, amo3
-  USE mo_impl_constants      ,ONLY: inh_atmosphere, min_rlcell_int, grf_bdywidth_c
+  USE mo_impl_constants      ,ONLY: inh_atmosphere
   USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
     &                               iqv, iqc, iqi, iqt, io3
   USE mo_dynamics_config,     ONLY: iequations
@@ -47,7 +47,7 @@ MODULE mo_echam_phy_main
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
     &                               t_echam_phy_tend,  prm_tend
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop,                &
-    &                               timer_cover, timer_radiation, timer_radheat,    &
+    &                               timer_cover, timer_radheat,                     &
     &                               timer_vdiff_down, timer_surface,timer_vdiff_up, &
     &                               timer_gw_hines, timer_ssodrag,                  &
     &                               timer_cucall, timer_cloud
@@ -59,7 +59,6 @@ MODULE mo_echam_phy_main
   USE mo_cloud,               ONLY: cloud
   USE mo_cover,               ONLY: cover
   USE mo_radheating,          ONLY: radheating
-  USE mo_psrad_radiation,     ONLY: psrad_radiation
   USE mo_psrad_radiation_parameters, ONLY: psctm
   USE mo_vdiff_config,        ONLY: vdiff_config
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
