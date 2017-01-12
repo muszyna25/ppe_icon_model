@@ -309,7 +309,7 @@ CONTAINS
         ! CALL dry_deposition()
         !
 
-        CALL echam_vdiffDownUp_surf( jg, jb,jcs,jce, nproma, zfrc(:,:,jb), zxt_emis, field, tend)
+        CALL echam_vdiffDownUp_surf( jg, jb,jcs,jce, nproma, field,  tend, zfrc(:,:,jb), zxt_emis)
 
       ENDDO
 !$OMP END PARALLEL DO 
@@ -365,7 +365,7 @@ CONTAINS
 
     !---------------------
     IF (phy_config%lcariolle) THEN
-      CALL  echam_lcariolle(patch, rl_start, rl_end, field, this_datetime, tend) 
+      CALL  echam_lcariolle(patch, rl_start, rl_end, field, tend, this_datetime) 
     END IF
     !---------------------
 
@@ -382,7 +382,7 @@ CONTAINS
       DO jb = i_startblk,i_endblk
         CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 
-        CALL echam_gw_hinesg(patch, jg, jb,jcs,jce, nproma, zconv(:,:,jb), field, tend, zq_phy(:,:,jb))
+        CALL echam_gw_hinesg(patch, jg, jb,jcs,jce, nproma, field, tend, zconv(:,:,jb), zq_phy(:,:,jb))
       ENDDO
 !$OMP END PARALLEL DO 
 
@@ -413,7 +413,7 @@ CONTAINS
       DO jb = i_startblk,i_endblk
         CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 
-        CALL echam_ssodrag(patch, jb,jcs,jce, nproma, zconv(:,:,jb), field, tend, zq_phy(:,:,jb))
+        CALL echam_ssodrag(patch, jb,jcs,jce, nproma, field, tend, zconv(:,:,jb), zq_phy(:,:,jb))
       ENDDO
 !$OMP END PARALLEL DO 
 
@@ -440,7 +440,7 @@ CONTAINS
     DO jb = i_startblk,i_endblk
       CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
 
-      CALL echam_cumulus_condensation(jb,jcs,jce, nproma, zcair(:,:,jb), field, tend)
+      CALL echam_cumulus_condensation(jb,jcs,jce, nproma, field, tend, zcair(:,:,jb))
 
     ENDDO
 !$OMP END PARALLEL DO 
@@ -711,15 +711,15 @@ CONTAINS
   !     computation of exchange coefficients in the atmosphere and at the surface;
   !     build up the tridiagonal linear algebraic system;
   !     downward sweep (Gaussian elimination from top till level nlev-1)
-  SUBROUTINE echam_vdiffDownUp_surf(jg, jb,jcs,jce, nbdim, zfrc, zxt_emis, field, tend)
+  SUBROUTINE echam_vdiffDownUp_surf( jg, jb,jcs,jce, nbdim, field,  tend, zfrc, zxt_emis)
     INTEGER         ,INTENT(IN) :: jg             
     INTEGER         ,INTENT(IN) :: jb             !< block index
     INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
     INTEGER         ,INTENT(IN) :: nbdim          !< size of this block
-    REAL(wp),        INTENT(IN) :: zfrc (nbdim,nsfc_type)    !< zfrl, zfrw, zfrc combined, output
-    REAL(wp)        ,INTENT(IN) :: zxt_emis(nbdim,ntracer-iqt+1)  !< tracer tendency due to surface emission
     TYPE(t_echam_phy_field),   POINTER :: field    ! inout
     TYPE(t_echam_phy_tend) ,   POINTER :: tend
+    REAL(wp),        INTENT(IN) :: zfrc (nbdim,nsfc_type)    !< zfrl, zfrw, zfrc combined, output
+    REAL(wp)        ,INTENT(IN) :: zxt_emis(nbdim,ntracer-iqt+1)  !< tracer tendency due to surface emission
 
 
     REAL(wp) :: zdelp  (nbdim,nlev)       !< layer thickness in pressure coordinate  [Pa]
@@ -1065,7 +1065,7 @@ CONTAINS
   !---------------------------------------------------------------------
 
   !---------------------------------------------------------------------
-  SUBROUTINE echam_lcariolle(patch, rl_start, rl_end, field, this_datetime, tend)
+  SUBROUTINE echam_lcariolle(patch, rl_start, rl_end, field, tend, this_datetime)
     TYPE(t_patch)   ,INTENT(in), TARGET :: patch           !< grid/patch info
     INTEGER         ,INTENT(in) :: rl_start, rl_end
     TYPE(t_echam_phy_field),   POINTER :: field
@@ -1124,7 +1124,7 @@ CONTAINS
   !---------------------------------------------------------------------
 
   !---------------------------------------------------------------------
-  SUBROUTINE echam_gw_hinesg(patch, jg, jb,jcs,jce, nbdim, zconv, field, tend, zq_phy)
+  SUBROUTINE echam_gw_hinesg(patch, jg, jb,jcs,jce, nbdim, field, tend, zconv, zq_phy)
     TYPE(t_patch)   ,INTENT(in), TARGET :: patch           !< grid/patch info
     INTEGER         ,INTENT(IN) :: jg
     INTEGER         ,INTENT(IN) :: jb             !< block index
@@ -1183,7 +1183,7 @@ CONTAINS
   !---------------------------------------------------------------------
 
   !---------------------------------------------------------------------
-  SUBROUTINE echam_ssodrag(patch, jb,jcs,jce, nbdim, zconv, field, tend, zq_phy)
+  SUBROUTINE echam_ssodrag(patch, jb,jcs,jce, nbdim, field, tend, zconv, zq_phy)
     TYPE(t_patch)   ,INTENT(in), TARGET :: patch           !< grid/patch info
     INTEGER         ,INTENT(IN) :: jb             !< block index
     INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
@@ -1250,7 +1250,7 @@ CONTAINS
   !---------------------------------------------------------------------
 
   !---------------------------------------------------------------------
-  SUBROUTINE echam_cumulus_condensation(jb,jcs,jce, nbdim, zcair, field, tend)
+  SUBROUTINE echam_cumulus_condensation(jb,jcs,jce, nbdim, field, tend, zcair)
     INTEGER         ,INTENT(IN) :: jb             !< block index
     INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
     INTEGER         ,INTENT(IN) :: nbdim          !< size of this block  !---------------------------------------------------------------------
