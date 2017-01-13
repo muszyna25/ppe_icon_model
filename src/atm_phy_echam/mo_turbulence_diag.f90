@@ -787,11 +787,8 @@ CONTAINS
     IF (lsfc_mom_flux.OR.lsfc_heat_flux) THEN  ! Surface flux is considered
 
 !  preset values to missing value
-     pcfh_tile(1:kproma,1:ksfc_type) = cdimissval
-     pcfm_tile(1:kproma,1:ksfc_type) = cdimissval
-!  special handling for land points to avoid Arithmetic exception in jsbach
-     pcfh_tile(1:kproma,1:idx_lnd) = 0.0_wp
-     pcfm_tile(1:kproma,1:idx_lnd) = 0.0_wp
+     pcfh_tile(1:kproma,1:ksfc_type) = 0.0_wp
+     pcfm_tile(1:kproma,1:ksfc_type) = 0.0_wp
 
 ! multiply neutral coefficients by stability functions
 
@@ -844,11 +841,10 @@ CONTAINS
     ! new t2m, 2m dew point, 10m wind components
     !------------------------------------------------------------------------------
 
-!  preset values to missing value
-    pbn_tile (1:kproma,1:ksfc_type) = cdimissval
-    pbhn_tile(1:kproma,1:ksfc_type) = cdimissval
-    pbm_tile (1:kproma,1:ksfc_type) = cdimissval
-    pbh_tile (1:kproma,1:ksfc_type) = cdimissval
+    pbn_tile (1:kproma,1:ksfc_type) = 0._wp
+    pbhn_tile(1:kproma,1:ksfc_type) = 0._wp
+    pbm_tile (1:kproma,1:ksfc_type) = 0._wp
+    pbh_tile (1:kproma,1:ksfc_type) = 0._wp
     DO jsfc = 1,ksfc_type
       DO jls = 1,is(jsfc)
 ! set index
