@@ -45,8 +45,8 @@ restart_interval="P01D"
 #
 # NEEDED TO KEEP THIS TEST WORKING WITHOUT "--enable-mtime-loop" CONFIGURATION.
 # TO BE DELETED AFTER THE "mtime time loop" IS COMPLETELY IMPLEMENTED.
-(( dt_checkpoint =  1 * day))    # !! MUST BE EQUAL TO "checkpoint_interval"  !!
-(( dt_restart    =  1 * day))    # !! MUST BE EQUAL TO "restart_interval"     !!
+(( dt_checkpoint =  8 * minute))    # !! MUST BE EQUAL TO "checkpoint_interval"  !!
+(( dt_restart    = 16 * minute))    # !! MUST BE EQUAL TO "restart_interval"     !!
 
 # output intervals
 output_interval_3d="PT4M"
