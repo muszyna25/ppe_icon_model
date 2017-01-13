@@ -331,7 +331,7 @@ CONTAINS
     REAL(wp), INTENT(IN)  :: vct_a(:)
     INTEGER,  INTENT(IN)  :: nflat  !< level from which on coordinate surfaces are flat
     !
-    CHARACTER(len=MAX_CHAR_LENGTH) :: vcoord_type
+    CHARACTER(len=*) :: vcoord_type
     !
     ! local
     INTEGER :: jk
