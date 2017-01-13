@@ -30,14 +30,14 @@ MODULE mo_nh_init_utils
   USE mo_nwp_lnd_types,         ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_ext_data_types,        ONLY: t_external_data
   USE mo_parallel_config,       ONLY: nproma
-  USE mo_run_config,            ONLY: msg_level, ntracer
+  USE mo_run_config,            ONLY: ntracer
   USE mo_grid_config,           ONLY: l_limited_area, n_dom
   USE mo_dynamics_config,       ONLY: nnow, nnow_rcf
   USE mo_physical_constants,    ONLY: grav, cpd, rd, cvd_o_rd, p0ref
   USE mo_vertical_coord_table,  ONLY: vct_b
-  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, nclass_aero
+  USE mo_impl_constants,        ONLY: nclass_aero
   USE mo_math_constants,        ONLY: pi
-  USE mo_exception,             ONLY: message, message_text, finish
+  USE mo_exception,             ONLY: finish
   USE mo_sync,                  ONLY: sync_patch_array, SYNC_C
   USE mo_intp_data_strc,        ONLY: t_int_state
   USE mo_intp,                  ONLY: edges2cells_scalar

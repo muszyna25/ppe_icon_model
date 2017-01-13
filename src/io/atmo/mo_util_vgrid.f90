@@ -15,7 +15,7 @@
 !!
 MODULE mo_util_vgrid
 
-  USE ISO_C_BINDING,                        ONLY: C_SIGNED_CHAR, C_DOUBLE
+  USE ISO_C_BINDING,                        ONLY: C_DOUBLE
   USE mo_cdi,                               ONLY: streamDefTimestep, streamOpenWrite, gridCreate, institutInq, vlistCreate, &
                                                 & vlistInqVarZaxis, vlistInqVarGrid, streamInqVlist, streamOpenRead, &
                                                 & ZAXIS_REFERENCE, zaxisCreate, TSTEP_CONSTANT, vlistDefVar, FILETYPE_NC2, &
@@ -26,7 +26,7 @@ MODULE mo_util_vgrid
                                                 & gridDefPosition, gridInqUUID, gridDefNumber, gridDefUUID, zaxisDefLevels, &
                                                 & gridDefNvertex, vlistDefInstitut, zaxisInqUUID, streamReadVar, &
                                                 & GRID_UNSTRUCTURED
-  USE mo_kind,                              ONLY: wp, dp, sp
+  USE mo_kind,                              ONLY: wp, dp
   USE mo_exception,                         ONLY: finish, message, message_text, warning
   !
   USE mo_dynamics_config,                   ONLY: iequations

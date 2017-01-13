@@ -29,7 +29,7 @@
 MODULE mo_init_vgrid
 
   USE mo_kind,                  ONLY: wp
-  USE mo_impl_constants,        ONLY: max_dom, MAX_CHAR_LENGTH
+  USE mo_impl_constants,        ONLY: max_dom
   USE mo_math_constants,        ONLY: pi
   USE mo_exception,             ONLY: message, message_text, finish
   USE mo_run_config,            ONLY: msg_level
