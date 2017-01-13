@@ -1132,8 +1132,15 @@ END SUBROUTINE message
     zsiltf   (ie,ke_soil+1)      , & ! mean fraction of clay (weight percent)
     zb_por   (ie,ke_soil+1)      , & ! pore size distribution index
     zpsis    (ie,ke_soil+1)      , & ! air entry potential (m)
-    zw_m_soil (ie)        , &  ! maximum of frac liquid water content (-)  mineral soil
-    zw_m     (ie)              ! maximum of liquid water content  (m)
+    zw_m_org         , &  ! maximum of  liquid water content   organic
+    zw_m_soil        , &  ! maximum of  liquid water content   mineral soil
+    zw_m_up          , &  ! maximum of  liquid water content   at temp -3 degC
+    zw_m_low         , &  ! maximum of  liquid water content   at temp -40 degC
+    zw_m_org_low     , &  ! maximum of  liquid water content   organic at temp -40 degC
+    zw_m_soil_low    , &  ! maximum of  liquid water content   mineral soil at temp -40 degC
+    t_zw_up          , &  ! temp -3 degC
+    t_zw_low         , &  ! temp -40 degC
+    zw_m     (ie)         ! maximum of liquid water content  (m)
 
   INTEGER  (KIND=iintegers ) ::  &
     m_styp   (ie)      , & ! soil type
@@ -4065,24 +4072,43 @@ ENDIF
          DO ic=1,icount_soil
             i=soil_list(ic)
                 ztx      = t0_melt
+
+
                 zw_m(i)     = zporv(i,kso)*zdzhs(kso)
                 IF(t_so_new(i,kso).LT.(t0_melt-zepsi)) THEN
+                t_zw_up  = 270.15_ireals ! temp -3 degC
+                t_zw_low = 233.15_ireals ! temp -40 degC
+
                   zaa    = g*zpsis(i,kso)/lh_f
 !                  zw_m(i) = zw_m(i)*EXP(-zedb(i,kso)*LOG((t_so_new(i,kso) - t0_melt)/(t_so_new(i,kso)*zaa)) )
+                  zw_m(i) = zporv(i,kso)*zdzhs(kso)*EXP(-zedb(i,kso)*LOG((t_so_new(i,kso) - t0_melt)/(t_so_new(i,kso)*zaa)) )
+! Liq. water content at -3 degC
+                  zw_m_up = zporv(i,kso)*zdzhs(kso)*EXP(-zedb(i,kso)*LOG((t_zw_up - t0_melt)/(t_zw_up*zaa)) )
 !
-! J. Helmert: Soil ice parameterization according to K. Schaefer and Jafarov, E.,2016, doi:10.5194/bg-13-1991-2016
-                  zd = LOG((T_ref_ice-(t_so_new(i,kso)-t0_melt))/T_star_ice)
-                  zw_m_soil(i) = 0.01_ireals*(zsandf(i,kso)*EXP(b_sand*zd) +                &
+! J. Helmert: Soil ice parameterization according to K. Schaefer and Jafarov, E.,2016,
+!                                                    doi:10.5194/bg-13-1991-2016
+! Determine liq. water content at -40 degC
+                  zd = LOG((T_ref_ice-(t_zw_low-t0_melt))/T_star_ice)
+                  zw_m_soil = 0.01_ireals*(zsandf(i,kso)*EXP(b_sand*zd) +                &
                                  zclayf(i,kso)*EXP(b_clay*zd) + zsiltf(i,kso)*EXP(b_silt*zd))
 
 ! J. Helmert: Scale soil ice content with organic soil horizon.
 !             should decrease the root zone liquid water content of frozen soil for low temperatures significantly!
                   IF(zmls(kso) < rootdp(i)) THEN
                     zzz = plcov(i)*(rootdp(i)-zmls(kso))/rootdp(i)
-                    zw_m(i) = zporv(i,kso)*zdzhs(kso)*(zzz*EXP(b_org*zd) + (1._ireals-zzz)*zw_m_soil(i))
+                    zw_m_low = zporv(i,kso)*zdzhs(kso)*(zzz*EXP(b_org*zd) + (1._ireals-zzz)*zw_m_soil)
                   ELSE
-                    zw_m(i) = zporv(i,kso)*zdzhs(kso)*zw_m_soil(i)
+                    zw_m_low = zporv(i,kso)*zdzhs(kso)*zw_m_soil
                   END IF
+   
+      IF(t_so_new(i,kso).LT.t_zw_up) THEN ! Logarithmic Interpolation between -3 degC and -40 degC 
+         zw_m(i) = zw_m_low*EXP((t_so_new(i,kso) - t_zw_low)*(LOG(zw_m_up) - LOG(zw_m_low))/(t_zw_up-t_zw_low))
+      END IF
+
+! J. Helmert: Below -40 degC keep the liq. water content constant
+      IF(t_so_new(i,kso).LT.t_zw_low) zw_m(i) = zw_m_low
+
+
 !       
                   zliquid= MAX(zepsi,w_so_now(i,kso) -  w_so_ice_now(i,kso))
                   znen   = 1._ireals-zaa*EXP(zb_por(i,kso)*LOG(zporv(i,kso)*zdzhs(kso)/zliquid))
@@ -4757,16 +4783,16 @@ ENDIF
 !
 ! J. Helmert: Soil ice parameterization according to K. Schaefer and Jafarov, E.,2016, doi:10.5194/bg-13-1991-2016
                   zd = LOG((T_ref_ice-(t_so_new(i,kso)-t0_melt))/T_star_ice)
-                  zw_m_soil(i) = 0.01_ireals*(zsandf(i,kso)*EXP(b_sand*zd) +                &
+                  zw_m_soil = 0.01_ireals*(zsandf(i,kso)*EXP(b_sand*zd) +                &
                                  zclayf(i,kso)*EXP(b_clay*zd) + zsiltf(i,kso)*EXP(b_silt*zd))
 
 ! J. Helmert: Scale soil ice content with organic soil horizon.
 !             should decrease the root zone liquid water content of frozen soil for low temperatures significantly!
                   IF(zmls(kso) < rootdp(i)) THEN
                     zzz = plcov(i)*(rootdp(i)-zmls(kso))/rootdp(i)
-                    zw_m(i) = zporv(i,kso)*zdzhs(kso)*(zzz*EXP(b_org*zd) + (1._ireals-zzz)*zw_m_soil(i))
+                    zw_m(i) = zporv(i,kso)*zdzhs(kso)*(zzz*EXP(b_org*zd) + (1._ireals-zzz)*zw_m_soil)
                   ELSE
-                    zw_m(i) = zporv(i,kso)*zdzhs(kso)*zw_m_soil(i)
+                    zw_m(i) = zporv(i,kso)*zdzhs(kso)*zw_m_soil
                   END IF
 
                   zliquid= MAX(zepsi,w_so_now(i,kso) -  w_so_ice_now(i,kso))
