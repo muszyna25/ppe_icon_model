@@ -1038,15 +1038,9 @@ CONTAINS
       tend%   va(:,:,jb)      = tend%   va(:,:,jb)      + tend%   va_cnv(:,:,jb)
       tend%   ta(:,:,jb)      = tend%   ta(:,:,jb)      + tend%   ta_cnv(:,:,jb)
       tend% qtrc(:,:,jb,iqv)  = tend% qtrc(:,:,jb,iqv)  + tend% qtrc_cnv(:,:,jb,iqv)
+      tend% qtrc(:,:,jb,iqc)  = tend% qtrc(:,:,jb,iqc)  + tend% qtrc_cnv(:,:,jb,iqc)
+      tend% qtrc(:,:,jb,iqi)  = tend% qtrc(:,:,jb,iqi)  + tend% qtrc_cnv(:,:,jb,iqi)
       tend% qtrc(:,:,jb,iqt:) = tend% qtrc(:,:,jb,iqt:) + tend% qtrc_cnv(:,:,jb,iqt:)
-
-      ! If the cloud scheme is not used, then the tendencies of cloud water and ice tendencies
-      ! due to detrainement from convection is consumed in the cloud scheme. Otherwise these
-      ! tendencies from convection accumulate.
-      IF(.NOT.echam_phy_config%lcond) THEN
-         tend% qtrc(:,:,jb,iqc) = tend% qtrc(:,:,jb,iqc) + tend% qtrc_cnv(:,:,jb,iqc)
-         tend% qtrc(:,:,jb,iqi) = tend% qtrc(:,:,jb,iqi) + tend% qtrc_cnv(:,:,jb,iqi)
-      END IF
 
     ELSE ! NECESSARY COMPUTATIONS IF MASSFLUX IS BY-PASSED
 
@@ -1055,6 +1049,17 @@ CONTAINS
       itype(:)   = 0
 
     ENDIF !lconv
+
+    !-------------------------------------------------------------
+    ! Update provisional physics state
+    !
+!!$    field% ta  (:,:,jb)     = field% ta  (:,:,jb)     + tend% ta  (:,:,jb)    *pdtime
+!!$    field% qtrc(:,:,jb,iqv) = field% qtrc(:,:,jb,iqv) + tend% qtrc(:,:,jb,iqv)*pdtime
+    field% qtrc(:,:,jb,iqc) = field% qtrc(:,:,jb,iqc) + tend% qtrc(:,:,jb,iqc)*pdtime
+    field% qtrc(:,:,jb,iqi) = field% qtrc(:,:,jb,iqi) + tend% qtrc(:,:,jb,iqi)*pdtime
+    !
+    !-------------------------------------------------------------
+
 
     !-------------------------------------------------------------
     ! 7. LARGE SCALE CONDENSATION.
@@ -1080,10 +1085,6 @@ CONTAINS
         &        field% qtrc     (:,:,jb,iqi), &! in  xim1
         &         tend% ta       (:,:,jb),     &! in  tte
         &         tend% qtrc     (:,:,jb,iqv), &! in  qte
-        &         tend% qtrc     (:,:,jb,iqc), &! in  xlte
-        &         tend% qtrc     (:,:,jb,iqi), &! in  xite
-        &         tend% qtrc_cnv (:,:,jb,iqc), &! in  xtecl
-        &         tend% qtrc_cnv (:,:,jb,iqi), &! in  xteci
         !
         &        itype,                        &! inout
         &        field% aclc     (:,:,jb),     &! inout

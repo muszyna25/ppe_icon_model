@@ -94,8 +94,7 @@ CONTAINS
                            , ptm1                                                    &
                            , pqm1,         pxlm1,        pxim1                       &
                            , ptte                                                    &
-                           , pqte,         pxlte,        pxite                       &
-                           , pxtecl,       pxteci                                    &
+                           , pqte                                                    &
     ! - INPUT/OUTPUT 1D .
                            , ktype                                                   &
     ! - INPUT/OUTPUT 2D .
@@ -127,11 +126,7 @@ CONTAINS
       & pxlm1    (kbdim,klev)     ,&!< cloud liquid water                        (n-1)
       & pxim1    (kbdim,klev)     ,&!< cloud ice                                 (n-1)
       & ptte     (kbdim,klev)     ,&!< tendency of temperature
-      & pqte     (kbdim,klev)     ,&!< tendency of specific humidity
-      & pxlte    (kbdim,klev)     ,&!< tendency of cloud liquid water
-      & pxite    (kbdim,klev)     ,&!< tendency of cloud ice
-      & pxtecl   (kbdim,klev)     ,&!< detrained convective cloud liquid water   (n)
-      & pxteci   (kbdim,klev)       !< detrained convective cloud ice            (n)
+      & pqte     (kbdim,klev)       !< tendency of specific humidity
     REAL(wp), INTENT(INOUT) ::     &
       & paclc    (kbdim,klev)       !< cloud cover  (now diagnosed in cover)
     REAL(wp),INTENT(OUT)    ::     &
@@ -337,7 +332,7 @@ CONTAINS
            zrfl(jl)  = zrfl(jl)+zsnmlt
            zsfl(jl)  = zsfl(jl)-zsnmlt
            zsmlt(jl) = zsnmlt/pmdry(jl,jk)*pdtime
-           zsnmlt    = MAX(0.0_wp,pxim1(jl,jk)+(pxite(jl,jk)+pxteci(jl,jk))*pdtime)
+           zsnmlt    = MAX(0.0_wp,pxim1(jl,jk))
            zimlt(jl) = FSEL(-ztdif,0.0_wp,zsnmlt)
 321     END DO
 
@@ -478,7 +473,7 @@ CONTAINS
       !
 
       DO 401 jl = 1,kproma
-        zxip1         = pxim1(jl,jk)+(pxite(jl,jk)+pxteci(jl,jk))*pdtime-zimlt(jl)
+        zxip1         = pxim1(jl,jk)-zimlt(jl)
       !  zxip1         = pxim1(jl,jk)+pxite(jl,jk)*pdtime-zimlt(jl)
         zxip1         = MAX(zxip1,EPSILON(1._wp))
         ztmp1(jl)     = zxip1
@@ -525,9 +520,9 @@ CONTAINS
            nlocnt = nlocnt + 1
            nloidx(nlocnt) = jl
         END IF
-        zesw          = uaw(jl)*zpapm1_inv(jl)
-        zesw          = MIN(zesw,0.5_wp)
-        zqsw          = zesw/(1._wp-vtmpc1*zesw)
+      !  zesw          = uaw(jl)*zpapm1_inv(jl)
+      !  zesw          = MIN(zesw,0.5_wp)
+      !  zqsw          = zesw/(1._wp-vtmpc1*zesw)
       !  zsupsatw(jl)  = MAX(pqm1(jl,jk)/zqsw-1.0_wp,0.0_wp)
 420   END DO
 
@@ -563,9 +558,8 @@ CONTAINS
         zxib(jl)     = 0.0_wp
         zxlb(jl)     = 0.0_wp
         zclcauxi(jl) = 0.0_wp
-        zxip1        = pxim1(jl,jk)+(pxite(jl,jk)+pxteci(jl,jk))*pdtime+zqsed(jl)    &
-                                                                      -zimlt(jl)
-        zxlp1        = pxlm1(jl,jk)+(pxlte(jl,jk)+pxtecl(jl,jk))*pdtime+zimlt(jl)
+        zxip1        = pxim1(jl,jk)-zimlt(jl)+zqsed(jl)
+        zxlp1        = pxlm1(jl,jk)+zimlt(jl)
         zxievap(jl)  = MAX(0.0_wp,zxip1)
         zxlevap(jl)  = MAX(0.0_wp,zxlp1)
 430   END DO
@@ -575,9 +569,8 @@ CONTAINS
       DO 431 nl = 1,locnt
         jl = loidx(nl)
         zclcauxi(jl) = 1._wp/zclcaux(jl)
-        zxip1        = pxim1(jl,jk)+(pxite(jl,jk)+pxteci(jl,jk))*pdtime+zqsed(jl)    &
-                                                                      -zimlt(jl)
-        zxlp1        = pxlm1(jl,jk)+(pxlte(jl,jk)+pxtecl(jl,jk))*pdtime+zimlt(jl)
+        zxip1        = pxim1(jl,jk)-zimlt(jl)+zqsed(jl)
+        zxlp1        = pxlm1(jl,jk)+zimlt(jl)
         zxib(jl)     = zxip1*zclcauxi(jl)
         zxlb(jl)     = zxlp1*zclcauxi(jl)
       !  zxievap(jl)  = (1.0_wp-zclcaux(jl))*MAX(0.0_wp,zxip1)
@@ -654,8 +647,7 @@ CONTAINS
       DO jl = 1,kproma
         ztp1tmp(jl) = ztp1(jl) + zlvdcp(jl)*zcnd(jl) + zlsdcp(jl)*zdep(jl)
         zqp1tmp(jl) = zqp1(jl) -            zcnd(jl) -            zdep(jl)
-        zxip1       = MAX(pxim1(jl,jk)+(pxite(jl,jk)+pxteci(jl,jk))*pdtime            &
-                      +zqsed(jl)-zimlt(jl)-zxievap(jl)+zgenti(jl)+zdep(jl),0.0_wp)
+        zxip1       = MAX(pxim1(jl,jk)+zqsed(jl)-zimlt(jl)-zxievap(jl)+zgenti(jl)+zdep(jl),0.0_wp)
         ztmp1(jl)   = zxip1
       END DO
 
@@ -1142,16 +1134,16 @@ CONTAINS
          &       + alf*(-zsmlt(jl)-zimlt(jl)+zfrl(jl)+zsacl(jl)) )/pdtime
 
        pqte_cld(jl,jk)   = pqte_cld(jl,jk)  + zqvte
-       pxlte_cld(jl,jk)  = pxlte_cld(jl,jk) + pxtecl(jl,jk) + zxlte
-       pxite_cld(jl,jk)  = pxite_cld(jl,jk) + pxteci(jl,jk) + zxite
+       pxlte_cld(jl,jk)  = pxlte_cld(jl,jk) + zxlte
+       pxite_cld(jl,jk)  = pxite_cld(jl,jk) + zxite
        pq_cld(jl,jk)     = pq_cld(jl,jk)    + zq*pmdry(jl,jk)
 820 END DO
 
 !IBM* NOVECTOR
     DO 821 jl = 1,kproma
 
-       zxlp1        = pxlm1(jl,jk) + (pxlte(jl,jk)+pxlte_cld(jl,jk))*pdtime
-       zxip1        = pxim1(jl,jk) + (pxite(jl,jk)+pxite_cld(jl,jk))*pdtime
+       zxlp1        = pxlm1(jl,jk) + pxlte_cld(jl,jk)*pdtime
+       zxip1        = pxim1(jl,jk) + pxite_cld(jl,jk)*pdtime
     !
     !       8.4   Corrections: Avoid negative cloud water/ice
     !
@@ -1227,7 +1219,7 @@ CONTAINS
     !
     DO 933 jk     = ktdia,klev
        DO 932 jl   = 1,kproma
-          zxlvi(jl)  = zxlvi(jl)   + (pxlm1 (jl,jk)+(pxlte(jl,jk)+pxlte_cld(jl,jk))*pdtime)*pmdry(jl,jk)
+          zxlvi(jl)  = zxlvi(jl)   + (pxlm1 (jl,jk)+pxlte_cld(jl,jk)*pdtime)*pmdry(jl,jk)
 932    END DO
 933 END DO
 
@@ -1236,7 +1228,7 @@ CONTAINS
        zxlvitop(jl) = 0.0_wp
        klevtop = kctop(jl) - 1
        DO 936 jk = ktdia, klevtop
-          zxlvitop(jl) = zxlvitop(jl)+(pxlm1 (jl,jk)+(pxlte(jl,jk)+pxlte_cld(jl,jk))*pdtime)*pmdry(jl,jk)
+          zxlvitop(jl) = zxlvitop(jl)+(pxlm1 (jl,jk)+pxlte_cld(jl,jk)*pdtime)*pmdry(jl,jk)
 936    END DO
 938 END DO
 
