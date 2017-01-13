@@ -22,7 +22,7 @@
 #include "omp_definitions.inc"
 !----------------------------
 
-MODULE mo_echam_radiation
+MODULE mo_interface_echam_radiation
 
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: pi
@@ -132,4 +132,4 @@ CONTAINS
   END SUBROUTINE echam_radiation
   !----------------------------------------------------------------
 
-END MODULE mo_echam_radiation
+END MODULE mo_interface_echam_radiation

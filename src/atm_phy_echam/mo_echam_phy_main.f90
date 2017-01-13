@@ -69,7 +69,7 @@ MODULE mo_echam_phy_main
   USE mo_ssortns,             ONLY: ssodrag
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
     &                                  calculate_time_interpolation_weights
-  USE mo_echam_radiation,     ONLY: echam_radiation
+  USE mo_interface_echam_radiation, ONLY: echam_radiation
 
   USE mo_parallel_config     ,ONLY: nproma
   USE mo_loopindices         ,ONLY: get_indices_c
