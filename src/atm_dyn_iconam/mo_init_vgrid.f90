@@ -29,7 +29,7 @@
 MODULE mo_init_vgrid
 
   USE mo_kind,                  ONLY: wp
-  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH
+  USE mo_impl_constants,        ONLY: max_dom, MAX_CHAR_LENGTH
   USE mo_math_constants,        ONLY: pi
   USE mo_exception,             ONLY: message, message_text, finish
   USE mo_run_config,            ONLY: msg_level
@@ -51,15 +51,10 @@ MODULE mo_init_vgrid
   PUBLIC :: prepare_sleve_coord
   PUBLIC :: init_vert_coord
 
-  ! Dirty stuff
-  ! So far used by mo_nh_testcase_nml, where these guys are set.
-  REAL(wp) :: layer_thickness        ! constant layer thickness (A(k)-A(k+1)) for 
-                                     ! Gal-Chen hybrid coordinate. (m)
-                                     ! If layer_thickness<0,  A(k), B(k) are read 
-                                     ! from file.                                    
-  INTEGER  :: n_flat_level           ! Number of flat levels, i.e. where B=0.
+  INTEGER :: nflatlev(max_dom)
   !
-  PUBLIC :: layer_thickness, n_flat_level
+  PUBLIC :: nflatlev
+
 
 CONTAINS
 
@@ -74,10 +69,13 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Almut Gassmann, MPI-M, (2009-04-14)
   !!
-  SUBROUTINE init_hybrid_coord(nlev, vct_a, vct_b)
+  SUBROUTINE init_hybrid_coord(nlev, vct_a, vct_b, layer_thickness, n_flat_level)
 
     INTEGER,  INTENT(IN)    :: nlev  !< number of full levels
     REAL(wp), INTENT(INOUT) :: vct_a(:), vct_b(:)
+    REAL(wp), INTENT(IN)    :: layer_thickness   ! constant \Delta vct_a
+    INTEGER,  INTENT(IN)    :: n_flat_level      ! number of flat levels, 
+                                                 ! i.e. where vct_b
 
     REAL(wp) :: z_height, z_flat
     INTEGER  :: jk

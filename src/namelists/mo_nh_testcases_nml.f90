@@ -46,7 +46,7 @@ MODULE mo_nh_testcases_nml
                                    & nlayers_poly,                                   &
                                    & p_base_poly, h_poly, t_poly,                    &
                                    & tgr_poly, rh_poly, rhgr_poly
-  USE mo_init_vgrid,           ONLY: n_flat_level, layer_thickness
+!!$  USE mo_init_vgrid,           ONLY: n_flat_level, layer_thickness
   USE mo_nh_mrw_exp,           ONLY: mount_lonctr_mrw_deg, mount_latctr_mrw_deg,     &
                                    &  u0_mrw,  mount_height_mrw, mount_half_width,   &
                                    &  temp_i_mwbr_const, p_int_mwbr_const,           &
@@ -107,6 +107,15 @@ MODULE mo_nh_testcases_nml
   REAL(wp) :: bubctr_y  !Y-Center of the warm bubble on torus
 
   LOGICAL  :: is_toy_chem            ! .TRUE.: switch on terminator toy chemistry
+
+  ! settings for Gal-Chen vertical coordinate
+  ! Dirty stuff
+  ! Should be placed in a new namelist/configure state.
+  REAL(wp) :: layer_thickness        ! constant layer thickness (A(k)-A(k+1)) for 
+                                     ! Gal-Chen hybrid coordinate. (m)
+                                     ! If layer_thickness<0,  A(k), B(k) are read 
+                                     ! from file.                                    
+  INTEGER  :: n_flat_level           ! Number of flat levels, i.e. where B=0.
 
   ! terminator toy chemistry namelist switches 
   TYPE t_toy_chem

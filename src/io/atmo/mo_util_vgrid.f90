@@ -42,6 +42,7 @@ MODULE mo_util_vgrid
   USE mo_model_domain,                      ONLY: t_patch
   USE mo_ext_data_types,                    ONLY: t_external_data
   USE mo_intp_data_strc,                    ONLY: t_int_state
+  USE mo_nh_testcases_nml,                  ONLY: layer_thickness, n_flat_level
   USE mo_vertical_coord_table,              ONLY: init_vertical_coord_table
   USE mo_init_vgrid,                        ONLY: init_hybrid_coord, init_sleve_coord,                  &
     &                                             prepare_hybrid_coord, prepare_sleve_coord,            &
@@ -118,7 +119,7 @@ CONTAINS
         ! file:
         !
         IF (ivctype == 1) THEN
-          CALL init_hybrid_coord(p_patch(1)%nlev, vct_a, vct_b)
+          CALL init_hybrid_coord(p_patch(1)%nlev, vct_a, vct_b, layer_thickness, n_flat_level)
         ELSE IF (ivctype == 2) THEN
           CALL init_sleve_coord(p_patch(1)%nlev, vct_a, vct_b)
         ENDIF

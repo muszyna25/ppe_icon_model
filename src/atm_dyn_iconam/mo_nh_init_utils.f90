@@ -32,10 +32,10 @@ MODULE mo_nh_init_utils
   USE mo_parallel_config,       ONLY: nproma
   USE mo_run_config,            ONLY: msg_level, ntracer
   USE mo_grid_config,           ONLY: l_limited_area, n_dom
-  USE mo_dynamics_config,       ONLY: iequations, nnow, nnow_rcf
+  USE mo_dynamics_config,       ONLY: nnow, nnow_rcf
   USE mo_physical_constants,    ONLY: grav, cpd, rd, cvd_o_rd, p0ref
   USE mo_vertical_coord_table,  ONLY: vct_b
-  USE mo_impl_constants,        ONLY: max_dom, MAX_CHAR_LENGTH, nclass_aero
+  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, nclass_aero
   USE mo_math_constants,        ONLY: pi
   USE mo_exception,             ONLY: message, message_text, finish
   USE mo_sync,                  ONLY: sync_patch_array, SYNC_C
@@ -50,8 +50,6 @@ MODULE mo_nh_init_utils
   USE mo_atm_phy_nwp_config,    ONLY: iprog_aero
   USE mo_lnd_nwp_config,        ONLY: ntiles_total, l2lay_rho_snow, ntiles_water, lmulti_snow, &
                                       nlev_soil, nlev_snow, lsnowtile
-!!$  USE mo_util_uuid,             ONLY: t_uuid,  uuid_generate, uuid_parse, &
-!!$       &                              uuid_unparse, uuid_string_length
   USE mo_fortran_tools,         ONLY: init, copy
 
   IMPLICIT NONE
@@ -59,19 +57,12 @@ MODULE mo_nh_init_utils
   PRIVATE
 
 
-  INTEGER:: nflat, nflatlev(max_dom)
-
-!!$  REAL(wp) :: layer_thickness        ! (m)
-!!$  INTEGER  :: n_flat_level
-
   TYPE(t_saveinit_state), ALLOCATABLE  :: saveinit(:)
-
-  PUBLIC :: nflat, nflatlev !, n_flat_level, layer_thickness
 
   PUBLIC :: hydro_adjust, compute_smooth_topo, interp_uv_2_vn,  &
     &       init_w, adjust_w, convert_thdvars, convert_omega2w, &
-    &       hydro_adjust_downward, save_initial_state,          &
-    &       restore_initial_state
+    &       hydro_adjust_downward
+  PUBLIC :: save_initial_state, restore_initial_state
   PUBLIC :: compute_iau_wgt
 
 CONTAINS
@@ -904,24 +895,16 @@ CONTAINS
     TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd(:)
     TYPE(t_external_data),     INTENT(INOUT) :: ext_data(:)
 
-    INTEGER :: jg, ntl, ntw, nlev, nlevp1, nblks_c, nblks_e
+    INTEGER :: jg
 
     TYPE(t_lnd_prog), POINTER :: lnd_prog
     TYPE(t_lnd_diag), POINTER :: lnd_diag
     TYPE(t_wtr_prog), POINTER :: wtr_prog
 
-    ntl = ntiles_total
-    ntw = ntiles_total+ntiles_water
-
 
     DO jg = 1, n_dom
 
       IF(.NOT. p_patch(jg)%ldom_active) CYCLE
-
-      nlev    = p_patch(jg)%nlev
-      nlevp1  = p_patch(jg)%nlevp1
-      nblks_c = p_patch(jg)%nblks_c
-      nblks_e = p_patch(jg)%nblks_e
 
       lnd_prog => p_lnd(jg)%prog_lnd(nnow_rcf(jg))
       lnd_diag => p_lnd(jg)%diag_lnd
@@ -1179,64 +1162,5 @@ CONTAINS
     ENDIF
 
   END FUNCTION iau_sin
-
-  !----------------------------------------------------------------------------
-  ! Notes:
-  ! - i refers to the interface between layes and m to the mid of a layer
-  ! - two sets are available: for cell centres and vertices.
-  ! - what to do on edge points?
-  ! - need to be able two write/read grib and netcdf
-
-!!$  SUBROUTINE write_vert_coord (nlev,                                 &
-!!$       &                       nproma_c, nblks_c, z3d_ifc,  z3d_mfc, &
-!!$       &                       nproma_v, nblks_v, z3d_ifv, z3d_mfv,  &
-!!$       &                       hg_uuid, grid_no)
-!!$    INTEGER,      INTENT(in) :: nlev, nproma_c, nblks_c, nproma_v, nblks_v
-!!$    REAL(wp),     INTENT(in) :: z3d_ifc(nproma_c, nlev+1, nblks_c)
-!!$    REAL(wp),     INTENT(in) :: z3d_mfc(nproma_c, nlev,   nblks_c)
-!!$    REAL(wp),     INTENT(in) :: z3d_ifv(nproma_v, nlev+1, nblks_v)
-!!$    REAL(wp),     INTENT(in) :: z3d_mfv(nproma_v, nlev,   nblks_v)
-!!$    TYPE(t_uuid), INTENT(in) :: hg_uuid
-!!$    INTEGER,      INTENT(in) :: grid_no
-!!$
-!!$    TYPE(t_uuid) :: uuid(4)
-!!$    CHARACTER(len=uuid_string_length) :: uuid_string(4)
-!!$
-!!$    INTEGER :: n
-!!$
-!!$    ! get unique grid file identifier for GRIB2 and updated CF-Convention
-!!$
-!!$    DO n = 1, 4
-!!$      CALL uuid_generate(uuid(n))
-!!$      CALL uuid_unparse(uuid(n), uuid_string(n))
-!!$    ENDDO
-!!$
-!!$  END SUBROUTINE write_vert_coord
-!!$
-!!$  SUBROUTINE read_vert_coord (nlev,                                 &
-!!$       &                      nproma_c, nblks_c, z3d_ifc,  z3d_mfc, &
-!!$       &                      nproma_v, nblks_v, z3d_ifv, z3d_mfv,  &
-!!$       &                      hg_uuid, grid_no)
-!!$    INTEGER,      INTENT(in)  :: nlev, nproma_c, nblks_c, nproma_v, nblks_v
-!!$    REAL(wp),     INTENT(out) :: z3d_ifc(nproma_c, nlev+1, nblks_c)
-!!$    REAL(wp),     INTENT(out) :: z3d_mfc(nproma_c, nlev,   nblks_c)
-!!$    REAL(wp),     INTENT(out) :: z3d_ifv(nproma_v, nlev+1, nblks_v)
-!!$    REAL(wp),     INTENT(out) :: z3d_mfv(nproma_v, nlev,   nblks_v)
-!!$    TYPE(t_uuid), INTENT(out) :: hg_uuid
-!!$    INTEGER,      INTENT(out) :: grid_no
-!!$
-!!$    TYPE(t_uuid) :: uuid(4)
-!!$    CHARACTER(len=uuid_string_length) :: uuid_string(4)
-!!$
-!!$    INTEGER :: n
-!!$
-!!$    ! get unique grid file identifier for GRIB2 and updated CF-Convention
-!!$
-!!$    DO n = 1, 4
-!!$      CALL uuid_parse(uuid_string(n), uuid(n))
-!!$    ENDDO
-!!$
-!!$  END SUBROUTINE read_vert_coord
-  !----------------------------------------------------------------------------
 
 END MODULE mo_nh_init_utils
