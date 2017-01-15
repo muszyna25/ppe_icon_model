@@ -184,9 +184,6 @@ CONTAINS
         END DO
       END DO
     END DO
-    DO jl=1,kproma
-      locum(jl)=.FALSE.
-    END DO
     !
     !-----------------------------------------------------------------------
     !
