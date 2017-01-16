@@ -461,11 +461,18 @@ MODULE mo_ocean_types
     ! Eventually switch to other second indexing if this is more appropriate
     ! new constructs for mimetic core:
     mapEdgesToEdges_3D                         :: edge2edge_viacell_coeff
+
+! Note: the following have the connectivity at the first index
     mapEdgesToEdges_2D                         :: edge2edge_viacell_coeff_top       ! the same as the top edge2edge_viacell_coeff
     mapEdgesToEdges_2D                         :: edge2edge_viacell_coeff_integrated! the other levels integrated
     mapEdgesToEdges_2D                         :: edge2edge_viacell_coeff_all       ! all the levels integrated
 
-    mapEdgesToEdges                            :: edge2edge_viavert_coeff
+    mapCellsToCells_2D                         :: lhs_all                ! the left hand side operator coefficients of the height solver
+    onCells_2D_Connectivity                    :: lhs_CellToCell_index   ! connectivity of the above
+    onCells_2D_Connectivity                    :: lhs_CellToCell_block   ! connectivity of the above
+! End Note
+ 
+   mapEdgesToEdges                            :: edge2edge_viavert_coeff
 
     !coefficient for surface layer, changes in time, in contrast to other coefficients
 !     TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2cell_coeff_cc_dyn(:,:,:,:)

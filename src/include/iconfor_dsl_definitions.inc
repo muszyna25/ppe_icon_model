@@ -54,6 +54,7 @@
 #define mapCellsToEdges_3D_RealPrecision(pr)  REAL(pr), POINTER, DIMENSION(:,:,:,:)
 #define mapCellsToEdges_2D    REAL(wp), POINTER, DIMENSION(:,:,:)
 #define mapCellsToEdges_2D_RealPrecision(pr)  REAL(pr), POINTER, DIMENSION(:,:,:)
+#define mapCellsToCells_2D    REAL(wp), POINTER, DIMENSION(:,:,:)
 
 #define mapEdgesToCells_3D_RealPrecision(pr) REAL(pr), POINTER, DIMENSION(:,:,:,:)
 #define mapEdgesToCells_2D_RealPrecision(pr) REAL(pr), POINTER, DIMENSION(:,:,:)

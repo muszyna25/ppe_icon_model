@@ -29,14 +29,16 @@ MODULE mo_ocean_math_operators
   USE mo_kind,               ONLY: wp, sp
   USE mo_parallel_config,    ONLY: nproma
   USE mo_exception,          ONLY: finish,message
-  USE mo_run_config,         ONLY: ltimer, dtime
+  USE mo_run_config,         ONLY: dtime
+  USE mo_physical_constants, ONLY: grav
   USE mo_math_constants
-  USE mo_physical_constants
+!   USE mo_physical_constants
   USE mo_impl_constants,     ONLY: boundary, sea_boundary, min_dolic !,sea,land, land_boundary, sea, max_char_length, &
   USE mo_model_domain,       ONLY: t_patch, t_patch_3D
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce, &
-    & select_solver, select_restart_mixedprecision_gmres, i_bc_veloc_lateral,i_bc_veloc_lateral_noslip
+    & select_solver, select_restart_mixedprecision_gmres, i_bc_veloc_lateral,i_bc_veloc_lateral_noslip, &
+    & select_lhs, select_lhs_matrix, ab_beta, ab_gam
   
   USE mo_dynamics_config,    ONLY: nold
   USE mo_util_dbg_prnt,      ONLY: dbg_print
@@ -2023,7 +2025,8 @@ CONTAINS
   !!
 !<Optimize:inUse>
   SUBROUTINE update_thickness_dependent_operator_coeff( patch_3D, ocean_state, &
-	  & operators_coefficients, solvercoeff_sp, inTopCellThickness)
+    & operators_coefficients, solvercoeff_sp, inTopCellThickness)
+
     TYPE(t_patch_3D ),TARGET, INTENT(in)   :: patch_3D
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
     TYPE(t_operator_coeff), INTENT(in)      :: operators_coefficients
@@ -2138,10 +2141,10 @@ CONTAINS
 
             sum_to_2D_coeffs(6, je, blockNo) = &
               & top_coeffs(6, je, blockNo) * edge_thickness(edge_2_3_index, 1, edge_2_3_block) &
-              & + integrated_coeffs(6, je, blockNo)	  		  
+              & + integrated_coeffs(6, je, blockNo)
 
           ENDIF
-		
+
         END DO
       END DO ! blockNo = edges_in_domain%start_block, edges_in_domain%end_block
 !ICON_OMP_END_DO
@@ -2226,7 +2229,9 @@ CONTAINS
 !ICON_OMP_END_PARALLEL    
     !-------------------------------------------------------------------------
     
-    
+    IF (select_lhs == select_lhs_matrix) &
+      CALL update_lhs_matrix_coeff( patch_2D, operators_coefficients)
+
     !---------Debug Diagnostics-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
     CALL dbg_print('heightRelQuant: h_e'    ,ocean_state%p_diag%h_e        ,str_module,idt_src, &
@@ -2247,9 +2252,32 @@ CONTAINS
     !---------------------------------------------------------------------
   END SUBROUTINE update_thickness_dependent_operator_coeff
   !-------------------------------------------------------------------------
- 
- 
   
+  !-------------------------------------------------------------------------
+  SUBROUTINE update_lhs_matrix_coeff( patch_2D, operators_coefficients)
+
+    TYPE(t_patch), POINTER                  :: patch_2D
+    TYPE(t_operator_coeff), INTENT(in)      :: operators_coefficients
+
+    TYPE(t_subset_range), POINTER :: cells_in_domain
+    INTEGER :: blockNo, cell_StartIndex, cell_EndIndex, jc
+     REAL(wp) :: gdt2_inv, gam_times_beta
+
+    cells_in_domain  => patch_2D%cells%in_domain
+
+    gdt2_inv       = 1.0_wp / (grav*(dtime)**2)
+    gam_times_beta = ab_gam * ab_beta
+
+    DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, blockNo, cell_StartIndex, cell_EndIndex)
+      DO jc = cell_StartIndex, cell_EndIndex
+
+      ENDDO
+    ENDDO
+
+  END SUBROUTINE update_lhs_matrix_coeff
+  !-------------------------------------------------------------------------
+ 
   !-------------------------------------------------------------------------
   SUBROUTINE check_cfl_horizontal(normal_velocity,inv_dual_edge_length,timestep,edges,threshold, &
     & cfl_diag, stop_on_violation, output)

@@ -193,6 +193,14 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: select_restart_mixedPrecision_gmres     = 3
   INTEGER :: select_solver                       = select_restart_gmres
   INTEGER :: solver_FirstGuess                   = 0
+
+  INTEGER, PARAMETER :: select_lhs_operators = 1
+  INTEGER, PARAMETER :: select_lhs_matrix    = 2
+  INTEGER :: select_lhs = select_lhs_operators
+
+
+
+
   LOGICAL :: use_continuity_correction           = .true.  
   INTEGER :: fast_performance_level              = 50 ! 5  ! 0= most safe, bit identical results, should be fast_sum = .false.
                                                       ! 1 = no optimized calls
@@ -327,6 +335,7 @@ MODULE mo_ocean_nml
     &                 solver_tolerance             , &
     &                 solver_max_iter_per_restart_sp, &
     &                 solver_tolerance_sp          , &
+    &                 select_lhs                   , &
     &                 MassMatrix_solver_tolerance  , &
     &                 threshold_vn                 , &
     &                 surface_module               , &

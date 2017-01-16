@@ -36,7 +36,8 @@ MODULE mo_operator_ocean_coeff_3d
     &  arc_length, cvec2gvec
   USE mo_ocean_nml,           ONLY: n_zlev, no_tracer, &
     & coriolis_type, basin_center_lat, basin_height_deg, &
-    & select_solver, select_restart_mixedPrecision_gmres
+    & select_solver, select_restart_mixedPrecision_gmres, &
+    & select_lhs, select_lhs_matrix
   USE mo_exception,           ONLY: message, finish
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_parallel_config,     ONLY: nproma
@@ -625,6 +626,8 @@ CONTAINS
     IF (return_status /= success) THEN
       CALL finish ('mo_operator_ocean_coeff_3d:allocating edge2edge_viacell_coeff failed')
     ENDIF
+
+! Note: the following have the connectivity as first index
     ALLOCATE(operators_coefficients%edge2edge_viacell_coeff_top(1:2*no_primal_edges, nproma, nblks_e),stat=return_status)
     IF (return_status /= success) THEN
       CALL finish ('mo_operator_ocean_coeff_3d:allocating edge2edge_viacell_coeff_top failed')
@@ -637,6 +640,24 @@ CONTAINS
     IF (return_status /= success) THEN
       CALL finish ('mo_operator_ocean_coeff_3d:allocating edge2edge_viacell_coeff_all failed')
     ENDIF
+
+    IF (select_lhs == select_lhs_matrix) THEN
+      IF ( patch_2D%cells%max_connectivity /= 3 ) &
+        CALL finish("select_lhs_matrix","this works only for triangles")
+      ALLOCATE(operators_coefficients%lhs_all(0:9, nproma, alloc_cell_blocks),              &
+               operators_coefficients%lhs_CellToCell_index(1:9, nproma, alloc_cell_blocks), &
+               operators_coefficients%lhs_CellToCell_block(1:9, nproma, alloc_cell_blocks), &
+                stat=return_status)
+      IF (return_status /= success) THEN
+        CALL finish ('mo_operator_ocean_coeff_3d:allocating lhs_all failed')
+      ENDIF
+    ENDIF
+      
+     
+    
+! End Note
+
+
 
     ALLOCATE(operators_coefficients%edge2cell_coeff_cc(nproma,nz_lev,alloc_cell_blocks,1:no_primal_edges),stat=return_status)
     IF (return_status /= success) THEN
@@ -874,7 +895,12 @@ CONTAINS
     DEALLOCATE(operators_coefficients%edge2edge_viacell_coeff_top)
     DEALLOCATE(operators_coefficients%edge2edge_viacell_coeff_integrated)
     DEALLOCATE(operators_coefficients%edge2edge_viacell_coeff_all)
-
+    IF (select_lhs == select_lhs_matrix) THEN
+      DEALLOCATE(operators_coefficients%lhs_all,              &
+               operators_coefficients%lhs_CellToCell_index, &
+               operators_coefficients%lhs_CellToCell_block)
+    ENDIF
+ 
     DEALLOCATE(operators_coefficients%edge2cell_coeff_cc)
 
 !     DEALLOCATE(operators_coefficients%edge2cell_coeff_cc_dyn)
