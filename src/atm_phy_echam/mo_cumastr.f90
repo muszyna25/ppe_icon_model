@@ -81,9 +81,8 @@ CONTAINS
     &                  ldland,                                         &! in
     &                  pmdry,                                          &! in
     &                  ptp1,     pup1,     pvp1,                       &! in
-    &                  pqm1,     pxlp1,    pxip1,                      &! in
+    &                  pqp1,     pxlp1,    pxip1,                      &! in
     &                  pxtp1,                                          &! in
-    &                  pqte,                                           &! in
     &                  pverv,    pqhfla,   pgeo,                       &! in
     &                  papp1,    paphp1,   pthvsig,                    &! in
     &                  prsfc,    pssfc,                                &! out
@@ -100,11 +99,10 @@ CONTAINS
     REAL(wp),INTENT(IN)  :: pdtime
     REAL(wp),INTENT(IN)  :: cevapcu(:)
     REAL(wp),INTENT(IN)  :: pmdry(kbdim,klev)
-    REAL(wp),INTENT(IN)  :: ptp1(kbdim,klev),         pqm1(kbdim,klev),   &
+    REAL(wp),INTENT(IN)  :: ptp1(kbdim,klev),         pqp1(kbdim,klev),   &
       &                     pup1(kbdim,klev),         pvp1(kbdim,klev),   &
       &                     pxlp1(kbdim,klev),        pxip1(kbdim,klev),  &
       &                     pxtp1(kbdim,klev,ktrac),                      &
-      &                     pqte(kbdim,klev),                             &
       &                     pverv(kbdim,klev),        pgeo(kbdim,klev),   &
       &                     papp1(kbdim,klev),        paphp1(kbdim,klevp1)
     REAL(wp),INTENT(IN)  :: pqte_dyn(kbdim,klev), pqte_phy(kbdim,klev)
@@ -149,7 +147,7 @@ CONTAINS
     DO jk=1,klev
 !IBM* NOVECTOR
       DO jl=1,kproma
-        zqp1(jl,jk)=MAX(0._wp,pqm1(jl,jk)+pqte(jl,jk)*pdtime)
+        zqp1(jl,jk)=MAX(0._wp,pqp1(jl,jk))
         zxp1(jl,jk)=MAX(0._wp,pxlp1(jl,jk)+pxip1(jl,jk))
         ztvp1(jl,jk)=ptp1(jl,jk)*(1._wp+vtmpc1*zqp1(jl,jk)-zxp1(jl,jk))
       END DO
@@ -162,7 +160,7 @@ CONTAINS
         zqsat(jl,jk)=ua(jl)/papp1(jl,jk)
         zqsat(jl,jk)=MIN(0.5_wp,zqsat(jl,jk))
         zqsat(jl,jk)=zqsat(jl,jk)/(1._wp-vtmpc1*zqsat(jl,jk))
-        zcpq(jl,jk)=cpd+(cpv-cpd)*MAX(pqm1(jl,jk)+pqte(jl,jk)*pdtime,0.0_wp) ! cp of moist air for comp. of fluxes
+        zcpq(jl,jk)=cpd+(cpv-cpd)*zqp1(jl,jk) ! cp of moist air for comp. of fluxes
       END DO
     END DO
     !

@@ -993,11 +993,10 @@ CONTAINS
         &                zta       (:,:),        &! in     tp1
         &                zua       (:,:),        &! in     up1
         &                zva       (:,:),        &! in     vp1
-        &          field% qtrc     (:,:,jb,iqv), &! in     qm1
+        &                zqtrc     (:,:,   iqv), &! in     qp1
         &                zqtrc     (:,:,   iqc), &! in     xlp1
         &                zqtrc     (:,:,   iqi), &! in     xip1
         &                zqtrc     (:,:,   iqt:),&! in     xtp1
-        &           tend% qtrc     (:,:,jb,iqv), &! in     qte  for internal updating
         &          field% omega    (:,:,jb),     &! in     vervel
         &          field% evap     (:,  jb),     &! in     qhfla (from "vdiff")
         &          field% geom     (:,:,jb),     &! in     geom1
