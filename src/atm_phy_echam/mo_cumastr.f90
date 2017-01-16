@@ -162,7 +162,7 @@ CONTAINS
         zqsat(jl,jk)=ua(jl)/papp1(jl,jk)
         zqsat(jl,jk)=MIN(0.5_wp,zqsat(jl,jk))
         zqsat(jl,jk)=zqsat(jl,jk)/(1._wp-vtmpc1*zqsat(jl,jk))
-        zcpq(jl,jk)=cpd+(cpv-cpd)*MAX(pqm1(jl,jk),0.0_wp) ! cp of moist air for comp. of fluxes
+        zcpq(jl,jk)=cpd+(cpv-cpd)*MAX(pqm1(jl,jk)+pqte(jl,jk)*pdtime,0.0_wp) ! cp of moist air for comp. of fluxes
       END DO
     END DO
     !
