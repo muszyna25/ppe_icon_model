@@ -40,8 +40,8 @@ start_date="1979-01-01T00:00:00Z"
   end_date="1979-01-01T01:00:00Z"
 
 # restart intervals
-checkpoint_interval="P01D"
-restart_interval="P01D"
+checkpoint_interval="PT08M"
+restart_interval="PT16M"
 #
 # NEEDED TO KEEP THIS TEST WORKING WITHOUT "--enable-mtime-loop" CONFIGURATION.
 # TO BE DELETED AFTER THE "mtime time loop" IS COMPLETELY IMPLEMENTED.
@@ -141,7 +141,7 @@ add_required_file ${basedir}/run/${atmo_namelist}                       ./
 # dictionary file for output variable names
 #
 dict_file="dict.${EXPNAME}"
-cat dict.iconam.mpim_inst  > ${dict_file}
+cat dict.iconam.mpim  > ${dict_file}
 add_required_file ${basedir}/run/${dict_file}                           ./
 
 # initial conditions
