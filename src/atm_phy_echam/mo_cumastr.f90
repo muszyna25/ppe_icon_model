@@ -80,14 +80,12 @@ CONTAINS
     &                  pdtime,                                         &! in
     &                  ldland,                                         &! in
     &                  pmdry,                                          &! in
-    &                  ptm1,     pum1,     pvm1,                       &! in
-    &                  pqm1,     pxlm1,    pxim1,                      &! in
-    &                  pxtm1,                                          &! in
-    &                  pqte,     pxlte,    pxite,                      &! in
+    &                  ptp1,     pup1,     pvp1,                       &! in
+    &                  pqm1,     pxlp1,    pxip1,                      &! in
+    &                  pxtp1,                                          &! in
+    &                  pqte,                                           &! in
     &                  pverv,    pqhfla,   pgeo,                       &! in
     &                  papp1,    paphp1,   pthvsig,                    &! in
-    &                  ptte,     pvom,     pvol,                       &! in
-    &                  pxtte,                                          &! inout
     &                  prsfc,    pssfc,                                &! out
     &                  ktype,    ictop,    ilab,                       &! out
     &                  ptopmax,                                        &! inout
@@ -98,37 +96,33 @@ CONTAINS
     &                  pxtte_cnv,                                      &! out
     &                  pcon_dtrl,pcon_dtri,pcon_iqte           )        ! out
 
-    INTEGER, INTENT (IN) :: klev, klevm1, klevp1, kproma, kbdim, ktrac
-    REAL(wp),INTENT (IN) :: pdtime
-    REAL(wp),INTENT (IN) :: cevapcu(:)
-    REAL(wp)::  ptm1(kbdim,klev),         pqm1(kbdim,klev),              &
-      &         pum1(kbdim,klev),         pvm1(kbdim,klev),              &
-      &         pqte(kbdim,klev),                                        &
-      &         pverv(kbdim,klev),        pgeo(kbdim,klev),              &
-      &         papp1(kbdim,klev),        paphp1(kbdim,klevp1)
-    REAL(wp)::  ptte(kbdim,klev),                                        &
-      &         pvom(kbdim,klev),         pvol(kbdim,klev)
-    REAL(wp)::  pxtte(kbdim,klev,ktrac)
-    REAL(wp),INTENT(IN)    :: pmdry(kbdim,klev)
-    REAL(wp),INTENT(IN)    :: pqte_dyn(kbdim,klev), pqte_phy(kbdim,klev)
-    REAL(wp),INTENT(OUT)   :: prsfc(kbdim), pssfc(kbdim)
-    REAL(wp),INTENT(OUT)   :: pq_cnv(kbdim,klev)
-    REAL(wp),INTENT(OUT)   :: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
-    REAL(wp),INTENT(OUT)   :: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
-    REAL(wp),INTENT(OUT)   :: pxtecl(kbdim,klev), pxteci(kbdim,klev)
-    REAL(wp),INTENT(OUT)   :: pcon_dtrl(kbdim), pcon_dtri(kbdim)
-    REAL(wp),INTENT(OUT)   :: pcon_iqte(kbdim)
+    INTEGER, INTENT(IN)  :: klev, klevm1, klevp1, kproma, kbdim, ktrac
+    REAL(wp),INTENT(IN)  :: pdtime
+    REAL(wp),INTENT(IN)  :: cevapcu(:)
+    REAL(wp),INTENT(IN)  :: pmdry(kbdim,klev)
+    REAL(wp),INTENT(IN)  :: ptp1(kbdim,klev),         pqm1(kbdim,klev),   &
+      &                     pup1(kbdim,klev),         pvp1(kbdim,klev),   &
+      &                     pxlp1(kbdim,klev),        pxip1(kbdim,klev),  &
+      &                     pxtp1(kbdim,klev,ktrac),                      &
+      &                     pqte(kbdim,klev),                             &
+      &                     pverv(kbdim,klev),        pgeo(kbdim,klev),   &
+      &                     papp1(kbdim,klev),        paphp1(kbdim,klevp1)
+    REAL(wp),INTENT(IN)  :: pqte_dyn(kbdim,klev), pqte_phy(kbdim,klev)
+    REAL(wp),INTENT(OUT) :: prsfc(kbdim), pssfc(kbdim)
+    REAL(wp),INTENT(OUT) :: pq_cnv(kbdim,klev)
+    REAL(wp),INTENT(OUT) :: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
+    REAL(wp),INTENT(OUT) :: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
+    REAL(wp),INTENT(OUT) :: pxtecl(kbdim,klev), pxteci(kbdim,klev)
+    REAL(wp),INTENT(OUT) :: pcon_dtrl(kbdim), pcon_dtri(kbdim)
+    REAL(wp),INTENT(OUT) :: pcon_iqte(kbdim)
     REAL(wp)::  pthvsig(kbdim)
     INTEGER ::  ktype(kbdim)
     REAL(wp)::  pqhfla(kbdim)
     REAL(wp)::  ptopmax(kbdim)
     INTEGER ::  ilab(kbdim,klev)
-    REAL(wp)::  pxlm1(kbdim,klev),        pxim1(kbdim,klev),             &
-      &         pxlte(kbdim,klev),        pxite(kbdim,klev)
     
-    REAL(wp)::  ztp1(kbdim,klev),         zqp1(kbdim,klev),              &
+    REAL(wp)::  zqp1(kbdim,klev),              &
       &         zxp1(kbdim,klev),         ztvp1(kbdim,klev),             &
-      &         zup1(kbdim,klev),         zvp1(kbdim,klev),              &
       &         ztu(kbdim,klev),          zqu(kbdim,klev),               &
       &         zlu(kbdim,klev),          zlude(kbdim,klev),             &
       &         zqude(kbdim,klev),                                       &
@@ -138,14 +132,12 @@ CONTAINS
       &         za(kbdim),                ua(kbdim)
     INTEGER ::  itopec2(kbdim),           idx(kbdim)
     INTEGER ::  icbot(kbdim),             ictop(kbdim)
-    REAL(wp)::  zxtp1(kbdim,klev,ktrac),  zxtu(kbdim,klev,ktrac),        &
-      &         pxtm1(kbdim,klev,ktrac)
+    REAL(wp)::  zxtu(kbdim,klev,ktrac)
     REAL(wp)::  ztopmax(kbdim)
     LOGICAL ::  locum(kbdim),             ldland(kbdim)
     !
     !  Local scalars:
-    REAL(wp):: zxlp1, zxip1
-    INTEGER :: ilevmin, jk, jl, jt
+    INTEGER :: ilevmin, jk, jl
     REAL(wp)::  zqte_dyn_phy(kbdim,klev)
     !
     !  Executable statements
@@ -157,17 +149,12 @@ CONTAINS
     DO jk=1,klev
 !IBM* NOVECTOR
       DO jl=1,kproma
-        ztp1(jl,jk)=ptm1(jl,jk)+ptte(jl,jk)*pdtime
         zqp1(jl,jk)=MAX(0._wp,pqm1(jl,jk)+pqte(jl,jk)*pdtime)
-        zxlp1=pxlm1(jl,jk)+pxlte(jl,jk)*pdtime
-        zxip1=pxim1(jl,jk)+pxite(jl,jk)*pdtime
-        zxp1(jl,jk)=MAX(0._wp,zxlp1+zxip1)
-        ztvp1(jl,jk)=ztp1(jl,jk)*(1._wp+vtmpc1*zqp1(jl,jk)-zxp1(jl,jk))
-        zup1(jl,jk)=pum1(jl,jk)+pvom(jl,jk)*pdtime
-        zvp1(jl,jk)=pvm1(jl,jk)+pvol(jl,jk)*pdtime
+        zxp1(jl,jk)=MAX(0._wp,pxlp1(jl,jk)+pxip1(jl,jk))
+        ztvp1(jl,jk)=ptp1(jl,jk)*(1._wp+vtmpc1*zqp1(jl,jk)-zxp1(jl,jk))
       END DO
 
-      CALL prepare_ua_index_spline('cucall',kproma,ztp1(1,jk),idx(1),za(1))
+      CALL prepare_ua_index_spline('cucall',kproma,ptp1(1,jk),idx(1),za(1))
       CALL lookup_ua_spline(kproma,idx(1),za(1),ua(1))
 
 !IBM* NOVECTOR
@@ -176,12 +163,6 @@ CONTAINS
         zqsat(jl,jk)=MIN(0.5_wp,zqsat(jl,jk))
         zqsat(jl,jk)=zqsat(jl,jk)/(1._wp-vtmpc1*zqsat(jl,jk))
         zcpq(jl,jk)=cpd+(cpv-cpd)*MAX(pqm1(jl,jk),0.0_wp) ! cp of moist air for comp. of fluxes
-      END DO
-
-      DO jt=1,ktrac
-        DO jl=1,kproma
-          zxtp1(jl,jk,jt)=pxtm1(jl,jk,jt)+pxtte(jl,jk,jt)*pdtime
-        END DO
       END DO
     END DO
     !
@@ -197,9 +178,9 @@ CONTAINS
     CALL cumastr(kproma, kbdim, klev, klevp1, klevm1, ilab,           &
       &          pdtime,                                              &
       &          pmdry,                                               &
-      &          ztp1,     zqp1,     zxp1,     zup1,   zvp1,          &
+      &          ptp1,     zqp1,     zxp1,     pup1,   pvp1,          &
       &          ztvp1,    ktrac,    ldland,                          &
-      &          zxtp1,    zxtu,                                      &
+      &          pxtp1,    zxtu,                                      &
       &          pverv,    zqsat,    pqhfla,                          &
       &          paphp1,   pgeo,                                      &
       &          zqte_dyn_phy,                                        &

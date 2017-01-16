@@ -120,6 +120,11 @@ CONTAINS
 !    REAL(wp) :: zcvcbot(nbdim)
 !    REAL(wp) :: zwcape (nbdim)
 
+    REAL(wp) :: zta    (nbdim,nlev)         !< provisional temperature         [K]
+    REAL(wp) :: zqtrc  (nbdim,nlev,ntracer) !< provisional mass mixing ratios  [kg/kg]
+    REAL(wp) :: zua    (nbdim,nlev)         !< provisional zonal      wind     [m/s]
+    REAL(wp) :: zva    (nbdim,nlev)         !< provisional meridional wind     [m/s]
+
     REAL(wp) :: zcpair (nbdim,nlev)       !< specific heat of moist air at const. pressure [J/K/kg]
     REAL(wp) :: zcvair (nbdim,nlev)       !< specific heat of moist air at const. volume   [J/K/kg]
     REAL(wp) :: zconv  (nbdim,nlev)       !< conversion factor q-->dT/dt       [(K/s)/(W/m2)]
@@ -965,9 +970,11 @@ CONTAINS
 
     !-------------------------------------------------------------------
 
-
-    ! Put here update of physics state, now done in cucall
-
+    ! Update physics state for input to next parameterization
+    zta  (:,:)   = field% ta  (:,:,jb)   + pdtime*tend% ta  (:,:,jb)
+    zqtrc(:,:,:) = field% qtrc(:,:,jb,:) + pdtime*tend% qtrc(:,:,jb,:)
+    zua  (:,:)   = field% ua  (:,:,jb)   + pdtime*tend% ua  (:,:,jb)
+    zva  (:,:)   = field% va  (:,:,jb)   + pdtime*tend% va  (:,:,jb)
 
     !-------------------------------------------------------------------
     ! 7. CONVECTION PARAMETERISATION
@@ -983,26 +990,20 @@ CONTAINS
         &          pdtime,                       &! in
         &          field% lfland   (:,  jb),     &! in     loland
         &          field% mdry     (:,:,jb),     &! in
-        &          field% ta       (:,:,jb),     &! in     tm1
-        &          field% ua       (:,:,jb),     &! in     um1
-        &          field% va       (:,:,jb),     &! in     vm1
+        &                zta       (:,:),        &! in     tp1
+        &                zua       (:,:),        &! in     up1
+        &                zva       (:,:),        &! in     vp1
         &          field% qtrc     (:,:,jb,iqv), &! in     qm1
-        &          field% qtrc     (:,:,jb,iqc), &! in     xlm1
-        &          field% qtrc     (:,:,jb,iqi), &! in     xim1
-        &          field% qtrc     (:,:,jb,iqt:),&! in     xtm1
+        &                zqtrc     (:,:,   iqc), &! in     xlp1
+        &                zqtrc     (:,:,   iqi), &! in     xip1
+        &                zqtrc     (:,:,   iqt:),&! in     xtp1
         &           tend% qtrc     (:,:,jb,iqv), &! in     qte  for internal updating
-        &           tend% qtrc     (:,:,jb,iqc), &! in     xlte
-        &           tend% qtrc     (:,:,jb,iqi), &! in     xite
         &          field% omega    (:,:,jb),     &! in     vervel
         &          field% evap     (:,  jb),     &! in     qhfla (from "vdiff")
         &          field% geom     (:,:,jb),     &! in     geom1
         &          field% presm_new(:,:,jb),     &! in     app1
         &          field% presi_new(:,:,jb),     &! in     aphp1
         &          field% thvsig   (:,  jb),     &! in           (from "vdiff")
-        &           tend% ta       (:,:,jb),     &! in     tte  for internal updating
-        &           tend% ua       (:,:,jb),     &! in     vom  for internal updating
-        &           tend% va       (:,:,jb),     &! in     vol  for internal updating
-        &           tend% qtrc     (:,:,jb,iqt:),&! in     xtte for internal updating
         &          field% rsfc     (:,  jb),     &! out
         &          field% ssfc     (:,  jb),     &! out
         &          itype,                        &! out
