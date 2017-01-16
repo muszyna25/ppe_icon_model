@@ -230,6 +230,75 @@ CONTAINS
     shape3d_ntw = (/ nproma, nblks_c, ntiles_total + ntiles_water /)
 
 
+    !------------------------------
+    ! Ensure that all pointers have a defined association status.
+    !------------------------------
+    NULLIFY(p_ext_atm%topography_c,    &
+      &     p_ext_atm%grad_topo,       &
+      &     p_ext_atm%fis,             &
+      &     p_ext_atm%o3,              &
+      &     p_ext_atm%llsm_atm_c,      &
+      &     p_ext_atm%llake_c,         &
+      &     p_ext_atm%fr_land,         &
+      &     p_ext_atm%fr_glac,         &
+      &     p_ext_atm%fr_land_smt,     &
+      &     p_ext_atm%fr_glac_smt,     &
+      &     p_ext_atm%z0,              &
+      &     p_ext_atm%fr_lake,         &
+      &     p_ext_atm%depth_lk,        &
+      &     p_ext_atm%fetch_lk,        &
+      &     p_ext_atm%dp_bs_lk,        &
+      &     p_ext_atm%t_bs_lk,         &
+      &     p_ext_atm%gamso_lk,        &
+      &     p_ext_atm%sso_stdh,        &
+      &     p_ext_atm%sso_stdh_raw,    &
+      &     p_ext_atm%sso_gamma,       &
+      &     p_ext_atm%sso_theta,       &
+      &     p_ext_atm%sso_sigma,       &
+      &     p_ext_atm%plcov_mx,        &
+      &     p_ext_atm%plcov,           &
+      &     p_ext_atm%plcov_t,         &
+      &     p_ext_atm%lai_mx,          &
+      &     p_ext_atm%lai,             &
+      &     p_ext_atm%sai,             &
+      &     p_ext_atm%sai_t,           &
+      &     p_ext_atm%tai,             &
+      &     p_ext_atm%tai_t,           &
+      &     p_ext_atm%eai,             &
+      &     p_ext_atm%eai_t,           &
+      &     p_ext_atm%rootdp,          &
+      &     p_ext_atm%rootdp_t,        &
+      &     p_ext_atm%for_e,           &
+      &     p_ext_atm%for_d,           &
+      &     p_ext_atm%rsmin,           &
+      &     p_ext_atm%rsmin2d_t,       &
+      &     p_ext_atm%ndvi_max,        &
+      &     p_ext_atm%ndviratio,       &
+      &     p_ext_atm%idx_lst_lp,      &
+      &     p_ext_atm%idx_lst_sp,      &
+      &     p_ext_atm%idx_lst_fp,      &
+      &     p_ext_atm%idx_lst_lp_t,    &
+      &     p_ext_atm%idx_lst_t,       &
+      &     p_ext_atm%idx_lst_spw,     &
+      &     p_ext_atm%idx_lst_spi,     &
+      &     p_ext_atm%snowtile_flag_t, &
+      &     p_ext_atm%lc_class_t,      &
+      &     p_ext_atm%lc_frac_t,       &
+      &     p_ext_atm%frac_t,          &
+      &     p_ext_atm%inv_frland_from_tiles, &
+      &     p_ext_atm%soiltyp,         &
+      &     p_ext_atm%soiltyp_t,       &
+      &     p_ext_atm%t_cl,            &
+      &     p_ext_atm%emis_rad,        &
+      &     p_ext_atm%lu_class_fraction, &
+      &     p_ext_atm%alb_dif,         &
+      &     p_ext_atm%albuv_dif,       &
+      &     p_ext_atm%albni_dif,       &
+      &     p_ext_atm%lsm_ctr_c,       &
+      &     p_ext_atm%elevation_c,     &
+      &     p_ext_atm%emis_rad         )
+
+
     !
     ! Register a field list and apply default settings
     !

@@ -52,7 +52,7 @@ MODULE mo_vertical_grid
   USE mo_math_constants,        ONLY: pi_2
   USE mo_loopindices,           ONLY: get_indices_e, get_indices_c
   USE mo_nonhydro_types,        ONLY: t_nh_state
-  USE mo_nh_init_utils,         ONLY: nflatlev
+  USE mo_init_vgrid,            ONLY: nflatlev
   USE mo_sync,                  ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, global_sum_array, &
                                       sync_patch_array_mult, global_min, global_max
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config

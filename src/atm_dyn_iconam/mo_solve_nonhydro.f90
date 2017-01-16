@@ -50,7 +50,7 @@ MODULE mo_solve_nonhydro
   USE mo_math_constants,    ONLY: pi, dbl_eps
   USE mo_math_divrot,       ONLY: div_avg
   USE mo_vertical_grid,     ONLY: nrdmax, nflat_gradp
-  USE mo_nh_init_utils,     ONLY: nflatlev
+  USE mo_init_vgrid,        ONLY: nflatlev
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants,    ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int, &
     &                             min_rlcell, RAYLEIGH_CLASSIC, RAYLEIGH_KLEMP
