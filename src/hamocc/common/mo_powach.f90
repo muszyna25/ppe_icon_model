@@ -154,7 +154,7 @@ CONTAINS
            powtra(j,k,ipowaic)=powtra(j,k,ipowaic)+rcar*posol*pors2w(k)
 
            powtra(j,k,ipowaal)=powtra(j,k,ipowaal)+posol*nitdem*pors2w(k)
-           powtra(j,k,ipowno3)=powtra(j,k,ipowno3)-nitdem*posol*pors2w(k)
+           powtra(j,k,ipowno3)=powtra(j,k,ipowno3)-(2._wp*n2prod - rnit)*posol*pors2w(k)
            powtra(j,k,ipown2)=powtra(j,k,ipown2)+n2prod*posol*pors2w(k)
            powh2obud(j,k)=powh2obud(j,k)+0.5_wp*n2prod*posol*pors2w(k)
            pown2bud(j,k) = pown2bud(j,k) + 2._wp*n2prod*posol*pors2w(k)
@@ -587,11 +587,11 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
                  posol  = denit_sed * MIN(0.5_wp * powtra(j,k,ipowno3)/nitdem, &
                       &                       sedlay(j,k,issso12))
                  anaerob(k) = posol*umfa !this has P units: kmol P/m3 of pore water
-                 seddenit(j) = seddenit(j) + nitdem*posol*umfa/dtbgc*seddw(k)
+                 seddenit(j) = seddenit(j) + 2._wp*n2prod*posol*umfa/dtbgc*seddw(k)
                  sedlay(j,k,issso12) = sedlay(j,k,issso12) - posol
                  powtra(j,k,ipowaph) = powtra(j,k,ipowaph) + posol*umfa
 
-                 powtra(j,k,ipowno3) = powtra(j,k,ipowno3) - nitdem*posol*umfa
+                 powtra(j,k,ipowno3) = powtra(j,k,ipowno3) - (2._wp*n2prod - rnit)*posol*umfa
                  powtra(j,k,ipown2)  = powtra(j,k,ipown2)  + n2prod*posol*umfa
                  powh2obud(j,k)      = powh2obud(j,k)+0.5_wp*n2prod*posol*umfa
 

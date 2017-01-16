@@ -934,11 +934,11 @@
 
    CALL add_var(hamocc_tendency_list, 'SED_denit', hamocc_state_moni%seddenit , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('SED_denit', 'GtC s-1', 'Sediment_denitrification', DATATYPE_FLT32),&
+      & t_cf_var('SED_denit', 'TgN s-1', 'Sediment_denitrification', DATATYPE_FLT32),&
       & grib2_var(255, 255, 523, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
       & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
-      &  arg1=s2year,new_cf=t_cf_var('SED_denit','GtC yr-1','Sediment_denitrification', &
+      &  arg1=s2year,new_cf=t_cf_var('SED_denit','TgN yr-1','Sediment_denitrification', &
       &  DATATYPE_FLT32)))
 
    CALL add_var(hamocc_tendency_list, 'global_cya_loss_det', hamocc_state_moni%cyaldet , &
