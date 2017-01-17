@@ -39,25 +39,26 @@ MODULE mo_interface_echam_radiation
   
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: echam_radiation
+  PUBLIC :: interface_echam_radiation
 
 CONTAINS
 
   !----------------------------------------------------------------
-  SUBROUTINE echam_radiation( patch, jg, field, this_datetime)
+  SUBROUTINE interface_echam_radiation( patch, field, this_datetime)
     TYPE(t_patch)   ,INTENT(in), TARGET :: patch           !< grid/patch info
-    INTEGER         ,INTENT(IN) :: jg             !< block index
     TYPE(t_echam_phy_field),   POINTER :: field
     TYPE(datetime),  POINTER     :: this_datetime  !< time step
 
     INTEGER  :: itype(nproma)              !< type of convection
     LOGICAL  :: lglac(nproma)
 
+    INTEGER  :: jg             
     INTEGER  :: i_nchdom, rl_start, rl_end
     INTEGER  :: i_startblk,i_endblk
     INTEGER  :: jb             !< block index
     INTEGER  :: jcs, jce       !< start/end column index within this block
 
+    jg         = patch%id
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
  
@@ -129,7 +130,7 @@ CONTAINS
         
     IF (ltimer) CALL timer_stop(timer_radiation)
 
-  END SUBROUTINE echam_radiation
+  END SUBROUTINE interface_echam_radiation
   !----------------------------------------------------------------
 
 END MODULE mo_interface_echam_radiation

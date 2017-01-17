@@ -58,8 +58,6 @@ MODULE mo_echam_phy_main
   USE mo_surface_diag,        ONLY: nsurf_diag
   USE mo_cloud,               ONLY: cloud
   USE mo_cover,               ONLY: cover
-  USE mo_radheating,          ONLY: radheating
-  USE mo_psrad_radiation_parameters, ONLY: psctm
   USE mo_vdiff_config,        ONLY: vdiff_config
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
   USE mo_vdiff_upward_sweep,  ONLY: vdiff_up
@@ -69,7 +67,9 @@ MODULE mo_echam_phy_main
   USE mo_ssortns,             ONLY: ssodrag
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
     &                                  calculate_time_interpolation_weights
-  USE mo_interface_echam_radiation, ONLY: echam_radiation
+
+  USE mo_interface_echam_radiation,   ONLY: interface_echam_radiation
+  USE mo_interface_echam_radheating,  ONLY: interface_echam_radheating
 
   USE mo_parallel_config     ,ONLY: nproma
   USE mo_loopindices         ,ONLY: get_indices_c
@@ -92,6 +92,7 @@ MODULE mo_echam_phy_main
   REAL(wp) :: pdtime         !< time step
 
 CONTAINS
+
   !>
   !!
   SUBROUTINE echam_phy_main( patch,                         &
@@ -119,7 +120,6 @@ CONTAINS
     REAL(wp) :: zcvair (nproma,nlev)       !< specific heat of moist air at const. volume   [J/K/kg]
 
     REAL(wp) :: zq_phy (nproma,nlev,patch%nblks_c)       !< heating by whole ECHAM physics    [W/m2]
-    REAL(wp) :: zq_rsw (nproma,nlev)       !< heating by short wave radiation   [W/m2]
     REAL(wp) :: zq_rlw (nproma,nlev,patch%nblks_c)       !< heating by long  wave radiation   [W/m2]
     REAL(wp) :: zq_rlw_impl (nproma)       !< additional heating by LW rad. due to impl. coupling in surface energy balance [W/m2]
 
@@ -211,20 +211,17 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 4. RADIATION PARAMETERISATION
     !-------------------------------------------------------------------
-    IF (phy_config%lrad) THEN
+    IF (phy_config%lrad .AND. ltrig_rad) THEN
 
-       ! 4.1 RADIATIVE TRANSFER
-       !-----------------------
-       IF (ltrig_rad) THEN
+      ! 4.1 RADIATIVE TRANSFER
+      !----------------------- 
+      ! store ts_rad of this radiatiative transfer timestep in ts_rad_rt,
+      ! so that it can be reused in radheat in the other timesteps
+      field%ts_rad_rt(:,:) = field%ts_rad(:,:)
 
-          ! store ts_rad of this radiatiative transfer timestep in ts_rad_rt,
-          ! so that it can be reused in radheat in the other timesteps
-          field%ts_rad_rt(:,:) = field%ts_rad(:,:)
+      CALL interface_echam_radiation( patch, field, this_datetime)
 
-          CALL echam_radiation( patch, jg, field, this_datetime)
-
-      END IF ! ltrig_rad
-    END IF ! phy_config%lrad
+    END IF 
 
 !$OMP PARALLEL DO PRIVATE(jcs,jce)
     DO jb = i_startblk,i_endblk
@@ -233,56 +230,14 @@ CONTAINS
     ENDDO
 !$OMP END PARALLEL DO 
 
-    ! initialize physics heating
+    ! initialize physics accumulated heating
     zq_phy(:,:,:) = 0._wp
 
-    IF (phy_config%lrad) THEN
-      IF (ltimer) CALL timer_start(timer_radheat)
-      ! 4.2 RADIATIVE HEATING
-      !----------------------
-      ! radheat first computes the shortwave and longwave radiation for the current time step from transmissivity and
-      ! the longwave flux at the radiation time step and, from there, the radiative heating due to sw and lw radiation.
-      ! If radiation is called every time step, the longwave flux is not changed.
-
-!$OMP PARALLEL DO PRIVATE(jcs,jce, zq_rsw)
-      DO jb = i_startblk,i_endblk
-        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-
-        CALL echam_radheating( jg, jb,jcs,jce, nproma, field, zq_rsw, zq_rlw(:,:,jb))
-
-        ! heating accumulated
-        zq_phy(jcs:jce,:,jb) = zq_phy(jcs:jce,:,jb) + zq_rsw(jcs:jce,:) + zq_rlw(jcs:jce,:,jb)
-        
-        ! tendencies
-        tend%ta_rsw(jcs:jce,:,jb) = zq_rsw(jcs:jce,:)    * zconv(jcs:jce,:,jb)
-        tend%ta_rlw(jcs:jce,:,jb) = zq_rlw(jcs:jce,:,jb) * zconv(jcs:jce,:,jb)
-
-        ! tendencies accumulated
-        tend% ta(jcs:jce,:,jb) = tend% ta     (jcs:jce,:,jb) &
-          &                    + tend% ta_rsw (jcs:jce,:,jb) &
-          &                    + tend% ta_rlw (jcs:jce,:,jb)
-
-
-      ENDDO
-!$OMP END PARALLEL DO 
-      IF (ltimer) CALL timer_stop(timer_radheat)
-
-    ELSE   
-      ! If computation of radiative heating is by-passed
-      ! this shound not be needed, as these field are zeroed in the initialization
-!$OMP PARALLEL DO PRIVATE(jcs,jce)
-      DO jb = i_startblk,i_endblk
-        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-
-        tend%ta_rsw(jcs:jce,:,jb) = 0.0_wp
-        tend%ta_rlw(jcs:jce,:,jb) = 0.0_wp
-
-        field%rsdt(jcs:jce,jb)= 0.0_wp
-      ENDDO
-!$OMP END PARALLEL DO 
-
-    END IF ! lrad
     !-------------------------------------------------------------------
+    ! 4.2 RADIATIVE HEATING
+    !----------------------
+    CALL  interface_echam_radheating(patch, rl_start, rl_end, field, tend, zconv, zq_rlw, zq_phy)
+
 
     !-------------------------------------------------------------------
     ! 5. BOUNDARY LAYER AND SURFACE PROCESSES
@@ -617,92 +572,6 @@ CONTAINS
       END DO
     END DO
   END SUBROUTINE calculate_zcair_zconv
-  !---------------------------------------------------------------------
-
-  !---------------------------------------------------------------------
-  SUBROUTINE echam_radheating( jg, jb,jcs,jce, nbdim, field, zq_rsw, zq_rlw)
-    INTEGER         ,INTENT(IN) :: jg
-    INTEGER         ,INTENT(IN) :: jb             !< block index
-    INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
-    INTEGER         ,INTENT(IN) :: nbdim          !< size of this block
-    TYPE(t_echam_phy_field),   POINTER :: field    ! in
-
-    REAL(wp)        ,INTENT(INOUT) :: zq_rsw (nbdim,nlev)       !< out, heating by short wave radiation   [W/m2]
-    REAL(wp)        ,INTENT(INOUT) :: zq_rlw (nbdim,nlev)      !<  out, heating by long  wave radiation   [W/m2]
-
-    CALL radheating (                                &
-      !
-      ! input
-      ! -----
-      !
-      & jcs        = jcs                            ,&! loop start index
-      & jce        = jce                            ,&! loop end index
-      & kbdim      = nbdim                          ,&! dimension size
-      & klev       = nlev                           ,&! vertical dimension size
-      & klevp1     = nlevp1                         ,&! vertical dimension size
-      !
-      & rsdt0      = psctm                          ,&! toa incident shortwave radiation for sun in zenith
-      & cosmu0     = field%cosmu0    (:,jb)         ,&! solar zenith angle at current time
-      !
-      & emiss      = ext_data(jg)%atm%emis_rad(:,jb),&! lw sfc emissivity
-      & tsr        = field%ts_rad (:,jb)            ,&! radiative surface temperature at current   time [K]
-      & tsr_rt     = field%ts_rad_rt(:,jb)          ,&! radiative surface temperature at radiation time [K]
-      !
-      & rsd_rt     = field%rsd_rt           (:,:,jb),&! all-sky   shortwave downward flux at radiation time [W/m2]
-      & rsu_rt     = field%rsu_rt           (:,:,jb),&! all-sky   shortwave upward   flux at radiation time [W/m2]
-      !
-      & rsdcs_rt   = field%rsdcs_rt         (:,:,jb),&! clear-sky shortwave downward flux at radiation time [W/m2]
-      & rsucs_rt   = field%rsucs_rt         (:,:,jb),&! clear-sky shortwave upward   flux at radiation time [W/m2]
-      !
-      & rld_rt     = field%rld_rt           (:,:,jb),&! all-sky   longwave  downward flux at radiation time [W/m2]
-      & rlu_rt     = field%rlu_rt           (:,:,jb),&! all-sky   longwave  upward   flux at radiation time [W/m2]
-      !
-      & rldcs_rt   = field%rldcs_rt         (:,:,jb),&! clear-sky longwave  downward flux at radiation time [W/m2]
-      & rlucs_rt   = field%rlucs_rt         (:,:,jb),&! clear-sky longwave  upward   flux at radiation time [W/m2]
-      !
-      & rvds_dir_rt= field%rvds_dir_rt        (:,jb),&!< out  all-sky downward direct visible radiation at surface
-      & rpds_dir_rt= field%rpds_dir_rt        (:,jb),&!< out  all-sky downward direct PAR     radiation at surface
-      & rnds_dir_rt= field%rnds_dir_rt        (:,jb),&!< out  all-sky downward direct near-IR radiation at surface
-      & rvds_dif_rt= field%rvds_dif_rt        (:,jb),&!< out  all-sky downward diffuse visible radiation at surface
-      & rpds_dif_rt= field%rpds_dif_rt        (:,jb),&!< out  all-sky downward diffuse PAR     radiation at surface
-      & rnds_dif_rt= field%rnds_dif_rt        (:,jb),&!< out  all-sky downward diffuse near-IR radiation at surface
-      & rvus_rt    = field%rvus_rt            (:,jb),&!< out  all-sky upward visible radiation at surface
-      & rpus_rt    = field%rpus_rt            (:,jb),&!< out  all-sky upward PAR     radiation at surfac
-      & rnus_rt    = field%rnus_rt            (:,jb),&!< out  all-sky upward near-IR radiation at surface
-      !
-      ! output
-      ! ------
-      !
-      & rsdt       = field%rsdt               (:,jb),&! all-sky   shortwave downward flux at current   time [W/m2]
-      & rsut       = field%rsut               (:,jb),&! all-sky   shortwave upward   flux at current   time [W/m2]
-      & rsds       = field%rsds               (:,jb),&! all-sky   shortwave downward flux at current   time [W/m2]
-      & rsus       = field%rsus               (:,jb),&! all-sky   shortwave upward   flux at current   time [W/m2]
-      !
-      & rsutcs     = field%rsutcs             (:,jb),&! clear-sky shortwave upward   flux at current   time [W/m2]
-      & rsdscs     = field%rsdscs             (:,jb),&! clear-sky shortwave downward flux at current   time [W/m2]
-      & rsuscs     = field%rsuscs             (:,jb),&! clear-sky shortwave upward   flux at current   time [W/m2]
-      !
-      & rvds_dir   = field%rvds_dir           (:,jb),&!< out  all-sky downward direct visible radiation at surface
-      & rpds_dir   = field%rpds_dir           (:,jb),&!< out  all-sky downward direct PAR     radiation at surface
-      & rnds_dir   = field%rnds_dir           (:,jb),&!< out  all-sky downward direct near-IR radiation at surface
-      & rvds_dif   = field%rvds_dif           (:,jb),&!< out  all-sky downward diffuse visible radiation at surface
-      & rpds_dif   = field%rpds_dif           (:,jb),&!< out  all-sky downward diffuse PAR     radiation at surface
-      & rnds_dif   = field%rnds_dif           (:,jb),&!< out  all-sky downward diffuse near-IR radiation at surface
-      & rvus       = field%rvus               (:,jb),&!< out  all-sky upward visible radiation at surface
-      & rpus       = field%rpus               (:,jb),&!< out  all-sky upward PAR     radiation at surfac
-      & rnus       = field%rnus               (:,jb),&!< out  all-sky upward near-IR radiation at surface
-      !
-      & rlut       = field%rlut               (:,jb),&! all-sky   longwave  upward   flux at current   time [W/m2]
-      & rlds       = field%rlds               (:,jb),&! all-sky   longwave  downward flux at current   time [W/m2]
-      & rlus       = field%rlus               (:,jb),&! all-sky   longwave  upward   flux at current   time [W/m2]
-      !
-      & rlutcs     = field%rlutcs             (:,jb),&! clear-sky longwave  upward   flux at current   time [W/m2]
-      & rldscs     = field%rldscs             (:,jb),&! clear-sky longwave  downward flux at current   time [W/m2]
-      !
-      & q_rsw      = zq_rsw                   (:,:) ,&! rad. heating by SW           [W/m2]
-      & q_rlw      = zq_rlw                   (:,:) ) ! rad. heating by LW           [W/m2]
-
-  END SUBROUTINE echam_radheating
   !---------------------------------------------------------------------
 
   !---------------------------------------------------------------------
