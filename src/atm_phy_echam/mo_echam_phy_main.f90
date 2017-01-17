@@ -116,7 +116,6 @@ CONTAINS
     REAL(wp) :: zfrc (nbdim,nsfc_type)    !< zfrl, zfrw, zfrc combined
     REAL(wp) :: zri_tile(nbdim,nsfc_type) !< Richardson number
 
-    INTEGER  :: ilab   (nbdim,nlev)
 !    REAL(wp) :: zcvcbot(nbdim)
 !    REAL(wp) :: zwcape (nbdim)
 
@@ -197,7 +196,9 @@ CONTAINS
 
     ! Temporary array used by convection
 
-    REAL(wp) :: ztop(nbdim)  !<  convective cloud top pressure [Pa]
+    REAL(wp) :: zqtrc_cnd(nbdim,nlev) !<  cloud condensate mixing ratio [kg/kg]
+    REAL(wp) :: ztend_qv(nbdim,nlev)  !<  moisture tendency from dynamics and physics before convection
+    REAL(wp) :: ztop(nbdim)           !<  convective cloud top pressure [Pa]
 
     ! Temporary variables used for cloud droplet number concentration
 
@@ -975,14 +976,17 @@ CONTAINS
     !-------------------------------------------------------------------
 
     ! Update physics state for input to next parameterization
-    zta  (:,:)   = field% ta  (:,:,jb)   + pdtime*tend% ta  (:,:,jb)
-    zqtrc(:,:,:) = field% qtrc(:,:,jb,:) + pdtime*tend% qtrc(:,:,jb,:)
-    zua  (:,:)   = field% ua  (:,:,jb)   + pdtime*tend% ua  (:,:,jb)
-    zva  (:,:)   = field% va  (:,:,jb)   + pdtime*tend% va  (:,:,jb)
+    zta  (:,:)   =     field% ta  (:,:,jb)   + pdtime*tend% ta  (:,:,jb)
+    zqtrc(:,:,:) = MAX(field% qtrc(:,:,jb,:) + pdtime*tend% qtrc(:,:,jb,:), 0.0_wp)
+    zua  (:,:)   =     field% ua  (:,:,jb)   + pdtime*tend% ua  (:,:,jb)
+    zva  (:,:)   =     field% va  (:,:,jb)   + pdtime*tend% va  (:,:,jb)
 
     !-------------------------------------------------------------------
     ! 7. CONVECTION PARAMETERISATION
     !-------------------------------------------------------------------
+
+    zqtrc_cnd(:,:) = zqtrc(:,:,iqc) + zqtrc(:,:,iqi)
+    ztend_qv(:,:)  = tend%qtrc_dyn(:,:,jb,iqv) + tend%qtrc_phy(:,:,jb,iqv)
 
     IF (echam_phy_config%lconv) THEN
 
@@ -998,8 +1002,7 @@ CONTAINS
         &                zua       (:,:),        &! in     up1
         &                zva       (:,:),        &! in     vp1
         &                zqtrc     (:,:,   iqv), &! in     qp1
-        &                zqtrc     (:,:,   iqc), &! in     xlp1
-        &                zqtrc     (:,:,   iqi), &! in     xip1
+        &                zqtrc_cnd (:,:),        &! in     xlp1+xip1
         &                zqtrc     (:,:,   iqt:),&! in     xtp1
         &          field% omega    (:,:,jb),     &! in     vervel
         &          field% evap     (:,  jb),     &! in     qhfla (from "vdiff")
@@ -1011,12 +1014,10 @@ CONTAINS
         &          field% ssfc     (:,  jb),     &! out
         &          itype,                        &! out
         &          ictop,                        &! out
-        &          ilab,                         &! out
         &                ztop      (:),          &! out
         &          echam_conv_config%cevapcu,    &! in
-        &           tend% qtrc_dyn (:,:,jb,iqv), &! in     qte by transport
-        &           tend% qtrc_phy (:,:,jb,iqv), &! in     qte by physics
-        &                   zq_cnv (:,:),        &! out
+        &                ztend_qv  (:,:),        &! in     qte by transport + physics before convection
+        &                   zq_cnv (:,:),        &! out    convective heating in W/m2
         &           tend%   ua_cnv (:,:,jb),     &! out
         &           tend%   va_cnv (:,:,jb),     &! out
         &           tend% qtrc_cnv (:,:,jb,iqv), &! out
@@ -1052,7 +1053,6 @@ CONTAINS
 
     ELSE ! NECESSARY COMPUTATIONS IF MASSFLUX IS BY-PASSED
 
-      ilab (:,:) = 0
       ictop(:)   = nlev-1
       itype(:)   = 0
 
