@@ -195,6 +195,10 @@ CONTAINS
     REAL(wp) :: zdis_sso(nbdim,nlev)  !<  out, energy dissipation rate [J/s/kg]
 
 
+    ! Temporary array used by convection
+
+    REAL(wp) :: ztop(nbdim)  !<  convective cloud top pressure [Pa]
+
     ! Temporary variables used for cloud droplet number concentration
 
     REAL(wp) :: zprat, zn1, zn2, zcdnc
@@ -1008,7 +1012,7 @@ CONTAINS
         &          itype,                        &! out
         &          ictop,                        &! out
         &          ilab,                         &! out
-        &          field% topmax   (:,  jb),     &! inout
+        &                ztop      (:),          &! out
         &          echam_conv_config%cevapcu,    &! in
         &           tend% qtrc_dyn (:,:,jb,iqv), &! in     qte by transport
         &           tend% qtrc_phy (:,:,jb,iqv), &! in     qte by physics
@@ -1025,7 +1029,11 @@ CONTAINS
 
       IF (ltimer) CALL timer_stop(timer_cucall)
 
+      ! store convection type as real value
       field% rtype(:,jb) = REAL(itype(:),wp)
+
+      ! keep minimum conv. cloud top pressure (= max. conv. cloud top height) of this output interval
+      field% topmax(:,jb) = MIN(field% topmax(:,jb),ztop(:))
 
       ! heating accumulated
       zq_phy(:,:) = zq_phy(:,:) + zq_cnv(:,:)
