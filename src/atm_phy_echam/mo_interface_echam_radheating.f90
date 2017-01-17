@@ -31,21 +31,12 @@ MODULE mo_interface_echam_radheating
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
-  USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
-    &                               iqv, iqc, iqi, iqt, io3
+  USE mo_run_config,          ONLY: nlev, nlevp1
   USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
-  USE mo_echam_conv_config,   ONLY: echam_conv_config
-  USE mo_echam_cloud_config,  ONLY: echam_cloud_config
-  USE mo_cumastr,             ONLY: cucall
-  USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
-    &                               t_echam_phy_tend,  prm_tend
+  USE mo_echam_phy_memory,    ONLY: t_echam_phy_field,     &
+    &                               t_echam_phy_tend
   USE mo_ext_data_state,      ONLY: ext_data
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_radheat
-  USE mtime,                  ONLY: datetime
-  USE mo_ham_aerosol_params,  ONLY: ncdnc, nicnc
-  USE mo_echam_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
-  USE mo_surface,             ONLY: update_surface
-  USE mo_surface_diag,        ONLY: nsurf_diag
   USE mo_radheating,          ONLY: radheating
   USE mo_psrad_radiation_parameters, ONLY: psctm
 

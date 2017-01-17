@@ -75,11 +75,11 @@ CONTAINS
       lglac(jcs:jce) = field%lfland(jcs:jce,jb) .AND.field%glac(jcs:jce,jb).GT.0._wp
       itype(jcs:jce) = NINT(field%rtype(jcs:jce,jb))
 
-        CALL psrad_radiation(                       &
+      CALL psrad_radiation(                         &
         & jg                                       ,&!< in  domain index
         & jb                                       ,&!< in  block index
         & kproma         = jce                     ,&!< in  end index for loop over block
-        & kbdim          = nproma                   ,&!< in  dimension of block over cells
+        & kbdim          = nproma                  ,&!< in  dimension of block over cells
         & klev           = nlev                    ,&!< in  number of full levels = number of layers
         & klevp1         = nlevp1                  ,&!< in  number of half levels = number of layer interfaces
         & ktype          = itype(:)                ,&!< in  type of convection
