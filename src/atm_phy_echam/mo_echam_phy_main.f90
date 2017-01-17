@@ -46,20 +46,18 @@ MODULE mo_echam_phy_main
     &                               t_echam_phy_tend,  prm_tend
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop,                &
     &                               timer_cover, timer_radheat,                     &
-    &                               timer_ssodrag,                  &
     &                               timer_cucall, timer_cloud
   USE mtime,                  ONLY: datetime
   USE mo_ham_aerosol_params,  ONLY: ncdnc, nicnc
   USE mo_echam_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_cloud,               ONLY: cloud
   USE mo_cover,               ONLY: cover
-  USE mo_ssortns,             ONLY: ssodrag
 
   USE mo_interface_echam_radiation,    ONLY: interface_echam_radiation
   USE mo_interface_echam_radheating,   ONLY: interface_echam_radheating
   USE mo_interface_echam_vdiff_surface,ONLY: interface_echam_vdiff_surface
   USE mo_interface_echam_o3_cariolle,  ONLY: interface_echam_o3_cariolle
-  USE mo_interface_echam_gw_hines,     ONLY: interface_echam_gw_hines
+  USE mo_interface_echam_gravity_waves,     ONLY: interface_echam_gravity_waves
 
   USE mo_parallel_config     ,ONLY: nproma
   USE mo_loopindices         ,ONLY: get_indices_c
@@ -277,37 +275,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 6. ATMOSPHERIC GRAVITY WAVES
     !-------------------------------------------------------------------
-    ! 6.1   CALL SUBROUTINE GW_HINES
-    CALL  interface_echam_gw_hines(patch, rl_start, rl_end, field, tend, zconv, zq_phy)
-
-    ! 6.2   CALL SUBROUTINE SSODRAG
-    IF (phy_config%lssodrag) THEN
-
-      IF (ltimer) call timer_start(timer_ssodrag)
-
-!$OMP PARALLEL DO PRIVATE(jcs,jce)
-      DO jb = i_startblk,i_endblk
-        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-
-        CALL echam_ssodrag(patch, jb,jcs,jce, nproma, field, tend, zconv(:,:,jb), zq_phy(:,:,jb))
-      ENDDO
-!$OMP END PARALLEL DO 
-
-      IF (ltimer) call timer_stop(timer_ssodrag)
-
-    ELSE ! NECESSARY COMPUTATIONS IF SSODRAG IS BY-PASSED
-
-      ! not necessary, if initialized with zeroes
-!$OMP PARALLEL DO PRIVATE(jcs,jce)
-      DO jb = i_startblk,i_endblk
-        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-        tend%   ta_sso(jcs:jce,:,jb) = 0._wp
-        tend%   ua_sso(jcs:jce,:,jb) = 0._wp
-        tend%   va_sso(jcs:jce,:,jb) = 0._wp
-      ENDDO
-!$OMP END PARALLEL DO 
-
-    END IF ! SSODRAG
+    CALL  interface_echam_gravity_waves(patch, rl_start, rl_end, field, tend, zconv, zq_phy, in_pdtime)
 
     !-------------------------------------------------------------------
     ! 7. CONVECTION PARAMETERISATION
@@ -497,72 +465,6 @@ CONTAINS
   !---------------------------------------------------------------------
 
 
-  !---------------------------------------------------------------------
-  SUBROUTINE echam_ssodrag(patch, jb,jcs,jce, nbdim, field, tend, zconv, zq_phy)
-    TYPE(t_patch)   ,INTENT(in), TARGET :: patch           !< grid/patch info
-    INTEGER         ,INTENT(IN) :: jb             !< block index
-    INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
-    INTEGER         ,INTENT(IN) :: nbdim          !< size of this block 
-    REAL(wp)        ,INTENT(IN) :: zconv  (nbdim,nlev)       !< specific heat of moist air        [J/K/kg]
-    TYPE(t_echam_phy_field),   POINTER :: field
-    TYPE(t_echam_phy_tend) ,   POINTER :: tend
-    REAL(wp)        ,INTENT(INOUT) :: zq_phy (nbdim,nlev)       !< heating by whole ECHAM physics    [W/m2]
-
-    ! Temporary array used by SSODRAG
-    REAL(wp) :: zdis_sso(nbdim,nlev)  !<  out, energy dissipation rate [J/s/kg]
-    REAL(wp) :: zq_sso (nbdim,nlev)       !< heating by subgrid scale orogr.   [W/m2]
-    INTEGER :: nc
-
-    ! number of cells/columns from index jcs to jce
-    nc = jce-jcs+1
-
-    CALL ssodrag( nc                                        ,& ! in,  number of cells/columns in loop (jce-jcs+1)
-                  nbdim                                     ,& ! in,  dimension of block of cells/columns
-                  nlev                                      ,& ! in,  number of levels
-                  !
-                  patch%cells%center(:,jb)%lat              ,& ! in,  Latitude in radians
-                  pdtime                                    ,& ! in,  time step length
-                  !
-                  field% presi_old(:,:,jb)                  ,& ! in,  p at half levels
-                  field% presm_old(:,:,jb)                  ,& ! in,  p at full levels
-                  field% geom(:,:,jb)                       ,& ! in,  geopotential above surface (t-dt)
-                  field%   ta(:,:,jb)                       ,& ! in,  T
-                  field%   ua(:,:,jb)                       ,& ! in,  u
-                  field%   va(:,:,jb)                       ,& ! in,  v
-                  !
-                  field% oromea(:,jb)                       ,& ! in,  Mean Orography (m)
-                  field% orostd(:,jb)                       ,& ! in,  SSO standard deviation (m)
-                  field% orosig(:,jb)                       ,& ! in,  SSO slope
-                  field% orogam(:,jb)                       ,& ! in,  SSO Anisotropy
-                  field% orothe(:,jb)                       ,& ! in,  SSO Angle
-                  field% oropic(:,jb)                       ,& ! in,  SSO Peaks elevation (m)
-                  field% oroval(:,jb)                       ,& ! in,  SSO Valleys elevation (m)
-                  !
-                  field% u_stress_sso(:,jb)                 ,& ! out, u-gravity wave stress
-                  field% v_stress_sso(:,jb)                 ,& ! out, v-gravity wave stress
-                  field% dissipation_sso(:,jb)              ,& ! out, dissipation by gravity wave drag
-                  !
-                  zdis_sso(:,:)                             ,& ! out, energy dissipation rate
-                  tend%   ua_sso(:,:,jb)                    ,& ! out, tendency of zonal wind
-                  tend%   va_sso(:,:,jb)                     ) ! out, tendency of meridional wind
-
-
-      ! heating
-      zq_sso(jcs:jce,:) = zdis_sso(jcs:jce,:) * field%mair(jcs:jce,:,jb)
-
-      ! heating accumulated
-      zq_phy(jcs:jce,:) = zq_phy(jcs:jce,:) + zq_sso(jcs:jce,:)
-
-      ! tendency
-      tend% ta_sso(jcs:jce,:,jb) = zq_sso(jcs:jce,:)*zconv(jcs:jce,:)
-
-      ! tendencies accumulated
-      tend%   ta(jcs:jce,:,jb) = tend%   ta(jcs:jce,:,jb) + tend%   ta_sso(jcs:jce,:,jb)
-      tend%   ua(jcs:jce,:,jb) = tend%   ua(jcs:jce,:,jb) + tend%   ua_sso(jcs:jce,:,jb)
-      tend%   va(jcs:jce,:,jb) = tend%   va(jcs:jce,:,jb) + tend%   va_sso(jcs:jce,:,jb)
-
-  END SUBROUTINE echam_ssodrag
-  !---------------------------------------------------------------------
 
   !---------------------------------------------------------------------
   SUBROUTINE echam_cumulus_condensation(jb,jcs,jce, nbdim, field, tend, zcair)
