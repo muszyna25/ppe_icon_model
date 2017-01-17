@@ -5,7 +5,7 @@
 [submodule "externals/jsbach"]
 	path = externals/jsbach
 	url = git@git.mpimet.mpg.de:jsbach.git
-	branch = jsbach4icon-dev
+	branch = jsbach4icon_r345
 [submodule "externals/yac"]
 	path = externals/yac
 	url = git@git.mpimet.mpg.de:YAC.git
