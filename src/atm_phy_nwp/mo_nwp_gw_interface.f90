@@ -173,6 +173,14 @@ CONTAINS
  !         & pdt_sso   =prm_nwp_tend%ddt_temp_sso(:,:,jb)   ) !< out: temperature tendency
                                                              ! due to SSO
 
+        ! Reduce tendencies in uppermost layer by a factor of 8 because they tend to larger than the tendencies
+        ! in the second layer by about this factor. This is also true at vertical nest interfaces
+!DIR$ IVDEP
+        DO jc = i_startidx, i_endidx
+          prm_nwp_tend%ddt_u_sso(jc,1,jb) = 0.125_vp*prm_nwp_tend%ddt_u_sso(jc,1,jb)
+          prm_nwp_tend%ddt_v_sso(jc,1,jb) = 0.125_vp*prm_nwp_tend%ddt_v_sso(jc,1,jb)
+        ENDDO
+
         ! Limit SSO wind tendencies. They can become numerically unstable in the upper stratosphere and mesosphere.
         ! Moreover, they tend to be much too strong in northern hemispheric winter, leading to a huge warm
         ! bias in the north polar middle stratosphere
@@ -220,6 +228,14 @@ CONTAINS
            & ptenv    = prm_nwp_tend%ddt_v_gwd  (:,:,jb),  & !< out: v-tendency
            & pfluxu   = z_fluxu (:,:)                   ,  & !< out: zonal  GWD vertical mom flux
            & pfluxv   = z_fluxv (:,:)   )                    !< out: merid. GWD vertical mom flux
+
+        ! Reduce tendencies in uppermost layer by a factor of 8 because they tend to larger than the tendencies
+        ! in the second layer by about this factor. This is also true at vertical nest interfaces
+!DIR$ IVDEP
+        DO jc = i_startidx, i_endidx
+          prm_nwp_tend%ddt_u_gwd(jc,1,jb) = 0.125_vp*prm_nwp_tend%ddt_u_gwd(jc,1,jb)
+          prm_nwp_tend%ddt_v_gwd(jc,1,jb) = 0.125_vp*prm_nwp_tend%ddt_v_gwd(jc,1,jb)
+        ENDDO
 
         ! Limit also gwdrag wind tendencies. They can become numerically unstable in the upper mesosphere
         DO jk = 1, nlev
