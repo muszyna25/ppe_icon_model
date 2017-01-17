@@ -2412,10 +2412,17 @@ Defined and used in: \verb+src/namelists/mo_les_nml.f90+
 %\hline
 \textbf{itype\_latbc}&
 I & 0& &
-Type of lateral boundary nudging. Nudge from\\
-0: the initial data,\\
-1: IFS data analysis/forecast (if \texttt{initicon\_nml:init\_mode}=4, we take COSMO-DE data),\\
-2: ICON output data (with the identical 3d grid)&
+Type of lateral boundary nudging.\\
+%
+0: constant lateral boundary conditions derived from the initial
+conditions,\\
+%
+1: time-dependent lateral boundary conditions provided by an external
+source (IFS, COSMO-DE or a coarser-resolution ICON run), \\
+%
+2: Test mode using time-dependent lateral boundary conditions from a
+nested ICON run in which the present limited-area domain was operated
+as a nested grid with identical(!) model level configuration.
 \tabularnewline
 
 %\hline
@@ -2453,14 +2460,23 @@ itype\_latbc $\ge$ 1
 C &
 &
 &
-Filename of boundary data input file, default:\\
-''\texttt{prepiconR<nroot>B<jlev>\_<y><m><d><h>.nc}''.
-\texttt{<y>}, \texttt{<m>}, \texttt{<d>}, and \texttt{<h>} 
-will be automatically replaced during the run-time. In case
-the time span between two consecutive boundary data is less than 1 hour, 
-one can use \texttt{<min>} and \texttt{<sec>}.
-These files must be located in
+%
+Filename of boundary data input file, these files must be located in
 the \texttt{latbc\_path} directory.
+%
+Default:\\
+''\texttt{prepiconR<nroot>B<jlev>\_<y><m><d><h>.nc}''.
+%
+The keyword tokens \texttt{<y>}, \texttt{<m>}, \texttt{<d>}, and
+\texttt{<h>} will be automatically replaced during the run-time (year,
+month, day, hour).
+%
+In case the time span between two consecutive boundary data is less
+than 1 hour, one can use \texttt{<min>} and \texttt{<sec>}.
+%
+The keyword \texttt{<ddhhmmss>} is replaced by a \emph{relative}
+day-hour-minute-second string.
+%
 &
 itype\_latbc $\ge$ 1
 \tabularnewline

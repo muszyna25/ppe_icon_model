@@ -18,6 +18,7 @@
 !!
 MODULE mo_limarea_config
 
+  USE, INTRINSIC :: iso_c_binding, ONLY: c_int64_t
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: max_dom, MAX_CHAR_LENGTH, SUCCESS
   USE mo_io_units,           ONLY: filename_max
@@ -26,18 +27,41 @@ MODULE mo_limarea_config
                                    int2string
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_datetime,           ONLY: t_datetime
-  USE mtime,                 ONLY: MAX_DATETIME_STR_LEN, datetime
+  USE mtime,                 ONLY: MAX_DATETIME_STR_LEN, datetime,   &
+    &                              timedelta, deallocateTimedelta,   &
+    &                              newTimedelta, OPERATOR(-),        &
+    &                              getTotalSecondsTimeDelta
   USE mo_parallel_config,    ONLY: num_prefetch_proc
 
   IMPLICIT NONE
 
+  PRIVATE
+
   PUBLIC :: t_latbc_config, latbc_config, configure_latbc, generate_filename, &
     &       generate_filename_mtime 
   PUBLIC :: t_glb_indices
+  PUBLIC :: LATBC_TYPE_CONST, LATBC_TYPE_EXT, LATBC_TYPE_TEST
 
 
   !> module name string
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_limarea_config'
+
+  ! CONSTANTS (for better readability):
+  !
+  ! LATBC_TYPE_CONST: constant lateral boundary conditions derived
+  ! from the initial conditions
+  INTEGER, PARAMETER :: LATBC_TYPE_CONST       = 0
+
+  ! LATBC_TYPE_EXT: time-dependent lateral boundary conditions
+  ! provided by an external source (IFS, COSMO-DE or a
+  ! coarser-resolution ICON run)
+  INTEGER, PARAMETER :: LATBC_TYPE_EXT         = 1
+
+  ! LATBC_TYPE_TEST: Test mode using time-dependent lateral boundary
+  ! conditions from a nested ICON run in which the present
+  ! limited-area domain was operated as a nested grid with
+  ! identical(!) model level configuration
+  INTEGER, PARAMETER :: LATBC_TYPE_TEST        = 2
 
 
 
@@ -107,17 +131,17 @@ CONTAINS
     ! Sanity check and Prints
     !----------------------------------------------------
 
-    IF (latbc_config%itype_latbc == 0) THEN
+    IF (latbc_config%itype_latbc == LATBC_TYPE_CONST) THEN
 
        WRITE(message_text,'(a)')'Lateral boundary nudging using the initial boundary data.'
        CALL message(TRIM(routine),message_text)
 
-    ELSE IF (latbc_config%itype_latbc == 1) THEN
+    ELSE IF (latbc_config%itype_latbc == LATBC_TYPE_EXT) THEN
 
        WRITE(message_text,'(a)')'Lateral boundary condition using the IFS or COSMO-DE boundary data.'
        CALL message(TRIM(routine),message_text)
 
-    ELSE IF (latbc_config%itype_latbc == 2) THEN
+    ELSE IF (latbc_config%itype_latbc == LATBC_TYPE_TEST) THEN
 
        WRITE(message_text,'(a)')'Lateral boundary condition using the ICON global boundary data.'
        CALL message(TRIM(routine),message_text)
@@ -181,16 +205,20 @@ CONTAINS
   END FUNCTION generate_filename
 
   !--------------------------------------------------------------------------------------
-  FUNCTION generate_filename_mtime(nroot, jlev, latbc_mtime) RESULT(result_str)
+  FUNCTION generate_filename_mtime(nroot, jlev, latbc_mtime, mtime_begin) RESULT(result_str)
     INTEGER,          INTENT(IN)                :: nroot, jlev
     TYPE(datetime),   INTENT(IN)                :: latbc_mtime
+    TYPE(datetime),   INTENT(IN),  POINTER      :: mtime_begin
     CHARACTER(MAX_CHAR_LENGTH )                 :: result_str
 
     ! Local variables
+    CHARACTER(MAX_CHAR_LENGTH), PARAMETER       :: routine = modname//'::generate_filename_mtime:'
     TYPE (t_keyword_list), POINTER              :: keywords => NULL()
     CHARACTER(MAX_CHAR_LENGTH)                  :: str
-    CHARACTER(MAX_CHAR_LENGTH), PARAMETER       :: &
-      &  routine = 'mo_limarea_config::generate_filename_mtime:'
+    TYPE(timedelta), POINTER                    :: td
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)         :: timedelta_str
+    INTEGER(c_int64_t)                          :: td_seconds
+    INTEGER                                     :: errno
     
     WRITE(str,'(i4)')   latbc_mtime%date%year
     CALL associate_keyword("<y>",         TRIM(str),                        keywords)
@@ -209,6 +237,18 @@ CONTAINS
     CALL associate_keyword("<nroot0>",    TRIM(int2string(nroot,'(i2.2)')), keywords)
     CALL associate_keyword("<jlev>",      TRIM(int2string(jlev, '(i2.2)')), keywords)
     CALL associate_keyword("<dom>",       TRIM(int2string(1,'(i2.2)')),     keywords)
+    
+    td => newTimedelta("P01D")
+    td = latbc_mtime - mtime_begin
+    ! we convert the time delta to an ISO 8601 conforming string
+    ! (where, for convenience, the 'T' token has been erased)
+    WRITE (timedelta_str,'(4(i2.2,a))') td%day,    'D',  td%hour,   'H',   &
+      &                                 td%minute, 'M',  td%second, 'S'
+    td_seconds = getTotalSecondsTimeDelta(td, mtime_begin, errno)
+    IF (errno /= 0)  CALL finish(routine, "Internal error!")
+    WRITE (timedelta_str,'(4(i2.2))') td_seconds/86400, td%hour, td%minute, td%second 
+    CALL associate_keyword("<ddhhmmss>",  TRIM(timedelta_str), keywords)
+    CALL deallocateTimedelta(td)
 
     ! replace keywords in latbc_filename
     result_str = TRIM(with_keywords(keywords, TRIM(latbc_config%latbc_filename)))

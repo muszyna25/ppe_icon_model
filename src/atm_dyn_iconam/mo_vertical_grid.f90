@@ -52,7 +52,7 @@ MODULE mo_vertical_grid
   USE mo_math_constants,        ONLY: pi_2
   USE mo_loopindices,           ONLY: get_indices_e, get_indices_c
   USE mo_nonhydro_types,        ONLY: t_nh_state
-  USE mo_nh_init_utils,         ONLY: nflatlev
+  USE mo_init_vgrid,            ONLY: nflatlev
   USE mo_sync,                  ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, global_sum_array, &
                                       sync_patch_array_mult, global_min, global_max
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
@@ -555,32 +555,34 @@ MODULE mo_vertical_grid
         ENDDO
 
         ! Compute mask field for mountain or upper slope grid points
-        DO jc = i_startidx,i_endidx
-          zn_avg = 0._wp
-          zn_sq  = 0._wp
-          zn_min = p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)
-          DO ic = 2, 10
-            zn_avg = zn_avg + p_nh(jg)%metrics%z_ifc(inidx(ic,jc,jb),nlevp1,inblk(ic,jc,jb))
-            zn_sq  = zn_sq  + p_nh(jg)%metrics%z_ifc(inidx(ic,jc,jb),nlevp1,inblk(ic,jc,jb))**2
-            zn_min = MIN(zn_min,p_nh(jg)%metrics%z_ifc(inidx(ic,jc,jb),nlevp1,inblk(ic,jc,jb)))
+        IF (ASSOCIATED(ext_data(jg)%atm%sso_stdh_raw)) THEN  ! only associated for NWP forcing
+          DO jc = i_startidx,i_endidx
+            zn_avg = 0._wp
+            zn_sq  = 0._wp
+            zn_min = p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)
+            DO ic = 2, 10
+              zn_avg = zn_avg + p_nh(jg)%metrics%z_ifc(inidx(ic,jc,jb),nlevp1,inblk(ic,jc,jb))
+              zn_sq  = zn_sq  + p_nh(jg)%metrics%z_ifc(inidx(ic,jc,jb),nlevp1,inblk(ic,jc,jb))**2
+              zn_min = MIN(zn_min,p_nh(jg)%metrics%z_ifc(inidx(ic,jc,jb),nlevp1,inblk(ic,jc,jb)))
+            ENDDO
+            zn_avg = zn_avg/9._wp
+            zn_sq  = zn_sq/9._wp
+            zn_rms = SQRT(MAX(0._wp,zn_sq - zn_avg**2))
+            IF (p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)-zn_min > 200._wp .AND. p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb) > zn_avg) THEN
+              p_nh(jg)%metrics%mask_mtnpoints(jc,jb) = MIN(1._wp,1.e5_wp*MAX(0._wp,MAX(zn_rms,                               &
+                p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)-zn_avg)-200._wp)/p_patch(jg)%geometry_info%mean_characteristic_length**2)
+            ELSE
+              p_nh(jg)%metrics%mask_mtnpoints(jc,jb) = 0._wp
+            ENDIF
+            ! Second mask field used for gust parameterization
+            IF (p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)-zn_min > 50._wp .AND. p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb) > zn_avg) THEN
+              z_aux_c(jc,1,jb) = MIN(1.2_wp,70._wp*MAX(zn_rms,p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)-zn_avg,  &
+                ext_data(jg)%atm%sso_stdh_raw(jc,jb))/p_patch(jg)%geometry_info%mean_characteristic_length)
+            ELSE
+              z_aux_c(jc,1,jb) = 0._wp
+            ENDIF
           ENDDO
-          zn_avg = zn_avg/9._wp
-          zn_sq  = zn_sq/9._wp
-          zn_rms = SQRT(MAX(0._wp,zn_sq - zn_avg**2))
-          IF (p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)-zn_min > 200._wp .AND. p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb) > zn_avg) THEN
-            p_nh(jg)%metrics%mask_mtnpoints(jc,jb) = MIN(1._wp,1.e5_wp*MAX(0._wp,MAX(zn_rms,                               &
-              p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)-zn_avg)-200._wp)/p_patch(jg)%geometry_info%mean_characteristic_length**2)
-          ELSE
-            p_nh(jg)%metrics%mask_mtnpoints(jc,jb) = 0._wp
-          ENDIF
-          ! Second mask field used for gust parameterization
-          IF (p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)-zn_min > 50._wp .AND. p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb) > zn_avg) THEN
-            z_aux_c(jc,1,jb) = MIN(1.2_wp,70._wp*MAX(zn_rms,p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)-zn_avg,  &
-              ext_data(jg)%atm%sso_stdh_raw(jc,jb))/p_patch(jg)%geometry_info%mean_characteristic_length)
-          ELSE
-            z_aux_c(jc,1,jb) = 0._wp
-          ENDIF
-        ENDDO
+        ENDIF  ! associated
 
       ENDDO
 !$OMP END DO NOWAIT
