@@ -32,7 +32,6 @@ MODULE mo_echam_phy_main
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
   USE mo_mpi,                 ONLY: my_process_is_stdio
-  USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: cpd, cpv, cvd, cvv
   USE mo_impl_constants      ,ONLY: inh_atmosphere
   USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
@@ -47,20 +46,20 @@ MODULE mo_echam_phy_main
     &                               t_echam_phy_tend,  prm_tend
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop,                &
     &                               timer_cover, timer_radheat,                     &
-    &                               timer_gw_hines, timer_ssodrag,                  &
+    &                               timer_ssodrag,                  &
     &                               timer_cucall, timer_cloud
   USE mtime,                  ONLY: datetime
   USE mo_ham_aerosol_params,  ONLY: ncdnc, nicnc
   USE mo_echam_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_cloud,               ONLY: cloud
   USE mo_cover,               ONLY: cover
-  USE mo_gw_hines,            ONLY: gw_hines
   USE mo_ssortns,             ONLY: ssodrag
 
   USE mo_interface_echam_radiation,    ONLY: interface_echam_radiation
   USE mo_interface_echam_radheating,   ONLY: interface_echam_radheating
   USE mo_interface_echam_vdiff_surface,ONLY: interface_echam_vdiff_surface
   USE mo_interface_echam_o3_cariolle,  ONLY: interface_echam_o3_cariolle
+  USE mo_interface_echam_gw_hines,     ONLY: interface_echam_gw_hines
 
   USE mo_parallel_config     ,ONLY: nproma
   USE mo_loopindices         ,ONLY: get_indices_c
@@ -278,39 +277,10 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 6. ATMOSPHERIC GRAVITY WAVES
     !-------------------------------------------------------------------
-
     ! 6.1   CALL SUBROUTINE GW_HINES
-
-    IF (phy_config%lgw_hines) THEN
-
-      IF (ltimer) call timer_start(timer_gw_hines)
-!$OMP PARALLEL DO PRIVATE(jcs,jce)
-      DO jb = i_startblk,i_endblk
-        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-
-        CALL echam_gw_hinesg(patch, jg, jb,jcs,jce, nproma, field, tend, zconv(:,:,jb), zq_phy(:,:,jb))
-      ENDDO
-!$OMP END PARALLEL DO 
-
-      IF (ltimer) call timer_stop(timer_gw_hines)
-      
-    ELSE ! NECESSARY COMPUTATIONS IF GW_HINES IS BY-PASSED
-      ! this should not be necessary
-!$OMP PARALLEL DO PRIVATE(jcs,jce)
-      DO jb = i_startblk,i_endblk
-        CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-        ! this should not be necessary, if are initialize to zero
-        tend%   ta_gwh(jcs:jce,:,jb) = 0._wp
-        tend%   ua_gwh(jcs:jce,:,jb) = 0._wp
-        tend%   va_gwh(jcs:jce,:,jb) = 0._wp
-      ENDDO
-!$OMP END PARALLEL DO 
-
-    END IF !lgw_hines
-
+    CALL  interface_echam_gw_hines(patch, rl_start, rl_end, field, tend, zconv, zq_phy)
 
     ! 6.2   CALL SUBROUTINE SSODRAG
-
     IF (phy_config%lssodrag) THEN
 
       IF (ltimer) call timer_start(timer_ssodrag)
@@ -526,66 +496,6 @@ CONTAINS
   END SUBROUTINE calculate_zcair_zconv
   !---------------------------------------------------------------------
 
-
-
-  !---------------------------------------------------------------------
-  SUBROUTINE echam_gw_hinesg(patch, jg, jb,jcs,jce, nbdim, field, tend, zconv, zq_phy)
-    TYPE(t_patch)   ,INTENT(in), TARGET :: patch           !< grid/patch info
-    INTEGER         ,INTENT(IN) :: jg
-    INTEGER         ,INTENT(IN) :: jb             !< block index
-    INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
-    INTEGER         ,INTENT(IN) :: nbdim          !< size of this block  
-    REAL(wp)        ,INTENT(IN) :: zconv  (nbdim,nlev)       !< specific heat of moist air        [J/K/kg]
-    TYPE(t_echam_phy_field),   POINTER :: field
-    TYPE(t_echam_phy_tend) ,   POINTER :: tend
-    REAL(wp)        ,INTENT(INOUT) :: zq_phy (nbdim,nlev)       !< heating by whole ECHAM physics    [W/m2]
-
-    ! Temporary array used by GW_HINES
-    REAL(wp) :: zdis_gwh(nbdim,nlev)  !<  out, energy dissipation rate [J/s/kg]
-
-    INTEGER  :: nc    !< number of cells/columns from (jce-jcs+1)
-    REAL(wp) :: zlat_deg(nbdim)           !< latitude in deg N
-    REAL(wp) :: zq_gwh (nbdim,nlev)       !< heating by atm. gravity waves     [W/m2]
- 
-    ! number of cells/columns from index jcs to jce
-    nc = jce-jcs+1
-
-    zlat_deg(jcs:jce) = patch%cells%center(jcs:jce,jb)%lat * 180._wp/pi
-
-    CALL gw_hines ( jg                       ,&
-      &             nbdim                    ,&
-      &             jcs                      ,&
-      &             jce                      ,&
-      &             nc                       ,&
-      &             nlev                     ,&
-      &             field% presi_old(:,:,jb) ,&
-      &             field% presm_old(:,:,jb) ,&
-      &             field%   ta(:,:,jb)      ,&
-      &             field%   ua(:,:,jb)      ,&
-      &             field%   va(:,:,jb)      ,&
-      &             zlat_deg(:)              ,&
-!!$        &             aprflux(:,krow)          ,&
-      &             zdis_gwh(:,:)            ,&
-      &             tend%   ua_gwh(:,:,jb)   ,&
-      &             tend%   va_gwh(:,:,jb) )
-
-
-    ! heating
-    zq_gwh(jcs:jce,:) = zdis_gwh(jcs:jce,:) * field%mair(jcs:jce,:,jb)
-
-    ! heating accumulated
-    zq_phy(jcs:jce,:) = zq_phy(jcs:jce,:) + zq_gwh(jcs:jce,:)
-
-    ! tendency
-    tend% ta_gwh(jcs:jce,:,jb) = zq_gwh(jcs:jce,:)*zconv(jcs:jce,:)
-
-    ! tendencies accumulated
-    tend%   ta(jcs:jce,:,jb) = tend%   ta(jcs:jce,:,jb) + tend%   ta_gwh(jcs:jce,:,jb)
-    tend%   ua(jcs:jce,:,jb) = tend%   ua(jcs:jce,:,jb) + tend%   ua_gwh(jcs:jce,:,jb)
-    tend%   va(jcs:jce,:,jb) = tend%   va(jcs:jce,:,jb) + tend%   va_gwh(jcs:jce,:,jb)
-
-  END SUBROUTINE echam_gw_hinesg
-  !---------------------------------------------------------------------
 
   !---------------------------------------------------------------------
   SUBROUTINE echam_ssodrag(patch, jb,jcs,jce, nbdim, field, tend, zconv, zq_phy)
