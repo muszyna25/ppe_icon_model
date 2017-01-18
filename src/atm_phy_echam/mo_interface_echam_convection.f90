@@ -73,7 +73,7 @@ CONTAINS
     REAL(wp) :: in_zcv                       !< specific heat of water vapor      [J/K/kg]
     REAL(wp)        ,INTENT(IN)  :: in_pdtime         !< time step
 
-    INTEGER  :: jg             
+!     INTEGER  :: jg             
     INTEGER  :: i_nchdom
     INTEGER  :: i_startblk,i_endblk
     INTEGER  :: jb             !< block index
@@ -87,7 +87,7 @@ CONTAINS
     zcv = in_zcv
 
 
-    jg         = patch%id
+!     jg         = patch%id
     i_nchdom   = MAX(1,patch%n_childdom)
     i_startblk = patch%cells%start_blk(rl_start,1)
     i_endblk   = patch%cells%end_blk(rl_end,i_nchdom)

@@ -31,7 +31,6 @@ MODULE mo_interface_echam_gravity_waves
   USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field,     &
     &                               t_echam_phy_tend
-  USE mo_ext_data_state,      ONLY: ext_data
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_gw_hines, timer_ssodrag
   USE mo_gw_hines,            ONLY: gw_hines
   USE mo_ssortns,             ONLY: ssodrag
@@ -56,7 +55,6 @@ CONTAINS
     REAL(wp) :: zq_phy (nproma,nlev,patch%nblks_c)       !< heating by whole ECHAM physics    [W/m2]
     REAL(wp) :: pdtime         !< time step
 
-    REAL(wp) :: zq_rsw (nproma,nlev)       !< heating by short wave radiation   [W/m2]
     INTEGER  :: jg             
     INTEGER  :: i_nchdom
     INTEGER  :: i_startblk,i_endblk

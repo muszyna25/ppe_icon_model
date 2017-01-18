@@ -32,10 +32,9 @@ MODULE mo_echam_phy_main
   USE mo_kind,                ONLY: wp
   USE mo_physical_constants,  ONLY: cpd, cpv, cvd, cvv
   USE mo_impl_constants      ,ONLY: inh_atmosphere
-  USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
-    &                               iqv, iqc, iqi, iqt
+  USE mo_run_config,          ONLY: ntracer, nlev, nlevp1,    &
+    &                               iqv, iqi, iqt
   USE mo_dynamics_config,     ONLY: iequations
-  USE mo_ext_data_state,      ONLY: ext_data
   USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
   USE mo_echam_cloud_config,  ONLY: echam_cloud_config
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &

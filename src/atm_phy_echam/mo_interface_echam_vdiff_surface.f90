@@ -30,12 +30,11 @@
 MODULE mo_interface_echam_vdiff_surface
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish
   USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field,     &
     &                               t_echam_phy_tend
   USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
-    &                               iqv, iqc, iqi, iqt, io3
+    &                               iqv, iqc, iqi, iqt
   USE mo_echam_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, &
     &                               timer_vdiff_down, timer_surface,timer_vdiff_up
@@ -72,7 +71,6 @@ CONTAINS
     REAL(wp) :: in_zcd                       !< specific heat of dry air          [J/K/kg]
     REAL(wp) :: in_zcv                       !< specific heat of water vapor      [J/K/kg]
 
-    REAL(wp) :: zq_rsw (nproma,nlev)       !< heating by short wave radiation   [W/m2]
     INTEGER  :: jg             
     INTEGER  :: i_nchdom
     INTEGER  :: i_startblk,i_endblk

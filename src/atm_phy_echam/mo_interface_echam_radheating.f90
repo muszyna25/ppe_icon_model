@@ -30,7 +30,6 @@
 MODULE mo_interface_echam_radheating
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish
   USE mo_run_config,          ONLY: nlev, nlevp1
   USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field,     &

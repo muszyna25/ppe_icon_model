@@ -25,8 +25,6 @@
 MODULE mo_interface_echam_o3_cariolle
 
   USE mo_kind,                ONLY: wp
-  USE mo_math_constants,      ONLY: pi
-  USE mo_impl_constants      ,ONLY: min_rlcell_int, grf_bdywidth_c
   USE mo_run_config,          ONLY: nlev, io3
   USE mo_physical_constants,  ONLY:  amd, amo3
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field,     &
