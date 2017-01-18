@@ -7,15 +7,11 @@
 !! @brief Master routine - provides interface for cumulus parameterization
 !!
 !! @remarks
-!!     *cucall*
-!!     This routine is called from *physc* (ECHAM) or *mo_echam_phy_main* (ICON)
-!!     It provides input for *cumastr*, receives updated tendencies, precipitation
 !!     *cumastr*
 !!     This routine computes the physical tendencies of the prognostic variables
 !!     t,q,u and v due to convective processes. Processes considered are: convective
 !!     fluxes, formation of precipitation, evaporation of falling rain below cloud
 !!     base, saturated cumulus downdrafts.
-!!     *cumastr* is called from *cucall*
 !!     It takes its input from the long-term storage t,q,u,v,phi and p and moisture
 !!     tendencies. It returns its output to the same space
 !!     1. modified tendencies of model variables
@@ -56,7 +52,7 @@
 MODULE mo_cumastr
   USE mo_kind,                 ONLY: wp
   USE mo_echam_convect_tables, ONLY: prepare_ua_index_spline,lookup_ua_spline, lookup_ubc
-  USE mo_physical_constants,   ONLY: grav, alv, als, tmelt, vtmpc1, rd, cpd, cpv
+  USE mo_physical_constants,   ONLY: grav, alv, als, tmelt, vtmpc1, rd
   USE mo_echam_conv_config,    ONLY: echam_conv_config
   USE mo_cuinitialize,         ONLY: cuini, cubase
   USE mo_cuascent,             ONLY: cuasc
@@ -65,7 +61,7 @@ MODULE mo_cumastr
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: cucall
+  PUBLIC :: cumastr
 
   ! to simplify access to components of echam_conv_config
   LOGICAL , POINTER :: lmfdd, lmfdudv
@@ -75,212 +71,60 @@ MODULE mo_cumastr
 CONTAINS
   !>
   !!
-  SUBROUTINE cucall(   kproma, kbdim, klev, klevp1, klevm1,            &! in
-    &                  ktrac,                                          &! in
-    &                  pdtime,                                         &! in
-    &                  ldland,                                         &! in
-    &                  pmdry,                                          &! in
-    &                  ptp1,     pup1,     pvp1,                       &! in
-    &                  pqp1,     pxlp1,    pxip1,                      &! in
-    &                  pxtp1,                                          &! in
-    &                  pverv,    pqhfla,   pgeo,                       &! in
-    &                  papp1,    paphp1,   pthvsig,                    &! in
-    &                  prsfc,    pssfc,                                &! out
-    &                  ktype,    ictop,    ilab,                       &! out
-    &                  ptopmax,                                        &! inout
-    &                  cevapcu,                                        &! in
-    &                  pqte_dyn, pqte_phy,                             &! in
-    &                  pq_cnv,   pvom_cnv, pvol_cnv,                   &! out
-    &                  pqte_cnv, pxtecl,   pxteci,                     &! out
-    &                  pxtte_cnv,                                      &! out
-    &                  pcon_dtrl,pcon_dtri,pcon_iqte           )        ! out
-
-    INTEGER, INTENT(IN)  :: klev, klevm1, klevp1, kproma, kbdim, ktrac
-    REAL(wp),INTENT(IN)  :: pdtime
-    REAL(wp),INTENT(IN)  :: cevapcu(:)
-    REAL(wp),INTENT(IN)  :: pmdry(kbdim,klev)
-    REAL(wp),INTENT(IN)  :: ptp1(kbdim,klev),         pqp1(kbdim,klev),   &
-      &                     pup1(kbdim,klev),         pvp1(kbdim,klev),   &
-      &                     pxlp1(kbdim,klev),        pxip1(kbdim,klev),  &
-      &                     pxtp1(kbdim,klev,ktrac),                      &
-      &                     pverv(kbdim,klev),        pgeo(kbdim,klev),   &
-      &                     papp1(kbdim,klev),        paphp1(kbdim,klevp1)
-    REAL(wp),INTENT(IN)  :: pqte_dyn(kbdim,klev), pqte_phy(kbdim,klev)
-    REAL(wp),INTENT(OUT) :: prsfc(kbdim), pssfc(kbdim)
-    REAL(wp),INTENT(OUT) :: pq_cnv(kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
-    REAL(wp),INTENT(OUT) :: pxtecl(kbdim,klev), pxteci(kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pcon_dtrl(kbdim), pcon_dtri(kbdim)
-    REAL(wp),INTENT(OUT) :: pcon_iqte(kbdim)
-    REAL(wp)::  pthvsig(kbdim)
-    INTEGER ::  ktype(kbdim)
-    REAL(wp)::  pqhfla(kbdim)
-    REAL(wp)::  ptopmax(kbdim)
-    INTEGER ::  ilab(kbdim,klev)
-    
-    REAL(wp)::  zqp1(kbdim,klev),              &
-      &         zxp1(kbdim,klev),         ztvp1(kbdim,klev),             &
-      &         ztu(kbdim,klev),          zqu(kbdim,klev),               &
-      &         zlu(kbdim,klev),          zlude(kbdim,klev),             &
-      &         zqude(kbdim,klev),                                       &
-      &         zcpq(kbdim,klev),                                        &
-      &         zmfu(kbdim,klev),         zmfd(kbdim,klev),              &
-      &         zqsat(kbdim,klev),                                       &
-      &         za(kbdim),                ua(kbdim)
-    INTEGER ::  itopec2(kbdim),           idx(kbdim)
-    INTEGER ::  icbot(kbdim),             ictop(kbdim)
-    REAL(wp)::  zxtu(kbdim,klev,ktrac)
-    REAL(wp)::  ztopmax(kbdim)
-    LOGICAL ::  locum(kbdim),             ldland(kbdim)
-    !
-    !  Local scalars:
-    INTEGER :: ilevmin, jk, jl
-    REAL(wp)::  zqte_dyn_phy(kbdim,klev)
-    !
-    !  Executable statements
-    !
-    !-----------------------------------------------------------------------
-    !*    1.           Calculate t,q and qs at main levels
-    !*                 -----------------------------------
-    !
-    DO jk=1,klev
-!IBM* NOVECTOR
-      DO jl=1,kproma
-        zqp1(jl,jk)=MAX(0._wp,pqp1(jl,jk))
-        zxp1(jl,jk)=MAX(0._wp,pxlp1(jl,jk)+pxip1(jl,jk))
-        ztvp1(jl,jk)=ptp1(jl,jk)*(1._wp+vtmpc1*zqp1(jl,jk)-zxp1(jl,jk))
-      END DO
-
-      CALL prepare_ua_index_spline('cucall',kproma,ptp1(1,jk),idx(1),za(1))
-      CALL lookup_ua_spline(kproma,idx(1),za(1),ua(1))
-
-!IBM* NOVECTOR
-      DO jl=1,kproma
-        zqsat(jl,jk)=ua(jl)/papp1(jl,jk)
-        zqsat(jl,jk)=MIN(0.5_wp,zqsat(jl,jk))
-        zqsat(jl,jk)=zqsat(jl,jk)/(1._wp-vtmpc1*zqsat(jl,jk))
-        zcpq(jl,jk)=cpd+(cpv-cpd)*zqp1(jl,jk) ! cp of moist air for comp. of fluxes
-      END DO
-    END DO
-    !
-    !-----------------------------------------------------------------------
-    !
-    !*    2.     Call 'cumastr'(master-routine for cumulus parameterization)
-    !*           -----------------------------------------------------------
-    !
-    ! Total moisture tendency due to transport and the parameterized processes
-    ! computed before "cucall".
-    zqte_dyn_phy(1:kproma,:) = pqte_dyn(1:kproma,:)+pqte_phy(1:kproma,:)
-
-    CALL cumastr(kproma, kbdim, klev, klevp1, klevm1, ilab,           &
-      &          pdtime,                                              &
-      &          pmdry,                                               &
-      &          ptp1,     zqp1,     zxp1,     pup1,   pvp1,          &
-      &          ztvp1,    ktrac,    ldland,                          &
-      &          pxtp1,    zxtu,                                      &
-      &          pverv,    zqsat,    pqhfla,                          &
-      &          paphp1,   pgeo,                                      &
-      &          zqte_dyn_phy,                                        &
-      &          prsfc,    pssfc,                                     &
-      &          zqude,    zcpq,                                      &
-      &          locum,    ktype,    icbot,    ictop,                 &
-      &          ztu,      zqu,      zlu,      zlude,                 &
-      &          zmfu,     zmfd,     pthvsig,                         &
-      &          cevapcu,                                             &
-      &          pcon_dtrl,pcon_dtri,pcon_iqte,                       &
-      &          pq_cnv,   pvom_cnv, pvol_cnv, pqte_cnv,pxtte_cnv,    &
-      &          pxtecl,   pxteci                                     )
-    !
-    ! ------------------------------------------------------------------
-    !
-    !*     3.     Pressure altitude of convective cloud tops.
-    !             -------- -------- -- ---------- ----- -----
-    !
-    ilevmin=klev-4
-    !
-    DO jl=1,kproma
-      itopec2(jl)=klevp1
-    END DO
-    !
-    DO jk=1,ilevmin
-      DO jl=1,kproma
-        IF(ilab(jl,jk).EQ.2 .AND. itopec2(jl).EQ.klevp1) THEN
-          itopec2(jl)=jk
-        END IF
-      END DO
-    END DO
-    !
-    ztopmax(1:kproma) = ptopmax(1:kproma)
-
-    DO jl=1,kproma
-      IF(itopec2(jl).EQ.1) THEN
-        ptopmax(jl)=papp1(jl,1)
-      ELSE IF(itopec2(jl).NE.klevp1) THEN
-        ptopmax(jl)=paphp1(jl,itopec2(jl))
-      ELSE
-        ptopmax(jl)=99999._wp
-      END IF
-      ptopmax(jl)=MIN(ptopmax(jl),ztopmax(jl))
-    END DO
-    !
-    !---------------------------------------------------------------------
-    !
-  END SUBROUTINE cucall
-  !>
-  !!
-  SUBROUTINE cumastr(  kproma, kbdim, klev, klevp1, klevm1, ilab,         &
+  SUBROUTINE cumastr(  kproma, kbdim, klev, klevp1, klevm1,               &
     &                  pdtime,                                            &
-    &        pmdry,                                                       &
-    &        pten,     pqen,     pxen,     puen,     pven,                &
-    &        ptven,    ktrac,    ldland,                                  &
-    &        pxten,    pxtu,                                              &
-    &        pverv,    pqsen,    pqhfla,                                  &
-    &        paphp1,   pgeo,                                              &
-    &        pqte,                                                        &
-    &        prsfc,    pssfc,                                             &
-    &        pqude,    pcpen,                                             &
-    &        ldcum,    ktype,    kcbot,    kctop,                         &
-    &        ptu,      pqu,      plu,      plude,                         &
-    &        pmfu,     pmfd,     pthvsig,                                 &
-    &        cevapcu,                                                     &
-    &        pcon_dtrl,pcon_dtri,pcon_iqte,                               &
-    &        pq_cnv,   pvom_cnv, pvol_cnv, pqte_cnv, pxtte_cnv,           &
-    &        pxtecl,   pxteci                                             )
+    &                  pmdry,                                             &
+    &                  pten,     pqen,     pxen,     puen,     pven,      &
+    &                  ktrac,    ldland,                                  &
+    &                  pxten,                                             &
+    &                  pverv,    pqhfla,                                  &
+    &                  papp1,    paphp1,                                  &
+    &                  pgeo,     pgeoh,                                   &
+    &                  pqte,                                              &
+    &                  pthvsig,                                           &
+    &                  cevapcu,                                           &
+    &                  ktype,    kctop,                                   &
+    &                  prsfc,    pssfc,                                   &
+    &                  pcon_dtrl,pcon_dtri,pcon_iqte,                     &
+    &                  pq_cnv,   pvom_cnv, pvol_cnv, pqte_cnv, pxtte_cnv, &
+    &                  pxtecl,   pxteci,                                  &
+    &                  ptop                                               )
     !
     INTEGER, INTENT(IN)   :: kproma, kbdim, klev, klevp1, ktrac, klevm1
     REAL(wp),INTENT(IN)   :: pdtime
     REAL(wp),INTENT(IN)   :: cevapcu(:)
     REAL(wp),INTENT(IN)   :: pmdry(kbdim,klev)
 
-    INTEGER, INTENT(OUT)  :: ktype(kbdim)
-    REAL(wp),INTENT(OUT)  :: pcon_dtrl(kbdim), pcon_dtri(kbdim)
+    REAL(wp),INTENT(IN)   :: pten(kbdim,klev),        pqen(kbdim,klev),        &
+      &                      pxen(kbdim,klev),        pxten(kbdim,klev,ktrac), &
+      &                      puen(kbdim,klev),        pven(kbdim,klev),        &
+      &                      pverv(kbdim,klev),       pqhfla(kbdim),           &
+      &                      papp1(kbdim,klev),       paphp1(kbdim,klevp1),    &
+      &                      pgeo(kbdim,klev),        pgeoh(kbdim,klevp1),     &
+      &                      pqte(kbdim,klev),                                 &
+      &                      pthvsig(kbdim)
+
+    INTEGER, INTENT(OUT)  :: ktype(kbdim),         kctop(kbdim)
+    REAL(wp),INTENT(OUT)  :: pcon_dtrl(kbdim),     pcon_dtri(kbdim)
     REAL(wp),INTENT(OUT)  :: pcon_iqte(kbdim)
     REAL(wp),INTENT(OUT)  :: pq_cnv(kbdim,klev)
     REAL(wp),INTENT(OUT)  :: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
     REAL(wp),INTENT(OUT)  :: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
-    REAL(wp),INTENT(OUT)  :: prsfc(kbdim), pssfc(kbdim)
-    REAL(wp),INTENT(OUT)  :: pxtecl(kbdim,klev), pxteci(kbdim,klev)
+    REAL(wp),INTENT(OUT)  :: prsfc(kbdim),         pssfc(kbdim)
+    REAL(wp),INTENT(OUT)  :: pxtecl(kbdim,klev),   pxteci(kbdim,klev)
+    REAL(wp),INTENT(OUT)  :: ptop(kbdim)
 
-    REAL(wp),INTENT(IN)   :: pcpen(kbdim,klev), pqte(kbdim,klev)
     !
-    REAL(wp):: pten(kbdim,klev),        pqen(kbdim,klev),                  &
-      &        pxen(kbdim,klev),        ptven(kbdim,klev),                 &
-      &        puen(kbdim,klev),        pven(kbdim,klev),                  &
-      &        pqsen(kbdim,klev),       pgeo(kbdim,klev),                  &
-      &        paphp1(kbdim,klevp1),                                       &
-      &        pverv(kbdim,klev)
     REAL(wp):: ptu(kbdim,klev),         pqu(kbdim,klev),                   &
       &        plu(kbdim,klev),         plude(kbdim,klev),                 &
-      &        pmfu(kbdim,klev),        pmfd(kbdim,klev),                  &
-      &        pqhfla(kbdim)
-    REAL(wp):: pthvsig(kbdim)
-    INTEGER :: kcbot(kbdim),            kctop(kbdim)
+      &        pmfu(kbdim,klev),        pmfd(kbdim,klev)
+    INTEGER :: kcbot(kbdim)
     REAL(wp):: pqude(kbdim,klev)
+    REAL(wp):: zqsen(kbdim,klev),       zcpen(kbdim,klev)
     REAL(wp):: ztenh(kbdim,klev),       zqenh(kbdim,klev),                 &
       &        zxenh(kbdim,klev),       zalvsh(kbdim,klev),                &
       ! zalvsh: latent heat of vaporisation/sublimation defined at half levels
-      &        zgeoh(kbdim,klev),       zqsenh(kbdim,klev),                &
+      &        zqsenh(kbdim,klev),                                         &
       &        ztd(kbdim,klev),         zqd(kbdim,klev),                   &
       &        zmfus(kbdim,klev),       zmfds(kbdim,klev),                 &
       &        zmfuq(kbdim,klev),       zmfdq(kbdim,klev),                 &
@@ -305,7 +149,8 @@ CONTAINS
     INTEGER :: ihmin(kbdim), ilo1(kbdim), ldidx(kbdim), loidx(kbdim)
     INTEGER :: ilab(kbdim,klev),        idtop(kbdim),                      &
       &        ictop0(kbdim),           ilwmin(kbdim)
-    REAL(wp):: pxten(kbdim,klev,ktrac), pxtu(kbdim,klev,ktrac),            &
+    INTEGER :: itopec2(kbdim)
+    REAL(wp):: zxtu(kbdim,klev,ktrac),                                     &
       &        zxtenh(kbdim,klev,ktrac),zxtd(kbdim,klev,ktrac),            &
       &        zmfuxt(kbdim,klev,ktrac),zmfdxt(kbdim,klev,ktrac)
     LOGICAL :: loddraf(kbdim),          ldland(kbdim)
@@ -344,16 +189,16 @@ CONTAINS
     !                  ---------------------------------------------------
     !
     CALL cuini(kproma, kbdim, klev, klevp1, klevm1,                      &
-      &        pten,     pqen,     pqsen,    pxen,     puen,     pven,   &
-      &        ptven,    ktrac,                                          &
-      &        pxten,    zxtenh,   pxtu,     zxtd,     zmfuxt,   zmfdxt, &
-      &        pverv,    pgeo,     paphp1,   zgeoh,                      &
+      &        pten,     pqen,     zqsen,    pxen,     puen,     pven,   &
+      &        ktrac,                                                    &
+      &        pxten,    zxtenh,   zxtu,     zxtd,     zmfuxt,   zmfdxt, &
+      &        pverv,    papp1,    pgeo,     paphp1,   pgeoh,            &
       &        ztenh,    zqenh,    zqsenh,   zxenh,    ilwmin,           &
       &        ptu,      pqu,      ztd,      zqd,                        &
       &        zuu,      zvu,      zud,      zvd,                        &
       &        pmfu,     pmfd,     zmfus,    zmfds,                      &
       &        zmfuq,    zmfdq,    zdmfup,   zdmfdp,                     &
-      &        pcpen,    zcpcu,    zalvsh,                               &
+      &        zcpen,    zcpcu,    zalvsh,                               &
       &        zdpmel,   plu,      plude,    pqude,    ilab             )
     !
     !-----------------------------------------------------------------------
@@ -365,7 +210,7 @@ CONTAINS
     !                  ---------------------------------------
     !
     CALL cubase(kproma, kbdim, klev, klevp1, klevm1,                     &
-      &         ztenh,    zqenh,    zgeoh,    paphp1,    pthvsig,        &
+      &         ztenh,    zqenh,    pgeoh,    paphp1,    pthvsig,        &
       &         ptu,      pqu,      plu,                                 &
       &         puen,     pven,     zuu,      zvu,                       &
       &         zcpcu,                                                   &
@@ -440,7 +285,7 @@ CONTAINS
     DO jl=1,kproma
       ikb=kcbot(jl)
       zalvs=FSEL(tmelt-ptu(jl,ikb),als,alv)
-      zhcbase(jl) = zcpcu(jl,ikb)*ptu(jl,ikb) + zgeoh(jl,ikb) + zalvs*pqu(jl,ikb)
+      zhcbase(jl) = zcpcu(jl,ikb)*ptu(jl,ikb) + pgeoh(jl,ikb) + zalvs*pqu(jl,ikb)
       zictop0(jl) = zkcbot(jl)-1._wp
     END DO
     DO jk=klev,1,-1
@@ -457,7 +302,7 @@ CONTAINS
           zalvs=FSEL(tmelt - ztenh(jl,jk),als,alv)
           zalvdcp=zalvs*zcpcui(jl,jk)
           zqalv=1._wp/zalvs
-          zhsat=zcpcu(jl,jk)*ztenh(jl,jk)+zgeoh(jl,jk)+zalvs*zqsenh(jl,jk)
+          zhsat=zcpcu(jl,jk)*ztenh(jl,jk)+pgeoh(jl,jk)+zalvs*zqsenh(jl,jk)
           zpaphp1i = 1._wp/paphp1(jl,jk)
           zes=ua(jl)*zpaphp1i
           zes=MIN(0.5_wp,zes)
@@ -533,11 +378,11 @@ CONTAINS
         ikb   = kcbot(jl)
         zroi  = SWDIV_NOCHK(rd*ztenh(jl,jk)*(1._wp+vtmpc1*zqenh(jl,jk)),paphp1(jl,jk))
         zdz   = (paphp1(jl,jk)-paphp1(jl,jk-1))*zroi/grav
-        za1 = (pcpen(jl,jk-1)*pten(jl,jk-1) - pcpen(jl,jk)*pten(jl,jk)               &
+        za1 = (zcpen(jl,jk-1)*pten(jl,jk-1) - zcpen(jl,jk)*pten(jl,jk)               &
              + zalvs*(pqen(jl,jk-1) - pqen(jl,jk))+(pgeo(jl,jk-1)-pgeo(jl,jk)))*grav
         za2 = pgeo(jl,jk-1)-pgeo(jl,jk)
         zdhdz = SWDIV_NOCHK(za1, za2)
-        zdepth    = zgeoh(jl,jk)-zgeoh(jl,ikb)
+        zdepth    = pgeoh(jl,jk)-pgeoh(jl,ikb)
         ztmp1(nl) = zalvs
         ztmp2(nl) = zdz*zdhdz
         ztmp3(nl) = 1._wp+zdepth*zbi
@@ -548,7 +393,7 @@ CONTAINS
         jl = loidx(nl)
         zalvs     = ztmp1(nl)
         zfac      = ztmp3(nl)
-        zdepth    = zgeoh(jl,jk)-zgeoh(jl,ikb)
+        zdepth    = pgeoh(jl,jk)-pgeoh(jl,ikb)
         zhmin(jl) = zhmin(jl) + zfac*ztmp2(nl)
         zrh       =-zalvs*(zqsenh(jl,jk)-zqenh(jl,jk))*zfac
         zihmin(jl) = FSEL(zrh - zhmin(jl),zihmin(jl),zjk)
@@ -573,9 +418,9 @@ CONTAINS
       &        ztenh,    zqenh,    puen,     pven,                       &
       &        ktrac,                                                    &
       &        pdtime,                                                   &
-      &        zxtenh,   pxten,    pxtu,     zmfuxt,                     &
-      &        pten,     pqen,     pqsen,                                &
-      &        pgeo,     zgeoh,    paphp1,   pthvsig,                    &
+      &        zxtenh,   pxten,    zxtu,     zmfuxt,                     &
+      &        pten,     pqen,     zqsen,                                &
+      &        pgeo,     pgeoh,    paphp1,   pthvsig,                    &
       &        pqte,               pverv,    ilwmin,                     &
       &        ldcum,    ldland,   ktype,    ilab,                       &
       &        ptu,      pqu,      plu,      zuu,      zvu,              &
@@ -583,7 +428,7 @@ CONTAINS
       &        zmfus,    zmfuq,                                          &
       &        zmful,    plude,    pqude,    zdmfup,                     &
       &        ihmin,    zhhatt,   zhcbase,  zqsenh,                     &
-      &        pcpen,    zcpcu,                                          &
+      &        zcpen,    zcpcu,                                          &
       &        kcbot,    kctop,    ictop0                                &
       &       )
     !
@@ -625,8 +470,8 @@ CONTAINS
       CALL cudlfs(kproma,   kbdim,    klev,     klevp1,                 &
         &         ztenh,    zqenh,    puen,     pven,                   &
         &         ktrac,                                                &
-        &         zxtenh,   pxtu,     zxtd,     zmfdxt,                 &
-        &         zgeoh,    paphp1,                                     &
+        &         zxtenh,   zxtu,     zxtd,     zmfdxt,                 &
+        &         pgeoh,    paphp1,                                     &
         &         ptu,      pqu,      zuu,      zvu,                    &
         &         ldcum,    kcbot,    kctop,    zmfub,    zrfl,         &
         &         ztd,      zqd,      zud,      zvd,                    &
@@ -640,7 +485,7 @@ CONTAINS
         &          ztenh,    zqenh,    puen,     pven,                  &
         &          ktrac,                                               &
         &          zxtenh,   zxtd,     zmfdxt,                          &
-        &          zgeoh,    paphp1,   zrfl,                            &
+        &          pgeoh,    paphp1,   zrfl,                            &
         &          ztd,      zqd,      zud,      zvd,                   &
         &          pmfd,     zmfds,    zmfdq,    zdmfdp,                &
         &          zcpcu,                                               &
@@ -807,9 +652,9 @@ CONTAINS
       &        ztenh,    zqenh,    puen,     pven,                       &
       &        ktrac,                                                    &
       &        pdtime,                                                   &
-      &        zxtenh,   pxten,    pxtu,     zmfuxt,                     &
-      &        pten,     pqen,     pqsen,                                &
-      &        pgeo,     zgeoh,    paphp1,   pthvsig,                    &
+      &        zxtenh,   pxten,    zxtu,     zmfuxt,                     &
+      &        pten,     pqen,     zqsen,                                &
+      &        pgeo,     pgeoh,    paphp1,   pthvsig,                    &
       &        pqte,               pverv,    ilwmin,                     &
       &        ldcum,    ldland,   ktype,    ilab,                       &
       &        ptu,      pqu,      plu,      zuu,      zvu,              &
@@ -817,7 +662,7 @@ CONTAINS
       &        zmfus,    zmfuq,                                          &
       &        zmful,    plude,    pqude,    zdmfup,                     &
       &        ihmin,    zhhatt,   zhcbase,  zqsenh,                     &
-      &        pcpen,    zcpcu,                                          &
+      &        zcpen,    zcpcu,                                          &
       &        kcbot,    kctop,    ictop0                                &
       &       )
 
@@ -826,12 +671,12 @@ CONTAINS
     !              --------------------------------------------
     !
     CALL cuflx(kproma,   kbdim,    klev,     klevp1,                     &
-      &        pqen,     pqsen,    ztenh,    zqenh,                      &
+      &        pqen,     zqsen,    ztenh,    zqenh,                      &
       &        ktrac,                                                    &
       &        pdtime,                                                   &
       &        cevapcu,                                                  &
       &        zxtenh,   zmfuxt,   zmfdxt,                               &
-      &        paphp1,   zgeoh,                                          &
+      &        paphp1,   pgeoh,                                          &
       &        kcbot,    kctop,    idtop,                                &
       &        ktype,    loddraf,  ldcum,                                &
       &        pmfu,     pmfd,     zmfus,    zmfds,                      &
@@ -872,6 +717,37 @@ CONTAINS
         &         pmfu,     pmfd)
       !
     END IF
+    !
+    !-----------------------------------------------------------------------
+    !
+    !*   10.0      Pressure altitude of convective cloud tops
+    !              ------------------------------------------
+    !
+    DO jl=1,kproma
+      itopec2(jl)=klevp1
+    END DO
+    !
+    DO jk=1,klev-4
+      DO jl=1,kproma
+        IF(ilab(jl,jk).EQ.2 .AND. itopec2(jl).EQ.klevp1) THEN
+          itopec2(jl)=jk
+        END IF
+      END DO
+    END DO
+    !
+    ptop(:)=99999._wp
+    !
+    DO jl=1,kproma
+      IF(itopec2(jl).EQ.1) THEN
+        ptop(jl)=(paphp1(jl,1)+paphp1(jl,2))*0.5_wp
+      ELSE IF(itopec2(jl).NE.klevp1) THEN
+        ptop(jl)=paphp1(jl,itopec2(jl))
+      ELSE
+        ptop(jl)=99999._wp
+      END IF
+    END DO
+    !
+    !-----------------------------------------------------------------------
     !
   END SUBROUTINE cumastr
 

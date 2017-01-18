@@ -51,13 +51,16 @@ MODULE mo_echam_phy_memory
     &                               add_var, add_ref,          &
     &                               new_var_list,              &
     &                               delete_var_list
-  USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types
+  USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types, &
+    &                               new_action, actions
+  USE mo_action,              ONLY: ACTION_RESET
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_PACK16, DATATYPE_PACK24,  &
     &                               DATATYPE_FLT32,  DATATYPE_FLT64,   &
     &                               GRID_UNSTRUCTURED,                 &
     &                               TSTEP_INSTANT, TSTEP_CONSTANT,     &
+    &                               TSTEP_MIN, TSTEP_MAX,              &
     &                               cdiInqMissval
   USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL, &
     &                               ZA_HYBRID, ZA_HYBRID_HALF,         &
@@ -2062,7 +2065,10 @@ CONTAINS
     grib2_desc = grib2_var(0,6,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'topmax', field%topmax,              &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-                & lrestart = .FALSE., initval =  99999.0_wp, ldims=shape2d)
+                & lrestart = .FALSE., ldims=shape2d,                       &
+                & initval =  99999.0_wp, resetval =  99999.0_wp,           &
+                & isteptype=TSTEP_MIN,                                     &
+                & action_list=actions(new_action(ACTION_RESET,"P1D"))      )
 
     ! &       field% tke    (nproma,nlev  ,nblks), &
     cf_desc    = t_cf_var('turbulent_kinetic_energy', 'J kg-1', 'turbulent kinetic energy', &
@@ -2884,8 +2890,9 @@ CONTAINS
                 & grib2_var(0,0,4, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
                 & ldims=shape2d,                                                &
                 & lrestart = .FALSE.,                                           &
-                & initval = -99._wp,                                            &
-                & isteptype=TSTEP_INSTANT                                       )
+                & initval = -99._wp, resetval = -99._wp,                        &
+                & isteptype=TSTEP_MAX,                                          &
+                & action_list=actions(new_action(ACTION_RESET,"P1D"))           )
 
     CALL add_var( field_list, prefix//'tasmin', field%tasmin,                   &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
@@ -2894,8 +2901,9 @@ CONTAINS
                 & grib2_var(0,0,5, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
                 & ldims=shape2d,                                                &
                 & lrestart = .FALSE.,                                           &
-                & initval = 999._wp,                                            &
-                & isteptype=TSTEP_INSTANT                                       )
+                & initval = 999._wp, resetval = 999._wp,                        &
+                & isteptype=TSTEP_MIN,                                          &
+                & action_list=actions(new_action(ACTION_RESET,"P1D"))           )
 
     !--------------------------------------
     ! near surface diagnostics, tile values

@@ -1,7 +1,3 @@
-machine|thunder|mpi-compute
-builder|THUNDER_gcc|--with-fortran=gcc|build_only
-builder|THUNDER_nag|--with-fortran=nag|build_only
-builder|THUNDER_intel_hybrid|--with-fortran=intel --with-openmp|build_only
 machine|daint_cpu|default
 builder|DAINT_CPU_cce||build_only
 machine|mistral|compute
