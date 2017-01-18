@@ -61,6 +61,7 @@ MODULE mo_interface_echam_vdiff_surface
 
 CONTAINS
 
+  !----------------------------------------------------------------
   SUBROUTINE interface_echam_vdiff_surface(patch, rl_start, rl_end, field, tend, zfrc, pdtime, in_zcd, in_zcv)
     TYPE(t_patch)   ,INTENT(in), TARGET :: patch           !< grid/patch info
     INTEGER         ,INTENT(IN)  :: rl_start, rl_end
@@ -131,7 +132,7 @@ CONTAINS
     ENDIF !lvdiff
 
   END SUBROUTINE interface_echam_vdiff_surface
-   !-------------------------------------------------------------------
+  !-------------------------------------------------------------------
 
   !---------------------------------------------------------------------
   ! 5.3 Turbulent mixing, part I:

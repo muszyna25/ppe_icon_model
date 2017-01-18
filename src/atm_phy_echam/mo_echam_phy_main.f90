@@ -30,8 +30,6 @@
 MODULE mo_echam_phy_main
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish
-  USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_physical_constants,  ONLY: cpd, cpv, cvd, cvv
   USE mo_impl_constants      ,ONLY: inh_atmosphere
   USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
@@ -39,25 +37,21 @@ MODULE mo_echam_phy_main
   USE mo_dynamics_config,     ONLY: iequations
   USE mo_ext_data_state,      ONLY: ext_data
   USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
-  USE mo_echam_conv_config,   ONLY: echam_conv_config
   USE mo_echam_cloud_config,  ONLY: echam_cloud_config
-  USE mo_cumastr,             ONLY: cucall
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
     &                               t_echam_phy_tend,  prm_tend
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop,                &
-    &                               timer_cover, timer_radheat,                     &
-    &                               timer_cucall, timer_cloud
+    &                               timer_cover
   USE mtime,                  ONLY: datetime
-  USE mo_ham_aerosol_params,  ONLY: ncdnc, nicnc
   USE mo_echam_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
-  USE mo_cloud,               ONLY: cloud
   USE mo_cover,               ONLY: cover
 
   USE mo_interface_echam_radiation,    ONLY: interface_echam_radiation
   USE mo_interface_echam_radheating,   ONLY: interface_echam_radheating
   USE mo_interface_echam_vdiff_surface,ONLY: interface_echam_vdiff_surface
   USE mo_interface_echam_o3_cariolle,  ONLY: interface_echam_o3_cariolle
-  USE mo_interface_echam_gravity_waves,     ONLY: interface_echam_gravity_waves
+  USE mo_interface_echam_gravity_waves,ONLY: interface_echam_gravity_waves
+  USE mo_interface_echam_convection,   ONLY: interface_echam_convection
 
   USE mo_parallel_config     ,ONLY: nproma
   USE mo_loopindices         ,ONLY: get_indices_c
@@ -77,8 +71,6 @@ MODULE mo_echam_phy_main
 
   INTEGER  :: jks   !< start index for vertical loops
 
-  ! the following would depend on the nesting, ie jg
-  REAL(wp) :: pdtime         !< time step
 
 CONTAINS
 
@@ -86,14 +78,14 @@ CONTAINS
   !!
   SUBROUTINE echam_phy_main( patch,                         &
     &                        rl_start, rl_end,              &
-    &                        this_datetime,in_pdtime,        &
+    &                        this_datetime,pdtime,        &
     &                        ltrig_rad                      )
 
     TYPE(t_patch)   ,INTENT(in), TARGET :: patch           !< grid/patch info
     INTEGER         ,INTENT(IN)  :: rl_start, rl_end
 
     TYPE(datetime),  POINTER     :: this_datetime    !< date and time 
-    REAL(wp)        ,INTENT(IN)  :: in_pdtime         !< time step
+    REAL(wp)        ,INTENT(IN)  :: pdtime         !< time step
 
     LOGICAL         ,INTENT(IN)  :: ltrig_rad      !< perform radiative transfer computation
 
@@ -123,8 +115,6 @@ CONTAINS
     i_startblk = patch%cells%start_blk(rl_start,1)
     i_endblk   = patch%cells%end_blk(rl_end,i_nchdom)
 
-    ! fill the module timestep lengths
-    pdtime = in_pdtime
     ! start index for vertical loops
     jks=1
 
@@ -231,7 +221,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! Note: In ECHAM this part is located between "CALL radiation" and
     !       "CALL radheat".
-    CALL interface_echam_vdiff_surface(patch, rl_start, rl_end, field, tend, zfrc, in_pdtime, zcd, zcd)
+    CALL interface_echam_vdiff_surface(patch, rl_start, rl_end, field, tend, zfrc, pdtime, zcd, zcd)
     !-----------------------
 
 
@@ -275,19 +265,12 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 6. ATMOSPHERIC GRAVITY WAVES
     !-------------------------------------------------------------------
-    CALL  interface_echam_gravity_waves(patch, rl_start, rl_end, field, tend, zconv, zq_phy, in_pdtime)
+    CALL  interface_echam_gravity_waves(patch, rl_start, rl_end, field, tend, zconv, zq_phy, pdtime)
 
     !-------------------------------------------------------------------
     ! 7. CONVECTION PARAMETERISATION
     !-------------------------------------------------------------------
-!$OMP PARALLEL DO PRIVATE(jcs,jce)
-    DO jb = i_startblk,i_endblk
-      CALL get_indices_c(patch, jb,i_startblk,i_endblk, jcs,jce, rl_start, rl_end)
-
-      CALL echam_cumulus_condensation(jb,jcs,jce, nproma, field, tend, zcair(:,:,jb))
-
-    ENDDO
-!$OMP END PARALLEL DO 
+    CALL interface_echam_convection(patch, rl_start, rl_end, jks, field, tend, zcair, ntrac, zcd, zcv, pdtime)
     !-------------------------------------------------------------------
 
 
@@ -465,199 +448,5 @@ CONTAINS
   !---------------------------------------------------------------------
 
 
-
-  !---------------------------------------------------------------------
-  SUBROUTINE echam_cumulus_condensation(jb,jcs,jce, nbdim, field, tend, zcair)
-    INTEGER         ,INTENT(IN) :: jb             !< block index
-    INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
-    INTEGER         ,INTENT(IN) :: nbdim          !< size of this block 
-    REAL(wp)        ,INTENT(IN) :: zcair  (nbdim,nlev)       !< specific heat of moist air        [J/K/kg]
-    TYPE(t_echam_phy_field),   POINTER :: field
-    TYPE(t_echam_phy_tend) ,   POINTER :: tend
-
-    ! local 
-    REAL(wp) :: zqtec  (nbdim,nlev)       !< tracer tendency due to entrainment/detrainment
-    INTEGER  :: itype(nbdim)              !< type of convection
-    INTEGER  :: ictop (nbdim)             !< from massflux
-    INTEGER  :: ilab   (nproma,nlev)
-
-    itype(jcs:jce) = 0
-
-    ! 7.1   INITIALIZE ARRAYS FOR CONVECTIVE PRECIPITATION
-    !       AND COPY ARRAYS FOR CONVECTIVE CLOUD PARAMETERS
-
-    tend% xl_dtr(jcs:jce,:,jb) = 0._wp
-    tend% xi_dtr(jcs:jce,:,jb) = 0._wp
-    zqtec  (jcs:jce,:) = 0._wp
-
-    field% rsfc(:,jb) = 0._wp
-    field% ssfc(:,jb) = 0._wp
-
-    ! 7.2   CALL SUBROUTINE CUCALL FOR CUMULUS PARAMETERIZATION
-
-    IF (phy_config%lconv) THEN
-
-      IF (ltimer) call timer_start(timer_cucall)
-
-      CALL cucall( jce, nbdim, nlev,          &! in
-        &          nlevp1, nlevm1,            &! in
-        &          ntrac,                     &! in     tracers
-!        &          jb,                        &! in     row index
-        &          pdtime,                    &! in
-        &          field% lfland(:,jb),       &! in     loland
-        &          field% ta(:,:,jb),         &! in     tm1
-        &          field% ua(:,:,jb),         &! in     um1
-        &          field% va(:,:,jb),         &! in     vm1
-        &          field% qtrc(:,:,jb,iqv),   &! in     qm1
-        &          field% qtrc(:,:,jb,iqc),   &! in     xlm1
-        &          field% qtrc(:,:,jb,iqi),   &! in     xim1
-        &          field% qtrc(:,:,jb,iqt:),  &! in     xtm1
-        &          tend% qtrc(:,:,jb,iqv),    &! in     qte  for internal updating
-        &          tend% qtrc(:,:,jb,iqc),    &! in     xlte
-        &          tend% qtrc(:,:,jb,iqi),    &! in     xite
-        &          field% omega(:,:,jb),      &! in     vervel
-        &          field% evap(:,jb),         &! in     qhfla (from "vdiff")
-        &          field% geom(:,:,jb),       &! in     geom1
-        &          field% presm_new(:,:,jb),  &! in     app1
-        &          field% presi_new(:,:,jb),  &! in     aphp1
-        &          field% thvsig(:,jb),       &! in           (from "vdiff")
-        &          tend% ta(:,:,jb),          &! in     tte  for internal updating
-        &          tend% ua(:,:,jb),          &! in     vom  for internal updating
-        &          tend% va(:,:,jb),          &! in     vol  for internal updating
-        &          tend% qtrc(:,:,jb,iqt:),   &! in     xtte for internal updating
-        &          zqtec,                     &! inout
-        &          field% ch_concloud(:,jb),  &! inout condensational heat
-        &          field% cw_concloud(:,jb),  &! inout condensational heat
-        &          field% rsfc(:,jb),         &! out
-        &          field% ssfc(:,jb),         &! out
-        &          tend% xl_dtr(:,:,jb),      &! inout  xtecl
-        &          tend% xi_dtr(:,:,jb),      &! inout  xteci
-        &          itype,                     &! inout
-        &          ictop,                     &! out
-        &          ilab,                      &! out
-        &          field% topmax(:,jb),       &! inout
-        &          echam_conv_config%cevapcu, &! in
-        &          zcd, zcv,                  &! in
-        &          tend% qtrc_dyn(:,:,jb,iqv),&! in     qte by transport
-        &          tend% qtrc_phy(:,:,jb,iqv),&! in     qte by physics
-        &          field% con_dtrl(:,jb),     &! inout detrained liquid
-        &          field% con_dtri(:,jb),     &! inout detrained ice
-        &          field% con_iteqv(:,jb),    &! inout v. int. tend of water vapor within conv
-        &          tend%  ta_cnv(:,:,jb),     &! out
-        &          tend%  ua_cnv(:,:,jb),     &! out
-        &          tend%  va_cnv(:,:,jb),     &! out
-        &          tend%qtrc_cnv(:,:,jb,iqv), &! out
-        &          tend%qtrc_cnv(:,:,jb,iqt:) )! out
-
-      IF (ltimer) CALL timer_stop(timer_cucall)
-
-      field% rtype(jcs:jce,jb) = REAL(itype(jcs:jce),wp)
-
-!!$      ! heating accumulated
-!!$      zq_phy(jcs:jce,:) = zq_phy(jcs:jce,:) + zq_cnv(jcs:jce,:)
-!!$
-!!$      ! tendency
-!!$      tend% temp_cnv(jcs:jce,:,jb) = zq_cnv(jcs:jce,:)*zconv(jcs:jce,:)
-!!$
-      ! tendencies accumulated
-      tend%   ua(jcs:jce,:,jb)      = tend%   ua(jcs:jce,:,jb)      + tend%   ua_cnv(jcs:jce,:,jb)
-      tend%   va(jcs:jce,:,jb)      = tend%   va(jcs:jce,:,jb)      + tend%   va_cnv(jcs:jce,:,jb)
-      tend%   ta(jcs:jce,:,jb)      = tend%   ta(jcs:jce,:,jb)      + tend%   ta_cnv(jcs:jce,:,jb)
-      tend% qtrc(jcs:jce,:,jb,iqv)  = tend% qtrc(jcs:jce,:,jb,iqv)  + tend% qtrc_cnv(jcs:jce,:,jb,iqv)
-      tend% qtrc(jcs:jce,:,jb,iqt:) = tend% qtrc(jcs:jce,:,jb,iqt:) + tend% qtrc_cnv(jcs:jce,:,jb,iqt:)
-
-
-    ELSE ! NECESSARY COMPUTATIONS IF MASSFLUX IS BY-PASSED
-
-      ilab(jcs:jce,1:nlev) = 0
-      ictop(jcs:jce)       = nlev-1
-
-      tend%   ua_cnv(jcs:jce,:,jb)      = 0._wp
-      tend%   va_cnv(jcs:jce,:,jb)      = 0._wp
-      tend%   ta_cnv(jcs:jce,:,jb)      = 0._wp
-      tend% qtrc_cnv(jcs:jce,:,jb,iqv)  = 0._wp
-      tend% qtrc_cnv(jcs:jce,:,jb,iqt:) = 0._wp
-
-    ENDIF !lconv
-
-    !-------------------------------------------------------------
-    ! 7. LARGE SCALE CONDENSATION.
-    !-------------------------------------------------------------
-    IF(phy_config%lcond) THEN
-
-      !IF (lcotra) CALL get_col_pol( tend%ta(:,:,jb),tend%qtrc(:,:,jb,iqv),jb )
-
-      IF (ncdnc==0 .AND. nicnc==0) THEN
-
-        field% rsfl(:,jb) = 0._wp
-        field% ssfl(:,jb) = 0._wp
-
-        IF (ltimer) CALL timer_start(timer_cloud)
-
-        CALL cloud(jce, nproma, jks, nlev, nlevp1, &! in
-          &        pdtime,                    &! in
-          &        ictop,                     &! in (from "cucall")
-          &        field% presi_old(:,:,jb),  &! in
-          &        field% presm_old(:,:,jb),  &! in
-!          &        field% presm_new(:,:,jb), &! in
-          &        field% acdnc (:,:,jb),     &! in. acdnc
-          &        field%   ta  (:,:,jb),     &! in. tm1
-          &        field%   tv  (:,:,jb),     &! in. ztvm1
-          &        field% qtrc  (:,:,jb,iqv), &! in.  qm1
-          &        field% qtrc  (:,:,jb,iqc), &! in. xlm1
-          &        field% qtrc  (:,:,jb,iqi), &! in. xim1
-          &        zcair(:,:),                &! in
-          &        field% geom  (:,:,jb),     &! in. geom1
-          &        field% aclcov(:,  jb),     &! out
-          &        field%  qvi  (:,  jb),     &! out
-          &        field% xlvi  (:,  jb),     &! out
-          &        field% xivi  (:,  jb),     &! out
-          &        itype,                     &!
-          &        field% ch_concloud(:,jb),  &! inout condens. heat
-          &        field% cw_concloud(:,jb),  &! inout condens. heat
-          &         tend% xl_dtr(:,:,jb),     &! inout  xtecl
-          &         tend% xi_dtr(:,:,jb),     &! inout  xteci
-          &        zqtec,                     &! inout (there is a clip inside)
-          &         tend% ta  (:,:,jb),     &! inout.  tte
-          &         tend% qtrc  (:,:,jb,iqv), &! inout.  qte
-          &         tend% qtrc  (:,:,jb,iqc), &! inout. xlte
-          &         tend% qtrc  (:,:,jb,iqi), &! inout. xite
-          &        field% cld_dtrl(:,jb),     &! inout detrained liquid
-          &        field% cld_dtri(:,jb),     &! inout detrained ice
-          &        field% cld_iteq(:,jb),     &! inout v. int. tend of qv,qc, and qi within cloud
-!          &         tend% x_dtr(:,:,jb),      &! inout (there is a clip inside)
-          &        field% aclc  (:,:,jb),     &! inout
-          &        field% ssfl  (:,  jb),     &! out
-          &        field% rsfl  (:,  jb),     &! out
-          &        field% relhum(:,:,jb),     &! out
-          &        tend%  ta_cld(:,:,jb),     &! out
-          &        tend%qtrc_cld(:,:,jb,iqv), &! out
-          &        tend%qtrc_cld(:,:,jb,iqc), &! out
-          &        tend%qtrc_cld(:,:,jb,iqi)  )! out
-
-        IF (ltimer) CALL timer_stop(timer_cloud)
-
-      ELSE IF (ncdnc>0 .AND. nicnc>0) THEN
-!0      CALL cloud_cdnc_icnc(...) !!skipped in ICON
-      ELSE
-        IF (my_process_is_stdio()) CALL finish('echam_phy_main', ' check setting of ncdnc and nicnc.')
-      END IF
-
-    ELSE ! NECESSARY COMPUTATIONS IF *CLOUD* IS BY-PASSED.
-
-      field% rsfl (jcs:jce,  jb) = 0._wp
-      field% ssfl (jcs:jce,  jb) = 0._wp
-      field% aclc (jcs:jce,:,jb) = 0._wp
-
-      tend%   ta_cld(jcs:jce,:,jb)      = 0._wp
-      tend% qtrc_cld(jcs:jce,:,jb,iqv)  = 0._wp
-      tend% qtrc_cld(jcs:jce,:,jb,iqc)  = 0._wp
-      tend% qtrc_cld(jcs:jce,:,jb,iqi)  = 0._wp
-      tend% qtrc_cld(jcs:jce,:,jb,iqt:) = 0._wp
-
-    ENDIF !lcond
-
-  END SUBROUTINE echam_cumulus_condensation
-  !---------------------------------------------------------------------
 
 END MODULE mo_echam_phy_main
