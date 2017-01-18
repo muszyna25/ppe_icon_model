@@ -105,7 +105,7 @@ then
                 module load $mod
                 false
             } && {
-                mod_loaded=$(module_list | awk -v p="^${mod%%/*}" '$0 ~ p { print $0}')
+                mod_loaded=$(module_list | awk -v p="^${mod%%/*}$" '$0 ~ p { print $0}')
                 if [ "$mod_loaded" != "$mod" ]
                 then
                     module_swap "$mod_loaded" "$mod"
