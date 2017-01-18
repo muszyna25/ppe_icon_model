@@ -215,6 +215,32 @@ MODULE mo_initicon_io
   END FUNCTION anaFiletype
 
 
+  ! Hack to determine the dimension name for phase2 simulations.
+  SUBROUTINE height_or_lev (ncid, levstring)
+    INTEGER,           INTENT(IN   ) :: ncid
+    CHARACTER(LEN=10), INTENT(  OUT) :: levstring
+
+    INTEGER :: retval
+    INTEGER :: dimid
+
+    retval = nf_inq_dimid(ncid, 'lev', dimid)
+
+    IF (retval == nf_noerr) THEN
+      levstring = "lev"
+    ELSE
+      retval = nf_inq_dimid(ncid, 'height', dimid)
+      IF (retval == nf_noerr) THEN
+        levstring = "height"
+      ELSE
+        levstring = "height_2"
+      END IF
+    ENDIF
+
+  END SUBROUTINE
+
+
+
+
   !>
   !! Read horizontally interpolated external analysis (atmosphere only)
   !!
@@ -250,6 +276,8 @@ MODULE mo_initicon_io
     CHARACTER(LEN=filename_max) :: ifs2icon_file(max_dom)
     LOGICAL :: lread_process
     LOGICAL :: lread_qr, lread_qs ! are qr, qs provided as input?
+
+    CHARACTER(len=10) :: levstring
 
     !-------------------------------------------------------------------------
 
@@ -295,11 +323,8 @@ MODULE mo_initicon_io
         !
         ! get number of vertical levels
         !
-        ! would be good, if we could come up with a unique name ...
-        IF (nf_inq_dimid(ncid, 'lev', dimid) /= nf_noerr) THEN
-          ! try alternative name 
-          CALL nf(nf_inq_dimid(ncid, 'height_2', dimid), routine)
-        ENDIF
+        CALL height_or_lev(ncid, levstring)
+        CALL nf(nf_inq_dimid(ncid, TRIM(levstring), dimid), routine)
         CALL nf(nf_inq_dimlen(ncid, dimid, no_levels), routine)
 
 
@@ -623,6 +648,7 @@ MODULE mo_initicon_io
 
     CHARACTER(LEN=filename_max) :: ifs2icon_file(max_dom)
     LOGICAL :: lread_process
+    CHARACTER(len=10) :: levstring
 
     !-------------------------------------------------------------------------
 
@@ -666,7 +692,8 @@ MODULE mo_initicon_io
         !
         ! get number of vertical levels
         !
-        CALL nf(nf_inq_dimid(ncid, 'lev', dimid), routine)
+        CALL height_or_lev(ncid, levstring)
+        CALL nf(nf_inq_dimid(ncid, TRIM(levstring), dimid), routine)
         CALL nf(nf_inq_dimlen(ncid, dimid, no_levels), routine)
 
         !
