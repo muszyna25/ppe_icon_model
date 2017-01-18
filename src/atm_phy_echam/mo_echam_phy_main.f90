@@ -45,7 +45,7 @@ MODULE mo_echam_phy_main
   USE mo_radheating,          ONLY: radheating
   !
   USE mo_echam_conv_config,   ONLY: echam_conv_config
-  USE mo_cumastr,             ONLY: cucall
+  USE mo_cumastr,             ONLY: cumastr
   !
   USE mo_echam_cloud_config,  ONLY: echam_cloud_config
   USE mo_cloud,               ONLY: cloud
@@ -73,7 +73,7 @@ MODULE mo_echam_phy_main
     &                               timer_cover, timer_radiation, timer_radheat,    &
     &                               timer_vdiff_down, timer_surface,timer_vdiff_up, &
     &                               timer_gw_hines, timer_ssodrag,                  &
-    &                               timer_cucall, timer_cloud
+    &                               timer_convection, timer_cloud
 
   IMPLICIT NONE
   PRIVATE
@@ -990,45 +990,45 @@ CONTAINS
 
     IF (echam_phy_config%lconv) THEN
 
-      IF (ltimer) call timer_start(timer_cucall)
+      IF (ltimer) call timer_start(timer_convection)
 
-      CALL cucall( jce, nbdim, nlev,             &! in
-        &          nlevp1, nlevm1,               &! in
-        &          ntrac,                        &! in     tracers
+      CALL cumastr(jce, nbdim,                   &! in
+        &          nlev, nlevp1, nlevm1,         &! in
         &          pdtime,                       &! in
-        &          field% lfland   (:,  jb),     &! in     loland
         &          field% mdry     (:,:,jb),     &! in
-        &                zta       (:,:),        &! in     tp1
-        &                zua       (:,:),        &! in     up1
-        &                zva       (:,:),        &! in     vp1
-        &                zqtrc     (:,:,   iqv), &! in     qp1
-        &                zqtrc_cnd (:,:),        &! in     xlp1+xip1
-        &                zqtrc     (:,:,   iqt:),&! in     xtp1
-        &          field% omega    (:,:,jb),     &! in     vervel
-        &          field% evap     (:,  jb),     &! in     qhfla (from "vdiff")
-        &          field% geom     (:,:,jb),     &! in     geom1
-        &          field% presm_new(:,:,jb),     &! in     app1
-        &          field% presi_new(:,:,jb),     &! in     aphp1
-        &          field% thvsig   (:,  jb),     &! in           (from "vdiff")
-        &          field% rsfc     (:,  jb),     &! out
-        &          field% ssfc     (:,  jb),     &! out
+        &                zta       (:,:),        &! in
+        &                zqtrc     (:,:,   iqv), &! in
+        &                zqtrc_cnd (:,:),        &! in
+        &                zua       (:,:),        &! in
+        &                zva       (:,:),        &! in
+        &          ntrac,                        &! in
+        &          field% lfland   (:,  jb),     &! in
+        &                zqtrc     (:,:,   iqt:),&! in
+        &          field% omega    (:,:,jb),     &! in
+        &          field% evap     (:,  jb),     &! in
+        &          field% presm_new(:,:,jb),     &! in
+        &          field% presi_new(:,:,jb),     &! in
+        &          field% geom     (:,:,jb),     &! in
+        &                ztend_qv  (:,:),        &! in
+        &          field% thvsig   (:,  jb),     &! in
+        &          echam_conv_config%cevapcu,    &! in
         &          itype,                        &! out
         &          ictop,                        &! out
-        &                ztop      (:),          &! out
-        &          echam_conv_config%cevapcu,    &! in
-        &                ztend_qv  (:,:),        &! in     qte by transport + physics before convection
-        &                   zq_cnv (:,:),        &! out    convective heating in W/m2
+        &          field% rsfc     (:,  jb),     &! out
+        &          field% ssfc     (:,  jb),     &! out
+        &          field% con_dtrl (:,jb),       &! out
+        &          field% con_dtri (:,jb),       &! out
+        &          field% con_iteqv(:,jb),       &! out
+        &                   zq_cnv (:,:),        &! out
         &           tend%   ua_cnv (:,:,jb),     &! out
         &           tend%   va_cnv (:,:,jb),     &! out
         &           tend% qtrc_cnv (:,:,jb,iqv), &! out
-        &           tend% qtrc_cnv (:,:,jb,iqc), &! out    xtecl
-        &           tend% qtrc_cnv (:,:,jb,iqi), &! out    xteci
         &           tend% qtrc_cnv (:,:,jb,iqt:),&! out
-        &          field% con_dtrl (:,jb),       &! out    detrained liquid
-        &          field% con_dtri (:,jb),       &! out    detrained ice
-        &          field% con_iteqv(:,jb)        )! out    v. int. tend of water vapor within conv
+        &           tend% qtrc_cnv (:,:,jb,iqc), &! out
+        &           tend% qtrc_cnv (:,:,jb,iqi), &! out
+        &                ztop      (:)           )! out
 
-      IF (ltimer) CALL timer_stop(timer_cucall)
+      IF (ltimer) CALL timer_stop(timer_convection)
 
       ! store convection type as real value
       field% rtype(:,jb) = REAL(itype(:),wp)

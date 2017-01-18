@@ -7,15 +7,11 @@
 !! @brief Master routine - provides interface for cumulus parameterization
 !!
 !! @remarks
-!!     *cucall*
-!!     This routine is called from *physc* (ECHAM) or *mo_echam_phy_main* (ICON)
-!!     It provides input for *cumastr*, receives updated tendencies, precipitation
 !!     *cumastr*
 !!     This routine computes the physical tendencies of the prognostic variables
 !!     t,q,u and v due to convective processes. Processes considered are: convective
 !!     fluxes, formation of precipitation, evaporation of falling rain below cloud
 !!     base, saturated cumulus downdrafts.
-!!     *cumastr* is called from *cucall*
 !!     It takes its input from the long-term storage t,q,u,v,phi and p and moisture
 !!     tendencies. It returns its output to the same space
 !!     1. modified tendencies of model variables
@@ -65,7 +61,7 @@ MODULE mo_cumastr
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: cucall
+  PUBLIC :: cumastr
 
   ! to simplify access to components of echam_conv_config
   LOGICAL , POINTER :: lmfdd, lmfdudv
@@ -73,81 +69,6 @@ MODULE mo_cumastr
 
 
 CONTAINS
-  !>
-  !!
-  SUBROUTINE cucall(   kproma, kbdim, klev, klevp1, klevm1,            &! in
-    &                  ktrac,                                          &! in
-    &                  pdtime,                                         &! in
-    &                  ldland,                                         &! in
-    &                  pmdry,                                          &! in
-    &                  ptp1,     pup1,     pvp1,                       &! in
-    &                  pqp1,     pxp1,                                 &! in
-    &                  pxtp1,                                          &! in
-    &                  pverv,    pqhfla,   pgeo,                       &! in
-    &                  papp1,    paphp1,   pthvsig,                    &! in
-    &                  prsfc,    pssfc,                                &! out
-    &                  ktype,    ictop,                                &! out
-    &                  ptop,                                           &! out
-    &                  cevapcu,                                        &! in
-    &                  pqte,                                           &! in
-    &                  pq_cnv,   pvom_cnv, pvol_cnv,                   &! out
-    &                  pqte_cnv, pxtecl,   pxteci,                     &! out
-    &                  pxtte_cnv,                                      &! out
-    &                  pcon_dtrl,pcon_dtri,pcon_iqte           )        ! out
-
-    INTEGER, INTENT(IN)  :: klev, klevm1, klevp1, kproma, kbdim, ktrac
-    LOGICAL ,INTENT(IN)  :: ldland(kbdim)
-    REAL(wp),INTENT(IN)  :: pdtime
-    REAL(wp),INTENT(IN)  :: cevapcu(:)
-    REAL(wp),INTENT(IN)  :: pmdry(kbdim,klev)
-    REAL(wp),INTENT(IN)  :: ptp1(kbdim,klev),         pqp1(kbdim,klev),   &
-      &                     pup1(kbdim,klev),         pvp1(kbdim,klev),   &
-      &                     pxp1(kbdim,klev),                             &
-      &                     pxtp1(kbdim,klev,ktrac),                      &
-      &                     pverv(kbdim,klev),        pgeo(kbdim,klev),   &
-      &                     papp1(kbdim,klev),        paphp1(kbdim,klevp1)
-    REAL(wp),INTENT(IN)  :: pqte(kbdim,klev)
-    REAL(wp),INTENT(IN)  :: pqhfla(kbdim)
-    REAL(wp),INTENT(IN)  :: pthvsig(kbdim)
-    REAL(wp),INTENT(OUT) :: prsfc(kbdim), pssfc(kbdim)
-    REAL(wp),INTENT(OUT) :: pq_cnv(kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pvom_cnv(kbdim,klev), pvol_cnv(kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pqte_cnv(kbdim,klev), pxtte_cnv(kbdim,klev,ktrac)
-    REAL(wp),INTENT(OUT) :: pxtecl(kbdim,klev), pxteci(kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pcon_dtrl(kbdim), pcon_dtri(kbdim)
-    REAL(wp),INTENT(OUT) :: pcon_iqte(kbdim)
-    INTEGER ,INTENT(OUT) :: ktype(kbdim)
-    REAL(wp),INTENT(OUT) :: ptop(kbdim)
-    INTEGER ,INTENT(OUT) :: ictop(kbdim)
-    !
-    !  Executable statements
-    !
-    !-----------------------------------------------------------------------
-    !
-    !*    2.     Call 'cumastr'(master-routine for cumulus parameterization)
-    !*           -----------------------------------------------------------
-    !
-    CALL cumastr(kproma, kbdim, klev, klevp1, klevm1,                 &
-      &          pdtime,                                              &
-      &          pmdry,                                               &
-      &          ptp1,     pqp1,     pxp1,     pup1,   pvp1,          &
-      &          ktrac,    ldland,                                    &
-      &          pxtp1,                                               &
-      &          pverv,    pqhfla,                                    &
-      &          papp1,    paphp1,   pgeo,                            &
-      &          pqte,                                                &
-      &          pthvsig,                                             &
-      &          cevapcu,                                             &
-      &          ktype,    ictop,                                     &
-      &          prsfc,    pssfc,                                     &
-      &          pcon_dtrl,pcon_dtri,pcon_iqte,                       &
-      &          pq_cnv,   pvom_cnv, pvol_cnv, pqte_cnv,pxtte_cnv,    &
-      &          pxtecl,   pxteci,                                    &
-      &          ptop                                                 )
-    !
-    ! ------------------------------------------------------------------
-    !
-  END SUBROUTINE cucall
   !>
   !!
   SUBROUTINE cumastr(  kproma, kbdim, klev, klevp1, klevm1,               &

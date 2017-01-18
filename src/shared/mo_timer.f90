@@ -86,7 +86,7 @@ MODULE mo_timer
   PUBLIC :: timer_vdiff_down, timer_vdiff_up
   PUBLIC :: timer_surface, timer_jsbach
   PUBLIC :: timer_gw_hines, timer_ssodrag
-  PUBLIC :: timer_cucall, timer_cloud
+  PUBLIC :: timer_convection, timer_cloud
   !
   ! echam radiation
   PUBLIC :: timer_rrtm_prep, timer_rrtm_post
@@ -263,7 +263,7 @@ MODULE mo_timer
   INTEGER :: timer_vdiff_down, timer_vdiff_up
   INTEGER :: timer_surface, timer_jsbach
   INTEGER :: timer_gw_hines, timer_ssodrag
-  INTEGER :: timer_cucall, timer_cloud
+  INTEGER :: timer_convection, timer_cloud
   !
   ! echam radiation
   INTEGER :: timer_rrtm_prep, timer_rrtm_post
@@ -429,7 +429,7 @@ CONTAINS
     timer_jsbach    = new_timer("jsbach")
     timer_gw_hines  = new_timer("gw_hines")
     timer_ssodrag   = new_timer("ssodrag")
-    timer_cucall    = new_timer("cucall")
+    timer_convection= new_timer("convection")
     timer_cloud     = new_timer("cloud")
     !
     ! echam radiation
