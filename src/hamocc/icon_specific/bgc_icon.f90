@@ -38,7 +38,7 @@ SUBROUTINE BGC_ICON(p_patch_3D, p_os, p_as, p_ice)
   USE mo_bgc_surface,         ONLY: gasex, update_weathering, dust_deposition, nitrogen_deposition
   USE mo_bgc_bcond,           ONLY: ext_data_bgc
   USE mo_util_dbg_prnt,       ONLY: dbg_print
-  USE mo_hamocc_diagnostics,  ONLY: get_monitoring, get_inventories
+  USE mo_hamocc_diagnostics,  ONLY: get_monitoring, get_inventories, get_omz
   USE mo_exception, ONLY: message
   USE mo_carchm,              ONLY: calc_dissol 
   USE mo_powach,              ONLY: powach, powach_impl
@@ -256,6 +256,10 @@ ENDIF
 
         stop_detail_timer(timer_bgc_tend,5)
  ENDDO
+
+! O2 min depth & value diagnostics
+CALL get_omz(hamocc_state,p_os,p_patch_3d)
+
   ! Increment bgc time step counter of run (initialized in INI_BGC).
   !
   ldtrunbgc = ldtrunbgc + 1

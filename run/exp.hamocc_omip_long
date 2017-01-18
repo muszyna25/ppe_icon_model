@@ -185,7 +185,7 @@ cat >> ${ocean_namelist} << EOF1
   include_last     = .TRUE.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'co2flux','orginp','dmsflux','silinp','calinp','o2flux','n2flux','n2oflux','nfix_diag','coex90','calex90','opex90','coex1000','opex1000','calex1000','coex2000','opex2000','calex2000'
+  ml_varlist       =  'co2flux','orginp','dmsflux','silinp','calinp','o2flux','n2flux','n2oflux','nfix_diag','coex90','calex90','opex90','coex1000','opex1000','calex1000','coex2000','opex2000','calex2000','o2min','zo2min'
 /
 EOF1
 fi

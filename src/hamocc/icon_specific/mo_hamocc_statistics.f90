@@ -71,6 +71,8 @@ CONTAINS
     CALL add_fields(hamocc_state%p_acc%cLlim           , hamocc_state%p_tend%cLlim           , cells,levels=max_zlev)
     CALL add_fields(hamocc_state%p_acc%cPlim           , hamocc_state%p_tend%cPlim           , cells,levels=max_zlev)
     CALL add_fields(hamocc_state%p_acc%cFlim           , hamocc_state%p_tend%cFlim           , cells,levels=max_zlev)
+    CALL add_fields(hamocc_state%p_acc%o2min           , hamocc_state%p_tend%o2min           , cells)
+    CALL add_fields(hamocc_state%p_acc%zo2min          , hamocc_state%p_tend%zo2min          , cells)
     CALL add_fields(hamocc_state%p_acc%nfixd           , hamocc_state%p_tend%nfixd           , cells)
     CALL add_fields(hamocc_state%p_acc%cflux           , hamocc_state%p_tend%cflux           , cells)
     CALL add_fields(hamocc_state%p_acc%oflux           , hamocc_state%p_tend%oflux           , cells)
@@ -176,6 +178,8 @@ CONTAINS
     p_acc%cLlim                       = p_acc%cLlim                     /REAL(nsteps_since_last_output,wp)
     p_acc%cPlim                       = p_acc%cPlim                     /REAL(nsteps_since_last_output,wp)
     p_acc%cFlim                       = p_acc%cFlim                     /REAL(nsteps_since_last_output,wp)
+    p_acc%o2min                       = p_acc%o2min                     /REAL(nsteps_since_last_output,wp)
+    p_acc%zo2min                      = p_acc%zo2min                    /REAL(nsteps_since_last_output,wp)
 
 !ICON_OMP_END_WORKSHARE
 !ICON_OMP_END_PARALLEL
@@ -253,6 +257,8 @@ CONTAINS
     p_acc%cLlim                      = 0._wp
     p_acc%cPlim                      = 0._wp
     p_acc%cFlim                      = 0._wp
+    p_acc%o2min                      = 0._wp
+    p_acc%zo2min                     = 0._wp
     
 
   END SUBROUTINE reset_hamocc_statistics
