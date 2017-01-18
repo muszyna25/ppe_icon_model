@@ -49,7 +49,7 @@ MODULE mo_delaunay_types
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_delaunay_types'
 
   ! quadruple precision, needed for some determinant computations
-#ifndef NAGFOR
+#if ( ! defined NAGFOR && ! defined __SX__ )
   INTEGER, PARAMETER :: QR_K = SELECTED_REAL_KIND (32)
 #else
   INTEGER, PARAMETER :: QR_K = SELECTED_REAL_KIND (2*precision(1.0_wp))

@@ -20,8 +20,6 @@
 MODULE mo_art_nml
 
   USE mo_exception,           ONLY: message, finish, message_text
-  USE mo_kind,                ONLY: wp
-  USE mo_parallel_config,     ONLY: nproma
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_impl_constants,      ONLY: max_dom
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
