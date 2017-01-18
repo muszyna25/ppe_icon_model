@@ -1830,9 +1830,11 @@ CONTAINS
     DO ivar = 1,nvars
       ! Nullify pointers in p_of%var_desc
       p_of%var_desc(ivar)%r_ptr => NULL()
+      p_of%var_desc(ivar)%s_ptr => NULL()
       p_of%var_desc(ivar)%i_ptr => NULL()
       DO i = 1, max_time_levels
         p_of%var_desc(ivar)%tlev_rptr(i)%p => NULL()
+        p_of%var_desc(ivar)%tlev_sptr(i)%p => NULL()
         p_of%var_desc(ivar)%tlev_iptr(i)%p => NULL()
       ENDDO
     END DO ! ivar
@@ -1844,9 +1846,11 @@ CONTAINS
       found = .FALSE.
       ! Nullify pointers
       var_desc%r_ptr => NULL()
+      var_desc%s_ptr => NULL()
       var_desc%i_ptr => NULL()
       DO i = 1, max_time_levels
         var_desc%tlev_rptr(i)%p => NULL()
+        var_desc%tlev_sptr(i)%p => NULL()
         var_desc%tlev_iptr(i)%p => NULL()
       ENDDO
 
@@ -1902,6 +1906,7 @@ CONTAINS
             ! Not time level dependent
             IF(found) CALL finish(routine,'Duplicate var name: '//TRIM(varlist(ivar)))
             p_var_desc%r_ptr    => element%field%r_ptr
+            p_var_desc%s_ptr    => element%field%s_ptr
             p_var_desc%i_ptr    => element%field%i_ptr
             p_var_desc%info     =  element%field%info
             p_var_desc%info_ptr => element%field%info
@@ -1914,7 +1919,7 @@ CONTAINS
                 CALL finish(routine,'Dimension mismatch TL variable: '//TRIM(varlist(ivar)))
               END IF
               ! There must not be a TL independent variable with the same name
-              IF (ASSOCIATED(p_var_desc%r_ptr) .OR. ASSOCIATED(p_var_desc%i_ptr)) &
+              IF (ASSOCIATED(p_var_desc%r_ptr) .OR. ASSOCIATED(p_var_desc%s_ptr) .OR. ASSOCIATED(p_var_desc%i_ptr)) &
                 CALL finish(routine,'Duplicate var name: '//TRIM(varlist(ivar)))
               ! Maybe some more members of info should be tested ...
             ELSE
@@ -1924,9 +1929,11 @@ CONTAINS
               p_var_desc%info%name = TRIM(get_var_name(element%field))
             ENDIF
 
-            IF (ASSOCIATED(p_var_desc%tlev_rptr(tl)%p) .OR. ASSOCIATED(p_var_desc%tlev_iptr(tl)%p)) &
+            IF (ASSOCIATED(p_var_desc%tlev_rptr(tl)%p) .OR. ASSOCIATED(p_var_desc%tlev_sptr(tl)%p) &
+                .OR. ASSOCIATED(p_var_desc%tlev_iptr(tl)%p)) &
               CALL finish(routine, 'Duplicate time level for '//TRIM(element%field%info%name))
             p_var_desc%tlev_rptr(tl)%p => element%field%r_ptr
+            p_var_desc%tlev_sptr(tl)%p => element%field%s_ptr
             p_var_desc%tlev_iptr(tl)%p => element%field%i_ptr
             p_var_desc%info_ptr        => element%field%info
           ENDIF
@@ -2950,6 +2957,7 @@ CONTAINS
           ! Nullify all pointers in element%field, they don't make sense on the I/O PEs
 
           element%field%r_ptr => NULL()
+          element%field%s_ptr => NULL()
           element%field%i_ptr => NULL()
           element%field%l_ptr => NULL()
           element%field%var_base_size = 0 ! Unknown here

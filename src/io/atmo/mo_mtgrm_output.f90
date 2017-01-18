@@ -133,7 +133,8 @@ MODULE mo_meteogram_output
   USE mo_nwp_lnd_types,         ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag
   USE mo_cf_convention,         ONLY: t_cf_var, t_cf_global, cf_global_info
   USE mo_util_string,           ONLY: int2string, one_of
-  USE mo_util_uuid,             ONLY: t_uuid, uuid_unparse, uuid_string_length
+  USE mo_util_uuid_types,       ONLY: t_uuid, uuid_string_length
+  USE mo_util_uuid,             ONLY: uuid_unparse
   USE mo_read_interface,        ONLY: nf
   ! TODO[FP] : When using an already built GNAT, not all of the
   ! following USEs will be necessary:

@@ -23,38 +23,40 @@ MODULE mo_async_restart
 ! There is no point in pretending this module is usable if NOMPI is defined.
 #ifndef NOMPI
 
-  USE mo_async_restart_packer,    ONLY: restartBcastRoot
-  USE mo_async_restart_comm_data, ONLY: t_AsyncRestartCommData
-  USE mo_cdi_constants,           ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
-  USE mo_exception,               ONLY: finish
-  USE mo_fortran_tools,           ONLY: t_ptr_2d
-  USE mo_kind,                    ONLY: wp, i8, dp
-  USE mo_datetime,                ONLY: t_datetime
-  USE mo_io_units,                ONLY: nerr
-  USE mo_var_list,                ONLY: nvar_lists, var_lists, new_var_list, delete_var_lists
-  USE mo_linked_list,             ONLY: t_list_element, t_var_list
-  USE mo_restart_attributes,   ONLY: t_RestartAttributeList, RestartAttributeList_make
-  USE mo_impl_constants,          ONLY: SUCCESS
-  USE mo_var_metadata_types,      ONLY: t_var_metadata
-  USE mo_restart_file,            ONLY: t_RestartFile
-  USE mo_restart_namelist,        ONLY: t_NamelistArchive, namelistArchive
-  USE mo_parallel_config,         ONLY: restart_chunk_size
-  USE mo_grid_config,             ONLY: n_dom
-  USE mo_run_config,              ONLY: msg_level
-  USE mo_model_domain,            ONLY: p_patch, t_patch
-  USE mo_packed_message,          ONLY: t_PackedMessage, kPackOp, kUnpackOp
-  USE mo_restart_descriptor,      ONLY: t_RestartDescriptor, t_RestartPatchData
+  USE mo_async_restart_packer,      ONLY: restartBcastRoot
+  USE mo_async_restart_comm_data,   ONLY: t_AsyncRestartCommData
+  USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE
+  USE mo_exception,                 ONLY: finish
+  USE mo_fortran_tools,             ONLY: t_ptr_2d, t_ptr_2d_sp
+  USE mo_kind,                      ONLY: wp, i8, dp, sp
+  USE mo_datetime,                  ONLY: t_datetime
+  USE mo_io_units,                  ONLY: nerr
+  USE mo_var_list,                  ONLY: nvar_lists, var_lists, new_var_list, delete_var_lists
+  USE mo_linked_list,               ONLY: t_list_element, t_var_list
+  USE mo_restart_attributes,        ONLY: t_RestartAttributeList, RestartAttributeList_make
+  USE mo_impl_constants,            ONLY: SUCCESS, SINGLE_T, REAL_T
+  USE mo_var_metadata_types,        ONLY: t_var_metadata
+  USE mo_restart_file,              ONLY: t_RestartFile
+  USE mo_restart_namelist,          ONLY: t_NamelistArchive, namelistArchive
+  USE mo_parallel_config,           ONLY: restart_chunk_size
+  USE mo_grid_config,               ONLY: n_dom
+  USE mo_run_config,                ONLY: msg_level
+  USE mo_model_domain,              ONLY: p_patch, t_patch
+  USE mo_packed_message,            ONLY: t_PackedMessage, kPackOp, kUnpackOp
+  USE mo_restart_descriptor,        ONLY: t_RestartDescriptor, t_RestartPatchData
   USE mo_restart_patch_description, ONLY: t_restart_patch_description
-  USE mo_restart_util,            ONLY: setGeneralRestartAttributes, create_restart_file_link, t_restart_args
-  USE mo_restart_var_data,        ONLY: t_RestartVarData, createRestartVarData, getLevelPointers, has_valid_time_level
-  USE mo_mpi,                     ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work, p_work_pe0, num_work_procs, MPI_SUCCESS, &
-                                      & stop_mpi, p_send, p_recv, p_barrier, p_bcast, my_process_is_restart, my_process_is_work, &
-                                      & p_comm_work_2_restart, process_mpi_restart_size, p_mpi_wtime, process_mpi_all_comm, &
-                                      & p_get_bcast_role
+  USE mo_restart_util,              ONLY: setGeneralRestartAttributes, create_restart_file_link, t_restart_args
+  USE mo_restart_var_data,          ONLY: t_RestartVarData, createRestartVarData, getLevelPointers, &
+    &                                     has_valid_time_level
+  USE mo_mpi,                       ONLY: p_pe, p_pe_work, p_restart_pe0, p_comm_work, p_work_pe0,       &
+    &                                     num_work_procs, MPI_SUCCESS, stop_mpi, p_send, p_recv,         &
+    &                                     p_barrier, p_bcast, my_process_is_restart, my_process_is_work, &
+    &                                     p_comm_work_2_restart, process_mpi_restart_size, p_mpi_wtime,  &
+    &                                     process_mpi_all_comm, p_get_bcast_role
 #ifdef __SUNPRO_F95
   INCLUDE "mpif.h"
 #else
-  USE mpi,                        ONLY: MPI_ADDRESS_KIND
+  USE mpi,                          ONLY: MPI_ADDRESS_KIND
 #endif
 
   IMPLICIT NONE
@@ -64,6 +66,10 @@ MODULE mo_async_restart
   PUBLIC :: restart_main_proc
 
   PRIVATE
+
+  ! byte sizes for double and single precision floats
+  INTEGER, PARAMETER :: BYTES_DP                  = 8
+  INTEGER, PARAMETER :: BYTES_SP                  = 4
 
   ! tags for communication between compute PEs and restart PEs
   INTEGER, PARAMETER :: MSG_RESTART_START         = 111111
@@ -93,9 +99,9 @@ MODULE mo_async_restart
   TYPE, EXTENDS(t_RestartPatchData) :: t_AsyncPatchData
     TYPE(t_AsyncRestartCommData) :: commData
   CONTAINS
-    PROCEDURE :: construct => asyncPatchData_construct  ! override
-    PROCEDURE :: writeData => asyncPatchData_writeData  ! override
-    PROCEDURE :: destruct => asyncPatchData_destruct  ! override
+    PROCEDURE          :: construct         => asyncPatchData_construct   ! override
+    PROCEDURE          :: writeData         => asyncPatchData_writeData   ! override
+    PROCEDURE          :: destruct          => asyncPatchData_destruct    ! override
 
     PROCEDURE, PRIVATE :: transferToRestart => asyncPatchData_transferToRestart
   END TYPE t_AsyncPatchData
@@ -846,8 +852,10 @@ CONTAINS
 
     INTEGER                         :: iv, nval, ierrstat, nlevs, ilev, pointCount
     INTEGER(KIND=MPI_ADDRESS_KIND)  :: ioff(0:num_work_procs-1)
-    REAL(dp), ALLOCATABLE           :: buffer(:,:)
+    REAL(dp), ALLOCATABLE           :: buffer_dp(:,:)
+    REAL(sp), ALLOCATABLE           :: buffer_sp(:,:)
     INTEGER                         :: ichunk, nchunks, chunk_start, chunk_end
+    LOGICAL                         :: flag_dp
 
     ! For timing
     REAL(dp) :: t_get, t_write
@@ -874,7 +882,13 @@ CONTAINS
     nval = me%commData%maxLevelSize()
 
     ! allocate RMA memory
-    ALLOCATE(buffer(nval,restart_chunk_size), STAT=ierrstat)
+    !
+    ! TODO[FP] avoid allocating two of these buffers , e.g. by looping
+    ! twice over the variables, first over double precision, then over
+    ! single precision.
+    ! 
+    ALLOCATE(buffer_dp(nval,restart_chunk_size), &
+      &      buffer_sp(nval,restart_chunk_size), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, ALLOCATE_FAILED)
 
     ioff(:) = 0
@@ -883,11 +897,13 @@ CONTAINS
     VAR_LOOP : DO iv = 1, SIZE(me%varData)
 
 #ifdef DEBUG
-      WRITE (nerr,FORMAT_VALS5I)routine,' p_pe=',p_pe,' restart pe processes field=',TRIM(me%varData(iv)%info%name)
+      WRITE (nerr,FORMAT_VALS5I) routine,' p_pe=',p_pe,' restart pe processes field=', &
+        &                        TRIM(me%varData(iv)%info%name)
 #endif
 
       ! check time level of the field
-      IF (.NOT. has_valid_time_level(me%varData(iv)%info, me%description%id, me%description%nnew, me%description%nnew_rcf)) CYCLE
+      IF (.NOT. has_valid_time_level(me%varData(iv)%info, me%description%id, &
+        &                            me%description%nnew, me%description%nnew_rcf)) CYCLE
 
       ! get current level
       IF(me%varData(iv)%info%ndims == 2) THEN
@@ -901,32 +917,60 @@ CONTAINS
       IF(me%varData(iv)%info%hgrid == GRID_UNSTRUCTURED_VERT) pointCount = me%description%n_patch_verts_g
       IF(me%varData(iv)%info%hgrid == GRID_UNSTRUCTURED_EDGE) pointCount = me%description%n_patch_edges_g
 
+      ! check if this is single or double precision:
+      IF (me%varData(iv)%info%data_type == REAL_T) THEN
+        flag_dp = .TRUE.
+      ELSE IF (me%varData(iv)%info%data_type == SINGLE_T) THEN
+        flag_dp = .FALSE.
+      ELSE 
+        CALL finish(routine, "Internal error! Variable "//TRIM(me%varData(iv)%info%name))
+      END IF
+
       ! no. of chunks of levels (each of size "restart_chunk_size"):
       nchunks = (nlevs-1)/restart_chunk_size + 1
       ! loop over all chunks (of levels)
       LEVELS : DO ichunk=1,nchunks
         chunk_start = (ichunk-1)*restart_chunk_size + 1
         chunk_end = MIN(chunk_start+restart_chunk_size-1, nlevs)
-        CALL me%commData%collectData(me%varData(iv)%info%hgrid, chunk_end - chunk_start + 1, buffer, ioff, t_get, bytesGet)
+        IF (flag_dp) THEN
+          CALL me%commData%collectData(me%varData(iv)%info%hgrid, chunk_end - chunk_start + 1, &
+            &                          buffer_dp, ioff, t_get, bytesGet)
+        ELSE
+          CALL me%commData%collectData(me%varData(iv)%info%hgrid, chunk_end - chunk_start + 1, &
+            &                          buffer_sp, ioff, t_get, bytesGet)
+        END IF
 
         ! write field content into a file
         t_write = t_write - p_mpi_wtime()
-        DO ilev=chunk_start, chunk_end
-          CALL file%writeLevel(me%varData(iv)%info%cdiVarID, (ilev-1), buffer(:, ilev - chunk_start + 1))
-          bytesWrite = bytesWrite + pointCount*8
-        END DO
+        IF (flag_dp) THEN
+          DO ilev=chunk_start, chunk_end
+            CALL file%writeLevel(me%varData(iv)%info%cdiVarID, (ilev-1), buffer_dp(:, ilev - chunk_start + 1))
+            bytesWrite = bytesWrite + pointCount*BYTES_DP
+          END DO
+        ELSE
+          DO ilev=chunk_start, chunk_end
+            CALL file%writeLevel(me%varData(iv)%info%cdiVarID, (ilev-1), buffer_sp(:, ilev - chunk_start + 1))
+            bytesWrite = bytesWrite + pointCount*BYTES_DP
+          END DO
+        END IF
         t_write = t_write + p_mpi_wtime()
 
       ENDDO LEVELS
 
 #ifdef DEBUG
-      WRITE(nerr, FORMAT_VALS7I) routine, ' p_pe=', p_pe, ' restart pe writes field=', TRIM(me%varData(iv)%info%name), ' data=', &
-                               & pointCount*nlevs
+      WRITE(nerr, FORMAT_VALS7I) routine, ' p_pe=', p_pe, ' restart pe writes field=', &
+        &                        TRIM(me%varData(iv)%info%name), ' data=', pointCount*nlevs
 #endif
     ENDDO VAR_LOOP
 
-    DEALLOCATE(buffer, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, DEALLOCATE_FAILED)
+    IF (ALLOCATED(buffer_dp)) THEN
+      DEALLOCATE(buffer_dp, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish (routine, DEALLOCATE_FAILED)
+    END IF
+    IF (ALLOCATED(buffer_sp)) THEN
+      DEALLOCATE(buffer_sp, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish (routine, DEALLOCATE_FAILED)
+    END IF
 
     IF (msg_level >= 12) THEN
       WRITE (0,'(10(a,f10.3))') ' Restart: Got ', REAL(bytesGet, dp)*1.d-6, ' MB, time get: ', t_get, ' s [', &
@@ -934,6 +978,7 @@ CONTAINS
            & REAL(bytesWrite, dp)*1.d-6/MAX(1.e-6_wp,t_write), ' MB/s]'
     ENDIF
   END SUBROUTINE asyncPatchData_writeData
+
 
   !------------------------------------------------------------------------------------------------
   !
@@ -944,10 +989,12 @@ CONTAINS
 
     TYPE(t_AsyncPatchData), POINTER :: asyncPatchData
     TYPE(t_RestartVarData), POINTER :: p_vars(:)
-    TYPE(t_ptr_2d), ALLOCATABLE     :: dataPointers(:)
+    TYPE(t_ptr_2d),    ALLOCATABLE  :: dataPointers_dp(:)
+    TYPE(t_ptr_2d_sp), ALLOCATABLE  :: dataPointers_sp(:)
     INTEGER                         :: iv
     INTEGER(i8)                     :: offset
     CHARACTER(LEN=*), PARAMETER     :: routine = modname//':compute_write_var_list'
+    LOGICAL                         :: flag_dp
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)routine,' p_pe=',p_pe
@@ -973,12 +1020,30 @@ CONTAINS
         WRITE (nerr,FORMAT_VALS5I)routine,' p_pe=',p_pe,' compute pe processes field=',TRIM(p_vars(iv)%info%name)
 #endif
 
+        ! check if this is single or double precision:
+        IF (ASSOCIATED(p_vars(iv)%r_ptr)) THEN
+          flag_dp = .TRUE.
+        ELSE IF (ASSOCIATED(p_vars(iv)%s_ptr)) THEN
+          flag_dp = .FALSE.
+        ELSE 
+          CALL finish(routine, "Internal error!")
+        END IF
+
         ! check time level of the field
-        IF(has_valid_time_level(p_vars(iv)%info, asyncPatchData%description%id, asyncPatchData%description%nnew, &
-                               &asyncPatchData%description%nnew_rcf)) THEN
-            CALL getLevelPointers(p_vars(iv)%info, p_vars(iv)%r_ptr, dataPointers)
-            CALL asyncPatchData%commData%postData(p_vars(iv)%info%hgrid, dataPointers, offset)
-            ! no deallocation of dataPointers, so that the next invocation of getLevelPointers() may reuse the last allocation
+        IF (has_valid_time_level(p_vars(iv)%info, asyncPatchData%description%id, &
+          &                      asyncPatchData%description%nnew,                &
+          &                      asyncPatchData%description%nnew_rcf)) THEN
+
+          IF (flag_dp) THEN
+            CALL getLevelPointers(p_vars(iv)%info, p_vars(iv)%r_ptr, dataPointers_dp)
+            CALL asyncPatchData%commData%postData(p_vars(iv)%info%hgrid, dataPointers_dp, offset)
+          ELSE
+            CALL getLevelPointers(p_vars(iv)%info, p_vars(iv)%s_ptr, dataPointers_sp)
+            CALL asyncPatchData%commData%postData(p_vars(iv)%info%hgrid, dataPointers_sp, offset)
+          END IF
+          ! no deallocation of dataPointers, so that the next
+          ! invocation of getLevelPointers() may reuse the last
+          ! allocation
         END IF
     END DO
   END SUBROUTINE compute_write_var_list

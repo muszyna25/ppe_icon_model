@@ -52,27 +52,26 @@
 !!
 !OPTION! -pvctl conflict
 MODULE mo_sync_restart
-  USE mo_communication, ONLY: t_comm_gather_pattern, exchange_data
-  USE mo_datetime, ONLY: t_datetime
-  USE mo_dynamics_config, ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf
-  USE mo_exception, ONLY: finish, message
-  USE mo_fortran_tools, ONLY: t_ptr_2d
-  USE mo_grid_config, ONLY: n_dom
-  USE mo_impl_constants, ONLY: SUCCESS
-  USE mo_kind, ONLY: wp
-  USE mo_model_domain, ONLY: t_patch, p_patch
-  USE mo_mpi, ONLY: my_process_is_mpi_workroot, my_process_is_mpi_test, my_process_is_work
-  USE mo_restart_attributes, ONLY: t_RestartAttributeList, RestartAttributeList_make
-  USE mo_restart_descriptor, ONLY: t_RestartDescriptor, t_RestartPatchData
-  USE mo_restart_file, ONLY: t_RestartFile
+  USE mo_communication,             ONLY: t_comm_gather_pattern, exchange_data
+  USE mo_datetime,                  ONLY: t_datetime
+  USE mo_dynamics_config,           ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf
+  USE mo_exception,                 ONLY: finish, message
+  USE mo_fortran_tools,             ONLY: t_ptr_2d, t_ptr_2d_sp
+  USE mo_grid_config,               ONLY: n_dom
+  USE mo_impl_constants,            ONLY: SUCCESS
+  USE mo_kind,                      ONLY: wp, dp, sp
+  USE mo_mpi,                       ONLY: my_process_is_mpi_workroot, my_process_is_mpi_test
+  USE mo_restart_attributes,        ONLY: t_RestartAttributeList, RestartAttributeList_make
+  USE mo_restart_descriptor,        ONLY: t_RestartDescriptor, t_RestartPatchData
+  USE mo_restart_file,              ONLY: t_RestartFile
   USE mo_restart_patch_description, ONLY: t_restart_patch_description
-  USE mo_restart_util, ONLY: setGeneralRestartAttributes, setDynamicPatchRestartAttributes, setPhysicsRestartAttributes, &
-                           & create_restart_file_link, t_restart_args
-  USE mo_restart_var_data, ONLY: getLevelPointers, has_valid_time_level, createRestartVarData
-  USE mo_run_config, ONLY: ltimer
-  USE mo_timer, ONLY: timer_start, timer_stop, timer_write_restart_file
-  USE mo_util_string, ONLY: int2string
-  USE mo_var_metadata_types, ONLY: t_var_metadata
+  USE mo_restart_util,              ONLY: setGeneralRestartAttributes, setDynamicPatchRestartAttributes, &
+    &                                     setPhysicsRestartAttributes, create_restart_file_link, t_restart_args
+  USE mo_restart_var_data,          ONLY: getLevelPointers, has_valid_time_level
+  USE mo_run_config,                ONLY: ltimer
+  USE mo_timer,                     ONLY: timer_start, timer_stop, timer_write_restart_file
+  USE mo_util_string,               ONLY: int2string
+  USE mo_var_metadata_types,        ONLY: t_var_metadata
 
   IMPLICIT NONE
 
@@ -254,12 +253,14 @@ CONTAINS
     CLASS(t_SyncPatchData), INTENT(INOUT) :: me
     TYPE(t_RestartFile), INTENT(INOUT) :: file
 
-    INTEGER :: domain, i, gridSize, error, level
-    TYPE(t_var_metadata), POINTER :: info
+    INTEGER                              :: domain, i, gridSize, error, level
+    TYPE(t_var_metadata), POINTER        :: info
     TYPE(t_comm_gather_pattern), POINTER :: gatherPattern
-    REAL(wp), ALLOCATABLE :: gatherBuffer(:)
-    TYPE(t_ptr_2d), ALLOCATABLE :: levelPointers(:)
-    CHARACTER(*), PARAMETER :: routine = modname//":syncPatchData_writeData"
+    REAL(dp), ALLOCATABLE                :: gatherBuffer_dp(:)
+    REAL(sp), ALLOCATABLE                :: gatherBuffer_sp(:)
+    TYPE(t_ptr_2d), ALLOCATABLE          :: levelPointers_dp(:)
+    TYPE(t_ptr_2d_sp), ALLOCATABLE       :: levelPointers_sp(:)
+    CHARACTER(*), PARAMETER              :: routine = modname//":syncPatchData_writeData"
 
     IF(my_process_is_mpi_test()) RETURN
 
@@ -274,23 +275,46 @@ CONTAINS
         ! ALLOCATE the global array to gather the DATA on the master process
         gridSize = me%description%getGlobalGridSize(info%hgrid)
         gatherPattern => me%description%getGatherPattern(info%hgrid)
-        ALLOCATE(gatherBuffer(MERGE(gridSize, 0, my_process_is_mpi_workroot())), STAT = error)
-        IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
 
         ! get pointers to the local DATA
-        CALL getLevelPointers(info, me%varData(i)%r_ptr, levelPointers)
+        IF (ASSOCIATED(me%varData(i)%r_ptr)) THEN
+          ALLOCATE(gatherBuffer_dp(MERGE(gridSize, 0, my_process_is_mpi_workroot())), STAT = error)
+          IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
 
-        ! gather the DATA IN the master process AND WRITE it to disk
-        DO level = 1, SIZE(levelPointers)
-            CALL exchange_data(in_array = levelPointers(level)%p, out_array = gatherBuffer, gather_pattern = gatherPattern)
+          CALL getLevelPointers(info, me%varData(i)%r_ptr, levelPointers_dp)
+
+          ! gather the data in the master process and write it to disk
+          DO level = 1, SIZE(levelPointers_dp)
+            CALL exchange_data(in_array = levelPointers_dp(level)%p, out_array = gatherBuffer_dp, &
+              &                gather_pattern = gatherPattern)
             IF(my_process_is_mpi_workroot()) THEN
-                CALL file%writeLevel(info%cdiVarID, level - 1, gatherBuffer)
+              CALL file%writeLevel(info%cdiVarID, level - 1, gatherBuffer_dp)
             END IF
-        END DO
+          END DO
+          ! deallocate temporary global arrays
+          DEALLOCATE(gatherBuffer_dp)
+        ELSE IF (ASSOCIATED(me%varData(i)%s_ptr)) THEN
+          ALLOCATE(gatherBuffer_sp(MERGE(gridSize, 0, my_process_is_mpi_workroot())), STAT = error)
+          IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
 
-        ! deallocate temporary global arrays
-        DEALLOCATE(gatherBuffer)
-        ! no deallocation of levelPointers so that the next invocation of getLevelPointers() may reuse the allocation
+          CALL getLevelPointers(info, me%varData(i)%s_ptr, levelPointers_sp)
+
+          ! gather the data in the master process and write it to disk
+          DO level = 1, SIZE(levelPointers_sp)
+            CALL exchange_data(in_array = levelPointers_sp(level)%p, out_array = gatherBuffer_sp, &
+              &                gather_pattern = gatherPattern)
+            IF(my_process_is_mpi_workroot()) THEN
+              CALL file%writeLevel(info%cdiVarID, level - 1, gatherBuffer_sp)
+            END IF
+          END DO
+          ! deallocate temporary global arrays
+          DEALLOCATE(gatherBuffer_sp)
+        ELSE
+          CALL finish(routine, "internal error")
+        END IF
+
+        ! no deallocation of levelPointers so that the next invocation
+        ! of getLevelPointers() may reuse the allocation
     END DO
 
     CALL message('','Finished writing restart')

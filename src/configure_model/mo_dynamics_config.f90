@@ -26,7 +26,6 @@ MODULE mo_dynamics_config
   USE mo_kind,                  ONLY: wp
   USE mo_impl_constants,        ONLY: MAX_DOM
   USE mo_restart_attributes,    ONLY: t_RestartAttributeList, getAttributesForRestarting
-  USE mo_master_config,         ONLY: isRestart
   USE mo_util_string,           ONLY: int2string
 
   IMPLICIT NONE

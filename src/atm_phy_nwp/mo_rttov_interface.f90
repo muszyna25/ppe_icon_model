@@ -57,6 +57,9 @@ MODULE mo_rttov_interface
 #ifdef __USE_RTTOV
   USE mo_rttov_ifc,           ONLY: rttov_init, rttov_fill_input, rttov_direct_ifc, &
     &                               NO_ERROR, rttov_ifc_errMsg
+#ifdef __RTTOV12
+  USE mo_rttov_ifc,           ONLY: default_gas_units, gas_unit_specconc, gas_unit_ppmvdry, default_use_q2m
+#endif
 #endif
 
   IMPLICIT NONE
@@ -191,6 +194,12 @@ CONTAINS
         CALL p_barrier(p_comm_work)
         WRITE (0,*) routine, ": CALL to rttov_init"
       END IF
+
+      ! use 2m humidity in case of RTTOV12
+#ifdef __RTTOV12
+      default_use_q2m = .TRUE.
+#endif
+
       istatus = rttov_init(  &
         instruments     , &
         channels        , &
@@ -260,7 +269,12 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
 
   ! Local variables for RTTOV calls (with RTTOV-specific memory layout)
   REAL(wp), DIMENSION(nlev_rttov,nproma) :: temp, pres, qv
+
+#ifdef __RTTOV12
+  REAL(wp) ::  cld(6,nlev_rttov-1,nproma), clc(nlev_rttov-1,nproma)
+#else
   REAL(wp), DIMENSION(6,nlev_rttov-1,nproma) :: clc, cld
+#endif
 
   INTEGER,  DIMENSION(1:nproma*MAXVAL(numchans(:))) :: iprof, ichan
   REAL(wp), DIMENSION(MAXVAL(numchans(:)),nproma) :: emiss, T_b, T_b_clear, rad, rad_clear
@@ -293,7 +307,11 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
   ! distance of satellite from middle of the earth
   r_sat       = 35880.e3_wp + earth_radius
 
-      
+  ! set backward compatibility mode for input unit of QV when using RTTOV12
+#ifdef __RTTOV12
+  default_gas_units = gas_unit_ppmvdry
+#endif
+
   CALL prepare_rttov_input(jg, jgp, nlev_rg, p_nh_metrics%z_ifc, p_nh_diag%pres,               &
     p_nh_diag%dpres_mc, p_nh_diag%temp, prm_diag(jg)%tot_cld, prm_diag(jg)%clc,                &
     p_nh_prog%tracer(:,:,:,iqs), prm_diag(jg)%con_udd(:,:,:,3), prm_diag(jg)%con_udd(:,:,:,7), &
@@ -312,11 +330,6 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
   i_endblk   = p_gcp%end_block(min_rlcell_int)
 
 #ifdef __USE_RTTOV
-! GZ: It seems that the RTTOV library is not threadsafe. Bummer!!
-
-!!$OMP PARALLEL
-!!$OMP DO PRIVATE(jb,is,ie,jc,jk,j,k,pres,temp,qv,clc,cld,isens,n_profs,ncalc,iprof,ichan,emiss,lon, &
-!!$OMP           alpha_e,r_atm,sat_z,sat_a,t_b,t_b_clear,rad,rad_clear,iprint,istatus,idg,ish)
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk, is, ie, grf_bdyintp_start_c, min_rlcell_int)
@@ -329,8 +342,8 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
     ! Copy input variables into RTTOV buffer
     IF (dbg_level > 2)  WRITE (0,*) "Copy input variables into RTTOV buffer"
 
-    clc(:,:,:) = 0._wp
-    cld(:,:,:) = 0._wp
+    clc = 0._wp
+    cld = 0._wp
     DO jk = 1, nlev_rttov
       DO jc = is, ie
         pres(jk,jc) = pres_rttov(jk)
@@ -347,11 +360,18 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
         cld(3,jk,jc) = qcc_rttov(jc,jk,jb)
         ! cld(6) = cloud ice
         cld(6,jk,jc) = qi_rttov(jc,jk,jb)
-        ! clc(1) = cloud fraction
+        ! clc = cloud fraction
+#ifdef __RTTOV12
+        clc(jk,jc) = MIN(1._wp-1.e-8_wp,clc_rttov(jc,jk,jb))
+        IF (ANY(cld(:,jk,jc) > 0._wp)) THEN
+          clc(jk,jc) = MAX(1.e-8_wp,clc(jk,jc))
+        ENDIF
+#else
         clc(1,jk,jc) = MIN(1._wp-1.e-8_wp,clc_rttov(jc,jk,jb))
         IF (ANY(cld(:,jk,jc) > 0._wp)) THEN
           clc(1,jk,jc) = MAX(1.e-8_wp,clc(1,jk,jc))
         ENDIF
+#endif
       ENDDO
     ENDDO
 
@@ -372,9 +392,14 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
           satzenith  = (/(0.0_wp, jc=is,ie)/),             &
           sunZenith  = rg_cosmu0(is:ie,jb),                & ! actually unused for addsolar=.false.
           cloud      = cld(:,:,is:ie),                     &
+#ifdef __RTTOV12
+          cfrac      = clc(:,is:ie),                       &
+          ice_scheme = ish(is:ie),                         &
+#else
           cfrac      = clc(:,:,is:ie),                     &
-          idg        = idg(is:ie),                         &
           ish        = ish(is:ie),                         &
+#endif
+          idg        = idg(is:ie),                         &
           addsolar   = .false.,                            &
           addrefrac  = .true.,                             &
           rttov9_compat = .false.,                         &
@@ -491,8 +516,6 @@ SUBROUTINE rttov_driver (jg, jgp, nnow)
     END DO sensor_loop
 
   ENDDO
-!!$OMP END DO NOWAIT
-!!$OMP END PARALLEL
 #endif
 
   IF (dbg_level > 2) THEN

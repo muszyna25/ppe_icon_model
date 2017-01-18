@@ -95,6 +95,7 @@ CONTAINS
     REAL(wp) :: z_dtdt   (nproma,p_patch%nlev) !< temporal temperature tendency
     REAL(wp) :: z_dtdqv_sv(nproma,p_patch%nlev)!< save array for moisture convergence
     REAL(wp) :: z_dtdt_sv(nproma,p_patch%nlev) !< save array for temperature tendency
+    REAL(wp) :: z_ddspeed(nproma)              !< maximum downdraft speed at the surface
 
     ! Local scalars:
 
@@ -133,7 +134,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_omega_p,z_plitot,z_qhfl,z_shfl,z_dtdqv,&
-!$OMP            z_dtdt,z_dtdqv_sv,z_dtdt_sv,zk850,zk950,u850,u950,v850,v950,wfac), ICON_OMP_GUIDED_SCHEDULE
+!$OMP            z_dtdt,z_dtdqv_sv,z_dtdt_sv,zk850,zk950,u850,u950,v850,v950,wfac,z_ddspeed), ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -205,7 +206,6 @@ CONTAINS
 
         ! The following input fields must be reset to zero because the convective
         ! tendencies are added to them
-        prm_nwp_tend%ddt_temp_pconv  (:,:,jb)     = 0._wp
         prm_nwp_tend%ddt_tracer_pconv(:,:,jb,2:)  = 0._wp
         prm_nwp_tend%ddt_u_pconv     (:,:,jb)     = 0._wp
         prm_nwp_tend%ddt_v_pconv     (:,:,jb)     = 0._wp
@@ -267,6 +267,7 @@ CONTAINS
 &            prain  =      prm_diag%rain_upd (:,jb)                           ,& !! OUT
 &            pdtke_con =   prm_nwp_tend%ddt_tke_pconv(:,:,jb)                 ,& !! OUT
 &            pcape  =      prm_diag%cape     (:,jb)                           ,& !! OUT
+&            pvddraf =     z_ddspeed(:)                                       ,& !! OUT
 &            ktrac  = art_config(jg)%nconv_tracer                             ,& !! IN 
 &            pcen   = p_prog_rcf%conv_tracer(jb,:)                            ,& !! IN 
 &            ptenc  = prm_nwp_tend%conv_tracer_tend(jb,:) )                      !! OUT
@@ -315,6 +316,7 @@ CONTAINS
 &            prain  =      prm_diag%rain_upd (:,jb)                           ,& !! OUT
 &            pdtke_con =   prm_nwp_tend%ddt_tke_pconv(:,:,jb)                 ,& !! OUT
 &            pcape  =      prm_diag%cape     (:,jb)                           ,& !! OUT
+&            pvddraf =     z_ddspeed(:)                                       ,& !! OUT
 &            ktrac  = 0                                                        ) !! IN 
         ENDIF
 
@@ -346,7 +348,7 @@ CONTAINS
           ENDDO
         ENDDO
 
-        ! convective contribution to wind gust 
+        ! convective contribution to wind gust
         ! (based on simple parameterization by Peter Bechthold)
         !
         DO jc=i_startidx,i_endidx
@@ -361,7 +363,7 @@ CONTAINS
             v850 = 0.5_wp * (p_diag%v(jc,zk850,jb) + p_diag%v(jc,zk850-1,jb))
             v950 = 0.5_wp * (p_diag%v(jc,zk950,jb) + p_diag%v(jc,zk950-1,jb))
 
-            prm_diag%con_gust(jc,jb) = nwp_con_gust( u850, u950, v850, v950 )
+            prm_diag%con_gust(jc,jb) = nwp_con_gust( u850, u950, v850, v950 ) * MIN(1._wp,0.5_wp*z_ddspeed(jc))
           ELSE
             prm_diag%con_gust(jc,jb) = 0._wp
           ENDIF

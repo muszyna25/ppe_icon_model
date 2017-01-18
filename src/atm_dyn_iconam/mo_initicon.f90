@@ -77,7 +77,7 @@ MODULE mo_initicon
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_input_instructions,  ONLY: t_readInstructionListPtr, readInstructionList_make, kInputSourceAna, &
                                     kInputSourceBoth
-  USE mo_util_uuid,           ONLY: t_uuid
+  USE mo_util_uuid_types,     ONLY: t_uuid
 
   IMPLICIT NONE
 
@@ -340,7 +340,13 @@ MODULE mo_initicon
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":read_dwdana"
+#ifndef __GFORTRAN__
     CHARACTER(LEN = :), ALLOCATABLE :: incrementsList(:)
+#else
+    CHARACTER(LEN = 9) :: incrementsList_IAU(8)
+    CHARACTER(LEN = 4) :: incrementsList_IAU_OLD(6)
+    CHARACTER(LEN = 1) :: incrementsList_DEFAULT(1)
+#endif
     CLASS(t_InputRequestList), POINTER :: requestList
     INTEGER :: jg
 
@@ -390,6 +396,8 @@ MODULE mo_initicon
     IF(my_process_is_stdio()) THEN
         CALL requestList%printInventory()
         IF(lconsistency_checks) THEN
+! Workaround for GNU compiler (<6.0), which still does not fully support deferred length character arrays
+#ifndef __GFORTRAN__
             SELECT CASE(init_mode)
                 CASE(MODE_IAU)
                     incrementsList = [CHARACTER(LEN=9) :: 'u', 'v', 'pres', 'temp', 'qv', 'w_so', 'h_snow', 'freshsnow']
@@ -400,6 +408,25 @@ MODULE mo_initicon
             END SELECT
             CALL requestList%checkRuntypeAndUuids(incrementsList, gridUuids(p_patch), lIsFg = .FALSE., &
               lHardCheckUuids = .NOT.check_uuid_gracefully)
+#else
+            SELECT CASE(init_mode)
+                CASE(MODE_IAU)
+                    incrementsList_IAU = (/'u        ', 'v        ', 'pres     ', 'temp     ', &
+                      &                    'qv       ', 'w_so     ', 'h_snow   ', 'freshsnow'/)
+                    CALL requestList%checkRuntypeAndUuids(incrementsList_IAU, gridUuids(p_patch), lIsFg = .FALSE., &
+                      lHardCheckUuids = .NOT.check_uuid_gracefully)
+            write(0,*) "incrementsList_IAU: ", incrementsList_IAU
+                CASE(MODE_IAU_OLD)
+                    incrementsList_IAU_OLD = (/'u   ', 'v   ', 'pres', 'temp', 'qv  ', 'w_so'/)
+                    CALL requestList%checkRuntypeAndUuids(incrementsList_IAU_OLD, gridUuids(p_patch), lIsFg = .FALSE., &
+                      lHardCheckUuids = .NOT.check_uuid_gracefully)
+            write(0,*) "incrementsList_IAU_OLD: ", incrementsList_IAU_OLD
+                CASE DEFAULT
+                    incrementsList_DEFAULT = (/' '/)
+                    CALL requestList%checkRuntypeAndUuids(incrementsList_DEFAULT, gridUuids(p_patch), lIsFg = .FALSE., &
+                      lHardCheckUuids = .NOT.check_uuid_gracefully)
+            END SELECT
+#endif
         END IF
     END IF
 
@@ -1139,7 +1166,7 @@ MODULE mo_initicon
         ! Unfortunately, we have to care about possible pathological cases here
         DO jc = i_startidx, i_endidx
           IF (mass_incr_int(jc)*mass_incr_smt_int(jc) > 0._wp .AND. grav*ABS(mass_incr_int(jc)) > 0.5_wp &
-              .AND. grav*ABS(mass_incr_int(jc)) > 0.5_wp) THEN
+              .AND. grav*ABS(mass_incr_smt_int(jc)) > 0.5_wp) THEN
             ! Multiplicative correction if mass increments are larger than 0.5 Pa and have the same sign
             DO jk = 1, nlev
               rho_incr_smt(jc,jk) = rho_incr_smt(jc,jk)                         &
@@ -1221,7 +1248,7 @@ MODULE mo_initicon
 
       ! Apply diffusion on wind increment
       DO iter = 1, niter_diffu
-        CALL nabla2_vec(p_diag%vn_incr, p_patch(jg), p_int_state(jg), nabla2_vn_incr, opt_rlstart=3)
+        CALL nabla2_vec(REAL(p_diag%vn_incr,wp), p_patch(jg), p_int_state(jg), nabla2_vn_incr, opt_rlstart=3)
 
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
 
@@ -1351,7 +1378,7 @@ MODULE mo_initicon
 
         CALL sync_patch_array(SYNC_E,p_patch(jg),p_diag%vn_incr)
 
-        CALL init_w(p_patch(jg), p_int_state(jg), p_diag%vn_incr, p_nh_state(jg)%metrics%z_ifc, w_incr)
+        CALL init_w(p_patch(jg), p_int_state(jg), REAL(p_diag%vn_incr,wp), p_nh_state(jg)%metrics%z_ifc, w_incr)
 
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
 
