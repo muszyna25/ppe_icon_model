@@ -990,7 +990,7 @@ CONTAINS
 
     IF (echam_phy_config%lconv) THEN
 
-      IF (ltimer) call timer_start(timer_convection)
+      IF (ltimer) CALL timer_start(timer_convection)
 
       CALL cumastr(jce, nbdim,                   &! in
         &          nlev, nlevp1, nlevm1,         &! in
@@ -1009,6 +1009,7 @@ CONTAINS
         &          field% presm_new(:,:,jb),     &! in
         &          field% presi_new(:,:,jb),     &! in
         &          field% geom     (:,:,jb),     &! in
+        &          field% geoi     (:,:,jb),     &! in
         &                ztend_qv  (:,:),        &! in
         &          field% thvsig   (:,  jb),     &! in
         &          echam_conv_config%cevapcu,    &! in

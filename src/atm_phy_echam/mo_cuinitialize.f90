@@ -35,7 +35,7 @@
 !!
 MODULE mo_cuinitialize
   USE mo_kind,                 ONLY: wp
-  USE mo_physical_constants,   ONLY: rd, cpd, cpv, vtmpc1, alv, als, tmelt
+  USE mo_physical_constants,   ONLY: cpd, cpv, vtmpc1, alv, als, tmelt
   USE mo_echam_conv_config,    ONLY: echam_conv_config
   USE mo_echam_convect_tables, ONLY: prepare_ua_index_spline,lookup_ua_spline
   USE mo_cuadjust,             ONLY: cuadjtq
@@ -89,7 +89,6 @@ CONTAINS
     INTEGER :: klab(kbdim,klev),          klwmin(kbdim)
     REAL(wp):: zwmax(kbdim)
     REAL(wp):: zph(kbdim)
-    REAL(wp):: ztven(kbdim,klev)
     INTEGER :: loidx(kbdim)
     REAL(wp):: pxten(kbdim,klev,ktrac),   pxtenh(kbdim,klev,ktrac),                  &
       &        pxtu(kbdim,klev,ktrac),    pxtd(kbdim,klev,ktrac),                    &
@@ -97,7 +96,7 @@ CONTAINS
     REAL(wp):: za(kbdim),                 ua(kbdim)
     INTEGER :: idx(kbdim)
     INTEGER :: jk, jl, jt, ik, icall
-    REAL(wp):: zarg, zcpm, zzs
+    REAL(wp):: zcpm, zzs
     LOGICAL :: llo1
     !
     !  INTRINSIC FUNCTIONS
@@ -122,21 +121,10 @@ CONTAINS
         pqsen(jl,jk)=MIN(0.5_wp,pqsen(jl,jk))
         pqsen(jl,jk)=pqsen(jl,jk)/(1._wp-vtmpc1*pqsen(jl,jk))
 
-        ztven(jl,jk)=pten(jl,jk)*(1._wp+vtmpc1*pqen(jl,jk)-pxen(jl,jk))
         pcpen(jl,jk)=cpd+(cpv-cpd)*pqen(jl,jk) ! cp of moist air for comp. of fluxes
       END DO
     END DO
     !
-    DO jl=1,kproma
-      zarg=paphp1(jl,klevp1)/paphp1(jl,klev)
-      pgeoh(jl,klev)=rd*ztven(jl,klev)*LOG(zarg)
-    END DO
-    DO jk=klevm1,2,-1
-      DO jl=1,kproma
-        zarg=paphp1(jl,jk+1)/paphp1(jl,jk)
-        pgeoh(jl,jk)=pgeoh(jl,jk+1)+rd*ztven(jl,jk)*LOG(zarg)
-      END DO
-    END DO
     DO jk=2,klev
 !IBM* NOVECTOR
       DO jl=1,kproma

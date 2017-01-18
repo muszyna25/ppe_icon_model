@@ -78,7 +78,8 @@ CONTAINS
     &                  ktrac,    ldland,                                  &
     &                  pxten,                                             &
     &                  pverv,    pqhfla,                                  &
-    &                  papp1,    paphp1,   pgeo,                          &
+    &                  papp1,    paphp1,                                  &
+    &                  pgeo,     pgeoh,                                   &
     &                  pqte,                                              &
     &                  pthvsig,                                           &
     &                  cevapcu,                                           &
@@ -99,7 +100,7 @@ CONTAINS
       &                      puen(kbdim,klev),        pven(kbdim,klev),        &
       &                      pverv(kbdim,klev),       pqhfla(kbdim),           &
       &                      papp1(kbdim,klev),       paphp1(kbdim,klevp1),    &
-      &                      pgeo(kbdim,klev),                                 &
+      &                      pgeo(kbdim,klev),        pgeoh(kbdim,klevp1),     &
       &                      pqte(kbdim,klev),                                 &
       &                      pthvsig(kbdim)
 
@@ -123,7 +124,7 @@ CONTAINS
     REAL(wp):: ztenh(kbdim,klev),       zqenh(kbdim,klev),                 &
       &        zxenh(kbdim,klev),       zalvsh(kbdim,klev),                &
       ! zalvsh: latent heat of vaporisation/sublimation defined at half levels
-      &        zgeoh(kbdim,klev),       zqsenh(kbdim,klev),                &
+      &        zqsenh(kbdim,klev),                                         &
       &        ztd(kbdim,klev),         zqd(kbdim,klev),                   &
       &        zmfus(kbdim,klev),       zmfds(kbdim,klev),                 &
       &        zmfuq(kbdim,klev),       zmfdq(kbdim,klev),                 &
@@ -191,7 +192,7 @@ CONTAINS
       &        pten,     pqen,     zqsen,    pxen,     puen,     pven,   &
       &        ktrac,                                                    &
       &        pxten,    zxtenh,   zxtu,     zxtd,     zmfuxt,   zmfdxt, &
-      &        pverv,    papp1,    pgeo,     paphp1,   zgeoh,            &
+      &        pverv,    papp1,    pgeo,     paphp1,   pgeoh,            &
       &        ztenh,    zqenh,    zqsenh,   zxenh,    ilwmin,           &
       &        ptu,      pqu,      ztd,      zqd,                        &
       &        zuu,      zvu,      zud,      zvd,                        &
@@ -209,7 +210,7 @@ CONTAINS
     !                  ---------------------------------------
     !
     CALL cubase(kproma, kbdim, klev, klevp1, klevm1,                     &
-      &         ztenh,    zqenh,    zgeoh,    paphp1,    pthvsig,        &
+      &         ztenh,    zqenh,    pgeoh,    paphp1,    pthvsig,        &
       &         ptu,      pqu,      plu,                                 &
       &         puen,     pven,     zuu,      zvu,                       &
       &         zcpcu,                                                   &
@@ -284,7 +285,7 @@ CONTAINS
     DO jl=1,kproma
       ikb=kcbot(jl)
       zalvs=FSEL(tmelt-ptu(jl,ikb),als,alv)
-      zhcbase(jl) = zcpcu(jl,ikb)*ptu(jl,ikb) + zgeoh(jl,ikb) + zalvs*pqu(jl,ikb)
+      zhcbase(jl) = zcpcu(jl,ikb)*ptu(jl,ikb) + pgeoh(jl,ikb) + zalvs*pqu(jl,ikb)
       zictop0(jl) = zkcbot(jl)-1._wp
     END DO
     DO jk=klev,1,-1
@@ -301,7 +302,7 @@ CONTAINS
           zalvs=FSEL(tmelt - ztenh(jl,jk),als,alv)
           zalvdcp=zalvs*zcpcui(jl,jk)
           zqalv=1._wp/zalvs
-          zhsat=zcpcu(jl,jk)*ztenh(jl,jk)+zgeoh(jl,jk)+zalvs*zqsenh(jl,jk)
+          zhsat=zcpcu(jl,jk)*ztenh(jl,jk)+pgeoh(jl,jk)+zalvs*zqsenh(jl,jk)
           zpaphp1i = 1._wp/paphp1(jl,jk)
           zes=ua(jl)*zpaphp1i
           zes=MIN(0.5_wp,zes)
@@ -381,7 +382,7 @@ CONTAINS
              + zalvs*(pqen(jl,jk-1) - pqen(jl,jk))+(pgeo(jl,jk-1)-pgeo(jl,jk)))*grav
         za2 = pgeo(jl,jk-1)-pgeo(jl,jk)
         zdhdz = SWDIV_NOCHK(za1, za2)
-        zdepth    = zgeoh(jl,jk)-zgeoh(jl,ikb)
+        zdepth    = pgeoh(jl,jk)-pgeoh(jl,ikb)
         ztmp1(nl) = zalvs
         ztmp2(nl) = zdz*zdhdz
         ztmp3(nl) = 1._wp+zdepth*zbi
@@ -392,7 +393,7 @@ CONTAINS
         jl = loidx(nl)
         zalvs     = ztmp1(nl)
         zfac      = ztmp3(nl)
-        zdepth    = zgeoh(jl,jk)-zgeoh(jl,ikb)
+        zdepth    = pgeoh(jl,jk)-pgeoh(jl,ikb)
         zhmin(jl) = zhmin(jl) + zfac*ztmp2(nl)
         zrh       =-zalvs*(zqsenh(jl,jk)-zqenh(jl,jk))*zfac
         zihmin(jl) = FSEL(zrh - zhmin(jl),zihmin(jl),zjk)
@@ -419,7 +420,7 @@ CONTAINS
       &        pdtime,                                                   &
       &        zxtenh,   pxten,    zxtu,     zmfuxt,                     &
       &        pten,     pqen,     zqsen,                                &
-      &        pgeo,     zgeoh,    paphp1,   pthvsig,                    &
+      &        pgeo,     pgeoh,    paphp1,   pthvsig,                    &
       &        pqte,               pverv,    ilwmin,                     &
       &        ldcum,    ldland,   ktype,    ilab,                       &
       &        ptu,      pqu,      plu,      zuu,      zvu,              &
@@ -470,7 +471,7 @@ CONTAINS
         &         ztenh,    zqenh,    puen,     pven,                   &
         &         ktrac,                                                &
         &         zxtenh,   zxtu,     zxtd,     zmfdxt,                 &
-        &         zgeoh,    paphp1,                                     &
+        &         pgeoh,    paphp1,                                     &
         &         ptu,      pqu,      zuu,      zvu,                    &
         &         ldcum,    kcbot,    kctop,    zmfub,    zrfl,         &
         &         ztd,      zqd,      zud,      zvd,                    &
@@ -484,7 +485,7 @@ CONTAINS
         &          ztenh,    zqenh,    puen,     pven,                  &
         &          ktrac,                                               &
         &          zxtenh,   zxtd,     zmfdxt,                          &
-        &          zgeoh,    paphp1,   zrfl,                            &
+        &          pgeoh,    paphp1,   zrfl,                            &
         &          ztd,      zqd,      zud,      zvd,                   &
         &          pmfd,     zmfds,    zmfdq,    zdmfdp,                &
         &          zcpcu,                                               &
@@ -653,7 +654,7 @@ CONTAINS
       &        pdtime,                                                   &
       &        zxtenh,   pxten,    zxtu,     zmfuxt,                     &
       &        pten,     pqen,     zqsen,                                &
-      &        pgeo,     zgeoh,    paphp1,   pthvsig,                    &
+      &        pgeo,     pgeoh,    paphp1,   pthvsig,                    &
       &        pqte,               pverv,    ilwmin,                     &
       &        ldcum,    ldland,   ktype,    ilab,                       &
       &        ptu,      pqu,      plu,      zuu,      zvu,              &
@@ -675,7 +676,7 @@ CONTAINS
       &        pdtime,                                                   &
       &        cevapcu,                                                  &
       &        zxtenh,   zmfuxt,   zmfdxt,                               &
-      &        paphp1,   zgeoh,                                          &
+      &        paphp1,   pgeoh,                                          &
       &        kcbot,    kctop,    idtop,                                &
       &        ktype,    loddraf,  ldcum,                                &
       &        pmfu,     pmfd,     zmfus,    zmfds,                      &
