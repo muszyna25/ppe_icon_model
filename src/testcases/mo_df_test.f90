@@ -37,9 +37,8 @@ MODULE mo_df_test
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_intp,                ONLY: cells2edges_scalar
   USE mo_eta_coord_diag,      ONLY: half_level_pressure, full_level_pressure
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ntracer
-  USE mo_advection_config,    ONLY: advection_config
   USE mo_grid_config,         ONLY: grid_sphere_radius
 
   IMPLICIT NONE
@@ -100,10 +99,10 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Daniel Reinert (2010-03-26)
   !!
-  SUBROUTINE init_hydro_state_prog_dftest( ptr_patch, ptr_prog, ptr_diag,  &
-    &                                      ptr_int, ptr_ext_data,          &
-    &                                      p_rotate_axis_deg, p_ctest_name,&
-    &                                      linit_tracer_fv )
+  SUBROUTINE init_hydro_state_prog_dftest( ptr_patch, ptr_prog, ptr_diag,       &
+    &                                      ptr_int, ptr_ext_data,               &
+    &                                      p_rotate_axis_deg, p_ctest_name,     &
+    &                                      linit_tracer_fv, tracer_inidist_list )
 
     ! INPUT PARAMETERS:
     TYPE(t_patch),TARGET,INTENT(INOUT)       :: ptr_patch
@@ -116,23 +115,14 @@ CONTAINS
     REAL(wp), INTENT(IN)  :: p_rotate_axis_deg !< Earths rotation axis pitch
                                                !< angle in deg
     LOGICAL, INTENT(IN)  :: linit_tracer_fv    !< fv init. for tracer fields
-    CHARACTER(LEN=1) :: ctracer                !< char to control tracer init
-    CHARACTER(len=MAX_CHAR_LENGTH) :: &        !< list of tracers to initialize
-    &  ctracer_list
+    INTEGER, INTENT(IN)  :: tracer_inidist_list(:)  !< selected initial tracer distributions
 
     INTEGER  :: jk,jb,jt   !< loop indices
     INTEGER  :: nblks_c,npromz_c
     INTEGER  :: nlev, nlevp1                   !< number of full and half levels
     INTEGER  :: ikp1
     INTEGER  :: nlen
-    INTEGER  :: pid         !< patch ID
   !-------------------------------------------------------------------------
-
-    ! get patch ID
-    pid = ptr_patch%id
-
-    ! get ctracer_list
-    ctracer_list = advection_config(pid)%ctracer_list
 
     ! values for the blocking
     nblks_c  = ptr_patch%nblks_c
@@ -201,11 +191,11 @@ CONTAINS
 
     ! get initial tracer fields for time t=0
     DO jt=1,ntracer
-      ! query tracer shape
-      ctracer = ctracer_list(jt:jt)
-      CALL init_df_tracer( ptr_patch, ptr_int, p_ctest_name,            &! in
-        &                  p_rotate_axis_deg, linit_tracer_fv, ctracer, &! in
-                           ptr_prog%tracer(:,:,:,jt)                    )! inout
+
+      CALL init_df_tracer( ptr_patch, ptr_int, p_ctest_name,      &! in
+        &                  p_rotate_axis_deg, linit_tracer_fv,    &! in
+        &                  tracer_inidist_list(jt),               &! in
+                           ptr_prog%tracer(:,:,:,jt)              )! inout
     ENDDO
 
   END SUBROUTINE init_hydro_state_prog_dftest
@@ -476,8 +466,8 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2010-03-25)
   !!
-    SUBROUTINE init_df_tracer( ptr_patch, ptr_int, p_ctest_name,            &
-      &                        p_rotate_axis_deg, linit_tracer_fv, ctracer, &
+    SUBROUTINE init_df_tracer( ptr_patch, ptr_int, p_ctest_name,                   &
+      &                        p_rotate_axis_deg, linit_tracer_fv, tracer_inidist, &
       &                        p_cc )
 
     !INPUT PARAMETERS:
@@ -491,9 +481,9 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH), INTENT(IN) :: &
       &  p_ctest_name
     LOGICAL, INTENT(IN)           :: & !< fv init. for tracer fields
-      &  linit_tracer_fv    
-    CHARACTER(LEN=1), INTENT(IN)  :: & !< char to control tracer init
-      &  ctracer   
+      &  linit_tracer_fv
+    INTEGER, INTENT(IN)           :: & !< selected initial tracer distribution
+      &  tracer_inidist   
     REAL(wp), INTENT(INOUT)       :: & !< tracer array
       &  p_cc(:,:,:)    
 
@@ -570,11 +560,11 @@ CONTAINS
     ! only needs to be computed for 1 full level. Then the solution
     ! is copied to each vertical level.
     !
-    SELECT CASE(ctracer)
+    SELECT CASE(tracer_inidist)
     !
     ! C1 cosine bells
     !
-    CASE('5')
+    CASE(5)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,zlon,zlat,gc_rot, &
 !$OMP            z_dist_1,z_dist_2,d1,d2)
@@ -631,7 +621,7 @@ CONTAINS
     !
     ! slotted cylinders
     ! 
-    CASE('6')
+    CASE(6)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,zlon,zlat,gc_rot, &
 !$OMP            z_dist_1,z_dist_2)
@@ -701,7 +691,7 @@ CONTAINS
     !
     ! C_infty gaussian hills (see Levy et. al., 2007)
     ! 
-    CASE('7')
+    CASE(7)
 
     ! Transform ic_center to cartesian coordinates
     ic_cc_c1 = gc2cc(ic_c1)
@@ -762,7 +752,7 @@ CONTAINS
     !
     ! linearly correlates C1 cosine bells
     !
-    CASE('8')
+    CASE(8)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,zlon,zlat,gc_rot, &
 !$OMP            z_dist_1,z_dist_2,d1,d2,zcos_bell)
@@ -822,7 +812,7 @@ CONTAINS
     !
     ! nonlinearly correlated cosine bells
     !
-    CASE('9')
+    CASE(9)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,zlon,zlat,gc_rot, &
 !$OMP            z_dist_1,z_dist_2,d1,d2,zcos_bell)
