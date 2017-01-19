@@ -15,7 +15,7 @@
 !!
 MODULE mo_util_vgrid
 
-  USE ISO_C_BINDING,                        ONLY: C_SIGNED_CHAR, C_DOUBLE
+  USE ISO_C_BINDING,                        ONLY: C_DOUBLE
   USE mo_cdi,                               ONLY: streamDefTimestep, streamOpenWrite, gridCreate, institutInq, vlistCreate, &
                                                 & vlistInqVarZaxis, vlistInqVarGrid, streamInqVlist, streamOpenRead, &
                                                 & ZAXIS_REFERENCE, zaxisCreate, TSTEP_CONSTANT, vlistDefVar, FILETYPE_NC2, &
@@ -26,7 +26,7 @@ MODULE mo_util_vgrid
                                                 & gridDefPosition, gridInqUUID, gridDefNumber, gridDefUUID, zaxisDefLevels, &
                                                 & gridDefNvertex, vlistDefInstitut, zaxisInqUUID, streamReadVar, &
                                                 & GRID_UNSTRUCTURED
-  USE mo_kind,                              ONLY: wp, dp, sp
+  USE mo_kind,                              ONLY: wp, dp
   USE mo_exception,                         ONLY: finish, message, message_text, warning
   !
   USE mo_dynamics_config,                   ONLY: iequations
@@ -42,10 +42,12 @@ MODULE mo_util_vgrid
   USE mo_model_domain,                      ONLY: t_patch
   USE mo_ext_data_types,                    ONLY: t_external_data
   USE mo_intp_data_strc,                    ONLY: t_int_state
+  USE mo_nh_testcases_nml,                  ONLY: layer_thickness, n_flat_level
   USE mo_vertical_coord_table,              ONLY: init_vertical_coord_table
-  USE mo_nh_init_utils,                     ONLY: init_hybrid_coord, init_sleve_coord,                  &
-    &                                             init_vert_coord, compute_smooth_topo,                 &
-    &                                             prepare_hybrid_coord, prepare_sleve_coord
+  USE mo_init_vgrid,                        ONLY: init_hybrid_coord, init_sleve_coord,                  &
+    &                                             prepare_hybrid_coord, prepare_sleve_coord,            &
+    &                                             init_vert_coord
+  USE mo_nh_init_utils,                     ONLY: compute_smooth_topo
   USE mo_nh_init_nest_utils,                ONLY: topo_blending_and_fbk
   USE mo_communication,                     ONLY: exchange_data, idx_no, blk_no
   USE mo_util_string,                       ONLY: int2string
@@ -117,7 +119,7 @@ CONTAINS
         ! file:
         !
         IF (ivctype == 1) THEN
-          CALL init_hybrid_coord(p_patch(1)%nlev, vct_a, vct_b)
+          CALL init_hybrid_coord(p_patch(1)%nlev, vct_a, vct_b, layer_thickness, n_flat_level)
         ELSE IF (ivctype == 2) THEN
           CALL init_sleve_coord(p_patch(1)%nlev, vct_a, vct_b)
         ENDIF
@@ -186,8 +188,9 @@ CONTAINS
           ENDIF
 
           ! Initialize vertical coordinate for cell points
-          CALL init_vert_coord(ext_data(jg)%atm%topography_c, topography_smt, vgrid_buffer(jg)%z_ifc, &
-            &                  p_patch(jg)%nlev, p_patch(jg)%nblks_c, p_patch(jg)%npromz_c,           &
+          CALL init_vert_coord(vct_a, vct_b, ext_data(jg)%atm%topography_c, topography_smt, &
+            &                  vgrid_buffer(jg)%z_ifc, p_patch(jg)%nlev,                    &
+            &                  p_patch(jg)%nblks_c, p_patch(jg)%npromz_c,                   &
             &                  p_patch(jg)%nshift_total, nflatlev(jg) )
           DEALLOCATE(topography_smt)
         END DO

@@ -36,7 +36,7 @@ MODULE mo_velocity_advection
   USE mo_nonhydro_types,    ONLY: t_nh_metrics, t_nh_diag, t_nh_prog
   USE mo_math_divrot,       ONLY: rot_vertex_ri
   USE mo_vertical_grid,     ONLY: nrdmax
-  USE mo_nh_init_utils,     ONLY: nflatlev
+  USE mo_init_vgrid,        ONLY: nflatlev
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants,    ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e
@@ -714,7 +714,7 @@ MODULE mo_velocity_advection
     ! Save maximum vertical CFL number for substep number adaptation
     i_startblk = p_patch%cells%start_block(grf_bdywidth_c)
     i_endblk   = p_patch%cells%end_block(min_rlcell_int)
-    p_metrics%max_vcfl_dyn = MAX(p_metrics%max_vcfl_dyn,MAXVAL(vcflmax(i_startblk:i_endblk)))
+    p_diag%max_vcfl_dyn = MAX(p_diag%max_vcfl_dyn,MAXVAL(vcflmax(i_startblk:i_endblk)))
 
     IF (timers_level > 5) CALL timer_stop(timer_solve_nh_veltend)
 

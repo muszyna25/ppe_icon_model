@@ -24,7 +24,7 @@
 !!
 MODULE mo_nonhydro_types
 
-  USE mo_kind,                 ONLY: wp, vp
+  USE mo_kind,                 ONLY: wp, vp, vp2
   USE mo_fortran_tools,        ONLY: t_ptr_2d3d, t_ptr_2d3d_vp, t_ptr_tracer
   USE mo_linked_list,          ONLY: t_var_list
 
@@ -162,7 +162,6 @@ MODULE mo_nonhydro_types
     &  vt(:,:,:),           & ! tangential wind (nproma,nlev,nblks_e)          [m/s]
     &  ddt_exner_phy(:,:,:),& ! exner pressure tendency from physical forcing 
                               ! (nproma,nlev,nblks_c)                     [1/s]
-    &  ddt_temp_dyn(:,:,:), & ! rediagnosed temperature tendency from dynamics [K/s]
     &  ddt_vn_phy(:,:,:),   & ! normal wind tendency from forcing
                               ! (nproma,nlev,nblks_e)                          [m/s^2]
     &  exner_dyn_incr(:,:,:), & ! exner pres dynamics increment (nproma,nlev,nblks_c)
@@ -174,6 +173,13 @@ MODULE mo_nonhydro_types
     &  ddt_w_adv(:,:,:,:)     ! vert. wind tendency from advection
                               ! (nproma,nlevp1,nblks_c,1:3)                  [m/s^2]
 
+    REAL(vp2), POINTER      &   ! single precision if "__MIXED_PRECISION_2" is defined
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    , CONTIGUOUS            &
+#endif
+    &  ::                   &
+    &  ddt_temp_dyn(:,:,:)    ! rediagnosed temperature tendency from dynamics [K/s]
+
 
     INTEGER, POINTER ::     &
     &  nsteps_avg(:)          ! number of time steps summed up for averaging
@@ -183,6 +189,7 @@ MODULE mo_nonhydro_types
      &  extra_2d(:,:,:)  ,  & !> extra debug output in 2d and
      &  extra_3d(:,:,:,:)     !!                       3d
 
+    REAL(vp) :: max_vcfl_dyn=0._vp  ! maximum vertical CFL number in dynamical core
 
     TYPE(t_ptr_2d3d),ALLOCATABLE ::   &
       &  ddt_grf_trc_ptr(:),   &  !< pointer array: one pointer for each tracer
@@ -261,6 +268,7 @@ MODULE mo_nonhydro_types
      !
      ! Mask field for mountain or upper slope points
      mask_mtnpoints(:,:) , & ! 
+     mask_mtnpoints_g(:,:) , & ! 
      ! Area of subdomain for which feedback is performed; dim: (nlev)
      fbk_dom_volume(:)
 
@@ -372,8 +380,6 @@ MODULE mo_nonhydro_types
    INTEGER  :: nudge_c_dim, nudge_e_dim ! for grid points on which lateral boundary nudging is applied
    INTEGER  :: bdy_halo_c_dim ! for halo points belonging to the nest boundary region
    INTEGER  :: bdy_mflx_e_dim ! for mass fluxes at lateral nest boundary
-
-   REAL(vp) :: max_vcfl_dyn=0._vp  ! maximum vertical CFL number in dynamical core
 
 
    ! Finally, a mask field that excludes boundary halo points
