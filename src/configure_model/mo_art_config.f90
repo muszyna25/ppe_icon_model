@@ -28,6 +28,8 @@ MODULE mo_art_config
   USE mo_kind,                 ONLY: wp
   USE mo_impl_constants,       ONLY: max_dom
   USE mo_math_utilities,       ONLY: t_geographical_coordinates  
+  USE mo_impl_constants,       ONLY: MAX_CHAR_LENGTH
+  
 
   IMPLICIT NONE
   
@@ -55,6 +57,8 @@ MODULE mo_art_config
   PUBLIC :: iTR_med,iTR_naf,iTR_saf,iTR_mdg,iTR_aus,iTR_nam              !artificial tracer
   PUBLIC :: iTR_sam,iTR_tpo,iTR_tao,iTR_tio,iTR_bgn,iTR_bgs              !artificial tracer
   PUBLIC :: iTR_art                                                      !artificial tracer
+  
+  PUBLIC :: ctracer_art                                                  !generic tracer list, contains name of tracer
   
   !!--------------------------------------------------------------------------
   !! Tracer indices of ICON-ART species
@@ -159,6 +163,9 @@ MODULE mo_art_config
 
   TYPE(t_art_config), TARGET :: art_config(0:max_dom)
 
+
+    !------------- generic tracer list for NWP and ECHAM physics
+  CHARACTER(len=MAX_CHAR_LENGTH), ALLOCATABLE :: ctracer_art(:) !< tracer acronyms
 
 CONTAINS
 
