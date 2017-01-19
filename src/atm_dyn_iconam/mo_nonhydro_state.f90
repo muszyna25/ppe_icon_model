@@ -32,7 +32,7 @@
 MODULE mo_nonhydro_state
 
   USE mo_kind,                 ONLY: wp, vp
-  USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH,             &
+  USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH, VNAME_LEN,  &
     &                                INWP, IECHAM,                         &
     &                                VINTP_METHOD_VN,                      &
     &                                VINTP_METHOD_QV, VINTP_METHOD_PRES,   &
@@ -453,6 +453,7 @@ MODULE mo_nonhydro_state
 
     CHARACTER(LEN=1)  :: ctracer
     CHARACTER(len=21) :: name
+    CHARACTER(len=VNAME_LEN) :: tracer_name
 
     !**
     !--------------------------------------------------------------
@@ -1122,8 +1123,10 @@ MODULE mo_nonhydro_state
         DO jt = 1, ntracer - advection_config(p_patch%id)%npassive_tracer
           ctracer = advconf%ctracer_list(jt:jt)
           WRITE(name,'(A1,A1)') "q", ctracer
+          tracer_name = 'q'//TRIM(advconf%tracer_names(jt))
           CALL add_ref( p_prog_list, 'tracer',                                  &
-            & TRIM(name)//suffix, p_prog%tracer_ptr(jt)%p_3d,                   &
+!!$            & TRIM(name)//suffix, p_prog%tracer_ptr(jt)%p_3d,                   &
+            & TRIM(tracer_name)//suffix, p_prog%tracer_ptr(jt)%p_3d,            &
             & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                                &
             & t_cf_var(TRIM(name), 'kg/kg','Tracer mixing ratio '//TRIM(name),  &
             & datatype_flt),                                                    &

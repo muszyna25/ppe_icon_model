@@ -820,7 +820,9 @@ CONTAINS
 
       DO jg = 1,n_dom
 
+!DR OBSOLETE
         i_listlen = LEN_TRIM(advection_config(jg)%ctracer_list)
+!DR END OBSOLETE
 
         SELECT CASE ( iforcing )
         CASE ( INWP )
@@ -853,7 +855,7 @@ CONTAINS
 
           ENDIF
 
-
+!DR OBSOLETE
           IF ( i_listlen /= ntracer ) THEN
             DO jt=1,ntracer
               WRITE(advection_config(jg)%ctracer_list(jt:jt),'(i1.1)')jt
@@ -863,6 +865,7 @@ CONTAINS
               & advection_config(jg)%ctracer_list(1:ntracer)
             CALL message(TRIM(method_name),message_text)
           ENDIF
+!DR END OBSOLETE
 
 
         CASE (inoforcing, iheldsuarez, iecham, ildf_dry, ildf_echam)
@@ -870,11 +873,13 @@ CONTAINS
         ! Other types of adiabatic forcing
         !...........................................................
 
+!DR OBSOLETE
+!DR We will no longer adjust ntracer according to the length of ctracer_list 
           IF ( i_listlen < ntracer .AND. i_listlen /= 0 ) THEN
             ntracer = i_listlen
             CALL message(TRIM(method_name),'number of tracers is adjusted according to given list')
           END IF
-
+!DR END OBSOLETE
 
           IF (echam_phy_config%lrad) THEN
             IF ( izenith > 5)  &

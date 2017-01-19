@@ -29,7 +29,7 @@ MODULE mo_advection_config
     &                                 MIURA_MCYCL, MIURA3_MCYCL, FFSL_MCYCL,  &
     &                                 FFSL_HYB_MCYCL, ippm_vcfl, ippm_v,      &
     &                                 ino_flx, izero_grad, iparent_flx, inwp, &
-    &                                 iecham, TRACER_ONLY, SUCCESS
+    &                                 iecham, TRACER_ONLY, SUCCESS, VNAME_LEN
   USE mo_exception,             ONLY: message, message_text, finish
   USE mo_expression,            ONLY: expression
   USE mo_linked_list,           ONLY: t_var_list, t_list_element
@@ -70,6 +70,9 @@ MODULE mo_advection_config
   TYPE :: t_advection_config
 
     ! namelist variables
+    CHARACTER(len=VNAME_LEN) ::  &       !< tracer-specific name suffixes  
+      &  tracer_names(MAX_NTRACER)       !< these are only required for 
+                                         !< idealized runs without NWP or ECHAM forcing.
 
     CHARACTER(len=MAX_CHAR_LENGTH) :: &  !< list of tracers to initialize        
       &  ctracer_list                                                            
