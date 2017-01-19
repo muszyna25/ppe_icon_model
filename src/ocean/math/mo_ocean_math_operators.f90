@@ -23,6 +23,8 @@
 !----------------------------
 #include "omp_definitions.inc"
 #include "icon_definitions.inc"
+#include "iconfor_dsl_definitions.inc"
+!=============================================================================================
 !----------------------------
 MODULE mo_ocean_math_operators
   !-------------------------------------------------------------------------
@@ -1037,7 +1039,7 @@ CONTAINS
             !IF ( v_base%lsm_e(edgeOfVertex_index,level,edgeOfVertex_block) == sea) THEN
             ! sea, sea_boundary, boundary (edges only), land_boundary, land =
             !  -2,      -1,         0,                  1,             2
-            !Distinction between sea-lean-boundary is taken into account by coeffcients.
+            !Distinction between sea-lean-boundary is taken into account by coefficients.
             !It is assumed here that vn is already zero at boundary edges.
             z_vort_internal(level) = z_vort_internal(level) + vn(edge_index,level,edge_block) * &
               & p_op_coeff%rot_coeff(vertexIndex,level,blockNo,vertexConnect)
@@ -2230,7 +2232,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     
     IF (select_lhs == select_lhs_matrix) &
-      CALL update_lhs_matrix_coeff( patch_2D, operators_coefficients)
+      CALL update_lhs_matrix_coeff( patch_3D, operators_coefficients)
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
@@ -2254,16 +2256,44 @@ CONTAINS
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
-  SUBROUTINE update_lhs_matrix_coeff( patch_2D, operators_coefficients)
+  SUBROUTINE update_lhs_matrix_coeff( patch_3D, operators_coefficients)
 
-    TYPE(t_patch), POINTER                  :: patch_2D
+    TYPE(t_patch_3D ),TARGET                :: patch_3D
     TYPE(t_operator_coeff), INTENT(in)      :: operators_coefficients
 
+    TYPE(t_patch), POINTER                  :: patch_2D
     TYPE(t_subset_range), POINTER :: cells_in_domain
-    INTEGER :: blockNo, cell_StartIndex, cell_EndIndex, jc
-     REAL(wp) :: gdt2_inv, gam_times_beta
 
+    INTEGER  :: blockNo, cell_StartIndex, cell_EndIndex, jc
+    INTEGER  :: edge_connect, edge_connect_2, cell_connect
+    INTEGER  :: edge_idx_1, edge_blk_1, edge_idx_2, edge_blk_2
+    INTEGER  :: cell_idx_1, cell_blk_1
+    INTEGER  :: edge_stencil_index,   cell_stencil_index
+    INTEGER  :: edge_stencil_index_2, cell_stencil_index_2
+    INTEGER  :: next_stencil
+
+    INTEGER  :: cell_idx(0:9), cell_blk(0:9)  ! the 0 cell is the current one
+    INTEGER  :: map_to_edgeStencil(6)
+
+    REAL(wp) :: gs(9,0:9)  ! gs(i,j) = grad_coeff(i) * sign of cell j in the grad of the i edge
+    REAL(wp) :: ap(3,9) !  ap(i,j) coefficients for mapping edges to edges (all_coeffs) from j to i edge
+    REAL(wp) :: dc(3)
+
+ 
+    REAL(wp) :: gdt2_inv, gam_times_beta, grad_sign
+ 
+    onEdges  :: grad_coeff
+    mapCellsToCells_2D :: lhs_coeffs                ! the left hand side operator coefficients of the height solver
+    REAL(wp), POINTER :: sum_to_2D_coeffs(:,:,:)
+
+    write(0,*) "Calculating lhs_matrix_coeff..."
+
+    patch_2D            => patch_3D%p_patch_2D(1)
     cells_in_domain  => patch_2D%cells%in_domain
+
+    grad_coeff => operators_coefficients%grad_coeff
+    sum_to_2D_coeffs  => operators_coefficients%edge2edge_viacell_coeff_all
+    lhs_coeffs => operators_coefficients%lhs_all
 
     gdt2_inv       = 1.0_wp / (grav*(dtime)**2)
     gam_times_beta = ab_gam * ab_beta
@@ -2271,6 +2301,175 @@ CONTAINS
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, blockNo, cell_StartIndex, cell_EndIndex)
       DO jc = cell_StartIndex, cell_EndIndex
+
+        IF (patch_3D%surface_cell_sea_land_mask(jc,blockNo) >= 0) CYCLE
+
+        cell_blk(0) = blockNo
+        cell_idx(0) = jc
+
+        ! get the cell stencil mapping and the stencil grad coefficients
+        DO edge_connect = 1, 3
+          edge_idx_1 = patch_2d%cells%edge_idx(jc, blockNo, edge_connect)
+          edge_blk_1 = patch_2d%cells%edge_blk(jc, blockNo, edge_connect)
+
+          ! get the other cell of the edge, and compute the two grad*sign coefficients
+          cell_stencil_index = edge_connect
+          edge_stencil_index = edge_connect
+
+          cell_idx(cell_stencil_index) = patch_2d%edges%cell_idx(edge_idx_1, edge_blk_1, 1)
+          cell_blk(cell_stencil_index) = patch_2d%edges%cell_blk(edge_idx_1, edge_blk_1, 1)
+          grad_sign = 1.0_wp
+          IF (cell_idx(cell_stencil_index) == cell_idx(0) .and. cell_blk(cell_stencil_index) == cell_blk(0)) THEN
+            cell_idx(cell_stencil_index) = patch_2d%edges%cell_idx(edge_idx_1, edge_blk_1, 2)
+            cell_blk(cell_stencil_index) = patch_2d%edges%cell_blk(edge_idx_1, edge_blk_1, 2)
+            grad_sign = -1.0_wp
+          ENDIF
+
+          gs(edge_stencil_index, 0)                  = grad_sign * grad_coeff(edge_idx_1, 1, edge_blk_1)
+          gs(edge_stencil_index, cell_stencil_index) = -gs(edge_stencil_index, 0)
+
+          ! get the next level of edges and gs
+          next_stencil = edge_stencil_index * 2 + 2
+          DO edge_connect_2 = 1, 3
+            edge_idx_2 = patch_2d%cells%edge_idx(cell_idx(edge_connect), cell_blk(edge_connect), edge_connect_2)
+            edge_blk_2 = patch_2d%cells%edge_blk(cell_idx(edge_connect), cell_blk(edge_connect), edge_connect_2)
+
+            IF (edge_idx_2 == edge_idx_1 .and. edge_blk_2 == edge_blk_1) CYCLE 
+
+            cell_stencil_index_2 = next_stencil
+            edge_stencil_index_2 = next_stencil
+            next_stencil = next_stencil + 1
+
+            cell_idx(cell_stencil_index_2) = patch_2d%edges%cell_idx(edge_idx_2, edge_blk_2, 1)
+            cell_blk(cell_stencil_index_2) = patch_2d%edges%cell_blk(edge_idx_2, edge_blk_2, 1)
+            grad_sign = 1.0_wp
+            IF ( cell_idx(cell_stencil_index_2) == cell_idx(cell_stencil_index) .and. &
+                 cell_blk(cell_stencil_index_2) == cell_blk(cell_stencil_index)) THEN
+              cell_idx(cell_stencil_index_2) = patch_2d%edges%cell_idx(edge_idx_2, edge_blk_2, 2)
+              cell_blk(cell_stencil_index_2) = patch_2d%edges%cell_blk(edge_idx_2, edge_blk_2, 2)
+              grad_sign = -1.0_wp
+            ENDIF
+
+            gs(edge_stencil_index_2, cell_stencil_index)   = grad_sign * grad_coeff(edge_idx_2, 1, edge_blk_2)
+            gs(edge_stencil_index_2, cell_stencil_index_2) = -gs(edge_stencil_index_2, cell_stencil_index)
+              
+          ENDDO ! end of next level of edges and gs
+
+        ENDDO ! end of  cell stencil and grad coefficients
+ 
+        ! compute the PtP coefficients for the three edges of this cell
+        ap = 0.0_wp
+        DO edge_connect = 1, 3
+          edge_stencil_index = edge_connect
+          edge_idx_1 = patch_2d%cells%edge_idx(jc, blockNo, edge_connect)
+          edge_blk_1 = patch_2d%cells%edge_blk(jc, blockNo, edge_connect)
+
+          ! map the edge2edge_viacell_coeff index to the stencil
+          cell_idx_1 = patch_2d%edges%cell_idx(edge_idx_1, edge_blk_1, 1)
+          cell_blk_1 = patch_2d%edges%cell_blk(edge_idx_1, edge_blk_1, 1)
+          IF (cell_idx_1 == cell_idx(0) .and. cell_blk_1 == cell_blk(0)) THEN
+            map_to_edgeStencil(1) = 1
+            map_to_edgeStencil(2) = 2
+            map_to_edgeStencil(3) = 3
+
+            cell_idx_1 = patch_2d%edges%cell_idx(edge_idx_1, edge_blk_1, 2)
+            cell_blk_1 = patch_2d%edges%cell_blk(edge_idx_1, edge_blk_1, 2)
+           
+            next_stencil = edge_stencil_index * 2 + 2
+            DO edge_connect_2 = 1, 3
+              edge_idx_2 = patch_2d%cells%edge_idx(cell_idx_1, cell_blk_1, edge_connect_2)
+              edge_blk_2 = patch_2d%cells%edge_blk(cell_idx_1, cell_blk_1, edge_connect_2)
+
+              IF (edge_idx_2 == edge_idx_1 .and. edge_blk_2 == edge_blk_1) THEN
+                map_to_edgeStencil(3+edge_connect_2) = edge_stencil_index
+              ELSE
+                map_to_edgeStencil(3+edge_connect_2) = next_stencil
+                next_stencil = next_stencil + 1
+              ENDIF
+            ENDDO
+
+          ELSE
+            map_to_edgeStencil(4) = 1
+            map_to_edgeStencil(5) = 2
+            map_to_edgeStencil(6) = 3
+
+            next_stencil = edge_stencil_index * 2 + 2
+            DO edge_connect_2 = 1, 3
+              edge_idx_2 = patch_2d%cells%edge_idx(cell_idx_1, cell_blk_1, edge_connect_2)
+              edge_blk_2 = patch_2d%cells%edge_blk(cell_idx_1, cell_blk_1, edge_connect_2)
+
+              IF (edge_idx_2 == edge_idx_1 .and. edge_blk_2 == edge_blk_1) THEN
+                map_to_edgeStencil(edge_connect_2) = edge_stencil_index
+              ELSE
+                map_to_edgeStencil(edge_connect_2) = next_stencil
+                next_stencil = next_stencil + 1
+              ENDIF
+            ENDDO
+          ENDIF
+        
+          DO edge_connect_2 = 1, 6
+            ap(edge_connect, map_to_edgeStencil(edge_connect_2)) =   &
+              ap(edge_connect, map_to_edgeStencil(edge_connect_2)) + &
+              sum_to_2D_coeffs(edge_connect_2, edge_idx_1, edge_blk_1)
+
+          ENDDO
+
+        ENDDO ! end of PtP coefficients for the three edges of this cell
+
+        ! fill the stencil connectivity
+        
+        DO cell_connect = 1, 3
+          operators_coefficients%lhs_CellToCell_index(cell_connect,jc,blockNo) = cell_idx(cell_connect)
+          operators_coefficients%lhs_CellToCell_block(cell_connect,jc,blockNo) = cell_blk(cell_connect)
+        ENDDO
+
+        ! for convenience get the dic coefficients localy
+        dc(1) = operators_coefficients%div_coeff(jc, 1, blockNo, 1)
+        dc(2) = operators_coefficients%div_coeff(jc, 1, blockNo, 2)
+        dc(3) = operators_coefficients%div_coeff(jc, 1, blockNo, 3)
+
+        ! finaly the coefficients
+        lhs_coeffs(0, jc, blockNo) = &
+          gdt2_inv - gam_times_beta * &
+           (dc(1) * (gs(1,0) * ap(1,1) + gs(2,0) * ap(1,2) + gs(3,0) * ap(1,3)) + &
+            dc(2) * (gs(1,0) * ap(2,1) + gs(2,0) * ap(2,2) + gs(3,0) * ap(2,3)) + &
+            dc(3) * (gs(1,0) * ap(3,1) + gs(2,0) * ap(3,2) + gs(3,0) * ap(3,3)))
+
+        lhs_coeffs(1, jc, blockNo) = &
+          -gam_times_beta * &
+           (dc(1) * (gs(1,1) * ap(1,1) + gs(5,1) * ap(1,5) + gs(4,1) * ap(1,4)) + &
+            dc(2) *  gs(1,1) * ap(2,1) + &
+            dc(3) *  gs(1,1) * ap(3,1))
+
+        lhs_coeffs(2, jc, blockNo) = &
+          -gam_times_beta * &
+           (dc(1) * gs(2,2) * ap(1,2) + &
+            dc(2) * (gs(2,2) * ap(2,2) + gs(6,2) * ap(2,6) + gs(7,2) * ap(2,7)) + &
+            dc(3) * gs(2,2) * ap(3,2))
+
+        lhs_coeffs(3, jc, blockNo) = &
+          -gam_times_beta * &
+           (dc(1) * gs(3,3) * ap(1,3) + &
+            dc(2) * gs(3,3) * ap(2,3) + &
+            dc(3) * (gs(3,3) * ap(3,3) + gs(8,3) * ap(3,8) + gs(9,3) * ap(3,9)))
+
+        lhs_coeffs(4, jc, blockNo) = &
+          -gam_times_beta * dc(1) * gs(4,4) * ap(1,4) 
+
+        lhs_coeffs(5, jc, blockNo) = &
+          -gam_times_beta * dc(1) * gs(5,5) * ap(1,5) 
+
+        lhs_coeffs(6, jc, blockNo) = &
+          -gam_times_beta * dc(2) * gs(6,6) * ap(2,6) 
+
+        lhs_coeffs(7, jc, blockNo) = &
+          -gam_times_beta * dc(2) * gs(7,7) * ap(2,7) 
+
+        lhs_coeffs(8, jc, blockNo) = &
+          -gam_times_beta * dc(3) * gs(8,8) * ap(3,8) 
+ 
+        lhs_coeffs(9, jc, blockNo) = &
+          -gam_times_beta * dc(3) * gs(9,9) * ap(3,9) 
 
       ENDDO
     ENDDO

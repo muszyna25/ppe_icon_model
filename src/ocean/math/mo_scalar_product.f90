@@ -39,7 +39,7 @@ MODULE mo_scalar_product
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff, no_primal_edges, no_dual_edges, &
     & Get3DVectorTo2DLocal_array3D
-  USE mo_ocean_math_operators,ONLY: grad_fd_norm_oce_3D, rot_vertex_ocean_3d, map_edges2vert_3d
+  USE mo_ocean_math_operators,ONLY: rot_vertex_ocean_3d, map_edges2vert_3d
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: sync_e, sync_v,sync_patch_array,sync_c, sync_patch_array_mult!,  & sync_idx, global_max
   USE mo_util_dbg_prnt,       ONLY: dbg_print
