@@ -31,7 +31,7 @@ MODULE mo_initicon_config
     &                              MAX_DATETIME_STR_LEN, OPERATOR(<=), OPERATOR(>=), &
     &                              getPTStringFromSeconds
   USE mo_mtime_extensions,   ONLY: get_datetime_string
-  USE mo_exception,          ONLY: finish, message_text, message
+  USE mo_exception,          ONLY: message_text, message
 
   IMPLICIT NONE
 
@@ -106,7 +106,6 @@ MODULE mo_initicon_config
   INTEGER  :: nlevsoil_in   ! number of soil levels of input data
 
   REAL(wp) :: zpbl1, zpbl2  ! AGL heights used for vertical gradient computation
-  LOGICAL  :: l_sst_in      ! logical switch, if sea surface temperature is provided as input
   LOGICAL  :: lread_ana     ! If .TRUE., read analysis fields are read from analysis file
                             ! dwdana_filename. If .FALSE., ICON is soleyly started 
                             ! from first guess fields.   
@@ -178,6 +177,7 @@ MODULE mo_initicon_config
 
   INTEGER :: nlevatm_in(max_dom) = 0  !< number of atmospheric model levels of input data
   LOGICAL :: lread_vn  = .FALSE. !< control variable that specifies if u/v or vn are read as wind field input
+  LOGICAL :: l_sst_in  = .TRUE.  !< logical switch, if sea surface temperature is provided as input
 
   INTEGER :: init_mode_soil     !< initialization mode of soil model (coldstart, warmstart, warmstart+IAU)
 

@@ -28,7 +28,7 @@ MODULE mo_advection_aerosols
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_edge
   USE mo_math_gradients,      ONLY: grad_green_gauss_cell
   USE mo_math_divrot,         ONLY: recon_lsq_cell_l_svd
-  USE mo_advection_traj,      ONLY: btraj
+  USE mo_advection_traj,      ONLY: t_back_traj, btraj_compute_o1
   USE mo_exception,           ONLY: message, message_text
 
   IMPLICIT NONE
@@ -132,21 +132,17 @@ CONTAINS
     ! Vertically integrated air masses per unit area at both time levels
     REAL(wp) :: rhodz_now_int(nproma,nclass_aero,p_patch%nblks_c), rhodz_new_int(nproma,nclass_aero,p_patch%nblks_c)
 
-    ! Distance vector from upwind cell barycenter to end of back trajectory
-    REAL(vp) :: distv_bary(nproma,2,p_patch%nblks_e,2)
+    ! backward trajectory information
+    TYPE(t_back_traj) :: btraj
 
     ! Horizontal gradient field of aerosols
     REAL(vp) :: grad_aero(2,nproma,nclass_aero,p_patch%nblks_c)
     !
     REAL(wp) :: flx_aero(nproma,nclass_aero,p_patch%nblks_e)
 
-    ! Upwind cell line and block indices
-    INTEGER :: cell_idx(nproma,2,p_patch%nblks_e), cell_blk(nproma,2,p_patch%nblks_e)
-
     REAL(vp) ::  fluxdiv_c(nproma,nclass_aero), dz(nproma)
     REAL(wp) ::  dthalf
 
-    INTEGER  :: nlev, nlevp1
     INTEGER  :: jb, jk, jt, jc, je, jg, ilc, ibc, kst, kend
     INTEGER  :: i_startblk, i_startidx, i_endblk, i_endidx
     INTEGER  :: i_rlstart, i_rlend
@@ -158,10 +154,6 @@ CONTAINS
     INTEGER, DIMENSION(:,:,:), POINTER :: iidx, iblk
 
    !-----------------------------------------------------------------------
-
-    ! number of vertical levels
-    nlev   = p_patch%nlev
-    nlevp1 = p_patch%nlevp1
 
     jg  = p_patch%id
 
@@ -264,8 +256,16 @@ CONTAINS
                                opt_rlstart=grf_bdywidth_e-2, opt_rlend=min_rledge_int-1)
 
     ! Compute back trajectories
-    CALL btraj(p_patch, p_int, vn_traj_avg, vt_traj_avg, dthalf, cell_idx, cell_blk, &
-               distv_bary, opt_rlstart=grf_bdywidth_e-2, opt_rlend=min_rledge_int-1, opt_elev=2 )
+    CALL btraj_compute_o1 ( btraj    = btraj,            & !inout
+      &                  ptr_p       = p_patch,          & !in
+      &                  ptr_int     = p_int,            & !in
+      &                  p_vn        = vn_traj_avg,      & !in
+      &                  p_vt        = vt_traj_avg,      & !in
+      &                  p_dthalf    = dthalf,           & !in
+      &                  opt_rlstart = grf_bdywidth_e-2, & !in
+      &                  opt_rlend   = min_rledge_int-1, & !in
+      &                  opt_elev    = 2                 ) !in
+
 
     ! Reconstruct 2D gradient fields of aerosol
     IF (advection_config(jg)%igrad_c_miura == 1 .AND. advection_config(jg)%llsq_svd) THEN
@@ -292,10 +292,12 @@ CONTAINS
       DO jt = 1, nclass_aero
         DO je = i_startidx, i_endidx
 
-          ilc = cell_idx(je,ji(jt),jb)
-          ibc = cell_blk(je,ji(jt),jb)
-          flx_aero(je,jt,jb) = ( aerosol(ilc,jt,ibc) + distv_bary(je,ji(jt),jb,1)*grad_aero(1,ilc,jt,ibc) + &
-            distv_bary(je,ji(jt),jb,2)*grad_aero(2,ilc,jt,ibc) ) * mflx_h_int(je,ji(jt),jb)
+          ilc = btraj%cell_idx(je,ji(jt),jb)
+          ibc = btraj%cell_blk(je,ji(jt),jb)
+          flx_aero(je,jt,jb) = ( aerosol(ilc,jt,ibc)                                      &
+            &                + btraj%distv_bary(je,ji(jt),jb,1)*grad_aero(1,ilc,jt,ibc)   &
+            &                + btraj%distv_bary(je,ji(jt),jb,2)*grad_aero(2,ilc,jt,ibc) ) &
+            &                * mflx_h_int(je,ji(jt),jb)
 
         ENDDO
       ENDDO

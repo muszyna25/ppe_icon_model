@@ -10,17 +10,18 @@
 !! headers of the routines.
 
 MODULE mo_restart_file
-    USE mo_cdi, ONLY: CDI_UNDEFID, FILETYPE_NC2, FILETYPE_NC4, streamWriteVarSlice
-    USE mo_cdi_ids, ONLY: t_CdiIds
-    USE mo_datetime, ONLY: iso8601
-    USE mo_exception, ONLY: finish
-    USE mo_io_units, ONLY: filename_max
-    USE mo_kind, ONLY: dp
-    USE mo_restart_attributes, ONLY: t_RestartAttributeList
-    USE mo_restart_namelist, ONLY: t_NamelistArchive, namelistArchive
+    USE mo_cdi,                       ONLY: CDI_UNDEFID, FILETYPE_NC2, FILETYPE_NC4, streamWriteVarSlice, &
+      &                                     streamWriteVarSliceF
+    USE mo_cdi_ids,                   ONLY: t_CdiIds
+    USE mo_datetime,                  ONLY: iso8601
+    USE mo_exception,                 ONLY: finish
+    USE mo_io_units,                  ONLY: filename_max
+    USE mo_kind,                      ONLY: dp, sp
+    USE mo_restart_attributes,        ONLY: t_RestartAttributeList
+    USE mo_restart_namelist,          ONLY: t_NamelistArchive, namelistArchive
     USE mo_restart_patch_description, ONLY: t_restart_patch_description
-    USE mo_restart_util, ONLY: getRestartFilename, t_restart_args
-    USE mo_restart_var_data, ONLY: t_RestartVarData, has_valid_time_level
+    USE mo_restart_util,              ONLY: getRestartFilename, t_restart_args
+    USE mo_restart_var_data,          ONLY: t_RestartVarData, has_valid_time_level
 
     IMPLICIT NONE
 
@@ -33,8 +34,11 @@ MODULE mo_restart_file
         TYPE(t_CdiIds) :: cdiIds
     CONTAINS
         PROCEDURE :: open => restartFile_open
-        PROCEDURE :: writeLevel => restartFile_writeLevel
+        PROCEDURE :: writeLevel_r => restartFile_writeLevel_r
+        PROCEDURE :: writeLevel_s => restartFile_writeLevel_s
+        GENERIC, PUBLIC :: writeLevel => writeLevel_r, writeLevel_s
         PROCEDURE :: close => restartFile_close
+
     END TYPE t_RestartFile
 
     CHARACTER(LEN = *), PARAMETER :: modname = "mo_restart_file"
@@ -103,13 +107,21 @@ CONTAINS
         CALL me%cdiIds%finalizeVlist(restart_args%datetime)
     END SUBROUTINE restartFile_open
 
-    SUBROUTINE restartFile_writeLevel(me, varId, levelId, DATA)
+    SUBROUTINE restartFile_writeLevel_r(me, varId, levelId, data)
         CLASS(t_RestartFile), INTENT(IN) :: me
         INTEGER, VALUE :: varId, levelId
-        REAL(dp), INTENT(IN) :: DATA(:)
+        REAL(dp), INTENT(IN) :: data(:)
 
-        CALL streamWriteVarSlice(me%cdiIds%file, varId, levelId, DATA, 0)
-    END SUBROUTINE restartFile_writeLevel
+        CALL streamWriteVarSlice(me%cdiIds%file, varId, levelId, data, 0)
+      END SUBROUTINE restartFile_writeLevel_r
+
+    SUBROUTINE restartFile_writeLevel_s(me, varId, levelId, data)
+        CLASS(t_RestartFile), INTENT(IN) :: me
+        INTEGER, VALUE :: varId, levelId
+        REAL(sp), INTENT(IN) :: data(:)
+
+        CALL streamWriteVarSliceF(me%cdiIds%file, varId, levelId, data, 0)
+      END SUBROUTINE restartFile_writeLevel_s
 
     !------------------------------------------------------------------------------------------------
     !

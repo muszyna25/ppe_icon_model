@@ -163,7 +163,7 @@ case "$fortran_compiler" in
         CC          = cc
         FC          = ftn
         F77         = $FC
-        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc  -O cache0 -r am -Ktrap=divz,ovf,inv
+        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc  -O cache0 -r am -Ktrap=divz,ovf,inv
         CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -O3
         F77FLAGS    = $FFLAGS
         FCLIBS      = 
@@ -181,7 +181,7 @@ case "$fortran_compiler" in
         CC          = cc
         FC          = ftn
         F77         = $FC
-        FFLAGS      = -v -D__OPENACC_BUG_TYPES_1 -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf -hacc_model=deep_copy
+        FFLAGS      = -v -D__OPENACC_BUG_TYPES_1 -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__MIXED_PRECISION_2 -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf -hacc_model=deep_copy
         CFLAGS      = -v -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3
         CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3
         F77FLAGS    = $FFLAGS
@@ -307,7 +307,7 @@ case "$ac_sitename" in
                       GRIBAPIROOT     = ${GRIB_API}
 ;;
                     default|gcc)
-                      load_modules    = PrgEnv-gnu netcdf grib_api cray-mpich ${load_modules}
+                      load_modules    = PrgEnv-gnu cray-netcdf grib_api cray-mpich ${load_modules}
                       FFLAGS          = ${FFLAGS}
                       GRIBAPIROOT     = ${GRIB_API}
                       OTHER_LIBS      = $OTHER_LIBS

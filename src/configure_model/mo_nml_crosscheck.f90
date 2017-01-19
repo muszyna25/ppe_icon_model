@@ -522,7 +522,7 @@ CONTAINS
           SELECT CASE (irad_o3)
           CASE (0) ! ok
             CALL message(TRIM(method_name),'radiation is used without ozone')
-          CASE (2,4,6,7,8,9) ! ok
+          CASE (2,4,6,7,8,9,79) ! ok
             CALL message(TRIM(method_name),'radiation is used with ozone')
           CASE (10) ! ok
             CALL message(TRIM(method_name),'radiation is used with ozone calculated from ART')

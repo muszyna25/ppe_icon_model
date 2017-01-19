@@ -25,6 +25,7 @@
 MODULE mo_nwp_rrtm_interface
 
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, iprog_aero, icpl_aero_conv
+  USE mo_nwp_tuning_config,    ONLY: tune_dust_abs
   USE mo_grid_config,          ONLY: l_limited_area
   USE mo_datetime,             ONLY: t_datetime,  month2hour
   USE mo_exception,            ONLY: message,  finish, message_text
@@ -45,6 +46,8 @@ MODULE mo_nwp_rrtm_interface
   USE mo_radiation,            ONLY: radiation, radiation_nwp
   USE mo_radiation_config,     ONLY: irad_o3, irad_aero
   USE mo_radiation_rg_par,     ONLY: aerdis
+  USE mo_aerosol_util,         ONLY: tune_dust
+  USE mo_lrtm_par,             ONLY: nbndlw
   USE mo_sync,                 ONLY: global_max, global_min
 
   USE mo_rrtm_data_interface,  ONLY: t_rrtm_data, recv_rrtm_input, send_rrtm_output
@@ -170,9 +173,7 @@ CONTAINS
         & pt_patch   = pt_patch,                     & ! in
         & zvio3      = prm_diag%vio3,                & !inout
         & zhmo3      = prm_diag%hmo3  )                !inout
-    CASE (7)
-      CALL calc_o3_gems(pt_patch,datetime,pt_diag,prm_diag,ext_data)
-    CASE (9)
+    CASE (7,9,79)
       CALL calc_o3_gems(pt_patch,datetime,pt_diag,prm_diag,ext_data)
     CASE(10)
       !CALL message('mo_nwp_rg_interface:irad_o3=10', &  
@@ -435,7 +436,7 @@ CONTAINS
 
     INTEGER, INTENT(IN) :: irad ! To distinguish between RRTM (1) and PSRAD (3)
 
-    REAL(wp):: aclcov(nproma,pt_patch%nblks_c)
+    REAL(wp):: aclcov(nproma,pt_patch%nblks_c), dust_tunefac(nproma,nbndlw)
 
 
     ! Local scalars:
@@ -484,7 +485,7 @@ CONTAINS
       prm_diag%trsolclr_sfc(1:i_startidx-1,i_startblk) = 0
     END IF
 
-!$OMP PARALLEL PRIVATE(jb,i_startidx,i_endidx)
+!$OMP PARALLEL PRIVATE(jb,i_startidx,i_endidx,dust_tunefac)
 !$OMP DO ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
@@ -500,6 +501,12 @@ CONTAINS
 
       prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog%t_g(1:i_endidx,jb)
 
+      IF (tune_dust_abs > 0._wp) THEN
+!DIR$ NOINLINE
+        CALL tune_dust(pt_patch%cells%center(:,jb)%lat,pt_patch%cells%center(:,jb)%lon,i_endidx,dust_tunefac)
+      ELSE
+        dust_tunefac(:,:) = 1._wp
+      ENDIF
 
       CALL radiation_nwp(               &
                               !
@@ -544,6 +551,7 @@ CONTAINS
         & zaeq3      = zaeq3(:,:,jb)                 ,&!< in aerosol urban
         & zaeq4      = zaeq4(:,:,jb)                 ,&!< in aerosol volcano ashes
         & zaeq5      = zaeq5(:,:,jb)                 ,&!< in aerosol stratospheric background
+        & dust_tunefac = dust_tunefac (:,:)          ,&!< in LW tuning factor for dust aerosol
         & dt_rad     = atm_phy_nwp_config(jg)%dt_rad ,&
                               ! output
                               ! ------
@@ -598,7 +606,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: irad ! To distinguish between RRTM (1) and PSRAD (3)
 
 
-    REAL(wp):: aclcov        (nproma,pt_patch%nblks_c) !<
+    REAL(wp):: aclcov(nproma,pt_patch%nblks_c), dust_tunefac(nproma,nbndlw)
     ! For radiation on reduced grid
     ! These fields need to be allocatable because they have different dimensions for
     ! the global grid and nested grids, and for runs with/without MPI parallelization
@@ -944,7 +952,7 @@ CONTAINS
       ENDIF ! msg_level >= 16
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
+!$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx,dust_tunefac) ICON_OMP_GUIDED_SCHEDULE
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
@@ -989,6 +997,12 @@ CONTAINS
           ENDDO
         ENDIF
 
+        IF (tune_dust_abs > 0._wp) THEN
+!DIR$ NOINLINE
+          CALL tune_dust(ptr_pp%cells%center(:,jb)%lat,ptr_pp%cells%center(:,jb)%lon,i_endidx,dust_tunefac)
+        ELSE
+          dust_tunefac(:,:) = 1._wp
+        ENDIF
 
         ! Type of convection is required as INTEGER field
         zrg_ktype(1:i_endidx,jb) = NINT(zrg_rtype(1:i_endidx,jb))
@@ -1035,6 +1049,7 @@ CONTAINS
           & zaeq3      = zrg_aeq3(:,:,jb)       ,&!< in aerosol urban
           & zaeq4      = zrg_aeq4(:,:,jb)       ,&!< in aerosol volcano ashes
           & zaeq5      = zrg_aeq5(:,:,jb)       ,&!< in aerosol stratospheric background
+          & dust_tunefac = dust_tunefac (:,:)   ,&!< in LW tuning factor for dust aerosol
           & dt_rad     = atm_phy_nwp_config(jg)%dt_rad ,&
                                 !
                                 ! output

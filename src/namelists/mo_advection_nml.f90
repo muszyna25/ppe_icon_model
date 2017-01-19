@@ -99,9 +99,6 @@ MODULE mo_advection_nml
                                    !< 3: monotonous flux limiter
                                    !< 4: positive definite flux limiter
 
-  INTEGER :: niter_fct             !< number of iterations for monotone
-                                   !< flux correction procedure
-
   REAL(wp):: beta_fct              !< factor of allowed over-/undershooting in monotonous limiter
 
 
@@ -124,7 +121,7 @@ MODULE mo_advection_nml
 
   NAMELIST/transport_nml/ ihadv_tracer, ivadv_tracer, lvadv_tracer,       &
     &                     itype_vlimit, ivcfl_max, itype_hlimit,          &
-    &                     iadv_tke, niter_fct, beta_fct, iord_backtraj,   &
+    &                     iadv_tke, beta_fct, iord_backtraj,              &
     &                     lclip_tracer, ctracer_list, igrad_c_miura,      &
     &                     lstrang, llsq_svd, npassive_tracer,             &
     &                     init_formula
@@ -170,7 +167,6 @@ CONTAINS
     ivadv_tracer(:) = ippm_vcfl ! PPM vertical advection scheme
     itype_vlimit(:) = islopel_vsm ! semi-monotonous slope limiter
     iadv_tke        = 0         ! no TKE advection
-    niter_fct       = 1         ! number of FCT-iterations
     beta_fct        = 1.005_wp  ! factor of allowed over-/undershooting in monotonous limiter
     ivcfl_max       = 5         ! CFL-stability range for vertical advection
     iord_backtraj   = 1         ! 1st order backward trajectory
@@ -250,13 +246,6 @@ CONTAINS
     ENDIF
 
 
-    ! FCT-iterations - sanity check
-    !
-    IF ( niter_fct < 1 ) THEN
-      CALL finish( TRIM(routine), 'niter_fct must be greater than 0 ')
-    ENDIF
-
-
     ! FCT multiplicative spreading - sanity check
     ! 
     IF ( (beta_fct < 1.0_wp) .OR. (beta_fct >= 2.0_wp) ) THEN
@@ -286,7 +275,6 @@ CONTAINS
       advection_config(jg)%llsq_svd       = llsq_svd
       advection_config(jg)%itype_vlimit(:)= itype_vlimit(:)
       advection_config(jg)%itype_hlimit(:)= itype_hlimit(:)
-      advection_config(jg)%niter_fct      = niter_fct
       advection_config(jg)%beta_fct       = beta_fct
       advection_config(jg)%iord_backtraj  = iord_backtraj
       advection_config(jg)%igrad_c_miura  = igrad_c_miura
