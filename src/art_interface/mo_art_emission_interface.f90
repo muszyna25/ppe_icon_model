@@ -144,17 +144,17 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
     ALLOCATE(emiss_rate(nproma,nlev))
     ALLOCATE(dz(nproma,nlev))
 
-    IF (art_config(jg)%lart_aerosol .OR. art_config(jg)%lart_chem &
-        .OR. art_config(jg)%lart_passive) THEN
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-          &                istart, iend, i_rlstart, i_rlend)
-        
-        CALL art_add_emission_to_tracers(tracer,p_patch,p_nh_state%metrics,                &
-                                      &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,  &
-                                      &  jb,istart,iend,datetime,prm_diag%swflx_par_sfc)
-      END DO
-    END IF
+   ! IF (art_config(jg)%lart_aerosol .OR. art_config(jg)%lart_chem &
+   !     .OR. art_config(jg)%lart_passive) THEN
+   !   DO jb = i_startblk, i_endblk
+   !     CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+   !       &                istart, iend, i_rlstart, i_rlend)
+   !     
+   !     CALL art_add_emission_to_tracers(tracer,p_patch,p_nh_state%metrics,                &
+   !                                   &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,  &
+   !                                   &  jb,istart,iend,datetime,prm_diag%swflx_par_sfc)
+   !   END DO
+   ! END IF
   
     IF (art_config(jg)%lart_aerosol) THEN
 !$omp parallel do default (shared) private(jb, istart, iend, dz)
