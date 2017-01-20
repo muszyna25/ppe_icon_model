@@ -144,6 +144,9 @@ AS_CASE([$ac_hostname],
         [ic2*],      
         [ac_sitename=kit.edu;
          fqdn=$ac_hostname.$ac_sitename],         
+        [fh2*],      
+        [ac_sitename=kit.edu;
+         fqdn=$ac_hostname.$ac_sitename],         
         [
          AS_IF([test "x$(hostname)" = "x$ac_hostname"],
                [fqdn=$(host -n $ac_hostname | $AWK '/has address/ {print $1}')],
