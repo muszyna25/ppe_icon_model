@@ -23,6 +23,7 @@ MODULE mo_lonlat_grid
   USE mo_utilities,         ONLY: wp
 #endif
   USE mo_mpi,               ONLY: p_bcast
+  USE mo_exception,         ONLY: finish
 
   IMPLICIT NONE
 
@@ -35,6 +36,10 @@ MODULE mo_lonlat_grid
   ! types and variables:
   PUBLIC :: t_lon_lat_grid
   PUBLIC :: threshold_delta_or_intvls
+
+  !> module name string
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_lonlat_grid'
+
 
   !---------------------------------------------------------------
   ! constants
@@ -96,7 +101,8 @@ CONTAINS
   SUBROUTINE compute_lonlat_specs(lonlat_grid)
     TYPE (t_lon_lat_grid), INTENT(INOUT) :: lonlat_grid
     ! local variables
-    REAL(wp), PARAMETER :: ZERO_TOL = 1.e-15_wp
+    REAL(wp),     PARAMETER :: ZERO_TOL = 1.e-15_wp
+    CHARACTER(*), PARAMETER :: routine =  modname//"compute_lonlat_specs"
     REAL(wp) :: pi_180, lon_s, lon_e
     INTEGER  :: nintvls
     LOGICAL  :: lnpts_given(2), lskip_last_lon
@@ -145,6 +151,9 @@ CONTAINS
       lonlat_grid%delta(1) = (lonlat_grid%reg_lon_def(3)-lonlat_grid%reg_lon_def(1))/nintvls * pi_180
     ELSE
       ! increment was given:
+      IF (lonlat_grid%reg_lon_def(2) == 0._wp) THEN
+        CALL finish(routine, "Invalid setting for reg_lon_def increment!")
+      END IF
       lonlat_grid%lon_dim  = INT( (lonlat_grid%reg_lon_def(3)-lonlat_grid%reg_lon_def(1))/lonlat_grid%reg_lon_def(2) ) + 1
       IF (lskip_last_lon .AND. (lonlat_grid%lon_dim > 0)) THEN
          lonlat_grid%lon_dim = lonlat_grid%lon_dim - 1
@@ -161,6 +170,9 @@ CONTAINS
       END IF
     ELSE
       ! increment was given:
+      IF (lonlat_grid%reg_lat_def(2) == 0._wp) THEN
+        CALL finish(routine, "Invalid setting for reg_lat_def increment!")
+      END IF
       lonlat_grid%lat_dim  = INT( (lonlat_grid%reg_lat_def(3)-lonlat_grid%reg_lat_def(1))/lonlat_grid%reg_lat_def(2) ) + 1
     END IF
   END SUBROUTINE compute_lonlat_specs
