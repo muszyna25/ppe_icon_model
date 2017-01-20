@@ -24,6 +24,7 @@
 MODULE mo_aerosol_util
 
   USE mo_impl_constants,       ONLY: min_rlcell, iss, iorg, ibc, iso4, idu, dzsoil, nclass_aero
+  USE mo_math_constants,       ONLY: rad2deg
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_lrtm_par,             ONLY: jpband => nbndlw
@@ -32,6 +33,7 @@ MODULE mo_aerosol_util
   USE mo_srtm_config,          ONLY: jpsw
   USE mo_phyparam_soil,        ONLY: cpwp, cfcap
   USE mo_lnd_nwp_config,       ONLY: ntiles_total
+  USE mo_nwp_tuning_config,    ONLY: tune_dust_abs
 
   IMPLICIT NONE
 
@@ -59,7 +61,7 @@ MODULE mo_aerosol_util
   PUBLIC :: zaea_rrtm, zaes_rrtm, zaeg_rrtm, zaea_rg, zaes_rg, zaeg_rg, zaef_rg, &
     &       init_aerosol_dstrb_tanre,init_aerosol_props_tanre_rrtm, &
     &       init_aerosol_props_tanre_rg, &
-    &       init_aerosol_props_tegen_rrtm, init_aerosol_props_tegen_rg, prog_aerosol_2D
+    &       init_aerosol_props_tegen_rrtm, init_aerosol_props_tegen_rg, prog_aerosol_2D, tune_dust
   
 CONTAINS
 
@@ -775,6 +777,29 @@ CONTAINS
 
 
   END SUBROUTINE prog_aerosol_2D
+
+  ! Tuning of longwave absorption coefficient of mineral dust in order to reduce cold bias in the Saharan region
+  !
+  SUBROUTINE tune_dust (lat,lon,iend,tunefac)
+
+    REAL(wp), INTENT(in) :: lat(:), lon(:)
+    INTEGER,  INTENT(in) :: iend
+
+    REAL(wp), INTENT(out) :: tunefac(:,:)
+
+    INTEGER :: jc, jb
+    REAL(wp) :: maxfac
+
+    DO jb = 1, jpband
+      maxfac = tune_dust_abs*4._wp*(jpband-MAX(8,jb))/REAL(jpband-8,wp)
+      DO jc = 1, iend
+        tunefac(jc,jb) = 1._wp + maxfac*(1._wp - MIN(1._wp,((rad2deg*lat(jc)-15._wp)/20._wp)**4)) * &
+         (1._wp - MIN(1._wp,((rad2deg*lon(jc)-20._wp)/50._wp)**4))
+      ENDDO
+    ENDDO
+
+
+  END SUBROUTINE tune_dust
 
 END MODULE mo_aerosol_util
 

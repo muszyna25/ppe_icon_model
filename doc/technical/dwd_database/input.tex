@@ -159,6 +159,16 @@ are replaced by land-cover class specific values taken from lookup tables.
 
 
 \subsubsection*{Remarks on post-processing}
-Some of the external parameter fields produced by ExtPar are modified by ICON. The following fields are affected: \texttt{DEPTH\_LK}, 
-\texttt{HSURF}, \texttt{FR\_LAND}, \texttt{FR\_LAKE}, \texttt{Z0}. Thus, for consistency reasons, the modified fields should be used 
-for post-processing tasks rather than the original external parameter fields.
+Some of the external parameter fields produced by ExtPar are modified by ICON. The following fields are affected: 
+\begin{tabbing}
+\hspace{0.20\textwidth} \= \hspace{0.20\textwidth} \= \hspace{0.20\textwidth} \= \hspace{0.20\textwidth} \= \hspace{0.20\textwidth} \kill
+\texttt{DEPTH\_LK}  \>
+\texttt{HSURF} \>
+\texttt{FR\_LAND} \>
+\texttt{FR\_LAKE} \>
+\texttt{Z0}
+%\texttt{SSO\_STDH}
+%DR Note that sso_stdh is affected as well, however we do not output it!
+\end{tabbing}
+Thus, for consistency, the modified fields should be used for post-processing tasks rather than the original external parameter fields. 
+See Section \ref{sec_const_outfields} for more details.

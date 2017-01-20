@@ -56,7 +56,7 @@ CONTAINS
 !
 !
 !>
-!! Performs interpolation from parent edges to child edges using inverse.
+!! Performs interpolation from parent edges to child edges.
 !!
 !! Performs interpolation from parent edges to child edges using inverse
 !! distance weighting (IDW) or RBF. The output field (p_vn_out) contains
@@ -89,15 +89,10 @@ SUBROUTINE interpol_vec_grf (p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
   REAL(wp) :: vn_aux(p_pc%nlev,p_grf%npoints_bdyintp_e,4)
 
   ! Pointers to index fields/lists
-  INTEGER,  DIMENSION(:,:,:), POINTER :: icheidx, icheblk
   INTEGER,  DIMENSION(:,:),   POINTER :: iidx, iblk
 
   INTEGER :: nlev_c       !< number of vertical full levels (child domain)
   !-----------------------------------------------------------------------
-
-  ! Set pointers to child edge indices (needed for non-MPI case only)
-  icheidx => p_pp%edges%child_idx
-  icheblk => p_pp%edges%child_blk
 
   ! Set pointers to index lists
   iidx    => p_grf%idxlist_bdyintp_e
@@ -247,7 +242,6 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
   REAL(wp), DIMENSION(p_pc%nlev,p_grf%npoints_bdyintp_v,nfields) :: u_vert,v_vert
 
   ! Pointers to index fields/lists
-  INTEGER,  DIMENSION(:,:,:), POINTER :: icheidx, icheblk
   INTEGER,  DIMENSION(:,:),   POINTER :: iidx, iblk, ividx, ivblk, ievidx
 
 
@@ -277,10 +271,6 @@ SUBROUTINE interpol2_vec_grf (p_pp, p_pc, p_grf, nfields, f3din1, f3dout1, &
     p_in(4)%fld  => f3din4
     p_out(4)%fld => f3dout4
   ENDIF
-
-  ! Set pointers to child edge indices (needed for non-MPI case only)
-  icheidx => p_pp%edges%child_idx
-  icheblk => p_pp%edges%child_blk
 
   ! Set pointers to index lists
   iidx    => p_grf%idxlist_bdyintp_e
@@ -712,26 +702,16 @@ SUBROUTINE interpol_scal_grf (p_pp, p_pc, p_grf, nfields,&
                              grad_y(jk,jc)*p_grf%dist_pc2cc_bdy(4,2,jc),  &
                              1.e-80_wp )
 
-            limfac1 = 1._wp
-            limfac2 = 1._wp
             ! Allow a limited amount of over-/undershooting in the downscaled fields
-            IF (minval_neighb(jk,jc) > 0._wp) THEN
-              relaxed_minval = r_ovsht_fac*minval_neighb(jk,jc)
-            ELSE
-              relaxed_minval = ovsht_fac*minval_neighb(jk,jc)
-            ENDIF
-            IF (maxval_neighb(jk,jc) > 0._wp) THEN
-              relaxed_maxval = ovsht_fac*maxval_neighb(jk,jc)
-            ELSE
-              relaxed_maxval = r_ovsht_fac*maxval_neighb(jk,jc)
-            ENDIF
+            relaxed_minval = MERGE(r_ovsht_fac, ovsht_fac, &
+              minval_neighb(jk,jc) > 0._wp) * minval_neighb(jk,jc)
+            relaxed_maxval = MERGE(ovsht_fac, r_ovsht_fac, &
+              maxval_neighb(jk,jc) > 0._wp) * maxval_neighb(jk,jc)
 
-            IF (val_ctr(jk,jc) + min_expval < relaxed_minval-epsi) THEN
-              limfac1 = ABS((relaxed_minval-val_ctr(jk,jc))/min_expval)
-            ENDIF
-            IF (val_ctr(jk,jc) + max_expval > relaxed_maxval+epsi) THEN
-              limfac2 = ABS((relaxed_maxval-val_ctr(jk,jc))/max_expval)
-            ENDIF
+            limfac1 = MERGE(1._wp, ABS((relaxed_minval-val_ctr(jk,jc))/min_expval), &
+              val_ctr(jk,jc) + min_expval >= relaxed_minval-epsi)
+            limfac2 = MERGE(1._wp, ABS((relaxed_maxval-val_ctr(jk,jc))/max_expval), &
+              val_ctr(jk,jc) + max_expval <= relaxed_maxval+epsi)
             limfac = MIN(limfac1,limfac2)
 
             grad_x(jk,jc) = grad_x(jk,jc)*limfac

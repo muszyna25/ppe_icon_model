@@ -203,7 +203,7 @@ CONTAINS
 
     ! communication ids, these do not need to be different variables,
     ! since they are not treated individualy
-    INTEGER :: ddt_u_tot_comm, ddt_v_tot_comm, tracers_comm, tempv_comm, exner_old_comm
+    INTEGER :: ddt_u_tot_comm, ddt_v_tot_comm, tracers_comm, tempv_comm, exner_pr_comm
 
     CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_interface_les:les_phy_interface:'
 
@@ -628,7 +628,7 @@ CONTAINS
             pt_prog%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd_o_p0ref                   &
               &                     * pt_prog%rho(jc,jk,jb)*pt_diag%tempv(jc,jk,jb)))
 
-            pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb) + &
+            pt_diag%exner_pr(jc,jk,jb) = pt_diag%exner_pr(jc,jk,jb) + &
               pt_prog%exner(jc,jk,jb) - z_exner_sv(jc,jk,jb)
 
             pt_prog%theta_v(jc,jk,  jb) = pt_diag%tempv(jc,jk,jb) &
@@ -637,17 +637,6 @@ CONTAINS
           ENDDO
         ENDDO
 
-        !This loop computes ddt_temp_dyn for convection in nwp_interface
-        !which is not required for LES. However, exner_dyn_incr needs
-        !to be set = 0 OR we skip the part in mo_solve_nonhydro where
-        !exner_dyn_incr is stored for nwp_interface
-        DO jk = kstart_moist(jg), nlev
-          DO jc =  i_startidx, i_endidx
-            ! reset dynamical exner increment to zero
-            ! (it is accumulated over one advective time step in solve_nh)
-            pt_diag%exner_dyn_incr(jc,jk,jb) = 0._wp
-          ENDDO
-        ENDDO
 
       ENDDO
 !$OMP END DO NOWAIT
@@ -1141,7 +1130,7 @@ CONTAINS
     !--------------------------------------------------------
 
     ! Synchronize tracers if any of the updating (fast-physics) processes was active.
-    ! In addition, tempv needs to be synchronized, and in case of lhdiff_rcf, also exner_old
+    ! In addition, tempv needs to be synchronized, and in case of lhdiff_rcf, also exner_pr
     IF (l_any_fastphys) THEN
 
       IF (timers_level > 3) CALL timer_start(timer_phys_sync_tracers)
@@ -1154,15 +1143,15 @@ CONTAINS
           & status=is_ready, scope=until_sync, name="pt_diag%tempv")
 
         IF (lhdiff_rcf) THEN
-          exner_old_comm = new_icon_comm_variable(pt_diag%exner_old, &
+          exner_pr_comm = new_icon_comm_variable(pt_diag%exner_pr, &
             & pt_patch%sync_cells_not_in_domain, &
-            & status=is_ready, scope=until_sync, name="pt_diag%exner_old")
+            & status=is_ready, scope=until_sync, name="pt_diag%exner_pr")
         ENDIF
 
       ELSE
         IF (lhdiff_rcf) THEN
           CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer+2, pt_diag%tempv, &
-                                     pt_diag%exner_old, f4din=pt_prog_rcf%tracer)
+                                     pt_diag%exner_pr, f4din=pt_prog_rcf%tracer)
         ELSE
           CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer+1, pt_diag%tempv, f4din=pt_prog_rcf%tracer)
         ENDIF
@@ -1252,7 +1241,7 @@ CONTAINS
                   pt_prog%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd_o_p0ref                   &
                     &                     * pt_prog%rho(jc,jk,jb)*pt_diag%tempv(jc,jk,jb)))
 
-                  pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb) + &
+                  pt_diag%exner_pr(jc,jk,jb) = pt_diag%exner_pr(jc,jk,jb) + &
                     pt_prog%exner(jc,jk,jb) - z_exner_sv(jc,jk,jb)
 
                   pt_prog%theta_v(jc,jk,  jb) = pt_diag%tempv(jc,jk,jb) &

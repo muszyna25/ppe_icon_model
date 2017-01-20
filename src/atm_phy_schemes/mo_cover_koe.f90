@@ -42,7 +42,7 @@ MODULE mo_cover_koe
                                    c4les  , & !!               -- " --
                                    c4ies      !!               -- " --
 
-  USE mo_cufunctions,        ONLY: foealfa    !! liquid fraction as in Tiedtke/Bechtold convection
+  USE mo_cufunctions,        ONLY: foealfcu    !! liquid fraction as in Tiedtke/Bechtold convection
 
   USE mo_cloud_diag,         ONLY: cloud_diag
 
@@ -175,7 +175,7 @@ REAL(KIND=wp) :: &
   & fgew   , fgee   , fgqs   , & !fgqv   , & ! name of statement functions
   & ztt    , zzpv   , zzpa   , zzps   , &
   & zf_ice , deltaq , qisat_grid, &
-  & vap_pres, zaux, zqisat_m60, zqisat_m25, qi_mod
+  & vap_pres, zaux, zqisat_m60, zqisat_m25, qi_mod, box_liq_ass, par1, par2
 
 REAL(KIND=wp), DIMENSION(klon,klev)  :: &
   zqlsat , zqisat, zagl_lim
@@ -214,6 +214,11 @@ zqisat_m60 = fgqs ( fgee(213.15_wp), 0._wp, 20000._wp )
 
 ! saturation mixing ratio at -25 C and 700 hPa
 zqisat_m25 = fgqs ( fgee(248.15_wp), 0._wp, 70000._wp )
+
+! asymmetry factor for water clouds and derived parameters
+box_liq_ass = 2.5_wp
+par1        = box_liq_ass+1._wp
+par2        = par1**4
 
 ! Set cloud fields for stratospheric levels to zero
 DO jk = 1,kstart-1
@@ -270,17 +275,17 @@ CASE( 1 )
 
 ! stratiform cloud
 !  liquid cloud
-     ! quadratic increase of cloud cover from 0 to 1 between RH = 87.5% and 105%;
+     ! quadratic increase of cloud cover from 0 to 1 between RH = (100 - 2.5*tune_box_liq)% and (100 + tune_box_liq)%;
      ! diagnosed cloud water is proportional to clcov**2
       deltaq = MIN(tune_box_liq, zagl_lim(jl,jk)) * zqlsat(jl,jk)
       IF ( ( qv(jl,jk) + qc(jl,jk) - deltaq ) > zqlsat(jl,jk) ) THEN
         cc_turb_liq(jl,jk) = 1.0_wp
         qc_turb  (jl,jk)   = qv(jl,jk) + qc(jl,jk) - zqlsat(jl,jk)
       ELSE
-        zaux = qv(jl,jk) + qc(jl,jk) + 2.5_wp*deltaq - zqlsat(jl,jk)
-        cc_turb_liq(jl,jk) = SIGN((zaux/(3.5_wp*deltaq))**2,zaux)
+        zaux = qv(jl,jk) + qc(jl,jk) + box_liq_ass*deltaq - zqlsat(jl,jk)
+        cc_turb_liq(jl,jk) = SIGN((zaux/(par1*deltaq))**2,zaux)
         IF ( cc_turb_liq(jl,jk) > 0.0_wp ) THEN
-          qc_turb  (jl,jk) = zaux**4 / (150.0625_wp*deltaq**3)
+          qc_turb  (jl,jk) = zaux**4 / (par2*deltaq**3)
         ELSE
           qc_turb  (jl,jk) = 0.0_wp
         ENDIF
@@ -326,8 +331,8 @@ CASE( 1 )
 ! convective cloud
       cc_conv(jl,jk) = ( pmfude_rate(jl,jk) / rho(jl,jk) ) &                  ! cc = detrainment / rho /
                    & / ( pmfude_rate(jl,jk) / rho(jl,jk) + 1.0_wp / taudecay )!      ( Du/rho + 1/tau,decay )
-      qc_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*      foealfa(tt(jl,jk))   ! ql up  foealfa = liquid/(liquid+ice)
-      qi_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*(1._wp-foealfa(tt(jl,jk))) ! qi up
+      qc_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*      foealfcu(tt(jl,jk))  ! ql up  foealfa = liquid/(liquid+ice)
+      qi_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*(1._wp-foealfcu(tt(jl,jk)))! qi up
       cc_conv(jl,jk) = min(max(0.0_wp,cc_conv(jl,jk)),1.0_wp)
       qc_conv(jl,jk) = min(max(0.0_wp,qc_conv(jl,jk)),0.1_wp*qv(jl,jk))       ! qc limit to 10%qv
       qi_conv(jl,jk) = min(max(0.0_wp,qi_conv(jl,jk)),0.1_wp*qv(jl,jk))       ! qi limit to 10%qv

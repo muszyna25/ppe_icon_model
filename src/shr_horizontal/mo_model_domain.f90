@@ -87,16 +87,16 @@ MODULE mo_model_domain
   !
   !
   USE mo_kind
-  USE mo_math_utilities, ONLY: t_geographical_coordinates, t_cartesian_coordinates
-  USE mo_impl_constants, ONLY: max_dom, max_phys_dom
-  USE mo_communication,  ONLY: t_comm_pattern, t_comm_gather_pattern, t_scatterPattern
-  USE mo_io_units,       ONLY: filename_max
-  USE mo_util_uuid,      ONLY: t_uuid
-  USE mo_grid_geometry_info, ONLY: t_grid_geometry_info
-  USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info
+  USE mo_math_utilities,          ONLY: t_geographical_coordinates, t_cartesian_coordinates
+  USE mo_impl_constants,          ONLY: max_dom, max_phys_dom
+  USE mo_communication,           ONLY: t_comm_pattern, t_comm_gather_pattern, t_scatterPattern
+  USE mo_io_units,                ONLY: filename_max
+  USE mo_util_uuid_types,         ONLY: t_uuid
+  USE mo_grid_geometry_info,      ONLY: t_grid_geometry_info
+  USE mo_decomposition_tools,     ONLY: t_grid_domain_decomp_info
   USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data
-  USE ppm_distributed_array,  ONLY: dist_mult_array
-  USE ppm_extents,            ONLY: extent
+  USE ppm_distributed_array,      ONLY: dist_mult_array
+  USE ppm_extents,                ONLY: extent
 
   IMPLICIT NONE
 
@@ -191,8 +191,30 @@ MODULE mo_model_domain
     REAL(wp) :: v2
   END TYPE t_tangent_vectors
 
-  ! !grid_cell class - corresponds to triangles
-
+  ! -----------------------------------------------------------------------------
+  ! grid_cell class - corresponds to triangles
+  ! -----------------------------------------------------------------------------
+  !
+  ! This data type holds the topological and geometrical information on
+  ! the grid cells, read from the NetCDF grid file.
+  !
+  ! * Note on parent-child relation "child_idx/child_blk":
+  !
+  !          *---------------o--------------*
+  !           \__   4     _/  \_    2    __/
+  !              \_     _/   3  \_    __/
+  !                \__ /__________\ _/
+  !                   o            o  
+  !                     \__  1  __/
+  !                        \_ _/
+  !                          *
+  !
+  !   The ICON model makes an important implicit assumption on the
+  !   child ordering:
+  !
+  !   - cell child #3 is the "interior" child (containing the parent
+  !     cell's mass point)
+  !   
   TYPE t_grid_cells
 
     INTEGER :: max_connectivity

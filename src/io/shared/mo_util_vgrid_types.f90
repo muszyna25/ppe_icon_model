@@ -17,7 +17,7 @@
 MODULE mo_util_vgrid_types
 
   USE mo_kind, ONLY: wp
-  USE mo_util_uuid, ONLY: t_uuid
+  USE mo_util_uuid_types, ONLY: t_uuid
   IMPLICIT NONE
 
   PRIVATE
