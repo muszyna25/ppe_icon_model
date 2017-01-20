@@ -1127,17 +1127,16 @@ END SUBROUTINE message
 !
     zbwt     (ie)      , & ! root depth (with artificial minimum value)
     zrock    (ie)      , & ! ice/rock-indicator: 0 for ice and rock
-    zsandf   (ie,ke_soil+1)      , & ! mean fraction of sand (weight percent)
-    zclayf   (ie,ke_soil+1)      , & ! mean fraction of clay (weight percent)
-    zsiltf   (ie,ke_soil+1)      , & ! mean fraction of clay (weight percent)
-    zb_por   (ie,ke_soil+1)      , & ! pore size distribution index
-    zpsis    (ie,ke_soil+1)      , & ! air entry potential (m)
+    zsandf   (ie)      , & ! mean fraction of sand (weight percent)
+    zclayf   (ie)      , & ! mean fraction of clay (weight percent)
+    zsiltf   (ie)      , & ! mean fraction of clay (weight percent)
+    zb_por   (ie)      , & ! pore size distribution index
+    zpsis    (ie)      , & ! air entry potential (m)
     zw_m_org         , &  ! maximum of  liquid water content   organic
     zw_m_soil (ie)   , &  ! maximum of  liquid water content   mineral soil
     zw_m_up   (ie)       , &  ! maximum of  liquid water content   at temp -3 degC
     zw_m_low  (ie)   , &  ! maximum of  liquid water content   at temp -40 degC
-    zw_m_org_low     , &  ! maximum of  liquid water content   organic at temp -40 degC
-    zw_m_soil_low    , &  ! maximum of  liquid water content   mineral soil at temp -40 degC
+    zw_m_org  (ie)     , &  ! maximum of  liquid water content   organic at temp -40 degC
     t_zw_up          , &  ! temp -3 degC
     t_zw_low         , &  ! temp -40 degC
     zw_m     (ie)         ! maximum of liquid water content  (m)
@@ -1196,8 +1195,8 @@ END SUBROUTINE message
     zik2     (ie)      , & ! minimum infiltration rate
     zpwp     (ie,ke_soil+1)      , & ! plant wilting point  (fraction of volume)
     ztlpmwp  (ie)      , & ! turgor-loss-point minus plant wilting point
-    zedb     (ie,ke_soil+1)      , & ! utility variable
-    zaa      (ie,ke_soil+1)      , & ! utility variable
+    zedb     (ie)      , & ! utility variable
+    zaa      (ie)      , & ! utility variable
 !
 ! Hydraulic variables
 !
@@ -1440,6 +1439,7 @@ END SUBROUTINE message
     zrock(i)  = crock(mstyp)              ! EQ 0 for Ice and Rock EQ 1 else
     zrocg(i,:)  = crhoc(mstyp)              ! heat capacity
     zrocg_soil(i,:)  = crhoc(mstyp)              ! heat capacity
+    zalam(i,:)  = cala0(mstyp)              ! heat conductivity parameter
     zdlam(i)  = cala1(mstyp)-cala0(mstyp) ! heat conductivity parameter
     zbwt(i)   = MAX(0.001_ireals,rootdp(i))! Artificial minimum value
                                                 ! for root depth
@@ -1451,14 +1451,21 @@ END SUBROUTINE message
     zk0di(i)  = ck0di(mstyp)              !
     zbedi(i)  = cbedi(mstyp)              !
     ! Arrays for soil water freezing/melting
-    zsandf(i,:)   = csandf(mstyp)
-    zclayf(i,:)   = cclayf(mstyp)
-    zsiltf(i,:)   = 100._ireals -csandf(mstyp)-cclayf(mstyp) ! Residuum of sand and clay
-    zalam(i,:)  = cala0(mstyp)              ! heat conductivity parameter
-    zpsis(i,:)  = -zpsi0 * EXP(ln_10*(1.88_ireals-0.013_ireals*zsandf(i,:)))
-    zb_por(i,:) = 2.91_ireals + .159_ireals*zclayf(i,:)
-    zedb(i,:)   = 1._ireals/zb_por(i,:)
-    zaa(i,:)    = g*zpsis(i,:)/lh_f
+    zsandf(i)   = csandf(mstyp)
+    zclayf(i)   = cclayf(mstyp)
+    zsiltf(i)   = 100._ireals -csandf(mstyp)-cclayf(mstyp) ! Residuum of sand and clay
+    zpsis(i)  = -zpsi0 * EXP(ln_10*(1.88_ireals-0.013_ireals*zsandf(i)))
+    zb_por(i) = 2.91_ireals + .159_ireals*zclayf(i)
+    zedb(i)   = 1._ireals/zb_por(i)
+    zaa(i)    = g*zpsis(i)/lh_f
+    ! Liq. water content at -3 degC
+    zw_m_up(i) = EXP(-zedb(i)*LOG((t_zw_up - t0_melt)/(t_zw_up*zaa(i))) ) ! Without zporv(i,kso)*zdzhs(kso)!!
+    ! Determine liq. water content at -40 degC
+    !  J. Helmert: Soil ice parameterization according to K. Schaefer and Jafarov, E.,2016,
+    !                                                    doi:10.5194/bg-13-1991-2016
+    zw_m_soil(i) = 0.01_ireals*(zsandf(i)*EXP(b_sand*zd) +                &
+                                zclayf(i)*EXP(b_clay*zd) + zsiltf(i)*EXP(b_silt*zd))
+    zw_m_org(i) = EXP(b_org*zd)
   ENDDO
 
 
@@ -1467,41 +1474,20 @@ END SUBROUTINE message
       DO i = istarts, iends
         !fc=2 1/m Exponential Ksat-profile decay parameter,see Decharme et al. (2006)
         zkw   (i,kso) = zkw   (i,kso)*EXP(-2._ireals*(zmls(kso)-rootdp(i)))
-      ! Liq. water content at -3 degC
-        zw_m_up(i) = zporv(i,kso)*zdzhs(kso)*EXP(-zedb(i,kso)*LOG((t_zw_up - t0_melt)/(t_zw_up*zaa(i,kso))) )
-      ! Determine liq. water content at -40 degC
-      !  J. Helmert: Soil ice parameterization according to K. Schaefer and Jafarov, E.,2016,
-      !                                                    doi:10.5194/bg-13-1991-2016
-       zw_m_soil(i) = 0.01_ireals*(zsandf(i,kso)*EXP(b_sand*zd) +                &
-                                 zclayf(i,kso)*EXP(b_clay*zd) + zsiltf(i,kso)*EXP(b_silt*zd))
+
         ! Scale soil heat capacity with organic fraction -> Chadburn et al., 2015
         IF(zmls(kso) < rootdp(i)) THEN
           zzz = plcov(i)*(rootdp(i)-zmls(kso))/rootdp(i)
           zrocg(i,kso)=(1._ireals-zzz)*zrocg_soil(i,kso)+zzz*0.58E+06_ireals
     !  J. Helmert: Soil ice parameterization according to K. Schaefer and Jafarov, E.,2016,
     !  Organic fraction                                        doi:10.5194/bg-13-1991-2016
-          zw_m_low(i) = zporv(i,kso)*zdzhs(kso)*(zzz*EXP(b_org*zd) + (1._ireals-zzz)*zw_m_soil(i))
+          zw_m_low(i) = zporv(i,kso)*zdzhs(kso)*(zzz*zw_m_org(i) + (1._ireals-zzz)*zw_m_soil(i))
         ELSE
           zw_m_low(i) = zporv(i,kso)*zdzhs(kso)*zw_m_soil(i)
         END IF
       ENDDO
   END DO
 
-!!$ DO i = istarts, iends
-!!$zporv(i,ke_soil+1) = zporv(i,ke_soil)  ! Needed by heatcond=2
-!!$zfcap(i,ke_soil+1) = zfcap(i,ke_soil)  ! W_SO INIT
-!!$zpwp(i,ke_soil+1) = zpwp(i,ke_soil)  ! W_SO INIT
-!!$zadp(i,ke_soil+1) = zadp(i,ke_soil)  ! W_SO INIT
-!!$zsandf(i,ke_soil+1) = zsandf(i,ke_soil)
-!!$zclayf(i,ke_soil+1) = zclayf(i,ke_soil)
-!!$zkw(i,ke_soil+1) = zkw(i,ke_soil)
-!!$zkw1(i,ke_soil+1) = zkw1(i,ke_soil)
-!!$zdw(i,ke_soil+1) = zdw(i,ke_soil)
-!!$zdw1(i,ke_soil+1) = zdw1(i,ke_soil)
-!!$zpsis(i,ke_soil+1) = zpsis(i,ke_soil)
-!!$zedb(i,ke_soil+1) = zedb(i,ke_soil)
-!!$zrocg(i,ke_soil+1) = zrocg(i,ke_soil)
-!!$  ENDDO
 
 ! For ntstep=nstart : Some preparations
 ! =====================================
@@ -1620,7 +1606,7 @@ END SUBROUTINE message
         zthetas = zporv(i,kso)                                 ! porosity
         zthliq  = zthetas - w_so_ice_now(i,kso)/zdzhs(kso) ! unfrozen volume fraction
 
-        rsandf = zsandf(i,kso)/100._ireals                     ! quartz content
+        rsandf = zsandf(i)/100._ireals                     ! quartz content
 
         if (rsandf >= 0.2_ireals)  zlam0 = ln_2      ! LOG(thermal conductivity non-quartz)
         if (rsandf <  0.2_ireals)  zlam0 = ln_3
@@ -2675,8 +2661,8 @@ ELSE          IF (itype_interception == 2) THEN
 !      IF (llandmask(i)) THEN                 ! land-points
         mstyp        = soiltyp_subs(i)
         m_styp(i)  = mstyp
-        zsandf(i,:)  = csandf(mstyp)
-        zclayf(i,:)  = cclayf(mstyp)
+        zsandf(i)  = csandf(mstyp)
+        zclayf(i)  = cclayf(mstyp)
         zgsb   (i) = 0.0_ireals
         ztrangs(i) = 0.0_ireals
 !      END IF
@@ -4106,10 +4092,10 @@ ENDIF
                 zw_m(i)     = zporv(i,kso)*zdzhs(kso)
                 IF(t_so_new(i,kso).LT.(t0_melt-zepsi)) THEN
 !                  zw_m(i) = zw_m(i)*EXP(-zedb(i,kso)*LOG((t_so_new(i,kso) - t0_melt)/(t_so_new(i,kso)*zaa)) )
-                  zw_m(i) = zporv(i,kso)*zdzhs(kso)*EXP(-zedb(i,kso)*LOG((t_so_new(i,kso) - t0_melt)/(t_so_new(i,kso)*zaa(i,kso))) )
+                  zw_m(i) = zporv(i,kso)*zdzhs(kso)*EXP(-zedb(i)*LOG((t_so_new(i,kso) - t0_melt)/(t_so_new(i,kso)*zaa(i))) )
 
                    IF(t_so_new(i,kso).LT.t_zw_up) THEN ! Logarithmic Interpolation between -3 degC and -40 degC 
-                     zw_m(i) = zw_m_low(i)*EXP((t_so_new(i,kso) - t_zw_low)*(LOG(zw_m_up(i)) - LOG(zw_m_low(i)))/(t_zw_up-t_zw_low))
+                     zw_m(i) = zw_m_low(i)*EXP((t_so_new(i,kso) - t_zw_low)*(LOG(zporv(i,kso)*zdzhs(kso)*zw_m_up(i)) - LOG(zw_m_low(i)))/(t_zw_up-t_zw_low))
                    END IF
 
 ! J. Helmert: Below -40 degC keep the liq. water content constant
@@ -4117,7 +4103,7 @@ ENDIF
 
 !       
                   zliquid= MAX(zepsi,w_so_now(i,kso) -  w_so_ice_now(i,kso))
-                  znen   = 1._ireals-zaa(i,kso)*EXP(zb_por(i,kso)*LOG(zporv(i,kso)*zdzhs(kso)/zliquid))
+                  znen   = 1._ireals-zaa(i)*EXP(zb_por(i)*LOG(zporv(i,kso)*zdzhs(kso)/zliquid))
                   ztx    = t0_melt/znen
                 ENDIF
                 ztx      = MIN(t0_melt,ztx)
@@ -4785,17 +4771,17 @@ ENDIF
                 zw_m(i)     = zporv(i,kso)*zdzhs(kso)
                 IF(t_so_new(i,kso).LT.(t0_melt-zepsi)) THEN
 !                  zw_m(i) = zw_m(i)*EXP(-zedb(i,kso)*LOG((t_so_new(i,kso) - t0_melt)/(t_so_new(i,kso)*zaa)) )
-                  zw_m(i) = zporv(i,kso)*zdzhs(kso)*EXP(-zedb(i,kso)*LOG((t_so_new(i,kso) - t0_melt)/(t_so_new(i,kso)*zaa(i,kso))) )
+                  zw_m(i) = zporv(i,kso)*zdzhs(kso)*EXP(-zedb(i)*LOG((t_so_new(i,kso) - t0_melt)/(t_so_new(i,kso)*zaa(i))) )
 
                     IF(t_so_new(i,kso).LT.t_zw_up) THEN ! Logarithmic Interpolation between -3 degC and -40 degC 
-                     zw_m(i) = zw_m_low(i)*EXP((t_so_new(i,kso) - t_zw_low)*(LOG(zw_m_up(i)) - LOG(zw_m_low(i)))/(t_zw_up-t_zw_low))
+                     zw_m(i) = zw_m_low(i)*EXP((t_so_new(i,kso) - t_zw_low)*(LOG(zporv(i,kso)*zdzhs(kso)*zw_m_up(i)) - LOG(zw_m_low(i)))/(t_zw_up-t_zw_low))
                     END IF
 
 ! J. Helmert: Below -40 degC keep the liq. water content constant
                     IF(t_so_new(i,kso).LT.t_zw_low) zw_m(i) = zw_m_low(i)
 
                   zliquid= MAX(zepsi,w_so_now(i,kso) -  w_so_ice_now(i,kso))
-                  znen   = 1._ireals-zaa(i,kso)*EXP(zb_por(i,kso)*LOG(zporv(i,kso)*zdzhs(kso)/zliquid))
+                  znen   = 1._ireals-zaa(i)*EXP(zb_por(i)*LOG(zporv(i,kso)*zdzhs(kso)/zliquid))
                   ztx    = t0_melt/znen
                 ENDIF
                 ztx      = MIN(t0_melt,ztx)
