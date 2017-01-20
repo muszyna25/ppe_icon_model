@@ -2286,7 +2286,7 @@ CONTAINS
     mapCellsToCells_2D :: lhs_coeffs                ! the left hand side operator coefficients of the height solver
     REAL(wp), POINTER :: sum_to_2D_coeffs(:,:,:)
 
-    write(0,*) "Calculating lhs_matrix_coeff..."
+!     write(0,*) "Calculating lhs_matrix_coeff..."
 
     patch_2D            => patch_3D%p_patch_2D(1)
     cells_in_domain  => patch_2D%cells%in_domain

@@ -98,8 +98,7 @@ MODULE mo_ocean_physics
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array, global_max, sync_patch_array_mult
   USE  mo_ocean_thermodyn,    ONLY: calculate_density_onColumn
   USE mo_ocean_math_operators,ONLY: div_oce_3d
-  USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_upd_phys, &
-    & timer_extra10, timer_extra11
+  USE mo_timer,               ONLY: timers_level, timer_start, timer_stop, timer_upd_phys
   USE mo_statistics,          ONLY: global_minmaxmean
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
   USE mo_ocean_pp_scheme,     ONLY: update_PP_scheme

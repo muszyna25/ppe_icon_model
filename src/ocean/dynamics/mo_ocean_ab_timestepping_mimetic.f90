@@ -1484,7 +1484,7 @@ CONTAINS
       DO jc = start_index, end_index        
         IF(patch_3d%lsm_c(jc,1,blockNo) > sea_boundary) CYCLE 
           
-        lhs(jc,blockNo) = x(jc,blockNo)               * lhs_coeffs(0, jc,blockNo) + &
+        lhs(jc,blockNo) = x(jc,blockNo)           * lhs_coeffs(0, jc,blockNo) + &
           x(idx(1,jc,blockNo), blk(1,jc,blockNo)) * lhs_coeffs(1, jc,blockNo) + &
           x(idx(2,jc,blockNo), blk(2,jc,blockNo)) * lhs_coeffs(2, jc,blockNo) + &
           x(idx(3,jc,blockNo), blk(3,jc,blockNo)) * lhs_coeffs(3, jc,blockNo) + &
@@ -1499,7 +1499,7 @@ CONTAINS
     END DO ! blockNo
 !ICON_OMP_END_PARALLEL_DO
     !---------------------------------------
-    stop_detail_timer(timer_extra32,6)
+    stop_detail_timer(timer_extra31,6)
 
     IF (debug_check_level > 20) THEN
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
