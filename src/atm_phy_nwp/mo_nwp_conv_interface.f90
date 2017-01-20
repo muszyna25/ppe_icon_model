@@ -37,7 +37,7 @@ MODULE mo_nwp_conv_interface
   USE mo_nonhydrostatic_config,ONLY: kstart_moist
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_nwp_phy_state,        ONLY: phy_params
-  USE mo_run_config,           ONLY: iqv, iqc, iqi !, iqs
+  USE mo_run_config,           ONLY: iqv, iqc, iqi, iqr, iqs, nqtendphy
   USE mo_physical_constants,   ONLY: grav, alf, cvd
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_cumaster,             ONLY: cumastrn
@@ -102,7 +102,7 @@ CONTAINS
     INTEGER  :: zk850, zk950               !< level indices
     REAL(wp) :: u850, u950, v850, v950     !< zonal and meridional velocity at specific heights
     REAL(wp) :: ticeini, lfocvd, wfac
-
+    INTEGER  :: iqrd, iqsd
 
     ! local variables related to the blocking
     i_nchdom  = MAX(1,p_patch%n_childdom)
@@ -121,6 +121,15 @@ CONTAINS
 
     lfocvd  = alf/cvd
     ticeini = 258.15_wp
+
+    ! IDs for optional arguments for detrainment of rain and snow
+    IF (atm_phy_nwp_config(jg)%ldetrain_conv_prec) THEN
+      iqrd = iqr
+      iqsd = iqs
+    ELSE
+      iqrd = nqtendphy
+      iqsd = nqtendphy
+    ENDIF
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_omega_p,z_plitot,z_qhfl,z_shfl,z_dtdqv,&
@@ -239,7 +248,8 @@ CONTAINS
 &            ptenq  = z_dtdqv                                                 ,& !! INOUT
 &            ptenl  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqc)               ,& !! OUT
 &            pteni  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqi)               ,& !! OUT
-!&           ptens  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqs)               ,& !! OUT
+&            ptenr  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqrd)              ,& !! OUT
+&            ptens  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqsd)              ,& !! OUT
 &            ldcum  = prm_diag%locum   (:,jb)                                 ,& !! OUT
 &            ktype  = prm_diag%ktype   (:,jb)                                 ,& !! OUT
 &            kcbot  = prm_diag%mbas_con(:,jb)                                 ,& !! OUT
@@ -286,7 +296,8 @@ CONTAINS
 &            ptenq  = z_dtdqv                                                 ,& !! INOUT
 &            ptenl  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqc)               ,& !! OUT
 &            pteni  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqi)               ,& !! OUT
-!&           ptens  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqs)               ,& !! OUT
+&            ptenr  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqrd)              ,& !! OUT
+&            ptens  = prm_nwp_tend%ddt_tracer_pconv(:,:,jb,iqsd)              ,& !! OUT
 &            ldcum  = prm_diag%locum   (:,jb)                                 ,& !! OUT
 &            ktype  = prm_diag%ktype   (:,jb)                                 ,& !! OUT
 &            kcbot  = prm_diag%mbas_con(:,jb)                                 ,& !! OUT

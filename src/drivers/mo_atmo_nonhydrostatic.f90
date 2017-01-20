@@ -21,8 +21,8 @@ USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
   &                                timer_model_init, timer_init_icon, timer_read_restart
 USE mo_master_config,        ONLY: isRestart
 USE mo_time_config,          ONLY: time_config
-USE mo_io_restart,           ONLY: read_restart_files
-USE mo_io_restart_attributes,ONLY: get_restart_attribute
+USE mo_load_restart,         ONLY: read_restart_files
+USE mo_restart_attributes,   ONLY: t_RestartAttributeList, getAttributesForRestarting
 USE mo_io_config,            ONLY: configure_io
 USE mo_parallel_config,      ONLY: nproma, num_prefetch_proc
 USE mo_nh_pzlev_config,      ONLY: configure_nh_pzlev
@@ -149,6 +149,7 @@ CONTAINS
     INTEGER :: n_now, n_new, n_now_rcf, n_new_rcf
     REAL(wp) :: sim_time
     TYPE(timeDelta), POINTER             :: time_diff
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 
     IF (timers_level > 3) CALL timer_start(timer_model_init)
 
@@ -173,30 +174,21 @@ CONTAINS
     ENDIF
 
     ! initialize ldom_active flag if this is not a restart run
-    IF (.NOT. isRestart()) THEN
-      DO jg=1, n_dom
-        IF (jg > 1 .AND. start_time(jg) - timeshift%dt_shift > 0._wp) THEN
-          p_patch(jg)%ldom_active = .FALSE. ! domain not active from the beginning
-        ELSE
-          p_patch(jg)%ldom_active = .TRUE.
-        ENDIF
-      ENDDO
-    ELSE
-      ! calculate elapsed simulation time in seconds
-      time_diff  => newTimedelta("PT0S")
-      time_diff  =  getTimeDeltaFromDateTime(time_config%tc_current_date, time_config%tc_startdate)
-      sim_time   =  getTotalMillisecondsTimedelta(time_diff, time_config%tc_current_date)*1.e-3_wp
-      CALL deallocateTimedelta(time_diff)
 
-      DO jg=1, n_dom
-        IF (jg > 1 .AND. start_time(jg) > sim_time .OR. end_time(jg) <= sim_time) THEN
-          p_patch(jg)%ldom_active = .FALSE. ! domain not active at restart time
-        ELSE
-          p_patch(jg)%ldom_active = .TRUE.
-        ENDIF
-      ENDDO
-    ENDIF
-
+    ! calculate elapsed simulation time in seconds
+    time_diff  => newTimedelta("PT0S")
+    time_diff  =  getTimeDeltaFromDateTime(time_config%tc_current_date, time_config%tc_startdate)
+    sim_time   =  getTotalMillisecondsTimedelta(time_diff, time_config%tc_current_date)*1.e-3_wp
+    CALL deallocateTimedelta(time_diff)
+    
+    DO jg=1, n_dom
+      IF (jg > 1 .AND. start_time(jg) > sim_time .OR. end_time(jg) <= sim_time) THEN
+        p_patch(jg)%ldom_active = .FALSE. ! domain not active at restart time
+      ELSE
+        p_patch(jg)%ldom_active = .TRUE.
+      ENDIF
+    ENDDO
+    
     !---------------------------------------------------------------------
     ! 4.c Non-Hydrostatic / NWP
     !---------------------------------------------------------------------
@@ -467,9 +459,11 @@ CONTAINS
 
       sim_step_info%dtime      = dtime
       jstep0 = 0
-      IF (isRestart()) THEN
+
+      restartAttributes => getAttributesForRestarting()
+      IF (ASSOCIATED(restartAttributes)) THEN
         ! get start counter for time loop from restart file:
-        CALL get_restart_attribute("jstep", jstep0)
+        jstep0 = restartAttributes%getInteger("jstep")
       END IF
       sim_step_info%jstep0    = jstep0
       CALL init_mean_stream(p_patch(1))

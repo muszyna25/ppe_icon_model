@@ -456,6 +456,8 @@ INTEGER :: &
      impl_s       = turbdiff_config(jg)%impl_s
      impl_t       = turbdiff_config(jg)%impl_t
 
+     loutshs      = ltkeshs .OR. itype_sher > 0
+
  END SUBROUTINE get_turbdiff_param
 
 !==============================================================================

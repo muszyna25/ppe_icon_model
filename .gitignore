@@ -14,13 +14,6 @@ config.status
 config/mh-config-use
 config/set-up.info
 src/lnd_phy_jsbach
+run/*.run
 *.o
 *~
-!externals/mtime/*.settings
-!externals/mtime/.cproject
-!externals/mtime/.project
-!externals/mtime/.DS_Store
-!externals/mtime/config.log
-!externals/mtime/config.status
-!externals/mtime/*.o
-!externals/mtime/*~
