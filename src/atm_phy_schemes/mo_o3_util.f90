@@ -946,13 +946,13 @@ CONTAINS
     IDY = datetime%day - 1 !NDD(KINDAT)-1
     IMN = datetime%month ! NMM(KINDAT)
     IF (IMN == 1) THEN
-      ZXTIME=REAL(IDY,wp)*1440._wp + datetime%minute !KMINUT
+      ZXTIME=REAL(IDY,wp)*1440._wp + datetime%hour*60._wp + datetime%minute
     ELSEIF (IMN == 2) THEN
       IF(IDY == 28) IDY=IDY-1
       ! A DAY IN FEB. IS 28.25*24*60/28=1452.8571min LONG.
-      ZXTIME=44640._wp+REAL(IDY,wp)*1452.8571_wp + datetime%minute !KMINUT
+      ZXTIME=44640._wp+REAL(IDY,wp)*1452.8571_wp + datetime%hour*60._wp + datetime%minute
     ELSE
-      ZXTIME=(ZMDAY(IMN-1)+REAL(IDY,KIND(ZXTIME)))*1440._wp + datetime%minute !KMINUT
+      ZXTIME=(ZMDAY(IMN-1)+REAL(IDY,KIND(ZXTIME)))*1440._wp + datetime%hour*60._wp + datetime%minute
     ENDIF
     ! 525960=MINUTES IN A SIDERAL YEAR (365.25d)
     ZXTIME=MOD(ZXTIME,525960._wp)
@@ -1101,7 +1101,7 @@ CONTAINS
           o3_gems1 = RGHG7(JL,JK,IM1) + MERGE(wfac_tr(jl)*wfac_p_tr(jk)*&
                      MAX(0._wp,RGHG7(JL,JK,12)-RGHG7(JL,JK,IM1)), 0._wp, im1==1 .OR. im1==2)
           o3_gems2 = RGHG7(JL,JK,IM2) + MERGE(wfac_tr(jl)*wfac_p_tr(jk)*&
-                     MAX(0._wp,RGHG7(JL,JK,12)-RGHG7(JL,JK,IM2)), 0._wp, im1==1 .OR. im1==2)
+                     MAX(0._wp,RGHG7(JL,JK,12)-RGHG7(JL,JK,IM2)), 0._wp, im2==1 .OR. im2==2)
 
           zozn(JL,JK) = amo3/amd * ( wfac * (o3_macc2+ZTIMI*(o3_macc1-o3_macc2)) + &
                               (1._wp-wfac)* (o3_gems2+ZTIMI*(o3_gems1-o3_gems2)) )

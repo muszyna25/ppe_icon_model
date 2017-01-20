@@ -202,6 +202,7 @@ MODULE mo_pp_scheduler
     &                                   DEFAULT_PRIORITY4, LOW_PRIORITY, dbg_level,         &
     &                                   t_activity_status
   USE mo_fortran_tools,           ONLY: assign_if_present
+  USE mo_mpi,                     ONLY: my_process_is_stdio
 
 
   IMPLICIT NONE
@@ -725,6 +726,21 @@ CONTAINS
                 &           lmiss=info%lmiss,                                     &
                 &           missval=info%missval%ival, var_class=info%var_class,  &
                 &           tlev_source=info%tlev_source )
+            END IF
+            ! LOGICAL fields
+            IF (ASSOCIATED(element%field%l_ptr)) THEN
+              CALL finish(routine, "Regular-grid output of LOGICAL field "//TRIM(info%name)//" unsupported!")
+            END IF
+            ! SINGLE PRECISION FLOAT fields
+            IF (ASSOCIATED(element%field%s_ptr)) THEN
+              IF (my_process_is_stdio()) THEN
+                WRITE (0,*) "!!! Regular-grid output of single precision "//TRIM(info%name)//" unsupported!"
+                WRITE (0,*) "!!!  You may recompile the model with to partial single precision support"
+                WRITE (0,*) "!!!  by setting the flag __MIXED_PRECISION_2."
+                WRITE (0,*) "!!!  You may recompile the model with to double precision support"
+                WRITE (0,*) "!!!  by setting the flag __MIXED_PRECISION."
+              END IF
+              CALL finish(routine, "Regular-output of single precision "//TRIM(info%name)//" unsupported!")
             END IF
           CASE DEFAULT
             CALL finish(routine, "Unsupported grid type!")
