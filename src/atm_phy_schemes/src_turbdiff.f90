@@ -1405,8 +1405,8 @@ REAL (KIND=ireals), TARGET :: &
     l_scal(i)=MIN( z1d2*l_hori(i), tur_len )
 !__________________________________________________________________________
 !test: frm ohne fc_min-Beschraenkung: Bewirkt Unterschiede!
-!     fc_min(i)=(vel_min/MAX( l_hori(i), tur_len ))**2
-      fc_min(i)=z0
+     fc_min(i)=(vel_min/MAX( l_hori(i), tur_len ))**2
+!      fc_min(i)=z0
 !__________________________________________________________________________
  END DO
 

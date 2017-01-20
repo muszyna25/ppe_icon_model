@@ -86,17 +86,17 @@ MODULE mo_nh_testcases
   
   PUBLIC :: init_nh_testtopo,init_nh_testcase
 
-! !DEFINED PARAMETERS for jablonowski williamson: 
-!  The rest of the needed parameters are define in mo_nh_jabw_exp
-  REAL(wp), PARAMETER :: ps0   = 1.e5_wp  ! surface pressure (Pa)
+  ! !DEFINED PARAMETERS for jablonowski williamson: 
+  !  The rest of the needed parameters are define in mo_nh_jabw_exp
+  REAL(wp), PARAMETER :: ps0      = 1.e5_wp     !< surface pressure (Pa)
   
-! !DEFINED PARAMETERS for mountain induced Rossby wave train:
-  REAL(wp), PARAMETER :: pres_sp  = 93000.0_wp  !pressure surface at the south pole
-  REAL(wp), PARAMETER :: temp_mrw = 288._wp     !temperature of isothermal atmosphere
+  ! !DEFINED PARAMETERS for mountain induced Rossby wave train:
+  REAL(wp), PARAMETER :: pres_sp  = 93000.0_wp  !< pressure surface at the south pole
+  REAL(wp), PARAMETER :: temp_mrw = 288._wp     !< temperature of isothermal atmosphere
 
-! !DEFINED PARAMETERS for APE
-   REAL(wp), PARAMETER :: zp_ape      = 101325._wp            !< surface pressure
-   REAL(wp), PARAMETER :: ztmc_ape    = 25.006_wp             !< total moisture content 
+  ! !DEFINED PARAMETERS for APE
+  REAL(wp), PARAMETER :: zp_ape   = 101325._wp  !< surface pressure
+  REAL(wp), PARAMETER :: ztmc_ape = 25.006_wp   !< total moisture content 
 
   CONTAINS  
   
