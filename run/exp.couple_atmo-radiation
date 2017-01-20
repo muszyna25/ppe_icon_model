@@ -127,7 +127,6 @@ cat > $atmo_namelist << EOF
  ihadv_tracer  = 2,2,2,2,2,0
  ivadv_tracer  = 3,3,3,3,3,0
  igrad_c_miura = 1
- ctracer_list  = '123456'   ! '12345'  (123456 mit ozone)
  lvadv_tracer  = .TRUE.
  lstrang       = .FALSE.
  itype_hlimit  = 3
