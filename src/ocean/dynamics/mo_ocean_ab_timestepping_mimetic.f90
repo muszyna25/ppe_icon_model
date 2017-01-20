@@ -51,7 +51,8 @@ MODULE mo_ocean_ab_timestepping_mimetic
     & PPscheme_type,                                      &
     & PPscheme_ICON_Edge_vnPredict_type,                  &
     & solver_FirstGuess, MassMatrix_solver_tolerance,     &
-    & OceanReferenceDensity_inv, createSolverMatrix
+    & OceanReferenceDensity_inv, createSolverMatrix,      &
+    & select_lhs, select_lhs_matrix
     
   USE mo_run_config,                ONLY: dtime, ltimer, debug_check_level
   USE mo_timer  
@@ -1433,10 +1434,89 @@ CONTAINS
     !  these are small (2D) arrays and should be allocated once for efficiency
     REAL(wp) :: lhs(SIZE(x,1), SIZE(x,2))  ! (nproma,patch_2D%alloc_cell_blocks)
 
-    CALL lhs_surface_height_ab_mim(x, patch_3d, thickness_e, op_coeffs, lhs)
+    IF (select_lhs == select_lhs_matrix) THEN
+      CALL lhs_surface_height_ab_mim_matrix(x, patch_3d, op_coeffs, lhs)
+    ELSE
+      CALL lhs_surface_height_ab_mim(x, patch_3d, thickness_e, op_coeffs, lhs)
+    ENDIF
 
   END FUNCTION lhs_surface_height
   !-------------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------------
+!<Optimize:inUse>
+  SUBROUTINE lhs_surface_height_ab_mim_matrix( x, patch_3d, op_coeffs, lhs)
+    
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp),    INTENT(inout)           :: x(:,:)    ! inout for sync, dimension: (nproma,patch%alloc_cell_blocks)
+!     REAL(wp),    INTENT(in)              :: h_old(:,:)
+    ! REAL(wp),    INTENT(in)              :: coeff
+    TYPE(t_operator_coeff),INTENT(in)    :: op_coeffs
+    REAL(wp) :: lhs(:,:)  ! (nproma,patch_2D%alloc_cell_blocks)
+    
+    ! local variables,
+    INTEGER :: start_index, end_index
+    INTEGER :: jc, blockNo, je
+    TYPE(t_subset_range), POINTER :: cells_in_domain
+    TYPE(t_patch), POINTER :: patch_2D     ! patch_2D on which computation is performed
+    mapCellsToCells_2D :: lhs_coeffs                ! the left hand side operator coefficients of the height solver
+    onCells_2D_Connectivity   :: idx   ! connectivity of the above
+    onCells_2D_Connectivity   :: blk   ! connectivity of the above
+    !-----------------------------------------------------------------------
+    start_detail_timer(timer_lhs,3)
+    !-----------------------------------------------------------------------
+    patch_2D          => patch_3d%p_patch_2d(1)
+    cells_in_domain   => patch_2D%cells%in_domain
+    lhs_coeffs        => op_coeffs%lhs_all
+    idx               => op_coeffs%lhs_CellToCell_index
+    blk               => op_coeffs%lhs_CellToCell_block
+           
+!     lhs   (1:nproma,cells_in_domain%end_block:patch_2D%alloc_cell_blocks)  = 0.0_wp
+    lhs   (:,:)  = 0.0_wp
+    CALL sync_patch_array(sync_c, patch_2D, x(1:nproma,1:patch_2D%cells%all%end_block) )
+    
+    !---------------------------------------
+    start_detail_timer(timer_extra31,6)
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc) ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
+      DO jc = start_index, end_index        
+        IF(patch_3d%lsm_c(jc,1,blockNo) > sea_boundary) CYCLE 
+          
+        lhs(jc,blockNo) = x(jc,blockNo)               * lhs_coeffs(0, jc,blockNo) + &
+          x(idx(1,jc,blockNo), blk(1,jc,blockNo)) * lhs_coeffs(1, jc,blockNo) + &
+          x(idx(2,jc,blockNo), blk(2,jc,blockNo)) * lhs_coeffs(2, jc,blockNo) + &
+          x(idx(3,jc,blockNo), blk(3,jc,blockNo)) * lhs_coeffs(3, jc,blockNo) + &
+          x(idx(4,jc,blockNo), blk(4,jc,blockNo)) * lhs_coeffs(4, jc,blockNo) + &
+          x(idx(5,jc,blockNo), blk(5,jc,blockNo)) * lhs_coeffs(5, jc,blockNo) + &
+          x(idx(6,jc,blockNo), blk(6,jc,blockNo)) * lhs_coeffs(6, jc,blockNo) + &
+          x(idx(7,jc,blockNo), blk(7,jc,blockNo)) * lhs_coeffs(7, jc,blockNo) + &
+          x(idx(8,jc,blockNo), blk(8,jc,blockNo)) * lhs_coeffs(8, jc,blockNo) + &
+          x(idx(9,jc,blockNo), blk(9,jc,blockNo)) * lhs_coeffs(9, jc,blockNo)
+
+      END DO
+    END DO ! blockNo
+!ICON_OMP_END_PARALLEL_DO
+    !---------------------------------------
+    stop_detail_timer(timer_extra32,6)
+
+    IF (debug_check_level > 20) THEN
+      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
+        DO jc = start_index, end_index
+          IF(patch_3d%lsm_c(jc,1,blockNo) > sea_boundary) THEN
+            IF (lhs(jc,blockNo) /= 0.0_wp) &
+              & CALL finish("lhs_surface_height_ab_mim", "lhs(jc,blockNo) /= 0 on land")
+          ENDIF
+        END DO
+      END DO
+    ENDIF
+   
+    stop_detail_timer(timer_lhs,3)
+    
+  END SUBROUTINE lhs_surface_height_ab_mim_matrix
+  !-------------------------------------------------------------------------
 
 
   !-------------------------------------------------------------------------------------
