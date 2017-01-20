@@ -572,6 +572,7 @@ case "$ac_sitename" in
                SZIPROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16
                ZLIBROOT    = /usr
                MPIROOT     = /pfs/imk/ICON/LIBRARIES_IFORT16
+               GRIBAPIROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
                MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
                case "$with_art" in
                     yes)
@@ -591,6 +592,7 @@ case "$ac_sitename" in
                 SZIPROOT    = /pfs/imk/ICON/LIBRARIES_IFORT16
                 ZLIBROOT    = /usr
                 MPIROOT     = /pfs/imk/ICON/LIBRARIES_FH2/lib_omp_Inge
+                GRIBAPIROOT = /pfs/imk/ICON/LIBRARIES_IFORT16
                 MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
                 case "$with_art" in
                      yes)
