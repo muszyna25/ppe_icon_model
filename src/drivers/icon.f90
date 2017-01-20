@@ -103,16 +103,6 @@ PROGRAM icon
   CALL ieee_set_halting_mode(ieee_underflow, .FALSE.)
 #endif
 
-#if defined (__SX__)
-  ! sxf90 is not Fortran standard compliant, use vendor extension:
-
-  ! export environment variable F_NORCW=65535
-  ! (this SX environment variable specifies that a control record is
-  !  not added/expected, s.t. the file content can be treated like a
-  !  stream of characters)
-  CALL putenv ("F_NORCW=65535")
-#endif
-
   !-------------------------------------------------------------------
   ! Initialize MPI, this should always be the first call
   CALL start_mpi('ICON')

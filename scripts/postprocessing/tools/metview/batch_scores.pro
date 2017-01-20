@@ -4,8 +4,9 @@
 ; [expref] [inidate] [step] [nfor]
 ;
 ; e.g.:
-; idl batch_scores -args /fe1-daten/mkoehler/plots/icon 82 81 20110101
-;
+; idl batch_scores -args /scratch/ms/de/deia/icon/dei2/252/201508/metplots \
+;                        /scratch/ms/de/deia/icon/dei2/247/201508/metplots dei2_252 dei2_247 20150801 24 31
+
 ; Martin Koehler, Sep 2012 & Dec 2012
 ;-----------------------------------------------------------------------
 
@@ -35,33 +36,48 @@
 
  plotfile1 = direxp+'/scores.NWP.r2B06L90.'+expnum+'_vs_'+expref
 
- scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'ml', 'mean'
+ scores, direxp, dirref, expnum, expref, inidate, step, step, nfor, 'ml', 'mean'
  spawn,'\cp -f plot.ps ' + plotfile1 + '.ml.'  + plotfile2
  
- scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'pl', 'mean'
+ scores, direxp, dirref, expnum, expref, inidate, step, step, nfor, 'pl', 'mean'
  spawn,'\cp -f plot.ps ' + plotfile1 + '.pl.'  + plotfile2
 
- scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'zl', 'mean'
+ scores, direxp, dirref, expnum, expref, inidate, step, step, nfor, 'zl', 'mean'
  spawn,'\cp -f plot.ps ' + plotfile1 + '.zl.'  + plotfile2
 
- scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'sfc', 'mean'
+ scores, direxp, dirref, expnum, expref, inidate, step, step, nfor, 'sfc', 'mean'
  spawn,'\cp -f plot.ps ' + plotfile1 + '.sfc.' + plotfile2
 
 ; RMS plots
 
  plotfile1 = direxp+'/scores.NWP.r2B06L90.'+expnum+'_rms_vs_'+expref
  
- scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'ml', 'rms'
+ scores, direxp, dirref, expnum, expref, inidate, step, step, nfor, 'ml', 'rms'
  spawn,'\cp -f plot.ps ' + plotfile1 + '.ml.'  + plotfile2
  
- scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'pl', 'rms'
+ scores, direxp, dirref, expnum, expref, inidate, step, step, nfor, 'pl', 'rms'
  spawn,'\cp -f plot.ps ' + plotfile1 + '.pl.'  + plotfile2
 
- scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'zl', 'rms'
+ scores, direxp, dirref, expnum, expref, inidate, step, step, nfor, 'zl', 'rms'
  spawn,'\cp -f plot.ps ' + plotfile1 + '.zl.'  + plotfile2
 
- scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'sfc', 'rms'
+ scores, direxp, dirref, expnum, expref, inidate, step, step, nfor, 'sfc', 'rms'
  spawn,'\cp -f plot.ps ' + plotfile1 + '.sfc.' + plotfile2
+
+; RMS time-mean plots
+
+ step1=24
+ stepx=24
+
+ plotfile1 = direxp+'/scores.NWP.r2B06L90.'+expnum+'_rms_vs_'+expref
+ outdate   = long(inidate) + step1/24
+ plotfile2 = strcompress(string(outdate),/remove_all) + "-" + strmid(string(101+step/24,format='(I3)'),1,2) + '_00.L1.ps'
+ 
+ scores, direxp, dirref, expnum, expref, inidate, step1, step, nfor, 'ml', 'rms'
+ spawn,'\cp -f plot.ps ' + plotfile1 + '.ml.'  + plotfile2
+ 
+ scores, direxp, dirref, expnum, expref, inidate, step1, step, nfor, 'pl', 'rms'
+ spawn,'\cp -f plot.ps ' + plotfile1 + '.pl.'  + plotfile2
 
 
  exit

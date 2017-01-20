@@ -20,9 +20,10 @@
 !!
 MODULE mo_fortran_tools
 
-  USE mo_kind,                    ONLY: wp, sp, dp, ik4 => i4
+  USE mo_kind,                    ONLY: wp, sp, vp, dp, ik4 => i4
   USE mo_exception,               ONLY: finish
-  USE mo_var_metadata_types,      ONLY: VARNAME_LEN
+  USE mo_impl_constants,          ONLY: SUCCESS
+  USE mo_impl_constants,          ONLY: VARNAME_LEN
 #ifdef _OPENACC
   USE mo_mpi,                     ONLY: i_am_accel_node
 #endif
@@ -31,10 +32,15 @@ MODULE mo_fortran_tools
 
   PUBLIC :: t_Destructible
   PUBLIC :: assign_if_present
-  PUBLIC :: t_ptr_2d3d
+  PUBLIC :: t_ptr_2d3d, t_ptr_2d3d_vp
+  PUBLIC :: assign_if_present_allocatable
+  PUBLIC :: ensureSize
+  PUBLIC :: t_ptr_2d, t_ptr_2d_sp
+  PUBLIC :: t_ptr_3d, t_ptr_3d_sp
   PUBLIC :: t_ptr_i2d3d
   PUBLIC :: t_ptr_tracer
-  PUBLIC :: copy, init, swap, var_scale, negative2zero
+  PUBLIC :: copy, init, swap, negative2zero
+  PUBLIC :: var_scale, var_add
   PUBLIC :: init_zero_contiguous_dp, init_zero_contiguous_sp
   PUBLIC :: resize_arr_c1d
 
@@ -47,10 +53,32 @@ MODULE mo_fortran_tools
     PROCEDURE(interface_destructor), DEFERRED :: destruct
   END TYPE t_Destructible
 
+  TYPE t_ptr_2d
+    REAL(dp),POINTER :: p(:,:)  ! pointer to 2D (spatial) array
+  END TYPE t_ptr_2d
+
+  TYPE t_ptr_2d_sp
+    REAL(sp),POINTER :: p(:,:)  ! pointer to 2D (spatial) array
+  END TYPE t_ptr_2d_sp
+
+  TYPE t_ptr_3d
+    REAL(dp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
+  END TYPE t_ptr_3d
+
+  TYPE t_ptr_3d_sp
+    REAL(sp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
+  END TYPE t_ptr_3d_sp
+
   TYPE t_ptr_2d3d
     REAL(wp),POINTER :: p_3d(:,:,:)  ! REAL pointer to 3D (spatial) array
     REAL(wp),POINTER :: p_2d(:,:)    ! REAL pointer to 2D (spatial) array
   END TYPE t_ptr_2d3d
+
+  TYPE t_ptr_2d3d_vp
+    REAL(vp),POINTER :: p_3d(:,:,:)  ! REAL pointer to 3D (spatial) array
+    REAL(vp),POINTER :: p_2d(:,:)    ! REAL pointer to 2D (spatial) array
+  END TYPE t_ptr_2d3d_vp
+
 
   TYPE t_ptr_i2d3d
     INTEGER,POINTER :: p_3d(:,:,:)  ! INTEGER pointer to 3D (spatial) array
@@ -70,7 +98,23 @@ MODULE mo_fortran_tools
     MODULE PROCEDURE assign_if_present_integer
     MODULE PROCEDURE assign_if_present_integers
     MODULE PROCEDURE assign_if_present_real
+    MODULE PROCEDURE assign_if_present_real_sp
   END INTERFACE assign_if_present
+
+  INTERFACE assign_if_present_allocatable
+    MODULE PROCEDURE assign_if_present_logical_allocatable_1d
+    MODULE PROCEDURE assign_if_present_integer_allocatable
+    MODULE PROCEDURE assign_if_present_integer_allocatable_1d
+    MODULE PROCEDURE assign_if_present_real_allocatable
+    MODULE PROCEDURE assign_if_present_real_allocatable_1d
+  END INTERFACE assign_if_present_allocatable
+
+  ! This handles the recuring CASE of growing a buffer to match possibly increasing needs.
+  ! We USE a POINTER to pass the buffer because that allows us to avoid an extra copy when reallocating the buffer.
+  ! The association status of the POINTER that IS passed IN must be defined.
+  INTERFACE ensureSize
+    MODULE PROCEDURE ensureSize_dp_1d
+  END INTERFACE ensureSize
 
   !> this is meant to make it easier for compilers to circumvent
   !! temporaries as are too often created in a(:, :, :) = b(:, :, :)
@@ -78,6 +122,7 @@ MODULE mo_fortran_tools
   INTERFACE copy
     MODULE PROCEDURE copy_2d_dp
     MODULE PROCEDURE copy_3d_dp
+    MODULE PROCEDURE copy_4d_dp
     MODULE PROCEDURE copy_5d_dp
     MODULE PROCEDURE copy_5d_sp
     MODULE PROCEDURE copy_5d_spdp
@@ -110,6 +155,10 @@ MODULE mo_fortran_tools
     MODULE PROCEDURE var_scale_3d_dp
   END INTERFACE var_scale
 
+  INTERFACE var_add
+    MODULE PROCEDURE var_addc_3d_dp
+  END INTERFACE var_add
+
   INTERFACE swap
     MODULE PROCEDURE swap_int
   END INTERFACE swap
@@ -121,6 +170,8 @@ MODULE mo_fortran_tools
         CLASS(t_Destructible), INTENT(INOUT) :: me
     END SUBROUTINE interface_destructor
   END INTERFACE
+
+  CHARACTER(LEN = *), PARAMETER :: modname = "mo_fortran_tools"
 
 #if defined( _OPENACC )
 #define ACC_DEBUG $ACC
@@ -134,7 +185,7 @@ MODULE mo_fortran_tools
 
 CONTAINS
 
-  ! private routines to assign values if actual parameters are present
+  ! routines to assign values if actual parameters are present
   !
   SUBROUTINE assign_if_present_character (y,x)
     CHARACTER(len=*), INTENT(inout)        :: y
@@ -144,13 +195,11 @@ CONTAINS
     y = x
   END SUBROUTINE assign_if_present_character
 
-
   SUBROUTINE assign_if_present_logical (y,x)
     LOGICAL, INTENT(inout)        :: y
     LOGICAL, INTENT(in) ,OPTIONAL :: x
     IF (PRESENT(x)) y = x
   END SUBROUTINE assign_if_present_logical
-
 
   SUBROUTINE assign_if_present_logicals (y,x)
     LOGICAL, INTENT(inout)        :: y(:)
@@ -162,7 +211,6 @@ CONTAINS
     ENDIF
   END SUBROUTINE assign_if_present_logicals
 
-
   SUBROUTINE assign_if_present_integer (y,x)
     INTEGER, INTENT(inout)        :: y
     INTEGER, INTENT(in) ,OPTIONAL :: x
@@ -170,7 +218,6 @@ CONTAINS
     IF ( x == -HUGE(x)  ) RETURN
     y = x
   END SUBROUTINE assign_if_present_integer
-
 
   SUBROUTINE assign_if_present_integers (y,x)
     INTEGER, INTENT(inout)        :: y (:)
@@ -182,7 +229,6 @@ CONTAINS
     ENDIF
   END SUBROUTINE assign_if_present_integers
 
-
   SUBROUTINE assign_if_present_real (y,x)
     REAL(wp), INTENT(inout)        :: y
     REAL(wp), INTENT(in) ,OPTIONAL :: x
@@ -190,6 +236,128 @@ CONTAINS
     IF ( x == -HUGE(x) ) RETURN
     y = x
   END SUBROUTINE assign_if_present_real
+
+  SUBROUTINE assign_if_present_real_sp (y,x)
+    REAL(sp), INTENT(inout)        :: y
+    REAL(sp), INTENT(in) ,OPTIONAL :: x
+    IF (.NOT.PRESENT(x)) RETURN
+    IF ( x == -HUGE(x) ) RETURN
+    y = x
+  END SUBROUTINE assign_if_present_real_sp
+
+  SUBROUTINE assign_if_present_logical_allocatable_1d(y, x)
+    LOGICAL, ALLOCATABLE, INTENT(INOUT) :: y(:)
+    LOGICAL, OPTIONAL, INTENT(IN) :: x(:)
+
+    INTEGER :: error
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":assign_if_present_logical_allocatable_1d"
+
+    IF(.NOT.PRESENT(x)) RETURN
+    IF(ALLOCATED(y)) THEN
+        IF(SIZE(y) /= SIZE(x)) DEALLOCATE(y)
+    END IF
+    IF(.NOT.ALLOCATED(y)) THEN
+        ALLOCATE(y(SIZE(x)), STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+    END IF
+    y(:) = x(:)
+  END SUBROUTINE assign_if_present_logical_allocatable_1d
+
+  SUBROUTINE assign_if_present_integer_allocatable(y, x)
+    INTEGER, ALLOCATABLE, INTENT(INOUT) :: y
+    INTEGER, OPTIONAL, INTENT(IN) :: x
+
+    INTEGER :: error
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":assign_if_present_integer_allocatable"
+
+    IF(.NOT.PRESENT(x)) RETURN
+    IF(.NOT.ALLOCATED(y)) THEN
+        ALLOCATE(y, STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+    END IF
+    y = x
+  END SUBROUTINE assign_if_present_integer_allocatable
+
+  SUBROUTINE assign_if_present_integer_allocatable_1d(y, x)
+    INTEGER, ALLOCATABLE, INTENT(INOUT) :: y(:)
+    INTEGER, OPTIONAL, INTENT(IN) :: x(:)
+
+    INTEGER :: error
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":assign_if_present_integer_allocatable_1d"
+
+    IF(.NOT.PRESENT(x)) RETURN
+    IF(ALLOCATED(y)) THEN
+        IF(SIZE(y) /= SIZE(x)) DEALLOCATE(y)
+    END IF
+    IF(.NOT.ALLOCATED(y)) THEN
+        ALLOCATE(y(SIZE(x)), STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+    END IF
+    y(:) = x(:)
+  END SUBROUTINE assign_if_present_integer_allocatable_1d
+
+  SUBROUTINE assign_if_present_real_allocatable(y, x)
+    REAL(wp), ALLOCATABLE, INTENT(INOUT) :: y
+    REAL(wp), OPTIONAL, INTENT(IN) :: x
+
+    INTEGER :: error
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":assign_if_present_real_allocatable"
+
+    IF(.NOT.PRESENT(x)) RETURN
+    IF(.NOT.ALLOCATED(y)) THEN
+        ALLOCATE(y, STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+    END IF
+    y = x
+  END SUBROUTINE assign_if_present_real_allocatable
+
+  SUBROUTINE assign_if_present_real_allocatable_1d(y, x)
+    REAL(wp), ALLOCATABLE, INTENT(INOUT) :: y(:)
+    REAL(wp), OPTIONAL, INTENT(IN) :: x(:)
+
+    INTEGER :: error
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":assign_if_present_real_allocatable_1d"
+
+    IF(.NOT.PRESENT(x)) RETURN
+    IF(ALLOCATED(y)) THEN
+        IF(SIZE(y) /= SIZE(x)) DEALLOCATE(y)
+    END IF
+    IF(.NOT.ALLOCATED(y)) THEN
+        ALLOCATE(y(SIZE(x)), STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+    END IF
+    y(:) = x(:)
+  END SUBROUTINE assign_if_present_real_allocatable_1d
+
+  SUBROUTINE ensureSize_dp_1d(buffer, requiredSize)
+    REAL(wp), POINTER, INTENT(INOUT) :: buffer(:)
+    INTEGER, VALUE ::requiredSize
+
+    REAL(wp), POINTER :: newBuffer(:)
+    INTEGER :: oldSize, error
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":ensureSize_dp_1d"
+
+    IF(ASSOCIATED(buffer)) THEN
+        oldSize = SIZE(buffer, 1)
+        IF(oldSize >= requiredSize) RETURN  ! nothing to DO IF it's already big enough
+        requiredSize = MAX(requiredSize, 2*oldSize) ! avoid quadratic complexity
+
+        ALLOCATE(newBuffer(requiredSize), STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+
+        newBuffer(1:oldSize) = buffer(1:oldSize)
+        newBuffer(oldSize + 1:requiredSize) = 0.0
+
+        DEALLOCATE(buffer)
+        buffer => newBuffer
+        newBuffer => NULL()
+    ELSE
+        ALLOCATE(buffer(requiredSize), STAT = error)
+        IF(error /= SUCCESS) CALL finish(routine, "memory allocation error")
+
+        buffer(1:requiredSize) = 0.0
+    END IF
+  END SUBROUTINE ensureSize_dp_1d
 
 
   !>
@@ -326,6 +494,32 @@ CONTAINS
 !$omp end do nowait
 #endif
   END SUBROUTINE copy_3d_dp
+
+  !> copy state, omp parallel, does not wait for other threads to complete
+  SUBROUTINE copy_4d_dp(src, dest)
+    REAL(dp), INTENT(in) :: src(:, :, :, :)
+    REAL(dp), INTENT(out) :: dest(:, :, :, :)
+    INTEGER :: i1, i2, i3, i4, m1, m2, m3, m4
+    m1 = SIZE(dest, 1)
+    m2 = SIZE(dest, 2)
+    m3 = SIZE(dest, 3)
+    m4 = SIZE(dest, 4)
+#ifdef _CRAYFTN
+!$omp do
+#else
+!$omp do collapse(4)
+#endif
+    DO i4 = 1, m4
+      DO i3 = 1, m3
+        DO i2 = 1, m2
+          DO i1 = 1, m1
+            dest(i1, i2, i3, i4) = src(i1, i2, i3, i4)
+          END DO
+        END DO
+      END DO
+    END DO
+!$omp end do nowait
+  END SUBROUTINE copy_4d_dp
 
   !> copy state, omp parallel, does not wait for other threads to complete
   SUBROUTINE copy_5d_dp(src, dest)
@@ -997,6 +1191,29 @@ CONTAINS
 !$omp end do nowait
 #endif
   END SUBROUTINE var_scale_3d_dp
+
+
+  ! add a constant value to a 3D field
+  SUBROUTINE var_addc_3d_dp(var, add_val)
+    REAL(dp), INTENT(inout) :: var(:, :, :)
+    REAL(dp), INTENT(in) :: add_val
+
+    INTEGER :: i1, i2, i3, m1, m2, m3
+
+    m1 = SIZE(var, 1)
+    m2 = SIZE(var, 2)
+    m3 = SIZE(var, 3)
+!$omp do collapse(3)
+    DO i3 = 1, m3
+      DO i2 = 1, m2
+        DO i1 = 1, m1
+          var(i1, i2, i3) = var(i1, i2, i3) + add_val
+        END DO
+      END DO
+    END DO
+!$omp end do nowait
+  END SUBROUTINE var_addc_3d_dp
+
 
   SUBROUTINE negative2zero_4d_dp(var)
     REAL(dp), INTENT(inout) :: var(:, :, :, :)

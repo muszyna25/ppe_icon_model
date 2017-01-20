@@ -53,7 +53,7 @@ MODULE mo_cuflxtends
     &                        rmfsoltq,  rmfsoluv                    ,&
     &                        rmfsolct, rmfcmin,rg       ,rcpd       ,&
     &                        rlvtt   , rlstt    ,rlmlt    ,rtt      ,&
-    &                        lhook,   dr_hook, rcvd
+    &                        lhook, dr_hook, rcvd, lmfglac, lmfwetb
 
   USE mo_cufunctions, ONLY: foelhmcu, foeewmcu, foealfcu, &
     & foeewl,   foeewi
@@ -77,15 +77,15 @@ CONTAINS
   SUBROUTINE cuflxn &
     & (  kidia,    kfdia,    klon,   ktdia,   klev, rmfcfl, &
     & rhebc_land, rhebc_ocean, rcucov, rhebc_land_trop,     &  
-    & rhebc_ocean_trop, rcucov_trop, trop_mask,  ptsphy,    &
+    & rhebc_ocean_trop, rcucov_trop, lmfdsnow, trop_mask, ptsphy, &
     & pten,     pqen,     pqsen,    ptenh,    pqenh,&
     & paph,     pap,      pgeoh,    ldland,   ldlake, ldcum,&
     & kcbot,    kctop,    kdtop,    ktopm2,&
     & ktype,    lddraf,&
     & pmfu,     pmfd,     pmfus,    pmfds,&
-    & pmfuq,    pmfdq,    pmful,    plude,&
+    & pmfuq,    pmfdq,    pmful,    plude,    plrain, psnde, &
     & pdmfup,   pdmfdp,   pdpmel,   plglac,&
-    & pmflxr,   pmflxs,   prain,    pmfdde_rate )
+    & pmflxr,   pmflxs,   prain,    pmfude_rate, pmfdde_rate )
     !
     !!Description:
     !!         M.TIEDTKE         E.C.M.W.F.     7/86 MODIF. 12/89
@@ -149,8 +149,10 @@ CONTAINS
     !!   *PMFDQ*        FLUX OF SPEC. HUMIDITY IN DOWNDRAFTS          KG/(M2*S)
     !!   *PMFUL*        FLUX OF LIQUID WATER IN UPDRAFTS              KG/(M2*S)
     !!   *PLUDE*        DETRAINED LIQUID WATER                        KG/(M3*S)
+    !    *PSNDE*        DETRAINED SNOW/RAIN                           KG/(M2*S)
     !!   *PDMFUP*       FLUX DIFFERENCE OF PRECIP. IN UPDRAFTS        KG/(M2*S)
     !!   *PDMFDP*       FLUX DIFFERENCE OF PRECIP. IN DOWNDRAFTS      KG/(M2*S)
+    !    *PMFUDE_RATE*  UPRAFT DETRAINMENT RATE                       KG/(M2*S)
     !!   *PMFDDE_RATE*  DOWNDRAFT DETRAINMENT RATE                    KG/(M2*S)
 
     !!   OUTPUT PARAMETERS (REAL):
@@ -199,6 +201,7 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(in)    :: ptsphy
     REAL(KIND=jprb)   ,INTENT(in)    :: rhebc_land, rhebc_ocean
     REAL(KIND=jprb)   ,INTENT(in)    :: rhebc_land_trop, rhebc_ocean_trop
+    LOGICAL           ,INTENT(in)    :: lmfdsnow
     REAL(KIND=jprb)   ,INTENT(in)    :: rcucov, rcucov_trop
     REAL(KIND=jprb)   ,INTENT(in)    :: trop_mask(klon)
     REAL(KIND=jprb)   ,INTENT(in)    :: pten(klon,klev)
@@ -226,6 +229,8 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(inout) :: pmfdq(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: pmful(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: plude(klon,klev)
+    REAL(KIND=JPRB)   ,INTENT(in)    :: plrain(klon,klev) 
+    REAL(KIND=JPRB)   ,INTENT(inout) :: psnde(klon,klev,2)
     REAL(KIND=jprb)   ,INTENT(inout) :: pdmfup(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: pdmfdp(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: pdpmel(klon,klev)
@@ -233,6 +238,7 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(inout) :: pmflxr(klon,klev+1)
     REAL(KIND=jprb)   ,INTENT(inout) :: pmflxs(klon,klev+1)
     REAL(KIND=jprb)   ,INTENT(out)   :: prain(klon)
+    REAL(KIND=jprb)   ,INTENT(inout) :: pmfude_rate(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: pmfdde_rate(klon,klev)
 
     REAL(KIND=jprb) :: zrhebc(klon), zrcucov(klon), zshalfac(klon)
@@ -244,8 +250,15 @@ CONTAINS
       & zdenom, zdrfl, zdrfl1, zfac, & !, zfoeewi, zfoeewl, &
       & zoealfa, zoeewm, zoelhm, zpdr, zpds, &
       & zrfl, zrfln, zrmin, zrnew, zsnmlt, ztarg, &
-      & ztmst, zzp
+      & ztmst, zzp, zten, zwetb , zglac
     REAL(KIND=jprb) :: zhook_handle
+
+    ! Numerical fit to wet bulb temperature
+    REAL(KIND=JPRB),PARAMETER :: ZTW1 = 1329.31_JPRB
+    REAL(KIND=JPRB),PARAMETER :: ZTW2 = 0.0074615_JPRB
+    REAL(KIND=JPRB),PARAMETER :: ZTW3 = 0.85E5_JPRB
+    REAL(KIND=JPRB),PARAMETER :: ZTW4 = 40.637_JPRB
+    REAL(KIND=JPRB),PARAMETER :: ZTW5 = 275.0_JPRB
 
     !#include "fcttre.h"
 
@@ -257,6 +270,16 @@ CONTAINS
     zcons1a=rcpd/(rlmlt*rg*rtaumel)
     !ZCONS2=1.0_JPRB/(RG*ZTMST)
     zcons2=rmfcfl/(rg*ztmst)
+    IF(lmfwetb) THEN
+      zwetb=1.0_JPRB
+    ELSE
+      zwetb=0.0_JPRB
+    ENDIF
+    IF(lmfglac) THEN
+      zglac=0.5_JPRB
+    ELSE
+      zglac=1.0_JPRB
+    ENDIF
 
     !*    1.0          DETERMINE FINAL CONVECTIVE FLUXES
     !!                 ---------------------------------
@@ -283,6 +306,8 @@ CONTAINS
         pmflxr(jl,jk)=0.0_JPRB
         pmflxs(jl,jk)=0.0_JPRB
         pdpmel(jl,jk)=0.0_JPRB
+        psnde(jl,jk,1) = 0.0_JPRB
+        psnde(jl,jk,2) = 0.0_JPRB
         IF(ldcum(jl).AND.jk >= kctop(jl)) THEN
           pmfus(jl,jk)=pmfus(jl,jk)-pmfu(jl,jk)*(rcpd*ptenh(jl,jk)+pgeoh(jl,jk))
           pmfuq(jl,jk)=pmfuq(jl,jk)-pmfu(jl,jk)*pqenh(jl,jk)
@@ -319,6 +344,8 @@ CONTAINS
 
    pmflxr(:,klev+1)=0.0_JPRB
    pmflxs(:,klev+1)=0.0_JPRB
+   psnde(:,ktdia,1)=0.0_JPRB
+   psnde(:,ktdia,2)=0.0_JPRB
 
 
     !*    1.5          SCALE FLUXES BELOW CLOUD BASE
@@ -383,36 +410,47 @@ CONTAINS
       DO jl=kidia,kfdia
         IF(ldcum(jl).AND.jk >= kctop(jl)-1) THEN
           prain(jl)=prain(jl)+pdmfup(jl,jk)
-          IF(pmflxs(jl,jk) > 0.0_JPRB.AND.pten(jl,jk) > rtt) THEN
-            zcons1=zcons1a*(1.0_JPRB+0.5_JPRB*(pten(jl,jk)-rtt))
+          zten=pten(jl,jk)-zwetb*MAX(0.0_JPRB,pqsen(jl,jk)-pqen(jl,jk))*&
+            (ztw1+ztw2*(pap(jl,jk)-ztw3)-ztw4*(pten(jl,jk)-ztw5))
+          IF(pmflxs(jl,jk) > 0.0_JPRB.AND.zten > rtt) THEN
+            zcons1=zcons1a*(1.0_JPRB+0.5_JPRB*(zten-rtt))
             zfac=zcons1*(paph(jl,jk+1)-paph(jl,jk))
-            zsnmlt=MIN(pmflxs(jl,jk),zfac*(pten(jl,jk)-rtt))
+            zsnmlt=MIN(pmflxs(jl,jk),zfac*(zten-rtt))
             pdpmel(jl,jk)=zsnmlt
             IF (lphylin) THEN
-              ztarg=pten(jl,jk)-zsnmlt/zfac
+              ztarg=zten-zsnmlt/zfac
               zoealfa=0.545_JPRB*(TANH(0.17_JPRB*(ztarg-rlptrc))+1.0_JPRB)
               !>KF use functions!
               zoeewm=zoealfa*foeewl(ztarg) + (1.0_JPRB-zoealfa)*foeewi(ztarg)
               !<KF
               pqsen(jl,jk)=zoeewm/pap(jl,jk)
             ELSE
-              pqsen(jl,jk)=foeewmcu(pten(jl,jk)-zsnmlt/zfac)/pap(jl,jk)
+              pqsen(jl,jk)=foeewmcu(zten-zsnmlt/zfac)/pap(jl,jk)
             ENDIF
           ENDIF
           IF (lphylin) THEN
-            zalfaw=0.545_JPRB*(TANH(0.17_JPRB*(pten(jl,jk)-rlptrc))+1.0_JPRB)
+            zalfaw=0.545_JPRB*(TANH(0.17_JPRB*(zten-rlptrc))+1.0_JPRB)
           ELSE
-            zalfaw=foealfcu(pten(jl,jk))
+            zalfaw=foealfcu(zten)
          ENDIF
           !! no liquid precipitation above melting level
           IF(pten(jl,jk) < rtt .AND. zalfaw > 0.0_JPRB) THEN
-            plglac(jl,jk)=plglac(jl,jk)+zalfaw*(pdmfup(jl,jk)+pdmfdp(jl,jk))
+            plglac(jl,jk)=plglac(jl,jk)+zglac*zalfaw*pdmfup(jl,jk)+zalfaw*pdmfdp(jl,jk)
             zalfaw=0.0_JPRB
          ENDIF
+         IF (lmfdsnow .AND. jk<=kcbot(jl)) THEN
+           psnde(jl,jk,2)=plrain(jl,jk+1)*pmfude_rate(jl,jk)
+           psnde(jl,jk,1)=psnde(jl,jk,2)*(1.0_JPRB-zalfaw)
+           psnde(jl,jk,2)=psnde(jl,jk,2)*zalfaw
+           psnde(jl,jk,1)=MIN(psnde(jl,jk,1),(1.0_JPRB-zalfaw)*(pdmfup(jl,jk)+pdmfdp(jl,jk))-pdpmel(jl,jk))
+           psnde(jl,jk,2)=MIN(psnde(jl,jk,2),zalfaw*(pdmfup(jl,jk)+pdmfdp(jl,jk)))
+           psnde(jl,jk,1)=MAX(psnde(jl,jk,1),0.0_JPRB)
+           psnde(jl,jk,2)=MAX(psnde(jl,jk,2),0.0_JPRB)
+         ENDIF
          pmflxr(jl,jk+1)=pmflxr(jl,jk)+zalfaw*&
-            & (pdmfup(jl,jk)+pdmfdp(jl,jk))+pdpmel(jl,jk)
+            & (pdmfup(jl,jk)+pdmfdp(jl,jk))+pdpmel(jl,jk)-psnde(jl,jk,2)
           pmflxs(jl,jk+1)=pmflxs(jl,jk)+(1.0_JPRB-zalfaw)*&
-               & (pdmfup(jl,jk)+pdmfdp(jl,jk))-pdpmel(jl,jk)
+            & (pdmfup(jl,jk)+pdmfdp(jl,jk))-pdpmel(jl,jk)-psnde(jl,jk,1)
           IF(pmflxr(jl,jk+1)+pmflxs(jl,jk+1) < 0.0_JPRB) THEN
             pdmfdp(jl,jk)=-(pmflxr(jl,jk)+pmflxs(jl,jk)+pdmfup(jl,jk))
             pmflxr(jl,jk+1)=0.0_JPRB
@@ -500,7 +538,7 @@ CONTAINS
     & paph,     pgeoh,    pgeo,&
     & zdph,                    &
     & pten,     ptenh,    pqen,     pqenh,    pqsen,&
-    & plglac,   plude,    pmfu,     pmfd,&
+    & plglac,   plude,    psnde,    pmfu,     pmfd,&
     & pmfus,    pmfds,    pmfuq,    pmfdq,&
     & pmful,    pdmfup,   pdpmel,&
     & ptent,    ptenq,    penth )
@@ -552,6 +590,7 @@ CONTAINS
     !!   *PQSEN*        SATURATION ENV. SPEC. HUMIDITY (T+1)          KG/KG
     !!   *PLGLAC*       FLUX OF FROZEN CLOUDWATER IN UPDRAFTS         KG/(M2*S)
     !!   *PLUDE*        DETRAINED LIQUID WATER                        KG/(M3*S)
+    !    *PSNDE*        DETRAINED SNOW/RAIN                           KG/(M2*S)
     !!   *PMFU*         MASSFLUX UPDRAFTS                             KG/(M2*S)
     !!   *PMFD*         MASSFLUX DOWNDRAFTS                           KG/(M2*S)
     !!   *PMFUS*        FLUX OF DRY STATIC ENERGY IN UPDRAFTS          J/(M2*S)
@@ -622,6 +661,7 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(in)    :: pqsen(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: plglac(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: plude(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout) :: psnde(klon,klev,2)
     REAL(KIND=jprb)   ,INTENT(in)    :: pmfu(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pmfd(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pmfus(klon,klev)
@@ -759,18 +799,18 @@ CONTAINS
             !zdtdt(jl,jk)=rg/zdph(jl,jk)*zorcpd*&
               & (zmfus(jl,jk+1)-zmfus(jl,jk)+&
               & zmfds(jl,jk+1)-zmfds(jl,jk)&
-            ! GZ: rescale heating rates related to latent heat relase from cp to cv
+            ! GZ: rescale heating rates related to latent heat release from cp to cv
               & +zcp_o_cv*(rlmlt*plglac(jl,jk)&
               & -rlmlt*pdpmel(jl,jk)&
               & -zalv*(pmful(jl,jk+1)-pmful(jl,jk)-&
-              & plude(jl,jk)-pdmfup(jl,jk))))
+              & plude(jl,jk)-pdmfup(jl,jk)-psnde(jl,jk,1)-psnde(jl,jk,2))))
             !>KF
                     ZDQDT(JL,JK)=ZDP(JL,JK)*&
             !zdqdt(jl,jk)=rg/zdph(jl,jk)*&
               & (zmfuq(jl,jk+1)-zmfuq(jl,jk)+&
               & zmfdq(jl,jk+1)-zmfdq(jl,jk)+&
               & pmful(jl,jk+1)-pmful(jl,jk)-&
-              & plude(jl,jk)-pdmfup(jl,jk))
+              & plude(jl,jk)-pdmfup(jl,jk)-psnde(jl,jk,1)-psnde(jl,jk,2))
           ENDIF
        ENDDO
 
@@ -787,7 +827,7 @@ CONTAINS
             !>KF
             ZDTDT(JL,JK)=-ZDP(JL,JK)*ZORCPD*&
             !zdtdt(jl,jk)=-rg/zdph(jl,jk)*zorcpd*&
-            ! GZ: rescale heating rates related to latent heat relase from cp to cv
+            ! GZ: rescale heating rates related to latent heat release from cp to cv
               & (zmfus(jl,jk)+zmfds(jl,jk)+zcp_o_cv*(rlmlt*pdpmel(jl,jk)-zalv*&
               & (pmful(jl,jk)+pdmfup(jl,jk))))
 

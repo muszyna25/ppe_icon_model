@@ -40,6 +40,7 @@ MODULE mo_echam_phy_memory
     &                               VINTP_METHOD_LIN,          &
     &                               VINTP_METHOD_LIN_NLEVP1
   USE mo_exception,           ONLY: message, finish
+  USE mo_fortran_tools,       ONLY: t_ptr_2d, t_ptr_3d
   USE mo_parallel_config,     ONLY: nproma
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
   USE mo_echam_sfc_indices,   ONLY: nsfc_type, csfc
@@ -75,25 +76,11 @@ MODULE mo_echam_phy_memory
 
   PUBLIC :: cdimissval
 
-#ifdef HAVE_F95
-  PUBLIC :: t_ptr2d, t_ptr3d
-#endif
   CHARACTER(len=*), PARAMETER :: thismodule = 'mo_echam_phy_memory'
 
   !!--------------------------------------------------------------------------
   !!                               DATA TYPES
   !!--------------------------------------------------------------------------
-  !>
-  !! Derived data types for building pointer arrays
-  !!
-  TYPE t_ptr2d
-    REAL(wp),POINTER :: p(:,:)    ! pointer to 2D (spatial) array
-  END TYPE t_ptr2d
-
-  TYPE t_ptr3d
-    REAL(wp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
-  END TYPE t_ptr3d
-
   !>
   !! Derived data type: t_echam_phy_field
   !!
@@ -146,7 +133,7 @@ MODULE mo_echam_phy_memory
       & presi_new (:,:,:),  &!< [Pa]    pressure at half levels at time step "new"
       & presm_new (:,:,:)    !< [Pa]    pressure at full levels at time step "new"
 
-    TYPE(t_ptr3d),ALLOCATABLE :: q_ptr(:)
+    TYPE(t_ptr_3d),ALLOCATABLE :: q_ptr(:)
 
 
     ! Radiation
@@ -305,8 +292,8 @@ MODULE mo_echam_phy_memory
       & cftke   (:,:,:),     &!< turbulent exchange coefficient
       & cfthv   (:,:,:)       !< turbulent exchange coefficient
 
-    TYPE(t_ptr2d),ALLOCATABLE :: cfm_tile_ptr(:)
-    TYPE(t_ptr2d),ALLOCATABLE :: cfh_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: cfm_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: cfh_tile_ptr(:)
 
     REAL(wp),POINTER ::     &
       & coriol(:,:),        &!< Coriolis parameter, needed for diagnosing PBL height.
@@ -333,11 +320,11 @@ MODULE mo_echam_phy_memory
       & swflxtoa    (:,:),     &!< [ W/m2] shortwave net flux at TOA 
       & lwflxtoa    (:,:)       !< [ W/m2] shortwave net flux at TOA
 
-    TYPE(t_ptr2d),ALLOCATABLE :: swflxsfc_tile_ptr(:)
-    TYPE(t_ptr2d),ALLOCATABLE :: lwflxsfc_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: swflxsfc_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: lwflxsfc_tile_ptr(:)
 
-    TYPE(t_ptr2d),ALLOCATABLE :: z0m_tile_ptr(:)
-    TYPE(t_ptr2d),ALLOCATABLE :: wstar_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: z0m_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: wstar_tile_ptr(:)
 
     ! need only for vdiff ----
 
@@ -355,8 +342,8 @@ MODULE mo_echam_phy_memory
       & tsfc      (:,  :),  &!< surface temperature, grid box mean
       & qs_sfc_tile(:,:,:)   !< saturation specitifc humidity at surface 
 
-    TYPE(t_ptr2d),ALLOCATABLE ::   tsfc_tile_ptr(:)
-    TYPE(t_ptr2d),ALLOCATABLE :: qs_sfc_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE ::   tsfc_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: qs_sfc_tile_ptr(:)
 
     ! Surface albedo
     REAL(wp),POINTER :: &
@@ -371,7 +358,7 @@ MODULE mo_echam_phy_memory
       & albnirdif      (:,:  ),  &!< [ ] surface albedo for near-IR range, diffuse, grid-box mean
       & albedo         (:,:  )    !< [ ] surface albedo, grid-box mean
 
-    TYPE(t_ptr2d),ALLOCATABLE :: albvisdir_tile_ptr(:), albvisdif_tile_ptr(:), &
+    TYPE(t_ptr_2d),ALLOCATABLE :: albvisdir_tile_ptr(:), albvisdif_tile_ptr(:), &
       & albnirdir_tile_ptr(:), albnirdif_tile_ptr(:), albedo_tile_ptr(:)
 
     REAL(wp),POINTER :: &
@@ -383,10 +370,10 @@ MODULE mo_echam_phy_memory
       & evap_tile(:,:,:),     &!< evaporation at surface on tiles
       & dshflx_dT_tile(:,:,:)  !< temp tendency of SHF at surface on tiles
 
-    TYPE(t_ptr2d),ALLOCATABLE :: lhflx_tile_ptr(:)
-    TYPE(t_ptr2d),ALLOCATABLE :: shflx_tile_ptr(:)
-    TYPE(t_ptr2d),ALLOCATABLE :: evap_tile_ptr(:)
-    TYPE(t_ptr2d),ALLOCATABLE :: dshflx_dT_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: lhflx_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: shflx_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: evap_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: dshflx_dT_tile_ptr(:)
 
     REAL(wp),POINTER :: &
       & u_stress     (:,  :), &!< grid box mean wind stress
@@ -394,8 +381,8 @@ MODULE mo_echam_phy_memory
       & u_stress_tile(:,:,:), &!< wind stress on tiles
       & v_stress_tile(:,:,:)   !< wind stress on tiles
 
-    TYPE(t_ptr2d),ALLOCATABLE :: u_stress_tile_ptr(:)
-    TYPE(t_ptr2d),ALLOCATABLE :: v_stress_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: u_stress_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: v_stress_tile_ptr(:)
 
     ! Near surface diagnostics (2m temp; 2m dew point temp; 10m wind)
     !
@@ -413,11 +400,11 @@ MODULE mo_echam_phy_memory
       & tas_tile    (:,:,:),   &!< 2m temperature on tiles
       & dew2_tile   (:,:,:)     !< 2m dew point temperature on tiles
 
-    TYPE(t_ptr2d),ALLOCATABLE :: sfcWind_tile_ptr(:)
-    TYPE(t_ptr2d),ALLOCATABLE :: uas_tile_ptr(:)
-    TYPE(t_ptr2d),ALLOCATABLE :: vas_tile_ptr(:)
-    TYPE(t_ptr2d),ALLOCATABLE :: tas_tile_ptr(:)
-    TYPE(t_ptr2d),ALLOCATABLE :: dew2_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: sfcWind_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: uas_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: vas_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: tas_tile_ptr(:)
+    TYPE(t_ptr_2d),ALLOCATABLE :: dew2_tile_ptr(:)
 
   END TYPE t_echam_phy_field
 
@@ -494,12 +481,12 @@ MODULE mo_echam_phy_memory
       & temp_rlw (:,:,:)  , & !< temperature due to longwave radiation
       & temp_rlw_impl(:,:)    !< temperature tendency due to LW rad. due to implicit land surface temperature change
 
-    TYPE(t_ptr3d),ALLOCATABLE ::     q_ptr(:)
-    TYPE(t_ptr3d),ALLOCATABLE :: q_dyn_ptr(:)
-    TYPE(t_ptr3d),ALLOCATABLE :: q_phy_ptr(:)
-    TYPE(t_ptr3d),ALLOCATABLE :: q_cld_ptr(:)
-    TYPE(t_ptr3d),ALLOCATABLE :: q_cnv_ptr(:)
-    TYPE(t_ptr3d),ALLOCATABLE :: q_vdf_ptr(:)
+    TYPE(t_ptr_3d),ALLOCATABLE ::     q_ptr(:)
+    TYPE(t_ptr_3d),ALLOCATABLE :: q_dyn_ptr(:)
+    TYPE(t_ptr_3d),ALLOCATABLE :: q_phy_ptr(:)
+    TYPE(t_ptr_3d),ALLOCATABLE :: q_cld_ptr(:)
+    TYPE(t_ptr_3d),ALLOCATABLE :: q_cnv_ptr(:)
+    TYPE(t_ptr_3d),ALLOCATABLE :: q_vdf_ptr(:)
 
   END TYPE t_echam_phy_tend
 

@@ -52,7 +52,7 @@
 !!    of the module "mo_util_string_parse" and converted into a
 !!    "t_level_selection" object.
 !!
-!! b) Definition of namelist paramters "p_levels", "h_levels", "i_levels"
+!! b) Definition of namelist parameters "p_levels", "h_levels", "i_levels"
 !!
 !!    Each output namelist "output_nml" may specify its own range of
 !!    pressure levels for output (or for height, isentropic levels as
@@ -67,13 +67,7 @@
 MODULE mo_name_list_output_zaxes
 
   USE ISO_C_BINDING,                        ONLY: C_SIGNED_CHAR
-  USE mo_cdi,                               ONLY: CDI_UNDEFID, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_GENERIC, ZAXIS_SURFACE, &
-                                                & ZAXIS_ISENTROPIC, ZAXIS_ALTITUDE, ZAXIS_PRESSURE, ZAXIS_CLOUD_BASE, &
-                                                & ZAXIS_CLOUD_TOP, ZAXIS_DEPTH_BELOW_LAND, ZAXIS_HEIGHT, ZAXIS_HYBRID, &
-                                                & ZAXIS_HYBRID_HALF, ZAXIS_ISOTHERM_ZERO, ZAXIS_LAKE_BOTTOM, ZAXIS_MEANSEA, &
-                                                & ZAXIS_MIX_LAYER, ZAXIS_REFERENCE, ZAXIS_SEDIMENT_BOTTOM_TW, ZAXIS_SNOW, &
-                                                & ZAXIS_ATMOSPHERE,  &
-                                                & ZAXIS_TOA, zaxisCreate, zaxisDefNumber, zaxisDefUUID, zaxisDefLevels, &
+  USE mo_cdi,                               ONLY: CDI_UNDEFID, zaxisCreate, zaxisDefNumber, zaxisDefUUID, zaxisDefLevels, &
                                                 & zaxisDefLbounds, zaxisDefUbounds, zaxisDefVct, zaxisDefUnits, zaxisDefNlevRef
   USE mo_cdi_constants,                     ONLY: ZA_depth_below_sea, ZA_depth_below_sea_half, ZA_GENERIC_ICE, ZA_surface, &
                                                 & ZA_isentropic, ZA_altitude, ZA_pressure, ZA_cloud_base, ZA_cloud_top, &
@@ -83,7 +77,7 @@ MODULE mo_name_list_output_zaxes
                                                 & ZA_meansea, ZA_mix_layer, ZA_pressure_0, ZA_pressure_400, ZA_pressure_800, &
                                                 & ZA_ATMOSPHERE, ZA_PRES_FL_SFC_200, ZA_PRES_FL_200_350, ZA_PRES_FL_350_550,      &
                                                 & ZA_PRES_FL_SFC_100, ZA_PRES_FL_100_245, ZA_PRES_FL_245_390, ZA_PRES_FL_390_530, &
-                                                & ZA_reference, ZA_reference_half, ZA_reference_half_hhl, &
+                                                & ZA_reference, ZA_reference_half, ZA_reference_half_hhl, cdi_zaxis_types, &
                                                 & ZA_sediment_bottom_tw_half, ZA_snow, ZA_snow_half, ZA_toa, ZA_OCEAN_SEDIMENT
   USE mo_kind,                              ONLY: wp, dp
   USE mo_impl_constants,                    ONLY: zml_soil, SUCCESS
@@ -156,45 +150,45 @@ CONTAINS
     ! --------------------------------------------------------------------------------------
 
     ! surface level
-    CALL define_single_level_axis(of, ZA_surface, ZAXIS_SURFACE)
+    CALL define_single_level_axis(of, ZA_surface)
 
     ! CLOUD BASE LEVEL
-    CALL define_single_level_axis(of, ZA_cloud_base, ZAXIS_CLOUD_BASE)
+    CALL define_single_level_axis(of, ZA_cloud_base)
 
     ! CLOUD TOP LEVEL
-    CALL define_single_level_axis(of, ZA_cloud_top, ZAXIS_CLOUD_TOP)
+    CALL define_single_level_axis(of, ZA_cloud_top)
 
     ! LEVEL of 0\deg C isotherm
-    CALL define_single_level_axis(of, ZA_isotherm_zero, ZAXIS_ISOTHERM_ZERO)
+    CALL define_single_level_axis(of, ZA_isotherm_zero)
 
     ! Define axis for output on mean sea level
-    CALL define_single_level_axis(of, ZA_meansea, ZAXIS_MEANSEA)
+    CALL define_single_level_axis(of, ZA_meansea)
 
     ! Specific soil axis for Runoff_s
-    CALL define_single_layer_axis(of, ZA_depth_runoff_s, ZAXIS_DEPTH_BELOW_LAND, 0._dp, 0.1_dp, &
+    CALL define_single_layer_axis(of, ZA_depth_runoff_s, 0._dp, 0.1_dp, &
       &                           unit="m")
 
     ! Specific soil axis for Runoff_g
-    CALL define_single_layer_axis(of, ZA_depth_runoff_g, ZAXIS_DEPTH_BELOW_LAND, 0.1_dp, 1._dp, &
+    CALL define_single_layer_axis(of, ZA_depth_runoff_g, 0.1_dp, 1._dp, &
       &                           unit="m")
 
     ! Specified height level above ground: 2m
-    CALL define_single_level_axis(of, ZA_height_2m, ZAXIS_HEIGHT, opt_level_value=2._dp)
+    CALL define_single_level_axis(of, ZA_height_2m, opt_level_value=2._dp)
 
     ! Specified height level above ground: 10m
-    CALL define_single_level_axis(of, ZA_height_10m, ZAXIS_HEIGHT, opt_level_value=10._dp)
+    CALL define_single_level_axis(of, ZA_height_10m, opt_level_value=10._dp)
 
     ! Top of atmosphere
-    CALL define_single_level_axis(of, ZA_toa, ZAXIS_TOA)
+    CALL define_single_level_axis(of, ZA_toa)
 
     ! Bottom of sediment layer penetrated by thermal wave (interface, i.e. only typeOfFirstFixedSurface)
-    CALL define_single_level_axis(of, ZA_sediment_bottom_tw_half, ZAXIS_SEDIMENT_BOTTOM_TW, opt_unit="m")
+    CALL define_single_level_axis(of, ZA_sediment_bottom_tw_half, opt_unit="m")
 
     ! Lake bottom half (interface, i.e. only typeOfFirstFixedSurface)
-    CALL define_single_level_axis(of, ZA_lake_bottom_half, ZAXIS_LAKE_BOTTOM, opt_unit="m")
+    CALL define_single_level_axis(of, ZA_lake_bottom_half, opt_unit="m")
 
     ! for having ice variable in the atmosphere (like AMIP)
-    of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(ZAXIS_GENERIC, 1)
+    of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(cdi_zaxis_types(ZA_GENERIC_ICE), 1)
 
 
     ! --------------------------------------------------------------------------------------
@@ -209,39 +203,39 @@ CONTAINS
     !DR This is because, CDI does not allow layer-type vertical axis without setting 
     !DR scaleFactorOfSecondFixedSurface and scaledValueOfSecondFixedSurface.
     !
-    CALL define_single_layer_axis(of, ZA_pressure_800, ZAXIS_PRESSURE, 800._dp,   0._dp, "hPa")
+    CALL define_single_layer_axis(of, ZA_pressure_800, 800._dp,   0._dp, "hPa")
     ! Isobaric surface 400 hPa (layer)
-    CALL define_single_layer_axis(of, ZA_pressure_400, ZAXIS_PRESSURE, 400._dp, 800._dp, "hPa")
+    CALL define_single_layer_axis(of, ZA_pressure_400, 400._dp, 800._dp, "hPa")
     ! Isobaric surface 0 hPa (layer)
-    CALL define_single_layer_axis(of, ZA_pressure_0,   ZAXIS_PRESSURE,   0._dp, 400._dp, "hPa")
+    CALL define_single_layer_axis(of, ZA_pressure_0,   0._dp, 400._dp, "hPa")
 
     ! Specific vertical axis for Lake-model ------------------------------------------------
     ! Lake bottom (we define it as a layer in order to be able to re-set
     ! either the first- or secondFixedSurfaces if necessary)
-    CALL define_single_layer_axis(of, ZA_lake_bottom, ZAXIS_LAKE_BOTTOM, 0._dp, 0._dp, "m")
+    CALL define_single_layer_axis(of, ZA_lake_bottom, 0._dp, 0._dp, "m")
 
     ! Mixing layer (we define it as a layer in order to be able to re-set
     ! either the first- or secondFixedSurfaces if necessary)
-    CALL define_single_layer_axis(of, ZA_mix_layer, ZAXIS_MIX_LAYER, 1._dp, 0._dp, "m")
+    CALL define_single_layer_axis(of, ZA_mix_layer, 1._dp, 0._dp, "m")
 
     ! Volcanic ash products - Maximum total mass concentration in flight level range
     !                         defined by pressure layers
-    CALL define_single_layer_axis(of, ZA_PRES_FL_SFC_200, ZAXIS_PRESSURE, 465.00_dp, 1013.25_dp, "hPa")
-    CALL define_single_layer_axis(of, ZA_PRES_FL_200_350, ZAXIS_PRESSURE, 240.00_dp,  465.00_dp, "hPa")
-    CALL define_single_layer_axis(of, ZA_PRES_FL_350_550, ZAXIS_PRESSURE,  91.00_dp,  240.00_dp, "hPa")
-    CALL define_single_layer_axis(of, ZA_PRES_FL_SFC_100, ZAXIS_PRESSURE, 700.00_dp, 1013.25_dp, "hPa")
-    CALL define_single_layer_axis(of, ZA_PRES_FL_100_245, ZAXIS_PRESSURE, 385.00_dp,  700.00_dp, "hPa")
-    CALL define_single_layer_axis(of, ZA_PRES_FL_245_390, ZAXIS_PRESSURE, 200.00_dp,  385.00_dp, "hPa")
-    CALL define_single_layer_axis(of, ZA_PRES_FL_390_530, ZAXIS_PRESSURE, 100.00_dp,  200.00_dp, "hPa")
+    CALL define_single_layer_axis(of, ZA_PRES_FL_SFC_200, 465.00_dp, 1013.25_dp, "hPa")
+    CALL define_single_layer_axis(of, ZA_PRES_FL_200_350, 240.00_dp,  465.00_dp, "hPa")
+    CALL define_single_layer_axis(of, ZA_PRES_FL_350_550,  91.00_dp,  240.00_dp, "hPa")
+    CALL define_single_layer_axis(of, ZA_PRES_FL_SFC_100, 700.00_dp, 1013.25_dp, "hPa")
+    CALL define_single_layer_axis(of, ZA_PRES_FL_100_245, 385.00_dp,  700.00_dp, "hPa")
+    CALL define_single_layer_axis(of, ZA_PRES_FL_245_390, 200.00_dp,  385.00_dp, "hPa")
+    CALL define_single_layer_axis(of, ZA_PRES_FL_390_530, 100.00_dp,  200.00_dp, "hPa")
     ! Volcanic ash products - Colummn integrated total mass concentration (entire atmosphere)
-    CALL define_single_level_axis(of, ZA_ATMOSPHERE, ZAXIS_ATMOSPHERE)
+    CALL define_single_level_axis(of, ZA_ATMOSPHERE)
 
     ! --------------------------------------------------------------------------------------
     ! Definitions for reference grids (ZAXIS_REFERENCE) ------------------------------------
     ! --------------------------------------------------------------------------------------
 
     ! REFERENCE
-    CALL define_vertical_axis(of, ZA_reference, ZAXIS_REFERENCE, nlev,                   &
+    CALL define_vertical_axis(of, ZA_reference, nlev,                   &
       &                           levels           = (/ ( REAL(k,dp),   k=1,nlevp1 ) /), &
       &                           opt_set_bounds   = .TRUE.,                             &
       &                           opt_number       = get_numberOfVgridUsed(ivctype),     &
@@ -250,7 +244,7 @@ CONTAINS
     CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference),nlevp1)
 
     ! REFERENCE HALF
-    CALL define_vertical_axis(of, ZA_reference_half, ZAXIS_REFERENCE, nlevp1,        &
+    CALL define_vertical_axis(of, ZA_reference_half, nlevp1,        &
       &                           levels   = (/ ( REAL(k,dp),   k=1,nlevp1 ) /),     &
       &                           opt_number = get_numberOfVgridUsed(ivctype),       &
       &                           opt_uuid   = vgrid_buffer(of%log_patch_id)%uuid%DATA )
@@ -258,7 +252,7 @@ CONTAINS
     CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference_half),nlevp1)
 
     ! REFERENCE (special version for HHL)
-    CALL define_vertical_axis(of, ZA_reference_half_hhl, ZAXIS_REFERENCE, nlevp1,        &
+    CALL define_vertical_axis(of, ZA_reference_half_hhl, nlevp1,        &
       &                           levels           = (/ ( REAL(k,dp),   k=1,nlevp1 ) /), &
       &                           opt_set_bounds   = .TRUE.,                             &
       &                           opt_set_ubounds_value = 0._dp,                         &
@@ -274,7 +268,7 @@ CONTAINS
 
     ! HYBRID_LAYER
     !
-    CALL define_vertical_axis(of, ZA_hybrid, ZAXIS_HYBRID, nlev,               &
+    CALL define_vertical_axis(of, ZA_hybrid, nlev,               &
       &                           levels = (/ ( REAL(k,dp),   k=1,nlevp1 ) /), &
       &                           opt_set_bounds  = .TRUE.)
     CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid), 2*nlevp1, vct(1:2*nlevp1))
@@ -285,13 +279,13 @@ CONTAINS
     ! removed from the CDI (in principle its use should be simply
     ! replaced by ZAXIS_HALF, as long as lbounds and ubounds are set
     ! correctly).
-    CALL define_vertical_axis(of, ZA_hybrid_half, ZAXIS_HYBRID_HALF, nlevp1,   &
+    CALL define_vertical_axis(of, ZA_hybrid_half, nlevp1,   &
       &                           levels = (/ ( REAL(k,dp),   k=1,nlevp1 ) /))
     CALL zaxisDefVct(of%cdiZaxisID(ZA_hybrid_half), 2*nlevp1, vct(1:2*nlevp1))
 
     ! HYBRID (special version for HHL)
     !
-    CALL define_vertical_axis(of, ZA_hybrid_half_hhl, ZAXIS_HYBRID_HALF, nlevp1, &
+    CALL define_vertical_axis(of, ZA_hybrid_half_hhl, nlevp1, &
       &                           levels = (/ ( REAL(k,dp),   k=1,nlevp1 ) /),   &
       &                           opt_set_bounds = .TRUE.,                       &
       &                           opt_set_ubounds_value  = 0._dp)
@@ -302,8 +296,7 @@ CONTAINS
     ! Axes for soil model (ZAXIS_DEPTH_BELOW_LAND) -----------------------------------------
     ! --------------------------------------------------------------------------------------
 
-    of%cdiZaxisID(ZA_depth_below_land_p1) = &
-      & zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+1)
+    of%cdiZaxisID(ZA_depth_below_land_p1) = zaxisCreate(cdi_zaxis_types(ZA_depth_below_land_p1), znlev_soil+1)
     ALLOCATE(levels(znlev_soil+1))
     levels(1) = 0._dp
     DO k = 1, znlev_soil
@@ -313,7 +306,7 @@ CONTAINS
     CALL zaxisDefUnits(of%cdiZaxisID(ZA_depth_below_land_p1), "mm")
     DEALLOCATE(levels)
 
-    of%cdiZaxisID(ZA_depth_below_land) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil)
+    of%cdiZaxisID(ZA_depth_below_land) = zaxisCreate(cdi_zaxis_types(ZA_depth_below_land), znlev_soil)
     ALLOCATE(lbounds(znlev_soil), ubounds(znlev_soil), levels(znlev_soil))
     lbounds(1) = 0._dp   ! surface
     DO k = 2, znlev_soil
@@ -338,7 +331,7 @@ CONTAINS
     ! --------------------------------------------------------------------------------------
 
     ! SNOW-layer axis (for multi-layer snow model)
-    of%cdiZaxisID(ZA_snow) = zaxisCreate(ZAXIS_SNOW, nlev_snow)
+    of%cdiZaxisID(ZA_snow) = zaxisCreate(cdi_zaxis_types(ZA_SNOW), nlev_snow)
     ALLOCATE(levels(nlev_snow), lbounds(nlev_snow), ubounds(nlev_snow))
     DO k = 1, nlev_snow
       lbounds(k) = REAL(k,dp)
@@ -353,7 +346,7 @@ CONTAINS
     CALL zaxisDefLevels(of%cdiZaxisID(ZA_snow), levels)   !necessary for NetCDF
     DEALLOCATE(levels, lbounds, ubounds)
 
-    of%cdiZaxisID(ZA_snow_half) = zaxisCreate(ZAXIS_SNOW, nlev_snow+1)
+    of%cdiZaxisID(ZA_snow_half) = zaxisCreate(cdi_zaxis_types(ZA_SNOW_HALF), nlev_snow+1)
     ALLOCATE(levels(nlev_snow+1))
     DO k = 1, nlev_snow+1
       levels(k) = REAL(k,dp)
@@ -378,11 +371,11 @@ CONTAINS
     of%cdiZaxisID(:) = CDI_UNDEFID ! not all are set
 
     ! surface level (required, e.g., for RLON, RLAT)
-    CALL define_single_level_axis(of, ZA_surface, ZAXIS_SURFACE)
+    CALL define_single_level_axis(of, ZA_surface)
     ! p-axis
     !
     levels => nh_pzlev_config(of%log_patch_id)%plevels
-    CALL define_vertical_axis(of, ZA_pressure, ZAXIS_PRESSURE,      &
+    CALL define_vertical_axis(of, ZA_pressure,      &
       &                       SIZE(levels%values),                  &
       &                       levels = levels%values,               &
       &                       opt_set_vct_as_levels = .TRUE.)
@@ -402,11 +395,11 @@ CONTAINS
     of%cdiZaxisID(:) = CDI_UNDEFID ! not all are set
 
     ! surface level (required, e.g., for RLON, RLAT)
-    CALL define_single_level_axis(of, ZA_surface, ZAXIS_SURFACE)
+    CALL define_single_level_axis(of, ZA_surface)
     ! Altitude above mean sea level
     !
     levels => nh_pzlev_config(of%log_patch_id)%zlevels
-    CALL define_vertical_axis(of, ZA_altitude, ZAXIS_ALTITUDE,      &
+    CALL define_vertical_axis(of, ZA_altitude,      &
       &                       SIZE(levels%values),                  &
       &                       levels = levels%values,               &
       &                       opt_set_vct_as_levels = .TRUE.)
@@ -426,11 +419,11 @@ CONTAINS
     of%cdiZaxisID(:) = CDI_UNDEFID ! not all are set
 
     ! surface level (required, e.g., for RLON, RLAT)
-    CALL define_single_level_axis(of, ZA_surface, ZAXIS_SURFACE)
+    CALL define_single_level_axis(of, ZA_surface)
     ! i-axis (isentropes)
     !
     levels => nh_pzlev_config(of%log_patch_id)%ilevels
-    CALL define_vertical_axis(of, ZA_isentropic, ZAXIS_ISENTROPIC,  &
+    CALL define_vertical_axis(of, ZA_isentropic,  &
       &                       SIZE(levels%values),                  &
       &                       levels = levels%values,               &
       &                       opt_set_vct_as_levels = .TRUE.)
@@ -448,39 +441,39 @@ CONTAINS
     REAL(dp), ALLOCATABLE           :: levels(:)
     REAL(wp), ALLOCATABLE           :: levels_i(:), levels_m(:)
     REAL(wp), ALLOCATABLE           :: levels_s(:), levels_sp(:)
-    INTEGER                         :: nzlevp1,iz
+    INTEGER                         :: nzlevp1
 
 #ifndef __NO_ICON_OCEAN__
     of%cdiZaxisID(:) = CDI_UNDEFID ! not all are set
 
     ! surface level
- !  of%cdiZaxisID(ZA_surface) = zaxisCreate(ZAXIS_SURFACE, 1)
+ !  of%cdiZaxisID(ZA_surface) = zaxisCreate(cdi_zaxis_types(ZA_surface), 1)
  !  ALLOCATE(levels(1))
  !  levels(1) = 0.0_dp
  !  CALL zaxisDefLevels(of%cdiZaxisID(ZA_surface), levels)
  !  DEALLOCATE(levels)
 
- !  of%cdiZaxisID(ZA_depth_below_sea)      = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, n_zlev)
- !  of%cdiZaxisID(ZA_depth_below_sea_half) = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, nzlevp1)
+ !  of%cdiZaxisID(ZA_depth_below_sea) = zaxisCreate(cdi_zaxis_types(ZA_depth_below_sea), n_zlev)
+ !  of%cdiZaxisID(ZA_depth_below_sea_half) = zaxisCreate(cdi_zaxis_types(ZA_depth_below_sea_half), nzlevp1)
     
     ALLOCATE(levels_i(n_zlev+1))
     ALLOCATE(levels_m(n_zlev))
     CALL set_zlev(levels_i, levels_m, n_zlev, dzlev_m)
 !   CALL zaxisDefLevels(of%cdiZaxisID(ZA_DEPTH_BELOW_SEA), REAL(levels_m,dp))
 !   CALL zaxisDefLevels(of%cdiZaxisID(ZA_DEPTH_BELOW_SEA_HALF), REAL(levels_i,dp))
-!   of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(ZAXIS_GENERIC, 1)
+!   of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(cdi_zaxis_types(ZA_GENERIC_ICE), 1)
 
-    CALL define_single_level_axis(of, ZA_surface, ZAXIS_SURFACE)
-    CALL define_vertical_axis(of, ZA_depth_below_sea,      ZAXIS_DEPTH_BELOW_SEA, n_zlev  , levels = REAL(levels_m,wp))
-    CALL define_vertical_axis(of, ZA_depth_below_sea_half, ZAXIS_DEPTH_BELOW_SEA, n_zlev+1, levels = REAL(levels_i,wp))
-    CALL define_single_level_axis(of, ZA_GENERIC_ICE, ZAXIS_GENERIC)
+    CALL define_single_level_axis(of, ZA_surface)
+    CALL define_vertical_axis(of, ZA_depth_below_sea, n_zlev, levels = REAL(levels_m,wp))
+    CALL define_vertical_axis(of, ZA_depth_below_sea_half, n_zlev+1, levels = REAL(levels_i,wp))
+    CALL define_single_level_axis(of, ZA_GENERIC_ICE)
 
     DEALLOCATE(levels_i)
     DEALLOCATE(levels_m)
-    of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(ZAXIS_GENERIC, 1)
+    of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(cdi_zaxis_types(ZA_GENERIC_ICE), 1)
     if(lhamocc)then
     ! ocean sediment
-    of%cdiZaxisID(ZA_OCEAN_SEDIMENT) = zaxisCreate(ZAXIS_GENERIC, ks)
+    of%cdiZaxisID(ZA_OCEAN_SEDIMENT) = zaxisCreate(cdi_zaxis_types(ZA_OCEAN_SEDIMENT), ks)
     ALLOCATE(levels_s(ks))
     ALLOCATE(levels_sp(ksp))
 
@@ -497,17 +490,16 @@ CONTAINS
   ! --------------------------------------------------------------------------------------
   !> Utility function: defines z-axis with a single level
   !
-  SUBROUTINE define_single_level_axis(of, za_type, cdi_type, opt_level_value, opt_unit)
+  SUBROUTINE define_single_level_axis(of, za_type, opt_level_value, opt_unit)
     TYPE(t_output_file), INTENT(INOUT) :: of       !< output file meta-data
     INTEGER,             INTENT(IN)    :: za_type  !< ICON-internal axis ID (see mo_cdi_constants)
-    INTEGER,             INTENT(IN)    :: cdi_type !< CDI-internal axis name
 
     REAL(dp),         INTENT(IN), OPTIONAL :: opt_level_value   !< level value
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: opt_unit          !< axis unit
     ! local variables
     REAL(dp), ALLOCATABLE           :: levels(:)
 
-    of%cdiZaxisID(za_type) = zaxisCreate(cdi_type, 1)
+    of%cdiZaxisID(za_type) = zaxisCreate(cdi_zaxis_types(za_type), 1)
     ALLOCATE(levels(1))
     IF (PRESENT(opt_level_value)) THEN
       levels(1) = opt_level_value
@@ -525,16 +517,15 @@ CONTAINS
   ! --------------------------------------------------------------------------------------
   !> Utility function: defines z-axis with a single *layer*
   !
-  SUBROUTINE define_single_layer_axis(of, za_type, cdi_type, lbound, ubound, unit)
+  SUBROUTINE define_single_layer_axis(of, za_type, lbound, ubound, unit)
     TYPE(t_output_file), INTENT(INOUT) :: of             !< output file meta-data
     INTEGER,             INTENT(IN)    :: za_type        !< ICON-internal axis ID (see mo_cdi_constants)
-    INTEGER,             INTENT(IN)    :: cdi_type       !< CDI-internal axis name
     REAL(dp),            INTENT(IN)    :: lbound, ubound !< lower and upper bound
     CHARACTER(LEN=*),    INTENT(IN)    :: unit           !< axis unit
     ! local variables
     REAL(dp), ALLOCATABLE           :: levels(:), lbounds(:), ubounds(:)
 
-    of%cdiZaxisID(za_type) = zaxisCreate(cdi_type, 1)
+    of%cdiZaxisID(za_type) = zaxisCreate(cdi_zaxis_types(za_type), 1)
     ALLOCATE(lbounds(1), ubounds(1), levels(1))
     lbounds(1) = lbound
     ubounds(1) = ubound
@@ -550,16 +541,16 @@ CONTAINS
   ! --------------------------------------------------------------------------------------
   !> Utility function: defines z-axis with given levels, lower and upper bounds.
   !
-  SUBROUTINE define_vertical_axis(of, za_type, cdi_type, in_nlevs, levels,     &
+  SUBROUTINE define_vertical_axis(of, za_type, in_nlevs, levels,     &
     &                             opt_set_bounds, opt_set_ubounds_value,       &
-    &                             opt_number, opt_uuid, opt_set_vct_as_levels)
+    &                             opt_name, opt_number, opt_uuid, opt_set_vct_as_levels)
     TYPE(t_output_file),     INTENT(INOUT) :: of             !< output file meta-data
     INTEGER,                 INTENT(IN)    :: za_type        !< ICON-internal axis ID (see mo_cdi_constants)
-    INTEGER,                 INTENT(IN)    :: cdi_type       !< CDI-internal axis name 
     INTEGER,                 INTENT(IN)    :: in_nlevs       !< no. of levels (if no selection)
     REAL(dp),                INTENT(IN)    :: levels(:)      !< axis levels
     LOGICAL,                 INTENT(IN), OPTIONAL :: opt_set_bounds        !< Flag. Set lower/upper bounds if .TRUE.
     REAL(dp),                INTENT(IN), OPTIONAL :: opt_set_ubounds_value !< Explicit value for ubounds
+    CHARACTER(*),            INTENT(IN), OPTIONAL :: opt_name              !< Name of the zaxis    
     INTEGER,                 INTENT(IN), OPTIONAL :: opt_number            !< numberOfVGridUsed
     INTEGER(KIND = C_SIGNED_CHAR), INTENT(IN), OPTIONAL :: opt_uuid(16)          !< UUID of vertical grid
     LOGICAL,                 INTENT(IN), OPTIONAL :: opt_set_vct_as_levels !< set VCT to level values
@@ -595,8 +586,10 @@ CONTAINS
     END IF
 
     ! create vertical axis object
-    of%cdiZaxisID(za_type) = zaxisCreate(cdi_type, nlev)
+    of%cdiZaxisID(za_type) = zaxisCreate(cdi_zaxis_types(za_type), nlev)
     CALL zaxisDefLevels(of%cdiZaxisID(za_type), axis_levels ) !necessary for NetCDF
+
+    IF (PRESENT(opt_name)) CALL zaxisDefName(of%cdiZaxisID(za_type), TRIM(opt_name))
 
     set_bounds = .FALSE.
     IF (PRESENT(opt_set_bounds)) set_bounds = opt_set_bounds

@@ -65,10 +65,11 @@ MODULE mo_nh_stepping
   USE mo_grid_config,              ONLY: n_dom, lfeedback, ifeedback_type, l_limited_area, &
     &                                    n_dom_start, lredgrid_phys, start_time, end_time, patch_weight
   USE mo_nh_testcases,             ONLY: init_nh_testcase
-  USE mo_nh_testcases_nml,         ONLY: nh_test_name, rotate_axis_deg, lcoupled_rho
+  USE mo_nh_testcases_nml,         ONLY: nh_test_name, rotate_axis_deg, lcoupled_rho, is_toy_chem
   USE mo_nh_pa_test,               ONLY: set_nh_w_rho
   USE mo_nh_df_test,               ONLY: get_nh_df_velocity
   USE mo_nh_dcmip_hadley,          ONLY: set_nh_velocity_hadley
+  USE mo_nh_dcmip_terminator,      ONLY: dcmip_terminator_interface
   USE mo_nh_supervise,             ONLY: supervise_total_integrals_nh, print_maxwinds,  &
     &                                    init_supervise_nh, finalize_supervise_nh
   USE mo_intp_data_strc,           ONLY: p_int_state, t_int_state
@@ -84,13 +85,13 @@ MODULE mo_nh_stepping
                                          prep_outer_bdy_nudging, save_progvars
   USE mo_nh_feedback,              ONLY: feedback, relax_feedback
   USE mo_datetime,                 ONLY: t_datetime, add_time, check_newday, iso8601
-  USE mo_io_restart,               ONLY: create_restart_file
   USE mo_exception,                ONLY: message, message_text, finish
   USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
     &                                    itconv, itccov, itrad, itradheat, itsso, itsatad, itgwd,  &
     &                                    inoforcing, iheldsuarez, inwp, iecham,                    &
     &                                    itturb, itgscp, itsfc,                                    &
-    &                                    MODE_IAU, MODE_IAU_OLD, MODIS
+    &                                    MODE_IAU, MODE_IAU_OLD, MODIS, SSTICE_ANA_CLINC,          &
+    &                                    SSTICE_CLIM, SSTICE_AVG_MONTHLY, SSTICE_AVG_DAILY
   USE mo_math_divrot,              ONLY: rot_vertex, div_avg !, div
   USE mo_solve_nonhydro,           ONLY: solve_nh
   USE mo_update_dyn,               ONLY: add_slowphys
@@ -116,7 +117,7 @@ MODULE mo_nh_stepping
   USE mo_master_config,            ONLY: isRestart, tc_startdate, tc_stopdate, &
        &                                 tc_exp_refdate, tc_exp_startdate, tc_exp_stopdate, &
        &                                 tc_dt_checkpoint, tc_dt_restart
-  USE mo_io_restart_attributes,    ONLY: get_restart_attribute
+  USE mo_restart_attributes,       ONLY: t_RestartAttributeList, getAttributesForRestarting
   USE mo_meteogram_config,         ONLY: meteogram_output_config
   USE mo_meteogram_output,         ONLY: meteogram_sample_vars, meteogram_is_sample_step
   USE mo_name_list_output,         ONLY: write_name_list_output, istime4name_list_output
@@ -130,9 +131,11 @@ MODULE mo_nh_stepping
 
   USE mo_nwp_sfc_utils,            ONLY: aggregate_landvars, update_sstice, update_ndvi
   USE mo_nh_init_nest_utils,       ONLY: initialize_nest
-  USE mo_nh_init_utils,            ONLY: hydro_adjust_downward, compute_iau_wgt
+  USE mo_nh_init_utils,            ONLY: hydro_adjust_downward, compute_iau_wgt, save_initial_state, &
+                                         restore_initial_state
   USE mo_td_ext_data,              ONLY: set_actual_td_ext_data
-  USE mo_initicon_config,          ONLY: init_mode, timeshift, init_mode_soil, is_avgFG_time
+  USE mo_initicon_config,          ONLY: init_mode, timeshift, init_mode_soil, is_avgFG_time, &
+                                         iterate_iau, dt_iau
   USE mo_initicon_utils,           ONLY: average_first_guess, reinit_average_first_guess
   USE mo_synsat_config,            ONLY: lsynsat
   USE mo_rttov_interface,          ONLY: rttov_driver, copy_rttov_ubc
@@ -143,8 +146,7 @@ MODULE mo_nh_stepping
     &                                    read_latbc_tlev, last_latbc_tlev, &
     &                                    update_lin_interc
   USE mo_interface_les,            ONLY: les_phy_interface
-  USE mo_io_restart_async,         ONLY: prepare_async_restart, write_async_restart, &
-    &                                    close_async_restart, set_data_async_restart
+  USE mo_restart,                  ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
   USE mo_nh_prepadv_types,         ONLY: prep_adv, t_prepare_adv, jstep_adv
   USE mo_action,                   ONLY: reset_act
   USE mo_output_event_handler,     ONLY: get_current_jfile
@@ -155,8 +157,7 @@ MODULE mo_nh_stepping
   USE mo_opt_diagnostics,          ONLY: update_opt_acc, reset_opt_acc, &
     &                                    calc_mean_opt_acc, p_nh_opt_diag
   USE mo_var_list,                 ONLY: nvar_lists, var_lists, print_var_list
-  USE mo_async_latbc,              ONLY: prefetch_input
-  USE mo_async_latbc_utils,        ONLY: deallocate_pref_latbc_data, new_latbc_tlev, &
+  USE mo_async_latbc_utils,        ONLY: deallocate_pref_latbc_data, new_latbc_tlev, pref_latbc_data, &
     &                                    prev_latbc_tlev, latbc_data, update_lin_interpolation
   USE mo_nonhydro_types,           ONLY: t_nh_state
   USE mo_interface_les,            ONLY: init_les_phy_interface
@@ -322,18 +323,25 @@ MODULE mo_nh_stepping
       &                  p_nh_state(jg)%prog(nnow(jg)),&
       &                  p_nh_state(jg)%diag, itlev = 2)
 
-    ! initialize exner_old if the model domain is active
-    IF (p_patch(jg)%ldom_active .AND. .NOT. isRestart()) CALL init_exner_old(jg, nnow(jg))
+    ! initialize exner_pr if the model domain is active
+    IF (p_patch(jg)%ldom_active .AND. .NOT. isRestart()) CALL init_exner_pr(jg, nnow(jg))
   ENDDO
 
 
-  IF (sstice_mode > 1 .AND. iforcing == inwp) THEN
+  IF (ANY((/SSTICE_CLIM,SSTICE_AVG_MONTHLY,SSTICE_AVG_DAILY/) == sstice_mode) .AND. iforcing == inwp) THEN
     ! t_seasfc and fr_seaice have to be set again from the ext_td_data files;
     ! the values from the analysis have to be overwritten.
     ! In the case of a restart, the call is required to open the file and read the data
     CALL set_actual_td_ext_data (.TRUE.,datetime_current,datetime_current,sstice_mode,  &
                                 &  p_patch(1:), ext_data, p_lnd_state)
   END IF
+
+  ! Save initial state if IAU iteration mode is chosen
+  IF (iterate_iau) THEN
+    CALL save_initial_state(p_patch(1:), p_nh_state, prm_diag, p_lnd_state, ext_data)
+    WRITE(message_text,'(a)') 'IAU iteration is activated: Start of first cycle with halved IAU window'
+    CALL message('',message_text)
+  ENDIF
 
   SELECT CASE (iforcing)
   CASE (inwp)
@@ -555,7 +563,7 @@ MODULE mo_nh_stepping
   TYPE(t_simulation_status)            :: simulation_status
   TYPE(t_datetime)                     :: datetime_old
 
-  INTEGER                              :: i
+  INTEGER                              :: i, iau_iter
   REAL(wp)                             :: elapsed_time_global
   INTEGER                              :: jstep   ! step number
   INTEGER                              :: jstep0  ! step for which the restart file
@@ -582,11 +590,19 @@ MODULE mo_nh_stepping
 
   INTEGER                              :: checkpointEvents
   LOGICAL                              :: lret
+  TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+  CLASS(t_RestartDescriptor), POINTER  :: restartDescriptor
 
 !!$  INTEGER omp_get_num_threads
 !-----------------------------------------------------------------------
 
   IF (ltimer) CALL timer_start(timer_total)
+
+  IF (iterate_iau) THEN
+    iau_iter = 1
+  ELSE
+    iau_iter = 0
+  ENDIF
 
   ! allocate temporary variable for restarting purposes
   ALLOCATE(output_jfile(SIZE(output_file)), STAT=ierr)
@@ -607,15 +623,13 @@ MODULE mo_nh_stepping
 
   datetime_old = datetime_current
 
-  IF (use_async_restart_output) THEN
-    CALL prepare_async_restart(opt_t_elapsed_phy_size = SIZE(t_elapsed_phy, 2), &
-         &                     opt_lcall_phy_size     = SIZE(lcall_phy, 2))
-  ENDIF
+  restartDescriptor => createRestartDescriptor("atm")
 
   jstep0 = 0
+  restartAttributes => getAttributesForRestarting()
   IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
     ! get start counter for time loop from restart file:
-    CALL get_restart_attribute("jstep", jstep0)
+    jstep0 = restartAttributes%getInteger("jstep")
   END IF
 
   ! for debug purposes print var lists: for msg_level >= 13 short and for >= 20 long format
@@ -685,6 +699,14 @@ MODULE mo_nh_stepping
 
   CALL getPTStringFromMS(NINT(1000.0_wp*dtime,i8), dtime_str)
   model_time_step => newTimedelta(dtime_str)
+
+  ! IMPORTANT NOTE: The MTIME implementation of the time loop does not
+  ! take the IAU mode of the ICON model into account which starts with
+  ! "negative" time steps, controlled by "jstep_shift".
+  IF (jstep_shift /= 0) THEN
+    CALL finish('perform_nh_timeloop', "Backward time shift of model not yet implemented!")
+  END IF
+
   current_date => newDatetime(tc_startdate)
   end_date => newDatetime(current_date)
   end_date = end_date + getEventInterval(restartEvent)
@@ -703,6 +725,8 @@ MODULE mo_nh_stepping
 !LK++
 #endif
 
+  jstep = jstep0+jstep_shift+1
+
 #if defined( _OPENACC )
 !
   i_am_accel_node = my_process_is_work()    ! Activate GPUs
@@ -717,10 +741,9 @@ MODULE mo_nh_stepping
 #endif
 
 #ifdef USE_MTIME_LOOP
-  jstep = jstep0+jstep_shift+1
   TIME_LOOP: DO
 #else
-  TIME_LOOP: DO jstep = (jstep0+jstep_shift+1), (jstep0+nsteps)
+  TIME_LOOP: DO WHILE (jstep <= jstep0+nsteps)
 #endif
     ! Check if a nested domain needs to be turned off
     DO jg=2, n_dom
@@ -763,9 +786,6 @@ MODULE mo_nh_stepping
     ! always print the first and the last time step
     lprint_timestep = lprint_timestep .OR. jstep == jstep0+1 .OR. jstep == jstep0+nsteps
 
-!LK++
-    lprint_timestep = .TRUE.
-!LK++
     IF (lprint_timestep) THEN
       ! compute current datetime in a format appropriate for mtime
       CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
@@ -792,7 +812,7 @@ MODULE mo_nh_stepping
              &                                   forecast_delta%minute, 'M', &
              &                                   forecast_delta%second, 'S'
       ENDIF
-!LK--
+
       CALL message('','')
       IF (iforcing == inwp) THEN
         WRITE(message_text,'(a,i8,a,i0,a,5(i2.2,a),i3.3,a,a)') 'Time step: ', jstep, ', model time: ',            &
@@ -817,7 +837,9 @@ MODULE mo_nh_stepping
     ! - SST, fr_seaice (depending on sstice_mode)
     ! - MODIS albedo fields alb_dif, albuv_dif, albni_dif
     !
-    IF ( check_newday(datetime_old,datetime_current) ) THEN
+    ! The update is skipped in IAU iteration mode if the model is reset to the initial state at the
+    ! end of the current time step
+    IF ( check_newday(datetime_old,datetime_current) .AND. .NOT. (jstep == 0 .AND. iau_iter == 1) ) THEN
 
       WRITE(message_text,'(a,i10,a,i10)') 'New day  day_old: ', datetime_old%day, &
                 &                 ' ,  day: ', datetime_current%day
@@ -837,14 +859,16 @@ MODULE mo_nh_stepping
         CALL update_ndvi(p_patch(1:), ext_data)
       END IF
 
-      !Check if the SST and Sea ice fraction have to be updated (sstice_mode 2,3,4)
-      IF (sstice_mode > 1 .AND. iforcing == inwp  ) THEN
+      ! Check if the SST and Sea ice fraction have to be updated (sstice_mode 3,4,5)
+      IF ( ANY((/SSTICE_ANA_CLINC, SSTICE_CLIM,SSTICE_AVG_MONTHLY,SSTICE_AVG_DAILY/) == sstice_mode) &
+        &   .AND. iforcing == inwp  ) THEN
 
         CALL set_actual_td_ext_data (.FALSE., datetime_current,datetime_old,sstice_mode,  &
                                   &  p_patch(1:), ext_data, p_lnd_state)
 
-        CALL update_sstice( p_patch(1:),           &
-                        & ext_data, p_lnd_state, p_nh_state )
+        CALL update_sstice( p_patch(1:), ext_data, p_lnd_state,                &
+          &                 p_nh_state, sstice_mode, time_config%ini_datetime, &
+          &                 time_config%cur_datetime )
 
       END IF  !sstice_mode>1
 
@@ -882,6 +906,11 @@ MODULE mo_nh_stepping
     l_nml_output   = output_mode%l_nml   .AND. jstep >= 0 .AND.                  &
       &              (jstep==(nsteps+jstep0) .OR. istime4name_list_output(jstep) )
 
+    ! In IAU iteration mode, output at the nominal initial date is written only at the
+    ! end of the first cycle, providing an initialized analysis to which the analysis 
+    ! increments have been completely added
+    IF (jstep == 0 .AND. iau_iter == 2) l_nml_output = .FALSE.
+
     ! Computation of diagnostic quantities may also be necessary for
     ! meteogram sampling:
 !DR Note that this may be incorrect for meteograms in case that
@@ -912,7 +941,7 @@ MODULE mo_nh_stepping
     !
     ! dynamics stepping
     !
-    CALL integrate_nh(datetime_current, 1, jstep-jstep_shift, dtime, 1)
+    CALL integrate_nh(datetime_current, 1, jstep-jstep_shift, iau_iter, dtime, 1)
 
 
     ! Compute diagnostics for output if necessary
@@ -1044,7 +1073,7 @@ MODULE mo_nh_stepping
     ! sample meteogram output
     DO jg = 1, n_dom
       IF (.NOT. output_mode%l_none .AND. &    ! meteogram output is not initialized for output=none
-        & p_patch(jg)%ldom_active  .AND. &
+        & p_patch(jg)%ldom_active  .AND. .NOT. (jstep == 0 .AND. iau_iter == 2) .AND. &
         & meteogram_is_sample_step(meteogram_output_config(jg), jstep)) THEN
         CALL meteogram_sample_vars(jg, jstep, datetime_current, ierr)
         IF (ierr /= SUCCESS) THEN
@@ -1121,43 +1150,25 @@ MODULE mo_nh_stepping
 #endif
 
     IF (lwrite_checkpoint) THEN
-      IF (use_async_restart_output) THEN
         DO jg = 1, n_dom
-          CALL set_data_async_restart(p_patch(jg)%id, p_patch(jg)%ldom_active, &
-            & opt_t_elapsed_phy          = t_elapsed_phy(jg,:),        &
-            & opt_lcall_phy              = lcall_phy(jg,:),            &
-            & opt_sim_time               = time_config%sim_time(jg),   &
-            & opt_ndyn_substeps          = ndyn_substeps_var(jg),      &
-            & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
-            & opt_depth_lnd              = nlev_soil,                  &
-            & opt_nlev_snow              = nlev_snow,                  &
-            & opt_ndom                   = n_dom,                      &
-            & opt_output_jfile           = output_jfile )
+            CALL restartDescriptor%updatePatch(p_patch(jg), &
+              & opt_t_elapsed_phy          = t_elapsed_phy(jg,:),        &
+              & opt_lcall_phy              = lcall_phy(jg,:),            &
+              & opt_sim_time               = time_config%sim_time(jg),   &
+              & opt_ndyn_substeps          = ndyn_substeps_var(jg),      &
+              & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
+              & opt_depth_lnd              = nlev_soil,                  &
+              & opt_nlev_snow              = nlev_snow,                  &
+              & opt_ndom                   = n_dom)
         ENDDO
-        CALL write_async_restart(datetime_current, jstep)
-      ELSE
-        DO jg = 1, n_dom
-          IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-          CALL create_restart_file( patch= p_patch(jg),datetime= datetime_current,           &
-                                  & jstep                      = jstep,                      &
-                                  & model_type                 = "atm",                      &
-                                  & opt_t_elapsed_phy          = t_elapsed_phy,              &
-                                  & opt_lcall_phy              = lcall_phy,                  &
-                                  & opt_sim_time               = time_config%sim_time(jg),   &
-                                  & opt_ndyn_substeps          = ndyn_substeps_var(jg),      &
-                                  & opt_jstep_adv_marchuk_order= jstep_adv(jg)%marchuk_order,&
-                                  & opt_depth_lnd              = nlev_soil,                  &
-                                  & opt_nlev_snow              = nlev_snow,                  &
-                                  & opt_ndom                   = n_dom,                      &
-                                  & opt_output_jfile           = output_jfile )
-        END DO
+        CALL restartDescriptor%writeRestart(datetime_current, jstep, opt_output_jfile = output_jfile)
 
 #ifdef MESSY
-        CALL messy_channel_write_output(IOMODE_RST)
-!        CALL messy_ncregrid_write_restart
+        IF(.NOT.use_async_restart_output) THEN
+            CALL messy_channel_write_output(IOMODE_RST)
+!           CALL messy_ncregrid_write_restart
+        END IF
 #endif
-      END IF
-
     END IF  ! lwrite_checkpoint
 
 #ifdef MESSYTIMER
@@ -1167,13 +1178,28 @@ MODULE mo_nh_stepping
 
     ! prefetch boundary data if necessary
     IF(num_prefetch_proc >= 1 .AND. latbc_config%itype_latbc > 0) THEN
-       CALL prefetch_input( datetime_current, p_patch(1), p_int_state(1), p_nh_state(1))
+      CALL pref_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), datetime=datetime_current)
+    ENDIF
+
+    ! Reset model to initial state if IAU iteration is selected and the first iteration cycle has been completed
+    IF (jstep == 0 .AND. iau_iter == 1) THEN
+      jstep_adv(:)%marchuk_order = 0
+      t_elapsed_phy(:,:)         = 0._wp
+      linit_dyn(:)               = .TRUE.
+      time_config%sim_time(:)    = timeshift%dt_shift
+      CALL add_time(timeshift%dt_shift,0,0,0,datetime_current)
+      datetime_old = datetime_current
+      CALL reset_to_initial_state(datetime_current)
+      iau_iter = 2
+      jstep = jstep0+jstep_shift+1
+    ELSE
+      jstep = jstep + 1
     ENDIF
 
 #ifdef USE_MTIME_LOOP
     IF (current_date >= end_date) EXIT TIME_LOOP
-    jstep = jstep + 1
 #endif
+
   ENDDO TIME_LOOP
 
 #if defined( _OPENACC )
@@ -1187,7 +1213,7 @@ MODULE mo_nh_stepping
   ! clean-up routine for mo_nh_supervise module (eg. closing of files)
   CALL finalize_supervise_nh()
 
-  IF (use_async_restart_output) CALL close_async_restart
+  IF (use_async_restart_output) CALL deleteRestartDescriptor(restartDescriptor)
 
   IF (ltimer) CALL timer_stop(timer_total)
 
@@ -1217,7 +1243,7 @@ MODULE mo_nh_stepping
   !!  - optional reduced calling frequency for transport and physics
   !!
   RECURSIVE SUBROUTINE integrate_nh (datetime_current, jg, nstep_global,   &
-    &                                dt_loc, num_steps )
+    &                                iau_iter, dt_loc, num_steps )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_stepping:integrate_nh'
@@ -1227,6 +1253,7 @@ MODULE mo_nh_stepping
     INTEGER , INTENT(IN)    :: jg           !< current grid level
     INTEGER , INTENT(IN)    :: nstep_global !< counter of global time step
     INTEGER , INTENT(IN)    :: num_steps    !< number of time steps to be executed
+    INTEGER , INTENT(IN)    :: iau_iter     !< counter for IAU iteration
     REAL(wp), INTENT(IN)    :: dt_loc       !< time step applicable to local grid level
 
     ! Local variables
@@ -1511,7 +1538,7 @@ MODULE mo_nh_stepping
             ! dynamics integration with substepping
             !
             CALL perform_dyn_substepping (p_patch(jg), p_nh_state(jg), p_int_state(jg), &
-              &                           prep_adv(jg), jstep, dt_loc)
+              &                           prep_adv(jg), jstep, iau_iter, dt_loc)
 
             ! diffusion at physics time steps
             !
@@ -1609,17 +1636,21 @@ MODULE mo_nh_stepping
 
         ! Apply boundary nudging in case of one-way nesting
         IF (jg > 1 ) THEN
-          IF (ltimer)            CALL timer_start(timer_nesting)
-          IF (timers_level >= 2) CALL timer_start(timer_nudging)
 
           IF (lfeedback(jg) .AND. l_density_nudging .AND. grf_intmethod_e <= 4) THEN
+            IF (ltimer)            CALL timer_start(timer_nesting)
+            IF (timers_level >= 2) CALL timer_start(timer_nudging)
             CALL density_boundary_nudging(jg,nnew(jg),REAL(ndyn_substeps,wp))
+            IF (timers_level >= 2) CALL timer_stop(timer_nudging)
+            IF (ltimer)            CALL timer_stop(timer_nesting)
           ELSE IF (.NOT. lfeedback(jg)) THEN
+            IF (ltimer)            CALL timer_start(timer_nesting)
+            IF (timers_level >= 2) CALL timer_start(timer_nudging)
             CALL nest_boundary_nudging(jg,nnew(jg),nnew_rcf(jg),REAL(ndyn_substeps,wp))
+            IF (timers_level >= 2) CALL timer_stop(timer_nudging)
+            IF (ltimer)            CALL timer_stop(timer_nesting)
           ENDIF
 
-          IF (timers_level >= 2) CALL timer_stop(timer_nudging)
-          IF (ltimer)            CALL timer_stop(timer_nesting)
         ENDIF
 
         IF ( ( iforcing==inwp .OR. iforcing==iecham ) ) THEN
@@ -1752,6 +1783,20 @@ MODULE mo_nh_stepping
 
         ENDIF !iforcing
 
+        ! Terminator toy chemistry
+        !
+        ! So far it can only be activated for testcases and not for real-cases, 
+        ! since the initialization is done in init_nh_testcase. However, 
+        ! nothing speaks against combining toy chemistry with real case runs.
+        IF (ltestcase .AND. is_toy_chem) THEN
+          CALL dcmip_terminator_interface (p_patch(jg),            & !in
+            &                              p_nh_state(jg)%metrics, & !in
+            &                              p_nh_state(jg)%prog,    & !inout
+            &                              p_nh_state(jg)%diag,    & !inout
+            &                              datetime_current,       & !in
+            &                              dt_loc                  ) !in
+        ENDIF
+
 #ifdef MESSY
         call messy_physc(jg)
 #endif
@@ -1839,7 +1884,6 @@ MODULE mo_nh_stepping
         ENDDO
         IF (timers_level >= 2) CALL timer_stop(timer_bdy_interp)
 
-        IF (timers_level >= 2) CALL timer_start(timer_nudging)
         ! prep_bdy_nudging can not be called using delayed requests!
         DO jn = 1, p_patch(jg)%n_childdom
 
@@ -1849,12 +1893,15 @@ MODULE mo_nh_stepping
           ! differences for boundary nudging
           ! *** prep_bdy_nudging adapted for reduced calling frequency of tracers ***
           IF (lfeedback(jgc) .AND. l_density_nudging .AND. grf_intmethod_e <= 4) THEN
+            IF (timers_level >= 2) CALL timer_start(timer_nudging)
             CALL prep_rho_bdy_nudging(jg,jgc)
+            IF (timers_level >= 2) CALL timer_stop(timer_nudging)
           ELSE IF (.NOT. lfeedback(jgc)) THEN
+            IF (timers_level >= 2) CALL timer_start(timer_nudging)
             CALL prep_bdy_nudging(jg,jgc)
+            IF (timers_level >= 2) CALL timer_stop(timer_nudging)
           ENDIF
         ENDDO
-        IF (timers_level >= 2) CALL timer_stop(timer_nudging)
         IF (ltimer)            CALL timer_stop(timer_nesting)
 
         DO jn = 1, p_patch(jg)%n_childdom
@@ -1865,14 +1912,13 @@ MODULE mo_nh_stepping
           IF(p_patch(jgc)%n_patch_cells > 0) THEN
             IF(proc_split) CALL push_glob_comm(p_patch(jgc)%comm, p_patch(jgc)%proc0)
             ! Recursive call to process_grid_level for child grid level
-            CALL integrate_nh( datetime_current, jgc, nstep_global, dt_sub, nsteps_nest )
+            CALL integrate_nh( datetime_current, jgc, nstep_global, iau_iter, dt_sub, nsteps_nest )
             IF(proc_split) CALL pop_glob_comm()
           ENDIF
 
         ENDDO
 
         IF (ltimer)            CALL timer_start(timer_nesting)
-        IF (timers_level >= 2) CALL timer_start(timer_feedback)
         DO jn = 1, p_patch(jg)%n_childdom
 
           ! Call feedback to copy averaged prognostic variables from refined mesh back
@@ -1881,6 +1927,7 @@ MODULE mo_nh_stepping
           IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
 
           IF (lfeedback(jgc)) THEN
+            IF (timers_level >= 2) CALL timer_start(timer_feedback)
             IF (ifeedback_type == 1) THEN
               CALL feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, &
                 &           jgc, jg)
@@ -1891,9 +1938,9 @@ MODULE mo_nh_stepping
             ENDIF
             ! Note: the last argument of "feedback" ensures that tracer feedback is
             ! only done for those time steps in which transport and microphysics are called
+            IF (timers_level >= 2) CALL timer_stop(timer_feedback)
           ENDIF
         ENDDO
-        IF (timers_level >= 2) CALL timer_stop(timer_feedback)
         IF (ltimer)            CALL timer_stop(timer_nesting)
 
       ENDIF
@@ -1948,7 +1995,7 @@ MODULE mo_nh_stepping
               p_nh_state(jgc)%prog(nnow(jgc))%rho, p_nh_state(jgc)%prog(nnow(jgc))%exner,         &
               p_nh_state(jgc)%prog(nnow(jgc))%theta_v )
 
-            CALL init_exner_old(jgc, nnow(jgc))
+            CALL init_exner_pr(jgc, nnow(jgc))
 
             ! Activate cold-start mode in TERRA-init routine irrespective of what has been used for the global domain
             init_mode_soil = 1
@@ -2018,7 +2065,7 @@ MODULE mo_nh_stepping
   !! Initial revision by Daniel Reinert, DWD (2014-10-28)
   !!
   SUBROUTINE perform_dyn_substepping (p_patch, p_nh_state, p_int_state, prep_adv, &
-    &                                 jstep, dt_phy)
+    &                                 jstep, iau_iter, dt_phy)
 
     TYPE(t_patch)       ,INTENT(IN)    :: p_patch
 
@@ -2030,6 +2077,7 @@ MODULE mo_nh_stepping
 
     INTEGER             ,INTENT(IN)    :: jstep     ! number of current (large) time step
                                                     ! performed in current domain
+    INTEGER             ,INTENT(IN)    :: iau_iter  ! counter for IAU iteration
     REAL(wp)            ,INTENT(IN)    :: dt_phy    ! physics time step for current patch
 
     ! local variables
@@ -2125,14 +2173,24 @@ MODULE mo_nh_stepping
       IF ( ANY((/MODE_IAU,MODE_IAU_OLD/)==init_mode) ) THEN ! incremental analysis mode
         cur_time = time_config%sim_time(jg)-timeshift%dt_shift+ &
          (REAL(nstep-ndyn_substeps_var(jg),wp)-0.5_wp)*dt_dyn
-        CALL compute_iau_wgt(cur_time, dt_dyn, lclean_mflx)
+        IF (iau_iter == 1) THEN
+          CALL compute_iau_wgt(cur_time, dt_dyn, 0.5_wp*dt_iau, lclean_mflx)
+        ELSE
+          CALL compute_iau_wgt(cur_time, dt_dyn, dt_iau, lclean_mflx)
+        ENDIF
       ENDIF
 
       ! integrate dynamical core
+#ifdef _OPENACC
+      i_am_accel_node = my_process_is_work()    ! Activate GPUs
+#endif
       CALL solve_nh(p_nh_state, p_patch, p_int_state, prep_adv,     &
         &           nnow(jg), nnew(jg), linit_dyn(jg), l_recompute, &
         &           lsave_mflx, lprep_adv, lclean_mflx,             &
         &           nstep, ndyn_substeps_tot-1, l_bdy_nudge, dt_dyn)
+#ifdef _OPENACC
+      i_am_accel_node = .FALSE.
+#endif
 
       ! now reset linit_dyn to .FALSE.
       linit_dyn(jg) = .FALSE.
@@ -2554,20 +2612,85 @@ MODULE mo_nh_stepping
 
 
   !-------------------------------------------------------------------------
-  !> Auxiliary routine to encapsulate initialization of exner_old variable
+  !> Auxiliary routine to encapsulate initialization of exner_pr variable
   !!
-  SUBROUTINE init_exner_old(jg, nnow)
+  SUBROUTINE init_exner_pr(jg, nnow)
 
     INTEGER, INTENT(IN) :: jg   ! domain ID
     INTEGER, INTENT(IN) :: nnow ! time step indicator
 
 
 !$OMP PARALLEL
-    CALL copy(p_nh_state(jg)%prog(nnow)%exner, &
-         p_nh_state(jg)%diag%exner_old)
+    CALL copy(p_nh_state(jg)%prog(nnow)%exner-REAL(p_nh_state(jg)%metrics%exner_ref_mc,wp), &
+         p_nh_state(jg)%diag%exner_pr)
 !$OMP END PARALLEL
 
-  END SUBROUTINE init_exner_old
+  END SUBROUTINE init_exner_pr
+
+  !-------------------------------------------------------------------------
+  !> Driver routine to reset the model to its initial state if IAU iteration is selected
+  !!
+  SUBROUTINE reset_to_initial_state(datetime_current)
+
+    TYPE(t_datetime), INTENT(INOUT)      :: datetime_current
+    INTEGER :: jg
+
+    nnow(:)     = 1
+    nnow_rcf(:) = 1
+    nnew(:)     = 2
+    nnew_rcf(:) = 2
+
+    WRITE(message_text,'(a)') 'Reset model to initial state, repeat IAU with full incrementation window'
+    CALL message('',message_text)
+
+    atm_phy_nwp_config(:)%lcalc_acc_avg = .FALSE.
+
+    CALL restore_initial_state(p_patch(1:), p_nh_state, prm_diag, prm_nwp_tend, p_lnd_state, ext_data)
+
+    DO jg=1, n_dom
+
+      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+
+      CALL diagnose_pres_temp (p_nh_state(jg)%metrics, p_nh_state(jg)%prog(nnow(jg)), &
+        &                      p_nh_state(jg)%prog(nnow_rcf(jg)),                     &
+        &                      p_nh_state(jg)%diag,p_patch(jg),                       &
+        &                      opt_calc_temp=.TRUE.,                                  &
+        &                      opt_calc_pres=.TRUE.                                   )
+
+      CALL rbf_vec_interpol_cell(p_nh_state(jg)%prog(nnow(jg))%vn,p_patch(jg),p_int_state(jg),&
+                                 p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)
+
+      CALL compute_airmass(p_patch(jg),                  &
+        &                  p_nh_state(jg)%metrics,       &
+        &                  p_nh_state(jg)%prog(nnow(jg)),&
+        &                  p_nh_state(jg)%diag, itlev = 2)
+
+      CALL init_exner_pr(jg, nnow(jg))
+
+      CALL init_nwp_phy(                            &
+           & p_patch(jg)                           ,&
+           & p_nh_state(jg)%metrics                ,&
+           & p_nh_state(jg)%prog(nnow(jg))         ,&
+           & p_nh_state(jg)%diag                   ,&
+           & prm_diag(jg)                          ,&
+           & prm_nwp_tend(jg)                      ,&
+           & p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)),&
+           & p_lnd_state(jg)%prog_lnd(nnew_rcf(jg)),&
+           & p_lnd_state(jg)%prog_wtr(nnow_rcf(jg)),&
+           & p_lnd_state(jg)%prog_wtr(nnew_rcf(jg)),&
+           & p_lnd_state(jg)%diag_lnd              ,&
+           & ext_data(jg)                          ,&
+           & phy_params(jg)                         )
+
+    ENDDO
+
+      CALL aggr_landvars
+
+      CALL init_slowphysics (datetime_current, 1, dtime, time_config%sim_time)
+
+      CALL fill_nestlatbc_phys
+
+  END SUBROUTINE reset_to_initial_state
 
   !-------------------------------------------------------------------------
   !> Control routine for adaptive number of dynamic substeps
@@ -2582,9 +2705,9 @@ MODULE mo_nh_stepping
 
     lskip = .FALSE.
 
-    mvcfl(1:n_dom) = p_nh_state(1:n_dom)%metrics%max_vcfl_dyn
+    mvcfl(1:n_dom) = p_nh_state(1:n_dom)%diag%max_vcfl_dyn
 
-    p_nh_state(1:n_dom)%metrics%max_vcfl_dyn = 0._vp
+    p_nh_state(1:n_dom)%diag%max_vcfl_dyn = 0._vp
 
     mvcfl = global_max(mvcfl)
     IF (ANY(mvcfl(1:n_dom) > 0.85_wp) .AND. .NOT. lcfl_watch_mode) THEN
@@ -2836,6 +2959,7 @@ MODULE mo_nh_stepping
   INTEGER                              :: jg, jp !, nlen
   INTEGER                              :: ist
   CHARACTER(len=MAX_CHAR_LENGTH)       :: attname   ! attribute name
+  TYPE(t_RestartAttributeList), POINTER :: restartAttributes
 
 !-----------------------------------------------------------------------
 
@@ -2865,23 +2989,24 @@ MODULE mo_nh_stepping
   ENDIF
   !
   ! initialize
-  IF (isRestart()) THEN
+  restartAttributes => getAttributesForRestarting()
+  IF (ASSOCIATED(restartAttributes)) THEN
     !
     ! Get sim_time, t_elapsed_phy and lcall_phy from restart file
     DO jg = 1,n_dom
       WRITE(attname,'(a,i2.2)') 'ndyn_substeps_DOM',jg
-      CALL get_restart_attribute(TRIM(attname), ndyn_substeps_var(jg))
+      ndyn_substeps_var(jg) = restartAttributes%getInteger(TRIM(attname))
       WRITE(attname,'(a,i2.2)') 'jstep_adv_marchuk_order_DOM',jg
-      CALL get_restart_attribute(TRIM(attname), jstep_adv(jg)%marchuk_order)
+      jstep_adv(jg)%marchuk_order = restartAttributes%getInteger(TRIM(attname))
       WRITE(attname,'(a,i2.2)') 'sim_time_DOM',jg
-      CALL get_restart_attribute(TRIM(attname), time_config%sim_time(jg))
+      time_config%sim_time(jg) = restartAttributes%getReal(TRIM(attname))
       DO jp = 1,iphysproc_short
         WRITE(attname,'(a,i2.2,a,i2.2)') 't_elapsed_phy_DOM',jg,'_PHY',jp
-        CALL get_restart_attribute(TRIM(attname), t_elapsed_phy(jg,jp))
+        t_elapsed_phy(jg,jp) = restartAttributes%getReal(TRIM(attname))
       ENDDO
       DO jp = 1,iphysproc
         WRITE(attname,'(a,i2.2,a,i2.2)') 'lcall_phy_DOM',jg,'_PHY',jp
-        CALL get_restart_attribute(TRIM(attname), lcall_phy(jg,jp))
+        lcall_phy(jg,jp) = restartAttributes%getLogical(TRIM(attname))
       ENDDO
     ENDDO
     linit_dyn(:)      = .FALSE.

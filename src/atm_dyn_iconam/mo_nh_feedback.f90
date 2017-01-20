@@ -40,7 +40,7 @@ MODULE mo_nh_feedback
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_impl_constants_grf,  ONLY: grf_fbk_start_c, grf_fbk_start_e,          &
     grf_bdywidth_c
-  USE mo_communication,       ONLY: exchange_data_mult
+  USE mo_communication,       ONLY: exchange_data_mult, exchange_data_mult_mixprec
   USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array, &
     global_sum_array3, sync_patch_array_mult
   USE mo_physical_constants,  ONLY: rd, cvd_o_rd, p0ref
@@ -990,21 +990,21 @@ CONTAINS
     INTEGER :: nshift, nst_fbk
     INTEGER :: ntracer_fbk
 
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:), TARGET :: feedback_rho, feedback_thv,        &
+    REAL(vp), ALLOCATABLE, DIMENSION(:,:,:), TARGET :: feedback_rho, feedback_thv,        &
       feedback_vn, feedback_w
-    REAL(wp), ALLOCATABLE, TARGET :: feedback_rhoqx(:,:,:,:), feedback_aero(:,:,:)
+    REAL(vp), ALLOCATABLE, TARGET :: feedback_rhoqx(:,:,:,:), feedback_aero(:,:,:)
 
     ! Note: as w(nlevp1) is diagnostic, it is excluded from feedback
-    REAL(wp), DIMENSION(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_c), TARGET :: &
+    REAL(vp), DIMENSION(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_c), TARGET :: &
       parent_rho, parent_thv, parent_w
 
-    REAL(wp), DIMENSION(nproma,p_patch(jg)%nlev) :: diff_rho, diff_thv, diff_w
+    REAL(vp), DIMENSION(nproma,p_patch(jg)%nlev) :: diff_rho, diff_thv, diff_w
 
-    REAL(wp),DIMENSION(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_c,ntracer), TARGET :: &
+    REAL(vp),DIMENSION(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_c,ntracer), TARGET :: &
       parent_rhoqx
-    REAL(wp),DIMENSION(nproma,nclass_aero,p_patch(jgp)%nblks_c) :: parent_aero
+    REAL(vp),DIMENSION(nproma,nclass_aero,p_patch(jgp)%nblks_c) :: parent_aero
 
-    REAL(wp), DIMENSION(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_e), TARGET :: &
+    REAL(vp), DIMENSION(nproma,p_patch(jg)%nlev,p_patch(jgp)%nblks_e), TARGET :: &
       parent_vn, diff_vn
 
 #ifdef __LOOP_EXCHANGE
@@ -1023,8 +1023,8 @@ CONTAINS
 
     INTEGER,  DIMENSION(:,:,:), POINTER :: iccidx, iccblk, iceidx, iceblk, iveidx, iveblk, &
       iecidx, iecblk, ievidx, ievblk
-    REAL(wp), DIMENSION(:,:,:), POINTER :: p_fbk_rho, p_fbk_thv, p_fbk_w, p_fbk_vn
-    REAL(wp), DIMENSION(:,:,:,:), POINTER :: p_fbk_rhoqx
+    REAL(vp), DIMENSION(:,:,:), POINTER :: p_fbk_rho, p_fbk_thv, p_fbk_w, p_fbk_vn
+    REAL(vp), DIMENSION(:,:,:,:), POINTER :: p_fbk_rhoqx
     REAL(wp), DIMENSION(:,:,:), POINTER :: p_fbkwgt, p_fbkwgt_e
 
     !-----------------------------------------------------------------------
@@ -1290,6 +1290,25 @@ CONTAINS
 
 !$OMP END PARALLEL
 
+#ifdef __MIXED_PRECISION
+    CALL exchange_data_mult_mixprec(p_pp%comm_pat_loc_to_glb_c_fbk, 0, 0, 3, 3*nlev_c, &
+      RECV1_SP=parent_rho,     SEND1_SP=feedback_rho,      &
+      RECV2_SP=parent_thv,     SEND2_SP=feedback_thv,      &
+      RECV3_SP=parent_w,       SEND3_SP=feedback_w         )
+
+
+    CALL exchange_data_mult_mixprec(p_pp%comm_pat_loc_to_glb_e_fbk, 0, 0, 1, nlev_c, &
+      RECV1_SP=parent_vn, SEND1_SP=feedback_vn )
+
+    IF (ltransport .AND. iprog_aero == 1) THEN
+      CALL exchange_data_mult_mixprec(p_pp%comm_pat_loc_to_glb_c_fbk, 0, 0, ntracer_fbk+1, ntracer_fbk*nlev_c+nclass_aero, &
+        RECV1_SP=parent_aero,     SEND1_SP=feedback_aero,                    &
+        RECV4D_SP=parent_rhoqx(:,:,:,1:ntracer_fbk), SEND4D_SP=feedback_rhoqx)
+    ELSE IF (ltransport) THEN
+      CALL exchange_data_mult_mixprec(p_pp%comm_pat_loc_to_glb_c_fbk, 0, 0, ntracer_fbk, ntracer_fbk*nlev_c, &
+        RECV4D_SP=parent_rhoqx(:,:,:,1:ntracer_fbk), SEND4D_SP=feedback_rhoqx)
+    ENDIF
+#else
     CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, 3, 3*nlev_c, &
       RECV1=parent_rho,     SEND1=feedback_rho,      &
       RECV2=parent_thv,     SEND2=feedback_thv,      &
@@ -1307,6 +1326,7 @@ CONTAINS
       CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, ntracer_fbk, ntracer_fbk*nlev_c, &
         RECV4D=parent_rhoqx(:,:,:,1:ntracer_fbk), SEND4D=feedback_rhoqx)
     ENDIF
+#endif
 
     p_fbk_rho => parent_rho
     p_fbk_thv => parent_thv
@@ -1375,12 +1395,12 @@ CONTAINS
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
     i_startblk = p_patch(jgp)%verts%start_blk(1,1)
-    i_endblk   = p_patch(jgp)%verts%end_blk(min_rlvert_int,i_nchdom_p)
+    i_endblk   = p_patch(jgp)%verts%end_blk(min_rlvert_int-1,i_nchdom_p)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
-      CALL get_indices_v(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, min_rlvert_int)
+      CALL get_indices_v(p_patch(jgp), jb, i_startblk, i_endblk, i_startidx, i_endidx, 1, min_rlvert_int-1)
 
 #ifdef __LOOP_EXCHANGE
       DO jv = i_startidx, i_endidx

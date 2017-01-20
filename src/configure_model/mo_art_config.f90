@@ -25,9 +25,7 @@
 !!
 MODULE mo_art_config
 
-  USE mo_kind,                 ONLY: wp
   USE mo_impl_constants,       ONLY: max_dom
-  USE mo_math_utilities,       ONLY: t_geographical_coordinates  
 
   IMPLICIT NONE
   

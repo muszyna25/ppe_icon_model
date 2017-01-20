@@ -21,7 +21,7 @@
 !!
 MODULE mo_var_metadata
 
-  USE mo_kind,               ONLY: wp
+  USE mo_kind,               ONLY: wp, sp
   USE mo_exception,          ONLY: finish
   USE mo_impl_constants,     ONLY: VINTP_METHOD_LIN, HINTP_TYPE_LONLAT_RBF
   USE mo_cf_convention,      ONLY: t_cf_var
@@ -342,16 +342,18 @@ CONTAINS
     post_op%ipost_op_type = POST_OP_NONE
     post_op%lnew_cf       = .FALSE.
     post_op%lnew_grib2    = .FALSE.
-    post_op%arg1          = t_union_vals( 0._wp, 0, .FALSE.)
+    post_op%arg1          = t_union_vals( 0._wp, 0._sp, 0, .FALSE.)
 
     IF (PRESENT(ipost_op_type)) post_op%ipost_op_type = ipost_op_type
 
     IF (PRESENT(arg1)) THEN
       SELECT TYPE(arg1)
       TYPE is (INTEGER)
-        post_op%arg1 = t_union_vals( 0.0_wp, arg1, .FALSE.)
+        post_op%arg1 = t_union_vals( 0.0_wp, 0.0_sp, arg1, .FALSE.)
       TYPE is (REAL(wp))
-        post_op%arg1 = t_union_vals( arg1  ,    0, .FALSE.)
+        post_op%arg1 = t_union_vals( arg1  , 0.0_sp,    0, .FALSE.)
+      TYPE is (REAL(sp))
+        post_op%arg1 = t_union_vals( 0.0_wp,   arg1,    0, .FALSE.)
       END SELECT
     ENDIF
 
