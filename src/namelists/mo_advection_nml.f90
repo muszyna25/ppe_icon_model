@@ -283,7 +283,7 @@ CONTAINS
     !----------------------------------------------------
 
     DO jg= 0,max_dom
-      advection_config(jg)%tracer_names(:)= tracer_names(:)
+      advection_config(jg)%tracer_names(:)= ADJUSTL(tracer_names(:))
       advection_config(jg)%ihadv_tracer(:)= ihadv_tracer(:)
       advection_config(jg)%ivadv_tracer(:)= ivadv_tracer(:)
       advection_config(jg)%lvadv_tracer   = lvadv_tracer
