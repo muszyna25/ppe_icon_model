@@ -51,8 +51,8 @@ MODULE mo_advection_nml
   ! transport_nml namelist variables !
   !----------------------------------!
 
-    CHARACTER(len=VNAME_LEN) ::  & !< tracer-specific name suffixes  
-      &  tracer_names(MAX_NTRACER) !< these are only required for 
+  CHARACTER(len=VNAME_LEN) ::  &   !< tracer-specific name suffixes  
+    &  tracer_names(MAX_NTRACER)   !< these are only required for 
                                    !< idealized runs without NWP or ECHAM forcing.
 
   CHARACTER(len=MAX_CHAR_LENGTH) :: &!< list of tracers to initialize
