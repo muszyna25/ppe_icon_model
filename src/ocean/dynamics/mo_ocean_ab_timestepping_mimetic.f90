@@ -102,7 +102,7 @@ MODULE mo_ocean_ab_timestepping_mimetic
   PUBLIC :: construct_ho_lhs_fields_mimetic, destruct_ho_lhs_fields_mimetic
   PUBLIC :: invert_mass_matrix
   !
-  PUBLIC :: lhs_surface_height_ab_mim
+  PUBLIC :: lhs_surface_height
 
   INTEGER, PARAMETER :: topLevel=1
   CHARACTER(LEN=12)  :: str_module = 'oceSTEPmimet'  ! Output of module for 1 line debug
@@ -264,7 +264,7 @@ CONTAINS
 
       !-----------------------------------------------------------------------------------------
       IF (createSolverMatrix) &
-        CALL createSolverMatrix_onTheFly( patch_3d, ocean_state%p_diag%thick_e, ocean_state%p_diag%thick_c, &
+        CALL createSolverMatrix_onTheFly( patch_3d, ocean_state%p_diag%thick_e,  &
                                         & op_coeffs, ocean_state%p_aux%p_rhs_sfc_eq, timestep)
       !-----------------------------------------------------------------------------------------
 
@@ -277,9 +277,8 @@ CONTAINS
           !ocean_state%p_aux%p_rhs_sfc_eq = ocean_state%p_aux%p_rhs_sfc_eq *patch%cells%area
 
           CALL gmres_oce_old( z_h_c(:,:),       &  ! arg 1 of lhs. x input is the first guess.
-            & lhs_surface_height_ab_mim, &  ! function calculating l.h.s.
+            & lhs_surface_height, &  ! function calculating l.h.s.
             & ocean_state%p_diag%thick_e,       &  ! edge thickness for LHS
-            & ocean_state%p_diag%thick_c,       &  ! ocean_state%p_diag%thick_c, &
           ! arg 6 of lhs ocean_state%p_prog(nold(1))%h,
           ! ocean_state%p_diag%cons_thick_c(:,1,:),&
             & ocean_state%p_prog(nold(1))%h,    &  ! arg 2 of lhs !not used
@@ -297,9 +296,8 @@ CONTAINS
 
         ELSEIF(.NOT.lprecon)THEN
           CALL gmres_oce_old( z_h_c(:,:),       &  ! arg 1 of lhs. x input is the first guess.
-            & lhs_surface_height_ab_mim, &  ! function calculating l.h.s.
+            & lhs_surface_height, &  ! function calculating l.h.s.
             & ocean_state%p_diag%thick_e,       &  ! edge thickness for LHS
-            & ocean_state%p_diag%thick_c,       &  ! ocean_state%p_diag%thick_c, &
           ! arg 6 of lhs ocean_state%p_prog(nold(1))%h,
           ! ocean_state%p_diag%cons_thick_c(:,1,:),&
             & ocean_state%p_prog(nold(1))%h,    &  ! arg 2 of lhs !not used
@@ -357,9 +355,8 @@ CONTAINS
         DO WHILE(maxIterations_isReached .AND. gmres_restart_iterations < solver_max_restart_iterations)
           
           CALL ocean_restart_gmres( z_h_c(:,:),                   &  ! arg 1 of lhs. x input is the first guess.
-            & lhs_surface_height_ab_mim,     &  ! function calculating l.h.s.
+            & lhs_surface_height,     &  ! function calculating l.h.s.
             & ocean_state%p_diag%thick_e,           &  ! edge thickness for LHS
-            & ocean_state%p_diag%thick_c,           &  ! ocean_state%p_diag%thick_c, &
             & ocean_state%p_prog(nold(1))%h,        &  ! arg 2 of lhs !not used
             & patch_3d,                    &  ! arg 3 of lhs
             ! & z_implcoeff,                   &  ! arg 4 of lhs
@@ -472,9 +469,8 @@ CONTAINS
         DO WHILE(residual_norm >= solver_tolerance .AND. gmres_restart_iterations < solver_max_restart_iterations)
 
           CALL ocean_restart_gmres( z_h_c(:,:),                   &  ! arg 1 of lhs. x input is the first guess.
-            & lhs_surface_height_ab_mim,     &  ! function calculating l.h.s.
+            & lhs_surface_height,     &  ! function calculating l.h.s.
             & ocean_state%p_diag%thick_e,           &  ! edge thickness for LHS
-            & ocean_state%p_diag%thick_c,           &  ! ocean_state%p_diag%thick_c, &
             & ocean_state%p_prog(nold(1))%h,        &  ! arg 2 of lhs !not used
             & patch_3d,                    &  ! arg 3 of lhs
             ! & z_implcoeff,                   &  ! arg 4 of lhs
@@ -533,7 +529,7 @@ CONTAINS
       
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       ! idt_src=2  ! output print level (1-5, fix)
-      !     z_h_c = lhs_surface_height_ab_mim( ocean_state%p_prog(nnew(1))%h, &
+      !     z_h_c = lhs_surface_height( ocean_state%p_prog(nnew(1))%h, &
       !         & ocean_state%p_prog(nold(1))%h, &
       !         & patch_3d,             &
       !         & z_implcoeff,            &
@@ -1421,6 +1417,28 @@ CONTAINS
   END SUBROUTINE destruct_ho_lhs_fields_mimetic
   !-------------------------------------------------------------------------------------
 
+   !-------------------------------------------------------------------------
+!<Optimize:inUse>
+  ! interface for the left hand side calculation
+  FUNCTION lhs_surface_height( x, patch_3d, thickness_e,&
+    & op_coeffs) result(lhs)
+    
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp),    INTENT(inout)           :: x(:,:)    ! inout for sync, dimension: (nproma,patch%alloc_cell_blocks)
+!     REAL(wp),    INTENT(in)              :: h_old(:,:)
+    ! REAL(wp),    INTENT(in)              :: coeff
+    TYPE(t_operator_coeff),INTENT(in)    :: op_coeffs
+    REAL(wp),    INTENT(in)              :: thickness_e(:,:)
+
+    !  these are small (2D) arrays and should be allocated once for efficiency
+    REAL(wp) :: lhs(SIZE(x,1), SIZE(x,2))  ! (nproma,patch_2D%alloc_cell_blocks)
+
+    CALL lhs_surface_height_ab_mim(x, patch_3d, thickness_e, op_coeffs, lhs)
+
+  END FUNCTION lhs_surface_height
+  !-------------------------------------------------------------------------------------
+
+
   !-------------------------------------------------------------------------------------
   !>
   !! Computation of left-hand side of the surface height equation
@@ -1433,8 +1451,7 @@ CONTAINS
   !!
   !-------------------------------------------------------------------------
 !<Optimize:inUse>
-  FUNCTION lhs_surface_height_ab_mim( x, patch_3d, thickness_e,&
-    & thickness_c,op_coeffs) result(lhs)
+  SUBROUTINE lhs_surface_height_ab_mim( x, patch_3d, thickness_e, op_coeffs, lhs)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp),    INTENT(inout)           :: x(:,:)    ! inout for sync, dimension: (nproma,patch%alloc_cell_blocks)
@@ -1442,11 +1459,7 @@ CONTAINS
     ! REAL(wp),    INTENT(in)              :: coeff
     TYPE(t_operator_coeff),INTENT(in)    :: op_coeffs
     REAL(wp),    INTENT(in)              :: thickness_e(:,:)
-    REAL(wp),    INTENT(in)              :: thickness_c(:,:) !thickness of fluid column
-    !  these are small (2D) arrays and allocated once for efficiency
-    ! Left-hand side calculated from iterated height
-    !
-    REAL(wp) :: lhs(SIZE(x,1), SIZE(x,2))  ! (nproma,patch_2D%alloc_cell_blocks)
+    REAL(wp) :: lhs(:,:)  ! (nproma,patch_2D%alloc_cell_blocks)
     
     ! local variables,
     REAL(wp) :: gdt2_inv, gam_times_beta
@@ -1468,8 +1481,6 @@ CONTAINS
     lhs   (1:nproma,cells_in_domain%end_block:patch_2D%alloc_cell_blocks)  = 0.0_wp
     
 !     CALL dbg_print('h_old', h_old, "lhs_surface_height_ab_mim", 1, &
-!         & in_subset=patch_3d%p_patch_2d(1)%cells%owned)
-!     CALL dbg_print('thickness_c', thickness_c, "lhs_surface_height_ab_mim", 1, &
 !         & in_subset=patch_3d%p_patch_2d(1)%cells%owned)
 !     CALL dbg_print('thickness_e', thickness_e, "lhs_surface_height_ab_mim", 1, &
 !         & in_subset=patch_3d%p_patch_2d(1)%edges%owned)
@@ -1575,11 +1586,11 @@ CONTAINS
    
     stop_detail_timer(timer_lhs,3)
     
-  END FUNCTION lhs_surface_height_ab_mim
+  END SUBROUTINE lhs_surface_height_ab_mim
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------------
-  ! as in lhs_surface_height_ab_mim in single precision
+  ! as in lhs_surface_height in single precision
 !<Optimize:inUse>
   FUNCTION lhs_surface_height_ab_mim_sp( x, h_old, patch_3d, solverCoeffs) result(lhs)
 
@@ -2069,7 +2080,7 @@ CONTAINS
         DO jc = start_index, end_index
           IF(patch_3d%lsm_c(jc,1,blockNo) > sea_boundary) THEN
             IF (ocean_state%p_prog(nnew(1))%h(jc,blockNo) /= 0.0_wp) &
-              & CALL finish("lhs_surface_height_ab_mim", "lhs(jc,blockNo) /= 0 on land")
+              & CALL finish("calc_vert_velocity_mim_bottomup", "h(jc,blockNo) /= 0 on land")
           ENDIF
         END DO
       END DO
@@ -2361,10 +2372,10 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
-  SUBROUTINE createSolverMatrix_onTheFly( patch_3d, column_thick_e, column_thick_c, operators_coefficients, rhs, timestep)
+  SUBROUTINE createSolverMatrix_onTheFly( patch_3d, column_thick_e, operators_coefficients, rhs, timestep)
 
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
-    REAL(wp) :: column_thick_e(:,:), column_thick_c(:,:)
+    REAL(wp) :: column_thick_e(:,:)
     TYPE(t_operator_coeff),   INTENT(inout)          :: operators_coefficients
     REAL(wp) :: rhs(:,:)
     INTEGER :: timestep
@@ -2400,8 +2411,8 @@ CONTAINS
       lhs = 0.0_wp
       x(1,column) = 1.0_wp
 
-      lhs = lhs_surface_height_ab_mim( x, patch_3d, column_thick_e,&
-        & column_thick_c, operators_coefficients)
+      lhs = lhs_surface_height( x, patch_3d, column_thick_e,&
+        & operators_coefficients)
 
       DO row = cells_in_domain%start_block, cells_in_domain%end_block
         IF (lhs(1, row) /= 0.0_wp) &

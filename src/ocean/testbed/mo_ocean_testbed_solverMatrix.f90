@@ -34,7 +34,7 @@ MODULE mo_ocean_testbed_solverMatrix
   USE mo_util_dbg_prnt,          ONLY: dbg_print
   USE mo_parallel_config,        ONLY: nproma
   USE mo_timer
-  USE mo_ocean_ab_timestepping_mimetic, ONLY : lhs_surface_height_ab_mim
+  USE mo_ocean_ab_timestepping_mimetic, ONLY : lhs_surface_height
 
   IMPLICIT NONE
   PRIVATE
@@ -81,8 +81,8 @@ CONTAINS
       lhs = 0.0_wp
       x(1,column) = 1.0_wp
 
-      lhs = lhs_surface_height_ab_mim( x, patch_3d, patch_3D%column_thick_e,&
-        & patch_3D%column_thick_c,operators_coefficients)
+      lhs = lhs_surface_height( x, patch_3d, patch_3D%column_thick_e,&
+        & operators_coefficients)
 
       DO row = cells_in_domain%start_block, cells_in_domain%end_block
         IF (lhs(1, row) /= 0.0_wp) &

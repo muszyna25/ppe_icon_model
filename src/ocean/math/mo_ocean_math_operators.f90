@@ -2417,7 +2417,6 @@ CONTAINS
         ENDDO ! end of PtP coefficients for the three edges of this cell
 
         ! fill the stencil connectivity
-        
         DO cell_connect = 1, 3
           operators_coefficients%lhs_CellToCell_index(cell_connect,jc,blockNo) = cell_idx(cell_connect)
           operators_coefficients%lhs_CellToCell_block(cell_connect,jc,blockNo) = cell_blk(cell_connect)
