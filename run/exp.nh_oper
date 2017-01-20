@@ -145,7 +145,6 @@ cat > ${atmo_namelist} << EOF
  ltile_coldstart   = .false.     ! use full tile-based I/O in assimilation cycle and to start forecasts
  lp2cintp_incr     = .true.      ! parent-to-child-interpolation
  lp2cintp_sfcana   = .false.     ! of analyses
- l_sst_in    = .true.
 /
 &run_nml
  num_lev        = 90, 60
