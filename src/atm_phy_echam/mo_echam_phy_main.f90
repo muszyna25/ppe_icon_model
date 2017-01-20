@@ -995,6 +995,8 @@ CONTAINS
       CALL cumastr(jce, nbdim,                   &! in
         &          nlev, nlevp1, nlevm1,         &! in
         &          pdtime,                       &! in
+        &          field% zf       (:,:,jb),     &! in
+        &          field% zh       (:,:,jb),     &! in
         &          field% mdry     (:,:,jb),     &! in
         &                zta       (:,:),        &! in
         &                zqtrc     (:,:,   iqv), &! in

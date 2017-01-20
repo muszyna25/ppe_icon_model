@@ -24,7 +24,7 @@
 MODULE mo_cufluxdts
 
   USE mo_kind,               ONLY: wp
-  USE mo_physical_constants, ONLY: grav, alv, als, alf, tmelt, cpd, vtmpc2
+  USE mo_physical_constants, ONLY: alv, als, alf, tmelt, cpd, vtmpc2
   !
   IMPLICIT NONE
   PRIVATE
@@ -36,6 +36,7 @@ CONTAINS
   !!++mgs: zcucov and zdpevap now 1d vectors
   !!
   SUBROUTINE cuflx(    kproma, kbdim, klev, klevp1,                                  &
+    &        pmdry,                                                                  &
     &        pqen,     pqsen,    ptenh,    pqenh,                                    &
     &        ktrac,                                                                  &
     &        pdtime,                                                                 &
@@ -54,6 +55,7 @@ CONTAINS
     INTEGER, INTENT (OUT):: ktopm2
     REAL(wp),INTENT (IN) :: pdtime
     REAL(wp),INTENT (IN) :: cevapcu(klev)
+    REAL(wp),INTENT (IN) :: pmdry(kbdim,klev)
     REAL(wp):: pqen(kbdim,klev),        pqsen(kbdim,klev),                           &
       &        ptenh(kbdim,klev),       pqenh(kbdim,klev),                           &
       &        paphp1(kbdim,klevp1),    pgeoh(kbdim,klev)
@@ -81,8 +83,8 @@ CONTAINS
     !
     !*             Specify constants
     !
-    zcons1=cpd/(alf*grav*pdtime)
-    zcons2=1._wp/(grav*pdtime)
+    zcons1=cpd/(alf*pdtime)
+    zcons2=1._wp/pdtime
     ztmelp2=tmelt+2._wp
     !
     !*    1.0          Determine final convection fluxes
@@ -176,7 +178,7 @@ CONTAINS
           IF(pten(jl,jk).GT.tmelt) THEN
             prfl(jl)=prfl(jl)+pdmfup(jl,jk)+pdmfdp(jl,jk)
             IF(psfl(jl).GT.0._wp.AND.pten(jl,jk).GT.ztmelp2) THEN
-              zfac=zcons1*(1._wp+vtmpc2*pqen(jl,jk))*(paphp1(jl,jk+1)-paphp1(jl,jk))
+              zfac=zcons1*(1._wp+vtmpc2*pqen(jl,jk))*pmdry(jl,jk)
               zsnmlt=MIN(psfl(jl),zfac*(pten(jl,jk)-ztmelp2))
               pdpmel(jl,jk)=zsnmlt
               psfl(jl)=psfl(jl)-zsnmlt
@@ -204,7 +206,7 @@ CONTAINS
             &    cevapcu(jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))*                        &
             &    MAX(0._wp,pqsen(jl,jk)-pqen(jl,jk))))**2*zcucov(jl)
           zrmin=zrfl-zcucov(jl)*MAX(0._wp,0.8_wp*pqsen(jl,jk)-pqen(jl,jk))           &
-            &   *zcons2*(paphp1(jl,jk+1)-paphp1(jl,jk))
+            &   *zcons2*pmdry(jl,jk)
           zrnew=MAX(zrnew,zrmin)
           zrfln=MAX(zrnew,0._wp)
           zdrfl=MIN(0._wp,zrfln-zrfl)

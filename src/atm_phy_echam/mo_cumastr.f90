@@ -73,6 +73,7 @@ CONTAINS
   !!
   SUBROUTINE cumastr(  kproma, kbdim, klev, klevp1, klevm1,               &
     &                  pdtime,                                            &
+    &                  pzf,      pzh,                                     &
     &                  pmdry,                                             &
     &                  pten,     pqen,     pxen,     puen,     pven,      &
     &                  ktrac,    ldland,                                  &
@@ -93,6 +94,7 @@ CONTAINS
     INTEGER, INTENT(IN)   :: kproma, kbdim, klev, klevp1, ktrac, klevm1
     REAL(wp),INTENT(IN)   :: pdtime
     REAL(wp),INTENT(IN)   :: cevapcu(:)
+    REAL(wp),INTENT(IN)   :: pzf(kbdim,klev),         pzh(kbdim,klevp1)
     REAL(wp),INTENT(IN)   :: pmdry(kbdim,klev)
 
     REAL(wp),INTENT(IN)   :: pten(kbdim,klev),        pqen(kbdim,klev),        &
@@ -158,9 +160,9 @@ CONTAINS
     LOGICAL :: llo1
     !
     INTEGER :: nl, jl, jk, ikb, jt, itopm2, locnt, ldcnt
-    REAL(wp):: zcons2, zqumqe, zdqmin, zmfmax, zalvs, zalvdcp, zqalv       &
+    REAL(wp):: zcons, zqumqe, zdqmin, zmfmax, zalvs, zalvdcp, zqalv       &
       &      , zhsat, zes, zcor, zqsat, zdqsdt, zgam, zzz, zhhat           &
-      &      , zb, zbi, zroi, zdz, zdhdz, zdepth, zfac, zrh, zeps          &
+      &      , zbi, zroi, zdz, zdhdz, zdepth, zfac, zrh, zeps              &
       &      , zjk, zhelp, zlo1, zpaphp1i, ztenhi, zkctop, zpbmpt, za1, za2
     !
     !  INTRINSIC FUNCTIONS
@@ -181,7 +183,7 @@ CONTAINS
     !     1.           Specify constants and parameters
     !                  --------------------------------
     !
-    zcons2=1._wp/(grav*pdtime)
+    zcons=1._wp/pdtime
     !
     !----------------------------------------------------------------------
     !
@@ -225,13 +227,13 @@ CONTAINS
     jk=1
     DO jl=1,kproma
       zdqpbl(jl)=0.0_wp
-      zdqcv(jl)=pqte(jl,jk)*(paphp1(jl,jk+1)-paphp1(jl,jk))
+      zdqcv(jl)=pqte(jl,jk)*pmdry(jl,jk)
       idtop(jl)=0
     END DO
     DO jk=2,klev
       zjk = REAL(jk,wp)
       DO jl=1,kproma
-        zhelp      = paphp1(jl,jk+1)-paphp1(jl,jk)
+        zhelp      = pmdry(jl,jk)
         zdqcv(jl)  = zdqcv(jl)+pqte(jl,jk)*zhelp
         zdqpbl(jl) = zdqpbl(jl) + FSEL(zjk - zkcbot(jl),pqte(jl,jk),0._wp)*zhelp
 #ifdef __ibmdbg__
@@ -258,11 +260,11 @@ CONTAINS
       zdqmin=MAX(0.01_wp*zqenh(jl,ikb),1.e-10_wp)
       zlo1 = FSEL(-zdqpbl(jl),0._wp,1._wp)
       zlo1 = FSEL(zdqmin - zqumqe,0._wp,zlo1) * zldcum(jl)
-      zmfub(jl)=FSEL(-zlo1,0.01_wp,(zdqpbl(jl)/(grav*MAX(zqumqe,zdqmin))))
-      zmfmax=(paphp1(jl,ikb)-paphp1(jl,ikb-1))*zcons2
+      zmfub(jl)=FSEL(-zlo1,0.01_wp,zdqpbl(jl)/MAX(zqumqe,zdqmin))
+      zmfmax=pmdry(jl,ikb-1)*zcons
       zmfub(jl)=MIN(zmfub(jl),zmfmax)
       zldcum(jl) = zlo1
-      zhelp = MAX(0._wp,-1.1_wp*pqhfla(jl)*grav)
+      zhelp = MAX(0._wp,-1.1_wp*pqhfla(jl))
       zktype(jl) = FSEL(zhelp - zdqcv(jl),2._wp,1._wp)
       zentr(jl)  = FSEL(zhelp - zdqcv(jl),entrscv,entrpen)
       ktype(jl) = INT(zktype(jl))
@@ -349,8 +351,7 @@ CONTAINS
       ENDIF
     ENDDO
     !
-    zb=25._wp
-    zbi=1._wp/(zb*grav)
+    zbi=1._wp/25._wp
     DO jk=klev,1,-1
       ! mpuetz: compute the update criterion
       zjk = REAL(jk,wp)
@@ -377,12 +378,12 @@ CONTAINS
       !  zalvs=MERGE(alv,als,ztenh(jl,jk)>tmelt)
         ikb   = kcbot(jl)
         zroi  = SWDIV_NOCHK(rd*ztenh(jl,jk)*(1._wp+vtmpc1*zqenh(jl,jk)),paphp1(jl,jk))
-        zdz   = (paphp1(jl,jk)-paphp1(jl,jk-1))*zroi/grav
+        zdz   = pmdry(jl,jk-1)*zroi
         za1 = (zcpen(jl,jk-1)*pten(jl,jk-1) - zcpen(jl,jk)*pten(jl,jk)               &
-             + zalvs*(pqen(jl,jk-1) - pqen(jl,jk))+(pgeo(jl,jk-1)-pgeo(jl,jk)))*grav
-        za2 = pgeo(jl,jk-1)-pgeo(jl,jk)
+             + zalvs*(pqen(jl,jk-1) - pqen(jl,jk))+(pgeo(jl,jk-1)-pgeo(jl,jk)))
+        za2 = pzf(jl,jk-1)-pzf(jl,jk)
         zdhdz = SWDIV_NOCHK(za1, za2)
-        zdepth    = pgeoh(jl,jk)-pgeoh(jl,ikb)
+        zdepth    = pzh(jl,jk)-pzh(jl,ikb)
         ztmp1(nl) = zalvs
         ztmp2(nl) = zdz*zdhdz
         ztmp3(nl) = 1._wp+zdepth*zbi
@@ -393,7 +394,6 @@ CONTAINS
         jl = loidx(nl)
         zalvs     = ztmp1(nl)
         zfac      = ztmp3(nl)
-        zdepth    = pgeoh(jl,jk)-pgeoh(jl,ikb)
         zhmin(jl) = zhmin(jl) + zfac*ztmp2(nl)
         zrh       =-zalvs*(zqsenh(jl,jk)-zqenh(jl,jk))*zfac
         zihmin(jl) = FSEL(zrh - zhmin(jl),zihmin(jl),zjk)
@@ -415,6 +415,7 @@ CONTAINS
     !              ---------------------------------------------
     !
     CALL cuasc(kproma, kbdim, klev, klevp1, klevm1,                      &
+      &        pzf,      pzh,      pmdry,                                &
       &        ztenh,    zqenh,    puen,     pven,                       &
       &        ktrac,                                                    &
       &        pdtime,                                                   &
@@ -439,7 +440,7 @@ CONTAINS
 !DIR$ IVDEP
     DO jl=1,kproma
       zpbmpt=paphp1(jl,kcbot(jl))-paphp1(jl,kctop(jl))
-      IF(ldcum(jl).AND.ktype(jl).EQ.1.AND.zpbmpt.LT.2.e4_wp) ktype(jl)=2
+      IF(ldcum(jl).AND.ktype(jl).EQ.1.AND.zpbmpt.LT.2.e4_wp) ktype(jl)=2  ! cloud thickness < 200hPa --> shallow conv.
       IF(ldcum(jl)) ictop0(jl)=kctop(jl)
       IF(ktype(jl).EQ.2) zentr(jl)=entrscv
       zrfl(jl)=zdmfup(jl,1)
@@ -482,6 +483,7 @@ CONTAINS
       !*            (B)  Determine downdraft t,q and fluxes in 'cuddraf'
       !                  -----------------------------------------------
       CALL cuddraf(kproma,   kbdim,    klev,     klevp1,                &
+        &          pmdry,                                               &
         &          ztenh,    zqenh,    puen,     pven,                  &
         &          ktrac,                                               &
         &          zxtenh,   zxtd,     zmfdxt,                          &
@@ -535,12 +537,13 @@ CONTAINS
         jl = loidx(nl)
         zroi = SWDIV_NOCHK(rd*ztenh(jl,jk)*(1._wp+vtmpc1*zqenh(jl,jk)),paphp1(jl,jk))
         ztenhi = SWDIV_NOCHK(1._wp,ztenh(jl,jk))
-        zdz    = (paphp1(jl,jk)-paphp1(jl,jk-1))*zroi/grav
-        zheat(jl) = zheat(jl)+((pten(jl,jk-1)-pten(jl,jk) + grav*zdz*zcpcui(jl,jk))  &
-          &         *ztenhi+ vtmpc1*(pqen(jl,jk-1)-pqen(jl,jk)))                     &
-          &         *(grav*(pmfu(jl,jk)+pmfd(jl,jk)))*zroi
-        zcape(jl) = zcape(jl) + ( grav*(ptu(jl,jk)-ztenh(jl,jk))*ztenhi              &
-                    +grav*vtmpc1*(pqu(jl,jk)-zqenh(jl,jk))-grav*plu(jl,jk))*zdz
+        zdz    = pmdry(jl,jk-1)*zroi
+        zheat(jl) = zheat(jl) + grav*((pten(jl,jk-1)-pten(jl,jk) + grav*zdz*zcpcui(jl,jk))*ztenhi  &
+          &                           +vtmpc1*(pqen(jl,jk-1)-pqen(jl,jk)))                         &
+          &                         *(pmfu(jl,jk)+pmfd(jl,jk))*zroi
+        zcape(jl) = zcape(jl) + grav*((ptu(jl,jk)   -ztenh(jl,jk))*ztenhi                          &
+          &                           +vtmpc1*(pqu(jl,jk)-zqenh(jl,jk))-plu(jl,jk))                &
+          &                         *zdz
 #ifdef __ibmdbg__
         PRINT '(A6,I3,I4,5 E18.10,I4)','zheat',jk,jl,zheat(jl),zcape(jl),zroi,ztenhi,zdz,kcbot(jl)
         PRINT '(A6,I3,I4,6 E18.10)','zcape',jk,jl,pten(jl,jk-1)-pten(jl,jk),pqen(jl,jk-1)-pqen(jl,jk),pmfu(jl,jk)+pmfd(jl,jk),ptu(jl,jk),pqu(jl,jk),plu(jl,jk)
@@ -552,7 +555,7 @@ CONTAINS
     !     DO jk=2,klev
     !        zro=paphp1(jl,jk)/(rd*ztenh(jl,jk)*                         &
     !             (1._wp+vtmpc1*zqenh(jl,jk)))
-    !        zdz=(paphp1(jl,jk)-paphp1(jl,jk-1))/(grav*zro)
+    !        zdz=pmdry(jl,jk-1)/zro
     !        zhelp(jl)=zhelp(jl) +                               &
     !             (grav*(ptu(jl,jk)-ztenh(jl,jk))/ztenh(jl,jk)     &
     !             +grav*vtmpc1*(pqu(jl,jk)-zqenh(jl,jk))      &
@@ -565,7 +568,7 @@ CONTAINS
         ikb=kcbot(jl)
         zmfub1(jl) = SWDIV_NOCHK((zcape(jl)*zmfub(jl)),(zheat(jl)*cmftau))
         zmfub1(jl) = MAX(zmfub1(jl),0.001_wp)
-        zmfmax     = (paphp1(jl,ikb)-paphp1(jl,ikb-1))*zcons2
+        zmfmax     = pmdry(jl,ikb-1)*zcons
         zmfub1(jl) = MIN(zmfub1(jl),zmfmax)
       ENDIF
     ENDDO
@@ -590,10 +593,10 @@ CONTAINS
       zeps=MERGE(cmfdeps,0._wp,llo1)
       zqumqe=pqu(jl,ikb)+plu(jl,ikb)-zeps*zqd(jl,ikb)-(1._wp-zeps)*zqenh(jl,ikb)
       zdqmin=MAX(0.01_wp*zqenh(jl,ikb),1.e-10_wp)
-      zmfmax=(paphp1(jl,ikb)-paphp1(jl,ikb-1))*zcons2
+      zmfmax=pmdry(jl,ikb-1)*zcons
       llo1=zdqpbl(jl).GT.0._wp.AND.zqumqe.GT.zdqmin.AND.ldcum(jl)                    &
         &                                          .AND.zmfub(jl).LT.zmfmax
-      zmfub1(jl)=MERGE(zdqpbl(jl)/(grav*MAX(zqumqe,zdqmin)),zmfub(jl),llo1)
+      zmfub1(jl)=MERGE(zdqpbl(jl)/MAX(zqumqe,zdqmin),zmfub(jl),llo1)
       zmfub1(jl)=MERGE(zmfub1(jl),zmfub(jl),                                         &
         &                          ABS(zmfub1(jl)-zmfub(jl)).LT.0.2_wp*zmfub(jl))
 #ifdef __ibmdbg__
@@ -649,6 +652,7 @@ CONTAINS
     !           --------------------------------------------------
     !
     CALL cuasc(kproma, kbdim, klev, klevp1, klevm1,                      &
+      &        pzf,      pzh,      pmdry,                                &
       &        ztenh,    zqenh,    puen,     pven,                       &
       &        ktrac,                                                    &
       &        pdtime,                                                   &
@@ -671,6 +675,7 @@ CONTAINS
     !              --------------------------------------------
     !
     CALL cuflx(kproma,   kbdim,    klev,     klevp1,                     &
+      &        pmdry,                                                    &
       &        pqen,     zqsen,    ztenh,    zqenh,                      &
       &        ktrac,                                                    &
       &        pdtime,                                                   &
