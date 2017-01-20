@@ -47,11 +47,10 @@ MODULE mo_art_emission_interface
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
   USE mo_ext_data_types,                ONLY: t_external_data
   USE mo_nwp_lnd_types,                 ONLY: t_lnd_diag
-  USE mo_run_config,                    ONLY: lart,ntracer, iforcing 
+  USE mo_run_config,                    ONLY: lart,ntracer,iforcing 
   USE mo_datetime,                      ONLY: t_datetime
   USE mo_time_config,                   ONLY: time_config
   USE mo_impl_constants,                ONLY: iecham, inwp
-  
 #ifdef __ICON_ART
 ! Infrastructure Routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
