@@ -37,7 +37,7 @@ MODULE mo_initicon
   USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlevatm_in, lvert_remap_fg, &
     &                               rho_incr_filter_wgt, lread_ana, ltile_init, &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart, lconsistency_checks, &
-    &                               niter_divdamp, niter_diffu
+    &                               niter_divdamp, niter_diffu, lanaread_tseasfc
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_DWDANA,   &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA,              &
@@ -1751,8 +1751,6 @@ MODULE mo_initicon
     REAL(wp):: missval
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startidx, i_endidx, i_endblk
-    LOGICAL :: lanaread_tso                    ! .TRUE. T_SO(0) was read from analysis
-    LOGICAL :: lanaread_tseasfc                ! .TRUE. T_SEA was read from analysis
     LOGICAL :: lp_mask(nproma)
     REAL(wp):: z_t_seasfc(nproma)              ! temporary field containing both SST 
                                                ! and lake-surface temperatures 
@@ -1779,8 +1777,8 @@ MODULE mo_initicon
         jgch = jg
       ENDIF
 
-      lanaread_tso  = ANY((/kInputSourceAna,kInputSourceBoth/) == inputInstructions(jgch)%ptr%sourceOfVar('t_so'))
-      lanaread_tseasfc = inputInstructions(jgch)%ptr%sourceOfVar('t_seasfc') == kInputSourceAna
+      lanaread_tseasfc(jg) = ( inputInstructions(jgch)%ptr%sourceOfVar('t_seasfc') == kInputSourceAna .OR. &
+              ANY((/kInputSourceAna,kInputSourceBoth/) == inputInstructions(jgch)%ptr%sourceOfVar('t_so')) )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,ic,jk,jb,jt,i_startidx,i_endidx,lp_mask,ist,z_t_seasfc) ICON_OMP_DEFAULT_SCHEDULE
@@ -1791,7 +1789,7 @@ MODULE mo_initicon
 
 
 
-        IF (lanaread_tso .OR. lanaread_tseasfc) THEN
+        IF (lanaread_tseasfc(jg)) THEN
           !
           ! SST analysis (T_SO(0) or T_SEA) was read into initicon(jg)%sfc%sst.
           ! Now copy to diag_lnd%t_seasfc for sea water points (including ice-covered ones)
@@ -1815,7 +1813,7 @@ MODULE mo_initicon
               p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = tf_salt
           END DO
 
-        ENDIF  ! lanaread_t_so .OR. lanaread_tseasfc
+        ENDIF  ! lanaread_tseasfc
 
 
         ! construct temporary field containing both SST and lake-surface temperatures
@@ -1988,7 +1986,7 @@ MODULE mo_initicon
 
           DO jc = i_startidx, i_endidx
             IF (ext_data(jg)%atm%fr_land(jc,jb) <= 1-frlnd_thrhld) THEN ! grid points with non-zero water fraction
-              IF (lanaread_tso .OR. lanaread_tseasfc) THEN
+              IF (lanaread_tseasfc(jg)) THEN
                 p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tmelt,initicon(jg)%sfc%sst(jc,jb))
                 IF (ext_data(jg)%atm%fr_lake(jc,jb) < frlake_thrhld) THEN
                   p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_water) = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)

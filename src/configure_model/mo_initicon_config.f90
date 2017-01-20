@@ -47,6 +47,7 @@ MODULE mo_initicon_config
   PUBLIC :: type_iau_wgt
   PUBLIC :: iterate_iau
   PUBLIC :: l_sst_in
+  PUBLIC :: use_lakeiceana
   PUBLIC :: lread_ana
   PUBLIC :: lread_vn
   PUBLIC :: lconsistency_checks
@@ -76,6 +77,7 @@ MODULE mo_initicon_config
   PUBLIC :: timeshift
   PUBLIC :: initicon_config
   PUBLIC :: aerosol_fg_present
+  PUBLIC :: lanaread_tseasfc
 
   ! Subroutines
   PUBLIC :: configure_initicon
@@ -121,6 +123,8 @@ MODULE mo_initicon_config
   LOGICAL  :: ltile_coldstart  ! If true, initialize tile-based surface fields from first guess with tile-averaged fields
 
   LOGICAL  :: ltile_init       ! If true, initialize tile-based surface fields from first guess without tiles
+
+  LOGICAL  :: use_lakeiceana   ! If true, use ice fraction analysis data also over lakes (otherwise sea points only)
 
   LOGICAL  :: lvert_remap_fg   ! If true, vertical remappting of first guess input is performed
 
@@ -189,6 +193,8 @@ MODULE mo_initicon_config
   REAL(wp):: iau_wgt_adv = 0._wp    !< IAU weight for tracer fields
 
   LOGICAL :: aerosol_fg_present(max_dom) = .FALSE. !< registers if aerosol fields have been read from the first-guess data
+
+  LOGICAL :: lanaread_tseasfc(max_dom) = .FALSE. !< registers if SST and sea ice fraction data have been read from analysis
 
   TYPE(t_initicon_config), TARGET :: initicon_config(0:max_dom)
 

@@ -6,12 +6,14 @@
 !! to determine fluxes over lakes. By default, fluxes over lakes 
 !! are computed in the same way as over the ocean).
 !! Communication between FLake and the host atmospheric model (ICON) 
-!! occurs through two subroutines, "flake_init" and "flake_interface".
-!! In "flake_init", FLake prognostic variables are initialized  
-!! and some consistency checks are performed.
+!! occurs through the subroutines "flake_coldinit", "flake_init" and "flake_interface".
+!! In "flake_init" (warm start initialization procedure), FLake prognostic variables 
+!! are initialized and some consistency checks are performed.
 !! In "flake_interface", a call to the FLake subroutine "flake_driver" is organized, 
 !! where FLake variables are advanced one time step forward 
 !! (see "flake_driver" for further details).
+!! The "flake_coldinit" serves to perform a cold start of FLake 
+!! within a host model. 
 !!
 !! FLake (Fresh-water Lake) is a bulk lake parameterization scheme 
 !! capable of predicting the water temperature 
@@ -54,6 +56,10 @@
 !! the temperature at the lower boundary of the thermally active layer of bottom
 !! sediments, and the depth of that layer. These parameters are not part 
 !! the model physics, however. 
+!! Note though that the data assimilation procedures (e.g. assimilation of observational 
+!! data on ice fraction) utilize constants and parameters, whose estimates are essentially 
+!! based on prior experience and common sense. Those constants and parameters 
+!! may need to be tuned as the case requires.
 !!
 !! A detailed description of FLake is given in
 !!
@@ -126,6 +132,8 @@
 !! Modification by Dmitrii Mironov, DWD (2015-10-16)
 !! - Parameter fr_lake_min is no longer used,
 !! - namelist parameter frlake_thrhld is used to specify minimum lake fraction.
+!! Modification by Guenther Zaengl, DWD (2017-02-02)
+!! - assimilation of observational data on ice fraction is introduced.
 !! 
 !! @par Copyright and License
 !!
@@ -341,7 +349,7 @@ CONTAINS
 !234567890023456789002345678900234567890023456789002345678900234567890023456789002345678900234567890
 
 !===================================================================================================
-!  Initialize the lake parameterization scheme FLake
+!  Initialize the lake parameterization scheme FLake (warm start initialization)
 !---------------------------------------------------------------------------------------------------
 
   !> 
@@ -362,6 +370,10 @@ CONTAINS
   !! (these are equal to their reference values as the bottom-sediment module is 
   !! switched off), are not included into the ICON IO list.
   !! These variable are handled internally.
+  !! Observational data on ice fraction are utilized to create new ice, reduce the 
+  !! ice thickness, or remove ice. To this end, an ad hoc assimilation procedure
+  !! is used (that contains a good few of tuning constants). 
+  !! Data on lake ice fraction are currently used for some large lakes only.
   !!
   !!
   !! @par Revision History
@@ -374,11 +386,14 @@ CONTAINS
   !! - removed initialization of FLake variables at new time step. This should 
   !!   not be part of the initilaization routine itself, since it is not 
   !!   strictly necessary in order to run the model.
+  !! Modification by Guenther Zaengl, DWD (2017-02-02)
+  !! - assimilation of observational data on ice fraction is introduced
+  !!   (currently for Great Lakes of North America only).
   !!
 
   SUBROUTINE flake_init (                                       &
-                     &  nflkgb,                                 &
-                     &  fr_lake, depth_lk,                      &
+                     &  nflkgb, use_iceanalysis,                &
+                     &  fr_lake, depth_lk, fr_ice,              &
                      &  fetch_lk, dp_bs_lk, t_bs_lk, gamso_lk,  &
                      &  t_snow_p, h_snow_p,                     & 
                      &  t_ice_p, h_ice_p,                       & 
@@ -400,9 +415,13 @@ CONTAINS
 
     ! FLake external parameters
 
+    LOGICAL, DIMENSION(:), INTENT(IN) :: use_iceanalysis !< switch whether to use ice fraction analysis
+                                                         !  on a given grid point
+
     REAL(KIND = ireals), DIMENSION(:), INTENT(IN) ::  &
                         &  fr_lake          , & !< lake fraction in a grid box [-]
-                        &  depth_lk             !< lake depth [m]
+                        &  depth_lk         , & !< lake depth [m]
+                        &  fr_ice               !< ice fraction coming from analysis
 
     REAL(KIND = ireals), DIMENSION(:), INTENT(INOUT) ::  &
                         &  fetch_lk         , & !< wind fetch over lake [m]
@@ -572,6 +591,48 @@ CONTAINS
         t_scf_lk_p(iflk) = t_wml_lk_p(iflk)
       END IF
 
+      ! Adapt ice thickness and temperatures if analysis data of ice fraction are available
+      AssimIceFractionData: IF (use_iceanalysis(iflk)) THEN
+
+        IF (fr_ice(iflk) > 0.05_ireals .AND. h_ice_p(iflk) < h_Ice_min_flk) THEN
+          ! There was no ice in the first guess, create new ice with an amount depending on ice fraction
+          h_ice_p(iflk)  = 0.025_ireals*fr_ice(iflk)
+          ! Set the ice surface temperature to the fresh-water freezing point
+          t_ice_p(iflk)  = tpl_T_f
+          ! Set the mixed-layer temperature to the fresh-water freezing point
+          t_wml_lk_p(iflk)  = tpl_T_f
+          ! Adjust the temperature profile 
+          ! h_ML and C_T remain unchanged, limit the bottom temperature
+          t_bot_lk_p(iflk) = MAX(tpl_T_f, MIN(t_bot_lk_p(iflk), tpl_T_r))
+          ! Compute the mean temperature of the water column
+          t_mnw_lk_p(iflk) = t_wml_lk_p(iflk) - c_t_lk_p(iflk)                             &
+            &              * MAX(0._ireals, (1._ireals - h_ml_lk_p(iflk)/depth_lk(iflk)))  &
+            &              * (t_wml_lk_p(iflk) - t_bot_lk_p(iflk))
+        ELSE IF (fr_ice(iflk) >= 0.03_ireals .AND. fr_ice(iflk) < 0.75_ireals  & 
+          &      .AND. h_ice_p(iflk) >= 0.1_ireals*fr_ice(iflk)) THEN
+          ! Ice exists but should be reduced in depth 
+          h_ice_p(iflk)  = 0.1_ireals*fr_ice(iflk)
+          ! Set the ice surface temperature to the fresh-water freezing point if the ice fraction is < 0.1
+          IF (fr_ice(iflk) < 0.1_ireals) t_ice_p(iflk)  = tpl_T_f
+        ELSE IF (fr_ice(iflk) < 0.03_ireals) THEN 
+          ! Ice fraction is too small, remove ice 
+          h_ice_p(iflk)  = 0.0_ireals
+          ! Set the ice surface temperature to the fresh-water freezing point
+          t_ice_p(iflk)  = tpl_T_f
+          ! Set the mixed-layer temperature to the value slightly over the fresh-water freezing point
+          t_wml_lk_p(iflk)  = tpl_T_f + 0.05_ireals
+          ! Adjust the bottom temperature
+          t_bot_lk_p(iflk) = MAX(t_wml_lk_p(iflk), MIN(t_bot_lk_p(iflk), tpl_T_r))
+          ! Compute the mean temperature of the water column
+          t_mnw_lk_p(iflk) = t_wml_lk_p(iflk) - c_t_lk_p(iflk)                             &
+            &              * MAX(0._ireals, (1._ireals - h_ml_lk_p(iflk)/depth_lk(iflk)))  &
+            &              * (t_wml_lk_p(iflk) - t_bot_lk_p(iflk))
+        END IF
+       ! Set the snow variables
+        h_snow_p(iflk)   = 0.0_ireals
+        t_snow_p(iflk)   = t_ice_p(iflk)
+
+      ENDIF AssimIceFractionData 
 
     END DO GridBoxesWithLakes 
 
