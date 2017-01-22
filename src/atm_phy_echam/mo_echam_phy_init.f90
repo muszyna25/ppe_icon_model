@@ -460,20 +460,20 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP WORKSHARE
+      !
+      ! constant-in-time fields
+      field%      clon(:,  :)     = p_patch%cells%center(:,:)%lon
+      field%      clat(:,  :)     = p_patch%cells%center(:,:)%lat
+      field% areacella(:,  :)     = p_patch%cells%area  (:,:)
+      field%    coriol(:,  :)     = p_patch%cells%f_c   (:,:)
+      !
+      ! initial conditions
       field% qtrc (:,:,:,iqv) = qv(:,:,:)
       field% xvar (:,:,:)     = qv(:,:,:)*0.1_wp
 !$OMP END WORKSHARE
 !$OMP END PARALLEL
 
       IF (phy_config%lvdiff) THEN
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = jbs,nblks_c
-          CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
-          field% coriol(jcs:jce,jb) = p_patch%cells%f_c(jcs:jce,jb)
-        ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
         IF (iwtr<=nsfc_type) field% z0m_tile(:,:,iwtr) = 1e-3_wp !see init_surf in echam (or z0m_oce?)
         IF (iice<=nsfc_type) field% z0m_tile(:,:,iice) = 1e-3_wp !see init_surf in echam (or z0m_ice?)
         IF (ilnd<=nsfc_type) THEN

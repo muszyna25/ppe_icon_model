@@ -27,15 +27,16 @@ MODULE mo_echam_phy_main
 
   USE mo_kind,                ONLY: wp
   USE mtime,                  ONLY: datetime
+  !
   USE mo_math_constants,      ONLY: pi
-  USE mo_physical_constants,  ONLY: cpd, cpv, cvd, cvv, &
-    &                               amd, amo3
+  USE mo_physical_constants,  ONLY: cpd, cpv, cvd, cvv, amd, amo3
+  !
   USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
     &                               iqv, iqc, iqi, iqt, io3
   !
+  USE mo_echam_phy_config,    ONLY: echam_phy_config
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
     &                               t_echam_phy_tend,  prm_tend
-  USE mo_echam_phy_config,    ONLY: echam_phy_config
   !
   USE mo_cover,               ONLY: cover
   !
@@ -43,12 +44,6 @@ MODULE mo_echam_phy_main
   USE mo_psrad_radiation_parameters, ONLY: psctm
   USE mo_psrad_radiation,     ONLY: psrad_radiation
   USE mo_radheating,          ONLY: radheating
-  !
-  USE mo_echam_conv_config,   ONLY: echam_conv_config
-  USE mo_cumastr,             ONLY: cumastr
-  !
-  USE mo_echam_cloud_config,  ONLY: echam_cloud_config
-  USE mo_cloud,               ONLY: cloud
   !
   USE mo_vdiff_config,        ONLY: vdiff_config
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
@@ -60,14 +55,19 @@ MODULE mo_echam_phy_main
   USE mo_surface,             ONLY: update_surface
   USE mo_surface_diag,        ONLY: nsurf_diag
   !
-  USE mo_gw_hines,            ONLY: gw_hines
-  USE mo_ssortns,             ONLY: ssodrag
-  !
-  ! Cariolle ozone chemistry
   USE mo_model_domain,        ONLY: p_patch
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
     &                                  calculate_time_interpolation_weights
   USE mo_lcariolle_types,     ONLY: avi, t_time_interpolation
+  !
+  USE mo_gw_hines,            ONLY: gw_hines
+  USE mo_ssortns,             ONLY: ssodrag
+  !
+  USE mo_echam_conv_config,   ONLY: echam_conv_config
+  USE mo_cumastr,             ONLY: cumastr
+  !
+  USE mo_echam_cloud_config,  ONLY: echam_cloud_config
+  USE mo_cloud,               ONLY: cloud
   !
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop,                &
     &                               timer_cover, timer_radiation, timer_radheat,    &

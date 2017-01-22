@@ -138,13 +138,13 @@ EOF
 # 3-dimensional files include 'ps' and 'pfull' to allow the vertical
 # interpolation to pressure levels by cdo ap2pl.
 
-output_vgrid=yes
+output_atm_cgrid=yes
 #
-if [[ "$output_vgrid" == "yes" ]]; then
+if [[ "$output_atm_cgrid" == "yes" ]]; then
   #
   cat >> ${atmo_namelist} << EOF
 &output_nml
- output_filename  = "${EXPNAME}_vgrid"
+ output_filename  = "${EXPNAME}_atm_cgrid"
  filename_format  = "<output_filename>_<levtype_l>"
  remap            = 0
  output_grid      = .TRUE.
@@ -152,7 +152,7 @@ if [[ "$output_vgrid" == "yes" ]]; then
  output_end       = "${start_date}"       ! --> write once only irrespective of
  output_interval  = "${output_interval}"  !     the output interval and
  file_interval    = "${file_interval}"    !     the file interval
- ml_varlist       = 'zghalf'  , 'zg'      ,
+ ml_varlist       = 'clon', 'clat', 'areacella', 'zghalf', 'zg'
 /
 EOF
 fi

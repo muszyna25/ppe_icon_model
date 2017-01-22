@@ -120,6 +120,11 @@ MODULE mo_echam_phy_memory
 
     ! Metrics
     REAL(wp),POINTER ::     &
+      ! horizontal grid
+      & clon      (:,:),    &!< [rad]   longitude at cell center
+      & clat      (:,:),    &!< [rad]   longitude at cell center
+      & areacella (:,:),    &!< [m2]    atmosphere grid-cell area
+      ! vertical grid
       & zh        (:,:,:),  &!< [m]     geometric height at half levels
       & zf        (:,:,:),  &!< [m]     geometric height at full levels
       & dz        (:,:,:)    !< [m]     geometric height thickness of layer
@@ -708,6 +713,36 @@ CONTAINS
     !------------------------------
     ! Metrics
     !------------------------------
+
+    cf_desc    = t_cf_var('cell_longitude', 'rad',                              &
+                &         'cell center longitude',                              &
+                &         datatype_flt)
+    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'clon', field%clon,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,      &
+                & ldims=shape2d,                                                &
+                & lrestart = .FALSE.,                                           &
+                & isteptype=TSTEP_CONSTANT  )
+
+    cf_desc    = t_cf_var('cell_latitude', 'rad',                               &
+                &         'cell center latitude',                               &
+                &         datatype_flt)
+    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'clat', field%clat,                       &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,      &
+                & ldims=shape2d,                                                &
+                & lrestart = .FALSE.,                                           &
+                & isteptype=TSTEP_CONSTANT  )
+
+    cf_desc    = t_cf_var('cell_area', 'm2',                                    &
+                &         'Atmosphere Grid-Cell Area',                          &
+                &         datatype_flt)
+    grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( field_list, prefix//'areacella', field%areacella,             &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,      &
+                & ldims=shape2d,                                                &
+                & lrestart = .FALSE.,                                           &
+                & isteptype=TSTEP_CONSTANT  )
 
     cf_desc    = t_cf_var('geometric_height_at_half_level', 'm',                &
                 &         'Geometric height at half level in physics',          &
