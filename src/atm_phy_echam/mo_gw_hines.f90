@@ -172,9 +172,9 @@ CONTAINS
 
     !  Array arguments with intent(OUT):
     ! - input/output 2d
-    REAL(wp) ,INTENT(inout) :: dissip_gwh(nbdim,nlev)  ! gw energy dissipation   ! out
-    REAL(wp) ,INTENT(inout) :: tend_u_gwh(nbdim,nlev)  ! tendency of zonal wind    ! out
-    REAL(wp) ,INTENT(inout) :: tend_v_gwh(nbdim,nlev)  ! tendency of meridional wind ! out
+    REAL(wp) ,INTENT(out) :: dissip_gwh(nbdim,nlev)  ! gw energy dissipation
+    REAL(wp) ,INTENT(out) :: tend_u_gwh(nbdim,nlev)  ! tendency of zonal wind
+    REAL(wp) ,INTENT(out) :: tend_v_gwh(nbdim,nlev)  ! tendency of meridional wind
 
     !  Local arrays for ccc/mam hines gwd scheme:
 
@@ -395,8 +395,8 @@ CONTAINS
       ! - poleward of lat_rmscon               : rmscon
       ! - equatorward of lat_rmscon_eq         : rmscon_eq
       ! - between lat_rmscon_eq and lat_rmscon : linear interpolation between rmscon and rmscon_eq
-      rmswind(1:nc) = ( MAX(MIN((ABS(lat_deg(1:nc))-lat_rmscon_eq),1.0_wp),0.0_wp) * rmscon      &
-        &              +MAX(MIN((lat_rmscon-ABS(lat_Deg(1:nc)))   ,1.0_wp),0.0_wp) * rmscon_eq ) &
+      rmswind(1:nc) = ( MAX(MIN((ABS(lat_deg(1:nc))-lat_rmscon_eq),lat_rmscon-lat_rmscon_eq),0.0_wp) * rmscon      &
+        &              +MAX(MIN((lat_rmscon-ABS(lat_deg(1:nc)))   ,lat_rmscon-lat_rmscon_eq),0.0_wp) * rmscon_eq ) &
         &            /(lat_rmscon-lat_rmscon_eq)
     ELSE
       rmswind(1:nc) = rmscon
@@ -427,22 +427,15 @@ CONTAINS
     !     * heating rate only calculated if lheatcal = .TRUE.).
     !
     CALL hines_extro ( nc, nlev, nazmth,                          &
-      &                utendgw, vtendgw, heat_gw, diffco,         &
+      &                tend_u_gwh(jcs:jce,:),                     &
+      &                tend_v_gwh(jcs:jce,:),                     &
+      &                dissip_gwh(jcs:jce,:),                     &
+      &                diffco,                                    &
       &                flux_u, flux_v,                            &
       &                uhs, vhs, bvfreq, density, visc_mol, alt,  &
       &                rmswind, anis, k_alpha, sigsqmcw,          &
       &                m_alpha,  mmin_alpha ,sigma_t, sigmatm,    &
       &                levbot, lorms)
-
-
-    !   update tendencies:
-    !
-    DO jk=1, nlev
-      dissip_gwh(jcs:jce,jk) = heat_gw(1:nc,jk)
-      tend_u_gwh(jcs:jce,jk) = utendgw(1:nc,jk)
-      tend_v_gwh(jcs:jce,jk) = vtendgw(1:nc,jk)
-    END DO
-    !
 
 #ifdef __PROFILE
   CALL trace_stop ('gw_hines', 20)
