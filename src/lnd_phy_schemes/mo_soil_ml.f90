@@ -1096,7 +1096,8 @@ END SUBROUTINE message
 !
     zdelwice       , & ! amount of melted soil ice/frozen soil water
     zdwi_scal      , & ! time scale parameter for freezing/melting soil water
-    ztx                ! water content dependent freezing/melting temperature
+    ztx            , & ! water content dependent freezing/melting temperature
+    zd1, zd2, zd3, zd4 ! auxiliary variables
 
 ! Local (automatic) arrays:
 ! -------------------------
@@ -1135,7 +1136,7 @@ END SUBROUTINE message
     zw_m_org         , &  ! maximum of  liquid water content   organic
     zw_m_soil (ie)   , &  ! maximum of  liquid water content   mineral soil
     zw_m_up   (ie)       , &  ! maximum of  liquid water content   at temp -3 degC
-    zw_m_low  (ie)   , &  ! maximum of  liquid water content   at temp -40 degC
+    zw_m_low  (ie,ke_soil+1), &  ! maximum of  liquid water content   at temp -40 degC
     zw_m_org  (ie)     , &  ! maximum of  liquid water content   organic at temp -40 degC
     t_zw_up          , &  ! temp -3 degC
     t_zw_low         , &  ! temp -40 degC
@@ -1411,7 +1412,6 @@ END SUBROUTINE message
 !                                                    doi:10.5194/bg-13-1991-2016
   t_zw_up  = 270.15_ireals ! temp -3 degC
   t_zw_low = 233.15_ireals ! temp -40 degC
-  zd = LOG((T_ref_ice-(t_zw_low-t0_melt))/T_star_ice)
 
 
   DO i = istarts, iends
@@ -1450,7 +1450,16 @@ END SUBROUTINE message
     ! New arrays for BATS-scheme
     zk0di(i)  = ck0di(mstyp)              !
     zbedi(i)  = cbedi(mstyp)              !
-    ! Arrays for soil water freezing/melting
+  ENDDO
+
+  ! Arrays for soil water freezing/melting
+  zd = LOG((T_ref_ice-(t_zw_low-t0_melt))/T_star_ice)
+  zd1 = EXP(b_sand*zd)
+  zd2 = EXP(b_clay*zd)
+  zd3 = EXP(b_silt*zd)
+  zd4 = EXP(b_org*zd)
+  DO i = istarts, iends
+    mstyp       = soiltyp_subs(i)        ! soil type
     zsandf(i)   = csandf(mstyp)
     zclayf(i)   = cclayf(mstyp)
     zsiltf(i)   = 100._ireals -csandf(mstyp)-cclayf(mstyp) ! Residuum of sand and clay
@@ -1463,9 +1472,8 @@ END SUBROUTINE message
     ! Determine liq. water content at -40 degC
     !  J. Helmert: Soil ice parameterization according to K. Schaefer and Jafarov, E.,2016,
     !                                                    doi:10.5194/bg-13-1991-2016
-    zw_m_soil(i) = 0.01_ireals*(zsandf(i)*EXP(b_sand*zd) +                &
-                                zclayf(i)*EXP(b_clay*zd) + zsiltf(i)*EXP(b_silt*zd))
-    zw_m_org(i) = EXP(b_org*zd)
+    zw_m_soil(i) = 0.01_ireals*(zsandf(i)*zd1 + zclayf(i)*zd2 + zsiltf(i)*zd3)
+    zw_m_org(i) = zd4
   ENDDO
 
 
@@ -1479,11 +1487,11 @@ END SUBROUTINE message
         IF(zmls(kso) < rootdp(i)) THEN
           zzz = plcov(i)*(rootdp(i)-zmls(kso))/rootdp(i)
           zrocg(i,kso)=(1._ireals-zzz)*zrocg_soil(i,kso)+zzz*0.58E+06_ireals
-    !  J. Helmert: Soil ice parameterization according to K. Schaefer and Jafarov, E.,2016,
-    !  Organic fraction                                        doi:10.5194/bg-13-1991-2016
-          zw_m_low(i) = zporv(i,kso)*zdzhs(kso)*(zzz*zw_m_org(i) + (1._ireals-zzz)*zw_m_soil(i))
+          !  J. Helmert: Soil ice parameterization according to K. Schaefer and Jafarov, E.,2016,
+          !  Organic fraction                                        doi:10.5194/bg-13-1991-2016
+          zw_m_low(i,kso) = zporv(i,kso)*zdzhs(kso)*(zzz*zw_m_org(i) + (1._ireals-zzz)*zw_m_soil(i))
         ELSE
-          zw_m_low(i) = zporv(i,kso)*zdzhs(kso)*zw_m_soil(i)
+          zw_m_low(i,kso) = zporv(i,kso)*zdzhs(kso)*zw_m_soil(i)
         END IF
       ENDDO
   END DO
@@ -4092,16 +4100,16 @@ ENDIF
                 zw_m(i)     = zporv(i,kso)*zdzhs(kso)
                 IF(t_so_new(i,kso).LT.(t0_melt-zepsi)) THEN
 !                  zw_m(i) = zw_m(i)*EXP(-zedb(i,kso)*LOG((t_so_new(i,kso) - t0_melt)/(t_so_new(i,kso)*zaa)) )
-                  zw_m(i) = zporv(i,kso)*zdzhs(kso)*EXP(-zedb(i)*LOG((t_so_new(i,kso) - t0_melt)/(t_so_new(i,kso)*zaa(i))) )
 
-                   IF(t_so_new(i,kso).LT.t_zw_up) THEN ! Logarithmic Interpolation between -3 degC and -40 degC 
-                     zw_m(i) = zw_m_low(i)*EXP((t_so_new(i,kso) - t_zw_low)*(LOG(zporv(i,kso)*zdzhs(kso)*zw_m_up(i)) - LOG(zw_m_low(i)))/(t_zw_up-t_zw_low))
-                   END IF
-
-! J. Helmert: Below -40 degC keep the liq. water content constant
-                  IF(t_so_new(i,kso).LT.t_zw_low) zw_m(i) = zw_m_low(i)
-
-!       
+                  IF (t_so_new(i,kso) < t_zw_low) THEN
+                    zw_m(i) = zw_m_low(i,kso)
+                  ELSE IF (t_so_new(i,kso) < t_zw_up) THEN ! Logarithmic Interpolation between -3 degC and -40 degC 
+                    zw_m(i) = zw_m_low(i,kso)*EXP((t_so_new(i,kso) - t_zw_low)*                          &
+                      (LOG(zporv(i,kso)*zdzhs(kso)*zw_m_up(i)) - LOG(zw_m_low(i,kso)))/(t_zw_up-t_zw_low))
+                  ELSE
+                    zw_m(i) = zw_m(i)*EXP(-zedb(i)*LOG((t_so_new(i,kso) - t0_melt)/(t_so_new(i,kso)*zaa(i))) )
+                  END IF
+       
                   zliquid= MAX(zepsi,w_so_now(i,kso) -  w_so_ice_now(i,kso))
                   znen   = 1._ireals-zaa(i)*EXP(zb_por(i)*LOG(zporv(i,kso)*zdzhs(kso)/zliquid))
                   ztx    = t0_melt/znen
@@ -4771,14 +4779,15 @@ ENDIF
                 zw_m(i)     = zporv(i,kso)*zdzhs(kso)
                 IF(t_so_new(i,kso).LT.(t0_melt-zepsi)) THEN
 !                  zw_m(i) = zw_m(i)*EXP(-zedb(i,kso)*LOG((t_so_new(i,kso) - t0_melt)/(t_so_new(i,kso)*zaa)) )
-                  zw_m(i) = zporv(i,kso)*zdzhs(kso)*EXP(-zedb(i)*LOG((t_so_new(i,kso) - t0_melt)/(t_so_new(i,kso)*zaa(i))) )
 
-                    IF(t_so_new(i,kso).LT.t_zw_up) THEN ! Logarithmic Interpolation between -3 degC and -40 degC 
-                     zw_m(i) = zw_m_low(i)*EXP((t_so_new(i,kso) - t_zw_low)*(LOG(zporv(i,kso)*zdzhs(kso)*zw_m_up(i)) - LOG(zw_m_low(i)))/(t_zw_up-t_zw_low))
-                    END IF
-
-! J. Helmert: Below -40 degC keep the liq. water content constant
-                    IF(t_so_new(i,kso).LT.t_zw_low) zw_m(i) = zw_m_low(i)
+                  IF (t_so_new(i,kso) < t_zw_low) THEN
+                    zw_m(i) = zw_m_low(i,kso)
+                  ELSE IF (t_so_new(i,kso) < t_zw_up) THEN ! Logarithmic Interpolation between -3 degC and -40 degC 
+                    zw_m(i) = zw_m_low(i,kso)*EXP((t_so_new(i,kso) - t_zw_low)*                          &
+                      (LOG(zporv(i,kso)*zdzhs(kso)*zw_m_up(i)) - LOG(zw_m_low(i,kso)))/(t_zw_up-t_zw_low))
+                  ELSE
+                    zw_m(i) = zw_m(i)*EXP(-zedb(i)*LOG((t_so_new(i,kso) - t0_melt)/(t_so_new(i,kso)*zaa(i))) )
+                  END IF
 
                   zliquid= MAX(zepsi,w_so_now(i,kso) -  w_so_ice_now(i,kso))
                   znen   = 1._ireals-zaa(i)*EXP(zb_por(i)*LOG(zporv(i,kso)*zdzhs(kso)/zliquid))

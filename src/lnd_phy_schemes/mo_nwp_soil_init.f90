@@ -205,7 +205,7 @@ CONTAINS
 
 
   REAL    (KIND=ireals   ) ::  &
-    zaa, zh_snow,zzz,zd        ! utility variable
+    zaa, zh_snow, zzz, zd, zd1, zd2, zd3, zd4        ! utility variables
 
   REAL    (KIND = ireals) :: &
 !
@@ -338,6 +338,15 @@ CONTAINS
 
   ENDDO
  
+  ! Further parameters for soil water freezing/melting
+  t_zw_up  = 270.15_ireals ! temp -3 degC
+  t_zw_low = 233.15_ireals ! temp -40 degC
+  zd = LOG((T_ref_ice-(t_zw_low-t0_melt))/T_star_ice)
+  zd1 = EXP(b_sand*zd)
+  zd2 = EXP(b_clay*zd)
+  zd3 = EXP(b_silt*zd)
+  zd4 = EXP(b_org*zd)
+
   ! Tolerances for the allowed deviation of w_so_ice from its equilibrium value
   wso_ice_tolerance  = 1.05_ireals ! 5% deviation allowed
   rwso_ice_tolerance = 1._ireals/wso_ice_tolerance
@@ -569,41 +578,34 @@ CONTAINS
       DO kso   = 1,ke_soil+1
         DO i = istarts, iends
           IF (t_so_now(i,kso) < (t0_melt-zepsi)) THEN 
-            t_zw_up  = 270.15_ireals ! temp -3 degC
-            t_zw_low = 233.15_ireals ! temp -40 degC
 
             zaa    = g*zpsis(i)/lh_f
-!            zw_m(i)     = zporv(i)*zdzhs(kso)
-            zw_m(i)   =  zporv(i)*zdzhs(kso)* &
-                         EXP(-zedb(i)*LOG((t_so_now(i,kso) - t0_melt)/(t_so_now(i,kso)*zaa)) )
 
-! Liq. water content at -3 degC
-            zw_m_up =  zporv(i)*zdzhs(kso)* &
-                       EXP(-zedb(i)*LOG((t_zw_up - t0_melt)/(t_zw_up*zaa)) )
+            ! J. Helmert: Soil ice parameterization according to K. Schaefer and Jafarov, E.,2016,
+            !                                                    doi:10.5194/bg-13-1991-2016
 
-! J. Helmert: Soil ice parameterization according to K. Schaefer and Jafarov, E.,2016,
-!                                                    doi:10.5194/bg-13-1991-2016
-! Determine liq. water content at -40 degC
-                  zd = LOG((T_ref_ice-(t_zw_low-t0_melt))/T_star_ice)
-                  zw_m_soil = 0.01_ireals*(zsandf(i)*EXP(b_sand*zd) +                &
-                                 zclayf(i)*EXP(b_clay*zd) + zsiltf(i)*EXP(b_silt*zd))
+            ! Liq. water content at -3 degC
+            zw_m_up =  zporv(i)*zdzhs(kso)*EXP(-zedb(i)*LOG((t_zw_up - t0_melt)/(t_zw_up*zaa)) )
 
-! J. Helmert: Scale soil ice content with organic soil horizon.
-!             should decrease the root zone liquid water content of frozen soil for low temperatures significantly!
-                  IF(zmls(kso) < rootdp(i)) THEN
-                    zzz = plcov(i)*(rootdp(i)-zmls(kso))/rootdp(i)
-                    zw_m_low = zporv(i)*zdzhs(kso)*(zzz*EXP(b_org*zd) + (1._ireals-zzz)*zw_m_soil)
-                  ELSE
-                    zw_m_low = zporv(i)*zdzhs(kso)*zw_m_soil
-                  END IF
+            ! Determine liq. water content at -40 degC
+            zw_m_soil = 0.01_ireals*(zsandf(i)*zd1 + zclayf(i)*zd2 + zsiltf(i)*zd3)
+
+            ! Scale soil ice content with organic soil horizon.
+            ! should decrease the root zone liquid water content of frozen soil for low temperatures significantly!
+            IF(zmls(kso) < rootdp(i)) THEN
+              zzz = plcov(i)*(rootdp(i)-zmls(kso))/rootdp(i)
+              zw_m_low = zporv(i)*zdzhs(kso)*(zzz*zd4 + (1._ireals-zzz)*zw_m_soil)
+            ELSE
+              zw_m_low = zporv(i)*zdzhs(kso)*zw_m_soil
+            END IF
    
-      IF(t_so_now(i,kso).LT.t_zw_up) THEN ! Logarithmic Interpolation between -3 degC and -40 degC 
-         zw_m(i) = zw_m_low*EXP((t_so_now(i,kso) - t_zw_low)*(LOG(zw_m_up) - LOG(zw_m_low))/(t_zw_up-t_zw_low))
-      END IF
-
-! J. Helmert: Below -40 degC keep the liq. water content constant
-      IF(t_so_now(i,kso).LT.t_zw_low) zw_m(i) = zw_m_low
-
+            IF (t_so_now(i,kso) < t_zw_low) THEN
+              zw_m(i) = zw_m_low
+            ELSE IF (t_so_now(i,kso) < t_zw_up) THEN ! Logarithmic Interpolation between -3 degC and -40 degC 
+              zw_m(i) = zw_m_low*EXP((t_so_now(i,kso) - t_zw_low)*(LOG(zw_m_up) - LOG(zw_m_low))/(t_zw_up-t_zw_low))
+            ELSE
+              zw_m(i) = zporv(i)*zdzhs(kso)*EXP(-zedb(i)*LOG((t_so_now(i,kso)-t0_melt)/(t_so_now(i,kso)*zaa)) )
+            END IF
 
             w_so_ice_now(i,kso) = MAX (0.0_ireals,w_so_now(i,kso) - zw_m(i))
             w_so_ice_new(i,kso) = MAX (0.0_ireals,w_so_now(i,kso) - zw_m(i))
@@ -698,40 +700,34 @@ CONTAINS
       DO kso   = 1,ke_soil+1
         DO i = istarts, iends
           IF (t_so_now(i,kso) < (t0_melt-zepsi)) THEN 
-            t_zw_up  = 270.15_ireals ! temp -3 degC
-            t_zw_low = 233.15_ireals ! temp -40 degC
 
             zaa    = g*zpsis(i)/lh_f
-!            zw_m(i)     = zporv(i)*zdzhs(kso)
-            zw_m(i)   =  zporv(i)*zdzhs(kso)* &
-                         EXP(-zedb(i)*LOG((t_so_now(i,kso) - t0_melt)/(t_so_now(i,kso)*zaa)) )
 
-! Liq. water content at -3 degC
-            zw_m_up =  zporv(i)*zdzhs(kso)* &
-                       EXP(-zedb(i)*LOG((t_zw_up - t0_melt)/(t_zw_up*zaa)) )
+            ! J. Helmert: Soil ice parameterization according to K. Schaefer and Jafarov, E.,2016,
+            !                                                    doi:10.5194/bg-13-1991-2016
 
-! J. Helmert: Soil ice parameterization according to K. Schaefer and Jafarov, E.,2016,
-!                                                    doi:10.5194/bg-13-1991-2016
-! Determine liq. water content at -40 degC
-                  zd = LOG((T_ref_ice-(t_zw_low-t0_melt))/T_star_ice)
-                  zw_m_soil = 0.01_ireals*(zsandf(i)*EXP(b_sand*zd) +                &
-                                 zclayf(i)*EXP(b_clay*zd) + zsiltf(i)*EXP(b_silt*zd))
+            ! Liq. water content at -3 degC
+            zw_m_up =  zporv(i)*zdzhs(kso)*EXP(-zedb(i)*LOG((t_zw_up - t0_melt)/(t_zw_up*zaa)) )
 
-! J. Helmert: Scale soil ice content with organic soil horizon.
-!             should decrease the root zone liquid water content of frozen soil for low temperatures significantly!
-                  IF(zmls(kso) < rootdp(i)) THEN
-                    zzz = plcov(i)*(rootdp(i)-zmls(kso))/rootdp(i)
-                    zw_m_low = zporv(i)*zdzhs(kso)*(zzz*EXP(b_org*zd) + (1._ireals-zzz)*zw_m_soil)
-                  ELSE
-                    zw_m_low = zporv(i)*zdzhs(kso)*zw_m_soil
-                  END IF
+            ! Determine liq. water content at -40 degC
+            zw_m_soil = 0.01_ireals*(zsandf(i)*zd1 + zclayf(i)*zd2 + zsiltf(i)*zd3)
+
+            ! Scale soil ice content with organic soil horizon.
+            ! should decrease the root zone liquid water content of frozen soil for low temperatures significantly!
+            IF(zmls(kso) < rootdp(i)) THEN
+              zzz = plcov(i)*(rootdp(i)-zmls(kso))/rootdp(i)
+              zw_m_low = zporv(i)*zdzhs(kso)*(zzz*zd4 + (1._ireals-zzz)*zw_m_soil)
+            ELSE
+              zw_m_low = zporv(i)*zdzhs(kso)*zw_m_soil
+            END IF
    
-      IF(t_so_now(i,kso).LT.t_zw_up) THEN ! Logarithmic Interpolation between -3 degC and -40 degC 
-         zw_m(i) = zw_m_low*EXP((t_so_now(i,kso) - t_zw_low)*(LOG(zw_m_up) - LOG(zw_m_low))/(t_zw_up-t_zw_low))
-      END IF
-
-! J. Helmert: Below -40 degC keep the liq. water content constant
-      IF(t_so_now(i,kso).LT.t_zw_low) zw_m(i) = zw_m_low
+            IF (t_so_now(i,kso) < t_zw_low) THEN
+              zw_m(i) = zw_m_low
+            ELSE IF (t_so_now(i,kso) < t_zw_up) THEN ! Logarithmic Interpolation between -3 degC and -40 degC 
+              zw_m(i) = zw_m_low*EXP((t_so_now(i,kso) - t_zw_low)*(LOG(zw_m_up) - LOG(zw_m_low))/(t_zw_up-t_zw_low))
+            ELSE
+              zw_m(i) = zporv(i)*zdzhs(kso)*EXP(-zedb(i)*LOG((t_so_now(i,kso)-t0_melt)/(t_so_now(i,kso)*zaa)) )
+            END IF
 
             wso_ice_equil = MAX (0.0_ireals,w_so_now(i,kso) - zw_m(i))
             w_so_ice_now(i,kso) = MIN(w_so_ice_now(i,kso),  wso_ice_tolerance*wso_ice_equil, w_so_now(i,kso))
