@@ -329,11 +329,7 @@ CONTAINS
       DO jk = 1,nlev
         DO jc = jcs, jce
 
-          ! Fill the physics state variables, which are used by echam:
-          !
-          prm_field(jg)%        zf(jc,jk,jb)     = p_metrics%        z_mc(jc,jk,jb)
-          prm_field(jg)%        dz(jc,jk,jb)     = p_metrics% ddqz_z_full(jc,jk,jb)
-          prm_field(jg)%      geom(jc,jk,jb)     = p_metrics%  geopot_agl(jc,jk,jb)
+          ! Fill the time dependent physics state variables, which are used by echam:
           !
           prm_field(jg)%        ua(jc,jk,jb)     = pt_diag%    u(jc,jk,jb)
           prm_field(jg)%        va(jc,jk,jb)     = pt_diag%    v(jc,jk,jb)
@@ -393,9 +389,6 @@ CONTAINS
       DO jk = 1,nlev+1
         DO jc = jcs, jce
 
-          prm_field(jg)%            zh(jc,jk,jb) = p_metrics%          z_ifc(jc,jk,jb)
-          prm_field(jg)%          geoi(jc,jk,jb) = p_metrics% geopot_agl_ifc(jc,jk,jb)
-          !
           prm_field(jg)%     presi_old(jc,jk,jb) = pt_diag% pres_ifc(jc,jk,jb)
           prm_field(jg)%     presi_new(jc,jk,jb) = pt_diag% pres_ifc(jc,jk,jb)
 
