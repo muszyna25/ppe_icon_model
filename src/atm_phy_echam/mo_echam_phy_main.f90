@@ -55,7 +55,6 @@ MODULE mo_echam_phy_main
   USE mo_surface,             ONLY: update_surface
   USE mo_surface_diag,        ONLY: nsurf_diag
   !
-  USE mo_model_domain,        ONLY: p_patch
   USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, &
     &                                  calculate_time_interpolation_weights
   USE mo_lcariolle_types,     ONLY: avi, t_time_interpolation
@@ -855,7 +854,7 @@ CONTAINS
       avi%tmprt(jcs:jce,:)=field%ta(jcs:jce,:,jb)
       avi%vmr2molm2(jcs:jce,:)=field%mdry(jcs:jce,:,jb)/amd*1.e3_wp
       avi%pres(jcs:jce,:)=field%presm_old(jcs:jce,:,jb)
-      avi%cell_center_lat(jcs:jce)=p_patch(jg)%cells%center(jcs:jce,jb)%lat
+      avi%cell_center_lat(jcs:jce)=field%clat(jcs:jce,jb)
       avi%lday(jcs:jce)=field%cosmu0(jcs:jce,jb)>1.e-3_wp
       avi%ldown=.TRUE.
       current_time_interpolation_weights = calculate_time_interpolation_weights(this_datetime)
@@ -879,7 +878,7 @@ CONTAINS
 
     IF (echam_phy_config%lgw_hines) THEN
 
-      zlat_deg(jcs:jce) = p_patch(jg)%cells%center(jcs:jce,jb)%lat * 180._wp/pi
+      zlat_deg(jcs:jce) = field% clat(jcs:jce,jb) * 180._wp/pi
 
       IF (ltimer) call timer_start(timer_gw_hines)
 
@@ -929,7 +928,7 @@ CONTAINS
                      nbdim                                     ,& ! in,  dimension of block of cells/columns
                      nlev                                      ,& ! in,  number of levels
                      !
-                     p_patch(jg)%cells%center(:,jb)%lat        ,& ! in,  Latitude in radians
+                     field% clat(:,jb)                         ,& ! in,  Latitude in radians
                      pdtime                                    ,& ! in,  time step length
                      !
                      field% presi_old(:,:,jb)                  ,& ! in,  p at half levels
