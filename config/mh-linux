@@ -601,7 +601,7 @@ case "$ac_sitename" in
 
         ;;              
 #===============================================
-    zmaw.de)
+    zmaw.de|mpg.de)
         dist_codename = $(lsb_release -c | awk '{print $2}')
         software_tree = /sw/${dist_codename}-x64
         case $ac_hostname in
@@ -737,7 +737,9 @@ case "$ac_sitename" in
                            NETCDFFROOT = $software_tree/netcdf_fortran-4.4.2-static-${compiler_version}
                            NETCDFROOT = $software_tree/netcdf-4.3.3.1-static-gccsys
                            HDF5ROOT = $software_tree/hdf5-1.8.16-static-gccsys
+                           GRIBAPIROOT = $software_tree/grib_api-1.14.3-static-${compiler_version}
                            SYS_LIBS = -L/usr/x86_64-linux-gnu/lib -lm -ldl -lrt -lutil -lpthread -lpciaccess
+                           SYS_LIBS = -ljasper -ljpeg $SYS_LIBS
                            XML2ROOT = /usr
                            case "$fortran_compiler" in
                                default|gcc)
