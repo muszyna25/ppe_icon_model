@@ -1056,10 +1056,10 @@ CONTAINS
 
       ! Pressure mask field for tropics (used for ozone enhancement in January and February)
       DO jk = 1, nlev_gems
-        IF (zrefp(jk) >= 7000._wp .AND. zrefp(jk) <= 10000._wp) THEN
+        IF (zrefp(jk) >= 5000._wp .AND. zrefp(jk) <= 10000._wp) THEN
           wfac_p_tr(jk) = 1._wp
-        ELSE IF (zrefp(jk) < 7000._wp .AND. zrefp(jk) >= 5000._wp) THEN
-          wfac_p_tr(jk) = (zrefp(jk)-5000._wp)/2000._wp
+        ELSE IF (zrefp(jk) < 5000._wp .AND. zrefp(jk) >= 3000._wp) THEN
+          wfac_p_tr(jk) = (zrefp(jk)-3000._wp)/2000._wp
         ELSE IF (zrefp(jk) > 10000._wp .AND. zrefp(jk) < 15000._wp) THEN
           wfac_p_tr(jk) = (15000._wp-zrefp(jk))/5000._wp
         ELSE
