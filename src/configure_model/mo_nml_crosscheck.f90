@@ -130,7 +130,7 @@ CONTAINS
       SELECT CASE(iforcing)
       CASE(INOFORCING,IHELDSUAREZ,ILDF_DRY)  ! without moist processes
         ha_dyn_config%ldry_dycore = .TRUE.
-      CASE(IECHAM)                           ! with ECHAM physics
+      CASE(IECHAM,ILDF_ECHAM)                ! with ECHAM physics
         CALL finish(method_name, 'Hydrostatic dynamics cannot be used with ECHAM physics')
       END SELECT
 
@@ -859,8 +859,10 @@ CONTAINS
   
     CHARACTER(len=*), PARAMETER :: &
       &  method_name =  'mo_nml_crosscheck:art_crosscheck'
+#ifdef __ICON_ART
     INTEGER  :: &
       &  jg
+#endif
     
 #ifndef __ICON_ART
     IF (lart) THEN
