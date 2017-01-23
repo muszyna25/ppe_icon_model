@@ -159,17 +159,19 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
 
     IF (art_config(jg)%lart_aerosol .OR. art_config(jg)%lart_chem &
         .OR. art_config(jg)%lart_passive) THEN
+      IF(p_art_data(jg)%emiss%is_init) THEN
+        IF (iforcing == inwp) THEN
+          CALL art_add_emission_to_tracers(tracer,p_art_data(jg)%emiss,p_patch,p_nh_state%metrics, &
+                                      &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,        &
+                                      &  datetime,prm_diag%swflx_par_sfc)
+        ELSE IF (iforcing == iecham) THEN
+          CALL art_add_emission_to_tracers(tracer,p_art_data(jg)%emiss,p_patch,p_nh_state%metrics, &
+                                      &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,        &
+                                      &  datetime)
+        ENDIF
+      ENDIF
+    ENDIF
 
-      IF (iforcing == inwp) THEN
-        CALL art_add_emission_to_tracers(tracer,p_art_data(jg)%emiss,p_patch,p_nh_state%metrics, &
-                                    &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,        &
-                                    &  datetime,prm_diag%swflx_par_sfc)
-      ELSE IF (iforcing == iecham) THEN
-        CALL art_add_emission_to_tracers(tracer,p_art_data(jg)%emiss,p_patch,p_nh_state%metrics, &
-                                    &  p_nh_state%diag%temp,p_nh_state%diag%pres,dtime,        &
-                                    &  datetime)
-      END IF
-   ENDIF
     IF (art_config(jg)%lart_aerosol) THEN
 !$omp parallel do default (shared) private(jb, istart, iend, dz)
       DO jb = i_startblk, i_endblk
