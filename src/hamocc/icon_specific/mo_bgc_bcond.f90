@@ -1,3 +1,5 @@
+#ifndef __NO_ICON_OCEAN__
+
 !>
 !! Allocation/deallocation and reading of HAMOCC boundary conditions
 !!
@@ -46,7 +48,6 @@ USE mo_kind,               ONLY: wp
     &                              read_3D
   USE mo_util_string,        ONLY: t_keyword_list,  &
     &                              associate_keyword, with_keywords
-  USE mo_datetime,           ONLY: t_datetime
   USE mo_cdi,                ONLY: DATATYPE_FLT32 
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL,  &
     &                              GRID_REFERENCE,         &
@@ -55,8 +56,12 @@ USE mo_kind,               ONLY: wp
   USE mo_hamocc_nml,         ONLY: io_stdo_bgc
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_bgc
   USE mo_ocean_ext_data,     ONLY: ext_data
+  USE mtime,                 ONLY: datetime, &
+       &                           getDayOfYearFromDateTime, &
+       &                           getNoOfDaysInYearDateTime
 
- IMPLICIT NONE
+  
+  IMPLICIT NONE
 
   INCLUDE 'netcdf.inc'
 
@@ -336,11 +341,11 @@ CONTAINS
   !--------------------------------------------------
 !<Optimize:inUse>
 
-   SUBROUTINE update_bgc_bcond(p_patch_3D, bgc_ext, jstep, datetime)
+   SUBROUTINE update_bgc_bcond(p_patch_3D, bgc_ext, jstep, this_datetime)
     TYPE(t_patch_3D ),TARGET, INTENT(IN)        :: p_patch_3D
     TYPE(t_hamocc_bcond)                        :: bgc_ext
     INTEGER, INTENT(IN)                         :: jstep
-    TYPE(t_datetime), INTENT(INOUT)             :: datetime
+    TYPE(datetime), INTENT(INOUT)               :: this_datetime
 
   
  ! local variables
@@ -360,10 +365,10 @@ CONTAINS
 
 
     !  calculate day and month
-    jmon  = datetime%month         ! integer current month
-    jdmon = datetime%day           ! integer day in month
-    yday  = datetime%yeaday        ! integer current day in year
-    ylen  = datetime%yealen        ! integer days in year (365 or 366)
+    jmon  = this_datetime%date%month         ! integer current month
+    jdmon = this_datetime%date%day           ! integer day in month
+    yday  = getDayOfYearFromDateTime(this_datetime)
+    ylen  = getNoOfDaysInYearDateTime(this_datetime)
     
 
       jmon1=jmon-1
@@ -392,3 +397,4 @@ CONTAINS
     END SUBROUTINE update_bgc_bcond
 END MODULE
 
+#endif

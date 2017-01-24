@@ -1,3 +1,5 @@
+#ifndef __NO_ICON_OCEAN__
+
       MODULE mo_hamocc_output
 
 ! icon specific routines for output, update etc
@@ -1871,3 +1873,5 @@
   END SUBROUTINE close_bgcout
 
  END MODULE
+
+#endif

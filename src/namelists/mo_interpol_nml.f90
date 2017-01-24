@@ -20,7 +20,7 @@ MODULE mo_interpol_nml
   USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
+  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist,  &
                                   & open_and_restore_namelist, close_tmpfile
 
   USE mo_interpol_config,     ONLY: config_llsq_lin_consv       => llsq_lin_consv       , &

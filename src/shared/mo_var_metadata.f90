@@ -23,7 +23,8 @@ MODULE mo_var_metadata
 
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: finish
-  USE mo_impl_constants,     ONLY: VINTP_METHOD_LIN, HINTP_TYPE_LONLAT_RBF
+  USE mo_impl_constants,     ONLY: VINTP_METHOD_LIN, HINTP_TYPE_LONLAT_RBF, &
+    &                              MAX_CHAR_LENGTH
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var
   USE mo_var_metadata_types, ONLY: t_hor_interp_meta, t_vert_interp_meta, &
@@ -38,11 +39,13 @@ MODULE mo_var_metadata
   USE mtime,                 ONLY: datetime, newDatetime, deallocateDatetime,    &
     &                              timedelta, newTimedelta, deallocateTimedelta, &
     &                              OPERATOR(+), dateTimeToString, MAX_DATETIME_STR_LEN
-  USE mo_mtime_extensions,   ONLY: get_datetime_string
 
   IMPLICIT NONE
 
   PRIVATE
+
+  !> module name string
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_var_metadata'
 
   PUBLIC  :: create_hor_interp_metadata
   PUBLIC  :: create_vert_interp_metadata
@@ -389,6 +392,7 @@ CONTAINS
     CHARACTER(LEN=*), OPTIONAL, INTENT(IN) :: opt_ref   ! action reference time [ISO_8601]
 
     ! local variables
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = modname//':new_action'
     TYPE(timedelta), POINTER              :: start_offset, end_offset, ref_offset
     TYPE(datetime), TARGET                :: startdatetime, enddatetime, refdatetime
     TYPE(datetime), POINTER               :: dummy_ptr
@@ -398,19 +402,21 @@ CONTAINS
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: iso8601_end_datetime ! ISO_8601
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: start, end, ref      ! start, end, and reference time
                                                                   ! in ISO_8601 format
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: start0, end0, ref0   ! start, end, and reference time
+                                                                  ! in ISO_8601 format
     !---------------------------------------------------------------------------------
 
     ! create model ini_datetime in ISO_8601 format
-    CALL get_datetime_string(iso8601_ini_datetime, time_config%ini_datetime)
+    CALL dateTimeToString(time_config%tc_startdate, iso8601_ini_datetime)
     ! create model end_datetime in ISO_8601 format
-    CALL get_datetime_string(iso8601_end_datetime, time_config%end_datetime)
+    CALL dateTimeToString(time_config%tc_stopdate, iso8601_end_datetime)
 
     ! default start time = model initialization time
-    start = TRIM(iso8601_ini_datetime)
+    start0 = TRIM(iso8601_ini_datetime)
     ! default end time = model end time
-    end = TRIM(iso8601_end_datetime)
+    end0 = TRIM(iso8601_end_datetime)
     ! default reference time = model initialization time
-    ref = TRIM(iso8601_ini_datetime)
+    ref0 = TRIM(iso8601_ini_datetime)
 
 
     ! assign modified start time if offset opt_start is present
@@ -426,7 +432,7 @@ CONTAINS
       startdatetime = inidatetime + start_offset
       ! transform back from TYPE datetime to ISO_8601
       dummy_ptr => startdatetime
-      CALL dateTimeToString(dummy_ptr, start)
+      CALL dateTimeToString(dummy_ptr, start0)
       ! cleanup
       CALL deallocateDatetime(inidatetime)
       CALL deallocateTimeDelta(start_offset)
@@ -446,7 +452,7 @@ CONTAINS
       enddatetime = inidatetime + end_offset
       ! transform back from TYPE datetime to ISO_8601
       dummy_ptr => enddatetime
-      CALL dateTimeToString(dummy_ptr, end)
+      CALL dateTimeToString(dummy_ptr, end0)
       ! cleanup
       CALL deallocateDatetime(inidatetime)
       CALL deallocateTimeDelta(end_offset)
@@ -465,25 +471,96 @@ CONTAINS
       refdatetime = inidatetime + ref_offset
       ! transform back from TYPE datetime to ISO_8601
       dummy_ptr => refdatetime
-      CALL dateTimeToString(dummy_ptr, ref)
+      CALL dateTimeToString(dummy_ptr, ref0)
       ! cleanup
       CALL deallocateDatetime(inidatetime)
       CALL deallocateTimeDelta(ref_offset)
     ENDIF
 
+    ! default start time = model initialization time
+    start = TRIM(iso8601_ini_datetime)
+    ! default end time = model end time
+    end = TRIM(iso8601_end_datetime)
+    ! default reference time = model initialization time
+    ref = TRIM(iso8601_ini_datetime)
 
+    !---------------------------------------------------------------------------------
+
+#ifdef _MTIME_DEBUG
+
+    ! CONSISTENCY CHECK: compares the implementation above with an
+    ! mtime-based implementation
+
+    ! assign modified start time if offset opt_start is present
+    IF (PRESENT(opt_start)) THEN
+      !
+      ! convert start offset from ISO_8601 to TYPE timedelta
+      start_offset => newTimedelta(TRIM(opt_start))
+      !
+      ! add start offset to model ini date
+      startdatetime = time_config%tc_startdate + start_offset
+      ! transform back from TYPE datetime to ISO_8601
+      dummy_ptr => startdatetime
+      CALL dateTimeToString(dummy_ptr, start)
+      ! cleanup
+      CALL deallocateTimeDelta(start_offset)
+    ENDIF
+
+
+    ! assign modified end time if offset opt_end is present
+    IF (PRESENT(opt_end)) THEN
+      !
+      ! convert end offset from ISO_8601 to TYPE timedelta
+      end_offset => newTimedelta(TRIM(opt_end))
+      !
+      ! add end offset to model ini date
+      enddatetime = time_config%tc_startdate + end_offset
+      ! transform back from TYPE datetime to ISO_8601
+      dummy_ptr => enddatetime
+      CALL dateTimeToString(dummy_ptr, end)
+      ! cleanup
+      CALL deallocateTimeDelta(end_offset)
+    ENDIF
+
+    ! assign modified reference time if offset opt_ref is present
+    IF (PRESENT(opt_ref)) THEN
+      !
+      ! convert ref offset from ISO_8601 to TYPE timedelta
+      ref_offset => newTimedelta(TRIM(opt_ref))
+      !
+      ! add ref offset to model ini date
+      refdatetime = time_config%tc_startdate + ref_offset
+      ! transform back from TYPE datetime to ISO_8601
+      dummy_ptr => refdatetime
+      CALL dateTimeToString(dummy_ptr, ref)
+      ! cleanup
+      CALL deallocateTimeDelta(ref_offset)
+    ENDIF
+
+    IF ((TRIM(start0) /= TRIM(start)) .OR.   &
+      & (TRIM(end0)   /= TRIM(end))   .OR.   &
+      & (TRIM(ref0)   /= TRIM(ref))) THEN
+      CALL finish(routine, "Error in mtime consistency check!")
+    END IF
+
+#endif
+
+    !---------------------------------------------------------------------------------
 
     ! define var_action
     var_action%actionTyp  = actionTyp
-    var_action%intvl      = TRIM(intvl)                ! interval
-    var_action%start      = TRIM(start)                ! start
-    var_action%end        = TRIM(end)                  ! end
-    var_action%ref        = TRIM(ref)                  ! ref date
-    var_action%lastActive = TRIM(start)                ! arbitrary init
+    var_action%intvl      = TRIM(intvl)               ! interval
+    var_action%start      = TRIM(start)               ! start
+    var_action%end        = TRIM(end)                 ! end
+    var_action%ref        = TRIM(ref)                 ! ref date
+    var_action%lastActive = TRIM(start)               ! arbitrary init
 
     !
     ! convert start datetime from ISO_8601 format to type datetime
     dummy_ptr => newDatetime(TRIM(start))
+    IF (.NOT. ASSOCIATED(dummy_ptr)) THEN
+      CALL finish(routine, "date/time conversion error: "//TRIM(start))
+    END IF
     var_Action%EventLastTriggerDate = dummy_ptr    ! arbitrary init
 
     ! cleanup

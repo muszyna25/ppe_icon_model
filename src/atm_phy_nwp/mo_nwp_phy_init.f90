@@ -107,8 +107,6 @@ MODULE mo_nwp_phy_init
   USE mo_master_config,       ONLY: isRestart
   USE mo_nwp_parameters,      ONLY: t_phy_params
 
-  USE mo_datetime,            ONLY: iso8601, t_datetime,  month2hour
-  USE mo_time_config,         ONLY: time_config
   USE mo_initicon_config,     ONLY: init_mode
 
   USE mo_nwp_ww,              ONLY: configure_ww
@@ -116,6 +114,10 @@ MODULE mo_nwp_phy_init
     &                               tune_v0snow, tune_zvz0i
   USE mo_sso_cosmo,           ONLY: sso_cosmo_init_param
   USE mo_fortran_tools,       ONLY: init
+  USE mtime,                  ONLY: datetime, MAX_DATETIME_STR_LEN, &
+    &                               datetimeToString
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
+    &                                  calculate_time_interpolation_weights
 
   IMPLICIT NONE
 
@@ -127,13 +129,14 @@ MODULE mo_nwp_phy_init
 CONTAINS
 
 
-SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
-                       &  p_prog_now,  p_diag,              &
-                       &  prm_diag,prm_nwp_tend,            &
-                       &  p_prog_lnd_now, p_prog_lnd_new,   &
-                       &  p_prog_wtr_now, p_prog_wtr_new,   &
-                       &  p_diag_lnd,                       &
-                       &  ext_data, phy_params, lnest_start)
+SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
+                       &  p_prog_now,  p_diag,                 &
+                       &  prm_diag,prm_nwp_tend,               &
+                       &  p_prog_lnd_now, p_prog_lnd_new,      &
+                       &  p_prog_wtr_now, p_prog_wtr_new,      &
+                       &  p_diag_lnd,                          &
+                       &  ext_data, phy_params, ini_date, &
+                       &  lnest_start)
 
   TYPE(t_patch),        TARGET,INTENT(in)    :: p_patch
   TYPE(t_nh_metrics),          INTENT(in)    :: p_metrics
@@ -146,6 +149,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
   TYPE(t_wtr_prog),            INTENT(inout) :: p_prog_wtr_now, p_prog_wtr_new
   TYPE(t_lnd_diag),            INTENT(inout) :: p_diag_lnd
   TYPE(t_phy_params),          INTENT(inout) :: phy_params
+  TYPE(datetime),              POINTER       :: ini_date     ! current datetime (mtime)
   LOGICAL, INTENT(IN), OPTIONAL              :: lnest_start
 
   INTEGER             :: jk, jk1
@@ -156,7 +160,6 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
   REAL(wp)            :: gz0(nproma), l_hori(nproma)
   REAL(wp)            :: scale_fac ! scale factor used only for RCE cases
 
-  CHARACTER(len=16)   :: cur_date     ! current date (iso-Format)
   INTEGER             :: icur_date    ! current date converted to integer
 
   ! Reference atmosphere parameters
@@ -177,7 +180,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
   REAL(wp), ALLOCATABLE :: zpres_sfc(:,:)    ! ref sfc press
   REAL(wp), ALLOCATABLE :: zpres_ifc(:,:,:)  ! ref press at interfaces
 
-  LOGICAL :: lland, lglac, lshallow
+  LOGICAL :: lland, lglac, lshallow, ldetrain_prec
   LOGICAL :: ltkeinp_loc, lgz0inp_loc  !< turbtran switches
   LOGICAL :: linit_mode, lturb_init
 
@@ -206,6 +209,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
      routine = 'mo_nwp_phy_init:init_nwp_phy'
+
+  CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string, yyyymmdd
 
   ! Local control variable for extended turbulence initializations
   IF (ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMODE/) == init_mode) ) THEN
@@ -997,9 +1002,10 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
     !have to be initialized by calls of sucst and su_yoethf.
 
     ! get current date in iso-format "yyyymmddThhmmssZ" (String)
-    cur_date = iso8601(time_config%cur_datetime)
-    ! convert first 8 characters to integer (yyyymmdd)
-    READ(cur_date(1:8),'(i8)') icur_date
+    CALL datetimeToString(ini_date, datetime_string)
+    ! convert first 8 characters to integer (yyyy-mm-dd)
+    WRITE (yyyymmdd, '(a,a,a)')  datetime_string(1:4), datetime_string(6:7), datetime_string(9:10)
+    READ  (yyyymmdd,'(i8)') icur_date
 
     CALL sucst(54,icur_date,0,0)
     CALL su_yoethf
@@ -1034,7 +1040,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
 !    CALL message('nwp_phy_init, nsmax=', TRIM(message_text))
 
     lshallow = atm_phy_nwp_config(jg)%lshallowconv_only
-    CALL sucumf(rsltn,nlev,pref,phy_params,lshallow)
+    ldetrain_prec = atm_phy_nwp_config(jg)%ldetrain_conv_prec
+    CALL sucumf(rsltn,nlev,pref,phy_params,lshallow,ldetrain_prec)
     CALL suphli
     CALL suvdf
     CALL suvdfs
@@ -1471,29 +1478,29 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
   !  WW diagnostics
   !
   IF ( atm_phy_nwp_config(jg)%inwp_gscp > 0) THEN
-    CALL configure_ww( jg, nlev, nshift)
+    CALL configure_ww(ini_date, jg, nlev, nshift)
   END IF
 
 
 END SUBROUTINE init_nwp_phy
 
 
-  SUBROUTINE init_cloud_aero_cpl ( datetime, p_patch, p_metrics, ext_data, prm_diag)
+  SUBROUTINE init_cloud_aero_cpl ( mtime_date, p_patch, p_metrics, ext_data, prm_diag)
 
-
-    TYPE(t_datetime),            INTENT(in) :: datetime
+    TYPE(datetime),   POINTER               :: mtime_date
     TYPE(t_patch),               INTENT(in) :: p_patch
     TYPE(t_nh_metrics),          INTENT(in) :: p_metrics
     TYPE(t_external_data),       INTENT(in) :: ext_data
 
     TYPE(t_nwp_phy_diag),        INTENT(inout) :: prm_diag
 
-
-    INTEGER  :: imo1, imo2
-    INTEGER  :: rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER  :: jb, jc, jg, nlev
+    INTEGER          :: imo1, imo2
+    INTEGER          :: rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER          :: jb, jc, jg, nlev
 
     REAL(wp) :: wgt, zncn(nproma, p_patch%nlev)
+    
+    TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
 
     jg = p_patch%id
     nlev = p_patch%nlev
@@ -1501,7 +1508,11 @@ END SUBROUTINE init_nwp_phy
     IF (irad_aero /= 6) RETURN
     IF (atm_phy_nwp_config(jg)%icpl_aero_gscp /= 1 .AND. icpl_aero_conv /= 1) RETURN
 
-    CALL month2hour (datetime, imo1, imo2, wgt)
+    
+    current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_date)
+    imo1 = current_time_interpolation_weights%month1
+    imo2 = current_time_interpolation_weights%month2
+    wgt = current_time_interpolation_weights%weight2
 
     rl_start = 1
     rl_end   = min_rlcell_int

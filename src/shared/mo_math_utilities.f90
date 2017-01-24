@@ -80,7 +80,7 @@ MODULE mo_math_utilities
   !
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: pi, pi_2, dbl_eps
-  USE mo_impl_constants,      ONLY: SUCCESS
+  USE mo_impl_constants,      ONLY: SUCCESS, TORUS_MAX_LAT
   USE mo_exception,           ONLY: finish
   USE mo_grid_geometry_info,  ONLY: t_grid_geometry_info, planar_torus_geometry, sphere_geometry
   USE mo_math_types
@@ -171,6 +171,14 @@ MODULE mo_math_utilities
   INTERFACE arc_length_v
     MODULE PROCEDURE arc_length_v_sphere
     MODULE PROCEDURE arc_length_v_generic
+  END INTERFACE
+  INTERFACE gc2cc
+    MODULE PROCEDURE gc2cc_sphere
+    MODULE PROCEDURE gc2cc_generic
+  END INTERFACE
+  INTERFACE cc2gc
+    MODULE PROCEDURE cc2gc_sphere
+    MODULE PROCEDURE cc2gc_generic
   END INTERFACE
 
 
@@ -1450,7 +1458,7 @@ CONTAINS
   !! Developed  by Luis Kornblueh  (2004).
   !! Completely new version by Thomas Heinze (2006-07-20)
   !!
-  ELEMENTAL FUNCTION cc2gc(p_x) result (p_pos)
+  ELEMENTAL FUNCTION cc2gc_sphere(p_x) result (p_pos)
 
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_x          ! Cart. coordinates
     TYPE(t_geographical_coordinates)          :: p_pos        ! geo. coordinates
@@ -1492,7 +1500,60 @@ CONTAINS
 
     END IF
 
-  END FUNCTION cc2gc
+  END FUNCTION cc2gc_sphere
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Converts cartesian coordinates to geographical.
+  !!
+  !! Implementation for plane torus geometry.
+  !!
+  !! The lon-lat parameterization of the torus is 
+  !!    (lon,lat) = [0, 2*pi] x [-max_lat, max_lat]
+  !! where max_lat := pi/18 = 10 degrees  (hard-coded in the torus grid generator)
+  !!
+  !! The Cartesian coordinates of the torus grid are: v = (x,y,0)
+  !! where
+  !!    (x,y) = [0,domain_length] x [0,domain_height]
+  !! and the lengths are stored as global attributes in the grid file.
+  !!
+  FUNCTION cc2gc_plane_torus(p_x, geometry_info) RESULT (p_pos)
+
+    TYPE(t_cartesian_coordinates), INTENT(in) :: p_x          ! Cart. coordinates
+    TYPE(t_grid_geometry_info),    INTENT(in) :: geometry_info
+    TYPE(t_geographical_coordinates)          :: p_pos        ! geo. coordinates
+
+    p_pos%lon = p_x%x(1) * 2._wp * pi          / geometry_info%domain_length
+    p_pos%lat = p_x%x(2) * 2._wp*TORUS_MAX_LAT / geometry_info%domain_height - TORUS_MAX_LAT
+  END FUNCTION cc2gc_plane_torus
+  !-------------------------------------------------------------------------
+  
+  !-------------------------------------------------------------------------
+  !>
+  !! Converts cartesian coordinates to geographical.
+  !!
+  !! Generic implementation that handles sphere and other geometries.
+  !!
+  FUNCTION cc2gc_generic(p_x, geometry_info) RESULT (p_pos)
+
+    TYPE(t_cartesian_coordinates), INTENT(in) :: p_x          ! Cart. coordinates
+    TYPE(t_grid_geometry_info),    INTENT(in) :: geometry_info
+    TYPE(t_geographical_coordinates)          :: p_pos        ! geo. coordinates
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = modname//':cc2gc_generic'
+
+    SELECT CASE(geometry_info%geometry_type)
+    CASE (planar_torus_geometry)
+      p_pos = cc2gc_plane_torus (p_x,geometry_info)
+      !
+    CASE (sphere_geometry)
+      p_pos = cc2gc_sphere (p_x)
+      !
+    CASE DEFAULT
+      CALL finish(method_name, "Undefined geometry type")
+    END SELECT
+  END FUNCTION cc2gc_generic
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -1503,15 +1564,11 @@ CONTAINS
   !! @par Revision History
   !! Developed  by Luis Kornblueh  (2004).
   !!
-  ELEMENTAL FUNCTION gc2cc (p_pos)  result(p_x)
-
+  ELEMENTAL FUNCTION gc2cc_sphere (p_pos)  result(p_x)
     TYPE(t_geographical_coordinates), INTENT(in) :: p_pos     ! geo. coordinates
-
     TYPE(t_cartesian_coordinates)                :: p_x       ! Cart. coordinates
+    REAL(wp) :: z_cln, z_sln, z_clt, z_slt
 
-    REAL (wp)                                  :: z_cln, z_sln, z_clt, z_slt
-
-    !-----------------------------------------------------------------------
     z_sln = SIN(p_pos%lon)
     z_cln = COS(p_pos%lon)
     z_slt = SIN(p_pos%lat)
@@ -1521,7 +1578,61 @@ CONTAINS
     p_x%x(2) = z_sln*z_clt
     p_x%x(3) = z_slt
 
-  END FUNCTION gc2cc
+  END FUNCTION gc2cc_sphere
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Converts geographical to cartesian coordinates.
+  !!
+  !! Implementation for plane torus geometry.
+  !!
+  !! The lon-lat parameterization of the torus is 
+  !!    (lon,lat) = [0, 2*pi] x [-max_lat, max_lat]
+  !! where max_lat := pi/18 = 10 degrees  (hard-coded in the torus grid generator)
+  !!
+  !! The Cartesian coordinates of the torus grid are: v = (x,y,0)
+  !! where
+  !!    (x,y) = [0,domain_length] x [0,domain_height]
+  !! and the lengths are stored as global attributes in the grid file.
+  !!
+  FUNCTION gc2cc_plane_torus (p_pos, geometry_info)  RESULT(p_x)
+
+    TYPE(t_geographical_coordinates), INTENT(in) :: p_pos          ! geo. coordinates
+    TYPE(t_grid_geometry_info),       INTENT(in) :: geometry_info
+    TYPE(t_cartesian_coordinates)                :: p_x            ! Cart. coordinates
+
+    p_x%x(:) = (/ p_pos%lon * geometry_info%domain_length/(2._wp*pi),                              &
+      &           (p_pos%lat + TORUS_MAX_LAT) * geometry_info%domain_height/(2._wp*TORUS_MAX_LAT), &
+      &           0._wp /)
+  END FUNCTION gc2cc_plane_torus
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Converts geographical to cartesian coordinates.
+  !!
+  !! Generic implementation that handles sphere and other geometries.
+  !!
+  FUNCTION gc2cc_generic (p_pos, geometry_info)  RESULT(p_x)
+
+    TYPE(t_geographical_coordinates), INTENT(in) :: p_pos          ! geo. coordinates
+    TYPE(t_grid_geometry_info),       INTENT(in) :: geometry_info
+    TYPE(t_cartesian_coordinates)                :: p_x            ! Cart. coordinates
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = modname//':gc2cc_generic'
+
+    SELECT CASE(geometry_info%geometry_type)
+    CASE (planar_torus_geometry)
+      p_x = gc2cc_plane_torus (p_pos,geometry_info)
+      !
+    CASE (sphere_geometry)
+      p_x = gc2cc_sphere (p_pos)
+      !
+    CASE DEFAULT
+      CALL finish(method_name, "Undefined geometry type")
+    END SELECT
+  END FUNCTION gc2cc_generic
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------

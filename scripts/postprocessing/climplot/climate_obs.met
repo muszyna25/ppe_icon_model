@@ -214,6 +214,7 @@ isccp_par  = ["tcc","lcc","mcc","hcc"]
 isccp_code = [8,32,35,38]
 isccp_name = ["Total Cloud Cover","Low Cloud Cover",
              "Middle Cloud Cover","High Cloud Cover"]
+calipso_par= ["TCC","LCC","MCC","HCC"]
 
 ceres_name = ['aqua_fm3_v2','terra','aqua']
 ceres_par  = ["lw",     "lwcf"   ,"sw",     "swcf"       ]
@@ -275,7 +276,7 @@ ssmi_date1=198709
 ssmi_date2=200812
 
 hoaps_date1=198801
-hoaps_date2=200512
+hoaps_date2=201212  # HOAPS3.3: rain & wvpa to 2015, shf & lhf to 2012
 
 quikscat_date1=200003
 quikscat_date2=200611
@@ -822,7 +823,7 @@ for imon = 1 to 1 do
    end if
 
 #
-# ISCCP/MODIS
+# ISCCP/MODIS/CALIPSO
 #
    if lcc = 1 then
       if (lclim=1 or (datenum1 >= isccp_date1 and datenum2 <= isccp_date2)) then
@@ -841,6 +842,19 @@ for imon = 1 to 1 do
           end for
       end if
 
+      for iisccp=1 to nisccp do
+         outfile(dir,lclim,'tcc_calipso_'&rgstr&
+                 isccp_par[iisccp]&'_'&
+                 'nens'&string(nens)&'_'&
+                  datestr&'_nmon'&string(mm_len[imon]),
+                  filestr&expid,output,lcol)
+         tcc(expid,yy_start[imon],mm_start[imon],mm_len[imon],
+             source_file_sfc,nens,res,display_port,lplot_curve,isccp_par[iisccp],
+             ecfsdir&"calipso/ccover/grib/CALIPSO_"&string(calipso_par[iisccp]),".grb",
+             isccp_name[iisccp],"CALIPSO",100.0,
+             1,freado,lcol,tcrit,sig_cont,larticle,1,isccp_rms,model)
+      end for
+
       if (lclim=1 or (datenum1 >= modis_date1 and datenum2 <= modis_date2)) then
           outfile(dir,lclim,'tcc_modis_'&rgstr&
                   'tcc'&'_'&
@@ -849,9 +863,9 @@ for imon = 1 to 1 do
                   filestr&expid,output,lcol)
           tcc(expid,yy_start[imon],mm_start[imon],mm_len[imon],
               source_file_sfc,nens,res,display_port,lplot_curve,"tcc",
-              ecfsdir&"modis/grib/modis_tcc_",
+              ecfsdir&"modis_l3_c5/MODIS_TCC_",
               ".grb","Total Cloud Cover","MODIS",1.0,
-              lclim,freado,lcol,tcrit,sig_cont,larticle,1,isccp_rms,model)
+              1,freado,lcol,tcrit,sig_cont,larticle,1,isccp_rms,model)
 
           if lplot_poles=1 then
               outfile(dir,lclim,'tcc_modis_np_'&rgstr&
@@ -861,9 +875,9 @@ for imon = 1 to 1 do
                       filestr&expid,output,lcol)
               tcc(expid,yy_start[imon],mm_start[imon],mm_len[imon],
                   source_file_sfc,nens,res,display_np,lplot_curve,"tcc",
-                  ecfsdir&"modis/grib/modis_tcc_",
+                  ecfsdir&"modis_l3_c5/MODIS_TCC_",
                   ".grb","Total Cloud Cover","MODIS",1.0,
-                  lclim,freado,lcol,tcrit,sig_cont,larticle,3,isccp_rms,model)
+                  1,freado,lcol,tcrit,sig_cont,larticle,3,isccp_rms,model)
 
               outfile(dir,lclim,'tcc_modis_sp_'&rgstr&
                       'tcc'&'_'&
@@ -872,9 +886,9 @@ for imon = 1 to 1 do
                        filestr&expid,output,lcol)
               tcc(expid,yy_start[imon],mm_start[imon],mm_len[imon],
                   source_file_sfc,nens,res,display_sp,lplot_curve,"tcc",
-                  ecfsdir&"modis/grib/modis_tcc_",
+                  ecfsdir&"modis_l3_c5/MODIS_TCC_",
                   ".grb","Total Cloud Cover","MODIS",1.0,
-                  lclim,freado,lcol,tcrit,sig_cont,larticle,3,isccp_rms,model)
+                  1,freado,lcol,tcrit,sig_cont,larticle,3,isccp_rms,model)
            end if
        end if
     end if
@@ -1003,18 +1017,18 @@ for imon = 1 to 1 do
        varmaps(expid, yy_start[imon], mm_start[imon], mm_len[imon],
              source_file_sfc, nens, res, display_port, lplot_curve,
              ecfsdir&"noaa_iwp/grib/NOAA10_", ".grb", 1, "NOAA 7/11-microns",
-             1, freado, lcol, tcrit, sig_cont, larticle, "tciw", 1, model)
+            1, freado, lcol, tcrit, sig_cont, larticle, "tciw", 1, model)
    end if
 
-   if ltciw = 1 then
-       outfile(dir, 1, 
-               'tciw_cloudsat_'&rgstr&'nens'&string(nens)&'_'&datestr&'_nmon'&string(mm_len[imon]),
-               filestr&expid, output, lcol)
-       varmaps(expid, yy_start[imon], mm_start[imon], mm_len[imon],
-               source_file_sfc, nens, res, display_port, lplot_curve,
-               ecfsdir&"cloudsat/grib/iwp_non-precip_non-conv_cloudsat", ".grb", 1, "CLOUDSAT",
-               1, freado, lcol, tcrit, sig_cont, larticle, "tciw", 1, model)
-   end if
+#  if ltciw = 1 then
+#      outfile(dir, 1, 
+#              'tciw_cloudsat_'&rgstr&'nens'&string(nens)&'_'&datestr&'_nmon'&string(mm_len[imon]),
+#              filestr&expid, output, lcol)
+#      varmaps(expid, yy_start[imon], mm_start[imon], mm_len[imon],
+#              source_file_sfc, nens, res, display_port, lplot_curve,
+#              ecfsdir&"cloudsat/grib/iwp_non-precip_non-conv_cloudsat", ".grb", 1, "CLOUDSAT",
+#              1, freado, lcol, tcrit, sig_cont, larticle, "tciw", 1, model)
+#  end if
 
 #
 # SFLUX - DS
@@ -2001,9 +2015,9 @@ function precip(expid,yys,mms,nm,source_file_sfc,nens,res,display,lplot_curve,fi
           lfiles   = GetFilenames(fname)
           prec_obs = read(source:lfiles[1])
         end if
-        if obsname='HOAPS3' then
-           prec_obs=prec_obs/4
-        end if
+       #if obsname='HOAPS3' then
+       #   prec_obs=prec_obs/4
+       #end if
         prec_obs = prec_obs[obsindex]
         
         geo_aux = grib_to_geo( data : prec_obs)
@@ -2060,7 +2074,7 @@ function precip(expid,yys,mms,nm,source_file_sfc,nens,res,display,lplot_curve,fi
     #  )
 
     if (model = "icon") then
-      param = "500041"
+      param = "228228"
     else
       param = "tp"
     end if
@@ -2210,12 +2224,16 @@ function tcc(expid,yys,mms,nm,source_file_sfc,nens,res,display,lplot_curve,par,f
            modm=0.
 
            if lclim then
-              fname=file1&"*climatology_*_month"&substring(string(100+mm),2,3)
+             if platform = "MODIS" then
+               fname=file1&"*climatology_*months_"&substring(string(100+mm),2,3)  # for modis_l3_c5
+             else
+               fname=file1&"*climatology_*_month"&substring(string(100+mm),2,3)
+             end if
            else
               fname=file1&string(yy*100+mm)&file2
            end if
 
-#		print("reading: ",fname)
+		print("reading: ",fname)
 
                 if freado='ecfs' then
 		  obs = ecfs(file_name:fname)
@@ -2261,13 +2279,14 @@ function tcc(expid,yys,mms,nm,source_file_sfc,nens,res,display,lplot_curve,par,f
         case par of
           "tcc":  par_icon =  "500046"
                   end
-          "lcc":  par_icon =  "500098"
+          "lcc":  par_icon =  "502343"
                   end
           "mcc":  par_icon =  "502342"
                   end
           "hcc":  par_icon =  "502341"
                   end
         end case
+
         mod_all = read(
                #type	:	"fc",
                #expver	:	expid,
@@ -3014,23 +3033,23 @@ function quikscat(expid,yys,mms,nm,source_file,nens,res,display,lplot_curve,lcli
 		geo_aux = grib_to_geo( data : obsu)
 		geo_aux = filter( geo_aux, geo_lsm > 1.0 )
 		obsu = geo_to_grib(
-				geopoints  :	geo_aux,
-				area	:	my_area,
-				grid	:	my_grid,
-				tolerance	:	res,
-				parameter	:	255,
-				grib_table2_version	:	128
+				geopoints           :      geo_aux,
+				area                :      my_area,
+				grid                :      my_grid,
+				tolerance           :      res,
+				parameter           :      255,
+				grib_table2_version :      128
 				)
 
 		geo_aux = grib_to_geo( data : obsv)
 		geo_aux = filter( geo_aux, geo_lsm > 1.0 )
-		obsv = geo_to_grib(
-				geopoints  :	geo_aux,
-				area	:	my_area,
-				grid	:	my_grid,
-				tolerance	:	res,
-				parameter	:	255,
-				grib_table2_version	:	128
+		obsv = geo_to_grib( 
+				geopoints           :      geo_aux,
+				area                :      my_area,
+				grid                :      my_grid,
+				tolerance           :      res,
+				parameter           :      255,
+				grib_table2_version :      128
 				)
 
 # calculate
@@ -3055,13 +3074,13 @@ function quikscat(expid,yys,mms,nm,source_file,nens,res,display,lplot_curve,lcli
                 end if
     end for
 
-    if (model = "icon" ) then
-      param_u  = "500027"
-      param_v  = "500029"
-    else
-      param_u  = "10U"
-      param_v  = "10V"
-    end if
+   #if (model = "icon" ) then
+   #  param_u  = "500027"
+   #  param_v  = "500029"
+   #else
+      param_u  = "165.128"    # "10U", "500027"
+      param_v  = "166.128"    # "10V", "500029"
+   #end if
 
     modu = read(
           #type	   :	"fc",
@@ -3081,7 +3100,7 @@ function quikscat(expid,yys,mms,nm,source_file,nens,res,display,lplot_curve,lcli
            grid	   :	my_grid,
            param   :	param_v,
            source  :    source_file
-					)
+			       	)
 
     modw_all=sqrt(modu*modu+modv*modv)
 
@@ -3322,13 +3341,13 @@ function winds(expid,yys,mms,nm,source_file,nens,res,display,lplot_curve,ecfsdir
        end if
     end for
 
-    if (model = "icon" ) then
-      param_u  = "500027"
-      param_v  = "500029"
-    else
-      param_u  = "10U"
-      param_v  = "10V"
-    end if
+   #if (model = "icon" ) then
+   #  param_u  = "500027"
+   #  param_v  = "500029"
+   #else
+      param_u  = "165.128"    # "10U"
+      param_v  = "166.128"    # "10V"
+   #end if
 
     modu = read(
 #	type	:	"fc",
@@ -4090,10 +4109,11 @@ function era40(expid,yys,mms,nm,source_file_sfc,nens,res,param,display,lplot_cur
     end for
 
     if (model = "icon") then
+      param_mod = param
       case param of
-        "2T": param_mod = 500011  ;  end
-        "2D": param_mod = 500017  ;  end
-        "SD": param_mod = 500045  ;  end  # single layer: 500045,  multi layer: 502329
+        "2T": param_mod =    167.128  ;  end
+     #  "2D": param_mod = 500017  ;  end
+        "SD": param_mod =   3066  ;  end  # single layer: 500045,  multi layer: 502329
       end case
     else
       param_mod = param
@@ -4104,9 +4124,11 @@ function era40(expid,yys,mms,nm,source_file_sfc,nens,res,param,display,lplot_cur
        #levtype	:	"sfc",
         grid	:	my_grid,
         param	:	param_mod,
-        source  :       source_file_sfc,
-        grid    :       [2.,2.]
+        source  :       source_file_sfc
+       #grid    :       [2.,2.]
         )
+     print("Read model from file: ", source_file_sfc) 
+     print("Read variable: ", param_mod," resol:  ", my_grid, "deg # flds: ", mod_all)
 
     mod=mean(mod_all)
     obs=obs_tot/nm
@@ -4246,7 +4268,7 @@ function era40sn(expid,yys,mms,nm,source_file_sfc,nens,res,param,display,lplot_c
     end for
 
     if (model = "icon") then
-      param_mod = 500045   # snow depth "SD", single layer: 500045,  multi layer: 502329
+      param_mod = 3066   # snow depth "SD", single layer: 500045,  multi layer: 502329
     else
       param_mod = param
     end if
@@ -4262,7 +4284,7 @@ function era40sn(expid,yys,mms,nm,source_file_sfc,nens,res,param,display,lplot_c
 
     if (model = "icon") then
       mod_all_lev1 = read(
-        param     :     500011,                         #T2m: just to test how many dates
+        param     :     "2D",                           #T2m: just to test how many dates (500011)
         source    :     source_file_sfc )
       nsnowlev = count(mod_all) / count(mod_all_lev1)   #multi-layer snow in ICON
       print("snow levels: ", nsnowlev)

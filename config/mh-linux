@@ -229,7 +229,7 @@ case "$ac_sitename" in
    cscs.ch)
         echo The host is:  $HOST
         case "$HOST" in
-            *daint*|*santis*)
+            *daint*|*santis*|*dom*)
                 make_command="make" "-j" "8"
                 load_profile="." "/opt/modules/default/etc/modules.sh"
                 submit="sbatch"
@@ -243,7 +243,7 @@ case "$ac_sitename" in
                         config_target=daint_cpu
                         load_modules ="PrgEnv-gnu" "cray-netcdf" "cray-mpich" "${load_modules}"
                         CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
-                        NETCDFROOT  = /opt/cray/netcdf/default/GNU/4.8
+                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/GNU/5.1
                     ;;
                     intel)
                         config_target=daint_cpu
@@ -251,7 +251,7 @@ case "$ac_sitename" in
                         CFLAGS      = -std=gnu99 -march=native -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
                         STD_FLAGS   = -O2 -mavx -fltconsistency -g -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
                         FFLAGS      = -g -pc64 -fpp -D__LOOP_EXCHANGE
-                        NETCDFROOT  = /opt/cray/netcdf/default/INTEL/14.0
+                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/INTEL/15.0
                         F77FLAGS    = "$FFLAGS" "$STD_FLAGS"
                         MODDIR      = -I
                     ;;
@@ -259,49 +259,20 @@ case "$ac_sitename" in
                         config_target=daint_cpu
                         load_modules = "PrgEnv-pgi" "cray-netcdf" "cray-mpich" "${load_modules}"
                         CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
-                        NETCDFROOT  = /opt/cray/netcdf/default/PGI/15.3
+                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/PGI/15.3
                     ;;
                     cray)
                         config_target=daint_cpu
                         load_modules = "PrgEnv-cray" "cray-netcdf" "cray-mpich" "${load_modules}"
                         CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
-                        NETCDFROOT  = /opt/cray/netcdf/default/CRAY/83
+                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
                     ;;
                     cray_gpu)
                         config_target=daint_gpu
                         load_modules = "PrgEnv-cray" "cray-netcdf" "cray-mpich" "craype-accel-nvidia35" "${load_modules}"
                         CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
-                        NETCDFROOT  = /opt/cray/netcdf/default/CRAY/83
+                        NETCDFROOT  = /opt/cray/pe/netcdf/4.4.1/CRAY/8.3
                     ;;
-                esac
-                mpi_startrun="srun" "-n" "\\\$mpi_total_procs" "--ntasks-per-node" "\\\$mpi_procs_pernode" "--threads-per-core=1" "--cpus-per-task" "\\\$OMP_NUM_THREADS"
-                ;;
-            *dora*)
-                config_target=dora
-                make_command="make" "-j" "8"
-                load_profile="." "/opt/modules/default/etc/modules.sh"
-                submit="sbatch"
-                sync_submit="sbatch"
-                CC = cc
-                FC = ftn
-                F77= ftn
-
-                case "$fortran_compiler" in
-                    default|gcc)
-                        load_modules ="PrgEnv-gnu" "cray-netcdf" "${load_modules}"
-                        CFLAGS       = "$CFLAGS" -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
-                        NETCDFROOT  = /opt/cray/netcdf/default/GNU/4.9
-                    ;;
-                    intel)
-                        load_modules = "PrgEnv-intel" "cray-netcdf" "${load_modules}"
-                        CFLAGS      = "$CFLAGS" -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
-                        NETCDFROOT  = /opt/cray/netcdf/default/INTEL/14.0
-                    ;;
-                    cray)
-                        load_modules = "PrgEnv-cray" "cray-netcdf" "${load_modules}"
-                        CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
-                        NETCDFROOT  = /opt/cray/netcdf/default/CRAY/83
-                     ;;
                 esac
                 mpi_startrun="srun" "-n" "\\\$mpi_total_procs" "--ntasks-per-node" "\\\$mpi_procs_pernode" "--threads-per-core=1" "--cpus-per-task" "\\\$OMP_NUM_THREADS"
                 ;;
@@ -407,6 +378,9 @@ case "$ac_sitename" in
                           intel14)
                             load_modules    = intel/14.0.3 ${load_modules}
                             ;;
+                          intel17)
+                            load_modules = intel/17.0.0 ${load_modules}
+                            ;;
                           intel16|intel*)
                             load_modules = intel/16.0 ${load_modules}
                             ;;
@@ -480,7 +454,7 @@ case "$ac_sitename" in
                                 FFLAGS       = $FFLAGS -DHAVE_PARALLEL_NETCDF
                                 MPIROOT      = /opt/mpi/bullxmpi_mlx/1.2.9.2
                                 SYS_LIBS     = -ldl -lm -lnuma -Wl,--export-dynamic -lrt -lnsl -lutil -lm -ldl
-                                MPI_LIB      = $WLFLAG,-rpath,${MPIROOT}/lib -lmpi_f90 -lmpi_f77 $SYS_LIBS
+                                MPI_LIB      = $WLFLAG,-rpath,${MPIROOT}/lib -lmpi_f90 -lmpi_f77 -lmpi $SYS_LIBS
                                 NETCDFFROOT  = $software_tree/netcdf/netcdf_fortran-4.4.2-parallel-bullxmpi-intel14
                                 NETCDFROOT   = $software_tree/netcdf/netcdf_c-4.3.2-parallel-bullxmpi-intel14
                                 HDF5ROOT     = $software_tree/hdf5/hdf5-1.8.14-parallel-bullxmpi-intel14
@@ -569,8 +543,23 @@ case "$ac_sitename" in
         esac
         ;;
 #===============================================
-    kfa-juelich.de)
+    kfa-juelich.de|*jureca*)
         case "$(hostname)" in
+            jrl*)
+                NETCDFROOT    = $EBROOTNETCDF
+                NETCDFLIBPATH = $NETCDFROOT/lib64
+                NETCDFFROOT   = $EBROOTNETCDFMINFORTRAN
+                HDF5ROOT      = $EBROOTHDF5
+                SZIPROOT      = $EBROOTSZIP
+                ZLIBROOT      = $EBROOTZLIB
+                MPIROOT       = $EBROOTPSMPI
+                MPI_LIB       = -L$MPIROOT/lib -lmpi -lmpifort
+                load_modules  = Intel ParaStationMPI netCDF-Fortran ${load_modules}
+                config_target = jureca
+                make_command  = make -j8
+                submit        = sbatch
+                mpi_startrun  = srun
+                ;;
             juqueen*)
                 #NETCDFROOT  = /bgsys/local/netcdf
                 NETCDFROOT = /homeb/slmet/slmet016/netcdf_xlc
@@ -746,9 +735,9 @@ case "$ac_sitename" in
                            load_modules = ncl/6.3.0-nodap-precompiled cdo/1.7.1-gcc52 python/2.7-ve6 ${load_modules}   
                            SZIPROOT = $software_tree/szip-2.1-static-gccsys
                            NETCDFFROOT = $software_tree/netcdf_fortran-4.4.2-static-${compiler_version}
-                           GRIBAPIROOT = $software_tree/grib_api-1.14.3-static-${compiler_version}
                            NETCDFROOT = $software_tree/netcdf-4.3.3.1-static-gccsys
                            HDF5ROOT = $software_tree/hdf5-1.8.16-static-gccsys
+                           GRIBAPIROOT = $software_tree/grib_api-1.14.3-static-${compiler_version}
                            SYS_LIBS = -L/usr/x86_64-linux-gnu/lib -lm -ldl -lrt -lutil -lpthread -lpciaccess
                            SYS_LIBS = -ljasper -ljpeg $SYS_LIBS
                            XML2ROOT = /usr

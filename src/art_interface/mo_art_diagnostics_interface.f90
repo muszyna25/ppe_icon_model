@@ -1,21 +1,21 @@
 !>
-!! mo_art_diagnostics_interface
 !! This module provides and interface to routines calculating diagnostic
 !! properties of aerosols and trace gases
 !!
-!! Author: Daniel Rieger, KIT
 !!
-!! Revision History
-!! Initial Daniel Rieger, KIT (2014-08-04)
+!! @author Daniel Rieger, KIT
 !!
-!! Copyright
-!! Institute for Meteorology and Climate Research, KIT, Karlsruhe
-!! This software is provided for non-commercial use only.
+!! @par Revision History
+!! Initial revision by Daniel Rieger, KIT (2014-08-04)
 !!
-!! See the LICENSE conditions:
-!! http://icon-art.imk-tro.kit.edu/
+!! @par Copyright and License
 !!
-!!-----------------------------------------------------------------------------
+!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
+!! its most recent form.
+!! Please see the file LICENSE in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the
+!! headers of the routines.
+!!
 MODULE mo_art_diagnostics_interface
 
 ! ICON
@@ -30,7 +30,7 @@ MODULE mo_art_diagnostics_interface
 #ifdef __ICON_ART
   USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_config,                    ONLY: art_config
-  USE mo_art_aero_optical_props,        ONLY: art_calc_aod
+  USE mo_art_aero_optical_props,        ONLY: art_calc_aod, art_calc_bsc
   USE mo_art_diagnostics,               ONLY: art_volc_diagnostics
   USE mo_art_clipping,                  ONLY: art_clip_lt
 #endif
@@ -93,6 +93,7 @@ SUBROUTINE art_diagnostics_interface(p_patch, rho, pres, p_trac, dz, hml, jg)
         ! --------------------------------------
         IF (art_config(jg)%iart_dust > 0 .OR. art_config(jg)%iart_seasalt > 0 .OR. art_config(jg)%iart_volcano > 0) THEN
           CALL art_calc_aod(rho(:,:,jb), p_trac(:,:,jb,:), dz(:,:,jb), istart, iend, nlev, jb, jg, p_art_data(jg))
+          CALL art_calc_bsc(rho(:,:,jb), p_trac(:,:,jb,:), dz(:,:,jb), istart, iend, nlev, jb, jg, p_art_data(jg))
         ENDIF
     
         ! -------------------------------------

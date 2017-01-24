@@ -39,9 +39,6 @@ fi
 
 dnl ######################################################################
 
-AC_ARG_ENABLE([mtime-loop],
-              AS_HELP_STRING([--enable-mtime-loop],[Use mtime based time loop in nh stepping.]))
-
 AC_ARG_ENABLE([atmo],
               AS_HELP_STRING([--enable-atmo],[Use atmosphere model component.]),
               [],[enable_atmo=yes])
@@ -289,12 +286,6 @@ for other_flags in $icon_flags ; do
   CFLAGS="${CFLAGS} ${DEFCOPT}__${other_flags}__"
 done
 
-
-dnl ######################################################################
-dnl add defines for transitional features (eg. mtime based time loop)
-
-AS_IF([test "x$enable_mtime_loop" = "xyes"], 
-      [FFLAGS="${FFLAGS} ${DEFOPT}USE_MTIME_LOOP"])
 
 dnl ######################################################################
 dnl Checks for programs.

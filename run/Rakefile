@@ -105,6 +105,7 @@ CLEAN.include('*.run')
 # :atmTimeMean            => %w[exp.atm_amip_acc_dtime exp.atm_amip_acc_2dtime exp.atm_amip_acc_dtime_sp],
 # :atmTimeMeanX           => %w[exp.test_nat_rce_cbl_120km_nwp exp.test_nh_hdcp2_lam_r15000_modified],
   :meanStream             => %w[exp.ocean_meanStream],
+  :atMeanStream            => %w[exp.atmo_meanStream],
 }
 # }}}
 #==============================================================================

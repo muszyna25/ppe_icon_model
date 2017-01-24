@@ -34,7 +34,6 @@ MODULE mo_turbulent_diagnostic
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_loopindices,        ONLY: get_indices_c
-  USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_model_domain,       ONLY: t_patch
   USE mo_run_config,         ONLY: msg_level, iqv, iqc, iqi, iqr, iqs, iqg, iqh, dtime
@@ -47,12 +46,14 @@ MODULE mo_turbulent_diagnostic
   USE mo_les_config,         ONLY: les_config
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_write_netcdf      
-  USE mo_impl_constants,     ONLY: min_rlcell, min_rlcell_int
-  USE mo_physical_constants, ONLY: cpd, rcvd, p0ref, grav, rcpd, alv, &
-                                   rd_o_cpd, vtmpc1
-  USE mo_sync,               ONLY: SYNC_C, sync_patch_array
+  USE mo_impl_constants,     ONLY: min_rlcell_int
+  USE mo_physical_constants, ONLY: cpd, grav, alv, vtmpc1
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_satad,              ONLY: sat_pres_water, spec_humi
+  USE mtime,                 ONLY: datetime, timeDelta, newTimedelta,             &
+    &                              deallocateTimedelta, getTimedeltaFromDatetime, &
+    &                              getTotalMillisecondsTimedelta
+  USE mo_time_config,        ONLY: time_config
  
   IMPLICIT NONE
 
@@ -940,12 +941,22 @@ CONTAINS
   !!
   !! @par Revision History
   !!
-  SUBROUTINE write_vertical_profiles(outvar, sim_time, ncount)
-    REAL(wp), INTENT(IN) :: outvar(:,:), sim_time
-    INTEGER, INTENT (IN) :: ncount
+  SUBROUTINE write_vertical_profiles(outvar, this_datetime, ncount)
+    REAL(wp),                INTENT(IN)  :: outvar(:,:)
+    TYPE(datetime), POINTER, INTENT(IN)  :: this_datetime
+    INTEGER,                 INTENT(IN)  :: ncount
 
-    INTEGER :: nvar, n
-    REAL(wp):: inv_ncount
+    INTEGER                  :: nvar, n
+    REAL(wp)                 :: inv_ncount
+    REAL(wp)                 :: sim_time     !< elapsed simulation time on this grid level
+    TYPE(timeDelta), POINTER :: time_diff
+
+    
+    ! calculate elapsed simulation time in seconds
+    time_diff  => newTimedelta("PT0S")
+    time_diff  =  getTimeDeltaFromDateTime(this_datetime, time_config%tc_startdate)
+    sim_time   =  getTotalMillisecondsTimedelta(time_diff, this_datetime)*1.e-3_wp
+    CALL deallocateTimedelta(time_diff)
  
     !Write profiles
       
@@ -979,10 +990,19 @@ CONTAINS
   !!
   !! @par Revision History
   !!
-  SUBROUTINE write_time_series(outvar, sim_time)
-    REAL(wp), INTENT(IN) :: outvar(:), sim_time
+  SUBROUTINE write_time_series(outvar, this_datetime)
+    REAL(wp),                INTENT(IN) :: outvar(:)
+    TYPE(datetime), POINTER, INTENT(IN) :: this_datetime
 
-    INTEGER :: nvar, n
+    INTEGER                  :: nvar, n
+    REAL(wp)                 :: sim_time     !< elapsed simulation time on this grid level
+    TYPE(timeDelta), POINTER :: time_diff
+    
+    ! calculate elapsed simulation time in seconds
+    time_diff  => newTimedelta("PT0S")
+    time_diff  =  getTimeDeltaFromDateTime(this_datetime, time_config%tc_startdate)
+    sim_time   =  getTotalMillisecondsTimedelta(time_diff, this_datetime)*1.e-3_wp
+    CALL deallocateTimedelta(time_diff)
 
     !Write time series 
     nvar = SIZE(turb_tseries_list,1)
@@ -1012,10 +1032,10 @@ CONTAINS
   !!
   !! @par Revision History
   !!
-  SUBROUTINE init_les_turbulent_output(p_patch, p_metrics, time, l_rh, ldelete)
+  SUBROUTINE init_les_turbulent_output(p_patch, p_metrics, this_datetime, l_rh, ldelete)
    TYPE(t_patch),   TARGET, INTENT(in)   :: p_patch    !<grid/patch info.
    TYPE(t_nh_metrics)     , INTENT(in)   :: p_metrics
-   REAL(wp), INTENT(IN)                  :: time
+   TYPE(datetime), POINTER, INTENT(IN)   :: this_datetime
    LOGICAL, INTENT(IN), OPTIONAL         :: ldelete
    LOGICAL, INTENT(IN), OPTIONAL         :: l_rh  !if rh to be output or not
   
@@ -1026,7 +1046,15 @@ CONTAINS
    INTEGER :: n, nlev, nlevp1, nvar, jg
    REAL(wp) :: z_mc_avg(p_patch%nlev), z_ic_avg(p_patch%nlev+1)
    CHARACTER(len=*), PARAMETER :: routine = 'mo_turbulent_diagnostic:init_les_turbulent_output'
+   TYPE(timeDelta), POINTER            :: time_diff
+   REAL(wp)                            :: p_sim_time     !< elapsed simulation time on this grid level
  
+   ! calculate elapsed simulation time in seconds
+   time_diff  => newTimedelta("PT0S")
+   time_diff  =  getTimeDeltaFromDateTime(this_datetime, time_config%tc_startdate)
+   p_sim_time =  getTotalMillisecondsTimedelta(time_diff, this_datetime)*1.e-3_wp
+   CALL deallocateTimedelta(time_diff)
+
    jg = p_patch%id
 
    !Check if diagnostics are to be calculated or not
@@ -1056,7 +1084,7 @@ CONTAINS
 
    !open profile file
    IF( my_process_is_stdio() ) &
-     CALL open_nc(TRIM(les_config(jg)%expname)//'_profile.nc', fileid_profile, nrec_profile, time, ldelete)
+     CALL open_nc(TRIM(les_config(jg)%expname)//'_profile.nc', fileid_profile, nrec_profile, p_sim_time, ldelete)
  
    !addvar
    nvar = SIZE(turb_profile_list,1)
@@ -1253,7 +1281,7 @@ CONTAINS
 
    !open time series file
    IF( my_process_is_stdio() ) &
-      CALL open_nc(TRIM(les_config(jg)%expname)//'_tseries.nc', fileid_tseries, nrec_tseries, time, ldelete)
+      CALL open_nc(TRIM(les_config(jg)%expname)//'_tseries.nc', fileid_tseries, nrec_tseries, p_sim_time, ldelete)
  
    !addvar
    nvar = SIZE(turb_tseries_list,1)

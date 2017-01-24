@@ -394,7 +394,7 @@ CONTAINS
 
     ! for index list generation
     LOGICAL :: llist_gen           !< if TRUE, generate index list
-    INTEGER :: ie                  !< counter
+    INTEGER :: ie, ie_capture      !< counter, and its captured value
     REAL(wp):: traj_length         !< backward trajectory length [m]
     REAL(wp):: e2c_length          !< edge-upwind cell circumcenter length [m]
     !-------------------------------------------------------------------------
@@ -505,11 +505,12 @@ CONTAINS
 
 !
 ! OpenACC:  This seems to be the only atomic operation in the calculation
-!$ACC ATOMIC UPDATE
+!$ACC ATOMIC CAPTURE
               ie = ie + 1
+              ie_capture = ie
 !$ACC END ATOMIC
-              opt_falist%eidx(ie,jb) = je
-              opt_falist%elev(ie,jb) = jk
+              opt_falist%eidx(ie_capture,jb) = je
+              opt_falist%elev(ie_capture,jb) = jk
             ENDIF
           ENDDO ! loop over edges
         ENDDO   ! loop over vertical levels

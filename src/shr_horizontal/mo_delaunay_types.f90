@@ -746,13 +746,15 @@ CONTAINS
     TYPE(t_point), ALLOCATABLE :: tmp(:)
 
     ! allocate temporary storage
-    IF (ALLOCATED(this%a) .AND. (SIZE(this%a) < new_size)) THEN
-      ALLOCATE(tmp(0:(this%nentries-1)), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-      ! copy existing data and resize
-      tmp(0:(this%nentries-1)) = this%a(0:(this%nentries-1))
-      DEALLOCATE(this%a, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+    IF (ALLOCATED(this%a)) THEN
+      IF (SIZE(this%a) < new_size) THEN
+        ALLOCATE(tmp(0:(this%nentries-1)), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+        ! copy existing data and resize
+        tmp(0:(this%nentries-1)) = this%a(0:(this%nentries-1))
+        DEALLOCATE(this%a, STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+      END IF
     END IF
     IF (.NOT. ALLOCATED(this%a)) THEN
       ALLOCATE(this%a(0:(new_size-1)), STAT=ierrstat)
@@ -858,13 +860,15 @@ CONTAINS
     TYPE(t_triangle), ALLOCATABLE :: tmp(:)
 
     ! allocate temporary storage
-    IF (ALLOCATED(this%a) .AND. (SIZE(this%a) < new_size)) THEN
-      ALLOCATE(tmp(0:(this%nentries-1)), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-      ! copy existing data and resize
-      tmp(0:(this%nentries-1)) = this%a(0:(this%nentries-1))
-      DEALLOCATE(this%a, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+    IF (ALLOCATED(this%a)) THEN
+      IF (SIZE(this%a) < new_size) THEN
+        ALLOCATE(tmp(0:(this%nentries-1)), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+        ! copy existing data and resize
+        tmp(0:(this%nentries-1)) = this%a(0:(this%nentries-1))
+        DEALLOCATE(this%a, STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+      END IF
     END IF
     IF (.NOT. ALLOCATED(this%a)) THEN
       ALLOCATE(this%a(0:(new_size-1)), STAT=ierrstat)
@@ -1389,13 +1393,15 @@ CONTAINS
     TYPE(t_spherical_cap), ALLOCATABLE :: tmp(:)
 
     ! allocate temporary storage
-    IF (ALLOCATED(this%a) .AND. (SIZE(this%a) < new_size)) THEN
-      ALLOCATE(tmp(0:(this%nentries-1)), STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-      ! copy existing data and resize
-      tmp(0:(this%nentries-1)) = this%a(0:(this%nentries-1))
-      DEALLOCATE(this%a, STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+    IF (ALLOCATED(this%a)) THEN
+      IF (SIZE(this%a) < new_size) THEN
+        ALLOCATE(tmp(0:(this%nentries-1)), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+        ! copy existing data and resize
+        tmp(0:(this%nentries-1)) = this%a(0:(this%nentries-1))
+        DEALLOCATE(this%a, STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+      END IF
     END IF
     IF (.NOT. ALLOCATED(this%a)) THEN
       ALLOCATE(this%a(0:(new_size-1)), STAT=ierrstat)
