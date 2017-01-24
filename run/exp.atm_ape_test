@@ -220,7 +220,7 @@ datadir=$INDATA/global/atm
 add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc                 ./bc_greenhouse_gases.nc
 #
 # - ozone
-datadir=${basedir}/data/external/ape_ozone/
+datadir=${icon_data_poolFolder}/external/ape_ozone/
 ozone_file="ape_o3_iconR2B04-ocean_aqua_planet.nc"
 add_required_file ${datadir}/${ozone_file}                              ./o3_icon_DOM01.nc
 

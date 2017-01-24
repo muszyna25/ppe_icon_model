@@ -324,7 +324,7 @@
 
 
            bgctra(j,k,iano3)   = bgctra(j,k,iano3)     &
-                   &          - nitdem*remin + rnit*remin2o
+                   &          - 2._wp*n2prod*remin + rnit*(remin + remin2o)
 
            bgctra(j,k,igasnit) = bgctra(j,k,igasnit)   &
                    &                + n2prod*remin + 2._wp*ro2ut*remin2o

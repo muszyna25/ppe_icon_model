@@ -172,8 +172,8 @@ CONTAINS
     
 
     ! N consumption of denitrification corrected after Paulmier etal, 2009)
-    nitdem = 121.6_wp      ! nitrate demand to remin. 1 mol P in suboxic water
     n2prod = 68.8_wp       ! N2 production for 1 mol P remineralized in suboxic water
+    nitdem = 2._wp*n2prod - rnit ! nitrate demand to remin. 1 mol P in suboxic water
 
     rcalc = 35._wp ! iris 40 !calcium carbonate to organic phosphorous production ratio
     IF (l_cpl_co2) THEN

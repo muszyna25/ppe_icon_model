@@ -16,14 +16,14 @@ $addexp "checksuite.icon-dev/check.atm_amip*" --list $listname
 
 #-----------------------------------------------------------
 # add omip technical tests only for builders with mpi parallelization
-$addexp checksuite.ocean_internal/omip/exp.ocean_omip_ptest checksuite.ocean_internal/technical/exp.test_ocean_omip_technical \
+$addexp checksuite.ocean_internal/technical/exp.ocean_omip_ptest checksuite.ocean_internal/technical/exp.test_ocean_omip_technical \
   --without-configureflags without-mpi --runflags "cpu_time=00:30:00"  --list $listname
 # add omip binary-identical test and Hex test to all builders
 $addexp checksuite.ocean_internal/omip/exp.test_ocean_omip_10days checksuite.ocean_internal/ShallowWater/exp.ocean_WilliamsonTestCase2_Hex \
 --runflags "cpu_time=00:30:00" --list $listname
 # add ocean tests to the restricted builder MISTRAL_ocean
 ./set_builder_flags Active             --builders MISTRAL_ocean  --list $listname
-$addexp checksuite.ocean_internal/omip/exp.ocean_omip_ptest checksuite.ocean_internal/technical/exp.test_ocean_omip_technical \
+$addexp checksuite.ocean_internal/technical/exp.ocean_omip_ptest checksuite.ocean_internal/technical/exp.test_ocean_omip_technical \
 checksuite.ocean_internal/omip/exp.test_ocean_omip_10days checksuite.ocean_internal/ShallowWater/exp.ocean_WilliamsonTestCase2_Hex \
 --builders MISTRAL_ocean --runflags "cpu_time=00:30:00" --list $listname
 ./set_builder_flags Ocean             --builders MISTRAL_ocean  --list $listname
