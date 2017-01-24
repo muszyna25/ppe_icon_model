@@ -1133,11 +1133,10 @@ END SUBROUTINE message
     zsiltf   (ie)      , & ! mean fraction of clay (weight percent)
     zb_por   (ie)      , & ! pore size distribution index
     zpsis    (ie)      , & ! air entry potential (m)
-    zw_m_org         , &  ! maximum of  liquid water content   organic
-    zw_m_soil (ie)   , &  ! maximum of  liquid water content   mineral soil
+    zw_m_org  (ie)     , &  ! maximum of  liquid water content organic
+    zw_m_soil (ie)     , &  ! maximum of  liquid water content   mineral soil
     zw_m_up   (ie)       , &  ! maximum of  liquid water content   at temp -3 degC
     zw_m_low  (ie,ke_soil+1), &  ! maximum of  liquid water content   at temp -40 degC
-    zw_m_org  (ie)     , &  ! maximum of  liquid water content   organic at temp -40 degC
     t_zw_up          , &  ! temp -3 degC
     t_zw_low         , &  ! temp -40 degC
     zw_m     (ie)         ! maximum of liquid water content  (m)
