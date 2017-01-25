@@ -487,8 +487,6 @@ CONTAINS
     ! If running in atm-oce coupled mode, exchange information 
     !-------------------------------------------------------------------------
 
-    !  commit a comment here
-
     ! Possible fields that contain information to be sent to the ocean include
     !
     ! 1. prm_field(jg)% u_stress_tile(:,:,iwtr/iice)  and 
