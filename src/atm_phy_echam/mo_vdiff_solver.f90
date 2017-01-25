@@ -21,12 +21,7 @@ MODULE mo_vdiff_solver
   USE mo_physical_constants,ONLY: grav, rgrav, cpd, cpv
   USE mo_echam_vdiff_params,ONLY: clam, da1, tke_min, cons2, cons25, &
     &                             tpfac1, tpfac2, tpfac3, cchar, z0m_min
-#ifdef __ICON__
   USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config, get_lebudget
-#else
-  USE mo_time_control,      ONLY: lstart
-  USE mo_semi_impl,         ONLY: eps
-#endif
 
   IMPLICIT NONE
   PRIVATE
@@ -727,19 +722,16 @@ CONTAINS
   !!
   SUBROUTINE vdiff_tendencies( kproma, kbdim, itop, klev, klevm1, klevp1,  &! in
                              & ktrac, ksfc_type, idx_wtr,                  &! in
-                             & pdtime, pstep_len,                          &! in
+                             & pdtime,                                     &! in
                              & pum1, pvm1, ptm1, pqm1, pxlm1, pxim1,       &! in
                              & pxtm1, pgeom1, pdelpm1, pcptgz,             &! in
                              & pcd, pcv,                                   &! in
-#ifdef __ICON__
                              & ptkem1, pztkevn, pzthvvar, prhoh,           &! in
-#else
-                             & ptkem1, ptkem0, pztkevn, pzthvvar, prhoh,   &! inout, inout, in
-#endif
                              & pqshear, ihpbl,                       &! in
                              & pcfm_tile, pfrc, ptte_corr, bb,       &! in
                              & pkedisp, pxvar, pz0m_tile,            &! inout
                              & pute_vdf, pvte_vdf, ptte_vdf,         &! out
+!!$                             & pute_vdf, pvte_vdf, pq_vdf,           &! out
                              & pqte_vdf, pxlte_vdf, pxite_vdf,       &! out
                              & pxtte_vdf, pxvarprod, pz0m,           &! out
                              & ptke, pthvvar, pthvsig, pvmixtau,     &
@@ -747,7 +739,7 @@ CONTAINS
 
     INTEGER, INTENT(IN) :: kproma, kbdim, itop, klev, klevm1, klevp1, ktrac
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr
-    REAL(wp),INTENT(IN) :: pstep_len, pdtime
+    REAL(wp),INTENT(IN) :: pdtime
 
     REAL(wp),INTENT(IN)  :: pum1   (kbdim,klev)
     REAL(wp),INTENT(IN)  :: pvm1   (kbdim,klev)
@@ -761,12 +753,7 @@ CONTAINS
     REAL(wp),INTENT(IN)  :: pcptgz (kbdim,klev)
     REAL(wp),INTENT(IN)  :: pcd
     REAL(wp),INTENT(IN)  :: pcv
-#ifdef __ICON__
     REAL(wp),INTENT(IN)  :: ptkem1 (kbdim,klev)
-#else
-    REAL(wp),INTENT(INOUT)  :: ptkem1 (kbdim,klev)
-    REAL(wp),INTENT(INOUT)  :: ptkem0 (kbdim,klev)
-#endif
     REAL(wp),INTENT(IN)  :: pztkevn (kbdim,klev)
     REAL(wp),INTENT(IN)  :: pzthvvar(kbdim,klev)
     REAL(wp),INTENT(IN)  :: prhoh   (kbdim,klev)
@@ -786,6 +773,7 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: pute_vdf (kbdim,klev)  ! OUT
     REAL(wp),INTENT(INOUT) :: pvte_vdf (kbdim,klev)  ! OUT
     REAL(wp),INTENT(INOUT) :: ptte_vdf (kbdim,klev)  ! OUT
+!!$    REAL(wp),INTENT(INOUT) :: pq_vdf   (kbdim,klev)  ! OUT
     REAL(wp),INTENT(INOUT) :: pqte_vdf (kbdim,klev)  ! OUT
     REAL(wp),INTENT(INOUT) :: pxlte_vdf(kbdim,klev)  ! OUT
     REAL(wp),INTENT(INOUT) :: pxite_vdf(kbdim,klev)  ! OUT
@@ -812,17 +800,15 @@ CONTAINS
 !    REAL(wp) :: zsh_vdiff(kbdim,klev)
     INTEGER  :: jk, jl, jt, irhs, jsfc
 
-#ifndef __ICON__
-   REAL(wp) ::  zeps
-#endif
 
-    zrdt   = 1._wp/pstep_len
-    zconst = pdtime/(grav*pstep_len)
+    zrdt   = 1._wp/pdtime
+    zconst = 1._wp/grav
 
     IF (itop>1) THEN
       pute_vdf (1:kproma,1:itop-1)   = 0._wp
       pvte_vdf (1:kproma,1:itop-1)   = 0._wp
       ptte_vdf (1:kproma,1:itop-1)   = 0._wp
+!!$      pq_vdf   (1:kproma,1:itop-1)   = 0._wp
       pqte_vdf (1:kproma,1:itop-1)   = 0._wp
       pxlte_vdf(1:kproma,1:itop-1)   = 0._wp
       pxite_vdf(1:kproma,1:itop-1)   = 0._wp
@@ -848,24 +834,6 @@ CONTAINS
     END DO
     ptke(1:kproma,klev) = pztkevn(1:kproma,klev)
 
-    
-
-#ifndef __ICON__
-    !
-    ! TIME FILTER FOR TURBULENT KINETIC ENERGY
-    !
-     IF(.NOT.lstart) THEN
-       zeps=eps
-     ELSE
-       zeps=0._wp
-     END IF
-     DO 397 jk = itop,klev
-       DO 396 jl = 1,kproma
-         ptkem1(jl,jk)=ptkem0(jl,jk)+zeps*(ptkem1(jl,jk)-2._wp*ptkem0(jl,jk)+ptke(jl,jk))
-         ptkem0(jl,jk)=ptke(jl,jk)
-396     END DO
-397  END DO
-#endif
 
     !-------------------------------------------------------------
     ! Variance of virtual potential temperature
@@ -934,6 +902,7 @@ CONTAINS
         ! (=expansion) is done later by the dynamics.
         ! 
         ptte_vdf(jl,jk) = (ztnew - ptm1(jl,jk))*zrdt *zcp/zpc
+!!$        pq_vdf(jl,jk) = (ztnew - ptm1(jl,jk))*zrdt *zcp/zpc
 
         ! When coupled with JSBACH: Correction of tte for snow melt
         IF (phy_config%ljsbach) THEN

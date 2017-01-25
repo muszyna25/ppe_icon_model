@@ -497,11 +497,17 @@ CONTAINS
     ! 3. prm_field(jg)%rsfl + prm_field(jg)%rsfc + prm_field(jg)%ssfl + prm_field(jg)%ssfc
     !    which gives the precipitation rate;
     !
-    ! 4. ... tbc
+    ! 4. prm_field(jg)% ta(:,nlev,:)  temperature at the lowest model level, or
+    !    prm_field(jg)% tas(:,:)      2-m temperature, not available yet, or
+    !    prm_field(jg)% shflx_tile(:,:,iwtr) sensible heat flux
+    !    ... tbc
+    !
+    ! 5  prm_field(jg)% lhflx_tile(:,:,iwtr) latent heat flux
+    ! 6. shortwave radiation flux at the surface
     !
     ! Possible fields to receive from the ocean include
     !
-    ! 1. prm_field(jg)% tsfc_tile(:,:,iwtr)   SST
+    ! 1. prm_field(jg)% ts_tile(:,:,iwtr)   SST
     ! 2. prm_field(jg)% ocu(:,:) and ocv(:,:) ocean surface current
     ! 3. ... tbc
     ! 
@@ -716,8 +722,6 @@ CONTAINS
         nlen = p_patch%npromz_c
       END IF
       DO n = 1, nlen
-        ! as far as no 10m wind speed is available, the lowest level (nlev) wind field is used for wind speed;
-        !buffer(nn+n,1) = SQRT(prm_field(jg)%u(n,nlev,i_blk)**2+prm_field(jg)%v(n,nlev,i_blk)**2)
         ! as far as no tiles (pre04) are correctly implemented, use the grid-point mean of 10m wind for coupling
         buffer(nn+n,1) = prm_field(jg)%sfcWind(n,i_blk)
       ENDDO
@@ -777,15 +781,15 @@ CONTAINS
         END IF
         DO n = 1, nlen
           IF ( nn+n > nbr_inner_cells ) THEN
-            prm_field(jg)%tsfc_tile(n,i_blk,iwtr) = dummy
+            prm_field(jg)%ts_tile(n,i_blk,iwtr) = dummy
           ELSE
-            prm_field(jg)%tsfc_tile(n,i_blk,iwtr) = buffer(nn+n,1)
+            prm_field(jg)%ts_tile(n,i_blk,iwtr) = buffer(nn+n,1)
           ENDIF
         ENDDO
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
       !
-      CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%tsfc_tile(:,:,iwtr))
+      CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%ts_tile(:,:,iwtr))
     END IF
     !
     ! ------------------------------
@@ -958,8 +962,8 @@ CONTAINS
     CALL dbg_print('EchOce: sfcWind     ',prm_field(jg)%sfcWind,str_module,3,in_subset=p_patch%cells%owned)
 
     ! SST, sea ice, ocean velocity received
-    scr(:,:) = prm_field(jg)%tsfc_tile(:,:,iwtr)
-    CALL dbg_print('EchOce: tsfc_til.wtr',scr                  ,str_module,2,in_subset=p_patch%cells%owned)
+    scr(:,:) = prm_field(jg)%ts_tile(:,:,iwtr)
+    CALL dbg_print('EchOce: ts_tile.iwtr',scr                  ,str_module,2,in_subset=p_patch%cells%owned)
     CALL dbg_print('EchOce: siced       ',prm_field(jg)%siced  ,str_module,3,in_subset=p_patch%cells%owned)
     CALL dbg_print('EchOce: seaice      ',prm_field(jg)%seaice ,str_module,4,in_subset=p_patch%cells%owned)
     scr(:,:) = prm_field(jg)%ocu(:,:)

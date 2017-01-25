@@ -25,61 +25,6 @@
 MODULE mo_hydro_ocean_run
   !-------------------------------------------------------------------------
   USE mo_kind,                   ONLY: wp
-  USE mo_impl_constants,         ONLY: max_char_length
-  USE mo_model_domain,           ONLY: t_patch, t_patch_3d
-  USE mo_grid_config,            ONLY: n_dom
-  USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, lhamocc,&
-    & i_sea_ice, cfl_check, cfl_threshold, cfl_stop_on_violation,   &
-    & cfl_write, surface_module
-  USE mo_ocean_nml,              ONLY: iforc_oce, Coupled_FluxFromAtmo
-  USE mo_dynamics_config,        ONLY: nold, nnew
-  USE mo_io_config,              ONLY: n_checkpoints, write_last_restart
-  USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode, debug_check_level
-  USE mo_exception,              ONLY: message, message_text, finish
-  USE mo_ext_data_types,         ONLY: t_external_data
-  !USE mo_io_units,               ONLY: filename_max
-  !  USE mo_datetime,               ONLY: t_datetime, add_time, datetime_to_string
-  USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total, timer_solve_ab,  &
-    & timer_tracer_ab, timer_vert_veloc, timer_normal_veloc,     &
-    & timer_upd_phys, timer_upd_flx, timer_extra20, timers_level, &
-    & timer_scalar_prod_veloc, timer_extra21, timer_extra22, timer_bgc_ini, &
-    & timer_bgc_inv, timer_bgc_tot
-  USE mo_ocean_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
-    & calc_normal_velocity_ab,  &
-    & calc_vert_velocity,       &
-    & update_time_indices
-  USE mo_ocean_types,              ONLY: t_hydro_ocean_state, &
-    & t_operator_coeff, t_solvercoeff_singleprecision
-  USE mo_ocean_math_operators,   ONLY: update_height_depdendent_variables, check_cfl_horizontal, check_cfl_vertical
-  USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
-  USE mo_ocean_tracer,             ONLY: advect_ocean_tracers
-  USE mo_io_restart,             ONLY: create_restart_file
-  USE mo_ocean_bulk,             ONLY: update_surface_flux
-  USE mo_ocean_surface,          ONLY: update_ocean_surface
-  USE mo_ocean_surface_types,    ONLY: t_ocean_surface
-  USE mo_sea_ice,                ONLY: update_ice_statistic, reset_ice_statistics
-  USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
-    & t_sea_ice
-  USE mo_ocean_physics,            ONLY: t_ho_params, update_ho_params
-  USE mo_ocean_thermodyn,          ONLY: calc_potential_density, &
-    & calculate_density! , ocean_correct_ThermoExpansion
-  USE mo_name_list_output,       ONLY: write_name_list_output
-  USE mo_ocean_diagnostics,        ONLY: calc_fast_oce_diagnostics, calc_psi
-  USE mo_ocean_ab_timestepping_mimetic, ONLY: construct_ho_lhs_fields_mimetic, destruct_ho_lhs_fields_mimetic
-  USE mo_io_restart_attributes,  ONLY: get_restart_attribute
-  USE mo_time_config,            ONLY: time_config
-  USE mo_master_config,          ONLY: isRestart
-!  USE mo_sea_ice_nml,            ONLY: i_ice_dyn
-  USE mo_util_dbg_prnt,          ONLY: dbg_print, debug_printValue
-  USE mo_dbg_nml,                ONLY: idbg_mxmn
-  USE mo_statistics
-  USE mo_ocean_statistics
-  USE mo_hamocc_statistics,     ONLY: update_hamocc_statistics, reset_hamocc_statistics
-  USE mo_hamocc_types,          ONLY: t_hamocc_state
-  USE mo_derived_variable_handling, ONLY: perform_accumulation, reset_accumulation
-  USE mo_ocean_output
-  USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes
-
   USE mtime,                     ONLY: datetime, datetimeToString, deallocateDatetime,              &
        &                               timedelta, newTimedelta, deallocateTimedelta,                &
        &                               MAX_DATETIME_STR_LEN, newDatetime,                           &
@@ -88,11 +33,60 @@ MODULE mo_hydro_ocean_run
        &                               ASSIGNMENT(=), OPERATOR(==), OPERATOR(>=), OPERATOR(/=),     &
        &                               event, eventGroup, newEvent,                                 &
        &                               addEventToEventGroup, isCurrentEventActive
-  USE mo_event_manager,          ONLY: initEventManager, addEventGroup, getEventGroup, printEventGroup
-  
-  USE mo_bgc_bcond,          ONLY: ext_data_bgc, update_bgc_bcond
-  USE mo_hamocc_diagnostics,    ONLY: get_inventories
-  USE mo_hamocc_nml,         ONLY: io_stdo_bgc
+  USE mo_event_manager,          ONLY: initEventManager, addEventGroup, getEventGroup, printEventGroup  
+  USE mo_impl_constants,         ONLY: max_char_length
+  USE mo_model_domain,           ONLY: t_patch, t_patch_3d
+  USE mo_grid_config,            ONLY: n_dom
+  USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, lhamocc, &
+       &                               i_sea_ice, cfl_check, cfl_threshold, cfl_stop_on_violation,   &
+       &                               cfl_write, surface_module
+  USE mo_ocean_nml,              ONLY: iforc_oce, Coupled_FluxFromAtmo
+  USE mo_dynamics_config,        ONLY: nold, nnew
+  USE mo_io_config,              ONLY: n_checkpoints, write_last_restart
+  USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode, debug_check_level
+  USE mo_exception,              ONLY: message, message_text, finish
+  USE mo_ext_data_types,         ONLY: t_external_data
+  USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total, timer_solve_ab,  &
+       &                               timer_tracer_ab, timer_vert_veloc, timer_normal_veloc,     &
+       &                               timer_upd_phys, timer_upd_flx, timer_extra20, timers_level, &
+       &                               timer_scalar_prod_veloc, timer_extra21, timer_extra22, timer_bgc_ini, &
+       &                               timer_bgc_inv, timer_bgc_tot
+  USE mo_ocean_ab_timestepping,  ONLY: solve_free_surface_eq_ab, &
+       &                               calc_normal_velocity_ab,  &
+       &                               calc_vert_velocity,       &
+       &                               update_time_indices
+  USE mo_ocean_types,            ONLY: t_hydro_ocean_state, &
+       &                               t_operator_coeff, t_solvercoeff_singleprecision
+  USE mo_ocean_math_operators,   ONLY: update_height_depdendent_variables, check_cfl_horizontal, check_cfl_vertical
+  USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
+  USE mo_ocean_tracer,           ONLY: advect_ocean_tracers
+  USE mo_restart,                ONLY: t_RestartDescriptor, createRestartDescriptor, deleteRestartDescriptor
+  USE mo_restart_attributes,     ONLY: t_RestartAttributeList, getAttributesForRestarting
+  USE mo_ocean_bulk,             ONLY: update_surface_flux
+  USE mo_ocean_surface,          ONLY: update_ocean_surface
+  USE mo_ocean_surface_types,    ONLY: t_ocean_surface
+  USE mo_sea_ice,                ONLY: update_ice_statistic, reset_ice_statistics
+  USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, t_sea_ice
+  USE mo_ocean_physics,          ONLY: t_ho_params, update_ho_params
+  USE mo_ocean_thermodyn,        ONLY: calc_potential_density, &
+       &                               calculate_density ! , ocean_correct_ThermoExpansion
+  USE mo_name_list_output,       ONLY: write_name_list_output
+  USE mo_ocean_diagnostics,      ONLY: calc_fast_oce_diagnostics, calc_psi
+  USE mo_ocean_ab_timestepping_mimetic, ONLY: construct_ho_lhs_fields_mimetic, destruct_ho_lhs_fields_mimetic
+  USE mo_time_config,            ONLY: time_config
+  USE mo_master_config,          ONLY: isRestart
+  USE mo_util_dbg_prnt,          ONLY: dbg_print, debug_printValue
+  USE mo_dbg_nml,                ONLY: idbg_mxmn
+  USE mo_statistics
+  USE mo_ocean_statistics
+  USE mo_hamocc_statistics,      ONLY: update_hamocc_statistics, reset_hamocc_statistics
+  USE mo_hamocc_types,           ONLY: t_hamocc_state
+  USE mo_derived_variable_handling, ONLY: perform_accumulation, reset_accumulation
+  USE mo_ocean_output
+  USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes  
+  USE mo_bgc_bcond,              ONLY: ext_data_bgc, update_bgc_bcond
+  USE mo_hamocc_diagnostics,     ONLY: get_inventories
+  USE mo_hamocc_nml,             ONLY: io_stdo_bgc
 
   IMPLICIT NONE
 
@@ -199,8 +193,9 @@ CONTAINS
     REAL(wp) :: verticalMeanFlux(n_zlev+1)
     INTEGER :: level
     !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
-    CHARACTER(LEN=max_char_length), PARAMETER :: &
-      & routine = 'mo_hydro_ocean_run:perform_ho_stepping'
+    TYPE(t_RestartAttributeList), POINTER :: restartAttributes
+    CLASS(t_RestartDescriptor), POINTER :: restartDescriptor
+    CHARACTER(LEN = *), PARAMETER :: routine = 'mo_hydro_ocean_run:perform_ho_stepping'
 
     TYPE(eventGroup), POINTER           :: checkpointEventGroup => NULL()
 
@@ -243,14 +238,18 @@ CONTAINS
 
     !------------------------------------------------------------------
     jstep0 = 0
-    IF (isRestart()) THEN
+
+    restartAttributes => getAttributesForRestarting()
+    IF (ASSOCIATED(restartAttributes)) THEN
       ! get start counter for time loop from restart file:
-      CALL get_restart_attribute("jstep", jstep0)
+      jstep0 = restartAttributes%getInteger("jstep")
     END IF
     IF (isRestart() .AND. mod(nold(jg),2) /=1 ) THEN
       ! swap the g_n and g_nm1
       CALL update_time_g_n(ocean_state(jg))
     ENDIF
+
+    restartDescriptor => createRestartDescriptor("oce")
 
     ! set events, group and the events
 
@@ -575,28 +574,17 @@ CONTAINS
       END IF
 
       IF (lwrite_checkpoint) THEN
-        CALL create_restart_file( patch = patch_2d,       &
-             & current_date=mtime_current, &
-             & jstep=jstep,            &
-             & model_type="oce",       &
-             & opt_nice_class=1,       &
-             & ocean_zlevels=n_zlev,                                         &
-             & ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:),  &
-             & ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
+          CALL restartDescriptor%updatePatch(patch_2d, &
+                                            &opt_nice_class=1, &
+                                            &opt_ocean_zlevels=n_zlev, &
+                                            &opt_ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:), &
+                                            &opt_ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
+          CALL restartDescriptor%writeRestart(mtime_current, jstep)
       END IF
 
       stop_detail_timer(timer_extra21,5)
       
       IF (mtime_current >= time_config%tc_stopdate) THEN
-
-#ifdef _MTIME_DEBUG
-        ! consistency check: compare step counter to expected end step
-        if (jstep /= (jstep0+nsteps)) then
-          call finish(routine, 'Step counter does not match expected end step: ' &
-               // int2string(jstep,'(i0)') // ' /= ' // int2string((jstep0+nsteps),'(i0)'))
-        end if
-#endif
-
         ! leave time loop
         EXIT TIME_LOOP
       END IF
@@ -629,7 +617,6 @@ CONTAINS
       CALL get_inventories(hamocc_state,ocean_state(1),patch_3d,nold(1))
       if(ltimer) CALL timer_stop(timer_bgc_inv)
     ENDIF
-
     CALL timer_stop(timer_total)
   
   END SUBROUTINE perform_ho_stepping

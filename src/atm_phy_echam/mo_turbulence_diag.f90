@@ -22,7 +22,7 @@ MODULE mo_turbulence_diag
   USE mo_kind,              ONLY: wp
   USE mo_convect_tables,    ONLY: prepare_ua_index_spline, lookup_ua_spline, &
     &                             compute_qsat
-  USE mo_echam_vdiff_params,ONLY: clam, ckap, cb,cc, chneu, da1, tpfac1,    &
+  USE mo_echam_vdiff_params,ONLY: ckap, cb,cc, chneu, da1,                  &
     &                             eps_shear, eps_corio, tke_min, cons5,     &
     &                             f_tau0, f_theta0, c_f, c_n, c_e, pr0,     &
     &                             wmc,fsl,fbl 
@@ -597,10 +597,9 @@ CONTAINS
     REAL(wp) :: ztmit, ztheta, zthetav, zthetamit, zfux, zfox
     REAL(wp) :: zmult1, zmult2, zmult3, zmult4, zmult5
     REAL(wp) :: zdus1, zdus2, zbuoy, ztkev
-    REAL(wp) :: zdthv, zucf, zucfh
+    REAL(wp) :: zucf, zucfh
     REAL(wp) :: zust, zrrd
     REAL(wp) :: lmc
-    LOGICAL  :: lhighz0
     INTEGER  :: jsfc, jl, jls, js
 
     !-------------------
@@ -769,8 +768,6 @@ CONTAINS
  !  compared to the original (precalc_land,ocean,ice) the factor zcons is missing
  !  this factor is included as "prefactor for the exchange coefficients" in
  !  subroutine matrix_setup_elim
-
-        zdthv         = MAX(0._wp,(zthetav-pthetav_b(js)))
 
  ! compute/extract roughness length for heat over each surface, currently                &
  !  equal to z0m over ice

@@ -27,7 +27,8 @@ MODULE mo_echam_phy_config
   PUBLIC :: get_lrad, get_dt_rad, get_lvdiff,    & !< functions to retrieve values
     &       get_lconv, get_lcond,                & !<   of single parameters of the
     &       get_lgw_hines, get_lssodrag,         & !<   whole echam6 configuration
-    &       get_lmlo, get_lice, get_ljsbach,     & !<   state without USEing the
+    &       get_lcariolle,                       & !<   state without 
+    &       get_lmlo, get_lice, get_ljsbach,     & !<   USEing the
     &       get_lamip, get_lebudget                !<   whole state.
 
   !>
@@ -48,6 +49,7 @@ MODULE mo_echam_phy_config
     LOGICAL  :: lgw_hines   !<  .true. for atmospheric gravity wave drag
     LOGICAL  :: lssodrag    !<  .true. for subgrid scale orographic drag,
                             !<         by blocking and gravity waves (lgwdrag in ECHAM6)
+    LOGICAL  :: lcariolle   !<  .true. for Cariolle interactive ozone scheme
     LOGICAL  :: lmlo        !<  .true. for mixed layer ocean
     LOGICAL  :: lice        !<  .true. for sea-ice temperature calculation
     LOGICAL  :: ljsbach     !<  .true. for calculating the JSBACH land surface
@@ -94,6 +96,7 @@ CONTAINS
     CALL print_value('    lcond      ',echam_phy_config% lcond    )
     CALL print_value('    lgw_hines  ',echam_phy_config% lgw_hines)
     CALL print_value('    lssodrag   ',echam_phy_config% lssodrag )
+    CALL print_value('    lcariolle  ',echam_phy_config% lcariolle)
     CALL print_value('    lmlo       ',echam_phy_config% lmlo     )
     CALL print_value('    lice       ',echam_phy_config% lice     )
     CALL print_value('    ljsbach    ',echam_phy_config% ljsbach  )
@@ -153,6 +156,11 @@ CONTAINS
   LOGICAL FUNCTION get_lssodrag()
     get_lssodrag = echam_phy_config%lssodrag
   END FUNCTION get_lssodrag
+  !>
+  !!
+  LOGICAL FUNCTION get_lcariolle()
+    get_lcariolle = echam_phy_config%lcariolle
+  END FUNCTION get_lcariolle
   !>
   !!
   LOGICAL FUNCTION get_lmlo()

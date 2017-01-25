@@ -24,10 +24,7 @@
 MODULE mo_psrad_memory
 
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH,  & 
-    &                               VINTP_METHOD_PRES,         &
-    &                               VINTP_METHOD_LIN,          &
-    &                               VINTP_METHOD_LIN_NLEVP1
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
   USE mo_exception,           ONLY: message, finish
   USE mo_parallel_config,     ONLY: nproma
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
@@ -35,7 +32,7 @@ MODULE mo_psrad_memory
 
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: default_var_list_settings, &
-    &                               add_var, add_ref,          &
+    &                               add_var,                   &
     &                               new_var_list,              &
     &                               delete_var_list
   USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types
@@ -43,9 +40,7 @@ MODULE mo_psrad_memory
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
   USE mo_cdi,                 ONLY: DATATYPE_PACK16, DATATYPE_PACK24,  &
     &                               DATATYPE_FLT32,  DATATYPE_FLT64,   &
-    &                               GRID_UNSTRUCTURED,                 &
-    &                               TSTEP_INSTANT, TSTEP_AVG,          &
-    &                               cdiDefMissval
+    &                               GRID_UNSTRUCTURED
   USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_CELL, &
     &                               ZA_HYBRID, ZA_HYBRID_HALF,         &
     &                               ZA_SURFACE
@@ -59,21 +54,10 @@ MODULE mo_psrad_memory
   PUBLIC :: destruct_psrad_forcing_list                 !< subroutines
   PUBLIC :: t_psrad_forcing                             !< derived types
 
-  PUBLIC :: cdimissval
-
   !!--------------------------------------------------------------------------
   !!                               DATA TYPES
   !!--------------------------------------------------------------------------
-  !>
-  !! Derived data types for building pointer arrays
-  !!
-  TYPE t_ptr2d
-    REAL(wp),POINTER :: p(:,:)    ! pointer to 2D (spatial) array
-  END TYPE t_ptr2d
 
-  TYPE t_ptr3d
-    REAL(wp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
-  END TYPE t_ptr3d
   !>
   !! Derived data type: t_psrad_forcing
   !!
@@ -141,8 +125,6 @@ MODULE mo_psrad_memory
   !!--------------------------------------------------------------------------
   TYPE(t_var_list),ALLOCATABLE :: prm_psrad_forcing_list(:)  !< shape: (n_dom)
 
-  DOUBLE PRECISION, PARAMETER :: cdimissval = -9.E+15
-
 CONTAINS
 
   !!--------------------------------------------------------------------------
@@ -162,7 +144,6 @@ CONTAINS
 
     IF (.NOT.(lradforcing(1).OR.lradforcing(2))) RETURN
     CALL message(TRIM(thissubprog),'Construction of psrad_forcing_list started.')
-    CALL cdiDefMissval(cdimissval)
 
     ! Allocate pointer arrays prm_field and prm_tend, 
     ! as well as the corresponding list arrays.
@@ -248,10 +229,10 @@ CONTAINS
     TYPE(t_grib2_var) :: grib2_desc
 
     INTEGER :: shape2d(2), shape3d(3), shape3d_layer_interfaces(3)
-!0!    INTEGER :: shape4d(4)
+!!$    INTEGER :: shape4d(4)
     INTEGER :: ibits, iextbits
     INTEGER :: datatype_flt
-    INTEGER :: jsfc, jtrc
+!!$    INTEGER :: jsfc, jtrc
 
     ibits = DATATYPE_PACK16
     iextbits = DATATYPE_PACK24

@@ -1,7 +1,7 @@
 #! /usr/bin/env perl
 #__________________________________________________________________________________________________________________________________
 #
-# Createes Makefiles for the list of given source code directories. 
+# Creates Makefiles for the list of given source code directories. 
 # This program is highly specialized for ICON and cannot be used 
 # with other packages.
 #__________________________________________________________________________________________________________________________________
@@ -92,6 +92,10 @@ if ( -d "externals/yac/include" ) {
     }
 }
 
+if ( -d ".git" and ($enable_jsbach eq "yes") and ! -d "src/lnd_phy_jsbach" ) {
+    symlink "../externals/jsbach/src", "src/lnd_phy_jsbach"; 
+}
+
 if ( ($enable_jsbach eq "yes") and -d "src/lnd_phy_jsbach/include" ) {
     opendir(DIR, "src/lnd_phy_jsbach/include");
     @incs = grep /\.(inc|h)/, readdir(DIR);
@@ -127,16 +131,6 @@ my %ifdefs             = ();
     
 my @source_files       = ();
 
-my @external_libs      = ();
-
-
-foreach my $dir ( @directories ) {
-    if ( $dir =~ m/^externals/) {
-	my @extlib = split '/', $dir;
-	push (@external_libs, "../lib/lib$extlib[1].a");
-    }
-}
-
 foreach my $dir ( @directories ) {
 
 # global variables
@@ -154,7 +148,7 @@ foreach my $dir ( @directories ) {
     %ifdefs             = ();
     
     @source_files       = ();
-    
+
     &ScanDirectory ($dir, $dir, 0);
 
     my $print_path = $build_path;
@@ -346,11 +340,7 @@ __EOF__
 	    my $okey = $key;
 	    $okey =~ s/ *$/.o/;	
 	    print MAKEFILE "$okey: $value
-../bin/$key: $okey libicon.a ";
-            foreach my $lib (@external_libs) {
-                print MAKEFILE "$lib ";
-            }
-            print MAKEFILE " version.o
+../bin/$key: $okey libicon.a version.o
 \t\$(FC) \$(LDFLAGS) -o \$@ \$< libicon.a version.o \$(LIBS)
 
 ";
@@ -455,7 +445,7 @@ sub ScanDirectory {
         next if ($name eq "nh");
         next if ($name eq "phys");
         next if ($name eq "sw_options");
-        next if (($enable_ocean eq "no") and (($name eq "ocean") or ($name eq "sea_ice")) );
+        next if (($enable_ocean eq "no") and (($name eq "ocean") or ($name eq "sea_ice") or ($name eq "hamocc")) );
         next if (($enable_jsbach eq "no") and ($name eq "lnd_phy_jsbach") );
         next if (($enable_testbed eq "no") and ($name eq "testbed") and ($workpath eq "src") );
 

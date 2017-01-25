@@ -359,11 +359,21 @@ cat > ${atmo_namelist} << EOF
  lsnowtile               = .false.
 /
 &meteogram_output_nml
- lmeteogram_enabled      = .false.
- ldistributed            = .false.
- n0_mtgrm                = 1
- ninc_mtgrm              = 1
+  lmeteogram_enabled = .true., .true.
+  n0_mtgrm           = 0                          ! meteogram initial time step (0 is first step!)
+  ninc_mtgrm         = 2, 4 ! meteogram output interval (in terms of time steps)
+  ldistributed       = .false., .false.
+  stationlist_tot    =  50.0,       8.6,    'Frankfurt-Flughafen',
+                        52.260,    14.313,  'Lindenberg_Obs',
+                        52.1873,   13.9894, 'Waldstation_Kehrigk',
+                        52.1215,   14.1077, 'Falkenberg',
 /
+!&meteogram_output_nml
+! lmeteogram_enabled      = .false.
+! ldistributed            = .false.
+! n0_mtgrm                = 1
+! ninc_mtgrm              = 1
+!/
 EOF
 #-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
