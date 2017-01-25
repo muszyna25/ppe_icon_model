@@ -8,7 +8,11 @@
   #  in other cases where 
   #    ocean_location/="" then ocean_data_MainFolder=/pool/data/ICON/oes/${ocean_location}
   
-  ocean_location=${ocean_location:="fluent"}
+  if [[ x$BB_SYSTEM != "x" ]] ; then
+    ocean_location= ${ocean_location:="buildbot"}
+  else
+    ocean_location=${ocean_location:="fluent"}
+  fi
   #ocean_location= ${ocean_location:="buildbot"}
   #ocean_location="local" #${ocean_location:="local"}
 
@@ -20,7 +24,7 @@
   fi
 
 
-  if [[ "x$ocean_location" = "xbuildbot" ]] ; then
+  if [[ "x$ocean_location" = "xbuildbot" || x$BB_SYSTEM != "x" ]] ; then
     ocean_data_MainFolder=${icon_data_buildbotFolder_oes}
   elif [[ "x$ocean_location" = "xlocal" ]] ; then
     ocean_data_MainFolder=${ICON_BASE_PATH}/grids 
