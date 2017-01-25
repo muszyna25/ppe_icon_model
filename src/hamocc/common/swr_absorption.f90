@@ -15,8 +15,7 @@
     REAL(wp), INTENT(in):: pfswr(bgc_nproma)
     REAL(wp), INTENT(in):: psicomo(bgc_nproma)
     REAL(wp), INTENT(in):: dzw(bgc_nproma,bgc_zlevs)
-    
-    !> parameters for sw-radiation fraction
+
     !! Analogue to Zielinski et al., Deep-Sea Research II 49 (2002), 3529-3542
 
     REAL(wp), PARAMETER :: redfrac=0.4_wp !< red fraction of the spectral domain (> 580nm)
@@ -51,6 +50,8 @@
       
       
       kpke = klevs(j)
+    
+      IF(kpke > 0) then
 
       swr_r = redfrac
       swr_b = (1._wp-redfrac)
@@ -68,6 +69,7 @@
       END DO
       meanswr(j,kpke) = swr_frac(j,k) 
 
+      ENDIF
    ENDDO
 !HAMOCC_OMP_END_DO
 !HAMOCC_OMP_END_PARALLEL

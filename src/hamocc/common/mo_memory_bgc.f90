@@ -82,7 +82,6 @@ MODULE mo_memory_bgc
   REAL(wp) :: ro2ut, rcar, rnit, rnoi, rnit23, rnit13, rcalc, ropal, rn2, p2gtc
   REAL(wp) :: bkphy, bkzoo, bkopal, bifr13, bifr14, plafr13, plafr14
   REAL(wp) :: drempoc, dremdoc, dremcalc, dremn2o
-  REAL(wp) :: remido_cya, dremdoc_cya
   REAL(wp) :: thresh_aerob ! O2 threshold for aerob POC remineralization
   REAL(wp) :: thresh_sred ! O2 threshold for sulfate reduction
   REAL(wp) :: thresh_o2, prodn2o 
