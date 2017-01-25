@@ -104,7 +104,7 @@ MODULE mo_ocean_state
   TYPE(t_var_list)                              :: ocean_default_list
   TYPE(t_hydro_ocean_base) ,TARGET :: v_base
   TYPE(t_oce_config)                            :: oce_config
-  
+  INTEGER, PARAMETER :: max_oce_tracer = 20  
   !-------------------------------------------------------------------------
   
 CONTAINS
@@ -363,7 +363,7 @@ CONTAINS
     
     INTEGER :: alloc_cell_blocks, nblks_e !, nblks_v
     INTEGER :: jtrc
-    INTEGER, PARAMETER :: max_oce_tracer = 2
+    !INTEGER, PARAMETER :: max_oce_tracer = 2
     CHARACTER(LEN=max_char_length) :: oce_tracer_names(max_oce_tracer+nbgctra),&
       & oce_tracer_units(max_oce_tracer+nbgctra),&
       & oce_tracer_longnames(max_oce_tracer+nbgctra)
@@ -494,7 +494,7 @@ CONTAINS
     INTEGER :: alloc_cell_blocks, nblks_e, nblks_v
     !INTEGER :: jb, jc, jk, je
     !INTEGER :: i_startidx_c, i_endidx_c, i_startidx_e, i_endidx_e
-    INTEGER, PARAMETER :: max_oce_tracer = 2
+    !INTEGER, PARAMETER :: max_oce_tracer = 2
     CHARACTER(LEN=max_char_length) :: oce_tracer_names(max_oce_tracer),&
       & oce_tracer_units(max_oce_tracer),&
       & oce_tracer_longnames(max_oce_tracer)
@@ -1667,13 +1667,13 @@ CONTAINS
         & grid_unstructured_cell,&
         & za_depth_below_sea, t_cf_var('taper function 1','','', datatype_flt),&
         & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
-        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.FALSE.)
+        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.TRUE.)
 
      CALL add_var(ocean_default_list,'taper function 2',ocean_state_aux%taper_function_2,&
         & grid_unstructured_cell,&
         & za_depth_below_sea, t_cf_var('taper function 2','','', datatype_flt),&
         & grib2_var(255,255,255,DATATYPE_PACK16,GRID_UNSTRUCTURED, grid_cell),&
-        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.FALSE.)
+        & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_aux"),loutput=.TRUE.)
         
      CALL add_var(ocean_default_list,'diagnose_Redi_flux_vert',ocean_state_aux%diagnose_Redi_flux_vert,&
         & grid_unstructured_cell,&
@@ -1699,7 +1699,7 @@ CONTAINS
     INTEGER ::  ist, jtrc
     INTEGER ::  alloc_cell_blocks, nblks_e, nblks_v
     
-    INTEGER, PARAMETER :: max_oce_tracer = 2
+    !INTEGER, PARAMETER :: max_oce_tracer = 2
     CHARACTER(LEN=max_char_length) :: oce_tracer_names(max_oce_tracer),&
       & oce_tracer_units(max_oce_tracer),&
       & oce_tracer_longnames(max_oce_tracer)

@@ -151,7 +151,7 @@ CONTAINS
 !     IF (ltimer) CALL timer_start(timer_extra10)
 
 !ICON_OMP_PARALLEL PRIVATE(salinity,z_rho_up, z_rho_down)
-    sal(1:levels) = sal_ref
+    !sal(1:levels) = sal_ref
 
     z_rho_up(:)=0.0_wp
     z_rho_down(:)=0.0_wp
@@ -172,9 +172,11 @@ CONTAINS
         pressure(2:levels) = patch_3d%p_patch_1d(1)%depth_CellInterface(jc, 2:levels, blockNo) * OceanReferenceDensity * sitodbar
 
         z_rho_up(1:levels-1)  &
-        &= calculate_density_onColumn(temperature(jc,1:levels-1,blockNo), sal(1:levels-1), pressure(2:levels), levels-1)
+        &= calculate_density_onColumn(temperature(jc,1:levels-1,blockNo),&
+                                    & salinity   (jc,1:levels-1,blockNo), pressure(2:levels), levels-1)
         z_rho_down(2:levels)  &
-        &= calculate_density_onColumn(temperature(jc,2:levels,blockNo),   sal(2:levels), pressure(2:levels), levels-1)
+        &= calculate_density_onColumn(temperature(jc, 2:levels, blockNo),&
+                                    & salinity   (jc, 2:levels, blockNo), pressure(2:levels), levels-1)
 
 
         DO jk = 2, levels

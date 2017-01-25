@@ -280,16 +280,16 @@ CONTAINS
       CALL finish(TRIM(routine), 'allocation for vertical tracer background diffusion failed')
     END IF
 
-   IF(GMRedi_configuration==GMRedi_combined&
-   &.OR.GMRedi_configuration==GM_only.OR.GMRedi_configuration==Redi_only)THEN
+   !IF(GMRedi_configuration==GMRedi_combined&
+   !&.OR.GMRedi_configuration==GM_only.OR.GMRedi_configuration==Redi_only)THEN
 
 
      CALL add_var(ocean_params_list, 'k_tracer_isoneutral', params_oce%k_tracer_isoneutral, &
         & grid_unstructured_cell, za_depth_below_sea, &
-        & t_cf_var('k_tracer_isoneutral at edges', '', '1:temperature 2:salinity', datatype_flt),&
+        & t_cf_var('k_tracer_isoneutral at cells', '', '1:temperature 2:salinity', datatype_flt),&
         & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
         & ldims=(/nproma,n_zlev,alloc_cell_blocks/), &
-        & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+        & lcontainer=.TRUE., lrestart=.FALSE., loutput=.TRUE.)
 
 
       CALL add_var(ocean_params_list, 'k_tracer_dianeutral', params_oce%k_tracer_dianeutral, &
@@ -305,9 +305,9 @@ CONTAINS
         & t_cf_var('k_tracer_GM_kappa at cells', '', '1:temperature 2:salinity', datatype_flt),&
         & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
         & ldims=(/nproma,n_zlev,alloc_cell_blocks/), &
-        & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+        & lcontainer=.TRUE., lrestart=.FALSE., loutput=.TRUE.)
 
-    ENDIF
+    !ENDIF
 
 
     DO i=1,no_tracer

@@ -139,7 +139,7 @@ CONTAINS
  
     ! Local variables
     INTEGER :: i, i_no_trac
-    INTEGER :: je, blockNo, jk,jc
+    INTEGER :: je, blockNo, jk,jc, il_c1, ib_c1, il_c2, ib_c2
     INTEGER :: start_index, end_index
     REAL(wp) :: z_lower_bound_diff, C_MPIOM
     REAL(wp) :: z_largest_edge_length ,z_diff_multfac, z_diff_efdt_ratio
@@ -372,9 +372,18 @@ CONTAINS
           CALL get_index_range(all_edges, blockNo, start_index, end_index)
           p_phys_param%k_tracer_h(:,:,blockNo,i) = 0.0_wp
           DO je = start_index, end_index
+
+            il_c1 = patch_2D%edges%cell_idx(je,blockNo,1)
+            ib_c1 = patch_2D%edges%cell_blk(je,blockNo,1)
+            il_c2 = patch_2D%edges%cell_idx(je,blockNo,2)
+            ib_c2 = patch_2D%edges%cell_blk(je,blockNo,2)
+
+             length_scale=(1.0_wp/4.0E5_wp)&
+             &*0.5_wp*(sqrt(patch_2D%cells%area(il_c1,ib_c1))+sqrt(patch_2D%cells%area(il_c2,ib_c2))) 
           
-            length_scale=(1.0_wp/4.0E5_wp)*sqrt(patch_2D%edges%primal_edge_length(je,blockNo)&
-                                       & * patch_2D%edges%primal_edge_length(je,blockNo))
+            !length_scale=(1.0_wp/4.0E5_wp)*sqrt(patch_2D%edges%primal_edge_length(je,blockNo)&
+            !                           & * patch_2D%edges%primal_edge_length(je,blockNo))
+            
             p_phys_param%k_tracer_h(je,:,blockNo,i)=length_scale*p_phys_param%k_tracer_h_back(i)
                                                   
           END DO
@@ -1039,6 +1048,7 @@ CONTAINS
         z_rho_down(2:end_level) &
         &= calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(cell_index,2:end_level,blockNo,1), &
                                     & salinity(2:end_level), pressure(2:end_level), end_level-1)
+
 
         DO level = 2, end_level
         

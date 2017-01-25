@@ -31,7 +31,7 @@ MODULE mo_ocean_tracer
     & iswm_oce, l_edge_based,             &
     & flux_calculation_horz, flux_calculation_vert, miura_order1,         &
     & l_with_vert_tracer_diffusion, l_with_vert_tracer_advection,         &
-    & l_skip_tracer,                                       &! , use_ThermoExpansion_Correction
+    & l_skip_tracer,OceanReferenceDensity,                                &
     & GMRedi_configuration,GMRedi_combined,  GM_only,Redi_only ,          &
     & Cartesian_Mixing, tracer_threshold_min, tracer_threshold_max,       &
     & namelist_tracer_name, nbgcadv,                                      &
@@ -58,7 +58,8 @@ MODULE mo_ocean_tracer
   USE mo_ocean_GM_Redi,             ONLY: calc_ocean_physics, prepare_ocean_physics
   USE mo_ocean_math_operators,      ONLY: div_oce_3d, verticalDiv_scalar_onFullLevels! !verticalDiv_scalar_midlevel
   USE mo_scalar_product,            ONLY: map_edges2edges_viacell_3d_const_z
-  USE mo_physical_constants,        ONLY: clw, rho_ref
+  USE mo_physical_constants,        ONLY: clw, rho_ref,sitodbar
+  USE  mo_ocean_thermodyn,          ONLY: calculate_density, calc_potential_density
   USE mo_ocean_pp_scheme,           ONLY: calculate_rho4GMRedi
   IMPLICIT NONE
 
@@ -94,17 +95,28 @@ CONTAINS
     INTEGER :: start_cell_index, end_cell_index, jc, jb, level
     REAL(wp) :: z_relax!, delta_z
     INTEGER :: iloc(2)
-    REAL(wp) :: zlat, zlon
+    REAL(wp) :: zlat, zlon, factor
     REAL(wp) :: z_c(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: density_old(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: density_new(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)    
+    REAL(wp) :: temp1(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: salt1(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: temp_tend(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)        
+    REAL(wp) :: salt_tend(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)            
     REAL(wp) :: minmaxmean(3)
+    REAL(wp) :: pressure(n_zlev)    
     TYPE(t_subset_range), POINTER :: cells_in_domain
     TYPE(t_patch), POINTER :: patch_2D
     !-------------------------------------------------------------------------------
     patch_2D => patch_3d%p_patch_2d(1)
     cells_in_domain => patch_2D%cells%in_domain
     start_detail_timer(timer_extra30,6)
+
+
+
+!CALL calculate_density( patch_3d,                         &
+!       & ocean_state%p_prog(nold(1))%tracer(:,:,:,1:no_tracer),&
+!       & ocean_state%p_diag%rho(:,:,:) )
 
     !alculate some information that is used for all tracers
     CALL prepare_tracer_transport( patch_3d, &
@@ -146,37 +158,78 @@ CONTAINS
         & tracer_index )
 
     END DO
-    density_old(:,:,:)=0.0_wp
-    density_new(:,:,:)=0.0_wp    
-    CALL calculate_rho4GMRedi(patch_3d,&
-     & p_os%p_prog(nold(1))%ocean_tracers(1)%concentration,&
-     & p_os%p_prog(nold(1))%ocean_tracers(2)%concentration,&
-     & density_old)
+    DO tracer_index = 1, no_tracer
+    IF(tracer_index==2)THEN
+      density_old(:,:,:)=0.0_wp
+      density_new(:,:,:)=0.0_wp   
+      
+      temp1(:,:,:)=0.0_wp
+      salt1(:,:,:)=0.0_wp       
+      temp_tend(:,:,:)=0.0_wp             
+      salt_tend(:,:,:)=0.0_wp                   
 
-    CALL calculate_rho4GMRedi(patch_3d,&
-     & p_os%p_prog(nnew(1))%ocean_tracers(1)%concentration,&
-     & p_os%p_prog(nnew(1))%ocean_tracers(2)%concentration,&
-     & density_new)
+     !CALL calc_potential_density( patch_3d,                    & 
+     CALL calculate_density( patch_3d,                         &
+       & p_os%p_prog(nold(1))%tracer(:,:,:,1:2),&
+       & density_old(:,:,:) )
+
+     !density based on new timestep (=step1)  
+     !CALL calc_potential_density( patch_3d,                    &        
+     CALL calculate_density( patch_3d,                         &
+       & p_os%p_prog(nnew(1))%tracer(:,:,:,1:2),&
+       & density_new(:,:,:) )
+ 
+ 
+!      CALL calculate_rho4GMRedi(patch_3d, &
+!      & p_os%p_prog(nold(1))%tracer(:,:,:,1),&
+!      & p_os%p_prog(nold(1))%tracer(:,:,:,2), density_old)          
+       
+!      CALL calculate_rho4GMRedi(patch_3d, &
+!      & p_os%p_prog(nnew(1))%tracer(:,:,:,1),&
+!      & p_os%p_prog(nnew(1))%tracer(:,:,:,2), density_new)          
+     !T and S tendencies times seconds per month (=step 2)  
+!     temp_tend(:,:,:)=p_os%p_diag%opottemptend(:,:,:)*3600_wp*24_wp*31_wp  
+!     salt_tend(:,:,:)=p_os%p_diag%osalttend(:,:,:)*3600_wp*24_wp*31_wp
+!     !temp_tend(:,:,:)=(p_os%p_prog(nnew(1))%tracer(:,:,:,1)-p_os%p_prog(nold(1))%tracer(:,:,:,1))*3600_wp*24_wp*31_wp    
+!     !salt_tend(:,:,:)=(p_os%p_prog(nnew(1))%tracer(:,:,:,2)-p_os%p_prog(nold(1))%tracer(:,:,:,2))*3600_wp*24_wp*31_wp 
      
-
-     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
-        CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
-        DO jc = start_cell_index, end_cell_index
-          DO level = 1, n_zlev
-          
-            p_os%p_diag%odensitytend(jc,level,jb)  &
-            &=(density_new(jc,level,jb)-density_old(jc,level,jb))/dtime
-
+!     !density based on T/S tendencies (=step 3), transfered to arrays on lhs to prepare call of EOS
+!     p_os%p_prog(nold(1))%tracer(:,:,:,1)=p_os%p_prog(nnew(1))%tracer(:,:,:,1)+temp_tend(:,:,:)
+!     p_os%p_prog(nold(1))%tracer(:,:,:,2)=p_os%p_prog(nnew(1))%tracer(:,:,:,2)+salt_tend(:,:,:)
+!
+!     CALL calc_potential_density( patch_3d,                    & 
+!     !CALL calculate_density( patch_3d,                         &
+!       & p_os%p_prog(nold(1))%tracer(:,:,:,1:no_tracer),&
+!       & density_old(:,:,:) )       
+       
+       !density difference =(Step 4) and error     
+       DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+          CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
+          DO jc = start_cell_index, end_cell_index
+          Do level=1,n_zlev
+          factor=dtime
+          !factor=abs(0.79_wp*salt_tend(jc,level,jb))
+          !IF(factor/=0.0_wp)THEN
+          p_os%p_diag%odensitytend(jc,level,jb)  &
+              &=(density_new(jc,level,jb)-density_old(jc,level,jb))/factor   
+          !ELSE
+          !p_os%p_diag%odensitytend(jc,level,jb)=0.0_wp
+          !ENDIF    
+          END DO    
+              
+                     
           END DO
         END DO
-      END DO
 
-      CALL sync_patch_array(sync_c, patch_2D, p_os%p_diag%odensitytend)
- 
-      idt_src=4    
-      CALL dbg_print('DENSITY-Change', p_os%p_diag%odensitytend, str_module,idt_src, in_subset=cells_in_domain)    
-
-
+        CALL sync_patch_array(sync_c, patch_2D, p_os%p_diag%odensitytend)
+      
+   
+        idt_src=4    
+        DO level=1,n_zlev
+          CALL dbg_print('rho_GM-Change', p_os%p_diag%odensitytend(:,level,:), str_module,idt_src, in_subset=cells_in_domain)    
+        END DO
+     ENDIF   
+     ENDDO
     ! Final step: 3-dim temperature relaxation
     !  - strict time constant, i.e. independent of layer thickness
     !  - additional forcing Term F_T = -1/tau(T-T*) [ K/s ]
@@ -865,18 +918,26 @@ CONTAINS
       CALL check_min_max_tracer(info_text="After advect_diffuse_tracer", tracer=new_ocean_tracer%concentration,     &
         & min_tracer=tracer_threshold_min(tracer_index), max_tracer=tracer_threshold_max(tracer_index), &
         & tracer_name=namelist_tracer_name(tracer_index), in_subset=cells_in_domain)
-  
+
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     CALL dbg_print('aft. AdvIndivTrac: trac_old', trac_old, str_module, 3, in_subset=cells_in_domain)
     CALL dbg_print('aft. AdvIndivTrac: trac_new', trac_new, str_module, 3, in_subset=cells_in_domain)
     IF(tracer_index == 1) THEN
       DO level=1,n_zlev
-        CALL dbg_print('after trac: temp chg', p_os%p_diag%opottemptend(:,level,:), str_module, 3, in_subset=cells_in_domain)
+        CALL dbg_print('temp tend:', p_os%p_diag%opottemptend(:,level,:), str_module, 3, in_subset=cells_in_domain)
       END DO
      ELSEIF(tracer_index == 2) THEN
       DO level=1,n_zlev
-        CALL dbg_print('after trac: salt chg', p_os%p_diag%osalttend(:,level,:), str_module, 3, in_subset=cells_in_domain)
+        CALL dbg_print('temp tend:', p_os%p_diag%opottemptend(:,level,:), str_module, 3, in_subset=cells_in_domain)
       END DO
+      DO level=1,n_zlev
+        CALL dbg_print('salt tend:', p_os%p_diag%osalttend(:,level,:), str_module, 3, in_subset=cells_in_domain)
+      END DO
+     ELSEIF(tracer_index >= 3) THEN 
+      DO level=1,n_zlev
+        CALL dbg_print('tracer tend:', (new_ocean_tracer%concentration(:,level,:)&
+              &- old_ocean_tracer%concentration(:,level,:))/dtime, str_module, 3, in_subset=cells_in_domain)
+      END DO           
     ENDIF  
       
     !---------------------------------------------------------------------

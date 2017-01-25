@@ -27,7 +27,7 @@ MODULE mo_ocean_types
     & t_geographical_coordinates
   USE mo_ocean_diagnostics_types, ONLY: t_ocean_monitor
   USE mo_model_domain,        ONLY: t_patch_3d
-  
+  !USE mo_ocean_nml,           ONLY: no_tracer  
   PUBLIC :: t_hydro_ocean_base
   PUBLIC :: t_hydro_ocean_state
   PUBLIC :: t_hydro_ocean_prog
@@ -418,7 +418,7 @@ MODULE mo_ocean_types
   END TYPE t_hydro_ocean_acc
   
   !-------------------------------
-  INTEGER, PARAMETER :: max_tracers = 20
+  INTEGER,PARAMETER :: max_tracers = 20
   TYPE t_oce_config
     CHARACTER(LEN=max_char_length) :: tracer_names(max_tracers)
     CHARACTER(LEN=max_char_length) :: tracer_longnames(max_tracers)
