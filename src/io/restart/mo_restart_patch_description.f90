@@ -261,6 +261,9 @@ CONTAINS
         IF(ALLOCATED(me%opt_ocean_zlevels)) nlev_ocean = me%opt_ocean_zlevels
         IF(ALLOCATED(me%opt_nice_class)) nice_class = me%opt_nice_class
 
+        ! reset internal counter
+        me%v_grid_count = 0
+
         ! set vertical grid definitions
         CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_SURFACE, 0._wp)
         CALL set_vertical_grid(me%v_grid_defs, me%v_grid_count, ZA_HYBRID, me%nlev)
