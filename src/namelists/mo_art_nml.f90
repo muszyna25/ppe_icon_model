@@ -42,8 +42,6 @@ MODULE mo_art_nml
   
   ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
   CHARACTER(LEN=IART_PATH_LEN)  :: &
-    &  cart_folder                   !< Absolute Path to ART source code
-  CHARACTER(LEN=IART_PATH_LEN)  :: &
     &  cart_input_folder             !< Absolute Path to ART source code
   INTEGER :: iart_ntracer            !< number transported ART tracers
   INTEGER :: iart_init_aero          !< Initialization of aerosol species
@@ -102,7 +100,7 @@ MODULE mo_art_nml
   LOGICAL :: lart_conv               !< Convection of aerosol (TRUE/FALSE)
   LOGICAL :: lart_turb               !< Turbulent diffusion of aerosol (TRUE/FALSE)
 
-  NAMELIST/art_nml/ cart_folder, cart_input_folder, lart_chem, lart_passive,           &
+  NAMELIST/art_nml/ cart_input_folder, lart_chem, lart_passive,                        &
    &                iart_chem_mechanism, cart_io_suffix, lart_pntSrc,                  &
    &                lart_aerosol, iart_seasalt, iart_dust, iart_anthro, iart_fire,     &
    &                iart_volcano, cart_volcano_file, iart_radioact,                    &
@@ -149,7 +147,6 @@ CONTAINS
     !-----------------------
       
     ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
-    cart_folder                = ''
     cart_input_folder          = ''
     iart_ntracer               = 0
     iart_init_aero             = 0
@@ -257,7 +254,6 @@ CONTAINS
     
     DO jg= 1,max_dom !< Do not take into account reduced radiation grid
       ! General variables (Details: cf. Tab. 2.1 ICON-ART User Guide)
-      art_config(jg)%cart_folder         = TRIM(cart_folder)
       art_config(jg)%cart_input_folder   = TRIM(cart_input_folder)
       art_config(jg)%iart_ntracer        = iart_ntracer
       art_config(jg)%iart_init_aero      = iart_init_aero

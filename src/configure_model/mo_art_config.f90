@@ -98,8 +98,6 @@ MODULE mo_art_config
     
     ! General control variables (Details: cf. Tab. 2.2 ICON-ART User Guide)
     CHARACTER(LEN=IART_PATH_LEN) :: &
-      &  cart_folder                     !< Absolute Path to ART source code
-    CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_input_folder               !< Absolute Path to ART input files 
     INTEGER :: iart_ntracer              !< number of transported ART tracers
     INTEGER :: iart_init_aero            !< Initialization of aerosol species
