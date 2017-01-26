@@ -24,7 +24,7 @@
   fi
 
 
-  if [[ "x$ocean_location" = "xbuildbot" || x$BB_SYSTEM != "x" ]] ; then
+  if [[ "x$ocean_location" = "xbuildbot" ]] ; then
     ocean_data_MainFolder=${icon_data_buildbotFolder_oes}
   elif [[ "x$ocean_location" = "xlocal" ]] ; then
     ocean_data_MainFolder=${ICON_BASE_PATH}/grids 
