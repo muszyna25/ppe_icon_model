@@ -50,6 +50,7 @@ MODULE mo_art_nml
   INTEGER :: iart_init_passive       !< Initialization of passive species
   INTEGER :: iart_init_gas           !< Initialization of gaseous species
   LOGICAL :: lart_diag_out           !< Enable output of diagnostic fields
+  LOGICAL :: lart_pntSrc             !< Enables point sources
   CHARACTER(LEN=20) :: & 
    &  cart_io_suffix(1:max_dom)      !< user given suffix instead of automatically generated grid number 
                                      !  in ICON-ART input filename convention: 
@@ -99,7 +100,7 @@ MODULE mo_art_nml
   LOGICAL :: lart_turb               !< Turbulent diffusion of aerosol (TRUE/FALSE)
 
   NAMELIST/art_nml/ cart_folder, cart_input_folder, lart_chem, lart_passive,           &
-   &                iart_chem_mechanism, cart_io_suffix,                               &
+   &                iart_chem_mechanism, cart_io_suffix, lart_pntSrc,                  &
    &                lart_aerosol, iart_seasalt, iart_dust, iart_anthro, iart_fire,     &
    &                iart_volcano, cart_volcano_file, iart_radioact,                    &
    &                cart_radioact_file, iart_pollen,                                   &
@@ -152,6 +153,7 @@ CONTAINS
     iart_init_passive          = 0
     iart_init_gas              = 0
     lart_diag_out              = .FALSE.
+    lart_pntSrc                = .FALSE.
     cart_io_suffix(1:max_dom)  = 'grid-number'
       
     ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
@@ -256,6 +258,7 @@ CONTAINS
       art_config(jg)%iart_init_gas       = iart_init_gas
       art_config(jg)%iart_init_passive   = iart_init_passive
       art_config(jg)%lart_diag_out       = lart_diag_out
+      art_config(jg)%lart_pntSrc         = lart_pntSrc
       art_config(jg)%cart_io_suffix      = TRIM(cart_io_suffix(jg))
       
       ! Atmospheric Chemistry (Details: cf. Tab. 2.2 ICON-ART User Guide)
