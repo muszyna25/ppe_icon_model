@@ -76,6 +76,7 @@ MODULE mo_art_emission_interface
   USE mo_art_emission_dust_simple,      ONLY: art_prepare_emission_dust_simple
   USE mo_art_emission_chemtracer,       ONLY: art_emiss_chemtracer
   USE mo_art_emission_gasphase,         ONLY: art_emiss_gasphase
+  USE mo_art_emission_pntSrc,           ONLY: art_emission_pntSrc
   USE mo_art_read_emissions,            ONLY: art_add_emission_to_tracers
   USE omp_lib 
   USE mo_sync,                          ONLY: sync_patch_array_mult, SYNC_C
@@ -141,6 +142,12 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
   i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
   IF (lart) THEN
+
+    IF (art_config(jg)%lart_pntSrc) THEN
+      ! Point sources
+      CALL art_emission_pntSrc(jg, p_art_data(jg)%pntSrc, dtime, rho, p_patch%cells%area, &
+        &                      p_nh_state%metrics%ddqz_z_full, tracer)
+    ENDIF
 
     ALLOCATE(emiss_rate(nproma,nlev))
     ALLOCATE(dz(nproma,nlev))
