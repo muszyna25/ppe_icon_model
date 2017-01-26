@@ -26,11 +26,11 @@ MODULE mo_ocean_diffusion
   USE mo_ocean_nml,           ONLY: n_zlev, iswm_oce, veloc_diffusion_order, veloc_diffusion_form
   USE mo_run_config,          ONLY: dtime
   USE mo_util_dbg_prnt,       ONLY: dbg_print
-  USE mo_ocean_types,           ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, t_ocean_tracer, t_hydro_ocean_aux
+  USE mo_ocean_types,         ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, t_ocean_tracer, t_hydro_ocean_aux
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
-  USE mo_ocean_physics,         ONLY: t_ho_params
+  USE mo_ocean_physics_types, ONLY: t_ho_params
   USE mo_scalar_product,      ONLY: map_cell2edges_3d, map_edges2edges_viacell_3d_const_z
-  USE mo_ocean_math_operators,  ONLY: div_oce_3d, rot_vertex_ocean_3d,&
+  USE mo_ocean_math_operators,ONLY: div_oce_3d, rot_vertex_ocean_3d,&
     & map_edges2vert_3d, grad_fd_norm_oce_3D
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
@@ -183,9 +183,6 @@ CONTAINS
     ! loop over cells in local domain + halo
     DO blockNo = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, blockNo, start_index, end_index)
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
       DO level = start_level, end_level
         DO cell_index = start_index, end_index
           z_div_grad_u(cell_index,level,blockNo)%x =  0.0_wp
@@ -240,9 +237,6 @@ CONTAINS
     DO blockNo = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, blockNo, start_index, end_index)
       
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
       DO level = start_level, end_level
         DO cell_index = start_index, end_index
           
@@ -745,6 +739,7 @@ CONTAINS
               & ( z_div_c(icidx(edge_index,blockNo,2),level,icblk(edge_index,blockNo,2))      &
               & - z_div_c(icidx(edge_index,blockNo,1),level,icblk(edge_index,blockNo,1)) )    &
               & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo))
+            
           END DO
         END DO
       END DO

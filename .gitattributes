@@ -771,6 +771,7 @@ run/checksuite.ocean_internal/eddies/exp.oce_AquaAtlanticBox_0079km_edge -text
 run/checksuite.ocean_internal/eddies/exp.oce_SmallBoxACC_0010km_cell -text
 run/checksuite.ocean_internal/eddies/exp.oce_SmallBoxACC_0080km_cell -text
 run/checksuite.ocean_internal/eddies/exp.oce_SmallBoxACC_0080km_cell_02 -text
+run/checksuite.ocean_internal/omip/exp.GM_test -text
 run/checksuite.ocean_internal/omip/exp.ocean_long_mtime -text
 run/checksuite.ocean_internal/omip/exp.ocean_omip_long -text
 run/checksuite.ocean_internal/omip/exp.ocean_omip_ptest -text
@@ -1911,6 +1912,8 @@ src/ocean/math/mo_operator_ocean_coeff_3d.f90 -text
 src/ocean/math/mo_scalar_product.f90 -text
 src/ocean/physics/mo_ocean_GM_Redi.f90 -text
 src/ocean/physics/mo_ocean_physics.f90 -text
+src/ocean/physics/mo_ocean_physics_types.f90 -text
+src/ocean/physics/mo_ocean_pp_scheme.f90 -text
 src/ocean/physics/mo_ocean_thermodyn.f90 -text
 src/ocean/testbed/mo_ocean_testbed.f90 -text
 src/ocean/testbed/mo_ocean_testbed_modules.f90 -text

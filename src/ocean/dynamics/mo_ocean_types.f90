@@ -27,7 +27,7 @@ MODULE mo_ocean_types
     & t_geographical_coordinates
   USE mo_ocean_diagnostics_types, ONLY: t_ocean_monitor
   USE mo_model_domain,        ONLY: t_patch_3d
-  
+  !USE mo_ocean_nml,           ONLY: no_tracer  
   PUBLIC :: t_hydro_ocean_base
   PUBLIC :: t_hydro_ocean_state
   PUBLIC :: t_hydro_ocean_prog
@@ -168,15 +168,32 @@ MODULE mo_ocean_types
     onCells ::                 &
       & rho            ,& ! density. Unit: [kg/m^3]
       & rhopot         ,& ! potential density. Unit: [kg/m^3]
+      & rho_GM         ,& ! potential density. Unit: [kg/m^3]      
+      & grad_rho_PP_vert ,& ! vertical insitu density gradient. Unit: [kg/m^4]      
       & div_mass_flx_c ,& !
       & u              ,& ! reconstructed zonal velocity component. Unit [m/s]
       & v              ,& ! reconstructed meridional velocity component. Unit [m/s]
+      & w_prismcenter  ,&         
 !       & potential_vort_c ,& ! potential vorticity averaged to triangle cells. Unit [1/s]
       & kin            ,& ! kinetic energy. Unit [m/s].
       & div            ,& ! divergence. Unit [m/s]
       & press_hyd      ,& ! hydrostatic pressure. Unit [m]
       & temp_insitu    ,&
-      & t,s ! dummy pointer for output variabless
+      & t,s            ,& ! dummy pointer for output variabless
+      & Buoyancy_Freq  ,&
+      & Richardson_Number,            &
+      & osaltGMRedi,           &
+      & opottempGMRedi,           &
+      & div_of_GMRedi_flux,           &
+      & div_of_GMRedi_flux_horizontal,&
+      & div_of_GMRedi_flux_vertical,  &
+      & div_of_GM_flux,               &
+      & div_of_Redi_flux,             &
+      & vertical_mixing_coeff_GMRedi_implicit,&
+      & w_bolus,                      &
+      & opottemptend,                 &
+      & osalttend,                    &
+      & odensitytend
 
     onCells_2D :: &
       & thick_c          ,& ! individual fluid column thickness at cells. Unit [m].
@@ -184,7 +201,10 @@ MODULE mo_ocean_types
       & v_vint           ,& ! barotropic meridional velocity. Unit [m*m/s]
       & mld              ,& ! mixed layer depth [m].
       & condep           ,&! convection depth index
-      & h  ! dummy pointer for output variables
+      & h                ,&! dummy pointer for output variables 
+      & Rossby_Radius    ,&      
+      & Wavespeed_baroclinic
+      
       
     onCells_Type(t_cartesian_coordinates) :: &
       & p_vn              ! reconstructed velocity at cell center in cartesian coordinates
@@ -221,8 +241,8 @@ MODULE mo_ocean_types
       & grad           ,& ! gradient of kinetic energy. Unit [m/s]
       & press_grad     ,& ! hydrostatic pressure gradient term. Unit [m/s]
       & cfl_horz       ,& ! horizontal cfl values
-      & zlim         !,& ! zalesak limiter factor
-      ! & vn  
+      & zlim           ,& ! zalesak limiter factor
+      & vn_bolus  
       
     onEdges_HalfLevels :: &
       & w_e            ! vertical velocity at edges. Unit [m/s]
@@ -254,8 +274,17 @@ MODULE mo_ocean_types
                                 ! at timelevel n
       & g_nm1         ,& ! explicit velocity term in Adams-Bashford time marching routines,
                                 ! at timelevel n-1
-      & g_nimd           ! explicit velocity term in Adams-Bashford time marching routines,
+      & g_nimd        ,& ! explicit velocity term in Adams-Bashford time marching routines,
                                 ! located at intermediate timelevel
+      & tracer_grad_horz, &      !horizontal tracer gradient                          
+      & temperature_grad_horz,&  !horizontal temperature gradient                          
+      & salinity_grad_horz       !horizontal salinity gradient                                
+
+    onCells_HalfLevels ::   &
+      & tracer_deriv_vert,&      ! vertical tracer gradient
+      & temperature_deriv_vert,& ! vertical temperature gradient
+      & salinity_deriv_vert      ! vertical salinity gradient            
+
 
     onEdges_2D :: &
       & bc_bot_vn       ,& ! normal velocity boundary condition at bottom
@@ -293,17 +322,26 @@ MODULE mo_ocean_types
 
     onCells :: &
       & slopes_squared,   &
+      & slopes_drdz,   &
+      & slopes_drdx,   & 
       & taper_function_1, &
-      & taper_function_2
-
+      & taper_function_2, &
+      & diagnose_Redi_flux_vert
+      
     onCells_Type(t_cartesian_coordinates) :: &
       & PgradTemperature_horz_center,        & ! reconstructed temperature gradient at cell center in cartesian coordinates
-      & PgradSalinity_horz_center              ! reconstructed salinity gradient at cell center in cartesian coordinates
-
+      & PgradSalinity_horz_center,           & ! reconstructed salinity gradient at cell center in cartesian coordinates
+      & PgradDensity_horz_center,            & ! reconstructed density gradient at cell center in cartesian coordinates      
+      & diagnose_Redi_flux_temp,             & ! diagnostics used for balance of density fluxes in GM,   
+      & diagnose_Redi_flux_sal,              & ! can be removed once diagnostic is no longer necessary
+      & PgradTracer_horz_center                ! reconstructed tracer gradient at cell center in cartesian coordinates, for HAMMOC in GMredi
+      
    onCells ::         &
       & DerivTemperature_vert_center, &  
-      & DerivSalinity_vert_center 
-
+      & DerivSalinity_vert_center,    &
+      & DerivDensity_vert_center,     & 
+      & DerivTracer_vert_center
+      
   END TYPE t_hydro_ocean_aux
 
   !-------------------------------
@@ -316,6 +354,8 @@ MODULE mo_ocean_types
       & rho              ,& ! density. Unit: [kg/m^3]
       & rhopot           ,& ! potential density. Unit: [kg/m^3]
       & div_mass_flx_c   ,& ! divergence of mass flux at cells. Unit [?].
+      & opottempGMRedi, &
+      & osaltGMRedi, &
       & kin                 ! kinetic energy. Unit [m/s].
 
     onCells_HalfLevels :: &
@@ -378,7 +418,7 @@ MODULE mo_ocean_types
   END TYPE t_hydro_ocean_acc
   
   !-------------------------------
-  INTEGER, PARAMETER :: max_tracers = 20
+  INTEGER,PARAMETER :: max_tracers = 20
   TYPE t_oce_config
     CHARACTER(LEN=max_char_length) :: tracer_names(max_tracers)
     CHARACTER(LEN=max_char_length) :: tracer_longnames(max_tracers)

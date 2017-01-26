@@ -66,13 +66,14 @@ MODULE mo_ocean_ab_timestepping_mimetic
   USE mo_util_dbg_prnt,             ONLY: dbg_print, debug_print_MaxMinMean
   USE mo_ocean_boundcond,           ONLY: VelocityBottomBoundaryCondition_onBlock, top_bound_cond_horz_veloc
   USE mo_ocean_thermodyn,           ONLY: calculate_density, calc_internal_press, calc_internal_press_grad
-  USE mo_ocean_physics,             ONLY: t_ho_params, update_physics_parameters_ICON_PP_Edge_vnPredict_scheme
+  USE mo_ocean_physics_types,       ONLY: t_ho_params
+  USE mo_ocean_pp_scheme,           ONLY: update_physics_parameters_ICON_PP_Edge_vnPredict_scheme
   USE mo_sea_ice_types,             ONLY: t_sfc_flx
   USE mo_scalar_product,            ONLY:   &
     & calc_scalar_product_veloc_3d,         &
     & map_edges2edges_viacell_3d_const_z,   &
     & map_edges2edges_viacell_2d_constZ_onTriangles_sp, &
-    & map_edges2edges_viacell_2D_per_level
+    & map_edges2edges_viacell_2D_per_level,map_scalar_prismtop2center
   USE mo_ocean_math_operators,      ONLY: div_oce_3d, grad_fd_norm_oce_3d,        &
     & grad_fd_norm_oce_2d_3d, grad_fd_norm_oce_2d_3d_sp,                          &
     & grad_fd_norm_oce_2d_onBlock, div_oce_2D_onTriangles_onBlock, &
@@ -1000,7 +1001,7 @@ CONTAINS
           
       ENDIF
 
-  END DO
+    END DO
       
   END SUBROUTINE calculate_explicit_vn_pred_3D_onBlock
   !-------------------------------------------------------------------------
@@ -1330,7 +1331,7 @@ CONTAINS
     CALL dbg_print('RHS final'                 ,ocean_state%p_aux%p_rhs_sfc_eq  ,str_module,idt_src, &
       in_subset=patch_3d%p_patch_2d(1)%cells%owned)
     !---------------------------------------------------------------------
-    
+ ocean_state%p_aux%p_rhs_sfc_eq=0.0_wp   
   END SUBROUTINE fill_rhs4surface_eq_ab
   !-------------------------------------------------------------------------------------
   
@@ -1836,9 +1837,9 @@ CONTAINS
 !<Optimize:inUse>
   SUBROUTINE calc_vert_velocity_mim_bottomup( patch_3d, ocean_state, op_coeffs )
     
-    TYPE(t_patch_3d), TARGET, INTENT(in) :: patch_3d       ! patch on which computation is performed
-    TYPE(t_hydro_ocean_state)            :: ocean_state
-    TYPE(t_operator_coeff),INTENT(in)    :: op_coeffs
+    TYPE(t_patch_3d), TARGET                :: patch_3d       ! patch on which computation is performed
+    TYPE(t_hydro_ocean_state)               :: ocean_state
+    TYPE(t_operator_coeff),INTENT(in)       :: op_coeffs
     !
     !
     ! Local variables
@@ -1864,7 +1865,8 @@ CONTAINS
     !------------------------------------------------------------------
     ! Step 1) Calculate divergence of horizontal velocity at all levels
     !------------------------------------------------------------------
-    
+ ocean_state%p_diag%vn_time_weighted(:,:,:)=0.0_wp   
+ ocean_state%p_prog(nnew(1))%h(:,:)=0.0_wp   
     !-------------------------------------------------------------------------------
     IF( l_edge_based )THEN
       DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
@@ -1966,6 +1968,8 @@ CONTAINS
     ENDIF
 
     CALL sync_patch_array(sync_c,patch_2D,vertical_velocity)
+    
+    !CALL map_scalar_prismtop2center(patch_3d, vertical_velocity, op_coeffs, ocean_state%p_diag%w_prismcenter)
     
     !-----------------------------------------------------
     IF (use_continuity_correction) THEN

@@ -1166,9 +1166,6 @@ CONTAINS
     edge_of_cell_idx  => patch_2D%cells%edge_idx
     edge_of_cell_blk  => patch_2D%cells%edge_blk
     
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, blockNo, i_startidx_c, i_endidx_c)
       DO level = 1, n_zlev

@@ -29,12 +29,12 @@ MODULE mo_ocean_thermodyn
   !-------------------------------------------------------------------------
   USE mo_kind,                ONLY: wp
   USE mo_ocean_nml,           ONLY: n_zlev, eos_type, no_tracer, fast_performance_level,l_partial_cells, &
-    & LinearThermoExpansionCoefficient, OceanReferenceDensity
+    & LinearThermoExpansionCoefficient, LinearHalineContractionCoefficient,OceanReferenceDensity
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
   USE mo_impl_constants,      ONLY: sea_boundary, sea_boundary, min_dolic !, &
   USE mo_exception,           ONLY: finish
   USE mo_loopindices,         ONLY: get_indices_c!, get_indices_e, get_indices_v
-  USE mo_physical_constants,  ONLY: grav, sal_ref, rho_inv, b_s, &
+  USE mo_physical_constants,  ONLY: grav, sal_ref, rho_inv,  &
     & sitodbar, sfc_press_bar
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_parallel_config,     ONLY: nproma
@@ -59,6 +59,8 @@ MODULE mo_ocean_thermodyn
   !PUBLIC :: density_jmdwfg06_function
   !PUBLIC :: density_mpiom_function
   PUBLIC :: convert_insitu2pot_temp_func
+  PUBLIC :: calc_neutralslope_coeff_func_onColumn_UNESCO
+  PUBLIC :: calc_neutralslope_coeff_func_onColumn  
 
   REAL(wp), PARAMETER :: eosmdjwfnum(0:11) = (/                                 &
     & 9.99843699e+02_wp,  7.35212840e+00_wp, -5.45928211e-02_wp,                 &
@@ -414,7 +416,7 @@ CONTAINS
     CASE(1)
       CALL calculate_density_linear(patch_3d, tracer, rho)
     CASE(2)
-      CALL calculate_density_mpiom(patch_3d, tracer, rho)
+      CALL calculate_density_linear(patch_3d, tracer, rho)      
     CASE(3)
       CALL calculate_density_jmdwfg06(patch_3d, tracer, rho)
       !CALL calculate_density_JM_EOS(patch_2D, tracer, rho)
@@ -513,7 +515,7 @@ CONTAINS
 !            IF(patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
               rho(jc,jk,jb) = OceanReferenceDensity          &
                 & - LinearThermoExpansionCoefficient * tracer(jc,jk,jb,1)   &
-                & + b_s * tracer(jc,jk,jb,2)
+                & + LinearHalineContractionCoefficient * tracer(jc,jk,jb,2)
               !write(123,*)'density',jk,jc,jb,OceanReferenceDensity, tracer(jc,jk,jb,1),&
               ! &tracer(jc,jk,jb,2),rho(jc,jk,jb), a_T, b_S
 !            ELSE
@@ -536,7 +538,8 @@ CONTAINS
         DO jc = start_index, end_index
           DO jk=1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
 !            IF(patch_3d%lsm_c(jc,jk,jb) <= sea_boundary ) THEN
-              rho(jc,jk,jb) = OceanReferenceDensity - LinearThermoExpansionCoefficient * tracer(jc,jk,jb,1) + b_s * sal_ref
+              rho(jc,jk,jb) = OceanReferenceDensity - LinearThermoExpansionCoefficient * tracer(jc,jk,jb,1) &
+              &+ LinearHalineContractionCoefficient * sal_ref
               !write(123,*)'density',jk,jc,jb,rho(jc,jk,jb), tracer(jc,jk,jb,1),a_T
 !            ELSE
 !              rho(jc,jk,jb) = OceanReferenceDensity   !  plotting purpose
@@ -715,7 +718,8 @@ CONTAINS
     REAL(wp),INTENT(in) :: p     !  pressure is unused
     REAL(wp)            :: rho   !< density
 
-    rho = OceanReferenceDensity - LinearThermoExpansionCoefficient * t  + b_s * s
+    rho = OceanReferenceDensity - LinearThermoExpansionCoefficient * t  &
+    &+ LinearHalineContractionCoefficient * s
 
   END FUNCTION density_linear_function
   !---------------------------------------------------------------------------
@@ -735,7 +739,8 @@ CONTAINS
     REAL(wp),INTENT(in) :: p(1:levels)     !  pressure is unused
     REAL(wp)            :: rho(1:levels)   !< density
 
-    rho(1:levels) = OceanReferenceDensity - LinearThermoExpansionCoefficient * t(1:levels)  + b_s * s(1:levels)
+    rho(1:levels) = OceanReferenceDensity - LinearThermoExpansionCoefficient * t(1:levels) &
+    & + LinearHalineContractionCoefficient * s(1:levels)
 
   END FUNCTION calculate_density_linear_onColumn
   !---------------------------------------------------------------------------
@@ -1033,6 +1038,250 @@ CONTAINS
     rho(1:levels) = rho(1:levels)/denom(1:levels)
 
   END FUNCTION calculate_density_mpiom_onColumn
+  !-------------------------------------------------------------------------
+
+
+ !-------------------------------------------------------------------------
+  !>
+  !! Calculates polynomial coefficients for thermal expansion and saline contraction
+  !! matching the equation of state as described in (UNESCO)
+  !!   Fofonoff and Millard, 1984, UNESCO, Paris, Tech. Pap. Mar. Sci., 44, 53pp
+  !! This method is using the older !! IPTS (International Practical Temperature Scale) of 1968.
+  !! The code below is adopted from FESOM (Quiang Wang, Sergey Danilov)
+  !!
+  !! @par Revision History
+  !! Initial version by Stephan Lorenz, MPI-M (2014)
+  !!
+  !<Optimize:inUse>
+  FUNCTION calc_neutralslope_coeff_func_onColumn(t,s,p,levels) result(coeff)
+    !-----------------------------------------------------------------
+    ! REFERENCES:
+    !    McDougall, T.J. 1987.  Neutral Surfaces
+    !    Journal of Physical Oceanography, Vol 17, 1950-1964,
+    !-----------------------------------------------------------------
+    ! CHECK VALUE:
+    !    sw_beta=0.72088e-3 psu^-1 @ S=40.0psu, ptmp=10.0C (ITS-90), p=4000db
+    !    a_over_b=0.34765 psu*C^-1 @ S=40.0psu, ptmp=10.0C, p=4000db
+    ! Valid Range:
+    !    S=25 to 40psu, p=0 to 4000db (ptmp=10C)
+    !                   p=0 to 1000db (ptmp=20-40C)
+    !-----------------------------------------------------------------
+    !
+    INTEGER, INTENT(in)   :: levels
+    REAL(wp), INTENT(in)  :: t(:)        !  potential temperature (in ITS-90) [C]
+    REAL(wp), INTENT(in)  :: s(:)        !  salinity (in PSS-78) [psu]
+    REAL(wp), INTENT(in)  :: p(:)       !  pressure (in dezi-bar) [db]
+    REAL(wp)              :: coeff(1:n_zlev,2) !  thermal expansion [1/C] and saline contraction [1/psu] coefficients
+
+    ! local variables, following the naming of the FESOM implementation
+    REAL(wp):: aob(1:levels), t1(1:levels), t2(1:levels), t3(1:levels), t4(1:levels), &
+      & s35(1:levels), s35sq(1:levels), s1(1:levels), s2(1:levels), s3(1:levels), p1(1:levels), p2(1:levels), p3(1:levels)
+
+    INTEGER :: level
+
+    !  polynomial parameter for calculation of saline contraction coeff beta
+    REAL(wp), PARAMETER :: &
+      & bet_t0   = 0.785567e-3_wp,  &
+      & bet_t1   = 0.301985e-5_wp,  &
+      & bet_t2   = 0.555579e-7_wp,  &
+      & bet_t3   = 0.415613e-9_wp,  &
+      & bet_st0  = 0.356603e-6_wp,  &
+      & bet_st1  = 0.788212e-8_wp,  &
+      & bet_sp1  = 0.408195e-10_wp, &
+      & bet_sp2  = 0.602281e-15_wp, &
+      & bet_s2   = 0.515032e-8_wp,  &
+      & bet_p1t0 = 0.121555e-7_wp,  &
+      & bet_p1t1 = 0.192867e-9_wp,  &
+      & bet_p1t2 = 0.213127e-11_wp, &
+      & bet_p2t0 = 0.176621e-12_wp, &
+      & bet_p2t1 = 0.175379e-14_wp, &
+      & bet_p3   = 0.121551e-17_wp
+
+    !  polynomial parameter for calculation of thermal expansion coefficient alpha
+    !  via fraction alpha over beta (aob)
+    REAL(wp), PARAMETER :: &
+      & aob_t0   = 0.665157e-1_wp,  &
+      & aob_t1   = 0.170907e-1_wp,  &
+      & aob_t2   = 0.203814e-3_wp,  &
+      & aob_t3   = 0.298357e-5_wp,  &
+      & aob_t4   = 0.255019e-7_wp,  &
+      & aob_st0  = 0.378110e-2_wp,  &
+      & aob_st1  = 0.846960e-4_wp,  &
+      & aob_sp1  = 0.164759e-6_wp,  &
+      & aob_sp2  = 0.251520e-11_wp, &
+      & aob_s2   = 0.678662e-5_wp,  &
+      & aob_p1t0 = 0.380374e-4_wp,  &
+      & aob_p1t1 = 0.933746e-6_wp,  &
+      & aob_p1t2 = 0.791325e-8_wp,  &
+      & aob_p2t2 = 0.512857e-12_wp, &
+      & aob_p3   = 0.302285e-13_wp
+
+    ! t1 = t
+    s1(1:levels) = s(1:levels)
+    p1(1:levels) = p(1:levels)
+
+   ! correction factor for conversion of 1990 to 1968 temperature standard (IPTS-68 to IPTS-90)
+   ! the correction is less than 0.01 K in ocean water temperature range
+   !  - T68 = 1.00024*T90
+   !  - above mentioned CHECK VALUES of the paper are better met by this correction
+    t1(1:levels) = t(1:levels) * 1.00024_wp
+
+    t2(1:levels)    = t1(1:levels) * t1(1:levels)
+    t3(1:levels)    = t2(1:levels) * t1(1:levels)
+    t4(1:levels)    = t3(1:levels) * t1(1:levels)
+    p2(1:levels)    = p1(1:levels )* p1(1:levels)
+    p3(1:levels)    = p2(1:levels )* p1(1:levels)
+    s35(1:levels)   = s(1:levels) - 35.0_wp
+    s35sq(1:levels) = s35(1:levels) * s35(1:levels)
+
+    DO level=1,levels
+      ! calculate beta, saline contraction
+      coeff(level,2) = bet_t0 - bet_t1*t1(level)                             &
+        &         + bet_t2*t2(level) - bet_t3*t3(level)                      &
+        &         + s35(level)*(-bet_st0    + bet_st1*t1(level)              &
+        &         +       bet_sp1*p1(level) - bet_sp2*p2(level))             &
+        &         + s35sq(level)*bet_s2                                      &
+        &         + p1(level)*(-bet_p1t0 + bet_p1t1*t1(level) - bet_p1t2*t2(level)) &
+        &         + p2(level)*( bet_p2t0 - bet_p2t1*t1(level))               &
+        &         + p3(level)*bet_p3
+
+      ! calculate alpha/beta
+      aob(level) = aob_t0 + aob_t1*t1 (level)                                &
+        &         - aob_t2*t2(level) + aob_t3*t3(level)                      &
+        &         - aob_t4*t4(level)                                         &
+        &         + s35(level)*(+aob_st0    - aob_st1*t1(level)              &
+        &                -aob_sp1*p1(level) - aob_sp2*p2(level))             &
+        &         - s35sq(level)*aob_s2                                      &
+        &         + p1(level)*(+aob_p1t0 - aob_p1t1*t1(level) + aob_p1t2*t2(level)) &
+        &         + p2(level)*t2(level)*aob_p2t2                             &
+        &         - p3(level)*aob_p3
+
+      ! calculate alpha, thermal expansion
+      coeff(level,1) = aob(level)* coeff(level, 2)
+    ENDDO
+
+  END FUNCTION calc_neutralslope_coeff_func_onColumn
+
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Calculates neutral slopes from UNESCO EOS as described in Gill, Atmosphere-Ocean Dynamics, Appendix 3
+  !! The code below is related EOS impl from MPIOM. Note that within this sbr the potential temperature
+  !! ha to be converted into in-situ temperature !
+  !! Initial version by Peter Korn, MPI-M (2016)
+  !!
+!<Optimize:inUse>
+  FUNCTION calc_neutralslope_coeff_func_onColumn_UNESCO(tpot, sal, p, levels) result(coeff)
+    INTEGER, INTENT(in)  :: levels
+    REAL(wp), INTENT(inout) :: tpot(1:levels), sal(1:levels), p(1:levels)
+    REAL(wp)             :: coeff(1:n_zlev,1:2)
+
+    REAL(wp) :: dvs(1:levels), fne(1:levels), fst(1:levels), qn3(1:levels), &
+      & qnq(1:levels), qvs(1:levels), &
+      & t(1:levels),s(1:levels), s3h(1:levels),s1h(1:levels), K(1:levels),   &
+      & denom(1:levels), s__2(1:levels),rho0(1:levels),denom__2(1:levels),rho(1:levels),&
+      & drho0_dT(1:levels), drho0_dS(1:levels), ddenom_dT(1:levels), ddenom_dS(1:levels)
+      
+      
+    REAL(wp), PARAMETER :: z_sref = 35.0_wp
+
+    K(1:levels)      =0.0_wp
+    denom(1:levels)  =0.0_wp
+    coeff(1:n_zlev,1)=0.0_wp
+    coeff(1:n_zlev,2)=0.0_wp
+    rho0(1:levels)   =0.0_wp
+    
+
+
+    !This is the adisit part, that transforms potential in in-situ temperature
+!    qnq(1:levels) = -p(1:levels) * (-a_a3 + p(1:levels) * a_c3)
+!    qn3(1:levels) = -p(1:levels) * a_a4
+!    qvs(1:levels) = (p(1:levels) * (a_b1 - a_d * p(1:levels))) * &
+!      & (sal(1:levels) - z_sref) + p(1:levels) * (a_a1 + p(1:levels) * (a_c1 - a_e1 * p(1:levels)))
+!    dvs(1:levels) = (a_b2 * p(1:levels)) * (sal(1:levels) - z_sref) + &
+!      & 1.0_wp + p(1:levels) * (-a_a2 + p(1:levels) * (a_c2 - a_e2 * p(1:levels)))
+!
+!    t(1:levels)   = (tpot(1:levels) + qvs(1:levels)) / dvs(1:levels)
+!    fne(1:levels) = - qvs(1:levels) + t(1:levels) *    &
+!      & (dvs(1:levels) + t(1:levels) * (qnq(1:levels) + t(1:levels) * qn3(1:levels))) &
+!      & - tpot(1:levels)
+!
+!    fst(1:levels) = dvs(1:levels) + t(1:levels) * (2._wp * qnq(1:levels) + &
+!      & 3._wp * qn3(1:levels) * t(1:levels))
+!    t(1:levels)   = t(1:levels) - fne(1:levels) / fst(1:levels)
+    t(1:levels)=tpot(1:levels)
+    s(1:levels)    = MAX(sal(1:levels), 0.0_wp)
+    s__2(1:levels) = s(1:levels)**2
+    s3h(1:levels)  = s(1:levels) * SQRT(s(1:levels))
+    s1h(1:levels)  = SQRT(s(1:levels))
+ 
+    p(:)=0.0_wp
+            
+    rho0(1:levels) = r_a0 + t(1:levels) * &
+      & (r_a1 + t(1:levels) * (r_a2 + t(1:levels) *                   &
+      &   (r_a3 + t(1:levels) * (r_a4 + t(1:levels) * r_a5))))        &
+      & + s(1:levels) * (r_b0 + t(1:levels) * (r_b1 + t(1:levels) &
+      &     * (r_b2 + t(1:levels) * (r_b3 + t(1:levels) * r_b4))))    &
+      & + r_d0 * s__2(1:levels)                                           &
+      & + s3h(1:levels) * (r_c0 + t(1:levels) * (r_c1 + r_c2 * t(1:levels)))
+    
+    K(1:levels)=(p(1:levels) * (r_h0 + t(1:levels) *                  &
+      &     (r_h1 + t(1:levels) * (r_h2 + t(1:levels) * r_h3))                    &
+      & + s(1:levels) * (r_ai0 + t(1:levels) * (r_ai1 + r_ai2 * t(1:levels))) &
+      & + r_aj0 * s3h(1:levels)                                                       &
+      & + (r_ak0 + t(1:levels) * (r_ak1 + t(1:levels) * r_ak2)                    &
+      & + s(1:levels) * (r_am0 + t(1:levels) *                                    &
+      &     (r_am1 + t(1:levels) * r_am2))) * p(1:levels))                        &
+      & + r_e0 + t(1:levels) * (r_e1 + t(1:levels) *                              &
+      &      (r_e2 + t(1:levels) * (r_e3 + t(1:levels) * r_e4)))                  &
+      & + s(1:levels) * (r_f0 + t(1:levels) * (r_f1 + t(1:levels) *           &
+      &       (r_f2 + t(1:levels) * r_f3)))                                           &
+      & + s3h(1:levels) * (r_g0 + t(1:levels) * (r_g1 + r_g2 * t(1:levels))))
+
+    denom(1:levels) = 1._wp  - p(1:levels) / K(1:levels)
+    denom__2(1:levels)=denom(1:levels)**2    
+
+    drho0_dT(1:levels) =  &
+      & r_a1 + t(1:levels) *&
+      & (2.0_wp*r_a2 + t(1:levels)*(3.0_wp*r_a3 + t(1:levels) * (4.0_wp*r_a4 + 5.0_wp*r_a5*t(1:levels)))) &
+      & + s(1:levels) * (r_b1 + t(1:levels) * (2.0_wp*r_b2 + t(1:levels) * (3.0_wp*r_b3 + 4.0_wp*r_b4*t(1:levels))))    &
+      & + s3h(1:levels) *  (r_c1 + 2.0_wp*r_c2 * t(1:levels))
+
+    drho0_dS(1:levels) = &
+      &  r_b0 + t(1:levels) * (r_b1 + t(1:levels) * (r_b2 + t(1:levels) * (r_b3 + t(1:levels) * r_b4)))    &
+      & + 2.0_wp*r_d0 * s(1:levels)                                           &
+      & + 1.5_wp*s1h(1:levels) * (r_c0 + t(1:levels) * (r_c1 + r_c2 * t(1:levels)))
+
+    ddenom_dT(1:levels) =                                                      &
+      & -(p(1:levels))**2 * &
+      &( r_h1 + 2.0_wp*r_h2*t(1:levels) + 3.0_wp* r_h3*t(1:levels)**2 &
+      & + r_ai1*s(1:levels) + 2.0_wp*r_ai2 * t(1:levels)*s(1:levels) &
+      & + p(1:levels)*(r_ak1 + t(1:levels) * r_ak2)                    &
+      & + p(1:levels) * (r_am1*s(1:levels) + 2.0_wp*r_am2*s(1:levels)* t(1:levels)) &
+      & + r_e1+2.0_wp*r_e2*t(1:levels) + 3.0_wp*r_e3*t(1:levels)**2 + 4.0_wp*r_e4*t(1:levels)**3&
+      & + r_f1*s(1:levels) + 2.0_wp*r_f2 * s(1:levels) * t(1:levels) +3.0_wp*r_f3*s(1:levels)*t(1:levels)**2&
+      & + s3h(1:levels) * (r_g1 +2.0_wp* r_g1* t(1:levels)))/(K(1:levels)**2)
+
+
+    ddenom_dS(1:levels) =                                                             &
+      & - (p(1:levels))**2 * &
+      &(r_ai0 +  r_ai1*t(1:levels)  + r_ai2 * t(1:levels)**2 &
+      & + 1.5_wp*r_aj0 * s1h(1:levels)                                                &
+      & + p(1:levels)*(r_am0 + r_am1*t(1:levels) +r_am2*t(1:levels)**2)               &
+      & + (r_f0 + r_f1*t(1:levels) + r_f2 *t(1:levels) **2 + r_f3*t(1:levels)**3)     &
+      & + 1.5_wp*s1h(1:levels) * (r_g0 + t(1:levels) * (r_g1 + r_g2)))/(K(1:levels)**2)
+
+    
+    coeff(1:n_zlev,1)=(drho0_dT(1:levels)*denom(1:levels) - ddenom_dT(1:levels)* rho0(1:levels))/denom__2(1:levels) 
+    coeff(1:n_zlev,2)=(drho0_dS(1:levels)*denom(1:levels) - ddenom_dS(1:levels)* rho0(1:levels))/denom__2(1:levels)  
+!write(120,*)'M0',coeff(1:n_zlev,1) 
+   rho(1:levels) = rho0(1:levels)/denom(1:levels)
+   
+   coeff(1:n_zlev,1)=-coeff(1:n_zlev,1)/rho(1:levels)
+   coeff(1:n_zlev,2)=coeff(1:n_zlev,2)/rho(1:levels)
+!write(120,*)'M1',coeff(1:n_zlev,1) 
+
+  END FUNCTION calc_neutralslope_coeff_func_onColumn_UNESCO
   !-------------------------------------------------------------------------
 
 

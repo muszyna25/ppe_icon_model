@@ -928,7 +928,7 @@ CONTAINS
           DO jk = 1,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
             
             !local volume
-            surface_height = MERGE(ocean_state%p_prog(nnew(1))%h(jc,blockNo),0.0_wp, 1 == jk)
+            surface_height = MERGE(ocean_state%p_prog(nold(1))%h(jc,blockNo),0.0_wp, 1 == jk)
             prism_vol      = prism_area * (patch_3D%p_patch_1d(1)%prism_thick_c(jc,jk,blockNo) + surface_height)
             
             !Fluid volume
@@ -1069,7 +1069,7 @@ CONTAINS
       ! write things to diagnostics output file
       real_fmt   = 'es26.18'
       ! * number of non-tracer diag. variables
-      WRITE(nvars,'(i3)') SIZE(oce_ts%names)-no_tracer
+      WRITE(nvars,'(i3)') SIZE(oce_ts%names)-no_tracer+1
       WRITE(fmt_string,'(a)') '(i15.15,1x,a,1x,'//TRIM(ADJUSTL(nvars))//TRIM(real_fmt)//')'
       ! create date and time string
       ! * non-tracer diags

@@ -65,6 +65,11 @@ MODULE mo_scalar_product
   PUBLIC :: map_scalar_prismtop2center
   PUBLIC :: map_scalar_center2prismtop
   PUBLIC :: map_edges2edges_viacell_2D_per_level
+  PUBLIC :: map_edges2cell_with_height_3d
+  
+  PUBLIC :: map_scalar_center2prismtop_GM
+  PUBLIC :: map_scalar_prismtop2center_GM
+  PUBLIC :: map_vec_prismtop2center_on_block_GM
   
 !   INTERFACE map_edges2edges_viacell_3d
 !     MODULE PROCEDURE map_edges2edges_viacell_3d_1lev
@@ -778,8 +783,8 @@ CONTAINS
 !       & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
 !     CALL dbg_print('x(2)', p_vn_c(:,:,:)%x(2), &
 !       & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
-    CALL dbg_print('x(3)', p_vn_c(:,:,:)%x(3), &
-      & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
+!     CALL dbg_print('x(3)', p_vn_c(:,:,:)%x(3), &
+!       & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
 
   END SUBROUTINE map_edges2cell_no_height_3d
   !-----------------------------------------------------------------------------
@@ -861,7 +866,179 @@ CONTAINS
 
   END SUBROUTINE map_edges2cell_no_height_3d_onTriangles
   !-----------------------------------------------------------------------------
-  
+
+  !-----------------------------------------------------------------------
+  ! map_edges2cell_with_height: This sbr is used by the GMRedi
+  !>
+  !!
+  !! @par Revision History
+  !!  developed by Peter Korn, MPI-M (2010-11)
+  !<Optimize:inUse>
+  SUBROUTINE map_edges2cell_with_height_3d( patch_3d, vn_e, operators_coefficients, p_vn_c, opt_startLevel, &
+    & opt_endLevel, subset_range)
+    
+    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
+    REAL(wp), INTENT(in)                       :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
+    TYPE(t_operator_coeff), INTENT(in)         :: operators_coefficients
+    TYPE(t_cartesian_coordinates)              :: p_vn_c(:,:,:)  ! output (nproma,n_zlev,alloc_cell_blocks)
+    ! intent(inout) for nag compiler
+    INTEGER, INTENT(in), OPTIONAL :: opt_startLevel,  opt_endLevel      ! optional vertical start level
+    TYPE(t_subset_range), TARGET,  OPTIONAL :: subset_range
+    !Local variables
+    INTEGER :: startLevel, endLevel
+    INTEGER :: start_cell_index, end_cell_index
+    INTEGER :: il_e, ib_e
+    INTEGER :: cell_index, blockNo, level, ie
+    TYPE(t_subset_range), POINTER :: all_cells
+    TYPE(t_patch), POINTER :: patch_2d
+    !-----------------------------------------------------------------------
+     IF (patch_3D%p_patch_2D(1)%cells%max_connectivity == 3.and. fast_performance_level > 10) THEN
+       CALL map_edges2cell_with_height_3d_onTriangles( patch_3d, vn_e, operators_coefficients, p_vn_c, opt_startLevel, &
+         & opt_endLevel, subset_range)
+       RETURN
+     ENDIF
+    !-----------------------------------------------------------------------
+    patch_2d   => patch_3d%p_patch_2d(1)
+    !-----------------------------------------------------------------------
+    IF ( PRESENT(subset_range) ) THEN
+      all_cells => subset_range
+    ELSE
+      all_cells => patch_2d%cells%ALL
+    ENDIF
+    !-----------------------------------------------------------------------
+    IF ( PRESENT(opt_startLevel) ) THEN
+      startLevel = opt_startLevel
+    ELSE
+      startLevel = 1
+    END IF
+    IF ( PRESENT(opt_endLevel) ) THEN
+      endLevel = opt_endLevel
+    ELSE
+      endLevel = n_zlev
+    END IF
+       
+    !Calculation of Pv in cartesian coordinates
+    DO blockNo = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
+      
+      cell_idx_loop: DO cell_index =  start_cell_index, end_cell_index
+ 
+        endLevel=patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
+        level_loop: DO level = startLevel, endLevel
+           !calculate velocity reconstruction at cell center
+          p_vn_c(cell_index,level,blockNo)%x = 0.0_wp
+          
+          DO ie=1, patch_3D%p_patch_2D(1)%cells%max_connectivity!no_primal_edges
+            il_e = patch_2d%cells%edge_idx(cell_index,blockNo,ie)
+            ib_e = patch_2d%cells%edge_blk(cell_index,blockNo,ie)
+
+            IF (il_e > 0) THEN
+            p_vn_c(cell_index,level,blockNo)%x = p_vn_c(cell_index,level,blockNo)%x&
+              & + operators_coefficients%edge2cell_coeff_cc(cell_index,level,blockNo,ie)%x&
+              & * vn_e(il_e,level,ib_e)*(patch_3d%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e))
+            ENDIF  
+
+          END DO
+          
+          p_vn_c(cell_index,level,blockNo)%x = p_vn_c(cell_index,level,blockNo)%x &
+              & / operators_coefficients%fixed_vol_norm(cell_index,level,blockNo)
+
+
+
+        END DO level_loop
+      END DO  cell_idx_loop
+      
+    END DO ! blockNo = all_cells%start_block, all_cells%end_block
+! CALL dbg_print('thick_e', patch_3d%p_patch_1d(1)%prism_thick_e, &
+!       & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%edges%owned)
+!     CALL dbg_print('x(1)', p_vn_c(:,:,:)%x(1), &
+!       & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
+!     CALL dbg_print('x(2)', p_vn_c(:,:,:)%x(2), &
+!       & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
+!     CALL dbg_print('x(3)', p_vn_c(:,:,:)%x(3), &
+!       & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
+
+  END SUBROUTINE map_edges2cell_with_height_3d
+  !-----------------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------------
+  !: This sbr is used by GMRedi
+  SUBROUTINE map_edges2cell_with_height_3d_onTriangles( patch_3d, vn_e, operators_coefficients, p_vn_c, &
+    & opt_startLevel, opt_endLevel, subset_range)
+
+    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
+    REAL(wp), INTENT(in)                       :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
+    TYPE(t_operator_coeff), INTENT(in)         :: operators_coefficients
+    TYPE(t_cartesian_coordinates)              :: p_vn_c(:,:,:)  ! output (nproma,n_zlev,alloc_cell_blocks)
+    ! intent(inout) for nag compiler
+    INTEGER, INTENT(in), OPTIONAL :: opt_startLevel,  opt_endLevel      ! optional vertical start level
+    TYPE(t_subset_range), TARGET,  OPTIONAL :: subset_range
+    !Local variables
+    INTEGER :: startLevel, endLevel
+    INTEGER :: start_cell_index, end_cell_index
+    INTEGER :: edge_1_index, edge_1_block, edge_2_index, edge_2_block, edge_3_index, edge_3_block
+    INTEGER :: cell_index, blockNo, level
+    TYPE(t_subset_range), POINTER :: all_cells
+    TYPE(t_patch), POINTER :: patch_2d
+    !-----------------------------------------------------------------------
+    patch_2d   => patch_3d%p_patch_2d(1)
+    !-----------------------------------------------------------------------
+    IF ( PRESENT(subset_range) ) THEN
+      all_cells => subset_range
+    ELSE
+      all_cells => patch_2d%cells%ALL
+    ENDIF
+    !-----------------------------------------------------------------------
+    IF ( PRESENT(opt_startLevel) ) THEN
+      startLevel = opt_startLevel
+    ELSE
+      startLevel = 1
+    END IF
+    IF ( PRESENT(opt_endLevel) ) THEN
+      endLevel = opt_endLevel
+    ELSE
+      endLevel = n_zlev
+    END IF
+
+    !Calculation of Pv in cartesian coordinates
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, &
+!ICON_OMP edge_1_index, edge_1_block, edge_2_index, edge_2_block, edge_3_index, edge_3_block,  &
+!ICON_OMP level) ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
+      DO cell_index = start_cell_index, end_cell_index
+
+        edge_1_index = patch_2d%cells%edge_idx(cell_index,blockNo,1)
+        edge_1_block = patch_2d%cells%edge_blk(cell_index,blockNo,1)
+        edge_2_index = patch_2d%cells%edge_idx(cell_index,blockNo,2)
+        edge_2_block = patch_2d%cells%edge_blk(cell_index,blockNo,2)
+        edge_3_index = patch_2d%cells%edge_idx(cell_index,blockNo,3)
+        edge_3_block = patch_2d%cells%edge_blk(cell_index,blockNo,3)
+
+
+        DO level = startLevel, MIN(patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo), endLevel)
+          p_vn_c(cell_index,level,blockNo)%x =                                            &
+            & (  operators_coefficients%edge2cell_coeff_cc(cell_index,level,blockNo,1)%x  &
+            &      * vn_e(edge_1_index,level,edge_1_block)                                &
+            &*patch_3d%p_patch_1d(1)%prism_thick_e(edge_1_index,level,edge_1_block)       &
+            &  + operators_coefficients%edge2cell_coeff_cc(cell_index,level,blockNo,2)%x  &
+            &      * vn_e(edge_2_index,level,edge_2_block)                                &
+            &*patch_3d%p_patch_1d(1)%prism_thick_e(edge_2_index,level,edge_2_block)       &            
+            &  + operators_coefficients%edge2cell_coeff_cc(cell_index,level,blockNo,3)%x  &
+            &       * vn_e(edge_3_index,level,edge_3_block)                               &
+            &*patch_3d%p_patch_1d(1)%prism_thick_e(edge_3_index,level,edge_3_block))      &
+            & / operators_coefficients%fixed_vol_norm(cell_index,level,blockNo)
+            
+        END DO
+          
+      END DO
+
+    END DO ! blockNo = all_cells%start_block, all_cells%end_block
+!ICON_OMP_END_PARALLEL_DO
+
+  END SUBROUTINE map_edges2cell_with_height_3d_onTriangles
+  !-----------------------------------------------------------------------------
+    
   
   !-----------------------------------------------------------------------------
   !<Optimize:inUse>
@@ -1991,7 +2168,7 @@ CONTAINS
 
     DO jc = start_cell_index, end_cell_index
       end_level  = patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
-!       IF ( end_level >=min_dolic ) THEN
+
         DO level = start_level, end_level-1
           vec_center(jc,level,blockNo)%x &
           & = (prism_center_distance(jc,level)   * vec_top(jc,level)%x    &
@@ -1999,7 +2176,7 @@ CONTAINS
           & / (2.0_wp*prism_thick(jc,level))
               
         END DO          
-!       ENDIF
+
     END DO
 !     CALL sync_patch_array(sync_c, patch_3D%p_patch_2D(1), vec_center(:,:,:)%x(1))
 !     CALL sync_patch_array(sync_c, patch_3D%p_patch_2D(1), vec_center(:,:,:)%x(2))
@@ -2047,18 +2224,20 @@ CONTAINS
 
       CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
       DO jc = start_cell_index, end_cell_index
-!        dolic  = patch_3D%p_patch_1d(1)%dolic_c(cell_index,blockNo)
-!        IF ( dolic >=min_dolic ) THEN
+
         DO level = start_level, patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)-1
           scalar_center(jc,level,blockNo) &
           & = (prism_center_distance(jc,level)   * scalar_top(jc,level,blockNo)    &
           & +  prism_center_distance(jc,level+1) * scalar_top(jc,level+1,blockNo)) &
           & / (2.0_wp*prism_thick(jc,level))
-              
+!write(123,*)'details',level,prism_center_distance(jc,level),&
+!& scalar_top(jc,level,blockNo),&
+!          &prism_center_distance(jc,level+1) , scalar_top(jc,level+1,blockNo),prism_thick(jc,level)              
         END DO
-!        ENDIF
+
       END DO
     END DO
+    
 !ICON_OMP_END_PARALLEL_DO
    !CALL sync_patch_array(sync_c, patch_2D, scalar_center)
   END SUBROUTINE map_scalar_prismtop2center
@@ -2085,7 +2264,7 @@ CONTAINS
     INTEGER :: start_level, level
     TYPE(t_subset_range), POINTER :: cells_in_domain!, edges_in_domain
     TYPE(t_patch), POINTER :: patch_2D 
-    REAL(wp), POINTER ::  prism_center_distance(:,:),prism_thick(:,:)
+    !REAL(wp), POINTER ::  prism_center_distance(:,:),prism_thick(:,:)
 !     INTEGER :: dolic
     !-------------------------------------------------------------------------------
     patch_2D        => patch_3D%p_patch_2D(1)
@@ -2094,8 +2273,8 @@ CONTAINS
     start_level = 1
 
    !-------------------------------------------------------------------------------
-!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, level,&
-!ICON_OMP prism_center_distance,prism_thick) ICON_OMP_DEFAULT_SCHEDULE     
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, level)
+!ICON_OMP_DEFAULT_SCHEDULE     
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
     
       scalar_top(:,:,blockNo) = 0.0_wp
@@ -2113,7 +2292,173 @@ CONTAINS
   END SUBROUTINE map_scalar_center2prismtop
   !-------------------------------------------------------------------------
 
-  ! !   !-----------------------------------------------------------------------------
+
+
+
+
+  !-------------------------------------------------------------------------
+  !>
+  !! !  SUBROUTINE maps for a fluid column a scalar value from the top/bottom of a 3D prism to the central level of the prism.
+  !!
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2014).
+  !!
+  SUBROUTINE map_vec_prismtop2center_on_block_GM(patch_3d, vec_top, p_op_coeff, vec_center, &
+    & blockNo, start_cell_index, end_cell_index)
+    TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
+    TYPE(t_cartesian_coordinates), INTENT(in)        :: vec_top(nproma, n_zlev)
+    TYPE(t_operator_coeff), INTENT(in)               :: p_op_coeff
+    INTEGER, INTENT(in)                              :: blockNo, start_cell_index, end_cell_index
+    TYPE(t_cartesian_coordinates), INTENT(inout)     :: vec_center(nproma, n_zlev,blockNo) ! out
+    
+    !Local variables
+    INTEGER :: level, jc!,jb
+    INTEGER :: start_level, end_level
+    REAL(wp), POINTER :: prism_center_distance(:,:), prism_thick(:,:)
+    !-------------------------------------------------------------------------------
+    start_level = 1
+!     vec_center(1:nproma,1:n_zlev,blockNo)%x(1)=0.0_wp
+!     vec_center(1:nproma,1:n_zlev,blockNo)%x(2)=0.0_wp
+!     vec_center(1:nproma,1:n_zlev,blockNo)%x(3)=0.0_wp
+   !-------------------------------------------------------------------------------    
+    ! these do not include the height
+    !prism_center_distance => patch_3D%p_patch_1D(1)%constantPrismCenters_Zdistance  (:,:,blockNo)
+    !prism_thick           => patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,:,blockNo)
+
+    DO jc = start_cell_index, end_cell_index
+      end_level  = patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
+
+        DO level = start_level, end_level-1
+          vec_center(jc,level,blockNo)%x &
+          & = 0.5_wp*( vec_top(jc,level)%x + vec_top(jc,level+1)%x) 
+        END DO          
+
+    END DO
+!     CALL sync_patch_array(sync_c, patch_3D%p_patch_2D(1), vec_center(:,:,:)%x(1))
+!     CALL sync_patch_array(sync_c, patch_3D%p_patch_2D(1), vec_center(:,:,:)%x(2))
+!     CALL sync_patch_array(sync_c, patch_3D%p_patch_2D(1), vec_center(:,:,:)%x(3))
+  END SUBROUTINE map_vec_prismtop2center_on_block_GM
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !! !  SUBROUTINE maps for a fluid column a scalar value from the top/bottom of a 3D prism to the central level of the prism.
+  !!
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2014).
+  !!
+  SUBROUTINE map_scalar_prismtop2center_GM(patch_3d, scalar_top, p_op_coeff,scalar_center)
+    TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
+    REAL(wp)                                         :: scalar_top(nproma, n_zlev+1,patch_3D%p_patch_2d(1)%nblks_c)   
+    TYPE(t_operator_coeff),INTENT(in)                :: p_op_coeff
+    REAL(wp)                                         :: scalar_center(nproma, n_zlev,patch_3D%p_patch_2d(1)%nblks_c)       
+    
+    !Local variables
+    INTEGER :: level, blockNo, jc!,jb
+    INTEGER :: start_cell_index, end_cell_index!, cell_index
+    !INTEGER :: start_edge_index, end_edge_index
+    INTEGER :: start_level!, level
+    TYPE(t_subset_range), POINTER :: cells_in_domain!, edges_in_domain
+    TYPE(t_patch), POINTER :: patch_2D 
+    !REAL(wp), POINTER ::  prism_center_distance(:,:),prism_thick(:,:)
+    ! INTEGER :: dolic
+    !-------------------------------------------------------------------------------
+    patch_2D        => patch_3D%p_patch_2D(1)
+    cells_in_domain => patch_2D%cells%in_domain
+    !edges_in_domain => patch_2D%edges%in_domain
+    start_level = 1
+
+   !-------------------------------------------------------------------------------  
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index)
+!ICON_OMP_DEFAULT_SCHEDULE  
+    DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+
+      ! these do not include the height
+      ! if they are used for the GM-Redi then we should re-consider if height is needed
+      !prism_center_distance => patch_3D%p_patch_1D(1)%constantPrismCenters_Zdistance  (:,:,blockNo)
+      !prism_thick => patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,:,blockNo)
+
+      CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+
+        DO level = start_level, patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)-1
+          scalar_center(jc,level,blockNo) &
+          & = 0.5_wp*( scalar_top(jc,level,blockNo) + scalar_top(jc,level+1,blockNo)) 
+
+        END DO
+
+      END DO
+    END DO
+    
+!ICON_OMP_END_PARALLEL_DO
+   !CALL sync_patch_array(sync_c, patch_2D, scalar_center)
+  END SUBROUTINE map_scalar_prismtop2center_GM
+  !------------------------------------------------------------------------
+  
+
+  !-------------------------------------------------------------------------
+  !
+  !>
+  !! !  SUBROUTINE maps within a fluid column a scalar value from the the central level of the prism to top/bottom of a 3D prism.
+  !!
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2014).
+  !!
+  SUBROUTINE map_scalar_center2prismtop_GM(patch_3d, scalar_center, p_op_coeff,scalar_top)
+    TYPE(t_patch_3d ),TARGET, INTENT(in   )          :: patch_3d
+    REAL(wp), INTENT(inout)                             :: scalar_center(:,:,:)   
+    TYPE(t_operator_coeff),INTENT(in)                :: p_op_coeff
+    REAL(wp), INTENT(out)                            :: scalar_top(:,:,:)       
+    
+    !Local variables
+    INTEGER :: blockNo
+    INTEGER :: start_cell_index, end_cell_index, cell_index
+    !INTEGER :: start_edge_index, end_edge_index
+    INTEGER :: start_level, level
+    TYPE(t_subset_range), POINTER :: cells_in_domain!, edges_in_domain
+    TYPE(t_patch), POINTER :: patch_2D 
+    REAL(wp), POINTER ::  prism_center_distance(:,:),prism_thick(:,:)
+!     INTEGER :: dolic
+    !-------------------------------------------------------------------------------
+    patch_2D        => patch_3D%p_patch_2D(1)
+    cells_in_domain => patch_2D%cells%in_domain
+    !edges_in_domain => patch_2D%edges%in_domain
+    start_level = 1
+
+   !-------------------------------------------------------------------------------
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, level,&
+!ICON_OMP prism_center_distance,prism_thick) ICON_OMP_DEFAULT_SCHEDULE     
+    DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+      prism_center_distance => patch_3D%p_patch_1D(1)%constantPrismCenters_Zdistance(:,:,blockNo)
+      prism_thick => patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,:,blockNo)
+    
+      scalar_top(:,:,blockNo) = 0.0_wp
+      CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+      DO cell_index = start_cell_index, end_cell_index
+!        DO level = start_level, patch_3D%p_patch_1d(1)%dolic_c(cell_index,blockNo)-1
+!        scalar_center(cell_index,level,blockNo)=level
+!        END DO      
+      
+        DO level = start_level, patch_3D%p_patch_1d(1)%dolic_c(cell_index,blockNo)-1
+          scalar_top(cell_index,level+1,blockNo) &
+          & = ( prism_thick(cell_index,level)  * scalar_center(cell_index,level,blockNo)      &
+          & +   prism_thick(cell_index,level+1)* scalar_center(cell_index,level+1,blockNo))&
+          & /(2.0_wp*prism_center_distance(cell_index,level))  
+!write(123,*)'details',level, scalar_top(cell_index,level+1,blockNo),&
+!&scalar_center(cell_index,level,blockNo),prism_thick(cell_index,level),&
+!&scalar_center(cell_index,level+1,blockNo),prism_thick(cell_index,level+1),&
+!!&(prism_thick(cell_index,level)+prism_thick(cell_index,level+1)),&
+!2.0_wp*prism_center_distance(cell_index,level)                                    
+        END DO
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+!stop
+  END SUBROUTINE map_scalar_center2prismtop_GM
+  !-------------------------------------------------------------------------
+
+
+! !   !-----------------------------------------------------------------------------
 !   !-----------------------------------------------------------------------------
 !   SUBROUTINE map_edges2edges_viacell_3d_mlev( patch_3d, vn_e, operators_coefficients, out_vn_e,scalar, &
 !     & opt_startLevel, opt_endLevel, subset_range)
