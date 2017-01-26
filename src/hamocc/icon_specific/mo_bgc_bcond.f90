@@ -1,11 +1,10 @@
+#ifndef __NO_ICON_OCEAN__
+
 !>
 !! Allocation/deallocation and reading of HAMOCC boundary conditions
 !!
-!! @author Irene Stemmler, MPI 
 !!
 !!
-!! @par Revision History
-!! Initial version based on mo_ocean_ext_data, Irene Stemmler (2015-10-09)
 !!
 !! @par Copyright and License
 !!
@@ -46,7 +45,6 @@ USE mo_kind,               ONLY: wp
     &                              read_3D
   USE mo_util_string,        ONLY: t_keyword_list,  &
     &                              associate_keyword, with_keywords
-  USE mo_datetime,           ONLY: t_datetime
   USE mo_cdi,                ONLY: DATATYPE_FLT32 
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL,  &
     &                              GRID_REFERENCE,         &
@@ -55,8 +53,12 @@ USE mo_kind,               ONLY: wp
   USE mo_hamocc_nml,         ONLY: io_stdo_bgc
   USE mo_ext_data_types,     ONLY: t_external_data, t_external_bgc
   USE mo_ocean_ext_data,     ONLY: ext_data
+  USE mtime,                 ONLY: datetime, &
+       &                           getDayOfYearFromDateTime, &
+       &                           getNoOfDaysInYearDateTime
 
- IMPLICIT NONE
+  
+  IMPLICIT NONE
 
   INCLUDE 'netcdf.inc'
 
@@ -183,6 +185,13 @@ CONTAINS
     CALL add_var( p_ext_bgc_list, 'DUST', p_ext_bgc%dust,      &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
     CALL add_var( p_ext_bgc_list, 'DUSTY', p_ext_data_bgc%dusty,      &
+      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+    cf_desc    = t_cf_var('Nitrogen cell center', 'kg m-2 yr-1', &
+      &                   'NDEP', DATATYPE_FLT32)
+    grib2_desc = grib2_var( 192, 140, 239, ibits, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ext_bgc_list, 'NDEP', p_ext_bgc%nitro,      &
+      &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+    CALL add_var( p_ext_bgc_list, 'NITRO', p_ext_data_bgc%nitro,      &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
@@ -332,15 +341,87 @@ CONTAINS
 
       CALL message( TRIM(routine),'HAMOCC dust file read' )
 
+
+      dust_file='nitrogen.nc'
+
+      CALL message( TRIM(routine),'HAMOCC nitrogen input file is: '//TRIM(dust_file) )
+
+      IF(my_process_is_stdio()) THEN
+        !
+        INQUIRE (FILE=dust_file, EXIST=l_exist)
+        IF (.NOT.l_exist) THEN
+          write(io_stdo_bgc,*)'FORCING FILE: ',TRIM(dust_file)
+          CALL finish(TRIM(routine),'Nitrogen input file is not found - ABORT')
+        ENDIF
+
+        !
+        ! open file
+        !
+        CALL nf(nf_open(TRIM(dust_file), NF_NOWRITE, ncid), routine)
+        CALL message( TRIM(routine),'HAMOCC nitrogen input file opened for read' )
+
+        !
+        !
+        CALL nf(nf_inq_dimid (ncid, 'ncells', dimid), routine)
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
+
+        IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
+          CALL finish(TRIM(ROUTINE),&
+          & 'Number of patch cells and cells in HAMOCC input file do not match - ABORT')
+        ENDIF
+
+        !
+        ! get number of timesteps
+        !
+        CALL nf(nf_inq_dimid (ncid, 'time', dimid), routine)
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_tst), routine)
+        !
+        ! check
+        !
+        WRITE(message_text,'(A,I6,A)')  'HAMOCC nitrogen input file contains',no_tst,' data sets'
+        CALL message( TRIM(routine), TRIM(message_text) )
+        IF(no_tst /= 12 ) THEN
+          CALL finish(TRIM(ROUTINE),&
+          & 'Number of forcing timesteps is not equal 12 specified in namelist - ABORT')
+        ENDIF
+
+        CALL nf(nf_close(ncid), routine)
+      ENDIF
+
+      stream_id = openInputFile(dust_file, p_patch(jg))
+      
+      IF(p_test_run) THEN
+        mpi_comm = p_comm_work_test
+      ELSE
+        mpi_comm = p_comm_work
+      ENDIF
+      no_tst = 12
+      !-------------------------------------------------------
+      !
+      ! Read nitrogen for triangle centers
+      !
+      !-------------------------------------------------------
+        CALL read_3D(stream_id, on_cells, 'ndepo', z_flux)
+        ext_data(jg)%bgc%nitro(:,:,:) = z_flux(:,:,:)
+     
+
+      !
+      ! close file
+      !
+      CALL closeFile(stream_id)
+
+
+
+
   END SUBROUTINE read_ext_data_bgc
   !--------------------------------------------------
 !<Optimize:inUse>
 
-   SUBROUTINE update_bgc_bcond(p_patch_3D, bgc_ext, jstep, datetime)
+   SUBROUTINE update_bgc_bcond(p_patch_3D, bgc_ext, jstep, this_datetime)
     TYPE(t_patch_3D ),TARGET, INTENT(IN)        :: p_patch_3D
     TYPE(t_hamocc_bcond)                        :: bgc_ext
     INTEGER, INTENT(IN)                         :: jstep
-    TYPE(t_datetime), INTENT(INOUT)             :: datetime
+    TYPE(datetime), INTENT(INOUT)               :: this_datetime
 
   
  ! local variables
@@ -360,10 +441,10 @@ CONTAINS
 
 
     !  calculate day and month
-    jmon  = datetime%month         ! integer current month
-    jdmon = datetime%day           ! integer day in month
-    yday  = datetime%yeaday        ! integer current day in year
-    ylen  = datetime%yealen        ! integer days in year (365 or 366)
+    jmon  = this_datetime%date%month         ! integer current month
+    jdmon = this_datetime%date%day           ! integer day in month
+    yday  = getDayOfYearFromDateTime(this_datetime)
+    ylen  = getNoOfDaysInYearDateTime(this_datetime)
     
 
       jmon1=jmon-1
@@ -386,9 +467,11 @@ CONTAINS
 
       bgc_ext%dusty(:,:) = rday1*ext_data(1)%bgc%dust(:,jmon1,:) + &
       &                                   rday2*ext_data(1)%bgc%dust(:,jmon2,:)
-    !  bgc_ext%dusty(:,:) = ext_data(1)%bgc%dust(:,jmon,:) 
+    
+      bgc_ext%nitro(:,:) = rday1*ext_data(1)%bgc%nitro(:,jmon1,:) + &
+      &                                   rday2*ext_data(1)%bgc%nitro(:,jmon2,:)
 
-    !  CALL message( TRIM(routine),'end', io_stdo_bgc )
-    END SUBROUTINE update_bgc_bcond
+  END SUBROUTINE update_bgc_bcond
 END MODULE
 
+#endif

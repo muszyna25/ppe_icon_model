@@ -42,7 +42,7 @@ MODULE mo_cover_koe
                                    c4les  , & !!               -- " --
                                    c4ies      !!               -- " --
 
-  USE mo_cufunctions,        ONLY: foealfa    !! liquid fraction as in Tiedtke/Bechtold convection
+  USE mo_cufunctions,        ONLY: foealfcu    !! liquid fraction as in Tiedtke/Bechtold convection
 
   USE mo_cloud_diag,         ONLY: cloud_diag
 
@@ -270,7 +270,7 @@ CASE( 1 )
 
 ! stratiform cloud
 !  liquid cloud
-     ! quadratic increase of cloud cover from 0 to 1 between RH = 87.5% and 105%;
+     ! quadratic increase of cloud cover from 0 to 1 between RH = (100 - 2.5*tune_box_liq)% and (100 + tune_box_liq)%;
      ! diagnosed cloud water is proportional to clcov**2
       deltaq = MIN(tune_box_liq, zagl_lim(jl,jk)) * zqlsat(jl,jk)
       IF ( ( qv(jl,jk) + qc(jl,jk) - deltaq ) > zqlsat(jl,jk) ) THEN
@@ -326,8 +326,8 @@ CASE( 1 )
 ! convective cloud
       cc_conv(jl,jk) = ( pmfude_rate(jl,jk) / rho(jl,jk) ) &                  ! cc = detrainment / rho /
                    & / ( pmfude_rate(jl,jk) / rho(jl,jk) + 1.0_wp / taudecay )!      ( Du/rho + 1/tau,decay )
-      qc_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*      foealfa(tt(jl,jk))   ! ql up  foealfa = liquid/(liquid+ice)
-      qi_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*(1._wp-foealfa(tt(jl,jk))) ! qi up
+      qc_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*      foealfcu(tt(jl,jk))  ! ql up  foealfa = liquid/(liquid+ice)
+      qi_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*(1._wp-foealfcu(tt(jl,jk)))! qi up
       cc_conv(jl,jk) = min(max(0.0_wp,cc_conv(jl,jk)),1.0_wp)
       qc_conv(jl,jk) = min(max(0.0_wp,qc_conv(jl,jk)),0.1_wp*qv(jl,jk))       ! qc limit to 10%qv
       qi_conv(jl,jk) = min(max(0.0_wp,qi_conv(jl,jk)),0.1_wp*qv(jl,jk))       ! qi limit to 10%qv

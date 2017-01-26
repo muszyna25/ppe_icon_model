@@ -26,7 +26,7 @@
 MODULE mo_les_turb_interface
 
   USE mo_kind,                 ONLY: wp
-  USE mo_exception,            ONLY: message, message_text, finish
+  USE mo_exception,            ONLY: message
   USE mo_model_domain,         ONLY: t_patch
   USE mo_intp_data_strc,       ONLY: t_int_state
   USE mo_impl_constants,       ONLY: min_rlcell_int, ismag
@@ -35,7 +35,6 @@ MODULE mo_les_turb_interface
   USE mo_nonhydro_types,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_lnd_diag
-  USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: msg_level, iqv, iqc
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_nonhydrostatic_config,ONLY: kstart_moist

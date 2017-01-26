@@ -3,22 +3,21 @@
   !!
 #include "hamocc_omp_definitions.inc"
 
-  SUBROUTINE ocprod (klev,start_idx,end_idx, ptho,pddpo, za)
+  SUBROUTINE ocprod (klev,start_idx,end_idx, ptho,pddpo, za,ptiestu, l_dynamic_pi)
     
    USE mo_kind, ONLY           : wp
    
-   USE mo_biomod, ONLY         :phytomi, grami, rnoi, riron, pi_alpha, &
+   USE mo_memory_bgc, ONLY     :phytomi, grami, rnoi, riron, pi_alpha, &
        &                        fpar, bkphy,grazra, bkzoo, epsher,         &
        &                        zinges, drempoc, ro2ut, remido, dyphy, spemor,     &
        &                        gammaz, gammap, ecan, rnit, ropal, bkopal,         &
        &                        rcalc, rcar, dremopal, relaxfe, fesoly,            &
        &                        denitrification, nitdem, dremn2o,         &
        &                        n2prod, sulfate_reduction, strahl,                 &
-       &                        thresh_aerob,   & 
-       &                        thresh_sred, dmsp, calmax
- 
-   USE mo_carbch, ONLY         : satoxy, &
-       &                         bgctra, swr_frac, bgctend
+       &                        thresh_aerob, thresh_o2, prodn2o, & 
+       &                        thresh_sred, dmsp, calmax, &
+       &                        satoxy, meanswr,&
+       &                        bgctra, swr_frac, bgctend
 
 
    USE mo_control_bgc, ONLY    : dtb, bgc_nproma, bgc_zlevs, dtbgc 
@@ -45,6 +44,9 @@
     REAL(wp), INTENT(in), TARGET   :: pddpo(bgc_nproma,bgc_zlevs)      !< size of scalar grid cell (3rd dimension) [m]
 
     REAL(wp), INTENT(in), TARGET   :: za(bgc_nproma)      !< surface height
+    REAL(wp), INTENT(in) :: ptiestu(bgc_nproma,bgc_zlevs) !< depth of scalar grid cell [m]
+
+    LOGICAL, INTENT(in) :: l_dynamic_pi
 
    !  Local variables
 
@@ -55,8 +57,8 @@
        &      gratpoc,grawa,bacfra,phymor,zoothresh,zoomor,excdoc,exud,  &
        &      export, delsil, delcar, remin,             &
        &      opalrem, remin2o, aou, refra,                      &
-       &      tpremin, r_bacfra,   &
-       &      r_remin, avoxy
+       &      o2lim, actn2o, avdet,   &
+       &      maxn2o, avoxy
 
    REAL(wp) :: surface_height
 
@@ -68,7 +70,7 @@
 !HAMOCC_OMP            avanfe,phofa,temfa,pho,phosy,xa,xn,ya,yn,grazing,&
 !HAMOCC_OMP            graton,gratpoc,grawa,phymor,zoomor,zoothresh,excdoc,&
 !HAMOCC_OMP            exud,export,delsil,delcar,opalrem,dms_prod,dms_bac,&
-!HAMOCC_OMP            dms_uv,avoxy,tpremin,r_bacfra,r_remin,&
+!HAMOCC_OMP            dms_uv,avoxy,maxn2o,actn2o,o2lim, avdet,&
 !HAMOCC_OMP            bacfra,remin,aou,refra,remin2o) HAMOCC_OMP_DEFAULT_SCHEDULE
 
  DO j = start_idx, end_idx
@@ -105,13 +107,20 @@
 
 
        ! phytoplankton growth
-       phofa = pi_alpha*fPAR*strahl(j)*swr_frac(j,k)
+      if(l_dynamic_pi)then
+         phofa=(pi_alpha + 0.05_wp*ptiestu(j,k)/(ptiestu(j,k)+90._wp)) &
+     &            *fPAR*strahl(j)*meanswr(j,k)
+   
+      else
+       phofa = pi_alpha*fPAR*strahl(j)*meanswr(j,k)
+      endif
        temfa = 0.6_wp * 1.066_wp**ptho(j,k)
        pho   = dtb*phofa*temfa/SQRT(phofa**2 + temfa**2)
 
        xa    = avanfe
        xn    = xa / (1._wp + pho*avphy / (xa+bkphy) )                ! bkphy = half saturation constant
        phosy = MAX(0._wp, xa-xn)                                     ! photosynthesis
+       if(pho < 0.000001_wp)phosy=0._wp 
 
        ! zooplankton growth, phy grazing
        ya    = avphy + phosy                                         ! new phytoplankton concentration before grazing
@@ -144,7 +153,7 @@
        !=====SHELL PRODUCTIOIN ========================
 
        delsil = MIN(ropal * export * avsil / (avsil + bkopal), 0.5_wp * avsil)
-       delcar = MIN(calmax * rcar *export, rcalc * export * bkopal/(avsil+bkopal))  ! 'detritus linked calcium carbonate '
+       delcar = calmax * rcar *export * bkopal/(avsil+bkopal)  ! 'detritus linked calcium carbonate '
 
        bgctra(j,k,isco212) = bgctra(j,k,isco212) - delcar         &                ! - CACO3 production
                    &  + rcar*(  - phosy + graton + ecan*zoomor)   ! + remineralization C-units
@@ -211,30 +220,26 @@
        bgctend(j,k,kdmsuv)   = dms_uv / dtbgc 
       
 
-       avoxy = MAX(0._wp,bgctra(j,k,ioxygen))       ! available O2                       
 
-       IF (avoxy >= thresh_aerob) THEN                          
+       IF (bgctra(j,k,ioxygen) > thresh_aerob) THEN                          
+
            !=====AEROB REMINERALIZATION ========================
-           tpremin = remido*bgctra(j,k,idoc)  &
-              &         + drempoc * bgctra(j,k,idet)
- 
-           ! Indiv. fractions of decomp.
-           r_bacfra = remido*bgctra(j,k,idoc) / tpremin 
-           r_remin  =  drempoc * bgctra(j,k,idet) / tpremin
-        
+           avoxy = bgctra(j,k,ioxygen) - thresh_aerob      ! available O2                       
+       
+           o2lim = bgctra(j,k,ioxygen)/(thresh_o2 + bgctra(j,k,ioxygen))
+
+           ! POC decomposition
+           xn=bgctra(j,k,idet)/(1._wp+o2lim*drempoc)
+           remin=MAX(0._wp,bgctra(j,k,idet)-xn)
+           remin = MIN(remin, avoxy/ro2ut)      
+          
            ! DOC decomposition
+           avoxy = bgctra(j,k,ioxygen) -remin*ro2ut - thresh_aerob      ! available O2                       
            xn=bgctra(j,k,idoc)/(1._wp+remido)
            bacfra=MAX(0._wp,bgctra(j,k,idoc) - xn)
-           bacfra    = MIN(bacfra,   &                         !
-               &     r_bacfra*(avoxy-thresh_aerob)/ro2ut)
+           bacfra    = MERGE(-0._wp,bacfra, avoxy-bacfra*ro2ut.lt.thresh_aerob)
 
-   
-           ! POC decomposition
-           xn=bgctra(j,k,idet)/(1._wp+drempoc)
-           remin=MAX(0._wp,bgctra(j,k,idet)-xn)
-           remin = MIN(remin,               &
-                    &      r_remin*(avoxy-thresh_aerob)/ro2ut)      
-          
+
            bgctra(j,k,idoc)  = bgctra(j,k,idoc) - bacfra 
        
 
@@ -268,49 +273,45 @@
 
            aou   = satoxy(j,k) - bgctra(j,k,ioxygen)
            refra = 1._wp + 3._wp * (0.5_wp + SIGN(0.5_wp, aou - 1.97e-4_wp))
+       
+
+           maxn2o = (remin+bacfra)*prodn2o*ro2ut*refra*0.5_wp
+           avoxy = max(0._wp, bgctra(j,k,ioxygen)-thresh_aerob)
+           actn2o = min(avoxy,maxn2o)
 
            bgctra(j,k,ian2o)   = bgctra(j,k,ian2o)                  &
-                   &    + (remin + bacfra ) * 1.e-4_wp * ro2ut * refra
+                   &    + 2._wp *actn2o
 
            bgctra(j,k,igasnit) = bgctra(j,k,igasnit)                &
-                   &     - (remin + bacfra ) * 1.e-4_wp * ro2ut * refra
-
-          
+                   &     - 2._wp *actn2o
 
            bgctra(j,k,ioxygen) = bgctra(j,k,ioxygen)               &
-                   &     - (remin+bacfra)*1.e-4_wp*ro2ut*refra*0.5_wp
+                   &     - actn2o
          
            bgctend(j,k,kremin) = remin / dtbgc 
            bgctend(j,k,kbacfra) = bacfra / dtbgc 
            bgctend(j,k,kdenit) = 0._wp 
        ENDIF   ! O2 >= thresh_aerob
 
-       avoxy = MAX(0._wp,bgctra(j,k,ioxygen))       ! available O2                       
 
-       IF (avoxy < thresh_aerob) THEN                          
+       IF (bgctra(j,k,ioxygen) < 5.e-7_wp) THEN                          
             !=====DENITRIFICATION ========================
 
-           ! NO3 reduction
-           xa = MIN(bgctra(j,k,idet),  &
-                    0.5_wp * bgctra(j,k,iano3) / nitdem)
+           avdet = MAX(1.e-15_wp,bgctra(j,k,idet))
 
-           xn = xa / (1._wp + denitrification*drempoc)
-         
-           remin = MAX(0._wp,xa-xn)
-          ! remin = denitrification*drempoc * MIN(bgctra(j,k,idet),  &
-          !          0.5_wp * bgctra(j,k,iano3) / nitdem)
+           ! NO3 reduction
+           o2lim = 1._wp - bgctra(j,k,ioxygen)/thresh_o2
+
+           remin  = denitrification*drempoc*o2lim  &
+                   & * MIN(avdet,0.5_wp*bgctra(j,k,iano3)/nitdem)
 
            bgctra(j,k,idet)      = bgctra(j,k,idet)      &
                    &                -  remin
            ! N2O reduction
-           xa =  MIN(bgctra(j,k,idet),                    &  ! remineralization using N2O
-                   &                  0.003_wp * bgctra(j,k,ian2o) / (2._wp*ro2ut))
 
-           xn = xa/(1._wp + dremn2o)
+           remin2o = dremn2o * MIN(avdet,                    &  ! remineralization using N2O
+                   &   0.003_wp * bgctra(j,k,ian2o) / (2._wp*ro2ut))
 
-           remin2o = MAX(0._wp, xa-xn)
-          ! remin2o = dremn2o * MIN(bgctra(j,k,idet),                    &  ! remineralization using N2O
-          !         &                  0.003_wp * bgctra(j,k,ian2o) / (2._wp*ro2ut))
 
            bgctra(j,k,idet)      = bgctra(j,k,idet)      &
                    &                -  remin2o
@@ -323,7 +324,7 @@
 
 
            bgctra(j,k,iano3)   = bgctra(j,k,iano3)     &
-                   &          - nitdem*remin + rnit*remin2o
+                   &          - 2._wp*n2prod*remin + rnit*(remin + remin2o)
 
            bgctra(j,k,igasnit) = bgctra(j,k,igasnit)   &
                    &                + n2prod*remin + 2._wp*ro2ut*remin2o
@@ -352,14 +353,17 @@
        ENDIF ! oxygen < thresh_aerob
 
 
-       avoxy = MAX(0._wp,bgctra(j,k,ioxygen))       ! available O2                       
        bgctend(j,k,ksred) = 0._wp 
 
        !=====SULFATE REDUCTION ========================
        IF (bgctra(j,k, ioxygen) < thresh_sred) THEN
+       
+             o2lim = 1._wp - bgctra(j,k,ioxygen)/thresh_o2
 
-             xn=bgctra(j,k,idet)/(1._wp+sulfate_reduction)
-             remin=MAX(0._wp,bgctra(j,k,idet)-xn)
+             xa = max(0._wp,bgctra(j,k,idet))
+             xn = xa / (1._wp + sulfate_reduction*o2lim)
+             remin = MAX(0._wp, xa-xn)
+
  
              bgctra(j,k,idet)    = bgctra(j,k,idet)    -        remin
              bgctra(j,k,ialkali) = bgctra(j,k,ialkali) + rnit * remin 

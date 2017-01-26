@@ -1255,6 +1255,7 @@ MODULE mo_nwp_lnd_state
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
          & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.,                       &
          & lmiss=.TRUE., missval=0.0_wp,                                         &
+         & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ), & 
          & in_group=groups("dwd_fg_sfc_vars","mode_dwd_ana_in",                  &
          &                 "mode_iau_ana_in","mode_iau_old_ana_in") )
 

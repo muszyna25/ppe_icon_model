@@ -20,8 +20,8 @@
 echo "SEASONAL_MEAN.SMS" 
 
 module load python
-module load cdo/1.6.4
-module swap grib_api grib_api/1.12.3
+module load cdo/1.7.0
+module swap grib_api grib_api/1.14.5
 
 set -A means          # nothing, or: all year seas mon
 lsplitdata=1
@@ -262,14 +262,14 @@ for mean in ${means[*]} ; do
         nsteps=`cdo ntime ${file}`
         nintv=`expr ${nsteps}  \- 1 `
         case $NAME in 
-          tp|param76.1.0|param77.1.0|lssrwe|csrwe|rain_con|rain_gsp|snow_con|snow_gsp)
+          tp|param76.1.0|param77.1.0|lssrwe|csrwe|rain_con|rain_gsp|snow_con|snow_gsp|RAIN_CON|RAIN_GSP|SNOW_CON|SNOW_GSP)
             numdays=$(echo "scale=9; ${nintv} * ${dout} " | bc)
             cdo sub -seltimestep,$nsteps ${file} -seltimestep,1 ${file} out.grb
             #cdo setunit,'"Kg m**-2 d**-1"' out.grb out2.grb
             cdo divc,${numdays} out.grb ${file_grb}_mean.grb
             rm -f out.grb 
             ;;
-          ttr|nswrf|ssr|str|sshf|slhf)
+          ttr|nswrf|ssr|str|sshf|slhf|ACCSOB_T)
             numdays=$(echo "scale=9; ${nintv} * ${dout} " | bc)
             numsec=$(echo "scale=9; ${numdays} * 86400 "  | bc)
             cdo sub -seltimestep,$nsteps ${file} -seltimestep,1 ${file} out.grb

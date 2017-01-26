@@ -203,7 +203,7 @@ add_required_file ${basedir}/run/${atmo_namelist}                       ./
 # dictionary file for output variable names
 #
 dict_file="dict.${EXPNAME}"
-cat dict.iconam.mpim_inst  > ${dict_file}
+cat dict.iconam.mpim  > ${dict_file}
 add_required_file ${basedir}/run/${dict_file}                           ./
 
 INDATA=${icon_data_poolFolder}/input/r0004
@@ -220,7 +220,7 @@ datadir=$INDATA/global/atm
 add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc                 ./bc_greenhouse_gases.nc
 #
 # - ozone
-datadir=${basedir}/data/external/ape_ozone/
+datadir=${icon_data_poolFolder}/external/ape_ozone/
 ozone_file="ape_o3_iconR2B04-ocean_aqua_planet.nc"
 add_required_file ${datadir}/${ozone_file}                              ./o3_icon_DOM01.nc
 
@@ -293,7 +293,8 @@ if [[ "$output_atm_2d" == "yes" ]]; then
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
                     'hfls'    , 'hfss'    , 'evspsbl' ,
                     'tauu'    , 'tauv'    ,
-                    'tauu_sso', 'tauv_sso', 'diss_sso', 
+                    'sfcwind' , 'uas'     , 'vas'     ,
+                    'tas'     , 'dew2'
 /
 EOF
 fi
@@ -325,6 +326,8 @@ if [[ "$output_atm_2d_rmb" == "yes" ]]; then
                     'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
                     'hfls'    , 'hfss'    , 'evspsbl' ,
                     'tauu'    , 'tauv'    ,
+                    'sfcwind' , 'uas'     , 'vas'     ,
+                    'tas'     , 'dew2'    ,
                     'sh_vdiff', 'qv_vdiff',
                     'ch_concloud',
                     'con_dtrl', 'con_dtri', 'con_iteqv',

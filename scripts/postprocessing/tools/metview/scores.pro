@@ -1,4 +1,4 @@
-pro scores, direxp, dirref, expnum, expref, inidate, step, nfor, levtype, stat
+pro scores, direxp, dirref, expnum, expref, inidate, step1, step2, nfor, levtype, stat
 ;------------------------------------------------------------
 ; Plot scores from ICON experiments.
 ;
@@ -11,7 +11,7 @@ pro scores, direxp, dirref, expnum, expref, inidate, step, nfor, levtype, stat
 ;------------------------------------------------------------
 
 print, 'Arguments: ', direxp, ' ', dirref, ' ', expnum, ' ', expref, ' ', $
-  inidate, ' ', step, ' ', nfor, ' ', levtype, ' ', stat
+  inidate, ' ', step1, ' ', step2, ' ', nfor, ' ', levtype, ' ', stat
 
 nlev=90
 nlevpl=25
@@ -19,19 +19,23 @@ nlevzl=25
 nlevlnd=8
 nword=19
 
+stepx=24
+step1=fix(step1)
+step2=fix(step2)
+
 
 if stat eq 'rms' then begin
   stat_txt   = '_rms'
   diff_txt   = 'rms'
   stat_title = '   -- forecast RMS errors --   '
 
-  amp_ml_rms  = 500.0     ;* 240/step   ;100.0
+  amp_ml_rms  = 1000.0    ;* 240/step   ;100.0
   amp_pl_bias = 500.0     ;* 240/step   ;100.0
-  amp_pl_rms  = 500.0     ;* 240/step   ;100.0
-  amp_zl_rms  = 500.0     ;* 240/step   ;40.0
+  amp_pl_rms  = 1000.0    ;* 240/step   ;100.0
+  amp_zl_rms  = 1000.0    ;* 240/step   ;40.0
   amp_sfc_bias= 500.0     ;* 240/step   ;12.0
   amp_sfc_rms = 1000.0    ;* 240/step   ;30.0
-  refer       = 0.001*0.5 ;*step/240 ;0.01*0.5 = 1%
+  refer       = 0.001*0.5 ;* step/240   ;0.01*0.5 = 1%
 
 endif else begin
 
@@ -51,10 +55,18 @@ endelse
 refer_txt = strmid(strcompress(string(refer/0.5*100.0)),1,4) + ' Percent'
 
 title = expnum+' vs. '+expref+stat_title+ $
-   nfor+' forecasts from '+inidate+' + '+step+'h'
+   nfor+' forecasts from '+inidate+' + '+strcompress(string(step1),/remove_all)+'h'
+if step1 ne step2 then begin
+  title = title + '-' + strcompress(string(step2),/remove_all)+'h'
+endif
 
-file1 = direxp+"/scores_"+expnum+stat_txt+".txt"
-file2 = dirref+"/scores_"+expref+stat_txt+".txt"
+if step1 eq step2 then begin
+  file1 = direxp+"/scores_"+expnum+stat_txt+".txt"
+  file2 = dirref+"/scores_"+expref+stat_txt+".txt"
+endif else begin
+  file1 = direxp+"/scores_"+expnum+stat_txt+"_all.txt"
+  file2 = dirref+"/scores_"+expref+stat_txt+"_all.txt"
+endelse
 print, 'experiment file: ', file1
 print, 'reference file:  ', file2
 print, ''
@@ -95,7 +107,7 @@ nvar3lnd = n_elements(var3lnd)
 var3d  = ['T', 'U', 'V', 'P', 'QV', 'CC', 'QC', 'QI']   ;, 'Q2', 'CRWC','CSWC'];'QTVAR', 'O3','P''QV', 'QC', 'QI'
 nvar3d = n_elements(var3d)
 
-var3pl = ['T', 'U', 'V', 'FI']   ;, 'Z'
+var3pl = ['T', 'U', 'QV', 'FI']   ;, 'U'
 nvar3pl= n_elements(var3pl)
 
 var3zl = ['T', 'U', 'V', 'P', 'QC', 'QI']   ;, 'Z'
@@ -120,15 +132,22 @@ CASE levtype OF
    for nk=1,nlev do begin
    ;print,''
    ;print,'searching for variable ', var3d(nn-1)
-    ind1 = where(var1(0,*) eq var3d(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor and var1(4-1,*) eq nk and var1(19-1,*) eq diff_txt)
-    ind2 = where(var2(0,*) eq var3d(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor and var2(4-1,*) eq nk and var2(19-1,*) eq diff_txt)
-    ind1=ind1(n_elements(ind1)-1)
-    ind2=ind2(n_elements(ind2)-1)
-    if ind1 eq -1 or ind2 eq -1 then continue
-    mean1= float(var1(16-1,ind1))
-    mean2= float(var2(16-1,ind2))
-    rms1 = float(var1(18-1,ind1))
-    rms2 = float(var2(18-1,ind2))
+    mean1_mn=0 & mean2_mn=0 & rms1_mn=0 & rms2_mn=0
+    for nstep=step1,step2,stepx do begin
+      ind1 = where(var1(0,*) eq var3d(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq nstep and var1(10-1,*) eq nfor and var1(4-1,*) eq nk and var1(19-1,*) eq diff_txt)
+      ind2 = where(var2(0,*) eq var3d(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq nstep and var2(10-1,*) eq nfor and var2(4-1,*) eq nk and var2(19-1,*) eq diff_txt)
+      ind1=ind1(n_elements(ind1)-1)
+      ind2=ind2(n_elements(ind2)-1)
+      if ind1 eq -1 or ind2 eq -1 then continue
+      mean1_mn= float(var1(16-1,ind1)) + mean1_mn
+      mean2_mn= float(var2(16-1,ind2)) + mean2_mn
+      rms1_mn = float(var1(18-1,ind1)) + rms1_mn
+      rms2_mn = float(var2(18-1,ind2)) + rms2_mn
+    end
+    mean1 = mean1_mn / ( (step2-step1)/stepx + 1)  ; 10 days
+    mean2 = mean2_mn / ( (step2-step1)/stepx + 1)
+    rms1  = rms1_mn  / ( (step2-step1)/stepx + 1)
+    rms2  = rms2_mn  / ( (step2-step1)/stepx + 1)
     bias = abs(mean1) / ( abs(mean1) + abs(mean2) )    ; [0,1], 0: mean1 is much better, 1: mean2 is much better: 0.5 same
     rms  =     rms1   / (     rms1   +     rms2   )
    ;print, var3d(nn-1), ' L', nk, ' exp',expref, ' bias:', mean2, ' rms:', rms2
@@ -192,15 +211,22 @@ CASE levtype OF
    for nk=1,nlevpl do begin
    ;print,''
    ;print,'searching for variable ', var3pl(nn-1)
-    ind1 = where(var1(0,*) eq var3pl(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor and var1(4-1,*) eq nk and var1(19-1,*) eq diff_txt)
-    ind2 = where(var2(0,*) eq var3pl(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor and var2(4-1,*) eq nk and var2(19-1,*) eq diff_txt)
-    ind1=ind1(n_elements(ind1)-1)
-    ind2=ind2(n_elements(ind2)-1)
-    if ind1 eq -1 or ind2 eq -1 then continue
-    mean1= float(var1(16-1,ind1))
-    mean2= float(var2(16-1,ind2))
-    rms1 = float(var1(18-1,ind1))
-    rms2 = float(var2(18-1,ind2))
+    mean1_mn=0 & mean2_mn=0 & rms1_mn=0 & rms2_mn=0
+    for nstep=step1,step2,stepx do begin
+      ind1 = where(var1(0,*) eq var3pl(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq nstep and var1(10-1,*) eq nfor and var1(4-1,*) eq nk and var1(19-1,*) eq diff_txt)
+      ind2 = where(var2(0,*) eq var3pl(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq nstep and var2(10-1,*) eq nfor and var2(4-1,*) eq nk and var2(19-1,*) eq diff_txt)
+      ind1=ind1(n_elements(ind1)-1)
+      ind2=ind2(n_elements(ind2)-1)
+      if ind1 eq -1 or ind2 eq -1 then continue
+      mean1_mn= float(var1(16-1,ind1)) + mean1_mn
+      mean2_mn= float(var2(16-1,ind2)) + mean2_mn
+      rms1_mn = float(var1(18-1,ind1)) + rms1_mn
+      rms2_mn = float(var2(18-1,ind2)) + rms2_mn
+    end
+    mean1 = mean1_mn / ( (step2-step1)/stepx + 1)  ; 10 days
+    mean2 = mean2_mn / ( (step2-step1)/stepx + 1)
+    rms1  = rms1_mn  / ( (step2-step1)/stepx + 1)
+    rms2  = rms2_mn  / ( (step2-step1)/stepx + 1)
     if stat eq 'rms' then begin
       bias = abs(mean1) / ( abs(mean1) + abs(mean2) ) ; [0,1], 0: mean1 is much better, 1: mean2 is much better: 0.5 same
     endif else begin
@@ -288,8 +314,8 @@ CASE levtype OF
    for nk=1,nlevzl do begin
    ;print,''
    ;print,'searching for variable ', var3zl(nn-1)
-    ind1 = where(var1(0,*) eq var3zl(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor and var1(4-1,*) eq nk and var1(19-1,*) eq diff_txt)
-    ind2 = where(var2(0,*) eq var3zl(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor and var2(4-1,*) eq nk and var2(19-1,*) eq diff_txt)
+    ind1 = where(var1(0,*) eq var3zl(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step2 and var1(10-1,*) eq nfor and var1(4-1,*) eq nk and var1(19-1,*) eq diff_txt)
+    ind2 = where(var2(0,*) eq var3zl(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step2 and var2(10-1,*) eq nfor and var2(4-1,*) eq nk and var2(19-1,*) eq diff_txt)
     ind1=ind1(n_elements(ind1)-1)
     ind2=ind2(n_elements(ind2)-1)
     if ind1 eq -1 or ind2 eq -1 then continue
@@ -360,8 +386,8 @@ CASE levtype OF
   for nn=1,nvar2d do begin
    ;print,''
    ;print,'searching for variable ', var2d(nn-1)
-    ind1 = where(var1(0,*) eq var2d(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor and var1(19-1,*) eq diff_txt)
-    ind2 = where(var2(0,*) eq var2d(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor and var2(19-1,*) eq diff_txt)
+    ind1 = where(var1(0,*) eq var2d(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step2 and var1(10-1,*) eq nfor and var1(19-1,*) eq diff_txt)
+    ind2 = where(var2(0,*) eq var2d(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step2 and var2(10-1,*) eq nfor and var2(19-1,*) eq diff_txt)
     ind1=ind1(n_elements(ind1)-1)
     ind2=ind2(n_elements(ind2)-1)
     if ind1 eq -1 or ind2 eq -1 then continue
@@ -429,8 +455,8 @@ CASE levtype OF
   for nn=1,nvar2obs do begin
    ;print,''
    ;print,'searching for variable ', var2obs(nn-1)
-    ind1 = where(var1(0,*) eq var2obs(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor and var1(19-1,*) eq 'diff_obs')
-    ind2 = where(var2(0,*) eq var2obs(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor and var2(19-1,*) eq 'diff_obs')
+    ind1 = where(var1(0,*) eq var2obs(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step2 and var1(10-1,*) eq nfor and var1(19-1,*) eq 'diff_obs')
+    ind2 = where(var2(0,*) eq var2obs(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step2 and var2(10-1,*) eq nfor and var2(19-1,*) eq 'diff_obs')
     ind1=ind1(n_elements(ind1)-1)
     ind2=ind2(n_elements(ind2)-1)
     if ind1 eq -1 or ind2 eq -1 then continue
@@ -493,8 +519,8 @@ CASE levtype OF
    for nk=1,nlevlnd do begin
    ;print,''
    ;print,'searching for variable ', var3lnd(nn-1)
-    ind1 = where(var1(0,*) eq var3lnd(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step and var1(10-1,*) eq nfor and var1(4-1,*) eq nk and var1(19-1,*) eq diff_txt)
-    ind2 = where(var2(0,*) eq var3lnd(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step and var2(10-1,*) eq nfor and var2(4-1,*) eq nk and var2(19-1,*) eq diff_txt)
+    ind1 = where(var1(0,*) eq var3lnd(nn-1) and var1(2-1,*) eq levtype and var1(8-1,*) eq step2 and var1(10-1,*) eq nfor and var1(4-1,*) eq nk and var1(19-1,*) eq diff_txt)
+    ind2 = where(var2(0,*) eq var3lnd(nn-1) and var2(2-1,*) eq levtype and var2(8-1,*) eq step2 and var2(10-1,*) eq nfor and var2(4-1,*) eq nk and var2(19-1,*) eq diff_txt)
     ind1=ind1(n_elements(ind1)-1)
     ind2=ind2(n_elements(ind2)-1)
     if ind1 eq -1 or ind2 eq -1 then continue

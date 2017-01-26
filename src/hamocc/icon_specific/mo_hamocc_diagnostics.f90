@@ -1,8 +1,11 @@
-
+#ifndef __NO_ICON_OCEAN__
+! calculates HAMOCC diagnostics:
+! monitoring variables, global inventories
 !--------------------------------------
 #include "hamocc_omp_definitions.inc"
 !--------------------------------------
 MODULE mo_hamocc_diagnostics
+! 
 
    USE mo_kind,     ONLY: wp
    USE mo_sync,     ONLY: global_sum_array
@@ -17,9 +20,8 @@ MODULE mo_hamocc_diagnostics
    USE mo_dynamics_config,     ONLY: nold, nnew
    USE mo_ocean_nml,   ONLY: n_zlev,no_tracer
    USE mo_bgc_constants, ONLY:  s2year, n2tgn, c2gtc, kilo
-   USE mo_biomod, ONLY: p2gtc
+   USE mo_memory_bgc, ONLY: p2gtc, totalarea
    USE mo_control_bgc, ONLY: dtbgc
-   USE mo_carbch, ONLY: totalarea
    USE mo_bgc_icon_comm, ONLY: to_bgcout
    USE mo_param1_bgc, ONLY: isco212, ialkali, iphosph,iano3, igasnit, &
 &                           iphy, izoo, icya, ioxygen, isilica, idoc, &
@@ -31,14 +33,76 @@ IMPLICIT NONE
 
 PRIVATE
 
-PUBLIC:: get_inventories, get_monitoring
+PUBLIC:: get_inventories, get_monitoring,get_omz
 
 
 CONTAINS
 
+SUBROUTINE get_omz(hamocc_state, ocean_state, p_patch_3d)
+
+TYPE(t_hamocc_state) :: hamocc_state
+TYPE(t_hydro_ocean_state) :: ocean_state
+TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
+
+! Local variables
+INTEGER :: jc,  jb
+INTEGER :: start_index, end_index
+TYPE(t_subset_range), POINTER :: all_cells
+INTEGER:: i_time_stat
+INTEGER:: max_lev
+
+all_cells => p_patch_3d%p_patch_2d(1)%cells%ALL
+i_time_stat=nold(1)
+
+
+DO jb = all_cells%start_block, all_cells%end_block
+
+    CALL get_index_range(all_cells, jb, start_index, end_index)
+     
+    DO jc=start_index, end_index
+      
+       max_lev = p_patch_3D%p_patch_1d(1)%dolic_c(jc,jb)  
+
+      !o2min = o2(jc,calc_omz_depth_index(max_levels,o2),jb) in mol m-3
+       hamocc_state%p_tend%o2min(jc,jb)=kilo*ocean_state%p_prog(i_time_stat)%tracer(jc,&
+&calc_omz_depth_index(max_lev,ocean_state%p_prog(i_time_stat)%tracer(jc,:,jb,ioxygen+no_tracer)),jb,ioxygen+no_tracer)
+     
+      !zo2min = sum(thickness(1:calc_omz_depth_index(max_levels,o2))) + zeta 
+       hamocc_state%p_tend%zo2min(jc,jb)=SUM(p_patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(jc,&
+&1:calc_omz_depth_index(max_lev,ocean_state%p_prog(i_time_stat)%tracer(jc,:,jb,ioxygen+no_tracer)),jb))&
+&+ocean_state%p_prog(i_time_stat)%h(jc,jb)
+
+    ENDDO
+
+ENDDO
+
+END SUBROUTINE get_omz
+
+!<Optimize:inUse>
+  FUNCTION calc_omz_depth_index(max_lev, oxygen) &
+    & result(omz_depth_index)
+  ! get the level index of the shallowest O2 minimum
+  INTEGER,  INTENT(in)  :: max_lev
+  REAL(wp), INTENT(in)  :: oxygen(n_zlev)
+  INTEGER :: omz_depth_index 
+  INTEGER :: jk
+  REAL(wp) :: ref_o2
+
+   omz_depth_index=max_lev
+   ref_o2=100._wp
+   
+   DO jk = 1, max_lev
+    if (oxygen(jk) < ref_o2)then
+      omz_depth_index=jk
+      ref_o2 = oxygen(jk)
+    endif
+   ENDDO
+
+  END FUNCTION calc_omz_depth_index
+
 SUBROUTINE get_monitoring(hamocc_state,ocean_state,p_patch_3d)
 
-USE mo_biomod, ONLY: rcar, rn2, nitdem,doccya_fac
+USE mo_memory_bgc, ONLY: rcar, rn2, nitdem, n2prod, doccya_fac
 TYPE(t_hamocc_state) :: hamocc_state
 TYPE(t_hydro_ocean_state) :: ocean_state
 TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
@@ -122,7 +186,7 @@ hamocc_state%p_tend%monitor%graton(1) = hamocc_state%p_tend%monitor%graton(1) * 
 hamocc_state%p_tend%monitor%bacfra(1) = hamocc_state%p_tend%monitor%bacfra(1) * p2gtc
 hamocc_state%p_tend%monitor%net_co2_flux(1) = hamocc_state%p_tend%monitor%net_co2_flux(1) * c2gtc
 hamocc_state%p_tend%monitor%delcar(1) = hamocc_state%p_tend%monitor%delcar(1) * c2gtc
-hamocc_state%p_tend%monitor%wcdenit(1) = hamocc_state%p_tend%monitor%wcdenit(1) * nitdem* n2tgn
+hamocc_state%p_tend%monitor%wcdenit(1) = hamocc_state%p_tend%monitor%wcdenit(1) * 2._wp * n2prod* n2tgn
 hamocc_state%p_tend%monitor%n2fix(1) = hamocc_state%p_tend%monitor%n2fix(1) * n2tgn * rn2
 hamocc_state%p_tend%monitor%omex90(1) = hamocc_state%p_tend%monitor%omex90(1) * p2gtc
 hamocc_state%p_tend%monitor%calex90(1) = hamocc_state%p_tend%monitor%calex90(1) * c2gtc
@@ -130,7 +194,7 @@ hamocc_state%p_tend%monitor%omex1000(1) = hamocc_state%p_tend%monitor%omex1000(1
 hamocc_state%p_tend%monitor%calex1000(1) = hamocc_state%p_tend%monitor%calex1000(1) * c2gtc
 hamocc_state%p_tend%monitor%omex2000(1) = hamocc_state%p_tend%monitor%omex2000(1) * p2gtc
 hamocc_state%p_tend%monitor%calex2000(1) = hamocc_state%p_tend%monitor%calex2000(1) * c2gtc
-hamocc_state%p_tend%monitor%seddenit(1) = hamocc_state%p_tend%monitor%seddenit(1) * nitdem*n2tgn
+hamocc_state%p_tend%monitor%seddenit(1) = hamocc_state%p_tend%monitor%seddenit(1) * 2._wp*n2prod*n2tgn
 hamocc_state%p_tend%monitor%cyaldoc(1) = hamocc_state%p_tend%monitor%cyaldet(1) * p2gtc * doccya_fac
 hamocc_state%p_tend%monitor%cyaldet(1) = hamocc_state%p_tend%monitor%cyaldet(1) * p2gtc *(1._wp - doccya_fac)
 
@@ -145,7 +209,7 @@ END SUBROUTINE get_monitoring
 
 SUBROUTINE get_inventories(hamocc_state,ocean_state,p_patch_3d,i_time_stat)
 
-USE mo_biomod,      ONLY: rnit,rn2, ro2bal,rcar
+USE mo_memory_bgc,      ONLY: rnit,rn2, ro2bal,rcar
 
 INTEGER :: i_time_stat
 TYPE(t_hydro_ocean_state) :: ocean_state
@@ -599,3 +663,5 @@ ENDIF
 END SUBROUTINE 
 
 END MODULE mo_hamocc_diagnostics
+
+#endif

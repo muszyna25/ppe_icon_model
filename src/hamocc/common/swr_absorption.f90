@@ -2,8 +2,7 @@
 
   SUBROUTINE swr_absorption(start_idx,end_idx, klevs, pfswr, psicomo, dzw)
 
-    USE mo_carbch, ONLY : bgctra, swr_frac, meanswr
-    USE mo_biomod, ONLY : strahl
+    USE mo_memory_bgc, ONLY : bgctra, swr_frac, meanswr, strahl
     USE mo_param1_bgc, ONLY : iphy, icya
     USE mo_hamocc_nml, ONLY : l_cyadyn
     USE mo_kind,    ONLY: wp                                               

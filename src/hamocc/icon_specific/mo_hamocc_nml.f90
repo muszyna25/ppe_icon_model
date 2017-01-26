@@ -1,19 +1,7 @@
 !>
-!! @brief namelist setup for the sea-ice model
+!! @brief namelist setup for HAMOCC
 !!
 !! Namelist setup for HAMOCC, the HAMburg Ocean Carbon Cycle model
-!! <Details of procedures are documented below with their definitions.>
-!! <Include any applicable external references inline as module::procedure,>
-!! <external_procedure(), or by using @see.>
-!! <Don't forget references to literature.>
-!!
-!! @author Irene Stemmler, MPI-M (2015-07-31)
-!!
-!!
-!! @par Revision History
-!! New file based on mo_sea_ice_nml.f90 by Irene Stemmler, MPI-M (2015-07-31)
-!!
-!! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
 !! its most recent form.
@@ -26,8 +14,8 @@ MODULE mo_hamocc_nml
   USE mo_kind,                ONLY: wp
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_io_units,            ONLY: nnml, nnml_output, find_next_free_unit
-  USE mo_master_config,      ONLY: isRestart
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist, &
+  USE mo_master_config,       ONLY: isRestart
+  USE mo_restart_namelist,    ONLY: open_tmpfile, store_and_close_namelist, &
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_exception,           ONLY: finish, message
   USE mo_mpi,                 ONLY: my_process_is_stdio
@@ -63,7 +51,7 @@ MODULE mo_hamocc_nml
   LOGICAL, PUBLIC :: l_bgc_check      = .FALSE.   ! MASS check at every time step?
   LOGICAL, PUBLIC :: l_up_sedshi      = .FALSE.   ! Upward sediment shifting
   LOGICAL, PUBLIC :: l_implsed        = .FALSE.   ! Implicit sediment formulation
-  LOGICAL, PUBLIC :: l_jerlov_pi      = .FALSE.    ! Depth dependent pi_alpha 
+  LOGICAL, PUBLIC :: l_dynamic_pi      = .FALSE.    ! Depth dependent pi_alpha 
   LOGICAL, PUBLIC :: l_PDM_settling   = .FALSE.   ! PDM scheme for particle settling
 
   REAL(wp), PUBLIC :: denit_sed, disso_po
@@ -93,7 +81,7 @@ MODULE mo_hamocc_nml
     &  l_bgc_check, &
     &  l_up_sedshi, &
     &  l_implsed,  &
-    &  l_jerlov_pi, &
+    &  l_dynamic_pi, &
     &  l_PDM_settling
 
 CONTAINS

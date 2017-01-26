@@ -28,9 +28,8 @@ CONTAINS
        &                            kcoex2000, kcalex1000, &
        &                            kcalex2000
 
-      USE mo_carbch,  ONLY        : bgctra, wpoc, bgcflux
-
-      USE mo_biomod,  ONLY        : wopal, wcal, wdust, n90depth,&
+      USE mo_memory_bgc,  ONLY    : bgctra, wpoc, bgcflux, &
+      &                             wopal, wcal, wdust, n90depth,&
       &                             n1000depth,n2000depth
 
       USE mo_sedmnt,  ONLY        : prorca, prcaca, silpro, produs, kbo
@@ -158,10 +157,10 @@ CONTAINS
        &                            kcoex2000, kcalex1000, &
        &                            kcalex2000
 
-      USE mo_carbch,  ONLY        : bgctra, wpoc, bgcflux
-
-      USE mo_biomod,  ONLY        : wopal, wcal, wdust, n90depth,&
+      USE mo_memory_bgc,  ONLY    : bgctra, wpoc, bgcflux,&
+      &                             wopal, wcal, wdust, n90depth,&
       &                             n1000depth,n2000depth
+
 
       USE mo_sedmnt,  ONLY        : prorca, prcaca, silpro, produs, kbo
 

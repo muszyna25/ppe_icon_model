@@ -902,7 +902,7 @@ CONTAINS
       grid_info%lonv = 0._wp
       grid_info%latv = 0._wp
     ELSE IF (my_process_is_io() .AND. .NOT. keep_grid_info) THEN
-      ALLOCATE(r1d(nproma*nblks_glb), lonv(0,0,1), latv(0,0,1))
+      ALLOCATE(r1d(nproma*nblks_glb), lonv(0,0,connectivity), latv(0,0,connectivity))
     ELSE
       ALLOCATE(lonv(nproma, nblks, connectivity), &
         &      latv(nproma, nblks, connectivity))

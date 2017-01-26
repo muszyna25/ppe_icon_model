@@ -2,16 +2,15 @@
 !>
 !! @brief set start values for bgc variables
 !!
-!! See the LICENSE and the WARRANTY conditions.
 !!
 MODULE mo_ini_bgc
 
   USE mo_kind, ONLY        : wp
-  USE mo_carbch, ONLY      : hi, co3, totarea, bgctra, atdifv, atm, &
+  USE mo_memory_bgc, ONLY   : hi, co3, totarea, bgctra, atdifv, atm, &
        &                     atmacon, atmacmol,    &
        &                     atcoa, ozkoa,    &
-       &                      wpoc, calcinp,orginp,silinp
-  USE mo_biomod, ONLY      : phytomi, grami, remido, dyphy, zinges,        &
+       &                     wpoc, calcinp,orginp,silinp, &
+       &                     phytomi, grami, remido, dyphy, zinges,        &
        &                     epsher, grazra, spemor, gammap, gammaz, ecan, &
        &                     pi_alpha, fpar, bkphy, bkzoo, bkopal,         &
        &                     drempoc, dremdoc,            &
@@ -20,12 +19,12 @@ MODULE mo_ini_bgc
        &                     rnoi, nitdem, n2prod, rcalc, ropal, calmax,   &
        &                     gutc, perc_diron, riron, fesoly, relaxfe,     &
        &                     denitrification, kbo, bolay, rn2,             &
-       &                     dustd1, dustd2, dustsink, wdust,              &
+       &                     dustd1, dustd2, dustsink, wdust, thresh_o2,   &
        &                     cycdec, pi_alpha_cya,cya_growth_max,          &
        &                     Topt_cya,T1_cya,T2_cya,bkcya_N, bkcya_P, bkcya_fe, &
        &                     remido_cya, dremdoc_cya, buoyancyspeed_cya, &
        &                     doccya_fac, thresh_aerob, thresh_sred, &
-       &                     wopal, wcal, wcya, p2gtc, ro2bal, dmsp
+       &                     wopal, wcal, wcya, p2gtc, ro2bal, dmsp, prodn2o
 
   USE mo_sedmnt, ONLY      : powtra, sedlay, sedhpl,disso_op,disso_cal,&
        &                     o2ut, rno3, claydens, sred_sed, ks, silsat, &
@@ -71,20 +70,6 @@ MODULE mo_ini_bgc
 
 
 CONTAINS
-!===================OR THIS WAY?? simple interface ==========================================  
-!  function level_ini_(rdepth, depth) return ilev ! for mpiom, where tiestu(kpke+1)
-!     real(wp), intent(in) :: rdepth
-!     real(wp), intent(in) :: depth(bgc_zlevs+1)
-!     integer, intent(inout) :: ilev 
-!     
-!     ilev=1
-!     
-!     do while( depth(ilev+1) < rdepth .and. ilev < bgc_zlevs)
-!        ilev = ilev + 1
-!     end do
-! 
-!    END FUNCTION level_ini_1d
-! 
 
 
   SUBROUTINE SET_PARAMETERS_BGC
@@ -126,15 +111,16 @@ CONTAINS
     pi_alpha = 0.02_wp           ! initial slope of production vs irradiance
     fPAR     = 0.4_wp            ! fraction of Photosynthetic Active Radiation
     thresh_aerob = 5.e-8_wp      ! kmol m-3,  O2 threshold for aerob remineralization
+    thresh_o2 = 10.e-6_wp      ! kmol m-3,  O2 threshold for aerob remineralization
     thresh_sred = 3.e-6_wp      ! kmol m-3,  O2 threshold for sulfate reduction
+    prodn2o = 1.e-4_wp
 
     calmax = 0.15_wp ! maximum fraction (of "export") for calc production
 
 
-    ! half sat. constants, note that the units are kmol/m3 ! (conc0 in hamocc3.1)
-    bkphy  = 1.e-8_wp !i.e. 0.04 mmol P/m3 |js: 0.01 vs. 0.04? check 0.4 16.9.
-    bkzoo  = 4.e-8_wp !i.e. 0.04 mmol P/m3
-    bkopal = 1.e-6_wp !i.e. 1.0  mmol Si/m3
+    bkphy  = 1.e-8_wp 
+    bkzoo  = 4.e-8_wp
+    bkopal = 1.e-6_wp 
 
 
     ! water column remineralisation constants
@@ -158,14 +144,12 @@ CONTAINS
 
     dremn2o  = 0.01_wp      ! 1/d
     sulfate_reduction = 0.005_wp
-    dremcalc = 0.075_wp     ! 0.2 -> 0.02 js10072006 : slightly overdone --> 0.075
+    dremcalc = 0.075_wp     ! 
 
-
-    ! nitrogen fixation by blue green algae (cyano.f90)
+    ! nitrogen fixation 
     n2_fixation = 0.005_wp
 
     ! total denitrification rate is a fraction of aerob remineralisation rate drempoc
-
     denitrification = 0.05_wp   ! 1/d
 
 
@@ -188,8 +172,8 @@ CONTAINS
     
 
     ! N consumption of denitrification corrected after Paulmier etal, 2009)
-    nitdem = 121.6_wp      ! nitrate demand to remin. 1 mol P in suboxic water
     n2prod = 68.8_wp       ! N2 production for 1 mol P remineralized in suboxic water
+    nitdem = 2._wp*n2prod - rnit ! nitrate demand to remin. 1 mol P in suboxic water
 
     rcalc = 35._wp ! iris 40 !calcium carbonate to organic phosphorous production ratio
     IF (l_cpl_co2) THEN
@@ -259,7 +243,7 @@ CONTAINS
     remido_cya  = remido_cya * dtb
     dremn2o  = dremn2o * dtb      ! 1/d
     dremcalc = dremcalc *dtb    ! 
-    denit_sed = sred_sed *dtb    ! sediment denitrification rate
+    denit_sed = denit_sed *dtb    ! sediment denitrification rate
     sred_sed = sred_sed *dtb    ! sediment sulfate reduction rate
     relaxfe = relaxfe *dtb       ! relaxation time for iron to fesoly 
     disso_op = disso_op * dtb
@@ -413,13 +397,10 @@ CONTAINS
                 powtra(j,k,ipowno3) = bgctra(j,kbo(j),iano3)
                 powtra(j,k,ipowasi) = bgctra(j,kbo(j),isilica)
                 powtra(j,k,ipowafe) = bgctra(j,kbo(j),iiron)
-
                 sedlay(j,k,issso12) = 1.e-8_wp
                 sedlay(j,k,isssc12) = 1.e-8_wp
-
                 sedlay(j,k,issster) = 30._wp
                 sedlay(j,k,issssil) = 0._wp
-
                 sedhpl(j,k)         = hi(j,kbo(j))
              ELSE
                 powtra(j,k,ipowno3) = rmasks   ! pore water
@@ -466,212 +447,4 @@ CONTAINS
 
   END SUBROUTINE ini_atmospheric_concentrations
 
-  ! ---------------------------------------------------------------------
-! 
-!   SUBROUTINE ini_diffat(grid_shape)
-! 
-!     INTEGER, INTENT(in) :: grid_shape(3)
-! 
-!     INTEGER  :: i, j, jj
-!     INTEGER  :: kpie, kpje
-!     REAL(wp) :: north
-!     REAL(wp) :: south
-! 
-!     kpie = grid_shape(1)
-!     kpje = grid_shape(2)
-! 
-!     IF (diffat) THEN
-!        atdifv(:,:) = 1._wp
-! 
-!        !  finding the equator   (p_ioff defined in ../src_oce/mo_parallel.f90)
-!        !js this could be within IFDEF DIFFAT? (seems to be used only in atmotr, which is called only if DIFFAT (bgc.f90))
-!        WRITE(io_stdo_bgc,*)'setting equatorial diffusion'
-! 
-!        DO  i = 1, kpie
-!           !ii=1+(i+p_ioff-1)*2 ! global i-index for giph_g   | giph_g global latitude (parallelization)
-!           north = 1._wp
-!           south = 1._wp
-!           DO  j = 1, kpje
-! 
-!              jj = 1+(j+p_joff-1)*2 ! global j-index for giph_g
-! 
-!              IF (jj<=2) CYCLE
-! 
-!              ! was once north = giph_g(ii,jj-2), see doc/giph_and_giph_g.txt
-!              north = giph(2*i - 1, 2*j - 3)
-! 
-!              ! was once south=giph_g(ii,jj), see doc/giph_and_giph_g.txt
-!              south=giph(2*i - 1, 2*j - 1)
-! 
-!              IF ((north >= 0._wp).AND.(south.LE.0._wp)) THEN
-!                 atdifv(i,j) = 0.01_wp
-!                 IF(j<=je-1) atdifv(i,j+1) = 0.02_wp
-!                 IF(j>=   2) atdifv(i,j-1) = 0.02_wp
-!                 IF(j<=je-2) atdifv(i,j+2) = 0.05_wp
-!                 IF(j>=   3) atdifv(i,j-2) = 0.05_wp
-!              ENDIF
-! 
-!              IF ((north >= 30._wp) .AND. (south <= 30._wp)) THEN
-!                 atdifv(i,j) = 0.1_wp
-!                 IF(j<=je-1) atdifv(i,j+1) = 0.2_wp
-!                 IF(j>=   2) atdifv(i,j-1) = 0.2_wp
-!              ENDIF
-!              IF ((north >= -30._wp).AND.(south <= -30._wp)) THEN
-!                 atdifv(i,j) = 0.1_wp
-!                 IF(j<=je-1) atdifv(i,j+1) = 0.2_wp
-!                 IF(j>=   2) atdifv(i,j-1) = 0.2_wp
-!              ENDIF
-! 
-!           ENDDO
-!        ENDDO
-! 
-!        ! tjahns: hope atdifv contains p-points, if not please correct
-!        CALL bounds_exch(1, 'p', atdifv, 'beleg_bgc diffat') ! for safety only
-! 
-!        ! put ENDIF for DIFFAT here?
-!        !
-!        !     no diffusion into the poles
-!        !
-!        DO i = 1, kpie
-!           IF (have_g_js) atdifv(i,1)    = 0._wp
-!           ! IF (have_g_js) atdifv(i,2)  = 0._wp
-!           IF (have_g_je) atdifv(i,kpje) = 0._wp
-!           IF (have_g_je) atdifv(i,je1)  = 0._wp
-!        ENDDO
-! 
-!     ENDIF
-! 
-!   END SUBROUTINE ini_diffat
-! 
-!   ! ---------------------------------------------------------------------
-! 
-!   SUBROUTINE ini_aggregation(grid_shape)
-! 
-!     INTEGER, INTENT(in) :: grid_shape(3)
-! 
-! #ifdef AGG
-!     INTEGER  :: kpie, kpje
-!     INTEGER  :: i, j, k
-!     REAL(wp) :: shear, zmini, talar1, snow, checksink
-! 
-!     kpie = grid_shape(1)
-!     kpje = grid_shape(2)
-! 
-!     ! parameters needed for the aggregation module (see Kriest 2002, DSR I vol.49, p. 2133-2162)
-! 
-!     SinkExp  = 0.62_wp               ! exponent of the sinking speed vs. diameter relationship
-!     FractDim = 1.62_wp               ! exponent of the diameter vs. phosphorous content relationship
-!     Stick    = 0.40_wp               ! maximum stickiness
-!     cellmass = 0.012_wp/rnit         ! [nmol P]   minimum mass of a particle in phosphorous units (rnit=16)
-!     !ik   cellmass = 0.0039_wp/rnit  ! [nmol P] for 10 um diameter
-!     cellsink = 1.40_wp *dtb          ! [m/d] see Kriest 2002, Table 2 Ref 8 (from Stokes' formula, delta rho 0.052 g/cm3)
-!     !ik      cellsink = 0.911 *dtb   ! [m/d]  for a 10 um diameter
-!     shear    = 86400._wp             ! wind induced shear in upper 100m , 1 d^-1
-!     fsh      = 0.163_wp * shear *dtb ! turbulent shear (used for aggregation)
-!     fse      = 0.125_wp * 3.1415927_wp * cellsink * 100._wp ! differential settling (used for aggregation) (100=10**2 [d**2])
-!     alow1    = 0.002_wp              ! diameter of smallest particle [cm]
-!     !ik      alow1 = 0.001_wp        ! diameter of smallest particle [cm]
-!     alow2    = alow1 * alow1
-!     alow3    = alow2 * alow1
-!     alar1    = 1.0_wp                ! diameter of largest particle for size dependend aggregation and sinking [cm]
-!     vsmall   = 1.e-9_wp
-!     safe     = 1.e-6_wp
-!     pupper   = safe/((FractDim+safe)*cellmass) ! upper boundary for cells per aggregate (?)
-!     plower   = 1._wp/(1.1_wp*cellmass)         ! lower   --------------"------------------
-!     zdis     = 0.01_wp / ((FractDim + 0.01_wp)*cellmass)
-! 
-!     !ik check max possible sinking speed in relation to min.
-!     !ik layer thinkness and time step for all standard layers, except
-!     !ik the bottom layer.
-!     !ik if max possible sinking speed (per time step) is greater
-!     !ik than min layer thickness, decrease max. length for sinking and
-!     !ik aggregation
-! 
-!     zmini = 8000._wp
-! 
-!     DO  j = 1, kpje
-!        DO  i = 1, kpie
-!           DO  k = 1, kbo(i,j)-1
-!              IF (ddpo(i,j,k) > 0.5_wp) THEN
-!                 zmini = MIN(ddpo(i,j,k),zmini)
-!              ENDIF
-!           ENDDO
-!        ENDDO
-!     ENDDO
-! 
-!     CALL global_min(zmini)
-! 
-!     checksink =(zmini/cellsink)**(1._wp/SinkExp)*alow1
-! 
-!     IF (checksink < alar1) THEN
-! 
-!        WRITE(io_stdo_bgc,*) 'Allowed max. length for sinking'              &
-!             & ,' with min. depth of '                                      &
-!             & , zmini, ' m for layers 1-(kbo-1) and time step of ',dtb     &
-!             & ,' days is' , checksink                                      &
-!             & ,'cm, which is smaller than prescribed value of', alar1, ' cm'
-! 
-!        talar1 = alar1
-!        alar1  = checksink
-! 
-!        WRITE(io_stdo_bgc,*) 'Set max. length for sinking and aggregation &
-!             &  from ',talar1,' to ', alar1
-! 
-!     ENDIF
-! 
-!     alar2 = alar1 * alar1
-!     alar3 = alar2 * alar1
-!     TSFac = (alar1/alow1)**SinkExp
-!     TMFac = (alar1/alow1)**FractDim
-! 
-!     !ik check the maximum possible sinking speed for the bottom layer (which
-!     !ik may be smaller than zmini, and write to array alar1max, tsfmax, tmfmax
-! 
-!     DO j = 1, kpje
-!        DO i = 1, kpie
-! 
-!           alar1max(i,j) = alar1
-!           TSFmax(i,j)   = TSFac
-!           TMFmax(i,j)   = TMFac
-! 
-!           IF (ddpo(i,j,kbo(i,j)) > 0.5_wp) THEN
-! 
-!              !ik evaluate safe length scale for size dependent sinking and
-!              !ik aggregation, and the resulting sinking rate and aggregation rate.
-! 
-!              checksink = (ddpo(i,j,kbo(i,j))/cellsink)**(1._wp/SinkExp)        &
-!                   &                    *alow1
-!              IF(checksink < alar1) THEN
-!                 alar1max(i,j) = checksink
-!                 TSFmax(i,j)   = (checksink/alow1)**SinkExp
-!                 TMFmax(i,j)   = (checksink/alow1)**FractDim
-!                 WRITE(io_stdo_bgc,*) 'resetting alar1 to',checksink,'at i =',  &
-!                      &     i,' j = ',j,' k = ', kbo(i,j), ' with dz = ',       &
-!                      &     ddpo(i,j,kbo(i,j))
-!              ENDIF
-! 
-!           ENDIF
-!        ENDDO
-!     ENDDO
-! 
-!     ! for shear aggregation of dust:
-!     dustd1   = 0.0001_wp ![cm] = 1 um, boundary between clay and silt
-!     dustd2   = dustd1*dustd1
-!     dustd3   = dustd2*dustd1
-!     dustsink = (g * 86400._wp / 18._wp                          & ! g * sec per day / 18.
-!          &   * (claydens - rhoref_water) / 1.567_wp * 1000._wp  & !excess density / dyn. visc.
-!          &   * dustd2 * 1.e-4_wp)*dtb                             ! --> 4.73e-2 m/d
-! 
-!     WRITE(io_stdo_bgc,*) 'dust diameter (cm)', dustd1
-!     WRITE(io_stdo_bgc,*) 'dust sinking speed (m/d)', dustsink / dtb
-! 
-!     IF(dustsink > cellsink) THEN
-!        WRITE(io_stdo_bgc,*) 'dust sinking speed greater than cellsink'
-!        dustsink = cellsink
-!        WRITE(io_stdo_bgc,*) 'set dust sinking speed to cellsink'
-!     ENDIF
-! 
-! #endif /*AGG*/
-!   END SUBROUTINE ini_aggregation
-! 
 END MODULE 

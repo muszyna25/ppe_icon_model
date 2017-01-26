@@ -44,6 +44,7 @@ link_source_list()
 #get src
 link_source_list "src/" "ocean hamocc sea_ice parallel_infrastructure include shared"
 link_source_list "src/io/" "shared"
+link_source_list "src/io/" "restart"
 
 link_source_list "src/advection/" "mo_advection_utils.f90"
 

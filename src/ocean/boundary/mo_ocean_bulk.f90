@@ -40,8 +40,6 @@ USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_wor
 USE mo_parallel_config,     ONLY: p_test_run
 USE mo_read_interface,      ONLY: openInputFile, closeFile, t_stream_id, &
   &                               on_cells, read_2D_time, read_3D
-USE mo_datetime,            ONLY: t_datetime
-USE mo_time_config,         ONLY: time_config
 USE mo_ext_data_types,      ONLY: t_external_data
 USE mo_ocean_ext_data,      ONLY: ext_data
 USE mo_grid_config,         ONLY: nroot
@@ -79,6 +77,12 @@ USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
 USE mo_sea_ice,             ONLY: calc_bulk_flux_ice, calc_bulk_flux_oce, ice_slow, ice_fast
 USE mo_sea_ice_refactor,    ONLY: ice_slow_slo
 USE mo_sea_ice_nml,         ONLY: use_constant_tfreez, i_therm_slo
+USE mo_time_config,         ONLY: time_config
+
+  USE mtime,                ONLY: datetime, &
+       &                          getDayOfYearFromDateTime, &
+       &                          getNoOfDaysInYearDateTime, &
+       &                          getNoOfSecondsElapsedInDayDateTime
 
 IMPLICIT NONE
 
@@ -116,7 +120,7 @@ CONTAINS
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
 !<Optimize_Used>
-  SUBROUTINE update_surface_flux(p_patch_3D, p_os, p_as, p_ice, atmos_fluxes, p_sfc_flx, jstep, datetime, p_op_coeff)
+  SUBROUTINE update_surface_flux(p_patch_3D, p_os, p_as, p_ice, atmos_fluxes, p_sfc_flx, jstep, this_datetime, p_op_coeff)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)        :: p_patch_3D
     TYPE(t_hydro_ocean_state)                   :: p_os
@@ -125,7 +129,7 @@ CONTAINS
     TYPE(t_sea_ice)                             :: p_ice
     TYPE(t_sfc_flx)                             :: p_sfc_flx
     INTEGER, INTENT(IN)                         :: jstep
-    TYPE(t_datetime), INTENT(INOUT)             :: datetime
+    TYPE(datetime), POINTER                     :: this_datetime
     TYPE(t_operator_coeff),   INTENT(IN)        :: p_op_coeff
     !
     ! local variables
@@ -240,7 +244,7 @@ CONTAINS
 
       !  Driving the ocean with OMIP (no NCEP activated anymore):
       !   1) read OMIP data (read relaxation data, type_surfRelax_Temp=2)
-      CALL update_flux_fromFile(p_patch_3D, p_as, jstep, datetime, p_op_coeff)
+      CALL update_flux_fromFile(p_patch_3D, p_as, jstep, this_datetime, p_op_coeff)
 
     CASE (Atmo_FluxFromFile)                                          !  13
 
@@ -362,10 +366,10 @@ CONTAINS
         &  str_module, 4, in_subset=p_patch%cells%owned)
 
       ! bulk formula for heat flux are calculated globally using specific OMIP or NCEP fluxes
-      CALL calc_bulk_flux_oce(p_patch, p_as, p_os , atmos_fluxes, datetime)
+      CALL calc_bulk_flux_oce(p_patch, p_as, p_os , atmos_fluxes)
 
       ! #slo# 2014-04-30: identical results after this call for i_sea_ice=0
-      IF (i_sea_ice >= 1) CALL calc_bulk_flux_ice(p_patch, p_as, p_ice, atmos_fluxes, datetime)
+      IF (i_sea_ice >= 1) CALL calc_bulk_flux_ice(p_patch, p_as, p_ice, atmos_fluxes)
 
       ! evaporation results from latent heat flux, as provided by bulk formula using OMIP fluxes
       IF (forcing_enable_freshwater) THEN
@@ -492,7 +496,7 @@ CONTAINS
             &   atmos_fluxes%albvisdif(:,:,jb), &
             &   atmos_fluxes%albnirdir(:,:,jb), &
             &   atmos_fluxes%albnirdif(:,:,jb), &
-            &   doy=datetime%yeaday)
+            &   doy = getDayOfYearFromDateTime(this_datetime))
         ENDDO
 
         IF (atmos_flux_analytical_type == 102) THEN
@@ -592,7 +596,7 @@ CONTAINS
               &   atmos_fluxes%albvisdif(:,:,jb), &
               &   atmos_fluxes%albnirdir(:,:,jb), &
               &   atmos_fluxes%albnirdif(:,:,jb), &
-              &   doy=datetime%yeaday)
+              &   doy = getDayOfYearFromDateTime(this_datetime))
           ENDDO
 
           ! Ocean albedo model
@@ -995,7 +999,7 @@ CONTAINS
     !  - sea level is balanced to zero over ocean surface
     !  - correction applied daily
     !  calculate time
-    dsec  = datetime%daysec        ! real seconds since begin of day
+    dsec  = REAL(getNoOfSecondsElapsedInDayDateTime(this_datetime), wp)
     IF (limit_elevation .AND. dsec < dtime) THEN
       CALL balance_elevation(p_patch_3D, p_os%p_prog(nold(1))%h)
       !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -1016,12 +1020,12 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010/2014)
   !
-  SUBROUTINE update_flux_fromFile(p_patch_3D, p_as, jstep, datetime, p_op_coeff)
+  SUBROUTINE update_flux_fromFile(p_patch_3D, p_as, jstep, this_datetime, p_op_coeff)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)        :: p_patch_3D
     TYPE(t_atmos_for_ocean)                     :: p_as
     INTEGER, INTENT(IN)                         :: jstep
-    TYPE(t_datetime), INTENT(INOUT)             :: datetime
+    TYPE(datetime), POINTER                     :: this_datetime
     TYPE(t_operator_coeff),   INTENT(IN)        :: p_op_coeff
     !
     ! local variables
@@ -1042,13 +1046,11 @@ CONTAINS
     all_cells       => p_patch%cells%all
     cells_in_domain => p_patch%cells%in_domain
 
-    !  calculate day and month
-    jmon  = datetime%month         ! integer current month
-    jdmon = datetime%day           ! integer day in month
-    yday  = datetime%yeaday        ! integer current day in year
-    ylen  = datetime%yealen        ! integer days in year (365 or 366)
-    dsec  = datetime%daysec        ! real seconds since begin of day
-   !ytim  = datetime%yeatim        ! real time since begin of year
+    jmon  = this_datetime%date%month
+    jdmon = this_datetime%date%day
+    yday  = getDayOfYearFromDateTime(this_datetime)
+    ylen  = getNoOfDaysInYearDateTime(this_datetime)
+    dsec  = REAL(getNoOfSecondsElapsedInDayDateTime(this_datetime), wp)
 
     !-------------------------------------------------------------------------
     ! Applying annual forcing read from file in mo_ext_data:
@@ -1090,9 +1092,9 @@ CONTAINS
 
         ! use initial date to define correct set (year) of reading NCEP data
         !  - with offset=0 always the first year of NCEP data is used
-        iniyear = time_config%ini_datetime%year
+        iniyear = time_config%tc_exp_startdate%date%year
         !curyear = time_config%cur_datetime%year  ! not updated each timestep
-        curyear = datetime%year
+        curyear = this_datetime%date%year
         offset = 0
         no_set = offset + curyear-iniyear + 1 
 

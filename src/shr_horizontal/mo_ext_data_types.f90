@@ -395,8 +395,10 @@ MODULE mo_ext_data_types
 
 
   TYPE :: t_external_bgc
-   REAL(wp), POINTER ::   &   !< (monthly) SST
+   REAL(wp), POINTER ::   &   !< (monthly) dust deposition
       &  dust(:,:,:)   
+   REAL(wp), POINTER ::   &   !< (monthly) nitrogen deposition
+      &  nitro(:,:,:)   
   END TYPE t_external_bgc
 
   !>

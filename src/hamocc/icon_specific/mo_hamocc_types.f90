@@ -200,6 +200,8 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  cLlim(:,:,:)       
     REAL(wp), POINTER ::  cPlim(:,:,:)       
     REAL(wp), POINTER ::  cFlim(:,:,:)       
+    REAL(wp), POINTER ::  o2min(:,:)       
+    REAL(wp), POINTER ::  zo2min(:,:)       
   END TYPE t_hamocc_acc
 
   TYPE, EXTENDS(t_hamocc_acc):: t_hamocc_tend
@@ -221,6 +223,7 @@ MODULE mo_hamocc_types
 
   TYPE t_hamocc_bcond
    REAL(wp), POINTER:: dusty(:,:)       !  index1=1,nproma, nblks_e
+   REAL(wp), POINTER:: nitro(:,:)       !  index1=1,nproma, nblks_e
   END TYPE t_hamocc_bcond
 
 END MODULE 

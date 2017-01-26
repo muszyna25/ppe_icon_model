@@ -42,9 +42,10 @@ following values:
  \item \textbf{suite}: 
        \begin{itemize}
          \item \textbf{rout} for operational data in \emph{db=roma,}
-         \item \textbf{para} or \textbf{para1} for pre-operational data in \emph{db=parma},
-                       The category extension para1 denotes the data with EU nest
-                       (starting at 12 UTC, 2015032612).
+         \item \textbf{para1} for pre-operational data in \emph{db=parma}, or
+               \textbf{vera} for pre-operational data in \emph{db=vera}.
+%                      The category extension para1 denotes the data with EU nest
+%                      (starting at 12 UTC, 2015032612).
          \item \textbf{exp} or \textbf{exp1} for data from experiments in
                        \emph{db=numex}. The category extension exp1 is used for
                        experiments of the NUMEX wizard, a special NUMEX user.
@@ -59,11 +60,11 @@ The ICON categories start with the string \textbf{ico} for ICON data on
 the native ICON grid, or with \textbf{icr} for data on a regular lat-lon grid.
 Next follows a two-letter string to identify the domain of ICON; \textbf{gl} for the
 global domain, \textbf{eu} for the nest over Europe. Further particulars of the category 
-name differ for the global and nested domain. In case of the global domain, \textbf{gl} 
+name differ for the global and nested domain. In case of deterministic runs of the global domain, \textbf{gl} 
 is followed by the mesh width of the model in units of 100 m, and then the number of levels 
 preceeded by the letter l. As an example \textbf{icogl130l90} is on the native grid from a global 
-model with a mesh width $13\,\mathrm{km}$ (grid R3B07) and 90 levels. \textbf{icrgl400l90} is data 
-on a regular grid from a global model with mesh width $40\,\mathrm{km}$ (R2B06) and 90 levels. 
+model with a mesh width $13\,\mathrm{km}$ (grid R3B07) and 90 levels.
+\textbf{icrgl400l90} is data on a regular grid from a global model with mesh width $40\,\mathrm{km}$ (R2B06) and 90 levels. 
 For the nested domain, the specification of the mesh width and number of levels is omitted. As an 
 example, \textbf{icreu} is the ICON nest over Europe (with a mesh width of $6.5\,\mathrm{km}$ and 60 
 levels), interpolated to a regular lat-lon grid.
@@ -88,6 +89,14 @@ is available in the sky database \textbf{db=parma} in categories
 Since 2015-01-20 06 UTC the \emph{global} ICON model is running operationally at DWD.
 Forecast data is available in the sky database \textbf{db=roma} in categories
 \textbf{icogl130l90\_main\_fc\_rout} and \textbf{icrgl130l90\_main\_fc\_rout}.
+\end{note}
+
+\begin{note}
+Since 2016-01-20 06 UTC an ensemble data assimilation for ICON is running operationally at DWD.
+Analysis data is available in the sky database \textbf{db=roma} in the ensemble categories
+\textbf{icogle\_main\_an\_rout} and \textbf{icoeue\_main\_an\_rout}.
+First guess data is in \textbf{icogle\_pre\_fc\_rout} and
+                       \textbf{icogle\_pre\_fc\_rout}.
 \end{note}
 
 \section{Retrieving ICON data from SKY}\label{sec_example}

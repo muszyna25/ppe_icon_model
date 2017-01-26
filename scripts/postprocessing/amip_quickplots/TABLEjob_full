@@ -75,7 +75,7 @@ fi
 
 #
 
-${CDO} -f srv -sortparam busy_atm_phy_t63 busy_atm_phy_t63.srv
+${CDO} -f srv -b F32 -sortparam busy_atm_phy_t63 busy_atm_phy_t63.srv
 
 #
 

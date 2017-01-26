@@ -68,7 +68,6 @@ MODULE mo_initicon_utils
   USE mo_var_list_element,    ONLY: level_type_ml
   USE mo_util_uuid,           ONLY: OPERATOR(==)
   USE mo_flake,               ONLY: flake_coldinit
-  USE mo_time_config,         ONLY: time_config
   USE mtime,                  ONLY: OPERATOR(==), OPERATOR(+)
   USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
@@ -76,7 +75,10 @@ MODULE mo_initicon_utils
   USE mo_dictionary,          ONLY: t_dictionary
   USE mo_checksum,            ONLY: printChecksum
   USE mo_fortran_tools,       ONLY: init
-  USE mo_datetime,            ONLY: month2hour
+  USE mo_time_config,         ONLY: time_config
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
+    &                                  calculate_time_interpolation_weights
+
 
   IMPLICIT NONE
 
@@ -201,18 +203,26 @@ MODULE mo_initicon_utils
   !!
   SUBROUTINE init_aerosol(p_patch, ext_data, prm_diag)
 
-    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
-    TYPE(t_external_data),  INTENT(IN)    :: ext_data(:)
-    TYPE(t_nwp_phy_diag),   INTENT(INOUT) :: prm_diag(:)
+    TYPE(t_patch),          INTENT(in)    :: p_patch(:)
+    TYPE(t_external_data),  INTENT(in)    :: ext_data(:)
+    TYPE(t_nwp_phy_diag),   INTENT(inout) :: prm_diag(:)
 
-    INTEGER  :: imo1, imo2
+    TYPE(t_time_interpolation_weights)  :: current_time_interpolation_weights
+    
     INTEGER  :: rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: jb, jc, jg
+    
+    INTEGER  :: mo1, mo2
+    REAL(wp) :: zw1, zw2
 
-    REAL(wp) :: wgt
+    !    CALL month2hour (time_config%cur_datetime, mo1, mo2, wgt)
+    current_time_interpolation_weights = calculate_time_interpolation_weights(time_config%tc_current_date)
 
-    CALL month2hour (time_config%cur_datetime, imo1, imo2, wgt)
-
+    mo1 = current_time_interpolation_weights%month1
+    mo2 = current_time_interpolation_weights%month2
+    zw1 = current_time_interpolation_weights%weight1
+    zw2 = current_time_interpolation_weights%weight2
+    
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
     DO jg = 1, n_dom
 
@@ -231,16 +241,16 @@ MODULE mo_initicon_utils
 
         DO jc = i_startidx, i_endidx
 
-          prm_diag(jg)%aerosol(jc,iss,jb) = ext_data(jg)%atm_td%aer_ss(jc,jb,imo1) + &
-            ( ext_data(jg)%atm_td%aer_ss(jc,jb,imo2)   - ext_data(jg)%atm_td%aer_ss(jc,jb,imo1)   ) * wgt
-          prm_diag(jg)%aerosol(jc,iorg,jb) = ext_data(jg)%atm_td%aer_org(jc,jb,imo1) + &
-            ( ext_data(jg)%atm_td%aer_org(jc,jb,imo2)  - ext_data(jg)%atm_td%aer_org(jc,jb,imo1)  ) * wgt
-          prm_diag(jg)%aerosol(jc,ibc,jb) = ext_data(jg)%atm_td%aer_bc(jc,jb,imo1) + &
-            ( ext_data(jg)%atm_td%aer_bc(jc,jb,imo2)   - ext_data(jg)%atm_td%aer_bc(jc,jb,imo1)   ) * wgt
-          prm_diag(jg)%aerosol(jc,iso4,jb) = ext_data(jg)%atm_td%aer_so4(jc,jb,imo1) + &
-            ( ext_data(jg)%atm_td%aer_so4(jc,jb,imo2)  - ext_data(jg)%atm_td%aer_so4(jc,jb,imo1)  ) * wgt
-          prm_diag(jg)%aerosol(jc,idu,jb) = ext_data(jg)%atm_td%aer_dust(jc,jb,imo1) + &
-            ( ext_data(jg)%atm_td%aer_dust(jc,jb,imo2) - ext_data(jg)%atm_td%aer_dust(jc,jb,imo1) ) * wgt
+          prm_diag(jg)%aerosol(jc,iss,jb) = zw1*ext_data(jg)%atm_td%aer_ss(jc,jb,mo1) &
+            &                              +zw2*ext_data(jg)%atm_td%aer_ss(jc,jb,mo2)
+          prm_diag(jg)%aerosol(jc,iorg,jb) = zw1*ext_data(jg)%atm_td%aer_org(jc,jb,mo1) &
+            &                               +zw2* ext_data(jg)%atm_td%aer_org(jc,jb,mo2)
+          prm_diag(jg)%aerosol(jc,ibc,jb) = zw1*ext_data(jg)%atm_td%aer_bc(jc,jb,mo1) &
+            &                               +zw2*ext_data(jg)%atm_td%aer_bc(jc,jb,mo2)
+          prm_diag(jg)%aerosol(jc,iso4,jb) = zw1*ext_data(jg)%atm_td%aer_so4(jc,jb,mo1) &
+            &                               +zw2*ext_data(jg)%atm_td%aer_so4(jc,jb,mo2)
+          prm_diag(jg)%aerosol(jc,idu,jb) = zw1*ext_data(jg)%atm_td%aer_dust(jc,jb,mo1) &
+            &                              +zw2*ext_data(jg)%atm_td%aer_dust(jc,jb,mo2)
 
         ENDDO
 
