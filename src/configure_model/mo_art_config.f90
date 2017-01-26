@@ -123,6 +123,8 @@ MODULE mo_art_config
       &  cart_mozartfile              !< Path to mozart initialization file
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_mozartcoord             !< Path to mozart coordinate file
+
+    ! Paths and filenames of XML configuration
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_chemistry_xml           !< Path to XML file for chemical tracers
     CHARACTER(LEN=IART_PATH_LEN) :: &
@@ -131,6 +133,8 @@ MODULE mo_art_config
       &  cart_passive_xml             !< Path to XML file for passive tracers
     CHARACTER(LEN=IART_PATH_LEN) :: &
       &  cart_modes_xml               !< Path to XML file for modes
+    CHARACTER(LEN=IART_PATH_LEN) :: &
+      &  cart_pntSrc_xml              !< Path to XML file for point sources
 
     ! Atmospheric Aerosol (Details: cf. Tab. 2.4 ICON-ART User Guide)
     LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
